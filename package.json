@@ -9,7 +9,7 @@
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:ai:real": "vitest run tests/ai-real",
+    "test:ai:real": "vitest run --config vitest.ai-real.config.ts",
     "test:e2e": "playwright test",
     "verify": "pnpm typecheck && pnpm lint && pnpm test && pnpm build"
   },

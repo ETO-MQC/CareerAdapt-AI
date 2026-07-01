@@ -1,3 +1,4 @@
+import { nanoid } from "nanoid";
 import { z } from "zod";
 import {
   JdAnalyzerOutputSchema,
@@ -35,6 +36,7 @@ export type StageBTaskDefinition<TInput, TOutput> = {
   outputSchema: z.ZodType<TOutput>;
   maxOutputChars: number;
   buildUserPrompt(input: TInput): string;
+  coerceRawOutput(rawOutput: unknown): unknown;
   normalizeOutput(output: TOutput, input: TInput): TOutput;
 };
 
@@ -58,28 +60,120 @@ export const stageBTaskRegistry = {
         2
       );
     },
+    coerceRawOutput(rawOutput: unknown) {
+      const raw = rawOutput as Record<string, unknown>;
+      const now = new Date().toISOString();
+
+      // Coerce basics — model may return flat strings instead of DraftSourceField objects
+      const rawBasics = (raw.basics ?? {}) as Record<string, unknown>;
+      const basics = {
+        name: coerceDraftField(rawBasics.name),
+        phone: coerceDraftField(rawBasics.phone),
+        email: coerceDraftField(rawBasics.email),
+        location: coerceDraftField(rawBasics.location),
+        summary: coerceDraftField(rawBasics.summary),
+        links: Array.isArray(rawBasics.links) ? rawBasics.links.map(coerceDraftField).filter(Boolean) : []
+      };
+
+      const experiences = ((raw.experiences ?? raw.experience ?? []) as unknown[]).map((exp) => {
+        const e = exp as Record<string, unknown>;
+        return {
+          id: typeof e.id === "string" ? e.id : `profile-exp-${nanoid(8)}`,
+          type: typeof e.type === "string" ? e.type : "other",
+          organization: coerceDraftField(e.organization ?? e.company ?? e.org ?? e.orgName ?? e.institution) ?? { value: pickString(e.organization, e.company, e.org, e.orgName, e.institution) || "待确认组织", sourceQuote: pickString(e.organization, e.company, e.org, e.orgName, e.institution) || "待确认组织", confidenceLevel: "low" as const, confidenceReason: "Coerced from model output.", needsConfirmation: true },
+          role: coerceDraftField(e.role ?? e.position ?? e.title ?? e.jobTitle) ?? { value: pickString(e.role, e.position, e.title, e.jobTitle) || "待确认角色", sourceQuote: pickString(e.role, e.position, e.title, e.jobTitle) || "待确认角色", confidenceLevel: "low" as const, confidenceReason: "Coerced from model output.", needsConfirmation: true },
+          startDate: coerceDraftField(e.startDate ?? e.start),
+          endDate: coerceDraftField(e.endDate ?? e.end),
+          facts: ((e.facts ?? e.details ?? []) as unknown[]).map((fact) => {
+            const f = fact as Record<string, unknown>;
+            return {
+              id: typeof f.id === "string" ? f.id : `profile-fact-${nanoid(8)}`,
+              statement: typeof f.statement === "string" ? f.statement : typeof f.text === "string" ? f.text : typeof f.content === "string" ? f.content : "",
+              category: typeof f.category === "string" ? f.category : "experience",
+              sourceQuote: typeof f.sourceQuote === "string" ? f.sourceQuote : typeof f.statement === "string" ? f.statement : "",
+              sourceSpan: f.sourceSpan,
+              confidenceLevel: typeof f.confidenceLevel === "string" ? f.confidenceLevel : "low",
+              confidenceReason: pickString(f.confidenceReason, f.reason, "Coerced from model output."),
+              needsConfirmation: typeof f.needsConfirmation === "boolean" ? f.needsConfirmation : true,
+              confirmedByUser: false,
+              createdAt: typeof f.createdAt === "string" ? f.createdAt : now,
+              updatedAt: typeof f.updatedAt === "string" ? f.updatedAt : now
+            };
+          }),
+          tags: Array.isArray(e.tags) ? e.tags : [],
+          confirmedByUser: false,
+          createdAt: typeof e.createdAt === "string" ? e.createdAt : now,
+          updatedAt: typeof e.updatedAt === "string" ? e.updatedAt : now
+        };
+      });
+
+      const skills = Array.isArray(raw.skills) ? raw.skills.map((skill) => {
+        const s = skill as Record<string, unknown>;
+        // Skill name can be under many different field names
+        const nameField = coerceDraftField(s.name ?? s.skill ?? s.skillName ?? s.title ?? s.text ?? s.value ?? s.content ?? s.description)
+          ?? { value: pickString(s.name, s.skill, s.skillName, s.title, s.text, s.value, s.content, s.description) || "待确认技能", sourceQuote: pickString(s.name, s.skill, s.skillName, s.title, s.text, s.value, s.content, s.description) || "待确认技能", confidenceLevel: "low" as const, confidenceReason: "Coerced from model output.", needsConfirmation: true };
+        return {
+          id: typeof s.id === "string" ? s.id : `profile-skill-${nanoid(8)}`,
+          name: nameField,
+          level: typeof s.level === "string" ? s.level : undefined,
+          sourceQuote: nameField.sourceQuote,
+          sourceSpan: s.sourceSpan,
+          confidenceLevel: typeof s.confidenceLevel === "string" ? s.confidenceLevel : "low",
+          confidenceReason: pickString(s.confidenceReason, s.reason, "Coerced from model output."),
+          needsConfirmation: typeof s.needsConfirmation === "boolean" ? s.needsConfirmation : true,
+          confirmedByUser: false,
+          createdAt: typeof s.createdAt === "string" ? s.createdAt : now,
+          updatedAt: typeof s.updatedAt === "string" ? s.updatedAt : now
+        };
+      }) : [];
+
+      const certificates = Array.isArray(raw.certificates) ? raw.certificates.map((cert) => {
+        const c = cert as Record<string, unknown>;
+        const nameField = coerceDraftField(c.name ?? c.certificate ?? c.title ?? c.text ?? c.value ?? c.content)
+          ?? { value: pickString(c.name, c.certificate, c.title, c.text, c.value, c.content) || "待确认证书", sourceQuote: pickString(c.name, c.certificate, c.title, c.text, c.value, c.content) || "待确认证书", confidenceLevel: "low" as const, confidenceReason: "Coerced.", needsConfirmation: true };
+        return {
+          id: typeof c.id === "string" ? c.id : `profile-cert-${nanoid(8)}`,
+          name: nameField,
+          issuer: coerceDraftField(c.issuer ?? c.organization),
+          issuedAt: coerceDraftField(c.issuedAt ?? c.date),
+          sourceQuote: nameField.sourceQuote,
+          sourceSpan: c.sourceSpan,
+          confidenceLevel: typeof c.confidenceLevel === "string" ? c.confidenceLevel : "low",
+          confidenceReason: pickString(c.confidenceReason, c.reason, "Coerced from model output."),
+          needsConfirmation: typeof c.needsConfirmation === "boolean" ? c.needsConfirmation : true,
+          confirmedByUser: false,
+          createdAt: typeof c.createdAt === "string" ? c.createdAt : now,
+          updatedAt: typeof c.updatedAt === "string" ? c.updatedAt : now
+        };
+      }) : [];
+
+      const unclassifiedBlocks = Array.isArray(raw.unclassifiedBlocks) ? raw.unclassifiedBlocks : [];
+
+      return { basics, experiences, skills, certificates, unclassifiedBlocks };
+    },
     normalizeOutput(output: ProfileBuilderOutput, input: ProfileBuilderTaskInput) {
+      const basics = output.basics ?? {};
       return {
         ...output,
         basics: {
-          ...output.basics,
-          name: normalizeField(output.basics.name, input.rawText),
-          phone: normalizeField(output.basics.phone, input.rawText),
-          email: normalizeField(output.basics.email, input.rawText),
-          location: normalizeField(output.basics.location, input.rawText),
-          summary: normalizeField(output.basics.summary, input.rawText),
-          links: output.basics.links.map((link) => normalizeEvidenceItem(link, input.rawText))
+          ...basics,
+          name: normalizeField(basics.name, input.rawText),
+          phone: normalizeField(basics.phone, input.rawText),
+          email: normalizeField(basics.email, input.rawText),
+          location: normalizeField(basics.location, input.rawText),
+          summary: normalizeField(basics.summary, input.rawText),
+          links: (basics.links ?? []).map((link) => normalizeEvidenceItem(link, input.rawText))
         },
-        experiences: output.experiences.map((experience) => ({
+        experiences: (output.experiences ?? []).map((experience) => ({
           ...experience,
           organization: normalizeEvidenceItem(experience.organization, input.rawText),
           role: normalizeEvidenceItem(experience.role, input.rawText),
           startDate: normalizeField(experience.startDate, input.rawText),
           endDate: normalizeField(experience.endDate, input.rawText),
-          facts: experience.facts.map((fact) => normalizeEvidenceItem(fact, input.rawText))
+          facts: (experience.facts ?? []).map((fact) => normalizeEvidenceItem(fact, input.rawText))
         })),
-        skills: output.skills.map((skill) => normalizeEvidenceItem(skill, input.rawText)),
-        certificates: output.certificates.map((certificate) => normalizeEvidenceItem(certificate, input.rawText))
+        skills: (output.skills ?? []).map((skill) => normalizeEvidenceItem(skill, input.rawText)),
+        certificates: (output.certificates ?? []).map((certificate) => normalizeEvidenceItem(certificate, input.rawText))
       };
     }
   } satisfies StageBTaskDefinition<ProfileBuilderTaskInput, ProfileBuilderOutput>,
@@ -104,6 +198,65 @@ export const stageBTaskRegistry = {
         2
       );
     },
+    coerceRawOutput(rawOutput: unknown) {
+      const raw = rawOutput as Record<string, unknown>;
+      const now = new Date().toISOString();
+
+      // Map top-level field variations — title/company may come as plain strings or be missing
+      const titleStr = typeof raw.jobTitle === "string" ? raw.jobTitle
+        : typeof raw.title === "string" ? raw.title : "";
+      const titleValue = typeof raw.title === "object" && raw.title !== null
+        ? raw.title
+        : {
+            value: titleStr || "待确认岗位",
+            sourceQuote: titleStr || "待确认岗位",
+            confidenceLevel: titleStr ? ("medium" as const) : ("low" as const),
+            confidenceReason: titleStr ? "Coerced from model output; value from user-provided job metadata." : "Model did not return title; using placeholder.",
+            needsConfirmation: !titleStr
+          };
+
+      const companyStr = typeof raw.company === "string" ? raw.company : "";
+      const companyValue = typeof raw.company === "object" && raw.company !== null
+        ? raw.company
+        : {
+            value: companyStr || "待确认公司",
+            sourceQuote: companyStr || "待确认公司",
+            confidenceLevel: companyStr ? ("medium" as const) : ("low" as const),
+            confidenceReason: companyStr ? "Coerced from model output; value from user-provided job metadata." : "Model did not return company; using placeholder.",
+            needsConfirmation: !companyStr
+          };
+
+      // Requirements can be under different keys
+      const rawRequirements = (raw.requirements ?? raw.parsedRequirements ?? raw.items ?? []) as unknown[];
+
+      return {
+        title: titleValue,
+        company: companyValue,
+        industry: raw.industry,
+        location: raw.location,
+        workType: raw.workType,
+        requirements: rawRequirements.map((req) => {
+          const r = req as Record<string, unknown>;
+          return {
+            id: typeof r.id === "string" ? r.id : `jd-req-${nanoid(8)}`,
+            category: pickCategory(r.category, r.type, r.classification),
+            description: pickString(r.description, r.requirement, r.text, r.content, r.summary),
+            priority: typeof r.priority === "string" ? r.priority : "uncertain",
+            hardConstraint: typeof r.hardConstraint === "boolean" ? r.hardConstraint : false,
+            sourceQuote: typeof r.sourceQuote === "string" ? r.sourceQuote : "",
+            sourceSpan: r.sourceSpan,
+            keywords: Array.isArray(r.keywords) ? r.keywords : [],
+            confidenceLevel: typeof r.confidenceLevel === "string" ? r.confidenceLevel : "low",
+            confidenceReason: pickString(r.confidenceReason, r.reason, r.explanation, "Model output required coercion."),
+            needsConfirmation: typeof r.needsConfirmation === "boolean" ? r.needsConfirmation : true,
+            confirmedByUser: false,
+            createdAt: typeof r.createdAt === "string" ? r.createdAt : now,
+            updatedAt: typeof r.updatedAt === "string" ? r.updatedAt : now
+          };
+        }),
+        riskNotes: Array.isArray(raw.riskNotes) ? raw.riskNotes : []
+      };
+    },
     normalizeOutput(output: JdAnalyzerOutput, input: JdAnalyzerTaskInput) {
       return {
         ...output,
@@ -112,7 +265,7 @@ export const stageBTaskRegistry = {
         industry: normalizeField(output.industry, input.rawText),
         location: normalizeField(output.location, input.rawText),
         workType: normalizeField(output.workType, input.rawText),
-        requirements: output.requirements.map((requirement) => normalizeEvidenceItem(requirement, input.rawText))
+        requirements: (output.requirements ?? []).map((requirement) => normalizeEvidenceItem(requirement, input.rawText))
       };
     }
   } satisfies StageBTaskDefinition<JdAnalyzerTaskInput, JdAnalyzerOutput>
@@ -143,6 +296,10 @@ function normalizeEvidenceItem<T extends { sourceQuote: string; sourceSpan?: unk
   item: T,
   rawText: string
 ): T {
+  if (!item || typeof item.sourceQuote !== "string") {
+    return item;
+  }
+
   const sourceSpan = locateSourceQuote(rawText, item.sourceQuote);
 
   if (!sourceSpan) {
@@ -158,4 +315,55 @@ function normalizeEvidenceItem<T extends { sourceQuote: string; sourceSpan?: unk
     ...item,
     sourceSpan
   };
+}
+
+function pickString(...candidates: unknown[]): string {
+  for (const candidate of candidates) {
+    if (typeof candidate === "string" && candidate.length > 0) {
+      return candidate;
+    }
+  }
+
+  return "";
+}
+
+function coerceDraftField(value: unknown): { value: string; sourceQuote: string; sourceSpan?: unknown; confidenceLevel: "high" | "medium" | "low"; confidenceReason: string; needsConfirmation: boolean } | undefined {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
+  if (typeof value === "object" && value !== null && "value" in value && "sourceQuote" in value) {
+    return value as { value: string; sourceQuote: string; sourceSpan?: unknown; confidenceLevel: "high" | "medium" | "low"; confidenceReason: string; needsConfirmation: boolean };
+  }
+
+  if (typeof value === "string" && value.length > 0) {
+    return {
+      value,
+      sourceQuote: value,
+      confidenceLevel: "low",
+      confidenceReason: "Coerced from plain string model output.",
+      needsConfirmation: true
+    };
+  }
+
+  return undefined;
+}
+
+const validJdCategories = new Set([
+  "responsibility",
+  "must_have",
+  "core_skill",
+  "soft_skill",
+  "nice_to_have",
+  "risk_or_uncertain"
+]);
+
+function pickCategory(...candidates: unknown[]): string {
+  for (const candidate of candidates) {
+    if (typeof candidate === "string" && validJdCategories.has(candidate)) {
+      return candidate;
+    }
+  }
+
+  return "risk_or_uncertain";
 }
