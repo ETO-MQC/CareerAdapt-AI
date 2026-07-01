@@ -11,6 +11,7 @@ import { WorkspaceRepository } from "@/services/storage/repositories";
 import { demoCareerProfile } from "@/data/demoProfile";
 import { demoJobDescriptions } from "@/data/demoJobs";
 import { AiHealthCheckSchema, CareerProfileSchema, JobDescriptionSchema } from "@/domain/schemas";
+import { stableHashText } from "@/services/security/text";
 
 class ThrowingProvider implements AiProvider {
   readonly name = "throwing";
@@ -37,8 +38,9 @@ describe("AiService", () => {
 
     if (result.ok) {
       expect(result.data.status).toBe("ok");
-      expect(result.logs[0].inputSummary).toContain("[redacted-email]");
-      expect(result.logs[0].inputSummary).toContain("[redacted-phone]");
+      expect(result.logs[0].inputSummary).toBeUndefined();
+      expect(result.logs[0].inputHash).toBeTruthy();
+      expect(result.logs[0].inputLength).toBeGreaterThan(0);
     }
   });
 
@@ -175,7 +177,7 @@ describe("AiService", () => {
 describe("DemoCacheProvider", () => {
   it("returns cached output on cache hit", async () => {
     const provider = new DemoCacheProvider({
-      "health-check:health-check.v1": {
+      [`health-check:health-check.v1:${stableHashText(JSON.stringify({}))}`]: {
         status: "ok",
         provider: "cached",
         checkedAt: "2026-07-01T10:00:00.000Z"
@@ -250,7 +252,7 @@ describe("FallbackAiProvider", () => {
     const provider = new FallbackAiProvider(
       new ThrowingProvider("primary failed"),
       new DemoCacheProvider({
-        "health-check:health-check.v1": {
+        [`health-check:health-check.v1:${stableHashText(JSON.stringify({ task: "fallback" }))}`]: {
           status: "ok",
           provider: "demo-cache",
           checkedAt: "2026-07-01T10:00:00.000Z"
@@ -283,6 +285,6 @@ describe("FallbackAiProvider", () => {
 
     expect(result.ok).toBe(false);
     expect(result.logs[0].status).toBe("provider_failed");
-    expect(result.logs[0].error).toContain("demo cache fallback is unavailable");
+    expect(result.logs[0].errorCode).toBeTruthy();
   });
 });

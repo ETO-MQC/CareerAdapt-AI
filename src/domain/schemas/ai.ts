@@ -46,11 +46,17 @@ export const AiLogStatusSchema = z.enum(["success", "validation_failed", "provid
 export const AiLogSchema = EntityBaseSchema.extend({
   task: AiTaskSchema,
   provider: z.string().min(1),
+  model: z.string().optional(),
   promptVersion: z.string().min(1),
-  inputSummary: z.string(),
+  inputHash: z.string().optional(),
+  inputLength: z.number().int().min(0).optional(),
+  outputLength: z.number().int().min(0).optional(),
+  latencyMs: z.number().int().min(0).optional(),
+  inputSummary: z.string().optional(),
   outputSummary: z.string().optional(),
   status: AiLogStatusSchema,
-  error: z.string().optional()
+  error: z.string().optional(),
+  errorCode: z.string().optional()
 });
 
 export const AiHealthCheckSchema = z.object({

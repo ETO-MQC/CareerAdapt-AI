@@ -16,5 +16,6 @@ export type AiInvokeRequest<TOutput> = {
 
 export interface AiProvider {
   readonly name: string;
+  readonly model?: string;
   invoke<TOutput>(request: AiInvokeRequest<TOutput>): Promise<unknown>;
 }

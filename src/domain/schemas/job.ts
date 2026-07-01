@@ -12,7 +12,7 @@ export const JobRequirementCategorySchema = z.enum([
   "risk_or_uncertain"
 ]);
 
-export const PrioritySchema = z.enum(["high", "medium", "low"]);
+export const PrioritySchema = z.enum(["high", "medium", "low", "must", "important", "nice_to_have", "uncertain"]);
 
 export const MatchStatusSchema = z.enum([
   "strong_match",
