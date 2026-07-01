@@ -1,15 +1,15 @@
-import { MockAiProvider } from "./mockProvider";
 import type { AiInvokeRequest, AiProvider } from "../provider";
 
 export class DemoCacheProvider implements AiProvider {
   readonly name = "demo-cache";
 
-  private readonly fallback: AiProvider;
   private readonly cache: Map<string, unknown>;
 
-  constructor(cacheEntries: Record<string, unknown> = {}, fallback: AiProvider = new MockAiProvider()) {
+  constructor(
+    cacheEntries: Record<string, unknown> = {},
+    private readonly fallback?: AiProvider
+  ) {
     this.cache = new Map(Object.entries(cacheEntries));
-    this.fallback = fallback;
   }
 
   async invoke<TOutput>(request: AiInvokeRequest<TOutput>): Promise<unknown> {
@@ -17,6 +17,10 @@ export class DemoCacheProvider implements AiProvider {
 
     if (this.cache.has(key) && !request.repair) {
       return this.cache.get(key);
+    }
+
+    if (!this.fallback) {
+      throw new Error(`Demo cache miss for ${key}.`);
     }
 
     return this.fallback.invoke(request);

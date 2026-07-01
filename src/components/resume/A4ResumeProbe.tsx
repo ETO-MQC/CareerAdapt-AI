@@ -2,15 +2,20 @@
 
 import Link from "next/link";
 import { demoCareerProfile } from "@/data/demoProfile";
+import { useWorkspace } from "@/services/workspace/useWorkspace";
 import { printCurrentPage } from "@/services/export/browserPrint";
 
 export function A4ResumeProbe() {
-  const profile = demoCareerProfile;
+  const workspace = useWorkspace();
+  const repositoryProfile = workspace.status === "ready" ? workspace.profiles[0] : undefined;
+  const profile = repositoryProfile ?? demoCareerProfile;
+  const sourceLabel = repositoryProfile ? "应用 workspace 数据" : "固定探针数据";
 
   return (
     <main className="probe-shell">
       <div className="probe-toolbar no-print">
         <Link href="/resume">返回工作台</Link>
+        <span className="probe-source">{sourceLabel}</span>
         <button type="button" onClick={printCurrentPage}>
           打印 / 保存 PDF
         </button>

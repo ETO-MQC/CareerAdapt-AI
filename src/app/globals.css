@@ -300,6 +300,22 @@ p {
   margin-bottom: 20px;
 }
 
+.workspace-state {
+  margin-top: 24px;
+}
+
+.probe-source {
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 700;
+  min-height: 38px;
+  padding: 0 12px;
+}
+
 .probe-toolbar button {
   background: var(--accent);
   border-color: var(--accent);

@@ -34,6 +34,17 @@ export class WorkspaceRepository {
     await this.setMeta("demoSeededAt", new Date().toISOString());
   }
 
+  async ensureDemoWorkspace() {
+    const seededAt = await this.getMeta("demoSeededAt");
+
+    if (!seededAt) {
+      await this.seedDemoWorkspace();
+      return true;
+    }
+
+    return false;
+  }
+
   async saveProfile(profile: CareerProfile) {
     const parsed = CareerProfileSchema.parse(profile);
     await this.db.profiles.put(parsed);
@@ -99,6 +110,10 @@ export class WorkspaceRepository {
 
     await this.db.appMeta.put(meta);
     return meta;
+  }
+
+  async getMeta(key: string) {
+    return this.db.appMeta.get(key);
   }
 
   async exportWorkspaceJson(): Promise<WorkspaceExport> {
