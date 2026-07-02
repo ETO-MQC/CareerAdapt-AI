@@ -32,8 +32,8 @@ type StructuredAiResponse<TOutput> =
       };
     };
 
-export async function invokeStageBAi<TOutput>(input: {
-  task: "profile-builder" | "jd-analyzer";
+export async function invokeStructuredAi<TOutput>(input: {
+  task: AiTask;
   businessInput: unknown;
   outputSchema: z.ZodType<TOutput>;
 }) {
@@ -96,6 +96,14 @@ export async function invokeStageBAi<TOutput>(input: {
       meta: payload.meta
     })
   };
+}
+
+export async function invokeStageBAi<TOutput>(input: {
+  task: "profile-builder" | "jd-analyzer";
+  businessInput: unknown;
+  outputSchema: z.ZodType<TOutput>;
+}) {
+  return invokeStructuredAi(input);
 }
 
 function createAiLog(input: {

@@ -2,11 +2,12 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { OpenAiCompatibleProvider, type AiProviderError } from "@/ai/providers/openAiCompatibleProvider";
 import {
-  getStageBTaskDefinition,
+  getAiTaskDefinition,
+  type EvidenceMatcherTaskInput,
   type JdAnalyzerTaskInput,
   type ProfileBuilderTaskInput,
-  type StageBAiTask
 } from "@/ai/tasks/registry";
+import type { AiTask } from "@/domain/schemas";
 import { redactSensitiveTextForModel } from "@/services/security/text";
 
 const StructuredAiRequestSchema = z
@@ -26,7 +27,7 @@ export async function POST(request: NextRequest) {
       return aiError("bad_request", "Request must contain only task and input.", 400, startedAt);
     }
 
-    const definition = getStageBTaskDefinition(body.data.task);
+    const definition = getAiTaskDefinition(body.data.task);
 
     if (!definition) {
       return aiError("task_not_allowed", "This AI task is not allowed.", 403, startedAt);
@@ -34,13 +35,14 @@ export async function POST(request: NextRequest) {
 
     const input = definition.inputSchema.safeParse(body.data.input);
     const taskDefinition = definition as {
-      task: StageBAiTask;
+      task: AiTask;
       promptVersion: string;
       systemPrompt: string;
       maxOutputChars: number;
       buildUserPrompt(input: unknown): string;
       coerceRawOutput(rawOutput: unknown): unknown;
       normalizeOutput(output: unknown, input: unknown): unknown;
+      validateOutput?(output: unknown, input: unknown): void;
       outputSchema: { safeParse(output: unknown): { success: true; data: unknown } | { success: false } };
     };
 
@@ -84,6 +86,17 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    try {
+      taskDefinition.validateOutput?.(parsedOutput.data, input.data);
+    } catch {
+      return aiError("semantic_validation_failed", "Model output failed business semantic validation.", 422, startedAt, {
+        provider: response.provider,
+        model: response.model,
+        inputLength: estimateInputLength(input.data),
+        outputLength: response.outputLength
+      });
+    }
+
     return aiSuccess(taskDefinition.task, taskDefinition.promptVersion, parsedOutput.data, {
       provider: response.provider,
       model: response.model,
@@ -98,7 +111,7 @@ export async function POST(request: NextRequest) {
 }
 
 function aiSuccess(
-  task: StageBAiTask,
+  task: AiTask,
   promptVersion: string,
   output: unknown,
   meta: {
@@ -154,7 +167,7 @@ function estimateInputLength(input: unknown) {
   return 0;
 }
 
-function createMockOutput(task: StageBAiTask, input: unknown) {
+function createMockOutput(task: AiTask, input: unknown) {
   if (task === "profile-builder") {
     const profileInput = input as ProfileBuilderTaskInput;
     const firstLine = profileInput.rawText.split(/\r?\n/).find(Boolean) || profileInput.rawText.slice(0, 40);
@@ -220,6 +233,26 @@ function createMockOutput(task: StageBAiTask, input: unknown) {
       skills: [],
       certificates: [],
       unclassifiedBlocks: redactSensitiveTextForModel(profileInput.rawText).text.length > 0 ? [] : [profileInput.rawText]
+    };
+  }
+
+  if (task === "evidence-matcher") {
+    const matcherInput = input as EvidenceMatcherTaskInput;
+    const firstCandidate = matcherInput.candidates[0];
+
+    return {
+      evaluations: [
+        {
+          requirementId: matcherInput.requirement.id,
+          matchLevel: firstCandidate ? "weak" : "none",
+          riskLevel: firstCandidate ? "medium" : matcherInput.requirement.hardConstraint ? "high" : "medium",
+          risks: firstCandidate ? ["low_confidence"] : ["source_missing"],
+          evidenceRefs: firstCandidate ? [firstCandidate.evidenceRef] : [],
+          explanation: firstCandidate
+            ? "Mock evidence matcher selected the first rule candidate for explanation."
+            : "Mock evidence matcher found no rule candidates and returned no evidence."
+        }
+      ]
     };
   }
 

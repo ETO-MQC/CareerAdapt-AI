@@ -7,8 +7,10 @@ import {
   ExportRecordSchema,
   JobAnalysisDraftSchema,
   JobDescriptionSchema,
+  MatchOperationSchema,
   ProfileImportDraftSchema,
   RawInputDocumentSchema,
+  RequirementMatchSchema,
   ResumeBranchSchema,
   type AiLog,
   type CareerProfile,
@@ -16,14 +18,22 @@ import {
   type ExportRecord,
   type JobAnalysisDraft,
   type JobDescription,
+  type MatchEvaluation,
+  type MatchOperation,
   type ProfileImportDraft,
   type RawInputDocument,
+  type RequirementMatch,
   type ResumeBranch
 } from "@/domain/schemas";
+import {
+  resolveEffectiveMatch,
+  validateRequirementMatchReferences,
+  withResolvedEffectiveMatch
+} from "@/domain/match/matcher";
 import { CareerAdaptDb, careerAdaptDb, type AppMeta } from "./db";
 
 export type WorkspaceExport = {
-  schemaVersion: "stage-b-v1";
+  schemaVersion: "stage-c-c1-v1";
   exportedAt: string;
   profiles: CareerProfile[];
   jobDescriptions: JobDescription[];
@@ -31,6 +41,8 @@ export type WorkspaceExport = {
   profileImportDrafts: ProfileImportDraft[];
   jobAnalysisDrafts: JobAnalysisDraft[];
   draftCommits: DraftCommit[];
+  requirementMatches: RequirementMatch[];
+  matchOperations: MatchOperation[];
   resumeBranches: ResumeBranch[];
   aiLogs: AiLog[];
   exportRecords: ExportRecord[];
@@ -326,6 +338,196 @@ export class WorkspaceRepository {
     return parsed;
   }
 
+  async saveRuleRequirementMatches(input: {
+    profile: CareerProfile;
+    job: JobDescription;
+    matches: RequirementMatch[];
+  }) {
+    return this.db.transaction("rw", this.db.requirementMatches, this.db.matchOperations, async () => {
+      const now = new Date().toISOString();
+      const parsed = input.matches.map((match) => {
+        validateRequirementMatchReferences(match, {
+          profile: input.profile,
+          job: input.job,
+          matcherVersion: match.matcherVersion
+        });
+        return withResolvedEffectiveMatch(match);
+      });
+
+      const operations = parsed.map((match) =>
+        MatchOperationSchema.parse({
+          id: `match-op-rule-${match.id}`,
+          operationId: `rule-${match.id}-${match.candidateSetHash}`,
+          requirementMatchId: match.id,
+          profileId: match.profileId,
+          jobId: match.jobId,
+          type: "rule_evaluation",
+          afterEvaluation: match.ruleEvaluation,
+          occurredAt: now,
+          createdAt: now,
+          updatedAt: now
+        })
+      );
+
+      await this.db.requirementMatches.bulkPut(parsed);
+      await this.db.matchOperations.bulkPut(operations);
+      return parsed;
+    });
+  }
+
+  async saveAiRequirementMatches(input: {
+    profile: CareerProfile;
+    job: JobDescription;
+    matches: RequirementMatch[];
+  }) {
+    return this.db.transaction("rw", this.db.requirementMatches, this.db.matchOperations, async () => {
+      const now = new Date().toISOString();
+      const parsed = input.matches.map((match) => {
+        validateRequirementMatchReferences(match, {
+          profile: input.profile,
+          job: input.job,
+          matcherVersion: match.matcherVersion
+        });
+        return withResolvedEffectiveMatch(match);
+      });
+
+      const operations = parsed
+        .filter((match) => match.aiEvaluation)
+        .map((match) =>
+          MatchOperationSchema.parse({
+            id: `match-op-ai-${match.id}`,
+            operationId: `ai-${match.id}-${match.candidateSetHash}`,
+            requirementMatchId: match.id,
+            profileId: match.profileId,
+            jobId: match.jobId,
+            type: "ai_evaluation",
+            afterEvaluation: match.aiEvaluation,
+            occurredAt: now,
+            createdAt: now,
+            updatedAt: now
+          })
+        );
+
+      await this.db.requirementMatches.bulkPut(parsed);
+      if (operations.length > 0) {
+        await this.db.matchOperations.bulkPut(operations);
+      }
+      return parsed;
+    });
+  }
+
+  async saveManualMatchOverride(input: {
+    profile: CareerProfile;
+    job: JobDescription;
+    matchId: string;
+    operationId: string;
+    nextEvaluation: MatchEvaluation & { source: "manual" };
+    reason: string;
+  }) {
+    return this.db.transaction("rw", this.db.requirementMatches, this.db.matchOperations, async () => {
+      const existingOperation = await this.db.matchOperations.where("operationId").equals(input.operationId).first();
+      if (existingOperation) {
+        const existingMatch = await this.db.requirementMatches.get(existingOperation.requirementMatchId);
+        if (!existingMatch) {
+          throw new Error("manual_override_match_missing");
+        }
+        return RequirementMatchSchema.parse(existingMatch);
+      }
+
+      const match = await this.db.requirementMatches.get(input.matchId);
+      if (!match) {
+        throw new Error("requirement_match_missing");
+      }
+
+      const parsedMatch = RequirementMatchSchema.parse(match);
+      const previousEvaluation = resolveEffectiveMatch(parsedMatch);
+      const now = new Date().toISOString();
+      const manualOverride = {
+        id: `manual-override-${input.operationId}`,
+        previousEvaluation,
+        nextEvaluation: input.nextEvaluation,
+        reason: input.reason,
+        overriddenAt: now,
+        createdAt: now,
+        updatedAt: now
+      };
+      const updated = withResolvedEffectiveMatch({
+        ...parsedMatch,
+        manualOverride,
+        updatedAt: now
+      });
+
+      validateRequirementMatchReferences(updated, {
+        profile: input.profile,
+        job: input.job,
+        matcherVersion: updated.matcherVersion
+      });
+
+      const operation = MatchOperationSchema.parse({
+        id: `match-op-manual-${input.operationId}`,
+        operationId: input.operationId,
+        requirementMatchId: updated.id,
+        profileId: updated.profileId,
+        jobId: updated.jobId,
+        type: "manual_override",
+        beforeEvaluation: previousEvaluation,
+        afterEvaluation: input.nextEvaluation,
+        reason: input.reason,
+        occurredAt: now,
+        createdAt: now,
+        updatedAt: now
+      });
+
+      await this.db.requirementMatches.put(updated);
+      await this.db.matchOperations.put(operation);
+      return updated;
+    });
+  }
+
+  async listRequirementMatches(profileId: string, jobId: string) {
+    const matches = await this.db.requirementMatches.where("[profileId+jobId]").equals([profileId, jobId]).toArray();
+    return matches.map((match) => RequirementMatchSchema.parse(match));
+  }
+
+  async markStaleRequirementMatches(profileId: string, jobId: string, reason: string) {
+    return this.db.transaction("rw", this.db.requirementMatches, this.db.matchOperations, async () => {
+      const now = new Date().toISOString();
+      const matches = await this.db.requirementMatches.where("[profileId+jobId]").equals([profileId, jobId]).toArray();
+      const updated = matches.map((match) =>
+        RequirementMatchSchema.parse({
+          ...match,
+          isStale: true,
+          updatedAt: now
+        })
+      );
+      const operations = updated.map((match) =>
+        MatchOperationSchema.parse({
+          id: `match-op-stale-${match.id}-${now}`,
+          operationId: `stale-${match.id}-${now}`,
+          requirementMatchId: match.id,
+          profileId,
+          jobId,
+          type: "mark_stale",
+          reason,
+          occurredAt: now,
+          createdAt: now,
+          updatedAt: now
+        })
+      );
+
+      if (updated.length > 0) {
+        await this.db.requirementMatches.bulkPut(updated);
+        await this.db.matchOperations.bulkPut(operations);
+      }
+
+      return updated;
+    });
+  }
+
+  resolveEffectiveMatch(match: RequirementMatch) {
+    return resolveEffectiveMatch(match);
+  }
+
   async listResumeBranches() {
     const branches = await this.db.resumeBranches.toArray();
     return branches.map((branch) => ResumeBranchSchema.parse(branch));
@@ -360,7 +562,7 @@ export class WorkspaceRepository {
 
   async exportWorkspaceJson(): Promise<WorkspaceExport> {
     return {
-      schemaVersion: "stage-b-v1",
+      schemaVersion: "stage-c-c1-v1",
       exportedAt: new Date().toISOString(),
       profiles: await this.listProfiles(),
       jobDescriptions: await this.listJobDescriptions(),
@@ -368,6 +570,8 @@ export class WorkspaceRepository {
       profileImportDrafts: (await this.db.profileImportDrafts.toArray()).map((draft) => ProfileImportDraftSchema.parse(draft)),
       jobAnalysisDrafts: (await this.db.jobAnalysisDrafts.toArray()).map((draft) => JobAnalysisDraftSchema.parse(draft)),
       draftCommits: (await this.db.draftCommits.toArray()).map((commit) => DraftCommitSchema.parse(commit)),
+      requirementMatches: (await this.db.requirementMatches.toArray()).map((match) => RequirementMatchSchema.parse(match)),
+      matchOperations: (await this.db.matchOperations.toArray()).map((operation) => MatchOperationSchema.parse(operation)),
       resumeBranches: await this.listResumeBranches(),
       aiLogs: (await this.db.aiLogs.toArray()).map((log) => AiLogSchema.parse(log)),
       exportRecords: (await this.db.exportRecords.toArray()).map((record) => ExportRecordSchema.parse(record)),

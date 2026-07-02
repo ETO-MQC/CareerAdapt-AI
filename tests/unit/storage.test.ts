@@ -1,7 +1,16 @@
 import { afterEach, describe, expect, it } from "vitest";
+import Dexie, { type Table } from "dexie";
 import { demoJobDescriptions } from "@/data/demoJobs";
 import { demoCareerProfile } from "@/data/demoProfile";
-import type { AiLog, ExportRecord, ResumeBranch } from "@/domain/schemas";
+import type {
+  AiLog,
+  DraftCommit,
+  ExportRecord,
+  JobAnalysisDraft,
+  ProfileImportDraft,
+  RawInputDocument,
+  ResumeBranch
+} from "@/domain/schemas";
 import { mapProfileDraftToCareerProfile } from "@/domain/mappers/profileDraftMapper";
 import { mapJobDraftToJobDescription } from "@/domain/mappers/jobDraftMapper";
 import { CareerAdaptDb } from "@/services/storage/db";
@@ -10,6 +19,31 @@ import { RevisionConflictError, WorkspaceRepository } from "@/services/storage/r
 const TEST_TIME = "2026-07-01T10:00:00.000Z";
 
 let db: CareerAdaptDb | undefined;
+
+class LegacyStageBDb extends Dexie {
+  profiles!: Table<typeof demoCareerProfile, string>;
+  jobDescriptions!: Table<(typeof demoJobDescriptions)[number], string>;
+  rawInputs!: Table<RawInputDocument, string>;
+  profileImportDrafts!: Table<ProfileImportDraft, string>;
+  jobAnalysisDrafts!: Table<JobAnalysisDraft, string>;
+  draftCommits!: Table<DraftCommit, string>;
+
+  constructor(name: string) {
+    super(name);
+    this.version(2).stores({
+      profiles: "id, name, updatedAt",
+      jobDescriptions: "id, title, company, updatedAt",
+      rawInputs: "id, kind, inputHash, updatedAt",
+      profileImportDrafts: "id, rawInputId, status, updatedAt",
+      jobAnalysisDrafts: "id, rawInputId, status, updatedAt",
+      draftCommits: "commitId, draftId, kind, entityId",
+      resumeBranches: "id, profileId, jobId, updatedAt",
+      aiLogs: "id, task, provider, createdAt",
+      exportRecords: "id, branchId, revisionId, createdAt",
+      appMeta: "key"
+    });
+  }
+}
 
 afterEach(async () => {
   if (!db) {
@@ -44,11 +78,91 @@ describe("WorkspaceRepository", () => {
     expect(updated?.version).toBe(2);
 
     const exported = await repository.exportWorkspaceJson();
-    expect(exported.schemaVersion).toBe("stage-b-v1");
+    expect(exported.schemaVersion).toBe("stage-c-c1-v1");
     expect(exported.profiles).toHaveLength(1);
     expect(exported.jobDescriptions).toHaveLength(2);
     expect(exported.rawInputs).toHaveLength(0);
     expect(exported.appMeta.some((meta) => meta.key === "demoSeededAt")).toBe(true);
+  });
+
+  it("migrates stage B Dexie v2 data to v3 without losing profile, job, raw inputs, or drafts", async () => {
+    const dbName = `CareerAdaptMigrationDb-${crypto.randomUUID()}`;
+    const legacy = new LegacyStageBDb(dbName);
+    const rawProfile: RawInputDocument = {
+      id: "raw-migration-profile",
+      kind: "resume_text",
+      rawText: "迁移测试简历文本",
+      inputHash: "hash-migration-profile",
+      title: "migration profile",
+      createdAt: TEST_TIME,
+      updatedAt: TEST_TIME
+    };
+    const rawJob: RawInputDocument = {
+      id: "raw-migration-job",
+      kind: "job_jd",
+      rawText: "迁移测试JD文本",
+      inputHash: "hash-migration-job",
+      title: "migration job",
+      createdAt: TEST_TIME,
+      updatedAt: TEST_TIME
+    };
+    const profileDraft: ProfileImportDraft = {
+      id: "profile-draft-migration",
+      rawInputId: rawProfile.id,
+      revision: 0,
+      status: "manual_mode",
+      promptVersion: "profile-builder.v1",
+      attemptCount: 0,
+      pendingFacts: [],
+      createdAt: TEST_TIME,
+      updatedAt: TEST_TIME
+    };
+    const jobDraft: JobAnalysisDraft = {
+      id: "job-draft-migration",
+      rawInputId: rawJob.id,
+      revision: 0,
+      title: "迁移测试岗位",
+      company: "迁移测试公司",
+      status: "manual_mode",
+      promptVersion: "jd-analyzer.v1",
+      attemptCount: 0,
+      manualRequirements: [],
+      riskNotes: [],
+      createdAt: TEST_TIME,
+      updatedAt: TEST_TIME
+    };
+    const commit: DraftCommit = {
+      id: "commit-migration",
+      commitId: "commit-migration",
+      draftId: profileDraft.id,
+      kind: "profile",
+      entityId: demoCareerProfile.id,
+      expectedRevision: 0,
+      createdAt: TEST_TIME,
+      updatedAt: TEST_TIME
+    };
+
+    await legacy.open();
+    await legacy.table("profiles").put(demoCareerProfile);
+    await legacy.table("jobDescriptions").put(demoJobDescriptions[0]);
+    await legacy.table("rawInputs").bulkPut([rawProfile, rawJob]);
+    await legacy.table("profileImportDrafts").put(profileDraft);
+    await legacy.table("jobAnalysisDrafts").put(jobDraft);
+    await legacy.table("draftCommits").put(commit);
+    legacy.close();
+
+    db = new CareerAdaptDb(dbName);
+    const repository = new WorkspaceRepository(db);
+    const exported = await repository.exportWorkspaceJson();
+
+    expect(exported.profiles.map((profile) => profile.id)).toContain(demoCareerProfile.id);
+    expect(exported.jobDescriptions.map((job) => job.id)).toContain(demoJobDescriptions[0].id);
+    expect(exported.rawInputs.map((raw) => raw.id)).toEqual(expect.arrayContaining([rawProfile.id, rawJob.id]));
+    expect(exported.profileImportDrafts.map((draft) => draft.id)).toContain(profileDraft.id);
+    expect(exported.jobAnalysisDrafts.map((draft) => draft.id)).toContain(jobDraft.id);
+    expect(exported.draftCommits.map((item) => item.id)).toContain(commit.id);
+    expect(exported.requirementMatches).toHaveLength(0);
+    expect(exported.matchOperations).toHaveLength(0);
   });
 
   it("saves resume branches, AI logs, export records, and app meta", async () => {

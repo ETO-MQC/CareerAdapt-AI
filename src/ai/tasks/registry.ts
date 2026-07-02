@@ -1,12 +1,19 @@
 import { nanoid } from "nanoid";
 import { z } from "zod";
 import {
+  AiTaskSchema,
+  EvidenceMatcherOutputSchema,
   JdAnalyzerOutputSchema,
+  MatchEvidenceRefSchema,
   ProfileBuilderOutputSchema,
+  type AiTask,
+  type EvidenceMatcherOutput,
   type JdAnalyzerOutput,
+  type MatchRisk,
   type ProfileBuilderOutput
 } from "@/domain/schemas";
 import { locateSourceQuote, redactSensitiveTextForModel } from "@/services/security/text";
+import { evidenceMatcherPrompt } from "@/ai/prompts/evidenceMatcher";
 import { jdAnalyzerPrompt } from "@/ai/prompts/jdAnalyzer";
 import { profileBuilderPrompt } from "@/ai/prompts/profileBuilder";
 
@@ -24,12 +31,35 @@ export const JdAnalyzerTaskInputSchema = BaseAiInputSchema.extend({
   company: z.string().min(1).max(120)
 });
 
+export const EvidenceMatcherCandidateSchema = z.object({
+  evidenceRef: MatchEvidenceRefSchema,
+  searchText: z.string().min(1).max(2_000)
+});
+
+export const EvidenceMatcherTaskInputSchema = z.object({
+  profileId: z.string().min(1),
+  jobId: z.string().min(1),
+  profileVersion: z.number().int().min(1),
+  jobVersion: z.string().min(1),
+  matcherVersion: z.string().min(1),
+  candidateSetHash: z.string().min(8),
+  requirement: z.object({
+    id: z.string().min(1),
+    description: z.string().min(1),
+    sourceQuote: z.string().min(1),
+    hardConstraint: z.boolean(),
+    keywords: z.array(z.string()).default([])
+  }),
+  candidates: z.array(EvidenceMatcherCandidateSchema).max(8)
+});
+
 export type StageBAiTask = z.infer<typeof stageBAiTaskSchema>;
 export type ProfileBuilderTaskInput = z.infer<typeof ProfileBuilderTaskInputSchema>;
 export type JdAnalyzerTaskInput = z.infer<typeof JdAnalyzerTaskInputSchema>;
+export type EvidenceMatcherTaskInput = z.infer<typeof EvidenceMatcherTaskInputSchema>;
 
-export type StageBTaskDefinition<TInput, TOutput> = {
-  task: StageBAiTask;
+export type AiTaskDefinition<TInput, TOutput> = {
+  task: AiTask;
   promptVersion: string;
   systemPrompt: string;
   inputSchema: z.ZodType<TInput>;
@@ -38,9 +68,14 @@ export type StageBTaskDefinition<TInput, TOutput> = {
   buildUserPrompt(input: TInput): string;
   coerceRawOutput(rawOutput: unknown): unknown;
   normalizeOutput(output: TOutput, input: TInput): TOutput;
+  validateOutput?(output: TOutput, input: TInput): void;
 };
 
-export const stageBTaskRegistry = {
+export type StageBTaskDefinition<TInput, TOutput> = AiTaskDefinition<TInput, TOutput> & {
+  task: StageBAiTask;
+};
+
+export const aiTaskRegistry = {
   "profile-builder": {
     task: "profile-builder",
     promptVersion: profileBuilderPrompt.version,
@@ -232,15 +267,15 @@ export const stageBTaskRegistry = {
       return {
         title: titleValue,
         company: companyValue,
-        industry: raw.industry,
-        location: raw.location,
-        workType: raw.workType,
+        industry: coerceDraftField(raw.industry),
+        location: coerceDraftField(raw.location),
+        workType: coerceDraftField(raw.workType),
         requirements: rawRequirements.map((req) => {
           const r = req as Record<string, unknown>;
           return {
             id: typeof r.id === "string" ? r.id : `jd-req-${nanoid(8)}`,
             category: pickCategory(r.category, r.type, r.classification),
-            description: pickString(r.description, r.requirement, r.text, r.content, r.summary),
+            description: pickString(r.description, r.requirement, r.text, r.content, r.summary, r.sourceQuote),
             priority: typeof r.priority === "string" ? r.priority : "uncertain",
             hardConstraint: typeof r.hardConstraint === "boolean" ? r.hardConstraint : false,
             sourceQuote: typeof r.sourceQuote === "string" ? r.sourceQuote : "",
@@ -265,10 +300,140 @@ export const stageBTaskRegistry = {
         industry: normalizeField(output.industry, input.rawText),
         location: normalizeField(output.location, input.rawText),
         workType: normalizeField(output.workType, input.rawText),
-        requirements: (output.requirements ?? []).map((requirement) => normalizeEvidenceItem(requirement, input.rawText))
+        requirements: (output.requirements ?? []).map((requirement, index) => {
+          const fallback = fallbackRequirementQuote(input.rawText, index);
+          return normalizeEvidenceItem({
+            ...requirement,
+            description: requirement.description || fallback,
+            sourceQuote: requirement.sourceQuote || fallback
+          }, input.rawText);
+        })
       };
     }
-  } satisfies StageBTaskDefinition<JdAnalyzerTaskInput, JdAnalyzerOutput>
+  } satisfies StageBTaskDefinition<JdAnalyzerTaskInput, JdAnalyzerOutput>,
+  "evidence-matcher": {
+    task: "evidence-matcher",
+    promptVersion: evidenceMatcherPrompt.version,
+    systemPrompt: evidenceMatcherPrompt.system,
+    inputSchema: EvidenceMatcherTaskInputSchema,
+    outputSchema: EvidenceMatcherOutputSchema,
+    maxOutputChars: 8_000,
+    buildUserPrompt(input: EvidenceMatcherTaskInput) {
+      const redactedRequirement = redactSensitiveTextForModel(input.requirement.sourceQuote);
+      const redactedDescription = redactSensitiveTextForModel(input.requirement.description);
+      return JSON.stringify(
+        {
+          requirement: {
+            id: input.requirement.id,
+            description: redactedDescription.text,
+            sourceQuote: redactedRequirement.text,
+            hardConstraint: input.requirement.hardConstraint,
+            keywords: input.requirement.keywords
+          },
+          candidateSetHash: input.candidateSetHash,
+          allowedEvidenceRefs: input.candidates.map((candidate) => candidate.evidenceRef),
+          candidates: input.candidates.map((candidate) => ({
+            evidenceRef: candidate.evidenceRef,
+            text: redactSensitiveTextForModel(candidate.searchText).text
+          })),
+          instructions: [
+            "Judge whether the provided candidate facts support the requirement.",
+            "Return exactly one evaluation for this requirement.",
+            "Only use evidenceRefs from allowedEvidenceRefs.",
+            "If candidates is empty, return matchLevel none, riskLevel medium or high, and no evidenceRefs."
+          ]
+        },
+        null,
+        2
+      );
+    },
+    coerceRawOutput(rawOutput: unknown) {
+      const raw = rawOutput as Record<string, unknown>;
+      const evaluations = Array.isArray(raw.evaluations)
+        ? raw.evaluations
+        : Array.isArray(raw.matches)
+          ? raw.matches
+          : raw.requirementId
+            ? [raw]
+            : [];
+
+      return {
+        evaluations: evaluations.map((item) => {
+          const evaluation = item as Record<string, unknown>;
+          return {
+            requirementId: typeof evaluation.requirementId === "string" ? evaluation.requirementId : "",
+            matchLevel: normalizeMatchLevel(evaluation.matchLevel ?? evaluation.status),
+            riskLevel: normalizeRiskLevel(evaluation.riskLevel ?? evaluation.risk),
+            risks: Array.isArray(evaluation.risks) ? evaluation.risks : [],
+            evidenceRefs: Array.isArray(evaluation.evidenceRefs) ? evaluation.evidenceRefs : [],
+            explanation: typeof evaluation.explanation === "string" ? evaluation.explanation : "AI未提供解释。"
+          };
+        })
+      };
+    },
+    normalizeOutput(output: EvidenceMatcherOutput, input: EvidenceMatcherTaskInput) {
+      if (input.candidates.length === 0) {
+        return {
+          evaluations: [
+            {
+              requirementId: input.requirement.id,
+              matchLevel: "none",
+              riskLevel: input.requirement.hardConstraint ? "high" : "medium",
+              risks: input.requirement.hardConstraint ? ["hard_constraint_gap", "source_missing"] : ["source_missing"],
+              evidenceRefs: [],
+              explanation: "规则层未召回任何候选事实，AI按约束返回无证据。"
+            }
+          ]
+        };
+      }
+
+      const evaluations = output.evaluations.length > 0
+        ? output.evaluations
+        : [
+            {
+              requirementId: input.requirement.id,
+              matchLevel: "none" as const,
+              riskLevel: input.requirement.hardConstraint ? ("high" as const) : ("medium" as const),
+              risks: ["source_missing" as const],
+              evidenceRefs: [],
+              explanation: "AI未返回有效匹配项，已降级为无证据。"
+            }
+          ];
+
+      return {
+        evaluations: evaluations.map((evaluation) => ({
+          ...evaluation,
+          requirementId: evaluation.requirementId || input.requirement.id,
+          risks: normalizeMatchRisks(evaluation.risks),
+          evidenceRefs: normalizeEvidenceRefs(evaluation.evidenceRefs, input)
+        }))
+      };
+    },
+    validateOutput(output: EvidenceMatcherOutput, input: EvidenceMatcherTaskInput) {
+      const allowedRefKeys = new Set(input.candidates.map((candidate) => JSON.stringify(candidate.evidenceRef)));
+
+      for (const evaluation of output.evaluations) {
+        if (evaluation.requirementId !== input.requirement.id) {
+          throw new Error("evidence_matcher_requirement_id_out_of_scope");
+        }
+
+        if (input.candidates.length === 0 && (evaluation.matchLevel !== "none" || evaluation.evidenceRefs.length > 0)) {
+          throw new Error("evidence_matcher_empty_candidates_must_return_none");
+        }
+
+        for (const ref of evaluation.evidenceRefs) {
+          if (!allowedRefKeys.has(JSON.stringify(ref))) {
+            throw new Error("evidence_matcher_evidence_ref_out_of_scope");
+          }
+        }
+      }
+    }
+  } satisfies AiTaskDefinition<EvidenceMatcherTaskInput, EvidenceMatcherOutput>
+} as const;
+
+export const stageBTaskRegistry = {
+  "profile-builder": aiTaskRegistry["profile-builder"],
+  "jd-analyzer": aiTaskRegistry["jd-analyzer"]
 } as const;
 
 export function getStageBTaskDefinition(task: string) {
@@ -279,6 +444,16 @@ export function getStageBTaskDefinition(task: string) {
   }
 
   return stageBTaskRegistry[parsed.data];
+}
+
+export function getAiTaskDefinition(task: string) {
+  const parsed = AiTaskSchema.safeParse(task);
+
+  if (!parsed.success || !(parsed.data in aiTaskRegistry)) {
+    return undefined;
+  }
+
+  return aiTaskRegistry[parsed.data as keyof typeof aiTaskRegistry];
 }
 
 function normalizeField<T extends { sourceQuote: string; sourceSpan?: unknown; confidenceLevel: "high" | "medium" | "low"; needsConfirmation: boolean }>(
@@ -366,4 +541,92 @@ function pickCategory(...candidates: unknown[]): string {
   }
 
   return "risk_or_uncertain";
+}
+
+function fallbackRequirementQuote(rawText: string, index: number) {
+  const segments = rawText
+    .split(/[\n；;。]/)
+    .map((segment) => segment.replace(/^[-•\s]+/, "").trim())
+    .filter((segment) => segment.length > 0 && !segment.startsWith("岗位：") && !segment.startsWith("公司："));
+
+  return segments[index % Math.max(segments.length, 1)] || rawText.slice(0, 80) || "待确认岗位要求";
+}
+
+function normalizeMatchLevel(value: unknown) {
+  if (value === "strong" || value === "weak" || value === "transferable" || value === "none") {
+    return value;
+  }
+  if (value === "strong_match") {
+    return "strong";
+  }
+  if (value === "weak_match") {
+    return "weak";
+  }
+  if (value === "no_evidence") {
+    return "none";
+  }
+  return "none";
+}
+
+function normalizeRiskLevel(value: unknown) {
+  if (value === "low" || value === "medium" || value === "high") {
+    return value;
+  }
+  return "medium";
+}
+
+const validMatchRisks = new Set<MatchRisk>([
+  "source_missing",
+  "hard_constraint_gap",
+  "ownership_risk",
+  "team_to_individual_risk",
+  "skill_level_risk",
+  "number_risk",
+  "new_fact_risk",
+  "stale_match",
+  "low_confidence"
+]);
+
+function normalizeMatchRisks(values: unknown[]): MatchRisk[] {
+  return values.filter((value): value is MatchRisk => typeof value === "string" && validMatchRisks.has(value as MatchRisk));
+}
+
+function normalizeEvidenceRefs(values: unknown[], input: EvidenceMatcherTaskInput) {
+  return values.flatMap((value) => {
+    const parsed = MatchEvidenceRefSchema.safeParse(value);
+    if (parsed.success && input.candidates.some((candidate) => JSON.stringify(candidate.evidenceRef) === JSON.stringify(parsed.data))) {
+      return [parsed.data];
+    }
+
+    if (typeof value === "string") {
+      const found = input.candidates.find((candidate) =>
+        JSON.stringify(candidate.evidenceRef).includes(value)
+      );
+      return found ? [found.evidenceRef] : [];
+    }
+
+    if (typeof value === "object" && value !== null) {
+      const raw = value as Record<string, unknown>;
+      const factId = typeof raw.factId === "string" ? raw.factId : undefined;
+      const experienceId = typeof raw.experienceId === "string" ? raw.experienceId : undefined;
+      const skillId = typeof raw.skillId === "string" ? raw.skillId : undefined;
+      const certificateId = typeof raw.certificateId === "string" ? raw.certificateId : undefined;
+      const found = input.candidates.find((candidate) => {
+        const ref = candidate.evidenceRef;
+        if (ref.type === "experience_fact") {
+          return (!factId || ref.factId === factId) && (!experienceId || ref.experienceId === experienceId);
+        }
+        if (ref.type === "skill_fact") {
+          return (!factId || ref.factId === factId) && (!skillId || ref.skillId === skillId);
+        }
+        if (ref.type === "certificate_fact") {
+          return (!factId || ref.factId === factId) && (!certificateId || ref.certificateId === certificateId);
+        }
+        return false;
+      });
+      return found ? [found.evidenceRef] : [];
+    }
+
+    return [];
+  });
 }

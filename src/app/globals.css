@@ -337,6 +337,16 @@ p {
   padding: 0 12px;
 }
 
+.form-grid select,
+.manual-override select {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font: inherit;
+  min-height: 42px;
+  padding: 0 12px;
+  width: 100%;
+}
+
 .action-row,
 .section-heading {
   align-items: center;
@@ -420,6 +430,69 @@ p {
   display: block;
   line-height: 1.6;
   margin-top: 4px;
+}
+
+.match-layout {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(260px, 0.8fr) minmax(0, 1.2fr);
+  margin-top: 16px;
+}
+
+.match-list {
+  display: grid;
+  gap: 8px;
+}
+
+.match-row {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  cursor: pointer;
+  font: inherit;
+  padding: 12px;
+  text-align: left;
+}
+
+.match-row strong,
+.match-row span {
+  display: block;
+}
+
+.match-row span {
+  color: var(--muted);
+  font-size: 13px;
+  margin-top: 6px;
+}
+
+.match-row-active {
+  border-color: var(--accent);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.match-detail {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.evidence-list {
+  border-top: 1px solid var(--line);
+  margin-top: 12px;
+  padding-top: 12px;
+}
+
+.manual-override {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+  padding-top: 16px;
+}
+
+.small-textarea {
+  min-height: 92px;
 }
 
 .probe-source {
@@ -580,6 +653,7 @@ p {
   .profile-layout,
   .route-grid,
   .stage-grid,
+  .match-layout,
   .form-grid {
     grid-template-columns: 1fr;
   }
