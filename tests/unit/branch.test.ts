@@ -16,6 +16,7 @@ let db: CareerAdaptDb | undefined;
 
 class LegacyV4BranchDb extends Dexie {
   resumeBranches!: Table<Record<string, unknown>, string>;
+  exportRecords!: Table<Record<string, unknown>, string>;
 
   constructor(name: string) {
     super(name);
@@ -222,6 +223,54 @@ describe("D1 resume branch repository", () => {
     });
     expect(undone.branch.revision).toBe(2);
     expect(undone.revision?.previousRevisionId).toBe(edited.branch.currentRevisionId);
+
+    const exportRecord = await repository.createResumeExportRecord({
+      operationId: "d2-repo-export",
+      branchId: undone.branch.id,
+      expectedBranchRevision: undone.branch.revision,
+      expectedRevisionId: undone.branch.currentRevisionId!,
+      templateId: "classic-technical",
+      overflowStatus: "fits",
+      exportStatus: "print_invoked",
+      fileName: "d2-export.pdf"
+    });
+    const duplicateExport = await repository.createResumeExportRecord({
+      operationId: "d2-repo-export",
+      branchId: undone.branch.id,
+      expectedBranchRevision: undone.branch.revision,
+      expectedRevisionId: undone.branch.currentRevisionId!,
+      templateId: "classic-technical",
+      overflowStatus: "fits",
+      exportStatus: "print_invoked",
+      fileName: "d2-export.pdf"
+    });
+
+    expect(exportRecord.idempotent).toBe(false);
+    expect(duplicateExport.idempotent).toBe(true);
+    expect(exportRecord.record.branchRevision).toBe(undone.branch.revision);
+    expect(exportRecord.record.exportStatus).toBe("print_invoked");
+
+    await expect(repository.createResumeExportRecord({
+      operationId: "d2-repo-export-overflow",
+      branchId: undone.branch.id,
+      expectedBranchRevision: undone.branch.revision,
+      expectedRevisionId: undone.branch.currentRevisionId!,
+      templateId: "classic-technical",
+      overflowStatus: "overflow",
+      exportStatus: "print_invoked",
+      fileName: "d2-overflow.pdf"
+    })).rejects.toThrow("export_overflow_blocked");
+
+    await expect(repository.createResumeExportRecord({
+      operationId: "d2-repo-export-stale",
+      branchId: edited.branch.id,
+      expectedBranchRevision: created.branch.revision,
+      expectedRevisionId: created.branch.currentRevisionId!,
+      templateId: "classic-technical",
+      overflowStatus: "fits",
+      exportStatus: "print_invoked",
+      fileName: "d2-stale.pdf"
+    })).rejects.toBeInstanceOf(RevisionConflictError);
   });
 
   it("migrates legacy v4 placeholder branches as read-only legacy_unverified", async () => {
@@ -234,6 +283,16 @@ describe("D1 resume branch repository", () => {
       jobId: demoJobDescriptions[0].id,
       name: "Legacy placeholder",
       selectedItems: [{ experienceId: "exp", order: 0, visible: true }],
+      createdAt: TEST_TIME,
+      updatedAt: TEST_TIME
+    });
+    await legacy.exportRecords.put({
+      id: "legacy-export",
+      branchId: "legacy-branch",
+      revisionId: "legacy-revision",
+      templateId: "a4-probe",
+      format: "pdf",
+      fileName: "legacy.pdf",
       createdAt: TEST_TIME,
       updatedAt: TEST_TIME
     });
@@ -252,5 +311,24 @@ describe("D1 resume branch repository", () => {
       operationId: "d1-edit-legacy",
       edits: []
     })).rejects.toThrow("legacy_resume_branch_read_only");
+
+    await expect(repository.createResumeExportRecord({
+      operationId: "d2-export-legacy",
+      branchId: branches[0].id,
+      expectedBranchRevision: branches[0].revision,
+      expectedRevisionId: branches[0].currentRevisionId ?? "legacy-revision",
+      templateId: "classic-technical",
+      overflowStatus: "fits",
+      exportStatus: "print_invoked",
+      fileName: "legacy.pdf"
+    })).rejects.toThrow("legacy_branch_cannot_export");
+
+    const exported = await repository.exportWorkspaceJson();
+    expect(exported.exportRecords[0]).toMatchObject({
+      operationId: "legacy-export",
+      branchRevision: 0,
+      exportStatus: "print_invoked",
+      overflowStatus: "fits"
+    });
   });
 });

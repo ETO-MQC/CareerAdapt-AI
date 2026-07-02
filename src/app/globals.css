@@ -683,6 +683,213 @@ p {
   grid-template-columns: 1fr 1fr;
 }
 
+.resume-preview-layout {
+  align-items: start;
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(260px, 0.36fr) minmax(0, 1fr);
+  margin-bottom: 18px;
+}
+
+.resume-export-panel {
+  position: sticky;
+  top: 84px;
+}
+
+.resume-preview-stage {
+  background: #e8ebe7;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: auto;
+  padding: 18px;
+}
+
+.resume-a4-page {
+  background: #fff;
+  box-shadow: 0 18px 48px rgba(32, 37, 34, 0.18);
+  box-sizing: border-box;
+  color: #1f2320;
+  display: flex;
+  flex-direction: column;
+  font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", "Source Han Sans SC", Arial, sans-serif;
+  height: 297mm;
+  letter-spacing: 0;
+  margin: 0 auto;
+  overflow: hidden;
+  padding: 12mm 14mm;
+  width: 210mm;
+}
+
+.resume-template-header {
+  align-items: flex-start;
+  border-bottom: 2px solid #202522;
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+  padding-bottom: 7mm;
+}
+
+.resume-template-header h1 {
+  color: #111;
+  font-size: 21pt;
+  line-height: 1.1;
+  margin-bottom: 4px;
+}
+
+.resume-template-header p {
+  color: #38403b;
+  font-size: 10pt;
+  font-weight: 700;
+  line-height: 1.35;
+  margin-bottom: 0;
+}
+
+.resume-template-header address {
+  color: #333;
+  display: grid;
+  font-size: 8.8pt;
+  font-style: normal;
+  gap: 3px;
+  min-width: 43mm;
+  text-align: right;
+}
+
+.resume-template-header-compact {
+  border-bottom-color: #176b5b;
+  padding-bottom: 5mm;
+}
+
+.resume-template-section {
+  border-bottom: 1px solid #d9ded8;
+  padding: 5mm 0 3.8mm;
+}
+
+.resume-template-section:last-child {
+  border-bottom: 0;
+}
+
+.resume-template-section h2 {
+  color: #0f5145;
+  font-size: 11.2pt;
+  line-height: 1.2;
+  margin-bottom: 3mm;
+}
+
+.resume-block-list {
+  display: grid;
+  gap: 3mm;
+}
+
+.resume-template-section p,
+.resume-template-item p,
+.resume-inline-list span,
+.resume-tag-list span {
+  color: #262b28;
+  font-size: 9.3pt;
+  line-height: 1.48;
+  margin-bottom: 0;
+}
+
+.resume-template-item {
+  break-inside: avoid;
+  padding-left: 4mm;
+  position: relative;
+}
+
+.resume-template-item::before {
+  background: #202522;
+  border-radius: 999px;
+  content: "";
+  height: 1.5mm;
+  left: 0;
+  position: absolute;
+  top: 2.2mm;
+  width: 1.5mm;
+}
+
+.resume-inline-list,
+.resume-tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2mm 4mm;
+}
+
+.resume-inline-list span {
+  font-weight: 700;
+}
+
+.resume-tag-list span {
+  background: #eef6f3;
+  border: 1px solid #c7ddd5;
+  border-radius: 4px;
+  color: #0f5145;
+  padding: 1mm 2mm;
+}
+
+.resume-modern-grid {
+  display: grid;
+  flex: 1;
+  gap: 8mm;
+  grid-template-columns: 47mm minmax(0, 1fr);
+  min-height: 0;
+}
+
+.resume-modern-grid aside {
+  border-right: 1px solid #d9ded8;
+  padding-right: 6mm;
+}
+
+.template-modern-operations .resume-template-section {
+  padding: 4mm 0 3mm;
+}
+
+.template-modern-operations .resume-template-section h2 {
+  color: #202522;
+  font-size: 10.6pt;
+}
+
+.template-modern-operations .resume-template-item {
+  padding-left: 0;
+}
+
+.template-modern-operations .resume-template-item::before {
+  display: none;
+}
+
+.overflow-status {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 4px;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+}
+
+.overflow-status strong {
+  font-size: 18px;
+}
+
+.overflow-status span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.overflow-status-fits {
+  background: #eef6f3;
+  color: var(--accent-strong);
+}
+
+.overflow-status-near_limit {
+  background: #faf7ef;
+  color: #7a4b13;
+}
+
+.overflow-status-overflow {
+  background: #fff1f1;
+  color: #9b2c2c;
+}
+
 @page {
   size: A4;
   margin: 0;
@@ -702,6 +909,33 @@ p {
   }
 
   .a4-page {
+    box-shadow: none;
+    height: 297mm;
+    margin: 0;
+    page-break-after: avoid;
+    width: 210mm;
+  }
+
+  .resume-workspace {
+    margin: 0;
+    max-width: none;
+    padding: 0;
+  }
+
+  .resume-preview-layout {
+    display: block;
+    margin: 0;
+  }
+
+  .resume-preview-stage {
+    background: white;
+    border: 0;
+    border-radius: 0;
+    overflow: visible;
+    padding: 0;
+  }
+
+  .resume-a4-page {
     box-shadow: none;
     height: 297mm;
     margin: 0;
@@ -730,6 +964,7 @@ p {
     .stage-grid,
     .match-layout,
     .c2-layout,
+    .resume-preview-layout,
     .form-grid {
     grid-template-columns: 1fr;
   }
@@ -745,5 +980,14 @@ p {
     min-height: 297mm;
     transform-origin: top center;
     width: min(100%, 210mm);
+  }
+
+  .resume-export-panel {
+    position: static;
+  }
+
+  .resume-a4-page {
+    transform-origin: top center;
+    width: 210mm;
   }
 }

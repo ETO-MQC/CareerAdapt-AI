@@ -2,6 +2,44 @@ import { expect, test } from "@playwright/test";
 
 test.describe("Stage C1 evidence matcher flow", () => {
   test("runs rule matching, AI explanation, manual overrides, and stale display", async ({ page }) => {
+    await page.route("**/api/ai/structured", async (route) => {
+      const body = route.request().postDataJSON() as {
+        task: string;
+        input: {
+          requirement?: { id: string };
+          candidates?: Array<{ evidenceRef: unknown }>;
+        };
+      };
+
+      if (body.task === "evidence-matcher") {
+        const evidenceRef = body.input.candidates?.[0]?.evidenceRef;
+        await route.fulfill({
+          contentType: "application/json",
+          body: JSON.stringify({
+            ok: true,
+            task: "evidence-matcher",
+            promptVersion: "evidence-matcher.v1",
+            output: {
+              evaluations: [
+                {
+                  requirementId: body.input.requirement?.id,
+                  matchLevel: evidenceRef ? "weak" : "none",
+                  riskLevel: evidenceRef ? "low" : "medium",
+                  risks: evidenceRef ? [] : ["source_missing"],
+                  evidenceRefs: evidenceRef ? [evidenceRef] : [],
+                  explanation: "E2E 固定 AI 解释，仅用于离线回归。"
+                }
+              ]
+            },
+            meta: { provider: "mock", model: "mock-c1", inputLength: 1, outputLength: 1, latencyMs: 1 }
+          })
+        });
+        return;
+      }
+
+      await route.continue();
+    });
+
     await page.goto("/jobs");
     await expect(page.getByText("岗位JD解析")).toBeVisible();
 

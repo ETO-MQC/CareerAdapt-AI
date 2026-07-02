@@ -104,7 +104,7 @@ describe("WorkspaceRepository", () => {
     expect(updated?.version).toBe(2);
 
     const exported = await repository.exportWorkspaceJson();
-    expect(exported.schemaVersion).toBe("stage-c-c2-v1");
+    expect(exported.schemaVersion).toBe("stage-d-d2-v1");
     expect(exported.profiles).toHaveLength(1);
     expect(exported.jobDescriptions).toHaveLength(2);
     expect(exported.rawInputs).toHaveLength(0);
@@ -288,11 +288,17 @@ describe("WorkspaceRepository", () => {
 
     const exportRecord: ExportRecord = {
       id: "export-storage-test",
+      operationId: "export-storage-test",
       branchId: branch.id,
       revisionId: "revision-storage-test",
+      branchRevision: 0,
       templateId: "a4-probe",
       format: "pdf",
       fileName: "stage-a-probe.pdf",
+      displayName: "stage-a-probe.pdf",
+      exportStatus: "print_invoked",
+      overflowStatus: "fits",
+      exportedAt: TEST_TIME,
       createdAt: TEST_TIME,
       updatedAt: TEST_TIME
     };

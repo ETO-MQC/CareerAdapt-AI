@@ -1,24 +1,39 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   type JobAdaptationDraft,
   type ResumeBranch,
-  type ResumeRevision
+  type ResumeRenderModel,
+  type ResumeRevision,
+  type TemplateId
 } from "@/domain/schemas";
+import { mapBranchToResumeRenderModel, ResumeRenderMapperError } from "@/domain/resumeRender/mapper";
+import { A4ResumePreview } from "@/components/resume/A4ResumePreview";
+import { classifyOverflow, useA4Overflow } from "@/components/resume/useA4Overflow";
+import { getResumeTemplate, resumeTemplates } from "@/components/resume/templates/templateRegistry";
+import { printCurrentPage } from "@/services/export/browserPrint";
 import { stableHashText } from "@/services/security/text";
 import { RevisionConflictError, WorkspaceRepository } from "@/services/storage/repositories";
 import { useWorkspace } from "@/services/workspace/useWorkspace";
 import { WorkspaceEmptyState, WorkspaceErrorState, WorkspaceLoadingState } from "@/components/workspace/WorkspaceStates";
 
 const repository = new WorkspaceRepository();
+const DEFAULT_TEMPLATE_ID: TemplateId = "classic-technical";
+
+type WorkbenchState = {
+  branchId?: string;
+  templateId?: TemplateId;
+};
 
 export function ResumeWorkspace() {
   const workspace = useWorkspace(repository);
+  const pageRef = useRef<HTMLElement | null>(null);
   const [drafts, setDrafts] = useState<JobAdaptationDraft[]>([]);
   const [branches, setBranches] = useState<ResumeBranch[]>([]);
   const [selectedDraftId, setSelectedDraftId] = useState("");
   const [selectedBranchId, setSelectedBranchId] = useState("");
+  const [templateId, setTemplateId] = useState<TemplateId>(DEFAULT_TEMPLATE_ID);
   const [revisions, setRevisions] = useState<ResumeRevision[]>([]);
   const [message, setMessage] = useState<string | undefined>();
   const [draftName, setDraftName] = useState("");
@@ -31,6 +46,15 @@ export function ResumeWorkspace() {
   const selectedDraft = drafts.find((draft) => draft.id === activeDraftId);
   const selectedBranch = branches.find((branch) => branch.id === activeBranchId);
   const selectedBranchJob = selectedBranch ? jobs.find((job) => job.id === selectedBranch.jobId) : undefined;
+  const selectedTemplate = getResumeTemplate(templateId);
+  const renderResult = useMemo(() => buildRenderModel({
+    branch: selectedBranch,
+    profile,
+    job: selectedBranchJob
+  }), [selectedBranch, profile, selectedBranchJob]);
+  const renderModel = renderResult.model;
+  const overflow = useA4Overflow(pageRef, [renderModel?.branchId, renderModel?.branchRevision, templateId]);
+  const reductionHints = useMemo(() => renderModel ? buildReductionHints(renderModel) : [], [renderModel]);
 
   const refreshLists = useCallback(async (profileId: string) => {
     const [nextDrafts, nextBranches] = await Promise.all([
@@ -47,13 +71,22 @@ export function ResumeWorkspace() {
     }
     let active = true;
     async function loadLists() {
-      const [nextDrafts, nextBranches] = await Promise.all([
+      const [nextDrafts, nextBranches, savedState] = await Promise.all([
         repository.listJobAdaptationDrafts(profile!.id),
-        repository.listResumeBranches(profile!.id)
+        repository.listResumeBranches(profile!.id),
+        repository.getMeta(workbenchStateKey(profile!.id))
       ]);
-      if (active) {
-        setDrafts(nextDrafts);
-        setBranches(nextBranches);
+      if (!active) {
+        return;
+      }
+      setDrafts(nextDrafts);
+      setBranches(nextBranches);
+      const parsed = parseWorkbenchState(savedState?.value);
+      if (parsed.templateId) {
+        setTemplateId(parsed.templateId);
+      }
+      if (parsed.branchId && nextBranches.some((branch) => branch.id === parsed.branchId)) {
+        setSelectedBranchId(parsed.branchId);
       }
     }
     void loadLists();
@@ -78,6 +111,16 @@ export function ResumeWorkspace() {
       active = false;
     };
   }, [activeBranchId]);
+
+  useEffect(() => {
+    if (!profile || !activeBranchId) {
+      return;
+    }
+    void repository.setMeta(workbenchStateKey(profile.id), {
+      branchId: activeBranchId,
+      templateId
+    } satisfies WorkbenchState);
+  }, [profile, activeBranchId, templateId]);
 
   const draftOptions = useMemo(() => drafts.map((draft) => {
     const job = jobs.find((item) => item.id === draft.jobId);
@@ -203,6 +246,74 @@ export function ResumeWorkspace() {
     setMessage("syncStatus 已基于当前母档案、岗位和事实引用重新计算；分支内容未被自动覆盖。");
   }
 
+  async function exportPdf() {
+    if (!selectedBranch || !renderModel) {
+      setMessage("当前分支无法生成正式预览，不能导出。");
+      return;
+    }
+
+    const page = pageRef.current;
+    const measured = page
+      ? classifyOverflow({ scrollHeight: page.scrollHeight, clientHeight: page.clientHeight })
+      : overflow;
+    const fileName = buildExportFileName(renderModel, templateId);
+    const operationId = `d2-export-${selectedBranch.id}-${selectedBranch.revision}-${selectedBranch.currentRevisionId}-${templateId}-${measured.status}`;
+
+    try {
+      const [latestBranch, latestProfile, latestJob] = await Promise.all([
+        repository.getResumeBranch(selectedBranch.id),
+        repository.getProfile(selectedBranch.profileId),
+        repository.getJobDescription(selectedBranch.jobId)
+      ]);
+
+      if (!latestBranch || !latestProfile || !latestJob) {
+        throw new Error("export_source_missing");
+      }
+      if (latestBranch.revision !== renderModel.branchRevision || latestBranch.currentRevisionId !== renderModel.branchCurrentRevisionId) {
+        replaceBranch(latestBranch);
+        setMessage("导出已停止：分支 revision 已更新，已刷新预览，请重新检查后导出。");
+        return;
+      }
+
+      mapBranchToResumeRenderModel({ branch: latestBranch, profile: latestProfile, job: latestJob });
+
+      if (measured.status === "overflow") {
+        await repository.createResumeExportRecord({
+          operationId,
+          branchId: latestBranch.id,
+          expectedBranchRevision: latestBranch.revision,
+          expectedRevisionId: latestBranch.currentRevisionId!,
+          templateId,
+          overflowStatus: "overflow",
+          exportStatus: "blocked_overflow",
+          fileName,
+          errorCode: "overflow"
+        });
+        setMessage("导出已阻止：当前 A4 预览为 overflow，请先删减内容。");
+        return;
+      }
+
+      await repository.createResumeExportRecord({
+        operationId,
+        branchId: latestBranch.id,
+        expectedBranchRevision: latestBranch.revision,
+        expectedRevisionId: latestBranch.currentRevisionId!,
+        templateId,
+        overflowStatus: measured.status,
+        exportStatus: "print_invoked",
+        fileName
+      });
+      printCurrentPage();
+      setMessage(measured.status === "near_limit"
+        ? "已打开浏览器打印。当前接近单页上限，请在打印预览中再次确认。"
+        : "已打开浏览器打印，可保存为文本可复制的 PDF。");
+    } catch (error) {
+      setMessage(error instanceof RevisionConflictError
+        ? "导出失败：分支 revision 已变化，请刷新后重试。"
+        : "导出失败：分支可能不可导出、引用失效或导出记录写入失败。");
+    }
+  }
+
   function replaceBranch(branch: ResumeBranch) {
     setBranches((current) => current.map((item) => item.id === branch.id ? branch : item));
     void repository.listResumeRevisions(branch.id).then(setRevisions);
@@ -233,16 +344,16 @@ export function ResumeWorkspace() {
   }
 
   return (
-    <main className="page-shell">
-      <section className="page-title">
-        <p className="eyebrow">Stage D1 / Resume Branches</p>
-        <h1>正式岗位分支</h1>
-        <p>从 C2 适配草稿创建正式分支，分支只引用母档案事实，不覆盖职业母档案或岗位数据。</p>
+    <main className="page-shell resume-workspace">
+      <section className="page-title no-print">
+        <p className="eyebrow">Stage D2 / Templates & PDF</p>
+        <h1>简历工作台</h1>
+        <p>正式分支进入统一 RenderModel 后，可切换双模板、检查 A4 单页状态，并通过浏览器打印导出 PDF。</p>
       </section>
 
-      {message ? <section className="notice">{message}</section> : null}
+      {message ? <section className="notice no-print">{message}</section> : null}
 
-      <section className="stage-grid">
+      <section className="stage-grid no-print">
         <article className="panel">
           <h2>1. 从 C2 草稿创建分支</h2>
           {draftOptions.length > 0 ? (
@@ -285,7 +396,7 @@ export function ResumeWorkspace() {
       </section>
 
       {selectedBranch ? (
-        <section className="panel">
+        <section className="panel no-print">
           <div className="section-heading">
             <div>
               <h2>{selectedBranch.name}</h2>
@@ -301,7 +412,7 @@ export function ResumeWorkspace() {
           </div>
 
           {selectedBranch.migrationStatus === "legacy_unverified" ? (
-            <div className="warning-box">这是旧占位分支，已按 legacy_unverified 只读保留，不参与正式编辑、版本恢复或后续导出。</div>
+            <div className="warning-box">这是旧占位分支，已按 legacy_unverified 只读保留，不参与正式编辑、版本恢复、预览或后续导出。</div>
           ) : null}
 
           {selectedBranch.syncStatusCache.status !== "in_sync" ? (
@@ -347,7 +458,59 @@ export function ResumeWorkspace() {
       ) : null}
 
       {selectedBranch ? (
-        <section className="panel">
+        <section className="resume-preview-layout">
+          <aside className="panel no-print resume-export-panel">
+            <h2>3. 模板与导出</h2>
+            <label className="field-label">
+              模板
+              <select value={templateId} onChange={(event) => setTemplateId(event.target.value as TemplateId)}>
+                {resumeTemplates.map((template) => (
+                  <option key={template.id} value={template.id}>{template.name} / {template.audience}</option>
+                ))}
+              </select>
+            </label>
+            <div className={`overflow-status overflow-status-${overflow.status}`} data-testid="overflow-status">
+              <strong>{overflow.status}</strong>
+              <span>剩余 {Math.floor(overflow.remainingPx)}px</span>
+            </div>
+            {renderModel?.safety.ruleOnlyItemIds.length ? (
+              <div className="warning-box">该分支包含 rule_only_verified 内容，工作台已显示校验状态；PDF 正文不会加入内部风险标签。</div>
+            ) : null}
+            {overflow.status === "near_limit" ? (
+              <div className="warning-box">当前接近单页上限，建议导出前在打印预览中复核。</div>
+            ) : null}
+            {overflow.status === "overflow" ? (
+              <div className="warning-box">
+                <p>当前内容已超出 A4 单页，正式导出会被阻止。</p>
+                {reductionHints.length > 0 ? (
+                  <ul>
+                    {reductionHints.map((hint) => <li key={hint}>{hint}</li>)}
+                  </ul>
+                ) : null}
+              </div>
+            ) : null}
+            <button
+              className="primary-button"
+              onClick={exportPdf}
+              disabled={!renderModel}
+            >
+              打印 / 保存 PDF
+            </button>
+            {renderResult.error ? <p className="save-status save-status-failed">{renderResult.error}</p> : null}
+          </aside>
+
+          <div className="resume-preview-stage">
+            {renderModel ? (
+              <A4ResumePreview model={renderModel} template={selectedTemplate} pageRef={pageRef} />
+            ) : (
+              <div className="panel no-print">当前分支不能进入正式模板预览。</div>
+            )}
+          </div>
+        </section>
+      ) : null}
+
+      {selectedBranch ? (
+        <section className="panel no-print">
           <h2>版本历史</h2>
           {revisions.length > 0 ? (
             <div className="revision-list">
@@ -374,4 +537,60 @@ export function ResumeWorkspace() {
       ) : null}
     </main>
   );
+}
+
+function buildRenderModel(input: {
+  branch?: ResumeBranch;
+  profile?: Parameters<typeof mapBranchToResumeRenderModel>[0]["profile"];
+  job?: Parameters<typeof mapBranchToResumeRenderModel>[0]["job"];
+}): { model?: ResumeRenderModel; error?: string } {
+  if (!input.branch || !input.profile || !input.job) {
+    return {};
+  }
+
+  try {
+    return {
+      model: mapBranchToResumeRenderModel({
+        branch: input.branch,
+        profile: input.profile,
+        job: input.job
+      })
+    };
+  } catch (error) {
+    return {
+      error: error instanceof ResumeRenderMapperError
+        ? `预览阻止：${error.code}`
+        : "预览阻止：分支内容无法通过正式渲染校验。"
+    };
+  }
+}
+
+function parseWorkbenchState(value: unknown): WorkbenchState {
+  if (!value || typeof value !== "object") {
+    return {};
+  }
+  const candidate = value as WorkbenchState;
+  return {
+    branchId: typeof candidate.branchId === "string" ? candidate.branchId : undefined,
+    templateId: candidate.templateId === "classic-technical" || candidate.templateId === "modern-operations"
+      ? candidate.templateId
+      : undefined
+  };
+}
+
+function workbenchStateKey(profileId: string) {
+  return `resumeWorkbenchState:${profileId}`;
+}
+
+function buildExportFileName(model: ResumeRenderModel, templateId: TemplateId) {
+  const base = `${model.candidate.name}-${model.company}-${model.jobTitle}-${templateId}`;
+  return `${base.replace(/[\\/:*?"<>|]/g, "-")}.pdf`;
+}
+
+function buildReductionHints(model: ResumeRenderModel) {
+  return model.sections
+    .flatMap((section) => section.blocks.map((block) => ({ section: section.title, block })))
+    .sort((a, b) => b.block.text.length - a.block.text.length)
+    .slice(0, 3)
+    .map((item) => `${item.section}：优先压缩「${item.block.text.slice(0, 28)}...」`);
 }

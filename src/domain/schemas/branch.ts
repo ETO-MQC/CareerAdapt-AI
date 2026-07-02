@@ -215,12 +215,31 @@ export const ResumeBranchOperationSchema = EntityBaseSchema.extend({
   occurredAt: IsoDateStringSchema
 });
 
+export const ExportStatusSchema = z.enum([
+  "print_invoked",
+  "blocked_overflow",
+  "failed"
+]);
+
+export const ExportOverflowStatusSchema = z.enum([
+  "fits",
+  "near_limit",
+  "overflow"
+]);
+
 export const ExportRecordSchema = EntityBaseSchema.extend({
+  operationId: z.string().min(1),
   branchId: z.string().min(1),
   revisionId: z.string().min(1),
+  branchRevision: z.number().int().min(0),
   templateId: z.string().min(1),
   format: z.enum(["pdf", "json"]),
-  fileName: z.string().min(1)
+  fileName: z.string().min(1),
+  displayName: z.string().min(1),
+  exportStatus: ExportStatusSchema,
+  overflowStatus: ExportOverflowStatusSchema,
+  exportedAt: IsoDateStringSchema,
+  errorCode: z.string().min(1).optional()
 });
 
 export type BranchLifecycleStatus = z.infer<typeof BranchLifecycleStatusSchema>;
@@ -239,4 +258,6 @@ export type ResumeRevision = z.infer<typeof ResumeRevisionSchema>;
 export type ResumeBranch = z.infer<typeof ResumeBranchSchema>;
 export type ResumeBranchOperationType = z.infer<typeof ResumeBranchOperationTypeSchema>;
 export type ResumeBranchOperation = z.infer<typeof ResumeBranchOperationSchema>;
+export type ExportStatus = z.infer<typeof ExportStatusSchema>;
+export type ExportOverflowStatus = z.infer<typeof ExportOverflowStatusSchema>;
 export type ExportRecord = z.infer<typeof ExportRecordSchema>;

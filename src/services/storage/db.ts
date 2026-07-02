@@ -174,6 +174,69 @@ export class CareerAdaptDb extends Dexie {
         });
       }
     });
+
+    this.version(6).stores({
+      profiles: "id, name, updatedAt",
+      jobDescriptions: "id, title, company, updatedAt",
+      rawInputs: "id, kind, inputHash, updatedAt",
+      profileImportDrafts: "id, rawInputId, status, updatedAt",
+      jobAnalysisDrafts: "id, rawInputId, status, updatedAt",
+      draftCommits: "commitId, draftId, kind, entityId",
+      requirementMatches: "id, [profileId+jobId], requirementId, isStale, updatedAt",
+      matchOperations: "id, operationId, requirementMatchId, [profileId+jobId], type, occurredAt",
+      jobAdaptationDrafts: "id, [profileId+jobId], status, updatedAt",
+      aiSuggestions: "id, draftId, status, type, updatedAt",
+      adaptationSnapshots: "id, draftId, revision, operationId, updatedAt",
+      suggestionOperations: "id, operationId, draftId, suggestionId, type, occurredAt",
+      resumeBranches: "id, profileId, jobId, sourceAdaptationDraftId, lifecycleStatus, migrationStatus, updatedAt",
+      resumeRevisions: "id, branchId, revisionNumber, operationId, source, createdAt",
+      resumeBranchOperations: "id, &operationId, branchId, sourceAdaptationDraftId, type, occurredAt",
+      aiLogs: "id, task, provider, createdAt",
+      exportRecords: "id, &operationId, branchId, branchRevision, templateId, exportStatus, exportedAt",
+      appMeta: "key"
+    }).upgrade(async (tx) => {
+      const table = tx.table("exportRecords");
+      const records = await table.toArray();
+      const now = new Date().toISOString();
+
+      for (const record of records) {
+        const legacy = record as {
+          id?: string;
+          operationId?: string;
+          branchId?: string;
+          revisionId?: string;
+          branchRevision?: number;
+          templateId?: string;
+          format?: "pdf" | "json";
+          fileName?: string;
+          displayName?: string;
+          exportStatus?: string;
+          overflowStatus?: string;
+          exportedAt?: string;
+          createdAt?: string;
+          updatedAt?: string;
+        };
+        const id = legacy.id ?? `export-${crypto.randomUUID()}`;
+        const fileName = legacy.fileName ?? "resume-export.pdf";
+        await table.put({
+          ...record,
+          id,
+          operationId: legacy.operationId ?? id,
+          branchId: legacy.branchId ?? "legacy-branch",
+          revisionId: legacy.revisionId ?? "legacy-revision",
+          branchRevision: legacy.branchRevision ?? 0,
+          templateId: legacy.templateId ?? "legacy-template",
+          format: legacy.format ?? "pdf",
+          fileName,
+          displayName: legacy.displayName ?? fileName,
+          exportStatus: legacy.exportStatus ?? "print_invoked",
+          overflowStatus: legacy.overflowStatus ?? "fits",
+          exportedAt: legacy.exportedAt ?? legacy.createdAt ?? now,
+          createdAt: legacy.createdAt ?? now,
+          updatedAt: legacy.updatedAt ?? now
+        });
+      }
+    });
   }
 }
 

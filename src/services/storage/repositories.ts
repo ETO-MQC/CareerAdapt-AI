@@ -24,6 +24,8 @@ import {
   type CareerProfile,
   type DraftCommit,
   type ExportRecord,
+  type ExportOverflowStatus,
+  type ExportStatus,
   type FactGuardResult,
   type JobAdaptationDraft,
   type JobAdaptationSectionText,
@@ -57,7 +59,7 @@ import {
 import { CareerAdaptDb, careerAdaptDb, type AppMeta } from "./db";
 
 export type WorkspaceExport = {
-  schemaVersion: "stage-c-c2-v1";
+  schemaVersion: "stage-d-d2-v1";
   exportedAt: string;
   profiles: CareerProfile[];
   jobDescriptions: JobDescription[];
@@ -360,6 +362,11 @@ export class WorkspaceRepository {
   async listJobDescriptions() {
     const jobDescriptions = await this.db.jobDescriptions.toArray();
     return jobDescriptions.map((jobDescription) => JobDescriptionSchema.parse(jobDescription));
+  }
+
+  async getJobDescription(id: string) {
+    const jobDescription = await this.db.jobDescriptions.get(id);
+    return jobDescription ? JobDescriptionSchema.parse(jobDescription) : undefined;
   }
 
   async saveResumeBranch(branch: ResumeBranch) {
@@ -1112,6 +1119,72 @@ export class WorkspaceRepository {
     return parsed;
   }
 
+  async createResumeExportRecord(input: {
+    operationId: string;
+    branchId: string;
+    expectedBranchRevision: number;
+    expectedRevisionId: string;
+    templateId: string;
+    overflowStatus: ExportOverflowStatus;
+    exportStatus: ExportStatus;
+    fileName: string;
+    displayName?: string;
+    errorCode?: string;
+  }) {
+    return this.db.transaction("rw", this.db.resumeBranches, this.db.exportRecords, async () => {
+      const existing = await this.db.exportRecords.where("operationId").equals(input.operationId).first();
+      if (existing) {
+        return {
+          record: ExportRecordSchema.parse(existing),
+          idempotent: true
+        };
+      }
+
+      const branch = await this.db.resumeBranches.get(input.branchId);
+      if (!branch) {
+        throw new Error("export_branch_missing");
+      }
+      const parsedBranch = ResumeBranchSchema.parse(branch);
+      if (parsedBranch.migrationStatus !== "verified") {
+        throw new Error("legacy_branch_cannot_export");
+      }
+      if (parsedBranch.lifecycleStatus !== "active") {
+        throw new Error("archived_branch_cannot_export");
+      }
+      if (parsedBranch.revision !== input.expectedBranchRevision || parsedBranch.currentRevisionId !== input.expectedRevisionId) {
+        throw new RevisionConflictError();
+      }
+      if (input.exportStatus === "print_invoked" && input.overflowStatus === "overflow") {
+        throw new Error("export_overflow_blocked");
+      }
+      if (parsedBranch.syncStatusCache.status === "invalid_reference") {
+        throw new Error("export_invalid_reference");
+      }
+
+      const now = new Date().toISOString();
+      const record = ExportRecordSchema.parse({
+        id: `export-${input.operationId}`,
+        operationId: input.operationId,
+        branchId: parsedBranch.id,
+        revisionId: parsedBranch.currentRevisionId,
+        branchRevision: parsedBranch.revision,
+        templateId: input.templateId,
+        format: "pdf",
+        fileName: input.fileName,
+        displayName: input.displayName ?? input.fileName,
+        exportStatus: input.exportStatus,
+        overflowStatus: input.overflowStatus,
+        exportedAt: now,
+        errorCode: input.errorCode,
+        createdAt: now,
+        updatedAt: now
+      });
+
+      await this.db.exportRecords.put(record);
+      return { record, idempotent: false };
+    });
+  }
+
   async setMeta(key: string, value: unknown) {
     const meta = {
       key,
@@ -1129,7 +1202,7 @@ export class WorkspaceRepository {
 
   async exportWorkspaceJson(): Promise<WorkspaceExport> {
     return {
-      schemaVersion: "stage-c-c2-v1",
+      schemaVersion: "stage-d-d2-v1",
       exportedAt: new Date().toISOString(),
       profiles: await this.listProfiles(),
       jobDescriptions: await this.listJobDescriptions(),

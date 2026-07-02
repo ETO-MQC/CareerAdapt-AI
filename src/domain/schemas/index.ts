@@ -5,3 +5,4 @@ export * from "./common";
 export * from "./importDraft";
 export * from "./job";
 export * from "./profile";
+export * from "./resumeRender";
