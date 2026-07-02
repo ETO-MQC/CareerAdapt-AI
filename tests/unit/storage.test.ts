@@ -222,36 +222,54 @@ describe("WorkspaceRepository", () => {
       profileId: demoCareerProfile.id,
       jobId: demoJobDescriptions[0].id,
       name: "阶段A Repository 分支写入测试",
-      selectedItems: [
-        {
-          experienceId: demoCareerProfile.experiences[0].id,
-          draftId: demoCareerProfile.experiences[0].resumeDrafts[0].id,
-          order: 0,
-          visible: true
-        }
-      ],
-      customTexts: [],
-      templateId: "a4-probe",
-      templateConfig: {
-        templateId: "a4-probe",
-        fontScale: 1,
-        density: "comfortable"
-      },
+      sourceProfileVersion: demoCareerProfile.version,
+      sourceJobVersion: demoJobDescriptions[0].updatedAt,
+      sourceAdaptationDraftId: "adapt-storage-test",
+      sourceDraftRevision: 0,
+      matcherVersion: "evidence-matcher.v1",
+      sourceMatchSetHash: "storage-test-hash",
+      requirementMatchIds: ["match-storage-test"],
+      revision: 0,
       currentRevisionId: "revision-storage-test",
-      profileVersion: demoCareerProfile.version,
-      requirementMatches: [],
-      aiSuggestions: [],
-      revisions: [
+      lifecycleStatus: "active",
+      migrationStatus: "verified",
+      syncStatusCache: {
+        status: "in_sync",
+        sourceProfileVersion: demoCareerProfile.version,
+        currentProfileVersion: demoCareerProfile.version,
+        sourceJobVersion: demoJobDescriptions[0].updatedAt,
+        currentJobVersion: demoJobDescriptions[0].updatedAt,
+        invalidFactRefs: [],
+        checkedAt: TEST_TIME,
+        message: "Branch is in sync with its source profile and job versions."
+      },
+      contentItems: [
         {
-          id: "revision-storage-test",
-          branchId: "branch-storage-test",
-          snapshot: { source: "repository-test" },
-          source: "template_probe",
-          createdAt: TEST_TIME,
-          updatedAt: TEST_TIME
+          id: "branch-item-storage-test",
+          itemType: "experience",
+          source: "adaptation_draft",
+          sourceSectionId: "section-storage-test",
+          text: demoCareerProfile.experiences[0].facts[0].statement,
+          originalText: demoCareerProfile.experiences[0].facts[0].statement,
+          order: 0,
+          visible: true,
+          requirementIds: [demoJobDescriptions[0].requirements[0].id],
+          sourceSuggestionIds: [],
+          factRefs: [
+            {
+              type: "experience_fact",
+              experienceId: demoCareerProfile.experiences[0].id,
+              factId: demoCareerProfile.experiences[0].facts[0].id
+            }
+          ],
+          guardMode: "rule_verified",
+          guardStatus: "pass",
+          guardRiskLevel: "low",
+          guardFindings: [],
+          guardedAt: TEST_TIME,
+          guardVersion: "fact-guard-rule.v1"
         }
       ],
-      exportRecords: [],
       createdAt: TEST_TIME,
       updatedAt: TEST_TIME
     };

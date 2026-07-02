@@ -61,6 +61,7 @@ export function JobsWorkspace() {
   const [suggestions, setSuggestions] = useState<AiSuggestion[]>([]);
   const [c2Status, setC2Status] = useState<"idle" | "running" | "failed">("idle");
   const [editedSuggestions, setEditedSuggestions] = useState<Record<string, string>>({});
+  const [selectedJobId, setSelectedJobId] = useState<string>("");
 
   useEffect(() => {
     let active = true;
@@ -96,7 +97,7 @@ export function JobsWorkspace() {
   const output = draft?.analyzerOutput ?? (draft ? { requirements: draft.manualRequirements, riskNotes: draft.riskNotes } : undefined);
   const profile = workspace.status === "ready" ? workspace.profiles[0] : undefined;
   const jobs = workspace.status === "ready" ? workspace.jobs : [];
-  const selectedJob = jobs[0];
+  const selectedJob = jobs.find((job) => job.id === selectedJobId) ?? jobs[0];
 
   useEffect(() => {
     let active = true;
@@ -848,6 +849,23 @@ export function JobsWorkspace() {
 
       <section className="panel">
         <h2>当前正式岗位数据</h2>
+        {jobs.length > 0 ? (
+          <label className="field-label">
+            D1 当前岗位
+            <select value={selectedJob?.id ?? ""} onChange={(event) => {
+              setSelectedJobId(event.target.value);
+              setSelectedMatchId(undefined);
+              setAdaptationDraft(undefined);
+              setSuggestions([]);
+            }}>
+              {jobs.map((job) => (
+                <option key={job.id} value={job.id}>
+                  {job.company} / {job.title}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
         <div className="job-list">
           {jobs.length > 0 ? (
             jobs.map((job) => (

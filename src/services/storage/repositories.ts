@@ -3,6 +3,7 @@ import { demoCareerProfile } from "@/data/demoProfile";
 import {
   AiLogSchema,
   AiSuggestionSchema,
+  BranchContentItemSchema,
   CareerProfileSchema,
   DraftCommitSchema,
   ExportRecordSchema,
@@ -15,6 +16,8 @@ import {
   RawInputDocumentSchema,
   RequirementMatchSchema,
   ResumeBranchSchema,
+  ResumeBranchOperationSchema,
+  ResumeRevisionSchema,
   SuggestionOperationSchema,
   type AiLog,
   type AiSuggestion,
@@ -33,8 +36,14 @@ import {
   type RawInputDocument,
   type RequirementMatch,
   type ResumeBranch,
+  type ResumeBranchOperation,
+  type ResumeRevision,
   type SuggestionOperation
 } from "@/domain/schemas";
+import { mapAdaptationDraftToResumeBranch } from "@/domain/branch/mapper";
+import { createResumeRevision } from "@/domain/branch/revision";
+import { computeBranchSyncStatus, resolveBranchFactRefs } from "@/domain/branch/validation";
+import { runRuleFactGuard } from "@/domain/adaptation/factGuard";
 import {
   AdaptationDraftError,
   assertC2MatchesUsable,
@@ -63,6 +72,8 @@ export type WorkspaceExport = {
   adaptationSnapshots: JobAdaptationSnapshot[];
   suggestionOperations: SuggestionOperation[];
   resumeBranches: ResumeBranch[];
+  resumeRevisions: ResumeRevision[];
+  resumeBranchOperations: ResumeBranchOperation[];
   aiLogs: AiLog[];
   exportRecords: ExportRecord[];
   appMeta: AppMeta[];
@@ -357,6 +368,94 @@ export class WorkspaceRepository {
     return parsed;
   }
 
+  async createResumeBranchFromDraft(input: {
+    draftId: string;
+    expectedDraftRevision: number;
+    operationId: string;
+    name: string;
+  }) {
+    return this.db.transaction(
+      "rw",
+      [
+        this.db.jobAdaptationDrafts,
+        this.db.aiSuggestions,
+        this.db.profiles,
+        this.db.jobDescriptions,
+        this.db.requirementMatches,
+        this.db.resumeBranches,
+        this.db.resumeRevisions,
+        this.db.resumeBranchOperations
+      ],
+      async () => {
+        const existingOperation = await this.db.resumeBranchOperations.where("operationId").equals(input.operationId).first();
+        if (existingOperation?.branchId) {
+          const branch = await this.db.resumeBranches.get(existingOperation.branchId);
+          if (!branch) {
+            throw new Error("resume_branch_missing_for_operation");
+          }
+          return {
+            branch: ResumeBranchSchema.parse(branch),
+            revision: existingOperation.revisionId ? await this.getResumeRevisionInTransaction(existingOperation.revisionId) : undefined,
+            idempotent: true,
+            warnings: [] as string[]
+          };
+        }
+
+        const draft = await this.db.jobAdaptationDrafts.get(input.draftId);
+        if (!draft || draft.revision !== input.expectedDraftRevision) {
+          throw new RevisionConflictError();
+        }
+        const parsedDraft = JobAdaptationDraftSchema.parse(draft);
+        const [profile, job, suggestions, matches] = await Promise.all([
+          this.db.profiles.get(parsedDraft.profileId),
+          this.db.jobDescriptions.get(parsedDraft.jobId),
+          this.db.aiSuggestions.where("draftId").equals(parsedDraft.id).toArray(),
+          this.db.requirementMatches.where("[profileId+jobId]").equals([parsedDraft.profileId, parsedDraft.jobId]).toArray()
+        ]);
+
+        if (!profile || !job) {
+          throw new Error("branch_source_missing");
+        }
+
+        const now = new Date().toISOString();
+        const mapped = mapAdaptationDraftToResumeBranch({
+          draft: parsedDraft,
+          suggestions: suggestions.map((suggestion) => AiSuggestionSchema.parse(suggestion)),
+          profile: CareerProfileSchema.parse(profile),
+          job: JobDescriptionSchema.parse(job),
+          matches: matches.map((match) => RequirementMatchSchema.parse(match)),
+          operationId: input.operationId,
+          name: input.name,
+          now
+        });
+        const operation = ResumeBranchOperationSchema.parse({
+          id: `resume-branch-op-${input.operationId}`,
+          operationId: input.operationId,
+          branchId: mapped.branch.id,
+          sourceAdaptationDraftId: parsedDraft.id,
+          type: "create_from_draft",
+          expectedRevision: input.expectedDraftRevision,
+          beforeRevision: 0,
+          afterRevision: mapped.branch.revision,
+          revisionId: mapped.firstRevision.id,
+          occurredAt: now,
+          createdAt: now,
+          updatedAt: now
+        });
+
+        await this.db.resumeBranches.put(mapped.branch);
+        await this.db.resumeRevisions.put(mapped.firstRevision);
+        await this.db.resumeBranchOperations.put(operation);
+        return {
+          branch: mapped.branch,
+          revision: mapped.firstRevision,
+          idempotent: false,
+          warnings: mapped.warnings
+        };
+      }
+    );
+  }
+
   async saveRuleRequirementMatches(input: {
     profile: CareerProfile;
     job: JobDescription;
@@ -598,6 +697,14 @@ export class WorkspaceRepository {
     return draft ? JobAdaptationDraftSchema.parse(draft) : undefined;
   }
 
+  async listJobAdaptationDrafts(profileId?: string) {
+    const drafts = await this.db.jobAdaptationDrafts.toArray();
+    return drafts
+      .map((draft) => JobAdaptationDraftSchema.parse(draft))
+      .filter((draft) => !profileId || draft.profileId === profileId)
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  }
+
   async listAiSuggestions(draftId: string) {
     const suggestions = await this.db.aiSuggestions.where("draftId").equals(draftId).toArray();
     return suggestions.map((suggestion) => AiSuggestionSchema.parse(suggestion));
@@ -768,9 +875,229 @@ export class WorkspaceRepository {
     });
   }
 
-  async listResumeBranches() {
-    const branches = await this.db.resumeBranches.toArray();
+  async listResumeBranches(profileId?: string) {
+    const branches = profileId
+      ? await this.db.resumeBranches.where("profileId").equals(profileId).toArray()
+      : await this.db.resumeBranches.toArray();
     return branches.map((branch) => ResumeBranchSchema.parse(branch));
+  }
+
+  async getResumeBranch(branchId: string) {
+    const branch = await this.db.resumeBranches.get(branchId);
+    return branch ? ResumeBranchSchema.parse(branch) : undefined;
+  }
+
+  async listResumeRevisions(branchId: string) {
+    const revisions = await this.db.resumeRevisions.where("branchId").equals(branchId).toArray();
+    return revisions
+      .map((revision) => ResumeRevisionSchema.parse(revision))
+      .sort((a, b) => a.revisionNumber - b.revisionNumber);
+  }
+
+  async editResumeBranch(input: {
+    branchId: string;
+    expectedRevision: number;
+    operationId: string;
+    edits: Array<{
+      itemId: string;
+      text?: string;
+      order?: number;
+      visible?: boolean;
+    }>;
+  }) {
+    return this.mutateResumeBranch({
+      branchId: input.branchId,
+      expectedRevision: input.expectedRevision,
+      operationId: input.operationId,
+      type: "manual_edit",
+      source: "manual_edit",
+      mutate: async ({ branch, profile, now }) => {
+        const nextItems = branch.contentItems.map((item) => {
+          const edit = input.edits.find((candidate) => candidate.itemId === item.id);
+          if (!edit) {
+            return item;
+          }
+
+          const nextText = edit.text ?? item.text;
+          const factRefs = item.factRefs;
+          const evidenceRefs = resolveBranchFactRefs(profile, factRefs);
+          const guardResult = item.itemType === "structural"
+            ? undefined
+            : runRuleFactGuard({
+                originalText: item.originalText,
+                checkedText: nextText,
+                usedEvidenceRefs: evidenceRefs,
+                now
+              });
+
+          if (guardResult && (guardResult.status === "blocked_high_risk" || guardResult.status === "needs_edit" || guardResult.riskLevel === "high")) {
+            throw new Error("branch_edit_fact_guard_blocked");
+          }
+
+          return BranchContentItemSchema.parse({
+            ...item,
+            text: nextText,
+            order: edit.order ?? item.order,
+            visible: edit.visible ?? item.visible,
+            source: "user_manual",
+            guardMode: guardResult ? "rule_verified" : "not_fact",
+            guardStatus: guardResult ? "pass" : item.guardStatus,
+            guardRiskLevel: guardResult?.riskLevel ?? item.guardRiskLevel,
+            guardFindings: (guardResult?.ruleFindings ?? item.guardFindings).map((finding) => ({
+              type: finding.type,
+              text: finding.text,
+              severity: finding.severity,
+              allowed: finding.allowed,
+              message: finding.message
+            })),
+            guardedAt: guardResult?.checkedAt ?? item.guardedAt,
+            guardVersion: guardResult?.guardVersion ?? item.guardVersion
+          });
+        }).sort((a, b) => a.order - b.order);
+
+        return ResumeBranchSchema.parse({
+          ...branch,
+          contentItems: nextItems
+        });
+      }
+    });
+  }
+
+  async restoreResumeRevision(input: {
+    branchId: string;
+    revisionId: string;
+    expectedRevision: number;
+    operationId: string;
+  }) {
+    return this.mutateResumeBranch({
+      branchId: input.branchId,
+      expectedRevision: input.expectedRevision,
+      operationId: input.operationId,
+      type: "restore",
+      source: "restore",
+      restoredFromRevisionId: input.revisionId,
+      mutate: async ({ branch }) => {
+        const revision = await this.db.resumeRevisions.get(input.revisionId);
+        if (!revision || revision.branchId !== branch.id) {
+          throw new Error("restore_revision_missing");
+        }
+
+        const parsedRevision = ResumeRevisionSchema.parse(revision);
+        return ResumeBranchSchema.parse({
+          ...branch,
+          name: parsedRevision.snapshot.name,
+          lifecycleStatus: parsedRevision.snapshot.lifecycleStatus,
+          contentItems: parsedRevision.snapshot.contentItems
+        });
+      }
+    });
+  }
+
+  async undoResumeBranch(input: {
+    branchId: string;
+    expectedRevision: number;
+    operationId: string;
+  }) {
+    return this.mutateResumeBranch({
+      branchId: input.branchId,
+      expectedRevision: input.expectedRevision,
+      operationId: input.operationId,
+      type: "undo",
+      source: "undo",
+      mutate: async ({ branch }) => {
+        if (!branch.currentRevisionId) {
+          throw new Error("branch_current_revision_missing");
+        }
+
+        const currentRevision = await this.db.resumeRevisions.get(branch.currentRevisionId);
+        if (!currentRevision?.previousRevisionId) {
+          throw new Error("branch_undo_previous_revision_missing");
+        }
+
+        const previousRevision = await this.db.resumeRevisions.get(currentRevision.previousRevisionId);
+        if (!previousRevision || previousRevision.branchId !== branch.id) {
+          throw new Error("branch_undo_target_missing");
+        }
+
+        const parsedPrevious = ResumeRevisionSchema.parse(previousRevision);
+        return ResumeBranchSchema.parse({
+          ...branch,
+          name: parsedPrevious.snapshot.name,
+          lifecycleStatus: parsedPrevious.snapshot.lifecycleStatus,
+          contentItems: parsedPrevious.snapshot.contentItems
+        });
+      }
+    });
+  }
+
+  async refreshResumeBranchSyncStatus(input: {
+    branchId: string;
+    operationId: string;
+  }) {
+    return this.db.transaction("rw", this.db.resumeBranches, this.db.resumeBranchOperations, this.db.profiles, this.db.jobDescriptions, async () => {
+      const existingOperation = await this.db.resumeBranchOperations.where("operationId").equals(input.operationId).first();
+      if (existingOperation) {
+        const branch = await this.db.resumeBranches.get(input.branchId);
+        if (!branch) {
+          throw new Error("resume_branch_missing");
+        }
+        return { branch: ResumeBranchSchema.parse(branch), idempotent: true };
+      }
+
+      const branch = await this.requireEditableResumeBranch(input.branchId);
+      const [profile, job] = await Promise.all([
+        this.db.profiles.get(branch.profileId),
+        this.db.jobDescriptions.get(branch.jobId)
+      ]);
+      if (!profile || !job) {
+        throw new Error("branch_source_missing");
+      }
+
+      const now = new Date().toISOString();
+      const nextBranch = ResumeBranchSchema.parse({
+        ...branch,
+        syncStatusCache: computeBranchSyncStatus({
+          branch,
+          profile: CareerProfileSchema.parse(profile),
+          job: JobDescriptionSchema.parse(job),
+          now
+        }),
+        updatedAt: now
+      });
+      const operation = ResumeBranchOperationSchema.parse({
+        id: `resume-branch-op-${input.operationId}`,
+        operationId: input.operationId,
+        branchId: branch.id,
+        type: "refresh_sync_status",
+        beforeRevision: branch.revision,
+        afterRevision: branch.revision,
+        occurredAt: now,
+        createdAt: now,
+        updatedAt: now
+      });
+      await this.db.resumeBranches.put(nextBranch);
+      await this.db.resumeBranchOperations.put(operation);
+      return { branch: nextBranch, idempotent: false };
+    });
+  }
+
+  async archiveResumeBranch(input: {
+    branchId: string;
+    expectedRevision: number;
+    operationId: string;
+    confirmedImpact: true;
+  }) {
+    return this.mutateResumeBranch({
+      branchId: input.branchId,
+      expectedRevision: input.expectedRevision,
+      operationId: input.operationId,
+      type: "archive",
+      source: "archive",
+      mutate: async ({ branch }) => ResumeBranchSchema.parse({
+        ...branch,
+        lifecycleStatus: "archived"
+      })
+    });
   }
 
   async saveAiLogs(logs: AiLog[]) {
@@ -817,10 +1144,123 @@ export class WorkspaceRepository {
       adaptationSnapshots: (await this.db.adaptationSnapshots.toArray()).map((snapshot) => JobAdaptationSnapshotSchema.parse(snapshot)),
       suggestionOperations: (await this.db.suggestionOperations.toArray()).map((operation) => SuggestionOperationSchema.parse(operation)),
       resumeBranches: await this.listResumeBranches(),
+      resumeRevisions: (await this.db.resumeRevisions.toArray()).map((revision) => ResumeRevisionSchema.parse(revision)),
+      resumeBranchOperations: (await this.db.resumeBranchOperations.toArray()).map((operation) => ResumeBranchOperationSchema.parse(operation)),
       aiLogs: (await this.db.aiLogs.toArray()).map((log) => AiLogSchema.parse(log)),
       exportRecords: (await this.db.exportRecords.toArray()).map((record) => ExportRecordSchema.parse(record)),
       appMeta: await this.db.appMeta.toArray()
     };
+  }
+
+  private async mutateResumeBranch(input: {
+    branchId: string;
+    expectedRevision: number;
+    operationId: string;
+    type: ResumeBranchOperation["type"];
+    source: ResumeRevision["source"];
+    restoredFromRevisionId?: string;
+    mutate: (context: {
+      branch: ResumeBranch;
+      profile: CareerProfile;
+      job: JobDescription;
+      now: string;
+    }) => Promise<ResumeBranch>;
+  }) {
+    return this.db.transaction("rw", this.db.resumeBranches, this.db.resumeRevisions, this.db.resumeBranchOperations, this.db.profiles, this.db.jobDescriptions, async () => {
+      const existingOperation = await this.db.resumeBranchOperations.where("operationId").equals(input.operationId).first();
+      if (existingOperation) {
+        const branch = await this.db.resumeBranches.get(input.branchId);
+        if (!branch) {
+          throw new Error("resume_branch_missing_for_operation");
+        }
+        return {
+          branch: ResumeBranchSchema.parse(branch),
+          revision: existingOperation.revisionId ? await this.getResumeRevisionInTransaction(existingOperation.revisionId) : undefined,
+          idempotent: true
+        };
+      }
+
+      const branch = await this.requireEditableResumeBranch(input.branchId);
+      if (branch.revision !== input.expectedRevision) {
+        throw new RevisionConflictError();
+      }
+
+      const [profile, job] = await Promise.all([
+        this.db.profiles.get(branch.profileId),
+        this.db.jobDescriptions.get(branch.jobId)
+      ]);
+      if (!profile || !job) {
+        throw new Error("branch_source_missing");
+      }
+
+      const now = new Date().toISOString();
+      const parsedProfile = CareerProfileSchema.parse(profile);
+      const parsedJob = JobDescriptionSchema.parse(job);
+      const changed = await input.mutate({ branch, profile: parsedProfile, job: parsedJob, now });
+      const nextBranchBase = ResumeBranchSchema.parse({
+        ...changed,
+        revision: branch.revision + 1,
+        updatedAt: now
+      });
+      const nextBranchWithSync = ResumeBranchSchema.parse({
+        ...nextBranchBase,
+        syncStatusCache: computeBranchSyncStatus({
+          branch: nextBranchBase,
+          profile: parsedProfile,
+          job: parsedJob,
+          now
+        })
+      });
+      const revision = createResumeRevision({
+        branch: nextBranchWithSync,
+        source: input.source,
+        operationId: input.operationId,
+        previousRevisionId: branch.currentRevisionId,
+        restoredFromRevisionId: input.restoredFromRevisionId,
+        now
+      });
+      const nextBranch = ResumeBranchSchema.parse({
+        ...nextBranchWithSync,
+        currentRevisionId: revision.id
+      });
+      const operation = ResumeBranchOperationSchema.parse({
+        id: `resume-branch-op-${input.operationId}`,
+        operationId: input.operationId,
+        branchId: branch.id,
+        sourceAdaptationDraftId: branch.sourceAdaptationDraftId,
+        type: input.type,
+        expectedRevision: input.expectedRevision,
+        beforeRevision: branch.revision,
+        afterRevision: nextBranch.revision,
+        revisionId: revision.id,
+        occurredAt: now,
+        createdAt: now,
+        updatedAt: now
+      });
+
+      await this.db.resumeBranches.put(nextBranch);
+      await this.db.resumeRevisions.put(revision);
+      await this.db.resumeBranchOperations.put(operation);
+      return { branch: nextBranch, revision, idempotent: false };
+    });
+  }
+
+  private async requireEditableResumeBranch(branchId: string) {
+    const branch = await this.db.resumeBranches.get(branchId);
+    if (!branch) {
+      throw new Error("resume_branch_missing");
+    }
+
+    const parsed = ResumeBranchSchema.parse(branch);
+    if (parsed.migrationStatus === "legacy_unverified") {
+      throw new Error("legacy_resume_branch_read_only");
+    }
+    return parsed;
+  }
+
+  private async getResumeRevisionInTransaction(revisionId: string) {
+    const revision = await this.db.resumeRevisions.get(revisionId);
+    return revision ? ResumeRevisionSchema.parse(revision) : undefined;
   }
 
   private async requireDraftRevision(draftId: string, expectedRevision: number) {

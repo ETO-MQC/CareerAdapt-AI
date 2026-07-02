@@ -12,7 +12,7 @@ import {
 
 const TEST_TIME = "2026-07-01T10:00:00.000Z";
 
-describe("stage A schemas", () => {
+describe("core schemas", () => {
   it("validates the fixed demo profile and demo jobs", () => {
     expect(CareerProfileSchema.safeParse(demoCareerProfile).success).toBe(true);
 
@@ -24,7 +24,7 @@ describe("stage A schemas", () => {
   it("requires provenance for facts that can enter resume output", () => {
     const result = FactStatementSchema.safeParse({
       id: "fact-without-provenance",
-      statement: "缺少来源的事实不应进入核心数据。",
+      statement: "Facts without provenance must not enter core data.",
       category: "experience",
       provenance: [],
       confirmedByUser: false,
@@ -36,42 +36,60 @@ describe("stage A schemas", () => {
     expect(result.success).toBe(false);
   });
 
-  it("validates a minimal resume branch and AI suggestion", () => {
+  it("validates a formal D1 resume branch and AI suggestion", () => {
     const branch: ResumeBranch = {
-      id: "branch-stage-a",
+      id: "branch-stage-d1",
       profileId: demoCareerProfile.id,
       jobId: demoJobDescriptions[0].id,
-      name: "数据分析实习生 - 阶段A",
-      selectedItems: [
-        {
-          experienceId: demoCareerProfile.experiences[0].id,
-          draftId: demoCareerProfile.experiences[0].resumeDrafts[0].id,
-          order: 0,
-          visible: true
-        }
-      ],
-      customTexts: [],
-      templateId: "a4-probe",
-      templateConfig: {
-        templateId: "a4-probe",
-        fontScale: 1,
-        density: "comfortable"
+      name: "schema test branch",
+      sourceProfileVersion: demoCareerProfile.version,
+      sourceJobVersion: demoJobDescriptions[0].updatedAt,
+      sourceAdaptationDraftId: "adaptation-draft-stage-a",
+      sourceDraftRevision: 0,
+      matcherVersion: "evidence-matcher.v1",
+      sourceMatchSetHash: "schema-test-hash",
+      requirementMatchIds: ["match-schema-test"],
+      revision: 0,
+      currentRevisionId: "revision-stage-d1",
+      lifecycleStatus: "active",
+      migrationStatus: "verified",
+      syncStatusCache: {
+        status: "in_sync",
+        sourceProfileVersion: demoCareerProfile.version,
+        currentProfileVersion: demoCareerProfile.version,
+        sourceJobVersion: demoJobDescriptions[0].updatedAt,
+        currentJobVersion: demoJobDescriptions[0].updatedAt,
+        invalidFactRefs: [],
+        checkedAt: TEST_TIME,
+        message: "Branch is in sync with its source profile and job versions."
       },
-      currentRevisionId: "revision-stage-a",
-      profileVersion: demoCareerProfile.version,
-      requirementMatches: [],
-      aiSuggestions: [],
-      revisions: [
+      contentItems: [
         {
-          id: "revision-stage-a",
-          branchId: "branch-stage-a",
-          snapshot: { selectedItems: ["exp-stat-modeling"] },
-          source: "template_probe",
-          createdAt: TEST_TIME,
-          updatedAt: TEST_TIME
+          id: "branch-item-stage-d1",
+          itemType: "experience",
+          source: "adaptation_draft",
+          sourceSectionId: "section-stage-a",
+          text: demoCareerProfile.experiences[0].facts[0].statement,
+          originalText: demoCareerProfile.experiences[0].facts[0].statement,
+          order: 0,
+          visible: true,
+          requirementIds: [demoJobDescriptions[0].requirements[0].id],
+          sourceSuggestionIds: [],
+          factRefs: [
+            {
+              type: "experience_fact",
+              experienceId: demoCareerProfile.experiences[0].id,
+              factId: demoCareerProfile.experiences[0].facts[0].id
+            }
+          ],
+          guardMode: "rule_verified",
+          guardStatus: "pass",
+          guardRiskLevel: "low",
+          guardFindings: [],
+          guardedAt: TEST_TIME,
+          guardVersion: "fact-guard-rule.v1"
         }
       ],
-      exportRecords: [],
       createdAt: TEST_TIME,
       updatedAt: TEST_TIME
     };
@@ -81,9 +99,9 @@ describe("stage A schemas", () => {
       draftId: "adaptation-draft-stage-a",
       targetSectionId: "section-stage-a",
       type: "rewrite",
-      originalText: "使用 Stata 做分析。",
-      suggestedText: "使用 Stata 清洗 31 个省级样本并完成统计分析。",
-      reason: "突出已确认的工具、样本规模和分析任务。",
+      originalText: "Use Stata for analysis.",
+      suggestedText: "Use Stata to clean confirmed samples and complete statistical analysis.",
+      reason: "Keep the wording grounded in confirmed facts.",
       requirementIds: [demoJobDescriptions[0].requirements[0].id],
       usedEvidenceRefs: [
         {
@@ -107,7 +125,7 @@ describe("stage A schemas", () => {
             factText: demoCareerProfile.experiences[0].facts[0].statement
           }
         ],
-        checkedText: "使用 Stata 清洗 31 个省级样本并完成统计分析。",
+        checkedText: "Use Stata to clean confirmed samples and complete statistical analysis.",
         checkedAt: TEST_TIME,
         guardVersion: "fact-guard-rule.v1"
       },

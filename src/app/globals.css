@@ -337,6 +337,29 @@ p {
   padding: 0 12px;
 }
 
+.field-label {
+  color: var(--muted);
+  display: grid;
+  font-size: 0.9rem;
+  font-weight: 700;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.field-label select,
+.panel > input {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font: inherit;
+  min-height: 42px;
+  padding: 0 12px;
+}
+
+.panel > input {
+  margin-bottom: 12px;
+  width: 100%;
+}
+
 .form-grid select,
 .manual-override select {
   border: 1px solid var(--line);
@@ -489,6 +512,23 @@ p {
   gap: 10px;
   margin-top: 16px;
   padding-top: 16px;
+}
+
+.inline-toggle {
+  align-items: center;
+  color: var(--muted);
+  display: inline-flex;
+  font-size: 0.9rem;
+  font-weight: 700;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.branch-list,
+.branch-editor,
+.revision-list {
+  display: grid;
+  gap: 12px;
 }
 
 .small-textarea {
