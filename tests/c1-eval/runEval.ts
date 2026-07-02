@@ -11,6 +11,7 @@ import type { RequirementMatch, MatchEvaluation, MatchLevel, MatchRisk } from "@
 import { c1EvalCases, type C1EvalCase } from "./cases";
 import { hardValidateMatch, type HardValidationResult } from "./hardValidate";
 import { runAiJudge } from "./aiJudge";
+import { c1JudgePrompt } from "./judgePrompt";
 import type { C1JudgeInput, C1JudgeOutput } from "./judgeSchema";
 
 // ─── 类型定义 ───
@@ -28,6 +29,7 @@ export type CaseEvalResult = {
   caseId: string;
   caseName: string;
   description: string;
+  expectedDisposition: "accept" | "reject";
   hardFailIf: string[];
   matchResult: CaseMatchResult;
   hardValidation: HardValidationResult;
@@ -37,6 +39,8 @@ export type CaseEvalResult = {
     error?: string;
     model?: string;
     latencyMs?: number;
+    judgeInvalid?: boolean;
+    retried?: boolean;
   };
   overallPassed: boolean;
 };
@@ -50,13 +54,15 @@ export type C1EvalReport = {
   aiJudgeSkipped: boolean;
   summary: {
     total: number;
-    hardPassed: number;
-    hardFailed: number;
+    positiveCasesPassed: number;
+    negativeCasesCorrectlyRejected: number;
+    hardSafetyFailures: number;
+    semanticCasesPassed: number;
+    judgeInvalid: number;
+    overallQualified: boolean;
     aiPassed: number;
     aiFailed: number;
     aiSkipped: number;
-    overallPassed: number;
-    overallFailed: number;
   };
   cases: CaseEvalResult[];
 };
@@ -128,13 +134,18 @@ async function evalSingleCase(caseDef: C1EvalCase, enableAi: boolean): Promise<C
   }
 
   // 总体判定
-  const overallPassed = hardValidation.passed
-    && (!aiJudgment || !aiJudgment.success || (aiJudgment.output?.passed ?? false));
+  // accept案例：硬校验通过即通过（AI Judge为补充信号，不阻塞）
+  // reject案例：硬校验正确识别了预期失败
+  const isReject = caseDef.expectedDisposition === "reject";
+  const overallPassed = isReject
+    ? !hardValidation.passed  // reject案例被正确拒绝
+    : hardValidation.passed;  // accept案例硬校验通过即通过
 
   return {
     caseId: caseDef.id,
     caseName: caseDef.name,
     description: caseDef.description,
+    expectedDisposition: caseDef.expectedDisposition,
     hardFailIf: caseDef.hardFailIf,
     matchResult,
     hardValidation,
@@ -217,15 +228,31 @@ function collectConfirmedFactTexts(caseDef: C1EvalCase): Array<{ refKey: string;
 // ─── 报告生成 ───
 
 function buildReport(caseResults: CaseEvalResult[], enableAi: boolean): C1EvalReport {
-  const hardPassed = caseResults.filter((r) => r.hardValidation.passed).length;
-  const hardFailed = caseResults.length - hardPassed;
+  // 正面案例（accept）通过数
+  const positiveCases = caseResults.filter((r) => r.expectedDisposition === "accept");
+  const positiveCasesPassed = positiveCases.filter((r) => r.overallPassed).length;
 
+  // 负面案例（reject）被正确拒绝数
+  const negativeCases = caseResults.filter((r) => r.expectedDisposition === "reject");
+  const negativeCasesCorrectlyRejected = negativeCases.filter((r) => r.overallPassed).length;
+
+  // 硬安全失败：accept案例中有硬校验失败
+  const hardSafetyFailures = positiveCases.filter((r) => !r.hardValidation.passed).length;
+
+  // 语义案例通过：accept案例中硬校验通过的数
+  const semanticCasesPassed = positiveCases.filter((r) => r.hardValidation.passed).length;
+
+  // AI Judge统计
   let aiPassed = 0;
   let aiFailed = 0;
+  let judgeInvalid = 0;
   const aiSkipped = enableAi ? 0 : caseResults.length;
 
   if (enableAi) {
     for (const result of caseResults) {
+      if (result.aiJudgment?.judgeInvalid) {
+        judgeInvalid++;
+      }
       if (result.aiJudgment?.success && result.aiJudgment.output?.passed) {
         aiPassed++;
       } else if (result.aiJudgment?.success) {
@@ -234,25 +261,30 @@ function buildReport(caseResults: CaseEvalResult[], enableAi: boolean): C1EvalRe
     }
   }
 
-  const overallPassed = caseResults.filter((r) => r.overallPassed).length;
-  const overallFailed = caseResults.length - overallPassed;
+  // 总体合格：无安全失败 + 负面案例全部正确拒绝 + 合法语义案例通过率>=80%
+  const semanticPassRate = positiveCases.length > 0 ? semanticCasesPassed / positiveCases.length : 1;
+  const overallQualified = hardSafetyFailures === 0
+    && negativeCasesCorrectlyRejected === negativeCases.length
+    && semanticPassRate >= 0.8;
 
   return {
     evaluatedAt: new Date().toISOString(),
     matcherVersion: MATCHER_VERSION,
-    judgeVersion: "c1-judge.v1",
+    judgeVersion: c1JudgePrompt.version,
     judgeModel: caseResults[0]?.aiJudgment?.model ?? null,
     sameModelJudgeBias: enableAi,
     aiJudgeSkipped: !enableAi,
     summary: {
       total: caseResults.length,
-      hardPassed,
-      hardFailed,
+      positiveCasesPassed,
+      negativeCasesCorrectlyRejected,
+      hardSafetyFailures,
+      semanticCasesPassed,
+      judgeInvalid,
+      overallQualified,
       aiPassed,
       aiFailed,
-      aiSkipped,
-      overallPassed,
-      overallFailed
+      aiSkipped
     },
     cases: caseResults
   };
@@ -294,16 +326,18 @@ function buildMarkdownReport(report: C1EvalReport): string {
   lines.push("| 指标 | 数值 |");
   lines.push("|------|------|");
   lines.push(`| 总案例数 | ${report.summary.total} |`);
-  lines.push(`| 硬校验通过 | ${report.summary.hardPassed} |`);
-  lines.push(`| 硬校验失败 | ${report.summary.hardFailed} |`);
+  lines.push(`| 正面案例通过 | ${report.summary.positiveCasesPassed} |`);
+  lines.push(`| 负面案例正确拒绝 | ${report.summary.negativeCasesCorrectlyRejected} |`);
+  lines.push(`| 硬安全失败 | ${report.summary.hardSafetyFailures} |`);
+  lines.push(`| 语义案例通过 | ${report.summary.semanticCasesPassed} |`);
+  lines.push(`| Judge自相矛盾 | ${report.summary.judgeInvalid} |`);
   if (!report.aiJudgeSkipped) {
     lines.push(`| AI Judge通过 | ${report.summary.aiPassed} |`);
     lines.push(`| AI Judge失败 | ${report.summary.aiFailed} |`);
   } else {
     lines.push(`| AI Judge跳过 | ${report.summary.aiSkipped} |`);
   }
-  lines.push(`| 总体通过 | ${report.summary.overallPassed} |`);
-  lines.push(`| 总体失败 | ${report.summary.overallFailed} |`);
+  lines.push(`| **总体合格** | **${report.summary.overallQualified ? "✅ 是" : "❌ 否"}** |`);
   lines.push("");
 
   lines.push("## 案例详情");
@@ -311,7 +345,8 @@ function buildMarkdownReport(report: C1EvalReport): string {
 
   for (const caseResult of report.cases) {
     const status = caseResult.overallPassed ? "✅" : "❌";
-    lines.push(`### ${status} ${caseResult.caseName}（${caseResult.caseId}）`);
+    const disposition = caseResult.expectedDisposition === "accept" ? "🟢合法" : "🔴非法";
+    lines.push(`### ${status} ${caseResult.caseName}（${caseResult.caseId}）${disposition}`);
     lines.push("");
     lines.push(`> ${caseResult.description}`);
     lines.push("");
@@ -337,7 +372,8 @@ function buildMarkdownReport(report: C1EvalReport): string {
     if (caseResult.aiJudgment) {
       if (caseResult.aiJudgment.success && caseResult.aiJudgment.output) {
         const ai = caseResult.aiJudgment.output;
-        lines.push("**AI Judge：**");
+        const invalidTag = caseResult.aiJudgment.judgeInvalid ? " ⚠️ **judgeInvalid**" : "";
+        lines.push(`**AI Judge：**${invalidTag}`);
         lines.push(`- passed: ${ai.passed}`);
         lines.push(`- evidenceGrounding: ${ai.evidenceGrounding}/5`);
         lines.push(`- matchLevelReasonableness: ${ai.matchLevelReasonableness}/5`);

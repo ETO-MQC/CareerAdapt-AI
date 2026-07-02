@@ -176,7 +176,7 @@ export function evaluateRuleMatch(requirement: JobRequirement, candidates: Candi
       riskLevel: requirement.hardConstraint ? "high" : "medium",
       risks: requirement.hardConstraint ? ["hard_constraint_gap", "source_missing"] : ["source_missing"],
       evidenceRefs: [],
-      explanation: "规则层未在已确认职业母档案事实中找到可引用证据。",
+      explanation: buildStructuredExplanation(requirement, [], "none", []),
       evaluatedAt: now
     });
   }
@@ -185,11 +185,35 @@ export function evaluateRuleMatch(requirement: JobRequirement, candidates: Candi
   const best = candidates[0];
   const hitCount = keywords.filter((keyword) => best.searchText.includes(keyword)).length;
   const transferable = hasTransferableSignal(normalizeSearchText([requirement.description, requirement.sourceSpan.text]), best.searchText);
-  const matchLevel: MatchLevel = hitCount >= 2 ? "strong" : hitCount === 1 ? "weak" : transferable ? "transferable" : "none";
+  let matchLevel: MatchLevel = hitCount >= 2 ? "strong" : hitCount === 1 ? "weak" : transferable ? "transferable" : "none";
   const risks: MatchRisk[] = [];
 
-  if (matchLevel === "transferable") {
+  // 收紧1：「参与/协助/基础/接触/了解」等限定词不得判定strong
+  const bestFactText = best.ref.factText;
+  if (matchLevel === "strong" && containsQualifierDowngrade(bestFactText)) {
+    matchLevel = "weak";
     risks.push("low_confidence");
+  }
+
+  // 收紧2：岗位要求独立/主导/负责，但事实只有参与/协助 → 最高weak + medium风险
+  if (matchLevel === "strong" && hasIndependenceMismatch(requirement, bestFactText)) {
+    matchLevel = "weak";
+    if (!risks.includes("low_confidence")) {
+      risks.push("low_confidence");
+    }
+  }
+
+  // 收紧3：团队项目必须检查ownership_risk
+  if (containsTeamContext(bestFactText, best.ref)) {
+    if (!risks.includes("team_to_individual_risk")) {
+      risks.push("team_to_individual_risk");
+    }
+  }
+
+  if (matchLevel === "transferable") {
+    if (!risks.includes("low_confidence")) {
+      risks.push("low_confidence");
+    }
   }
 
   if (requirement.hardConstraint && matchLevel !== "strong") {
@@ -204,7 +228,7 @@ export function evaluateRuleMatch(requirement: JobRequirement, candidates: Candi
     riskLevel,
     risks,
     evidenceRefs: candidates.map((candidate) => candidate.ref),
-    explanation: buildRuleExplanation(requirement, candidates, matchLevel),
+    explanation: buildStructuredExplanation(requirement, candidates, matchLevel, risks),
     evaluatedAt: now
   });
 }
@@ -380,6 +404,10 @@ export function getJobVersion(job: JobDescription) {
   return job.updatedAt;
 }
 
+export function stripInjectionFromText(text: string): string {
+  return stripInjectionPatterns(text);
+}
+
 export class MatchValidationError extends Error {
   constructor(readonly code: string) {
     super(code);
@@ -441,13 +469,107 @@ function normalizeWhitespace(text: string) {
   return text.trim().replace(/\s+/g, " ");
 }
 
-function buildRuleExplanation(requirement: JobRequirement, candidates: CandidateFact[], matchLevel: MatchLevel) {
+const QUALIFIER_WORDS = ["参与", "协助", "基础", "接触", "了解", "帮忙", "配合", "跟随"];
+
+const INJECTION_PATTERNS = [
+  /忽略[之所有前]*[所有一切]*指令/g,
+  /ignore\s*(all\s+)?(previous\s+)?instructions?/gi,
+  /输出\s*总分\s*\d+/g,
+  /output\s*(total\s+)?score\s*\d*/gi,
+  /system\s*prompt/gi
+];
+
+const INDEPENDENCE_WORDS = ["独立", "主导", "负责", "带领", "统筹"];
+
+function containsQualifierDowngrade(factText: string): boolean {
+  return QUALIFIER_WORDS.some((word) => factText.includes(word));
+}
+
+function hasIndependenceMismatch(requirement: JobRequirement, factText: string): boolean {
+  const reqText = normalizeSearchText([requirement.description, requirement.sourceSpan.text]);
+  const reqWantsIndependence = INDEPENDENCE_WORDS.some((word) => reqText.includes(word));
+  if (!reqWantsIndependence) {
+    return false;
+  }
+  const factHasIndependence = INDEPENDENCE_WORDS.some((word) => factText.includes(word));
+  return !factHasIndependence;
+}
+
+function containsTeamContext(factText: string, ref: MatchEvidenceRef): boolean {
+  const teamWords = ["团队", "项目组", "小组", "课题组"];
+  const inFactText = teamWords.some((word) => factText.includes(word));
+  if (inFactText) {
+    return true;
+  }
+  if (ref.type === "experience_fact") {
+    const orgText = ref.experienceId ?? "";
+    return teamWords.some((word) => orgText.includes(word));
+  }
+  return false;
+}
+
+function stripInjectionPatterns(text: string): string {
+  let clean = text;
+  for (const pattern of INJECTION_PATTERNS) {
+    clean = clean.replace(pattern, "");
+  }
+  return clean.replace(/\s+/g, " ").trim();
+}
+
+function buildStructuredExplanation(
+  requirement: JobRequirement,
+  candidates: CandidateFact[],
+  matchLevel: MatchLevel,
+  risks: MatchRisk[]
+): string {
   if (matchLevel === "none") {
     return "规则层未找到已确认事实证据。";
   }
 
-  const topRefs = candidates.slice(0, 2).map((candidate) => candidate.ref.factText).join("；");
-  return `规则层根据岗位要求“${requirement.sourceSpan.text}”召回已确认事实：${topRefs}`;
+  const keywords = normalizedRequirementKeywords(requirement);
+  const best = candidates[0];
+  const matchedKeywords = keywords.filter((keyword) => best.searchText.includes(keyword));
+  const missedKeywords = keywords.filter((keyword) => !best.searchText.includes(keyword));
+
+  const supported = matchedKeywords.length > 0
+    ? `技能/关键词匹配：${matchedKeywords.join("、")}`
+    : "可迁移信号匹配";
+
+  const missing = missedKeywords.length > 0
+    ? `未直接匹配：${missedKeywords.join("、")}`
+    : "";
+
+  const levelReasons: Record<MatchLevel, string> = {
+    strong: "关键词直接命中≥2，证据充分。",
+    weak: "关键词部分命中或存在限定词降级，证据不够充分。",
+    transferable: "无直接关键词命中，但存在可迁移信号。",
+    none: "未找到可引用证据。"
+  };
+
+  const parts: string[] = [];
+  parts.push(`[支持] ${supported}`);
+  if (missing) {
+    parts.push(`[缺失] ${missing}`);
+  }
+  parts.push(`[判定] ${levelReasons[matchLevel]}`);
+
+  if (risks.length > 0) {
+    const riskTexts: string[] = [];
+    if (risks.includes("team_to_individual_risk")) {
+      riskTexts.push("团队成果归属风险：事实中包含团队上下文，不应直接归为个人。");
+    }
+    if (risks.includes("hard_constraint_gap")) {
+      riskTexts.push("硬性条件缺口：硬约束要求未被强匹配满足。");
+    }
+    if (risks.includes("low_confidence")) {
+      riskTexts.push("低置信度：存在限定词或仅为可迁移信号。");
+    }
+    if (riskTexts.length > 0) {
+      parts.push(`[风险] ${riskTexts.join(" ")}`);
+    }
+  }
+
+  return parts.join(" ");
 }
 
 function sortEvaluationForCompare(evaluation: MatchEvaluation) {

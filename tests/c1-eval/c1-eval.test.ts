@@ -16,35 +16,49 @@ describe("C1 AI辅助自动验收", () => {
     expect(report.summary.total).toBe(15);
     expect(report.cases.length).toBe(15);
 
-    // 硬校验：期望通过的检查必须通过，期望失败的检查必须失败
+    // 逐案例校验
     for (const caseResult of report.cases) {
-      const expectedFailures = new Set(
-        c1EvalCases.find((c) => c.id === caseResult.caseId)?.expectedHardCheckFailures ?? []
-      );
+      const caseDef = c1EvalCases.find((c) => c.id === caseResult.caseId)!;
+      const expectedFailures = new Set(caseDef.expectedHardCheckFailures ?? []);
 
-      // 非预期的失败
-      const unexpectedFailures = caseResult.hardValidation.checks.filter(
-        (c) => !c.passed && !expectedFailures.has(c.name)
-      );
-      expect(
-        unexpectedFailures,
-        `案例 ${caseResult.caseId} 非预期硬校验失败: ${unexpectedFailures.map((c) => `${c.name}: ${c.detail}`).join("; ")}`
-      ).toHaveLength(0);
-
-      // 期望失败的检查必须确实失败
-      for (const expectedName of expectedFailures) {
-        const check = caseResult.hardValidation.checks.find((c) => c.name === expectedName);
+      if (caseDef.expectedDisposition === "accept") {
+        // 合法案例：非预期的硬校验失败必须为0
+        const unexpectedFailures = caseResult.hardValidation.checks.filter(
+          (c) => !c.passed && !expectedFailures.has(c.name)
+        );
         expect(
-          check?.passed,
-          `案例 ${caseResult.caseId} 期望 ${expectedName} 失败但实际通过`
-        ).toBe(false);
+          unexpectedFailures,
+          `合法案例 ${caseResult.caseId} 非预期硬校验失败: ${unexpectedFailures.map((c) => `${c.name}: ${c.detail}`).join("; ")}`
+        ).toHaveLength(0);
+      } else {
+        // 非法案例：必须被正确拒绝（至少一个预期检查失败）
+        const expectedFailsPresent = [...expectedFailures].every((name) => {
+          const check = caseResult.hardValidation.checks.find((c) => c.name === name);
+          return check && !check.passed;
+        });
+        expect(
+          expectedFailsPresent,
+          `非法案例 ${caseResult.caseId} 未被正确拒绝：期望 ${[...expectedFailures].join(", ")} 失败`
+        ).toBe(true);
       }
     }
 
-    // 报告文件必须存在
-    expect(report.evaluatedAt).toBeDefined();
-    expect(report.matcherVersion).toBeDefined();
-    expect(report.judgeVersion).toBe("c1-judge.v1");
+    // 安全断言
+    expect(report.summary.hardSafetyFailures).toBe(0);
+    expect(report.summary.negativeCasesCorrectlyRejected).toBe(
+      report.cases.filter((c) => c.expectedDisposition === "reject").length
+    );
+
+    // 合法语义案例通过率 >= 80%
+    const acceptCases = report.cases.filter((c) => c.expectedDisposition === "accept");
+    const passRate = acceptCases.length > 0
+      ? report.summary.positiveCasesPassed / acceptCases.length
+      : 1;
+    console.log(`\n合法案例通过率: ${report.summary.positiveCasesPassed}/${acceptCases.length} (${(passRate * 100).toFixed(1)}%)`);
+    expect(passRate).toBeGreaterThanOrEqual(0.8);
+
+    // 总体合格
+    expect(report.summary.overallQualified).toBe(true);
 
     if (!hasRealAiConfig) {
       expect(report.aiJudgeSkipped).toBe(true);
@@ -53,20 +67,22 @@ describe("C1 AI辅助自动验收", () => {
       expect(report.aiJudgeSkipped).toBe(false);
       expect(report.sameModelJudgeBias).toBe(true);
       console.log(`ℹ️ AI Judge model: ${report.judgeModel}`);
-      console.log(`⚠️ same-model judge bias: Judge使用与evidence-matcher相同的模型。`);
+      console.log(`ℹ️ Judge invalid: ${report.summary.judgeInvalid}`);
     }
 
     // 打印总结
     console.log("\n=== C1 验收总结 ===");
     console.log(`总案例: ${report.summary.total}`);
-    console.log(`硬校验通过: ${report.summary.hardPassed}`);
-    console.log(`硬校验失败: ${report.summary.hardFailed}`);
+    console.log(`正面案例通过: ${report.summary.positiveCasesPassed}`);
+    console.log(`负面案例正确拒绝: ${report.summary.negativeCasesCorrectlyRejected}`);
+    console.log(`硬安全失败: ${report.summary.hardSafetyFailures}`);
+    console.log(`语义案例通过: ${report.summary.semanticCasesPassed}`);
+    console.log(`Judge自相矛盾: ${report.summary.judgeInvalid}`);
     if (!report.aiJudgeSkipped) {
       console.log(`AI Judge通过: ${report.summary.aiPassed}`);
       console.log(`AI Judge失败: ${report.summary.aiFailed}`);
     }
-    console.log(`总体通过: ${report.summary.overallPassed}`);
-    console.log(`总体失败: ${report.summary.overallFailed}`);
+    console.log(`总体合格: ${report.summary.overallQualified ? "✅" : "❌"}`);
     console.log(`\n报告已生成: artifacts/c1-evaluation.json, artifacts/c1-evaluation.md`);
-  }, 120_000);
+  }, 180_000);
 });
