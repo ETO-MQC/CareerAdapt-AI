@@ -11,6 +11,7 @@
     "test": "vitest run",
     "test:ai:real": "vitest run --config vitest.ai-real.config.ts",
     "test:c1:eval": "vitest run --config vitest.c1-eval.config.ts",
+    "test:c2:eval": "vitest run --config vitest.c2-eval.config.ts",
     "test:e2e": "playwright test",
     "verify": "pnpm typecheck && pnpm lint && pnpm test && pnpm build"
   },
