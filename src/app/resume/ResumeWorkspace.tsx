@@ -316,6 +316,7 @@ export function ResumeWorkspace() {
 
   function replaceBranch(branch: ResumeBranch) {
     setBranches((current) => current.map((item) => item.id === branch.id ? branch : item));
+    setEditTexts({});
     void repository.listResumeRevisions(branch.id).then(setRevisions);
   }
 

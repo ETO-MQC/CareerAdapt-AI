@@ -45,11 +45,11 @@ async function injectLegacyBranch(page: import("@playwright/test").Page) {
           jobId: "job-legacy-e2e",
           name: "旧版占位分支",
           sourceProfileVersion: 1,
-          sourceJobVersion: 1,
+          sourceJobVersion: "v1-legacy",
           sourceAdaptationDraftId: "legacy-draft",
           sourceDraftRevision: 0,
           matcherVersion: "v0",
-          sourceMatchSetHash: "legacy",
+          sourceMatchSetHash: "legacy-hash-e2e",
           requirementMatchIds: ["legacy-match"],
           revision: 0,
           currentRevisionId: revisionId,
@@ -57,13 +57,18 @@ async function injectLegacyBranch(page: import("@playwright/test").Page) {
           migrationStatus: "legacy_unverified",
           syncStatusCache: {
             status: "in_sync",
+            sourceProfileVersion: 1,
+            currentProfileVersion: 1,
+            sourceJobVersion: "v1-legacy",
+            currentJobVersion: "v1-legacy",
+            invalidFactRefs: [],
             checkedAt: now,
             message: "legacy placeholder"
           },
           contentItems: [
             {
               id: "legacy-item-1",
-              itemType: "experience",
+              itemType: "structural",
               source: "legacy",
               text: "旧版简历内容",
               originalText: "旧版简历内容",
@@ -200,22 +205,15 @@ test.describe("D1 验证：分支隔离、Fact Guard、版本历史、持久化�
     // ================================================================
     // 4.  正常修改后，测试恢复旧版本和撤销恢复
     // ================================================================
-    // 先做一次合法编辑
-    await branchATextarea.fill(editedAText);
-    await page.locator(".branch-editor .suggestion-card").first().locator("button.primary-button").click();
-    await expect(page.locator(".notice")).toContainText("已保存");
-
-    // 此时 Branch A 应该有 revision 0 和 revision 1（edit）和 revision 2（the blocked ones
-    // 是不产生 revision 的，因为 editResumeBranch 抛错后 mutateResumeBranch 会回滚事务）
-    // 实际只有 revision 0（创建）和 revision 1（第一次编辑）。上面的 blocked edits 不增加 revision。
-    // 再做一次新编辑确保 revision 升级
+    // 当前 Branch A 已经有 revision 0（创建）和 revision 1（editedAText）。
+    // 再做一次合法编辑以产生 revision 2。追加一个句号（与 editedAText 不同）。
     const branchATextarea2 = page.locator(".branch-editor textarea").first();
-    const finalEditedText = `${originalAText}。追加二次编辑。`;
-    await branchATextarea2.fill(finalEditedText);
+    const editedAText2 = `${originalAText}。。`;
+    await branchATextarea2.fill(editedAText2);
     await page.locator(".branch-editor .suggestion-card").first().locator("button.primary-button").click();
     await expect(page.locator(".notice")).toContainText("已保存");
 
-    // 恢复到 revision 0
+    // 恢复到 revision 0（原始文本）
     const rev0Row = page.locator(".revision-list .review-row").filter({ hasText: "revision 0" });
     await expect(rev0Row).toBeVisible();
     await rev0Row.locator("button").click();
@@ -225,15 +223,15 @@ test.describe("D1 验证：分支隔离、Fact Guard、版本历史、持久化�
     const restoredTextarea = page.locator(".branch-editor textarea").first();
     await expect(restoredTextarea).toHaveValue(originalAText);
 
-    // 撤销恢复（回到编辑后的版本）
+    // 撤销恢复（回到编辑后的版本 editedAText2）
     await page.locator("section.panel").filter({ hasText: "D1 验证分支 A" })
       .locator(".section-heading .action-row button")
       .filter({ hasText: "撤销" }).click();
     await expect(page.locator(".notice")).toContainText("撤销");
 
-    // 验证撤销后文本恢复为编辑后版本
+    // 验证撤销后文本恢复为 editedAText2
     const undoTextarea = page.locator(".branch-editor textarea").first();
-    await expect(undoTextarea).toHaveValue(finalEditedText);
+    await expect(undoTextarea).toHaveValue(editedAText2);
 
     // ================================================================
     // 5.  刷新页面，确认分支和版本历史仍存在
