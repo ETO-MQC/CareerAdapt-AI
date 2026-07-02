@@ -4,6 +4,7 @@ import { demoJobDescriptions } from "@/data/demoJobs";
 import { demoCareerProfile } from "@/data/demoProfile";
 import type {
   AiLog,
+  AiSuggestion,
   DraftCommit,
   ExportRecord,
   JobAnalysisDraft,
@@ -15,6 +16,8 @@ import { mapProfileDraftToCareerProfile } from "@/domain/mappers/profileDraftMap
 import { mapJobDraftToJobDescription } from "@/domain/mappers/jobDraftMapper";
 import { CareerAdaptDb } from "@/services/storage/db";
 import { RevisionConflictError, WorkspaceRepository } from "@/services/storage/repositories";
+import { runRuleFactGuard } from "@/domain/adaptation/factGuard";
+import { createRuleRequirementMatches, resolveEffectiveMatch } from "@/domain/match/matcher";
 
 const TEST_TIME = "2026-07-01T10:00:00.000Z";
 
@@ -37,6 +40,29 @@ class LegacyStageBDb extends Dexie {
       profileImportDrafts: "id, rawInputId, status, updatedAt",
       jobAnalysisDrafts: "id, rawInputId, status, updatedAt",
       draftCommits: "commitId, draftId, kind, entityId",
+      resumeBranches: "id, profileId, jobId, updatedAt",
+      aiLogs: "id, task, provider, createdAt",
+      exportRecords: "id, branchId, revisionId, createdAt",
+      appMeta: "key"
+    });
+  }
+}
+
+class LegacyStageC1Db extends Dexie {
+  profiles!: Table<typeof demoCareerProfile, string>;
+  jobDescriptions!: Table<(typeof demoJobDescriptions)[number], string>;
+
+  constructor(name: string) {
+    super(name);
+    this.version(3).stores({
+      profiles: "id, name, updatedAt",
+      jobDescriptions: "id, title, company, updatedAt",
+      rawInputs: "id, kind, inputHash, updatedAt",
+      profileImportDrafts: "id, rawInputId, status, updatedAt",
+      jobAnalysisDrafts: "id, rawInputId, status, updatedAt",
+      draftCommits: "commitId, draftId, kind, entityId",
+      requirementMatches: "id, [profileId+jobId], requirementId, isStale, updatedAt",
+      matchOperations: "id, operationId, requirementMatchId, [profileId+jobId], type, occurredAt",
       resumeBranches: "id, profileId, jobId, updatedAt",
       aiLogs: "id, task, provider, createdAt",
       exportRecords: "id, branchId, revisionId, createdAt",
@@ -78,7 +104,7 @@ describe("WorkspaceRepository", () => {
     expect(updated?.version).toBe(2);
 
     const exported = await repository.exportWorkspaceJson();
-    expect(exported.schemaVersion).toBe("stage-c-c1-v1");
+    expect(exported.schemaVersion).toBe("stage-c-c2-v1");
     expect(exported.profiles).toHaveLength(1);
     expect(exported.jobDescriptions).toHaveLength(2);
     expect(exported.rawInputs).toHaveLength(0);
@@ -163,6 +189,28 @@ describe("WorkspaceRepository", () => {
     expect(exported.draftCommits.map((item) => item.id)).toContain(commit.id);
     expect(exported.requirementMatches).toHaveLength(0);
     expect(exported.matchOperations).toHaveLength(0);
+    expect(exported.jobAdaptationDrafts).toHaveLength(0);
+    expect(exported.aiSuggestions).toHaveLength(0);
+  });
+
+  it("migrates stage C1 Dexie v3 data to v4 with empty C2 tables", async () => {
+    const dbName = `CareerAdaptMigrationC2Db-${crypto.randomUUID()}`;
+    const legacy = new LegacyStageC1Db(dbName);
+    await legacy.open();
+    await legacy.table("profiles").put(demoCareerProfile);
+    await legacy.table("jobDescriptions").put(demoJobDescriptions[0]);
+    legacy.close();
+
+    db = new CareerAdaptDb(dbName);
+    const repository = new WorkspaceRepository(db);
+    const exported = await repository.exportWorkspaceJson();
+
+    expect(exported.profiles.map((profile) => profile.id)).toContain(demoCareerProfile.id);
+    expect(exported.jobDescriptions.map((job) => job.id)).toContain(demoJobDescriptions[0].id);
+    expect(exported.jobAdaptationDrafts).toHaveLength(0);
+    expect(exported.aiSuggestions).toHaveLength(0);
+    expect(exported.adaptationSnapshots).toHaveLength(0);
+    expect(exported.suggestionOperations).toHaveLength(0);
   });
 
   it("saves resume branches, AI logs, export records, and app meta", async () => {
@@ -247,6 +295,181 @@ describe("WorkspaceRepository", () => {
     expect(exported.aiLogs).toHaveLength(1);
     expect(exported.exportRecords).toHaveLength(1);
     expect(exported.aiLogs[0].id).toBe(aiLog.id);
+  });
+
+  it("persists C2 draft, suggestions, idempotent accept, rejection, edit guard, and undo", async () => {
+    db = new CareerAdaptDb(`CareerAdaptC2Db-${crypto.randomUUID()}`);
+    const repository = new WorkspaceRepository(db);
+    const job = demoJobDescriptions[0];
+    const matches = createRuleRequirementMatches({ profile: demoCareerProfile, job }, TEST_TIME);
+    const created = await repository.createJobAdaptationDraft({
+      profile: demoCareerProfile,
+      job,
+      matches,
+      operationId: "c2-create-storage"
+    });
+    const duplicateCreate = await repository.createJobAdaptationDraft({
+      profile: demoCareerProfile,
+      job,
+      matches,
+      operationId: "c2-create-storage"
+    });
+    expect(created.idempotent).toBe(false);
+    expect(duplicateCreate.idempotent).toBe(true);
+
+    const firstMatch = matches.find((match) => resolveEffectiveMatch(match).evidenceRefs.length > 0)!;
+    const firstEvidence = resolveEffectiveMatch(firstMatch).evidenceRefs[0];
+    const firstSection = created.draft.sectionTexts[0];
+    const passGuard = runRuleFactGuard({
+      originalText: firstSection.originalText,
+      checkedText: firstSection.originalText,
+      usedEvidenceRefs: [firstEvidence],
+      now: TEST_TIME
+    });
+    const suggestion: AiSuggestion = {
+      id: "suggestion-storage-c2",
+      draftId: created.draft.id,
+      targetSectionId: firstSection.sectionId,
+      type: "rewrite",
+      originalText: firstSection.originalText,
+      suggestedText: firstSection.originalText,
+      reason: "Grounded rewrite test.",
+      requirementIds: [firstMatch.requirementId],
+      usedEvidenceRefs: [firstEvidence],
+      guardResult: passGuard,
+      riskLevel: "low",
+      status: "pending_review",
+      promptVersion: "resume-tailor.v1",
+      createdAt: TEST_TIME,
+      updatedAt: TEST_TIME
+    };
+
+    const saved = await repository.saveGeneratedSuggestions({
+      profile: demoCareerProfile,
+      job,
+      draftId: created.draft.id,
+      matches,
+      suggestions: [suggestion],
+      expectedRevision: created.draft.revision,
+      operationId: "c2-generate-storage"
+    });
+    expect(saved.draft.revision).toBe(1);
+
+    const accepted = await repository.acceptSuggestion({
+      profile: demoCareerProfile,
+      job,
+      matches,
+      draftId: saved.draft.id,
+      suggestionId: suggestion.id,
+      expectedRevision: saved.draft.revision,
+      operationId: "c2-accept-storage"
+    });
+    const acceptedAgain = await repository.acceptSuggestion({
+      profile: demoCareerProfile,
+      job,
+      matches,
+      draftId: saved.draft.id,
+      suggestionId: suggestion.id,
+      expectedRevision: saved.draft.revision,
+      operationId: "c2-accept-storage"
+    });
+    expect(accepted.suggestion.status).toBe("accepted");
+    expect(acceptedAgain.idempotent).toBe(true);
+
+    const editedGuard = runRuleFactGuard({
+      originalText: suggestion.originalText,
+      checkedText: "主导项目并提升 30%",
+      usedEvidenceRefs: [firstEvidence],
+      now: TEST_TIME
+    });
+    const edited = await repository.editSuggestionGuarded({
+      draftId: accepted.draft.id,
+      suggestionId: suggestion.id,
+      expectedRevision: accepted.draft.revision,
+      operationId: "c2-edit-storage",
+      editedText: "主导项目并提升 30%",
+      guardResult: editedGuard
+    });
+    expect(edited.suggestion.status).toBe("blocked_high_risk");
+
+    await expect(repository.rejectSuggestion({
+      draftId: edited.draft.id,
+      suggestionId: suggestion.id,
+      expectedRevision: accepted.draft.revision,
+      operationId: "c2-reject-stale-revision"
+    })).rejects.toBeInstanceOf(RevisionConflictError);
+
+    const undone = await repository.undoSuggestion({
+      draftId: edited.draft.id,
+      suggestionId: suggestion.id,
+      expectedRevision: edited.draft.revision,
+      operationId: "c2-undo-storage"
+    });
+    expect(undone.suggestion.status).toBe("undone");
+
+    const exported = await repository.exportWorkspaceJson();
+    expect(exported.jobAdaptationDrafts).toHaveLength(1);
+    expect(exported.aiSuggestions).toHaveLength(1);
+    expect(exported.adaptationSnapshots.length).toBeGreaterThan(1);
+    expect(exported.suggestionOperations.length).toBeGreaterThan(1);
+  });
+
+  it("prevents accepting blocked high-risk suggestions", async () => {
+    db = new CareerAdaptDb(`CareerAdaptC2BlockedDb-${crypto.randomUUID()}`);
+    const repository = new WorkspaceRepository(db);
+    const job = demoJobDescriptions[0];
+    const matches = createRuleRequirementMatches({ profile: demoCareerProfile, job }, TEST_TIME);
+    const created = await repository.createJobAdaptationDraft({
+      profile: demoCareerProfile,
+      job,
+      matches,
+      operationId: "c2-create-blocked"
+    });
+    const firstMatch = matches.find((match) => resolveEffectiveMatch(match).evidenceRefs.length > 0)!;
+    const firstEvidence = resolveEffectiveMatch(firstMatch).evidenceRefs[0];
+    const firstSection = created.draft.sectionTexts[0];
+    const blockedGuard = runRuleFactGuard({
+      originalText: firstSection.originalText,
+      checkedText: "主导项目并提升 30%",
+      usedEvidenceRefs: [firstEvidence],
+      now: TEST_TIME
+    });
+    const suggestion: AiSuggestion = {
+      id: "suggestion-blocked-c2",
+      draftId: created.draft.id,
+      targetSectionId: firstSection.sectionId,
+      type: "rewrite",
+      originalText: firstSection.originalText,
+      suggestedText: "主导项目并提升 30%",
+      reason: "Unsafe test.",
+      requirementIds: [firstMatch.requirementId],
+      usedEvidenceRefs: [firstEvidence],
+      guardResult: blockedGuard,
+      riskLevel: blockedGuard.riskLevel,
+      status: "blocked_high_risk",
+      promptVersion: "resume-tailor.v1",
+      createdAt: TEST_TIME,
+      updatedAt: TEST_TIME
+    };
+    const saved = await repository.saveGeneratedSuggestions({
+      profile: demoCareerProfile,
+      job,
+      draftId: created.draft.id,
+      matches,
+      suggestions: [suggestion],
+      expectedRevision: created.draft.revision,
+      operationId: "c2-generate-blocked"
+    });
+
+    await expect(repository.acceptSuggestion({
+      profile: demoCareerProfile,
+      job,
+      matches,
+      draftId: saved.draft.id,
+      suggestionId: suggestion.id,
+      expectedRevision: saved.draft.revision,
+      operationId: "c2-accept-blocked"
+    })).rejects.toThrow("blocked_high_risk_suggestion_cannot_accept");
   });
 
   it("saves stage B profile drafts with revision checks and idempotent commits", async () => {

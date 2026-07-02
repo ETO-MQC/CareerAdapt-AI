@@ -78,16 +78,41 @@ describe("stage A schemas", () => {
 
     const suggestion = {
       id: "suggestion-stage-a",
-      targetPath: "experiences[0].resumeDrafts[0].text",
+      draftId: "adaptation-draft-stage-a",
+      targetSectionId: "section-stage-a",
       type: "rewrite",
-      original: "使用 Stata 做分析。",
-      suggested: "使用 Stata 清洗 31 个省级样本并完成统计分析。",
+      originalText: "使用 Stata 做分析。",
+      suggestedText: "使用 Stata 清洗 31 个省级样本并完成统计分析。",
       reason: "突出已确认的工具、样本规模和分析任务。",
-      jobRequirementIds: [demoJobDescriptions[0].requirements[0].id],
-      factIds: [demoCareerProfile.experiences[0].facts[0].id],
-      newFacts: [],
-      risk: "low",
-      status: "draft",
+      requirementIds: [demoJobDescriptions[0].requirements[0].id],
+      usedEvidenceRefs: [
+        {
+          type: "experience_fact",
+          experienceId: demoCareerProfile.experiences[0].id,
+          factId: demoCareerProfile.experiences[0].facts[0].id,
+          factQuote: demoCareerProfile.experiences[0].facts[0].provenance[0].sourceText,
+          factText: demoCareerProfile.experiences[0].facts[0].statement
+        }
+      ],
+      guardResult: {
+        status: "pass",
+        ruleFindings: [],
+        riskLevel: "low",
+        allowedEvidenceRefs: [
+          {
+            type: "experience_fact",
+            experienceId: demoCareerProfile.experiences[0].id,
+            factId: demoCareerProfile.experiences[0].facts[0].id,
+            factQuote: demoCareerProfile.experiences[0].facts[0].provenance[0].sourceText,
+            factText: demoCareerProfile.experiences[0].facts[0].statement
+          }
+        ],
+        checkedText: "使用 Stata 清洗 31 个省级样本并完成统计分析。",
+        checkedAt: TEST_TIME,
+        guardVersion: "fact-guard-rule.v1"
+      },
+      riskLevel: "low",
+      status: "pending_review",
       promptVersion: "resume-tailor.v1",
       createdAt: TEST_TIME,
       updatedAt: TEST_TIME

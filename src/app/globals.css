@@ -495,6 +495,41 @@ p {
   min-height: 92px;
 }
 
+.c2-layout {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(260px, 0.8fr) minmax(0, 1.2fr);
+  margin-top: 16px;
+}
+
+.draft-preview,
+.suggestion-card {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.suggestion-list {
+  display: grid;
+  gap: 12px;
+}
+
+.suggestion-card-low {
+  border-left: 4px solid var(--accent);
+}
+
+.suggestion-card-medium {
+  border-left: 4px solid var(--amber);
+}
+
+.suggestion-card-high {
+  border-left: 4px solid #9b2c2c;
+}
+
+.compact-heading {
+  margin-top: 0;
+}
+
 .probe-source {
   align-items: center;
   border: 1px solid var(--line);
@@ -652,9 +687,10 @@ p {
   .status-grid,
   .profile-layout,
   .route-grid,
-  .stage-grid,
-  .match-layout,
-  .form-grid {
+    .stage-grid,
+    .match-layout,
+    .c2-layout,
+    .form-grid {
     grid-template-columns: 1fr;
   }
 

@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { EntityBaseSchema, FactStatementSchema, RiskLevelSchema } from "./common";
+import { EntityBaseSchema, RiskLevelSchema } from "./common";
+import { MatchEvidenceRefSchema } from "./job";
 
 export const AiTaskSchema = z.enum([
   "health-check",
@@ -12,34 +13,100 @@ export const AiTaskSchema = z.enum([
 
 export const AiSuggestionTypeSchema = z.enum([
   "rewrite",
-  "supplement",
-  "trim",
+  "remove_or_shorten",
   "reorder",
-  "risk",
-  "follow_up"
+  "risk_warning",
+  "follow_up_question"
 ]);
 
 export const AiSuggestionStatusSchema = z.enum([
-  "draft",
+  "pending_review",
   "accepted",
-  "partially_accepted",
   "rejected",
-  "edited"
+  "edited_pending_guard",
+  "edited_guarded",
+  "blocked_high_risk",
+  "stale_blocked",
+  "undone"
 ]);
 
+export const FactGuardFindingTypeSchema = z.enum([
+  "new_number",
+  "new_school",
+  "new_org",
+  "new_company",
+  "new_role",
+  "new_tool",
+  "new_skill",
+  "new_award",
+  "new_certificate",
+  "new_outcome",
+  "participation_to_owner",
+  "assist_to_independent",
+  "know_to_proficient",
+  "team_to_individual"
+]);
+
+export const FactGuardFindingSchema = z.object({
+  type: FactGuardFindingTypeSchema,
+  text: z.string().min(1),
+  severity: RiskLevelSchema,
+  allowed: z.boolean(),
+  evidenceRefKey: z.string().optional(),
+  message: z.string().min(1)
+});
+
+export const FactGuardAiReviewSchema = z.object({
+  status: z.enum(["pass", "needs_edit", "blocked_high_risk"]),
+  riskLevel: RiskLevelSchema,
+  findings: z.array(FactGuardFindingSchema).default([]),
+  explanation: z.string().min(1),
+  safeRewriteSuggestion: z.string().optional()
+});
+
+export const FactGuardResultSchema = z.object({
+  status: z.enum(["pass", "needs_edit", "blocked_high_risk", "ai_failed_rule_kept"]),
+  ruleFindings: z.array(FactGuardFindingSchema).default([]),
+  aiReview: FactGuardAiReviewSchema.optional(),
+  riskLevel: RiskLevelSchema,
+  allowedEvidenceRefs: z.array(MatchEvidenceRefSchema).default([]),
+  checkedText: z.string().min(1),
+  checkedAt: z.string().datetime({ offset: true }),
+  guardVersion: z.string().min(1)
+});
+
 export const AiSuggestionSchema = EntityBaseSchema.extend({
-  targetPath: z.string().min(1),
+  draftId: z.string().min(1),
+  targetSectionId: z.string().min(1),
   type: AiSuggestionTypeSchema,
-  original: z.string().min(1),
-  suggested: z.string().min(1),
+  originalText: z.string().min(1),
+  suggestedText: z.string().min(1),
   reason: z.string().min(1),
-  jobRequirementIds: z.array(z.string()).default([]),
-  factIds: z.array(z.string()).default([]),
-  newFacts: z.array(FactStatementSchema).default([]),
-  risk: RiskLevelSchema,
+  requirementIds: z.array(z.string().min(1)).default([]),
+  usedEvidenceRefs: z.array(MatchEvidenceRefSchema).default([]),
+  guardResult: FactGuardResultSchema,
+  riskLevel: RiskLevelSchema,
   status: AiSuggestionStatusSchema,
+  editedText: z.string().optional(),
   promptVersion: z.string().min(1)
 });
+
+export const ResumeTailorSuggestionItemSchema = z.object({
+  type: AiSuggestionTypeSchema,
+  targetSectionId: z.string().min(1),
+  originalText: z.string().min(1),
+  suggestedText: z.string().min(1),
+  reason: z.string().min(1),
+  requirementIds: z.array(z.string().min(1)).default([]),
+  usedEvidenceRefs: z.array(MatchEvidenceRefSchema).default([]),
+  riskLevel: RiskLevelSchema
+});
+
+export const ResumeTailorOutputSchema = z.object({
+  suggestions: z.array(ResumeTailorSuggestionItemSchema).default([])
+});
+
+export const FactGuardOutputSchema = FactGuardAiReviewSchema;
 
 export const AiLogStatusSchema = z.enum(["success", "validation_failed", "provider_failed"]);
 
@@ -68,7 +135,14 @@ export const AiHealthCheckSchema = z.object({
 export type AiTask = z.infer<typeof AiTaskSchema>;
 export type AiSuggestionType = z.infer<typeof AiSuggestionTypeSchema>;
 export type AiSuggestionStatus = z.infer<typeof AiSuggestionStatusSchema>;
+export type FactGuardFindingType = z.infer<typeof FactGuardFindingTypeSchema>;
+export type FactGuardFinding = z.infer<typeof FactGuardFindingSchema>;
+export type FactGuardAiReview = z.infer<typeof FactGuardAiReviewSchema>;
+export type FactGuardResult = z.infer<typeof FactGuardResultSchema>;
 export type AiSuggestion = z.infer<typeof AiSuggestionSchema>;
+export type ResumeTailorSuggestionItem = z.infer<typeof ResumeTailorSuggestionItemSchema>;
+export type ResumeTailorOutput = z.infer<typeof ResumeTailorOutputSchema>;
+export type FactGuardOutput = z.infer<typeof FactGuardOutputSchema>;
 export type AiLogStatus = z.infer<typeof AiLogStatusSchema>;
 export type AiLog = z.infer<typeof AiLogSchema>;
 export type AiHealthCheck = z.infer<typeof AiHealthCheckSchema>;

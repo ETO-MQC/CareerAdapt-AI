@@ -58,4 +58,123 @@ test.describe("Stage C1 evidence matcher flow", () => {
     await expect(page.locator(".match-row").filter({ hasText: "stale" }).first()).toBeVisible();
     await expect(page.getByText("该匹配已过期", { exact: false })).toBeVisible();
   });
+
+  test("creates C2 adaptation draft, generates guarded suggestions, edits, accepts, rejects, and undoes", async ({ page }) => {
+    await page.route("**/api/ai/structured", async (route) => {
+      const body = route.request().postDataJSON() as {
+        task: string;
+        input: {
+          sectionTexts?: Array<{ sectionId: string; text: string; originalText: string }>;
+          matches?: Array<{ requirementId: string }>;
+          allowedEvidenceRefs?: unknown[];
+          checkedText?: string;
+          ruleFindings?: unknown[];
+        };
+      };
+
+      if (body.task === "resume-tailor") {
+        const section = body.input.sectionTexts?.[0];
+        const match = body.input.matches?.[0];
+        const evidenceRef = body.input.allowedEvidenceRefs?.[0];
+        await route.fulfill({
+          contentType: "application/json",
+          body: JSON.stringify({
+            ok: true,
+            task: "resume-tailor",
+            promptVersion: "resume-tailor.v1",
+            output: {
+              suggestions: [
+                {
+                  type: "rewrite",
+                  targetSectionId: section?.sectionId,
+                  originalText: section?.text,
+                  suggestedText: section?.text,
+                  reason: "保留已确认事实并贴合岗位表达。",
+                  requirementIds: [match?.requirementId],
+                  usedEvidenceRefs: evidenceRef ? [evidenceRef] : [],
+                  riskLevel: "low"
+                },
+                {
+                  type: "rewrite",
+                  targetSectionId: section?.sectionId,
+                  originalText: section?.text,
+                  suggestedText: "主导项目并提升 30%",
+                  reason: "用于演示 Fact Guard 阻止新增事实。",
+                  requirementIds: [match?.requirementId],
+                  usedEvidenceRefs: evidenceRef ? [evidenceRef] : [],
+                  riskLevel: "high"
+                },
+                {
+                  type: "follow_up_question",
+                  targetSectionId: section?.sectionId,
+                  originalText: section?.text,
+                  suggestedText: "是否有已确认的量化结果可以补充？",
+                  reason: "证据不足时只追问，不编造。",
+                  requirementIds: [match?.requirementId],
+                  usedEvidenceRefs: [],
+                  riskLevel: "medium"
+                }
+              ]
+            },
+            meta: { provider: "mock", model: "mock-c2", inputLength: 1, outputLength: 1, latencyMs: 1 }
+          })
+        });
+        return;
+      }
+
+      if (body.task === "fact-guard") {
+        const checkedText = body.input.checkedText ?? "";
+        const blocked = checkedText.includes("提升 30%") || checkedText.includes("主导");
+        await route.fulfill({
+          contentType: "application/json",
+          body: JSON.stringify({
+            ok: true,
+            task: "fact-guard",
+            promptVersion: "fact-guard.v1",
+            output: {
+              status: blocked ? "blocked_high_risk" : "pass",
+              riskLevel: blocked ? "high" : "low",
+              findings: body.input.ruleFindings ?? [],
+              explanation: blocked ? "检测到新增事实或责任升级。" : "未检测到越界事实。"
+            },
+            meta: { provider: "mock", model: "mock-c2", inputLength: 1, outputLength: 1, latencyMs: 1 }
+          })
+        });
+        return;
+      }
+
+      await route.continue();
+    });
+
+    await page.goto("/jobs");
+    await expect(page.getByText("岗位JD解析")).toBeVisible();
+
+    await page.getByRole("button", { name: "运行C1规则匹配" }).click();
+    await expect(page.getByText("C1规则匹配完成", { exact: false })).toBeVisible();
+
+    await page.getByRole("button", { name: "创建C2草稿" }).click();
+    await expect(page.getByText("C2 适配草稿已创建", { exact: false })).toBeVisible();
+    await expect(page.getByText("适配草稿 revision 0", { exact: false })).toBeVisible();
+
+    await page.getByRole("button", { name: "生成AI建议" }).click();
+    await expect(page.getByText("C2 AI建议已生成", { exact: false })).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator(".suggestion-card")).toHaveCount(3);
+
+    await page.locator(".suggestion-card").first().getByRole("button", { name: "接受" }).click();
+    await expect(page.getByText("建议已接受", { exact: false })).toBeVisible();
+
+    const blockedCard = page.locator(".suggestion-card").filter({ hasText: "blocked_high_risk" }).first();
+    await expect(blockedCard).toBeVisible();
+    await blockedCard.locator("textarea").fill("使用 Stata 完成数据清洗。");
+    await blockedCard.getByRole("button", { name: "编辑后检测" }).click();
+    await expect(page.getByText("编辑文本已通过 Fact Guard", { exact: false })).toBeVisible();
+    await page.locator(".suggestion-card").filter({ hasText: "edited_guarded" }).getByRole("button", { name: "接受" }).click();
+    await expect(page.getByText("建议已接受", { exact: false })).toBeVisible();
+
+    await page.locator(".suggestion-card").filter({ hasText: "follow_up_question" }).getByRole("button", { name: "拒绝" }).click();
+    await expect(page.getByText("建议已拒绝", { exact: false })).toBeVisible();
+
+    await page.locator(".suggestion-card").first().getByRole("button", { name: "撤销" }).click();
+    await expect(page.getByText("已撤销该建议", { exact: false })).toBeVisible();
+  });
 });

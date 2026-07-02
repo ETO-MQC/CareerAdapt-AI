@@ -4,8 +4,10 @@ import { OpenAiCompatibleProvider, type AiProviderError } from "@/ai/providers/o
 import {
   getAiTaskDefinition,
   type EvidenceMatcherTaskInput,
+  type FactGuardTaskInput,
   type JdAnalyzerTaskInput,
   type ProfileBuilderTaskInput,
+  type ResumeTailorTaskInput,
 } from "@/ai/tasks/registry";
 import type { AiTask } from "@/domain/schemas";
 import { redactSensitiveTextForModel } from "@/services/security/text";
@@ -253,6 +255,62 @@ function createMockOutput(task: AiTask, input: unknown) {
             : "Mock evidence matcher found no rule candidates and returned no evidence."
         }
       ]
+    };
+  }
+
+  if (task === "resume-tailor") {
+    const tailorInput = input as ResumeTailorTaskInput;
+    const firstSection = tailorInput.sectionTexts[0];
+    const firstMatch = tailorInput.matches[0];
+    const firstEvidence = tailorInput.allowedEvidenceRefs[0];
+
+    return {
+      suggestions: [
+        {
+          type: "rewrite",
+          targetSectionId: firstSection?.sectionId ?? "section-missing",
+          originalText: firstSection?.text ?? "当前无草稿文本。",
+          suggestedText: firstSection?.text ? `围绕岗位要求优化表达：${firstSection.text}` : "当前无草稿文本。",
+          reason: "Mock resume-tailor keeps the wording grounded in the existing draft section and linked evidence.",
+          requirementIds: firstMatch ? [firstMatch.requirementId] : tailorInput.requirementIds.slice(0, 1),
+          usedEvidenceRefs: firstEvidence ? [firstEvidence] : [],
+          riskLevel: "low"
+        },
+        {
+          type: "remove_or_shorten",
+          targetSectionId: firstSection?.sectionId ?? "section-missing",
+          originalText: firstSection?.text ?? "当前无草稿文本。",
+          suggestedText: firstSection?.text?.slice(0, 80) ?? "当前无草稿文本。",
+          reason: "Mock resume-tailor provides a shorter version for compact resume space.",
+          requirementIds: firstMatch ? [firstMatch.requirementId] : tailorInput.requirementIds.slice(0, 1),
+          usedEvidenceRefs: firstEvidence ? [firstEvidence] : [],
+          riskLevel: "low"
+        },
+        {
+          type: "follow_up_question",
+          targetSectionId: firstSection?.sectionId ?? "section-missing",
+          originalText: firstSection?.text ?? "当前无草稿文本。",
+          suggestedText: "是否有已确认的量化结果或证据可以补充？",
+          reason: "Mock resume-tailor asks a follow-up instead of inventing unsupported facts.",
+          requirementIds: firstMatch ? [firstMatch.requirementId] : tailorInput.requirementIds.slice(0, 1),
+          usedEvidenceRefs: [],
+          riskLevel: "medium"
+        }
+      ]
+    };
+  }
+
+  if (task === "fact-guard") {
+    const guardInput = input as FactGuardTaskInput;
+    const hasBlockedRule = guardInput.ruleFindings.some((finding) => !finding.allowed && finding.severity === "high");
+    const hasAnyRule = guardInput.ruleFindings.some((finding) => !finding.allowed);
+    return {
+      status: hasBlockedRule ? "blocked_high_risk" : hasAnyRule ? "needs_edit" : "pass",
+      riskLevel: hasBlockedRule ? "high" : hasAnyRule ? "medium" : "low",
+      findings: guardInput.ruleFindings,
+      explanation: hasAnyRule
+        ? "Mock fact guard preserved rule findings and requires editing unsupported content."
+        : "Mock fact guard found no unsupported new facts beyond usedEvidenceRefs."
     };
   }
 

@@ -2,9 +2,12 @@ import { demoJobDescriptions } from "@/data/demoJobs";
 import { demoCareerProfile } from "@/data/demoProfile";
 import {
   AiLogSchema,
+  AiSuggestionSchema,
   CareerProfileSchema,
   DraftCommitSchema,
   ExportRecordSchema,
+  JobAdaptationDraftSchema,
+  JobAdaptationSnapshotSchema,
   JobAnalysisDraftSchema,
   JobDescriptionSchema,
   MatchOperationSchema,
@@ -12,10 +15,16 @@ import {
   RawInputDocumentSchema,
   RequirementMatchSchema,
   ResumeBranchSchema,
+  SuggestionOperationSchema,
   type AiLog,
+  type AiSuggestion,
   type CareerProfile,
   type DraftCommit,
   type ExportRecord,
+  type FactGuardResult,
+  type JobAdaptationDraft,
+  type JobAdaptationSectionText,
+  type JobAdaptationSnapshot,
   type JobAnalysisDraft,
   type JobDescription,
   type MatchEvaluation,
@@ -23,8 +32,14 @@ import {
   type ProfileImportDraft,
   type RawInputDocument,
   type RequirementMatch,
-  type ResumeBranch
+  type ResumeBranch,
+  type SuggestionOperation
 } from "@/domain/schemas";
+import {
+  AdaptationDraftError,
+  assertC2MatchesUsable,
+  createJobAdaptationDraft
+} from "@/domain/adaptation/draft";
 import {
   resolveEffectiveMatch,
   validateRequirementMatchReferences,
@@ -33,7 +48,7 @@ import {
 import { CareerAdaptDb, careerAdaptDb, type AppMeta } from "./db";
 
 export type WorkspaceExport = {
-  schemaVersion: "stage-c-c1-v1";
+  schemaVersion: "stage-c-c2-v1";
   exportedAt: string;
   profiles: CareerProfile[];
   jobDescriptions: JobDescription[];
@@ -43,6 +58,10 @@ export type WorkspaceExport = {
   draftCommits: DraftCommit[];
   requirementMatches: RequirementMatch[];
   matchOperations: MatchOperation[];
+  jobAdaptationDrafts: JobAdaptationDraft[];
+  aiSuggestions: AiSuggestion[];
+  adaptationSnapshots: JobAdaptationSnapshot[];
+  suggestionOperations: SuggestionOperation[];
   resumeBranches: ResumeBranch[];
   aiLogs: AiLog[];
   exportRecords: ExportRecord[];
@@ -528,6 +547,227 @@ export class WorkspaceRepository {
     return resolveEffectiveMatch(match);
   }
 
+  async createJobAdaptationDraft(input: {
+    profile: CareerProfile;
+    job: JobDescription;
+    matches: RequirementMatch[];
+    operationId: string;
+  }) {
+    return this.db.transaction("rw", this.db.jobAdaptationDrafts, this.db.adaptationSnapshots, this.db.suggestionOperations, async () => {
+      const existingOperation = await this.db.suggestionOperations.where("operationId").equals(input.operationId).first();
+      if (existingOperation) {
+        const draft = await this.db.jobAdaptationDrafts.get(existingOperation.draftId);
+        if (!draft) {
+          throw new Error("adaptation_draft_missing_for_operation");
+        }
+        return { draft: JobAdaptationDraftSchema.parse(draft), idempotent: true };
+      }
+
+      const draft = createJobAdaptationDraft(input);
+      const firstSnapshot = draft.snapshots[0];
+      const now = new Date().toISOString();
+      const operation = SuggestionOperationSchema.parse({
+        id: `suggestion-op-${input.operationId}`,
+        operationId: input.operationId,
+        draftId: draft.id,
+        type: "create_draft",
+        expectedRevision: 0,
+        beforeRevision: 0,
+        afterRevision: draft.revision,
+        snapshotId: firstSnapshot.id,
+        occurredAt: now,
+        createdAt: now,
+        updatedAt: now
+      });
+
+      await this.db.jobAdaptationDrafts.put(draft);
+      await this.db.adaptationSnapshots.put(firstSnapshot);
+      await this.db.suggestionOperations.put(operation);
+      return { draft, idempotent: false };
+    });
+  }
+
+  async getLatestJobAdaptationDraft(profileId: string, jobId: string) {
+    const drafts = await this.db.jobAdaptationDrafts.where("[profileId+jobId]").equals([profileId, jobId]).toArray();
+    const draft = drafts.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
+    return draft ? JobAdaptationDraftSchema.parse(draft) : undefined;
+  }
+
+  async getJobAdaptationDraft(id: string) {
+    const draft = await this.db.jobAdaptationDrafts.get(id);
+    return draft ? JobAdaptationDraftSchema.parse(draft) : undefined;
+  }
+
+  async listAiSuggestions(draftId: string) {
+    const suggestions = await this.db.aiSuggestions.where("draftId").equals(draftId).toArray();
+    return suggestions.map((suggestion) => AiSuggestionSchema.parse(suggestion));
+  }
+
+  async saveGeneratedSuggestions(input: {
+    profile: CareerProfile;
+    job: JobDescription;
+    draftId: string;
+    matches: RequirementMatch[];
+    suggestions: AiSuggestion[];
+    expectedRevision: number;
+    operationId: string;
+  }) {
+    return this.db.transaction("rw", this.db.jobAdaptationDrafts, this.db.aiSuggestions, this.db.adaptationSnapshots, this.db.suggestionOperations, async () => {
+      const existingOperation = await this.db.suggestionOperations.where("operationId").equals(input.operationId).first();
+      if (existingOperation) {
+        const draft = await this.db.jobAdaptationDrafts.get(input.draftId);
+        if (!draft) {
+          throw new Error("adaptation_draft_missing_for_operation");
+        }
+        return {
+          draft: JobAdaptationDraftSchema.parse(draft),
+          suggestions: await this.listAiSuggestions(input.draftId),
+          idempotent: true
+        };
+      }
+
+      const draft = await this.requireDraftRevision(input.draftId, input.expectedRevision);
+      assertC2MatchesUsable({ profile: input.profile, job: input.job, matches: input.matches });
+
+      const now = new Date().toISOString();
+      const parsedSuggestions = input.suggestions.map((suggestion) => AiSuggestionSchema.parse(suggestion));
+      const nextDraft = JobAdaptationDraftSchema.parse({
+        ...draft,
+        revision: draft.revision + 1,
+        status: "ai_completed",
+        updatedAt: now
+      });
+      const snapshot = this.createAdaptationSnapshot(nextDraft, "suggestions_generated", input.operationId, now);
+      const operation = this.createSuggestionOperation({
+        operationId: input.operationId,
+        draftId: draft.id,
+        type: "generate",
+        expectedRevision: input.expectedRevision,
+        beforeRevision: draft.revision,
+        afterRevision: nextDraft.revision,
+        snapshotId: snapshot.id,
+        now
+      });
+
+      await this.db.aiSuggestions.bulkPut(parsedSuggestions);
+      await this.db.jobAdaptationDrafts.put(nextDraft);
+      await this.db.adaptationSnapshots.put(snapshot);
+      await this.db.suggestionOperations.put(operation);
+      return { draft: nextDraft, suggestions: parsedSuggestions, idempotent: false };
+    });
+  }
+
+  async rejectSuggestion(input: {
+    draftId: string;
+    suggestionId: string;
+    expectedRevision: number;
+    operationId: string;
+  }) {
+    return this.mutateSuggestion(input, "reject", (draft, suggestion, now) => ({
+      draft,
+      suggestion: AiSuggestionSchema.parse({ ...suggestion, status: "rejected", updatedAt: now })
+    }));
+  }
+
+  async editSuggestionGuarded(input: {
+    draftId: string;
+    suggestionId: string;
+    expectedRevision: number;
+    operationId: string;
+    editedText: string;
+    guardResult: FactGuardResult;
+  }) {
+    return this.mutateSuggestion(input, "edit", (draft, suggestion, now) => ({
+      draft: JobAdaptationDraftSchema.parse({ ...draft, lastGuardedAt: now, updatedAt: now }),
+      suggestion: AiSuggestionSchema.parse({
+        ...suggestion,
+        editedText: input.editedText,
+        guardResult: input.guardResult,
+        riskLevel: input.guardResult.riskLevel,
+        status: input.guardResult.status === "pass" ? "edited_guarded" : input.guardResult.status === "blocked_high_risk" ? "blocked_high_risk" : "edited_pending_guard",
+        updatedAt: now
+      })
+    }));
+  }
+
+  async rerunSuggestionGuard(input: {
+    draftId: string;
+    suggestionId: string;
+    expectedRevision: number;
+    operationId: string;
+    checkedText: string;
+    guardResult: FactGuardResult;
+  }) {
+    return this.mutateSuggestion(input, "rerun_guard", (draft, suggestion, now) => ({
+      draft: JobAdaptationDraftSchema.parse({ ...draft, lastGuardedAt: now, updatedAt: now }),
+      suggestion: AiSuggestionSchema.parse({
+        ...suggestion,
+        editedText: input.checkedText === suggestion.suggestedText ? suggestion.editedText : input.checkedText,
+        guardResult: input.guardResult,
+        riskLevel: input.guardResult.riskLevel,
+        status: input.guardResult.status === "pass" ? "edited_guarded" : input.guardResult.status === "blocked_high_risk" ? "blocked_high_risk" : "edited_pending_guard",
+        updatedAt: now
+      })
+    }));
+  }
+
+  async acceptSuggestion(input: {
+    profile: CareerProfile;
+    job: JobDescription;
+    matches: RequirementMatch[];
+    draftId: string;
+    suggestionId: string;
+    expectedRevision: number;
+    operationId: string;
+  }) {
+    return this.mutateSuggestion(input, "accept", (draft, suggestion, now) => {
+      assertC2MatchesUsable({ profile: input.profile, job: input.job, matches: input.matches });
+
+      if (suggestion.status === "blocked_high_risk" || suggestion.riskLevel === "high") {
+        throw new AdaptationDraftError("blocked_high_risk_suggestion_cannot_accept");
+      }
+      if (suggestion.guardResult.status !== "pass" && suggestion.guardResult.status !== "ai_failed_rule_kept") {
+        throw new AdaptationDraftError("suggestion_guard_not_passed");
+      }
+
+      const nextSections = applySuggestionToSections(draft.sectionTexts, suggestion, now);
+      return {
+        draft: JobAdaptationDraftSchema.parse({
+          ...draft,
+          sectionTexts: nextSections,
+          appliedSuggestionIds: Array.from(new Set([...draft.appliedSuggestionIds, suggestion.id])),
+          updatedAt: now
+        }),
+        suggestion: AiSuggestionSchema.parse({ ...suggestion, status: "accepted", updatedAt: now })
+      };
+    });
+  }
+
+  async undoSuggestion(input: {
+    draftId: string;
+    suggestionId: string;
+    expectedRevision: number;
+    operationId: string;
+  }) {
+    return this.mutateSuggestion(input, "undo", (draft, suggestion, now) => {
+      const snapshots = [...draft.snapshots].sort((a, b) => b.revision - a.revision);
+      const previous = snapshots.find((snapshot) => snapshot.revision < draft.revision);
+      if (!previous) {
+        throw new Error("adaptation_snapshot_missing");
+      }
+
+      return {
+        draft: JobAdaptationDraftSchema.parse({
+          ...draft,
+          sectionTexts: previous.sectionTexts,
+          appliedSuggestionIds: draft.appliedSuggestionIds.filter((id) => id !== suggestion.id),
+          updatedAt: now
+        }),
+        suggestion: AiSuggestionSchema.parse({ ...suggestion, status: "undone", updatedAt: now })
+      };
+    });
+  }
+
   async listResumeBranches() {
     const branches = await this.db.resumeBranches.toArray();
     return branches.map((branch) => ResumeBranchSchema.parse(branch));
@@ -562,7 +802,7 @@ export class WorkspaceRepository {
 
   async exportWorkspaceJson(): Promise<WorkspaceExport> {
     return {
-      schemaVersion: "stage-c-c1-v1",
+      schemaVersion: "stage-c-c2-v1",
       exportedAt: new Date().toISOString(),
       profiles: await this.listProfiles(),
       jobDescriptions: await this.listJobDescriptions(),
@@ -572,11 +812,137 @@ export class WorkspaceRepository {
       draftCommits: (await this.db.draftCommits.toArray()).map((commit) => DraftCommitSchema.parse(commit)),
       requirementMatches: (await this.db.requirementMatches.toArray()).map((match) => RequirementMatchSchema.parse(match)),
       matchOperations: (await this.db.matchOperations.toArray()).map((operation) => MatchOperationSchema.parse(operation)),
+      jobAdaptationDrafts: (await this.db.jobAdaptationDrafts.toArray()).map((draft) => JobAdaptationDraftSchema.parse(draft)),
+      aiSuggestions: (await this.db.aiSuggestions.toArray()).map((suggestion) => AiSuggestionSchema.parse(suggestion)),
+      adaptationSnapshots: (await this.db.adaptationSnapshots.toArray()).map((snapshot) => JobAdaptationSnapshotSchema.parse(snapshot)),
+      suggestionOperations: (await this.db.suggestionOperations.toArray()).map((operation) => SuggestionOperationSchema.parse(operation)),
       resumeBranches: await this.listResumeBranches(),
       aiLogs: (await this.db.aiLogs.toArray()).map((log) => AiLogSchema.parse(log)),
       exportRecords: (await this.db.exportRecords.toArray()).map((record) => ExportRecordSchema.parse(record)),
       appMeta: await this.db.appMeta.toArray()
     };
+  }
+
+  private async requireDraftRevision(draftId: string, expectedRevision: number) {
+    const draft = await this.db.jobAdaptationDrafts.get(draftId);
+    if (!draft || draft.revision !== expectedRevision) {
+      throw new RevisionConflictError();
+    }
+    return JobAdaptationDraftSchema.parse(draft);
+  }
+
+  private createAdaptationSnapshot(
+    draft: JobAdaptationDraft,
+    source: JobAdaptationSnapshot["source"],
+    operationId: string,
+    now: string
+  ) {
+    return JobAdaptationSnapshotSchema.parse({
+      id: `adapt-snapshot-${operationId}`,
+      draftId: draft.id,
+      revision: draft.revision,
+      source,
+      operationId,
+      sectionTexts: draft.sectionTexts,
+      appliedSuggestionIds: draft.appliedSuggestionIds,
+      createdAt: now,
+      updatedAt: now
+    });
+  }
+
+  private createSuggestionOperation(input: {
+    operationId: string;
+    draftId: string;
+    suggestionId?: string;
+    type: SuggestionOperation["type"];
+    expectedRevision: number;
+    beforeRevision: number;
+    afterRevision: number;
+    snapshotId: string;
+    now: string;
+  }) {
+    return SuggestionOperationSchema.parse({
+      id: `suggestion-op-${input.operationId}`,
+      operationId: input.operationId,
+      draftId: input.draftId,
+      suggestionId: input.suggestionId,
+      type: input.type,
+      expectedRevision: input.expectedRevision,
+      beforeRevision: input.beforeRevision,
+      afterRevision: input.afterRevision,
+      snapshotId: input.snapshotId,
+      occurredAt: input.now,
+      createdAt: input.now,
+      updatedAt: input.now
+    });
+  }
+
+  private async mutateSuggestion(
+    input: {
+      draftId: string;
+      suggestionId: string;
+      expectedRevision: number;
+      operationId: string;
+    },
+    type: SuggestionOperation["type"],
+    mutate: (draft: JobAdaptationDraft, suggestion: AiSuggestion, now: string) => { draft: JobAdaptationDraft; suggestion: AiSuggestion }
+  ) {
+    return this.db.transaction("rw", this.db.jobAdaptationDrafts, this.db.aiSuggestions, this.db.adaptationSnapshots, this.db.suggestionOperations, async () => {
+      const existingOperation = await this.db.suggestionOperations.where("operationId").equals(input.operationId).first();
+      if (existingOperation) {
+        const draft = await this.db.jobAdaptationDrafts.get(input.draftId);
+        const suggestion = await this.db.aiSuggestions.get(input.suggestionId);
+        if (!draft || !suggestion) {
+          throw new Error("suggestion_operation_target_missing");
+        }
+        return {
+          draft: JobAdaptationDraftSchema.parse(draft),
+          suggestion: AiSuggestionSchema.parse(suggestion),
+          idempotent: true
+        };
+      }
+
+      const draft = await this.requireDraftRevision(input.draftId, input.expectedRevision);
+      const suggestion = await this.db.aiSuggestions.get(input.suggestionId);
+      if (!suggestion || suggestion.draftId !== draft.id) {
+        throw new Error("suggestion_missing");
+      }
+
+      const now = new Date().toISOString();
+      const changed = mutate(draft, AiSuggestionSchema.parse(suggestion), now);
+      const nextDraft = JobAdaptationDraftSchema.parse({
+        ...changed.draft,
+        revision: draft.revision + 1,
+        updatedAt: now
+      });
+      const snapshot = this.createAdaptationSnapshot(
+        nextDraft,
+        type === "accept" ? "suggestion_applied" : type === "reject" ? "suggestion_rejected" : type === "edit" ? "suggestion_edited" : type === "rerun_guard" ? "guard_rerun" : "undo",
+        input.operationId,
+        now
+      );
+      const nextDraftWithSnapshot = JobAdaptationDraftSchema.parse({
+        ...nextDraft,
+        snapshots: [...nextDraft.snapshots, snapshot]
+      });
+      const operation = this.createSuggestionOperation({
+        operationId: input.operationId,
+        draftId: draft.id,
+        suggestionId: suggestion.id,
+        type,
+        expectedRevision: input.expectedRevision,
+        beforeRevision: draft.revision,
+        afterRevision: nextDraftWithSnapshot.revision,
+        snapshotId: snapshot.id,
+        now
+      });
+
+      await this.db.aiSuggestions.put(changed.suggestion);
+      await this.db.jobAdaptationDrafts.put(nextDraftWithSnapshot);
+      await this.db.adaptationSnapshots.put(snapshot);
+      await this.db.suggestionOperations.put(operation);
+      return { draft: nextDraftWithSnapshot, suggestion: changed.suggestion, idempotent: false };
+    });
   }
 }
 
@@ -585,4 +951,27 @@ export class RevisionConflictError extends Error {
     super("revision_conflict");
     this.name = "RevisionConflictError";
   }
+}
+
+function applySuggestionToSections(
+  sections: JobAdaptationSectionText[],
+  suggestion: AiSuggestion,
+  now: string
+) {
+  if (suggestion.type === "risk_warning" || suggestion.type === "follow_up_question") {
+    return sections;
+  }
+
+  if (suggestion.type === "reorder") {
+    return sections
+      .map((section) => section.sectionId === suggestion.targetSectionId ? { ...section, order: 0, updatedAt: now } : { ...section, order: section.order + 1 })
+      .sort((a, b) => a.order - b.order);
+  }
+
+  const nextText = suggestion.editedText ?? suggestion.suggestedText;
+  return sections.map((section) =>
+    section.sectionId === suggestion.targetSectionId
+      ? { ...section, text: nextText, updatedAt: now }
+      : section
+  );
 }

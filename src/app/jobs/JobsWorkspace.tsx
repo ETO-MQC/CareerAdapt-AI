@@ -6,11 +6,16 @@ import { invokeStageBAi, invokeStructuredAi } from "@/ai/client";
 import { promptVersions } from "@/ai/prompts/versions";
 import { mapJobDraftToJobDescription } from "@/domain/mappers/jobDraftMapper";
 import {
+  FactGuardOutputSchema,
+  ResumeTailorOutputSchema,
   EvidenceMatcherOutputSchema,
   JdAnalyzerOutputSchema,
   MatchEvaluationSchema,
+  type AiSuggestion,
+  type FactGuardResult,
   type JdAnalyzerOutput,
   type JdAnalyzerRequirement,
+  type JobAdaptationDraft,
   type JobAnalysisDraft,
   type JobDescription,
   type CareerProfile,
@@ -19,6 +24,8 @@ import {
   type RawInputDocument,
   type RequirementMatch
 } from "@/domain/schemas";
+import { collectAllowedEvidenceRefs } from "@/domain/adaptation/draft";
+import { mergeAiFactGuardReview, runRuleFactGuard } from "@/domain/adaptation/factGuard";
 import {
   checkRequirementMatchStale,
   createRuleRequirementMatches,
@@ -50,6 +57,10 @@ export function JobsWorkspace() {
   const [manualRisk, setManualRisk] = useState<MatchEvaluation["riskLevel"]>("medium");
   const [manualReason, setManualReason] = useState("");
   const [manualEvidenceKey, setManualEvidenceKey] = useState("");
+  const [adaptationDraft, setAdaptationDraft] = useState<JobAdaptationDraft | undefined>();
+  const [suggestions, setSuggestions] = useState<AiSuggestion[]>([]);
+  const [c2Status, setC2Status] = useState<"idle" | "running" | "failed">("idle");
+  const [editedSuggestions, setEditedSuggestions] = useState<Record<string, string>>({});
 
   useEffect(() => {
     let active = true;
@@ -104,6 +115,31 @@ export function JobsWorkspace() {
     }
 
     void loadMatches();
+
+    return () => {
+      active = false;
+    };
+  }, [profile, selectedJob]);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadC2Draft() {
+      if (!profile || !selectedJob) {
+        setAdaptationDraft(undefined);
+        setSuggestions([]);
+        return;
+      }
+
+      const latestDraft = await repository.getLatestJobAdaptationDraft(profile.id, selectedJob.id);
+      const latestSuggestions = latestDraft ? await repository.listAiSuggestions(latestDraft.id) : [];
+      if (active) {
+        setAdaptationDraft(latestDraft);
+        setSuggestions(latestSuggestions);
+      }
+    }
+
+    void loadC2Draft();
 
     return () => {
       active = false;
@@ -461,6 +497,271 @@ export function JobsWorkspace() {
     setMessage("人工覆盖已保存，并记录修改前后结果。");
   }
 
+  async function createC2Draft() {
+    if (!profile || !selectedJob || matches.length === 0) {
+      setMessage("请先完成 C1 匹配，再创建 C2 适配草稿。");
+      return undefined;
+    }
+
+    try {
+      setC2Status("running");
+      const operationId = `c2-create-${stableHashText(JSON.stringify({
+        profileId: profile.id,
+        jobId: selectedJob.id,
+        matchIds: matches.map((match) => match.id).sort()
+      }))}`;
+      const result = await repository.createJobAdaptationDraft({
+        profile,
+        job: selectedJob,
+        matches,
+        operationId
+      });
+      setAdaptationDraft(result.draft);
+      setC2Status("idle");
+      setMessage(result.idempotent ? "C2 适配草稿已存在，已恢复。" : "C2 适配草稿已创建。");
+      return result.draft;
+    } catch (error) {
+      setC2Status("failed");
+      setMessage(error instanceof Error && error.message.includes("c2_match_stale")
+        ? "存在 stale 匹配，禁止进入 C2。请返回 C1 重新运行匹配。"
+        : "创建 C2 草稿失败，请确认 C1 匹配未过期。");
+      return undefined;
+    }
+  }
+
+  async function generateC2Suggestions() {
+    if (!profile || !selectedJob) {
+      return;
+    }
+
+    const draftForGeneration = adaptationDraft ?? await createC2Draft();
+    if (!draftForGeneration) {
+      return;
+    }
+
+    try {
+      setC2Status("running");
+      const usableMatches = getC2UsableMatches();
+      const tailorInput = buildResumeTailorInput(draftForGeneration, usableMatches);
+      const result = await invokeStructuredAi({
+        task: "resume-tailor",
+        businessInput: tailorInput,
+        outputSchema: ResumeTailorOutputSchema
+      });
+      await repository.saveAiLogs([result.log]);
+
+      if (!result.ok) {
+        setC2Status("failed");
+        setMessage("resume-tailor 调用失败，已保留现有草稿和建议。");
+        return;
+      }
+
+      const now = new Date().toISOString();
+      const nextSuggestions: AiSuggestion[] = [];
+      for (const item of result.data.suggestions) {
+        const guardResult = await runFullFactGuard(item.originalText, item.suggestedText, item.usedEvidenceRefs);
+        nextSuggestions.push({
+          id: `suggestion-${nanoid(10)}`,
+          draftId: draftForGeneration.id,
+          targetSectionId: item.targetSectionId,
+          type: item.type,
+          originalText: item.originalText,
+          suggestedText: item.suggestedText,
+          reason: item.reason,
+          requirementIds: item.requirementIds,
+          usedEvidenceRefs: item.usedEvidenceRefs,
+          guardResult,
+          riskLevel: guardResult.riskLevel,
+          status: guardResult.status === "blocked_high_risk" ? "blocked_high_risk" : "pending_review",
+          promptVersion: result.promptVersion,
+          createdAt: now,
+          updatedAt: now
+        });
+      }
+
+      const saved = await repository.saveGeneratedSuggestions({
+        profile,
+        job: selectedJob,
+        draftId: draftForGeneration.id,
+        matches: usableMatches,
+        suggestions: nextSuggestions,
+        expectedRevision: draftForGeneration.revision,
+        operationId: `c2-generate-${draftForGeneration.id}-${stableHashText(JSON.stringify(nextSuggestions.map((item) => item.id)))}`
+      });
+      setAdaptationDraft(saved.draft);
+      setSuggestions(saved.suggestions);
+      setC2Status("idle");
+      setMessage("C2 AI建议已生成，并已完成规则 Fact Guard 与 AI 语义复核。");
+    } catch {
+      setC2Status("failed");
+      setMessage("生成 C2 建议失败。已有草稿和规则检测结果不会被清空。");
+    }
+  }
+
+  async function runFullFactGuard(originalText: string, checkedText: string, usedEvidenceRefs: AiSuggestion["usedEvidenceRefs"]): Promise<FactGuardResult> {
+    const ruleResult = runRuleFactGuard({ originalText, checkedText, usedEvidenceRefs });
+    const aiResult = await invokeStructuredAi({
+      task: "fact-guard",
+      businessInput: {
+        originalText,
+        checkedText,
+        usedEvidenceRefs,
+        ruleFindings: ruleResult.ruleFindings
+      },
+      outputSchema: FactGuardOutputSchema
+    });
+    await repository.saveAiLogs([aiResult.log]);
+    return mergeAiFactGuardReview({
+      ruleResult,
+      aiReview: aiResult.ok ? aiResult.data : undefined,
+      aiFailed: !aiResult.ok
+    });
+  }
+
+  async function acceptSuggestion(suggestion: AiSuggestion) {
+    if (!profile || !selectedJob || !adaptationDraft) {
+      return;
+    }
+
+    try {
+      const result = await repository.acceptSuggestion({
+        profile,
+        job: selectedJob,
+        matches: getC2UsableMatches(),
+        draftId: adaptationDraft.id,
+        suggestionId: suggestion.id,
+        expectedRevision: adaptationDraft.revision,
+        operationId: `c2-accept-${suggestion.id}-${adaptationDraft.revision}`
+      });
+      setAdaptationDraft(result.draft);
+      setSuggestions((current) => current.map((item) => item.id === result.suggestion.id ? result.suggestion : item));
+      setMessage("建议已接受，草稿文本和快照已保存。");
+    } catch {
+      setMessage("该建议无法接受：可能是高风险、未通过 Fact Guard、revision 冲突或 C1 匹配已过期。");
+    }
+  }
+
+  async function rejectSuggestion(suggestion: AiSuggestion) {
+    if (!adaptationDraft) {
+      return;
+    }
+
+    const result = await repository.rejectSuggestion({
+      draftId: adaptationDraft.id,
+      suggestionId: suggestion.id,
+      expectedRevision: adaptationDraft.revision,
+      operationId: `c2-reject-${suggestion.id}-${adaptationDraft.revision}`
+    });
+    setAdaptationDraft(result.draft);
+    setSuggestions((current) => current.map((item) => item.id === result.suggestion.id ? result.suggestion : item));
+    setMessage("建议已拒绝，并已记录快照。");
+  }
+
+  async function editAndGuardSuggestion(suggestion: AiSuggestion) {
+    if (!adaptationDraft) {
+      return;
+    }
+
+    const editedText = editedSuggestions[suggestion.id]?.trim();
+    if (!editedText) {
+      setMessage("请先填写编辑后的文本。");
+      return;
+    }
+
+    const guardResult = await runFullFactGuard(suggestion.originalText, editedText, suggestion.usedEvidenceRefs);
+    const result = await repository.editSuggestionGuarded({
+      draftId: adaptationDraft.id,
+      suggestionId: suggestion.id,
+      expectedRevision: adaptationDraft.revision,
+      operationId: `c2-edit-${suggestion.id}-${stableHashText(editedText)}-${adaptationDraft.revision}`,
+      editedText,
+      guardResult
+    });
+    setAdaptationDraft(result.draft);
+    setSuggestions((current) => current.map((item) => item.id === result.suggestion.id ? result.suggestion : item));
+    setMessage(guardResult.status === "pass" ? "编辑文本已通过 Fact Guard，可单条接受。" : "编辑文本仍存在事实风险，请删除风险内容后重新检测。");
+  }
+
+  async function rerunGuardSuggestion(suggestion: AiSuggestion) {
+    if (!adaptationDraft) {
+      return;
+    }
+
+    const checkedText = suggestion.editedText ?? suggestion.suggestedText;
+    const guardResult = await runFullFactGuard(suggestion.originalText, checkedText, suggestion.usedEvidenceRefs);
+    const result = await repository.rerunSuggestionGuard({
+      draftId: adaptationDraft.id,
+      suggestionId: suggestion.id,
+      expectedRevision: adaptationDraft.revision,
+      operationId: `c2-rerun-guard-${suggestion.id}-${stableHashText(checkedText)}-${adaptationDraft.revision}`,
+      checkedText,
+      guardResult
+    });
+    setAdaptationDraft(result.draft);
+    setSuggestions((current) => current.map((item) => item.id === result.suggestion.id ? result.suggestion : item));
+    setMessage("Fact Guard 已重新检测。");
+  }
+
+  async function undoSuggestion(suggestion: AiSuggestion) {
+    if (!adaptationDraft) {
+      return;
+    }
+
+    const result = await repository.undoSuggestion({
+      draftId: adaptationDraft.id,
+      suggestionId: suggestion.id,
+      expectedRevision: adaptationDraft.revision,
+      operationId: `c2-undo-${suggestion.id}-${adaptationDraft.revision}`
+    });
+    setAdaptationDraft(result.draft);
+    setSuggestions((current) => current.map((item) => item.id === result.suggestion.id ? result.suggestion : item));
+    setMessage("已撤销该建议造成的草稿变更。");
+  }
+
+  function getC2UsableMatches() {
+    if (!profile || !selectedJob) {
+      return [];
+    }
+    return matches.filter((match) => {
+      const stale = checkRequirementMatchStale(match, { profile, job: selectedJob });
+      return match.profileId === profile.id && match.jobId === selectedJob.id && !match.isStale && !stale.isStale;
+    });
+  }
+
+  function buildResumeTailorInput(draftForGeneration: JobAdaptationDraft, usableMatches: RequirementMatch[]) {
+    const allowedEvidenceRefs = collectAllowedEvidenceRefs(usableMatches);
+    return {
+      draftId: draftForGeneration.id,
+      profileId: draftForGeneration.profileId,
+      jobId: draftForGeneration.jobId,
+      profileVersion: draftForGeneration.profileVersion,
+      jobVersion: draftForGeneration.jobVersion,
+      matcherVersion: draftForGeneration.matcherVersion,
+      requirementIds: usableMatches.map((match) => match.requirementId),
+      allowedEvidenceRefs,
+      sectionTexts: draftForGeneration.sectionTexts.map((section) => ({
+        sectionId: section.sectionId,
+        sectionType: section.sectionType,
+        text: section.text,
+        originalText: section.originalText,
+        order: section.order
+      })),
+      matches: usableMatches.map((match) => {
+        const effective = resolveEffectiveMatch(match);
+        const requirement = selectedJob?.requirements.find((item) => item.id === match.requirementId);
+        return {
+          requirementId: match.requirementId,
+          requirementDescription: requirement?.description ?? match.requirementQuote.text,
+          matchLevel: effective.matchLevel,
+          riskLevel: effective.riskLevel,
+          risks: effective.risks,
+          evidenceRefs: effective.evidenceRefs,
+          explanation: effective.explanation
+        };
+      })
+    };
+  }
+
   function selectedManualEvidenceRef(): MatchEvidenceRef[] {
     const candidate = manualCandidates.find((item) => evidenceRefKey(item.ref) === manualEvidenceKey);
     return candidate ? [candidate.ref] : [];
@@ -622,7 +923,118 @@ export function JobsWorkspace() {
           )}
         </section>
       ) : null}
+
+      {profile && selectedJob ? (
+        <section className="panel">
+          <div className="section-heading">
+            <div>
+              <h2>C2 AI建议与 Fact Guard</h2>
+              <p>只读取未 stale 的 resolveEffectiveMatch 结果，建议只作用于 JobAdaptationDraft，不修改职业母档案。</p>
+            </div>
+            <div className="action-row">
+              <button className="primary-button" onClick={createC2Draft} disabled={matches.length === 0 || c2Status === "running"}>
+                创建C2草稿
+              </button>
+              <button className="secondary-button" onClick={generateC2Suggestions} disabled={matches.length === 0 || c2Status === "running"}>
+                生成AI建议
+              </button>
+            </div>
+          </div>
+
+          {adaptationDraft ? (
+            <div className="c2-layout">
+              <article className="draft-preview">
+                <h3>适配草稿 revision {adaptationDraft.revision}</h3>
+                {adaptationDraft.sectionTexts.map((section) => (
+                  <p key={section.sectionId}><strong>{section.sectionType}</strong>：{section.text}</p>
+                ))}
+              </article>
+              <div className="suggestion-list">
+                {suggestions.length === 0 ? <p>尚未生成建议。</p> : suggestions.map((suggestion) => (
+                  <SuggestionCard
+                    key={suggestion.id}
+                    suggestion={suggestion}
+                    editedText={editedSuggestions[suggestion.id] ?? suggestion.editedText ?? ""}
+                    onEditedText={(text) => setEditedSuggestions((current) => ({ ...current, [suggestion.id]: text }))}
+                    onAccept={() => acceptSuggestion(suggestion)}
+                    onReject={() => rejectSuggestion(suggestion)}
+                    onEditGuard={() => editAndGuardSuggestion(suggestion)}
+                    onRerunGuard={() => rerunGuardSuggestion(suggestion)}
+                    onUndo={() => undoSuggestion(suggestion)}
+                  />
+                ))}
+              </div>
+            </div>
+          ) : (
+            <p>请先创建 C2 适配草稿。若任一引用匹配过期，系统会要求返回 C1 重跑。</p>
+          )}
+        </section>
+      ) : null}
     </main>
+  );
+}
+
+function SuggestionCard({
+  suggestion,
+  editedText,
+  onEditedText,
+  onAccept,
+  onReject,
+  onEditGuard,
+  onRerunGuard,
+  onUndo
+}: {
+  suggestion: AiSuggestion;
+  editedText: string;
+  onEditedText: (text: string) => void;
+  onAccept: () => void;
+  onReject: () => void;
+  onEditGuard: () => void;
+  onRerunGuard: () => void;
+  onUndo: () => void;
+}) {
+  const canAccept = (suggestion.guardResult.status === "pass" || suggestion.guardResult.status === "ai_failed_rule_kept")
+    && suggestion.status !== "blocked_high_risk"
+    && suggestion.riskLevel !== "high";
+
+  return (
+    <article className={`suggestion-card suggestion-card-${suggestion.guardResult.riskLevel}`}>
+      <div className="section-heading compact-heading">
+        <div>
+          <h3>{suggestion.type} / {suggestion.status}</h3>
+          <p>风险：{suggestion.guardResult.status} / {suggestion.guardResult.riskLevel}</p>
+        </div>
+      </div>
+      <p><strong>原文：</strong>{suggestion.originalText}</p>
+      <p><strong>建议：</strong>{suggestion.suggestedText}</p>
+      <p><strong>原因：</strong>{suggestion.reason}</p>
+      <p><strong>岗位依据：</strong>{suggestion.requirementIds.join(" / ")}</p>
+      <div className="evidence-list">
+        {suggestion.usedEvidenceRefs.length > 0 ? suggestion.usedEvidenceRefs.map((ref) => (
+          <p key={evidenceRefKey(ref)}><strong>事实依据：</strong>{ref.factText}</p>
+        )) : <p>无可引用事实，不能补写新事实。</p>}
+      </div>
+      {suggestion.guardResult.ruleFindings.length > 0 ? (
+        <div className="warning-box">
+          {suggestion.guardResult.ruleFindings.map((finding) => (
+            <p key={`${finding.type}-${finding.text}`}>{finding.type}：{finding.text} / {finding.message}</p>
+          ))}
+        </div>
+      ) : null}
+      <textarea
+        className="textarea small-textarea"
+        value={editedText}
+        onChange={(event) => onEditedText(event.target.value)}
+        placeholder="编辑后必须重新检测，不能在建议卡片中直接确认新增事实。"
+      />
+      <div className="action-row">
+        <button className="primary-button" onClick={onAccept} disabled={!canAccept}>接受</button>
+        <button className="secondary-button" onClick={onReject}>拒绝</button>
+        <button className="secondary-button" onClick={onEditGuard}>编辑后检测</button>
+        <button className="secondary-button" onClick={onRerunGuard}>重新检测</button>
+        <button className="secondary-button" onClick={onUndo}>撤销</button>
+      </div>
+    </article>
   );
 }
 
