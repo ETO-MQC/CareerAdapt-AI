@@ -52,6 +52,23 @@ export async function hashText(text: string) {
   return `fnv-${(hash >>> 0).toString(16).padStart(8, "0")}-${text.length}`;
 }
 
+export async function hashBytes(bytes: Uint8Array) {
+  if (globalThis.crypto?.subtle) {
+    const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+    const digest = await globalThis.crypto.subtle.digest("SHA-256", buffer);
+    return Array.from(new Uint8Array(digest))
+      .map((byte) => byte.toString(16).padStart(2, "0"))
+      .join("");
+  }
+
+  let hash = 0x811c9dc5;
+  for (const byte of bytes) {
+    hash ^= byte;
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return `fnv-${(hash >>> 0).toString(16).padStart(8, "0")}-${bytes.byteLength}`;
+}
+
 export function stableHashText(text: string) {
   let hash = 0x811c9dc5;
   for (let index = 0; index < text.length; index += 1) {

@@ -12,6 +12,8 @@ import {
   JobAnalysisDraftSchema,
   JobDescriptionSchema,
   MatchOperationSchema,
+  PdfImportSessionSchema,
+  PdfPageTextSchema,
   ProfileImportDraftSchema,
   RawInputDocumentSchema,
   RequirementMatchSchema,
@@ -34,6 +36,8 @@ import {
   type JobDescription,
   type MatchEvaluation,
   type MatchOperation,
+  type PdfImportSession,
+  type PdfPageText,
   type ProfileImportDraft,
   type RawInputDocument,
   type RequirementMatch,
@@ -59,11 +63,13 @@ import {
 import { CareerAdaptDb, careerAdaptDb, type AppMeta } from "./db";
 
 export type WorkspaceExport = {
-  schemaVersion: "stage-d-d2-v1";
+  schemaVersion: "stage-e-e1-v1";
   exportedAt: string;
   profiles: CareerProfile[];
   jobDescriptions: JobDescription[];
   rawInputs: RawInputDocument[];
+  pdfImportSessions: PdfImportSession[];
+  pdfPageTexts: PdfPageText[];
   profileImportDrafts: ProfileImportDraft[];
   jobAnalysisDrafts: JobAnalysisDraft[];
   draftCommits: DraftCommit[];
@@ -121,6 +127,64 @@ export class WorkspaceRepository {
   async listRawInputs() {
     const rawInputs = await this.db.rawInputs.toArray();
     return rawInputs.map((rawInput) => RawInputDocumentSchema.parse(rawInput));
+  }
+
+  async createPdfImportSession(session: PdfImportSession) {
+    const parsed = PdfImportSessionSchema.parse(session);
+    await this.db.pdfImportSessions.put(parsed);
+    return parsed;
+  }
+
+  async updatePdfImportSession(session: PdfImportSession) {
+    const parsed = PdfImportSessionSchema.parse({
+      ...session,
+      updatedAt: new Date().toISOString()
+    });
+    await this.db.pdfImportSessions.put(parsed);
+    return parsed;
+  }
+
+  async getPdfImportSession(id: string) {
+    const session = await this.db.pdfImportSessions.get(id);
+    return session ? PdfImportSessionSchema.parse(session) : undefined;
+  }
+
+  async getLatestPdfImportSession() {
+    const sessions = await this.db.pdfImportSessions.orderBy("updatedAt").reverse().toArray();
+    return sessions[0] ? PdfImportSessionSchema.parse(sessions[0]) : undefined;
+  }
+
+  async findPdfImportByFileHash(fileHash: string) {
+    const sessions = await this.db.pdfImportSessions.where("fileHash").equals(fileHash).toArray();
+    const latest = sessions
+      .map((session) => PdfImportSessionSchema.parse(session))
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
+    return latest;
+  }
+
+  async savePdfPageTexts(sessionId: string, pages: PdfPageText[]) {
+    const parsed = pages.map((page) => PdfPageTextSchema.parse(page));
+    await this.db.transaction("rw", this.db.pdfPageTexts, async () => {
+      await this.db.pdfPageTexts.where("sessionId").equals(sessionId).delete();
+      if (parsed.length > 0) {
+        await this.db.pdfPageTexts.bulkPut(parsed);
+      }
+    });
+    return parsed;
+  }
+
+  async listPdfPageTexts(sessionId: string) {
+    const pages = await this.db.pdfPageTexts.where("sessionId").equals(sessionId).toArray();
+    return pages
+      .map((page) => PdfPageTextSchema.parse(page))
+      .sort((a, b) => a.pageNumber - b.pageNumber);
+  }
+
+  async deletePdfImportSession(sessionId: string) {
+    await this.db.transaction("rw", this.db.pdfImportSessions, this.db.pdfPageTexts, async () => {
+      await this.db.pdfPageTexts.where("sessionId").equals(sessionId).delete();
+      await this.db.pdfImportSessions.delete(sessionId);
+    });
   }
 
   async createProfileImportDraft(draft: ProfileImportDraft) {
@@ -1211,11 +1275,13 @@ export class WorkspaceRepository {
 
   async exportWorkspaceJson(): Promise<WorkspaceExport> {
     return {
-      schemaVersion: "stage-d-d2-v1",
+      schemaVersion: "stage-e-e1-v1",
       exportedAt: new Date().toISOString(),
       profiles: await this.listProfiles(),
       jobDescriptions: await this.listJobDescriptions(),
       rawInputs: await this.listRawInputs(),
+      pdfImportSessions: (await this.db.pdfImportSessions.toArray()).map((session) => PdfImportSessionSchema.parse(session)),
+      pdfPageTexts: (await this.db.pdfPageTexts.toArray()).map((page) => PdfPageTextSchema.parse(page)),
       profileImportDrafts: (await this.db.profileImportDrafts.toArray()).map((draft) => ProfileImportDraftSchema.parse(draft)),
       jobAnalysisDrafts: (await this.db.jobAnalysisDrafts.toArray()).map((draft) => JobAnalysisDraftSchema.parse(draft)),
       draftCommits: (await this.db.draftCommits.toArray()).map((commit) => DraftCommitSchema.parse(commit)),

@@ -104,7 +104,7 @@ describe("WorkspaceRepository", () => {
     expect(updated?.version).toBe(2);
 
     const exported = await repository.exportWorkspaceJson();
-    expect(exported.schemaVersion).toBe("stage-d-d2-v1");
+    expect(exported.schemaVersion).toBe("stage-e-e1-v1");
     expect(exported.profiles).toHaveLength(1);
     expect(exported.jobDescriptions).toHaveLength(2);
     expect(exported.rawInputs).toHaveLength(0);

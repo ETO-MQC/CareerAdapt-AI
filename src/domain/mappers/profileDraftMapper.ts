@@ -34,7 +34,7 @@ export function mapProfileDraftToCareerProfile(input: {
   const experiences = output.experiences
     .map((experience) => {
       const facts = experience.facts
-        .filter((fact) => fact.confirmedByUser && fact.sourceSpan)
+        .filter((fact) => canCommitEvidence(fact, input.rawInput))
         .map((fact) => mapDraftFact(fact, input.rawInput, now));
 
       if (facts.length === 0) {
@@ -66,7 +66,7 @@ export function mapProfileDraftToCareerProfile(input: {
     .filter((experience): experience is NonNullable<typeof experience> => Boolean(experience));
 
   const skills = output.skills
-    .filter((skill) => skill.confirmedByUser && skill.sourceSpan)
+    .filter((skill) => canCommitEvidence(skill, input.rawInput))
     .map((skill) => ({
       id: skill.id || `skill-${nanoid(10)}`,
       name: skill.name.value,
@@ -94,7 +94,7 @@ export function mapProfileDraftToCareerProfile(input: {
     }));
 
   const certificates = output.certificates
-    .filter((certificate) => certificate.confirmedByUser && certificate.sourceSpan)
+    .filter((certificate) => canCommitEvidence(certificate, input.rawInput))
     .map((certificate) => ({
       id: certificate.id || `cert-${nanoid(10)}`,
       name: certificate.name.value,
@@ -160,7 +160,18 @@ function getProfileOutput(draft: ProfileImportDraft): ProfileBuilderOutput {
 }
 
 function mapDraftFact(fact: ProfileBuilderFact, rawInput: RawInputDocument, now: string): FactStatement {
-  const riskLevel = fact.sourceSpan ? riskByConfidence[fact.confidenceLevel] : "high";
+  const pdfLocated = rawInput.kind === "resume_pdf_text" && fact.sourceLocatorStatus === "located" && fact.sourceLocator;
+  const riskLevel = pdfLocated || fact.sourceSpan ? riskByConfidence[fact.confidenceLevel] : "high";
+  const sourceLocation = pdfLocated
+    ? fact.sourceLocator
+    : rawInput.kind !== "resume_pdf_text" && fact.sourceSpan
+      ? locateRawInputSource(rawInput, fact.sourceSpan.start, fact.sourceSpan.end)
+      : undefined;
+  const sourceType = rawInput.kind === "resume_pdf_text"
+    ? pdfLocated
+      ? "pdf_import"
+      : "user_input"
+    : "imported_text";
 
   return {
     id: fact.id || `fact-${nanoid(10)}`,
@@ -168,18 +179,75 @@ function mapDraftFact(fact: ProfileBuilderFact, rawInput: RawInputDocument, now:
     category: fact.category as FactCategory,
     provenance: [
       {
-        sourceType: "imported_text",
+        sourceType,
         sourceId: rawInput.id,
-        sourceText: fact.sourceSpan?.text ?? fact.sourceQuote,
+        sourceText: pdfLocated ? fact.sourceQuote : fact.sourceSpan?.text ?? fact.sourceQuote,
         confidence: numericConfidence[fact.confidenceLevel],
         confirmedByUser: fact.confirmedByUser,
         riskLevel,
-        createdAt: now
+        createdAt: now,
+        sourceInputId: rawInput.id,
+        sourceSessionId: rawInput.sourceSessionId,
+        fileName: rawInput.fileName,
+        pageNumber: sourceLocation?.pageNumber,
+        pageRange: sourceLocation
+          ? {
+              startPage: sourceLocation.pageNumber,
+              endPage: sourceLocation.pageNumber
+            }
+          : undefined,
+        sourceQuote: fact.sourceQuote,
+        sourceLocatorStatus: pdfLocated ? "located" : rawInput.kind === "resume_pdf_text" ? fact.sourceLocatorStatus ?? "unlocated" : undefined,
+        sourceLocator: sourceLocation
+          ? {
+              pageNumber: sourceLocation.pageNumber,
+              pageStart: sourceLocation.pageStart,
+              pageEnd: sourceLocation.pageEnd,
+              globalStart: sourceLocation.globalStart,
+              globalEnd: sourceLocation.globalEnd
+            }
+          : undefined
       }
     ],
     confirmedByUser: fact.confirmedByUser,
     riskLevel,
     createdAt: now,
     updatedAt: now
+  };
+}
+
+function canCommitEvidence(
+  item: {
+    confirmedByUser: boolean;
+    sourceSpan?: unknown;
+    sourceLocatorStatus?: "located" | "ambiguous" | "unlocated";
+    sourceLocator?: unknown;
+  },
+  rawInput: RawInputDocument
+) {
+  if (!item.confirmedByUser) {
+    return false;
+  }
+
+  if (rawInput.kind === "resume_pdf_text") {
+    return item.sourceLocatorStatus === "located" && Boolean(item.sourceLocator);
+  }
+
+  return Boolean(item.sourceSpan);
+}
+
+function locateRawInputSource(rawInput: RawInputDocument, globalStart: number, globalEnd: number) {
+  const page = (rawInput.sourcePages ?? []).find((item) => globalStart >= item.start && globalStart <= item.end);
+
+  if (!page) {
+    return undefined;
+  }
+
+  return {
+    pageNumber: page.pageNumber,
+    pageStart: Math.max(0, globalStart - page.start),
+    pageEnd: Math.max(0, Math.min(globalEnd, page.end) - page.start),
+    globalStart,
+    globalEnd
   };
 }

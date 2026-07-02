@@ -1,9 +1,44 @@
 import { z } from "zod";
-import { EntityBaseSchema, IsoDateStringSchema, SourceSpanSchema } from "./common";
+import { EntityBaseSchema, IsoDateStringSchema, PdfLocatorStatusSchema, PdfSourceLocatorSchema, SourceSpanSchema } from "./common";
 import { ExperienceTypeSchema } from "./profile";
 import { JobRequirementCategorySchema } from "./job";
 
-export const RawInputKindSchema = z.enum(["resume_text", "job_jd"]);
+export const RawInputKindSchema = z.enum(["resume_text", "resume_pdf_text", "job_jd"]);
+
+export const PdfImportStatusSchema = z.enum([
+  "idle",
+  "validating",
+  "extracting",
+  "extracted",
+  "awaiting_privacy_confirmation",
+  "parsing",
+  "draft_ready",
+  "failed",
+  "cancelled",
+  "committed",
+  "interrupted"
+]);
+
+export const PdfImportErrorCodeSchema = z.enum([
+  "not_pdf",
+  "mime_extension_mismatch",
+  "empty_file",
+  "file_too_large",
+  "page_limit_exceeded",
+  "text_item_limit_exceeded",
+  "page_text_too_long",
+  "extract_timeout",
+  "encrypted_or_password",
+  "corrupt_pdf",
+  "no_text_layer",
+  "empty_extracted_text",
+  "extract_interrupted",
+  "extract_cancelled",
+  "text_too_long",
+  "ai_failed",
+  "schema_validation_failed",
+  "unknown_error"
+]);
 
 export const DraftStatusSchema = z.enum([
   "empty",
@@ -23,11 +58,83 @@ export const ConfidenceLevelSchema = z.enum(["high", "medium", "low"]);
 
 export const JdDraftPrioritySchema = z.enum(["must", "important", "nice_to_have", "uncertain"]);
 
+export const RawInputSourceTextKindSchema = z.enum([
+  "plain_text",
+  "pdf_cleaned_text",
+  "pdf_user_edited_text"
+]);
+
+export const RawInputSourcePageSchema = z.object({
+  pageNumber: z.number().int().min(1),
+  start: z.number().int().min(0),
+  end: z.number().int().min(0),
+  rawTextHash: z.string().min(8).optional(),
+  cleanedTextHash: z.string().min(8).optional()
+}).refine((page) => page.end >= page.start, {
+  message: "raw input source page end must be greater than or equal to start"
+});
+
 export const RawInputDocumentSchema = EntityBaseSchema.extend({
   kind: RawInputKindSchema,
   rawText: z.string().min(1),
   inputHash: z.string().min(16),
-  title: z.string().optional()
+  title: z.string().optional(),
+  sourceSessionId: z.string().min(1).optional(),
+  sourceTextKind: RawInputSourceTextKindSchema.optional(),
+  normalizedTextHash: z.string().min(8).optional(),
+  aiInputHash: z.string().min(8).optional(),
+  privacyConfirmedAiInputHash: z.string().min(8).optional(),
+  userEditedAiText: z.string().min(1).optional(),
+  fileName: z.string().min(1).optional(),
+  fileSize: z.number().int().min(0).optional(),
+  mimeType: z.string().optional(),
+  pageCount: z.number().int().min(1).optional(),
+  sourcePages: z.array(RawInputSourcePageSchema).optional()
+});
+
+export const PdfPageTextSchema = EntityBaseSchema.extend({
+  sessionId: z.string().min(1),
+  pageNumber: z.number().int().min(1),
+  extractedPageText: z.string(),
+  cleanedPageText: z.string(),
+  charStart: z.number().int().min(0),
+  charEnd: z.number().int().min(0),
+  textItemCount: z.number().int().min(0),
+  warnings: z.array(z.string()).default([]),
+  rawTextHash: z.string().min(8),
+  cleanedTextHash: z.string().min(8)
+}).refine((page) => page.charEnd >= page.charStart, {
+  message: "pdf page charEnd must be greater than or equal to charStart"
+});
+
+export const PdfImportSessionSchema = EntityBaseSchema.extend({
+  status: PdfImportStatusSchema,
+  fileName: z.string().min(1),
+  fileSize: z.number().int().min(0),
+  mimeType: z.string(),
+  extension: z.string().min(1),
+  fileHash: z.string().min(16),
+  pageCount: z.number().int().min(0).default(0),
+  textLength: z.number().int().min(0).default(0),
+  normalizedTextHash: z.string().min(8).optional(),
+  aiInputHash: z.string().min(8).optional(),
+  sourceTextKind: RawInputSourceTextKindSchema.optional(),
+  rawInputId: z.string().min(1).optional(),
+  draftId: z.string().min(1).optional(),
+  errorCode: PdfImportErrorCodeSchema.optional(),
+  errorMessage: z.string().optional(),
+  extractionVersion: z.string().min(1),
+  hasPromptInjectionRisk: z.boolean().default(false),
+  warnings: z.array(z.string()).default([]),
+  interruptedAt: IsoDateStringSchema.optional(),
+  committedProfileId: z.string().min(1).optional(),
+  committedAt: IsoDateStringSchema.optional()
+});
+
+const PdfSourceMappingFieldsSchema = z.object({
+  sourceLocatorStatus: PdfLocatorStatusSchema.optional(),
+  sourceLocator: PdfSourceLocatorSchema.optional(),
+  sourceMatchCount: z.number().int().min(0).optional()
 });
 
 export const DraftSourceFieldSchema = z.object({
@@ -37,7 +144,7 @@ export const DraftSourceFieldSchema = z.object({
   confidenceLevel: ConfidenceLevelSchema,
   confidenceReason: z.string().min(1),
   needsConfirmation: z.boolean()
-});
+}).merge(PdfSourceMappingFieldsSchema);
 
 export const ProfileBuilderBasicInfoSchema = z.object({
   name: DraftSourceFieldSchema.optional(),
@@ -66,7 +173,7 @@ export const ProfileBuilderFactSchema = EntityBaseSchema.extend({
   confidenceReason: z.string().min(1),
   needsConfirmation: z.boolean(),
   confirmedByUser: z.boolean().default(false)
-});
+}).merge(PdfSourceMappingFieldsSchema);
 
 export const ProfileBuilderExperienceSchema = EntityBaseSchema.extend({
   type: ExperienceTypeSchema,
@@ -88,7 +195,7 @@ export const ProfileBuilderSkillSchema = EntityBaseSchema.extend({
   confidenceReason: z.string().min(1),
   needsConfirmation: z.boolean(),
   confirmedByUser: z.boolean().default(false)
-});
+}).merge(PdfSourceMappingFieldsSchema);
 
 export const ProfileBuilderCertificateSchema = EntityBaseSchema.extend({
   name: DraftSourceFieldSchema,
@@ -100,7 +207,7 @@ export const ProfileBuilderCertificateSchema = EntityBaseSchema.extend({
   confidenceReason: z.string().min(1),
   needsConfirmation: z.boolean(),
   confirmedByUser: z.boolean().default(false)
-});
+}).merge(PdfSourceMappingFieldsSchema);
 
 export const ProfileBuilderOutputSchema = z.object({
   basics: ProfileBuilderBasicInfoSchema,
@@ -120,6 +227,7 @@ export const ProfileImportDraftSchema = EntityBaseSchema.extend({
   manualSections: ProfileBuilderOutputSchema.optional(),
   pendingFacts: z.array(ProfileBuilderFactSchema).default([]),
   saveError: z.string().optional(),
+  privacyConfirmedAiInputHash: z.string().min(8).optional(),
   lastAutosavedAt: IsoDateStringSchema.optional(),
   committedProfileId: z.string().optional(),
   committedAt: IsoDateStringSchema.optional()
@@ -177,13 +285,21 @@ export const DraftCommitSchema = EntityBaseSchema.extend({
 });
 
 export type RawInputKind = z.infer<typeof RawInputKindSchema>;
+export type PdfImportStatus = z.infer<typeof PdfImportStatusSchema>;
+export type PdfImportErrorCode = z.infer<typeof PdfImportErrorCodeSchema>;
 export type DraftStatus = z.infer<typeof DraftStatusSchema>;
 export type ConfidenceLevel = z.infer<typeof ConfidenceLevelSchema>;
 export type JdDraftPriority = z.infer<typeof JdDraftPrioritySchema>;
+export type RawInputSourceTextKind = z.infer<typeof RawInputSourceTextKindSchema>;
+export type RawInputSourcePage = z.infer<typeof RawInputSourcePageSchema>;
 export type RawInputDocument = z.infer<typeof RawInputDocumentSchema>;
+export type PdfPageText = z.infer<typeof PdfPageTextSchema>;
+export type PdfImportSession = z.infer<typeof PdfImportSessionSchema>;
 export type DraftSourceField = z.infer<typeof DraftSourceFieldSchema>;
 export type ProfileBuilderFact = z.infer<typeof ProfileBuilderFactSchema>;
 export type ProfileBuilderExperience = z.infer<typeof ProfileBuilderExperienceSchema>;
+export type ProfileBuilderSkill = z.infer<typeof ProfileBuilderSkillSchema>;
+export type ProfileBuilderCertificate = z.infer<typeof ProfileBuilderCertificateSchema>;
 export type ProfileBuilderOutput = z.infer<typeof ProfileBuilderOutputSchema>;
 export type ProfileImportDraft = z.infer<typeof ProfileImportDraftSchema>;
 export type JdAnalyzerRequirement = z.infer<typeof JdAnalyzerRequirementSchema>;

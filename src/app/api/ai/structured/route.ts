@@ -68,48 +68,77 @@ export async function POST(request: NextRequest) {
     }
 
     const provider = new OpenAiCompatibleProvider();
-    const response = await provider.invoke({
-      systemPrompt: taskDefinition.systemPrompt,
-      userPrompt: taskDefinition.buildUserPrompt(input.data),
-      maxOutputChars: taskDefinition.maxOutputChars,
-      signal: AbortSignal.timeout(25_000)
-    });
+    const baseUserPrompt = taskDefinition.buildUserPrompt(input.data);
+    let lastValidationFailure: "validation_failed" | "semantic_validation_failed" | undefined;
 
-    const coerced = taskDefinition.coerceRawOutput(response.output);
-    const normalized = taskDefinition.normalizeOutput(coerced, input.data);
-    const parsedOutput = taskDefinition.outputSchema.safeParse(normalized);
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const response = await provider.invoke({
+        systemPrompt: taskDefinition.systemPrompt,
+        userPrompt: attempt === 0 ? baseUserPrompt : buildRetryPrompt(baseUserPrompt, lastValidationFailure),
+        maxOutputChars: taskDefinition.maxOutputChars,
+        signal: AbortSignal.timeout(25_000)
+      });
 
-    if (!parsedOutput.success) {
-      return aiError("validation_failed", "Model output failed server schema validation.", 422, startedAt, {
+      const coerced = taskDefinition.coerceRawOutput(response.output);
+      const normalized = taskDefinition.normalizeOutput(coerced, input.data);
+      const parsedOutput = taskDefinition.outputSchema.safeParse(normalized);
+
+      if (!parsedOutput.success) {
+        lastValidationFailure = "validation_failed";
+        if (attempt === 0) {
+          continue;
+        }
+
+        return aiError("validation_failed", "Model output failed server schema validation.", 422, startedAt, {
+          provider: response.provider,
+          model: response.model,
+          inputLength: estimateInputLength(input.data),
+          outputLength: response.outputLength
+        });
+      }
+
+      try {
+        taskDefinition.validateOutput?.(parsedOutput.data, input.data);
+      } catch {
+        lastValidationFailure = "semantic_validation_failed";
+        if (attempt === 0) {
+          continue;
+        }
+
+        return aiError("semantic_validation_failed", "Model output failed business semantic validation.", 422, startedAt, {
+          provider: response.provider,
+          model: response.model,
+          inputLength: estimateInputLength(input.data),
+          outputLength: response.outputLength
+        });
+      }
+
+      return aiSuccess(taskDefinition.task, taskDefinition.promptVersion, parsedOutput.data, {
         provider: response.provider,
         model: response.model,
         inputLength: estimateInputLength(input.data),
-        outputLength: response.outputLength
+        outputLength: response.outputLength,
+        latencyMs: Date.now() - startedAt
       });
     }
 
-    try {
-      taskDefinition.validateOutput?.(parsedOutput.data, input.data);
-    } catch {
-      return aiError("semantic_validation_failed", "Model output failed business semantic validation.", 422, startedAt, {
-        provider: response.provider,
-        model: response.model,
-        inputLength: estimateInputLength(input.data),
-        outputLength: response.outputLength
-      });
-    }
-
-    return aiSuccess(taskDefinition.task, taskDefinition.promptVersion, parsedOutput.data, {
-      provider: response.provider,
-      model: response.model,
-      inputLength: estimateInputLength(input.data),
-      outputLength: response.outputLength,
-      latencyMs: Date.now() - startedAt
+    return aiError("validation_failed", "Model output failed server validation.", 422, startedAt, {
+      inputLength: estimateInputLength(input.data)
     });
   } catch (error) {
     const code = typeof (error as AiProviderError).code === "string" ? (error as AiProviderError).code : "provider_failed";
     return aiError(code, "AI request failed.", code === "missing_ai_config" ? 503 : 502, startedAt);
   }
+}
+
+function buildRetryPrompt(baseUserPrompt: string, failure: string | undefined) {
+  return [
+    baseUserPrompt,
+    "",
+    "The previous model response failed server validation.",
+    `Failure code: ${failure ?? "validation_failed"}.`,
+    "Retry once. Return only strict JSON matching the registered schema, with sourceQuote values copied from the input text."
+  ].join("\n");
 }
 
 function aiSuccess(

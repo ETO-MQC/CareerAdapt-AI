@@ -10,6 +10,8 @@ import type {
   JobAnalysisDraft,
   JobDescription,
   MatchOperation,
+  PdfImportSession,
+  PdfPageText,
   ProfileImportDraft,
   RawInputDocument,
   RequirementMatch,
@@ -29,6 +31,8 @@ export class CareerAdaptDb extends Dexie {
   profiles!: Table<CareerProfile, string>;
   jobDescriptions!: Table<JobDescription, string>;
   rawInputs!: Table<RawInputDocument, string>;
+  pdfImportSessions!: Table<PdfImportSession, string>;
+  pdfPageTexts!: Table<PdfPageText, string>;
   profileImportDrafts!: Table<ProfileImportDraft, string>;
   jobAnalysisDrafts!: Table<JobAnalysisDraft, string>;
   draftCommits!: Table<DraftCommit, string>;
@@ -236,6 +240,29 @@ export class CareerAdaptDb extends Dexie {
           updatedAt: legacy.updatedAt ?? now
         });
       }
+    });
+
+    this.version(7).stores({
+      profiles: "id, name, updatedAt",
+      jobDescriptions: "id, title, company, updatedAt",
+      rawInputs: "id, kind, inputHash, sourceSessionId, updatedAt",
+      pdfImportSessions: "id, status, fileHash, normalizedTextHash, rawInputId, draftId, updatedAt",
+      pdfPageTexts: "id, sessionId, [sessionId+pageNumber], pageNumber, updatedAt",
+      profileImportDrafts: "id, rawInputId, status, updatedAt",
+      jobAnalysisDrafts: "id, rawInputId, status, updatedAt",
+      draftCommits: "commitId, draftId, kind, entityId",
+      requirementMatches: "id, [profileId+jobId], requirementId, isStale, updatedAt",
+      matchOperations: "id, operationId, requirementMatchId, [profileId+jobId], type, occurredAt",
+      jobAdaptationDrafts: "id, [profileId+jobId], status, updatedAt",
+      aiSuggestions: "id, draftId, status, type, updatedAt",
+      adaptationSnapshots: "id, draftId, revision, operationId, updatedAt",
+      suggestionOperations: "id, operationId, draftId, suggestionId, type, occurredAt",
+      resumeBranches: "id, profileId, jobId, sourceAdaptationDraftId, lifecycleStatus, migrationStatus, updatedAt",
+      resumeRevisions: "id, branchId, revisionNumber, operationId, source, createdAt",
+      resumeBranchOperations: "id, &operationId, branchId, sourceAdaptationDraftId, type, occurredAt",
+      aiLogs: "id, task, provider, createdAt",
+      exportRecords: "id, &operationId, branchId, branchRevision, templateId, exportStatus, exportedAt",
+      appMeta: "key"
     });
   }
 }

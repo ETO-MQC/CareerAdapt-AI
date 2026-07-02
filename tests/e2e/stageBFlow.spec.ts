@@ -5,7 +5,7 @@ test.describe("Phase B profile import flow", () => {
     await page.goto("/profile");
 
     // Wait for the page to load
-    await expect(page.getByText("职业母档案解析")).toBeVisible();
+    await expect(page.getByText("职业母档案导入")).toBeVisible();
 
     // Step 1: Paste resume text
     const textarea = page.locator("textarea");
@@ -46,7 +46,7 @@ test.describe("Phase B profile import flow", () => {
 
   test("profile draft persists after refresh (recovery)", async ({ page }) => {
     await page.goto("/profile");
-    await expect(page.getByText("职业母档案解析")).toBeVisible();
+    await expect(page.getByText("职业母档案导入")).toBeVisible();
 
     // If there's a previously saved draft, it should be loaded on refresh
     // Check that textarea content is restored (from the previous test or empty)
@@ -128,7 +128,7 @@ test.describe("Phase B JD analysis flow", () => {
 test.describe("Phase B provider failure fallback", () => {
   test("without API key, analyze enters manual mode gracefully", async ({ page }) => {
     await page.goto("/profile");
-    await expect(page.getByText("职业母档案解析")).toBeVisible();
+    await expect(page.getByText("职业母档案导入")).toBeVisible();
 
     // Paste text
     const textarea = page.locator("textarea");
