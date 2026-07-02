@@ -7,6 +7,7 @@ dist/
 out/
 *.local
 .env
+.env.example
 .env.*
 !.env.example
 *.tsbuildinfo
