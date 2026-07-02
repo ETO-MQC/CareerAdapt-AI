@@ -926,19 +926,26 @@ export class WorkspaceRepository {
           }
 
           const nextText = edit.text ?? item.text;
-          const factRefs = item.factRefs;
-          const evidenceRefs = resolveBranchFactRefs(profile, factRefs);
-          const guardResult = item.itemType === "structural"
-            ? undefined
-            : runRuleFactGuard({
-                originalText: item.originalText,
-                checkedText: nextText,
-                usedEvidenceRefs: evidenceRefs,
-                now
-              });
+          const textChanged = edit.text !== undefined && edit.text !== item.text;
 
-          if (guardResult && (guardResult.status === "blocked_high_risk" || guardResult.status === "needs_edit" || guardResult.riskLevel === "high")) {
-            throw new Error("branch_edit_fact_guard_blocked");
+          // Only run Fact Guard when text actually changed.
+          // Visibility-only or order-only edits should not trigger Fact Guard,
+          // because originalText vs text divergence from C2 suggestion acceptance
+          // would cause false-positive "new entity" findings.
+          let guardResult = undefined;
+          if (textChanged && item.itemType !== "structural") {
+            const factRefs = item.factRefs;
+            const evidenceRefs = resolveBranchFactRefs(profile, factRefs);
+            guardResult = runRuleFactGuard({
+              originalText: item.originalText,
+              checkedText: nextText,
+              usedEvidenceRefs: evidenceRefs,
+              now
+            });
+
+            if (guardResult.status === "blocked_high_risk" || guardResult.status === "needs_edit" || guardResult.riskLevel === "high") {
+              throw new Error("branch_edit_fact_guard_blocked");
+            }
           }
 
           return BranchContentItemSchema.parse({
@@ -947,16 +954,18 @@ export class WorkspaceRepository {
             order: edit.order ?? item.order,
             visible: edit.visible ?? item.visible,
             source: "user_manual",
-            guardMode: guardResult ? "rule_verified" : "not_fact",
+            guardMode: guardResult ? "rule_verified" : item.guardMode,
             guardStatus: guardResult ? "pass" : item.guardStatus,
             guardRiskLevel: guardResult?.riskLevel ?? item.guardRiskLevel,
-            guardFindings: (guardResult?.ruleFindings ?? item.guardFindings).map((finding) => ({
-              type: finding.type,
-              text: finding.text,
-              severity: finding.severity,
-              allowed: finding.allowed,
-              message: finding.message
-            })),
+            guardFindings: guardResult
+              ? guardResult.ruleFindings.map((finding) => ({
+                  type: finding.type,
+                  text: finding.text,
+                  severity: finding.severity,
+                  allowed: finding.allowed,
+                  message: finding.message
+                }))
+              : item.guardFindings,
             guardedAt: guardResult?.checkedAt ?? item.guardedAt,
             guardVersion: guardResult?.guardVersion ?? item.guardVersion
           });

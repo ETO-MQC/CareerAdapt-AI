@@ -3,6 +3,34 @@ import { existsSync, mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 
+/**
+ * Resolve a working pdftotext/pdfinfo binary.
+ * Git/mingw64 bundles poppler v4.00 which cannot extract CID CJK fonts.
+ * Prefer a modern poppler (≥23.x) from MiKTeX, conda/poppler, or PATH.
+ */
+function resolvePopplerBinary(name: "pdftotext" | "pdfinfo"): string {
+  const candidates =
+    name === "pdftotext"
+      ? [
+          "E:/Pycharm/Lib/poppler/Library/bin/pdftotext.exe",
+          "C:/Users/mqcin/AppData/Local/Programs/MiKTeX/miktex/bin/x64/pdftotext.exe",
+        ]
+      : [
+          "E:/Pycharm/Lib/poppler/Library/bin/pdfinfo.exe",
+          "C:/Users/mqcin/AppData/Local/Programs/MiKTeX/miktex/bin/x64/pdfinfo.exe",
+        ];
+
+  for (const candidate of candidates) {
+    if (existsSync(candidate)) {
+      return candidate;
+    }
+  }
+  return name; // fallback to PATH
+}
+
+const PDFTOTEXT = resolvePopplerBinary("pdftotext");
+const PDFINFO = resolvePopplerBinary("pdfinfo");
+
 async function createC2DraftForSelectedJob(page: Page) {
   await page.locator("button").filter({ hasText: "C1" }).first().click();
   await expect(page.locator(".match-row").first()).toBeVisible();
@@ -39,7 +67,7 @@ async function ensureSinglePage(page: Page) {
 }
 
 function assertPdf(path: string, expectedTexts: string[]) {
-  const info = execFileSync("pdfinfo", [path], { encoding: "utf8" });
+  const info = execFileSync(PDFINFO, [path], { encoding: "utf8" });
   expect(info).toContain("Pages:           1");
   const pageSize = info.match(/Page size:\s+([\d.]+) x ([\d.]+) pts/);
   expect(pageSize).not.toBeNull();
@@ -49,7 +77,7 @@ function assertPdf(path: string, expectedTexts: string[]) {
   expect(Number(pageSize![2])).toBeLessThan(843);
   expect(info).toContain("A4");
 
-  const text = execFileSync("pdftotext", [path, "-"], { encoding: "utf8" });
+  const text = execFileSync(PDFTOTEXT, [path, "-"], { encoding: "utf8" });
   for (const expected of expectedTexts) {
     expect(text).toContain(expected);
   }
