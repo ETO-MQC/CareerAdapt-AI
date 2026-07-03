@@ -1,0 +1,94 @@
+# Domain And Architecture
+
+## 核心结论
+
+V2引入 `ResumeDocument` 作为编辑器核心模型，但第一阶段可以先从 verified `ResumeBranch` 派生，不急于持久化新表。`CareerProfile` 继续作为事实层，`ResumeBranch` 继续作为岗位版本实体，`ResumeDocument` 是“可编辑简历文档/视图模型”。
+
+## 建议模型
+
+```text
+ResumeDocument
+- id
+- branchId
+- profileId
+- jobId
+- sections
+- layoutConfig
+- styleConfig
+- templateId
+- contentRevision
+- presentationRevision
+- sourceBranchRevision
+- createdAt
+- updatedAt
+```
+
+## Section与ContentBlock
+
+Section：
+
+- id、type、title、order、visible。
+- blocks、layoutPlacement、sourceTrace。
+
+ContentBlock：
+
+- id、sectionId、type、text、order、visible。
+- factRefs、source、guardStatus、guardFindings。
+- editable、presentationOnly。
+
+## 配置
+
+- `LayoutConfig`：单栏/双栏、section placement、页边距、页数策略。
+- `StyleConfig`：字号、行高、颜色、字体、间距。
+- `TemplateConfig`：templateId、templateVersion、templateCapabilities。
+- `EditorState`：selection、editingBlockId、draftText、dirty、guardState。
+
+## Revision
+
+- 内容Revision：正文、block、section内容变化。
+- 展示Revision：模板、样式、布局、显示隐藏、排序。
+- Undo/redo要区分内容和展示，不让样式撤销污染事实历史。
+
+## Repository职责
+
+V2可新增 ResumeDocumentRepository 或在 WorkspaceRepository 中增加适配方法：
+
+- 从ResumeBranch创建/派生ResumeDocument。
+- 保存内容编辑并运行Fact Guard。
+- 保存展示配置。
+- 创建内容Revision和PresentationRevision。
+- 导出前重新校验 branch/profile/job/template。
+
+## 聚合根和事务边界
+
+- CareerProfile：事实聚合根。
+- JobDescription：岗位要求聚合根。
+- ResumeBranch：岗位简历分支聚合根。
+- ResumeDocument：编辑聚合或派生视图，必须引用Branch和factRefs。
+- ExportRecord：导出审计记录。
+
+文本编辑事务必须包含：读取branch最新revision -> Fact Guard -> 写内容 -> 写revision -> 写operation。展示配置事务不得写CareerProfile事实层。
+
+## V1模块复用
+
+直接复用：CareerProfile、JobDescription、RequirementMatch、Fact Guard规则、PDF导入、AI Service、C1/C2 eval、ResumeRenderModel部分字段、ExportRecord幂等。
+
+适配：ResumeBranch到ResumeDocument Mapper、ResumeWorkspace状态、模板渲染接口、overflow检测。
+
+重构：模板注册、编辑器状态、样式配置、导出直接生成、多Profile上下文。
+
+## 技术栈
+
+继续使用 Next.js、TypeScript、Zod、Dexie、Zustand/Tailwind。第一阶段不因编辑器引入大型富文本库；如G1引入Tiptap/Lexical/dnd-kit，必须先完成事实引用和导出一致性评估。
+
+## Workspace/Profile/Application关系
+
+V1存在Workspace概念和 `useWorkspace`，但页面仍隐式使用 `profiles[0]`。V2必须在G6前显式化上下文；若G0遇到分支选择问题，也应局部消除隐式绑定。Application实体后置到Resume Studio稳定之后。
+
+## 数据迁移策略
+
+- V2新增表前先完成备份和JSON导出路径确认。
+- 迁移幂等，不删除V1数据。
+- legacy_unverified继续只读。
+- 迁移失败回滚到V1主链路。
+- 所有新增索引必须有单元测试覆盖旧数据升级。

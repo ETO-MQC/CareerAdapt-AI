@@ -12,3 +12,22 @@ out/
 !.env.example
 *.tsbuildinfo
 pdfjs
+
+# Local/generated verification cases that should stay out of git.
+tests/local-cases/
+tests/generated-cases/
+tests/e2e/e1-verification.spec.ts
+tests/fixtures/pdf/corrupted.pdf
+tests/fixtures/pdf/empty-file.bin
+tests/fixtures/pdf/empty-page.pdf
+tests/fixtures/pdf/encrypted-like.pdf
+tests/fixtures/pdf/forged-ext.pdf
+tests/fixtures/pdf/forged-extension.pdf.txt
+tests/fixtures/pdf/generate-fixtures.ts
+tests/fixtures/pdf/multi-page-en.pdf
+tests/fixtures/pdf/not-a-pdf.txt
+tests/fixtures/pdf/prompt-injection.pdf
+tests/fixtures/pdf/repeated-header-en.pdf
+tests/fixtures/pdf/single-page-en.pdf
+tests/fixtures/pdf/six-pages.pdf
+tests/fixtures/pdf/two-column-pdflib.pdf

@@ -255,6 +255,45 @@ describe("E1a PDF import boundaries", () => {
     expect(await repository.getPdfImportSession("pdf-session-delete")).toBeUndefined();
     expect(await repository.listPdfPageTexts("pdf-session-delete")).toHaveLength(0);
   });
+
+  it("updates extracting status to interrupted on recovery", async () => {
+    db = new CareerAdaptDb(`CareerAdaptPdfInterruptDb-${crypto.randomUUID()}`);
+    const repository = new WorkspaceRepository(db);
+    const now = TEST_TIME;
+
+    await repository.createPdfImportSession({
+      id: "pdf-session-interrupt",
+      status: "extracting",
+      fileName: "resume.pdf",
+      fileSize: 500,
+      mimeType: "application/pdf",
+      extension: ".pdf",
+      fileHash: "file-hash-interrupt-123456",
+      pageCount: 0,
+      textLength: 0,
+      extractionVersion: "pdf-import.v1",
+      hasPromptInjectionRisk: false,
+      warnings: [],
+      createdAt: now,
+      updatedAt: now
+    });
+
+    const session = await repository.getLatestPdfImportSession();
+    expect(session).toBeDefined();
+    expect(session!.status).toBe("extracting");
+
+    const interrupted = await repository.updatePdfImportSession({
+      ...session!,
+      status: "interrupted",
+      errorCode: "extract_interrupted",
+      errorMessage: "interrupted during extraction",
+      interruptedAt: now
+    });
+
+    expect(interrupted.status).toBe("interrupted");
+    expect(interrupted.errorCode).toBe("extract_interrupted");
+    expect(interrupted.interruptedAt).toBe(now);
+  });
 });
 
 function createPageRecords(texts: string[], sessionId = "pdf-session-source-map"): PdfPageText[] {

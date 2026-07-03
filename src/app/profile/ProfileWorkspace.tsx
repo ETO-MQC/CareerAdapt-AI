@@ -99,6 +99,14 @@ export function ProfileWorkspace() {
         setPdfStatus("extracted");
       } else if (latest.status === "cancelled") {
         setPdfStatus("cancelled");
+      } else if (latest.status === "extracting" || latest.status === "parsing") {
+        setPdfStatus("failed");
+        if (active) {
+          setMessage("PDF 提取或解析在上次会话中被中断，请重新选择原始 PDF 文件导入。");
+        }
+      } else if (latest.status === "interrupted") {
+        setPdfStatus("failed");
+        setMessage("PDF 提取或解析在上次会话中被中断，请重新选择原始 PDF 文件导入。");
       } else if (latest.status === "failed") {
         setPdfStatus("failed");
       }
