@@ -19,6 +19,7 @@ import {
   RequirementMatchSchema,
   ResumeBranchSchema,
   ResumeBranchOperationSchema,
+  ResumePresentationConfigSchema,
   ResumeRevisionSchema,
   SuggestionOperationSchema,
   type AiLog,
@@ -43,6 +44,8 @@ import {
   type RequirementMatch,
   type ResumeBranch,
   type ResumeBranchOperation,
+  type ResumePresentationConfig,
+  type ResumeRenderSectionType,
   type ResumeRevision,
   type SuggestionOperation
 } from "@/domain/schemas";
@@ -958,6 +961,99 @@ export class WorkspaceRepository {
     return branch ? ResumeBranchSchema.parse(branch) : undefined;
   }
 
+  async getResumePresentationConfig(branchId: string) {
+    const branch = await this.db.resumeBranches.get(branchId);
+    if (!branch) {
+      throw new Error("resume_branch_missing");
+    }
+    const parsedBranch = ResumeBranchSchema.parse(branch);
+    const stored = await this.db.appMeta.get(resumePresentationConfigKey(branchId));
+    if (stored) {
+      return sanitizePresentationConfigForBranch(
+        ResumePresentationConfigSchema.parse(stored.value),
+        parsedBranch
+      );
+    }
+
+    const legacyWorkbenchState = await this.db.appMeta.get(resumeWorkbenchStateKey(parsedBranch.profileId));
+    return createDefaultPresentationConfig({
+      branch: parsedBranch,
+      templateId: parseLegacyWorkbenchTemplateId(legacyWorkbenchState?.value),
+      now: new Date().toISOString()
+    });
+  }
+
+  async saveResumePresentationConfig(input: {
+    branchId: string;
+    expectedBranchRevision: number;
+    expectedRevisionId: string;
+    expectedPresentationRevision: number;
+    operationId: string;
+    nextConfig: ResumePresentationConfig;
+  }) {
+    return this.db.transaction("rw", this.db.resumeBranches, this.db.appMeta, async () => {
+      const existingOperation = await this.db.appMeta.get(resumePresentationOperationKey(input.operationId));
+      if (existingOperation) {
+        const value = existingOperation.value;
+        if (!isPresentationOperationValue(value) || value.branchId !== input.branchId) {
+          throw new Error("resume_presentation_operation_conflict");
+        }
+        return {
+          config: await this.getResumePresentationConfig(input.branchId),
+          idempotent: true
+        };
+      }
+
+      const branch = await this.requireEditableResumeBranch(input.branchId);
+      if (branch.revision !== input.expectedBranchRevision || branch.currentRevisionId !== input.expectedRevisionId) {
+        throw new RevisionConflictError();
+      }
+
+      const current = await this.getResumePresentationConfig(input.branchId);
+      if (current.presentationRevision !== input.expectedPresentationRevision) {
+        throw new RevisionConflictError();
+      }
+      if (input.nextConfig.branchId !== input.branchId) {
+        throw new Error("resume_presentation_branch_mismatch");
+      }
+      if (input.nextConfig.presentationRevision !== input.expectedPresentationRevision + 1) {
+        throw new Error("resume_presentation_revision_mismatch");
+      }
+
+      const now = new Date().toISOString();
+      const nextConfig = sanitizePresentationConfigForBranch(
+        ResumePresentationConfigSchema.parse({
+          ...input.nextConfig,
+          contentRevision: {
+            branchRevision: branch.revision,
+            currentRevisionId: branch.currentRevisionId
+          },
+          updatedAt: now
+        }),
+        branch
+      );
+
+      const configMeta: AppMeta = {
+        key: resumePresentationConfigKey(input.branchId),
+        value: nextConfig,
+        updatedAt: now
+      };
+      const operationMeta: AppMeta = {
+        key: resumePresentationOperationKey(input.operationId),
+        value: {
+          branchId: input.branchId,
+          presentationRevision: nextConfig.presentationRevision,
+          operationId: input.operationId
+        },
+        updatedAt: now
+      };
+
+      await this.db.appMeta.put(configMeta);
+      await this.db.appMeta.put(operationMeta);
+      return { config: nextConfig, idempotent: false };
+    });
+  }
+
   async listResumeRevisions(branchId: string) {
     const revisions = await this.db.resumeRevisions.where("branchId").equals(branchId).toArray();
     return revisions
@@ -1363,8 +1459,8 @@ export class WorkspaceRepository {
         branch: nextBranchWithSync,
         source: input.source,
         operationId: input.operationId,
-        previousRevisionId: branch.currentRevisionId,
-        restoredFromRevisionId: input.restoredFromRevisionId,
+        previousRevisionId: branch.currentRevisionId ?? undefined,
+        restoredFromRevisionId: input.restoredFromRevisionId ?? undefined,
         now
       });
       const nextBranch = ResumeBranchSchema.parse({
@@ -1548,6 +1644,153 @@ export class RevisionConflictError extends Error {
     super("revision_conflict");
     this.name = "RevisionConflictError";
   }
+}
+
+function resumePresentationConfigKey(branchId: string) {
+  return `resumePresentationConfig:${branchId}`;
+}
+
+function resumePresentationOperationKey(operationId: string) {
+  return `resumePresentationOperation:${operationId}`;
+}
+
+function resumeWorkbenchStateKey(profileId: string) {
+  return `resumeWorkbenchState:${profileId}`;
+}
+
+function parseLegacyWorkbenchTemplateId(value: unknown): ResumePresentationConfig["templateId"] | undefined {
+  if (!value || typeof value !== "object") {
+    return undefined;
+  }
+  const candidate = value as { templateId?: unknown };
+  return candidate.templateId === "classic-technical" || candidate.templateId === "modern-operations"
+    ? candidate.templateId
+    : undefined;
+}
+
+function createDefaultPresentationConfig(input: {
+  branch: ResumeBranch;
+  templateId?: ResumePresentationConfig["templateId"];
+  now: string;
+}): ResumePresentationConfig {
+  if (!input.branch.currentRevisionId) {
+    throw new Error("resume_presentation_branch_current_revision_missing");
+  }
+
+  return ResumePresentationConfigSchema.parse({
+    schemaVersion: "resume-presentation-v1",
+    branchId: input.branch.id,
+    templateId: input.templateId ?? "classic-technical",
+    contentRevision: {
+      branchRevision: input.branch.revision,
+      currentRevisionId: input.branch.currentRevisionId
+    },
+    sectionOrder: defaultResumeSectionOrder(),
+    itemOrderBySection: defaultItemOrderBySection(input.branch),
+    hiddenItemIds: [],
+    presentationRevision: 0,
+    updatedAt: input.now
+  });
+}
+
+function sanitizePresentationConfigForBranch(config: ResumePresentationConfig, branch: ResumeBranch): ResumePresentationConfig {
+  if (config.branchId !== branch.id) {
+    throw new Error("resume_presentation_branch_mismatch");
+  }
+  if (!branch.currentRevisionId) {
+    throw new Error("resume_presentation_branch_current_revision_missing");
+  }
+
+  const itemIds = new Set(branch.contentItems.map((item) => item.id));
+  const hiddenItemIds = uniqueStrings(config.hiddenItemIds).filter((itemId) => itemIds.has(itemId));
+  const branchVisibleItemIds = branch.contentItems.filter((item) => item.visible).map((item) => item.id);
+  if (branchVisibleItemIds.length > 0 && branchVisibleItemIds.every((itemId) => hiddenItemIds.includes(itemId))) {
+    throw new Error("resume_presentation_requires_visible_content");
+  }
+
+  return ResumePresentationConfigSchema.parse({
+    ...config,
+    contentRevision: {
+      branchRevision: branch.revision,
+      currentRevisionId: branch.currentRevisionId
+    },
+    sectionOrder: sanitizeSectionOrder(config.sectionOrder),
+    itemOrderBySection: sanitizeItemOrderBySection(config.itemOrderBySection, branch),
+    hiddenItemIds
+  });
+}
+
+function defaultResumeSectionOrder(): ResumeRenderSectionType[] {
+  return ["summary", "skills", "experience", "certificates"];
+}
+
+function sanitizeSectionOrder(sectionOrder: ResumeRenderSectionType[]) {
+  const defaults = defaultResumeSectionOrder();
+  const seen = new Set<ResumeRenderSectionType>();
+  const next = sectionOrder.filter((section) => {
+    if (seen.has(section)) {
+      return false;
+    }
+    seen.add(section);
+    return true;
+  });
+  return [...next, ...defaults.filter((section) => !seen.has(section))];
+}
+
+function defaultItemOrderBySection(branch: ResumeBranch): ResumePresentationConfig["itemOrderBySection"] {
+  return sanitizeItemOrderBySection({}, branch);
+}
+
+function sanitizeItemOrderBySection(
+  itemOrderBySection: ResumePresentationConfig["itemOrderBySection"],
+  branch: ResumeBranch
+): ResumePresentationConfig["itemOrderBySection"] {
+  const result: ResumePresentationConfig["itemOrderBySection"] = {};
+  for (const section of defaultResumeSectionOrder()) {
+    const sectionItems = branch.contentItems
+      .filter((item) => contentItemSectionType(item) === section)
+      .sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
+    const sectionItemIds = new Set(sectionItems.map((item) => item.id));
+    const configured = uniqueStrings(itemOrderBySection[section] ?? []).filter((itemId) => sectionItemIds.has(itemId));
+    const missing = sectionItems.map((item) => item.id).filter((itemId) => !configured.includes(itemId));
+    result[section] = [...configured, ...missing];
+  }
+  return result;
+}
+
+function contentItemSectionType(item: ResumeBranch["contentItems"][number]): ResumeRenderSectionType {
+  if (item.itemType === "summary") {
+    return "summary";
+  }
+  if (item.itemType === "skill") {
+    return "skills";
+  }
+  if (item.itemType === "certificate") {
+    return "certificates";
+  }
+  return "experience";
+}
+
+function uniqueStrings(values: string[]) {
+  return Array.from(new Set(values));
+}
+
+function isPresentationOperationValue(value: unknown): value is {
+  branchId: string;
+  presentationRevision: number;
+  operationId: string;
+} {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const candidate = value as {
+    branchId?: unknown;
+    presentationRevision?: unknown;
+    operationId?: unknown;
+  };
+  return typeof candidate.branchId === "string"
+    && typeof candidate.presentationRevision === "number"
+    && typeof candidate.operationId === "string";
 }
 
 function applySuggestionToSections(

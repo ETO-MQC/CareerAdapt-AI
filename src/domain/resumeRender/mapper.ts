@@ -2,6 +2,7 @@ import {
   ResumeRenderModelSchema,
   type CareerProfile,
   type JobDescription,
+  type ResumePresentationConfig,
   type ResumeBranch,
   type ResumeRenderBlock,
   type ResumeRenderSection,
@@ -20,6 +21,7 @@ export function mapBranchToResumeRenderModel(input: {
   branch: ResumeBranch;
   profile: CareerProfile;
   job: JobDescription;
+  presentationConfig?: ResumePresentationConfig;
 }) {
   const { branch, profile, job } = input;
   assertRenderableBranch(branch);
@@ -32,7 +34,8 @@ export function mapBranchToResumeRenderModel(input: {
     branch,
     profile,
     job,
-    templateId: "classic-technical"
+    templateId: input.presentationConfig?.templateId ?? "classic-technical",
+    presentationConfig: input.presentationConfig
   });
   const excludedItemIds = document.blocks
     .filter((block) => !block.visible || !block.renderable)

@@ -6,6 +6,7 @@ import { mapAdaptationDraftToResumeBranch } from "@/domain/branch/mapper";
 import { createJobAdaptationDraft } from "@/domain/adaptation/draft";
 import { runRuleFactGuard } from "@/domain/adaptation/factGuard";
 import { createRuleRequirementMatches, resolveEffectiveMatch } from "@/domain/match/matcher";
+import { ResumeRevisionSchema, ResumeBranchSchema } from "@/domain/schemas";
 import { CareerAdaptDb } from "@/services/storage/db";
 import { RevisionConflictError, WorkspaceRepository } from "@/services/storage/repositories";
 import type { AiSuggestion } from "@/domain/schemas";
@@ -422,5 +423,63 @@ describe("D1 resume branch repository", () => {
       operationId: "v2-g0a-edit-invalid-reference",
       edits: [{ itemId: invalid.contentItems[0].id, text: `${invalid.contentItems[0].text}.` }]
     })).rejects.toThrow("invalid_reference_resume_branch_read_only");
+  });
+
+  it("parses ResumeRevision with null previousRevisionId and restoredFromRevisionId from IndexedDB", () => {
+    // IndexedDB serializes undefined as null, which must be accepted by the schema.
+    // Regression test for the ZodError seen during listResumeRevisions.
+    const parsed = ResumeRevisionSchema.parse({
+      id: "rev-null-test",
+      branchId: "branch-1",
+      revisionNumber: 0,
+      source: "created",
+      operationId: "op-null-test",
+      previousRevisionId: null,
+      restoredFromRevisionId: null,
+      snapshot: {
+        name: "test",
+        lifecycleStatus: "active",
+        contentItems: []
+      },
+      createdAt: TEST_TIME,
+      updatedAt: TEST_TIME
+    });
+    expect(parsed.previousRevisionId == null).toBe(true);
+    expect(parsed.restoredFromRevisionId == null).toBe(true);
+  });
+
+  it("parses ResumeBranch with null currentRevisionId from IndexedDB", () => {
+    // Regression test for the same IndexedDB null serialization issue.
+    const parsed = ResumeBranchSchema.parse({
+      id: "branch-null-test",
+      profileId: demoCareerProfile.id,
+      jobId: demoJobDescriptions[0].id,
+      name: "null revision test",
+      sourceProfileVersion: 1,
+      sourceJobVersion: "v1",
+      sourceAdaptationDraftId: "draft-1",
+      sourceDraftRevision: 0,
+      matcherVersion: "rule-matcher.v1",
+      sourceMatchSetHash: "hash12345678",
+      requirementMatchIds: ["match-1"],
+      revision: 0,
+      currentRevisionId: null,
+      lifecycleStatus: "active",
+      migrationStatus: "legacy_unverified",
+      syncStatusCache: {
+        status: "in_sync",
+        sourceProfileVersion: 1,
+        currentProfileVersion: 1,
+        sourceJobVersion: "v1",
+        currentJobVersion: "v1",
+        invalidFactRefs: [],
+        checkedAt: TEST_TIME,
+        message: "ok"
+      },
+      contentItems: [],
+      createdAt: TEST_TIME,
+      updatedAt: TEST_TIME
+    });
+    expect(parsed.currentRevisionId == null).toBe(true);
   });
 });

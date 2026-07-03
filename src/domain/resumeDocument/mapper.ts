@@ -3,6 +3,7 @@ import {
   type BranchGuardStatus,
   type CareerProfile,
   type JobDescription,
+  type ResumePresentationConfig,
   type ResumeBranch,
   type ResumeRenderSectionType,
   type TemplateId
@@ -16,6 +17,8 @@ export type ResumeDocumentBlock = {
   itemType: BranchContentItem["itemType"];
   text: string;
   order: number;
+  contentVisible: boolean;
+  presentationHidden: boolean;
   visible: boolean;
   renderable: boolean;
   editable: boolean;
@@ -24,6 +27,7 @@ export type ResumeDocumentBlock = {
   guardRiskLevel: BranchContentItem["guardRiskLevel"];
   factRefKeys: string[];
   requirementIds: string[];
+  hiddenReason?: "hidden_by_content" | "hidden_by_presentation";
   notRenderableReason?: string;
   notEditableReason?: string;
 };
@@ -53,9 +57,10 @@ export function mapBranchToResumeDocument(input: {
   profile: CareerProfile;
   job: JobDescription;
   templateId: TemplateId;
+  presentationConfig?: ResumePresentationConfig;
 }): ResumeDocument {
   const branchEditability = getBranchEditability(input.branch);
-  const blocks = [...input.branch.contentItems]
+  const baseBlocks = [...input.branch.contentItems]
     .sort((a, b) => sectionRank(a.itemType) - sectionRank(b.itemType) || a.order - b.order)
     .map((item) => mapContentItemToBlock({
       item,
@@ -63,6 +68,7 @@ export function mapBranchToResumeDocument(input: {
       branchEditable: branchEditability.editable,
       branchNotEditableReason: branchEditability.reason
     }));
+  const blocks = applyPresentationConfig(baseBlocks, input.presentationConfig);
 
   return {
     id: `resume-document:${input.branch.id}:${input.branch.currentRevisionId ?? "missing"}`,
@@ -72,7 +78,7 @@ export function mapBranchToResumeDocument(input: {
     templateId: input.templateId,
     branchRevision: input.branch.revision,
     branchCurrentRevisionId: input.branch.currentRevisionId ?? "",
-    sections: buildSections(blocks),
+    sections: buildSections(blocks, input.presentationConfig),
     blocks,
     editable: branchEditability.editable,
     notEditableReason: branchEditability.reason
@@ -149,6 +155,7 @@ function mapContentItemToBlock(input: {
 }): ResumeDocumentBlock {
   const renderability = isRenderableContentItem({ item: input.item, profile: input.profile });
   const editable = input.branchEditable && input.item.itemType !== "structural";
+  const contentVisible = input.item.visible;
   return {
     id: input.item.id,
     contentItemId: input.item.id,
@@ -156,7 +163,9 @@ function mapContentItemToBlock(input: {
     itemType: input.item.itemType,
     text: input.item.text,
     order: input.item.order,
-    visible: input.item.visible,
+    contentVisible,
+    presentationHidden: false,
+    visible: contentVisible,
     renderable: renderability.renderable,
     editable,
     guardStatus: input.item.guardStatus,
@@ -164,18 +173,70 @@ function mapContentItemToBlock(input: {
     guardRiskLevel: input.item.guardRiskLevel,
     factRefKeys: input.item.factRefs.map(branchFactRefKey),
     requirementIds: input.item.requirementIds,
+    hiddenReason: contentVisible ? undefined : "hidden_by_content",
     notRenderableReason: renderability.reason,
     notEditableReason: editable ? undefined : input.branchNotEditableReason ?? "structural_content"
   };
 }
 
-function buildSections(blocks: ResumeDocumentBlock[]): ResumeDocumentSection[] {
-  const sectionTypes: ResumeRenderSectionType[] = ["summary", "skills", "experience", "certificates"];
+function buildSections(blocks: ResumeDocumentBlock[], presentationConfig?: ResumePresentationConfig): ResumeDocumentSection[] {
+  const sectionTypes = sanitizeSectionOrder(presentationConfig?.sectionOrder);
   return sectionTypes.map((type) => ({
     type,
     title: sectionTitle(type),
     blocks: blocks.filter((block) => block.sectionType === type)
   }));
+}
+
+function applyPresentationConfig(
+  blocks: ResumeDocumentBlock[],
+  presentationConfig?: ResumePresentationConfig
+): ResumeDocumentBlock[] {
+  const hiddenItemIds = new Set(presentationConfig?.hiddenItemIds ?? []);
+  const sectionTypes = sanitizeSectionOrder(presentationConfig?.sectionOrder);
+
+  return sectionTypes.flatMap((sectionType) => {
+    const sectionBlocks = blocks
+      .filter((block) => block.sectionType === sectionType)
+      .sort((a, b) => a.order - b.order || a.contentItemId.localeCompare(b.contentItemId));
+    const sectionItemIds = new Set(sectionBlocks.map((block) => block.contentItemId));
+    const configuredOrder = (presentationConfig?.itemOrderBySection[sectionType] ?? [])
+      .filter((itemId, index, source) => sectionItemIds.has(itemId) && source.indexOf(itemId) === index);
+    const missingOrder = sectionBlocks
+      .map((block) => block.contentItemId)
+      .filter((itemId) => !configuredOrder.includes(itemId));
+    const order = [...configuredOrder, ...missingOrder];
+
+    const orderedBlocks: ResumeDocumentBlock[] = [];
+    for (const [index, itemId] of order.entries()) {
+      const block = sectionBlocks.find((candidate) => candidate.contentItemId === itemId);
+      if (!block) {
+        continue;
+      }
+      const presentationHidden = hiddenItemIds.has(block.contentItemId);
+      orderedBlocks.push({
+        ...block,
+        order: index,
+        presentationHidden,
+        visible: block.contentVisible && !presentationHidden,
+        hiddenReason: !block.contentVisible
+          ? "hidden_by_content"
+          : presentationHidden
+            ? "hidden_by_presentation"
+            : undefined
+      });
+    }
+    return orderedBlocks;
+  });
+}
+
+function sanitizeSectionOrder(sectionOrder?: ResumeRenderSectionType[]) {
+  const defaults: ResumeRenderSectionType[] = ["summary", "skills", "experience", "certificates"];
+  if (!sectionOrder) {
+    return defaults;
+  }
+  const unique = sectionOrder.filter((section, index) => sectionOrder.indexOf(section) === index);
+  return [...unique, ...defaults.filter((section) => !unique.includes(section))];
 }
 
 function sectionRank(itemType: BranchContentItem["itemType"]) {

@@ -138,8 +138,8 @@ export const ResumeRevisionSchema = EntityBaseSchema.extend({
   revisionNumber: z.number().int().min(0),
   source: ResumeRevisionSourceSchema,
   operationId: z.string().min(1),
-  previousRevisionId: z.string().optional(),
-  restoredFromRevisionId: z.string().optional(),
+  previousRevisionId: z.string().nullish(),
+  restoredFromRevisionId: z.string().nullish(),
   snapshot: ResumeBranchSnapshotSchema
 }).superRefine((revision, ctx) => {
   if (revision.revisionNumber > 0 && !revision.previousRevisionId) {
@@ -163,7 +163,7 @@ export const ResumeBranchSchema = EntityBaseSchema.extend({
   sourceMatchSetHash: z.string().min(8),
   requirementMatchIds: z.array(z.string().min(1)).default([]),
   revision: z.number().int().min(0),
-  currentRevisionId: z.string().optional(),
+  currentRevisionId: z.string().nullish(),
   lifecycleStatus: BranchLifecycleStatusSchema,
   migrationStatus: BranchMigrationStatusSchema,
   syncStatusCache: BranchSyncStatusSchema,

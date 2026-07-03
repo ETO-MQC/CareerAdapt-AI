@@ -160,6 +160,37 @@ async function getLatestVerifiedBranchId(page: Page): Promise<string> {
   });
 }
 
+async function getLatestUsableDraftIdForJob(page: Page, jobId: string): Promise<string> {
+  return page.evaluate(async (targetJobId: string) => {
+    return new Promise<string>((resolveId, reject) => {
+      const request = indexedDB.open("CareerAdaptDb");
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        const db = request.result;
+        const tx = db.transaction("jobAdaptationDrafts", "readonly");
+        const getAll = tx.objectStore("jobAdaptationDrafts").getAll();
+        getAll.onerror = () => reject(getAll.error);
+        getAll.onsuccess = () => {
+          const drafts = (getAll.result as Array<Record<string, unknown>>)
+            .filter((draft) => (
+              draft.jobId === targetJobId &&
+              draft.status !== "stale_blocked" &&
+              draft.status !== "error"
+            ))
+            .sort((left, right) => String(right.updatedAt ?? "").localeCompare(String(left.updatedAt ?? "")));
+          const latest = drafts[0];
+          if (typeof latest?.id !== "string") {
+            reject(new Error("latest_usable_draft_not_found"));
+            return;
+          }
+          resolveId(latest.id);
+        };
+        tx.oncomplete = () => db.close();
+      };
+    });
+  }, jobId);
+}
+
 async function ensureSinglePage(page: Page) {
   const status = page.getByTestId("overflow-status");
   await expect(status).toBeVisible();
@@ -279,17 +310,19 @@ test.describe("D2.1 验收：双模板预览与 PDF 导出", () => {
     const optionCount = await jobSelect.locator("option").count();
     if (optionCount > 1) {
       await jobSelect.selectOption({ index: 1 });
+      const betaJobId = await jobSelect.inputValue();
       await page.locator("button").filter({ hasText: "C1" }).first().click();
       await expect(page.locator(".match-row").first()).toBeVisible();
       await page.locator("button").filter({ hasText: "C2" }).first().click();
       await expect(page.locator(".notice")).toContainText("C2");
+      const betaDraftId = await getLatestUsableDraftIdForJob(page, betaJobId);
 
       await page.goto("/resume");
       const draftSelect = page.locator("label").filter({ hasText: "C2" }).locator("select");
-      await draftSelect.selectOption({ index: 1 });
+      await expect(draftSelect.locator(`option[value="${betaDraftId}"]`)).toHaveCount(1);
+      await draftSelect.selectOption(betaDraftId);
       await page.locator("article.panel").first().locator("input").fill("Branch Beta");
       await page.locator("article.panel").first().locator("button.primary-button").click();
-      await page.waitForTimeout(500);
       await expect(page.locator(".branch-list .match-row").filter({ hasText: "Branch Beta" })).toBeVisible({ timeout: 10000 });
 
       const textB = await preview.innerText();

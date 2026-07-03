@@ -387,10 +387,9 @@ test.describe("V2-G0a Resume Studio 独立验收", () => {
     await page.keyboard.press("Escape");
 
     // ========== 场景12: 恢复历史 Revision ==========
-    // Get the first revision to restore
+    // Get revisions to verify chain integrity
     const revisions = await getAllRevisionsForBranch(page, branch.id);
     expect(revisions.length).toBeGreaterThanOrEqual(2);
-    const firstRevision = revisions[0];
     // Click the restore button for the first revision in the revision list
     const revisionRows = page.locator(".revision-list .review-row");
     await revisionRows.first().locator("button").click();
@@ -406,19 +405,25 @@ test.describe("V2-G0a Resume Studio 独立验收", () => {
   });
 
   test("场景 13-14：分支隔离与非法分支", async ({ page }) => {
-    await createBranchFromDraft(page, "V2 G0a 分支A");
-    await createBranchFromDraft(page, "V2 G0a 分支B");
+    // Use a unique branch name prefix to avoid collision with other tests
+    const uniqueId = Date.now();
+    const branchNameA = `V2G0a IsoA ${uniqueId}`;
+    const branchNameB = `V2G0a IsoB ${uniqueId}`;
+
+    await createBranchFromDraft(page, branchNameA);
+    await createBranchFromDraft(page, branchNameB);
 
     await page.goto("/resume");
     const branchList = page.locator(".branch-list");
 
     // Select branch A and enable editing
-    await branchList.locator(".match-row").filter({ hasText: "V2 G0a 分支A" }).click();
+    await branchList.locator(".match-row").filter({ hasText: branchNameA }).click();
     await enablePreviewEditing(page);
 
     const preview = page.getByTestId("resume-a4-page");
     const editor = page.getByTestId("resume-studio-editor");
 
+    // ========== 场景13: 分支隔离 ==========
     const firstBlockA = preview.locator("[data-editable-block='true'][data-source-item-id]").first();
     await firstBlockA.dblclick();
     await expect(editor.locator("textarea")).toBeVisible();
@@ -427,11 +432,10 @@ test.describe("V2-G0a Resume Studio 独立验收", () => {
     await page.keyboard.press("Control+Enter");
     await expect(page.locator(".notice")).toContainText("预览区编辑已保存");
 
-    // ========== 场景13: 分支隔离 ==========
     // Switch to branch B
-    await branchList.locator(".match-row").filter({ hasText: "V2 G0a 分支B" }).click();
+    await branchList.locator(".match-row").filter({ hasText: branchNameB }).click();
     await expect(preview).toBeVisible();
-    // Editor state should be cleared — no textarea, no error, no selection
+    // Editor state should be cleared
     await expect(editor.locator("textarea")).toBeHidden();
     await expect(editor.locator(".save-status-failed")).toBeHidden();
 
@@ -440,15 +444,33 @@ test.describe("V2-G0a Resume Studio 独立验收", () => {
     expect(blockBText).not.toContain("分支A编辑");
 
     // Switch back to branch A
-    await branchList.locator(".match-row").filter({ hasText: "V2 G0a 分支A" }).click();
+    await branchList.locator(".match-row").filter({ hasText: branchNameA }).click();
     await expect(preview).toBeVisible();
-    // No stale draft should be shown
+    // No stale draft
     await expect(editor.locator("textarea")).toBeHidden();
 
     // ========== 场景14: 非法分支 ==========
-    // Legacy unverified branch cannot enter edit mode
-    // (We'll check via DB manipulation)
-    const branchA = await getLatestVerifiedBranch(page);
+    // Get the exact branch matching our name
+    const branchAData = await page.evaluate(async (name: string) => {
+      return new Promise<{ id: string; name: string }>((resolve, reject) => {
+        const request = indexedDB.open("CareerAdaptDb");
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => {
+          const db = request.result;
+          const tx = db.transaction("resumeBranches", "readonly");
+          const getAll = tx.objectStore("resumeBranches").getAll();
+          getAll.onerror = () => reject(getAll.error);
+          getAll.onsuccess = () => {
+            const found = getAll.result.find((b: { name: string }) => b.name === name);
+            resolve(found);
+          };
+          tx.oncomplete = () => db.close();
+        };
+      });
+    }, branchNameA);
+    expect(branchAData).toBeDefined();
+
+    // Mutate to legacy_unverified
     await page.evaluate(async (branchId: string) => {
       return new Promise<void>((resolveMutation, reject) => {
         const request = indexedDB.open("CareerAdaptDb");
@@ -469,12 +491,15 @@ test.describe("V2-G0a Resume Studio 独立验收", () => {
           tx.onerror = () => reject(tx.error);
         };
       });
-    }, branchA.id);
+    }, branchAData!.id);
 
-    // Reload to pick up the changed branch
+    // Reload to sync React state with mutated IndexedDB
     await page.reload();
-    // Legacy branch should show a warning instead of the preview
-    await expect(page.locator(".warning-box").filter({ hasText: "legacy_unverified" })).toBeVisible();
+    await expect(page.locator(".branch-list .match-row").first()).toBeVisible({ timeout: 10000 });
+    // Click the mutated legacy branch
+    await page.locator(".branch-list .match-row").filter({ hasText: branchNameA }).click();
+    // Should show legacy warning
+    await expect(page.locator(".warning-box").filter({ hasText: "legacy_unverified" })).toBeVisible({ timeout: 10000 });
   });
 
   test("场景 19：PDF 产物不含编辑控件且包含正式文本", async ({ page }) => {
@@ -568,5 +593,51 @@ test.describe("V2-G0a Resume Studio 独立验收", () => {
     // A4 preview should be visible
     await expect(preview).toBeVisible();
     await expect(preview).toContainText("陈同学");
+  });
+
+  test("场景 18：模板切换期间存在未保存草稿 — 不静默丢失用户输入", async ({ page }) => {
+    await createBranchFromDraft(page, "V2 G0a 草稿保留分支");
+    await enablePreviewEditing(page);
+
+    const preview = page.getByTestId("resume-a4-page");
+    const editor = page.getByTestId("resume-studio-editor");
+
+    // Enter editing mode and type new text WITHOUT saving
+    const firstBlock = preview.locator("[data-editable-block='true'][data-source-item-id]").first();
+    const contentItemId = await firstBlock.getAttribute("data-source-item-id");
+    const originalText = (await firstBlock.innerText()).trim();
+    const unsavedText = `${originalText} 未保存草稿测试`;
+
+    await firstBlock.dblclick();
+    await expect(editor.locator("textarea")).toBeVisible();
+    await editor.locator("textarea").fill(unsavedText);
+    // Do NOT save — textarea has unsaved content
+
+    // Switch template while draft is active
+    await page.locator("label").filter({ hasText: "模板" }).locator("select").selectOption("modern-operations");
+    await expect(preview).toHaveClass(/template-modern-operations/);
+
+    // The unsaved draft must NOT be silently lost
+    // The editor should still be visible with the draft text preserved
+    await expect(editor.locator("textarea")).toBeVisible();
+    await expect(editor.locator("textarea")).toHaveValue(unsavedText);
+
+    // The contentItemId should be consistent across templates
+    // (same block should be selected in the new template)
+    const modernBlock = preview.locator(`[data-source-item-id="${contentItemId}"]`).first();
+    await expect(modernBlock).toBeVisible();
+
+    // Switch back to template A — draft should STILL be preserved
+    await page.locator("label").filter({ hasText: "模板" }).locator("select").selectOption("classic-technical");
+    await expect(preview).toHaveClass(/template-classic-technical/);
+    await expect(editor.locator("textarea")).toBeVisible();
+    await expect(editor.locator("textarea")).toHaveValue(unsavedText);
+
+    // Cancel the draft — no Revision should have been created
+    await page.keyboard.press("Escape");
+    await expect(editor.locator("textarea")).toBeHidden();
+
+    // Original text should be shown (no save happened)
+    await expect(preview.locator(`[data-source-item-id="${contentItemId}"]`)).toContainText(originalText);
   });
 });

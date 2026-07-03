@@ -18,6 +18,9 @@ export type ResumeStudioEditorProps = {
   onDraftTextChange: (text: string) => void;
   onSave: () => void;
   onCancel: () => void;
+  onMoveUp?: (itemId: string) => void;
+  onMoveDown?: (itemId: string) => void;
+  onHide?: (itemId: string) => void;
 };
 
 export function A4ResumePreview({
@@ -110,15 +113,40 @@ export function A4ResumePreview({
               </div>
             </>
           ) : (
-            <div className="action-row">
-              <button
-                className="primary-button compact"
-                disabled={!editor.selectedBlock.editable || editor.pending}
-                onClick={() => editor.onStartEdit(editor.selectedBlock!.contentItemId)}
-              >
-                编辑
-              </button>
-            </div>
+            <>
+              <div className="action-row">
+                <button
+                  className="primary-button compact"
+                  disabled={!editor.selectedBlock.editable || editor.pending}
+                  onClick={() => editor.onStartEdit(editor.selectedBlock!.contentItemId)}
+                >
+                  编辑
+                </button>
+              </div>
+              <div className="action-row resume-structure-actions">
+                <button
+                  className="secondary-button compact"
+                  disabled={editor.pending || !editor.onMoveUp}
+                  onClick={() => editor.onMoveUp?.(editor.selectedBlock!.contentItemId)}
+                >
+                  上移
+                </button>
+                <button
+                  className="secondary-button compact"
+                  disabled={editor.pending || !editor.onMoveDown}
+                  onClick={() => editor.onMoveDown?.(editor.selectedBlock!.contentItemId)}
+                >
+                  下移
+                </button>
+                <button
+                  className="secondary-button compact"
+                  disabled={editor.pending || !editor.onHide}
+                  onClick={() => editor.onHide?.(editor.selectedBlock!.contentItemId)}
+                >
+                  隐藏
+                </button>
+              </div>
+            </>
           )}
           {editor.error ? <p className="save-status save-status-failed">{editor.error}</p> : null}
           {!editor.selectedBlock.editable ? (

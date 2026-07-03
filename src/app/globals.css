@@ -776,6 +776,36 @@ p {
   margin-bottom: 12px;
 }
 
+.presentation-history-actions {
+  align-items: stretch;
+  margin-bottom: 12px;
+}
+
+.hidden-block-list {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding-top: 12px;
+}
+
+.hidden-block-list strong {
+  font-size: 13px;
+}
+
+.hidden-block-button {
+  justify-content: flex-start;
+  overflow-wrap: anywhere;
+  text-align: left;
+  white-space: normal;
+}
+
+.resume-structure-actions {
+  align-items: stretch;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .resume-template-header {
   align-items: flex-start;
   border-bottom: 2px solid #202522;

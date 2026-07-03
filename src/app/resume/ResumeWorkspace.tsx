@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   type JobAdaptationDraft,
   type ResumeBranch,
+  type ResumePresentationConfig,
   type ResumeRenderModel,
   type ResumeRevision,
   type TemplateId
@@ -27,6 +28,11 @@ type WorkbenchState = {
   templateId?: TemplateId;
 };
 
+type PresentationHistoryState = {
+  undoStack: ResumePresentationConfig[];
+  redoStack: ResumePresentationConfig[];
+};
+
 export function ResumeWorkspace() {
   const workspace = useWorkspace(repository);
   const pageRef = useRef<HTMLElement | null>(null);
@@ -35,6 +41,11 @@ export function ResumeWorkspace() {
   const [selectedDraftId, setSelectedDraftId] = useState("");
   const [selectedBranchId, setSelectedBranchId] = useState("");
   const [templateId, setTemplateId] = useState<TemplateId>(DEFAULT_TEMPLATE_ID);
+  const [presentationConfig, setPresentationConfig] = useState<ResumePresentationConfig | undefined>();
+  const [presentationHistory, setPresentationHistory] = useState<PresentationHistoryState>({
+    undoStack: [],
+    redoStack: []
+  });
   const [revisions, setRevisions] = useState<ResumeRevision[]>([]);
   const [message, setMessage] = useState<string | undefined>();
   const [draftName, setDraftName] = useState("");
@@ -53,12 +64,14 @@ export function ResumeWorkspace() {
   const selectedDraft = drafts.find((draft) => draft.id === activeDraftId);
   const selectedBranch = branches.find((branch) => branch.id === activeBranchId);
   const selectedBranchJob = selectedBranch ? jobs.find((job) => job.id === selectedBranch.jobId) : undefined;
-  const selectedTemplate = getResumeTemplate(templateId);
+  const effectiveTemplateId = presentationConfig?.templateId ?? templateId;
+  const selectedTemplate = getResumeTemplate(effectiveTemplateId);
   const renderResult = useMemo(() => buildRenderModel({
     branch: selectedBranch,
     profile,
-    job: selectedBranchJob
-  }), [selectedBranch, profile, selectedBranchJob]);
+    job: selectedBranchJob,
+    presentationConfig
+  }), [selectedBranch, profile, selectedBranchJob, presentationConfig]);
   const renderModel = renderResult.model;
   const resumeDocument = useMemo(() => {
     if (!selectedBranch || !profile || !selectedBranchJob) {
@@ -68,16 +81,25 @@ export function ResumeWorkspace() {
       branch: selectedBranch,
       profile,
       job: selectedBranchJob,
-      templateId
+      templateId: effectiveTemplateId,
+      presentationConfig
     });
-  }, [selectedBranch, profile, selectedBranchJob, templateId]);
+  }, [selectedBranch, profile, selectedBranchJob, effectiveTemplateId, presentationConfig]);
   const resumeDocumentBlocksById = useMemo(() => {
     return new Map(resumeDocument?.blocks.map((block) => [block.contentItemId, block]) ?? []);
   }, [resumeDocument]);
   const selectedStudioBlock = selectedStudioItemId ? resumeDocumentBlocksById.get(selectedStudioItemId) : undefined;
   const selectedBranchEditable = selectedBranch ? canEditBranch(selectedBranch) : false;
-  const overflow = useA4Overflow(pageRef, [renderModel?.branchId, renderModel?.branchRevision, templateId]);
+  const overflow = useA4Overflow(pageRef, [
+    renderModel?.branchId,
+    renderModel?.branchRevision,
+    effectiveTemplateId,
+    presentationConfig?.presentationRevision
+  ]);
   const reductionHints = useMemo(() => renderModel ? buildReductionHints(renderModel) : [], [renderModel]);
+  const presentationHiddenBlocks = useMemo(() => {
+    return resumeDocument?.blocks.filter((block) => block.presentationHidden) ?? [];
+  }, [resumeDocument]);
 
   const refreshLists = useCallback(async (profileId: string) => {
     const [nextDrafts, nextBranches] = await Promise.all([
@@ -128,16 +150,30 @@ export function ResumeWorkspace() {
 
   useEffect(() => {
     if (!activeBranchId) {
-      return;
+      let active = true;
+      queueMicrotask(() => {
+        if (active) {
+          setPresentationConfig(undefined);
+        }
+      });
+      return () => {
+        active = false;
+      };
     }
     let active = true;
-    async function loadRevisions() {
-      const next = await repository.listResumeRevisions(activeBranchId);
+    async function loadBranchState() {
+      const [nextRevisions, nextPresentationConfig] = await Promise.all([
+        repository.listResumeRevisions(activeBranchId),
+        repository.getResumePresentationConfig(activeBranchId)
+      ]);
       if (active) {
-        setRevisions(next);
+        setRevisions(nextRevisions);
+        setPresentationConfig(nextPresentationConfig);
+        setTemplateId(nextPresentationConfig.templateId);
+        setPresentationHistory({ undoStack: [], redoStack: [] });
       }
     }
-    void loadRevisions();
+    void loadBranchState();
     return () => {
       active = false;
     };
@@ -151,6 +187,7 @@ export function ResumeWorkspace() {
       }
       setEditTexts({});
       clearStudioEditor();
+      setPresentationHistory({ undoStack: [], redoStack: [] });
     });
     return () => {
       active = false;
@@ -178,9 +215,9 @@ export function ResumeWorkspace() {
     }
     void repository.setMeta(workbenchStateKey(profile.id), {
       branchId: activeBranchId,
-      templateId
+      templateId: effectiveTemplateId
     } satisfies WorkbenchState);
-  }, [profile, activeBranchId, templateId]);
+  }, [profile, activeBranchId, effectiveTemplateId]);
 
   const draftOptions = useMemo(() => drafts.map((draft) => {
     const job = jobs.find((item) => item.id === draft.jobId);
@@ -242,22 +279,174 @@ export function ResumeWorkspace() {
     }
   }
 
-  async function toggleVisible(itemId: string, visible: boolean) {
-    if (!selectedBranch || !selectedBranchEditable) {
-      setMessage("当前分支不可编辑：legacy、归档、引用失效或缺少 currentRevision。");
+  async function savePresentationConfig(input: {
+    nextConfig: ResumePresentationConfig;
+    operationId: string;
+    successMessage: string;
+    recordHistory?: boolean;
+    historyBefore?: ResumePresentationConfig;
+  }) {
+    if (!selectedBranch || !selectedBranchEditable || !presentationConfig || !selectedBranch.currentRevisionId) {
+      setMessage("当前分支不可保存展示配置：legacy、归档、引用失效或缺少 currentRevision。");
+      return undefined;
+    }
+
+    try {
+      const result = await repository.saveResumePresentationConfig({
+        branchId: selectedBranch.id,
+        expectedBranchRevision: selectedBranch.revision,
+        expectedRevisionId: selectedBranch.currentRevisionId,
+        expectedPresentationRevision: presentationConfig.presentationRevision,
+        operationId: input.operationId,
+        nextConfig: input.nextConfig
+      });
+      setPresentationConfig(result.config);
+      setTemplateId(result.config.templateId);
+      if (input.recordHistory !== false && !result.idempotent) {
+        const before = input.historyBefore ?? presentationConfig;
+        setPresentationHistory((current) => ({
+          undoStack: [...current.undoStack.slice(-49), before],
+          redoStack: []
+        }));
+      }
+      setMessage(result.idempotent ? "该展示操作已保存过，未重复写入。" : input.successMessage);
+      return result.config;
+    } catch (error) {
+      setMessage(error instanceof RevisionConflictError
+        ? "展示配置保存失败：内容版本或展示版本已变化，请刷新后重试。"
+        : "展示配置保存失败：可能隐藏了全部内容、分支不可编辑或配置不合法。");
+      return undefined;
+    }
+  }
+
+  async function updatePresentationTemplate(nextTemplateId: TemplateId) {
+    if (!selectedBranch || !presentationConfig) {
+      setTemplateId(nextTemplateId);
       return;
     }
-    try {
-      const result = await repository.editResumeBranch({
-        branchId: selectedBranch.id,
-        expectedRevision: selectedBranch.revision,
-        operationId: `d1-visible-${selectedBranch.id}-${selectedBranch.revision}-${itemId}-${visible}`,
-        edits: [{ itemId, visible }]
-      });
-      replaceBranch(result.branch);
-      setMessage("显示状态已保存，并创建新的分支版本。");
-    } catch {
-      setMessage("更新显示状态失败，请刷新后重试。");
+    if (nextTemplateId === presentationConfig.templateId) {
+      return;
+    }
+    const nextConfig = buildNextPresentationConfig({
+      current: presentationConfig,
+      branch: selectedBranch,
+      patch: { templateId: nextTemplateId }
+    });
+    await savePresentationConfig({
+      nextConfig,
+      operationId: `v2-g1a-template-${selectedBranch.id}-${selectedBranch.revision}-${presentationConfig.presentationRevision}-${nextTemplateId}`,
+      successMessage: "模板偏好已保存到当前分支展示配置。"
+    });
+  }
+
+  async function setPresentationItemVisibility(itemId: string, visible: boolean) {
+    if (!selectedBranch || !presentationConfig) {
+      return;
+    }
+    const hiddenItemIds = visible
+      ? presentationConfig.hiddenItemIds.filter((id) => id !== itemId)
+      : Array.from(new Set([...presentationConfig.hiddenItemIds, itemId]));
+    if (hiddenItemIds.length === presentationConfig.hiddenItemIds.length && hiddenItemIds.every((id, index) => id === presentationConfig.hiddenItemIds[index])) {
+      return;
+    }
+    const nextConfig = buildNextPresentationConfig({
+      current: presentationConfig,
+      branch: selectedBranch,
+      patch: { hiddenItemIds }
+    });
+    await savePresentationConfig({
+      nextConfig,
+      operationId: `v2-g1a-visibility-${selectedBranch.id}-${selectedBranch.revision}-${presentationConfig.presentationRevision}-${stableHashText(hiddenItemIds.join("|"))}`,
+      successMessage: visible ? "内容已恢复显示，未创建内容版本。" : "内容已隐藏，未创建内容版本。"
+    });
+  }
+
+  async function movePresentationItem(itemId: string, direction: "up" | "down") {
+    if (!selectedBranch || !presentationConfig || !resumeDocument) {
+      return;
+    }
+    const block = resumeDocumentBlocksById.get(itemId);
+    if (!block) {
+      setMessage("排序失败：找不到对应区块。");
+      return;
+    }
+    const section = resumeDocument.sections.find((candidate) => candidate.type === block.sectionType);
+    const sectionBlocks = section?.blocks ?? [];
+    const currentIndex = sectionBlocks.findIndex((candidate) => candidate.contentItemId === itemId);
+    const nextIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
+    if (currentIndex < 0 || nextIndex < 0 || nextIndex >= sectionBlocks.length) {
+      setMessage("当前区块已经在该栏目边界。");
+      return;
+    }
+
+    const nextSectionBlocks = [...sectionBlocks];
+    const [moved] = nextSectionBlocks.splice(currentIndex, 1);
+    nextSectionBlocks.splice(nextIndex, 0, moved);
+    const nextOrder = nextSectionBlocks.map((candidate) => candidate.contentItemId);
+    const nextConfig = buildNextPresentationConfig({
+      current: presentationConfig,
+      branch: selectedBranch,
+      patch: {
+        itemOrderBySection: {
+          ...presentationConfig.itemOrderBySection,
+          [block.sectionType]: nextOrder
+        }
+      }
+    });
+    await savePresentationConfig({
+      nextConfig,
+      operationId: `v2-g1a-reorder-${selectedBranch.id}-${selectedBranch.revision}-${presentationConfig.presentationRevision}-${block.sectionType}-${stableHashText(nextOrder.join("|"))}`,
+      successMessage: "排序已保存到当前分支展示配置，未创建内容版本。"
+    });
+  }
+
+  async function undoPresentationChange() {
+    const target = presentationHistory.undoStack.at(-1);
+    if (!target || !selectedBranch || !presentationConfig) {
+      setMessage("没有可撤销的展示操作。");
+      return;
+    }
+    const nextConfig = buildNextPresentationConfig({
+      current: presentationConfig,
+      branch: selectedBranch,
+      patch: presentationSnapshotPatch(target)
+    });
+    const saved = await savePresentationConfig({
+      nextConfig,
+      operationId: `v2-g1a-presentation-undo-${selectedBranch.id}-${selectedBranch.revision}-${presentationConfig.presentationRevision}-${stableHashText(JSON.stringify(presentationSnapshotPatch(target)))}`,
+      successMessage: "已撤销最近一次展示操作。",
+      recordHistory: false
+    });
+    if (saved) {
+      setPresentationHistory((current) => ({
+        undoStack: current.undoStack.slice(0, -1),
+        redoStack: [...current.redoStack.slice(-49), presentationConfig]
+      }));
+    }
+  }
+
+  async function redoPresentationChange() {
+    const target = presentationHistory.redoStack.at(-1);
+    if (!target || !selectedBranch || !presentationConfig) {
+      setMessage("没有可重做的展示操作。");
+      return;
+    }
+    const nextConfig = buildNextPresentationConfig({
+      current: presentationConfig,
+      branch: selectedBranch,
+      patch: presentationSnapshotPatch(target)
+    });
+    const saved = await savePresentationConfig({
+      nextConfig,
+      operationId: `v2-g1a-presentation-redo-${selectedBranch.id}-${selectedBranch.revision}-${presentationConfig.presentationRevision}-${stableHashText(JSON.stringify(presentationSnapshotPatch(target)))}`,
+      successMessage: "已重做最近一次展示操作。",
+      recordHistory: false
+    });
+    if (saved) {
+      setPresentationHistory((current) => ({
+        undoStack: [...current.undoStack.slice(-49), presentationConfig],
+        redoStack: current.redoStack.slice(0, -1)
+      }));
     }
   }
 
@@ -409,8 +598,8 @@ export function ResumeWorkspace() {
     const measured = page
       ? classifyOverflow({ scrollHeight: page.scrollHeight, clientHeight: page.clientHeight })
       : overflow;
-    const fileName = buildExportFileName(renderModel, templateId);
-    const operationId = `d2-export-${selectedBranch.id}-${selectedBranch.revision}-${selectedBranch.currentRevisionId}-${templateId}-${measured.status}`;
+    const fileName = buildExportFileName(renderModel, effectiveTemplateId);
+    const operationId = `d2-export-${selectedBranch.id}-${selectedBranch.revision}-${selectedBranch.currentRevisionId}-${effectiveTemplateId}-${measured.status}`;
 
     try {
       const [latestBranch, latestProfile, latestJob] = await Promise.all([
@@ -428,7 +617,12 @@ export function ResumeWorkspace() {
         return;
       }
 
-      mapBranchToResumeRenderModel({ branch: latestBranch, profile: latestProfile, job: latestJob });
+      mapBranchToResumeRenderModel({
+        branch: latestBranch,
+        profile: latestProfile,
+        job: latestJob,
+        presentationConfig
+      });
 
       if (measured.status === "overflow") {
         await repository.createResumeExportRecord({
@@ -436,7 +630,7 @@ export function ResumeWorkspace() {
           branchId: latestBranch.id,
           expectedBranchRevision: latestBranch.revision,
           expectedRevisionId: latestBranch.currentRevisionId!,
-          templateId,
+          templateId: effectiveTemplateId,
           overflowStatus: "overflow",
           exportStatus: "blocked_overflow",
           fileName,
@@ -451,7 +645,7 @@ export function ResumeWorkspace() {
         branchId: latestBranch.id,
         expectedBranchRevision: latestBranch.revision,
         expectedRevisionId: latestBranch.currentRevisionId!,
-        templateId,
+        templateId: effectiveTemplateId,
         overflowStatus: measured.status,
         exportStatus: "print_invoked",
         fileName
@@ -471,6 +665,7 @@ export function ResumeWorkspace() {
     setBranches((current) => current.map((item) => item.id === branch.id ? branch : item));
     setEditTexts({});
     clearStudioEditor();
+    setPresentationHistory({ undoStack: [], redoStack: [] });
     void repository.listResumeRevisions(branch.id).then(setRevisions);
   }
 
@@ -579,39 +774,46 @@ export function ResumeWorkspace() {
           ) : null}
 
           <div className="branch-editor">
-            {selectedBranch.contentItems.map((item) => (
-              <article key={item.id} className="suggestion-card">
-                <div className="section-heading compact-heading">
-                  <div>
-                    <h3>{item.itemType} / {item.guardMode}</h3>
-                    <p>{item.guardStatus} / {item.guardRiskLevel}</p>
+            {selectedBranch.contentItems.map((item) => {
+              const presentationBlock = resumeDocumentBlocksById.get(item.id);
+              const presentationVisible = presentationBlock?.visible ?? item.visible;
+              return (
+                <article key={item.id} className="suggestion-card">
+                  <div className="section-heading compact-heading">
+                    <div>
+                      <h3>{item.itemType} / {item.guardMode}</h3>
+                      <p>{item.guardStatus} / {item.guardRiskLevel}</p>
+                    </div>
+                    <label className="inline-toggle">
+                      <input
+                        type="checkbox"
+                        checked={presentationVisible}
+                        disabled={!selectedBranchEditable || !presentationConfig || !item.visible}
+                        onChange={(event) => setPresentationItemVisibility(item.id, event.target.checked)}
+                      />
+                      显示
+                    </label>
                   </div>
-                  <label className="inline-toggle">
-                    <input
-                      type="checkbox"
-                      checked={item.visible}
-                      disabled={!selectedBranchEditable}
-                      onChange={(event) => toggleVisible(item.id, event.target.checked)}
-                    />
-                    显示
-                  </label>
-                </div>
-                {item.guardMode === "rule_only_verified" ? (
-                  <div className="warning-box">规则 Fact Guard 已通过，但 AI 复核未完成。</div>
-                ) : null}
-                <textarea
-                  className="textarea small-textarea"
-                  value={editTexts[item.id] ?? item.text}
-                  disabled={!selectedBranchEditable}
-                  onChange={(event) => setEditTexts((current) => ({ ...current, [item.id]: event.target.value }))}
-                />
-                <div className="action-row">
-                  <button className="primary-button" disabled={!selectedBranchEditable} onClick={() => saveItem(item.id)}>
-                    保存
-                  </button>
-                </div>
-              </article>
-            ))}
+                  {!item.visible ? (
+                    <div className="warning-box">该内容在历史内容版本中已隐藏，G1a 展示配置不会静默改写旧内容快照。</div>
+                  ) : null}
+                  {item.guardMode === "rule_only_verified" ? (
+                    <div className="warning-box">规则 Fact Guard 已通过，但 AI 复核未完成。</div>
+                  ) : null}
+                  <textarea
+                    className="textarea small-textarea"
+                    value={editTexts[item.id] ?? item.text}
+                    disabled={!selectedBranchEditable}
+                    onChange={(event) => setEditTexts((current) => ({ ...current, [item.id]: event.target.value }))}
+                  />
+                  <div className="action-row">
+                    <button className="primary-button" disabled={!selectedBranchEditable} onClick={() => saveItem(item.id)}>
+                      保存
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
           </div>
         </section>
       ) : null}
@@ -634,12 +836,43 @@ export function ResumeWorkspace() {
             ) : null}
             <label className="field-label">
               模板
-              <select value={templateId} onChange={(event) => setTemplateId(event.target.value as TemplateId)}>
+              <select value={effectiveTemplateId} onChange={(event) => { void updatePresentationTemplate(event.target.value as TemplateId); }}>
                 {resumeTemplates.map((template) => (
                   <option key={template.id} value={template.id}>{template.name} / {template.audience}</option>
                 ))}
               </select>
             </label>
+            <div className="action-row presentation-history-actions">
+              <button
+                className="secondary-button compact"
+                disabled={!presentationHistory.undoStack.length || !presentationConfig}
+                onClick={() => { void undoPresentationChange(); }}
+              >
+                回退展示
+              </button>
+              <button
+                className="secondary-button compact"
+                disabled={!presentationHistory.redoStack.length || !presentationConfig}
+                onClick={() => { void redoPresentationChange(); }}
+              >
+                重做展示
+              </button>
+            </div>
+            {presentationHiddenBlocks.length > 0 ? (
+              <div className="hidden-block-list">
+                <strong>已隐藏内容</strong>
+                {presentationHiddenBlocks.map((block) => (
+                  <button
+                    key={block.contentItemId}
+                    className="secondary-button compact hidden-block-button"
+                    disabled={!selectedBranchEditable || !presentationConfig}
+                    onClick={() => { void setPresentationItemVisibility(block.contentItemId, true); }}
+                  >
+                    显示：{block.text.slice(0, 18)}
+                  </button>
+                ))}
+              </div>
+            ) : null}
             <div className={`overflow-status overflow-status-${overflow.status}`} data-testid="overflow-status">
               <strong>{overflow.status}</strong>
               <span>剩余 {Math.floor(overflow.remainingPx)}px</span>
@@ -688,7 +921,10 @@ export function ResumeWorkspace() {
                   onStartEdit: startStudioEdit,
                   onDraftTextChange: setStudioDraftText,
                   onSave: saveStudioEdit,
-                  onCancel: cancelStudioEdit
+                  onCancel: cancelStudioEdit,
+                  onMoveUp: (itemId) => { void movePresentationItem(itemId, "up"); },
+                  onMoveDown: (itemId) => { void movePresentationItem(itemId, "down"); },
+                  onHide: (itemId) => { void setPresentationItemVisibility(itemId, false); }
                 } : undefined}
               />
             ) : (
@@ -732,6 +968,7 @@ function buildRenderModel(input: {
   branch?: ResumeBranch;
   profile?: Parameters<typeof mapBranchToResumeRenderModel>[0]["profile"];
   job?: Parameters<typeof mapBranchToResumeRenderModel>[0]["job"];
+  presentationConfig?: ResumePresentationConfig;
 }): { model?: ResumeRenderModel; error?: string } {
   if (!input.branch || !input.profile || !input.job) {
     return {};
@@ -742,7 +979,8 @@ function buildRenderModel(input: {
       model: mapBranchToResumeRenderModel({
         branch: input.branch,
         profile: input.profile,
-        job: input.job
+        job: input.job,
+        presentationConfig: input.presentationConfig
       })
     };
   } catch (error) {
@@ -752,6 +990,41 @@ function buildRenderModel(input: {
         : "预览阻止：分支内容无法通过正式渲染校验。"
     };
   }
+}
+
+function buildNextPresentationConfig(input: {
+  current: ResumePresentationConfig;
+  branch: ResumeBranch;
+  patch: Partial<Pick<
+    ResumePresentationConfig,
+    "templateId" | "itemOrderBySection" | "hiddenItemIds" | "typography" | "spacing" | "theme" | "sectionOrder"
+  >>;
+}): ResumePresentationConfig {
+  if (!input.branch.currentRevisionId) {
+    throw new Error("branch_current_revision_missing");
+  }
+  return {
+    ...input.current,
+    ...input.patch,
+    contentRevision: {
+      branchRevision: input.branch.revision,
+      currentRevisionId: input.branch.currentRevisionId
+    },
+    presentationRevision: input.current.presentationRevision + 1,
+    updatedAt: new Date().toISOString()
+  };
+}
+
+function presentationSnapshotPatch(config: ResumePresentationConfig) {
+  return {
+    templateId: config.templateId,
+    sectionOrder: config.sectionOrder,
+    itemOrderBySection: config.itemOrderBySection,
+    hiddenItemIds: config.hiddenItemIds,
+    typography: config.typography,
+    spacing: config.spacing,
+    theme: config.theme
+  };
 }
 
 function parseWorkbenchState(value: unknown): WorkbenchState {
