@@ -10,6 +10,7 @@ import {
 } from "@/domain/schemas";
 import { mapBranchToResumeRenderModel, ResumeRenderMapperError } from "@/domain/resumeRender/mapper";
 import { A4ResumePreview } from "@/components/resume/A4ResumePreview";
+import { mapBranchToResumeDocument } from "@/domain/resumeDocument/mapper";
 import { classifyOverflow, useA4Overflow } from "@/components/resume/useA4Overflow";
 import { getResumeTemplate, resumeTemplates } from "@/components/resume/templates/templateRegistry";
 import { printCurrentPage } from "@/services/export/browserPrint";
@@ -38,6 +39,12 @@ export function ResumeWorkspace() {
   const [message, setMessage] = useState<string | undefined>();
   const [draftName, setDraftName] = useState("");
   const [editTexts, setEditTexts] = useState<Record<string, string>>({});
+  const [isStudioEditMode, setIsStudioEditMode] = useState(false);
+  const [selectedStudioItemId, setSelectedStudioItemId] = useState<string | undefined>();
+  const [editingStudioItemId, setEditingStudioItemId] = useState<string | undefined>();
+  const [studioDraftText, setStudioDraftText] = useState("");
+  const [studioError, setStudioError] = useState<string | undefined>();
+  const [pendingStudioOperationId, setPendingStudioOperationId] = useState<string | undefined>();
 
   const profile = workspace.status === "ready" ? workspace.profiles[0] : undefined;
   const jobs = useMemo(() => workspace.status === "ready" ? workspace.jobs : [], [workspace]);
@@ -53,6 +60,22 @@ export function ResumeWorkspace() {
     job: selectedBranchJob
   }), [selectedBranch, profile, selectedBranchJob]);
   const renderModel = renderResult.model;
+  const resumeDocument = useMemo(() => {
+    if (!selectedBranch || !profile || !selectedBranchJob) {
+      return undefined;
+    }
+    return mapBranchToResumeDocument({
+      branch: selectedBranch,
+      profile,
+      job: selectedBranchJob,
+      templateId
+    });
+  }, [selectedBranch, profile, selectedBranchJob, templateId]);
+  const resumeDocumentBlocksById = useMemo(() => {
+    return new Map(resumeDocument?.blocks.map((block) => [block.contentItemId, block]) ?? []);
+  }, [resumeDocument]);
+  const selectedStudioBlock = selectedStudioItemId ? resumeDocumentBlocksById.get(selectedStudioItemId) : undefined;
+  const selectedBranchEditable = selectedBranch ? canEditBranch(selectedBranch) : false;
   const overflow = useA4Overflow(pageRef, [renderModel?.branchId, renderModel?.branchRevision, templateId]);
   const reductionHints = useMemo(() => renderModel ? buildReductionHints(renderModel) : [], [renderModel]);
 
@@ -63,6 +86,14 @@ export function ResumeWorkspace() {
     ]);
     setDrafts(nextDrafts);
     setBranches(nextBranches);
+  }, []);
+
+  const clearStudioEditor = useCallback(() => {
+    setSelectedStudioItemId(undefined);
+    setEditingStudioItemId(undefined);
+    setStudioDraftText("");
+    setStudioError(undefined);
+    setPendingStudioOperationId(undefined);
   }, []);
 
   useEffect(() => {
@@ -113,6 +144,35 @@ export function ResumeWorkspace() {
   }, [activeBranchId]);
 
   useEffect(() => {
+    let active = true;
+    queueMicrotask(() => {
+      if (!active) {
+        return;
+      }
+      setEditTexts({});
+      clearStudioEditor();
+    });
+    return () => {
+      active = false;
+    };
+  }, [activeBranchId, selectedBranch?.revision, selectedBranch?.currentRevisionId, clearStudioEditor]);
+
+  useEffect(() => {
+    if (!isStudioEditMode) {
+      let active = true;
+      queueMicrotask(() => {
+        if (active) {
+          clearStudioEditor();
+        }
+      });
+      return () => {
+        active = false;
+      };
+    }
+    return undefined;
+  }, [isStudioEditMode, clearStudioEditor]);
+
+  useEffect(() => {
     if (!profile || !activeBranchId) {
       return;
     }
@@ -156,7 +216,8 @@ export function ResumeWorkspace() {
   }
 
   async function saveItem(itemId: string) {
-    if (!selectedBranch || selectedBranch.migrationStatus === "legacy_unverified") {
+    if (!selectedBranch || !selectedBranchEditable) {
+      setMessage("当前分支不可编辑：legacy、归档、引用失效或缺少 currentRevision。");
       return;
     }
 
@@ -182,7 +243,8 @@ export function ResumeWorkspace() {
   }
 
   async function toggleVisible(itemId: string, visible: boolean) {
-    if (!selectedBranch || selectedBranch.migrationStatus === "legacy_unverified") {
+    if (!selectedBranch || !selectedBranchEditable) {
+      setMessage("当前分支不可编辑：legacy、归档、引用失效或缺少 currentRevision。");
       return;
     }
     try {
@@ -200,7 +262,8 @@ export function ResumeWorkspace() {
   }
 
   async function restoreRevision(revisionId: string) {
-    if (!selectedBranch || selectedBranch.migrationStatus === "legacy_unverified") {
+    if (!selectedBranch || !selectedBranchEditable) {
+      setMessage("当前分支不可恢复：legacy、归档、引用失效或缺少 currentRevision。");
       return;
     }
     try {
@@ -218,7 +281,8 @@ export function ResumeWorkspace() {
   }
 
   async function undo() {
-    if (!selectedBranch || selectedBranch.migrationStatus === "legacy_unverified") {
+    if (!selectedBranch || !selectedBranchEditable) {
+      setMessage("当前分支不可撤销：legacy、归档、引用失效或缺少 currentRevision。");
       return;
     }
     try {
@@ -231,6 +295,95 @@ export function ResumeWorkspace() {
       setMessage("已按 previousRevisionId 链撤销最近一次分支修改。");
     } catch {
       setMessage("撤销失败：没有可撤销版本或当前分支已变化。");
+    }
+  }
+
+  function selectStudioItem(itemId: string) {
+    if (!isStudioEditMode) {
+      return;
+    }
+    setSelectedStudioItemId(itemId);
+    setEditingStudioItemId(undefined);
+    setStudioDraftText("");
+    setStudioError(undefined);
+    setPendingStudioOperationId(undefined);
+  }
+
+  function startStudioEdit(itemId: string) {
+    const block = resumeDocumentBlocksById.get(itemId);
+    if (!block) {
+      setStudioError("找不到对应的简历内容区块。");
+      return;
+    }
+    setSelectedStudioItemId(itemId);
+    if (!block.editable || !selectedBranchEditable) {
+      setStudioError(`当前区块不可编辑：${block.notEditableReason ?? "branch_not_editable"}`);
+      return;
+    }
+    setEditingStudioItemId(itemId);
+    setStudioDraftText(block.text);
+    setStudioError(undefined);
+    setPendingStudioOperationId(undefined);
+  }
+
+  function cancelStudioEdit() {
+    setEditingStudioItemId(undefined);
+    setStudioDraftText("");
+    setStudioError(undefined);
+    setPendingStudioOperationId(undefined);
+  }
+
+  async function saveStudioEdit() {
+    if (!selectedBranch || !resumeDocument || !editingStudioItemId) {
+      return;
+    }
+    const block = resumeDocumentBlocksById.get(editingStudioItemId);
+    if (!block) {
+      setStudioError("找不到对应的简历内容区块。");
+      return;
+    }
+    if (!selectedBranchEditable || !block.editable) {
+      setStudioError(`当前区块不可编辑：${block.notEditableReason ?? "branch_not_editable"}`);
+      return;
+    }
+    if (
+      selectedBranch.revision !== resumeDocument.branchRevision ||
+      selectedBranch.currentRevisionId !== resumeDocument.branchCurrentRevisionId
+    ) {
+      setStudioError("当前预览不是最新 currentRevision，请刷新后再编辑。");
+      return;
+    }
+
+    const nextText = studioDraftText.trim();
+    if (!nextText) {
+      setStudioError("保存失败：文本不能为空。");
+      return;
+    }
+    if (nextText === block.text.trim()) {
+      cancelStudioEdit();
+      setMessage("内容未变化，没有创建新的分支版本。");
+      return;
+    }
+
+    const operationId = `v2-g0a-edit-${selectedBranch.id}-${selectedBranch.revision}-${block.contentItemId}-${stableHashText(nextText)}`;
+    setPendingStudioOperationId(operationId);
+    setStudioError(undefined);
+
+    try {
+      const result = await repository.editResumeBranch({
+        branchId: selectedBranch.id,
+        expectedRevision: selectedBranch.revision,
+        operationId,
+        edits: [{ itemId: block.contentItemId, text: nextText }]
+      });
+      replaceBranch(result.branch);
+      setSelectedBranchId(result.branch.id);
+      setMessage(result.idempotent ? "该编辑已保存过，未重复创建版本。" : "预览区编辑已保存，并创建新的内容版本。");
+    } catch (error) {
+      setPendingStudioOperationId(undefined);
+      setStudioError(error instanceof RevisionConflictError
+        ? "保存失败：分支 revision 已变化，未覆盖最新内容。"
+        : "保存失败：Fact Guard 阻止了高风险事实修改，或当前分支不可编辑。");
     }
   }
 
@@ -317,6 +470,7 @@ export function ResumeWorkspace() {
   function replaceBranch(branch: ResumeBranch) {
     setBranches((current) => current.map((item) => item.id === branch.id ? branch : item));
     setEditTexts({});
+    clearStudioEditor();
     void repository.listResumeRevisions(branch.id).then(setRevisions);
   }
 
@@ -408,12 +562,16 @@ export function ResumeWorkspace() {
             </div>
             <div className="action-row">
               <button className="secondary-button" onClick={refreshSync}>刷新更新提示</button>
-              <button className="secondary-button" onClick={undo} disabled={selectedBranch.migrationStatus === "legacy_unverified"}>撤销</button>
+              <button className="secondary-button" onClick={undo} disabled={!selectedBranchEditable}>撤销</button>
             </div>
           </div>
 
           {selectedBranch.migrationStatus === "legacy_unverified" ? (
             <div className="warning-box">这是旧占位分支，已按 legacy_unverified 只读保留，不参与正式编辑、版本恢复、预览或后续导出。</div>
+          ) : null}
+
+          {!selectedBranchEditable && selectedBranch.migrationStatus !== "legacy_unverified" ? (
+            <div className="warning-box">当前分支不可编辑：{branchNotEditableReason(selectedBranch)}。</div>
           ) : null}
 
           {selectedBranch.syncStatusCache.status !== "in_sync" ? (
@@ -432,7 +590,7 @@ export function ResumeWorkspace() {
                     <input
                       type="checkbox"
                       checked={item.visible}
-                      disabled={selectedBranch.migrationStatus === "legacy_unverified"}
+                      disabled={!selectedBranchEditable}
                       onChange={(event) => toggleVisible(item.id, event.target.checked)}
                     />
                     显示
@@ -444,11 +602,11 @@ export function ResumeWorkspace() {
                 <textarea
                   className="textarea small-textarea"
                   value={editTexts[item.id] ?? item.text}
-                  disabled={selectedBranch.migrationStatus === "legacy_unverified"}
+                  disabled={!selectedBranchEditable}
                   onChange={(event) => setEditTexts((current) => ({ ...current, [item.id]: event.target.value }))}
                 />
                 <div className="action-row">
-                  <button className="primary-button" disabled={selectedBranch.migrationStatus === "legacy_unverified"} onClick={() => saveItem(item.id)}>
+                  <button className="primary-button" disabled={!selectedBranchEditable} onClick={() => saveItem(item.id)}>
                     保存
                   </button>
                 </div>
@@ -462,6 +620,18 @@ export function ResumeWorkspace() {
         <section className="resume-preview-layout">
           <aside className="panel no-print resume-export-panel">
             <h2>3. 模板与导出</h2>
+            <label className="inline-toggle studio-edit-toggle">
+              <input
+                type="checkbox"
+                checked={isStudioEditMode}
+                disabled={!renderModel || !resumeDocument?.editable}
+                onChange={(event) => setIsStudioEditMode(event.target.checked)}
+              />
+              预览区编辑
+            </label>
+            {isStudioEditMode && resumeDocument ? (
+              <div className="save-status">单击区块选中，双击或 Enter/F2 编辑，Escape 取消，Ctrl/Cmd+Enter 保存。</div>
+            ) : null}
             <label className="field-label">
               模板
               <select value={templateId} onChange={(event) => setTemplateId(event.target.value as TemplateId)}>
@@ -502,7 +672,25 @@ export function ResumeWorkspace() {
 
           <div className="resume-preview-stage">
             {renderModel ? (
-              <A4ResumePreview model={renderModel} template={selectedTemplate} pageRef={pageRef} />
+              <A4ResumePreview
+                model={renderModel}
+                template={selectedTemplate}
+                pageRef={pageRef}
+                editor={resumeDocument ? {
+                  enabled: isStudioEditMode,
+                  selectedItemId: selectedStudioItemId,
+                  editingItemId: editingStudioItemId,
+                  selectedBlock: selectedStudioBlock,
+                  draftText: studioDraftText,
+                  error: studioError,
+                  pending: Boolean(pendingStudioOperationId),
+                  onSelect: selectStudioItem,
+                  onStartEdit: startStudioEdit,
+                  onDraftTextChange: setStudioDraftText,
+                  onSave: saveStudioEdit,
+                  onCancel: cancelStudioEdit
+                } : undefined}
+              />
             ) : (
               <div className="panel no-print">当前分支不能进入正式模板预览。</div>
             )}
@@ -523,7 +711,7 @@ export function ResumeWorkspace() {
                   </span>
                   <button
                     className="secondary-button compact"
-                    disabled={selectedBranch.migrationStatus === "legacy_unverified" || revision.id === selectedBranch.currentRevisionId}
+                    disabled={!selectedBranchEditable || revision.id === selectedBranch.currentRevisionId}
                     onClick={() => restoreRevision(revision.id)}
                   >
                     恢复
@@ -594,4 +782,24 @@ function buildReductionHints(model: ResumeRenderModel) {
     .sort((a, b) => b.block.text.length - a.block.text.length)
     .slice(0, 3)
     .map((item) => `${item.section}：优先压缩「${item.block.text.slice(0, 28)}...」`);
+}
+
+function canEditBranch(branch: ResumeBranch) {
+  return branchNotEditableReason(branch) === undefined;
+}
+
+function branchNotEditableReason(branch: ResumeBranch) {
+  if (branch.migrationStatus !== "verified") {
+    return "legacy_unverified";
+  }
+  if (branch.lifecycleStatus !== "active") {
+    return "archived";
+  }
+  if (!branch.currentRevisionId) {
+    return "missing_current_revision";
+  }
+  if (branch.syncStatusCache.status === "invalid_reference") {
+    return "invalid_reference";
+  }
+  return undefined;
 }

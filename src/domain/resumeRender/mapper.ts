@@ -1,6 +1,5 @@
 import {
   ResumeRenderModelSchema,
-  type BranchContentItem,
   type CareerProfile,
   type JobDescription,
   type ResumeBranch,
@@ -8,7 +7,7 @@ import {
   type ResumeRenderSection,
   type ResumeRenderSectionType
 } from "@/domain/schemas";
-import { branchFactRefKey, resolveBranchFactRefs } from "@/domain/branch/validation";
+import { mapBranchToResumeDocument, sectionTitle } from "@/domain/resumeDocument/mapper";
 
 export class ResumeRenderMapperError extends Error {
   constructor(readonly code: string) {
@@ -29,29 +28,33 @@ export function mapBranchToResumeRenderModel(input: {
     throw new ResumeRenderMapperError("render_source_mismatch");
   }
 
-  const excludedItemIds: string[] = [];
-  const renderableItems = branch.contentItems
-    .filter((item) => {
-      if (!item.visible) {
-        excludedItemIds.push(item.id);
-        return false;
-      }
-      if (item.guardStatus !== "pass" && item.guardStatus !== "ai_failed_rule_kept") {
-        excludedItemIds.push(item.id);
-        return false;
-      }
-      return true;
-    })
-    .sort((a, b) => sectionRank(a.itemType) - sectionRank(b.itemType) || a.order - b.order);
-
-  for (const item of renderableItems) {
-    if (item.itemType !== "structural") {
-      resolveBranchFactRefs(profile, item.factRefs);
-    }
-  }
-
-  const blocks = renderableItems.map(toRenderBlock);
-  const sections = buildSections(blocks);
+  const document = mapBranchToResumeDocument({
+    branch,
+    profile,
+    job,
+    templateId: "classic-technical"
+  });
+  const excludedItemIds = document.blocks
+    .filter((block) => !block.visible || !block.renderable)
+    .map((block) => block.contentItemId);
+  const renderableBlocks = document.blocks.filter((block) => block.visible && block.renderable);
+  const blocks = renderableBlocks.map((block): ResumeRenderBlock => ({
+    sourceItemId: block.contentItemId,
+    itemType: block.itemType,
+    order: block.order,
+    text: block.text,
+    factRefKeys: block.factRefKeys,
+    requirementIds: block.requirementIds,
+    guardMode: block.guardMode,
+    guardStatus: block.guardStatus
+  }));
+  const sections = document.sections
+    .map((section): ResumeRenderSection => ({
+      type: section.type,
+      title: sectionTitle(section.type),
+      blocks: blocks.filter((block) => blockType(block) === section.type)
+    }))
+    .filter((section) => section.blocks.length > 0);
 
   if (blocks.length === 0) {
     throw new ResumeRenderMapperError("render_model_requires_visible_content");
@@ -78,7 +81,7 @@ export function mapBranchToResumeRenderModel(input: {
     },
     sections,
     safety: {
-      ruleOnlyItemIds: renderableItems.filter((item) => item.guardMode === "rule_only_verified").map((item) => item.id),
+      ruleOnlyItemIds: renderableBlocks.filter((block) => block.guardMode === "rule_only_verified").map((block) => block.contentItemId),
       visibleItemCount: blocks.length,
       excludedItemIds
     },
@@ -107,30 +110,6 @@ function assertRenderableBranch(branch: ResumeBranch) {
   }
 }
 
-function toRenderBlock(item: BranchContentItem): ResumeRenderBlock {
-  return {
-    sourceItemId: item.id,
-    itemType: item.itemType,
-    order: item.order,
-    text: item.text,
-    factRefKeys: item.factRefs.map(branchFactRefKey),
-    requirementIds: item.requirementIds,
-    guardMode: item.guardMode,
-    guardStatus: item.guardStatus
-  };
-}
-
-function buildSections(blocks: ResumeRenderBlock[]): ResumeRenderSection[] {
-  const sectionTypes: ResumeRenderSectionType[] = ["summary", "skills", "experience", "certificates"];
-  return sectionTypes
-    .map((type) => ({
-      type,
-      title: sectionTitle(type),
-      blocks: blocks.filter((block) => blockType(block) === type)
-    }))
-    .filter((section) => section.blocks.length > 0);
-}
-
 function blockType(block: ResumeRenderBlock): ResumeRenderSectionType {
   if (block.itemType === "summary") {
     return "summary";
@@ -142,30 +121,4 @@ function blockType(block: ResumeRenderBlock): ResumeRenderSectionType {
     return "certificates";
   }
   return "experience";
-}
-
-function sectionTitle(type: ResumeRenderSectionType) {
-  if (type === "summary") {
-    return "岗位概览";
-  }
-  if (type === "skills") {
-    return "技能";
-  }
-  if (type === "certificates") {
-    return "证书";
-  }
-  return "项目与经历";
-}
-
-function sectionRank(itemType: BranchContentItem["itemType"]) {
-  if (itemType === "summary") {
-    return 0;
-  }
-  if (itemType === "skill") {
-    return 1;
-  }
-  if (itemType === "certificate") {
-    return 3;
-  }
-  return 2;
 }

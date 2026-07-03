@@ -37,7 +37,7 @@ V2采用“结构化区块编辑器 + 所见即所得预览 + 有约束的布局
 
 - 单击区块：进入 selected 状态，右侧显示属性和来源。
 - 双击正文：进入 inline-editing 状态。
-- Enter：保存单行；Shift+Enter换行；Escape取消；失焦触发保存确认。
+- Enter或F2：进入编辑；Ctrl/Cmd+Enter：保存；Escape：取消；G0a不实现失焦保存、自动保存或防抖后台Revision。
 - 保存时走 Repository，文本修改重新运行规则 Fact Guard。
 - 高风险内容不得直接保存为正式文本。
 
@@ -51,8 +51,8 @@ V2采用“结构化区块编辑器 + 所见即所得预览 + 有约束的布局
 
 - 内容修改使用不可变 Revision。
 - 样式和模板偏好使用 presentationRevision 或展示配置，不创建内容Revision。
-- 自动保存保存编辑草稿；正式保存创建Revision。
-- 分支切换、恢复版本、撤销后必须清理本地编辑缓存，避免V1出现过的 `editTexts` 残留问题。
+- G0a只使用明确保存和取消。正式保存创建Revision。
+- 分支切换、Revision变化、恢复版本、撤销、保存成功和离开编辑模式后必须清理本地编辑缓存、选中状态、错误状态和pending operationId，避免V1出现过的 `editTexts` 残留问题。
 
 ## Fact Guard和来源查看
 
@@ -66,3 +66,10 @@ V2采用“结构化区块编辑器 + 所见即所得预览 + 有约束的布局
 - Enter/Escape行为一致。
 - 选中状态不能只依赖颜色。
 - 移动端第一阶段只提供预览和基础编辑，不提供完整设计器。
+
+## G0a编辑边界
+
+- ResumeDocument只作为派生编辑视图模型，不持久化。
+- ResumeBranch/ResumeRevision继续作为唯一内容事实来源。
+- 模板A/B使用统一的 `contentItemId` 或等价稳定ID，不分别实现编辑状态。
+- 编辑UI必须用打印样式隔离，不得出现在PDF。

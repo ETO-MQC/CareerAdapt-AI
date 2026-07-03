@@ -1124,7 +1124,7 @@ export class WorkspaceRepository {
         return { branch: ResumeBranchSchema.parse(branch), idempotent: true };
       }
 
-      const branch = await this.requireEditableResumeBranch(input.branchId);
+      const branch = await this.requireEditableResumeBranch(input.branchId, { allowInvalidReference: true });
       const [profile, job] = await Promise.all([
         this.db.profiles.get(branch.profileId),
         this.db.jobDescriptions.get(branch.jobId)
@@ -1393,7 +1393,7 @@ export class WorkspaceRepository {
     });
   }
 
-  private async requireEditableResumeBranch(branchId: string) {
+  private async requireEditableResumeBranch(branchId: string, options: { allowInvalidReference?: boolean } = {}) {
     const branch = await this.db.resumeBranches.get(branchId);
     if (!branch) {
       throw new Error("resume_branch_missing");
@@ -1402,6 +1402,15 @@ export class WorkspaceRepository {
     const parsed = ResumeBranchSchema.parse(branch);
     if (parsed.migrationStatus === "legacy_unverified") {
       throw new Error("legacy_resume_branch_read_only");
+    }
+    if (parsed.lifecycleStatus !== "active") {
+      throw new Error("archived_resume_branch_read_only");
+    }
+    if (!parsed.currentRevisionId) {
+      throw new Error("resume_branch_current_revision_missing");
+    }
+    if (parsed.syncStatusCache.status === "invalid_reference" && !options.allowInvalidReference) {
+      throw new Error("invalid_reference_resume_branch_read_only");
     }
     return parsed;
   }

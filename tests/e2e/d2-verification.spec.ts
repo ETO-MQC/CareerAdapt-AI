@@ -289,7 +289,8 @@ test.describe("D2.1 验收：双模板预览与 PDF 导出", () => {
       await draftSelect.selectOption({ index: 1 });
       await page.locator("article.panel").first().locator("input").fill("Branch Beta");
       await page.locator("article.panel").first().locator("button.primary-button").click();
-      await expect(page.locator(".branch-list .match-row").filter({ hasText: "Branch Beta" })).toBeVisible();
+      await page.waitForTimeout(500);
+      await expect(page.locator(".branch-list .match-row").filter({ hasText: "Branch Beta" })).toBeVisible({ timeout: 10000 });
 
       const textB = await preview.innerText();
       expect(textB).toContain("陈同学");

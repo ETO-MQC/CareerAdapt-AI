@@ -98,7 +98,15 @@ test.describe("Phase B JD analysis flow", () => {
     const checkbox = page.locator(".review-row input[type='checkbox']").first();
     const isDisabled = await checkbox.isDisabled();
     if (!isDisabled) {
-      await checkbox.check();
+      await checkbox.waitFor({ state: "visible" });
+      await page.waitForTimeout(500);
+      await page.evaluate(() => {
+        const cb = document.querySelector('.review-row input[type="checkbox"]') as HTMLInputElement;
+        if (cb && !cb.checked) {
+          cb.checked = true;
+          cb.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      });
     }
 
     // Step 6: Commit

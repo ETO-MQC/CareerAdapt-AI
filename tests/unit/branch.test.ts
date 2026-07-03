@@ -331,4 +331,96 @@ describe("D1 resume branch repository", () => {
       overflowStatus: "fits"
     });
   });
+
+  it("keeps edit operationId idempotent and blocks archived or invalid-reference edits", async () => {
+    db = new CareerAdaptDb(`CareerAdaptV2G0aBranchDb-${crypto.randomUUID()}`);
+    const repository = new WorkspaceRepository(db);
+    const job = demoJobDescriptions[0];
+    const matches = createRuleRequirementMatches({ profile: demoCareerProfile, job }, TEST_TIME);
+    await repository.saveProfile(demoCareerProfile);
+    await repository.saveJobDescription(job);
+    await repository.saveRuleRequirementMatches({ profile: demoCareerProfile, job, matches });
+    const createdDraft = await repository.createJobAdaptationDraft({
+      profile: demoCareerProfile,
+      job,
+      matches,
+      operationId: "v2-g0a-repo-draft"
+    });
+    const created = await repository.createResumeBranchFromDraft({
+      draftId: createdDraft.draft.id,
+      expectedDraftRevision: createdDraft.draft.revision,
+      operationId: "v2-g0a-repo-create",
+      name: "V2 G0a branch"
+    });
+    const item = created.branch.contentItems[0];
+    const editInput = {
+      branchId: created.branch.id,
+      expectedRevision: created.branch.revision,
+      operationId: "v2-g0a-idempotent-edit",
+      edits: [{ itemId: item.id, text: `${item.text}.` }]
+    };
+
+    const edited = await repository.editResumeBranch(editInput);
+    const duplicate = await repository.editResumeBranch(editInput);
+    expect(edited.idempotent).toBe(false);
+    expect(duplicate.idempotent).toBe(true);
+    expect(await repository.listResumeRevisions(created.branch.id)).toHaveLength(2);
+
+    const isolated = await repository.createResumeBranchFromDraft({
+      draftId: createdDraft.draft.id,
+      expectedDraftRevision: createdDraft.draft.revision,
+      operationId: "v2-g0a-repo-create-isolated",
+      name: "V2 G0a isolated branch"
+    });
+    const isolatedBefore = JSON.stringify(isolated.branch.contentItems);
+    const branchAfterIsolationEdit = await repository.editResumeBranch({
+      branchId: edited.branch.id,
+      expectedRevision: edited.branch.revision,
+      operationId: "v2-g0a-branch-isolation-edit",
+      edits: [{ itemId: item.id, text: `${item.text}..` }]
+    });
+    const isolatedAfter = (await repository.listResumeBranches(demoCareerProfile.id))
+      .find((branch) => branch.id === isolated.branch.id);
+    expect(isolatedAfter?.revision).toBe(isolated.branch.revision);
+    expect(JSON.stringify(isolatedAfter?.contentItems)).toBe(isolatedBefore);
+
+    await expect(repository.editResumeBranch({
+      branchId: edited.branch.id,
+      expectedRevision: created.branch.revision,
+      operationId: "v2-g0a-conflict-edit",
+      edits: [{ itemId: item.id, text: `${item.text}.` }]
+    })).rejects.toBeInstanceOf(RevisionConflictError);
+
+    const archived = await repository.archiveResumeBranch({
+      branchId: branchAfterIsolationEdit.branch.id,
+      expectedRevision: branchAfterIsolationEdit.branch.revision,
+      operationId: "v2-g0a-archive",
+      confirmedImpact: true
+    });
+    await expect(repository.editResumeBranch({
+      branchId: archived.branch.id,
+      expectedRevision: archived.branch.revision,
+      operationId: "v2-g0a-edit-archived",
+      edits: [{ itemId: item.id, text: `${item.text}..` }]
+    })).rejects.toThrow("archived_resume_branch_read_only");
+
+    const invalid = {
+      ...created.branch,
+      id: "v2-g0a-invalid-reference-branch",
+      currentRevisionId: created.branch.currentRevisionId,
+      syncStatusCache: {
+        ...created.branch.syncStatusCache,
+        status: "invalid_reference" as const,
+        invalidFactRefs: ["missing-fact"],
+        message: "invalid"
+      }
+    };
+    await repository.saveResumeBranch(invalid);
+    await expect(repository.editResumeBranch({
+      branchId: invalid.id,
+      expectedRevision: invalid.revision,
+      operationId: "v2-g0a-edit-invalid-reference",
+      edits: [{ itemId: invalid.contentItems[0].id, text: `${invalid.contentItems[0].text}.` }]
+    })).rejects.toThrow("invalid_reference_resume_branch_read_only");
+  });
 });

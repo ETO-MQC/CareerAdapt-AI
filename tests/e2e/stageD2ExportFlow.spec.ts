@@ -66,6 +66,19 @@ async function ensureSinglePage(page: Page) {
   await expect(status).not.toContainText("overflow");
 }
 
+async function generatePdfWithRetry(page: Page, path: string, maxRetries = 3) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      await page.waitForTimeout(1000);
+      await page.pdf({ path, format: "A4", printBackground: true, preferCSSPageSize: true });
+      return;
+    } catch (error) {
+      if (attempt === maxRetries) throw error;
+      await page.waitForTimeout(2000 * attempt);
+    }
+  }
+}
+
 function assertPdf(path: string, expectedTexts: string[]) {
   const info = execFileSync(PDFINFO, [path], { encoding: "utf8" });
   expect(info).toContain("Pages:           1");
@@ -136,7 +149,7 @@ test.describe("Stage D2 template preview and PDF export", () => {
 
     await page.emulateMedia({ media: "print" });
     const modernPdf = resolve(outputDir, "d2-template-modern.pdf");
-    await page.pdf({ path: modernPdf, format: "A4", printBackground: true, preferCSSPageSize: true });
+    await generatePdfWithRetry(page, modernPdf);
     assertPdf(modernPdf, ["陈同学", "Stata"]);
 
     await page.emulateMedia({ media: "screen" });
@@ -144,7 +157,7 @@ test.describe("Stage D2 template preview and PDF export", () => {
     await ensureSinglePage(page);
     await page.emulateMedia({ media: "print" });
     const classicPdf = resolve(outputDir, "d2-template-classic.pdf");
-    await page.pdf({ path: classicPdf, format: "A4", printBackground: true, preferCSSPageSize: true });
+    await generatePdfWithRetry(page, classicPdf);
     assertPdf(classicPdf, ["陈同学", "Stata"]);
   });
 });

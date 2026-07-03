@@ -2,7 +2,7 @@
 
 ## 核心结论
 
-V2引入 `ResumeDocument` 作为编辑器核心模型，但第一阶段可以先从 verified `ResumeBranch` 派生，不急于持久化新表。`CareerProfile` 继续作为事实层，`ResumeBranch` 继续作为岗位版本实体，`ResumeDocument` 是“可编辑简历文档/视图模型”。
+V2引入 `ResumeDocument` 作为编辑器核心视图模型。G0a中它只从当前 verified `ResumeBranch` 和 `currentRevision` 派生，不持久化，不新增Dexie表，不升级Dexie v8。`CareerProfile` 继续作为事实层，`ResumeBranch` / `ResumeRevision` 继续作为唯一内容事实来源。
 
 ## 建议模型
 
@@ -45,18 +45,18 @@ ContentBlock：
 
 ## Revision
 
-- 内容Revision：正文、block、section内容变化。
+- 内容Revision：G0a继续复用V1 `ResumeRevision`，不建立第二套内容Revision系统。
 - 展示Revision：模板、样式、布局、显示隐藏、排序。
 - Undo/redo要区分内容和展示，不让样式撤销污染事实历史。
 
 ## Repository职责
 
-V2可新增 ResumeDocumentRepository 或在 WorkspaceRepository 中增加适配方法：
+G0a在 WorkspaceRepository 中增加轻量适配方法或直接复用现有方法：
 
 - 从ResumeBranch创建/派生ResumeDocument。
 - 保存内容编辑并运行Fact Guard。
 - 保存展示配置。
-- 创建内容Revision和PresentationRevision。
+- 文本保存继续复用现有 `editResumeBranch`、`expectedRevision`、`operationId`、事务和Fact Guard路径。
 - 导出前重新校验 branch/profile/job/template。
 
 ## 聚合根和事务边界
@@ -87,6 +87,7 @@ V1存在Workspace概念和 `useWorkspace`，但页面仍隐式使用 `profiles[0
 
 ## 数据迁移策略
 
+- G0a不执行数据迁移。
 - V2新增表前先完成备份和JSON导出路径确认。
 - 迁移幂等，不删除V1数据。
 - legacy_unverified继续只读。

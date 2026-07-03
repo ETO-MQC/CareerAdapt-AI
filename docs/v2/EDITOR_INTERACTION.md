@@ -18,12 +18,13 @@
 
 ## 输入行为
 
-- Enter：保存当前行或当前bullet。
+- Enter或F2：选中状态进入编辑。
 - Shift+Enter：插入换行。
 - Escape：放弃本次草稿并恢复 persisted 文本。
-- 失焦：若内容有变化，进入待保存状态；第一阶段可使用明确保存按钮避免误提交。
+- Ctrl/Cmd+Enter：保存当前编辑。
+- 失焦：G0a不保存，不创建Revision。
 - 手动保存：调用Repository，重新运行规则 Fact Guard。
-- 自动保存：只保存临时草稿，不写正式内容Revision。
+- G0a不实现自动保存、失焦保存或防抖后台Revision。
 
 ## 冲突处理
 
@@ -76,7 +77,8 @@
 V1曾出现 `editTexts` 在恢复/撤销后未清空的缓存残留。V2必须：
 
 - 将草稿状态按 `branchId + documentRevision + blockId` 建key。
-- 分支切换、Revision变化、模板切换、恢复版本后清理不匹配key。
+- 分支切换、Revision变化、恢复版本、撤销、保存成功和离开编辑模式后清理不匹配key、错误状态和pending operationId。
+- 模板切换不得创建内容Revision，也不得创建另一套模板专属编辑状态。
 - 预览正文永远来自持久化模型或当前唯一草稿源，不从多个缓存读取。
 - E2E覆盖“编辑 -> 撤销 -> 切换分支 -> 返回”。
 
@@ -103,3 +105,10 @@ V1曾出现 `editTexts` 在恢复/撤销后未清空的缓存残留。V2必须�
 - section显示隐藏。
 - 排序和布局配置。
 - overflow诊断结果。
+
+## 不允许的G0a实现
+
+- 不持久化ResumeDocument，不新增Dexie表，不升级Dexie v8。
+- 不建立第二套内容Revision系统。
+- 不引入复杂编辑器依赖。
+- 不让编辑控件进入PDF。

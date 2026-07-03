@@ -717,7 +717,63 @@ p {
   margin: 0 auto;
   overflow: hidden;
   padding: 12mm 14mm;
+  position: relative;
   width: 210mm;
+}
+
+.resume-studio-edit-enabled [data-editable-block="true"] {
+  cursor: pointer;
+  outline-offset: 2px;
+}
+
+.resume-studio-edit-enabled [data-editable-block="true"]:hover {
+  outline: 1px solid #6a9084;
+}
+
+.resume-template-item-selected,
+.resume-template-inline-selected {
+  outline: 2px solid #176b5b;
+  outline-offset: 2px;
+}
+
+.resume-studio-editor {
+  background: #fff;
+  border: 1px solid #9fc4b8;
+  border-radius: 8px;
+  box-shadow: 0 16px 42px rgba(32, 37, 34, 0.2);
+  display: grid;
+  gap: 8px;
+  left: 12mm;
+  max-width: 84mm;
+  padding: 10px;
+  position: absolute;
+  top: 12mm;
+  z-index: 5;
+}
+
+.resume-studio-editor strong,
+.resume-studio-editor span {
+  display: block;
+}
+
+.resume-studio-editor span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.resume-studio-editor textarea {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font: inherit;
+  min-height: 78px;
+  padding: 8px;
+  resize: vertical;
+  width: 100%;
+}
+
+.studio-edit-toggle {
+  margin-bottom: 12px;
 }
 
 .resume-template-header {

@@ -1,0 +1,132 @@
+import { describe, expect, it } from "vitest";
+import { demoCareerProfile } from "@/data/demoProfile";
+import { demoJobDescriptions } from "@/data/demoJobs";
+import { createJobAdaptationDraft } from "@/domain/adaptation/draft";
+import { mapAdaptationDraftToResumeBranch } from "@/domain/branch/mapper";
+import { createRuleRequirementMatches } from "@/domain/match/matcher";
+import { mapBranchToResumeDocument } from "@/domain/resumeDocument/mapper";
+import type { BranchFactRef } from "@/domain/schemas";
+
+const TEST_TIME = "2026-07-03T12:00:00.000Z";
+
+function createVerifiedBranch() {
+  const job = demoJobDescriptions[0];
+  const matches = createRuleRequirementMatches({ profile: demoCareerProfile, job }, TEST_TIME);
+  const draft = createJobAdaptationDraft({
+    profile: demoCareerProfile,
+    job,
+    matches,
+    operationId: "v2-g0a-doc-draft",
+    now: TEST_TIME
+  });
+  return {
+    job,
+    mapped: mapAdaptationDraftToResumeBranch({
+      draft,
+      suggestions: [],
+      profile: demoCareerProfile,
+      job,
+      matches,
+      operationId: "v2-g0a-doc-branch",
+      name: "V2 G0a document branch",
+      now: TEST_TIME
+    })
+  };
+}
+
+describe("V2 G0a resume document mapper", () => {
+  it("maps every content item and marks visible, renderable, editable, and guard status separately", () => {
+    const { job, mapped } = createVerifiedBranch();
+    const hiddenItem = mapped.branch.contentItems[0];
+    const invalidItem = mapped.branch.contentItems.find((item) =>
+      item.id !== hiddenItem.id && item.itemType !== "structural" && item.factRefs.length > 0
+    );
+    if (!invalidItem) {
+      throw new Error("test fixture requires a factual content item");
+    }
+    const branch = {
+      ...mapped.branch,
+      contentItems: mapped.branch.contentItems.map((item) => {
+        if (item.id === hiddenItem.id) {
+          return { ...item, visible: false };
+        }
+        if (item.id === invalidItem.id) {
+          return {
+            ...item,
+            factRefs: item.factRefs.map((ref, index) => index === 0 ? makeMissingFactRef(ref) : ref)
+          };
+        }
+        return item;
+      })
+    };
+
+    const document = mapBranchToResumeDocument({
+      branch,
+      profile: demoCareerProfile,
+      job,
+      templateId: "classic-technical"
+    });
+
+    expect(document.blocks).toHaveLength(branch.contentItems.length);
+    expect(document.blocks.find((block) => block.contentItemId === hiddenItem.id)).toMatchObject({
+      visible: false,
+      renderable: true,
+      editable: true,
+      guardStatus: hiddenItem.guardStatus
+    });
+    expect(document.blocks.find((block) => block.contentItemId === invalidItem.id)).toMatchObject({
+      visible: true,
+      renderable: false,
+      notRenderableReason: "invalid_fact_reference"
+    });
+  });
+
+  it("marks legacy, archived, invalid_reference, and missing currentRevision branches as not editable", () => {
+    const { job, mapped } = createVerifiedBranch();
+    const variants = [
+      {
+        branch: { ...mapped.branch, migrationStatus: "legacy_unverified" as const, requirementMatchIds: [] },
+        reason: "legacy_unverified"
+      },
+      {
+        branch: { ...mapped.branch, lifecycleStatus: "archived" as const },
+        reason: "archived"
+      },
+      {
+        branch: {
+          ...mapped.branch,
+          syncStatusCache: {
+            ...mapped.branch.syncStatusCache,
+            status: "invalid_reference" as const,
+            invalidFactRefs: ["missing"],
+            message: "invalid"
+          }
+        },
+        reason: "invalid_reference"
+      },
+      {
+        branch: { ...mapped.branch, currentRevisionId: undefined },
+        reason: "missing_current_revision"
+      }
+    ];
+
+    for (const variant of variants) {
+      const document = mapBranchToResumeDocument({
+        branch: variant.branch,
+        profile: demoCareerProfile,
+        job,
+        templateId: "classic-technical"
+      });
+      expect(document.editable).toBe(false);
+      expect(document.notEditableReason).toBe(variant.reason);
+      expect(document.blocks.every((block) => !block.editable)).toBe(true);
+    }
+  });
+});
+
+function makeMissingFactRef(ref: BranchFactRef): BranchFactRef {
+  if (ref.type === "evidence_file") {
+    return { ...ref, linkedFactId: "missing-fact" };
+  }
+  return { ...ref, factId: "missing-fact" };
+}
