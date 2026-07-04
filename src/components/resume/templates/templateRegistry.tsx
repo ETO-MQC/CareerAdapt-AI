@@ -12,31 +12,57 @@ export type ResumeTemplateStyleConfig = Pick<
   "typography" | "spacing" | "theme" | "sectionStyleOverrides"
 >;
 
-export type ResumeTemplateStyleCapabilities = {
-  density: boolean;
-  bodyTextScale: boolean;
-  titleTextScale: boolean;
-  lineHeight: boolean;
-  sectionGap: boolean;
-  itemGap: boolean;
-  accentColor: boolean;
-  sectionTitleVisibility: boolean;
-};
-
-export type TemplateDefinition = {
-  id: TemplateId;
-  name: string;
-  audience: string;
-  className: string;
-  defaultStyleConfig: ResumeTemplateStyleConfig;
-  styleCapabilities: ResumeTemplateStyleCapabilities;
-  render: (model: ResumeRenderModel, context?: TemplateRenderContext) => ReactNode;
+export type TemplateCapabilities = {
+  supportsAccentColor: boolean;
+  supportsDensity: boolean;
+  supportsBodyScale: boolean;
+  supportsHeadingScale: boolean;
+  supportsLineHeight: boolean;
+  supportsSectionGap: boolean;
+  supportsItemGap: boolean;
+  supportsSectionTitleVisibility: boolean;
+  supportsTwoPages: boolean;
 };
 
 export type TemplateRenderContext = {
   selectedItemId?: string;
   presentationConfig?: ResumePresentationConfig;
+  thumbnail?: boolean;
 };
+
+export type TemplateRenderer = (model: ResumeRenderModel, context?: TemplateRenderContext) => ReactNode;
+export type TemplateThumbnailRenderer = TemplateRenderer;
+
+export type ResumeTemplateDefinition = {
+  id: TemplateId;
+  name: string;
+  shortName: string;
+  description: string;
+  category: "ats" | "technical" | "business" | "modern";
+  layout: "single-column" | "two-column";
+  atsLevel: "high" | "medium" | "visual";
+  suitableRoles: string[];
+  tags: string[];
+  capabilities: TemplateCapabilities;
+  defaultPresentationStyle: ResumeTemplateStyleConfig;
+  version: number;
+  status: "active" | "experimental";
+  className: string;
+  render: TemplateRenderer;
+  renderThumbnail: TemplateThumbnailRenderer;
+};
+
+export type TemplateDefinition = ResumeTemplateDefinition;
+export type TemplateFilterKey = "all" | "ats" | "single-column" | "two-column" | "technical" | "business";
+
+export const templateFilterOptions: Array<{ key: TemplateFilterKey; label: string }> = [
+  { key: "all", label: "全部" },
+  { key: "ats", label: "ATS优先" },
+  { key: "single-column", label: "单栏" },
+  { key: "two-column", label: "双栏" },
+  { key: "technical", label: "技术简洁" },
+  { key: "business", label: "商务正式" }
+];
 
 const DEFAULT_STYLE_CONFIG: ResumeTemplateStyleConfig = {
   typography: {
@@ -55,41 +81,126 @@ const DEFAULT_STYLE_CONFIG: ResumeTemplateStyleConfig = {
   sectionStyleOverrides: {}
 };
 
-const ALL_STYLE_CAPABILITIES: ResumeTemplateStyleCapabilities = {
-  density: true,
-  bodyTextScale: true,
-  titleTextScale: true,
-  lineHeight: true,
-  sectionGap: true,
-  itemGap: true,
-  accentColor: true,
-  sectionTitleVisibility: true
+const ALL_STYLE_CAPABILITIES: TemplateCapabilities = {
+  supportsAccentColor: true,
+  supportsDensity: true,
+  supportsBodyScale: true,
+  supportsHeadingScale: true,
+  supportsLineHeight: true,
+  supportsSectionGap: true,
+  supportsItemGap: true,
+  supportsSectionTitleVisibility: true,
+  supportsTwoPages: false
 };
 
-export const resumeTemplates: TemplateDefinition[] = [
+export const resumeTemplates: ResumeTemplateDefinition[] = [
   {
     id: "classic-technical",
-    name: "模板A 稳重清晰",
-    audience: "数据 / 技术 / 研究",
+    name: "稳重技术",
+    shortName: "技术",
+    description: "稳重单栏结构，优先突出项目、技能和可验证成果。",
+    category: "technical",
+    layout: "single-column",
+    atsLevel: "high",
+    suitableRoles: ["技术", "数据", "研究", "产品"],
+    tags: ["技术简洁", "项目经历", "单栏"],
+    capabilities: ALL_STYLE_CAPABILITIES,
+    defaultPresentationStyle: DEFAULT_STYLE_CONFIG,
+    version: 1,
+    status: "active",
     className: "template-classic-technical",
-    defaultStyleConfig: DEFAULT_STYLE_CONFIG,
-    styleCapabilities: ALL_STYLE_CAPABILITIES,
-    render: (model, context) => <ClassicTechnicalTemplate model={model} context={context} />
+    render: (model, context) => <ClassicTechnicalTemplate model={model} context={context} />,
+    renderThumbnail: (model, context) => <ClassicTechnicalTemplate model={model} context={{ ...context, thumbnail: true }} />
   },
   {
     id: "modern-operations",
-    name: "模板B 简洁现代",
-    audience: "运营 / 产品 / 综合",
-    className: "template-modern-operations",
-    defaultStyleConfig: {
+    name: "简洁现代",
+    shortName: "现代",
+    description: "轻双栏布局，适合展示综合能力、运营成果和协作经历。",
+    category: "modern",
+    layout: "two-column",
+    atsLevel: "medium",
+    suitableRoles: ["运营", "产品", "项目管理", "综合岗位"],
+    tags: ["现代", "双栏", "运营产品"],
+    capabilities: ALL_STYLE_CAPABILITIES,
+    defaultPresentationStyle: {
       ...DEFAULT_STYLE_CONFIG,
       typography: {
         ...DEFAULT_STYLE_CONFIG.typography,
         bodyTextScale: "small"
       }
     },
-    styleCapabilities: ALL_STYLE_CAPABILITIES,
-    render: (model, context) => <ModernOperationsTemplate model={model} context={context} />
+    version: 1,
+    status: "active",
+    className: "template-modern-operations",
+    render: (model, context) => <ModernOperationsTemplate model={model} context={context} />,
+    renderThumbnail: (model, context) => <ModernOperationsTemplate model={model} context={{ ...context, thumbnail: true }} />
+  },
+  {
+    id: "ats-minimal",
+    name: "ATS极简单栏",
+    shortName: "ATS",
+    description: "黑白文本优先的单栏模板，减少装饰和复杂结构，便于人工与系统读取。",
+    category: "ats",
+    layout: "single-column",
+    atsLevel: "high",
+    suitableRoles: ["技术", "运营", "产品", "数据", "校招", "通用岗位"],
+    tags: ["ATS优先", "单栏", "黑白", "通用"],
+    capabilities: ALL_STYLE_CAPABILITIES,
+    defaultPresentationStyle: {
+      ...DEFAULT_STYLE_CONFIG,
+      typography: {
+        bodyTextScale: "normal",
+        titleTextScale: "small",
+        lineHeight: "tight"
+      },
+      spacing: {
+        sectionGap: "tight",
+        itemGap: "tight"
+      },
+      theme: {
+        accentColor: "graphite",
+        density: "compact"
+      }
+    },
+    version: 1,
+    status: "active",
+    className: "template-ats-minimal",
+    render: (model, context) => <AtsMinimalTemplate model={model} context={context} />,
+    renderThumbnail: (model, context) => <AtsMinimalTemplate model={model} context={{ ...context, thumbnail: true }} />
+  },
+  {
+    id: "business-consulting",
+    name: "商务咨询正式",
+    shortName: "商务",
+    description: "高信息密度的正式双栏模板，强调教育、量化成果和商业表达。",
+    category: "business",
+    layout: "two-column",
+    atsLevel: "medium",
+    suitableRoles: ["经济", "金融", "咨询", "外贸", "供应链", "商务", "管理"],
+    tags: ["商务正式", "咨询", "金融", "双栏"],
+    capabilities: ALL_STYLE_CAPABILITIES,
+    defaultPresentationStyle: {
+      ...DEFAULT_STYLE_CONFIG,
+      typography: {
+        bodyTextScale: "small",
+        titleTextScale: "normal",
+        lineHeight: "normal"
+      },
+      spacing: {
+        sectionGap: "tight",
+        itemGap: "normal"
+      },
+      theme: {
+        accentColor: "blue",
+        density: "compact"
+      }
+    },
+    version: 1,
+    status: "active",
+    className: "template-business-consulting",
+    render: (model, context) => <BusinessConsultingTemplate model={model} context={context} />,
+    renderThumbnail: (model, context) => <BusinessConsultingTemplate model={model} context={{ ...context, thumbnail: true }} />
   }
 ];
 
@@ -97,8 +208,35 @@ export function getResumeTemplate(templateId: TemplateId) {
   return resumeTemplates.find((template) => template.id === templateId) ?? resumeTemplates[0];
 }
 
+export function isResumeTemplateId(value: unknown): value is TemplateId {
+  return typeof value === "string" && resumeTemplates.some((template) => template.id === value);
+}
+
+export function filterResumeTemplates(
+  filter: TemplateFilterKey,
+  templates: ResumeTemplateDefinition[] = resumeTemplates
+) {
+  if (filter === "ats") {
+    return templates.filter((template) => template.atsLevel === "high");
+  }
+  if (filter === "single-column" || filter === "two-column") {
+    return templates.filter((template) => template.layout === filter);
+  }
+  if (filter === "technical") {
+    return templates.filter((template) =>
+      template.category === "technical"
+      || template.tags.some((tag) => tag.includes("技术"))
+      || template.suitableRoles.some((role) => role.includes("技术"))
+    );
+  }
+  if (filter === "business") {
+    return templates.filter((template) => template.category === "business");
+  }
+  return templates;
+}
+
 export function getTemplateDefaultStyleConfig(templateId: TemplateId): ResumeTemplateStyleConfig {
-  return cloneTemplateStyleConfig(getResumeTemplate(templateId).defaultStyleConfig);
+  return cloneTemplateStyleConfig(getResumeTemplate(templateId).defaultPresentationStyle);
 }
 
 export function cloneTemplateStyleConfig(style: ResumeTemplateStyleConfig): ResumeTemplateStyleConfig {
@@ -115,7 +253,7 @@ export function resolveTemplateStyleConfig(
   presentationConfig?: ResumePresentationConfig
 ): ResumeTemplateStyleConfig {
   if (!presentationConfig) {
-    return cloneTemplateStyleConfig(template.defaultStyleConfig);
+    return cloneTemplateStyleConfig(template.defaultPresentationStyle);
   }
   return {
     typography: presentationConfig.typography,
@@ -192,9 +330,52 @@ function ModernOperationsTemplate({ model, context }: { model: ResumeRenderModel
   );
 }
 
-function ResumeHeader({ model, compact = false }: { model: ResumeRenderModel; compact?: boolean }) {
+function AtsMinimalTemplate({ model, context }: { model: ResumeRenderModel; context?: TemplateRenderContext }) {
   return (
-    <header className={`resume-template-header ${compact ? "resume-template-header-compact" : ""}`}>
+    <>
+      <ResumeHeader model={model} plain />
+      {section(model, "summary", "plain", context)}
+      {section(model, "experience", "plain", context)}
+      {section(model, "skills", "plainInline", context)}
+      {section(model, "certificates", "plainInline", context)}
+    </>
+  );
+}
+
+function BusinessConsultingTemplate({ model, context }: { model: ResumeRenderModel; context?: TemplateRenderContext }) {
+  const summary = findSection(model, "summary");
+  const skills = findSection(model, "skills");
+  const certificates = findSection(model, "certificates");
+  const experiences = findSection(model, "experience");
+
+  return (
+    <>
+      <ResumeHeader model={model} compact />
+      <div className="resume-business-grid">
+        <div>
+          {summary ? <RenderSection section={summary} mode="compact" context={context} /> : null}
+          {experiences ? <RenderSection section={experiences} mode="business" context={context} /> : null}
+        </div>
+        <aside>
+          {skills ? <RenderSection section={skills} mode="plainInline" context={context} /> : null}
+          {certificates ? <RenderSection section={certificates} mode="compact" context={context} /> : null}
+        </aside>
+      </div>
+    </>
+  );
+}
+
+function ResumeHeader({
+  model,
+  compact = false,
+  plain = false
+}: {
+  model: ResumeRenderModel;
+  compact?: boolean;
+  plain?: boolean;
+}) {
+  return (
+    <header className={`resume-template-header ${compact ? "resume-template-header-compact" : ""} ${plain ? "resume-template-header-plain" : ""}`}>
       <div>
         <h1>{model.candidate.name}</h1>
         <p>{model.company} / {model.jobTitle}</p>
@@ -208,7 +389,12 @@ function ResumeHeader({ model, compact = false }: { model: ResumeRenderModel; co
   );
 }
 
-function section(model: ResumeRenderModel, type: ResumeRenderSection["type"], mode?: "inline" | "compact" | "tag", context?: TemplateRenderContext) {
+function section(
+  model: ResumeRenderModel,
+  type: ResumeRenderSection["type"],
+  mode?: "inline" | "compact" | "tag" | "plain" | "plainInline" | "business",
+  context?: TemplateRenderContext
+) {
   const found = findSection(model, type);
   return found ? <RenderSection section={found} mode={mode} context={context} /> : null;
 }
@@ -217,12 +403,21 @@ function findSection(model: ResumeRenderModel, type: ResumeRenderSection["type"]
   return model.sections.find((candidate) => candidate.type === type);
 }
 
-function RenderSection({ section, mode, context }: { section: ResumeRenderSection; mode?: "inline" | "compact" | "tag"; context?: TemplateRenderContext }) {
+function RenderSection({
+  section,
+  mode,
+  context
+}: {
+  section: ResumeRenderSection;
+  mode?: "inline" | "compact" | "tag" | "plain" | "plainInline" | "business";
+  context?: TemplateRenderContext;
+}) {
   const showTitle = context?.presentationConfig?.sectionStyleOverrides[section.type]?.showTitle !== false;
+  const inlineMode = mode === "inline" || mode === "tag" || mode === "plainInline";
   return (
     <section className={`resume-template-section ${mode ? `resume-section-${mode}` : ""}`} data-render-section={section.type}>
       {showTitle ? <h2>{section.title}</h2> : null}
-      {mode === "inline" || mode === "tag" ? (
+      {inlineMode ? (
         <div className={mode === "tag" ? "resume-tag-list" : "resume-inline-list"}>
           {section.blocks.map((block) => (
             <span key={block.sourceItemId} className={selectedClass(block, context)} {...editableBlockAttrs(block, context)}>{block.text}</span>
@@ -230,20 +425,38 @@ function RenderSection({ section, mode, context }: { section: ResumeRenderSectio
         </div>
       ) : (
         <div className="resume-block-list">
-          {section.blocks.map((block) => <RenderBlock key={block.sourceItemId} block={block} compact={mode === "compact"} context={context} />)}
+          {section.blocks.map((block) => (
+            <RenderBlock
+              key={block.sourceItemId}
+              block={block}
+              compact={mode === "compact" || mode === "plain"}
+              business={mode === "business"}
+              context={context}
+            />
+          ))}
         </div>
       )}
     </section>
   );
 }
 
-function RenderBlock({ block, compact, context }: { block: ResumeRenderBlock; compact?: boolean; context?: TemplateRenderContext }) {
+function RenderBlock({
+  block,
+  compact,
+  business,
+  context
+}: {
+  block: ResumeRenderBlock;
+  compact?: boolean;
+  business?: boolean;
+  context?: TemplateRenderContext;
+}) {
   if (compact || block.itemType === "summary") {
     return <p className={selectedClass(block, context)} {...editableBlockAttrs(block, context)}>{block.text}</p>;
   }
 
   return (
-    <div className={`resume-template-item ${selectedClass(block, context)}`} {...editableBlockAttrs(block, context)}>
+    <div className={`resume-template-item ${business ? "resume-template-item-business" : ""} ${selectedClass(block, context)}`} {...editableBlockAttrs(block, context)}>
       <p>{block.text}</p>
     </div>
   );

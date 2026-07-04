@@ -5,7 +5,12 @@ import {
   BranchGuardStatusSchema
 } from "./branch";
 
-export const TemplateIdSchema = z.enum(["classic-technical", "modern-operations"]);
+export const TemplateIdSchema = z.enum([
+  "classic-technical",
+  "modern-operations",
+  "ats-minimal",
+  "business-consulting"
+]);
 
 export const OverflowStatusSchema = z.enum(["fits", "near_limit", "overflow"]);
 

@@ -257,6 +257,73 @@ describe("V2 G1a resume presentation config", () => {
     expect(config.presentationRevision).toBe(0);
   });
 
+  it("recovers from unknown template ids in stored presentation config", async () => {
+    const { repository, branch } = await createBranchFixture("CareerAdaptG2UnknownTemplateDb");
+
+    await (repository as unknown as { db: { appMeta: { put: (meta: unknown) => Promise<unknown> } } }).db.appMeta.put({
+      key: `resumePresentationConfig:${branch.id}`,
+      value: {
+        schemaVersion: "resume-presentation-v1",
+        branchId: branch.id,
+        templateId: "deleted-template",
+        contentRevision: {
+          branchRevision: branch.revision,
+          currentRevisionId: branch.currentRevisionId
+        },
+        sectionOrder: ["summary", "skills", "experience", "certificates"],
+        itemOrderBySection: {},
+        hiddenItemIds: [],
+        presentationRevision: 3,
+        updatedAt: "2026-07-04T00:00:00.000Z"
+      },
+      updatedAt: "2026-07-04T00:00:00.000Z"
+    });
+
+    const config = await repository.getResumePresentationConfig(branch.id);
+    expect(config.templateId).toBe("classic-technical");
+    expect(config.presentationRevision).toBe(0);
+  });
+
+  it("switches to new template ids without mutating resume content facts, visibility or order", async () => {
+    const { repository, branch } = await createBranchFixture("CareerAdaptG2TemplateSwitchDb");
+    const initial = await repository.getResumePresentationConfig(branch.id);
+    const revisionsBefore = await repository.listResumeRevisions(branch.id);
+    const contentBefore = JSON.stringify(branch.contentItems);
+    const firstVisibleId = branch.contentItems.find((item) => item.visible)?.id;
+    if (!firstVisibleId) {
+      throw new Error("fixture requires visible content");
+    }
+
+    const withHidden = await repository.saveResumePresentationConfig({
+      branchId: branch.id,
+      expectedBranchRevision: branch.revision,
+      expectedRevisionId: branch.currentRevisionId!,
+      expectedPresentationRevision: initial.presentationRevision,
+      operationId: "g2-hide-before-template",
+      nextConfig: nextPresentationConfig(initial, branch, {
+        hiddenItemIds: [firstVisibleId]
+      })
+    });
+    const nextConfig = nextPresentationConfig(withHidden.config, branch, {
+      templateId: "ats-minimal",
+      hiddenItemIds: withHidden.config.hiddenItemIds
+    });
+    const switched = await repository.saveResumePresentationConfig({
+      branchId: branch.id,
+      expectedBranchRevision: branch.revision,
+      expectedRevisionId: branch.currentRevisionId!,
+      expectedPresentationRevision: withHidden.config.presentationRevision,
+      operationId: "g2-template-ats-minimal",
+      nextConfig
+    });
+    const branchAfter = await repository.getResumeBranch(branch.id);
+
+    expect(switched.config.templateId).toBe("ats-minimal");
+    expect(switched.config.hiddenItemIds).toEqual([firstVisibleId]);
+    expect(JSON.stringify(branchAfter?.contentItems)).toBe(contentBefore);
+    expect(await repository.listResumeRevisions(branch.id)).toHaveLength(revisionsBefore.length);
+  });
+
   it("distinguishes ExportRecords by presentation version when branchRevision is the same", async () => {
     const { repository, branch } = await createBranchFixture("CareerAdaptG1aExportPresentationDb");
     const initial = await repository.getResumePresentationConfig(branch.id);
@@ -332,6 +399,38 @@ describe("V2 G1a resume presentation config", () => {
     expect(export2.record.presentationSnapshot?.spacing?.itemGap).toBe("relaxed");
     expect(export2.record.presentationSnapshot?.theme?.accentColor).toBe("blue");
     expect(export2.record.presentationSnapshot?.sectionStyleOverrides?.summary?.showTitle).toBe(false);
+  });
+
+  it("stores new template ids in ExportRecord presentation snapshots", async () => {
+    const { repository, branch } = await createBranchFixture("CareerAdaptG2ExportTemplateDb");
+    const initial = await repository.getResumePresentationConfig(branch.id);
+    const config = nextPresentationConfig(initial, branch, {
+      templateId: "business-consulting"
+    });
+
+    const result = await repository.createResumeExportRecord({
+      operationId: `g2-export-business-${crypto.randomUUID()}`,
+      branchId: branch.id,
+      expectedBranchRevision: branch.revision,
+      expectedRevisionId: branch.currentRevisionId!,
+      templateId: config.templateId,
+      overflowStatus: "fits",
+      exportStatus: "print_invoked",
+      fileName: "business-consulting.pdf",
+      presentationRevision: config.presentationRevision,
+      presentationSnapshot: {
+        templateId: config.templateId,
+        itemOrderBySection: config.itemOrderBySection,
+        hiddenItemIds: config.hiddenItemIds,
+        typography: config.typography,
+        spacing: config.spacing,
+        theme: config.theme,
+        sectionStyleOverrides: config.sectionStyleOverrides
+      }
+    });
+
+    expect(result.record.templateId).toBe("business-consulting");
+    expect(result.record.presentationSnapshot?.templateId).toBe("business-consulting");
   });
 
   it("accepts ExportRecords without presentation fields for backward compatibility", async () => {

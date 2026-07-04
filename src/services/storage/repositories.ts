@@ -21,6 +21,7 @@ import {
   ResumeBranchOperationSchema,
   ResumePresentationConfigSchema,
   ResumeRevisionSchema,
+  TemplateIdSchema,
   SuggestionOperationSchema,
   type AiLog,
   type AiSuggestion,
@@ -1680,9 +1681,8 @@ function parseLegacyWorkbenchTemplateId(value: unknown): ResumePresentationConfi
     return undefined;
   }
   const candidate = value as { templateId?: unknown };
-  return candidate.templateId === "classic-technical" || candidate.templateId === "modern-operations"
-    ? candidate.templateId
-    : undefined;
+  const parsed = TemplateIdSchema.safeParse(candidate.templateId);
+  return parsed.success ? parsed.data : undefined;
 }
 
 function createDefaultPresentationConfig(input: {

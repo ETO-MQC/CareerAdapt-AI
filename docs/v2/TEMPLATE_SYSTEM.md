@@ -21,6 +21,31 @@ TemplateDefinition {
 }
 ```
 
+G2 第一阶段实际实现使用单一静态 Registry：`src/components/resume/templates/templateRegistry.tsx`。最终字段为：
+
+```ts
+ResumeTemplateDefinition {
+  id
+  name
+  shortName
+  description
+  category
+  layout
+  atsLevel
+  suitableRoles
+  tags
+  capabilities
+  defaultPresentationStyle
+  version
+  status
+  className
+  render
+  renderThumbnail
+}
+```
+
+模板元数据不进入 Dexie，不新增模板数据库；当前选中模板继续保存到 `ResumePresentationConfig.templateId`。
+
 ## TemplateMetadata
 
 - 名称、描述、缩略图、适用岗位标签。
@@ -61,6 +86,27 @@ ResumeDocument保存内容、事实引用和展示配置；TemplateDefinition只
 4. 金融/咨询/商务模板：稳重、信息密度高、强调教育和量化结果。
 
 外贸/跨境电商模板和校园实习/应届生模板可作为G2后半或G5模板推荐补充；中英文双语模板作为后续评估，不进入首个Goal。
+
+## G2第一阶段实际模板
+
+已落地四套模板：
+
+1. `classic-technical`：稳重技术，单栏，ATS友好等级 high。
+2. `modern-operations`：简洁现代，轻双栏，ATS友好等级 medium。
+3. `ats-minimal`：ATS极简单栏，单栏，ATS友好等级 high。
+4. `business-consulting`：商务咨询正式，双栏，ATS友好等级 medium。
+
+ATS等级仅为产品内部结构标签，不表示外部认证或保证通过。
+
+## Template Center
+
+G2第一阶段在 `/resume` 右侧区域增加模板中心：
+
+- 保留原快速模板下拉作为 fallback。
+- 模板卡片展示缩略图、名称、说明、布局、ATS友好等级和适用岗位。
+- 筛选项：全部、ATS优先、单栏、双栏、技术简洁、商务正式。
+- 缩略图复用正式模板 renderer 和当前 `ResumeRenderModel`，不写入展示配置，不独立测量 overflow，不进入 PDF。
+- 应用模板复用现有展示操作串行队列，增加 `presentationRevision`，不创建内容 `ResumeRevision`，不运行 Fact Guard。
 
 ## 模板升级兼容
 

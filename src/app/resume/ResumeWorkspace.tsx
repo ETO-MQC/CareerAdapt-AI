@@ -11,11 +11,13 @@ import {
 } from "@/domain/schemas";
 import { mapBranchToResumeRenderModel, ResumeRenderMapperError } from "@/domain/resumeRender/mapper";
 import { A4ResumePreview } from "@/components/resume/A4ResumePreview";
+import { TemplateCenter } from "@/components/resume/TemplateCenter";
 import { mapBranchToResumeDocument } from "@/domain/resumeDocument/mapper";
 import { classifyOverflow, useA4Overflow } from "@/components/resume/useA4Overflow";
 import {
   getResumeTemplate,
   getTemplateDefaultStyleConfig,
+  isResumeTemplateId,
   resumeTemplates,
   type ResumeTemplateStyleConfig
 } from "@/components/resume/templates/templateRegistry";
@@ -65,6 +67,8 @@ export function ResumeWorkspace() {
   const [studioError, setStudioError] = useState<string | undefined>();
   const [pendingStudioOperationId, setPendingStudioOperationId] = useState<string | undefined>();
   const [isStylePanelOpen, setIsStylePanelOpen] = useState(true);
+  const [isTemplateCenterOpen, setIsTemplateCenterOpen] = useState(false);
+  const [pendingTemplateApplyId, setPendingTemplateApplyId] = useState<TemplateId | undefined>();
   const [activePropertyTab, setActivePropertyTab] = useState<PropertyPanelTab>("document");
 
   const presentationQueueRef = useRef<{
@@ -93,6 +97,7 @@ export function ResumeWorkspace() {
     }).catch((error) => {
       console.error("Presentation queue error:", error);
     });
+    return queue.promise;
   }
 
   useEffect(() => {
@@ -381,14 +386,22 @@ export function ResumeWorkspace() {
   }
 
   async function updatePresentationTemplate(nextTemplateId: TemplateId) {
-    if (!selectedBranch || !presentationConfig) {
+    if (pendingTemplateApplyId) {
+      return;
+    }
+    if (!selectedBranch) {
       setTemplateId(nextTemplateId);
+      return;
+    }
+    if (!presentationConfig) {
+      setMessage("展示配置尚未加载完成，请稍后再切换模板。");
       return;
     }
     if (nextTemplateId === presentationConfig.templateId) {
       return;
     }
-    enqueuePresentation(async (current) => {
+    setPendingTemplateApplyId(nextTemplateId);
+    await enqueuePresentation(async (current) => {
       if (nextTemplateId === current.templateId) {
         return current;
       }
@@ -403,6 +416,8 @@ export function ResumeWorkspace() {
         operationId: `v2-g1a-template-${selectedBranch.id}-${selectedBranch.revision}-${current.presentationRevision}-${nextTemplateId}`,
         successMessage: "模板偏好已保存到当前分支展示配置。"
       });
+    }).finally(() => {
+      setPendingTemplateApplyId(undefined);
     });
   }
 
@@ -1036,7 +1051,7 @@ export function ResumeWorkspace() {
             <div className="property-summary">
               <strong>{selectedStudioBlock ? selectedStudioBlock.text.slice(0, 28) : selectedBranch.name}</strong>
               <span>
-                {selectedStudioBlock ? "Block" : "Document"} / {selectedTemplate.name} / presentation {presentationConfig?.presentationRevision ?? 0}
+                {selectedStudioBlock ? "Block" : "Document"} / {selectedTemplate.name} / {selectedTemplate.layout === "two-column" ? "双栏" : "单栏"} / presentation {presentationConfig?.presentationRevision ?? 0}
               </span>
             </div>
             <label className="inline-toggle studio-edit-toggle">
@@ -1053,12 +1068,25 @@ export function ResumeWorkspace() {
             ) : null}
             <label className="field-label">
               模板
-              <select value={effectiveTemplateId} onChange={(event) => { void updatePresentationTemplate(event.target.value as TemplateId); }}>
+              <select
+                value={effectiveTemplateId}
+                disabled={!presentationConfig || Boolean(pendingTemplateApplyId)}
+                onChange={(event) => { void updatePresentationTemplate(event.target.value as TemplateId); }}
+              >
                 {resumeTemplates.map((template) => (
-                  <option key={template.id} value={template.id}>{template.name} / {template.audience}</option>
+                  <option key={template.id} value={template.id}>{template.name} / {template.shortName}</option>
                 ))}
               </select>
             </label>
+            <div className="action-row template-center-entry">
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => setIsTemplateCenterOpen((current) => !current)}
+              >
+                模板中心
+              </button>
+            </div>
             <div className="action-row presentation-history-actions">
               <button
                 className="secondary-button compact"
@@ -1075,6 +1103,16 @@ export function ResumeWorkspace() {
                 重做展示
               </button>
             </div>
+            <TemplateCenter
+              open={isTemplateCenterOpen}
+              model={renderModel}
+              presentationConfig={presentationConfig}
+              currentTemplateId={effectiveTemplateId}
+              canApply={selectedBranchEditable && Boolean(presentationConfig) && !pendingTemplateApplyId}
+              pendingTemplateId={pendingTemplateApplyId}
+              onApply={(nextTemplateId) => { void updatePresentationTemplate(nextTemplateId); }}
+              onClose={() => setIsTemplateCenterOpen(false)}
+            />
             {isStylePanelOpen ? (
               <div className="property-panel-body" data-testid="resume-property-panel">
                 <div className="property-tabs" role="tablist" aria-label="属性面板上下文">
@@ -1107,7 +1145,7 @@ export function ResumeWorkspace() {
                         <select
                           aria-label="页面密度"
                           value={presentationConfig?.theme.density ?? "balanced"}
-                          disabled={!presentationConfig || !selectedBranchEditable || !selectedTemplate.styleCapabilities.density}
+                          disabled={!presentationConfig || !selectedBranchEditable || !selectedTemplate.capabilities.supportsDensity}
                           onChange={(event) => {
                             const density = event.target.value as ResumePresentationConfig["theme"]["density"];
                             void updatePresentationStyle((current) => ({
@@ -1125,7 +1163,7 @@ export function ResumeWorkspace() {
                         <select
                           aria-label="正文字号"
                           value={presentationConfig?.typography.bodyTextScale ?? "normal"}
-                          disabled={!presentationConfig || !selectedBranchEditable || !selectedTemplate.styleCapabilities.bodyTextScale}
+                          disabled={!presentationConfig || !selectedBranchEditable || !selectedTemplate.capabilities.supportsBodyScale}
                           onChange={(event) => {
                             const bodyTextScale = event.target.value as ResumePresentationConfig["typography"]["bodyTextScale"];
                             void updatePresentationStyle((current) => ({
@@ -1143,7 +1181,7 @@ export function ResumeWorkspace() {
                         <select
                           aria-label="标题字号"
                           value={presentationConfig?.typography.titleTextScale ?? "normal"}
-                          disabled={!presentationConfig || !selectedBranchEditable || !selectedTemplate.styleCapabilities.titleTextScale}
+                          disabled={!presentationConfig || !selectedBranchEditable || !selectedTemplate.capabilities.supportsHeadingScale}
                           onChange={(event) => {
                             const titleTextScale = event.target.value as ResumePresentationConfig["typography"]["titleTextScale"];
                             void updatePresentationStyle((current) => ({
@@ -1161,7 +1199,7 @@ export function ResumeWorkspace() {
                         <select
                           aria-label="行距"
                           value={presentationConfig?.typography.lineHeight ?? "normal"}
-                          disabled={!presentationConfig || !selectedBranchEditable || !selectedTemplate.styleCapabilities.lineHeight}
+                          disabled={!presentationConfig || !selectedBranchEditable || !selectedTemplate.capabilities.supportsLineHeight}
                           onChange={(event) => {
                             const lineHeight = event.target.value as ResumePresentationConfig["typography"]["lineHeight"];
                             void updatePresentationStyle((current) => ({
@@ -1179,7 +1217,7 @@ export function ResumeWorkspace() {
                         <select
                           aria-label="条目间距"
                           value={presentationConfig?.spacing.itemGap ?? "normal"}
-                          disabled={!presentationConfig || !selectedBranchEditable || !selectedTemplate.styleCapabilities.itemGap}
+                          disabled={!presentationConfig || !selectedBranchEditable || !selectedTemplate.capabilities.supportsItemGap}
                           onChange={(event) => {
                             const itemGap = event.target.value as ResumePresentationConfig["spacing"]["itemGap"];
                             void updatePresentationStyle((current) => ({
@@ -1197,7 +1235,7 @@ export function ResumeWorkspace() {
                         <select
                           aria-label="Section 间距"
                           value={presentationConfig?.spacing.sectionGap ?? "normal"}
-                          disabled={!presentationConfig || !selectedBranchEditable || !selectedTemplate.styleCapabilities.sectionGap}
+                          disabled={!presentationConfig || !selectedBranchEditable || !selectedTemplate.capabilities.supportsSectionGap}
                           onChange={(event) => {
                             const sectionGap = event.target.value as ResumePresentationConfig["spacing"]["sectionGap"];
                             void updatePresentationStyle((current) => ({
@@ -1221,7 +1259,7 @@ export function ResumeWorkspace() {
                             className={`color-swatch ${presentationConfig?.theme.accentColor === color ? "color-swatch-active" : ""}`}
                             style={{ backgroundColor: accentSwatchColor(color) }}
                             aria-label={`主题强调色：${accentColorLabel(color)}`}
-                            disabled={!presentationConfig || !selectedBranchEditable || !selectedTemplate.styleCapabilities.accentColor}
+                            disabled={!presentationConfig || !selectedBranchEditable || !selectedTemplate.capabilities.supportsAccentColor}
                             onClick={() => {
                               void updatePresentationStyle((current) => ({
                                 theme: { ...current.theme, accentColor: color }
@@ -1240,6 +1278,9 @@ export function ResumeWorkspace() {
                         恢复模板默认样式
                       </button>
                     </div>
+                    {!selectedTemplate.capabilities.supportsTwoPages ? (
+                      <p className="save-status">当前模板不支持两页策略。</p>
+                    ) : null}
                   </div>
                 ) : null}
 
@@ -1253,7 +1294,7 @@ export function ResumeWorkspace() {
                       <input
                         type="checkbox"
                         checked={presentationConfig?.sectionStyleOverrides[selectedStudioSection.type]?.showTitle !== false}
-                        disabled={!presentationConfig || !selectedBranchEditable || !selectedTemplate.styleCapabilities.sectionTitleVisibility}
+                        disabled={!presentationConfig || !selectedBranchEditable || !selectedTemplate.capabilities.supportsSectionTitleVisibility}
                         onChange={(event) => { void setSectionTitleVisibility(selectedStudioSection.type, event.target.checked); }}
                       />
                       显示 Section 标题
@@ -1492,9 +1533,7 @@ function parseWorkbenchState(value: unknown): WorkbenchState {
   const candidate = value as WorkbenchState;
   return {
     branchId: typeof candidate.branchId === "string" ? candidate.branchId : undefined,
-    templateId: candidate.templateId === "classic-technical" || candidate.templateId === "modern-operations"
-      ? candidate.templateId
-      : undefined,
+    templateId: isResumeTemplateId(candidate.templateId) ? candidate.templateId : undefined,
     stylePanelOpen: typeof candidate.stylePanelOpen === "boolean" ? candidate.stylePanelOpen : undefined
   };
 }
