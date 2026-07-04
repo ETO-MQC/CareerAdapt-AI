@@ -251,6 +251,7 @@ test.describe("V2-G0a Resume Studio 独立验收", () => {
     // ========== 场景3: 模板B合法编辑 — same contentItemId ==========
     // Switch to template B
     await page.locator("label").filter({ hasText: "模板" }).locator("select").selectOption("modern-operations");
+    await expect(page.locator(".notice")).toContainText("模板偏好已保存");
     await expect(preview).toHaveClass(/template-modern-operations/);
 
     // Template B shows the same edited content
@@ -271,6 +272,7 @@ test.describe("V2-G0a Resume Studio 独立验收", () => {
     // ========== 场景4: 跨模板一致性 ==========
     // Switch back to template A — shows the same content from template B edit
     await page.locator("label").filter({ hasText: "模板" }).locator("select").selectOption("classic-technical");
+    await expect(page.locator(".notice")).toContainText("模板偏好已保存");
     await expect(preview).toHaveClass(/template-classic-technical/);
     await expect(preview.locator(`[data-source-item-id="${contentItemId}"]`)).toContainText(editedTextB);
     // No extra revision from template switch
@@ -582,9 +584,11 @@ test.describe("V2-G0a Resume Studio 独立验收", () => {
     // Template switching should still work
     await page.locator("label").filter({ hasText: "模板" }).locator("select").selectOption("modern-operations");
     const preview = page.getByTestId("resume-a4-page");
+    await expect(page.locator(".notice")).toContainText("模板偏好已保存");
     await expect(preview).toHaveClass(/template-modern-operations/);
 
     await page.locator("label").filter({ hasText: "模板" }).locator("select").selectOption("classic-technical");
+    await expect(page.locator(".notice")).toContainText("模板偏好已保存");
     await expect(preview).toHaveClass(/template-classic-technical/);
 
     // Undo button should be present and enabled
@@ -615,6 +619,7 @@ test.describe("V2-G0a Resume Studio 独立验收", () => {
 
     // Switch template while draft is active
     await page.locator("label").filter({ hasText: "模板" }).locator("select").selectOption("modern-operations");
+    await expect(page.locator(".notice")).toContainText("模板偏好已保存");
     await expect(preview).toHaveClass(/template-modern-operations/);
 
     // The unsaved draft must NOT be silently lost
@@ -629,6 +634,7 @@ test.describe("V2-G0a Resume Studio 独立验收", () => {
 
     // Switch back to template A — draft should STILL be preserved
     await page.locator("label").filter({ hasText: "模板" }).locator("select").selectOption("classic-technical");
+    await expect(page.locator(".notice")).toContainText("模板偏好已保存");
     await expect(preview).toHaveClass(/template-classic-technical/);
     await expect(editor.locator("textarea")).toBeVisible();
     await expect(editor.locator("textarea")).toHaveValue(unsavedText);

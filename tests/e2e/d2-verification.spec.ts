@@ -251,6 +251,7 @@ test.describe("D2.1 验收：双模板预览与 PDF 导出", () => {
 
     // Switch to template B
     await page.locator("label").filter({ hasText: "模板" }).locator("select").selectOption("modern-operations");
+    await expect(page.locator(".notice")).toContainText("模板偏好已保存");
     await expect(preview).toHaveClass(/template-modern-operations/);
     const templateBText = await preview.innerText();
 
@@ -262,6 +263,7 @@ test.describe("D2.1 验收：双模板预览与 PDF 导出", () => {
     // Verify different CSS classes (different visual layout)
     await expect(preview).toHaveClass(/template-modern-operations/);
     await page.locator("label").filter({ hasText: "模板" }).locator("select").selectOption("classic-technical");
+    await expect(page.locator(".notice")).toContainText("模板偏好已保存");
     await expect(preview).toHaveClass(/template-classic-technical/);
 
     // Template switch must not create new ResumeRevisions
@@ -269,6 +271,7 @@ test.describe("D2.1 验收：双模板预览与 PDF 导出", () => {
     const revisionCountAfterA = await getResumeRevisionCount(page, branchId);
 
     await page.locator("label").filter({ hasText: "模板" }).locator("select").selectOption("modern-operations");
+    await expect(page.locator(".notice")).toContainText("模板偏好已保存");
     await expect(preview).toHaveClass(/template-modern-operations/);
     const revisionCountAfterB = await getResumeRevisionCount(page, branchId);
 
@@ -283,6 +286,7 @@ test.describe("D2.1 验收：双模板预览与 PDF 导出", () => {
 
     // Select template B
     await page.locator("label").filter({ hasText: "模板" }).locator("select").selectOption("modern-operations");
+    await expect(page.locator(".notice")).toContainText("模板偏好已保存");
     await expect(page.getByTestId("resume-a4-page")).toHaveClass(/template-modern-operations/);
 
     // Refresh
@@ -826,6 +830,7 @@ test.describe("D2.1 验收：双模板预览与 PDF 导出", () => {
     // Switch to template B and generate
     await page.emulateMedia({ media: "screen" });
     await page.locator("label").filter({ hasText: "模板" }).locator("select").selectOption("modern-operations");
+    await expect(page.locator(".notice")).toContainText("模板偏好已保存");
     await ensureSinglePage(page);
     await page.emulateMedia({ media: "print" });
     const modernPdf = resolve(outputDir, "d2v14-modern.pdf");

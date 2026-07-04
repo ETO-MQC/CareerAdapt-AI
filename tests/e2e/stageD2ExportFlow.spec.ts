@@ -117,6 +117,7 @@ test.describe("Stage D2 template preview and PDF export", () => {
     await expect(preview).toContainText("Stata");
 
     await page.locator("label").filter({ hasText: "模板" }).locator("select").selectOption("modern-operations");
+    await expect(page.locator(".notice")).toContainText("模板偏好已保存");
     await expect(preview).toHaveClass(/template-modern-operations/);
     await page.reload();
     await expect(page.locator("label").filter({ hasText: "模板" }).locator("select")).toHaveValue("modern-operations");
@@ -154,6 +155,7 @@ test.describe("Stage D2 template preview and PDF export", () => {
 
     await page.emulateMedia({ media: "screen" });
     await page.locator("label").filter({ hasText: "模板" }).locator("select").selectOption("classic-technical");
+    await expect(page.locator(".notice")).toContainText("模板偏好已保存");
     await ensureSinglePage(page);
     await page.emulateMedia({ media: "print" });
     const classicPdf = resolve(outputDir, "d2-template-classic.pdf");

@@ -156,6 +156,7 @@ test.describe("V2-G1a structure editing", () => {
     expect(await getResumeRevisionCount(page, branch.id)).toBe(revisionsBefore);
 
     await page.locator("label").filter({ hasText: "模板" }).locator("select").selectOption("modern-operations");
+    await expect(page.locator(".notice")).toContainText("模板偏好已保存");
     await expect(preview).toHaveClass(/template-modern-operations/);
     await page.reload();
     await expect(page.getByTestId("resume-a4-page")).toHaveClass(/template-modern-operations/);
@@ -165,5 +166,64 @@ test.describe("V2-G1a structure editing", () => {
       ...sortableGroup.itemIds.slice(2)
     ]);
     expect(await getResumeRevisionCount(page, branch.id)).toBe(revisionsBefore);
+  });
+
+  test("快速连续排序操作不会丢失", async ({ page }) => {
+    const branchName = `V2 G1a 快速排序 ${Date.now()}`;
+    await createBranchFromDraft(page, branchName);
+    await enablePreviewEditing(page);
+
+    const preview = page.getByTestId("resume-a4-page");
+    const editor = page.getByTestId("resume-studio-editor");
+
+    const sortableGroup = await getSortableRenderGroup(page);
+    // Need at least 3 items to verify two consecutive moves
+    if (sortableGroup.itemIds.length < 3) {
+      test.skip();
+      return;
+    }
+
+    const [itemId0, itemId1, itemId2, ...rest] = sortableGroup.itemIds;
+
+    // Select first item and move it down twice in rapid succession
+    await preview.locator(`[data-source-item-id="${itemId0}"]`).first().click();
+    await expect(editor).toBeVisible();
+
+    // Click "下移" without waiting for the first operation to complete
+    const moveDownButton = editor.getByRole("button", { name: "下移" });
+    await moveDownButton.click();
+    await moveDownButton.click();
+
+    // Wait for both operations to complete — final order should have itemId0 in position 2
+    await expect.poll(() => getSectionItemIds(page, sortableGroup.sectionType), { timeout: 10000 }).toEqual([
+      itemId1,
+      itemId2,
+      itemId0,
+      ...rest
+    ]);
+  });
+
+  test("快速连续隐藏和恢复操作不会丢失", async ({ page }) => {
+    const branchName = `V2 G1a 快速隐藏 ${Date.now()}`;
+    await createBranchFromDraft(page, branchName);
+    await enablePreviewEditing(page);
+
+    const preview = page.getByTestId("resume-a4-page");
+    const editor = page.getByTestId("resume-studio-editor");
+
+    const sortableGroup = await getSortableRenderGroup(page);
+    const firstItemId = sortableGroup.itemIds[0];
+
+    // Select and hide item
+    await preview.locator(`[data-source-item-id="${firstItemId}"]`).first().click();
+    await expect(editor).toBeVisible();
+    await editor.getByRole("button", { name: "隐藏" }).click();
+
+    // Wait for hide to complete, then restore from hidden list
+    await expect(page.locator(".hidden-block-list")).toBeVisible();
+    await page.locator(".hidden-block-list").getByRole("button", { name: /显示：/ }).first().click();
+
+    // Item should be visible again
+    await expect(preview.locator(`[data-source-item-id="${firstItemId}"]`).first()).toBeVisible();
   });
 });

@@ -227,6 +227,12 @@ export const ExportOverflowStatusSchema = z.enum([
   "overflow"
 ]);
 
+export const ExportRecordPresentationSnapshotSchema = z.object({
+  templateId: z.string().min(1),
+  itemOrderBySection: z.record(z.string(), z.array(z.string().min(1))),
+  hiddenItemIds: z.array(z.string().min(1))
+});
+
 export const ExportRecordSchema = EntityBaseSchema.extend({
   operationId: z.string().min(1),
   branchId: z.string().min(1),
@@ -239,7 +245,9 @@ export const ExportRecordSchema = EntityBaseSchema.extend({
   exportStatus: ExportStatusSchema,
   overflowStatus: ExportOverflowStatusSchema,
   exportedAt: IsoDateStringSchema,
-  errorCode: z.string().min(1).optional()
+  errorCode: z.string().min(1).optional(),
+  presentationRevision: z.number().int().min(0).optional(),
+  presentationSnapshot: ExportRecordPresentationSnapshotSchema.optional()
 });
 
 export type BranchLifecycleStatus = z.infer<typeof BranchLifecycleStatusSchema>;
@@ -260,4 +268,5 @@ export type ResumeBranchOperationType = z.infer<typeof ResumeBranchOperationType
 export type ResumeBranchOperation = z.infer<typeof ResumeBranchOperationSchema>;
 export type ExportStatus = z.infer<typeof ExportStatusSchema>;
 export type ExportOverflowStatus = z.infer<typeof ExportOverflowStatusSchema>;
+export type ExportRecordPresentationSnapshot = z.infer<typeof ExportRecordPresentationSnapshotSchema>;
 export type ExportRecord = z.infer<typeof ExportRecordSchema>;

@@ -169,6 +169,158 @@ describe("V2 G1a resume presentation config", () => {
     expect(renderModel.sections.flatMap((section) => section.blocks).some((block) => block.sourceItemId === first.contentItemId)).toBe(false);
     expect(renderModel.safety.excludedItemIds).toContain(first.contentItemId);
   });
+  it("recovers from corrupt stored presentation config without crashing", async () => {
+    const { repository, branch } = await createBranchFixture("CareerAdaptG1aCorruptDb");
+
+    // Write corrupt JSON to appMeta directly
+    const corruptMeta = {
+      key: `resumePresentationConfig:${branch.id}`,
+      value: { not: "a valid config" },
+      updatedAt: "2026-07-03T00:00:00.000Z"
+    };
+    await (repository as unknown as { db: { appMeta: { put: (meta: unknown) => Promise<unknown> } } }).db.appMeta.put(corruptMeta);
+
+    // Should not throw — falls back to default config
+    const config = await repository.getResumePresentationConfig(branch.id);
+    expect(config.branchId).toBe(branch.id);
+    expect(config.templateId).toBe("classic-technical");
+    expect(config.presentationRevision).toBe(0);
+    expect(config.hiddenItemIds).toEqual([]);
+  });
+
+  it("recovers from corrupt schema version in stored presentation config", async () => {
+    const { repository, branch } = await createBranchFixture("CareerAdaptG1aBadSchemaDb");
+
+    // Write config with wrong schemaVersion
+    const badMeta = {
+      key: `resumePresentationConfig:${branch.id}`,
+      value: {
+        schemaVersion: "wrong-version",
+        branchId: branch.id,
+        templateId: "classic-technical",
+        contentRevision: { branchRevision: 0, currentRevisionId: "x" },
+        presentationRevision: 5,
+        hiddenItemIds: ["fake-id"],
+        updatedAt: "2026-07-03T00:00:00.000Z"
+      },
+      updatedAt: "2026-07-03T00:00:00.000Z"
+    };
+    await (repository as unknown as { db: { appMeta: { put: (meta: unknown) => Promise<unknown> } } }).db.appMeta.put(badMeta);
+
+    const config = await repository.getResumePresentationConfig(branch.id);
+    expect(config.branchId).toBe(branch.id);
+    expect(config.presentationRevision).toBe(0);
+  });
+
+  it("distinguishes ExportRecords by presentation version when branchRevision is the same", async () => {
+    const { repository, branch } = await createBranchFixture("CareerAdaptG1aExportPresentationDb");
+    const initial = await repository.getResumePresentationConfig(branch.id);
+    const sortableItem = branch.contentItems.find((item) => item.visible);
+    if (!sortableItem) {
+      throw new Error("fixture requires at least one visible item");
+    }
+
+    // Export with default config
+    const export1 = await repository.createResumeExportRecord({
+      operationId: `export-pres-${crypto.randomUUID()}`,
+      branchId: branch.id,
+      expectedBranchRevision: branch.revision,
+      expectedRevisionId: branch.currentRevisionId!,
+      templateId: "classic-technical",
+      overflowStatus: "fits",
+      exportStatus: "print_invoked",
+      fileName: "test-1.pdf",
+      presentationRevision: initial.presentationRevision,
+      presentationSnapshot: {
+        templateId: initial.templateId,
+        itemOrderBySection: initial.itemOrderBySection,
+        hiddenItemIds: initial.hiddenItemIds
+      }
+    });
+
+    // Export with hidden item
+    const export2 = await repository.createResumeExportRecord({
+      operationId: `export-pres-${crypto.randomUUID()}`,
+      branchId: branch.id,
+      expectedBranchRevision: branch.revision,
+      expectedRevisionId: branch.currentRevisionId!,
+      templateId: "modern-operations",
+      overflowStatus: "fits",
+      exportStatus: "print_invoked",
+      fileName: "test-2.pdf",
+      presentationRevision: initial.presentationRevision + 1,
+      presentationSnapshot: {
+        templateId: "modern-operations",
+        itemOrderBySection: initial.itemOrderBySection,
+        hiddenItemIds: [sortableItem.id]
+      }
+    });
+
+    expect(export1.record.branchRevision).toBe(export2.record.branchRevision);
+    expect(export1.record.presentationRevision).toBe(0);
+    expect(export2.record.presentationRevision).toBe(1);
+    expect(export1.record.presentationSnapshot?.templateId).toBe("classic-technical");
+    expect(export2.record.presentationSnapshot?.templateId).toBe("modern-operations");
+    expect(export2.record.presentationSnapshot?.hiddenItemIds).toContain(sortableItem.id);
+    expect(export1.record.presentationSnapshot?.hiddenItemIds).toEqual([]);
+  });
+
+  it("accepts ExportRecords without presentation fields for backward compatibility", async () => {
+    const { repository, branch } = await createBranchFixture("CareerAdaptG1aExportCompatDb");
+
+    const result = await repository.createResumeExportRecord({
+      operationId: `export-compat-${crypto.randomUUID()}`,
+      branchId: branch.id,
+      expectedBranchRevision: branch.revision,
+      expectedRevisionId: branch.currentRevisionId!,
+      templateId: "classic-technical",
+      overflowStatus: "fits",
+      exportStatus: "print_invoked",
+      fileName: "test-compat.pdf"
+    });
+
+    expect(result.record.presentationRevision).toBeUndefined();
+    expect(result.record.presentationSnapshot).toBeUndefined();
+  });
+
+  it("filters stale presentation hidden ids when content items change", async () => {
+    const { repository, branch } = await createBranchFixture("CareerAdaptG1aStaleHiddenDb");
+    const initial = await repository.getResumePresentationConfig(branch.id);
+    const visibleItems = branch.contentItems.filter((item) => item.visible);
+    if (visibleItems.length < 2) {
+      throw new Error("fixture requires at least two visible items");
+    }
+
+    // Hide first item
+    const nextConfig = nextPresentationConfig(initial, branch, {
+      hiddenItemIds: [visibleItems[0].id]
+    });
+    await repository.saveResumePresentationConfig({
+      branchId: branch.id,
+      expectedBranchRevision: branch.revision,
+      expectedRevisionId: branch.currentRevisionId!,
+      expectedPresentationRevision: initial.presentationRevision,
+      operationId: "g1a-stale-hide",
+      nextConfig
+    });
+
+    // Simulate stale item id in stored config
+    const staleConfig = {
+      ...nextConfig,
+      presentationRevision: nextConfig.presentationRevision + 1,
+      hiddenItemIds: [visibleItems[0].id, "nonexistent-item-id-12345"]
+    };
+    await (repository as unknown as { db: { appMeta: { put: (meta: unknown) => Promise<unknown> } } }).db.appMeta.put({
+      key: `resumePresentationConfig:${branch.id}`,
+      value: staleConfig,
+      updatedAt: "2026-07-03T00:00:00.000Z"
+    });
+
+    // Should not crash and should filter out the stale id
+    const loaded = await repository.getResumePresentationConfig(branch.id);
+    expect(loaded.hiddenItemIds).toContain(visibleItems[0].id);
+    expect(loaded.hiddenItemIds).not.toContain("nonexistent-item-id-12345");
+  });
 });
 
 async function createBranchFixture(dbNamePrefix: string) {

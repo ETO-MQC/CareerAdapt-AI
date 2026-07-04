@@ -57,6 +57,31 @@ export function ResumeWorkspace() {
   const [studioError, setStudioError] = useState<string | undefined>();
   const [pendingStudioOperationId, setPendingStudioOperationId] = useState<string | undefined>();
 
+  const presentationQueueRef = useRef<{ promise: Promise<void>; latestConfig: ResumePresentationConfig | undefined }>({
+    promise: Promise.resolve(),
+    latestConfig: undefined
+  });
+
+  function enqueuePresentation(operation: (config: ResumePresentationConfig) => Promise<ResumePresentationConfig | undefined>) {
+    const queue = presentationQueueRef.current;
+    queue.promise = queue.promise.then(async () => {
+      const config = queue.latestConfig;
+      if (!config) {
+        return;
+      }
+      const result = await operation(config);
+      if (result) {
+        queue.latestConfig = result;
+      }
+    }).catch((error) => {
+      console.error("Presentation queue error:", error);
+    });
+  }
+
+  useEffect(() => {
+    presentationQueueRef.current.latestConfig = presentationConfig;
+  }, [presentationConfig]);
+
   const profile = workspace.status === "ready" ? workspace.profiles[0] : undefined;
   const jobs = useMemo(() => workspace.status === "ready" ? workspace.jobs : [], [workspace]);
   const activeDraftId = selectedDraftId || drafts[0]?.id || "";
@@ -98,7 +123,7 @@ export function ResumeWorkspace() {
   ]);
   const reductionHints = useMemo(() => renderModel ? buildReductionHints(renderModel) : [], [renderModel]);
   const presentationHiddenBlocks = useMemo(() => {
-    return resumeDocument?.blocks.filter((block) => block.presentationHidden) ?? [];
+    return resumeDocument?.blocks.filter((block) => block.presentationHidden && block.contentVisible) ?? [];
   }, [resumeDocument]);
 
   const refreshLists = useCallback(async (profileId: string) => {
@@ -281,12 +306,12 @@ export function ResumeWorkspace() {
 
   async function savePresentationConfig(input: {
     nextConfig: ResumePresentationConfig;
+    beforeConfig: ResumePresentationConfig;
     operationId: string;
     successMessage: string;
     recordHistory?: boolean;
-    historyBefore?: ResumePresentationConfig;
   }) {
-    if (!selectedBranch || !selectedBranchEditable || !presentationConfig || !selectedBranch.currentRevisionId) {
+    if (!selectedBranch || !selectedBranchEditable || !selectedBranch.currentRevisionId) {
       setMessage("当前分支不可保存展示配置：legacy、归档、引用失效或缺少 currentRevision。");
       return undefined;
     }
@@ -296,16 +321,15 @@ export function ResumeWorkspace() {
         branchId: selectedBranch.id,
         expectedBranchRevision: selectedBranch.revision,
         expectedRevisionId: selectedBranch.currentRevisionId,
-        expectedPresentationRevision: presentationConfig.presentationRevision,
+        expectedPresentationRevision: input.beforeConfig.presentationRevision,
         operationId: input.operationId,
         nextConfig: input.nextConfig
       });
       setPresentationConfig(result.config);
       setTemplateId(result.config.templateId);
       if (input.recordHistory !== false && !result.idempotent) {
-        const before = input.historyBefore ?? presentationConfig;
         setPresentationHistory((current) => ({
-          undoStack: [...current.undoStack.slice(-49), before],
+          undoStack: [...current.undoStack.slice(-49), input.beforeConfig],
           redoStack: []
         }));
       }
@@ -327,15 +351,21 @@ export function ResumeWorkspace() {
     if (nextTemplateId === presentationConfig.templateId) {
       return;
     }
-    const nextConfig = buildNextPresentationConfig({
-      current: presentationConfig,
-      branch: selectedBranch,
-      patch: { templateId: nextTemplateId }
-    });
-    await savePresentationConfig({
-      nextConfig,
-      operationId: `v2-g1a-template-${selectedBranch.id}-${selectedBranch.revision}-${presentationConfig.presentationRevision}-${nextTemplateId}`,
-      successMessage: "模板偏好已保存到当前分支展示配置。"
+    enqueuePresentation(async (current) => {
+      if (nextTemplateId === current.templateId) {
+        return current;
+      }
+      const nextConfig = buildNextPresentationConfig({
+        current,
+        branch: selectedBranch,
+        patch: { templateId: nextTemplateId }
+      });
+      return await savePresentationConfig({
+        nextConfig,
+        beforeConfig: current,
+        operationId: `v2-g1a-template-${selectedBranch.id}-${selectedBranch.revision}-${current.presentationRevision}-${nextTemplateId}`,
+        successMessage: "模板偏好已保存到当前分支展示配置。"
+      });
     });
   }
 
@@ -343,21 +373,24 @@ export function ResumeWorkspace() {
     if (!selectedBranch || !presentationConfig) {
       return;
     }
-    const hiddenItemIds = visible
-      ? presentationConfig.hiddenItemIds.filter((id) => id !== itemId)
-      : Array.from(new Set([...presentationConfig.hiddenItemIds, itemId]));
-    if (hiddenItemIds.length === presentationConfig.hiddenItemIds.length && hiddenItemIds.every((id, index) => id === presentationConfig.hiddenItemIds[index])) {
-      return;
-    }
-    const nextConfig = buildNextPresentationConfig({
-      current: presentationConfig,
-      branch: selectedBranch,
-      patch: { hiddenItemIds }
-    });
-    await savePresentationConfig({
-      nextConfig,
-      operationId: `v2-g1a-visibility-${selectedBranch.id}-${selectedBranch.revision}-${presentationConfig.presentationRevision}-${stableHashText(hiddenItemIds.join("|"))}`,
-      successMessage: visible ? "内容已恢复显示，未创建内容版本。" : "内容已隐藏，未创建内容版本。"
+    enqueuePresentation(async (current) => {
+      const hiddenItemIds = visible
+        ? current.hiddenItemIds.filter((id) => id !== itemId)
+        : Array.from(new Set([...current.hiddenItemIds, itemId]));
+      if (hiddenItemIds.length === current.hiddenItemIds.length && hiddenItemIds.every((id, index) => id === current.hiddenItemIds[index])) {
+        return current;
+      }
+      const nextConfig = buildNextPresentationConfig({
+        current,
+        branch: selectedBranch,
+        patch: { hiddenItemIds }
+      });
+      return await savePresentationConfig({
+        nextConfig,
+        beforeConfig: current,
+        operationId: `v2-g1a-visibility-${selectedBranch.id}-${selectedBranch.revision}-${current.presentationRevision}-${stableHashText(hiddenItemIds.join("|"))}`,
+        successMessage: visible ? "内容已恢复显示，未创建内容版本。" : "内容已隐藏，未创建内容版本。"
+      });
     });
   }
 
@@ -379,75 +412,114 @@ export function ResumeWorkspace() {
       return;
     }
 
-    const nextSectionBlocks = [...sectionBlocks];
-    const [moved] = nextSectionBlocks.splice(currentIndex, 1);
-    nextSectionBlocks.splice(nextIndex, 0, moved);
-    const nextOrder = nextSectionBlocks.map((candidate) => candidate.contentItemId);
-    const nextConfig = buildNextPresentationConfig({
-      current: presentationConfig,
-      branch: selectedBranch,
-      patch: {
-        itemOrderBySection: {
-          ...presentationConfig.itemOrderBySection,
-          [block.sectionType]: nextOrder
-        }
+    enqueuePresentation(async (current) => {
+      const currentSectionOrder = current.itemOrderBySection[block.sectionType] ?? [];
+      const sectionItemIds = new Set(sectionBlocks.map((candidate) => candidate.contentItemId));
+      const orderedIds = currentSectionOrder.filter((id) => sectionItemIds.has(id));
+      const fallbackIds = sectionBlocks.map((candidate) => candidate.contentItemId);
+      const effectiveOrder = orderedIds.length === fallbackIds.length ? orderedIds : fallbackIds;
+      const idx = effectiveOrder.indexOf(itemId);
+      if (idx < 0) {
+        return current;
       }
-    });
-    await savePresentationConfig({
-      nextConfig,
-      operationId: `v2-g1a-reorder-${selectedBranch.id}-${selectedBranch.revision}-${presentationConfig.presentationRevision}-${block.sectionType}-${stableHashText(nextOrder.join("|"))}`,
-      successMessage: "排序已保存到当前分支展示配置，未创建内容版本。"
+      const swapIdx = direction === "up" ? idx - 1 : idx + 1;
+      if (swapIdx < 0 || swapIdx >= effectiveOrder.length) {
+        return current;
+      }
+      const nextOrder = [...effectiveOrder];
+      const [moved] = nextOrder.splice(idx, 1);
+      nextOrder.splice(swapIdx, 0, moved);
+      const nextConfig = buildNextPresentationConfig({
+        current,
+        branch: selectedBranch,
+        patch: {
+          itemOrderBySection: {
+            ...current.itemOrderBySection,
+            [block.sectionType]: nextOrder
+          }
+        }
+      });
+      return await savePresentationConfig({
+        nextConfig,
+        beforeConfig: current,
+        operationId: `v2-g1a-reorder-${selectedBranch.id}-${selectedBranch.revision}-${current.presentationRevision}-${block.sectionType}-${stableHashText(nextOrder.join("|"))}`,
+        successMessage: "排序已保存到当前分支展示配置，未创建内容版本。"
+      });
     });
   }
 
   async function undoPresentationChange() {
-    const target = presentationHistory.undoStack.at(-1);
-    if (!target || !selectedBranch || !presentationConfig) {
+    if (!selectedBranch || !presentationConfig) {
       setMessage("没有可撤销的展示操作。");
       return;
     }
-    const nextConfig = buildNextPresentationConfig({
-      current: presentationConfig,
-      branch: selectedBranch,
-      patch: presentationSnapshotPatch(target)
-    });
-    const saved = await savePresentationConfig({
-      nextConfig,
-      operationId: `v2-g1a-presentation-undo-${selectedBranch.id}-${selectedBranch.revision}-${presentationConfig.presentationRevision}-${stableHashText(JSON.stringify(presentationSnapshotPatch(target)))}`,
-      successMessage: "已撤销最近一次展示操作。",
-      recordHistory: false
-    });
-    if (saved) {
-      setPresentationHistory((current) => ({
-        undoStack: current.undoStack.slice(0, -1),
-        redoStack: [...current.redoStack.slice(-49), presentationConfig]
-      }));
+    const target = presentationHistory.undoStack.at(-1);
+    if (!target) {
+      setMessage("没有可撤销的展示操作。");
+      return;
     }
+    enqueuePresentation(async (current) => {
+      const undoTarget = presentationHistory.undoStack.at(-1);
+      if (!undoTarget) {
+        return current;
+      }
+      const nextConfig = buildNextPresentationConfig({
+        current,
+        branch: selectedBranch,
+        patch: presentationSnapshotPatch(undoTarget)
+      });
+      const saved = await savePresentationConfig({
+        nextConfig,
+        beforeConfig: current,
+        operationId: `v2-g1a-presentation-undo-${selectedBranch.id}-${selectedBranch.revision}-${current.presentationRevision}-${stableHashText(JSON.stringify(presentationSnapshotPatch(undoTarget)))}`,
+        successMessage: "已撤销最近一次展示操作。",
+        recordHistory: false
+      });
+      if (saved) {
+        setPresentationHistory((prev) => ({
+          undoStack: prev.undoStack.slice(0, -1),
+          redoStack: [...prev.redoStack.slice(-49), current]
+        }));
+      }
+      return saved ?? current;
+    });
   }
 
   async function redoPresentationChange() {
-    const target = presentationHistory.redoStack.at(-1);
-    if (!target || !selectedBranch || !presentationConfig) {
+    if (!selectedBranch || !presentationConfig) {
       setMessage("没有可重做的展示操作。");
       return;
     }
-    const nextConfig = buildNextPresentationConfig({
-      current: presentationConfig,
-      branch: selectedBranch,
-      patch: presentationSnapshotPatch(target)
-    });
-    const saved = await savePresentationConfig({
-      nextConfig,
-      operationId: `v2-g1a-presentation-redo-${selectedBranch.id}-${selectedBranch.revision}-${presentationConfig.presentationRevision}-${stableHashText(JSON.stringify(presentationSnapshotPatch(target)))}`,
-      successMessage: "已重做最近一次展示操作。",
-      recordHistory: false
-    });
-    if (saved) {
-      setPresentationHistory((current) => ({
-        undoStack: [...current.undoStack.slice(-49), presentationConfig],
-        redoStack: current.redoStack.slice(0, -1)
-      }));
+    const target = presentationHistory.redoStack.at(-1);
+    if (!target) {
+      setMessage("没有可重做的展示操作。");
+      return;
     }
+    enqueuePresentation(async (current) => {
+      const redoTarget = presentationHistory.redoStack.at(-1);
+      if (!redoTarget) {
+        return current;
+      }
+      const nextConfig = buildNextPresentationConfig({
+        current,
+        branch: selectedBranch,
+        patch: presentationSnapshotPatch(redoTarget)
+      });
+      const saved = await savePresentationConfig({
+        nextConfig,
+        beforeConfig: current,
+        operationId: `v2-g1a-presentation-redo-${selectedBranch.id}-${selectedBranch.revision}-${current.presentationRevision}-${stableHashText(JSON.stringify(presentationSnapshotPatch(redoTarget)))}`,
+        successMessage: "已重做最近一次展示操作。",
+        recordHistory: false
+      });
+      if (saved) {
+        setPresentationHistory((prev) => ({
+          undoStack: [...prev.undoStack.slice(-49), current],
+          redoStack: prev.redoStack.slice(0, -1)
+        }));
+      }
+      return saved ?? current;
+    });
   }
 
   async function restoreRevision(revisionId: string) {
@@ -599,7 +671,12 @@ export function ResumeWorkspace() {
       ? classifyOverflow({ scrollHeight: page.scrollHeight, clientHeight: page.clientHeight })
       : overflow;
     const fileName = buildExportFileName(renderModel, effectiveTemplateId);
-    const operationId = `d2-export-${selectedBranch.id}-${selectedBranch.revision}-${selectedBranch.currentRevisionId}-${effectiveTemplateId}-${measured.status}`;
+    const presentationSnapshot = presentationConfig ? {
+      templateId: presentationConfig.templateId,
+      itemOrderBySection: presentationConfig.itemOrderBySection,
+      hiddenItemIds: presentationConfig.hiddenItemIds
+    } : undefined;
+    const operationId = `d2-export-${selectedBranch.id}-${selectedBranch.revision}-${selectedBranch.currentRevisionId}-${effectiveTemplateId}-${measured.status}-${presentationConfig?.presentationRevision ?? 0}`;
 
     try {
       const [latestBranch, latestProfile, latestJob] = await Promise.all([
@@ -634,7 +711,9 @@ export function ResumeWorkspace() {
           overflowStatus: "overflow",
           exportStatus: "blocked_overflow",
           fileName,
-          errorCode: "overflow"
+          errorCode: "overflow",
+          presentationRevision: presentationConfig?.presentationRevision,
+          presentationSnapshot
         });
         setMessage("导出已阻止：当前 A4 预览为 overflow，请先删减内容。");
         return;
@@ -648,7 +727,9 @@ export function ResumeWorkspace() {
         templateId: effectiveTemplateId,
         overflowStatus: measured.status,
         exportStatus: "print_invoked",
-        fileName
+        fileName,
+        presentationRevision: presentationConfig?.presentationRevision,
+        presentationSnapshot
       });
       printCurrentPage();
       setMessage(measured.status === "near_limit"

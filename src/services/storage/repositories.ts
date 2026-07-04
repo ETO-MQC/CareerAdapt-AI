@@ -969,10 +969,15 @@ export class WorkspaceRepository {
     const parsedBranch = ResumeBranchSchema.parse(branch);
     const stored = await this.db.appMeta.get(resumePresentationConfigKey(branchId));
     if (stored) {
-      return sanitizePresentationConfigForBranch(
-        ResumePresentationConfigSchema.parse(stored.value),
-        parsedBranch
-      );
+      try {
+        return sanitizePresentationConfigForBranch(
+          ResumePresentationConfigSchema.parse(stored.value),
+          parsedBranch
+        );
+      } catch {
+        // Stored presentation config is corrupt (malformed JSON, schema mismatch,
+        // branch mismatch, or all visible content hidden). Fall back to default.
+      }
     }
 
     const legacyWorkbenchState = await this.db.appMeta.get(resumeWorkbenchStateKey(parsedBranch.profileId));
@@ -1299,6 +1304,12 @@ export class WorkspaceRepository {
     fileName: string;
     displayName?: string;
     errorCode?: string;
+    presentationRevision?: number;
+    presentationSnapshot?: {
+      templateId: string;
+      itemOrderBySection: Record<string, string[]>;
+      hiddenItemIds: string[];
+    };
   }) {
     return this.db.transaction("rw", this.db.resumeBranches, this.db.exportRecords, async () => {
       const existing = await this.db.exportRecords.where("operationId").equals(input.operationId).first();
@@ -1345,6 +1356,8 @@ export class WorkspaceRepository {
         overflowStatus: input.overflowStatus,
         exportedAt: now,
         errorCode: input.errorCode,
+        presentationRevision: input.presentationRevision,
+        presentationSnapshot: input.presentationSnapshot,
         createdAt: now,
         updatedAt: now
       });
