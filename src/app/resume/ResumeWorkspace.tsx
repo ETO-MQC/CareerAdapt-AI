@@ -67,9 +67,16 @@ export function ResumeWorkspace() {
   const [isStylePanelOpen, setIsStylePanelOpen] = useState(true);
   const [activePropertyTab, setActivePropertyTab] = useState<PropertyPanelTab>("document");
 
-  const presentationQueueRef = useRef<{ promise: Promise<void>; latestConfig: ResumePresentationConfig | undefined }>({
+  const presentationQueueRef = useRef<{
+    promise: Promise<void>;
+    latestConfig: ResumePresentationConfig | undefined;
+    undoStack: ResumePresentationConfig[];
+    redoStack: ResumePresentationConfig[];
+  }>({
     promise: Promise.resolve(),
-    latestConfig: undefined
+    latestConfig: undefined,
+    undoStack: [],
+    redoStack: []
   });
 
   function enqueuePresentation(operation: (config: ResumePresentationConfig) => Promise<ResumePresentationConfig | undefined>) {
@@ -215,6 +222,9 @@ export function ResumeWorkspace() {
         setRevisions(nextRevisions);
         setPresentationConfig(nextPresentationConfig);
         setTemplateId(nextPresentationConfig.templateId);
+        const queue = presentationQueueRef.current;
+        queue.undoStack = [];
+        queue.redoStack = [];
         setPresentationHistory({ undoStack: [], redoStack: [] });
       }
     }
@@ -232,6 +242,9 @@ export function ResumeWorkspace() {
       }
       setEditTexts({});
       clearStudioEditor();
+      const queue = presentationQueueRef.current;
+      queue.undoStack = [];
+      queue.redoStack = [];
       setPresentationHistory({ undoStack: [], redoStack: [] });
     });
     return () => {
@@ -349,10 +362,13 @@ export function ResumeWorkspace() {
       setPresentationConfig(result.config);
       setTemplateId(result.config.templateId);
       if (input.recordHistory !== false && !result.idempotent) {
-        setPresentationHistory((current) => ({
-          undoStack: [...current.undoStack.slice(-49), input.beforeConfig],
-          redoStack: []
-        }));
+        const queue = presentationQueueRef.current;
+        queue.undoStack = [...queue.undoStack.slice(-49), input.beforeConfig];
+        queue.redoStack = [];
+        setPresentationHistory({
+          undoStack: queue.undoStack,
+          redoStack: queue.redoStack
+        });
       }
       setMessage(result.idempotent ? "该展示操作已保存过，未重复写入。" : input.successMessage);
       return result.config;
@@ -545,13 +561,13 @@ export function ResumeWorkspace() {
       setMessage("没有可撤销的展示操作。");
       return;
     }
-    const target = presentationHistory.undoStack.at(-1);
-    if (!target) {
+    const queue = presentationQueueRef.current;
+    if (queue.undoStack.length === 0) {
       setMessage("没有可撤销的展示操作。");
       return;
     }
     enqueuePresentation(async (current) => {
-      const undoTarget = presentationHistory.undoStack.at(-1);
+      const undoTarget = presentationQueueRef.current.undoStack.at(-1);
       if (!undoTarget) {
         return current;
       }
@@ -568,10 +584,13 @@ export function ResumeWorkspace() {
         recordHistory: false
       });
       if (saved) {
-        setPresentationHistory((prev) => ({
-          undoStack: prev.undoStack.slice(0, -1),
-          redoStack: [...prev.redoStack.slice(-49), current]
-        }));
+        const q = presentationQueueRef.current;
+        q.undoStack = q.undoStack.slice(0, -1);
+        q.redoStack = [...q.redoStack.slice(-49), current];
+        setPresentationHistory({
+          undoStack: q.undoStack,
+          redoStack: q.redoStack
+        });
       }
       return saved ?? current;
     });
@@ -582,13 +601,13 @@ export function ResumeWorkspace() {
       setMessage("没有可重做的展示操作。");
       return;
     }
-    const target = presentationHistory.redoStack.at(-1);
-    if (!target) {
+    const queue = presentationQueueRef.current;
+    if (queue.redoStack.length === 0) {
       setMessage("没有可重做的展示操作。");
       return;
     }
     enqueuePresentation(async (current) => {
-      const redoTarget = presentationHistory.redoStack.at(-1);
+      const redoTarget = presentationQueueRef.current.redoStack.at(-1);
       if (!redoTarget) {
         return current;
       }
@@ -605,10 +624,13 @@ export function ResumeWorkspace() {
         recordHistory: false
       });
       if (saved) {
-        setPresentationHistory((prev) => ({
-          undoStack: [...prev.undoStack.slice(-49), current],
-          redoStack: prev.redoStack.slice(0, -1)
-        }));
+        const q = presentationQueueRef.current;
+        q.undoStack = [...q.undoStack.slice(-49), current];
+        q.redoStack = q.redoStack.slice(0, -1);
+        setPresentationHistory({
+          undoStack: q.undoStack,
+          redoStack: q.redoStack
+        });
       }
       return saved ?? current;
     });
@@ -843,6 +865,9 @@ export function ResumeWorkspace() {
     setBranches((current) => current.map((item) => item.id === branch.id ? branch : item));
     setEditTexts({});
     clearStudioEditor();
+    const queue = presentationQueueRef.current;
+    queue.undoStack = [];
+    queue.redoStack = [];
     setPresentationHistory({ undoStack: [], redoStack: [] });
     void repository.listResumeRevisions(branch.id).then(setRevisions);
   }

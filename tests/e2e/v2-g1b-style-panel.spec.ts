@@ -195,4 +195,70 @@ test.describe("V2-G1b style property panel", () => {
     await expect.poll(() => getCssVariable(page, "--resume-body-font-size")).toBe("8.8pt");
     expect(await getResumeRevisionCount(page, branch.id)).toBe(revisionsBefore);
   });
+
+  test("连续撤销和重做不会因闭包过期导致 undo/redo 栈错乱", async ({ page }) => {
+    const branchName = `V2 G1b undo bug ${Date.now()}`;
+    await createBranchFromDraft(page, branchName);
+
+    await expect(page.getByTestId("resume-property-panel")).toBeVisible();
+
+    // Make two style changes to build undo stack
+    await page.getByLabel("页面密度").selectOption("compact");
+    await expect(page.locator(".notice")).toContainText("页面密度已保存");
+    await expect.poll(() => getCssVariable(page, "--resume-page-padding-block")).toBe("10mm");
+
+    await page.getByLabel("正文字号").selectOption("small");
+    await expect(page.locator(".notice")).toContainText("正文字号已保存");
+    await expect.poll(() => getCssVariable(page, "--resume-body-font-size")).toBe("8.8pt");
+
+    // First undo: restores bodyTextScale
+    const undoButton = page.getByRole("button", { name: "回退展示" });
+    await expect(undoButton).toBeEnabled();
+    await undoButton.click();
+    await expect(page.locator(".notice")).toContainText("已撤销");
+    await expect.poll(() => getCssVariable(page, "--resume-body-font-size")).toBe("9.3pt");
+
+    // Second undo: restores density
+    await expect(undoButton).toBeEnabled();
+    await undoButton.click();
+    await expect(page.locator(".notice")).toContainText("已撤销");
+    await expect.poll(() => getCssVariable(page, "--resume-page-padding-block")).toBe("12mm");
+
+    // Both undos done; redo should be available
+    const redoButton = page.getByRole("button", { name: "重做展示" });
+    await expect(redoButton).toBeEnabled({ timeout: 5000 });
+
+    // Redo restores density
+    await redoButton.click();
+    await expect(page.locator(".notice")).toContainText("已重做");
+    await expect.poll(() => getCssVariable(page, "--resume-page-padding-block")).toBe("10mm");
+
+    // Redo again restores bodyTextScale
+    await expect(redoButton).toBeEnabled();
+    await redoButton.click();
+    await expect(page.locator(".notice")).toContainText("已重做");
+    await expect.poll(() => getCssVariable(page, "--resume-body-font-size")).toBe("8.8pt");
+  });
+
+  test("恢复模板默认样式后 overflow 重新测量", async ({ page }) => {
+    const branchName = `V2 G1b reset overflow ${Date.now()}`;
+    await createBranchFromDraft(page, branchName);
+
+    await expect(page.getByTestId("resume-property-panel")).toBeVisible();
+
+    // Change density to spacious to increase page padding
+    await page.getByLabel("页面密度").selectOption("spacious");
+    await expect(page.locator(".notice")).toContainText("页面密度已保存");
+    await expect.poll(() => getCssVariable(page, "--resume-page-padding-block")).toBe("14mm");
+
+    // Reset to default
+    await page.getByRole("button", { name: "恢复模板默认样式" }).click();
+    await expect(page.locator(".notice")).toContainText("已恢复当前模板默认样式");
+    await expect.poll(() => getCssVariable(page, "--resume-page-padding-block")).toBe("12mm");
+
+    // Verify overflow status element is visible and has valid content
+    const overflowStatus = page.getByTestId("overflow-status");
+    await expect(overflowStatus).toBeVisible();
+    await expect(overflowStatus.locator("strong")).not.toBeEmpty();
+  });
 });
