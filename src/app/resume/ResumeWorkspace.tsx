@@ -13,7 +13,12 @@ import { mapBranchToResumeRenderModel, ResumeRenderMapperError } from "@/domain/
 import { A4ResumePreview } from "@/components/resume/A4ResumePreview";
 import { mapBranchToResumeDocument } from "@/domain/resumeDocument/mapper";
 import { classifyOverflow, useA4Overflow } from "@/components/resume/useA4Overflow";
-import { getResumeTemplate, resumeTemplates } from "@/components/resume/templates/templateRegistry";
+import {
+  getResumeTemplate,
+  getTemplateDefaultStyleConfig,
+  resumeTemplates,
+  type ResumeTemplateStyleConfig
+} from "@/components/resume/templates/templateRegistry";
 import { printCurrentPage } from "@/services/export/browserPrint";
 import { stableHashText } from "@/services/security/text";
 import { RevisionConflictError, WorkspaceRepository } from "@/services/storage/repositories";
@@ -26,12 +31,15 @@ const DEFAULT_TEMPLATE_ID: TemplateId = "classic-technical";
 type WorkbenchState = {
   branchId?: string;
   templateId?: TemplateId;
+  stylePanelOpen?: boolean;
 };
 
 type PresentationHistoryState = {
   undoStack: ResumePresentationConfig[];
   redoStack: ResumePresentationConfig[];
 };
+
+type PropertyPanelTab = "document" | "section" | "block";
 
 export function ResumeWorkspace() {
   const workspace = useWorkspace(repository);
@@ -56,6 +64,8 @@ export function ResumeWorkspace() {
   const [studioDraftText, setStudioDraftText] = useState("");
   const [studioError, setStudioError] = useState<string | undefined>();
   const [pendingStudioOperationId, setPendingStudioOperationId] = useState<string | undefined>();
+  const [isStylePanelOpen, setIsStylePanelOpen] = useState(true);
+  const [activePropertyTab, setActivePropertyTab] = useState<PropertyPanelTab>("document");
 
   const presentationQueueRef = useRef<{ promise: Promise<void>; latestConfig: ResumePresentationConfig | undefined }>({
     promise: Promise.resolve(),
@@ -114,6 +124,12 @@ export function ResumeWorkspace() {
     return new Map(resumeDocument?.blocks.map((block) => [block.contentItemId, block]) ?? []);
   }, [resumeDocument]);
   const selectedStudioBlock = selectedStudioItemId ? resumeDocumentBlocksById.get(selectedStudioItemId) : undefined;
+  const selectedStudioSection = useMemo(() => {
+    if (!resumeDocument || !selectedStudioBlock) {
+      return undefined;
+    }
+    return resumeDocument.sections.find((section) => section.type === selectedStudioBlock.sectionType);
+  }, [resumeDocument, selectedStudioBlock]);
   const selectedBranchEditable = selectedBranch ? canEditBranch(selectedBranch) : false;
   const overflow = useA4Overflow(pageRef, [
     renderModel?.branchId,
@@ -141,6 +157,7 @@ export function ResumeWorkspace() {
     setStudioDraftText("");
     setStudioError(undefined);
     setPendingStudioOperationId(undefined);
+    setActivePropertyTab("document");
   }, []);
 
   useEffect(() => {
@@ -162,6 +179,9 @@ export function ResumeWorkspace() {
       const parsed = parseWorkbenchState(savedState?.value);
       if (parsed.templateId) {
         setTemplateId(parsed.templateId);
+      }
+      if (typeof parsed.stylePanelOpen === "boolean") {
+        setIsStylePanelOpen(parsed.stylePanelOpen);
       }
       if (parsed.branchId && nextBranches.some((branch) => branch.id === parsed.branchId)) {
         setSelectedBranchId(parsed.branchId);
@@ -240,9 +260,10 @@ export function ResumeWorkspace() {
     }
     void repository.setMeta(workbenchStateKey(profile.id), {
       branchId: activeBranchId,
-      templateId: effectiveTemplateId
+      templateId: effectiveTemplateId,
+      stylePanelOpen: isStylePanelOpen
     } satisfies WorkbenchState);
-  }, [profile, activeBranchId, effectiveTemplateId]);
+  }, [profile, activeBranchId, effectiveTemplateId, isStylePanelOpen]);
 
   const draftOptions = useMemo(() => drafts.map((draft) => {
     const job = jobs.find((item) => item.id === draft.jobId);
@@ -367,6 +388,77 @@ export function ResumeWorkspace() {
         successMessage: "模板偏好已保存到当前分支展示配置。"
       });
     });
+  }
+
+  async function updatePresentationStyle(
+    patch: Partial<ResumeTemplateStyleConfig> | ((current: ResumePresentationConfig) => Partial<ResumeTemplateStyleConfig>),
+    successMessage = "样式已保存到当前分支展示配置。"
+  ) {
+    if (!selectedBranch || !presentationConfig) {
+      return;
+    }
+    enqueuePresentation(async (current) => {
+      const resolvedPatch = typeof patch === "function" ? patch(current) : patch;
+      const nextConfig = buildNextPresentationConfig({
+        current,
+        branch: selectedBranch,
+        patch: resolvedPatch
+      });
+      if (stableHashText(JSON.stringify(presentationStylePatch(current))) === stableHashText(JSON.stringify(presentationStylePatch(nextConfig)))) {
+        return current;
+      }
+      return await savePresentationConfig({
+        nextConfig,
+        beforeConfig: current,
+        operationId: `v2-g1b-style-${selectedBranch.id}-${selectedBranch.revision}-${current.presentationRevision}-${stableHashText(JSON.stringify(presentationStylePatch(nextConfig)))}`,
+        successMessage
+      });
+    });
+  }
+
+  async function resetTemplateStyle() {
+    if (!selectedBranch || !presentationConfig) {
+      return;
+    }
+    enqueuePresentation(async (current) => {
+      const defaults = getTemplateDefaultStyleConfig(current.templateId);
+      const nextConfig = buildNextPresentationConfig({
+        current,
+        branch: selectedBranch,
+        patch: defaults
+      });
+      return await savePresentationConfig({
+        nextConfig,
+        beforeConfig: current,
+        operationId: `v2-g1b-style-reset-${selectedBranch.id}-${selectedBranch.revision}-${current.presentationRevision}-${current.templateId}`,
+        successMessage: "已恢复当前模板默认样式。"
+      });
+    });
+  }
+
+  async function setSectionTitleVisibility(
+    sectionType: NonNullable<typeof selectedStudioBlock>["sectionType"],
+    showTitle: boolean
+  ) {
+    await updatePresentationStyle((current) => ({
+      sectionStyleOverrides: {
+        ...current.sectionStyleOverrides,
+        [sectionType]: {
+          ...current.sectionStyleOverrides[sectionType],
+          showTitle
+        }
+      }
+    }), showTitle ? "Section 标题已恢复显示。" : "Section 标题已隐藏。");
+  }
+
+  async function resetSectionStyle(sectionType: NonNullable<typeof selectedStudioBlock>["sectionType"]) {
+    await updatePresentationStyle((current) => {
+      const nextOverrides = { ...current.sectionStyleOverrides };
+      delete nextOverrides[sectionType];
+      return {
+        sectionStyleOverrides: nextOverrides
+      };
+    }, "当前 Section 样式已恢复默认。");
   }
 
   async function setPresentationItemVisibility(itemId: string, visible: boolean) {
@@ -564,6 +656,7 @@ export function ResumeWorkspace() {
       return;
     }
     setSelectedStudioItemId(itemId);
+    setActivePropertyTab("block");
     setEditingStudioItemId(undefined);
     setStudioDraftText("");
     setStudioError(undefined);
@@ -674,7 +767,11 @@ export function ResumeWorkspace() {
     const presentationSnapshot = presentationConfig ? {
       templateId: presentationConfig.templateId,
       itemOrderBySection: presentationConfig.itemOrderBySection,
-      hiddenItemIds: presentationConfig.hiddenItemIds
+      hiddenItemIds: presentationConfig.hiddenItemIds,
+      typography: presentationConfig.typography,
+      spacing: presentationConfig.spacing,
+      theme: presentationConfig.theme,
+      sectionStyleOverrides: presentationConfig.sectionStyleOverrides
     } : undefined;
     const operationId = `d2-export-${selectedBranch.id}-${selectedBranch.revision}-${selectedBranch.currentRevisionId}-${effectiveTemplateId}-${measured.status}-${presentationConfig?.presentationRevision ?? 0}`;
 
@@ -902,7 +999,21 @@ export function ResumeWorkspace() {
       {selectedBranch ? (
         <section className="resume-preview-layout">
           <aside className="panel no-print resume-export-panel">
-            <h2>3. 模板与导出</h2>
+            <div className="property-panel-heading">
+              <h2>3. 属性与导出</h2>
+              <button
+                className="secondary-button compact"
+                onClick={() => setIsStylePanelOpen((current) => !current)}
+              >
+                {isStylePanelOpen ? "收起面板" : "展开面板"}
+              </button>
+            </div>
+            <div className="property-summary">
+              <strong>{selectedStudioBlock ? selectedStudioBlock.text.slice(0, 28) : selectedBranch.name}</strong>
+              <span>
+                {selectedStudioBlock ? "Block" : "Document"} / {selectedTemplate.name} / presentation {presentationConfig?.presentationRevision ?? 0}
+              </span>
+            </div>
             <label className="inline-toggle studio-edit-toggle">
               <input
                 type="checkbox"
@@ -939,6 +1050,236 @@ export function ResumeWorkspace() {
                 重做展示
               </button>
             </div>
+            {isStylePanelOpen ? (
+              <div className="property-panel-body" data-testid="resume-property-panel">
+                <div className="property-tabs" role="tablist" aria-label="属性面板上下文">
+                  {(["document", "section", "block"] as const).map((tab) => {
+                    const disabled = tab === "section"
+                      ? !selectedStudioSection
+                      : tab === "block"
+                        ? !selectedStudioBlock
+                        : false;
+                    const active = activePropertyTab === tab || (disabled && tab === "document");
+                    return (
+                      <button
+                        key={tab}
+                        className={`secondary-button compact ${active ? "property-tab-active" : ""}`}
+                        disabled={disabled}
+                        onClick={() => setActivePropertyTab(tab)}
+                        type="button"
+                      >
+                        {propertyTabLabel(tab)}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {activePropertyTab === "document" || !selectedStudioBlock ? (
+                  <div className="property-section" data-testid="document-style-panel">
+                    <div className="property-control-grid">
+                      <label className="field-label">
+                        页面密度
+                        <select
+                          aria-label="页面密度"
+                          value={presentationConfig?.theme.density ?? "balanced"}
+                          disabled={!presentationConfig || !selectedBranchEditable || !selectedTemplate.styleCapabilities.density}
+                          onChange={(event) => {
+                            const density = event.target.value as ResumePresentationConfig["theme"]["density"];
+                            void updatePresentationStyle((current) => ({
+                              theme: { ...current.theme, density }
+                            }), "页面密度已保存。");
+                          }}
+                        >
+                          {(["compact", "balanced", "spacious"] as const).map((value) => (
+                            <option key={value} value={value}>{densityLabel(value)}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="field-label">
+                        正文字号
+                        <select
+                          aria-label="正文字号"
+                          value={presentationConfig?.typography.bodyTextScale ?? "normal"}
+                          disabled={!presentationConfig || !selectedBranchEditable || !selectedTemplate.styleCapabilities.bodyTextScale}
+                          onChange={(event) => {
+                            const bodyTextScale = event.target.value as ResumePresentationConfig["typography"]["bodyTextScale"];
+                            void updatePresentationStyle((current) => ({
+                              typography: { ...current.typography, bodyTextScale }
+                            }), "正文字号已保存。");
+                          }}
+                        >
+                          {(["small", "normal", "large"] as const).map((value) => (
+                            <option key={value} value={value}>{scaleLabel(value)}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="field-label">
+                        标题字号
+                        <select
+                          aria-label="标题字号"
+                          value={presentationConfig?.typography.titleTextScale ?? "normal"}
+                          disabled={!presentationConfig || !selectedBranchEditable || !selectedTemplate.styleCapabilities.titleTextScale}
+                          onChange={(event) => {
+                            const titleTextScale = event.target.value as ResumePresentationConfig["typography"]["titleTextScale"];
+                            void updatePresentationStyle((current) => ({
+                              typography: { ...current.typography, titleTextScale }
+                            }), "标题字号已保存。");
+                          }}
+                        >
+                          {(["small", "normal", "large"] as const).map((value) => (
+                            <option key={value} value={value}>{scaleLabel(value)}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="field-label">
+                        行距
+                        <select
+                          aria-label="行距"
+                          value={presentationConfig?.typography.lineHeight ?? "normal"}
+                          disabled={!presentationConfig || !selectedBranchEditable || !selectedTemplate.styleCapabilities.lineHeight}
+                          onChange={(event) => {
+                            const lineHeight = event.target.value as ResumePresentationConfig["typography"]["lineHeight"];
+                            void updatePresentationStyle((current) => ({
+                              typography: { ...current.typography, lineHeight }
+                            }), "行距已保存。");
+                          }}
+                        >
+                          {(["tight", "normal", "relaxed"] as const).map((value) => (
+                            <option key={value} value={value}>{spacingLabel(value)}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="field-label">
+                        条目间距
+                        <select
+                          aria-label="条目间距"
+                          value={presentationConfig?.spacing.itemGap ?? "normal"}
+                          disabled={!presentationConfig || !selectedBranchEditable || !selectedTemplate.styleCapabilities.itemGap}
+                          onChange={(event) => {
+                            const itemGap = event.target.value as ResumePresentationConfig["spacing"]["itemGap"];
+                            void updatePresentationStyle((current) => ({
+                              spacing: { ...current.spacing, itemGap }
+                            }), "条目间距已保存。");
+                          }}
+                        >
+                          {(["tight", "normal", "relaxed"] as const).map((value) => (
+                            <option key={value} value={value}>{spacingLabel(value)}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="field-label">
+                        Section 间距
+                        <select
+                          aria-label="Section 间距"
+                          value={presentationConfig?.spacing.sectionGap ?? "normal"}
+                          disabled={!presentationConfig || !selectedBranchEditable || !selectedTemplate.styleCapabilities.sectionGap}
+                          onChange={(event) => {
+                            const sectionGap = event.target.value as ResumePresentationConfig["spacing"]["sectionGap"];
+                            void updatePresentationStyle((current) => ({
+                              spacing: { ...current.spacing, sectionGap }
+                            }), "Section 间距已保存。");
+                          }}
+                        >
+                          {(["tight", "normal", "relaxed"] as const).map((value) => (
+                            <option key={value} value={value}>{spacingLabel(value)}</option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
+                    <div className="field-label">
+                      主题强调色
+                      <div className="color-swatch-row">
+                        {(["graphite", "emerald", "blue", "rose"] as const).map((color) => (
+                          <button
+                            key={color}
+                            type="button"
+                            className={`color-swatch ${presentationConfig?.theme.accentColor === color ? "color-swatch-active" : ""}`}
+                            style={{ backgroundColor: accentSwatchColor(color) }}
+                            aria-label={`主题强调色：${accentColorLabel(color)}`}
+                            disabled={!presentationConfig || !selectedBranchEditable || !selectedTemplate.styleCapabilities.accentColor}
+                            onClick={() => {
+                              void updatePresentationStyle((current) => ({
+                                theme: { ...current.theme, accentColor: color }
+                              }), "主题强调色已保存。");
+                            }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                    <div className="action-row">
+                      <button
+                        className="secondary-button compact"
+                        disabled={!presentationConfig || !selectedBranchEditable}
+                        onClick={() => { void resetTemplateStyle(); }}
+                      >
+                        恢复模板默认样式
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+
+                {activePropertyTab === "section" && selectedStudioSection && selectedStudioBlock ? (
+                  <div className="property-section" data-testid="section-style-panel">
+                    <div className="property-summary compact-property-summary">
+                      <strong>{selectedStudioSection.title}</strong>
+                      <span>Section / {sectionTypeLabel(selectedStudioSection.type)}</span>
+                    </div>
+                    <label className="inline-toggle">
+                      <input
+                        type="checkbox"
+                        checked={presentationConfig?.sectionStyleOverrides[selectedStudioSection.type]?.showTitle !== false}
+                        disabled={!presentationConfig || !selectedBranchEditable || !selectedTemplate.styleCapabilities.sectionTitleVisibility}
+                        onChange={(event) => { void setSectionTitleVisibility(selectedStudioSection.type, event.target.checked); }}
+                      />
+                      显示 Section 标题
+                    </label>
+                    <button
+                      className="secondary-button compact"
+                      disabled={!presentationConfig || !selectedBranchEditable}
+                      onClick={() => { void resetSectionStyle(selectedStudioSection.type); }}
+                    >
+                      恢复当前 Section 默认值
+                    </button>
+                  </div>
+                ) : null}
+
+                {activePropertyTab === "block" && selectedStudioBlock ? (
+                  <div className="property-section" data-testid="block-style-panel">
+                    <div className="property-summary compact-property-summary">
+                      <strong>{selectedStudioBlock.text.slice(0, 36)}</strong>
+                      <span>Block / {selectedStudioBlock.itemType} / {selectedStudioBlock.guardStatus}</span>
+                    </div>
+                    <label className="inline-toggle">
+                      <input
+                        type="checkbox"
+                        checked={selectedStudioBlock.visible}
+                        disabled={!selectedBranchEditable || !presentationConfig || !selectedStudioBlock.contentVisible}
+                        onChange={(event) => { void setPresentationItemVisibility(selectedStudioBlock.contentItemId, event.target.checked); }}
+                      />
+                      显示
+                    </label>
+                    <div className="action-row resume-structure-actions">
+                      <button className="secondary-button compact" disabled={!selectedBranchEditable || !presentationConfig} onClick={() => { void movePresentationItem(selectedStudioBlock.contentItemId, "up"); }}>
+                        上移
+                      </button>
+                      <button className="secondary-button compact" disabled={!selectedBranchEditable || !presentationConfig} onClick={() => { void movePresentationItem(selectedStudioBlock.contentItemId, "down"); }}>
+                        下移
+                      </button>
+                      <button className="secondary-button compact" disabled={!selectedBranchEditable || !presentationConfig} onClick={() => { void setPresentationItemVisibility(selectedStudioBlock.contentItemId, false); }}>
+                        隐藏
+                      </button>
+                    </div>
+                    <button
+                      className="primary-button compact"
+                      disabled={!selectedStudioBlock.editable || !selectedBranchEditable}
+                      onClick={() => startStudioEdit(selectedStudioBlock.contentItemId)}
+                    >
+                      编辑
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
             {presentationHiddenBlocks.length > 0 ? (
               <div className="hidden-block-list">
                 <strong>已隐藏内容</strong>
@@ -990,6 +1331,7 @@ export function ResumeWorkspace() {
                 model={renderModel}
                 template={selectedTemplate}
                 pageRef={pageRef}
+                presentationConfig={presentationConfig}
                 editor={resumeDocument ? {
                   enabled: isStudioEditMode,
                   selectedItemId: selectedStudioItemId,
@@ -1078,7 +1420,7 @@ function buildNextPresentationConfig(input: {
   branch: ResumeBranch;
   patch: Partial<Pick<
     ResumePresentationConfig,
-    "templateId" | "itemOrderBySection" | "hiddenItemIds" | "typography" | "spacing" | "theme" | "sectionOrder"
+    "templateId" | "itemOrderBySection" | "hiddenItemIds" | "typography" | "spacing" | "theme" | "sectionOrder" | "sectionStyleOverrides"
   >>;
 }): ResumePresentationConfig {
   if (!input.branch.currentRevisionId) {
@@ -1104,7 +1446,17 @@ function presentationSnapshotPatch(config: ResumePresentationConfig) {
     hiddenItemIds: config.hiddenItemIds,
     typography: config.typography,
     spacing: config.spacing,
-    theme: config.theme
+    theme: config.theme,
+    sectionStyleOverrides: config.sectionStyleOverrides
+  };
+}
+
+function presentationStylePatch(config: ResumePresentationConfig): ResumeTemplateStyleConfig {
+  return {
+    typography: config.typography,
+    spacing: config.spacing,
+    theme: config.theme,
+    sectionStyleOverrides: config.sectionStyleOverrides
   };
 }
 
@@ -1117,7 +1469,8 @@ function parseWorkbenchState(value: unknown): WorkbenchState {
     branchId: typeof candidate.branchId === "string" ? candidate.branchId : undefined,
     templateId: candidate.templateId === "classic-technical" || candidate.templateId === "modern-operations"
       ? candidate.templateId
-      : undefined
+      : undefined,
+    stylePanelOpen: typeof candidate.stylePanelOpen === "boolean" ? candidate.stylePanelOpen : undefined
   };
 }
 
@@ -1156,4 +1509,83 @@ function branchNotEditableReason(branch: ResumeBranch) {
     return "invalid_reference";
   }
   return undefined;
+}
+
+function propertyTabLabel(tab: PropertyPanelTab) {
+  if (tab === "section") {
+    return "Section";
+  }
+  if (tab === "block") {
+    return "Block";
+  }
+  return "Document";
+}
+
+function scaleLabel(value: "small" | "normal" | "large") {
+  if (value === "small") {
+    return "小";
+  }
+  if (value === "large") {
+    return "大";
+  }
+  return "标准";
+}
+
+function spacingLabel(value: "tight" | "normal" | "relaxed") {
+  if (value === "tight") {
+    return "紧凑";
+  }
+  if (value === "relaxed") {
+    return "舒展";
+  }
+  return "标准";
+}
+
+function densityLabel(value: "compact" | "balanced" | "spacious") {
+  if (value === "compact") {
+    return "紧凑";
+  }
+  if (value === "spacious") {
+    return "宽松";
+  }
+  return "均衡";
+}
+
+function accentColorLabel(value: "graphite" | "emerald" | "blue" | "rose") {
+  if (value === "graphite") {
+    return "石墨";
+  }
+  if (value === "blue") {
+    return "蓝色";
+  }
+  if (value === "rose") {
+    return "玫瑰";
+  }
+  return "翠绿";
+}
+
+function accentSwatchColor(value: "graphite" | "emerald" | "blue" | "rose") {
+  if (value === "graphite") {
+    return "#202522";
+  }
+  if (value === "blue") {
+    return "#1d4f91";
+  }
+  if (value === "rose") {
+    return "#9d3151";
+  }
+  return "#176b5b";
+}
+
+function sectionTypeLabel(value: string) {
+  if (value === "summary") {
+    return "岗位概览";
+  }
+  if (value === "skills") {
+    return "技能";
+  }
+  if (value === "certificates") {
+    return "证书";
+  }
+  return "项目与经历";
 }

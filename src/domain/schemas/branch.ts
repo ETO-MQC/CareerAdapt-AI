@@ -230,7 +230,23 @@ export const ExportOverflowStatusSchema = z.enum([
 export const ExportRecordPresentationSnapshotSchema = z.object({
   templateId: z.string().min(1),
   itemOrderBySection: z.record(z.string(), z.array(z.string().min(1))),
-  hiddenItemIds: z.array(z.string().min(1))
+  hiddenItemIds: z.array(z.string().min(1)),
+  typography: z.object({
+    bodyTextScale: z.enum(["small", "normal", "large"]),
+    titleTextScale: z.enum(["small", "normal", "large"]),
+    lineHeight: z.enum(["tight", "normal", "relaxed"])
+  }).optional(),
+  spacing: z.object({
+    sectionGap: z.enum(["tight", "normal", "relaxed"]),
+    itemGap: z.enum(["tight", "normal", "relaxed"])
+  }).optional(),
+  theme: z.object({
+    accentColor: z.enum(["graphite", "emerald", "blue", "rose"]),
+    density: z.enum(["compact", "balanced", "spacious"])
+  }).optional(),
+  sectionStyleOverrides: z.record(z.string(), z.object({
+    showTitle: z.boolean().optional()
+  })).optional()
 });
 
 export const ExportRecordSchema = EntityBaseSchema.extend({

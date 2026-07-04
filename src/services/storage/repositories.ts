@@ -1309,6 +1309,10 @@ export class WorkspaceRepository {
       templateId: string;
       itemOrderBySection: Record<string, string[]>;
       hiddenItemIds: string[];
+      typography?: ResumePresentationConfig["typography"];
+      spacing?: ResumePresentationConfig["spacing"];
+      theme?: ResumePresentationConfig["theme"];
+      sectionStyleOverrides?: ResumePresentationConfig["sectionStyleOverrides"];
     };
   }) {
     return this.db.transaction("rw", this.db.resumeBranches, this.db.exportRecords, async () => {

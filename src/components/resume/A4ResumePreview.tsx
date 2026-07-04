@@ -1,8 +1,8 @@
 "use client";
 
 import type { KeyboardEvent, MouseEvent, RefObject } from "react";
-import type { ResumeRenderModel } from "@/domain/schemas";
-import { type TemplateDefinition } from "./templates/templateRegistry";
+import type { ResumePresentationConfig, ResumeRenderModel } from "@/domain/schemas";
+import { resumeTemplateStyleVars, type TemplateDefinition } from "./templates/templateRegistry";
 import type { ResumeDocumentBlock } from "@/domain/resumeDocument/mapper";
 
 export type ResumeStudioEditorProps = {
@@ -27,11 +27,13 @@ export function A4ResumePreview({
   model,
   template,
   pageRef,
+  presentationConfig,
   editor
 }: {
   model: ResumeRenderModel;
   template: TemplateDefinition;
   pageRef: RefObject<HTMLElement | null>;
+  presentationConfig?: ResumePresentationConfig;
   editor?: ResumeStudioEditorProps;
 }) {
   function findSourceItemId(target: EventTarget | null) {
@@ -84,6 +86,7 @@ export function A4ResumePreview({
     <article
       ref={pageRef}
       className={`resume-a4-page ${template.className} ${editor?.enabled ? "resume-studio-edit-enabled" : ""}`}
+      style={resumeTemplateStyleVars(template, presentationConfig)}
       data-testid="resume-a4-page"
       aria-label="A4 简历预览"
       tabIndex={editor?.enabled ? 0 : undefined}
@@ -91,7 +94,7 @@ export function A4ResumePreview({
       onDoubleClick={handleDoubleClick}
       onKeyDown={handleKeyDown}
     >
-      {template.render(model, { selectedItemId: editor?.selectedItemId })}
+      {template.render(model, { selectedItemId: editor?.selectedItemId, presentationConfig })}
       {editor?.enabled && editor.selectedBlock ? (
         <div className="resume-studio-editor no-print" data-testid="resume-studio-editor">
           <div>

@@ -39,6 +39,51 @@ describe("V2 G1a resume presentation config", () => {
     })).toThrow();
   });
 
+  it("normalizes legacy G1a style placeholders into G1b controlled tokens", () => {
+    const parsed = ResumePresentationConfigSchema.parse({
+      schemaVersion: "resume-presentation-v1",
+      branchId: "branch",
+      templateId: "classic-technical",
+      contentRevision: {
+        branchRevision: 0,
+        currentRevisionId: "revision"
+      },
+      sectionOrder: ["summary", "skills", "experience", "certificates"],
+      itemOrderBySection: {},
+      hiddenItemIds: [],
+      typography: {
+        scale: "comfortable",
+        lineHeight: "compact"
+      },
+      spacing: {
+        sectionGap: "spacious",
+        itemGap: "compact",
+        paragraphGap: "normal"
+      },
+      theme: {
+        accentColor: "blue",
+        density: "spacious"
+      },
+      presentationRevision: 0,
+      updatedAt: "2026-07-03T00:00:00.000Z"
+    });
+
+    expect(parsed.typography).toEqual({
+      bodyTextScale: "large",
+      titleTextScale: "normal",
+      lineHeight: "tight"
+    });
+    expect(parsed.spacing).toEqual({
+      sectionGap: "relaxed",
+      itemGap: "tight"
+    });
+    expect(parsed.theme).toEqual({
+      accentColor: "blue",
+      density: "spacious"
+    });
+    expect(parsed.sectionStyleOverrides).toEqual({});
+  });
+
   it("persists display-only config without creating ResumeRevision and guards idempotency/conflicts", async () => {
     const { repository, branch } = await createBranchFixture("CareerAdaptG1aPresentationDb");
     const initial = await repository.getResumePresentationConfig(branch.id);
@@ -234,7 +279,11 @@ describe("V2 G1a resume presentation config", () => {
       presentationSnapshot: {
         templateId: initial.templateId,
         itemOrderBySection: initial.itemOrderBySection,
-        hiddenItemIds: initial.hiddenItemIds
+        hiddenItemIds: initial.hiddenItemIds,
+        typography: initial.typography,
+        spacing: initial.spacing,
+        theme: initial.theme,
+        sectionStyleOverrides: initial.sectionStyleOverrides
       }
     });
 
@@ -252,7 +301,23 @@ describe("V2 G1a resume presentation config", () => {
       presentationSnapshot: {
         templateId: "modern-operations",
         itemOrderBySection: initial.itemOrderBySection,
-        hiddenItemIds: [sortableItem.id]
+        hiddenItemIds: [sortableItem.id],
+        typography: {
+          bodyTextScale: "small",
+          titleTextScale: "large",
+          lineHeight: "tight"
+        },
+        spacing: {
+          sectionGap: "tight",
+          itemGap: "relaxed"
+        },
+        theme: {
+          accentColor: "blue",
+          density: "compact"
+        },
+        sectionStyleOverrides: {
+          summary: { showTitle: false }
+        }
       }
     });
 
@@ -263,6 +328,10 @@ describe("V2 G1a resume presentation config", () => {
     expect(export2.record.presentationSnapshot?.templateId).toBe("modern-operations");
     expect(export2.record.presentationSnapshot?.hiddenItemIds).toContain(sortableItem.id);
     expect(export1.record.presentationSnapshot?.hiddenItemIds).toEqual([]);
+    expect(export2.record.presentationSnapshot?.typography?.bodyTextScale).toBe("small");
+    expect(export2.record.presentationSnapshot?.spacing?.itemGap).toBe("relaxed");
+    expect(export2.record.presentationSnapshot?.theme?.accentColor).toBe("blue");
+    expect(export2.record.presentationSnapshot?.sectionStyleOverrides?.summary?.showTitle).toBe(false);
   });
 
   it("accepts ExportRecords without presentation fields for backward compatibility", async () => {
