@@ -1,6 +1,6 @@
 # V2-G3a：直接 PDF 下载与可靠导出增强
 
-状态：实现完成，等待 G2/G3a 联合独立验收。
+状态：G3a/G3b 实现完成，等待 G2/G3a/G3b 联合独立验收。
 
 日期：2026-07-04
 
@@ -54,12 +54,14 @@
 
 ```text
 点击“下载 PDF”
--> 读取当前 A4 DOM overflow
+-> 读取当前 A4 DOM 分页/overflow 状态
 -> 冻结 renderModel、presentationConfig、文件名、时间和 snapshotHash
 -> 重新读取最新 branch/profile/job，确认正文 revision 仍匹配启动快照
 -> POST /api/resume-export/pdf
 -> API 校验 Schema、templateId、filename、snapshotHash 和 overflow
--> 同源 renderer 生成 HTML
+-> Headless Chromium 使用同源 renderer 生成测量 HTML
+-> 服务端重算 PaginationPlan 并校验 pagePolicy/page limit
+-> 同源 renderer 使用服务端确认的 PaginationPlan 生成最终 HTML
 -> Playwright 输出 A4 PDF buffer
 -> 客户端校验 application/pdf 和 %PDF 文件头
 -> 写入 direct_pdf_success ExportRecord
@@ -85,9 +87,16 @@
 - `generatedAt`
 - `filename`
 - `overflowStatus`
+- `pagePolicy`
+- `requestedMaxPages`
+- `actualPageCount`
+- `pageBreakBeforeSections`
+- `paginationPlan`
+- `paginationHash`
 - `presentation.sectionOrder`
 - `presentation.itemOrderBySection`
 - `presentation.hiddenItemIds`
+- `presentation.pagination`
 - `presentation.typography`
 - `presentation.spacing`
 - `presentation.theme`
@@ -122,7 +131,7 @@
 - `presentationRevision`
 - `presentationSnapshot`
 
-G3a 新增可选字段：
+G3a/G3b 新增可选字段：
 
 - `exportMethod`: `direct_pdf | browser_print`
 - `mimeType`
@@ -132,12 +141,22 @@ G3a 新增可选字段：
 - `failureCode`
 - `snapshotHash`
 - `pdfContentHash`
+- `pagePolicy`
+- `requestedMaxPages`
+- `actualPageCount`
+- `pageBreakBeforeSections`
+- `paginationHash`
+- `paginationSnapshot`
+- `exceededPageLimit`
+- `continuationHeader`
+- `pageSize`
+- `pageDimensions`
 
 新增状态：
 
 - `direct_pdf_success`
 
-失败仍使用 `failed` 或 `blocked_overflow`，不会写成成功记录。
+失败仍使用 `failed` 或 `blocked_overflow`，不会写成成功记录。G3b 中超过 `pagePolicy` 上限、`exceeds_two_pages` 或测量失败同样视为阻断，不写 direct PDF 或 browser print 成功记录。
 
 ## 6. 文件名规则
 
@@ -214,5 +233,19 @@ G3a 新增可选字段：
 - 未新增 Dexie 表。
 - 未升级 Dexie。
 - 未持久化 ResumeDocument。
-- 未进入 G3b、DOCX 或 OCR。
+- G3b 已完成一页/两页策略；未进入 DOCX、OCR、三页策略或自动压缩。
 - 未修改 Fact Guard。
+
+## 12. G3b 补充：分页与两页策略
+
+G3b 在 G3a 直接 PDF 方案上增加确定性分页控制，详细记录见 [`G3B_PAGINATION.md`](G3B_PAGINATION.md)。
+
+核心补充：
+
+- 默认 `pagePolicy=one_page_strict`，用户可显式切换为 `up_to_two_pages`。
+- `ResumePresentationConfig.pagination` 保存 page policy 和 Section 断页提示，属于展示层配置，不创建内容 Revision，不运行 Fact Guard。
+- A4 预览通过隐藏测量页复用正式模板 renderer，生成 `PaginationPlan` 后再渲染可见一页或两页。
+- 直接 PDF 在 Headless Chromium 内二次测量并重算 `PaginationPlan`，最终 PDF 使用服务端确认的计划。
+- `paginationHash` 用于校验客户端计划和服务端计划的一致性；hash 不包含原始像素测量值。
+- 四套正式模板均支持两页和 Section 断页，但当前 `supportsContinuationHeader=false`，第二页不重复候选人 Header。
+- 超过策略上限时阻断 direct PDF 和 browser print fallback，并写入 blocked 记录，不写成功 ExportRecord。

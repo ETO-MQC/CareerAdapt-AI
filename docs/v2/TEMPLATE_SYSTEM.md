@@ -60,6 +60,8 @@ ResumeTemplateDefinition {
 - 是否支持头像。
 - 是否支持主题色。
 - 是否支持两页。
+- 是否支持 Section 级断页。
+- 是否支持续页页眉。
 - 是否支持侧栏。
 - 是否支持双语字段。
 - 是否适合ATS。
@@ -98,6 +100,14 @@ ResumeDocument保存内容、事实引用和展示配置；TemplateDefinition只
 
 ATS等级仅为产品内部结构标签，不表示外部认证或保证通过。
 
+G3b 后四套模板能力统一声明：
+
+- `supportsTwoPages: true`
+- `supportsSectionPageBreaks: true`
+- `supportsContinuationHeader: false`
+
+当前第二页不重复候选人 Header，避免导出的两页 PDF 出现重复个人信息。若后续需要续页页眉，应作为单独模板能力设计和验收。
+
 ## Template Center
 
 G2第一阶段在 `/resume` 右侧区域增加模板中心：
@@ -116,6 +126,7 @@ G2第一阶段在 `/resume` 右侧区域增加模板中心：
 
 ## 模板测试
 
-- 每套模板至少有A4截图测试、overflow测试、PDF文本抽取测试、模板切换内容一致性测试。
+- 每套模板至少有A4截图测试、分页/overflow测试、PDF文本抽取测试、模板切换内容一致性测试。
 - 双栏模板必须验证中文文本不裁切。
 - ATS模板必须避免把正文渲染成图片。
+- 支持两页的模板必须验证一页严格阻断、最多两页导出、Section 断页不产生空白第一页、页码标签不进入 PDF。

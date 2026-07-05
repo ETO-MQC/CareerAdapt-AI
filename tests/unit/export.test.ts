@@ -8,6 +8,7 @@ import {
   ResumePresentationConfigSchema
 } from "@/domain/schemas";
 import { buildResumePdfFileName, contentDispositionAttachment, isSafePdfFileName, PDF_MIME_TYPE } from "@/services/export/filename";
+import { createResumePaginationPlan } from "@/services/export/pagination";
 import { createResumePdfExportRequest, stableStringify, verifyExportSnapshotHash } from "@/services/export/snapshot";
 import { CareerAdaptDb } from "@/services/storage/db";
 import { WorkspaceRepository } from "@/services/storage/repositories";
@@ -72,7 +73,8 @@ describe("V2 G3a direct PDF export", () => {
         templateName: "技术",
         date: "2026-07-04T12:00:00.000Z"
       }),
-      overflowStatus: "fits"
+      overflowStatus: "fits_one_page",
+      paginationPlan: createPaginationPlanFixture(renderModel, presentationConfig)
     });
 
     expect(ResumePdfExportRequestSchema.safeParse(request).success).toBe(true);
@@ -100,7 +102,8 @@ describe("V2 G3a direct PDF export", () => {
       renderModel,
       generatedAt: "2026-07-04T12:00:00.000Z",
       filename: "陈同学_数据分析实习生_技术_20260704.pdf",
-      overflowStatus: "fits" as const
+      overflowStatus: "fits_one_page" as const,
+      paginationPlan: createPaginationPlanFixture(renderModel, presentationConfig)
     };
     const first = createResumePdfExportRequest({ ...baseInput, presentationConfig });
     const second = createResumePdfExportRequest({ ...baseInput, presentationConfig });
@@ -205,6 +208,53 @@ describe("V2 G3a direct PDF export", () => {
     })).rejects.toThrow("export_overflow_blocked");
   });
 });
+
+function createPaginationPlanFixture(
+  renderModel: ReturnType<typeof mapBranchToResumeRenderModel>,
+  presentationConfig: ReturnType<typeof ResumePresentationConfigSchema.parse>
+) {
+  let cursor = 40;
+  const sections = renderModel.sections.map((section) => {
+    const sectionTop = cursor;
+    const blockIds: string[] = [];
+    for (const block of section.blocks) {
+      blockIds.push(block.sourceItemId);
+      cursor += 32;
+    }
+    const sectionBottom = cursor + 12;
+    cursor = sectionBottom;
+    return {
+      sectionType: section.type,
+      top: sectionTop,
+      bottom: sectionBottom,
+      height: sectionBottom - sectionTop,
+      blockIds
+    };
+  });
+  const blocks = renderModel.sections.flatMap((section) => {
+    let blockTop = sections.find((candidate) => candidate.sectionType === section.type)?.top ?? 40;
+    return section.blocks.map((block) => {
+      const measured = {
+        sourceItemId: block.sourceItemId,
+        sectionType: section.type,
+        top: blockTop,
+        bottom: blockTop + 24,
+        height: 24
+      };
+      blockTop += 32;
+      return measured;
+    });
+  });
+  return createResumePaginationPlan({
+    measurement: {
+      scrollHeight: Math.max(cursor, 600),
+      clientHeight: 1123,
+      sections,
+      blocks
+    },
+    paginationConfig: presentationConfig.pagination
+  });
+}
 
 async function createBranchFixture(dbNamePrefix: string) {
   db = new CareerAdaptDb(`${dbNamePrefix}-${crypto.randomUUID()}`);

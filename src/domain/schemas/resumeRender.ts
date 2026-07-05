@@ -12,7 +12,18 @@ export const TemplateIdSchema = z.enum([
   "business-consulting"
 ]);
 
-export const OverflowStatusSchema = z.enum(["fits", "near_limit", "overflow"]);
+export const ResumePaginationStatusSchema = z.enum([
+  "fits",
+  "near_limit",
+  "overflow",
+  "fits_one_page",
+  "near_one_page_limit",
+  "fits_two_pages",
+  "exceeds_two_pages",
+  "measuring",
+  "measurement_failed"
+]);
+export const OverflowStatusSchema = ResumePaginationStatusSchema;
 
 export const ResumeRenderSectionTypeSchema = z.enum([
   "summary",
@@ -74,6 +85,7 @@ export const ResumeRenderModelSchema = z.object({
 });
 
 export type TemplateId = z.infer<typeof TemplateIdSchema>;
+export type ResumePaginationStatus = z.infer<typeof ResumePaginationStatusSchema>;
 export type OverflowStatus = z.infer<typeof OverflowStatusSchema>;
 export type ResumeRenderSectionType = z.infer<typeof ResumeRenderSectionTypeSchema>;
 export type ResumeRenderBlock = z.infer<typeof ResumeRenderBlockSchema>;

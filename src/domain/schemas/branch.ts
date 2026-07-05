@@ -227,7 +227,13 @@ export const ExportMethodSchema = z.enum(["direct_pdf", "browser_print"]);
 export const ExportOverflowStatusSchema = z.enum([
   "fits",
   "near_limit",
-  "overflow"
+  "overflow",
+  "fits_one_page",
+  "near_one_page_limit",
+  "fits_two_pages",
+  "exceeds_two_pages",
+  "measuring",
+  "measurement_failed"
 ]);
 
 export const ExportRecordPresentationSnapshotSchema = z.object({
@@ -250,7 +256,11 @@ export const ExportRecordPresentationSnapshotSchema = z.object({
   }).optional(),
   sectionStyleOverrides: z.record(z.string(), z.object({
     showTitle: z.boolean().optional()
-  })).optional()
+  })).optional(),
+  pagination: z.object({
+    pagePolicy: z.enum(["one_page_strict", "up_to_two_pages"]),
+    pageBreakBeforeSections: z.array(z.enum(["summary", "experience", "skills", "certificates"]))
+  }).optional()
 });
 
 export const ExportRecordSchema = EntityBaseSchema.extend({
@@ -275,7 +285,19 @@ export const ExportRecordSchema = EntityBaseSchema.extend({
   completedAt: IsoDateStringSchema.optional(),
   failureCode: z.string().min(1).optional(),
   snapshotHash: z.string().min(8).optional(),
-  pdfContentHash: z.string().min(8).optional()
+  pdfContentHash: z.string().min(8).optional(),
+  pagePolicy: z.enum(["one_page_strict", "up_to_two_pages"]).optional(),
+  actualPageCount: z.number().int().min(1).max(3).optional(),
+  requestedMaxPages: z.number().int().min(1).max(2).optional(),
+  paginationHash: z.string().min(8).optional(),
+  paginationSnapshot: z.unknown().optional(),
+  exceededPageLimit: z.boolean().optional(),
+  continuationHeader: z.enum(["none", "candidate_name"]).optional(),
+  pageSize: z.literal("A4").optional(),
+  pageDimensions: z.object({
+    widthMm: z.number().positive(),
+    heightMm: z.number().positive()
+  }).optional()
 });
 
 export type BranchLifecycleStatus = z.infer<typeof BranchLifecycleStatusSchema>;

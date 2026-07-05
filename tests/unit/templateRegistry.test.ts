@@ -17,7 +17,9 @@ const CAPABILITY_KEYS: Array<keyof TemplateCapabilities> = [
   "supportsSectionGap",
   "supportsItemGap",
   "supportsSectionTitleVisibility",
-  "supportsTwoPages"
+  "supportsTwoPages",
+  "supportsSectionPageBreaks",
+  "supportsContinuationHeader"
 ];
 
 describe("V2 G2 template registry", () => {
@@ -59,6 +61,9 @@ describe("V2 G2 template registry", () => {
       for (const key of CAPABILITY_KEYS) {
         expect(typeof template.capabilities[key]).toBe("boolean");
       }
+      expect(template.capabilities.supportsTwoPages).toBe(true);
+      expect(template.capabilities.supportsSectionPageBreaks).toBe(true);
+      expect(template.capabilities.supportsContinuationHeader).toBe(false);
 
       expect(() => ResumePresentationConfigSchema.parse({
         schemaVersion: "resume-presentation-v1",

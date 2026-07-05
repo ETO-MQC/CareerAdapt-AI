@@ -8,6 +8,7 @@ export const PresentationLineHeightSchema = z.enum(["tight", "normal", "relaxed"
 export const PresentationSpacingScaleSchema = z.enum(["tight", "normal", "relaxed"]);
 export const PresentationAccentColorSchema = z.enum(["graphite", "emerald", "blue", "rose"]);
 export const PresentationDensitySchema = z.enum(["compact", "balanced", "spacious"]);
+export const ResumePagePolicySchema = z.enum(["one_page_strict", "up_to_two_pages"]);
 
 const LEGACY_TYPOGRAPHY_SCALE = ["compact", "normal", "comfortable"] as const;
 const LEGACY_SPACING_SCALE = ["compact", "normal", "spacious"] as const;
@@ -27,6 +28,14 @@ const DEFAULT_THEME = {
   accentColor: "emerald",
   density: "balanced"
 } as const;
+
+const DEFAULT_PAGINATION: {
+  pagePolicy: "one_page_strict";
+  pageBreakBeforeSections: Array<z.infer<typeof ResumeRenderSectionTypeSchema>>;
+} = {
+  pagePolicy: "one_page_strict",
+  pageBreakBeforeSections: []
+};
 
 const ItemOrderBySectionSchema = z.object({
   summary: z.array(z.string().min(1)).optional(),
@@ -101,6 +110,27 @@ const PresentationThemeSchema = z.preprocess((value) => {
   density: PresentationDensitySchema
 }));
 
+const PresentationPaginationSchema = z.preprocess((value) => {
+  if (!value || typeof value !== "object") {
+    return DEFAULT_PAGINATION;
+  }
+  const candidate = value as {
+    pagePolicy?: unknown;
+    pageBreakBeforeSections?: unknown;
+  };
+  const pagePolicy = ResumePagePolicySchema.safeParse(candidate.pagePolicy);
+  const pageBreakBeforeSections = Array.isArray(candidate.pageBreakBeforeSections)
+    ? uniqueSectionTypes(candidate.pageBreakBeforeSections)
+    : [];
+  return {
+    pagePolicy: pagePolicy.success ? pagePolicy.data : DEFAULT_PAGINATION.pagePolicy,
+    pageBreakBeforeSections
+  };
+}, z.object({
+  pagePolicy: ResumePagePolicySchema,
+  pageBreakBeforeSections: z.array(ResumeRenderSectionTypeSchema).default([])
+}));
+
 export const ResumePresentationConfigSchema = z.object({
   schemaVersion: z.literal("resume-presentation-v1"),
   branchId: z.string().min(1),
@@ -115,6 +145,7 @@ export const ResumePresentationConfigSchema = z.object({
   typography: PresentationTypographySchema.default(DEFAULT_TYPOGRAPHY),
   spacing: PresentationSpacingSchema.default(DEFAULT_SPACING),
   theme: PresentationThemeSchema.default(DEFAULT_THEME),
+  pagination: PresentationPaginationSchema.default(DEFAULT_PAGINATION),
   sectionStyleOverrides: SectionStyleOverridesSchema,
   presentationRevision: z.number().int().min(0),
   updatedAt: IsoDateStringSchema
@@ -212,6 +243,20 @@ function normalizeDensity(value: unknown) {
   return DEFAULT_THEME.density;
 }
 
+function uniqueSectionTypes(values: unknown[]) {
+  const seen = new Set<string>();
+  const result: Array<z.infer<typeof ResumeRenderSectionTypeSchema>> = [];
+  for (const value of values) {
+    const parsed = ResumeRenderSectionTypeSchema.safeParse(value);
+    if (!parsed.success || seen.has(parsed.data)) {
+      continue;
+    }
+    seen.add(parsed.data);
+    result.push(parsed.data);
+  }
+  return result;
+}
+
 export type ResumePresentationConfig = z.infer<typeof ResumePresentationConfigSchema>;
 export type PresentationBodyTextScale = z.infer<typeof PresentationBodyTextScaleSchema>;
 export type PresentationTitleTextScale = z.infer<typeof PresentationTitleTextScaleSchema>;
@@ -219,3 +264,4 @@ export type PresentationLineHeight = z.infer<typeof PresentationLineHeightSchema
 export type PresentationSpacingScale = z.infer<typeof PresentationSpacingScaleSchema>;
 export type PresentationAccentColor = z.infer<typeof PresentationAccentColorSchema>;
 export type PresentationDensity = z.infer<typeof PresentationDensitySchema>;
+export type ResumePagePolicy = z.infer<typeof ResumePagePolicySchema>;

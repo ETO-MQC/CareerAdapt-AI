@@ -768,6 +768,26 @@ p {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.pagination-controls {
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+
+.pagination-summary {
+  background: #f8fafb;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+}
+
+.pagination-summary span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .color-swatch-row {
   display: flex;
   flex-wrap: wrap;
@@ -799,6 +819,33 @@ p {
   border-radius: 8px;
   overflow: auto;
   padding: 18px;
+  position: relative;
+}
+
+.resume-preview-pages {
+  display: grid;
+  gap: 18px;
+}
+
+.resume-page-shell {
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+}
+
+.resume-page-label {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.resume-pagination-measurement-page {
+  left: -10000px;
+  pointer-events: none;
+  position: absolute;
+  top: 0;
+  visibility: hidden;
+  z-index: -1;
 }
 
 .resume-a4-page {
@@ -1385,8 +1432,21 @@ p {
     box-shadow: none;
     height: 297mm;
     margin: 0;
-    page-break-after: avoid;
+    page-break-after: auto;
     width: 210mm;
+  }
+
+  .resume-preview-pages {
+    display: block;
+  }
+
+  .resume-page-shell {
+    display: block;
+  }
+
+  .resume-page-shell:not(:last-child) .resume-a4-page {
+    break-after: page;
+    page-break-after: always;
   }
 }
 

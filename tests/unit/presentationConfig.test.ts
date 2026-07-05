@@ -82,6 +82,36 @@ describe("V2 G1a resume presentation config", () => {
       density: "spacious"
     });
     expect(parsed.sectionStyleOverrides).toEqual({});
+    expect(parsed.pagination).toEqual({
+      pagePolicy: "one_page_strict",
+      pageBreakBeforeSections: []
+    });
+  });
+
+  it("defaults and sanitizes G3b pagination config", () => {
+    const parsed = ResumePresentationConfigSchema.parse({
+      schemaVersion: "resume-presentation-v1",
+      branchId: "branch",
+      templateId: "classic-technical",
+      contentRevision: {
+        branchRevision: 0,
+        currentRevisionId: "revision"
+      },
+      sectionOrder: ["summary", "skills", "experience", "certificates"],
+      itemOrderBySection: {},
+      hiddenItemIds: [],
+      pagination: {
+        pagePolicy: "bad-policy",
+        pageBreakBeforeSections: ["experience", "experience", "unknown", "skills"]
+      },
+      presentationRevision: 0,
+      updatedAt: "2026-07-03T00:00:00.000Z"
+    });
+
+    expect(parsed.pagination).toEqual({
+      pagePolicy: "one_page_strict",
+      pageBreakBeforeSections: ["experience", "skills"]
+    });
   });
 
   it("persists display-only config without creating ResumeRevision and guards idempotency/conflicts", async () => {
@@ -489,6 +519,29 @@ describe("V2 G1a resume presentation config", () => {
     expect(loaded.hiddenItemIds).toContain(visibleItems[0].id);
     expect(loaded.hiddenItemIds).not.toContain("nonexistent-item-id-12345");
   });
+
+  it("filters first and hidden sections from page break hints", async () => {
+    const { repository, branch } = await createBranchFixture("CareerAdaptG3bBreakFilterDb");
+    const initial = await repository.getResumePresentationConfig(branch.id);
+    const sectionTypes = Array.from(new Set(branch.contentItems.filter((item) => item.visible).map((item) => contentItemSectionType(item.itemType))));
+    const [firstSection] = sectionTypes;
+    const nonVisibleSection = (["summary", "skills", "certificates"] as const).find((section) => !sectionTypes.includes(section)) ?? "skills";
+    const saved = await repository.saveResumePresentationConfig({
+      branchId: branch.id,
+      expectedBranchRevision: branch.revision,
+      expectedRevisionId: branch.currentRevisionId!,
+      expectedPresentationRevision: initial.presentationRevision,
+      operationId: "g3b-break-filter-first",
+      nextConfig: nextPresentationConfig(initial, branch, {
+        pagination: {
+          pagePolicy: "up_to_two_pages",
+          pageBreakBeforeSections: [firstSection, nonVisibleSection]
+        }
+      })
+    });
+
+    expect(saved.config.pagination.pageBreakBeforeSections).toEqual([]);
+  });
 });
 
 async function createBranchFixture(dbNamePrefix: string) {
@@ -517,7 +570,7 @@ async function createBranchFixture(dbNamePrefix: string) {
 function nextPresentationConfig(
   current: ResumePresentationConfig,
   branch: { revision: number; currentRevisionId?: string | null },
-  patch: Partial<Pick<ResumePresentationConfig, "templateId" | "hiddenItemIds">> & {
+  patch: Partial<Pick<ResumePresentationConfig, "templateId" | "hiddenItemIds" | "pagination">> & {
     itemOrderBySection?: Partial<Record<ResumeRenderSectionType, string[]>>;
   }
 ): ResumePresentationConfig {
@@ -534,4 +587,17 @@ function nextPresentationConfig(
     presentationRevision: current.presentationRevision + 1,
     updatedAt: "2026-07-03T00:00:00.000Z"
   };
+}
+
+function contentItemSectionType(itemType: string): ResumeRenderSectionType {
+  if (itemType === "summary") {
+    return "summary";
+  }
+  if (itemType === "skill") {
+    return "skills";
+  }
+  if (itemType === "certificate") {
+    return "certificates";
+  }
+  return "experience";
 }

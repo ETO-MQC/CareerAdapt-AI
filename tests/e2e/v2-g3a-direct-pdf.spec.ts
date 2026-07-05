@@ -287,7 +287,7 @@ test.describe("V2-G3a direct PDF download", () => {
     await page.addStyleTag({
       content: ".resume-a4-page { height: 72mm !important; }"
     });
-    await expect(page.getByTestId("overflow-status")).toContainText("overflow");
+    await expect(page.getByTestId("overflow-status")).toContainText("fits_two_pages");
     await expect(page.getByRole("button", { name: "下载 PDF" })).toBeDisabled();
     await expect(page.locator(".warning-box")).toContainText("正式导出会被阻止");
   });

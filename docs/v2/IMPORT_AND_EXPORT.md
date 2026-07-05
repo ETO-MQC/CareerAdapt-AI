@@ -91,9 +91,31 @@ G3a 采用本地 Next API + Playwright Headless Chromium/Edge：
 
 因为用户数据位于浏览器 IndexedDB，API 不直接读取本地 Dexie；导出请求必须携带点击时冻结的脱离编辑器状态的快照。快照包含 `branchRevision`、`currentRevisionId`、`presentationRevision`、模板、排序、隐藏、样式、生成时间、文件名和 `snapshotHash`。
 
+### V2-G3b实际实现
+
+G3b 在 G3a 直接 PDF 基础上增加一页/最多两页策略：
+
+```text
+隐藏测量页复用正式模板 renderer
+-> 收集 section/block DOM 位置
+-> 生成 PaginationPlan、actualPageCount 和 paginationHash
+-> A4 预览按计划渲染一页或两页
+-> direct PDF 在 Headless Chromium 内二次测量并重算计划
+-> 超过 pagePolicy 上限时阻断导出
+```
+
+实现约束：
+
+- 默认 `one_page_strict`，最多两页必须由用户显式选择。
+- Section 级“从下一页开始”属于展示层配置，不创建内容 Revision，不运行 Fact Guard。
+- `paginationHash` 记录策略、状态、页数和内容分页归属，不记录原始像素测量。
+- 第二页不重复候选人 Header；当前四套模板 `supportsContinuationHeader=false`。
+- 不新增依赖、不新增 Dexie 表、不升级 Dexie、不进入三页策略、DOCX 或 OCR。
+
 ## 多页和文件名
 
 - 一页为默认，二页作为模板能力和用户配置，不自动无限分页。
+- G3b 已落地：默认严格一页，用户可切换最多两页；超过两页或严格一页下需要第二页时阻断导出。
 - 文件名建议：`姓名_岗位_公司_模板_YYYYMMDD.pdf`，敏感字段缺失时降级为 `CareerAdapt_Resume_YYYYMMDD.pdf`。
 
 ## ExportRecord
@@ -105,12 +127,13 @@ G3a 采用本地 Next API + Playwright Headless Chromium/Edge：
 - `exportStatus`：`direct_pdf_success`、`print_invoked`、`blocked_overflow`、`failed`。
 - `exportMethod`：`direct_pdf`、`browser_print`。
 - `mimeType`、`fileSize`、`startedAt`、`completedAt`、`snapshotHash`、`pdfContentHash` 可用于 direct PDF 审计。
+- `pagePolicy`、`requestedMaxPages`、`actualPageCount`、`pageBreakBeforeSections`、`paginationHash`、`paginationSnapshot`、`exceededPageLimit`、`continuationHeader`、`pageSize`、`pageDimensions` 可用于 G3b 分页审计。
 - `errorCode`不保存原始堆栈。
 
 ## PDF Golden Tests
 
 - 每套模板保留HTML截图、PDF页数、A4尺寸、中文文本抽取、无导航按钮、无裁切检查。
-- 对fits、near_limit、overflow分别测试。
+- 对 `fits_one_page`、`near_one_page_limit`、`fits_two_pages`、`exceeds_two_pages`、测量失败和旧 `fits/near_limit/overflow` 兼容分别测试。
 - 对系统字体差异保留最小字体包或明确字体fallback。
 
 ## DOCX和PNG

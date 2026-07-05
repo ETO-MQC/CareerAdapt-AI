@@ -149,3 +149,13 @@
 - 替代方案：浏览器端 HTML 转 PDF 库、pdf-lib 重新绘制、仅保留浏览器打印。
 - 后果：本地运行需要 Playwright 可启动 Chromium/Edge；生产云部署若裁剪 devDependencies，需要单独把运行时浏览器能力产品化。浏览器打印继续保留为 fallback。
 - 日期：2026-07-04
+
+## ADR-016 分页计划由正式Renderer的DOM测量生成
+
+- 状态：Accepted
+- 背景：G3b 需要支持严格一页和最多两页，同时保证 A4 预览、直接 PDF、浏览器打印 fallback 和 ExportRecord 对同一份内容给出一致页数判断。
+- 决策：分页计划由正式模板 renderer 渲染出的隐藏测量 DOM 生成；客户端用于预览和导出前阻断，服务端 Headless Chromium 在生成 PDF 前再次测量并重算 `PaginationPlan`。`paginationHash` 记录策略、页数和 section/block 分页归属，不记录原始像素测量。
+- 理由：复用正式 renderer，避免维护第二套排版估算；服务端二次测量能防止客户端状态或浏览器差异污染最终 PDF；hash 排除像素值可降低微小字体/渲染差异带来的误报。
+- 替代方案：按字符数估算页数、CSS columns 自动分页、Paged.js、或直接允许无限页。
+- 后果：分页能力受当前模板 DOM 结构约束，模板必须保留 `data-render-section` 和 `data-source-item-id`；三页策略、自动压缩和续页页眉需要后续单独设计。
+- 日期：2026-07-05

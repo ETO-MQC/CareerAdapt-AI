@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ResumePdfExportRequestSchema } from "@/domain/schemas";
 import { contentDispositionAttachment, PDF_MIME_TYPE, assertSafePdfFileName } from "@/services/export/filename";
 import { ResumePdfGenerationError, generateResumePdf } from "@/services/export/pdfGenerator";
+import { isPaginationPlanBlocked } from "@/services/export/pagination";
 import { verifyExportSnapshotHash } from "@/services/export/snapshot";
 
 export const runtime = "nodejs";
@@ -25,7 +26,7 @@ export async function POST(request: NextRequest) {
   if (!verifyExportSnapshotHash(snapshot)) {
     return errorResponse("snapshot_hash_mismatch", 409, exportRequest.exportId, snapshot);
   }
-  if (snapshot.overflowStatus === "overflow") {
+  if (isPaginationPlanBlocked(snapshot.paginationPlan)) {
     return errorResponse("snapshot_overflow", 409, exportRequest.exportId, snapshot);
   }
 

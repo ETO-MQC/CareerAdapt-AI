@@ -22,12 +22,19 @@ export type TemplateCapabilities = {
   supportsItemGap: boolean;
   supportsSectionTitleVisibility: boolean;
   supportsTwoPages: boolean;
+  supportsSectionPageBreaks: boolean;
+  supportsContinuationHeader: boolean;
 };
 
 export type TemplateRenderContext = {
   selectedItemId?: string;
   presentationConfig?: ResumePresentationConfig;
   thumbnail?: boolean;
+  pagination?: {
+    pageNumber: number;
+    pageCount: number;
+    isContinuation: boolean;
+  };
 };
 
 export type TemplateRenderer = (model: ResumeRenderModel, context?: TemplateRenderContext) => ReactNode;
@@ -90,7 +97,9 @@ const ALL_STYLE_CAPABILITIES: TemplateCapabilities = {
   supportsSectionGap: true,
   supportsItemGap: true,
   supportsSectionTitleVisibility: true,
-  supportsTwoPages: false
+  supportsTwoPages: true,
+  supportsSectionPageBreaks: true,
+  supportsContinuationHeader: false
 };
 
 export const resumeTemplates: ResumeTemplateDefinition[] = [
@@ -298,7 +307,7 @@ export function resumeTemplateStyleVars(
 function ClassicTechnicalTemplate({ model, context }: { model: ResumeRenderModel; context?: TemplateRenderContext }) {
   return (
     <>
-      <ResumeHeader model={model} />
+      {!context?.pagination?.isContinuation ? <ResumeHeader model={model} /> : null}
       {section(model, "summary", undefined, context)}
       {section(model, "skills", "inline", context)}
       {section(model, "experience", undefined, context)}
@@ -315,7 +324,7 @@ function ModernOperationsTemplate({ model, context }: { model: ResumeRenderModel
 
   return (
     <>
-      <ResumeHeader model={model} compact />
+      {!context?.pagination?.isContinuation ? <ResumeHeader model={model} compact /> : null}
       <div className="resume-modern-grid">
         <aside>
           {summary ? <RenderSection section={summary} mode="compact" context={context} /> : null}
@@ -333,7 +342,7 @@ function ModernOperationsTemplate({ model, context }: { model: ResumeRenderModel
 function AtsMinimalTemplate({ model, context }: { model: ResumeRenderModel; context?: TemplateRenderContext }) {
   return (
     <>
-      <ResumeHeader model={model} plain />
+      {!context?.pagination?.isContinuation ? <ResumeHeader model={model} plain /> : null}
       {section(model, "summary", "plain", context)}
       {section(model, "experience", "plain", context)}
       {section(model, "skills", "plainInline", context)}
@@ -350,7 +359,7 @@ function BusinessConsultingTemplate({ model, context }: { model: ResumeRenderMod
 
   return (
     <>
-      <ResumeHeader model={model} compact />
+      {!context?.pagination?.isContinuation ? <ResumeHeader model={model} compact /> : null}
       <div className="resume-business-grid">
         <div>
           {summary ? <RenderSection section={summary} mode="compact" context={context} /> : null}

@@ -1314,6 +1314,7 @@ export class WorkspaceRepository {
       typography?: ResumePresentationConfig["typography"];
       spacing?: ResumePresentationConfig["spacing"];
       theme?: ResumePresentationConfig["theme"];
+      pagination?: ResumePresentationConfig["pagination"];
       sectionStyleOverrides?: ResumePresentationConfig["sectionStyleOverrides"];
     };
     exportMethod?: ExportRecord["exportMethod"];
@@ -1324,6 +1325,15 @@ export class WorkspaceRepository {
     failureCode?: string;
     snapshotHash?: string;
     pdfContentHash?: string;
+    pagePolicy?: ExportRecord["pagePolicy"];
+    actualPageCount?: number;
+    requestedMaxPages?: number;
+    paginationHash?: string;
+    paginationSnapshot?: unknown;
+    exceededPageLimit?: boolean;
+    continuationHeader?: ExportRecord["continuationHeader"];
+    pageSize?: ExportRecord["pageSize"];
+    pageDimensions?: ExportRecord["pageDimensions"];
     allowHistoricalRevision?: boolean;
   }) {
     return this.db.transaction("rw", this.db.resumeBranches, this.db.resumeRevisions, this.db.exportRecords, async () => {
@@ -1358,7 +1368,7 @@ export class WorkspaceRepository {
       }
       if (
         (input.exportStatus === "print_invoked" || input.exportStatus === "direct_pdf_success")
-        && input.overflowStatus === "overflow"
+        && (input.overflowStatus === "overflow" || input.overflowStatus === "exceeds_two_pages" || input.overflowStatus === "measurement_failed" || input.exceededPageLimit)
       ) {
         throw new Error("export_overflow_blocked");
       }
@@ -1391,6 +1401,15 @@ export class WorkspaceRepository {
         failureCode: input.failureCode,
         snapshotHash: input.snapshotHash,
         pdfContentHash: input.pdfContentHash,
+        pagePolicy: input.pagePolicy,
+        actualPageCount: input.actualPageCount,
+        requestedMaxPages: input.requestedMaxPages,
+        paginationHash: input.paginationHash,
+        paginationSnapshot: input.paginationSnapshot,
+        exceededPageLimit: input.exceededPageLimit,
+        continuationHeader: input.continuationHeader,
+        pageSize: input.pageSize,
+        pageDimensions: input.pageDimensions,
         createdAt: now,
         updatedAt: now
       });
@@ -1752,6 +1771,13 @@ function sanitizePresentationConfigForBranch(config: ResumePresentationConfig, b
   if (branchVisibleItemIds.length > 0 && branchVisibleItemIds.every((itemId) => hiddenItemIds.includes(itemId))) {
     throw new Error("resume_presentation_requires_visible_content");
   }
+  const visibleSectionTypes = defaultResumeSectionOrder().filter((section) =>
+    branch.contentItems.some((item) =>
+      item.visible
+      && !hiddenItemIds.includes(item.id)
+      && contentItemSectionType(item) === section
+    )
+  );
 
   return ResumePresentationConfigSchema.parse({
     ...config,
@@ -1761,7 +1787,11 @@ function sanitizePresentationConfigForBranch(config: ResumePresentationConfig, b
     },
     sectionOrder: sanitizeSectionOrder(config.sectionOrder),
     itemOrderBySection: sanitizeItemOrderBySection(config.itemOrderBySection, branch),
-    hiddenItemIds
+    hiddenItemIds,
+    pagination: {
+      ...config.pagination,
+      pageBreakBeforeSections: sanitizePageBreakBeforeSections(config.pagination.pageBreakBeforeSections, visibleSectionTypes)
+    }
   });
 }
 
@@ -1801,6 +1831,19 @@ function sanitizeItemOrderBySection(
     result[section] = [...configured, ...missing];
   }
   return result;
+}
+
+function sanitizePageBreakBeforeSections(
+  pageBreakBeforeSections: ResumePresentationConfig["pagination"]["pageBreakBeforeSections"],
+  visibleSectionTypes: ResumeRenderSectionType[]
+) {
+  const firstVisible = visibleSectionTypes[0];
+  return uniqueStrings(pageBreakBeforeSections)
+    .filter((section): section is ResumeRenderSectionType =>
+      defaultResumeSectionOrder().includes(section as ResumeRenderSectionType)
+      && visibleSectionTypes.includes(section as ResumeRenderSectionType)
+      && section !== firstVisible
+    );
 }
 
 function contentItemSectionType(item: ResumeBranch["contentItems"][number]): ResumeRenderSectionType {

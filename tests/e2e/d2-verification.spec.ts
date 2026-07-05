@@ -58,8 +58,15 @@ function getOutputDir() {
 }
 
 async function getOverflowStatus(page: Page): Promise<string> {
-  return page.getByTestId("overflow-status").innerText();
+  const status = page.getByTestId("overflow-status");
+  await expect(status).toBeVisible();
+  await expect(status).not.toContainText(/measurement_failed|measuring|正在测量/, { timeout: 10_000 });
+  return status.innerText();
 }
+
+const OK_PAGE_STATUS = /fits|near_limit|fits_one_page|near_one_page_limit/;
+const ANY_PAGE_STATUS = /fits|near_limit|overflow|fits_one_page|near_one_page_limit|fits_two_pages|exceeds_two_pages/;
+const BLOCKED_PAGE_STATUS = /overflow|fits_two_pages|exceeds_two_pages/;
 
 async function exportRecordCount(page: Page): Promise<number> {
   return page.evaluate(async () => {
@@ -194,14 +201,16 @@ async function getLatestUsableDraftIdForJob(page: Page, jobId: string): Promise<
 async function ensureSinglePage(page: Page) {
   const status = page.getByTestId("overflow-status");
   await expect(status).toBeVisible();
+  await expect(status).not.toContainText(/measurement_failed|measuring|正在测量/, { timeout: 10_000 });
   const text = await status.innerText();
-  if (text.includes("overflow")) {
+  if (text.includes("overflow") || text.includes("fits_two_pages") || text.includes("exceeds_two_pages")) {
     const toggles = page.locator(".branch-editor input[type='checkbox']");
     const count = await toggles.count();
     for (let index = count - 1; index >= 2; index--) {
       await toggles.nth(index).uncheck();
       await page.waitForTimeout(250);
-      if (!(await status.innerText()).includes("overflow")) {
+      const nextText = await status.innerText();
+      if (!nextText.includes("overflow") && !nextText.includes("fits_two_pages") && !nextText.includes("exceeds_two_pages")) {
         return;
       }
     }
@@ -337,7 +346,7 @@ test.describe("D2.1 验收：双模板预览与 PDF 导出", () => {
       const textAfterSwitch = await preview.innerText();
       expect(textAfterSwitch).toContain("陈同学");
       const statusText = await getOverflowStatus(page);
-      expect(statusText).toMatch(/fits|near_limit|overflow/);
+      expect(statusText).toMatch(ANY_PAGE_STATUS);
     } else {
       // Single job: verify branch state persists after navigation
       await page.goto("/profile");
@@ -427,7 +436,7 @@ test.describe("D2.1 验收：双模板预览与 PDF 导出", () => {
 
     // Verify overflow status is recalculated
     const statusText = await getOverflowStatus(page);
-    expect(statusText).toMatch(/fits|near_limit|overflow/);
+    expect(statusText).toMatch(ANY_PAGE_STATUS);
   });
 
   // ──────────────────────────────────────────────────────────
@@ -483,14 +492,14 @@ test.describe("D2.1 验收：双模板预览与 PDF 导出", () => {
 
     const statusText = await getOverflowStatus(page);
     // Default demo content should be fits or near_limit (font dependent)
-    expect(statusText).toMatch(/fits|near_limit/);
+    expect(statusText).toMatch(OK_PAGE_STATUS);
 
     // Print button should be enabled for both fits and near_limit
     const printButton = page.getByRole("button", { name: "打印 / 保存 PDF" });
     await expect(printButton).toBeEnabled();
 
     // If near_limit, warning should be shown
-    if (statusText.includes("near_limit")) {
+    if (statusText.includes("near_limit") || statusText.includes("near_one_page_limit")) {
       await expect(page.locator(".warning-box")).toContainText("接近单页上限");
     }
 
@@ -527,7 +536,7 @@ test.describe("D2.1 验收：双模板预览与 PDF 导出", () => {
     }
 
     const finalStatus = await getOverflowStatus(page);
-    if (finalStatus.includes("near_limit")) {
+    if (finalStatus.includes("near_limit") || finalStatus.includes("near_one_page_limit")) {
       await expect(page.locator(".warning-box")).toContainText("接近单页上限");
       const printButton = page.getByRole("button", { name: "打印 / 保存 PDF" });
       await expect(printButton).toBeEnabled();
@@ -591,7 +600,7 @@ test.describe("D2.1 验收：双模板预览与 PDF 导出", () => {
     // Check overflow status
     const statusText = await getOverflowStatus(page);
     // Content should be at least near_limit, ideally overflow
-    expect(statusText).toMatch(/overflow|near_limit/);
+    expect(statusText).toMatch(/overflow|near_limit|near_one_page_limit|fits_two_pages|exceeds_two_pages/);
 
     // scrollHeight >= clientHeight for overflow/near_limit
     const measurements = await page.evaluate(() => {
@@ -602,19 +611,19 @@ test.describe("D2.1 验收：双模板预览与 PDF 导出", () => {
     expect(measurements).not.toBeNull();
     expect(measurements!.scrollHeight).toBeGreaterThanOrEqual(measurements!.clientHeight - 2);
 
-    if (statusText.includes("overflow")) {
+    if (statusText.includes("overflow") || statusText.includes("fits_two_pages") || statusText.includes("exceeds_two_pages")) {
       // Warning displayed for overflow
-      await expect(page.locator(".warning-box")).toContainText("已超出 A4 单页");
+      await expect(page.locator(".warning-box")).toContainText("正式导出会被阻止");
 
       // Export should be blocked
       await page.getByRole("button", { name: "打印 / 保存 PDF" }).click();
-      await expect(page.locator(".notice")).toContainText("overflow");
+      await expect(page.locator(".notice")).toContainText(/页数超过|overflow/);
 
       // A blocked_overflow record should exist (not print_invoked)
       const records = await getExportRecords(page);
       const blockedRecord = records.find((r) => r.exportStatus === "blocked_overflow");
       expect(blockedRecord).toBeDefined();
-      expect(blockedRecord!.overflowStatus).toBe("overflow");
+      expect(blockedRecord!.overflowStatus).toMatch(BLOCKED_PAGE_STATUS);
     } else {
       // near_limit: warning but export still allowed
       await expect(page.locator(".warning-box")).toContainText("接近单页上限");
@@ -800,7 +809,7 @@ test.describe("D2.1 验收：双模板预览与 PDF 导出", () => {
     const records = await getExportRecords(page);
     const latestRecord = records[records.length - 1];
     expect(latestRecord.exportStatus).toBe("print_invoked");
-    expect(latestRecord.overflowStatus).toMatch(/fits|near_limit/);
+    expect(latestRecord.overflowStatus).toMatch(OK_PAGE_STATUS);
     expect(latestRecord.templateId).toBe("classic-technical");
     expect(latestRecord.displayName).toBeTruthy();
   });
@@ -886,7 +895,7 @@ test.describe("D2.1 验收：双模板预览与 PDF 导出", () => {
 
     // Overflow status preserved
     const statusText = await getOverflowStatus(page);
-    expect(statusText).toMatch(/fits|near_limit|overflow/);
+    expect(statusText).toMatch(ANY_PAGE_STATUS);
   });
 
   // ──────────────────────────────────────────────────────────

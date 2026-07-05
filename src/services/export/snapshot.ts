@@ -1,6 +1,7 @@
 import type {
   ResumePdfExportRequest,
   ResumePdfExportSnapshot,
+  ResumePaginationPlan,
   ResumePresentationConfig,
   ResumeRenderModel
 } from "@/domain/schemas";
@@ -13,6 +14,7 @@ export function createResumePdfExportRequest(input: {
   generatedAt: string;
   filename: string;
   overflowStatus: ResumePdfExportSnapshot["overflowStatus"];
+  paginationPlan: ResumePaginationPlan;
 }): ResumePdfExportRequest {
   const snapshotWithoutHash = {
     branchId: input.renderModel.branchId,
@@ -23,6 +25,12 @@ export function createResumePdfExportRequest(input: {
     generatedAt: input.generatedAt,
     filename: input.filename,
     overflowStatus: input.overflowStatus,
+    pagePolicy: input.paginationPlan.pagePolicy,
+    requestedMaxPages: input.paginationPlan.requestedMaxPages,
+    actualPageCount: input.paginationPlan.actualPageCount,
+    pageBreakBeforeSections: input.paginationPlan.forcedBreakBeforeSections,
+    paginationPlan: input.paginationPlan,
+    paginationHash: input.paginationPlan.paginationHash,
     presentation: presentationSnapshotFromConfig(input.presentationConfig),
     renderModel: input.renderModel
   };
@@ -48,6 +56,7 @@ export function presentationSnapshotFromConfig(config: ResumePresentationConfig)
     typography: config.typography,
     spacing: config.spacing,
     theme: config.theme,
+    pagination: config.pagination,
     sectionStyleOverrides: config.sectionStyleOverrides
   };
 }
@@ -67,6 +76,7 @@ export function presentationConfigFromExportSnapshot(snapshot: ResumePdfExportSn
     typography: snapshot.presentation.typography,
     spacing: snapshot.presentation.spacing,
     theme: snapshot.presentation.theme,
+    pagination: snapshot.presentation.pagination,
     sectionStyleOverrides: snapshot.presentation.sectionStyleOverrides,
     presentationRevision: snapshot.presentationRevision,
     updatedAt: snapshot.generatedAt

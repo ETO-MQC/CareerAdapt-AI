@@ -1,9 +1,10 @@
 "use client";
 
 import type { KeyboardEvent, MouseEvent, RefObject } from "react";
-import type { ResumePresentationConfig, ResumeRenderModel } from "@/domain/schemas";
+import type { ResumePaginationPlan, ResumePresentationConfig, ResumeRenderModel } from "@/domain/schemas";
 import { resumeTemplateStyleVars, type TemplateDefinition } from "./templates/templateRegistry";
 import type { ResumeDocumentBlock } from "@/domain/resumeDocument/mapper";
+import { paginateResumeRenderModel } from "@/services/export/pagination";
 
 export type ResumeStudioEditorProps = {
   enabled: boolean;
@@ -27,15 +28,23 @@ export function A4ResumePreview({
   model,
   template,
   pageRef,
+  paginationPlan,
   presentationConfig,
   editor
 }: {
   model: ResumeRenderModel;
   template: TemplateDefinition;
   pageRef: RefObject<HTMLElement | null>;
+  paginationPlan?: ResumePaginationPlan;
   presentationConfig?: ResumePresentationConfig;
   editor?: ResumeStudioEditorProps;
 }) {
+  const pageModels = paginateResumeRenderModel(model, paginationPlan);
+  const visiblePageModels = paginationPlan
+    ? pageModels.slice(0, paginationPlan.requestedMaxPages)
+    : pageModels;
+  const pageCount = Math.max(1, visiblePageModels.length);
+
   function findSourceItemId(target: EventTarget | null) {
     if (!(target instanceof HTMLElement)) {
       return undefined;
@@ -82,81 +91,124 @@ export function A4ResumePreview({
     }
   }
 
-  return (
-    <article
-      ref={pageRef}
-      className={`resume-a4-page ${template.className} ${editor?.enabled ? "resume-studio-edit-enabled" : ""}`}
-      style={resumeTemplateStyleVars(template, presentationConfig)}
-      data-testid="resume-a4-page"
-      aria-label="A4 简历预览"
-      tabIndex={editor?.enabled ? 0 : undefined}
-      onClick={handleClick}
-      onDoubleClick={handleDoubleClick}
-      onKeyDown={handleKeyDown}
-    >
-      {template.render(model, { selectedItemId: editor?.selectedItemId, presentationConfig })}
-      {editor?.enabled && editor.selectedBlock ? (
-        <div className="resume-studio-editor no-print" data-testid="resume-studio-editor">
-          <div>
-            <strong>编辑区块</strong>
-            <span>{editor.selectedBlock.itemType} / {editor.selectedBlock.guardStatus}</span>
-          </div>
-          {editor.editingItemId === editor.selectedBlock.contentItemId ? (
-            <>
-              <textarea
-                aria-label="编辑简历区块正文"
-                autoFocus
-                value={editor.draftText}
-                disabled={editor.pending}
-                onChange={(event) => editor.onDraftTextChange(event.target.value)}
-              />
-              <div className="action-row">
-                <button className="primary-button compact" disabled={editor.pending} onClick={editor.onSave}>保存</button>
-                <button className="secondary-button compact" disabled={editor.pending} onClick={editor.onCancel}>取消</button>
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="action-row">
-                <button
-                  className="primary-button compact"
-                  disabled={!editor.selectedBlock.editable || editor.pending}
-                  onClick={() => editor.onStartEdit(editor.selectedBlock!.contentItemId)}
-                >
-                  编辑
-                </button>
-              </div>
-              <div className="action-row resume-structure-actions">
-                <button
-                  className="secondary-button compact"
-                  disabled={editor.pending || !editor.onMoveUp}
-                  onClick={() => editor.onMoveUp?.(editor.selectedBlock!.contentItemId)}
-                >
-                  上移
-                </button>
-                <button
-                  className="secondary-button compact"
-                  disabled={editor.pending || !editor.onMoveDown}
-                  onClick={() => editor.onMoveDown?.(editor.selectedBlock!.contentItemId)}
-                >
-                  下移
-                </button>
-                <button
-                  className="secondary-button compact"
-                  disabled={editor.pending || !editor.onHide}
-                  onClick={() => editor.onHide?.(editor.selectedBlock!.contentItemId)}
-                >
-                  隐藏
-                </button>
-              </div>
-            </>
-          )}
-          {editor.error ? <p className="save-status save-status-failed">{editor.error}</p> : null}
-          {!editor.selectedBlock.editable ? (
-            <p className="save-status save-status-failed">当前区块不可编辑：{editor.selectedBlock.notEditableReason}</p>
-          ) : null}
+  function pageContainsSelectedBlock(pageModel: ResumeRenderModel) {
+    if (!editor?.selectedBlock) {
+      return false;
+    }
+    return pageModel.sections.some((section) =>
+      section.blocks.some((block) => block.sourceItemId === editor.selectedBlock?.contentItemId)
+    );
+  }
+  const selectedBlockRendered = visiblePageModels.some((pageModel) => pageContainsSelectedBlock(pageModel));
+
+  function renderEditorOverlay() {
+    if (!editor?.enabled || !editor.selectedBlock) {
+      return null;
+    }
+    return (
+      <div className="resume-studio-editor no-print" data-testid="resume-studio-editor">
+        <div>
+          <strong>编辑区块</strong>
+          <span>{editor.selectedBlock.itemType} / {editor.selectedBlock.guardStatus}</span>
         </div>
-      ) : null}
-    </article>
+        {editor.editingItemId === editor.selectedBlock.contentItemId ? (
+          <>
+            <textarea
+              aria-label="编辑简历区块正文"
+              autoFocus
+              value={editor.draftText}
+              disabled={editor.pending}
+              onChange={(event) => editor.onDraftTextChange(event.target.value)}
+            />
+            <div className="action-row">
+              <button className="primary-button compact" disabled={editor.pending} onClick={editor.onSave}>保存</button>
+              <button className="secondary-button compact" disabled={editor.pending} onClick={editor.onCancel}>取消</button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="action-row">
+              <button
+                className="primary-button compact"
+                disabled={!editor.selectedBlock.editable || editor.pending}
+                onClick={() => editor.onStartEdit(editor.selectedBlock!.contentItemId)}
+              >
+                编辑
+              </button>
+            </div>
+            <div className="action-row resume-structure-actions">
+              <button
+                className="secondary-button compact"
+                disabled={editor.pending || !editor.onMoveUp}
+                onClick={() => editor.onMoveUp?.(editor.selectedBlock!.contentItemId)}
+              >
+                上移
+              </button>
+              <button
+                className="secondary-button compact"
+                disabled={editor.pending || !editor.onMoveDown}
+                onClick={() => editor.onMoveDown?.(editor.selectedBlock!.contentItemId)}
+              >
+                下移
+              </button>
+              <button
+                className="secondary-button compact"
+                disabled={editor.pending || !editor.onHide}
+                onClick={() => editor.onHide?.(editor.selectedBlock!.contentItemId)}
+              >
+                隐藏
+              </button>
+            </div>
+          </>
+        )}
+        {editor.error ? <p className="save-status save-status-failed">{editor.error}</p> : null}
+        {!editor.selectedBlock.editable ? (
+          <p className="save-status save-status-failed">当前区块不可编辑：{editor.selectedBlock.notEditableReason}</p>
+        ) : null}
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <article
+        ref={pageRef}
+        className={`resume-a4-page ${template.className} resume-pagination-measurement-page no-print`}
+        style={resumeTemplateStyleVars(template, presentationConfig)}
+        data-testid="resume-pagination-measurement-page"
+        data-resume-pagination-measurement="true"
+        aria-hidden="true"
+      >
+        {template.render(model, { presentationConfig })}
+      </article>
+      <div className="resume-preview-pages">
+        {visiblePageModels.map((pageModel, index) => (
+          <div className="resume-page-shell" key={`${pageModel.branchCurrentRevisionId}-${paginationPlan?.paginationHash ?? "single"}-${index}`}>
+            <div className="resume-page-label no-print">第 {index + 1} 页 / 共 {pageCount} 页</div>
+            <article
+              className={`resume-a4-page ${template.className} ${editor?.enabled ? "resume-studio-edit-enabled" : ""}`}
+              style={resumeTemplateStyleVars(template, presentationConfig)}
+              data-testid="resume-a4-page"
+              aria-label={`A4 简历预览第 ${index + 1} 页`}
+              tabIndex={editor?.enabled ? 0 : undefined}
+              onClick={handleClick}
+              onDoubleClick={handleDoubleClick}
+              onKeyDown={handleKeyDown}
+            >
+              {template.render(pageModel, {
+                selectedItemId: editor?.selectedItemId,
+                presentationConfig,
+                pagination: {
+                  pageNumber: index + 1,
+                  pageCount,
+                  isContinuation: index > 0
+                }
+              })}
+              {pageContainsSelectedBlock(pageModel) || (index === 0 && editor?.selectedBlock && !selectedBlockRendered) ? renderEditorOverlay() : null}
+            </article>
+          </div>
+        ))}
+      </div>
+    </>
   );
 }

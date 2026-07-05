@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   type JobAdaptationDraft,
   type OverflowStatus,
+  type ResumePaginationPlan,
   type ResumeBranch,
   type ResumePresentationConfig,
   type ResumeRenderModel,
@@ -14,7 +15,7 @@ import { mapBranchToResumeRenderModel, ResumeRenderMapperError } from "@/domain/
 import { A4ResumePreview } from "@/components/resume/A4ResumePreview";
 import { TemplateCenter } from "@/components/resume/TemplateCenter";
 import { mapBranchToResumeDocument } from "@/domain/resumeDocument/mapper";
-import { classifyOverflow, useA4Overflow } from "@/components/resume/useA4Overflow";
+import { useResumePagination } from "@/components/resume/useResumePagination";
 import {
   getResumeTemplate,
   getTemplateDefaultStyleConfig,
@@ -24,6 +25,7 @@ import {
 } from "@/components/resume/templates/templateRegistry";
 import { printCurrentPage } from "@/services/export/browserPrint";
 import { buildResumePdfFileName, PDF_MIME_TYPE } from "@/services/export/filename";
+import { isPaginationPlanBlocked, paginationStatusLabel } from "@/services/export/pagination";
 import { createResumePdfExportRequest, presentationSnapshotFromConfig } from "@/services/export/snapshot";
 import { hashBytes, stableHashText } from "@/services/security/text";
 import { RevisionConflictError, WorkspaceRepository } from "@/services/storage/repositories";
@@ -155,12 +157,29 @@ export function ResumeWorkspace() {
     }
     return resumeDocument.sections.find((section) => section.type === selectedStudioBlock.sectionType);
   }, [resumeDocument, selectedStudioBlock]);
+  const visibleSectionTypes = useMemo(() => {
+    return resumeDocument?.sections
+      .filter((section) => section.blocks.some((block) => block.visible && block.renderable))
+      .map((section) => section.type) ?? [];
+  }, [resumeDocument]);
+  const firstVisibleSectionType = visibleSectionTypes[0];
+  const selectedSectionPageBreakEnabled = selectedStudioSection
+    ? Boolean(presentationConfig?.pagination.pageBreakBeforeSections.includes(selectedStudioSection.type))
+    : false;
+  const selectedSectionCanPageBreak = Boolean(
+    selectedStudioSection
+    && presentationConfig?.pagination.pagePolicy === "up_to_two_pages"
+    && selectedTemplate.capabilities.supportsSectionPageBreaks
+    && selectedStudioSection.type !== firstVisibleSectionType
+  );
   const selectedBranchEditable = selectedBranch ? canEditBranch(selectedBranch) : false;
-  const overflow = useA4Overflow(pageRef, [
+  const pagination = useResumePagination(pageRef, presentationConfig?.pagination, [
     renderModel?.branchId,
     renderModel?.branchRevision,
     effectiveTemplateId,
-    presentationConfig?.presentationRevision
+    presentationConfig?.presentationRevision,
+    presentationConfig?.pagination.pagePolicy,
+    presentationConfig?.pagination.pageBreakBeforeSections.join("|")
   ]);
   const reductionHints = useMemo(() => renderModel ? buildReductionHints(renderModel) : [], [renderModel]);
   const presentationHiddenBlocks = useMemo(() => {
@@ -480,6 +499,68 @@ export function ResumeWorkspace() {
         beforeConfig: current,
         operationId: `v2-g1b-style-reset-${selectedBranch.id}-${selectedBranch.revision}-${current.presentationRevision}-${current.templateId}`,
         successMessage: "已恢复当前模板默认样式。"
+      });
+    });
+  }
+
+  async function updatePagePolicy(pagePolicy: ResumePresentationConfig["pagination"]["pagePolicy"]) {
+    if (!selectedBranch || !presentationConfig) {
+      return;
+    }
+    enqueuePresentation(async (current) => {
+      if (current.pagination.pagePolicy === pagePolicy) {
+        return current;
+      }
+      const nextConfig = buildNextPresentationConfig({
+        current,
+        branch: selectedBranch,
+        patch: {
+          pagination: {
+            ...current.pagination,
+            pagePolicy
+          }
+        }
+      });
+      return await savePresentationConfig({
+        nextConfig,
+        beforeConfig: current,
+        operationId: `v2-g3b-page-policy-${selectedBranch.id}-${selectedBranch.revision}-${current.presentationRevision}-${pagePolicy}`,
+        successMessage: pagePolicy === "up_to_two_pages"
+          ? "页面策略已切换为最多两页，未创建内容版本。"
+          : "页面策略已切换为严格一页，未创建内容版本。"
+      });
+    });
+  }
+
+  async function setSectionPageBreak(sectionType: NonNullable<typeof selectedStudioBlock>["sectionType"], enabled: boolean) {
+    if (!selectedBranch || !presentationConfig) {
+      return;
+    }
+    enqueuePresentation(async (current) => {
+      const pageBreakBeforeSections = enabled
+        ? Array.from(new Set([...current.pagination.pageBreakBeforeSections, sectionType]))
+        : current.pagination.pageBreakBeforeSections.filter((value) => value !== sectionType);
+      if (
+        pageBreakBeforeSections.length === current.pagination.pageBreakBeforeSections.length
+        && pageBreakBeforeSections.every((value, index) => value === current.pagination.pageBreakBeforeSections[index])
+      ) {
+        return current;
+      }
+      const nextConfig = buildNextPresentationConfig({
+        current,
+        branch: selectedBranch,
+        patch: {
+          pagination: {
+            ...current.pagination,
+            pageBreakBeforeSections
+          }
+        }
+      });
+      return await savePresentationConfig({
+        nextConfig,
+        beforeConfig: current,
+        operationId: `v2-g3b-section-break-${selectedBranch.id}-${selectedBranch.revision}-${current.presentationRevision}-${sectionType}-${enabled}`,
+        successMessage: enabled ? "当前 Section 已设置为从下一页开始。" : "当前 Section 分页提示已取消。"
       });
     });
   }
@@ -838,10 +919,17 @@ export function ResumeWorkspace() {
       return;
     }
 
-    const page = pageRef.current;
-    const measured = page
-      ? classifyOverflow({ scrollHeight: page.scrollHeight, clientHeight: page.clientHeight })
-      : overflow;
+    const paginationPlan = pagination.plan;
+    if (!paginationPlan || pagination.status === "measuring" || pagination.status === "measurement_failed") {
+      setMessage("分页测量尚未完成，请稍后再导出。");
+      setPdfExportState({
+        status: "failed",
+        message: "分页测量尚未完成。",
+        errorCode: "pagination_measurement_unavailable",
+        canUseFallback: true
+      });
+      return;
+    }
     const startedAt = new Date().toISOString();
     const exportId = createExportId("v2-g3a-direct");
     const fileName = buildResumePdfFileName({
@@ -856,14 +944,15 @@ export function ResumeWorkspace() {
       presentationConfig,
       generatedAt: startedAt,
       filename: fileName,
-      overflowStatus: measured.status
+      overflowStatus: paginationPlan.status,
+      paginationPlan
     });
 
     setPdfExportState({
       status: "validating",
       exportId,
       filename: fileName,
-      message: "正在校验当前版本和单页状态。"
+        message: "正在校验当前版本和分页状态。"
     });
 
     try {
@@ -897,32 +986,41 @@ export function ResumeWorkspace() {
         presentationConfig
       });
 
-      if (measured.status === "overflow") {
+      if (isPaginationPlanBlocked(paginationPlan)) {
         await repository.createResumeExportRecord({
           operationId: exportId,
           branchId: latestBranch.id,
           expectedBranchRevision: latestBranch.revision,
           expectedRevisionId: latestBranch.currentRevisionId!,
           templateId: effectiveTemplateId,
-          overflowStatus: "overflow",
+          overflowStatus: paginationPlan.status,
           exportStatus: "blocked_overflow",
           fileName,
-          errorCode: "overflow",
-          failureCode: "overflow",
+          errorCode: "page_limit_exceeded",
+          failureCode: "page_limit_exceeded",
           exportMethod: "direct_pdf",
           startedAt,
           completedAt: new Date().toISOString(),
           presentationRevision: presentationConfig.presentationRevision,
           presentationSnapshot: presentationSnapshotFromConfig(presentationConfig),
-          snapshotHash: exportRequest.snapshot.snapshotHash
+          snapshotHash: exportRequest.snapshot.snapshotHash,
+          pagePolicy: paginationPlan.pagePolicy,
+          requestedMaxPages: paginationPlan.requestedMaxPages,
+          actualPageCount: paginationPlan.actualPageCount,
+          paginationHash: paginationPlan.paginationHash,
+          paginationSnapshot: paginationPlan,
+          exceededPageLimit: true,
+          continuationHeader: "none",
+          pageSize: "A4",
+          pageDimensions: { widthMm: 210, heightMm: 297 }
         });
-        setMessage("导出已阻止：当前 A4 预览为 overflow，请先删减内容。");
+        setMessage("导出已阻止：当前页数超过所选页面策略。");
         setPdfExportState({
           status: "blocked_overflow",
           exportId,
           filename: fileName,
-          message: "当前 A4 预览为 overflow，已阻止下载。",
-          errorCode: "overflow"
+          message: "当前页数超过所选页面策略，已阻止下载。",
+          errorCode: "page_limit_exceeded"
         });
         return;
       }
@@ -965,7 +1063,7 @@ export function ResumeWorkspace() {
         expectedBranchRevision: latestBranch.revision,
         expectedRevisionId: latestBranch.currentRevisionId!,
         templateId: effectiveTemplateId,
-        overflowStatus: measured.status,
+        overflowStatus: paginationPlan.status,
         exportStatus: "direct_pdf_success",
         fileName,
         exportMethod: "direct_pdf",
@@ -977,10 +1075,19 @@ export function ResumeWorkspace() {
         presentationSnapshot: presentationSnapshotFromConfig(presentationConfig),
         snapshotHash: exportRequest.snapshot.snapshotHash,
         pdfContentHash: pdfHash,
+        pagePolicy: paginationPlan.pagePolicy,
+        requestedMaxPages: paginationPlan.requestedMaxPages,
+        actualPageCount: paginationPlan.actualPageCount,
+        paginationHash: paginationPlan.paginationHash,
+        paginationSnapshot: paginationPlan,
+        exceededPageLimit: false,
+        continuationHeader: "none",
+        pageSize: "A4",
+        pageDimensions: { widthMm: 210, heightMm: 297 },
         allowHistoricalRevision: true
       });
       triggerBrowserDownload(new Blob([bytes], { type: PDF_MIME_TYPE }), fileName);
-      setMessage(measured.status === "near_limit"
+      setMessage(paginationPlan.status === "near_one_page_limit" || paginationPlan.status === "near_limit"
         ? "PDF 已生成并触发下载。当前接近单页上限，建议打开文件复核。"
         : "PDF 已生成并触发下载；浏览器不允许确认是否最终保存到磁盘。");
       setPdfExportState({
@@ -999,19 +1106,20 @@ export function ResumeWorkspace() {
           presentationConfig,
           fileName,
           startedAt,
-          overflowStatus: blockedOverflow ? "overflow" : measured.status,
+          overflowStatus: blockedOverflow ? "exceeds_two_pages" : paginationPlan.status,
           errorCode,
-          snapshotHash: exportRequest.snapshot.snapshotHash
+          snapshotHash: exportRequest.snapshot.snapshotHash,
+          paginationPlan
         });
       }
       setMessage(blockedOverflow
-        ? "导出已阻止：生成前重新检测到 overflow，请先删减内容。"
+        ? "导出已阻止：生成前重新检测到页数超过页面策略，请先删减内容或切换策略。"
         : "直接下载失败：可以重试，或使用浏览器打印 fallback。");
       setPdfExportState({
         status: blockedOverflow ? "blocked_overflow" : "failed",
         exportId,
         filename: fileName,
-        message: blockedOverflow ? "生成前重新检测到 overflow。" : "直接下载失败，可以重试或使用浏览器打印。",
+        message: blockedOverflow ? "生成前重新检测到页数超过页面策略。" : "直接下载失败，可以重试或使用浏览器打印。",
         errorCode,
         canUseFallback: !blockedOverflow
       });
@@ -1024,12 +1132,13 @@ export function ResumeWorkspace() {
       return;
     }
 
-    const page = pageRef.current;
-    const measured = page
-      ? classifyOverflow({ scrollHeight: page.scrollHeight, clientHeight: page.clientHeight })
-      : overflow;
+    const paginationPlan = pagination.plan;
+    if (!paginationPlan || pagination.status === "measuring" || pagination.status === "measurement_failed") {
+      setMessage("分页测量尚未完成，请稍后再使用打印 fallback。");
+      return;
+    }
     const startedAt = new Date().toISOString();
-    const operationId = `d2-export-${selectedBranch.id}-${selectedBranch.revision}-${selectedBranch.currentRevisionId}-${effectiveTemplateId}-${measured.status}-${presentationConfig?.presentationRevision ?? 0}`;
+    const operationId = `d2-export-${selectedBranch.id}-${selectedBranch.revision}-${selectedBranch.currentRevisionId}-${effectiveTemplateId}-${paginationPlan.status}-${presentationConfig?.presentationRevision ?? 0}-${paginationPlan.paginationHash}`;
     const fileName = buildResumePdfFileName({
       candidateName: renderModel.candidate.name,
       jobTitle: renderModel.jobTitle,
@@ -1061,30 +1170,39 @@ export function ResumeWorkspace() {
         presentationConfig
       });
 
-      if (measured.status === "overflow") {
+      if (isPaginationPlanBlocked(paginationPlan)) {
         await repository.createResumeExportRecord({
           operationId,
           branchId: latestBranch.id,
           expectedBranchRevision: latestBranch.revision,
           expectedRevisionId: latestBranch.currentRevisionId!,
           templateId: effectiveTemplateId,
-          overflowStatus: "overflow",
+          overflowStatus: paginationPlan.status,
           exportStatus: "blocked_overflow",
           fileName,
-          errorCode: "overflow",
-          failureCode: "overflow",
+          errorCode: "page_limit_exceeded",
+          failureCode: "page_limit_exceeded",
           exportMethod: "browser_print",
           startedAt,
           completedAt: new Date().toISOString(),
           presentationRevision: presentationConfig?.presentationRevision,
-          presentationSnapshot
+          presentationSnapshot,
+          pagePolicy: paginationPlan.pagePolicy,
+          requestedMaxPages: paginationPlan.requestedMaxPages,
+          actualPageCount: paginationPlan.actualPageCount,
+          paginationHash: paginationPlan.paginationHash,
+          paginationSnapshot: paginationPlan,
+          exceededPageLimit: true,
+          continuationHeader: "none",
+          pageSize: "A4",
+          pageDimensions: { widthMm: 210, heightMm: 297 }
         });
-        setMessage("导出已阻止：当前 A4 预览为 overflow，请先删减内容。");
+        setMessage("导出已阻止：当前页数超过所选页面策略。");
         setPdfExportState({
           status: "blocked_overflow",
-          message: "当前 A4 预览为 overflow，已阻止打印 fallback。",
+          message: "当前页数超过所选页面策略，已阻止打印 fallback。",
           filename: fileName,
-          errorCode: "overflow"
+          errorCode: "page_limit_exceeded"
         });
         return;
       }
@@ -1095,7 +1213,7 @@ export function ResumeWorkspace() {
         expectedBranchRevision: latestBranch.revision,
         expectedRevisionId: latestBranch.currentRevisionId!,
         templateId: effectiveTemplateId,
-        overflowStatus: measured.status,
+        overflowStatus: paginationPlan.status,
         exportStatus: "print_invoked",
         fileName,
         exportMethod: "browser_print",
@@ -1103,10 +1221,19 @@ export function ResumeWorkspace() {
         startedAt,
         completedAt: new Date().toISOString(),
         presentationRevision: presentationConfig?.presentationRevision,
-        presentationSnapshot
+        presentationSnapshot,
+        pagePolicy: paginationPlan.pagePolicy,
+        requestedMaxPages: paginationPlan.requestedMaxPages,
+        actualPageCount: paginationPlan.actualPageCount,
+        paginationHash: paginationPlan.paginationHash,
+        paginationSnapshot: paginationPlan,
+        exceededPageLimit: false,
+        continuationHeader: "none",
+        pageSize: "A4",
+        pageDimensions: { widthMm: 210, heightMm: 297 }
       });
       printCurrentPage();
-      setMessage(measured.status === "near_limit"
+      setMessage(paginationPlan.status === "near_one_page_limit" || paginationPlan.status === "near_limit"
         ? "已打开浏览器打印 fallback。当前接近单页上限，请在打印预览中再次确认。"
         : "已打开浏览器打印 fallback，可保存为文本可复制的 PDF。");
       setPdfExportState({
@@ -1136,6 +1263,7 @@ export function ResumeWorkspace() {
     overflowStatus: OverflowStatus;
     errorCode: string;
     snapshotHash: string;
+    paginationPlan: ResumePaginationPlan;
   }) {
     try {
       await repository.createResumeExportRecord({
@@ -1145,7 +1273,7 @@ export function ResumeWorkspace() {
         expectedRevisionId: input.branch.currentRevisionId!,
         templateId: input.presentationConfig.templateId,
         overflowStatus: input.overflowStatus,
-        exportStatus: input.overflowStatus === "overflow" ? "blocked_overflow" : "failed",
+        exportStatus: isPaginationPlanBlocked(input.paginationPlan) ? "blocked_overflow" : "failed",
         fileName: input.fileName,
         errorCode: input.errorCode,
         failureCode: input.errorCode,
@@ -1156,7 +1284,16 @@ export function ResumeWorkspace() {
         completedAt: new Date().toISOString(),
         presentationRevision: input.presentationConfig.presentationRevision,
         presentationSnapshot: presentationSnapshotFromConfig(input.presentationConfig),
-        snapshotHash: input.snapshotHash
+        snapshotHash: input.snapshotHash,
+        pagePolicy: input.paginationPlan.pagePolicy,
+        requestedMaxPages: input.paginationPlan.requestedMaxPages,
+        actualPageCount: input.paginationPlan.actualPageCount,
+        paginationHash: input.paginationPlan.paginationHash,
+        paginationSnapshot: input.paginationPlan,
+        exceededPageLimit: isPaginationPlanBlocked(input.paginationPlan),
+        continuationHeader: "none",
+        pageSize: "A4",
+        pageDimensions: { widthMm: 210, heightMm: 297 }
       });
     } catch {
       // A failed export must never be promoted to success; failure-record writes
@@ -1566,6 +1703,28 @@ export function ResumeWorkspace() {
                         恢复模板默认样式
                       </button>
                     </div>
+                    <div className="property-section pagination-controls" data-testid="pagination-controls">
+                      <label className="field-label">
+                        页面策略
+                        <select
+                          aria-label="页面策略"
+                          data-testid="page-policy-selector"
+                          value={presentationConfig?.pagination.pagePolicy ?? "one_page_strict"}
+                          disabled={!presentationConfig || !selectedBranchEditable || !selectedTemplate.capabilities.supportsTwoPages}
+                          onChange={(event) => {
+                            void updatePagePolicy(event.target.value as ResumePresentationConfig["pagination"]["pagePolicy"]);
+                          }}
+                        >
+                          <option value="one_page_strict">严格一页</option>
+                          <option value="up_to_two_pages">最多两页</option>
+                        </select>
+                      </label>
+                      <div className="pagination-summary" data-testid="pagination-summary">
+                        <strong>实际页数：{pagination.plan?.actualPageCount ?? "测量中"}</strong>
+                        <span>{paginationStatusLabel(pagination.status)}</span>
+                        {pagination.plan ? <span>策略上限：{pagination.plan.requestedMaxPages} 页</span> : null}
+                      </div>
+                    </div>
                     {!selectedTemplate.capabilities.supportsTwoPages ? (
                       <p className="save-status">当前模板不支持两页策略。</p>
                     ) : null}
@@ -1587,6 +1746,20 @@ export function ResumeWorkspace() {
                       />
                       显示 Section 标题
                     </label>
+                    <label className="inline-toggle">
+                      <input
+                        type="checkbox"
+                        checked={selectedSectionPageBreakEnabled}
+                        disabled={!presentationConfig || !selectedBranchEditable || !selectedSectionCanPageBreak}
+                        onChange={(event) => { void setSectionPageBreak(selectedStudioSection.type, event.target.checked); }}
+                      />
+                      从下一页开始
+                    </label>
+                    {presentationConfig?.pagination.pagePolicy !== "up_to_two_pages" ? (
+                      <p className="save-status">仅“最多两页”策略下可设置 Section 分页提示。</p>
+                    ) : selectedStudioSection.type === firstVisibleSectionType ? (
+                      <p className="save-status">第一个可见 Section 不能从下一页开始。</p>
+                    ) : null}
                     <button
                       className="secondary-button compact"
                       disabled={!presentationConfig || !selectedBranchEditable}
@@ -1649,19 +1822,23 @@ export function ResumeWorkspace() {
                 ))}
               </div>
             ) : null}
-            <div className={`overflow-status overflow-status-${overflow.status}`} data-testid="overflow-status">
-              <strong>{overflow.status}</strong>
-              <span>剩余 {Math.floor(overflow.remainingPx)}px</span>
+            <div className={`overflow-status overflow-status-${pagination.status}`} data-testid="overflow-status">
+              <strong>{paginationStatusLabel(pagination.status)}</strong>
+              <span>
+                {pagination.plan
+                  ? `实际 ${pagination.plan.actualPageCount} 页 / 上限 ${pagination.plan.requestedMaxPages} 页 / 剩余 ${Math.floor(pagination.plan.measurement.remainingPx)}px`
+                  : "正在测量分页"}
+              </span>
             </div>
             {renderModel?.safety.ruleOnlyItemIds.length ? (
               <div className="warning-box">该分支包含 rule_only_verified 内容，工作台已显示校验状态；PDF 正文不会加入内部风险标签。</div>
             ) : null}
-            {overflow.status === "near_limit" ? (
+            {pagination.status === "near_one_page_limit" || pagination.status === "near_limit" ? (
               <div className="warning-box">当前接近单页上限，建议导出前在打印预览中复核。</div>
             ) : null}
-            {overflow.status === "overflow" ? (
+            {pagination.plan && isPaginationPlanBlocked(pagination.plan) ? (
               <div className="warning-box">
-                <p>当前内容已超出 A4 单页，正式导出会被阻止。</p>
+                <p>当前页数超过所选页面策略，正式导出会被阻止。</p>
                 {reductionHints.length > 0 ? (
                   <ul>
                     {reductionHints.map((hint) => <li key={hint}>{hint}</li>)}
@@ -1673,7 +1850,7 @@ export function ResumeWorkspace() {
               <button
                 className="primary-button"
                 onClick={downloadPdf}
-                disabled={!renderModel || !presentationConfig || isPdfExportBusy || overflow.status === "overflow"}
+                disabled={!renderModel || !presentationConfig || isPdfExportBusy || pagination.blocked || pagination.status === "measuring"}
               >
                 {isPdfExportBusy ? "生成 PDF 中" : "下载 PDF"}
               </button>
@@ -1704,6 +1881,7 @@ export function ResumeWorkspace() {
                 model={renderModel}
                 template={selectedTemplate}
                 pageRef={pageRef}
+                paginationPlan={pagination.plan}
                 presentationConfig={presentationConfig}
                 editor={resumeDocument ? {
                   enabled: isStudioEditMode,
@@ -1793,7 +1971,7 @@ function buildNextPresentationConfig(input: {
   branch: ResumeBranch;
   patch: Partial<Pick<
     ResumePresentationConfig,
-    "templateId" | "itemOrderBySection" | "hiddenItemIds" | "typography" | "spacing" | "theme" | "sectionOrder" | "sectionStyleOverrides"
+    "templateId" | "itemOrderBySection" | "hiddenItemIds" | "typography" | "spacing" | "theme" | "pagination" | "sectionOrder" | "sectionStyleOverrides"
   >>;
 }): ResumePresentationConfig {
   if (!input.branch.currentRevisionId) {
@@ -1820,6 +1998,7 @@ function presentationSnapshotPatch(config: ResumePresentationConfig) {
     typography: config.typography,
     spacing: config.spacing,
     theme: config.theme,
+    pagination: config.pagination,
     sectionStyleOverrides: config.sectionStyleOverrides
   };
 }
@@ -1854,7 +2033,7 @@ function buildReductionHints(model: ResumeRenderModel) {
     .flatMap((section) => section.blocks.map((block) => ({ section: section.title, block })))
     .sort((a, b) => b.block.text.length - a.block.text.length)
     .slice(0, 3)
-    .map((item) => `${item.section}：优先压缩「${item.block.text.slice(0, 28)}...」`);
+    .map((item, index) => `${index + 1}. ${item.section}：优先压缩「${item.block.text.slice(0, 28)}...」`);
 }
 
 function createExportId(prefix: string) {
@@ -1917,7 +2096,7 @@ function exportStatusLabel(state: PdfExportState) {
     return "直接下载失败。";
   }
   if (state.status === "blocked_overflow") {
-    return "当前内容超过 A4 单页，已阻止导出。";
+    return "当前页数超过页面策略，已阻止导出。";
   }
   return "准备下载 PDF。";
 }
