@@ -1,30 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState, type RefObject } from "react";
-import type { OverflowStatus } from "@/domain/schemas";
+import { classifyA4Overflow, type A4OverflowMeasurement } from "@/services/export/overflow";
 
-export type A4OverflowMeasurement = {
-  status: OverflowStatus;
-  remainingPx: number;
-  scrollHeight: number;
-  clientHeight: number;
-};
-
-export function classifyOverflow(input: { scrollHeight: number; clientHeight: number }): A4OverflowMeasurement {
-  const remainingPx = input.clientHeight - input.scrollHeight;
-  const status: OverflowStatus = input.scrollHeight > input.clientHeight + 2
-    ? "overflow"
-    : remainingPx <= 36
-      ? "near_limit"
-      : "fits";
-
-  return {
-    status,
-    remainingPx,
-    scrollHeight: input.scrollHeight,
-    clientHeight: input.clientHeight
-  };
-}
+export const classifyOverflow = classifyA4Overflow;
+export type { A4OverflowMeasurement };
 
 export function useA4Overflow(ref: RefObject<HTMLElement | null>, deps: unknown[] = []) {
   const [measurement, setMeasurement] = useState<A4OverflowMeasurement>({
@@ -39,7 +19,7 @@ export function useA4Overflow(ref: RefObject<HTMLElement | null>, deps: unknown[
     if (!element) {
       return;
     }
-    setMeasurement(classifyOverflow({
+    setMeasurement(classifyA4Overflow({
       scrollHeight: element.scrollHeight,
       clientHeight: element.clientHeight
     }));

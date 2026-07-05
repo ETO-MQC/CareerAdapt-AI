@@ -172,7 +172,7 @@ test.describe("V2-G1b style property panel", () => {
     await expect.poll(() => isSectionTitleVisible(page, target.sectionType, target.title)).toBe(false);
 
     await page.getByRole("button", { name: "Document" }).click();
-    await page.locator(".resume-export-panel button.primary-button").click();
+    await page.getByRole("button", { name: "打印 / 保存 PDF" }).click();
     await expect(page.locator("body")).toHaveAttribute("data-print-invoked", "true");
     const exportRecord = await getLatestExportRecord(page);
     const snapshot = exportRecord.presentationSnapshot as {

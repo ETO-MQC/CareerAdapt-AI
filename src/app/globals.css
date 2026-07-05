@@ -1327,6 +1327,15 @@ p {
   color: #9b2c2c;
 }
 
+.export-control-stack {
+  display: grid;
+  gap: 8px;
+}
+
+.export-status-text {
+  margin-bottom: 0;
+}
+
 @page {
   size: A4;
   margin: 0;

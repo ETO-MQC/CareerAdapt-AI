@@ -139,3 +139,13 @@
 - 替代方案：为每套模板单独维护静态 SVG/HTML 缩略图。
 - 后果：模板中心会多渲染少量当前简历DOM；当前四套模板规模可接受，后续模板数量扩大时再评估静态脱敏 fixture 缩略图。
 - 日期：2026-07-04
+
+## ADR-015 直接 PDF 使用冻结快照和本地 Headless Chromium
+
+- 状态：Accepted
+- 背景：用户数据存储在浏览器 IndexedDB，Next API 不能直接读取本地 Dexie；同时直接 PDF 必须复用正式模板 renderer，保持预览、PDF 和 ExportRecord 一致。
+- 决策：G3a 由客户端在点击时冻结 `ResumeRenderModel` 与 `ResumePresentationConfig`，通过 Schema 校验后 POST 到本地 Next API；API 使用现有 Playwright Chromium/Edge、正式模板 Registry 和打印 CSS 生成 A4 PDF。
+- 理由：避免第二套排版系统；避免截图型 PDF；不上传第三方；不新增依赖；保证生成过程中用户继续编辑不会污染当前 PDF。
+- 替代方案：浏览器端 HTML 转 PDF 库、pdf-lib 重新绘制、仅保留浏览器打印。
+- 后果：本地运行需要 Playwright 可启动 Chromium/Edge；生产云部署若裁剪 devDependencies，需要单独把运行时浏览器能力产品化。浏览器打印继续保留为 fallback。
+- 日期：2026-07-04

@@ -72,6 +72,25 @@ V2-G3必须提升：
 
 客户端纯库生成PDF作为备选，但需验证中文字体、文本可复制、双栏裁切和CSS兼容。
 
+### V2-G3a实际实现
+
+G3a 采用本地 Next API + Playwright Headless Chromium/Edge：
+
+```text
+客户端冻结 ResumeRenderModel + ResumePresentationConfig
+-> POST /api/resume-export/pdf
+-> API 校验 ExportRequest Schema、filename、templateId 和 snapshotHash
+-> 复用正式模板 Registry、renderer 和 globals.css
+-> Playwright page.pdf 生成 A4 文本 PDF
+-> 客户端校验 application/pdf 和 %PDF
+-> 写 direct_pdf_success ExportRecord
+-> 触发浏览器下载
+```
+
+本实现不新增依赖、不新增 Dexie 表、不升级 Dexie、不保存临时 HTML/PDF 文件。浏览器打印保留为 fallback，记录为 `exportMethod=browser_print`。
+
+因为用户数据位于浏览器 IndexedDB，API 不直接读取本地 Dexie；导出请求必须携带点击时冻结的脱离编辑器状态的快照。快照包含 `branchRevision`、`currentRevisionId`、`presentationRevision`、模板、排序、隐藏、样式、生成时间、文件名和 `snapshotHash`。
+
 ## 多页和文件名
 
 - 一页为默认，二页作为模板能力和用户配置，不自动无限分页。
@@ -83,7 +102,9 @@ V2-G3必须提升：
 
 - `operationId`幂等。
 - `branchRevision`、`templateId`、`overflowStatus`。
-- `exportStatus`：direct_success、direct_failed、print_invoked、fallback_used。
+- `exportStatus`：`direct_pdf_success`、`print_invoked`、`blocked_overflow`、`failed`。
+- `exportMethod`：`direct_pdf`、`browser_print`。
+- `mimeType`、`fileSize`、`startedAt`、`completedAt`、`snapshotHash`、`pdfContentHash` 可用于 direct PDF 审计。
 - `errorCode`不保存原始堆栈。
 
 ## PDF Golden Tests

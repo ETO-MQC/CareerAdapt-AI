@@ -466,7 +466,7 @@ test.describe("D2.1 验收：双模板预览与 PDF 导出", () => {
     });
 
     // Try to export - should be blocked
-    await page.locator(".resume-export-panel button.primary-button").click();
+    await page.getByRole("button", { name: "打印 / 保存 PDF" }).click();
     await expect(page.locator(".notice")).toContainText("revision");
 
     // No new successful export record
@@ -486,7 +486,7 @@ test.describe("D2.1 验收：双模板预览与 PDF 导出", () => {
     expect(statusText).toMatch(/fits|near_limit/);
 
     // Print button should be enabled for both fits and near_limit
-    const printButton = page.locator(".resume-export-panel button.primary-button");
+    const printButton = page.getByRole("button", { name: "打印 / 保存 PDF" });
     await expect(printButton).toBeEnabled();
 
     // If near_limit, warning should be shown
@@ -529,7 +529,7 @@ test.describe("D2.1 验收：双模板预览与 PDF 导出", () => {
     const finalStatus = await getOverflowStatus(page);
     if (finalStatus.includes("near_limit")) {
       await expect(page.locator(".warning-box")).toContainText("接近单页上限");
-      const printButton = page.locator(".resume-export-panel button.primary-button");
+      const printButton = page.getByRole("button", { name: "打印 / 保存 PDF" });
       await expect(printButton).toBeEnabled();
 
       // PDF must still be A4 single page
@@ -607,7 +607,7 @@ test.describe("D2.1 验收：双模板预览与 PDF 导出", () => {
       await expect(page.locator(".warning-box")).toContainText("已超出 A4 单页");
 
       // Export should be blocked
-      await page.locator(".resume-export-panel button.primary-button").click();
+      await page.getByRole("button", { name: "打印 / 保存 PDF" }).click();
       await expect(page.locator(".notice")).toContainText("overflow");
 
       // A blocked_overflow record should exist (not print_invoked)
@@ -779,7 +779,7 @@ test.describe("D2.1 验收：双模板预览与 PDF 导出", () => {
     const beforeCount = await exportRecordCount(page);
 
     // First export
-    await page.locator(".resume-export-panel button.primary-button").click();
+    await page.getByRole("button", { name: "打印 / 保存 PDF" }).click();
     await expect(page.locator("body")).toHaveAttribute("data-print-invoked", "true");
     await page.waitForTimeout(300);
 
@@ -788,7 +788,7 @@ test.describe("D2.1 验收：双模板预览与 PDF 导出", () => {
 
     // Second export (same operationId since branch/revision/template unchanged)
     await page.evaluate(() => document.body.removeAttribute("data-print-invoked"));
-    await page.locator(".resume-export-panel button.primary-button").click();
+    await page.getByRole("button", { name: "打印 / 保存 PDF" }).click();
     await expect(page.locator("body")).toHaveAttribute("data-print-invoked", "true");
     await page.waitForTimeout(300);
 
@@ -869,7 +869,7 @@ test.describe("D2.1 验收：双模板预览与 PDF 导出", () => {
     await expect(preview).toContainText("陈同学");
 
     // Try to export - print will throw
-    await page.locator(".resume-export-panel button.primary-button").click();
+    await page.getByRole("button", { name: "打印 / 保存 PDF" }).click();
     await page.waitForTimeout(500);
 
     // Page should not crash

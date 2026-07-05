@@ -123,7 +123,7 @@ test.describe("Stage D2 template preview and PDF export", () => {
     await expect(page.locator("label").filter({ hasText: "模板" }).locator("select")).toHaveValue("modern-operations");
     await ensureSinglePage(page);
 
-    await page.locator(".resume-export-panel button.primary-button").click();
+    await page.getByRole("button", { name: "打印 / 保存 PDF" }).click();
     await expect(page.locator(".notice")).toContainText("浏览器打印");
     await expect(page.locator("body")).toHaveAttribute("data-print-invoked", "true");
 

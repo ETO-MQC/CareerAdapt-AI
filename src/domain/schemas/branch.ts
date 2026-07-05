@@ -216,10 +216,13 @@ export const ResumeBranchOperationSchema = EntityBaseSchema.extend({
 });
 
 export const ExportStatusSchema = z.enum([
+  "direct_pdf_success",
   "print_invoked",
   "blocked_overflow",
   "failed"
 ]);
+
+export const ExportMethodSchema = z.enum(["direct_pdf", "browser_print"]);
 
 export const ExportOverflowStatusSchema = z.enum([
   "fits",
@@ -229,6 +232,7 @@ export const ExportOverflowStatusSchema = z.enum([
 
 export const ExportRecordPresentationSnapshotSchema = z.object({
   templateId: z.string().min(1),
+  sectionOrder: z.array(z.string().min(1)).optional(),
   itemOrderBySection: z.record(z.string(), z.array(z.string().min(1))),
   hiddenItemIds: z.array(z.string().min(1)),
   typography: z.object({
@@ -263,7 +267,15 @@ export const ExportRecordSchema = EntityBaseSchema.extend({
   exportedAt: IsoDateStringSchema,
   errorCode: z.string().min(1).optional(),
   presentationRevision: z.number().int().min(0).optional(),
-  presentationSnapshot: ExportRecordPresentationSnapshotSchema.optional()
+  presentationSnapshot: ExportRecordPresentationSnapshotSchema.optional(),
+  exportMethod: ExportMethodSchema.optional(),
+  mimeType: z.string().min(1).optional(),
+  fileSize: z.number().int().min(0).optional(),
+  startedAt: IsoDateStringSchema.optional(),
+  completedAt: IsoDateStringSchema.optional(),
+  failureCode: z.string().min(1).optional(),
+  snapshotHash: z.string().min(8).optional(),
+  pdfContentHash: z.string().min(8).optional()
 });
 
 export type BranchLifecycleStatus = z.infer<typeof BranchLifecycleStatusSchema>;
@@ -283,6 +295,7 @@ export type ResumeBranch = z.infer<typeof ResumeBranchSchema>;
 export type ResumeBranchOperationType = z.infer<typeof ResumeBranchOperationTypeSchema>;
 export type ResumeBranchOperation = z.infer<typeof ResumeBranchOperationSchema>;
 export type ExportStatus = z.infer<typeof ExportStatusSchema>;
+export type ExportMethod = z.infer<typeof ExportMethodSchema>;
 export type ExportOverflowStatus = z.infer<typeof ExportOverflowStatusSchema>;
 export type ExportRecordPresentationSnapshot = z.infer<typeof ExportRecordPresentationSnapshotSchema>;
 export type ExportRecord = z.infer<typeof ExportRecordSchema>;

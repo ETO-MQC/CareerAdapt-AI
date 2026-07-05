@@ -1308,6 +1308,7 @@ export class WorkspaceRepository {
     presentationRevision?: number;
     presentationSnapshot?: {
       templateId: string;
+      sectionOrder?: string[];
       itemOrderBySection: Record<string, string[]>;
       hiddenItemIds: string[];
       typography?: ResumePresentationConfig["typography"];
@@ -1315,8 +1316,17 @@ export class WorkspaceRepository {
       theme?: ResumePresentationConfig["theme"];
       sectionStyleOverrides?: ResumePresentationConfig["sectionStyleOverrides"];
     };
+    exportMethod?: ExportRecord["exportMethod"];
+    mimeType?: string;
+    fileSize?: number;
+    startedAt?: string;
+    completedAt?: string;
+    failureCode?: string;
+    snapshotHash?: string;
+    pdfContentHash?: string;
+    allowHistoricalRevision?: boolean;
   }) {
-    return this.db.transaction("rw", this.db.resumeBranches, this.db.exportRecords, async () => {
+    return this.db.transaction("rw", this.db.resumeBranches, this.db.resumeRevisions, this.db.exportRecords, async () => {
       const existing = await this.db.exportRecords.where("operationId").equals(input.operationId).first();
       if (existing) {
         return {
@@ -1337,9 +1347,19 @@ export class WorkspaceRepository {
         throw new Error("archived_branch_cannot_export");
       }
       if (parsedBranch.revision !== input.expectedBranchRevision || parsedBranch.currentRevisionId !== input.expectedRevisionId) {
-        throw new RevisionConflictError();
+        if (!input.allowHistoricalRevision) {
+          throw new RevisionConflictError();
+        }
+        const historicalRevision = await this.db.resumeRevisions.get(input.expectedRevisionId);
+        const parsedRevision = historicalRevision ? ResumeRevisionSchema.parse(historicalRevision) : undefined;
+        if (!parsedRevision || parsedRevision.branchId !== parsedBranch.id || parsedRevision.revisionNumber !== input.expectedBranchRevision) {
+          throw new RevisionConflictError();
+        }
       }
-      if (input.exportStatus === "print_invoked" && input.overflowStatus === "overflow") {
+      if (
+        (input.exportStatus === "print_invoked" || input.exportStatus === "direct_pdf_success")
+        && input.overflowStatus === "overflow"
+      ) {
         throw new Error("export_overflow_blocked");
       }
       if (parsedBranch.syncStatusCache.status === "invalid_reference") {
@@ -1351,8 +1371,8 @@ export class WorkspaceRepository {
         id: `export-${input.operationId}`,
         operationId: input.operationId,
         branchId: parsedBranch.id,
-        revisionId: parsedBranch.currentRevisionId,
-        branchRevision: parsedBranch.revision,
+        revisionId: input.expectedRevisionId,
+        branchRevision: input.expectedBranchRevision,
         templateId: input.templateId,
         format: "pdf",
         fileName: input.fileName,
@@ -1363,6 +1383,14 @@ export class WorkspaceRepository {
         errorCode: input.errorCode,
         presentationRevision: input.presentationRevision,
         presentationSnapshot: input.presentationSnapshot,
+        exportMethod: input.exportMethod,
+        mimeType: input.mimeType,
+        fileSize: input.fileSize,
+        startedAt: input.startedAt,
+        completedAt: input.completedAt,
+        failureCode: input.failureCode,
+        snapshotHash: input.snapshotHash,
+        pdfContentHash: input.pdfContentHash,
         createdAt: now,
         updatedAt: now
       });

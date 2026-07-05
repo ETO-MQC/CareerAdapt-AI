@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   type JobAdaptationDraft,
+  type OverflowStatus,
   type ResumeBranch,
   type ResumePresentationConfig,
   type ResumeRenderModel,
@@ -22,7 +23,9 @@ import {
   type ResumeTemplateStyleConfig
 } from "@/components/resume/templates/templateRegistry";
 import { printCurrentPage } from "@/services/export/browserPrint";
-import { stableHashText } from "@/services/security/text";
+import { buildResumePdfFileName, PDF_MIME_TYPE } from "@/services/export/filename";
+import { createResumePdfExportRequest, presentationSnapshotFromConfig } from "@/services/export/snapshot";
+import { hashBytes, stableHashText } from "@/services/security/text";
 import { RevisionConflictError, WorkspaceRepository } from "@/services/storage/repositories";
 import { useWorkspace } from "@/services/workspace/useWorkspace";
 import { WorkspaceEmptyState, WorkspaceErrorState, WorkspaceLoadingState } from "@/components/workspace/WorkspaceStates";
@@ -42,6 +45,15 @@ type PresentationHistoryState = {
 };
 
 type PropertyPanelTab = "document" | "section" | "block";
+
+type PdfExportState = {
+  status: "idle" | "validating" | "generating" | "downloading" | "success" | "failed" | "blocked_overflow";
+  exportId?: string;
+  filename?: string;
+  message?: string;
+  errorCode?: string;
+  canUseFallback?: boolean;
+};
 
 export function ResumeWorkspace() {
   const workspace = useWorkspace(repository);
@@ -70,6 +82,7 @@ export function ResumeWorkspace() {
   const [isTemplateCenterOpen, setIsTemplateCenterOpen] = useState(false);
   const [pendingTemplateApplyId, setPendingTemplateApplyId] = useState<TemplateId | undefined>();
   const [activePropertyTab, setActivePropertyTab] = useState<PropertyPanelTab>("document");
+  const [pdfExportState, setPdfExportState] = useState<PdfExportState>({ status: "idle" });
 
   const presentationQueueRef = useRef<{
     promise: Promise<void>;
@@ -153,6 +166,9 @@ export function ResumeWorkspace() {
   const presentationHiddenBlocks = useMemo(() => {
     return resumeDocument?.blocks.filter((block) => block.presentationHidden && block.contentVisible) ?? [];
   }, [resumeDocument]);
+  const isPdfExportBusy = pdfExportState.status === "validating"
+    || pdfExportState.status === "generating"
+    || pdfExportState.status === "downloading";
 
   const refreshLists = useCallback(async (profileId: string) => {
     const [nextDrafts, nextBranches] = await Promise.all([
@@ -247,6 +263,7 @@ export function ResumeWorkspace() {
       }
       setEditTexts({});
       clearStudioEditor();
+      setPdfExportState({ status: "idle" });
       const queue = presentationQueueRef.current;
       queue.undoStack = [];
       queue.redoStack = [];
@@ -790,6 +807,217 @@ export function ResumeWorkspace() {
     setMessage("syncStatus 已基于当前母档案、岗位和事实引用重新计算；分支内容未被自动覆盖。");
   }
 
+  async function downloadPdf() {
+    if (!selectedBranch || !renderModel) {
+      setMessage("当前分支无法生成正式预览，不能导出。");
+      setPdfExportState({
+        status: "failed",
+        message: "当前分支无法生成正式预览。",
+        errorCode: "render_model_missing",
+        canUseFallback: true
+      });
+      return;
+    }
+    if (!selectedBranchEditable || !selectedBranch.currentRevisionId) {
+      setMessage("当前分支不可导出：legacy、归档、引用失效或缺少 currentRevision。");
+      setPdfExportState({
+        status: "failed",
+        message: "当前分支不可导出。",
+        errorCode: branchNotEditableReason(selectedBranch) ?? "branch_not_exportable"
+      });
+      return;
+    }
+    if (!presentationConfig) {
+      setMessage("展示配置尚未加载完成，请稍后再导出。");
+      setPdfExportState({
+        status: "failed",
+        message: "展示配置尚未加载完成。",
+        errorCode: "presentation_config_loading",
+        canUseFallback: true
+      });
+      return;
+    }
+
+    const page = pageRef.current;
+    const measured = page
+      ? classifyOverflow({ scrollHeight: page.scrollHeight, clientHeight: page.clientHeight })
+      : overflow;
+    const startedAt = new Date().toISOString();
+    const exportId = createExportId("v2-g3a-direct");
+    const fileName = buildResumePdfFileName({
+      candidateName: renderModel.candidate.name,
+      jobTitle: renderModel.jobTitle,
+      templateName: selectedTemplate.shortName,
+      date: startedAt
+    });
+    const exportRequest = createResumePdfExportRequest({
+      exportId,
+      renderModel,
+      presentationConfig,
+      generatedAt: startedAt,
+      filename: fileName,
+      overflowStatus: measured.status
+    });
+
+    setPdfExportState({
+      status: "validating",
+      exportId,
+      filename: fileName,
+      message: "正在校验当前版本和单页状态。"
+    });
+
+    try {
+      const [latestBranch, latestProfile, latestJob] = await Promise.all([
+        repository.getResumeBranch(selectedBranch.id),
+        repository.getProfile(selectedBranch.profileId),
+        repository.getJobDescription(selectedBranch.jobId)
+      ]);
+
+      if (!latestBranch || !latestProfile || !latestJob) {
+        throw new Error("export_source_missing");
+      }
+      if (latestBranch.revision !== renderModel.branchRevision || latestBranch.currentRevisionId !== renderModel.branchCurrentRevisionId) {
+        replaceBranch(latestBranch);
+        setMessage("导出已停止：分支 revision 已更新，已刷新预览，请重新检查后导出。");
+        setPdfExportState({
+          status: "failed",
+          exportId,
+          filename: fileName,
+          message: "分支版本已变化，请重新检查后导出。",
+          errorCode: "stale_branch",
+          canUseFallback: true
+        });
+        return;
+      }
+
+      mapBranchToResumeRenderModel({
+        branch: latestBranch,
+        profile: latestProfile,
+        job: latestJob,
+        presentationConfig
+      });
+
+      if (measured.status === "overflow") {
+        await repository.createResumeExportRecord({
+          operationId: exportId,
+          branchId: latestBranch.id,
+          expectedBranchRevision: latestBranch.revision,
+          expectedRevisionId: latestBranch.currentRevisionId!,
+          templateId: effectiveTemplateId,
+          overflowStatus: "overflow",
+          exportStatus: "blocked_overflow",
+          fileName,
+          errorCode: "overflow",
+          failureCode: "overflow",
+          exportMethod: "direct_pdf",
+          startedAt,
+          completedAt: new Date().toISOString(),
+          presentationRevision: presentationConfig.presentationRevision,
+          presentationSnapshot: presentationSnapshotFromConfig(presentationConfig),
+          snapshotHash: exportRequest.snapshot.snapshotHash
+        });
+        setMessage("导出已阻止：当前 A4 预览为 overflow，请先删减内容。");
+        setPdfExportState({
+          status: "blocked_overflow",
+          exportId,
+          filename: fileName,
+          message: "当前 A4 预览为 overflow，已阻止下载。",
+          errorCode: "overflow"
+        });
+        return;
+      }
+
+      setPdfExportState({
+        status: "generating",
+        exportId,
+        filename: fileName,
+        message: "正在生成 A4 PDF。"
+      });
+      const response = await fetch("/api/resume-export/pdf", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(exportRequest)
+      });
+      const responseType = response.headers.get("content-type") ?? "";
+      if (!response.ok) {
+        throw new Error(await readExportErrorCode(response));
+      }
+      if (!responseType.includes(PDF_MIME_TYPE)) {
+        throw new Error("invalid_pdf_mime");
+      }
+      setPdfExportState({
+        status: "downloading",
+        exportId,
+        filename: fileName,
+        message: "PDF 已生成，正在触发浏览器下载。"
+      });
+      const bytes = new Uint8Array(await response.arrayBuffer());
+      if (!isPdfBytes(bytes)) {
+        throw new Error("invalid_pdf_response");
+      }
+      const pdfHash = await hashBytes(bytes);
+      const completedAt = new Date().toISOString();
+      await repository.createResumeExportRecord({
+        operationId: exportId,
+        branchId: latestBranch.id,
+        expectedBranchRevision: latestBranch.revision,
+        expectedRevisionId: latestBranch.currentRevisionId!,
+        templateId: effectiveTemplateId,
+        overflowStatus: measured.status,
+        exportStatus: "direct_pdf_success",
+        fileName,
+        exportMethod: "direct_pdf",
+        mimeType: PDF_MIME_TYPE,
+        fileSize: bytes.byteLength,
+        startedAt,
+        completedAt,
+        presentationRevision: presentationConfig.presentationRevision,
+        presentationSnapshot: presentationSnapshotFromConfig(presentationConfig),
+        snapshotHash: exportRequest.snapshot.snapshotHash,
+        pdfContentHash: pdfHash,
+        allowHistoricalRevision: true
+      });
+      triggerBrowserDownload(new Blob([bytes], { type: PDF_MIME_TYPE }), fileName);
+      setMessage(measured.status === "near_limit"
+        ? "PDF 已生成并触发下载。当前接近单页上限，建议打开文件复核。"
+        : "PDF 已生成并触发下载；浏览器不允许确认是否最终保存到磁盘。");
+      setPdfExportState({
+        status: "success",
+        exportId,
+        filename: fileName,
+        message: "PDF 已生成并触发下载。"
+      });
+    } catch (error) {
+      const errorCode = error instanceof RevisionConflictError ? "revision_conflict" : exportErrorCode(error);
+      const blockedOverflow = errorCode === "snapshot_overflow" || errorCode === "export_snapshot_overflow";
+      if (selectedBranch.currentRevisionId) {
+        await recordDirectPdfFailure({
+          exportId,
+          branch: selectedBranch,
+          presentationConfig,
+          fileName,
+          startedAt,
+          overflowStatus: blockedOverflow ? "overflow" : measured.status,
+          errorCode,
+          snapshotHash: exportRequest.snapshot.snapshotHash
+        });
+      }
+      setMessage(blockedOverflow
+        ? "导出已阻止：生成前重新检测到 overflow，请先删减内容。"
+        : "直接下载失败：可以重试，或使用浏览器打印 fallback。");
+      setPdfExportState({
+        status: blockedOverflow ? "blocked_overflow" : "failed",
+        exportId,
+        filename: fileName,
+        message: blockedOverflow ? "生成前重新检测到 overflow。" : "直接下载失败，可以重试或使用浏览器打印。",
+        errorCode,
+        canUseFallback: !blockedOverflow
+      });
+    }
+  }
+
   async function exportPdf() {
     if (!selectedBranch || !renderModel) {
       setMessage("当前分支无法生成正式预览，不能导出。");
@@ -800,17 +1028,15 @@ export function ResumeWorkspace() {
     const measured = page
       ? classifyOverflow({ scrollHeight: page.scrollHeight, clientHeight: page.clientHeight })
       : overflow;
-    const fileName = buildExportFileName(renderModel, effectiveTemplateId);
-    const presentationSnapshot = presentationConfig ? {
-      templateId: presentationConfig.templateId,
-      itemOrderBySection: presentationConfig.itemOrderBySection,
-      hiddenItemIds: presentationConfig.hiddenItemIds,
-      typography: presentationConfig.typography,
-      spacing: presentationConfig.spacing,
-      theme: presentationConfig.theme,
-      sectionStyleOverrides: presentationConfig.sectionStyleOverrides
-    } : undefined;
+    const startedAt = new Date().toISOString();
     const operationId = `d2-export-${selectedBranch.id}-${selectedBranch.revision}-${selectedBranch.currentRevisionId}-${effectiveTemplateId}-${measured.status}-${presentationConfig?.presentationRevision ?? 0}`;
+    const fileName = buildResumePdfFileName({
+      candidateName: renderModel.candidate.name,
+      jobTitle: renderModel.jobTitle,
+      templateName: selectedTemplate.shortName,
+      date: startedAt
+    });
+    const presentationSnapshot = presentationConfig ? presentationSnapshotFromConfig(presentationConfig) : undefined;
 
     try {
       const [latestBranch, latestProfile, latestJob] = await Promise.all([
@@ -846,10 +1072,20 @@ export function ResumeWorkspace() {
           exportStatus: "blocked_overflow",
           fileName,
           errorCode: "overflow",
+          failureCode: "overflow",
+          exportMethod: "browser_print",
+          startedAt,
+          completedAt: new Date().toISOString(),
           presentationRevision: presentationConfig?.presentationRevision,
           presentationSnapshot
         });
         setMessage("导出已阻止：当前 A4 预览为 overflow，请先删减内容。");
+        setPdfExportState({
+          status: "blocked_overflow",
+          message: "当前 A4 预览为 overflow，已阻止打印 fallback。",
+          filename: fileName,
+          errorCode: "overflow"
+        });
         return;
       }
 
@@ -862,17 +1098,69 @@ export function ResumeWorkspace() {
         overflowStatus: measured.status,
         exportStatus: "print_invoked",
         fileName,
+        exportMethod: "browser_print",
+        mimeType: PDF_MIME_TYPE,
+        startedAt,
+        completedAt: new Date().toISOString(),
         presentationRevision: presentationConfig?.presentationRevision,
         presentationSnapshot
       });
       printCurrentPage();
       setMessage(measured.status === "near_limit"
-        ? "已打开浏览器打印。当前接近单页上限，请在打印预览中再次确认。"
-        : "已打开浏览器打印，可保存为文本可复制的 PDF。");
+        ? "已打开浏览器打印 fallback。当前接近单页上限，请在打印预览中再次确认。"
+        : "已打开浏览器打印 fallback，可保存为文本可复制的 PDF。");
+      setPdfExportState({
+        status: "success",
+        filename: fileName,
+        message: "已打开浏览器打印 fallback。"
+      });
     } catch (error) {
       setMessage(error instanceof RevisionConflictError
         ? "导出失败：分支 revision 已变化，请刷新后重试。"
         : "导出失败：分支可能不可导出、引用失效或导出记录写入失败。");
+      setPdfExportState({
+        status: "failed",
+        filename: fileName,
+        message: "浏览器打印 fallback 启动失败。",
+        errorCode: exportErrorCode(error)
+      });
+    }
+  }
+
+  async function recordDirectPdfFailure(input: {
+    exportId: string;
+    branch: ResumeBranch;
+    presentationConfig: ResumePresentationConfig;
+    fileName: string;
+    startedAt: string;
+    overflowStatus: OverflowStatus;
+    errorCode: string;
+    snapshotHash: string;
+  }) {
+    try {
+      await repository.createResumeExportRecord({
+        operationId: input.exportId,
+        branchId: input.branch.id,
+        expectedBranchRevision: input.branch.revision,
+        expectedRevisionId: input.branch.currentRevisionId!,
+        templateId: input.presentationConfig.templateId,
+        overflowStatus: input.overflowStatus,
+        exportStatus: input.overflowStatus === "overflow" ? "blocked_overflow" : "failed",
+        fileName: input.fileName,
+        errorCode: input.errorCode,
+        failureCode: input.errorCode,
+        exportMethod: "direct_pdf",
+        mimeType: PDF_MIME_TYPE,
+        fileSize: 0,
+        startedAt: input.startedAt,
+        completedAt: new Date().toISOString(),
+        presentationRevision: input.presentationConfig.presentationRevision,
+        presentationSnapshot: presentationSnapshotFromConfig(input.presentationConfig),
+        snapshotHash: input.snapshotHash
+      });
+    } catch {
+      // A failed export must never be promoted to success; failure-record writes
+      // are best-effort because the branch may have moved while the PDF task ran.
     }
   }
 
@@ -1381,13 +1669,32 @@ export function ResumeWorkspace() {
                 ) : null}
               </div>
             ) : null}
-            <button
-              className="primary-button"
-              onClick={exportPdf}
-              disabled={!renderModel}
-            >
-              打印 / 保存 PDF
-            </button>
+            <div className="export-control-stack" data-testid="pdf-export-controls">
+              <button
+                className="primary-button"
+                onClick={downloadPdf}
+                disabled={!renderModel || !presentationConfig || isPdfExportBusy || overflow.status === "overflow"}
+              >
+                {isPdfExportBusy ? "生成 PDF 中" : "下载 PDF"}
+              </button>
+              <button
+                className="secondary-button"
+                onClick={exportPdf}
+                disabled={!renderModel || isPdfExportBusy}
+              >
+                打印 / 保存 PDF
+              </button>
+              <p
+                className={`save-status export-status-text ${pdfExportState.status === "failed" || pdfExportState.status === "blocked_overflow" ? "save-status-failed" : ""}`}
+                aria-live="polite"
+                data-testid="pdf-export-status"
+              >
+                {exportStatusLabel(pdfExportState)}
+              </p>
+              {pdfExportState.status === "failed" && pdfExportState.canUseFallback ? (
+                <p className="save-status">可重试下载，或使用浏览器打印 fallback。</p>
+              ) : null}
+            </div>
             {renderResult.error ? <p className="save-status save-status-failed">{renderResult.error}</p> : null}
           </aside>
 
@@ -1542,17 +1849,77 @@ function workbenchStateKey(profileId: string) {
   return `resumeWorkbenchState:${profileId}`;
 }
 
-function buildExportFileName(model: ResumeRenderModel, templateId: TemplateId) {
-  const base = `${model.candidate.name}-${model.company}-${model.jobTitle}-${templateId}`;
-  return `${base.replace(/[\\/:*?"<>|]/g, "-")}.pdf`;
-}
-
 function buildReductionHints(model: ResumeRenderModel) {
   return model.sections
     .flatMap((section) => section.blocks.map((block) => ({ section: section.title, block })))
     .sort((a, b) => b.block.text.length - a.block.text.length)
     .slice(0, 3)
     .map((item) => `${item.section}：优先压缩「${item.block.text.slice(0, 28)}...」`);
+}
+
+function createExportId(prefix: string) {
+  return `${prefix}-${crypto.randomUUID()}`;
+}
+
+async function readExportErrorCode(response: Response) {
+  try {
+    const body = await response.json() as { code?: unknown };
+    return typeof body.code === "string" ? body.code : `http_${response.status}`;
+  } catch {
+    return `http_${response.status}`;
+  }
+}
+
+function isPdfBytes(bytes: Uint8Array) {
+  return bytes.length > 4
+    && bytes[0] === 0x25
+    && bytes[1] === 0x50
+    && bytes[2] === 0x44
+    && bytes[3] === 0x46;
+}
+
+function triggerBrowserDownload(blob: Blob, fileName: string) {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = fileName;
+  anchor.rel = "noopener";
+  document.body.append(anchor);
+  anchor.click();
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function exportErrorCode(error: unknown) {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+  return "export_failed";
+}
+
+function exportStatusLabel(state: PdfExportState) {
+  if (state.message) {
+    return state.message;
+  }
+  if (state.status === "validating") {
+    return "正在校验导出快照。";
+  }
+  if (state.status === "generating") {
+    return "正在生成 PDF。";
+  }
+  if (state.status === "downloading") {
+    return "正在触发浏览器下载。";
+  }
+  if (state.status === "success") {
+    return "PDF 已生成并触发下载。";
+  }
+  if (state.status === "failed") {
+    return "直接下载失败。";
+  }
+  if (state.status === "blocked_overflow") {
+    return "当前内容超过 A4 单页，已阻止导出。";
+  }
+  return "准备下载 PDF。";
 }
 
 function canEditBranch(branch: ResumeBranch) {
