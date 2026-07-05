@@ -24,6 +24,10 @@ export function createJobAdaptationDraft(input: {
   job: JobDescription;
   matches: RequirementMatch[];
   operationId: string;
+  branchId?: string;
+  sourceBranchId?: string;
+  sourceRevisionId?: string;
+  sourceBranchRevision?: number;
   now?: string;
 }): JobAdaptationDraft {
   const now = input.now ?? new Date().toISOString();
@@ -47,6 +51,10 @@ export function createJobAdaptationDraft(input: {
     id: draftId,
     profileId: input.profile.id,
     jobId: input.job.id,
+    branchId: input.branchId,
+    sourceBranchId: input.sourceBranchId,
+    sourceRevisionId: input.sourceRevisionId,
+    sourceBranchRevision: input.sourceBranchRevision,
     profileVersion: input.profile.version,
     jobVersion: input.job.updatedAt,
     matcherVersion: validMatches[0].matcherVersion,

@@ -5,6 +5,14 @@ export const JobSourceSchema = z.enum(["demo", "manual", "imported_text", "url"]
 
 export const JobRequirementCategorySchema = z.enum([
   "responsibility",
+  "required_skill",
+  "preferred_skill",
+  "experience",
+  "education",
+  "certificate",
+  "language",
+  "tool",
+  "other",
   "must_have",
   "core_skill",
   "soft_skill",

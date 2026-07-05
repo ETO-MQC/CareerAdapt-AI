@@ -65,11 +65,14 @@ import {
   assertC2MatchesUsable,
   createJobAdaptationDraft
 } from "@/domain/adaptation/draft";
+import { computeRequirementsHash } from "@/domain/jobOptimization";
+import { isTextSuggestionType, staleReasonForSuggestion } from "@/domain/jobOptimization/suggestions";
 import {
   resolveEffectiveMatch,
   validateRequirementMatchReferences,
   withResolvedEffectiveMatch
 } from "@/domain/match/matcher";
+import { stableHashText } from "@/services/security/text";
 import { CareerAdaptDb, careerAdaptDb, type AppMeta } from "./db";
 
 export type WorkspaceExport = {
@@ -725,6 +728,195 @@ export class WorkspaceRepository {
     );
   }
 
+  async findDerivedJobBranches(input: {
+    sourceBranchId: string;
+    jobId: string;
+  }) {
+    const branches = await this.db.resumeBranches.toArray();
+    return branches
+      .map((branch) => ResumeBranchSchema.parse(branch))
+      .filter((branch) =>
+        branch.branchPurpose === "job_specific"
+        && branch.sourceBranchId === input.sourceBranchId
+        && branch.jobId === input.jobId
+        && branch.lifecycleStatus === "active"
+      )
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  }
+
+  async deriveJobSpecificBranchFromBranch(input: {
+    sourceBranchId: string;
+    jobId: string;
+    expectedSourceRevision: number;
+    expectedSourceRevisionId: string;
+    operationId: string;
+    name: string;
+    allowDuplicate?: boolean;
+  }) {
+    return this.db.transaction(
+      "rw",
+      [
+        this.db.profiles,
+        this.db.jobDescriptions,
+        this.db.requirementMatches,
+        this.db.resumeBranches,
+        this.db.resumeRevisions,
+        this.db.resumeBranchOperations,
+        this.db.appMeta
+      ],
+      async () => {
+        const existingOperation = await this.db.resumeBranchOperations.where("operationId").equals(input.operationId).first();
+        if (existingOperation?.branchId) {
+          const branch = await this.db.resumeBranches.get(existingOperation.branchId);
+          if (!branch) {
+            throw new Error("resume_branch_missing_for_operation");
+          }
+          return {
+            branch: ResumeBranchSchema.parse(branch),
+            revision: existingOperation.revisionId ? await this.getResumeRevisionInTransaction(existingOperation.revisionId) : undefined,
+            duplicate: false,
+            idempotent: true
+          };
+        }
+
+        const duplicate = (await this.findDerivedJobBranches({
+          sourceBranchId: input.sourceBranchId,
+          jobId: input.jobId
+        }))[0];
+        if (duplicate && !input.allowDuplicate) {
+          return {
+            branch: duplicate,
+            revision: duplicate.currentRevisionId ? await this.getResumeRevisionInTransaction(duplicate.currentRevisionId) : undefined,
+            duplicate: true,
+            idempotent: true
+          };
+        }
+
+        const sourceBranch = await this.requireEditableResumeBranch(input.sourceBranchId);
+        if (sourceBranch.revision !== input.expectedSourceRevision || sourceBranch.currentRevisionId !== input.expectedSourceRevisionId) {
+          throw new RevisionConflictError();
+        }
+
+        const [profile, job, matches] = await Promise.all([
+          this.db.profiles.get(sourceBranch.profileId),
+          this.db.jobDescriptions.get(input.jobId),
+          this.db.requirementMatches.where("[profileId+jobId]").equals([sourceBranch.profileId, input.jobId]).toArray()
+        ]);
+        if (!profile || !job) {
+          throw new Error("derive_branch_source_missing");
+        }
+        const parsedProfile = CareerProfileSchema.parse(profile);
+        const parsedJob = JobDescriptionSchema.parse(job);
+        const parsedMatches = matches.map((match) => RequirementMatchSchema.parse(match));
+        if (parsedJob.requirements.length === 0 || parsedMatches.length === 0) {
+          throw new Error("derive_branch_requires_requirement_matches");
+        }
+        assertC2MatchesUsable({ profile: parsedProfile, job: parsedJob, matches: parsedMatches });
+
+        const now = new Date().toISOString();
+        const sourceMatchSetHash = computeRequirementsHash({ job: parsedJob, matches: parsedMatches });
+        const branchId = `branch-${sourceBranch.profileId}-${parsedJob.id}-${stableHashText(input.operationId).replace(/[^a-zA-Z0-9-]/g, "").slice(0, 18)}`;
+        const branchWithoutSync = ResumeBranchSchema.parse({
+          ...sourceBranch,
+          id: branchId,
+          branchPurpose: "job_specific",
+          jobId: parsedJob.id,
+          name: input.name.trim(),
+          sourceProfileVersion: parsedProfile.version,
+          sourceJobVersion: parsedJob.updatedAt,
+          sourceAdaptationDraftId: undefined,
+          sourceImportId: sourceBranch.sourceImportId,
+          sourceBranchId: sourceBranch.id,
+          sourceRevisionId: sourceBranch.currentRevisionId,
+          derivedAt: now,
+          sourceDraftRevision: sourceBranch.revision,
+          matcherVersion: parsedMatches[0]?.matcherVersion ?? "evidence-matcher.v1",
+          sourceMatchSetHash,
+          requirementMatchIds: parsedMatches.map((match) => match.id),
+          revision: 0,
+          currentRevisionId: undefined,
+          lifecycleStatus: "active",
+          migrationStatus: "verified",
+          contentItems: sourceBranch.contentItems,
+          syncStatusCache: {
+            status: "in_sync",
+            sourceProfileVersion: parsedProfile.version,
+            currentProfileVersion: parsedProfile.version,
+            sourceJobVersion: parsedJob.updatedAt,
+            currentJobVersion: parsedJob.updatedAt,
+            invalidFactRefs: [],
+            checkedAt: now,
+            message: "Branch is in sync with its source profile and job versions."
+          },
+          legacyPayload: undefined,
+          createdAt: now,
+          updatedAt: now
+        });
+        const branchWithSync = ResumeBranchSchema.parse({
+          ...branchWithoutSync,
+          syncStatusCache: computeBranchSyncStatus({
+            branch: branchWithoutSync,
+            profile: parsedProfile,
+            job: parsedJob,
+            now
+          })
+        });
+        const firstRevision = createResumeRevision({
+          branch: branchWithSync,
+          source: "created",
+          operationId: input.operationId,
+          now
+        });
+        const branch = ResumeBranchSchema.parse({
+          ...branchWithSync,
+          currentRevisionId: firstRevision.id
+        });
+        const operation = ResumeBranchOperationSchema.parse({
+          id: `resume-branch-op-${input.operationId}`,
+          operationId: input.operationId,
+          branchId: branch.id,
+          type: "derive_job_branch",
+          beforeRevision: sourceBranch.revision,
+          afterRevision: branch.revision,
+          revisionId: firstRevision.id,
+          occurredAt: now,
+          createdAt: now,
+          updatedAt: now
+        });
+
+        const sourcePresentation = await this.getResumePresentationConfig(sourceBranch.id);
+        const targetPresentation = sanitizePresentationConfigForBranch(
+          ResumePresentationConfigSchema.parse({
+            ...sourcePresentation,
+            branchId: branch.id,
+            contentRevision: {
+              branchRevision: branch.revision,
+              currentRevisionId: firstRevision.id
+            },
+            presentationRevision: 0,
+            updatedAt: now
+          }),
+          branch
+        );
+
+        await this.db.resumeBranches.put(branch);
+        await this.db.resumeRevisions.put(firstRevision);
+        await this.db.resumeBranchOperations.put(operation);
+        await this.db.appMeta.put({
+          key: resumePresentationConfigKey(branch.id),
+          value: targetPresentation,
+          updatedAt: now
+        });
+        return {
+          branch,
+          revision: firstRevision,
+          duplicate: false,
+          idempotent: false
+        };
+      }
+    );
+  }
+
   async saveRuleRequirementMatches(input: {
     profile: CareerProfile;
     job: JobDescription;
@@ -920,6 +1112,10 @@ export class WorkspaceRepository {
     job: JobDescription;
     matches: RequirementMatch[];
     operationId: string;
+    branchId?: string;
+    sourceBranchId?: string;
+    sourceRevisionId?: string;
+    sourceBranchRevision?: number;
   }) {
     return this.db.transaction("rw", this.db.jobAdaptationDrafts, this.db.adaptationSnapshots, this.db.suggestionOperations, async () => {
       const existingOperation = await this.db.suggestionOperations.where("operationId").equals(input.operationId).first();
@@ -1033,6 +1229,70 @@ export class WorkspaceRepository {
     });
   }
 
+  async saveGeneratedBlockSuggestion(input: {
+    profile: CareerProfile;
+    job: JobDescription;
+    draftId: string;
+    matches: RequirementMatch[];
+    suggestion: AiSuggestion;
+    expectedRevision: number;
+    operationId: string;
+  }) {
+    return this.db.transaction("rw", this.db.jobAdaptationDrafts, this.db.aiSuggestions, this.db.adaptationSnapshots, this.db.suggestionOperations, async () => {
+      const existingOperation = await this.db.suggestionOperations.where("operationId").equals(input.operationId).first();
+      if (existingOperation) {
+        const draft = await this.db.jobAdaptationDrafts.get(input.draftId);
+        const suggestion = await this.db.aiSuggestions.get(input.suggestion.id);
+        if (!draft || !suggestion) {
+          throw new Error("block_suggestion_operation_target_missing");
+        }
+        return {
+          draft: JobAdaptationDraftSchema.parse(draft),
+          suggestion: AiSuggestionSchema.parse(suggestion),
+          idempotent: true
+        };
+      }
+
+      const draft = await this.requireDraftRevision(input.draftId, input.expectedRevision);
+      assertC2MatchesUsable({ profile: input.profile, job: input.job, matches: input.matches });
+      const suggestion = AiSuggestionSchema.parse(input.suggestion);
+      if (suggestion.draftId !== draft.id) {
+        throw new Error("block_suggestion_draft_mismatch");
+      }
+
+      const now = new Date().toISOString();
+      const nextDraft = JobAdaptationDraftSchema.parse({
+        ...draft,
+        revision: draft.revision + 1,
+        status: suggestion.status === "blocked_high_risk" ? "ai_partial" : "ai_completed",
+        lastGuardedAt: now,
+        updatedAt: now
+      });
+      const snapshot = this.createAdaptationSnapshot(nextDraft, "suggestions_generated", input.operationId, now);
+      const nextDraftWithSnapshot = JobAdaptationDraftSchema.parse({
+        ...nextDraft,
+        snapshots: [...nextDraft.snapshots, snapshot]
+      });
+      const operation = this.createSuggestionOperation({
+        operationId: input.operationId,
+        draftId: draft.id,
+        suggestionId: suggestion.id,
+        type: "generate",
+        expectedRevision: input.expectedRevision,
+        beforeRevision: draft.revision,
+        afterRevision: nextDraftWithSnapshot.revision,
+        snapshotId: snapshot.id,
+        now
+      });
+
+      await this.db.aiSuggestions.put(suggestion);
+      await this.db.jobAdaptationDrafts.put(nextDraftWithSnapshot);
+      await this.db.adaptationSnapshots.put(snapshot);
+      await this.db.suggestionOperations.put(operation);
+      return { draft: nextDraftWithSnapshot, suggestion, idempotent: false };
+    });
+  }
+
   async rejectSuggestion(input: {
     draftId: string;
     suggestionId: string;
@@ -1042,6 +1302,18 @@ export class WorkspaceRepository {
     return this.mutateSuggestion(input, "reject", (draft, suggestion, now) => ({
       draft,
       suggestion: AiSuggestionSchema.parse({ ...suggestion, status: "rejected", updatedAt: now })
+    }));
+  }
+
+  async ignoreSuggestion(input: {
+    draftId: string;
+    suggestionId: string;
+    expectedRevision: number;
+    operationId: string;
+  }) {
+    return this.mutateSuggestion(input, "ignore", (draft, suggestion, now) => ({
+      draft,
+      suggestion: AiSuggestionSchema.parse({ ...suggestion, status: "ignored", updatedAt: now })
     }));
   }
 
@@ -1117,6 +1389,228 @@ export class WorkspaceRepository {
         suggestion: AiSuggestionSchema.parse({ ...suggestion, status: "accepted", updatedAt: now })
       };
     });
+  }
+
+  async applyResumeBlockSuggestion(input: {
+    branchId: string;
+    suggestionId: string;
+    contentItemId: string;
+    expectedBranchRevision: number;
+    expectedRevisionId: string;
+    expectedOriginalTextHash: string;
+    requirementsHash: string;
+    operationId: string;
+    acceptedText: string;
+  }) {
+    return this.db.transaction(
+      "rw",
+      [
+        this.db.resumeBranches,
+        this.db.resumeRevisions,
+        this.db.resumeBranchOperations,
+        this.db.profiles,
+        this.db.jobDescriptions,
+        this.db.requirementMatches,
+        this.db.jobAdaptationDrafts,
+        this.db.aiSuggestions,
+        this.db.adaptationSnapshots,
+        this.db.suggestionOperations
+      ],
+      async () => {
+        const existingOperation = await this.db.resumeBranchOperations.where("operationId").equals(input.operationId).first();
+        if (existingOperation) {
+          const branch = await this.db.resumeBranches.get(input.branchId);
+          const suggestion = await this.db.aiSuggestions.get(input.suggestionId);
+          if (!branch || !suggestion) {
+            throw new Error("block_suggestion_apply_target_missing");
+          }
+          return {
+            branch: ResumeBranchSchema.parse(branch),
+            suggestion: AiSuggestionSchema.parse(suggestion),
+            revision: existingOperation.revisionId ? await this.getResumeRevisionInTransaction(existingOperation.revisionId) : undefined,
+            idempotent: true
+          };
+        }
+
+        const branch = await this.requireEditableResumeBranch(input.branchId);
+        if (branch.revision !== input.expectedBranchRevision || branch.currentRevisionId !== input.expectedRevisionId) {
+          throw new RevisionConflictError();
+        }
+        const suggestionRow = await this.db.aiSuggestions.get(input.suggestionId);
+        if (!suggestionRow) {
+          throw new Error("suggestion_not_found");
+        }
+        const suggestion = AiSuggestionSchema.parse(suggestionRow);
+        if (suggestion.branchId !== branch.id || suggestion.targetContentItemId !== input.contentItemId) {
+          throw new Error("suggestion_branch_or_item_mismatch");
+        }
+        if (!isTextSuggestionType(suggestion.type)) {
+          throw new Error("structure_suggestion_requires_presentation_path");
+        }
+        if (suggestion.status === "accepted") {
+          return {
+            branch,
+            suggestion,
+            revision: branch.currentRevisionId ? await this.getResumeRevisionInTransaction(branch.currentRevisionId) : undefined,
+            idempotent: true
+          };
+        }
+        if (suggestion.status !== "pending_review" && suggestion.status !== "edited_guarded") {
+          throw new Error("suggestion_not_accept_ready");
+        }
+
+        const [profile, job, draft, matches] = await Promise.all([
+          this.db.profiles.get(branch.profileId),
+          branch.jobId ? this.db.jobDescriptions.get(branch.jobId) : Promise.resolve(undefined),
+          this.db.jobAdaptationDrafts.get(suggestion.draftId),
+          branch.jobId ? this.db.requirementMatches.where("[profileId+jobId]").equals([branch.profileId, branch.jobId]).toArray() : Promise.resolve([])
+        ]);
+        if (!profile || !job || !draft) {
+          throw new Error("block_suggestion_source_missing");
+        }
+        const parsedProfile = CareerProfileSchema.parse(profile);
+        const parsedJob = JobDescriptionSchema.parse(job);
+        const parsedDraft = JobAdaptationDraftSchema.parse(draft);
+        const parsedMatches = matches.map((match) => RequirementMatchSchema.parse(match));
+        assertC2MatchesUsable({ profile: parsedProfile, job: parsedJob, matches: parsedMatches });
+
+        const currentRequirementsHash = computeRequirementsHash({ job: parsedJob, matches: parsedMatches });
+        const staleReason = staleReasonForSuggestion({ suggestion, branch, requirementsHash: currentRequirementsHash });
+        if (staleReason || currentRequirementsHash !== input.requirementsHash) {
+          throw new Error(staleReason ?? "requirements_changed");
+        }
+
+        const contentItem = branch.contentItems.find((item) => item.id === input.contentItemId);
+        if (!contentItem) {
+          throw new Error("content_item_not_found");
+        }
+        if (stableHashText(contentItem.text) !== input.expectedOriginalTextHash) {
+          throw new RevisionConflictError();
+        }
+
+        const acceptedText = input.acceptedText.trim();
+        if (!acceptedText) {
+          throw new Error("accepted_text_empty");
+        }
+        const now = new Date().toISOString();
+        const guardResult = runRuleFactGuard({
+          originalText: contentItem.originalText,
+          checkedText: acceptedText,
+          usedEvidenceRefs: suggestion.usedEvidenceRefs.length > 0
+            ? suggestion.usedEvidenceRefs
+            : resolveBranchFactRefs(parsedProfile, contentItem.factRefs),
+          now
+        });
+        if (guardResult.status === "blocked_high_risk" || guardResult.status === "needs_edit" || guardResult.riskLevel === "high") {
+          throw new Error("guard_blocked");
+        }
+
+        const nextItems = branch.contentItems.map((item) => {
+          if (item.id !== contentItem.id) {
+            return item;
+          }
+          return BranchContentItemSchema.parse({
+            ...item,
+            text: acceptedText,
+            source: "adaptation_draft",
+            requirementIds: Array.from(new Set([...item.requirementIds, ...suggestion.requirementIds])),
+            sourceSuggestionIds: Array.from(new Set([...item.sourceSuggestionIds, suggestion.id])),
+            guardMode: "rule_verified",
+            guardStatus: "pass",
+            guardRiskLevel: guardResult.riskLevel,
+            guardFindings: guardResult.ruleFindings.map((finding) => ({
+              type: finding.type,
+              text: finding.text,
+              severity: finding.severity,
+              allowed: finding.allowed,
+              message: finding.message
+            })),
+            guardedAt: guardResult.checkedAt,
+            guardVersion: guardResult.guardVersion
+          });
+        });
+        const nextBranchBase = ResumeBranchSchema.parse({
+          ...branch,
+          contentItems: nextItems,
+          revision: branch.revision + 1,
+          updatedAt: now
+        });
+        const nextBranchWithSync = ResumeBranchSchema.parse({
+          ...nextBranchBase,
+          syncStatusCache: computeBranchSyncStatus({
+            branch: nextBranchBase,
+            profile: parsedProfile,
+            job: parsedJob,
+            now
+          })
+        });
+        const revision = createResumeRevision({
+          branch: nextBranchWithSync,
+          source: "suggestion_accept",
+          operationId: input.operationId,
+          previousRevisionId: branch.currentRevisionId ?? undefined,
+          now
+        });
+        const nextBranch = ResumeBranchSchema.parse({
+          ...nextBranchWithSync,
+          currentRevisionId: revision.id
+        });
+        const nextSuggestion = AiSuggestionSchema.parse({
+          ...suggestion,
+          editedText: acceptedText === suggestion.suggestedText ? suggestion.editedText : acceptedText,
+          guardResult,
+          riskLevel: guardResult.riskLevel,
+          status: "accepted",
+          updatedAt: now
+        });
+        const nextDraft = JobAdaptationDraftSchema.parse({
+          ...parsedDraft,
+          revision: parsedDraft.revision + 1,
+          appliedSuggestionIds: Array.from(new Set([...parsedDraft.appliedSuggestionIds, suggestion.id])),
+          lastGuardedAt: now,
+          updatedAt: now
+        });
+        const snapshot = this.createAdaptationSnapshot(nextDraft, "suggestion_applied", input.operationId, now);
+        const nextDraftWithSnapshot = JobAdaptationDraftSchema.parse({
+          ...nextDraft,
+          snapshots: [...nextDraft.snapshots, snapshot]
+        });
+        const suggestionOperation = this.createSuggestionOperation({
+          operationId: input.operationId,
+          draftId: parsedDraft.id,
+          suggestionId: suggestion.id,
+          type: "accept",
+          expectedRevision: parsedDraft.revision,
+          beforeRevision: parsedDraft.revision,
+          afterRevision: nextDraftWithSnapshot.revision,
+          snapshotId: snapshot.id,
+          now
+        });
+        const branchOperation = ResumeBranchOperationSchema.parse({
+          id: `resume-branch-op-${input.operationId}`,
+          operationId: input.operationId,
+          branchId: branch.id,
+          sourceAdaptationDraftId: parsedDraft.id,
+          type: "suggestion_accept",
+          expectedRevision: input.expectedBranchRevision,
+          beforeRevision: branch.revision,
+          afterRevision: nextBranch.revision,
+          revisionId: revision.id,
+          occurredAt: now,
+          createdAt: now,
+          updatedAt: now
+        });
+
+        await this.db.resumeBranches.put(nextBranch);
+        await this.db.resumeRevisions.put(revision);
+        await this.db.resumeBranchOperations.put(branchOperation);
+        await this.db.aiSuggestions.put(nextSuggestion);
+        await this.db.jobAdaptationDrafts.put(nextDraftWithSnapshot);
+        await this.db.adaptationSnapshots.put(snapshot);
+        await this.db.suggestionOperations.put(suggestionOperation);
+        return { branch: nextBranch, suggestion: nextSuggestion, revision, idempotent: false };
+      }
+    );
   }
 
   async undoSuggestion(input: {
@@ -1881,7 +2375,17 @@ export class WorkspaceRepository {
       });
       const snapshot = this.createAdaptationSnapshot(
         nextDraft,
-        type === "accept" ? "suggestion_applied" : type === "reject" ? "suggestion_rejected" : type === "edit" ? "suggestion_edited" : type === "rerun_guard" ? "guard_rerun" : "undo",
+        type === "accept"
+          ? "suggestion_applied"
+          : type === "reject"
+            ? "suggestion_rejected"
+            : type === "ignore"
+              ? "suggestion_ignored"
+              : type === "edit"
+                ? "suggestion_edited"
+                : type === "rerun_guard"
+                  ? "guard_rerun"
+                  : "undo",
         input.operationId,
         now
       );

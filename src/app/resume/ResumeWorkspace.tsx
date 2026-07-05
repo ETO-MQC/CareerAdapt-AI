@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   type JobAdaptationDraft,
   type CareerProfile,
+  type JobDescription,
   type OverflowStatus,
   type ResumePaginationPlan,
   type ResumeBranch,
@@ -16,6 +17,7 @@ import { mapBranchToResumeRenderModel, ResumeRenderMapperError } from "@/domain/
 import { A4ResumePreview } from "@/components/resume/A4ResumePreview";
 import { TemplateCenter } from "@/components/resume/TemplateCenter";
 import { ResumeImportWizard } from "@/components/resume/import/ResumeImportWizard";
+import { JobOptimizationPanel } from "@/components/resume/optimization/JobOptimizationPanel";
 import { mapBranchToResumeDocument } from "@/domain/resumeDocument/mapper";
 import { useResumePagination } from "@/components/resume/useResumePagination";
 import {
@@ -64,6 +66,7 @@ export function ResumeWorkspace() {
   const pageRef = useRef<HTMLElement | null>(null);
   const [drafts, setDrafts] = useState<JobAdaptationDraft[]>([]);
   const [branches, setBranches] = useState<ResumeBranch[]>([]);
+  const [localJobs, setLocalJobs] = useState<JobDescription[]>([]);
   const [profileOverride, setProfileOverride] = useState<CareerProfile | undefined>();
   const [selectedDraftId, setSelectedDraftId] = useState("");
   const [selectedBranchId, setSelectedBranchId] = useState("");
@@ -123,7 +126,12 @@ export function ResumeWorkspace() {
   }, [presentationConfig]);
 
   const profile = profileOverride ?? (workspace.status === "ready" ? workspace.profiles[0] : undefined);
-  const jobs = useMemo(() => workspace.status === "ready" ? workspace.jobs : [], [workspace]);
+  const jobs = useMemo(() => {
+    const workspaceJobs = workspace.status === "ready" ? workspace.jobs : [];
+    const byId = new Map<string, JobDescription>();
+    [...workspaceJobs, ...localJobs].forEach((job) => byId.set(job.id, job));
+    return Array.from(byId.values());
+  }, [workspace, localJobs]);
   const activeDraftId = selectedDraftId || drafts[0]?.id || "";
   const activeBranchId = selectedBranchId || branches[0]?.id || "";
   const selectedDraft = drafts.find((draft) => draft.id === activeDraftId);
@@ -1316,7 +1324,10 @@ export function ResumeWorkspace() {
   }
 
   function replaceBranch(branch: ResumeBranch) {
-    setBranches((current) => current.map((item) => item.id === branch.id ? branch : item));
+    setBranches((current) => current.some((item) => item.id === branch.id)
+      ? current.map((item) => item.id === branch.id ? branch : item)
+      : [branch, ...current]);
+    setSelectedBranchId(branch.id);
     setEditTexts({});
     clearStudioEditor();
     const queue = presentationQueueRef.current;
@@ -1428,6 +1439,32 @@ export function ResumeWorkspace() {
           {selectedBranch.syncStatusCache.status !== "in_sync" ? (
             <div className="warning-box">{selectedBranch.syncStatusCache.message}</div>
           ) : null}
+
+          <JobOptimizationPanel
+            repository={repository}
+            profile={profile}
+            jobs={jobs}
+            branch={selectedBranch}
+            selectedContentItemId={selectedStudioItemId}
+            canEdit={selectedBranchEditable}
+            onJobCreated={(job) => setLocalJobs((current) => [job, ...current.filter((item) => item.id !== job.id)])}
+            onBranchReady={replaceBranch}
+            onApplyStructureSuggestion={(kind, contentItemId) => {
+              if (kind === "hide") {
+                void setPresentationItemVisibility(contentItemId, false);
+                setMessage("结构建议已通过展示配置隐藏区块；未创建内容 Revision。");
+                return;
+              }
+              if (kind === "show") {
+                void setPresentationItemVisibility(contentItemId, true);
+                setMessage("结构建议已通过展示配置恢复区块；未创建内容 Revision。");
+                return;
+              }
+              void movePresentationItem(contentItemId, "up");
+              setMessage("结构建议已通过展示配置上移区块；未创建内容 Revision。");
+            }}
+            onMessage={setMessage}
+          />
 
           <div className="branch-editor">
             {selectedBranch.contentItems.map((item) => {

@@ -169,3 +169,13 @@
 - 替代方案：导入时自动创建空 Job；只写 CareerProfile 不创建分支；直接持久化 ResumeDocument；新增 Dexie 导入表。
 - 后果：Mapper、RenderModel 和 Repository 必须允许 general 分支无 Job 渲染；后续 G5 岗位优化仍应从 general 分支显式派生 job_specific 分支，而不是复用导入分支冒充岗位简历。
 - 日期：2026-07-05
+
+## ADR-018 G5a复用ResumeBranch/AiSuggestion实现区块级岗位优化
+
+- 状态：Accepted
+- 背景：G5a 需要让用户基于通用或岗位简历生成岗位定向修改，但不能新增第二套建议、Fact Guard 或内容版本系统，也不能让 AI 静默改写正式简历。
+- 决策：区块级岗位建议继续使用 `AiSuggestion` 和 `JobAdaptationDraft`，通过新增可选元数据绑定 `ResumeBranch.contentItems`；从通用简历派生岗位简历继续使用 `ResumeBranch` / `ResumeRevision`；接受建议通过单一 Repository 事务创建 `suggestion_accept` 内容 revision。
+- 理由：最大化复用 C1/C2、Fact Guard、Revision、Dexie v7 和 Resume Studio 现有边界，避免引入新表、新 provider 或第二套风控。
+- 替代方案：新增 job optimization draft 表；把 AI 建议直接写入分支；在前端自由文本覆盖正文；导入独立富文本编辑器。
+- 后果：建议必须携带 branch revision、currentRevisionId、originalTextHash 和 requirementsHash；过期建议必须重新生成；结构建议仍走展示配置，不创建内容 revision。
+- 日期：2026-07-05

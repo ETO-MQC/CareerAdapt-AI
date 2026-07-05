@@ -13,8 +13,13 @@ export const AiTaskSchema = z.enum([
 
 export const AiSuggestionTypeSchema = z.enum([
   "rewrite",
+  "compress",
+  "prioritize",
+  "remove_irrelevant",
   "remove_or_shorten",
   "reorder",
+  "hide",
+  "show",
   "risk_warning",
   "follow_up_question"
 ]);
@@ -27,6 +32,7 @@ export const AiSuggestionStatusSchema = z.enum([
   "edited_guarded",
   "blocked_high_risk",
   "stale_blocked",
+  "ignored",
   "undone"
 ]);
 
@@ -78,6 +84,17 @@ export const FactGuardResultSchema = z.object({
 export const AiSuggestionSchema = EntityBaseSchema.extend({
   draftId: z.string().min(1),
   targetSectionId: z.string().min(1),
+  targetContentItemId: z.string().min(1).optional(),
+  branchId: z.string().min(1).optional(),
+  basedOnBranchRevision: z.number().int().min(0).optional(),
+  basedOnRevisionId: z.string().min(1).optional(),
+  originalTextHash: z.string().min(8).optional(),
+  requirementsHash: z.string().min(8).optional(),
+  evidenceQuotes: z.array(z.string()).optional(),
+  guardPreview: z.object({
+    allowed: z.boolean(),
+    reasons: z.array(z.string()).default([])
+  }).optional(),
   type: AiSuggestionTypeSchema,
   originalText: z.string().min(1),
   suggestedText: z.string().min(1),

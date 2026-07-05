@@ -5,6 +5,7 @@ export * from "./common";
 export * from "./export";
 export * from "./importDraft";
 export * from "./job";
+export * from "./jobOptimization";
 export * from "./presentation";
 export * from "./profile";
 export * from "./resumeImport";

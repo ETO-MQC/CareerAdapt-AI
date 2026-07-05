@@ -559,6 +559,121 @@ p {
   gap: 12px;
 }
 
+.optimization-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.optimization-panel .section-heading p {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  margin: 4px 0 0;
+}
+
+.optimization-grid {
+  align-items: start;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(220px, 0.9fr) minmax(250px, 1fr) minmax(280px, 1.15fr);
+}
+
+.optimization-column {
+  align-content: start;
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.optimization-jd-create {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 10px;
+  margin-top: 2px;
+  padding-top: 12px;
+}
+
+.optimization-jd-create input {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font: inherit;
+  min-height: 38px;
+  padding: 0 12px;
+  width: 100%;
+}
+
+.optimization-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.optimization-summary span {
+  background: #f7f8f5;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 750;
+  min-height: 28px;
+  padding: 5px 8px;
+}
+
+.requirement-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.requirement-list {
+  display: grid;
+  gap: 8px;
+  max-height: 360px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.inline-diff {
+  background: #f8fafb;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+}
+
+.inline-diff > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.diff-token {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 750;
+  line-height: 1.5;
+  padding: 2px 6px;
+}
+
+.diff-delete {
+  background: #fff1f1;
+  border-color: #f0c8c8;
+  color: #9b2c2c;
+}
+
+.diff-add {
+  background: #eef6f3;
+  border-color: #c7ddd5;
+  color: var(--accent-strong);
+}
+
+.diff-keep {
+  background: #fff;
+  color: var(--muted);
+}
+
 .suggestion-card-low {
   border-left: 4px solid var(--accent);
 }
@@ -1547,6 +1662,7 @@ p {
     .stage-grid,
     .match-layout,
     .c2-layout,
+    .optimization-grid,
     .resume-preview-layout,
     .form-grid {
     grid-template-columns: 1fr;

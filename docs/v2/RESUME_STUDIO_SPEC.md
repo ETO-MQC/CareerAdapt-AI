@@ -27,6 +27,7 @@ V2采用“结构化区块编辑器 + 所见即所得预览 + 有约束的布局
 - overflow：分为 `fits`、`near_limit`、`overflow`；overflow阻止正式导出。
 - import reviewing：文本型 PDF 已提取但未确认时，显示审阅面板、页文本来源、结构化 item 和确认/取消操作，不写正式事实。
 - general branch：从已有简历导入得到的通用分支显示为“通用简历 / 无目标岗位”，允许继续使用模板、编辑、分页和 PDF 导出。
+- job optimization reviewing：岗位优化面板展开后，用户可选择/创建目标岗位、刷新 requirement 映射、查看 fact gap、生成 block 建议并审阅 diff；未接受建议前不修改正式正文。
 
 ## Section和Block
 
@@ -70,6 +71,16 @@ V2采用“结构化区块编辑器 + 所见即所得预览 + 有约束的布局
 - sourceQuote 在页文本中高亮，帮助用户判断导入内容是否来自原 PDF。
 - 扫描版、无文本 PDF 和非 PDF 文件不得进入正式事实层。
 - 本阶段不做 DOCX、OCR、PDF 原版式还原或自动岗位匹配。
+
+## G5a岗位优化入口
+
+- 岗位优化入口位于 Resume Studio 内，服务于当前选中的 verified branch。
+- 用户可以选择已有岗位，或粘贴 JD 创建一个经过 Schema 校验的 `JobDescription`。
+- 对 general branch，用户必须显式派生 job-specific branch 后再接受岗位定向正文建议；原 general branch 不被静默修改。
+- Requirement 侧栏显示覆盖状态、关联区块和证据数量；fact gap 明确提示需要补充事实，不生成虚假建议。
+- 建议详情必须展示原文、建议文本、inline diff、理由、证据和 Fact Guard 预检。
+- 接受和编辑后接受才创建内容 `ResumeRevision`；拒绝、忽略、重新生成不改正式正文。
+- 结构建议当前只走展示配置的上移/隐藏路径，不创建内容 revision。
 
 ## 键盘和可访问性
 

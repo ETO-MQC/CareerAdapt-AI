@@ -23,7 +23,7 @@ export const JobAdaptationSectionTextSchema = z.object({
 export const JobAdaptationSnapshotSchema = EntityBaseSchema.extend({
   draftId: z.string().min(1),
   revision: z.number().int().min(0),
-  source: z.enum(["created", "suggestions_generated", "suggestion_applied", "suggestion_rejected", "suggestion_edited", "guard_rerun", "undo"]),
+  source: z.enum(["created", "suggestions_generated", "suggestion_applied", "suggestion_rejected", "suggestion_ignored", "suggestion_edited", "guard_rerun", "undo"]),
   operationId: z.string().min(1),
   sectionTexts: z.array(JobAdaptationSectionTextSchema),
   appliedSuggestionIds: z.array(z.string().min(1)).default([])
@@ -32,6 +32,10 @@ export const JobAdaptationSnapshotSchema = EntityBaseSchema.extend({
 export const JobAdaptationDraftSchema = EntityBaseSchema.extend({
   profileId: z.string().min(1),
   jobId: z.string().min(1),
+  branchId: z.string().min(1).optional(),
+  sourceBranchId: z.string().min(1).optional(),
+  sourceRevisionId: z.string().min(1).optional(),
+  sourceBranchRevision: z.number().int().min(0).optional(),
   profileVersion: z.number().int().min(1),
   jobVersion: z.string().min(1),
   matcherVersion: z.string().min(1),
@@ -50,7 +54,7 @@ export const SuggestionOperationSchema = EntityBaseSchema.extend({
   operationId: z.string().min(1),
   draftId: z.string().min(1),
   suggestionId: z.string().optional(),
-  type: z.enum(["create_draft", "generate", "accept", "reject", "edit", "rerun_guard", "undo"]),
+  type: z.enum(["create_draft", "generate", "accept", "reject", "ignore", "edit", "rerun_guard", "undo"]),
   expectedRevision: z.number().int().min(0),
   beforeRevision: z.number().int().min(0).optional(),
   afterRevision: z.number().int().min(0).optional(),

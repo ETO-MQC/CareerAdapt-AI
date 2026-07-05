@@ -129,6 +129,7 @@ export const ResumeRevisionSourceSchema = z.enum([
   "created",
   "import_confirmed",
   "manual_edit",
+  "suggestion_accept",
   "reorder",
   "visibility",
   "restore",
@@ -163,6 +164,9 @@ export const ResumeBranchSchema = EntityBaseSchema.extend({
   sourceJobVersion: z.string().min(1).optional(),
   sourceAdaptationDraftId: z.string().min(1).optional(),
   sourceImportId: z.string().min(1).optional(),
+  sourceBranchId: z.string().min(1).optional(),
+  sourceRevisionId: z.string().min(1).optional(),
+  derivedAt: IsoDateStringSchema.optional(),
   sourceDraftRevision: z.number().int().min(0),
   matcherVersion: z.string().min(1),
   sourceMatchSetHash: z.string().min(8),
@@ -187,11 +191,12 @@ export const ResumeBranchSchema = EntityBaseSchema.extend({
     });
   }
 
-  if (branch.branchPurpose === "job_specific" && !branch.sourceAdaptationDraftId) {
+  const hasDerivedSource = Boolean(branch.sourceBranchId && branch.sourceRevisionId);
+  if (branch.branchPurpose === "job_specific" && !branch.sourceAdaptationDraftId && !hasDerivedSource) {
     ctx.addIssue({
       code: "custom",
       path: ["sourceAdaptationDraftId"],
-      message: "job-specific branches must keep source adaptation draft id"
+      message: "job-specific branches must keep source adaptation draft id or source branch derivation"
     });
   }
 
@@ -231,7 +236,9 @@ export const ResumeBranchSchema = EntityBaseSchema.extend({
 export const ResumeBranchOperationTypeSchema = z.enum([
   "create_from_draft",
   "resume_import_confirm",
+  "derive_job_branch",
   "manual_edit",
+  "suggestion_accept",
   "reorder",
   "visibility",
   "restore",

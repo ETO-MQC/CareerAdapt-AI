@@ -35,7 +35,7 @@ test.describe("Phase B profile import flow", () => {
     if (!(await firstCheckbox.isChecked())) {
       await firstCheckbox.click({ force: true });
     }
-    expect(await firstCheckbox.isChecked()).toBe(true);
+    await expect(firstCheckbox).toBeChecked();
 
     // Step 6: Commit
     await page.getByRole("button", { name: "提交正式母档案" }).click();

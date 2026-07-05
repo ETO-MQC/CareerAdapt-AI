@@ -61,6 +61,16 @@ G4a 增加“无目标岗位”的通用简历分支，用于承接用户已有�
 - `ResumeDocument` 和 `ResumeRenderModel` 继续作为派生视图；当 `branchPurpose=general` 时，`jobId` 和 `sourceTrace.jobId` 可以为空，渲染上下文降级为“通用简历 / 无目标岗位”。
 - 导入审阅草稿 `ImportedResumeDraft` 存在 `appMeta`，不新增 Dexie 表，不持久化 ResumeDocument，不保存原始 PDF Blob。
 
+## G5a岗位分支与区块建议
+
+G5a 在 G4a general branch 基础上补齐岗位定向闭环，但继续复用现有聚合根和 Dexie 表：
+
+- `job_specific` 分支既可以来自 `sourceAdaptationDraftId`，也可以来自 `sourceBranchId + sourceRevisionId`。从通用分支派生岗位分支时复制内容项与展示配置，创建 first revision 和 `derive_job_branch` operation。
+- `RequirementBlockMatch`、`RequirementCoverageSummary` 和 `JobOptimizationSummary` 是派生视图，不持久化为新表。
+- `AiSuggestion` 承载 block 级建议元数据，锁定 branch revision、currentRevisionId、原文 hash 和 requirementsHash。
+- 接受建议通过 `applyResumeBlockSuggestion` 原子写入：校验 stale -> 运行 Fact Guard -> 更新目标 content item -> 创建 `suggestion_accept` 内容 revision -> 更新 draft snapshot 和 suggestion operation。
+- 结构建议仍属于展示层配置；上移/隐藏不创建内容 revision，也不运行 Fact Guard。
+
 ## Repository职责
 
 G0a在 WorkspaceRepository 中增加轻量适配方法或直接复用现有方法：
@@ -71,6 +81,7 @@ G0a在 WorkspaceRepository 中增加轻量适配方法或直接复用现有方�
 - 文本保存继续复用现有 `editResumeBranch`、`expectedRevision`、`operationId`、事务和Fact Guard路径。
 - 导出前重新校验 branch/profile/job/template。
 - G4a导入确认必须通过 Repository 事务写入 profile、general branch、first revision、operation、presentation config 和 import session 状态；`operationId` 必须幂等。
+- G5a派生岗位分支、保存 block 建议、接受/拒绝/忽略建议必须通过 Repository 事务完成；接受建议必须校验 C1/C2 matches 仍可用。
 
 ## 聚合根和事务边界
 

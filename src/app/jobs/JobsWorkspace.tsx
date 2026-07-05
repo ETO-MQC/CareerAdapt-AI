@@ -4,6 +4,7 @@ import { nanoid } from "nanoid";
 import { useEffect, useMemo, useState } from "react";
 import { invokeStageBAi, invokeStructuredAi } from "@/ai/client";
 import { promptVersions } from "@/ai/prompts/versions";
+import { createManualJdOutput } from "@/domain/jobAnalysis/manual";
 import { mapJobDraftToJobDescription } from "@/domain/mappers/jobDraftMapper";
 import {
   FactGuardOutputSchema,
@@ -1162,49 +1163,4 @@ function RequirementReviewRow({
       </button>
     </div>
   );
-}
-
-function createManualJdOutput(rawText: string, title: string, company: string): JdAnalyzerOutput {
-  const now = new Date().toISOString();
-  const sourceQuote = rawText.split(/[。；;\n]/).find(Boolean)?.slice(0, 120) || rawText.slice(0, 120);
-  const start = rawText.indexOf(sourceQuote);
-  const sourceSpan = start >= 0 ? { start, end: start + sourceQuote.length, text: sourceQuote } : undefined;
-
-  return {
-    title: {
-      value: title,
-      sourceQuote,
-      sourceSpan,
-      confidenceLevel: "medium",
-      confidenceReason: "岗位名称来自用户填写。",
-      needsConfirmation: false
-    },
-    company: {
-      value: company,
-      sourceQuote,
-      sourceSpan,
-      confidenceLevel: "medium",
-      confidenceReason: "公司名称来自用户填写。",
-      needsConfirmation: false
-    },
-    requirements: [
-      {
-        id: `manual-req-${nanoid(8)}`,
-        category: "risk_or_uncertain",
-        description: sourceQuote || "待补充岗位要求",
-        priority: "uncertain",
-        hardConstraint: false,
-        sourceQuote,
-        sourceSpan,
-        keywords: [],
-        confidenceLevel: "low",
-        confidenceReason: "手动模式默认条目，需要用户分类确认。",
-        needsConfirmation: true,
-        confirmedByUser: false,
-        createdAt: now,
-        updatedAt: now
-      }
-    ],
-    riskNotes: []
-  };
 }

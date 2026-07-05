@@ -21,6 +21,14 @@ V2继续使用明确AI任务，不做万能聊天机器人。AI建议不得直�
 | interview-question-generator | job/profile | InterviewQuestionOutput | 已确认事实和JD | 面试问题草稿 | 可选 | 不写事实 | 通用问题 |
 | star-answer-assistant | 用户选择事实 | StarAnswerOutput | 已确认事实 | 回答草稿 | 必须 | 生成后 | 提纲 |
 
+## G5a区块级岗位建议边界
+
+- `resume-tailor` 在 G5a 中只能生成 `AiSuggestion` 草稿，不能直接写入 `ResumeBranch`、`ResumeRevision` 或 `CareerProfile`。
+- 每条建议必须绑定 `branchId`、`targetContentItemId`、`basedOnBranchRevision`、`basedOnRevisionId`、`originalTextHash`、`requirementsHash` 和 `usedEvidenceRefs`。
+- 无证据 requirement 进入 fact gap，不调用 AI 生成“补齐事实”的建议。
+- 接受建议时必须重新运行规则 Fact Guard；`blocked_high_risk`、`needs_edit` 或 high risk 结果不能写入正式简历。
+- 拒绝、忽略和重新生成只改变建议状态或创建新建议，不修改正式正文。
+
 ## 写权限
 
 - AI永远不能直接写 `CareerProfile` 正式事实。
