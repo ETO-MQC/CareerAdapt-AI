@@ -20,13 +20,16 @@ export class ResumeRenderMapperError extends Error {
 export function mapBranchToResumeRenderModel(input: {
   branch: ResumeBranch;
   profile: CareerProfile;
-  job: JobDescription;
+  job?: JobDescription;
   presentationConfig?: ResumePresentationConfig;
 }) {
   const { branch, profile, job } = input;
   assertRenderableBranch(branch);
 
-  if (branch.profileId !== profile.id || branch.jobId !== job.id) {
+  if (branch.profileId !== profile.id) {
+    throw new ResumeRenderMapperError("render_source_mismatch");
+  }
+  if (branch.branchPurpose !== "general" && (!job || branch.jobId !== job.id)) {
     throw new ResumeRenderMapperError("render_source_mismatch");
   }
 
@@ -69,8 +72,8 @@ export function mapBranchToResumeRenderModel(input: {
     branchRevision: branch.revision,
     branchCurrentRevisionId: branch.currentRevisionId,
     branchName: branch.name,
-    jobTitle: job.title,
-    company: job.company,
+    jobTitle: job?.title ?? "通用简历",
+    company: job?.company ?? "未指定岗位",
     candidate: {
       name: profile.basics.name,
       summary: profile.basics.summary,
@@ -80,7 +83,7 @@ export function mapBranchToResumeRenderModel(input: {
         profile.basics.email,
         ...profile.basics.links
       ].filter((value): value is string => Boolean(value?.trim())),
-      targetRole: job.title
+      targetRole: job?.title
     },
     sections,
     safety: {
@@ -90,7 +93,7 @@ export function mapBranchToResumeRenderModel(input: {
     },
     sourceTrace: {
       profileId: profile.id,
-      jobId: job.id,
+      jobId: job?.id,
       currentRevisionId: branch.currentRevisionId,
       sourceProfileVersion: branch.sourceProfileVersion,
       sourceJobVersion: branch.sourceJobVersion

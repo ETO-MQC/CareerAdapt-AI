@@ -1383,6 +1383,83 @@ p {
   margin-bottom: 0;
 }
 
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.import-dropzone {
+  display: grid;
+  gap: 6px;
+  min-height: 88px;
+  padding: 18px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  background: #eef3ef;
+  cursor: pointer;
+}
+
+.import-review-grid {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.9fr) minmax(360px, 1.2fr);
+  gap: 16px;
+  margin-top: 16px;
+  align-items: start;
+}
+
+.import-source-panel,
+.import-structure-panel {
+  min-width: 0;
+}
+
+.import-source-text {
+  min-height: 360px;
+  max-height: 560px;
+  overflow: auto;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--ink);
+  white-space: pre-wrap;
+  font-family: inherit;
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+
+.compact-form-grid {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.import-item-row {
+  display: grid;
+  gap: 8px;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+}
+
+.import-item-row-active {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.compact-textarea {
+  min-height: 84px;
+}
+
+@media (max-width: 900px) {
+  .import-review-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 @page {
   size: A4;
   margin: 0;

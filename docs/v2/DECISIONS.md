@@ -159,3 +159,13 @@
 - 替代方案：按字符数估算页数、CSS columns 自动分页、Paged.js、或直接允许无限页。
 - 后果：分页能力受当前模板 DOM 结构约束，模板必须保留 `data-render-section` 和 `data-source-item-id`；三页策略、自动压缩和续页页眉需要后续单独设计。
 - 日期：2026-07-05
+
+## ADR-017 文本型PDF导入创建通用ResumeBranch
+
+- 状态：Accepted
+- 背景：用户已有简历导入后需要立即进入 Resume Studio 套模板和导出，但此时未必有目标岗位；若强行复用岗位分支模型，会诱导伪造 Job、JD 或 RequirementMatch。
+- 决策：G4a 文本型 PDF 导入先生成 `ImportedResumeDraft` 供用户审阅，确认后创建 `branchPurpose=general` 的 verified `ResumeBranch`。通用分支绑定 `sourceImportId`，不要求 `jobId`，不创建虚假 Job，不生成岗位匹配结果。
+- 理由：保持“已有简历 -> 通用简历工作台”的真实闭环，同时不破坏岗位定制分支的事实和匹配语义。
+- 替代方案：导入时自动创建空 Job；只写 CareerProfile 不创建分支；直接持久化 ResumeDocument；新增 Dexie 导入表。
+- 后果：Mapper、RenderModel 和 Repository 必须允许 general 分支无 Job 渲染；后续 G5 岗位优化仍应从 general 分支显式派生 job_specific 分支，而不是复用导入分支冒充岗位简历。
+- 日期：2026-07-05

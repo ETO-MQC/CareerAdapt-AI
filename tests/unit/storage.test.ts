@@ -219,6 +219,7 @@ describe("WorkspaceRepository", () => {
 
     const branch: ResumeBranch = {
       id: "branch-storage-test",
+      branchPurpose: "job_specific",
       profileId: demoCareerProfile.id,
       jobId: demoJobDescriptions[0].id,
       name: "阶段A Repository 分支写入测试",

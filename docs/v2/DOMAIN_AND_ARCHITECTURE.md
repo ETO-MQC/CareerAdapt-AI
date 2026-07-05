@@ -49,6 +49,18 @@ ContentBlock：
 - 展示Revision：模板、样式、布局、显示隐藏、排序。
 - Undo/redo要区分内容和展示，不让样式撤销污染事实历史。
 
+## G4a导入通用分支
+
+G4a 增加“无目标岗位”的通用简历分支，用于承接用户已有文本型 PDF 简历导入：
+
+- `ResumeBranch.branchPurpose` 区分 `job_specific` 和 `general`。
+- `job_specific` 分支继续要求 `jobId`、`sourceJobVersion`、`sourceAdaptationDraftId` 和 `requirementMatchIds`。
+- `general` 分支必须绑定 `sourceImportId`，不得伪造 `JobDescription`、`RequirementMatch` 或岗位版本。
+- 通用分支仍必须是 verified 后才进入正式编辑和导出；内容仍来自 `ResumeRevision` 和 `contentItems`。
+- 通用分支的同步状态只检查 Profile 版本和 factRefs，不检查 Job 版本。
+- `ResumeDocument` 和 `ResumeRenderModel` 继续作为派生视图；当 `branchPurpose=general` 时，`jobId` 和 `sourceTrace.jobId` 可以为空，渲染上下文降级为“通用简历 / 无目标岗位”。
+- 导入审阅草稿 `ImportedResumeDraft` 存在 `appMeta`，不新增 Dexie 表，不持久化 ResumeDocument，不保存原始 PDF Blob。
+
 ## Repository职责
 
 G0a在 WorkspaceRepository 中增加轻量适配方法或直接复用现有方法：
@@ -58,6 +70,7 @@ G0a在 WorkspaceRepository 中增加轻量适配方法或直接复用现有方�
 - 保存展示配置。
 - 文本保存继续复用现有 `editResumeBranch`、`expectedRevision`、`operationId`、事务和Fact Guard路径。
 - 导出前重新校验 branch/profile/job/template。
+- G4a导入确认必须通过 Repository 事务写入 profile、general branch、first revision、operation、presentation config 和 import session 状态；`operationId` 必须幂等。
 
 ## 聚合根和事务边界
 

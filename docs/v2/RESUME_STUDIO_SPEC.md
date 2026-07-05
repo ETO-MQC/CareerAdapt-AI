@@ -25,6 +25,8 @@ V2采用“结构化区块编辑器 + 所见即所得预览 + 有约束的布局
 - loading/error：沿用V1 workspace状态，不丢失已编辑草稿。
 - legacy分支：只读提示，不允许正式编辑或导出。
 - overflow：分为 `fits`、`near_limit`、`overflow`；overflow阻止正式导出。
+- import reviewing：文本型 PDF 已提取但未确认时，显示审阅面板、页文本来源、结构化 item 和确认/取消操作，不写正式事实。
+- general branch：从已有简历导入得到的通用分支显示为“通用简历 / 无目标岗位”，允许继续使用模板、编辑、分页和 PDF 导出。
 
 ## Section和Block
 
@@ -59,6 +61,15 @@ V2采用“结构化区块编辑器 + 所见即所得预览 + 有约束的布局
 - 右侧面板显示当前区块事实来源、PDF locator、sourceQuote。
 - `pdf_import` 只在唯一定位时作为PDF来源；用户新增或无法定位内容标记为 `user_input` 或 pending。
 - 任何事实文本变化都重新运行Fact Guard；排版和模板建议不得触发事实写入。
+
+## G4a导入入口
+
+- 导入入口位于 Resume Studio 内，即使没有现有 verified 分支也可用。
+- 支持点击上传和拖拽文本型 PDF。
+- 审阅面板必须让用户确认基础信息冲突、section/item 取舍和文本改写后，才能写入 `CareerProfile` 和 `ResumeBranch`。
+- sourceQuote 在页文本中高亮，帮助用户判断导入内容是否来自原 PDF。
+- 扫描版、无文本 PDF 和非 PDF 文件不得进入正式事实层。
+- 本阶段不做 DOCX、OCR、PDF 原版式还原或自动岗位匹配。
 
 ## 键盘和可访问性
 

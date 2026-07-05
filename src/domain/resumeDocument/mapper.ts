@@ -42,7 +42,7 @@ export type ResumeDocument = {
   id: string;
   branchId: string;
   profileId: string;
-  jobId: string;
+  jobId?: string;
   templateId: TemplateId;
   branchRevision: number;
   branchCurrentRevisionId: string;
@@ -55,10 +55,13 @@ export type ResumeDocument = {
 export function mapBranchToResumeDocument(input: {
   branch: ResumeBranch;
   profile: CareerProfile;
-  job: JobDescription;
+  job?: JobDescription;
   templateId: TemplateId;
   presentationConfig?: ResumePresentationConfig;
 }): ResumeDocument {
+  if (input.branch.branchPurpose !== "general" && (!input.job || input.branch.jobId !== input.job.id)) {
+    throw new Error("resume_document_source_job_missing");
+  }
   const branchEditability = getBranchEditability(input.branch);
   const baseBlocks = [...input.branch.contentItems]
     .sort((a, b) => sectionRank(a.itemType) - sectionRank(b.itemType) || a.order - b.order)
@@ -74,7 +77,7 @@ export function mapBranchToResumeDocument(input: {
     id: `resume-document:${input.branch.id}:${input.branch.currentRevisionId ?? "missing"}`,
     branchId: input.branch.id,
     profileId: input.profile.id,
-    jobId: input.job.id,
+    jobId: input.job?.id,
     templateId: input.templateId,
     branchRevision: input.branch.revision,
     branchCurrentRevisionId: input.branch.currentRevisionId ?? "",

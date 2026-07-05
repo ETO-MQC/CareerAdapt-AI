@@ -3,6 +3,7 @@ import { EntityBaseSchema, IsoDateStringSchema, RiskLevelSchema } from "./common
 
 export const BranchLifecycleStatusSchema = z.enum(["active", "archived"]);
 export const BranchMigrationStatusSchema = z.enum(["verified", "legacy_unverified"]);
+export const ResumeBranchPurposeSchema = z.enum(["job_specific", "general"]);
 
 export const BranchFactRefSchema = z.discriminatedUnion("type", [
   z.object({
@@ -38,6 +39,7 @@ export const BranchContentItemTypeSchema = z.enum([
 
 export const BranchContentSourceSchema = z.enum([
   "adaptation_draft",
+  "resume_import",
   "user_manual",
   "restored",
   "system_structural",
@@ -110,8 +112,8 @@ export const BranchSyncStatusSchema = z.object({
   ]),
   sourceProfileVersion: z.number().int().min(1),
   currentProfileVersion: z.number().int().min(1),
-  sourceJobVersion: z.string().min(1),
-  currentJobVersion: z.string().min(1),
+  sourceJobVersion: z.string().min(1).optional(),
+  currentJobVersion: z.string().min(1).optional(),
   invalidFactRefs: z.array(z.string().min(1)).default([]),
   checkedAt: IsoDateStringSchema,
   message: z.string().min(1)
@@ -125,6 +127,7 @@ export const ResumeBranchSnapshotSchema = z.object({
 
 export const ResumeRevisionSourceSchema = z.enum([
   "created",
+  "import_confirmed",
   "manual_edit",
   "reorder",
   "visibility",
@@ -152,12 +155,14 @@ export const ResumeRevisionSchema = EntityBaseSchema.extend({
 });
 
 export const ResumeBranchSchema = EntityBaseSchema.extend({
+  branchPurpose: ResumeBranchPurposeSchema.default("job_specific"),
   profileId: z.string().min(1),
-  jobId: z.string().min(1),
+  jobId: z.string().min(1).optional(),
   name: z.string().min(1),
   sourceProfileVersion: z.number().int().min(1),
-  sourceJobVersion: z.string().min(1),
-  sourceAdaptationDraftId: z.string().min(1),
+  sourceJobVersion: z.string().min(1).optional(),
+  sourceAdaptationDraftId: z.string().min(1).optional(),
+  sourceImportId: z.string().min(1).optional(),
   sourceDraftRevision: z.number().int().min(0),
   matcherVersion: z.string().min(1),
   sourceMatchSetHash: z.string().min(8),
@@ -174,7 +179,39 @@ export const ResumeBranchSchema = EntityBaseSchema.extend({
     return;
   }
 
-  if (branch.requirementMatchIds.length === 0) {
+  if (branch.branchPurpose === "job_specific" && !branch.jobId) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["jobId"],
+      message: "job-specific branches must keep a jobId"
+    });
+  }
+
+  if (branch.branchPurpose === "job_specific" && !branch.sourceAdaptationDraftId) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["sourceAdaptationDraftId"],
+      message: "job-specific branches must keep source adaptation draft id"
+    });
+  }
+
+  if (branch.branchPurpose === "job_specific" && !branch.sourceJobVersion) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["sourceJobVersion"],
+      message: "job-specific branches must keep source job version"
+    });
+  }
+
+  if (branch.branchPurpose === "general" && !branch.sourceImportId) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["sourceImportId"],
+      message: "general branches must keep source import id"
+    });
+  }
+
+  if (branch.branchPurpose === "job_specific" && branch.requirementMatchIds.length === 0) {
     ctx.addIssue({
       code: "custom",
       path: ["requirementMatchIds"],
@@ -193,6 +230,7 @@ export const ResumeBranchSchema = EntityBaseSchema.extend({
 
 export const ResumeBranchOperationTypeSchema = z.enum([
   "create_from_draft",
+  "resume_import_confirm",
   "manual_edit",
   "reorder",
   "visibility",
@@ -302,6 +340,7 @@ export const ExportRecordSchema = EntityBaseSchema.extend({
 
 export type BranchLifecycleStatus = z.infer<typeof BranchLifecycleStatusSchema>;
 export type BranchMigrationStatus = z.infer<typeof BranchMigrationStatusSchema>;
+export type ResumeBranchPurpose = z.infer<typeof ResumeBranchPurposeSchema>;
 export type BranchFactRef = z.infer<typeof BranchFactRefSchema>;
 export type BranchContentItemType = z.infer<typeof BranchContentItemTypeSchema>;
 export type BranchContentSource = z.infer<typeof BranchContentSourceSchema>;

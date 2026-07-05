@@ -64,10 +64,10 @@ export const ResumeRenderSafetySchema = z.object({
 
 export const ResumeRenderSourceTraceSchema = z.object({
   profileId: z.string().min(1),
-  jobId: z.string().min(1),
+  jobId: z.string().min(1).optional(),
   currentRevisionId: z.string().min(1),
   sourceProfileVersion: z.number().int().min(1),
-  sourceJobVersion: z.string().min(1)
+  sourceJobVersion: z.string().min(1).optional()
 });
 
 export const ResumeRenderModelSchema = z.object({

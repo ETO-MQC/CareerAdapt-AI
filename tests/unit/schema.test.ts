@@ -39,6 +39,7 @@ describe("core schemas", () => {
   it("validates a formal D1 resume branch and AI suggestion", () => {
     const branch: ResumeBranch = {
       id: "branch-stage-d1",
+      branchPurpose: "job_specific",
       profileId: demoCareerProfile.id,
       jobId: demoJobDescriptions[0].id,
       name: "schema test branch",

@@ -11,6 +11,8 @@ import {
   JobAdaptationSnapshotSchema,
   JobAnalysisDraftSchema,
   JobDescriptionSchema,
+  ImportedResumeDraftSchema,
+  ImportedResumeConfirmResultSchema,
   MatchOperationSchema,
   PdfImportSessionSchema,
   PdfPageTextSchema,
@@ -36,6 +38,9 @@ import {
   type JobAdaptationSnapshot,
   type JobAnalysisDraft,
   type JobDescription,
+  type ImportedResumeDraft,
+  type ImportMergeDecision,
+  type ImportedResumeConfirmResult,
   type MatchEvaluation,
   type MatchOperation,
   type PdfImportSession,
@@ -52,7 +57,8 @@ import {
 } from "@/domain/schemas";
 import { mapAdaptationDraftToResumeBranch } from "@/domain/branch/mapper";
 import { createResumeRevision } from "@/domain/branch/revision";
-import { computeBranchSyncStatus, resolveBranchFactRefs } from "@/domain/branch/validation";
+import { computeBranchSyncStatus, computeGeneralBranchSyncStatus, resolveBranchFactRefs } from "@/domain/branch/validation";
+import { buildResumeImportConfirmation } from "@/domain/resumeImport/confirm";
 import { runRuleFactGuard } from "@/domain/adaptation/factGuard";
 import {
   AdaptationDraftError,
@@ -296,6 +302,194 @@ export class WorkspaceRepository {
 
       return { profile, commit, idempotent: false };
     });
+  }
+
+  async saveImportedResumeDraft(draft: ImportedResumeDraft, expectedRevision?: number) {
+    return this.db.transaction("rw", this.db.appMeta, async () => {
+      const stored = await this.db.appMeta.get(importedResumeDraftKey(draft.importId));
+      if (stored) {
+        const existing = ImportedResumeDraftSchema.parse(stored.value);
+        if (expectedRevision !== undefined && existing.revision !== expectedRevision) {
+          throw new RevisionConflictError();
+        }
+        const parsed = ImportedResumeDraftSchema.parse({
+          ...draft,
+          revision: existing.revision + 1,
+          updatedAt: new Date().toISOString()
+        });
+        await this.db.appMeta.put({
+          key: importedResumeDraftKey(parsed.importId),
+          value: parsed,
+          updatedAt: parsed.updatedAt
+        });
+        return parsed;
+      }
+
+      if (expectedRevision !== undefined && expectedRevision !== 0) {
+        throw new RevisionConflictError();
+      }
+      const parsed = ImportedResumeDraftSchema.parse({
+        ...draft,
+        revision: 0,
+        updatedAt: new Date().toISOString()
+      });
+      await this.db.appMeta.put({
+        key: importedResumeDraftKey(parsed.importId),
+        value: parsed,
+        updatedAt: parsed.updatedAt
+      });
+      return parsed;
+    });
+  }
+
+  async getImportedResumeDraft(importId: string) {
+    const stored = await this.db.appMeta.get(importedResumeDraftKey(importId));
+    return stored ? ImportedResumeDraftSchema.parse(stored.value) : undefined;
+  }
+
+  async getLatestImportedResumeDraft() {
+    const rows = await this.db.appMeta
+      .where("key")
+      .startsWith(IMPORTED_RESUME_DRAFT_KEY_PREFIX)
+      .toArray();
+    const drafts = rows
+      .map((row) => ImportedResumeDraftSchema.safeParse(row.value))
+      .filter((result): result is { success: true; data: ImportedResumeDraft } => result.success)
+      .map((result) => result.data)
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+    return drafts[0];
+  }
+
+  async cancelImportedResumeDraft(importId: string, expectedRevision: number) {
+    const existing = await this.getImportedResumeDraft(importId);
+    if (!existing) {
+      return undefined;
+    }
+    return this.saveImportedResumeDraft({
+      ...existing,
+      status: "cancelled"
+    }, expectedRevision);
+  }
+
+  async confirmImportedResume(input: {
+    importId: string;
+    expectedDraftRevision: number;
+    operationId: string;
+    mergeDecisions?: ImportMergeDecision[];
+  }): Promise<ImportedResumeConfirmResult> {
+    return this.db.transaction(
+      "rw",
+      [
+        this.db.appMeta,
+        this.db.profiles,
+        this.db.resumeBranches,
+        this.db.resumeRevisions,
+        this.db.resumeBranchOperations,
+        this.db.pdfImportSessions
+      ],
+      async () => {
+        const existingOperation = await this.db.resumeBranchOperations.where("operationId").equals(input.operationId).first();
+        if (existingOperation?.branchId && existingOperation.revisionId) {
+          const branch = await this.db.resumeBranches.get(existingOperation.branchId);
+          if (!branch) {
+            throw new Error("resume_import_branch_missing_for_operation");
+          }
+          const parsedBranch = ResumeBranchSchema.parse(branch);
+          const result = ImportedResumeConfirmResultSchema.parse({
+            profileId: parsedBranch.profileId,
+            branchId: parsedBranch.id,
+            revisionId: existingOperation.revisionId,
+            presentationRevision: 0,
+            idempotent: true
+          });
+          return result;
+        }
+
+        const stored = await this.db.appMeta.get(importedResumeDraftKey(input.importId));
+        if (!stored) {
+          throw new Error("resume_import_draft_missing");
+        }
+        const draft = ImportedResumeDraftSchema.parse(stored.value);
+        if (draft.revision !== input.expectedDraftRevision) {
+          throw new RevisionConflictError();
+        }
+        if (draft.status !== "reviewing") {
+          throw new Error("resume_import_draft_not_reviewing");
+        }
+
+        const profiles = await this.db.profiles.toArray();
+        const existingProfile = profiles[0] ? CareerProfileSchema.parse(profiles[0]) : undefined;
+        const now = new Date().toISOString();
+        const built = buildResumeImportConfirmation({
+          draft,
+          existingProfile,
+          mergeDecisions: input.mergeDecisions,
+          operationId: input.operationId,
+          now
+        });
+        const operation = ResumeBranchOperationSchema.parse({
+          id: `resume-branch-op-${input.operationId}`,
+          operationId: input.operationId,
+          branchId: built.branch.id,
+          type: "resume_import_confirm",
+          expectedRevision: input.expectedDraftRevision,
+          beforeRevision: 0,
+          afterRevision: built.branch.revision,
+          revisionId: built.firstRevision.id,
+          occurredAt: now,
+          createdAt: now,
+          updatedAt: now
+        });
+        const presentationConfig = createDefaultPresentationConfig({
+          branch: built.branch,
+          now
+        });
+
+        await this.db.profiles.put(built.profile);
+        await this.db.resumeBranches.put(built.branch);
+        await this.db.resumeRevisions.put(built.firstRevision);
+        await this.db.resumeBranchOperations.put(operation);
+        await this.db.appMeta.put({
+          key: resumePresentationConfigKey(built.branch.id),
+          value: presentationConfig,
+          updatedAt: now
+        });
+        await this.db.appMeta.put({
+          key: importedResumeDraftKey(draft.importId),
+          value: ImportedResumeDraftSchema.parse({
+            ...draft,
+            status: "confirmed",
+            revision: draft.revision + 1,
+            confirmedProfileId: built.profile.id,
+            confirmedBranchId: built.branch.id,
+            confirmedRevisionId: built.firstRevision.id,
+            confirmedAt: now,
+            updatedAt: now
+          }),
+          updatedAt: now
+        });
+        if (draft.source.sourceSessionId) {
+          const session = await this.db.pdfImportSessions.get(draft.source.sourceSessionId);
+          if (session) {
+            await this.db.pdfImportSessions.put(PdfImportSessionSchema.parse({
+              ...session,
+              status: "committed",
+              committedProfileId: built.profile.id,
+              committedAt: now,
+              updatedAt: now
+            }));
+          }
+        }
+
+        return ImportedResumeConfirmResultSchema.parse({
+          profileId: built.profile.id,
+          branchId: built.branch.id,
+          revisionId: built.firstRevision.id,
+          presentationRevision: presentationConfig.presentationRevision,
+          idempotent: false
+        });
+      }
+    );
   }
 
   async getProfile(id: string) {
@@ -1229,21 +1423,27 @@ export class WorkspaceRepository {
       const branch = await this.requireEditableResumeBranch(input.branchId, { allowInvalidReference: true });
       const [profile, job] = await Promise.all([
         this.db.profiles.get(branch.profileId),
-        this.db.jobDescriptions.get(branch.jobId)
+        branch.jobId ? this.db.jobDescriptions.get(branch.jobId) : Promise.resolve(undefined)
       ]);
-      if (!profile || !job) {
+      if (!profile || (branch.branchPurpose !== "general" && !job)) {
         throw new Error("branch_source_missing");
       }
 
       const now = new Date().toISOString();
       const nextBranch = ResumeBranchSchema.parse({
         ...branch,
-        syncStatusCache: computeBranchSyncStatus({
-          branch,
-          profile: CareerProfileSchema.parse(profile),
-          job: JobDescriptionSchema.parse(job),
-          now
-        }),
+        syncStatusCache: branch.branchPurpose === "general"
+          ? computeGeneralBranchSyncStatus({
+              branch,
+              profile: CareerProfileSchema.parse(profile),
+              now
+            })
+          : computeBranchSyncStatus({
+              branch,
+              profile: CareerProfileSchema.parse(profile),
+              job: JobDescriptionSchema.parse(job!),
+              now
+            }),
         updatedAt: now
       });
       const operation = ResumeBranchOperationSchema.parse({
@@ -1471,7 +1671,7 @@ export class WorkspaceRepository {
     mutate: (context: {
       branch: ResumeBranch;
       profile: CareerProfile;
-      job: JobDescription;
+      job?: JobDescription;
       now: string;
     }) => Promise<ResumeBranch>;
   }) {
@@ -1496,15 +1696,15 @@ export class WorkspaceRepository {
 
       const [profile, job] = await Promise.all([
         this.db.profiles.get(branch.profileId),
-        this.db.jobDescriptions.get(branch.jobId)
+        branch.jobId ? this.db.jobDescriptions.get(branch.jobId) : Promise.resolve(undefined)
       ]);
-      if (!profile || !job) {
+      if (!profile || (branch.branchPurpose !== "general" && !job)) {
         throw new Error("branch_source_missing");
       }
 
       const now = new Date().toISOString();
       const parsedProfile = CareerProfileSchema.parse(profile);
-      const parsedJob = JobDescriptionSchema.parse(job);
+      const parsedJob = job ? JobDescriptionSchema.parse(job) : undefined;
       const changed = await input.mutate({ branch, profile: parsedProfile, job: parsedJob, now });
       const nextBranchBase = ResumeBranchSchema.parse({
         ...changed,
@@ -1513,12 +1713,18 @@ export class WorkspaceRepository {
       });
       const nextBranchWithSync = ResumeBranchSchema.parse({
         ...nextBranchBase,
-        syncStatusCache: computeBranchSyncStatus({
-          branch: nextBranchBase,
-          profile: parsedProfile,
-          job: parsedJob,
-          now
-        })
+        syncStatusCache: nextBranchBase.branchPurpose === "general"
+          ? computeGeneralBranchSyncStatus({
+              branch: nextBranchBase,
+              profile: parsedProfile,
+              now
+            })
+          : computeBranchSyncStatus({
+              branch: nextBranchBase,
+              profile: parsedProfile,
+              job: parsedJob!,
+              now
+            })
       });
       const revision = createResumeRevision({
         branch: nextBranchWithSync,
@@ -1717,6 +1923,12 @@ function resumePresentationConfigKey(branchId: string) {
 
 function resumePresentationOperationKey(operationId: string) {
   return `resumePresentationOperation:${operationId}`;
+}
+
+const IMPORTED_RESUME_DRAFT_KEY_PREFIX = "importedResumeDraft:";
+
+function importedResumeDraftKey(importId: string) {
+  return `${IMPORTED_RESUME_DRAFT_KEY_PREFIX}${importId}`;
 }
 
 function resumeWorkbenchStateKey(profileId: string) {

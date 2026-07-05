@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   type JobAdaptationDraft,
+  type CareerProfile,
   type OverflowStatus,
   type ResumePaginationPlan,
   type ResumeBranch,
@@ -14,6 +15,7 @@ import {
 import { mapBranchToResumeRenderModel, ResumeRenderMapperError } from "@/domain/resumeRender/mapper";
 import { A4ResumePreview } from "@/components/resume/A4ResumePreview";
 import { TemplateCenter } from "@/components/resume/TemplateCenter";
+import { ResumeImportWizard } from "@/components/resume/import/ResumeImportWizard";
 import { mapBranchToResumeDocument } from "@/domain/resumeDocument/mapper";
 import { useResumePagination } from "@/components/resume/useResumePagination";
 import {
@@ -62,6 +64,7 @@ export function ResumeWorkspace() {
   const pageRef = useRef<HTMLElement | null>(null);
   const [drafts, setDrafts] = useState<JobAdaptationDraft[]>([]);
   const [branches, setBranches] = useState<ResumeBranch[]>([]);
+  const [profileOverride, setProfileOverride] = useState<CareerProfile | undefined>();
   const [selectedDraftId, setSelectedDraftId] = useState("");
   const [selectedBranchId, setSelectedBranchId] = useState("");
   const [templateId, setTemplateId] = useState<TemplateId>(DEFAULT_TEMPLATE_ID);
@@ -119,13 +122,13 @@ export function ResumeWorkspace() {
     presentationQueueRef.current.latestConfig = presentationConfig;
   }, [presentationConfig]);
 
-  const profile = workspace.status === "ready" ? workspace.profiles[0] : undefined;
+  const profile = profileOverride ?? (workspace.status === "ready" ? workspace.profiles[0] : undefined);
   const jobs = useMemo(() => workspace.status === "ready" ? workspace.jobs : [], [workspace]);
   const activeDraftId = selectedDraftId || drafts[0]?.id || "";
   const activeBranchId = selectedBranchId || branches[0]?.id || "";
   const selectedDraft = drafts.find((draft) => draft.id === activeDraftId);
   const selectedBranch = branches.find((branch) => branch.id === activeBranchId);
-  const selectedBranchJob = selectedBranch ? jobs.find((job) => job.id === selectedBranch.jobId) : undefined;
+  const selectedBranchJob = selectedBranch?.jobId ? jobs.find((job) => job.id === selectedBranch.jobId) : undefined;
   const effectiveTemplateId = presentationConfig?.templateId ?? templateId;
   const selectedTemplate = getResumeTemplate(effectiveTemplateId);
   const renderResult = useMemo(() => buildRenderModel({
@@ -136,7 +139,7 @@ export function ResumeWorkspace() {
   }), [selectedBranch, profile, selectedBranchJob, presentationConfig]);
   const renderModel = renderResult.model;
   const resumeDocument = useMemo(() => {
-    if (!selectedBranch || !profile || !selectedBranchJob) {
+    if (!selectedBranch || !profile || (selectedBranch.branchPurpose !== "general" && !selectedBranchJob)) {
       return undefined;
     }
     return mapBranchToResumeDocument({
@@ -350,6 +353,17 @@ export function ResumeWorkspace() {
         ? "创建失败：C2 草稿 revision 已变化，请刷新后重试。"
         : "创建失败：草稿可能已 stale、含高风险内容或引用了失效事实。请返回 C1/C2 修复。");
     }
+  }
+
+  async function handleImportedResumeReady(result: { profileId: string; branchId: string }) {
+    const nextProfile = await repository.getProfile(result.profileId);
+    if (nextProfile) {
+      setProfileOverride(nextProfile);
+      await refreshLists(nextProfile.id);
+    }
+    setSelectedBranchId(result.branchId);
+    setIsStudioEditMode(true);
+    setMessage("已进入导入生成的通用简历分支，可继续编辑、换模板、调整分页并下载 PDF。");
   }
 
   async function saveItem(itemId: string) {
@@ -959,10 +973,10 @@ export function ResumeWorkspace() {
       const [latestBranch, latestProfile, latestJob] = await Promise.all([
         repository.getResumeBranch(selectedBranch.id),
         repository.getProfile(selectedBranch.profileId),
-        repository.getJobDescription(selectedBranch.jobId)
+        selectedBranch.jobId ? repository.getJobDescription(selectedBranch.jobId) : Promise.resolve(undefined)
       ]);
 
-      if (!latestBranch || !latestProfile || !latestJob) {
+      if (!latestBranch || !latestProfile || (selectedBranch.branchPurpose !== "general" && !latestJob)) {
         throw new Error("export_source_missing");
       }
       if (latestBranch.revision !== renderModel.branchRevision || latestBranch.currentRevisionId !== renderModel.branchCurrentRevisionId) {
@@ -1151,10 +1165,10 @@ export function ResumeWorkspace() {
       const [latestBranch, latestProfile, latestJob] = await Promise.all([
         repository.getResumeBranch(selectedBranch.id),
         repository.getProfile(selectedBranch.profileId),
-        repository.getJobDescription(selectedBranch.jobId)
+        selectedBranch.jobId ? repository.getJobDescription(selectedBranch.jobId) : Promise.resolve(undefined)
       ]);
 
-      if (!latestBranch || !latestProfile || !latestJob) {
+      if (!latestBranch || !latestProfile || (selectedBranch.branchPurpose !== "general" && !latestJob)) {
         throw new Error("export_source_missing");
       }
       if (latestBranch.revision !== renderModel.branchRevision || latestBranch.currentRevisionId !== renderModel.branchCurrentRevisionId) {
@@ -1328,14 +1342,6 @@ export function ResumeWorkspace() {
     );
   }
 
-  if (workspace.status === "empty" || !profile) {
-    return (
-      <main className="page-shell">
-        <WorkspaceEmptyState />
-      </main>
-    );
-  }
-
   return (
     <main className="page-shell resume-workspace">
       <section className="page-title no-print">
@@ -1344,7 +1350,14 @@ export function ResumeWorkspace() {
         <p>正式分支进入统一 RenderModel 后，可切换双模板、检查 A4 单页状态，并通过浏览器打印导出 PDF。</p>
       </section>
 
+      {workspace.status === "empty" && !profile ? <WorkspaceEmptyState /> : null}
       {message ? <section className="notice no-print">{message}</section> : null}
+
+      <ResumeImportWizard
+        repository={repository}
+        profile={profile}
+        onImported={handleImportedResumeReady}
+      />
 
       <section className="stage-grid no-print">
         <article className="panel">
@@ -1394,7 +1407,7 @@ export function ResumeWorkspace() {
             <div>
               <h2>{selectedBranch.name}</h2>
               <p>
-                {selectedBranchJob ? `${selectedBranchJob.company} / ${selectedBranchJob.title}` : selectedBranch.jobId}
+                {selectedBranchJob ? `${selectedBranchJob.company} / ${selectedBranchJob.title}` : "通用简历 / 无目标岗位"}
                 {" "} / {selectedBranch.migrationStatus} / revision {selectedBranch.revision}
               </p>
             </div>
@@ -1944,7 +1957,7 @@ function buildRenderModel(input: {
   job?: Parameters<typeof mapBranchToResumeRenderModel>[0]["job"];
   presentationConfig?: ResumePresentationConfig;
 }): { model?: ResumeRenderModel; error?: string } {
-  if (!input.branch || !input.profile || !input.job) {
+  if (!input.branch || !input.profile || (input.branch.branchPurpose !== "general" && !input.job)) {
     return {};
   }
 

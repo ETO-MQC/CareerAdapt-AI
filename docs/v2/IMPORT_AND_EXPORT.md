@@ -16,6 +16,30 @@ PDF/粘贴文本
 -> ResumeDocument Mapper
 ```
 
+### V2-G4a实际实现
+
+G4a 将文本型 PDF 导入接到 Resume Studio，收口记录见 [`G4A_RESUME_IMPORT.md`](G4A_RESUME_IMPORT.md)。
+
+```text
+文本型 PDF
+-> PdfImportSession + PdfPageText
+-> ImportedResumeDraft 审阅草稿
+-> 用户取舍、改写和确认
+-> CareerProfile facts
+-> general ResumeBranch
+-> Resume Studio 模板、分页和 PDF 导出
+```
+
+实现约束：
+
+- 只支持已有文本层的 PDF；扫描版或无文本 PDF 明确提示 G4a 暂不支持 OCR。
+- 不保存原始 PDF Blob，不记录本地绝对路径。
+- 不新增 Dexie 表、不升级 Dexie；审阅草稿存在 `appMeta`，页文本继续使用 V1 `PdfPageText`。
+- 导入确认创建 `branchPurpose=general` 的 verified `ResumeBranch`，不伪造 Job、JD、RequirementMatch 或岗位匹配结果。
+- `sourceStatus=located` 的 item 才写入 `pdf_import` provenance；用户改写后的 item 写入 `user_input` provenance。
+- 结构不明或未定位内容默认停留在审阅草稿，不自动进入正式事实层。
+- 确认后进入同一套 G0-G3 Studio、模板中心、分页策略和直接 PDF 导出路径。
+
 PDF来源字段：
 
 - `pdf_import`：sourceQuote在页文本中唯一定位。

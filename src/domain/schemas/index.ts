@@ -7,4 +7,5 @@ export * from "./importDraft";
 export * from "./job";
 export * from "./presentation";
 export * from "./profile";
+export * from "./resumeImport";
 export * from "./resumeRender";

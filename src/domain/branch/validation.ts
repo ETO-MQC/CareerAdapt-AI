@@ -171,6 +171,31 @@ export function computeBranchSyncStatus(input: {
   };
 }
 
+export function computeGeneralBranchSyncStatus(input: {
+  branch: ResumeBranch;
+  profile: CareerProfile;
+  now?: string;
+}): BranchSyncStatus {
+  const now = input.now ?? new Date().toISOString();
+  const allFactRefs = input.branch.contentItems.flatMap((item) => item.factRefs);
+  const invalidFactRefs = collectInvalidFactRefKeys(input.profile, allFactRefs);
+  const profileChanged = input.branch.sourceProfileVersion !== input.profile.version;
+  const status: BranchSyncStatus["status"] = invalidFactRefs.length > 0
+    ? "invalid_reference"
+    : profileChanged
+      ? "profile_updated"
+      : "in_sync";
+
+  return {
+    status,
+    sourceProfileVersion: input.branch.sourceProfileVersion,
+    currentProfileVersion: input.profile.version,
+    invalidFactRefs,
+    checkedAt: now,
+    message: syncStatusMessage(status, invalidFactRefs.length)
+  };
+}
+
 export function assertNoHighGuardFindings(findings: Array<Pick<FactGuardFinding, "severity" | "allowed">>) {
   if (findings.some((finding) => finding.severity === "high" && !finding.allowed)) {
     throw new BranchValidationError("branch_high_guard_finding_blocked");

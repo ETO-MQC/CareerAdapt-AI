@@ -115,20 +115,6 @@ async function downloadDirectPdf(page: Page, filePrefix: string) {
   return { path: outputPath, suggestedFilename: download.suggestedFilename() };
 }
 
-function assertPdfBasics(pdfPath: string, expectedTexts: string[]) {
-  const info = execFileSync(PDFINFO, [pdfPath], { encoding: "utf8" });
-  expect(info).toContain("A4");
-  const pageSize = info.match(/Page size:\s+([\d.]+) x ([\d.]+) pts/);
-  expect(pageSize).not.toBeNull();
-  expect(Number(pageSize![1])).toBeGreaterThan(594);
-  expect(Number(pageSize![1])).toBeLessThan(596);
-  expect(Number(pageSize![2])).toBeGreaterThan(841);
-  expect(Number(pageSize![2])).toBeLessThan(843);
-  const text = execFileSync(PDFTOTEXT, [pdfPath, "-"], { encoding: "utf8" });
-  for (const t of expectedTexts) expect(text).toContain(t);
-  return { info, text };
-}
-
 function assertPdfTextExtractable(pdfPath: string) {
   const info = execFileSync(PDFINFO, [pdfPath], { encoding: "utf8" });
   expect(info).toContain("A4");
