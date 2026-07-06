@@ -189,7 +189,7 @@ p {
 }
 
 .route-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .route-grid a {
@@ -1690,6 +1690,323 @@ p {
   min-height: 84px;
 }
 
+.application-workspace {
+  max-width: 1280px;
+}
+
+.application-filters {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.application-filter-row {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 1.4fr repeat(3, minmax(150px, 0.7fr));
+}
+
+.application-filter-row.compact {
+  align-items: end;
+  grid-template-columns: repeat(3, minmax(150px, 0.8fr)) auto auto;
+}
+
+.application-filter-row input,
+.application-filter-row select,
+.application-detail input,
+.application-detail select {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font: inherit;
+  min-height: 38px;
+  padding: 0 12px;
+  width: 100%;
+}
+
+.application-view-toggle {
+  display: inline-flex;
+  gap: 8px;
+}
+
+.application-archive-toggle {
+  min-height: 38px;
+}
+
+.application-board {
+  align-items: start;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(5, minmax(190px, 1fr));
+}
+
+.application-board-column {
+  background: #f3f5f1;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  min-width: 0;
+  padding: 12px;
+}
+
+.application-board-column h2 {
+  font-size: 15px;
+  margin-bottom: 10px;
+}
+
+.application-card-stack {
+  display: grid;
+  gap: 10px;
+}
+
+.application-card {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+.application-card-selected {
+  border-color: var(--accent);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.application-card-heading {
+  align-items: flex-start;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.application-card-heading span,
+.application-muted {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.application-card-heading h3 {
+  font-size: 15px;
+  margin-bottom: 0;
+}
+
+.application-card-heading strong {
+  background: #eef6f3;
+  border: 1px solid #c7ddd5;
+  border-radius: 999px;
+  color: var(--accent-strong);
+  font-size: 12px;
+  padding: 4px 7px;
+  white-space: nowrap;
+}
+
+.application-card-meta {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.application-card-meta div,
+.application-definition-list div {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(64px, 0.36fr) minmax(0, 1fr);
+}
+
+.application-card-meta dt,
+.application-definition-list dt {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.application-card-meta dd,
+.application-definition-list dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.application-readiness-chip {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 800;
+  margin: 0;
+  padding: 5px 8px;
+  width: fit-content;
+}
+
+.application-readiness-ready {
+  background: #eef6f3;
+  border-color: #c7ddd5;
+  color: var(--accent-strong);
+}
+
+.application-readiness-needs_attention {
+  background: #fff8e8;
+  border-color: #e4c48a;
+  color: #7a4b13;
+}
+
+.application-readiness-blocked {
+  background: #fff1f1;
+  border-color: #e4b4b4;
+  color: #9b2c2c;
+}
+
+.application-card-actions {
+  align-items: stretch;
+  margin-top: 0;
+}
+
+.application-list-panel {
+  overflow-x: auto;
+}
+
+.application-table {
+  display: grid;
+  min-width: 1060px;
+}
+
+.application-table-row {
+  align-items: center;
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 0.9fr 1.1fr 0.7fr 0.6fr 0.7fr 0.9fr 0.5fr 0.8fr 0.8fr 0.8fr 1fr;
+  min-height: 48px;
+  padding: 8px 0;
+}
+
+.application-table-row span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.application-table-head {
+  border-top: 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  min-height: 32px;
+}
+
+.application-table-row-active {
+  background: #eef6f3;
+}
+
+.application-table-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.application-detail {
+  display: grid;
+  gap: 16px;
+  margin-top: 18px;
+}
+
+.application-detail-grid {
+  align-items: start;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(320px, 0.8fr) minmax(360px, 1fr);
+}
+
+.application-detail-section {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+.application-definition-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.application-lock-box {
+  background: #eef6f3;
+  border: 1px solid #c7ddd5;
+  border-radius: 8px;
+  color: var(--accent-strong);
+  font-weight: 800;
+  padding: 10px 12px;
+}
+
+.application-detail-actions {
+  align-items: stretch;
+}
+
+.application-readiness-panel,
+.application-readiness-list,
+.application-timeline {
+  display: grid;
+  gap: 10px;
+}
+
+.application-readiness-item {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 5px;
+  padding: 10px 12px;
+}
+
+.application-readiness-item span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.application-readiness-item p {
+  margin-bottom: 0;
+}
+
+.application-readiness-item-ready {
+  border-left: 4px solid var(--accent);
+}
+
+.application-readiness-item-needs_attention {
+  border-left: 4px solid #b5811b;
+}
+
+.application-readiness-item-blocked {
+  border-left: 4px solid #b83232;
+}
+
+.application-timeline {
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+
+.application-timeline article {
+  border-left: 3px solid var(--line);
+  display: grid;
+  gap: 3px;
+  padding-left: 12px;
+}
+
+.application-timeline span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.application-timeline p {
+  margin-bottom: 0;
+}
+
+.application-empty {
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+}
+
 @media (max-width: 900px) {
   .import-review-grid {
     grid-template-columns: 1fr;
@@ -1785,6 +2102,10 @@ p {
     .c2-layout,
     .optimization-grid,
     .resume-preview-layout,
+    .application-board,
+    .application-detail-grid,
+    .application-filter-row,
+    .application-filter-row.compact,
     .form-grid {
     grid-template-columns: 1fr;
   }

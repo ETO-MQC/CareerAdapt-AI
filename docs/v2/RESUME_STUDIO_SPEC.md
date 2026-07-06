@@ -92,6 +92,15 @@ V2采用“结构化区块编辑器 + 所见即所得预览 + 有约束的布局
 - 一键动作只允许安全展示配置：密度、字号、行距、间距、模板、页数策略、断页、显示隐藏和同 Section 上移下移。
 - 正文问题跳转到编辑或 G5a/fact gap 路径，不自动重写正文。
 
+## G6a投递工作台入口
+
+- Resume Studio 在当前分支工具区提供“加入投递工作台”。
+- 只有 `job_specific`、`verified`、active 且引用有效的分支可以创建 Application。
+- `general` 分支显示“先创建岗位定制分支”，不能直接作为正式投递 Application。
+- 创建 Application 不修改 `ResumeBranch`、不创建 `ResumeRevision`、不增加 `presentationRevision`、不运行 AI、不自动导出 PDF、不自动标记 ready/applied。
+- 已有同一 profile/job/job-specific branch 的未归档 Application 时，入口打开现有记录，不静默重复创建。
+- `/resume?branchId=...` 可以从 Application 详情返回并选中关联分支，不清除未保存正文草稿。
+
 ## 键盘和可访问性
 
 - Tab在工具栏、结构树、预览区和属性面板之间可达。

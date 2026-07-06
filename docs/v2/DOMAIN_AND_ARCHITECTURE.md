@@ -81,6 +81,20 @@ G5b 新增 `ResumeDiagnosticSnapshot` 派生视图，输入来自当前 `ResumeB
 - 安全动作复用 `saveResumePresentationConfig` 和展示配置串行队列。
 - ExportRecord 只可选保存诊断摘要，不保存完整诊断缓存或原始 PDF Blob。
 
+## G6a Application Workspace
+
+G6a 新增 `ApplicationRecord`，用于组织求职机会和投递过程，但不成为新的简历事实源。
+
+- Dexie schema 升级到 v8，仅新增 `applications` 表。
+- Application 只能从 `job_specific` ResumeBranch 显式创建，`general` 分支不能直接作为正式投递简历。
+- Application 通过 id 引用 `CareerProfile`、`JobDescription`、来源 general branch、job-specific branch、`ResumeRevision`、`ResumePresentationConfig` revision、模板和 `ExportRecord`。
+- Application 保存岗位标题和公司快照，避免岗位记录后续变化导致列表失真。
+- Application 不保存完整简历正文、完整 JD 正文、PDF Blob、第三方登录态或 API Key。
+- Application 状态、详情、Revision 选择、ExportRecord 关联、归档和恢复均由 `WorkspaceRepository` 事务写入，使用 `expectedVersion` 和 `operationId`。
+- 时间线嵌入 Application 记录，当前不新增独立事件表。
+- `applied` 状态会锁定投递时的 revision/export 快照；后续分支编辑不会覆盖历史投递版本。
+- Readiness 是详情打开时的派生结果，不作为正式事实持久化，也不表达录用概率、面试概率或 ATS 通过率。
+
 ## Repository职责
 
 G0a在 WorkspaceRepository 中增加轻量适配方法或直接复用现有方法：

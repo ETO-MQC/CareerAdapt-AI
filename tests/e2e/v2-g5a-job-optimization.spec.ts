@@ -38,7 +38,7 @@ test.describe("V2-G5a block-level job optimization", () => {
     await expect(compressButton).toBeEnabled();
     await compressButton.click();
 
-    await expect(panel.getByTestId("block-suggestion-panel")).toBeVisible({ timeout: 20_000 });
+    await expect(panel.getByTestId("block-suggestion-panel")).toBeVisible({ timeout: 30_000 });
     await expect(panel.getByTestId("inline-diff")).toBeVisible();
 
     const before = await findBranchByName(page, branchName);

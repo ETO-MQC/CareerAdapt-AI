@@ -53,5 +53,6 @@ A: 运行 `pnpm typecheck` 检查类型错误，常见原因是导入路径大�
 - V2起始说明：[`docs/V2_START_HERE.md`](docs/V2_START_HERE.md)
 - V2权威计划：[`plan2.md`](plan2.md)
 - V2开发历史：[`history2.md`](history2.md)
+- V2-G6a求职工作台：[`docs/v2/G6A_APPLICATION_WORKSPACE.md`](docs/v2/G6A_APPLICATION_WORKSPACE.md)
 
 第二代开发以 `plan2.md` 和 `history2.md` 为准。`Plan.md` 与 `history.md` 只作为第一代 MVP 历史档案。

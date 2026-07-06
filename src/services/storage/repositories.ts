@@ -3,6 +3,7 @@ import { demoCareerProfile } from "@/data/demoProfile";
 import {
   AiLogSchema,
   AiSuggestionSchema,
+  ApplicationRecordSchema,
   BranchContentItemSchema,
   CareerProfileSchema,
   DraftCommitSchema,
@@ -27,6 +28,14 @@ import {
   SuggestionOperationSchema,
   type AiLog,
   type AiSuggestion,
+  type ApplicationDiagnosticSummary,
+  type ApplicationPriority,
+  type ApplicationReadiness,
+  type ApplicationRecord,
+  type ApplicationSourceChannel,
+  type ApplicationStatus,
+  type ApplicationTimelineEvent,
+  type ApplicationTimelineEventType,
   type CareerProfile,
   type DraftCommit,
   type ExportRecord,
@@ -55,6 +64,7 @@ import {
   type ResumeRevision,
   type SuggestionOperation
 } from "@/domain/schemas";
+import { assertApplicationStatusTransition, computeApplicationReadiness } from "@/domain/application";
 import { mapAdaptationDraftToResumeBranch } from "@/domain/branch/mapper";
 import { createResumeRevision } from "@/domain/branch/revision";
 import { computeBranchSyncStatus, computeGeneralBranchSyncStatus, resolveBranchFactRefs } from "@/domain/branch/validation";
@@ -97,7 +107,22 @@ export type WorkspaceExport = {
   resumeBranchOperations: ResumeBranchOperation[];
   aiLogs: AiLog[];
   exportRecords: ExportRecord[];
+  applications: ApplicationRecord[];
   appMeta: AppMeta[];
+};
+
+export type ApplicationContext = {
+  application: ApplicationRecord;
+  profile?: CareerProfile;
+  job?: JobDescription;
+  sourceGeneralBranch?: ResumeBranch;
+  jobSpecificBranch?: ResumeBranch;
+  selectedRevision?: ResumeRevision;
+  selectedExportRecord?: ExportRecord;
+  latestExportRecord?: ExportRecord;
+  presentationConfig?: ResumePresentationConfig;
+  revisions: ResumeRevision[];
+  exportRecords: ExportRecord[];
 };
 
 export class WorkspaceRepository {
@@ -2123,6 +2148,581 @@ export class WorkspaceRepository {
     });
   }
 
+  async listApplicationsByProfile(profileId: string) {
+    const rows = await this.db.applications.where("profileId").equals(profileId).toArray();
+    return rows
+      .map((row) => ApplicationRecordSchema.safeParse(row))
+      .filter((result): result is { success: true; data: ApplicationRecord } => result.success)
+      .map((result) => result.data)
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  }
+
+  async getApplication(applicationId: string) {
+    const row = await this.db.applications.get(applicationId);
+    return row ? ApplicationRecordSchema.parse(row) : undefined;
+  }
+
+  async listExportRecordsForBranch(branchId: string) {
+    const records = await this.db.exportRecords.where("branchId").equals(branchId).toArray();
+    return records
+      .map((record) => ExportRecordSchema.parse(record))
+      .sort((a, b) => b.exportedAt.localeCompare(a.exportedAt));
+  }
+
+  async getApplicationContext(applicationId: string): Promise<ApplicationContext | undefined> {
+    const application = await this.getApplication(applicationId);
+    if (!application) {
+      return undefined;
+    }
+
+    const [
+      profile,
+      job,
+      sourceGeneralBranch,
+      jobSpecificBranch,
+      selectedRevision,
+      selectedExportRecord,
+      presentationConfig,
+      revisions,
+      exportRecords
+    ] = await Promise.all([
+      this.db.profiles.get(application.profileId),
+      this.db.jobDescriptions.get(application.jobId),
+      application.sourceGeneralBranchId ? this.db.resumeBranches.get(application.sourceGeneralBranchId) : Promise.resolve(undefined),
+      this.db.resumeBranches.get(application.jobSpecificBranchId),
+      this.db.resumeRevisions.get(application.selectedRevisionId),
+      application.selectedExportRecordId ? this.db.exportRecords.get(application.selectedExportRecordId) : Promise.resolve(undefined),
+      this.getResumePresentationConfig(application.jobSpecificBranchId).catch(() => undefined),
+      this.listResumeRevisions(application.jobSpecificBranchId).catch(() => []),
+      this.listExportRecordsForBranch(application.jobSpecificBranchId).catch(() => [])
+    ]);
+
+    const parsedExportRecords = exportRecords.filter((record) => record.branchId === application.jobSpecificBranchId);
+    return {
+      application,
+      profile: profile ? CareerProfileSchema.parse(profile) : undefined,
+      job: job ? JobDescriptionSchema.parse(job) : undefined,
+      sourceGeneralBranch: sourceGeneralBranch ? ResumeBranchSchema.parse(sourceGeneralBranch) : undefined,
+      jobSpecificBranch: jobSpecificBranch ? ResumeBranchSchema.parse(jobSpecificBranch) : undefined,
+      selectedRevision: selectedRevision ? ResumeRevisionSchema.parse(selectedRevision) : undefined,
+      selectedExportRecord: selectedExportRecord ? ExportRecordSchema.parse(selectedExportRecord) : undefined,
+      latestExportRecord: parsedExportRecords.find((record) => isSuccessfulApplicationExport(record)),
+      presentationConfig,
+      revisions,
+      exportRecords: parsedExportRecords
+    };
+  }
+
+  async getApplicationReadiness(applicationId: string): Promise<ApplicationReadiness | undefined> {
+    const context = await this.getApplicationContext(applicationId);
+    if (!context) {
+      return undefined;
+    }
+
+    return computeApplicationReadiness({
+      application: context.application,
+      job: context.job,
+      branch: context.jobSpecificBranch,
+      revision: context.selectedRevision,
+      exportRecord: context.selectedExportRecord
+    });
+  }
+
+  async createApplicationFromBranch(input: {
+    branchId: string;
+    expectedBranchRevision: number;
+    expectedRevisionId: string;
+    operationId: string;
+    initialStatus?: Extract<ApplicationStatus, "discovered" | "preparing">;
+    priority?: ApplicationPriority;
+    allowDuplicate?: boolean;
+  }) {
+    return this.db.transaction(
+      "rw",
+      [
+        this.db.applications,
+        this.db.profiles,
+        this.db.jobDescriptions,
+        this.db.resumeBranches,
+        this.db.resumeRevisions,
+        this.db.exportRecords,
+        this.db.appMeta
+      ],
+      async () => {
+        const existingByOperation = await this.findApplicationByOperationInTransaction(input.operationId);
+        if (existingByOperation) {
+          return {
+            application: existingByOperation,
+            duplicate: false,
+            idempotent: true
+          };
+        }
+
+        const branch = await this.db.resumeBranches.get(input.branchId);
+        if (!branch) {
+          throw new Error("branch_not_found");
+        }
+        const parsedBranch = ResumeBranchSchema.parse(branch);
+        if (parsedBranch.branchPurpose !== "job_specific") {
+          throw new Error("invalid_branch_purpose");
+        }
+        if (!parsedBranch.jobId) {
+          throw new Error("job_not_found");
+        }
+        if (parsedBranch.lifecycleStatus !== "active" || parsedBranch.migrationStatus !== "verified" || parsedBranch.syncStatusCache.status === "invalid_reference") {
+          throw new Error("branch_not_editable");
+        }
+        if (parsedBranch.revision !== input.expectedBranchRevision || parsedBranch.currentRevisionId !== input.expectedRevisionId) {
+          throw new RevisionConflictError();
+        }
+
+        const [profile, job, revision, presentationConfig] = await Promise.all([
+          this.db.profiles.get(parsedBranch.profileId),
+          this.db.jobDescriptions.get(parsedBranch.jobId),
+          this.db.resumeRevisions.get(input.expectedRevisionId),
+          this.getResumePresentationConfig(parsedBranch.id)
+        ]);
+        if (!profile) {
+          throw new Error("no_profile");
+        }
+        if (!job) {
+          throw new Error("job_not_found");
+        }
+        if (!revision) {
+          throw new Error("revision_not_found");
+        }
+        const parsedProfile = CareerProfileSchema.parse(profile);
+        const parsedJob = JobDescriptionSchema.parse(job);
+        const parsedRevision = ResumeRevisionSchema.parse(revision);
+        if (parsedRevision.branchId !== parsedBranch.id) {
+          throw new Error("revision_not_found");
+        }
+        if (parsedBranch.profileId !== parsedProfile.id) {
+          throw new Error("profile_mismatch");
+        }
+        if (parsedBranch.jobId !== parsedJob.id) {
+          throw new Error("job_mismatch");
+        }
+
+        const duplicate = (await this.db.applications
+          .where("jobSpecificBranchId")
+          .equals(parsedBranch.id)
+          .toArray())
+          .map((row) => ApplicationRecordSchema.safeParse(row))
+          .filter((result): result is { success: true; data: ApplicationRecord } => result.success)
+          .map((result) => result.data)
+          .find((application) =>
+            application.profileId === parsedBranch.profileId
+            && application.jobId === parsedBranch.jobId
+            && application.status !== "archived"
+          );
+        if (duplicate && !input.allowDuplicate) {
+          return {
+            application: duplicate,
+            duplicate: true,
+            idempotent: true
+          };
+        }
+
+        const now = new Date().toISOString();
+        const latestExport = await this.findLatestSuccessfulExportForSelection({
+          branchId: parsedBranch.id,
+          revisionId: parsedRevision.id,
+          branchRevision: parsedBranch.revision
+        });
+        const sourceGeneralBranchId = await this.resolveSourceGeneralBranchId(parsedBranch);
+        const applicationId = `application-${stableHashText(input.operationId).replace(/[^a-zA-Z0-9-]/g, "").slice(0, 24)}`;
+        const createdEvent = createApplicationTimelineEvent({
+          applicationId,
+          type: "created",
+          operationId: input.operationId,
+          summary: `已从岗位分支创建投递记录：${parsedJob.company} / ${parsedJob.title}`,
+          now
+        });
+        const application = ApplicationRecordSchema.parse({
+          schemaVersion: "application-v1",
+          id: applicationId,
+          profileId: parsedProfile.id,
+          jobId: parsedJob.id,
+          jobTitleSnapshot: parsedJob.title,
+          companySnapshot: parsedJob.company,
+          sourceGeneralBranchId,
+          jobSpecificBranchId: parsedBranch.id,
+          selectedRevisionId: parsedRevision.id,
+          selectedBranchRevision: parsedBranch.revision,
+          selectedPresentationRevision: presentationConfig.presentationRevision,
+          selectedTemplateId: presentationConfig.templateId,
+          selectedPagePolicy: presentationConfig.pagination.pagePolicy,
+          selectedActualPageCount: latestExport?.actualPageCount,
+          selectedExportRecordId: latestExport?.id,
+          diagnosticSummary: latestExport ? diagnosticSummaryFromExport(latestExport) : undefined,
+          status: input.initialStatus ?? "preparing",
+          priority: input.priority ?? "normal",
+          tags: [],
+          timeline: [createdEvent],
+          version: 1,
+          createdAt: now,
+          updatedAt: now
+        });
+
+        await this.db.applications.put(application);
+        return {
+          application,
+          duplicate: false,
+          idempotent: false
+        };
+      }
+    );
+  }
+
+  async updateApplicationStatus(input: {
+    applicationId: string;
+    expectedVersion: number;
+    operationId: string;
+    nextStatus: ApplicationStatus;
+    appliedAt?: string;
+  }) {
+    return this.db.transaction("rw", this.db.applications, async () => {
+      const application = await this.requireApplicationForWrite(input.applicationId, input.operationId);
+      if (application.idempotent) {
+        return { application: application.record, idempotent: true };
+      }
+      const current = application.record;
+      assertExpectedApplicationVersion(current, input.expectedVersion);
+      if (current.status === input.nextStatus) {
+        return { application: current, idempotent: true };
+      }
+      assertApplicationStatusTransition(current.status, input.nextStatus);
+
+      const now = new Date().toISOString();
+      const appliedAt = input.nextStatus === "applied" ? normalizeApplicationDate(input.appliedAt ?? now, "appliedAt") : current.appliedAt;
+      const timelineType: ApplicationTimelineEventType = input.nextStatus === "archived" ? "archived" : "status_changed";
+      const event = createApplicationTimelineEvent({
+        applicationId: current.id,
+        type: timelineType,
+        operationId: input.operationId,
+        summary: input.nextStatus === "archived"
+          ? "Application 已归档。"
+          : `状态已更新：${current.status} -> ${input.nextStatus}`,
+        fromStatus: current.status,
+        toStatus: input.nextStatus,
+        now
+      });
+      const next = ApplicationRecordSchema.parse({
+        ...current,
+        status: input.nextStatus,
+        appliedAt,
+        appliedSnapshot: input.nextStatus === "applied"
+          ? {
+              revisionId: current.selectedRevisionId,
+              branchRevision: current.selectedBranchRevision,
+              presentationRevision: current.selectedPresentationRevision,
+              templateId: current.selectedTemplateId,
+              exportRecordId: current.selectedExportRecordId,
+              lockedAt: now
+            }
+          : current.appliedSnapshot,
+        previousStatusBeforeArchive: input.nextStatus === "archived" ? current.status : current.previousStatusBeforeArchive,
+        archivedAt: input.nextStatus === "archived" ? now : current.archivedAt,
+        version: current.version + 1,
+        updatedAt: now,
+        timeline: appendApplicationTimeline(current.timeline, event)
+      });
+      await this.db.applications.put(next);
+      return { application: next, idempotent: false };
+    });
+  }
+
+  async updateApplicationDetails(input: {
+    applicationId: string;
+    expectedVersion: number;
+    operationId: string;
+    priority?: ApplicationPriority;
+    sourceChannel?: ApplicationSourceChannel;
+    sourceUrl?: string;
+    deadlineAt?: string;
+    plannedApplyAt?: string;
+    appliedAt?: string;
+    nextFollowUpAt?: string;
+    note?: string;
+    tags?: string[];
+  }) {
+    return this.db.transaction("rw", this.db.applications, async () => {
+      const application = await this.requireApplicationForWrite(input.applicationId, input.operationId);
+      if (application.idempotent) {
+        return { application: application.record, idempotent: true };
+      }
+      const current = application.record;
+      assertExpectedApplicationVersion(current, input.expectedVersion);
+
+      const now = new Date().toISOString();
+      const patch: Partial<ApplicationRecord> = {};
+      const events: ApplicationTimelineEvent[] = [];
+
+      if (Object.prototype.hasOwnProperty.call(input, "priority") && input.priority !== current.priority) {
+        patch.priority = input.priority;
+        events.push(createApplicationTimelineEvent({
+          applicationId: current.id,
+          type: "priority_changed",
+          operationId: input.operationId,
+          summary: `优先级已更新：${current.priority} -> ${input.priority}`,
+          now
+        }));
+      }
+      if (Object.prototype.hasOwnProperty.call(input, "sourceChannel") && input.sourceChannel !== current.sourceChannel) {
+        patch.sourceChannel = input.sourceChannel;
+      }
+      if (Object.prototype.hasOwnProperty.call(input, "sourceUrl")) {
+        patch.sourceUrl = sanitizeApplicationUrl(input.sourceUrl);
+      }
+      if (Object.prototype.hasOwnProperty.call(input, "deadlineAt")) {
+        const nextDate = normalizeApplicationDate(input.deadlineAt, "deadlineAt");
+        if (nextDate !== current.deadlineAt) {
+          patch.deadlineAt = nextDate;
+          events.push(createApplicationTimelineEvent({
+            applicationId: current.id,
+            type: "deadline_changed",
+            operationId: input.operationId,
+            summary: nextDate ? "截止日期已更新。" : "截止日期已清除。",
+            now
+          }));
+        }
+      }
+      if (Object.prototype.hasOwnProperty.call(input, "plannedApplyAt")) {
+        patch.plannedApplyAt = normalizeApplicationDate(input.plannedApplyAt, "plannedApplyAt");
+      }
+      if (Object.prototype.hasOwnProperty.call(input, "appliedAt")) {
+        patch.appliedAt = normalizeApplicationDate(input.appliedAt, "appliedAt");
+      }
+      if (Object.prototype.hasOwnProperty.call(input, "nextFollowUpAt")) {
+        const nextDate = normalizeApplicationDate(input.nextFollowUpAt, "nextFollowUpAt");
+        if (nextDate !== current.nextFollowUpAt) {
+          patch.nextFollowUpAt = nextDate;
+          events.push(createApplicationTimelineEvent({
+            applicationId: current.id,
+            type: "follow_up_changed",
+            operationId: input.operationId,
+            summary: nextDate ? "下次跟进日期已更新。" : "下次跟进日期已清除。",
+            now
+          }));
+        }
+      }
+      if (Object.prototype.hasOwnProperty.call(input, "note")) {
+        const note = sanitizeApplicationText(input.note, 4000);
+        if (note !== current.note) {
+          patch.note = note;
+          events.push(createApplicationTimelineEvent({
+            applicationId: current.id,
+            type: "note_added",
+            operationId: input.operationId,
+            summary: note ? "备注已更新。" : "备注已清除。",
+            now
+          }));
+        }
+      }
+      if (Object.prototype.hasOwnProperty.call(input, "tags")) {
+        patch.tags = sanitizeApplicationTags(input.tags);
+      }
+
+      const hasPatch = Object.keys(patch).length > 0;
+      if (!hasPatch) {
+        return { application: current, idempotent: true };
+      }
+      if (events.length === 0) {
+        events.push(createApplicationTimelineEvent({
+          applicationId: current.id,
+          type: "details_updated",
+          operationId: input.operationId,
+          summary: "Application 详情已更新。",
+          now
+        }));
+      }
+
+      const next = ApplicationRecordSchema.parse({
+        ...current,
+        ...patch,
+        version: current.version + 1,
+        updatedAt: now,
+        timeline: events.reduce((timeline, event) => appendApplicationTimeline(timeline, event), current.timeline)
+      });
+      await this.db.applications.put(next);
+      return { application: next, idempotent: false };
+    });
+  }
+
+  async linkApplicationRevision(input: {
+    applicationId: string;
+    expectedVersion: number;
+    operationId: string;
+    revisionId: string;
+  }) {
+    return this.db.transaction("rw", this.db.applications, this.db.resumeBranches, this.db.resumeRevisions, this.db.exportRecords, this.db.appMeta, async () => {
+      const application = await this.requireApplicationForWrite(input.applicationId, input.operationId);
+      if (application.idempotent) {
+        return { application: application.record, idempotent: true };
+      }
+      const current = application.record;
+      assertExpectedApplicationVersion(current, input.expectedVersion);
+      if (current.appliedSnapshot) {
+        throw new Error("application_revision_locked");
+      }
+      const branch = await this.db.resumeBranches.get(current.jobSpecificBranchId);
+      if (!branch) {
+        throw new Error("branch_not_found");
+      }
+      const parsedBranch = ResumeBranchSchema.parse(branch);
+      const revision = await this.db.resumeRevisions.get(input.revisionId);
+      if (!revision) {
+        throw new Error("revision_not_found");
+      }
+      const parsedRevision = ResumeRevisionSchema.parse(revision);
+      if (parsedRevision.branchId !== parsedBranch.id) {
+        throw new Error("revision_not_found");
+      }
+      if (parsedBranch.profileId !== current.profileId || parsedBranch.jobId !== current.jobId) {
+        throw new Error("job_mismatch");
+      }
+      const presentationConfig = await this.getResumePresentationConfig(parsedBranch.id);
+      const latestExport = await this.findLatestSuccessfulExportForSelection({
+        branchId: parsedBranch.id,
+        revisionId: parsedRevision.id,
+        branchRevision: parsedRevision.revisionNumber
+      });
+      const now = new Date().toISOString();
+      const event = createApplicationTimelineEvent({
+        applicationId: current.id,
+        type: "revision_selected",
+        operationId: input.operationId,
+        summary: `已选择 revision ${parsedRevision.revisionNumber}。`,
+        now
+      });
+      const next = ApplicationRecordSchema.parse({
+        ...current,
+        selectedRevisionId: parsedRevision.id,
+        selectedBranchRevision: parsedRevision.revisionNumber,
+        selectedPresentationRevision: presentationConfig.presentationRevision,
+        selectedTemplateId: presentationConfig.templateId,
+        selectedPagePolicy: presentationConfig.pagination.pagePolicy,
+        selectedActualPageCount: latestExport?.actualPageCount,
+        selectedExportRecordId: latestExport?.id,
+        diagnosticSummary: latestExport ? diagnosticSummaryFromExport(latestExport) : undefined,
+        version: current.version + 1,
+        updatedAt: now,
+        timeline: appendApplicationTimeline(current.timeline, event)
+      });
+      await this.db.applications.put(next);
+      return { application: next, idempotent: false };
+    });
+  }
+
+  async attachApplicationExport(input: {
+    applicationId: string;
+    expectedVersion: number;
+    operationId: string;
+    exportRecordId: string;
+  }) {
+    return this.db.transaction("rw", this.db.applications, this.db.exportRecords, async () => {
+      const application = await this.requireApplicationForWrite(input.applicationId, input.operationId);
+      if (application.idempotent) {
+        return { application: application.record, idempotent: true };
+      }
+      const current = application.record;
+      assertExpectedApplicationVersion(current, input.expectedVersion);
+      const exportRecord = await this.db.exportRecords.get(input.exportRecordId);
+      if (!exportRecord) {
+        throw new Error("export_not_found");
+      }
+      const parsedExport = ExportRecordSchema.parse(exportRecord);
+      if (parsedExport.branchId !== current.jobSpecificBranchId) {
+        throw new Error("export_branch_mismatch");
+      }
+      if (parsedExport.revisionId !== current.selectedRevisionId || parsedExport.branchRevision !== current.selectedBranchRevision) {
+        throw new Error("export_revision_mismatch");
+      }
+      if (!isSuccessfulApplicationExport(parsedExport)) {
+        throw new Error("export_not_ready");
+      }
+      if (current.appliedSnapshot && current.appliedSnapshot.exportRecordId && current.appliedSnapshot.exportRecordId !== parsedExport.id) {
+        throw new Error("application_export_locked");
+      }
+      const now = new Date().toISOString();
+      const event = createApplicationTimelineEvent({
+        applicationId: current.id,
+        type: "export_attached",
+        operationId: input.operationId,
+        summary: `已关联导出记录：${parsedExport.displayName}`,
+        now
+      });
+      const next = ApplicationRecordSchema.parse({
+        ...current,
+        selectedExportRecordId: parsedExport.id,
+        selectedActualPageCount: parsedExport.actualPageCount,
+        diagnosticSummary: diagnosticSummaryFromExport(parsedExport),
+        appliedSnapshot: current.appliedSnapshot && !current.appliedSnapshot.exportRecordId
+          ? { ...current.appliedSnapshot, exportRecordId: parsedExport.id }
+          : current.appliedSnapshot,
+        version: current.version + 1,
+        updatedAt: now,
+        timeline: appendApplicationTimeline(current.timeline, event)
+      });
+      await this.db.applications.put(next);
+      return { application: next, idempotent: false };
+    });
+  }
+
+  async archiveApplication(input: {
+    applicationId: string;
+    expectedVersion: number;
+    operationId: string;
+  }) {
+    return this.updateApplicationStatus({
+      applicationId: input.applicationId,
+      expectedVersion: input.expectedVersion,
+      operationId: input.operationId,
+      nextStatus: "archived"
+    });
+  }
+
+  async restoreApplication(input: {
+    applicationId: string;
+    expectedVersion: number;
+    operationId: string;
+  }) {
+    return this.db.transaction("rw", this.db.applications, async () => {
+      const application = await this.requireApplicationForWrite(input.applicationId, input.operationId);
+      if (application.idempotent) {
+        return { application: application.record, idempotent: true };
+      }
+      const current = application.record;
+      assertExpectedApplicationVersion(current, input.expectedVersion);
+      if (current.status !== "archived") {
+        return { application: current, idempotent: true };
+      }
+      const now = new Date().toISOString();
+      const restoredStatus = current.previousStatusBeforeArchive ?? "preparing";
+      const event = createApplicationTimelineEvent({
+        applicationId: current.id,
+        type: "restored",
+        operationId: input.operationId,
+        summary: `Application 已恢复到 ${restoredStatus}。`,
+        fromStatus: "archived",
+        toStatus: restoredStatus,
+        now
+      });
+      const next = ApplicationRecordSchema.parse({
+        ...current,
+        status: restoredStatus,
+        archivedAt: undefined,
+        previousStatusBeforeArchive: undefined,
+        version: current.version + 1,
+        updatedAt: now,
+        timeline: appendApplicationTimeline(current.timeline, event)
+      });
+      await this.db.applications.put(next);
+      return { application: next, idempotent: false };
+    });
+  }
+
   async setMeta(key: string, value: unknown) {
     const meta = {
       key,
@@ -2161,8 +2761,78 @@ export class WorkspaceRepository {
       resumeBranchOperations: (await this.db.resumeBranchOperations.toArray()).map((operation) => ResumeBranchOperationSchema.parse(operation)),
       aiLogs: (await this.db.aiLogs.toArray()).map((log) => AiLogSchema.parse(log)),
       exportRecords: (await this.db.exportRecords.toArray()).map((record) => ExportRecordSchema.parse(record)),
+      applications: (await this.db.applications.toArray())
+        .map((application) => ApplicationRecordSchema.safeParse(application))
+        .filter((result): result is { success: true; data: ApplicationRecord } => result.success)
+        .map((result) => result.data),
       appMeta: await this.db.appMeta.toArray()
     };
+  }
+
+  private async findApplicationByOperationInTransaction(operationId: string) {
+    const rows = await this.db.applications.toArray();
+    for (const row of rows) {
+      const parsed = ApplicationRecordSchema.safeParse(row);
+      if (!parsed.success) {
+        continue;
+      }
+      if (parsed.data.timeline.some((event) => event.operationId === operationId)) {
+        return parsed.data;
+      }
+    }
+    return undefined;
+  }
+
+  private async requireApplicationForWrite(applicationId: string, operationId: string) {
+    const existingByOperation = await this.findApplicationByOperationInTransaction(operationId);
+    if (existingByOperation) {
+      if (existingByOperation.id !== applicationId) {
+        throw new Error("operation_conflict");
+      }
+      return {
+        record: existingByOperation,
+        idempotent: true
+      };
+    }
+
+    const row = await this.db.applications.get(applicationId);
+    if (!row) {
+      throw new Error("application_not_found");
+    }
+    return {
+      record: ApplicationRecordSchema.parse(row),
+      idempotent: false
+    };
+  }
+
+  private async findLatestSuccessfulExportForSelection(input: {
+    branchId: string;
+    revisionId: string;
+    branchRevision: number;
+  }) {
+    const records = await this.db.exportRecords.where("branchId").equals(input.branchId).toArray();
+    return records
+      .map((record) => ExportRecordSchema.parse(record))
+      .filter((record) =>
+        record.revisionId === input.revisionId
+        && record.branchRevision === input.branchRevision
+        && isSuccessfulApplicationExport(record)
+      )
+      .sort((a, b) => b.exportedAt.localeCompare(a.exportedAt))[0];
+  }
+
+  private async resolveSourceGeneralBranchId(branch: ResumeBranch) {
+    if (!branch.sourceBranchId) {
+      return undefined;
+    }
+    const source = await this.db.resumeBranches.get(branch.sourceBranchId);
+    if (!source) {
+      return undefined;
+    }
+    const parsed = ResumeBranchSchema.parse(source);
+    return parsed.branchPurpose === "general" && parsed.profileId === branch.profileId
+      ? parsed.id
+      : undefined;
   }
 
   private async mutateResumeBranch(input: {
@@ -2429,6 +3099,135 @@ export class RevisionConflictError extends Error {
     super("revision_conflict");
     this.name = "RevisionConflictError";
   }
+}
+
+function assertExpectedApplicationVersion(application: ApplicationRecord, expectedVersion: number) {
+  if (application.version !== expectedVersion) {
+    throw new Error("version_conflict");
+  }
+}
+
+function createApplicationTimelineEvent(input: {
+  applicationId: string;
+  type: ApplicationTimelineEventType;
+  operationId: string;
+  summary: string;
+  now: string;
+  fromStatus?: ApplicationStatus;
+  toStatus?: ApplicationStatus;
+  note?: string;
+}): ApplicationTimelineEvent {
+  return {
+    id: `application-event-${stableHashText(`${input.applicationId}:${input.operationId}:${input.type}`).slice(0, 28)}`,
+    type: input.type,
+    occurredAt: input.now,
+    createdAt: input.now,
+    fromStatus: input.fromStatus,
+    toStatus: input.toStatus,
+    summary: input.summary,
+    note: sanitizeApplicationText(input.note, 2000),
+    operationId: input.operationId
+  };
+}
+
+function appendApplicationTimeline(
+  timeline: ApplicationTimelineEvent[],
+  event: ApplicationTimelineEvent
+) {
+  const next = [...timeline, event]
+    .sort((a, b) => a.occurredAt.localeCompare(b.occurredAt) || a.id.localeCompare(b.id));
+  return next.slice(Math.max(0, next.length - 200));
+}
+
+function isSuccessfulApplicationExport(record: ExportRecord) {
+  return (record.exportStatus === "direct_pdf_success" || record.exportStatus === "print_invoked")
+    && !record.exceededPageLimit
+    && record.overflowStatus !== "overflow"
+    && record.overflowStatus !== "exceeds_two_pages"
+    && record.overflowStatus !== "measurement_failed";
+}
+
+function diagnosticSummaryFromExport(record: ExportRecord): ApplicationDiagnosticSummary | undefined {
+  if (
+    !record.diagnosticsEngineVersion
+    && !record.diagnosticsSnapshotHash
+    && record.criticalIssueCount === undefined
+    && record.warningIssueCount === undefined
+    && !record.requirementCoverageSummary
+  ) {
+    return undefined;
+  }
+
+  return {
+    diagnosticsEngineVersion: record.diagnosticsEngineVersion,
+    diagnosticsSnapshotHash: record.diagnosticsSnapshotHash,
+    criticalIssueCount: record.criticalIssueCount ?? 0,
+    warningIssueCount: record.warningIssueCount ?? 0,
+    requirementCoverageSummary: record.requirementCoverageSummary
+  };
+}
+
+function normalizeApplicationDate(value: string | undefined, field: string) {
+  const trimmed = value?.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+  const candidate = /^\d{4}-\d{2}-\d{2}$/.test(trimmed)
+    ? `${trimmed}T00:00:00.000Z`
+    : trimmed;
+  const date = new Date(candidate);
+  if (Number.isNaN(date.getTime())) {
+    throw new Error(`invalid_date:${field}`);
+  }
+  return date.toISOString();
+}
+
+function sanitizeApplicationUrl(value: string | undefined) {
+  const sanitized = sanitizeApplicationText(value, 2048);
+  if (!sanitized) {
+    return undefined;
+  }
+  let parsed: URL;
+  try {
+    parsed = new URL(sanitized);
+  } catch {
+    throw new Error("invalid_url");
+  }
+  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+    throw new Error("invalid_url");
+  }
+  return sanitized;
+}
+
+function sanitizeApplicationTags(values: string[] | undefined) {
+  if (!values) {
+    return undefined;
+  }
+  const seen = new Set<string>();
+  const tags: string[] = [];
+  for (const value of values) {
+    const tag = sanitizeApplicationText(value, 40);
+    if (!tag || seen.has(tag)) {
+      continue;
+    }
+    seen.add(tag);
+    tags.push(tag);
+    if (tags.length >= 12) {
+      break;
+    }
+  }
+  return tags;
+}
+
+function sanitizeApplicationText(value: string | undefined, maxLength: number) {
+  const trimmed = value
+    ?.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, " ")
+    .replace(/sk-[A-Za-z0-9_-]{16,}|AKIA[0-9A-Z]{16}|api[_-]?key\s*[:=]\s*[\w.-]+/gi, "[redacted-secret]")
+    .trim();
+  if (!trimmed) {
+    return undefined;
+  }
+  return trimmed.slice(0, maxLength);
 }
 
 function resumePresentationConfigKey(branchId: string) {

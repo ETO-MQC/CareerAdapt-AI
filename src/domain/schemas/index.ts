@@ -1,5 +1,6 @@
 export * from "./adaptationDraft";
 export * from "./ai";
+export * from "./application";
 export * from "./branch";
 export * from "./common";
 export * from "./diagnostics";

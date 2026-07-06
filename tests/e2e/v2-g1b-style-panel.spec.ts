@@ -147,7 +147,8 @@ test.describe("V2-G1b style property panel", () => {
     const branch = await getBranchByName(page, branchName);
     const revisionsBefore = await getResumeRevisionCount(page, branch.id);
 
-    await expect(page.getByTestId("resume-property-panel")).toBeVisible();
+    const propertyPanel = page.getByTestId("resume-property-panel");
+    await expect(propertyPanel).toBeVisible();
     await page.getByLabel("页面密度").selectOption("compact");
     await expectNotice(page,"页面密度已保存");
     await expect.poll(() => getCssVariable(page, "--resume-page-padding-block")).toBe("10mm");
@@ -169,13 +170,13 @@ test.describe("V2-G1b style property panel", () => {
     await page.getByTestId("resume-a4-page").locator(`[data-source-item-id="${target.itemId}"]`).first().click();
     await expect(page.getByTestId("block-style-panel")).toBeVisible();
 
-    await page.getByRole("button", { name: "Section" }).click();
+    await propertyPanel.getByRole("button", { name: "Section" }).click();
     await expect(page.getByTestId("section-style-panel")).toBeVisible();
     await page.getByLabel("显示 Section 标题").click();
     await expectNotice(page,"Section 标题已隐藏");
     await expect.poll(() => isSectionTitleVisible(page, target.sectionType, target.title)).toBe(false);
 
-    await page.getByRole("button", { name: "Document" }).click();
+    await propertyPanel.getByRole("button", { name: "Document" }).click();
     await page.getByRole("button", { name: "打印 / 保存 PDF" }).click();
     await expect(page.locator("body")).toHaveAttribute("data-print-invoked", "true");
     const exportRecord = await getLatestExportRecord(page);

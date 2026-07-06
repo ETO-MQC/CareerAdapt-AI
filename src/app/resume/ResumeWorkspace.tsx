@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   type JobAdaptationDraft,
   type CareerProfile,
@@ -73,6 +74,7 @@ type PdfExportState = {
 };
 
 export function ResumeWorkspace() {
+  const router = useRouter();
   const workspace = useWorkspace(repository);
   const pageRef = useRef<HTMLElement | null>(null);
   const [drafts, setDrafts] = useState<JobAdaptationDraft[]>([]);
@@ -252,6 +254,16 @@ export function ResumeWorkspace() {
     setPendingStudioOperationId(undefined);
     setActivePropertyTab("document");
   }, []);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const requestedBranchId = new URLSearchParams(window.location.search).get("branchId");
+      if (requestedBranchId && branches.some((branch) => branch.id === requestedBranchId)) {
+        setSelectedBranchId(requestedBranchId);
+      }
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [branches]);
 
   useEffect(() => {
     if (workspace.status !== "ready" || !profile) {
@@ -1217,6 +1229,38 @@ export function ResumeWorkspace() {
     setMessage("syncStatus 已基于当前母档案、岗位和事实引用重新计算；分支内容未被自动覆盖。");
   }
 
+  async function openOrCreateApplication() {
+    if (!selectedBranch) {
+      return;
+    }
+    if (selectedBranch.branchPurpose !== "job_specific") {
+      setMessage("通用简历不能直接加入投递工作台；请先在岗位优化面板派生岗位定制分支。");
+      return;
+    }
+    if (!selectedBranch.currentRevisionId) {
+      setMessage("当前分支缺少 currentRevision，不能创建 Application。");
+      return;
+    }
+
+    try {
+      const result = await repository.createApplicationFromBranch({
+        branchId: selectedBranch.id,
+        expectedBranchRevision: selectedBranch.revision,
+        expectedRevisionId: selectedBranch.currentRevisionId,
+        operationId: `v2-g6a-create-application-${selectedBranch.id}-${selectedBranch.revision}-${selectedBranch.currentRevisionId}`,
+        initialStatus: "preparing"
+      });
+      setMessage(result.duplicate
+        ? "该岗位分支已有未归档 Application，已打开现有记录。"
+        : "已加入投递工作台；未自动导出PDF，也未改变投递状态。");
+      router.push(`/applications?applicationId=${encodeURIComponent(result.application.id)}`);
+    } catch (error) {
+      setMessage(error instanceof RevisionConflictError
+        ? "创建 Application 失败：分支 revision 已变化，请刷新后重试。"
+        : "创建 Application 失败：仅 verified 的岗位定制分支可加入投递工作台。");
+    }
+  }
+
   async function downloadPdf() {
     if (!selectedBranch || !renderModel) {
       setMessage("当前分支无法生成正式预览，不能导出。");
@@ -1735,6 +1779,13 @@ export function ResumeWorkspace() {
               </p>
             </div>
             <div className="action-row">
+              <button
+                className="primary-button"
+                onClick={openOrCreateApplication}
+                disabled={!selectedBranchEditable || selectedBranch.branchPurpose !== "job_specific"}
+              >
+                {selectedBranch.branchPurpose === "job_specific" ? "加入投递工作台" : "先创建岗位定制分支"}
+              </button>
               <button className="secondary-button" onClick={refreshSync}>刷新更新提示</button>
               <button className="secondary-button" onClick={undo} disabled={!selectedBranchEditable}>撤销</button>
             </div>

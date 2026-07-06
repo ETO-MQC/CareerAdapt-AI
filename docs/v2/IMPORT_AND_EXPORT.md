@@ -162,6 +162,17 @@ G5b 可选诊断摘要字段：
 
 这些字段均为可选，旧 ExportRecord 继续兼容。普通诊断 warning 不阻断导出；硬阻断仍只来自已有正式安全条件，例如无有效 Revision、非法分支、分页超过策略上限或 PDF 生成失败。
 
+## G6a Application与导出联动
+
+G6a 不建立第二套 PDF 导出系统，也不保存 PDF Blob。
+
+- Application 只保存 `selectedExportRecordId` 和轻量诊断摘要。
+- 创建 Application 时会优先关联同一 branch/revision 的最近成功 ExportRecord；没有导出记录也允许创建，readiness 显示需要关注。
+- Application 详情可以关联最新有效 ExportRecord。
+- Application 详情可以基于已有 ExportRecord 的 presentation/pagination 快照重新生成 PDF，并写入新的 ExportRecord 后再关联回 Application。
+- 导出成功不会自动把 Application 改成 `ready` 或 `applied`。
+- 关联导出记录必须校验 branch、revision 和 branchRevision，拒绝跨分支或跨岗位串用。
+
 ## PDF Golden Tests
 
 - 每套模板保留HTML截图、PDF页数、A4尺寸、中文文本抽取、无导航按钮、无裁切检查。

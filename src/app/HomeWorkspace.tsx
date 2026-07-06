@@ -63,6 +63,7 @@ export function HomeWorkspace() {
         <Link href="/profile">查看母档案</Link>
         <Link href="/jobs">查看岗位</Link>
         <Link href="/resume">查看简历工作台</Link>
+        <Link href="/applications">查看求职工作台</Link>
       </section>
     </main>
   );

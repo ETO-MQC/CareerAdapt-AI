@@ -47,7 +47,11 @@ test.describe("Stage D1 resume branches", () => {
     await page.locator(".branch-list .match-row").filter({ hasText: "D1 Branch A" }).click();
     await page.locator(".revision-list .review-row").filter({ hasText: "revision 0" }).locator("button").click();
     await expect(page.locator(".notice")).toContainText("restore revision");
-    await page.locator("section.panel").filter({ hasText: "D1 Branch A" }).locator(".section-heading .action-row button").nth(1).click();
+    await page
+      .locator("section.panel")
+      .filter({ hasText: "D1 Branch A" })
+      .locator(".section-heading .action-row button", { hasText: "撤销" })
+      .click();
     await expect(page.locator(".notice")).toContainText("previousRevisionId");
     await expect(page.locator(".branch-editor textarea").first()).toHaveValue(editedA);
 
@@ -76,7 +80,11 @@ test.describe("Stage D1 resume branches", () => {
       });
     });
 
-    await page.locator("section.panel").filter({ hasText: "D1 Branch A" }).locator(".section-heading .action-row button").first().click();
+    await page
+      .locator("section.panel")
+      .filter({ hasText: "D1 Branch A" })
+      .locator(".section-heading .action-row button", { hasText: "刷新更新提示" })
+      .click();
     await expect(page.getByText("Career profile has updates", { exact: false })).toBeVisible();
   });
 });

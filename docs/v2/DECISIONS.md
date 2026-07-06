@@ -189,3 +189,13 @@
 - 替代方案：新增诊断表、接入第三方 ATS、用 AI 生成诊断正文、或直接自动改正文。
 - 后果：诊断不会成为正式事实来源；ExportRecord 只保存可选摘要；ATS 诊断只能表达结构风险，不能表达通过率或保证。
 - 日期：2026-07-06
+
+## ADR-020 Application只管理投递流程
+
+- 状态：Accepted
+- 背景：用户需要管理岗位机会、投递状态、跟进日期和投递历史，但已有 `JobDescription`、`ResumeBranch`、`ResumeRevision` 和 `ExportRecord` 已经承担岗位、简历和导出的正式职责。
+- 决策：G6a 新增 `ApplicationRecord` 和 `applications` 表，仅保存实体引用、岗位/公司快照、状态、日期、备注、标签、选定版本、导出记录和时间线。Application 不复制完整简历正文、不保存完整 JD、不保存 PDF Blob、不作为新的事实源。
+- 理由：保留现有事实审计、Fact Guard、分支隔离和导出一致性，同时补齐求职流程闭环。
+- 替代方案：新增独立投递简历内容表、保存 PDF Blob、或用自由文本覆盖投递版本。
+- 后果：PDF 下载需要复用既有导出快照重新生成；若没有可复用 ExportRecord，用户需要回到 Resume Studio 导出。
+- 日期：2026-07-06
