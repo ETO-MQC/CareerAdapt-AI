@@ -224,4 +224,4 @@ Final verification:
 
 ## Follow-Up Boundary
 
-G6b may evaluate application material packages, reminders and interview preparation later, but none of those are started by G6a.
+G6a itself did not start application material packages, reminders or interview preparation. G6b has now been implemented as a separate local `ApplicationPreparationPack` layer stored in `appMeta`; it reuses the G6a `ApplicationRecord` without changing the G6a status machine, Dexie `applications` table, PDF lock semantics or automatic-submission boundary.

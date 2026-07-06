@@ -3,6 +3,7 @@ import { demoCareerProfile } from "@/data/demoProfile";
 import {
   AiLogSchema,
   AiSuggestionSchema,
+  ApplicationPreparationPackSchema,
   ApplicationRecordSchema,
   BranchContentItemSchema,
   CareerProfileSchema,
@@ -28,6 +29,7 @@ import {
   SuggestionOperationSchema,
   type AiLog,
   type AiSuggestion,
+  type ApplicationPreparationPack,
   type ApplicationDiagnosticSummary,
   type ApplicationPriority,
   type ApplicationReadiness,
@@ -65,6 +67,13 @@ import {
   type SuggestionOperation
 } from "@/domain/schemas";
 import { assertApplicationStatusTransition, computeApplicationReadiness } from "@/domain/application";
+import {
+  buildApplicationPreparationContext,
+  createEmptyApplicationPreparationPack,
+  rebaseApplicationPreparationPack,
+  withUpdatedApplicationPreparationChecklist,
+  type ApplicationPreparationContext
+} from "@/domain/applicationPreparation";
 import { mapAdaptationDraftToResumeBranch } from "@/domain/branch/mapper";
 import { createResumeRevision } from "@/domain/branch/revision";
 import { computeBranchSyncStatus, computeGeneralBranchSyncStatus, resolveBranchFactRefs } from "@/domain/branch/validation";
@@ -123,6 +132,9 @@ export type ApplicationContext = {
   presentationConfig?: ResumePresentationConfig;
   revisions: ResumeRevision[];
   exportRecords: ExportRecord[];
+  preparationContext?: ApplicationPreparationContext;
+  preparationPack?: ApplicationPreparationPack;
+  preparationPackCorrupted?: boolean;
 };
 
 export class WorkspaceRepository {
@@ -2213,18 +2225,146 @@ export class WorkspaceRepository {
     };
   }
 
+  async getApplicationPreparationContext(applicationId: string): Promise<ApplicationPreparationContext | undefined> {
+    const context = await this.getApplicationContext(applicationId);
+    if (!context?.profile || !context.job || !context.jobSpecificBranch || !context.selectedRevision) {
+      return undefined;
+    }
+    const requirementMatches = await this.listRequirementMatches(context.application.profileId, context.application.jobId);
+    return buildApplicationPreparationContext({
+      application: context.application,
+      profile: context.profile,
+      job: context.job,
+      branch: context.jobSpecificBranch,
+      selectedRevision: context.selectedRevision,
+      requirementMatches,
+      exportRecord: context.selectedExportRecord
+    });
+  }
+
+  async loadApplicationPreparationPack(applicationId: string): Promise<{
+    context?: ApplicationPreparationContext;
+    pack?: ApplicationPreparationPack;
+    corrupted: boolean;
+  }> {
+    const preparationContext = await this.getApplicationPreparationContext(applicationId);
+    if (!preparationContext) {
+      return { corrupted: false };
+    }
+    const key = applicationPreparationPackKey(applicationId);
+    const stored = await this.db.appMeta.get(key);
+    let corrupted = false;
+    let pack = stored ? ApplicationPreparationPackSchema.safeParse(stored.value).data : undefined;
+    if (stored && !pack) {
+      corrupted = true;
+    }
+    pack = pack ?? createEmptyApplicationPreparationPack(preparationContext);
+    const rebased = withUpdatedApplicationPreparationChecklist(
+      rebaseApplicationPreparationPack({ pack, context: preparationContext })
+    );
+    if (!stored || corrupted || JSON.stringify(rebased) !== JSON.stringify(pack)) {
+      await this.db.appMeta.put({
+        key,
+        value: rebased,
+        updatedAt: rebased.updatedAt
+      });
+    }
+    return {
+      context: preparationContext,
+      pack: rebased,
+      corrupted
+    };
+  }
+
+  async saveApplicationPreparationPack(input: {
+    applicationId: string;
+    expectedVersion: number;
+    operationId: string;
+    pack: ApplicationPreparationPack;
+  }) {
+    return this.db.transaction("rw", this.db.applications, this.db.appMeta, async () => {
+      const application = await this.db.applications.get(input.applicationId);
+      if (!application) {
+        throw new Error("application_not_found");
+      }
+      const parsedApplication = ApplicationRecordSchema.parse(application);
+      const operationKey = applicationPreparationOperationKey(input.operationId);
+      const existingOperation = await this.db.appMeta.get(operationKey);
+      if (existingOperation) {
+        const existing = await this.getApplicationPreparationPackInTransaction(input.applicationId);
+        if (!existing) {
+          throw new Error("invalid_preparation_pack");
+        }
+        return {
+          pack: existing,
+          idempotent: true
+        };
+      }
+
+      const existing = await this.getApplicationPreparationPackInTransaction(input.applicationId);
+      if (existing && existing.version !== input.expectedVersion) {
+        throw new Error("version_conflict");
+      }
+      if (!existing && input.expectedVersion !== 0) {
+        throw new Error("version_conflict");
+      }
+      const now = new Date().toISOString();
+      assertNoForbiddenPreparationPayload(input.pack);
+      const parsedPack = withUpdatedApplicationPreparationChecklist(
+        ApplicationPreparationPackSchema.parse({
+          ...input.pack,
+          applicationId: parsedApplication.id,
+          profileId: parsedApplication.profileId,
+          jobId: parsedApplication.jobId,
+          updatedAt: now
+        }),
+        now
+      );
+      await this.db.appMeta.put({
+        key: applicationPreparationPackKey(input.applicationId),
+        value: parsedPack,
+        updatedAt: now
+      });
+      await this.db.appMeta.put({
+        key: operationKey,
+        value: {
+          applicationId: input.applicationId,
+          operationId: input.operationId,
+          packVersion: parsedPack.version
+        },
+        updatedAt: now
+      });
+      return {
+        pack: parsedPack,
+        idempotent: false
+      };
+    });
+  }
+
+  private async getApplicationPreparationPackInTransaction(applicationId: string) {
+    const stored = await this.db.appMeta.get(applicationPreparationPackKey(applicationId));
+    if (!stored) {
+      return undefined;
+    }
+    const parsed = ApplicationPreparationPackSchema.safeParse(stored.value);
+    return parsed.success ? parsed.data : undefined;
+  }
+
   async getApplicationReadiness(applicationId: string): Promise<ApplicationReadiness | undefined> {
     const context = await this.getApplicationContext(applicationId);
     if (!context) {
       return undefined;
     }
 
+    const preparation = await this.loadApplicationPreparationPack(applicationId).catch(() => undefined);
+
     return computeApplicationReadiness({
       application: context.application,
       job: context.job,
       branch: context.jobSpecificBranch,
       revision: context.selectedRevision,
-      exportRecord: context.selectedExportRecord
+      exportRecord: context.selectedExportRecord,
+      preparationChecklist: preparation?.pack?.checklist
     });
   }
 
@@ -3217,6 +3357,43 @@ function sanitizeApplicationTags(values: string[] | undefined) {
     }
   }
   return tags;
+}
+
+function applicationPreparationPackKey(applicationId: string) {
+  return `applicationPreparationPack:${applicationId}`;
+}
+
+function applicationPreparationOperationKey(operationId: string) {
+  return `applicationPreparationOperation:${operationId}`;
+}
+
+function assertNoForbiddenPreparationPayload(value: unknown) {
+  const stack: Array<{ path: string; value: unknown }> = [{ path: "", value }];
+  while (stack.length > 0) {
+    const current = stack.pop();
+    if (!current) {
+      continue;
+    }
+    if (current.value && typeof current.value === "object") {
+      for (const [key, child] of Object.entries(current.value as Record<string, unknown>)) {
+        const path = current.path ? `${current.path}.${key}` : key;
+        const normalizedKey = key.toLowerCase();
+        if (
+          normalizedKey.includes("pdfblob")
+          || normalizedKey === "blob"
+          || normalizedKey.includes("apikey")
+          || normalizedKey.includes("api_key")
+          || normalizedKey.includes("prompt")
+        ) {
+          throw new Error("forbidden_preparation_payload");
+        }
+        stack.push({ path, value: child });
+      }
+    }
+    if (typeof current.value === "string" && /sk-[A-Za-z0-9_-]{20,}/.test(current.value)) {
+      throw new Error("forbidden_preparation_payload");
+    }
+  }
 }
 
 function sanitizeApplicationText(value: string | undefined, maxLength: number) {

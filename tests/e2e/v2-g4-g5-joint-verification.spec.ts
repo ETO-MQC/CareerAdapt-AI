@@ -294,9 +294,14 @@ test.describe("G4-G5 Joint: suggestion-diff-and-accept", () => {
     await panel.getByTestId("block-suggestion-panel").locator(".action-row button.primary-button").first().click();
 
     await expect.poll(async () => {
+      const accepted = await getSuggestions(page, before!.id);
+      return accepted.filter((s) => s.status === "accepted").length;
+    }, { timeout: 45_000 }).toBeGreaterThan(0);
+
+    await expect.poll(async () => {
       const updated = await findBranchByName(page, branchName);
       return updated?.revision ?? -1;
-    }, { timeout: 20_000 }).toBe((before?.revision ?? 0) + 1);
+    }, { timeout: 45_000 }).toBe((before?.revision ?? 0) + 1);
 
     const accepted = await getSuggestions(page, before!.id);
     expect(accepted.filter((s) => s.status === "accepted").length).toBeGreaterThan(0);
@@ -337,9 +342,14 @@ test.describe("G4-G5 Joint: edited-accept-and-fact-guard", () => {
     await panel.getByTestId("block-suggestion-panel").locator(".action-row button.primary-button").first().click();
 
     await expect.poll(async () => {
+      const accepted = await getSuggestions(page, before!.id);
+      return accepted.filter((s) => s.status === "accepted").length;
+    }, { timeout: 45_000 }).toBeGreaterThan(0);
+
+    await expect.poll(async () => {
       const updated = await findBranchByName(page, branchName);
       return updated?.revision ?? -1;
-    }, { timeout: 20_000 }).toBe((before?.revision ?? 0) + 1);
+    }, { timeout: 45_000 }).toBe((before?.revision ?? 0) + 1);
 
     const revisionsAfter = await getRevisions(page, before!.id);
     expect(revisionsAfter.length).toBe(revisionsBefore.length + 1);

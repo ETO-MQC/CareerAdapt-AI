@@ -4,6 +4,7 @@ import { demoJobDescriptions } from "@/data/demoJobs";
 import { computeApplicationReadiness } from "@/domain/application";
 import type {
   ApplicationRecord,
+  ApplicationPreparationChecklist,
   ExportRecord,
   ResumeBranch,
   ResumeRevision
@@ -41,6 +42,7 @@ describe("Application readiness", () => {
       branch: createBranch(),
       revision: createRevision(),
       exportRecord: createExportRecord(),
+      preparationChecklist: createReadyPreparationChecklist(),
       now: TEST_TIME
     });
 
@@ -145,6 +147,31 @@ function createApplication(overrides: Partial<ApplicationRecord> = {}): Applicat
     createdAt: TEST_TIME,
     updatedAt: TEST_TIME,
     ...overrides
+  };
+}
+
+function createReadyPreparationChecklist(): ApplicationPreparationChecklist {
+  return {
+    level: "ready",
+    items: [
+      {
+        id: "cover_letter",
+        label: "求职信",
+        status: "completed",
+        level: "ready",
+        materialType: "cover_letter",
+        message: "ready"
+      },
+      {
+        id: "application_email",
+        label: "投递邮件草稿",
+        status: "not_needed",
+        level: "ready",
+        materialType: "application_email",
+        message: "ready"
+      }
+    ],
+    updatedAt: TEST_TIME
   };
 }
 

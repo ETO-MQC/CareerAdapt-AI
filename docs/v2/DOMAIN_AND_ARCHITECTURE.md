@@ -95,6 +95,20 @@ G6a 新增 `ApplicationRecord`，用于组织求职机会和投递过程，但�
 - `applied` 状态会锁定投递时的 revision/export 快照；后续分支编辑不会覆盖历史投递版本。
 - Readiness 是详情打开时的派生结果，不作为正式事实持久化，也不表达录用概率、面试概率或 ATS 通过率。
 
+## G6b ApplicationPreparationPack
+
+G6b 在 G6a `ApplicationRecord` 之上新增本地申请材料包，但不新增 Dexie 表。
+
+- Pack 存储在现有 `appMeta`，key 为 `applicationPreparationPack:${applicationId}`。
+- Pack 只保存材料草稿、证据引用、fact gap、checklist、版本历史和基于版本，不保存 PDF Blob、完整 prompt、API Key、平台凭据或第二套事实层。
+- Pack 绑定 Application 选定的 job-specific branch、ResumeRevision、branch revision、presentation revision、requirements hash 和可选 ExportRecord。
+- `ApplicationPreparationContext` 从真实 Application、Job、CareerProfile、选定 ResumeRevision、RequirementMatch 和 RequirementBlockMatch 派生。
+- 求职信、投递邮件、自我介绍、面试题和 STAR 都是结构化材料对象，不压成不可校验自由字符串。
+- 材料 Fact Guard 是 `runRuleFactGuard` 的薄适配层；Requirement 只能作为岗位上下文和问题来源，不能作为用户事实证据。
+- Revision 或 requirements hash 变化会标记旧材料 stale；presentation-only 变化不触发 stale。
+- Material checklist 并入 Application readiness，但不改变 Application 状态机。
+- 生成邮件不发送，不进入 Gmail；材料完成不设置 `ready` 或 `applied`。
+
 ## Repository职责
 
 G0a在 WorkspaceRepository 中增加轻量适配方法或直接复用现有方法：
@@ -114,6 +128,7 @@ G0a在 WorkspaceRepository 中增加轻量适配方法或直接复用现有方�
 - ResumeBranch：岗位简历分支聚合根。
 - ResumeDocument：编辑聚合或派生视图，必须引用Branch和factRefs。
 - ExportRecord：导出审计记录。
+- ApplicationPreparationPack：Application 下的本地材料草稿聚合，引用事实和版本，不成为新事实源。
 
 文本编辑事务必须包含：读取branch最新revision -> Fact Guard -> 写内容 -> 写revision -> 写operation。展示配置事务不得写CareerProfile事实层。
 

@@ -19,6 +19,7 @@ import { mapBranchToResumeRenderModel } from "@/domain/resumeRender/mapper";
 import { buildResumePdfFileName, PDF_MIME_TYPE } from "@/services/export/filename";
 import { createResumePdfExportRequest, presentationSnapshotFromConfig } from "@/services/export/snapshot";
 import { getResumeTemplate } from "@/components/resume/templates/templateRegistry";
+import { ApplicationMaterialsPanel } from "@/components/applications/materials/ApplicationMaterialsPanel";
 import { hashBytes, stableHashText } from "@/services/security/text";
 import { WorkspaceRepository, type ApplicationContext } from "@/services/storage/repositories";
 import { WorkspaceEmptyState, WorkspaceErrorState, WorkspaceLoadingState } from "@/components/workspace/WorkspaceStates";
@@ -798,6 +799,12 @@ function ApplicationDetail({
           <ApplicationReadinessPanel readiness={readiness} />
         </section>
       </div>
+
+      <ApplicationMaterialsPanel
+        applicationId={application.id}
+        onMessage={onMessage}
+        onChanged={load}
+      />
 
       <ApplicationTimeline events={application.timeline} />
     </section>

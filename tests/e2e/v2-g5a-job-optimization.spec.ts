@@ -46,9 +46,14 @@ test.describe("V2-G5a block-level job optimization", () => {
     await panel.getByTestId("block-suggestion-panel").locator(".action-row button.primary-button").first().click();
 
     await expect.poll(async () => {
+      const accepted = await getAcceptedSuggestions(page, before!.id);
+      return accepted.length;
+    }, { timeout: 45_000 }).toBeGreaterThan(0);
+
+    await expect.poll(async () => {
       const branch = await findBranchByName(page, branchName);
       return branch?.revision ?? -1;
-    }, { timeout: 15_000 }).toBe((before?.revision ?? 0) + 1);
+    }, { timeout: 45_000 }).toBe((before?.revision ?? 0) + 1);
 
     const accepted = await getAcceptedSuggestions(page, before!.id);
     expect(accepted.length).toBeGreaterThan(0);

@@ -2007,6 +2007,121 @@ p {
   justify-items: start;
 }
 
+.application-materials-panel {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 14px;
+  padding-top: 16px;
+}
+
+.materials-summary {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.materials-control-grid {
+  align-items: start;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.materials-tool {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+.materials-tool h4,
+.material-card h5 {
+  margin: 0;
+}
+
+.material-card,
+.fact-gap-card {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+.material-card-header {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.material-card-header span,
+.fact-gap-card span {
+  background: #eef1f5;
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  padding: 3px 8px;
+}
+
+.material-card-header p {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+.material-status-blocked,
+.fact-gap-open {
+  border-left: 4px solid #b83232;
+}
+
+.material-status-stale {
+  border-left: 4px solid #b5811b;
+}
+
+.material-status-completed,
+.fact-gap-resolved,
+.fact-gap-ignored {
+  border-left: 4px solid var(--accent);
+}
+
+.material-textarea {
+  min-height: 150px;
+}
+
+.material-evidence-panel,
+.material-history {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 8px;
+  padding-top: 8px;
+}
+
+.material-evidence-panel summary,
+.material-history summary {
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.material-evidence-panel ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 18px;
+}
+
+.material-evidence-panel li {
+  display: grid;
+  gap: 2px;
+}
+
+.material-history-row,
+.interview-question-row {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 8px;
+  padding-top: 8px;
+}
+
 @media (max-width: 900px) {
   .import-review-grid {
     grid-template-columns: 1fr;

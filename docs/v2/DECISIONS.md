@@ -199,3 +199,13 @@
 - 替代方案：新增独立投递简历内容表、保存 PDF Blob、或用自由文本覆盖投递版本。
 - 后果：PDF 下载需要复用既有导出快照重新生成；若没有可复用 ExportRecord，用户需要回到 Resume Studio 导出。
 - 日期：2026-07-06
+
+## ADR-021 申请材料包存入appMeta并保持非事实源
+
+- 状态：Accepted
+- 背景：G6b 需要围绕 Application 生成求职信、邮件草稿、自我介绍、面试题和 STAR，但这些材料不能成为第二套简历事实层，也不应触发 Dexie 迁移。
+- 决策：新增 `ApplicationPreparationPack`，使用现有 `appMeta` key `applicationPreparationPack:${applicationId}` 持久化；材料输出全部通过 Zod Schema，并由材料 Fact Guard 复用现有 `runRuleFactGuard`。
+- 理由：复用 G6a `ApplicationRecord`、G5a `RequirementBlockMatch`、ResumeBranch/Revision 和 Fact Guard 边界，避免新增表、复制 PDF 或保存完整 prompt。
+- 替代方案：新增 Dexie materials 表、把材料写入 ApplicationRecord、用自由文本字段存所有材料、或直接调用邮件/平台集成。
+- 后果：Pack 是 Application 下的草稿聚合，不是新的事实源；当前使用确定性本地 drafter 保证 E2E 稳定，后续 provider-backed drafter 必须复用同一 Schema 和 Guard。
+- 日期：2026-07-06

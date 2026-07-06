@@ -3,6 +3,7 @@ import {
   type ApplicationReadiness,
   type ApplicationReadinessItem,
   type ApplicationRecord,
+  type ApplicationPreparationChecklist,
   type ExportRecord,
   type JobDescription,
   type ResumeBranch,
@@ -15,6 +16,7 @@ export type ApplicationReadinessInput = {
   branch?: ResumeBranch;
   revision?: ResumeRevision;
   exportRecord?: ExportRecord;
+  preparationChecklist?: ApplicationPreparationChecklist;
   now?: string;
 };
 
@@ -27,7 +29,8 @@ export function computeApplicationReadiness(input: ApplicationReadinessInput): A
     factGuardItem(input.branch),
     pagePolicyItem(input.exportRecord),
     exportItem(input.exportRecord),
-    diagnosticsItem(input.application)
+    diagnosticsItem(input.application),
+    ...preparationItems(input.preparationChecklist)
   ];
 
   const level = items.some((item) => item.level === "blocked")
@@ -41,6 +44,27 @@ export function computeApplicationReadiness(input: ApplicationReadinessInput): A
     items,
     updatedAt: now
   });
+}
+
+function preparationItems(checklist?: ApplicationPreparationChecklist): ApplicationReadinessItem[] {
+  if (!checklist) {
+    return [{
+      id: "application_materials",
+      label: "申请材料准备",
+      level: "needs_attention",
+      message: "尚未建立申请材料包；这不会自动改变 Application 状态。"
+    }];
+  }
+  return [{
+    id: "application_materials",
+    label: "申请材料准备",
+    level: checklist.level,
+    message: checklist.level === "ready"
+      ? "申请材料 checklist 已准备就绪。"
+      : checklist.level === "blocked"
+        ? "申请材料中存在被 Fact Guard 阻止的内容。"
+        : "申请材料仍有未完成、stale 或需复核项目。"
+  }];
 }
 
 function jobItem(job?: JobDescription): ApplicationReadinessItem {

@@ -61,6 +61,17 @@ V2继续使用明确AI任务，不做万能聊天机器人。AI建议不得直�
 - 安全修复动作只允许修改 `ResumePresentationConfig`，必须由用户点击确认，并复用展示配置队列。
 - 事实缺口只提示补充事实或回到 G5a，不生成可直接接受的虚假正文。
 
+## G6b申请材料边界
+
+- G6b 当前使用确定性本地 drafter 生成结构化材料，并通过 `ApplicationPreparationPack` Zod Schema 校验；不依赖实时 AI。
+- 若后续接入 provider-backed drafter，输出仍必须先通过同一组材料 Schema，再运行材料 Fact Guard。
+- 材料生成只读取当前 Application、Job、选定 ResumeRevision、岗位要求、RequirementBlockMatch 和已确认事实证据。
+- 材料 Fact Guard 复用现有 `runRuleFactGuard`，只把 confirmed `MatchEvidenceRef` 作为用户事实证据；JD requirement 不可作为用户事实。
+- 公司名和岗位名可来自 `JobDescription`；目标公司业务、长期关注、内推关系、成果数字和技能水平不得编造。
+- 材料包保存前拒绝 `pdfBlob`、API Key、prompt 字段和常见 `sk-...` 密钥形态。
+- 生成邮件只是草稿，不调用 Gmail、不创建草稿、不发送。
+- 生成、编辑、完成或标记不需要材料都不自动改变 Application 状态。
+
 ## 安全门槛
 
 - `unsafeAllowed=0`。
