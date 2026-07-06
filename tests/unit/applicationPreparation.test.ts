@@ -130,4 +130,49 @@ describe("Application material generation", () => {
     expect(JSON.stringify(pack)).not.toContain("pdfBlob");
     expect(JSON.stringify(pack)).not.toContain("sk-");
   });
+
+  it("isolates materials between Application A and Application B", async () => {
+    const fixture = await setupApplicationPreparationFixture();
+    db = fixture.db;
+    let packA = generateCoverLetterMaterial({ pack: fixture.pack, context: fixture.context, language: "zh" });
+    packA = generateInterviewQuestionMaterial({ pack: packA, context: fixture.context });
+    await fixture.repository.saveApplicationPreparationPack({
+      applicationId: fixture.application.id,
+      expectedVersion: fixture.pack.version,
+      operationId: "g6b-isolation-a-save",
+      pack: packA
+    });
+
+    const second = await createSecondApplication(fixture.repository);
+    const loadedB = await fixture.repository.loadApplicationPreparationPack(second.applicationId);
+    expect(loadedB.pack?.materials.coverLetters.zh).toBeUndefined();
+    expect(loadedB.pack?.materials.interviewQuestions).toHaveLength(0);
+    expect(loadedB.pack?.applicationId).toBe(second.applicationId);
+    expect(loadedB.pack?.applicationId).not.toBe(fixture.application.id);
+
+    const reloadedA = await fixture.repository.loadApplicationPreparationPack(fixture.application.id);
+    expect(reloadedA.pack?.materials.coverLetters.zh).toBeTruthy();
+    expect(reloadedA.pack?.materials.interviewQuestions.length).toBeGreaterThan(0);
+  });
+
+  it("does not change application status when generating or saving materials", async () => {
+    const fixture = await setupApplicationPreparationFixture();
+    db = fixture.db;
+    const statusBefore = fixture.application.status;
+
+    let pack = generateCoverLetterMaterial({ pack: fixture.pack, context: fixture.context, language: "zh" });
+    pack = generateApplicationEmailMaterial({ pack, context: fixture.context, language: "en", tone: "formal" });
+    pack = generateSelfIntroductionMaterial({ pack, context: fixture.context, language: "zh", durationSeconds: 60 });
+    pack = generateInterviewQuestionMaterial({ pack, context: fixture.context });
+    pack = generateStarStoryMaterial({ pack, context: fixture.context });
+    await fixture.repository.saveApplicationPreparationPack({
+      applicationId: fixture.application.id,
+      expectedVersion: fixture.pack.version,
+      operationId: "g6b-no-status-change",
+      pack
+    });
+
+    const afterSave = await fixture.repository.getApplication(fixture.application.id);
+    expect(afterSave?.status).toBe(statusBefore);
+  });
 });

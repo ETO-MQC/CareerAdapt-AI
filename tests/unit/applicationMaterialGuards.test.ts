@@ -82,4 +82,42 @@ describe("Application material Fact Guard", () => {
     });
     expect(withPdfPack.materials.applicationEmails.zh_brief?.currentContent.attachmentMentions.join(" ")).toContain("PDF");
   });
+
+  it("rejects blocked material status when attempting completion", async () => {
+    const fixture = await setupApplicationPreparationFixture();
+    db = fixture.db;
+    let pack = generateCoverLetterMaterial({
+      pack: fixture.pack,
+      context: fixture.context,
+      language: "zh"
+    });
+    pack = editCoverLetterMaterial({
+      pack,
+      context: fixture.context,
+      language: "zh",
+      content: {
+        ...pack.materials.coverLetters.zh!.currentContent,
+        bodyParagraphs: ["我精通SQL并有丰富的数据库管理经验。"]
+      }
+    });
+    const letter = pack.materials.coverLetters.zh!;
+    expect(letter.guardStatus).toBe("blocked");
+    expect(() => markApplicationMaterialCompleted({
+      pack,
+      materialId: letter.id
+    })).toThrow("guard_blocked");
+  });
+
+  it("does not treat neutral job title and company as fabricated facts", async () => {
+    const fixture = await setupApplicationPreparationFixture();
+    db = fixture.db;
+    const pack = generateCoverLetterMaterial({
+      pack: fixture.pack,
+      context: fixture.context,
+      language: "zh"
+    });
+    const letter = pack.materials.coverLetters.zh!;
+    expect(letter.guardStatus).toBe("allowed");
+    expect(letter.currentContent.opening).toContain(fixture.context.jobTitle);
+  });
 });

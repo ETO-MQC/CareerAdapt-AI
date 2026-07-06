@@ -245,6 +245,127 @@ describe("Application repository", () => {
     expect(restored.application.status).toBe("preparing");
     expect(restored.application.archivedAt).toBeUndefined();
   });
+  it("locks applied snapshot and prevents revision updates after applied", async () => {
+    const fixture = await setupApplicationFixture();
+    const created = await fixture.repository.createApplicationFromBranch({
+      branchId: fixture.branch.id,
+      expectedBranchRevision: fixture.branch.revision,
+      expectedRevisionId: fixture.branch.currentRevisionId!,
+      operationId: "g6a-create-lock-test"
+    });
+    const ready = await fixture.repository.updateApplicationStatus({
+      applicationId: created.application.id,
+      expectedVersion: created.application.version,
+      operationId: "g6a-ready-lock-test",
+      nextStatus: "ready"
+    });
+    const applied = await fixture.repository.updateApplicationStatus({
+      applicationId: ready.application.id,
+      expectedVersion: ready.application.version,
+      operationId: "g6a-applied-lock-test",
+      nextStatus: "applied",
+      appliedAt: TEST_TIME
+    });
+    expect(applied.application.appliedSnapshot).toBeTruthy();
+    expect(applied.application.appliedSnapshot!.revisionId).toBe(created.application.selectedRevisionId);
+    expect(applied.application.appliedSnapshot!.branchRevision).toBe(created.application.selectedBranchRevision);
+    expect(applied.application.appliedSnapshot!.exportRecordId).toBe(fixture.exportRecord.id);
+
+    await expect(fixture.repository.linkApplicationRevision({
+      applicationId: applied.application.id,
+      expectedVersion: applied.application.version,
+      operationId: "g6a-link-after-lock",
+      revisionId: "some-new-revision"
+    })).rejects.toThrow("application_revision_locked");
+  });
+
+  it("does not create ResumeRevision or call AI when creating application", async () => {
+    const fixture = await setupApplicationFixture();
+    const revisionsBefore = await fixture.repository.listResumeRevisions(fixture.branch.id);
+    const created = await fixture.repository.createApplicationFromBranch({
+      branchId: fixture.branch.id,
+      expectedBranchRevision: fixture.branch.revision,
+      expectedRevisionId: fixture.branch.currentRevisionId!,
+      operationId: "g6a-no-side-effects"
+    });
+    const revisionsAfter = await fixture.repository.listResumeRevisions(fixture.branch.id);
+    expect(revisionsAfter.length).toBe(revisionsBefore.length);
+    expect(created.application.selectedRevisionId).toBe(fixture.branch.currentRevisionId);
+  });
+
+  it("keeps applied snapshot intact after archiving and restoring", async () => {
+    const fixture = await setupApplicationFixture();
+    const created = await fixture.repository.createApplicationFromBranch({
+      branchId: fixture.branch.id,
+      expectedBranchRevision: fixture.branch.revision,
+      expectedRevisionId: fixture.branch.currentRevisionId!,
+      operationId: "g6a-create-archive-restore"
+    });
+    const ready = await fixture.repository.updateApplicationStatus({
+      applicationId: created.application.id,
+      expectedVersion: created.application.version,
+      operationId: "g6a-ready-archive-restore",
+      nextStatus: "ready"
+    });
+    const applied = await fixture.repository.updateApplicationStatus({
+      applicationId: ready.application.id,
+      expectedVersion: ready.application.version,
+      operationId: "g6a-applied-archive-restore",
+      nextStatus: "applied",
+      appliedAt: TEST_TIME
+    });
+    const archived = await fixture.repository.archiveApplication({
+      applicationId: applied.application.id,
+      expectedVersion: applied.application.version,
+      operationId: "g6a-archive-archive-restore"
+    });
+    const restored = await fixture.repository.restoreApplication({
+      applicationId: archived.application.id,
+      expectedVersion: archived.application.version,
+      operationId: "g6a-restore-archive-restore"
+    });
+    expect(restored.application.appliedSnapshot).toMatchObject({
+      revisionId: created.application.selectedRevisionId,
+      branchRevision: created.application.selectedBranchRevision
+    });
+    expect(restored.application.appliedAt).toBe(TEST_TIME);
+  });
+
+  it("isolates two applications by branch and does not share timeline", async () => {
+    const fixture = await setupApplicationFixture();
+    const secondBranch = await createSecondBranch(fixture.repository);
+    const appA = await fixture.repository.createApplicationFromBranch({
+      branchId: fixture.branch.id,
+      expectedBranchRevision: fixture.branch.revision,
+      expectedRevisionId: fixture.branch.currentRevisionId!,
+      operationId: "g6a-isolation-a"
+    });
+    const appB = await fixture.repository.createApplicationFromBranch({
+      branchId: secondBranch.id,
+      expectedBranchRevision: secondBranch.revision,
+      expectedRevisionId: secondBranch.currentRevisionId!,
+      operationId: "g6a-isolation-b"
+    });
+    expect(appA.application.id).not.toBe(appB.application.id);
+    expect(appA.application.jobSpecificBranchId).toBe(fixture.branch.id);
+    expect(appB.application.jobSpecificBranchId).toBe(secondBranch.id);
+    expect(appA.application.jobId).not.toBe(appB.application.jobId);
+
+    await fixture.repository.updateApplicationDetails({
+      applicationId: appA.application.id,
+      expectedVersion: appA.application.version,
+      operationId: "g6a-details-a",
+      note: "Application A note",
+      priority: "high"
+    });
+    const afterA = await fixture.repository.getApplication(appA.application.id);
+    const afterB = await fixture.repository.getApplication(appB.application.id);
+    expect(afterA!.note).toBe("Application A note");
+    expect(afterA!.priority).toBe("high");
+    expect(afterB!.note).toBeUndefined();
+    expect(afterB!.priority).toBe("normal");
+    expect(afterA!.timeline.length).toBeGreaterThan(afterB!.timeline.length);
+  });
 });
 
 async function setupApplicationFixture() {
