@@ -118,6 +118,15 @@ G2第一阶段在 `/resume` 右侧区域增加模板中心：
 - 缩略图复用正式模板 renderer 和当前 `ResumeRenderModel`，不写入展示配置，不独立测量 overflow，不进入 PDF。
 - 应用模板复用现有展示操作串行队列，增加 `presentationRevision`，不创建内容 `ResumeRevision`，不运行 Fact Guard。
 
+## G5b模板适用性诊断
+
+G5b 复用静态 Template Registry 的 `category`、`layout`、`atsLevel`、`suitableRoles`、`tags`、`capabilities` 和 `defaultPresentationStyle` 生成模板适用性诊断。
+
+- 推荐模板必须说明依据，只能作为建议卡片展示。
+- 应用推荐模板仍由用户点击，走展示配置串行队列，增加 `presentationRevision`。
+- 模板推荐不创建事实，不创建内容 `ResumeRevision`，不运行 Fact Guard。
+- `atsLevel` 仍是产品内部结构标签，不是第三方认证或保证通过。
+
 ## 模板升级兼容
 
 - 模板必须有版本号。

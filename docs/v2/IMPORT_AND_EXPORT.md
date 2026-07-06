@@ -154,6 +154,14 @@ G3b 在 G3a 直接 PDF 基础上增加一页/最多两页策略：
 - `pagePolicy`、`requestedMaxPages`、`actualPageCount`、`pageBreakBeforeSections`、`paginationHash`、`paginationSnapshot`、`exceededPageLimit`、`continuationHeader`、`pageSize`、`pageDimensions` 可用于 G3b 分页审计。
 - `errorCode`不保存原始堆栈。
 
+G5b 可选诊断摘要字段：
+
+- `diagnosticsEngineVersion`、`diagnosticsSnapshotHash`。
+- `criticalIssueCount`、`warningIssueCount`。
+- `requirementCoverageSummary`。
+
+这些字段均为可选，旧 ExportRecord 继续兼容。普通诊断 warning 不阻断导出；硬阻断仍只来自已有正式安全条件，例如无有效 Revision、非法分支、分页超过策略上限或 PDF 生成失败。
+
 ## PDF Golden Tests
 
 - 每套模板保留HTML截图、PDF页数、A4尺寸、中文文本抽取、无导航按钮、无裁切检查。

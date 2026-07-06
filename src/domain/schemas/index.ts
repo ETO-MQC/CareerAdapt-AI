@@ -2,6 +2,7 @@ export * from "./adaptationDraft";
 export * from "./ai";
 export * from "./branch";
 export * from "./common";
+export * from "./diagnostics";
 export * from "./export";
 export * from "./importDraft";
 export * from "./job";

@@ -342,6 +342,18 @@ export const ExportRecordSchema = EntityBaseSchema.extend({
   pageDimensions: z.object({
     widthMm: z.number().positive(),
     heightMm: z.number().positive()
+  }).optional(),
+  diagnosticsEngineVersion: z.string().min(1).optional(),
+  diagnosticsSnapshotHash: z.string().min(8).optional(),
+  criticalIssueCount: z.number().int().min(0).optional(),
+  warningIssueCount: z.number().int().min(0).optional(),
+  requirementCoverageSummary: z.object({
+    totalRequirements: z.number().int().min(0),
+    covered: z.number().int().min(0),
+    partial: z.number().int().min(0),
+    weak: z.number().int().min(0),
+    uncovered: z.number().int().min(0),
+    factGaps: z.number().int().min(0)
   }).optional()
 });
 

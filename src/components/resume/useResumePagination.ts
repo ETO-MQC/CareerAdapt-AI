@@ -5,12 +5,14 @@ import type { ResumePaginationPlan, ResumePresentationConfig } from "@/domain/sc
 import {
   collectResumePaginationMeasurement,
   createResumePaginationPlan,
-  isPaginationPlanBlocked
+  isPaginationPlanBlocked,
+  type ResumePaginationMeasurement
 } from "@/services/export/pagination";
 
 export type ResumePaginationState = {
   status: ResumePaginationPlan["status"] | "measuring" | "measurement_failed";
   plan?: ResumePaginationPlan;
+  measurement?: ResumePaginationMeasurement;
   blocked: boolean;
   measure: () => void;
 };
@@ -21,24 +23,29 @@ export function useResumePagination(
   deps: unknown[] = []
 ): ResumePaginationState {
   const [plan, setPlan] = useState<ResumePaginationPlan | undefined>();
+  const [measurement, setMeasurement] = useState<ResumePaginationMeasurement | undefined>();
   const [status, setStatus] = useState<ResumePaginationState["status"]>("measuring");
 
   const measure = useCallback(() => {
     const element = ref.current;
     if (!element || !paginationConfig) {
       setPlan(undefined);
+      setMeasurement(undefined);
       setStatus("measurement_failed");
       return;
     }
     try {
+      const nextMeasurement = collectResumePaginationMeasurement(element);
       const nextPlan = createResumePaginationPlan({
-        measurement: collectResumePaginationMeasurement(element),
+        measurement: nextMeasurement,
         paginationConfig
       });
       setPlan(nextPlan);
+      setMeasurement(nextMeasurement);
       setStatus(nextPlan.status);
     } catch {
       setPlan(undefined);
+      setMeasurement(undefined);
       setStatus("measurement_failed");
     }
   }, [paginationConfig, ref]);
@@ -97,6 +104,7 @@ export function useResumePagination(
   return {
     status,
     plan,
+    measurement,
     blocked: isPaginationPlanBlocked(plan),
     measure
   };

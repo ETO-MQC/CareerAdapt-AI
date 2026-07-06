@@ -2028,6 +2028,11 @@ export class WorkspaceRepository {
     continuationHeader?: ExportRecord["continuationHeader"];
     pageSize?: ExportRecord["pageSize"];
     pageDimensions?: ExportRecord["pageDimensions"];
+    diagnosticsEngineVersion?: string;
+    diagnosticsSnapshotHash?: string;
+    criticalIssueCount?: number;
+    warningIssueCount?: number;
+    requirementCoverageSummary?: ExportRecord["requirementCoverageSummary"];
     allowHistoricalRevision?: boolean;
   }) {
     return this.db.transaction("rw", this.db.resumeBranches, this.db.resumeRevisions, this.db.exportRecords, async () => {
@@ -2104,6 +2109,11 @@ export class WorkspaceRepository {
         continuationHeader: input.continuationHeader,
         pageSize: input.pageSize,
         pageDimensions: input.pageDimensions,
+        diagnosticsEngineVersion: input.diagnosticsEngineVersion,
+        diagnosticsSnapshotHash: input.diagnosticsSnapshotHash,
+        criticalIssueCount: input.criticalIssueCount,
+        warningIssueCount: input.warningIssueCount,
+        requirementCoverageSummary: input.requirementCoverageSummary,
         createdAt: now,
         updatedAt: now
       });

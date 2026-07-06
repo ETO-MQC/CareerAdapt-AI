@@ -6,6 +6,10 @@ import {
   type CareerProfile,
   type JobDescription,
   type OverflowStatus,
+  type RequirementMatch,
+  type ResumeDiagnosticAction,
+  type ResumeDiagnosticIssue,
+  type ResumeDiagnosticSnapshot,
   type ResumePaginationPlan,
   type ResumeBranch,
   type ResumePresentationConfig,
@@ -16,8 +20,15 @@ import {
 import { mapBranchToResumeRenderModel, ResumeRenderMapperError } from "@/domain/resumeRender/mapper";
 import { A4ResumePreview } from "@/components/resume/A4ResumePreview";
 import { TemplateCenter } from "@/components/resume/TemplateCenter";
+import { ResumeDiagnosticsPanel } from "@/components/resume/diagnostics/ResumeDiagnosticsPanel";
 import { ResumeImportWizard } from "@/components/resume/import/ResumeImportWizard";
 import { JobOptimizationPanel } from "@/components/resume/optimization/JobOptimizationPanel";
+import { buildRequirementBlockMatches, computeRequirementsHash } from "@/domain/jobOptimization";
+import {
+  isResumeDiagnosticSnapshotStale,
+  runResumeDiagnostics,
+  type ResumeDiagnosticTemplateInfo
+} from "@/domain/resumeDiagnostics";
 import { mapBranchToResumeDocument } from "@/domain/resumeDocument/mapper";
 import { useResumePagination } from "@/components/resume/useResumePagination";
 import {
@@ -91,6 +102,11 @@ export function ResumeWorkspace() {
   const [pendingTemplateApplyId, setPendingTemplateApplyId] = useState<TemplateId | undefined>();
   const [activePropertyTab, setActivePropertyTab] = useState<PropertyPanelTab>("document");
   const [pdfExportState, setPdfExportState] = useState<PdfExportState>({ status: "idle" });
+  const [diagnosticSnapshot, setDiagnosticSnapshot] = useState<ResumeDiagnosticSnapshot | undefined>();
+  const [diagnosticRequirementsHash, setDiagnosticRequirementsHash] = useState<string | undefined>();
+  const [diagnosticRunning, setDiagnosticRunning] = useState(false);
+  const [diagnosticError, setDiagnosticError] = useState<string | undefined>();
+  const [ignoredDiagnosticIssueKeys, setIgnoredDiagnosticIssueKeys] = useState<string[]>([]);
 
   const presentationQueueRef = useRef<{
     promise: Promise<void>;
@@ -103,6 +119,7 @@ export function ResumeWorkspace() {
     undoStack: [],
     redoStack: []
   });
+  const diagnosticRunSeqRef = useRef(0);
 
   function enqueuePresentation(operation: (config: ResumePresentationConfig) => Promise<ResumePresentationConfig | undefined>) {
     const queue = presentationQueueRef.current;
@@ -199,6 +216,23 @@ export function ResumeWorkspace() {
   const isPdfExportBusy = pdfExportState.status === "validating"
     || pdfExportState.status === "generating"
     || pdfExportState.status === "downloading";
+  const diagnosticsStale = isResumeDiagnosticSnapshotStale({
+    snapshot: diagnosticSnapshot,
+    branchRevision: selectedBranch?.revision,
+    currentRevisionId: selectedBranch?.currentRevisionId ?? undefined,
+    presentationRevision: presentationConfig?.presentationRevision,
+    templateId: presentationConfig?.templateId ?? effectiveTemplateId,
+    pagePolicy: presentationConfig?.pagination.pagePolicy,
+    paginationHash: pagination.plan?.paginationHash,
+    requirementsHash: diagnosticRequirementsHash
+  });
+  const exportDiagnosticSummary = diagnosticSnapshot && !diagnosticsStale ? {
+    diagnosticsEngineVersion: diagnosticSnapshot.diagnosticsEngineVersion,
+    diagnosticsSnapshotHash: diagnosticSnapshot.diagnosticHash,
+    criticalIssueCount: diagnosticSnapshot.summary.critical,
+    warningIssueCount: diagnosticSnapshot.summary.warning,
+    requirementCoverageSummary: diagnosticSnapshot.summary.requirementCoverage
+  } : undefined;
 
   const refreshLists = useCallback(async (profileId: string) => {
     const [nextDrafts, nextBranches] = await Promise.all([
@@ -320,6 +354,34 @@ export function ResumeWorkspace() {
   }, [isStudioEditMode, clearStudioEditor]);
 
   useEffect(() => {
+    if (!activeBranchId) {
+      let active = true;
+      queueMicrotask(() => {
+        if (active) {
+          setIgnoredDiagnosticIssueKeys([]);
+          setDiagnosticSnapshot(undefined);
+          setDiagnosticRequirementsHash(undefined);
+        }
+      });
+      return () => {
+        active = false;
+      };
+    }
+    let active = true;
+    async function loadIgnoredDiagnostics() {
+      const stored = await repository.getMeta(resumeDiagnosticsIgnoredKey(activeBranchId));
+      if (!active) {
+        return;
+      }
+      setIgnoredDiagnosticIssueKeys(parseIgnoredDiagnosticKeys(stored?.value));
+    }
+    void loadIgnoredDiagnostics();
+    return () => {
+      active = false;
+    };
+  }, [activeBranchId]);
+
+  useEffect(() => {
     if (!profile || !activeBranchId) {
       return;
     }
@@ -329,6 +391,249 @@ export function ResumeWorkspace() {
       stylePanelOpen: isStylePanelOpen
     } satisfies WorkbenchState);
   }, [profile, activeBranchId, effectiveTemplateId, isStylePanelOpen]);
+
+  const runDiagnostics = useCallback(async () => {
+    if (!selectedBranch || !renderModel || !presentationConfig) {
+      setDiagnosticError("no_branch_or_render_model");
+      return;
+    }
+    if (!selectedBranch.currentRevisionId) {
+      setDiagnosticError("no_current_revision");
+      return;
+    }
+    if (!pagination.plan || pagination.status === "measuring") {
+      setDiagnosticError("measuring");
+      return;
+    }
+
+    const runId = diagnosticRunSeqRef.current + 1;
+    diagnosticRunSeqRef.current = runId;
+    setDiagnosticRunning(true);
+    setDiagnosticError(undefined);
+    try {
+      let requirementMatches: RequirementMatch[] = [];
+      if (profile && selectedBranchJob) {
+        requirementMatches = await repository.listRequirementMatches(profile.id, selectedBranchJob.id);
+      }
+      if (diagnosticRunSeqRef.current !== runId) {
+        return;
+      }
+      const requirementsHash = selectedBranchJob
+        ? computeRequirementsHash({ job: selectedBranchJob, matches: requirementMatches })
+        : undefined;
+      const requirementBlockMatches = profile && selectedBranchJob && selectedBranch.currentRevisionId && requirementMatches.length > 0
+        ? buildRequirementBlockMatches({
+          profile,
+          job: selectedBranchJob,
+          branch: selectedBranch,
+          matches: requirementMatches
+        })
+        : [];
+      const snapshot = runResumeDiagnostics({
+        branchId: selectedBranch.id,
+        branchRevision: selectedBranch.revision,
+        currentRevisionId: selectedBranch.currentRevisionId,
+        branchContentItems: selectedBranch.contentItems,
+        renderModel,
+        presentationConfig,
+        template: diagnosticTemplateInfo(selectedTemplate),
+        job: selectedBranchJob,
+        requirementMatches,
+        requirementBlockMatches,
+        requirementsHash,
+        paginationPlan: pagination.plan,
+        paginationMeasurement: pagination.measurement,
+        ignoredIssueKeys: ignoredDiagnosticIssueKeys
+      });
+      if (diagnosticRunSeqRef.current !== runId) {
+        return;
+      }
+      setDiagnosticRequirementsHash(requirementsHash);
+      setDiagnosticSnapshot(snapshot);
+      setDiagnosticError(undefined);
+    } catch {
+      if (diagnosticRunSeqRef.current === runId) {
+        setDiagnosticError("diagnostic_failed");
+      }
+    } finally {
+      if (diagnosticRunSeqRef.current === runId) {
+        setDiagnosticRunning(false);
+      }
+    }
+  }, [
+    ignoredDiagnosticIssueKeys,
+    pagination.measurement,
+    pagination.plan,
+    pagination.status,
+    presentationConfig,
+    profile,
+    renderModel,
+    selectedBranch,
+    selectedBranchJob,
+    selectedTemplate
+  ]);
+
+  useEffect(() => {
+    if (!selectedBranch || !renderModel || !presentationConfig || !pagination.plan || pagination.status === "measuring") {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      void runDiagnostics();
+    }, 450);
+    return () => window.clearTimeout(timer);
+  }, [
+    ignoredDiagnosticIssueKeys,
+    pagination.plan,
+    pagination.status,
+    presentationConfig,
+    renderModel,
+    runDiagnostics,
+    selectedBranch
+  ]);
+
+  function locateDiagnosticIssue(issue: ResumeDiagnosticIssue) {
+    const itemId = issue.contentItemIds[0];
+    if (itemId) {
+      setIsStudioEditMode(true);
+      setSelectedStudioItemId(itemId);
+      setEditingStudioItemId(undefined);
+      setStudioDraftText("");
+      setActivePropertyTab("block");
+      window.requestAnimationFrame(() => {
+        document.querySelector(`[data-source-item-id="${cssEscape(itemId)}"]`)?.scrollIntoView({
+          block: "center",
+          behavior: "smooth"
+        });
+      });
+      setMessage("已定位到诊断关联区块。");
+      return;
+    }
+    if (issue.sectionType) {
+      setActivePropertyTab("section");
+      setMessage(`诊断关联 Section：${issue.sectionType}。`);
+      return;
+    }
+    if (issue.requirementIds[0]) {
+      setMessage(`诊断关联 Requirement：${issue.requirementIds[0]}。请在岗位优化面板中查看对应要求。`);
+      return;
+    }
+    setMessage("该诊断项没有更细粒度定位目标。");
+  }
+
+  async function applyDiagnosticAction(issue: ResumeDiagnosticIssue, action: ResumeDiagnosticAction) {
+    const payload = actionPayload(action);
+    if (action.kind === "ignore_issue") {
+      await ignoreDiagnosticIssue(issue);
+      return;
+    }
+    if (action.kind === "open_content_editor") {
+      const contentItemId = stringPayload(payload, "contentItemId") ?? issue.contentItemIds[0];
+      if (contentItemId) {
+        setIsStudioEditMode(true);
+        setActivePropertyTab("block");
+        startStudioEdit(contentItemId);
+      } else {
+        setMessage("请在正文编辑区选择需要修改的区块。");
+      }
+      return;
+    }
+    if (action.kind === "open_job_suggestion") {
+      setMessage("请在“针对岗位优化”面板中查看 Requirement 映射或生成区块建议。");
+      return;
+    }
+    if (action.kind === "open_fact_gap") {
+      setMessage("事实缺口需要先补充或确认事实；诊断不会自动写入岗位关键词。");
+      return;
+    }
+    if (!selectedBranchEditable) {
+      setMessage("当前分支不可保存展示修复。");
+      return;
+    }
+    if (action.kind === "set_density") {
+      const density = presentationDensityPayload(payload) ?? "compact";
+      await updatePresentationStyle((current) => ({
+        theme: { ...current.theme, density }
+      }), "诊断修复已调整页面密度。");
+      return;
+    }
+    if (action.kind === "set_body_scale") {
+      const bodyTextScale = presentationBodyScalePayload(payload);
+      const titleTextScale = presentationTitleScalePayload(payload);
+      await updatePresentationStyle((current) => ({
+        typography: {
+          ...current.typography,
+          bodyTextScale: bodyTextScale ?? current.typography.bodyTextScale,
+          titleTextScale: titleTextScale ?? current.typography.titleTextScale
+        }
+      }), "诊断修复已调整字号。");
+      return;
+    }
+    if (action.kind === "set_line_height") {
+      const lineHeight = presentationLineHeightPayload(payload) ?? "normal";
+      await updatePresentationStyle((current) => ({
+        typography: { ...current.typography, lineHeight }
+      }), "诊断修复已调整行距。");
+      return;
+    }
+    if (action.kind === "set_section_gap") {
+      const sectionGap = presentationSpacingPayload(payload, "sectionGap") ?? "tight";
+      await updatePresentationStyle((current) => ({
+        spacing: { ...current.spacing, sectionGap }
+      }), "诊断修复已调整 Section 间距。");
+      return;
+    }
+    if (action.kind === "set_item_gap") {
+      const itemGap = presentationSpacingPayload(payload, "itemGap") ?? "normal";
+      await updatePresentationStyle((current) => ({
+        spacing: { ...current.spacing, itemGap }
+      }), "诊断修复已调整条目间距。");
+      return;
+    }
+    if (action.kind === "change_page_policy") {
+      const pagePolicy = pagePolicyPayload(payload);
+      if (pagePolicy) {
+        await updatePagePolicy(pagePolicy);
+      }
+      return;
+    }
+    if (action.kind === "switch_template") {
+      const templateId = templateIdPayload(payload);
+      if (templateId) {
+        await updatePresentationTemplate(templateId);
+      }
+      return;
+    }
+    if (action.kind === "cancel_section_break") {
+      const sectionType = sectionTypePayload(payload);
+      if (sectionType) {
+        await setSectionPageBreak(sectionType, false);
+      }
+      return;
+    }
+    if (action.kind === "hide_block" || action.kind === "show_block") {
+      const contentItemId = stringPayload(payload, "contentItemId") ?? issue.contentItemIds[0];
+      if (contentItemId) {
+        await setPresentationItemVisibility(contentItemId, action.kind === "show_block");
+      }
+      return;
+    }
+    if (action.kind === "move_block_up" || action.kind === "move_block_down") {
+      const contentItemId = stringPayload(payload, "contentItemId") ?? issue.contentItemIds[0];
+      if (contentItemId) {
+        await movePresentationItem(contentItemId, action.kind === "move_block_up" ? "up" : "down");
+      }
+    }
+  }
+
+  async function ignoreDiagnosticIssue(issue: ResumeDiagnosticIssue) {
+    if (!selectedBranch) {
+      return;
+    }
+    const next = Array.from(new Set([...ignoredDiagnosticIssueKeys, issue.issueKey]));
+    setIgnoredDiagnosticIssueKeys(next);
+    await repository.setMeta(resumeDiagnosticsIgnoredKey(selectedBranch.id), next);
+    setMessage("已忽略该诊断项；正文和展示配置均未改变。");
+  }
 
   const draftOptions = useMemo(() => drafts.map((draft) => {
     const job = jobs.find((item) => item.id === draft.jobId);
@@ -1034,7 +1339,8 @@ export function ResumeWorkspace() {
           exceededPageLimit: true,
           continuationHeader: "none",
           pageSize: "A4",
-          pageDimensions: { widthMm: 210, heightMm: 297 }
+          pageDimensions: { widthMm: 210, heightMm: 297 },
+          ...(exportDiagnosticSummary ?? {})
         });
         setMessage("导出已阻止：当前页数超过所选页面策略。");
         setPdfExportState({
@@ -1106,6 +1412,7 @@ export function ResumeWorkspace() {
         continuationHeader: "none",
         pageSize: "A4",
         pageDimensions: { widthMm: 210, heightMm: 297 },
+        ...(exportDiagnosticSummary ?? {}),
         allowHistoricalRevision: true
       });
       triggerBrowserDownload(new Blob([bytes], { type: PDF_MIME_TYPE }), fileName);
@@ -1217,7 +1524,8 @@ export function ResumeWorkspace() {
           exceededPageLimit: true,
           continuationHeader: "none",
           pageSize: "A4",
-          pageDimensions: { widthMm: 210, heightMm: 297 }
+          pageDimensions: { widthMm: 210, heightMm: 297 },
+          ...(exportDiagnosticSummary ?? {})
         });
         setMessage("导出已阻止：当前页数超过所选页面策略。");
         setPdfExportState({
@@ -1252,7 +1560,8 @@ export function ResumeWorkspace() {
         exceededPageLimit: false,
         continuationHeader: "none",
         pageSize: "A4",
-        pageDimensions: { widthMm: 210, heightMm: 297 }
+        pageDimensions: { widthMm: 210, heightMm: 297 },
+        ...(exportDiagnosticSummary ?? {})
       });
       printCurrentPage();
       setMessage(paginationPlan.status === "near_one_page_limit" || paginationPlan.status === "near_limit"
@@ -1315,7 +1624,8 @@ export function ResumeWorkspace() {
         exceededPageLimit: isPaginationPlanBlocked(input.paginationPlan),
         continuationHeader: "none",
         pageSize: "A4",
-        pageDimensions: { widthMm: 210, heightMm: 297 }
+        pageDimensions: { widthMm: 210, heightMm: 297 },
+        ...(exportDiagnosticSummary ?? {})
       });
     } catch {
       // A failed export must never be promoted to success; failure-record writes
@@ -1464,6 +1774,18 @@ export function ResumeWorkspace() {
               setMessage("结构建议已通过展示配置上移区块；未创建内容 Revision。");
             }}
             onMessage={setMessage}
+          />
+
+          <ResumeDiagnosticsPanel
+            snapshot={diagnosticSnapshot}
+            stale={diagnosticsStale}
+            running={diagnosticRunning}
+            error={diagnosticError}
+            canEdit={selectedBranchEditable}
+            onRun={() => { void runDiagnostics(); }}
+            onLocateIssue={locateDiagnosticIssue}
+            onApplyAction={(issue, action) => { void applyDiagnosticAction(issue, action); }}
+            onIgnoreIssue={(issue) => { void ignoreDiagnosticIssue(issue); }}
           />
 
           <div className="branch-editor">
@@ -2248,4 +2570,88 @@ function sectionTypeLabel(value: string) {
     return "证书";
   }
   return "项目与经历";
+}
+
+function diagnosticTemplateInfo(template: ReturnType<typeof getResumeTemplate>): ResumeDiagnosticTemplateInfo {
+  return {
+    id: template.id,
+    version: template.version,
+    category: template.category,
+    layout: template.layout,
+    atsLevel: template.atsLevel,
+    suitableRoles: template.suitableRoles,
+    tags: template.tags,
+    capabilities: template.capabilities
+  };
+}
+
+function parseIgnoredDiagnosticKeys(value: unknown) {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
+}
+
+function resumeDiagnosticsIgnoredKey(branchId: string) {
+  return `resumeDiagnosticsIgnored:${branchId}`;
+}
+
+function actionPayload(action: ResumeDiagnosticAction): Record<string, unknown> {
+  return action.payload && typeof action.payload === "object" && !Array.isArray(action.payload)
+    ? action.payload as Record<string, unknown>
+    : {};
+}
+
+function stringPayload(payload: Record<string, unknown>, key: string) {
+  const value = payload[key];
+  return typeof value === "string" ? value : undefined;
+}
+
+function presentationDensityPayload(payload: Record<string, unknown>): ResumePresentationConfig["theme"]["density"] | undefined {
+  const value = payload.density;
+  return value === "compact" || value === "balanced" || value === "spacious" ? value : undefined;
+}
+
+function presentationBodyScalePayload(payload: Record<string, unknown>): ResumePresentationConfig["typography"]["bodyTextScale"] | undefined {
+  const value = payload.bodyTextScale;
+  return value === "small" || value === "normal" || value === "large" ? value : undefined;
+}
+
+function presentationTitleScalePayload(payload: Record<string, unknown>): ResumePresentationConfig["typography"]["titleTextScale"] | undefined {
+  const value = payload.titleTextScale;
+  return value === "small" || value === "normal" || value === "large" ? value : undefined;
+}
+
+function presentationLineHeightPayload(payload: Record<string, unknown>): ResumePresentationConfig["typography"]["lineHeight"] | undefined {
+  const value = payload.lineHeight;
+  return value === "tight" || value === "normal" || value === "relaxed" ? value : undefined;
+}
+
+function presentationSpacingPayload(
+  payload: Record<string, unknown>,
+  key: "sectionGap" | "itemGap"
+): ResumePresentationConfig["spacing"]["sectionGap"] | undefined {
+  const value = payload[key];
+  return value === "tight" || value === "normal" || value === "relaxed" ? value : undefined;
+}
+
+function pagePolicyPayload(payload: Record<string, unknown>): ResumePresentationConfig["pagination"]["pagePolicy"] | undefined {
+  const value = payload.pagePolicy;
+  return value === "one_page_strict" || value === "up_to_two_pages" ? value : undefined;
+}
+
+function templateIdPayload(payload: Record<string, unknown>): TemplateId | undefined {
+  const value = payload.templateId;
+  return isResumeTemplateId(value) ? value : undefined;
+}
+
+function sectionTypePayload(payload: Record<string, unknown>): "summary" | "experience" | "skills" | "certificates" | undefined {
+  const value = payload.sectionType;
+  return value === "summary" || value === "experience" || value === "skills" || value === "certificates" ? value : undefined;
+}
+
+function cssEscape(value: string) {
+  if (typeof CSS !== "undefined" && typeof CSS.escape === "function") {
+    return CSS.escape(value);
+  }
+  return value.replace(/["\\]/g, "\\$&");
 }

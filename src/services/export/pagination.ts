@@ -13,6 +13,7 @@ export type ResumePaginationBlockMeasurement = {
   top: number;
   bottom: number;
   height: number;
+  horizontalOverflow?: boolean;
 };
 
 export type ResumePaginationSectionMeasurement = {
@@ -71,7 +72,8 @@ export function collectResumePaginationMeasurement(pageElement: HTMLElement): Re
       sectionType,
       top: rect.top - pageRect.top,
       bottom: rect.bottom - pageRect.top,
-      height: rect.height
+      height: rect.height,
+      horizontalOverflow: element.scrollWidth > element.clientWidth + 2
     }];
   });
 

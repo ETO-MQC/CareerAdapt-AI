@@ -71,6 +71,16 @@ G5a 在 G4a general branch 基础上补齐岗位定向闭环，但继续复用�
 - 接受建议通过 `applyResumeBlockSuggestion` 原子写入：校验 stale -> 运行 Fact Guard -> 更新目标 content item -> 创建 `suggestion_accept` 内容 revision -> 更新 draft snapshot 和 suggestion operation。
 - 结构建议仍属于展示层配置；上移/隐藏不创建内容 revision，也不运行 Fact Guard。
 
+## G5b派生诊断
+
+G5b 新增 `ResumeDiagnosticSnapshot` 派生视图，输入来自当前 `ResumeBranch`、`ResumeRenderModel`、`ResumePresentationConfig`、`PaginationPlan`、Template Registry 元数据、`JobDescription.requirements` 和 G5a `RequirementBlockMatch`。
+
+- 诊断结果不持久化为 Dexie 表，不升级 Dexie。
+- 诊断不写 `CareerProfile`、`ResumeBranch.contentItems`、`factRefs` 或 `ResumeRevision`。
+- 忽略状态可按 branch 存到现有 `appMeta`，不是正式事实。
+- 安全动作复用 `saveResumePresentationConfig` 和展示配置串行队列。
+- ExportRecord 只可选保存诊断摘要，不保存完整诊断缓存或原始 PDF Blob。
+
 ## Repository职责
 
 G0a在 WorkspaceRepository 中增加轻量适配方法或直接复用现有方法：

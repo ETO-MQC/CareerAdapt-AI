@@ -28,6 +28,7 @@ V2采用“结构化区块编辑器 + 所见即所得预览 + 有约束的布局
 - import reviewing：文本型 PDF 已提取但未确认时，显示审阅面板、页文本来源、结构化 item 和确认/取消操作，不写正式事实。
 - general branch：从已有简历导入得到的通用分支显示为“通用简历 / 无目标岗位”，允许继续使用模板、编辑、分页和 PDF 导出。
 - job optimization reviewing：岗位优化面板展开后，用户可选择/创建目标岗位、刷新 requirement 映射、查看 fact gap、生成 block 建议并审阅 diff；未接受建议前不修改正式正文。
+- diagnostics reviewing：简历诊断面板基于当前正文、岗位要求、展示配置、模板和分页计划生成派生诊断；定位可以选中区块或提示 Requirement，安全修复只走展示配置队列。
 
 ## Section和Block
 
@@ -81,6 +82,15 @@ V2采用“结构化区块编辑器 + 所见即所得预览 + 有约束的布局
 - 建议详情必须展示原文、建议文本、inline diff、理由、证据和 Fact Guard 预检。
 - 接受和编辑后接受才创建内容 `ResumeRevision`；拒绝、忽略、重新生成不改正式正文。
 - 结构建议当前只走展示配置的上移/隐藏路径，不创建内容 revision。
+
+## G5b简历诊断入口
+
+- 诊断入口位于 Resume Studio 当前分支上下文中，面板使用 `.no-print`，不进入 PDF。
+- 摘要展示问题数、critical/warning/info、岗位覆盖、页数、模板和 ATS 结构风险。
+- Issue 卡片展示问题、证据、严重程度、Requirement、Section、contentItemId 和推荐动作。
+- “定位”只更新选中区块或提示对应 Requirement，不修改正文。
+- 一键动作只允许安全展示配置：密度、字号、行距、间距、模板、页数策略、断页、显示隐藏和同 Section 上移下移。
+- 正文问题跳转到编辑或 G5a/fact gap 路径，不自动重写正文。
 
 ## 键盘和可访问性
 

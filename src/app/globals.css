@@ -1498,6 +1498,127 @@ p {
   margin-bottom: 0;
 }
 
+.diagnostics-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.diagnostics-summary {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(116px, 1fr));
+}
+
+.diagnostics-summary-tile {
+  display: grid;
+  gap: 2px;
+  min-height: 64px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfbf8;
+}
+
+.diagnostics-summary-tile span {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.diagnostics-summary-tile strong {
+  color: var(--ink);
+  font-size: 1rem;
+}
+
+.diagnostics-summary-tile-critical {
+  border-color: #e4b4b4;
+  background: #fff1f1;
+}
+
+.diagnostics-summary-tile-warning {
+  border-color: #e4c48a;
+  background: #fff8e8;
+}
+
+.diagnostic-notice {
+  padding: 10px 12px;
+  border: 1px solid #d7c98f;
+  border-radius: 8px;
+  background: #fff8df;
+  color: #6f4f00;
+}
+
+.diagnostic-filter-row,
+.diagnostic-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.diagnostic-issue-list {
+  display: grid;
+  gap: 10px;
+}
+
+.diagnostic-card {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--accent);
+  border-radius: 8px;
+  background: var(--paper);
+}
+
+.diagnostic-card-warning {
+  border-left-color: #b5811b;
+}
+
+.diagnostic-card-critical {
+  border-left-color: #b83232;
+}
+
+.diagnostic-card-heading,
+.diagnostic-targets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.diagnostic-severity,
+.diagnostic-category {
+  display: inline-flex;
+  margin-right: 6px;
+  padding: 2px 6px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #f4f6f4;
+  color: var(--ink);
+}
+
+.diagnostic-evidence {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.diagnostic-evidence div {
+  display: grid;
+  grid-template-columns: minmax(96px, 0.35fr) 1fr;
+  gap: 8px;
+}
+
+.diagnostic-evidence dt {
+  color: var(--muted);
+}
+
+.diagnostic-evidence dd {
+  margin: 0;
+  word-break: break-word;
+}
+
 .visually-hidden {
   position: absolute;
   width: 1px;

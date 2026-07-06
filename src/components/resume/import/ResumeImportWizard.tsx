@@ -228,9 +228,17 @@ export function ResumeImportWizard(props: {
     if (!draft) {
       return;
     }
+    const previous = draft;
     const next = ImportedResumeDraftSchema.parse(updater(draft));
-    const saved = await props.repository.saveImportedResumeDraft(next, draft.revision);
-    setDraft(saved);
+    setDraft(next);
+    try {
+      const saved = await props.repository.saveImportedResumeDraft(next, previous.revision);
+      setDraft(saved);
+    } catch (error) {
+      setDraft(previous);
+      setMessage(error instanceof RevisionConflictError ? "保存失败：导入草稿已变化，请刷新后重试。" : "保存失败：请检查本地数据状态后重试。");
+      throw error;
+    }
   }
 
   async function updateBasicField(key: BasicFieldKey, value: string) {

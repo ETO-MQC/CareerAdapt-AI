@@ -179,3 +179,13 @@
 - 替代方案：新增 job optimization draft 表；把 AI 建议直接写入分支；在前端自由文本覆盖正文；导入独立富文本编辑器。
 - 后果：建议必须携带 branch revision、currentRevisionId、originalTextHash 和 requirementsHash；过期建议必须重新生成；结构建议仍走展示配置，不创建内容 revision。
 - 日期：2026-07-05
+
+## ADR-019 G5b诊断作为派生快照而非新事实源
+
+- 状态：Accepted
+- 背景：G5b 需要基于岗位覆盖、内容、排版、分页、模板和 ATS 结构风险给出可解释诊断，但不能新增第二套事实、匹配、分页或模板系统。
+- 决策：诊断使用类型化 `ResumeDiagnosticSnapshot` 派生结果，默认运行时计算，忽略状态只使用现有 `appMeta`，安全动作只走展示配置队列。
+- 理由：复用 G5a `RequirementBlockMatch`、G3b `PaginationPlan`、Template Registry 和既有 Repository 边界，避免新增 Dexie 表或修改 Fact Guard。
+- 替代方案：新增诊断表、接入第三方 ATS、用 AI 生成诊断正文、或直接自动改正文。
+- 后果：诊断不会成为正式事实来源；ExportRecord 只保存可选摘要；ATS 诊断只能表达结构风险，不能表达通过率或保证。
+- 日期：2026-07-06
