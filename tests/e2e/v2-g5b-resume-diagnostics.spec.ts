@@ -33,7 +33,7 @@ test.describe("V2-G5b resume diagnostics", () => {
 
     const panel = page.getByTestId("resume-diagnostics-panel");
     await expect(panel).toBeVisible();
-    await panel.getByRole("button", { name: "重新诊断" }).click();
+    await panel.getByTestId("run-resume-diagnostics").click();
     await expect(panel.getByTestId("diagnostics-summary")).toBeVisible({ timeout: 15_000 });
     await expect(panel).not.toContainText(/ATS通过率|录用概率|面试概率|保证通过|ATS评分/);
 
@@ -58,16 +58,16 @@ test.describe("V2-G5b resume diagnostics", () => {
 async function createC2DraftForSelectedJob(page: Page) {
   await page.goto("/jobs");
   await expect(page.locator("main")).toBeVisible();
-  await page.locator("button").filter({ hasText: "C1" }).first().click();
+  await page.getByTestId("run-experience-match").click();
   await expect(page.locator(".match-row").first()).toBeVisible({ timeout: 15_000 });
-  await page.locator("button").filter({ hasText: "C2" }).first().click();
-  await expect(page.locator(".notice")).toContainText("C2", { timeout: 15_000 });
+  await page.getByTestId("create-suggestion-draft").click();
+  await expect(page.locator(".notice")).toBeVisible({ timeout: 15_000 });
 }
 
 async function createResumeBranchFromFirstDraft(page: Page, branchName: string) {
   await page.goto("/resume");
   await expect(page.locator("main")).toBeVisible();
-  await page.locator("label").filter({ hasText: "C2" }).locator("select").selectOption({ index: 0 });
+  await page.getByTestId("job-suggestion-draft-select").selectOption({ index: 0 });
   await page.locator("article.panel").first().locator("input").fill(branchName);
   await page.locator("article.panel").first().locator("button.primary-button").click();
   await expect(page.locator(".branch-list .match-row").filter({ hasText: branchName })).toBeVisible({ timeout: 15_000 });

@@ -14,10 +14,12 @@ import {
   type PdfImportErrorCode,
   type PdfImportSession,
   type PdfPageText,
+  type CareerProfile,
   type ProfileBuilderFact,
   type ProfileBuilderOutput,
   type ProfileImportDraft,
-  type RawInputDocument
+  type RawInputDocument,
+  type Skill
 } from "@/domain/schemas";
 import { WorkspaceEmptyState, WorkspaceErrorState, WorkspaceLoadingState } from "@/components/workspace/WorkspaceStates";
 import { extractTextFromPdfBuffer } from "@/services/pdf/extractText";
@@ -27,6 +29,20 @@ import { RevisionConflictError, WorkspaceRepository } from "@/services/storage/r
 
 const repository = new WorkspaceRepository();
 const pdfInputId = "resume-pdf-upload";
+const profileArchiveKey = (profileId: string) => `profileArchive:${profileId}:skills`;
+type BasicDraft = {
+  name: string;
+  phone: string;
+  email: string;
+  location: string;
+  summary: string;
+};
+
+type BasicDraftState = BasicDraft & {
+  profileKey: string;
+};
+
+const emptyBasicDraft: BasicDraftState = { name: "", phone: "", email: "", location: "", summary: "", profileKey: "" };
 
 export function ProfileWorkspace() {
   const workspace = useWorkspace(repository);
@@ -43,6 +59,12 @@ export function ProfileWorkspace() {
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "failed" | "conflict">("idle");
   const [message, setMessage] = useState<string | undefined>();
   const [loadedDraft, setLoadedDraft] = useState(false);
+  const [profileOverride, setProfileOverride] = useState<CareerProfile | undefined>();
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [basicDraftState, setBasicDraftState] = useState<BasicDraftState>(emptyBasicDraft);
+  const [newSkillName, setNewSkillName] = useState("");
+  const [newSkillLevel, setNewSkillLevel] = useState<Skill["level"]>("familiar");
+  const [archivedSkills, setArchivedSkills] = useState<Skill[]>([]);
 
   useEffect(() => {
     let active = true;
@@ -123,6 +145,183 @@ export function ProfileWorkspace() {
   const redactionPreview = useMemo(() => redactSensitiveTextForModel(rawText), [rawText]);
   const output = draft?.manualSections ?? draft?.builderOutput;
   const pdfHasPromptInjectionRisk = Boolean(pdfSession?.hasPromptInjectionRisk);
+  const workspaceProfile = workspace.status === "ready" ? workspace.profiles[0] : undefined;
+  const profile = profileOverride ?? workspaceProfile;
+  const profileDraftKey = profile ? `${profile.id}:${profile.version}` : "";
+  const basicDraft = profile && basicDraftState.profileKey !== profileDraftKey
+    ? basicDraftFromProfile(profile, profileDraftKey)
+    : basicDraftState;
+
+  function setBasicDraft(nextDraft: BasicDraft) {
+    setBasicDraftState({ ...nextDraft, profileKey: profileDraftKey });
+  }
+
+  useEffect(() => {
+    if (!profile?.id) {
+      return;
+    }
+
+    let active = true;
+    const profileId = profile.id;
+    async function loadArchive() {
+      const stored = await repository.getMeta(profileArchiveKey(profileId));
+      if (!active) {
+        return;
+      }
+      setArchivedSkills(parseArchivedSkills(stored?.value));
+    }
+    void loadArchive();
+
+    return () => {
+      active = false;
+    };
+  }, [profile?.id]);
+
+  async function saveProfileSnapshot(nextProfile: CareerProfile, successMessage: string) {
+    setProfileSaving(true);
+    try {
+      const saved = await repository.saveProfile(nextProfile);
+      setProfileOverride(saved);
+      setSaveStatus("saved");
+      setMessage(successMessage);
+      return saved;
+    } catch {
+      setSaveStatus("failed");
+      setMessage("个人资料保存失败，请检查字段是否完整。");
+      return undefined;
+    } finally {
+      setProfileSaving(false);
+    }
+  }
+
+  async function saveProfileBasics() {
+    if (!profile) {
+      setMessage("请先导入或创建个人资料。");
+      return;
+    }
+    const name = basicDraft.name.trim();
+    if (!name) {
+      setMessage("姓名不能为空。");
+      return;
+    }
+
+    const now = new Date().toISOString();
+    await saveProfileSnapshot({
+      ...profile,
+      name,
+      basics: {
+        ...profile.basics,
+        name,
+        phone: optionalText(basicDraft.phone),
+        email: optionalText(basicDraft.email),
+        location: optionalText(basicDraft.location),
+        summary: optionalText(basicDraft.summary)
+      },
+      version: profile.version + 1,
+      updatedAt: now
+    }, "个人资料已保存。");
+  }
+
+  async function addSkill() {
+    if (!profile) {
+      setMessage("请先导入或创建个人资料。");
+      return;
+    }
+    const name = newSkillName.trim();
+    if (!name) {
+      setMessage("请先填写技能名称。");
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const skill = buildUserSkill(name, newSkillLevel, now);
+    const saved = await saveProfileSnapshot({
+      ...profile,
+      skills: [...profile.skills, skill],
+      version: profile.version + 1,
+      updatedAt: now
+    }, "技能已加入个人资料。");
+    if (saved) {
+      setNewSkillName("");
+      setNewSkillLevel("familiar");
+    }
+  }
+
+  async function updateSkill(skillId: string, patch: Partial<Pick<Skill, "name" | "level">>) {
+    if (!profile) {
+      return;
+    }
+    const now = new Date().toISOString();
+    const nextSkills = profile.skills.map((skill) => {
+      if (skill.id !== skillId) {
+        return skill;
+      }
+      const name = patch.name?.trim() || skill.name;
+      return {
+        ...skill,
+        ...patch,
+        name,
+        updatedAt: now,
+        fact: skill.fact
+          ? {
+              ...skill.fact,
+              statement: `掌握${name}`,
+              updatedAt: now
+            }
+          : skill.fact
+      };
+    });
+    await saveProfileSnapshot({
+      ...profile,
+      skills: nextSkills,
+      version: profile.version + 1,
+      updatedAt: now
+    }, "技能已更新。");
+  }
+
+  async function archiveSkill(skillId: string) {
+    if (!profile) {
+      return;
+    }
+    const target = profile.skills.find((skill) => skill.id === skillId);
+    if (!target) {
+      return;
+    }
+    const now = new Date().toISOString();
+    const nextArchive = [target, ...archivedSkills.filter((skill) => skill.id !== skillId)].slice(0, 20);
+    const saved = await saveProfileSnapshot({
+      ...profile,
+      skills: profile.skills.filter((skill) => skill.id !== skillId),
+      version: profile.version + 1,
+      updatedAt: now
+    }, "技能已移出当前资料，可在下方恢复。");
+    if (saved) {
+      setArchivedSkills(nextArchive);
+      await repository.setMeta(profileArchiveKey(profile.id), nextArchive);
+    }
+  }
+
+  async function restoreSkill(skillId: string) {
+    if (!profile) {
+      return;
+    }
+    const target = archivedSkills.find((skill) => skill.id === skillId);
+    if (!target) {
+      return;
+    }
+    const now = new Date().toISOString();
+    const nextArchive = archivedSkills.filter((skill) => skill.id !== skillId);
+    const saved = await saveProfileSnapshot({
+      ...profile,
+      skills: profile.skills.some((skill) => skill.id === target.id) ? profile.skills : [...profile.skills, { ...target, updatedAt: now }],
+      version: profile.version + 1,
+      updatedAt: now
+    }, "技能已恢复到当前资料。");
+    if (saved) {
+      setArchivedSkills(nextArchive);
+      await repository.setMeta(profileArchiveKey(profile.id), nextArchive);
+    }
+  }
 
   async function handlePdfFileChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.currentTarget.files?.[0];
@@ -617,7 +816,7 @@ export function ProfileWorkspace() {
 
     if (rawInput.kind === "resume_pdf_text" && workspace.status === "ready" && workspace.profiles.length > 0 && !draft.committedProfileId) {
       setSaveStatus("failed");
-      setMessage("当前应用尚未提供多职业母档案选择/合并流程；已有正式 Profile 时，PDF 导入结果已保留为草稿，请手动核对处理。");
+      setMessage("已有个人资料时，PDF 导入结果会先保留为草稿；请在上方资料库中手动核对并合并。");
       return;
     }
 
@@ -637,6 +836,7 @@ export function ProfileWorkspace() {
         committedProfileId: result.profile.id,
         committedAt: new Date().toISOString()
       });
+      setProfileOverride(result.profile);
       if (rawInput.sourceSessionId) {
         const session = await repository.getPdfImportSession(rawInput.sourceSessionId);
         if (session) {
@@ -650,10 +850,10 @@ export function ProfileWorkspace() {
         }
       }
       setSaveStatus("saved");
-      setMessage(`已写入正式职业母档案：${result.profile.name}`);
+      setMessage(`已写入个人资料：${result.profile.name}`);
     } catch (error) {
       setSaveStatus(error instanceof RevisionConflictError ? "conflict" : "failed");
-      setMessage(error instanceof RevisionConflictError ? "提交失败：草稿版本已变化，请刷新后重试。" : "提交失败，请检查已确认事实。低置信度或未定位来源不会进入正式档案。");
+      setMessage(error instanceof RevisionConflictError ? "提交失败：草稿版本已变化，请刷新后重试。" : "提交失败，请检查已确认事实。低置信度或未定位来源不会进入个人资料。");
     }
   }
 
@@ -685,24 +885,128 @@ export function ProfileWorkspace() {
     );
   }
 
-  const profile = workspace.status === "ready" ? workspace.profiles[0] : undefined;
-
   return (
-    <main className="page-shell">
+    <main className="page-shell profile-workspace">
       <section className="page-title">
-        <p className="eyebrow">Stage E1 / Career Master Profile</p>
-        <h1>职业母档案导入</h1>
-        <p>粘贴文本或导入文本型 PDF，先生成可校对草稿；用户确认前不会写入正式事实层。</p>
+        <p className="eyebrow">个人资料库</p>
+        <h1>个人经历资料</h1>
+        <p>维护简历会用到的真实经历、联系方式和技能；导入内容需要你确认后才会进入资料库。</p>
       </section>
 
       {workspace.status === "empty" ? <WorkspaceEmptyState /> : null}
       {message ? <section className="notice">{message}</section> : null}
 
+      {profile ? (
+        <section className="profile-manager-grid">
+          <article className="panel profile-editor-panel">
+            <div className="section-heading compact-heading">
+              <div>
+                <h2>基本信息</h2>
+                <p>这些字段会进入简历页眉和个人简介。</p>
+              </div>
+              <span className={`save-status save-status-${saveStatus}`}>{profileSaving ? "保存中" : "本地已保存"}</span>
+            </div>
+            <div className="form-grid compact-form-grid">
+              <label className="field-label">
+                姓名
+                <input value={basicDraft.name} onChange={(event) => setBasicDraft({ ...basicDraft, name: event.target.value })} />
+              </label>
+              <label className="field-label">
+                电话
+                <input value={basicDraft.phone} onChange={(event) => setBasicDraft({ ...basicDraft, phone: event.target.value })} />
+              </label>
+              <label className="field-label">
+                邮箱
+                <input value={basicDraft.email} onChange={(event) => setBasicDraft({ ...basicDraft, email: event.target.value })} />
+              </label>
+              <label className="field-label">
+                所在地
+                <input value={basicDraft.location} onChange={(event) => setBasicDraft({ ...basicDraft, location: event.target.value })} />
+              </label>
+            </div>
+            <label className="field-label">
+              个人简介
+              <textarea className="textarea compact-textarea" value={basicDraft.summary} onChange={(event) => setBasicDraft({ ...basicDraft, summary: event.target.value })} />
+            </label>
+            <button className="primary-button" disabled={profileSaving} onClick={saveProfileBasics}>保存基本信息</button>
+          </article>
+
+          <article className="panel profile-editor-panel">
+            <div className="section-heading compact-heading">
+              <div>
+                <h2>技能</h2>
+                <p>新增技能会作为你确认过的事实，供岗位匹配和简历编辑使用。</p>
+              </div>
+            </div>
+            <div className="form-grid compact-form-grid">
+              <label className="field-label">
+                技能名称
+                <input value={newSkillName} onChange={(event) => setNewSkillName(event.target.value)} placeholder="例如 TypeScript" />
+              </label>
+              <label className="field-label">
+                熟练度
+                <select value={newSkillLevel} onChange={(event) => setNewSkillLevel(event.target.value as Skill["level"])}>
+                  <option value="basic">了解</option>
+                  <option value="familiar">熟悉</option>
+                  <option value="proficient">熟练</option>
+                </select>
+              </label>
+            </div>
+            <button className="primary-button" disabled={profileSaving} onClick={addSkill}>添加技能</button>
+            <div className="profile-item-list">
+              {profile.skills.map((skill) => (
+                <div key={skill.id} className="profile-item-row">
+                  <input defaultValue={skill.name} onBlur={(event) => { void updateSkill(skill.id, { name: event.target.value }); }} />
+                  <select value={skill.level ?? "familiar"} onChange={(event) => { void updateSkill(skill.id, { level: event.target.value as Skill["level"] }); }}>
+                    <option value="basic">了解</option>
+                    <option value="familiar">熟悉</option>
+                    <option value="proficient">熟练</option>
+                  </select>
+                  <button className="secondary-button compact" disabled={profileSaving} onClick={() => { void archiveSkill(skill.id); }}>移出</button>
+                </div>
+              ))}
+              {profile.skills.length === 0 ? <p>还没有技能。先添加一个你确认真实掌握的技能。</p> : null}
+            </div>
+            {archivedSkills.length > 0 ? (
+              <div className="profile-archive-list">
+                <strong>可恢复的技能</strong>
+                {archivedSkills.map((skill) => (
+                  <button key={skill.id} className="secondary-button compact" disabled={profileSaving} onClick={() => { void restoreSkill(skill.id); }}>
+                    恢复 {skill.name}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </article>
+
+          <article className="panel profile-summary-panel">
+            <h2>资料概览</h2>
+            <dl className="info-list">
+              <div><dt>姓名</dt><dd>{profile.name}</dd></div>
+              <div><dt>经历</dt><dd>{profile.experiences.length} 段</dd></div>
+              <div><dt>技能</dt><dd>{profile.skills.length} 项</dd></div>
+              <div><dt>证书</dt><dd>{profile.certificates.length} 项</dd></div>
+            </dl>
+            <div className="profile-source-list">
+              <strong>来源依据</strong>
+              {profile.experiences.slice(0, 3).flatMap((experience) => experience.facts.slice(0, 2)).map((fact) => (
+                <p key={fact.id}>{fact.statement}<br /><small>{fact.provenance[0]?.sourceText ?? "用户确认"}</small></p>
+              ))}
+            </div>
+          </article>
+        </section>
+      ) : (
+        <section className="panel">
+          <h2>还没有个人资料</h2>
+          <p>可以粘贴已有简历文本或导入文本型 PDF，核对后生成第一份个人资料。</p>
+        </section>
+      )}
+
       <section className="action-row import-tabs">
-        <button className={importMode === "paste" ? "primary-button" : "secondary-button"} onClick={() => setImportMode("paste")}>
+        <button data-testid="profile-import-paste-mode" className={importMode === "paste" ? "primary-button" : "secondary-button"} onClick={() => setImportMode("paste")}>
           粘贴文本
         </button>
-        <button className={importMode === "pdf" ? "primary-button" : "secondary-button"} onClick={() => setImportMode("pdf")}>
+        <button data-testid="profile-import-pdf-mode" className={importMode === "pdf" ? "primary-button" : "secondary-button"} onClick={() => setImportMode("pdf")}>
           导入文本型 PDF
         </button>
       </section>
@@ -712,13 +1016,14 @@ export function ProfileWorkspace() {
           <article className="panel">
             <h2>1. 粘贴简历文本</h2>
             <textarea
+              data-testid="profile-raw-textarea"
               className="textarea"
               value={rawText}
               onChange={(event) => setRawText(event.target.value)}
               placeholder="粘贴简历、经历清单或已有简历文本..."
             />
             <div className="action-row">
-              <button className="primary-button" onClick={startImport}>
+              <button className="primary-button" data-testid="save-profile-raw-input" onClick={startImport}>
                 保存原文
               </button>
               <span className={`save-status save-status-${saveStatus}`}>保存状态：{saveStatus}</span>
@@ -739,11 +1044,11 @@ export function ProfileWorkspace() {
               ) : null}
               {pdfSession ? (
                 <button className="secondary-button" onClick={deleteCurrentPdfSession}>
-                  删除导入 session
+                  删除导入记录
                 </button>
               ) : null}
               {pdfText.trim().length > 0 ? (
-                <button className="primary-button" onClick={startPdfDraft}>
+                <button className="primary-button" data-testid="profile-start-pdf-draft" onClick={startPdfDraft}>
                   使用提取文本创建草稿
                 </button>
               ) : null}
@@ -760,8 +1065,8 @@ export function ProfileWorkspace() {
             {pdfSession ? (
               <div className="warning-box">
                 <strong>{pdfSession.fileName}</strong>
-                <p>{pdfSession.pageCount} 页 / {pdfSession.textLength} 字 / fileHash {pdfSession.fileHash.slice(0, 12)}</p>
-                {pdfSession.normalizedTextHash ? <p>normalizedTextHash {pdfSession.normalizedTextHash.slice(0, 12)} / aiInputHash {pdfSession.aiInputHash?.slice(0, 12) ?? "待确认"}</p> : null}
+                <p>{pdfSession.pageCount} 页 / {pdfSession.textLength} 字 / 文件指纹 {pdfSession.fileHash.slice(0, 12)}</p>
+                {pdfSession.normalizedTextHash ? <p>文本指纹 {pdfSession.normalizedTextHash.slice(0, 12)} / 识别文本指纹 {pdfSession.aiInputHash?.slice(0, 12) ?? "待确认"}</p> : null}
                 {pdfSession.warnings.length > 0 ? <p>提示：{formatPdfWarnings(pdfSession.warnings).join(" / ")}</p> : null}
                 {pdfSession.errorMessage ? <p>{pdfSession.errorMessage}</p> : null}
               </div>
@@ -775,7 +1080,7 @@ export function ProfileWorkspace() {
                   <article key={page.id}>
                     <h3>第 {page.pageNumber} 页</h3>
                     <p>{page.cleanedPageText.slice(0, 260)}</p>
-                    <small>原始文本已保留用于核对；清洗文本用于 Profile Builder；低文本密度会提示 OCR 后置。</small>
+                    <small>原始文本已保留用于核对；清洗文本用于生成草稿；低文本密度会提示 OCR 后置。</small>
                   </article>
                 ))}
               </div>
@@ -798,13 +1103,13 @@ export function ProfileWorkspace() {
           <article className="panel">
             <h2>2. 外部模型与隐私说明</h2>
             <p>系统会在服务端默认脱敏手机号、邮箱、身份证号和精确地址后，再发送给外部模型。</p>
-            <p>本次 AI 输入 hash：{rawInput?.aiInputHash?.slice(0, 16) ?? rawInput?.inputHash.slice(0, 16)}</p>
+            <p>本次识别文本指纹：{rawInput?.aiInputHash?.slice(0, 16) ?? rawInput?.inputHash.slice(0, 16)}</p>
             <p>本次脱敏预览：{redactionPreview.redactions.length === 0 ? "未发现需脱敏内容" : redactionPreview.redactions.map((item) => `${item.type} x${item.count}`).join(" / ")}</p>
             <div className="action-row">
-              <button className="primary-button" onClick={analyzeWithAi}>
+              <button className="primary-button" data-testid="profile-analyze-ai" onClick={analyzeWithAi}>
                 同意脱敏并解析
               </button>
-              <button className="secondary-button" onClick={enterManualMode}>
+              <button className="secondary-button" data-testid="profile-manual-mode" onClick={enterManualMode}>
                 拒绝，手动分类
               </button>
             </div>
@@ -817,10 +1122,10 @@ export function ProfileWorkspace() {
           <div className="section-heading">
             <div>
               <h2>解析草稿与原文依据</h2>
-              <p>只勾选你确认属实的事实；未定位原文的低置信度内容不会进入正式母档案。</p>
+              <p>只勾选你确认属实的事实；未定位原文的低置信度内容不会进入个人资料。</p>
             </div>
-            <button className="primary-button" onClick={commitProfile}>
-              提交正式母档案
+            <button className="primary-button" data-testid="commit-profile" onClick={commitProfile}>
+              写入个人资料
             </button>
           </div>
           <div className="timeline">
@@ -845,17 +1150,17 @@ export function ProfileWorkspace() {
       ) : null}
 
       <section className="panel">
-        <h2>当前正式职业母档案</h2>
+        <h2>当前个人资料</h2>
         {profile ? (
           <div className="timeline">
             <article>
               <h3>{profile.name}</h3>
               <p>{profile.basics.summary}</p>
-              <p>{profile.experiences.length} 段经历 / {profile.skills.length} 项技能 / v{profile.version}</p>
+              <p>{profile.experiences.length} 段经历 / {profile.skills.length} 项技能</p>
             </article>
           </div>
         ) : (
-          <p>暂无正式母档案。</p>
+          <p>暂无个人资料。</p>
         )}
       </section>
     </main>
@@ -889,6 +1194,69 @@ function FactReviewRow({
       </span>
     </label>
   );
+}
+
+function optionalText(text: string) {
+  const trimmed = text.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function basicDraftFromProfile(profile: CareerProfile, profileKey: string): BasicDraftState {
+  return {
+    profileKey,
+    name: profile.name,
+    phone: profile.basics.phone ?? "",
+    email: profile.basics.email ?? "",
+    location: profile.basics.location ?? "",
+    summary: profile.basics.summary ?? ""
+  };
+}
+
+function buildUserSkill(name: string, level: Skill["level"], now: string): Skill {
+  const skillId = `skill-${nanoid(10)}`;
+  return {
+    id: skillId,
+    name,
+    level,
+    evidenceIds: [],
+    lastUsedAt: undefined,
+    createdAt: now,
+    updatedAt: now,
+    fact: {
+      id: `fact-${nanoid(10)}`,
+      statement: `掌握${name}`,
+      category: "skill",
+      confirmedByUser: true,
+      riskLevel: "low",
+      provenance: [{
+        sourceType: "user_input",
+        sourceId: skillId,
+        sourceText: name,
+        confidence: 1,
+        confirmedByUser: true,
+        riskLevel: "low",
+        createdAt: now
+      }],
+      createdAt: now,
+      updatedAt: now
+    }
+  };
+}
+
+function parseArchivedSkills(value: unknown): Skill[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.filter((item): item is Skill => {
+    return Boolean(
+      item
+      && typeof item === "object"
+      && "id" in item
+      && "name" in item
+      && typeof item.id === "string"
+      && typeof item.name === "string"
+    );
+  });
 }
 
 function createManualProfileOutput(rawText: string): ProfileBuilderOutput {

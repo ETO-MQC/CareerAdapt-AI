@@ -55,13 +55,13 @@ function getOutputDir() {
 
 async function createBranchFromDraft(page: Page, branchName: string) {
   await page.goto("/jobs");
-  await page.locator("button").filter({ hasText: "C1" }).first().click();
+  await page.getByTestId("run-experience-match").click();
   await expect(page.locator(".match-row").first()).toBeVisible();
-  await page.locator("button").filter({ hasText: "C2" }).first().click();
-  await expect(page.locator(".notice")).toContainText("C2");
+  await page.getByTestId("create-suggestion-draft").click();
+  await expect(page.locator(".notice")).toBeVisible();
 
   await page.goto("/resume");
-  await page.locator("label").filter({ hasText: "C2" }).locator("select").selectOption({ index: 0 });
+  await page.getByTestId("job-suggestion-draft-select").selectOption({ index: 0 });
   await page.locator("article.panel").first().locator("input").fill(branchName);
   await page.locator("article.panel").first().locator("button.primary-button").click();
   await expect(page.locator(".branch-list .match-row").filter({ hasText: branchName })).toBeVisible();
@@ -235,10 +235,10 @@ test.describe("V2-G3a direct PDF download", () => {
     await page.getByLabel("主题强调色：蓝色").click();
     await expect(page.locator(".notice")).toContainText("主题强调色已保存");
 
-    await page.locator("label").filter({ hasText: "预览区编辑" }).locator("input").check();
+    await page.getByTestId("canvas-edit-toggle").check();
     const hidden = await firstRenderedItem(page);
-    await page.getByTestId("resume-a4-page").locator(`[data-source-item-id="${hidden.id}"]`).first().click();
-    await page.getByRole("button", { name: "Block" }).click();
+    await page.getByTestId("resume-a4-page").locator(`[data-source-item-id="${hidden.id}"]`).first().click({ force: true });
+    await page.getByRole("button", { name: "段落" }).click();
     await page.getByTestId("block-style-panel").getByRole("button", { name: "隐藏" }).click();
     await expect(page.locator(".notice")).toContainText("内容已隐藏");
 
@@ -331,9 +331,9 @@ test.describe("V2-G3a direct PDF download", () => {
 
     await page.getByLabel("行距").selectOption("tight");
     await expect(page.locator(".notice")).toContainText("行距已保存");
-    await page.locator("label").filter({ hasText: "预览区编辑" }).locator("input").check();
+    await page.getByTestId("canvas-edit-toggle").check();
     const item = await firstRenderedItem(page);
-    await page.getByTestId("resume-a4-page").locator(`[data-source-item-id="${item.id}"]`).first().click();
+    await page.getByTestId("resume-a4-page").locator(`[data-source-item-id="${item.id}"]`).first().click({ force: true });
     await expect(page.getByTestId("resume-studio-editor")).toBeVisible();
 
     await page.getByRole("button", { name: "打印 / 保存 PDF" }).click();

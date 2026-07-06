@@ -44,15 +44,15 @@ export function ResumeDiagnosticsPanel({
   }, [openIssues]);
 
   return (
-    <section className="panel no-print diagnostics-panel" data-testid="resume-diagnostics-panel">
+    <section className="no-print diagnostics-panel studio-subpanel" data-testid="resume-diagnostics-panel">
       <div className="section-heading">
         <div>
           <h2>简历诊断</h2>
           <p aria-live="polite">
             {running
-              ? "正在诊断当前内容和展示状态。"
+              ? "正在检查当前内容、岗位匹配和版面状态。"
               : stale
-                ? "诊断已过期，请重新诊断。"
+                ? "诊断已过期，请重新检查。"
                 : snapshot
                   ? `最近诊断：${snapshot.summary.open} 个未处理问题。`
                   : "尚未运行诊断。"}
@@ -62,8 +62,8 @@ export function ResumeDiagnosticsPanel({
           <button className="secondary-button compact" type="button" onClick={() => setOpen((current) => !current)}>
             {open ? "收起" : "展开"}
           </button>
-          <button className="primary-button compact" type="button" disabled={running} onClick={onRun}>
-            重新诊断
+          <button className="primary-button compact" data-testid="run-resume-diagnostics" type="button" disabled={running} onClick={onRun}>
+            重新检查
           </button>
         </div>
       </div>
@@ -74,15 +74,19 @@ export function ResumeDiagnosticsPanel({
             <>
               <div className="diagnostics-summary" data-testid="diagnostics-summary">
                 <SummaryTile label="总问题" value={snapshot.summary.open} />
-                <SummaryTile label="critical" value={snapshot.summary.critical} tone="critical" />
-                <SummaryTile label="warning" value={snapshot.summary.warning} tone="warning" />
-                <SummaryTile label="info" value={snapshot.summary.info} />
+                <SummaryTile label="严重" value={snapshot.summary.critical} tone="critical" />
+                <SummaryTile label="提醒" value={snapshot.summary.warning} tone="warning" />
+                <SummaryTile label="提示" value={snapshot.summary.info} />
                 <SummaryTile label="岗位覆盖" value={`${snapshot.summary.requirementCoverage.covered}/${snapshot.summary.requirementCoverage.totalRequirements}`} />
                 <SummaryTile label="页数" value={`${snapshot.summary.page.actualPageCount}/${snapshot.summary.page.requestedMaxPages}`} />
-                <SummaryTile label="ATS结构" value={atsStatusLabel(snapshot.summary.atsStructureStatus)} />
-                <SummaryTile label="导出" value={snapshot.summary.exportHardBlocked ? "硬阻断" : "可继续"} tone={snapshot.summary.exportHardBlocked ? "critical" : undefined} />
+                <SummaryTile label="系统解析友好度" value={atsStatusLabel(snapshot.summary.atsStructureStatus)} />
+                <SummaryTile
+                  label="导出"
+                  value={snapshot.summary.exportHardBlocked ? "已阻断" : "可继续"}
+                  tone={snapshot.summary.exportHardBlocked ? "critical" : undefined}
+                />
               </div>
-              {stale ? <div className="diagnostic-notice" data-testid="stale-diagnostic">当前内容、岗位、模板或分页已变化，旧诊断仅作参考。</div> : null}
+              {stale ? <div className="diagnostic-notice" data-testid="stale-diagnostic">当前内容、岗位、模板或分页已变化，旧诊断仅供参考。</div> : null}
               <div className="diagnostic-filter-row" data-testid="diagnostic-category-filters">
                 {categories.map((category) => (
                   <button
@@ -109,7 +113,7 @@ export function ResumeDiagnosticsPanel({
               </div>
             </>
           ) : (
-            <div className="diagnostic-notice">点击“重新诊断”后，会基于当前正文、岗位要求、展示配置、模板和分页计划生成派生诊断结果。</div>
+            <div className="diagnostic-notice">点击“重新检查”后，会基于当前正文、岗位要求、展示设置、模板和分页状态生成诊断结果。</div>
           )}
         </>
       ) : null}
@@ -151,9 +155,9 @@ function DiagnosticIssueCard({
       <h3>{issue.title}</h3>
       <p>{issue.description}</p>
       <div className="diagnostic-targets">
-        {issue.requirementIds.length ? <span>Requirement：{issue.requirementIds.join(", ")}</span> : null}
-        {issue.sectionType ? <span>Section：{issue.sectionType}</span> : null}
-        {issue.contentItemIds.length ? <span>Block：{issue.contentItemIds.join(", ")}</span> : null}
+        {issue.requirementIds.length ? <span>岗位要求：{issue.requirementIds.join(", ")}</span> : null}
+        {issue.sectionType ? <span>栏目：{sectionTypeLabel(issue.sectionType)}</span> : null}
+        {issue.contentItemIds.length ? <span>段落：{issue.contentItemIds.join(", ")}</span> : null}
       </div>
       {issue.evidence.length ? (
         <dl className="diagnostic-evidence">
@@ -203,7 +207,7 @@ function severityLabel(severity: ResumeDiagnosticIssue["severity"]) {
     return "严重";
   }
   if (severity === "warning") {
-    return "警告";
+    return "提醒";
   }
   return "提示";
 }
@@ -218,12 +222,22 @@ function categoryLabel(category: DiagnosticFilter) {
     readability: "可读性",
     spacing: "间距",
     pagination: "分页",
-    template_fit: "模板",
-    ats_structure: "ATS结构",
+    template_fit: "模板适配",
+    ats_structure: "系统解析",
     contact_completeness: "联系方式",
-    section_structure: "Section"
+    section_structure: "栏目结构"
   };
   return labels[category];
+}
+
+function sectionTypeLabel(sectionType: ResumeDiagnosticIssue["sectionType"]) {
+  const labels: Record<string, string> = {
+    summary: "个人总结",
+    experience: "经历",
+    skills: "技能",
+    certificates: "证书"
+  };
+  return sectionType ? labels[sectionType] ?? sectionType : "";
 }
 
 function atsStatusLabel(status: ResumeDiagnosticSnapshot["summary"]["atsStructureStatus"]) {

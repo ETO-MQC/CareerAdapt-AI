@@ -28,6 +28,7 @@ export type TemplateCapabilities = {
 
 export type TemplateRenderContext = {
   selectedItemId?: string;
+  selectedProfileFieldId?: string;
   presentationConfig?: ResumePresentationConfig;
   thumbnail?: boolean;
   pagination?: {
@@ -307,7 +308,7 @@ export function resumeTemplateStyleVars(
 function ClassicTechnicalTemplate({ model, context }: { model: ResumeRenderModel; context?: TemplateRenderContext }) {
   return (
     <>
-      {!context?.pagination?.isContinuation ? <ResumeHeader model={model} /> : null}
+      {!context?.pagination?.isContinuation ? <ResumeHeader model={model} context={context} /> : null}
       {section(model, "summary", undefined, context)}
       {section(model, "skills", "inline", context)}
       {section(model, "experience", undefined, context)}
@@ -324,7 +325,7 @@ function ModernOperationsTemplate({ model, context }: { model: ResumeRenderModel
 
   return (
     <>
-      {!context?.pagination?.isContinuation ? <ResumeHeader model={model} compact /> : null}
+      {!context?.pagination?.isContinuation ? <ResumeHeader model={model} compact context={context} /> : null}
       <div className="resume-modern-grid">
         <aside>
           {summary ? <RenderSection section={summary} mode="compact" context={context} /> : null}
@@ -342,7 +343,7 @@ function ModernOperationsTemplate({ model, context }: { model: ResumeRenderModel
 function AtsMinimalTemplate({ model, context }: { model: ResumeRenderModel; context?: TemplateRenderContext }) {
   return (
     <>
-      {!context?.pagination?.isContinuation ? <ResumeHeader model={model} plain /> : null}
+      {!context?.pagination?.isContinuation ? <ResumeHeader model={model} plain context={context} /> : null}
       {section(model, "summary", "plain", context)}
       {section(model, "experience", "plain", context)}
       {section(model, "skills", "plainInline", context)}
@@ -359,7 +360,7 @@ function BusinessConsultingTemplate({ model, context }: { model: ResumeRenderMod
 
   return (
     <>
-      {!context?.pagination?.isContinuation ? <ResumeHeader model={model} compact /> : null}
+      {!context?.pagination?.isContinuation ? <ResumeHeader model={model} compact context={context} /> : null}
       <div className="resume-business-grid">
         <div>
           {summary ? <RenderSection section={summary} mode="compact" context={context} /> : null}
@@ -376,22 +377,24 @@ function BusinessConsultingTemplate({ model, context }: { model: ResumeRenderMod
 
 function ResumeHeader({
   model,
+  context,
   compact = false,
   plain = false
 }: {
   model: ResumeRenderModel;
+  context?: TemplateRenderContext;
   compact?: boolean;
   plain?: boolean;
 }) {
   return (
     <header className={`resume-template-header ${compact ? "resume-template-header-compact" : ""} ${plain ? "resume-template-header-plain" : ""}`}>
       <div>
-        <h1>{model.candidate.name}</h1>
+        <h1 {...profileFieldAttrs("profile:name", context)}>{model.candidate.name}</h1>
         <p>{model.company} / {model.jobTitle}</p>
       </div>
       <address>
-        {model.candidate.contacts.map((contact) => (
-          <span key={contact}>{contact}</span>
+        {model.candidate.contacts.map((contact, index) => (
+          <span key={contact} {...profileFieldAttrs(profileFieldIdForContact(contact, index), context)}>{contact}</span>
         ))}
       </address>
     </header>
@@ -478,6 +481,30 @@ function editableBlockAttrs(block: ResumeRenderBlock, context?: TemplateRenderCo
     "data-editable-block": "true",
     "data-selected": selected ? "true" : "false"
   };
+}
+
+function profileFieldAttrs(fieldId: string, context?: TemplateRenderContext) {
+  const selected = fieldId === context?.selectedProfileFieldId;
+  return {
+    className: selected ? "resume-template-inline-selected" : undefined,
+    "data-source-item-id": fieldId,
+    "data-profile-field-id": fieldId,
+    "data-editable-block": "true",
+    "data-selected": selected ? "true" : "false"
+  };
+}
+
+function profileFieldIdForContact(contact: string, index: number) {
+  if (contact.includes("@")) {
+    return "profile:email";
+  }
+  if (/[\d+\-()\s]{6,}/.test(contact)) {
+    return "profile:phone";
+  }
+  if (/^https?:\/\//i.test(contact)) {
+    return `profile:link:${index}`;
+  }
+  return "profile:location";
 }
 
 function selectedClass(block: ResumeRenderBlock, context?: TemplateRenderContext) {

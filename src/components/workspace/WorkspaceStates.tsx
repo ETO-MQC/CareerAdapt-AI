@@ -3,8 +3,8 @@
 export function WorkspaceLoadingState() {
   return (
     <section className="panel workspace-state" aria-live="polite">
-      <h2>正在加载 workspace</h2>
-      <p>首次打开会先写入阶段A演示 workspace，然后从 IndexedDB 读取页面数据。</p>
+      <h2>正在加载数据</h2>
+      <p>首次打开会准备一份本地示例数据，随后你可以创建自己的资料、简历和岗位。</p>
     </section>
   );
 }
@@ -12,7 +12,7 @@ export function WorkspaceLoadingState() {
 export function WorkspaceErrorState({ message }: { message: string }) {
   return (
     <section className="panel workspace-state" role="alert">
-      <h2>workspace 加载失败</h2>
+      <h2>本地数据加载失败</h2>
       <p>{message}</p>
     </section>
   );
@@ -21,8 +21,8 @@ export function WorkspaceErrorState({ message }: { message: string }) {
 export function WorkspaceEmptyState() {
   return (
     <section className="panel workspace-state">
-      <h2>workspace 暂无数据</h2>
-      <p>IndexedDB 中还没有职业母档案或岗位数据。重新 seed 后页面会显示 Repository 中的数据。</p>
+      <h2>还没有可用数据</h2>
+      <p>先创建个人资料或添加一个目标岗位，页面会在这里显示你的简历和求职进度。</p>
     </section>
   );
 }

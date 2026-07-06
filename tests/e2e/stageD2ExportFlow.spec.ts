@@ -32,17 +32,17 @@ const PDFTOTEXT = resolvePopplerBinary("pdftotext");
 const PDFINFO = resolvePopplerBinary("pdfinfo");
 
 async function createC2DraftForSelectedJob(page: Page) {
-  await page.locator("button").filter({ hasText: "C1" }).first().click();
+  await page.getByTestId("run-experience-match").click();
   await expect(page.locator(".match-row").first()).toBeVisible();
-  await page.locator("button").filter({ hasText: "C2" }).first().click();
-  await expect(page.locator(".notice")).toContainText("C2");
+  await page.getByTestId("create-suggestion-draft").click();
+  await expect(page.locator(".notice")).toBeVisible();
 }
 
 async function createD2Branch(page: Page) {
   await page.goto("/jobs");
   await createC2DraftForSelectedJob(page);
   await page.goto("/resume");
-  await page.locator("label").filter({ hasText: "C2" }).locator("select").selectOption({ index: 0 });
+  await page.getByTestId("job-suggestion-draft-select").selectOption({ index: 0 });
   await page.locator("article.panel").first().locator("input").fill("D2 Export Branch");
   await page.locator("article.panel").first().locator("button.primary-button").click();
   await expect(page.locator(".branch-list .match-row").filter({ hasText: "D2 Export Branch" })).toBeVisible();

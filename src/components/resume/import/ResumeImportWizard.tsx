@@ -90,6 +90,7 @@ export function ResumeImportWizard(props: {
       item.included && (item.sourceStatus === "located" || item.sourceStatus === "user_confirmed_modified")
     ).length ?? 0;
   }, [draft]);
+  const qualityReport = useMemo(() => draft ? buildImportQualityReport(draft) : undefined, [draft]);
 
   async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.currentTarget.files?.[0];
@@ -470,7 +471,7 @@ export function ResumeImportWizard(props: {
       <div className="section-heading">
         <div>
           <h2>导入已有 PDF 简历</h2>
-          <p>仅支持文本型 PDF；确认前不会写入 CareerProfile 或创建正式分支。</p>
+          <p>仅支持文本型 PDF；确认前不会写入个人资料或创建正式简历。</p>
         </div>
         <div className="action-row">
           <button className="secondary-button" onClick={() => fileInputRef.current?.click()} disabled={status === "extracting_pdf" || status === "confirming"}>
@@ -496,10 +497,12 @@ export function ResumeImportWizard(props: {
         }}
       >
         <strong>{draft?.source.fileName ?? "拖放或选择一份 PDF 简历"}</strong>
-        <span>{status} / {message}</span>
+        <span>{importStatusLabel(status)} / {message}</span>
       </div>
 
       {draft ? (
+        <>
+        {qualityReport ? <ImportQualityReport report={qualityReport} /> : null}
         <div className="import-review-grid">
           <aside className="import-source-panel">
             <div className="section-heading compact-heading">
@@ -519,7 +522,7 @@ export function ResumeImportWizard(props: {
             <pre className="import-source-text">
               {highlightSourceText(selectedPage?.normalizedText ?? "", selectedItem)}
             </pre>
-            <p>{pages.length} 页来源文本已保存；原始 PDF Blob 未持久化。</p>
+            <p>{pages.length} 页来源文本已保存；原始 PDF 文件未长期保存。</p>
           </aside>
 
           <div className="import-structure-panel">
@@ -570,7 +573,7 @@ export function ResumeImportWizard(props: {
                   <div key={item.id} className={`import-item-row ${selectedItemId === item.id ? "import-item-row-active" : ""}`}>
                     <label className="inline-toggle">
                       <input type="checkbox" checked={item.included} onChange={(event) => { void updateItem(section.id, item.id, { included: event.target.checked }); }} />
-                      {item.sourceStatus} / {item.confidence} / p{item.pageRefs.map((ref) => ref.pageNumber).join(",") || "?"}
+                      {sourceStatusLabel(item.sourceStatus)} / {confidenceLabel(item.confidence)} / 第 {item.pageRefs.map((ref) => ref.pageNumber).join(",") || "?"} 页
                     </label>
                     <textarea
                       className="textarea compact-textarea"
@@ -593,6 +596,7 @@ export function ResumeImportWizard(props: {
             ))}
           </div>
         </div>
+        </>
       ) : null}
     </section>
   );
@@ -606,6 +610,91 @@ function basicLabel(key: BasicFieldKey) {
     location: "地点",
     summary: "概述"
   }[key];
+}
+
+type ImportQualityReport = {
+  totalItems: number;
+  importableItems: number;
+  highConfidence: number;
+  mediumConfidence: number;
+  lowConfidence: number;
+  locatedItems: number;
+  ambiguousItems: number;
+  unlocatedItems: number;
+  unknownSections: number;
+  warningCount: number;
+};
+
+function buildImportQualityReport(draft: ImportedResumeDraft): ImportQualityReport {
+  const items = draft.sections.flatMap((section) => section.items);
+  return {
+    totalItems: items.length,
+    importableItems: items.filter((item) => item.included && (item.sourceStatus === "located" || item.sourceStatus === "user_confirmed_modified")).length,
+    highConfidence: items.filter((item) => item.confidence === "high").length,
+    mediumConfidence: items.filter((item) => item.confidence === "medium").length,
+    lowConfidence: items.filter((item) => item.confidence === "low").length,
+    locatedItems: items.filter((item) => item.sourceStatus === "located").length,
+    ambiguousItems: items.filter((item) => item.sourceStatus === "ambiguous").length,
+    unlocatedItems: items.filter((item) => item.sourceStatus === "unlocated").length,
+    unknownSections: draft.sections.filter((section) => section.sectionType === "unknown").length,
+    warningCount: draft.warnings.length
+  };
+}
+
+function ImportQualityReport({ report }: { report: ImportQualityReport }) {
+  return (
+    <section className="import-quality-report" data-testid="import-quality-report">
+      <div>
+        <strong>识别质量</strong>
+        <span>{report.importableItems}/{report.totalItems} 条可导入</span>
+      </div>
+      <div>
+        <span>高置信 {report.highConfidence}</span>
+        <span>中置信 {report.mediumConfidence}</span>
+        <span>低置信 {report.lowConfidence}</span>
+      </div>
+      <div>
+        <span>已定位 {report.locatedItems}</span>
+        <span>需核对 {report.ambiguousItems}</span>
+        <span>未定位 {report.unlocatedItems}</span>
+      </div>
+      <div>
+        <span>待分类栏目 {report.unknownSections}</span>
+        <span>提示 {report.warningCount}</span>
+      </div>
+    </section>
+  );
+}
+
+function importStatusLabel(status: ImportStatus) {
+  return {
+    idle: "等待上传",
+    validating_file: "校验文件",
+    extracting_pdf: "提取文本",
+    classifying_sections: "识别栏目",
+    reviewing: "等待核对",
+    confirming: "正在导入",
+    completed: "已完成",
+    failed: "失败",
+    cancelled: "已取消"
+  }[status];
+}
+
+function confidenceLabel(confidence: ImportedResumeItem["confidence"]) {
+  return {
+    high: "高置信",
+    medium: "中置信",
+    low: "低置信"
+  }[confidence];
+}
+
+function sourceStatusLabel(status: ImportedResumeItem["sourceStatus"]) {
+  return {
+    located: "已定位",
+    ambiguous: "需核对",
+    unlocated: "未定位",
+    user_confirmed_modified: "用户已修正"
+  }[status];
 }
 
 function highlightSourceText(text: string, item: ImportedResumeItem | undefined) {

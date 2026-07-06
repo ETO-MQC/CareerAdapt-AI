@@ -12,24 +12,24 @@ export function HomeWorkspace() {
 
   const workspaceItems = [
     {
-      label: "Schema",
-      value: "核心实体已定义",
-      detail: "CareerProfile / JobDescription / ResumeBranch / AiSuggestion"
+      label: "我的资料",
+      value: profile?.name ?? "等待创建",
+      detail: profile ? `${profile.experiences.length} 段经历，${profile.skills.length} 项技能` : "先导入或填写真实经历"
     },
     {
-      label: "Repository 母档案",
-      value: profile?.name ?? "未读取到母档案",
-      detail: profile ? `${profile.experiences.length} 段经历，${profile.skills.length} 项技能` : "数据来自 IndexedDB"
+      label: "我的简历",
+      value: "可编辑工作台",
+      detail: "从零创建、导入 PDF、换模板和导出"
     },
     {
-      label: "Repository 岗位",
+      label: "岗位",
       value: `${jobs.length} 份 JD`,
-      detail: jobs.length > 0 ? jobs.map((job) => job.title).join(" / ") : "暂无岗位数据"
+      detail: jobs.length > 0 ? jobs.map((job) => job.title).join(" / ") : "粘贴岗位描述后开始匹配"
     },
     {
-      label: "PDF 探针",
-      value: "A4 HTML",
-      detail: "优先读取应用 workspace 数据，失败时使用固定探针数据"
+      label: "求职进度",
+      value: "看板",
+      detail: "管理投递、材料和跟进"
     }
   ];
 
@@ -37,11 +37,12 @@ export function HomeWorkspace() {
     <main className="page-shell">
       <section className="workspace-band">
         <div>
-          <p className="eyebrow">阶段A / Sprint 0</p>
-          <h1>项目空间</h1>
+          <p className="eyebrow">简历与求职工作台</p>
+          <h1>首页</h1>
+          <p>从真实经历开始，制作可编辑、可针对岗位调整并可导出的简历。</p>
         </div>
-        <Link className="primary-link" href="/export/probe">
-          打开 A4 探针
+        <Link className="primary-link" href="/resume">
+          开始制作简历
         </Link>
       </section>
 
@@ -60,10 +61,10 @@ export function HomeWorkspace() {
       </section>
 
       <section className="route-grid" aria-label="工作区入口">
-        <Link href="/profile">查看母档案</Link>
-        <Link href="/jobs">查看岗位</Link>
-        <Link href="/resume">查看简历工作台</Link>
-        <Link href="/applications">查看求职工作台</Link>
+        <Link href="/resume">我的简历</Link>
+        <Link href="/profile">个人资料库</Link>
+        <Link href="/jobs">岗位</Link>
+        <Link href="/applications">求职进度</Link>
       </section>
     </main>
   );

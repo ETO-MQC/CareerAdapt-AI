@@ -142,7 +142,7 @@ export function ApplicationWorkspace() {
         expectedVersion: application.version,
         operationId: `v2-g6a-archive-${application.id}-${application.version}`
       });
-      setMessage(result.idempotent ? "该归档操作已经记录过。" : "Application 已归档。");
+      setMessage(result.idempotent ? "该归档操作已经记录过。" : "投递记录已归档。");
       await refresh();
       setSelectedApplicationId(result.application.id);
     } catch (error) {
@@ -169,8 +169,8 @@ export function ApplicationWorkspace() {
   return (
     <main className="page-shell application-workspace" data-testid="application-workspace">
       <section className="page-title no-print">
-        <p className="eyebrow">V2-G6a / Application Workspace</p>
-        <h1>求职工作台</h1>
+        <p className="eyebrow">求职进度</p>
+        <h1>求职进度</h1>
         <p>集中管理岗位机会、岗位定制简历、导出记录、投递状态、日期提醒和过程时间线。</p>
       </section>
 
@@ -188,7 +188,7 @@ export function ApplicationWorkspace() {
       {applications.length === 0 ? (
         <section className="panel application-empty" data-testid="applications-empty-state">
           <h2>暂无投递记录</h2>
-          <p>打开一个岗位定制分支，点击“加入投递工作台”后，会在这里出现第一条 Application。</p>
+          <p>打开一份岗位定制简历，点击“加入求职进度”后，会在这里出现第一条投递记录。</p>
           <Link className="primary-link" href="/resume">去简历工作台</Link>
         </section>
       ) : filteredApplications.length === 0 ? (
@@ -378,7 +378,7 @@ function ApplicationList({
           <span>岗位</span>
           <span>状态</span>
           <span>优先级</span>
-          <span>Revision</span>
+          <span>版本</span>
           <span>模板</span>
           <span>页数</span>
           <span>截止</span>
@@ -522,7 +522,7 @@ function ApplicationDetail({
   if (loading) {
     return (
       <section className="panel application-detail" data-testid="application-detail">
-        <p>正在读取 Application 详情...</p>
+        <p>正在读取投递详情...</p>
       </section>
     );
   }
@@ -530,7 +530,7 @@ function ApplicationDetail({
   if (!context) {
     return (
       <section className="panel application-detail" data-testid="application-detail">
-        <h2>Application 不存在</h2>
+        <h2>投递记录不存在</h2>
         <p>该记录可能已被移除或损坏。</p>
       </section>
     );
@@ -608,7 +608,7 @@ function ApplicationDetail({
         operationId: `v2-g6a-link-revision-${context.application.id}-${context.application.version}-${context.jobSpecificBranch.currentRevisionId}`,
         revisionId: context.jobSpecificBranch.currentRevisionId
       });
-      onMessage("已选择最新 Revision。");
+      onMessage("已选择最新版本。");
       await onChanged(result.application);
       await load();
     } catch (error) {
@@ -623,7 +623,7 @@ function ApplicationDetail({
       return;
     }
     if (!latestExport) {
-      onMessage("没有可关联的有效 ExportRecord。");
+      onMessage("没有可关联的有效 PDF 记录。");
       return;
     }
     setSaving(true);
@@ -652,7 +652,7 @@ function ApplicationDetail({
         expectedVersion: application.version,
         operationId: `v2-g6a-restore-${application.id}-${application.version}`
       });
-      onMessage("Application 已恢复。");
+      onMessage("投递记录已恢复。");
       await onChanged(result.application);
       await load();
     } catch (error) {
@@ -679,7 +679,7 @@ function ApplicationDetail({
         operationId: `v2-g6a-attach-regenerated-export-${refreshed.id}-${refreshed.version}-${record.id}`,
         exportRecordId: record.id
       });
-      onMessage("PDF 已重新生成并关联到 Application。");
+      onMessage("PDF 已重新生成并关联到投递记录。");
       await onChanged(result.application);
       await load();
     } catch (error) {
@@ -693,9 +693,9 @@ function ApplicationDetail({
     <section className="panel application-detail" data-testid="application-detail">
       <div className="section-heading">
         <div>
-          <p className="eyebrow">Application Detail</p>
+          <p className="eyebrow">投递详情</p>
           <h2>{application.companySnapshot ?? "未知公司"} / {application.jobTitleSnapshot}</h2>
-          <p>version {application.version} / {application.id}</p>
+          <p>本地版本 {application.version}</p>
         </div>
         <div className="action-row">
           <Link className="secondary-button" href="/jobs">打开岗位</Link>
@@ -773,23 +773,23 @@ function ApplicationDetail({
         <section className="application-detail-section">
           <h3>关联简历与导出</h3>
           <dl className="application-definition-list">
-            <div><dt>general 分支</dt><dd>{application.sourceGeneralBranchId ?? "未关联"}</dd></div>
-            <div><dt>job-specific 分支</dt><dd>{application.jobSpecificBranchId}</dd></div>
-            <div><dt>选定 Revision</dt><dd>{application.selectedRevisionId} / branch revision {application.selectedBranchRevision}</dd></div>
-            <div><dt>Presentation</dt><dd>revision {application.selectedPresentationRevision}</dd></div>
+            <div><dt>通用简历</dt><dd>{application.sourceGeneralBranchId ?? "未关联"}</dd></div>
+            <div><dt>岗位简历</dt><dd>{application.jobSpecificBranchId}</dd></div>
+            <div><dt>投递版本</dt><dd>{application.selectedRevisionId} / 内容版本 {application.selectedBranchRevision}</dd></div>
+            <div><dt>展示版本</dt><dd>{application.selectedPresentationRevision}</dd></div>
             <div><dt>模板</dt><dd>{application.selectedTemplateId}</dd></div>
             <div><dt>页数策略</dt><dd>{application.selectedPagePolicy ?? "未记录"} / {application.selectedActualPageCount ? `${application.selectedActualPageCount}页` : "待导出"}</dd></div>
-            <div><dt>ExportRecord</dt><dd>{context.selectedExportRecord?.displayName ?? "未关联"}</dd></div>
+            <div><dt>PDF记录</dt><dd>{context.selectedExportRecord?.displayName ?? "未关联"}</dd></div>
           </dl>
           {latestRevisionAvailable ? (
             <div className="diagnostic-notice">
-              分支已有更新，当前 Application 保留原选定版本。
-              <button className="secondary-button compact" disabled={saving || Boolean(application.appliedSnapshot)} onClick={linkLatestRevision}>选择最新 Revision</button>
+              关联简历已有更新，当前投递记录保留原选定版本。
+              <button className="secondary-button compact" disabled={saving || Boolean(application.appliedSnapshot)} onClick={linkLatestRevision}>选择最新版本</button>
             </div>
           ) : null}
           {application.appliedSnapshot ? (
             <div className="application-lock-box" data-testid="applied-version-lock">
-              已投递版本锁定：revision {application.appliedSnapshot.branchRevision} / presentation {application.appliedSnapshot.presentationRevision}
+              已投递版本锁定：内容版本 {application.appliedSnapshot.branchRevision} / 展示版本 {application.appliedSnapshot.presentationRevision}
             </div>
           ) : null}
           <div className="action-row application-detail-actions">
@@ -1042,7 +1042,7 @@ function timelineTypeLabel(type: ApplicationRecord["timeline"][number]["type"]) 
     status_changed: "状态变化",
     priority_changed: "优先级",
     details_updated: "详情更新",
-    branch_linked: "分支关联",
+    branch_linked: "简历关联",
     revision_selected: "版本选择",
     export_attached: "PDF关联",
     deadline_changed: "截止日期",
@@ -1132,10 +1132,10 @@ function applicationErrorMessage(error: unknown) {
     return "状态流转不合法，请按准备、投递、面试、结果的顺序操作。";
   }
   if (error.message === "version_conflict" || error.message === "revision_conflict") {
-    return "保存失败：Application 已被更新，请刷新后重试。";
+    return "保存失败：投递记录已被更新，请刷新后重试。";
   }
   if (error.message === "duplicate_application") {
-    return "该岗位分支已有未归档 Application。";
+    return "该岗位简历已有未归档投递记录。";
   }
   if (error.message === "invalid_url") {
     return "岗位链接必须是 http 或 https URL。";

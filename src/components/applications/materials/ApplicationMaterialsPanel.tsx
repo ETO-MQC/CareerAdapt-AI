@@ -141,9 +141,9 @@ export function ApplicationMaterialsPanel({
     <section className="application-materials-panel" data-testid="application-materials-panel">
       <div className="section-heading compact-heading">
         <div>
-          <p className="eyebrow">V2-G6b / Application Materials</p>
+          <p className="eyebrow">申请材料</p>
           <h3>申请材料与面试准备</h3>
-          <p>Pack version {pack.version} / {pack.basedOn.revisionId}</p>
+          <p>材料版本 {pack.version}</p>
         </div>
         <strong className={`application-readiness-chip application-readiness-${pack.checklist.level}`}>
           {readinessLabel(pack.checklist.level)}
@@ -629,13 +629,13 @@ function materialErrorMessage(error: unknown) {
   const message = error instanceof Error ? error.message : "application_material_error";
   const labels: Record<string, string> = {
     application_preparation_context_unavailable: "无法读取申请材料上下文。",
-    application_not_found: "Application 不存在。",
+    application_not_found: "投递记录不存在。",
     invalid_preparation_pack: "申请材料包损坏。",
     version_conflict: "材料包已被更新，请刷新后重试。",
     forbidden_preparation_payload: "材料包包含禁止保存的字段。",
     material_not_found: "材料不存在。",
     stale_material: "材料已过期，需要重新生成或复核。",
-    guard_blocked: "材料存在 Fact Guard 阻断，不能标记完成。",
+    guard_blocked: "材料存在事实安全检查阻断，不能标记完成。",
     guard_needs_edit: "材料仍需编辑后才能完成。",
     history_corrupted: "材料历史版本不可用。"
   };

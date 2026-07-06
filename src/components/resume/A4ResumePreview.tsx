@@ -1,6 +1,6 @@
 "use client";
 
-import type { KeyboardEvent, MouseEvent, RefObject } from "react";
+import { useState, type KeyboardEvent, type MouseEvent, type RefObject } from "react";
 import type { ResumePaginationPlan, ResumePresentationConfig, ResumeRenderModel } from "@/domain/schemas";
 import { resumeTemplateStyleVars, type TemplateDefinition } from "./templates/templateRegistry";
 import type { ResumeDocumentBlock } from "@/domain/resumeDocument/mapper";
@@ -11,14 +11,24 @@ export type ResumeStudioEditorProps = {
   selectedItemId?: string;
   editingItemId?: string;
   selectedBlock?: ResumeDocumentBlock;
+  selectedProfileFieldId?: string;
+  editingProfileFieldId?: string;
+  selectedProfileFieldLabel?: string;
   draftText: string;
+  profileDraftText?: string;
   error?: string;
+  profileError?: string;
   pending: boolean;
   onSelect: (itemId: string) => void;
   onStartEdit: (itemId: string) => void;
   onDraftTextChange: (text: string) => void;
   onSave: () => void;
   onCancel: () => void;
+  onSelectProfileField?: (fieldId: string, currentText: string) => void;
+  onStartProfileFieldEdit?: (fieldId: string, currentText: string) => void;
+  onProfileDraftTextChange?: (text: string) => void;
+  onSaveProfileField?: () => void;
+  onCancelProfileField?: () => void;
   onMoveUp?: (itemId: string) => void;
   onMoveDown?: (itemId: string) => void;
   onHide?: (itemId: string) => void;
@@ -39,26 +49,47 @@ export function A4ResumePreview({
   presentationConfig?: ResumePresentationConfig;
   editor?: ResumeStudioEditorProps;
 }) {
+  const [overlayRect, setOverlayRect] = useState<{ left: number; top: number; width: number } | undefined>();
   const pageModels = paginateResumeRenderModel(model, paginationPlan);
   const visiblePageModels = paginationPlan
     ? pageModels.slice(0, paginationPlan.requestedMaxPages)
     : pageModels;
   const pageCount = Math.max(1, visiblePageModels.length);
 
-  function findSourceItemId(target: EventTarget | null) {
+  function findSourceNode(target: EventTarget | null) {
     if (!(target instanceof HTMLElement)) {
       return undefined;
     }
-    return target.closest<HTMLElement>("[data-source-item-id]")?.dataset.sourceItemId;
+    return target.closest<HTMLElement>("[data-source-item-id]");
+  }
+
+  function isProfileFieldId(itemId: string) {
+    return itemId.startsWith("profile:");
+  }
+
+  function positionOverlay(sourceNode: HTMLElement, pageNode: HTMLElement) {
+    const sourceRect = sourceNode.getBoundingClientRect();
+    const pageRect = pageNode.getBoundingClientRect();
+    setOverlayRect({
+      left: Math.max(8, sourceRect.left - pageRect.left),
+      top: Math.max(8, sourceRect.top - pageRect.top),
+      width: Math.min(Math.max(sourceRect.width, 220), pageRect.width - 24)
+    });
   }
 
   function handleClick(event: MouseEvent<HTMLElement>) {
     if (!editor?.enabled) {
       return;
     }
-    const itemId = findSourceItemId(event.target);
+    const sourceNode = findSourceNode(event.target);
+    const itemId = sourceNode?.dataset.sourceItemId;
     if (itemId) {
-      editor.onSelect(itemId);
+      positionOverlay(sourceNode, event.currentTarget);
+      if (isProfileFieldId(itemId) && editor.onSelectProfileField) {
+        editor.onSelectProfileField(itemId, sourceNode.textContent ?? "");
+      } else {
+        editor.onSelect(itemId);
+      }
     }
   }
 
@@ -66,10 +97,18 @@ export function A4ResumePreview({
     if (!editor?.enabled) {
       return;
     }
-    const itemId = findSourceItemId(event.target);
+    const sourceNode = findSourceNode(event.target);
+    const itemId = sourceNode?.dataset.sourceItemId;
     if (itemId) {
-      editor.onSelect(itemId);
-      editor.onStartEdit(itemId);
+      positionOverlay(sourceNode, event.currentTarget);
+      if (isProfileFieldId(itemId) && editor.onSelectProfileField && editor.onStartProfileFieldEdit) {
+        const currentText = sourceNode.textContent ?? "";
+        editor.onSelectProfileField(itemId, currentText);
+        editor.onStartProfileFieldEdit(itemId, currentText);
+      } else {
+        editor.onSelect(itemId);
+        editor.onStartEdit(itemId);
+      }
     }
   }
 
@@ -81,13 +120,25 @@ export function A4ResumePreview({
       event.preventDefault();
       editor.onStartEdit(editor.selectedItemId);
     }
+    if ((event.key === "Enter" || event.key === "F2") && !editor.editingProfileFieldId && editor.selectedProfileFieldId && editor.onStartProfileFieldEdit) {
+      event.preventDefault();
+      editor.onStartProfileFieldEdit(editor.selectedProfileFieldId, editor.profileDraftText ?? "");
+    }
     if (event.key === "Escape" && editor.editingItemId) {
       event.preventDefault();
       editor.onCancel();
     }
+    if (event.key === "Escape" && editor.editingProfileFieldId && editor.onCancelProfileField) {
+      event.preventDefault();
+      editor.onCancelProfileField();
+    }
     if ((event.ctrlKey || event.metaKey) && event.key === "Enter" && editor.editingItemId) {
       event.preventDefault();
       editor.onSave();
+    }
+    if ((event.ctrlKey || event.metaKey) && event.key === "Enter" && editor.editingProfileFieldId && editor.onSaveProfileField) {
+      event.preventDefault();
+      editor.onSaveProfileField();
     }
   }
 
@@ -102,22 +153,58 @@ export function A4ResumePreview({
   const selectedBlockRendered = visiblePageModels.some((pageModel) => pageContainsSelectedBlock(pageModel));
 
   function renderEditorOverlay() {
-    if (!editor?.enabled || !editor.selectedBlock) {
+    if (!editor?.enabled || (!editor.selectedBlock && !editor.selectedProfileFieldId)) {
       return null;
     }
+    const profileFieldSelected = Boolean(editor.selectedProfileFieldId && !editor.selectedBlock);
+    const profileFieldEditing = Boolean(editor.editingProfileFieldId && editor.editingProfileFieldId === editor.selectedProfileFieldId);
+    const profileFieldText = editor.profileDraftText ?? "";
     return (
-      <div className="resume-studio-editor no-print" data-testid="resume-studio-editor">
+      <div
+        className="resume-studio-editor no-print"
+        data-testid="resume-studio-editor"
+        style={overlayRect ? {
+          left: `${overlayRect.left}px`,
+          top: `${overlayRect.top}px`,
+          width: `${overlayRect.width}px`,
+          maxWidth: "calc(100% - 24px)"
+        } : undefined}
+      >
         <div>
-          <strong>编辑区块</strong>
-          <span>{editor.selectedBlock.itemType} / {editor.selectedBlock.guardStatus}</span>
+          <strong>{profileFieldSelected ? "编辑基本信息" : "编辑段落"}</strong>
+          <span>{profileFieldSelected ? editor.selectedProfileFieldLabel : `${contentItemTypeLabel(editor.selectedBlock?.itemType)} / ${guardStatusLabel(editor.selectedBlock?.guardStatus)}`}</span>
         </div>
-        {editor.editingItemId === editor.selectedBlock.contentItemId ? (
+        {profileFieldEditing ? (
+          <>
+            <textarea
+              aria-label="编辑简历基本信息"
+              autoFocus
+              value={profileFieldText}
+              disabled={editor.pending}
+              onPaste={(event) => {
+                event.preventDefault();
+                const text = event.clipboardData.getData("text/plain");
+                editor.onProfileDraftTextChange?.(`${profileFieldText}${text}`);
+              }}
+              onChange={(event) => editor.onProfileDraftTextChange?.(event.target.value)}
+            />
+            <div className="action-row">
+              <button className="primary-button compact" disabled={editor.pending} onClick={editor.onSaveProfileField}>保存</button>
+              <button className="secondary-button compact" disabled={editor.pending} onClick={editor.onCancelProfileField}>取消</button>
+            </div>
+          </>
+        ) : editor.selectedBlock && editor.editingItemId === editor.selectedBlock.contentItemId ? (
           <>
             <textarea
               aria-label="编辑简历区块正文"
               autoFocus
               value={editor.draftText}
               disabled={editor.pending}
+              onPaste={(event) => {
+                event.preventDefault();
+                const text = event.clipboardData.getData("text/plain");
+                editor.onDraftTextChange(`${editor.draftText}${text}`);
+              }}
               onChange={(event) => editor.onDraftTextChange(event.target.value)}
             />
             <div className="action-row">
@@ -128,42 +215,53 @@ export function A4ResumePreview({
         ) : (
           <>
             <div className="action-row">
-              <button
-                className="primary-button compact"
-                disabled={!editor.selectedBlock.editable || editor.pending}
-                onClick={() => editor.onStartEdit(editor.selectedBlock!.contentItemId)}
-              >
-                编辑
-              </button>
+              {profileFieldSelected ? (
+                <button
+                  className="primary-button compact"
+                  disabled={editor.pending || !editor.onStartProfileFieldEdit}
+                  onClick={() => editor.onStartProfileFieldEdit?.(editor.selectedProfileFieldId!, profileFieldText)}
+                >
+                  编辑
+                </button>
+              ) : (
+                <button
+                  className="primary-button compact"
+                  disabled={!editor.selectedBlock?.editable || editor.pending}
+                  onClick={() => editor.selectedBlock && editor.onStartEdit(editor.selectedBlock.contentItemId)}
+                >
+                  编辑
+                </button>
+              )}
             </div>
-            <div className="action-row resume-structure-actions">
+            {!profileFieldSelected && editor.selectedBlock ? <div className="action-row resume-structure-actions">
               <button
                 className="secondary-button compact"
                 disabled={editor.pending || !editor.onMoveUp}
-                onClick={() => editor.onMoveUp?.(editor.selectedBlock!.contentItemId)}
+                onClick={() => editor.selectedBlock && editor.onMoveUp?.(editor.selectedBlock.contentItemId)}
               >
                 上移
               </button>
               <button
                 className="secondary-button compact"
                 disabled={editor.pending || !editor.onMoveDown}
-                onClick={() => editor.onMoveDown?.(editor.selectedBlock!.contentItemId)}
+                onClick={() => editor.selectedBlock && editor.onMoveDown?.(editor.selectedBlock.contentItemId)}
               >
                 下移
               </button>
               <button
                 className="secondary-button compact"
                 disabled={editor.pending || !editor.onHide}
-                onClick={() => editor.onHide?.(editor.selectedBlock!.contentItemId)}
+                onClick={() => editor.selectedBlock && editor.onHide?.(editor.selectedBlock.contentItemId)}
               >
                 隐藏
               </button>
-            </div>
+            </div> : null}
           </>
         )}
-        {editor.error ? <p className="save-status save-status-failed">{editor.error}</p> : null}
-        {!editor.selectedBlock.editable ? (
-          <p className="save-status save-status-failed">当前区块不可编辑：{editor.selectedBlock.notEditableReason}</p>
+        {profileFieldSelected && editor.profileError ? <p className="save-status save-status-failed">{editor.profileError}</p> : null}
+        {!profileFieldSelected && editor.error ? <p className="save-status save-status-failed">{editor.error}</p> : null}
+        {!profileFieldSelected && editor.selectedBlock && !editor.selectedBlock.editable ? (
+          <p className="save-status save-status-failed">当前段落不可编辑：{notEditableReasonLabel(editor.selectedBlock.notEditableReason)}</p>
         ) : null}
       </div>
     );
@@ -197,6 +295,7 @@ export function A4ResumePreview({
             >
               {template.render(pageModel, {
                 selectedItemId: editor?.selectedItemId,
+                selectedProfileFieldId: editor?.selectedProfileFieldId,
                 presentationConfig,
                 pagination: {
                   pageNumber: index + 1,
@@ -204,11 +303,45 @@ export function A4ResumePreview({
                   isContinuation: index > 0
                 }
               })}
-              {pageContainsSelectedBlock(pageModel) || (index === 0 && editor?.selectedBlock && !selectedBlockRendered) ? renderEditorOverlay() : null}
+              {pageContainsSelectedBlock(pageModel)
+                || (index === 0 && editor?.selectedProfileFieldId)
+                || (index === 0 && editor?.selectedBlock && !selectedBlockRendered)
+                ? renderEditorOverlay()
+                : null}
             </article>
           </div>
         ))}
       </div>
     </>
   );
+}
+
+function contentItemTypeLabel(value: string | undefined) {
+  const labels: Record<string, string> = {
+    summary: "个人总结",
+    experience: "经历",
+    skill: "技能",
+    certificate: "证书"
+  };
+  return value ? labels[value] ?? "段落" : "段落";
+}
+
+function guardStatusLabel(value: string | undefined) {
+  const labels: Record<string, string> = {
+    rule_only_verified: "规则检查通过",
+    ai_verified: "已通过事实检查",
+    needs_review: "需要复核",
+    blocked: "存在风险"
+  };
+  return value ? labels[value] ?? "需要复核" : "需要复核";
+}
+
+function notEditableReasonLabel(value: string | undefined) {
+  const labels: Record<string, string> = {
+    missing_current_revision: "缺少当前版本",
+    hidden_by_content: "该内容已在正文中隐藏",
+    hidden_by_presentation: "该段落已在版面中隐藏",
+    unsupported_block_type: "该段落类型暂不支持直接编辑"
+  };
+  return value ? labels[value] ?? value : "当前状态不支持编辑";
 }

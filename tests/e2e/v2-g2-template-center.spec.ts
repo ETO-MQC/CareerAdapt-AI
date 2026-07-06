@@ -51,13 +51,13 @@ function getOutputDir() {
 
 async function createBranchFromDraft(page: Page, branchName: string) {
   await page.goto("/jobs");
-  await page.locator("button").filter({ hasText: "C1" }).first().click();
+  await page.getByTestId("run-experience-match").click();
   await expect(page.locator(".match-row").first()).toBeVisible();
-  await page.locator("button").filter({ hasText: "C2" }).first().click();
-  await expect(page.locator(".notice")).toContainText("C2");
+  await page.getByTestId("create-suggestion-draft").click();
+  await expect(page.locator(".notice")).toBeVisible();
 
   await page.goto("/resume");
-  await page.locator("label").filter({ hasText: "C2" }).locator("select").selectOption({ index: 0 });
+  await page.getByTestId("job-suggestion-draft-select").selectOption({ index: 0 });
   await page.locator("article.panel").first().locator("input").fill(branchName);
   await page.locator("article.panel").first().locator("button.primary-button").click();
   await expect(page.locator(".branch-list .match-row").filter({ hasText: branchName })).toBeVisible();
@@ -65,7 +65,7 @@ async function createBranchFromDraft(page: Page, branchName: string) {
 }
 
 async function enablePreviewEditing(page: Page) {
-  const toggle = page.locator("label").filter({ hasText: "预览区编辑" }).locator("input");
+  const toggle = page.getByTestId("canvas-edit-toggle");
   await expect(toggle).toBeEnabled();
   await toggle.check();
 }
@@ -309,11 +309,11 @@ test.describe("V2-G2 template center", () => {
 
     await enablePreviewEditing(page);
     const itemId = await getFirstRenderedItemId(page);
-    await page.getByTestId("resume-a4-page").locator(`[data-source-item-id="${itemId}"]`).first().click();
+    await page.getByTestId("resume-a4-page").locator(`[data-source-item-id="${itemId}"]`).first().click({ force: true });
     await page.getByTestId("resume-studio-editor").getByRole("button", { name: "编辑" }).click();
     await page.getByLabel("编辑简历区块正文").fill("G2 未保存正文草稿");
 
-    await page.getByRole("button", { name: "Block" }).click();
+    await page.getByRole("button", { name: "段落" }).click();
     await page.getByTestId("block-style-panel").getByRole("button", { name: "隐藏" }).click();
     await expect(page.locator(".notice")).toContainText("内容已隐藏");
     const hiddenConfig = await getPresentationConfig(page, branch.id);

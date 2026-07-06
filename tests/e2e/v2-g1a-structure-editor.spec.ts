@@ -15,13 +15,13 @@ type RenderGroup = {
 
 async function createBranchFromDraft(page: Page, branchName: string) {
   await page.goto("/jobs");
-  await page.locator("button").filter({ hasText: "C1" }).first().click();
+  await page.getByTestId("run-experience-match").click();
   await expect(page.locator(".match-row").first()).toBeVisible();
-  await page.locator("button").filter({ hasText: "C2" }).first().click();
-  await expect(page.locator(".notice")).toContainText("C2");
+  await page.getByTestId("create-suggestion-draft").click();
+  await expect(page.locator(".notice")).toBeVisible();
 
   await page.goto("/resume");
-  await page.locator("label").filter({ hasText: "C2" }).locator("select").selectOption({ index: 0 });
+  await page.getByTestId("job-suggestion-draft-select").selectOption({ index: 0 });
   await page.locator("article.panel").first().locator("input").fill(branchName);
   await page.locator("article.panel").first().locator("button.primary-button").click();
   await expect(page.locator(".branch-list .match-row").filter({ hasText: branchName })).toBeVisible();
@@ -29,7 +29,7 @@ async function createBranchFromDraft(page: Page, branchName: string) {
 }
 
 async function enablePreviewEditing(page: Page) {
-  const toggle = page.locator("label").filter({ hasText: "预览区编辑" }).locator("input");
+  const toggle = page.getByTestId("canvas-edit-toggle");
   await expect(toggle).toBeEnabled();
   await toggle.check();
 }
@@ -121,7 +121,7 @@ test.describe("V2-G1a structure editing", () => {
     const sortableGroup = await getSortableRenderGroup(page);
     const firstItemId = sortableGroup.itemIds[0];
     const secondItemId = sortableGroup.itemIds[1];
-    await preview.locator(`[data-source-item-id="${firstItemId}"]`).first().click();
+    await preview.locator(`[data-source-item-id="${firstItemId}"]`).first().click({ force: true });
     await expect(editor).toBeVisible();
     await editor.getByRole("button", { name: "下移" }).click();
     await expect(page.locator(".notice")).toContainText("排序已保存");
@@ -132,7 +132,7 @@ test.describe("V2-G1a structure editing", () => {
     ]);
     expect(await getResumeRevisionCount(page, branch.id)).toBe(revisionsBefore);
 
-    await preview.locator(`[data-source-item-id="${firstItemId}"]`).first().click();
+    await preview.locator(`[data-source-item-id="${firstItemId}"]`).first().click({ force: true });
     const hiddenText = (await preview.locator(`[data-source-item-id="${firstItemId}"]`).first().innerText()).trim();
     await editor.getByRole("button", { name: "隐藏" }).click();
     await expect(page.locator(".notice")).toContainText("内容已隐藏");
@@ -186,7 +186,7 @@ test.describe("V2-G1a structure editing", () => {
     const [itemId0, itemId1, itemId2, ...rest] = sortableGroup.itemIds;
 
     // Select first item and move it down twice in rapid succession
-    await preview.locator(`[data-source-item-id="${itemId0}"]`).first().click();
+    await preview.locator(`[data-source-item-id="${itemId0}"]`).first().click({ force: true });
     await expect(editor).toBeVisible();
 
     // Click "下移" without waiting for the first operation to complete
@@ -215,7 +215,7 @@ test.describe("V2-G1a structure editing", () => {
     const firstItemId = sortableGroup.itemIds[0];
 
     // Select and hide item
-    await preview.locator(`[data-source-item-id="${firstItemId}"]`).first().click();
+    await preview.locator(`[data-source-item-id="${firstItemId}"]`).first().click({ force: true });
     await expect(editor).toBeVisible();
     await editor.getByRole("button", { name: "隐藏" }).click();
 

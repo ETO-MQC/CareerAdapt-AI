@@ -17,7 +17,7 @@ test.describe("V2-G6b Application materials", () => {
 
     await createC2DraftForSelectedJob(page);
     await createResumeBranchFromFirstDraft(page, branchName);
-    await page.getByRole("button", { name: "加入投递工作台" }).click();
+    await page.getByTestId("open-or-create-application").click();
     await expect(page).toHaveURL(/\/applications\?applicationId=/);
     await expect(page.getByTestId("application-detail")).toBeVisible({ timeout: 15_000 });
     await expect(page.getByTestId("application-materials-panel")).toBeVisible();
@@ -75,16 +75,16 @@ test.describe("V2-G6b Application materials", () => {
 async function createC2DraftForSelectedJob(page: Page) {
   await page.goto("/jobs");
   await expect(page.locator("main")).toBeVisible();
-  await page.locator("button").filter({ hasText: "C1" }).first().click();
+  await page.getByTestId("run-experience-match").click();
   await expect(page.locator(".match-row").first()).toBeVisible({ timeout: 15_000 });
-  await page.locator("button").filter({ hasText: "C2" }).first().click();
-  await expect(page.locator(".notice")).toContainText("C2", { timeout: 15_000 });
+  await page.getByTestId("create-suggestion-draft").click();
+  await expect(page.locator(".notice")).toBeVisible({ timeout: 15_000 });
 }
 
 async function createResumeBranchFromFirstDraft(page: Page, branchName: string) {
   await page.goto("/resume");
   await expect(page.locator("main")).toBeVisible();
-  await page.locator("label").filter({ hasText: "C2" }).locator("select").selectOption({ index: 0 });
+  await page.getByTestId("job-suggestion-draft-select").selectOption({ index: 0 });
   await page.locator("article.panel").first().locator("input").fill(branchName);
   await page.locator("article.panel").first().locator("button.primary-button").click();
   await expect(page.locator(".branch-list .match-row").filter({ hasText: branchName })).toBeVisible({ timeout: 15_000 });

@@ -19,16 +19,16 @@ const fixtures = {
 
 async function navigateToProfile(page: import("@playwright/test").Page) {
   await page.goto("/profile");
-  await expect(page.getByRole("heading", { name: "职业母档案导入" })).toBeVisible();
+  await expect(page.locator(".profile-workspace")).toBeVisible();
 }
 
 async function uploadPdf(page: import("@playwright/test").Page, filePath: string) {
-  await page.getByRole("button", { name: "导入文本型 PDF" }).click();
+  await page.getByTestId("profile-import-pdf-mode").click();
   await page.locator("#resume-pdf-upload").setInputFiles(filePath);
 }
 
 async function waitForExtractionDone(page: import("@playwright/test").Page) {
-  await expect(page.locator(".notice")).toContainText("PDF 文本提取完成", { timeout: 20_000 });
+  await expect(page.getByTestId("profile-start-pdf-draft")).toBeVisible({ timeout: 20_000 });
 }
 
 /** Click a checkbox and verify it toggles */
@@ -60,11 +60,11 @@ test.describe("E1.1 验收：文本型 PDF 导入", () => {
     await expect(page.locator(".warning-box").first()).toContainText("single-page-en.pdf");
     await expect(page.locator(".warning-box").first()).toContainText("1 页");
 
-    // Verify fileHash displayed (truncated)
-    await expect(page.locator(".warning-box").first()).toContainText("fileHash");
+    // Verify file fingerprint metadata is displayed without exposing a stored Blob.
+    await expect(page.locator(".warning-box").first()).toContainText("文件指纹");
 
     // Verify draft creation button available
-    await expect(page.getByRole("button", { name: "使用提取文本创建草稿" })).toBeVisible();
+    await expect(page.getByTestId("profile-start-pdf-draft")).toBeVisible();
 
     // Verify PDF status
     await expect(page.getByText("PDF 状态：extracted")).toBeVisible();
@@ -207,7 +207,7 @@ test.describe("E1.1 验收：文本型 PDF 导入", () => {
 
     // Degradation: paste text and manual creation should still be available
     await page.getByRole("button", { name: "粘贴文本" }).click();
-    await expect(page.locator("textarea")).toBeVisible();
+    await expect(page.getByTestId("profile-raw-textarea")).toBeVisible();
   });
 
   // ─── Scenario 8b: No-text-layer PDF ───
@@ -259,9 +259,10 @@ test.describe("E1.1 验收：文本型 PDF 导入", () => {
 
     // After refresh, the session and pages should be restored
     // Wait for the page to fully render (draft + session both loaded)
-    await expect(page.locator(".save-status")).toBeVisible({ timeout: 10_000 });
+    await page.getByTestId("profile-import-pdf-mode").click();
+    await expect(page.getByText("PDF 状态：extracted")).toBeVisible({ timeout: 10_000 });
     // Verify the heading is still shown (page fully loaded)
-    await expect(page.getByRole("heading", { name: "职业母档案导入" })).toBeVisible();
+    await expect(page.locator(".profile-workspace")).toBeVisible();
     // Verify no error or interruption message
     await expect(page.getByText("中断")).not.toBeVisible();
   });
@@ -353,14 +354,14 @@ test.describe("E1.1 验收：文本型 PDF 导入", () => {
 
     // Use paste mode for this test
     await page.getByRole("button", { name: "粘贴文本" }).click();
-    const textarea = page.locator("textarea").first();
+    const textarea = page.getByTestId("profile-raw-textarea");
     await textarea.fill("张三\n三年后端开发经验\n技能：Java, Python");
 
-    await page.getByRole("button", { name: "保存原文" }).click();
+    await page.getByTestId("save-profile-raw-input").click();
     await expect(page.locator(".notice")).toContainText("原始输入已保存");
 
     // Enter manual mode
-    await page.getByRole("button", { name: "拒绝，手动分类" }).click();
+    await page.getByTestId("profile-manual-mode").click();
     await expect(page.getByText("解析草稿与原文依据")).toBeVisible();
 
     // Manual mode facts have sourceSpan (from raw text) - can be confirmed in paste mode
@@ -369,21 +370,21 @@ test.describe("E1.1 验收：文本型 PDF 导入", () => {
     for (let i = 0; i < count; i++) {
       await checkFactCheckbox(page, checkboxes.nth(i));
     }
-    await page.getByRole("button", { name: "提交正式母档案" }).click();
-    await expect(page.locator(".notice")).toContainText("已写入正式职业母档案", { timeout: 10_000 });
+    await page.getByTestId("commit-profile").click();
+    await expect(page.locator(".notice")).toContainText("已写入个人资料", { timeout: 10_000 });
   });
 
   // ─── Scenario 23: Existing CareerProfile blocks PDF commit ───
-  test("场景23：已有正式 Profile 时 PDF 导入不覆盖旧 Profile", async ({ page }) => {
+  test("场景23：已有个人资料时 PDF 导入不覆盖旧资料", async ({ page }) => {
     await navigateToProfile(page);
 
     // First, create a profile via paste import with manual mode
     await page.getByRole("button", { name: "粘贴文本" }).click();
-    const textarea = page.locator("textarea").first();
+    const textarea = page.getByTestId("profile-raw-textarea");
     await textarea.fill("张三\n三年后端开发经验\n技能：Java, Python");
 
-    await page.getByRole("button", { name: "保存原文" }).click();
-    await page.getByRole("button", { name: "拒绝，手动分类" }).click();
+    await page.getByTestId("save-profile-raw-input").click();
+    await page.getByTestId("profile-manual-mode").click();
     await expect(page.getByText("解析草稿与原文依据")).toBeVisible();
 
     // Confirm facts and submit (use same pattern as stageBFlow.spec.ts)
@@ -392,20 +393,20 @@ test.describe("E1.1 验收：文本型 PDF 导入", () => {
     for (let i = 0; i < count; i++) {
       await checkFactCheckbox(page, checkboxes.nth(i));
     }
-    await page.getByRole("button", { name: "提交正式母档案" }).click();
-    await expect(page.locator(".notice")).toContainText("已写入正式职业母档案", { timeout: 10_000 });
+    await page.getByTestId("commit-profile").click();
+    await expect(page.locator(".notice")).toContainText("已写入个人资料", { timeout: 10_000 });
 
     // Now try PDF import
     await uploadPdf(page, fixtures.singlePageEn);
     await waitForExtractionDone(page);
     await page.getByRole("button", { name: "使用提取文本创建草稿" }).click();
-    await page.getByRole("button", { name: "拒绝，手动分类" }).click();
+    await page.getByTestId("profile-manual-mode").click();
     await expect(page.getByText("解析草稿与原文依据")).toBeVisible();
 
     // Try to submit - should be blocked
-    await page.getByRole("button", { name: "提交正式母档案" }).click();
-    await expect(page.locator(".notice")).toContainText("已有正式 Profile");
-    await expect(page.locator(".notice")).not.toContainText("已写入正式职业母档案");
+    await page.getByTestId("commit-profile").click();
+    await expect(page.locator(".notice")).toContainText("已有个人资料");
+    await expect(page.locator(".notice")).not.toContainText("已写入个人资料");
   });
 
   // ─── Scenario 24: Delete PDF import session ───
@@ -418,7 +419,7 @@ test.describe("E1.1 验收：文本型 PDF 导入", () => {
     await expect(page.locator(".timeline article").filter({ hasText: "第 1 页" })).toBeVisible();
 
     // Delete session
-    await page.getByRole("button", { name: "删除导入 session" }).click();
+    await page.getByRole("button", { name: "删除导入记录" }).click();
 
     // Verify PDF page content removed (draft section won't have "第 1 页")
     await expect(page.locator(".timeline article").filter({ hasText: "第 1 页" })).toHaveCount(0);
@@ -432,17 +433,17 @@ test.describe("E1.1 验收：文本型 PDF 导入", () => {
 
     // Use paste mode
     await page.getByRole("button", { name: "粘贴文本" }).click();
-    const textarea = page.locator("textarea").first();
+    const textarea = page.getByTestId("profile-raw-textarea");
     await textarea.fill("李四\n五年前端开发经验\n技能：React, TypeScript, CSS");
 
-    await page.getByRole("button", { name: "保存原文" }).click();
+    await page.getByTestId("save-profile-raw-input").click();
     await expect(page.locator(".notice")).toContainText("原始输入已保存");
 
     // Privacy confirmation
     await expect(page.getByText("外部模型与隐私说明")).toBeVisible();
 
     // Manual mode
-    await page.getByRole("button", { name: "拒绝，手动分类" }).click();
+    await page.getByTestId("profile-manual-mode").click();
     await expect(page.getByText("解析草稿与原文依据")).toBeVisible();
 
     // Confirm and submit
@@ -451,8 +452,8 @@ test.describe("E1.1 验收：文本型 PDF 导入", () => {
     for (let i = 0; i < count; i++) {
       await checkFactCheckbox(page, checkboxes.nth(i));
     }
-    await page.getByRole("button", { name: "提交正式母档案" }).click();
-    await expect(page.locator(".notice")).toContainText("已写入正式职业母档案", { timeout: 10_000 });
+    await page.getByTestId("commit-profile").click();
+    await expect(page.locator(".notice")).toContainText("已写入个人资料", { timeout: 10_000 });
   });
 
   // ─── Scenario 12: Hash display and separation ───
@@ -461,16 +462,16 @@ test.describe("E1.1 验收：文本型 PDF 导入", () => {
     await uploadPdf(page, fixtures.singlePageEn);
     await waitForExtractionDone(page);
 
-    // fileHash displayed in session info
-    await expect(page.locator(".warning-box").first()).toContainText("fileHash");
+    // File fingerprint metadata is displayed in user-facing language.
+    await expect(page.locator(".warning-box").first()).toContainText("文件指纹");
 
     // Create draft to trigger aiInputHash
     await page.getByRole("button", { name: "使用提取文本创建草稿" }).click();
     await expect(page.getByText("外部模型与隐私说明")).toBeVisible();
 
-    // normalizedTextHash and aiInputHash should be shown
-    await expect(page.locator(".warning-box").first()).toContainText("normalizedTextHash");
-    await expect(page.getByText("本次 AI 输入 hash")).toBeVisible();
+    // Normalized and AI-input fingerprints should be shown in user-facing language.
+    await expect(page.locator(".warning-box").first()).toContainText("文本指纹");
+    await expect(page.getByText("本次识别文本指纹")).toBeVisible();
   });
 
   // ─── Scenario 18: Trans-to-paste mode preserves text ───
@@ -483,8 +484,8 @@ test.describe("E1.1 验收：文本型 PDF 导入", () => {
     await page.getByRole("button", { name: "转为粘贴文本编辑" }).click();
 
     // Should be in paste mode with extracted text
-    await expect(page.getByRole("button", { name: "保存原文" })).toBeVisible();
-    const textarea = page.locator("textarea").first();
+    await expect(page.getByTestId("save-profile-raw-input")).toBeVisible();
+    const textarea = page.getByTestId("profile-raw-textarea");
     const content = await textarea.inputValue();
     expect(content).toContain("Zhang San");
     expect(content).toContain("Senior Engineer");
@@ -623,8 +624,8 @@ test.describe("E1.1 验收：文本型 PDF 导入", () => {
     await page.reload();
 
     // After refresh, the page should show interrupted/failed status, NOT extracting
-    await expect(page.locator(".save-status")).toBeVisible({ timeout: 10_000 });
-    const statusText = await page.locator(".save-status").textContent();
+    await expect(page.locator(".profile-workspace")).toBeVisible({ timeout: 10_000 });
+    const statusText = await page.locator(".profile-workspace").innerText();
     expect(statusText).not.toContain("extracting");
 
     // Should show re-import message
@@ -632,22 +633,22 @@ test.describe("E1.1 验收：文本型 PDF 导入", () => {
   });
 
   // ─── Scenario 25: Log and privacy ───
-  test("场景25：页面不显示原始 PDF Blob，只显示 hash", async ({ page }) => {
+  test("场景25：页面不显示原始 PDF Blob，只显示指纹", async ({ page }) => {
     await navigateToProfile(page);
     await uploadPdf(page, fixtures.singlePageEn);
     await waitForExtractionDone(page);
 
-    // Session info should show hash, not raw content
-    await expect(page.locator(".warning-box").first()).toContainText("fileHash");
+    // Session info should show a fingerprint, not raw content.
+    await expect(page.locator(".warning-box").first()).toContainText("文件指纹");
 
     // Create draft to check AI input hash
     await page.getByRole("button", { name: "使用提取文本创建草稿" }).click();
 
-    // AI input hash displayed (truncated)
-    await expect(page.getByText("本次 AI 输入 hash")).toBeVisible();
+    // AI input fingerprint is displayed (truncated).
+    await expect(page.getByText("本次识别文本指纹")).toBeVisible();
 
     // No full raw PDF content in the hash display area
-    const hashDisplay = page.getByText(/本次 AI 输入 hash/);
+    const hashDisplay = page.getByText(/本次识别文本指纹/);
     const hashText = await hashDisplay.textContent();
     // Hash should be a hex string, not the full resume text
     expect(hashText?.length).toBeLessThan(100);
@@ -663,9 +664,9 @@ test.describe("E1.1 验收：文本型 PDF 导入", () => {
 
     // Switch to paste mode
     await page.getByRole("button", { name: "粘贴文本" }).click();
-    const textarea = page.locator("textarea").first();
+    const textarea = page.getByTestId("profile-raw-textarea");
     await textarea.fill("Manual paste text after PDF failure.");
-    await page.getByRole("button", { name: "保存原文" }).click();
+    await page.getByTestId("save-profile-raw-input").click();
     await expect(page.locator(".notice")).toContainText("原始输入已保存");
   });
 
@@ -676,12 +677,12 @@ test.describe("E1.1 验收：文本型 PDF 导入", () => {
     await waitForExtractionDone(page);
 
     // Delete session
-    await page.getByRole("button", { name: "删除导入 session" }).click();
+    await page.getByRole("button", { name: "删除导入记录" }).click();
     await expect(page.getByText("PDF 状态：idle")).toBeVisible();
 
     // Re-import same PDF after reload
     await page.reload();
-    await expect(page.getByRole("heading", { name: "职业母档案导入" })).toBeVisible();
+    await expect(page.locator(".profile-workspace")).toBeVisible();
     await uploadPdf(page, fixtures.singlePageEn);
     await waitForExtractionDone(page);
 

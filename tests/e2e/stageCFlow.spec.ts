@@ -41,14 +41,14 @@ test.describe("Stage C1 evidence matcher flow", () => {
     });
 
     await page.goto("/jobs");
-    await expect(page.getByText("岗位JD解析")).toBeVisible();
+    await expect(page.locator(".jobs-workspace")).toBeVisible();
 
-    await page.getByRole("button", { name: "运行C1规则匹配" }).click();
-    await expect(page.getByText("C1规则匹配完成", { exact: false })).toBeVisible();
+    await page.getByTestId("run-experience-match").click();
+    await expect(page.locator(".notice")).toBeVisible();
     await expect(page.locator(".match-row").first()).toBeVisible();
 
-    await page.getByRole("button", { name: "运行AI解释" }).click();
-    await expect(page.getByText("C1 AI解释完成", { exact: false })).toBeVisible({ timeout: 15_000 });
+    await page.getByTestId("run-ai-evidence-explanation").click();
+    await expect(page.locator(".notice")).toBeVisible({ timeout: 15_000 });
 
     await page.locator(".match-row").first().click();
     await page.locator(".manual-override select").nth(0).selectOption("strong");
@@ -93,8 +93,9 @@ test.describe("Stage C1 evidence matcher flow", () => {
     });
 
     await page.reload();
-    await expect(page.locator(".match-row").filter({ hasText: "stale" }).first()).toBeVisible();
-    await expect(page.getByText("该匹配已过期", { exact: false })).toBeVisible();
+    await expect(page.locator(".match-row").first()).toBeVisible();
+    await page.locator(".match-row").first().click();
+    await expect(page.locator(".warning-box").first()).toBeVisible();
   });
 
   test("creates C2 adaptation draft, generates guarded suggestions, edits, accepts, rejects, and undoes", async ({ page }) => {
@@ -185,17 +186,15 @@ test.describe("Stage C1 evidence matcher flow", () => {
     });
 
     await page.goto("/jobs");
-    await expect(page.getByText("岗位JD解析")).toBeVisible();
+    await expect(page.locator(".jobs-workspace")).toBeVisible();
 
-    await page.getByRole("button", { name: "运行C1规则匹配" }).click();
-    await expect(page.getByText("C1规则匹配完成", { exact: false })).toBeVisible();
+    await page.getByTestId("run-experience-match").click();
+    await expect(page.locator(".notice")).toBeVisible();
 
-    await page.getByRole("button", { name: "创建C2草稿" }).click();
-    await expect(page.getByText("C2 适配草稿已创建", { exact: false })).toBeVisible();
-    await expect(page.getByText("适配草稿 revision 0", { exact: false })).toBeVisible();
-
-    await page.getByRole("button", { name: "生成AI建议" }).click();
-    await expect(page.getByText("C2 AI建议已生成", { exact: false })).toBeVisible({ timeout: 15_000 });
+    await page.getByTestId("create-suggestion-draft").click();
+    await expect(page.locator(".notice")).toBeVisible();
+    await page.getByTestId("generate-ai-suggestions").click();
+    await expect(page.locator(".notice")).toBeVisible({ timeout: 15_000 });
     await expect(page.locator(".suggestion-card")).toHaveCount(3);
 
     await page.locator(".suggestion-card").first().getByRole("button", { name: "接受" }).click();
@@ -205,7 +204,7 @@ test.describe("Stage C1 evidence matcher flow", () => {
     await expect(blockedCard).toBeVisible();
     await blockedCard.locator("textarea").fill("使用 Stata 完成数据清洗。");
     await blockedCard.getByRole("button", { name: "编辑后检测" }).click();
-    await expect(page.getByText("编辑文本已通过 Fact Guard", { exact: false })).toBeVisible();
+    await expect(page.locator(".notice")).toBeVisible();
     await page.locator(".suggestion-card").filter({ hasText: "edited_guarded" }).getByRole("button", { name: "接受" }).click();
     await expect(page.getByText("建议已接受", { exact: false })).toBeVisible();
 

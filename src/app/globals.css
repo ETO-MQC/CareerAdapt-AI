@@ -3,14 +3,45 @@
 @tailwind utilities;
 
 :root {
-  --bg: #f6f7f4;
+  --bg: #f4f6f5;
   --paper: #ffffff;
+  --surface: #ffffff;
+  --surface-subtle: #eef2ef;
   --ink: #202522;
   --muted: #606962;
   --line: #d9ded8;
   --accent: #176b5b;
   --accent-strong: #0f5145;
   --amber: #b86b1f;
+  --danger: #9b2c2c;
+  --shadow-soft: 0 12px 30px rgba(32, 37, 34, 0.1);
+  --radius: 8px;
+  --header-height: 52px;
+  --sidebar-width: 192px;
+  --workspace-gap: 16px;
+  --workspace-padding: 20px;
+  --control-height: 36px;
+}
+
+:root[data-theme="dark"] {
+  --bg: #111614;
+  --paper: #ffffff;
+  --surface: #1a211f;
+  --surface-subtle: #222b28;
+  --ink: #eef3ef;
+  --muted: #a8b4ae;
+  --line: #35413c;
+  --accent: #42a58f;
+  --accent-strong: #7fd4bf;
+  --amber: #e0a15a;
+  --danger: #f08c8c;
+  --shadow-soft: 0 12px 30px rgba(0, 0, 0, 0.28);
+}
+
+:root[data-density="comfortable"] {
+  --workspace-padding: 28px;
+  --workspace-gap: 20px;
+  --control-height: 40px;
 }
 
 * {
@@ -20,6 +51,14 @@
 html,
 body {
   min-height: 100%;
+}
+
+html {
+  color-scheme: light;
+}
+
+html[data-theme="dark"] {
+  color-scheme: dark;
 }
 
 body {
@@ -40,59 +79,143 @@ a {
   -webkit-tap-highlight-color: transparent;
 }
 
-.app-header {
+.app-shell {
+  display: grid;
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+  min-height: 100dvh;
+}
+
+.primary-sidebar {
   align-items: center;
-  background: rgba(255, 255, 255, 0.92);
-  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+  border-right: 1px solid var(--line);
   display: flex;
+  flex-direction: column;
   gap: 24px;
-  justify-content: space-between;
-  min-height: 64px;
-  padding: 0 28px;
-  position: sticky;
-  top: 0;
-  z-index: 10;
+  min-height: 100dvh;
+  padding: 18px 14px;
+  position: fixed;
+  inset: 0 auto 0 0;
+  width: var(--sidebar-width);
+  z-index: 20;
 }
 
 .brand {
   color: var(--accent-strong);
   font-size: 18px;
   font-weight: 800;
+  width: 100%;
 }
 
-.app-header nav {
+.primary-sidebar nav {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  justify-content: flex-end;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
 }
 
-.app-header nav a,
+.nav-link,
 .primary-link,
 .route-grid a,
 .probe-toolbar a,
 .probe-toolbar button {
   align-items: center;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius);
   display: inline-flex;
   font-size: 14px;
   font-weight: 650;
-  min-height: 38px;
+  min-height: var(--control-height);
   padding: 0 14px;
 }
 
-.app-header nav a:hover,
+.nav-link {
+  background: transparent;
+  justify-content: flex-start;
+  width: 100%;
+}
+
+.nav-link-active {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border-color: var(--accent);
+  color: var(--accent-strong);
+}
+
+.nav-link:hover,
 .route-grid a:hover,
 .probe-toolbar a:hover {
   border-color: var(--accent);
   color: var(--accent-strong);
 }
 
+.app-main-frame {
+  display: grid;
+  grid-column: 2;
+  grid-template-rows: var(--header-height) minmax(0, 1fr);
+  min-height: 100dvh;
+  min-width: 0;
+}
+
+.workspace-topbar {
+  align-items: center;
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  min-height: var(--header-height);
+  padding: 0 var(--workspace-padding);
+  position: sticky;
+  top: 0;
+  z-index: 15;
+}
+
+.workspace-topbar strong {
+  display: block;
+  line-height: 1.1;
+}
+
+.topbar-kicker {
+  color: var(--muted);
+  display: block;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.topbar-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.global-save-state {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  padding: 6px 10px;
+}
+
+.shell-help-link {
+  background: var(--surface);
+}
+
 .page-shell {
   margin: 0 auto;
   max-width: 1120px;
-  padding: 42px 24px 72px;
+  padding: var(--workspace-padding) 24px 72px;
+}
+
+.jobs-workspace,
+.profile-workspace,
+.application-workspace {
+  max-width: none;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  min-height: calc(100dvh - var(--header-height));
 }
 
 .workspace-band {
@@ -167,9 +290,9 @@ p {
 
 .status-tile,
 .panel {
-  background: var(--paper);
+  background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius);
   padding: 20px;
 }
 
@@ -193,7 +316,7 @@ p {
 }
 
 .route-grid a {
-  background: var(--paper);
+  background: var(--surface);
   justify-content: center;
   min-height: 56px;
 }
@@ -245,7 +368,7 @@ p {
 }
 
 .fact-line {
-  background: #faf7ef;
+  background: color-mix(in srgb, var(--amber) 12%, var(--surface));
   border-left: 3px solid var(--amber);
   color: var(--ink);
   margin-bottom: 0;
@@ -312,8 +435,9 @@ p {
 }
 
 .textarea {
+  background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius);
   color: var(--ink);
   font: inherit;
   min-height: 220px;
@@ -330,8 +454,10 @@ p {
 }
 
 .form-grid input {
+  background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius);
+  color: var(--ink);
   font: inherit;
   min-height: 42px;
   padding: 0 12px;
@@ -348,8 +474,10 @@ p {
 
 .field-label select,
 .panel > input {
+  background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius);
+  color: var(--ink);
   font: inherit;
   min-height: 42px;
   padding: 0 12px;
@@ -362,8 +490,10 @@ p {
 
 .form-grid select,
 .manual-override select {
+  background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius);
+  color: var(--ink);
   font: inherit;
   min-height: 42px;
   padding: 0 12px;
@@ -382,11 +512,11 @@ p {
 .primary-button,
 .secondary-button {
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius);
   cursor: pointer;
   font: inherit;
   font-weight: 700;
-  min-height: 38px;
+  min-height: var(--control-height);
   padding: 0 14px;
 }
 
@@ -397,7 +527,7 @@ p {
 }
 
 .secondary-button {
-  background: #fff;
+  background: var(--surface);
   color: var(--ink);
 }
 
@@ -413,9 +543,9 @@ p {
 
 .notice,
 .warning-box {
-  background: #eef6f3;
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
   border: 1px solid #c7ddd5;
-  border-radius: 8px;
+  border-radius: var(--radius);
   color: var(--accent-strong);
   font-weight: 700;
   margin-bottom: 18px;
@@ -423,7 +553,7 @@ p {
 }
 
 .warning-box {
-  background: #faf7ef;
+  background: color-mix(in srgb, var(--amber) 14%, var(--surface));
   border-color: #ecd9bd;
   color: var(--ink);
   margin-top: 16px;
@@ -437,7 +567,7 @@ p {
 
 .save-status-failed,
 .save-status-conflict {
-  color: #9b2c2c;
+  color: var(--danger);
 }
 
 .review-row {
@@ -807,13 +937,17 @@ p {
   align-items: start;
   display: grid;
   gap: 18px;
-  grid-template-columns: minmax(260px, 0.36fr) minmax(0, 1fr);
+  grid-template-columns: minmax(320px, 388px) minmax(0, 1fr);
+  height: calc(100dvh - var(--header-height) - 112px);
   margin-bottom: 18px;
+  min-height: 620px;
 }
 
 .resume-export-panel {
+  max-height: 100%;
+  overflow: auto;
   position: sticky;
-  top: 84px;
+  top: calc(var(--header-height) + 16px);
 }
 
 .property-panel-heading {
@@ -931,7 +1065,9 @@ p {
 .resume-preview-stage {
   background: #e8ebe7;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius);
+  height: 100%;
+  min-height: 0;
   overflow: auto;
   padding: 18px;
   position: relative;
@@ -998,7 +1134,7 @@ p {
 .resume-studio-editor {
   background: #fff;
   border: 1px solid #9fc4b8;
-  border-radius: 8px;
+  border-radius: var(--radius);
   box-shadow: 0 16px 42px rgba(32, 37, 34, 0.2);
   display: grid;
   gap: 8px;
@@ -1008,6 +1144,108 @@ p {
   position: absolute;
   top: 12mm;
   z-index: 5;
+}
+
+.resume-workspace {
+  max-width: none;
+  padding: var(--workspace-padding);
+}
+
+.resume-workspace > .page-title {
+  align-items: end;
+  display: flex;
+  gap: 18px;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  padding-bottom: 14px;
+}
+
+.resume-workspace > .page-title p:last-child {
+  margin-bottom: 0;
+}
+
+.resume-workspace > .panel.no-print {
+  max-height: min(54dvh, 520px);
+  overflow: auto;
+}
+
+.resume-workspace .stage-grid {
+  margin-bottom: 12px;
+}
+
+.resume-workspace .branch-editor {
+  max-height: 360px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.studio-sidebar-section {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+  padding-top: 14px;
+}
+
+.studio-sidebar-section h2 {
+  font-size: 16px;
+  margin-bottom: 2px;
+}
+
+.studio-subpanel {
+  background: color-mix(in srgb, var(--surface-subtle) 50%, var(--surface));
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+}
+
+.studio-subpanel .optimization-grid {
+  grid-template-columns: 1fr;
+}
+
+.studio-subpanel .match-layout,
+.studio-subpanel .c2-layout {
+  grid-template-columns: 1fr;
+}
+
+.studio-subpanel .requirement-list {
+  max-height: 260px;
+}
+
+.compact-revision-list {
+  max-height: 240px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.studio-mode-switch {
+  background: var(--surface-subtle);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  display: inline-flex;
+  gap: 4px;
+  padding: 3px;
+}
+
+.mode-tab {
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  min-height: 30px;
+  padding: 0 10px;
+}
+
+.mode-tab-active {
+  background: var(--surface);
+  box-shadow: var(--shadow-soft);
+  color: var(--accent-strong);
 }
 
 .resume-studio-editor strong,
@@ -1690,8 +1928,106 @@ p {
   min-height: 84px;
 }
 
+.profile-manager-grid {
+  align-items: start;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(320px, 0.95fr) minmax(360px, 1.05fr) minmax(260px, 0.75fr);
+  margin-bottom: 18px;
+}
+
+.profile-editor-panel,
+.profile-summary-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.profile-editor-panel textarea {
+  min-height: 110px;
+}
+
+.profile-item-list,
+.profile-archive-list,
+.profile-source-list {
+  display: grid;
+  gap: 10px;
+}
+
+.profile-item-row {
+  align-items: end;
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(150px, 1fr) minmax(118px, 0.45fr) auto;
+  padding-top: 10px;
+}
+
+.profile-item-row input,
+.profile-item-row select,
+.profile-editor-panel input,
+.profile-editor-panel select,
+.profile-editor-panel textarea {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  font: inherit;
+  min-height: 38px;
+  padding: 0 10px;
+  width: 100%;
+}
+
+.profile-editor-panel textarea {
+  padding: 10px;
+  resize: vertical;
+}
+
+.profile-archive-list,
+.profile-source-list {
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+
+.profile-source-list p {
+  margin-bottom: 0;
+}
+
+.import-quality-report {
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--line));
+  border-radius: var(--radius);
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 12px;
+}
+
+.import-quality-report dl {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  margin: 0;
+}
+
+.import-quality-report div {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.import-quality-report dt {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.import-quality-report dd {
+  font-weight: 800;
+  margin: 4px 0 0;
+}
+
 .application-workspace {
-  max-width: 1280px;
+  max-width: none;
 }
 
 .application-filters {
@@ -1737,13 +2073,18 @@ p {
   display: grid;
   gap: 14px;
   grid-template-columns: repeat(5, minmax(190px, 1fr));
+  min-height: 0;
+  overflow-x: auto;
+  padding-bottom: 6px;
 }
 
 .application-board-column {
   background: #f3f5f1;
   border: 1px solid var(--line);
   border-radius: 8px;
+  max-height: min(62dvh, 680px);
   min-width: 0;
+  overflow: auto;
   padding: 12px;
 }
 
@@ -1906,6 +2247,8 @@ p {
   display: grid;
   gap: 16px;
   margin-top: 18px;
+  min-height: 0;
+  overflow: auto;
 }
 
 .application-detail-grid {
@@ -2134,8 +2477,12 @@ p {
 }
 
 @media print {
+  html,
   body {
     background: white;
+    margin: 0;
+    min-height: 0;
+    width: 210mm;
   }
 
   .no-print {
@@ -2160,17 +2507,39 @@ p {
     padding: 0;
   }
 
+  .app-shell,
+  .app-main-frame {
+    display: block !important;
+    grid-column: auto !important;
+    grid-template-columns: none !important;
+    grid-template-rows: none !important;
+    min-height: 0 !important;
+    width: 210mm;
+  }
+
+  .page-shell {
+    margin: 0 !important;
+    max-width: none !important;
+    padding: 0 !important;
+  }
+
   .resume-preview-layout {
-    display: block;
-    margin: 0;
+    display: block !important;
+    height: auto !important;
+    margin: 0 !important;
+    min-height: 0 !important;
+    width: 210mm;
   }
 
   .resume-preview-stage {
     background: white;
     border: 0;
     border-radius: 0;
+    height: auto !important;
+    min-height: 0 !important;
     overflow: visible;
-    padding: 0;
+    padding: 0 !important;
+    width: 210mm;
   }
 
   .resume-a4-page {
@@ -2196,10 +2565,44 @@ p {
 }
 
 @media (max-width: 860px) {
-  .app-header {
+  .app-shell {
+    display: block;
+  }
+
+  .primary-sidebar {
+    border-bottom: 1px solid var(--line);
+    border-right: 0;
+    min-height: 0;
+    position: static;
+    width: 100%;
+  }
+
+  .primary-sidebar nav {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .app-main-frame {
+    display: block;
+    min-height: 0;
+  }
+
+  .workspace-topbar {
     align-items: flex-start;
     flex-direction: column;
+    gap: 10px;
+    min-height: 0;
     padding: 14px 18px;
+    position: static;
+  }
+
+  .topbar-actions {
+    justify-content: flex-start;
+    width: 100%;
+  }
+
+  .page-shell {
+    padding: 18px 14px 48px;
   }
 
   .workspace-band,
@@ -2217,6 +2620,7 @@ p {
     .c2-layout,
     .optimization-grid,
     .resume-preview-layout,
+    .profile-manager-grid,
     .application-board,
     .application-detail-grid,
     .application-filter-row,
@@ -2250,10 +2654,29 @@ p {
 
   .resume-export-panel {
     position: static;
+    max-height: none;
+  }
+
+  .resume-preview-layout {
+    height: auto;
+    min-height: 0;
+  }
+
+  .resume-preview-stage {
+    height: auto;
+    min-height: 520px;
   }
 
   .resume-a4-page {
     transform-origin: top center;
     width: 210mm;
+  }
+
+  .profile-item-row {
+    grid-template-columns: 1fr;
+  }
+
+  .application-board-column {
+    max-height: none;
   }
 }

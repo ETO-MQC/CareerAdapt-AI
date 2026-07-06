@@ -358,7 +358,7 @@ export function JobsWorkspace() {
 
   async function runRuleMatcher() {
     if (!profile || !selectedJob) {
-      setMessage("请先准备正式职业母档案和正式岗位数据。");
+      setMessage("请先准备个人资料和正式岗位数据。");
       return;
     }
 
@@ -370,12 +370,12 @@ export function JobsWorkspace() {
     });
     setMatches(saved);
     setSelectedMatchId(saved[0]?.id);
-    setMessage("C1规则匹配完成：只使用正式母档案中已确认事实。");
+    setMessage("经历匹配已完成：只使用个人资料中已确认的事实。");
   }
 
   async function runAiEvidenceMatcher() {
     if (!profile || !selectedJob || matches.length === 0) {
-      setMessage("请先运行C1规则匹配。");
+      setMessage("请先运行经历匹配。");
       return;
     }
 
@@ -450,7 +450,7 @@ export function JobsWorkspace() {
       matches: nextMatches
     });
     setMatches(saved);
-    setMessage("C1 AI解释完成。AI只生成 aiEvaluation，规则层与人工覆盖未被修改。");
+    setMessage("AI解释已完成；规则匹配和人工覆盖未被修改。");
   }
 
   async function saveManualOverride(match: RequirementMatch) {
@@ -501,7 +501,7 @@ export function JobsWorkspace() {
 
   async function createC2Draft() {
     if (!profile || !selectedJob || matches.length === 0) {
-      setMessage("请先完成 C1 匹配，再创建 C2 适配草稿。");
+      setMessage("请先完成经历匹配，再创建简历建议草稿。");
       return undefined;
     }
 
@@ -520,13 +520,13 @@ export function JobsWorkspace() {
       });
       setAdaptationDraft(result.draft);
       setC2Status("idle");
-      setMessage(result.idempotent ? "C2 适配草稿已存在，已恢复。" : "C2 适配草稿已创建。");
+      setMessage(result.idempotent ? "简历建议草稿已存在，已恢复。" : "简历建议草稿已创建。");
       return result.draft;
     } catch (error) {
       setC2Status("failed");
       setMessage(error instanceof Error && error.message.includes("c2_match_stale")
-        ? "存在 stale 匹配，禁止进入 C2。请返回 C1 重新运行匹配。"
-        : "创建 C2 草稿失败，请确认 C1 匹配未过期。");
+        ? "存在过期匹配，暂不能生成建议。请重新运行经历匹配。"
+        : "创建简历建议草稿失败，请确认匹配结果未过期。");
       return undefined;
     }
   }
@@ -593,10 +593,10 @@ export function JobsWorkspace() {
       setAdaptationDraft(saved.draft);
       setSuggestions(saved.suggestions);
       setC2Status("idle");
-      setMessage("C2 AI建议已生成，并已完成规则 Fact Guard 与 AI 语义复核。");
+      setMessage("AI简历建议已生成，并完成事实安全检查。");
     } catch {
       setC2Status("failed");
-      setMessage("生成 C2 建议失败。已有草稿和规则检测结果不会被清空。");
+      setMessage("生成简历建议失败。已有草稿和规则检测结果不会被清空。");
     }
   }
 
@@ -639,7 +639,7 @@ export function JobsWorkspace() {
       setSuggestions((current) => current.map((item) => item.id === result.suggestion.id ? result.suggestion : item));
       setMessage("建议已接受，草稿文本和快照已保存。");
     } catch {
-      setMessage("该建议无法接受：可能是高风险、未通过 Fact Guard、revision 冲突或 C1 匹配已过期。");
+      setMessage("该建议无法接受：可能是高风险、未通过事实安全检查、版本冲突或匹配已过期。");
     }
   }
 
@@ -681,7 +681,7 @@ export function JobsWorkspace() {
     });
     setAdaptationDraft(result.draft);
     setSuggestions((current) => current.map((item) => item.id === result.suggestion.id ? result.suggestion : item));
-    setMessage(guardResult.status === "pass" ? "编辑文本已通过 Fact Guard，可单条接受。" : "编辑文本仍存在事实风险，请删除风险内容后重新检测。");
+    setMessage(guardResult.status === "pass" ? "编辑文本已通过事实安全检查，可单条接受。" : "编辑文本仍存在事实风险，请删除风险内容后重新检测。");
   }
 
   async function rerunGuardSuggestion(suggestion: AiSuggestion) {
@@ -701,7 +701,7 @@ export function JobsWorkspace() {
     });
     setAdaptationDraft(result.draft);
     setSuggestions((current) => current.map((item) => item.id === result.suggestion.id ? result.suggestion : item));
-    setMessage("Fact Guard 已重新检测。");
+    setMessage("事实安全检查已重新检测。");
   }
 
   async function undoSuggestion(suggestion: AiSuggestion) {
@@ -786,11 +786,11 @@ export function JobsWorkspace() {
   }
 
   return (
-    <main className="page-shell">
+    <main className="page-shell jobs-workspace">
       <section className="page-title">
-        <p className="eyebrow">Stage B2 / JD Analyzer</p>
-        <h1>岗位JD解析</h1>
-        <p>保存原始JD后再解析。每条要求保留原文依据、定性置信度和优先级，不输出岗位匹配总分。</p>
+        <p className="eyebrow">岗位工作区</p>
+        <h1>岗位解析与简历建议</h1>
+        <p>粘贴岗位描述，提取要求，匹配你的个人资料，并生成可审阅的简历修改建议。</p>
       </section>
 
       {workspace.status === "empty" ? <WorkspaceEmptyState /> : null}
@@ -800,12 +800,12 @@ export function JobsWorkspace() {
         <article className="panel">
           <h2>1. 粘贴岗位JD</h2>
           <div className="form-grid">
-            <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="岗位名称" />
-            <input value={company} onChange={(event) => setCompany(event.target.value)} placeholder="公司名称" />
+            <input data-testid="job-title-input" value={title} onChange={(event) => setTitle(event.target.value)} placeholder="岗位名称" />
+            <input data-testid="job-company-input" value={company} onChange={(event) => setCompany(event.target.value)} placeholder="公司名称" />
           </div>
-          <textarea className="textarea" value={rawText} onChange={(event) => setRawText(event.target.value)} placeholder="粘贴岗位JD原文..." />
+          <textarea data-testid="job-raw-textarea" className="textarea" value={rawText} onChange={(event) => setRawText(event.target.value)} placeholder="粘贴岗位JD原文..." />
           <div className="action-row">
-            <button className="primary-button" onClick={startImport}>
+            <button className="primary-button" data-testid="save-job-raw-input" onClick={startImport}>
               保存原始JD
             </button>
             <span className={`save-status save-status-${saveStatus}`}>自动保存：{saveStatus}</span>
@@ -818,10 +818,10 @@ export function JobsWorkspace() {
             <p>系统会在服务端默认脱敏手机号、邮箱、身份证号和精确地址后再发送给外部模型。</p>
             <p>本次脱敏预览：{redactionPreview.redactions.length === 0 ? "未发现需脱敏内容" : redactionPreview.redactions.map((item) => `${item.type} x${item.count}`).join(" / ")}</p>
             <div className="action-row">
-              <button className="primary-button" onClick={analyzeWithAi}>
+              <button className="primary-button" data-testid="job-analyze-ai" onClick={analyzeWithAi}>
                 同意脱敏并解析
               </button>
-              <button className="secondary-button" onClick={enterManualMode}>
+              <button className="secondary-button" data-testid="job-manual-mode" onClick={enterManualMode}>
                 拒绝，手动分类
               </button>
             </div>
@@ -836,7 +836,7 @@ export function JobsWorkspace() {
               <h2>岗位要求草稿</h2>
               <p>确认后的要求才会进入正式岗位数据。删除前会提示影响。</p>
             </div>
-            <button className="primary-button" onClick={commitJob}>
+            <button className="primary-button" data-testid="commit-job" onClick={commitJob}>
               提交正式岗位
             </button>
           </div>
@@ -852,7 +852,7 @@ export function JobsWorkspace() {
         <h2>当前正式岗位数据</h2>
         {jobs.length > 0 ? (
           <label className="field-label">
-            D1 当前岗位
+            当前岗位
             <select value={selectedJob?.id ?? ""} onChange={(event) => {
               setSelectedJobId(event.target.value);
               setSelectedMatchId(undefined);
@@ -887,21 +887,21 @@ export function JobsWorkspace() {
         <section className="panel">
           <div className="section-heading">
             <div>
-              <h2>C1 经历匹配与差距诊断</h2>
-              <p>仅使用正式职业母档案中已确认事实；页面展示统一由 resolveEffectiveMatch 计算的有效结果。</p>
+              <h2>经历匹配与差距诊断</h2>
+              <p>仅使用个人资料中已确认的事实，帮助你判断哪些要求已有证据、哪些需要补充。</p>
             </div>
             <div className="action-row">
-              <button className="primary-button" onClick={runRuleMatcher}>
-                运行C1规则匹配
+              <button className="primary-button" data-testid="run-experience-match" onClick={runRuleMatcher}>
+                运行经历匹配
               </button>
-              <button className="secondary-button" onClick={runAiEvidenceMatcher} disabled={matches.length === 0}>
+              <button className="secondary-button" data-testid="run-ai-evidence-explanation" onClick={runAiEvidenceMatcher} disabled={matches.length === 0}>
                 运行AI解释
               </button>
             </div>
           </div>
 
           {matches.length === 0 ? (
-            <p>尚未生成匹配结果。请先运行C1规则匹配。</p>
+            <p>尚未生成匹配结果。请先运行经历匹配。</p>
           ) : (
             <div className="match-layout">
               <div className="match-list">
@@ -915,7 +915,7 @@ export function JobsWorkspace() {
                       onClick={() => setSelectedMatchId(match.id)}
                     >
                       <strong>{selectedJob.requirements.find((item) => item.id === match.requirementId)?.description}</strong>
-                      <span>{effective.matchLevel} / {effective.riskLevel} / {effective.source}{stale.isStale ? " / stale" : ""}</span>
+                      <span>{matchLevelLabel(effective.matchLevel)} / {riskLabel(effective.riskLevel)} / {sourceLabel(effective.source)}{stale.isStale ? " / 已过期" : ""}</span>
                     </button>
                   );
                 })}
@@ -947,14 +947,14 @@ export function JobsWorkspace() {
         <section className="panel">
           <div className="section-heading">
             <div>
-              <h2>C2 AI建议与 Fact Guard</h2>
-              <p>只读取未 stale 的 resolveEffectiveMatch 结果，建议只作用于 JobAdaptationDraft，不修改职业母档案。</p>
+              <h2>AI简历建议与事实安全检查</h2>
+              <p>只读取未过期的匹配结果；建议会先进入草稿，接受前不会修改个人资料。</p>
             </div>
             <div className="action-row">
-              <button className="primary-button" onClick={createC2Draft} disabled={matches.length === 0 || c2Status === "running"}>
-                创建C2草稿
+              <button className="primary-button" data-testid="create-suggestion-draft" onClick={createC2Draft} disabled={matches.length === 0 || c2Status === "running"}>
+                创建建议草稿
               </button>
-              <button className="secondary-button" onClick={generateC2Suggestions} disabled={matches.length === 0 || c2Status === "running"}>
+              <button className="secondary-button" data-testid="generate-ai-suggestions" onClick={generateC2Suggestions} disabled={matches.length === 0 || c2Status === "running"}>
                 生成AI建议
               </button>
             </div>
@@ -963,7 +963,7 @@ export function JobsWorkspace() {
           {adaptationDraft ? (
             <div className="c2-layout">
               <article className="draft-preview">
-                <h3>适配草稿 revision {adaptationDraft.revision}</h3>
+                <h3>建议草稿</h3>
                 {adaptationDraft.sectionTexts.map((section) => (
                   <p key={section.sectionId}><strong>{section.sectionType}</strong>：{section.text}</p>
                 ))}
@@ -985,7 +985,7 @@ export function JobsWorkspace() {
               </div>
             </div>
           ) : (
-            <p>请先创建 C2 适配草稿。若任一引用匹配过期，系统会要求返回 C1 重跑。</p>
+            <p>请先创建建议草稿。若任一引用匹配过期，系统会要求重新运行经历匹配。</p>
           )}
         </section>
       ) : null}
@@ -1092,10 +1092,10 @@ function MatchDetail({
 
   return (
     <article className="match-detail">
-      {stale.isStale ? <div className="warning-box">该匹配已过期，需要重新运行C1后才能用于后续阶段。</div> : null}
+      {stale.isStale ? <div className="warning-box">该匹配已过期，需要重新运行经历匹配后才能继续使用。</div> : null}
       <h3>{requirement?.description}</h3>
       <p><strong>岗位原文：</strong>{match.requirementQuote.text}</p>
-      <p><strong>有效结果：</strong>{effective.matchLevel} / {effective.riskLevel} / 来源：{effective.source}</p>
+      <p><strong>有效结果：</strong>{matchLevelLabel(effective.matchLevel)} / {riskLabel(effective.riskLevel)} / 来源：{sourceLabel(effective.source)}</p>
       <p><strong>解释：</strong>{effective.explanation}</p>
       <div className="evidence-list">
         {effective.evidenceRefs.length > 0 ? effective.evidenceRefs.map((ref) => (
@@ -1106,20 +1106,20 @@ function MatchDetail({
         <h4>人工覆盖</h4>
         <div className="form-grid">
           <select value={manualLevel} onChange={(event) => onManualLevel(event.target.value as MatchEvaluation["matchLevel"])}>
-            <option value="strong">strong</option>
-            <option value="weak">weak</option>
-            <option value="transferable">transferable</option>
-            <option value="none">none</option>
+            <option value="strong">直接匹配</option>
+            <option value="weak">部分匹配</option>
+            <option value="transferable">可迁移</option>
+            <option value="none">暂无匹配</option>
           </select>
           <select value={manualRisk} onChange={(event) => onManualRisk(event.target.value as MatchEvaluation["riskLevel"])}>
-            <option value="low">low</option>
-            <option value="medium">medium</option>
-            <option value="high">high</option>
+            <option value="low">低风险</option>
+            <option value="medium">中风险</option>
+            <option value="high">高风险</option>
           </select>
         </div>
         {manualLevel !== "none" ? (
           <select value={manualEvidenceKey} onChange={(event) => onManualEvidence(event.target.value)}>
-            <option value="">选择正式事实</option>
+            <option value="">选择已确认事实</option>
             {manualCandidates.map((candidate) => (
               <option key={evidenceRefKey(candidate.ref)} value={evidenceRefKey(candidate.ref)}>
                 {candidate.ref.factText}
@@ -1132,6 +1132,32 @@ function MatchDetail({
       </div>
     </article>
   );
+}
+
+function matchLevelLabel(level: MatchEvaluation["matchLevel"]) {
+  return {
+    strong: "直接匹配",
+    weak: "部分匹配",
+    transferable: "可迁移",
+    none: "暂无匹配"
+  }[level];
+}
+
+function riskLabel(risk: MatchEvaluation["riskLevel"]) {
+  return {
+    low: "低风险",
+    medium: "中风险",
+    high: "高风险"
+  }[risk];
+}
+
+function sourceLabel(source: string) {
+  return {
+    rule: "规则",
+    ai: "AI解释",
+    manual: "人工确认",
+    fallback: "本地规则"
+  }[source] ?? source;
 }
 
 function RequirementReviewRow({

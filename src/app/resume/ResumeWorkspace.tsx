@@ -63,6 +63,7 @@ type PresentationHistoryState = {
 };
 
 type PropertyPanelTab = "document" | "section" | "block";
+type StudioMode = "manual" | "ai";
 
 type PdfExportState = {
   status: "idle" | "validating" | "generating" | "downloading" | "success" | "failed" | "blocked_overflow";
@@ -99,8 +100,14 @@ export function ResumeWorkspace() {
   const [studioDraftText, setStudioDraftText] = useState("");
   const [studioError, setStudioError] = useState<string | undefined>();
   const [pendingStudioOperationId, setPendingStudioOperationId] = useState<string | undefined>();
+  const [selectedProfileFieldId, setSelectedProfileFieldId] = useState<string | undefined>();
+  const [editingProfileFieldId, setEditingProfileFieldId] = useState<string | undefined>();
+  const [profileFieldDraftText, setProfileFieldDraftText] = useState("");
+  const [profileFieldError, setProfileFieldError] = useState<string | undefined>();
+  const [profileFieldPending, setProfileFieldPending] = useState(false);
   const [isStylePanelOpen, setIsStylePanelOpen] = useState(true);
   const [isTemplateCenterOpen, setIsTemplateCenterOpen] = useState(false);
+  const [studioMode, setStudioMode] = useState<StudioMode>("manual");
   const [pendingTemplateApplyId, setPendingTemplateApplyId] = useState<TemplateId | undefined>();
   const [activePropertyTab, setActivePropertyTab] = useState<PropertyPanelTab>("document");
   const [pdfExportState, setPdfExportState] = useState<PdfExportState>({ status: "idle" });
@@ -252,6 +259,11 @@ export function ResumeWorkspace() {
     setStudioDraftText("");
     setStudioError(undefined);
     setPendingStudioOperationId(undefined);
+    setSelectedProfileFieldId(undefined);
+    setEditingProfileFieldId(undefined);
+    setProfileFieldDraftText("");
+    setProfileFieldError(undefined);
+    setProfileFieldPending(false);
     setActivePropertyTab("document");
   }, []);
 
@@ -523,7 +535,7 @@ export function ResumeWorkspace() {
     }
     if (issue.sectionType) {
       setActivePropertyTab("section");
-      setMessage(`诊断关联 Section：${issue.sectionType}。`);
+      setMessage(`诊断关联栏目：${sectionTypeLabel(issue.sectionType)}。`);
       return;
     }
     if (issue.requirementIds[0]) {
@@ -559,7 +571,7 @@ export function ResumeWorkspace() {
       return;
     }
     if (!selectedBranchEditable) {
-      setMessage("当前分支不可保存展示修复。");
+      setMessage("当前简历不可保存展示修复。");
       return;
     }
     if (action.kind === "set_density") {
@@ -592,7 +604,7 @@ export function ResumeWorkspace() {
       const sectionGap = presentationSpacingPayload(payload, "sectionGap") ?? "tight";
       await updatePresentationStyle((current) => ({
         spacing: { ...current.spacing, sectionGap }
-      }), "诊断修复已调整 Section 间距。");
+      }), "诊断修复已调整栏目间距。");
       return;
     }
     if (action.kind === "set_item_gap") {
@@ -652,18 +664,18 @@ export function ResumeWorkspace() {
     const job = jobs.find((item) => item.id === draft.jobId);
     return {
       draft,
-      label: `${job?.company ?? "Unknown"} / ${job?.title ?? draft.jobId} / revision ${draft.revision}`
+      label: `${job?.company ?? "未知公司"} / ${job?.title ?? draft.jobId}`
     };
   }), [drafts, jobs]);
 
   async function createBranch() {
     if (!profile || !selectedDraft) {
-      setMessage("请先选择可用的 C2 适配草稿。");
+      setMessage("请先选择可用的岗位简历建议草稿。");
       return;
     }
 
     const job = jobs.find((item) => item.id === selectedDraft.jobId);
-    const name = draftName.trim() || `${job?.company ?? "岗位"} / ${job?.title ?? "分支"}`;
+    const name = draftName.trim() || `${job?.company ?? "岗位"} / ${job?.title ?? "定制简历"}`;
     try {
       const result = await repository.createResumeBranchFromDraft({
         draftId: selectedDraft.id,
@@ -673,11 +685,11 @@ export function ResumeWorkspace() {
       });
       await refreshLists(profile.id);
       setSelectedBranchId(result.branch.id);
-      setMessage(result.idempotent ? "该草稿已经创建过正式分支，已恢复现有分支。" : "正式岗位分支已创建，并生成首个版本。");
+      setMessage(result.idempotent ? "该草稿已经创建过岗位简历，已打开现有简历。" : "岗位简历已创建，并生成首个版本。");
     } catch (error) {
       setMessage(error instanceof RevisionConflictError
-        ? "创建失败：C2 草稿 revision 已变化，请刷新后重试。"
-        : "创建失败：草稿可能已 stale、含高风险内容或引用了失效事实。请返回 C1/C2 修复。");
+        ? "创建失败：草稿版本已变化，请刷新后重试。"
+        : "创建失败：草稿可能已过期、含高风险内容或引用了失效事实。请返回岗位工作区修复。");
     }
   }
 
@@ -689,12 +701,12 @@ export function ResumeWorkspace() {
     }
     setSelectedBranchId(result.branchId);
     setIsStudioEditMode(true);
-    setMessage("已进入导入生成的通用简历分支，可继续编辑、换模板、调整分页并下载 PDF。");
+    setMessage("已进入导入生成的通用简历，可继续编辑、换模板、调整分页并下载 PDF。");
   }
 
   async function saveItem(itemId: string) {
     if (!selectedBranch || !selectedBranchEditable) {
-      setMessage("当前分支不可编辑：legacy、归档、引用失效或缺少 currentRevision。");
+      setMessage("当前简历不可编辑：旧数据、归档、引用失效或缺少当前版本。");
       return;
     }
 
@@ -713,9 +725,9 @@ export function ResumeWorkspace() {
       });
       replaceBranch(result.branch);
       setSelectedBranchId(result.branch.id);
-      setMessage("分支内容已保存，规则 Fact Guard 已由 Repository 重新计算。");
+      setMessage("简历内容已保存，事实安全检查已重新计算。");
     } catch {
-      setMessage("保存失败：可能存在高风险事实变更、revision 冲突或 legacy 分支只读。");
+      setMessage("保存失败：可能存在高风险事实变更、版本冲突或旧简历只读。");
     }
   }
 
@@ -727,7 +739,7 @@ export function ResumeWorkspace() {
     recordHistory?: boolean;
   }) {
     if (!selectedBranch || !selectedBranchEditable || !selectedBranch.currentRevisionId) {
-      setMessage("当前分支不可保存展示配置：legacy、归档、引用失效或缺少 currentRevision。");
+      setMessage("当前简历不可保存展示配置：旧数据、归档、引用失效或缺少当前版本。");
       return undefined;
     }
 
@@ -757,7 +769,7 @@ export function ResumeWorkspace() {
     } catch (error) {
       setMessage(error instanceof RevisionConflictError
         ? "展示配置保存失败：内容版本或展示版本已变化，请刷新后重试。"
-        : "展示配置保存失败：可能隐藏了全部内容、分支不可编辑或配置不合法。");
+        : "展示配置保存失败：可能隐藏了全部内容、简历不可编辑或配置不合法。");
       return undefined;
     }
   }
@@ -791,7 +803,7 @@ export function ResumeWorkspace() {
         nextConfig,
         beforeConfig: current,
         operationId: `v2-g1a-template-${selectedBranch.id}-${selectedBranch.revision}-${current.presentationRevision}-${nextTemplateId}`,
-        successMessage: "模板偏好已保存到当前分支展示配置。"
+        successMessage: "模板偏好已保存到当前简历展示配置。"
       });
     }).finally(() => {
       setPendingTemplateApplyId(undefined);
@@ -800,7 +812,7 @@ export function ResumeWorkspace() {
 
   async function updatePresentationStyle(
     patch: Partial<ResumeTemplateStyleConfig> | ((current: ResumePresentationConfig) => Partial<ResumeTemplateStyleConfig>),
-    successMessage = "样式已保存到当前分支展示配置。"
+    successMessage = "样式已保存到当前简历展示配置。"
   ) {
     if (!selectedBranch || !presentationConfig) {
       return;
@@ -901,7 +913,7 @@ export function ResumeWorkspace() {
         nextConfig,
         beforeConfig: current,
         operationId: `v2-g3b-section-break-${selectedBranch.id}-${selectedBranch.revision}-${current.presentationRevision}-${sectionType}-${enabled}`,
-        successMessage: enabled ? "当前 Section 已设置为从下一页开始。" : "当前 Section 分页提示已取消。"
+        successMessage: enabled ? "当前栏目已设置为从下一页开始。" : "当前栏目分页提示已取消。"
       });
     });
   }
@@ -918,7 +930,7 @@ export function ResumeWorkspace() {
           showTitle
         }
       }
-    }), showTitle ? "Section 标题已恢复显示。" : "Section 标题已隐藏。");
+    }), showTitle ? "栏目标题已恢复显示。" : "栏目标题已隐藏。");
   }
 
   async function resetSectionStyle(sectionType: NonNullable<typeof selectedStudioBlock>["sectionType"]) {
@@ -928,7 +940,7 @@ export function ResumeWorkspace() {
       return {
         sectionStyleOverrides: nextOverrides
       };
-    }, "当前 Section 样式已恢复默认。");
+    }, "当前栏目样式已恢复默认。");
   }
 
   async function setPresentationItemVisibility(itemId: string, visible: boolean) {
@@ -1005,7 +1017,7 @@ export function ResumeWorkspace() {
         nextConfig,
         beforeConfig: current,
         operationId: `v2-g1a-reorder-${selectedBranch.id}-${selectedBranch.revision}-${current.presentationRevision}-${block.sectionType}-${stableHashText(nextOrder.join("|"))}`,
-        successMessage: "排序已保存到当前分支展示配置，未创建内容版本。"
+        successMessage: "排序已保存到当前简历展示配置，未创建内容版本。"
       });
     });
   }
@@ -1092,7 +1104,7 @@ export function ResumeWorkspace() {
 
   async function restoreRevision(revisionId: string) {
     if (!selectedBranch || !selectedBranchEditable) {
-      setMessage("当前分支不可恢复：legacy、归档、引用失效或缺少 currentRevision。");
+      setMessage("当前简历不可恢复：旧数据、归档、引用失效或缺少当前版本。");
       return;
     }
     try {
@@ -1103,15 +1115,15 @@ export function ResumeWorkspace() {
         operationId: `d1-restore-${selectedBranch.id}-${selectedBranch.revision}-${revisionId}`
       });
       replaceBranch(result.branch);
-      setMessage("已恢复旧版本；恢复操作本身已作为新的 restore revision 追加。");
+      setMessage("已恢复旧版本；恢复操作已作为新的版本记录。");
     } catch {
-      setMessage("恢复失败：版本链缺失、revision 冲突或分支不可编辑。");
+      setMessage("恢复失败：版本链缺失、版本冲突或简历不可编辑。");
     }
   }
 
   async function undo() {
     if (!selectedBranch || !selectedBranchEditable) {
-      setMessage("当前分支不可撤销：legacy、归档、引用失效或缺少 currentRevision。");
+      setMessage("当前简历不可撤销：旧数据、归档、引用失效或缺少当前版本。");
       return;
     }
     try {
@@ -1121,9 +1133,9 @@ export function ResumeWorkspace() {
         operationId: `d1-undo-${selectedBranch.id}-${selectedBranch.revision}`
       });
       replaceBranch(result.branch);
-      setMessage("已按 previousRevisionId 链撤销最近一次分支修改。");
+      setMessage("已撤销最近一次简历修改。");
     } catch {
-      setMessage("撤销失败：没有可撤销版本或当前分支已变化。");
+      setMessage("撤销失败：没有可撤销版本或当前简历已变化。");
     }
   }
 
@@ -1132,6 +1144,10 @@ export function ResumeWorkspace() {
       return;
     }
     setSelectedStudioItemId(itemId);
+    setSelectedProfileFieldId(undefined);
+    setEditingProfileFieldId(undefined);
+    setProfileFieldDraftText("");
+    setProfileFieldError(undefined);
     setActivePropertyTab("block");
     setEditingStudioItemId(undefined);
     setStudioDraftText("");
@@ -1163,6 +1179,90 @@ export function ResumeWorkspace() {
     setPendingStudioOperationId(undefined);
   }
 
+  function selectProfileField(fieldId: string, currentText: string) {
+    if (!isStudioEditMode) {
+      return;
+    }
+    setSelectedProfileFieldId(fieldId);
+    setEditingProfileFieldId(undefined);
+    setProfileFieldDraftText(currentText);
+    setProfileFieldError(undefined);
+    setSelectedStudioItemId(undefined);
+    setEditingStudioItemId(undefined);
+    setStudioDraftText("");
+    setStudioError(undefined);
+    setPendingStudioOperationId(undefined);
+    setActivePropertyTab("document");
+  }
+
+  function startProfileFieldEdit(fieldId: string, currentText: string) {
+    if (!profileFieldKey(fieldId)) {
+      setProfileFieldError("当前基本信息字段暂不可编辑。");
+      return;
+    }
+    selectProfileField(fieldId, currentText);
+    setEditingProfileFieldId(fieldId);
+  }
+
+  function cancelProfileFieldEdit() {
+    setEditingProfileFieldId(undefined);
+    setProfileFieldDraftText("");
+    setProfileFieldError(undefined);
+  }
+
+  async function saveProfileFieldEdit() {
+    if (!profile || !editingProfileFieldId) {
+      return;
+    }
+    const key = profileFieldKey(editingProfileFieldId);
+    if (!key) {
+      setProfileFieldError("当前基本信息字段暂不可编辑。");
+      return;
+    }
+    const text = profileFieldDraftText.trim();
+    if (key === "name" && !text) {
+      setProfileFieldError("姓名不能为空。");
+      return;
+    }
+    const now = new Date().toISOString();
+    const nextBasics = { ...profile.basics };
+    if (key === "name") {
+      nextBasics.name = text;
+    } else if (key === "link") {
+      const index = profileLinkIndex(editingProfileFieldId);
+      const links = [...nextBasics.links];
+      if (text) {
+        links[index] = text;
+      } else {
+        links.splice(index, 1);
+      }
+      nextBasics.links = links.filter((link) => link.trim().length > 0);
+    } else {
+      nextBasics[key] = text || undefined;
+    }
+
+    setProfileFieldPending(true);
+    setProfileFieldError(undefined);
+    try {
+      const saved = await repository.saveProfile({
+        ...profile,
+        name: key === "name" ? text : profile.name,
+        basics: nextBasics,
+        version: profile.version + 1,
+        updatedAt: now
+      });
+      setProfileOverride(saved);
+      setEditingProfileFieldId(undefined);
+      setSelectedProfileFieldId(undefined);
+      setProfileFieldDraftText("");
+      setMessage("基本信息已保存到个人资料；如需同步到岗位简历，请复核更新提示。");
+    } catch {
+      setProfileFieldError("基本信息保存失败，请检查内容后重试。");
+    } finally {
+      setProfileFieldPending(false);
+    }
+  }
+
   async function saveStudioEdit() {
     if (!selectedBranch || !resumeDocument || !editingStudioItemId) {
       return;
@@ -1180,7 +1280,7 @@ export function ResumeWorkspace() {
       selectedBranch.revision !== resumeDocument.branchRevision ||
       selectedBranch.currentRevisionId !== resumeDocument.branchCurrentRevisionId
     ) {
-      setStudioError("当前预览不是最新 currentRevision，请刷新后再编辑。");
+      setStudioError("当前预览不是最新版本，请刷新后再编辑。");
       return;
     }
 
@@ -1191,7 +1291,7 @@ export function ResumeWorkspace() {
     }
     if (nextText === block.text.trim()) {
       cancelStudioEdit();
-      setMessage("内容未变化，没有创建新的分支版本。");
+      setMessage("内容未变化，没有创建新的简历版本。");
       return;
     }
 
@@ -1208,12 +1308,12 @@ export function ResumeWorkspace() {
       });
       replaceBranch(result.branch);
       setSelectedBranchId(result.branch.id);
-      setMessage(result.idempotent ? "该编辑已保存过，未重复创建版本。" : "预览区编辑已保存，并创建新的内容版本。");
+      setMessage(result.idempotent ? "该编辑已保存过，未重复创建版本。" : "简历内容已保存，并创建新的内容版本。");
     } catch (error) {
       setPendingStudioOperationId(undefined);
       setStudioError(error instanceof RevisionConflictError
-        ? "保存失败：分支 revision 已变化，未覆盖最新内容。"
-        : "保存失败：Fact Guard 阻止了高风险事实修改，或当前分支不可编辑。");
+        ? "保存失败：简历版本已变化，未覆盖最新内容。"
+        : "保存失败：事实安全检查阻止了高风险修改，或当前简历不可编辑。");
     }
   }
 
@@ -1226,7 +1326,7 @@ export function ResumeWorkspace() {
       operationId: `d1-refresh-sync-${selectedBranch.id}-${stableHashText(selectedBranch.syncStatusCache.checkedAt)}`
     });
     replaceBranch(result.branch);
-    setMessage("syncStatus 已基于当前母档案、岗位和事实引用重新计算；分支内容未被自动覆盖。");
+    setMessage("更新提示已基于当前个人资料、岗位和事实引用重新计算；简历内容未被自动覆盖。");
   }
 
   async function openOrCreateApplication() {
@@ -1234,11 +1334,11 @@ export function ResumeWorkspace() {
       return;
     }
     if (selectedBranch.branchPurpose !== "job_specific") {
-      setMessage("通用简历不能直接加入投递工作台；请先在岗位优化面板派生岗位定制分支。");
+      setMessage("通用简历不能直接加入投递工作台；请先在岗位优化面板创建岗位定制简历。");
       return;
     }
     if (!selectedBranch.currentRevisionId) {
-      setMessage("当前分支缺少 currentRevision，不能创建 Application。");
+      setMessage("当前简历缺少可投递版本，不能加入求职进度。");
       return;
     }
 
@@ -1251,32 +1351,32 @@ export function ResumeWorkspace() {
         initialStatus: "preparing"
       });
       setMessage(result.duplicate
-        ? "该岗位分支已有未归档 Application，已打开现有记录。"
+        ? "该岗位简历已有未归档投递记录，已打开现有记录。"
         : "已加入投递工作台；未自动导出PDF，也未改变投递状态。");
       router.push(`/applications?applicationId=${encodeURIComponent(result.application.id)}`);
     } catch (error) {
       setMessage(error instanceof RevisionConflictError
-        ? "创建 Application 失败：分支 revision 已变化，请刷新后重试。"
-        : "创建 Application 失败：仅 verified 的岗位定制分支可加入投递工作台。");
+        ? "加入求职进度失败：简历版本已变化，请刷新后重试。"
+        : "加入求职进度失败：只有已校验的岗位定制简历可加入投递工作台。");
     }
   }
 
   async function downloadPdf() {
     if (!selectedBranch || !renderModel) {
-      setMessage("当前分支无法生成正式预览，不能导出。");
+      setMessage("当前简历无法生成正式预览，不能导出。");
       setPdfExportState({
         status: "failed",
-        message: "当前分支无法生成正式预览。",
+        message: "当前简历无法生成正式预览。",
         errorCode: "render_model_missing",
         canUseFallback: true
       });
       return;
     }
     if (!selectedBranchEditable || !selectedBranch.currentRevisionId) {
-      setMessage("当前分支不可导出：legacy、归档、引用失效或缺少 currentRevision。");
+      setMessage("当前简历不可导出：旧数据、归档、引用失效或缺少当前版本。");
       setPdfExportState({
         status: "failed",
-        message: "当前分支不可导出。",
+        message: "当前简历不可导出。",
         errorCode: branchNotEditableReason(selectedBranch) ?? "branch_not_exportable"
       });
       return;
@@ -1340,7 +1440,7 @@ export function ResumeWorkspace() {
       }
       if (latestBranch.revision !== renderModel.branchRevision || latestBranch.currentRevisionId !== renderModel.branchCurrentRevisionId) {
         replaceBranch(latestBranch);
-        setMessage("导出已停止：分支 revision 已更新，已刷新预览，请重新检查后导出。");
+        setMessage("导出已停止：简历版本已更新，已刷新预览，请重新检查后导出。");
         setPdfExportState({
           status: "failed",
           exportId,
@@ -1503,7 +1603,7 @@ export function ResumeWorkspace() {
 
   async function exportPdf() {
     if (!selectedBranch || !renderModel) {
-      setMessage("当前分支无法生成正式预览，不能导出。");
+      setMessage("当前简历无法生成正式预览，不能导出。");
       return;
     }
 
@@ -1534,7 +1634,7 @@ export function ResumeWorkspace() {
       }
       if (latestBranch.revision !== renderModel.branchRevision || latestBranch.currentRevisionId !== renderModel.branchCurrentRevisionId) {
         replaceBranch(latestBranch);
-        setMessage("导出已停止：分支 revision 已更新，已刷新预览，请重新检查后导出。");
+        setMessage("导出已停止：简历版本已更新，已刷新预览，请重新检查后导出。");
         return;
       }
 
@@ -1620,8 +1720,8 @@ export function ResumeWorkspace() {
       });
     } catch (error) {
       setMessage(error instanceof RevisionConflictError
-        ? "导出失败：分支 revision 已变化，请刷新后重试。"
-        : "导出失败：分支可能不可导出、引用失效或导出记录写入失败。");
+        ? "导出失败：简历版本已变化，请刷新后重试。"
+        : "导出失败：简历可能不可导出、引用失效或导出记录写入失败。");
       setPdfExportState({
         status: "failed",
         filename: fileName,
@@ -1712,9 +1812,9 @@ export function ResumeWorkspace() {
   return (
     <main className="page-shell resume-workspace">
       <section className="page-title no-print">
-        <p className="eyebrow">Stage D2 / Templates & PDF</p>
+        <p className="eyebrow">我的简历</p>
         <h1>简历工作台</h1>
-        <p>正式分支进入统一 RenderModel 后，可切换双模板、检查 A4 单页状态，并通过浏览器打印导出 PDF。</p>
+        <p>在同一张 A4 画布上编辑内容、切换模板、检查页数，并导出 PDF。</p>
       </section>
 
       {workspace.status === "empty" && !profile ? <WorkspaceEmptyState /> : null}
@@ -1728,27 +1828,27 @@ export function ResumeWorkspace() {
 
       <section className="stage-grid no-print">
         <article className="panel">
-          <h2>1. 从 C2 草稿创建分支</h2>
+          <h2>1. 从岗位建议创建简历</h2>
           {draftOptions.length > 0 ? (
             <>
               <label className="field-label">
-                C2 适配草稿
-                <select value={activeDraftId} onChange={(event) => setSelectedDraftId(event.target.value)}>
+                岗位建议草稿
+                <select data-testid="job-suggestion-draft-select" value={activeDraftId} onChange={(event) => setSelectedDraftId(event.target.value)}>
                   {draftOptions.map((option) => (
                     <option key={option.draft.id} value={option.draft.id}>{option.label}</option>
                   ))}
                 </select>
               </label>
-              <input value={draftName} onChange={(event) => setDraftName(event.target.value)} placeholder="分支名称" />
-              <button className="primary-button" onClick={createBranch}>创建正式分支</button>
+              <input data-testid="new-resume-branch-name" value={draftName} onChange={(event) => setDraftName(event.target.value)} placeholder="简历名称" />
+              <button className="primary-button" data-testid="create-job-resume" onClick={createBranch}>创建岗位简历</button>
             </>
           ) : (
-            <p>暂无 C2 适配草稿。请先在岗位工作区完成 C1/C2。</p>
+            <p>暂无岗位建议草稿。请先在岗位工作区完成经历匹配和建议生成。</p>
           )}
         </article>
 
         <article className="panel">
-          <h2>2. 选择分支</h2>
+          <h2>2. 选择简历</h2>
           {branches.length > 0 ? (
             <div className="branch-list">
               {branches.map((branch) => (
@@ -1758,12 +1858,12 @@ export function ResumeWorkspace() {
                   onClick={() => setSelectedBranchId(branch.id)}
                 >
                   <strong>{branch.name}</strong>
-                  <span>{branch.migrationStatus} / revision {branch.revision} / {branch.syncStatusCache.status}</span>
+                  <span>{branchPurposeLabel(branch.branchPurpose)} / {branchStatusLabel(branch)} / {syncStatusLabel(branch.syncStatusCache.status)}</span>
                 </button>
               ))}
             </div>
           ) : (
-            <p>暂无正式岗位分支。</p>
+            <p>暂无可编辑简历。</p>
           )}
         </article>
       </section>
@@ -1775,16 +1875,33 @@ export function ResumeWorkspace() {
               <h2>{selectedBranch.name}</h2>
               <p>
                 {selectedBranchJob ? `${selectedBranchJob.company} / ${selectedBranchJob.title}` : "通用简历 / 无目标岗位"}
-                {" "} / {selectedBranch.migrationStatus} / revision {selectedBranch.revision}
+                {" "} / {branchPurposeLabel(selectedBranch.branchPurpose)} / {branchStatusLabel(selectedBranch)}
               </p>
             </div>
             <div className="action-row">
+              <div className="studio-mode-switch" role="tablist" aria-label="编辑模式">
+                <button
+                  type="button"
+                  className={studioMode === "manual" ? "mode-tab mode-tab-active" : "mode-tab"}
+                  onClick={() => setStudioMode("manual")}
+                >
+                  手动编辑
+                </button>
+                <button
+                  type="button"
+                  className={studioMode === "ai" ? "mode-tab mode-tab-active" : "mode-tab"}
+                  onClick={() => setStudioMode("ai")}
+                >
+                  AI岗位优化
+                </button>
+              </div>
               <button
                 className="primary-button"
+                data-testid="open-or-create-application"
                 onClick={openOrCreateApplication}
                 disabled={!selectedBranchEditable || selectedBranch.branchPurpose !== "job_specific"}
               >
-                {selectedBranch.branchPurpose === "job_specific" ? "加入投递工作台" : "先创建岗位定制分支"}
+                {selectedBranch.branchPurpose === "job_specific" ? "加入求职进度" : "先创建岗位定制简历"}
               </button>
               <button className="secondary-button" onClick={refreshSync}>刷新更新提示</button>
               <button className="secondary-button" onClick={undo} disabled={!selectedBranchEditable}>撤销</button>
@@ -1792,97 +1909,17 @@ export function ResumeWorkspace() {
           </div>
 
           {selectedBranch.migrationStatus === "legacy_unverified" ? (
-            <div className="warning-box">这是旧占位分支，已按 legacy_unverified 只读保留，不参与正式编辑、版本恢复、预览或后续导出。</div>
+            <div className="warning-box">这是旧占位简历，已只读保留，不参与正式编辑、版本恢复、预览或后续导出。</div>
           ) : null}
 
           {!selectedBranchEditable && selectedBranch.migrationStatus !== "legacy_unverified" ? (
-            <div className="warning-box">当前分支不可编辑：{branchNotEditableReason(selectedBranch)}。</div>
+            <div className="warning-box">当前简历不可编辑：{branchNotEditableLabel(branchNotEditableReason(selectedBranch))}。</div>
           ) : null}
 
           {selectedBranch.syncStatusCache.status !== "in_sync" ? (
-            <div className="warning-box">{selectedBranch.syncStatusCache.message}</div>
+            <div className="warning-box">{syncStatusMessage(selectedBranch.syncStatusCache.status)}</div>
           ) : null}
 
-          <JobOptimizationPanel
-            repository={repository}
-            profile={profile}
-            jobs={jobs}
-            branch={selectedBranch}
-            selectedContentItemId={selectedStudioItemId}
-            canEdit={selectedBranchEditable}
-            onJobCreated={(job) => setLocalJobs((current) => [job, ...current.filter((item) => item.id !== job.id)])}
-            onBranchReady={replaceBranch}
-            onApplyStructureSuggestion={(kind, contentItemId) => {
-              if (kind === "hide") {
-                void setPresentationItemVisibility(contentItemId, false);
-                setMessage("结构建议已通过展示配置隐藏区块；未创建内容 Revision。");
-                return;
-              }
-              if (kind === "show") {
-                void setPresentationItemVisibility(contentItemId, true);
-                setMessage("结构建议已通过展示配置恢复区块；未创建内容 Revision。");
-                return;
-              }
-              void movePresentationItem(contentItemId, "up");
-              setMessage("结构建议已通过展示配置上移区块；未创建内容 Revision。");
-            }}
-            onMessage={setMessage}
-          />
-
-          <ResumeDiagnosticsPanel
-            snapshot={diagnosticSnapshot}
-            stale={diagnosticsStale}
-            running={diagnosticRunning}
-            error={diagnosticError}
-            canEdit={selectedBranchEditable}
-            onRun={() => { void runDiagnostics(); }}
-            onLocateIssue={locateDiagnosticIssue}
-            onApplyAction={(issue, action) => { void applyDiagnosticAction(issue, action); }}
-            onIgnoreIssue={(issue) => { void ignoreDiagnosticIssue(issue); }}
-          />
-
-          <div className="branch-editor">
-            {selectedBranch.contentItems.map((item) => {
-              const presentationBlock = resumeDocumentBlocksById.get(item.id);
-              const presentationVisible = presentationBlock?.visible ?? item.visible;
-              return (
-                <article key={item.id} className="suggestion-card">
-                  <div className="section-heading compact-heading">
-                    <div>
-                      <h3>{item.itemType} / {item.guardMode}</h3>
-                      <p>{item.guardStatus} / {item.guardRiskLevel}</p>
-                    </div>
-                    <label className="inline-toggle">
-                      <input
-                        type="checkbox"
-                        checked={presentationVisible}
-                        disabled={!selectedBranchEditable || !presentationConfig || !item.visible}
-                        onChange={(event) => setPresentationItemVisibility(item.id, event.target.checked)}
-                      />
-                      显示
-                    </label>
-                  </div>
-                  {!item.visible ? (
-                    <div className="warning-box">该内容在历史内容版本中已隐藏，G1a 展示配置不会静默改写旧内容快照。</div>
-                  ) : null}
-                  {item.guardMode === "rule_only_verified" ? (
-                    <div className="warning-box">规则 Fact Guard 已通过，但 AI 复核未完成。</div>
-                  ) : null}
-                  <textarea
-                    className="textarea small-textarea"
-                    value={editTexts[item.id] ?? item.text}
-                    disabled={!selectedBranchEditable}
-                    onChange={(event) => setEditTexts((current) => ({ ...current, [item.id]: event.target.value }))}
-                  />
-                  <div className="action-row">
-                    <button className="primary-button" disabled={!selectedBranchEditable} onClick={() => saveItem(item.id)}>
-                      保存
-                    </button>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
         </section>
       ) : null}
 
@@ -1890,7 +1927,7 @@ export function ResumeWorkspace() {
         <section className="resume-preview-layout">
           <aside className="panel no-print resume-export-panel">
             <div className="property-panel-heading">
-              <h2>3. 属性与导出</h2>
+              <h2>编辑与导出</h2>
               <button
                 className="secondary-button compact"
                 onClick={() => setIsStylePanelOpen((current) => !current)}
@@ -1901,21 +1938,116 @@ export function ResumeWorkspace() {
             <div className="property-summary">
               <strong>{selectedStudioBlock ? selectedStudioBlock.text.slice(0, 28) : selectedBranch.name}</strong>
               <span>
-                {selectedStudioBlock ? "Block" : "Document"} / {selectedTemplate.name} / {selectedTemplate.layout === "two-column" ? "双栏" : "单栏"} / presentation {presentationConfig?.presentationRevision ?? 0}
+                {selectedStudioBlock ? "已选段落" : "整份简历"} / {selectedTemplate.name} / {selectedTemplate.layout === "two-column" ? "双栏" : "单栏"}
               </span>
             </div>
             <label className="inline-toggle studio-edit-toggle">
               <input
                 type="checkbox"
+                data-testid="canvas-edit-toggle"
                 checked={isStudioEditMode}
                 disabled={!renderModel || !resumeDocument?.editable}
                 onChange={(event) => setIsStudioEditMode(event.target.checked)}
               />
-              预览区编辑
+              画布编辑
             </label>
             {isStudioEditMode && resumeDocument ? (
               <div className="save-status">单击区块选中，双击或 Enter/F2 编辑，Escape 取消，Ctrl/Cmd+Enter 保存。</div>
             ) : null}
+            {studioMode === "manual" ? (
+              <div className="studio-sidebar-section">
+                <div className="section-heading compact-heading">
+                  <div>
+                    <h3>内容</h3>
+                    <p>选择段落后可在左侧或 A4 画布上编辑，同一套保存链路会生成新版本。</p>
+                  </div>
+                </div>
+                <div className="branch-editor">
+                  {selectedBranch.contentItems.map((item) => {
+                    const presentationBlock = resumeDocumentBlocksById.get(item.id);
+                    const presentationVisible = presentationBlock?.visible ?? item.visible;
+                    return (
+                      <article key={item.id} className="suggestion-card">
+                        <div className="section-heading compact-heading">
+                          <div>
+                            <h3>{contentItemTypeLabel(item.itemType)}</h3>
+                            <p>{guardStatusLabel(item.guardStatus)} / {riskLevelLabel(item.guardRiskLevel)}</p>
+                          </div>
+                          <label className="inline-toggle">
+                            <input
+                              type="checkbox"
+                              checked={presentationVisible}
+                              disabled={!selectedBranchEditable || !presentationConfig || !item.visible}
+                              onChange={(event) => setPresentationItemVisibility(item.id, event.target.checked)}
+                            />
+                            显示
+                          </label>
+                        </div>
+                        {!item.visible ? (
+                          <div className="warning-box">该内容已在正文版本中隐藏，展示设置不会静默改写旧内容。</div>
+                        ) : null}
+                        {item.guardMode === "rule_only_verified" ? (
+                          <div className="warning-box">规则事实检查已通过，AI 复核尚未完成。</div>
+                        ) : null}
+                        <textarea
+                          className="textarea small-textarea"
+                          value={editTexts[item.id] ?? item.text}
+                          disabled={!selectedBranchEditable}
+                          onFocus={() => selectStudioItem(item.id)}
+                          onChange={(event) => setEditTexts((current) => ({ ...current, [item.id]: event.target.value }))}
+                        />
+                        <div className="action-row">
+                          <button className="primary-button" disabled={!selectedBranchEditable} onClick={() => saveItem(item.id)}>
+                            保存
+                          </button>
+                          <button className="secondary-button compact" disabled={!selectedBranchEditable} onClick={() => startStudioEdit(item.id)}>
+                            在画布上编辑
+                          </button>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
+            <div className="studio-sidebar-section">
+              <JobOptimizationPanel
+                repository={repository}
+                profile={profile}
+                jobs={jobs}
+                branch={selectedBranch}
+                selectedContentItemId={selectedStudioItemId}
+                canEdit={selectedBranchEditable}
+                onJobCreated={(job) => setLocalJobs((current) => [job, ...current.filter((item) => item.id !== job.id)])}
+                onBranchReady={replaceBranch}
+                onApplyStructureSuggestion={(kind, contentItemId) => {
+                  if (kind === "hide") {
+                    void setPresentationItemVisibility(contentItemId, false);
+                    setMessage("结构建议已隐藏该段落；未创建正文版本。");
+                    return;
+                  }
+                  if (kind === "show") {
+                    void setPresentationItemVisibility(contentItemId, true);
+                    setMessage("结构建议已恢复该段落；未创建正文版本。");
+                    return;
+                  }
+                  void movePresentationItem(contentItemId, "up");
+                  setMessage("结构建议已上移该段落；未创建正文版本。");
+                }}
+                onMessage={setMessage}
+              />
+              <ResumeDiagnosticsPanel
+                snapshot={diagnosticSnapshot}
+                stale={diagnosticsStale}
+                running={diagnosticRunning}
+                error={diagnosticError}
+                canEdit={selectedBranchEditable}
+                onRun={() => { void runDiagnostics(); }}
+                onLocateIssue={locateDiagnosticIssue}
+                onApplyAction={(issue, action) => { void applyDiagnosticAction(issue, action); }}
+                onIgnoreIssue={(issue) => { void ignoreDiagnosticIssue(issue); }}
+              />
+            </div>
             <label className="field-label">
               模板
               <select
@@ -2081,16 +2213,16 @@ export function ResumeWorkspace() {
                         </select>
                       </label>
                       <label className="field-label">
-                        Section 间距
+                        栏目间距
                         <select
-                          aria-label="Section 间距"
+                          aria-label="栏目间距"
                           value={presentationConfig?.spacing.sectionGap ?? "normal"}
                           disabled={!presentationConfig || !selectedBranchEditable || !selectedTemplate.capabilities.supportsSectionGap}
                           onChange={(event) => {
                             const sectionGap = event.target.value as ResumePresentationConfig["spacing"]["sectionGap"];
                             void updatePresentationStyle((current) => ({
                               spacing: { ...current.spacing, sectionGap }
-                            }), "Section 间距已保存。");
+                            }), "栏目间距已保存。");
                           }}
                         >
                           {(["tight", "normal", "relaxed"] as const).map((value) => (
@@ -2160,7 +2292,7 @@ export function ResumeWorkspace() {
                   <div className="property-section" data-testid="section-style-panel">
                     <div className="property-summary compact-property-summary">
                       <strong>{selectedStudioSection.title}</strong>
-                      <span>Section / {sectionTypeLabel(selectedStudioSection.type)}</span>
+                      <span>栏目 / {sectionTypeLabel(selectedStudioSection.type)}</span>
                     </div>
                     <label className="inline-toggle">
                       <input
@@ -2169,7 +2301,7 @@ export function ResumeWorkspace() {
                         disabled={!presentationConfig || !selectedBranchEditable || !selectedTemplate.capabilities.supportsSectionTitleVisibility}
                         onChange={(event) => { void setSectionTitleVisibility(selectedStudioSection.type, event.target.checked); }}
                       />
-                      显示 Section 标题
+                      显示栏目标题
                     </label>
                     <label className="inline-toggle">
                       <input
@@ -2181,16 +2313,16 @@ export function ResumeWorkspace() {
                       从下一页开始
                     </label>
                     {presentationConfig?.pagination.pagePolicy !== "up_to_two_pages" ? (
-                      <p className="save-status">仅“最多两页”策略下可设置 Section 分页提示。</p>
+                      <p className="save-status">仅“最多两页”策略下可设置栏目分页提示。</p>
                     ) : selectedStudioSection.type === firstVisibleSectionType ? (
-                      <p className="save-status">第一个可见 Section 不能从下一页开始。</p>
+                      <p className="save-status">第一个可见栏目不能从下一页开始。</p>
                     ) : null}
                     <button
                       className="secondary-button compact"
                       disabled={!presentationConfig || !selectedBranchEditable}
                       onClick={() => { void resetSectionStyle(selectedStudioSection.type); }}
                     >
-                      恢复当前 Section 默认值
+                      恢复当前栏目默认值
                     </button>
                   </div>
                 ) : null}
@@ -2199,7 +2331,7 @@ export function ResumeWorkspace() {
                   <div className="property-section" data-testid="block-style-panel">
                     <div className="property-summary compact-property-summary">
                       <strong>{selectedStudioBlock.text.slice(0, 36)}</strong>
-                      <span>Block / {selectedStudioBlock.itemType} / {selectedStudioBlock.guardStatus}</span>
+                      <span>段落 / {contentItemTypeLabel(selectedStudioBlock.itemType)} / {guardStatusLabel(selectedStudioBlock.guardStatus)}</span>
                     </div>
                     <label className="inline-toggle">
                       <input
@@ -2256,7 +2388,7 @@ export function ResumeWorkspace() {
               </span>
             </div>
             {renderModel?.safety.ruleOnlyItemIds.length ? (
-              <div className="warning-box">该分支包含 rule_only_verified 内容，工作台已显示校验状态；PDF 正文不会加入内部风险标签。</div>
+              <div className="warning-box">该简历包含仅由规则检查通过的内容，工作台已显示校验状态；PDF 正文不会加入内部风险标签。</div>
             ) : null}
             {pagination.status === "near_one_page_limit" || pagination.status === "near_limit" ? (
               <div className="warning-box">当前接近单页上限，建议导出前在打印预览中复核。</div>
@@ -2297,6 +2429,30 @@ export function ResumeWorkspace() {
                 <p className="save-status">可重试下载，或使用浏览器打印 fallback。</p>
               ) : null}
             </div>
+            <div className="studio-sidebar-section">
+              <h3>版本历史</h3>
+              {revisions.length > 0 ? (
+                <div className="revision-list compact-revision-list">
+                  {revisions.map((revision) => (
+                    <article key={revision.id} className="review-row">
+                      <span>
+                        <strong>版本 {revision.revisionNumber + 1}</strong>
+                        <small>{revisionSourceLabel(revision.source)}</small>
+                      </span>
+                      <button
+                        className="secondary-button compact"
+                        disabled={!selectedBranchEditable || revision.id === selectedBranch.currentRevisionId}
+                        onClick={() => restoreRevision(revision.id)}
+                      >
+                        恢复
+                      </button>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <p>暂无版本历史。</p>
+              )}
+            </div>
             {renderResult.error ? <p className="save-status save-status-failed">{renderResult.error}</p> : null}
           </aside>
 
@@ -2313,52 +2469,36 @@ export function ResumeWorkspace() {
                   selectedItemId: selectedStudioItemId,
                   editingItemId: editingStudioItemId,
                   selectedBlock: selectedStudioBlock,
+                  selectedProfileFieldId,
+                  editingProfileFieldId,
+                  selectedProfileFieldLabel: profileFieldLabel(selectedProfileFieldId),
                   draftText: studioDraftText,
+                  profileDraftText: profileFieldDraftText,
                   error: studioError,
-                  pending: Boolean(pendingStudioOperationId),
+                  profileError: profileFieldError,
+                  pending: Boolean(pendingStudioOperationId) || profileFieldPending,
                   onSelect: selectStudioItem,
                   onStartEdit: startStudioEdit,
                   onDraftTextChange: setStudioDraftText,
                   onSave: saveStudioEdit,
                   onCancel: cancelStudioEdit,
+                  onSelectProfileField: selectProfileField,
+                  onStartProfileFieldEdit: startProfileFieldEdit,
+                  onProfileDraftTextChange: setProfileFieldDraftText,
+                  onSaveProfileField: saveProfileFieldEdit,
+                  onCancelProfileField: cancelProfileFieldEdit,
                   onMoveUp: (itemId) => { void movePresentationItem(itemId, "up"); },
                   onMoveDown: (itemId) => { void movePresentationItem(itemId, "down"); },
                   onHide: (itemId) => { void setPresentationItemVisibility(itemId, false); }
                 } : undefined}
               />
             ) : (
-              <div className="panel no-print">当前分支不能进入正式模板预览。</div>
+              <div className="panel no-print">当前简历不能进入正式模板预览。</div>
             )}
           </div>
         </section>
       ) : null}
 
-      {selectedBranch ? (
-        <section className="panel no-print">
-          <h2>版本历史</h2>
-          {revisions.length > 0 ? (
-            <div className="revision-list">
-              {revisions.map((revision) => (
-                <article key={revision.id} className="review-row">
-                  <span>
-                    <strong>revision {revision.revisionNumber}</strong>
-                    <small>{revision.source} / previous: {revision.previousRevisionId ?? "initial"}</small>
-                  </span>
-                  <button
-                    className="secondary-button compact"
-                    disabled={!selectedBranchEditable || revision.id === selectedBranch.currentRevisionId}
-                    onClick={() => restoreRevision(revision.id)}
-                  >
-                    恢复
-                  </button>
-                </article>
-              ))}
-            </div>
-          ) : (
-            <p>暂无版本历史。</p>
-          )}
-        </section>
-      ) : null}
     </main>
   );
 }
@@ -2386,7 +2526,7 @@ function buildRenderModel(input: {
     return {
       error: error instanceof ResumeRenderMapperError
         ? `预览阻止：${error.code}`
-        : "预览阻止：分支内容无法通过正式渲染校验。"
+        : "预览阻止：简历内容无法通过正式渲染校验。"
     };
   }
 }
@@ -2546,14 +2686,145 @@ function branchNotEditableReason(branch: ResumeBranch) {
   return undefined;
 }
 
+function branchPurposeLabel(value: ResumeBranch["branchPurpose"]) {
+  return value === "job_specific" ? "岗位简历" : "通用简历";
+}
+
+function branchStatusLabel(branch: ResumeBranch) {
+  if (branch.migrationStatus !== "verified") {
+    return "旧数据只读";
+  }
+  if (branch.lifecycleStatus !== "active") {
+    return "已归档";
+  }
+  return "可编辑";
+}
+
+function branchNotEditableLabel(reason: ReturnType<typeof branchNotEditableReason>) {
+  const labels: Record<string, string> = {
+    legacy_unverified: "旧数据只读",
+    archived: "已归档",
+    missing_current_revision: "缺少当前版本",
+    invalid_reference: "引用的个人资料或岗位已变化"
+  };
+  return reason ? labels[reason] ?? reason : "未知原因";
+}
+
+function syncStatusLabel(value: string) {
+  const labels: Record<string, string> = {
+    in_sync: "已同步",
+    stale_profile: "个人资料有更新",
+    stale_job: "岗位有更新",
+    invalid_reference: "引用失效"
+  };
+  return labels[value] ?? value;
+}
+
+function syncStatusMessage(value: string) {
+  const labels: Record<string, string> = {
+    stale_profile: "个人资料已有更新，请检查是否需要同步到这份简历。",
+    stale_job: "关联岗位已有更新，请检查岗位定制内容是否仍然适用。",
+    invalid_reference: "这份简历引用的个人资料或岗位已失效，当前只能保守处理。"
+  };
+  return labels[value] ?? "这份简历有更新提示，请复核后继续。";
+}
+
+function revisionSourceLabel(value: string) {
+  const labels: Record<string, string> = {
+    initial: "初始版本",
+    edit: "手动编辑",
+    suggestion_accept: "接受建议",
+    restore: "恢复旧版本",
+    undo: "撤销操作",
+    import: "导入创建"
+  };
+  return labels[value] ?? "内容修改";
+}
+
+type EditableProfileFieldKey = "name" | "phone" | "email" | "location" | "link";
+
+function profileFieldKey(fieldId: string): EditableProfileFieldKey | undefined {
+  if (fieldId === "profile:name") {
+    return "name";
+  }
+  if (fieldId === "profile:phone") {
+    return "phone";
+  }
+  if (fieldId === "profile:email") {
+    return "email";
+  }
+  if (fieldId === "profile:location") {
+    return "location";
+  }
+  if (fieldId.startsWith("profile:link:")) {
+    return "link";
+  }
+  return undefined;
+}
+
+function profileLinkIndex(fieldId: string) {
+  const raw = Number(fieldId.split(":")[2] ?? 0);
+  return Number.isFinite(raw) && raw >= 0 ? raw : 0;
+}
+
+function profileFieldLabel(fieldId?: string) {
+  if (!fieldId) {
+    return "";
+  }
+  const labels: Record<EditableProfileFieldKey, string> = {
+    name: "姓名",
+    phone: "电话",
+    email: "邮箱",
+    location: "所在地",
+    link: "链接"
+  };
+  const key = profileFieldKey(fieldId);
+  return key ? labels[key] : "基本信息";
+}
+
 function propertyTabLabel(tab: PropertyPanelTab) {
   if (tab === "section") {
-    return "Section";
+    return "栏目";
   }
   if (tab === "block") {
-    return "Block";
+    return "段落";
   }
-  return "Document";
+  return "整页";
+}
+
+function contentItemTypeLabel(value: string) {
+  const labels: Record<string, string> = {
+    summary: "个人简介",
+    experience: "经历",
+    project: "项目",
+    education: "教育",
+    skill: "技能",
+    certificate: "证书",
+    award: "奖项",
+    language: "语言",
+    custom: "自定义"
+  };
+  return labels[value] ?? "段落";
+}
+
+function guardStatusLabel(value: string) {
+  const labels: Record<string, string> = {
+    passed: "事实检查通过",
+    failed: "事实检查失败",
+    blocked: "已阻断",
+    pending: "待检查",
+    rule_only_verified: "规则检查通过"
+  };
+  return labels[value] ?? value;
+}
+
+function riskLevelLabel(value: string) {
+  const labels: Record<string, string> = {
+    low: "低风险",
+    medium: "中风险",
+    high: "高风险"
+  };
+  return labels[value] ?? value;
 }
 
 function scaleLabel(value: "small" | "normal" | "large") {

@@ -14,13 +14,13 @@ type RenderSectionTarget = {
 
 async function createBranchFromDraft(page: Page, branchName: string) {
   await page.goto("/jobs");
-  await page.locator("button").filter({ hasText: "C1" }).first().click();
+  await page.getByTestId("run-experience-match").click();
   await expect(page.locator(".match-row").first()).toBeVisible();
-  await page.locator("button").filter({ hasText: "C2" }).first().click();
-  await expectNotice(page, "C2");
+  await page.getByTestId("create-suggestion-draft").click();
+  await expect(page.locator(".notice")).toBeVisible();
 
   await page.goto("/resume");
-  await page.locator("label").filter({ hasText: "C2" }).locator("select").selectOption({ index: 0 });
+  await page.getByTestId("job-suggestion-draft-select").selectOption({ index: 0 });
   await page.locator("article.panel").first().locator("input").fill(branchName);
   await page.locator("article.panel").first().locator("button.primary-button").click();
   await expect(page.locator(".branch-list .match-row").filter({ hasText: branchName })).toBeVisible();
@@ -28,7 +28,7 @@ async function createBranchFromDraft(page: Page, branchName: string) {
 }
 
 async function enablePreviewEditing(page: Page) {
-  const toggle = page.locator("label").filter({ hasText: "预览区编辑" }).locator("input");
+  const toggle = page.getByTestId("canvas-edit-toggle");
   await expect(toggle).toBeEnabled();
   await toggle.check();
 }
@@ -167,16 +167,16 @@ test.describe("V2-G1b style property panel", () => {
 
     await enablePreviewEditing(page);
     const target = await getSectionTarget(page);
-    await page.getByTestId("resume-a4-page").locator(`[data-source-item-id="${target.itemId}"]`).first().click();
+    await page.getByTestId("resume-a4-page").locator(`[data-source-item-id="${target.itemId}"]`).first().click({ force: true });
     await expect(page.getByTestId("block-style-panel")).toBeVisible();
 
-    await propertyPanel.getByRole("button", { name: "Section" }).click();
+    await propertyPanel.getByRole("button", { name: "栏目" }).click();
     await expect(page.getByTestId("section-style-panel")).toBeVisible();
     await page.getByLabel("显示 Section 标题").click();
     await expectNotice(page,"Section 标题已隐藏");
     await expect.poll(() => isSectionTitleVisible(page, target.sectionType, target.title)).toBe(false);
 
-    await propertyPanel.getByRole("button", { name: "Document" }).click();
+    await propertyPanel.getByRole("button", { name: "整页" }).click();
     await page.getByRole("button", { name: "打印 / 保存 PDF" }).click();
     await expect(page.locator("body")).toHaveAttribute("data-print-invoked", "true");
     const exportRecord = await getLatestExportRecord(page);

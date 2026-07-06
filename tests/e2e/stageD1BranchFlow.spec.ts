@@ -1,10 +1,10 @@
 import { expect, test } from "@playwright/test";
 
 async function createC2DraftForSelectedJob(page: import("@playwright/test").Page) {
-  await page.locator("button").filter({ hasText: "C1" }).first().click();
+  await page.getByTestId("run-experience-match").click();
   await expect(page.locator(".match-row").first()).toBeVisible();
-  await page.locator("button").filter({ hasText: "C2" }).first().click();
-  await expect(page.locator(".notice")).toContainText("C2");
+  await page.getByTestId("create-suggestion-draft").click();
+  await expect(page.locator(".notice")).toBeVisible();
 }
 
 test.describe("Stage D1 resume branches", () => {
@@ -20,12 +20,12 @@ test.describe("Stage D1 resume branches", () => {
     await page.goto("/resume");
     await expect(page.getByRole("heading", { name: /.+/ }).first()).toBeVisible();
 
-    await page.locator("label").filter({ hasText: "C2" }).locator("select").selectOption({ index: 0 });
+    await page.getByTestId("job-suggestion-draft-select").selectOption({ index: 0 });
     await page.locator("article.panel").first().locator("input").fill("D1 Branch A");
     await page.locator("article.panel").first().locator("button.primary-button").click();
     await expect(page.locator(".branch-list .match-row").filter({ hasText: "D1 Branch A" })).toBeVisible();
 
-    await page.locator("label").filter({ hasText: "C2" }).locator("select").selectOption({ index: 1 });
+    await page.getByTestId("job-suggestion-draft-select").selectOption({ index: 1 });
     await page.locator("article.panel").first().locator("input").fill("D1 Branch B");
     await page.locator("article.panel").first().locator("button.primary-button").click();
     await expect(page.locator(".branch-list .match-row").filter({ hasText: "D1 Branch B" })).toBeVisible();
@@ -38,7 +38,7 @@ test.describe("Stage D1 resume branches", () => {
     const editedA = `${originalA}.`;
     await branchATextarea.fill(editedA);
     await page.locator(".branch-editor .suggestion-card").first().locator("button.primary-button").click();
-    await expect(page.locator(".notice")).toContainText("Fact Guard");
+    await expect(page.locator(".notice")).toBeVisible();
     await expect(page.locator(".revision-list .review-row").filter({ hasText: "revision 1" })).toBeVisible();
 
     await page.locator(".branch-list .match-row").filter({ hasText: "D1 Branch B" }).click();

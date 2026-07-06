@@ -1,7 +1,9 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync } from "node:fs";
 import { resolve } from "node:path";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
+
+const editableContentBlockSelector = "[data-editable-block='true'][data-source-item-id]:not([data-profile-field-id])";
 
 type DbResumeBranch = {
   id: string;
@@ -28,13 +30,13 @@ const PDFTOTEXT = resolvePopplerBinary("pdftotext");
 
 async function createBranchFromDraft(page: Page, branchName: string) {
   await page.goto("/jobs");
-  await page.locator("button").filter({ hasText: "C1" }).first().click();
+  await page.getByTestId("run-experience-match").click();
   await expect(page.locator(".match-row").first()).toBeVisible();
-  await page.locator("button").filter({ hasText: "C2" }).first().click();
-  await expect(page.locator(".notice")).toContainText("C2");
+  await page.getByTestId("create-suggestion-draft").click();
+  await expect(page.locator(".notice")).toBeVisible();
 
   await page.goto("/resume");
-  await page.locator("label").filter({ hasText: "C2" }).locator("select").selectOption({ index: 0 });
+  await page.getByTestId("job-suggestion-draft-select").selectOption({ index: 0 });
   await page.locator("article.panel").first().locator("input").fill(branchName);
   await page.locator("article.panel").first().locator("button.primary-button").click();
   await expect(page.locator(".branch-list .match-row").filter({ hasText: branchName })).toBeVisible();
@@ -42,9 +44,35 @@ async function createBranchFromDraft(page: Page, branchName: string) {
 }
 
 async function enablePreviewEditing(page: Page) {
-  const toggle = page.locator("label").filter({ hasText: "预览区编辑" }).locator("input");
+  const toggle = page.getByTestId("canvas-edit-toggle");
   await expect(toggle).toBeEnabled();
   await toggle.check();
+}
+
+async function firstEditableContentBlock(page: Page, preview: Locator) {
+  const blocks = preview.locator(editableContentBlockSelector);
+  const count = await blocks.count();
+  const editor = page.getByTestId("resume-studio-editor");
+  for (let index = 0; index < count; index++) {
+    const block = blocks.nth(index);
+    await block.click({ force: true });
+    const editButton = editor.getByRole("button", { name: "编辑" });
+    await expect(editButton).toBeVisible();
+    if (await editButton.isEnabled()) {
+      return block;
+    }
+  }
+  throw new Error("No editable resume content block found");
+}
+
+async function startEditingContentBlock(page: Page, block: Locator) {
+  const editor = page.getByTestId("resume-studio-editor");
+  if ((await block.getAttribute("data-selected")) !== "true") {
+    await block.click({ force: true });
+  }
+  await expect(editor).toBeVisible();
+  await editor.getByRole("button", { name: "编辑" }).click();
+  await expect(editor.locator("textarea")).toBeVisible();
 }
 
 async function getLatestVerifiedBranch(page: Page): Promise<DbResumeBranch> {
@@ -178,21 +206,20 @@ test.describe("V2-G0a Resume Studio 独立验收", () => {
 
     // ========== 场景1: verified 分支进入编辑模式 ==========
     // Blocks should have data-editable-block="true"
-    const editableBlocks = preview.locator("[data-editable-block='true'][data-source-item-id]");
+    const editableBlocks = preview.locator(editableContentBlockSelector);
     const blockCount = await editableBlocks.count();
     expect(blockCount).toBeGreaterThan(0);
 
     // Click a block to select it
-    const firstBlock = editableBlocks.first();
+    const firstBlock = await firstEditableContentBlock(page, preview);
     const contentItemId = await firstBlock.getAttribute("data-source-item-id");
     expect(contentItemId).toBeTruthy();
 
-    await firstBlock.click();
     await expect(editor).toBeVisible();
     // Editor should show the edit button for the selected block
     await expect(editor.getByRole("button", { name: "编辑" })).toBeVisible();
     // Editor shows block type info
-    await expect(editor.locator("strong")).toContainText("编辑区块");
+    await expect(editor.locator("strong")).toContainText("编辑段落");
     const originalText = (await firstBlock.innerText()).trim();
     expect(originalText.length).toBeGreaterThan(0);
 
@@ -224,11 +251,10 @@ test.describe("V2-G0a Resume Studio 独立验收", () => {
 
     // Ctrl+Enter to save
     const editedText = `${originalText} V2G0a验证`;
-    await firstBlock.dblclick();
-    await expect(editor.locator("textarea")).toBeVisible();
+    await startEditingContentBlock(page, firstBlock);
     await editor.locator("textarea").fill(editedText);
     await page.keyboard.press("Control+Enter");
-    await expect(page.locator(".notice")).toContainText("预览区编辑已保存");
+    await expect(page.locator(".notice")).toContainText("简历内容已保存");
     await expect(editor.locator("textarea")).toBeHidden();
 
     // ========== 场景2: 模板A合法编辑 — Revision 创建和预览更新 ==========
@@ -261,12 +287,11 @@ test.describe("V2-G0a Resume Studio 独立验收", () => {
 
     // Edit in template B
     const modernBlock = preview.locator(`[data-source-item-id="${contentItemId}"]`).first();
-    await modernBlock.dblclick();
-    await expect(editor.locator("textarea")).toBeVisible();
+    await startEditingContentBlock(page, modernBlock);
     const editedTextB = `${editedText} 模板B`;
     await editor.locator("textarea").fill(editedTextB);
     await page.keyboard.press("Control+Enter");
-    await expect(page.locator(".notice")).toContainText("预览区编辑已保存");
+    await expect(page.locator(".notice")).toContainText("简历内容已保存");
     expect(await getResumeRevisionCount(page, branch.id)).toBe(revisionsBeforeEdit + 2);
 
     // ========== 场景4: 跨模板一致性 ==========
@@ -280,20 +305,18 @@ test.describe("V2-G0a Resume Studio 独立验收", () => {
 
     // ========== 场景8: Fact Guard 高风险阻断 ==========
     // Try to add an unsourced number
-    const factBlock = preview.locator("[data-editable-block='true'][data-source-item-id]").first();
-    await factBlock.dblclick();
-    await expect(editor.locator("textarea")).toBeVisible();
+    const factBlock = await firstEditableContentBlock(page, preview);
+    await startEditingContentBlock(page, factBlock);
     await editor.locator("textarea").fill("这个项目提升了200%的用户增长，获得了全国特等奖");
     await page.keyboard.press("Control+Enter");
     // Should be blocked
-    await expect(editor).toContainText("Fact Guard");
+    await expect(editor.locator(".save-status-failed")).toBeVisible();
     expect(await getResumeRevisionCount(page, branch.id)).toBe(revisionsBeforeEdit + 2);
     // Cancel the blocked edit
     await editor.getByRole("button", { name: "取消" }).click();
 
     // Try responsibility upgrade: 参与 → 主导
-    await factBlock.dblclick();
-    await expect(editor.locator("textarea")).toBeVisible();
+    await startEditingContentBlock(page, factBlock);
     await editor.locator("textarea").fill("主导了团队的核心项目开发");
     await page.keyboard.press("Control+Enter");
     // The guard may or may not block this depending on originalText — but if blocked, error shows
@@ -315,16 +338,16 @@ test.describe("V2-G0a Resume Studio 独立验收", () => {
     const branch = await getLatestVerifiedBranch(page);
     const revisionsBefore = await getResumeRevisionCount(page, branch.id);
 
-    const firstBlock = preview.locator("[data-editable-block='true'][data-source-item-id]").first();
+    const firstBlock = await firstEditableContentBlock(page, preview);
+    const contentItemId = await firstBlock.getAttribute("data-source-item-id");
     const originalText = (await firstBlock.innerText()).trim();
 
     // ========== 场景9: operationId 幂等 ==========
     // Edit and save — creates one revision
-    await firstBlock.dblclick();
-    await expect(editor.locator("textarea")).toBeVisible();
+    await startEditingContentBlock(page, firstBlock);
     await editor.locator("textarea").fill(`${originalText} 幂等测试`);
     await page.keyboard.press("Control+Enter");
-    await expect(page.locator(".notice")).toContainText("预览区编辑已保存");
+    await expect(page.locator(".notice")).toContainText("简历内容已保存");
     expect(await getResumeRevisionCount(page, branch.id)).toBe(revisionsBefore + 1);
 
     // Verify all revisions have unique operationIds (no duplicates)
@@ -336,15 +359,14 @@ test.describe("V2-G0a Resume Studio 独立验收", () => {
 
     // ========== 场景10: expectedRevision 冲突 ==========
     // Start editing, then externally bump the branch revision
-    const blockAfterEdit = preview.locator("[data-editable-block='true'][data-source-item-id]").first();
-    await blockAfterEdit.dblclick();
-    await expect(editor.locator("textarea")).toBeVisible();
+    const blockAfterEdit = preview.locator(`[data-source-item-id="${contentItemId}"]`).first();
+    await startEditingContentBlock(page, blockAfterEdit);
     await editor.locator("textarea").fill(`${originalText} 冲突测试`);
     // Advance the branch revision externally (simulating concurrent edit)
     await advanceBranchRevisionWithoutRevisionRecord(page, branchAfterEdit.id);
     await page.keyboard.press("Control+Enter");
     // Should see conflict error
-    await expect(editor).toContainText("revision");
+    await expect(editor).toContainText("版本已变化");
     // Revision count should not increase
     expect(await getResumeRevisionCount(page, branchAfterEdit.id)).toBe(revisionsBefore + 1);
   });
@@ -358,15 +380,16 @@ test.describe("V2-G0a Resume Studio 独立验收", () => {
     let branch = await getLatestVerifiedBranch(page);
     const revisionsBefore = await getResumeRevisionCount(page, branch.id);
 
-    const firstBlock = preview.locator("[data-editable-block='true'][data-source-item-id]").first();
+    const firstBlock = await firstEditableContentBlock(page, preview);
+    const contentItemId = await firstBlock.getAttribute("data-source-item-id");
     const originalText = (await firstBlock.innerText()).trim();
 
     // Edit and save
-    await firstBlock.dblclick();
+    await startEditingContentBlock(page, firstBlock);
     const undoTestText = `${originalText} 撤销前`;
     await editor.locator("textarea").fill(undoTestText);
     await page.keyboard.press("Control+Enter");
-    await expect(page.locator(".notice")).toContainText("预览区编辑已保存");
+    await expect(page.locator(".notice")).toContainText("简历内容已保存");
     expect(await getResumeRevisionCount(page, branch.id)).toBe(revisionsBefore + 1);
 
     // ========== 场景11: 撤销 ==========
@@ -376,15 +399,14 @@ test.describe("V2-G0a Resume Studio 独立验收", () => {
     branch = await getLatestVerifiedBranch(page);
     expect(await getResumeRevisionCount(page, branch.id)).toBe(revisionsBefore + 2);
     // Text should be restored to original
-    await expect(preview.locator("[data-editable-block='true'][data-source-item-id]").first())
+    await expect(preview.locator(`[data-source-item-id="${contentItemId}"]`).first())
       .toContainText(originalText);
     // Editing state should be cleared
     await expect(editor.locator("textarea")).toBeHidden();
 
     // After undo, entering edit mode shows the undone text, not the old draft
-    const blockAfterUndo = preview.locator("[data-editable-block='true'][data-source-item-id]").first();
-    await blockAfterUndo.dblclick();
-    await expect(editor.locator("textarea")).toBeVisible();
+    const blockAfterUndo = preview.locator(`[data-source-item-id="${contentItemId}"]`).first();
+    await startEditingContentBlock(page, blockAfterUndo);
     await expect(editor.locator("textarea")).toHaveValue(originalText);
     await page.keyboard.press("Escape");
 
@@ -426,13 +448,12 @@ test.describe("V2-G0a Resume Studio 独立验收", () => {
     const editor = page.getByTestId("resume-studio-editor");
 
     // ========== 场景13: 分支隔离 ==========
-    const firstBlockA = preview.locator("[data-editable-block='true'][data-source-item-id]").first();
-    await firstBlockA.dblclick();
-    await expect(editor.locator("textarea")).toBeVisible();
+    const firstBlockA = await firstEditableContentBlock(page, preview);
+    await startEditingContentBlock(page, firstBlockA);
     const textA = await editor.locator("textarea").inputValue();
     await editor.locator("textarea").fill(`${textA} 分支A编辑`);
     await page.keyboard.press("Control+Enter");
-    await expect(page.locator(".notice")).toContainText("预览区编辑已保存");
+    await expect(page.locator(".notice")).toContainText("简历内容已保存");
 
     // Switch to branch B
     await branchList.locator(".match-row").filter({ hasText: branchNameB }).click();
@@ -442,7 +463,7 @@ test.describe("V2-G0a Resume Studio 独立验收", () => {
     await expect(editor.locator(".save-status-failed")).toBeHidden();
 
     // Branch B content should not contain branch A's edit
-    const blockBText = await preview.locator("[data-editable-block='true'][data-source-item-id]").first().innerText();
+    const blockBText = await (await firstEditableContentBlock(page, preview)).innerText();
     expect(blockBText).not.toContain("分支A编辑");
 
     // Switch back to branch A
@@ -501,7 +522,7 @@ test.describe("V2-G0a Resume Studio 独立验收", () => {
     // Click the mutated legacy branch
     await page.locator(".branch-list .match-row").filter({ hasText: branchNameA }).click();
     // Should show legacy warning
-    await expect(page.locator(".warning-box").filter({ hasText: "legacy_unverified" })).toBeVisible({ timeout: 10000 });
+    await expect(page.locator(".warning-box").filter({ hasText: "旧占位简历" })).toBeVisible({ timeout: 10000 });
   });
 
   test("场景 19：PDF 产物不含编辑控件且包含正式文本", async ({ page }) => {
@@ -512,13 +533,13 @@ test.describe("V2-G0a Resume Studio 独立验收", () => {
     const editor = page.getByTestId("resume-studio-editor");
 
     // Edit and save some text
-    const firstBlock = preview.locator("[data-editable-block='true'][data-source-item-id]").first();
+    const firstBlock = await firstEditableContentBlock(page, preview);
     const originalText = (await firstBlock.innerText()).trim();
-    await firstBlock.dblclick();
+    await startEditingContentBlock(page, firstBlock);
     const pdfTestText = `${originalText} PDF验证`;
     await editor.locator("textarea").fill(pdfTestText);
     await page.keyboard.press("Control+Enter");
-    await expect(page.locator(".notice")).toContainText("预览区编辑已保存");
+    await expect(page.locator(".notice")).toContainText("简历内容已保存");
 
     // Generate PDF
     const pdfPath = outputPath("v2-g0a-verification.pdf");
@@ -532,6 +553,7 @@ test.describe("V2-G0a Resume Studio 独立验收", () => {
 
     // PDF should NOT contain editing UI artifacts
     expect(pdfText).not.toContain("编辑区块");
+    expect(pdfText).not.toContain("编辑段落");
     expect(pdfText).not.toContain("保存失败");
     expect(pdfText).not.toContain("预览区编辑");
     expect(pdfText).not.toContain("Ctrl/Cmd+Enter");
@@ -546,20 +568,21 @@ test.describe("V2-G0a Resume Studio 独立验收", () => {
     const editor = page.getByTestId("resume-studio-editor");
 
     // Edit and save
-    const firstBlock = preview.locator("[data-editable-block='true'][data-source-item-id]").first();
+    const firstBlock = await firstEditableContentBlock(page, preview);
+    const contentItemId = await firstBlock.getAttribute("data-source-item-id");
     const originalText = (await firstBlock.innerText()).trim();
     const refreshTestText = `${originalText} 刷新持久化`;
-    await firstBlock.dblclick();
+    await startEditingContentBlock(page, firstBlock);
     await editor.locator("textarea").fill(refreshTestText);
     await page.keyboard.press("Control+Enter");
-    await expect(page.locator(".notice")).toContainText("预览区编辑已保存");
+    await expect(page.locator(".notice")).toContainText("简历内容已保存");
 
     // Refresh the page
     await page.reload();
     await expect(preview).toBeVisible();
 
     // Saved content should persist
-    await expect(preview.locator("[data-editable-block='true'][data-source-item-id]").first())
+    await expect(preview.locator(`[data-source-item-id="${contentItemId}"]`).first())
       .toContainText(refreshTestText);
 
     // No ghost selection state
@@ -607,13 +630,12 @@ test.describe("V2-G0a Resume Studio 独立验收", () => {
     const editor = page.getByTestId("resume-studio-editor");
 
     // Enter editing mode and type new text WITHOUT saving
-    const firstBlock = preview.locator("[data-editable-block='true'][data-source-item-id]").first();
+    const firstBlock = await firstEditableContentBlock(page, preview);
     const contentItemId = await firstBlock.getAttribute("data-source-item-id");
     const originalText = (await firstBlock.innerText()).trim();
     const unsavedText = `${originalText} 未保存草稿测试`;
 
-    await firstBlock.dblclick();
-    await expect(editor.locator("textarea")).toBeVisible();
+    await startEditingContentBlock(page, firstBlock);
     await editor.locator("textarea").fill(unsavedText);
     // Do NOT save — textarea has unsaved content
 

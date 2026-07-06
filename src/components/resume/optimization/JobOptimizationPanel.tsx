@@ -140,7 +140,7 @@ export function JobOptimizationPanel({
 
   async function createJobFromJd() {
     if (!jdTitle.trim() || !jdCompany.trim() || !jdText.trim()) {
-      setStatus("请先填写岗位名称、公司和JD正文。");
+      setStatus("请先填写岗位名称、公司和岗位描述正文。");
       return;
     }
     setPending(true);
@@ -185,7 +185,7 @@ export function JobOptimizationPanel({
       setTargetJobId(result.jobDescription.id);
       setStatus(`已创建岗位：${result.jobDescription.company} / ${result.jobDescription.title}`);
     } catch {
-      setStatus("创建岗位失败，请检查JD正文是否包含可定位要求。");
+      setStatus("创建岗位失败，请检查岗位描述正文是否包含可定位要求。");
     } finally {
       setPending(false);
     }
@@ -206,10 +206,10 @@ export function JobOptimizationPanel({
         await repository.saveRuleRequirementMatches({ profile, job: targetJob, matches: usable });
       }
       setRequirementMatches(usable);
-      setStatus(`Requirement映射已生成：${usable.length} 条。`);
+      setStatus(`岗位要求映射已生成：${usable.length} 条。`);
       return usable;
     } catch {
-      setStatus("生成Requirement映射失败，请确认岗位要求和职业母档案都已就绪。");
+      setStatus("生成岗位要求映射失败，请确认岗位要求和个人资料都已就绪。");
       return [];
     } finally {
       setPending(false);
@@ -218,7 +218,7 @@ export function JobOptimizationPanel({
 
   async function deriveBranch() {
     if (!branch || !targetJob || !branch.currentRevisionId) {
-      setStatus("请选择可派生的基础分支和目标岗位。");
+      setStatus("请选择基础简历和目标岗位。");
       return;
     }
     const matches = requirementMatches.length > 0 ? requirementMatches : await refreshMatches();
@@ -226,7 +226,7 @@ export function JobOptimizationPanel({
       return;
     }
     if (branch.branchPurpose === "job_specific" && branch.jobId === targetJob.id) {
-      setStatus("当前已经是该岗位的定制分支。");
+      setStatus("当前已经是该岗位的定制简历。");
       return;
     }
     setPending(true);
@@ -240,9 +240,9 @@ export function JobOptimizationPanel({
         name: `${targetJob.company} / ${targetJob.title} 定制简历`
       });
       onBranchReady(result.branch);
-      setStatus(result.duplicate ? "已检测到相同岗位分支，已打开既有分支。" : "已创建岗位定制分支，通用分支未被修改。");
+      setStatus(result.duplicate ? "已检测到相同岗位简历，已打开既有简历。" : "已创建岗位定制简历，通用简历未被修改。");
     } catch {
-      setStatus("创建岗位定制分支失败：请确认当前分支未变化且岗位匹配已生成。");
+      setStatus("创建岗位定制简历失败：请确认当前简历未变化且岗位匹配已生成。");
     } finally {
       setPending(false);
     }
@@ -270,7 +270,7 @@ export function JobOptimizationPanel({
 
   async function generateSuggestion(kind: ResumeBlockSuggestionKind = "rewrite") {
     if (!profile || !targetJob || !branch || !branch.currentRevisionId) {
-      setStatus("请先选择岗位并打开岗位定制分支。");
+      setStatus("请先选择岗位并打开岗位定制简历。");
       return;
     }
     const matches = requirementMatches.length > 0 ? requirementMatches : await refreshMatches();
@@ -289,7 +289,7 @@ export function JobOptimizationPanel({
     }
     const evidenceRefs = uniqueEvidenceRefs(relatedBlockMatches.flatMap((match) => match.evidenceRefs));
     if (evidenceRefs.length === 0) {
-      setStatus("fact_gap：当前资料未找到可支持该要求的事实证据。");
+      setStatus("当前资料未找到可支持该要求的事实证据。");
       return;
     }
 
@@ -379,7 +379,7 @@ export function JobOptimizationPanel({
       setSuggestions((current) => [saved.suggestion, ...current.filter((item) => item.id !== saved.suggestion.id)]);
       setSelectedSuggestionId(saved.suggestion.id);
       setAcceptedText(saved.suggestion.editedText ?? saved.suggestion.suggestedText);
-      setStatus(saved.suggestion.status === "blocked_high_risk" ? "建议已生成，但 Fact Guard 预检阻断。" : "区块级建议已生成，请审阅后再接受。");
+      setStatus(saved.suggestion.status === "blocked_high_risk" ? "建议已生成，但事实安全检查阻断。" : "段落建议已生成，请审阅后再接受。");
     } catch {
       setStatus("生成建议失败；现有简历未被修改，可重试或查看事实缺口。");
     } finally {
@@ -407,9 +407,9 @@ export function JobOptimizationPanel({
       });
       onBranchReady(result.branch);
       setSuggestions((current) => current.map((item) => item.id === result.suggestion.id ? result.suggestion : item));
-      setStatus("建议已通过 Fact Guard 并写入岗位分支，已创建新的内容 Revision。");
+      setStatus("建议已通过事实安全检查并写入岗位简历，已保存为新版本。");
     } catch (error) {
-      setStatus(error instanceof RevisionConflictError ? "建议已过期：当前正文或Revision已变化，请重新生成。" : "接受失败：Fact Guard 或建议过期检查未通过。");
+      setStatus(error instanceof RevisionConflictError ? "建议已过期：当前正文或版本已变化，请重新生成。" : "接受失败：事实安全检查或建议过期检查未通过。");
     } finally {
       setPending(false);
     }
@@ -455,7 +455,7 @@ export function JobOptimizationPanel({
     : undefined;
 
   return (
-    <section className="panel no-print optimization-panel" data-testid="job-optimization-panel">
+    <section className="no-print optimization-panel studio-subpanel" data-testid="job-optimization-panel">
       <div className="section-heading">
         <div>
           <h2>针对岗位优化</h2>
@@ -478,27 +478,27 @@ export function JobOptimizationPanel({
             </label>
             <div className="action-row">
               <button className="secondary-button compact" disabled={pending || !targetJob} onClick={() => { void refreshMatches(); }}>
-                生成映射
+                刷新匹配
               </button>
               <button className="primary-button compact" disabled={pending || !canEdit || !targetJob || !branch} onClick={() => { void deriveBranch(); }}>
-                派生岗位分支
+                创建岗位简历
               </button>
             </div>
             <div className="optimization-jd-create">
               <input value={jdTitle} onChange={(event) => setJdTitle(event.target.value)} placeholder="岗位名称" />
               <input value={jdCompany} onChange={(event) => setJdCompany(event.target.value)} placeholder="公司名称" />
-              <textarea className="textarea small-textarea" value={jdText} onChange={(event) => setJdText(event.target.value)} placeholder="粘贴目标JD" />
+              <textarea className="textarea small-textarea" value={jdText} onChange={(event) => setJdText(event.target.value)} placeholder="粘贴目标岗位描述" />
               <button className="secondary-button compact" disabled={pending} onClick={() => { void createJobFromJd(); }}>
-                从JD创建岗位
+                从岗位描述创建
               </button>
             </div>
             {summary ? (
               <div className="optimization-summary" data-testid="optimization-summary">
                 <span>总要求 {summary.totalRequirements}</span>
-                <span>strong {summary.strong}</span>
-                <span>partial {summary.partial}</span>
-                <span>weak {summary.weak}</span>
-                <span>none {summary.none}</span>
+                <span>直接匹配 {summary.strong}</span>
+                <span>部分匹配 {summary.partial}</span>
+                <span>较弱 {summary.weak}</span>
+                <span>暂无匹配 {summary.none}</span>
                 <span>待处理建议 {summary.pendingSuggestions}</span>
               </div>
             ) : null}
@@ -517,7 +517,7 @@ export function JobOptimizationPanel({
                   onClick={() => setSelectedRequirementId(item.requirement.id)}
                 >
                   <strong>{item.requirement.description}</strong>
-                  <span>{item.requirement.category} / {item.requirement.priority} / {item.bestLevel} / 区块 {item.contentItemIds.length} / 证据 {item.evidenceCount}</span>
+                  <span>{item.requirement.category} / {item.requirement.priority} / {matchLevelLabel(item.bestLevel)} / 段落 {item.contentItemIds.length} / 证据 {item.evidenceCount}</span>
                 </button>
               ))}
             </div>
@@ -525,7 +525,7 @@ export function JobOptimizationPanel({
           <div className="optimization-column">
             {selectedCoverage?.factGap ? (
               <div className="warning-box" data-testid="fact-gap-card">
-                当前资料未找到可支持该岗位要求的事实证据。请先在职业母档案补充并确认事实，或忽略此要求。
+                当前资料未找到可支持该岗位要求的事实证据。请先在个人资料库补充并确认事实，或忽略此要求。
               </div>
             ) : null}
             <div className="property-summary compact-property-summary">
@@ -547,7 +547,7 @@ export function JobOptimizationPanel({
               <div className="action-row">
                 <button className="secondary-button compact" onClick={() => onApplyStructureSuggestion("reorder", selectedContentItem.id)}>结构建议：上移</button>
                 <button className="secondary-button compact" onClick={() => onApplyStructureSuggestion("hide", selectedContentItem.id)}>结构建议：隐藏</button>
-                <button className="secondary-button compact" onClick={() => onMessage("结构建议已走展示配置队列，不创建内容 Revision。")}>说明</button>
+                <button className="secondary-button compact" onClick={() => onMessage("结构建议只调整展示配置，不创建正文版本。")}>说明</button>
               </div>
             ) : null}
             <div className="suggestion-list">
@@ -560,7 +560,7 @@ export function JobOptimizationPanel({
                     setAcceptedText(suggestion.editedText ?? suggestion.suggestedText);
                   }}
                 >
-                  <strong>{suggestion.type} / {suggestion.status}</strong>
+                  <strong>{suggestionTypeLabel(suggestion.type)} / {suggestionStatusLabel(suggestion.status)}</strong>
                   <span>{suggestion.reason}</span>
                 </button>
               ))}
@@ -570,7 +570,7 @@ export function JobOptimizationPanel({
             {activeSuggestion ? (
               <article className="suggestion-card" data-testid="block-suggestion-panel">
                 <h3>建议详情</h3>
-                {staleReason ? <div className="warning-box">建议已过期：{staleReason}。请重新生成后再接受。</div> : null}
+                {staleReason ? <div className="warning-box">建议已过期：{suggestionStaleReasonLabel(staleReason)}。请重新生成后再接受。</div> : null}
                 <label className="field-label">
                   原文
                   <textarea className="textarea small-textarea" value={activeSuggestion.originalText} readOnly />
@@ -583,7 +583,7 @@ export function JobOptimizationPanel({
                 <div className="warning-box">
                   <strong>理由</strong>
                   <p>{activeSuggestion.reason}</p>
-                  <p>风险：{activeSuggestion.riskLevel} / Guard：{activeSuggestion.guardPreview?.allowed ? "预检通过" : "预检阻断"}</p>
+                  <p>风险：{riskLabel(activeSuggestion.riskLevel)} / 安全检查：{activeSuggestion.guardPreview?.allowed ? "预检通过" : "预检阻断"}</p>
                   <p>证据：{(activeSuggestion.evidenceQuotes ?? activeSuggestion.usedEvidenceRefs.map((ref) => ref.factQuote || ref.factText)).join(" / ") || "无"}</p>
                 </div>
                 <div className="action-row">
@@ -605,7 +605,7 @@ export function JobOptimizationPanel({
                 </div>
               </article>
             ) : (
-              <div className="warning-box">选择或生成一个建议后，可查看原文、建议、diff、理由、证据和 Fact Guard 预检。</div>
+              <div className="warning-box">选择或生成一个建议后，可查看原文、建议、修改对比、理由、证据和事实安全检查。</div>
             )}
           </div>
         </div>
@@ -619,7 +619,7 @@ function InlineDiff({ originalText, suggestedText }: { originalText: string; sug
   const suggestedTokens = tokenize(suggestedText);
   return (
     <div className="inline-diff" data-testid="inline-diff">
-      <strong>Inline diff</strong>
+      <strong>修改对比</strong>
       <div>
         {originalTokens.filter((token) => !suggestedTokens.includes(token)).map((token, index) => (
           <span key={`del-${token}-${index}`} className="diff-token diff-delete">删除 {token}</span>
@@ -687,6 +687,65 @@ function uniqueEvidenceRefs(refs: AiSuggestion["usedEvidenceRefs"]) {
 
 function matchLevelRank(level: RequirementBlockMatch["matchLevel"]) {
   return { strong: 4, partial: 3, weak: 2, needs_confirmation: 1, none: 0 }[level];
+}
+
+function matchLevelLabel(level: RequirementBlockMatch["matchLevel"]) {
+  return {
+    strong: "直接匹配",
+    partial: "部分匹配",
+    weak: "较弱",
+    needs_confirmation: "待确认",
+    none: "暂无匹配"
+  }[level];
+}
+
+function riskLabel(risk: string) {
+  return {
+    low: "低",
+    medium: "中",
+    high: "高"
+  }[risk] ?? risk;
+}
+
+function suggestionTypeLabel(type: AiSuggestion["type"]) {
+  const labels: Record<string, string> = {
+    rewrite: "改写",
+    compress: "压缩",
+    prioritize: "前置重点",
+    remove_irrelevant: "移除无关",
+    remove_or_shorten: "删减",
+    reorder: "调整顺序",
+    hide: "隐藏",
+    show: "恢复显示",
+    follow_up_question: "需要追问",
+    risk_warning: "风险提醒"
+  };
+  return labels[type] ?? "建议";
+}
+
+function suggestionStatusLabel(status: AiSuggestion["status"]) {
+  const labels: Record<string, string> = {
+    pending: "待审阅",
+    accepted: "已接受",
+    rejected: "已拒绝",
+    ignored: "已忽略",
+    blocked_high_risk: "高风险阻断",
+    stale_blocked: "已过期",
+    edited_guarded: "已编辑并检查",
+    edited_pending_guard: "编辑后待检查",
+    pending_review: "待复核",
+    undone: "已撤回"
+  };
+  return labels[status] ?? status;
+}
+
+function suggestionStaleReasonLabel(reason: string) {
+  return {
+    original_text_changed: "原文已变化",
+    branch_revision_changed: "简历版本已变化",
+    requirements_changed: "岗位要求已变化",
+    suggestion_stale: "建议已过期"
+  }[reason] ?? "相关内容已变化";
 }
 
 function filterLabel(filter: RequirementFilter) {

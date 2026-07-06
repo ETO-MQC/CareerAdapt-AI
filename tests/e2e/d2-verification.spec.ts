@@ -32,13 +32,13 @@ const PDFINFO = resolvePopplerBinary("pdfinfo");
 
 async function createBranchFromDraft(page: Page, branchName: string) {
   await page.goto("/jobs");
-  await page.locator("button").filter({ hasText: "C1" }).first().click();
+  await page.getByTestId("run-experience-match").click();
   await expect(page.locator(".match-row").first()).toBeVisible();
-  await page.locator("button").filter({ hasText: "C2" }).first().click();
-  await expect(page.locator(".notice")).toContainText("C2");
+  await page.getByTestId("create-suggestion-draft").click();
+  await expect(page.locator(".notice")).toBeVisible();
 
   await page.goto("/resume");
-  await page.locator("label").filter({ hasText: "C2" }).locator("select").selectOption({ index: 0 });
+  await page.getByTestId("job-suggestion-draft-select").selectOption({ index: 0 });
   await page.locator("article.panel").first().locator("input").fill(branchName);
   await page.locator("article.panel").first().locator("button.primary-button").click();
   await expect(page.locator(".branch-list .match-row").filter({ hasText: branchName })).toBeVisible();
@@ -324,14 +324,14 @@ test.describe("D2.1 验收：双模板预览与 PDF 导出", () => {
     if (optionCount > 1) {
       await jobSelect.selectOption({ index: 1 });
       const betaJobId = await jobSelect.inputValue();
-      await page.locator("button").filter({ hasText: "C1" }).first().click();
+      await page.getByTestId("run-experience-match").click();
       await expect(page.locator(".match-row").first()).toBeVisible();
-      await page.locator("button").filter({ hasText: "C2" }).first().click();
-      await expect(page.locator(".notice")).toContainText("C2");
+      await page.getByTestId("create-suggestion-draft").click();
+      await expect(page.locator(".notice")).toBeVisible();
       const betaDraftId = await getLatestUsableDraftIdForJob(page, betaJobId);
 
       await page.goto("/resume");
-      const draftSelect = page.locator("label").filter({ hasText: "C2" }).locator("select");
+      const draftSelect = page.getByTestId("job-suggestion-draft-select");
       await expect(draftSelect.locator(`option[value="${betaDraftId}"]`)).toHaveCount(1);
       await draftSelect.selectOption(betaDraftId);
       await page.locator("article.panel").first().locator("input").fill("Branch Beta");

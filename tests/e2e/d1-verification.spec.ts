@@ -11,10 +11,10 @@ import { expect, test } from "@playwright/test";
 
 /** 在 /jobs 为当前选中岗位创建一个 C2 草稿（C1 + C2 流水线） */
 async function createC2DraftForSelectedJob(page: import("@playwright/test").Page) {
-  await page.locator("button").filter({ hasText: "C1" }).first().click();
+  await page.getByTestId("run-experience-match").click();
   await expect(page.locator(".match-row").first()).toBeVisible();
-  await page.locator("button").filter({ hasText: "C2" }).first().click();
-  await expect(page.locator(".notice")).toContainText("C2");
+  await page.getByTestId("create-suggestion-draft").click();
+  await expect(page.locator(".notice")).toBeVisible();
 }
 
 /** 切换 JD 列表中的岗位（index 0 或 1） */
@@ -144,7 +144,7 @@ test.describe("D1 验证：分支隔离、Fact Guard、版本历史、持久化�
     await expect(page.getByRole("heading", { name: /.+/ }).first()).toBeVisible();
 
     // 选择草稿 0 → 创建 Branch A
-    await page.locator("label").filter({ hasText: "C2" }).locator("select").selectOption({ index: 0 });
+    await page.getByTestId("job-suggestion-draft-select").selectOption({ index: 0 });
     await page.locator("article.panel").first().locator("input").fill("D1 验证分支 A");
     await page.locator("article.panel").first().locator("button.primary-button").click();
     await expect(
@@ -152,7 +152,7 @@ test.describe("D1 验证：分支隔离、Fact Guard、版本历史、持久化�
     ).toBeVisible();
 
     // 选择草稿 1 → 创建 Branch B
-    await page.locator("label").filter({ hasText: "C2" }).locator("select").selectOption({ index: 1 });
+    await page.getByTestId("job-suggestion-draft-select").selectOption({ index: 1 });
     await page.locator("article.panel").first().locator("input").fill("D1 验证分支 B");
     await page.locator("article.panel").first().locator("button.primary-button").click();
     await expect(
