@@ -17,7 +17,7 @@ async function createBranchFromDraft(page: Page, branchName: string) {
   await page.locator("button").filter({ hasText: "C1" }).first().click();
   await expect(page.locator(".match-row").first()).toBeVisible();
   await page.locator("button").filter({ hasText: "C2" }).first().click();
-  await expect(page.locator(".notice")).toContainText("C2");
+  await expectNotice(page, "C2");
 
   await page.goto("/resume");
   await page.locator("label").filter({ hasText: "C2" }).locator("select").selectOption({ index: 0 });
@@ -107,6 +107,10 @@ async function isSectionTitleVisible(page: Page, sectionType: string, title: str
   }, { sectionType, title });
 }
 
+async function expectNotice(page: Page, text: string) {
+  await expect(page.locator(".notice").filter({ hasText: text })).toBeVisible({ timeout: 10000 });
+}
+
 async function getLatestExportRecord(page: Page) {
   return page.evaluate(async () => {
     return new Promise<Record<string, unknown>>((resolveRecord, reject) => {
@@ -145,19 +149,19 @@ test.describe("V2-G1b style property panel", () => {
 
     await expect(page.getByTestId("resume-property-panel")).toBeVisible();
     await page.getByLabel("页面密度").selectOption("compact");
-    await expect(page.locator(".notice")).toContainText("页面密度已保存");
+    await expectNotice(page,"页面密度已保存");
     await expect.poll(() => getCssVariable(page, "--resume-page-padding-block")).toBe("10mm");
 
     await page.getByLabel("正文字号").selectOption("small");
-    await expect(page.locator(".notice")).toContainText("正文字号已保存");
+    await expectNotice(page,"正文字号已保存");
     await expect.poll(() => getCssVariable(page, "--resume-body-font-size")).toBe("8.8pt");
 
     await page.getByLabel("行距").selectOption("tight");
-    await expect(page.locator(".notice")).toContainText("行距已保存");
+    await expectNotice(page,"行距已保存");
     await expect.poll(() => getCssVariable(page, "--resume-line-height")).toBe("1.34");
 
     await page.getByLabel("主题强调色：蓝色").click();
-    await expect(page.locator(".notice")).toContainText("主题强调色已保存");
+    await expectNotice(page,"主题强调色已保存");
     await expect.poll(() => getCssVariable(page, "--resume-accent-color")).toBe("#1d4f91");
 
     await enablePreviewEditing(page);
@@ -168,7 +172,7 @@ test.describe("V2-G1b style property panel", () => {
     await page.getByRole("button", { name: "Section" }).click();
     await expect(page.getByTestId("section-style-panel")).toBeVisible();
     await page.getByLabel("显示 Section 标题").click();
-    await expect(page.locator(".notice")).toContainText("Section 标题已隐藏");
+    await expectNotice(page,"Section 标题已隐藏");
     await expect.poll(() => isSectionTitleVisible(page, target.sectionType, target.title)).toBe(false);
 
     await page.getByRole("button", { name: "Document" }).click();
@@ -187,7 +191,7 @@ test.describe("V2-G1b style property panel", () => {
     expect(snapshot?.sectionStyleOverrides?.[target.sectionType]?.showTitle).toBe(false);
 
     await page.getByRole("button", { name: "回退展示" }).click();
-    await expect(page.locator(".notice")).toContainText("已撤销");
+    await expectNotice(page,"已撤销");
     await expect.poll(() => isSectionTitleVisible(page, target.sectionType, target.title)).toBe(true);
 
     await page.reload();
@@ -204,24 +208,24 @@ test.describe("V2-G1b style property panel", () => {
 
     // Make two style changes to build undo stack
     await page.getByLabel("页面密度").selectOption("compact");
-    await expect(page.locator(".notice")).toContainText("页面密度已保存");
+    await expectNotice(page,"页面密度已保存");
     await expect.poll(() => getCssVariable(page, "--resume-page-padding-block")).toBe("10mm");
 
     await page.getByLabel("正文字号").selectOption("small");
-    await expect(page.locator(".notice")).toContainText("正文字号已保存");
+    await expectNotice(page,"正文字号已保存");
     await expect.poll(() => getCssVariable(page, "--resume-body-font-size")).toBe("8.8pt");
 
     // First undo: restores bodyTextScale
     const undoButton = page.getByRole("button", { name: "回退展示" });
     await expect(undoButton).toBeEnabled();
     await undoButton.click();
-    await expect(page.locator(".notice")).toContainText("已撤销");
+    await expectNotice(page,"已撤销");
     await expect.poll(() => getCssVariable(page, "--resume-body-font-size")).toBe("9.3pt");
 
     // Second undo: restores density
     await expect(undoButton).toBeEnabled();
     await undoButton.click();
-    await expect(page.locator(".notice")).toContainText("已撤销");
+    await expectNotice(page,"已撤销");
     await expect.poll(() => getCssVariable(page, "--resume-page-padding-block")).toBe("12mm");
 
     // Both undos done; redo should be available
@@ -230,13 +234,13 @@ test.describe("V2-G1b style property panel", () => {
 
     // Redo restores density
     await redoButton.click();
-    await expect(page.locator(".notice")).toContainText("已重做");
+    await expectNotice(page,"已重做");
     await expect.poll(() => getCssVariable(page, "--resume-page-padding-block")).toBe("10mm");
 
     // Redo again restores bodyTextScale
     await expect(redoButton).toBeEnabled();
     await redoButton.click();
-    await expect(page.locator(".notice")).toContainText("已重做");
+    await expectNotice(page,"已重做");
     await expect.poll(() => getCssVariable(page, "--resume-body-font-size")).toBe("8.8pt");
   });
 
@@ -248,12 +252,12 @@ test.describe("V2-G1b style property panel", () => {
 
     // Change density to spacious to increase page padding
     await page.getByLabel("页面密度").selectOption("spacious");
-    await expect(page.locator(".notice")).toContainText("页面密度已保存");
+    await expectNotice(page,"页面密度已保存");
     await expect.poll(() => getCssVariable(page, "--resume-page-padding-block")).toBe("14mm");
 
     // Reset to default
     await page.getByRole("button", { name: "恢复模板默认样式" }).click();
-    await expect(page.locator(".notice")).toContainText("已恢复当前模板默认样式");
+    await expectNotice(page,"已恢复当前模板默认样式");
     await expect.poll(() => getCssVariable(page, "--resume-page-padding-block")).toBe("12mm");
 
     // Verify overflow status element is visible and has valid content

@@ -124,10 +124,11 @@ export function ResumeWorkspace() {
   function enqueuePresentation(operation: (config: ResumePresentationConfig) => Promise<ResumePresentationConfig | undefined>) {
     const queue = presentationQueueRef.current;
     queue.promise = queue.promise.then(async () => {
-      const config = queue.latestConfig;
+      const config = queue.latestConfig ?? presentationConfig;
       if (!config) {
         return;
       }
+      queue.latestConfig = config;
       const result = await operation(config);
       if (result) {
         queue.latestConfig = result;
@@ -729,6 +730,7 @@ export function ResumeWorkspace() {
       });
       setPresentationConfig(result.config);
       setTemplateId(result.config.templateId);
+      presentationQueueRef.current.latestConfig = result.config;
       if (input.recordHistory !== false && !result.idempotent) {
         const queue = presentationQueueRef.current;
         queue.undoStack = [...queue.undoStack.slice(-49), input.beforeConfig];
