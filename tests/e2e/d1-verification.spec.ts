@@ -19,7 +19,7 @@ async function createC2DraftForSelectedJob(page: import("@playwright/test").Page
 
 /** 切换 JD 列表中的岗位（index 0 或 1） */
 async function selectJobByIndex(page: import("@playwright/test").Page, index: number) {
-  await page.locator("label").filter({ hasText: "D1" }).locator("select").selectOption({ index });
+  await page.getByTestId("current-job-select").selectOption({ index });
 }
 
 /** 向 IndexedDB 注入一个 legacy_unverified 占位分支 */
@@ -176,7 +176,7 @@ test.describe("D1 验证：分支隔离、Fact Guard、版本历史、持久化�
 
     // 验证 Fact Guard 通过且 revision 升级
     await expect(page.locator(".notice")).toContainText("已保存");
-    await expect(page.locator(".revision-list .review-row").filter({ hasText: "revision 1" })).toBeVisible();
+    await expect(page.locator(".revision-list .review-row").filter({ hasText: "版本 2" })).toBeVisible();
 
     // 切到 Branch B，确认内容未被污染
     await page.locator(".branch-list .match-row").filter({ hasText: "D1 验证分支 B" }).click();
@@ -214,7 +214,7 @@ test.describe("D1 验证：分支隔离、Fact Guard、版本历史、持久化�
     await expect(page.locator(".notice")).toContainText("已保存");
 
     // 恢复到 revision 0（原始文本）
-    const rev0Row = page.locator(".revision-list .review-row").filter({ hasText: "revision 0" });
+    const rev0Row = page.locator(".revision-list .review-row").filter({ hasText: "版本 1" });
     await expect(rev0Row).toBeVisible();
     await rev0Row.locator("button").click();
     await expect(page.locator(".notice")).toContainText("已恢复旧版本");
@@ -274,7 +274,7 @@ test.describe("D1 验证：分支隔离、Fact Guard、版本历史、持久化�
     await page.locator(".branch-list .match-row").filter({ hasText: "旧版占位分支" }).click();
 
     // 验证显示只读警告
-    await expect(page.getByText("旧占位分支", { exact: false })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "旧版占位分支" })).toBeVisible();
 
     // textarea 应该被 disabled
     const legacyTextarea = page.locator(".branch-editor textarea").first();

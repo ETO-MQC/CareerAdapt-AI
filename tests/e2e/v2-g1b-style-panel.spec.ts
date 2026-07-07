@@ -12,6 +12,10 @@ type RenderSectionTarget = {
   itemId: string;
 };
 
+function visibleA4Page(page: Page) {
+  return page.locator(".resume-preview-stage").getByTestId("resume-a4-page").first();
+}
+
 async function createBranchFromDraft(page: Page, branchName: string) {
   await page.goto("/jobs");
   await page.getByTestId("run-experience-match").click();
@@ -24,7 +28,7 @@ async function createBranchFromDraft(page: Page, branchName: string) {
   await page.locator("article.panel").first().locator("input").fill(branchName);
   await page.locator("article.panel").first().locator("button.primary-button").click();
   await expect(page.locator(".branch-list .match-row").filter({ hasText: branchName })).toBeVisible();
-  await expect(page.getByTestId("resume-a4-page")).toBeVisible();
+  await expect(visibleA4Page(page)).toBeVisible();
 }
 
 async function enablePreviewEditing(page: Page) {
@@ -77,16 +81,16 @@ async function getResumeRevisionCount(page: Page, branchId: string): Promise<num
 }
 
 async function getCssVariable(page: Page, name: string) {
-  return page.getByTestId("resume-a4-page").evaluate((element, variableName) => {
+  return visibleA4Page(page).evaluate((element, variableName) => {
     return getComputedStyle(element).getPropertyValue(variableName).trim();
   }, name);
 }
 
 async function getSectionTarget(page: Page): Promise<RenderSectionTarget> {
-  return page.getByTestId("resume-a4-page").evaluate((pageElement) => {
+  return visibleA4Page(page).evaluate((pageElement) => {
     const sections = Array.from(pageElement.querySelectorAll<HTMLElement>("[data-render-section]"));
     for (const section of sections) {
-      const item = section.querySelector<HTMLElement>("[data-source-item-id]");
+      const item = section.querySelector<HTMLElement>('[data-source-item-id]:not([data-source-item-id^="profile:"])');
       const title = section.querySelector<HTMLElement>("h2");
       if (item?.dataset.sourceItemId && title?.textContent?.trim()) {
         return {
@@ -101,7 +105,7 @@ async function getSectionTarget(page: Page): Promise<RenderSectionTarget> {
 }
 
 async function isSectionTitleVisible(page: Page, sectionType: string, title: string) {
-  return page.getByTestId("resume-a4-page").evaluate((pageElement, target) => {
+  return visibleA4Page(page).evaluate((pageElement, target) => {
     const section = pageElement.querySelector<HTMLElement>(`[data-render-section="${target.sectionType}"]`);
     return section?.querySelector("h2")?.textContent?.trim() === target.title;
   }, { sectionType, title });
@@ -167,13 +171,13 @@ test.describe("V2-G1b style property panel", () => {
 
     await enablePreviewEditing(page);
     const target = await getSectionTarget(page);
-    await page.getByTestId("resume-a4-page").locator(`[data-source-item-id="${target.itemId}"]`).first().click({ force: true });
+    await visibleA4Page(page).locator(`[data-source-item-id="${target.itemId}"]`).first().click({ force: true });
     await expect(page.getByTestId("block-style-panel")).toBeVisible();
 
     await propertyPanel.getByRole("button", { name: "栏目" }).click();
     await expect(page.getByTestId("section-style-panel")).toBeVisible();
-    await page.getByLabel("显示 Section 标题").click();
-    await expectNotice(page,"Section 标题已隐藏");
+    await page.getByLabel("显示栏目标题").click();
+    await expectNotice(page,"栏目标题已隐藏");
     await expect.poll(() => isSectionTitleVisible(page, target.sectionType, target.title)).toBe(false);
 
     await propertyPanel.getByRole("button", { name: "整页" }).click();
@@ -196,7 +200,7 @@ test.describe("V2-G1b style property panel", () => {
     await expect.poll(() => isSectionTitleVisible(page, target.sectionType, target.title)).toBe(true);
 
     await page.reload();
-    await expect(page.getByTestId("resume-a4-page")).toBeVisible();
+    await expect(visibleA4Page(page)).toBeVisible();
     await expect.poll(() => getCssVariable(page, "--resume-body-font-size")).toBe("8.8pt");
     expect(await getResumeRevisionCount(page, branch.id)).toBe(revisionsBefore);
   });

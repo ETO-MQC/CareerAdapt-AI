@@ -808,7 +808,7 @@ export function JobsWorkspace() {
             <button className="primary-button" data-testid="save-job-raw-input" onClick={startImport}>
               保存原始JD
             </button>
-            <span className={`save-status save-status-${saveStatus}`}>自动保存：{saveStatus}</span>
+            <span className={`save-status save-status-${saveStatus}`}>保存状态：{saveStatusLabel(saveStatus)}</span>
           </div>
         </article>
 
@@ -853,7 +853,7 @@ export function JobsWorkspace() {
         {jobs.length > 0 ? (
           <label className="field-label">
             当前岗位
-            <select value={selectedJob?.id ?? ""} onChange={(event) => {
+            <select data-testid="current-job-select" value={selectedJob?.id ?? ""} onChange={(event) => {
               setSelectedJobId(event.target.value);
               setSelectedMatchId(undefined);
               setAdaptationDraft(undefined);
@@ -1158,6 +1158,16 @@ function sourceLabel(source: string) {
     manual: "人工确认",
     fallback: "本地规则"
   }[source] ?? source;
+}
+
+function saveStatusLabel(status: "idle" | "saving" | "saved" | "failed" | "conflict") {
+  return {
+    idle: "等待保存",
+    saving: "保存中",
+    saved: "已保存",
+    failed: "保存失败",
+    conflict: "需要刷新后重试"
+  }[status];
 }
 
 function RequirementReviewRow({

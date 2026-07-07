@@ -9,7 +9,7 @@ export function A4ResumeProbe() {
   const workspace = useWorkspace();
   const repositoryProfile = workspace.status === "ready" ? workspace.profiles[0] : undefined;
   const profile = repositoryProfile ?? demoCareerProfile;
-  const sourceLabel = repositoryProfile ? "应用 workspace 数据" : "固定探针数据";
+  const sourceLabel = repositoryProfile ? "使用当前资料" : "使用示例资料";
 
   return (
     <main className="probe-shell">

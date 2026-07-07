@@ -14,7 +14,7 @@ test.describe("Stage D1 resume branches", () => {
 
     await createC2DraftForSelectedJob(page);
 
-    await page.locator("label").filter({ hasText: "D1" }).locator("select").selectOption({ index: 1 });
+    await page.getByTestId("current-job-select").selectOption({ index: 1 });
     await createC2DraftForSelectedJob(page);
 
     await page.goto("/resume");
@@ -39,20 +39,20 @@ test.describe("Stage D1 resume branches", () => {
     await branchATextarea.fill(editedA);
     await page.locator(".branch-editor .suggestion-card").first().locator("button.primary-button").click();
     await expect(page.locator(".notice")).toBeVisible();
-    await expect(page.locator(".revision-list .review-row").filter({ hasText: "revision 1" })).toBeVisible();
+    await expect(page.locator(".revision-list .review-row").filter({ hasText: "版本 2" })).toBeVisible();
 
     await page.locator(".branch-list .match-row").filter({ hasText: "D1 Branch B" }).click();
     await expect(page.locator(".branch-editor textarea").first()).not.toHaveValue(editedA);
 
     await page.locator(".branch-list .match-row").filter({ hasText: "D1 Branch A" }).click();
-    await page.locator(".revision-list .review-row").filter({ hasText: "revision 0" }).locator("button").click();
-    await expect(page.locator(".notice")).toContainText("restore revision");
+    await page.locator(".revision-list .review-row").filter({ hasText: "版本 1" }).locator("button").click();
+    await expect(page.locator(".notice")).toContainText("已恢复旧版本");
     await page
       .locator("section.panel")
       .filter({ hasText: "D1 Branch A" })
       .locator(".section-heading .action-row button", { hasText: "撤销" })
       .click();
-    await expect(page.locator(".notice")).toContainText("previousRevisionId");
+    await expect(page.locator(".notice")).toContainText("已撤销最近一次简历修改");
     await expect(page.locator(".branch-editor textarea").first()).toHaveValue(editedA);
 
     await page.evaluate(async () => {
@@ -85,6 +85,6 @@ test.describe("Stage D1 resume branches", () => {
       .filter({ hasText: "D1 Branch A" })
       .locator(".section-heading .action-row button", { hasText: "刷新更新提示" })
       .click();
-    await expect(page.getByText("Career profile has updates", { exact: false })).toBeVisible();
+    await expect(page.locator(".notice")).toContainText("个人资料");
   });
 });

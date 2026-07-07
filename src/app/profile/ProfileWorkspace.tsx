@@ -1026,7 +1026,7 @@ export function ProfileWorkspace() {
               <button className="primary-button" data-testid="save-profile-raw-input" onClick={startImport}>
                 保存原文
               </button>
-              <span className={`save-status save-status-${saveStatus}`}>保存状态：{saveStatus}</span>
+              <span className={`save-status save-status-${saveStatus}`}>保存状态：{saveStatusLabel(saveStatus)}</span>
             </div>
           </article>
         ) : null}
@@ -1343,4 +1343,14 @@ function formatPdfWarnings(warnings: string[]) {
     }
     return warning;
   });
+}
+
+function saveStatusLabel(status: "idle" | "saving" | "saved" | "failed" | "conflict") {
+  return {
+    idle: "等待保存",
+    saving: "保存中",
+    saved: "已保存",
+    failed: "保存失败",
+    conflict: "需要刷新后重试"
+  }[status];
 }

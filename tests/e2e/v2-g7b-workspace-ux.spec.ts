@@ -46,13 +46,60 @@ test.describe("V2-G7b workspace UX", () => {
 
     await expect(page.locator(".resume-preview-layout")).toBeVisible({ timeout: 15_000 });
     await expect(page.locator(".resume-export-panel")).toBeVisible();
-    await expect(page.getByTestId("resume-a4-page").first()).toBeVisible();
+    await expect(page.locator(".resume-preview-stage").getByTestId("resume-a4-page").first()).toBeVisible();
     await expect(page.getByText("A4 探针")).toHaveCount(0);
 
     await page.getByLabel("画布编辑").check();
-    await page.getByTestId("resume-a4-page").first().locator("[data-source-item-id='profile:name']").click();
+    await page.locator(".resume-preview-stage").getByTestId("resume-a4-page").first().locator("[data-source-item-id='profile:name']").click();
     await expect(page.getByTestId("resume-studio-editor")).toBeVisible();
     await expect(page.getByTestId("resume-studio-editor")).toContainText("基本信息");
+  });
+
+  test("resume studio keeps A4 canvas in local scroll without page overflow", async ({ page }) => {
+    const branchName = `G7b Layout ${Date.now()}`;
+    await page.setViewportSize({ width: 1366, height: 768 });
+    await createJobSuggestionDraft(page);
+
+    await page.goto("/resume");
+    await page.locator("label").filter({ hasText: "岗位建议草稿" }).locator("select").selectOption({ index: 0 });
+    await page.locator("article.panel").first().locator("input").fill(branchName);
+    await page.locator("article.panel").first().locator("button.primary-button").click();
+    await expect(page.locator(".resume-preview-stage").getByTestId("resume-a4-page").first()).toBeVisible({ timeout: 15_000 });
+
+    const metrics = await page.evaluate(() => {
+      const doc = document.documentElement;
+      const stage = document.querySelector<HTMLElement>(".resume-preview-stage");
+      if (!stage) {
+        throw new Error("resume_stage_or_page_missing");
+      }
+      const resumePage = stage.querySelector<HTMLElement>("[data-testid='resume-a4-page']");
+      if (!resumePage) {
+        throw new Error("resume_stage_or_page_missing");
+      }
+      const stageRect = stage.getBoundingClientRect();
+      const pageRect = resumePage.getBoundingClientRect();
+      const invisibleOversized = Array.from(document.querySelectorAll<HTMLElement>("[aria-hidden='true'], [data-resume-pagination-measurement='true']"))
+        .filter((node) => {
+          const rect = node.getBoundingClientRect();
+          const style = window.getComputedStyle(node);
+          return style.position !== "absolute" && rect.height > 64;
+        })
+        .map((node) => ({ testId: node.dataset.testid, height: node.getBoundingClientRect().height }));
+
+      return {
+        horizontalOverflow: doc.scrollWidth - window.innerWidth,
+        pageTopFromStage: pageRect.top - stageRect.top,
+        stageScrollWidth: stage.scrollWidth,
+        stageClientWidth: stage.clientWidth,
+        invisibleOversized
+      };
+    });
+
+    expect(metrics.horizontalOverflow).toBeLessThanOrEqual(1);
+    expect(metrics.pageTopFromStage).toBeGreaterThanOrEqual(16);
+    expect(metrics.pageTopFromStage).toBeLessThanOrEqual(48);
+    expect(metrics.stageScrollWidth).toBeGreaterThanOrEqual(metrics.stageClientWidth);
+    expect(metrics.invisibleOversized).toEqual([]);
   });
 });
 

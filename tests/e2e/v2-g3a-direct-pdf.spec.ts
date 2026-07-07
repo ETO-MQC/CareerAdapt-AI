@@ -45,6 +45,10 @@ function resolvePopplerBinary(name: "pdftotext" | "pdfinfo"): string {
 const PDFTOTEXT = resolvePopplerBinary("pdftotext");
 const PDFINFO = resolvePopplerBinary("pdfinfo");
 
+function visibleA4Page(page: Page) {
+  return page.locator(".resume-preview-stage").getByTestId("resume-a4-page").first();
+}
+
 function getOutputDir() {
   const outputDir = resolve(process.cwd(), "test-results");
   if (!existsSync(outputDir)) {
@@ -65,7 +69,7 @@ async function createBranchFromDraft(page: Page, branchName: string) {
   await page.locator("article.panel").first().locator("input").fill(branchName);
   await page.locator("article.panel").first().locator("button.primary-button").click();
   await expect(page.locator(".branch-list .match-row").filter({ hasText: branchName })).toBeVisible();
-  await expect(page.getByTestId("resume-a4-page")).toBeVisible();
+  await expect(visibleA4Page(page)).toBeVisible();
 }
 
 async function ensureSinglePage(page: Page) {
@@ -165,8 +169,8 @@ async function getExportRecords(page: Page): Promise<DbExportRecord[]> {
 }
 
 async function firstRenderedItem(page: Page) {
-  return page.getByTestId("resume-a4-page").evaluate((pageElement) => {
-    const item = pageElement.querySelector<HTMLElement>("[data-source-item-id]");
+  return visibleA4Page(page).evaluate((pageElement) => {
+    const item = pageElement.querySelector<HTMLElement>('[data-source-item-id]:not([data-source-item-id^="profile:"])');
     if (!item?.dataset.sourceItemId) {
       throw new Error("rendered_item_not_found");
     }
@@ -237,7 +241,7 @@ test.describe("V2-G3a direct PDF download", () => {
 
     await page.getByTestId("canvas-edit-toggle").check();
     const hidden = await firstRenderedItem(page);
-    await page.getByTestId("resume-a4-page").locator(`[data-source-item-id="${hidden.id}"]`).first().click({ force: true });
+    await visibleA4Page(page).locator(`[data-source-item-id="${hidden.id}"]`).first().click({ force: true });
     await page.getByRole("button", { name: "段落" }).click();
     await page.getByTestId("block-style-panel").getByRole("button", { name: "隐藏" }).click();
     await expect(page.locator(".notice")).toContainText("内容已隐藏");
@@ -333,7 +337,7 @@ test.describe("V2-G3a direct PDF download", () => {
     await expect(page.locator(".notice")).toContainText("行距已保存");
     await page.getByTestId("canvas-edit-toggle").check();
     const item = await firstRenderedItem(page);
-    await page.getByTestId("resume-a4-page").locator(`[data-source-item-id="${item.id}"]`).first().click({ force: true });
+    await visibleA4Page(page).locator(`[data-source-item-id="${item.id}"]`).first().click({ force: true });
     await expect(page.getByTestId("resume-studio-editor")).toBeVisible();
 
     await page.getByRole("button", { name: "打印 / 保存 PDF" }).click();

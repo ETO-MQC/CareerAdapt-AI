@@ -427,7 +427,7 @@ test.describe("D2.1 验收：双模板预览与 PDF 导出", () => {
 
     // Undo the restore
     await page.locator("button").filter({ hasText: "撤销" }).click();
-    await expect(page.locator(".notice")).toContainText("已按");
+    await expect(page.locator(".notice")).toContainText("已撤销最近一次简历修改");
     await page.waitForTimeout(300);
 
     // Preview should return to the edited version
@@ -476,7 +476,7 @@ test.describe("D2.1 验收：双模板预览与 PDF 导出", () => {
 
     // Try to export - should be blocked
     await page.getByRole("button", { name: "打印 / 保存 PDF" }).click();
-    await expect(page.locator(".notice")).toContainText("revision");
+    await expect(page.locator(".notice")).toContainText("简历版本已更新");
 
     // No new successful export record
     const afterCount = await exportRecordCount(page);
@@ -762,7 +762,7 @@ test.describe("D2.1 验收：双模板预览与 PDF 导出", () => {
     await page.waitForTimeout(300);
 
     // Should show legacy warning
-    await expect(page.locator(".warning-box")).toContainText("legacy_unverified");
+    await expect(page.locator(".warning-box")).toContainText("旧占位简历");
 
     // Editor should be disabled
     const textarea = page.locator(".branch-editor textarea").first();

@@ -18,6 +18,10 @@ type DbPresentationConfig = {
   typography?: { lineHeight?: string };
 };
 
+function visibleA4Page(page: Page) {
+  return page.locator(".resume-preview-stage").getByTestId("resume-a4-page").first();
+}
+
 function resolvePopplerBinary(name: "pdftotext" | "pdfinfo"): string {
   const candidates =
     name === "pdftotext"
@@ -61,7 +65,7 @@ async function createBranchFromDraft(page: Page, branchName: string) {
   await page.locator("article.panel").first().locator("input").fill(branchName);
   await page.locator("article.panel").first().locator("button.primary-button").click();
   await expect(page.locator(".branch-list .match-row").filter({ hasText: branchName })).toBeVisible();
-  await expect(page.getByTestId("resume-a4-page")).toBeVisible();
+  await expect(visibleA4Page(page)).toBeVisible();
 }
 
 async function enablePreviewEditing(page: Page) {
@@ -152,8 +156,8 @@ async function getLatestExportRecord(page: Page) {
 }
 
 async function getFirstRenderedItemId(page: Page): Promise<string> {
-  return page.getByTestId("resume-a4-page").evaluate((pageElement) => {
-    const item = pageElement.querySelector<HTMLElement>("[data-source-item-id]");
+  return visibleA4Page(page).evaluate((pageElement) => {
+    const item = pageElement.querySelector<HTMLElement>('[data-source-item-id]:not([data-source-item-id^="profile:"])');
     if (!item?.dataset.sourceItemId) {
       throw new Error("rendered_item_not_found");
     }
@@ -162,7 +166,7 @@ async function getFirstRenderedItemId(page: Page): Promise<string> {
 }
 
 async function getCssVariable(page: Page, name: string) {
-  return page.getByTestId("resume-a4-page").evaluate((element, variableName) => {
+  return visibleA4Page(page).evaluate((element, variableName) => {
     return getComputedStyle(element).getPropertyValue(variableName).trim();
   }, name);
 }
@@ -253,7 +257,7 @@ test.describe("V2-G2 template center", () => {
     await createBranchFromDraft(page, branchName);
     const branch = await getBranchByName(page, branchName);
     const revisionsBefore = await getResumeRevisionCount(page, branch.id);
-    const preview = page.getByTestId("resume-a4-page");
+    const preview = visibleA4Page(page);
 
     await openTemplateCenter(page);
     await page.getByRole("button", { name: "应用模板：ATS极简单栏" }).click();
@@ -283,7 +287,7 @@ test.describe("V2-G2 template center", () => {
     await expect(page.getByTestId("template-card-business-consulting")).toHaveAttribute("aria-current", "true");
 
     await page.reload();
-    await expect(page.getByTestId("resume-a4-page")).toHaveClass(/template-business-consulting/);
+    await expect(visibleA4Page(page)).toHaveClass(/template-business-consulting/);
     await openTemplateCenter(page);
     await expect(page.getByTestId("template-card-business-consulting")).toHaveAttribute("aria-current", "true");
 
@@ -309,7 +313,7 @@ test.describe("V2-G2 template center", () => {
 
     await enablePreviewEditing(page);
     const itemId = await getFirstRenderedItemId(page);
-    await page.getByTestId("resume-a4-page").locator(`[data-source-item-id="${itemId}"]`).first().click({ force: true });
+    await visibleA4Page(page).locator(`[data-source-item-id="${itemId}"]`).first().click({ force: true });
     await page.getByTestId("resume-studio-editor").getByRole("button", { name: "编辑" }).click();
     await page.getByLabel("编辑简历区块正文").fill("G2 未保存正文草稿");
 
@@ -349,7 +353,7 @@ test.describe("V2-G2 template center", () => {
       if (templateId !== "classic-technical") {
         await expect(page.locator(".notice")).toContainText("模板偏好已保存");
       }
-      await expect(page.getByTestId("resume-a4-page")).toHaveClass(new RegExp(`template-${templateId}`));
+      await expect(visibleA4Page(page)).toHaveClass(new RegExp(`template-${templateId}`));
       await ensureSinglePage(page);
       await page.emulateMedia({ media: "print" });
       const pdfPath = resolve(outputDir, `g2-${templateId}.pdf`);
