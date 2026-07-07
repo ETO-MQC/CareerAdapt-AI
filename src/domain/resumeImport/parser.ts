@@ -8,7 +8,10 @@ import {
   type ImportedResumePageRef,
   type ImportedResumeSection,
   type ImportedResumeSectionType,
-  type PdfPageText
+  StructuredResumeDraftSchema,
+  type ImportedResumeSource,
+  type PdfPageText,
+  type StructuredResumeDraft
 } from "@/domain/schemas";
 import { locatePdfSourceQuote } from "@/domain/pdfImport/sourceMapping";
 
@@ -20,6 +23,7 @@ type SourceInput = {
   sourceSessionId?: string;
   rawInputId?: string;
   fileName: string;
+  mimeType?: ImportedResumeSource["mimeType"];
   fileHash: string;
   normalizedTextHash?: string;
   pageCount: number;
@@ -50,6 +54,21 @@ const LINK_PATTERN = /(?:https?:\/\/|www\.|github\.com\/|linkedin\.com\/)[^\s，
 export function createImportedResumeDraftFromPdf(input: {
   importId?: string;
   source: SourceInput;
+  pages: PageInput[];
+  now?: string;
+}): ImportedResumeDraft {
+  return createImportedResumeDraftFromText({
+    ...input,
+    source: {
+      ...input.source,
+      mimeType: "application/pdf"
+    }
+  });
+}
+
+export function createImportedResumeDraftFromText(input: {
+  importId?: string;
+  source: SourceInput & { mimeType: ImportedResumeSource["mimeType"] };
   pages: PageInput[];
   now?: string;
 }): ImportedResumeDraft {
@@ -101,7 +120,7 @@ export function createImportedResumeDraftFromPdf(input: {
       sourceSessionId: input.source.sourceSessionId,
       rawInputId: input.source.rawInputId,
       fileName: input.source.fileName,
-      mimeType: "application/pdf",
+      mimeType: input.source.mimeType,
       fileHash: input.source.fileHash,
       normalizedTextHash: input.source.normalizedTextHash,
       pageCount: input.source.pageCount,
@@ -115,6 +134,110 @@ export function createImportedResumeDraftFromPdf(input: {
     createdAt: now,
     updatedAt: now
   });
+}
+
+export function createImportedResumeDraftFromStructuredJson(input: {
+  importId?: string;
+  source: SourceInput & { mimeType: "application/json" | "text/plain" };
+  structuredDraft: StructuredResumeDraft;
+  now?: string;
+}): ImportedResumeDraft {
+  const now = input.now ?? new Date().toISOString();
+  const importId = input.importId ?? `resume-import-${nanoid(10)}`;
+  const structuredDraft = StructuredResumeDraftSchema.parse(input.structuredDraft);
+  const pageText = structuredJsonToReviewText(structuredDraft);
+  const pageSources = [{
+    pageNumber: 1,
+    cleanedPageText: pageText,
+    charStart: 0,
+    charEnd: pageText.length
+  }];
+  const basics = {
+    name: structuredDraft.basics.name ? makeField(structuredDraft.basics.name, pageSources, "high") : undefined,
+    email: structuredDraft.basics.email ? makeField(structuredDraft.basics.email, pageSources, "high") : undefined,
+    phone: structuredDraft.basics.phone ? makeField(structuredDraft.basics.phone, pageSources, "medium") : undefined,
+    location: structuredDraft.basics.location ? makeField(structuredDraft.basics.location, pageSources, "medium") : undefined,
+    links: (structuredDraft.basics.links ?? []).map((link) => makeField(link, pageSources, "medium")),
+    targetRole: undefined,
+    summary: structuredDraft.basics.summary ? makeField(structuredDraft.basics.summary, pageSources, "medium") : undefined
+  };
+  const sections: ImportedResumeSection[] = structuredDraft.sections.map((section, sectionIndex) => ({
+    id: `import-section-${sectionIndex}-${nanoid(6)}`,
+    sectionType: section.sectionType,
+    detectedTitle: section.title,
+    included: section.included ?? section.sectionType !== "unknown",
+    order: sectionIndex,
+    confidence: section.sectionType === "unknown" ? "low" : "high",
+    items: section.items.map((item, itemIndex) => {
+      const normalized = typeof item === "string" ? item : item.text;
+      return {
+        id: `import-item-${nanoid(10)}`,
+        rawText: normalized,
+        normalizedText: normalized.trim(),
+        included: typeof item === "string" ? true : item.included ?? true,
+        order: itemIndex,
+        pageRefs: [{ pageNumber: 1, quote: normalized.trim().slice(0, 240) }],
+        confidence: "high" as const,
+        sourceStatus: "user_confirmed_modified" as const,
+        userEdited: true
+      };
+    })
+  }));
+
+  return ImportedResumeDraftSchema.parse({
+    id: importId,
+    schemaVersion: "resume-import-v1",
+    importId,
+    revision: 0,
+    status: "reviewing",
+    source: {
+      sourceSessionId: input.source.sourceSessionId,
+      rawInputId: input.source.rawInputId,
+      fileName: input.source.fileName,
+      mimeType: input.source.mimeType,
+      fileHash: input.source.fileHash,
+      normalizedTextHash: input.source.normalizedTextHash,
+      pageCount: 1,
+      extractedAt: input.source.extractedAt ?? now
+    },
+    basics,
+    sections,
+    pages: [{
+      pageNumber: 1,
+      rawText: pageText,
+      normalizedText: pageText,
+      charStart: 0,
+      charEnd: pageText.length
+    }],
+    warnings: sections
+      .filter((section) => section.sectionType === "unknown")
+      .map((section) => ({
+        code: "unknown_section",
+        message: `JSON栏目仍需确认：${section.detectedTitle}`,
+        sectionId: section.id
+      })),
+    parserVersion: `${RESUME_IMPORT_PARSER_VERSION}.structured-json`,
+    createdAt: now,
+    updatedAt: now
+  });
+}
+
+function structuredJsonToReviewText(draft: StructuredResumeDraft) {
+  const lines = [
+    draft.basics.name,
+    draft.basics.email,
+    draft.basics.phone,
+    draft.basics.location,
+    draft.basics.summary,
+    ...(draft.basics.links ?? [])
+  ].filter((line): line is string => Boolean(line?.trim()));
+  for (const section of draft.sections) {
+    lines.push(section.title);
+    for (const item of section.items) {
+      lines.push(typeof item === "string" ? item : item.text);
+    }
+  }
+  return lines.join("\n");
 }
 
 function splitPageLines(page: ImportedResumePage): LineWithPage[] {

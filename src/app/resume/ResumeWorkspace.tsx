@@ -16,6 +16,7 @@ import {
   type ResumePresentationConfig,
   type ResumeRenderModel,
   type ResumeRevision,
+  type StructuredResumeDraft,
   type TemplateId
 } from "@/domain/schemas";
 import { mapBranchToResumeRenderModel, ResumeRenderMapperError } from "@/domain/resumeRender/mapper";
@@ -55,6 +56,9 @@ type WorkbenchState = {
   branchId?: string;
   templateId?: TemplateId;
   stylePanelOpen?: boolean;
+  studioMode?: StudioMode;
+  manualTab?: ManualInspectorTab;
+  aiTab?: AiInspectorTab;
 };
 
 type PresentationHistoryState = {
@@ -64,6 +68,8 @@ type PresentationHistoryState = {
 
 type PropertyPanelTab = "document" | "section" | "block";
 type StudioMode = "manual" | "ai";
+type ManualInspectorTab = "content" | "typography" | "paragraph" | "layout" | "template" | "page" | "history";
+type AiInspectorTab = "job" | "suggestions" | "quality" | "facts" | "match" | "records";
 
 type PdfExportState = {
   status: "idle" | "validating" | "generating" | "downloading" | "success" | "failed" | "blocked_overflow";
@@ -94,7 +100,7 @@ export function ResumeWorkspace() {
   const [message, setMessage] = useState<string | undefined>();
   const [draftName, setDraftName] = useState("");
   const [editTexts, setEditTexts] = useState<Record<string, string>>({});
-  const [isStudioEditMode, setIsStudioEditMode] = useState(false);
+  const [isStudioEditMode, setIsStudioEditMode] = useState(true);
   const [selectedStudioItemId, setSelectedStudioItemId] = useState<string | undefined>();
   const [editingStudioItemId, setEditingStudioItemId] = useState<string | undefined>();
   const [studioDraftText, setStudioDraftText] = useState("");
@@ -108,6 +114,9 @@ export function ResumeWorkspace() {
   const [isStylePanelOpen, setIsStylePanelOpen] = useState(true);
   const [isTemplateCenterOpen, setIsTemplateCenterOpen] = useState(false);
   const [studioMode, setStudioMode] = useState<StudioMode>("manual");
+  const [manualInspectorTab, setManualInspectorTab] = useState<ManualInspectorTab>("content");
+  const [aiInspectorTab, setAiInspectorTab] = useState<AiInspectorTab>("job");
+  const [canvasZoom, setCanvasZoom] = useState(1);
   const [pendingTemplateApplyId, setPendingTemplateApplyId] = useState<TemplateId | undefined>();
   const [activePropertyTab, setActivePropertyTab] = useState<PropertyPanelTab>("document");
   const [pdfExportState, setPdfExportState] = useState<PdfExportState>({ status: "idle" });
@@ -300,6 +309,15 @@ export function ResumeWorkspace() {
       if (typeof parsed.stylePanelOpen === "boolean") {
         setIsStylePanelOpen(parsed.stylePanelOpen);
       }
+      if (parsed.studioMode) {
+        setStudioMode(parsed.studioMode);
+      }
+      if (parsed.manualTab) {
+        setManualInspectorTab(parsed.manualTab);
+      }
+      if (parsed.aiTab) {
+        setAiInspectorTab(parsed.aiTab);
+      }
       if (parsed.branchId && nextBranches.some((branch) => branch.id === parsed.branchId)) {
         setSelectedBranchId(parsed.branchId);
       }
@@ -413,9 +431,12 @@ export function ResumeWorkspace() {
     void repository.setMeta(workbenchStateKey(profile.id), {
       branchId: activeBranchId,
       templateId: effectiveTemplateId,
-      stylePanelOpen: isStylePanelOpen
+      stylePanelOpen: isStylePanelOpen,
+      studioMode,
+      manualTab: manualInspectorTab,
+      aiTab: aiInspectorTab
     } satisfies WorkbenchState);
-  }, [profile, activeBranchId, effectiveTemplateId, isStylePanelOpen]);
+  }, [profile, activeBranchId, effectiveTemplateId, isStylePanelOpen, studioMode, manualInspectorTab, aiInspectorTab]);
 
   const runDiagnostics = useCallback(async () => {
     if (!selectedBranch || !renderModel || !presentationConfig) {
@@ -1361,6 +1382,18 @@ export function ResumeWorkspace() {
     }
   }
 
+  function downloadStructuredJson() {
+    if (!renderModel || !profile || !selectedBranch) {
+      setMessage("当前没有可导出的结构化简历。");
+      return;
+    }
+    const structuredDraft = buildStructuredResumeDraftFromRenderModel(renderModel, profile);
+    const fileName = `${safeDownloadNamePart(renderModel.candidate.name || selectedBranch.name)}-structured-resume.json`;
+    const blob = new Blob([JSON.stringify(structuredDraft, null, 2)], { type: "application/json" });
+    triggerBrowserDownload(blob, fileName);
+    setMessage("结构化 JSON 已下载；可重新导入并进入核对页，不包含内部版本或密钥字段。");
+  }
+
   async function downloadPdf() {
     if (!selectedBranch || !renderModel) {
       setMessage("当前简历无法生成正式预览，不能导出。");
@@ -1813,64 +1846,103 @@ export function ResumeWorkspace() {
     <main className="page-shell resume-workspace">
       <section className="page-title no-print">
         <p className="eyebrow">我的简历</p>
-        <h1>简历工作台</h1>
-        <p>在同一张 A4 画布上编辑内容、切换模板、检查页数，并导出 PDF。</p>
+        <h1>我的简历</h1>
+        <p>创建、导入和管理你的简历版本。</p>
       </section>
 
       {workspace.status === "empty" && !profile ? <WorkspaceEmptyState /> : null}
       {message ? <section className="notice no-print">{message}</section> : null}
 
-      <ResumeImportWizard
-        repository={repository}
-        profile={profile}
-        onImported={handleImportedResumeReady}
-      />
+      {!selectedBranch ? (
+        <ResumeImportWizard
+          repository={repository}
+          profile={profile}
+          onImported={handleImportedResumeReady}
+        />
+      ) : null}
 
-      <section className="stage-grid no-print">
-        <article className="panel">
-          <h2>1. 从岗位建议创建简历</h2>
-          {draftOptions.length > 0 ? (
-            <>
-              <label className="field-label">
-                岗位建议草稿
-                <select data-testid="job-suggestion-draft-select" value={activeDraftId} onChange={(event) => setSelectedDraftId(event.target.value)}>
-                  {draftOptions.map((option) => (
-                    <option key={option.draft.id} value={option.draft.id}>{option.label}</option>
-                  ))}
-                </select>
-              </label>
-              <input data-testid="new-resume-branch-name" value={draftName} onChange={(event) => setDraftName(event.target.value)} placeholder="简历名称" />
-              <button className="primary-button" data-testid="create-job-resume" onClick={createBranch}>创建岗位简历</button>
-            </>
-          ) : (
-            <p>暂无岗位建议草稿。请先在岗位工作区完成经历匹配和建议生成。</p>
-          )}
-        </article>
+      {!selectedBranch ? (
+        <section className="stage-grid no-print">
+          <article className="panel">
+            <h2>1. 从岗位建议创建简历</h2>
+            {draftOptions.length > 0 ? (
+              <>
+                <label className="field-label">
+                  岗位建议草稿
+                  <select data-testid="job-suggestion-draft-select" value={activeDraftId} onChange={(event) => setSelectedDraftId(event.target.value)}>
+                    {draftOptions.map((option) => (
+                      <option key={option.draft.id} value={option.draft.id}>{option.label}</option>
+                    ))}
+                  </select>
+                </label>
+                <input data-testid="new-resume-branch-name" value={draftName} onChange={(event) => setDraftName(event.target.value)} placeholder="简历名称" />
+                <button className="primary-button" data-testid="create-job-resume" onClick={createBranch}>创建岗位简历</button>
+              </>
+            ) : (
+              <p>暂无岗位建议草稿。请先在岗位工作区完成经历匹配和建议生成。</p>
+            )}
+          </article>
 
-        <article className="panel">
-          <h2>2. 选择简历</h2>
-          {branches.length > 0 ? (
-            <div className="branch-list">
-              {branches.map((branch) => (
-                <button
-                  key={branch.id}
-                  className={`match-row ${branch.id === activeBranchId ? "match-row-active" : ""}`}
-                  onClick={() => setSelectedBranchId(branch.id)}
-                >
-                  <strong>{branch.name}</strong>
-                  <span>{branchPurposeLabel(branch.branchPurpose)} / {branchStatusLabel(branch)} / {syncStatusLabel(branch.syncStatusCache.status)}</span>
-                </button>
+          <article className="panel">
+            <h2>2. 选择简历</h2>
+            {branches.length > 0 ? (
+              <div className="branch-list">
+                {branches.map((branch) => (
+                  <button
+                    key={branch.id}
+                    className={`match-row ${branch.id === activeBranchId ? "match-row-active" : ""}`}
+                    onClick={() => setSelectedBranchId(branch.id)}
+                  >
+                    <strong>{branch.name}</strong>
+                    <span>{branchPurposeLabel(branch.branchPurpose)} / {branchStatusLabel(branch)} / {syncStatusLabel(branch.syncStatusCache.status)}</span>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p>暂无可编辑简历。</p>
+            )}
+          </article>
+        </section>
+      ) : null}
+
+      {selectedBranch && branches.length > 0 ? (
+        <section className="resume-branch-switcher no-print" aria-label="选择简历">
+          <div className="branch-list branch-list-compact">
+            {branches.map((branch) => (
+              <button
+                key={branch.id}
+                className={`match-row ${branch.id === activeBranchId ? "match-row-active" : ""}`}
+                onClick={() => setSelectedBranchId(branch.id)}
+              >
+                <strong>{branch.name}</strong>
+                <span>{branchPurposeLabel(branch.branchPurpose)} / {branchStatusLabel(branch)} / {syncStatusLabel(branch.syncStatusCache.status)}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {selectedBranch && draftOptions.length > 0 ? (
+        <article className="panel resume-quick-create no-print" aria-label="从岗位建议创建简历">
+          <label className="field-label">
+            岗位建议草稿
+            <select data-testid="job-suggestion-draft-select" value={activeDraftId} onChange={(event) => setSelectedDraftId(event.target.value)}>
+              {draftOptions.map((option) => (
+                <option key={option.draft.id} value={option.draft.id}>{option.label}</option>
               ))}
-            </div>
-          ) : (
-            <p>暂无可编辑简历。</p>
-          )}
+            </select>
+          </label>
+          <input data-testid="new-resume-branch-name" value={draftName} onChange={(event) => setDraftName(event.target.value)} placeholder="新简历名称" />
+          <button className="primary-button compact" data-testid="create-job-resume" onClick={createBranch}>创建岗位简历</button>
         </article>
-      </section>
+      ) : null}
 
       {selectedBranch ? (
-        <section className="panel no-print">
-          <div className="section-heading">
+        <section className="resume-studio-workbar no-print" data-testid="resume-studio-workbar">
+          <div className="resume-studio-title-cluster">
+            <button className="secondary-button compact" type="button" onClick={() => setSelectedBranchId("")}>
+              返回
+            </button>
             <div>
               <h2>{selectedBranch.name}</h2>
               <p>
@@ -1878,34 +1950,75 @@ export function ResumeWorkspace() {
                 {" "} / {branchPurposeLabel(selectedBranch.branchPurpose)} / {branchStatusLabel(selectedBranch)}
               </p>
             </div>
-            <div className="action-row">
-              <div className="studio-mode-switch" role="tablist" aria-label="编辑模式">
-                <button
-                  type="button"
-                  className={studioMode === "manual" ? "mode-tab mode-tab-active" : "mode-tab"}
-                  onClick={() => setStudioMode("manual")}
-                >
-                  手动编辑
-                </button>
-                <button
-                  type="button"
-                  className={studioMode === "ai" ? "mode-tab mode-tab-active" : "mode-tab"}
-                  onClick={() => setStudioMode("ai")}
-                >
-                  AI岗位优化
-                </button>
-              </div>
-              <button
-                className="primary-button"
-                data-testid="open-or-create-application"
-                onClick={openOrCreateApplication}
-                disabled={!selectedBranchEditable || selectedBranch.branchPurpose !== "job_specific"}
-              >
-                {selectedBranch.branchPurpose === "job_specific" ? "加入求职进度" : "先创建岗位定制简历"}
-              </button>
-              <button className="secondary-button" onClick={refreshSync}>刷新更新提示</button>
-              <button className="secondary-button" onClick={undo} disabled={!selectedBranchEditable}>撤销</button>
+          </div>
+
+          <div className="resume-studio-toolbar" aria-label="简历工作栏">
+            <span className="save-status">{selectedBranchEditable ? "可编辑" : "只读"}</span>
+            <button className="secondary-button compact" type="button" onClick={refreshSync}>
+              重新检查
+            </button>
+            <button className="secondary-button compact" onClick={undo} disabled={!selectedBranchEditable}>撤销</button>
+            <button
+              className="secondary-button compact"
+              disabled={!presentationHistory.redoStack.length || !presentationConfig}
+              onClick={() => { void redoPresentationChange(); }}
+            >
+              重做
+            </button>
+            <span className="resume-toolbar-meta">
+              {pagination.plan ? `${pagination.plan.actualPageCount} 页` : "测量页数"}
+            </span>
+            <div className="zoom-control" role="group" aria-label="画布缩放">
+              <button className="secondary-button compact" type="button" onClick={() => setCanvasZoom((value) => Math.max(0.72, Number((value - 0.08).toFixed(2))))}>-</button>
+              <span>{Math.round(canvasZoom * 100)}%</span>
+              <button className="secondary-button compact" type="button" onClick={() => setCanvasZoom((value) => Math.min(1.16, Number((value + 0.08).toFixed(2))))}>+</button>
             </div>
+            <label className="inline-toggle studio-edit-toggle">
+              <input
+                type="checkbox"
+                data-testid="canvas-edit-toggle"
+                aria-label="画布编辑"
+                checked={isStudioEditMode}
+                disabled={!renderModel || !resumeDocument?.editable}
+                onChange={(event) => setIsStudioEditMode(event.target.checked)}
+              />
+              直接编辑
+            </label>
+            <button
+              type="button"
+              className="secondary-button compact"
+              onClick={() => {
+                setStudioMode("manual");
+                setManualInspectorTab("template");
+                setIsTemplateCenterOpen((current) => !current);
+              }}
+            >
+              模板中心
+            </button>
+            <button
+              className="primary-button compact"
+              onClick={downloadPdf}
+              disabled={!renderModel || !presentationConfig || isPdfExportBusy || pagination.blocked || pagination.status === "measuring"}
+              title="下载 PDF"
+            >
+              {isPdfExportBusy ? "生成中" : "导出"}
+            </button>
+            <button
+              className="secondary-button compact"
+              onClick={downloadStructuredJson}
+              disabled={!renderModel}
+              title="导出结构化 JSON"
+            >
+              导出JSON
+            </button>
+            <button
+              className="secondary-button compact"
+              data-testid="open-or-create-application"
+              onClick={openOrCreateApplication}
+              disabled={!selectedBranchEditable || selectedBranch.branchPurpose !== "job_specific"}
+            >
+              {selectedBranch.branchPurpose === "job_specific" ? "加入求职进度" : "岗位简历后可投递"}
+            </button>
           </div>
 
           {selectedBranch.migrationStatus === "legacy_unverified" ? (
@@ -1917,17 +2030,41 @@ export function ResumeWorkspace() {
           ) : null}
 
           {selectedBranch.syncStatusCache.status !== "in_sync" ? (
-            <div className="warning-box">{syncStatusMessage(selectedBranch.syncStatusCache.status)}</div>
+            <div className="warning-box">
+              <span>{syncStatusMessage(selectedBranch.syncStatusCache.status)}</span>
+            </div>
           ) : null}
 
         </section>
       ) : null}
 
       {selectedBranch ? (
-        <section className="resume-preview-layout">
-          <aside className="panel no-print resume-export-panel">
+        <section className="resume-preview-layout resume-studio-shell" data-testid="resume-studio-shell">
+          <nav className="resume-mode-rail no-print" aria-label="编辑模式">
+            <button
+              type="button"
+              className={studioMode === "manual" ? "mode-rail-button mode-rail-button-active" : "mode-rail-button"}
+              onClick={() => setStudioMode("manual")}
+              title="手动编辑"
+            >
+              <span>手动</span>
+            </button>
+            <button
+              type="button"
+              className={studioMode === "ai" ? "mode-rail-button mode-rail-button-active" : "mode-rail-button"}
+              onClick={() => setStudioMode("ai")}
+              title="AI岗位优化"
+            >
+              <span>AI</span>
+            </button>
+          </nav>
+
+          <aside className="panel no-print resume-export-panel resume-inspector">
             <div className="property-panel-heading">
-              <h2>编辑与导出</h2>
+              <div>
+                <h2>{studioMode === "manual" ? "手动编辑" : "AI岗位优化"}</h2>
+                <p>{studioMode === "manual" ? "只显示当前手动工具。" : "只显示岗位优化相关工具。"}</p>
+              </div>
               <button
                 className="secondary-button compact"
                 onClick={() => setIsStylePanelOpen((current) => !current)}
@@ -1941,19 +2078,36 @@ export function ResumeWorkspace() {
                 {selectedStudioBlock ? "已选段落" : "整份简历"} / {selectedTemplate.name} / {selectedTemplate.layout === "two-column" ? "双栏" : "单栏"}
               </span>
             </div>
-            <label className="inline-toggle studio-edit-toggle">
-              <input
-                type="checkbox"
-                data-testid="canvas-edit-toggle"
-                checked={isStudioEditMode}
-                disabled={!renderModel || !resumeDocument?.editable}
-                onChange={(event) => setIsStudioEditMode(event.target.checked)}
-              />
-              画布编辑
-            </label>
             {isStudioEditMode && resumeDocument ? (
               <div className="save-status">单击区块选中，双击或 Enter/F2 编辑，Escape 取消，Ctrl/Cmd+Enter 保存。</div>
             ) : null}
+            {studioMode === "manual" ? (
+              <div className="inspector-tablist" role="tablist" aria-label="手动编辑工具">
+                {(["content", "typography", "paragraph", "layout", "template", "page", "history"] as const).map((tab) => (
+                  <button
+                    key={tab}
+                    type="button"
+                    className={manualInspectorTab === tab ? "inspector-tab inspector-tab-active" : "inspector-tab"}
+                    onClick={() => setManualInspectorTab(tab)}
+                  >
+                    {manualInspectorTabLabel(tab)}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="inspector-tablist" role="tablist" aria-label="AI岗位优化工具">
+                {(["job", "suggestions", "quality", "facts", "match", "records"] as const).map((tab) => (
+                  <button
+                    key={tab}
+                    type="button"
+                    className={aiInspectorTab === tab ? "inspector-tab inspector-tab-active" : "inspector-tab"}
+                    onClick={() => setAiInspectorTab(tab)}
+                  >
+                    {aiInspectorTabLabel(tab)}
+                  </button>
+                ))}
+              </div>
+            )}
             {studioMode === "manual" ? (
               <div className="studio-sidebar-section">
                 <div className="section-heading compact-heading">
@@ -2010,93 +2164,103 @@ export function ResumeWorkspace() {
                 </div>
               </div>
             ) : null}
-            <div className="studio-sidebar-section">
-              <JobOptimizationPanel
-                repository={repository}
-                profile={profile}
-                jobs={jobs}
-                branch={selectedBranch}
-                selectedContentItemId={selectedStudioItemId}
-                canEdit={selectedBranchEditable}
-                onJobCreated={(job) => setLocalJobs((current) => [job, ...current.filter((item) => item.id !== job.id)])}
-                onBranchReady={replaceBranch}
-                onApplyStructureSuggestion={(kind, contentItemId) => {
-                  if (kind === "hide") {
-                    void setPresentationItemVisibility(contentItemId, false);
-                    setMessage("结构建议已隐藏该段落；未创建正文版本。");
-                    return;
-                  }
-                  if (kind === "show") {
-                    void setPresentationItemVisibility(contentItemId, true);
-                    setMessage("结构建议已恢复该段落；未创建正文版本。");
-                    return;
-                  }
-                  void movePresentationItem(contentItemId, "up");
-                  setMessage("结构建议已上移该段落；未创建正文版本。");
-                }}
-                onMessage={setMessage}
-              />
-              <ResumeDiagnosticsPanel
-                snapshot={diagnosticSnapshot}
-                stale={diagnosticsStale}
-                running={diagnosticRunning}
-                error={diagnosticError}
-                canEdit={selectedBranchEditable}
-                onRun={() => { void runDiagnostics(); }}
-                onLocateIssue={locateDiagnosticIssue}
-                onApplyAction={(issue, action) => { void applyDiagnosticAction(issue, action); }}
-                onIgnoreIssue={(issue) => { void ignoreDiagnosticIssue(issue); }}
-              />
-            </div>
-            <label className="field-label">
-              模板
-              <select
-                value={effectiveTemplateId}
-                disabled={!presentationConfig || Boolean(pendingTemplateApplyId)}
-                onChange={(event) => { void updatePresentationTemplate(event.target.value as TemplateId); }}
-              >
-                {resumeTemplates.map((template) => (
-                  <option key={template.id} value={template.id}>{template.name} / {template.shortName}</option>
-                ))}
-              </select>
-            </label>
-            <div className="action-row template-center-entry">
-              <button
-                type="button"
-                className="secondary-button"
-                onClick={() => setIsTemplateCenterOpen((current) => !current)}
-              >
-                模板中心
-              </button>
-            </div>
-            <div className="action-row presentation-history-actions">
-              <button
-                className="secondary-button compact"
-                disabled={!presentationHistory.undoStack.length || !presentationConfig}
-                onClick={() => { void undoPresentationChange(); }}
-              >
-                回退展示
-              </button>
-              <button
-                className="secondary-button compact"
-                disabled={!presentationHistory.redoStack.length || !presentationConfig}
-                onClick={() => { void redoPresentationChange(); }}
-              >
-                重做展示
-              </button>
-            </div>
-            <TemplateCenter
-              open={isTemplateCenterOpen}
-              model={renderModel}
-              presentationConfig={presentationConfig}
-              currentTemplateId={effectiveTemplateId}
-              canApply={selectedBranchEditable && Boolean(presentationConfig) && !pendingTemplateApplyId}
-              pendingTemplateId={pendingTemplateApplyId}
-              onApply={(nextTemplateId) => { void updatePresentationTemplate(nextTemplateId); }}
-              onClose={() => setIsTemplateCenterOpen(false)}
-            />
-            {isStylePanelOpen ? (
-              <div className="property-panel-body" data-testid="resume-property-panel">
+            {studioMode === "ai" ? (
+              <div className="studio-sidebar-section">
+                {aiInspectorTab === "quality" || aiInspectorTab === "facts" ? (
+                  <ResumeDiagnosticsPanel
+                    snapshot={diagnosticSnapshot}
+                    stale={diagnosticsStale}
+                    running={diagnosticRunning}
+                    error={diagnosticError}
+                    canEdit={selectedBranchEditable}
+                    onRun={() => { void runDiagnostics(); }}
+                    onLocateIssue={locateDiagnosticIssue}
+                    onApplyAction={(issue, action) => { void applyDiagnosticAction(issue, action); }}
+                    onIgnoreIssue={(issue) => { void ignoreDiagnosticIssue(issue); }}
+                  />
+                ) : (
+                  <JobOptimizationPanel
+                    repository={repository}
+                    profile={profile}
+                    jobs={jobs}
+                    branch={selectedBranch}
+                    selectedContentItemId={selectedStudioItemId}
+                    canEdit={selectedBranchEditable}
+                    onJobCreated={(job) => setLocalJobs((current) => [job, ...current.filter((item) => item.id !== job.id)])}
+                    onBranchReady={replaceBranch}
+                    onApplyStructureSuggestion={(kind, contentItemId) => {
+                      if (kind === "hide") {
+                        void setPresentationItemVisibility(contentItemId, false);
+                        setMessage("结构建议已隐藏该段落；未创建正文版本。");
+                        return;
+                      }
+                      if (kind === "show") {
+                        void setPresentationItemVisibility(contentItemId, true);
+                        setMessage("结构建议已恢复该段落；未创建正文版本。");
+                        return;
+                      }
+                      void movePresentationItem(contentItemId, "up");
+                      setMessage("结构建议已上移该段落；未创建正文版本。");
+                    }}
+                    onMessage={setMessage}
+                  />
+                )}
+              </div>
+            ) : null}
+            {studioMode === "manual" ? (
+              <>
+                <label className="field-label">
+                  模板
+                  <select
+                    value={effectiveTemplateId}
+                    disabled={!presentationConfig || Boolean(pendingTemplateApplyId)}
+                    onChange={(event) => { void updatePresentationTemplate(event.target.value as TemplateId); }}
+                  >
+                    {resumeTemplates.map((template) => (
+                      <option key={template.id} value={template.id}>{template.name} / {template.shortName}</option>
+                    ))}
+                  </select>
+                </label>
+                <div className="action-row template-center-entry">
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={() => {
+                      setManualInspectorTab("template");
+                      setIsTemplateCenterOpen((current) => !current);
+                    }}
+                  >
+                    打开模板中心
+                  </button>
+                </div>
+                <div className="action-row presentation-history-actions">
+                  <button
+                    className="secondary-button compact"
+                    disabled={!presentationHistory.undoStack.length || !presentationConfig}
+                    onClick={() => { void undoPresentationChange(); }}
+                  >
+                    回退展示
+                  </button>
+                  <button
+                    className="secondary-button compact"
+                    disabled={!presentationHistory.redoStack.length || !presentationConfig}
+                    onClick={() => { void redoPresentationChange(); }}
+                  >
+                    重做展示
+                  </button>
+                </div>
+                <TemplateCenter
+                  open={isTemplateCenterOpen}
+                  model={renderModel}
+                  presentationConfig={presentationConfig}
+                  currentTemplateId={effectiveTemplateId}
+                  canApply={selectedBranchEditable && Boolean(presentationConfig) && !pendingTemplateApplyId}
+                  pendingTemplateId={pendingTemplateApplyId}
+                  onApply={(nextTemplateId) => { void updatePresentationTemplate(nextTemplateId); }}
+                  onClose={() => setIsTemplateCenterOpen(false)}
+                />
+                {isStylePanelOpen ? (
+                  <div className="property-panel-body" data-testid="resume-property-panel">
                 <div className="property-tabs" role="tablist" aria-label="属性面板上下文">
                   {(["document", "section", "block"] as const).map((tab) => {
                     const disabled = tab === "section"
@@ -2362,97 +2526,99 @@ export function ResumeWorkspace() {
                     </button>
                   </div>
                 ) : null}
-              </div>
-            ) : null}
-            {presentationHiddenBlocks.length > 0 ? (
-              <div className="hidden-block-list">
-                <strong>已隐藏内容</strong>
-                {presentationHiddenBlocks.map((block) => (
-                  <button
-                    key={block.contentItemId}
-                    className="secondary-button compact hidden-block-button"
-                    disabled={!selectedBranchEditable || !presentationConfig}
-                    onClick={() => { void setPresentationItemVisibility(block.contentItemId, true); }}
-                  >
-                    显示：{block.text.slice(0, 18)}
-                  </button>
-                ))}
-              </div>
-            ) : null}
-            <div className={`overflow-status overflow-status-${pagination.status}`} data-testid="overflow-status">
-              <strong>{paginationStatusLabel(pagination.status)}</strong>
-              <span>
-                {pagination.plan
-                  ? `实际 ${pagination.plan.actualPageCount} 页 / 上限 ${pagination.plan.requestedMaxPages} 页 / 剩余 ${Math.floor(pagination.plan.measurement.remainingPx)}px`
-                  : "正在测量分页"}
-              </span>
-            </div>
-            {renderModel?.safety.ruleOnlyItemIds.length ? (
-              <div className="warning-box">该简历包含仅由规则检查通过的内容，工作台已显示校验状态；PDF 正文不会加入内部风险标签。</div>
-            ) : null}
-            {pagination.status === "near_one_page_limit" || pagination.status === "near_limit" ? (
-              <div className="warning-box">当前接近单页上限，建议导出前在打印预览中复核。</div>
-            ) : null}
-            {pagination.plan && isPaginationPlanBlocked(pagination.plan) ? (
-              <div className="warning-box">
-                <p>当前页数超过所选页面策略，正式导出会被阻止。</p>
-                {reductionHints.length > 0 ? (
-                  <ul>
-                    {reductionHints.map((hint) => <li key={hint}>{hint}</li>)}
-                  </ul>
+                  </div>
                 ) : null}
-              </div>
-            ) : null}
-            <div className="export-control-stack" data-testid="pdf-export-controls">
-              <button
-                className="primary-button"
-                onClick={downloadPdf}
-                disabled={!renderModel || !presentationConfig || isPdfExportBusy || pagination.blocked || pagination.status === "measuring"}
-              >
-                {isPdfExportBusy ? "生成 PDF 中" : "下载 PDF"}
-              </button>
-              <button
-                className="secondary-button"
-                onClick={exportPdf}
-                disabled={!renderModel || isPdfExportBusy}
-              >
-                打印 / 保存 PDF
-              </button>
-              <p
-                className={`save-status export-status-text ${pdfExportState.status === "failed" || pdfExportState.status === "blocked_overflow" ? "save-status-failed" : ""}`}
-                aria-live="polite"
-                data-testid="pdf-export-status"
-              >
-                {exportStatusLabel(pdfExportState)}
-              </p>
-              {pdfExportState.status === "failed" && pdfExportState.canUseFallback ? (
-                <p className="save-status">可重试下载，或使用浏览器打印 fallback。</p>
-              ) : null}
-            </div>
-            <div className="studio-sidebar-section">
-              <h3>版本历史</h3>
-              {revisions.length > 0 ? (
-                <div className="revision-list compact-revision-list">
-                  {revisions.map((revision) => (
-                    <article key={revision.id} className="review-row">
-                      <span>
-                        <strong>版本 {revision.revisionNumber + 1}</strong>
-                        <small>{revisionSourceLabel(revision.source)}</small>
-                      </span>
+                {presentationHiddenBlocks.length > 0 ? (
+                  <div className="hidden-block-list">
+                    <strong>已隐藏内容</strong>
+                    {presentationHiddenBlocks.map((block) => (
                       <button
-                        className="secondary-button compact"
-                        disabled={!selectedBranchEditable || revision.id === selectedBranch.currentRevisionId}
-                        onClick={() => restoreRevision(revision.id)}
+                        key={block.contentItemId}
+                        className="secondary-button compact hidden-block-button"
+                        disabled={!selectedBranchEditable || !presentationConfig}
+                        onClick={() => { void setPresentationItemVisibility(block.contentItemId, true); }}
                       >
-                        恢复
+                        显示：{block.text.slice(0, 18)}
                       </button>
-                    </article>
-                  ))}
+                    ))}
+                  </div>
+                ) : null}
+                <div className={`overflow-status overflow-status-${pagination.status}`} data-testid="overflow-status">
+                  <strong>{paginationStatusLabel(pagination.status)}</strong>
+                  <span>
+                    {pagination.plan
+                      ? `实际 ${pagination.plan.actualPageCount} 页 / 上限 ${pagination.plan.requestedMaxPages} 页 / 剩余 ${Math.floor(pagination.plan.measurement.remainingPx)}px`
+                      : "正在测量分页"}
+                  </span>
                 </div>
-              ) : (
-                <p>暂无版本历史。</p>
-              )}
-            </div>
+                {renderModel?.safety.ruleOnlyItemIds.length ? (
+                  <div className="warning-box">该简历包含仅由规则检查通过的内容，工作台已显示校验状态；PDF 正文不会加入内部风险标签。</div>
+                ) : null}
+                {pagination.status === "near_one_page_limit" || pagination.status === "near_limit" ? (
+                  <div className="warning-box">当前接近单页上限，建议导出前在打印预览中复核。</div>
+                ) : null}
+                {pagination.plan && isPaginationPlanBlocked(pagination.plan) ? (
+                  <div className="warning-box">
+                    <p>当前页数超过所选页面策略，正式导出会被阻止。</p>
+                    {reductionHints.length > 0 ? (
+                      <ul>
+                        {reductionHints.map((hint) => <li key={hint}>{hint}</li>)}
+                      </ul>
+                    ) : null}
+                  </div>
+                ) : null}
+                <div className="export-control-stack" data-testid="pdf-export-controls">
+                  <button
+                    className="primary-button"
+                    onClick={downloadPdf}
+                    disabled={!renderModel || !presentationConfig || isPdfExportBusy || pagination.blocked || pagination.status === "measuring"}
+                  >
+                    {isPdfExportBusy ? "生成 PDF 中" : "下载 PDF"}
+                  </button>
+                  <button
+                    className="secondary-button"
+                    onClick={exportPdf}
+                    disabled={!renderModel || isPdfExportBusy}
+                  >
+                    打印 / 保存 PDF
+                  </button>
+                  <p
+                    className={`save-status export-status-text ${pdfExportState.status === "failed" || pdfExportState.status === "blocked_overflow" ? "save-status-failed" : ""}`}
+                    aria-live="polite"
+                    data-testid="pdf-export-status"
+                  >
+                    {exportStatusLabel(pdfExportState)}
+                  </p>
+                  {pdfExportState.status === "failed" && pdfExportState.canUseFallback ? (
+                    <p className="save-status">可重试下载，或使用浏览器打印 fallback。</p>
+                  ) : null}
+                </div>
+                <div className="studio-sidebar-section">
+                  <h3>版本历史</h3>
+                  {revisions.length > 0 ? (
+                    <div className="revision-list compact-revision-list">
+                      {revisions.map((revision) => (
+                        <article key={revision.id} className="review-row">
+                          <span>
+                            <strong>版本 {revision.revisionNumber + 1}</strong>
+                            <small>{revisionSourceLabel(revision.source)}</small>
+                          </span>
+                          <button
+                            className="secondary-button compact"
+                            disabled={!selectedBranchEditable || revision.id === selectedBranch.currentRevisionId}
+                            onClick={() => restoreRevision(revision.id)}
+                          >
+                            恢复
+                          </button>
+                        </article>
+                      ))}
+                    </div>
+                  ) : (
+                    <p>暂无版本历史。</p>
+                  )}
+                </div>
+              </>
+            ) : null}
             {renderResult.error ? <p className="save-status save-status-failed">{renderResult.error}</p> : null}
           </aside>
 
@@ -2464,6 +2630,7 @@ export function ResumeWorkspace() {
                 pageRef={pageRef}
                 paginationPlan={pagination.plan}
                 presentationConfig={presentationConfig}
+                zoom={canvasZoom}
                 editor={resumeDocument ? {
                   enabled: isStudioEditMode,
                   selectedItemId: selectedStudioItemId,
@@ -2585,8 +2752,34 @@ function parseWorkbenchState(value: unknown): WorkbenchState {
   return {
     branchId: typeof candidate.branchId === "string" ? candidate.branchId : undefined,
     templateId: isResumeTemplateId(candidate.templateId) ? candidate.templateId : undefined,
-    stylePanelOpen: typeof candidate.stylePanelOpen === "boolean" ? candidate.stylePanelOpen : undefined
+    stylePanelOpen: typeof candidate.stylePanelOpen === "boolean" ? candidate.stylePanelOpen : undefined,
+    studioMode: isStudioMode(candidate.studioMode) ? candidate.studioMode : undefined,
+    manualTab: isManualInspectorTab(candidate.manualTab) ? candidate.manualTab : undefined,
+    aiTab: isAiInspectorTab(candidate.aiTab) ? candidate.aiTab : undefined
   };
+}
+
+function isStudioMode(value: unknown): value is StudioMode {
+  return value === "manual" || value === "ai";
+}
+
+function isManualInspectorTab(value: unknown): value is ManualInspectorTab {
+  return value === "content"
+    || value === "typography"
+    || value === "paragraph"
+    || value === "layout"
+    || value === "template"
+    || value === "page"
+    || value === "history";
+}
+
+function isAiInspectorTab(value: unknown): value is AiInspectorTab {
+  return value === "job"
+    || value === "suggestions"
+    || value === "quality"
+    || value === "facts"
+    || value === "match"
+    || value === "records";
 }
 
 function workbenchStateKey(profileId: string) {
@@ -2632,6 +2825,39 @@ function triggerBrowserDownload(blob: Blob, fileName: string) {
   anchor.click();
   anchor.remove();
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function buildStructuredResumeDraftFromRenderModel(model: ResumeRenderModel, profile: CareerProfile): StructuredResumeDraft {
+  return {
+    schemaVersion: "structured-resume-draft-v1",
+    basics: {
+      name: model.candidate.name,
+      email: profile.basics.email,
+      phone: profile.basics.phone,
+      location: profile.basics.location,
+      summary: model.candidate.summary ?? profile.basics.summary,
+      links: profile.basics.links.length > 0 ? profile.basics.links : undefined
+    },
+    sections: model.sections
+      .filter((section) => section.blocks.length > 0)
+      .map((section) => ({
+        title: section.title,
+        sectionType: section.type,
+        included: true,
+        items: section.blocks.map((block) => ({
+          text: block.text,
+          included: true
+        }))
+      }))
+  };
+}
+
+function safeDownloadNamePart(value: string) {
+  return value
+    .trim()
+    .replace(/[\\/:*?"<>|]+/g, "-")
+    .replace(/\s+/g, "-")
+    .slice(0, 60) || "resume";
 }
 
 function exportErrorCode(error: unknown) {
@@ -2790,6 +3016,31 @@ function propertyTabLabel(tab: PropertyPanelTab) {
     return "段落";
   }
   return "整页";
+}
+
+function manualInspectorTabLabel(tab: ManualInspectorTab) {
+  const labels: Record<ManualInspectorTab, string> = {
+    content: "内容",
+    typography: "文字",
+    paragraph: "行文",
+    layout: "布局",
+    template: "模板",
+    page: "页面",
+    history: "历史"
+  };
+  return labels[tab];
+}
+
+function aiInspectorTabLabel(tab: AiInspectorTab) {
+  const labels: Record<AiInspectorTab, string> = {
+    job: "目标岗位",
+    suggestions: "建议",
+    quality: "质量检查",
+    facts: "事实缺口",
+    match: "匹配",
+    records: "记录"
+  };
+  return labels[tab];
 }
 
 function contentItemTypeLabel(value: string) {

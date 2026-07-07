@@ -393,7 +393,7 @@ test.describe("V2-G0a Resume Studio 独立验收", () => {
     expect(await getResumeRevisionCount(page, branch.id)).toBe(revisionsBefore + 1);
 
     // ========== 场景11: 撤销 ==========
-    await page.locator("section.panel.no-print").getByRole("button", { name: "撤销" }).click();
+    await page.getByTestId("resume-studio-workbar").getByRole("button", { name: "撤销" }).click();
     await expect(page.locator(".notice")).toContainText("撤销");
     // Revision count increases (undo creates a new revision)
     branch = await getLatestVerifiedBranch(page);

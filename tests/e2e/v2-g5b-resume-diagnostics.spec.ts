@@ -31,6 +31,8 @@ test.describe("V2-G5b resume diagnostics", () => {
     await page.getByLabel("行距").selectOption("tight");
     await expect(page.locator(".notice")).toContainText("行距", { timeout: 15_000 });
 
+    await page.getByRole("button", { name: "AI" }).click();
+    await page.getByRole("button", { name: "质量检查" }).click();
     const panel = page.getByTestId("resume-diagnostics-panel");
     await expect(panel).toBeVisible();
     await panel.getByTestId("run-resume-diagnostics").click();

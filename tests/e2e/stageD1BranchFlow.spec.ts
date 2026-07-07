@@ -47,11 +47,7 @@ test.describe("Stage D1 resume branches", () => {
     await page.locator(".branch-list .match-row").filter({ hasText: "D1 Branch A" }).click();
     await page.locator(".revision-list .review-row").filter({ hasText: "版本 1" }).locator("button").click();
     await expect(page.locator(".notice")).toContainText("已恢复旧版本");
-    await page
-      .locator("section.panel")
-      .filter({ hasText: "D1 Branch A" })
-      .locator(".section-heading .action-row button", { hasText: "撤销" })
-      .click();
+    await page.getByTestId("resume-studio-workbar").getByRole("button", { name: "撤销" }).click();
     await expect(page.locator(".notice")).toContainText("已撤销最近一次简历修改");
     await expect(page.locator(".branch-editor textarea").first()).toHaveValue(editedA);
 
@@ -80,11 +76,7 @@ test.describe("Stage D1 resume branches", () => {
       });
     });
 
-    await page
-      .locator("section.panel")
-      .filter({ hasText: "D1 Branch A" })
-      .locator(".section-heading .action-row button", { hasText: "刷新更新提示" })
-      .click();
+    await page.getByTestId("resume-studio-workbar").getByRole("button", { name: "重新检查" }).click();
     await expect(page.locator(".notice")).toContainText("个人资料");
   });
 });

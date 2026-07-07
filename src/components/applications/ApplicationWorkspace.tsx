@@ -185,43 +185,52 @@ export function ApplicationWorkspace() {
         onViewModeChange={setViewMode}
       />
 
-      {applications.length === 0 ? (
-        <section className="panel application-empty" data-testid="applications-empty-state">
-          <h2>暂无投递记录</h2>
-          <p>打开一份岗位定制简历，点击“加入求职进度”后，会在这里出现第一条投递记录。</p>
-          <Link className="primary-link" href="/resume">去简历工作台</Link>
-        </section>
-      ) : filteredApplications.length === 0 ? (
-        <section className="panel application-empty" data-testid="applications-empty-result">
-          <h2>没有符合条件的机会</h2>
-          <p>调整筛选、搜索词或显示已归档记录后再查看。</p>
-        </section>
-      ) : viewMode === "board" ? (
-        <ApplicationBoard
-          applications={filteredApplications}
-          selectedApplicationId={selectedApplicationId}
-          onSelect={setSelectedApplicationId}
-          onArchive={archiveApplication}
-        />
-      ) : (
-        <ApplicationList
-          applications={filteredApplications}
-          selectedApplicationId={selectedApplicationId}
-          onSelect={setSelectedApplicationId}
-          onArchive={archiveApplication}
-        />
-      )}
+      <section className="application-workarea">
+        <div className="application-primary-pane">
+          {applications.length === 0 ? (
+            <section className="panel application-empty" data-testid="applications-empty-state">
+              <h2>暂无投递记录</h2>
+              <p>打开一份岗位定制简历，点击“加入求职进度”后，会在这里出现第一条投递记录。</p>
+              <Link className="primary-link" href="/resume">去简历工作台</Link>
+            </section>
+          ) : filteredApplications.length === 0 ? (
+            <section className="panel application-empty" data-testid="applications-empty-result">
+              <h2>没有符合条件的机会</h2>
+              <p>调整筛选、搜索词或显示已归档记录后再查看。</p>
+            </section>
+          ) : viewMode === "board" ? (
+            <ApplicationBoard
+              applications={filteredApplications}
+              selectedApplicationId={selectedApplicationId}
+              onSelect={setSelectedApplicationId}
+              onArchive={archiveApplication}
+            />
+          ) : (
+            <ApplicationList
+              applications={filteredApplications}
+              selectedApplicationId={selectedApplicationId}
+              onSelect={setSelectedApplicationId}
+              onArchive={archiveApplication}
+            />
+          )}
+        </div>
 
-      {selectedApplicationId ? (
-        <ApplicationDetail
-          applicationId={selectedApplicationId}
-          onMessage={setMessage}
-          onChanged={async (application) => {
-            await refresh();
-            setSelectedApplicationId(application.id);
-          }}
-        />
-      ) : null}
+        {selectedApplicationId ? (
+          <ApplicationDetail
+            applicationId={selectedApplicationId}
+            onMessage={setMessage}
+            onChanged={async (application) => {
+              await refresh();
+              setSelectedApplicationId(application.id);
+            }}
+          />
+        ) : (
+          <section className="panel application-detail application-empty" data-testid="application-detail-placeholder">
+            <h2>选择一条进度</h2>
+            <p>左侧选择机会后，在这里查看时间线、材料、提醒和锁定的投递版本。</p>
+          </section>
+        )}
+      </section>
     </main>
   );
 }

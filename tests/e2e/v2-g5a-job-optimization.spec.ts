@@ -23,6 +23,7 @@ test.describe("V2-G5a block-level job optimization", () => {
     await createC2DraftForSelectedJob(page);
     await createResumeBranchFromFirstDraft(page, branchName);
 
+    await page.getByRole("button", { name: "AI" }).click();
     const panel = page.getByTestId("job-optimization-panel");
     await expect(panel).toBeVisible();
     await panel.locator(".section-heading button").click();

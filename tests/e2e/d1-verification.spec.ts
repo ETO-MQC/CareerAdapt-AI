@@ -224,9 +224,7 @@ test.describe("D1 验证：分支隔离、Fact Guard、版本历史、持久化�
     await expect(restoredTextarea).toHaveValue(originalAText);
 
     // 撤销恢复（回到编辑后的版本 editedAText2）
-    await page.locator("section.panel").filter({ hasText: "D1 验证分支 A" })
-      .locator(".section-heading .action-row button")
-      .filter({ hasText: "撤销" }).click();
+    await page.getByTestId("resume-studio-workbar").getByRole("button", { name: "撤销" }).click();
     await expect(page.locator(".notice")).toContainText("撤销");
 
     // 验证撤销后文本恢复为 editedAText2
@@ -285,8 +283,7 @@ test.describe("D1 验证：分支隔离、Fact Guard、版本历史、持久化�
     await expect(legacySaveBtn).toBeDisabled();
 
     // 撤销按钮应被 disabled
-    const legacyUndoBtn = page.locator("section.panel").filter({ hasText: "旧版占位分支" })
-      .locator(".section-heading .action-row button").filter({ hasText: "撤销" });
+    const legacyUndoBtn = page.getByTestId("resume-studio-workbar").getByRole("button", { name: "撤销" });
     await expect(legacyUndoBtn).toBeDisabled();
 
     // 恢复按钮应被 disabled

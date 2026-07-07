@@ -1,10 +1,12 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { createImportedResumeDraftFromPdf } from "@/domain/resumeImport/parser";
+import { extractTextFromDocxBuffer } from "@/domain/resumeImport/docx";
+import { benchmarkResumeOcrAdapter, runResumeOcrAdapter } from "@/domain/resumeImport/ocrAdapter";
+import { createImportedResumeDraftFromPdf, createImportedResumeDraftFromStructuredJson } from "@/domain/resumeImport/parser";
 import { buildResumeImportConfirmation } from "@/domain/resumeImport/confirm";
 import { mapBranchToResumeRenderModel } from "@/domain/resumeRender/mapper";
 import { CareerAdaptDb } from "@/services/storage/db";
 import { WorkspaceRepository } from "@/services/storage/repositories";
-import type { PdfPageText } from "@/domain/schemas";
+import type { PdfPageText, StructuredResumeDraft } from "@/domain/schemas";
 
 const TEST_TIME = "2026-07-05T00:00:00.000Z";
 
@@ -120,6 +122,70 @@ describe("V2-G4a resume PDF import", () => {
     });
     expect(edited.branch.revision).toBe(1);
   });
+
+  it("normalizes structured JSON into the same imported resume draft review model", () => {
+    const structuredDraft: StructuredResumeDraft = {
+      schemaVersion: "structured-resume-draft-v1",
+      basics: {
+        name: "陈同学",
+        email: "demo.student@example.com",
+        summary: "数据分析方向学生。"
+      },
+      sections: [{
+        title: "项目与经历",
+        sectionType: "experience",
+        items: ["使用 Stata 清洗 31 个省级样本。"]
+      }]
+    };
+
+    const draft = createImportedResumeDraftFromStructuredJson({
+      importId: "resume-import-json",
+      source: {
+        fileName: "resume.json",
+        mimeType: "application/json",
+        fileHash: "structured-json-hash-123456",
+        pageCount: 1,
+        extractedAt: TEST_TIME
+      },
+      structuredDraft,
+      now: TEST_TIME
+    });
+
+    expect(draft.schemaVersion).toBe("resume-import-v1");
+    expect(draft.source.mimeType).toBe("application/json");
+    expect(draft.basics.name?.value).toBe("陈同学");
+    expect(draft.sections[0]?.sectionType).toBe("experience");
+    expect(draft.sections[0]?.items[0]?.sourceStatus).toBe("user_confirmed_modified");
+  });
+
+  it("extracts plain text from a stored DOCX document.xml entry", async () => {
+    const xml = [
+      "<?xml version=\"1.0\" encoding=\"UTF-8\"?>",
+      "<w:document xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\">",
+      "<w:body>",
+      "<w:p><w:r><w:t>陈同学</w:t></w:r></w:p>",
+      "<w:p><w:r><w:t>项目与经历</w:t></w:r></w:p>",
+      "<w:p><w:r><w:t>使用 Excel 整理数据。</w:t></w:r></w:p>",
+      "</w:body></w:document>"
+    ].join("");
+
+    const result = await extractTextFromDocxBuffer(createStoredDocx(xml));
+
+    expect(result.ok).toBe(true);
+    expect(result.ok ? result.text : "").toContain("陈同学");
+    expect(result.ok ? result.text : "").toContain("使用 Excel 整理数据。");
+  });
+
+  it("keeps OCR behind an adapter and benchmark fallback when no local engine is installed", async () => {
+    const file = new File(["fixture"], "scan.png", { type: "image/png" });
+    const result = await runResumeOcrAdapter(file);
+    const benchmark = await benchmarkResumeOcrAdapter();
+
+    expect(result.ok).toBe(false);
+    expect(result.ok ? "" : result.code).toBe("engine_unavailable");
+    expect(benchmark.supported).toBe(false);
+    expect(benchmark.recommendation).toBe("use_json_fallback");
+  });
 });
 
 function createPageTexts(): PdfPageText[] {
@@ -173,4 +239,43 @@ function createPageTexts(): PdfPageText[] {
       updatedAt: TEST_TIME
     }
   ];
+}
+
+function createStoredDocx(documentXml: string) {
+  const fileName = new TextEncoder().encode("word/document.xml");
+  const data = new TextEncoder().encode(documentXml);
+  const localHeaderLength = 30 + fileName.length;
+  const centralDirectoryOffset = localHeaderLength + data.length;
+  const centralHeaderLength = 46 + fileName.length;
+  const output = new Uint8Array(centralDirectoryOffset + centralHeaderLength + 22);
+  const view = new DataView(output.buffer);
+  let offset = 0;
+
+  view.setUint32(offset, 0x04034b50, true);
+  view.setUint16(offset + 4, 20, true);
+  view.setUint16(offset + 8, 0, true);
+  view.setUint32(offset + 18, data.length, true);
+  view.setUint32(offset + 22, data.length, true);
+  view.setUint16(offset + 26, fileName.length, true);
+  output.set(fileName, offset + 30);
+  output.set(data, localHeaderLength);
+
+  offset = centralDirectoryOffset;
+  view.setUint32(offset, 0x02014b50, true);
+  view.setUint16(offset + 4, 20, true);
+  view.setUint16(offset + 6, 20, true);
+  view.setUint16(offset + 10, 0, true);
+  view.setUint32(offset + 20, data.length, true);
+  view.setUint32(offset + 24, data.length, true);
+  view.setUint16(offset + 28, fileName.length, true);
+  view.setUint32(offset + 42, 0, true);
+  output.set(fileName, offset + 46);
+
+  offset += centralHeaderLength;
+  view.setUint32(offset, 0x06054b50, true);
+  view.setUint16(offset + 8, 1, true);
+  view.setUint16(offset + 10, 1, true);
+  view.setUint32(offset + 12, centralHeaderLength, true);
+  view.setUint32(offset + 16, centralDirectoryOffset, true);
+  return output.buffer;
 }

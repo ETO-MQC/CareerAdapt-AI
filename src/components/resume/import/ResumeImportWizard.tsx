@@ -5,13 +5,21 @@ import { nanoid } from "nanoid";
 import { PDF_IMPORT_EXTRACTION_VERSION } from "@/domain/pdfImport/limits";
 import { buildPageTextRecords, preparePdfText } from "@/domain/pdfImport/text";
 import { validatePdfFileDescriptor, validatePdfHeader } from "@/domain/pdfImport/validation";
-import { createImportedResumeDraftFromPdf } from "@/domain/resumeImport/parser";
+import { extractTextFromDocxBuffer } from "@/domain/resumeImport/docx";
+import { benchmarkResumeOcrAdapter, runResumeOcrAdapter, type ResumeOcrBenchmarkResult } from "@/domain/resumeImport/ocrAdapter";
+import {
+  createImportedResumeDraftFromPdf,
+  createImportedResumeDraftFromStructuredJson,
+  createImportedResumeDraftFromText
+} from "@/domain/resumeImport/parser";
 import {
   ImportedResumeDraftSchema,
+  StructuredResumeDraftSchema,
   type CareerProfile,
   type ImportedResumeDraft,
   type ImportedResumeField,
   type ImportedResumeItem,
+  type ImportedResumeSource,
   type ImportedResumeSectionType,
   type ImportMergeDecision,
   type PdfImportSession,
@@ -25,6 +33,10 @@ type ImportStatus =
   | "idle"
   | "validating_file"
   | "extracting_pdf"
+  | "extracting_docx"
+  | "extracting_ocr"
+  | "importing_json"
+  | "benchmarking_ocr"
   | "classifying_sections"
   | "reviewing"
   | "confirming"
@@ -48,14 +60,17 @@ export function ResumeImportWizard(props: {
   onImported: (result: { profileId: string; branchId: string }) => Promise<void>;
 }) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const fileIntentRef = useRef<"auto" | "pdf" | "docx" | "json" | "ocr">("auto");
   const abortRef = useRef<AbortController | undefined>(undefined);
   const [status, setStatus] = useState<ImportStatus>("idle");
-  const [message, setMessage] = useState("上传文本型 PDF 后，系统会本地提取文本并生成可核对草稿。");
+  const [message, setMessage] = useState("导入 PDF、DOCX、OCR 或结构化 JSON 后，系统会先生成可核对草稿。");
   const [draft, setDraft] = useState<ImportedResumeDraft | undefined>();
   const [pages, setPages] = useState<PdfPageText[]>([]);
   const [selectedPageNumber, setSelectedPageNumber] = useState(1);
   const [selectedItemId, setSelectedItemId] = useState<string | undefined>();
   const [basicMergeActions, setBasicMergeActions] = useState<Record<string, ImportMergeDecision["action"]>>({});
+  const [jsonText, setJsonText] = useState("");
+  const [ocrBenchmark, setOcrBenchmark] = useState<ResumeOcrBenchmarkResult | undefined>();
 
   useEffect(() => {
     let active = true;
@@ -95,7 +110,17 @@ export function ResumeImportWizard(props: {
   async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.currentTarget.files?.[0];
     if (file) {
-      await startFileImport(file);
+      const intent = fileIntentRef.current;
+      fileIntentRef.current = "auto";
+      if (intent === "docx" || (intent === "auto" && isDocxFile(file))) {
+        await startDocxImport(file);
+      } else if (intent === "json" || (intent === "auto" && isJsonFile(file))) {
+        await startJsonImport(await file.text(), file.name);
+      } else if (intent === "ocr") {
+        await startOcrImport(file);
+      } else {
+        await startFileImport(file);
+      }
     }
     event.currentTarget.value = "";
   }
@@ -104,6 +129,14 @@ export function ResumeImportWizard(props: {
     event.preventDefault();
     const file = event.dataTransfer.files[0];
     if (file) {
+      if (isDocxFile(file)) {
+        await startDocxImport(file);
+        return;
+      }
+      if (isJsonFile(file)) {
+        await startJsonImport(await file.text(), file.name);
+        return;
+      }
       await startFileImport(file);
     }
   }
@@ -223,6 +256,144 @@ export function ResumeImportWizard(props: {
     setMessage(prepared.hasPromptInjectionRisk
       ? "提取完成，检测到类似 Prompt 注入文字。系统会按纯文本处理，不执行其中指令。"
       : "提取和结构识别完成。请核对栏目、来源和包含状态后确认导入。");
+  }
+
+  async function startDocxImport(file: File) {
+    setStatus("extracting_docx");
+    setMessage("正在读取 DOCX 正文。原文件不会长期保存。");
+    setDraft(undefined);
+    setPages([]);
+    setSelectedItemId(undefined);
+    if (!isDocxFile(file)) {
+      fail("请选择 .docx 文件。");
+      return;
+    }
+    const buffer = await file.arrayBuffer();
+    const fileHash = await hashBytes(new Uint8Array(buffer));
+    const extracted = await extractTextFromDocxBuffer(buffer);
+    if (!extracted.ok) {
+      fail(extracted.message);
+      return;
+    }
+    await createDraftFromPlainText({
+      fileName: file.name,
+      mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      fileHash,
+      text: extracted.text,
+      successMessage: extracted.warnings.length
+        ? `DOCX 正文已提取：${extracted.warnings.join("；")} 请继续核对。`
+        : "DOCX 正文已提取并进入核对页。"
+    });
+  }
+
+  async function startOcrImport(file: File) {
+    setStatus("extracting_ocr");
+    setMessage("正在调用 OCR Adapter。OCR 结果仍需逐项核对。");
+    setDraft(undefined);
+    setPages([]);
+    setSelectedItemId(undefined);
+    const result = await runResumeOcrAdapter(file);
+    if (!result.ok) {
+      fail(`${result.message}${result.warnings.length ? ` ${result.warnings.join("；")}` : ""}`);
+      return;
+    }
+    const fileHash = await hashBytes(new Uint8Array(await file.arrayBuffer()));
+    await createDraftFromPlainText({
+      fileName: file.name,
+      mimeType: file.type === "image/png" ? "image/png" : file.type === "image/jpeg" ? "image/jpeg" : "application/pdf",
+      fileHash,
+      text: result.text,
+      successMessage: `OCR 文本已由 ${result.engine} 生成；请在核对页确认后再导入。`
+    });
+  }
+
+  async function runOcrBenchmark() {
+    setStatus("benchmarking_ocr");
+    setMessage("正在运行本地 OCR Adapter Benchmark。");
+    const result = await benchmarkResumeOcrAdapter();
+    setOcrBenchmark(result);
+    setStatus(draft ? "reviewing" : "idle");
+    setMessage(result.supported
+      ? "OCR Adapter Benchmark 已通过，仍需用户核对识别结果。"
+      : "OCR Adapter Benchmark 完成：当前推荐使用 JSON 兜底或 DOCX/PDF 文本导入。");
+  }
+
+  async function startJsonImport(rawText: string, fileName = "structured-resume.json") {
+    setStatus("importing_json");
+    setMessage("正在校验结构化 JSON。JSON 不会绕过核对页。");
+    setDraft(undefined);
+    setPages([]);
+    setSelectedItemId(undefined);
+    const risk = validateStructuredJsonText(rawText);
+    if (risk) {
+      fail(risk);
+      return;
+    }
+    try {
+      const parsed = StructuredResumeDraftSchema.parse(JSON.parse(rawText));
+      const now = new Date().toISOString();
+      const normalizedTextHash = await hashText(rawText);
+      const importedDraft = createImportedResumeDraftFromStructuredJson({
+        source: {
+          fileName,
+          mimeType: "application/json",
+          fileHash: normalizedTextHash,
+          normalizedTextHash,
+          pageCount: 1,
+          extractedAt: now
+        },
+        structuredDraft: parsed,
+        now
+      });
+      const saved = await props.repository.saveImportedResumeDraft(importedDraft, 0);
+      setDraft(saved);
+      setPages([]);
+      setSelectedPageNumber(1);
+      setStatus("reviewing");
+      setMessage("结构化 JSON 已进入核对页；确认前不会写入正式数据。");
+    } catch {
+      fail("JSON 结构不符合示例格式，请修正后重试。");
+    }
+  }
+
+  async function createDraftFromPlainText(input: {
+    fileName: string;
+    mimeType: ImportedResumeSource["mimeType"];
+    fileHash: string;
+    text: string;
+    successMessage: string;
+  }) {
+    setStatus("classifying_sections");
+    const now = new Date().toISOString();
+    const normalizedText = normalizeImportedPlainText(input.text);
+    if (!normalizedText) {
+      fail("未读取到可导入文本。");
+      return;
+    }
+    const normalizedTextHash = await hashText(normalizedText);
+    const pageRecord = await buildSyntheticPageText({
+      fileName: input.fileName,
+      text: normalizedText,
+      now
+    });
+    const importedDraft = createImportedResumeDraftFromText({
+      source: {
+        fileName: input.fileName,
+        mimeType: input.mimeType,
+        fileHash: input.fileHash,
+        normalizedTextHash,
+        pageCount: 1,
+        extractedAt: now
+      },
+      pages: [pageRecord],
+      now
+    });
+    const saved = await props.repository.saveImportedResumeDraft(importedDraft, 0);
+    setDraft(saved);
+    setPages([pageRecord]);
+    setSelectedPageNumber(1);
+    setStatus("reviewing");
+    setMessage(input.successMessage);
   }
 
   async function patchDraft(updater: (current: ImportedResumeDraft) => ImportedResumeDraft) {
@@ -466,24 +637,64 @@ export function ResumeImportWizard(props: {
     setMessage(text);
   }
 
+  function downloadSampleJson() {
+    const blob = new Blob([JSON.stringify(sampleStructuredResumeJson(), null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "careeradapt-structured-resume-sample.json";
+    anchor.rel = "noopener";
+    document.body.append(anchor);
+    anchor.click();
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
   return (
     <section className="panel no-print" aria-live="polite">
       <div className="section-heading">
         <div>
           <h2>导入已有 PDF 简历</h2>
-          <p>仅支持文本型 PDF；确认前不会写入个人资料或创建正式简历。</p>
+          <p>支持文本 PDF、DOCX、OCR Adapter 和结构化 JSON；确认前不会写入个人资料或创建正式简历。</p>
         </div>
-        <div className="action-row">
-          <button className="secondary-button" onClick={() => fileInputRef.current?.click()} disabled={status === "extracting_pdf" || status === "confirming"}>
-            上传PDF简历
+        <div className="action-row import-source-actions">
+          <button className="secondary-button" onClick={() => {
+            fileIntentRef.current = "pdf";
+            fileInputRef.current?.click();
+          }} disabled={status === "extracting_pdf" || status === "confirming"}>
+            PDF
           </button>
-          <button className="secondary-button" onClick={cancelImport} disabled={status === "confirming" || (!draft && status !== "extracting_pdf")}>
+          <button className="secondary-button" onClick={() => {
+            fileIntentRef.current = "docx";
+            fileInputRef.current?.click();
+          }} disabled={status === "extracting_docx" || status === "confirming"}>
+            DOCX
+          </button>
+          <button className="secondary-button" onClick={() => {
+            fileIntentRef.current = "ocr";
+            fileInputRef.current?.click();
+          }} disabled={status === "extracting_ocr" || status === "confirming"}>
+            OCR
+          </button>
+          <button className="secondary-button" onClick={() => {
+            fileIntentRef.current = "json";
+            fileInputRef.current?.click();
+          }} disabled={status === "importing_json" || status === "confirming"}>
+            JSON
+          </button>
+          <button className="secondary-button" onClick={downloadSampleJson}>
+            示例JSON
+          </button>
+          <button className="secondary-button" onClick={() => { void runOcrBenchmark(); }} disabled={status === "benchmarking_ocr" || status === "confirming"}>
+            OCR Benchmark
+          </button>
+          <button className="secondary-button" onClick={cancelImport} disabled={status === "confirming" || (!draft && !["extracting_pdf", "extracting_docx", "extracting_ocr", "importing_json"].includes(status))}>
             取消
           </button>
         </div>
       </div>
 
-      <input ref={fileInputRef} className="visually-hidden" type="file" accept="application/pdf,.pdf" onChange={handleFileChange} />
+      <input ref={fileInputRef} className="visually-hidden" type="file" accept="application/pdf,.pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/json,.json,image/png,image/jpeg,.png,.jpg,.jpeg" onChange={handleFileChange} />
       <div
         className="import-dropzone"
         onDragOver={(event) => event.preventDefault()}
@@ -496,9 +707,44 @@ export function ResumeImportWizard(props: {
           }
         }}
       >
-        <strong>{draft?.source.fileName ?? "拖放或选择一份 PDF 简历"}</strong>
+        <strong>{draft?.source.fileName ?? "拖放或选择 PDF / DOCX / JSON 文件"}</strong>
         <span>{importStatusLabel(status)} / {message}</span>
       </div>
+
+      <details className="import-json-details">
+        <summary>粘贴结构化 JSON</summary>
+        <textarea
+          className="textarea compact-textarea"
+          value={jsonText}
+          onChange={(event) => setJsonText(event.target.value)}
+          placeholder={JSON.stringify(sampleStructuredResumeJson(), null, 2)}
+        />
+        <div className="action-row">
+          <button className="primary-button compact" onClick={() => { void startJsonImport(jsonText || JSON.stringify(sampleStructuredResumeJson()), "pasted-structured-resume.json"); }}>
+            导入JSON
+          </button>
+          <button className="secondary-button compact" onClick={() => setJsonText(JSON.stringify(sampleStructuredResumeJson(), null, 2))}>
+            填入示例
+          </button>
+        </div>
+      </details>
+
+      {ocrBenchmark ? (
+        <section className="import-quality-report" data-testid="ocr-benchmark-report">
+          <div>
+            <strong>OCR Benchmark</strong>
+            <span>{ocrBenchmark.engine}</span>
+          </div>
+          <div>
+            <span>{ocrBenchmark.supported ? "Adapter可用" : "Adapter未就绪"}</span>
+            <span>{ocrBenchmark.elapsedMs}ms</span>
+            <span>{ocrBenchmark.recommendation === "adapter_ready" ? "可接入OCR核对" : "建议JSON兜底"}</span>
+          </div>
+          <div>
+            {ocrBenchmark.notes.map((note) => <span key={note}>{note}</span>)}
+          </div>
+        </section>
+      ) : null}
 
       {draft ? (
         <>
@@ -602,6 +848,90 @@ export function ResumeImportWizard(props: {
   );
 }
 
+async function buildSyntheticPageText(input: {
+  fileName: string;
+  text: string;
+  now: string;
+}): Promise<PdfPageText> {
+  const rawTextHash = await hashText(input.text);
+  const cleanedTextHash = await hashText(input.text.trim());
+  return {
+    id: `import-text-page-${nanoid(10)}`,
+    sessionId: `synthetic-${nanoid(10)}`,
+    pageNumber: 1,
+    extractedPageText: input.text,
+    cleanedPageText: input.text.trim(),
+    charStart: 0,
+    charEnd: input.text.trim().length,
+    textItemCount: input.text.split(/\s+/).filter(Boolean).length,
+    warnings: [`${input.fileName} 已转换为单页来源文本。`],
+    rawTextHash,
+    cleanedTextHash,
+    createdAt: input.now,
+    updatedAt: input.now
+  };
+}
+
+function normalizeImportedPlainText(text: string) {
+  return text
+    .replace(/\r\n?/g, "\n")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .join("\n")
+    .trim();
+}
+
+function isDocxFile(file: File) {
+  return file.name.toLowerCase().endsWith(".docx")
+    || file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+}
+
+function isJsonFile(file: File) {
+  return file.name.toLowerCase().endsWith(".json") || file.type === "application/json";
+}
+
+function validateStructuredJsonText(text: string) {
+  if (!text.trim()) {
+    return "请先粘贴或选择结构化 JSON。";
+  }
+  if (/<\/?(script|style|iframe|object|embed)\b/i.test(text)) {
+    return "JSON 中包含脚本或样式片段，已阻止导入。";
+  }
+  if (/(api[_-]?key|secret[_-]?key|OPENAI_API_KEY|AI_API_KEY|-----BEGIN\s+(?:RSA|PRIVATE))/i.test(text)) {
+    return "JSON 中疑似包含密钥或私密凭据，已阻止导入。";
+  }
+  return undefined;
+}
+
+function sampleStructuredResumeJson() {
+  return {
+    schemaVersion: "structured-resume-draft-v1",
+    basics: {
+      name: "陈同学",
+      email: "demo.student@example.com",
+      phone: "13800000000",
+      location: "上海",
+      summary: "数据分析方向学生，熟悉 Excel、Stata 和业务分析。"
+    },
+    sections: [
+      {
+        title: "项目与经历",
+        sectionType: "experience",
+        items: [
+          "使用 Stata 清洗 31 个省级样本，并完成描述统计、相关分析与区域差异分析。",
+          "使用 Excel 整理表格数据和基础分析结果。"
+        ]
+      },
+      {
+        title: "技能",
+        sectionType: "skills",
+        items: ["Excel", "Stata", "数据清洗", "描述统计"]
+      }
+    ]
+  };
+}
+
 function basicLabel(key: BasicFieldKey) {
   return {
     name: "姓名",
@@ -671,6 +1001,10 @@ function importStatusLabel(status: ImportStatus) {
     idle: "等待上传",
     validating_file: "校验文件",
     extracting_pdf: "提取文本",
+    extracting_docx: "读取DOCX",
+    extracting_ocr: "OCR识别",
+    importing_json: "校验JSON",
+    benchmarking_ocr: "OCR测试",
     classifying_sections: "识别栏目",
     reviewing: "等待核对",
     confirming: "正在导入",

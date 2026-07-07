@@ -903,6 +903,6 @@ test.describe("D2.1 验收：双模板预览与 PDF 导出", () => {
   // ──────────────────────────────────────────────────────────
   test("场景16：页面加载回归", async ({ page }) => {
     await page.goto("/resume");
-    await expect(page.locator("h1")).toContainText("简历工作台");
+    await expect(page.locator("h1")).toContainText("我的简历");
   });
 });

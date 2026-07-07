@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type KeyboardEvent, type MouseEvent, type RefObject } from "react";
+import { useState, type CSSProperties, type KeyboardEvent, type MouseEvent, type RefObject } from "react";
 import type { ResumePaginationPlan, ResumePresentationConfig, ResumeRenderModel } from "@/domain/schemas";
 import { resumeTemplateStyleVars, type TemplateDefinition } from "./templates/templateRegistry";
 import type { ResumeDocumentBlock } from "@/domain/resumeDocument/mapper";
@@ -40,6 +40,7 @@ export function A4ResumePreview({
   pageRef,
   paginationPlan,
   presentationConfig,
+  zoom = 1,
   editor
 }: {
   model: ResumeRenderModel;
@@ -47,6 +48,7 @@ export function A4ResumePreview({
   pageRef: RefObject<HTMLElement | null>;
   paginationPlan?: ResumePaginationPlan;
   presentationConfig?: ResumePresentationConfig;
+  zoom?: number;
   editor?: ResumeStudioEditorProps;
 }) {
   const [overlayRect, setOverlayRect] = useState<{ left: number; top: number; width: number } | undefined>();
@@ -151,6 +153,7 @@ export function A4ResumePreview({
     );
   }
   const selectedBlockRendered = visiblePageModels.some((pageModel) => pageContainsSelectedBlock(pageModel));
+  const previewZoomStyle = { "--resume-preview-zoom": zoom } as CSSProperties;
 
   function renderEditorOverlay() {
     if (!editor?.enabled || (!editor.selectedBlock && !editor.selectedProfileFieldId)) {
@@ -279,7 +282,7 @@ export function A4ResumePreview({
       >
         {template.render(model, { presentationConfig })}
       </article>
-      <div className="resume-preview-pages">
+      <div className="resume-preview-pages" style={previewZoomStyle}>
         {visiblePageModels.map((pageModel, index) => (
           <div className="resume-page-shell" key={`${pageModel.branchCurrentRevisionId}-${paginationPlan?.paginationHash ?? "single"}-${index}`}>
             <div className="resume-page-label no-print">第 {index + 1} 页 / 共 {pageCount} 页</div>

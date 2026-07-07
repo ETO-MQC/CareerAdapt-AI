@@ -80,12 +80,45 @@ export const ImportedResumeSourceSchema = z.object({
   sourceSessionId: z.string().min(1).optional(),
   rawInputId: z.string().min(1).optional(),
   fileName: z.string().min(1),
-  mimeType: z.literal("application/pdf"),
+  mimeType: z.enum([
+    "application/pdf",
+    "application/json",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "image/jpeg",
+    "image/png",
+    "text/plain"
+  ]),
   fileHash: z.string().min(16),
   normalizedTextHash: z.string().min(8).optional(),
   pageCount: z.number().int().min(1),
   extractedAt: IsoDateStringSchema
 });
+
+export const StructuredResumeDraftItemSchema = z.union([
+  z.string().min(1),
+  z.object({
+    text: z.string().min(1),
+    included: z.boolean().optional()
+  })
+]);
+
+export const StructuredResumeDraftSchema = z.object({
+  schemaVersion: z.literal("structured-resume-draft-v1").optional(),
+  basics: z.object({
+    name: z.string().min(1).optional(),
+    email: z.string().min(1).optional(),
+    phone: z.string().min(1).optional(),
+    location: z.string().min(1).optional(),
+    summary: z.string().min(1).optional(),
+    links: z.array(z.string().min(1)).optional()
+  }).default({}),
+  sections: z.array(z.object({
+    title: z.string().min(1),
+    sectionType: ImportedResumeSectionTypeSchema.default("unknown"),
+    included: z.boolean().optional(),
+    items: z.array(StructuredResumeDraftItemSchema).default([])
+  })).default([])
+}).strict();
 
 export const ImportedResumeDraftSchema = EntityBaseSchema.extend({
   schemaVersion: z.literal("resume-import-v1"),
@@ -152,5 +185,6 @@ export type ImportedResumeSection = z.infer<typeof ImportedResumeSectionSchema>;
 export type ImportedResumePage = z.infer<typeof ImportedResumePageSchema>;
 export type ImportedResumeSource = z.infer<typeof ImportedResumeSourceSchema>;
 export type ImportedResumeDraft = z.infer<typeof ImportedResumeDraftSchema>;
+export type StructuredResumeDraft = z.infer<typeof StructuredResumeDraftSchema>;
 export type ImportMergeDecision = z.infer<typeof ImportMergeDecisionSchema>;
 export type ImportedResumeConfirmResult = z.infer<typeof ImportedResumeConfirmResultSchema>;

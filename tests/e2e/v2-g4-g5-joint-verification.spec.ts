@@ -150,6 +150,13 @@ async function createBranchFromDraft(page: Page, branchName: string) {
   await expect(page.getByTestId("resume-a4-page")).toBeVisible();
 }
 
+async function openAiMode(page: Page, tabName?: string) {
+  await page.getByRole("button", { name: "AI" }).click();
+  if (tabName) {
+    await page.getByRole("button", { name: tabName }).click();
+  }
+}
+
 async function importPdfResume(page: Page, fixturePath: string) {
   await page.goto("/resume");
   await expect(page.getByRole("heading", { name: "导入已有 PDF 简历" })).toBeVisible();
@@ -248,6 +255,7 @@ test.describe("G4-G5 Joint: requirement-block-mapping", () => {
     await createC2Draft(page);
     await createBranchFromDraft(page, branchName);
 
+    await openAiMode(page);
     const panel = page.getByTestId("job-optimization-panel");
     await expect(panel).toBeVisible();
     await panel.locator(".section-heading button").click();
@@ -270,6 +278,7 @@ test.describe("G4-G5 Joint: suggestion-diff-and-accept", () => {
     await createC2Draft(page);
     await createBranchFromDraft(page, branchName);
 
+    await openAiMode(page);
     const panel = page.getByTestId("job-optimization-panel");
     await expect(panel).toBeVisible();
     await panel.locator(".section-heading button").click();
@@ -319,6 +328,7 @@ test.describe("G4-G5 Joint: edited-accept-and-fact-guard", () => {
     await createC2Draft(page);
     await createBranchFromDraft(page, branchName);
 
+    await openAiMode(page);
     const panel = page.getByTestId("job-optimization-panel");
     await expect(panel).toBeVisible();
     await panel.locator(".section-heading button").click();
@@ -419,6 +429,7 @@ test.describe("G4-G5 Joint: diagnostics-coverage-and-fact-gap", () => {
     await page.getByLabel("行距").selectOption("tight");
     await expect(page.locator(".notice").filter({ hasText: "行距" })).toBeVisible({ timeout: 15_000 });
 
+    await openAiMode(page, "质量检查");
     const panel = page.getByTestId("resume-diagnostics-panel");
     await expect(panel).toBeVisible();
     await panel.getByTestId("run-resume-diagnostics").click();
@@ -441,6 +452,7 @@ test.describe("G4-G5 Joint: diagnostics-layout-pagination-ats", () => {
     await createC2Draft(page);
     await createBranchFromDraft(page, branchName);
 
+    await openAiMode(page, "质量检查");
     const panel = page.getByTestId("resume-diagnostics-panel");
     await expect(panel).toBeVisible();
     await panel.getByTestId("run-resume-diagnostics").click();
@@ -483,6 +495,7 @@ test.describe("G4-G5 Joint: re-diagnosis-after-fix", () => {
     await createC2Draft(page);
     await createBranchFromDraft(page, branchName);
 
+    await openAiMode(page, "质量检查");
     const panel = page.getByTestId("resume-diagnostics-panel");
     await expect(panel).toBeVisible();
 
