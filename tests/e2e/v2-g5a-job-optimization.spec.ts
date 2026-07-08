@@ -17,7 +17,7 @@ type DbSuggestion = {
 
 test.describe("V2-G5a block-level job optimization", () => {
   test("generates a block suggestion, shows diff, and accepts it into a branch revision", async ({ page }) => {
-    test.setTimeout(90_000);
+    test.setTimeout(120_000);
     const branchName = `G5a Branch ${Date.now()}`;
 
     await createC2DraftForSelectedJob(page);
@@ -39,7 +39,7 @@ test.describe("V2-G5a block-level job optimization", () => {
     await expect(compressButton).toBeEnabled();
     await compressButton.click();
 
-    await expect(panel.getByTestId("block-suggestion-panel")).toBeVisible({ timeout: 30_000 });
+    await expect(panel.getByTestId("block-suggestion-panel")).toBeVisible({ timeout: 60_000 });
     await expect(panel.getByTestId("inline-diff")).toBeVisible();
 
     const before = await findBranchByName(page, branchName);
@@ -49,12 +49,12 @@ test.describe("V2-G5a block-level job optimization", () => {
     await expect.poll(async () => {
       const accepted = await getAcceptedSuggestions(page, before!.id);
       return accepted.length;
-    }, { timeout: 45_000 }).toBeGreaterThan(0);
+    }, { timeout: 75_000 }).toBeGreaterThan(0);
 
     await expect.poll(async () => {
       const branch = await findBranchByName(page, branchName);
       return branch?.revision ?? -1;
-    }, { timeout: 45_000 }).toBe((before?.revision ?? 0) + 1);
+    }, { timeout: 75_000 }).toBe((before?.revision ?? 0) + 1);
 
     const accepted = await getAcceptedSuggestions(page, before!.id);
     expect(accepted.length).toBeGreaterThan(0);

@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { openApplicationOverviewTab, openApplicationResumeTab, openApplicationTimelineTab } from "./support/g7b2Ui";
 
 type DbApplication = {
   id: string;
@@ -45,7 +46,9 @@ test.describe("V2-G6a Application Workspace", () => {
     await detail.getByLabel("当前状态").selectOption("ready");
     await expect(page.locator(".notice")).toContainText("状态已更新", { timeout: 15_000 });
     await detail.getByLabel("当前状态").selectOption("applied");
+    await openApplicationResumeTab(page);
     await expect(detail.getByTestId("applied-version-lock")).toBeVisible({ timeout: 15_000 });
+    await openApplicationOverviewTab(page);
 
     await detail.getByLabel("优先级").selectOption("high");
     await detail.getByLabel("来源渠道").selectOption("referral");
@@ -56,6 +59,7 @@ test.describe("V2-G6a Application Workspace", () => {
     await detail.getByLabel("备注").fill("<script>alert(1)</script> 联系内推人");
     await detail.getByRole("button", { name: "保存详情" }).click();
     await expect(page.locator(".notice")).toContainText("详情已保存", { timeout: 15_000 });
+    await openApplicationTimelineTab(page);
     await expect(page.getByTestId("application-timeline")).toContainText("备注");
 
     await page.getByRole("button", { name: "列表" }).click();
@@ -64,6 +68,7 @@ test.describe("V2-G6a Application Workspace", () => {
     await page.getByRole("button", { name: "看板" }).click();
     await expect(page.getByTestId("application-board")).toBeVisible();
 
+    await openApplicationOverviewTab(page);
     await detail.getByLabel("当前状态").selectOption("archived");
     await expect(detail.getByRole("button", { name: "恢复" })).toBeVisible({ timeout: 15_000 });
     await detail.getByRole("button", { name: "恢复" }).click();

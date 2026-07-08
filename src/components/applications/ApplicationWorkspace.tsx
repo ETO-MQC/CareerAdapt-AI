@@ -33,6 +33,7 @@ type LoadState =
 
 type ViewMode = "board" | "list";
 type SortMode = "updatedAt" | "deadlineAt" | "nextFollowUpAt" | "priority" | "createdAt";
+type ApplicationDetailTab = "overview" | "resume" | "materials" | "timeline";
 
 type Filters = {
   status: "all" | ApplicationStatus;
@@ -480,6 +481,7 @@ function ApplicationDetail({
   const [readiness, setReadiness] = useState<ApplicationReadiness | undefined>();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [detailTab, setDetailTab] = useState<ApplicationDetailTab>("overview");
   const [detailForm, setDetailForm] = useState({
     priority: "normal" as ApplicationPriority,
     sourceChannel: "" as "" | ApplicationSourceChannel,
@@ -715,7 +717,22 @@ function ApplicationDetail({
         </div>
       </div>
 
+      <div className="inspector-tablist application-detail-tablist" role="tablist" aria-label="投递详情">
+        {(["overview", "resume", "materials", "timeline"] as const).map((tab) => (
+          <button
+            key={tab}
+            type="button"
+            className={detailTab === tab ? "inspector-tab inspector-tab-active" : "inspector-tab"}
+            onClick={() => setDetailTab(tab)}
+          >
+            {applicationDetailTabLabel(tab)}
+          </button>
+        ))}
+      </div>
+
+      {detailTab === "overview" || detailTab === "resume" ? (
       <div className="application-detail-grid">
+        {detailTab === "overview" ? (
         <section className="application-detail-section">
           <h3>状态与日期</h3>
           <label className="field-label">
@@ -778,7 +795,9 @@ function ApplicationDetail({
           </label>
           <button className="primary-button" disabled={saving} onClick={saveDetails}>保存详情</button>
         </section>
+        ) : null}
 
+        {detailTab === "resume" ? (
         <section className="application-detail-section">
           <h3>关联简历与导出</h3>
           <dl className="application-definition-list">
@@ -807,15 +826,21 @@ function ApplicationDetail({
           </div>
           <ApplicationReadinessPanel readiness={readiness} />
         </section>
+        ) : null}
       </div>
+      ) : null}
 
+      {detailTab === "materials" ? (
       <ApplicationMaterialsPanel
         applicationId={application.id}
         onMessage={onMessage}
         onChanged={load}
       />
+      ) : null}
 
+      {detailTab === "timeline" ? (
       <ApplicationTimeline events={application.timeline} />
+      ) : null}
     </section>
   );
 }
@@ -846,6 +871,16 @@ function ApplicationReadinessPanel({ readiness }: { readiness?: ApplicationReadi
       </div>
     </section>
   );
+}
+
+function applicationDetailTabLabel(tab: ApplicationDetailTab) {
+  const labels: Record<ApplicationDetailTab, string> = {
+    overview: "概览",
+    resume: "简历",
+    materials: "材料",
+    timeline: "时间线"
+  };
+  return labels[tab];
 }
 
 function ApplicationTimeline({ events }: { events: ApplicationRecord["timeline"] }) {

@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
+import { openManualContentTab, openManualPageTab, openManualTemplateTab } from "./support/g7b2Ui";
 
 /**
  * Resolve a working pdftotext/pdfinfo binary.
@@ -50,19 +51,24 @@ async function createD2Branch(page: Page) {
 }
 
 async function ensureSinglePage(page: Page) {
+  await openManualPageTab(page);
   const status = page.getByTestId("overflow-status");
   await expect(status).toBeVisible();
   if ((await status.innerText()).includes("overflow")) {
+    await openManualContentTab(page);
     const toggles = page.locator(".branch-editor input[type='checkbox']");
     const count = await toggles.count();
     for (let index = count - 1; index >= 2; index--) {
       await toggles.nth(index).uncheck();
       await page.waitForTimeout(250);
+      await openManualPageTab(page);
       if (!(await status.innerText()).includes("overflow")) {
         return;
       }
+      await openManualContentTab(page);
     }
   }
+  await openManualPageTab(page);
   await expect(status).not.toContainText("overflow");
 }
 
@@ -116,13 +122,16 @@ test.describe("Stage D2 template preview and PDF export", () => {
     await expect(preview).toContainText("陈同学");
     await expect(preview).toContainText("Stata");
 
+    await openManualTemplateTab(page);
     await page.locator("label").filter({ hasText: "模板" }).locator("select").selectOption("modern-operations");
     await expect(page.locator(".notice")).toContainText("模板偏好已保存");
     await expect(preview).toHaveClass(/template-modern-operations/);
     await page.reload();
+    await openManualTemplateTab(page);
     await expect(page.locator("label").filter({ hasText: "模板" }).locator("select")).toHaveValue("modern-operations");
     await ensureSinglePage(page);
 
+    await openManualPageTab(page);
     await page.getByRole("button", { name: "打印 / 保存 PDF" }).click();
     await expect(page.locator(".notice")).toContainText("浏览器打印");
     await expect(page.locator("body")).toHaveAttribute("data-print-invoked", "true");
@@ -154,6 +163,7 @@ test.describe("Stage D2 template preview and PDF export", () => {
     assertPdf(modernPdf, ["陈同学", "Stata"]);
 
     await page.emulateMedia({ media: "screen" });
+    await openManualTemplateTab(page);
     await page.locator("label").filter({ hasText: "模板" }).locator("select").selectOption("classic-technical");
     await expect(page.locator(".notice")).toContainText("模板偏好已保存");
     await ensureSinglePage(page);

@@ -1,4 +1,5 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
+import { openManualHistoryTab, openManualLayoutTab, openManualTemplateTab } from "./support/g7b2Ui";
 
 type DbResumeBranch = {
   id: string;
@@ -32,6 +33,17 @@ async function enablePreviewEditing(page: Page) {
   const toggle = page.getByTestId("canvas-edit-toggle");
   await expect(toggle).toBeEnabled();
   await toggle.check();
+}
+
+async function selectContentBlockForStructureAction(page: Page, preview: Locator, itemId: string) {
+  const editor = page.getByTestId("resume-studio-editor");
+  await preview.locator(`[data-source-item-id="${itemId}"]`).first().click({ force: true });
+  await expect(editor).toBeVisible();
+  const textarea = editor.locator("textarea").first();
+  if (await textarea.isVisible().catch(() => false)) {
+    await page.keyboard.press("Escape");
+    await expect(editor.getByRole("button", { name: "编辑" })).toBeVisible();
+  }
 }
 
 async function getBranchByName(page: Page, branchName: string): Promise<DbResumeBranch> {
@@ -81,7 +93,7 @@ async function getSortableRenderGroup(page: Page): Promise<RenderGroup> {
   return page.getByTestId("resume-a4-page").evaluate((pageElement) => {
     const sections = Array.from(pageElement.querySelectorAll<HTMLElement>("[data-render-section]"));
     for (const section of sections) {
-      const itemIds = Array.from(section.querySelectorAll<HTMLElement>("[data-source-item-id]"))
+      const itemIds = Array.from(section.querySelectorAll<HTMLElement>("[data-source-item-id]:not([data-profile-field-id]):not([data-section-title-id])"))
         .map((item) => item.dataset.sourceItemId)
         .filter((itemId): itemId is string => Boolean(itemId));
       if (itemIds.length >= 2) {
@@ -101,7 +113,7 @@ async function getSectionItemIds(page: Page, sectionType: string): Promise<strin
     if (!section) {
       return [];
     }
-    return Array.from(section.querySelectorAll<HTMLElement>("[data-source-item-id]"))
+    return Array.from(section.querySelectorAll<HTMLElement>("[data-source-item-id]:not([data-profile-field-id]):not([data-section-title-id])"))
       .map((item) => item.dataset.sourceItemId)
       .filter((itemId): itemId is string => Boolean(itemId));
   }, sectionType);
@@ -121,8 +133,7 @@ test.describe("V2-G1a structure editing", () => {
     const sortableGroup = await getSortableRenderGroup(page);
     const firstItemId = sortableGroup.itemIds[0];
     const secondItemId = sortableGroup.itemIds[1];
-    await preview.locator(`[data-source-item-id="${firstItemId}"]`).first().click({ force: true });
-    await expect(editor).toBeVisible();
+    await selectContentBlockForStructureAction(page, preview, firstItemId);
     await editor.getByRole("button", { name: "下移" }).click();
     await expect(page.locator(".notice")).toContainText("排序已保存");
     await expect.poll(() => getSectionItemIds(page, sortableGroup.sectionType)).toEqual([
@@ -132,11 +143,12 @@ test.describe("V2-G1a structure editing", () => {
     ]);
     expect(await getResumeRevisionCount(page, branch.id)).toBe(revisionsBefore);
 
-    await preview.locator(`[data-source-item-id="${firstItemId}"]`).first().click({ force: true });
+    await selectContentBlockForStructureAction(page, preview, firstItemId);
     const hiddenText = (await preview.locator(`[data-source-item-id="${firstItemId}"]`).first().innerText()).trim();
     await editor.getByRole("button", { name: "隐藏" }).click();
     await expect(page.locator(".notice")).toContainText("内容已隐藏");
     await expect(preview.locator(`[data-source-item-id="${firstItemId}"]`)).toHaveCount(0);
+    await openManualLayoutTab(page);
     await expect(page.locator(".hidden-block-list")).toContainText(hiddenText.slice(0, 12));
     expect(await getResumeRevisionCount(page, branch.id)).toBe(revisionsBefore);
 
@@ -145,16 +157,19 @@ test.describe("V2-G1a structure editing", () => {
     await expect(preview.locator(`[data-source-item-id="${firstItemId}"]`).first()).toBeVisible();
     expect(await getResumeRevisionCount(page, branch.id)).toBe(revisionsBefore);
 
+    await openManualTemplateTab(page);
     await page.locator("label").filter({ hasText: "模板" }).locator("select").selectOption("modern-operations");
     await expect(page.locator(".notice")).toContainText("模板偏好已保存");
     await expect(preview).toHaveClass(/template-modern-operations/);
     expect(await getResumeRevisionCount(page, branch.id)).toBe(revisionsBefore);
 
+    await openManualHistoryTab(page);
     await page.getByRole("button", { name: "回退展示" }).click();
     await expect(page.locator(".notice")).toContainText("已撤销");
     await expect(preview).toHaveClass(/template-classic-technical/);
     expect(await getResumeRevisionCount(page, branch.id)).toBe(revisionsBefore);
 
+    await openManualTemplateTab(page);
     await page.locator("label").filter({ hasText: "模板" }).locator("select").selectOption("modern-operations");
     await expect(page.locator(".notice")).toContainText("模板偏好已保存");
     await expect(preview).toHaveClass(/template-modern-operations/);
@@ -186,8 +201,7 @@ test.describe("V2-G1a structure editing", () => {
     const [itemId0, itemId1, itemId2, ...rest] = sortableGroup.itemIds;
 
     // Select first item and move it down twice in rapid succession
-    await preview.locator(`[data-source-item-id="${itemId0}"]`).first().click({ force: true });
-    await expect(editor).toBeVisible();
+    await selectContentBlockForStructureAction(page, preview, itemId0);
 
     // Click "下移" without waiting for the first operation to complete
     const moveDownButton = editor.getByRole("button", { name: "下移" });
@@ -215,11 +229,11 @@ test.describe("V2-G1a structure editing", () => {
     const firstItemId = sortableGroup.itemIds[0];
 
     // Select and hide item
-    await preview.locator(`[data-source-item-id="${firstItemId}"]`).first().click({ force: true });
-    await expect(editor).toBeVisible();
+    await selectContentBlockForStructureAction(page, preview, firstItemId);
     await editor.getByRole("button", { name: "隐藏" }).click();
 
     // Wait for hide to complete, then restore from hidden list
+    await openManualLayoutTab(page);
     await expect(page.locator(".hidden-block-list")).toBeVisible();
     await page.locator(".hidden-block-list").getByRole("button", { name: /显示：/ }).first().click();
 

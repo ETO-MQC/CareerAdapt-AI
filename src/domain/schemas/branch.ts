@@ -300,7 +300,8 @@ export const ExportRecordPresentationSnapshotSchema = z.object({
     density: z.enum(["compact", "balanced", "spacious"])
   }).optional(),
   sectionStyleOverrides: z.record(z.string(), z.object({
-    showTitle: z.boolean().optional()
+    showTitle: z.boolean().optional(),
+    titleOverride: z.string().trim().min(1).max(80).optional()
   })).optional(),
   pagination: z.object({
     pagePolicy: z.enum(["one_page_strict", "up_to_two_pages"]),

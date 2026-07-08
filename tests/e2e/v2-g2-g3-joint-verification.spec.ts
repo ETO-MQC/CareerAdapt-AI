@@ -9,6 +9,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
+import { openManualContentTab, openManualHistoryTab, openManualPageTab, openManualTypographyTab } from "./support/g7b2Ui";
 
 const TEMPLATE_IDS = [
   "classic-technical",
@@ -60,16 +61,21 @@ async function createBranchFromDraft(page: Page, branchName: string) {
 }
 
 async function ensureSinglePage(page: Page) {
+  await openManualPageTab(page);
   const status = page.getByTestId("overflow-status");
   await expect(status).toBeVisible();
   if (!(await status.innerText()).includes("overflow")) return;
+  await openManualContentTab(page);
   const toggles = page.locator(".branch-editor input[type='checkbox']");
   const count = await toggles.count();
   for (let i = count - 1; i >= 2; i--) {
     await toggles.nth(i).uncheck();
     await page.waitForTimeout(250);
+    await openManualPageTab(page);
     if (!(await status.innerText()).includes("overflow")) return;
+    await openManualContentTab(page);
   }
+  await openManualPageTab(page);
   await expect(status).not.toContainText("overflow");
 }
 
@@ -101,6 +107,7 @@ function templateName(id: string): string {
 }
 
 async function downloadDirectPdf(page: Page, filePrefix: string) {
+  await openManualPageTab(page);
   const responsePromise = page.waitForResponse(
     (r) => r.url().includes("/api/resume-export/pdf") && r.request().method() === "POST",
   );
@@ -299,6 +306,7 @@ test.describe("V2-G2/G3 Joint: template-center-and-registry", () => {
     expect(bizConfig.templateId).toBe("business-consulting");
     expect((bizConfig.presentationRevision as number)).toBeGreaterThan(atsConfig.presentationRevision as number);
 
+    await openManualHistoryTab(page);
     await page.getByRole("button", { name: "回退展示" }).click();
     await expect(page.locator(".notice")).toContainText("已撤销");
     await expect(preview).toHaveClass(/template-ats-minimal/);
@@ -367,6 +375,7 @@ test.describe("V2-G2/G3 Joint: two-page-four-template-export", () => {
       await cloneExperienceItems(page, branchName, 16);
       await page.reload();
       await page.waitForTimeout(500);
+      await openManualPageTab(page);
 
       // Use correct testid: page-policy-selector
       const policySelect = page.getByTestId("page-policy-selector");
@@ -398,6 +407,7 @@ test.describe("V2-G2/G3 Joint: exceeds-two-pages-block", () => {
   test("one-page mode blocks export when content overflows", async ({ page }) => {
     const branchName = `GJ-exceed-one ${Date.now()}`;
     await createBranchFromDraft(page, branchName);
+    await openManualPageTab(page);
     const status = page.getByTestId("overflow-status");
     await expect(status).toBeVisible();
     if ((await status.innerText()).includes("overflow")) {
@@ -408,6 +418,7 @@ test.describe("V2-G2/G3 Joint: exceeds-two-pages-block", () => {
   test("two-page mode shows correct status and pagination summary", async ({ page }) => {
     const branchName = `GJ-exceed-two ${Date.now()}`;
     await createBranchFromDraft(page, branchName);
+    await openManualPageTab(page);
     const policySelect = page.getByTestId("page-policy-selector");
     await expect(policySelect).toBeEnabled();
     await policySelect.selectOption("up_to_two_pages");
@@ -427,6 +438,7 @@ test.describe("V2-G2/G3 Joint: section-break-pagination", () => {
   test("page policy change persists in ExportRecord", async ({ page }) => {
     const branchName = `GJ-section-persist ${Date.now()}`;
     await createBranchFromDraft(page, branchName);
+    await openManualPageTab(page);
     const policySelect = page.getByTestId("page-policy-selector");
     await expect(policySelect).toBeEnabled();
     await policySelect.selectOption("up_to_two_pages");
@@ -444,9 +456,11 @@ test.describe("V2-G2/G3 Joint: section-break-pagination", () => {
     const branchName = `GJ-section-hidden ${Date.now()}`;
     await createBranchFromDraft(page, branchName);
     // Verify initial overflow status exists
+    await openManualPageTab(page);
     const status = page.getByTestId("overflow-status");
     await expect(status).toBeVisible({ timeout: 10_000 });
     // The content toggles should be visible in the branch editor
+    await openManualContentTab(page);
     const toggles = page.locator(".branch-editor input[type='checkbox']");
     await expect(toggles.first()).toBeVisible();
   });
@@ -497,6 +511,7 @@ test.describe("V2-G2/G3 Joint: direct-pdf-and-export-record", () => {
       (r) => r.url().includes("/api/resume-export/pdf") && r.request().method() === "POST",
     );
     const downloadPromise = page.waitForEvent("download");
+    await openManualPageTab(page);
     await page.getByRole("button", { name: "下载 PDF" }).click();
     const [response, download] = await Promise.all([responsePromise, downloadPromise]);
     expect(response.status()).toBe(200);
@@ -516,6 +531,7 @@ test.describe("V2-G2/G3 Joint: frozen-snapshot-and-concurrency", () => {
     await downloadDirectPdf(page, "frozen-hash-1");
     const record1 = await getLatestExportRecord(page);
 
+    await openManualTypographyTab(page);
     await page.getByLabel("行距").selectOption("relaxed");
     await expect(page.locator(".notice")).toContainText("行距已保存");
     await page.waitForTimeout(200);
@@ -552,6 +568,7 @@ test.describe("V2-G2/G3 Joint: undo-redo-and-persistence", () => {
     await applyTemplate(page, "ats-minimal");
     await expect(preview).toHaveClass(/template-ats-minimal/);
 
+    await openManualHistoryTab(page);
     await page.getByRole("button", { name: "回退展示" }).click();
     await expect(page.locator(".notice")).toContainText("已撤销");
     await expect(preview).toHaveClass(/template-classic-technical/);
@@ -567,30 +584,37 @@ test.describe("V2-G2/G3 Joint: undo-redo-and-persistence", () => {
   test("pagination strategy change supports undo", async ({ page }) => {
     const branchName = `GJ-undo-pag ${Date.now()}`;
     await createBranchFromDraft(page, branchName);
+    await openManualPageTab(page);
     const policySelect = page.getByTestId("page-policy-selector");
     await expect(policySelect).toBeEnabled();
     await policySelect.selectOption("up_to_two_pages");
     await page.waitForTimeout(300);
     await expect(policySelect).toHaveValue("up_to_two_pages");
 
+    await openManualHistoryTab(page);
     await page.getByRole("button", { name: "回退展示" }).click();
     await expect(page.locator(".notice")).toContainText("已撤销");
+    await openManualPageTab(page);
     await expect(policySelect).toHaveValue("one_page_strict");
 
+    await openManualHistoryTab(page);
     await page.getByRole("button", { name: "重做展示" }).click();
     await expect(page.locator(".notice")).toContainText("已重做");
+    await openManualPageTab(page);
     await expect(policySelect).toHaveValue("up_to_two_pages");
   });
 
   test("pagination config persists after refresh", async ({ page }) => {
     const branchName = `GJ-persist-pag ${Date.now()}`;
     await createBranchFromDraft(page, branchName);
+    await openManualPageTab(page);
     const policySelect = page.getByTestId("page-policy-selector");
     await expect(policySelect).toBeEnabled();
     await policySelect.selectOption("up_to_two_pages");
     await page.waitForTimeout(300);
     await page.reload();
     await page.waitForTimeout(500);
+    await openManualPageTab(page);
     await expect(page.getByTestId("page-policy-selector")).toHaveValue("up_to_two_pages");
   });
 
@@ -651,6 +675,7 @@ test.describe("V2-G2/G3 Joint: visual-layout-smoke", () => {
     await cloneExperienceItems(page, branchName, 16);
     await page.reload();
     await page.waitForTimeout(500);
+    await openManualPageTab(page);
     const policySelect = page.getByTestId("page-policy-selector");
     await expect(policySelect).toBeEnabled();
     await policySelect.selectOption("up_to_two_pages");

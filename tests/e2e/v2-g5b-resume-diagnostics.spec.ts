@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { openAiDiagnosticsTab, openManualTypographyTab } from "./support/g7b2Ui";
 
 type DbBranch = {
   id: string;
@@ -27,12 +28,12 @@ test.describe("V2-G5b resume diagnostics", () => {
     const branchBefore = await findBranchByName(page, branchName);
     expect(branchBefore?.id).toBeTruthy();
 
+    await openManualTypographyTab(page);
     await page.getByLabel("正文字号").selectOption("small");
     await page.getByLabel("行距").selectOption("tight");
     await expect(page.locator(".notice")).toContainText("行距", { timeout: 15_000 });
 
-    await page.getByRole("button", { name: "AI" }).click();
-    await page.getByRole("button", { name: "质量检查" }).click();
+    await openAiDiagnosticsTab(page);
     const panel = page.getByTestId("resume-diagnostics-panel");
     await expect(panel).toBeVisible();
     await panel.getByTestId("run-resume-diagnostics").click();

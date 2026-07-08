@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { openManualContentTab, openManualHistoryTab, openManualLayoutTab, openManualPageTab, openManualTypographyTab } from "./support/g7b2Ui";
 
 type DbResumeBranch = {
   id: string;
@@ -148,6 +149,7 @@ test.describe("V2-G1b style property panel", () => {
   test("右侧属性面板保存受控样式、Section 标题显隐和导出快照且不创建内容 Revision", async ({ page }) => {
     const branchName = `V2 G1b 样式面板 ${Date.now()}`;
     await createBranchFromDraft(page, branchName);
+    await openManualTypographyTab(page);
     const branch = await getBranchByName(page, branchName);
     const revisionsBefore = await getResumeRevisionCount(page, branch.id);
 
@@ -171,7 +173,10 @@ test.describe("V2-G1b style property panel", () => {
 
     await enablePreviewEditing(page);
     const target = await getSectionTarget(page);
-    await visibleA4Page(page).locator(`[data-source-item-id="${target.itemId}"]`).first().click({ force: true });
+    await openManualContentTab(page);
+    await page.locator(".branch-editor textarea").first().focus();
+    await openManualLayoutTab(page);
+    await page.getByRole("button", { name: "段落" }).click();
     await expect(page.getByTestId("block-style-panel")).toBeVisible();
 
     await propertyPanel.getByRole("button", { name: "栏目" }).click();
@@ -180,6 +185,7 @@ test.describe("V2-G1b style property panel", () => {
     await expectNotice(page,"栏目标题已隐藏");
     await expect.poll(() => isSectionTitleVisible(page, target.sectionType, target.title)).toBe(false);
 
+    await openManualPageTab(page);
     await propertyPanel.getByRole("button", { name: "整页" }).click();
     await page.getByRole("button", { name: "打印 / 保存 PDF" }).click();
     await expect(page.locator("body")).toHaveAttribute("data-print-invoked", "true");
@@ -195,6 +201,7 @@ test.describe("V2-G1b style property panel", () => {
     expect(snapshot?.theme?.density).toBe("compact");
     expect(snapshot?.sectionStyleOverrides?.[target.sectionType]?.showTitle).toBe(false);
 
+    await openManualHistoryTab(page);
     await page.getByRole("button", { name: "回退展示" }).click();
     await expectNotice(page,"已撤销");
     await expect.poll(() => isSectionTitleVisible(page, target.sectionType, target.title)).toBe(true);
@@ -208,6 +215,7 @@ test.describe("V2-G1b style property panel", () => {
   test("连续撤销和重做不会因闭包过期导致 undo/redo 栈错乱", async ({ page }) => {
     const branchName = `V2 G1b undo bug ${Date.now()}`;
     await createBranchFromDraft(page, branchName);
+    await openManualTypographyTab(page);
 
     await expect(page.getByTestId("resume-property-panel")).toBeVisible();
 
@@ -221,6 +229,7 @@ test.describe("V2-G1b style property panel", () => {
     await expect.poll(() => getCssVariable(page, "--resume-body-font-size")).toBe("8.8pt");
 
     // First undo: restores bodyTextScale
+    await openManualHistoryTab(page);
     const undoButton = page.getByRole("button", { name: "回退展示" });
     await expect(undoButton).toBeEnabled();
     await undoButton.click();
@@ -252,6 +261,7 @@ test.describe("V2-G1b style property panel", () => {
   test("恢复模板默认样式后 overflow 重新测量", async ({ page }) => {
     const branchName = `V2 G1b reset overflow ${Date.now()}`;
     await createBranchFromDraft(page, branchName);
+    await openManualTypographyTab(page);
 
     await expect(page.getByTestId("resume-property-panel")).toBeVisible();
 
@@ -266,6 +276,7 @@ test.describe("V2-G1b style property panel", () => {
     await expect.poll(() => getCssVariable(page, "--resume-page-padding-block")).toBe("12mm");
 
     // Verify overflow status element is visible and has valid content
+    await openManualPageTab(page);
     const overflowStatus = page.getByTestId("overflow-status");
     await expect(overflowStatus).toBeVisible();
     await expect(overflowStatus.locator("strong")).not.toBeEmpty();

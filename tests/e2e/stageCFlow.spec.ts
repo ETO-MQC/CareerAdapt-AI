@@ -45,12 +45,13 @@ test.describe("Stage C1 evidence matcher flow", () => {
 
     await page.getByTestId("run-experience-match").click();
     await expect(page.locator(".notice")).toBeVisible();
-    await expect(page.locator(".match-row").first()).toBeVisible();
+    const matchRows = page.locator(".match-layout .match-list .match-row");
+    await expect(matchRows.first()).toBeVisible();
 
     await page.getByTestId("run-ai-evidence-explanation").click();
     await expect(page.locator(".notice")).toBeVisible({ timeout: 15_000 });
 
-    await page.locator(".match-row").first().click();
+    await matchRows.first().click();
     await page.locator(".manual-override select").nth(0).selectOption("strong");
     await page.locator(".manual-override select").nth(1).selectOption("low");
     await page.locator(".manual-override select").nth(2).selectOption({ index: 1 });
@@ -58,14 +59,14 @@ test.describe("Stage C1 evidence matcher flow", () => {
     await page.getByRole("button", { name: "保存人工覆盖" }).click();
     await expect(page.getByText("人工覆盖已保存", { exact: false })).toBeVisible();
 
-    await page.locator(".match-row").nth(1).click();
+    await matchRows.nth(1).click();
     await page.locator(".manual-override select").nth(0).selectOption("none");
     await page.locator(".manual-override textarea").fill("当前正式事实中没有足够证据。");
     await page.getByRole("button", { name: "保存人工覆盖" }).click();
     await expect(page.getByText("人工覆盖已保存", { exact: false })).toBeVisible();
 
     await page.reload();
-    await expect(page.locator(".match-row").first()).toBeVisible();
+    await expect(matchRows.first()).toBeVisible();
 
     await page.evaluate(async () => {
       await new Promise<void>((resolve, reject) => {
@@ -93,8 +94,8 @@ test.describe("Stage C1 evidence matcher flow", () => {
     });
 
     await page.reload();
-    await expect(page.locator(".match-row").first()).toBeVisible();
-    await page.locator(".match-row").first().click();
+    await expect(matchRows.first()).toBeVisible();
+    await matchRows.first().click();
     await expect(page.locator(".warning-box").first()).toBeVisible();
   });
 

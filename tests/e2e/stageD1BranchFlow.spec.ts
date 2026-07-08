@@ -1,10 +1,25 @@
 import { expect, test } from "@playwright/test";
+import { openManualContentTab, openManualHistoryTab } from "./support/g7b2Ui";
 
 async function createC2DraftForSelectedJob(page: import("@playwright/test").Page) {
+  await openJobResumesTab(page);
   await page.getByTestId("run-experience-match").click();
   await expect(page.locator(".match-row").first()).toBeVisible();
   await page.getByTestId("create-suggestion-draft").click();
   await expect(page.locator(".notice")).toBeVisible();
+}
+
+async function openJobResumesTab(page: import("@playwright/test").Page) {
+  const tabs = page.locator(".jobs-tablist button");
+  await expect(tabs.nth(2)).toBeVisible();
+  await tabs.nth(2).click();
+  await expect(page.getByTestId("run-experience-match")).toBeVisible();
+}
+
+async function selectJobByIndex(page: import("@playwright/test").Page, index: number) {
+  const jobRows = page.locator(".jobs-list-panel .job-list .match-row");
+  await expect(jobRows.nth(index)).toBeVisible();
+  await jobRows.nth(index).click();
 }
 
 test.describe("Stage D1 resume branches", () => {
@@ -14,7 +29,7 @@ test.describe("Stage D1 resume branches", () => {
 
     await createC2DraftForSelectedJob(page);
 
-    await page.getByTestId("current-job-select").selectOption({ index: 1 });
+    await selectJobByIndex(page, 1);
     await createC2DraftForSelectedJob(page);
 
     await page.goto("/resume");
@@ -33,22 +48,27 @@ test.describe("Stage D1 resume branches", () => {
     await expect(page.locator(".branch-list .match-row")).toHaveCount(2);
 
     await page.locator(".branch-list .match-row").filter({ hasText: "D1 Branch A" }).click();
+    await openManualContentTab(page);
     const branchATextarea = page.locator(".branch-editor textarea").first();
     const originalA = await branchATextarea.inputValue();
     const editedA = `${originalA}.`;
     await branchATextarea.fill(editedA);
     await page.locator(".branch-editor .suggestion-card").first().locator("button.primary-button").click();
     await expect(page.locator(".notice")).toBeVisible();
+    await openManualHistoryTab(page);
     await expect(page.locator(".revision-list .review-row").filter({ hasText: "版本 2" })).toBeVisible();
 
     await page.locator(".branch-list .match-row").filter({ hasText: "D1 Branch B" }).click();
+    await openManualContentTab(page);
     await expect(page.locator(".branch-editor textarea").first()).not.toHaveValue(editedA);
 
     await page.locator(".branch-list .match-row").filter({ hasText: "D1 Branch A" }).click();
+    await openManualHistoryTab(page);
     await page.locator(".revision-list .review-row").filter({ hasText: "版本 1" }).locator("button").click();
     await expect(page.locator(".notice")).toContainText("已恢复旧版本");
     await page.getByTestId("resume-studio-workbar").getByRole("button", { name: "撤销" }).click();
     await expect(page.locator(".notice")).toContainText("已撤销最近一次简历修改");
+    await openManualContentTab(page);
     await expect(page.locator(".branch-editor textarea").first()).toHaveValue(editedA);
 
     await page.evaluate(async () => {

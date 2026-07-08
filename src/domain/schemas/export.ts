@@ -42,7 +42,8 @@ export const ExportSnapshotPresentationSchema = z.object({
     density: PresentationDensitySchema
   }),
   sectionStyleOverrides: z.record(z.string(), z.object({
-    showTitle: z.boolean().optional()
+    showTitle: z.boolean().optional(),
+    titleOverride: z.string().trim().min(1).max(80).optional()
   })),
   pagination: z.object({
     pagePolicy: ResumePagePolicySchema,

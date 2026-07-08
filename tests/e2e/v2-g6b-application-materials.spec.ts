@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { openApplicationMaterialsTab } from "./support/g7b2Ui";
 
 type DbApplication = {
   id: string;
@@ -20,7 +21,7 @@ test.describe("V2-G6b Application materials", () => {
     await page.getByTestId("open-or-create-application").click();
     await expect(page).toHaveURL(/\/applications\?applicationId=/);
     await expect(page.getByTestId("application-detail")).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByTestId("application-materials-panel")).toBeVisible();
+    await openApplicationMaterialsTab(page);
 
     const [applicationBefore] = await readAllFromStore<DbApplication>(page, "applications");
     expect(applicationBefore.status).toBe("preparing");

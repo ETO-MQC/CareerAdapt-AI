@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { openManualContentTab, openManualHistoryTab } from "./support/g7b2Ui";
 
 /**
  * D1 验证测试 — 覆盖完整的分支隔离、Fact Guard 阻止、版本恢复/撤销、
@@ -11,6 +12,7 @@ import { expect, test } from "@playwright/test";
 
 /** 在 /jobs 为当前选中岗位创建一个 C2 草稿（C1 + C2 流水线） */
 async function createC2DraftForSelectedJob(page: import("@playwright/test").Page) {
+  await openJobResumesTab(page);
   await page.getByTestId("run-experience-match").click();
   await expect(page.locator(".match-row").first()).toBeVisible();
   await page.getByTestId("create-suggestion-draft").click();
@@ -19,7 +21,16 @@ async function createC2DraftForSelectedJob(page: import("@playwright/test").Page
 
 /** 切换 JD 列表中的岗位（index 0 或 1） */
 async function selectJobByIndex(page: import("@playwright/test").Page, index: number) {
-  await page.getByTestId("current-job-select").selectOption({ index });
+  const jobRows = page.locator(".jobs-list-panel .job-list .match-row");
+  await expect(jobRows.nth(index)).toBeVisible();
+  await jobRows.nth(index).click();
+}
+
+async function openJobResumesTab(page: import("@playwright/test").Page) {
+  const tabs = page.locator(".jobs-tablist button");
+  await expect(tabs.nth(2)).toBeVisible();
+  await tabs.nth(2).click();
+  await expect(page.getByTestId("run-experience-match")).toBeVisible();
 }
 
 /** 向 IndexedDB 注入一个 legacy_unverified 占位分支 */
@@ -166,6 +177,7 @@ test.describe("D1 验证：分支隔离、Fact Guard、版本历史、持久化�
     // 2.  修改分支 A，确认分支 B 不受影响
     // ================================================================
     await page.locator(".branch-list .match-row").filter({ hasText: "D1 验证分支 A" }).click();
+    await openManualContentTab(page);
 
     const branchATextarea = page.locator(".branch-editor textarea").first();
     const originalAText = await branchATextarea.inputValue();
@@ -176,10 +188,12 @@ test.describe("D1 验证：分支隔离、Fact Guard、版本历史、持久化�
 
     // 验证 Fact Guard 通过且 revision 升级
     await expect(page.locator(".notice")).toContainText("已保存");
+    await openManualHistoryTab(page);
     await expect(page.locator(".revision-list .review-row").filter({ hasText: "版本 2" })).toBeVisible();
 
     // 切到 Branch B，确认内容未被污染
     await page.locator(".branch-list .match-row").filter({ hasText: "D1 验证分支 B" }).click();
+    await openManualContentTab(page);
     const branchBTextarea = page.locator(".branch-editor textarea").first();
     const branchBText = await branchBTextarea.inputValue();
     expect(branchBText).not.toBe(editedAText);
@@ -188,6 +202,7 @@ test.describe("D1 验证：分支隔离、Fact Guard、版本历史、持久化�
     // 3.  手动添加未被证据支持的数字或技能 → Fact Guard 阻止保存
     // ================================================================
     await page.locator(".branch-list .match-row").filter({ hasText: "D1 验证分支 A" }).click();
+    await openManualContentTab(page);
 
     // 写入包含新数字（30%）的文本，这不在 originalText 或 evidenceText 中
     const unverifiedText = `${originalAText}，项目效率提升了30%`;
@@ -214,12 +229,14 @@ test.describe("D1 验证：分支隔离、Fact Guard、版本历史、持久化�
     await expect(page.locator(".notice")).toContainText("已保存");
 
     // 恢复到 revision 0（原始文本）
+    await openManualHistoryTab(page);
     const rev0Row = page.locator(".revision-list .review-row").filter({ hasText: "版本 1" });
     await expect(rev0Row).toBeVisible();
     await rev0Row.locator("button").click();
     await expect(page.locator(".notice")).toContainText("已恢复旧版本");
 
     // 验证文本已回退到原始值
+    await openManualContentTab(page);
     const restoredTextarea = page.locator(".branch-editor textarea").first();
     await expect(restoredTextarea).toHaveValue(originalAText);
 
@@ -248,6 +265,7 @@ test.describe("D1 验证：分支隔离、Fact Guard、版本历史、持久化�
 
     // 选中 Branch A 后，版本历史仍然可见
     await page.locator(".branch-list .match-row").filter({ hasText: "D1 验证分支 A" }).click();
+    await openManualHistoryTab(page);
     await expect(page.locator(".revision-list .review-row").first()).toBeVisible();
     // 至少有 3 个 revision（创建、编辑1、undo-as-restore）
     const revisionRows = page.locator(".revision-list .review-row");
@@ -273,20 +291,19 @@ test.describe("D1 验证：分支隔离、Fact Guard、版本历史、持久化�
 
     // 验证显示只读警告
     await expect(page.getByRole("heading", { name: "旧版占位分支" })).toBeVisible();
+    await expect(page.getByText("这是旧占位简历，已只读保留")).toBeVisible();
 
-    // textarea 应该被 disabled
-    const legacyTextarea = page.locator(".branch-editor textarea").first();
-    await expect(legacyTextarea).toBeDisabled();
-
-    // 保存按钮应被 disabled
-    const legacySaveBtn = page.locator(".branch-editor .suggestion-card").first().locator("button.primary-button");
-    await expect(legacySaveBtn).toBeDisabled();
+    // 旧分支不进入正式内容编辑面板
+    await expect(page.locator(".branch-editor")).toHaveCount(0);
+    await expect(page.getByTestId("canvas-edit-toggle")).toBeDisabled();
+    await expect(page.getByRole("button", { name: "导出", exact: true })).toBeDisabled();
 
     // 撤销按钮应被 disabled
     const legacyUndoBtn = page.getByTestId("resume-studio-workbar").getByRole("button", { name: "撤销" });
     await expect(legacyUndoBtn).toBeDisabled();
 
     // 恢复按钮应被 disabled
+    await openManualHistoryTab(page);
     const legacyRestoreBtn = page.locator(".revision-list .review-row").first().locator("button");
     await expect(legacyRestoreBtn).toBeDisabled();
   });

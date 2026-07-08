@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
+import { openAiDiagnosticsTab, openManualPageTab, openManualTypographyTab } from "./support/g7b2Ui";
 
 type DbBranch = {
   id: string;
@@ -151,7 +152,11 @@ async function createBranchFromDraft(page: Page, branchName: string) {
 }
 
 async function openAiMode(page: Page, tabName?: string) {
-  await page.getByRole("button", { name: "AI" }).click();
+  if (tabName === "质量检查") {
+    await openAiDiagnosticsTab(page);
+    return;
+  }
+  await page.locator(".resume-mode-rail button").nth(1).click();
   if (tabName) {
     await page.getByRole("button", { name: tabName }).click();
   }
@@ -171,6 +176,7 @@ async function confirmImport(page: Page) {
 }
 
 async function downloadDirectPdf(page: Page, filePrefix: string) {
+  await openManualPageTab(page);
   const responsePromise = page.waitForResponse((response) =>
     response.url().includes("/api/resume-export/pdf") && response.request().method() === "POST"
   );
@@ -272,7 +278,7 @@ test.describe("G4-G5 Joint: requirement-block-mapping", () => {
 // ---------------------------------------------------------------------------
 test.describe("G4-G5 Joint: suggestion-diff-and-accept", () => {
   test("generates suggestion with diff and accepts it into branch revision", async ({ page }) => {
-    test.setTimeout(120_000);
+    test.setTimeout(150_000);
     const branchName = `Joint Suggest ${Date.now()}`;
 
     await createC2Draft(page);
@@ -294,7 +300,7 @@ test.describe("G4-G5 Joint: suggestion-diff-and-accept", () => {
     await expect(compressButton).toBeEnabled();
     await compressButton.click();
 
-    await expect(panel.getByTestId("block-suggestion-panel")).toBeVisible({ timeout: 30_000 });
+    await expect(panel.getByTestId("block-suggestion-panel")).toBeVisible({ timeout: 60_000 });
     await expect(panel.getByTestId("inline-diff")).toBeVisible();
 
     const before = await findBranchByName(page, branchName);
@@ -305,12 +311,12 @@ test.describe("G4-G5 Joint: suggestion-diff-and-accept", () => {
     await expect.poll(async () => {
       const accepted = await getSuggestions(page, before!.id);
       return accepted.filter((s) => s.status === "accepted").length;
-    }, { timeout: 45_000 }).toBeGreaterThan(0);
+    }, { timeout: 75_000 }).toBeGreaterThan(0);
 
     await expect.poll(async () => {
       const updated = await findBranchByName(page, branchName);
       return updated?.revision ?? -1;
-    }, { timeout: 45_000 }).toBe((before?.revision ?? 0) + 1);
+    }, { timeout: 75_000 }).toBe((before?.revision ?? 0) + 1);
 
     const accepted = await getSuggestions(page, before!.id);
     expect(accepted.filter((s) => s.status === "accepted").length).toBeGreaterThan(0);
@@ -324,6 +330,45 @@ test.describe("G4-G5 Joint: edited-accept-and-fact-guard", () => {
   test("suggestion acceptance re-runs Fact Guard and creates revision", async ({ page }) => {
     test.setTimeout(120_000);
     const branchName = `Joint FactGuard ${Date.now()}`;
+
+    await page.route("**/api/ai/structured", async (route) => {
+      const body = route.request().postDataJSON() as {
+        task: string;
+        input?: {
+          allowedEvidenceRefs?: unknown[];
+          matches?: Array<{ requirementId?: string }>;
+          sectionTexts?: Array<{ sectionId?: string; text?: string }>;
+        };
+      };
+      if (body.task !== "resume-tailor") {
+        await route.continue();
+        return;
+      }
+      const section = body.input?.sectionTexts?.[0];
+      const match = body.input?.matches?.[0];
+      const originalText = section?.text ?? "使用 Stata 完成数据清洗和统计分析。";
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          ok: true,
+          task: "resume-tailor",
+          promptVersion: "resume-tailor.e2e",
+          output: {
+            suggestions: [{
+              type: "compress",
+              targetSectionId: section?.sectionId ?? "e2e-section",
+              originalText,
+              suggestedText: `${originalText}。`,
+              reason: "E2E 固定建议，用于离线验证接受建议与事实核验链路。",
+              requirementIds: match?.requirementId ? [match.requirementId] : [],
+              usedEvidenceRefs: body.input?.allowedEvidenceRefs ?? [],
+              riskLevel: "low"
+            }]
+          },
+          meta: { provider: "mock", model: "mock-tailor", inputLength: 1, outputLength: 1, latencyMs: 1 }
+        })
+      });
+    });
 
     await createC2Draft(page);
     await createBranchFromDraft(page, branchName);
@@ -425,6 +470,7 @@ test.describe("G4-G5 Joint: diagnostics-coverage-and-fact-gap", () => {
     await createC2Draft(page);
     await createBranchFromDraft(page, branchName);
 
+    await openManualTypographyTab(page);
     await page.getByLabel("正文字号").selectOption("small");
     await page.getByLabel("行距").selectOption("tight");
     await expect(page.locator(".notice").filter({ hasText: "行距" })).toBeVisible({ timeout: 15_000 });
@@ -476,6 +522,7 @@ test.describe("G4-G5 Joint: safe-presentation-actions", () => {
     const branch = await findBranchByName(page, branchName);
     const revisionsBefore = await getRevisions(page, branch!.id);
 
+    await openManualTypographyTab(page);
     await page.getByLabel("页面密度").selectOption("compact");
     await expectNotice(page, "页面密度已保存");
 
@@ -602,6 +649,7 @@ test.describe("G4-G5 Joint: full-end-to-end-golden-path", () => {
     await page.getByRole("button", { name: "关闭模板中心" }).click();
 
     // Step 4: Change page policy to two pages
+    await openManualPageTab(page);
     await page.getByTestId("page-policy-selector").selectOption("up_to_two_pages");
     await expectNotice(page, "最多两页");
 

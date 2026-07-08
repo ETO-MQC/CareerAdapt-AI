@@ -45,7 +45,8 @@ const ItemOrderBySectionSchema = z.object({
 }).default({});
 
 const SectionStyleOverrideSchema = z.object({
-  showTitle: z.boolean().optional()
+  showTitle: z.boolean().optional(),
+  titleOverride: z.string().trim().min(1).max(80).optional()
 });
 
 const SectionStyleOverridesSchema = z.object({

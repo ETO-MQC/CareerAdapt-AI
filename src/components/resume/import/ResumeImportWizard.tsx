@@ -63,7 +63,7 @@ export function ResumeImportWizard(props: {
   const fileIntentRef = useRef<"auto" | "pdf" | "docx" | "json" | "ocr">("auto");
   const abortRef = useRef<AbortController | undefined>(undefined);
   const [status, setStatus] = useState<ImportStatus>("idle");
-  const [message, setMessage] = useState("导入 PDF、DOCX、OCR 或结构化 JSON 后，系统会先生成可核对草稿。");
+  const [message, setMessage] = useState("导入文本 PDF、DOCX 或结构化 JSON 后，系统会先生成可核对草稿；OCR 仅为实验性 Adapter。");
   const [draft, setDraft] = useState<ImportedResumeDraft | undefined>();
   const [pages, setPages] = useState<PdfPageText[]>([]);
   const [selectedPageNumber, setSelectedPageNumber] = useState(1);
@@ -108,7 +108,8 @@ export function ResumeImportWizard(props: {
   const qualityReport = useMemo(() => draft ? buildImportQualityReport(draft) : undefined, [draft]);
 
   async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.currentTarget.files?.[0];
+    const input = event.currentTarget;
+    const file = input.files?.[0];
     if (file) {
       const intent = fileIntentRef.current;
       fileIntentRef.current = "auto";
@@ -122,7 +123,7 @@ export function ResumeImportWizard(props: {
         await startFileImport(file);
       }
     }
-    event.currentTarget.value = "";
+    input.value = "";
   }
 
   async function handleDrop(event: DragEvent<HTMLDivElement>) {
@@ -288,7 +289,7 @@ export function ResumeImportWizard(props: {
 
   async function startOcrImport(file: File) {
     setStatus("extracting_ocr");
-    setMessage("正在调用 OCR Adapter。OCR 结果仍需逐项核对。");
+    setMessage("正在调用实验性 OCR Adapter；当前环境未内置正式本地 OCR 引擎。");
     setDraft(undefined);
     setPages([]);
     setSelectedItemId(undefined);
@@ -655,7 +656,7 @@ export function ResumeImportWizard(props: {
       <div className="section-heading">
         <div>
           <h2>导入已有 PDF 简历</h2>
-          <p>支持文本 PDF、DOCX、OCR Adapter 和结构化 JSON；确认前不会写入个人资料或创建正式简历。</p>
+          <p>支持文本 PDF、DOCX 和结构化 JSON；OCR 仅为实验性 Adapter，当前环境未安装正式本地识别引擎。</p>
         </div>
         <div className="action-row import-source-actions">
           <button className="secondary-button" onClick={() => {
@@ -674,7 +675,7 @@ export function ResumeImportWizard(props: {
             fileIntentRef.current = "ocr";
             fileInputRef.current?.click();
           }} disabled={status === "extracting_ocr" || status === "confirming"}>
-            OCR
+            OCR实验
           </button>
           <button className="secondary-button" onClick={() => {
             fileIntentRef.current = "json";
@@ -733,12 +734,31 @@ export function ResumeImportWizard(props: {
         <section className="import-quality-report" data-testid="ocr-benchmark-report">
           <div>
             <strong>OCR Benchmark</strong>
+            <span>状态 {ocrBenchmark.classification}</span>
             <span>{ocrBenchmark.engine}</span>
           </div>
           <div>
             <span>{ocrBenchmark.supported ? "Adapter可用" : "Adapter未就绪"}</span>
             <span>{ocrBenchmark.elapsedMs}ms</span>
             <span>{ocrBenchmark.recommendation === "adapter_ready" ? "可接入OCR核对" : "建议JSON兜底"}</span>
+          </div>
+          <div>
+            <span>{ocrBenchmark.model.name}</span>
+            <span>{ocrBenchmark.model.modelFile}</span>
+            <span>模型 {ocrBenchmark.model.modelSizeMb}MB</span>
+            <span>{ocrBenchmark.model.cpu === "used" ? "CPU" : "非CPU"}</span>
+            <span>{ocrBenchmark.model.gpu === "used" ? "GPU" : "无GPU"}</span>
+          </div>
+          <div>
+            <span>单栏 {ocrBenchmark.measured.singleColumnElapsedMs}ms</span>
+            <span>双栏 {ocrBenchmark.measured.twoColumnElapsedMs}ms</span>
+            <span>内存 {ocrBenchmark.measured.peakMemoryMb}MB</span>
+            <span>字段 {ocrBenchmark.measured.recognizedFieldCount}/{ocrBenchmark.measured.expectedFieldCount}</span>
+            <span>双栏顺序 {ocrBenchmark.measured.twoColumnOrderPreserved ? "通过" : "未通过"}</span>
+          </div>
+          <div>
+            <span>{ocrBenchmark.productStatus}</span>
+            <span>{ocrBenchmark.conclusion}</span>
           </div>
           <div>
             {ocrBenchmark.notes.map((note) => <span key={note}>{note}</span>)}

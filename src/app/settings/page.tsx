@@ -1,30 +1,128 @@
+"use client";
+
+import { useState } from "react";
+
+type ThemePreference = "system" | "light" | "dark";
+type DensityPreference = "compact" | "comfortable";
+type SettingsCategory = "appearance" | "export" | "help";
+
+const themeStorageKey = "careeradapt.theme";
+const densityStorageKey = "careeradapt.density";
+
+const categories: Array<{ id: SettingsCategory; label: string; description: string }> = [
+  { id: "appearance", label: "界面", description: "主题与显示密度" },
+  { id: "export", label: "导出", description: "A4 与 PDF 行为" },
+  { id: "help", label: "帮助", description: "说明入口" }
+];
+
 export default function SettingsPage() {
+  const [category, setCategory] = useState<SettingsCategory>("appearance");
+  const [theme, setTheme] = useState<ThemePreference>(() => typeof window === "undefined" ? "system" : readThemePreference());
+  const [density, setDensity] = useState<DensityPreference>(() => typeof window === "undefined" ? "compact" : readDensityPreference());
+
+  function updateTheme(nextTheme: ThemePreference) {
+    setTheme(nextTheme);
+    window.localStorage.setItem(themeStorageKey, nextTheme);
+    applyPreferences(nextTheme, density);
+  }
+
+  function updateDensity(nextDensity: DensityPreference) {
+    setDensity(nextDensity);
+    window.localStorage.setItem(densityStorageKey, nextDensity);
+    applyPreferences(theme, nextDensity);
+  }
+
   return (
-    <main className="page-shell">
+    <main className="page-shell settings-workspace">
       <section className="page-title">
         <p className="eyebrow">偏好</p>
         <h1>设置</h1>
-        <p>调整界面主题和显示密度。简历纸张、模板颜色和 PDF 导出不会随应用主题反转。</p>
+        <p>调整应用界面偏好。简历纸张、模板颜色和 PDF 导出不会随应用主题反转。</p>
       </section>
 
-      <section className="panel settings-panel">
-        <h2>界面偏好</h2>
-        <p>顶部栏提供主题和密度切换。偏好保存在本机浏览器，不会创建简历版本，也不会修改简历正文。</p>
-        <dl className="info-list">
-          <div>
-            <dt>主题</dt>
-            <dd>明亮、暗黑或跟随系统</dd>
-          </div>
-          <div>
-            <dt>密度</dt>
-            <dd>紧凑或舒适</dd>
-          </div>
-          <div>
-            <dt>导出</dt>
-            <dd>A4 纸张保持白色，PDF 不受应用主题影响</dd>
-          </div>
-        </dl>
+      <section className="settings-layout">
+        <aside className="panel settings-nav">
+          {categories.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              className={category === item.id ? "profile-category-button profile-category-button-active" : "profile-category-button"}
+              onClick={() => setCategory(item.id)}
+            >
+              <span>
+                <strong>{item.label}</strong>
+                <small>{item.description}</small>
+              </span>
+            </button>
+          ))}
+        </aside>
+
+        <section className="panel settings-panel">
+          {category === "appearance" ? (
+            <div className="settings-section">
+              <div className="section-heading compact-heading">
+                <div>
+                  <h2>界面偏好</h2>
+                  <p>偏好保存在本机浏览器，不创建简历版本，也不修改简历正文。</p>
+                </div>
+              </div>
+              <label className="field-label">
+                主题
+                <select value={theme} onChange={(event) => updateTheme(event.target.value as ThemePreference)}>
+                  <option value="system">跟随系统</option>
+                  <option value="light">明亮</option>
+                  <option value="dark">暗黑</option>
+                </select>
+              </label>
+              <label className="field-label">
+                显示密度
+                <select value={density} onChange={(event) => updateDensity(event.target.value as DensityPreference)}>
+                  <option value="compact">紧凑</option>
+                  <option value="comfortable">舒适</option>
+                </select>
+              </label>
+            </div>
+          ) : null}
+
+          {category === "export" ? (
+            <div className="settings-section">
+              <h2>导出行为</h2>
+              <dl className="info-list">
+                <div><dt>A4 纸张</dt><dd>始终保持白色预览与导出。</dd></div>
+                <div><dt>PDF</dt><dd>不受应用明亮或暗黑主题影响。</dd></div>
+                <div><dt>模板颜色</dt><dd>由简历工作台的模板设置控制。</dd></div>
+              </dl>
+            </div>
+          ) : null}
+
+          {category === "help" ? (
+            <div className="settings-section">
+              <h2>帮助</h2>
+              <p>常用说明保留在设置分类中，不占用主工作区。</p>
+            </div>
+          ) : null}
+        </section>
       </section>
     </main>
   );
+}
+
+function applyPreferences(theme: ThemePreference, density: DensityPreference) {
+  const resolvedTheme = theme === "system"
+    ? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
+    : theme;
+  document.documentElement.dataset.theme = resolvedTheme;
+  document.documentElement.dataset.themePreference = theme;
+  document.documentElement.dataset.density = density;
+  window.dispatchEvent(new Event("careeradapt-preferences-change"));
+}
+
+function readThemePreference(): ThemePreference {
+  const value = window.localStorage.getItem(themeStorageKey);
+  return value === "light" || value === "dark" || value === "system" ? value : "system";
+}
+
+function readDensityPreference(): DensityPreference {
+  const value = window.localStorage.getItem(densityStorageKey);
+  return value === "compact" || value === "comfortable" ? value : "compact";
 }

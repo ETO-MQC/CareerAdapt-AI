@@ -57,7 +57,7 @@ export function mapBranchToResumeRenderModel(input: {
   const sections = document.sections
     .map((section): ResumeRenderSection => ({
       type: section.type,
-      title: sectionTitle(section.type),
+      title: input.presentationConfig?.sectionStyleOverrides[section.type]?.titleOverride ?? sectionTitle(section.type),
       blocks: blocks.filter((block) => blockType(block) === section.type)
     }))
     .filter((section) => section.blocks.length > 0);

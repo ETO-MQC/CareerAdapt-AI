@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type CSSProperties, type KeyboardEvent, type MouseEvent, type RefObject } from "react";
+import { useState, type CSSProperties, type FocusEvent, type KeyboardEvent, type MouseEvent, type RefObject } from "react";
 import type { ResumePaginationPlan, ResumePresentationConfig, ResumeRenderModel } from "@/domain/schemas";
 import { resumeTemplateStyleVars, type TemplateDefinition } from "./templates/templateRegistry";
 import type { ResumeDocumentBlock } from "@/domain/resumeDocument/mapper";
@@ -14,10 +14,15 @@ export type ResumeStudioEditorProps = {
   selectedProfileFieldId?: string;
   editingProfileFieldId?: string;
   selectedProfileFieldLabel?: string;
+  selectedSectionTitleId?: string;
+  editingSectionTitleId?: string;
+  selectedSectionTitleLabel?: string;
   draftText: string;
   profileDraftText?: string;
+  sectionTitleDraftText?: string;
   error?: string;
   profileError?: string;
+  sectionTitleError?: string;
   pending: boolean;
   onSelect: (itemId: string) => void;
   onStartEdit: (itemId: string) => void;
@@ -29,6 +34,11 @@ export type ResumeStudioEditorProps = {
   onProfileDraftTextChange?: (text: string) => void;
   onSaveProfileField?: () => void;
   onCancelProfileField?: () => void;
+  onSelectSectionTitle?: (fieldId: string, currentText: string) => void;
+  onStartSectionTitleEdit?: (fieldId: string, currentText: string) => void;
+  onSectionTitleDraftTextChange?: (text: string) => void;
+  onSaveSectionTitle?: () => void;
+  onCancelSectionTitle?: () => void;
   onMoveUp?: (itemId: string) => void;
   onMoveDown?: (itemId: string) => void;
   onHide?: (itemId: string) => void;
@@ -69,6 +79,10 @@ export function A4ResumePreview({
     return itemId.startsWith("profile:");
   }
 
+  function isSectionTitleId(itemId: string) {
+    return itemId.startsWith("section-title:");
+  }
+
   function positionOverlay(sourceNode: HTMLElement, pageNode: HTMLElement) {
     const sourceRect = sourceNode.getBoundingClientRect();
     const pageRect = pageNode.getBoundingClientRect();
@@ -89,8 +103,13 @@ export function A4ResumePreview({
       positionOverlay(sourceNode, event.currentTarget);
       if (isProfileFieldId(itemId) && editor.onSelectProfileField) {
         editor.onSelectProfileField(itemId, sourceNode.textContent ?? "");
+        editor.onStartProfileFieldEdit?.(itemId, sourceNode.textContent ?? "");
+      } else if (isSectionTitleId(itemId) && editor.onSelectSectionTitle) {
+        editor.onSelectSectionTitle(itemId, sourceNode.textContent ?? "");
+        editor.onStartSectionTitleEdit?.(itemId, sourceNode.textContent ?? "");
       } else {
         editor.onSelect(itemId);
+        editor.onStartEdit(itemId);
       }
     }
   }
@@ -107,6 +126,10 @@ export function A4ResumePreview({
         const currentText = sourceNode.textContent ?? "";
         editor.onSelectProfileField(itemId, currentText);
         editor.onStartProfileFieldEdit(itemId, currentText);
+      } else if (isSectionTitleId(itemId) && editor.onSelectSectionTitle && editor.onStartSectionTitleEdit) {
+        const currentText = sourceNode.textContent ?? "";
+        editor.onSelectSectionTitle(itemId, currentText);
+        editor.onStartSectionTitleEdit(itemId, currentText);
       } else {
         editor.onSelect(itemId);
         editor.onStartEdit(itemId);
@@ -118,6 +141,9 @@ export function A4ResumePreview({
     if (!editor?.enabled) {
       return;
     }
+    if (event.nativeEvent.isComposing) {
+      return;
+    }
     if ((event.key === "Enter" || event.key === "F2") && !editor.editingItemId && editor.selectedItemId) {
       event.preventDefault();
       editor.onStartEdit(editor.selectedItemId);
@@ -125,6 +151,10 @@ export function A4ResumePreview({
     if ((event.key === "Enter" || event.key === "F2") && !editor.editingProfileFieldId && editor.selectedProfileFieldId && editor.onStartProfileFieldEdit) {
       event.preventDefault();
       editor.onStartProfileFieldEdit(editor.selectedProfileFieldId, editor.profileDraftText ?? "");
+    }
+    if ((event.key === "Enter" || event.key === "F2") && !editor.editingSectionTitleId && editor.selectedSectionTitleId && editor.onStartSectionTitleEdit) {
+      event.preventDefault();
+      editor.onStartSectionTitleEdit(editor.selectedSectionTitleId, editor.sectionTitleDraftText ?? "");
     }
     if (event.key === "Escape" && editor.editingItemId) {
       event.preventDefault();
@@ -134,6 +164,10 @@ export function A4ResumePreview({
       event.preventDefault();
       editor.onCancelProfileField();
     }
+    if (event.key === "Escape" && editor.editingSectionTitleId && editor.onCancelSectionTitle) {
+      event.preventDefault();
+      editor.onCancelSectionTitle();
+    }
     if ((event.ctrlKey || event.metaKey) && event.key === "Enter" && editor.editingItemId) {
       event.preventDefault();
       editor.onSave();
@@ -141,6 +175,28 @@ export function A4ResumePreview({
     if ((event.ctrlKey || event.metaKey) && event.key === "Enter" && editor.editingProfileFieldId && editor.onSaveProfileField) {
       event.preventDefault();
       editor.onSaveProfileField();
+    }
+    if ((event.ctrlKey || event.metaKey) && event.key === "Enter" && editor.editingSectionTitleId && editor.onSaveSectionTitle) {
+      event.preventDefault();
+      editor.onSaveSectionTitle();
+    }
+  }
+
+  function handleEditorTextAreaKeyDown(
+    event: KeyboardEvent<HTMLTextAreaElement>,
+    onSave?: () => void,
+    onCancel?: () => void
+  ) {
+    if (event.nativeEvent.isComposing) {
+      return;
+    }
+    if (event.key === "Escape" && onCancel) {
+      event.preventDefault();
+      onCancel();
+    }
+    if ((event.ctrlKey || event.metaKey) && event.key === "Enter" && onSave) {
+      event.preventDefault();
+      onSave();
     }
   }
 
@@ -156,12 +212,26 @@ export function A4ResumePreview({
   const previewZoomStyle = { "--resume-preview-zoom": zoom } as CSSProperties;
 
   function renderEditorOverlay() {
-    if (!editor?.enabled || (!editor.selectedBlock && !editor.selectedProfileFieldId)) {
+    if (!editor?.enabled || (!editor.selectedBlock && !editor.selectedProfileFieldId && !editor.selectedSectionTitleId)) {
       return null;
     }
     const profileFieldSelected = Boolean(editor.selectedProfileFieldId && !editor.selectedBlock);
+    const sectionTitleSelected = Boolean(editor.selectedSectionTitleId && !editor.selectedBlock && !editor.selectedProfileFieldId);
     const profileFieldEditing = Boolean(editor.editingProfileFieldId && editor.editingProfileFieldId === editor.selectedProfileFieldId);
+    const sectionTitleEditing = Boolean(editor.editingSectionTitleId && editor.editingSectionTitleId === editor.selectedSectionTitleId);
     const profileFieldText = editor.profileDraftText ?? "";
+    const sectionTitleText = editor.sectionTitleDraftText ?? "";
+    const saveOnOutsideBlur = (event: FocusEvent<HTMLTextAreaElement>, onSave?: () => void) => {
+      if (editor.pending) {
+        return;
+      }
+      const nextTarget = event.relatedTarget;
+      const editorPanel = event.currentTarget.closest("[data-testid='resume-studio-editor']");
+      if (nextTarget instanceof HTMLElement && editorPanel?.contains(nextTarget)) {
+        return;
+      }
+      onSave?.();
+    };
     return (
       <div
         className="resume-studio-editor no-print"
@@ -174,8 +244,14 @@ export function A4ResumePreview({
         } : undefined}
       >
         <div>
-          <strong>{profileFieldSelected ? "编辑基本信息" : "编辑段落"}</strong>
-          <span>{profileFieldSelected ? editor.selectedProfileFieldLabel : `${contentItemTypeLabel(editor.selectedBlock?.itemType)} / ${guardStatusLabel(editor.selectedBlock?.guardStatus)}`}</span>
+          <strong>{profileFieldSelected ? "编辑基本信息" : sectionTitleSelected ? "编辑栏目标题" : "编辑段落"}</strong>
+          <span>
+            {profileFieldSelected
+              ? editor.selectedProfileFieldLabel
+              : sectionTitleSelected
+                ? editor.selectedSectionTitleLabel
+                : `${contentItemTypeLabel(editor.selectedBlock?.itemType)} / ${guardStatusLabel(editor.selectedBlock?.guardStatus)}`}
+          </span>
         </div>
         {profileFieldEditing ? (
           <>
@@ -184,16 +260,29 @@ export function A4ResumePreview({
               autoFocus
               value={profileFieldText}
               disabled={editor.pending}
-              onPaste={(event) => {
-                event.preventDefault();
-                const text = event.clipboardData.getData("text/plain");
-                editor.onProfileDraftTextChange?.(`${profileFieldText}${text}`);
-              }}
               onChange={(event) => editor.onProfileDraftTextChange?.(event.target.value)}
+              onKeyDown={(event) => handleEditorTextAreaKeyDown(event, editor.onSaveProfileField, editor.onCancelProfileField)}
+              onBlur={(event) => saveOnOutsideBlur(event, editor.onSaveProfileField)}
             />
             <div className="action-row">
               <button className="primary-button compact" disabled={editor.pending} onClick={editor.onSaveProfileField}>保存</button>
               <button className="secondary-button compact" disabled={editor.pending} onClick={editor.onCancelProfileField}>取消</button>
+            </div>
+          </>
+        ) : sectionTitleEditing ? (
+          <>
+            <textarea
+              aria-label="编辑简历栏目标题"
+              autoFocus
+              value={sectionTitleText}
+              disabled={editor.pending}
+              onChange={(event) => editor.onSectionTitleDraftTextChange?.(event.target.value)}
+              onKeyDown={(event) => handleEditorTextAreaKeyDown(event, editor.onSaveSectionTitle, editor.onCancelSectionTitle)}
+              onBlur={(event) => saveOnOutsideBlur(event, editor.onSaveSectionTitle)}
+            />
+            <div className="action-row">
+              <button className="primary-button compact" disabled={editor.pending} onClick={editor.onSaveSectionTitle}>保存</button>
+              <button className="secondary-button compact" disabled={editor.pending} onClick={editor.onCancelSectionTitle}>取消</button>
             </div>
           </>
         ) : editor.selectedBlock && editor.editingItemId === editor.selectedBlock.contentItemId ? (
@@ -203,12 +292,9 @@ export function A4ResumePreview({
               autoFocus
               value={editor.draftText}
               disabled={editor.pending}
-              onPaste={(event) => {
-                event.preventDefault();
-                const text = event.clipboardData.getData("text/plain");
-                editor.onDraftTextChange(`${editor.draftText}${text}`);
-              }}
               onChange={(event) => editor.onDraftTextChange(event.target.value)}
+              onKeyDown={(event) => handleEditorTextAreaKeyDown(event, editor.onSave, editor.onCancel)}
+              onBlur={(event) => saveOnOutsideBlur(event, editor.onSave)}
             />
             <div className="action-row">
               <button className="primary-button compact" disabled={editor.pending} onClick={editor.onSave}>保存</button>
@@ -223,6 +309,14 @@ export function A4ResumePreview({
                   className="primary-button compact"
                   disabled={editor.pending || !editor.onStartProfileFieldEdit}
                   onClick={() => editor.onStartProfileFieldEdit?.(editor.selectedProfileFieldId!, profileFieldText)}
+                >
+                  编辑
+                </button>
+              ) : sectionTitleSelected ? (
+                <button
+                  className="primary-button compact"
+                  disabled={editor.pending || !editor.onStartSectionTitleEdit}
+                  onClick={() => editor.onStartSectionTitleEdit?.(editor.selectedSectionTitleId!, sectionTitleText)}
                 >
                   编辑
                 </button>
@@ -262,6 +356,7 @@ export function A4ResumePreview({
           </>
         )}
         {profileFieldSelected && editor.profileError ? <p className="save-status save-status-failed">{editor.profileError}</p> : null}
+        {sectionTitleSelected && editor.sectionTitleError ? <p className="save-status save-status-failed">{editor.sectionTitleError}</p> : null}
         {!profileFieldSelected && editor.error ? <p className="save-status save-status-failed">{editor.error}</p> : null}
         {!profileFieldSelected && editor.selectedBlock && !editor.selectedBlock.editable ? (
           <p className="save-status save-status-failed">当前段落不可编辑：{notEditableReasonLabel(editor.selectedBlock.notEditableReason)}</p>
@@ -299,6 +394,7 @@ export function A4ResumePreview({
               {template.render(pageModel, {
                 selectedItemId: editor?.selectedItemId,
                 selectedProfileFieldId: editor?.selectedProfileFieldId,
+                selectedSectionTitleId: editor?.selectedSectionTitleId,
                 presentationConfig,
                 pagination: {
                   pageNumber: index + 1,
@@ -308,6 +404,7 @@ export function A4ResumePreview({
               })}
               {pageContainsSelectedBlock(pageModel)
                 || (index === 0 && editor?.selectedProfileFieldId)
+                || (index === 0 && editor?.selectedSectionTitleId)
                 || (index === 0 && editor?.selectedBlock && !selectedBlockRendered)
                 ? renderEditorOverlay()
                 : null}

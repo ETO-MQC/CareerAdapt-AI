@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
+import { openManualContentTab, openManualHistoryTab, openManualPageTab, openManualTemplateTab } from "./support/g7b2Ui";
 
 // ── Poppler resolution (same as stageD2ExportFlow) ──
 
@@ -58,6 +59,7 @@ function getOutputDir() {
 }
 
 async function getOverflowStatus(page: Page): Promise<string> {
+  await openManualPageTab(page);
   const status = page.getByTestId("overflow-status");
   await expect(status).toBeVisible();
   await expect(status).not.toContainText(/measurement_failed|measuring|正在测量/, { timeout: 10_000 });
@@ -199,22 +201,31 @@ async function getLatestUsableDraftIdForJob(page: Page, jobId: string): Promise<
 }
 
 async function ensureSinglePage(page: Page) {
+  await openManualPageTab(page);
   const status = page.getByTestId("overflow-status");
   await expect(status).toBeVisible();
   await expect(status).not.toContainText(/measurement_failed|measuring|正在测量/, { timeout: 10_000 });
   const text = await status.innerText();
   if (text.includes("overflow") || text.includes("fits_two_pages") || text.includes("exceeds_two_pages")) {
+    await openManualContentTab(page);
     const toggles = page.locator(".branch-editor input[type='checkbox']");
     const count = await toggles.count();
     for (let index = count - 1; index >= 2; index--) {
       await toggles.nth(index).uncheck();
       await page.waitForTimeout(250);
+      await openManualPageTab(page);
       const nextText = await status.innerText();
       if (!nextText.includes("overflow") && !nextText.includes("fits_two_pages") && !nextText.includes("exceeds_two_pages")) {
         return;
       }
+      await openManualContentTab(page);
     }
   }
+}
+
+async function clickPrintFallback(page: Page) {
+  await openManualPageTab(page);
+  await page.getByRole("button", { name: "打印 / 保存 PDF" }).click();
 }
 
 function assertPdfBasics(path: string) {
@@ -259,6 +270,7 @@ test.describe("D2.1 验收：双模板预览与 PDF 导出", () => {
     expect(templateAText).toContain("demo.student@example.com");
 
     // Switch to template B
+    await openManualTemplateTab(page);
     await page.locator("label").filter({ hasText: "模板" }).locator("select").selectOption("modern-operations");
     await expect(page.locator(".notice")).toContainText("模板偏好已保存");
     await expect(preview).toHaveClass(/template-modern-operations/);
@@ -294,6 +306,7 @@ test.describe("D2.1 验收：双模板预览与 PDF 导出", () => {
     await createBranchFromDraft(page, "D2V2 Branch");
 
     // Select template B
+    await openManualTemplateTab(page);
     await page.locator("label").filter({ hasText: "模板" }).locator("select").selectOption("modern-operations");
     await expect(page.locator(".notice")).toContainText("模板偏好已保存");
     await expect(page.getByTestId("resume-a4-page")).toHaveClass(/template-modern-operations/);
@@ -303,6 +316,7 @@ test.describe("D2.1 验收：双模板预览与 PDF 导出", () => {
     await expect(page.getByTestId("resume-a4-page")).toBeVisible();
 
     // Template should still be B after refresh
+    await openManualTemplateTab(page);
     await expect(page.locator("label").filter({ hasText: "模板" }).locator("select")).toHaveValue("modern-operations");
     await expect(page.getByTestId("resume-a4-page")).toHaveClass(/template-modern-operations/);
   });
@@ -319,11 +333,16 @@ test.describe("D2.1 验收：双模板预览与 PDF 导出", () => {
 
     // Try to create a second branch from a different job
     await page.goto("/jobs");
-    const jobSelect = page.locator("label").filter({ hasText: "岗位" }).locator("select");
+    const jobSelect = page.getByTestId("current-job-select");
     const optionCount = await jobSelect.locator("option").count();
     if (optionCount > 1) {
-      await jobSelect.selectOption({ index: 1 });
+      const jobRows = page.locator(".jobs-list-panel .job-list .match-row");
+      await expect(jobRows.nth(1)).toBeVisible({ timeout: 15_000 });
+      await jobRows.nth(1).click();
       const betaJobId = await jobSelect.inputValue();
+      const jobTabs = page.locator(".jobs-tablist button");
+      await expect(jobTabs.nth(2)).toBeVisible({ timeout: 15_000 });
+      await jobTabs.nth(2).click();
       await page.getByTestId("run-experience-match").click();
       await expect(page.locator(".match-row").first()).toBeVisible();
       await page.getByTestId("create-suggestion-draft").click();
@@ -368,6 +387,7 @@ test.describe("D2.1 验收：双模板预览与 PDF 导出", () => {
 
     // Find the first textarea and make a safe edit
     // Reorder existing words to avoid triggering Fact Guard new-entity detection
+    await openManualContentTab(page);
     const textarea = page.locator(".branch-editor textarea").first();
     const originalValue = await textarea.inputValue();
 
@@ -399,6 +419,7 @@ test.describe("D2.1 验收：双模板预览与 PDF 导出", () => {
     const preview = page.getByTestId("resume-a4-page");
 
     // Edit to create a second revision (safe edit: just add period)
+    await openManualContentTab(page);
     const textarea = page.locator(".branch-editor textarea").first();
     const originalValue = await textarea.inputValue();
     await textarea.fill(originalValue + "。");
@@ -407,6 +428,7 @@ test.describe("D2.1 验收：双模板预览与 PDF 导出", () => {
     await page.waitForTimeout(300);
 
     // Verify revision history has at least 2 entries
+    await openManualHistoryTab(page);
     const revisionRows = page.locator(".revision-list .review-row");
     const revisionCount = await revisionRows.count();
     expect(revisionCount).toBeGreaterThanOrEqual(2);
@@ -421,6 +443,7 @@ test.describe("D2.1 验收：双模板预览与 PDF 导出", () => {
     expect(restoredText).toContain("陈同学");
 
     // The textarea should also reflect restored content (no stale editTexts cache)
+    await openManualContentTab(page);
     const restoredTextareaValue = await textarea.inputValue();
     // After restore, text should be back to the original (without the appended period)
     expect(restoredTextareaValue).not.toContain(originalValue + "。");
@@ -475,7 +498,7 @@ test.describe("D2.1 验收：双模板预览与 PDF 导出", () => {
     });
 
     // Try to export - should be blocked
-    await page.getByRole("button", { name: "打印 / 保存 PDF" }).click();
+    await clickPrintFallback(page);
     await expect(page.locator(".notice")).toContainText("简历版本已更新");
 
     // No new successful export record
@@ -495,6 +518,7 @@ test.describe("D2.1 验收：双模板预览与 PDF 导出", () => {
     expect(statusText).toMatch(OK_PAGE_STATUS);
 
     // Print button should be enabled for both fits and near_limit
+    await openManualPageTab(page);
     const printButton = page.getByRole("button", { name: "打印 / 保存 PDF" });
     await expect(printButton).toBeEnabled();
 
@@ -525,6 +549,7 @@ test.describe("D2.1 验收：双模板预览与 PDF 导出", () => {
 
     if (initialStatus.includes("fits")) {
       // Add content to approach the limit
+      await openManualContentTab(page);
       const textarea = page.locator(".branch-editor textarea").first();
       const currentText = await textarea.inputValue();
 
@@ -538,6 +563,7 @@ test.describe("D2.1 验收：双模板预览与 PDF 导出", () => {
     const finalStatus = await getOverflowStatus(page);
     if (finalStatus.includes("near_limit") || finalStatus.includes("near_one_page_limit")) {
       await expect(page.locator(".warning-box")).toContainText("接近单页上限");
+      await openManualPageTab(page);
       const printButton = page.getByRole("button", { name: "打印 / 保存 PDF" });
       await expect(printButton).toBeEnabled();
 
@@ -616,7 +642,7 @@ test.describe("D2.1 验收：双模板预览与 PDF 导出", () => {
       await expect(page.locator(".warning-box")).toContainText("正式导出会被阻止");
 
       // Export should be blocked
-      await page.getByRole("button", { name: "打印 / 保存 PDF" }).click();
+      await clickPrintFallback(page);
       await expect(page.locator(".notice")).toContainText(/页数超过|overflow/);
 
       // A blocked_overflow record should exist (not print_invoked)
@@ -642,6 +668,7 @@ test.describe("D2.1 验收：双模板预览与 PDF 导出", () => {
     const previewText = await preview.innerText();
 
     // Find the last checkbox toggle and click it to hide a content item
+    await openManualContentTab(page);
     const toggles = page.locator(".branch-editor input[type='checkbox']");
     const toggleCount = await toggles.count();
     expect(toggleCount).toBeGreaterThan(1);
@@ -788,7 +815,7 @@ test.describe("D2.1 验收：双模板预览与 PDF 导出", () => {
     const beforeCount = await exportRecordCount(page);
 
     // First export
-    await page.getByRole("button", { name: "打印 / 保存 PDF" }).click();
+    await clickPrintFallback(page);
     await expect(page.locator("body")).toHaveAttribute("data-print-invoked", "true");
     await page.waitForTimeout(300);
 
@@ -797,7 +824,7 @@ test.describe("D2.1 验收：双模板预览与 PDF 导出", () => {
 
     // Second export (same operationId since branch/revision/template unchanged)
     await page.evaluate(() => document.body.removeAttribute("data-print-invoked"));
-    await page.getByRole("button", { name: "打印 / 保存 PDF" }).click();
+    await clickPrintFallback(page);
     await expect(page.locator("body")).toHaveAttribute("data-print-invoked", "true");
     await page.waitForTimeout(300);
 
@@ -838,6 +865,7 @@ test.describe("D2.1 验收：双模板预览与 PDF 导出", () => {
 
     // Switch to template B and generate
     await page.emulateMedia({ media: "screen" });
+    await openManualTemplateTab(page);
     await page.locator("label").filter({ hasText: "模板" }).locator("select").selectOption("modern-operations");
     await expect(page.locator(".notice")).toContainText("模板偏好已保存");
     await ensureSinglePage(page);
@@ -878,7 +906,7 @@ test.describe("D2.1 验收：双模板预览与 PDF 导出", () => {
     await expect(preview).toContainText("陈同学");
 
     // Try to export - print will throw
-    await page.getByRole("button", { name: "打印 / 保存 PDF" }).click();
+    await clickPrintFallback(page);
     await page.waitForTimeout(500);
 
     // Page should not crash
@@ -890,6 +918,7 @@ test.describe("D2.1 验收：双模板预览与 PDF 导出", () => {
     await expect(branchList).toBeVisible();
 
     // Template preference preserved
+    await openManualTemplateTab(page);
     const templateSelect = page.locator("label").filter({ hasText: "模板" }).locator("select");
     await expect(templateSelect).toHaveValue("classic-technical");
 

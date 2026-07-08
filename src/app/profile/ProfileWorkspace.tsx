@@ -14,7 +14,11 @@ import {
   type PdfImportErrorCode,
   type PdfImportSession,
   type PdfPageText,
+  type Certificate,
   type CareerProfile,
+  type Experience,
+  type ExperienceType,
+  type FactCategory,
   type ProfileBuilderFact,
   type ProfileBuilderOutput,
   type ProfileImportDraft,
@@ -30,6 +34,82 @@ import { RevisionConflictError, WorkspaceRepository } from "@/services/storage/r
 const repository = new WorkspaceRepository();
 const pdfInputId = "resume-pdf-upload";
 const profileArchiveKey = (profileId: string) => `profileArchive:${profileId}:skills`;
+const profileArchiveV2Key = (profileId: string) => `profileArchive:${profileId}:managed-items`;
+
+type ProfileCategoryId = "basic" | "education" | "work" | "project" | "campus" | "award" | "certificate" | "skill" | "language" | "custom";
+type ProfileUsageFilter = "all" | "used" | "unused" | "archived";
+type ProfileManagedKind = "basic" | "experience" | "certificate" | "skill" | "custom";
+
+type ArchivedCustomBlock = {
+  id: string;
+  text: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type ProfileArchiveState = {
+  experiences: Experience[];
+  certificates: Certificate[];
+  skills: Skill[];
+  customBlocks: ArchivedCustomBlock[];
+};
+
+type ProfileManagedItem = {
+  key: string;
+  id: string;
+  kind: ProfileManagedKind;
+  category: ProfileCategoryId;
+  title: string;
+  subtitle: string;
+  body: string;
+  source: string;
+  usage: string;
+  used: boolean;
+  archived: boolean;
+  updatedAt: string;
+  experienceType?: ExperienceType;
+  skillLevel?: Skill["level"];
+  date?: string;
+};
+
+type ProfileItemDraft = {
+  title: string;
+  subtitle: string;
+  body: string;
+  date: string;
+  level: Skill["level"];
+  experienceType: ExperienceType;
+};
+
+const emptyProfileArchive: ProfileArchiveState = {
+  experiences: [],
+  certificates: [],
+  skills: [],
+  customBlocks: []
+};
+
+const profileCategories: Array<{ id: ProfileCategoryId; label: string; description: string }> = [
+  { id: "basic", label: "基本信息", description: "姓名、联系方式、简介" },
+  { id: "education", label: "教育", description: "学校、专业、学历" },
+  { id: "work", label: "工作/实习", description: "全职、实习和岗位经历" },
+  { id: "project", label: "项目", description: "项目、作品和交付" },
+  { id: "campus", label: "校园经历", description: "社团、志愿和校内职责" },
+  { id: "award", label: "奖项", description: "竞赛、荣誉和奖项" },
+  { id: "certificate", label: "证书", description: "证书、执照和认证" },
+  { id: "skill", label: "技能", description: "工具、语言和方法" },
+  { id: "language", label: "语言", description: "外语和语言能力" },
+  { id: "custom", label: "自定义", description: "待分类或补充内容" }
+];
+
+const emptyProfileItemDraft: ProfileItemDraft = {
+  title: "",
+  subtitle: "",
+  body: "",
+  date: "",
+  level: "familiar",
+  experienceType: "work"
+};
+
 type BasicDraft = {
   name: string;
   phone: string;
@@ -62,9 +142,13 @@ export function ProfileWorkspace() {
   const [profileOverride, setProfileOverride] = useState<CareerProfile | undefined>();
   const [profileSaving, setProfileSaving] = useState(false);
   const [basicDraftState, setBasicDraftState] = useState<BasicDraftState>(emptyBasicDraft);
-  const [newSkillName, setNewSkillName] = useState("");
-  const [newSkillLevel, setNewSkillLevel] = useState<Skill["level"]>("familiar");
-  const [archivedSkills, setArchivedSkills] = useState<Skill[]>([]);
+  const [profileArchive, setProfileArchive] = useState<ProfileArchiveState>(emptyProfileArchive);
+  const [activeProfileCategory, setActiveProfileCategory] = useState<ProfileCategoryId>("basic");
+  const [selectedProfileItemKey, setSelectedProfileItemKey] = useState("basic:profile");
+  const [profileSearch, setProfileSearch] = useState("");
+  const [profileUsageFilter, setProfileUsageFilter] = useState<ProfileUsageFilter>("all");
+  const [profileItemDraft, setProfileItemDraft] = useState<ProfileItemDraft>(emptyProfileItemDraft);
+  const [profileItemEditing, setProfileItemEditing] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -151,10 +235,38 @@ export function ProfileWorkspace() {
   const basicDraft = profile && basicDraftState.profileKey !== profileDraftKey
     ? basicDraftFromProfile(profile, profileDraftKey)
     : basicDraftState;
+  const profileManagedItems = useMemo(
+    () => profile ? buildProfileManagedItems(profile, profileArchive, activeProfileCategory, profileSearch, profileUsageFilter) : [],
+    [activeProfileCategory, profile, profileArchive, profileSearch, profileUsageFilter]
+  );
+  const selectedProfileItem = profileManagedItems.find((item) => item.key === selectedProfileItemKey) ?? profileManagedItems[0];
+  const profileCategoryCounts = useMemo(
+    () => profile ? buildProfileCategoryCounts(profile, profileArchive) : new Map<ProfileCategoryId, number>(),
+    [profile, profileArchive]
+  );
 
   function setBasicDraft(nextDraft: BasicDraft) {
     setBasicDraftState({ ...nextDraft, profileKey: profileDraftKey });
   }
+
+  useEffect(() => {
+    let active = true;
+    queueMicrotask(() => {
+      if (!active) {
+        return;
+      }
+    if (profileManagedItems.length === 0) {
+      setSelectedProfileItemKey(`new:${activeProfileCategory}`);
+      return;
+    }
+    if (!profileManagedItems.some((item) => item.key === selectedProfileItemKey)) {
+      setSelectedProfileItemKey(profileManagedItems[0].key);
+    }
+    });
+    return () => {
+      active = false;
+    };
+  }, [activeProfileCategory, profileManagedItems, selectedProfileItemKey]);
 
   useEffect(() => {
     if (!profile?.id) {
@@ -165,10 +277,12 @@ export function ProfileWorkspace() {
     const profileId = profile.id;
     async function loadArchive() {
       const stored = await repository.getMeta(profileArchiveKey(profileId));
+      const storedV2 = await repository.getMeta(profileArchiveV2Key(profileId));
       if (!active) {
         return;
       }
-      setArchivedSkills(parseArchivedSkills(stored?.value));
+      const legacySkills = parseArchivedSkills(stored?.value);
+      setProfileArchive(parseProfileArchive(storedV2?.value, legacySkills));
     }
     void loadArchive();
 
@@ -222,104 +336,218 @@ export function ProfileWorkspace() {
     }, "个人资料已保存。");
   }
 
-  async function addSkill() {
+  async function saveProfileArchive(nextArchive: ProfileArchiveState) {
     if (!profile) {
-      setMessage("请先导入或创建个人资料。");
       return;
     }
-    const name = newSkillName.trim();
-    if (!name) {
-      setMessage("请先填写技能名称。");
-      return;
-    }
-
-    const now = new Date().toISOString();
-    const skill = buildUserSkill(name, newSkillLevel, now);
-    const saved = await saveProfileSnapshot({
-      ...profile,
-      skills: [...profile.skills, skill],
-      version: profile.version + 1,
-      updatedAt: now
-    }, "技能已加入个人资料。");
-    if (saved) {
-      setNewSkillName("");
-      setNewSkillLevel("familiar");
-    }
+    setProfileArchive(nextArchive);
+    await repository.setMeta(profileArchiveV2Key(profile.id), nextArchive);
   }
 
-  async function updateSkill(skillId: string, patch: Partial<Pick<Skill, "name" | "level">>) {
+  function selectProfileCategory(category: ProfileCategoryId) {
+    setActiveProfileCategory(category);
+    setProfileUsageFilter("all");
+    setProfileItemEditing(false);
+    const nextItems = profile ? buildProfileManagedItems(profile, profileArchive, category, profileSearch, "all") : [];
+    setSelectedProfileItemKey(nextItems[0]?.key ?? `new:${category}`);
+  }
+
+  function selectManagedProfileItem(item: ProfileManagedItem) {
+    setSelectedProfileItemKey(item.key);
+    setProfileItemDraft(profileDraftFromItem(item));
+    setProfileItemEditing(false);
+  }
+
+  function startManagedProfileCreate() {
+    const nextDraft = defaultProfileDraftForCategory(activeProfileCategory);
+    setSelectedProfileItemKey(`new:${activeProfileCategory}`);
+    setProfileItemDraft(nextDraft);
+    setProfileItemEditing(true);
+  }
+
+  function startManagedProfileEdit() {
+    if (selectedProfileItem) {
+      setProfileItemDraft(profileDraftFromItem(selectedProfileItem));
+    }
+    setProfileItemEditing(true);
+  }
+
+  async function saveManagedProfileItem() {
     if (!profile) {
       return;
     }
+
+    if (activeProfileCategory === "basic") {
+      await saveProfileBasics();
+      setProfileItemEditing(false);
+      return;
+    }
+
+    const title = profileItemDraft.title.trim();
+    const body = profileItemDraft.body.trim();
+    if (!title && activeProfileCategory !== "custom") {
+      setMessage("请先填写条目名称。");
+      return;
+    }
+    if (activeProfileCategory === "custom" && !body) {
+      setMessage("请先填写自定义内容。");
+      return;
+    }
+
     const now = new Date().toISOString();
-    const nextSkills = profile.skills.map((skill) => {
-      if (skill.id !== skillId) {
-        return skill;
-      }
-      const name = patch.name?.trim() || skill.name;
-      return {
-        ...skill,
-        ...patch,
-        name,
-        updatedAt: now,
-        fact: skill.fact
-          ? {
-              ...skill.fact,
-              statement: `掌握${name}`,
-              updatedAt: now
-            }
-          : skill.fact
+    let nextProfile = profile;
+    const selected = selectedProfileItem?.key === selectedProfileItemKey ? selectedProfileItem : undefined;
+    const isNew = selectedProfileItemKey.startsWith("new:");
+
+    if (activeProfileCategory === "certificate") {
+      const certificate = buildCertificateFromDraft(profileItemDraft, selected?.id, now);
+      nextProfile = {
+        ...profile,
+        certificates: isNew
+          ? [...profile.certificates, certificate]
+          : profile.certificates.map((item) => item.id === certificate.id ? certificate : item),
+        version: profile.version + 1,
+        updatedAt: now
       };
-    });
-    await saveProfileSnapshot({
-      ...profile,
-      skills: nextSkills,
-      version: profile.version + 1,
-      updatedAt: now
-    }, "技能已更新。");
+    } else if (activeProfileCategory === "skill" || activeProfileCategory === "language") {
+      const skill = buildSkillFromDraft(profileItemDraft, activeProfileCategory, selected?.id, now);
+      nextProfile = {
+        ...profile,
+        skills: isNew
+          ? [...profile.skills, skill]
+          : profile.skills.map((item) => item.id === skill.id ? skill : item),
+        version: profile.version + 1,
+        updatedAt: now
+      };
+    } else if (activeProfileCategory === "custom") {
+      const nextBlocks = isNew
+        ? [...profile.unclassifiedBlocks, body]
+        : profile.unclassifiedBlocks.map((block, index) => `custom:${index}` === selected?.id ? body : block);
+      nextProfile = {
+        ...profile,
+        unclassifiedBlocks: nextBlocks,
+        version: profile.version + 1,
+        updatedAt: now
+      };
+    } else {
+      const experience = buildExperienceFromDraft(profileItemDraft, activeProfileCategory, selected?.id, now);
+      nextProfile = {
+        ...profile,
+        experiences: isNew
+          ? [...profile.experiences, experience]
+          : profile.experiences.map((item) => item.id === experience.id ? experience : item),
+        version: profile.version + 1,
+        updatedAt: now
+      };
+    }
+
+    const saved = await saveProfileSnapshot(nextProfile, isNew ? "资料条目已创建。" : "资料条目已更新。");
+    if (saved) {
+      setProfileItemEditing(false);
+      const nextItems = buildProfileManagedItems(saved, profileArchive, activeProfileCategory, profileSearch, profileUsageFilter);
+      const nextSelected = isNew ? nextItems.at(-1) : nextItems.find((item) => item.id === selected?.id);
+      setSelectedProfileItemKey(nextSelected?.key ?? nextItems[0]?.key ?? `new:${activeProfileCategory}`);
+    }
   }
 
-  async function archiveSkill(skillId: string) {
-    if (!profile) {
+  async function archiveManagedProfileItem(item: ProfileManagedItem) {
+    if (!profile || item.kind === "basic" || item.archived) {
       return;
     }
-    const target = profile.skills.find((skill) => skill.id === skillId);
-    if (!target) {
-      return;
-    }
+
     const now = new Date().toISOString();
-    const nextArchive = [target, ...archivedSkills.filter((skill) => skill.id !== skillId)].slice(0, 20);
-    const saved = await saveProfileSnapshot({
-      ...profile,
-      skills: profile.skills.filter((skill) => skill.id !== skillId),
-      version: profile.version + 1,
-      updatedAt: now
-    }, "技能已移出当前资料，可在下方恢复。");
+    let nextProfile = profile;
+    let nextArchive = profileArchive;
+    if (item.kind === "experience") {
+      const target = profile.experiences.find((entry) => entry.id === item.id);
+      if (!target) {
+        return;
+      }
+      nextArchive = { ...profileArchive, experiences: [{ ...target, updatedAt: now }, ...profileArchive.experiences.filter((entry) => entry.id !== item.id)] };
+      nextProfile = { ...profile, experiences: profile.experiences.filter((entry) => entry.id !== item.id), version: profile.version + 1, updatedAt: now };
+    } else if (item.kind === "certificate") {
+      const target = profile.certificates.find((entry) => entry.id === item.id);
+      if (!target) {
+        return;
+      }
+      nextArchive = { ...profileArchive, certificates: [{ ...target, updatedAt: now }, ...profileArchive.certificates.filter((entry) => entry.id !== item.id)] };
+      nextProfile = { ...profile, certificates: profile.certificates.filter((entry) => entry.id !== item.id), version: profile.version + 1, updatedAt: now };
+    } else if (item.kind === "skill") {
+      const target = profile.skills.find((entry) => entry.id === item.id);
+      if (!target) {
+        return;
+      }
+      nextArchive = { ...profileArchive, skills: [{ ...target, updatedAt: now }, ...profileArchive.skills.filter((entry) => entry.id !== item.id)] };
+      nextProfile = { ...profile, skills: profile.skills.filter((entry) => entry.id !== item.id), version: profile.version + 1, updatedAt: now };
+    } else {
+      const index = Number(item.id.replace("custom:", ""));
+      const target = profile.unclassifiedBlocks[index];
+      if (!target) {
+        return;
+      }
+      nextArchive = {
+        ...profileArchive,
+        customBlocks: [{ id: `custom-archive-${nanoid(8)}`, text: target, createdAt: now, updatedAt: now }, ...profileArchive.customBlocks]
+      };
+      nextProfile = {
+        ...profile,
+        unclassifiedBlocks: profile.unclassifiedBlocks.filter((_, blockIndex) => blockIndex !== index),
+        version: profile.version + 1,
+        updatedAt: now
+      };
+    }
+
+    const saved = await saveProfileSnapshot(nextProfile, "资料条目已归档，可在筛选中恢复。");
     if (saved) {
-      setArchivedSkills(nextArchive);
-      await repository.setMeta(profileArchiveKey(profile.id), nextArchive);
+      await saveProfileArchive(nextArchive);
+      setProfileUsageFilter("archived");
+      setSelectedProfileItemKey(buildProfileManagedItems(saved, nextArchive, activeProfileCategory, profileSearch, "archived")[0]?.key ?? `new:${activeProfileCategory}`);
     }
   }
 
-  async function restoreSkill(skillId: string) {
-    if (!profile) {
+  async function restoreManagedProfileItem(item: ProfileManagedItem) {
+    if (!profile || !item.archived) {
       return;
     }
-    const target = archivedSkills.find((skill) => skill.id === skillId);
-    if (!target) {
-      return;
-    }
+
     const now = new Date().toISOString();
-    const nextArchive = archivedSkills.filter((skill) => skill.id !== skillId);
-    const saved = await saveProfileSnapshot({
-      ...profile,
-      skills: profile.skills.some((skill) => skill.id === target.id) ? profile.skills : [...profile.skills, { ...target, updatedAt: now }],
-      version: profile.version + 1,
-      updatedAt: now
-    }, "技能已恢复到当前资料。");
+    let nextProfile = profile;
+    let nextArchive = profileArchive;
+    if (item.kind === "experience") {
+      const target = profileArchive.experiences.find((entry) => entry.id === item.id);
+      if (!target) {
+        return;
+      }
+      nextArchive = { ...profileArchive, experiences: profileArchive.experiences.filter((entry) => entry.id !== item.id) };
+      nextProfile = { ...profile, experiences: [...profile.experiences, { ...target, updatedAt: now }], version: profile.version + 1, updatedAt: now };
+    } else if (item.kind === "certificate") {
+      const target = profileArchive.certificates.find((entry) => entry.id === item.id);
+      if (!target) {
+        return;
+      }
+      nextArchive = { ...profileArchive, certificates: profileArchive.certificates.filter((entry) => entry.id !== item.id) };
+      nextProfile = { ...profile, certificates: [...profile.certificates, { ...target, updatedAt: now }], version: profile.version + 1, updatedAt: now };
+    } else if (item.kind === "skill") {
+      const target = profileArchive.skills.find((entry) => entry.id === item.id);
+      if (!target) {
+        return;
+      }
+      nextArchive = { ...profileArchive, skills: profileArchive.skills.filter((entry) => entry.id !== item.id) };
+      nextProfile = { ...profile, skills: [...profile.skills, { ...target, updatedAt: now }], version: profile.version + 1, updatedAt: now };
+    } else {
+      const target = profileArchive.customBlocks.find((entry) => entry.id === item.id);
+      if (!target) {
+        return;
+      }
+      nextArchive = { ...profileArchive, customBlocks: profileArchive.customBlocks.filter((entry) => entry.id !== item.id) };
+      nextProfile = { ...profile, unclassifiedBlocks: [...profile.unclassifiedBlocks, target.text], version: profile.version + 1, updatedAt: now };
+    }
+
+    const saved = await saveProfileSnapshot(nextProfile, "资料条目已恢复。");
     if (saved) {
-      setArchivedSkills(nextArchive);
-      await repository.setMeta(profileArchiveKey(profile.id), nextArchive);
+      await saveProfileArchive(nextArchive);
+      setProfileUsageFilter("all");
+      setSelectedProfileItemKey(buildProfileManagedItems(saved, nextArchive, activeProfileCategory, profileSearch, "all")[0]?.key ?? `new:${activeProfileCategory}`);
     }
   }
 
@@ -898,101 +1126,195 @@ export function ProfileWorkspace() {
 
       {profile ? (
         <section className="profile-manager-grid">
-          <article className="panel profile-editor-panel">
+          <article className="panel profile-category-panel">
             <div className="section-heading compact-heading">
               <div>
-                <h2>基本信息</h2>
-                <p>这些字段会进入简历页眉和个人简介。</p>
+                <h2>资料分类</h2>
+                <p>按类别管理可复用事实。</p>
               </div>
               <span className={`save-status save-status-${saveStatus}`}>{profileSaving ? "保存中" : "本地已保存"}</span>
             </div>
-            <div className="form-grid compact-form-grid">
-              <label className="field-label">
-                姓名
-                <input value={basicDraft.name} onChange={(event) => setBasicDraft({ ...basicDraft, name: event.target.value })} />
-              </label>
-              <label className="field-label">
-                电话
-                <input value={basicDraft.phone} onChange={(event) => setBasicDraft({ ...basicDraft, phone: event.target.value })} />
-              </label>
-              <label className="field-label">
-                邮箱
-                <input value={basicDraft.email} onChange={(event) => setBasicDraft({ ...basicDraft, email: event.target.value })} />
-              </label>
-              <label className="field-label">
-                所在地
-                <input value={basicDraft.location} onChange={(event) => setBasicDraft({ ...basicDraft, location: event.target.value })} />
-              </label>
+            <div className="profile-category-list" role="listbox" aria-label="资料分类">
+              {profileCategories.map((category) => (
+                <button
+                  key={category.id}
+                  type="button"
+                  className={activeProfileCategory === category.id ? "profile-category-button profile-category-button-active" : "profile-category-button"}
+                  onClick={() => selectProfileCategory(category.id)}
+                >
+                  <span>
+                    <strong>{category.label}</strong>
+                    <small>{category.description}</small>
+                  </span>
+                  <b>{profileCategoryCounts.get(category.id) ?? 0}</b>
+                </button>
+              ))}
             </div>
-            <label className="field-label">
-              个人简介
-              <textarea className="textarea compact-textarea" value={basicDraft.summary} onChange={(event) => setBasicDraft({ ...basicDraft, summary: event.target.value })} />
-            </label>
-            <button className="primary-button" disabled={profileSaving} onClick={saveProfileBasics}>保存基本信息</button>
           </article>
 
-          <article className="panel profile-editor-panel">
+          <article className="panel profile-list-panel">
             <div className="section-heading compact-heading">
               <div>
-                <h2>技能</h2>
-                <p>新增技能会作为你确认过的事实，供岗位匹配和简历编辑使用。</p>
+                <h2>{profileCategoryLabel(activeProfileCategory)}</h2>
+                <p>只显示当前分类，列表和详情各自滚动。</p>
               </div>
+              {activeProfileCategory !== "basic" ? (
+                <button className="primary-button compact" disabled={profileSaving} onClick={startManagedProfileCreate}>新增</button>
+              ) : null}
             </div>
             <div className="form-grid compact-form-grid">
               <label className="field-label">
-                技能名称
-                <input value={newSkillName} onChange={(event) => setNewSkillName(event.target.value)} placeholder="例如 TypeScript" />
+                搜索
+                <input value={profileSearch} onChange={(event) => setProfileSearch(event.target.value)} placeholder="按名称、来源或内容筛选" />
               </label>
               <label className="field-label">
-                熟练度
-                <select value={newSkillLevel} onChange={(event) => setNewSkillLevel(event.target.value as Skill["level"])}>
-                  <option value="basic">了解</option>
-                  <option value="familiar">熟悉</option>
-                  <option value="proficient">熟练</option>
+                使用状态
+                <select value={profileUsageFilter} onChange={(event) => setProfileUsageFilter(event.target.value as ProfileUsageFilter)}>
+                  <option value="all">全部当前条目</option>
+                  <option value="used">已被使用</option>
+                  <option value="unused">未被使用</option>
+                  <option value="archived">已归档</option>
                 </select>
               </label>
             </div>
-            <button className="primary-button" disabled={profileSaving} onClick={addSkill}>添加技能</button>
-            <div className="profile-item-list">
-              {profile.skills.map((skill) => (
-                <div key={skill.id} className="profile-item-row">
-                  <input defaultValue={skill.name} onBlur={(event) => { void updateSkill(skill.id, { name: event.target.value }); }} />
-                  <select value={skill.level ?? "familiar"} onChange={(event) => { void updateSkill(skill.id, { level: event.target.value as Skill["level"] }); }}>
-                    <option value="basic">了解</option>
-                    <option value="familiar">熟悉</option>
-                    <option value="proficient">熟练</option>
-                  </select>
-                  <button className="secondary-button compact" disabled={profileSaving} onClick={() => { void archiveSkill(skill.id); }}>移出</button>
-                </div>
+            <div className="profile-managed-list" data-testid="profile-managed-list">
+              {profileManagedItems.map((item) => (
+                <button
+                  key={item.key}
+                  type="button"
+                  className={selectedProfileItem?.key === item.key ? "profile-managed-row profile-managed-row-active" : "profile-managed-row"}
+                  onClick={() => selectManagedProfileItem(item)}
+                >
+                  <span>
+                    <strong>{item.title}</strong>
+                    <small>{item.subtitle || item.body || "暂无补充说明"}</small>
+                  </span>
+                  <em>{item.archived ? "已归档" : item.used ? "已使用" : "未使用"}</em>
+                </button>
               ))}
-              {profile.skills.length === 0 ? <p>还没有技能。先添加一个你确认真实掌握的技能。</p> : null}
+              {profileManagedItems.length === 0 ? (
+                <div className="profile-empty-list">
+                  <strong>当前筛选下没有条目</strong>
+                  <p>{activeProfileCategory === "basic" ? "基本信息始终在右侧维护。" : "可以新建当前分类条目，或切换到已归档筛选恢复内容。"}</p>
+                </div>
+              ) : null}
             </div>
-            {archivedSkills.length > 0 ? (
-              <div className="profile-archive-list">
-                <strong>可恢复的技能</strong>
-                {archivedSkills.map((skill) => (
-                  <button key={skill.id} className="secondary-button compact" disabled={profileSaving} onClick={() => { void restoreSkill(skill.id); }}>
-                    恢复 {skill.name}
-                  </button>
-                ))}
-              </div>
-            ) : null}
           </article>
 
-          <article className="panel profile-summary-panel">
-            <h2>资料概览</h2>
-            <dl className="info-list">
-              <div><dt>姓名</dt><dd>{profile.name}</dd></div>
-              <div><dt>经历</dt><dd>{profile.experiences.length} 段</dd></div>
-              <div><dt>技能</dt><dd>{profile.skills.length} 项</dd></div>
-              <div><dt>证书</dt><dd>{profile.certificates.length} 项</dd></div>
-            </dl>
-            <div className="profile-source-list">
-              <strong>来源依据</strong>
-              {profile.experiences.slice(0, 3).flatMap((experience) => experience.facts.slice(0, 2)).map((fact) => (
-                <p key={fact.id}>{fact.statement}<br /><small>{fact.provenance[0]?.sourceText ?? "用户确认"}</small></p>
-              ))}
+          <article className="panel profile-detail-panel">
+            <div className="section-heading compact-heading">
+              <div>
+                <h2>详情</h2>
+                <p>{selectedProfileItem?.archived ? "归档条目可恢复到当前资料。" : "查看来源、使用状态和可编辑字段。"}</p>
+              </div>
+              {activeProfileCategory !== "basic" && selectedProfileItem ? (
+                <div className="action-row profile-detail-actions">
+                  {selectedProfileItem.archived ? (
+                    <button className="primary-button compact" disabled={profileSaving} onClick={() => { void restoreManagedProfileItem(selectedProfileItem); }}>恢复</button>
+                  ) : (
+                    <>
+                      <button className="secondary-button compact" disabled={profileSaving} onClick={startManagedProfileEdit}>编辑</button>
+                      <button className="secondary-button compact" disabled={profileSaving} onClick={() => { void archiveManagedProfileItem(selectedProfileItem); }}>归档</button>
+                    </>
+                  )}
+                </div>
+              ) : null}
             </div>
+
+            {activeProfileCategory === "basic" ? (
+              <div className="profile-detail-scroll">
+                <div className="form-grid compact-form-grid">
+                  <label className="field-label">
+                    姓名
+                    <input value={basicDraft.name} onChange={(event) => setBasicDraft({ ...basicDraft, name: event.target.value })} />
+                  </label>
+                  <label className="field-label">
+                    电话
+                    <input value={basicDraft.phone} onChange={(event) => setBasicDraft({ ...basicDraft, phone: event.target.value })} />
+                  </label>
+                  <label className="field-label">
+                    邮箱
+                    <input value={basicDraft.email} onChange={(event) => setBasicDraft({ ...basicDraft, email: event.target.value })} />
+                  </label>
+                  <label className="field-label">
+                    所在地
+                    <input value={basicDraft.location} onChange={(event) => setBasicDraft({ ...basicDraft, location: event.target.value })} />
+                  </label>
+                </div>
+                <label className="field-label">
+                  个人简介
+                  <textarea className="textarea compact-textarea" value={basicDraft.summary} onChange={(event) => setBasicDraft({ ...basicDraft, summary: event.target.value })} />
+                </label>
+                <button className="primary-button" disabled={profileSaving} onClick={saveProfileBasics}>保存基本信息</button>
+              </div>
+            ) : profileItemEditing ? (
+              <div className="profile-detail-scroll">
+                <label className="field-label">
+                  名称
+                  <input value={profileItemDraft.title} onChange={(event) => setProfileItemDraft((current) => ({ ...current, title: event.target.value }))} />
+                </label>
+                <label className="field-label">
+                  组织/角色/来源
+                  <input value={profileItemDraft.subtitle} onChange={(event) => setProfileItemDraft((current) => ({ ...current, subtitle: event.target.value }))} />
+                </label>
+                {activeProfileCategory === "work" ? (
+                  <label className="field-label">
+                    类型
+                    <select value={profileItemDraft.experienceType} onChange={(event) => setProfileItemDraft((current) => ({ ...current, experienceType: event.target.value as ExperienceType }))}>
+                      <option value="work">工作</option>
+                      <option value="internship">实习</option>
+                    </select>
+                  </label>
+                ) : null}
+                {activeProfileCategory === "skill" || activeProfileCategory === "language" ? (
+                  <label className="field-label">
+                    熟练度
+                    <select value={profileItemDraft.level} onChange={(event) => setProfileItemDraft((current) => ({ ...current, level: event.target.value as Skill["level"] }))}>
+                      <option value="basic">了解</option>
+                      <option value="familiar">熟悉</option>
+                      <option value="proficient">熟练</option>
+                    </select>
+                  </label>
+                ) : null}
+                {activeProfileCategory === "certificate" || activeProfileCategory === "award" ? (
+                  <label className="field-label">
+                    日期
+                    <input value={profileItemDraft.date} onChange={(event) => setProfileItemDraft((current) => ({ ...current, date: event.target.value }))} placeholder="例如 2025-06" />
+                  </label>
+                ) : null}
+                <label className="field-label">
+                  事实说明
+                  <textarea className="textarea compact-textarea" value={profileItemDraft.body} onChange={(event) => setProfileItemDraft((current) => ({ ...current, body: event.target.value }))} />
+                </label>
+                <div className="action-row profile-detail-actions">
+                  <button className="primary-button" disabled={profileSaving} onClick={() => { void saveManagedProfileItem(); }}>保存</button>
+                  <button className="secondary-button" disabled={profileSaving} onClick={() => setProfileItemEditing(false)}>取消</button>
+                </div>
+              </div>
+            ) : selectedProfileItem ? (
+              <div className="profile-detail-scroll">
+                <dl className="info-list">
+                  <div><dt>名称</dt><dd>{selectedProfileItem.title}</dd></div>
+                  <div><dt>分类</dt><dd>{profileCategoryLabel(selectedProfileItem.category)}</dd></div>
+                  <div><dt>来源</dt><dd>{selectedProfileItem.source}</dd></div>
+                  <div><dt>使用状态</dt><dd>{selectedProfileItem.usage}</dd></div>
+                  <div><dt>更新时间</dt><dd>{selectedProfileItem.updatedAt.slice(0, 10)}</dd></div>
+                </dl>
+                <div className="profile-source-list">
+                  <strong>事实说明</strong>
+                  <p>{selectedProfileItem.body || selectedProfileItem.subtitle || "暂无说明。"}</p>
+                </div>
+                <div className="profile-source-list">
+                  <strong>关联简历</strong>
+                  <p>{selectedProfileItem.used ? "已有简历草稿或事实引用使用该条目。" : "当前没有明确关联的简历草稿。"}</p>
+                </div>
+              </div>
+            ) : (
+              <div className="profile-empty-list">
+                <strong>请选择一个条目</strong>
+                <p>左侧切换分类，中间选择条目后在这里查看或编辑。</p>
+              </div>
+            )}
           </article>
         </section>
       ) : (
@@ -1167,6 +1489,348 @@ export function ProfileWorkspace() {
   );
 }
 
+function buildProfileManagedItems(
+  profile: CareerProfile,
+  archive: ProfileArchiveState,
+  category: ProfileCategoryId,
+  search: string,
+  usageFilter: ProfileUsageFilter
+): ProfileManagedItem[] {
+  const archived = usageFilter === "archived";
+  const currentItems = archived ? [] : buildCurrentProfileItems(profile, category);
+  const archivedItems = archived ? buildArchivedProfileItems(archive, category) : [];
+  const searchText = search.trim().toLowerCase();
+  return [...currentItems, ...archivedItems].filter((item) => {
+    if (usageFilter === "used" && !item.used) {
+      return false;
+    }
+    if (usageFilter === "unused" && item.used) {
+      return false;
+    }
+    if (!searchText) {
+      return true;
+    }
+    return [item.title, item.subtitle, item.body, item.source, item.usage]
+      .join(" ")
+      .toLowerCase()
+      .includes(searchText);
+  });
+}
+
+function buildCurrentProfileItems(profile: CareerProfile, category: ProfileCategoryId): ProfileManagedItem[] {
+  if (category === "basic") {
+    return [{
+      key: "basic:profile",
+      id: profile.id,
+      kind: "basic",
+      category: "basic",
+      title: profile.basics.name,
+      subtitle: [profile.basics.email, profile.basics.phone, profile.basics.location].filter(Boolean).join(" / "),
+      body: profile.basics.summary ?? "",
+      source: "用户确认",
+      usage: "简历页眉使用",
+      used: true,
+      archived: false,
+      updatedAt: profile.updatedAt
+    }];
+  }
+
+  if (category === "certificate") {
+    return profile.certificates.map((certificate) => certificateToManagedItem(certificate, false));
+  }
+
+  if (category === "skill" || category === "language") {
+    return profile.skills
+      .filter((skill) => isLanguageSkill(skill) === (category === "language"))
+      .map((skill) => skillToManagedItem(skill, category, false));
+  }
+
+  if (category === "custom") {
+    return profile.unclassifiedBlocks.map((block, index) => ({
+      key: `custom:current:${index}`,
+      id: `custom:${index}`,
+      kind: "custom",
+      category: "custom",
+      title: block.slice(0, 32) || "自定义内容",
+      subtitle: "待分类内容",
+      body: block,
+      source: "用户确认",
+      usage: "未进入正式分类",
+      used: false,
+      archived: false,
+      updatedAt: profile.updatedAt
+    }));
+  }
+
+  return profile.experiences
+    .filter((experience) => categoryForExperience(experience) === category)
+    .map((experience) => experienceToManagedItem(experience, false));
+}
+
+function buildArchivedProfileItems(archive: ProfileArchiveState, category: ProfileCategoryId): ProfileManagedItem[] {
+  if (category === "certificate") {
+    return archive.certificates.map((certificate) => certificateToManagedItem(certificate, true));
+  }
+  if (category === "skill" || category === "language") {
+    return archive.skills
+      .filter((skill) => isLanguageSkill(skill) === (category === "language"))
+      .map((skill) => skillToManagedItem(skill, category, true));
+  }
+  if (category === "custom") {
+    return archive.customBlocks.map((block) => ({
+      key: `custom:archived:${block.id}`,
+      id: block.id,
+      kind: "custom",
+      category: "custom",
+      title: block.text.slice(0, 32) || "自定义内容",
+      subtitle: "已归档内容",
+      body: block.text,
+      source: "用户确认",
+      usage: "已归档",
+      used: false,
+      archived: true,
+      updatedAt: block.updatedAt
+    }));
+  }
+  return archive.experiences
+    .filter((experience) => categoryForExperience(experience) === category)
+    .map((experience) => experienceToManagedItem(experience, true));
+}
+
+function buildProfileCategoryCounts(profile: CareerProfile, archive: ProfileArchiveState) {
+  const counts = new Map<ProfileCategoryId, number>();
+  for (const category of profileCategories) {
+    counts.set(category.id, buildCurrentProfileItems(profile, category.id).length + buildArchivedProfileItems(archive, category.id).length);
+  }
+  return counts;
+}
+
+function experienceToManagedItem(experience: Experience, archived: boolean): ProfileManagedItem {
+  const firstFact = experience.facts[0];
+  return {
+    key: `experience:${archived ? "archived" : "current"}:${experience.id}`,
+    id: experience.id,
+    kind: "experience",
+    category: categoryForExperience(experience),
+    title: experience.organization,
+    subtitle: experience.role,
+    body: firstFact?.statement ?? "",
+    source: firstFact?.provenance[0]?.sourceText ?? "用户确认",
+    usage: experience.resumeDrafts.length > 0 ? `${experience.resumeDrafts.length} 个简历草稿` : "已确认事实",
+    used: experience.resumeDrafts.length > 0 || experience.facts.length > 0,
+    archived,
+    updatedAt: experience.updatedAt,
+    experienceType: experience.type,
+    date: [experience.startDate, experience.endDate].filter(Boolean).join(" - ")
+  };
+}
+
+function certificateToManagedItem(certificate: Certificate, archived: boolean): ProfileManagedItem {
+  return {
+    key: `certificate:${archived ? "archived" : "current"}:${certificate.id}`,
+    id: certificate.id,
+    kind: "certificate",
+    category: "certificate",
+    title: certificate.name,
+    subtitle: certificate.issuer ?? "",
+    body: certificate.fact?.statement ?? certificate.name,
+    source: certificate.fact?.provenance[0]?.sourceText ?? "用户确认",
+    usage: certificate.fact ? "已确认事实" : "待补充事实",
+    used: Boolean(certificate.fact || certificate.evidenceIds.length),
+    archived,
+    updatedAt: certificate.updatedAt,
+    date: certificate.issuedAt
+  };
+}
+
+function skillToManagedItem(skill: Skill, category: ProfileCategoryId, archived: boolean): ProfileManagedItem {
+  return {
+    key: `skill:${archived ? "archived" : "current"}:${skill.id}`,
+    id: skill.id,
+    kind: "skill",
+    category,
+    title: skill.name,
+    subtitle: skillLevelLabel(skill.level),
+    body: skill.fact?.statement ?? skill.name,
+    source: skill.fact?.provenance[0]?.sourceText ?? "用户确认",
+    usage: skill.fact ? "已确认事实" : "待补充事实",
+    used: Boolean(skill.fact || skill.evidenceIds.length),
+    archived,
+    updatedAt: skill.updatedAt,
+    skillLevel: skill.level
+  };
+}
+
+function profileDraftFromItem(item: ProfileManagedItem): ProfileItemDraft {
+  return {
+    title: item.title,
+    subtitle: item.subtitle,
+    body: item.body,
+    date: item.date ?? "",
+    level: item.skillLevel ?? "familiar",
+    experienceType: item.experienceType ?? defaultExperienceTypeForCategory(item.category)
+  };
+}
+
+function defaultProfileDraftForCategory(category: ProfileCategoryId): ProfileItemDraft {
+  return {
+    ...emptyProfileItemDraft,
+    experienceType: defaultExperienceTypeForCategory(category)
+  };
+}
+
+function buildExperienceFromDraft(draft: ProfileItemDraft, category: ProfileCategoryId, existingId: string | undefined, now: string): Experience {
+  const id = existingId ?? `experience-${nanoid(10)}`;
+  const type = category === "work" ? draft.experienceType : defaultExperienceTypeForCategory(category);
+  const organization = draft.title.trim() || profileCategoryLabel(category);
+  const role = draft.subtitle.trim() || profileCategoryLabel(category);
+  const statement = draft.body.trim() || `${organization} / ${role}`;
+  return {
+    id,
+    type,
+    organization,
+    role,
+    startDate: undefined,
+    endDate: draft.date.trim() || undefined,
+    facts: [buildUserFact(`fact-${nanoid(10)}`, id, statement, factCategoryForProfileCategory(category), now)],
+    resumeDrafts: [],
+    tags: category === "award" ? ["award"] : [],
+    evidenceIds: [],
+    createdAt: now,
+    updatedAt: now
+  };
+}
+
+function buildCertificateFromDraft(draft: ProfileItemDraft, existingId: string | undefined, now: string): Certificate {
+  const id = existingId ?? `certificate-${nanoid(10)}`;
+  const name = draft.title.trim();
+  const statement = draft.body.trim() || name;
+  return {
+    id,
+    name,
+    issuer: optionalText(draft.subtitle),
+    issuedAt: optionalText(draft.date),
+    evidenceIds: [],
+    fact: buildUserFact(`fact-${nanoid(10)}`, id, statement, "certificate", now),
+    createdAt: now,
+    updatedAt: now
+  };
+}
+
+function buildSkillFromDraft(draft: ProfileItemDraft, category: ProfileCategoryId, existingId: string | undefined, now: string): Skill {
+  const factCategory: FactCategory = category === "language" ? "language" : "skill";
+  const skill = buildUserSkill(draft.title.trim(), draft.level, now, factCategory, existingId);
+  return {
+    ...skill,
+    fact: buildUserFact(`fact-${nanoid(10)}`, skill.id, draft.body.trim() || skill.fact?.statement || skill.name, factCategory, now)
+  };
+}
+
+function buildUserFact(id: string, sourceId: string, statement: string, category: FactCategory, now: string): Experience["facts"][number] {
+  return {
+    id,
+    statement,
+    category,
+    confirmedByUser: true,
+    riskLevel: "low",
+    provenance: [{
+      sourceType: "user_input",
+      sourceId,
+      sourceText: statement,
+      confidence: 1,
+      confirmedByUser: true,
+      riskLevel: "low",
+      createdAt: now
+    }],
+    createdAt: now,
+    updatedAt: now
+  };
+}
+
+function parseProfileArchive(value: unknown, legacySkills: Skill[]): ProfileArchiveState {
+  if (!value || typeof value !== "object") {
+    return { ...emptyProfileArchive, skills: legacySkills };
+  }
+  const record = value as Partial<ProfileArchiveState>;
+  return {
+    experiences: Array.isArray(record.experiences) ? record.experiences : [],
+    certificates: Array.isArray(record.certificates) ? record.certificates : [],
+    skills: Array.isArray(record.skills) ? record.skills : legacySkills,
+    customBlocks: Array.isArray(record.customBlocks) ? record.customBlocks : []
+  };
+}
+
+function categoryForExperience(experience: Experience): ProfileCategoryId {
+  if (experience.type === "education") {
+    return "education";
+  }
+  if (experience.type === "work" || experience.type === "internship") {
+    return "work";
+  }
+  if (experience.type === "project") {
+    return "project";
+  }
+  if (experience.type === "campus" || experience.type === "volunteer") {
+    return "campus";
+  }
+  if (experience.type === "competition") {
+    return "award";
+  }
+  return "custom";
+}
+
+function defaultExperienceTypeForCategory(category: ProfileCategoryId): ExperienceType {
+  const defaults: Partial<Record<ProfileCategoryId, ExperienceType>> = {
+    education: "education",
+    work: "work",
+    project: "project",
+    campus: "campus",
+    award: "competition",
+    custom: "other"
+  };
+  return defaults[category] ?? "other";
+}
+
+function factCategoryForProfileCategory(category: ProfileCategoryId): FactCategory {
+  if (category === "education") {
+    return "education";
+  }
+  if (category === "skill") {
+    return "skill";
+  }
+  if (category === "language") {
+    return "language";
+  }
+  if (category === "certificate") {
+    return "certificate";
+  }
+  if (category === "award") {
+    return "achievement";
+  }
+  if (category === "custom") {
+    return "other";
+  }
+  return "experience";
+}
+
+function isLanguageSkill(skill: Skill) {
+  return skill.fact?.category === "language" || /语言|英语|日语|韩语|法语|德语|雅思|托福|CET/i.test(skill.name);
+}
+
+function profileCategoryLabel(category: ProfileCategoryId) {
+  return profileCategories.find((item) => item.id === category)?.label ?? "资料";
+}
+
+function skillLevelLabel(level: Skill["level"]) {
+  if (level === "basic") {
+    return "了解";
+  }
+  if (level === "proficient") {
+    return "熟练";
+  }
+  return "熟悉";
+}
+
 function FactReviewRow({
   fact,
   requirePdfLocation,
@@ -1212,8 +1876,9 @@ function basicDraftFromProfile(profile: CareerProfile, profileKey: string): Basi
   };
 }
 
-function buildUserSkill(name: string, level: Skill["level"], now: string): Skill {
-  const skillId = `skill-${nanoid(10)}`;
+function buildUserSkill(name: string, level: Skill["level"], now: string, factCategory: FactCategory = "skill", existingId?: string): Skill {
+  const skillId = existingId ?? `skill-${nanoid(10)}`;
+  const statement = factCategory === "language" ? name : `掌握${name}`;
   return {
     id: skillId,
     name,
@@ -1224,14 +1889,14 @@ function buildUserSkill(name: string, level: Skill["level"], now: string): Skill
     updatedAt: now,
     fact: {
       id: `fact-${nanoid(10)}`,
-      statement: `掌握${name}`,
-      category: "skill",
+      statement,
+      category: factCategory,
       confirmedByUser: true,
       riskLevel: "low",
       provenance: [{
         sourceType: "user_input",
         sourceId: skillId,
-        sourceText: name,
+        sourceText: statement,
         confidence: 1,
         confirmedByUser: true,
         riskLevel: "low",

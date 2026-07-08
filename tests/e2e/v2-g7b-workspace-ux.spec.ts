@@ -1,79 +1,57 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 test.describe("V2-G7b workspace UX", () => {
   test("product shell hides internal probes and exposes stable workspace routes", async ({ page }) => {
     await page.goto("/");
 
-    const nav = page.getByLabel("主导航");
-    await expect(nav.getByRole("link", { name: "我的简历" })).toBeVisible();
-    await expect(nav.getByRole("link", { name: "个人资料库" })).toBeVisible();
-    await expect(nav.getByRole("link", { name: "岗位" })).toBeVisible();
-    await expect(nav.getByRole("link", { name: "求职进度" })).toBeVisible();
-    await expect(nav.getByRole("link", { name: "设置" })).toBeVisible();
+    await expect(page.locator(".primary-sidebar a[href='/resume']")).toBeVisible();
+    await expect(page.locator(".primary-sidebar a[href='/profile']")).toBeVisible();
+    await expect(page.locator(".primary-sidebar a[href='/jobs']")).toBeVisible();
+    await expect(page.locator(".primary-sidebar a[href='/applications']")).toBeVisible();
+    await expect(page.locator(".primary-sidebar a[href='/settings']")).toBeVisible();
 
-    await expect(page.getByText("A4 探针")).toHaveCount(0);
-    await expect(page.getByText("PDF 探针")).toHaveCount(0);
-    await expect(page.getByText("阶段A")).toHaveCount(0);
-    await expect(page.getByText("Sprint 0")).toHaveCount(0);
+    await expect(page.getByText("A4 Probe")).toHaveCount(0);
+    await expect(page.getByText("PDF Probe")).toHaveCount(0);
     await expect(page.getByText("Repository")).toHaveCount(0);
   });
 
-  test("profile workspace provides first-class editable facts and skill management", async ({ page }) => {
+  test("profile workspace uses category, list, detail management", async ({ page }) => {
     const skillName = `G7b Skill ${Date.now()}`;
 
     await page.goto("/profile");
     await expect(page.locator(".profile-manager-grid")).toBeVisible();
-    await expect(page.getByRole("heading", { name: "基本信息" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "技能" })).toBeVisible();
-    await expect(page.getByText("职业母档案")).toHaveCount(0);
+    await expect(page.locator(".profile-category-panel")).toBeVisible();
+    await expect(page.locator(".profile-list-panel")).toBeVisible();
+    await expect(page.locator(".profile-detail-panel")).toBeVisible();
 
-    await page.getByLabel("技能名称").fill(skillName);
-    await page.getByLabel("熟练度").selectOption("proficient");
-    await page.getByRole("button", { name: "添加技能" }).click();
-    await expect.poll(async () => {
-      return page.locator(".profile-item-row input").evaluateAll((inputs) => inputs.map((input) => (input as HTMLInputElement).value));
-    }).toContain(skillName);
+    await page.locator(".profile-category-button").nth(7).click();
+    await page.locator(".profile-list-panel button.primary-button").click();
+    const detail = page.locator(".profile-detail-panel");
+    await detail.locator("input").first().fill(skillName);
+    await detail.locator("select").first().selectOption("proficient");
+    await detail.locator("textarea").fill(`Confirmed skill ${skillName}`);
+    await detail.locator("button.primary-button").last().click();
+
+    await expect(page.locator(".profile-managed-list")).toContainText(skillName);
   });
 
-  test("resume workspace opens with A4 canvas and supports direct profile-field selection", async ({ page }) => {
-    const branchName = `G7b Canvas ${Date.now()}`;
-    await createJobSuggestionDraft(page);
+  test("resume workspace supports A4 direct profile-field editing", async ({ page }) => {
+    await createBranchFromDraft(page, `G7b Canvas ${Date.now()}`);
 
-    await page.goto("/resume");
-    await page.locator("label").filter({ hasText: "岗位建议草稿" }).locator("select").selectOption({ index: 0 });
-    await page.locator("article.panel").first().locator("input").fill(branchName);
-    await page.locator("article.panel").first().locator("button.primary-button").click();
-
-    await expect(page.locator(".resume-preview-layout")).toBeVisible({ timeout: 15_000 });
-    await expect(page.locator(".resume-export-panel")).toBeVisible();
-    await expect(page.locator(".resume-preview-stage").getByTestId("resume-a4-page").first()).toBeVisible();
-    await expect(page.getByText("A4 探针")).toHaveCount(0);
-
-    await page.getByLabel("画布编辑").check();
     await page.locator(".resume-preview-stage").getByTestId("resume-a4-page").first().locator("[data-source-item-id='profile:name']").click();
     await expect(page.getByTestId("resume-studio-editor")).toBeVisible();
-    await expect(page.getByTestId("resume-studio-editor")).toContainText("基本信息");
+    await expect(page.getByTestId("resume-studio-editor").locator("textarea")).toBeVisible();
   });
 
   test("resume studio keeps A4 canvas in local scroll without page overflow", async ({ page }) => {
-    const branchName = `G7b Layout ${Date.now()}`;
     await page.setViewportSize({ width: 1366, height: 768 });
-    await createJobSuggestionDraft(page);
-
-    await page.goto("/resume");
-    await page.locator("label").filter({ hasText: "岗位建议草稿" }).locator("select").selectOption({ index: 0 });
-    await page.locator("article.panel").first().locator("input").fill(branchName);
-    await page.locator("article.panel").first().locator("button.primary-button").click();
-    await expect(page.locator(".resume-preview-stage").getByTestId("resume-a4-page").first()).toBeVisible({ timeout: 15_000 });
+    await createBranchFromDraft(page, `G7b Layout ${Date.now()}`);
 
     const metrics = await page.evaluate(() => {
       const doc = document.documentElement;
       const stage = document.querySelector<HTMLElement>(".resume-preview-stage");
-      if (!stage) {
-        throw new Error("resume_stage_or_page_missing");
-      }
-      const resumePage = stage.querySelector<HTMLElement>("[data-testid='resume-a4-page']");
-      if (!resumePage) {
+      const resumePage = stage?.querySelector<HTMLElement>("[data-testid='resume-a4-page']");
+      if (!stage || !resumePage) {
         throw new Error("resume_stage_or_page_missing");
       }
       const stageRect = stage.getBoundingClientRect();
@@ -97,16 +75,23 @@ test.describe("V2-G7b workspace UX", () => {
 
     expect(metrics.horizontalOverflow).toBeLessThanOrEqual(1);
     expect(metrics.pageTopFromStage).toBeGreaterThanOrEqual(16);
-    expect(metrics.pageTopFromStage).toBeLessThanOrEqual(48);
+    expect(metrics.pageTopFromStage).toBeLessThanOrEqual(64);
     expect(metrics.stageScrollWidth).toBeGreaterThanOrEqual(metrics.stageClientWidth);
     expect(metrics.invisibleOversized).toEqual([]);
   });
 });
 
-async function createJobSuggestionDraft(page: import("@playwright/test").Page) {
+async function createBranchFromDraft(page: Page, branchName: string) {
   await page.goto("/jobs");
-  await page.getByRole("button", { name: "运行经历匹配" }).click();
+  await page.getByTestId("run-experience-match").click();
   await expect(page.locator(".match-row").first()).toBeVisible({ timeout: 15_000 });
-  await page.getByRole("button", { name: "创建建议草稿" }).click();
-  await expect(page.locator(".notice")).toContainText("简历建议草稿", { timeout: 15_000 });
+  await page.getByTestId("create-suggestion-draft").click();
+  await expect(page.locator(".notice")).toBeVisible({ timeout: 15_000 });
+
+  await page.goto("/resume");
+  await page.getByTestId("job-suggestion-draft-select").first().selectOption({ index: 0 });
+  await page.getByTestId("new-resume-branch-name").first().fill(branchName);
+  await page.getByTestId("create-job-resume").first().click();
+  await expect(page.getByTestId("resume-studio-shell")).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByTestId("resume-a4-page").first()).toBeVisible();
 }

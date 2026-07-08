@@ -14,6 +14,7 @@ import {
   type ResumePaginationPlan,
   type ResumeBranch,
   type ResumePresentationConfig,
+  type ResumeRenderSectionType,
   type ResumeRenderModel,
   type ResumeRevision,
   type StructuredResumeDraft,
@@ -111,8 +112,14 @@ export function ResumeWorkspace() {
   const [profileFieldDraftText, setProfileFieldDraftText] = useState("");
   const [profileFieldError, setProfileFieldError] = useState<string | undefined>();
   const [profileFieldPending, setProfileFieldPending] = useState(false);
+  const [selectedSectionTitleId, setSelectedSectionTitleId] = useState<string | undefined>();
+  const [editingSectionTitleId, setEditingSectionTitleId] = useState<string | undefined>();
+  const [sectionTitleDraftText, setSectionTitleDraftText] = useState("");
+  const [sectionTitleError, setSectionTitleError] = useState<string | undefined>();
+  const [sectionTitlePending, setSectionTitlePending] = useState(false);
   const [isStylePanelOpen, setIsStylePanelOpen] = useState(true);
   const [isTemplateCenterOpen, setIsTemplateCenterOpen] = useState(false);
+  const [isImportPanelOpen, setIsImportPanelOpen] = useState(false);
   const [studioMode, setStudioMode] = useState<StudioMode>("manual");
   const [manualInspectorTab, setManualInspectorTab] = useState<ManualInspectorTab>("content");
   const [aiInspectorTab, setAiInspectorTab] = useState<AiInspectorTab>("job");
@@ -273,6 +280,11 @@ export function ResumeWorkspace() {
     setProfileFieldDraftText("");
     setProfileFieldError(undefined);
     setProfileFieldPending(false);
+    setSelectedSectionTitleId(undefined);
+    setEditingSectionTitleId(undefined);
+    setSectionTitleDraftText("");
+    setSectionTitleError(undefined);
+    setSectionTitlePending(false);
     setActivePropertyTab("document");
   }, []);
 
@@ -722,6 +734,7 @@ export function ResumeWorkspace() {
     }
     setSelectedBranchId(result.branchId);
     setIsStudioEditMode(true);
+    setIsImportPanelOpen(false);
     setMessage("已进入导入生成的通用简历，可继续编辑、换模板、调整分页并下载 PDF。");
   }
 
@@ -1160,6 +1173,14 @@ export function ResumeWorkspace() {
     }
   }
 
+  function scrollCanvasItemIntoView(itemId: string) {
+    window.requestAnimationFrame(() => {
+      document
+        .querySelector(`.resume-preview-stage [data-source-item-id="${cssEscape(itemId)}"]`)
+        ?.scrollIntoView({ block: "center", inline: "center", behavior: "smooth" });
+    });
+  }
+
   function selectStudioItem(itemId: string) {
     if (!isStudioEditMode) {
       return;
@@ -1169,11 +1190,16 @@ export function ResumeWorkspace() {
     setEditingProfileFieldId(undefined);
     setProfileFieldDraftText("");
     setProfileFieldError(undefined);
+    setSelectedSectionTitleId(undefined);
+    setEditingSectionTitleId(undefined);
+    setSectionTitleDraftText("");
+    setSectionTitleError(undefined);
     setActivePropertyTab("block");
     setEditingStudioItemId(undefined);
     setStudioDraftText("");
     setStudioError(undefined);
     setPendingStudioOperationId(undefined);
+    scrollCanvasItemIntoView(itemId);
   }
 
   function startStudioEdit(itemId: string) {
@@ -1183,6 +1209,14 @@ export function ResumeWorkspace() {
       return;
     }
     setSelectedStudioItemId(itemId);
+    setSelectedProfileFieldId(undefined);
+    setEditingProfileFieldId(undefined);
+    setProfileFieldDraftText("");
+    setProfileFieldError(undefined);
+    setSelectedSectionTitleId(undefined);
+    setEditingSectionTitleId(undefined);
+    setSectionTitleDraftText("");
+    setSectionTitleError(undefined);
     if (!block.editable || !selectedBranchEditable) {
       setStudioError(`当前区块不可编辑：${block.notEditableReason ?? "branch_not_editable"}`);
       return;
@@ -1191,6 +1225,7 @@ export function ResumeWorkspace() {
     setStudioDraftText(block.text);
     setStudioError(undefined);
     setPendingStudioOperationId(undefined);
+    scrollCanvasItemIntoView(itemId);
   }
 
   function cancelStudioEdit() {
@@ -1212,8 +1247,13 @@ export function ResumeWorkspace() {
     setEditingStudioItemId(undefined);
     setStudioDraftText("");
     setStudioError(undefined);
+    setSelectedSectionTitleId(undefined);
+    setEditingSectionTitleId(undefined);
+    setSectionTitleDraftText("");
+    setSectionTitleError(undefined);
     setPendingStudioOperationId(undefined);
     setActivePropertyTab("document");
+    scrollCanvasItemIntoView(fieldId);
   }
 
   function startProfileFieldEdit(fieldId: string, currentText: string) {
@@ -1229,6 +1269,87 @@ export function ResumeWorkspace() {
     setEditingProfileFieldId(undefined);
     setProfileFieldDraftText("");
     setProfileFieldError(undefined);
+  }
+
+  function selectSectionTitle(fieldId: string, currentText: string) {
+    const sectionType = sectionTitleFieldType(fieldId);
+    if (!isStudioEditMode || !sectionType) {
+      return;
+    }
+    setSelectedSectionTitleId(fieldId);
+    setEditingSectionTitleId(undefined);
+    setSectionTitleDraftText(currentText);
+    setSectionTitleError(undefined);
+    setSelectedStudioItemId(undefined);
+    setEditingStudioItemId(undefined);
+    setStudioDraftText("");
+    setStudioError(undefined);
+    setSelectedProfileFieldId(undefined);
+    setEditingProfileFieldId(undefined);
+    setProfileFieldDraftText("");
+    setProfileFieldError(undefined);
+    setPendingStudioOperationId(undefined);
+    setActivePropertyTab("section");
+    scrollCanvasItemIntoView(fieldId);
+  }
+
+  function startSectionTitleEdit(fieldId: string, currentText: string) {
+    const sectionType = sectionTitleFieldType(fieldId);
+    if (!sectionType) {
+      setSectionTitleError("当前栏目标题暂不可编辑。");
+      return;
+    }
+    selectSectionTitle(fieldId, currentText);
+    setEditingSectionTitleId(fieldId);
+  }
+
+  function cancelSectionTitleEdit() {
+    setEditingSectionTitleId(undefined);
+    setSectionTitleDraftText("");
+    setSectionTitleError(undefined);
+  }
+
+  async function saveSectionTitleEdit() {
+    if (!selectedBranch || !presentationConfig || !editingSectionTitleId) {
+      return;
+    }
+    const sectionType = sectionTitleFieldType(editingSectionTitleId);
+    if (!sectionType) {
+      setSectionTitleError("当前栏目标题暂不可编辑。");
+      return;
+    }
+    const nextTitle = sectionTitleDraftText.trim();
+    if (!nextTitle) {
+      setSectionTitleError("栏目标题不能为空。");
+      return;
+    }
+    const currentTitle = renderModel?.sections.find((section) => section.type === sectionType)?.title;
+    if (nextTitle === currentTitle) {
+      cancelSectionTitleEdit();
+      setMessage("栏目标题未变化，没有创建新的展示版本。");
+      return;
+    }
+
+    setSectionTitlePending(true);
+    setSectionTitleError(undefined);
+    try {
+      await updatePresentationStyle((current) => ({
+        sectionStyleOverrides: {
+          ...current.sectionStyleOverrides,
+          [sectionType]: {
+            ...current.sectionStyleOverrides[sectionType],
+            titleOverride: nextTitle
+          }
+        }
+      }), "栏目标题已保存；正文事实未改变。");
+      setEditingSectionTitleId(undefined);
+      setSelectedSectionTitleId(undefined);
+      setSectionTitleDraftText("");
+    } catch {
+      setSectionTitleError("栏目标题保存失败，请稍后重试。");
+    } finally {
+      setSectionTitlePending(false);
+    }
   }
 
   async function saveProfileFieldEdit() {
@@ -1842,23 +1963,51 @@ export function ResumeWorkspace() {
     );
   }
 
+  const showManualFormattingPanel = studioMode === "manual"
+    && isStylePanelOpen
+    && (manualInspectorTab === "typography"
+      || manualInspectorTab === "paragraph"
+      || manualInspectorTab === "layout"
+      || manualInspectorTab === "page");
+  const showDocumentStyleControls = manualInspectorTab === "typography"
+    || manualInspectorTab === "paragraph"
+    || manualInspectorTab === "layout"
+    || manualInspectorTab === "page";
+  const showSectionStyleControls = manualInspectorTab === "layout";
+  const showBlockStyleControls = manualInspectorTab === "layout";
+
   return (
     <main className="page-shell resume-workspace">
-      <section className="page-title no-print">
-        <p className="eyebrow">我的简历</p>
-        <h1>我的简历</h1>
-        <p>创建、导入和管理你的简历版本。</p>
+      <section className={`page-title no-print ${selectedBranch ? "resume-page-title-compact" : ""}`}>
+        <div>
+          {!selectedBranch ? <p className="eyebrow">我的简历</p> : null}
+          <h1>我的简历</h1>
+        </div>
+        {!selectedBranch ? <p>创建、导入和管理你的简历版本。</p> : null}
       </section>
 
       {workspace.status === "empty" && !profile ? <WorkspaceEmptyState /> : null}
       {message ? <section className="notice no-print">{message}</section> : null}
 
-      {!selectedBranch ? (
-        <ResumeImportWizard
-          repository={repository}
-          profile={profile}
-          onImported={handleImportedResumeReady}
-        />
+      {(!selectedBranch || isImportPanelOpen) ? (
+        <section className={`resume-import-dock no-print ${selectedBranch ? "resume-import-dock-inline" : ""}`} data-testid="resume-import-dock">
+          {selectedBranch ? (
+            <div className="section-heading compact-heading">
+              <div>
+                <h2>导入简历</h2>
+                <p>导入 PDF、DOCX 或 JSON，核对后再写入正式简历。</p>
+              </div>
+              <button className="secondary-button compact" type="button" onClick={() => setIsImportPanelOpen(false)}>
+                收起
+              </button>
+            </div>
+          ) : null}
+          <ResumeImportWizard
+            repository={repository}
+            profile={profile}
+            onImported={handleImportedResumeReady}
+          />
+        </section>
       ) : null}
 
       {!selectedBranch ? (
@@ -1944,81 +2093,114 @@ export function ResumeWorkspace() {
               返回
             </button>
             <div>
+              <span className="resume-workbar-label">当前简历</span>
               <h2>{selectedBranch.name}</h2>
-              <p>
-                {selectedBranchJob ? `${selectedBranchJob.company} / ${selectedBranchJob.title}` : "通用简历 / 无目标岗位"}
-                {" "} / {branchPurposeLabel(selectedBranch.branchPurpose)} / {branchStatusLabel(selectedBranch)}
-              </p>
             </div>
           </div>
 
           <div className="resume-studio-toolbar" aria-label="简历工作栏">
-            <span className="save-status">{selectedBranchEditable ? "可编辑" : "只读"}</span>
-            <button className="secondary-button compact" type="button" onClick={refreshSync}>
-              重新检查
-            </button>
-            <button className="secondary-button compact" onClick={undo} disabled={!selectedBranchEditable}>撤销</button>
-            <button
-              className="secondary-button compact"
-              disabled={!presentationHistory.redoStack.length || !presentationConfig}
-              onClick={() => { void redoPresentationChange(); }}
-            >
-              重做
-            </button>
-            <span className="resume-toolbar-meta">
-              {pagination.plan ? `${pagination.plan.actualPageCount} 页` : "测量页数"}
-            </span>
-            <div className="zoom-control" role="group" aria-label="画布缩放">
-              <button className="secondary-button compact" type="button" onClick={() => setCanvasZoom((value) => Math.max(0.72, Number((value - 0.08).toFixed(2))))}>-</button>
-              <span>{Math.round(canvasZoom * 100)}%</span>
-              <button className="secondary-button compact" type="button" onClick={() => setCanvasZoom((value) => Math.min(1.16, Number((value + 0.08).toFixed(2))))}>+</button>
+            <div className="toolbar-group toolbar-group-mode">
+              <span className="toolbar-group-label">模式</span>
+              <nav className="resume-mode-rail no-print" aria-label="编辑模式">
+                <button
+                  type="button"
+                  className={studioMode === "manual" ? "mode-rail-button mode-rail-button-active" : "mode-rail-button"}
+                  onClick={() => setStudioMode("manual")}
+                  title="手动编辑"
+                >
+                  <span>手动</span>
+                </button>
+                <button
+                  type="button"
+                  className={studioMode === "ai" ? "mode-rail-button mode-rail-button-active" : "mode-rail-button"}
+                  onClick={() => setStudioMode("ai")}
+                  title="AI岗位优化"
+                >
+                  <span>AI</span>
+                </button>
+              </nav>
             </div>
-            <label className="inline-toggle studio-edit-toggle">
-              <input
-                type="checkbox"
-                data-testid="canvas-edit-toggle"
-                aria-label="画布编辑"
-                checked={isStudioEditMode}
-                disabled={!renderModel || !resumeDocument?.editable}
-                onChange={(event) => setIsStudioEditMode(event.target.checked)}
-              />
-              直接编辑
-            </label>
-            <button
-              type="button"
-              className="secondary-button compact"
-              onClick={() => {
-                setStudioMode("manual");
-                setManualInspectorTab("template");
-                setIsTemplateCenterOpen((current) => !current);
-              }}
-            >
-              模板中心
-            </button>
-            <button
-              className="primary-button compact"
-              onClick={downloadPdf}
-              disabled={!renderModel || !presentationConfig || isPdfExportBusy || pagination.blocked || pagination.status === "measuring"}
-              title="下载 PDF"
-            >
-              {isPdfExportBusy ? "生成中" : "导出"}
-            </button>
-            <button
-              className="secondary-button compact"
-              onClick={downloadStructuredJson}
-              disabled={!renderModel}
-              title="导出结构化 JSON"
-            >
-              导出JSON
-            </button>
-            <button
-              className="secondary-button compact"
-              data-testid="open-or-create-application"
-              onClick={openOrCreateApplication}
-              disabled={!selectedBranchEditable || selectedBranch.branchPurpose !== "job_specific"}
-            >
-              {selectedBranch.branchPurpose === "job_specific" ? "加入求职进度" : "岗位简历后可投递"}
-            </button>
+
+            <div className="toolbar-group">
+              <span className="toolbar-group-label">编辑</span>
+              <span className="save-status">{selectedBranchEditable ? "可编辑" : "只读"}</span>
+              <button className="secondary-button compact" type="button" onClick={refreshSync}>
+                检查
+              </button>
+              <button className="secondary-button compact" onClick={undo} disabled={!selectedBranchEditable}>撤销</button>
+              <button
+                className="secondary-button compact"
+                disabled={!presentationHistory.redoStack.length || !presentationConfig}
+                onClick={() => { void redoPresentationChange(); }}
+              >
+                重做
+              </button>
+            </div>
+
+            <div className="toolbar-group">
+              <span className="toolbar-group-label">视图</span>
+              <span className="resume-toolbar-meta">
+                {pagination.plan ? `${pagination.plan.actualPageCount} 页` : "测量页数"}
+              </span>
+              <div className="zoom-control" role="group" aria-label="画布缩放">
+                <button className="secondary-button compact" type="button" onClick={() => setCanvasZoom((value) => Math.max(0.72, Number((value - 0.08).toFixed(2))))}>-</button>
+                <span>{Math.round(canvasZoom * 100)}%</span>
+                <button className="secondary-button compact" type="button" onClick={() => setCanvasZoom((value) => Math.min(1.16, Number((value + 0.08).toFixed(2))))}>+</button>
+              </div>
+              <label className="inline-toggle studio-edit-toggle">
+                <input
+                  type="checkbox"
+                  data-testid="canvas-edit-toggle"
+                  aria-label="画布编辑"
+                  checked={isStudioEditMode}
+                  disabled={!renderModel || !resumeDocument?.editable}
+                  onChange={(event) => setIsStudioEditMode(event.target.checked)}
+                />
+                直接编辑
+              </label>
+            </div>
+
+            <div className="toolbar-group">
+              <span className="toolbar-group-label">文件</span>
+              <button
+                className="secondary-button compact"
+                data-testid="open-resume-import"
+                type="button"
+                onClick={() => setIsImportPanelOpen((current) => !current)}
+              >
+                {isImportPanelOpen ? "收起导入" : "导入简历"}
+              </button>
+              <button
+                className="primary-button compact"
+                onClick={downloadPdf}
+                disabled={!renderModel || !presentationConfig || isPdfExportBusy || pagination.blocked || pagination.status === "measuring"}
+                title="下载 PDF"
+              >
+                {isPdfExportBusy ? "生成中" : "导出PDF"}
+              </button>
+              <button
+                className="secondary-button compact"
+                onClick={downloadStructuredJson}
+                disabled={!renderModel}
+                title="导出结构化 JSON"
+              >
+                导出JSON
+              </button>
+            </div>
+
+            {selectedBranch.branchPurpose === "job_specific" ? (
+              <div className="toolbar-group">
+                <span className="toolbar-group-label">投递</span>
+                <button
+                  className="secondary-button compact"
+                  data-testid="open-or-create-application"
+                  onClick={openOrCreateApplication}
+                  disabled={!selectedBranchEditable}
+                >
+                  加入求职进度
+                </button>
+              </div>
+            ) : null}
           </div>
 
           {selectedBranch.migrationStatus === "legacy_unverified" ? (
@@ -2040,25 +2222,6 @@ export function ResumeWorkspace() {
 
       {selectedBranch ? (
         <section className="resume-preview-layout resume-studio-shell" data-testid="resume-studio-shell">
-          <nav className="resume-mode-rail no-print" aria-label="编辑模式">
-            <button
-              type="button"
-              className={studioMode === "manual" ? "mode-rail-button mode-rail-button-active" : "mode-rail-button"}
-              onClick={() => setStudioMode("manual")}
-              title="手动编辑"
-            >
-              <span>手动</span>
-            </button>
-            <button
-              type="button"
-              className={studioMode === "ai" ? "mode-rail-button mode-rail-button-active" : "mode-rail-button"}
-              onClick={() => setStudioMode("ai")}
-              title="AI岗位优化"
-            >
-              <span>AI</span>
-            </button>
-          </nav>
-
           <aside className="panel no-print resume-export-panel resume-inspector">
             <div className="property-panel-heading">
               <div>
@@ -2072,13 +2235,15 @@ export function ResumeWorkspace() {
                 {isStylePanelOpen ? "收起面板" : "展开面板"}
               </button>
             </div>
-            <div className="property-summary">
-              <strong>{selectedStudioBlock ? selectedStudioBlock.text.slice(0, 28) : selectedBranch.name}</strong>
-              <span>
-                {selectedStudioBlock ? "已选段落" : "整份简历"} / {selectedTemplate.name} / {selectedTemplate.layout === "two-column" ? "双栏" : "单栏"}
-              </span>
-            </div>
-            {isStudioEditMode && resumeDocument ? (
+            {studioMode === "manual" && manualInspectorTab === "content" ? (
+              <div className="property-summary">
+                <strong>{selectedStudioBlock ? selectedStudioBlock.text.slice(0, 28) : selectedBranch.name}</strong>
+                <span>
+                  {selectedStudioBlock ? "已选段落" : "整份简历"} / {selectedTemplate.name} / {selectedTemplate.layout === "two-column" ? "双栏" : "单栏"}
+                </span>
+              </div>
+            ) : null}
+            {studioMode === "manual" && manualInspectorTab === "content" && isStudioEditMode && resumeDocument ? (
               <div className="save-status">单击区块选中，双击或 Enter/F2 编辑，Escape 取消，Ctrl/Cmd+Enter 保存。</div>
             ) : null}
             {studioMode === "manual" ? (
@@ -2108,7 +2273,7 @@ export function ResumeWorkspace() {
                 ))}
               </div>
             )}
-            {studioMode === "manual" ? (
+            {studioMode === "manual" && manualInspectorTab === "content" ? (
               <div className="studio-sidebar-section">
                 <div className="section-heading compact-heading">
                   <div>
@@ -2209,6 +2374,8 @@ export function ResumeWorkspace() {
             ) : null}
             {studioMode === "manual" ? (
               <>
+                {manualInspectorTab === "template" ? (
+                  <>
                 <label className="field-label">
                   模板
                   <select
@@ -2233,6 +2400,9 @@ export function ResumeWorkspace() {
                     打开模板中心
                   </button>
                 </div>
+                  </>
+                ) : null}
+                {manualInspectorTab === "history" ? (
                 <div className="action-row presentation-history-actions">
                   <button
                     className="secondary-button compact"
@@ -2249,8 +2419,9 @@ export function ResumeWorkspace() {
                     重做展示
                   </button>
                 </div>
+                ) : null}
                 <TemplateCenter
-                  open={isTemplateCenterOpen}
+                  open={manualInspectorTab === "template" && isTemplateCenterOpen}
                   model={renderModel}
                   presentationConfig={presentationConfig}
                   currentTemplateId={effectiveTemplateId}
@@ -2259,7 +2430,7 @@ export function ResumeWorkspace() {
                   onApply={(nextTemplateId) => { void updatePresentationTemplate(nextTemplateId); }}
                   onClose={() => setIsTemplateCenterOpen(false)}
                 />
-                {isStylePanelOpen ? (
+                {showManualFormattingPanel ? (
                   <div className="property-panel-body" data-testid="resume-property-panel">
                 <div className="property-tabs" role="tablist" aria-label="属性面板上下文">
                   {(["document", "section", "block"] as const).map((tab) => {
@@ -2283,7 +2454,7 @@ export function ResumeWorkspace() {
                   })}
                 </div>
 
-                {activePropertyTab === "document" || !selectedStudioBlock ? (
+                {showDocumentStyleControls && (activePropertyTab === "document" || !selectedStudioBlock) ? (
                   <div className="property-section" data-testid="document-style-panel">
                     <div className="property-control-grid">
                       <label className="field-label">
@@ -2452,7 +2623,7 @@ export function ResumeWorkspace() {
                   </div>
                 ) : null}
 
-                {activePropertyTab === "section" && selectedStudioSection && selectedStudioBlock ? (
+                {showSectionStyleControls && activePropertyTab === "section" && selectedStudioSection && selectedStudioBlock ? (
                   <div className="property-section" data-testid="section-style-panel">
                     <div className="property-summary compact-property-summary">
                       <strong>{selectedStudioSection.title}</strong>
@@ -2491,7 +2662,7 @@ export function ResumeWorkspace() {
                   </div>
                 ) : null}
 
-                {activePropertyTab === "block" && selectedStudioBlock ? (
+                {showBlockStyleControls && activePropertyTab === "block" && selectedStudioBlock ? (
                   <div className="property-section" data-testid="block-style-panel">
                     <div className="property-summary compact-property-summary">
                       <strong>{selectedStudioBlock.text.slice(0, 36)}</strong>
@@ -2528,7 +2699,7 @@ export function ResumeWorkspace() {
                 ) : null}
                   </div>
                 ) : null}
-                {presentationHiddenBlocks.length > 0 ? (
+                {manualInspectorTab === "layout" && presentationHiddenBlocks.length > 0 ? (
                   <div className="hidden-block-list">
                     <strong>已隐藏内容</strong>
                     {presentationHiddenBlocks.map((block) => (
@@ -2543,6 +2714,7 @@ export function ResumeWorkspace() {
                     ))}
                   </div>
                 ) : null}
+                {manualInspectorTab === "page" ? (
                 <div className={`overflow-status overflow-status-${pagination.status}`} data-testid="overflow-status">
                   <strong>{paginationStatusLabel(pagination.status)}</strong>
                   <span>
@@ -2551,13 +2723,14 @@ export function ResumeWorkspace() {
                       : "正在测量分页"}
                   </span>
                 </div>
-                {renderModel?.safety.ruleOnlyItemIds.length ? (
+                ) : null}
+                {manualInspectorTab === "page" && renderModel?.safety.ruleOnlyItemIds.length ? (
                   <div className="warning-box">该简历包含仅由规则检查通过的内容，工作台已显示校验状态；PDF 正文不会加入内部风险标签。</div>
                 ) : null}
-                {pagination.status === "near_one_page_limit" || pagination.status === "near_limit" ? (
+                {manualInspectorTab === "page" && (pagination.status === "near_one_page_limit" || pagination.status === "near_limit") ? (
                   <div className="warning-box">当前接近单页上限，建议导出前在打印预览中复核。</div>
                 ) : null}
-                {pagination.plan && isPaginationPlanBlocked(pagination.plan) ? (
+                {manualInspectorTab === "page" && pagination.plan && isPaginationPlanBlocked(pagination.plan) ? (
                   <div className="warning-box">
                     <p>当前页数超过所选页面策略，正式导出会被阻止。</p>
                     {reductionHints.length > 0 ? (
@@ -2567,6 +2740,7 @@ export function ResumeWorkspace() {
                     ) : null}
                   </div>
                 ) : null}
+                {manualInspectorTab === "page" ? (
                 <div className="export-control-stack" data-testid="pdf-export-controls">
                   <button
                     className="primary-button"
@@ -2593,6 +2767,8 @@ export function ResumeWorkspace() {
                     <p className="save-status">可重试下载，或使用浏览器打印 fallback。</p>
                   ) : null}
                 </div>
+                ) : null}
+                {manualInspectorTab === "history" ? (
                 <div className="studio-sidebar-section">
                   <h3>版本历史</h3>
                   {revisions.length > 0 ? (
@@ -2617,6 +2793,7 @@ export function ResumeWorkspace() {
                     <p>暂无版本历史。</p>
                   )}
                 </div>
+                ) : null}
               </>
             ) : null}
             {renderResult.error ? <p className="save-status save-status-failed">{renderResult.error}</p> : null}
@@ -2639,11 +2816,16 @@ export function ResumeWorkspace() {
                   selectedProfileFieldId,
                   editingProfileFieldId,
                   selectedProfileFieldLabel: profileFieldLabel(selectedProfileFieldId),
+                  selectedSectionTitleId,
+                  editingSectionTitleId,
+                  selectedSectionTitleLabel: sectionTitleFieldLabel(selectedSectionTitleId),
                   draftText: studioDraftText,
                   profileDraftText: profileFieldDraftText,
+                  sectionTitleDraftText,
                   error: studioError,
                   profileError: profileFieldError,
-                  pending: Boolean(pendingStudioOperationId) || profileFieldPending,
+                  sectionTitleError,
+                  pending: Boolean(pendingStudioOperationId) || profileFieldPending || sectionTitlePending,
                   onSelect: selectStudioItem,
                   onStartEdit: startStudioEdit,
                   onDraftTextChange: setStudioDraftText,
@@ -2654,6 +2836,11 @@ export function ResumeWorkspace() {
                   onProfileDraftTextChange: setProfileFieldDraftText,
                   onSaveProfileField: saveProfileFieldEdit,
                   onCancelProfileField: cancelProfileFieldEdit,
+                  onSelectSectionTitle: selectSectionTitle,
+                  onStartSectionTitleEdit: startSectionTitleEdit,
+                  onSectionTitleDraftTextChange: setSectionTitleDraftText,
+                  onSaveSectionTitle: saveSectionTitleEdit,
+                  onCancelSectionTitle: cancelSectionTitleEdit,
                   onMoveUp: (itemId) => { void movePresentationItem(itemId, "up"); },
                   onMoveDown: (itemId) => { void movePresentationItem(itemId, "down"); },
                   onHide: (itemId) => { void setPresentationItemVisibility(itemId, false); }
@@ -2965,6 +3152,19 @@ function revisionSourceLabel(value: string) {
     import: "导入创建"
   };
   return labels[value] ?? "内容修改";
+}
+
+function sectionTitleFieldType(fieldId: string | undefined): ResumeRenderSectionType | undefined {
+  const value = fieldId?.replace(/^section-title:/, "");
+  if (value === "summary" || value === "experience" || value === "skills" || value === "certificates") {
+    return value;
+  }
+  return undefined;
+}
+
+function sectionTitleFieldLabel(fieldId: string | undefined) {
+  const sectionType = sectionTitleFieldType(fieldId);
+  return sectionType ? sectionTypeLabel(sectionType) : "栏目标题";
 }
 
 type EditableProfileFieldKey = "name" | "phone" | "email" | "location" | "link";

@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
+import { openManualPageTab } from "./support/g7b2Ui";
 
 type DbExportRecord = {
   exportStatus?: string;
@@ -154,6 +155,7 @@ async function cloneExperienceItems(page: Page, branchName: string, cloneCount: 
 }
 
 async function setPagePolicy(page: Page, policy: "one_page_strict" | "up_to_two_pages") {
+  await openManualPageTab(page);
   const selector = page.getByTestId("page-policy-selector");
   await expect(selector).toBeEnabled();
   if (await selector.inputValue() !== policy) {
@@ -220,6 +222,7 @@ test.describe("V2-G3b pagination policy", () => {
     await createBranchFromDraft(page, branchName);
     await cloneExperienceItems(page, branchName, 16);
     await page.reload();
+    await openManualPageTab(page);
 
     await expect(page.getByTestId("overflow-status")).toContainText("fits_two_pages", { timeout: 10_000 });
     await expect(page.getByRole("button", { name: "下载 PDF" })).toBeDisabled();

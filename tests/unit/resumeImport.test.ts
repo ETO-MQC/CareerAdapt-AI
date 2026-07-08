@@ -183,8 +183,14 @@ describe("V2-G4a resume PDF import", () => {
 
     expect(result.ok).toBe(false);
     expect(result.ok ? "" : result.code).toBe("engine_unavailable");
+    expect(benchmark.classification).toBe("B");
     expect(benchmark.supported).toBe(false);
     expect(benchmark.recommendation).toBe("use_json_fallback");
+    expect(benchmark.model.name).toBe("Tesseract OCR");
+    expect(benchmark.measured.recognizedFieldCount).toBe(11);
+    expect(benchmark.measured.expectedFieldCount).toBe(11);
+    expect(benchmark.measured.twoColumnOrderPreserved).toBe(false);
+    expect(benchmark.conclusion).toContain("双栏顺序未保持");
   });
 });
 

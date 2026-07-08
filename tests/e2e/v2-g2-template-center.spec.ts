@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
+import { openManualContentTab, openManualHistoryTab, openManualPageTab, openManualTemplateTab, openManualTypographyTab } from "./support/g7b2Ui";
 
 type DbResumeBranch = {
   id: string;
@@ -155,13 +156,14 @@ async function getLatestExportRecord(page: Page) {
   });
 }
 
-async function getFirstRenderedItemId(page: Page): Promise<string> {
+async function getRenderedItemIds(page: Page): Promise<string[]> {
   return visibleA4Page(page).evaluate((pageElement) => {
-    const item = pageElement.querySelector<HTMLElement>('[data-source-item-id]:not([data-source-item-id^="profile:"])');
-    if (!item?.dataset.sourceItemId) {
+    const items = Array.from(pageElement.querySelectorAll<HTMLElement>('.resume-template-item[data-source-item-id]:not([data-source-item-id^="profile:"])'));
+    const ids = items.map((item) => item.dataset.sourceItemId).filter(Boolean) as string[];
+    if (!ids.length) {
       throw new Error("rendered_item_not_found");
     }
-    return item.dataset.sourceItemId;
+    return ids;
   });
 }
 
@@ -172,20 +174,24 @@ async function getCssVariable(page: Page, name: string) {
 }
 
 async function ensureSinglePage(page: Page) {
+  await openManualPageTab(page);
   const status = page.getByTestId("overflow-status");
   await expect(status).toBeVisible();
   const text = await status.innerText();
   if (!text.includes("overflow")) {
     return;
   }
+  await openManualContentTab(page);
   const toggles = page.locator(".branch-editor input[type='checkbox']");
   const count = await toggles.count();
   for (let index = count - 1; index >= 2; index--) {
     await toggles.nth(index).uncheck();
     await page.waitForTimeout(250);
+    await openManualPageTab(page);
     if (!(await status.innerText()).includes("overflow")) {
       return;
     }
+    await openManualContentTab(page);
   }
 }
 
@@ -208,6 +214,11 @@ function extractPdfText(path: string): string {
 async function openTemplateCenter(page: Page) {
   await page.getByRole("button", { name: "模板中心", exact: true }).click();
   await expect(page.getByTestId("template-center")).toBeVisible();
+}
+
+async function closeTemplateCenter(page: Page) {
+  await page.getByRole("button", { name: "关闭模板中心" }).click();
+  await expect(page.getByTestId("template-center")).toHaveCount(0);
 }
 
 async function expectCardCount(page: Page, count: number) {
@@ -276,14 +287,20 @@ test.describe("V2-G2 template center", () => {
     expect(businessConfig.presentationRevision).toBeGreaterThan(atsConfig.presentationRevision);
     expect(await getResumeRevisionCount(page, branch.id)).toBe(revisionsBefore);
 
+    await closeTemplateCenter(page);
+    await openManualHistoryTab(page);
     await page.getByRole("button", { name: "回退展示" }).click();
     await expect(page.locator(".notice")).toContainText("已撤销");
     await expect(preview).toHaveClass(/template-ats-minimal/);
+    await openTemplateCenter(page);
     await expect(page.getByTestId("template-card-ats-minimal")).toHaveAttribute("aria-current", "true");
 
+    await closeTemplateCenter(page);
+    await openManualHistoryTab(page);
     await page.getByRole("button", { name: "重做展示" }).click();
     await expect(page.locator(".notice")).toContainText("已重做");
     await expect(preview).toHaveClass(/template-business-consulting/);
+    await openTemplateCenter(page);
     await expect(page.getByTestId("template-card-business-consulting")).toHaveAttribute("aria-current", "true");
 
     await page.reload();
@@ -295,6 +312,8 @@ test.describe("V2-G2 template center", () => {
     await expect(page.getByTestId("template-center")).toBeHidden();
     await page.emulateMedia({ media: "screen" });
 
+    await closeTemplateCenter(page);
+    await openManualPageTab(page);
     await page.getByRole("button", { name: "打印 / 保存 PDF" }).click();
     const exportRecord = await getLatestExportRecord(page);
     const snapshot = exportRecord.presentationSnapshot as { templateId?: string } | undefined;
@@ -307,31 +326,34 @@ test.describe("V2-G2 template center", () => {
     await createBranchFromDraft(page, branchName);
     const branch = await getBranchByName(page, branchName);
 
+    await openManualTypographyTab(page);
     await page.getByLabel("行距").selectOption("relaxed");
     await expect(page.locator(".notice")).toContainText("行距已保存");
     await expect.poll(() => getCssVariable(page, "--resume-line-height")).toBe("1.62");
 
     await enablePreviewEditing(page);
-    const itemId = await getFirstRenderedItemId(page);
-    await visibleA4Page(page).locator(`[data-source-item-id="${itemId}"]`).first().click({ force: true });
-    await page.getByTestId("resume-studio-editor").getByRole("button", { name: "编辑" }).click();
+    const itemIds = await getRenderedItemIds(page);
+    const editItemId = itemIds[0];
+    const hiddenItemId = itemIds[1] ?? itemIds[0];
+    await visibleA4Page(page).locator(`[data-source-item-id="${editItemId}"]`).first().click({ force: true });
+    await expect(page.getByLabel("编辑简历区块正文")).toBeVisible();
     await page.getByLabel("编辑简历区块正文").fill("G2 未保存正文草稿");
 
-    await page.getByRole("button", { name: "段落" }).click();
-    await page.getByTestId("block-style-panel").getByRole("button", { name: "隐藏" }).click();
+    await openManualContentTab(page);
+    await page.locator(".branch-editor input[type='checkbox']").nth(itemIds[1] ? 1 : 0).click();
     await expect(page.locator(".notice")).toContainText("内容已隐藏");
     const hiddenConfig = await getPresentationConfig(page, branch.id);
-    expect(hiddenConfig.hiddenItemIds).toContain(itemId);
+    expect(hiddenConfig.hiddenItemIds).toContain(hiddenItemId);
 
     await openTemplateCenter(page);
     await page.getByRole("button", { name: "全部", exact: true }).click();
     await page.getByRole("button", { name: "应用模板：ATS极简单栏" }).click();
     await expect(page.locator(".notice")).toContainText("模板偏好已保存");
-    await expect(page.getByLabel("编辑简历区块正文")).toHaveValue("G2 未保存正文草稿");
+    await expect(visibleA4Page(page)).toContainText("G2 未保存正文草稿");
     await expect.poll(() => getCssVariable(page, "--resume-line-height")).toBe("1.62");
     const switchedConfig = await getPresentationConfig(page, branch.id);
     expect(switchedConfig.templateId).toBe("ats-minimal");
-    expect(switchedConfig.hiddenItemIds).toContain(itemId);
+    expect(switchedConfig.hiddenItemIds).toContain(hiddenItemId);
     expect(switchedConfig.typography?.lineHeight).toBe("relaxed");
   });
 
@@ -349,6 +371,7 @@ test.describe("V2-G2 template center", () => {
 
     for (const templateId of templateIds) {
       await page.emulateMedia({ media: "screen" });
+      await openManualTemplateTab(page);
       await page.locator("label").filter({ hasText: "模板" }).locator("select").selectOption(templateId);
       if (templateId !== "classic-technical") {
         await expect(page.locator(".notice")).toContainText("模板偏好已保存");

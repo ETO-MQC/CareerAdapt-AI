@@ -211,6 +211,7 @@ select:focus-visible {
   flex-wrap: wrap;
   gap: 8px;
   justify-content: flex-end;
+  padding-block: 4px;
 }
 
 .global-save-state {
@@ -243,14 +244,29 @@ select:focus-visible {
   min-height: calc(100dvh - var(--header-height));
 }
 
+.jobs-workspace {
+  display: block;
+}
+
+.profile-workspace {
+  align-content: start;
+  grid-template-rows: auto;
+}
+
 .jobs-workspace > .stage-grid,
 .profile-workspace > .stage-grid {
   position: relative;
-  z-index: 2;
+  z-index: 0;
 }
 
 .profile-workspace > .import-tabs {
+  align-self: start;
+  min-height: 44px;
   position: relative;
+  z-index: 3;
+}
+
+.profile-workspace > .stage-grid {
   z-index: 3;
 }
 
@@ -260,6 +276,10 @@ select:focus-visible {
 .profile-workspace > .panel,
 .profile-workspace > .workspace-state {
   position: relative;
+  z-index: 1;
+}
+
+.profile-workspace > .profile-manager-grid {
   z-index: 1;
 }
 
@@ -485,6 +505,49 @@ p {
   gap: 18px;
 }
 
+.jobs-manager-grid {
+  align-items: stretch;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(240px, 0.7fr) minmax(420px, 1.2fr) minmax(280px, 0.8fr);
+  margin-bottom: 18px;
+  position: relative;
+  z-index: 1;
+}
+
+.jobs-list-panel,
+.jobs-tab-panel,
+.jobs-detail-panel {
+  display: grid;
+  gap: 12px;
+  max-height: min(68dvh, 720px);
+  min-height: 420px;
+  overflow: hidden;
+}
+
+.jobs-tab-content,
+.job-detail-stack,
+.local-scroll {
+  min-height: 0;
+  overflow: auto;
+}
+
+.jobs-tab-content,
+.job-detail-stack {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  padding: 4px;
+}
+
+.job-list-filter {
+  margin-top: 0;
+}
+
+.legacy-job-panel-hidden {
+  display: none;
+}
+
 .job-heading {
   align-items: flex-start;
   display: flex;
@@ -601,13 +664,25 @@ p {
   width: 100%;
 }
 
-.action-row,
+.action-row {
+  align-items: center;
+  box-sizing: border-box;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-start;
+  margin-top: 12px;
+  padding: 4px;
+}
+
 .section-heading {
   align-items: center;
+  box-sizing: border-box;
   display: flex;
   gap: 12px;
   justify-content: space-between;
   margin-top: 12px;
+  padding: 2px 4px;
 }
 
 .primary-button,
@@ -617,8 +692,10 @@ p {
   cursor: pointer;
   font: inherit;
   font-weight: 700;
+  line-height: 1.2;
   min-height: var(--control-height);
   padding: 0 14px;
+  touch-action: manipulation;
 }
 
 .primary-button {
@@ -773,19 +850,18 @@ p {
 
 .branch-list-compact {
   grid-auto-flow: column;
-  grid-auto-columns: minmax(220px, 320px);
+  grid-auto-columns: minmax(180px, 300px);
   overflow-x: auto;
   padding-bottom: 2px;
 }
 
 .branch-list-compact .match-row {
-  min-height: 60px;
-  padding: 10px 12px;
+  min-height: 44px;
+  padding: 8px 10px;
 }
 
 .branch-list-compact .match-row span {
-  font-size: 12px;
-  margin-top: 4px;
+  display: none;
 }
 
 .resume-quick-create {
@@ -1074,23 +1150,23 @@ p {
 .resume-preview-layout {
   align-items: start;
   display: grid;
-  gap: 18px;
+  gap: 16px;
   grid-template-columns: minmax(320px, 388px) minmax(0, 1fr);
   height: calc(100dvh - var(--header-height) - 112px);
-  margin-bottom: 18px;
+  margin-bottom: 16px;
   min-height: 620px;
   overflow: hidden;
 }
 
 .resume-studio-workbar {
-  align-items: center;
+  align-items: stretch;
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   display: flex;
-  gap: 16px;
+  gap: 12px;
   justify-content: space-between;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
   padding: 12px 14px;
 }
 
@@ -1098,13 +1174,25 @@ p {
   align-items: center;
   display: flex;
   gap: 12px;
+  flex: 0 1 260px;
   min-width: 0;
 }
 
+.resume-workbar-label {
+  color: var(--muted);
+  display: block;
+  font-size: 11px;
+  font-weight: 850;
+  line-height: 1.1;
+}
+
 .resume-studio-title-cluster h2 {
-  font-size: 18px;
+  font-size: 16px;
   line-height: 1.25;
   margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .resume-studio-title-cluster p {
@@ -1118,13 +1206,39 @@ p {
   align-items: center;
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 8px 10px;
   justify-content: flex-end;
+  min-width: 0;
+  padding: 0;
 }
 
 .resume-studio-workbar .primary-button,
 .resume-studio-workbar .secondary-button {
   white-space: nowrap;
+}
+
+.toolbar-group {
+  align-items: center;
+  background: color-mix(in srgb, var(--surface-subtle) 46%, var(--surface));
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  display: inline-flex;
+  gap: 6px;
+  min-height: 44px;
+  padding: 5px 6px;
+}
+
+.toolbar-group-label {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 850;
+  line-height: 1;
+  padding: 0 3px;
+  white-space: nowrap;
+}
+
+.toolbar-group-mode {
+  padding-right: 5px;
 }
 
 .resume-toolbar-meta,
@@ -1155,24 +1269,24 @@ p {
 
 .studio-edit-toggle {
   min-height: 32px;
+  margin: 0;
 }
 
 .resume-studio-shell {
   gap: 16px;
-  grid-template-columns: 68px minmax(320px, 380px) minmax(0, 1fr);
-  height: calc(100dvh - var(--header-height) - 96px);
+  grid-template-columns: minmax(360px, 448px) minmax(0, 1fr);
+  height: calc(100dvh - var(--header-height) - 108px);
   min-height: 560px;
 }
 
 .resume-mode-rail {
-  align-self: stretch;
+  align-self: center;
   background: #f6f7f4;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  display: grid;
-  gap: 8px;
-  grid-auto-rows: min-content;
-  padding: 8px;
+  display: inline-flex;
+  gap: 4px;
+  padding: 3px;
 }
 
 .mode-rail-button {
@@ -1186,8 +1300,9 @@ p {
   font-size: 12px;
   font-weight: 900;
   justify-content: center;
-  min-height: 44px;
-  padding: 6px 4px;
+  min-height: 30px;
+  min-width: 48px;
+  padding: 0 10px;
   text-align: center;
   white-space: nowrap;
 }
@@ -1202,13 +1317,26 @@ p {
 .resume-inspector {
   display: grid;
   gap: 12px;
+  grid-auto-rows: min-content;
+  padding-left: 108px;
+  position: sticky;
 }
 
 .inspector-tablist {
+  box-sizing: border-box;
   display: grid;
   gap: 6px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   margin-bottom: 2px;
+  padding: 4px;
+}
+
+.resume-inspector .inspector-tablist {
+  grid-template-columns: 1fr;
+  position: absolute;
+  left: 20px;
+  top: 20px;
+  width: 76px;
 }
 
 .inspector-tab {
@@ -1221,6 +1349,11 @@ p {
   font-weight: 800;
   min-height: 32px;
   padding: 6px 8px;
+}
+
+.resume-inspector .inspector-tab {
+  min-height: 36px;
+  width: 100%;
 }
 
 .inspector-tab-active {
@@ -1282,9 +1415,11 @@ p {
 }
 
 .property-tabs {
+  box-sizing: border-box;
   display: grid;
   gap: 6px;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding: 4px;
 }
 
 .property-tab-active {
@@ -1301,6 +1436,26 @@ p {
   display: grid;
   gap: 10px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+[data-testid="document-style-panel"] > .property-control-grid {
+  background: color-mix(in srgb, var(--surface-subtle) 52%, var(--surface));
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding: 8px;
+}
+
+[data-testid="document-style-panel"] > .property-control-grid .field-label {
+  font-size: 11px;
+  gap: 4px;
+  margin: 0;
+}
+
+[data-testid="document-style-panel"] > .property-control-grid select {
+  min-height: 32px;
+  padding: 0 8px;
 }
 
 .pagination-controls {
@@ -1450,8 +1605,46 @@ p {
   padding-bottom: 14px;
 }
 
+.resume-workspace > .resume-page-title-compact {
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+}
+
+.resume-page-title-compact .eyebrow,
+.resume-page-title-compact > p {
+  display: none;
+}
+
+.resume-page-title-compact h1 {
+  font-size: 24px;
+  line-height: 1.2;
+  margin: 0;
+}
+
 .resume-workspace > .page-title p:last-child {
   margin-bottom: 0;
+}
+
+.resume-import-dock {
+  margin-bottom: 12px;
+}
+
+.resume-import-dock-inline {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 12px;
+}
+
+.resume-import-dock-inline > .section-heading {
+  margin-bottom: 10px;
+}
+
+.resume-import-dock-inline > .section-heading p {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  margin: 3px 0 0;
 }
 
 .resume-workspace > .panel.no-print {
@@ -1559,7 +1752,7 @@ p {
   width: 100%;
 }
 
-.studio-edit-toggle {
+.resume-inspector .studio-edit-toggle {
   margin-bottom: 12px;
 }
 
@@ -2018,8 +2211,10 @@ p {
 }
 
 .export-control-stack {
+  box-sizing: border-box;
   display: grid;
   gap: 8px;
+  padding: 4px;
 }
 
 .export-status-text {
@@ -2222,14 +2417,100 @@ p {
   align-items: start;
   display: grid;
   gap: 16px;
-  grid-template-columns: minmax(320px, 0.95fr) minmax(360px, 1.05fr) minmax(260px, 0.75fr);
+  grid-template-columns: minmax(220px, 0.62fr) minmax(340px, 1fr) minmax(320px, 0.9fr);
   margin-bottom: 18px;
 }
 
 .profile-editor-panel,
-.profile-summary-panel {
+.profile-summary-panel,
+.profile-category-panel,
+.profile-list-panel,
+.profile-detail-panel {
   display: grid;
   gap: 12px;
+}
+
+.profile-category-panel,
+.profile-list-panel,
+.profile-detail-panel {
+  max-height: min(68dvh, 720px);
+  min-height: 420px;
+  overflow: hidden;
+}
+
+.profile-category-list,
+.profile-managed-list,
+.profile-detail-scroll {
+  display: grid;
+  gap: 8px;
+  min-height: 0;
+  overflow: auto;
+  padding: 4px;
+}
+
+.profile-category-list {
+  align-content: start;
+}
+
+.profile-category-button,
+.profile-managed-row {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  cursor: pointer;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  min-height: 58px;
+  padding: 10px 12px;
+  text-align: left;
+  width: 100%;
+}
+
+.profile-category-button span,
+.profile-managed-row span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.profile-category-button small,
+.profile-managed-row small,
+.profile-managed-row em {
+  color: var(--muted);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.profile-category-button b {
+  background: #eef2ed;
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 12px;
+  min-width: 28px;
+  padding: 3px 7px;
+  text-align: center;
+}
+
+.profile-category-button-active,
+.profile-managed-row-active {
+  background: #eef6f1;
+  border-color: #176b5b;
+}
+
+.profile-empty-list {
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+}
+
+.profile-detail-actions {
+  margin-top: 0;
 }
 
 .profile-editor-panel textarea {
@@ -2314,6 +2595,13 @@ p {
 .import-quality-report dd {
   font-weight: 800;
   margin: 4px 0 0;
+}
+
+.import-source-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 4px;
 }
 
 .import-source-actions .primary-button,
@@ -2564,6 +2852,11 @@ p {
   z-index: auto;
 }
 
+.application-detail-tablist {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-bottom: 0;
+}
+
 .application-workarea > .application-detail {
   margin-top: 0;
   max-height: min(74dvh, 760px);
@@ -2605,6 +2898,10 @@ p {
 
 .application-detail-actions {
   align-items: stretch;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 4px;
 }
 
 .application-readiness-panel,
@@ -2677,6 +2974,35 @@ p {
   display: grid;
   gap: 14px;
   padding-top: 16px;
+}
+
+.settings-workspace {
+  max-width: 1120px;
+}
+
+.settings-layout {
+  align-items: start;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(220px, 0.45fr) minmax(0, 1fr);
+}
+
+.settings-nav,
+.settings-panel,
+.settings-section {
+  display: grid;
+  gap: 12px;
+}
+
+.settings-panel select {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  font: inherit;
+  min-height: 42px;
+  padding: 0 12px;
+  width: 100%;
 }
 
 .materials-summary {
@@ -2804,7 +3130,7 @@ p {
   }
 
   .resume-studio-shell {
-    grid-template-columns: 64px minmax(300px, 340px) minmax(0, 1fr);
+    grid-template-columns: minmax(340px, 408px) minmax(0, 1fr);
   }
 
   .application-workarea {
@@ -2983,6 +3309,8 @@ p {
     .optimization-grid,
     .resume-preview-layout,
     .profile-manager-grid,
+    .jobs-manager-grid,
+    .settings-layout,
     .application-board,
     .application-detail-grid,
     .application-filter-row,
@@ -3039,7 +3367,24 @@ p {
   }
 
   .resume-mode-rail {
+    flex-wrap: wrap;
+  }
+
+  .resume-inspector {
+    grid-template-columns: 1fr;
+    padding-left: 20px;
+  }
+
+  .resume-inspector > :not(.inspector-tablist) {
+    grid-column: 1;
+  }
+
+  .resume-inspector .inspector-tablist {
+    grid-column: 1;
+    grid-row: auto;
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    position: static;
+    width: auto;
   }
 
   .resume-quick-create {

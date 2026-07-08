@@ -41,6 +41,10 @@ import { RevisionConflictError, WorkspaceRepository } from "@/services/storage/r
 import { useWorkspace } from "@/services/workspace/useWorkspace";
 
 const repository = new WorkspaceRepository();
+const jobArchiveKey = "jobWorkspace:archivedJobIds";
+
+type JobWorkspaceTab = "info" | "requirements" | "resumes" | "applications";
+type JobListFilter = "active" | "archived";
 
 export function JobsWorkspace() {
   const workspace = useWorkspace(repository);
@@ -63,6 +67,9 @@ export function JobsWorkspace() {
   const [c2Status, setC2Status] = useState<"idle" | "running" | "failed">("idle");
   const [editedSuggestions, setEditedSuggestions] = useState<Record<string, string>>({});
   const [selectedJobId, setSelectedJobId] = useState<string>("");
+  const [jobWorkspaceTab, setJobWorkspaceTab] = useState<JobWorkspaceTab>("resumes");
+  const [jobListFilter, setJobListFilter] = useState<JobListFilter>("active");
+  const [archivedJobIds, setArchivedJobIds] = useState<string[]>([]);
 
   useEffect(() => {
     let active = true;
@@ -98,7 +105,25 @@ export function JobsWorkspace() {
   const output = draft?.analyzerOutput ?? (draft ? { requirements: draft.manualRequirements, riskNotes: draft.riskNotes } : undefined);
   const profile = workspace.status === "ready" ? workspace.profiles[0] : undefined;
   const jobs = workspace.status === "ready" ? workspace.jobs : [];
-  const selectedJob = jobs.find((job) => job.id === selectedJobId) ?? jobs[0];
+  const activeJobs = jobs.filter((job) => !archivedJobIds.includes(job.id));
+  const archivedJobs = jobs.filter((job) => archivedJobIds.includes(job.id));
+  const visibleJobs = jobListFilter === "archived" ? archivedJobs : activeJobs;
+  const selectedJob = visibleJobs.find((job) => job.id === selectedJobId) ?? visibleJobs[0] ?? jobs.find((job) => job.id === selectedJobId) ?? jobs[0];
+
+  useEffect(() => {
+    let active = true;
+    async function loadJobArchive() {
+      const stored = await repository.getMeta(jobArchiveKey);
+      if (!active) {
+        return;
+      }
+      setArchivedJobIds(parseArchivedJobIds(stored?.value));
+    }
+    void loadJobArchive();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -336,6 +361,9 @@ export function JobsWorkspace() {
         committedJobId: result.jobDescription.id,
         committedAt: new Date().toISOString()
       });
+      setSelectedJobId(result.jobDescription.id);
+      setJobListFilter("active");
+      setJobWorkspaceTab("requirements");
       setSaveStatus("saved");
       setMessage(`已写入正式岗位数据：${result.jobDescription.company} / ${result.jobDescription.title}`);
     } catch (error) {
@@ -353,6 +381,41 @@ export function JobsWorkspace() {
     } catch (error) {
       setSaveStatus(error instanceof RevisionConflictError ? "conflict" : "failed");
       throw error;
+    }
+  }
+
+  async function saveArchivedJobIds(nextIds: string[]) {
+    setArchivedJobIds(nextIds);
+    await repository.setMeta(jobArchiveKey, nextIds);
+  }
+
+  async function archiveSelectedJob() {
+    if (!selectedJob) {
+      return;
+    }
+    await saveArchivedJobIds(Array.from(new Set([...archivedJobIds, selectedJob.id])));
+    setJobListFilter("active");
+    setSelectedJobId(activeJobs.find((job) => job.id !== selectedJob.id)?.id ?? "");
+    setMessage("岗位已归档；正式岗位数据保留，可切换到已归档列表恢复。");
+  }
+
+  async function restoreSelectedJob() {
+    if (!selectedJob) {
+      return;
+    }
+    await saveArchivedJobIds(archivedJobIds.filter((id) => id !== selectedJob.id));
+    setJobListFilter("active");
+    setSelectedJobId(selectedJob.id);
+    setMessage("岗位已恢复到当前列表。");
+  }
+
+  function requestSafeJobDelete() {
+    if (!selectedJob) {
+      return;
+    }
+    const confirmed = window.confirm("当前版本不直接删除正式岗位数据。确认后会提示你先归档，避免影响匹配、简历建议和求职记录。");
+    if (confirmed) {
+      setMessage("已拦截直接删除。请使用归档保留可恢复记录；如确需物理删除，需要新增仓库删除能力后再处理。");
     }
   }
 
@@ -848,7 +911,124 @@ export function JobsWorkspace() {
         </section>
       ) : null}
 
-      <section className="panel">
+      <section className="jobs-manager-grid">
+        <aside className="panel jobs-list-panel">
+          <div className="section-heading compact-heading">
+            <div>
+              <h2>岗位列表</h2>
+              <p>{activeJobs.length} 个当前岗位 / {archivedJobs.length} 个已归档</p>
+            </div>
+          </div>
+          <div className="action-row job-list-filter">
+            <button className={jobListFilter === "active" ? "primary-button compact" : "secondary-button compact"} onClick={() => setJobListFilter("active")}>当前</button>
+            <button className={jobListFilter === "archived" ? "primary-button compact" : "secondary-button compact"} onClick={() => setJobListFilter("archived")}>已归档</button>
+          </div>
+          <div className="job-list local-scroll">
+            {visibleJobs.length > 0 ? visibleJobs.map((job) => (
+              <button
+                key={job.id}
+                type="button"
+                className={selectedJob?.id === job.id ? "match-row match-row-active" : "match-row"}
+                onClick={() => {
+                  setSelectedJobId(job.id);
+                  setSelectedMatchId(undefined);
+                  setAdaptationDraft(undefined);
+                  setSuggestions([]);
+                }}
+              >
+                <strong>{job.company} / {job.title}</strong>
+                <span>{job.requirements.length} 条要求 / {job.source}</span>
+              </button>
+            )) : <p>当前筛选下没有岗位。</p>}
+          </div>
+        </aside>
+
+        <section className="panel jobs-tab-panel">
+          <div className="inspector-tablist jobs-tablist" role="tablist" aria-label="岗位内容">
+            {(["info", "requirements", "resumes", "applications"] as const).map((tab) => (
+              <button
+                key={tab}
+                type="button"
+                className={jobWorkspaceTab === tab ? "inspector-tab inspector-tab-active" : "inspector-tab"}
+                onClick={() => setJobWorkspaceTab(tab)}
+              >
+                {jobWorkspaceTabLabel(tab)}
+              </button>
+            ))}
+          </div>
+          <div className="jobs-tab-content local-scroll">
+            {!selectedJob ? <p>暂无正式岗位数据。</p> : null}
+            {selectedJob && jobWorkspaceTab === "info" ? (
+              <div className="job-detail-stack">
+                <h3>{selectedJob.company} / {selectedJob.title}</h3>
+                <dl className="info-list">
+                  <div><dt>地点</dt><dd>{selectedJob.location ?? "未填写"}</dd></div>
+                  <div><dt>工作类型</dt><dd>{selectedJob.workType ?? "未填写"}</dd></div>
+                  <div><dt>行业</dt><dd>{selectedJob.industry ?? "未填写"}</dd></div>
+                  <div><dt>来源</dt><dd>{selectedJob.source}</dd></div>
+                </dl>
+                <p className="raw-text">{selectedJob.rawText.slice(0, 900)}</p>
+              </div>
+            ) : null}
+            {selectedJob && jobWorkspaceTab === "requirements" ? (
+              <div className="requirement-list">
+                {selectedJob.requirements.map((requirement) => (
+                  <div key={requirement.id}>
+                    <span><strong>{requirement.category}</strong> / {requirement.priority}</span>
+                    <p>{requirement.description}</p>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            {selectedJob && jobWorkspaceTab === "resumes" ? (
+              <div className="job-detail-stack">
+                <h3>关联简历</h3>
+                <p>在此运行经历匹配、生成可审计的简历建议，并在简历工作台中继续编辑。</p>
+                <dl className="info-list">
+                  <div><dt>匹配结果</dt><dd>{matches.length} 条</dd></div>
+                  <div><dt>建议草稿</dt><dd>{adaptationDraft ? "已创建" : "未创建"}</dd></div>
+                  <div><dt>AI建议</dt><dd>{suggestions.length} 条</dd></div>
+                </dl>
+              </div>
+            ) : null}
+            {selectedJob && jobWorkspaceTab === "applications" ? (
+              <div className="job-detail-stack">
+                <h3>求职进度</h3>
+                <p>求职记录在求职工作台维护；这里保留岗位侧入口和状态摘要，避免把 Application 详情铺到岗位页面。</p>
+              </div>
+            ) : null}
+          </div>
+        </section>
+
+        <aside className="panel jobs-detail-panel">
+          <div className="section-heading compact-heading">
+            <div>
+              <h2>岗位详情</h2>
+              <p>归档不会删除正式岗位数据。</p>
+            </div>
+          </div>
+          {selectedJob ? (
+            <div className="job-detail-stack local-scroll">
+              <strong>{selectedJob.company} / {selectedJob.title}</strong>
+              <span>{selectedJob.requirements.length} 条要求</span>
+              <div className="action-row">
+                {archivedJobIds.includes(selectedJob.id) ? (
+                  <button className="primary-button compact" onClick={() => { void restoreSelectedJob(); }}>恢复</button>
+                ) : (
+                  <button className="secondary-button compact" onClick={() => { void archiveSelectedJob(); }}>归档</button>
+                )}
+                <button className="secondary-button compact" onClick={requestSafeJobDelete}>删除</button>
+              </div>
+              <div className="profile-source-list">
+                <strong>本地说明</strong>
+                <p>编辑岗位信息请从上方 JD 草稿重新提交；这能保留来源文本和要求解析链路。</p>
+              </div>
+            </div>
+          ) : <p>请选择一个岗位。</p>}
+        </aside>
+      </section>
+
+      <section className="panel legacy-job-panel-hidden" aria-hidden="true">
         <h2>当前正式岗位数据</h2>
         {jobs.length > 0 ? (
           <label className="field-label">
@@ -883,7 +1063,7 @@ export function JobsWorkspace() {
         </div>
       </section>
 
-      {profile && selectedJob ? (
+      {profile && selectedJob && jobWorkspaceTab === "resumes" ? (
         <section className="panel">
           <div className="section-heading">
             <div>
@@ -943,7 +1123,7 @@ export function JobsWorkspace() {
         </section>
       ) : null}
 
-      {profile && selectedJob ? (
+      {profile && selectedJob && jobWorkspaceTab === "resumes" ? (
         <section className="panel">
           <div className="section-heading">
             <div>
@@ -1158,6 +1338,20 @@ function sourceLabel(source: string) {
     manual: "人工确认",
     fallback: "本地规则"
   }[source] ?? source;
+}
+
+function jobWorkspaceTabLabel(tab: JobWorkspaceTab) {
+  const labels: Record<JobWorkspaceTab, string> = {
+    info: "岗位信息",
+    requirements: "岗位要求",
+    resumes: "关联简历",
+    applications: "求职进度"
+  };
+  return labels[tab];
+}
+
+function parseArchivedJobIds(value: unknown) {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
 }
 
 function saveStatusLabel(status: "idle" | "saving" | "saved" | "failed" | "conflict") {

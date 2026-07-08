@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
+import { openManualPageTab } from "./support/g7b2Ui";
 
 type DbBranch = {
   id: string;
@@ -79,6 +80,7 @@ test.describe("V2-G4a PDF resume import", () => {
 
     await applyTemplate(page, "business-consulting");
     await expect(page.getByTestId("resume-a4-page")).toHaveClass(/template-business-consulting/);
+    await openManualPageTab(page);
     await page.getByTestId("page-policy-selector").selectOption("up_to_two_pages");
     await expect(page.locator(".notice")).toContainText("最多两页");
 
@@ -120,6 +122,7 @@ function templateName(id: string): string {
 }
 
 async function downloadDirectPdf(page: Page, filePrefix: string) {
+  await openManualPageTab(page);
   const responsePromise = page.waitForResponse((response) =>
     response.url().includes("/api/resume-export/pdf") && response.request().method() === "POST"
   );

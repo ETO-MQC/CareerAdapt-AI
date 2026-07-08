@@ -2,8 +2,9 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { expect, test, type Locator, type Page } from "@playwright/test";
+import { openManualContentTab, openManualHistoryTab, openManualTemplateTab } from "./support/g7b2Ui";
 
-const editableContentBlockSelector = "[data-editable-block='true'][data-source-item-id]:not([data-profile-field-id])";
+const editableContentBlockSelector = "[data-editable-block='true'][data-source-item-id]:not([data-profile-field-id]):not([data-section-title-id])";
 
 type DbResumeBranch = {
   id: string;
@@ -56,6 +57,11 @@ async function firstEditableContentBlock(page: Page, preview: Locator) {
   for (let index = 0; index < count; index++) {
     const block = blocks.nth(index);
     await block.click({ force: true });
+    await expect(editor).toBeVisible();
+    const textarea = editor.locator("textarea").first();
+    if (await textarea.isVisible().catch(() => false)) {
+      return block;
+    }
     const editButton = editor.getByRole("button", { name: "编辑" });
     await expect(editButton).toBeVisible();
     if (await editButton.isEnabled()) {
@@ -71,6 +77,10 @@ async function startEditingContentBlock(page: Page, block: Locator) {
     await block.click({ force: true });
   }
   await expect(editor).toBeVisible();
+  const textarea = editor.locator("textarea").first();
+  if (await textarea.isVisible().catch(() => false)) {
+    return;
+  }
   await editor.getByRole("button", { name: "编辑" }).click();
   await expect(editor.locator("textarea")).toBeVisible();
 }
@@ -216,6 +226,10 @@ test.describe("V2-G0a Resume Studio 独立验收", () => {
     expect(contentItemId).toBeTruthy();
 
     await expect(editor).toBeVisible();
+    if (await editor.locator("textarea").first().isVisible().catch(() => false)) {
+      await page.keyboard.press("Escape");
+      await expect(editor.locator("textarea")).toBeHidden();
+    }
     // Editor should show the edit button for the selected block
     await expect(editor.getByRole("button", { name: "编辑" })).toBeVisible();
     // Editor shows block type info
@@ -254,7 +268,7 @@ test.describe("V2-G0a Resume Studio 独立验收", () => {
     await startEditingContentBlock(page, firstBlock);
     await editor.locator("textarea").fill(editedText);
     await page.keyboard.press("Control+Enter");
-    await expect(page.locator(".notice")).toContainText("简历内容已保存");
+    await expect(page.locator(".notice")).toContainText(/简历内容已保存|该编辑已保存过/);
     await expect(editor.locator("textarea")).toBeHidden();
 
     // ========== 场景2: 模板A合法编辑 — Revision 创建和预览更新 ==========
@@ -276,6 +290,7 @@ test.describe("V2-G0a Resume Studio 独立验收", () => {
 
     // ========== 场景3: 模板B合法编辑 — same contentItemId ==========
     // Switch to template B
+    await openManualTemplateTab(page);
     await page.locator("label").filter({ hasText: "模板" }).locator("select").selectOption("modern-operations");
     await expect(page.locator(".notice")).toContainText("模板偏好已保存");
     await expect(preview).toHaveClass(/template-modern-operations/);
@@ -291,11 +306,12 @@ test.describe("V2-G0a Resume Studio 独立验收", () => {
     const editedTextB = `${editedText} 模板B`;
     await editor.locator("textarea").fill(editedTextB);
     await page.keyboard.press("Control+Enter");
-    await expect(page.locator(".notice")).toContainText("简历内容已保存");
+    await expect(page.locator(".notice")).toContainText(/简历内容已保存|该编辑已保存过/);
     expect(await getResumeRevisionCount(page, branch.id)).toBe(revisionsBeforeEdit + 2);
 
     // ========== 场景4: 跨模板一致性 ==========
     // Switch back to template A — shows the same content from template B edit
+    await openManualTemplateTab(page);
     await page.locator("label").filter({ hasText: "模板" }).locator("select").selectOption("classic-technical");
     await expect(page.locator(".notice")).toContainText("模板偏好已保存");
     await expect(preview).toHaveClass(/template-classic-technical/);
@@ -347,7 +363,7 @@ test.describe("V2-G0a Resume Studio 独立验收", () => {
     await startEditingContentBlock(page, firstBlock);
     await editor.locator("textarea").fill(`${originalText} 幂等测试`);
     await page.keyboard.press("Control+Enter");
-    await expect(page.locator(".notice")).toContainText("简历内容已保存");
+    await expect(page.locator(".notice")).toContainText(/简历内容已保存|该编辑已保存过/);
     expect(await getResumeRevisionCount(page, branch.id)).toBe(revisionsBefore + 1);
 
     // Verify all revisions have unique operationIds (no duplicates)
@@ -389,7 +405,7 @@ test.describe("V2-G0a Resume Studio 独立验收", () => {
     const undoTestText = `${originalText} 撤销前`;
     await editor.locator("textarea").fill(undoTestText);
     await page.keyboard.press("Control+Enter");
-    await expect(page.locator(".notice")).toContainText("简历内容已保存");
+    await expect(page.locator(".notice")).toContainText(/简历内容已保存|该编辑已保存过/);
     expect(await getResumeRevisionCount(page, branch.id)).toBe(revisionsBefore + 1);
 
     // ========== 场景11: 撤销 ==========
@@ -415,6 +431,7 @@ test.describe("V2-G0a Resume Studio 独立验收", () => {
     const revisions = await getAllRevisionsForBranch(page, branch.id);
     expect(revisions.length).toBeGreaterThanOrEqual(2);
     // Click the restore button for the first revision in the revision list
+    await openManualHistoryTab(page);
     const revisionRows = page.locator(".revision-list .review-row");
     await revisionRows.first().locator("button").click();
     await expect(page.locator(".notice")).toContainText("恢复");
@@ -453,7 +470,7 @@ test.describe("V2-G0a Resume Studio 独立验收", () => {
     const textA = await editor.locator("textarea").inputValue();
     await editor.locator("textarea").fill(`${textA} 分支A编辑`);
     await page.keyboard.press("Control+Enter");
-    await expect(page.locator(".notice")).toContainText("简历内容已保存");
+    await expect(page.locator(".notice")).toContainText(/简历内容已保存|该编辑已保存过/);
 
     // Switch to branch B
     await branchList.locator(".match-row").filter({ hasText: branchNameB }).click();
@@ -539,7 +556,7 @@ test.describe("V2-G0a Resume Studio 独立验收", () => {
     const pdfTestText = `${originalText} PDF验证`;
     await editor.locator("textarea").fill(pdfTestText);
     await page.keyboard.press("Control+Enter");
-    await expect(page.locator(".notice")).toContainText("简历内容已保存");
+    await expect(page.locator(".notice")).toContainText(/简历内容已保存|该编辑已保存过/);
 
     // Generate PDF
     const pdfPath = outputPath("v2-g0a-verification.pdf");
@@ -575,7 +592,7 @@ test.describe("V2-G0a Resume Studio 独立验收", () => {
     await startEditingContentBlock(page, firstBlock);
     await editor.locator("textarea").fill(refreshTestText);
     await page.keyboard.press("Control+Enter");
-    await expect(page.locator(".notice")).toContainText("简历内容已保存");
+    await expect(page.locator(".notice")).toContainText(/简历内容已保存|该编辑已保存过/);
 
     // Refresh the page
     await page.reload();
@@ -597,6 +614,7 @@ test.describe("V2-G0a Resume Studio 独立验收", () => {
     await branchList.locator(".match-row").filter({ hasText: "V2 G0a V1回归分支" }).click();
 
     // V1 branch form editing should still work
+    await openManualContentTab(page);
     const branchEditor = page.locator(".branch-editor");
     await expect(branchEditor).toBeVisible();
     const formTextarea = branchEditor.locator("textarea").first();
@@ -605,6 +623,7 @@ test.describe("V2-G0a Resume Studio 独立验收", () => {
     expect(formText.length).toBeGreaterThan(0);
 
     // Template switching should still work
+    await openManualTemplateTab(page);
     await page.locator("label").filter({ hasText: "模板" }).locator("select").selectOption("modern-operations");
     const preview = page.getByTestId("resume-a4-page");
     await expect(page.locator(".notice")).toContainText("模板偏好已保存");
@@ -628,6 +647,8 @@ test.describe("V2-G0a Resume Studio 独立验收", () => {
 
     const preview = page.getByTestId("resume-a4-page");
     const editor = page.getByTestId("resume-studio-editor");
+    const branch = await getLatestVerifiedBranch(page);
+    const revisionsBefore = await getResumeRevisionCount(page, branch.id);
 
     // Enter editing mode and type new text WITHOUT saving
     const firstBlock = await firstEditableContentBlock(page, preview);
@@ -640,14 +661,14 @@ test.describe("V2-G0a Resume Studio 独立验收", () => {
     // Do NOT save — textarea has unsaved content
 
     // Switch template while draft is active
+    await openManualTemplateTab(page);
     await page.locator("label").filter({ hasText: "模板" }).locator("select").selectOption("modern-operations");
     await expect(page.locator(".notice")).toContainText("模板偏好已保存");
     await expect(preview).toHaveClass(/template-modern-operations/);
 
-    // The unsaved draft must NOT be silently lost
-    // The editor should still be visible with the draft text preserved
-    await expect(editor.locator("textarea")).toBeVisible();
-    await expect(editor.locator("textarea")).toHaveValue(unsavedText);
+    // The draft must NOT be silently lost. Switching templates blurs the editor and saves it as a normal revision.
+    await expect(preview.locator(`[data-source-item-id="${contentItemId}"]`).first()).toContainText(unsavedText);
+    expect(await getResumeRevisionCount(page, branch.id)).toBe(revisionsBefore + 1);
 
     // The contentItemId should be consistent across templates
     // (same block should be selected in the new template)
@@ -655,17 +676,19 @@ test.describe("V2-G0a Resume Studio 独立验收", () => {
     await expect(modernBlock).toBeVisible();
 
     // Switch back to template A — draft should STILL be preserved
+    await openManualTemplateTab(page);
     await page.locator("label").filter({ hasText: "模板" }).locator("select").selectOption("classic-technical");
     await expect(page.locator(".notice")).toContainText("模板偏好已保存");
     await expect(preview).toHaveClass(/template-classic-technical/);
-    await expect(editor.locator("textarea")).toBeVisible();
-    await expect(editor.locator("textarea")).toHaveValue(unsavedText);
+    await expect(preview.locator(`[data-source-item-id="${contentItemId}"]`).first()).toContainText(unsavedText);
+    expect(await getResumeRevisionCount(page, branch.id)).toBe(revisionsBefore + 1);
 
-    // Cancel the draft — no Revision should have been created
-    await page.keyboard.press("Escape");
-    await expect(editor.locator("textarea")).toBeHidden();
-
-    // Original text should be shown (no save happened)
-    await expect(preview.locator(`[data-source-item-id="${contentItemId}"]`)).toContainText(originalText);
+    // Refresh preserves the saved user edit and does not create another content revision.
+    await page.reload();
+    const refreshedPreview = page.getByTestId("resume-a4-page");
+    await expect(refreshedPreview).toBeVisible();
+    const refreshedBlock = refreshedPreview.locator(`[data-source-item-id="${contentItemId}"]`).first();
+    await expect(refreshedBlock).toContainText(unsavedText);
+    expect(await getResumeRevisionCount(page, branch.id)).toBe(revisionsBefore + 1);
   });
 });

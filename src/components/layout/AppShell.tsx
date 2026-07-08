@@ -35,14 +35,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [density, setDensity] = useState<DensityPreference>(() => readInitialDensity());
 
   useEffect(() => {
-    const root = document.documentElement;
     const apply = () => {
-      const resolved = theme === "system"
-        ? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
-        : theme;
-      root.dataset.theme = resolved;
-      root.dataset.themePreference = theme;
-      root.dataset.density = density;
+      applyRootPreferences(theme, density);
       window.localStorage.setItem(themeStorageKey, theme);
       window.localStorage.setItem(densityStorageKey, density);
     };
@@ -51,6 +45,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     media.addEventListener("change", apply);
     return () => media.removeEventListener("change", apply);
   }, [density, theme]);
+
+  useEffect(() => {
+    const handlePreferenceChange = () => {
+      const nextTheme = readInitialTheme();
+      const nextDensity = readInitialDensity();
+      applyRootPreferences(nextTheme, nextDensity);
+      setTheme(nextTheme);
+      setDensity(nextDensity);
+    };
+    window.addEventListener("careeradapt-preferences-change", handlePreferenceChange);
+    return () => window.removeEventListener("careeradapt-preferences-change", handlePreferenceChange);
+  }, []);
 
   const currentTitle = useMemo(() => {
     const exact = pageTitles[pathname];
@@ -122,4 +128,14 @@ function readInitialDensity(): DensityPreference {
   }
   const savedDensity = window.localStorage.getItem(densityStorageKey);
   return savedDensity === "compact" || savedDensity === "comfortable" ? savedDensity : "compact";
+}
+
+function applyRootPreferences(theme: ThemePreference, density: DensityPreference) {
+  const resolved = theme === "system"
+    ? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
+    : theme;
+  const root = document.documentElement;
+  root.dataset.theme = resolved;
+  root.dataset.themePreference = theme;
+  root.dataset.density = density;
 }

@@ -29,6 +29,7 @@ export type TemplateCapabilities = {
 export type TemplateRenderContext = {
   selectedItemId?: string;
   selectedProfileFieldId?: string;
+  selectedSectionTitleId?: string;
   presentationConfig?: ResumePresentationConfig;
   thumbnail?: boolean;
   pagination?: {
@@ -428,7 +429,7 @@ function RenderSection({
   const inlineMode = mode === "inline" || mode === "tag" || mode === "plainInline";
   return (
     <section className={`resume-template-section ${mode ? `resume-section-${mode}` : ""}`} data-render-section={section.type}>
-      {showTitle ? <h2>{section.title}</h2> : null}
+      {showTitle ? <h2 {...sectionTitleAttrs(section, context)}>{section.title}</h2> : null}
       {inlineMode ? (
         <div className={mode === "tag" ? "resume-tag-list" : "resume-inline-list"}>
           {section.blocks.map((block) => (
@@ -489,6 +490,18 @@ function profileFieldAttrs(fieldId: string, context?: TemplateRenderContext) {
     className: selected ? "resume-template-inline-selected" : undefined,
     "data-source-item-id": fieldId,
     "data-profile-field-id": fieldId,
+    "data-editable-block": "true",
+    "data-selected": selected ? "true" : "false"
+  };
+}
+
+function sectionTitleAttrs(section: ResumeRenderSection, context?: TemplateRenderContext) {
+  const fieldId = `section-title:${section.type}`;
+  const selected = fieldId === context?.selectedSectionTitleId;
+  return {
+    className: selected ? "resume-template-inline-selected" : undefined,
+    "data-source-item-id": fieldId,
+    "data-section-title-id": fieldId,
     "data-editable-block": "true",
     "data-selected": selected ? "true" : "false"
   };
