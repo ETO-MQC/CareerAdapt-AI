@@ -32,7 +32,7 @@ import {
   runResumeDiagnostics,
   type ResumeDiagnosticTemplateInfo
 } from "@/domain/resumeDiagnostics";
-import { mapBranchToResumeDocument } from "@/domain/resumeDocument/mapper";
+import { mapBranchToResumeDocument, type ResumeDocument } from "@/domain/resumeDocument/mapper";
 import { useResumePagination } from "@/components/resume/useResumePagination";
 import {
   getResumeTemplate,
@@ -52,6 +52,7 @@ import { WorkspaceEmptyState, WorkspaceErrorState, WorkspaceLoadingState } from 
 
 const repository = new WorkspaceRepository();
 const DEFAULT_TEMPLATE_ID: TemplateId = "classic-technical";
+const BRANCH_LIST_SENTINEL = "__resume_branch_list__";
 
 type WorkbenchState = {
   branchId?: string;
@@ -60,6 +61,7 @@ type WorkbenchState = {
   studioMode?: StudioMode;
   manualTab?: ManualInspectorTab;
   aiTab?: AiInspectorTab;
+  styleTab?: StyleInspectorTab;
 };
 
 type PresentationHistoryState = {
@@ -68,9 +70,20 @@ type PresentationHistoryState = {
 };
 
 type PropertyPanelTab = "document" | "section" | "block";
-type StudioMode = "manual" | "ai";
+type StudioMode = "edit" | "ai" | "style";
 type ManualInspectorTab = "content" | "typography" | "paragraph" | "layout" | "template" | "page" | "history";
 type AiInspectorTab = "job" | "suggestions" | "quality" | "facts" | "match" | "records";
+type StyleInspectorTab = "template" | "colors" | "font" | "page";
+type ResumeStudioSectionKey =
+  | "basics"
+  | ResumeRenderSectionType
+  | "education"
+  | "projects"
+  | "campus"
+  | "awards"
+  | "language"
+  | "custom"
+  | "add";
 
 type PdfExportState = {
   status: "idle" | "validating" | "generating" | "downloading" | "success" | "failed" | "blocked_overflow";
@@ -120,9 +133,11 @@ export function ResumeWorkspace() {
   const [isStylePanelOpen, setIsStylePanelOpen] = useState(true);
   const [isTemplateCenterOpen, setIsTemplateCenterOpen] = useState(false);
   const [isImportPanelOpen, setIsImportPanelOpen] = useState(false);
-  const [studioMode, setStudioMode] = useState<StudioMode>("manual");
+  const [studioMode, setStudioMode] = useState<StudioMode>("edit");
   const [manualInspectorTab, setManualInspectorTab] = useState<ManualInspectorTab>("content");
   const [aiInspectorTab, setAiInspectorTab] = useState<AiInspectorTab>("job");
+  const [styleInspectorTab, setStyleInspectorTab] = useState<StyleInspectorTab>("template");
+  const [activeResumeSection, setActiveResumeSection] = useState<ResumeStudioSectionKey>("basics");
   const [canvasZoom, setCanvasZoom] = useState(1);
   const [pendingTemplateApplyId, setPendingTemplateApplyId] = useState<TemplateId | undefined>();
   const [activePropertyTab, setActivePropertyTab] = useState<PropertyPanelTab>("document");
@@ -176,7 +191,7 @@ export function ResumeWorkspace() {
     return Array.from(byId.values());
   }, [workspace, localJobs]);
   const activeDraftId = selectedDraftId || drafts[0]?.id || "";
-  const activeBranchId = selectedBranchId || branches[0]?.id || "";
+  const activeBranchId = selectedBranchId === BRANCH_LIST_SENTINEL ? "" : selectedBranchId || branches[0]?.id || "";
   const selectedDraft = drafts.find((draft) => draft.id === activeDraftId);
   const selectedBranch = branches.find((branch) => branch.id === activeBranchId);
   const selectedBranchJob = selectedBranch?.jobId ? jobs.find((job) => job.id === selectedBranch.jobId) : undefined;
@@ -211,6 +226,24 @@ export function ResumeWorkspace() {
     }
     return resumeDocument.sections.find((section) => section.type === selectedStudioBlock.sectionType);
   }, [resumeDocument, selectedStudioBlock]);
+  const resumeSectionNavItems = useMemo(() => buildResumeStudioSections({
+    resumeDocument,
+    branch: selectedBranch
+  }), [resumeDocument, selectedBranch]);
+  const activeSectionItem = resumeSectionNavItems.find((item) => item.key === activeResumeSection)
+    ?? resumeSectionNavItems[0];
+  const activeSectionBlocks = useMemo(() => {
+    if (!resumeDocument) {
+      return [];
+    }
+    if (activeResumeSection === "summary" || activeResumeSection === "skills" || activeResumeSection === "experience" || activeResumeSection === "certificates") {
+      return resumeDocument.blocks.filter((block) => block.sectionType === activeResumeSection);
+    }
+    if (activeResumeSection === "custom") {
+      return resumeDocument.blocks.filter((block) => block.itemType === "custom");
+    }
+    return [];
+  }, [activeResumeSection, resumeDocument]);
   const visibleSectionTypes = useMemo(() => {
     return resumeDocument?.sections
       .filter((section) => section.blocks.some((block) => block.visible && block.renderable))
@@ -330,6 +363,9 @@ export function ResumeWorkspace() {
       if (parsed.aiTab) {
         setAiInspectorTab(parsed.aiTab);
       }
+      if (parsed.styleTab) {
+        setStyleInspectorTab(parsed.styleTab);
+      }
       if (parsed.branchId && nextBranches.some((branch) => branch.id === parsed.branchId)) {
         setSelectedBranchId(parsed.branchId);
       }
@@ -409,6 +445,21 @@ export function ResumeWorkspace() {
   }, [isStudioEditMode, clearStudioEditor]);
 
   useEffect(() => {
+    if (!resumeSectionNavItems.some((item) => item.key === activeResumeSection)) {
+      let active = true;
+      queueMicrotask(() => {
+        if (active) {
+          setActiveResumeSection(resumeSectionNavItems[0]?.key ?? "basics");
+        }
+      });
+      return () => {
+        active = false;
+      };
+    }
+    return undefined;
+  }, [activeResumeSection, resumeSectionNavItems]);
+
+  useEffect(() => {
     if (!activeBranchId) {
       let active = true;
       queueMicrotask(() => {
@@ -446,9 +497,10 @@ export function ResumeWorkspace() {
       stylePanelOpen: isStylePanelOpen,
       studioMode,
       manualTab: manualInspectorTab,
-      aiTab: aiInspectorTab
+      aiTab: aiInspectorTab,
+      styleTab: styleInspectorTab
     } satisfies WorkbenchState);
-  }, [profile, activeBranchId, effectiveTemplateId, isStylePanelOpen, studioMode, manualInspectorTab, aiInspectorTab]);
+  }, [profile, activeBranchId, effectiveTemplateId, isStylePanelOpen, studioMode, manualInspectorTab, aiInspectorTab, styleInspectorTab]);
 
   const runDiagnostics = useCallback(async () => {
     if (!selectedBranch || !renderModel || !presentationConfig) {
@@ -552,6 +604,10 @@ export function ResumeWorkspace() {
   function locateDiagnosticIssue(issue: ResumeDiagnosticIssue) {
     const itemId = issue.contentItemIds[0];
     if (itemId) {
+      const block = resumeDocumentBlocksById.get(itemId);
+      if (block) {
+        setActiveResumeSection(block.sectionType);
+      }
       setIsStudioEditMode(true);
       setSelectedStudioItemId(itemId);
       setEditingStudioItemId(undefined);
@@ -568,6 +624,7 @@ export function ResumeWorkspace() {
     }
     if (issue.sectionType) {
       setActivePropertyTab("section");
+      setActiveResumeSection(issue.sectionType);
       setMessage(`诊断关联栏目：${sectionTypeLabel(issue.sectionType)}。`);
       return;
     }
@@ -762,6 +819,48 @@ export function ResumeWorkspace() {
       setMessage("简历内容已保存，事实安全检查已重新计算。");
     } catch {
       setMessage("保存失败：可能存在高风险事实变更、版本冲突或旧简历只读。");
+    }
+  }
+
+  async function setContentItemVisibility(itemId: string, visible: boolean) {
+    if (!selectedBranch || !selectedBranchEditable) {
+      setMessage("当前简历不可编辑：旧数据、归档、引用失效或缺少当前版本。");
+      return;
+    }
+
+    try {
+      const result = await repository.editResumeBranch({
+        branchId: selectedBranch.id,
+        expectedRevision: selectedBranch.revision,
+        operationId: `v2-g7b3-content-visible-${selectedBranch.id}-${selectedBranch.revision}-${itemId}-${visible ? "restore" : "delete"}`,
+        edits: [{ itemId, visible }]
+      });
+      replaceBranch(result.branch);
+      setSelectedStudioItemId(itemId);
+      setMessage(visible ? "内容已恢复到当前简历，并创建新的内容版本。" : "内容已从当前简历删除，并创建新的内容版本。");
+    } catch {
+      setMessage("操作失败：版本冲突、引用失效或当前简历不可编辑。");
+    }
+  }
+
+  async function duplicateContentItem(itemId: string) {
+    if (!selectedBranch || !selectedBranchEditable) {
+      setMessage("当前简历不可编辑：旧数据、归档、引用失效或缺少当前版本。");
+      return;
+    }
+
+    try {
+      const result = await repository.duplicateResumeContentItem({
+        branchId: selectedBranch.id,
+        expectedRevision: selectedBranch.revision,
+        operationId: `v2-g7b3-content-duplicate-${selectedBranch.id}-${selectedBranch.revision}-${itemId}`,
+        itemId
+      });
+      replaceBranch(result.branch);
+      setSelectedStudioItemId(result.duplicatedItemId);
+      setMessage(result.idempotent ? "该内容已复制过，未重复创建版本。" : "内容已复制，并创建新的内容版本。");
+    } catch {
+      setMessage("复制失败：版本冲突、引用失效或当前简历不可编辑。");
     }
   }
 
@@ -1185,6 +1284,10 @@ export function ResumeWorkspace() {
     if (!isStudioEditMode) {
       return;
     }
+    const block = resumeDocumentBlocksById.get(itemId);
+    if (block) {
+      setActiveResumeSection(block.sectionType);
+    }
     setSelectedStudioItemId(itemId);
     setSelectedProfileFieldId(undefined);
     setEditingProfileFieldId(undefined);
@@ -1253,6 +1356,7 @@ export function ResumeWorkspace() {
     setSectionTitleError(undefined);
     setPendingStudioOperationId(undefined);
     setActivePropertyTab("document");
+    setActiveResumeSection("basics");
     scrollCanvasItemIntoView(fieldId);
   }
 
@@ -1290,6 +1394,7 @@ export function ResumeWorkspace() {
     setProfileFieldError(undefined);
     setPendingStudioOperationId(undefined);
     setActivePropertyTab("section");
+    setActiveResumeSection(sectionType);
     scrollCanvasItemIntoView(fieldId);
   }
 
@@ -1356,14 +1461,31 @@ export function ResumeWorkspace() {
     if (!profile || !editingProfileFieldId) {
       return;
     }
-    const key = profileFieldKey(editingProfileFieldId);
+    await saveProfileFieldText(editingProfileFieldId, profileFieldDraftText);
+  }
+
+  async function saveProfileFieldText(fieldId: string, draftText: string) {
+    if (!profile) {
+      return;
+    }
+    const key = profileFieldKey(fieldId);
     if (!key) {
       setProfileFieldError("当前基本信息字段暂不可编辑。");
       return;
     }
-    const text = profileFieldDraftText.trim();
+    const text = draftText.trim();
     if (key === "name" && !text) {
       setProfileFieldError("姓名不能为空。");
+      return;
+    }
+    const currentValue = key === "name"
+      ? profile.basics.name
+      : key === "link"
+        ? profile.basics.links[profileLinkIndex(fieldId)] ?? ""
+        : profile.basics[key] ?? "";
+    if (text === currentValue) {
+      setEditingProfileFieldId(undefined);
+      setProfileFieldError(undefined);
       return;
     }
     const now = new Date().toISOString();
@@ -1371,7 +1493,7 @@ export function ResumeWorkspace() {
     if (key === "name") {
       nextBasics.name = text;
     } else if (key === "link") {
-      const index = profileLinkIndex(editingProfileFieldId);
+      const index = profileLinkIndex(fieldId);
       const links = [...nextBasics.links];
       if (text) {
         links[index] = text;
@@ -1513,6 +1635,31 @@ export function ResumeWorkspace() {
     const blob = new Blob([JSON.stringify(structuredDraft, null, 2)], { type: "application/json" });
     triggerBrowserDownload(blob, fileName);
     setMessage("结构化 JSON 已下载；可重新导入并进入核对页，不包含内部版本或密钥字段。");
+  }
+
+  async function archiveBranch(branch: ResumeBranch) {
+    if (!canEditBranch(branch)) {
+      setMessage("当前简历不可归档：旧数据、已归档、引用失效或缺少当前版本。");
+      return;
+    }
+    try {
+      const result = await repository.archiveResumeBranch({
+        branchId: branch.id,
+        expectedRevision: branch.revision,
+        operationId: `v2-g7b3-archive-${branch.id}-${branch.revision}`,
+        confirmedImpact: true
+      });
+      replaceBranch(result.branch);
+      setSelectedBranchId("");
+      if (profile) {
+        await refreshLists(profile.id);
+      }
+      setMessage("简历已归档，可通过版本历史保留记录；未删除任何文件或数据表。");
+    } catch (error) {
+      setMessage(error instanceof RevisionConflictError
+        ? "归档失败：简历版本已变化，请刷新后重试。"
+        : "归档失败：当前简历状态不允许归档。");
+    }
   }
 
   async function downloadPdf() {
@@ -1963,18 +2110,16 @@ export function ResumeWorkspace() {
     );
   }
 
-  const showManualFormattingPanel = studioMode === "manual"
+  const showManualFormattingPanel = studioMode === "style"
     && isStylePanelOpen
-    && (manualInspectorTab === "typography"
-      || manualInspectorTab === "paragraph"
-      || manualInspectorTab === "layout"
-      || manualInspectorTab === "page");
-  const showDocumentStyleControls = manualInspectorTab === "typography"
-    || manualInspectorTab === "paragraph"
-    || manualInspectorTab === "layout"
-    || manualInspectorTab === "page";
-  const showSectionStyleControls = manualInspectorTab === "layout";
-  const showBlockStyleControls = manualInspectorTab === "layout";
+    && (styleInspectorTab === "colors"
+      || styleInspectorTab === "font"
+      || styleInspectorTab === "page");
+  const showDocumentStyleControls = styleInspectorTab === "colors"
+    || styleInspectorTab === "font"
+    || styleInspectorTab === "page";
+  const showSectionStyleControls = false;
+  const showBlockStyleControls = false;
 
   return (
     <main className="page-shell resume-workspace">
@@ -1984,12 +2129,34 @@ export function ResumeWorkspace() {
           <h1>我的简历</h1>
         </div>
         {!selectedBranch ? <p>创建、导入和管理你的简历版本。</p> : null}
+        {!selectedBranch ? (
+          <div className="resume-entry-actions">
+            <button
+              className="primary-button"
+              data-testid="resume-entry-import-primary"
+              type="button"
+              onClick={() => setIsImportPanelOpen((current) => !current)}
+            >
+              导入简历
+            </button>
+            <details className="resume-entry-menu">
+              <summary className="secondary-button">新建</summary>
+              <div className="resume-entry-menu-popover">
+                <button type="button" disabled>从零创建</button>
+                <button type="button" onClick={() => document.querySelector<HTMLElement>("[data-testid='job-suggestion-draft-select']")?.focus()}>
+                  根据岗位创建
+                </button>
+                <button type="button" onClick={() => setIsImportPanelOpen(true)}>导入JSON</button>
+              </div>
+            </details>
+          </div>
+        ) : null}
       </section>
 
       {workspace.status === "empty" && !profile ? <WorkspaceEmptyState /> : null}
       {message ? <section className="notice no-print">{message}</section> : null}
 
-      {(!selectedBranch || isImportPanelOpen) ? (
+      {((!selectedBranch && branches.length === 0) || isImportPanelOpen) ? (
         <section className={`resume-import-dock no-print ${selectedBranch ? "resume-import-dock-inline" : ""}`} data-testid="resume-import-dock">
           {selectedBranch ? (
             <div className="section-heading compact-heading">
@@ -2011,9 +2178,14 @@ export function ResumeWorkspace() {
       ) : null}
 
       {!selectedBranch ? (
-        <section className="stage-grid no-print">
-          <article className="panel">
-            <h2>1. 从岗位建议创建简历</h2>
+        <section className="resume-entry-grid no-print">
+          <article className="panel resume-create-panel">
+            <div className="section-heading compact-heading">
+              <div>
+                <h2>根据岗位创建</h2>
+                <p>从已生成的岗位建议草稿创建岗位简历。</p>
+              </div>
+            </div>
             {draftOptions.length > 0 ? (
               <>
                 <label className="field-label">
@@ -2032,23 +2204,49 @@ export function ResumeWorkspace() {
             )}
           </article>
 
-          <article className="panel">
-            <h2>2. 选择简历</h2>
+          <article className="panel resume-library-panel">
+            <div className="section-heading compact-heading">
+              <div>
+                <h2>简历版本</h2>
+                <p>卡片只保留高频动作，低频维护动作收进更多菜单。</p>
+              </div>
+            </div>
             {branches.length > 0 ? (
-              <div className="branch-list">
+              <div className="branch-list resume-card-list">
                 {branches.map((branch) => (
-                  <button
+                  <article
                     key={branch.id}
-                    className={`match-row ${branch.id === activeBranchId ? "match-row-active" : ""}`}
+                    className={`match-row resume-card ${branch.id === activeBranchId ? "match-row-active" : ""}`}
                     onClick={() => setSelectedBranchId(branch.id)}
                   >
-                    <strong>{branch.name}</strong>
-                    <span>{branchPurposeLabel(branch.branchPurpose)} / {branchStatusLabel(branch)} / {syncStatusLabel(branch.syncStatusCache.status)}</span>
-                  </button>
+                    <button className="resume-card-main" type="button" onClick={() => setSelectedBranchId(branch.id)}>
+                      <strong>{branch.name}</strong>
+                      <span>{branchPurposeLabel(branch.branchPurpose)} / {branchStatusLabel(branch)} / {syncStatusLabel(branch.syncStatusCache.status)}</span>
+                    </button>
+                    <div className="resume-card-actions" onClick={(event) => event.stopPropagation()}>
+                      <button className="primary-button compact" type="button" onClick={() => setSelectedBranchId(branch.id)}>编辑</button>
+                      <button className="secondary-button compact" type="button" onClick={() => {
+                        setSelectedBranchId(branch.id);
+                        setMessage("已打开该简历，请在工作栏下载 PDF 或导出 JSON。");
+                      }}>
+                        导出
+                      </button>
+                      <details className="resume-card-more">
+                        <summary className="secondary-button compact">更多</summary>
+                        <div className="resume-card-more-popover">
+                          <button type="button" disabled>重命名</button>
+                          <button type="button" disabled>复制</button>
+                          <button type="button" onClick={() => setSelectedBranchId(branch.id)}>查看历史</button>
+                          <button type="button" disabled={branch.lifecycleStatus !== "active"} onClick={() => { void archiveBranch(branch); }}>归档</button>
+                          <button type="button" disabled>删除</button>
+                        </div>
+                      </details>
+                    </div>
+                  </article>
                 ))}
               </div>
             ) : (
-              <p>暂无可编辑简历。</p>
+              <p>暂无可编辑简历。可以先导入已有简历，或在岗位工作区生成岗位建议草稿后创建。</p>
             )}
           </article>
         </section>
@@ -2089,7 +2287,7 @@ export function ResumeWorkspace() {
       {selectedBranch ? (
         <section className="resume-studio-workbar no-print" data-testid="resume-studio-workbar">
           <div className="resume-studio-title-cluster">
-            <button className="secondary-button compact" type="button" onClick={() => setSelectedBranchId("")}>
+            <button className="secondary-button compact" type="button" onClick={() => setSelectedBranchId(BRANCH_LIST_SENTINEL)}>
               返回
             </button>
             <div>
@@ -2104,11 +2302,11 @@ export function ResumeWorkspace() {
               <nav className="resume-mode-rail no-print" aria-label="编辑模式">
                 <button
                   type="button"
-                  className={studioMode === "manual" ? "mode-rail-button mode-rail-button-active" : "mode-rail-button"}
-                  onClick={() => setStudioMode("manual")}
-                  title="手动编辑"
+                  className={studioMode === "edit" ? "mode-rail-button mode-rail-button-active" : "mode-rail-button"}
+                  onClick={() => setStudioMode("edit")}
+                  title="编辑"
                 >
-                  <span>手动</span>
+                  <span>编辑</span>
                 </button>
                 <button
                   type="button"
@@ -2116,7 +2314,18 @@ export function ResumeWorkspace() {
                   onClick={() => setStudioMode("ai")}
                   title="AI岗位优化"
                 >
-                  <span>AI</span>
+                  <span>AI优化</span>
+                </button>
+                <button
+                  type="button"
+                  className={studioMode === "style" ? "mode-rail-button mode-rail-button-active" : "mode-rail-button"}
+                  onClick={() => {
+                    setStudioMode("style");
+                    setActivePropertyTab("document");
+                  }}
+                  title="样式"
+                >
+                  <span>样式</span>
                 </button>
               </nav>
             </div>
@@ -2125,7 +2334,7 @@ export function ResumeWorkspace() {
               <span className="toolbar-group-label">编辑</span>
               <span className="save-status">{selectedBranchEditable ? "可编辑" : "只读"}</span>
               <button className="secondary-button compact" type="button" onClick={refreshSync}>
-                检查
+                重新检查
               </button>
               <button className="secondary-button compact" onClick={undo} disabled={!selectedBranchEditable}>撤销</button>
               <button
@@ -2201,6 +2410,25 @@ export function ResumeWorkspace() {
                 </button>
               </div>
             ) : null}
+            <details className="toolbar-more">
+              <summary className="secondary-button compact">更多</summary>
+              <div className="toolbar-more-popover">
+                <button type="button" onClick={() => setMessage(`当前简历共有 ${revisions.length} 个版本记录。`)}>查看历史</button>
+                <button type="button" onClick={() => { void undoPresentationChange(); }} disabled={!presentationHistory.undoStack.length || !presentationConfig}>回退展示</button>
+                <button type="button" onClick={() => { void redoPresentationChange(); }} disabled={!presentationHistory.redoStack.length || !presentationConfig}>重做展示</button>
+                <button type="button" onClick={() => { void archiveBranch(selectedBranch); }} disabled={!selectedBranchEditable}>归档</button>
+                {revisions.slice(0, 3).map((revision) => (
+                  <button
+                    key={revision.id}
+                    type="button"
+                    disabled={!selectedBranchEditable || revision.id === selectedBranch.currentRevisionId}
+                    onClick={() => { void restoreRevision(revision.id); }}
+                  >
+                    恢复版本 {revision.revisionNumber + 1} · {revisionSourceLabel(revision.source)}
+                  </button>
+                ))}
+              </div>
+            </details>
           </div>
 
           {selectedBranch.migrationStatus === "legacy_unverified" ? (
@@ -2221,12 +2449,43 @@ export function ResumeWorkspace() {
       ) : null}
 
       {selectedBranch ? (
-        <section className="resume-preview-layout resume-studio-shell" data-testid="resume-studio-shell">
+        <section className={`resume-preview-layout resume-studio-shell resume-studio-shell-${studioMode}`} data-testid="resume-studio-shell">
+          {studioMode === "edit" ? (
+            <aside className="panel no-print resume-section-nav-panel" data-testid="resume-section-nav" aria-label="简历栏目导航">
+              <div className="property-panel-heading">
+                <div>
+                  <h2>栏目</h2>
+                  <p>{resumeSectionNavItems.filter((item) => item.count > 0).length} 个已有栏目</p>
+                </div>
+              </div>
+              <nav className="resume-section-nav">
+                {resumeSectionNavItems.map((item) => (
+                  <button
+                    key={item.key}
+                    type="button"
+                    className={activeSectionItem?.key === item.key ? "resume-section-nav-button resume-section-nav-button-active" : "resume-section-nav-button"}
+                    onClick={() => {
+                      setActiveResumeSection(item.key);
+                      if (item.firstItemId) {
+                        selectStudioItem(item.firstItemId);
+                      } else {
+                        clearStudioEditor();
+                      }
+                    }}
+                    disabled={item.key === "add"}
+                  >
+                    <span>{item.label}</span>
+                    {item.count > 0 ? <strong>{item.count}</strong> : null}
+                  </button>
+                ))}
+              </nav>
+            </aside>
+          ) : null}
           <aside className="panel no-print resume-export-panel resume-inspector">
             <div className="property-panel-heading">
               <div>
-                <h2>{studioMode === "manual" ? "手动编辑" : "AI岗位优化"}</h2>
-                <p>{studioMode === "manual" ? "只显示当前手动工具。" : "只显示岗位优化相关工具。"}</p>
+                <h2>{studioMode === "edit" ? activeSectionItem?.label ?? "编辑" : studioMode === "style" ? "样式" : "AI岗位优化"}</h2>
+                <p>{studioMode === "edit" ? "只显示当前栏目字段。" : studioMode === "style" ? "模板、颜色、文字和分页集中调整。" : "建议、质量和事实缺口分层查看。"}</p>
               </div>
               <button
                 className="secondary-button compact"
@@ -2235,7 +2494,7 @@ export function ResumeWorkspace() {
                 {isStylePanelOpen ? "收起面板" : "展开面板"}
               </button>
             </div>
-            {studioMode === "manual" && manualInspectorTab === "content" ? (
+            {studioMode === "edit" ? (
               <div className="property-summary">
                 <strong>{selectedStudioBlock ? selectedStudioBlock.text.slice(0, 28) : selectedBranch.name}</strong>
                 <span>
@@ -2243,23 +2502,10 @@ export function ResumeWorkspace() {
                 </span>
               </div>
             ) : null}
-            {studioMode === "manual" && manualInspectorTab === "content" && isStudioEditMode && resumeDocument ? (
+            {studioMode === "edit" && isStudioEditMode && resumeDocument ? (
               <div className="save-status">单击区块选中，双击或 Enter/F2 编辑，Escape 取消，Ctrl/Cmd+Enter 保存。</div>
             ) : null}
-            {studioMode === "manual" ? (
-              <div className="inspector-tablist" role="tablist" aria-label="手动编辑工具">
-                {(["content", "typography", "paragraph", "layout", "template", "page", "history"] as const).map((tab) => (
-                  <button
-                    key={tab}
-                    type="button"
-                    className={manualInspectorTab === tab ? "inspector-tab inspector-tab-active" : "inspector-tab"}
-                    onClick={() => setManualInspectorTab(tab)}
-                  >
-                    {manualInspectorTabLabel(tab)}
-                  </button>
-                ))}
-              </div>
-            ) : (
+            {studioMode === "ai" ? (
               <div className="inspector-tablist" role="tablist" aria-label="AI岗位优化工具">
                 {(["job", "suggestions", "quality", "facts", "match", "records"] as const).map((tab) => (
                   <button
@@ -2272,65 +2518,213 @@ export function ResumeWorkspace() {
                   </button>
                 ))}
               </div>
-            )}
-            {studioMode === "manual" && manualInspectorTab === "content" ? (
+            ) : studioMode === "style" ? (
+              <div className="inspector-tablist" role="tablist" aria-label="样式工具">
+                {(["template", "colors", "font", "page"] as const).map((tab) => (
+                  <button
+                    key={tab}
+                    type="button"
+                    className={styleInspectorTab === tab ? "inspector-tab inspector-tab-active" : "inspector-tab"}
+                    onClick={() => setStyleInspectorTab(tab)}
+                  >
+                    {styleInspectorTabLabel(tab)}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+            {studioMode === "edit" ? (
               <div className="studio-sidebar-section">
                 <div className="section-heading compact-heading">
                   <div>
-                    <h3>内容</h3>
-                    <p>选择段落后可在左侧或 A4 画布上编辑，同一套保存链路会生成新版本。</p>
+                    <h3>{activeSectionItem?.label ?? "栏目内容"}</h3>
+                    <p>左侧结构化字段是主编辑入口，A4 可做快速定位和轻量修改。</p>
                   </div>
                 </div>
-                <div className="branch-editor">
-                  {selectedBranch.contentItems.map((item) => {
-                    const presentationBlock = resumeDocumentBlocksById.get(item.id);
-                    const presentationVisible = presentationBlock?.visible ?? item.visible;
-                    return (
-                      <article key={item.id} className="suggestion-card">
-                        <div className="section-heading compact-heading">
-                          <div>
-                            <h3>{contentItemTypeLabel(item.itemType)}</h3>
-                            <p>{guardStatusLabel(item.guardStatus)} / {riskLevelLabel(item.guardRiskLevel)}</p>
+                {activeResumeSection === "basics" ? (
+                  <div className="branch-editor resume-field-editor" data-testid="resume-active-section-fields">
+                    <label className="field-label">
+                      姓名
+                      <input
+                        value={selectedProfileFieldId === "profile:name" ? profileFieldDraftText : profile?.basics.name ?? ""}
+                        disabled={!profile}
+                        onFocus={(event) => selectProfileField("profile:name", event.currentTarget.value)}
+                        onChange={(event) => setProfileFieldDraftText(event.target.value)}
+                        onBlur={(event) => { void saveProfileFieldText("profile:name", event.currentTarget.value); }}
+                      />
+                    </label>
+                    <label className="field-label">
+                      电话
+                      <input
+                        value={selectedProfileFieldId === "profile:phone" ? profileFieldDraftText : profile?.basics.phone ?? ""}
+                        disabled={!profile}
+                        onFocus={(event) => selectProfileField("profile:phone", event.currentTarget.value)}
+                        onChange={(event) => setProfileFieldDraftText(event.target.value)}
+                        onBlur={(event) => { void saveProfileFieldText("profile:phone", event.currentTarget.value); }}
+                      />
+                    </label>
+                    <label className="field-label">
+                      邮箱
+                      <input
+                        value={selectedProfileFieldId === "profile:email" ? profileFieldDraftText : profile?.basics.email ?? ""}
+                        disabled={!profile}
+                        onFocus={(event) => selectProfileField("profile:email", event.currentTarget.value)}
+                        onChange={(event) => setProfileFieldDraftText(event.target.value)}
+                        onBlur={(event) => { void saveProfileFieldText("profile:email", event.currentTarget.value); }}
+                      />
+                    </label>
+                    <label className="field-label">
+                      所在地
+                      <input
+                        value={selectedProfileFieldId === "profile:location" ? profileFieldDraftText : profile?.basics.location ?? ""}
+                        disabled={!profile}
+                        onFocus={(event) => selectProfileField("profile:location", event.currentTarget.value)}
+                        onChange={(event) => setProfileFieldDraftText(event.target.value)}
+                        onBlur={(event) => { void saveProfileFieldText("profile:location", event.currentTarget.value); }}
+                      />
+                    </label>
+                    <label className="field-label">
+                      岗位方向
+                      <input value={selectedBranchJob ? `${selectedBranchJob.company} / ${selectedBranchJob.title}` : "通用简历"} readOnly />
+                    </label>
+                  </div>
+                ) : activeSectionBlocks.length > 0 ? (
+                  <div className="branch-editor resume-field-editor" data-testid="resume-active-section-fields">
+                    {activeSectionBlocks.map((block, index) => {
+                      const sourceItem = selectedBranch.contentItems.find((item) => item.id === block.contentItemId);
+                      const presentationVisible = block.visible;
+                      const expanded = selectedStudioItemId ? selectedStudioItemId === block.contentItemId : index === 0;
+                      return (
+                        <details key={block.contentItemId} className="suggestion-card resume-entry-editor-card" open={expanded}>
+                          <summary>
+                            <span>
+                              <strong>{contentItemTypeLabel(block.itemType)}</strong>
+                              <small>{guardStatusLabel(block.guardStatus)} / {riskLevelLabel(block.guardRiskLevel)}</small>
+                            </span>
+                            <span>{expanded ? "收起" : "展开"}</span>
+                          </summary>
+                          <div className="structured-field-grid">
+                            <label className="field-label">
+                              公司 / 组织
+                              <input value={extractStructuredField(block.text, "organization")} readOnly />
+                            </label>
+                            <label className="field-label">
+                              职位 / 角色
+                              <input value={extractStructuredField(block.text, "role")} readOnly />
+                            </label>
+                            <label className="field-label">
+                              地点
+                              <input value={extractStructuredField(block.text, "location")} readOnly />
+                            </label>
+                            <label className="field-label">
+                              开始时间
+                              <input value={extractStructuredField(block.text, "start")} readOnly />
+                            </label>
+                            <label className="field-label">
+                              结束时间
+                              <input value={extractStructuredField(block.text, "end")} readOnly />
+                            </label>
+                            <label className="inline-toggle resume-current-toggle">
+                              <input type="checkbox" checked={false} readOnly />
+                              当前经历
+                            </label>
                           </div>
-                          <label className="inline-toggle">
-                            <input
-                              type="checkbox"
-                              checked={presentationVisible}
-                              disabled={!selectedBranchEditable || !presentationConfig || !item.visible}
-                              onChange={(event) => setPresentationItemVisibility(item.id, event.target.checked)}
+                          {!sourceItem?.visible ? (
+                            <div className="warning-box">该内容已在正文版本中隐藏，展示设置不会静默改写旧内容。</div>
+                          ) : null}
+                          {sourceItem?.guardMode === "rule_only_verified" ? (
+                            <div className="warning-box">规则事实检查已通过，AI 复核尚未完成。</div>
+                          ) : null}
+                          <label className="field-label">
+                            描述要点
+                            <textarea
+                              className="textarea small-textarea"
+                              value={editTexts[block.contentItemId] ?? block.text}
+                              disabled={!selectedBranchEditable}
+                              onFocus={() => selectStudioItem(block.contentItemId)}
+                              onChange={(event) => setEditTexts((current) => ({ ...current, [block.contentItemId]: event.target.value }))}
                             />
-                            显示
                           </label>
-                        </div>
-                        {!item.visible ? (
-                          <div className="warning-box">该内容已在正文版本中隐藏，展示设置不会静默改写旧内容。</div>
-                        ) : null}
-                        {item.guardMode === "rule_only_verified" ? (
-                          <div className="warning-box">规则事实检查已通过，AI 复核尚未完成。</div>
-                        ) : null}
-                        <textarea
-                          className="textarea small-textarea"
-                          value={editTexts[item.id] ?? item.text}
-                          disabled={!selectedBranchEditable}
-                          onFocus={() => selectStudioItem(item.id)}
-                          onChange={(event) => setEditTexts((current) => ({ ...current, [item.id]: event.target.value }))}
-                        />
-                        <div className="action-row">
-                          <button className="primary-button" disabled={!selectedBranchEditable} onClick={() => saveItem(item.id)}>
-                            保存
-                          </button>
-                          <button className="secondary-button compact" disabled={!selectedBranchEditable} onClick={() => startStudioEdit(item.id)}>
-                            在画布上编辑
-                          </button>
-                        </div>
-                      </article>
-                    );
-                  })}
-                </div>
+                          <div className="action-row resume-structure-actions">
+                            <button className="primary-button compact" disabled={!selectedBranchEditable} onClick={() => saveItem(block.contentItemId)}>保存</button>
+                            <button className="secondary-button compact" disabled={!selectedBranchEditable} onClick={() => startStudioEdit(block.contentItemId)}>A4编辑</button>
+                            <button className="secondary-button compact" disabled={!selectedBranchEditable || !presentationConfig} onClick={() => { void movePresentationItem(block.contentItemId, "up"); }}>上移</button>
+                            <button className="secondary-button compact" disabled={!selectedBranchEditable || !presentationConfig} onClick={() => { void movePresentationItem(block.contentItemId, "down"); }}>下移</button>
+                            <label className="inline-toggle">
+                              <input
+                                type="checkbox"
+                                checked={presentationVisible}
+                                disabled={!selectedBranchEditable || !presentationConfig || !sourceItem?.visible}
+                                onChange={(event) => setPresentationItemVisibility(block.contentItemId, event.target.checked)}
+                              />
+                              显示
+                            </label>
+                            <button
+                              className="secondary-button compact"
+                              disabled={!selectedBranchEditable || !sourceItem?.visible}
+                              onClick={() => { void duplicateContentItem(block.contentItemId); }}
+                            >
+                              复制
+                            </button>
+                            <button
+                              className="secondary-button compact"
+                              disabled={!selectedBranchEditable || !sourceItem}
+                              onClick={() => { void setContentItemVisibility(block.contentItemId, !sourceItem?.visible); }}
+                            >
+                              {sourceItem?.visible ? "删除" : "恢复"}
+                            </button>
+                          </div>
+                        </details>
+                      );
+                    })}
+                    {isAiOptimizableSection(activeResumeSection) ? (
+                      <div className="section-ai-entry">
+                        <button className="secondary-button" type="button" onClick={() => {
+                          setStudioMode("ai");
+                          setAiInspectorTab("suggestions");
+                        }}>
+                          AI优化本栏目
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : (
+                  <div className="empty-state compact-empty-state" data-testid="resume-active-section-fields">
+                    <strong>该栏目暂无可编辑内容</strong>
+                    <p>先在个人资料库确认事实，再把对应经历加入简历，避免未经确认的新事实进入预览或导出。</p>
+                    <button className="secondary-button compact" type="button" disabled>添加栏目</button>
+                  </div>
+                )}
               </div>
             ) : null}
             {studioMode === "ai" ? (
               <div className="studio-sidebar-section">
+                <div className="resume-ai-summary-grid" data-testid="resume-ai-summary">
+                  {[
+                    ["内容表达", diagnosticSnapshot?.summary.warning ?? 0, "建议"],
+                    ["岗位相关", selectedBranchJob ? selectedBranchJob.title : "未绑定", "目标"],
+                    ["关键词", diagnosticSnapshot?.summary.requirementCoverage.covered ?? 0, "覆盖"],
+                    ["结构", pagination.plan?.actualPageCount ?? "测量", "页数"],
+                    ["页面可读性", paginationStatusLabel(pagination.status), "状态"],
+                    ["事实安全", diagnosticSnapshot?.summary.critical ?? 0, "高风险"]
+                  ].map(([label, value, suffix]) => (
+                    <button
+                      key={label}
+                      className="resume-ai-summary-card"
+                      type="button"
+                      onClick={() => {
+                        if (label === "事实安全" || label === "页面可读性") {
+                          setAiInspectorTab("quality");
+                          return;
+                        }
+                        setAiInspectorTab("suggestions");
+                      }}
+                    >
+                      <span>{label}</span>
+                      <strong>{value}</strong>
+                      <small>{suffix}</small>
+                    </button>
+                  ))}
+                </div>
                 {aiInspectorTab === "quality" || aiInspectorTab === "facts" ? (
                   <ResumeDiagnosticsPanel
                     snapshot={diagnosticSnapshot}
@@ -2372,9 +2766,9 @@ export function ResumeWorkspace() {
                 )}
               </div>
             ) : null}
-            {studioMode === "manual" ? (
+            {studioMode === "style" ? (
               <>
-                {manualInspectorTab === "template" ? (
+                {styleInspectorTab === "template" ? (
                   <>
                 <label className="field-label">
                   模板
@@ -2393,35 +2787,17 @@ export function ResumeWorkspace() {
                     type="button"
                     className="secondary-button"
                     onClick={() => {
-                      setManualInspectorTab("template");
+                      setStyleInspectorTab("template");
                       setIsTemplateCenterOpen((current) => !current);
                     }}
                   >
-                    打开模板中心
+                    模板中心
                   </button>
                 </div>
                   </>
                 ) : null}
-                {manualInspectorTab === "history" ? (
-                <div className="action-row presentation-history-actions">
-                  <button
-                    className="secondary-button compact"
-                    disabled={!presentationHistory.undoStack.length || !presentationConfig}
-                    onClick={() => { void undoPresentationChange(); }}
-                  >
-                    回退展示
-                  </button>
-                  <button
-                    className="secondary-button compact"
-                    disabled={!presentationHistory.redoStack.length || !presentationConfig}
-                    onClick={() => { void redoPresentationChange(); }}
-                  >
-                    重做展示
-                  </button>
-                </div>
-                ) : null}
                 <TemplateCenter
-                  open={manualInspectorTab === "template" && isTemplateCenterOpen}
+                  open={styleInspectorTab === "template" && isTemplateCenterOpen}
                   model={renderModel}
                   presentationConfig={presentationConfig}
                   currentTemplateId={effectiveTemplateId}
@@ -2432,29 +2808,7 @@ export function ResumeWorkspace() {
                 />
                 {showManualFormattingPanel ? (
                   <div className="property-panel-body" data-testid="resume-property-panel">
-                <div className="property-tabs" role="tablist" aria-label="属性面板上下文">
-                  {(["document", "section", "block"] as const).map((tab) => {
-                    const disabled = tab === "section"
-                      ? !selectedStudioSection
-                      : tab === "block"
-                        ? !selectedStudioBlock
-                        : false;
-                    const active = activePropertyTab === tab || (disabled && tab === "document");
-                    return (
-                      <button
-                        key={tab}
-                        className={`secondary-button compact ${active ? "property-tab-active" : ""}`}
-                        disabled={disabled}
-                        onClick={() => setActivePropertyTab(tab)}
-                        type="button"
-                      >
-                        {propertyTabLabel(tab)}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {showDocumentStyleControls && (activePropertyTab === "document" || !selectedStudioBlock) ? (
+                {showDocumentStyleControls ? (
                   <div className="property-section" data-testid="document-style-panel">
                     <div className="property-control-grid">
                       <label className="field-label">
@@ -2687,6 +3041,12 @@ export function ResumeWorkspace() {
                       <button className="secondary-button compact" disabled={!selectedBranchEditable || !presentationConfig} onClick={() => { void setPresentationItemVisibility(selectedStudioBlock.contentItemId, false); }}>
                         隐藏
                       </button>
+                      <button className="secondary-button compact" disabled={!selectedBranchEditable || !selectedStudioBlock.contentVisible} onClick={() => { void duplicateContentItem(selectedStudioBlock.contentItemId); }}>
+                        复制
+                      </button>
+                      <button className="secondary-button compact" disabled={!selectedBranchEditable} onClick={() => { void setContentItemVisibility(selectedStudioBlock.contentItemId, !selectedStudioBlock.contentVisible); }}>
+                        {selectedStudioBlock.contentVisible ? "删除" : "恢复"}
+                      </button>
                     </div>
                     <button
                       className="primary-button compact"
@@ -2699,7 +3059,7 @@ export function ResumeWorkspace() {
                 ) : null}
                   </div>
                 ) : null}
-                {manualInspectorTab === "layout" && presentationHiddenBlocks.length > 0 ? (
+                {styleInspectorTab === "page" && presentationHiddenBlocks.length > 0 ? (
                   <div className="hidden-block-list">
                     <strong>已隐藏内容</strong>
                     {presentationHiddenBlocks.map((block) => (
@@ -2714,7 +3074,7 @@ export function ResumeWorkspace() {
                     ))}
                   </div>
                 ) : null}
-                {manualInspectorTab === "page" ? (
+                {styleInspectorTab === "page" ? (
                 <div className={`overflow-status overflow-status-${pagination.status}`} data-testid="overflow-status">
                   <strong>{paginationStatusLabel(pagination.status)}</strong>
                   <span>
@@ -2724,13 +3084,13 @@ export function ResumeWorkspace() {
                   </span>
                 </div>
                 ) : null}
-                {manualInspectorTab === "page" && renderModel?.safety.ruleOnlyItemIds.length ? (
+                {styleInspectorTab === "page" && renderModel?.safety.ruleOnlyItemIds.length ? (
                   <div className="warning-box">该简历包含仅由规则检查通过的内容，工作台已显示校验状态；PDF 正文不会加入内部风险标签。</div>
                 ) : null}
-                {manualInspectorTab === "page" && (pagination.status === "near_one_page_limit" || pagination.status === "near_limit") ? (
+                {styleInspectorTab === "page" && (pagination.status === "near_one_page_limit" || pagination.status === "near_limit") ? (
                   <div className="warning-box">当前接近单页上限，建议导出前在打印预览中复核。</div>
                 ) : null}
-                {manualInspectorTab === "page" && pagination.plan && isPaginationPlanBlocked(pagination.plan) ? (
+                {styleInspectorTab === "page" && pagination.plan && isPaginationPlanBlocked(pagination.plan) ? (
                   <div className="warning-box">
                     <p>当前页数超过所选页面策略，正式导出会被阻止。</p>
                     {reductionHints.length > 0 ? (
@@ -2740,7 +3100,7 @@ export function ResumeWorkspace() {
                     ) : null}
                   </div>
                 ) : null}
-                {manualInspectorTab === "page" ? (
+                {styleInspectorTab === "page" ? (
                 <div className="export-control-stack" data-testid="pdf-export-controls">
                   <button
                     className="primary-button"
@@ -2768,32 +3128,6 @@ export function ResumeWorkspace() {
                   ) : null}
                 </div>
                 ) : null}
-                {manualInspectorTab === "history" ? (
-                <div className="studio-sidebar-section">
-                  <h3>版本历史</h3>
-                  {revisions.length > 0 ? (
-                    <div className="revision-list compact-revision-list">
-                      {revisions.map((revision) => (
-                        <article key={revision.id} className="review-row">
-                          <span>
-                            <strong>版本 {revision.revisionNumber + 1}</strong>
-                            <small>{revisionSourceLabel(revision.source)}</small>
-                          </span>
-                          <button
-                            className="secondary-button compact"
-                            disabled={!selectedBranchEditable || revision.id === selectedBranch.currentRevisionId}
-                            onClick={() => restoreRevision(revision.id)}
-                          >
-                            恢复
-                          </button>
-                        </article>
-                      ))}
-                    </div>
-                  ) : (
-                    <p>暂无版本历史。</p>
-                  )}
-                </div>
-                ) : null}
               </>
             ) : null}
             {renderResult.error ? <p className="save-status save-status-failed">{renderResult.error}</p> : null}
@@ -2809,7 +3143,7 @@ export function ResumeWorkspace() {
                 presentationConfig={presentationConfig}
                 zoom={canvasZoom}
                 editor={resumeDocument ? {
-                  enabled: isStudioEditMode,
+                  enabled: studioMode === "edit" && isStudioEditMode,
                   selectedItemId: selectedStudioItemId,
                   editingItemId: editingStudioItemId,
                   selectedBlock: selectedStudioBlock,
@@ -2885,6 +3219,62 @@ function buildRenderModel(input: {
   }
 }
 
+function buildResumeStudioSections(input: {
+  resumeDocument?: ResumeDocument;
+  branch?: ResumeBranch;
+}): Array<{ key: ResumeStudioSectionKey; label: string; count: number; firstItemId?: string }> {
+  const blocks = input.resumeDocument?.blocks ?? [];
+  const bySection = (sectionType: ResumeRenderSectionType) => blocks.filter((block) => block.sectionType === sectionType);
+  const first = (sectionType: ResumeRenderSectionType) => bySection(sectionType)[0]?.contentItemId;
+  const customBlocks = blocks.filter((block) => block.itemType === "custom");
+  const verifiedContentCount = input.branch?.contentItems.filter((item) => item.visible && item.itemType !== "structural").length ?? 0;
+  return [
+    { key: "basics", label: "个人信息", count: verifiedContentCount > 0 ? 1 : 0 },
+    { key: "summary", label: "自我评价", count: bySection("summary").length, firstItemId: first("summary") },
+    { key: "experience", label: "工作经历", count: bySection("experience").length, firstItemId: first("experience") },
+    { key: "education", label: "教育经历", count: 0 },
+    { key: "projects", label: "项目经历", count: 0 },
+    { key: "campus", label: "校园经历", count: 0 },
+    { key: "skills", label: "技能", count: bySection("skills").length, firstItemId: first("skills") },
+    { key: "awards", label: "奖项", count: 0 },
+    { key: "certificates", label: "证书", count: bySection("certificates").length, firstItemId: first("certificates") },
+    { key: "language", label: "语言", count: 0 },
+    { key: "custom", label: "自定义栏目", count: customBlocks.length, firstItemId: customBlocks[0]?.contentItemId },
+    { key: "add", label: "添加栏目", count: 0 }
+  ];
+}
+
+function isAiOptimizableSection(section: ResumeStudioSectionKey) {
+  return section === "summary"
+    || section === "experience"
+    || section === "projects"
+    || section === "campus"
+    || section === "awards"
+    || section === "skills"
+    || section === "language";
+}
+
+function extractStructuredField(text: string, field: "organization" | "role" | "location" | "start" | "end") {
+  const normalized = text.replace(/\s+/g, " ").trim();
+  if (!normalized) {
+    return "";
+  }
+  if (field === "organization" || field === "role") {
+    const separators = [" / ", " - ", " ｜ ", " | ", "，", ","];
+    const separator = separators.find((value) => normalized.includes(value));
+    if (!separator) {
+      return field === "organization" ? "" : normalized.slice(0, 36);
+    }
+    const [first, second] = normalized.split(separator);
+    return field === "organization" ? first.trim().slice(0, 36) : (second ?? "").trim().slice(0, 36);
+  }
+  if (field === "start" || field === "end") {
+    const dates = normalized.match(/\b(19|20)\d{2}(?:[./-]\d{1,2})?\b/g) ?? [];
+    return field === "start" ? dates[0] ?? "" : dates[1] ?? "";
+  }
+  return "";
+}
+
 function buildNextPresentationConfig(input: {
   current: ResumePresentationConfig;
   branch: ResumeBranch;
@@ -2936,18 +3326,20 @@ function parseWorkbenchState(value: unknown): WorkbenchState {
     return {};
   }
   const candidate = value as WorkbenchState;
+  const rawStudioMode = (value as { studioMode?: unknown }).studioMode;
   return {
     branchId: typeof candidate.branchId === "string" ? candidate.branchId : undefined,
     templateId: isResumeTemplateId(candidate.templateId) ? candidate.templateId : undefined,
     stylePanelOpen: typeof candidate.stylePanelOpen === "boolean" ? candidate.stylePanelOpen : undefined,
-    studioMode: isStudioMode(candidate.studioMode) ? candidate.studioMode : undefined,
+    studioMode: rawStudioMode === "manual" ? "edit" : isStudioMode(rawStudioMode) ? rawStudioMode : undefined,
     manualTab: isManualInspectorTab(candidate.manualTab) ? candidate.manualTab : undefined,
-    aiTab: isAiInspectorTab(candidate.aiTab) ? candidate.aiTab : undefined
+    aiTab: isAiInspectorTab(candidate.aiTab) ? candidate.aiTab : undefined,
+    styleTab: isStyleInspectorTab(candidate.styleTab) ? candidate.styleTab : undefined
   };
 }
 
 function isStudioMode(value: unknown): value is StudioMode {
-  return value === "manual" || value === "ai";
+  return value === "edit" || value === "ai" || value === "style";
 }
 
 function isManualInspectorTab(value: unknown): value is ManualInspectorTab {
@@ -2967,6 +3359,13 @@ function isAiInspectorTab(value: unknown): value is AiInspectorTab {
     || value === "facts"
     || value === "match"
     || value === "records";
+}
+
+function isStyleInspectorTab(value: unknown): value is StyleInspectorTab {
+  return value === "template"
+    || value === "colors"
+    || value === "font"
+    || value === "page";
 }
 
 function workbenchStateKey(profileId: string) {
@@ -3208,29 +3607,6 @@ function profileFieldLabel(fieldId?: string) {
   return key ? labels[key] : "基本信息";
 }
 
-function propertyTabLabel(tab: PropertyPanelTab) {
-  if (tab === "section") {
-    return "栏目";
-  }
-  if (tab === "block") {
-    return "段落";
-  }
-  return "整页";
-}
-
-function manualInspectorTabLabel(tab: ManualInspectorTab) {
-  const labels: Record<ManualInspectorTab, string> = {
-    content: "内容",
-    typography: "文字",
-    paragraph: "行文",
-    layout: "布局",
-    template: "模板",
-    page: "页面",
-    history: "历史"
-  };
-  return labels[tab];
-}
-
 function aiInspectorTabLabel(tab: AiInspectorTab) {
   const labels: Record<AiInspectorTab, string> = {
     job: "目标岗位",
@@ -3239,6 +3615,16 @@ function aiInspectorTabLabel(tab: AiInspectorTab) {
     facts: "事实缺口",
     match: "匹配",
     records: "记录"
+  };
+  return labels[tab];
+}
+
+function styleInspectorTabLabel(tab: StyleInspectorTab) {
+  const labels: Record<StyleInspectorTab, string> = {
+    template: "模板",
+    colors: "颜色",
+    font: "字体",
+    page: "页面"
   };
   return labels[tab];
 }

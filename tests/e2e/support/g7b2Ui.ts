@@ -1,35 +1,34 @@
 import { expect, type Page } from "@playwright/test";
 
 export async function openManualContentTab(page: Page) {
-  await openResumeManualTab(page, 0);
+  await openResumeEditMode(page);
   await expect(page.locator(".branch-editor").first()).toBeVisible({ timeout: 15_000 });
 }
 
 export async function openManualTypographyTab(page: Page) {
-  await openResumeManualTab(page, 1);
-  await openDocumentPropertyContext(page);
+  await openResumeStyleTab(page, 2);
   await expect(page.getByLabel("正文字号")).toBeVisible({ timeout: 15_000 });
 }
 
 export async function openManualLayoutTab(page: Page) {
-  await openResumeManualTab(page, 3);
+  await openResumeStyleTab(page, 1);
   await expect(page.getByTestId("resume-property-panel")).toBeVisible({ timeout: 15_000 });
 }
 
 export async function openManualPageTab(page: Page) {
-  await openResumeManualTab(page, 5);
-  await openDocumentPropertyContext(page);
+  await openResumeStyleTab(page, 3);
   await expect(page.getByTestId("page-policy-selector")).toBeVisible({ timeout: 15_000 });
 }
 
 export async function openManualTemplateTab(page: Page) {
-  await openResumeManualTab(page, 4);
+  await openResumeStyleTab(page, 0);
   await expect(page.locator(".template-center-entry")).toBeVisible({ timeout: 15_000 });
 }
 
 export async function openManualHistoryTab(page: Page) {
-  await openResumeManualTab(page, 6);
-  await expect(page.locator(".presentation-history-actions")).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByTestId("resume-studio-workbar")).toBeVisible({ timeout: 15_000 });
+  await page.locator(".toolbar-more summary").click();
+  await expect(page.locator(".toolbar-more-popover")).toBeVisible({ timeout: 15_000 });
 }
 
 export async function openAiDiagnosticsTab(page: Page) {
@@ -79,20 +78,19 @@ export async function openApplicationTimelineTab(page: Page) {
   await expect(page.getByTestId("application-timeline")).toBeVisible({ timeout: 15_000 });
 }
 
-async function openResumeManualTab(page: Page, index: number) {
+async function openResumeEditMode(page: Page) {
   await expect(page.getByTestId("resume-studio-shell")).toBeVisible({ timeout: 15_000 });
   const modeRail = page.locator(".resume-mode-rail button");
   await expect(modeRail.first()).toBeVisible({ timeout: 15_000 });
   await modeRail.first().click();
-  const manualTabs = page.locator(".resume-inspector .inspector-tablist button");
-  await expect(manualTabs.nth(index)).toBeVisible({ timeout: 15_000 });
-  await manualTabs.nth(index).click();
 }
 
-async function openDocumentPropertyContext(page: Page) {
-  const documentTab = page.getByRole("button", { name: "整页" });
-  if (await documentTab.count()) {
-    await expect(documentTab).toBeVisible({ timeout: 15_000 });
-    await documentTab.click();
-  }
+async function openResumeStyleTab(page: Page, index: number) {
+  await expect(page.getByTestId("resume-studio-shell")).toBeVisible({ timeout: 15_000 });
+  const modeRail = page.locator(".resume-mode-rail button");
+  await expect(modeRail.nth(2)).toBeVisible({ timeout: 15_000 });
+  await modeRail.nth(2).click();
+  const styleTabs = page.locator(".resume-inspector .inspector-tablist button");
+  await expect(styleTabs.nth(index)).toBeVisible({ timeout: 15_000 });
+  await styleTabs.nth(index).click();
 }

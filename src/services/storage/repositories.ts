@@ -1870,6 +1870,62 @@ export class WorkspaceRepository {
     });
   }
 
+  async duplicateResumeContentItem(input: {
+    branchId: string;
+    expectedRevision: number;
+    operationId: string;
+    itemId: string;
+  }) {
+    const duplicatedItemId = `branch-item-copy-${stableHashText(`${input.branchId}:${input.itemId}:${input.operationId}`).replace(/[^a-zA-Z0-9-]/g, "").slice(0, 28)}`;
+    const result = await this.mutateResumeBranch({
+      branchId: input.branchId,
+      expectedRevision: input.expectedRevision,
+      operationId: input.operationId,
+      type: "manual_edit",
+      source: "manual_edit",
+      mutate: async ({ branch }) => {
+        const orderedItems = [...branch.contentItems].sort((a, b) => a.order - b.order);
+        const sourceIndex = orderedItems.findIndex((item) => item.id === input.itemId);
+        if (sourceIndex < 0) {
+          throw new Error("branch_content_item_missing");
+        }
+
+        const sourceItem = orderedItems[sourceIndex];
+        if (sourceItem.itemType !== "structural" && sourceItem.factRefs.length === 0) {
+          throw new Error("branch_content_item_missing_fact_refs");
+        }
+        if (orderedItems.some((item) => item.id === duplicatedItemId)) {
+          return ResumeBranchSchema.parse(branch);
+        }
+
+        const duplicatedItem = BranchContentItemSchema.parse({
+          ...sourceItem,
+          id: duplicatedItemId,
+          source: "user_manual",
+          visible: true
+        });
+        const nextItems = [
+          ...orderedItems.slice(0, sourceIndex + 1),
+          duplicatedItem,
+          ...orderedItems.slice(sourceIndex + 1)
+        ].map((item, order) => BranchContentItemSchema.parse({
+          ...item,
+          order
+        }));
+
+        return ResumeBranchSchema.parse({
+          ...branch,
+          contentItems: nextItems
+        });
+      }
+    });
+
+    return {
+      ...result,
+      duplicatedItemId
+    };
+  }
+
   async restoreResumeRevision(input: {
     branchId: string;
     revisionId: string;

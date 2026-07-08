@@ -55,11 +55,14 @@ test.describe("V2-G7b.2 gap closure", () => {
     await createBranchFromDraft(page, `G7b2 split ${Date.now()}`);
 
     await expect(page.getByTestId("resume-studio-shell")).toBeVisible();
+    await expect(page.getByTestId("resume-section-nav")).toBeVisible();
     await expect(page.locator(".branch-editor")).toBeVisible();
     await expect(page.locator(".presentation-history-actions")).toHaveCount(0);
 
-    await page.locator(".inspector-tab").last().click();
-    await expect(page.locator(".presentation-history-actions")).toBeVisible();
+    await page.locator(".resume-mode-rail button").nth(2).click();
+    await expect(page.locator(".resume-inspector .inspector-tablist button")).toHaveText(["模板", "颜色", "字体", "页面"]);
+    await page.locator(".resume-inspector .inspector-tablist button").nth(3).click();
+    await expect(page.getByTestId("resume-property-panel")).toBeVisible();
     await expect(page.locator(".branch-editor")).toHaveCount(0);
 
     await page.locator(".resume-mode-rail button").nth(1).click();
@@ -72,7 +75,7 @@ test.describe("V2-G7b.2 gap closure", () => {
     await expect(page.getByTestId("resume-diagnostics-panel")).toBeVisible();
     await expect(page.locator(".property-panel-body")).toHaveCount(0);
     await page.locator(".resume-mode-rail button").first().click();
-    await page.locator(".resume-inspector .inspector-tablist button").first().click();
+    await expect(page.getByTestId("resume-section-nav")).toBeVisible();
     await expect(page.locator(".branch-editor")).toBeVisible();
     await expect(page.getByTestId("job-optimization-panel")).toHaveCount(0);
     await expect(page.getByTestId("resume-diagnostics-panel")).toHaveCount(0);
@@ -89,7 +92,7 @@ test.describe("V2-G7b.2 gap closure", () => {
     const placement = await page.evaluate(() => {
       const mode = document.querySelector(".resume-mode-rail");
       const inspector = document.querySelector(".resume-inspector");
-      const tabs = document.querySelector(".resume-inspector .inspector-tablist");
+      const tabs = document.querySelector("[data-testid='resume-section-nav']");
       const heading = document.querySelector(".resume-inspector .property-panel-heading");
       const rect = (node: Element | null) => {
         const box = node?.getBoundingClientRect();
@@ -105,7 +108,7 @@ test.describe("V2-G7b.2 gap closure", () => {
 
     expect(placement.mode?.y ?? 9999).toBeLessThan(placement.inspector?.y ?? 0);
     expect(placement.tabs?.x ?? 9999).toBeLessThan(placement.heading?.x ?? 0);
-    expect(placement.tabs?.width ?? 0).toBeLessThan(110);
+    expect(placement.tabs?.width ?? 0).toBeLessThan(230);
   });
 
   test("profile-category-crud-archive-restore-search", async ({ page }) => {

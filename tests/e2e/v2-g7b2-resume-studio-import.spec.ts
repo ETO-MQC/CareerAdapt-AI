@@ -5,17 +5,21 @@ test.describe("V2-G7b.2 Resume Studio and import IA", () => {
     await createBranchFromDraft(page, `G7b2 mode split ${Date.now()}`);
 
     await expect(page.locator(".resume-inspector")).toBeVisible();
+    await expect(page.getByTestId("resume-section-nav")).toBeVisible();
     await expect(page.locator(".branch-editor")).toBeVisible();
     await expect(page.locator(".presentation-history-actions")).toHaveCount(0);
 
-    await page.locator(".inspector-tab").last().click();
-    await expect(page.locator(".presentation-history-actions")).toBeVisible();
+    await page.locator(".resume-mode-rail button").nth(2).click();
+    await expect(page.locator(".resume-inspector .inspector-tablist button")).toHaveText(["模板", "颜色", "字体", "页面"]);
+    await page.locator(".resume-inspector .inspector-tablist button").nth(3).click();
+    await expect(page.getByTestId("resume-property-panel")).toBeVisible();
     await expect(page.locator(".branch-editor")).toHaveCount(0);
 
     await page.locator(".resume-mode-rail button").nth(1).click();
     await expect(page.locator(".branch-editor")).toHaveCount(0);
     await expect(page.locator(".presentation-history-actions")).toHaveCount(0);
     await expect(page.locator(".property-panel-body")).toHaveCount(0);
+    await expect(page.getByTestId("resume-ai-summary")).toBeVisible();
   });
 
   test("imports structured JSON into the same review flow before confirmation", async ({ page }) => {

@@ -104,6 +104,7 @@ test.describe("V2-G4a PDF resume import", () => {
 });
 
 async function applyTemplate(page: Page, templateId: string) {
+  await page.locator(".resume-mode-rail button").nth(2).click();
   await page.getByRole("button", { name: "模板中心", exact: true }).click();
   await expect(page.getByTestId("template-center")).toBeVisible();
   await page.getByRole("button", { name: `应用模板：${templateName(templateId)}` }).click();

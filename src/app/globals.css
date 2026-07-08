@@ -66,7 +66,7 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--ink);
-  font-family: Inter, ui-sans-serif, system-ui, "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", sans-serif;
+  font-family: ui-sans-serif, system-ui, "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", sans-serif;
   letter-spacing: 0;
 }
 
@@ -490,7 +490,8 @@ p {
 
 .fact-line {
   background: color-mix(in srgb, var(--amber) 12%, var(--surface));
-  border-left: 3px solid var(--amber);
+  border: 1px solid color-mix(in srgb, var(--amber) 42%, var(--line));
+  border-radius: 8px;
   color: var(--ink);
   margin-bottom: 0;
   padding: 10px 12px;
@@ -1019,15 +1020,15 @@ p {
 }
 
 .suggestion-card-low {
-  border-left: 4px solid var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 44%, var(--line));
 }
 
 .suggestion-card-medium {
-  border-left: 4px solid var(--amber);
+  border-color: color-mix(in srgb, var(--amber) 54%, var(--line));
 }
 
 .suggestion-card-high {
-  border-left: 4px solid #9b2c2c;
+  border-color: color-mix(in srgb, #9b2c2c 48%, var(--line));
 }
 
 .compact-heading {
@@ -1662,6 +1663,112 @@ p {
   padding-right: 4px;
 }
 
+.resume-entry-actions {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.resume-entry-menu,
+.resume-card-more,
+.toolbar-more {
+  position: relative;
+}
+
+.resume-entry-menu > summary,
+.resume-card-more > summary,
+.toolbar-more > summary {
+  list-style: none;
+}
+
+.resume-entry-menu > summary::-webkit-details-marker,
+.resume-card-more > summary::-webkit-details-marker,
+.toolbar-more > summary::-webkit-details-marker {
+  display: none;
+}
+
+.resume-entry-menu-popover,
+.resume-card-more-popover,
+.toolbar-more-popover {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: 0 16px 34px rgba(32, 37, 34, 0.14);
+  display: grid;
+  gap: 4px;
+  min-width: 148px;
+  padding: 6px;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 20;
+}
+
+.resume-entry-menu-popover button,
+.resume-card-more-popover button,
+.toolbar-more-popover button {
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: var(--ink);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 750;
+  padding: 8px 9px;
+  text-align: left;
+}
+
+.resume-entry-menu-popover button:hover,
+.resume-card-more-popover button:hover,
+.toolbar-more-popover button:hover {
+  background: var(--surface-subtle);
+}
+
+.resume-entry-menu-popover button:disabled,
+.resume-card-more-popover button:disabled,
+.toolbar-more-popover button:disabled {
+  color: var(--muted);
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.resume-entry-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(320px, 0.85fr) minmax(0, 1.15fr);
+  margin-bottom: 12px;
+}
+
+.resume-card-list {
+  gap: 10px;
+}
+
+.resume-card {
+  align-items: center;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 10px;
+}
+
+.resume-card-main {
+  background: transparent;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  min-width: 0;
+  padding: 0;
+  text-align: left;
+}
+
+.resume-card-actions {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+}
+
 .studio-sidebar-section {
   border-top: 1px solid var(--line);
   display: grid;
@@ -1673,6 +1780,208 @@ p {
 .studio-sidebar-section h2 {
   font-size: 16px;
   margin-bottom: 2px;
+}
+
+.resume-studio-shell-edit {
+  grid-template-columns: minmax(168px, 210px) minmax(400px, 520px) minmax(0, 1fr);
+}
+
+.resume-studio-shell-style {
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 360px);
+}
+
+.resume-studio-shell-edit .resume-inspector,
+.resume-studio-shell-style .resume-inspector {
+  padding-left: 20px;
+}
+
+.resume-studio-shell-style .resume-preview-stage {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.resume-studio-shell-style .resume-inspector {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.resume-section-nav-panel {
+  align-content: start;
+  display: grid;
+  gap: 10px;
+  max-height: 100%;
+  overflow: auto;
+  padding: 14px;
+  position: sticky;
+  top: calc(var(--header-height) + 16px);
+}
+
+.resume-section-nav {
+  display: grid;
+  gap: 6px;
+}
+
+.resume-section-nav-button {
+  align-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--muted);
+  cursor: pointer;
+  display: flex;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  gap: 8px;
+  justify-content: space-between;
+  min-height: 36px;
+  padding: 8px 9px;
+  text-align: left;
+}
+
+.resume-section-nav-button:hover {
+  background: var(--surface-subtle);
+  color: var(--ink);
+}
+
+.resume-section-nav-button-active {
+  background: #eef6f1;
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.resume-section-nav-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.resume-section-nav-button strong {
+  color: inherit;
+  font-size: 12px;
+}
+
+.resume-field-editor {
+  max-height: none;
+}
+
+.resume-entry-editor-card {
+  padding: 0;
+}
+
+.resume-entry-editor-card > summary {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  list-style: none;
+  padding: 12px;
+}
+
+.resume-entry-editor-card > summary::-webkit-details-marker {
+  display: none;
+}
+
+.resume-entry-editor-card > :not(summary) {
+  margin: 0 12px 12px;
+}
+
+.resume-entry-editor-card small {
+  color: var(--muted);
+  display: block;
+  font-size: 12px;
+  font-weight: 750;
+  margin-top: 2px;
+}
+
+.structured-field-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.structured-field-grid input[readonly],
+.resume-field-editor input[readonly] {
+  background: #f7f8f5;
+  color: var(--muted);
+}
+
+.resume-current-toggle {
+  align-self: end;
+  min-height: 38px;
+}
+
+.section-ai-entry {
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+
+.resume-ai-summary-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.resume-ai-summary-card {
+  background: var(--surface-subtle);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--ink);
+  cursor: pointer;
+  display: grid;
+  gap: 2px;
+  min-height: 72px;
+  padding: 10px;
+  text-align: left;
+}
+
+.resume-ai-summary-card span,
+.resume-ai-summary-card small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.resume-ai-summary-card strong {
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.resume-studio-shell-style .resume-inspector .inspector-tablist {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  position: static;
+  width: auto;
+}
+
+@media (max-width: 1400px) {
+  .resume-studio-shell-edit {
+    grid-template-columns: 56px minmax(380px, 440px) minmax(0, 1fr);
+  }
+
+  .resume-studio-shell-edit .resume-section-nav-panel {
+    padding: 8px 6px;
+  }
+
+  .resume-studio-shell-edit .resume-section-nav-panel .property-panel-heading {
+    display: none;
+  }
+
+  .resume-studio-shell-edit .resume-section-nav-button {
+    justify-content: center;
+    min-height: 44px;
+    padding: 6px 4px;
+  }
+
+  .resume-studio-shell-edit .resume-section-nav-button span {
+    font-size: 12px;
+    line-height: 1.1;
+    max-width: 2.5em;
+    text-align: center;
+  }
+
+  .resume-studio-shell-edit .resume-section-nav-button strong {
+    display: none;
+  }
 }
 
 .studio-subpanel {
@@ -2287,13 +2596,12 @@ p {
   gap: 8px;
   padding: 12px;
   border: 1px solid var(--line);
-  border-left: 4px solid var(--accent);
   border-radius: 8px;
   background: var(--paper);
 }
 
 .diagnostic-card-warning {
-  border-left-color: #b5811b;
+  border-color: color-mix(in srgb, #b5811b 54%, var(--line));
 }
 
 .diagnostic-card-critical {
@@ -2930,15 +3238,15 @@ p {
 }
 
 .application-readiness-item-ready {
-  border-left: 4px solid var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 44%, var(--line));
 }
 
 .application-readiness-item-needs_attention {
-  border-left: 4px solid #b5811b;
+  border-color: color-mix(in srgb, #b5811b 54%, var(--line));
 }
 
 .application-readiness-item-blocked {
-  border-left: 4px solid #b83232;
+  border-color: color-mix(in srgb, #b83232 48%, var(--line));
 }
 
 .application-timeline {
@@ -2947,10 +3255,11 @@ p {
 }
 
 .application-timeline article {
-  border-left: 3px solid var(--line);
+  border: 1px solid var(--line);
+  border-radius: 8px;
   display: grid;
   gap: 3px;
-  padding-left: 12px;
+  padding: 10px 12px;
 }
 
 .application-timeline span {
@@ -3062,17 +3371,17 @@ p {
 
 .material-status-blocked,
 .fact-gap-open {
-  border-left: 4px solid #b83232;
+  border-color: color-mix(in srgb, #b83232 48%, var(--line));
 }
 
 .material-status-stale {
-  border-left: 4px solid #b5811b;
+  border-color: color-mix(in srgb, #b5811b 54%, var(--line));
 }
 
 .material-status-completed,
 .fact-gap-resolved,
 .fact-gap-ignored {
-  border-left: 4px solid var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 44%, var(--line));
 }
 
 .material-textarea {
@@ -3121,7 +3430,8 @@ p {
 
 @media (max-width: 1180px) {
   .profile-manager-grid,
-  .stage-grid {
+  .stage-grid,
+  .resume-entry-grid {
     grid-template-columns: 1fr;
   }
 
@@ -3131,6 +3441,39 @@ p {
 
   .resume-studio-shell {
     grid-template-columns: minmax(340px, 408px) minmax(0, 1fr);
+  }
+
+  .resume-studio-shell-edit {
+    grid-template-columns: 56px minmax(320px, 380px) minmax(0, 1fr);
+  }
+
+  .resume-studio-shell-edit .resume-section-nav-panel {
+    padding: 8px 6px;
+  }
+
+  .resume-studio-shell-edit .resume-section-nav-panel .property-panel-heading {
+    display: none;
+  }
+
+  .resume-studio-shell-edit .resume-section-nav-button {
+    justify-content: center;
+    min-height: 44px;
+    padding: 6px 4px;
+  }
+
+  .resume-studio-shell-edit .resume-section-nav-button span {
+    font-size: 12px;
+    line-height: 1.1;
+    max-width: 2.5em;
+    text-align: center;
+  }
+
+  .resume-studio-shell-edit .resume-section-nav-button strong {
+    display: none;
+  }
+
+  .resume-studio-shell-style {
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 340px);
   }
 
   .application-workarea {
@@ -3366,8 +3709,34 @@ p {
     grid-template-columns: 1fr;
   }
 
+  .resume-studio-shell-edit,
+  .resume-studio-shell-style {
+    grid-template-columns: 1fr;
+  }
+
   .resume-mode-rail {
     flex-wrap: wrap;
+  }
+
+  .resume-section-nav-panel {
+    position: static;
+  }
+
+  .resume-section-nav {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .resume-studio-shell-edit .resume-section-nav-panel .property-panel-heading {
+    display: block;
+  }
+
+  .resume-studio-shell-edit .resume-section-nav-button {
+    justify-content: space-between;
+  }
+
+  .resume-studio-shell-edit .resume-section-nav-button span {
+    max-width: none;
+    text-align: left;
   }
 
   .resume-inspector {
