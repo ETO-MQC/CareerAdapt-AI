@@ -153,7 +153,7 @@ function DiagnosticIssueCard({
         <span>{issue.code}</span>
       </div>
       <h3>{issue.title}</h3>
-      <p>{issue.description}</p>
+      <ExpandableText text={issue.description} threshold={150} />
       <div className="diagnostic-targets">
         {issue.requirementIds.length ? <span>岗位要求：{issue.requirementIds.join(", ")}</span> : null}
         {issue.sectionType ? <span>栏目：{sectionTypeLabel(issue.sectionType)}</span> : null}
@@ -251,4 +251,24 @@ function atsStatusLabel(status: ResumeDiagnosticSnapshot["summary"]["atsStructur
     return "明显风险";
   }
   return "无法确认";
+}
+
+function ExpandableText({ text, threshold = 150 }: { text: string; threshold?: number }) {
+  const [expanded, setExpanded] = useState(false);
+  if (text.length <= threshold) {
+    return <p>{text}</p>;
+  }
+  return (
+    <p>
+      {expanded ? text : `${text.slice(0, threshold)}…`}
+      <button
+        type="button"
+        className="secondary-button compact"
+        style={{ marginLeft: 6, verticalAlign: "middle" }}
+        onClick={() => setExpanded((current) => !current)}
+      >
+        {expanded ? "收起" : "展开全文"}
+      </button>
+    </p>
+  );
 }

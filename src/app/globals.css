@@ -1592,8 +1592,14 @@ p {
 
 .resume-inspector-collapsed {
   align-content: start;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   overflow: hidden;
-  padding: 8px !important;
+  padding: 12px 4px !important;
+  min-width: 54px;
+  max-width: 54px;
+  width: 54px;
 }
 
 .resume-inspector-collapsed > :not(.property-panel-heading) {
@@ -1602,6 +1608,29 @@ p {
 
 .resume-inspector-collapsed .property-panel-heading > div {
   display: none;
+}
+
+.resume-inspector-collapsed .property-panel-heading {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.resume-inspector-collapsed .panel-heading-actions {
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+.resume-inspector-collapsed .panel-heading-actions > button {
+  width: 100%;
+  padding: 10px 2px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  text-align: center;
+  writing-mode: vertical-rl;
+  letter-spacing: 2px;
 }
 
 .inspector-tablist {
@@ -3190,7 +3219,7 @@ p {
 }
 
 .profile-manager-grid {
-  align-items: start;
+  align-items: stretch;
   display: grid;
   gap: 16px;
   grid-template-columns: minmax(220px, 0.62fr) minmax(340px, 1fr) minmax(320px, 0.9fr);
@@ -3211,7 +3240,7 @@ p {
 .profile-detail-panel {
   max-height: min(68dvh, 720px);
   min-height: 420px;
-  overflow: hidden;
+  overflow: clip;
 }
 
 .profile-category-list,
@@ -3762,6 +3791,12 @@ p {
   display: grid;
   gap: 16px;
   grid-template-columns: minmax(220px, 0.45fr) minmax(0, 1fr);
+}
+
+.settings-panel {
+  width: 100%;
+  max-width: 680px;
+  min-width: 0;
 }
 
 .settings-nav,

@@ -582,7 +582,7 @@ export function JobOptimizationPanel({
                 <InlineDiff originalText={activeSuggestion.originalText} suggestedText={acceptedText} />
                 <div className="warning-box">
                   <strong>理由</strong>
-                  <p>{activeSuggestion.reason}</p>
+                  <ExpandableText text={activeSuggestion.reason} threshold={150} />
                   <p>风险：{riskLabel(activeSuggestion.riskLevel)} / 安全检查：{activeSuggestion.guardPreview?.allowed ? "预检通过" : "预检阻断"}</p>
                   <p>证据：{(activeSuggestion.evidenceQuotes ?? activeSuggestion.usedEvidenceRefs.map((ref) => ref.factQuote || ref.factText)).join(" / ") || "无"}</p>
                 </div>
@@ -759,4 +759,24 @@ function filterLabel(filter: RequirementFilter) {
     needs_confirmation: "待确认"
   };
   return labels[filter];
+}
+
+function ExpandableText({ text, threshold = 150 }: { text: string; threshold?: number }) {
+  const [expanded, setExpanded] = useState(false);
+  if (text.length <= threshold) {
+    return <p>{text}</p>;
+  }
+  return (
+    <p>
+      {expanded ? text : `${text.slice(0, threshold)}…`}
+      <button
+        type="button"
+        className="secondary-button compact"
+        style={{ marginLeft: 6, verticalAlign: "middle" }}
+        onClick={() => setExpanded((current) => !current)}
+      >
+        {expanded ? "收起" : "展开全文"}
+      </button>
+    </p>
+  );
 }

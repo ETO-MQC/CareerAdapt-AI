@@ -2643,30 +2643,22 @@ export function ResumeWorkspace() {
               </nav>
             </aside>
           ) : null}
-          <aside className={`panel no-print resume-export-panel resume-inspector ${studioLayout.fieldPanelCollapsed ? "resume-inspector-collapsed" : ""}`}>
+          <aside className="panel no-print resume-export-panel resume-inspector">
             <div className="property-panel-heading">
               <div>
                 <h2>{studioMode === "edit" ? activeSectionItem?.label ?? "编辑" : studioMode === "style" ? "样式" : "AI岗位优化"}</h2>
                 <p>{studioMode === "edit" ? "只显示当前栏目字段。" : studioMode === "style" ? "模板、颜色、文字和分页集中调整。" : "建议、质量和事实缺口分层查看。"}</p>
               </div>
-              <div className="panel-heading-actions">
-                {studioMode === "style" ? (
+              {studioMode === "style" ? (
+                <div className="panel-heading-actions">
                   <button
                     className="secondary-button compact"
                     onClick={() => setIsStylePanelOpen((current) => !current)}
                   >
                     {isStylePanelOpen ? "收起" : "展开"}
                   </button>
-                ) : null}
-                <button
-                  className="secondary-button compact"
-                  type="button"
-                  aria-label={studioLayout.fieldPanelCollapsed ? "展开字段面板" : "收起字段面板"}
-                  onClick={() => setStudioLayout((current) => ({ ...current, fieldPanelCollapsed: !current.fieldPanelCollapsed }))}
-                >
-                  {studioLayout.fieldPanelCollapsed ? "展" : "收"}
-                </button>
-              </div>
+                </div>
+              ) : null}
             </div>
             {studioMode === "edit" ? (
               <div className="property-summary">

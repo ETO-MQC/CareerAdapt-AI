@@ -1132,7 +1132,12 @@ export function ProfileWorkspace() {
                 <h2>资料分类</h2>
                 <p>按类别管理可复用事实。</p>
               </div>
-              <span className={`save-status save-status-${saveStatus}`}>{profileSaving ? "保存中" : "本地已保存"}</span>
+              <div className="action-row profile-detail-actions">
+                <span className={`save-status save-status-${saveStatus}`}>{profileSaving ? "保存中" : "本地已保存"}</span>
+                {activeProfileCategory !== "basic" ? (
+                  <button className="primary-button compact" disabled={profileSaving} onClick={startManagedProfileCreate}>+ 新增</button>
+                ) : null}
+              </div>
             </div>
             <div className="profile-category-list" role="listbox" aria-label="资料分类">
               {profileCategories.map((category) => (
@@ -1324,15 +1329,6 @@ export function ProfileWorkspace() {
         </section>
       )}
 
-      <section className="action-row import-tabs">
-        <button data-testid="profile-import-paste-mode" className={importMode === "paste" ? "primary-button" : "secondary-button"} onClick={() => setImportMode("paste")}>
-          粘贴文本
-        </button>
-        <button data-testid="profile-import-pdf-mode" className={importMode === "pdf" ? "primary-button" : "secondary-button"} onClick={() => setImportMode("pdf")}>
-          导入文本型 PDF
-        </button>
-      </section>
-
       <section className="stage-grid">
         {importMode === "paste" ? (
           <article className="panel">
@@ -1345,6 +1341,12 @@ export function ProfileWorkspace() {
               placeholder="粘贴简历、经历清单或已有简历文本..."
             />
             <div className="action-row">
+              <button className="secondary-button" data-testid="profile-import-paste-mode" onClick={() => setImportMode("paste")}>
+                粘贴文本
+              </button>
+              <button className="secondary-button" data-testid="profile-import-pdf-mode" onClick={() => setImportMode("pdf")}>
+                导入文本型 PDF
+              </button>
               <button className="primary-button" data-testid="save-profile-raw-input" onClick={startImport}>
                 保存原文
               </button>
@@ -1359,6 +1361,12 @@ export function ProfileWorkspace() {
             <p>PDF 会在浏览器本地提取文本；隐私确认前不会发送给外部模型，也不会长期保存原始 PDF 文件。</p>
             <input id={pdfInputId} type="file" accept="application/pdf,.pdf" onChange={handlePdfFileChange} />
             <div className="action-row">
+              <button className="secondary-button" data-testid="profile-import-paste-mode" onClick={() => setImportMode("paste")}>
+                粘贴文本
+              </button>
+              <button className="secondary-button" data-testid="profile-import-pdf-mode" onClick={() => setImportMode("pdf")}>
+                导入文本型 PDF
+              </button>
               {pdfStatus === "extracting" ? (
                 <button className="secondary-button" onClick={cancelPdfExtraction}>
                   取消提取
