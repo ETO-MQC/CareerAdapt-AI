@@ -23,7 +23,10 @@ test.describe("V2-G6a Application Workspace", () => {
     await createC2DraftForSelectedJob(page);
     await createResumeBranchFromFirstDraft(page, branchName);
 
-    await page.getByTestId("open-or-create-application").click();
+    // Open the "更多" dropdown to access "加入求职进度"
+    const workbar = page.getByTestId("resume-studio-workbar");
+    await workbar.locator(".toolbar-more summary").click();
+    await workbar.locator(".toolbar-more-popover").getByTestId("open-or-create-application").click();
     await expect(page).toHaveURL(/\/applications\?applicationId=/);
     await expect(page.getByTestId("application-card").first()).toBeVisible({ timeout: 15_000 });
     await expect(page.getByTestId("application-detail")).toBeVisible();
@@ -36,7 +39,10 @@ test.describe("V2-G6a Application Workspace", () => {
 
     await page.goto(`/resume?branchId=${encodeURIComponent(branchId)}`);
     await expect(page.locator(".branch-list .match-row").filter({ hasText: branchName })).toBeVisible({ timeout: 15_000 });
-    await page.getByTestId("open-or-create-application").click();
+    // Open the "更多" dropdown to access "加入求职进度"
+    const workbar2 = page.getByTestId("resume-studio-workbar");
+    await workbar2.locator(".toolbar-more summary").click();
+    await workbar2.locator(".toolbar-more-popover").getByTestId("open-or-create-application").click();
     await expect(page).toHaveURL(/\/applications\?applicationId=/);
     applications = await readAllFromStore<DbApplication>(page, "applications");
     expect(applications).toHaveLength(1);
@@ -107,10 +113,11 @@ async function createC2DraftForSelectedJob(page: Page) {
 
 async function createResumeBranchFromFirstDraft(page: Page, branchName: string) {
   await page.goto("/resume");
+  await page.getByTestId("resume-import-strip").waitFor({ state: "visible" });
   await expect(page.locator("main")).toBeVisible();
   await page.getByTestId("job-suggestion-draft-select").selectOption({ index: 0 });
-  await page.locator("article.panel").first().locator("input").fill(branchName);
-  await page.locator("article.panel").first().locator("button.primary-button").click();
+  await page.getByTestId("new-resume-branch-name").fill(branchName);
+  await page.getByTestId("create-job-resume").click();
   await expect(page.locator(".branch-list .match-row").filter({ hasText: branchName })).toBeVisible({ timeout: 15_000 });
 }
 

@@ -38,8 +38,9 @@ test.describe("V2-G7b workspace UX", () => {
   test("resume workspace supports A4 direct profile-field editing", async ({ page }) => {
     await createBranchFromDraft(page, `G7b Canvas ${Date.now()}`);
 
-    await page.locator(".resume-preview-stage").getByTestId("resume-a4-page").first().locator("[data-source-item-id='profile:name']").click();
-    await expect(page.getByTestId("resume-studio-editor")).toBeVisible();
+    // Double-click to start editing (single click only selects in new UI)
+    await page.locator(".resume-preview-pages").getByTestId("resume-a4-page").first().locator("[data-source-item-id='profile:name']").dblclick();
+    await expect(page.getByTestId("resume-studio-editor")).toBeVisible({ timeout: 5000 });
     await expect(page.getByTestId("resume-studio-editor").locator("textarea")).toBeVisible();
   });
 
@@ -89,6 +90,7 @@ async function createBranchFromDraft(page: Page, branchName: string) {
   await expect(page.locator(".notice")).toBeVisible({ timeout: 15_000 });
 
   await page.goto("/resume");
+  await page.getByTestId("resume-import-strip").waitFor({ state: "visible", timeout: 15_000 });
   await page.getByTestId("job-suggestion-draft-select").first().selectOption({ index: 0 });
   await page.getByTestId("new-resume-branch-name").first().fill(branchName);
   await page.getByTestId("create-job-resume").first().click();

@@ -18,7 +18,10 @@ test.describe("V2-G6b Application materials", () => {
 
     await createC2DraftForSelectedJob(page);
     await createResumeBranchFromFirstDraft(page, branchName);
-    await page.getByTestId("open-or-create-application").click();
+    // Open the "更多" dropdown to access "加入求职进度"
+    const workbar = page.getByTestId("resume-studio-workbar");
+    await workbar.locator(".toolbar-more summary").click();
+    await workbar.locator(".toolbar-more-popover").getByTestId("open-or-create-application").click();
     await expect(page).toHaveURL(/\/applications\?applicationId=/);
     await expect(page.getByTestId("application-detail")).toBeVisible({ timeout: 15_000 });
     await openApplicationMaterialsTab(page);
@@ -84,10 +87,11 @@ async function createC2DraftForSelectedJob(page: Page) {
 
 async function createResumeBranchFromFirstDraft(page: Page, branchName: string) {
   await page.goto("/resume");
+  await page.getByTestId("resume-import-strip").waitFor({ state: "visible" });
   await expect(page.locator("main")).toBeVisible();
   await page.getByTestId("job-suggestion-draft-select").selectOption({ index: 0 });
-  await page.locator("article.panel").first().locator("input").fill(branchName);
-  await page.locator("article.panel").first().locator("button.primary-button").click();
+  await page.getByTestId("new-resume-branch-name").fill(branchName);
+  await page.getByTestId("create-job-resume").click();
   await expect(page.locator(".branch-list .match-row").filter({ hasText: branchName })).toBeVisible({ timeout: 15_000 });
 }
 

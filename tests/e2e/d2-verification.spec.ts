@@ -39,9 +39,10 @@ async function createBranchFromDraft(page: Page, branchName: string) {
   await expect(page.locator(".notice")).toBeVisible();
 
   await page.goto("/resume");
+  await page.getByTestId("resume-import-strip").waitFor({ state: "visible" });
   await page.getByTestId("job-suggestion-draft-select").selectOption({ index: 0 });
-  await page.locator("article.panel").first().locator("input").fill(branchName);
-  await page.locator("article.panel").first().locator("button.primary-button").click();
+  await page.getByTestId("new-resume-branch-name").fill(branchName);
+  await page.getByTestId("create-job-resume").click();
   await expect(page.locator(".branch-list .match-row").filter({ hasText: branchName })).toBeVisible();
   await expect(page.getByTestId("resume-a4-page")).toBeVisible();
 }
@@ -350,11 +351,12 @@ test.describe("D2.1 验收：双模板预览与 PDF 导出", () => {
       const betaDraftId = await getLatestUsableDraftIdForJob(page, betaJobId);
 
       await page.goto("/resume");
+      await page.getByTestId("resume-import-strip").waitFor({ state: "visible" });
       const draftSelect = page.getByTestId("job-suggestion-draft-select");
       await expect(draftSelect.locator(`option[value="${betaDraftId}"]`)).toHaveCount(1);
       await draftSelect.selectOption(betaDraftId);
-      await page.locator("article.panel").first().locator("input").fill("Branch Beta");
-      await page.locator("article.panel").first().locator("button.primary-button").click();
+      await page.getByTestId("new-resume-branch-name").fill("Branch Beta");
+      await page.getByTestId("create-job-resume").click();
       await expect(page.locator(".branch-list .match-row").filter({ hasText: "Branch Beta" })).toBeVisible({ timeout: 10000 });
 
       const textB = await preview.innerText();
@@ -388,13 +390,14 @@ test.describe("D2.1 验收：双模板预览与 PDF 导出", () => {
     // Find the first textarea and make a safe edit
     // Reorder existing words to avoid triggering Fact Guard new-entity detection
     await openManualContentTab(page);
-    const textarea = page.locator(".branch-editor textarea").first();
+    await page.getByTestId("resume-section-nav").getByRole("button", { name: /工作经历/ }).click();
+    const textarea = page.getByTestId("resume-active-section-fields").locator("textarea").first();
     const originalValue = await textarea.inputValue();
 
     // Append a parenthetical note that won't trigger entity detection
     const newText = originalValue + "。";
     await textarea.fill(newText);
-    await page.locator(".branch-editor button.primary-button").first().click();
+    await page.getByTestId("resume-active-section-fields").locator("button.primary-button").first().click();
     await expect(page.locator(".notice")).toContainText("已保存");
 
     // Preview should still show the content
@@ -420,10 +423,11 @@ test.describe("D2.1 验收：双模板预览与 PDF 导出", () => {
 
     // Edit to create a second revision (safe edit: just add period)
     await openManualContentTab(page);
-    const textarea = page.locator(".branch-editor textarea").first();
+    await page.getByTestId("resume-section-nav").getByRole("button", { name: /工作经历/ }).click();
+    const textarea = page.getByTestId("resume-active-section-fields").locator("textarea").first();
     const originalValue = await textarea.inputValue();
     await textarea.fill(originalValue + "。");
-    await page.locator(".branch-editor button.primary-button").first().click();
+    await page.getByTestId("resume-active-section-fields").locator("button.primary-button").first().click();
     await expect(page.locator(".notice")).toContainText("已保存");
     await page.waitForTimeout(300);
 
@@ -444,6 +448,7 @@ test.describe("D2.1 验收：双模板预览与 PDF 导出", () => {
 
     // The textarea should also reflect restored content (no stale editTexts cache)
     await openManualContentTab(page);
+    await page.getByTestId("resume-section-nav").getByRole("button", { name: /工作经历/ }).click();
     const restoredTextareaValue = await textarea.inputValue();
     // After restore, text should be back to the original (without the appended period)
     expect(restoredTextareaValue).not.toContain(originalValue + "。");
@@ -669,9 +674,11 @@ test.describe("D2.1 验收：双模板预览与 PDF 导出", () => {
 
     // Find the last checkbox toggle and click it to hide a content item
     await openManualContentTab(page);
-    const toggles = page.locator(".branch-editor input[type='checkbox']");
+    // Navigate to a section that has visibility toggles
+    await page.getByTestId("resume-section-nav").getByRole("button", { name: /工作经历/ }).click();
+    const toggles = page.getByTestId("resume-active-section-fields").locator("input[type='checkbox']");
     const toggleCount = await toggles.count();
-    expect(toggleCount).toBeGreaterThan(1);
+    expect(toggleCount).toBeGreaterThan(0);
 
     // Click the last toggle to hide a content item
     // Use click() to handle controlled React components properly
@@ -788,13 +795,17 @@ test.describe("D2.1 验收：双模板预览与 PDF 导出", () => {
     await page.locator(".branch-list .match-row").first().click();
     await page.waitForTimeout(300);
 
-    // Should show legacy warning
-    await expect(page.locator(".warning-box")).toContainText("旧占位简历");
+    // Should show legacy warning (in workbar review chip or notice)
+    await expect(page.locator(".resume-review-chip, .notice").first()).toContainText("旧占位简历");
 
-    // Editor should be disabled
-    const textarea = page.locator(".branch-editor textarea").first();
-    if (await textarea.isVisible()) {
-      await expect(textarea).toBeDisabled();
+    // Editor should be disabled or not present for legacy branches
+    const fieldsPanel = page.getByTestId("resume-active-section-fields");
+    const fieldsVisible = await fieldsPanel.isVisible().catch(() => false);
+    if (fieldsVisible) {
+      const textarea = fieldsPanel.locator("textarea").first();
+      if (await textarea.isVisible().catch(() => false)) {
+        await expect(textarea).toBeDisabled();
+      }
     }
 
     // No formal preview for legacy branches

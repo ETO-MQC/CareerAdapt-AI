@@ -48,8 +48,11 @@ test.describe("V2-G7b.2 Resume Studio and import IA", () => {
   test("exports the active resume as structured JSON", async ({ page }) => {
     await createBranchFromDraft(page, `G7b2 JSON export ${Date.now()}`);
 
+    // Open the "更多" dropdown to access JSON export
+    const workbar = page.getByTestId("resume-studio-workbar");
+    await workbar.locator(".toolbar-more summary").click();
     const downloadPromise = page.waitForEvent("download");
-    await page.locator("button").filter({ hasText: /JSON/ }).last().click();
+    await workbar.locator(".toolbar-more-popover").getByRole("button", { name: /JSON/ }).click();
     const download = await downloadPromise;
 
     expect(download.suggestedFilename()).toContain("structured-resume.json");
@@ -65,6 +68,7 @@ async function createBranchFromDraft(page: Page, branchName: string) {
   await expect(page.locator(".notice")).toBeVisible({ timeout: 15_000 });
 
   await page.goto("/resume");
+  await page.getByTestId("resume-import-strip").waitFor({ state: "visible", timeout: 15_000 });
   await page.getByTestId("job-suggestion-draft-select").first().selectOption({ index: 0 });
   await page.getByTestId("new-resume-branch-name").first().fill(branchName);
   await page.getByTestId("create-job-resume").first().click();

@@ -33,34 +33,40 @@ test.describe("Stage D1 resume branches", () => {
     await createC2DraftForSelectedJob(page);
 
     await page.goto("/resume");
-    await expect(page.getByRole("heading", { name: /.+/ }).first()).toBeVisible();
+    await page.getByTestId("resume-import-strip").waitFor({ state: "visible" });
 
     await page.getByTestId("job-suggestion-draft-select").selectOption({ index: 0 });
-    await page.locator("article.panel").first().locator("input").fill("D1 Branch A");
-    await page.locator("article.panel").first().locator("button.primary-button").click();
+    await page.getByTestId("new-resume-branch-name").fill("D1 Branch A");
+    await page.getByTestId("create-job-resume").click();
     await expect(page.locator(".branch-list .match-row").filter({ hasText: "D1 Branch A" })).toBeVisible();
 
+    // 返回简历中心再创建第二个分支
+    await page.goto("/resume");
+    await page.getByTestId("resume-import-strip").waitFor({ state: "visible" });
+
     await page.getByTestId("job-suggestion-draft-select").selectOption({ index: 1 });
-    await page.locator("article.panel").first().locator("input").fill("D1 Branch B");
-    await page.locator("article.panel").first().locator("button.primary-button").click();
+    await page.getByTestId("new-resume-branch-name").fill("D1 Branch B");
+    await page.getByTestId("create-job-resume").click();
     await expect(page.locator(".branch-list .match-row").filter({ hasText: "D1 Branch B" })).toBeVisible();
 
     await expect(page.locator(".branch-list .match-row")).toHaveCount(2);
 
     await page.locator(".branch-list .match-row").filter({ hasText: "D1 Branch A" }).click();
     await openManualContentTab(page);
-    const branchATextarea = page.locator(".branch-editor textarea").first();
+    await page.getByTestId("resume-section-nav").getByRole("button", { name: /工作经历/ }).click();
+    const branchATextarea = page.getByTestId("resume-active-section-fields").locator("textarea").first();
     const originalA = await branchATextarea.inputValue();
     const editedA = `${originalA}.`;
     await branchATextarea.fill(editedA);
-    await page.locator(".branch-editor .suggestion-card").first().locator("button.primary-button").click();
+    await page.getByTestId("resume-active-section-fields").locator(".suggestion-card").first().locator("button.primary-button").click();
     await expect(page.locator(".notice")).toBeVisible();
     await openManualHistoryTab(page);
     await expect(page.locator(".revision-list .review-row").filter({ hasText: "版本 2" })).toBeVisible();
 
     await page.locator(".branch-list .match-row").filter({ hasText: "D1 Branch B" }).click();
     await openManualContentTab(page);
-    await expect(page.locator(".branch-editor textarea").first()).not.toHaveValue(editedA);
+    await page.getByTestId("resume-section-nav").getByRole("button", { name: /工作经历/ }).click();
+    await expect(page.getByTestId("resume-active-section-fields").locator("textarea").first()).not.toHaveValue(editedA);
 
     await page.locator(".branch-list .match-row").filter({ hasText: "D1 Branch A" }).click();
     await openManualHistoryTab(page);
@@ -69,7 +75,8 @@ test.describe("Stage D1 resume branches", () => {
     await page.getByTestId("resume-studio-workbar").getByRole("button", { name: "撤销" }).click();
     await expect(page.locator(".notice")).toContainText("已撤销最近一次简历修改");
     await openManualContentTab(page);
-    await expect(page.locator(".branch-editor textarea").first()).toHaveValue(editedA);
+    await page.getByTestId("resume-section-nav").getByRole("button", { name: /工作经历/ }).click();
+    await expect(page.getByTestId("resume-active-section-fields").locator("textarea").first()).toHaveValue(editedA);
 
     await page.evaluate(async () => {
       await new Promise<void>((resolve, reject) => {

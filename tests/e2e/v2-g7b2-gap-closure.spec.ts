@@ -8,10 +8,11 @@ test.describe("V2-G7b.2 gap closure", () => {
     const branchBefore = await findBranchByName(page, branchName);
     expect(branchBefore?.revision).toBeDefined();
 
-    const a4Page = visibleA4Page(page);
+    const a4Page = page.locator(".resume-preview-pages").getByTestId("resume-a4-page").first();
     const nameTarget = a4Page.locator("[data-source-item-id='profile:name']").first();
-    await nameTarget.click();
-    await expect(page.getByTestId("resume-studio-editor").locator("textarea")).toBeVisible();
+    // Double-click to start editing (single click only selects in new UI)
+    await nameTarget.dblclick();
+    await expect(page.getByTestId("resume-studio-editor").locator("textarea")).toBeVisible({ timeout: 5000 });
     await page.getByTestId("resume-studio-editor").locator("textarea").fill("Temporary Cancelled Name");
     await page.getByTestId("resume-studio-editor").locator("textarea").press("Escape");
     await expect(page.getByTestId("resume-studio-editor").locator("textarea")).toHaveCount(0);
@@ -23,22 +24,23 @@ test.describe("V2-G7b.2 gap closure", () => {
     await expect(nameTarget).toContainText("G7b2 Inline Candidate");
 
     const emailTarget = a4Page.locator("[data-source-item-id='profile:email']").first();
-    await emailTarget.click();
+    await emailTarget.dblclick();
+    await expect(page.getByTestId("resume-studio-editor").locator("textarea")).toBeVisible({ timeout: 5000 });
     await page.getByTestId("resume-studio-editor").locator("textarea").fill("g7b2-inline@example.com");
     await page.getByTestId("resume-studio-editor").locator("button.primary-button").click();
     await expect(emailTarget).toContainText("g7b2-inline@example.com");
 
     const sectionTitle = a4Page.locator("[data-section-title-id]").first();
-    await sectionTitle.click();
-    await page.getByTestId("resume-studio-editor").locator("textarea").fill("G7B2 Section");
+    await sectionTitle.dblclick();
+    await expect(page.getByTestId("resume-studio-editor").locator("textarea")).toBeVisible({ timeout: 5000 });
     await page.getByTestId("resume-studio-editor").locator("textarea").press("Control+Enter");
     await expect(sectionTitle).toContainText("G7B2 Section");
 
     const block = a4Page.locator(".resume-template-item[data-source-item-id]").first();
     const originalText = (await block.innerText()).trim();
-    await block.click();
+    await block.dblclick();
     const editorTextArea = page.getByTestId("resume-studio-editor").locator("textarea");
-    await expect(editorTextArea).toBeVisible();
+    await expect(editorTextArea).toBeVisible({ timeout: 5000 });
     await editorTextArea.dispatchEvent("compositionstart");
     await editorTextArea.fill(`${originalText} Updated.`);
     await editorTextArea.dispatchEvent("compositionend");
@@ -237,14 +239,11 @@ async function createBranchFromDraft(page: Page, branchName: string) {
   await expect(page.locator(".notice")).toBeVisible({ timeout: 15_000 });
 
   await page.goto("/resume");
+  await page.getByTestId("resume-import-strip").waitFor({ state: "visible", timeout: 15_000 });
   await page.getByTestId("job-suggestion-draft-select").first().selectOption({ index: 0 });
   await page.getByTestId("new-resume-branch-name").first().fill(branchName);
   await page.getByTestId("create-job-resume").first().click();
   await expect(page.getByTestId("resume-studio-shell")).toBeVisible({ timeout: 15_000 });
-}
-
-function visibleA4Page(page: Page) {
-  return page.locator(".resume-preview-stage [data-testid='resume-a4-page']:visible").first();
 }
 
 type DbBranch = {

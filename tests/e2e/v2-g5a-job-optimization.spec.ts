@@ -74,10 +74,11 @@ async function createC2DraftForSelectedJob(page: Page) {
 
 async function createResumeBranchFromFirstDraft(page: Page, branchName: string) {
   await page.goto("/resume");
+  await page.getByTestId("resume-import-strip").waitFor({ state: "visible" });
   await expect(page.locator("main")).toBeVisible();
   await page.getByTestId("job-suggestion-draft-select").selectOption({ index: 0 });
-  await page.locator("article.panel").first().locator("input").fill(branchName);
-  await page.locator("article.panel").first().locator("button.primary-button").click();
+  await page.getByTestId("new-resume-branch-name").fill(branchName);
+  await page.getByTestId("create-job-resume").click();
   await expect(page.locator(".branch-list .match-row").filter({ hasText: branchName })).toBeVisible({ timeout: 15_000 });
 }
 

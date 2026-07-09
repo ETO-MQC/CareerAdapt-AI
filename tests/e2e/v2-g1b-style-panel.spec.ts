@@ -25,9 +25,10 @@ async function createBranchFromDraft(page: Page, branchName: string) {
   await expect(page.locator(".notice")).toBeVisible();
 
   await page.goto("/resume");
+  await page.getByTestId("resume-import-strip").waitFor({ state: "visible" });
   await page.getByTestId("job-suggestion-draft-select").selectOption({ index: 0 });
-  await page.locator("article.panel").first().locator("input").fill(branchName);
-  await page.locator("article.panel").first().locator("button.primary-button").click();
+  await page.getByTestId("new-resume-branch-name").fill(branchName);
+  await page.getByTestId("create-job-resume").click();
   await expect(page.locator(".branch-list .match-row").filter({ hasText: branchName })).toBeVisible();
   await expect(visibleA4Page(page)).toBeVisible();
 }
@@ -174,7 +175,9 @@ test.describe("V2-G1b style property panel", () => {
     await enablePreviewEditing(page);
     const target = await getSectionTarget(page);
     await openManualContentTab(page);
-    await page.locator(".branch-editor textarea").first().focus();
+    // Navigate to a section with textareas
+    await page.getByTestId("resume-section-nav").getByRole("button", { name: /工作经历/ }).click();
+    await page.getByTestId("resume-active-section-fields").locator("textarea").first().focus();
     await openManualLayoutTab(page);
     await page.getByRole("button", { name: "段落" }).click();
     await expect(page.getByTestId("block-style-panel")).toBeVisible();

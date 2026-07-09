@@ -66,9 +66,10 @@ async function createBranchFromDraft(page: Page, branchName: string) {
   await expect(page.locator(".notice")).toBeVisible();
 
   await page.goto("/resume");
+  await page.getByTestId("resume-import-strip").waitFor({ state: "visible" });
   await page.getByTestId("job-suggestion-draft-select").selectOption({ index: 0 });
-  await page.locator("article.panel").first().locator("input").fill(branchName);
-  await page.locator("article.panel").first().locator("button.primary-button").click();
+  await page.getByTestId("new-resume-branch-name").fill(branchName);
+  await page.getByTestId("create-job-resume").click();
   await expect(page.locator(".branch-list .match-row").filter({ hasText: branchName })).toBeVisible();
   await expect(visibleA4Page(page)).toBeVisible();
 }
@@ -254,7 +255,8 @@ test.describe("V2-G3a direct PDF download", () => {
 
     const hidden = await firstRenderedItem(page);
     await openManualContentTab(page);
-    await page.locator(".branch-editor textarea").first().focus();
+    await page.getByTestId("resume-section-nav").getByRole("button", { name: /工作经历/ }).click();
+    await page.getByTestId("resume-active-section-fields").locator("textarea").first().focus();
     await openManualLayoutTab(page);
     await page.getByRole("button", { name: "段落" }).click();
     await page.getByTestId("block-style-panel").getByRole("button", { name: "隐藏" }).click();
@@ -346,7 +348,13 @@ test.describe("V2-G3a direct PDF download", () => {
 
   test("G2-template-center, G1b-style, G0a-edit and D2-print regressions stay usable", async ({ page }) => {
     await createBranchFromDraft(page, `V2 G3a 组合回归 ${Date.now()}`);
-    await expect(page.getByRole("button", { name: "模板中心", exact: true })).toBeVisible();
+    // Open template center via style mode + template tab
+    const modeRail = page.locator(".resume-mode-rail button");
+    await expect(modeRail.nth(2)).toBeVisible({ timeout: 15_000 });
+    await modeRail.nth(2).click();
+    const styleTabs = page.locator(".resume-inspector .inspector-tablist button");
+    await expect(styleTabs.first()).toBeVisible({ timeout: 15_000 });
+    await styleTabs.first().click();
     await page.getByRole("button", { name: "模板中心", exact: true }).click();
     await expect(page.getByTestId("template-center")).toBeVisible();
     await page.getByRole("button", { name: "关闭模板中心" }).click();

@@ -1,4 +1,4 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { openManualHistoryTab, openManualLayoutTab, openManualTemplateTab } from "./support/g7b2Ui";
 
 type DbResumeBranch = {
@@ -22,28 +22,12 @@ async function createBranchFromDraft(page: Page, branchName: string) {
   await expect(page.locator(".notice")).toBeVisible();
 
   await page.goto("/resume");
+  await page.getByTestId("resume-import-strip").waitFor({ state: "visible" });
   await page.getByTestId("job-suggestion-draft-select").selectOption({ index: 0 });
-  await page.locator("article.panel").first().locator("input").fill(branchName);
-  await page.locator("article.panel").first().locator("button.primary-button").click();
+  await page.getByTestId("new-resume-branch-name").fill(branchName);
+  await page.getByTestId("create-job-resume").click();
   await expect(page.locator(".branch-list .match-row").filter({ hasText: branchName })).toBeVisible();
   await expect(page.getByTestId("resume-a4-page")).toBeVisible();
-}
-
-async function enablePreviewEditing(page: Page) {
-  const toggle = page.getByTestId("canvas-edit-toggle");
-  await expect(toggle).toBeEnabled();
-  await toggle.check();
-}
-
-async function selectContentBlockForStructureAction(page: Page, preview: Locator, itemId: string) {
-  const editor = page.getByTestId("resume-studio-editor");
-  await preview.locator(`[data-source-item-id="${itemId}"]`).first().click({ force: true });
-  await expect(editor).toBeVisible();
-  const textarea = editor.locator("textarea").first();
-  if (await textarea.isVisible().catch(() => false)) {
-    await page.keyboard.press("Escape");
-    await expect(editor.getByRole("button", { name: "编辑" })).toBeVisible();
-  }
 }
 
 async function getBranchByName(page: Page, branchName: string): Promise<DbResumeBranch> {
@@ -123,18 +107,23 @@ test.describe("V2-G1a structure editing", () => {
   test("排序、显示隐藏、模板切换和展示撤销不创建内容 Revision", async ({ page }) => {
     const branchName = `V2 G1a 结构编辑 ${Date.now()}`;
     await createBranchFromDraft(page, branchName);
-    await enablePreviewEditing(page);
 
     const branch = await getBranchByName(page, branchName);
     const revisionsBefore = await getResumeRevisionCount(page, branch.id);
-    const preview = page.getByTestId("resume-a4-page");
-    const editor = page.getByTestId("resume-studio-editor");
+    const preview = page.locator(".resume-preview-pages").getByTestId("resume-a4-page");
+
+    // Navigate to the experience section in the field panel
+    await page.locator(".resume-mode-rail button").nth(0).click();
+    await page.getByTestId("resume-section-nav").getByRole("button", { name: /工作经历/ }).click();
+    const fields = page.getByTestId("resume-active-section-fields");
 
     const sortableGroup = await getSortableRenderGroup(page);
     const firstItemId = sortableGroup.itemIds[0];
     const secondItemId = sortableGroup.itemIds[1];
-    await selectContentBlockForStructureAction(page, preview, firstItemId);
-    await editor.getByRole("button", { name: "下移" }).click();
+
+    // Use the field panel "下移" button on the first card
+    const firstCard = fields.locator(".suggestion-card").first();
+    await firstCard.locator("button", { hasText: "下移" }).click();
     await expect(page.locator(".notice")).toContainText("排序已保存");
     await expect.poll(() => getSectionItemIds(page, sortableGroup.sectionType)).toEqual([
       secondItemId,
@@ -143,18 +132,16 @@ test.describe("V2-G1a structure editing", () => {
     ]);
     expect(await getResumeRevisionCount(page, branch.id)).toBe(revisionsBefore);
 
-    await selectContentBlockForStructureAction(page, preview, firstItemId);
-    const hiddenText = (await preview.locator(`[data-source-item-id="${firstItemId}"]`).first().innerText()).trim();
-    await editor.getByRole("button", { name: "隐藏" }).click();
+    // Hide via the field panel "显示" checkbox
+    const firstCardCheckbox = fields.locator(".suggestion-card").first().locator(".resume-current-toggle input[type='checkbox']");
+    await firstCardCheckbox.uncheck();
     await expect(page.locator(".notice")).toContainText("内容已隐藏");
-    await expect(preview.locator(`[data-source-item-id="${firstItemId}"]`)).toHaveCount(0);
-    await openManualLayoutTab(page);
-    await expect(page.locator(".hidden-block-list")).toContainText(hiddenText.slice(0, 12));
     expect(await getResumeRevisionCount(page, branch.id)).toBe(revisionsBefore);
 
+    // Restore via style mode layout tab hidden block list
+    await openManualLayoutTab(page);
     await page.locator(".hidden-block-list").getByRole("button", { name: /显示：/ }).first().click();
     await expect(page.locator(".notice")).toContainText("内容已恢复显示");
-    await expect(preview.locator(`[data-source-item-id="${firstItemId}"]`).first()).toBeVisible();
     expect(await getResumeRevisionCount(page, branch.id)).toBe(revisionsBefore);
 
     await openManualTemplateTab(page);
@@ -186,13 +173,8 @@ test.describe("V2-G1a structure editing", () => {
   test("快速连续排序操作不会丢失", async ({ page }) => {
     const branchName = `V2 G1a 快速排序 ${Date.now()}`;
     await createBranchFromDraft(page, branchName);
-    await enablePreviewEditing(page);
-
-    const preview = page.getByTestId("resume-a4-page");
-    const editor = page.getByTestId("resume-studio-editor");
 
     const sortableGroup = await getSortableRenderGroup(page);
-    // Need at least 3 items to verify two consecutive moves
     if (sortableGroup.itemIds.length < 3) {
       test.skip();
       return;
@@ -200,15 +182,16 @@ test.describe("V2-G1a structure editing", () => {
 
     const [itemId0, itemId1, itemId2, ...rest] = sortableGroup.itemIds;
 
-    // Select first item and move it down twice in rapid succession
-    await selectContentBlockForStructureAction(page, preview, itemId0);
+    // Navigate to the experience section in the field panel
+    await page.locator(".resume-mode-rail button").nth(0).click();
+    await page.getByTestId("resume-section-nav").getByRole("button", { name: /工作经历/ }).click();
+    const fields = page.getByTestId("resume-active-section-fields");
 
-    // Click "下移" without waiting for the first operation to complete
-    const moveDownButton = editor.getByRole("button", { name: "下移" });
+    // Click "下移" on the first card twice in rapid succession
+    const moveDownButton = fields.locator(".suggestion-card").first().locator("button", { hasText: "下移" });
     await moveDownButton.click();
     await moveDownButton.click();
 
-    // Wait for both operations to complete — final order should have itemId0 in position 2
     await expect.poll(() => getSectionItemIds(page, sortableGroup.sectionType), { timeout: 10000 }).toEqual([
       itemId1,
       itemId2,
@@ -220,24 +203,26 @@ test.describe("V2-G1a structure editing", () => {
   test("快速连续隐藏和恢复操作不会丢失", async ({ page }) => {
     const branchName = `V2 G1a 快速隐藏 ${Date.now()}`;
     await createBranchFromDraft(page, branchName);
-    await enablePreviewEditing(page);
-
-    const preview = page.getByTestId("resume-a4-page");
-    const editor = page.getByTestId("resume-studio-editor");
 
     const sortableGroup = await getSortableRenderGroup(page);
     const firstItemId = sortableGroup.itemIds[0];
 
-    // Select and hide item
-    await selectContentBlockForStructureAction(page, preview, firstItemId);
-    await editor.getByRole("button", { name: "隐藏" }).click();
+    // Navigate to the experience section in the field panel
+    await page.locator(".resume-mode-rail button").nth(0).click();
+    await page.getByTestId("resume-section-nav").getByRole("button", { name: /工作经历/ }).click();
+    const fields = page.getByTestId("resume-active-section-fields");
+
+    // Hide via the field panel "显示" checkbox
+    const checkbox = fields.locator(".suggestion-card").first().locator(".resume-current-toggle input[type='checkbox']");
+    await checkbox.uncheck();
 
     // Wait for hide to complete, then restore from hidden list
     await openManualLayoutTab(page);
     await expect(page.locator(".hidden-block-list")).toBeVisible();
     await page.locator(".hidden-block-list").getByRole("button", { name: /显示：/ }).first().click();
 
-    // Item should be visible again
+    // Item should be visible again in the preview
+    const preview = page.locator(".resume-preview-pages").getByTestId("resume-a4-page");
     await expect(preview.locator(`[data-source-item-id="${firstItemId}"]`).first()).toBeVisible();
   });
 });

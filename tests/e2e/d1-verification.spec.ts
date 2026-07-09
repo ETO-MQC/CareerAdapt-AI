@@ -156,16 +156,20 @@ test.describe("D1 验证：分支隔离、Fact Guard、版本历史、持久化�
 
     // 选择草稿 0 → 创建 Branch A
     await page.getByTestId("job-suggestion-draft-select").selectOption({ index: 0 });
-    await page.locator("article.panel").first().locator("input").fill("D1 验证分支 A");
-    await page.locator("article.panel").first().locator("button.primary-button").click();
+    await page.getByTestId("new-resume-branch-name").fill("D1 验证分支 A");
+    await page.getByTestId("create-job-resume").click();
     await expect(
       page.locator(".branch-list .match-row").filter({ hasText: "D1 验证分支 A" })
     ).toBeVisible();
 
+    // 返回简历中心再创建第二个分支
+    await page.goto("/resume");
+    await page.getByTestId("resume-import-strip").waitFor({ state: "visible" });
+
     // 选择草稿 1 → 创建 Branch B
     await page.getByTestId("job-suggestion-draft-select").selectOption({ index: 1 });
-    await page.locator("article.panel").first().locator("input").fill("D1 验证分支 B");
-    await page.locator("article.panel").first().locator("button.primary-button").click();
+    await page.getByTestId("new-resume-branch-name").fill("D1 验证分支 B");
+    await page.getByTestId("create-job-resume").click();
     await expect(
       page.locator(".branch-list .match-row").filter({ hasText: "D1 验证分支 B" })
     ).toBeVisible();
@@ -178,13 +182,16 @@ test.describe("D1 验证：分支隔离、Fact Guard、版本历史、持久化�
     // ================================================================
     await page.locator(".branch-list .match-row").filter({ hasText: "D1 验证分支 A" }).click();
     await openManualContentTab(page);
+    // 导航到有 textarea 的"工作经历"栏目
+    const sectionNav = page.getByTestId("resume-section-nav");
+    await sectionNav.getByRole("button", { name: /工作经历/ }).click();
 
-    const branchATextarea = page.locator(".branch-editor textarea").first();
+    const branchATextarea = page.getByTestId("resume-active-section-fields").locator("textarea").first();
     const originalAText = await branchATextarea.inputValue();
     // 正常追加一个标点（规则 guard 允许的改动）
     const editedAText = `${originalAText}。`;
     await branchATextarea.fill(editedAText);
-    await page.locator(".branch-editor .suggestion-card").first().locator("button.primary-button").click();
+    await page.getByTestId("resume-active-section-fields").locator(".suggestion-card").first().locator("button.primary-button").click();
 
     // 验证 Fact Guard 通过且 revision 升级
     await expect(page.locator(".notice")).toContainText("已保存");
@@ -194,7 +201,8 @@ test.describe("D1 验证：分支隔离、Fact Guard、版本历史、持久化�
     // 切到 Branch B，确认内容未被污染
     await page.locator(".branch-list .match-row").filter({ hasText: "D1 验证分支 B" }).click();
     await openManualContentTab(page);
-    const branchBTextarea = page.locator(".branch-editor textarea").first();
+    await page.getByTestId("resume-section-nav").getByRole("button", { name: /工作经历/ }).click();
+    const branchBTextarea = page.getByTestId("resume-active-section-fields").locator("textarea").first();
     const branchBText = await branchBTextarea.inputValue();
     expect(branchBText).not.toBe(editedAText);
 
@@ -203,18 +211,19 @@ test.describe("D1 验证：分支隔离、Fact Guard、版本历史、持久化�
     // ================================================================
     await page.locator(".branch-list .match-row").filter({ hasText: "D1 验证分支 A" }).click();
     await openManualContentTab(page);
+    await page.getByTestId("resume-section-nav").getByRole("button", { name: /工作经历/ }).click();
 
     // 写入包含新数字（30%）的文本，这不在 originalText 或 evidenceText 中
     const unverifiedText = `${originalAText}，项目效率提升了30%`;
     await branchATextarea.fill(unverifiedText);
-    await page.locator(".branch-editor .suggestion-card").first().locator("button.primary-button").click();
+    await page.getByTestId("resume-active-section-fields").locator(".suggestion-card").first().locator("button.primary-button").click();
 
     // 验证 Fact Guard 阻止了保存
     await expect(page.locator(".notice")).toContainText("保存失败");
 
     // 也尝试注入一个新技能词
     await branchATextarea.fill(`${originalAText}，熟练使用 Python 进行数据分析`);
-    await page.locator(".branch-editor .suggestion-card").first().locator("button.primary-button").click();
+    await page.getByTestId("resume-active-section-fields").locator(".suggestion-card").first().locator("button.primary-button").click();
     await expect(page.locator(".notice")).toContainText("保存失败");
 
     // ================================================================
@@ -222,10 +231,10 @@ test.describe("D1 验证：分支隔离、Fact Guard、版本历史、持久化�
     // ================================================================
     // 当前 Branch A 已经有 revision 0（创建）和 revision 1（editedAText）。
     // 再做一次合法编辑以产生 revision 2。追加一个句号（与 editedAText 不同）。
-    const branchATextarea2 = page.locator(".branch-editor textarea").first();
+    const branchATextarea2 = page.getByTestId("resume-active-section-fields").locator("textarea").first();
     const editedAText2 = `${originalAText}。。`;
     await branchATextarea2.fill(editedAText2);
-    await page.locator(".branch-editor .suggestion-card").first().locator("button.primary-button").click();
+    await page.getByTestId("resume-active-section-fields").locator(".suggestion-card").first().locator("button.primary-button").click();
     await expect(page.locator(".notice")).toContainText("已保存");
 
     // 恢复到 revision 0（原始文本）
@@ -237,7 +246,8 @@ test.describe("D1 验证：分支隔离、Fact Guard、版本历史、持久化�
 
     // 验证文本已回退到原始值
     await openManualContentTab(page);
-    const restoredTextarea = page.locator(".branch-editor textarea").first();
+    await page.getByTestId("resume-section-nav").getByRole("button", { name: /工作经历/ }).click();
+    const restoredTextarea = page.getByTestId("resume-active-section-fields").locator("textarea").first();
     await expect(restoredTextarea).toHaveValue(originalAText);
 
     // 撤销恢复（回到编辑后的版本 editedAText2）
@@ -245,7 +255,7 @@ test.describe("D1 验证：分支隔离、Fact Guard、版本历史、持久化�
     await expect(page.locator(".notice")).toContainText("撤销");
 
     // 验证撤销后文本恢复为 editedAText2
-    const undoTextarea = page.locator(".branch-editor textarea").first();
+    const undoTextarea = page.getByTestId("resume-active-section-fields").locator("textarea").first();
     await expect(undoTextarea).toHaveValue(editedAText2);
 
     // ================================================================
