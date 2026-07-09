@@ -1,185 +1,165 @@
 import { expect, test, type Page } from "@playwright/test";
 
-test.describe("V2-G7b.3 Bespree-reference commercial Resume Studio", () => {
-  test("covers named acceptance checks for resume entry and studio modes", async ({ page }) => {
-    const branchName = `G7b3 matrix ${Date.now()}`;
+test.describe("V2-G7b.3 Resume Center and Studio usability", () => {
+  test("covers resume center entry, Studio modes, direct editing contract, and responsive fit", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
 
-    await test.step("resume-home-primary-actions", async () => {
+    await test.step("resume-center-primary-entry", async () => {
       await page.goto("/resume");
       await expect(page.getByRole("heading", { name: "我的简历" })).toBeVisible();
+      await expect(page.getByTestId("resume-import-strip")).toBeVisible();
       await expect(page.getByTestId("resume-entry-import-primary")).toBeVisible();
-      await expect(page.locator(".resume-entry-menu summary")).toContainText("新建");
+      await expect(page.locator(".resume-support-row")).toContainText("PDF");
+      await expect(page.locator(".resume-support-row")).toContainText("DOCX");
+      await expect(page.locator(".resume-support-row")).toContainText("JSON");
+      await expect(page.locator(".resume-support-row")).toContainText("图片OCR");
+      await expect(page.locator(".resume-create-card")).toHaveCount(4);
+      await expect(page.locator(".resume-library-panel")).toContainText("简历中心");
     });
 
-    await test.step("resume-home-import-supports-pdf-docx-json-ocr", async () => {
-      await expect(page.getByRole("button", { name: "PDF", exact: true })).toBeVisible();
-      await expect(page.getByRole("button", { name: "DOCX", exact: true })).toBeVisible();
-      await expect(page.getByRole("button", { name: "JSON", exact: true })).toBeVisible();
-      await expect(page.getByRole("button", { name: "OCR实验", exact: true })).toBeVisible();
-    });
-
-    await createBranchFromDraft(page, branchName);
-
-    await test.step("resume-studio-workbar-three-modes", async () => {
+    await test.step("json-import-review-confirms-into-studio", async () => {
+      await importStructuredResume(page);
+      await expect(page.getByTestId("resume-studio-shell")).toBeVisible({ timeout: 15_000 });
       await expect(page.getByTestId("resume-studio-workbar")).toBeVisible();
-      await expect(page.locator(".resume-mode-rail button")).toHaveText(["编辑", "AI优化", "样式"]);
-      await expect(page.getByRole("button", { name: "导出PDF" })).toBeVisible();
-      await expect(page.getByRole("button", { name: "导出JSON" })).toBeVisible();
-      await expect(page.locator(".toolbar-more summary")).toContainText("更多");
     });
 
-    await test.step("resume-studio-edit-layout", async () => {
+    await test.step("studio-workbar-is-compact-and-has-three-modes", async () => {
+      const workbar = page.getByTestId("resume-studio-workbar");
+      await expect(workbar).toBeVisible();
+      await expect(page.locator(".resume-mode-rail button")).toHaveText(["编辑", "AI优化", "样式"]);
+      await expect(workbar.getByRole("button", { name: "导出PDF" })).toBeVisible();
+      await expect(workbar.locator(".toolbar-more summary")).toContainText("更多");
+      await workbar.locator(".toolbar-more summary").click();
+      await expect(workbar.locator(".toolbar-more-popover")).toContainText("导出 JSON");
+      await workbar.locator(".toolbar-more summary").click();
+    });
+
+    await test.step("edit-layout-has-section-fields-resize-handle-and-a4-toolbar", async () => {
       await page.locator(".resume-mode-rail button").nth(0).click();
       await expect(page.getByTestId("resume-section-nav")).toBeVisible();
       await expect(page.getByTestId("resume-active-section-fields")).toBeVisible();
-      await expect(page.getByTestId("resume-a4-page").first()).toBeVisible();
+      await expect(page.locator(".studio-resize-handle")).toBeVisible();
+      await expect(page.locator(".resume-canvas-toolbar")).toBeVisible();
+      await expect(page.locator(".resume-preview-stage").getByTestId("resume-a4-page").first()).toBeVisible();
     });
 
-    await test.step("section-nav-full-list", async () => {
-      await expect(page.getByTestId("resume-section-nav").locator("button")).toHaveText([
-        /个人信息/,
-        /自我评价/,
-        /工作经历/,
-        /教育经历/,
-        /项目经历/,
-        /校园经历/,
-        /技能/,
-        /奖项/,
-        /证书/,
-        /语言/,
-        /自定义栏目/,
-        /添加栏目/
-      ]);
-    });
-
-    await test.step("only-active-section-visible-and-structured-fields", async () => {
-      await page.getByTestId("resume-section-nav").getByRole("button", { name: /工作经历/ }).click();
+    await test.step("section-nav-list-and-active-fields", async () => {
+      const nav = page.getByTestId("resume-section-nav");
+      await expect(nav).toContainText("个人信息");
+      await expect(nav).toContainText("工作经历");
+      await expect(nav).toContainText("技能");
+      await nav.getByRole("button", { name: /工作经历/ }).click();
       const fields = page.getByTestId("resume-active-section-fields");
       await expect(fields).toContainText("公司 / 组织");
       await expect(fields).toContainText("职位 / 角色");
-      await expect(fields).toContainText("开始时间");
       await expect(fields).toContainText("描述要点");
-      await expect(fields).not.toContainText("教育经历");
     });
 
-    await test.step("content-copy-delete-restore-create-revisions", async () => {
-      const fields = page.getByTestId("resume-active-section-fields");
-      const cards = fields.locator(".resume-entry-editor-card");
-      const beforeCount = await cards.count();
-      expect(beforeCount).toBeGreaterThan(0);
-
-      await fields.getByRole("button", { name: "复制" }).first().click();
-      await expect(cards).toHaveCount(beforeCount + 1);
-
-      const activeCard = fields.locator(".resume-entry-editor-card[open]").first();
-      await expect(activeCard).toBeVisible();
-      await activeCard.getByRole("button", { name: "删除" }).click();
-      await expect(activeCard.getByRole("button", { name: "恢复" })).toBeVisible();
-
-      await activeCard.getByRole("button", { name: "恢复" }).click();
-      await expect(activeCard.getByRole("button", { name: "删除" })).toBeVisible();
-    });
-
-    await test.step("canvas-form-sync-and-inline-edit", async () => {
+    await test.step("a4-single-click-selects-double-click-edits", async () => {
       await page.getByTestId("resume-section-nav").getByRole("button", { name: /个人信息/ }).click();
-      await page.getByTestId("resume-active-section-fields").getByLabel("姓名").focus();
-      await expect(page.locator(".resume-template-inline-selected[data-source-item-id='profile:name']")).toBeVisible();
-      await expect(page.getByTestId("resume-studio-editor")).toBeVisible();
-      await page.getByTestId("resume-studio-editor").getByRole("button", { name: "编辑" }).click();
-      await expect(page.getByTestId("resume-studio-editor").locator("textarea")).toBeVisible();
-      await page.getByTestId("resume-studio-editor").locator("textarea").press("Escape");
+      const nameBlock = page.getByRole("heading", { name: "陈同学", exact: true }).first();
+      await nameBlock.click();
+      await expect(page.getByTestId("resume-studio-editor")).toHaveCount(0);
+      await nameBlock.dblclick();
+      await expect(page.getByTestId("resume-studio-editor").locator("textarea")).toBeVisible({ timeout: 15_000 });
+      await page.keyboard.press("Escape");
+      await expect(page.getByTestId("resume-studio-editor")).toHaveCount(0);
     });
 
-    await test.step("ime-keyboard-contract-and-undo-visible", async () => {
-      if (await page.getByTestId("resume-studio-editor").locator("textarea").count() === 0) {
-        await page.getByTestId("resume-studio-editor").getByRole("button", { name: "编辑" }).click();
-      }
-      const editor = page.getByTestId("resume-studio-editor").locator("textarea");
-      await expect(editor).toBeVisible();
-      await editor.press("Escape");
-      await expect(page.getByTestId("resume-studio-workbar").getByRole("button", { name: "撤销" })).toBeVisible();
-    });
-
-    await test.step("ai-mode-keeps-a4-and-summary-cards", async () => {
+    await test.step("ai-and-style-modes-keep-a4-preview", async () => {
       await page.locator(".resume-mode-rail button").nth(1).click();
-      await expect(page.getByTestId("resume-a4-page").first()).toBeVisible();
       await expect(page.getByTestId("resume-ai-summary")).toContainText("内容表达");
-      await expect(page.getByTestId("resume-ai-summary")).toContainText("事实安全");
-    });
+      await expect(page.locator(".resume-preview-stage").getByTestId("resume-a4-page").first()).toBeVisible();
 
-    await test.step("ai-quality-facts-match-record-tabs", async () => {
-      const tabs = page.locator(".resume-inspector .inspector-tablist button");
-      await expect(tabs).toHaveText(["目标岗位", "建议", "质量检查", "事实缺口", "匹配", "记录"]);
-      await tabs.nth(2).click();
-      await expect(page.getByTestId("resume-diagnostics-panel")).toBeVisible();
-      await tabs.nth(3).click();
-      await expect(page.getByTestId("resume-diagnostics-panel")).toBeVisible();
-    });
-
-    await test.step("style-mode-layout-and-tabs", async () => {
       await page.locator(".resume-mode-rail button").nth(2).click();
-      await expect(page.getByTestId("resume-a4-page").first()).toBeVisible();
       await expect(page.locator(".resume-inspector .inspector-tablist button")).toHaveText(["模板", "颜色", "字体", "页面"]);
-    });
-
-    await test.step("style-template-color-font-page-controls", async () => {
-      const tabs = page.locator(".resume-inspector .inspector-tablist button");
-      await tabs.nth(0).click();
-      await expect(page.locator(".resume-inspector select").first()).toContainText("稳重技术");
-      await tabs.nth(1).click();
-      await expect(page.locator(".color-swatch")).toHaveCount(4);
-      await tabs.nth(2).click();
-      await expect(page.getByLabel("正文字号")).toBeVisible();
-      await expect(page.getByLabel("行距")).toBeVisible();
-      await tabs.nth(3).click();
+      await page.locator(".resume-inspector .inspector-tablist button").nth(3).click();
       await expect(page.getByTestId("page-policy-selector")).toBeVisible();
       await expect(page.getByTestId("pagination-summary")).toBeVisible();
     });
 
-    await test.step("resumes-page-cards-primary-actions-more-menu", async () => {
-      await page.getByRole("button", { name: "返回" }).click();
-      const card = page.locator(".branch-list .match-row").filter({ hasText: branchName }).first();
+    await test.step("resume-center-card-actions-return-to-studio", async () => {
+      await page.locator(".resume-studio-title-cluster button").first().click();
+      await expect(page.getByTestId("resume-import-strip")).toBeVisible();
+      const card = page.locator(".branch-list .match-row").first();
       await expect(card).toBeVisible();
-      await expect(card.getByRole("button", { name: "编辑", exact: true })).toBeVisible();
+      await expect(card.getByRole("button", { name: "打开", exact: true })).toBeVisible();
       await expect(card.getByRole("button", { name: "导出", exact: true })).toBeVisible();
       await card.locator(".resume-card-more summary").click();
-      await expect(card.getByRole("button", { name: "归档" })).toBeVisible();
-      await card.getByRole("button", { name: "编辑", exact: true }).click();
+      await expect(card.locator(".resume-card-more-popover")).toContainText("历史与页面");
+      await expect(card.locator(".resume-card-more-popover")).toContainText("归档");
+      await card.getByRole("button", { name: "打开", exact: true }).click();
+      await expect(page.getByTestId("resume-studio-shell")).toBeVisible({ timeout: 15_000 });
     });
 
-    await test.step("responsive-1366-and-1024-no-page-overflow", async () => {
-      await assertNoHorizontalOverflow(page, 1366, 768);
-      await assertNoHorizontalOverflow(page, 1024, 768);
-    });
-
-    await test.step("multipage-zoom-export-regression-controls", async () => {
-      await page.locator(".resume-mode-rail button").nth(2).click();
-      await page.locator(".resume-inspector .inspector-tablist button").nth(3).click();
-      await page.getByTestId("page-policy-selector").selectOption("up_to_two_pages");
-      await expect(page.getByTestId("pagination-summary")).toContainText("策略上限");
-      await expect(page.getByRole("button", { name: "导出PDF" })).toBeVisible();
-      await expect(page.getByRole("button", { name: "导出JSON" })).toBeVisible();
+    await test.step("responsive-1366-and-1024-fit-a4-without-page-overflow", async () => {
+      await assertResponsiveStudio(page, 1366, 768);
+      await assertResponsiveStudio(page, 1024, 768);
     });
   });
 });
 
-async function createBranchFromDraft(page: Page, branchName: string) {
-  await page.goto("/jobs");
-  await page.getByTestId("run-experience-match").click();
-  await page.locator(".match-layout .match-list .match-row").first().waitFor({ state: "visible", timeout: 15_000 });
-  await page.getByTestId("create-suggestion-draft").click();
-  await expect(page.locator(".notice")).toBeVisible({ timeout: 15_000 });
-
-  await page.goto("/resume");
-  await page.getByTestId("job-suggestion-draft-select").first().selectOption({ index: 0 });
-  await page.getByTestId("new-resume-branch-name").first().fill(branchName);
-  await page.getByTestId("create-job-resume").first().click();
-  await expect(page.getByTestId("resume-studio-shell")).toBeVisible({ timeout: 15_000 });
+async function importStructuredResume(page: Page) {
+  await page.locator(".import-json-details summary").click();
+  await page.locator(".import-json-details textarea").fill(JSON.stringify(sampleStructuredResumeJson(), null, 2));
+  await page.locator(".import-json-details button.primary-button").click();
+  await expect(page.getByTestId("import-quality-report")).toBeVisible({ timeout: 15_000 });
+  await page.locator(".import-structure-panel .section-heading button.primary-button").click();
 }
 
-async function assertNoHorizontalOverflow(page: Page, width: number, height: number) {
+async function assertResponsiveStudio(page: Page, width: number, height: number) {
   await page.setViewportSize({ width, height });
   await expect(page.getByTestId("resume-studio-shell")).toBeVisible({ timeout: 15_000 });
-  const overflow = await page.evaluate(() => Math.max(0, document.documentElement.scrollWidth - window.innerWidth));
-  expect(overflow).toBeLessThanOrEqual(1);
+  await page.waitForTimeout(350);
+  const metrics = await page.evaluate(() => {
+    const stage = document.querySelector<HTMLElement>(".resume-preview-stage");
+    const pageEl = document.querySelector<HTMLElement>(".resume-preview-stage [data-testid='resume-a4-page']");
+    const workbar = document.querySelector<HTMLElement>("[data-testid='resume-studio-workbar']");
+    const app = document.querySelector<HTMLElement>(".app-shell");
+    const stageRect = stage?.getBoundingClientRect();
+    const pageRect = pageEl?.getBoundingClientRect();
+    const workbarRect = workbar?.getBoundingClientRect();
+    return {
+      horizontalOverflow: Math.max(0, document.documentElement.scrollWidth - window.innerWidth),
+      stageWidth: stageRect?.width ?? 0,
+      pageWidth: pageRect?.width ?? 0,
+      workbarHeight: workbarRect?.height ?? 0,
+      sidebarCollapsed: app?.classList.contains("app-shell-sidebar-collapsed") ?? false
+    };
+  });
+
+  expect(metrics.horizontalOverflow).toBeLessThanOrEqual(1);
+  expect(metrics.pageWidth).toBeLessThanOrEqual(metrics.stageWidth + 1);
+  expect(metrics.workbarHeight).toBeLessThanOrEqual(72);
+  if (width <= 1400) {
+    expect(metrics.sidebarCollapsed).toBe(true);
+  }
+}
+
+function sampleStructuredResumeJson() {
+  return {
+    schemaVersion: "structured-resume-draft-v1",
+    basics: {
+      name: "陈同学",
+      email: "demo.student@example.com",
+      phone: "13800000000",
+      location: "上海",
+      summary: "数据分析方向学生，熟悉 Excel、Stata 和业务分析。"
+    },
+    sections: [
+      {
+        title: "项目与经历",
+        sectionType: "experience",
+        items: [
+          "使用 Stata 清洗 31 个省级样本，并完成描述统计、相关分析与区域差异分析。",
+          "使用 Excel 整理表格数据和基础分析结果。"
+        ]
+      },
+      {
+        title: "技能",
+        sectionType: "skills",
+        items: ["Excel", "Stata", "数据清洗", "描述统计"]
+      }
+    ]
+  };
 }

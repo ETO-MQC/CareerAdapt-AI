@@ -103,13 +103,10 @@ export function A4ResumePreview({
       positionOverlay(sourceNode, event.currentTarget);
       if (isProfileFieldId(itemId) && editor.onSelectProfileField) {
         editor.onSelectProfileField(itemId, sourceNode.textContent ?? "");
-        editor.onStartProfileFieldEdit?.(itemId, sourceNode.textContent ?? "");
       } else if (isSectionTitleId(itemId) && editor.onSelectSectionTitle) {
         editor.onSelectSectionTitle(itemId, sourceNode.textContent ?? "");
-        editor.onStartSectionTitleEdit?.(itemId, sourceNode.textContent ?? "");
       } else {
         editor.onSelect(itemId);
-        editor.onStartEdit(itemId);
       }
     }
   }
@@ -219,6 +216,10 @@ export function A4ResumePreview({
     const sectionTitleSelected = Boolean(editor.selectedSectionTitleId && !editor.selectedBlock && !editor.selectedProfileFieldId);
     const profileFieldEditing = Boolean(editor.editingProfileFieldId && editor.editingProfileFieldId === editor.selectedProfileFieldId);
     const sectionTitleEditing = Boolean(editor.editingSectionTitleId && editor.editingSectionTitleId === editor.selectedSectionTitleId);
+    const blockEditing = Boolean(editor.selectedBlock && editor.editingItemId === editor.selectedBlock.contentItemId);
+    if (!profileFieldEditing && !sectionTitleEditing && !blockEditing) {
+      return null;
+    }
     const profileFieldText = editor.profileDraftText ?? "";
     const sectionTitleText = editor.sectionTitleDraftText ?? "";
     const saveOnOutsideBlur = (event: FocusEvent<HTMLTextAreaElement>, onSave?: () => void) => {
@@ -285,7 +286,7 @@ export function A4ResumePreview({
               <button className="secondary-button compact" disabled={editor.pending} onClick={editor.onCancelSectionTitle}>取消</button>
             </div>
           </>
-        ) : editor.selectedBlock && editor.editingItemId === editor.selectedBlock.contentItemId ? (
+        ) : blockEditing ? (
           <>
             <textarea
               aria-label="编辑简历区块正文"

@@ -2,21 +2,34 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 
 type ThemePreference = "system" | "light" | "dark";
 type DensityPreference = "compact" | "comfortable";
+type NavIconName = "home" | "resume" | "profile" | "jobs" | "applications" | "settings";
 
 const themeStorageKey = "careeradapt.theme";
 const densityStorageKey = "careeradapt.density";
+const sidebarCollapsedStorageKey = "careeradapt.sidebarCollapsed";
 
 const navItems = [
-  { href: "/", label: "首页" },
-  { href: "/resume", label: "我的简历" },
-  { href: "/profile", label: "个人资料库" },
-  { href: "/jobs", label: "岗位" },
-  { href: "/applications", label: "求职进度" },
-  { href: "/settings", label: "设置" }
+  { href: "/", label: "首页", icon: "home" },
+  { href: "/resume", label: "我的简历", icon: "resume" },
+  { href: "/profile", label: "个人资料库", icon: "profile" },
+  { href: "/jobs", label: "岗位", icon: "jobs" },
+  { href: "/applications", label: "求职进度", icon: "applications" },
+  { href: "/settings", label: "设置", icon: "settings" }
+] satisfies Array<{ href: string; label: string; icon: NavIconName }>;
+
+const themeOptions: Array<{ value: ThemePreference; label: string }> = [
+  { value: "system", label: "跟随系统" },
+  { value: "light", label: "明亮" },
+  { value: "dark", label: "暗黑" }
+];
+
+const densityOptions: Array<{ value: DensityPreference; label: string }> = [
+  { value: "compact", label: "紧凑" },
+  { value: "comfortable", label: "舒适" }
 ];
 
 const pageTitles: Record<string, string> = {
@@ -33,6 +46,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() || "/";
   const [theme, setTheme] = useState<ThemePreference>(() => readInitialTheme());
   const [density, setDensity] = useState<DensityPreference>(() => readInitialDensity());
+  const [hasSidebarPreference, setHasSidebarPreference] = useState(() => readHasSidebarPreference());
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => readInitialSidebarCollapsed());
+  const isCompactResumeViewport = useMediaQuery("(max-width: 1400px)");
+  const sidebarVisuallyCollapsed = sidebarCollapsed
+    || (!hasSidebarPreference && pathname.startsWith("/resume") && isCompactResumeViewport);
 
   useEffect(() => {
     const apply = () => {
@@ -58,6 +76,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("careeradapt-preferences-change", handlePreferenceChange);
   }, []);
 
+  useEffect(() => {
+    if (hasSidebarPreference) {
+      window.localStorage.setItem(sidebarCollapsedStorageKey, sidebarCollapsed ? "true" : "false");
+    }
+  }, [hasSidebarPreference, sidebarCollapsed]);
+
   const currentTitle = useMemo(() => {
     const exact = pageTitles[pathname];
     if (exact) {
@@ -69,43 +93,84 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return match?.[1] ?? "工作区";
   }, [pathname]);
 
-  function cycleTheme() {
-    setTheme((current) => current === "system" ? "light" : current === "light" ? "dark" : "system");
-  }
-
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${sidebarVisuallyCollapsed ? "app-shell-sidebar-collapsed" : ""}`}>
       <aside className="primary-sidebar no-print" aria-label="主导航">
-        <Link className="brand" href="/" aria-label="返回首页">
-          职适AI
-        </Link>
+        <div className="sidebar-brand-row">
+          <Link className="brand" href="/" aria-label="返回首页" title="职适AI">
+            <span className="brand-mark" aria-hidden="true">CA</span>
+            <span className="brand-name">职适AI</span>
+          </Link>
+          <button
+            className="icon-button sidebar-collapse-button"
+            type="button"
+            aria-label={sidebarVisuallyCollapsed ? "展开主导航" : "收起主导航"}
+            title={sidebarVisuallyCollapsed ? "展开主导航" : "收起主导航"}
+            onClick={() => {
+              setHasSidebarPreference(true);
+              setSidebarCollapsed(!sidebarVisuallyCollapsed);
+            }}
+          >
+            <ShellIcon name={sidebarVisuallyCollapsed ? "expand" : "collapse"} />
+          </button>
+        </div>
         <nav>
           {navItems.map((item) => (
             <Link
               key={item.href}
               className={pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href)) ? "nav-link nav-link-active" : "nav-link"}
               href={item.href}
+              aria-label={item.label}
+              title={sidebarVisuallyCollapsed ? item.label : undefined}
             >
-              {item.label}
+              <NavIcon name={item.icon} />
+              <span className="nav-label">{item.label}</span>
             </Link>
           ))}
         </nav>
       </aside>
       <div className="app-main-frame">
         <header className="workspace-topbar no-print">
-          <div>
-            <span className="topbar-kicker">当前工作区</span>
+          <div className="topbar-title-row">
             <strong>{currentTitle}</strong>
+            <span className="global-save-state">本地自动保存</span>
           </div>
           <div className="topbar-actions">
-            <span className="global-save-state">本地自动保存</span>
-            <button className="secondary-button compact" type="button" onClick={() => setDensity(density === "compact" ? "comfortable" : "compact")}>
-              {density === "compact" ? "紧凑" : "舒适"}
-            </button>
-            <button className="secondary-button compact" type="button" onClick={cycleTheme} aria-label="切换主题">
-              {theme === "system" ? "跟随系统" : theme === "light" ? "明亮" : "暗黑"}
-            </button>
-            <Link className="secondary-button compact shell-help-link" href="/settings">帮助</Link>
+            <details className="appearance-menu">
+              <summary className="secondary-button compact">
+                <ShellIcon name="appearance" />
+                <span>显示</span>
+              </summary>
+              <div className="appearance-menu-popover">
+                <div className="appearance-menu-group" role="group" aria-label="主题">
+                  <span>主题</span>
+                  {themeOptions.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      className={theme === option.value ? "appearance-option appearance-option-active" : "appearance-option"}
+                      onClick={() => setTheme(option.value)}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="appearance-menu-group" role="group" aria-label="界面密度">
+                  <span>密度</span>
+                  {densityOptions.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      className={density === option.value ? "appearance-option appearance-option-active" : "appearance-option"}
+                      onClick={() => setDensity(option.value)}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+                <Link className="appearance-link" href="/settings">设置与帮助</Link>
+              </div>
+            </details>
           </div>
         </header>
         {children}
@@ -130,6 +195,40 @@ function readInitialDensity(): DensityPreference {
   return savedDensity === "compact" || savedDensity === "comfortable" ? savedDensity : "compact";
 }
 
+function readInitialSidebarCollapsed() {
+  if (typeof window === "undefined") {
+    return false;
+  }
+  const saved = window.localStorage.getItem(sidebarCollapsedStorageKey);
+  if (saved === "true" || saved === "false") {
+    return saved === "true";
+  }
+  return false;
+}
+
+function readHasSidebarPreference() {
+  if (typeof window === "undefined") {
+    return false;
+  }
+  const saved = window.localStorage.getItem(sidebarCollapsedStorageKey);
+  return saved === "true" || saved === "false";
+}
+
+function useMediaQuery(query: string) {
+  return useSyncExternalStore(
+    (callback) => {
+      if (typeof window === "undefined") {
+        return () => undefined;
+      }
+      const media = window.matchMedia(query);
+      media.addEventListener("change", callback);
+      return () => media.removeEventListener("change", callback);
+    },
+    () => typeof window !== "undefined" && window.matchMedia(query).matches,
+    () => false
+  );
+}
+
 function applyRootPreferences(theme: ThemePreference, density: DensityPreference) {
   const resolved = theme === "system"
     ? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
@@ -138,4 +237,35 @@ function applyRootPreferences(theme: ThemePreference, density: DensityPreference
   root.dataset.theme = resolved;
   root.dataset.themePreference = theme;
   root.dataset.density = density;
+}
+
+function NavIcon({ name }: { name: NavIconName }) {
+  const paths: Record<NavIconName, string[]> = {
+    home: ["M4 11.5 12 5l8 6.5", "M6.5 10.5V19h11v-8.5", "M10 19v-5h4v5"],
+    resume: ["M7 4h7l3 3v13H7z", "M14 4v4h4", "M9.5 11h5", "M9.5 14h5", "M9.5 17h3"],
+    profile: ["M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Z", "M5.5 20a6.5 6.5 0 0 1 13 0"],
+    jobs: ["M8 7V5.5A1.5 1.5 0 0 1 9.5 4h5A1.5 1.5 0 0 1 16 5.5V7", "M5 8h14v11H5z", "M5 12h14"],
+    applications: ["M6 5h12v14H6z", "M9 9h6", "M9 12h6", "M9 15h4"],
+    settings: ["M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z", "M4.5 12h2", "M17.5 12h2", "M12 4.5v2", "M12 17.5v2", "m6.7 6.7 1.4 1.4", "m15.9 15.9 1.4 1.4", "m17.3 6.7-1.4 1.4", "m8.1 15.9-1.4 1.4"]
+  };
+  return <SvgIcon paths={paths[name]} className="nav-icon" />;
+}
+
+function ShellIcon({ name }: { name: "collapse" | "expand" | "appearance" }) {
+  const paths: Record<typeof name, string[]> = {
+    collapse: ["M15 6l-6 6 6 6", "M20 4v16", "M4 4v16"],
+    expand: ["M9 6l6 6-6 6", "M4 4v16", "M20 4v16"],
+    appearance: ["M12 4v3", "M12 17v3", "M4 12h3", "M17 12h3", "M6.3 6.3l2.1 2.1", "M15.6 15.6l2.1 2.1", "M17.7 6.3l-2.1 2.1", "M8.4 15.6l-2.1 2.1", "M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z"]
+  };
+  return <SvgIcon paths={paths[name]} />;
+}
+
+function SvgIcon({ paths, className }: { paths: string[]; className?: string }) {
+  return (
+    <svg className={className ?? "button-icon"} viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      {paths.map((path) => (
+        <path key={path} d={path} />
+      ))}
+    </svg>
+  );
 }
