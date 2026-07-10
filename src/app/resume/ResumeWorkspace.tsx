@@ -1012,6 +1012,46 @@ export function ResumeWorkspace() {
     }
   }
 
+  async function addContentItem(section: string) {
+    if (!selectedBranch || !selectedBranchEditable) {
+      setMessage("当前简历不可编辑。");
+      return;
+    }
+    const itemTypeMap: Record<string, "experience" | "skill" | "certificate" | "summary" | "custom"> = {
+      summary: "summary",
+      experience: "experience",
+      education: "experience",
+      projects: "experience",
+      campus: "experience",
+      skills: "skill",
+      certificates: "certificate",
+      awards: "custom",
+      language: "custom",
+      custom: "custom"
+    };
+    const itemType = itemTypeMap[section] ?? "custom";
+    const placeholder = itemType === "summary"
+      ? "请在此输入个人简介或自我评价..."
+      : "公司 / 职位  地点  2024 - 至今\n请输入描述内容...";
+    try {
+      const result = await repository.addResumeContentItem({
+        branchId: selectedBranch.id,
+        expectedRevision: selectedBranch.revision,
+        operationId: `add-${section}-${selectedBranch.id}-${Date.now()}`,
+        section,
+        itemType,
+        placeholderText: placeholder
+      });
+      replaceBranch(result.branch);
+      setSelectedBranchId(result.branch.id);
+      setSelectedStudioItemId(result.newItemId);
+      setEditTexts((prev) => ({ ...prev, [result.newItemId]: placeholder }));
+      setMessage("已添加新内容，可开始编辑。");
+    } catch {
+      setMessage("添加失败：当前简历可能不可编辑。");
+    }
+  }
+
   async function savePresentationConfig(input: {
     nextConfig: ResumePresentationConfig;
     beforeConfig: ResumePresentationConfig;
@@ -2626,6 +2666,10 @@ export function ResumeWorkspace() {
                     type="button"
                     className={activeSectionItem?.key === item.key ? "resume-section-nav-button resume-section-nav-button-active" : "resume-section-nav-button"}
                     onClick={() => {
+                      if (item.key === "add" && activeResumeSection && activeResumeSection !== "basics" && activeResumeSection !== "add") {
+                        void addContentItem(activeResumeSection);
+                        return;
+                      }
                       setActiveResumeSection(item.key);
                       if (item.firstItemId) {
                         selectStudioItem(item.firstItemId);
@@ -2633,7 +2677,7 @@ export function ResumeWorkspace() {
                         clearStudioEditor();
                       }
                     }}
-                    disabled={item.key === "add"}
+                    disabled={item.key === "add" && (!activeResumeSection || activeResumeSection === "basics" || activeResumeSection === "add")}
                   >
                     <span>{item.label}</span>
                     {item.count > 0 ? <strong>{item.count}</strong> : null}
@@ -2758,23 +2802,80 @@ export function ResumeWorkspace() {
                           <div className="structured-field-grid">
                             <label className="field-label">
                               公司 / 组织
-                              <input value={extractStructuredField(block.text, "organization")} readOnly />
+                              <input
+                                value={extractStructuredField(editTexts[block.contentItemId] ?? block.text, "organization")}
+                                disabled={!selectedBranchEditable}
+                                onFocus={() => selectStudioItem(block.contentItemId)}
+                                onChange={(event) => {
+                                  const currentText = editTexts[block.contentItemId] ?? block.text;
+                                  setEditTexts((prev) => ({
+                                    ...prev,
+                                    [block.contentItemId]: updateStructuredFieldInText(currentText, "organization", event.target.value)
+                                  }));
+                                }}
+                              />
                             </label>
                             <label className="field-label">
                               职位 / 角色
-                              <input value={extractStructuredField(block.text, "role")} readOnly />
+                              <input
+                                value={extractStructuredField(editTexts[block.contentItemId] ?? block.text, "role")}
+                                disabled={!selectedBranchEditable}
+                                onFocus={() => selectStudioItem(block.contentItemId)}
+                                onChange={(event) => {
+                                  const currentText = editTexts[block.contentItemId] ?? block.text;
+                                  setEditTexts((prev) => ({
+                                    ...prev,
+                                    [block.contentItemId]: updateStructuredFieldInText(currentText, "role", event.target.value)
+                                  }));
+                                }}
+                              />
                             </label>
                             <label className="field-label">
                               地点
-                              <input value={extractStructuredField(block.text, "location")} readOnly />
+                              <input
+                                value={extractStructuredField(editTexts[block.contentItemId] ?? block.text, "location")}
+                                disabled={!selectedBranchEditable}
+                                onFocus={() => selectStudioItem(block.contentItemId)}
+                                onChange={(event) => {
+                                  const currentText = editTexts[block.contentItemId] ?? block.text;
+                                  setEditTexts((prev) => ({
+                                    ...prev,
+                                    [block.contentItemId]: updateStructuredFieldInText(currentText, "location", event.target.value)
+                                  }));
+                                }}
+                              />
                             </label>
                             <label className="field-label">
                               开始时间
-                              <input value={extractStructuredField(block.text, "start")} readOnly />
+                              <input
+                                type="date"
+                                value={extractStructuredField(editTexts[block.contentItemId] ?? block.text, "start").replace(/^(\d{4})$/, "$1-01-01")}
+                                disabled={!selectedBranchEditable}
+                                onFocus={() => selectStudioItem(block.contentItemId)}
+                                onChange={(event) => {
+                                  const currentText = editTexts[block.contentItemId] ?? block.text;
+                                  setEditTexts((prev) => ({
+                                    ...prev,
+                                    [block.contentItemId]: updateStructuredFieldInText(currentText, "start", event.target.value)
+                                  }));
+                                }}
+                              />
                             </label>
                             <label className="field-label">
                               结束时间
-                              <input value={extractStructuredField(block.text, "end")} readOnly />
+                              <input
+                                type="date"
+                                value={extractStructuredField(editTexts[block.contentItemId] ?? block.text, "end").replace(/^(\d{4})$/, "$1-01-01")}
+                                disabled={!selectedBranchEditable}
+                                onFocus={() => selectStudioItem(block.contentItemId)}
+                                onChange={(event) => {
+                                  const currentText = editTexts[block.contentItemId] ?? block.text;
+                                  setEditTexts((prev) => ({
+                                    ...prev,
+                                    [block.contentItemId]: updateStructuredFieldInText(currentText, "end", event.target.value)
+                                  }));
+                                }}
+                              />
                             </label>
                             <label className="inline-toggle resume-current-toggle">
                               <input type="checkbox" checked={false} readOnly />
@@ -2843,8 +2944,14 @@ export function ResumeWorkspace() {
                 ) : (
                   <div className="empty-state compact-empty-state" data-testid="resume-active-section-fields">
                     <strong>该栏目暂无可编辑内容</strong>
-                    <p>先在个人资料库确认事实，再把对应经历加入简历，避免未经确认的新事实进入预览或导出。</p>
-                    <button className="secondary-button compact" type="button" disabled>添加栏目</button>
+                    <button
+                      className="primary-button compact"
+                      type="button"
+                      disabled={!selectedBranchEditable}
+                      onClick={() => void addContentItem(activeResumeSection)}
+                    >
+                      + 新建内容
+                    </button>
                   </div>
                 )}
               </div>
@@ -3486,6 +3593,70 @@ function extractStructuredField(text: string, field: "organization" | "role" | "
     return field === "start" ? dates[0] ?? "" : dates[1] ?? "";
   }
   return "";
+}
+
+function updateStructuredFieldInText(
+  text: string,
+  field: "organization" | "role" | "location" | "start" | "end",
+  newValue: string
+): string {
+  const lines = text.split("\n");
+  const firstLine = lines[0] ?? "";
+  const rest = lines.slice(1);
+
+  if (field === "organization" || field === "role") {
+    const separators = [" / ", " - ", " ｜ ", " | ", "，", ","];
+    const separator = separators.find((value) => firstLine.includes(value)) ?? " / ";
+    const parts = firstLine.split(separator);
+    const org = (parts[0] ?? "").trim();
+    const role = (parts[1] ?? "").trim();
+    const nextOrg = field === "organization" ? newValue.trim() : org;
+    const nextRole = field === "role" ? newValue.trim() : role;
+    const nextFirstLine = nextOrg && nextRole
+      ? `${nextOrg}${separator}${nextRole}`
+      : nextOrg || nextRole;
+    return [nextFirstLine, ...rest].join("\n");
+  }
+
+  if (field === "location") {
+    const datePattern = /\b(19|20)\d{2}(?:[./-]\d{1,2})?\b/;
+    const dateMatch = firstLine.match(datePattern);
+    if (dateMatch) {
+      const dateIndex = firstLine.indexOf(dateMatch[0]);
+      const before = firstLine.slice(0, dateIndex).replace(/\s*[^\S\n]*$/, "");
+      const dates = firstLine.slice(dateIndex);
+      const newFirstLine = newValue.trim()
+        ? `${before}  ${newValue.trim()}  ${dates}`
+        : before + " " + dates;
+      return [newFirstLine.trim(), ...rest].join("\n");
+    }
+    return [firstLine.trim() + "  " + newValue.trim(), ...rest].join("\n").trim();
+  }
+
+  if (field === "start" || field === "end") {
+    const dates = firstLine.match(/\b(19|20)\d{2}(?:[./-]\d{1,2})?\b/g) ?? [];
+    const dateStart = dates[0] ?? "";
+    const dateEnd = dates[1] ?? "";
+    const newDateValue = newValue.length >= 4 ? newValue.slice(0, 4) : newValue;
+    const nextStart = field === "start" ? newDateValue : dateStart;
+    const nextEnd = field === "end" ? newDateValue : dateEnd;
+    const dateSection = nextStart && nextEnd
+      ? `${nextStart} - ${nextEnd}`
+      : nextStart || nextEnd;
+    const datePattern = /\b(19|20)\d{2}(?:[./-]\d{1,2})?\b/;
+    const dateMatch = firstLine.match(datePattern);
+    if (dateMatch && dateSection) {
+      const dateIndex = firstLine.indexOf(dateMatch[0]);
+      const before = firstLine.slice(0, dateIndex);
+      const oldDatePattern = /(?:\b(19|20)\d{2}(?:[./-]\d{1,2})?\b\s*(?:-\s*)?){1,2}/;
+      const afterMatch = firstLine.slice(dateIndex).match(oldDatePattern);
+      const after = afterMatch ? firstLine.slice(dateIndex + afterMatch[0].length) : "";
+      return [`${before}${dateSection}${after}`.trim(), ...rest].join("\n");
+    }
+    return [firstLine.trim() + "  " + dateSection, ...rest].join("\n").trim();
+  }
+
+  return text;
 }
 
 function buildNextPresentationConfig(input: {

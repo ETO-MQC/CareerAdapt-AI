@@ -793,11 +793,12 @@ p {
 .form-grid input {
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: var(--radius);
+  border-radius: 10px;
   color: var(--ink);
   font: inherit;
   min-height: 42px;
-  padding: 0 12px;
+  padding: 0 14px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
 }
 
 .field-label {
@@ -810,14 +811,49 @@ p {
 }
 
 .field-label select,
+.field-label input,
+.field-label textarea,
 .panel > input {
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: var(--radius);
+  border-radius: 10px;
   color: var(--ink);
   font: inherit;
   min-height: 42px;
-  padding: 0 12px;
+  padding: 0 14px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+
+.field-label input:focus,
+.field-label textarea:focus,
+.field-label select:focus,
+.panel > input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+  outline: none;
+}
+
+:root[data-theme="dark"] .field-label input,
+:root[data-theme="dark"] .field-label textarea,
+:root[data-theme="dark"] .field-label select,
+:root[data-theme="dark"] .panel > input,
+:root[data-theme="dark"] .form-grid input {
+  background: var(--surface-subtle);
+  border-color: var(--line);
+  color: #ffffff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+:root[data-theme="dark"] .field-label input::placeholder,
+:root[data-theme="dark"] .field-label textarea::placeholder {
+  color: var(--muted);
+}
+
+:root[data-theme="dark"] .field-label input:focus,
+:root[data-theme="dark"] .field-label textarea:focus,
+:root[data-theme="dark"] .field-label select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent);
 }
 
 .panel > input {

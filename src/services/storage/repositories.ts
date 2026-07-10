@@ -1926,6 +1926,58 @@ export class WorkspaceRepository {
     };
   }
 
+  async addResumeContentItem(input: {
+    branchId: string;
+    expectedRevision: number;
+    operationId: string;
+    section: string;
+    itemType: "experience" | "skill" | "certificate" | "summary" | "custom";
+    placeholderText?: string;
+  }) {
+    const newItemId = `branch-item-new-${stableHashText(`${input.branchId}:${input.operationId}`).replace(/[^a-zA-Z0-9-]/g, "").slice(0, 28)}`;
+    const placeholder = input.placeholderText ?? (input.itemType === "summary"
+      ? "请在此输入个人简介..."
+      : "公司 / 职位  地点  2024 - 至今\n请输入描述内容...");
+    const result = await this.mutateResumeBranch({
+      branchId: input.branchId,
+      expectedRevision: input.expectedRevision,
+      operationId: input.operationId,
+      type: "manual_edit",
+      source: "manual_edit",
+      mutate: async ({ branch }) => {
+        if (branch.contentItems.some((item) => item.id === newItemId)) {
+          return ResumeBranchSchema.parse(branch);
+        }
+        const orderedItems = [...branch.contentItems].sort((a, b) => a.order - b.order);
+        const maxOrder = orderedItems.length > 0 ? orderedItems[orderedItems.length - 1].order : 0;
+        const newItem = BranchContentItemSchema.parse({
+          id: newItemId,
+          itemType: input.itemType,
+          source: "user_manual",
+          sourceSectionId: input.section,
+          text: placeholder,
+          originalText: placeholder,
+          order: maxOrder + 1,
+          visible: true,
+          requirementIds: [],
+          sourceSuggestionIds: [],
+          factRefs: [{ type: "new_user_content" as unknown as "experience_fact", experienceId: newItemId, factId: `placeholder-${newItemId}` }],
+          guardMode: "not_fact",
+          guardStatus: "not_checked",
+          guardRiskLevel: "safe",
+          guardFindings: [],
+          guardedAt: undefined,
+          guardVersion: undefined
+        });
+        const nextItems = [...orderedItems, newItem].map((item, order) =>
+          BranchContentItemSchema.parse({ ...item, order })
+        );
+        return ResumeBranchSchema.parse({ ...branch, contentItems: nextItems });
+      }
+    });
+    return { ...result, newItemId };
+  }
+
   async restoreResumeRevision(input: {
     branchId: string;
     revisionId: string;
