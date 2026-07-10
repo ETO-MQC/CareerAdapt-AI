@@ -164,7 +164,7 @@ export function ResumeWorkspace() {
   const [styleInspectorTab, setStyleInspectorTab] = useState<StyleInspectorTab>("template");
   const [activeResumeSection, setActiveResumeSection] = useState<ResumeStudioSectionKey>("basics");
   const [canvasZoom, setCanvasZoom] = useState(1);
-  const [canvasZoomMode, setCanvasZoomMode] = useState<CanvasZoomMode>("fit-page");
+  const [canvasZoomMode, setCanvasZoomMode] = useState<CanvasZoomMode>("custom");
   const [studioLayout, setStudioLayout] = useState<StudioLayoutState>(() => readInitialStudioLayout());
   const [pendingTemplateApplyId, setPendingTemplateApplyId] = useState<TemplateId | undefined>();
   const [activePropertyTab, setActivePropertyTab] = useState<PropertyPanelTab>("document");
@@ -394,7 +394,6 @@ export function ResumeWorkspace() {
 
   const openResumeBranch = useCallback((branchId: string) => {
     setSelectedBranchId(branchId);
-    setCanvasZoomMode("fit-page");
   }, []);
 
   function startFieldPanelResize(event: PointerEvent<HTMLButtonElement>) {
@@ -2660,17 +2659,6 @@ export function ResumeWorkspace() {
                 </div>
               ) : null}
             </div>
-            {studioMode === "edit" ? (
-              <div className="property-summary">
-                <strong>{selectedStudioBlock ? selectedStudioBlock.text.slice(0, 28) : selectedBranch.name}</strong>
-                <span>
-                  {selectedStudioBlock ? "已选段落" : "整份简历"} / {selectedTemplate.name} / {selectedTemplate.layout === "two-column" ? "双栏" : "单栏"}
-                </span>
-              </div>
-            ) : null}
-            {studioMode === "edit" && isStudioEditMode && resumeDocument ? (
-              <div className="save-status">单击区块选中，双击或 Enter/F2 编辑，Escape 取消，Ctrl/Cmd+Enter 保存。</div>
-            ) : null}
             {studioMode === "ai" ? (
               <div className="inspector-tablist" role="tablist" aria-label="AI岗位优化工具">
                 {(["job", "suggestions", "quality", "facts", "match", "records"] as const).map((tab) => (
@@ -2703,7 +2691,6 @@ export function ResumeWorkspace() {
                 <div className="section-heading compact-heading">
                   <div>
                     <h3>{activeSectionItem?.label ?? "栏目内容"}</h3>
-                    <p>左侧结构化字段是主编辑入口，A4 可做快速定位和轻量修改。</p>
                   </div>
                 </div>
                 {activeResumeSection === "basics" ? (
@@ -2903,6 +2890,26 @@ export function ResumeWorkspace() {
                     onApplyAction={(issue, action) => { void applyDiagnosticAction(issue, action); }}
                     onIgnoreIssue={(issue) => { void ignoreDiagnosticIssue(issue); }}
                   />
+                ) : aiInspectorTab === "records" ? (
+                  <div className="studio-sidebar-section">
+                    <div className="section-heading compact-heading">
+                      <div>
+                        <h3>建议记录</h3>
+                        <p>查看历史建议生成和采纳记录。</p>
+                      </div>
+                    </div>
+                    <p className="save-status">建议记录功能待后续版本完善；当前可在"建议"Tab 中查看和管理所有建议。</p>
+                  </div>
+                ) : aiInspectorTab === "match" ? (
+                  <div className="studio-sidebar-section">
+                    <div className="section-heading compact-heading">
+                      <div>
+                        <h3>匹配记录</h3>
+                        <p>查看岗位要求与简历内容的匹配映射。</p>
+                      </div>
+                    </div>
+                    <p className="save-status">匹配详情已在"建议"Tab 的要求列表中展示；切换到"建议"查看完整匹配信息。</p>
+                  </div>
                 ) : (
                   <JobOptimizationPanel
                     repository={repository}
@@ -3299,34 +3306,32 @@ export function ResumeWorkspace() {
             {renderResult.error ? <p className="save-status save-status-failed">{renderResult.error}</p> : null}
           </aside>
 
-          {studioMode === "edit" ? (
-            <button
-              className="studio-resize-handle no-print"
-              type="button"
-              aria-label="拖拽调整字段面板与 A4 预览宽度"
-              title="拖拽调整字段面板与 A4 预览宽度"
-              onPointerDown={startFieldPanelResize}
-              onDoubleClick={() => setStudioLayout((current) => ({ ...current, fieldPanelCollapsed: false, fieldPanelWidth: DEFAULT_STUDIO_LAYOUT.fieldPanelWidth }))}
-              onKeyDown={(event) => {
-                if (event.key === "ArrowLeft") {
-                  event.preventDefault();
-                  setStudioLayout((current) => ({
-                    ...current,
-                    fieldPanelCollapsed: false,
-                    fieldPanelWidth: clampNumber(current.fieldPanelWidth - 24, MIN_FIELD_PANEL_WIDTH, MAX_FIELD_PANEL_WIDTH)
-                  }));
-                }
-                if (event.key === "ArrowRight") {
-                  event.preventDefault();
-                  setStudioLayout((current) => ({
-                    ...current,
-                    fieldPanelCollapsed: false,
-                    fieldPanelWidth: clampNumber(current.fieldPanelWidth + 24, MIN_FIELD_PANEL_WIDTH, MAX_FIELD_PANEL_WIDTH)
-                  }));
-                }
-              }}
-            />
-          ) : null}
+          <button
+            className="studio-resize-handle no-print"
+            type="button"
+            aria-label="拖拽调整字段面板与 A4 预览宽度"
+            title="拖拽调整字段面板与 A4 预览宽度"
+            onPointerDown={startFieldPanelResize}
+            onDoubleClick={() => setStudioLayout((current) => ({ ...current, fieldPanelCollapsed: false, fieldPanelWidth: DEFAULT_STUDIO_LAYOUT.fieldPanelWidth }))}
+            onKeyDown={(event) => {
+              if (event.key === "ArrowLeft") {
+                event.preventDefault();
+                setStudioLayout((current) => ({
+                  ...current,
+                  fieldPanelCollapsed: false,
+                  fieldPanelWidth: clampNumber(current.fieldPanelWidth - 24, MIN_FIELD_PANEL_WIDTH, MAX_FIELD_PANEL_WIDTH)
+                }));
+              }
+              if (event.key === "ArrowRight") {
+                event.preventDefault();
+                setStudioLayout((current) => ({
+                  ...current,
+                  fieldPanelCollapsed: false,
+                  fieldPanelWidth: clampNumber(current.fieldPanelWidth + 24, MIN_FIELD_PANEL_WIDTH, MAX_FIELD_PANEL_WIDTH)
+                }));
+              }
+            }}
+          />
 
           <div className="resume-preview-stage" ref={previewStageRef}>
             <div className="resume-canvas-toolbar no-print" aria-label="A4 预览工具">
@@ -3337,7 +3342,7 @@ export function ResumeWorkspace() {
                 <button className="secondary-button compact" type="button" aria-label="缩小预览" onClick={() => updateCanvasZoom((value) => value - 0.08)}>-</button>
                 <span>{Math.round(canvasZoom * 100)}%</span>
                 <button className="secondary-button compact" type="button" aria-label="放大预览" onClick={() => updateCanvasZoom((value) => value + 0.08)}>+</button>
-                <button className={canvasZoomMode === "fit-page" ? "primary-button compact" : "secondary-button compact"} type="button" onClick={() => setCanvasZoomMode("fit-page")}>
+                <button className={canvasZoom === 1 && canvasZoomMode === "custom" ? "primary-button compact" : "secondary-button compact"} type="button" onClick={() => { setCanvasZoom(1); setCanvasZoomMode("custom"); }}>
                   适合页面
                 </button>
               </div>

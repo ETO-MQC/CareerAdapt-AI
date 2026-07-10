@@ -59,7 +59,7 @@ export function JobOptimizationPanel({
   onApplyStructureSuggestion: (kind: "reorder" | "hide" | "show", contentItemId: string) => void;
   onMessage: (message: string) => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
   const [localJobs, setLocalJobs] = useState<JobDescription[]>([]);
   const [targetJobId, setTargetJobId] = useState("");
   const [requirementMatches, setRequirementMatches] = useState<RequirementMatch[]>([]);
