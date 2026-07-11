@@ -42,6 +42,7 @@ export type ResumeStudioEditorProps = {
   onMoveUp?: (itemId: string) => void;
   onMoveDown?: (itemId: string) => void;
   onHide?: (itemId: string) => void;
+  onDelete?: (itemId: string) => void;
 };
 
 export function A4ResumePreview({
@@ -352,6 +353,13 @@ export function A4ResumePreview({
                 onClick={() => editor.selectedBlock && editor.onHide?.(editor.selectedBlock.contentItemId)}
               >
                 隐藏
+              </button>
+              <button
+                className="secondary-button compact resume-delete-button"
+                disabled={editor.pending || !editor.onDelete}
+                onClick={() => editor.selectedBlock && editor.onDelete?.(editor.selectedBlock.contentItemId)}
+              >
+                删除
               </button>
             </div> : null}
           </>

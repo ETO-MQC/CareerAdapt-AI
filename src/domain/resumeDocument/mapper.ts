@@ -14,6 +14,7 @@ export type ResumeDocumentBlock = {
   id: string;
   contentItemId: string;
   sectionType: ResumeRenderSectionType;
+  sourceSectionId?: string;
   itemType: BranchContentItem["itemType"];
   text: string;
   order: number;
@@ -163,6 +164,7 @@ function mapContentItemToBlock(input: {
     id: input.item.id,
     contentItemId: input.item.id,
     sectionType: blockSectionType(input.item.itemType),
+    sourceSectionId: input.item.sourceSectionId,
     itemType: input.item.itemType,
     text: input.item.text,
     order: input.item.order,

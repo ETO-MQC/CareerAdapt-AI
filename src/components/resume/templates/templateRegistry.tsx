@@ -394,9 +394,12 @@ function ResumeHeader({
         <p>{model.company} / {model.jobTitle}</p>
       </div>
       <address>
-        {model.candidate.contacts.map((contact, index) => (
-          <span key={contact} {...profileFieldAttrs(profileFieldIdForContact(contact, index), context)}>{contact}</span>
-        ))}
+        {(() => {
+          const emailCount = model.candidate.contacts.filter((c) => c.includes("@")).length;
+          return model.candidate.contacts.map((contact, index) => (
+            <span key={`${contact}-${index}`} {...profileFieldAttrs(profileFieldIdForContact(contact, index, emailCount), context)}>{contact}</span>
+          ));
+        })()}
       </address>
     </header>
   );
@@ -507,9 +510,9 @@ function sectionTitleAttrs(section: ResumeRenderSection, context?: TemplateRende
   };
 }
 
-function profileFieldIdForContact(contact: string, index: number) {
+function profileFieldIdForContact(contact: string, index: number, contactCount: number) {
   if (contact.includes("@")) {
-    return "profile:email";
+    return contactCount <= 1 ? "profile:email" : `profile:email:link:${index}`;
   }
   if (/[\d+\-()\s]{6,}/.test(contact)) {
     return "profile:phone";

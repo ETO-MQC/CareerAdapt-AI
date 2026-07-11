@@ -16,6 +16,10 @@
     "verify": "pnpm typecheck && pnpm lint && pnpm test && pnpm build"
   },
   "dependencies": {
+    "@tiptap/extension-placeholder": "^3.27.3",
+    "@tiptap/pm": "^3.27.3",
+    "@tiptap/react": "^3.27.3",
+    "@tiptap/starter-kit": "^3.27.3",
     "dexie": "^4.4.4",
     "nanoid": "^5.1.16",
     "next": "^16.2.9",

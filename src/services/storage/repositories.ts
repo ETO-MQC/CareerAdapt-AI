@@ -1870,6 +1870,27 @@ export class WorkspaceRepository {
     });
   }
 
+  async renameResumeBranch(input: {
+    branchId: string;
+    expectedRevision: number;
+    operationId: string;
+    name: string;
+  }) {
+    return this.mutateResumeBranch({
+      branchId: input.branchId,
+      expectedRevision: input.expectedRevision,
+      operationId: input.operationId,
+      type: "manual_edit",
+      source: "manual_edit",
+      mutate: async ({ branch }) => {
+        return ResumeBranchSchema.parse({
+          ...branch,
+          name: input.name.trim() || branch.name
+        });
+      }
+    });
+  }
+
   async duplicateResumeContentItem(input: {
     branchId: string;
     expectedRevision: number;
@@ -1961,7 +1982,7 @@ export class WorkspaceRepository {
           visible: true,
           requirementIds: [],
           sourceSuggestionIds: [],
-          factRefs: [{ type: "new_user_content" as unknown as "experience_fact", experienceId: newItemId, factId: `placeholder-${newItemId}` }],
+          factRefs: [{ type: "experience_fact", experienceId: newItemId, factId: `placeholder-${newItemId}` }],
           guardMode: "not_fact",
           guardStatus: "not_checked",
           guardRiskLevel: "safe",

@@ -49,6 +49,11 @@ import { hashBytes, stableHashText } from "@/services/security/text";
 import { RevisionConflictError, WorkspaceRepository } from "@/services/storage/repositories";
 import { useWorkspace } from "@/services/workspace/useWorkspace";
 import { WorkspaceEmptyState, WorkspaceErrorState, WorkspaceLoadingState } from "@/components/workspace/WorkspaceStates";
+import { BasicsSectionPage } from "@/components/editor/sections/BasicsSectionPage";
+import { SummarySectionPage } from "@/components/editor/sections/SummarySectionPage";
+import { ExperienceSectionPage } from "@/components/editor/sections/ExperienceSectionPage";
+import { SkillsSectionPage } from "@/components/editor/sections/SkillsSectionPage";
+import { type ResumeStudioSectionKey, type SectionNavContext } from "@/components/editor/sections/types";
 
 const repository = new WorkspaceRepository();
 const DEFAULT_TEMPLATE_ID: TemplateId = "classic-technical";
@@ -82,17 +87,6 @@ type StudioMode = "edit" | "ai" | "style";
 type ManualInspectorTab = "content" | "typography" | "paragraph" | "layout" | "template" | "page" | "history";
 type AiInspectorTab = "job" | "suggestions" | "quality" | "facts" | "match" | "records";
 type StyleInspectorTab = "template" | "colors" | "font" | "page";
-type ResumeStudioSectionKey =
-  | "basics"
-  | ResumeRenderSectionType
-  | "education"
-  | "projects"
-  | "campus"
-  | "awards"
-  | "language"
-  | "custom"
-  | "add";
-
 type PdfExportState = {
   status: "idle" | "validating" | "generating" | "downloading" | "success" | "failed" | "blocked_overflow";
   exportId?: string;
@@ -174,6 +168,16 @@ export function ResumeWorkspace() {
   const [diagnosticRunning, setDiagnosticRunning] = useState(false);
   const [diagnosticError, setDiagnosticError] = useState<string | undefined>();
   const [ignoredDiagnosticIssueKeys, setIgnoredDiagnosticIssueKeys] = useState<string[]>([]);
+
+  // Profile field sync: resume-local overrides that take priority over profile library
+  const [profileFieldOverrides, setProfileFieldOverrides] = useState<Record<string, string>>({});
+  const [profileSyncConflicts, setProfileSyncConflicts] = useState<Array<{
+    fieldId: string;
+    label: string;
+    resumeValue: string;
+    profileValue: string;
+  }>>([]);
+  const [profileSyncDialogOpen, setProfileSyncDialogOpen] = useState(false);
 
   const presentationQueueRef = useRef<{
     promise: Promise<void>;
@@ -263,11 +267,36 @@ export function ResumeWorkspace() {
     if (!resumeDocument) {
       return [];
     }
-    if (activeResumeSection === "summary" || activeResumeSection === "skills" || activeResumeSection === "experience" || activeResumeSection === "certificates") {
+    if (activeResumeSection === "basics" || activeResumeSection === "add") {
+      return [];
+    }
+    if (activeResumeSection === "summary" || activeResumeSection === "skills" || activeResumeSection === "certificates") {
       return resumeDocument.blocks.filter((block) => block.sectionType === activeResumeSection);
     }
+    if (activeResumeSection === "experience") {
+      return resumeDocument.blocks.filter((block) =>
+        block.sectionType === "experience"
+        && block.sourceSectionId !== "education"
+        && block.sourceSectionId !== "projects"
+        && block.sourceSectionId !== "campus"
+      );
+    }
+    if (activeResumeSection === "education" || activeResumeSection === "projects" || activeResumeSection === "campus") {
+      return resumeDocument.blocks.filter((block) =>
+        block.sectionType === "experience" && block.sourceSectionId === activeResumeSection
+      );
+    }
     if (activeResumeSection === "custom") {
-      return resumeDocument.blocks.filter((block) => block.itemType === "custom");
+      return resumeDocument.blocks.filter((block) =>
+        block.itemType === "custom"
+        && block.sourceSectionId !== "awards"
+        && block.sourceSectionId !== "language"
+      );
+    }
+    if (activeResumeSection === "awards" || activeResumeSection === "language") {
+      return resumeDocument.blocks.filter((block) =>
+        block.itemType === "custom" && block.sourceSectionId === activeResumeSection
+      );
     }
     return [];
   }, [activeResumeSection, resumeDocument]);
@@ -964,6 +993,12 @@ export function ResumeWorkspace() {
       });
       replaceBranch(result.branch);
       setSelectedBranchId(result.branch.id);
+      setEditTexts((prev) => {
+        if (!(itemId in prev)) return prev;
+        const next = { ...prev };
+        delete next[itemId];
+        return next;
+      });
       setMessage("简历内容已保存，事实安全检查已重新计算。");
     } catch {
       setMessage("保存失败：可能存在高风险事实变更、版本冲突或旧简历只读。");
@@ -1009,6 +1044,28 @@ export function ResumeWorkspace() {
       setMessage(result.idempotent ? "该内容已复制过，未重复创建版本。" : "内容已复制，并创建新的内容版本。");
     } catch {
       setMessage("复制失败：版本冲突、引用失效或当前简历不可编辑。");
+    }
+  }
+
+  async function renameBranch(newName: string) {
+    if (!selectedBranch || !selectedBranchEditable) {
+      return;
+    }
+    const trimmed = newName.trim();
+    if (!trimmed || trimmed === selectedBranch.name) {
+      return;
+    }
+    try {
+      const result = await repository.renameResumeBranch({
+        branchId: selectedBranch.id,
+        expectedRevision: selectedBranch.revision,
+        operationId: `rename-${selectedBranch.id}-${Date.now()}`,
+        name: trimmed
+      });
+      replaceBranch(result.branch);
+      setMessage("简历名称已更新。");
+    } catch {
+      setMessage("重命名失败，请重试。");
     }
   }
 
@@ -1666,17 +1723,29 @@ export function ResumeWorkspace() {
       setProfileFieldError("姓名不能为空。");
       return;
     }
+    // Get the current value from the latest profile (including any previous overrides)
     const currentValue = key === "name"
       ? profile.basics.name
       : key === "link"
         ? profile.basics.links[profileLinkIndex(fieldId)] ?? ""
         : profile.basics[key] ?? "";
     if (text === currentValue) {
+      // No change — clear override if it existed
+      setProfileFieldOverrides((prev) => {
+        if (!(fieldId in prev)) return prev;
+        const next = { ...prev };
+        delete next[fieldId];
+        return next;
+      });
       setEditingProfileFieldId(undefined);
       setProfileFieldError(undefined);
       return;
     }
-    const now = new Date().toISOString();
+
+    // Store as resume-local override (takes priority over profile library)
+    setProfileFieldOverrides((prev) => ({ ...prev, [fieldId]: text }));
+
+    // Update profileOverride for immediate preview rendering
     const nextBasics = { ...profile.basics };
     if (key === "name") {
       nextBasics.name = text;
@@ -1692,26 +1761,160 @@ export function ResumeWorkspace() {
     } else {
       nextBasics[key] = text || undefined;
     }
+    setProfileOverride({
+      ...profile,
+      name: key === "name" ? text : profile.name,
+      basics: nextBasics
+    });
+    setEditingProfileFieldId(undefined);
+    setSelectedProfileFieldId(undefined);
+    setProfileFieldDraftText("");
+    setProfileFieldError(undefined);
+    setMessage("简历中的个人信息已更新（本地优先）。保存或导出时可选择同步到个人资料库。");
+  }
+
+  // Check for conflicts between resume-local overrides and the latest profile
+  async function checkProfileSyncConflicts(): Promise<Array<{ fieldId: string; label: string; resumeValue: string; profileValue: string }>> {
+    if (!profile || Object.keys(profileFieldOverrides).length === 0) return [];
+
+    // Fetch the latest profile from the repository
+    const latestProfile = await repository.getProfile(profile.id);
+    if (!latestProfile) return [];
+
+    const conflicts: Array<{ fieldId: string; label: string; resumeValue: string; profileValue: string }> = [];
+    const fieldLabels: Record<string, string> = {
+      "profile:name": "姓名",
+      "profile:email": "邮箱",
+      "profile:phone": "电话",
+      "profile:location": "地址",
+      "profile:link:0": "领英"
+    };
+
+    for (const [fieldId, resumeValue] of Object.entries(profileFieldOverrides)) {
+      const key = profileFieldKey(fieldId);
+      if (!key) continue;
+      const profileValue = key === "name"
+        ? latestProfile.basics.name
+        : key === "link"
+          ? latestProfile.basics.links[profileLinkIndex(fieldId)] ?? ""
+          : latestProfile.basics[key] ?? "";
+      // Only conflict if the profile value changed since we last loaded it
+      // AND the resume value is different from the latest profile value
+      const originalProfile = workspace.status === "ready" ? workspace.profiles[0] : undefined;
+      const originalValue = key === "name"
+        ? originalProfile?.basics.name ?? ""
+        : key === "link"
+          ? originalProfile?.basics.links?.[profileLinkIndex(fieldId)] ?? ""
+          : originalProfile?.basics[key] ?? "";
+      if (profileValue !== originalValue && resumeValue !== profileValue) {
+        conflicts.push({
+          fieldId,
+          label: fieldLabels[fieldId] ?? fieldId,
+          resumeValue,
+          profileValue
+        });
+      }
+    }
+    return conflicts;
+  }
+
+  // Sync resume-local overrides to the profile library
+  async function syncProfileToLibrary() {
+    if (!profile) return;
+
+    const conflicts = await checkProfileSyncConflicts();
+    if (conflicts.length > 0) {
+      setProfileSyncConflicts(conflicts);
+      setProfileSyncDialogOpen(true);
+      return;
+    }
+
+    // No conflicts — save all overrides to the repository
+    await persistProfileOverrides();
+  }
+
+  async function persistProfileOverrides(overrideMap?: Record<string, string>) {
+    if (!profile) return;
+    const overrides = overrideMap ?? profileFieldOverrides;
+    if (Object.keys(overrides).length === 0) return;
 
     setProfileFieldPending(true);
-    setProfileFieldError(undefined);
     try {
+      const nextBasics = { ...profile.basics };
+      let nextName = profile.name;
+      for (const [fieldId, value] of Object.entries(overrides)) {
+        const key = profileFieldKey(fieldId);
+        if (!key) continue;
+        if (key === "name") {
+          nextBasics.name = value;
+          nextName = value;
+        } else if (key === "link") {
+          const index = profileLinkIndex(fieldId);
+          const links = [...nextBasics.links];
+          if (value) {
+            links[index] = value;
+          } else {
+            links.splice(index, 1);
+          }
+          nextBasics.links = links.filter((link) => link.trim().length > 0);
+        } else {
+          (nextBasics as Record<string, unknown>)[key] = value || undefined;
+        }
+      }
       const saved = await repository.saveProfile({
         ...profile,
-        name: key === "name" ? text : profile.name,
+        name: nextName,
         basics: nextBasics,
         version: profile.version + 1,
-        updatedAt: now
+        updatedAt: new Date().toISOString()
       });
       setProfileOverride(saved);
-      setEditingProfileFieldId(undefined);
-      setSelectedProfileFieldId(undefined);
-      setProfileFieldDraftText("");
-      setMessage("基本信息已保存到个人资料；如需同步到岗位简历，请复核更新提示。");
+      setProfileFieldOverrides({});
+      setProfileSyncDialogOpen(false);
+      setProfileSyncConflicts([]);
+      setMessage("简历中的个人信息已同步到个人资料库。");
     } catch {
-      setProfileFieldError("基本信息保存失败，请检查内容后重试。");
+      setProfileFieldError("同步失败，请稍后重试。");
     } finally {
       setProfileFieldPending(false);
+    }
+  }
+
+  function resolveProfileSyncConflict(fieldId: string, keepResume: boolean) {
+    if (keepResume) {
+      // Keep the resume value — remove from conflicts
+      setProfileSyncConflicts((prev) => prev.filter((c) => c.fieldId !== fieldId));
+    } else {
+      // Keep the profile value — remove override and revert local profile
+      setProfileFieldOverrides((prev) => {
+        const next = { ...prev };
+        delete next[fieldId];
+        return next;
+      });
+      setProfileSyncConflicts((prev) => prev.filter((c) => c.fieldId !== fieldId));
+      // Revert profileOverride to match the profile library
+      if (profile) {
+        const conflict = profileSyncConflicts.find((c) => c.fieldId === fieldId);
+        if (conflict) {
+          const key = profileFieldKey(fieldId);
+          if (key) {
+            const nextBasics = { ...profile.basics };
+            if (key === "name") nextBasics.name = conflict.profileValue;
+            else if (key === "link") {
+              const links = [...nextBasics.links];
+              links[profileLinkIndex(fieldId)] = conflict.profileValue;
+              nextBasics.links = links;
+            } else {
+              (nextBasics as Record<string, unknown>)[key] = conflict.profileValue || undefined;
+            }
+            setProfileOverride({ ...profile, basics: nextBasics });
+          }
+        }
+      }
+    }
+    // If no more conflicts, persist remaining overrides
+    if (profileSyncConflicts.length <= 1) {
+      void persistProfileOverrides();
     }
   }
 
@@ -1760,6 +1963,12 @@ export function ResumeWorkspace() {
       });
       replaceBranch(result.branch);
       setSelectedBranchId(result.branch.id);
+      setEditTexts((prev) => {
+        if (!(block.contentItemId in prev)) return prev;
+        const next = { ...prev };
+        delete next[block.contentItemId];
+        return next;
+      });
       setMessage(result.idempotent ? "该编辑已保存过，未重复创建版本。" : "简历内容已保存，并创建新的内容版本。");
     } catch (error) {
       setPendingStudioOperationId(undefined);
@@ -2309,6 +2518,23 @@ export function ResumeWorkspace() {
   const showSectionStyleControls = false;
   const showBlockStyleControls = false;
 
+  const sectionNavContext: SectionNavContext = {
+    activeSection: activeResumeSection,
+    onNavigate: (section) => {
+      setActiveResumeSection(section);
+      const item = resumeSectionNavItems.find((i) => i.key === section);
+      if (item?.firstItemId) {
+        selectStudioItem(item.firstItemId);
+      } else {
+        clearStudioEditor();
+      }
+    },
+    canUndo: Boolean(presentationHistory.undoStack.length),
+    canRedo: Boolean(presentationHistory.redoStack.length),
+    onUndo: undo,
+    onRedo: () => { void redoPresentationChange(); }
+  };
+
   return (
     <main className={`page-shell resume-workspace ${selectedBranch ? "resume-workspace-studio" : "resume-workspace-center"}`}>
       {!selectedBranch ? (
@@ -2572,11 +2798,29 @@ export function ResumeWorkspace() {
               </button>
             </nav>
             <div className="resume-workbar-actions">
+              {Object.keys(profileFieldOverrides).length > 0 ? (
+                <button
+                  type="button"
+                  className="section-action-button section-action-button-primary"
+                  style={{ fontSize: "11px", height: "28px", padding: "0 10px" }}
+                  onClick={() => { void syncProfileToLibrary(); }}
+                  disabled={profileFieldPending}
+                >
+                  {profileFieldPending ? "同步中..." : `同步 ${Object.keys(profileFieldOverrides).length} 项到资料库`}
+                </button>
+              ) : null}
               {workbarWarnings.length > 0 ? (
                 <details className="resume-review-chip">
                   <summary>{workbarWarnings.length} 条需复核</summary>
                   <div className="toolbar-more-popover">
                     {workbarWarnings.map((warning) => <span key={warning}>{warning}</span>)}
+                    <button
+                      type="button"
+                      className="primary-button compact"
+                      onClick={() => { void refreshSync(); }}
+                    >
+                      重新检查
+                    </button>
                   </div>
                 </details>
               ) : null}
@@ -2731,230 +2975,77 @@ export function ResumeWorkspace() {
               </div>
             ) : null}
             {studioMode === "edit" ? (
-              <div className="studio-sidebar-section">
-                <div className="section-heading compact-heading">
-                  <div>
-                    <h3>{activeSectionItem?.label ?? "栏目内容"}</h3>
-                  </div>
-                </div>
-                {activeResumeSection === "basics" ? (
-                  <div className="branch-editor resume-field-editor" data-testid="resume-active-section-fields">
-                    <label className="field-label">
-                      姓名
-                      <input
-                        value={selectedProfileFieldId === "profile:name" ? profileFieldDraftText : profile?.basics.name ?? ""}
-                        disabled={!profile}
-                        onFocus={(event) => selectProfileField("profile:name", event.currentTarget.value)}
-                        onChange={(event) => setProfileFieldDraftText(event.target.value)}
-                        onBlur={(event) => { void saveProfileFieldText("profile:name", event.currentTarget.value); }}
-                      />
-                    </label>
-                    <label className="field-label">
-                      电话
-                      <input
-                        value={selectedProfileFieldId === "profile:phone" ? profileFieldDraftText : profile?.basics.phone ?? ""}
-                        disabled={!profile}
-                        onFocus={(event) => selectProfileField("profile:phone", event.currentTarget.value)}
-                        onChange={(event) => setProfileFieldDraftText(event.target.value)}
-                        onBlur={(event) => { void saveProfileFieldText("profile:phone", event.currentTarget.value); }}
-                      />
-                    </label>
-                    <label className="field-label">
-                      邮箱
-                      <input
-                        value={selectedProfileFieldId === "profile:email" ? profileFieldDraftText : profile?.basics.email ?? ""}
-                        disabled={!profile}
-                        onFocus={(event) => selectProfileField("profile:email", event.currentTarget.value)}
-                        onChange={(event) => setProfileFieldDraftText(event.target.value)}
-                        onBlur={(event) => { void saveProfileFieldText("profile:email", event.currentTarget.value); }}
-                      />
-                    </label>
-                    <label className="field-label">
-                      所在地
-                      <input
-                        value={selectedProfileFieldId === "profile:location" ? profileFieldDraftText : profile?.basics.location ?? ""}
-                        disabled={!profile}
-                        onFocus={(event) => selectProfileField("profile:location", event.currentTarget.value)}
-                        onChange={(event) => setProfileFieldDraftText(event.target.value)}
-                        onBlur={(event) => { void saveProfileFieldText("profile:location", event.currentTarget.value); }}
-                      />
-                    </label>
-                    <label className="field-label">
-                      岗位方向
-                      <input value={selectedBranchJob ? `${selectedBranchJob.company} / ${selectedBranchJob.title}` : "通用简历"} readOnly />
-                    </label>
-                  </div>
-                ) : activeSectionBlocks.length > 0 ? (
-                  <div className="branch-editor resume-field-editor" data-testid="resume-active-section-fields">
-                    {activeSectionBlocks.map((block, index) => {
-                      const sourceItem = selectedBranch.contentItems.find((item) => item.id === block.contentItemId);
-                      const presentationVisible = block.visible;
-                      const expanded = selectedStudioItemId ? selectedStudioItemId === block.contentItemId : index === 0;
-                      return (
-                        <details key={block.contentItemId} className="suggestion-card resume-entry-editor-card" open={expanded}>
-                          <summary>
-                            <span>
-                              <strong>{contentItemTypeLabel(block.itemType)}</strong>
-                              <small>{guardStatusLabel(block.guardStatus)} / {riskLevelLabel(block.guardRiskLevel)}</small>
-                            </span>
-                            <span>{expanded ? "收起" : "展开"}</span>
-                          </summary>
-                          <div className="structured-field-grid">
-                            <label className="field-label">
-                              公司 / 组织
-                              <input
-                                value={extractStructuredField(editTexts[block.contentItemId] ?? block.text, "organization")}
-                                disabled={!selectedBranchEditable}
-                                onFocus={() => selectStudioItem(block.contentItemId)}
-                                onChange={(event) => {
-                                  const currentText = editTexts[block.contentItemId] ?? block.text;
-                                  setEditTexts((prev) => ({
-                                    ...prev,
-                                    [block.contentItemId]: updateStructuredFieldInText(currentText, "organization", event.target.value)
-                                  }));
-                                }}
-                              />
-                            </label>
-                            <label className="field-label">
-                              职位 / 角色
-                              <input
-                                value={extractStructuredField(editTexts[block.contentItemId] ?? block.text, "role")}
-                                disabled={!selectedBranchEditable}
-                                onFocus={() => selectStudioItem(block.contentItemId)}
-                                onChange={(event) => {
-                                  const currentText = editTexts[block.contentItemId] ?? block.text;
-                                  setEditTexts((prev) => ({
-                                    ...prev,
-                                    [block.contentItemId]: updateStructuredFieldInText(currentText, "role", event.target.value)
-                                  }));
-                                }}
-                              />
-                            </label>
-                            <label className="field-label">
-                              地点
-                              <input
-                                value={extractStructuredField(editTexts[block.contentItemId] ?? block.text, "location")}
-                                disabled={!selectedBranchEditable}
-                                onFocus={() => selectStudioItem(block.contentItemId)}
-                                onChange={(event) => {
-                                  const currentText = editTexts[block.contentItemId] ?? block.text;
-                                  setEditTexts((prev) => ({
-                                    ...prev,
-                                    [block.contentItemId]: updateStructuredFieldInText(currentText, "location", event.target.value)
-                                  }));
-                                }}
-                              />
-                            </label>
-                            <label className="field-label">
-                              开始时间
-                              <input
-                                type="date"
-                                value={extractStructuredField(editTexts[block.contentItemId] ?? block.text, "start").replace(/^(\d{4})$/, "$1-01-01")}
-                                disabled={!selectedBranchEditable}
-                                onFocus={() => selectStudioItem(block.contentItemId)}
-                                onChange={(event) => {
-                                  const currentText = editTexts[block.contentItemId] ?? block.text;
-                                  setEditTexts((prev) => ({
-                                    ...prev,
-                                    [block.contentItemId]: updateStructuredFieldInText(currentText, "start", event.target.value)
-                                  }));
-                                }}
-                              />
-                            </label>
-                            <label className="field-label">
-                              结束时间
-                              <input
-                                type="date"
-                                value={extractStructuredField(editTexts[block.contentItemId] ?? block.text, "end").replace(/^(\d{4})$/, "$1-01-01")}
-                                disabled={!selectedBranchEditable}
-                                onFocus={() => selectStudioItem(block.contentItemId)}
-                                onChange={(event) => {
-                                  const currentText = editTexts[block.contentItemId] ?? block.text;
-                                  setEditTexts((prev) => ({
-                                    ...prev,
-                                    [block.contentItemId]: updateStructuredFieldInText(currentText, "end", event.target.value)
-                                  }));
-                                }}
-                              />
-                            </label>
-                            <label className="inline-toggle resume-current-toggle">
-                              <input type="checkbox" checked={false} readOnly />
-                              当前经历
-                            </label>
-                          </div>
-                          {!sourceItem?.visible ? (
-                            <div className="warning-box">该内容已在正文版本中隐藏，展示设置不会静默改写旧内容。</div>
-                          ) : null}
-                          {sourceItem?.guardMode === "rule_only_verified" ? (
-                            <div className="warning-box">规则事实检查已通过，AI 复核尚未完成。</div>
-                          ) : null}
-                          <label className="field-label">
-                            描述要点
-                            <textarea
-                              className="textarea small-textarea"
-                              value={editTexts[block.contentItemId] ?? block.text}
-                              disabled={!selectedBranchEditable}
-                              onFocus={() => selectStudioItem(block.contentItemId)}
-                              onChange={(event) => setEditTexts((current) => ({ ...current, [block.contentItemId]: event.target.value }))}
-                            />
-                          </label>
-                          <div className="action-row resume-structure-actions">
-                            <button className="primary-button compact" disabled={!selectedBranchEditable} onClick={() => saveItem(block.contentItemId)}>保存</button>
-                            <button className="secondary-button compact" disabled={!selectedBranchEditable} onClick={() => startStudioEdit(block.contentItemId)}>A4编辑</button>
-                            <button className="secondary-button compact" disabled={!selectedBranchEditable || !presentationConfig} onClick={() => { void movePresentationItem(block.contentItemId, "up"); }}>上移</button>
-                            <button className="secondary-button compact" disabled={!selectedBranchEditable || !presentationConfig} onClick={() => { void movePresentationItem(block.contentItemId, "down"); }}>下移</button>
-                            <label className="inline-toggle">
-                              <input
-                                type="checkbox"
-                                checked={presentationVisible}
-                                disabled={!selectedBranchEditable || !presentationConfig || !sourceItem?.visible}
-                                onChange={(event) => setPresentationItemVisibility(block.contentItemId, event.target.checked)}
-                              />
-                              显示
-                            </label>
-                            <button
-                              className="secondary-button compact"
-                              disabled={!selectedBranchEditable || !sourceItem?.visible}
-                              onClick={() => { void duplicateContentItem(block.contentItemId); }}
-                            >
-                              复制
-                            </button>
-                            <button
-                              className="secondary-button compact"
-                              disabled={!selectedBranchEditable || !sourceItem}
-                              onClick={() => { void setContentItemVisibility(block.contentItemId, !sourceItem?.visible); }}
-                            >
-                              {sourceItem?.visible ? "删除" : "恢复"}
-                            </button>
-                          </div>
-                        </details>
-                      );
-                    })}
-                    {isAiOptimizableSection(activeResumeSection) ? (
-                      <div className="section-ai-entry">
-                        <button className="secondary-button" type="button" onClick={() => {
-                          setStudioMode("ai");
-                          setAiInspectorTab("suggestions");
-                        }}>
-                          AI优化本栏目
-                        </button>
-                      </div>
-                    ) : null}
-                  </div>
-                ) : (
-                  <div className="empty-state compact-empty-state" data-testid="resume-active-section-fields">
-                    <strong>该栏目暂无可编辑内容</strong>
-                    <button
-                      className="primary-button compact"
-                      type="button"
-                      disabled={!selectedBranchEditable}
-                      onClick={() => void addContentItem(activeResumeSection)}
-                    >
-                      + 新建内容
-                    </button>
-                  </div>
-                )}
-              </div>
+              activeResumeSection === "basics" ? (
+                <BasicsSectionPage
+                  profile={profile}
+                  branch={selectedBranch}
+                  branchEditable={selectedBranchEditable}
+                  profileFieldError={profileFieldError}
+                  onSaveProfileField={saveProfileFieldText}
+                  onBranchNameChange={(name) => {
+                    if (selectedBranch) replaceBranch({ ...selectedBranch, name });
+                  }}
+                  onRenameBranch={renameBranch}
+                  nav={sectionNavContext}
+                />
+              ) : activeResumeSection === "summary" ? (
+                <SummarySectionPage
+                  blocks={activeSectionBlocks}
+                  editTexts={editTexts}
+                  onEditTextChange={(itemId, text) => setEditTexts((prev) => ({ ...prev, [itemId]: text }))}
+                  onSave={saveItem}
+                  onAdd={() => void addContentItem(activeResumeSection)}
+                  nav={sectionNavContext}
+                />
+              ) : activeResumeSection === "experience"
+                || activeResumeSection === "education"
+                || activeResumeSection === "projects"
+                || activeResumeSection === "campus" ? (
+                <ExperienceSectionPage
+                  sectionLabel={activeSectionItem?.label ?? "经历"}
+                  blocks={activeSectionBlocks}
+                  branch={selectedBranch}
+                  editTexts={editTexts}
+                  selectedItemId={selectedStudioItemId}
+                  onEditTextChange={(itemId, text) => setEditTexts((prev) => ({ ...prev, [itemId]: text }))}
+                  onSave={saveItem}
+                  onSelectItem={selectStudioItem}
+                  onSetVisibility={(itemId, visible) => {
+                    if (visible) {
+                      void setPresentationItemVisibility(itemId, true);
+                    } else {
+                      void setContentItemVisibility(itemId, false);
+                    }
+                  }}
+                  onDuplicate={(itemId) => void duplicateContentItem(itemId)}
+                  onMoveUp={(itemId) => void movePresentationItem(itemId, "up")}
+                  onMoveDown={(itemId) => void movePresentationItem(itemId, "down")}
+                  onAdd={() => void addContentItem(activeResumeSection)}
+                  nav={sectionNavContext}
+                />
+              ) : (
+                <SkillsSectionPage
+                  sectionLabel={activeSectionItem?.label ?? "内容"}
+                  blocks={activeSectionBlocks}
+                  branch={selectedBranch}
+                  editTexts={editTexts}
+                  selectedItemId={selectedStudioItemId}
+                  onEditTextChange={(itemId, text) => setEditTexts((prev) => ({ ...prev, [itemId]: text }))}
+                  onSave={saveItem}
+                  onSetVisibility={(itemId, visible) => {
+                    if (visible) {
+                      void setPresentationItemVisibility(itemId, true);
+                    } else {
+                      void setContentItemVisibility(itemId, false);
+                    }
+                  }}
+                  onDuplicate={(itemId) => void duplicateContentItem(itemId)}
+                  onMoveUp={(itemId) => void movePresentationItem(itemId, "up")}
+                  onMoveDown={(itemId) => void movePresentationItem(itemId, "down")}
+                  onAdd={() => void addContentItem(activeResumeSection)}
+                  nav={sectionNavContext}
+                />
+              )
             ) : null}
             {studioMode === "ai" ? (
               <div className="studio-sidebar-section">
@@ -3005,7 +3096,7 @@ export function ResumeWorkspace() {
                         <p>查看历史建议生成和采纳记录。</p>
                       </div>
                     </div>
-                    <p className="save-status">建议记录功能待后续版本完善；当前可在"建议"Tab 中查看和管理所有建议。</p>
+                    <p className="save-status">建议记录功能待后续版本完善；当前可在「建议」Tab 中查看和管理所有建议。</p>
                   </div>
                 ) : aiInspectorTab === "match" ? (
                   <div className="studio-sidebar-section">
@@ -3015,7 +3106,7 @@ export function ResumeWorkspace() {
                         <p>查看岗位要求与简历内容的匹配映射。</p>
                       </div>
                     </div>
-                    <p className="save-status">匹配详情已在"建议"Tab 的要求列表中展示；切换到"建议"查看完整匹配信息。</p>
+                    <p className="save-status">匹配详情已在「建议」Tab 的要求列表中展示；切换到「建议」查看完整匹配信息。</p>
                   </div>
                 ) : (
                   <JobOptimizationPanel
@@ -3497,7 +3588,8 @@ export function ResumeWorkspace() {
                   onCancelSectionTitle: cancelSectionTitleEdit,
                   onMoveUp: (itemId) => { void movePresentationItem(itemId, "up"); },
                   onMoveDown: (itemId) => { void movePresentationItem(itemId, "down"); },
-                  onHide: (itemId) => { void setPresentationItemVisibility(itemId, false); }
+                  onHide: (itemId) => { void setPresentationItemVisibility(itemId, false); },
+                  onDelete: (itemId) => { void setContentItemVisibility(itemId, false); }
                 } : undefined}
               />
             ) : (
@@ -3505,6 +3597,55 @@ export function ResumeWorkspace() {
             )}
           </div>
         </section>
+      ) : null}
+
+      {/* Profile sync reconciliation dialog */}
+      {profileSyncDialogOpen && profileSyncConflicts.length > 0 ? (
+        <div className="sync-dialog-overlay" role="dialog" aria-label="个人信息复核">
+          <div className="sync-dialog">
+            <h3 className="sync-dialog-title">个人信息已变更</h3>
+            <p className="sync-dialog-description">
+              检测到个人资料库中的信息与简历中编辑的不同。请选择保留哪个版本：
+            </p>
+            <div className="sync-dialog-conflicts">
+              {profileSyncConflicts.map((conflict) => (
+                <div key={conflict.fieldId} className="sync-conflict-card">
+                  <div className="sync-conflict-label">{conflict.label}</div>
+                  <div className="sync-conflict-options">
+                    <button
+                      type="button"
+                      className="sync-conflict-option"
+                      onClick={() => resolveProfileSyncConflict(conflict.fieldId, true)}
+                    >
+                      <span className="sync-conflict-option-source">简历版本</span>
+                      <span className="sync-conflict-option-value">{conflict.resumeValue || "（空）"}</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="sync-conflict-option"
+                      onClick={() => resolveProfileSyncConflict(conflict.fieldId, false)}
+                    >
+                      <span className="sync-conflict-option-source">资料库版本</span>
+                      <span className="sync-conflict-option-value">{conflict.profileValue || "（空）"}</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="sync-dialog-actions">
+              <button
+                type="button"
+                className="section-action-button"
+                onClick={() => {
+                  setProfileSyncDialogOpen(false);
+                  setProfileSyncConflicts([]);
+                }}
+              >
+                取消
+              </button>
+            </div>
+          </div>
+        </div>
       ) : null}
 
     </main>
@@ -3546,117 +3687,30 @@ function buildResumeStudioSections(input: {
   const blocks = input.resumeDocument?.blocks ?? [];
   const bySection = (sectionType: ResumeRenderSectionType) => blocks.filter((block) => block.sectionType === sectionType);
   const first = (sectionType: ResumeRenderSectionType) => bySection(sectionType)[0]?.contentItemId;
+  const experienceBlocks = bySection("experience");
+  const generalExperience = experienceBlocks.filter((b) => b.sourceSectionId !== "education" && b.sourceSectionId !== "projects" && b.sourceSectionId !== "campus");
+  const educationBlocks = experienceBlocks.filter((b) => b.sourceSectionId === "education");
+  const projectBlocks = experienceBlocks.filter((b) => b.sourceSectionId === "projects");
+  const campusBlocks = experienceBlocks.filter((b) => b.sourceSectionId === "campus");
   const customBlocks = blocks.filter((block) => block.itemType === "custom");
+  const awardsBlocks = customBlocks.filter((b) => b.sourceSectionId === "awards");
+  const languageBlocks = customBlocks.filter((b) => b.sourceSectionId === "language");
+  const generalCustomBlocks = customBlocks.filter((b) => b.sourceSectionId !== "awards" && b.sourceSectionId !== "language");
   const verifiedContentCount = input.branch?.contentItems.filter((item) => item.visible && item.itemType !== "structural").length ?? 0;
   return [
     { key: "basics", label: "个人信息", count: verifiedContentCount > 0 ? 1 : 0 },
     { key: "summary", label: "自我评价", count: bySection("summary").length, firstItemId: first("summary") },
-    { key: "experience", label: "工作经历", count: bySection("experience").length, firstItemId: first("experience") },
-    { key: "education", label: "教育经历", count: 0 },
-    { key: "projects", label: "项目经历", count: 0 },
-    { key: "campus", label: "校园经历", count: 0 },
+    { key: "experience", label: "工作经历", count: generalExperience.length, firstItemId: generalExperience[0]?.contentItemId },
+    { key: "education", label: "教育经历", count: educationBlocks.length, firstItemId: educationBlocks[0]?.contentItemId },
+    { key: "projects", label: "项目经历", count: projectBlocks.length, firstItemId: projectBlocks[0]?.contentItemId },
+    { key: "campus", label: "校园经历", count: campusBlocks.length, firstItemId: campusBlocks[0]?.contentItemId },
     { key: "skills", label: "技能", count: bySection("skills").length, firstItemId: first("skills") },
-    { key: "awards", label: "奖项", count: 0 },
+    { key: "awards", label: "奖项", count: awardsBlocks.length, firstItemId: awardsBlocks[0]?.contentItemId },
     { key: "certificates", label: "证书", count: bySection("certificates").length, firstItemId: first("certificates") },
-    { key: "language", label: "语言", count: 0 },
-    { key: "custom", label: "自定义栏目", count: customBlocks.length, firstItemId: customBlocks[0]?.contentItemId },
+    { key: "language", label: "语言", count: languageBlocks.length, firstItemId: languageBlocks[0]?.contentItemId },
+    { key: "custom", label: "自定义栏目", count: generalCustomBlocks.length, firstItemId: generalCustomBlocks[0]?.contentItemId },
     { key: "add", label: "添加栏目", count: 0 }
   ];
-}
-
-function isAiOptimizableSection(section: ResumeStudioSectionKey) {
-  return section === "summary"
-    || section === "experience"
-    || section === "projects"
-    || section === "campus"
-    || section === "awards"
-    || section === "skills"
-    || section === "language";
-}
-
-function extractStructuredField(text: string, field: "organization" | "role" | "location" | "start" | "end") {
-  const normalized = text.replace(/\s+/g, " ").trim();
-  if (!normalized) {
-    return "";
-  }
-  if (field === "organization" || field === "role") {
-    const separators = [" / ", " - ", " ｜ ", " | ", "，", ","];
-    const separator = separators.find((value) => normalized.includes(value));
-    if (!separator) {
-      return field === "organization" ? "" : normalized.slice(0, 36);
-    }
-    const [first, second] = normalized.split(separator);
-    return field === "organization" ? first.trim().slice(0, 36) : (second ?? "").trim().slice(0, 36);
-  }
-  if (field === "start" || field === "end") {
-    const dates = normalized.match(/\b(19|20)\d{2}(?:[./-]\d{1,2})?\b/g) ?? [];
-    return field === "start" ? dates[0] ?? "" : dates[1] ?? "";
-  }
-  return "";
-}
-
-function updateStructuredFieldInText(
-  text: string,
-  field: "organization" | "role" | "location" | "start" | "end",
-  newValue: string
-): string {
-  const lines = text.split("\n");
-  const firstLine = lines[0] ?? "";
-  const rest = lines.slice(1);
-
-  if (field === "organization" || field === "role") {
-    const separators = [" / ", " - ", " ｜ ", " | ", "，", ","];
-    const separator = separators.find((value) => firstLine.includes(value)) ?? " / ";
-    const parts = firstLine.split(separator);
-    const org = (parts[0] ?? "").trim();
-    const role = (parts[1] ?? "").trim();
-    const nextOrg = field === "organization" ? newValue.trim() : org;
-    const nextRole = field === "role" ? newValue.trim() : role;
-    const nextFirstLine = nextOrg && nextRole
-      ? `${nextOrg}${separator}${nextRole}`
-      : nextOrg || nextRole;
-    return [nextFirstLine, ...rest].join("\n");
-  }
-
-  if (field === "location") {
-    const datePattern = /\b(19|20)\d{2}(?:[./-]\d{1,2})?\b/;
-    const dateMatch = firstLine.match(datePattern);
-    if (dateMatch) {
-      const dateIndex = firstLine.indexOf(dateMatch[0]);
-      const before = firstLine.slice(0, dateIndex).replace(/\s*[^\S\n]*$/, "");
-      const dates = firstLine.slice(dateIndex);
-      const newFirstLine = newValue.trim()
-        ? `${before}  ${newValue.trim()}  ${dates}`
-        : before + " " + dates;
-      return [newFirstLine.trim(), ...rest].join("\n");
-    }
-    return [firstLine.trim() + "  " + newValue.trim(), ...rest].join("\n").trim();
-  }
-
-  if (field === "start" || field === "end") {
-    const dates = firstLine.match(/\b(19|20)\d{2}(?:[./-]\d{1,2})?\b/g) ?? [];
-    const dateStart = dates[0] ?? "";
-    const dateEnd = dates[1] ?? "";
-    const newDateValue = newValue.length >= 4 ? newValue.slice(0, 4) : newValue;
-    const nextStart = field === "start" ? newDateValue : dateStart;
-    const nextEnd = field === "end" ? newDateValue : dateEnd;
-    const dateSection = nextStart && nextEnd
-      ? `${nextStart} - ${nextEnd}`
-      : nextStart || nextEnd;
-    const datePattern = /\b(19|20)\d{2}(?:[./-]\d{1,2})?\b/;
-    const dateMatch = firstLine.match(datePattern);
-    if (dateMatch && dateSection) {
-      const dateIndex = firstLine.indexOf(dateMatch[0]);
-      const before = firstLine.slice(0, dateIndex);
-      const oldDatePattern = /(?:\b(19|20)\d{2}(?:[./-]\d{1,2})?\b\s*(?:-\s*)?){1,2}/;
-      const afterMatch = firstLine.slice(dateIndex).match(oldDatePattern);
-      const after = afterMatch ? firstLine.slice(dateIndex + afterMatch[0].length) : "";
-      return [`${before}${dateSection}${after}`.trim(), ...rest].join("\n");
-    }
-    return [firstLine.trim() + "  " + dateSection, ...rest].join("\n").trim();
-  }
-
-  return text;
 }
 
 function buildNextPresentationConfig(input: {
@@ -4015,14 +4069,15 @@ function profileFieldKey(fieldId: string): EditableProfileFieldKey | undefined {
   if (fieldId === "profile:location") {
     return "location";
   }
-  if (fieldId.startsWith("profile:link:")) {
+  if (fieldId.startsWith("profile:link:") || fieldId.startsWith("profile:email:link:")) {
     return "link";
   }
   return undefined;
 }
 
 function profileLinkIndex(fieldId: string) {
-  const raw = Number(fieldId.split(":")[2] ?? 0);
+  const parts = fieldId.split(":");
+  const raw = Number(parts[parts.length - 1] ?? 0);
   return Number.isFinite(raw) && raw >= 0 ? raw : 0;
 }
 
@@ -4038,6 +4093,9 @@ function profileFieldLabel(fieldId?: string) {
     link: "链接"
   };
   const key = profileFieldKey(fieldId);
+  if (key === "link" && fieldId.startsWith("profile:email:link:")) {
+    return "邮箱";
+  }
   return key ? labels[key] : "基本信息";
 }
 
@@ -4085,15 +4143,6 @@ function guardStatusLabel(value: string) {
     blocked: "已阻断",
     pending: "待检查",
     rule_only_verified: "规则检查通过"
-  };
-  return labels[value] ?? value;
-}
-
-function riskLevelLabel(value: string) {
-  const labels: Record<string, string> = {
-    low: "低风险",
-    medium: "中风险",
-    high: "高风险"
   };
   return labels[value] ?? value;
 }
