@@ -429,10 +429,12 @@ export function ResumeWorkspace() {
     event.preventDefault();
     const startX = event.clientX;
     const startWidth = studioLayout.fieldPanelWidth;
+    const isStyleMode = studioMode === "style";
     const pointerId = event.pointerId;
     event.currentTarget.setPointerCapture(pointerId);
     const handleMove = (moveEvent: globalThis.PointerEvent) => {
-      const nextWidth = clampNumber(startWidth + moveEvent.clientX - startX, MIN_FIELD_PANEL_WIDTH, MAX_FIELD_PANEL_WIDTH);
+      const delta = moveEvent.clientX - startX;
+      const nextWidth = clampNumber(startWidth + (isStyleMode ? -delta : delta), MIN_FIELD_PANEL_WIDTH, MAX_FIELD_PANEL_WIDTH);
       setStudioLayout((current) => ({
         ...current,
         fieldPanelCollapsed: false,
@@ -493,7 +495,11 @@ export function ResumeWorkspace() {
         setStyleInspectorTab(parsed.styleTab);
       }
       if (parsed.branchId && nextBranches.some((branch) => branch.id === parsed.branchId)) {
-        setSelectedBranchId(parsed.branchId);
+        // Only restore branch on page refresh, not on fresh navigation from other pages
+        const isPageRefresh = performance.navigation.type === 1 || document.referrer === window.location.href;
+        if (isPageRefresh) {
+          setSelectedBranchId(parsed.branchId);
+        }
       }
     }
     void loadLists();
@@ -2782,21 +2788,22 @@ export function ResumeWorkspace() {
             </div>
           </div>
 
+          <nav className="resume-mode-rail no-print" aria-label="编辑模式">
+            <button type="button" className={studioMode === "edit" ? "mode-rail-button mode-rail-button-active" : "mode-rail-button"} onClick={() => setStudioMode("edit")} title="编辑">
+              <span>编辑</span>
+            </button>
+            <button type="button" className={studioMode === "ai" ? "mode-rail-button mode-rail-button-active" : "mode-rail-button"} onClick={() => setStudioMode("ai")} title="AI岗位优化">
+              <span>AI优化</span>
+            </button>
+            <button type="button" className={studioMode === "style" ? "mode-rail-button mode-rail-button-active" : "mode-rail-button"} onClick={() => {
+              setStudioMode("style");
+              setActivePropertyTab("document");
+            }} title="样式">
+              <span>样式</span>
+            </button>
+          </nav>
+
           <div className="resume-studio-toolbar" aria-label="简历工作栏">
-            <nav className="resume-mode-rail no-print" aria-label="编辑模式">
-              <button type="button" className={studioMode === "edit" ? "mode-rail-button mode-rail-button-active" : "mode-rail-button"} onClick={() => setStudioMode("edit")} title="编辑">
-                <span>编辑</span>
-              </button>
-              <button type="button" className={studioMode === "ai" ? "mode-rail-button mode-rail-button-active" : "mode-rail-button"} onClick={() => setStudioMode("ai")} title="AI岗位优化">
-                <span>AI优化</span>
-              </button>
-              <button type="button" className={studioMode === "style" ? "mode-rail-button mode-rail-button-active" : "mode-rail-button"} onClick={() => {
-                setStudioMode("style");
-                setActivePropertyTab("document");
-              }} title="样式">
-                <span>样式</span>
-              </button>
-            </nav>
             <div className="resume-workbar-actions">
               {Object.keys(profileFieldOverrides).length > 0 ? (
                 <button

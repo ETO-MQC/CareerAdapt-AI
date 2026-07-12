@@ -133,7 +133,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <header className="workspace-topbar no-print">
           <div className="topbar-title-row">
             <strong>{currentTitle}</strong>
-            <span className="global-save-state">本地自动保存</span>
           </div>
           <div className="topbar-actions">
             <details className="appearance-menu">

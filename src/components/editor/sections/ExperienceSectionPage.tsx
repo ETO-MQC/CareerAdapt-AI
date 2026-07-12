@@ -26,6 +26,30 @@ type ExperienceSectionPageProps = {
   nav: SectionNavContext;
 };
 
+function DefaultExperienceFields({ onAdd }: { onAdd: () => void }) {
+  return (
+    <div className="section-fields">
+      <div className="section-fields-grid-2">
+        <FieldInput label="公司 / 组织" placeholder="公司名称" value="" onChange={() => {}} />
+        <FieldInput label="职位 / 角色" placeholder="例如：软件工程师" value="" onChange={() => {}} />
+      </div>
+      <div className="section-fields-grid-2">
+        <FieldInput label="地点" placeholder="城市、省份（可选）" value="" onChange={() => {}} />
+        <FieldInput label="时间" placeholder="例如：2024年1月 - 至今" value="" onChange={() => {}} />
+      </div>
+      <div className="experience-description-field">
+        <label className="field-input-label">描述要点</label>
+        <TipTapEditor value="" onChange={() => {}} placeholder="描述你的工作内容和成就..." minRows={4} />
+      </div>
+      <div className="section-summary-actions">
+        <button type="button" className="section-action-button section-action-button-primary" onClick={onAdd}>
+          添加内容
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function ExperienceSectionPage({
   sectionLabel,
   blocks,
@@ -44,6 +68,27 @@ export function ExperienceSectionPage({
 }: ExperienceSectionPageProps) {
   const prev = prevSection(nav.activeSection);
   const next = nextSection(nav.activeSection);
+
+  if (blocks.length === 0) {
+    return (
+      <SectionShell
+        icon={<span className="section-shell-icon-svg">💼</span>}
+        title={sectionLabel}
+        description={`添加${sectionLabel}相关内容。`}
+        saved={true}
+        canUndo={nav.canUndo}
+        canRedo={nav.canRedo}
+        onUndo={nav.onUndo}
+        onRedo={nav.onRedo}
+        hasPrev={Boolean(prev)}
+        hasNext={Boolean(next)}
+        onPrev={() => prev && nav.onNavigate(prev)}
+        onNext={() => next && nav.onNavigate(next)}
+      >
+        <DefaultExperienceFields onAdd={onAdd} />
+      </SectionShell>
+    );
+  }
 
   const accordionItems = blocks.map((block, index) => {
     const sourceItem = branch?.contentItems.find((item) => item.id === block.contentItemId);
@@ -207,7 +252,7 @@ export function ExperienceSectionPage({
     >
       <AccordionList
         items={accordionItems}
-        emptyHint={`暂无${sectionLabel}内容。请在个人资料库中添加相关经历后，即可在此编辑。`}
+        emptyHint={undefined}
         addButton={
           <button
             type="button"

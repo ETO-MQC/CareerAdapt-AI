@@ -24,6 +24,28 @@ type SkillsSectionPageProps = {
   nav: SectionNavContext;
 };
 
+function DefaultSkillsFields({ sectionLabel, onAdd }: { sectionLabel: string; onAdd: () => void }) {
+  return (
+    <div className="section-fields">
+      <div className="section-fields-grid-2">
+        <div className="field-input-group">
+          <label className="field-input-label">技能 1</label>
+          <input className="field-input" placeholder="例如：提示词设计" value="" readOnly />
+        </div>
+        <div className="field-input-group">
+          <label className="field-input-label">技能 2</label>
+          <input className="field-input" placeholder="例如：Python" value="" readOnly />
+        </div>
+      </div>
+      <div className="section-summary-actions">
+        <button type="button" className="section-action-button section-action-button-primary" onClick={onAdd}>
+          添加{sectionLabel}内容
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function SkillsSectionPage({
   sectionLabel,
   blocks,
@@ -41,6 +63,27 @@ export function SkillsSectionPage({
 }: SkillsSectionPageProps) {
   const prev = prevSection(nav.activeSection);
   const next = nextSection(nav.activeSection);
+
+  if (blocks.length === 0) {
+    return (
+      <SectionShell
+        icon={<span className="section-shell-icon-svg">⚡</span>}
+        title={sectionLabel}
+        description={`添加${sectionLabel}相关信息。`}
+        saved={true}
+        canUndo={nav.canUndo}
+        canRedo={nav.canRedo}
+        onUndo={nav.onUndo}
+        onRedo={nav.onRedo}
+        hasPrev={Boolean(prev)}
+        hasNext={Boolean(next)}
+        onPrev={() => prev && nav.onNavigate(prev)}
+        onNext={() => next && nav.onNavigate(next)}
+      >
+        <DefaultSkillsFields sectionLabel={sectionLabel} onAdd={onAdd} />
+      </SectionShell>
+    );
+  }
 
   const accordionItems = blocks.map((block, index) => {
     const sourceItem = branch?.contentItems.find((item) => item.id === block.contentItemId);
@@ -108,7 +151,7 @@ export function SkillsSectionPage({
     >
       <AccordionList
         items={accordionItems}
-        emptyHint={`暂无${sectionLabel}内容。`}
+        emptyHint={undefined}
         addButton={
           <button
             type="button"

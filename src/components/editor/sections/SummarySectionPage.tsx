@@ -43,14 +43,18 @@ export function SummarySectionPage({
       onPrev={() => prev && nav.onNavigate(prev)}
       onNext={() => next && nav.onNavigate(next)}
     >
-      {block ? (
-        <div className="section-summary-editor">
-          <TipTapEditor
-            value={plainTextToHtml(currentText)}
-            onChange={(html) => onEditTextChange(block.contentItemId, htmlToPlainText(html))}
-            placeholder="例如：可靠的人，学习快，团队合作好。"
-            minRows={8}
-          />
+      <div className="section-summary-editor">
+        <TipTapEditor
+          value={plainTextToHtml(currentText)}
+          onChange={(html) => {
+            if (block) {
+              onEditTextChange(block.contentItemId, htmlToPlainText(html));
+            }
+          }}
+          placeholder="例如：可靠的人，学习快，团队合作好。"
+          minRows={8}
+        />
+        {block ? (
           <div className="section-summary-actions">
             <button
               type="button"
@@ -61,19 +65,18 @@ export function SummarySectionPage({
               保存
             </button>
           </div>
-        </div>
-      ) : (
-        <div className="section-empty">
-          <p>暂无自我评价内容。</p>
-          <button
-            type="button"
-            className="section-action-button section-action-button-primary"
-            onClick={onAdd}
-          >
-            + 新建自我评价
-          </button>
-        </div>
-      )}
+        ) : (
+          <div className="section-summary-actions">
+            <button
+              type="button"
+              className="section-action-button section-action-button-primary"
+              onClick={onAdd}
+            >
+              保存
+            </button>
+          </div>
+        )}
+      </div>
     </SectionShell>
   );
 }
