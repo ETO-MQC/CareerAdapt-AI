@@ -62,9 +62,14 @@ export function mapBranchToResumeRenderModel(input: {
     }))
     .filter((section) => section.blocks.length > 0);
 
-  if (blocks.length === 0) {
-    throw new ResumeRenderMapperError("render_model_requires_visible_content");
-  }
+  const basics = branch.resumeBasics ?? {
+    name: profile.basics.name,
+    email: profile.basics.email ?? "",
+    phone: profile.basics.phone ?? "",
+    location: profile.basics.location ?? "",
+    summary: profile.basics.summary ?? "",
+    links: profile.basics.links
+  };
 
   return ResumeRenderModelSchema.parse({
     schemaVersion: "resume-render-v1",
@@ -75,13 +80,13 @@ export function mapBranchToResumeRenderModel(input: {
     jobTitle: job?.title ?? "通用简历",
     company: job?.company ?? "未指定岗位",
     candidate: {
-      name: profile.basics.name,
-      summary: profile.basics.summary,
+      name: basics.name,
+      summary: basics.summary || undefined,
       contacts: [
-        profile.basics.location,
-        profile.basics.phone,
-        profile.basics.email,
-        ...profile.basics.links
+        basics.location,
+        basics.phone,
+        basics.email,
+        ...basics.links
       ].filter((value): value is string => Boolean(value?.trim())),
       targetRole: job?.title
     },

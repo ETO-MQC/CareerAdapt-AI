@@ -22,6 +22,7 @@ import {
   resolveBranchFactRefs,
   toBranchFactRef
 } from "./validation";
+import { resumeBasicsFromProfile } from "./profileBranch";
 
 export class BranchMapperError extends Error {
   constructor(readonly code: string) {
@@ -108,6 +109,7 @@ export function mapAdaptationDraftToResumeBranch(input: {
     revision: 0,
     lifecycleStatus: "active" as const,
     migrationStatus: "verified" as const,
+    resumeBasics: resumeBasicsFromProfile(input.profile),
     contentItems,
     createdAt: now,
     updatedAt: now
@@ -144,6 +146,7 @@ export function mapAdaptationDraftToResumeBranch(input: {
     snapshot: {
       name: branch.name,
       lifecycleStatus: branch.lifecycleStatus,
+      resumeBasics: branch.resumeBasics,
       contentItems: branch.contentItems
     },
     createdAt: now,

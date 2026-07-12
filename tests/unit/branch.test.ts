@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { demoCareerProfile } from "@/data/demoProfile";
 import { demoJobDescriptions } from "@/data/demoJobs";
 import { mapAdaptationDraftToResumeBranch } from "@/domain/branch/mapper";
+import { buildGeneralBranchFromProfile } from "@/domain/branch/profileBranch";
 import { createJobAdaptationDraft } from "@/domain/adaptation/draft";
 import { runRuleFactGuard } from "@/domain/adaptation/factGuard";
 import { createRuleRequirementMatches, resolveEffectiveMatch } from "@/domain/match/matcher";
@@ -52,6 +53,70 @@ afterEach(async () => {
 });
 
 describe("D1 resume branch domain", () => {
+  it("builds profile-backed and blank general branches with independent basic information", () => {
+    const fromProfile = buildGeneralBranchFromProfile({
+      profile: demoCareerProfile,
+      operationId: "g7b5-from-profile",
+      name: "资料库简历",
+      includeProfileFacts: true,
+      includeProfileBasics: true,
+      now: TEST_TIME
+    });
+    const blank = buildGeneralBranchFromProfile({
+      profile: demoCareerProfile,
+      operationId: "g7b5-blank",
+      name: "空白简历",
+      includeProfileFacts: false,
+      includeProfileBasics: false,
+      now: TEST_TIME
+    });
+
+    expect(fromProfile.branch.branchPurpose).toBe("general");
+    expect(fromProfile.branch.resumeBasics?.name).toBe(demoCareerProfile.basics.name);
+    expect(fromProfile.branch.contentItems.some((item) => item.factRefs.length > 0)).toBe(true);
+    expect(blank.branch.resumeBasics?.name).toBe("");
+    expect(blank.branch.contentItems).toHaveLength(1);
+    expect(blank.branch.contentItems[0]).toMatchObject({ itemType: "structural", visible: false, factRefs: [] });
+    expect(blank.firstRevision.snapshot.resumeBasics?.name).toBe("");
+  });
+
+  it("persists blank resume basics and newly confirmed content through revisions", async () => {
+    db = new CareerAdaptDb(`CareerAdaptG7b5Db-${crypto.randomUUID()}`);
+    const repository = new WorkspaceRepository(db);
+    await repository.saveProfile(demoCareerProfile);
+    const created = await repository.createGeneralResumeBranch({
+      profileId: demoCareerProfile.id,
+      operationId: "g7b5-create-blank-repository",
+      name: "空白简历",
+      includeProfileFacts: false,
+      includeProfileBasics: false
+    });
+    const basics = await repository.editResumeBranchBasics({
+      branchId: created.branch.id,
+      expectedRevision: created.branch.revision,
+      operationId: "g7b5-edit-basics-repository",
+      basics: { name: "独立简历姓名", email: "resume@example.com" }
+    });
+    const added = await repository.addResumeContentItem({
+      branchId: basics.branch.id,
+      expectedRevision: basics.branch.revision,
+      operationId: "g7b5-add-confirmed-experience",
+      section: "experience",
+      itemType: "experience",
+      text: "示例公司 / 工程师  上海  2024 - 至今\n负责产品开发",
+      organization: "示例公司",
+      role: "工程师",
+      startDate: "2024-01-01"
+    });
+    const savedProfile = await repository.getProfile(demoCareerProfile.id);
+
+    expect(basics.branch.resumeBasics).toMatchObject({ name: "独立简历姓名", email: "resume@example.com" });
+    expect(added.branch.revision).toBe(2);
+    expect(added.branch.contentItems.find((item) => item.id === added.newItemId)?.factRefs).toHaveLength(1);
+    expect(savedProfile?.version).toBe(demoCareerProfile.version + 1);
+    expect(savedProfile?.experiences.some((item) => item.organization === "示例公司")).toBe(true);
+  });
+
   it("maps a non-stale adaptation draft into a verified branch and first revision", () => {
     const job = demoJobDescriptions[0];
     const matches = createRuleRequirementMatches({ profile: demoCareerProfile, job }, TEST_TIME);

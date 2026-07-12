@@ -66,6 +66,15 @@ export const BranchGuardFindingSnapshotSchema = z.object({
   message: z.string().min(1)
 });
 
+export const ResumeBranchBasicsSchema = z.object({
+  name: z.string().default(""),
+  email: z.string().default(""),
+  phone: z.string().default(""),
+  location: z.string().default(""),
+  summary: z.string().default(""),
+  links: z.array(z.string()).default([])
+});
+
 export const BranchContentItemSchema = z.object({
   id: z.string().min(1),
   itemType: BranchContentItemTypeSchema,
@@ -122,11 +131,14 @@ export const BranchSyncStatusSchema = z.object({
 export const ResumeBranchSnapshotSchema = z.object({
   name: z.string().min(1),
   lifecycleStatus: BranchLifecycleStatusSchema,
+  resumeBasics: ResumeBranchBasicsSchema.optional(),
   contentItems: z.array(BranchContentItemSchema)
 });
 
 export const ResumeRevisionSourceSchema = z.enum([
   "created",
+  "created_from_profile",
+  "created_blank",
   "import_confirmed",
   "manual_edit",
   "suggestion_accept",
@@ -164,6 +176,7 @@ export const ResumeBranchSchema = EntityBaseSchema.extend({
   sourceJobVersion: z.string().min(1).optional(),
   sourceAdaptationDraftId: z.string().min(1).optional(),
   sourceImportId: z.string().min(1).optional(),
+  sourceProfileSnapshotId: z.string().min(1).optional(),
   sourceBranchId: z.string().min(1).optional(),
   sourceRevisionId: z.string().min(1).optional(),
   derivedAt: IsoDateStringSchema.optional(),
@@ -176,6 +189,7 @@ export const ResumeBranchSchema = EntityBaseSchema.extend({
   lifecycleStatus: BranchLifecycleStatusSchema,
   migrationStatus: BranchMigrationStatusSchema,
   syncStatusCache: BranchSyncStatusSchema,
+  resumeBasics: ResumeBranchBasicsSchema.optional(),
   contentItems: z.array(BranchContentItemSchema).default([]),
   legacyPayload: z.unknown().optional()
 }).superRefine((branch, ctx) => {
@@ -208,11 +222,11 @@ export const ResumeBranchSchema = EntityBaseSchema.extend({
     });
   }
 
-  if (branch.branchPurpose === "general" && !branch.sourceImportId) {
+  if (branch.branchPurpose === "general" && !branch.sourceImportId && !branch.sourceProfileSnapshotId) {
     ctx.addIssue({
       code: "custom",
       path: ["sourceImportId"],
-      message: "general branches must keep source import id"
+      message: "general branches must keep an import id or profile snapshot id"
     });
   }
 
@@ -235,6 +249,8 @@ export const ResumeBranchSchema = EntityBaseSchema.extend({
 
 export const ResumeBranchOperationTypeSchema = z.enum([
   "create_from_draft",
+  "create_from_profile",
+  "create_blank",
   "resume_import_confirm",
   "derive_job_branch",
   "manual_edit",
@@ -367,6 +383,7 @@ export type BranchContentSource = z.infer<typeof BranchContentSourceSchema>;
 export type BranchGuardMode = z.infer<typeof BranchGuardModeSchema>;
 export type BranchGuardStatus = z.infer<typeof BranchGuardStatusSchema>;
 export type BranchGuardFindingSnapshot = z.infer<typeof BranchGuardFindingSnapshotSchema>;
+export type ResumeBranchBasics = z.infer<typeof ResumeBranchBasicsSchema>;
 export type BranchContentItem = z.infer<typeof BranchContentItemSchema>;
 export type BranchSyncStatus = z.infer<typeof BranchSyncStatusSchema>;
 export type ResumeBranchSnapshot = z.infer<typeof ResumeBranchSnapshotSchema>;

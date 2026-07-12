@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import type { ResumeDocumentBlock } from "@/domain/resumeDocument/mapper";
 import type { ResumeBranch } from "@/domain/schemas";
 import { FieldInput } from "../FieldInput";
@@ -22,28 +23,47 @@ type ExperienceSectionPageProps = {
   onDuplicate: (itemId: string) => void;
   onMoveUp: (itemId: string) => void;
   onMoveDown: (itemId: string) => void;
-  onAdd: () => void;
+  onAdd: (draft: { text: string; organization?: string; role?: string; startDate?: string; endDate?: string }) => void;
   nav: SectionNavContext;
 };
 
-function DefaultExperienceFields({ onAdd }: { onAdd: () => void }) {
+function DefaultExperienceFields({ onAdd }: { onAdd: ExperienceSectionPageProps["onAdd"] }) {
+  const [draft, setDraft] = useState({ organization: "", role: "", location: "", startDate: "", endDate: "", current: false, description: "" });
+  const update = (key: keyof typeof draft, value: string | boolean) => setDraft((current) => ({ ...current, [key]: value }));
+  const save = () => {
+    const identity = [draft.organization, draft.role].filter(Boolean).join(" / ");
+    const dates = draft.startDate
+      ? `${draft.startDate} - ${draft.current ? "至今" : draft.endDate}`.replace(/\s+-\s+$/, "")
+      : draft.current ? "至今" : draft.endDate;
+    const header = [identity, draft.location, dates].filter(Boolean).join("  ");
+    const text = [header, draft.description.trim()].filter(Boolean).join("\n");
+    if (!text) return;
+    onAdd({ text, organization: draft.organization, role: draft.role, startDate: draft.startDate, endDate: draft.current ? undefined : draft.endDate });
+    setDraft({ organization: "", role: "", location: "", startDate: "", endDate: "", current: false, description: "" });
+  };
   return (
     <div className="section-fields">
       <div className="section-fields-grid-2">
-        <FieldInput label="公司 / 组织" placeholder="公司名称" value="" onChange={() => {}} />
-        <FieldInput label="职位 / 角色" placeholder="例如：软件工程师" value="" onChange={() => {}} />
+        <FieldInput id="new-experience-organization" label="公司 / 组织" placeholder="公司名称" value={draft.organization} onChange={(value) => update("organization", value)} />
+        <FieldInput id="new-experience-role" label="职位 / 角色" placeholder="例如：软件工程师" value={draft.role} onChange={(value) => update("role", value)} />
       </div>
       <div className="section-fields-grid-2">
-        <FieldInput label="地点" placeholder="城市、省份（可选）" value="" onChange={() => {}} />
-        <FieldInput label="时间" placeholder="例如：2024年1月 - 至今" value="" onChange={() => {}} />
+        <FieldInput id="new-experience-location" label="地点" placeholder="城市、省份（可选）" value={draft.location} onChange={(value) => update("location", value)} />
+        <FieldInput id="new-experience-start" label="开始日期" type="date" value={draft.startDate} onChange={(value) => update("startDate", value)} />
+      </div>
+      <div className="section-fields-grid-2">
+        <FieldInput id="new-experience-end" label="结束日期" type="date" value={draft.endDate} disabled={draft.current} onChange={(value) => update("endDate", value)} />
+        <div className="field-input-group field-input-group-checkbox">
+          <label className="field-input-checkbox-label"><input type="checkbox" checked={draft.current} onChange={(event) => update("current", event.target.checked)} /><span>仍在进行</span></label>
+        </div>
       </div>
       <div className="experience-description-field">
         <label className="field-input-label">描述要点</label>
-        <TipTapEditor value="" onChange={() => {}} placeholder="描述你的工作内容和成就..." minRows={4} />
+        <TipTapEditor value={plainTextToHtml(draft.description)} onChange={(html) => update("description", htmlToPlainText(html))} placeholder="描述你的工作内容和成就…" minRows={4} />
       </div>
       <div className="section-summary-actions">
-        <button type="button" className="section-action-button section-action-button-primary" onClick={onAdd}>
-          添加内容
+        <button type="button" className="section-action-button section-action-button-primary" onClick={save} disabled={!Object.values(draft).some(Boolean)}>
+          保存并确认
         </button>
       </div>
     </div>
@@ -68,11 +88,12 @@ export function ExperienceSectionPage({
 }: ExperienceSectionPageProps) {
   const prev = prevSection(nav.activeSection);
   const next = nextSection(nav.activeSection);
+  const [adding, setAdding] = useState(false);
 
   if (blocks.length === 0) {
     return (
       <SectionShell
-        icon={<span className="section-shell-icon-svg">💼</span>}
+        icon={<span className="section-shell-icon-svg" aria-hidden="true">历</span>}
         title={sectionLabel}
         description={`添加${sectionLabel}相关内容。`}
         saved={true}
@@ -98,6 +119,7 @@ export function ExperienceSectionPage({
     const location = extractStructuredField(currentText, "location");
     const startDate = extractStructuredField(currentText, "start");
     const endDate = extractStructuredField(currentText, "end");
+    const isCurrent = extractStructuredField(currentText, "current") === "true";
     const descriptionLines = currentText.split("\n").slice(1).join("\n").trim();
     const titleText = org && role ? `${org} · ${role}` : org || role || `${sectionLabel} ${index + 1}`;
     const isOpen = selectedItemId ? selectedItemId === block.contentItemId : index === 0;
@@ -142,7 +164,13 @@ export function ExperienceSectionPage({
             />
             <div className="field-input-group field-input-group-checkbox">
               <label className="field-input-checkbox-label">
-                <input type="checkbox" checked={false} readOnly />
+                <input
+                  type="checkbox"
+                  checked={isCurrent}
+                  onChange={(event) => {
+                    onEditTextChange(block.contentItemId, updateStructuredFieldInText(currentText, "current", String(event.target.checked)));
+                  }}
+                />
                 <span>当前职位</span>
               </label>
             </div>
@@ -162,6 +190,7 @@ export function ExperienceSectionPage({
               label="结束日期"
               type="date"
               value={endDate}
+              disabled={isCurrent}
               placeholder="YYYY-MM-DD"
               onChange={(value) => {
                 onEditTextChange(block.contentItemId, updateStructuredFieldInText(currentText, "end", value));
@@ -237,7 +266,7 @@ export function ExperienceSectionPage({
 
   return (
     <SectionShell
-      icon={<span className="section-shell-icon-svg">💼</span>}
+      icon={<span className="section-shell-icon-svg" aria-hidden="true">历</span>}
       title={sectionLabel}
       description={`添加${sectionLabel}相关内容。`}
       saved={blocks.every((b) => !(b.contentItemId in editTexts))}
@@ -257,12 +286,13 @@ export function ExperienceSectionPage({
           <button
             type="button"
             className="section-action-button section-action-button-primary"
-            onClick={onAdd}
+            onClick={() => setAdding((current) => !current)}
           >
             + 添加{sectionLabel}
           </button>
         }
       />
+      {adding ? <DefaultExperienceFields onAdd={(draft) => { onAdd(draft); setAdding(false); }} /> : null}
     </SectionShell>
   );
 }

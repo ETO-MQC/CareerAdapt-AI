@@ -20,13 +20,14 @@ type BasicsSectionPageProps = {
 };
 
 function getFieldValue(profile: CareerProfile | undefined, branch: ResumeBranch | undefined, field: DraftField): string {
+  const basics = branch?.resumeBasics;
   switch (field) {
-    case "name": return profile?.basics.name ?? "";
+    case "name": return basics?.name ?? profile?.basics.name ?? "";
     case "headline": return branch?.name ?? "";
-    case "email": return profile?.basics.email ?? "";
-    case "phone": return profile?.basics.phone ?? "";
-    case "location": return profile?.basics.location ?? "";
-    case "linkedin": return profile?.basics.links?.[0] ?? "";
+    case "email": return basics?.email ?? profile?.basics.email ?? "";
+    case "phone": return basics?.phone ?? profile?.basics.phone ?? "";
+    case "location": return basics?.location ?? profile?.basics.location ?? "";
+    case "linkedin": return basics?.links?.[0] ?? profile?.basics.links?.[0] ?? "";
   }
 }
 
@@ -68,7 +69,7 @@ export function BasicsSectionPage(props: BasicsSectionPageProps) {
 
   return (
     <SectionShell
-      icon={<span className="section-shell-icon-svg">👤</span>}
+      icon={<span className="section-shell-icon-svg" aria-hidden="true">人</span>}
       title="个人信息"
       description="添加您的联系方式和位置，以便雇主可以联系您。"
       saved={Object.keys(dirtyValues).length === 0}
@@ -91,7 +92,6 @@ export function BasicsSectionPage(props: BasicsSectionPageProps) {
           onChange={(v) => handleChange("name", v)}
           onBlur={() => handleBlur("name")}
           error={profileFieldError}
-          required
         />
         <FieldInput
           label="职位名称"

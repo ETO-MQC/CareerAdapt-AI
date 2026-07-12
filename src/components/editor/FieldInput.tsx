@@ -49,6 +49,7 @@ export function FieldInput({
       </label>
       <input
         id={fieldId}
+        name={fieldId}
         type={type}
         inputMode={inputMode}
         className={`field-input ${error ? "field-input-error-state" : ""}`}

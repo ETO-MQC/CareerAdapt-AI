@@ -41,172 +41,70 @@ export function riskLevelLabel(value: string) {
 
 export function extractStructuredField(
   text: string,
-  field: "organization" | "role" | "location" | "start" | "end"
+  field: "organization" | "role" | "location" | "start" | "end" | "current"
 ) {
-  const normalized = text.replace(/\s+/g, " ").trim();
-  if (!normalized) {
-    return "";
-  }
-
-  const orgRoleSeparators = [" / ", " - ", " ｜ ", " | ", "，", ","];
-  const separator = orgRoleSeparators.find((value) => normalized.includes(value));
-
-  if (field === "organization") {
-    if (!separator) return normalized;
-    return normalized.split(separator)[0].trim();
-  }
-
-  if (field === "role") {
-    if (!separator) return "";
-    const afterSep = normalized.split(separator).slice(1).join(separator).trim();
-    if (!afterSep) return "";
-    return afterSep.replace(/\s+(?:19|20)\d{2}.*$/, "").replace(/\s{2,}.*$/, "").trim();
-  }
-
-  if (field === "location") {
-    const afterOrgRole = separator
-      ? normalized.split(separator).slice(1).join(separator).trim()
-      : normalized;
-    const cleaned = afterOrgRole
-      .replace(/\s+(?:19|20)\d{2}(?:[./-]\d{1,2})?\b.*$/g, "")
-      .trim();
-    const rolePart = cleaned.replace(/\s{2,}.*$/, "").trim();
-    const locPart = cleaned.slice(rolePart.length).trim();
-    if (separator && locPart) return locPart;
-    if (!separator && cleaned) return cleaned;
-    return "";
-  }
-
-  if (field === "start" || field === "end") {
-    const dateMatch = normalized.match(/(19|20)\d{2}(?:[./-]\d{1,2})?(?:[./-]\d{1,2})?/g) ?? [];
-    const raw = field === "start" ? dateMatch[0] ?? "" : dateMatch[1] ?? "";
-    if (!raw) return "";
-    if (/^\d{4}$/.test(raw)) return `${raw}-01-01`;
-    if (/^\d{4}[./-]\d{1,2}$/.test(raw)) {
-      const [y, m] = raw.split(/[./-]/);
-      return `${y}-${m.padStart(2, "0")}-01`;
-    }
-    return raw.replace(/[./]/g, "-");
-  }
-
-  return "";
+  const parsed = parseStructuredHeader(text);
+  if (field === "current") return parsed.current ? "true" : "false";
+  return parsed[field];
 }
 
 export function updateStructuredFieldInText(
   text: string,
-  field: "organization" | "role" | "location" | "start" | "end",
+  field: "organization" | "role" | "location" | "start" | "end" | "current",
   newValue: string
 ): string {
-  const lines = text.split("\n");
-  const firstLine = lines[0] ?? "";
-  const rest = lines.slice(1);
-  const normalized = firstLine.replace(/\s+/g, " ").trim();
+  const parsed = parseStructuredHeader(text);
+  const next = {
+    ...parsed,
+    [field]: field === "current" ? newValue === "true" : newValue.trim()
+  };
+  if (field === "current" && next.current) next.end = "";
+  const identity = [next.organization, next.role].filter(Boolean).join(" / ");
+  const dates = next.start
+    ? `${serializeDate(next.start)} - ${next.current ? "至今" : serializeDate(next.end)}`.replace(/\s+-\s+$/, "")
+    : next.current ? "至今" : serializeDate(next.end);
+  const header = [identity, next.location, dates].filter(Boolean).join("  ");
+  return [header, ...parsed.descriptionLines].filter((line, index) => index > 0 || Boolean(line)).join("\n");
+}
 
-  const orgRoleSeparators = [" / ", " - ", " ｜ ", " | ", "，", ","];
-  const separator = orgRoleSeparators.find((value) => normalized.includes(value)) ?? " / ";
+function parseStructuredHeader(text: string) {
+  const [rawHeader = "", ...descriptionLines] = text.split("\n");
+  let header = rawHeader.trim();
+  const current = /(?:至今|现在|present|current)/i.test(header);
+  const dates = header.match(/(?:19|20)\d{2}(?:[./-]\d{1,2})?(?:[./-]\d{1,2})?/g) ?? [];
+  header = header
+    .replace(/(?:19|20)\d{2}(?:[./-]\d{1,2})?(?:[./-]\d{1,2})?/g, "")
+    .replace(/(?:至今|现在|present|current)/gi, "")
+    .replace(/\s+-\s*$/, "")
+    .trim();
+  const segments = header.split(/\s{2,}/).map((value) => value.trim()).filter(Boolean);
+  const identity = segments[0] ?? "";
+  const separator = [" / ", " ｜ ", " | ", "，", ","].find((value) => identity.includes(value));
+  const identityParts = separator ? identity.split(separator).map((value) => value.trim()) : [identity];
+  return {
+    organization: identityParts[0] ?? "",
+    role: identityParts.slice(1).join(separator ?? " / "),
+    location: segments.slice(1).join(" "),
+    start: normalizeDate(dates[0] ?? ""),
+    end: current ? "" : normalizeDate(dates[1] ?? ""),
+    current,
+    descriptionLines
+  };
+}
 
-  if (field === "organization" || field === "role") {
-    const org = separator ? normalized.split(separator)[0].trim() : normalized;
-    const afterSep = separator ? normalized.split(separator).slice(1).join(separator).trim() : "";
-    const roleClean = afterSep
-      ? afterSep.replace(/\s+(?:19|20)\d{2}(?:[./-]\d{1,2})?(?:[./-]\d{1,2})?\b.*$/g, "").replace(/\s{2,}.*$/, "").trim()
-      : "";
-    const locAndDates = afterSep.slice(roleClean.length).trim();
+function normalizeDate(value: string) {
+  if (!value) return "";
+  const parts = value.split(/[./-]/);
+  if (parts.length === 1) return `${parts[0]}-01-01`;
+  if (parts.length === 2) return `${parts[0]}-${parts[1].padStart(2, "0")}-01`;
+  return `${parts[0]}-${parts[1].padStart(2, "0")}-${parts[2].padStart(2, "0")}`;
+}
 
-    const nextOrg = field === "organization" ? newValue.trim() : org;
-    const nextRole = field === "role" ? newValue.trim() : roleClean;
-
-    const parts: string[] = [];
-    if (nextOrg && nextRole) {
-      parts.push(`${nextOrg}${separator}${nextRole}`);
-    } else if (nextOrg) {
-      parts.push(nextOrg);
-    } else if (nextRole) {
-      parts.push(nextRole);
-    }
-    if (locAndDates) parts.push(locAndDates);
-    return [parts.join(" "), ...rest].join("\n");
-  }
-
-  if (field === "location") {
-    const afterSep = separator ? normalized.split(separator).slice(1).join(separator).trim() : "";
-    const roleClean = afterSep
-      ? afterSep.replace(/\s+(?:19|20)\d{2}(?:[./-]\d{1,2})?(?:[./-]\d{1,2})?\b.*$/g, "").replace(/\s{2,}.*$/, "").trim()
-      : "";
-    const dateMatch = afterSep.match(/(19|20)\d{2}(?:[./-]\d{1,2})?(?:[./-]\d{1,2})?\b\s*(?:-\s*(?:19|20)\d{2}(?:[./-]\d{1,2})?(?:[./-]\d{1,2})?)?\b/);
-    const dateStr = dateMatch ? dateMatch[0].trim() : "";
-
-    const orgPart = separator ? normalized.split(separator)[0].trim() : "";
-    const nextLoc = newValue.trim();
-
-    const parts: string[] = [];
-    if (orgPart && roleClean) {
-      parts.push(`${orgPart}${separator}${roleClean}`);
-    } else if (orgPart) {
-      parts.push(orgPart);
-    } else if (roleClean) {
-      parts.push(roleClean);
-    }
-    if (nextLoc) parts.push(nextLoc);
-    if (dateStr) parts.push(dateStr);
-    return [parts.join("  "), ...rest].join("\n");
-  }
-
-  if (field === "start" || field === "end") {
-    const fullDatePattern = /(19|20)\d{2}(?:[./-]\d{1,2})?(?:[./-]\d{1,2})?/g;
-    const dateMatch = normalized.match(fullDatePattern) ?? [];
-    const rawStart = dateMatch[0] ?? "";
-    const rawEnd = dateMatch[1] ?? "";
-
-    const normalizeDate = (d: string) => {
-      if (!d) return "";
-      if (/^\d{4}$/.test(d)) return `${d}-01-01`;
-      if (/^\d{4}[./-]\d{1,2}$/.test(d)) {
-        const [y, m] = d.split(/[./-]/);
-        return `${y}-${m.padStart(2, "0")}-01`;
-      }
-      return d.replace(/[./]/g, "-");
-    };
-    const serializeDate = (d: string) => {
-      if (!d) return "";
-      if (/^\d{4}-01-01$/.test(d)) return d.slice(0, 4);
-      if (/^\d{4}-\d{2}-01$/.test(d)) return `${d.slice(0, 4)}.${d.slice(5, 7)}`;
-      return d.replace(/-/g, ".");
-    };
-
-    const nextStart = field === "start" ? normalizeDate(newValue) : normalizeDate(rawStart);
-    const nextEnd = field === "end" ? normalizeDate(newValue) : normalizeDate(rawEnd);
-
-    // Rebuild: org / role  location  dates
-    const org = separator ? normalized.split(separator)[0].trim() : normalized;
-    const afterSep = separator ? normalized.split(separator).slice(1).join(separator).trim() : "";
-    const roleClean = afterSep
-      ? afterSep.replace(/\s+(?:19|20)\d{2}(?:[./-]\d{1,2})?(?:[./-]\d{1,2})?\b.*$/g, "").replace(/\s{2,}.*$/, "").trim()
-      : "";
-    const locPart = afterSep.slice(roleClean.length).trim()
-      .replace(/(19|20)\d{2}(?:[./-]\d{1,2})?(?:[./-]\d{1,2})?\b\s*(?:-\s*(?:19|20)\d{2}(?:[./-]\d{1,2})?(?:[./-]\d{1,2})?)?\b/g, "")
-      .trim();
-
-    const dateParts: string[] = [];
-    if (nextStart) dateParts.push(serializeDate(nextStart));
-    if (nextEnd) dateParts.push(serializeDate(nextEnd));
-    const dateStr = dateParts.length > 0 ? dateParts.join(" - ") : "";
-
-    const headerParts: string[] = [];
-    if (org && roleClean) {
-      headerParts.push(`${org}${separator}${roleClean}`);
-    } else if (org) {
-      headerParts.push(org);
-    } else if (roleClean) {
-      headerParts.push(roleClean);
-    }
-    if (locPart) headerParts.push(locPart);
-    if (dateStr) headerParts.push(dateStr);
-
-    return [headerParts.join("  "), ...rest].join("\n");
-  }
-
-  return text;
+function serializeDate(value: string) {
+  if (!value) return "";
+  if (/^\d{4}-01-01$/.test(value)) return value.slice(0, 4);
+  if (/^\d{4}-\d{2}-01$/.test(value)) return `${value.slice(0, 4)}.${value.slice(5, 7)}`;
+  return value.replace(/-/g, ".");
 }
 
 /**

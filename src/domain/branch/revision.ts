@@ -8,10 +8,11 @@ import {
   type ResumeRevisionSource
 } from "@/domain/schemas";
 
-export function createBranchSnapshot(branch: Pick<ResumeBranch, "name" | "lifecycleStatus" | "contentItems">): ResumeBranchSnapshot {
+export function createBranchSnapshot(branch: Pick<ResumeBranch, "name" | "lifecycleStatus" | "resumeBasics" | "contentItems">): ResumeBranchSnapshot {
   return ResumeBranchSnapshotSchema.parse({
     name: branch.name,
     lifecycleStatus: branch.lifecycleStatus,
+    resumeBasics: branch.resumeBasics,
     contentItems: branch.contentItems
   });
 }
@@ -51,6 +52,7 @@ export function applySnapshotToBranch(input: {
     ...input.branch,
     name: input.snapshot.name,
     lifecycleStatus: input.snapshot.lifecycleStatus,
+    resumeBasics: input.snapshot.resumeBasics,
     contentItems: input.snapshot.contentItems,
     revision: input.revision,
     currentRevisionId: input.currentRevisionId,

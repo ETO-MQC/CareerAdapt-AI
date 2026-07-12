@@ -100,6 +100,9 @@ test.describe("V2-G7b.3 Resume Center and Studio usability", () => {
 });
 
 async function importStructuredResume(page: Page) {
+  if (await page.locator(".import-json-details summary").count() === 0) {
+    await page.getByTestId("resume-entry-import-primary").click();
+  }
   await page.locator(".import-json-details summary").click();
   await page.locator(".import-json-details textarea").fill(JSON.stringify(sampleStructuredResumeJson(), null, 2));
   await page.locator(".import-json-details button.primary-button").click();

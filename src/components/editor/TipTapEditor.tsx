@@ -11,6 +11,7 @@ type TipTapEditorProps = {
   placeholder?: string;
   disabled?: boolean;
   minRows?: number;
+  ariaLabel?: string;
 };
 
 export function TipTapEditor({
@@ -18,7 +19,8 @@ export function TipTapEditor({
   onChange,
   placeholder = "在此输入内容…",
   disabled = false,
-  minRows = 6
+  minRows = 6,
+  ariaLabel = "内容编辑器"
 }: TipTapEditorProps) {
   const lastEmittedRef = useRef(value);
 
@@ -37,6 +39,7 @@ export function TipTapEditor({
     editorProps: {
       attributes: {
         class: "tiptap-prosemirror",
+        "aria-label": ariaLabel,
         style: `min-height: ${minRows * 1.5}rem`
       }
     },

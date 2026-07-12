@@ -60,7 +60,6 @@ const DEFAULT_TEMPLATE_ID: TemplateId = "classic-technical";
 const BRANCH_LIST_SENTINEL = "__resume_branch_list__";
 
 type WorkbenchState = {
-  branchId?: string;
   templateId?: TemplateId;
   stylePanelOpen?: boolean;
   studioMode?: StudioMode;
@@ -85,7 +84,7 @@ type PresentationHistoryState = {
 type PropertyPanelTab = "document" | "section" | "block";
 type StudioMode = "edit" | "ai" | "style";
 type ManualInspectorTab = "content" | "typography" | "paragraph" | "layout" | "template" | "page" | "history";
-type AiInspectorTab = "job" | "suggestions" | "quality" | "facts" | "match" | "records";
+type AiInspectorTab = "suggestions" | "quality";
 type StyleInspectorTab = "template" | "colors" | "font" | "page";
 type PdfExportState = {
   status: "idle" | "validating" | "generating" | "downloading" | "success" | "failed" | "blocked_overflow";
@@ -154,7 +153,7 @@ export function ResumeWorkspace() {
   const [resumeListFilter, setResumeListFilter] = useState<ResumeListFilter>("recent");
   const [studioMode, setStudioMode] = useState<StudioMode>("edit");
   const [manualInspectorTab, setManualInspectorTab] = useState<ManualInspectorTab>("content");
-  const [aiInspectorTab, setAiInspectorTab] = useState<AiInspectorTab>("job");
+  const [aiInspectorTab, setAiInspectorTab] = useState<AiInspectorTab>("suggestions");
   const [styleInspectorTab, setStyleInspectorTab] = useState<StyleInspectorTab>("template");
   const [activeResumeSection, setActiveResumeSection] = useState<ResumeStudioSectionKey>("basics");
   const [canvasZoom, setCanvasZoom] = useState(1);
@@ -169,14 +168,13 @@ export function ResumeWorkspace() {
   const [diagnosticError, setDiagnosticError] = useState<string | undefined>();
   const [ignoredDiagnosticIssueKeys, setIgnoredDiagnosticIssueKeys] = useState<string[]>([]);
 
-  // Profile field sync: resume-local overrides that take priority over profile library
-  const [profileFieldOverrides, setProfileFieldOverrides] = useState<Record<string, string>>({});
   const [profileSyncConflicts, setProfileSyncConflicts] = useState<Array<{
     fieldId: string;
     label: string;
     resumeValue: string;
     profileValue: string;
   }>>([]);
+  const [profileSyncChoices, setProfileSyncChoices] = useState<Record<string, "resume" | "profile">>({});
   const [profileSyncDialogOpen, setProfileSyncDialogOpen] = useState(false);
 
   const presentationQueueRef = useRef<{
@@ -267,14 +265,15 @@ export function ResumeWorkspace() {
     if (!resumeDocument) {
       return [];
     }
+    const contentBlocks = resumeDocument.blocks.filter((block) => block.itemType !== "structural");
     if (activeResumeSection === "basics" || activeResumeSection === "add") {
       return [];
     }
     if (activeResumeSection === "summary" || activeResumeSection === "skills" || activeResumeSection === "certificates") {
-      return resumeDocument.blocks.filter((block) => block.sectionType === activeResumeSection);
+      return contentBlocks.filter((block) => block.sectionType === activeResumeSection);
     }
     if (activeResumeSection === "experience") {
-      return resumeDocument.blocks.filter((block) =>
+      return contentBlocks.filter((block) =>
         block.sectionType === "experience"
         && block.sourceSectionId !== "education"
         && block.sourceSectionId !== "projects"
@@ -282,19 +281,19 @@ export function ResumeWorkspace() {
       );
     }
     if (activeResumeSection === "education" || activeResumeSection === "projects" || activeResumeSection === "campus") {
-      return resumeDocument.blocks.filter((block) =>
+      return contentBlocks.filter((block) =>
         block.sectionType === "experience" && block.sourceSectionId === activeResumeSection
       );
     }
     if (activeResumeSection === "custom") {
-      return resumeDocument.blocks.filter((block) =>
+      return contentBlocks.filter((block) =>
         block.itemType === "custom"
         && block.sourceSectionId !== "awards"
         && block.sourceSectionId !== "language"
       );
     }
     if (activeResumeSection === "awards" || activeResumeSection === "language") {
-      return resumeDocument.blocks.filter((block) =>
+      return contentBlocks.filter((block) =>
         block.itemType === "custom" && block.sourceSectionId === activeResumeSection
       );
     }
@@ -494,13 +493,6 @@ export function ResumeWorkspace() {
       if (parsed.styleTab) {
         setStyleInspectorTab(parsed.styleTab);
       }
-      if (parsed.branchId && nextBranches.some((branch) => branch.id === parsed.branchId)) {
-        // Only restore branch on page refresh, not on fresh navigation from other pages
-        const isPageRefresh = performance.navigation.type === 1 || document.referrer === window.location.href;
-        if (isPageRefresh) {
-          setSelectedBranchId(parsed.branchId);
-        }
-      }
     }
     void loadLists();
     return () => {
@@ -624,7 +616,6 @@ export function ResumeWorkspace() {
       return;
     }
     void repository.setMeta(workbenchStateKey(profile.id), {
-      branchId: activeBranchId,
       templateId: effectiveTemplateId,
       stylePanelOpen: isStylePanelOpen,
       studioMode,
@@ -978,6 +969,32 @@ export function ResumeWorkspace() {
     setMessage("已进入导入生成的通用简历，可继续编辑、换模板、调整分页并下载 PDF。");
   }
 
+  async function createGeneralResume(options: { fromProfile: boolean }) {
+    if (!profile) {
+      setMessage("请先在个人资料库填写基本信息，再创建简历。");
+      return;
+    }
+    const label = options.fromProfile ? "资料库简历" : "空白简历";
+    try {
+      const result = await repository.createGeneralResumeBranch({
+        profileId: profile.id,
+        operationId: `v2-g7b5-${options.fromProfile ? "profile" : "blank"}-${crypto.randomUUID()}`,
+        name: label,
+        includeProfileFacts: options.fromProfile,
+        includeProfileBasics: options.fromProfile
+      });
+      await refreshLists(profile.id);
+      openResumeBranch(result.branch.id);
+      setStudioMode("edit");
+      setActiveResumeSection("basics");
+      setMessage(options.fromProfile
+        ? "已从个人资料库创建独立简历副本；之后资料库变化不会自动覆盖这份简历。"
+        : "空白简历已创建。填写并确认的内容才会进入预览和导出。");
+    } catch {
+      setMessage("创建失败，请刷新个人资料库后重试。");
+    }
+  }
+
   async function saveItem(itemId: string) {
     if (!selectedBranch || !selectedBranchEditable) {
       setMessage("当前简历不可编辑：旧数据、归档、引用失效或缺少当前版本。");
@@ -1065,7 +1082,7 @@ export function ResumeWorkspace() {
       const result = await repository.renameResumeBranch({
         branchId: selectedBranch.id,
         expectedRevision: selectedBranch.revision,
-        operationId: `rename-${selectedBranch.id}-${Date.now()}`,
+        operationId: `rename-${selectedBranch.id}-${selectedBranch.revision}-${stableHashText(trimmed)}`,
         name: trimmed
       });
       replaceBranch(result.branch);
@@ -1075,7 +1092,7 @@ export function ResumeWorkspace() {
     }
   }
 
-  async function addContentItem(section: string) {
+  async function addContentItem(section: string, draft: string | { text: string; organization?: string; role?: string; startDate?: string; endDate?: string }) {
     if (!selectedBranch || !selectedBranchEditable) {
       setMessage("当前简历不可编辑。");
       return;
@@ -1093,23 +1110,30 @@ export function ResumeWorkspace() {
       custom: "custom"
     };
     const itemType = itemTypeMap[section] ?? "custom";
-    const placeholder = itemType === "summary"
-      ? "请在此输入个人简介或自我评价..."
-      : "公司 / 职位  地点  2024 - 至今\n请输入描述内容...";
+    const payload = typeof draft === "string" ? { text: draft } : draft;
+    if (!payload.text.trim()) {
+      setMessage("请先填写内容，再保存并确认。");
+      return;
+    }
     try {
       const result = await repository.addResumeContentItem({
         branchId: selectedBranch.id,
         expectedRevision: selectedBranch.revision,
-        operationId: `add-${section}-${selectedBranch.id}-${Date.now()}`,
+        operationId: `add-${section}-${selectedBranch.id}-${selectedBranch.revision}-${stableHashText(payload.text)}`,
         section,
         itemType,
-        placeholderText: placeholder
+        text: payload.text,
+        organization: payload.organization,
+        role: payload.role,
+        startDate: payload.startDate,
+        endDate: payload.endDate
       });
+      const nextProfile = await repository.getProfile(selectedBranch.profileId);
+      if (nextProfile) setProfileOverride(nextProfile);
       replaceBranch(result.branch);
       setSelectedBranchId(result.branch.id);
       setSelectedStudioItemId(result.newItemId);
-      setEditTexts((prev) => ({ ...prev, [result.newItemId]: placeholder }));
-      setMessage("已添加新内容，可开始编辑。");
+      setMessage("新内容已确认并加入简历与个人事实库。");
     } catch {
       setMessage("添加失败：当前简历可能不可编辑。");
     }
@@ -1716,7 +1740,7 @@ export function ResumeWorkspace() {
   }
 
   async function saveProfileFieldText(fieldId: string, draftText: string) {
-    if (!profile) {
+    if (!profile || !selectedBranch || !selectedBranchEditable) {
       return;
     }
     const key = profileFieldKey(fieldId);
@@ -1725,202 +1749,128 @@ export function ResumeWorkspace() {
       return;
     }
     const text = draftText.trim();
-    if (key === "name" && !text) {
-      setProfileFieldError("姓名不能为空。");
-      return;
-    }
-    // Get the current value from the latest profile (including any previous overrides)
-    const currentValue = key === "name"
-      ? profile.basics.name
-      : key === "link"
-        ? profile.basics.links[profileLinkIndex(fieldId)] ?? ""
-        : profile.basics[key] ?? "";
+    const currentBasics = selectedBranch.resumeBasics ?? {
+      name: profile.basics.name,
+      email: profile.basics.email ?? "",
+      phone: profile.basics.phone ?? "",
+      location: profile.basics.location ?? "",
+      summary: profile.basics.summary ?? "",
+      links: profile.basics.links
+    };
+    const currentValue = key === "link"
+      ? currentBasics.links[profileLinkIndex(fieldId)] ?? ""
+      : currentBasics[key] ?? "";
     if (text === currentValue) {
-      // No change — clear override if it existed
-      setProfileFieldOverrides((prev) => {
-        if (!(fieldId in prev)) return prev;
-        const next = { ...prev };
-        delete next[fieldId];
-        return next;
-      });
       setEditingProfileFieldId(undefined);
       setProfileFieldError(undefined);
       return;
     }
-
-    // Store as resume-local override (takes priority over profile library)
-    setProfileFieldOverrides((prev) => ({ ...prev, [fieldId]: text }));
-
-    // Update profileOverride for immediate preview rendering
-    const nextBasics = { ...profile.basics };
-    if (key === "name") {
-      nextBasics.name = text;
-    } else if (key === "link") {
+    const patch: Partial<NonNullable<ResumeBranch["resumeBasics"]>> = {};
+    if (key === "link") {
       const index = profileLinkIndex(fieldId);
-      const links = [...nextBasics.links];
+      const links = [...currentBasics.links];
       if (text) {
         links[index] = text;
       } else {
         links.splice(index, 1);
       }
-      nextBasics.links = links.filter((link) => link.trim().length > 0);
+      patch.links = links.filter((link) => link.trim().length > 0);
     } else {
-      nextBasics[key] = text || undefined;
+      patch[key] = text;
     }
-    setProfileOverride({
-      ...profile,
-      name: key === "name" ? text : profile.name,
-      basics: nextBasics
-    });
-    setEditingProfileFieldId(undefined);
-    setSelectedProfileFieldId(undefined);
-    setProfileFieldDraftText("");
-    setProfileFieldError(undefined);
-    setMessage("简历中的个人信息已更新（本地优先）。保存或导出时可选择同步到个人资料库。");
-  }
-
-  // Check for conflicts between resume-local overrides and the latest profile
-  async function checkProfileSyncConflicts(): Promise<Array<{ fieldId: string; label: string; resumeValue: string; profileValue: string }>> {
-    if (!profile || Object.keys(profileFieldOverrides).length === 0) return [];
-
-    // Fetch the latest profile from the repository
-    const latestProfile = await repository.getProfile(profile.id);
-    if (!latestProfile) return [];
-
-    const conflicts: Array<{ fieldId: string; label: string; resumeValue: string; profileValue: string }> = [];
-    const fieldLabels: Record<string, string> = {
-      "profile:name": "姓名",
-      "profile:email": "邮箱",
-      "profile:phone": "电话",
-      "profile:location": "地址",
-      "profile:link:0": "领英"
-    };
-
-    for (const [fieldId, resumeValue] of Object.entries(profileFieldOverrides)) {
-      const key = profileFieldKey(fieldId);
-      if (!key) continue;
-      const profileValue = key === "name"
-        ? latestProfile.basics.name
-        : key === "link"
-          ? latestProfile.basics.links[profileLinkIndex(fieldId)] ?? ""
-          : latestProfile.basics[key] ?? "";
-      // Only conflict if the profile value changed since we last loaded it
-      // AND the resume value is different from the latest profile value
-      const originalProfile = workspace.status === "ready" ? workspace.profiles[0] : undefined;
-      const originalValue = key === "name"
-        ? originalProfile?.basics.name ?? ""
-        : key === "link"
-          ? originalProfile?.basics.links?.[profileLinkIndex(fieldId)] ?? ""
-          : originalProfile?.basics[key] ?? "";
-      if (profileValue !== originalValue && resumeValue !== profileValue) {
-        conflicts.push({
-          fieldId,
-          label: fieldLabels[fieldId] ?? fieldId,
-          resumeValue,
-          profileValue
-        });
-      }
-    }
-    return conflicts;
-  }
-
-  // Sync resume-local overrides to the profile library
-  async function syncProfileToLibrary() {
-    if (!profile) return;
-
-    const conflicts = await checkProfileSyncConflicts();
-    if (conflicts.length > 0) {
-      setProfileSyncConflicts(conflicts);
-      setProfileSyncDialogOpen(true);
-      return;
-    }
-
-    // No conflicts — save all overrides to the repository
-    await persistProfileOverrides();
-  }
-
-  async function persistProfileOverrides(overrideMap?: Record<string, string>) {
-    if (!profile) return;
-    const overrides = overrideMap ?? profileFieldOverrides;
-    if (Object.keys(overrides).length === 0) return;
-
     setProfileFieldPending(true);
     try {
-      const nextBasics = { ...profile.basics };
-      let nextName = profile.name;
-      for (const [fieldId, value] of Object.entries(overrides)) {
-        const key = profileFieldKey(fieldId);
-        if (!key) continue;
-        if (key === "name") {
-          nextBasics.name = value;
-          nextName = value;
-        } else if (key === "link") {
-          const index = profileLinkIndex(fieldId);
-          const links = [...nextBasics.links];
-          if (value) {
-            links[index] = value;
-          } else {
-            links.splice(index, 1);
-          }
-          nextBasics.links = links.filter((link) => link.trim().length > 0);
-        } else {
-          (nextBasics as Record<string, unknown>)[key] = value || undefined;
-        }
-      }
-      const saved = await repository.saveProfile({
-        ...profile,
-        name: nextName,
-        basics: nextBasics,
-        version: profile.version + 1,
-        updatedAt: new Date().toISOString()
+      const result = await repository.editResumeBranchBasics({
+        branchId: selectedBranch.id,
+        expectedRevision: selectedBranch.revision,
+        operationId: `v2-g7b5-basics-${selectedBranch.id}-${selectedBranch.revision}-${fieldId}-${stableHashText(text)}`,
+        basics: patch
       });
-      setProfileOverride(saved);
-      setProfileFieldOverrides({});
-      setProfileSyncDialogOpen(false);
-      setProfileSyncConflicts([]);
-      setMessage("简历中的个人信息已同步到个人资料库。");
+      const nextProfile = profile ? await repository.getProfile(profile.id) : undefined;
+      if (nextProfile) setProfileOverride(nextProfile);
+      replaceBranch(result.branch);
+      setEditingProfileFieldId(undefined);
+      setSelectedProfileFieldId(undefined);
+      setProfileFieldDraftText("");
+      setProfileFieldError(undefined);
+      setMessage("这份简历的个人信息已保存；个人资料库未被修改。");
     } catch {
-      setProfileFieldError("同步失败，请稍后重试。");
+      setProfileFieldError("保存失败：版本已变化，请刷新后重试。");
     } finally {
       setProfileFieldPending(false);
     }
   }
 
-  function resolveProfileSyncConflict(fieldId: string, keepResume: boolean) {
-    if (keepResume) {
-      // Keep the resume value — remove from conflicts
-      setProfileSyncConflicts((prev) => prev.filter((c) => c.fieldId !== fieldId));
-    } else {
-      // Keep the profile value — remove override and revert local profile
-      setProfileFieldOverrides((prev) => {
-        const next = { ...prev };
-        delete next[fieldId];
-        return next;
-      });
-      setProfileSyncConflicts((prev) => prev.filter((c) => c.fieldId !== fieldId));
-      // Revert profileOverride to match the profile library
-      if (profile) {
-        const conflict = profileSyncConflicts.find((c) => c.fieldId === fieldId);
-        if (conflict) {
-          const key = profileFieldKey(fieldId);
-          if (key) {
-            const nextBasics = { ...profile.basics };
-            if (key === "name") nextBasics.name = conflict.profileValue;
-            else if (key === "link") {
-              const links = [...nextBasics.links];
-              links[profileLinkIndex(fieldId)] = conflict.profileValue;
-              nextBasics.links = links;
-            } else {
-              (nextBasics as Record<string, unknown>)[key] = conflict.profileValue || undefined;
-            }
-            setProfileOverride({ ...profile, basics: nextBasics });
-          }
-        }
-      }
+  async function openProfileSyncDialog() {
+    if (!profile || !selectedBranch) return;
+    const latestProfile = await repository.getProfile(profile.id);
+    if (!latestProfile) return;
+    const resumeBasics = selectedBranch.resumeBasics ?? {
+      name: profile.basics.name,
+      email: profile.basics.email ?? "",
+      phone: profile.basics.phone ?? "",
+      location: profile.basics.location ?? "",
+      summary: profile.basics.summary ?? "",
+      links: profile.basics.links
+    };
+    const conflicts: Array<{ fieldId: string; label: string; resumeValue: string; profileValue: string }> = [];
+    const candidates = [
+      ["profile:name", "姓名", resumeBasics.name, latestProfile.basics.name],
+      ["profile:email", "邮箱", resumeBasics.email, latestProfile.basics.email ?? ""],
+      ["profile:phone", "电话", resumeBasics.phone, latestProfile.basics.phone ?? ""],
+      ["profile:location", "地址", resumeBasics.location, latestProfile.basics.location ?? ""],
+      ["profile:link:0", "个人链接", resumeBasics.links[0] ?? "", latestProfile.basics.links[0] ?? ""]
+    ] as const;
+    for (const [fieldId, label, resumeValue, profileValue] of candidates) {
+      if (resumeValue !== profileValue) conflicts.push({ fieldId, label, resumeValue, profileValue });
     }
-    // If no more conflicts, persist remaining overrides
-    if (profileSyncConflicts.length <= 1) {
-      void persistProfileOverrides();
+    if (conflicts.length === 0) {
+      const result = await repository.editResumeBranchBasics({
+        branchId: selectedBranch.id,
+        expectedRevision: selectedBranch.revision,
+        operationId: `v2-g7b5-profile-ack-${selectedBranch.id}-${selectedBranch.revision}-${latestProfile.version}`,
+        basics: {},
+        acknowledgeProfileVersion: true
+      });
+      replaceBranch(result.branch);
+      setMessage("这份简历与个人资料库的基本信息已经一致。");
+      return;
+    }
+    setProfileSyncConflicts(conflicts);
+    setProfileSyncChoices(Object.fromEntries(conflicts.map((item) => [item.fieldId, "resume"])));
+    setProfileSyncDialogOpen(true);
+  }
+
+  async function applyProfileSyncChoices() {
+    if (!selectedBranch) return;
+    const basics: Partial<NonNullable<ResumeBranch["resumeBasics"]>> = {};
+    const currentLinks = [...(selectedBranch.resumeBasics?.links ?? profile?.basics.links ?? [])];
+    for (const conflict of profileSyncConflicts) {
+      if (profileSyncChoices[conflict.fieldId] !== "profile") continue;
+      const key = profileFieldKey(conflict.fieldId);
+      if (!key) continue;
+      if (key === "link") currentLinks[profileLinkIndex(conflict.fieldId)] = conflict.profileValue;
+      else basics[key] = conflict.profileValue;
+    }
+    basics.links = currentLinks.filter(Boolean);
+    setProfileFieldPending(true);
+    try {
+      const result = await repository.editResumeBranchBasics({
+        branchId: selectedBranch.id,
+        expectedRevision: selectedBranch.revision,
+        operationId: `v2-g7b5-profile-sync-${selectedBranch.id}-${selectedBranch.revision}-${stableHashText(JSON.stringify(profileSyncChoices))}`,
+        basics,
+        acknowledgeProfileVersion: true
+      });
+      replaceBranch(result.branch);
+      setProfileSyncDialogOpen(false);
+      setProfileSyncConflicts([]);
+      setProfileSyncChoices({});
+      setMessage("已按你的选择处理资料库差异；个人资料库未被修改。");
+    } catch {
+      setProfileFieldError("同步失败，请稍后重试。");
+    } finally {
+      setProfileFieldPending(false);
     }
   }
 
@@ -2074,6 +2024,10 @@ export function ResumeWorkspace() {
         errorCode: "render_model_missing",
         canUseFallback: true
       });
+      return;
+    }
+    if (renderModel.safety.visibleItemCount === 0) {
+      setMessage("至少确认一项简历内容后才能导出 PDF。");
       return;
     }
     if (!selectedBranchEditable || !selectedBranch.currentRevisionId) {
@@ -2308,6 +2262,10 @@ export function ResumeWorkspace() {
   async function exportPdf() {
     if (!selectedBranch || !renderModel) {
       setMessage("当前简历无法生成正式预览，不能导出。");
+      return;
+    }
+    if (renderModel.safety.visibleItemCount === 0) {
+      setMessage("至少确认一项简历内容后才能打印或保存 PDF。");
       return;
     }
 
@@ -2589,18 +2547,16 @@ export function ResumeWorkspace() {
             </div>
           </section>
 
-          {(branches.length === 0 || isImportPanelOpen) ? (
+          {isImportPanelOpen ? (
             <section className="resume-import-dock no-print" data-testid="resume-import-dock">
             <div className="section-heading compact-heading">
               <div>
                 <h2>导入简历</h2>
                 <p>导入 PDF、DOCX 或 JSON，核对后再写入正式简历。</p>
               </div>
-              {branches.length > 0 ? (
-                <button className="secondary-button compact" type="button" onClick={() => setIsImportPanelOpen(false)}>
-                  收起
-                </button>
-              ) : null}
+              <button className="secondary-button compact" type="button" onClick={() => setIsImportPanelOpen(false)}>
+                收起
+              </button>
             </div>
             <ResumeImportWizard
               repository={repository}
@@ -2635,13 +2591,13 @@ export function ResumeWorkspace() {
                   <strong>根据岗位创建</strong>
                   <span>{draftOptions.length > 0 ? `${draftOptions.length} 个可用草稿` : "需要先在岗位工作区生成草稿"}</span>
                 </button>
-                <button className="resume-create-card" type="button" disabled title="需要先完成导入或事实确认流程">
+                <button className="resume-create-card" type="button" disabled={!profile} onClick={() => { void createGeneralResume({ fromProfile: true }); }}>
                   <strong>从个人资料库创建</strong>
-                  <span>需先补齐可引用的通用分支来源</span>
+                  <span>复制已确认信息，之后由你决定是否再次同步</span>
                 </button>
-                <button className="resume-create-card" type="button" disabled title="从零写入事实需要新的确认流程">
+                <button className="resume-create-card" type="button" disabled={!profile} onClick={() => { void createGeneralResume({ fromProfile: false }); }}>
                   <strong>从零创建</strong>
-                  <span>后续接入事实确认后开放</span>
+                  <span>不带入资料库内容，从空白字段开始</span>
                 </button>
               </div>
               {showJobCreatePanel ? (
@@ -2805,17 +2761,22 @@ export function ResumeWorkspace() {
 
           <div className="resume-studio-toolbar" aria-label="简历工作栏">
             <div className="resume-workbar-actions">
-              {Object.keys(profileFieldOverrides).length > 0 ? (
-                <button
-                  type="button"
-                  className="section-action-button section-action-button-primary"
-                  style={{ fontSize: "11px", height: "28px", padding: "0 10px" }}
-                  onClick={() => { void syncProfileToLibrary(); }}
-                  disabled={profileFieldPending}
-                >
-                  {profileFieldPending ? "同步中..." : `同步 ${Object.keys(profileFieldOverrides).length} 项到资料库`}
-                </button>
-              ) : null}
+              <button
+                type="button"
+                className="secondary-button compact"
+                data-testid="open-resume-import"
+                onClick={() => setIsImportPanelOpen(true)}
+              >
+                导入
+              </button>
+              <button
+                type="button"
+                className="secondary-button compact"
+                onClick={() => { void openProfileSyncDialog(); }}
+                disabled={profileFieldPending}
+              >
+                {profileFieldPending ? "处理中…" : "从资料库同步"}
+              </button>
               {workbarWarnings.length > 0 ? (
                 <details className="resume-review-chip">
                   <summary>{workbarWarnings.length} 条需复核</summary>
@@ -2833,10 +2794,15 @@ export function ResumeWorkspace() {
               ) : null}
               <button className="secondary-button compact" onClick={undo} disabled={!selectedBranchEditable}>撤销</button>
               <button className="secondary-button compact" disabled={!presentationHistory.redoStack.length || !presentationConfig} onClick={() => { void redoPresentationChange(); }}>重做</button>
+              {selectedBranch.branchPurpose === "job_specific" ? (
+                <button type="button" className="secondary-button compact" data-testid="open-or-create-application" onClick={openOrCreateApplication} disabled={!selectedBranchEditable}>
+                  加入求职进度
+                </button>
+              ) : null}
               <button
                 className="primary-button compact"
                 onClick={downloadPdf}
-                disabled={!renderModel || !presentationConfig || isPdfExportBusy || pagination.blocked || pagination.status === "measuring"}
+                disabled={!renderModel || renderModel.safety.visibleItemCount === 0 || !presentationConfig || isPdfExportBusy || pagination.blocked || pagination.status === "measuring"}
                 title="下载 PDF"
               >
                 {isPdfExportBusy ? "生成中" : "导出PDF"}
@@ -2846,12 +2812,7 @@ export function ResumeWorkspace() {
               <div className="toolbar-more-popover">
                 <button type="button" onClick={refreshSync}>重新检查</button>
                 <button type="button" onClick={downloadStructuredJson} disabled={!renderModel}>导出 JSON</button>
-                <button type="button" onClick={exportPdf} disabled={!renderModel || isPdfExportBusy}>打印 / 保存 PDF</button>
-                {selectedBranch.branchPurpose === "job_specific" ? (
-                  <button type="button" data-testid="open-or-create-application" onClick={openOrCreateApplication} disabled={!selectedBranchEditable}>
-                    加入求职进度
-                  </button>
-                ) : null}
+                <button type="button" onClick={exportPdf} disabled={!renderModel || renderModel.safety.visibleItemCount === 0 || isPdfExportBusy}>打印 / 保存 PDF</button>
                 <label className="inline-toggle studio-edit-toggle">
                   <input
                     type="checkbox"
@@ -2881,6 +2842,19 @@ export function ResumeWorkspace() {
             </details>
             </div>
           </div>
+        </section>
+      ) : null}
+
+      {selectedBranch && isImportPanelOpen ? (
+        <section className="resume-import-dock resume-import-dock-studio no-print" data-testid="resume-import-dock">
+          <div className="section-heading compact-heading">
+            <div>
+              <h2>导入另一份简历</h2>
+              <p>确认后会创建新的通用简历，不覆盖当前简历。</p>
+            </div>
+            <button className="secondary-button compact" type="button" onClick={() => setIsImportPanelOpen(false)}>收起</button>
+          </div>
+          <ResumeImportWizard repository={repository} profile={profile} onImported={handleImportedResumeReady} />
         </section>
       ) : null}
 
@@ -2917,10 +2891,6 @@ export function ResumeWorkspace() {
                     type="button"
                     className={activeSectionItem?.key === item.key ? "resume-section-nav-button resume-section-nav-button-active" : "resume-section-nav-button"}
                     onClick={() => {
-                      if (item.key === "add" && activeResumeSection && activeResumeSection !== "basics" && activeResumeSection !== "add") {
-                        void addContentItem(activeResumeSection);
-                        return;
-                      }
                       setActiveResumeSection(item.key);
                       if (item.firstItemId) {
                         selectStudioItem(item.firstItemId);
@@ -2937,7 +2907,7 @@ export function ResumeWorkspace() {
               </nav>
             </aside>
           ) : null}
-          <aside className="panel no-print resume-export-panel resume-inspector">
+          <aside className={`panel no-print resume-export-panel resume-inspector ${studioMode === "edit" ? "branch-editor" : ""}`} data-testid="resume-active-section-fields">
             <div className="property-panel-heading">
               <div>
                 <h2>{studioMode === "edit" ? activeSectionItem?.label ?? "编辑" : studioMode === "style" ? "样式" : "AI岗位优化"}</h2>
@@ -2956,7 +2926,7 @@ export function ResumeWorkspace() {
             </div>
             {studioMode === "ai" ? (
               <div className="inspector-tablist" role="tablist" aria-label="AI岗位优化工具">
-                {(["job", "suggestions", "quality", "facts", "match", "records"] as const).map((tab) => (
+                {(["suggestions", "quality"] as const).map((tab) => (
                   <button
                     key={tab}
                     type="button"
@@ -3001,7 +2971,7 @@ export function ResumeWorkspace() {
                   editTexts={editTexts}
                   onEditTextChange={(itemId, text) => setEditTexts((prev) => ({ ...prev, [itemId]: text }))}
                   onSave={saveItem}
-                  onAdd={() => void addContentItem(activeResumeSection)}
+                  onAdd={(text) => void addContentItem(activeResumeSection, text)}
                   nav={sectionNavContext}
                 />
               ) : activeResumeSection === "experience"
@@ -3027,7 +2997,7 @@ export function ResumeWorkspace() {
                   onDuplicate={(itemId) => void duplicateContentItem(itemId)}
                   onMoveUp={(itemId) => void movePresentationItem(itemId, "up")}
                   onMoveDown={(itemId) => void movePresentationItem(itemId, "down")}
-                  onAdd={() => void addContentItem(activeResumeSection)}
+                  onAdd={(draft) => void addContentItem(activeResumeSection, draft)}
                   nav={sectionNavContext}
                 />
               ) : (
@@ -3049,7 +3019,7 @@ export function ResumeWorkspace() {
                   onDuplicate={(itemId) => void duplicateContentItem(itemId)}
                   onMoveUp={(itemId) => void movePresentationItem(itemId, "up")}
                   onMoveDown={(itemId) => void movePresentationItem(itemId, "down")}
-                  onAdd={() => void addContentItem(activeResumeSection)}
+                  onAdd={(text) => void addContentItem(activeResumeSection, text)}
                   nav={sectionNavContext}
                 />
               )
@@ -3065,25 +3035,17 @@ export function ResumeWorkspace() {
                     ["页面可读性", paginationStatusLabel(pagination.status), "状态"],
                     ["事实安全", diagnosticSnapshot?.summary.critical ?? 0, "高风险"]
                   ].map(([label, value, suffix]) => (
-                    <button
+                    <div
                       key={label}
                       className="resume-ai-summary-card"
-                      type="button"
-                      onClick={() => {
-                        if (label === "事实安全" || label === "页面可读性") {
-                          setAiInspectorTab("quality");
-                          return;
-                        }
-                        setAiInspectorTab("suggestions");
-                      }}
                     >
                       <span>{label}</span>
                       <strong>{value}</strong>
                       <small>{suffix}</small>
-                    </button>
+                    </div>
                   ))}
                 </div>
-                {aiInspectorTab === "quality" || aiInspectorTab === "facts" ? (
+                {aiInspectorTab === "quality" ? (
                   <ResumeDiagnosticsPanel
                     snapshot={diagnosticSnapshot}
                     stale={diagnosticsStale}
@@ -3095,26 +3057,6 @@ export function ResumeWorkspace() {
                     onApplyAction={(issue, action) => { void applyDiagnosticAction(issue, action); }}
                     onIgnoreIssue={(issue) => { void ignoreDiagnosticIssue(issue); }}
                   />
-                ) : aiInspectorTab === "records" ? (
-                  <div className="studio-sidebar-section">
-                    <div className="section-heading compact-heading">
-                      <div>
-                        <h3>建议记录</h3>
-                        <p>查看历史建议生成和采纳记录。</p>
-                      </div>
-                    </div>
-                    <p className="save-status">建议记录功能待后续版本完善；当前可在「建议」Tab 中查看和管理所有建议。</p>
-                  </div>
-                ) : aiInspectorTab === "match" ? (
-                  <div className="studio-sidebar-section">
-                    <div className="section-heading compact-heading">
-                      <div>
-                        <h3>匹配记录</h3>
-                        <p>查看岗位要求与简历内容的匹配映射。</p>
-                      </div>
-                    </div>
-                    <p className="save-status">匹配详情已在「建议」Tab 的要求列表中展示；切换到「建议」查看完整匹配信息。</p>
-                  </div>
                 ) : (
                   <JobOptimizationPanel
                     repository={repository}
@@ -3610,9 +3552,9 @@ export function ResumeWorkspace() {
       {profileSyncDialogOpen && profileSyncConflicts.length > 0 ? (
         <div className="sync-dialog-overlay" role="dialog" aria-label="个人信息复核">
           <div className="sync-dialog">
-            <h3 className="sync-dialog-title">个人信息已变更</h3>
+            <h3 className="sync-dialog-title">选择这份简历使用的信息</h3>
             <p className="sync-dialog-description">
-              检测到个人资料库中的信息与简历中编辑的不同。请选择保留哪个版本：
+              资料库不会自动覆盖简历。请逐项选择保留简历内容，或使用资料库内容。
             </p>
             <div className="sync-dialog-conflicts">
               {profileSyncConflicts.map((conflict) => (
@@ -3621,16 +3563,16 @@ export function ResumeWorkspace() {
                   <div className="sync-conflict-options">
                     <button
                       type="button"
-                      className="sync-conflict-option"
-                      onClick={() => resolveProfileSyncConflict(conflict.fieldId, true)}
+                      className={`sync-conflict-option ${profileSyncChoices[conflict.fieldId] === "resume" ? "sync-conflict-option-selected" : ""}`}
+                      onClick={() => setProfileSyncChoices((current) => ({ ...current, [conflict.fieldId]: "resume" }))}
                     >
                       <span className="sync-conflict-option-source">简历版本</span>
                       <span className="sync-conflict-option-value">{conflict.resumeValue || "（空）"}</span>
                     </button>
                     <button
                       type="button"
-                      className="sync-conflict-option"
-                      onClick={() => resolveProfileSyncConflict(conflict.fieldId, false)}
+                      className={`sync-conflict-option ${profileSyncChoices[conflict.fieldId] === "profile" ? "sync-conflict-option-selected" : ""}`}
+                      onClick={() => setProfileSyncChoices((current) => ({ ...current, [conflict.fieldId]: "profile" }))}
                     >
                       <span className="sync-conflict-option-source">资料库版本</span>
                       <span className="sync-conflict-option-value">{conflict.profileValue || "（空）"}</span>
@@ -3646,9 +3588,18 @@ export function ResumeWorkspace() {
                 onClick={() => {
                   setProfileSyncDialogOpen(false);
                   setProfileSyncConflicts([]);
+                  setProfileSyncChoices({});
                 }}
               >
                 取消
+              </button>
+              <button
+                type="button"
+                className="section-action-button section-action-button-primary"
+                onClick={() => { void applyProfileSyncChoices(); }}
+                disabled={profileFieldPending}
+              >
+                {profileFieldPending ? "保存中…" : "应用选择"}
               </button>
             </div>
           </div>
@@ -3691,7 +3642,7 @@ function buildResumeStudioSections(input: {
   resumeDocument?: ResumeDocument;
   branch?: ResumeBranch;
 }): Array<{ key: ResumeStudioSectionKey; label: string; count: number; firstItemId?: string }> {
-  const blocks = input.resumeDocument?.blocks ?? [];
+  const blocks = input.resumeDocument?.blocks.filter((block) => block.itemType !== "structural") ?? [];
   const bySection = (sectionType: ResumeRenderSectionType) => blocks.filter((block) => block.sectionType === sectionType);
   const first = (sectionType: ResumeRenderSectionType) => bySection(sectionType)[0]?.contentItemId;
   const experienceBlocks = bySection("experience");
@@ -3715,8 +3666,7 @@ function buildResumeStudioSections(input: {
     { key: "awards", label: "奖项", count: awardsBlocks.length, firstItemId: awardsBlocks[0]?.contentItemId },
     { key: "certificates", label: "证书", count: bySection("certificates").length, firstItemId: first("certificates") },
     { key: "language", label: "语言", count: languageBlocks.length, firstItemId: languageBlocks[0]?.contentItemId },
-    { key: "custom", label: "自定义栏目", count: generalCustomBlocks.length, firstItemId: generalCustomBlocks[0]?.contentItemId },
-    { key: "add", label: "添加栏目", count: 0 }
+    { key: "custom", label: "自定义栏目", count: generalCustomBlocks.length, firstItemId: generalCustomBlocks[0]?.contentItemId }
   ];
 }
 
@@ -3773,7 +3723,6 @@ function parseWorkbenchState(value: unknown): WorkbenchState {
   const candidate = value as WorkbenchState;
   const rawStudioMode = (value as { studioMode?: unknown }).studioMode;
   return {
-    branchId: typeof candidate.branchId === "string" ? candidate.branchId : undefined,
     templateId: isResumeTemplateId(candidate.templateId) ? candidate.templateId : undefined,
     stylePanelOpen: typeof candidate.stylePanelOpen === "boolean" ? candidate.stylePanelOpen : undefined,
     studioMode: rawStudioMode === "manual" ? "edit" : isStudioMode(rawStudioMode) ? rawStudioMode : undefined,
@@ -3798,12 +3747,7 @@ function isManualInspectorTab(value: unknown): value is ManualInspectorTab {
 }
 
 function isAiInspectorTab(value: unknown): value is AiInspectorTab {
-  return value === "job"
-    || value === "suggestions"
-    || value === "quality"
-    || value === "facts"
-    || value === "match"
-    || value === "records";
+  return value === "suggestions" || value === "quality";
 }
 
 function isStyleInspectorTab(value: unknown): value is StyleInspectorTab {
@@ -4108,12 +4052,8 @@ function profileFieldLabel(fieldId?: string) {
 
 function aiInspectorTabLabel(tab: AiInspectorTab) {
   const labels: Record<AiInspectorTab, string> = {
-    job: "目标岗位",
-    suggestions: "建议",
-    quality: "质量检查",
-    facts: "事实缺口",
-    match: "匹配",
-    records: "记录"
+    suggestions: "岗位优化",
+    quality: "质量检查"
   };
   return labels[tab];
 }

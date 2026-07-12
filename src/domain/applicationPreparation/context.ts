@@ -58,6 +58,7 @@ export function buildApplicationPreparationContext(input: {
     currentRevisionId: input.selectedRevision.id,
     name: input.selectedRevision.snapshot.name,
     lifecycleStatus: input.selectedRevision.snapshot.lifecycleStatus,
+    resumeBasics: input.selectedRevision.snapshot.resumeBasics,
     contentItems: input.selectedRevision.snapshot.contentItems
   };
   const requirementsHash = computeRequirementsHash({

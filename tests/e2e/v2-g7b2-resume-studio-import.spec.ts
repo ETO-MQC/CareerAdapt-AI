@@ -24,6 +24,7 @@ test.describe("V2-G7b.2 Resume Studio and import IA", () => {
 
   test("imports structured JSON into the same review flow before confirmation", async ({ page }) => {
     await page.goto("/resume");
+    await page.getByTestId("resume-entry-import-primary").click();
     await page.locator(".import-json-details summary").click();
     await page.locator(".import-json-details textarea").fill(JSON.stringify({
       schemaVersion: "structured-resume-draft-v1",

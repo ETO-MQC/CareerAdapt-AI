@@ -77,6 +77,7 @@ import {
 import { mapAdaptationDraftToResumeBranch } from "@/domain/branch/mapper";
 import { createResumeRevision } from "@/domain/branch/revision";
 import { computeBranchSyncStatus, computeGeneralBranchSyncStatus, resolveBranchFactRefs } from "@/domain/branch/validation";
+import { buildGeneralBranchFromProfile } from "@/domain/branch/profileBranch";
 import { buildResumeImportConfirmation } from "@/domain/resumeImport/confirm";
 import { runRuleFactGuard } from "@/domain/adaptation/factGuard";
 import {
@@ -675,6 +676,62 @@ export class WorkspaceRepository {
     const parsed = ResumeBranchSchema.parse(branch);
     await this.db.resumeBranches.put(parsed);
     return parsed;
+  }
+
+  async createGeneralResumeBranch(input: {
+    profileId: string;
+    operationId: string;
+    name: string;
+    includeProfileFacts: boolean;
+    includeProfileBasics: boolean;
+  }) {
+    return this.db.transaction(
+      "rw",
+      this.db.profiles,
+      this.db.resumeBranches,
+      this.db.resumeRevisions,
+      this.db.resumeBranchOperations,
+      this.db.appMeta,
+      async () => {
+        const existingOperation = await this.db.resumeBranchOperations.where("operationId").equals(input.operationId).first();
+        if (existingOperation?.branchId && existingOperation.revisionId) {
+          const existingBranch = await this.db.resumeBranches.get(existingOperation.branchId);
+          if (!existingBranch) throw new Error("resume_branch_missing_for_operation");
+          return {
+            branch: ResumeBranchSchema.parse(existingBranch),
+            revision: await this.getResumeRevisionInTransaction(existingOperation.revisionId),
+            idempotent: true
+          };
+        }
+        const storedProfile = await this.db.profiles.get(input.profileId);
+        if (!storedProfile) throw new Error("profile_missing");
+        const profile = CareerProfileSchema.parse(storedProfile);
+        const now = new Date().toISOString();
+        const built = buildGeneralBranchFromProfile({ ...input, profile, now });
+        const operation = ResumeBranchOperationSchema.parse({
+          id: `resume-branch-op-${input.operationId}`,
+          operationId: input.operationId,
+          branchId: built.branch.id,
+          type: input.includeProfileBasics || input.includeProfileFacts ? "create_from_profile" : "create_blank",
+          beforeRevision: 0,
+          afterRevision: built.branch.revision,
+          revisionId: built.firstRevision.id,
+          occurredAt: now,
+          createdAt: now,
+          updatedAt: now
+        });
+        const presentationConfig = createDefaultPresentationConfig({ branch: built.branch, now });
+        await this.db.resumeBranches.put(built.branch);
+        await this.db.resumeRevisions.put(built.firstRevision);
+        await this.db.resumeBranchOperations.put(operation);
+        await this.db.appMeta.put({
+          key: resumePresentationConfigKey(built.branch.id),
+          value: presentationConfig,
+          updatedAt: now
+        });
+        return { branch: built.branch, revision: built.firstRevision, idempotent: false };
+      }
+    );
   }
 
   async createResumeBranchFromDraft(input: {
@@ -1870,6 +1927,37 @@ export class WorkspaceRepository {
     });
   }
 
+  async editResumeBranchBasics(input: {
+    branchId: string;
+    expectedRevision: number;
+    operationId: string;
+    basics: Partial<NonNullable<ResumeBranch["resumeBasics"]>>;
+    acknowledgeProfileVersion?: boolean;
+  }) {
+    return this.mutateResumeBranch({
+      branchId: input.branchId,
+      expectedRevision: input.expectedRevision,
+      operationId: input.operationId,
+      type: "manual_edit",
+      source: "manual_edit",
+      mutate: async ({ branch, profile }) => {
+        const currentBasics = branch.resumeBasics ?? {
+            name: profile.basics.name,
+            email: profile.basics.email ?? "",
+            phone: profile.basics.phone ?? "",
+            location: profile.basics.location ?? "",
+            summary: profile.basics.summary ?? "",
+            links: profile.basics.links
+        };
+        return ResumeBranchSchema.parse({
+          ...branch,
+          sourceProfileVersion: input.acknowledgeProfileVersion ? profile.version : branch.sourceProfileVersion,
+          resumeBasics: { ...currentBasics, ...input.basics }
+        });
+      }
+    });
+  }
+
   async renameResumeBranch(input: {
     branchId: string;
     expectedRevision: number;
@@ -1953,21 +2041,125 @@ export class WorkspaceRepository {
     operationId: string;
     section: string;
     itemType: "experience" | "skill" | "certificate" | "summary" | "custom";
-    placeholderText?: string;
+    text: string;
+    organization?: string;
+    role?: string;
+    startDate?: string;
+    endDate?: string;
   }) {
     const newItemId = `branch-item-new-${stableHashText(`${input.branchId}:${input.operationId}`).replace(/[^a-zA-Z0-9-]/g, "").slice(0, 28)}`;
-    const placeholder = input.placeholderText ?? (input.itemType === "summary"
-      ? "请在此输入个人简介..."
-      : "公司 / 职位  地点  2024 - 至今\n请输入描述内容...");
+    const text = input.text.trim();
+    if (!text) throw new Error("branch_content_item_text_required");
     const result = await this.mutateResumeBranch({
       branchId: input.branchId,
       expectedRevision: input.expectedRevision,
       operationId: input.operationId,
       type: "manual_edit",
       source: "manual_edit",
-      mutate: async ({ branch }) => {
+      mutate: async ({ branch, profile, now }) => {
         if (branch.contentItems.some((item) => item.id === newItemId)) {
           return ResumeBranchSchema.parse(branch);
+        }
+        const entitySuffix = stableHashText(input.operationId).replace(/[^a-zA-Z0-9-]/g, "").slice(0, 20);
+        const factId = `fact-user-${entitySuffix}`;
+        const fact = {
+          id: factId,
+          statement: text,
+          category: input.section === "education" ? "education"
+            : input.section === "skills" ? "skill"
+              : input.section === "certificates" ? "certificate"
+                : input.section === "awards" ? "achievement"
+                  : input.section === "language" ? "language"
+                    : input.itemType === "experience" ? "experience" : "other",
+          provenance: [{
+            sourceType: "user_input",
+            sourceId: input.operationId,
+            sourceText: text,
+            confidence: 1,
+            confirmedByUser: true,
+            riskLevel: "medium",
+            createdAt: now
+          }],
+          confirmedByUser: true,
+          riskLevel: "medium",
+          createdAt: now,
+          updatedAt: now
+        };
+        let factRefs: ResumeBranch["contentItems"][number]["factRefs"];
+        let nextProfile: CareerProfile;
+        if (input.itemType === "skill") {
+          const skillId = `skill-user-${entitySuffix}`;
+          nextProfile = CareerProfileSchema.parse({
+            ...profile,
+            version: profile.version + 1,
+            skills: [...profile.skills, {
+              id: skillId,
+              name: text.split("\n")[0].slice(0, 80),
+              evidenceIds: [],
+              fact,
+              createdAt: now,
+              updatedAt: now
+            }],
+            updatedAt: now
+          });
+          factRefs = [{ type: "skill_fact", skillId, factId }];
+        } else if (input.itemType === "certificate") {
+          const certificateId = `cert-user-${entitySuffix}`;
+          nextProfile = CareerProfileSchema.parse({
+            ...profile,
+            version: profile.version + 1,
+            certificates: [...profile.certificates, {
+              id: certificateId,
+              name: text.split("\n")[0].slice(0, 120),
+              evidenceIds: [],
+              fact,
+              createdAt: now,
+              updatedAt: now
+            }],
+            updatedAt: now
+          });
+          factRefs = [{ type: "certificate_fact", certificateId, factId }];
+        } else {
+          const experienceId = `exp-user-${entitySuffix}`;
+          const experienceType = input.section === "education" ? "education"
+            : input.section === "projects" ? "project"
+              : input.section === "campus" ? "campus"
+                : input.itemType === "experience" ? "work" : "other";
+          nextProfile = CareerProfileSchema.parse({
+            ...profile,
+            version: profile.version + 1,
+            experiences: [...profile.experiences, {
+              id: experienceId,
+              type: experienceType,
+              organization: input.organization?.trim() || sectionProfileLabel(input.section),
+              role: input.role?.trim() || sectionProfileLabel(input.section),
+              startDate: input.startDate || undefined,
+              endDate: input.endDate || undefined,
+              facts: [fact],
+              resumeDrafts: [{
+                id: `draft-user-${entitySuffix}`,
+                text,
+                factIds: [factId],
+                createdAt: now,
+                updatedAt: now
+              }],
+              tags: [input.section],
+              evidenceIds: [],
+              createdAt: now,
+              updatedAt: now
+            }],
+            updatedAt: now
+          });
+          factRefs = [{ type: "experience_fact", experienceId, factId }];
+        }
+        const guardResult = runRuleFactGuard({
+          originalText: text,
+          checkedText: text,
+          usedEvidenceRefs: resolveBranchFactRefs(nextProfile, factRefs),
+          now
+        });
+        if (guardResult.status === "blocked_high_risk" || guardResult.status === "needs_edit" || guardResult.riskLevel === "high") {
+          throw new Error("branch_edit_fact_guard_blocked");
         }
         const orderedItems = [...branch.contentItems].sort((a, b) => a.order - b.order);
         const maxOrder = orderedItems.length > 0 ? orderedItems[orderedItems.length - 1].order : 0;
@@ -1976,24 +2168,35 @@ export class WorkspaceRepository {
           itemType: input.itemType,
           source: "user_manual",
           sourceSectionId: input.section,
-          text: placeholder,
-          originalText: placeholder,
+          text,
+          originalText: text,
           order: maxOrder + 1,
           visible: true,
           requirementIds: [],
           sourceSuggestionIds: [],
-          factRefs: [{ type: "experience_fact", experienceId: newItemId, factId: `placeholder-${newItemId}` }],
-          guardMode: "not_fact",
-          guardStatus: "not_checked",
-          guardRiskLevel: "safe",
-          guardFindings: [],
-          guardedAt: undefined,
-          guardVersion: undefined
+          factRefs,
+          guardMode: "rule_verified",
+          guardStatus: "pass",
+          guardRiskLevel: guardResult.riskLevel,
+          guardFindings: guardResult.ruleFindings.map((finding) => ({
+            type: finding.type,
+            text: finding.text,
+            severity: finding.severity,
+            allowed: finding.allowed,
+            message: finding.message
+          })),
+          guardedAt: guardResult.checkedAt,
+          guardVersion: guardResult.guardVersion
         });
         const nextItems = [...orderedItems, newItem].map((item, order) =>
           BranchContentItemSchema.parse({ ...item, order })
         );
-        return ResumeBranchSchema.parse({ ...branch, contentItems: nextItems });
+        await this.db.profiles.put(nextProfile);
+        return ResumeBranchSchema.parse({
+          ...branch,
+          sourceProfileVersion: nextProfile.version,
+          contentItems: nextItems
+        });
       }
     });
     return { ...result, newItemId };
@@ -2023,6 +2226,7 @@ export class WorkspaceRepository {
           ...branch,
           name: parsedRevision.snapshot.name,
           lifecycleStatus: parsedRevision.snapshot.lifecycleStatus,
+          resumeBasics: parsedRevision.snapshot.resumeBasics,
           contentItems: parsedRevision.snapshot.contentItems
         });
       }
@@ -2060,6 +2264,7 @@ export class WorkspaceRepository {
           ...branch,
           name: parsedPrevious.snapshot.name,
           lifecycleStatus: parsedPrevious.snapshot.lifecycleStatus,
+          resumeBasics: parsedPrevious.snapshot.resumeBasics,
           contentItems: parsedPrevious.snapshot.contentItems
         });
       }
@@ -3149,6 +3354,8 @@ export class WorkspaceRepository {
       const parsedProfile = CareerProfileSchema.parse(profile);
       const parsedJob = job ? JobDescriptionSchema.parse(job) : undefined;
       const changed = await input.mutate({ branch, profile: parsedProfile, job: parsedJob, now });
+      const latestProfileRecord = await this.db.profiles.get(branch.profileId);
+      const latestProfile = latestProfileRecord ? CareerProfileSchema.parse(latestProfileRecord) : parsedProfile;
       const nextBranchBase = ResumeBranchSchema.parse({
         ...changed,
         revision: branch.revision + 1,
@@ -3159,12 +3366,12 @@ export class WorkspaceRepository {
         syncStatusCache: nextBranchBase.branchPurpose === "general"
           ? computeGeneralBranchSyncStatus({
               branch: nextBranchBase,
-              profile: parsedProfile,
+              profile: latestProfile,
               now
             })
           : computeBranchSyncStatus({
               branch: nextBranchBase,
-              profile: parsedProfile,
+              profile: latestProfile,
               job: parsedJob!,
               now
             })
@@ -3688,6 +3895,20 @@ function contentItemSectionType(item: ResumeBranch["contentItems"][number]): Res
     return "certificates";
   }
   return "experience";
+}
+
+function sectionProfileLabel(section: string) {
+  const labels: Record<string, string> = {
+    summary: "自我评价",
+    experience: "工作经历",
+    education: "教育经历",
+    projects: "项目经历",
+    campus: "校园经历",
+    awards: "奖项",
+    language: "语言能力",
+    custom: "自定义内容"
+  };
+  return labels[section] ?? "简历内容";
 }
 
 function uniqueStrings(values: string[]) {

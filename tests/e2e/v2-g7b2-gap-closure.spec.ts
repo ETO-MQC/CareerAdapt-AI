@@ -208,9 +208,10 @@ test.describe("V2-G7b.2 gap closure", () => {
 
   test("resume import marks OCR as experimental and keeps button spacing", async ({ page }) => {
     await page.goto("/resume");
+    await page.getByTestId("resume-entry-import-primary").click();
     await expect(page.locator(".import-source-actions")).toBeVisible();
     await expect(page.locator(".import-source-actions button").nth(2)).toContainText("OCR");
-    await expect(page.locator(".section-heading").first()).toContainText("OCR");
+    await expect(page.getByTestId("resume-import-dock")).toContainText("OCR");
     await page.locator(".import-source-actions button").filter({ hasText: "OCR Benchmark" }).click();
     await expect(page.getByTestId("ocr-benchmark-report")).toContainText("状态 B");
     await expect(page.getByTestId("ocr-benchmark-report")).toContainText("Tesseract OCR");

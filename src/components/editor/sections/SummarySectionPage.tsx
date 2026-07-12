@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import type { ResumeDocumentBlock } from "@/domain/resumeDocument/mapper";
 import { TipTapEditor } from "../TipTapEditor";
 import { SectionShell } from "../SectionShell";
@@ -11,7 +12,7 @@ type SummarySectionPageProps = {
   editTexts: Record<string, string>;
   onEditTextChange: (itemId: string, text: string) => void;
   onSave: (itemId: string) => void;
-  onAdd: () => void;
+  onAdd: (text: string) => void;
   nav: SectionNavContext;
 };
 
@@ -26,11 +27,12 @@ export function SummarySectionPage({
   const prev = prevSection(nav.activeSection);
   const next = nextSection(nav.activeSection);
   const block = blocks[0];
-  const currentText = block ? (editTexts[block.contentItemId] ?? block.text) : "";
+  const [newSummary, setNewSummary] = useState("");
+  const currentText = block ? (editTexts[block.contentItemId] ?? block.text) : newSummary;
 
   return (
     <SectionShell
-      icon={<span className="section-shell-icon-svg">📝</span>}
+      icon={<span className="section-shell-icon-svg" aria-hidden="true">评</span>}
       title="自我评价"
       description="在简历顶部添加简短的自我评价。您可以利用 AI 根据经验和技能生成内容。"
       saved={!block || !(block.contentItemId in editTexts)}
@@ -47,9 +49,9 @@ export function SummarySectionPage({
         <TipTapEditor
           value={plainTextToHtml(currentText)}
           onChange={(html) => {
-            if (block) {
-              onEditTextChange(block.contentItemId, htmlToPlainText(html));
-            }
+            const text = htmlToPlainText(html);
+            if (block) onEditTextChange(block.contentItemId, text);
+            else setNewSummary(text);
           }}
           placeholder="例如：可靠的人，学习快，团队合作好。"
           minRows={8}
@@ -70,7 +72,8 @@ export function SummarySectionPage({
             <button
               type="button"
               className="section-action-button section-action-button-primary"
-              onClick={onAdd}
+              onClick={() => { onAdd(newSummary); setNewSummary(""); }}
+              disabled={!newSummary.trim()}
             >
               保存
             </button>

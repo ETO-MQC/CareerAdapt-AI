@@ -50,7 +50,7 @@ export const ResumeRenderSectionSchema = z.object({
 });
 
 export const ResumeRenderCandidateSchema = z.object({
-  name: z.string().min(1),
+  name: z.string(),
   summary: z.string().optional(),
   contacts: z.array(z.string().min(1)).default([]),
   targetRole: z.string().optional()

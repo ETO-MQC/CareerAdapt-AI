@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import type { ResumeDocumentBlock } from "@/domain/resumeDocument/mapper";
 import type { ResumeBranch } from "@/domain/schemas";
 import { TipTapEditor } from "../TipTapEditor";
@@ -20,26 +21,21 @@ type SkillsSectionPageProps = {
   onDuplicate: (itemId: string) => void;
   onMoveUp: (itemId: string) => void;
   onMoveDown: (itemId: string) => void;
-  onAdd: () => void;
+  onAdd: (text: string) => void;
   nav: SectionNavContext;
 };
 
-function DefaultSkillsFields({ sectionLabel, onAdd }: { sectionLabel: string; onAdd: () => void }) {
+function DefaultSkillsFields({ sectionLabel, onAdd }: { sectionLabel: string; onAdd: (text: string) => void }) {
+  const [value, setValue] = useState("");
   return (
     <div className="section-fields">
-      <div className="section-fields-grid-2">
-        <div className="field-input-group">
-          <label className="field-input-label">技能 1</label>
-          <input className="field-input" placeholder="例如：提示词设计" value="" readOnly />
-        </div>
-        <div className="field-input-group">
-          <label className="field-input-label">技能 2</label>
-          <input className="field-input" placeholder="例如：Python" value="" readOnly />
-        </div>
+      <div className="field-input-group">
+        <label className="field-input-label" htmlFor={`new-${sectionLabel}-item`}>{sectionLabel}名称或说明</label>
+        <input id={`new-${sectionLabel}-item`} className="field-input" placeholder={`填写一项${sectionLabel}`} value={value} onChange={(event) => setValue(event.target.value)} />
       </div>
       <div className="section-summary-actions">
-        <button type="button" className="section-action-button section-action-button-primary" onClick={onAdd}>
-          添加{sectionLabel}内容
+        <button type="button" className="section-action-button section-action-button-primary" disabled={!value.trim()} onClick={() => { onAdd(value); setValue(""); }}>
+          保存并确认
         </button>
       </div>
     </div>
@@ -63,11 +59,12 @@ export function SkillsSectionPage({
 }: SkillsSectionPageProps) {
   const prev = prevSection(nav.activeSection);
   const next = nextSection(nav.activeSection);
+  const [adding, setAdding] = useState(false);
 
   if (blocks.length === 0) {
     return (
       <SectionShell
-        icon={<span className="section-shell-icon-svg">⚡</span>}
+        icon={<span className="section-shell-icon-svg" aria-hidden="true">项</span>}
         title={sectionLabel}
         description={`添加${sectionLabel}相关信息。`}
         saved={true}
@@ -136,7 +133,7 @@ export function SkillsSectionPage({
 
   return (
     <SectionShell
-      icon={<span className="section-shell-icon-svg">⚡</span>}
+      icon={<span className="section-shell-icon-svg" aria-hidden="true">项</span>}
       title={sectionLabel}
       description={`添加${sectionLabel}相关信息。`}
       saved={blocks.every((b) => !(b.contentItemId in editTexts))}
@@ -156,12 +153,13 @@ export function SkillsSectionPage({
           <button
             type="button"
             className="section-action-button section-action-button-primary"
-            onClick={onAdd}
+            onClick={() => setAdding((current) => !current)}
           >
             + 添加{sectionLabel}
           </button>
         }
       />
+      {adding ? <DefaultSkillsFields sectionLabel={sectionLabel} onAdd={(text) => { onAdd(text); setAdding(false); }} /> : null}
     </SectionShell>
   );
 }

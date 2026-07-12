@@ -78,6 +78,14 @@ export function buildResumeImportConfirmation(input: {
       checkedAt: now,
       message: "General branch is in sync with its source profile."
     },
+    resumeBasics: {
+      name: profile.basics.name,
+      email: profile.basics.email ?? "",
+      phone: profile.basics.phone ?? "",
+      location: profile.basics.location ?? "",
+      summary: profile.basics.summary ?? "",
+      links: profile.basics.links
+    },
     contentItems,
     createdAt: now,
     updatedAt: now
