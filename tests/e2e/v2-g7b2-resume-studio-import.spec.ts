@@ -24,8 +24,18 @@ test.describe("V2-G7b.2 Resume Studio and import IA", () => {
 
   test("imports structured JSON into the same review flow before confirmation", async ({ page }) => {
     await page.goto("/resume");
-    await page.getByTestId("resume-entry-import-primary").click();
-    await page.locator(".import-json-details summary").click();
+    await page.getByRole("button", { name: "粘贴 JSON", exact: true }).click();
+    const dialog = page.getByRole("dialog", { name: "导入简历" });
+    await expect(dialog).toBeVisible();
+    const dialogPosition = await dialog.evaluate((node) => {
+      const rect = node.getBoundingClientRect();
+      return {
+        centerOffsetX: Math.abs(rect.left + rect.width / 2 - window.innerWidth / 2),
+        centerOffsetY: Math.abs(rect.top + rect.height / 2 - window.innerHeight / 2)
+      };
+    });
+    expect(dialogPosition.centerOffsetX).toBeLessThan(2);
+    expect(dialogPosition.centerOffsetY).toBeLessThan(2);
     await page.locator(".import-json-details textarea").fill(JSON.stringify({
       schemaVersion: "structured-resume-draft-v1",
       basics: {

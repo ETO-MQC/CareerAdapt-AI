@@ -101,9 +101,9 @@ export async function runResumeOcrAdapter(file: File): Promise<ResumeOcrAdapterR
   return {
     ok: false,
     code: "engine_unavailable",
-    message: "本地 OCR Adapter 已接入导入流程，但当前环境未安装可离线运行的 OCR 引擎。请使用 JSON 兜底或文本型 PDF/DOCX。",
+    message: "当前环境尚未安装可离线运行的正式识别引擎。请改用 JSON、文本型 PDF 或 DOCX。",
     engine: OCR_ENGINE_NAME,
-    warnings: ["未引入 PaddleOCR 运行时，避免把未经验证的大模型直接放入主应用。"]
+    warnings: ["扫描件识别仍处于实验阶段，识别结果不能直接写入正式简历。"]
   };
 }
 

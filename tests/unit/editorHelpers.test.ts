@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { extractStructuredField, updateStructuredFieldInText } from "@/components/editor/helpers";
+import { parseStructuredExperienceText, serializeStructuredExperienceText } from "@/domain/resumeFields/catalog";
 
 describe("resume editor structured field helpers", () => {
   it("keeps organization, role, location and dates independent", () => {
@@ -27,5 +28,31 @@ describe("resume editor structured field helpers", () => {
     expect(extractStructuredField(text, "location")).toBe("某地");
     expect(extractStructuredField(text, "end")).toBe("2026-06-01");
     expect(extractStructuredField(text, "current")).toBe("false");
+  });
+
+  it("round-trips education degree, major, location and courses independently", () => {
+    const text = serializeStructuredExperienceText({
+      organization: "示例大学",
+      role: "",
+      degree: "本科",
+      major: "计算机相关专业",
+      location: "上海",
+      courses: "数据结构、操作系统",
+      startDate: "2021-09-01",
+      endDate: "2025-06-30",
+      current: false,
+      description: "完成毕业设计并获优秀评价。"
+    }, "education");
+
+    expect(parseStructuredExperienceText(text)).toMatchObject({
+      organization: "示例大学",
+      role: "本科",
+      major: "计算机相关专业",
+      location: "上海",
+      courses: "数据结构、操作系统",
+      startDate: "2021-09-01",
+      endDate: "2025-06-30",
+      description: "完成毕业设计并获优秀评价。"
+    });
   });
 });

@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 test.describe("V2-G7b.5 resume editor recovery", () => {
-  test("creates a real blank resume, persists independent fields, and returns to Resume Center on reload", async ({ page }) => {
+  test("creates a real blank resume, auto-saves independent fields, and restores the active editor", async ({ page }) => {
     await page.setViewportSize({ width: 1366, height: 768 });
     await page.goto("/resume");
 
@@ -32,16 +32,22 @@ test.describe("V2-G7b.5 resume editor recovery", () => {
     await expect(page.getByRole("button", { name: "导出PDF", exact: true })).toBeEnabled();
 
     await fields.getByLabel("公司 / 组织").fill("星河未来科技");
-    await fields.getByRole("button", { name: "保存", exact: true }).click();
-    await expect(page.getByText("内容已保存到当前简历；个人资料库未被修改。", { exact: true })).toBeVisible();
+    await expect(page.getByTestId("resume-autosave-status")).toHaveText("已自动保存", { timeout: 10_000 });
     await expect(page.getByTestId("resume-a4-page").first()).toContainText("星河未来科技");
     await fields.getByRole("button", { name: "同步到资料库", exact: true }).click();
     await expect(page.getByText(/该内容已同步到个人资料库/)).toBeVisible();
     await expect(fields.getByText("已关联资料库", { exact: true })).toBeVisible();
 
-    await page.reload();
-    await expect(page.getByRole("heading", { name: "我的简历", exact: true })).toBeVisible();
+    await page.goto("/profile");
+    await page.goto("/resume");
+    await expect(page.getByTestId("resume-studio-shell")).toBeVisible();
+    await expect(page.getByTestId("resume-a4-page").first()).toContainText("星河未来科技");
+
+    await page.getByTestId("resume-studio-workbar").getByRole("button", { name: "返回", exact: true }).click();
+    await page.goto("/profile");
+    await page.goto("/resume");
     await expect(page.getByTestId("resume-studio-shell")).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "简历中心", exact: true })).toBeVisible();
   });
 
   test("copies profile data on demand and resolves differences per field", async ({ page }) => {

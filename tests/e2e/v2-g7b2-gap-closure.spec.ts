@@ -18,7 +18,8 @@ test.describe("V2-G7b.2 gap closure", () => {
     await expect(page.getByTestId("resume-studio-editor").locator("textarea")).toHaveCount(0);
     await expect(nameTarget).not.toContainText("Temporary Cancelled Name");
 
-    await page.getByTestId("resume-studio-editor").locator("button.primary-button").click();
+    await nameTarget.dblclick();
+    await expect(page.getByTestId("resume-studio-editor").locator("textarea")).toBeVisible({ timeout: 5000 });
     await page.getByTestId("resume-studio-editor").locator("textarea").fill("G7b2 Inline Candidate");
     await page.getByTestId("resume-studio-editor").locator("button.primary-button").click();
     await expect(nameTarget).toContainText("G7b2 Inline Candidate");
@@ -33,9 +34,11 @@ test.describe("V2-G7b.2 gap closure", () => {
     const sectionTitle = a4Page.locator("[data-section-title-id]").first();
     await sectionTitle.dblclick();
     await expect(page.getByTestId("resume-studio-editor").locator("textarea")).toBeVisible({ timeout: 5000 });
+    await page.getByTestId("resume-studio-editor").locator("textarea").fill("G7B2 Section");
     await page.getByTestId("resume-studio-editor").locator("textarea").press("Control+Enter");
     await expect(sectionTitle).toContainText("G7B2 Section");
 
+    const branchBeforeContentEdit = await findBranchByName(page, branchName);
     const block = a4Page.locator(".resume-template-item[data-source-item-id]").first();
     const originalText = (await block.innerText()).trim();
     await block.dblclick();
@@ -49,7 +52,7 @@ test.describe("V2-G7b.2 gap closure", () => {
     await expect.poll(async () => {
       const branch = await findBranchByName(page, branchName);
       return branch?.revision ?? -1;
-    }, { timeout: 20_000 }).toBe((branchBefore?.revision ?? 0) + 1);
+    }, { timeout: 20_000 }).toBe((branchBeforeContentEdit?.revision ?? 0) + 1);
     await expect(block).toContainText("Updated.");
   });
 
@@ -73,7 +76,7 @@ test.describe("V2-G7b.2 gap closure", () => {
     await expect(page.locator(".presentation-history-actions")).toHaveCount(0);
     await expect(page.getByTestId("job-optimization-panel")).toBeVisible();
 
-    await page.locator(".resume-inspector .inspector-tablist button").nth(2).click();
+    await page.locator(".resume-inspector .inspector-tablist button").nth(1).click();
     await expect(page.getByTestId("resume-diagnostics-panel")).toBeVisible();
     await expect(page.locator(".property-panel-body")).toHaveCount(0);
     await page.locator(".resume-mode-rail button").first().click();
@@ -88,8 +91,10 @@ test.describe("V2-G7b.2 gap closure", () => {
 
     await expect(page.getByTestId("open-resume-import")).toBeVisible();
     await page.getByTestId("open-resume-import").click();
+    await expect(page.getByRole("dialog", { name: "导入另一份简历" })).toBeVisible();
+    await expect(page.locator(".import-dropzone")).toContainText("PDF、DOCX、JSON");
     await expect(page.locator(".import-source-actions")).toBeVisible();
-    await expect(page.locator(".import-source-actions button").first()).toContainText("PDF");
+    await expect(page.locator(".import-source-actions button").first()).toContainText("扫描件");
 
     const placement = await page.evaluate(() => {
       const mode = document.querySelector(".resume-mode-rail");
@@ -119,7 +124,7 @@ test.describe("V2-G7b.2 gap closure", () => {
 
     await page.goto("/profile");
     await expect(page.locator(".profile-manager-grid")).toBeVisible();
-    await page.locator(".profile-category-button").nth(7).click();
+    await page.locator(".profile-category-button").filter({ hasText: "个人技能" }).click();
     await page.locator(".profile-list-panel button.primary-button").click();
 
     const detail = page.locator(".profile-detail-panel");
@@ -206,16 +211,24 @@ test.describe("V2-G7b.2 gap closure", () => {
     await page.locator(".settings-panel select").first().selectOption("system");
   });
 
-  test("resume import marks OCR as experimental and keeps button spacing", async ({ page }) => {
+  test("resume import uses a centered modal and keeps OCR secondary", async ({ page }) => {
     await page.goto("/resume");
     await page.getByTestId("resume-entry-import-primary").click();
+    const dialog = page.getByRole("dialog", { name: "导入简历" });
+    await expect(dialog).toBeVisible();
     await expect(page.locator(".import-source-actions")).toBeVisible();
-    await expect(page.locator(".import-source-actions button").nth(2)).toContainText("OCR");
-    await expect(page.getByTestId("resume-import-dock")).toContainText("OCR");
-    await page.locator(".import-source-actions button").filter({ hasText: "OCR Benchmark" }).click();
-    await expect(page.getByTestId("ocr-benchmark-report")).toContainText("状态 B");
-    await expect(page.getByTestId("ocr-benchmark-report")).toContainText("Tesseract OCR");
-    await expect(page.getByTestId("ocr-benchmark-report")).toContainText("双栏顺序 未通过");
+    await expect(page.locator(".import-source-actions button").first()).toHaveText("导入扫描件（实验）");
+    await expect(dialog).not.toContainText("Benchmark");
+
+    const position = await dialog.evaluate((node) => {
+      const rect = node.getBoundingClientRect();
+      return {
+        centerOffsetX: Math.abs(rect.left + rect.width / 2 - window.innerWidth / 2),
+        centerOffsetY: Math.abs(rect.top + rect.height / 2 - window.innerHeight / 2)
+      };
+    });
+    expect(position.centerOffsetX).toBeLessThan(2);
+    expect(position.centerOffsetY).toBeLessThan(2);
 
     const spacing = await page.locator(".import-source-actions").evaluate((node) => {
       const style = window.getComputedStyle(node as HTMLElement);

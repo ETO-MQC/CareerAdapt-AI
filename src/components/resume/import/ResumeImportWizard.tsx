@@ -6,7 +6,7 @@ import { PDF_IMPORT_EXTRACTION_VERSION } from "@/domain/pdfImport/limits";
 import { buildPageTextRecords, preparePdfText } from "@/domain/pdfImport/text";
 import { validatePdfFileDescriptor, validatePdfHeader } from "@/domain/pdfImport/validation";
 import { extractTextFromDocxBuffer } from "@/domain/resumeImport/docx";
-import { benchmarkResumeOcrAdapter, runResumeOcrAdapter, type ResumeOcrBenchmarkResult } from "@/domain/resumeImport/ocrAdapter";
+import { runResumeOcrAdapter } from "@/domain/resumeImport/ocrAdapter";
 import {
   createImportedResumeDraftFromPdf,
   createImportedResumeDraftFromStructuredJson,
@@ -36,7 +36,6 @@ type ImportStatus =
   | "extracting_docx"
   | "extracting_ocr"
   | "importing_json"
-  | "benchmarking_ocr"
   | "classifying_sections"
   | "reviewing"
   | "confirming"
@@ -57,20 +56,21 @@ const SECTION_OPTIONS: Array<{ value: ImportedResumeSectionType; label: string }
 export function ResumeImportWizard(props: {
   repository: WorkspaceRepository;
   profile?: CareerProfile;
+  initialMode?: "file" | "json";
   onImported: (result: { profileId: string; branchId: string }) => Promise<void>;
 }) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const fileIntentRef = useRef<"auto" | "pdf" | "docx" | "json" | "ocr">("auto");
   const abortRef = useRef<AbortController | undefined>(undefined);
   const [status, setStatus] = useState<ImportStatus>("idle");
-  const [message, setMessage] = useState("导入文本 PDF、DOCX 或结构化 JSON 后，系统会先生成可核对草稿；OCR 仅为实验性 Adapter。");
+  const [message, setMessage] = useState("文件仅在本地解析，写入前可核对。");
   const [draft, setDraft] = useState<ImportedResumeDraft | undefined>();
   const [pages, setPages] = useState<PdfPageText[]>([]);
   const [selectedPageNumber, setSelectedPageNumber] = useState(1);
   const [selectedItemId, setSelectedItemId] = useState<string | undefined>();
   const [basicMergeActions, setBasicMergeActions] = useState<Record<string, ImportMergeDecision["action"]>>({});
   const [jsonText, setJsonText] = useState("");
-  const [ocrBenchmark, setOcrBenchmark] = useState<ResumeOcrBenchmarkResult | undefined>();
+  const [sourceMode, setSourceMode] = useState<"file" | "json">(props.initialMode ?? "file");
 
   useEffect(() => {
     let active = true;
@@ -289,7 +289,7 @@ export function ResumeImportWizard(props: {
 
   async function startOcrImport(file: File) {
     setStatus("extracting_ocr");
-    setMessage("正在调用实验性 OCR Adapter；当前环境未内置正式本地 OCR 引擎。");
+    setMessage("正在尝试识别扫描件；当前环境尚未安装正式识别引擎。");
     setDraft(undefined);
     setPages([]);
     setSelectedItemId(undefined);
@@ -306,17 +306,6 @@ export function ResumeImportWizard(props: {
       text: result.text,
       successMessage: `OCR 文本已由 ${result.engine} 生成；请在核对页确认后再导入。`
     });
-  }
-
-  async function runOcrBenchmark() {
-    setStatus("benchmarking_ocr");
-    setMessage("正在运行本地 OCR Adapter Benchmark。");
-    const result = await benchmarkResumeOcrAdapter();
-    setOcrBenchmark(result);
-    setStatus(draft ? "reviewing" : "idle");
-    setMessage(result.supported
-      ? "OCR Adapter Benchmark 已通过，仍需用户核对识别结果。"
-      : "OCR Adapter Benchmark 完成：当前推荐使用 JSON 兜底或 DOCX/PDF 文本导入。");
   }
 
   async function startJsonImport(rawText: string, fileName = "structured-resume.json") {
@@ -652,67 +641,39 @@ export function ResumeImportWizard(props: {
   }
 
   return (
-    <section className="panel no-print" aria-live="polite">
-      <div className="section-heading">
-        <div>
-          <h2>导入已有 PDF 简历</h2>
-          <p>支持文本 PDF、DOCX 和结构化 JSON；OCR 仅为实验性 Adapter，当前环境未安装正式本地识别引擎。</p>
-        </div>
-        <div className="action-row import-source-actions">
-          <button className="secondary-button" onClick={() => {
-            fileIntentRef.current = "pdf";
-            fileInputRef.current?.click();
-          }} disabled={status === "extracting_pdf" || status === "confirming"}>
-            PDF
-          </button>
-          <button className="secondary-button" onClick={() => {
-            fileIntentRef.current = "docx";
-            fileInputRef.current?.click();
-          }} disabled={status === "extracting_docx" || status === "confirming"}>
-            DOCX
-          </button>
-          <button className="secondary-button" onClick={() => {
-            fileIntentRef.current = "ocr";
-            fileInputRef.current?.click();
-          }} disabled={status === "extracting_ocr" || status === "confirming"}>
-            OCR实验
-          </button>
-          <button className="secondary-button" onClick={() => {
-            fileIntentRef.current = "json";
-            fileInputRef.current?.click();
-          }} disabled={status === "importing_json" || status === "confirming"}>
-            JSON
-          </button>
-          <button className="secondary-button" onClick={downloadSampleJson}>
-            示例JSON
-          </button>
-          <button className="secondary-button" onClick={() => { void runOcrBenchmark(); }} disabled={status === "benchmarking_ocr" || status === "confirming"}>
-            OCR Benchmark
-          </button>
-          <button className="secondary-button" onClick={cancelImport} disabled={status === "confirming" || (!draft && !["extracting_pdf", "extracting_docx", "extracting_ocr", "importing_json"].includes(status))}>
-            取消
-          </button>
-        </div>
-      </div>
-
+    <section className="resume-import-wizard no-print" aria-live="polite">
       <input ref={fileInputRef} className="visually-hidden" type="file" accept="application/pdf,.pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/json,.json,image/png,image/jpeg,.png,.jpg,.jpeg" onChange={handleFileChange} />
-      <div
-        className="import-dropzone"
-        onDragOver={(event) => event.preventDefault()}
-        onDrop={handleDrop}
-        role="button"
-        tabIndex={0}
-        onKeyDown={(event) => {
-          if (event.key === "Enter" || event.key === " ") {
+      {sourceMode === "file" ? (
+        <div
+          className="import-dropzone"
+          onDragOver={(event) => event.preventDefault()}
+          onDrop={handleDrop}
+          role="button"
+          tabIndex={0}
+          onClick={() => {
+            fileIntentRef.current = "auto";
             fileInputRef.current?.click();
-          }
-        }}
-      >
-        <strong>{draft?.source.fileName ?? "拖放或选择 PDF / DOCX / JSON 文件"}</strong>
-        <span>{importStatusLabel(status)} / {message}</span>
-      </div>
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              fileIntentRef.current = "auto";
+              fileInputRef.current?.click();
+            }
+          }}
+        >
+          <span className="import-dropzone-icon" aria-hidden="true">↑</span>
+          <strong>{draft?.source.fileName ?? "拖放简历到这里"}</strong>
+          <span>或点击选择 PDF、DOCX、JSON 文件</span>
+          <small>{importStatusLabel(status)} · {message}</small>
+        </div>
+      ) : null}
 
-      <details className="import-json-details">
+      <details
+        className="import-json-details"
+        open={sourceMode === "json"}
+        onToggle={(event) => setSourceMode(event.currentTarget.open ? "json" : "file")}
+      >
         <summary>粘贴结构化 JSON</summary>
         <textarea
           className="textarea compact-textarea"
@@ -730,41 +691,25 @@ export function ResumeImportWizard(props: {
         </div>
       </details>
 
-      {ocrBenchmark ? (
-        <section className="import-quality-report" data-testid="ocr-benchmark-report">
-          <div>
-            <strong>OCR Benchmark</strong>
-            <span>状态 {ocrBenchmark.classification}</span>
-            <span>{ocrBenchmark.engine}</span>
-          </div>
-          <div>
-            <span>{ocrBenchmark.supported ? "Adapter可用" : "Adapter未就绪"}</span>
-            <span>{ocrBenchmark.elapsedMs}ms</span>
-            <span>{ocrBenchmark.recommendation === "adapter_ready" ? "可接入OCR核对" : "建议JSON兜底"}</span>
-          </div>
-          <div>
-            <span>{ocrBenchmark.model.name}</span>
-            <span>{ocrBenchmark.model.modelFile}</span>
-            <span>模型 {ocrBenchmark.model.modelSizeMb}MB</span>
-            <span>{ocrBenchmark.model.cpu === "used" ? "CPU" : "非CPU"}</span>
-            <span>{ocrBenchmark.model.gpu === "used" ? "GPU" : "无GPU"}</span>
-          </div>
-          <div>
-            <span>单栏 {ocrBenchmark.measured.singleColumnElapsedMs}ms</span>
-            <span>双栏 {ocrBenchmark.measured.twoColumnElapsedMs}ms</span>
-            <span>内存 {ocrBenchmark.measured.peakMemoryMb}MB</span>
-            <span>字段 {ocrBenchmark.measured.recognizedFieldCount}/{ocrBenchmark.measured.expectedFieldCount}</span>
-            <span>双栏顺序 {ocrBenchmark.measured.twoColumnOrderPreserved ? "通过" : "未通过"}</span>
-          </div>
-          <div>
-            <span>{ocrBenchmark.productStatus}</span>
-            <span>{ocrBenchmark.conclusion}</span>
-          </div>
-          <div>
-            {ocrBenchmark.notes.map((note) => <span key={note}>{note}</span>)}
-          </div>
-        </section>
-      ) : null}
+      <div className="import-source-actions" aria-label="辅助导入工具">
+        {sourceMode === "json" ? (
+          <button className="secondary-button compact" type="button" onClick={downloadSampleJson}>
+            下载 JSON 示例
+          </button>
+        ) : (
+          <button className="secondary-button compact" type="button" onClick={() => {
+            fileIntentRef.current = "ocr";
+            fileInputRef.current?.click();
+          }} disabled={status === "extracting_ocr" || status === "confirming"}>
+            导入扫描件（实验）
+          </button>
+        )}
+        {draft || ["extracting_pdf", "extracting_docx", "extracting_ocr", "importing_json"].includes(status) ? (
+          <button className="secondary-button compact" type="button" onClick={cancelImport} disabled={status === "confirming"}>
+            取消当前导入
+          </button>
+        ) : null}
+      </div>
 
       {draft ? (
         <>
@@ -1024,7 +969,6 @@ function importStatusLabel(status: ImportStatus) {
     extracting_docx: "读取DOCX",
     extracting_ocr: "OCR识别",
     importing_json: "校验JSON",
-    benchmarking_ocr: "OCR测试",
     classifying_sections: "识别栏目",
     reviewing: "等待核对",
     confirming: "正在导入",

@@ -26,6 +26,15 @@ import {
   type Skill
 } from "@/domain/schemas";
 import { WorkspaceEmptyState, WorkspaceErrorState, WorkspaceLoadingState } from "@/components/workspace/WorkspaceStates";
+import { FieldInput } from "@/components/editor/FieldInput";
+import { StructuredExperienceForm } from "@/components/editor/StructuredExperienceForm";
+import {
+  defaultExperienceType,
+  emptyStructuredExperienceFields,
+  resumeFieldCategories,
+  type ResumeFieldCategoryId,
+  type StructuredExperienceFields
+} from "@/domain/resumeFields/catalog";
 import { extractTextFromPdfBuffer } from "@/services/pdf/extractText";
 import { hashBytes, hashText, redactSensitiveTextForModel } from "@/services/security/text";
 import { useWorkspace } from "@/services/workspace/useWorkspace";
@@ -36,9 +45,9 @@ const pdfInputId = "resume-pdf-upload";
 const profileArchiveKey = (profileId: string) => `profileArchive:${profileId}:skills`;
 const profileArchiveV2Key = (profileId: string) => `profileArchive:${profileId}:managed-items`;
 
-type ProfileCategoryId = "basic" | "education" | "work" | "project" | "campus" | "award" | "certificate" | "skill" | "language" | "custom";
+type ProfileCategoryId = ResumeFieldCategoryId;
 type ProfileUsageFilter = "all" | "used" | "unused" | "archived";
-type ProfileManagedKind = "basic" | "experience" | "certificate" | "skill" | "custom";
+type ProfileManagedKind = "basic" | "summary" | "experience" | "certificate" | "skill" | "custom";
 
 type ArchivedCustomBlock = {
   id: string;
@@ -70,9 +79,10 @@ type ProfileManagedItem = {
   experienceType?: ExperienceType;
   skillLevel?: Skill["level"];
   date?: string;
+  structured?: StructuredExperienceFields;
 };
 
-type ProfileItemDraft = {
+type ProfileItemDraft = StructuredExperienceFields & {
   title: string;
   subtitle: string;
   body: string;
@@ -88,20 +98,10 @@ const emptyProfileArchive: ProfileArchiveState = {
   customBlocks: []
 };
 
-const profileCategories: Array<{ id: ProfileCategoryId; label: string; description: string }> = [
-  { id: "basic", label: "基本信息", description: "姓名、联系方式、简介" },
-  { id: "education", label: "教育", description: "学校、专业、学历" },
-  { id: "work", label: "工作/实习", description: "全职、实习和岗位经历" },
-  { id: "project", label: "项目", description: "项目、作品和交付" },
-  { id: "campus", label: "校园经历", description: "社团、志愿和校内职责" },
-  { id: "award", label: "奖项", description: "竞赛、荣誉和奖项" },
-  { id: "certificate", label: "证书", description: "证书、执照和认证" },
-  { id: "skill", label: "技能", description: "工具、语言和方法" },
-  { id: "language", label: "语言", description: "外语和语言能力" },
-  { id: "custom", label: "自定义", description: "待分类或补充内容" }
-];
+const profileCategories = resumeFieldCategories;
 
 const emptyProfileItemDraft: ProfileItemDraft = {
+  ...emptyStructuredExperienceFields,
   title: "",
   subtitle: "",
   body: "",
@@ -112,17 +112,18 @@ const emptyProfileItemDraft: ProfileItemDraft = {
 
 type BasicDraft = {
   name: string;
+  headline: string;
   phone: string;
   email: string;
   location: string;
-  summary: string;
+  link: string;
 };
 
 type BasicDraftState = BasicDraft & {
   profileKey: string;
 };
 
-const emptyBasicDraft: BasicDraftState = { name: "", phone: "", email: "", location: "", summary: "", profileKey: "" };
+const emptyBasicDraft: BasicDraftState = { name: "", headline: "", phone: "", email: "", location: "", link: "", profileKey: "" };
 
 export function ProfileWorkspace() {
   const workspace = useWorkspace(repository);
@@ -326,10 +327,11 @@ export function ProfileWorkspace() {
       basics: {
         ...profile.basics,
         name,
+        headline: optionalText(basicDraft.headline),
         phone: optionalText(basicDraft.phone),
         email: optionalText(basicDraft.email),
         location: optionalText(basicDraft.location),
-        summary: optionalText(basicDraft.summary)
+        links: basicDraft.link.trim() ? [basicDraft.link.trim()] : []
       },
       version: profile.version + 1,
       updatedAt: now
@@ -383,9 +385,27 @@ export function ProfileWorkspace() {
       return;
     }
 
+    if (activeProfileCategory === "summary") {
+      const summary = profileItemDraft.body.trim();
+      if (!summary) {
+        setMessage("请先填写自我评价。");
+        return;
+      }
+      const saved = await saveProfileSnapshot({
+        ...profile,
+        basics: { ...profile.basics, summary },
+        version: profile.version + 1,
+        updatedAt: new Date().toISOString()
+      }, "自我评价已保存。");
+      if (saved) setProfileItemEditing(false);
+      return;
+    }
+
     const title = profileItemDraft.title.trim();
     const body = profileItemDraft.body.trim();
-    if (!title && activeProfileCategory !== "custom") {
+    const structuredTitle = profileItemDraft.organization.trim();
+    const isStructuredCategory = activeProfileCategory === "education" || activeProfileCategory === "work" || activeProfileCategory === "project" || activeProfileCategory === "campus";
+    if (!(isStructuredCategory ? structuredTitle : title) && activeProfileCategory !== "custom") {
       setMessage("请先填写条目名称。");
       return;
     }
@@ -451,7 +471,7 @@ export function ProfileWorkspace() {
   }
 
   async function archiveManagedProfileItem(item: ProfileManagedItem) {
-    if (!profile || item.kind === "basic" || item.archived) {
+    if (!profile || item.kind === "basic" || item.kind === "summary" || item.archived) {
       return;
     }
 
@@ -1134,9 +1154,6 @@ export function ProfileWorkspace() {
               </div>
               <div className="action-row profile-detail-actions">
                 <span className={`save-status save-status-${saveStatus}`}>{profileSaving ? "保存中" : "本地已保存"}</span>
-                {activeProfileCategory !== "basic" ? (
-                  <button className="primary-button compact" disabled={profileSaving} onClick={startManagedProfileCreate}>+ 新增</button>
-                ) : null}
               </div>
             </div>
             <div className="profile-category-list" role="listbox" aria-label="资料分类">
@@ -1163,7 +1180,7 @@ export function ProfileWorkspace() {
                 <h2>{profileCategoryLabel(activeProfileCategory)}</h2>
                 <p>只显示当前分类，列表和详情各自滚动。</p>
               </div>
-              {activeProfileCategory !== "basic" ? (
+              {activeProfileCategory !== "basic" && activeProfileCategory !== "summary" ? (
                 <button className="primary-button compact" disabled={profileSaving} onClick={startManagedProfileCreate}>新增</button>
               ) : null}
             </div>
@@ -1216,6 +1233,8 @@ export function ProfileWorkspace() {
                 <div className="action-row profile-detail-actions">
                   {selectedProfileItem.archived ? (
                     <button className="primary-button compact" disabled={profileSaving} onClick={() => { void restoreManagedProfileItem(selectedProfileItem); }}>恢复</button>
+                  ) : activeProfileCategory === "summary" ? (
+                    <button className="secondary-button compact" disabled={profileSaving} onClick={startManagedProfileEdit}>编辑</button>
                   ) : (
                     <>
                       <button className="secondary-button compact" disabled={profileSaving} onClick={startManagedProfileEdit}>编辑</button>
@@ -1227,70 +1246,22 @@ export function ProfileWorkspace() {
             </div>
 
             {activeProfileCategory === "basic" ? (
-              <div className="profile-detail-scroll">
-                <div className="form-grid compact-form-grid">
-                  <label className="field-label">
-                    姓名
-                    <input value={basicDraft.name} onChange={(event) => setBasicDraft({ ...basicDraft, name: event.target.value })} />
-                  </label>
-                  <label className="field-label">
-                    电话
-                    <input value={basicDraft.phone} onChange={(event) => setBasicDraft({ ...basicDraft, phone: event.target.value })} />
-                  </label>
-                  <label className="field-label">
-                    邮箱
-                    <input value={basicDraft.email} onChange={(event) => setBasicDraft({ ...basicDraft, email: event.target.value })} />
-                  </label>
-                  <label className="field-label">
-                    所在地
-                    <input value={basicDraft.location} onChange={(event) => setBasicDraft({ ...basicDraft, location: event.target.value })} />
-                  </label>
+              <div className="profile-detail-scroll profile-detail-form">
+                <div className="section-fields-grid-2">
+                  <FieldInput id="profile-name" label="姓名" required autoComplete="name" value={basicDraft.name} onChange={(name) => setBasicDraft({ ...basicDraft, name })} />
+                  <FieldInput id="profile-headline" label="职业标题" value={basicDraft.headline} onChange={(headline) => setBasicDraft({ ...basicDraft, headline })} />
                 </div>
-                <label className="field-label">
-                  个人简介
-                  <textarea className="textarea compact-textarea" value={basicDraft.summary} onChange={(event) => setBasicDraft({ ...basicDraft, summary: event.target.value })} />
-                </label>
+                <div className="section-fields-grid-2">
+                  <FieldInput id="profile-phone" label="电话" type="tel" inputMode="tel" autoComplete="tel" value={basicDraft.phone} onChange={(phone) => setBasicDraft({ ...basicDraft, phone })} />
+                  <FieldInput id="profile-email" label="邮箱" type="email" inputMode="email" autoComplete="email" value={basicDraft.email} onChange={(email) => setBasicDraft({ ...basicDraft, email })} />
+                </div>
+                <FieldInput id="profile-location" label="所在地" autoComplete="address-level2" value={basicDraft.location} onChange={(location) => setBasicDraft({ ...basicDraft, location })} />
+                <FieldInput id="profile-link" label="个人主页 / LinkedIn" type="url" inputMode="url" autoComplete="url" value={basicDraft.link} onChange={(link) => setBasicDraft({ ...basicDraft, link })} />
                 <button className="primary-button" disabled={profileSaving} onClick={saveProfileBasics}>保存基本信息</button>
               </div>
             ) : profileItemEditing ? (
-              <div className="profile-detail-scroll">
-                <label className="field-label">
-                  名称
-                  <input value={profileItemDraft.title} onChange={(event) => setProfileItemDraft((current) => ({ ...current, title: event.target.value }))} />
-                </label>
-                <label className="field-label">
-                  组织/角色/来源
-                  <input value={profileItemDraft.subtitle} onChange={(event) => setProfileItemDraft((current) => ({ ...current, subtitle: event.target.value }))} />
-                </label>
-                {activeProfileCategory === "work" ? (
-                  <label className="field-label">
-                    类型
-                    <select value={profileItemDraft.experienceType} onChange={(event) => setProfileItemDraft((current) => ({ ...current, experienceType: event.target.value as ExperienceType }))}>
-                      <option value="work">工作</option>
-                      <option value="internship">实习</option>
-                    </select>
-                  </label>
-                ) : null}
-                {activeProfileCategory === "skill" || activeProfileCategory === "language" ? (
-                  <label className="field-label">
-                    熟练度
-                    <select value={profileItemDraft.level} onChange={(event) => setProfileItemDraft((current) => ({ ...current, level: event.target.value as Skill["level"] }))}>
-                      <option value="basic">了解</option>
-                      <option value="familiar">熟悉</option>
-                      <option value="proficient">熟练</option>
-                    </select>
-                  </label>
-                ) : null}
-                {activeProfileCategory === "certificate" || activeProfileCategory === "award" ? (
-                  <label className="field-label">
-                    日期
-                    <input value={profileItemDraft.date} onChange={(event) => setProfileItemDraft((current) => ({ ...current, date: event.target.value }))} placeholder="例如 2025-06" />
-                  </label>
-                ) : null}
-                <label className="field-label">
-                  事实说明
-                  <textarea className="textarea compact-textarea" value={profileItemDraft.body} onChange={(event) => setProfileItemDraft((current) => ({ ...current, body: event.target.value }))} />
-                </label>
+              <div className="profile-detail-scroll profile-detail-form">
+                <ProfileCategoryFields category={activeProfileCategory} draft={profileItemDraft} onChange={setProfileItemDraft} />
                 <div className="action-row profile-detail-actions">
                   <button className="primary-button" disabled={profileSaving} onClick={() => { void saveManagedProfileItem(); }}>保存</button>
                   <button className="secondary-button" disabled={profileSaving} onClick={() => setProfileItemEditing(false)}>取消</button>
@@ -1298,12 +1269,10 @@ export function ProfileWorkspace() {
               </div>
             ) : selectedProfileItem ? (
               <div className="profile-detail-scroll">
-                <dl className="info-list">
-                  <div><dt>名称</dt><dd>{selectedProfileItem.title}</dd></div>
-                  <div><dt>分类</dt><dd>{profileCategoryLabel(selectedProfileItem.category)}</dd></div>
-                  <div><dt>来源</dt><dd>{selectedProfileItem.source}</dd></div>
-                  <div><dt>使用状态</dt><dd>{selectedProfileItem.usage}</dd></div>
-                  <div><dt>更新时间</dt><dd>{selectedProfileItem.updatedAt.slice(0, 10)}</dd></div>
+                <dl className="profile-detail-data-list">
+                  {profileDetailRows(selectedProfileItem).map((row) => (
+                    <div key={row.label}><dt>{row.label}</dt><dd>{row.value || "—"}</dd></div>
+                  ))}
                 </dl>
                 <div className="profile-source-list">
                   <strong>事实说明</strong>
@@ -1497,6 +1466,110 @@ export function ProfileWorkspace() {
   );
 }
 
+function ProfileCategoryFields({
+  category,
+  draft,
+  onChange
+}: {
+  category: ProfileCategoryId;
+  draft: ProfileItemDraft;
+  onChange: (draft: ProfileItemDraft) => void;
+}) {
+  const update = <Key extends keyof ProfileItemDraft>(key: Key, value: ProfileItemDraft[Key]) => onChange({ ...draft, [key]: value });
+  if (category === "summary") {
+    return (
+      <label className="field-input-group">
+        <span className="field-input-label">自我评价</span>
+        <textarea className="textarea compact-textarea" value={draft.body} onChange={(event) => update("body", event.target.value)} placeholder="概括职业方向、优势和与目标岗位有关的能力" />
+      </label>
+    );
+  }
+  if (category === "education" || category === "work" || category === "project" || category === "campus") {
+    const extraField = category === "work" ? (
+      <label className="field-input-group">
+        <span className="field-input-label">经历类型</span>
+        <select className="field-input" value={draft.experienceType} onChange={(event) => update("experienceType", event.target.value as ExperienceType)}>
+          <option value="work">工作</option>
+          <option value="internship">实习</option>
+        </select>
+      </label>
+    ) : undefined;
+    return (
+      <StructuredExperienceForm
+        category={category}
+        value={draft}
+        onChange={(value) => onChange({ ...draft, ...value })}
+        idPrefix={`profile-${category}`}
+        extraField={extraField}
+      />
+    );
+  }
+  if (category === "basic") return null;
+
+  const labels: Record<Exclude<ProfileCategoryId, "basic" | "summary" | "education" | "work" | "project" | "campus">, { title: string; subtitle: string; body: string }> = {
+    award: { title: "奖项名称", subtitle: "颁发机构 / 赛事", body: "获奖说明" },
+    certificate: { title: "证书名称", subtitle: "颁发机构", body: "证书说明" },
+    skill: { title: "技能名称", subtitle: "技能方向", body: "使用场景或能力说明" },
+    language: { title: "语言", subtitle: "考试 / 证书", body: "语言能力说明" },
+    custom: { title: "内容标题", subtitle: "栏目名称", body: "详细内容" }
+  };
+  const currentLabels = labels[category];
+  return (
+    <div className="section-fields">
+      <div className="section-fields-grid-2">
+        <FieldInput id={`profile-${category}-title`} label={currentLabels.title} required={category !== "custom"} value={draft.title} onChange={(value) => update("title", value)} />
+        <FieldInput id={`profile-${category}-subtitle`} label={currentLabels.subtitle} value={draft.subtitle} onChange={(value) => update("subtitle", value)} />
+      </div>
+      {category === "award" || category === "certificate" ? (
+        <FieldInput id={`profile-${category}-date`} label={category === "award" ? "获奖日期" : "颁发日期"} type="date" value={draft.date} onChange={(value) => update("date", value)} />
+      ) : null}
+      {category === "skill" || category === "language" ? (
+        <label className="field-input-group">
+          <span className="field-input-label">熟练度</span>
+          <select className="field-input" value={draft.level} onChange={(event) => update("level", event.target.value as Skill["level"])}>
+            <option value="basic">了解</option>
+            <option value="familiar">熟悉</option>
+            <option value="proficient">熟练</option>
+          </select>
+        </label>
+      ) : null}
+      <label className="field-input-group">
+        <span className="field-input-label">{currentLabels.body}</span>
+        <textarea className="textarea compact-textarea" value={draft.body} onChange={(event) => update("body", event.target.value)} />
+      </label>
+    </div>
+  );
+}
+
+function profileDetailRows(item: ProfileManagedItem): Array<{ label: string; value: string }> {
+  const structured = item.structured;
+  const rows: Array<{ label: string; value: string }> = [];
+  if (structured) {
+    const organizationLabel = item.category === "education" ? "学校名称"
+      : item.category === "project" ? "项目名称"
+        : item.category === "campus" ? "组织 / 活动" : "公司 / 组织";
+    const roleLabel = item.category === "education" ? "学历"
+      : item.category === "project" ? "职责 / 角色"
+        : item.category === "campus" ? "职务 / 角色" : "职位 / 角色";
+    rows.push({ label: organizationLabel, value: structured.organization });
+    rows.push({ label: roleLabel, value: item.category === "education" ? structured.degree : structured.role });
+    if (item.category === "education") rows.push({ label: "专业", value: structured.major });
+    rows.push({ label: item.category === "education" ? "学校所在地" : "地点", value: structured.location });
+    rows.push({ label: "开始时间", value: structured.startDate });
+    rows.push({ label: "结束时间", value: structured.current ? "至今" : structured.endDate });
+    if (item.category === "education") rows.push({ label: "主修课程", value: structured.courses });
+  } else {
+    rows.push({ label: item.category === "summary" ? "栏目" : "名称", value: item.title });
+    if (item.subtitle) rows.push({ label: "补充信息", value: item.subtitle });
+    if (item.date) rows.push({ label: "日期", value: item.date });
+  }
+  rows.push({ label: "分类", value: profileCategoryLabel(item.category) });
+  rows.push({ label: "来源", value: item.source });
+  rows.push({ label: "使用状态", value: item.usage });
+  rows.push({ label: "更新时间", value: item.updatedAt.slice(0, 10) });
+  return rows;
+}
+
 function buildProfileManagedItems(
   profile: CareerProfile,
   archive: ProfileArchiveState,
@@ -1538,6 +1611,23 @@ function buildCurrentProfileItems(profile: CareerProfile, category: ProfileCateg
       source: "用户确认",
       usage: "简历页眉使用",
       used: true,
+      archived: false,
+      updatedAt: profile.updatedAt
+    }];
+  }
+
+  if (category === "summary") {
+    return [{
+      key: "summary:profile",
+      id: profile.id,
+      kind: "summary",
+      category: "summary",
+      title: "自我评价",
+      subtitle: "用于简历概述，可在具体简历中独立修改",
+      body: profile.basics.summary ?? "",
+      source: "用户确认",
+      usage: profile.basics.summary ? "资料库概述" : "待补充",
+      used: Boolean(profile.basics.summary),
       archived: false,
       updatedAt: profile.updatedAt
     }];
@@ -1629,7 +1719,19 @@ function experienceToManagedItem(experience: Experience, archived: boolean): Pro
     archived,
     updatedAt: experience.updatedAt,
     experienceType: experience.type,
-    date: [experience.startDate, experience.endDate].filter(Boolean).join(" - ")
+    date: [experience.startDate, experience.endDate].filter(Boolean).join(" - "),
+    structured: {
+      organization: experience.organization,
+      role: experience.role,
+      location: experience.location ?? "",
+      degree: experience.degree ?? (experience.type === "education" ? experience.role : ""),
+      major: experience.major ?? "",
+      courses: (experience.courses ?? []).join("、"),
+      startDate: experience.startDate ?? "",
+      endDate: experience.endDate ?? "",
+      current: Boolean(experience.startDate && !experience.endDate),
+      description: firstFact?.statement ?? ""
+    }
   };
 }
 
@@ -1671,6 +1773,8 @@ function skillToManagedItem(skill: Skill, category: ProfileCategoryId, archived:
 
 function profileDraftFromItem(item: ProfileManagedItem): ProfileItemDraft {
   return {
+    ...emptyStructuredExperienceFields,
+    ...item.structured,
     title: item.title,
     subtitle: item.subtitle,
     body: item.body,
@@ -1690,16 +1794,21 @@ function defaultProfileDraftForCategory(category: ProfileCategoryId): ProfileIte
 function buildExperienceFromDraft(draft: ProfileItemDraft, category: ProfileCategoryId, existingId: string | undefined, now: string): Experience {
   const id = existingId ?? `experience-${nanoid(10)}`;
   const type = category === "work" ? draft.experienceType : defaultExperienceTypeForCategory(category);
-  const organization = draft.title.trim() || profileCategoryLabel(category);
-  const role = draft.subtitle.trim() || profileCategoryLabel(category);
-  const statement = draft.body.trim() || `${organization} / ${role}`;
+  const isStructured = category === "education" || category === "work" || category === "project" || category === "campus";
+  const organization = (isStructured ? draft.organization : draft.title).trim() || profileCategoryLabel(category);
+  const role = (category === "education" ? draft.degree : isStructured ? draft.role : draft.subtitle).trim() || profileCategoryLabel(category);
+  const statement = (isStructured ? draft.description : draft.body).trim() || `${organization} / ${role}`;
   return {
     id,
     type,
     organization,
     role,
-    startDate: undefined,
-    endDate: draft.date.trim() || undefined,
+    location: optionalText(draft.location),
+    degree: category === "education" ? optionalText(draft.degree) : undefined,
+    major: category === "education" ? optionalText(draft.major) : undefined,
+    courses: category === "education" ? draft.courses.split(/[、,，]/).map((item) => item.trim()).filter(Boolean) : [],
+    startDate: optionalText(draft.startDate),
+    endDate: isStructured ? (draft.current ? undefined : optionalText(draft.endDate)) : optionalText(draft.date),
     facts: [buildUserFact(`fact-${nanoid(10)}`, id, statement, factCategoryForProfileCategory(category), now)],
     resumeDrafts: [],
     tags: category === "award" ? ["award"] : [],
@@ -1788,15 +1897,7 @@ function categoryForExperience(experience: Experience): ProfileCategoryId {
 }
 
 function defaultExperienceTypeForCategory(category: ProfileCategoryId): ExperienceType {
-  const defaults: Partial<Record<ProfileCategoryId, ExperienceType>> = {
-    education: "education",
-    work: "work",
-    project: "project",
-    campus: "campus",
-    award: "competition",
-    custom: "other"
-  };
-  return defaults[category] ?? "other";
+  return defaultExperienceType(category);
 }
 
 function factCategoryForProfileCategory(category: ProfileCategoryId): FactCategory {
@@ -1877,10 +1978,11 @@ function basicDraftFromProfile(profile: CareerProfile, profileKey: string): Basi
   return {
     profileKey,
     name: profile.name,
+    headline: profile.basics.headline ?? "",
     phone: profile.basics.phone ?? "",
     email: profile.basics.email ?? "",
     location: profile.basics.location ?? "",
-    summary: profile.basics.summary ?? ""
+    link: profile.basics.links[0] ?? ""
   };
 }
 

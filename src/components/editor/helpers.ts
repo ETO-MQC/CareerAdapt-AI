@@ -1,3 +1,9 @@
+import {
+  parseStructuredExperienceText,
+  serializeStructuredExperienceText,
+  type ResumeFieldCategoryId
+} from "@/domain/resumeFields/catalog";
+
 /**
  * Shared label helpers and structured-field utilities for the resume editor.
  * Extracted from ResumeWorkspace.tsx so section-page components can import them.
@@ -41,70 +47,29 @@ export function riskLevelLabel(value: string) {
 
 export function extractStructuredField(
   text: string,
-  field: "organization" | "role" | "location" | "start" | "end" | "current"
+  field: "organization" | "role" | "location" | "degree" | "major" | "courses" | "start" | "end" | "current"
 ) {
-  const parsed = parseStructuredHeader(text);
+  const parsed = parseStructuredExperienceText(text);
   if (field === "current") return parsed.current ? "true" : "false";
+  if (field === "start") return parsed.startDate;
+  if (field === "end") return parsed.endDate;
   return parsed[field];
 }
 
 export function updateStructuredFieldInText(
   text: string,
-  field: "organization" | "role" | "location" | "start" | "end" | "current",
-  newValue: string
+  field: "organization" | "role" | "location" | "degree" | "major" | "courses" | "start" | "end" | "current",
+  newValue: string,
+  category: ResumeFieldCategoryId = "work"
 ): string {
-  const parsed = parseStructuredHeader(text);
+  const parsed = parseStructuredExperienceText(text);
+  const targetField = field === "start" ? "startDate" : field === "end" ? "endDate" : field;
   const next = {
     ...parsed,
-    [field]: field === "current" ? newValue === "true" : newValue.trim()
+    [targetField]: field === "current" ? newValue === "true" : newValue.trim()
   };
-  if (field === "current" && next.current) next.end = "";
-  const identity = [next.organization, next.role].filter(Boolean).join(" / ");
-  const dates = next.start
-    ? `${serializeDate(next.start)} - ${next.current ? "至今" : serializeDate(next.end)}`.replace(/\s+-\s+$/, "")
-    : next.current ? "至今" : serializeDate(next.end);
-  const header = [identity, next.location, dates].filter(Boolean).join("  ");
-  return [header, ...parsed.descriptionLines].filter((line, index) => index > 0 || Boolean(line)).join("\n");
-}
-
-function parseStructuredHeader(text: string) {
-  const [rawHeader = "", ...descriptionLines] = text.split("\n");
-  let header = rawHeader.trim();
-  const current = /(?:至今|现在|present|current)/i.test(header);
-  const dates = header.match(/(?:19|20)\d{2}(?:[./-]\d{1,2})?(?:[./-]\d{1,2})?/g) ?? [];
-  header = header
-    .replace(/(?:19|20)\d{2}(?:[./-]\d{1,2})?(?:[./-]\d{1,2})?/g, "")
-    .replace(/(?:至今|现在|present|current)/gi, "")
-    .replace(/\s+-\s*$/, "")
-    .trim();
-  const segments = header.split(/\s{2,}/).map((value) => value.trim()).filter(Boolean);
-  const identity = segments[0] ?? "";
-  const separator = [" / ", " ｜ ", " | ", "，", ","].find((value) => identity.includes(value));
-  const identityParts = separator ? identity.split(separator).map((value) => value.trim()) : [identity];
-  return {
-    organization: identityParts[0] ?? "",
-    role: identityParts.slice(1).join(separator ?? " / "),
-    location: segments.slice(1).join(" "),
-    start: normalizeDate(dates[0] ?? ""),
-    end: current ? "" : normalizeDate(dates[1] ?? ""),
-    current,
-    descriptionLines
-  };
-}
-
-function normalizeDate(value: string) {
-  if (!value) return "";
-  const parts = value.split(/[./-]/);
-  if (parts.length === 1) return `${parts[0]}-01-01`;
-  if (parts.length === 2) return `${parts[0]}-${parts[1].padStart(2, "0")}-01`;
-  return `${parts[0]}-${parts[1].padStart(2, "0")}-${parts[2].padStart(2, "0")}`;
-}
-
-function serializeDate(value: string) {
-  if (!value) return "";
-  if (/^\d{4}-01-01$/.test(value)) return value.slice(0, 4);
-  if (/^\d{4}-\d{2}-01$/.test(value)) return `${value.slice(0, 4)}.${value.slice(5, 7)}`;
-  return value.replace(/-/g, ".");
+  if (field === "current" && next.current) next.endDate = "";
+  return serializeStructuredExperienceText(next, category);
 }
 
 /**

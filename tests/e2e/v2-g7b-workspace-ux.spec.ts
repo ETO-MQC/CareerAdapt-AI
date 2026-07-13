@@ -24,7 +24,7 @@ test.describe("V2-G7b workspace UX", () => {
     await expect(page.locator(".profile-list-panel")).toBeVisible();
     await expect(page.locator(".profile-detail-panel")).toBeVisible();
 
-    await page.locator(".profile-category-button").nth(7).click();
+    await page.locator(".profile-category-button").filter({ hasText: "个人技能" }).click();
     await page.locator(".profile-list-panel button.primary-button").click();
     const detail = page.locator(".profile-detail-panel");
     await detail.locator("input").first().fill(skillName);
@@ -33,6 +33,30 @@ test.describe("V2-G7b workspace UX", () => {
     await detail.locator("button.primary-button").last().click();
 
     await expect(page.locator(".profile-managed-list")).toContainText(skillName);
+  });
+
+  test("profile education fields persist with the resume field model", async ({ page }) => {
+    const schoolName = `职适测试大学 ${Date.now()}`;
+    await page.goto("/profile");
+    await page.locator(".profile-category-button").filter({ hasText: "教育经历" }).click();
+    await page.locator(".profile-list-panel button.primary-button").click();
+    const detail = page.locator(".profile-detail-panel");
+    await detail.getByLabel("学校名称").fill(schoolName);
+    await detail.getByLabel("学历").fill("本科");
+    await detail.getByLabel("专业").fill("计算机相关专业");
+    await detail.getByLabel("学校所在地").fill("上海");
+    await detail.getByLabel("就读开始时间").fill("2021-09-01");
+    await detail.getByLabel("就读结束时间").fill("2025-06-30");
+    await detail.getByLabel("主修课程").fill("数据结构、操作系统");
+    await detail.locator("[contenteditable='true']").fill("主修方向与目标岗位相关。");
+    await detail.getByRole("button", { name: "保存", exact: true }).click();
+
+    await expect(page.getByTestId("profile-managed-list")).toContainText(schoolName);
+    await page.reload();
+    await page.locator(".profile-category-button").filter({ hasText: "教育经历" }).click();
+    await page.locator(".profile-managed-row").filter({ hasText: schoolName }).click();
+    await expect(detail.locator(".profile-detail-data-list")).toContainText("计算机相关专业");
+    await expect(detail.locator(".profile-detail-data-list")).toContainText("数据结构、操作系统");
   });
 
   test("resume workspace supports A4 direct profile-field editing", async ({ page }) => {

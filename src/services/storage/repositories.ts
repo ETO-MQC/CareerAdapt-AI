@@ -78,6 +78,7 @@ import { mapAdaptationDraftToResumeBranch } from "@/domain/branch/mapper";
 import { createResumeRevision } from "@/domain/branch/revision";
 import { computeBranchSyncStatus, computeGeneralBranchSyncStatus, resolveBranchFactRefs } from "@/domain/branch/validation";
 import { buildGeneralBranchFromProfile } from "@/domain/branch/profileBranch";
+import { parseStructuredExperienceText, serializeStructuredExperienceText, type ResumeFieldCategoryId } from "@/domain/resumeFields/catalog";
 import { buildResumeImportConfirmation } from "@/domain/resumeImport/confirm";
 import { runRuleFactGuard } from "@/domain/adaptation/factGuard";
 import {
@@ -2053,6 +2054,10 @@ export class WorkspaceRepository {
     text: string;
     organization?: string;
     role?: string;
+    location?: string;
+    degree?: string;
+    major?: string;
+    courses?: string[];
     startDate?: string;
     endDate?: string;
     syncToProfile?: boolean;
@@ -2184,6 +2189,10 @@ export class WorkspaceRepository {
               type: experienceType,
               organization: input.organization?.trim() || sectionProfileLabel(input.section),
               role: input.role?.trim() || sectionProfileLabel(input.section),
+              location: input.location?.trim() || undefined,
+              degree: input.degree?.trim() || undefined,
+              major: input.major?.trim() || undefined,
+              courses: input.courses ?? [],
               startDate: input.startDate || undefined,
               endDate: input.endDate || undefined,
               facts: [fact],
@@ -2260,6 +2269,10 @@ export class WorkspaceRepository {
     itemId: string;
     organization?: string;
     role?: string;
+    location?: string;
+    degree?: string;
+    major?: string;
+    courses?: string[];
     startDate?: string;
     endDate?: string;
   }) {
@@ -2291,6 +2304,10 @@ export class WorkspaceRepository {
                   ...experience,
                   organization: input.organization?.trim() || inferredFields.organization || experience.organization,
                   role: input.role?.trim() || inferredFields.role || experience.role,
+                  location: input.location?.trim() || inferredFields.location || experience.location,
+                  degree: input.degree?.trim() || inferredFields.degree || experience.degree,
+                  major: input.major?.trim() || inferredFields.major || experience.major,
+                  courses: input.courses ?? (inferredFields.courses ? inferredFields.courses.split(/[、,，]/).map((value) => value.trim()).filter(Boolean) : experience.courses),
                   startDate: input.startDate || inferredFields.startDate || experience.startDate,
                   endDate: input.endDate || inferredFields.endDate || experience.endDate,
                   facts: experience.facts.map((fact) => fact.id === existingRef.factId
@@ -2460,11 +2477,22 @@ export class WorkspaceRepository {
         }
         const draft = experience.resumeDrafts.find((candidate) => candidate.factIds.includes(fact.id));
         const description = draft?.text.trim() || fact.statement.trim();
-        const header = [
-          [experience.organization, experience.role].filter(Boolean).join(" / "),
-          [experience.startDate, experience.endDate].filter(Boolean).join(" - ")
-        ].filter(Boolean).join("  ");
-        const text = description.startsWith(header) || !header ? description : `${header}\n${description}`;
+        const category: ResumeFieldCategoryId = experience.type === "education" ? "education"
+          : experience.type === "project" ? "project"
+            : experience.type === "campus" || experience.type === "volunteer" ? "campus" : "work";
+        const parsedDraft = parseStructuredExperienceText(description);
+        const text = serializeStructuredExperienceText({
+          organization: experience.organization,
+          role: experience.role,
+          location: experience.location ?? parsedDraft.location,
+          degree: experience.degree ?? (experience.type === "education" ? experience.role : ""),
+          major: experience.major ?? parsedDraft.major,
+          courses: (experience.courses ?? []).join("、") || parsedDraft.courses,
+          startDate: experience.startDate ?? parsedDraft.startDate,
+          endDate: experience.endDate ?? parsedDraft.endDate,
+          current: Boolean(experience.startDate && !experience.endDate),
+          description: parsedDraft.organization ? parsedDraft.description : description
+        }, category);
         const factRefs: ResumeBranch["contentItems"][number]["factRefs"] = [{
           type: "experience_fact",
           experienceId: experience.id,
@@ -4286,21 +4314,16 @@ function upsertProfileResumeDraft(
 }
 
 function inferProfileFieldsFromResumeText(text: string) {
-  const header = text.split("\n")[0]?.trim() ?? "";
-  const dates = header.match(/(?:19|20)\d{2}(?:[./-]\d{1,2})?(?:[./-]\d{1,2})?/g) ?? [];
-  const withoutDates = header
-    .replace(/(?:19|20)\d{2}(?:[./-]\d{1,2})?(?:[./-]\d{1,2})?/g, "")
-    .replace(/(?:至今|现在|present|current)/gi, "")
-    .replace(/\s+-\s*$/, "")
-    .trim();
-  const identity = withoutDates.split(/\s{2,}/)[0] ?? "";
-  const separator = [" / ", " ｜ ", " | ", "，", ","].find((candidate) => identity.includes(candidate));
-  const parts = separator ? identity.split(separator).map((part) => part.trim()) : [identity];
+  const parsed = parseStructuredExperienceText(text);
   return {
-    organization: parts[0] ?? "",
-    role: parts.slice(1).join(separator ?? " / "),
-    startDate: normalizeProfileDate(dates[0]),
-    endDate: /(?:至今|现在|present|current)/i.test(header) ? undefined : normalizeProfileDate(dates[1])
+    organization: parsed.organization,
+    role: parsed.role,
+    location: parsed.location,
+    degree: parsed.degree,
+    major: parsed.major,
+    courses: parsed.courses,
+    startDate: normalizeProfileDate(parsed.startDate),
+    endDate: parsed.current ? undefined : normalizeProfileDate(parsed.endDate)
   };
 }
 

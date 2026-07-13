@@ -9,6 +9,7 @@ import {
   type ResumeRevision
 } from "@/domain/schemas";
 import { createResumeRevision } from "./revision";
+import { parseStructuredExperienceText, serializeStructuredExperienceText, type ResumeFieldCategoryId } from "@/domain/resumeFields/catalog";
 
 export type ProfileBranchBuildResult = {
   branch: ResumeBranch;
@@ -95,11 +96,22 @@ function profileContentItems(profile: CareerProfile, now: string) {
     for (const fact of experience.facts.filter(isConfirmedFact)) {
       const draft = experience.resumeDrafts.find((candidate) => candidate.factIds.includes(fact.id));
       const description = draft?.text.trim() || fact.statement.trim();
-      const header = [
-        [experience.organization, experience.role].filter(Boolean).join(" / "),
-        [experience.startDate, experience.endDate].filter(Boolean).join(" - ")
-      ].filter(Boolean).join("  ");
-      const text = description.startsWith(header) || !header ? description : `${header}\n${description}`;
+      const category: ResumeFieldCategoryId = experience.type === "education" ? "education"
+        : experience.type === "project" ? "project"
+          : experience.type === "campus" || experience.type === "volunteer" ? "campus" : "work";
+      const parsedDraft = parseStructuredExperienceText(description);
+      const text = serializeStructuredExperienceText({
+        organization: experience.organization,
+        role: experience.role,
+        location: experience.location ?? parsedDraft.location,
+        degree: experience.degree ?? (experience.type === "education" ? experience.role : ""),
+        major: experience.major ?? parsedDraft.major,
+        courses: (experience.courses ?? []).join("、") || parsedDraft.courses,
+        startDate: experience.startDate ?? parsedDraft.startDate,
+        endDate: experience.endDate ?? parsedDraft.endDate,
+        current: Boolean(experience.startDate && !experience.endDate),
+        description: parsedDraft.organization ? parsedDraft.description : description
+      }, category);
       items.push(BranchContentItemSchema.parse({
         id: `branch-item-profile-${experience.id}-${fact.id}`,
         itemType: "experience",

@@ -18,6 +18,7 @@ export const PrivacyLevelSchema = z.enum(["private", "workspace", "public"]);
 
 export const BasicInfoSchema = z.object({
   name: z.string().min(1),
+  headline: z.string().optional(),
   phone: z.string().optional(),
   email: z.string().optional(),
   location: z.string().optional(),
@@ -41,6 +42,10 @@ export const ExperienceSchema = EntityBaseSchema.extend({
   type: ExperienceTypeSchema,
   organization: z.string().min(1),
   role: z.string().min(1),
+  location: z.string().optional(),
+  degree: z.string().optional(),
+  major: z.string().optional(),
+  courses: z.array(z.string()).optional(),
   startDate: z.string().min(1).optional(),
   endDate: z.string().min(1).optional(),
   facts: z.array(FactStatementSchema).min(1),

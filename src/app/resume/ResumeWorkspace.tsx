@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent } from "react";
 import { useRouter } from "next/navigation";
 import {
   type JobAdaptationDraft,
@@ -60,6 +60,7 @@ const DEFAULT_TEMPLATE_ID: TemplateId = "classic-technical";
 const BRANCH_LIST_SENTINEL = "__resume_branch_list__";
 
 type WorkbenchState = {
+  activeBranchId?: string | null;
   templateId?: TemplateId;
   stylePanelOpen?: boolean;
   studioMode?: StudioMode;
@@ -67,6 +68,9 @@ type WorkbenchState = {
   aiTab?: AiInspectorTab;
   styleTab?: StyleInspectorTab;
 };
+
+type ResumeImportEntryMode = "file" | "json";
+type ContentAutoSaveState = "idle" | "dirty" | "saving" | "saved" | "needs_confirmation" | "error";
 
 type ResumeListFilter = "recent" | "all" | "general" | "job" | "archived";
 type CanvasZoomMode = "fit-page" | "custom";
@@ -107,12 +111,26 @@ const MIN_CANVAS_ZOOM = 0.3;
 const MAX_CANVAS_ZOOM = 1.16;
 const A4_PAGE_WIDTH_PX = 794;
 const A4_PAGE_HEIGHT_PX = 1123;
+const CONTENT_AUTO_SAVE_LABELS: Record<ContentAutoSaveState, string> = {
+  idle: "自动保存已开启",
+  dirty: "等待自动保存",
+  saving: "正在保存…",
+  saved: "已自动保存",
+  needs_confirmation: "需要确认保存范围",
+  error: "自动保存失败"
+};
 
 export function ResumeWorkspace() {
   const router = useRouter();
   const workspace = useWorkspace(repository);
   const pageRef = useRef<HTMLElement | null>(null);
   const previewStageRef = useRef<HTMLDivElement | null>(null);
+  const importDialogRef = useRef<HTMLElement | null>(null);
+  const importTriggerRef = useRef<HTMLElement | null>(null);
+  const branchesRef = useRef<ResumeBranch[]>([]);
+  const editTextsRef = useRef<Record<string, string>>({});
+  const contentSaveQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const saveItemRef = useRef<(itemId: string, options?: { origin?: "manual" | "auto" }) => Promise<void>>(async () => undefined);
   const [drafts, setDrafts] = useState<JobAdaptationDraft[]>([]);
   const [branches, setBranches] = useState<ResumeBranch[]>([]);
   const [localJobs, setLocalJobs] = useState<JobDescription[]>([]);
@@ -129,6 +147,7 @@ export function ResumeWorkspace() {
   const [message, setMessage] = useState<string | undefined>();
   const [draftName, setDraftName] = useState("");
   const [editTexts, setEditTexts] = useState<Record<string, string>>({});
+  const [contentAutoSaveState, setContentAutoSaveState] = useState<ContentAutoSaveState>("idle");
   const [isStudioEditMode, setIsStudioEditMode] = useState(true);
   const [selectedStudioItemId, setSelectedStudioItemId] = useState<string | undefined>();
   const [editingStudioItemId, setEditingStudioItemId] = useState<string | undefined>();
@@ -148,6 +167,8 @@ export function ResumeWorkspace() {
   const [isStylePanelOpen, setIsStylePanelOpen] = useState(true);
   const [isTemplateCenterOpen, setIsTemplateCenterOpen] = useState(false);
   const [isImportPanelOpen, setIsImportPanelOpen] = useState(false);
+  const [importEntryMode, setImportEntryMode] = useState<ResumeImportEntryMode>("file");
+  const [workbenchStateHydrated, setWorkbenchStateHydrated] = useState(false);
   const [isJobCreatePanelOpen, setIsJobCreatePanelOpen] = useState(false);
   const [isJobCreatePanelDismissed, setIsJobCreatePanelDismissed] = useState(false);
   const [resumeListFilter, setResumeListFilter] = useState<ResumeListFilter>("recent");
@@ -217,6 +238,14 @@ export function ResumeWorkspace() {
   useEffect(() => {
     presentationQueueRef.current.latestConfig = presentationConfig;
   }, [presentationConfig]);
+
+  useEffect(() => {
+    branchesRef.current = branches;
+  }, [branches]);
+
+  useEffect(() => {
+    editTextsRef.current = editTexts;
+  }, [editTexts]);
 
   useEffect(() => {
     if (!profileSyncDialogOpen && !pendingResumeOnlyEdit && !profileLibraryOpen) return;
@@ -452,6 +481,62 @@ export function ResumeWorkspace() {
     setSelectedBranchId(branchId);
   }, []);
 
+  const openImportDialog = useCallback((mode: ResumeImportEntryMode, trigger?: HTMLElement | null) => {
+    importTriggerRef.current = trigger ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
+    setImportEntryMode(mode);
+    setIsImportPanelOpen(true);
+  }, []);
+
+  const closeImportDialog = useCallback(() => {
+    setIsImportPanelOpen(false);
+    window.requestAnimationFrame(() => importTriggerRef.current?.focus());
+  }, []);
+
+  function handleImportDialogKeyDown(event: ReactKeyboardEvent<HTMLElement>) {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeImportDialog();
+      return;
+    }
+    if (event.key !== "Tab") {
+      return;
+    }
+    const dialog = importDialogRef.current;
+    if (!dialog) {
+      return;
+    }
+    const focusable = Array.from(dialog.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), [href], input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    )).filter((element) => !element.hasAttribute("hidden"));
+    if (focusable.length === 0) {
+      event.preventDefault();
+      dialog.focus();
+      return;
+    }
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
+
+  useEffect(() => {
+    if (!isImportPanelOpen) {
+      return;
+    }
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const frame = window.requestAnimationFrame(() => importDialogRef.current?.focus());
+    return () => {
+      window.cancelAnimationFrame(frame);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isImportPanelOpen]);
+
   function startFieldPanelResize(event: PointerEvent<HTMLButtonElement>) {
     event.preventDefault();
     const startX = event.clientX;
@@ -477,16 +562,6 @@ export function ResumeWorkspace() {
   }
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      const requestedBranchId = new URLSearchParams(window.location.search).get("branchId");
-      if (requestedBranchId && branches.some((branch) => branch.id === requestedBranchId)) {
-        openResumeBranch(requestedBranchId);
-      }
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, [branches, openResumeBranch]);
-
-  useEffect(() => {
     if (workspace.status !== "ready" || !profile) {
       return;
     }
@@ -503,6 +578,13 @@ export function ResumeWorkspace() {
       setDrafts(nextDrafts);
       setBranches(nextBranches);
       const parsed = parseWorkbenchState(savedState?.value);
+      const requestedBranchId = new URLSearchParams(window.location.search).get("branchId");
+      const branchIdToRestore = requestedBranchId && nextBranches.some((branch) => branch.id === requestedBranchId)
+        ? requestedBranchId
+        : parsed.activeBranchId && nextBranches.some((branch) => branch.id === parsed.activeBranchId)
+          ? parsed.activeBranchId
+          : BRANCH_LIST_SENTINEL;
+      setSelectedBranchId(branchIdToRestore);
       if (parsed.templateId) {
         setTemplateId(parsed.templateId);
       }
@@ -521,6 +603,7 @@ export function ResumeWorkspace() {
       if (parsed.styleTab) {
         setStyleInspectorTab(parsed.styleTab);
       }
+      setWorkbenchStateHydrated(true);
     }
     void loadLists();
     return () => {
@@ -569,6 +652,8 @@ export function ResumeWorkspace() {
         return;
       }
       setEditTexts({});
+      editTextsRef.current = {};
+      setContentAutoSaveState("idle");
       clearStudioEditor();
       setPdfExportState({ status: "idle" });
       const queue = presentationQueueRef.current;
@@ -579,7 +664,7 @@ export function ResumeWorkspace() {
     return () => {
       active = false;
     };
-  }, [activeBranchId, selectedBranch?.revision, selectedBranch?.currentRevisionId, clearStudioEditor]);
+  }, [activeBranchId, clearStudioEditor]);
 
   useEffect(() => {
     if (!isStudioEditMode) {
@@ -640,10 +725,11 @@ export function ResumeWorkspace() {
   }, [activeBranchId]);
 
   useEffect(() => {
-    if (!profile || !activeBranchId) {
+    if (!profile || !workbenchStateHydrated) {
       return;
     }
     void repository.setMeta(workbenchStateKey(profile.id), {
+      activeBranchId: activeBranchId || null,
       templateId: effectiveTemplateId,
       stylePanelOpen: isStylePanelOpen,
       studioMode,
@@ -651,7 +737,7 @@ export function ResumeWorkspace() {
       aiTab: aiInspectorTab,
       styleTab: styleInspectorTab
     } satisfies WorkbenchState);
-  }, [profile, activeBranchId, effectiveTemplateId, isStylePanelOpen, studioMode, manualInspectorTab, aiInspectorTab, styleInspectorTab]);
+  }, [profile, workbenchStateHydrated, activeBranchId, effectiveTemplateId, isStylePanelOpen, studioMode, manualInspectorTab, aiInspectorTab, styleInspectorTab]);
 
   useEffect(() => {
     window.localStorage.setItem(RESUME_STUDIO_LAYOUT_KEY, JSON.stringify(studioLayout));
@@ -1023,48 +1109,127 @@ export function ResumeWorkspace() {
     }
   }
 
-  async function saveItem(itemId: string) {
-    if (!selectedBranch || !selectedBranchEditable) {
-      setMessage("当前简历不可编辑：旧数据、归档、引用失效或缺少当前版本。");
+  async function saveItem(itemId: string, options: { origin?: "manual" | "auto" } = {}) {
+    const origin = options.origin ?? "manual";
+    const branchId = activeBranchId;
+    const queuedText = editTextsRef.current[itemId]?.trim();
+    if (!branchId || !queuedText) {
+      if (origin === "manual") {
+        setMessage(!branchId
+          ? "当前简历不可编辑：旧数据、归档、引用失效或缺少当前版本。"
+          : "请先填写要保存的文本。");
+      }
       return;
     }
 
-    const text = editTexts[itemId]?.trim();
-    if (!text) {
-      setMessage("请先填写要保存的文本。");
-      return;
-    }
-
-    const sourceItem = selectedBranch.contentItems.find((item) => item.id === itemId);
-    try {
-      const result = await repository.editResumeBranch({
-        branchId: selectedBranch.id,
-        expectedRevision: selectedBranch.revision,
-        operationId: `d1-edit-${selectedBranch.id}-${selectedBranch.revision}-${itemId}-${stableHashText(text)}`,
-        confirmAsResumeOnly: sourceItem?.userConfirmation?.scope === "resume_only",
-        edits: [{ itemId, text }]
-      });
-      replaceBranch(result.branch);
-      setSelectedBranchId(result.branch.id);
-      setEditTexts((prev) => {
-        if (!(itemId in prev)) return prev;
-        const next = { ...prev };
-        delete next[itemId];
-        return next;
-      });
-      setMessage(sourceItem?.userConfirmation?.scope === "resume_only"
-        ? "内容已保存到当前简历；个人资料库未被修改。"
-        : "简历内容已保存，事实安全检查已重新计算。");
-    } catch (error) {
-      if (error instanceof Error && error.message === "branch_edit_fact_guard_blocked") {
-        setPendingResumeOnlyEdit({ itemId, text, source: "form" });
+    setContentAutoSaveState("saving");
+    const operation = async () => {
+      const text = editTextsRef.current[itemId]?.trim();
+      if (!text) {
         return;
       }
-      setMessage(error instanceof RevisionConflictError
-        ? "保存失败：简历版本已变化，请刷新后重试。"
-        : "保存失败：当前简历不可编辑或事实引用已失效。");
-    }
+      let branch = branchesRef.current.find((item) => item.id === branchId);
+      if (!branch || !canEditBranch(branch)) {
+        setContentAutoSaveState("error");
+        if (origin === "manual") {
+          setMessage("当前简历不可编辑：旧数据、归档、引用失效或缺少当前版本。");
+        }
+        return;
+      }
+
+      const clearSavedDraft = () => {
+        const currentDrafts = editTextsRef.current;
+        if (currentDrafts[itemId]?.trim() !== text) {
+          setContentAutoSaveState("dirty");
+          return;
+        }
+        const nextDrafts = { ...currentDrafts };
+        delete nextDrafts[itemId];
+        editTextsRef.current = nextDrafts;
+        setEditTexts(nextDrafts);
+        setContentAutoSaveState(Object.keys(nextDrafts).length > 0 ? "dirty" : "saved");
+      };
+
+      if (branch.contentItems.find((item) => item.id === itemId)?.text.trim() === text) {
+        clearSavedDraft();
+        return;
+      }
+
+      const persist = async (currentBranch: ResumeBranch) => {
+        const sourceItem = currentBranch.contentItems.find((item) => item.id === itemId);
+        return repository.editResumeBranch({
+          branchId: currentBranch.id,
+          expectedRevision: currentBranch.revision,
+          operationId: `d1-edit-${currentBranch.id}-${currentBranch.revision}-${itemId}-${stableHashText(text)}`,
+          confirmAsResumeOnly: sourceItem?.userConfirmation?.scope === "resume_only",
+          edits: [{ itemId, text }]
+        });
+      };
+
+      try {
+        let result;
+        try {
+          result = await persist(branch);
+        } catch (error) {
+          if (!(error instanceof RevisionConflictError)) {
+            throw error;
+          }
+          const latestBranch = await repository.getResumeBranch(branchId);
+          if (!latestBranch || !canEditBranch(latestBranch)) {
+            throw error;
+          }
+          branch = latestBranch;
+          replaceBranch(latestBranch, { preserveDrafts: true });
+          result = await persist(latestBranch);
+        }
+        replaceBranch(result.branch, { preserveDrafts: true });
+        clearSavedDraft();
+        if (origin === "manual") {
+          const sourceItem = result.branch.contentItems.find((item) => item.id === itemId);
+          setMessage(sourceItem?.userConfirmation?.scope === "resume_only"
+            ? "内容已保存到当前简历；个人资料库未被修改。"
+            : "简历内容已保存，事实安全检查已重新计算。");
+        }
+      } catch (error) {
+        if (error instanceof Error && error.message === "branch_edit_fact_guard_blocked") {
+          setContentAutoSaveState("needs_confirmation");
+          setPendingResumeOnlyEdit({ itemId, text, source: "form" });
+          return;
+        }
+        setContentAutoSaveState("error");
+        setMessage(error instanceof RevisionConflictError
+          ? "保存失败：简历版本已变化，请刷新后重试。"
+          : "保存失败：当前简历不可编辑或事实引用已失效。");
+      }
+    };
+
+    const queued = contentSaveQueueRef.current.then(operation);
+    contentSaveQueueRef.current = queued.catch((error) => {
+      console.error("Resume content save queue error:", error);
+    });
+    await queued;
   }
+
+  useEffect(() => {
+    saveItemRef.current = saveItem;
+  });
+
+  useEffect(() => {
+    const dirtyItemIds = Object.keys(editTexts).filter((itemId) => editTexts[itemId]?.trim());
+    if (!activeBranchId || !selectedBranchEditable || dirtyItemIds.length === 0) {
+      return;
+    }
+    const stateTimer = window.setTimeout(() => setContentAutoSaveState("dirty"), 0);
+    const timer = window.setTimeout(() => {
+      dirtyItemIds.forEach((itemId) => {
+        void saveItemRef.current(itemId, { origin: "auto" });
+      });
+    }, 1200);
+    return () => {
+      window.clearTimeout(stateTimer);
+      window.clearTimeout(timer);
+    };
+  }, [activeBranchId, editTexts, selectedBranchEditable]);
 
   async function setContentItemVisibility(itemId: string, visible: boolean) {
     if (!selectedBranch || !selectedBranchEditable) {
@@ -1132,7 +1297,7 @@ export function ResumeWorkspace() {
 
   async function addContentItem(
     section: string,
-    draft: string | { text: string; organization?: string; role?: string; startDate?: string; endDate?: string },
+    draft: string | { text: string; organization?: string; role?: string; location?: string; degree?: string; major?: string; courses?: string[]; startDate?: string; endDate?: string },
     syncToProfile = false
   ) {
     if (!selectedBranch || !selectedBranchEditable) {
@@ -1167,6 +1332,10 @@ export function ResumeWorkspace() {
         text: payload.text,
         organization: payload.organization,
         role: payload.role,
+        location: payload.location,
+        degree: payload.degree,
+        major: payload.major,
+        courses: payload.courses,
         startDate: payload.startDate,
         endDate: payload.endDate,
         syncToProfile
@@ -1209,12 +1378,12 @@ export function ResumeWorkspace() {
         const nextProfile = await repository.getProfile(nextBranch.profileId);
         if (nextProfile) setProfileOverride(nextProfile);
       }
-      replaceBranch(nextBranch);
-      setEditTexts((current) => {
-        const next = { ...current };
-        delete next[pending.itemId];
-        return next;
-      });
+      replaceBranch(nextBranch, { preserveDrafts: true });
+      const nextDrafts = { ...editTextsRef.current };
+      delete nextDrafts[pending.itemId];
+      editTextsRef.current = nextDrafts;
+      setEditTexts(nextDrafts);
+      setContentAutoSaveState(Object.keys(nextDrafts).length > 0 ? "dirty" : "saved");
       if (pending.source === "preview") cancelStudioEdit();
       setPendingResumeOnlyEdit(undefined);
       setMessage(syncAfterSave
@@ -2578,13 +2747,19 @@ export function ResumeWorkspace() {
     }
   }
 
-  function replaceBranch(branch: ResumeBranch) {
-    setBranches((current) => current.some((item) => item.id === branch.id)
-      ? current.map((item) => item.id === branch.id ? branch : item)
-      : [branch, ...current]);
+  function replaceBranch(branch: ResumeBranch, options: { preserveDrafts?: boolean } = {}) {
+    const nextBranches = branchesRef.current.some((item) => item.id === branch.id)
+      ? branchesRef.current.map((item) => item.id === branch.id ? branch : item)
+      : [branch, ...branchesRef.current];
+    branchesRef.current = nextBranches;
+    setBranches(nextBranches);
     setSelectedBranchId(branch.id);
-    setEditTexts({});
-    clearStudioEditor();
+    if (!options.preserveDrafts) {
+      editTextsRef.current = {};
+      setEditTexts({});
+      clearStudioEditor();
+      setContentAutoSaveState("idle");
+    }
     const queue = presentationQueueRef.current;
     queue.undoStack = [];
     queue.redoStack = [];
@@ -2655,53 +2830,27 @@ export function ResumeWorkspace() {
         <>
           <section className="resume-import-strip no-print" data-testid="resume-import-strip">
             <div className="resume-import-strip-copy">
-              <p className="eyebrow">导入入口</p>
-              <h2>导入已有简历，核对后生成通用简历</h2>
-              <p>PDF、DOCX、JSON 和图片 OCR 都会先进入核对页；确认前不会写入正式简历。</p>
-              <div className="resume-support-row" aria-label="支持的导入格式">
-                {["PDF", "DOCX", "JSON", "图片OCR", "粘贴"].map((item) => <span key={item}>{item}</span>)}
-              </div>
+              <h2>导入已有简历</h2>
+              <p>支持文本 PDF、DOCX 和 JSON；解析后先核对。扫描件识别仍为实验功能。</p>
             </div>
             <div className="resume-import-strip-actions">
               <button
                 className="primary-button"
                 data-testid="resume-entry-import-primary"
                 type="button"
-                onClick={() => setIsImportPanelOpen(true)}
+                onClick={(event) => openImportDialog("file", event.currentTarget)}
               >
                 选择或拖放文件
               </button>
               <button
                 className="secondary-button"
                 type="button"
-                onClick={() => {
-                  setIsImportPanelOpen(true);
-                  window.requestAnimationFrame(() => document.querySelector<HTMLElement>(".import-json-details summary")?.focus());
-                }}
+                onClick={(event) => openImportDialog("json", event.currentTarget)}
               >
                 粘贴 JSON
               </button>
             </div>
           </section>
-
-          {isImportPanelOpen ? (
-            <section className="resume-import-dock no-print" data-testid="resume-import-dock">
-            <div className="section-heading compact-heading">
-              <div>
-                <h2>导入简历</h2>
-                <p>导入 PDF、DOCX 或 JSON，核对后再写入正式简历。</p>
-              </div>
-              <button className="secondary-button compact" type="button" onClick={() => setIsImportPanelOpen(false)}>
-                收起
-              </button>
-            </div>
-            <ResumeImportWizard
-              repository={repository}
-              profile={profile}
-              onImported={handleImportedResumeReady}
-            />
-          </section>
-          ) : null}
 
           <section className="resume-entry-grid no-print">
             <article className="panel resume-create-panel">
@@ -2712,7 +2861,7 @@ export function ResumeWorkspace() {
                 </div>
               </div>
               <div className="resume-create-card-grid">
-                <button className="resume-create-card" type="button" onClick={() => setIsImportPanelOpen(true)}>
+                <button className="resume-create-card" type="button" onClick={(event) => openImportDialog("file", event.currentTarget)}>
                   <strong>导入已有简历</strong>
                   <span>核对来源后创建通用简历</span>
                 </button>
@@ -2878,6 +3027,13 @@ export function ResumeWorkspace() {
             <div>
               <span className="resume-workbar-label">{branchPurposeLabel(selectedBranch.branchPurpose)} / {branchStatusLabel(selectedBranch)}</span>
               <h2>{selectedBranch.name}</h2>
+              <span
+                className={`resume-autosave-status resume-autosave-status-${contentAutoSaveState}`}
+                data-testid="resume-autosave-status"
+                aria-live="polite"
+              >
+                {CONTENT_AUTO_SAVE_LABELS[contentAutoSaveState]}
+              </span>
             </div>
           </div>
 
@@ -2902,7 +3058,7 @@ export function ResumeWorkspace() {
                 type="button"
                 className="secondary-button compact"
                 data-testid="open-resume-import"
-                onClick={() => setIsImportPanelOpen(true)}
+                onClick={(event) => openImportDialog("file", event.currentTarget)}
               >
                 导入
               </button>
@@ -2982,17 +3138,45 @@ export function ResumeWorkspace() {
         </section>
       ) : null}
 
-      {selectedBranch && isImportPanelOpen ? (
-        <section className="resume-import-dock resume-import-dock-studio no-print" data-testid="resume-import-dock">
-          <div className="section-heading compact-heading">
-            <div>
-              <h2>导入另一份简历</h2>
-              <p>确认后会创建新的通用简历，不覆盖当前简历。</p>
+      {isImportPanelOpen ? (
+        <div
+          className="resume-import-modal-backdrop no-print"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              closeImportDialog();
+            }
+          }}
+        >
+          <section
+            ref={importDialogRef}
+            className="resume-import-modal"
+            data-testid="resume-import-dock"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="resume-import-modal-title"
+            tabIndex={-1}
+            onKeyDown={handleImportDialogKeyDown}
+          >
+            <header className="resume-import-modal-header">
+              <div>
+                <h2 id="resume-import-modal-title">{selectedBranch ? "导入另一份简历" : "导入简历"}</h2>
+                <p>PDF、DOCX 或 JSON；解析后先核对，不会覆盖当前简历。</p>
+              </div>
+              <button className="resume-import-modal-close" type="button" aria-label="关闭导入窗口" onClick={closeImportDialog}>
+                ×
+              </button>
+            </header>
+            <div className="resume-import-modal-body">
+              <ResumeImportWizard
+                key={importEntryMode}
+                repository={repository}
+                profile={profile}
+                initialMode={importEntryMode}
+                onImported={handleImportedResumeReady}
+              />
             </div>
-            <button className="secondary-button compact" type="button" onClick={() => setIsImportPanelOpen(false)}>收起</button>
-          </div>
-          <ResumeImportWizard repository={repository} profile={profile} onImported={handleImportedResumeReady} />
-        </section>
+          </section>
+        </div>
       ) : null}
 
       {selectedBranch ? (
@@ -3882,9 +4066,9 @@ function buildResumeStudioSections(input: {
   return [
     { key: "basics", label: "个人信息", count: verifiedContentCount > 0 ? 1 : 0 },
     { key: "summary", label: "自我评价", count: bySection("summary").length, firstItemId: first("summary") },
-    { key: "experience", label: "工作经历", count: generalExperience.length, firstItemId: generalExperience[0]?.contentItemId },
+    { key: "experience", label: "工作 / 实习经历", count: generalExperience.length, firstItemId: generalExperience[0]?.contentItemId },
     { key: "education", label: "教育经历", count: educationBlocks.length, firstItemId: educationBlocks[0]?.contentItemId },
-    { key: "projects", label: "项目经历", count: projectBlocks.length, firstItemId: projectBlocks[0]?.contentItemId },
+    { key: "projects", label: "项目成果", count: projectBlocks.length, firstItemId: projectBlocks[0]?.contentItemId },
     { key: "campus", label: "校园经历", count: campusBlocks.length, firstItemId: campusBlocks[0]?.contentItemId },
     { key: "skills", label: "技能", count: bySection("skills").length, firstItemId: first("skills") },
     { key: "awards", label: "奖项", count: awardsBlocks.length, firstItemId: awardsBlocks[0]?.contentItemId },
@@ -3946,7 +4130,9 @@ function parseWorkbenchState(value: unknown): WorkbenchState {
   }
   const candidate = value as WorkbenchState;
   const rawStudioMode = (value as { studioMode?: unknown }).studioMode;
+  const rawActiveBranchId = (value as { activeBranchId?: unknown }).activeBranchId;
   return {
+    activeBranchId: typeof rawActiveBranchId === "string" || rawActiveBranchId === null ? rawActiveBranchId : undefined,
     templateId: isResumeTemplateId(candidate.templateId) ? candidate.templateId : undefined,
     stylePanelOpen: typeof candidate.stylePanelOpen === "boolean" ? candidate.stylePanelOpen : undefined,
     studioMode: rawStudioMode === "manual" ? "edit" : isStudioMode(rawStudioMode) ? rawStudioMode : undefined,

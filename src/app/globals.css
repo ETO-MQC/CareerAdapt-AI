@@ -1028,14 +1028,18 @@ html[data-theme="dark"] .panel {
 
 .primary-button,
 .secondary-button {
+  align-items: center;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   cursor: pointer;
+  display: inline-flex;
   font: inherit;
   font-weight: 700;
+  justify-content: center;
   line-height: 1.2;
   min-height: var(--control-height);
   padding: 0 14px;
+  text-align: center;
   touch-action: manipulation;
 }
 
@@ -2272,10 +2276,6 @@ html[data-theme="dark"] .resume-canvas-toolbar .primary-button {
   margin-bottom: 0;
 }
 
-.resume-import-dock {
-  margin-bottom: 12px;
-}
-
 button,
 input,
 textarea,
@@ -2297,17 +2297,81 @@ small,
   font-variant-numeric: tabular-nums;
 }
 
-.resume-import-dock-studio {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-soft);
-  inset: calc(var(--header-height) + 12px) 12px 12px calc(var(--sidebar-width) + 12px);
-  margin: 0;
-  overflow: auto;
-  padding: 16px;
+.resume-import-modal-backdrop {
+  align-items: center;
+  background: rgba(14, 19, 17, 0.48);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: clamp(16px, 4vh, 40px) clamp(16px, 4vw, 56px);
   position: fixed;
-  z-index: 50;
+  z-index: 100;
+}
+
+.resume-import-modal {
+  background: var(--surface);
+  border: 1px solid color-mix(in srgb, var(--line) 84%, var(--ink));
+  border-radius: 14px;
+  box-shadow: 0 24px 72px rgba(15, 23, 20, 0.28);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  max-height: min(88dvh, 840px);
+  max-width: 980px;
+  overflow: hidden;
+  width: min(100%, 980px);
+}
+
+.resume-import-modal:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.resume-import-modal-header {
+  align-items: flex-start;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  gap: 20px;
+  justify-content: space-between;
+  padding: 18px 20px 15px;
+}
+
+.resume-import-modal-header h2 {
+  font-size: 20px;
+  margin: 0;
+}
+
+.resume-import-modal-header p {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 5px 0 0;
+}
+
+.resume-import-modal-close {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 7px;
+  color: var(--muted);
+  cursor: pointer;
+  display: inline-flex;
+  flex: 0 0 34px;
+  font-size: 24px;
+  height: 34px;
+  justify-content: center;
+  line-height: 1;
+  padding: 0;
+}
+
+.resume-import-modal-close:hover {
+  background: var(--surface-subtle);
+  color: var(--ink);
+}
+
+.resume-import-modal-body {
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 20px;
 }
 
 .resume-import-strip {
@@ -2406,7 +2470,11 @@ small,
 .resume-entry-menu > summary,
 .resume-card-more > summary,
 .toolbar-more > summary {
+  align-items: center;
+  display: inline-flex;
+  justify-content: center;
   list-style: none;
+  text-align: center;
 }
 
 .resume-entry-menu > summary::-webkit-details-marker,
@@ -2544,7 +2612,9 @@ small,
 }
 
 .resume-card-list {
+  display: grid;
   gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   max-height: 264px;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -3644,14 +3714,86 @@ html[data-theme="dark"] .property-panel-heading p {
 }
 
 .import-dropzone {
-  display: grid;
-  gap: 6px;
-  min-height: 88px;
-  padding: 18px;
-  border: 1px dashed var(--line);
-  border-radius: 8px;
-  background: var(--surface-subtle);
+  align-items: center;
+  border: 1px dashed color-mix(in srgb, var(--accent) 42%, var(--line));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent) 3%, var(--surface));
   cursor: pointer;
+  display: grid;
+  gap: 5px;
+  justify-items: center;
+  min-height: 196px;
+  padding: 26px;
+  text-align: center;
+}
+
+.import-dropzone:hover {
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface));
+  border-color: var(--accent);
+}
+
+.import-dropzone:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.import-dropzone > span,
+.import-dropzone > small {
+  color: var(--muted);
+}
+
+.import-dropzone > small {
+  font-size: 12px;
+  margin-top: 8px;
+  max-width: 640px;
+}
+
+.import-dropzone-icon {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  color: var(--accent-strong) !important;
+  display: inline-flex;
+  font-size: 22px;
+  height: 42px;
+  justify-content: center;
+  margin-bottom: 5px;
+  width: 42px;
+}
+
+.resume-import-wizard {
+  display: grid;
+  gap: 14px;
+}
+
+.import-json-details {
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  overflow: hidden;
+}
+
+.import-json-details > summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 800;
+  padding: 11px 13px;
+}
+
+.import-json-details[open] > summary {
+  border-bottom: 1px solid var(--line);
+}
+
+.import-json-details > .textarea {
+  border: 0;
+  border-radius: 0;
+  min-height: 220px;
+  width: 100%;
+}
+
+.import-json-details > .action-row {
+  border-top: 1px solid var(--line);
+  padding: 10px 12px;
 }
 
 .import-review-grid {
@@ -3706,7 +3848,7 @@ html[data-theme="dark"] .property-panel-heading p {
   align-items: stretch;
   display: grid;
   gap: 16px;
-  grid-template-columns: minmax(220px, 0.62fr) minmax(340px, 1fr) minmax(320px, 0.9fr);
+  grid-template-columns: minmax(220px, 0.56fr) minmax(300px, 0.82fr) minmax(430px, 1.2fr);
   margin-bottom: 18px;
 }
 
@@ -3800,6 +3942,58 @@ html[data-theme="dark"] .property-panel-heading p {
 
 .profile-detail-actions {
   margin-top: 0;
+}
+
+.profile-list-panel .compact-heading > button {
+  flex: 0 0 auto;
+  min-width: 64px;
+  white-space: nowrap;
+}
+
+.profile-category-panel .save-status {
+  white-space: nowrap;
+}
+
+.profile-detail-form,
+.profile-structured-fields {
+  align-content: start;
+  gap: 16px;
+}
+
+.profile-current-toggle {
+  min-height: 36px;
+}
+
+.profile-detail-data-list {
+  display: grid;
+  margin: 0;
+}
+
+.profile-detail-data-list > div {
+  display: grid;
+  grid-template-columns: minmax(88px, 0.32fr) minmax(0, 1fr);
+  min-height: 42px;
+}
+
+.profile-detail-data-list dt,
+.profile-detail-data-list dd {
+  align-items: center;
+  display: flex;
+  margin: 0;
+  padding-block: 9px;
+}
+
+.profile-detail-data-list dt {
+  border-right: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  padding-right: 12px;
+}
+
+.profile-detail-data-list dd {
+  overflow-wrap: anywhere;
+  padding-left: 12px;
 }
 
 .profile-editor-panel textarea {
@@ -4413,13 +4607,55 @@ html[data-theme="dark"] .property-panel-heading p {
   .import-review-grid {
     grid-template-columns: 1fr;
   }
+
+  .resume-card-list {
+    grid-template-columns: 1fr;
+  }
+
+  .resume-import-modal-backdrop {
+    align-items: stretch;
+    padding: 10px;
+  }
+
+  .resume-import-modal {
+    max-height: none;
+  }
 }
 
 @media (max-width: 1180px) {
-  .profile-manager-grid,
   .stage-grid,
   .resume-entry-grid {
     grid-template-columns: 1fr;
+  }
+
+  .profile-manager-grid {
+    grid-template-areas:
+      "categories categories"
+      "list detail";
+    grid-template-columns: minmax(280px, 0.8fr) minmax(430px, 1.2fr);
+  }
+
+  .profile-category-panel {
+    grid-area: categories;
+    max-height: none;
+    min-height: 0;
+  }
+
+  .profile-list-panel {
+    grid-area: list;
+  }
+
+  .profile-detail-panel {
+    grid-area: detail;
+  }
+
+  .profile-category-list {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    overflow: visible;
+  }
+
+  .profile-category-button {
+    min-height: 52px;
   }
 
   .resume-preview-layout {
@@ -4648,6 +4884,23 @@ html[data-theme="dark"] .property-panel-heading p {
     .application-filter-row.compact,
     .form-grid {
     grid-template-columns: 1fr;
+  }
+
+  .profile-manager-grid {
+    grid-template-areas:
+      "categories"
+      "list"
+      "detail";
+  }
+
+  .profile-category-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .profile-category-panel,
+  .profile-list-panel,
+  .profile-detail-panel {
+    max-height: none;
   }
 
   .section-heading,
@@ -5504,6 +5757,25 @@ html[data-theme="dark"] .accordion-item-subtitle {
 
 .section-nav-label > span {
   white-space: nowrap;
+}
+
+.resume-autosave-status {
+  color: var(--muted);
+  display: block;
+  font-size: 10px;
+  font-weight: 750;
+  line-height: 1.1;
+  margin-top: 2px;
+}
+
+.resume-autosave-status-saving,
+.resume-autosave-status-dirty {
+  color: var(--accent-strong);
+}
+
+.resume-autosave-status-needs_confirmation,
+.resume-autosave-status-error {
+  color: var(--danger, #a33b35);
 }
 
 .resume-sync-state {

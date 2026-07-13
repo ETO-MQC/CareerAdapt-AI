@@ -3,11 +3,17 @@
 import { useState } from "react";
 import type { ResumeDocumentBlock } from "@/domain/resumeDocument/mapper";
 import type { ResumeBranch } from "@/domain/schemas";
-import { FieldInput } from "../FieldInput";
-import { TipTapEditor } from "../TipTapEditor";
+import {
+  emptyStructuredExperienceFields,
+  parseStructuredExperienceText,
+  serializeStructuredExperienceText,
+  type ResumeFieldCategoryId,
+  type StructuredExperienceFields
+} from "@/domain/resumeFields/catalog";
+import { StructuredExperienceForm } from "../StructuredExperienceForm";
 import { AccordionList } from "../AccordionList";
 import { SectionShell } from "../SectionShell";
-import { contentItemTypeLabel, guardStatusLabel, extractStructuredField, updateStructuredFieldInText, plainTextToHtml, htmlToPlainText } from "../helpers";
+import { contentItemTypeLabel, guardStatusLabel } from "../helpers";
 import { type SectionNavContext, prevSection, nextSection } from "./types";
 
 type ExperienceSectionPageProps = {
@@ -23,47 +29,34 @@ type ExperienceSectionPageProps = {
   onDuplicate: (itemId: string) => void;
   onMoveUp: (itemId: string) => void;
   onMoveDown: (itemId: string) => void;
-  onAdd: (draft: { text: string; organization?: string; role?: string; startDate?: string; endDate?: string }, syncToProfile: boolean) => void;
+  onAdd: (draft: { text: string; organization?: string; role?: string; location?: string; degree?: string; major?: string; courses?: string[]; startDate?: string; endDate?: string }, syncToProfile: boolean) => void;
   onSyncToProfile: (itemId: string) => void;
   onOpenLibrary: () => void;
   nav: SectionNavContext;
 };
 
 function DefaultExperienceFields({ sectionLabel, onAdd }: { sectionLabel: string; onAdd: ExperienceSectionPageProps["onAdd"] }) {
-  const isEducation = sectionLabel === "教育经历";
-  const [draft, setDraft] = useState({ organization: "", role: "", location: "", startDate: "", endDate: "", current: false, description: "" });
-  const update = (key: keyof typeof draft, value: string | boolean) => setDraft((current) => ({ ...current, [key]: value }));
+  const category = experienceCategoryFromLabel(sectionLabel);
+  const [draft, setDraft] = useState<StructuredExperienceFields>(emptyStructuredExperienceFields);
   const save = (syncToProfile: boolean) => {
-    const identity = [draft.organization, draft.role].filter(Boolean).join(" / ");
-    const dates = draft.startDate
-      ? `${draft.startDate} - ${draft.current ? "至今" : draft.endDate}`.replace(/\s+-\s+$/, "")
-      : draft.current ? "至今" : draft.endDate;
-    const header = [identity, draft.location, dates].filter(Boolean).join("  ");
-    const text = [header, draft.description.trim()].filter(Boolean).join("\n");
+    const text = serializeStructuredExperienceText(draft, category);
     if (!text) return;
-    onAdd({ text, organization: draft.organization, role: draft.role, startDate: draft.startDate, endDate: draft.current ? undefined : draft.endDate }, syncToProfile);
-    setDraft({ organization: "", role: "", location: "", startDate: "", endDate: "", current: false, description: "" });
+    onAdd({
+      text,
+      organization: draft.organization,
+      role: category === "education" ? draft.degree : draft.role,
+      location: draft.location,
+      degree: draft.degree,
+      major: draft.major,
+      courses: draft.courses.split(/[、,，]/).map((item) => item.trim()).filter(Boolean),
+      startDate: draft.startDate,
+      endDate: draft.current ? undefined : draft.endDate
+    }, syncToProfile);
+    setDraft(emptyStructuredExperienceFields);
   };
   return (
     <div className="section-fields">
-      <div className="section-fields-grid-2">
-        <FieldInput id="new-experience-organization" label={isEducation ? "学校名称" : "公司 / 组织"} placeholder={isEducation ? "学校名称" : "公司名称"} value={draft.organization} onChange={(value) => update("organization", value)} />
-        <FieldInput id="new-experience-role" label={isEducation ? "学历" : "职位 / 角色"} placeholder={isEducation ? "例如：本科" : "例如：软件工程师"} value={draft.role} onChange={(value) => update("role", value)} />
-      </div>
-      <div className="section-fields-grid-2">
-        <FieldInput id="new-experience-location" label={isEducation ? "专业名称" : "地点"} placeholder={isEducation ? "例如：计算机相关专业" : "城市、省份（可选）"} value={draft.location} onChange={(value) => update("location", value)} />
-        <FieldInput id="new-experience-start" label={isEducation ? "就读开始时间" : "开始日期"} type="date" value={draft.startDate} onChange={(value) => update("startDate", value)} />
-      </div>
-      <div className="section-fields-grid-2">
-        <FieldInput id="new-experience-end" label={isEducation ? "就读结束时间" : "结束日期"} type="date" value={draft.endDate} disabled={draft.current} onChange={(value) => update("endDate", value)} />
-        <div className="field-input-group field-input-group-checkbox">
-          <label className="field-input-checkbox-label"><input type="checkbox" checked={draft.current} onChange={(event) => update("current", event.target.checked)} /><span>仍在进行</span></label>
-        </div>
-      </div>
-      <div className="experience-description-field">
-        <label className="field-input-label">描述要点</label>
-        <TipTapEditor value={plainTextToHtml(draft.description)} onChange={(html) => update("description", htmlToPlainText(html))} placeholder="描述你的工作内容和成就…" minRows={4} />
-      </div>
+      <StructuredExperienceForm category={category} value={draft} onChange={setDraft} idPrefix={`new-${category}`} />
       <div className="section-summary-actions">
         <button type="button" className="section-action-button section-action-button-primary" onClick={() => save(false)} disabled={!Object.values(draft).some(Boolean)}>
           保存到简历
@@ -74,6 +67,13 @@ function DefaultExperienceFields({ sectionLabel, onAdd }: { sectionLabel: string
       </div>
     </div>
   );
+}
+
+function experienceCategoryFromLabel(sectionLabel: string): Extract<ResumeFieldCategoryId, "education" | "work" | "project" | "campus"> {
+  if (sectionLabel === "教育经历") return "education";
+  if (sectionLabel === "项目经历" || sectionLabel === "项目成果") return "project";
+  if (sectionLabel === "校园经历") return "campus";
+  return "work";
 }
 
 export function ExperienceSectionPage({
@@ -121,16 +121,13 @@ export function ExperienceSectionPage({
   }
 
   const accordionItems = blocks.map((block, index) => {
-    const isEducation = sectionLabel === "教育经历";
+    const category = experienceCategoryFromLabel(sectionLabel);
     const sourceItem = branch?.contentItems.find((item) => item.id === block.contentItemId);
     const currentText = editTexts[block.contentItemId] ?? block.text;
-    const org = extractStructuredField(currentText, "organization");
-    const role = extractStructuredField(currentText, "role");
-    const location = extractStructuredField(currentText, "location");
-    const startDate = extractStructuredField(currentText, "start");
-    const endDate = extractStructuredField(currentText, "end");
-    const isCurrent = extractStructuredField(currentText, "current") === "true";
-    const descriptionLines = currentText.split("\n").slice(1).join("\n").trim();
+    const structuredFields = parseStructuredExperienceText(currentText);
+    if (category === "education" && !structuredFields.degree) structuredFields.degree = structuredFields.role;
+    const org = structuredFields.organization;
+    const role = category === "education" ? structuredFields.degree : structuredFields.role;
     const titleText = org && role ? `${org} · ${role}` : org || role || `${sectionLabel} ${index + 1}`;
     const isOpen = selectedItemId ? selectedItemId === block.contentItemId : index === 0;
 
@@ -142,85 +139,13 @@ export function ExperienceSectionPage({
       defaultOpen: isOpen,
       content: (
         <div className="experience-item-fields">
-          <div className="section-fields-grid-2">
-            <FieldInput
-              label={isEducation ? "学校名称" : "公司 / 组织"}
-              value={org}
-              placeholder="公司名称"
-              onChange={(value) => {
-                onEditTextChange(block.contentItemId, updateStructuredFieldInText(currentText, "organization", value));
-              }}
-              onFocus={() => onSelectItem(block.contentItemId)}
-            />
-            <FieldInput
-              label={isEducation ? "学历" : "职位 / 角色"}
-              value={role}
-              placeholder="例如：销售专员"
-              onChange={(value) => {
-                onEditTextChange(block.contentItemId, updateStructuredFieldInText(currentText, "role", value));
-              }}
-              onFocus={() => onSelectItem(block.contentItemId)}
-            />
-          </div>
-          <div className="section-fields-grid-2">
-            <FieldInput
-              label={isEducation ? "专业名称" : "地点"}
-              value={location}
-              placeholder={isEducation ? "例如：计算机相关专业" : "城市、省份、国家或远程（可选）"}
-              onChange={(value) => {
-                onEditTextChange(block.contentItemId, updateStructuredFieldInText(currentText, "location", value));
-              }}
-              onFocus={() => onSelectItem(block.contentItemId)}
-            />
-            <div className="field-input-group field-input-group-checkbox">
-              <label className="field-input-checkbox-label">
-                <input
-                  type="checkbox"
-                  checked={isCurrent}
-                  onChange={(event) => {
-                    onEditTextChange(block.contentItemId, updateStructuredFieldInText(currentText, "current", String(event.target.checked)));
-                  }}
-                />
-                <span>当前职位</span>
-              </label>
-            </div>
-          </div>
-          <div className="section-fields-grid-2">
-            <FieldInput
-              label={isEducation ? "就读开始时间" : "开始日期"}
-              type="date"
-              value={startDate}
-              placeholder="YYYY-MM-DD"
-              onChange={(value) => {
-                onEditTextChange(block.contentItemId, updateStructuredFieldInText(currentText, "start", value));
-              }}
-              onFocus={() => onSelectItem(block.contentItemId)}
-            />
-            <FieldInput
-              label={isEducation ? "就读结束时间" : "结束日期"}
-              type="date"
-              value={endDate}
-              disabled={isCurrent}
-              placeholder="YYYY-MM-DD"
-              onChange={(value) => {
-                onEditTextChange(block.contentItemId, updateStructuredFieldInText(currentText, "end", value));
-              }}
-              onFocus={() => onSelectItem(block.contentItemId)}
-            />
-          </div>
-          <div className="experience-description-field">
-            <label className="field-input-label">描述要点</label>
-            <TipTapEditor
-              value={plainTextToHtml(descriptionLines)}
-              onChange={(html) => {
-                const headerLine = currentText.split("\n")[0] ?? "";
-                const plainDescription = htmlToPlainText(html);
-                onEditTextChange(block.contentItemId, plainDescription ? `${headerLine}\n${plainDescription}` : headerLine);
-              }}
-              placeholder="描述你的工作内容和成就..."
-              minRows={4}
-            />
-          </div>
+          <StructuredExperienceForm
+            category={category}
+            value={structuredFields}
+            onChange={(next) => onEditTextChange(block.contentItemId, serializeStructuredExperienceText(next, category))}
+            idPrefix={`existing-${block.contentItemId}`}
+            onFocus={() => onSelectItem(block.contentItemId)}
+          />
           {!sourceItem?.visible ? (
             <div className="field-warning-box">该内容已在正文版本中隐藏。</div>
           ) : null}

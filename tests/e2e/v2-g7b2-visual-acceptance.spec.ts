@@ -35,6 +35,8 @@ test.describe("V2-G7b.2 visual acceptance evidence", () => {
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
 
       await page.goto("/resume");
+      await page.getByTestId("resume-entry-import-primary").click();
+      await expect(page.getByRole("dialog", { name: "导入简历" })).toBeVisible();
       await capture(page, viewport.name, "resume-import", metrics);
 
       await page.locator(".import-json-details summary").click();
@@ -42,10 +44,6 @@ test.describe("V2-G7b.2 visual acceptance evidence", () => {
       await page.locator(".import-json-details button.primary-button").click();
       await expect(page.getByTestId("import-quality-report")).toBeVisible({ timeout: 15_000 });
       await capture(page, viewport.name, "resume-json-review", metrics);
-
-      await page.locator(".import-source-actions button").filter({ hasText: "OCR Benchmark" }).click();
-      await expect(page.getByTestId("ocr-benchmark-report")).toContainText("状态 B");
-      await capture(page, viewport.name, "resume-ocr-status", metrics);
     }
 
     await page.setViewportSize({ width: 1366, height: 768 });
