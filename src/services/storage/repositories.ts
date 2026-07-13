@@ -1853,6 +1853,7 @@ export class WorkspaceRepository {
     branchId: string;
     expectedRevision: number;
     operationId: string;
+    confirmAsResumeOnly?: boolean;
     edits: Array<{
       itemId: string;
       text?: string;
@@ -1881,7 +1882,7 @@ export class WorkspaceRepository {
           // because originalText vs text divergence from C2 suggestion acceptance
           // would cause false-positive "new entity" findings.
           let guardResult = undefined;
-          if (textChanged && item.itemType !== "structural") {
+          if (textChanged && item.itemType !== "structural" && !input.confirmAsResumeOnly) {
             const factRefs = item.factRefs;
             const evidenceRefs = resolveBranchFactRefs(profile, factRefs);
             guardResult = runRuleFactGuard({
@@ -1899,6 +1900,7 @@ export class WorkspaceRepository {
           return BranchContentItemSchema.parse({
             ...item,
             text: nextText,
+            originalText: textChanged && input.confirmAsResumeOnly ? nextText : item.originalText,
             order: edit.order ?? item.order,
             visible: edit.visible ?? item.visible,
             source: "user_manual",
@@ -1915,7 +1917,14 @@ export class WorkspaceRepository {
                 }))
               : item.guardFindings,
             guardedAt: guardResult?.checkedAt ?? item.guardedAt,
-            guardVersion: guardResult?.guardVersion ?? item.guardVersion
+            guardVersion: guardResult?.guardVersion ?? item.guardVersion,
+            userConfirmation: textChanged && input.confirmAsResumeOnly
+              ? {
+                  scope: "resume_only",
+                  confirmedTextHash: stableHashText(nextText),
+                  confirmedAt: now
+                }
+              : item.userConfirmation
           });
         }).sort((a, b) => a.order - b.order);
 
@@ -2000,7 +2009,7 @@ export class WorkspaceRepository {
         }
 
         const sourceItem = orderedItems[sourceIndex];
-        if (sourceItem.itemType !== "structural" && sourceItem.factRefs.length === 0) {
+        if (sourceItem.itemType !== "structural" && sourceItem.factRefs.length === 0 && !sourceItem.userConfirmation) {
           throw new Error("branch_content_item_missing_fact_refs");
         }
         if (orderedItems.some((item) => item.id === duplicatedItemId)) {
@@ -2046,6 +2055,7 @@ export class WorkspaceRepository {
     role?: string;
     startDate?: string;
     endDate?: string;
+    syncToProfile?: boolean;
   }) {
     const newItemId = `branch-item-new-${stableHashText(`${input.branchId}:${input.operationId}`).replace(/[^a-zA-Z0-9-]/g, "").slice(0, 28)}`;
     const text = input.text.trim();
@@ -2059,6 +2069,47 @@ export class WorkspaceRepository {
       mutate: async ({ branch, profile, now }) => {
         if (branch.contentItems.some((item) => item.id === newItemId)) {
           return ResumeBranchSchema.parse(branch);
+        }
+        if (!input.syncToProfile) {
+          const guardResult = runRuleFactGuard({
+            originalText: text,
+            checkedText: text,
+            usedEvidenceRefs: [],
+            now
+          });
+          const orderedItems = [...branch.contentItems].sort((a, b) => a.order - b.order);
+          const maxOrder = orderedItems.length > 0 ? orderedItems[orderedItems.length - 1].order : 0;
+          const newItem = BranchContentItemSchema.parse({
+            id: newItemId,
+            itemType: input.itemType,
+            source: "user_manual",
+            sourceSectionId: input.section,
+            text,
+            originalText: text,
+            order: maxOrder + 1,
+            visible: true,
+            requirementIds: [],
+            sourceSuggestionIds: [],
+            factRefs: [],
+            guardMode: "rule_verified",
+            guardStatus: "pass",
+            guardRiskLevel: guardResult.riskLevel,
+            guardFindings: [],
+            guardedAt: guardResult.checkedAt,
+            guardVersion: guardResult.guardVersion,
+            userConfirmation: {
+              scope: "resume_only",
+              confirmedTextHash: stableHashText(text),
+              confirmedAt: now
+            }
+          });
+          const nextItems = [...orderedItems, newItem].map((item, order) =>
+            BranchContentItemSchema.parse({ ...item, order })
+          );
+          return ResumeBranchSchema.parse({
+            ...branch,
+            contentItems: nextItems
+          });
         }
         const entitySuffix = stableHashText(input.operationId).replace(/[^a-zA-Z0-9-]/g, "").slice(0, 20);
         const factId = `fact-user-${entitySuffix}`;
@@ -2196,6 +2247,259 @@ export class WorkspaceRepository {
           ...branch,
           sourceProfileVersion: nextProfile.version,
           contentItems: nextItems
+        });
+      }
+    });
+    return { ...result, newItemId };
+  }
+
+  async syncResumeContentItemToProfile(input: {
+    branchId: string;
+    expectedRevision: number;
+    operationId: string;
+    itemId: string;
+    organization?: string;
+    role?: string;
+    startDate?: string;
+    endDate?: string;
+  }) {
+    return this.mutateResumeBranch({
+      branchId: input.branchId,
+      expectedRevision: input.expectedRevision,
+      operationId: input.operationId,
+      type: "manual_edit",
+      source: "manual_edit",
+      mutate: async ({ branch, profile, now }) => {
+        const item = branch.contentItems.find((candidate) => candidate.id === input.itemId);
+        if (!item || item.itemType === "structural") {
+          throw new Error("branch_content_item_missing");
+        }
+
+        const text = item.text.trim();
+        const inferredFields = inferProfileFieldsFromResumeText(text);
+        const entitySuffix = stableHashText(`${input.operationId}:${item.id}`).replace(/[^a-zA-Z0-9-]/g, "").slice(0, 20);
+        const existingRef = item.factRefs[0];
+        let factRefs: ResumeBranch["contentItems"][number]["factRefs"] = item.factRefs;
+        let nextProfile: CareerProfile;
+
+        if (existingRef?.type === "experience_fact") {
+          nextProfile = CareerProfileSchema.parse({
+            ...profile,
+            version: profile.version + 1,
+            experiences: profile.experiences.map((experience) => experience.id === existingRef.experienceId
+              ? {
+                  ...experience,
+                  organization: input.organization?.trim() || inferredFields.organization || experience.organization,
+                  role: input.role?.trim() || inferredFields.role || experience.role,
+                  startDate: input.startDate || inferredFields.startDate || experience.startDate,
+                  endDate: input.endDate || inferredFields.endDate || experience.endDate,
+                  facts: experience.facts.map((fact) => fact.id === existingRef.factId
+                    ? confirmedUserFact({ ...fact, statement: text }, input.operationId, text, now)
+                    : fact),
+                  resumeDrafts: upsertProfileResumeDraft(experience.resumeDrafts, existingRef.factId, text, entitySuffix, now),
+                  updatedAt: now
+                }
+              : experience),
+            updatedAt: now
+          });
+        } else if (existingRef?.type === "skill_fact") {
+          nextProfile = CareerProfileSchema.parse({
+            ...profile,
+            version: profile.version + 1,
+            skills: profile.skills.map((skill) => skill.id === existingRef.skillId
+              ? {
+                  ...skill,
+                  name: text.split("\n")[0].slice(0, 80),
+                  fact: skill.fact ? confirmedUserFact({ ...skill.fact, statement: text }, input.operationId, text, now) : skill.fact,
+                  updatedAt: now
+                }
+              : skill),
+            updatedAt: now
+          });
+        } else if (existingRef?.type === "certificate_fact") {
+          nextProfile = CareerProfileSchema.parse({
+            ...profile,
+            version: profile.version + 1,
+            certificates: profile.certificates.map((certificate) => certificate.id === existingRef.certificateId
+              ? {
+                  ...certificate,
+                  name: text.split("\n")[0].slice(0, 120),
+                  fact: certificate.fact ? confirmedUserFact({ ...certificate.fact, statement: text }, input.operationId, text, now) : certificate.fact,
+                  updatedAt: now
+                }
+              : certificate),
+            updatedAt: now
+          });
+        } else {
+          const factId = `fact-user-${entitySuffix}`;
+          const fact = confirmedUserFact({
+            id: factId,
+            statement: text,
+            category: profileFactCategory(item.sourceSectionId, item.itemType),
+            provenance: [],
+            confirmedByUser: true,
+            riskLevel: "medium",
+            createdAt: now,
+            updatedAt: now
+          }, input.operationId, text, now);
+
+          if (item.itemType === "skill") {
+            const skillId = `skill-user-${entitySuffix}`;
+            nextProfile = CareerProfileSchema.parse({
+              ...profile,
+              version: profile.version + 1,
+              skills: [...profile.skills, {
+                id: skillId,
+                name: text.split("\n")[0].slice(0, 80),
+                evidenceIds: [],
+                fact,
+                createdAt: now,
+                updatedAt: now
+              }],
+              updatedAt: now
+            });
+            factRefs = [{ type: "skill_fact", skillId, factId }];
+          } else if (item.itemType === "certificate") {
+            const certificateId = `cert-user-${entitySuffix}`;
+            nextProfile = CareerProfileSchema.parse({
+              ...profile,
+              version: profile.version + 1,
+              certificates: [...profile.certificates, {
+                id: certificateId,
+                name: text.split("\n")[0].slice(0, 120),
+                evidenceIds: [],
+                fact,
+                createdAt: now,
+                updatedAt: now
+              }],
+              updatedAt: now
+            });
+            factRefs = [{ type: "certificate_fact", certificateId, factId }];
+          } else {
+            const experienceId = `exp-user-${entitySuffix}`;
+            nextProfile = CareerProfileSchema.parse({
+              ...profile,
+              version: profile.version + 1,
+              experiences: [...profile.experiences, {
+                id: experienceId,
+                type: profileExperienceType(item.sourceSectionId),
+                organization: input.organization?.trim() || inferredFields.organization || sectionProfileLabel(item.sourceSectionId ?? "custom"),
+                role: input.role?.trim() || inferredFields.role || sectionProfileLabel(item.sourceSectionId ?? "custom"),
+                startDate: input.startDate || inferredFields.startDate || undefined,
+                endDate: input.endDate || inferredFields.endDate || undefined,
+                facts: [fact],
+                resumeDrafts: [{
+                  id: `draft-user-${entitySuffix}`,
+                  text,
+                  factIds: [factId],
+                  createdAt: now,
+                  updatedAt: now
+                }],
+                tags: [item.sourceSectionId ?? "custom"],
+                evidenceIds: [],
+                createdAt: now,
+                updatedAt: now
+              }],
+              updatedAt: now
+            });
+            factRefs = [{ type: "experience_fact", experienceId, factId }];
+          }
+        }
+
+        const guardResult = runRuleFactGuard({
+          originalText: text,
+          checkedText: text,
+          usedEvidenceRefs: resolveBranchFactRefs(nextProfile, factRefs),
+          now
+        });
+        const nextItems = branch.contentItems.map((candidate) => candidate.id === item.id
+          ? BranchContentItemSchema.parse({
+              ...candidate,
+              originalText: text,
+              factRefs,
+              guardMode: "rule_verified",
+              guardStatus: "pass",
+              guardRiskLevel: guardResult.riskLevel,
+              guardFindings: [],
+              guardedAt: guardResult.checkedAt,
+              guardVersion: guardResult.guardVersion,
+              userConfirmation: undefined
+            })
+          : candidate);
+        await this.db.profiles.put(nextProfile);
+        return ResumeBranchSchema.parse({
+          ...branch,
+          sourceProfileVersion: nextProfile.version,
+          contentItems: nextItems
+        });
+      }
+    });
+  }
+
+  async addResumeContentItemFromProfile(input: {
+    branchId: string;
+    expectedRevision: number;
+    operationId: string;
+    section: string;
+    experienceId: string;
+    factId: string;
+  }) {
+    const newItemId = `branch-item-profile-use-${stableHashText(`${input.branchId}:${input.operationId}`).replace(/[^a-zA-Z0-9-]/g, "").slice(0, 28)}`;
+    const result = await this.mutateResumeBranch({
+      branchId: input.branchId,
+      expectedRevision: input.expectedRevision,
+      operationId: input.operationId,
+      type: "manual_edit",
+      source: "manual_edit",
+      mutate: async ({ branch, profile, now }) => {
+        if (branch.contentItems.some((item) => item.id === newItemId)) return branch;
+        const experience = profile.experiences.find((candidate) => candidate.id === input.experienceId);
+        const fact = experience?.facts.find((candidate) => candidate.id === input.factId);
+        if (!experience || !fact || !fact.confirmedByUser || fact.riskLevel === "high") {
+          throw new Error("profile_experience_fact_unavailable");
+        }
+        const draft = experience.resumeDrafts.find((candidate) => candidate.factIds.includes(fact.id));
+        const description = draft?.text.trim() || fact.statement.trim();
+        const header = [
+          [experience.organization, experience.role].filter(Boolean).join(" / "),
+          [experience.startDate, experience.endDate].filter(Boolean).join(" - ")
+        ].filter(Boolean).join("  ");
+        const text = description.startsWith(header) || !header ? description : `${header}\n${description}`;
+        const factRefs: ResumeBranch["contentItems"][number]["factRefs"] = [{
+          type: "experience_fact",
+          experienceId: experience.id,
+          factId: fact.id
+        }];
+        const guardResult = runRuleFactGuard({
+          originalText: text,
+          checkedText: text,
+          usedEvidenceRefs: resolveBranchFactRefs(profile, factRefs),
+          now
+        });
+        const orderedItems = [...branch.contentItems].sort((a, b) => a.order - b.order);
+        const nextItem = BranchContentItemSchema.parse({
+          id: newItemId,
+          itemType: "experience",
+          source: "user_manual",
+          sourceSectionId: input.section,
+          text,
+          originalText: text,
+          order: orderedItems.length,
+          visible: true,
+          requirementIds: [],
+          sourceSuggestionIds: [],
+          factRefs,
+          guardMode: "rule_verified",
+          guardStatus: "pass",
+          guardRiskLevel: guardResult.riskLevel,
+          guardFindings: [],
+          guardedAt: guardResult.checkedAt,
+          guardVersion: guardResult.guardVersion
+        });
+        return ResumeBranchSchema.parse({
+          ...branch,
+          sourceProfileVersion: profile.version,
+          contentItems: [...orderedItems, nextItem].map((item, order) => ({ ...item, order }))
         });
       }
     });
@@ -3909,6 +4213,102 @@ function sectionProfileLabel(section: string) {
     custom: "自定义内容"
   };
   return labels[section] ?? "简历内容";
+}
+
+function profileExperienceType(section?: string): CareerProfile["experiences"][number]["type"] {
+  if (section === "education") return "education";
+  if (section === "projects") return "project";
+  if (section === "campus") return "campus";
+  if (section === "experience") return "work";
+  return "other";
+}
+
+function profileFactCategory(
+  section: string | undefined,
+  itemType: ResumeBranch["contentItems"][number]["itemType"]
+): CareerProfile["experiences"][number]["facts"][number]["category"] {
+  if (section === "education") return "education";
+  if (section === "skills" || itemType === "skill") return "skill";
+  if (section === "certificates" || itemType === "certificate") return "certificate";
+  if (section === "awards") return "achievement";
+  if (section === "language") return "language";
+  if (itemType === "experience") return "experience";
+  return "other";
+}
+
+function confirmedUserFact(
+  fact: CareerProfile["experiences"][number]["facts"][number],
+  operationId: string,
+  text: string,
+  now: string
+): CareerProfile["experiences"][number]["facts"][number] {
+  return {
+    ...fact,
+    statement: text,
+    confirmedByUser: true,
+    riskLevel: "medium",
+    provenance: [
+      ...fact.provenance,
+      {
+        sourceType: "user_input",
+        sourceId: operationId,
+        sourceText: text,
+        confidence: 1,
+        confirmedByUser: true,
+        riskLevel: "medium",
+        createdAt: now
+      }
+    ],
+    updatedAt: now
+  };
+}
+
+function upsertProfileResumeDraft(
+  drafts: CareerProfile["experiences"][number]["resumeDrafts"],
+  factId: string,
+  text: string,
+  entitySuffix: string,
+  now: string
+) {
+  const matchingIndex = drafts.findIndex((draft) => draft.factIds.includes(factId));
+  if (matchingIndex < 0) {
+    return [...drafts, {
+      id: `draft-user-${entitySuffix}`,
+      text,
+      factIds: [factId],
+      createdAt: now,
+      updatedAt: now
+    }];
+  }
+  return drafts.map((draft, index) => index === matchingIndex
+    ? { ...draft, text, updatedAt: now }
+    : draft);
+}
+
+function inferProfileFieldsFromResumeText(text: string) {
+  const header = text.split("\n")[0]?.trim() ?? "";
+  const dates = header.match(/(?:19|20)\d{2}(?:[./-]\d{1,2})?(?:[./-]\d{1,2})?/g) ?? [];
+  const withoutDates = header
+    .replace(/(?:19|20)\d{2}(?:[./-]\d{1,2})?(?:[./-]\d{1,2})?/g, "")
+    .replace(/(?:至今|现在|present|current)/gi, "")
+    .replace(/\s+-\s*$/, "")
+    .trim();
+  const identity = withoutDates.split(/\s{2,}/)[0] ?? "";
+  const separator = [" / ", " ｜ ", " | ", "，", ","].find((candidate) => identity.includes(candidate));
+  const parts = separator ? identity.split(separator).map((part) => part.trim()) : [identity];
+  return {
+    organization: parts[0] ?? "",
+    role: parts.slice(1).join(separator ?? " / "),
+    startDate: normalizeProfileDate(dates[0]),
+    endDate: /(?:至今|现在|present|current)/i.test(header) ? undefined : normalizeProfileDate(dates[1])
+  };
+}
+
+function normalizeProfileDate(value?: string) {
+  if (!value) return undefined;
+  const parts = value.split(/[./-]/);
+  if (parts.length === 1) return parts[0];
+  return `${parts[0]}-${parts[1].padStart(2, "0")}`;
 }
 
 function uniqueStrings(values: string[]) {

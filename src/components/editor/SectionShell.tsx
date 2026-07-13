@@ -16,6 +16,7 @@ type SectionShellProps = {
   onNext?: () => void;
   hasPrev?: boolean;
   hasNext?: boolean;
+  headerAction?: ReactNode;
 };
 
 export function SectionShell({
@@ -31,7 +32,8 @@ export function SectionShell({
   onPrev,
   onNext,
   hasPrev = true,
-  hasNext = true
+  hasNext = true,
+  headerAction
 }: SectionShellProps) {
   return (
     <div className="section-shell">
@@ -42,6 +44,7 @@ export function SectionShell({
             <h2 className="section-shell-title">{title}</h2>
             {description ? <p className="section-shell-description">{description}</p> : null}
           </div>
+          {headerAction ? <div className="section-shell-header-action">{headerAction}</div> : null}
         </div>
         <div className="section-shell-content">
           {children}

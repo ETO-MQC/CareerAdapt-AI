@@ -6,6 +6,7 @@ import { mapAdaptationDraftToResumeBranch } from "@/domain/branch/mapper";
 import { createRuleRequirementMatches } from "@/domain/match/matcher";
 import { mapBranchToResumeDocument } from "@/domain/resumeDocument/mapper";
 import type { BranchFactRef } from "@/domain/schemas";
+import { stableHashText } from "@/services/security/text";
 
 const TEST_TIME = "2026-07-03T12:00:00.000Z";
 
@@ -35,6 +36,42 @@ function createVerifiedBranch() {
 }
 
 describe("V2 G0a resume document mapper", () => {
+  it("renders only text that matches an explicit resume-only confirmation", () => {
+    const { job, mapped } = createVerifiedBranch();
+    const sourceItem = mapped.branch.contentItems.find((item) => item.itemType !== "structural")!;
+    const text = "用户确认的当前简历内容";
+    const confirmedItem = {
+      ...sourceItem,
+      source: "user_manual" as const,
+      text,
+      originalText: text,
+      factRefs: [],
+      userConfirmation: {
+        scope: "resume_only" as const,
+        confirmedTextHash: stableHashText(text),
+        confirmedAt: TEST_TIME
+      }
+    };
+    const confirmedDocument = mapBranchToResumeDocument({
+      branch: { ...mapped.branch, contentItems: [confirmedItem] },
+      profile: demoCareerProfile,
+      job,
+      templateId: "classic-technical"
+    });
+    const mismatchedDocument = mapBranchToResumeDocument({
+      branch: { ...mapped.branch, contentItems: [{ ...confirmedItem, text: `${text}（未确认改动）` }] },
+      profile: demoCareerProfile,
+      job,
+      templateId: "classic-technical"
+    });
+
+    expect(confirmedDocument.blocks[0].renderable).toBe(true);
+    expect(mismatchedDocument.blocks[0]).toMatchObject({
+      renderable: false,
+      notRenderableReason: "resume_only_confirmation_mismatch"
+    });
+  });
+
   it("maps every content item and marks visible, renderable, editable, and guard status separately", () => {
     const { job, mapped } = createVerifiedBranch();
     const hiddenItem = mapped.branch.contentItems[0];

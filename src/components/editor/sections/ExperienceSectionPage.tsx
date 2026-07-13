@@ -23,14 +23,17 @@ type ExperienceSectionPageProps = {
   onDuplicate: (itemId: string) => void;
   onMoveUp: (itemId: string) => void;
   onMoveDown: (itemId: string) => void;
-  onAdd: (draft: { text: string; organization?: string; role?: string; startDate?: string; endDate?: string }) => void;
+  onAdd: (draft: { text: string; organization?: string; role?: string; startDate?: string; endDate?: string }, syncToProfile: boolean) => void;
+  onSyncToProfile: (itemId: string) => void;
+  onOpenLibrary: () => void;
   nav: SectionNavContext;
 };
 
-function DefaultExperienceFields({ onAdd }: { onAdd: ExperienceSectionPageProps["onAdd"] }) {
+function DefaultExperienceFields({ sectionLabel, onAdd }: { sectionLabel: string; onAdd: ExperienceSectionPageProps["onAdd"] }) {
+  const isEducation = sectionLabel === "教育经历";
   const [draft, setDraft] = useState({ organization: "", role: "", location: "", startDate: "", endDate: "", current: false, description: "" });
   const update = (key: keyof typeof draft, value: string | boolean) => setDraft((current) => ({ ...current, [key]: value }));
-  const save = () => {
+  const save = (syncToProfile: boolean) => {
     const identity = [draft.organization, draft.role].filter(Boolean).join(" / ");
     const dates = draft.startDate
       ? `${draft.startDate} - ${draft.current ? "至今" : draft.endDate}`.replace(/\s+-\s+$/, "")
@@ -38,21 +41,21 @@ function DefaultExperienceFields({ onAdd }: { onAdd: ExperienceSectionPageProps[
     const header = [identity, draft.location, dates].filter(Boolean).join("  ");
     const text = [header, draft.description.trim()].filter(Boolean).join("\n");
     if (!text) return;
-    onAdd({ text, organization: draft.organization, role: draft.role, startDate: draft.startDate, endDate: draft.current ? undefined : draft.endDate });
+    onAdd({ text, organization: draft.organization, role: draft.role, startDate: draft.startDate, endDate: draft.current ? undefined : draft.endDate }, syncToProfile);
     setDraft({ organization: "", role: "", location: "", startDate: "", endDate: "", current: false, description: "" });
   };
   return (
     <div className="section-fields">
       <div className="section-fields-grid-2">
-        <FieldInput id="new-experience-organization" label="公司 / 组织" placeholder="公司名称" value={draft.organization} onChange={(value) => update("organization", value)} />
-        <FieldInput id="new-experience-role" label="职位 / 角色" placeholder="例如：软件工程师" value={draft.role} onChange={(value) => update("role", value)} />
+        <FieldInput id="new-experience-organization" label={isEducation ? "学校名称" : "公司 / 组织"} placeholder={isEducation ? "学校名称" : "公司名称"} value={draft.organization} onChange={(value) => update("organization", value)} />
+        <FieldInput id="new-experience-role" label={isEducation ? "学历" : "职位 / 角色"} placeholder={isEducation ? "例如：本科" : "例如：软件工程师"} value={draft.role} onChange={(value) => update("role", value)} />
       </div>
       <div className="section-fields-grid-2">
-        <FieldInput id="new-experience-location" label="地点" placeholder="城市、省份（可选）" value={draft.location} onChange={(value) => update("location", value)} />
-        <FieldInput id="new-experience-start" label="开始日期" type="date" value={draft.startDate} onChange={(value) => update("startDate", value)} />
+        <FieldInput id="new-experience-location" label={isEducation ? "专业名称" : "地点"} placeholder={isEducation ? "例如：计算机相关专业" : "城市、省份（可选）"} value={draft.location} onChange={(value) => update("location", value)} />
+        <FieldInput id="new-experience-start" label={isEducation ? "就读开始时间" : "开始日期"} type="date" value={draft.startDate} onChange={(value) => update("startDate", value)} />
       </div>
       <div className="section-fields-grid-2">
-        <FieldInput id="new-experience-end" label="结束日期" type="date" value={draft.endDate} disabled={draft.current} onChange={(value) => update("endDate", value)} />
+        <FieldInput id="new-experience-end" label={isEducation ? "就读结束时间" : "结束日期"} type="date" value={draft.endDate} disabled={draft.current} onChange={(value) => update("endDate", value)} />
         <div className="field-input-group field-input-group-checkbox">
           <label className="field-input-checkbox-label"><input type="checkbox" checked={draft.current} onChange={(event) => update("current", event.target.checked)} /><span>仍在进行</span></label>
         </div>
@@ -62,8 +65,11 @@ function DefaultExperienceFields({ onAdd }: { onAdd: ExperienceSectionPageProps[
         <TipTapEditor value={plainTextToHtml(draft.description)} onChange={(html) => update("description", htmlToPlainText(html))} placeholder="描述你的工作内容和成就…" minRows={4} />
       </div>
       <div className="section-summary-actions">
-        <button type="button" className="section-action-button section-action-button-primary" onClick={save} disabled={!Object.values(draft).some(Boolean)}>
-          保存并确认
+        <button type="button" className="section-action-button section-action-button-primary" onClick={() => save(false)} disabled={!Object.values(draft).some(Boolean)}>
+          保存到简历
+        </button>
+        <button type="button" className="section-action-button" onClick={() => save(true)} disabled={!Object.values(draft).some(Boolean)}>
+          保存并同步资料库
         </button>
       </div>
     </div>
@@ -84,6 +90,8 @@ export function ExperienceSectionPage({
   onMoveUp,
   onMoveDown,
   onAdd,
+  onSyncToProfile,
+  onOpenLibrary,
   nav
 }: ExperienceSectionPageProps) {
   const prev = prevSection(nav.activeSection);
@@ -105,13 +113,15 @@ export function ExperienceSectionPage({
         hasNext={Boolean(next)}
         onPrev={() => prev && nav.onNavigate(prev)}
         onNext={() => next && nav.onNavigate(next)}
+        headerAction={<button type="button" className="section-action-button" onClick={onOpenLibrary}>资料库</button>}
       >
-        <DefaultExperienceFields onAdd={onAdd} />
+        <DefaultExperienceFields sectionLabel={sectionLabel} onAdd={onAdd} />
       </SectionShell>
     );
   }
 
   const accordionItems = blocks.map((block, index) => {
+    const isEducation = sectionLabel === "教育经历";
     const sourceItem = branch?.contentItems.find((item) => item.id === block.contentItemId);
     const currentText = editTexts[block.contentItemId] ?? block.text;
     const org = extractStructuredField(currentText, "organization");
@@ -134,7 +144,7 @@ export function ExperienceSectionPage({
         <div className="experience-item-fields">
           <div className="section-fields-grid-2">
             <FieldInput
-              label="公司 / 组织"
+              label={isEducation ? "学校名称" : "公司 / 组织"}
               value={org}
               placeholder="公司名称"
               onChange={(value) => {
@@ -143,7 +153,7 @@ export function ExperienceSectionPage({
               onFocus={() => onSelectItem(block.contentItemId)}
             />
             <FieldInput
-              label="职位 / 角色"
+              label={isEducation ? "学历" : "职位 / 角色"}
               value={role}
               placeholder="例如：销售专员"
               onChange={(value) => {
@@ -154,9 +164,9 @@ export function ExperienceSectionPage({
           </div>
           <div className="section-fields-grid-2">
             <FieldInput
-              label="地点"
+              label={isEducation ? "专业名称" : "地点"}
               value={location}
-              placeholder="城市、省份、国家或远程（可选）"
+              placeholder={isEducation ? "例如：计算机相关专业" : "城市、省份、国家或远程（可选）"}
               onChange={(value) => {
                 onEditTextChange(block.contentItemId, updateStructuredFieldInText(currentText, "location", value));
               }}
@@ -177,7 +187,7 @@ export function ExperienceSectionPage({
           </div>
           <div className="section-fields-grid-2">
             <FieldInput
-              label="开始日期"
+              label={isEducation ? "就读开始时间" : "开始日期"}
               type="date"
               value={startDate}
               placeholder="YYYY-MM-DD"
@@ -187,7 +197,7 @@ export function ExperienceSectionPage({
               onFocus={() => onSelectItem(block.contentItemId)}
             />
             <FieldInput
-              label="结束日期"
+              label={isEducation ? "就读结束时间" : "结束日期"}
               type="date"
               value={endDate}
               disabled={isCurrent}
@@ -258,6 +268,20 @@ export function ExperienceSectionPage({
             >
               {sourceItem?.visible ? "删除" : "恢复"}
             </button>
+            {sourceItem?.userConfirmation?.scope === "resume_only" ? (
+              <>
+                <span className="resume-sync-state">仅当前简历</span>
+                <button
+                  type="button"
+                  className="section-action-button"
+                  onClick={() => onSyncToProfile(block.contentItemId)}
+                >
+                  同步到资料库
+                </button>
+              </>
+            ) : (
+              <span className="resume-sync-state resume-sync-state-synced">已关联资料库</span>
+            )}
           </div>
         </div>
       )
@@ -278,6 +302,7 @@ export function ExperienceSectionPage({
       hasNext={Boolean(next)}
       onPrev={() => prev && nav.onNavigate(prev)}
       onNext={() => next && nav.onNavigate(next)}
+      headerAction={<button type="button" className="section-action-button" onClick={onOpenLibrary}>资料库</button>}
     >
       <AccordionList
         items={accordionItems}
@@ -292,7 +317,7 @@ export function ExperienceSectionPage({
           </button>
         }
       />
-      {adding ? <DefaultExperienceFields onAdd={(draft) => { onAdd(draft); setAdding(false); }} /> : null}
+      {adding ? <DefaultExperienceFields sectionLabel={sectionLabel} onAdd={(draft, syncToProfile) => { onAdd(draft, syncToProfile); setAdding(false); }} /> : null}
     </SectionShell>
   );
 }

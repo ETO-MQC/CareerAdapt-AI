@@ -80,7 +80,7 @@ describe("D1 resume branch domain", () => {
     expect(blank.firstRevision.snapshot.resumeBasics?.name).toBe("");
   });
 
-  it("persists blank resume basics and newly confirmed content through revisions", async () => {
+  it("persists blank resume basics and keeps newly confirmed content resume-only by default", async () => {
     db = new CareerAdaptDb(`CareerAdaptG7b5Db-${crypto.randomUUID()}`);
     const repository = new WorkspaceRepository(db);
     await repository.saveProfile(demoCareerProfile);
@@ -109,12 +109,71 @@ describe("D1 resume branch domain", () => {
       startDate: "2024-01-01"
     });
     const savedProfile = await repository.getProfile(demoCareerProfile.id);
+    const addedItem = added.branch.contentItems.find((item) => item.id === added.newItemId);
 
     expect(basics.branch.resumeBasics).toMatchObject({ name: "独立简历姓名", email: "resume@example.com" });
     expect(added.branch.revision).toBe(2);
-    expect(added.branch.contentItems.find((item) => item.id === added.newItemId)?.factRefs).toHaveLength(1);
-    expect(savedProfile?.version).toBe(demoCareerProfile.version + 1);
-    expect(savedProfile?.experiences.some((item) => item.organization === "示例公司")).toBe(true);
+    expect(addedItem?.factRefs).toHaveLength(0);
+    expect(addedItem?.userConfirmation?.scope).toBe("resume_only");
+    expect(savedProfile?.version).toBe(demoCareerProfile.version);
+    expect(savedProfile?.experiences.some((item) => item.organization === "示例公司")).toBe(false);
+
+    const edited = await repository.editResumeBranch({
+      branchId: added.branch.id,
+      expectedRevision: added.branch.revision,
+      operationId: "g7b5-edit-resume-only-experience",
+      confirmAsResumeOnly: true,
+      edits: [{ itemId: added.newItemId, text: "新公司 / 高级工程师\n负责新的产品交付" }]
+    });
+    expect(edited.branch.contentItems.find((item) => item.id === added.newItemId)).toMatchObject({
+      text: "新公司 / 高级工程师\n负责新的产品交付",
+      factRefs: [],
+      userConfirmation: { scope: "resume_only" }
+    });
+
+    const synced = await repository.syncResumeContentItemToProfile({
+      branchId: edited.branch.id,
+      expectedRevision: edited.branch.revision,
+      operationId: "g7b5-sync-resume-only-experience",
+      itemId: added.newItemId,
+      organization: "新公司",
+      role: "高级工程师"
+    });
+    const syncedProfile = await repository.getProfile(demoCareerProfile.id);
+    expect(synced.branch.contentItems.find((item) => item.id === added.newItemId)?.userConfirmation).toBeUndefined();
+    expect(synced.branch.contentItems.find((item) => item.id === added.newItemId)?.factRefs).toHaveLength(1);
+    expect(syncedProfile?.version).toBe(demoCareerProfile.version + 1);
+    expect(syncedProfile?.experiences.some((item) => item.organization === "新公司" && item.role === "高级工程师")).toBe(true);
+  });
+
+  it("adds confirmed profile experience to a resume without duplicating profile data", async () => {
+    db = new CareerAdaptDb(`CareerAdaptG7b5LibraryDb-${crypto.randomUUID()}`);
+    const repository = new WorkspaceRepository(db);
+    await repository.saveProfile(demoCareerProfile);
+    const created = await repository.createGeneralResumeBranch({
+      profileId: demoCareerProfile.id,
+      operationId: "g7b5-library-blank",
+      name: "资料库选择测试",
+      includeProfileFacts: false,
+      includeProfileBasics: false
+    });
+    const experience = demoCareerProfile.experiences[0];
+    const fact = experience.facts[0];
+    const added = await repository.addResumeContentItemFromProfile({
+      branchId: created.branch.id,
+      expectedRevision: created.branch.revision,
+      operationId: "g7b5-use-profile-experience",
+      section: "experience",
+      experienceId: experience.id,
+      factId: fact.id
+    });
+    const savedProfile = await repository.getProfile(demoCareerProfile.id);
+    expect(added.branch.contentItems.find((item) => item.id === added.newItemId)?.factRefs).toEqual([{
+      type: "experience_fact",
+      experienceId: experience.id,
+      factId: fact.id
+    }]);
+    expect(savedProfile?.version).toBe(demoCareerProfile.version);
   });
 
   it("maps a non-stale adaptation draft into a verified branch and first revision", () => {

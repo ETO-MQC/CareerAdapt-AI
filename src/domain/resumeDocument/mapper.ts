@@ -9,6 +9,7 @@ import {
   type TemplateId
 } from "@/domain/schemas";
 import { branchFactRefKey, resolveBranchFactRefs } from "@/domain/branch/validation";
+import { stableHashText } from "@/services/security/text";
 
 export type ResumeDocumentBlock = {
   id: string;
@@ -115,6 +116,17 @@ export function isRenderableContentItem(input: {
 
   if (input.item.itemType === "structural") {
     return { renderable: true };
+  }
+
+  if (input.item.userConfirmation?.scope === "resume_only") {
+    return input.item.source === "user_manual"
+      && input.item.userConfirmation.confirmedTextHash === stableHashText(input.item.text)
+      ? { renderable: true }
+      : { renderable: false, reason: "resume_only_confirmation_mismatch" };
+  }
+
+  if (input.item.factRefs.length === 0) {
+    return { renderable: false, reason: "missing_fact_reference" };
   }
 
   try {

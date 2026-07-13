@@ -66,6 +66,12 @@ export const BranchGuardFindingSnapshotSchema = z.object({
   message: z.string().min(1)
 });
 
+export const BranchUserConfirmationSchema = z.object({
+  scope: z.literal("resume_only"),
+  confirmedTextHash: z.string().min(8),
+  confirmedAt: IsoDateStringSchema
+});
+
 export const ResumeBranchBasicsSchema = z.object({
   name: z.string().default(""),
   email: z.string().default(""),
@@ -92,13 +98,22 @@ export const BranchContentItemSchema = z.object({
   guardRiskLevel: RiskLevelSchema,
   guardFindings: z.array(BranchGuardFindingSnapshotSchema).default([]),
   guardedAt: IsoDateStringSchema.optional(),
-  guardVersion: z.string().optional()
+  guardVersion: z.string().optional(),
+  userConfirmation: BranchUserConfirmationSchema.optional()
 }).superRefine((item, ctx) => {
-  if (item.itemType !== "structural" && item.factRefs.length === 0) {
+  if (item.itemType !== "structural" && item.factRefs.length === 0 && !item.userConfirmation) {
     ctx.addIssue({
       code: "custom",
       path: ["factRefs"],
-      message: "factual branch content must reference confirmed facts"
+      message: "factual branch content must reference confirmed profile facts or carry explicit resume-only confirmation"
+    });
+  }
+
+  if (item.itemType !== "structural" && item.userConfirmation && item.source !== "user_manual") {
+    ctx.addIssue({
+      code: "custom",
+      path: ["userConfirmation"],
+      message: "resume-only confirmation is only valid for explicit user input"
     });
   }
 
@@ -383,6 +398,7 @@ export type BranchContentSource = z.infer<typeof BranchContentSourceSchema>;
 export type BranchGuardMode = z.infer<typeof BranchGuardModeSchema>;
 export type BranchGuardStatus = z.infer<typeof BranchGuardStatusSchema>;
 export type BranchGuardFindingSnapshot = z.infer<typeof BranchGuardFindingSnapshotSchema>;
+export type BranchUserConfirmation = z.infer<typeof BranchUserConfirmationSchema>;
 export type ResumeBranchBasics = z.infer<typeof ResumeBranchBasicsSchema>;
 export type BranchContentItem = z.infer<typeof BranchContentItemSchema>;
 export type BranchSyncStatus = z.infer<typeof BranchSyncStatusSchema>;
