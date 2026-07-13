@@ -177,7 +177,7 @@ export function ResumeWorkspace() {
   const [aiInspectorTab, setAiInspectorTab] = useState<AiInspectorTab>("suggestions");
   const [styleInspectorTab, setStyleInspectorTab] = useState<StyleInspectorTab>("template");
   const [activeResumeSection, setActiveResumeSection] = useState<ResumeStudioSectionKey>("basics");
-  const [canvasZoom, setCanvasZoom] = useState(0.8);
+  const [canvasZoom, setCanvasZoom] = useState(0.5);
   const [canvasZoomMode, setCanvasZoomMode] = useState<CanvasZoomMode>("fit-page");
   const [studioLayout, setStudioLayout] = useState<StudioLayoutState>(() => readInitialStudioLayout());
   const [pendingTemplateApplyId, setPendingTemplateApplyId] = useState<TemplateId | undefined>();

@@ -1201,9 +1201,8 @@ export function ProfileWorkspace() {
             </div>
             <div className="profile-managed-list" data-testid="profile-managed-list">
               {profileManagedItems.map((item) => (
-                <button
+                <div
                   key={item.key}
-                  type="button"
                   className={selectedProfileItem?.key === item.key ? "profile-managed-row profile-managed-row-active" : "profile-managed-row"}
                   onClick={() => selectManagedProfileItem(item)}
                 >
@@ -1211,8 +1210,44 @@ export function ProfileWorkspace() {
                     <strong>{item.title}</strong>
                     <small>{item.subtitle || item.body || "暂无补充说明"}</small>
                   </span>
-                  <em>{item.archived ? "已归档" : item.used ? "已使用" : "未使用"}</em>
-                </button>
+                  <div className="profile-managed-row-actions">
+                    <em>{item.archived ? "已归档" : item.used ? "已使用" : "未使用"}</em>
+                    {item.kind !== "basic" && item.kind !== "summary" ? (
+                      <>
+                        <button
+                          type="button"
+                          className="icon-button"
+                          title="编辑"
+                          aria-label={`编辑 ${item.title}`}
+                          onClick={(e) => { e.stopPropagation(); setSelectedProfileItemKey(item.key); setProfileItemDraft(profileDraftFromItem(item)); setProfileItemEditing(true); }}
+                        >
+                          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M17 3l4 4L7.5 20.5 2 22l1.5-5.5L17 3z" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                        </button>
+                        {!item.archived ? (
+                          <button
+                            type="button"
+                            className="icon-button"
+                            title="归档"
+                            aria-label={`归档 ${item.title}`}
+                            onClick={(e) => { e.stopPropagation(); void archiveManagedProfileItem(item); }}
+                          >
+                            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M21 8v13H3V8" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" /><path d="M1 3h22v5H1z" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" /><path d="M10 12h4" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            className="icon-button"
+                            title="恢复"
+                            aria-label={`恢复 ${item.title}`}
+                            onClick={(e) => { e.stopPropagation(); void restoreManagedProfileItem(item); }}
+                          >
+                            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" /><path d="M3 3v5h5" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                          </button>
+                        )}
+                      </>
+                    ) : null}
+                  </div>
+                </div>
               ))}
               {profileManagedItems.length === 0 ? (
                 <div className="profile-empty-list">

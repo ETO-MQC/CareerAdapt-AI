@@ -359,6 +359,7 @@ html[data-theme="dark"] .nav-link-active {
   min-height: 100dvh;
   min-width: 0;
   overflow: hidden;
+  padding-inline: 2%;
 }
 
 .workspace-topbar {
@@ -373,6 +374,8 @@ html[data-theme="dark"] .nav-link-active {
   position: sticky;
   top: 0;
   z-index: 15;
+  margin-inline: -2%;
+  width: calc(100% + 4%);
 }
 
 html[data-theme="dark"] .workspace-topbar {
@@ -495,10 +498,11 @@ html[data-theme="dark"] .global-save-state {
 
 .page-shell {
   margin: 0 auto;
-  max-width: 1120px;
+  max-width: none;
   min-height: 0;
   overflow: auto;
-  padding: var(--workspace-padding) 24px 72px;
+  padding: var(--workspace-padding) 0 72px;
+  width: 100%;
 }
 
 .jobs-workspace,
@@ -554,14 +558,14 @@ html[data-theme="dark"] .global-save-state {
 .profile-workspace > .panel,
 .profile-workspace > .stage-grid > .panel,
 .profile-manager-grid > .panel {
-  padding: 16px;
+  padding: 18px;
 }
 
 .jobs-workspace > .stage-grid,
 .profile-workspace > .stage-grid,
 .profile-manager-grid {
-  gap: 14px;
-  margin-bottom: 14px;
+  gap: 16px;
+  margin-bottom: 16px;
 }
 
 .jobs-workspace .textarea,
@@ -1012,7 +1016,7 @@ html[data-theme="dark"] .panel {
   flex-wrap: wrap;
   gap: 8px;
   justify-content: flex-start;
-  margin-top: 12px;
+  margin-top: 16px;
   padding: 4px;
 }
 
@@ -1022,7 +1026,7 @@ html[data-theme="dark"] .panel {
   display: flex;
   gap: 12px;
   justify-content: space-between;
-  margin-top: 12px;
+  margin-top: 16px;
   padding: 2px 4px;
 }
 
@@ -1150,7 +1154,7 @@ html[data-theme="dark"] .save-status {
 
 .match-list {
   display: grid;
-  gap: 8px;
+  gap: 10px;
 }
 
 .match-row {
@@ -1243,10 +1247,10 @@ html[data-theme="dark"] .save-status {
   border: 1px solid var(--line);
   border-radius: var(--radius);
   display: grid;
-  gap: 10px;
+  gap: 12px;
   grid-template-columns: minmax(240px, 1fr) minmax(180px, 0.8fr) auto;
   margin-bottom: 12px;
-  padding: 10px 12px;
+  padding: 12px;
 }
 
 .resume-quick-create .field-label {
@@ -1273,7 +1277,7 @@ html[data-theme="dark"] .save-status {
 
 .suggestion-list {
   display: grid;
-  gap: 12px;
+  gap: 14px;
 }
 
 .optimization-panel {
@@ -1298,16 +1302,16 @@ html[data-theme="dark"] .save-status {
 .optimization-column {
   align-content: start;
   display: grid;
-  gap: 12px;
+  gap: 14px;
   min-width: 0;
 }
 
 .optimization-jd-create {
   border-top: 1px solid var(--line);
   display: grid;
-  gap: 10px;
-  margin-top: 2px;
-  padding-top: 12px;
+  gap: 12px;
+  margin-top: 4px;
+  padding-top: 14px;
 }
 
 .optimization-jd-create input {
@@ -1322,7 +1326,7 @@ html[data-theme="dark"] .save-status {
 .optimization-summary {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 10px;
 }
 
 .optimization-summary span {
@@ -1339,7 +1343,7 @@ html[data-theme="dark"] .save-status {
 .requirement-filter-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px;
 }
 
 .requirement-list {
@@ -1559,7 +1563,7 @@ html[data-theme="dark"] .save-status {
   border-radius: var(--radius);
   display: flex;
   flex: 0 0 auto;
-  gap: 10px;
+  gap: 12px;
   justify-content: space-between;
   margin-bottom: 10px;
   min-height: 52px;
@@ -1665,7 +1669,7 @@ html[data-theme="dark"] .resume-studio-workbar {
   align-items: center;
   display: flex;
   flex-wrap: nowrap;
-  gap: 6px;
+  gap: 8px;
   justify-content: flex-end;
   min-width: 0;
   padding: 0;
@@ -1679,7 +1683,7 @@ html[data-theme="dark"] .resume-studio-workbar {
 .resume-workbar-actions {
   align-items: center;
   display: flex;
-  gap: 4px;
+  gap: 6px;
   min-width: 0;
 }
 
@@ -1726,9 +1730,9 @@ html[data-theme="dark"] .resume-studio-workbar {
   border: 1px solid var(--line);
   border-radius: var(--radius);
   display: inline-flex;
-  gap: 6px;
+  gap: 8px;
   min-height: 44px;
-  padding: 5px 6px;
+  padding: 5px 8px;
 }
 
 .toolbar-group-label {
@@ -1760,7 +1764,7 @@ html[data-theme="dark"] .resume-studio-workbar {
 }
 
 .zoom-control {
-  gap: 4px;
+  gap: 6px;
   padding: 0 6px;
 }
 
@@ -1791,7 +1795,7 @@ html[data-theme="dark"] .resume-studio-workbar {
   border: 1px solid var(--line);
   border-radius: 8px;
   display: inline-flex;
-  gap: 4px;
+  gap: 6px;
   padding: 3px;
 }
 
@@ -1832,7 +1836,7 @@ html[data-theme="dark"] .mode-rail-button:hover {
   display: grid;
   gap: 12px;
   grid-auto-rows: min-content;
-  padding: 16px 16px 16px 20px;
+  padding: 16px;
   position: sticky;
   min-width: 0;
   overflow-x: hidden;
@@ -1938,9 +1942,9 @@ html[data-theme="dark"] .mode-rail-button:hover {
 .property-panel-heading {
   align-items: center;
   display: flex;
-  gap: 10px;
+  gap: 12px;
   justify-content: space-between;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
 }
 
 .panel-heading-actions {
@@ -1958,9 +1962,9 @@ html[data-theme="dark"] .mode-rail-button:hover {
   border: 1px solid var(--line);
   border-radius: 8px;
   display: grid;
-  gap: 3px;
-  margin-bottom: 12px;
-  padding: 10px 12px;
+  gap: 5px;
+  margin-bottom: 14px;
+  padding: 12px;
 }
 
 .property-summary strong,
@@ -1975,21 +1979,21 @@ html[data-theme="dark"] .mode-rail-button:hover {
 }
 
 .compact-property-summary {
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 
 .property-panel-body {
   border-top: 1px solid var(--line);
   display: grid;
-  gap: 12px;
-  margin-top: 12px;
-  padding-top: 12px;
+  gap: 14px;
+  margin-top: 14px;
+  padding-top: 14px;
 }
 
 .property-tabs {
   box-sizing: border-box;
   display: grid;
-  gap: 6px;
+  gap: 8px;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   padding: 4px;
 }
@@ -2001,12 +2005,12 @@ html[data-theme="dark"] .mode-rail-button:hover {
 
 .property-section {
   display: grid;
-  gap: 12px;
+  gap: 14px;
 }
 
 .property-control-grid {
   display: grid;
-  gap: 10px;
+  gap: 12px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
@@ -2014,7 +2018,7 @@ html[data-theme="dark"] .mode-rail-button:hover {
   background: color-mix(in srgb, var(--surface-subtle) 52%, var(--surface));
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  gap: 8px;
+  gap: 10px;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   padding: 8px;
 }
@@ -2032,7 +2036,7 @@ html[data-theme="dark"] .mode-rail-button:hover {
 
 .pagination-controls {
   border-top: 1px solid var(--line);
-  padding-top: 12px;
+  padding-top: 14px;
 }
 
 .pagination-summary {
@@ -2040,7 +2044,7 @@ html[data-theme="dark"] .mode-rail-button:hover {
   border: 1px solid var(--line);
   border-radius: 8px;
   display: grid;
-  gap: 4px;
+  gap: 6px;
   padding: 10px 12px;
 }
 
@@ -2053,8 +2057,8 @@ html[data-theme="dark"] .mode-rail-button:hover {
 .color-swatch-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 8px;
+  gap: 10px;
+  margin-top: 10px;
 }
 
 .color-swatch {
@@ -2220,7 +2224,7 @@ html[data-theme="dark"] .resume-canvas-toolbar .primary-button {
 .resume-workspace {
   margin: 0;
   max-width: none;
-  padding: var(--workspace-padding);
+  padding: var(--workspace-padding) 0;
   width: 100%;
 }
 
@@ -2458,7 +2462,8 @@ small,
 .resume-entry-actions {
   align-items: center;
   display: flex;
-  gap: 8px;
+  gap: 10px;
+  margin-top: 4px;
 }
 
 .resume-entry-menu,
@@ -2491,7 +2496,7 @@ small,
   border-radius: var(--radius);
   box-shadow: 0 16px 34px rgba(32, 37, 34, 0.14);
   display: grid;
-  gap: 4px;
+  gap: 6px;
   min-width: 148px;
   padding: 6px;
   position: absolute;
@@ -2556,14 +2561,14 @@ small,
 
 .resume-entry-grid {
   display: grid;
-  gap: 12px;
+  gap: 14px;
   grid-template-columns: minmax(0, 1fr);
-  margin-bottom: 12px;
+  margin-bottom: 14px;
 }
 
 .resume-create-card-grid {
   display: grid;
-  gap: 8px;
+  gap: 10px;
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
@@ -2574,9 +2579,9 @@ small,
   color: var(--ink);
   cursor: pointer;
   display: grid;
-  gap: 4px;
+  gap: 6px;
   min-height: 76px;
-  padding: 10px 12px;
+  padding: 12px;
   text-align: left;
   transition: background-color 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
 }
@@ -2613,7 +2618,7 @@ small,
 
 .resume-card-list {
   display: grid;
-  gap: 10px;
+  gap: 12px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   max-height: 264px;
   overflow-y: auto;
@@ -2624,9 +2629,9 @@ small,
 .resume-card {
   align-items: center;
   display: grid;
-  gap: 10px;
+  gap: 12px;
   grid-template-columns: minmax(0, 1fr) auto;
-  padding: 10px;
+  padding: 12px;
 }
 
 .resume-card-main {
@@ -2650,15 +2655,16 @@ small,
 .resume-card-actions {
   align-items: center;
   display: flex;
-  gap: 6px;
+  gap: 8px;
+  margin-top: 2px;
 }
 
 .studio-sidebar-section {
   border-top: 1px solid var(--line);
   display: grid;
-  gap: 12px;
-  margin-top: 14px;
-  padding-top: 14px;
+  gap: 14px;
+  margin-top: 16px;
+  padding-top: 16px;
 }
 
 .studio-sidebar-section h2 {
@@ -2867,10 +2873,10 @@ html[data-theme="dark"] .property-panel-heading p {
   align-items: center;
   cursor: pointer;
   display: flex;
-  gap: 10px;
+  gap: 14px;
   justify-content: space-between;
   list-style: none;
-  padding: 12px;
+  padding: 14px;
 }
 
 .resume-entry-editor-card > summary::-webkit-details-marker {
@@ -2878,7 +2884,7 @@ html[data-theme="dark"] .property-panel-heading p {
 }
 
 .resume-entry-editor-card > :not(summary) {
-  margin: 0 12px 12px;
+  margin: 0 14px 14px;
 }
 
 .resume-entry-editor-card small {
@@ -2925,7 +2931,7 @@ html[data-theme="dark"] .property-panel-heading p {
 
 .resume-ai-summary-grid {
   display: grid;
-  gap: 6px;
+  gap: 8px;
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
@@ -2936,9 +2942,9 @@ html[data-theme="dark"] .property-panel-heading p {
   color: var(--ink);
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 3px;
   min-height: 48px;
-  padding: 6px 8px;
+  padding: 8px 10px;
   text-align: left;
 }
 
@@ -3030,7 +3036,7 @@ html[data-theme="dark"] .property-panel-heading p {
   border: 1px solid var(--line);
   border-radius: var(--radius);
   display: grid;
-  gap: 12px;
+  gap: 14px;
   padding: 12px;
 }
 
@@ -3058,7 +3064,7 @@ html[data-theme="dark"] .property-panel-heading p {
   border: 1px solid var(--line);
   border-radius: var(--radius);
   display: inline-flex;
-  gap: 4px;
+  gap: 6px;
   padding: 3px;
 }
 
@@ -3278,9 +3284,9 @@ html[data-theme="dark"] .property-panel-heading p {
 .hidden-block-list {
   border-top: 1px solid var(--line);
   display: grid;
-  gap: 8px;
-  margin-bottom: 12px;
-  padding-top: 12px;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding-top: 14px;
 }
 
 .hidden-block-list strong {
@@ -3297,7 +3303,7 @@ html[data-theme="dark"] .property-panel-heading p {
 .resume-structure-actions {
   align-items: stretch;
   display: grid;
-  gap: 4px;
+  gap: 6px;
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
@@ -3540,7 +3546,7 @@ html[data-theme="dark"] .property-panel-heading p {
   border: 1px solid var(--line);
   border-radius: 8px;
   display: grid;
-  gap: 4px;
+  gap: 6px;
   margin-bottom: 12px;
   padding: 10px 12px;
 }
@@ -3573,7 +3579,7 @@ html[data-theme="dark"] .property-panel-heading p {
 .export-control-stack {
   box-sizing: border-box;
   display: grid;
-  gap: 8px;
+  gap: 10px;
   padding: 4px;
 }
 
@@ -3588,15 +3594,15 @@ html[data-theme="dark"] .property-panel-heading p {
 
 .diagnostics-summary {
   display: grid;
-  gap: 8px;
+  gap: 10px;
   grid-template-columns: repeat(auto-fit, minmax(116px, 1fr));
 }
 
 .diagnostics-summary-tile {
   display: grid;
-  gap: 2px;
+  gap: 4px;
   min-height: 64px;
-  padding: 10px;
+  padding: 12px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #fbfbf8;
@@ -3623,7 +3629,7 @@ html[data-theme="dark"] .property-panel-heading p {
 }
 
 .diagnostic-notice {
-  padding: 10px 12px;
+  padding: 12px 14px;
   border: 1px solid #d7c98f;
   border-radius: 8px;
   background: #fff8df;
@@ -3634,18 +3640,18 @@ html[data-theme="dark"] .property-panel-heading p {
 .diagnostic-card-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 10px;
 }
 
 .diagnostic-issue-list {
   display: grid;
-  gap: 10px;
+  gap: 12px;
 }
 
 .diagnostic-card {
   display: grid;
-  gap: 8px;
-  padding: 12px;
+  gap: 10px;
+  padding: 14px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--paper);
@@ -3663,7 +3669,7 @@ html[data-theme="dark"] .property-panel-heading p {
 .diagnostic-targets {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 10px;
   justify-content: space-between;
   color: var(--muted);
   font-size: 0.78rem;
@@ -3672,8 +3678,8 @@ html[data-theme="dark"] .property-panel-heading p {
 .diagnostic-severity,
 .diagnostic-category {
   display: inline-flex;
-  margin-right: 6px;
-  padding: 2px 6px;
+  margin-right: 8px;
+  padding: 3px 8px;
   border: 1px solid var(--line);
   border-radius: 999px;
   background: var(--tab-bg);
@@ -3682,7 +3688,7 @@ html[data-theme="dark"] .property-panel-heading p {
 
 .diagnostic-evidence {
   display: grid;
-  gap: 6px;
+  gap: 8px;
   margin: 0;
 }
 
@@ -3828,6 +3834,21 @@ html[data-theme="dark"] .property-panel-heading p {
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
 }
 
+.profile-list-panel .compact-form-grid {
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+.profile-list-panel .compact-form-grid .field-label {
+  margin-bottom: 0;
+}
+
+.profile-list-panel .compact-form-grid input,
+.profile-list-panel .compact-form-grid select {
+  min-height: 36px;
+  width: 100%;
+}
+
 .import-item-row {
   display: grid;
   gap: 8px;
@@ -3873,7 +3894,7 @@ html[data-theme="dark"] .property-panel-heading p {
 .profile-managed-list,
 .profile-detail-scroll {
   display: grid;
-  gap: 8px;
+  gap: 10px;
   min-height: 0;
   overflow: auto;
   padding: 4px;
@@ -3894,36 +3915,78 @@ html[data-theme="dark"] .property-panel-heading p {
   display: flex;
   gap: 10px;
   justify-content: space-between;
-  min-height: 58px;
-  padding: 10px 12px;
+  min-height: 48px;
+  padding: 8px 12px;
   text-align: left;
   width: 100%;
+  overflow: hidden;
 }
 
 .profile-category-button span,
 .profile-managed-row span {
   display: grid;
-  gap: 2px;
+  gap: 1px;
   min-width: 0;
+  overflow: hidden;
+}
+
+.profile-category-button strong,
+.profile-managed-row strong {
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .profile-category-button small,
 .profile-managed-row small,
 .profile-managed-row em {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 11px;
   font-style: normal;
-  font-weight: 700;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .profile-category-button b {
   background: var(--surface-subtle);
   border-radius: 999px;
   color: var(--muted);
-  font-size: 12px;
-  min-width: 28px;
-  padding: 3px 7px;
+  font-size: 11px;
+  min-width: 24px;
+  padding: 2px 6px;
   text-align: center;
+  flex-shrink: 0;
+}
+
+.profile-managed-row-actions {
+  align-items: center;
+  display: flex;
+  flex-shrink: 0;
+  gap: 4px;
+}
+
+.profile-managed-row-actions em {
+  color: var(--muted);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.profile-managed-row-actions .icon-button {
+  flex-shrink: 0;
+  height: 24px;
+  width: 24px;
+}
+
+.profile-managed-row-actions .icon-button svg {
+  height: 14px;
+  width: 14px;
 }
 
 .profile-category-button-active,
@@ -4098,7 +4161,7 @@ html[data-theme="dark"] .property-panel-heading p {
 
 .application-filters {
   display: grid;
-  gap: 12px;
+  gap: 14px;
   margin-bottom: 18px;
   position: relative;
   z-index: 5;
@@ -4120,7 +4183,7 @@ html[data-theme="dark"] .property-panel-heading p {
 
 .application-filter-row {
   display: grid;
-  gap: 12px;
+  gap: 14px;
   grid-template-columns: 1.4fr repeat(3, minmax(150px, 0.7fr));
 }
 
@@ -4153,7 +4216,7 @@ html[data-theme="dark"] .property-panel-heading p {
 .application-board {
   align-items: start;
   display: grid;
-  gap: 14px;
+  gap: 16px;
   grid-template-columns: repeat(5, minmax(190px, 1fr));
   min-height: 0;
   overflow-x: auto;
@@ -4167,17 +4230,17 @@ html[data-theme="dark"] .property-panel-heading p {
   max-height: min(62dvh, 680px);
   min-width: 0;
   overflow: auto;
-  padding: 12px;
+  padding: 14px;
 }
 
 .application-board-column h2 {
   font-size: 15px;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 
 .application-card-stack {
   display: grid;
-  gap: 10px;
+  gap: 12px;
 }
 
 .application-card {
@@ -4185,8 +4248,8 @@ html[data-theme="dark"] .property-panel-heading p {
   border: 1px solid var(--line);
   border-radius: 8px;
   display: grid;
-  gap: 10px;
-  padding: 12px;
+  gap: 12px;
+  padding: 14px;
 }
 
 .application-card-selected {
@@ -4197,7 +4260,7 @@ html[data-theme="dark"] .property-panel-heading p {
 .application-card-heading {
   align-items: flex-start;
   display: flex;
-  gap: 8px;
+  gap: 10px;
   justify-content: space-between;
 }
 
@@ -4225,14 +4288,14 @@ html[data-theme="dark"] .property-panel-heading p {
 
 .application-card-meta {
   display: grid;
-  gap: 6px;
+  gap: 8px;
   margin: 0;
 }
 
 .application-card-meta div,
 .application-definition-list div {
   display: grid;
-  gap: 8px;
+  gap: 10px;
   grid-template-columns: minmax(64px, 0.36fr) minmax(0, 1fr);
 }
 
@@ -4256,7 +4319,7 @@ html[data-theme="dark"] .property-panel-heading p {
   font-size: 12px;
   font-weight: 800;
   margin: 0;
-  padding: 5px 8px;
+  padding: 6px 10px;
   width: fit-content;
 }
 
@@ -4280,7 +4343,7 @@ html[data-theme="dark"] .property-panel-heading p {
 
 .application-card-actions {
   align-items: stretch;
-  margin-top: 0;
+  margin-top: 4px;
 }
 
 .application-list-panel {
@@ -4296,7 +4359,7 @@ html[data-theme="dark"] .property-panel-heading p {
   align-items: center;
   border-top: 1px solid var(--line);
   display: grid;
-  gap: 8px;
+  gap: 10px;
   grid-template-columns: 0.9fr 1.1fr 0.7fr 0.6fr 0.7fr 0.9fr 0.5fr 0.8fr 0.8fr 0.8fr 1fr;
   min-height: 48px;
   padding: 8px 0;
@@ -4322,7 +4385,7 @@ html[data-theme="dark"] .property-panel-heading p {
 .application-table-actions {
   display: inline-flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px;
 }
 
 .application-detail {
@@ -4360,13 +4423,13 @@ html[data-theme="dark"] .property-panel-heading p {
   border: 1px solid var(--line);
   border-radius: 8px;
   display: grid;
-  gap: 12px;
-  padding: 14px;
+  gap: 14px;
+  padding: 16px;
 }
 
 .application-definition-list {
   display: grid;
-  gap: 8px;
+  gap: 10px;
   margin: 0;
 }
 
@@ -4376,7 +4439,7 @@ html[data-theme="dark"] .property-panel-heading p {
   border-radius: 8px;
   color: var(--accent-strong);
   font-weight: 800;
-  padding: 10px 12px;
+  padding: 12px 14px;
 }
 
 .application-detail-actions {
@@ -4391,15 +4454,15 @@ html[data-theme="dark"] .property-panel-heading p {
 .application-readiness-list,
 .application-timeline {
   display: grid;
-  gap: 10px;
+  gap: 12px;
 }
 
 .application-readiness-item {
   border: 1px solid var(--line);
   border-radius: 8px;
   display: grid;
-  gap: 5px;
-  padding: 10px 12px;
+  gap: 7px;
+  padding: 12px;
 }
 
 .application-readiness-item span {
@@ -4433,7 +4496,7 @@ html[data-theme="dark"] .property-panel-heading p {
   border: 1px solid var(--line);
   border-radius: 8px;
   display: grid;
-  gap: 3px;
+  gap: 5px;
   padding: 10px 12px;
 }
 
@@ -4449,7 +4512,7 @@ html[data-theme="dark"] .property-panel-heading p {
 
 .application-empty {
   display: grid;
-  gap: 10px;
+  gap: 12px;
   justify-items: start;
 }
 
@@ -4461,7 +4524,7 @@ html[data-theme="dark"] .property-panel-heading p {
 }
 
 .settings-workspace {
-  max-width: 1120px;
+  max-width: none;
 }
 
 .settings-layout {
@@ -4481,7 +4544,7 @@ html[data-theme="dark"] .property-panel-heading p {
 .settings-panel,
 .settings-section {
   display: grid;
-  gap: 12px;
+  gap: 14px;
 }
 
 .settings-panel select {
@@ -4510,8 +4573,8 @@ html[data-theme="dark"] .property-panel-heading p {
   border: 1px solid var(--line);
   border-radius: 8px;
   display: grid;
-  gap: 10px;
-  padding: 12px;
+  gap: 12px;
+  padding: 14px;
 }
 
 .materials-tool h4,
@@ -4524,15 +4587,15 @@ html[data-theme="dark"] .property-panel-heading p {
   border: 1px solid var(--line);
   border-radius: 8px;
   display: grid;
-  gap: 10px;
-  padding: 12px;
+  gap: 12px;
+  padding: 14px;
 }
 
 .material-card-header {
   align-items: center;
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 10px;
 }
 
 .material-card-header span,
