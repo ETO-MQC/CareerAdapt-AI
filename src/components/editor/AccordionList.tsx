@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 type AccordionItem = {
   id: string;
@@ -30,23 +30,22 @@ export function AccordionList({ items, emptyHint, addButton }: AccordionListProp
   return (
     <div className="accordion-list" data-slot="accordion">
       {addButton ? <div className="accordion-add-bar">{addButton}</div> : null}
-      {items.map((item) => (
-        <details
-          key={item.id}
-          className="accordion-item"
-          open={item.defaultOpen}
-        >
-          <summary className="accordion-item-trigger">
-            <span className="accordion-item-title">{item.title}</span>
-            {item.subtitle ? <span className="accordion-item-subtitle">{item.subtitle}</span> : null}
-            {item.badge ? <span className="accordion-item-badge">{item.badge}</span> : null}
-            <span className="accordion-item-chevron" aria-hidden>▾</span>
-          </summary>
-          <div className="accordion-item-content">
-            {item.content}
-          </div>
-        </details>
-      ))}
+      {items.map((item) => <AccordionItemView key={item.id} item={item} />)}
     </div>
+  );
+}
+
+function AccordionItemView({ item }: { item: AccordionItem }) {
+  const [open, setOpen] = useState(Boolean(item.defaultOpen));
+  return (
+    <details className="accordion-item" open={open} onToggle={(event) => setOpen(event.currentTarget.open)}>
+      <summary className="accordion-item-trigger">
+        <span className="accordion-item-title">{item.title}</span>
+        {item.subtitle ? <span className="accordion-item-subtitle">{item.subtitle}</span> : null}
+        {item.badge ? <span className="accordion-item-badge">{item.badge}</span> : null}
+        <span className="accordion-item-chevron" aria-hidden>▾</span>
+      </summary>
+      <div className="accordion-item-content">{item.content}</div>
+    </details>
   );
 }

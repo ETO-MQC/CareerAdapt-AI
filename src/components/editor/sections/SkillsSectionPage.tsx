@@ -26,7 +26,7 @@ type SkillsSectionPageProps = {
   nav: SectionNavContext;
 };
 
-function DefaultSkillsFields({ sectionLabel, onAdd }: { sectionLabel: string; onAdd: (text: string) => void }) {
+function DefaultSkillsFields({ sectionLabel, onAdd, onCancel }: { sectionLabel: string; onAdd: (text: string) => void; onCancel?: () => void }) {
   const [value, setValue] = useState("");
   return (
     <div className="section-fields">
@@ -38,6 +38,7 @@ function DefaultSkillsFields({ sectionLabel, onAdd }: { sectionLabel: string; on
         <button type="button" className="section-action-button section-action-button-primary" disabled={!value.trim()} onClick={() => { onAdd(value); setValue(""); }}>
           保存并确认
         </button>
+        {onCancel ? <button type="button" className="section-action-button" onClick={onCancel}>取消</button> : null}
       </div>
     </div>
   );
@@ -62,28 +63,6 @@ export function SkillsSectionPage({
   const prev = prevSection(nav.activeSection);
   const next = nextSection(nav.activeSection);
   const [adding, setAdding] = useState(false);
-
-  if (blocks.length === 0) {
-    return (
-      <SectionShell
-        icon={<span className="section-shell-icon-svg" aria-hidden="true">项</span>}
-        title={sectionLabel}
-        description={`添加${sectionLabel}相关信息。`}
-        saved={true}
-        canUndo={nav.canUndo}
-        canRedo={nav.canRedo}
-        onUndo={nav.onUndo}
-        onRedo={nav.onRedo}
-        hasPrev={Boolean(prev)}
-        hasNext={Boolean(next)}
-        onPrev={() => prev && nav.onNavigate(prev)}
-        onNext={() => next && nav.onNavigate(next)}
-        headerAction={<button type="button" className="section-action-button" onClick={onOpenLibrary}>资料库</button>}
-      >
-        <DefaultSkillsFields sectionLabel={sectionLabel} onAdd={onAdd} />
-      </SectionShell>
-    );
-  }
 
   const accordionItems = blocks.map((block, index) => {
     const sourceItem = branch?.contentItems.find((item) => item.id === block.contentItemId);
@@ -133,6 +112,26 @@ export function SkillsSectionPage({
       )
     };
   });
+  const showDraft = blocks.length === 0 || adding;
+  if (showDraft) {
+    accordionItems.push({
+      id: `new-${sectionLabel}`,
+      title: `未保存的${sectionLabel}`,
+      subtitle: "填写后保存到当前简历",
+      badge: "草稿",
+      defaultOpen: true,
+      content: (
+        <DefaultSkillsFields
+          sectionLabel={sectionLabel}
+          onAdd={(text) => {
+            onAdd(text);
+            setAdding(false);
+          }}
+          onCancel={blocks.length > 0 ? () => setAdding(false) : undefined}
+        />
+      )
+    });
+  }
 
   return (
     <SectionShell
@@ -153,7 +152,7 @@ export function SkillsSectionPage({
       <AccordionList
         items={accordionItems}
         emptyHint={undefined}
-        addButton={
+        addButton={blocks.length > 0 && !adding ? (
           <button
             type="button"
             className="section-action-button section-action-button-primary"
@@ -161,9 +160,8 @@ export function SkillsSectionPage({
           >
             + 添加{sectionLabel}
           </button>
-        }
+        ) : undefined}
       />
-      {adding ? <DefaultSkillsFields sectionLabel={sectionLabel} onAdd={(text) => { onAdd(text); setAdding(false); }} /> : null}
     </SectionShell>
   );
 }

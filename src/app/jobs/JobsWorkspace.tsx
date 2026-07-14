@@ -114,8 +114,8 @@ export function JobsWorkspace() {
   const visibleJobs = jobListFilter === "archived" ? archivedJobs : activeJobs;
   const availableJobs = [...activeJobs, ...archivedJobs];
   const selectedJob = visibleJobs.find((job) => job.id === selectedJobId) ?? visibleJobs[0] ?? availableJobs.find((job) => job.id === selectedJobId) ?? availableJobs[0];
-  const baseResumeOptions = resumeBranches.filter((branch) => branch.branchPurpose === "general" && branch.lifecycleStatus === "active" && branch.migrationStatus === "verified" && Boolean(branch.currentRevisionId));
-  const selectedBaseResume = baseResumeOptions.find((branch) => branch.id === selectedBaseResumeId) ?? baseResumeOptions[0];
+  const baseResumeOptions = resumeBranches.filter(isMatchBaseResume);
+  const selectedBaseResume = baseResumeOptions.find((branch) => branch.id === selectedBaseResumeId);
   const matchingProfile = profile && selectedBaseResume ? profileLimitedToResume(profile, selectedBaseResume) : undefined;
 
   useEffect(() => {
@@ -140,8 +140,7 @@ export function JobsWorkspace() {
     void repository.listResumeBranches(profile.id).then((items) => {
       if (!active) return;
       setResumeBranches(items);
-      const first = items.find((branch) => branch.branchPurpose === "general" && branch.lifecycleStatus === "active" && branch.migrationStatus === "verified" && Boolean(branch.currentRevisionId));
-      setSelectedBaseResumeId((current) => current || first?.id || "");
+      setSelectedBaseResumeId((current) => items.some((branch) => branch.id === current && isMatchBaseResume(branch)) ? current : "");
     });
     return () => { active = false; };
   }, [profile]);
@@ -150,15 +149,17 @@ export function JobsWorkspace() {
     let active = true;
 
     async function loadMatches() {
-      if (!profile || !selectedJob) {
+      if (!profile || !selectedJob || !selectedBaseResumeId) {
         setMatches([]);
+        setSelectedMatchId(undefined);
         return;
       }
 
       const stored = await repository.listRequirementMatches(profile.id, selectedJob.id);
       if (active) {
-        setMatches(stored);
-        setSelectedMatchId((current) => current ?? stored[0]?.id);
+        const forSelectedResume = latestMatchesForResume(stored, selectedBaseResumeId);
+        setMatches(forSelectedResume);
+        setSelectedMatchId((current) => forSelectedResume.some((match) => match.id === current) ? current : forSelectedResume[0]?.id);
       }
     }
 
@@ -167,22 +168,23 @@ export function JobsWorkspace() {
     return () => {
       active = false;
     };
-  }, [profile, selectedJob]);
+  }, [profile, selectedBaseResumeId, selectedJob]);
 
   useEffect(() => {
     let active = true;
 
     async function loadC2Draft() {
-      if (!profile || !selectedJob) {
+      if (!profile || !selectedJob || !selectedBaseResumeId) {
         setAdaptationDraft(undefined);
         setSuggestions([]);
         return;
       }
 
       const latestDraft = await repository.getLatestJobAdaptationDraft(profile.id, selectedJob.id);
-      const latestSuggestions = latestDraft ? await repository.listAiSuggestions(latestDraft.id) : [];
+      const selectedDraft = latestDraft?.sourceBranchId === selectedBaseResumeId ? latestDraft : undefined;
+      const latestSuggestions = selectedDraft ? await repository.listAiSuggestions(selectedDraft.id) : [];
       if (active) {
-        setAdaptationDraft(latestDraft);
+        setAdaptationDraft(selectedDraft);
         setSuggestions(latestSuggestions);
       }
     }
@@ -192,7 +194,7 @@ export function JobsWorkspace() {
     return () => {
       active = false;
     };
-  }, [profile, selectedJob]);
+  }, [profile, selectedBaseResumeId, selectedJob]);
 
   const selectedMatch = matches.find((match) => match.id === selectedMatchId) ?? matches[0];
   const selectedRequirement = selectedJob?.requirements.find((requirement) => requirement.id === selectedMatch?.requirementId);
@@ -449,7 +451,10 @@ export function JobsWorkspace() {
       return;
     }
 
-    const nextMatches = createRuleRequirementMatches({ profile: matchingProfile, job: selectedJob });
+    const nextMatches = createRuleRequirementMatches({ profile: matchingProfile, job: selectedJob }).map((match) => ({
+      ...match,
+      sourceResumeBranchId: selectedBaseResume.id
+    }));
     const saved = await repository.saveRuleRequirementMatches({
       profile: matchingProfile,
       job: selectedJob,
@@ -1097,17 +1102,20 @@ export function JobsWorkspace() {
           <div className="job-match-source">
             <label className="field-label" htmlFor="job-match-base-resume">
               用于诊断的基础简历
-              <select id="job-match-base-resume" value={selectedBaseResume?.id ?? ""} onChange={(event) => {
+              <select id="job-match-base-resume" value={selectedBaseResumeId} onChange={(event) => {
                 setSelectedBaseResumeId(event.target.value);
                 setMatches([]);
                 setSelectedMatchId(undefined);
                 setAdaptationDraft(undefined);
                 setSuggestions([]);
               }}>
-                {baseResumeOptions.length === 0 ? <option value="">暂无可用通用简历</option> : baseResumeOptions.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}
+                <option value="">请选择一份简历</option>
+                {baseResumeOptions.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}
               </select>
             </label>
-            <p>匹配只使用这份简历已引用且经过确认的资料事实；简历独立填写但未同步的内容暂不作为自动证据。</p>
+            <p>{baseResumeOptions.length === 0
+              ? "暂无可用于诊断的通用简历。请先在简历中心创建或恢复一份简历。"
+              : "选择后再运行匹配；历史结果只会显示在创建它的那份简历下。"}</p>
           </div>
           <div className="section-heading">
             <div>
@@ -1234,6 +1242,24 @@ function profileLimitedToResume(profile: CareerProfile, branch: ResumeBranch): C
     skills: profile.skills.filter((item) => skillIds.has(item.id)),
     certificates: profile.certificates.filter((item) => certificateIds.has(item.id))
   };
+}
+
+function isMatchBaseResume(branch: ResumeBranch) {
+  return branch.branchPurpose === "general"
+    && branch.lifecycleStatus === "active"
+    && branch.migrationStatus === "verified"
+    && Boolean(branch.currentRevisionId)
+    && branch.syncStatusCache.status !== "invalid_reference";
+}
+
+function latestMatchesForResume(matches: RequirementMatch[], branchId: string) {
+  const latestByRequirement = new Map<string, RequirementMatch>();
+  for (const match of [...matches]
+    .filter((candidate) => candidate.sourceResumeBranchId === branchId)
+    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))) {
+    if (!latestByRequirement.has(match.requirementId)) latestByRequirement.set(match.requirementId, match);
+  }
+  return [...latestByRequirement.values()];
 }
 
 function SuggestionCard({

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { ResumeDocumentBlock } from "@/domain/resumeDocument/mapper";
+import type { CareerProfile, ResumeBranch } from "@/domain/schemas";
 import { TipTapEditor } from "../TipTapEditor";
 import { SectionShell } from "../SectionShell";
 import { plainTextToHtml, htmlToPlainText } from "../helpers";
@@ -9,19 +10,25 @@ import { type SectionNavContext, prevSection, nextSection } from "./types";
 
 type SummarySectionPageProps = {
   blocks: ResumeDocumentBlock[];
+  profile?: CareerProfile;
+  branch?: ResumeBranch;
   editTexts: Record<string, string>;
   onEditTextChange: (itemId: string, text: string) => void;
   onSave: (itemId: string) => void;
   onAdd: (text: string) => void;
+  onSyncToProfile: (itemId: string) => void;
   nav: SectionNavContext;
 };
 
 export function SummarySectionPage({
   blocks,
+  profile,
+  branch,
   editTexts,
   onEditTextChange,
   onSave,
   onAdd,
+  onSyncToProfile,
   nav
 }: SummarySectionPageProps) {
   const prev = prevSection(nav.activeSection);
@@ -29,6 +36,8 @@ export function SummarySectionPage({
   const block = blocks[0];
   const [newSummary, setNewSummary] = useState("");
   const currentText = block ? (editTexts[block.contentItemId] ?? block.text) : newSummary;
+  const sourceItem = block ? branch?.contentItems.find((item) => item.id === block.contentItemId) : undefined;
+  const isSyncedToProfile = Boolean(block && profile?.basics.summary?.trim() === currentText.trim());
 
   return (
     <SectionShell
@@ -66,6 +75,21 @@ export function SummarySectionPage({
             >
               保存
             </button>
+            {isSyncedToProfile ? (
+              <span className="resume-sync-state resume-sync-state-synced">已同步资料库</span>
+            ) : (
+              <>
+                {sourceItem?.userConfirmation?.scope === "resume_only" ? <span className="resume-sync-state">仅当前简历</span> : null}
+                <button
+                  type="button"
+                  className="section-action-button"
+                  disabled={block.contentItemId in editTexts}
+                  onClick={() => onSyncToProfile(block.contentItemId)}
+                >
+                  同步到资料库
+                </button>
+              </>
+            )}
           </div>
         ) : (
           <div className="section-summary-actions">

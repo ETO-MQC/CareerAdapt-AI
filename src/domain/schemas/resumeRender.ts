@@ -34,6 +34,7 @@ export const ResumeRenderSectionTypeSchema = z.enum([
 
 export const ResumeRenderBlockSchema = z.object({
   sourceItemId: z.string().min(1),
+  sourceSectionId: z.string().min(1).optional(),
   itemType: BranchContentItemTypeSchema,
   order: z.number().int().min(0),
   text: z.string().min(1),

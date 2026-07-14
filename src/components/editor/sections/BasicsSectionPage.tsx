@@ -135,7 +135,7 @@ export function BasicsSectionPage(props: BasicsSectionPageProps) {
           onBlur={() => handleBlur("location")}
         />
         <FieldInput
-          label="领英"
+          label="个人主页 / LinkedIn"
           id="basics-linkedin"
           type="url"
           inputMode="url"

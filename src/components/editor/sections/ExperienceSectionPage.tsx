@@ -35,7 +35,7 @@ type ExperienceSectionPageProps = {
   nav: SectionNavContext;
 };
 
-function DefaultExperienceFields({ sectionLabel, onAdd }: { sectionLabel: string; onAdd: ExperienceSectionPageProps["onAdd"] }) {
+function DefaultExperienceFields({ sectionLabel, onAdd, onCancel }: { sectionLabel: string; onAdd: ExperienceSectionPageProps["onAdd"]; onCancel?: () => void }) {
   const category = experienceCategoryFromLabel(sectionLabel);
   const [draft, setDraft] = useState<StructuredExperienceFields>(emptyStructuredExperienceFields);
   const save = (syncToProfile: boolean) => {
@@ -64,6 +64,7 @@ function DefaultExperienceFields({ sectionLabel, onAdd }: { sectionLabel: string
         <button type="button" className="section-action-button" onClick={() => save(true)} disabled={!Object.values(draft).some(Boolean)}>
           保存并同步资料库
         </button>
+        {onCancel ? <button type="button" className="section-action-button" onClick={onCancel}>取消</button> : null}
       </div>
     </div>
   );
@@ -97,28 +98,6 @@ export function ExperienceSectionPage({
   const prev = prevSection(nav.activeSection);
   const next = nextSection(nav.activeSection);
   const [adding, setAdding] = useState(false);
-
-  if (blocks.length === 0) {
-    return (
-      <SectionShell
-        icon={<span className="section-shell-icon-svg" aria-hidden="true">历</span>}
-        title={sectionLabel}
-        description={`添加${sectionLabel}相关内容。`}
-        saved={true}
-        canUndo={nav.canUndo}
-        canRedo={nav.canRedo}
-        onUndo={nav.onUndo}
-        onRedo={nav.onRedo}
-        hasPrev={Boolean(prev)}
-        hasNext={Boolean(next)}
-        onPrev={() => prev && nav.onNavigate(prev)}
-        onNext={() => next && nav.onNavigate(next)}
-        headerAction={<button type="button" className="section-action-button" onClick={onOpenLibrary}>资料库</button>}
-      >
-        <DefaultExperienceFields sectionLabel={sectionLabel} onAdd={onAdd} />
-      </SectionShell>
-    );
-  }
 
   const accordionItems = blocks.map((block, index) => {
     const category = experienceCategoryFromLabel(sectionLabel);
@@ -212,6 +191,26 @@ export function ExperienceSectionPage({
       )
     };
   });
+  const showDraft = blocks.length === 0 || adding;
+  if (showDraft) {
+    accordionItems.push({
+      id: `new-${sectionLabel}`,
+      title: `未保存的${sectionLabel}`,
+      subtitle: "填写后保存到当前简历",
+      badge: "草稿",
+      defaultOpen: true,
+      content: (
+        <DefaultExperienceFields
+          sectionLabel={sectionLabel}
+          onAdd={(draft, syncToProfile) => {
+            onAdd(draft, syncToProfile);
+            setAdding(false);
+          }}
+          onCancel={blocks.length > 0 ? () => setAdding(false) : undefined}
+        />
+      )
+    });
+  }
 
   return (
     <SectionShell
@@ -232,7 +231,7 @@ export function ExperienceSectionPage({
       <AccordionList
         items={accordionItems}
         emptyHint={undefined}
-        addButton={
+        addButton={blocks.length > 0 && !adding ? (
           <button
             type="button"
             className="section-action-button section-action-button-primary"
@@ -240,9 +239,8 @@ export function ExperienceSectionPage({
           >
             + 添加{sectionLabel}
           </button>
-        }
+        ) : undefined}
       />
-      {adding ? <DefaultExperienceFields sectionLabel={sectionLabel} onAdd={(draft, syncToProfile) => { onAdd(draft, syncToProfile); setAdding(false); }} /> : null}
     </SectionShell>
   );
 }

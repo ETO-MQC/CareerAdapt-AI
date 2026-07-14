@@ -2668,6 +2668,10 @@ small,
   padding-right: 4px;
 }
 
+.resume-library-panel .resume-filter-row {
+  margin-bottom: 12px;
+}
+
 .resume-card {
   align-items: center;
   display: grid;
@@ -2686,8 +2690,20 @@ small,
   gap: 3px;
   font: inherit;
   min-width: 0;
+  overflow: hidden;
   padding: 0;
   text-align: left;
+}
+
+.resume-card-main strong,
+.resume-card-main span,
+.resume-card-main small {
+  display: block;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .resume-card-main:disabled {
@@ -3417,6 +3433,24 @@ html[data-theme="dark"] .property-panel-heading p {
 .resume-block-list {
   display: grid;
   gap: var(--resume-item-gap, 3mm);
+}
+
+.resume-experience-group {
+  display: grid;
+  gap: var(--resume-item-gap, 3mm);
+}
+
+.resume-experience-group + .resume-experience-group {
+  margin-top: 2mm;
+}
+
+.resume-template-section .resume-experience-group-title {
+  border-bottom: 1px solid color-mix(in srgb, var(--resume-accent-color, #0f5145) 28%, transparent);
+  color: var(--resume-accent-strong, #176b5b);
+  font-size: calc(var(--resume-section-title-size, 11.2pt) * 0.86);
+  line-height: 1.25;
+  margin: 0 0 1mm;
+  padding-bottom: 1mm;
 }
 
 .resume-template-section p,
@@ -4676,6 +4710,33 @@ html[data-theme="dark"] .property-panel-heading p {
   min-height: 42px;
   padding: 0 12px;
   width: 100%;
+}
+
+.settings-toggle-row {
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  padding: 14px 16px;
+}
+
+.settings-toggle-row span {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.settings-toggle-row small {
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.settings-toggle-row input {
+  flex: 0 0 auto;
+  height: 20px;
+  width: 20px;
 }
 
 .materials-summary {

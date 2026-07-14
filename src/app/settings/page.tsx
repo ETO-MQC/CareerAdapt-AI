@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { readDeveloperMode, writeDeveloperMode } from "@/services/preferences/developerMode";
 
 type ThemePreference = "system" | "light" | "dark";
 type DensityPreference = "compact" | "comfortable";
-type SettingsCategory = "appearance" | "export" | "help";
+type SettingsCategory = "appearance" | "export" | "developer" | "help";
 
 const themeStorageKey = "careeradapt.theme";
 const densityStorageKey = "careeradapt.density";
@@ -12,6 +13,7 @@ const densityStorageKey = "careeradapt.density";
 const categories: Array<{ id: SettingsCategory; label: string; description: string }> = [
   { id: "appearance", label: "界面", description: "主题与显示密度" },
   { id: "export", label: "导出", description: "A4 与 PDF 行为" },
+  { id: "developer", label: "开发者模式", description: "测试数据清理" },
   { id: "help", label: "帮助", description: "说明入口" }
 ];
 
@@ -19,6 +21,7 @@ export default function SettingsPage() {
   const [category, setCategory] = useState<SettingsCategory>("appearance");
   const [theme, setTheme] = useState<ThemePreference>(() => typeof window === "undefined" ? "system" : readThemePreference());
   const [density, setDensity] = useState<DensityPreference>(() => typeof window === "undefined" ? "compact" : readDensityPreference());
+  const [developerMode, setDeveloperMode] = useState(() => typeof window !== "undefined" && readDeveloperMode());
 
   function updateTheme(nextTheme: ThemePreference) {
     setTheme(nextTheme);
@@ -99,6 +102,28 @@ export default function SettingsPage() {
             <div className="settings-section">
               <h2>帮助</h2>
               <p>常用说明保留在设置分类中，不占用主工作区。</p>
+            </div>
+          ) : null}
+
+          {category === "developer" ? (
+            <div className="settings-section">
+              <div className="section-heading compact-heading">
+                <div>
+                  <h2>开发者模式</h2>
+                  <p>仅用于清理开发期间产生的测试数据，不改变正常用户的删除流程。</p>
+                </div>
+              </div>
+              <label className="settings-toggle-row">
+                <span><strong>启用快速清理</strong><small>回收站可一次清理所有未被引用的内容；受简历、岗位或求职记录引用的数据仍会保留。</small></span>
+                <input
+                  type="checkbox"
+                  checked={developerMode}
+                  onChange={(event) => {
+                    setDeveloperMode(event.target.checked);
+                    writeDeveloperMode(event.target.checked);
+                  }}
+                />
+              </label>
             </div>
           ) : null}
         </section>

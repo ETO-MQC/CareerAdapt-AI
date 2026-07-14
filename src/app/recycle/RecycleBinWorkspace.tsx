@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { JobDescription, ProfileRecycleItem, RecycleBinState, ResumeBranch } from "@/domain/schemas";
 import { WorkspaceRepository } from "@/services/storage/repositories";
+import { readDeveloperMode } from "@/services/preferences/developerMode";
 
 const repository = new WorkspaceRepository();
 type RecycleFilter = "all" | "resume" | "profile" | "job";
@@ -16,6 +17,7 @@ export function RecycleBinWorkspace() {
   const [message, setMessage] = useState<string>();
   const [pendingDelete, setPendingDelete] = useState<PendingDelete>();
   const [confirmation, setConfirmation] = useState("");
+  const [developerMode] = useState(() => typeof window !== "undefined" && readDeveloperMode());
 
   async function refresh() {
     const [nextState, nextBranches, nextJobs] = await Promise.all([
@@ -76,7 +78,7 @@ export function RecycleBinWorkspace() {
   }
 
   async function permanentlyDelete() {
-    if (!pendingDelete || confirmation.trim() !== deleteLabel(pendingDelete)) return;
+    if (!pendingDelete || (!developerMode && confirmation.trim() !== deleteLabel(pendingDelete))) return;
     if (pendingDelete.kind === "resume") {
       const result = await repository.deleteResumeBranchPermanently({ branchId: pendingDelete.item.id, expectedRevision: pendingDelete.item.revision });
       if (!result.deleted) setMessage(`无法永久删除：仍有 ${result.blockers.applications} 条求职记录或 ${result.blockers.derivedBranches} 份派生简历引用。`);
@@ -94,6 +96,28 @@ export function RecycleBinWorkspace() {
     await refresh();
   }
 
+  async function quickCleanRecycleBin() {
+    if (!developerMode || !window.confirm("清理所有未被引用的回收站内容？此操作无法恢复。")) return;
+    let deleted = 0;
+    let protectedCount = 0;
+    for (const branch of branches) {
+      const result = await repository.deleteResumeBranchPermanently({ branchId: branch.id, expectedRevision: branch.revision });
+      if (result.deleted) deleted += 1;
+      else protectedCount += 1;
+    }
+    for (const item of state.profileItems) {
+      await repository.deleteProfileRecycleItemPermanently(item.kind, item.id);
+      deleted += 1;
+    }
+    for (const job of jobs) {
+      const result = await repository.deleteJobPermanently(job.id);
+      if (result.deleted) deleted += 1;
+      else protectedCount += 1;
+    }
+    setMessage(`快速清理完成：永久删除 ${deleted} 项，保留 ${protectedCount} 项受引用保护的内容。`);
+    await refresh();
+  }
+
   return (
     <main className="page-shell recycle-workspace">
       <header className="page-heading">
@@ -102,7 +126,7 @@ export function RecycleBinWorkspace() {
       </header>
       {message ? <div className="notice" role="status" aria-live="polite">{message}</div> : null}
       <section className="panel recycle-panel">
-        <div className="section-heading compact-heading"><div><h2>已删除内容</h2><p>共 {total} 项</p></div></div>
+        <div className="section-heading compact-heading"><div><h2>已删除内容</h2><p>共 {total} 项</p></div>{developerMode && total > 0 ? <button className="danger-button compact" type="button" onClick={() => { void quickCleanRecycleBin(); }}>快速清理</button> : null}</div>
         <div className="resume-filter-row" role="tablist" aria-label="回收站分类">
           {([['all', '全部', total], ['resume', '简历', branches.length], ['profile', '资料', state.profileItems.length], ['job', '岗位', jobs.length]] as const).map(([key, label, count]) => (
             <button key={key} type="button" className={filter === key ? "secondary-button compact filter-active" : "secondary-button compact"} onClick={() => setFilter(key)}>{label} {count}</button>
@@ -117,9 +141,9 @@ export function RecycleBinWorkspace() {
       {pendingDelete ? <div className="sync-dialog-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setPendingDelete(undefined); }}>
         <section className="sync-dialog profile-delete-dialog" role="dialog" aria-modal="true" aria-labelledby="recycle-delete-title">
           <h2 id="recycle-delete-title">永久删除？</h2>
-          <p>此操作无法恢复。请输入完整名称“{deleteLabel(pendingDelete)}”确认。</p>
-          <label className="field-label" htmlFor="recycle-delete-confirm">名称<input id="recycle-delete-confirm" value={confirmation} onChange={(event) => setConfirmation(event.target.value)} autoComplete="off" /></label>
-          <div className="action-row"><button className="secondary-button" type="button" onClick={() => setPendingDelete(undefined)}>取消</button><button className="danger-button" type="button" disabled={confirmation.trim() !== deleteLabel(pendingDelete)} onClick={() => { void permanentlyDelete(); }}>永久删除</button></div>
+          <p>{developerMode ? "开发者模式已开启，无需输入名称；受其他数据引用的内容仍不会删除。" : `此操作无法恢复。请输入完整名称“${deleteLabel(pendingDelete)}”确认。`}</p>
+          {!developerMode ? <label className="field-label" htmlFor="recycle-delete-confirm">名称<input id="recycle-delete-confirm" value={confirmation} onChange={(event) => setConfirmation(event.target.value)} autoComplete="off" /></label> : null}
+          <div className="action-row"><button className="secondary-button" type="button" onClick={() => setPendingDelete(undefined)}>取消</button><button className="danger-button" type="button" disabled={!developerMode && confirmation.trim() !== deleteLabel(pendingDelete)} onClick={() => { void permanentlyDelete(); }}>永久删除</button></div>
         </section>
       </div> : null}
     </main>

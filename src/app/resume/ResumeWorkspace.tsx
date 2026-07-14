@@ -32,7 +32,7 @@ import {
   runResumeDiagnostics,
   type ResumeDiagnosticTemplateInfo
 } from "@/domain/resumeDiagnostics";
-import { mapBranchToResumeDocument, type ResumeDocument } from "@/domain/resumeDocument/mapper";
+import { mapBranchToResumeDocument, type ResumeDocument, type ResumeDocumentBlock } from "@/domain/resumeDocument/mapper";
 import { useResumePagination } from "@/components/resume/useResumePagination";
 import {
   getResumeTemplate,
@@ -912,7 +912,7 @@ export function ResumeWorkspace() {
     if (itemId) {
       const block = resumeDocumentBlocksById.get(itemId);
       if (block) {
-        setActiveResumeSection(block.sectionType);
+        setActiveResumeSection(studioSectionForBlock(block));
       }
       setIsStudioEditMode(true);
       setSelectedStudioItemId(itemId);
@@ -1883,7 +1883,7 @@ export function ResumeWorkspace() {
     }
     const block = resumeDocumentBlocksById.get(itemId);
     if (block) {
-      setActiveResumeSection(block.sectionType);
+      setActiveResumeSection(studioSectionForBlock(block));
     }
     setSelectedStudioItemId(itemId);
     setSelectedProfileFieldId(undefined);
@@ -3411,10 +3411,13 @@ export function ResumeWorkspace() {
               ) : activeResumeSection === "summary" ? (
                 <SummarySectionPage
                   blocks={activeSectionBlocks}
+                  profile={profile}
+                  branch={selectedBranch}
                   editTexts={editTexts}
                   onEditTextChange={(itemId, text) => setEditTexts((prev) => ({ ...prev, [itemId]: text }))}
                   onSave={saveItem}
                   onAdd={(text) => void addContentItem(activeResumeSection, text)}
+                  onSyncToProfile={(itemId) => { void syncContentItemToProfile(itemId); }}
                   nav={sectionNavContext}
                 />
               ) : activeResumeSection === "experience"
@@ -4199,6 +4202,22 @@ function buildResumeStudioSections(input: {
     { key: "language", label: "语言", count: languageBlocks.length, firstItemId: languageBlocks[0]?.contentItemId },
     { key: "custom", label: "自定义栏目", count: generalCustomBlocks.length, firstItemId: generalCustomBlocks[0]?.contentItemId }
   ];
+}
+
+function studioSectionForBlock(block: ResumeDocumentBlock): ResumeStudioSectionKey {
+  if (block.sectionType === "experience") {
+    if (block.sourceSectionId === "education" || block.sourceSectionId === "projects" || block.sourceSectionId === "campus") {
+      return block.sourceSectionId;
+    }
+    return "experience";
+  }
+  if (block.itemType === "custom") {
+    if (block.sourceSectionId === "awards" || block.sourceSectionId === "language") {
+      return block.sourceSectionId;
+    }
+    return "custom";
+  }
+  return block.sectionType;
 }
 
 function buildNextPresentationConfig(input: {

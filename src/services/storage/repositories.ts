@@ -2327,7 +2327,22 @@ export class WorkspaceRepository {
         let factRefs: ResumeBranch["contentItems"][number]["factRefs"] = item.factRefs;
         let nextProfile: CareerProfile;
 
-        if (existingRef?.type === "experience_fact") {
+        if (item.itemType === "summary") {
+          nextProfile = CareerProfileSchema.parse({
+            ...profile,
+            basics: {
+              ...profile.basics,
+              summary: text
+            },
+            version: profile.version + 1,
+            updatedAt: now
+          });
+          await this.db.profiles.put(nextProfile);
+          return ResumeBranchSchema.parse({
+            ...branch,
+            sourceProfileVersion: nextProfile.version
+          });
+        } else if (existingRef?.type === "experience_fact") {
           nextProfile = CareerProfileSchema.parse({
             ...profile,
             version: profile.version + 1,

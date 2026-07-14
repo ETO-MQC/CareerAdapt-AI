@@ -139,7 +139,7 @@ export function isRenderableContentItem(input: {
 
 export function sectionTitle(type: ResumeRenderSectionType) {
   if (type === "summary") {
-    return "岗位概览";
+    return "自我评价";
   }
   if (type === "skills") {
     return "技能";
@@ -147,7 +147,7 @@ export function sectionTitle(type: ResumeRenderSectionType) {
   if (type === "certificates") {
     return "证书";
   }
-  return "项目与经历";
+  return "经历";
 }
 
 export function blockSectionType(itemType: BranchContentItem["itemType"]): ResumeRenderSectionType {

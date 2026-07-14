@@ -46,6 +46,7 @@ export function mapBranchToResumeRenderModel(input: {
   const renderableBlocks = document.blocks.filter((block) => block.visible && block.renderable);
   const blocks = renderableBlocks.map((block): ResumeRenderBlock => ({
     sourceItemId: block.contentItemId,
+    sourceSectionId: block.sourceSectionId,
     itemType: block.itemType,
     order: block.order,
     text: block.text,

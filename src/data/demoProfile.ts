@@ -45,7 +45,7 @@ export const demoCareerProfile: CareerProfile = CareerProfileSchema.parse({
     email: "demo.student@example.com",
     location: "杭州",
     summary: "经济管理方向本科生，关注数据分析、AI应用和跨境业务流程。",
-    links: ["https://example.com/portfolio"]
+    links: []
   },
   preference: {
     targetRoles: ["数据分析实习", "外贸/跨境运营实习"],

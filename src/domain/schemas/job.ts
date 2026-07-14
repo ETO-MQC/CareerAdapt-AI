@@ -121,6 +121,8 @@ export const ManualMatchOverrideSchema = EntityBaseSchema.extend({
 export const RequirementMatchSchema = EntityBaseSchema.extend({
   profileId: z.string().min(1),
   jobId: z.string().min(1),
+  /** The general resume explicitly selected when this match was created. */
+  sourceResumeBranchId: z.string().min(1).optional(),
   profileVersion: z.number().int().min(1),
   jobVersion: z.string().min(1),
   matcherVersion: z.string().min(1),

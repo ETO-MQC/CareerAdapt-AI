@@ -430,6 +430,7 @@ function RenderSection({
 }) {
   const showTitle = context?.presentationConfig?.sectionStyleOverrides[section.type]?.showTitle !== false;
   const inlineMode = mode === "inline" || mode === "tag" || mode === "plainInline";
+  const experienceGroups = section.type === "experience" ? groupExperienceBlocks(section.blocks) : [];
   return (
     <section className={`resume-template-section ${mode ? `resume-section-${mode}` : ""}`} data-render-section={section.type}>
       {showTitle ? <h2 {...sectionTitleAttrs(section, context)}>{section.title}</h2> : null}
@@ -441,7 +442,20 @@ function RenderSection({
         </div>
       ) : (
         <div className="resume-block-list">
-          {section.blocks.map((block) => (
+          {experienceGroups.length > 0 ? experienceGroups.map((group) => (
+            <div className="resume-experience-group" key={group.key} data-resume-experience-group={group.key}>
+              <h3 className="resume-experience-group-title">{group.label}</h3>
+              {group.blocks.map((block) => (
+                <RenderBlock
+                  key={block.sourceItemId}
+                  block={block}
+                  compact={mode === "compact" || mode === "plain"}
+                  business={mode === "business"}
+                  context={context}
+                />
+              ))}
+            </div>
+          )) : section.blocks.map((block) => (
             <RenderBlock
               key={block.sourceItemId}
               block={block}
@@ -454,6 +468,30 @@ function RenderSection({
       )}
     </section>
   );
+}
+
+function groupExperienceBlocks(blocks: ResumeRenderBlock[]) {
+  const order = ["experience", "education", "projects", "campus", "awards", "language", "custom"] as const;
+  const labels: Record<(typeof order)[number], string> = {
+    experience: "工作与实习经历",
+    education: "教育经历",
+    projects: "项目成果",
+    campus: "校园经历",
+    awards: "奖项",
+    language: "语言",
+    custom: "其他内容"
+  };
+  const grouped = new Map<(typeof order)[number], ResumeRenderBlock[]>();
+  for (const block of blocks) {
+    const key = order.includes(block.sourceSectionId as (typeof order)[number])
+      ? block.sourceSectionId as (typeof order)[number]
+      : block.itemType === "experience" ? "experience" : "custom";
+    grouped.set(key, [...(grouped.get(key) ?? []), block]);
+  }
+  return order.flatMap((key) => {
+    const groupBlocks = grouped.get(key);
+    return groupBlocks?.length ? [{ key, label: labels[key], blocks: groupBlocks }] : [];
+  });
 }
 
 function RenderBlock({
