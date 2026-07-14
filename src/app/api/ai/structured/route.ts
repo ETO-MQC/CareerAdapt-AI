@@ -11,6 +11,7 @@ import {
 } from "@/ai/tasks/registry";
 import type { AiTask } from "@/domain/schemas";
 import { redactSensitiveTextForModel } from "@/services/security/text";
+import { decodeAiSettingsFromHeader, type AiSettings } from "@/services/storage/aiSettings";
 
 const StructuredAiRequestSchema = z
   .object({
@@ -52,7 +53,11 @@ export async function POST(request: NextRequest) {
       return aiError("invalid_input", "Task input failed validation.", 400, startedAt);
     }
 
-    if (process.env.AI_PROVIDER === "mock") {
+    const aiConfigHeader = request.headers.get("x-ai-config");
+    const customSettings: AiSettings | undefined = aiConfigHeader ? decodeAiSettingsFromHeader(aiConfigHeader) : undefined;
+    const effectiveProvider = customSettings?.provider || process.env.AI_PROVIDER || "openai-compatible";
+
+    if (effectiveProvider === "mock") {
       return aiSuccess(
         definition.task,
         definition.promptVersion,
@@ -67,7 +72,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const provider = new OpenAiCompatibleProvider();
+    const provider = new OpenAiCompatibleProvider(customSettings);
     const baseUserPrompt = taskDefinition.buildUserPrompt(input.data);
     let lastValidationFailure: "validation_failed" | "semantic_validation_failed" | undefined;
 

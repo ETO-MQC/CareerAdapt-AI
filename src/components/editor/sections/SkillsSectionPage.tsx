@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import type { ResumeDocumentBlock } from "@/domain/resumeDocument/mapper";
-import type { ResumeBranch } from "@/domain/schemas";
 import { TipTapEditor } from "../TipTapEditor";
 import { AccordionList } from "../AccordionList";
 import { SectionShell } from "../SectionShell";
@@ -12,12 +11,12 @@ import { type SectionNavContext, prevSection, nextSection } from "./types";
 type SkillsSectionPageProps = {
   sectionLabel: string;
   blocks: ResumeDocumentBlock[];
-  branch?: ResumeBranch;
   editTexts: Record<string, string>;
   selectedItemId?: string;
   onEditTextChange: (itemId: string, text: string) => void;
   onSave: (itemId: string) => void;
-  onSetVisibility: (itemId: string, visible: boolean) => void;
+  onSetPresentationVisibility: (itemId: string, visible: boolean) => void;
+  onDelete: (itemId: string) => void;
   onDuplicate: (itemId: string) => void;
   onMoveUp: (itemId: string) => void;
   onMoveDown: (itemId: string) => void;
@@ -47,12 +46,12 @@ function DefaultSkillsFields({ sectionLabel, onAdd, onCancel }: { sectionLabel: 
 export function SkillsSectionPage({
   sectionLabel,
   blocks,
-  branch,
   editTexts,
   selectedItemId,
   onEditTextChange,
   onSave,
-  onSetVisibility,
+  onSetPresentationVisibility,
+  onDelete,
   onDuplicate,
   onMoveUp,
   onMoveDown,
@@ -65,7 +64,6 @@ export function SkillsSectionPage({
   const [adding, setAdding] = useState(false);
 
   const accordionItems = blocks.map((block, index) => {
-    const sourceItem = branch?.contentItems.find((item) => item.id === block.contentItemId);
     const currentText = editTexts[block.contentItemId] ?? block.text;
     const displayText = currentText.split("\n")[0]?.slice(0, 40) || `${sectionLabel} ${index + 1}`;
     const isOpen = selectedItemId ? selectedItemId === block.contentItemId : index === 0;
@@ -86,8 +84,8 @@ export function SkillsSectionPage({
               minRows={3}
             />
           </div>
-          {!sourceItem?.visible ? (
-            <div className="field-warning-box">该内容已在正文版本中隐藏。</div>
+          {block.presentationHidden ? (
+            <div className="field-warning-box">该内容仅从当前简历预览中隐藏，仍保留在正文中。</div>
           ) : null}
           <div className="experience-item-actions">
             <button
@@ -97,16 +95,14 @@ export function SkillsSectionPage({
             >
               保存
             </button>
-            <button type="button" className="section-action-button" onClick={() => onMoveUp(block.contentItemId)}>↑</button>
-            <button type="button" className="section-action-button" onClick={() => onMoveDown(block.contentItemId)}>↓</button>
+            <button type="button" className="section-action-button" aria-label={`上移${displayText}`} onClick={() => onMoveUp(block.contentItemId)}>↑</button>
+            <button type="button" className="section-action-button" aria-label={`下移${displayText}`} onClick={() => onMoveDown(block.contentItemId)}>↓</button>
             <label className="field-input-checkbox-label field-inline-toggle">
-              <input type="checkbox" checked={block.visible} onChange={(event) => onSetVisibility(block.contentItemId, event.target.checked)} />
+              <input type="checkbox" aria-label={`在简历中显示：${displayText}`} checked={block.visible} onChange={(event) => onSetPresentationVisibility(block.contentItemId, event.target.checked)} />
               <span>显示</span>
             </label>
             <button type="button" className="section-action-button" onClick={() => onDuplicate(block.contentItemId)}>复制</button>
-            <button type="button" className="section-action-button" onClick={() => onSetVisibility(block.contentItemId, !sourceItem?.visible)}>
-              {sourceItem?.visible ? "删除" : "恢复"}
-            </button>
+            <button type="button" className="section-action-button section-action-button-danger" onClick={() => onDelete(block.contentItemId)}>删除</button>
           </div>
         </div>
       )

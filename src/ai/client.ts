@@ -2,6 +2,7 @@ import { nanoid } from "nanoid";
 import type { z } from "zod";
 import { AiLogSchema, type AiLog, type AiTask } from "@/domain/schemas";
 import { stableHashText } from "@/services/security/text";
+import { readAiSettings, encodeAiSettingsForHeader } from "@/services/storage/aiSettings";
 
 type StructuredAiResponse<TOutput> =
   | {
@@ -37,11 +38,20 @@ export async function invokeStructuredAi<TOutput>(input: {
   businessInput: unknown;
   outputSchema: z.ZodType<TOutput>;
 }) {
+  const aiSettings = readAiSettings();
+  const hasCustomSettings = aiSettings.apiKey.length > 0 || aiSettings.baseUrl.length > 0 || aiSettings.model.length > 0;
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json"
+  };
+
+  if (hasCustomSettings) {
+    headers["x-ai-config"] = encodeAiSettingsForHeader(aiSettings);
+  }
+
   const response = await fetch("/api/ai/structured", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
+    headers,
     body: JSON.stringify({
       task: input.task,
       input: input.businessInput

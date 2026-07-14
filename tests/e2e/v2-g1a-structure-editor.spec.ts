@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { openManualHistoryTab, openManualLayoutTab, openManualTemplateTab } from "./support/g7b2Ui";
+import { openManualHistoryTab, openManualPageTab, openManualTemplateTab } from "./support/g7b2Ui";
 
 type DbResumeBranch = {
   id: string;
@@ -15,7 +15,11 @@ type RenderGroup = {
 };
 
 async function createBranchFromDraft(page: Page, branchName: string) {
+  await page.goto("/resume");
+  await page.getByRole("button").filter({ hasText: "从个人资料库创建" }).click();
+  await page.getByTestId("resume-studio-workbar").getByRole("button", { name: "返回", exact: true }).click();
   await page.goto("/jobs");
+  await page.getByLabel("用于诊断的基础简历").selectOption({ index: 1 });
   await page.getByTestId("run-experience-match").click();
   await expect(page.locator(".match-row").first()).toBeVisible();
   await page.getByTestId("create-suggestion-draft").click();
@@ -23,11 +27,12 @@ async function createBranchFromDraft(page: Page, branchName: string) {
 
   await page.goto("/resume");
   await page.getByTestId("resume-import-strip").waitFor({ state: "visible" });
-  await page.getByTestId("job-suggestion-draft-select").selectOption({ index: 0 });
-  await page.getByTestId("new-resume-branch-name").fill(branchName);
-  await page.getByTestId("create-job-resume").click();
-  await expect(page.locator(".branch-list .match-row").filter({ hasText: branchName })).toBeVisible();
-  await expect(page.getByTestId("resume-a4-page")).toBeVisible();
+  await page.getByRole("button").filter({ hasText: "根据岗位创建" }).click();
+  await page.getByTestId("job-suggestion-draft-select").first().selectOption({ index: 0 });
+  await page.getByTestId("new-resume-branch-name").first().fill(branchName);
+  await page.getByTestId("create-job-resume").first().click();
+  await expect(page.getByTestId("resume-studio-shell")).toBeVisible();
+  await expect(page.getByTestId("resume-a4-page").first()).toBeVisible();
 }
 
 async function getBranchByName(page: Page, branchName: string): Promise<DbResumeBranch> {
@@ -114,7 +119,7 @@ test.describe("V2-G1a structure editing", () => {
 
     // Navigate to the experience section in the field panel
     await page.locator(".resume-mode-rail button").nth(0).click();
-    await page.getByTestId("resume-section-nav").getByRole("button", { name: /工作经历/ }).click();
+    await page.getByTestId("resume-section-nav").getByRole("button", { name: /工作.*经历/ }).click();
     const fields = page.getByTestId("resume-active-section-fields");
 
     const sortableGroup = await getSortableRenderGroup(page);
@@ -122,8 +127,8 @@ test.describe("V2-G1a structure editing", () => {
     const secondItemId = sortableGroup.itemIds[1];
 
     // Use the field panel "下移" button on the first card
-    const firstCard = fields.locator(".suggestion-card").first();
-    await firstCard.locator("button", { hasText: "下移" }).click();
+    const firstCard = fields.locator(`[data-content-item-id="${firstItemId}"]`);
+    await firstCard.getByRole("button", { name: /下移/ }).click();
     await expect(page.locator(".notice")).toContainText("排序已保存");
     await expect.poll(() => getSectionItemIds(page, sortableGroup.sectionType)).toEqual([
       secondItemId,
@@ -133,13 +138,13 @@ test.describe("V2-G1a structure editing", () => {
     expect(await getResumeRevisionCount(page, branch.id)).toBe(revisionsBefore);
 
     // Hide via the field panel "显示" checkbox
-    const firstCardCheckbox = fields.locator(".suggestion-card").first().locator(".resume-current-toggle input[type='checkbox']");
+    const firstCardCheckbox = firstCard.getByRole("checkbox", { name: /在简历中显示/ });
     await firstCardCheckbox.uncheck();
     await expect(page.locator(".notice")).toContainText("内容已隐藏");
     expect(await getResumeRevisionCount(page, branch.id)).toBe(revisionsBefore);
 
     // Restore via style mode layout tab hidden block list
-    await openManualLayoutTab(page);
+    await openManualPageTab(page);
     await page.locator(".hidden-block-list").getByRole("button", { name: /显示：/ }).first().click();
     await expect(page.locator(".notice")).toContainText("内容已恢复显示");
     expect(await getResumeRevisionCount(page, branch.id)).toBe(revisionsBefore);
@@ -184,11 +189,11 @@ test.describe("V2-G1a structure editing", () => {
 
     // Navigate to the experience section in the field panel
     await page.locator(".resume-mode-rail button").nth(0).click();
-    await page.getByTestId("resume-section-nav").getByRole("button", { name: /工作经历/ }).click();
+    await page.getByTestId("resume-section-nav").getByRole("button", { name: /工作.*经历/ }).click();
     const fields = page.getByTestId("resume-active-section-fields");
 
     // Click "下移" on the first card twice in rapid succession
-    const moveDownButton = fields.locator(".suggestion-card").first().locator("button", { hasText: "下移" });
+    const moveDownButton = fields.locator(`[data-content-item-id="${itemId0}"]`).getByRole("button", { name: /下移/ });
     await moveDownButton.click();
     await moveDownButton.click();
 
@@ -209,15 +214,15 @@ test.describe("V2-G1a structure editing", () => {
 
     // Navigate to the experience section in the field panel
     await page.locator(".resume-mode-rail button").nth(0).click();
-    await page.getByTestId("resume-section-nav").getByRole("button", { name: /工作经历/ }).click();
+    await page.getByTestId("resume-section-nav").getByRole("button", { name: /工作.*经历/ }).click();
     const fields = page.getByTestId("resume-active-section-fields");
 
     // Hide via the field panel "显示" checkbox
-    const checkbox = fields.locator(".suggestion-card").first().locator(".resume-current-toggle input[type='checkbox']");
+    const checkbox = fields.locator(`[data-content-item-id="${firstItemId}"]`).getByRole("checkbox", { name: /在简历中显示/ });
     await checkbox.uncheck();
 
     // Wait for hide to complete, then restore from hidden list
-    await openManualLayoutTab(page);
+    await openManualPageTab(page);
     await expect(page.locator(".hidden-block-list")).toBeVisible();
     await page.locator(".hidden-block-list").getByRole("button", { name: /显示：/ }).first().click();
 

@@ -38,7 +38,7 @@ export function AccordionList({ items, emptyHint, addButton }: AccordionListProp
 function AccordionItemView({ item }: { item: AccordionItem }) {
   const [open, setOpen] = useState(Boolean(item.defaultOpen));
   return (
-    <details className="accordion-item" open={open} onToggle={(event) => setOpen(event.currentTarget.open)}>
+    <details className="accordion-item" data-content-item-id={item.id} open={open} onToggle={(event) => setOpen(event.currentTarget.open)}>
       <summary className="accordion-item-trigger">
         <span className="accordion-item-title">{item.title}</span>
         {item.subtitle ? <span className="accordion-item-subtitle">{item.subtitle}</span> : null}

@@ -82,6 +82,37 @@ afterEach(async () => {
 });
 
 describe("WorkspaceRepository", () => {
+  it("persists only an existing profile as the active profile context", async () => {
+    db = new CareerAdaptDb(`CareerAdaptActiveProfileDb-${crypto.randomUUID()}`);
+    const repository = new WorkspaceRepository(db);
+    await repository.saveProfile(demoCareerProfile);
+    expect(await repository.getActiveProfileId()).toBeUndefined();
+
+    await repository.setActiveProfileId(demoCareerProfile.id);
+    expect(await repository.getActiveProfileId()).toBe(demoCareerProfile.id);
+    await expect(repository.setActiveProfileId("missing-profile")).rejects.toThrow("Profile not found.");
+  });
+
+  it("copies a user-entered profile summary into a new general resume", async () => {
+    db = new CareerAdaptDb(`CareerAdaptProfileSummaryDb-${crypto.randomUUID()}`);
+    const repository = new WorkspaceRepository(db);
+    const profile = {
+      ...demoCareerProfile,
+      basics: { ...demoCareerProfile.basics, summary: "专注工程质量与跨团队协作。" }
+    };
+    await repository.saveProfile(profile);
+    const created = await repository.createGeneralResumeBranch({
+      profileId: profile.id,
+      operationId: "profile-summary-general-resume",
+      name: "带自我评价的简历",
+      includeProfileFacts: true,
+      includeProfileBasics: true
+    });
+    const summary = created.branch.contentItems.find((item) => item.itemType === "summary");
+    expect(summary?.text).toBe("专注工程质量与跨团队协作。");
+    expect(summary?.userConfirmation?.scope).toBe("resume_only");
+  });
+
   it("deletes an unreferenced profile and blocks deletion after a resume references it", async () => {
     db = new CareerAdaptDb(`CareerAdaptProfileDeleteDb-${crypto.randomUUID()}`);
     const repository = new WorkspaceRepository(db);

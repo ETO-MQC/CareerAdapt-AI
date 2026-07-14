@@ -1,17 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { readDeveloperMode, writeDeveloperMode } from "@/services/preferences/developerMode";
+import { readAiSettings, writeAiSettings, clearAiSettings, type AiSettings } from "@/services/storage/aiSettings";
 
 type ThemePreference = "system" | "light" | "dark";
 type DensityPreference = "compact" | "comfortable";
-type SettingsCategory = "appearance" | "export" | "developer" | "help";
+type SettingsCategory = "appearance" | "export" | "ai" | "developer" | "help";
 
 const themeStorageKey = "careeradapt.theme";
 const densityStorageKey = "careeradapt.density";
 
 const categories: Array<{ id: SettingsCategory; label: string; description: string }> = [
   { id: "appearance", label: "界面", description: "主题与显示密度" },
+  { id: "ai", label: "AI 配置", description: "接口与模型设置" },
   { id: "export", label: "导出", description: "A4 与 PDF 行为" },
   { id: "developer", label: "开发者模式", description: "测试数据清理" },
   { id: "help", label: "帮助", description: "说明入口" }
@@ -22,6 +24,9 @@ export default function SettingsPage() {
   const [theme, setTheme] = useState<ThemePreference>(() => typeof window === "undefined" ? "system" : readThemePreference());
   const [density, setDensity] = useState<DensityPreference>(() => typeof window === "undefined" ? "compact" : readDensityPreference());
   const [developerMode, setDeveloperMode] = useState(() => typeof window !== "undefined" && readDeveloperMode());
+  const [aiSettings, setAiSettings] = useState<AiSettings>(() => typeof window === "undefined" ? { baseUrl: "", apiKey: "", model: "", provider: "openai-compatible" } : readAiSettings());
+  const [aiSaved, setAiSaved] = useState(false);
+  const [showApiKey, setShowApiKey] = useState(false);
 
   function updateTheme(nextTheme: ThemePreference) {
     setTheme(nextTheme);
@@ -84,6 +89,92 @@ export default function SettingsPage() {
                   <option value="comfortable">舒适</option>
                 </select>
               </label>
+            </div>
+          ) : null}
+
+          {category === "ai" ? (
+            <div className="settings-section">
+              <div className="section-heading compact-heading">
+                <div>
+                  <h2>AI 配置</h2>
+                  <p>配置 AI 模型接口。设置保存在本机浏览器，不会上传到任何服务器。未配置时使用服务端环境变量。</p>
+                </div>
+              </div>
+              <label className="field-label">
+                提供商
+                <select
+                  value={aiSettings.provider}
+                  onChange={(event) => setAiSettings((prev) => ({ ...prev, provider: event.target.value }))}
+                >
+                  <option value="openai-compatible">OpenAI 兼容接口</option>
+                  <option value="mock">Mock 模式（无需密钥）</option>
+                </select>
+              </label>
+              {aiSettings.provider !== "mock" ? (
+                <>
+                  <label className="field-label">
+                    API 地址
+                    <input
+                      type="text"
+                      value={aiSettings.baseUrl}
+                      onChange={(event) => setAiSettings((prev) => ({ ...prev, baseUrl: event.target.value }))}
+                      placeholder="https://api.openai.com/v1"
+                    />
+                  </label>
+                  <label className="field-label">
+                    API 密钥
+                    <div style={{ position: "relative" }}>
+                      <input
+                        type={showApiKey ? "text" : "password"}
+                        value={aiSettings.apiKey}
+                        onChange={(event) => setAiSettings((prev) => ({ ...prev, apiKey: event.target.value }))}
+                        placeholder="sk-..."
+                        style={{ paddingRight: "2.5rem" }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowApiKey((prev) => !prev)}
+                        style={{ position: "absolute", right: "0.5rem", top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", fontSize: "0.8rem", color: "var(--color-text-secondary, #666)" }}
+                      >
+                        {showApiKey ? "隐藏" : "显示"}
+                      </button>
+                    </div>
+                  </label>
+                  <label className="field-label">
+                    模型名称
+                    <input
+                      type="text"
+                      value={aiSettings.model}
+                      onChange={(event) => setAiSettings((prev) => ({ ...prev, model: event.target.value }))}
+                      placeholder="gpt-4o"
+                    />
+                  </label>
+                </>
+              ) : null}
+              <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem" }}>
+                <button
+                  type="button"
+                  className="button button-primary"
+                  onClick={() => {
+                    writeAiSettings(aiSettings);
+                    setAiSaved(true);
+                    setTimeout(() => setAiSaved(false), 2000);
+                  }}
+                >
+                  {aiSaved ? "已保存 ✓" : "保存配置"}
+                </button>
+                <button
+                  type="button"
+                  className="button button-secondary"
+                  onClick={() => {
+                    clearAiSettings();
+                    setAiSettings({ baseUrl: "", apiKey: "", model: "", provider: "openai-compatible" });
+                    setShowApiKey(false);
+                  }}
+                >
+                  恢复默认
+                </button>
+              </div>
             </div>
           ) : null}
 

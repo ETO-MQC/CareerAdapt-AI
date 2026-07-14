@@ -92,6 +92,11 @@ export const CareerProfileSchema = EntityBaseSchema.extend({
   unclassifiedBlocks: z.array(z.string()).default([])
 });
 
+export const ActiveProfileContextSchema = z.object({
+  schemaVersion: z.literal("active-profile-v1"),
+  profileId: z.string().min(1)
+});
+
 export type ExperienceType = z.infer<typeof ExperienceTypeSchema>;
 export type EvidenceType = z.infer<typeof EvidenceTypeSchema>;
 export type PrivacyLevel = z.infer<typeof PrivacyLevelSchema>;
@@ -103,3 +108,4 @@ export type Evidence = z.infer<typeof EvidenceSchema>;
 export type Skill = z.infer<typeof SkillSchema>;
 export type Certificate = z.infer<typeof CertificateSchema>;
 export type CareerProfile = z.infer<typeof CareerProfileSchema>;
+export type ActiveProfileContext = z.infer<typeof ActiveProfileContextSchema>;

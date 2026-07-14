@@ -248,7 +248,7 @@ function applyPresentationConfig(
 }
 
 function sanitizeSectionOrder(sectionOrder?: ResumeRenderSectionType[]) {
-  const defaults: ResumeRenderSectionType[] = ["summary", "skills", "experience", "certificates"];
+  const defaults: ResumeRenderSectionType[] = ["summary", "experience", "skills", "certificates"];
   if (!sectionOrder) {
     return defaults;
   }
@@ -260,11 +260,11 @@ function sectionRank(itemType: BranchContentItem["itemType"]) {
   if (itemType === "summary") {
     return 0;
   }
-  if (itemType === "skill") {
-    return 1;
-  }
   if (itemType === "certificate") {
     return 3;
   }
-  return 2;
+  if (itemType === "skill") {
+    return 2;
+  }
+  return 1;
 }

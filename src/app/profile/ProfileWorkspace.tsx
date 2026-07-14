@@ -10,6 +10,7 @@ import { buildPageTextRecords, combinePdfPageTexts, preparePdfText } from "@/dom
 import { validatePdfFileDescriptor, validatePdfHeader } from "@/domain/pdfImport/validation";
 import { mapProfileDraftToCareerProfile } from "@/domain/mappers/profileDraftMapper";
 import {
+  CareerProfileSchema,
   ProfileBuilderOutputSchema,
   type PdfImportErrorCode,
   type PdfImportSession,
@@ -124,7 +125,12 @@ type BasicDraftState = BasicDraft & {
   profileKey: string;
 };
 
+type NewProfileDraft = BasicDraft & {
+  summary: string;
+};
+
 const emptyBasicDraft: BasicDraftState = { name: "", headline: "", phone: "", email: "", location: "", link: "", profileKey: "" };
+const emptyNewProfileDraft: NewProfileDraft = { name: "", headline: "", phone: "", email: "", location: "", link: "", summary: "" };
 
 export function ProfileWorkspace() {
   const workspace = useWorkspace(repository);
@@ -154,6 +160,9 @@ export function ProfileWorkspace() {
   const [profileUsageFilter, setProfileUsageFilter] = useState<ProfileUsageFilter>("all");
   const [profileItemDraft, setProfileItemDraft] = useState<ProfileItemDraft>(emptyProfileItemDraft);
   const [profileItemEditing, setProfileItemEditing] = useState(false);
+  const [newProfileDraft, setNewProfileDraft] = useState<NewProfileDraft>(emptyNewProfileDraft);
+  const [profileOverrides, setProfileOverrides] = useState<Record<string, CareerProfile>>({});
+  const [removedProfileIds, setRemovedProfileIds] = useState<string[]>([]);
 
   useEffect(() => {
     let active = true;
@@ -234,7 +243,15 @@ export function ProfileWorkspace() {
   const redactionPreview = useMemo(() => redactSensitiveTextForModel(rawText), [rawText]);
   const output = draft?.manualSections ?? draft?.builderOutput;
   const pdfHasPromptInjectionRisk = Boolean(pdfSession?.hasPromptInjectionRisk);
-  const workspaceProfile = workspace.status === "ready" ? workspace.profiles[0] : undefined;
+  const availableProfiles = useMemo(() => {
+    const workspaceProfiles = workspace.status === "ready" ? workspace.profiles : [];
+    const byId = new Map(workspaceProfiles.filter((item) => !removedProfileIds.includes(item.id)).map((item) => [item.id, item]));
+    Object.values(profileOverrides).forEach((item) => {
+      if (!removedProfileIds.includes(item.id)) byId.set(item.id, item);
+    });
+    return Array.from(byId.values());
+  }, [profileOverrides, removedProfileIds, workspace]);
+  const workspaceProfile = availableProfiles[0];
   const profile = profileOverride === undefined ? workspaceProfile : profileOverride ?? undefined;
   const profileDraftKey = profile ? `${profile.id}:${profile.version}` : "";
   const basicDraft = profile && basicDraftState.profileKey !== profileDraftKey
@@ -244,7 +261,10 @@ export function ProfileWorkspace() {
     () => profile ? buildProfileManagedItems(profile, profileArchive, activeProfileCategory, profileSearch, profileUsageFilter) : [],
     [activeProfileCategory, profile, profileArchive, profileSearch, profileUsageFilter]
   );
-  const selectedProfileItem = profileManagedItems.find((item) => item.key === selectedProfileItemKey) ?? profileManagedItems[0];
+  const creatingNewProfile = selectedProfileItemKey.startsWith("new-profile:");
+  const selectedProfileItem = creatingNewProfile
+    ? undefined
+    : profileManagedItems.find((item) => item.key === selectedProfileItemKey) ?? profileManagedItems[0];
   const profileCategoryCounts = useMemo(
     () => profile ? buildProfileCategoryCounts(profile, profileArchive) : new Map<ProfileCategoryId, number>(),
     [profile, profileArchive]
@@ -260,7 +280,7 @@ export function ProfileWorkspace() {
       if (!active) {
         return;
       }
-    if (selectedProfileItemKey.startsWith("new:")) {
+    if (selectedProfileItemKey.startsWith("new:") || selectedProfileItemKey.startsWith("new-profile:")) {
       return;
     }
     if (profileManagedItems.length === 0) {
@@ -304,6 +324,7 @@ export function ProfileWorkspace() {
     try {
       const saved = await repository.saveProfile(nextProfile);
       setProfileOverride(saved);
+      setProfileOverrides((current) => ({ ...current, [saved.id]: saved }));
       setSaveStatus("saved");
       setMessage(successMessage);
       return saved;
@@ -368,10 +389,72 @@ export function ProfileWorkspace() {
   }
 
   function startManagedProfileCreate() {
+    if (activeProfileCategory === "basic" || activeProfileCategory === "summary") {
+      setSelectedProfileItemKey(`new-profile:${activeProfileCategory}`);
+      setNewProfileDraft(emptyNewProfileDraft);
+      setProfileItemEditing(true);
+      return;
+    }
     const nextDraft = defaultProfileDraftForCategory(activeProfileCategory);
     setSelectedProfileItemKey(`new:${activeProfileCategory}`);
     setProfileItemDraft(nextDraft);
     setProfileItemEditing(true);
+  }
+
+  async function selectActiveProfile(profileId: string) {
+    const selected = availableProfiles.find((item) => item.id === profileId) ?? await repository.getProfile(profileId);
+    if (!selected) {
+      setMessage("所选个人资料已不存在，请刷新后重试。");
+      return;
+    }
+    await repository.setActiveProfileId(selected.id);
+    setProfileOverride(selected);
+    setProfileItemEditing(false);
+    setSelectedProfileItemKey("basic:profile");
+    setActiveProfileCategory("basic");
+    setProfileSearch("");
+    setProfileUsageFilter("all");
+    setMessage(`已切换到 ${selected.name} 的个人资料。`);
+  }
+
+  async function saveNewProfile() {
+    const name = newProfileDraft.name.trim();
+    if (!name) {
+      setMessage("请先填写新人物的姓名。");
+      return;
+    }
+    if (activeProfileCategory === "summary" && !newProfileDraft.summary.trim()) {
+      setMessage("请先填写新人物的自我评价。");
+      return;
+    }
+    const now = new Date().toISOString();
+    const saved = await saveProfileSnapshot(CareerProfileSchema.parse({
+      id: `profile-${nanoid(10)}`,
+      name,
+      basics: {
+        name,
+        headline: optionalText(newProfileDraft.headline),
+        phone: optionalText(newProfileDraft.phone),
+        email: optionalText(newProfileDraft.email),
+        location: optionalText(newProfileDraft.location),
+        summary: optionalText(newProfileDraft.summary),
+        links: newProfileDraft.link.trim() ? [newProfileDraft.link.trim()] : []
+      },
+      preference: { targetRoles: [], targetCities: [], industries: [] },
+      version: 1,
+      experiences: [],
+      skills: [],
+      certificates: [],
+      evidences: [],
+      unclassifiedBlocks: [],
+      createdAt: now,
+      updatedAt: now
+    }), "新人物资料已创建。");
+    if (!saved) return;
+    await repository.setActiveProfileId(saved.id);
+    setNewProfileDraft(emptyNewProfileDraft);
+    setProfileItemEditing(false);
+    setSelectedProfileItemKey(activeProfileCategory === "summary" ? "summary:profile" : "basic:profile");
   }
 
   function editCurrentProfile() {
@@ -401,7 +484,12 @@ export function ProfileWorkspace() {
         setMessage("资料在确认期间产生了新的关联，未执行删除。请先处理关联内容。");
         return;
       }
-      setProfileOverride(null);
+      const deletedProfileId = profile.id;
+      setRemovedProfileIds((current) => [...current, deletedProfileId]);
+      const remainingProfiles = (await repository.listProfiles()).filter((item) => item.id !== deletedProfileId);
+      const nextProfile = remainingProfiles[0];
+      if (nextProfile) await repository.setActiveProfileId(nextProfile.id);
+      setProfileOverride(nextProfile ?? null);
       setProfileDeleteOpen(false);
       setMessage("当前个人资料已删除；导入草稿和已有文件记录未被级联删除。");
     } catch {
@@ -1176,6 +1264,8 @@ export function ProfileWorkspace() {
         committedAt: new Date().toISOString()
       });
       setProfileOverride(result.profile);
+      setProfileOverrides((current) => ({ ...current, [result.profile.id]: result.profile }));
+      await repository.setActiveProfileId(result.profile.id);
       if (rawInput.sourceSessionId) {
         const session = await repository.getPdfImportSession(rawInput.sourceSessionId);
         if (session) {
@@ -1236,6 +1326,19 @@ export function ProfileWorkspace() {
       {message ? <section className="notice" role="status" aria-live="polite">{message}</section> : null}
 
       {profile ? (
+        <>
+        <section className="panel profile-person-toolbar" aria-label="当前人物">
+          <div>
+            <strong>当前人物</strong>
+            <span>新增和切换独立资料；简历中心会使用这里选中的人物。</span>
+          </div>
+          <label className="field-input-group profile-person-selector">
+            <span className="field-input-label">选择人物</span>
+            <select value={profile.id} onChange={(event) => { void selectActiveProfile(event.target.value); }}>
+              {availableProfiles.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+            </select>
+          </label>
+        </section>
         <section className="profile-manager-grid" ref={managerRef}>
           <article className="panel profile-category-panel">
             <div className="section-heading compact-heading">
@@ -1271,9 +1374,7 @@ export function ProfileWorkspace() {
                 <h2>{profileCategoryLabel(activeProfileCategory)}</h2>
                 <p>只显示当前分类，列表和详情各自滚动。</p>
               </div>
-              {activeProfileCategory !== "basic" && activeProfileCategory !== "summary" ? (
-                <button className="primary-button compact" disabled={profileSaving} onClick={startManagedProfileCreate}>新增</button>
-              ) : null}
+              <button className="primary-button compact" disabled={profileSaving} onClick={startManagedProfileCreate}>新增</button>
             </div>
             <div className="form-grid compact-form-grid">
               <label className="field-label">
@@ -1384,7 +1485,28 @@ export function ProfileWorkspace() {
               ) : null}
             </div>
 
-            {activeProfileCategory === "basic" ? (
+            {activeProfileCategory === "basic" && creatingNewProfile ? (
+              <div className="profile-detail-scroll profile-detail-form">
+                <div className="profile-new-person-note">
+                  <strong>新增人物</strong>
+                  <span>只保存你在此填写的信息，不会复制当前人物内容。</span>
+                </div>
+                <div className="section-fields-grid-2">
+                  <FieldInput id="new-profile-name" label="姓名" required autoComplete="name" value={newProfileDraft.name} onChange={(name) => setNewProfileDraft((current) => ({ ...current, name }))} />
+                  <FieldInput id="new-profile-headline" label="职业标题" value={newProfileDraft.headline} onChange={(headline) => setNewProfileDraft((current) => ({ ...current, headline }))} />
+                </div>
+                <div className="section-fields-grid-2">
+                  <FieldInput id="new-profile-phone" label="电话" type="tel" inputMode="tel" autoComplete="tel" value={newProfileDraft.phone} onChange={(phone) => setNewProfileDraft((current) => ({ ...current, phone }))} />
+                  <FieldInput id="new-profile-email" label="邮箱" type="email" inputMode="email" autoComplete="email" value={newProfileDraft.email} onChange={(email) => setNewProfileDraft((current) => ({ ...current, email }))} />
+                </div>
+                <FieldInput id="new-profile-location" label="所在地" autoComplete="address-level2" value={newProfileDraft.location} onChange={(location) => setNewProfileDraft((current) => ({ ...current, location }))} />
+                <FieldInput id="new-profile-link" label="个人主页 / LinkedIn" type="url" inputMode="url" autoComplete="url" value={newProfileDraft.link} onChange={(link) => setNewProfileDraft((current) => ({ ...current, link }))} />
+                <div className="action-row profile-detail-actions">
+                  <button className="primary-button" disabled={profileSaving} onClick={() => { void saveNewProfile(); }}>创建人物</button>
+                  <button className="secondary-button" disabled={profileSaving} onClick={() => { setProfileItemEditing(false); setSelectedProfileItemKey("basic:profile"); }}>取消</button>
+                </div>
+              </div>
+            ) : activeProfileCategory === "basic" ? (
               <div className="profile-detail-scroll profile-detail-form">
                 <div className="section-fields-grid-2">
                   <FieldInput id="profile-name" label="姓名" required autoComplete="name" value={basicDraft.name} onChange={(name) => setBasicDraft({ ...basicDraft, name })} />
@@ -1400,10 +1522,24 @@ export function ProfileWorkspace() {
               </div>
             ) : profileItemEditing ? (
               <div className="profile-detail-scroll profile-detail-form">
-                <ProfileCategoryFields category={activeProfileCategory} draft={profileItemDraft} onChange={setProfileItemDraft} />
+                {creatingNewProfile && activeProfileCategory === "summary" ? (
+                  <>
+                    <div className="profile-new-person-note">
+                      <strong>新增人物与自我评价</strong>
+                      <span>姓名用于建立独立人物资料，自我评价不会覆盖当前人物。</span>
+                    </div>
+                    <FieldInput id="new-summary-profile-name" label="姓名" required autoComplete="name" value={newProfileDraft.name} onChange={(name) => setNewProfileDraft((current) => ({ ...current, name }))} />
+                    <label className="field-input-group">
+                      <span className="field-input-label">自我评价</span>
+                      <textarea className="textarea compact-textarea" value={newProfileDraft.summary} onChange={(event) => setNewProfileDraft((current) => ({ ...current, summary: event.target.value }))} placeholder="概括职业方向、优势和与目标岗位有关的能力" />
+                    </label>
+                  </>
+                ) : (
+                  <ProfileCategoryFields category={activeProfileCategory} draft={profileItemDraft} onChange={setProfileItemDraft} />
+                )}
                 <div className="action-row profile-detail-actions">
-                  <button className="primary-button" disabled={profileSaving} onClick={() => { void saveManagedProfileItem(); }}>保存</button>
-                  <button className="secondary-button" disabled={profileSaving} onClick={() => setProfileItemEditing(false)}>取消</button>
+                  <button className="primary-button" disabled={profileSaving} onClick={() => { void (creatingNewProfile ? saveNewProfile() : saveManagedProfileItem()); }}>{creatingNewProfile ? "创建人物" : "保存"}</button>
+                  <button className="secondary-button" disabled={profileSaving} onClick={() => { setProfileItemEditing(false); setSelectedProfileItemKey(profileManagedItems[0]?.key ?? `new:${activeProfileCategory}`); }}>取消</button>
                 </div>
               </div>
             ) : selectedProfileItem ? (
@@ -1430,6 +1566,7 @@ export function ProfileWorkspace() {
             )}
           </article>
         </section>
+        </>
       ) : (
         <section className="panel">
           <h2>还没有个人资料</h2>

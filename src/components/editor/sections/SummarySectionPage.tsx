@@ -16,6 +16,8 @@ type SummarySectionPageProps = {
   onEditTextChange: (itemId: string, text: string) => void;
   onSave: (itemId: string) => void;
   onAdd: (text: string) => void;
+  onSetPresentationVisibility: (itemId: string, visible: boolean) => void;
+  onDelete: (itemId: string) => void;
   onSyncToProfile: (itemId: string) => void;
   nav: SectionNavContext;
 };
@@ -28,6 +30,8 @@ export function SummarySectionPage({
   onEditTextChange,
   onSave,
   onAdd,
+  onSetPresentationVisibility,
+  onDelete,
   onSyncToProfile,
   nav
 }: SummarySectionPageProps) {
@@ -66,31 +70,44 @@ export function SummarySectionPage({
           minRows={8}
         />
         {block ? (
-          <div className="section-summary-actions">
-            <button
-              type="button"
-              className="section-action-button section-action-button-primary"
-              disabled={!(block.contentItemId in editTexts)}
-              onClick={() => onSave(block.contentItemId)}
-            >
-              保存
-            </button>
-            {isSyncedToProfile ? (
-              <span className="resume-sync-state resume-sync-state-synced">已同步资料库</span>
-            ) : (
-              <>
-                {sourceItem?.userConfirmation?.scope === "resume_only" ? <span className="resume-sync-state">仅当前简历</span> : null}
-                <button
-                  type="button"
-                  className="section-action-button"
-                  disabled={block.contentItemId in editTexts}
-                  onClick={() => onSyncToProfile(block.contentItemId)}
-                >
-                  同步到资料库
-                </button>
-              </>
-            )}
-          </div>
+          <>
+            {block.presentationHidden ? <div className="field-warning-box">该内容仅从当前简历预览中隐藏，仍保留在正文中。</div> : null}
+            <div className="section-summary-actions">
+              <button
+                type="button"
+                className="section-action-button section-action-button-primary"
+                disabled={!(block.contentItemId in editTexts)}
+                onClick={() => onSave(block.contentItemId)}
+              >
+                保存
+              </button>
+              <label className="field-input-checkbox-label field-inline-toggle">
+                <input
+                  type="checkbox"
+                  aria-label="在简历中显示：自我评价"
+                  checked={block.visible}
+                  onChange={(event) => onSetPresentationVisibility(block.contentItemId, event.target.checked)}
+                />
+                <span>显示</span>
+              </label>
+              {isSyncedToProfile ? (
+                <span className="resume-sync-state resume-sync-state-synced">已同步资料库</span>
+              ) : (
+                <>
+                  {sourceItem?.userConfirmation?.scope === "resume_only" ? <span className="resume-sync-state">仅当前简历</span> : null}
+                  <button
+                    type="button"
+                    className="section-action-button"
+                    disabled={block.contentItemId in editTexts}
+                    onClick={() => onSyncToProfile(block.contentItemId)}
+                  >
+                    同步到资料库
+                  </button>
+                </>
+              )}
+              <button type="button" className="section-action-button section-action-button-danger" onClick={() => onDelete(block.contentItemId)}>删除</button>
+            </div>
+          </>
         ) : (
           <div className="section-summary-actions">
             <button

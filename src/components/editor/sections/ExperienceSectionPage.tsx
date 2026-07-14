@@ -25,7 +25,8 @@ type ExperienceSectionPageProps = {
   onEditTextChange: (itemId: string, text: string) => void;
   onSave: (itemId: string) => void;
   onSelectItem: (itemId: string) => void;
-  onSetVisibility: (itemId: string, visible: boolean) => void;
+  onSetPresentationVisibility: (itemId: string, visible: boolean) => void;
+  onDelete: (itemId: string) => void;
   onDuplicate: (itemId: string) => void;
   onMoveUp: (itemId: string) => void;
   onMoveDown: (itemId: string) => void;
@@ -86,7 +87,8 @@ export function ExperienceSectionPage({
   onEditTextChange,
   onSave,
   onSelectItem,
-  onSetVisibility,
+  onSetPresentationVisibility,
+  onDelete,
   onDuplicate,
   onMoveUp,
   onMoveDown,
@@ -125,8 +127,8 @@ export function ExperienceSectionPage({
             idPrefix={`existing-${block.contentItemId}`}
             onFocus={() => onSelectItem(block.contentItemId)}
           />
-          {!sourceItem?.visible ? (
-            <div className="field-warning-box">该内容已在正文版本中隐藏。</div>
+          {block.presentationHidden ? (
+            <div className="field-warning-box">该内容仅从当前简历预览中隐藏，仍保留在正文中。</div>
           ) : null}
           <div className="experience-item-actions">
             <button
@@ -139,6 +141,7 @@ export function ExperienceSectionPage({
             <button
               type="button"
               className="section-action-button"
+              aria-label={`上移${titleText}`}
               onClick={() => onMoveUp(block.contentItemId)}
             >
               ↑
@@ -146,6 +149,7 @@ export function ExperienceSectionPage({
             <button
               type="button"
               className="section-action-button"
+              aria-label={`下移${titleText}`}
               onClick={() => onMoveDown(block.contentItemId)}
             >
               ↓
@@ -153,8 +157,9 @@ export function ExperienceSectionPage({
             <label className="field-input-checkbox-label field-inline-toggle">
               <input
                 type="checkbox"
+                aria-label={`在简历中显示：${titleText}`}
                 checked={block.visible}
-                onChange={(event) => onSetVisibility(block.contentItemId, event.target.checked)}
+                onChange={(event) => onSetPresentationVisibility(block.contentItemId, event.target.checked)}
               />
               <span>显示</span>
             </label>
@@ -167,10 +172,10 @@ export function ExperienceSectionPage({
             </button>
             <button
               type="button"
-              className="section-action-button"
-              onClick={() => onSetVisibility(block.contentItemId, !sourceItem?.visible)}
+              className="section-action-button section-action-button-danger"
+              onClick={() => onDelete(block.contentItemId)}
             >
-              {sourceItem?.visible ? "删除" : "恢复"}
+              删除
             </button>
             {sourceItem?.userConfirmation?.scope === "resume_only" ? (
               <>

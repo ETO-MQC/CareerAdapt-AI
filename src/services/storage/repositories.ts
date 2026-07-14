@@ -3,6 +3,7 @@ import { demoCareerProfile } from "@/data/demoProfile";
 import {
   AiLogSchema,
   AiSuggestionSchema,
+  ActiveProfileContextSchema,
   ApplicationPreparationPackSchema,
   ApplicationRecordSchema,
   BranchContentItemSchema,
@@ -101,6 +102,7 @@ import { stableHashText } from "@/services/security/text";
 import { CareerAdaptDb, careerAdaptDb, type AppMeta } from "./db";
 
 const RECYCLE_BIN_META_KEY = "workspaceRecycleBin:v1";
+const ACTIVE_PROFILE_META_KEY = "activeProfileContext:v1";
 const EMPTY_RECYCLE_BIN: RecycleBinState = { version: 1, jobIds: [], profileItems: [] };
 
 export type WorkspaceExport = {
@@ -151,6 +153,7 @@ export class WorkspaceRepository {
 
   async seedDemoWorkspace() {
     await this.saveProfile(demoCareerProfile);
+    await this.setActiveProfileId(demoCareerProfile.id);
     await this.saveJobDescriptions(demoJobDescriptions);
     await this.setMeta("demoSeededAt", new Date().toISOString());
   }
@@ -549,6 +552,27 @@ export class WorkspaceRepository {
   async listProfiles() {
     const profiles = await this.db.profiles.toArray();
     return profiles.map((profile) => CareerProfileSchema.parse(profile));
+  }
+
+  async getActiveProfileId() {
+    const stored = await this.db.appMeta.get(ACTIVE_PROFILE_META_KEY);
+    const parsed = ActiveProfileContextSchema.safeParse(stored?.value);
+    if (!parsed.success) {
+      return undefined;
+    }
+    return await this.db.profiles.get(parsed.data.profileId) ? parsed.data.profileId : undefined;
+  }
+
+  async setActiveProfileId(profileId: string) {
+    if (!await this.db.profiles.get(profileId)) {
+      throw new Error("Profile not found.");
+    }
+    const value = ActiveProfileContextSchema.parse({
+      schemaVersion: "active-profile-v1",
+      profileId
+    });
+    await this.setMeta(ACTIVE_PROFILE_META_KEY, value);
+    return value;
   }
 
   async getProfileDeleteBlockers(profileId: string) {

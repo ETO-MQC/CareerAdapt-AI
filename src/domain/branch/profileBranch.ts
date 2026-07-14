@@ -10,6 +10,7 @@ import {
 } from "@/domain/schemas";
 import { createResumeRevision } from "./revision";
 import { parseStructuredExperienceText, serializeStructuredExperienceText, type ResumeFieldCategoryId } from "@/domain/resumeFields/catalog";
+import { stableHashText } from "@/services/security/text";
 
 export type ProfileBranchBuildResult = {
   branch: ResumeBranch;
@@ -92,6 +93,33 @@ export function buildGeneralBranchFromProfile(input: {
 
 function profileContentItems(profile: CareerProfile, now: string) {
   const items: BranchContentItem[] = [];
+  const summary = profile.basics.summary?.trim();
+  if (summary) {
+    items.push(BranchContentItemSchema.parse({
+      id: `branch-item-profile-summary-${profile.id}-${nanoid(6)}`,
+      itemType: "summary",
+      source: "user_manual",
+      sourceSectionId: "summary",
+      text: summary,
+      originalText: summary,
+      order: items.length,
+      visible: true,
+      requirementIds: [],
+      sourceSuggestionIds: [],
+      factRefs: [],
+      guardMode: "not_fact",
+      guardStatus: "pass",
+      guardRiskLevel: "low",
+      guardFindings: [],
+      guardedAt: now,
+      guardVersion: "profile-snapshot-v1",
+      userConfirmation: {
+        scope: "resume_only",
+        confirmedTextHash: stableHashText(summary),
+        confirmedAt: now
+      }
+    }));
+  }
   for (const experience of profile.experiences) {
     for (const fact of experience.facts.filter(isConfirmedFact)) {
       const draft = experience.resumeDrafts.find((candidate) => candidate.factIds.includes(fact.id));

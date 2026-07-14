@@ -339,7 +339,7 @@ export function ResumeWorkspace() {
     if (!resumeDocument) {
       return [];
     }
-    const contentBlocks = resumeDocument.blocks.filter((block) => block.itemType !== "structural");
+    const contentBlocks = resumeDocument.blocks.filter((block) => block.itemType !== "structural" && block.contentVisible);
     if (activeResumeSection === "basics" || activeResumeSection === "add") {
       return [];
     }
@@ -348,7 +348,8 @@ export function ResumeWorkspace() {
     }
     if (activeResumeSection === "experience") {
       return contentBlocks.filter((block) =>
-        block.sectionType === "experience"
+        block.itemType === "experience"
+        && block.sectionType === "experience"
         && block.sourceSectionId !== "education"
         && block.sourceSectionId !== "projects"
         && block.sourceSectionId !== "campus"
@@ -474,6 +475,22 @@ export function ResumeWorkspace() {
     setDrafts(nextDrafts);
     setBranches(nextBranches);
   }, []);
+
+  async function selectResumeProfile(profileId: string) {
+    const selected = await repository.getProfile(profileId);
+    if (!selected) {
+      setMessage("所选个人资料已不存在，请返回资料库重新选择。");
+      return;
+    }
+    await repository.setActiveProfileId(selected.id);
+    setProfileOverride(selected);
+    setSelectedBranchId(BRANCH_LIST_SENTINEL);
+    setSelectedDraftId("");
+    setEditTexts({});
+    clearStudioEditor();
+    await refreshLists(selected.id);
+    setMessage(`当前人物已切换为 ${selected.name}。`);
+  }
 
   const clearStudioEditor = useCallback(() => {
     setSelectedStudioItemId(undefined);
@@ -1267,8 +1284,8 @@ export function ResumeWorkspace() {
         edits: [{ itemId, visible }]
       });
       replaceBranch(result.branch);
-      setSelectedStudioItemId(itemId);
-      setMessage(visible ? "内容已恢复到当前简历，并创建新的内容版本。" : "内容已从当前简历删除，并创建新的内容版本。");
+      setSelectedStudioItemId(visible ? itemId : undefined);
+      setMessage(visible ? "内容已恢复到当前简历，并创建新的内容版本。" : "内容已删除，可使用撤销恢复。");
     } catch {
       setMessage("操作失败：版本冲突、引用失效或当前简历不可编辑。");
     }
@@ -1689,12 +1706,19 @@ export function ResumeWorkspace() {
         branch: selectedBranch,
         patch: { hiddenItemIds }
       });
-      return await savePresentationConfig({
+      setPresentationConfig(nextConfig);
+      presentationQueueRef.current.latestConfig = nextConfig;
+      const saved = await savePresentationConfig({
         nextConfig,
         beforeConfig: current,
         operationId: `v2-g1a-visibility-${selectedBranch.id}-${selectedBranch.revision}-${current.presentationRevision}-${stableHashText(hiddenItemIds.join("|"))}`,
         successMessage: visible ? "内容已恢复显示，未创建内容版本。" : "内容已隐藏，未创建内容版本。"
       });
+      if (!saved) {
+        setPresentationConfig(current);
+        presentationQueueRef.current.latestConfig = current;
+      }
+      return saved ?? current;
     });
   }
 
@@ -2919,6 +2943,20 @@ export function ResumeWorkspace() {
 
       {!selectedBranch ? (
         <>
+          {profile && workspace.status === "ready" ? (
+            <section className="panel profile-person-toolbar resume-person-toolbar no-print" aria-label="简历使用的人物">
+              <div>
+                <strong>简历使用的人物</strong>
+                <span>创建和管理操作只显示当前人物的简历。</span>
+              </div>
+              <label className="field-input-group profile-person-selector">
+                <span className="field-input-label">选择人物</span>
+                <select data-testid="resume-profile-selector" value={profile.id} onChange={(event) => { void selectResumeProfile(event.target.value); }}>
+                  {workspace.profiles.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+                </select>
+              </label>
+            </section>
+          ) : null}
           <section className="resume-import-strip no-print" data-testid="resume-import-strip">
             <div className="resume-import-strip-copy">
               <h2>导入已有简历</h2>
@@ -3417,6 +3455,8 @@ export function ResumeWorkspace() {
                   onEditTextChange={(itemId, text) => setEditTexts((prev) => ({ ...prev, [itemId]: text }))}
                   onSave={saveItem}
                   onAdd={(text) => void addContentItem(activeResumeSection, text)}
+                  onSetPresentationVisibility={(itemId, visible) => { void setPresentationItemVisibility(itemId, visible); }}
+                  onDelete={(itemId) => { void setContentItemVisibility(itemId, false); }}
                   onSyncToProfile={(itemId) => { void syncContentItemToProfile(itemId); }}
                   nav={sectionNavContext}
                 />
@@ -3433,13 +3473,8 @@ export function ResumeWorkspace() {
                   onEditTextChange={(itemId, text) => setEditTexts((prev) => ({ ...prev, [itemId]: text }))}
                   onSave={saveItem}
                   onSelectItem={selectStudioItem}
-                  onSetVisibility={(itemId, visible) => {
-                    if (visible) {
-                      void setPresentationItemVisibility(itemId, true);
-                    } else {
-                      void setContentItemVisibility(itemId, false);
-                    }
-                  }}
+                  onSetPresentationVisibility={(itemId, visible) => { void setPresentationItemVisibility(itemId, visible); }}
+                  onDelete={(itemId) => { void setContentItemVisibility(itemId, false); }}
                   onDuplicate={(itemId) => void duplicateContentItem(itemId)}
                   onMoveUp={(itemId) => void movePresentationItem(itemId, "up")}
                   onMoveDown={(itemId) => void movePresentationItem(itemId, "down")}
@@ -3452,18 +3487,12 @@ export function ResumeWorkspace() {
                 <SkillsSectionPage
                   sectionLabel={activeSectionItem?.label ?? "内容"}
                   blocks={activeSectionBlocks}
-                  branch={selectedBranch}
                   editTexts={editTexts}
                   selectedItemId={selectedStudioItemId}
                   onEditTextChange={(itemId, text) => setEditTexts((prev) => ({ ...prev, [itemId]: text }))}
                   onSave={saveItem}
-                  onSetVisibility={(itemId, visible) => {
-                    if (visible) {
-                      void setPresentationItemVisibility(itemId, true);
-                    } else {
-                      void setContentItemVisibility(itemId, false);
-                    }
-                  }}
+                  onSetPresentationVisibility={(itemId, visible) => { void setPresentationItemVisibility(itemId, visible); }}
+                  onDelete={(itemId) => { void setContentItemVisibility(itemId, false); }}
                   onDuplicate={(itemId) => void duplicateContentItem(itemId)}
                   onMoveUp={(itemId) => void movePresentationItem(itemId, "up")}
                   onMoveDown={(itemId) => void movePresentationItem(itemId, "down")}
@@ -3813,8 +3842,8 @@ export function ResumeWorkspace() {
                       <button className="secondary-button compact" disabled={!selectedBranchEditable || !selectedStudioBlock.contentVisible} onClick={() => { void duplicateContentItem(selectedStudioBlock.contentItemId); }}>
                         复制
                       </button>
-                      <button className="secondary-button compact" disabled={!selectedBranchEditable} onClick={() => { void setContentItemVisibility(selectedStudioBlock.contentItemId, !selectedStudioBlock.contentVisible); }}>
-                        {selectedStudioBlock.contentVisible ? "删除" : "恢复"}
+                      <button className="danger-button compact" disabled={!selectedBranchEditable || !selectedStudioBlock.contentVisible} onClick={() => { void setContentItemVisibility(selectedStudioBlock.contentItemId, false); }}>
+                        删除
                       </button>
                     </div>
                     <button
@@ -4176,11 +4205,11 @@ function buildResumeStudioSections(input: {
   resumeDocument?: ResumeDocument;
   branch?: ResumeBranch;
 }): Array<{ key: ResumeStudioSectionKey; label: string; count: number; firstItemId?: string }> {
-  const blocks = input.resumeDocument?.blocks.filter((block) => block.itemType !== "structural") ?? [];
+  const blocks = input.resumeDocument?.blocks.filter((block) => block.itemType !== "structural" && block.contentVisible) ?? [];
   const bySection = (sectionType: ResumeRenderSectionType) => blocks.filter((block) => block.sectionType === sectionType);
   const first = (sectionType: ResumeRenderSectionType) => bySection(sectionType)[0]?.contentItemId;
   const experienceBlocks = bySection("experience");
-  const generalExperience = experienceBlocks.filter((b) => b.sourceSectionId !== "education" && b.sourceSectionId !== "projects" && b.sourceSectionId !== "campus");
+  const generalExperience = experienceBlocks.filter((b) => b.itemType === "experience" && b.sourceSectionId !== "education" && b.sourceSectionId !== "projects" && b.sourceSectionId !== "campus");
   const educationBlocks = experienceBlocks.filter((b) => b.sourceSectionId === "education");
   const projectBlocks = experienceBlocks.filter((b) => b.sourceSectionId === "projects");
   const campusBlocks = experienceBlocks.filter((b) => b.sourceSectionId === "campus");
@@ -4196,8 +4225,8 @@ function buildResumeStudioSections(input: {
     { key: "education", label: "教育经历", count: educationBlocks.length, firstItemId: educationBlocks[0]?.contentItemId },
     { key: "projects", label: "项目成果", count: projectBlocks.length, firstItemId: projectBlocks[0]?.contentItemId },
     { key: "campus", label: "校园经历", count: campusBlocks.length, firstItemId: campusBlocks[0]?.contentItemId },
-    { key: "skills", label: "技能", count: bySection("skills").length, firstItemId: first("skills") },
     { key: "awards", label: "奖项", count: awardsBlocks.length, firstItemId: awardsBlocks[0]?.contentItemId },
+    { key: "skills", label: "技能", count: bySection("skills").length, firstItemId: first("skills") },
     { key: "certificates", label: "证书", count: bySection("certificates").length, firstItemId: first("certificates") },
     { key: "language", label: "语言", count: languageBlocks.length, firstItemId: languageBlocks[0]?.contentItemId },
     { key: "custom", label: "自定义栏目", count: generalCustomBlocks.length, firstItemId: generalCustomBlocks[0]?.contentItemId }
@@ -4205,17 +4234,17 @@ function buildResumeStudioSections(input: {
 }
 
 function studioSectionForBlock(block: ResumeDocumentBlock): ResumeStudioSectionKey {
-  if (block.sectionType === "experience") {
-    if (block.sourceSectionId === "education" || block.sourceSectionId === "projects" || block.sourceSectionId === "campus") {
-      return block.sourceSectionId;
-    }
-    return "experience";
-  }
   if (block.itemType === "custom") {
     if (block.sourceSectionId === "awards" || block.sourceSectionId === "language") {
       return block.sourceSectionId;
     }
     return "custom";
+  }
+  if (block.sectionType === "experience") {
+    if (block.sourceSectionId === "education" || block.sourceSectionId === "projects" || block.sourceSectionId === "campus") {
+      return block.sourceSectionId;
+    }
+    return "experience";
   }
   return block.sectionType;
 }
@@ -4726,10 +4755,18 @@ function sectionNavIcon(key: string): string {
 }
 
 function splitSectionNavLabel(label: string) {
-  const characters = Array.from(label);
+  const parts = label.split(/\s*\/\s*/);
   const lines: string[] = [];
-  for (let index = 0; index < characters.length; index += 2) {
-    lines.push(characters.slice(index, index + 2).join(""));
+  for (let i = 0; i < parts.length; i++) {
+    if (i > 0) {
+      lines.push("/");
+    }
+    const part = parts[i];
+    if (!part) continue;
+    const characters = Array.from(part);
+    for (let index = 0; index < characters.length; index += 2) {
+      lines.push(characters.slice(index, index + 2).join(""));
+    }
   }
   return lines;
 }

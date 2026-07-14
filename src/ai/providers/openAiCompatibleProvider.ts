@@ -1,4 +1,5 @@
 import "server-only";
+import type { AiSettings } from "@/services/storage/aiSettings";
 
 export type OpenAiCompatibleRequest = {
   systemPrompt: string;
@@ -15,10 +16,17 @@ export type OpenAiCompatibleResponse = {
 };
 
 export class OpenAiCompatibleProvider {
-  readonly provider = process.env.AI_PROVIDER || "openai-compatible";
-  readonly model = process.env.AI_MODEL || "";
-  private readonly baseUrl = process.env.AI_BASE_URL || "https://api.openai.com/v1";
-  private readonly apiKey = process.env.AI_API_KEY || "";
+  readonly provider: string;
+  readonly model: string;
+  private readonly baseUrl: string;
+  private readonly apiKey: string;
+
+  constructor(settings?: AiSettings) {
+    this.provider = settings?.provider || process.env.AI_PROVIDER || "openai-compatible";
+    this.model = settings?.model || process.env.AI_MODEL || "";
+    this.baseUrl = settings?.baseUrl || process.env.AI_BASE_URL || "https://api.openai.com/v1";
+    this.apiKey = settings?.apiKey || process.env.AI_API_KEY || "";
+  }
 
   async invoke(request: OpenAiCompatibleRequest): Promise<OpenAiCompatibleResponse> {
     if (!this.apiKey || !this.model) {

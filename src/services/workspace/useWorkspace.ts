@@ -52,9 +52,10 @@ export function useWorkspace(repository: WorkspaceRepository = defaultRepository
       try {
         await repository.ensureDemoWorkspace();
 
-        const [profiles, jobs] = await Promise.all([
+        const [profiles, jobs, activeProfileId] = await Promise.all([
           repository.listProfiles(),
-          repository.listJobDescriptions()
+          repository.listJobDescriptions(),
+          repository.getActiveProfileId()
         ]);
 
         if (!active) {
@@ -71,9 +72,13 @@ export function useWorkspace(repository: WorkspaceRepository = defaultRepository
           return;
         }
 
+        const orderedProfiles = activeProfileId
+          ? [...profiles].sort((left, right) => Number(right.id === activeProfileId) - Number(left.id === activeProfileId))
+          : profiles;
+
         setState({
           status: "ready",
-          profiles,
+          profiles: orderedProfiles,
           jobs,
           source: "repository"
         });

@@ -307,13 +307,30 @@ export function resumeTemplateStyleVars(
 }
 
 function ClassicTechnicalTemplate({ model, context }: { model: ResumeRenderModel; context?: TemplateRenderContext }) {
+  const experience = findSection(model, "experience");
+  const beforeSkillsSectionIds = ["experience", "education", "projects", "campus", "awards"];
+  const experienceBeforeSkills = experience ? {
+    ...experience,
+    blocks: experience.blocks.filter((block) => beforeSkillsSectionIds.includes(block.sourceSectionId ?? ""))
+  } : undefined;
+  const experienceAfterSkills = experience ? {
+    ...experience,
+    blocks: experience.blocks.filter((block) => !beforeSkillsSectionIds.includes(block.sourceSectionId ?? ""))
+  } : undefined;
   return (
     <>
       {!context?.pagination?.isContinuation ? <ResumeHeader model={model} context={context} /> : null}
       {section(model, "summary", undefined, context)}
+      {experienceBeforeSkills?.blocks.length ? <RenderSection section={experienceBeforeSkills} context={context} /> : null}
       {section(model, "skills", "inline", context)}
-      {section(model, "experience", undefined, context)}
       {section(model, "certificates", "inline", context)}
+      {experienceAfterSkills?.blocks.length ? (
+        <RenderSection
+          section={experienceAfterSkills}
+          context={context}
+          showSectionTitle={experienceBeforeSkills?.blocks.length ? false : undefined}
+        />
+      ) : null}
     </>
   );
 }
@@ -422,13 +439,16 @@ function findSection(model: ResumeRenderModel, type: ResumeRenderSection["type"]
 function RenderSection({
   section,
   mode,
-  context
+  context,
+  showSectionTitle
 }: {
   section: ResumeRenderSection;
   mode?: "inline" | "compact" | "tag" | "plain" | "plainInline" | "business";
   context?: TemplateRenderContext;
+  showSectionTitle?: boolean;
 }) {
-  const showTitle = context?.presentationConfig?.sectionStyleOverrides[section.type]?.showTitle !== false;
+  const showTitle = (showSectionTitle ?? true)
+    && context?.presentationConfig?.sectionStyleOverrides[section.type]?.showTitle !== false;
   const inlineMode = mode === "inline" || mode === "tag" || mode === "plainInline";
   const experienceGroups = section.type === "experience" ? groupExperienceBlocks(section.blocks) : [];
   return (
