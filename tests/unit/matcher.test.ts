@@ -3,6 +3,7 @@ import { demoCareerProfile } from "@/data/demoProfile";
 import { demoJobDescriptions } from "@/data/demoJobs";
 import {
   checkRequirementMatchStale,
+  checkRequirementMatchResumeSourceStale,
   computeCandidateSetHash,
   createRuleRequirementMatches,
   recallCandidatesForRequirement,
@@ -106,6 +107,22 @@ describe("stage C1 matcher", () => {
     const stale = checkRequirementMatchStale(matches[0], { profile: staleProfile, job });
 
     expect(stale.isStale).toBe(true);
+  });
+
+  it("detects stale matches when the selected source resume revision changes", () => {
+    const job = demoJobDescriptions[0];
+    const source = { branchId: "general-resume", branchRevision: 3, revisionId: "revision-3" };
+    const match = {
+      ...createRuleRequirementMatches({ profile: demoCareerProfile, job }, TEST_TIME)[0],
+      sourceResumeBranchId: source.branchId,
+      sourceResumeBranchRevision: source.branchRevision,
+      sourceResumeRevisionId: source.revisionId
+    };
+
+    expect(checkRequirementMatchResumeSourceStale(match, source).isStale).toBe(false);
+    expect(checkRequirementMatchResumeSourceStale(match, { ...source, branchRevision: 4, revisionId: "revision-4" })).toEqual(
+      expect.objectContaining({ isStale: true, sourceRevisionChanged: true })
+    );
   });
 
   it("requires manual override evidence for non-none and allows none only with a reason", () => {

@@ -2,6 +2,7 @@
 
 import { nanoid } from "nanoid";
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { invokeStageBAi, invokeStructuredAi } from "@/ai/client";
 import { promptVersions } from "@/ai/prompts/versions";
 import { createManualJdOutput } from "@/domain/jobAnalysis/manual";
@@ -30,6 +31,7 @@ import { collectAllowedEvidenceRefs } from "@/domain/adaptation/draft";
 import { mergeAiFactGuardReview, runRuleFactGuard } from "@/domain/adaptation/factGuard";
 import {
   checkRequirementMatchStale,
+  checkRequirementMatchResumeSourceStale,
   createRuleRequirementMatches,
   evidenceRefKey,
   recallCandidatesForRequirement,
@@ -46,8 +48,14 @@ const jobArchiveKey = "jobWorkspace:archivedJobIds";
 
 type JobWorkspaceTab = "info" | "requirements" | "resumes" | "applications";
 type JobListFilter = "active" | "archived";
+type JobResumeActionStatus = "idle" | "matching" | "evaluating" | "preparing" | "saving" | "completed" | "failed";
+type DerivationPrompt = {
+  kind: "same_version" | "source_updated";
+  existingBranch: ResumeBranch;
+};
 
 export function JobsWorkspace() {
+  const router = useRouter();
   const workspace = useWorkspace(repository);
   const [title, setTitle] = useState("");
   const [company, setCompany] = useState("");
@@ -74,6 +82,8 @@ export function JobsWorkspace() {
   const [trashedJobIds, setTrashedJobIds] = useState<string[]>([]);
   const [resumeBranches, setResumeBranches] = useState<ResumeBranch[]>([]);
   const [selectedBaseResumeId, setSelectedBaseResumeId] = useState("");
+  const [resumeActionStatus, setResumeActionStatus] = useState<JobResumeActionStatus>("idle");
+  const [derivationPrompt, setDerivationPrompt] = useState<DerivationPrompt>();
 
   useEffect(() => {
     let active = true;
@@ -108,7 +118,7 @@ export function JobsWorkspace() {
   const redactionPreview = useMemo(() => redactSensitiveTextForModel(rawText), [rawText]);
   const output = draft?.analyzerOutput ?? (draft ? { requirements: draft.manualRequirements, riskNotes: draft.riskNotes } : undefined);
   const profile = workspace.status === "ready" ? workspace.profiles[0] : undefined;
-  const jobs = workspace.status === "ready" ? workspace.jobs : [];
+  const jobs = useMemo(() => workspace.status === "ready" ? workspace.jobs : [], [workspace]);
   const activeJobs = jobs.filter((job) => !archivedJobIds.includes(job.id) && !trashedJobIds.includes(job.id));
   const archivedJobs = jobs.filter((job) => archivedJobIds.includes(job.id) && !trashedJobIds.includes(job.id));
   const visibleJobs = jobListFilter === "archived" ? archivedJobs : activeJobs;
@@ -117,6 +127,12 @@ export function JobsWorkspace() {
   const baseResumeOptions = resumeBranches.filter(isMatchBaseResume);
   const selectedBaseResume = baseResumeOptions.find((branch) => branch.id === selectedBaseResumeId);
   const matchingProfile = profile && selectedBaseResume ? profileLimitedToResume(profile, selectedBaseResume) : undefined;
+  const matchState = getJobResumeMatchState({
+    profile: matchingProfile,
+    job: selectedJob,
+    branch: selectedBaseResume,
+    matches
+  });
 
   useEffect(() => {
     let active = true;
@@ -144,6 +160,16 @@ export function JobsWorkspace() {
     });
     return () => { active = false; };
   }, [profile]);
+
+  useEffect(() => {
+    if (jobs.length === 0 || selectedJobId) return;
+    const requestedJobId = new URLSearchParams(window.location.search).get("jobId");
+    if (!requestedJobId || !jobs.some((job) => job.id === requestedJobId)) return;
+    queueMicrotask(() => {
+      setSelectedJobId(requestedJobId);
+      setJobWorkspaceTab("resumes");
+    });
+  }, [jobs, selectedJobId]);
 
   useEffect(() => {
     let active = true;
@@ -451,18 +477,28 @@ export function JobsWorkspace() {
       return;
     }
 
-    const nextMatches = createRuleRequirementMatches({ profile: matchingProfile, job: selectedJob }).map((match) => ({
-      ...match,
-      sourceResumeBranchId: selectedBaseResume.id
-    }));
-    const saved = await repository.saveRuleRequirementMatches({
-      profile: matchingProfile,
-      job: selectedJob,
-      matches: nextMatches
-    });
-    setMatches(saved);
-    setSelectedMatchId(saved[0]?.id);
-    setMessage(`匹配已完成：只诊断“${selectedBaseResume.name}”中引用的已确认事实。`);
+    setResumeActionStatus("matching");
+    setDerivationPrompt(undefined);
+    try {
+      const nextMatches = createRuleRequirementMatches({ profile: matchingProfile, job: selectedJob }).map((match) => ({
+        ...match,
+        sourceResumeBranchId: selectedBaseResume.id,
+        sourceResumeBranchRevision: selectedBaseResume.revision,
+        sourceResumeRevisionId: selectedBaseResume.currentRevisionId ?? undefined
+      }));
+      const saved = await repository.saveRuleRequirementMatches({
+        profile: matchingProfile,
+        job: selectedJob,
+        matches: nextMatches
+      });
+      setMatches(saved);
+      setSelectedMatchId(saved[0]?.id);
+      setResumeActionStatus("completed");
+      setMessage(`匹配已完成：只诊断“${selectedBaseResume.name}”当前正式版本中引用的已确认事实。`);
+    } catch {
+      setResumeActionStatus("failed");
+      setMessage("匹配失败：请检查岗位要求、来源简历和个人资料引用后重试。");
+    }
   }
 
   async function runAiEvidenceMatcher() {
@@ -471,6 +507,7 @@ export function JobsWorkspace() {
       return;
     }
 
+    setResumeActionStatus("evaluating");
     const nextMatches: RequirementMatch[] = [];
 
     for (const match of matches) {
@@ -536,13 +573,79 @@ export function JobsWorkspace() {
       }));
     }
 
-    const saved = await repository.saveAiRequirementMatches({
-      profile: matchingProfile,
-      job: selectedJob,
-      matches: nextMatches
+    try {
+      const saved = await repository.saveAiRequirementMatches({
+        profile: matchingProfile,
+        job: selectedJob,
+        matches: nextMatches
+      });
+      setMatches(saved);
+      setResumeActionStatus("completed");
+      setMessage("AI证据评估已完成；规则匹配和人工覆盖未被修改。");
+    } catch {
+      setResumeActionStatus("failed");
+      setMessage("AI证据评估失败；规则匹配和已有数据均已保留，可稍后重试。");
+    }
+  }
+
+  async function prepareJobResumeDerivation() {
+    if (!profile || !selectedJob || !selectedBaseResume || !selectedBaseResume.currentRevisionId) {
+      setMessage("请选择一份通用简历。");
+      return;
+    }
+    if (!matchState.ready) {
+      setMessage(matchState.message);
+      return;
+    }
+
+    setResumeActionStatus("preparing");
+    const existing = await repository.findDerivedJobBranches({
+      sourceBranchId: selectedBaseResume.id,
+      jobId: selectedJob.id
     });
-    setMatches(saved);
-    setMessage("AI解释已完成；规则匹配和人工覆盖未被修改。");
+    const sameVersion = existing.find((branch) => branch.sourceRevisionId === selectedBaseResume.currentRevisionId);
+    if (sameVersion) {
+      setDerivationPrompt({ kind: "same_version", existingBranch: sameVersion });
+      setResumeActionStatus("idle");
+      return;
+    }
+    if (existing[0]) {
+      setDerivationPrompt({ kind: "source_updated", existingBranch: existing[0] });
+      setResumeActionStatus("idle");
+      return;
+    }
+    await createAndOpenJobResume(false);
+  }
+
+  async function createAndOpenJobResume(allowDuplicate: boolean) {
+    if (!profile || !selectedJob || !selectedBaseResume?.currentRevisionId) return;
+    setResumeActionStatus("saving");
+    try {
+      const baseName = `${selectedJob.title} - ${selectedJob.company} - ${profile.basics.name}`;
+      const result = await repository.deriveJobSpecificBranchFromBranch({
+        sourceBranchId: selectedBaseResume.id,
+        jobId: selectedJob.id,
+        expectedSourceRevision: selectedBaseResume.revision,
+        expectedSourceRevisionId: selectedBaseResume.currentRevisionId,
+        operationId: `p34-derive-${selectedBaseResume.id}-${selectedJob.id}-${selectedBaseResume.currentRevisionId}-${nanoid(8)}`,
+        name: uniqueBranchName(baseName, resumeBranches),
+        allowDuplicate
+      });
+      setResumeActionStatus("completed");
+      setDerivationPrompt(undefined);
+      router.push(`/resume?branchId=${encodeURIComponent(result.branch.id)}&mode=ai&fromJobId=${encodeURIComponent(selectedJob.id)}`);
+    } catch (error) {
+      setResumeActionStatus("failed");
+      setMessage(error instanceof RevisionConflictError
+        ? "通用简历在创建前发生了变化，请重新检查匹配。"
+        : "生成岗位简历失败：来源版本或岗位匹配已失效，请重新运行匹配。");
+    }
+  }
+
+  function openExistingJobResume(branch: ResumeBranch) {
+    if (!selectedJob) return;
+    setDerivationPrompt(undefined);
+    router.push(`/resume?branchId=${encodeURIComponent(branch.id)}&mode=ai&fromJobId=${encodeURIComponent(selectedJob.id)}`);
   }
 
   async function saveManualOverride(match: RequirementMatch) {
@@ -894,8 +997,10 @@ export function JobsWorkspace() {
       {message ? <section className="notice" role="status" aria-live="polite">{message}</section> : null}
 
       <section className="stage-grid">
-        <article className="panel">
-          <h2>1. 粘贴岗位JD</h2>
+        <details className="panel job-create-disclosure">
+          <summary>新增或更新岗位</summary>
+          <div className="job-create-disclosure-body">
+          <h2>粘贴岗位描述</h2>
           <div className="form-grid">
             <input data-testid="job-title-input" value={title} onChange={(event) => setTitle(event.target.value)} placeholder="岗位名称" />
             <input data-testid="job-company-input" value={company} onChange={(event) => setCompany(event.target.value)} placeholder="公司名称" />
@@ -907,7 +1012,8 @@ export function JobsWorkspace() {
             </button>
             <span className={`save-status save-status-${saveStatus}`}>保存状态：{saveStatusLabel(saveStatus)}</span>
           </div>
-        </article>
+          </div>
+        </details>
 
         {draft?.status === "privacy_pending" ? (
           <article className="panel">
@@ -1098,48 +1204,100 @@ export function JobsWorkspace() {
       </section>
 
       {profile && selectedJob && jobWorkspaceTab === "resumes" ? (
-        <section className="panel">
+        <section className="panel job-resume-flow" data-testid="job-resume-flow">
+          <ol className="job-resume-steps" aria-label="岗位简历生成流程">
+            <li className="is-complete">选择岗位</li>
+            <li className={selectedBaseResume ? "is-complete" : "is-current"}>选择通用简历</li>
+            <li className={matchState.ready ? "is-complete" : selectedBaseResume ? "is-current" : ""}>检查匹配</li>
+            <li className={matchState.ready ? "is-current" : ""}>生成岗位简历</li>
+            <li>AI 优化</li>
+          </ol>
+          <div className="section-heading">
+            <div>
+              <h2>为当前岗位生成独立简历</h2>
+              <p>先明确选择一份通用简历，再检查匹配。生成后会直接进入该岗位简历，不会修改来源简历。</p>
+            </div>
+          </div>
           <div className="job-match-source">
             <label className="field-label" htmlFor="job-match-base-resume">
-              用于诊断的基础简历
+              来源通用简历
               <select id="job-match-base-resume" value={selectedBaseResumeId} onChange={(event) => {
                 setSelectedBaseResumeId(event.target.value);
                 setMatches([]);
                 setSelectedMatchId(undefined);
                 setAdaptationDraft(undefined);
                 setSuggestions([]);
+                setResumeActionStatus("idle");
+                setDerivationPrompt(undefined);
               }}>
                 <option value="">请选择一份简历</option>
                 {baseResumeOptions.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}
               </select>
             </label>
             <p>{baseResumeOptions.length === 0
-              ? "暂无可用于诊断的通用简历。请先在简历中心创建或恢复一份简历。"
-              : "选择后再运行匹配；历史结果只会显示在创建它的那份简历下。"}</p>
+              ? "暂无可用通用简历。请先在简历中心创建或恢复一份有正式正文的通用简历。"
+              : selectedBaseResume
+                ? `已选择“${selectedBaseResume.name}”第 ${selectedBaseResume.revision + 1} 个正式版本。`
+                : "请选择一份通用简历。系统不会默认选择第一份。"}</p>
           </div>
-          <div className="section-heading">
-            <div>
-              <h2>经历匹配与差距诊断</h2>
-              <p>仅使用个人资料中已确认的事实，帮助你判断哪些要求已有证据、哪些需要补充。</p>
-            </div>
-            <div className="action-row">
-              <button className="primary-button" data-testid="run-experience-match" onClick={runRuleMatcher} disabled={!selectedBaseResume}>
-                运行经历匹配
-              </button>
-              <button className="secondary-button" data-testid="run-ai-evidence-explanation" onClick={runAiEvidenceMatcher} disabled={matches.length === 0}>
-                运行AI解释
-              </button>
-            </div>
+          <div className={`job-resume-readiness ${matchState.ready ? "is-ready" : ""}`} role="status" aria-live="polite">
+            <strong>{matchState.ready ? "匹配可用于生成" : "下一步"}</strong>
+            <span>{matchState.message}</span>
+            <small>{jobResumeActionStatusLabel(resumeActionStatus)}</small>
+          </div>
+          <div className="action-row job-resume-primary-actions">
+            <button className={matchState.ready ? "secondary-button" : "primary-button"} data-testid="run-experience-match" onClick={runRuleMatcher} disabled={!selectedBaseResume || resumeActionStatus === "matching"}>
+              {resumeActionStatus === "matching" ? "匹配中…" : matches.length > 0 ? "重新运行匹配" : "运行规则匹配"}
+            </button>
+            <button className="secondary-button" data-testid="run-ai-evidence-explanation" onClick={runAiEvidenceMatcher} disabled={!matchState.hasFreshRuleMatch || resumeActionStatus === "evaluating"}>
+              {resumeActionStatus === "evaluating" ? "评估中…" : "运行 AI 证据评估"}
+            </button>
+            <button className={matchState.ready ? "primary-button" : "secondary-button"} data-testid="generate-job-resume" onClick={() => { void prepareJobResumeDerivation(); }} disabled={!matchState.ready || resumeActionStatus === "preparing" || resumeActionStatus === "saving"}>
+              {resumeActionStatus === "preparing" ? "准备中…" : resumeActionStatus === "saving" ? "保存中…" : "生成岗位简历"}
+            </button>
           </div>
 
+          {derivationPrompt ? (
+            <div className="job-derivation-prompt" role="dialog" aria-modal="false" aria-labelledby="job-derivation-prompt-title">
+              <div>
+                <h3 id="job-derivation-prompt-title">{derivationPrompt.kind === "same_version"
+                  ? "已存在基于当前通用简历版本生成的岗位简历。"
+                  : "通用简历在岗位分支创建后发生了变化。"}</h3>
+                <p>{derivationPrompt.kind === "same_version"
+                  ? "你可以打开已有岗位简历，或明确重新生成一个新分支。"
+                  : "不会自动覆盖旧岗位简历。你可以保持当前岗位简历，或基于最新通用简历新建分支。"}</p>
+              </div>
+              <div className="action-row">
+                <button className="primary-button" type="button" onClick={() => openExistingJobResume(derivationPrompt.existingBranch)}>
+                  {derivationPrompt.kind === "same_version" ? "打开已有岗位简历" : "保持并打开当前岗位简历"}
+                </button>
+                <button className="secondary-button" type="button" onClick={() => { void createAndOpenJobResume(true); }}>
+                  {derivationPrompt.kind === "same_version" ? "重新生成新分支" : "基于最新版本新建"}
+                </button>
+                <button className="secondary-button" type="button" onClick={() => setDerivationPrompt(undefined)}>
+                  {derivationPrompt.kind === "same_version" ? "取消" : "稍后处理"}
+                </button>
+              </div>
+            </div>
+          ) : null}
+
           {matches.length === 0 ? (
-            <p>尚未生成匹配结果。请先运行经历匹配。</p>
+            <p className="empty-copy">尚未生成匹配结果。选择来源简历后运行规则匹配。</p>
           ) : (
-            <div className="match-layout">
+            <details className="job-match-details">
+              <summary>查看 {matches.length} 条岗位匹配详情</summary>
+              <div className="match-layout">
               <div className="match-list">
                 {matches.map((match) => {
                   const effective = resolveEffectiveMatch(match);
                   const stale = checkRequirementMatchStale(match, { profile: matchingProfile ?? profile, job: selectedJob });
+                  const sourceStale = selectedBaseResume?.currentRevisionId
+                    ? checkRequirementMatchResumeSourceStale(match, {
+                      branchId: selectedBaseResume.id,
+                      branchRevision: selectedBaseResume.revision,
+                      revisionId: selectedBaseResume.currentRevisionId
+                    })
+                    : { isStale: true };
                   return (
                     <button
                       className={`match-row ${match.id === selectedMatch?.id ? "match-row-active" : ""}`}
@@ -1147,7 +1305,7 @@ export function JobsWorkspace() {
                       onClick={() => setSelectedMatchId(match.id)}
                     >
                       <strong>{selectedJob.requirements.find((item) => item.id === match.requirementId)?.description}</strong>
-                      <span>{matchLevelLabel(effective.matchLevel)} / {riskLabel(effective.riskLevel)} / {sourceLabel(effective.source)}{stale.isStale ? " / 已过期" : ""}</span>
+                      <span>{matchLevelLabel(effective.matchLevel)} / {riskLabel(effective.riskLevel)} / {sourceLabel(effective.source)}{stale.isStale || sourceStale.isStale ? " / 已过期" : ""}</span>
                     </button>
                   );
                 })}
@@ -1170,13 +1328,14 @@ export function JobsWorkspace() {
                   onSaveManual={() => saveManualOverride(selectedMatch)}
                 />
               ) : null}
-            </div>
+              </div>
+            </details>
           )}
         </section>
       ) : null}
 
       {profile && selectedJob && jobWorkspaceTab === "resumes" ? (
-        <section className="panel">
+        <section className="panel legacy-job-panel-hidden" aria-hidden="true">
           <div className="section-heading">
             <div>
               <h2>AI简历建议与事实安全检查</h2>
@@ -1260,6 +1419,72 @@ function latestMatchesForResume(matches: RequirementMatch[], branchId: string) {
     if (!latestByRequirement.has(match.requirementId)) latestByRequirement.set(match.requirementId, match);
   }
   return [...latestByRequirement.values()];
+}
+
+function getJobResumeMatchState(input: {
+  profile?: CareerProfile;
+  job?: JobDescription;
+  branch?: ResumeBranch;
+  matches: RequirementMatch[];
+}) {
+  if (!input.branch) {
+    return { ready: false, hasFreshRuleMatch: false, message: "请选择一份通用简历。" };
+  }
+  if (!input.profile || !input.job || !input.branch.currentRevisionId) {
+    return { ready: false, hasFreshRuleMatch: false, message: "来源简历或岗位引用已失效。" };
+  }
+  if (input.job.requirements.length === 0) {
+    return { ready: false, hasFreshRuleMatch: false, message: "当前岗位没有有效岗位要求，不能生成岗位简历。" };
+  }
+  if (input.matches.length === 0) {
+    return { ready: false, hasFreshRuleMatch: false, message: "尚无匹配结果，请运行规则匹配。" };
+  }
+
+  const source = {
+    branchId: input.branch.id,
+    branchRevision: input.branch.revision,
+    revisionId: input.branch.currentRevisionId
+  };
+  const stale = input.matches.some((match) =>
+    checkRequirementMatchStale(match, { profile: input.profile!, job: input.job! }).isStale
+    || checkRequirementMatchResumeSourceStale(match, source).isStale
+  );
+  const requirementIds = new Set(input.matches.map((match) => match.requirementId));
+  const complete = input.job.requirements.every((requirement) => requirementIds.has(requirement.id));
+  if (stale || !complete) {
+    return { ready: false, hasFreshRuleMatch: false, message: "匹配已过期或不完整，请基于当前通用简历版本重新运行规则匹配。" };
+  }
+  if (collectAllowedEvidenceRefs(input.matches).length === 0) {
+    return { ready: false, hasFreshRuleMatch: true, message: "匹配中没有可使用的已确认事实，请先补充或确认个人资料事实。" };
+  }
+  return {
+    ready: true,
+    hasFreshRuleMatch: true,
+    message: `已核对 ${input.matches.length} 条岗位要求，可生成独立岗位简历。`
+  };
+}
+
+function jobResumeActionStatusLabel(status: JobResumeActionStatus) {
+  const labels: Record<JobResumeActionStatus, string> = {
+    idle: "等待下一步",
+    matching: "匹配中…",
+    evaluating: "AI 证据评估中…",
+    preparing: "准备中…",
+    saving: "保存中…",
+    completed: "已完成",
+    failed: "已失败"
+  };
+  return labels[status];
+}
+
+function uniqueBranchName(baseName: string, branches: ResumeBranch[]) {
+  const names = new Set(branches.map((branch) => branch.name));
+  if (!names.has(baseName)) return baseName;
+  const dated = `${baseName} - ${new Date().toISOString().slice(0, 10)}`;
+  if (!names.has(dated)) return dated;
+  let sequence = 2;
+  while (names.has(`${dated} - ${sequence}`)) sequence += 1;
+  return `${dated} - ${sequence}`;
 }
 
 function SuggestionCard({

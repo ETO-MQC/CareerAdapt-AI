@@ -94,6 +94,7 @@ import {
 import { computeRequirementsHash } from "@/domain/jobOptimization";
 import { isTextSuggestionType, staleReasonForSuggestion } from "@/domain/jobOptimization/suggestions";
 import {
+  matchesResumeSource,
   resolveEffectiveMatch,
   validateRequirementMatchReferences,
   withResolvedEffectiveMatch
@@ -882,6 +883,7 @@ export class WorkspaceRepository {
   async findDerivedJobBranches(input: {
     sourceBranchId: string;
     jobId: string;
+    sourceRevisionId?: string;
   }) {
     const branches = await this.db.resumeBranches.toArray();
     return branches
@@ -890,6 +892,7 @@ export class WorkspaceRepository {
         branch.branchPurpose === "job_specific"
         && branch.sourceBranchId === input.sourceBranchId
         && branch.jobId === input.jobId
+        && (!input.sourceRevisionId || branch.sourceRevisionId === input.sourceRevisionId)
         && branch.lifecycleStatus === "active"
       )
       .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
@@ -932,7 +935,8 @@ export class WorkspaceRepository {
 
         const duplicate = (await this.findDerivedJobBranches({
           sourceBranchId: input.sourceBranchId,
-          jobId: input.jobId
+          jobId: input.jobId,
+          sourceRevisionId: input.expectedSourceRevisionId
         }))[0];
         if (duplicate && !input.allowDuplicate) {
           return {
@@ -944,6 +948,9 @@ export class WorkspaceRepository {
         }
 
         const sourceBranch = await this.requireEditableResumeBranch(input.sourceBranchId);
+        if (sourceBranch.branchPurpose !== "general") {
+          throw new Error("derive_branch_requires_general_source");
+        }
         if (sourceBranch.revision !== input.expectedSourceRevision || sourceBranch.currentRevisionId !== input.expectedSourceRevisionId) {
           throw new RevisionConflictError();
         }
@@ -958,7 +965,13 @@ export class WorkspaceRepository {
         }
         const parsedProfile = CareerProfileSchema.parse(profile);
         const parsedJob = JobDescriptionSchema.parse(job);
-        const parsedMatches = matches.map((match) => RequirementMatchSchema.parse(match));
+        const parsedMatches = matches
+          .map((match) => RequirementMatchSchema.parse(match))
+          .filter((match) => matchesResumeSource(match, {
+            branchId: sourceBranch.id,
+            branchRevision: sourceBranch.revision,
+            revisionId: sourceBranch.currentRevisionId ?? ""
+          }));
         if (parsedJob.requirements.length === 0 || parsedMatches.length === 0) {
           throw new Error("derive_branch_requires_requirement_matches");
         }
@@ -1483,7 +1496,7 @@ export class WorkspaceRepository {
         editedText: input.editedText,
         guardResult: input.guardResult,
         riskLevel: input.guardResult.riskLevel,
-        status: input.guardResult.status === "pass" ? "edited_guarded" : input.guardResult.status === "blocked_high_risk" ? "blocked_high_risk" : "edited_pending_guard",
+        status: input.guardResult.status === "pass" || input.guardResult.status === "ai_failed_rule_kept" ? "edited_guarded" : input.guardResult.status === "blocked_high_risk" ? "blocked_high_risk" : "edited_pending_guard",
         updatedAt: now
       })
     }));
@@ -1504,7 +1517,7 @@ export class WorkspaceRepository {
         editedText: input.checkedText === suggestion.suggestedText ? suggestion.editedText : input.checkedText,
         guardResult: input.guardResult,
         riskLevel: input.guardResult.riskLevel,
-        status: input.guardResult.status === "pass" ? "edited_guarded" : input.guardResult.status === "blocked_high_risk" ? "blocked_high_risk" : "edited_pending_guard",
+        status: input.guardResult.status === "pass" || input.guardResult.status === "ai_failed_rule_kept" ? "edited_guarded" : input.guardResult.status === "blocked_high_risk" ? "blocked_high_risk" : "edited_pending_guard",
         updatedAt: now
       })
     }));
@@ -1622,7 +1635,16 @@ export class WorkspaceRepository {
         const parsedProfile = CareerProfileSchema.parse(profile);
         const parsedJob = JobDescriptionSchema.parse(job);
         const parsedDraft = JobAdaptationDraftSchema.parse(draft);
-        const parsedMatches = matches.map((match) => RequirementMatchSchema.parse(match));
+        const matchSource = branch.sourceBranchId && branch.sourceRevisionId
+          ? {
+            branchId: branch.sourceBranchId,
+            branchRevision: branch.sourceDraftRevision,
+            revisionId: branch.sourceRevisionId
+          }
+          : undefined;
+        const parsedMatches = matches
+          .map((match) => RequirementMatchSchema.parse(match))
+          .filter((match) => !matchSource || matchesResumeSource(match, matchSource));
         assertC2MatchesUsable({ profile: parsedProfile, job: parsedJob, matches: parsedMatches });
 
         const currentRequirementsHash = computeRequirementsHash({ job: parsedJob, matches: parsedMatches });

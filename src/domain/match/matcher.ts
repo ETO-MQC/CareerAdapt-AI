@@ -37,6 +37,12 @@ export type StaleCheck = {
   currentMatcherVersion: string;
 };
 
+export type ResumeMatchSource = {
+  branchId: string;
+  branchRevision: number;
+  revisionId: string;
+};
+
 export function createRuleRequirementMatches(input: MatchContext, now = new Date().toISOString()) {
   const matcherVersion = input.matcherVersion ?? MATCHER_VERSION;
 
@@ -295,6 +301,26 @@ export function checkRequirementMatchStale(match: RequirementMatch, context: Mat
     currentJobVersion: getJobVersion(context.job),
     currentMatcherVersion: matcherVersion
   };
+}
+
+export function checkRequirementMatchResumeSourceStale(
+  match: RequirementMatch,
+  source: ResumeMatchSource
+) {
+  return {
+    isStale:
+      match.sourceResumeBranchId !== source.branchId
+      || match.sourceResumeBranchRevision !== source.branchRevision
+      || match.sourceResumeRevisionId !== source.revisionId,
+    sourceBranchChanged: match.sourceResumeBranchId !== source.branchId,
+    sourceRevisionChanged:
+      match.sourceResumeBranchRevision !== source.branchRevision
+      || match.sourceResumeRevisionId !== source.revisionId
+  };
+}
+
+export function matchesResumeSource(match: RequirementMatch, source: ResumeMatchSource) {
+  return !checkRequirementMatchResumeSourceStale(match, source).isStale;
 }
 
 export function resolveEffectiveMatch(match: RequirementMatch): MatchEvaluation {

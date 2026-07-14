@@ -6,13 +6,14 @@ test.describe("Plan3 resume flow corrections", () => {
     await page.getByRole("button").filter({ hasText: "从个人资料库创建" }).click();
     await expect(page.getByTestId("resume-studio-shell")).toBeVisible();
     await page.goto("/jobs");
-    const selector = page.getByLabel("用于诊断的基础简历");
+    const selector = page.getByLabel("来源通用简历");
     await expect(selector).toHaveValue("");
     await expect(page.getByTestId("run-experience-match")).toBeDisabled();
 
     await selector.selectOption({ index: 1 });
     await expect(page.getByTestId("run-experience-match")).toBeEnabled();
     await page.getByTestId("run-experience-match").click();
+    await page.locator(".job-match-details summary").click();
     await expect(page.locator(".match-layout .match-list .match-row").first()).toBeVisible();
   });
 

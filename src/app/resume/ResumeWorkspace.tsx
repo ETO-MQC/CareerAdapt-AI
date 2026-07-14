@@ -144,6 +144,7 @@ export function ResumeWorkspace() {
   const saveItemRef = useRef<(itemId: string, options?: { origin?: "manual" | "auto" }) => Promise<void>>(async () => undefined);
   const [drafts, setDrafts] = useState<JobAdaptationDraft[]>([]);
   const [branches, setBranches] = useState<ResumeBranch[]>([]);
+  const [jobContextSummary, setJobContextSummary] = useState<{ matchUpdatedAt?: string; suggestionCount: number; risk: "low" | "medium" | "high" }>({ suggestionCount: 0, risk: "low" });
   const [localJobs, setLocalJobs] = useState<JobDescription[]>([]);
   const [profileOverride, setProfileOverride] = useState<CareerProfile | undefined>();
   const [selectedDraftId, setSelectedDraftId] = useState("");
@@ -294,6 +295,7 @@ export function ResumeWorkspace() {
   const selectedDraft = drafts.find((draft) => draft.id === activeDraftId);
   const selectedBranch = branches.find((branch) => branch.id === activeBranchId);
   const selectedBranchJob = selectedBranch?.jobId ? jobs.find((job) => job.id === selectedBranch.jobId) : undefined;
+  const selectedSourceBranch = selectedBranch?.sourceBranchId ? branches.find((branch) => branch.id === selectedBranch.sourceBranchId) : undefined;
   const effectiveTemplateId = presentationConfig?.templateId ?? templateId;
   const selectedTemplate = getResumeTemplate(effectiveTemplateId);
   const renderResult = useMemo(() => buildRenderModel({
@@ -329,6 +331,31 @@ export function ResumeWorkspace() {
     }
     return resumeDocument.sections.find((section) => section.type === selectedStudioBlock.sectionType);
   }, [resumeDocument, selectedStudioBlock]);
+
+  useEffect(() => {
+    let active = true;
+    async function loadJobContextSummary() {
+      if (!selectedBranch || selectedBranch.branchPurpose !== "job_specific" || !selectedBranchJob || !profile) {
+        setJobContextSummary({ suggestionCount: 0, risk: "low" });
+        return;
+      }
+      const matches = await repository.listRequirementMatches(profile.id, selectedBranchJob.id);
+      const boundMatches = matches.filter((match) => selectedBranch.requirementMatchIds.includes(match.id));
+      const latestDraft = await repository.getLatestJobAdaptationDraft(profile.id, selectedBranchJob.id);
+      const suggestions = latestDraft?.branchId === selectedBranch.id ? await repository.listAiSuggestions(latestDraft.id) : [];
+      if (!active) return;
+      const risk = suggestions.some((suggestion) => suggestion.riskLevel === "high" || suggestion.status === "blocked_high_risk")
+        ? "high"
+        : suggestions.some((suggestion) => suggestion.riskLevel === "medium") ? "medium" : "low";
+      setJobContextSummary({
+        matchUpdatedAt: boundMatches.map((match) => match.updatedAt).sort().at(-1),
+        suggestionCount: suggestions.filter((suggestion) => suggestion.status === "pending_review" || suggestion.status === "edited_guarded").length,
+        risk
+      });
+    }
+    void loadJobContextSummary();
+    return () => { active = false; };
+  }, [profile, selectedBranch, selectedBranchJob]);
   const resumeSectionNavItems = useMemo(() => buildResumeStudioSections({
     resumeDocument,
     branch: selectedBranch
@@ -617,7 +644,9 @@ export function ResumeWorkspace() {
       setDrafts(nextDrafts);
       setBranches(nextBranches);
       const parsed = parseWorkbenchState(savedState?.value);
-      const requestedBranchId = new URLSearchParams(window.location.search).get("branchId");
+      const requestedParams = new URLSearchParams(window.location.search);
+      const requestedBranchId = requestedParams.get("branchId");
+      const requestedMode = requestedParams.get("mode");
       const branchIdToRestore = requestedBranchId && nextBranches.some((branch) => branch.id === requestedBranchId)
         ? requestedBranchId
         : parsed.activeBranchId && nextBranches.some((branch) => branch.id === parsed.activeBranchId)
@@ -630,7 +659,9 @@ export function ResumeWorkspace() {
       if (typeof parsed.stylePanelOpen === "boolean") {
         setIsStylePanelOpen(parsed.stylePanelOpen);
       }
-      if (parsed.studioMode) {
+      if (requestedMode === "edit" || requestedMode === "ai" || requestedMode === "style") {
+        setStudioMode(requestedMode);
+      } else if (parsed.studioMode) {
         setStudioMode(parsed.studioMode);
       }
       if (parsed.manualTab) {
@@ -3277,6 +3308,20 @@ export function ResumeWorkspace() {
             </details>
             </div>
           </div>
+          {selectedBranch.branchPurpose === "job_specific" ? (
+            <div className="resume-job-context-bar" data-testid="resume-job-context">
+              <div><span>当前岗位</span><strong>{selectedBranchJob?.title ?? "岗位引用失效"}</strong></div>
+              <div><span>公司</span><strong>{selectedBranchJob?.company ?? "—"}</strong></div>
+              <div><span>来源通用简历</span><strong>{selectedSourceBranch?.name ?? "来源引用失效"}</strong></div>
+              <div><span>匹配更新时间</span><strong>{jobContextSummary.matchUpdatedAt ? formatLocalDateTime(jobContextSummary.matchUpdatedAt) : "未找到有效匹配"}</strong></div>
+              <div><span>待处理建议</span><strong>{jobContextSummary.suggestionCount}</strong></div>
+              <div><span>当前风险</span><strong>{riskLevelUiLabel(jobContextSummary.risk)}</strong></div>
+              <div className="resume-job-context-actions">
+                <button className="secondary-button compact" type="button" onClick={() => router.push(`/jobs?jobId=${encodeURIComponent(selectedBranch.jobId ?? "")}`)}>返回岗位</button>
+                <button className="primary-button compact" type="button" onClick={() => { setStudioMode("ai"); setAiInspectorTab("suggestions"); }}>AI 优化</button>
+              </div>
+            </div>
+          ) : null}
         </section>
       ) : null}
 
@@ -4458,6 +4503,10 @@ function formatLocalDateTime(value: string) {
     hour: "2-digit",
     minute: "2-digit"
   }).format(date);
+}
+
+function riskLevelUiLabel(risk: "low" | "medium" | "high") {
+  return risk === "high" ? "存在高风险阻止项" : risk === "medium" ? "需要人工确认" : "未发现高风险";
 }
 
 function exportErrorCode(error: unknown) {

@@ -123,6 +123,10 @@ export const RequirementMatchSchema = EntityBaseSchema.extend({
   jobId: z.string().min(1),
   /** The general resume explicitly selected when this match was created. */
   sourceResumeBranchId: z.string().min(1).optional(),
+  /** The exact formal branch revision used to scope candidate facts. */
+  sourceResumeBranchRevision: z.number().int().min(0).optional(),
+  /** The exact ResumeRevision snapshot used when the match was created. */
+  sourceResumeRevisionId: z.string().min(1).optional(),
   profileVersion: z.number().int().min(1),
   jobVersion: z.string().min(1),
   matcherVersion: z.string().min(1),

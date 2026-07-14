@@ -15,7 +15,9 @@ import {
   JobDescriptionSchema,
   type JobDescription,
   type PdfPageText,
-  type RequirementBlockMatch
+  type RequirementBlockMatch,
+  type RequirementMatch,
+  type ResumeBranch
 } from "@/domain/schemas";
 import { CareerAdaptDb } from "@/services/storage/db";
 import { RevisionConflictError, WorkspaceRepository } from "@/services/storage/repositories";
@@ -93,7 +95,7 @@ describe("V2-G5a job optimization", () => {
     const repository = createRepository();
     const { profile, branch: generalBranch } = await confirmImportedGeneralResume(repository);
     const job = await repository.saveJobDescription(createSqlAnalystJob());
-    const matches = createRuleRequirementMatches({ profile, job }, TEST_TIME);
+    const matches = bindMatchesToResume(createRuleRequirementMatches({ profile, job }, TEST_TIME), generalBranch);
     await repository.saveRuleRequirementMatches({ profile, job, matches });
 
     const derived = await repository.deriveJobSpecificBranchFromBranch({
@@ -186,11 +188,61 @@ describe("V2-G5a job optimization", () => {
     expect(generalAfter?.contentItems.find((item) => item.id === contentItem.id)?.text).toBe(contentItem.text);
   });
 
+  it("deduplicates only the exact source revision and creates a separate branch after the general resume changes", async () => {
+    const repository = createRepository();
+    const { profile, branch: originalGeneral } = await confirmImportedGeneralResume(repository);
+    const job = await repository.saveJobDescription(createSqlAnalystJob());
+    const initialMatches = bindMatchesToResume(createRuleRequirementMatches({ profile, job }, TEST_TIME), originalGeneral);
+    await repository.saveRuleRequirementMatches({ profile, job, matches: initialMatches });
+
+    const first = await repository.deriveJobSpecificBranchFromBranch({
+      sourceBranchId: originalGeneral.id,
+      jobId: job.id,
+      expectedSourceRevision: originalGeneral.revision,
+      expectedSourceRevisionId: originalGeneral.currentRevisionId!,
+      operationId: "p34-source-v1",
+      name: "SQL analyst from source v1"
+    });
+    const duplicate = await repository.deriveJobSpecificBranchFromBranch({
+      sourceBranchId: originalGeneral.id,
+      jobId: job.id,
+      expectedSourceRevision: originalGeneral.revision,
+      expectedSourceRevisionId: originalGeneral.currentRevisionId!,
+      operationId: "p34-source-v1-duplicate",
+      name: "Should not be created"
+    });
+    expect(duplicate.duplicate).toBe(true);
+    expect(duplicate.branch.id).toBe(first.branch.id);
+
+    const firstItem = originalGeneral.contentItems[0];
+    const edited = await repository.editResumeBranch({
+      branchId: originalGeneral.id,
+      expectedRevision: originalGeneral.revision,
+      operationId: "p34-update-general-source",
+      edits: [{ itemId: firstItem.id, text: `${firstItem.text} Updated source.` }]
+    });
+    const latestMatches = bindMatchesToResume(createRuleRequirementMatches({ profile, job }, TEST_TIME), edited.branch);
+    await repository.saveRuleRequirementMatches({ profile, job, matches: latestMatches });
+    const second = await repository.deriveJobSpecificBranchFromBranch({
+      sourceBranchId: edited.branch.id,
+      jobId: job.id,
+      expectedSourceRevision: edited.branch.revision,
+      expectedSourceRevisionId: edited.branch.currentRevisionId!,
+      operationId: "p34-source-v2",
+      name: "SQL analyst from source v2"
+    });
+
+    expect(second.duplicate).toBe(false);
+    expect(second.branch.id).not.toBe(first.branch.id);
+    expect(second.branch.sourceRevisionId).toBe(edited.branch.currentRevisionId);
+    expect(first.branch.contentItems[0].text).toBe(firstItem.text);
+  });
+
   it("blocks high-risk accepted edits and stale branch revisions", async () => {
     const repository = createRepository();
     const { profile, branch: generalBranch } = await confirmImportedGeneralResume(repository);
     const job = await repository.saveJobDescription(createSqlAnalystJob());
-    const matches = createRuleRequirementMatches({ profile, job }, TEST_TIME);
+    const matches = bindMatchesToResume(createRuleRequirementMatches({ profile, job }, TEST_TIME), generalBranch);
     await repository.saveRuleRequirementMatches({ profile, job, matches });
     const derived = await repository.deriveJobSpecificBranchFromBranch({
       sourceBranchId: generalBranch.id,
@@ -278,6 +330,19 @@ describe("V2-G5a job optimization", () => {
 function createRepository() {
   db = new CareerAdaptDb(`CareerAdaptG5aDb-${crypto.randomUUID()}`);
   return new WorkspaceRepository(db);
+}
+
+function bindMatchesToResume(matches: RequirementMatch[], branch: ResumeBranch) {
+  const revisionId = branch.currentRevisionId;
+  if (!revisionId) {
+    throw new Error("test_resume_revision_missing");
+  }
+  return matches.map((match) => ({
+    ...match,
+    sourceResumeBranchId: branch.id,
+    sourceResumeBranchRevision: branch.revision,
+    sourceResumeRevisionId: revisionId
+  }));
 }
 
 function buildImportedGeneralResume() {

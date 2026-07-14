@@ -84,7 +84,11 @@ export function createBlockSuggestion(input: {
     usedEvidenceRefs: input.usedEvidenceRefs,
     guardResult: input.guardResult,
     riskLevel: input.guardResult.riskLevel,
-    status: guardPreview.allowed ? "pending_review" : "blocked_high_risk",
+    status: guardPreview.allowed
+      ? "pending_review"
+      : input.guardResult.status === "blocked_high_risk" || input.guardResult.riskLevel === "high"
+        ? "blocked_high_risk"
+        : "edited_pending_guard",
     promptVersion: input.promptVersion,
     createdAt: now,
     updatedAt: now
