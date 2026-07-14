@@ -19,7 +19,9 @@ import {
   PdfImportSessionSchema,
   PdfPageTextSchema,
   ProfileImportDraftSchema,
+  ProfileRecycleItemSchema,
   RawInputDocumentSchema,
+  RecycleBinStateSchema,
   RequirementMatchSchema,
   ResumeBranchSchema,
   ResumeBranchOperationSchema,
@@ -58,6 +60,8 @@ import {
   type PdfPageText,
   type ProfileImportDraft,
   type RawInputDocument,
+  type ProfileRecycleItem,
+  type RecycleBinState,
   type RequirementMatch,
   type ResumeBranch,
   type ResumeBranchOperation,
@@ -95,6 +99,9 @@ import {
 } from "@/domain/match/matcher";
 import { stableHashText } from "@/services/security/text";
 import { CareerAdaptDb, careerAdaptDb, type AppMeta } from "./db";
+
+const RECYCLE_BIN_META_KEY = "workspaceRecycleBin:v1";
+const EMPTY_RECYCLE_BIN: RecycleBinState = { version: 1, jobIds: [], profileItems: [] };
 
 export type WorkspaceExport = {
   schemaVersion: "stage-e-e1-v1";
@@ -542,6 +549,31 @@ export class WorkspaceRepository {
   async listProfiles() {
     const profiles = await this.db.profiles.toArray();
     return profiles.map((profile) => CareerProfileSchema.parse(profile));
+  }
+
+  async getProfileDeleteBlockers(profileId: string) {
+    const [branches, matches, matchOperations, adaptationDrafts, applications, commits] = await Promise.all([
+      this.db.resumeBranches.where("profileId").equals(profileId).count(),
+      this.db.requirementMatches.filter((item) => item.profileId === profileId).count(),
+      this.db.matchOperations.filter((item) => item.profileId === profileId).count(),
+      this.db.jobAdaptationDrafts.filter((item) => item.profileId === profileId).count(),
+      this.db.applications.where("profileId").equals(profileId).count(),
+      this.db.draftCommits.where("entityId").equals(profileId).count()
+    ]);
+    return { branches, matches, matchOperations, adaptationDrafts, applications, commits };
+  }
+
+  async deleteProfileIfUnreferenced(profileId: string) {
+    const blockers = await this.getProfileDeleteBlockers(profileId);
+    if (Object.values(blockers).some((count) => count > 0)) {
+      return { deleted: false as const, blockers };
+    }
+    await this.db.transaction("rw", this.db.profiles, this.db.appMeta, async () => {
+      await this.db.profiles.delete(profileId);
+      await this.db.appMeta.delete(`profileArchive:${profileId}:skills`);
+      await this.db.appMeta.delete(`profileArchive:${profileId}:managed-items`);
+    });
+    return { deleted: true as const, blockers };
   }
 
   async saveJobDescription(jobDescription: JobDescription) {
@@ -2534,6 +2566,107 @@ export class WorkspaceRepository {
     return { ...result, newItemId };
   }
 
+  async addResumeContentItemFromProfileReference(input: {
+    branchId: string;
+    expectedRevision: number;
+    operationId: string;
+    section: string;
+    reference:
+      | { type: "experience"; experienceId: string; factId: string }
+      | { type: "skill"; skillId: string; factId: string }
+      | { type: "certificate"; certificateId: string; factId: string };
+  }) {
+    const reference = input.reference;
+    const newItemId = `branch-item-profile-use-${stableHashText(`${input.branchId}:${input.operationId}`).replace(/[^a-zA-Z0-9-]/g, "").slice(0, 28)}`;
+    const result = await this.mutateResumeBranch({
+      branchId: input.branchId,
+      expectedRevision: input.expectedRevision,
+      operationId: input.operationId,
+      type: "manual_edit",
+      source: "manual_edit",
+      mutate: async ({ branch, profile, now }) => {
+        if (branch.contentItems.some((item) => item.id === newItemId)) return branch;
+        let text = "";
+        let itemType: "experience" | "skill" | "certificate" | "custom" = "custom";
+        let factRefs: ResumeBranch["contentItems"][number]["factRefs"] = [];
+
+        if (reference.type === "experience") {
+          const experience = profile.experiences.find((candidate) => candidate.id === reference.experienceId);
+          const fact = experience?.facts.find((candidate) => candidate.id === reference.factId);
+          if (!experience || !fact || !fact.confirmedByUser || fact.riskLevel === "high") throw new Error("profile_experience_fact_unavailable");
+          const draft = experience.resumeDrafts.find((candidate) => candidate.factIds.includes(fact.id));
+          const description = draft?.text.trim() || fact.statement.trim();
+          const category: ResumeFieldCategoryId = experience.type === "education" ? "education"
+            : experience.type === "project" ? "project"
+              : experience.type === "campus" || experience.type === "volunteer" ? "campus" : "work";
+          const parsedDraft = parseStructuredExperienceText(description);
+          text = serializeStructuredExperienceText({
+            organization: experience.organization,
+            role: experience.role,
+            location: experience.location ?? parsedDraft.location,
+            degree: experience.degree ?? (experience.type === "education" ? experience.role : ""),
+            major: experience.major ?? parsedDraft.major,
+            courses: (experience.courses ?? []).join("、") || parsedDraft.courses,
+            startDate: experience.startDate ?? parsedDraft.startDate,
+            endDate: experience.endDate ?? parsedDraft.endDate,
+            current: Boolean(experience.startDate && !experience.endDate),
+            description: parsedDraft.organization ? parsedDraft.description : description
+          }, category);
+          itemType = input.section === "awards" ? "custom" : "experience";
+          factRefs = [{ type: "experience_fact", experienceId: experience.id, factId: fact.id }];
+        } else if (reference.type === "skill") {
+          const skill = profile.skills.find((candidate) => candidate.id === reference.skillId);
+          if (!skill?.fact || skill.fact.id !== reference.factId || !skill.fact.confirmedByUser || skill.fact.riskLevel === "high") throw new Error("profile_skill_fact_unavailable");
+          text = skill.fact.statement.includes(skill.name) ? skill.fact.statement : `${skill.name}\n${skill.fact.statement}`;
+          itemType = input.section === "skills" ? "skill" : "custom";
+          factRefs = [{ type: "skill_fact", skillId: skill.id, factId: skill.fact.id }];
+        } else {
+          const certificate = profile.certificates.find((candidate) => candidate.id === reference.certificateId);
+          if (!certificate?.fact || certificate.fact.id !== reference.factId || !certificate.fact.confirmedByUser || certificate.fact.riskLevel === "high") throw new Error("profile_certificate_fact_unavailable");
+          const metadata = [certificate.issuer, certificate.issuedAt].filter(Boolean).join(" · ");
+          text = [certificate.name, metadata, certificate.fact.statement === certificate.name ? "" : certificate.fact.statement].filter(Boolean).join("\n");
+          itemType = "certificate";
+          factRefs = [{ type: "certificate_fact", certificateId: certificate.id, factId: certificate.fact.id }];
+        }
+
+        const duplicate = branch.contentItems.some((item) => item.factRefs.some((ref) => factRefs.some((candidate) => profileFactReferenceEquals(ref, candidate))));
+        if (duplicate) throw new Error("profile_item_already_used");
+        const guardResult = runRuleFactGuard({
+          originalText: text,
+          checkedText: text,
+          usedEvidenceRefs: resolveBranchFactRefs(profile, factRefs),
+          now
+        });
+        const orderedItems = [...branch.contentItems].sort((a, b) => a.order - b.order);
+        const nextItem = BranchContentItemSchema.parse({
+          id: newItemId,
+          itemType,
+          source: "user_manual",
+          sourceSectionId: input.section,
+          text,
+          originalText: text,
+          order: orderedItems.length,
+          visible: true,
+          requirementIds: [],
+          sourceSuggestionIds: [],
+          factRefs,
+          guardMode: "rule_verified",
+          guardStatus: "pass",
+          guardRiskLevel: guardResult.riskLevel,
+          guardFindings: [],
+          guardedAt: now,
+          guardVersion: guardResult.guardVersion
+        });
+        return ResumeBranchSchema.parse({
+          ...branch,
+          sourceProfileVersion: profile.version,
+          contentItems: [...orderedItems, nextItem].map((item, order) => ({ ...item, order }))
+        });
+      }
+    });
+    return { ...result, newItemId };
+  }
+
   async restoreResumeRevision(input: {
     branchId: string;
     revisionId: string;
@@ -2666,17 +2799,74 @@ export class WorkspaceRepository {
     operationId: string;
     confirmedImpact: true;
   }) {
-    return this.mutateResumeBranch({
-      branchId: input.branchId,
-      expectedRevision: input.expectedRevision,
-      operationId: input.operationId,
+    return this.transitionResumeBranchLifecycle({
+      ...input,
+      from: "active",
+      to: "archived",
       type: "archive",
-      source: "archive",
-      mutate: async ({ branch }) => ResumeBranchSchema.parse({
-        ...branch,
-        lifecycleStatus: "archived"
-      })
+      source: "archive"
     });
+  }
+
+  async restoreArchivedResumeBranch(input: { branchId: string; expectedRevision: number; operationId: string }) {
+    return this.transitionResumeBranchLifecycle({
+      ...input,
+      from: "archived",
+      to: "active",
+      type: "restore",
+      source: "restore"
+    });
+  }
+
+  async moveResumeBranchToTrash(input: { branchId: string; expectedRevision: number; operationId: string }) {
+    return this.transitionResumeBranchLifecycle({
+      ...input,
+      from: "archived",
+      to: "trashed",
+      type: "trash",
+      source: "trash"
+    });
+  }
+
+  async restoreResumeBranchFromTrash(input: { branchId: string; expectedRevision: number; operationId: string }) {
+    return this.transitionResumeBranchLifecycle({
+      ...input,
+      from: "trashed",
+      to: "archived",
+      type: "restore",
+      source: "restore"
+    });
+  }
+
+  async deleteResumeBranchPermanently(input: { branchId: string; expectedRevision: number }) {
+    const branch = await this.db.resumeBranches.get(input.branchId);
+    if (!branch) return { deleted: true as const, blockers: { applications: 0, derivedBranches: 0 } };
+    const parsed = ResumeBranchSchema.parse(branch);
+    if (parsed.revision !== input.expectedRevision) throw new RevisionConflictError();
+    if (parsed.lifecycleStatus !== "trashed") throw new Error("resume_branch_not_in_trash");
+    const [applications, derivedBranches] = await Promise.all([
+      this.db.applications.where("jobSpecificBranchId").equals(parsed.id).count(),
+      this.db.resumeBranches.filter((candidate) => candidate.sourceBranchId === parsed.id).count()
+    ]);
+    const blockers = { applications, derivedBranches };
+    if (applications > 0 || derivedBranches > 0) return { deleted: false as const, blockers };
+    await this.db.transaction(
+      "rw",
+      this.db.resumeBranches,
+      this.db.resumeRevisions,
+      this.db.resumeBranchOperations,
+      this.db.exportRecords,
+      this.db.appMeta,
+      async () => {
+        await this.db.resumeRevisions.where("branchId").equals(parsed.id).delete();
+        await this.db.resumeBranchOperations.where("branchId").equals(parsed.id).delete();
+        await this.db.exportRecords.where("branchId").equals(parsed.id).delete();
+        await this.db.appMeta.delete(resumePresentationConfigKey(parsed.id));
+        await this.db.appMeta.delete(`resumeDiagnosticsIgnored:${parsed.id}`);
+        await this.db.resumeBranches.delete(parsed.id);
+      }
+    );
+    return { deleted: true as const, blockers };
   }
 
   async saveAiLogs(logs: AiLog[]) {
@@ -3544,6 +3734,101 @@ export class WorkspaceRepository {
     return this.db.appMeta.get(key);
   }
 
+  async getRecycleBinState() {
+    const stored = await this.db.appMeta.get(RECYCLE_BIN_META_KEY);
+    const parsed = RecycleBinStateSchema.safeParse(stored?.value);
+    return parsed.success ? parsed.data : EMPTY_RECYCLE_BIN;
+  }
+
+  async addProfileRecycleItem(item: ProfileRecycleItem) {
+    const parsedItem = ProfileRecycleItemSchema.parse(item);
+    const current = await this.getRecycleBinState();
+    const next = RecycleBinStateSchema.parse({
+      ...current,
+      profileItems: [parsedItem, ...current.profileItems.filter((entry) => !(entry.kind === parsedItem.kind && entry.id === parsedItem.id))]
+    });
+    await this.setMeta(RECYCLE_BIN_META_KEY, next);
+    return next;
+  }
+
+  async restoreProfileRecycleItem(kind: ProfileRecycleItem["kind"], itemId: string) {
+    return this.db.transaction("rw", this.db.profiles, this.db.appMeta, async () => {
+      const current = await this.getRecycleBinState();
+      const item = current.profileItems.find((entry) => entry.kind === kind && entry.id === itemId);
+      if (!item) throw new Error("profile_recycle_item_missing");
+      const storedProfile = await this.db.profiles.get(item.profileId);
+      if (!storedProfile) throw new Error("profile_recycle_profile_missing");
+      const profile = CareerProfileSchema.parse(storedProfile);
+      const now = new Date().toISOString();
+      const nextProfile = CareerProfileSchema.parse(item.kind === "experience"
+        ? { ...profile, experiences: [...profile.experiences.filter((entry) => entry.id !== item.id), { ...item.value, updatedAt: now }], version: profile.version + 1, updatedAt: now }
+        : item.kind === "certificate"
+          ? { ...profile, certificates: [...profile.certificates.filter((entry) => entry.id !== item.id), { ...item.value, updatedAt: now }], version: profile.version + 1, updatedAt: now }
+          : item.kind === "skill"
+            ? { ...profile, skills: [...profile.skills.filter((entry) => entry.id !== item.id), { ...item.value, updatedAt: now }], version: profile.version + 1, updatedAt: now }
+            : { ...profile, unclassifiedBlocks: [...profile.unclassifiedBlocks, item.value], version: profile.version + 1, updatedAt: now });
+      const nextState = RecycleBinStateSchema.parse({
+        ...current,
+        profileItems: current.profileItems.filter((entry) => !(entry.kind === kind && entry.id === itemId))
+      });
+      await this.db.profiles.put(nextProfile);
+      await this.db.appMeta.put({ key: RECYCLE_BIN_META_KEY, value: nextState, updatedAt: now });
+      return { profile: nextProfile, state: nextState };
+    });
+  }
+
+  async deleteProfileRecycleItemPermanently(kind: ProfileRecycleItem["kind"], itemId: string) {
+    const current = await this.getRecycleBinState();
+    const next = RecycleBinStateSchema.parse({
+      ...current,
+      profileItems: current.profileItems.filter((entry) => !(entry.kind === kind && entry.id === itemId))
+    });
+    await this.setMeta(RECYCLE_BIN_META_KEY, next);
+    return next;
+  }
+
+  async getProfileItemReferenceCount(item: { kind: "experience" | "certificate" | "skill" | "custom"; id: string }) {
+    if (item.kind === "custom") return 0;
+    return this.db.resumeBranches.filter((branch) => branch.contentItems.some((content) => content.factRefs.some((ref) =>
+      item.kind === "experience" ? ref.type === "experience_fact" && ref.experienceId === item.id
+        : item.kind === "certificate" ? ref.type === "certificate_fact" && ref.certificateId === item.id
+          : ref.type === "skill_fact" && ref.skillId === item.id
+    ))).count();
+  }
+
+  async moveJobToRecycleBin(jobId: string) {
+    if (!await this.db.jobDescriptions.get(jobId)) throw new Error("job_missing");
+    const current = await this.getRecycleBinState();
+    const next = RecycleBinStateSchema.parse({ ...current, jobIds: Array.from(new Set([jobId, ...current.jobIds])) });
+    await this.setMeta(RECYCLE_BIN_META_KEY, next);
+    return next;
+  }
+
+  async restoreJobFromRecycleBin(jobId: string) {
+    const current = await this.getRecycleBinState();
+    const next = RecycleBinStateSchema.parse({ ...current, jobIds: current.jobIds.filter((id) => id !== jobId) });
+    await this.setMeta(RECYCLE_BIN_META_KEY, next);
+    return next;
+  }
+
+  async deleteJobPermanently(jobId: string) {
+    const [branches, applications, matches, drafts] = await Promise.all([
+      this.db.resumeBranches.where("jobId").equals(jobId).count(),
+      this.db.applications.where("jobId").equals(jobId).count(),
+      this.db.requirementMatches.filter((item) => item.jobId === jobId).count(),
+      this.db.jobAdaptationDrafts.filter((item) => item.jobId === jobId).count()
+    ]);
+    const blockers = { branches, applications, matches, drafts };
+    if (Object.values(blockers).some((count) => count > 0)) return { deleted: false as const, blockers };
+    const current = await this.getRecycleBinState();
+    const next = RecycleBinStateSchema.parse({ ...current, jobIds: current.jobIds.filter((id) => id !== jobId) });
+    await this.db.transaction("rw", this.db.jobDescriptions, this.db.appMeta, async () => {
+      await this.db.jobDescriptions.delete(jobId);
+      await this.db.appMeta.put({ key: RECYCLE_BIN_META_KEY, value: next, updatedAt: new Date().toISOString() });
+    });
+    return { deleted: true as const, blockers };
+  }
+
   async exportWorkspaceJson(): Promise<WorkspaceExport> {
     return {
       schemaVersion: "stage-e-e1-v1",
@@ -3639,6 +3924,68 @@ export class WorkspaceRepository {
     return parsed.branchPurpose === "general" && parsed.profileId === branch.profileId
       ? parsed.id
       : undefined;
+  }
+
+  private async transitionResumeBranchLifecycle(input: {
+    branchId: string;
+    expectedRevision: number;
+    operationId: string;
+    from: ResumeBranch["lifecycleStatus"];
+    to: ResumeBranch["lifecycleStatus"];
+    type: ResumeBranchOperation["type"];
+    source: ResumeRevision["source"];
+  }) {
+    return this.db.transaction("rw", this.db.resumeBranches, this.db.resumeRevisions, this.db.resumeBranchOperations, async () => {
+      const existingOperation = await this.db.resumeBranchOperations.where("operationId").equals(input.operationId).first();
+      if (existingOperation) {
+        const existingBranch = await this.db.resumeBranches.get(input.branchId);
+        if (!existingBranch) throw new Error("resume_branch_missing_for_operation");
+        return {
+          branch: ResumeBranchSchema.parse(existingBranch),
+          revision: existingOperation.revisionId ? await this.getResumeRevisionInTransaction(existingOperation.revisionId) : undefined,
+          idempotent: true
+        };
+      }
+      const stored = await this.db.resumeBranches.get(input.branchId);
+      if (!stored) throw new Error("resume_branch_missing");
+      const branch = ResumeBranchSchema.parse(stored);
+      if (branch.migrationStatus !== "verified" || !branch.currentRevisionId) throw new Error("resume_branch_lifecycle_read_only");
+      if (branch.revision !== input.expectedRevision) throw new RevisionConflictError();
+      if (branch.lifecycleStatus !== input.from) throw new Error("resume_branch_lifecycle_transition_invalid");
+      const now = new Date().toISOString();
+      const nextBase = ResumeBranchSchema.parse({
+        ...branch,
+        lifecycleStatus: input.to,
+        revision: branch.revision + 1,
+        updatedAt: now
+      });
+      const revision = createResumeRevision({
+        branch: nextBase,
+        source: input.source,
+        operationId: input.operationId,
+        previousRevisionId: branch.currentRevisionId,
+        now
+      });
+      const nextBranch = ResumeBranchSchema.parse({ ...nextBase, currentRevisionId: revision.id });
+      const operation = ResumeBranchOperationSchema.parse({
+        id: `resume-branch-op-${input.operationId}`,
+        operationId: input.operationId,
+        branchId: branch.id,
+        sourceAdaptationDraftId: branch.sourceAdaptationDraftId,
+        type: input.type,
+        expectedRevision: input.expectedRevision,
+        beforeRevision: branch.revision,
+        afterRevision: nextBranch.revision,
+        revisionId: revision.id,
+        occurredAt: now,
+        createdAt: now,
+        updatedAt: now
+      });
+      await this.db.resumeBranches.put(nextBranch);
+      await this.db.resumeRevisions.put(revision);
+      await this.db.resumeBranchOperations.put(operation);
+      return { branch: nextBranch, revision, idempotent: false };
+    });
   }
 
   private async mutateResumeBranch(input: {
@@ -4325,6 +4672,26 @@ function inferProfileFieldsFromResumeText(text: string) {
     startDate: normalizeProfileDate(parsed.startDate),
     endDate: parsed.current ? undefined : normalizeProfileDate(parsed.endDate)
   };
+}
+
+function profileFactReferenceEquals(
+  left: ResumeBranch["contentItems"][number]["factRefs"][number],
+  right: ResumeBranch["contentItems"][number]["factRefs"][number]
+) {
+  if (left.type !== right.type) return false;
+  if (left.type === "experience_fact" && right.type === "experience_fact") {
+    return left.experienceId === right.experienceId && left.factId === right.factId;
+  }
+  if (left.type === "skill_fact" && right.type === "skill_fact") {
+    return left.skillId === right.skillId && left.factId === right.factId;
+  }
+  if (left.type === "certificate_fact" && right.type === "certificate_fact") {
+    return left.certificateId === right.certificateId && left.factId === right.factId;
+  }
+  if (left.type === "evidence_file" && right.type === "evidence_file") {
+    return left.evidenceId === right.evidenceId && left.linkedFactId === right.linkedFactId;
+  }
+  return false;
 }
 
 function normalizeProfileDate(value?: string) {

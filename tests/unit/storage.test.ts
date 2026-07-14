@@ -82,6 +82,64 @@ afterEach(async () => {
 });
 
 describe("WorkspaceRepository", () => {
+  it("deletes an unreferenced profile and blocks deletion after a resume references it", async () => {
+    db = new CareerAdaptDb(`CareerAdaptProfileDeleteDb-${crypto.randomUUID()}`);
+    const repository = new WorkspaceRepository(db);
+    await repository.saveProfile(demoCareerProfile);
+
+    const deleted = await repository.deleteProfileIfUnreferenced(demoCareerProfile.id);
+    expect(deleted.deleted).toBe(true);
+    expect(await repository.getProfile(demoCareerProfile.id)).toBeUndefined();
+
+    await repository.saveProfile(demoCareerProfile);
+    await repository.createGeneralResumeBranch({
+      profileId: demoCareerProfile.id,
+      operationId: "profile-delete-reference",
+      name: "引用资料的简历",
+      includeProfileFacts: false,
+      includeProfileBasics: true
+    });
+    const blocked = await repository.deleteProfileIfUnreferenced(demoCareerProfile.id);
+    expect(blocked.deleted).toBe(false);
+    expect(blocked.blockers.branches).toBe(1);
+    expect(await repository.getProfile(demoCareerProfile.id)).toBeDefined();
+  });
+
+  it("restores profile items and jobs from the unified recycle bin", async () => {
+    db = new CareerAdaptDb(`CareerAdaptRecycleDb-${crypto.randomUUID()}`);
+    const repository = new WorkspaceRepository(db);
+    await repository.seedDemoWorkspace();
+    const skill = demoCareerProfile.skills[0];
+    await repository.saveProfile({
+      ...demoCareerProfile,
+      skills: demoCareerProfile.skills.filter((item) => item.id !== skill.id),
+      version: demoCareerProfile.version + 1,
+      updatedAt: TEST_TIME
+    });
+    await repository.addProfileRecycleItem({
+      id: skill.id,
+      profileId: demoCareerProfile.id,
+      kind: "skill",
+      category: "skill",
+      title: skill.name,
+      deletedAt: TEST_TIME,
+      value: skill
+    });
+    expect((await repository.getRecycleBinState()).profileItems).toHaveLength(1);
+    const restored = await repository.restoreProfileRecycleItem("skill", skill.id);
+    expect(restored.profile.skills.some((item) => item.id === skill.id)).toBe(true);
+
+    const job = demoJobDescriptions[0];
+    await repository.moveJobToRecycleBin(job.id);
+    expect((await repository.getRecycleBinState()).jobIds).toContain(job.id);
+    await repository.restoreJobFromRecycleBin(job.id);
+    expect((await repository.getRecycleBinState()).jobIds).not.toContain(job.id);
+    await repository.moveJobToRecycleBin(job.id);
+    const deleted = await repository.deleteJobPermanently(job.id);
+    expect(deleted.deleted).toBe(true);
+    expect(await repository.getJobDescription(job.id)).toBeUndefined();
+  });
+
   it("writes, reads, updates, and exports the demo workspace", async () => {
     db = new CareerAdaptDb(`CareerAdaptTestDb-${crypto.randomUUID()}`);
     const repository = new WorkspaceRepository(db);

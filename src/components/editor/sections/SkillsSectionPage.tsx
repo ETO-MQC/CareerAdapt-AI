@@ -22,6 +22,7 @@ type SkillsSectionPageProps = {
   onMoveUp: (itemId: string) => void;
   onMoveDown: (itemId: string) => void;
   onAdd: (text: string) => void;
+  onOpenLibrary: () => void;
   nav: SectionNavContext;
 };
 
@@ -55,6 +56,7 @@ export function SkillsSectionPage({
   onMoveUp,
   onMoveDown,
   onAdd,
+  onOpenLibrary,
   nav
 }: SkillsSectionPageProps) {
   const prev = prevSection(nav.activeSection);
@@ -76,6 +78,7 @@ export function SkillsSectionPage({
         hasNext={Boolean(next)}
         onPrev={() => prev && nav.onNavigate(prev)}
         onNext={() => next && nav.onNavigate(next)}
+        headerAction={<button type="button" className="section-action-button" onClick={onOpenLibrary}>资料库</button>}
       >
         <DefaultSkillsFields sectionLabel={sectionLabel} onAdd={onAdd} />
       </SectionShell>
@@ -145,6 +148,7 @@ export function SkillsSectionPage({
       hasNext={Boolean(next)}
       onPrev={() => prev && nav.onNavigate(prev)}
       onNext={() => next && nav.onNavigate(next)}
+      headerAction={<button type="button" className="section-action-button" onClick={onOpenLibrary}>资料库</button>}
     >
       <AccordionList
         items={accordionItems}

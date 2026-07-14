@@ -23,7 +23,8 @@ import {
   type MatchEvaluation,
   type MatchEvidenceRef,
   type RawInputDocument,
-  type RequirementMatch
+  type RequirementMatch,
+  type ResumeBranch
 } from "@/domain/schemas";
 import { collectAllowedEvidenceRefs } from "@/domain/adaptation/draft";
 import { mergeAiFactGuardReview, runRuleFactGuard } from "@/domain/adaptation/factGuard";
@@ -70,6 +71,9 @@ export function JobsWorkspace() {
   const [jobWorkspaceTab, setJobWorkspaceTab] = useState<JobWorkspaceTab>("resumes");
   const [jobListFilter, setJobListFilter] = useState<JobListFilter>("active");
   const [archivedJobIds, setArchivedJobIds] = useState<string[]>([]);
+  const [trashedJobIds, setTrashedJobIds] = useState<string[]>([]);
+  const [resumeBranches, setResumeBranches] = useState<ResumeBranch[]>([]);
+  const [selectedBaseResumeId, setSelectedBaseResumeId] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -105,25 +109,42 @@ export function JobsWorkspace() {
   const output = draft?.analyzerOutput ?? (draft ? { requirements: draft.manualRequirements, riskNotes: draft.riskNotes } : undefined);
   const profile = workspace.status === "ready" ? workspace.profiles[0] : undefined;
   const jobs = workspace.status === "ready" ? workspace.jobs : [];
-  const activeJobs = jobs.filter((job) => !archivedJobIds.includes(job.id));
-  const archivedJobs = jobs.filter((job) => archivedJobIds.includes(job.id));
+  const activeJobs = jobs.filter((job) => !archivedJobIds.includes(job.id) && !trashedJobIds.includes(job.id));
+  const archivedJobs = jobs.filter((job) => archivedJobIds.includes(job.id) && !trashedJobIds.includes(job.id));
   const visibleJobs = jobListFilter === "archived" ? archivedJobs : activeJobs;
-  const selectedJob = visibleJobs.find((job) => job.id === selectedJobId) ?? visibleJobs[0] ?? jobs.find((job) => job.id === selectedJobId) ?? jobs[0];
+  const availableJobs = [...activeJobs, ...archivedJobs];
+  const selectedJob = visibleJobs.find((job) => job.id === selectedJobId) ?? visibleJobs[0] ?? availableJobs.find((job) => job.id === selectedJobId) ?? availableJobs[0];
+  const baseResumeOptions = resumeBranches.filter((branch) => branch.branchPurpose === "general" && branch.lifecycleStatus === "active" && branch.migrationStatus === "verified" && Boolean(branch.currentRevisionId));
+  const selectedBaseResume = baseResumeOptions.find((branch) => branch.id === selectedBaseResumeId) ?? baseResumeOptions[0];
+  const matchingProfile = profile && selectedBaseResume ? profileLimitedToResume(profile, selectedBaseResume) : undefined;
 
   useEffect(() => {
     let active = true;
     async function loadJobArchive() {
-      const stored = await repository.getMeta(jobArchiveKey);
+      const [stored, recycleBin] = await Promise.all([repository.getMeta(jobArchiveKey), repository.getRecycleBinState()]);
       if (!active) {
         return;
       }
       setArchivedJobIds(parseArchivedJobIds(stored?.value));
+      setTrashedJobIds(recycleBin.jobIds);
     }
     void loadJobArchive();
     return () => {
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (!profile) return;
+    let active = true;
+    void repository.listResumeBranches(profile.id).then((items) => {
+      if (!active) return;
+      setResumeBranches(items);
+      const first = items.find((branch) => branch.branchPurpose === "general" && branch.lifecycleStatus === "active" && branch.migrationStatus === "verified" && Boolean(branch.currentRevisionId));
+      setSelectedBaseResumeId((current) => current || first?.id || "");
+    });
+    return () => { active = false; };
+  }, [profile]);
 
   useEffect(() => {
     let active = true;
@@ -175,7 +196,7 @@ export function JobsWorkspace() {
 
   const selectedMatch = matches.find((match) => match.id === selectedMatchId) ?? matches[0];
   const selectedRequirement = selectedJob?.requirements.find((requirement) => requirement.id === selectedMatch?.requirementId);
-  const manualCandidates = profile && selectedRequirement ? recallCandidatesForRequirement(profile, selectedRequirement) : [];
+  const manualCandidates = matchingProfile && selectedRequirement ? recallCandidatesForRequirement(matchingProfile, selectedRequirement) : [];
 
   async function startImport() {
     if (!title.trim() || !company.trim() || !rawText.trim()) {
@@ -409,35 +430,38 @@ export function JobsWorkspace() {
     setMessage("岗位已恢复到当前列表。");
   }
 
-  function requestSafeJobDelete() {
+  async function requestSafeJobDelete() {
     if (!selectedJob) {
       return;
     }
-    const confirmed = window.confirm("当前版本不直接删除正式岗位数据。确认后会提示你先归档，避免影响匹配、简历建议和求职记录。");
-    if (confirmed) {
-      setMessage("已拦截直接删除。请使用归档保留可恢复记录；如确需物理删除，需要新增仓库删除能力后再处理。");
-    }
+    const confirmed = window.confirm(`将“${selectedJob.company} / ${selectedJob.title}”移入回收站？之后可在统一回收站恢复。`);
+    if (!confirmed) return;
+    const next = await repository.moveJobToRecycleBin(selectedJob.id);
+    await saveArchivedJobIds(archivedJobIds.filter((id) => id !== selectedJob.id));
+    setTrashedJobIds(next.jobIds);
+    setSelectedJobId(activeJobs.find((job) => job.id !== selectedJob.id)?.id ?? "");
+    setMessage("岗位已移入回收站；关联简历、匹配和求职记录未被删除。");
   }
 
   async function runRuleMatcher() {
-    if (!profile || !selectedJob) {
-      setMessage("请先准备个人资料和正式岗位数据。");
+    if (!matchingProfile || !selectedJob || !selectedBaseResume) {
+      setMessage("请先选择一份可用的通用简历和正式岗位。");
       return;
     }
 
-    const nextMatches = createRuleRequirementMatches({ profile, job: selectedJob });
+    const nextMatches = createRuleRequirementMatches({ profile: matchingProfile, job: selectedJob });
     const saved = await repository.saveRuleRequirementMatches({
-      profile,
+      profile: matchingProfile,
       job: selectedJob,
       matches: nextMatches
     });
     setMatches(saved);
     setSelectedMatchId(saved[0]?.id);
-    setMessage("经历匹配已完成：只使用个人资料中已确认的事实。");
+    setMessage(`匹配已完成：只诊断“${selectedBaseResume.name}”中引用的已确认事实。`);
   }
 
   async function runAiEvidenceMatcher() {
-    if (!profile || !selectedJob || matches.length === 0) {
+    if (!matchingProfile || !selectedJob || matches.length === 0) {
       setMessage("请先运行经历匹配。");
       return;
     }
@@ -445,20 +469,20 @@ export function JobsWorkspace() {
     const nextMatches: RequirementMatch[] = [];
 
     for (const match of matches) {
-      const stale = checkRequirementMatchStale(match, { profile, job: selectedJob });
+      const stale = checkRequirementMatchStale(match, { profile: matchingProfile, job: selectedJob });
       const requirement = selectedJob.requirements.find((item) => item.id === match.requirementId);
       if (stale.isStale || !requirement) {
         nextMatches.push({ ...match, isStale: true });
         continue;
       }
 
-      const candidates = recallCandidatesForRequirement(profile, requirement);
+      const candidates = recallCandidatesForRequirement(matchingProfile, requirement);
       const result = await invokeStructuredAi({
         task: "evidence-matcher",
         businessInput: {
-          profileId: profile.id,
+          profileId: matchingProfile.id,
           jobId: selectedJob.id,
-          profileVersion: profile.version,
+          profileVersion: matchingProfile.version,
           jobVersion: selectedJob.updatedAt,
           matcherVersion: match.matcherVersion,
           candidateSetHash: match.candidateSetHash,
@@ -508,7 +532,7 @@ export function JobsWorkspace() {
     }
 
     const saved = await repository.saveAiRequirementMatches({
-      profile,
+      profile: matchingProfile,
       job: selectedJob,
       matches: nextMatches
     });
@@ -517,7 +541,7 @@ export function JobsWorkspace() {
   }
 
   async function saveManualOverride(match: RequirementMatch) {
-    if (!profile || !selectedJob) {
+    if (!matchingProfile || !selectedJob) {
       return;
     }
 
@@ -543,7 +567,7 @@ export function JobsWorkspace() {
     }) as MatchEvaluation & { source: "manual" };
 
     const saved = await repository.saveManualMatchOverride({
-      profile,
+      profile: matchingProfile,
       job: selectedJob,
       matchId: match.id,
       operationId: `manual-${stableHashText(JSON.stringify({
@@ -563,7 +587,7 @@ export function JobsWorkspace() {
   }
 
   async function createC2Draft() {
-    if (!profile || !selectedJob || matches.length === 0) {
+    if (!matchingProfile || !selectedJob || !selectedBaseResume || matches.length === 0) {
       setMessage("请先完成经历匹配，再创建简历建议草稿。");
       return undefined;
     }
@@ -571,15 +595,20 @@ export function JobsWorkspace() {
     try {
       setC2Status("running");
       const operationId = `c2-create-${stableHashText(JSON.stringify({
-        profileId: profile.id,
+        profileId: matchingProfile.id,
         jobId: selectedJob.id,
+        sourceBranchId: selectedBaseResume.id,
+        sourceRevisionId: selectedBaseResume.currentRevisionId ?? undefined,
         matchIds: matches.map((match) => match.id).sort()
       }))}`;
       const result = await repository.createJobAdaptationDraft({
-        profile,
+        profile: matchingProfile,
         job: selectedJob,
         matches,
-        operationId
+        operationId,
+        sourceBranchId: selectedBaseResume.id,
+        sourceRevisionId: selectedBaseResume.currentRevisionId ?? undefined,
+        sourceBranchRevision: selectedBaseResume.revision
       });
       setAdaptationDraft(result.draft);
       setC2Status("idle");
@@ -788,7 +817,7 @@ export function JobsWorkspace() {
       return [];
     }
     return matches.filter((match) => {
-      const stale = checkRequirementMatchStale(match, { profile, job: selectedJob });
+      const stale = checkRequirementMatchStale(match, { profile: matchingProfile ?? profile, job: selectedJob });
       return match.profileId === profile.id && match.jobId === selectedJob.id && !match.isStale && !stale.isStale;
     });
   }
@@ -857,7 +886,7 @@ export function JobsWorkspace() {
       </section>
 
       {workspace.status === "empty" ? <WorkspaceEmptyState /> : null}
-      {message ? <section className="notice">{message}</section> : null}
+      {message ? <section className="notice" role="status" aria-live="polite">{message}</section> : null}
 
       <section className="stage-grid">
         <article className="panel">
@@ -1017,7 +1046,7 @@ export function JobsWorkspace() {
                 ) : (
                   <button className="secondary-button compact" onClick={() => { void archiveSelectedJob(); }}>归档</button>
                 )}
-                <button className="secondary-button compact" onClick={requestSafeJobDelete}>删除</button>
+                <button className="danger-button compact" onClick={() => { void requestSafeJobDelete(); }}>删除</button>
               </div>
               <div className="profile-source-list">
                 <strong>本地说明</strong>
@@ -1065,13 +1094,28 @@ export function JobsWorkspace() {
 
       {profile && selectedJob && jobWorkspaceTab === "resumes" ? (
         <section className="panel">
+          <div className="job-match-source">
+            <label className="field-label" htmlFor="job-match-base-resume">
+              用于诊断的基础简历
+              <select id="job-match-base-resume" value={selectedBaseResume?.id ?? ""} onChange={(event) => {
+                setSelectedBaseResumeId(event.target.value);
+                setMatches([]);
+                setSelectedMatchId(undefined);
+                setAdaptationDraft(undefined);
+                setSuggestions([]);
+              }}>
+                {baseResumeOptions.length === 0 ? <option value="">暂无可用通用简历</option> : baseResumeOptions.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}
+              </select>
+            </label>
+            <p>匹配只使用这份简历已引用且经过确认的资料事实；简历独立填写但未同步的内容暂不作为自动证据。</p>
+          </div>
           <div className="section-heading">
             <div>
               <h2>经历匹配与差距诊断</h2>
               <p>仅使用个人资料中已确认的事实，帮助你判断哪些要求已有证据、哪些需要补充。</p>
             </div>
             <div className="action-row">
-              <button className="primary-button" data-testid="run-experience-match" onClick={runRuleMatcher}>
+              <button className="primary-button" data-testid="run-experience-match" onClick={runRuleMatcher} disabled={!selectedBaseResume}>
                 运行经历匹配
               </button>
               <button className="secondary-button" data-testid="run-ai-evidence-explanation" onClick={runAiEvidenceMatcher} disabled={matches.length === 0}>
@@ -1087,7 +1131,7 @@ export function JobsWorkspace() {
               <div className="match-list">
                 {matches.map((match) => {
                   const effective = resolveEffectiveMatch(match);
-                  const stale = checkRequirementMatchStale(match, { profile, job: selectedJob });
+                  const stale = checkRequirementMatchStale(match, { profile: matchingProfile ?? profile, job: selectedJob });
                   return (
                     <button
                       className={`match-row ${match.id === selectedMatch?.id ? "match-row-active" : ""}`}
@@ -1104,7 +1148,7 @@ export function JobsWorkspace() {
               {selectedMatch ? (
                 <MatchDetail
                   match={selectedMatch}
-                  profile={profile}
+                  profile={matchingProfile ?? profile}
                   job={selectedJob}
                   manualLevel={manualLevel}
                   manualRisk={manualRisk}
@@ -1171,6 +1215,25 @@ export function JobsWorkspace() {
       ) : null}
     </main>
   );
+}
+
+function profileLimitedToResume(profile: CareerProfile, branch: ResumeBranch): CareerProfile {
+  const experienceIds = new Set<string>();
+  const skillIds = new Set<string>();
+  const certificateIds = new Set<string>();
+  for (const item of branch.contentItems) {
+    for (const ref of item.factRefs) {
+      if (ref.type === "experience_fact") experienceIds.add(ref.experienceId);
+      if (ref.type === "skill_fact") skillIds.add(ref.skillId);
+      if (ref.type === "certificate_fact") certificateIds.add(ref.certificateId);
+    }
+  }
+  return {
+    ...profile,
+    experiences: profile.experiences.filter((item) => experienceIds.has(item.id)),
+    skills: profile.skills.filter((item) => skillIds.has(item.id)),
+    certificates: profile.certificates.filter((item) => certificateIds.has(item.id))
+  };
 }
 
 function SuggestionCard({

@@ -820,6 +820,23 @@ html[data-theme="dark"] .panel {
   margin-top: 0;
 }
 
+.job-match-source {
+  align-items: end;
+  background: var(--surface-subtle);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(260px, 0.7fr) minmax(0, 1.3fr);
+  margin-bottom: 16px;
+  padding: 12px;
+}
+
+.job-match-source p {
+  color: var(--muted);
+  margin: 0;
+}
+
 .legacy-job-panel-hidden {
   display: none;
 }
@@ -1031,7 +1048,8 @@ html[data-theme="dark"] .panel {
 }
 
 .primary-button,
-.secondary-button {
+.secondary-button,
+.danger-button {
   align-items: center;
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -1045,6 +1063,27 @@ html[data-theme="dark"] .panel {
   padding: 0 14px;
   text-align: center;
   touch-action: manipulation;
+}
+
+.danger-button {
+  background: color-mix(in srgb, var(--danger) 10%, var(--surface));
+  border-color: color-mix(in srgb, var(--danger) 52%, var(--line));
+  color: var(--danger);
+}
+
+.danger-button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--danger) 16%, var(--surface));
+  border-color: var(--danger);
+}
+
+.danger-button.compact {
+  min-height: 32px;
+  padding: 0 10px;
+}
+
+.danger-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 .primary-button {
@@ -2617,10 +2656,13 @@ small,
 }
 
 .resume-card-list {
+  align-content: start;
   display: grid;
   gap: 12px;
+  grid-auto-rows: 76px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   max-height: 264px;
+  min-height: 252px;
   overflow-y: auto;
   overscroll-behavior: contain;
   padding-right: 4px;
@@ -2632,6 +2674,7 @@ small,
   gap: 12px;
   grid-template-columns: minmax(0, 1fr) auto;
   padding: 12px;
+  height: 76px;
 }
 
 .resume-card-main {
@@ -3882,6 +3925,17 @@ html[data-theme="dark"] .property-panel-heading p {
   gap: 12px;
 }
 
+.resume-card-empty {
+  align-items: center;
+  color: var(--muted);
+  display: flex;
+  min-height: 252px;
+}
+
+.profile-list-panel {
+  grid-template-rows: auto auto minmax(0, 1fr);
+}
+
 .profile-category-panel,
 .profile-list-panel,
 .profile-detail-panel {
@@ -3900,6 +3954,11 @@ html[data-theme="dark"] .property-panel-heading p {
   padding: 4px;
 }
 
+.profile-managed-list {
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
 .profile-category-list {
   align-content: start;
 }
@@ -3915,7 +3974,7 @@ html[data-theme="dark"] .property-panel-heading p {
   display: flex;
   gap: 10px;
   justify-content: space-between;
-  min-height: 48px;
+  height: 56px;
   padding: 8px 12px;
   text-align: left;
   width: 100%;
@@ -4107,6 +4166,67 @@ html[data-theme="dark"] .property-panel-heading p {
 
 .profile-source-list p {
   margin-bottom: 0;
+}
+
+.icon-button-danger {
+  color: var(--danger);
+}
+
+.recycle-workspace {
+  display: grid;
+  gap: 16px;
+}
+
+.recycle-panel,
+.recycle-section-list,
+.recycle-section,
+.recycle-list {
+  display: grid;
+  gap: 12px;
+}
+
+.recycle-section {
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+
+.recycle-row {
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  min-height: 64px;
+  padding: 12px;
+}
+
+.recycle-row > div:first-child {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.recycle-row span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.current-profile-panel {
+  gap: 12px;
+}
+
+.current-profile-panel > .compact-heading {
+  margin-top: 0;
+}
+
+.current-profile-actions {
+  flex-wrap: nowrap;
+  margin-top: 0;
+}
+
+.profile-delete-dialog {
+  max-width: 480px;
 }
 
 .import-quality-report {
@@ -4696,6 +4816,26 @@ html[data-theme="dark"] .property-panel-heading p {
       "categories categories"
       "list detail";
     grid-template-columns: minmax(280px, 0.8fr) minmax(430px, 1.2fr);
+  }
+
+  .jobs-manager-grid {
+    grid-template-areas:
+      "job-list job-tabs"
+      "job-detail job-detail";
+    grid-template-columns: minmax(220px, 0.72fr) minmax(0, 1.28fr);
+  }
+
+  .jobs-list-panel {
+    grid-area: job-list;
+  }
+
+  .jobs-tab-panel {
+    grid-area: job-tabs;
+  }
+
+  .jobs-detail-panel {
+    grid-area: job-detail;
+    min-height: 220px;
   }
 
   .profile-category-panel {

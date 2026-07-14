@@ -8,11 +8,30 @@ test.describe("V2-G7b workspace UX", () => {
     await expect(page.locator(".primary-sidebar a[href='/profile']")).toBeVisible();
     await expect(page.locator(".primary-sidebar a[href='/jobs']")).toBeVisible();
     await expect(page.locator(".primary-sidebar a[href='/applications']")).toBeVisible();
+    await expect(page.locator(".primary-sidebar a[href='/recycle']")).toBeVisible();
     await expect(page.locator(".primary-sidebar a[href='/settings']")).toBeVisible();
 
     await expect(page.getByText("A4 Probe")).toHaveCount(0);
     await expect(page.getByText("PDF Probe")).toHaveCount(0);
     await expect(page.getByText("Repository")).toHaveCount(0);
+  });
+
+  test("moves a job to the unified recycle bin and restores it", async ({ page }) => {
+    await page.goto("/resume");
+    await page.getByRole("button").filter({ hasText: "从个人资料库创建" }).click();
+    await page.goto("/jobs");
+    await expect(page.getByLabel("用于诊断的基础简历")).toHaveValue(/.+/);
+    const jobTitle = await page.locator(".jobs-detail-panel strong").first().innerText();
+    page.once("dialog", (dialog) => dialog.accept());
+    await page.locator(".jobs-detail-panel").getByRole("button", { name: "删除", exact: true }).click();
+    await expect(page.locator(".notice")).toContainText("岗位已移入回收站");
+
+    await page.goto("/recycle");
+    const recycled = page.locator(".recycle-row").filter({ hasText: jobTitle });
+    await expect(recycled).toBeVisible();
+    await recycled.getByRole("button", { name: "恢复", exact: true }).click();
+    await expect(page.locator(".notice")).toContainText("岗位已恢复");
+    await expect(recycled).toHaveCount(0);
   });
 
   test("profile workspace uses category, list, detail management", async ({ page }) => {
@@ -25,6 +44,9 @@ test.describe("V2-G7b workspace UX", () => {
     await expect(page.locator(".profile-detail-panel")).toBeVisible();
 
     await page.locator(".profile-category-button").filter({ hasText: "个人技能" }).click();
+    const rows = page.locator(".profile-managed-row");
+    const initialCount = await rows.count();
+    const originalFirstItem = await rows.first().innerText();
     await page.locator(".profile-list-panel button.primary-button").click();
     const detail = page.locator(".profile-detail-panel");
     await detail.locator("input").first().fill(skillName);
@@ -33,6 +55,45 @@ test.describe("V2-G7b workspace UX", () => {
     await detail.locator("button.primary-button").last().click();
 
     await expect(page.locator(".profile-managed-list")).toContainText(skillName);
+    await expect(rows).toHaveCount(initialCount + 1);
+    await expect(page.locator(".profile-managed-list")).toContainText(originalFirstItem.split("\n")[0]);
+
+    const scrollStructure = await page.locator(".profile-list-panel").evaluate((panel) => {
+      const list = panel.querySelector<HTMLElement>(".profile-managed-list");
+      return {
+        rows: getComputedStyle(panel).gridTemplateRows,
+        overflowY: list ? getComputedStyle(list).overflowY : "",
+        scrollbarGutter: list ? getComputedStyle(list).scrollbarGutter : ""
+      };
+    });
+    expect(scrollStructure.rows.trim().split(/\s+/)).toHaveLength(3);
+    expect(scrollStructure.overflowY).toBe("auto");
+    expect(scrollStructure.scrollbarGutter).toContain("stable");
+
+    const createdRow = page.locator(".profile-managed-row").filter({ hasText: skillName });
+    await createdRow.getByRole("button", { name: `归档 ${skillName}` }).click();
+    await expect(page.locator(".profile-list-panel select")).toHaveValue("all");
+    await expect(page.locator(".notice")).toContainText("资料条目已归档");
+    await page.locator(".profile-list-panel select").selectOption("archived");
+    const archivedRow = page.locator(".profile-managed-row").filter({ hasText: skillName });
+    await archivedRow.getByRole("button", { name: `删除 ${skillName}` }).click();
+    await expect(page.locator(".notice")).toContainText("资料条目已移入回收站");
+    await page.goto("/recycle");
+    await expect(page.locator(".recycle-row").filter({ hasText: skillName })).toBeVisible();
+  });
+
+  test("current profile offers edit and guarded delete actions", async ({ page }) => {
+    await page.goto("/profile");
+    const currentProfile = page.locator(".current-profile-panel");
+    await expect(currentProfile.getByRole("button", { name: "修改" })).toBeVisible();
+    await expect(currentProfile.getByRole("button", { name: "删除" })).toBeVisible();
+
+    await currentProfile.getByRole("button", { name: "修改" }).click();
+    await expect(page.locator(".profile-category-button-active")).toContainText("个人信息");
+    await currentProfile.getByRole("button", { name: "删除" }).click();
+    await expect(page.getByRole("dialog", { name: "删除当前个人资料？" })).toBeVisible();
+    await page.getByRole("button", { name: "取消" }).click();
+    await expect(page.getByRole("dialog", { name: "删除当前个人资料？" })).toHaveCount(0);
   });
 
   test("profile education fields persist with the resume field model", async ({ page }) => {
@@ -107,7 +168,11 @@ test.describe("V2-G7b workspace UX", () => {
 });
 
 async function createBranchFromDraft(page: Page, branchName: string) {
+  await page.goto("/resume");
+  await page.getByRole("button").filter({ hasText: "从个人资料库创建" }).click();
+  await page.getByTestId("resume-studio-workbar").getByRole("button", { name: "返回", exact: true }).click();
   await page.goto("/jobs");
+  await expect(page.getByLabel("用于诊断的基础简历")).toHaveValue(/.+/);
   await page.getByTestId("run-experience-match").click();
   await expect(page.locator(".match-row").first()).toBeVisible({ timeout: 15_000 });
   await page.getByTestId("create-suggestion-draft").click();
@@ -115,6 +180,7 @@ async function createBranchFromDraft(page: Page, branchName: string) {
 
   await page.goto("/resume");
   await page.getByTestId("resume-import-strip").waitFor({ state: "visible", timeout: 15_000 });
+  await page.getByRole("button").filter({ hasText: "根据岗位创建" }).click();
   await page.getByTestId("job-suggestion-draft-select").first().selectOption({ index: 0 });
   await page.getByTestId("new-resume-branch-name").first().fill(branchName);
   await page.getByTestId("create-job-resume").first().click();

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { EntityBaseSchema, IsoDateStringSchema, RiskLevelSchema } from "./common";
 
-export const BranchLifecycleStatusSchema = z.enum(["active", "archived"]);
+export const BranchLifecycleStatusSchema = z.enum(["active", "archived", "trashed"]);
 export const BranchMigrationStatusSchema = z.enum(["verified", "legacy_unverified"]);
 export const ResumeBranchPurposeSchema = z.enum(["job_specific", "general"]);
 
@@ -161,7 +161,8 @@ export const ResumeRevisionSourceSchema = z.enum([
   "visibility",
   "restore",
   "undo",
-  "archive"
+  "archive",
+  "trash"
 ]);
 
 export const ResumeRevisionSchema = EntityBaseSchema.extend({
@@ -276,6 +277,7 @@ export const ResumeBranchOperationTypeSchema = z.enum([
   "undo",
   "refresh_sync_status",
   "archive",
+  "trash",
   "legacy_migration"
 ]);
 

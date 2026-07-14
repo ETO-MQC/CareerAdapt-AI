@@ -71,8 +71,19 @@ type WorkbenchState = {
 
 type ResumeImportEntryMode = "file" | "json";
 type ContentAutoSaveState = "idle" | "dirty" | "saving" | "saved" | "needs_confirmation" | "error";
+type ProfileLibraryReference =
+  | { type: "experience"; experienceId: string; factId: string }
+  | { type: "skill"; skillId: string; factId: string }
+  | { type: "certificate"; certificateId: string; factId: string };
+type ProfileLibraryItem = {
+  key: string;
+  title: string;
+  subtitle: string;
+  body: string;
+  reference: ProfileLibraryReference;
+};
 
-type ResumeListFilter = "recent" | "all" | "general" | "job" | "archived";
+type ResumeListFilter = "recent" | "all" | "general" | "job" | "archived" | "trash";
 type CanvasZoomMode = "fit-page" | "custom";
 type StudioLayoutState = {
   sectionNavCollapsed: boolean;
@@ -198,6 +209,9 @@ export function ResumeWorkspace() {
   const [profileSyncChoices, setProfileSyncChoices] = useState<Record<string, "resume" | "profile">>({});
   const [profileSyncDialogOpen, setProfileSyncDialogOpen] = useState(false);
   const [profileLibraryOpen, setProfileLibraryOpen] = useState(false);
+  const [pendingPermanentDeleteBranch, setPendingPermanentDeleteBranch] = useState<ResumeBranch | undefined>();
+  const [permanentDeleteName, setPermanentDeleteName] = useState("");
+  const [permanentDeleting, setPermanentDeleting] = useState(false);
   const [pendingResumeOnlyEdit, setPendingResumeOnlyEdit] = useState<{
     itemId: string;
     text: string;
@@ -248,10 +262,13 @@ export function ResumeWorkspace() {
   }, [editTexts]);
 
   useEffect(() => {
-    if (!profileSyncDialogOpen && !pendingResumeOnlyEdit && !profileLibraryOpen) return;
+    if (!profileSyncDialogOpen && !pendingResumeOnlyEdit && !profileLibraryOpen && !pendingPermanentDeleteBranch) return;
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
-      if (profileLibraryOpen) {
+      if (pendingPermanentDeleteBranch) {
+        setPendingPermanentDeleteBranch(undefined);
+        setPermanentDeleteName("");
+      } else if (profileLibraryOpen) {
         setProfileLibraryOpen(false);
       } else if (pendingResumeOnlyEdit) {
         setPendingResumeOnlyEdit(undefined);
@@ -263,7 +280,7 @@ export function ResumeWorkspace() {
     };
     document.addEventListener("keydown", handleEscape);
     return () => document.removeEventListener("keydown", handleEscape);
-  }, [pendingResumeOnlyEdit, profileLibraryOpen, profileSyncDialogOpen]);
+  }, [pendingPermanentDeleteBranch, pendingResumeOnlyEdit, profileLibraryOpen, profileSyncDialogOpen]);
 
   const profile = profileOverride ?? (workspace.status === "ready" ? workspace.profiles[0] : undefined);
   const jobs = useMemo(() => {
@@ -301,10 +318,10 @@ export function ResumeWorkspace() {
   const resumeDocumentBlocksById = useMemo(() => {
     return new Map(resumeDocument?.blocks.map((block) => [block.contentItemId, block]) ?? []);
   }, [resumeDocument]);
-  const profileLibraryExperiences = useMemo(() => {
-    if (!profile) return [];
-    return profile.experiences.filter((experience) => experienceMatchesResumeSection(experience.type, activeResumeSection));
-  }, [profile, activeResumeSection]);
+  const profileLibraryItems = useMemo(
+    () => profile ? buildProfileLibraryItems(profile, activeResumeSection) : [],
+    [profile, activeResumeSection]
+  );
   const selectedStudioBlock = selectedStudioItemId ? resumeDocumentBlocksById.get(selectedStudioItemId) : undefined;
   const selectedStudioSection = useMemo(() => {
     if (!resumeDocument || !selectedStudioBlock) {
@@ -408,10 +425,14 @@ export function ResumeWorkspace() {
     return [...branches].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   }, [branches]);
   const activeBranches = useMemo(() => sortedBranches.filter((branch) => branch.lifecycleStatus === "active"), [sortedBranches]);
-  const archivedBranches = useMemo(() => sortedBranches.filter((branch) => branch.lifecycleStatus !== "active"), [sortedBranches]);
+  const archivedBranches = useMemo(() => sortedBranches.filter((branch) => branch.lifecycleStatus === "archived"), [sortedBranches]);
+  const trashedBranches = useMemo(() => sortedBranches.filter((branch) => branch.lifecycleStatus === "trashed"), [sortedBranches]);
   const visibleBranches = useMemo(() => {
     if (resumeListFilter === "archived") {
       return archivedBranches;
+    }
+    if (resumeListFilter === "trash") {
+      return trashedBranches;
     }
     const unarchived = activeBranches;
     if (resumeListFilter === "general") {
@@ -424,13 +445,14 @@ export function ResumeWorkspace() {
       return unarchived.slice(0, 5);
     }
     return unarchived;
-  }, [activeBranches, archivedBranches, resumeListFilter]);
+  }, [activeBranches, archivedBranches, resumeListFilter, trashedBranches]);
   const resumeListFilters: Array<{ key: ResumeListFilter; label: string; count: number }> = [
     { key: "recent", label: "最近", count: Math.min(activeBranches.length, 5) },
     { key: "all", label: "全部", count: activeBranches.length },
     { key: "general", label: "通用", count: activeBranches.filter((branch) => branch.branchPurpose === "general").length },
     { key: "job", label: "岗位", count: activeBranches.filter((branch) => branch.branchPurpose === "job_specific").length },
-    { key: "archived", label: "归档", count: archivedBranches.length }
+    { key: "archived", label: "归档", count: archivedBranches.length },
+    { key: "trash", label: "回收站", count: trashedBranches.length }
   ];
   const workbarWarnings = selectedBranch ? [
     selectedBranch.migrationStatus === "legacy_unverified" ? "旧占位简历已只读保留，不参与正式编辑或导出。" : undefined,
@@ -1416,25 +1438,26 @@ export function ResumeWorkspace() {
     }
   }
 
-  async function addProfileExperienceToResume(experienceId: string, factId: string) {
+  async function addProfileLibraryItemToResume(item: ProfileLibraryItem) {
     if (!selectedBranch) return;
     try {
-      const result = await repository.addResumeContentItemFromProfile({
+      const result = await repository.addResumeContentItemFromProfileReference({
         branchId: selectedBranch.id,
         expectedRevision: selectedBranch.revision,
-        operationId: `use-profile-experience-${selectedBranch.id}-${selectedBranch.revision}-${experienceId}-${factId}`,
+        operationId: `use-profile-item-${selectedBranch.id}-${selectedBranch.revision}-${item.key}`,
         section: activeResumeSection,
-        experienceId,
-        factId
+        reference: item.reference
       });
       replaceBranch(result.branch);
       setSelectedStudioItemId(result.newItemId);
       setProfileLibraryOpen(false);
-      setMessage("已从个人资料库加入当前简历；资料库原内容未被修改。");
+      setMessage("已从个人资料库加入当前简历；重复条目不会再次加入。");
     } catch (error) {
       setMessage(error instanceof RevisionConflictError
         ? "加入失败：简历版本已变化，请刷新后重试。"
-        : "加入失败：该资料可能已失效或尚未确认。");
+        : error instanceof Error && error.message === "profile_item_already_used"
+          ? "这条资料已经在当前简历中。"
+          : "加入失败：该资料可能已失效、重复或尚未确认。");
     }
   }
 
@@ -2297,8 +2320,8 @@ export function ResumeWorkspace() {
   }
 
   async function archiveBranch(branch: ResumeBranch) {
-    if (!canEditBranch(branch)) {
-      setMessage("当前简历不可归档：旧数据、已归档、引用失效或缺少当前版本。");
+    if (!canManageBranch(branch)) {
+      setMessage("当前简历无法归档：旧数据、已归档或缺少当前版本。");
       return;
     }
     try {
@@ -2308,8 +2331,8 @@ export function ResumeWorkspace() {
         operationId: `v2-g7b3-archive-${branch.id}-${branch.revision}`,
         confirmedImpact: true
       });
-      replaceBranch(result.branch);
-      setSelectedBranchId("");
+      replaceBranch(result.branch, { select: false });
+      setSelectedBranchId(BRANCH_LIST_SENTINEL);
       if (profile) {
         await refreshLists(profile.id);
       }
@@ -2318,6 +2341,74 @@ export function ResumeWorkspace() {
       setMessage(error instanceof RevisionConflictError
         ? "归档失败：简历版本已变化，请刷新后重试。"
         : "归档失败：当前简历状态不允许归档。");
+    }
+  }
+
+  async function restoreArchivedBranch(branch: ResumeBranch) {
+    try {
+      const result = await repository.restoreArchivedResumeBranch({
+        branchId: branch.id,
+        expectedRevision: branch.revision,
+        operationId: `p33-restore-archived-${branch.id}-${branch.revision}`
+      });
+      replaceBranch(result.branch, { select: false });
+      setResumeListFilter("all");
+      setMessage("简历已恢复到当前简历，可继续编辑。");
+    } catch (error) {
+      setMessage(error instanceof RevisionConflictError ? "恢复失败：简历版本已变化。" : "恢复失败：当前生命周期状态不允许恢复。");
+    }
+  }
+
+  async function moveArchivedBranchToTrash(branch: ResumeBranch) {
+    try {
+      const result = await repository.moveResumeBranchToTrash({
+        branchId: branch.id,
+        expectedRevision: branch.revision,
+        operationId: `p33-trash-${branch.id}-${branch.revision}`
+      });
+      replaceBranch(result.branch, { select: false });
+      setMessage("简历已移入回收站，仍可恢复；尚未永久删除。");
+    } catch (error) {
+      setMessage(error instanceof RevisionConflictError ? "移入回收站失败：简历版本已变化。" : "移入回收站失败：请先将简历归档。");
+    }
+  }
+
+  async function restoreBranchFromTrash(branch: ResumeBranch) {
+    try {
+      const result = await repository.restoreResumeBranchFromTrash({
+        branchId: branch.id,
+        expectedRevision: branch.revision,
+        operationId: `p33-restore-trash-${branch.id}-${branch.revision}`
+      });
+      replaceBranch(result.branch, { select: false });
+      setResumeListFilter("archived");
+      setMessage("简历已从回收站恢复到归档。");
+    } catch (error) {
+      setMessage(error instanceof RevisionConflictError ? "恢复失败：简历版本已变化。" : "恢复失败：当前简历不在回收站中。");
+    }
+  }
+
+  async function confirmPermanentBranchDelete() {
+    const branch = pendingPermanentDeleteBranch;
+    if (!branch || permanentDeleteName.trim() !== branch.name) return;
+    setPermanentDeleting(true);
+    try {
+      const result = await repository.deleteResumeBranchPermanently({ branchId: branch.id, expectedRevision: branch.revision });
+      if (!result.deleted) {
+        setMessage(`无法永久删除：仍有 ${result.blockers.applications} 条求职记录和 ${result.blockers.derivedBranches} 份岗位简历引用它。`);
+        setPendingPermanentDeleteBranch(undefined);
+        setPermanentDeleteName("");
+        return;
+      }
+      setBranches((current) => current.filter((item) => item.id !== branch.id));
+      if (selectedBranchId === branch.id) setSelectedBranchId(BRANCH_LIST_SENTINEL);
+      setPendingPermanentDeleteBranch(undefined);
+      setPermanentDeleteName("");
+      setMessage("简历及其版本、操作和导出记录已永久删除。");
+    } catch (error) {
+      setMessage(error instanceof RevisionConflictError ? "永久删除失败：简历版本已变化。" : "永久删除失败，简历仍保留在回收站。");
+    } finally {
+      setPermanentDeleting(false);
     }
   }
 
@@ -2747,13 +2838,13 @@ export function ResumeWorkspace() {
     }
   }
 
-  function replaceBranch(branch: ResumeBranch, options: { preserveDrafts?: boolean } = {}) {
+  function replaceBranch(branch: ResumeBranch, options: { preserveDrafts?: boolean; select?: boolean } = {}) {
     const nextBranches = branchesRef.current.some((item) => item.id === branch.id)
       ? branchesRef.current.map((item) => item.id === branch.id ? branch : item)
       : [branch, ...branchesRef.current];
     branchesRef.current = nextBranches;
     setBranches(nextBranches);
-    setSelectedBranchId(branch.id);
+    if (options.select !== false) setSelectedBranchId(branch.id);
     if (!options.preserveDrafts) {
       editTextsRef.current = {};
       setEditTexts({});
@@ -2924,7 +3015,7 @@ export function ResumeWorkspace() {
               <div className="section-heading compact-heading">
                 <div>
                   <h2>简历中心</h2>
-                  <p>{activeBranches.length} 份当前简历 / {archivedBranches.length} 份已归档</p>
+                  <p>{activeBranches.length} 份当前简历 / {archivedBranches.length} 份已归档 / {trashedBranches.length} 份在回收站</p>
                 </div>
               </div>
               <div className="resume-filter-row" role="tablist" aria-label="简历筛选">
@@ -2959,35 +3050,48 @@ export function ResumeWorkspace() {
                           <small>更新于 {formatLocalDateTime(branch.updatedAt)}</small>
                         </button>
                         <div className="resume-card-actions">
-                          <button className="primary-button compact" type="button" disabled={!branchEditable} onClick={() => openResumeBranch(branch.id)}>打开</button>
-                          <button className="secondary-button compact" type="button" disabled={!branchEditable} onClick={() => {
-                            openResumeBranch(branch.id);
-                            setStudioMode("style");
-                            setStyleInspectorTab("page");
-                            setMessage("已打开该简历，可在右上角导出 PDF。");
-                          }}>
-                            导出
-                          </button>
-                          <details className="resume-card-more">
-                            <summary className="secondary-button compact">更多</summary>
-                            <div className="resume-card-more-popover">
-                              <button type="button" disabled={!branchEditable} onClick={() => {
+                          {branch.lifecycleStatus === "active" ? (
+                            <>
+                              <button className="primary-button compact" type="button" disabled={!branchEditable} onClick={() => openResumeBranch(branch.id)}>打开</button>
+                              <button className="secondary-button compact" type="button" disabled={!branchEditable} onClick={() => {
                                 openResumeBranch(branch.id);
                                 setStudioMode("style");
                                 setStyleInspectorTab("page");
-                              }}>
-                                历史与页面
-                              </button>
-                              <button type="button" disabled={!branchEditable} onClick={() => { void archiveBranch(branch); }}>归档</button>
-                            </div>
-                          </details>
+                                setMessage("已打开该简历，可在右上角导出 PDF。");
+                              }}>导出</button>
+                              <details className="resume-card-more">
+                                <summary className="secondary-button compact">更多</summary>
+                                <div className="resume-card-more-popover">
+                                  <button type="button" disabled={!branchEditable} onClick={() => {
+                                    openResumeBranch(branch.id);
+                                    setStudioMode("style");
+                                    setStyleInspectorTab("page");
+                                  }}>历史与页面</button>
+                                  <button type="button" disabled={!canManageBranch(branch)} onClick={() => { void archiveBranch(branch); }}>归档</button>
+                                </div>
+                              </details>
+                            </>
+                          ) : branch.lifecycleStatus === "archived" ? (
+                            <>
+                              <button className="primary-button compact" type="button" onClick={() => { void restoreArchivedBranch(branch); }}>恢复</button>
+                              <button className="secondary-button compact" type="button" onClick={() => { void moveArchivedBranchToTrash(branch); }}>移至回收站</button>
+                            </>
+                          ) : (
+                            <>
+                              <button className="secondary-button compact" type="button" onClick={() => { void restoreBranchFromTrash(branch); }}>恢复到归档</button>
+                              <button className="danger-button compact" type="button" onClick={() => {
+                                setPendingPermanentDeleteBranch(branch);
+                                setPermanentDeleteName("");
+                              }}>永久删除</button>
+                            </>
+                          )}
                         </div>
                       </article>
                     );
                   })}
                 </div>
               ) : (
-                <p>当前筛选下暂无简历。可以先导入已有简历，或在岗位工作区生成岗位建议草稿后创建。</p>
+                <p className="resume-card-empty">当前筛选下暂无简历。可以先导入已有简历，或在岗位工作区生成岗位建议草稿后创建。</p>
               )}
             </article>
           </section>
@@ -3120,7 +3224,7 @@ export function ResumeWorkspace() {
                 <button type="button" onClick={() => setMessage(`当前简历共有 ${revisions.length} 个版本记录。`)}>查看历史</button>
                 <button type="button" onClick={() => { void undoPresentationChange(); }} disabled={!presentationHistory.undoStack.length || !presentationConfig}>回退展示</button>
                 <button type="button" onClick={() => { void redoPresentationChange(); }} disabled={!presentationHistory.redoStack.length || !presentationConfig}>重做展示</button>
-                <button type="button" onClick={() => { void archiveBranch(selectedBranch); }} disabled={!selectedBranchEditable}>归档</button>
+                <button type="button" onClick={() => { void archiveBranch(selectedBranch); }} disabled={!canManageBranch(selectedBranch)}>归档</button>
                 {revisions.slice(0, 3).map((revision) => (
                   <button
                     key={revision.id}
@@ -3361,6 +3465,7 @@ export function ResumeWorkspace() {
                   onMoveUp={(itemId) => void movePresentationItem(itemId, "up")}
                   onMoveDown={(itemId) => void movePresentationItem(itemId, "down")}
                   onAdd={(text) => void addContentItem(activeResumeSection, text)}
+                  onOpenLibrary={() => setProfileLibraryOpen(true)}
                   nav={sectionNavContext}
                 />
               )
@@ -3983,32 +4088,50 @@ export function ResumeWorkspace() {
               <button type="button" className="section-action-button" onClick={() => setProfileLibraryOpen(false)}>关闭</button>
             </div>
             <div className="profile-library-list">
-              {profileLibraryExperiences.length > 0 ? profileLibraryExperiences.flatMap((experience) =>
-                experience.facts.filter((fact) => fact.confirmedByUser && fact.riskLevel !== "high").map((fact) => {
-                  const alreadyUsed = selectedBranch?.contentItems.some((item) => item.factRefs.some((ref) =>
-                    ref.type === "experience_fact" && ref.experienceId === experience.id && ref.factId === fact.id
-                  ));
-                  return (
-                    <article className="profile-library-item" key={`${experience.id}:${fact.id}`}>
-                      <div className="profile-library-item-copy">
-                        <strong>{experience.organization} · {experience.role}</strong>
-                        <span>{[experience.startDate, experience.endDate].filter(Boolean).join(" — ") || "未填写时间"}</span>
-                        <p>{fact.statement}</p>
-                      </div>
-                      <button
-                        type="button"
-                        className="section-action-button section-action-button-primary"
-                        disabled={alreadyUsed}
-                        onClick={() => { void addProfileExperienceToResume(experience.id, fact.id); }}
-                      >
-                        {alreadyUsed ? "已使用" : "使用"}
-                      </button>
-                    </article>
-                  );
-                })
-              ) : (
+              {profileLibraryItems.length > 0 ? profileLibraryItems.map((item) => {
+                const alreadyUsed = selectedBranch?.contentItems.some((contentItem) => contentItem.factRefs.some((reference) => profileLibraryReferenceMatches(reference, item.reference)));
+                return (
+                  <article className="profile-library-item" key={item.key}>
+                    <div className="profile-library-item-copy">
+                      <strong>{item.title}</strong>
+                      <span>{item.subtitle || "资料库已确认内容"}</span>
+                      <p>{item.body}</p>
+                    </div>
+                    <button
+                      type="button"
+                      className="section-action-button section-action-button-primary"
+                      disabled={alreadyUsed}
+                      onClick={() => { void addProfileLibraryItemToResume(item); }}
+                    >
+                      {alreadyUsed ? "已在简历中" : "使用"}
+                    </button>
+                  </article>
+                );
+              }) : (
                 <div className="profile-library-empty">资料库中还没有此栏目的已确认内容。你可以先在简历中填写，之后再选择是否同步。</div>
               )}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {pendingPermanentDeleteBranch ? (
+        <div className="sync-dialog-overlay" role="dialog" aria-modal="true" aria-labelledby="permanent-delete-title">
+          <div className="sync-dialog profile-delete-dialog">
+            <h3 className="sync-dialog-title" id="permanent-delete-title">永久删除简历？</h3>
+            <p className="sync-dialog-description">这会删除简历正文、历史版本、操作记录和导出记录，无法恢复。请输入简历名称“{pendingPermanentDeleteBranch.name}”确认。</p>
+            <label className="field-input-group" htmlFor="permanent-delete-name">
+              <span className="field-input-label">简历名称</span>
+              <input id="permanent-delete-name" className="field-input" value={permanentDeleteName} autoComplete="off" onChange={(event) => setPermanentDeleteName(event.target.value)} />
+            </label>
+            <div className="sync-dialog-actions">
+              <button type="button" className="section-action-button" disabled={permanentDeleting} onClick={() => {
+                setPendingPermanentDeleteBranch(undefined);
+                setPermanentDeleteName("");
+              }}>取消</button>
+              <button type="button" className="danger-button" disabled={permanentDeleting || permanentDeleteName.trim() !== pendingPermanentDeleteBranch.name} onClick={() => { void confirmPermanentBranchDelete(); }}>
+                {permanentDeleting ? "删除中…" : "永久删除"}
+              </button>
             </div>
           </div>
         </div>
@@ -4325,12 +4448,16 @@ function canEditBranch(branch: ResumeBranch) {
   return branchNotEditableReason(branch) === undefined;
 }
 
+function canManageBranch(branch: ResumeBranch) {
+  return branch.migrationStatus === "verified" && branch.lifecycleStatus === "active" && Boolean(branch.currentRevisionId);
+}
+
 function branchNotEditableReason(branch: ResumeBranch) {
   if (branch.migrationStatus !== "verified") {
     return "legacy_unverified";
   }
   if (branch.lifecycleStatus !== "active") {
-    return "archived";
+    return branch.lifecycleStatus === "trashed" ? "trashed" : "archived";
   }
   if (!branch.currentRevisionId) {
     return "missing_current_revision";
@@ -4350,7 +4477,7 @@ function branchStatusLabel(branch: ResumeBranch) {
     return "旧数据只读";
   }
   if (branch.lifecycleStatus !== "active") {
-    return "已归档";
+    return branch.lifecycleStatus === "trashed" ? "回收站" : "已归档";
   }
   return "可编辑";
 }
@@ -4359,6 +4486,7 @@ function branchNotEditableLabel(reason: ReturnType<typeof branchNotEditableReaso
   const labels: Record<string, string> = {
     legacy_unverified: "旧数据只读",
     archived: "已归档",
+    trashed: "回收站只读",
     missing_current_revision: "缺少当前版本",
     invalid_reference: "引用的个人资料或岗位已变化"
   };
@@ -4592,9 +4720,68 @@ function experienceMatchesResumeSection(
   section: ResumeStudioSectionKey
 ) {
   if (section === "education") return type === "education";
-  if (section === "projects") return type === "project" || type === "competition";
+  if (section === "projects") return type === "project";
   if (section === "campus") return type === "campus" || type === "volunteer";
   if (section === "experience") return type === "work" || type === "internship" || type === "other";
+  if (section === "awards") return type === "competition";
+  return false;
+}
+
+function buildProfileLibraryItems(profile: CareerProfile, section: ResumeStudioSectionKey): ProfileLibraryItem[] {
+  if (section === "skills" || section === "language") {
+    return profile.skills.flatMap((skill) => {
+      const fact = skill.fact;
+      const language = fact?.category === "language" || /语言|英语|日语|韩语|法语|德语|雅思|托福|CET/i.test(skill.name);
+      if (!fact || !fact.confirmedByUser || fact.riskLevel === "high" || language !== (section === "language")) return [];
+      return [{
+        key: `skill:${skill.id}:${fact.id}`,
+        title: skill.name,
+        subtitle: skill.level === "proficient" ? "熟练" : skill.level === "basic" ? "了解" : "熟悉",
+        body: fact.statement,
+        reference: { type: "skill" as const, skillId: skill.id, factId: fact.id }
+      }];
+    });
+  }
+  if (section === "certificates") {
+    return profile.certificates.flatMap((certificate) => {
+      const fact = certificate.fact;
+      if (!fact || !fact.confirmedByUser || fact.riskLevel === "high") return [];
+      return [{
+        key: `certificate:${certificate.id}:${fact.id}`,
+        title: certificate.name,
+        subtitle: [certificate.issuer, certificate.issuedAt].filter(Boolean).join(" · "),
+        body: fact.statement,
+        reference: { type: "certificate" as const, certificateId: certificate.id, factId: fact.id }
+      }];
+    });
+  }
+  return profile.experiences
+    .filter((experience) => experienceMatchesResumeSection(experience.type, section))
+    .flatMap((experience) => experience.facts.flatMap((fact) => {
+      if (!fact.confirmedByUser || fact.riskLevel === "high") return [];
+      return [{
+        key: `experience:${experience.id}:${fact.id}`,
+        title: `${experience.organization} · ${experience.role}`,
+        subtitle: [experience.startDate, experience.endDate].filter(Boolean).join(" — ") || "未填写时间",
+        body: fact.statement,
+        reference: { type: "experience" as const, experienceId: experience.id, factId: fact.id }
+      }];
+    }));
+}
+
+function profileLibraryReferenceMatches(
+  reference: ResumeBranch["contentItems"][number]["factRefs"][number],
+  libraryReference: ProfileLibraryReference
+) {
+  if (reference.type === "experience_fact" && libraryReference.type === "experience") {
+    return reference.experienceId === libraryReference.experienceId && reference.factId === libraryReference.factId;
+  }
+  if (reference.type === "skill_fact" && libraryReference.type === "skill") {
+    return reference.skillId === libraryReference.skillId && reference.factId === libraryReference.factId;
+  }
+  if (reference.type === "certificate_fact" && libraryReference.type === "certificate") {
+    return reference.certificateId === libraryReference.certificateId && reference.factId === libraryReference.factId;
+  }
   return false;
 }
 

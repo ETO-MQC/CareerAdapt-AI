@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 
 type ThemePreference = "system" | "light" | "dark";
 type DensityPreference = "compact" | "comfortable";
-type NavIconName = "home" | "resume" | "profile" | "jobs" | "applications" | "settings";
+type NavIconName = "home" | "resume" | "profile" | "jobs" | "applications" | "recycle" | "settings";
 
 const themeStorageKey = "careeradapt.theme";
 const densityStorageKey = "careeradapt.density";
@@ -18,6 +18,7 @@ const navItems = [
   { href: "/profile", label: "个人资料库", icon: "profile" },
   { href: "/jobs", label: "岗位", icon: "jobs" },
   { href: "/applications", label: "求职进度", icon: "applications" },
+  { href: "/recycle", label: "回收站", icon: "recycle" },
   { href: "/settings", label: "设置", icon: "settings" }
 ] satisfies Array<{ href: string; label: string; icon: NavIconName }>;
 
@@ -38,6 +39,7 @@ const pageTitles: Record<string, string> = {
   "/profile": "个人资料库",
   "/jobs": "岗位",
   "/applications": "求职进度",
+  "/recycle": "回收站",
   "/settings": "设置",
   "/export/probe": "A4预览检查"
 };
@@ -245,6 +247,7 @@ function NavIcon({ name }: { name: NavIconName }) {
     profile: ["M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Z", "M5.5 20a6.5 6.5 0 0 1 13 0"],
     jobs: ["M8 7V5.5A1.5 1.5 0 0 1 9.5 4h5A1.5 1.5 0 0 1 16 5.5V7", "M5 8h14v11H5z", "M5 12h14"],
     applications: ["M6 5h12v14H6z", "M9 9h6", "M9 12h6", "M9 15h4"],
+    recycle: ["M4 7h16", "M9 7V4h6v3", "M7 7l1 13h8l1-13", "M10 11v5", "M14 11v5"],
     settings: ["M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z", "M4.5 12h2", "M17.5 12h2", "M12 4.5v2", "M12 17.5v2", "m6.7 6.7 1.4 1.4", "m15.9 15.9 1.4 1.4", "m17.3 6.7-1.4 1.4", "m8.1 15.9-1.4 1.4"]
   };
   return <SvgIcon paths={paths[name]} className="nav-icon" />;

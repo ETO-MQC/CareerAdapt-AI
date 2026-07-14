@@ -22,6 +22,7 @@ import {
   type ProfileBuilderFact,
   type ProfileBuilderOutput,
   type ProfileImportDraft,
+  type ProfileRecycleItem,
   type RawInputDocument,
   type Skill
 } from "@/domain/schemas";
@@ -140,7 +141,10 @@ export function ProfileWorkspace() {
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "failed" | "conflict">("idle");
   const [message, setMessage] = useState<string | undefined>();
   const [loadedDraft, setLoadedDraft] = useState(false);
-  const [profileOverride, setProfileOverride] = useState<CareerProfile | undefined>();
+  const managerRef = useRef<HTMLElement | null>(null);
+  const [profileOverride, setProfileOverride] = useState<CareerProfile | null | undefined>();
+  const [profileDeleteOpen, setProfileDeleteOpen] = useState(false);
+  const [profileDeleting, setProfileDeleting] = useState(false);
   const [profileSaving, setProfileSaving] = useState(false);
   const [basicDraftState, setBasicDraftState] = useState<BasicDraftState>(emptyBasicDraft);
   const [profileArchive, setProfileArchive] = useState<ProfileArchiveState>(emptyProfileArchive);
@@ -231,7 +235,7 @@ export function ProfileWorkspace() {
   const output = draft?.manualSections ?? draft?.builderOutput;
   const pdfHasPromptInjectionRisk = Boolean(pdfSession?.hasPromptInjectionRisk);
   const workspaceProfile = workspace.status === "ready" ? workspace.profiles[0] : undefined;
-  const profile = profileOverride ?? workspaceProfile;
+  const profile = profileOverride === undefined ? workspaceProfile : profileOverride ?? undefined;
   const profileDraftKey = profile ? `${profile.id}:${profile.version}` : "";
   const basicDraft = profile && basicDraftState.profileKey !== profileDraftKey
     ? basicDraftFromProfile(profile, profileDraftKey)
@@ -256,6 +260,9 @@ export function ProfileWorkspace() {
       if (!active) {
         return;
       }
+    if (selectedProfileItemKey.startsWith("new:")) {
+      return;
+    }
     if (profileManagedItems.length === 0) {
       setSelectedProfileItemKey(`new:${activeProfileCategory}`);
       return;
@@ -365,6 +372,43 @@ export function ProfileWorkspace() {
     setSelectedProfileItemKey(`new:${activeProfileCategory}`);
     setProfileItemDraft(nextDraft);
     setProfileItemEditing(true);
+  }
+
+  function editCurrentProfile() {
+    selectProfileCategory("basic");
+    managerRef.current?.scrollIntoView({ block: "start" });
+  }
+
+  async function requestCurrentProfileDelete() {
+    if (!profile) return;
+    const blockers = await repository.getProfileDeleteBlockers(profile.id);
+    const referenceCount = Object.values(blockers).reduce((sum, count) => sum + count, 0);
+    if (referenceCount > 0) {
+      setMessage(`当前资料仍被 ${blockers.branches} 份简历、${blockers.applications} 条求职记录及 ${referenceCount - blockers.branches - blockers.applications} 条分析记录引用，不能删除。请先处理关联内容。`);
+      managerRef.current?.scrollIntoView({ block: "start" });
+      return;
+    }
+    setProfileDeleteOpen(true);
+  }
+
+  async function confirmCurrentProfileDelete() {
+    if (!profile) return;
+    setProfileDeleting(true);
+    try {
+      const result = await repository.deleteProfileIfUnreferenced(profile.id);
+      if (!result.deleted) {
+        setProfileDeleteOpen(false);
+        setMessage("资料在确认期间产生了新的关联，未执行删除。请先处理关联内容。");
+        return;
+      }
+      setProfileOverride(null);
+      setProfileDeleteOpen(false);
+      setMessage("当前个人资料已删除；导入草稿和已有文件记录未被级联删除。");
+    } catch {
+      setMessage("删除失败，个人资料未发生变化。");
+    } finally {
+      setProfileDeleting(false);
+    }
   }
 
   function startManagedProfileEdit() {
@@ -520,8 +564,7 @@ export function ProfileWorkspace() {
     const saved = await saveProfileSnapshot(nextProfile, "资料条目已归档，可在筛选中恢复。");
     if (saved) {
       await saveProfileArchive(nextArchive);
-      setProfileUsageFilter("archived");
-      setSelectedProfileItemKey(buildProfileManagedItems(saved, nextArchive, activeProfileCategory, profileSearch, "archived")[0]?.key ?? `new:${activeProfileCategory}`);
+      setSelectedProfileItemKey(buildProfileManagedItems(saved, nextArchive, activeProfileCategory, profileSearch, profileUsageFilter)[0]?.key ?? `new:${activeProfileCategory}`);
     }
   }
 
@@ -566,9 +609,57 @@ export function ProfileWorkspace() {
     const saved = await saveProfileSnapshot(nextProfile, "资料条目已恢复。");
     if (saved) {
       await saveProfileArchive(nextArchive);
-      setProfileUsageFilter("all");
-      setSelectedProfileItemKey(buildProfileManagedItems(saved, nextArchive, activeProfileCategory, profileSearch, "all")[0]?.key ?? `new:${activeProfileCategory}`);
+      setSelectedProfileItemKey(buildProfileManagedItems(saved, nextArchive, activeProfileCategory, profileSearch, profileUsageFilter)[0]?.key ?? `new:${activeProfileCategory}`);
     }
+  }
+
+  async function trashManagedProfileItem(item: ProfileManagedItem) {
+    if (!profile || item.kind === "basic" || item.kind === "summary") return;
+    const referenceCount = await repository.getProfileItemReferenceCount({ kind: item.kind, id: item.id });
+    if (referenceCount > 0) {
+      setMessage(`该条目仍被 ${referenceCount} 份简历引用，不能删除。可以先归档，或先移除简历中的引用。`);
+      return;
+    }
+
+    const now = new Date().toISOString();
+    let nextProfile = profile;
+    let nextArchive = profileArchive;
+    let recycleItem: ProfileRecycleItem | undefined;
+    if (item.kind === "experience") {
+      const value = (item.archived ? profileArchive.experiences : profile.experiences).find((entry) => entry.id === item.id);
+      if (!value) return;
+      nextProfile = item.archived ? profile : { ...profile, experiences: profile.experiences.filter((entry) => entry.id !== item.id), version: profile.version + 1, updatedAt: now };
+      nextArchive = item.archived ? { ...profileArchive, experiences: profileArchive.experiences.filter((entry) => entry.id !== item.id) } : profileArchive;
+      recycleItem = { id: item.id, profileId: profile.id, kind: "experience", category: item.category, title: item.title, deletedAt: now, value };
+    } else if (item.kind === "certificate") {
+      const value = (item.archived ? profileArchive.certificates : profile.certificates).find((entry) => entry.id === item.id);
+      if (!value) return;
+      nextProfile = item.archived ? profile : { ...profile, certificates: profile.certificates.filter((entry) => entry.id !== item.id), version: profile.version + 1, updatedAt: now };
+      nextArchive = item.archived ? { ...profileArchive, certificates: profileArchive.certificates.filter((entry) => entry.id !== item.id) } : profileArchive;
+      recycleItem = { id: item.id, profileId: profile.id, kind: "certificate", category: item.category, title: item.title, deletedAt: now, value };
+    } else if (item.kind === "skill") {
+      const value = (item.archived ? profileArchive.skills : profile.skills).find((entry) => entry.id === item.id);
+      if (!value) return;
+      nextProfile = item.archived ? profile : { ...profile, skills: profile.skills.filter((entry) => entry.id !== item.id), version: profile.version + 1, updatedAt: now };
+      nextArchive = item.archived ? { ...profileArchive, skills: profileArchive.skills.filter((entry) => entry.id !== item.id) } : profileArchive;
+      recycleItem = { id: item.id, profileId: profile.id, kind: "skill", category: item.category, title: item.title, deletedAt: now, value };
+    } else {
+      const activeIndex = Number(item.id.replace("custom:", ""));
+      const archived = profileArchive.customBlocks.find((entry) => entry.id === item.id);
+      const value = item.archived ? archived?.text : profile.unclassifiedBlocks[activeIndex];
+      if (!value) return;
+      nextProfile = item.archived ? profile : { ...profile, unclassifiedBlocks: profile.unclassifiedBlocks.filter((_, index) => index !== activeIndex), version: profile.version + 1, updatedAt: now };
+      nextArchive = item.archived ? { ...profileArchive, customBlocks: profileArchive.customBlocks.filter((entry) => entry.id !== item.id) } : profileArchive;
+      recycleItem = { id: item.id, profileId: profile.id, kind: "custom", category: item.category, title: item.title, deletedAt: now, value };
+    }
+
+    const saved = nextProfile === profile ? profile : await saveProfileSnapshot(nextProfile, "资料条目已移入回收站。");
+    if (!saved || !recycleItem) return;
+    if (nextArchive !== profileArchive) await saveProfileArchive(nextArchive);
+    await repository.addProfileRecycleItem(recycleItem);
+    const nextItems = buildProfileManagedItems(saved, nextArchive, activeProfileCategory, profileSearch, profileUsageFilter);
+    setSelectedProfileItemKey(nextItems[0]?.key ?? `new:${activeProfileCategory}`);
+    setMessage("资料条目已移入回收站，可在统一回收站恢复。");
   }
 
   async function handlePdfFileChange(event: ChangeEvent<HTMLInputElement>) {
@@ -1142,10 +1233,10 @@ export function ProfileWorkspace() {
       </section>
 
       {workspace.status === "empty" ? <WorkspaceEmptyState /> : null}
-      {message ? <section className="notice">{message}</section> : null}
+      {message ? <section className="notice" role="status" aria-live="polite">{message}</section> : null}
 
       {profile ? (
-        <section className="profile-manager-grid">
+        <section className="profile-manager-grid" ref={managerRef}>
           <article className="panel profile-category-panel">
             <div className="section-heading compact-heading">
               <div>
@@ -1244,6 +1335,15 @@ export function ProfileWorkspace() {
                             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" /><path d="M3 3v5h5" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" /></svg>
                           </button>
                         )}
+                        <button
+                          type="button"
+                          className="icon-button icon-button-danger"
+                          title="删除"
+                          aria-label={`删除 ${item.title}`}
+                          onClick={(e) => { e.stopPropagation(); void trashManagedProfileItem(item); }}
+                        >
+                          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 7h16M9 7V4h6v3m-8 0 1 13h8l1-13M10 11v5m4-5v5" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                        </button>
                       </>
                     ) : null}
                   </div>
@@ -1267,13 +1367,17 @@ export function ProfileWorkspace() {
               {activeProfileCategory !== "basic" && selectedProfileItem ? (
                 <div className="action-row profile-detail-actions">
                   {selectedProfileItem.archived ? (
-                    <button className="primary-button compact" disabled={profileSaving} onClick={() => { void restoreManagedProfileItem(selectedProfileItem); }}>恢复</button>
+                    <>
+                      <button className="primary-button compact" disabled={profileSaving} onClick={() => { void restoreManagedProfileItem(selectedProfileItem); }}>恢复</button>
+                      <button className="danger-button compact" disabled={profileSaving} onClick={() => { void trashManagedProfileItem(selectedProfileItem); }}>删除</button>
+                    </>
                   ) : activeProfileCategory === "summary" ? (
                     <button className="secondary-button compact" disabled={profileSaving} onClick={startManagedProfileEdit}>编辑</button>
                   ) : (
                     <>
                       <button className="secondary-button compact" disabled={profileSaving} onClick={startManagedProfileEdit}>编辑</button>
                       <button className="secondary-button compact" disabled={profileSaving} onClick={() => { void archiveManagedProfileItem(selectedProfileItem); }}>归档</button>
+                      <button className="danger-button compact" disabled={profileSaving} onClick={() => { void trashManagedProfileItem(selectedProfileItem); }}>删除</button>
                     </>
                   )}
                 </div>
@@ -1483,8 +1587,19 @@ export function ProfileWorkspace() {
         </section>
       ) : null}
 
-      <section className="panel">
-        <h2>当前个人资料</h2>
+      <section className="panel current-profile-panel">
+        <div className="section-heading compact-heading">
+          <div>
+            <h2>当前个人资料</h2>
+            <p>这是资料库当前使用的个人档案。</p>
+          </div>
+          {profile ? (
+            <div className="action-row current-profile-actions">
+              <button type="button" className="secondary-button compact" onClick={editCurrentProfile}>修改</button>
+              <button type="button" className="danger-button compact" onClick={() => { void requestCurrentProfileDelete(); }}>删除</button>
+            </div>
+          ) : null}
+        </div>
         {profile ? (
           <div className="timeline">
             <article>
@@ -1497,6 +1612,21 @@ export function ProfileWorkspace() {
           <p>暂无个人资料。</p>
         )}
       </section>
+
+      {profileDeleteOpen && profile ? (
+        <div className="sync-dialog-overlay" role="dialog" aria-modal="true" aria-labelledby="profile-delete-title">
+          <div className="sync-dialog profile-delete-dialog">
+            <h3 className="sync-dialog-title" id="profile-delete-title">删除当前个人资料？</h3>
+            <p className="sync-dialog-description">此操作会删除“{profile.name}”及其中的经历、技能和证书，且无法撤销。导入草稿不会随之删除。</p>
+            <div className="sync-dialog-actions">
+              <button type="button" className="section-action-button" disabled={profileDeleting} onClick={() => setProfileDeleteOpen(false)}>取消</button>
+              <button type="button" className="danger-button" disabled={profileDeleting} onClick={() => { void confirmCurrentProfileDelete(); }}>
+                {profileDeleting ? "删除中…" : "确认删除"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }

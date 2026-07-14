@@ -11,5 +11,6 @@ export * from "./job";
 export * from "./jobOptimization";
 export * from "./presentation";
 export * from "./profile";
+export * from "./recycleBin";
 export * from "./resumeImport";
 export * from "./resumeRender";

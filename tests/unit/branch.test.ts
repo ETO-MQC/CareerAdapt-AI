@@ -176,6 +176,51 @@ describe("D1 resume branch domain", () => {
     expect(savedProfile?.version).toBe(demoCareerProfile.version);
   });
 
+  it("reuses skills and certificates by fact reference and rejects duplicates", async () => {
+    db = new CareerAdaptDb(`CareerAdaptP32LibraryDb-${crypto.randomUUID()}`);
+    const repository = new WorkspaceRepository(db);
+    await repository.saveProfile(demoCareerProfile);
+    const created = await repository.createGeneralResumeBranch({
+      profileId: demoCareerProfile.id,
+      operationId: "p32-library-blank",
+      name: "P3.2 资料库复用",
+      includeProfileFacts: false,
+      includeProfileBasics: false
+    });
+    const skill = demoCareerProfile.skills[0];
+    const skillFact = skill.fact!;
+    const skillAdded = await repository.addResumeContentItemFromProfileReference({
+      branchId: created.branch.id,
+      expectedRevision: created.branch.revision,
+      operationId: "p32-use-skill",
+      section: "skills",
+      reference: { type: "skill", skillId: skill.id, factId: skillFact.id }
+    });
+    expect(skillAdded.branch.contentItems.find((item) => item.id === skillAdded.newItemId)?.factRefs).toEqual([{
+      type: "skill_fact",
+      skillId: skill.id,
+      factId: skillFact.id
+    }]);
+
+    await expect(repository.addResumeContentItemFromProfileReference({
+      branchId: skillAdded.branch.id,
+      expectedRevision: skillAdded.branch.revision,
+      operationId: "p32-use-skill-duplicate",
+      section: "skills",
+      reference: { type: "skill", skillId: skill.id, factId: skillFact.id }
+    })).rejects.toThrow("profile_item_already_used");
+
+    const certificate = demoCareerProfile.certificates[0];
+    const certificateAdded = await repository.addResumeContentItemFromProfileReference({
+      branchId: skillAdded.branch.id,
+      expectedRevision: skillAdded.branch.revision,
+      operationId: "p32-use-certificate",
+      section: "certificates",
+      reference: { type: "certificate", certificateId: certificate.id, factId: certificate.fact!.id }
+    });
+    expect(certificateAdded.branch.contentItems.find((item) => item.id === certificateAdded.newItemId)?.itemType).toBe("certificate");
+  });
+
   it("maps a non-stale adaptation draft into a verified branch and first revision", () => {
     const job = demoJobDescriptions[0];
     const matches = createRuleRequirementMatches({ profile: demoCareerProfile, job }, TEST_TIME);
@@ -529,6 +574,43 @@ describe("D1 resume branch repository", () => {
       edits: [{ itemId: item.id, text: `${item.text}..` }]
     })).rejects.toThrow("archived_resume_branch_read_only");
 
+    const restored = await repository.restoreArchivedResumeBranch({
+      branchId: archived.branch.id,
+      expectedRevision: archived.branch.revision,
+      operationId: "p33-restore-archived"
+    });
+    expect(restored.branch.lifecycleStatus).toBe("active");
+    const reArchived = await repository.archiveResumeBranch({
+      branchId: restored.branch.id,
+      expectedRevision: restored.branch.revision,
+      operationId: "p33-rearchive",
+      confirmedImpact: true
+    });
+    const trashed = await repository.moveResumeBranchToTrash({
+      branchId: reArchived.branch.id,
+      expectedRevision: reArchived.branch.revision,
+      operationId: "p33-trash"
+    });
+    expect(trashed.branch.lifecycleStatus).toBe("trashed");
+    const restoredToArchive = await repository.restoreResumeBranchFromTrash({
+      branchId: trashed.branch.id,
+      expectedRevision: trashed.branch.revision,
+      operationId: "p33-restore-trash"
+    });
+    expect(restoredToArchive.branch.lifecycleStatus).toBe("archived");
+    const trashedAgain = await repository.moveResumeBranchToTrash({
+      branchId: restoredToArchive.branch.id,
+      expectedRevision: restoredToArchive.branch.revision,
+      operationId: "p33-trash-again"
+    });
+    const permanentlyDeleted = await repository.deleteResumeBranchPermanently({
+      branchId: trashedAgain.branch.id,
+      expectedRevision: trashedAgain.branch.revision
+    });
+    expect(permanentlyDeleted.deleted).toBe(true);
+    expect(await repository.getResumeBranch(trashedAgain.branch.id)).toBeUndefined();
+    expect(await repository.listResumeRevisions(trashedAgain.branch.id)).toHaveLength(0);
+
     const invalid = {
       ...created.branch,
       id: "v2-g0a-invalid-reference-branch",
@@ -547,6 +629,13 @@ describe("D1 resume branch repository", () => {
       operationId: "v2-g0a-edit-invalid-reference",
       edits: [{ itemId: invalid.contentItems[0].id, text: `${invalid.contentItems[0].text}.` }]
     })).rejects.toThrow("invalid_reference_resume_branch_read_only");
+    const archivedInvalid = await repository.archiveResumeBranch({
+      branchId: invalid.id,
+      expectedRevision: invalid.revision,
+      operationId: "v2-g0a-archive-invalid-reference",
+      confirmedImpact: true
+    });
+    expect(archivedInvalid.branch.lifecycleStatus).toBe("archived");
   });
 
   it("parses ResumeRevision with null previousRevisionId and restoredFromRevisionId from IndexedDB", () => {
