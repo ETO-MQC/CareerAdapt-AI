@@ -1,136 +1,206 @@
+import {
+  ResumeOcrHealthResponseSchema,
+  ResumeOcrSuccessResponseSchema,
+  type ResumeOcrBlock,
+  type ResumeOcrHealthResponse,
+  type ResumeOcrProgressStage
+} from "@/domain/schemas";
+
 export type ResumeOcrAdapterResult =
   | {
       ok: true;
       text: string;
-      engine: string;
-      confidence?: number;
+      engine: "paddleocr-vl-local";
+      engineVersion: string;
+      pageCount: number;
+      blocks: ResumeOcrBlock[];
+      elapsedMs: number;
       warnings: string[];
     }
   | {
       ok: false;
-      code: "engine_unavailable" | "unsupported_file" | "empty_ocr_text";
+      code: "engine_unavailable" | "unsupported_file" | "empty_ocr_text" | "timeout" | "cancelled" | "invalid_response" | "request_failed";
       message: string;
-      engine: string;
+      engine: "paddleocr-vl-local";
       warnings: string[];
     };
 
+export type ResumeOcrProgress = {
+  stage: ResumeOcrProgressStage;
+  completedPages?: number;
+  totalPages?: number;
+  message: string;
+};
+
+export type ResumeOcrRunOptions = {
+  signal?: AbortSignal;
+  timeoutMs?: number;
+  onProgress?: (progress: ResumeOcrProgress) => void;
+};
+
+export interface ResumeOcrAdapter {
+  readonly engine: "paddleocr-vl-local";
+  health(signal?: AbortSignal): Promise<ResumeOcrHealthResponse>;
+  recognize(file: File, options?: ResumeOcrRunOptions): Promise<ResumeOcrAdapterResult>;
+}
+
 export type ResumeOcrBenchmarkResult = {
-  engine: string;
+  engine: "paddleocr-vl-local";
   classification: "A" | "B" | "C";
   productStatus: string;
   supported: boolean;
   elapsedMs: number;
   sampleTextLength: number;
-  fixture: {
-    singleColumn: string;
-    twoColumn: string;
-  };
   model: {
-    name: string;
+    name: "PaddleOCR-VL-1.6";
     version: string;
-    modelFile: string;
-    modelSizeMb: number;
-    cpu: "used" | "not_used";
-    gpu: "used" | "not_used";
+    cpu: "available" | "unavailable" | "unknown";
+    gpu: "available" | "unavailable" | "unknown";
     vramMb: number | null;
   };
-  measured: {
-    singleColumnElapsedMs: number;
-    twoColumnElapsedMs: number;
-    peakMemoryMb: number;
-    fieldCompleteness: number;
-    recognizedFieldCount: number;
-    expectedFieldCount: number;
-    twoColumnOrderPreserved: boolean;
-  };
-  artifactPaths: {
-    benchmark: string;
-    singleColumnOutput: string;
-    twoColumnOutput: string;
-  };
   conclusion: string;
-  recommendation: "use_json_fallback" | "adapter_ready";
+  recommendation: "use_manual_fallback" | "adapter_ready";
   notes: string[];
 };
 
-const OCR_ENGINE_NAME = "local-browser-ocr-adapter";
-const OCR_BENCHMARK_BASELINE = {
-  classification: "B" as const,
-  productStatus: "已完成本机 Tesseract OCR benchmark；正式产品集成仍后置，UI 不得宣称正式 OCR 支持。",
-  fixture: {
-    singleColumn: "artifacts/g7b2-ocr-benchmark/single-column-fixture.png",
-    twoColumn: "artifacts/g7b2-ocr-benchmark/two-column-fixture.png"
-  },
-  model: {
-    name: "Tesseract OCR",
-    version: "tesseract v5.4.0.20240606",
-    modelFile: "eng.traineddata",
-    modelSizeMb: 3.9,
-    cpu: "used" as const,
-    gpu: "not_used" as const,
-    vramMb: null
-  },
-  measured: {
-    singleColumnElapsedMs: 436,
-    twoColumnElapsedMs: 295,
-    peakMemoryMb: 42.8,
-    fieldCompleteness: 1,
-    recognizedFieldCount: 11,
-    expectedFieldCount: 11,
-    twoColumnOrderPreserved: false
-  },
-  artifactPaths: {
-    benchmark: "artifacts/g7b2-ocr-benchmark/benchmark.json",
-    singleColumnOutput: "artifacts/g7b2-ocr-benchmark/single-column-output.txt",
-    twoColumnOutput: "artifacts/g7b2-ocr-benchmark/two-column-output.txt"
-  },
-  conclusion: "单栏 fixture 字段完整率 11/11，但双栏顺序未保持；OCR 只能作为实验性能力保留，正式导入仍优先使用 JSON、DOCX 或文本型 PDF。"
-};
+const OCR_ENGINE_NAME = "paddleocr-vl-local" as const;
+const OCR_ENDPOINT = "/api/resume-import/ocr";
+const DEFAULT_OCR_TIMEOUT_MS = 120_000;
 
-export async function runResumeOcrAdapter(file: File): Promise<ResumeOcrAdapterResult> {
-  const supported = file.type === "image/png" || file.type === "image/jpeg" || file.type === "application/pdf";
-  if (!supported) {
-    return {
-      ok: false,
-      code: "unsupported_file",
-      message: "OCR 仅接收扫描 PDF、PNG 或 JPG。",
-      engine: OCR_ENGINE_NAME,
-      warnings: []
-    };
-  }
+export function createLocalPaddleOcrAdapter(input: {
+  fetchImpl?: typeof fetch;
+  endpoint?: string;
+} = {}): ResumeOcrAdapter {
+  const fetchImpl = input.fetchImpl ?? fetch;
+  const endpoint = input.endpoint ?? OCR_ENDPOINT;
   return {
-    ok: false,
-    code: "engine_unavailable",
-    message: "当前环境尚未安装可离线运行的正式识别引擎。请改用 JSON、文本型 PDF 或 DOCX。",
     engine: OCR_ENGINE_NAME,
-    warnings: ["扫描件识别仍处于实验阶段，识别结果不能直接写入正式简历。"]
+    async health(signal) {
+      try {
+        const response = await fetchImpl(endpoint, { method: "GET", cache: "no-store", signal });
+        const parsed = ResumeOcrHealthResponseSchema.safeParse(await response.json());
+        if (parsed.success) return parsed.data;
+      } catch {
+        // Converted to the explicit unavailable result below; no source content is logged.
+      }
+      return unavailableHealth("本地 OCR 服务未连接。");
+    },
+    async recognize(file, options = {}) {
+      if (!isSupportedOcrFile(file)) return failure("unsupported_file", "OCR 仅接收 PDF、PNG 或 JPG。", []);
+      if (options.signal?.aborted) return failure("cancelled", "OCR 已取消。", []);
+
+      options.onProgress?.({ stage: "checking_engine", message: "正在检查本地 OCR 引擎…" });
+      const controller = new AbortController();
+      const abort = () => controller.abort(options.signal?.reason);
+      options.signal?.addEventListener("abort", abort, { once: true });
+      const timeout = setTimeout(
+        () => controller.abort(new DOMException("OCR timeout", "TimeoutError")),
+        options.timeoutMs ?? DEFAULT_OCR_TIMEOUT_MS
+      );
+
+      try {
+        const health = await this.health(controller.signal);
+        if (!health.ok || !health.configured || !health.modelAvailable || !health.runtimeAvailable) {
+          return failure("engine_unavailable", health.message, ["识别结果不会绕过导入核对或 Fact Guard。"]);
+        }
+
+        options.onProgress?.({ stage: "uploading", message: "正在把文件发送到本机 OCR 进程…" });
+        const body = new FormData();
+        body.set("file", file, file.name);
+        const response = await fetchImpl(endpoint, { method: "POST", body, signal: controller.signal });
+        const payload = await response.json().catch(() => undefined);
+        if (!response.ok) {
+          const message = payload && typeof payload === "object" && "message" in payload && typeof payload.message === "string"
+            ? payload.message
+            : "本地 OCR 请求失败。";
+          return failure(response.status === 503 ? "engine_unavailable" : "request_failed", message, []);
+        }
+
+        options.onProgress?.({ stage: "normalizing", message: "正在校验 OCR 来源块…" });
+        const parsed = ResumeOcrSuccessResponseSchema.safeParse(payload);
+        if (!parsed.success) return failure("invalid_response", "本地 OCR 返回格式无效，结果未进入导入草稿。", []);
+        if (!parsed.data.text.trim() || !parsed.data.blocks.some((block) => block.text.trim())) {
+          return failure("empty_ocr_text", "OCR 未识别到可核对文字。", parsed.data.warnings);
+        }
+
+        options.onProgress?.({
+          stage: "completed",
+          completedPages: parsed.data.pageCount,
+          totalPages: parsed.data.pageCount,
+          message: "OCR 识别完成，等待逐项核对。"
+        });
+        return {
+          ok: true,
+          text: parsed.data.text,
+          engine: parsed.data.engine,
+          engineVersion: parsed.data.engineVersion,
+          pageCount: parsed.data.pageCount,
+          blocks: parsed.data.blocks,
+          elapsedMs: parsed.data.elapsedMs,
+          warnings: parsed.data.warnings
+        };
+      } catch (error) {
+        if (options.signal?.aborted) return failure("cancelled", "OCR 已取消。", []);
+        if (controller.signal.aborted) return failure("timeout", "本地 OCR 超时，未保存不完整结果。", []);
+        return failure("request_failed", error instanceof Error ? error.message : "本地 OCR 请求失败。", []);
+      } finally {
+        clearTimeout(timeout);
+        options.signal?.removeEventListener("abort", abort);
+      }
+    }
   };
 }
 
-export async function benchmarkResumeOcrAdapter(): Promise<ResumeOcrBenchmarkResult> {
+const defaultOcrAdapter = createLocalPaddleOcrAdapter();
+
+export function runResumeOcrAdapter(file: File, options?: ResumeOcrRunOptions) {
+  return defaultOcrAdapter.recognize(file, options);
+}
+
+export async function benchmarkResumeOcrAdapter(adapter: ResumeOcrAdapter = defaultOcrAdapter): Promise<ResumeOcrBenchmarkResult> {
   const startedAt = performance.now();
-  const result = await runResumeOcrAdapter(new File(["not-an-image"], "ocr-benchmark.png", { type: "image/png" }));
+  const health = await adapter.health();
   const elapsedMs = Math.max(0, Math.round(performance.now() - startedAt));
+  const supported = health.ok && health.configured && health.modelAvailable && health.runtimeAvailable;
   return {
     engine: OCR_ENGINE_NAME,
-    classification: OCR_BENCHMARK_BASELINE.classification,
-    productStatus: OCR_BENCHMARK_BASELINE.productStatus,
-    supported: result.ok,
+    classification: supported ? "A" : health.modelAvailable ? "B" : "C",
+    productStatus: supported ? "本地 PaddleOCR-VL Adapter 已就绪；输出仍必须进入逐项核对。" : health.message,
+    supported,
     elapsedMs,
-    sampleTextLength: result.ok ? result.text.length : 0,
-    fixture: OCR_BENCHMARK_BASELINE.fixture,
-    model: OCR_BENCHMARK_BASELINE.model,
-    measured: OCR_BENCHMARK_BASELINE.measured,
-    artifactPaths: OCR_BENCHMARK_BASELINE.artifactPaths,
-    conclusion: OCR_BENCHMARK_BASELINE.conclusion,
-    recommendation: result.ok ? "adapter_ready" : "use_json_fallback",
-    notes: result.ok
-      ? ["OCR Adapter 可返回文本，仍需用户在核对页逐字段确认。"]
-      : [
-          result.message,
-          ...result.warnings,
-          OCR_BENCHMARK_BASELINE.productStatus,
-          OCR_BENCHMARK_BASELINE.conclusion
-        ]
+    sampleTextLength: 0,
+    model: {
+      name: "PaddleOCR-VL-1.6",
+      version: "1.6",
+      cpu: health.runtimeAvailable ? "available" : "unknown",
+      gpu: health.device?.toLowerCase().includes("gpu") ? "available" : "unknown",
+      vramMb: null
+    },
+    conclusion: supported ? "Adapter、模型与运行时健康检查通过。" : "OCR 不可用时明确降级到原文保留和人工核对，不伪装成功。",
+    recommendation: supported ? "adapter_ready" : "use_manual_fallback",
+    notes: [health.message]
+  };
+}
+
+function isSupportedOcrFile(file: File) {
+  return file.type === "image/png" || file.type === "image/jpeg" || file.type === "application/pdf";
+}
+
+function failure(
+  code: Extract<ResumeOcrAdapterResult, { ok: false }>["code"],
+  message: string,
+  warnings: string[]
+): ResumeOcrAdapterResult {
+  return { ok: false, code, message, engine: OCR_ENGINE_NAME, warnings };
+}
+
+function unavailableHealth(message: string): ResumeOcrHealthResponse {
+  return {
+    ok: false,
+    engine: OCR_ENGINE_NAME,
+    configured: false,
+    modelAvailable: false,
+    runtimeAvailable: false,
+    message
   };
 }

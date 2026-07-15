@@ -11,6 +11,8 @@ out/
 .env.*
 !.env.example
 *.tsbuildinfo
+__pycache__/
+*.pyc
 pdfjs
 
 # Local/generated verification cases that should stay out of git.
