@@ -361,54 +361,81 @@ export function ResumeImportWizard(props: {
   async function startJsonImport(rawText: string, fileName = "structured-resume.json") {
     setStatus("importing_json");
     setMessage("正在校验结构化 JSON。JSON 不会绕过核对页。");
-    const risk = validateStructuredJsonText(rawText);
-    if (risk) {
-      fail(risk);
-      return;
+    try {
+      const risk = validateStructuredJsonText(rawText);
+      if (risk) {
+        fail(risk);
+        return;
+      }
+      const parsedJson = parseResumeJsonText(rawText);
+      if (!parsedJson.ok) {
+        fail(parsedJson.error.message);
+        jsonErrorNotificationIdRef.current = notify({ type: "error", title: "JSON 格式错误", message: parsedJson.error.message });
+        return;
+      }
+      const standard = StructuredResumeDraftSchema.safeParse(parsedJson.value);
+      let mapped: ResumeJsonMapperOutput;
+      let sourceKind: "standard_json" | "external_json";
+      let successMessage: string;
+
+      if (standard.success) {
+        mapped = { structuredDraft: standard.data, unclassifiedBlocks: [] };
+        sourceKind = "standard_json";
+        successMessage = "结构化 JSON 已进入核对页；确认前不会写入正式数据。";
+      } else {
+        const mapResult = mapExternalResumeJson(parsedJson.value);
+        if (!mapResult.ok) {
+          fail(mapResult.message);
+          jsonErrorNotificationIdRef.current = notify({ type: "error", title: "JSON 映射失败", message: mapResult.message });
+          return;
+        }
+        mapped = mapResult.value;
+        sourceKind = "external_json";
+        successMessage = mapped.unclassifiedBlocks.length > 0
+          ? `已完成确定性字段映射，并保留 ${mapped.unclassifiedBlocks.length} 个未识别字段。可继续核对，或在确认隐私提示后使用 AI 智能映射。`
+          : "已通过常见字段别名完成映射，请核对来源路径和置信度。";
+      }
+
+      setPendingJsonMapping(standard.success ? undefined : mapped);
+      await persistJsonDraft(mapped, fileName, rawText, sourceKind, successMessage);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "导入过程中发生未知错误";
+      fail(message);
+      jsonErrorNotificationIdRef.current = notify({ type: "error", title: "导入失败", message });
     }
-    const parsedJson = parseResumeJsonText(rawText);
-    if (!parsedJson.ok) {
-      fail(parsedJson.error.message);
-      jsonErrorNotificationIdRef.current = notify({ type: "error", title: "JSON 格式错误", message: parsedJson.error.message });
-      return;
-    }
-    const standard = StructuredResumeDraftSchema.safeParse(parsedJson.value);
-    const mapped = standard.success
-      ? { structuredDraft: standard.data, unclassifiedBlocks: [] }
-      : mapExternalResumeJson(parsedJson.value);
-    setPendingJsonMapping(standard.success ? undefined : mapped);
-    await persistJsonDraft(mapped, fileName, rawText, standard.success ? "standard_json" : "external_json", standard.success
-      ? "结构化 JSON 已进入核对页；确认前不会写入正式数据。"
-      : mapped.unclassifiedBlocks.length > 0
-        ? `已完成确定性字段映射，并保留 ${mapped.unclassifiedBlocks.length} 个未识别字段。可继续核对，或在确认隐私提示后使用 AI 智能映射。`
-        : "已通过常见字段别名完成映射，请核对来源路径和置信度。");
   }
 
   async function persistJsonDraft(output: ResumeJsonMapperOutput, fileName: string, rawText: string, sourceKind: "standard_json" | "external_json", successMessage: string) {
-    const now = new Date().toISOString();
-    const normalizedTextHash = await hashText(rawText);
-    const sourceBlocks = normalizeExtractedSourceBlocks(createJsonSourceBlocks(JSON.parse(rawText)));
-    const qualityReport = analyzeImportQuality({ sourceType: sourceKind, blocks: sourceBlocks });
-    const importedDraft = createImportedResumeDraftFromStructuredJson({
-      source: { fileName, mimeType: "application/json", fileHash: normalizedTextHash, normalizedTextHash, pageCount: 1, extractedAt: now },
-      structuredDraft: output.structuredDraft,
-      unclassifiedBlocks: output.unclassifiedBlocks,
-      sourceKind,
-      sourceBlocks,
-      qualityReport,
-      now
-    });
-    const saved = await props.repository.saveImportedResumeDraft({ ...importedDraft, parserVersion: `${importedDraft.parserVersion}+${RESUME_IMPORT_CLEANER_VERSION}` }, 0);
-    selectionBaselineRef.current = saved;
-    setDraft(saved);
-    prefillImportedProfileName(saved);
-    setPages([]);
-    setSelectedItemId(undefined);
-    setSelectedPageNumber(1);
-    setStatus("reviewing");
-    setMessage(successMessage);
-    if (jsonErrorNotificationIdRef.current) notificationStore.dismiss(jsonErrorNotificationIdRef.current);
-    jsonErrorNotificationIdRef.current = undefined;
+    try {
+      const now = new Date().toISOString();
+      const normalizedTextHash = await hashText(rawText);
+      const sourceBlocks = normalizeExtractedSourceBlocks(createJsonSourceBlocks(JSON.parse(rawText)));
+      const qualityReport = analyzeImportQuality({ sourceType: sourceKind, blocks: sourceBlocks });
+      const importedDraft = createImportedResumeDraftFromStructuredJson({
+        source: { fileName, mimeType: "application/json", fileHash: normalizedTextHash, normalizedTextHash, pageCount: 1, extractedAt: now },
+        structuredDraft: output.structuredDraft,
+        unclassifiedBlocks: output.unclassifiedBlocks,
+        sourceKind,
+        sourceBlocks,
+        qualityReport,
+        now
+      });
+      const saved = await props.repository.saveImportedResumeDraft({ ...importedDraft, parserVersion: `${importedDraft.parserVersion}+${RESUME_IMPORT_CLEANER_VERSION}` }, 0);
+      selectionBaselineRef.current = saved;
+      setDraft(saved);
+      prefillImportedProfileName(saved);
+      setPages([]);
+      setSelectedItemId(undefined);
+      setSelectedPageNumber(1);
+      setStatus("reviewing");
+      setMessage(successMessage);
+      if (jsonErrorNotificationIdRef.current) notificationStore.dismiss(jsonErrorNotificationIdRef.current);
+      jsonErrorNotificationIdRef.current = undefined;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "保存导入草稿时发生未知错误";
+      fail(message);
+      jsonErrorNotificationIdRef.current = notify({ type: "error", title: "保存失败", message });
+    }
   }
 
   async function runAiJsonMapping() {
