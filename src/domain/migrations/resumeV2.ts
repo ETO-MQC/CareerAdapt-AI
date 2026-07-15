@@ -37,12 +37,28 @@ export function migrateCareerProfileToV2(profile: CareerProfile): CareerProfileV
 }
 
 export function migrateResumeBranchToV2(branch: ResumeBranch): ResumeBranchV2 {
-  if (branch.schemaVersion === "resume-branch-v2" && branch.structuredContentItems) return branch as ResumeBranchV2;
+  if (branch.schemaVersion === "resume-branch-v2" && branch.structuredContentItems && branchContentV2IsCurrent(branch)) return branch as ResumeBranchV2;
   return ResumeBranchSchema.parse({
     ...branch,
     schemaVersion: "resume-branch-v2",
     structuredContentItems: branch.contentItems.map(migrateBranchContentItem)
   }) as ResumeBranchV2;
+}
+
+function branchContentV2IsCurrent(branch: ResumeBranch) {
+  if (!branch.structuredContentItems || branch.structuredContentItems.length !== branch.contentItems.length) return false;
+  const byId = new Map(branch.structuredContentItems.map((item) => [item.id, item]));
+  return branch.contentItems.every((legacy) => {
+    const item = byId.get(legacy.id);
+    return Boolean(item
+      && item.legacyTextProjection === legacy.text
+      && item.order === legacy.order
+      && item.visible === legacy.visible
+      && item.source === legacy.source
+      && JSON.stringify(item.factRefs) === JSON.stringify(legacy.factRefs)
+      && item.guardMode === legacy.guardMode
+      && item.guardStatus === legacy.guardStatus);
+  });
 }
 
 export function migrateBranchContentItem(item: BranchContentItem): ResumeContentItemV2 {

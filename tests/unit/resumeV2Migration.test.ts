@@ -18,5 +18,10 @@ describe("progressive resume v2 migration", () => {
     const once = migrateResumeBranchToV2(branch);
     expect(once.structuredContentItems[0]?.legacyTextProjection).toBe(content.text);
     expect(migrateResumeBranchToV2(once)).toEqual(once);
+    const edited = ResumeBranchSchema.parse({
+      ...once,
+      contentItems: once.contentItems.map((item) => item.id === "item-1" ? { ...item, text: "用户修改后的正文", originalText: item.originalText } : item)
+    });
+    expect(migrateResumeBranchToV2(edited).structuredContentItems[0]?.legacyTextProjection).toBe("用户修改后的正文");
   });
 });
