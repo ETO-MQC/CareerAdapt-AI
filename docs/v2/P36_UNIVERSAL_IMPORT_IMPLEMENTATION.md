@@ -120,11 +120,32 @@ DOCX Adapter 继续解析 `document.xml`，并补充：
 
 ## 9. 验证摘要
 
-- `pnpm typecheck`：通过。
-- `pnpm lint`：通过，0 warning。
-- `pnpm test`：44 files / 219 tests 通过。
-- 相关 Playwright：Stage E1 PDF 3/3；G4a/G7b.2 10/10，先前失败均已按真实姓名冲突/字段确认边界或当前 UI 语义修正并复测。
-- 完整 build、C1/C2 和四分片 E2E 结果在最终门禁后补记到 `history3.md`。
+最终门禁均在 Node 24.15.0 / pnpm 10.29.2 下执行：
+
+| 命令 | 退出码 | 结果 |
+| --- | ---: | --- |
+| `pnpm typecheck` | 0 | 通过；一次与 `next build` 并发时因 `.next/types` 重写失败，随后独立顺序复跑通过，属于门禁编排竞争 |
+| `pnpm lint` | 0 | 通过，0 warning |
+| `pnpm test` | 0 | 44 files / 219 tests 通过 |
+| `pnpm build` | 0 | 通过；包含 `/api/resume-import/ocr` Route |
+| `pnpm test:c1:eval` | 0 | 1/1，通过，约 144.19 s |
+| `pnpm test:c2:eval` | 0 | 1/1，通过，约 100.60 s |
+| `git diff --check` | 0 | 通过，仅有仓库既有 LF/CRLF 提示 |
+
+当前导入入口的 Playwright 最终定向套件为 15/15：`pdfProbe` 1/1、Resume Schema v2 栏目/1024×768 1/1、Stage E1 PDF 3/3、G4a 当前 PDF 导入与 PDF 导出 2/2、G7b.2 统一 JSON/导入核对 8/8。另有当前 Plan3/Stage B 交互 11/11 通过；测试只更新了折叠岗位表单入口和多通知队列的精确定位，没有降低断言或添加 skip。
+
+四分片全量 E2E 的原始命令与拆分结果：
+
+| shard | 原始命令 | 原始结果 | 文件拆分证据 |
+| --- | --- | --- | --- |
+| 1/4 | `--shard=1/4 --workers=4` | 工具上限约 604 s，退出码 124，无 aggregate | E1 33/33；D1 0/1；D2 整文件约 304 s 超时，代表场景 0/1。失败停在未显式选择通用简历 |
+| 2/4 | `--shard=2/4 --workers=4` | 工具上限约 604 s，退出码 124，无 aggregate | 当前入口组 16/16；Stage C/D 0/4；G0a/G1a/G1b 0/14；G2/G3 共用旧 helper 的代表场景 0/1 |
+| 3/4 | `--shard=3/4 --workers=4` | 工具上限约 604 s，退出码 124，无 aggregate | G2 0/4、G3a 0/7、G3b 0/2；G4/G5 整文件再次超时，拆出的旧 PDF 入口代表场景 0/3 |
+| 4/4 | `--shard=4/4 --workers=4` | 退出码 1，约 304 s | 28 passed / 12 failed / 1 skipped；G4a 2/2、G5a 5/5、G7b.2 导入 8/8 均通过 |
+
+全量历史套件不得记为通过。主要 P2 测试债是旧 fixture 仍直接点击当前正确禁用的 `run-experience-match`、依赖已隐藏的 `create-suggestion-draft`，或查找已经被统一导入模态替代的顶层 PDF dropzone。shard 4 的 skip 是仓库既有、需显式 `G7B2_VISUAL_ACCEPTANCE=1` 的 60 图视觉证据场景；本轮没有新增 skip。另有少量独立旧 UI/fixture 断言漂移（资料归档列表、旧支持格式行、资料库经历种子），均记录为 P2，不通过删测试或放宽正式 Schema 处理。
+
+本轮 P3.6 定向链路、Unit/Integration、build、C1/C2 均通过，未发现 P0/P1。历史 Playwright 前置债不属于导入 Domain 回归，但需要后续单独把旧 branch fixture 迁移到“显式选择通用简历 → 匹配 → 直接派生”的当前流程后，才能宣称全量 E2E 通过。
 
 ## 10. 已知限制
 
