@@ -22,12 +22,14 @@ import {
   ResumeJsonMapperOutputSchema,
   StructuredResumeDraftSchema,
   type CareerProfile,
+  type ExtractedSourceBlock,
   type ImportedResumeDraft,
   type ImportedResumeField,
   type ImportedResumeItem,
   type ImportedResumeSource,
   type ImportedResumeSectionType,
   type ImportMergeDecision,
+  type NormalizedSourceBlock,
   type ResumeJsonMapperOutput,
   type PdfImportSession,
   type PdfPageText
@@ -36,6 +38,7 @@ import { extractTextFromPdfBuffer } from "@/services/pdf/extractText";
 import { hashBytes, hashText, redactSensitiveTextForModel, restoreSensitivePlaceholders } from "@/services/security/text";
 import { RevisionConflictError, type WorkspaceRepository } from "@/services/storage/repositories";
 import { notificationStore, notify } from "@/services/notifications/store";
+import { getResumeFieldDefinition, type CanonicalFieldId } from "@/domain/resumeFields";
 
 type ImportStatus =
   | "idle"
@@ -78,6 +81,8 @@ export function ResumeImportWizard(props: {
   const [pages, setPages] = useState<PdfPageText[]>([]);
   const [selectedPageNumber, setSelectedPageNumber] = useState(1);
   const [selectedItemId, setSelectedItemId] = useState<string | undefined>();
+  const [selectedBasicFieldKey, setSelectedBasicFieldKey] = useState<BasicFieldKey | undefined>();
+  const [selectedCandidateId, setSelectedCandidateId] = useState<string | undefined>();
   const [basicMergeActions, setBasicMergeActions] = useState<Record<string, ImportMergeDecision["action"]>>({});
   const [jsonText, setJsonText] = useState("");
   const [sourceMode, setSourceMode] = useState<"file" | "json">(props.initialMode ?? "file");
@@ -119,6 +124,9 @@ export function ResumeImportWizard(props: {
   const selectedItem = useMemo(() => {
     return draft?.sections.flatMap((section) => section.items).find((item) => item.id === selectedItemId);
   }, [draft, selectedItemId]);
+  const selectedBasicMapping = selectedBasicFieldKey ? draft?.basics[selectedBasicFieldKey]?.mapping : undefined;
+  const fieldCandidates = draft?.schemaVersion === "resume-import-v2" ? draft.fieldCandidates : [];
+  const selectedCandidate = fieldCandidates.find((candidate) => candidate.id === selectedCandidateId);
   const importableItemCount = useMemo(() => {
     return draft?.sections.flatMap((section) => section.items).filter((item) =>
       item.included && (item.sourceStatus === "located" || item.sourceStatus === "user_confirmed_modified")
@@ -128,7 +136,8 @@ export function ResumeImportWizard(props: {
     if (!draft) return 0;
     const fields = [draft.basics.name, draft.basics.email, draft.basics.phone, draft.basics.location, draft.basics.summary, ...draft.basics.links];
     return fields.filter((field) => field?.mapping?.needsConfirmation).length
-      + draft.sections.flatMap((section) => section.items).filter((item) => item.mapping?.needsConfirmation).length;
+      + draft.sections.flatMap((section) => section.items).filter((item) => item.mapping?.needsConfirmation).length
+      + (draft.schemaVersion === "resume-import-v2" ? draft.fieldCandidates.filter((candidate) => candidate.needsConfirmation).length : 0);
   }, [draft]);
   const targetProfile = (props.profiles ?? []).find((item) => item.id === targetProfileId) ?? props.profile;
   const nameMismatch = targetMode === "existing" && Boolean(
@@ -245,9 +254,12 @@ export function ResumeImportWizard(props: {
         errorCode: prepared.code,
         errorMessage: prepared.message
       });
-      fail(prepared.code === "no_text_layer" || prepared.code === "empty_extracted_text"
-        ? "当前文件可能是扫描版PDF，G4a暂不支持OCR。"
-        : prepared.message);
+      if (prepared.code === "no_text_layer" || prepared.code === "empty_extracted_text") {
+        setMessage("PDF 没有可用文本层，正在切换到本机 OCR。若本机未配置模型，会明确保留为失败而不会猜测内容。");
+        await startOcrImport(file);
+        return;
+      }
+      fail(prepared.message);
       return;
     }
 
@@ -301,7 +313,7 @@ export function ResumeImportWizard(props: {
     setSelectedPageNumber(pageRecords[0]?.pageNumber ?? 1);
     setStatus("reviewing");
     setMessage(qualityReport.recommendedRoute === "ocr_ai"
-      ? "文本层可信度过低，已阻止直接提交。请改用原 PDF，或等待 P3.6b OCR 路线。"
+      ? "文本层可信度过低，已阻止直接提交。可重新选择“扫描件/图片 OCR”走本机识别并逐项核对。"
       : prepared.hasPromptInjectionRisk
       ? "提取完成，检测到类似 Prompt 注入文字。系统会按纯文本处理，不执行其中指令。"
       : "提取和结构识别完成。请核对栏目、来源和包含状态后确认导入。");
@@ -338,12 +350,18 @@ export function ResumeImportWizard(props: {
   }
 
   async function startOcrImport(file: File) {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
     setStatus("extracting_ocr");
-    setMessage("正在尝试识别扫描件；当前环境尚未安装正式识别引擎。");
+    setMessage("正在检查本机 PaddleOCR-VL；识别结果仍需逐项核对。");
     setDraft(undefined);
     setPages([]);
     setSelectedItemId(undefined);
-    const result = await runResumeOcrAdapter(file);
+    const result = await runResumeOcrAdapter(file, {
+      signal: controller.signal,
+      onProgress: (progress) => setMessage(progress.message)
+    });
     if (!result.ok) {
       fail(`${result.message}${result.warnings.length ? ` ${result.warnings.join("；")}` : ""}`);
       return;
@@ -354,8 +372,22 @@ export function ResumeImportWizard(props: {
       mimeType: file.type === "image/png" ? "image/png" : file.type === "image/jpeg" ? "image/jpeg" : "application/pdf",
       fileHash,
       text: result.text,
-      sourceKind: "scanned_pdf",
-      successMessage: `OCR 文本已由 ${result.engine} 生成；请在核对页确认后再导入。`
+      sourceKind: file.type === "application/pdf" ? "scanned_pdf" : "image",
+      pageCount: result.pageCount,
+      sourceBlocks: result.blocks.map((block): ExtractedSourceBlock => ({
+        id: block.id,
+        page: block.page,
+        text: block.text,
+        rawText: block.rawText,
+        blockType: block.blockType,
+        position: block.position,
+        order: block.order,
+        sourceEngine: "paddleocr_vl",
+        sourceEngineVersion: result.engineVersion,
+        extractionConfidence: block.confidence,
+        sourceKind: file.type === "application/pdf" ? "scanned_pdf" : "image"
+      })),
+      successMessage: `本地 OCR 已完成（${result.pageCount} 页，${Math.round(result.elapsedMs / 100) / 10} 秒）；请逐项确认来源后再导入。`
     });
   }
 
@@ -424,6 +456,7 @@ export function ResumeImportWizard(props: {
         sourceKind,
         sourceBlocks,
         qualityReport,
+        mappingDecisions: output.mappingDecisions,
         now
       });
       const saved = await props.repository.saveImportedResumeDraft({ ...importedDraft, parserVersion: `${importedDraft.parserVersion}+${RESUME_IMPORT_CLEANER_VERSION}` }, 0);
@@ -493,6 +526,7 @@ export function ResumeImportWizard(props: {
       sourceKind: draft.sourceKind === "scanned_pdf" ? "external_json" : draft.sourceKind === "standard_json" || draft.sourceKind === "external_json" ? draft.sourceKind : "external_json",
       sourceBlocks: draft.sourceBlocks,
       qualityReport: draft.qualityReport,
+      mappingDecisions: merged.mappingDecisions,
       now: draft.createdAt
     });
     const saved = await props.repository.saveImportedResumeDraft({
@@ -515,8 +549,9 @@ export function ResumeImportWizard(props: {
     mimeType: ImportedResumeSource["mimeType"];
     fileHash: string;
     text: string;
-    sourceKind: "docx" | "scanned_pdf";
-    sourceBlocks?: Array<{ id: string; sourcePath?: string; text: string; rawText: string; blockType: "paragraph" | "heading" | "list_item" | "table_cell" | "text_block" | "unknown"; order: number }>;
+    sourceKind: "docx" | "scanned_pdf" | "image";
+    pageCount?: number;
+    sourceBlocks?: ExtractedSourceBlock[];
     successMessage: string;
   }) {
     setStatus("classifying_sections");
@@ -528,9 +563,11 @@ export function ResumeImportWizard(props: {
       return;
     }
     const normalizedTextHash = await hashText(normalizedText);
-    const pageRecord = await buildSyntheticPageText({
+    const pageRecords = await buildSyntheticPageTexts({
       fileName: input.fileName,
-      text: normalizedText,
+      pageTexts: input.sourceBlocks?.length
+        ? Array.from({ length: input.pageCount ?? 1 }, (_, index) => normalizedBlocksToText(sourceBlocks.filter((block) => (block.page ?? 1) === index + 1)))
+        : [normalizedText],
       now
     });
     const importedDraft = createImportedResumeDraftFromText({
@@ -539,10 +576,10 @@ export function ResumeImportWizard(props: {
         mimeType: input.mimeType,
         fileHash: input.fileHash,
         normalizedTextHash,
-        pageCount: 1,
+        pageCount: pageRecords.length,
         extractedAt: now
       },
-      pages: [pageRecord],
+      pages: pageRecords,
       sourceKind: input.sourceKind,
       sourceBlocks,
       qualityReport: analyzeImportQuality({ sourceType: input.sourceKind, blocks: sourceBlocks }),
@@ -551,8 +588,8 @@ export function ResumeImportWizard(props: {
     const saved = await props.repository.saveImportedResumeDraft({ ...importedDraft, parserVersion: `${importedDraft.parserVersion}+${RESUME_IMPORT_CLEANER_VERSION}` }, 0);
     setDraft(saved);
     prefillImportedProfileName(saved);
-    setPages([pageRecord]);
-    setSelectedPageNumber(1);
+    setPages(pageRecords);
+    setSelectedPageNumber(pageRecords[0]?.pageNumber ?? 1);
     setStatus("reviewing");
     setMessage(input.successMessage);
   }
@@ -605,6 +642,18 @@ export function ResumeImportWizard(props: {
       const field = current.basics[key];
       if (!field?.mapping) return current;
       return { ...current, basics: { ...current.basics, [key]: { ...field, sourceStatus: "user_confirmed_modified", mapping: { ...field.mapping, needsConfirmation: false } } } };
+    });
+  }
+
+  async function confirmFieldCandidate(candidateId: string) {
+    await patchDraft((current) => {
+      if (current.schemaVersion !== "resume-import-v2") return current;
+      return {
+        ...current,
+        fieldCandidates: current.fieldCandidates.map((candidate) => candidate.id === candidateId
+          ? { ...candidate, needsConfirmation: false, userConfirmed: true }
+          : candidate)
+      };
     });
   }
 
@@ -898,8 +947,12 @@ export function ResumeImportWizard(props: {
   }
 
   return (
-    <section className={`resume-import-wizard no-print ${draft ? "resume-import-wizard-review" : ""}`} aria-live="polite">
-      <input ref={fileInputRef} className="visually-hidden" type="file" accept="application/pdf,.pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/json,.json,image/png,image/jpeg,.png,.jpg,.jpeg" onChange={handleFileChange} />
+    <section
+      className={`resume-import-wizard no-print ${draft ? "resume-import-wizard-review" : ""}`}
+      aria-busy={["validating_file", "extracting_pdf", "extracting_docx", "extracting_ocr", "importing_json", "classifying_sections", "confirming"].includes(status)}
+    >
+      <p className="visually-hidden" role="status" aria-live="polite">{importStatusLabel(status)}。{message}</p>
+      <input ref={fileInputRef} className="visually-hidden" type="file" name="resume-file" aria-label="选择要导入的简历文件" accept="application/pdf,.pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/json,.json,image/png,image/jpeg,.png,.jpg,.jpeg" onChange={handleFileChange} />
       <fieldset className="import-target-picker">
         <legend>1. 选择导入目标</legend>
         <div className="import-target-options">
@@ -914,13 +967,13 @@ export function ResumeImportWizard(props: {
         </div>
         {targetMode === "existing" ? (
           <label className="import-target-field">目标人物
-            <select value={targetProfileId} onChange={(event) => setTargetProfileId(event.target.value)}>
+            <select name="import-target-profile" value={targetProfileId} onChange={(event) => setTargetProfileId(event.target.value)}>
               {(props.profiles?.length ? props.profiles : props.profile ? [props.profile] : []).map((profile) => <option key={profile.id} value={profile.id}>{profile.name}</option>)}
             </select>
           </label>
         ) : (
           <div className="import-new-profile-fields">
-            <label className="import-target-field">人物名称<input value={newProfileName} onChange={(event) => setNewProfileName(event.target.value)} placeholder="将从导入姓名预填" /></label>
+            <label className="import-target-field">人物名称<input name="new-profile-name" autoComplete="off" value={newProfileName} onChange={(event) => setNewProfileName(event.target.value)} placeholder="将从导入姓名预填" /></label>
             <label className="inline-toggle"><input type="checkbox" checked={createGeneralResume} onChange={(event) => setCreateGeneralResume(event.target.checked)} />同时创建通用简历</label>
           </div>
         )}
@@ -961,6 +1014,9 @@ export function ResumeImportWizard(props: {
         <textarea
           className="textarea compact-textarea"
           aria-label="JSON 内容"
+          name="resume-json"
+          autoComplete="off"
+          spellCheck={false}
           value={jsonText}
           onChange={(event) => setJsonText(event.target.value)}
           placeholder={JSON.stringify(sampleResumeJsonV2(), null, 2)}
@@ -969,10 +1025,10 @@ export function ResumeImportWizard(props: {
           {!jsonText.trim() ? "请先粘贴 JSON 内容。" : jsonText.length > RESUME_JSON_MAX_CHARS ? `JSON 内容超过 ${RESUME_JSON_MAX_CHARS.toLocaleString("zh-CN")} 个字符，请拆分后重试。` : message} 当前 {jsonText.length.toLocaleString("zh-CN")} / {RESUME_JSON_MAX_CHARS.toLocaleString("zh-CN")} 字符。
         </p>
         <div className="action-row">
-          <button className="primary-button compact" disabled={!jsonText.trim() || jsonText.length > RESUME_JSON_MAX_CHARS || status === "importing_json"} onClick={() => { void startJsonImport(jsonText, "pasted-structured-resume.json"); }}>
+          <button type="button" className="primary-button compact" disabled={!jsonText.trim() || jsonText.length > RESUME_JSON_MAX_CHARS || status === "importing_json"} onClick={() => { void startJsonImport(jsonText, "pasted-structured-resume.json"); }}>
             导入JSON
           </button>
-          <button className="secondary-button compact" onClick={() => setJsonText(JSON.stringify(sampleResumeJsonV2(), null, 2))}>
+          <button type="button" className="secondary-button compact" onClick={() => setJsonText(JSON.stringify(sampleResumeJsonV2(), null, 2))}>
             填入示例
           </button>
         </div>
@@ -1015,8 +1071,11 @@ export function ResumeImportWizard(props: {
               <div className="action-row">
                 {draft.pages.map((page) => (
                   <button
+                    type="button"
                     key={page.pageNumber}
                     className={page.pageNumber === selectedPageNumber ? "primary-button compact" : "secondary-button compact"}
+                    aria-label={`查看第 ${page.pageNumber} 页来源`}
+                    aria-current={page.pageNumber === selectedPageNumber ? "page" : undefined}
                     onClick={() => setSelectedPageNumber(page.pageNumber)}
                   >
                     {page.pageNumber}
@@ -1024,8 +1083,17 @@ export function ResumeImportWizard(props: {
                 ))}
               </div>
             </div>
-            <pre className="import-source-text">
-              {selectedItem?.mapping ? formatMappingSource(selectedItem.mapping) : highlightSourceText(selectedPage?.normalizedText ?? "", selectedItem)}
+            <div className="import-trace-summary" role="status">
+              <span><strong>{sourceKindLabel(draft.sourceKind)}</strong>{draft.sourceBlocks.length} 个来源块</span>
+              <span><strong>{pipelineRouteLabel(draft)}</strong>{fieldCandidates.length} 个字段候选</span>
+              <span><strong>{draft.unclassifiedBlocks.length ? "有保留项" : "无遗漏项"}</strong>{draft.unclassifiedBlocks.length} 个未识别来源</span>
+            </div>
+            <pre className="import-source-text" tabIndex={0} aria-label={`第 ${selectedPageNumber} 页来源文本`}>
+              {selectedBasicMapping
+                ? formatMappingSource(selectedBasicMapping)
+                : selectedItem?.mapping
+                ? formatMappingSource(selectedItem.mapping)
+                : highlightSourceText(selectedPage?.normalizedText ?? "", selectedCandidate?.sourceQuote ?? selectedItem?.pageRefs[0]?.quote)}
             </pre>
             <div className="import-source-footer">
               <p>{draft.source.mimeType === "application/json" ? "原始 JSON 保留在当前导入窗口，正式提交前不会写入简历。" : `${pages.length} 页来源文本已保存；原始文件未长期保存。`}</p>
@@ -1034,26 +1102,72 @@ export function ResumeImportWizard(props: {
           </aside>
 
           <div className="import-structure-panel">
-            {(pendingJsonMapping && jsonText) || (["docx", "text_pdf"].includes(draft.sourceKind) && draft.qualityReport?.recommendedRoute === "ai_text") ? (
+            {(pendingJsonMapping && jsonText) || (["docx", "digital_pdf", "complex_digital_pdf", "scanned_pdf", "image", "text_pdf"].includes(draft.sourceKind) && draft.qualityReport?.recommendedRoute === "ai_text") ? (
               <div className="ai-mapping-consent">
                 <label className="inline-toggle"><input type="checkbox" checked={aiPrivacyConfirmed} onChange={(event) => setAiPrivacyConfirmed(event.target.checked)} />同意发送脱敏来源块；敏感信息使用稳定占位符。</label>
                 <button className="secondary-button compact" type="button" disabled={!aiPrivacyConfirmed || status === "importing_json" || status === "classifying_sections"} onClick={() => { void (pendingJsonMapping && jsonText ? runAiJsonMapping() : runAiDocumentMapping()); }}>使用 AI 智能映射</button>
               </div>
             ) : null}
             <div className="section-heading compact-heading">
-              <div><h3>核对结构</h3>{unconfirmedMappingCount > 0 ? <p>{unconfirmedMappingCount} 个映射待单独确认</p> : null}</div>
-              {unconfirmedMappingCount > 0 ? <button className="primary-button compact" type="button" onClick={() => { void confirmAllMappings(); }}>确认全部</button> : null}
+              <div><h3>核对结构</h3>{unconfirmedMappingCount > 0 ? <p>{unconfirmedMappingCount} 个映射待确认；一源多字段需逐项确认</p> : null}</div>
+              {unconfirmedMappingCount > fieldCandidates.filter((candidate) => candidate.needsConfirmation).length ? <button className="primary-button compact" type="button" onClick={() => { void confirmAllMappings(); }}>确认可批量项</button> : null}
             </div>
+
+            {fieldCandidates.length > 0 ? <details className="import-field-candidates" open>
+              <summary>字段候选 <span>{fieldCandidates.filter((candidate) => candidate.needsConfirmation).length} 项待确认</span></summary>
+              <div className="import-field-candidate-list">
+                {fieldCandidates.map((candidate) => (
+                  <div key={candidate.id} className={selectedCandidateId === candidate.id ? "import-field-candidate active" : "import-field-candidate"}>
+                    <button type="button" className="import-field-candidate-source" aria-pressed={selectedCandidateId === candidate.id} onClick={() => {
+                      setSelectedCandidateId(candidate.id);
+                      setSelectedBasicFieldKey(undefined);
+                      setSelectedItemId(undefined);
+                      const block = draft.sourceBlocks.find((source) => candidate.sourceBlockIds.includes(source.id));
+                      if (block?.page) setSelectedPageNumber(block.page);
+                    }}>
+                      <span>{canonicalFieldLabel(candidate.targetFieldId)}</span>
+                      <strong>{formatCandidateValue(candidate.value)}</strong>
+                      <small>{candidate.dateValue ? datePrecisionLabel(candidate.dateValue.precision, candidate.dateValue.current) : "逐字来源"} · {Math.round(candidate.confidence * 100)}%</small>
+                    </button>
+                    {candidate.needsConfirmation
+                      ? <button className="secondary-button compact" type="button" onClick={() => { void confirmFieldCandidate(candidate.id); }}>确认此字段</button>
+                      : <span className="import-field-candidate-confirmed">已确认</span>}
+                  </div>
+                ))}
+              </div>
+            </details> : null}
 
             <div className="review-row">
               <strong>基本信息</strong>
               <div className="form-grid compact-form-grid">
                 {(["name", "email", "phone", "location", "summary"] as BasicFieldKey[]).map((key) => (
                   <div className="import-basic-field" key={key}>
-                    <label>{basicLabel(key)}<input defaultValue={draft.basics[key]?.value ?? ""} onBlur={(event) => { void updateBasicField(key, event.target.value); }} /></label>
+                    <label>{basicLabel(key)}<input
+                      name={`import-basic-${key}`}
+                      type={key === "email" ? "email" : key === "phone" ? "tel" : "text"}
+                      autoComplete={key === "email" ? "email" : key === "phone" ? "tel" : key === "name" ? "name" : "off"}
+                      spellCheck={key !== "email" && key !== "phone"}
+                      defaultValue={draft.basics[key]?.value ?? ""}
+                      onBlur={(event) => { void updateBasicField(key, event.target.value); }}
+                    /></label>
+                    {draft.basics[key]?.mapping ? <button
+                      type="button"
+                      className={`mapping-trace ${draft.basics[key]?.mapping?.confidenceLevel === "low" ? "mapping-trace-low" : ""}`}
+                      aria-pressed={selectedBasicFieldKey === key}
+                      onClick={() => {
+                        setSelectedBasicFieldKey(key);
+                        setSelectedCandidateId(undefined);
+                        setSelectedItemId(undefined);
+                      }}
+                    >
+                      <span>来源：{draft.basics[key]?.mapping?.sourcePaths.join("、")}</span>
+                      <strong>{draft.basics[key]?.mapping?.needsConfirmation ? "需要确认" : "来源已核对"}</strong>
+                    </button> : null}
                     {draft.basics[key]?.mapping?.needsConfirmation ? <button className="secondary-button compact" type="button" onClick={() => { void confirmBasicMapping(key); }}>确认字段映射</button> : null}
                     {targetMode === "existing" && targetProfile?.basics[key] && draft.basics[key]?.value && targetProfile.basics[key] !== draft.basics[key]?.value ? (
                       <select
+                        name={`import-basic-${key}-merge`}
+                        aria-label={`${basicLabel(key)}合并方式`}
                         value={basicMergeActions[key] ?? "keep_existing"}
                         onChange={(event) => setBasicMergeActions((current) => ({ ...current, [key]: event.target.value as ImportMergeDecision["action"] }))}
                       >
@@ -1073,7 +1187,7 @@ export function ResumeImportWizard(props: {
                     <input type="checkbox" checked={section.included} onChange={(event) => { void updateSectionIncluded(section.id, event.target.checked); }} />
                     {section.detectedTitle}
                   </label>
-                  <select value={section.sectionType} onChange={(event) => { void updateSectionType(section.id, event.target.value as ImportedResumeSectionType); }}>
+                  <select name={`import-section-${section.id}-type`} aria-label={`${section.detectedTitle}栏目类型`} value={section.sectionType} onChange={(event) => { void updateSectionType(section.id, event.target.value as ImportedResumeSectionType); }}>
                     {SECTION_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                   </select>
                   <div className="action-row import-section-bulk-actions">
@@ -1089,20 +1203,38 @@ export function ResumeImportWizard(props: {
                       {sourceStatusLabel(item.sourceStatus)} / {confidenceLabel(item.confidence)} / 第 {item.pageRefs.map((ref) => ref.pageNumber).join(",") || "?"} 页
                     </label>
                     {item.mapping?.needsConfirmation ? <button className="secondary-button compact" type="button" onClick={() => { void confirmItemMapping(section.id, item.id); }}>确认此映射</button> : null}
+                    {item.mapping ? <button
+                      type="button"
+                      className={`mapping-trace ${item.mapping.confidenceLevel === "low" ? "mapping-trace-low" : ""}`}
+                      aria-pressed={selectedItemId === item.id}
+                      onClick={() => {
+                        setSelectedItemId(item.id);
+                        setSelectedBasicFieldKey(undefined);
+                        setSelectedCandidateId(undefined);
+                        setSelectedPageNumber(item.pageRefs[0]?.pageNumber ?? selectedPageNumber);
+                      }}
+                    >
+                      <span>来源：{item.mapping.sourcePaths.join("、")}</span>
+                      <strong>{item.mapping.needsConfirmation ? "需要确认" : "来源已核对"}</strong>
+                    </button> : null}
                     <textarea
                       className="textarea compact-textarea"
+                      name={`import-item-${item.id}`}
+                      aria-label={`${section.detectedTitle}导入内容`}
                       defaultValue={item.normalizedText}
                       onFocus={() => {
                         setSelectedItemId(item.id);
+                        setSelectedBasicFieldKey(undefined);
+                        setSelectedCandidateId(undefined);
                         setSelectedPageNumber(item.pageRefs[0]?.pageNumber ?? selectedPageNumber);
                       }}
                       onBlur={(event) => { void editItemText(section.id, item, event.target.value); }}
                     />
                     <div className="action-row">
-                      <button className="secondary-button compact" onClick={() => { void moveItem(section.id, item.id, "up"); }}>上移</button>
-                      <button className="secondary-button compact" onClick={() => { void moveItem(section.id, item.id, "down"); }}>下移</button>
-                      <button className="secondary-button compact" onClick={() => { void mergeWithNext(section.id, item.id); }}>合并</button>
-                      <button className="secondary-button compact" onClick={() => { void splitItem(section.id, item); }}>拆分</button>
+                      <button type="button" className="secondary-button compact" onClick={() => { void moveItem(section.id, item.id, "up"); }}>上移</button>
+                      <button type="button" className="secondary-button compact" onClick={() => { void moveItem(section.id, item.id, "down"); }}>下移</button>
+                      <button type="button" className="secondary-button compact" onClick={() => { void mergeWithNext(section.id, item.id); }}>合并</button>
+                      <button type="button" className="secondary-button compact" onClick={() => { void splitItem(section.id, item); }}>拆分</button>
                     </div>
                   </div>
                 ))}
@@ -1113,7 +1245,7 @@ export function ResumeImportWizard(props: {
         </div>
         <footer className="import-review-footer">
           <div><strong>{draft.qualityReport?.recommendedRoute === "ocr_ai" ? "当前文本层不可安全提交" : `${importableItemCount} 条内容待确认导入`}</strong><span>{targetMode === "new" ? `创建新人物：${newProfileName || "待填写"}` : `导入到：${targetProfile?.name ?? "待选择"}`} · {message}</span></div>
-          <div className="action-row"><button className="secondary-button" type="button" onClick={cancelImport} disabled={status === "confirming"}>取消</button><button className="primary-button" disabled={status === "confirming" || draft.qualityReport?.recommendedRoute === "ocr_ai" || (createGeneralResume && importableItemCount === 0) || unconfirmedMappingCount > 0 || (targetMode === "new" && !newProfileName.trim()) || (nameMismatch && basicMergeActions.name !== "keep_existing")} onClick={confirmImport}>确认导入</button></div>
+          <div className="action-row"><button className="secondary-button" type="button" onClick={cancelImport} disabled={status === "confirming"}>取消</button><button type="button" className="primary-button" disabled={status === "confirming" || draft.qualityReport?.recommendedRoute === "ocr_ai" || (createGeneralResume && importableItemCount === 0) || unconfirmedMappingCount > 0 || (targetMode === "new" && !newProfileName.trim()) || (nameMismatch && basicMergeActions.name !== "keep_existing")} onClick={confirmImport}>确认导入</button></div>
         </footer>
         </>
       ) : null}
@@ -1121,28 +1253,35 @@ export function ResumeImportWizard(props: {
   );
 }
 
-async function buildSyntheticPageText(input: {
+async function buildSyntheticPageTexts(input: {
   fileName: string;
-  text: string;
+  pageTexts: string[];
   now: string;
-}): Promise<PdfPageText> {
-  const rawTextHash = await hashText(input.text);
-  const cleanedTextHash = await hashText(input.text.trim());
-  return {
-    id: `import-text-page-${nanoid(10)}`,
-    sessionId: `synthetic-${nanoid(10)}`,
-    pageNumber: 1,
-    extractedPageText: input.text,
-    cleanedPageText: input.text.trim(),
-    charStart: 0,
-    charEnd: input.text.trim().length,
-    textItemCount: input.text.split(/\s+/).filter(Boolean).length,
-    warnings: [`${input.fileName} 已转换为单页来源文本。`],
-    rawTextHash,
-    cleanedTextHash,
-    createdAt: input.now,
-    updatedAt: input.now
-  };
+}): Promise<PdfPageText[]> {
+  const sessionId = `synthetic-${nanoid(10)}`;
+  const pages: PdfPageText[] = [];
+  let charStart = 0;
+  for (let index = 0; index < input.pageTexts.length; index += 1) {
+    const text = input.pageTexts[index] ?? "";
+    const cleaned = text.trim();
+    pages.push({
+      id: `import-text-page-${nanoid(10)}`,
+      sessionId,
+      pageNumber: index + 1,
+      extractedPageText: text,
+      cleanedPageText: cleaned,
+      charStart,
+      charEnd: charStart + cleaned.length,
+      textItemCount: text.split(/\s+/).filter(Boolean).length,
+      warnings: [`${input.fileName} 已转换为第 ${index + 1} 页来源文本。`],
+      rawTextHash: await hashText(text),
+      cleanedTextHash: await hashText(cleaned),
+      createdAt: input.now,
+      updatedAt: input.now
+    });
+    charStart += cleaned.length + 2;
+  }
+  return pages;
 }
 
 function isDocxFile(file: File) {
@@ -1382,9 +1521,9 @@ function normalizeName(value: string) {
   return value.normalize("NFKC").replace(/\s+/g, "").toLocaleLowerCase();
 }
 
-function chunkSourceBlocks(blocks: ImportedResumeDraft["sourceBlocks"], maxChars = 18_000) {
-  const chunks: ImportedResumeDraft["sourceBlocks"][] = [];
-  let current: ImportedResumeDraft["sourceBlocks"] = [];
+function chunkSourceBlocks(blocks: readonly NormalizedSourceBlock[], maxChars = 18_000) {
+  const chunks: NormalizedSourceBlock[][] = [];
+  let current: NormalizedSourceBlock[] = [];
   let size = 2;
   for (const block of blocks) {
     const blockSize = JSON.stringify(block).length + 1;
@@ -1400,7 +1539,7 @@ function chunkSourceBlocks(blocks: ImportedResumeDraft["sourceBlocks"], maxChars
   return chunks.length ? chunks : [[]];
 }
 
-function mergeDocumentMapperOutputs(outputs: ResumeJsonMapperOutput[], sourceBlocks: ImportedResumeDraft["sourceBlocks"]): ResumeJsonMapperOutput {
+function mergeDocumentMapperOutputs(outputs: ResumeJsonMapperOutput[], sourceBlocks: readonly NormalizedSourceBlock[]): ResumeJsonMapperOutput {
   const structuredDraft = {
     schemaVersion: "structured-resume-draft-v1" as const,
     basics: Object.assign({}, ...outputs.map((output) => output.structuredDraft.basics)),
@@ -1461,14 +1600,55 @@ function sourceStatusLabel(status: ImportedResumeItem["sourceStatus"]) {
   }[status];
 }
 
-function highlightSourceText(text: string, item: ImportedResumeItem | undefined) {
-  if (!item?.pageRefs[0]?.quote) {
+function highlightSourceText(text: string, quote: string | undefined) {
+  if (!quote) {
     return text;
   }
-  const quote = item.pageRefs[0].quote;
   const index = text.indexOf(quote);
   if (index < 0) {
     return text;
   }
   return `${text.slice(0, index)}\n>>> ${quote} <<<\n${text.slice(index + quote.length)}`;
+}
+
+function canonicalFieldLabel(fieldId: string) {
+  return getResumeFieldDefinition(fieldId as CanonicalFieldId)?.label ?? fieldId;
+}
+
+function formatCandidateValue(value: string | number | boolean | string[]) {
+  if (Array.isArray(value)) return value.join("、");
+  if (typeof value === "boolean") return value ? "是" : "否";
+  return String(value);
+}
+
+function datePrecisionLabel(precision: "year" | "month" | "day" | undefined, current: boolean) {
+  if (current) return "当前状态";
+  return precision === "day" ? "精确到日" : precision === "month" ? "精确到月" : "精确到年";
+}
+
+function sourceKindLabel(sourceKind: ImportedResumeDraft["sourceKind"]) {
+  return {
+    standard_json: "标准 JSON",
+    external_json: "外部 JSON",
+    docx: "DOCX 结构",
+    digital_pdf: "数字 PDF",
+    complex_digital_pdf: "复杂 PDF",
+    text_pdf: "PDF 文本",
+    scanned_pdf: "扫描 PDF",
+    image: "简历图片"
+  }[sourceKind];
+}
+
+function pipelineRouteLabel(draft: ImportedResumeDraft) {
+  if (draft.schemaVersion !== "resume-import-v2") {
+    return draft.qualityReport?.recommendedRoute === "ocr_ai" ? "需要本地识别" : "确定性提取";
+  }
+  return {
+    standard_json: "标准结构校验",
+    deterministic_json: "确定性字段映射",
+    docx_structure: "文档结构提取",
+    digital_pdf_layout: "坐标阅读顺序",
+    ocr_local: "需要本地识别",
+    manual_review: "本地识别后核对"
+  }[draft.qualityReport.recommendedPipeline];
 }

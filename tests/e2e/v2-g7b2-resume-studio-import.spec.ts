@@ -66,11 +66,12 @@ test.describe("V2-G7b.2 Resume Studio and import IA", () => {
     await page.getByRole("button", { name: "打开", exact: true }).click();
     await expect(page.getByTestId("resume-studio-shell")).toBeVisible();
     const educationBox = await page.getByRole("button", { name: "教育经历", exact: true }).boundingBox();
-    const workBox = await page.getByRole("button", { name: "工作 / 实习经历", exact: true }).boundingBox();
-    const awardBox = await page.getByRole("button", { name: "奖项", exact: true }).boundingBox();
+    const workBox = await page.getByRole("button", { name: "工作经历 / 实习经历", exact: true }).boundingBox();
+    const projectBox = await page.getByRole("button", { name: "项目经历 / 项目成果", exact: true }).boundingBox();
     const skillBox = await page.getByRole("button", { name: "技能", exact: true }).boundingBox();
     expect(educationBox!.y).toBeLessThan(workBox!.y);
-    expect(awardBox!.y).toBeLessThan(skillBox!.y);
+    expect(workBox!.y).toBeLessThan(projectBox!.y);
+    expect(projectBox!.y).toBeLessThan(skillBox!.y);
   });
 
   test("keeps malformed JSON available for correction and reports its location", async ({ page }) => {
@@ -131,7 +132,7 @@ test.describe("V2-G7b.2 Resume Studio and import IA", () => {
     await expect(page.locator(".ai-mapping-consent")).toContainText("脱敏");
     await page.locator(".ai-mapping-consent input").check();
     await page.getByRole("button", { name: "使用 AI 智能映射", exact: true }).click();
-    await expect(page.getByText(/AI 映射结果已通过 Schema 校验/)).toBeVisible();
+    await expect(page.locator(".import-review-footer")).toContainText("AI 映射结果已通过 Schema 校验");
     await expect(page.locator(".mapping-trace").first()).toContainText("需要确认");
   });
 
@@ -238,7 +239,7 @@ test.describe("V2-G7b.2 Resume Studio and import IA", () => {
     const download = await downloadPromise;
 
     expect(download.suggestedFilename()).toContain("structured-resume.json");
-    await expect(page.locator(".notice")).toBeVisible();
+    await expect(page.locator(".app-notification-success").filter({ hasText: "结构化 JSON" }).last()).toBeVisible();
   });
 });
 

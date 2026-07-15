@@ -4587,11 +4587,37 @@ html[data-theme="dark"] .property-panel-heading p {
 .import-source-panel {
   display: grid;
   gap: 8px;
-  grid-template-rows: auto auto auto;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
   overflow-y: auto;
   overscroll-behavior: contain;
   padding-right: 4px;
   scrollbar-gutter: stable;
+}
+
+.import-trace-summary {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.import-trace-summary > span {
+  background: var(--surface-subtle);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--muted);
+  display: grid;
+  font-size: 11px;
+  gap: 1px;
+  min-width: 0;
+  padding: 6px 8px;
+}
+
+.import-trace-summary strong {
+  color: var(--ink);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .import-source-footer > p {
@@ -4642,6 +4668,89 @@ html[data-theme="dark"] .property-panel-heading p {
 
 .import-structure-panel .review-row {
   grid-template-columns: minmax(0, 1fr);
+}
+
+.import-field-candidates {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+
+.import-field-candidates > summary {
+  align-items: center;
+  background: var(--surface-subtle);
+  cursor: pointer;
+  display: flex;
+  font-size: 12px;
+  font-weight: 800;
+  gap: 8px;
+  justify-content: space-between;
+  min-height: 34px;
+  padding: 6px 10px;
+}
+
+.import-field-candidates > summary span {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.import-field-candidate-list {
+  display: grid;
+  max-height: 220px;
+  overscroll-behavior: contain;
+  overflow-y: auto;
+}
+
+.import-field-candidate {
+  align-items: center;
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 6px 8px;
+}
+
+.import-field-candidate.active {
+  background: color-mix(in srgb, var(--accent-soft) 54%, var(--surface));
+}
+
+.import-field-candidate-source {
+  background: transparent;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+  padding: 2px;
+  text-align: left;
+}
+
+.import-field-candidate-source > span,
+.import-field-candidate-source > small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.import-field-candidate-source > strong {
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.import-field-candidate-source:focus-visible {
+  border-radius: 4px;
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.import-field-candidate-confirmed {
+  color: var(--accent-strong);
+  font-size: 11px;
+  font-weight: 800;
+  padding-inline: 6px;
 }
 
 .import-source-text {
@@ -4992,8 +5101,30 @@ html[data-theme="dark"] .property-panel-heading p {
   background: var(--surface-subtle);
   border: 1px solid var(--line);
   border-radius: 6px;
+  color: inherit;
+  cursor: pointer;
+  font-family: inherit;
   font-size: 12px;
   padding: 8px;
+  text-align: left;
+}
+
+.mapping-trace:hover {
+  border-color: color-mix(in srgb, var(--accent) 52%, var(--line));
+}
+
+.mapping-trace:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.mapping-trace[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--accent-soft) 52%, var(--surface-subtle));
+  border-color: var(--accent);
+}
+
+.mapping-trace > strong {
+  color: var(--ink);
 }
 
 .mapping-trace-low {
@@ -5727,6 +5858,15 @@ html[data-theme="dark"] .property-panel-heading p {
 
   .resume-import-wizard-review .import-name-mismatch {
     grid-column: 3;
+  }
+
+  .import-review-grid {
+    gap: 12px;
+    grid-template-columns: minmax(250px, 34fr) minmax(0, 66fr);
+  }
+
+  .import-trace-summary {
+    grid-template-columns: 1fr;
   }
 }
 
