@@ -1,4 +1,5 @@
-import { StructuredResumeDraftSchema, type ExtractedSourceBlock, type ImportedResumeMappingTrace, type ResumeJsonMapperOutput } from "@/domain/schemas";
+import { StructuredResumeDraftSchema, type ExtractedSourceBlock, type ImportedResumeMappingTrace, type MappingDecision, type ResumeJsonMapperOutput, type StructuredResumeDraft } from "@/domain/schemas";
+import { findResumeFieldsByAlias, resumeFieldCatalog, type CanonicalFieldId, type ResumeSectionTypeV2 } from "@/domain/resumeFields";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -150,7 +151,7 @@ export function mapExternalResumeJson(value: unknown): JsonMapResult {
       };
     }
 
-    return { ok: true, value: { structuredDraft: parsed.data, unclassifiedBlocks } };
+    return { ok: true, value: { structuredDraft: parsed.data, unclassifiedBlocks, mappingDecisions: buildMappingDecisions(parsed.data, unclassifiedBlocks) } };
   } catch (error) {
     return {
       ok: false,
@@ -159,6 +160,65 @@ export function mapExternalResumeJson(value: unknown): JsonMapResult {
       details: error instanceof Error ? error.message : String(error)
     };
   }
+}
+
+function buildMappingDecisions(draft: StructuredResumeDraft, unclassifiedBlocks: ResumeJsonMapperOutput["unclassifiedBlocks"]): MappingDecision[] {
+  const decisions: MappingDecision[] = [];
+  const basicsTargets: Record<string, CanonicalFieldId> = {
+    name: "basics.name", email: "basics.email", phone: "basics.phone", location: "basics.location", summary: "summary.text"
+  };
+  for (const [key, value] of Object.entries(draft.basics)) {
+    const mapped = value && !Array.isArray(value) && typeof value === "object" && "mapping" in value ? value : undefined;
+    const targetFieldId = basicsTargets[key];
+    if (mapped && targetFieldId) decisions.push(...decisionsFromTrace(mapped.mapping as ImportedResumeMappingTrace, targetFieldId));
+  }
+  for (const section of draft.sections) {
+    const sectionType = v2SectionType(section.category);
+    for (const item of section.items) {
+      if (typeof item === "string" || !item.mapping) continue;
+      const fallback = resumeFieldCatalog.find((field) => field.sectionType === sectionType)?.id;
+      item.mapping.sourcePaths.forEach((path, index) => {
+        const alias = path.replace(/\[\d+\]/g, "").split(".").at(-1) ?? "";
+        const targetFieldId = findResumeFieldsByAlias(alias, sectionType)[0]?.id ?? fallback;
+        if (!targetFieldId) return;
+        decisions.push(decisionFromSource(item.mapping!, targetFieldId, path, item.mapping!.sourceValues[index]));
+      });
+    }
+  }
+  for (const block of unclassifiedBlocks) {
+    decisions.push({ kind: "unclassified", reason: block.reason, sourceBlockIds: [block.sourcePath], sourceQuote: sourceQuote(block.sourceValue) });
+  }
+  return decisions;
+}
+
+function decisionsFromTrace(trace: ImportedResumeMappingTrace, targetFieldId: CanonicalFieldId): MappingDecision[] {
+  return trace.sourcePaths.map((path, index) => decisionFromSource(trace, targetFieldId, path, trace.sourceValues[index]));
+}
+
+function decisionFromSource(trace: ImportedResumeMappingTrace, targetFieldId: CanonicalFieldId, path: string, value: unknown): MappingDecision {
+  return {
+    kind: "canonical_field",
+    targetFieldId,
+    sourceBlockIds: [path],
+    sourceQuote: sourceQuote(value),
+    confidence: trace.confidenceLevel === "high" ? 0.95 : trace.confidenceLevel === "medium" ? 0.75 : 0.5,
+    needsConfirmation: trace.needsConfirmation,
+    mappingReason: trace.confidenceReason
+  };
+}
+
+function sourceQuote(value: unknown) {
+  if (typeof value === "string") return value || "（空字符串）";
+  const serialized = JSON.stringify(value);
+  return serialized && serialized.length > 0 ? serialized : String(value);
+}
+
+function v2SectionType(category: StructuredResumeDraft["sections"][number]["category"]): ResumeSectionTypeV2 {
+  const types: Record<NonNullable<typeof category>, ResumeSectionTypeV2> = {
+    summary: "summary", education: "education", work: "work", project: "project", campus: "campus", award: "awards",
+    skill: "skills", certificate: "certificates", language: "languages", custom: "custom"
+  };
+  return category ? types[category] : "custom";
 }
 
 // ─── structured-resume-draft-v1 格式映射 ─────────────────────

@@ -27,6 +27,7 @@ import { profileBuilderPrompt } from "@/ai/prompts/profileBuilder";
 import { resumeTailorPrompt } from "@/ai/prompts/resumeTailor";
 import { resumeJsonMapperPrompt } from "@/ai/prompts/resumeJsonMapper";
 import { resumeDocumentMapperPrompt } from "@/ai/prompts/resumeDocumentMapper";
+import { RESUME_CATALOG_VERSION, resumeFieldCatalog } from "@/domain/resumeFields";
 
 export const stageBAiTaskSchema = z.enum(["profile-builder", "jd-analyzer"]);
 
@@ -165,7 +166,9 @@ export const aiTaskRegistry = {
       return JSON.stringify({
         externalJson: redacted.text,
         redactions: redacted.redactions,
-        instructions: "Map fields without changing facts; preserve source paths, source values, confidence, and all unmapped leaves."
+        catalogVersion: RESUME_CATALOG_VERSION,
+        canonicalFields: resumeFieldCatalog.filter((field) => field.aiMappable).map((field) => ({ id: field.id, sectionType: field.sectionType, aliases: field.aliases, valueType: field.valueType })),
+        instructions: "Map each source value to canonical_field, custom_field, custom_section, or unclassified without changing facts; preserve exact source paths, quotes, confidence, and every unmapped leaf."
       }, null, 2);
     },
     coerceRawOutput(rawOutput: unknown) {
@@ -705,6 +708,14 @@ function validateJsonMapperSources(output: ResumeJsonMapperOutput, rawText: stri
         throw new Error("resume_json_mapper_source_mismatch");
       }
     });
+  }
+  for (const decision of output.mappingDecisions ?? []) {
+    for (const path of decision.sourceBlockIds) {
+      const actual = readJsonSourcePath(source, path);
+      if (actual === undefined) throw new Error("resume_json_mapper_decision_source_missing");
+      const quote = typeof actual === "string" ? actual || "（空字符串）" : JSON.stringify(actual) || String(actual);
+      if (normalizeMappedText(quote) !== normalizeMappedText(decision.sourceQuote)) throw new Error("resume_json_mapper_decision_quote_mismatch");
+    }
   }
   validateMappedContent(output);
 }

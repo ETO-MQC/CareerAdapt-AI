@@ -32,6 +32,10 @@ describe("resume JSON import adapter", () => {
     expect(mapped.structuredDraft.basics.name).toMatchObject({ value: "陈同学", mapping: { sourcePaths: ["personalInfo.name"] } });
     expect(mapped.structuredDraft.sections.map((section) => section.category)).toEqual(["work", "skill"]);
     expect(mapped.unclassifiedBlocks).toContainEqual(expect.objectContaining({ sourcePath: "privateNote", sourceValue: "不得丢弃" }));
+    expect(mapped.mappingDecisions).toEqual(expect.arrayContaining([
+      expect.objectContaining({ kind: "canonical_field", targetFieldId: "basics.name", sourceBlockIds: ["personalInfo.name"] }),
+      expect.objectContaining({ kind: "unclassified", sourceBlockIds: ["privateNote"] })
+    ]));
   });
 
   it("does not create mapped values that are absent from source values", () => {

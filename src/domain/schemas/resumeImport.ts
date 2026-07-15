@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { EntityBaseSchema, IsoDateStringSchema } from "./common";
 import { ResumeRenderSectionTypeSchema } from "./resumeRender";
+import { isCanonicalFieldId } from "@/domain/resumeFields";
+import { CustomFieldValueSchema, FlexibleSectionV2Schema } from "./resumeV2";
 
 export const ImportedResumeDraftStatusSchema = z.enum([
   "extracting",
@@ -231,7 +233,7 @@ export const StructuredResumeDraftSchema = z.object({
   })).default([])
 }).strict();
 
-export const ImportedResumeDraftSchema = EntityBaseSchema.extend({
+const ImportedResumeDraftBaseSchema = EntityBaseSchema.extend({
   schemaVersion: z.literal("resume-import-v1"),
   importId: z.string().min(1),
   revision: z.number().int().min(0),
@@ -262,7 +264,9 @@ export const ImportedResumeDraftSchema = EntityBaseSchema.extend({
   confirmedBranchId: z.string().min(1).optional(),
   confirmedRevisionId: z.string().min(1).optional(),
   confirmedAt: IsoDateStringSchema.optional()
-}).superRefine((draft, ctx) => {
+});
+
+function validateImportedResumeItemIds(draft: { sections: Array<{ items: Array<{ id: string }> }> }, ctx: z.RefinementCtx) {
   const itemIds = new Set<string>();
   for (const section of draft.sections) {
     for (const item of section.items) {
@@ -276,7 +280,52 @@ export const ImportedResumeDraftSchema = EntityBaseSchema.extend({
       itemIds.add(item.id);
     }
   }
-});
+}
+
+export const ImportedResumeDraftSchema = ImportedResumeDraftBaseSchema.superRefine(validateImportedResumeItemIds);
+
+const MappingSourceShape = {
+  sourceBlockIds: z.array(z.string().min(1)).min(1),
+  sourceQuote: z.string().min(1)
+};
+
+export const MappingDecisionSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("canonical_field"),
+    targetFieldId: z.string().refine(isCanonicalFieldId, "targetFieldId must exist in the canonical field catalog"),
+    ...MappingSourceShape,
+    confidence: z.number().min(0).max(1),
+    needsConfirmation: z.boolean(),
+    mappingReason: z.string().min(1)
+  }).strict(),
+  z.object({
+    kind: z.literal("custom_field"),
+    sectionId: z.string().min(1),
+    proposedField: CustomFieldValueSchema,
+    ...MappingSourceShape,
+    confidence: z.number().min(0).max(1),
+    needsConfirmation: z.boolean(),
+    mappingReason: z.string().min(1)
+  }).strict(),
+  z.object({
+    kind: z.literal("custom_section"),
+    proposedSection: FlexibleSectionV2Schema,
+    ...MappingSourceShape,
+    confidence: z.number().min(0).max(1),
+    needsConfirmation: z.boolean(),
+    mappingReason: z.string().min(1)
+  }).strict(),
+  z.object({
+    kind: z.literal("unclassified"),
+    reason: z.string().min(1),
+    ...MappingSourceShape
+  }).strict()
+]);
+
+export const ImportedResumeDraftV2Schema = z.intersection(
+  ImportedResumeDraftBaseSchema.omit({ schemaVersion: true }),
+  z.object({ schemaVersion: z.literal("resume-import-v2"), mappingDecisions: z.array(MappingDecisionSchema).default([]) })
+).superRefine(validateImportedResumeItemIds);
 
 export const ImportMergeDecisionSchema = z.object({
   target: z.enum(["name", "email", "phone", "location", "summary", "link"]),
@@ -311,7 +360,8 @@ export const ResumeJsonMapperOutputSchema = z.object({
     sourcePath: z.string().min(1),
     sourceValue: z.unknown(),
     reason: z.string().min(1)
-  })).default([])
+  })).default([]),
+  mappingDecisions: z.array(MappingDecisionSchema).optional()
 });
 
 export type ImportedResumeDraftStatus = z.infer<typeof ImportedResumeDraftStatusSchema>;
@@ -333,6 +383,8 @@ export type ImportedResumeSection = z.infer<typeof ImportedResumeSectionSchema>;
 export type ImportedResumePage = z.infer<typeof ImportedResumePageSchema>;
 export type ImportedResumeSource = z.infer<typeof ImportedResumeSourceSchema>;
 export type ImportedResumeDraft = z.infer<typeof ImportedResumeDraftSchema>;
+export type ImportedResumeDraftV2 = z.infer<typeof ImportedResumeDraftV2Schema>;
+export type MappingDecision = z.infer<typeof MappingDecisionSchema>;
 export type StructuredResumeDraft = z.infer<typeof StructuredResumeDraftSchema>;
 export type ImportMergeDecision = z.infer<typeof ImportMergeDecisionSchema>;
 export type ImportedResumeConfirmResult = z.infer<typeof ImportedResumeConfirmResultSchema>;
