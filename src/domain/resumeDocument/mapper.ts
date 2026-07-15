@@ -8,6 +8,7 @@ import {
   type ResumeRenderSectionType,
   type TemplateId
 } from "@/domain/schemas";
+import { defaultResumeRenderSectionOrder } from "@/domain/resumeFields/catalog";
 import { branchFactRefKey, resolveBranchFactRefs } from "@/domain/branch/validation";
 import { stableHashText } from "@/services/security/text";
 
@@ -248,7 +249,7 @@ function applyPresentationConfig(
 }
 
 function sanitizeSectionOrder(sectionOrder?: ResumeRenderSectionType[]) {
-  const defaults: ResumeRenderSectionType[] = ["summary", "experience", "skills", "certificates"];
+  const defaults: ResumeRenderSectionType[] = [...defaultResumeRenderSectionOrder];
   if (!sectionOrder) {
     return defaults;
   }

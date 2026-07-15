@@ -19,6 +19,7 @@ import {
 import { createResumeRevision } from "@/domain/branch/revision";
 import { computeGeneralBranchSyncStatus } from "@/domain/branch/validation";
 import { locatePdfSourceQuote } from "@/domain/pdfImport/sourceMapping";
+import { categorySourceSectionId, resumeCategoryRank } from "@/domain/resumeFields/catalog";
 
 export type ResumeImportConfirmationBuildResult = {
   profile: CareerProfile;
@@ -158,7 +159,10 @@ function mergeImportedProfile(input: {
   const experiences = [...baseProfile.experiences];
   const skills = [...baseProfile.skills];
   const certificates = [...baseProfile.certificates];
-  const unclassifiedBlocks = [...baseProfile.unclassifiedBlocks];
+  const unclassifiedBlocks = [
+    ...baseProfile.unclassifiedBlocks,
+    ...input.draft.unclassifiedBlocks.map((block) => `${block.sourcePath}: ${stringifySourceValue(block.sourceValue)}`)
+  ];
 
   for (const section of input.draft.sections.filter((item) => item.included)) {
     for (const item of section.items.filter(canImportItem)) {
@@ -168,7 +172,7 @@ function mergeImportedProfile(input: {
       }
       existingFactKeys.add(factKey);
 
-      if (section.sectionType === "skills") {
+      if (sectionCategory(section) === "skill") {
         const refs = splitSkillText(item.normalizedText).map((skillName) => {
           const skillId = `skill-${nanoid(10)}`;
           const fact = createImportedFact({
@@ -196,7 +200,7 @@ function mergeImportedProfile(input: {
         continue;
       }
 
-      if (section.sectionType === "certificates") {
+      if (sectionCategory(section) === "certificate") {
         const certificateId = `cert-${nanoid(10)}`;
         const fact = createImportedFact({
           draft: input.draft,
@@ -281,6 +285,7 @@ function buildBranchContentItems(input: {
     .filter((section) => section.included)
     .flatMap((section) => section.items.map((item) => ({ section, item })))
     .filter(({ item }) => canImportItem(item))
+    .sort((a, b) => resumeCategoryRank(sectionCategory(a.section)) - resumeCategoryRank(sectionCategory(b.section)) || a.item.order - b.item.order)
     .map(({ section, item }) => {
       const factRefs = factRefsByItem.get(item.id) ?? [];
       if (factRefs.length === 0) {
@@ -290,7 +295,7 @@ function buildBranchContentItems(input: {
         id: `branch-item-import-${item.id}`,
         itemType: importedSectionItemType(section),
         source: "resume_import",
-        sourceSectionId: section.id,
+        sourceSectionId: categorySourceSectionId(sectionCategory(section)),
         text: item.normalizedText,
         originalText: item.rawText,
         order: order++,
@@ -400,51 +405,71 @@ function canImportItem(item: ImportedResumeItem) {
 }
 
 function importedSectionItemType(section: ImportedResumeSection): BranchContentItem["itemType"] {
-  if (section.sectionType === "summary") {
+  const category = sectionCategory(section);
+  if (category === "summary") {
     return "summary";
   }
-  if (section.sectionType === "skills") {
+  if (category === "skill") {
     return "skill";
   }
-  if (section.sectionType === "certificates") {
+  if (category === "certificate") {
     return "certificate";
   }
-  if (section.sectionType === "unknown") {
+  if (category === "award" || category === "language" || category === "custom") {
     return "custom";
   }
   return "experience";
 }
 
 function importedSectionFactCategory(section: ImportedResumeSection): FactCategory {
-  if (section.sectionType === "skills") {
+  const category = sectionCategory(section);
+  if (category === "skill") {
     return "skill";
   }
-  if (section.sectionType === "certificates") {
+  if (category === "certificate") {
     return "certificate";
   }
-  if (/教育|education/i.test(section.detectedTitle)) {
+  if (category === "education") {
     return "education";
   }
-  return section.sectionType === "unknown" ? "other" : "experience";
+  if (category === "award") return "achievement";
+  return category === "custom" || category === "language" || category === "summary" ? "other" : "experience";
 }
 
 function importedExperienceType(section: ImportedResumeSection): CareerProfile["experiences"][number]["type"] {
-  if (/教育|education/i.test(section.detectedTitle)) {
+  const category = sectionCategory(section);
+  if (category === "education") {
     return "education";
   }
   if (/实习|intern/i.test(section.detectedTitle)) {
     return "internship";
   }
-  if (/项目|project/i.test(section.detectedTitle)) {
+  if (category === "project") {
     return "project";
   }
-  if (/校园|社团|campus/i.test(section.detectedTitle)) {
+  if (category === "campus") {
     return "campus";
   }
-  if (/工作|work|experience/i.test(section.detectedTitle)) {
+  if (category === "work") {
     return "work";
   }
   return "other";
+}
+
+function sectionCategory(section: ImportedResumeSection) {
+  if (section.category) return section.category;
+  if (section.sectionType === "summary") return "summary" as const;
+  if (section.sectionType === "skills") return "skill" as const;
+  if (section.sectionType === "certificates") return "certificate" as const;
+  if (/教育|education/i.test(section.detectedTitle)) return "education" as const;
+  if (/项目|project/i.test(section.detectedTitle)) return "project" as const;
+  if (/校园|社团|campus/i.test(section.detectedTitle)) return "campus" as const;
+  return section.sectionType === "unknown" ? "custom" as const : "work" as const;
+}
+
+function stringifySourceValue(value: unknown) {
+  if (typeof value === "string") return value;
+  try { return JSON.stringify(value); } catch { return String(value); }
 }
 
 function inferOrganization(section: ImportedResumeSection, item: ImportedResumeItem) {

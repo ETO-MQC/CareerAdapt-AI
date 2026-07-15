@@ -12,8 +12,12 @@ import {
   createImportedResumeDraftFromStructuredJson,
   createImportedResumeDraftFromText
 } from "@/domain/resumeImport/parser";
+import { mapExternalResumeJson, parseResumeJsonText, RESUME_JSON_MAX_CHARS } from "@/domain/resumeImport/jsonMapper";
+import { applyImportBulkSelection, type ImportBulkSelectionMode } from "@/domain/resumeImport/reviewSelections";
+import { invokeStructuredAi } from "@/ai/client";
 import {
   ImportedResumeDraftSchema,
+  ResumeJsonMapperOutputSchema,
   StructuredResumeDraftSchema,
   type CareerProfile,
   type ImportedResumeDraft,
@@ -22,12 +26,14 @@ import {
   type ImportedResumeSource,
   type ImportedResumeSectionType,
   type ImportMergeDecision,
+  type ResumeJsonMapperOutput,
   type PdfImportSession,
   type PdfPageText
 } from "@/domain/schemas";
 import { extractTextFromPdfBuffer } from "@/services/pdf/extractText";
 import { hashBytes, hashText } from "@/services/security/text";
 import { RevisionConflictError, type WorkspaceRepository } from "@/services/storage/repositories";
+import { notificationStore, notify } from "@/services/notifications/store";
 
 type ImportStatus =
   | "idle"
@@ -71,6 +77,10 @@ export function ResumeImportWizard(props: {
   const [basicMergeActions, setBasicMergeActions] = useState<Record<string, ImportMergeDecision["action"]>>({});
   const [jsonText, setJsonText] = useState("");
   const [sourceMode, setSourceMode] = useState<"file" | "json">(props.initialMode ?? "file");
+  const [pendingJsonMapping, setPendingJsonMapping] = useState<ResumeJsonMapperOutput>();
+  const [aiPrivacyConfirmed, setAiPrivacyConfirmed] = useState(false);
+  const selectionBaselineRef = useRef<ImportedResumeDraft | undefined>(undefined);
+  const jsonErrorNotificationIdRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     let active = true;
@@ -80,6 +90,7 @@ export function ResumeImportWizard(props: {
         return;
       }
       setDraft(latest);
+      selectionBaselineRef.current = latest;
       setStatus(latest.status === "reviewing" ? "reviewing" : "failed");
       setSelectedPageNumber(latest.pages[0]?.pageNumber ?? 1);
       if (latest.source.sourceSessionId) {
@@ -106,6 +117,12 @@ export function ResumeImportWizard(props: {
     ).length ?? 0;
   }, [draft]);
   const qualityReport = useMemo(() => draft ? buildImportQualityReport(draft) : undefined, [draft]);
+  const unconfirmedMappingCount = useMemo(() => {
+    if (!draft) return 0;
+    const fields = [draft.basics.name, draft.basics.email, draft.basics.phone, draft.basics.location, draft.basics.summary, ...draft.basics.links];
+    return fields.filter((field) => field?.mapping?.needsConfirmation).length
+      + draft.sections.flatMap((section) => section.items).filter((item) => item.mapping?.needsConfirmation).length;
+  }, [draft]);
 
   async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const input = event.currentTarget;
@@ -311,39 +328,65 @@ export function ResumeImportWizard(props: {
   async function startJsonImport(rawText: string, fileName = "structured-resume.json") {
     setStatus("importing_json");
     setMessage("正在校验结构化 JSON。JSON 不会绕过核对页。");
-    setDraft(undefined);
-    setPages([]);
-    setSelectedItemId(undefined);
     const risk = validateStructuredJsonText(rawText);
     if (risk) {
       fail(risk);
       return;
     }
-    try {
-      const parsed = StructuredResumeDraftSchema.parse(JSON.parse(rawText));
-      const now = new Date().toISOString();
-      const normalizedTextHash = await hashText(rawText);
-      const importedDraft = createImportedResumeDraftFromStructuredJson({
-        source: {
-          fileName,
-          mimeType: "application/json",
-          fileHash: normalizedTextHash,
-          normalizedTextHash,
-          pageCount: 1,
-          extractedAt: now
-        },
-        structuredDraft: parsed,
-        now
-      });
-      const saved = await props.repository.saveImportedResumeDraft(importedDraft, 0);
-      setDraft(saved);
-      setPages([]);
-      setSelectedPageNumber(1);
-      setStatus("reviewing");
-      setMessage("结构化 JSON 已进入核对页；确认前不会写入正式数据。");
-    } catch {
-      fail("JSON 结构不符合示例格式，请修正后重试。");
+    const parsedJson = parseResumeJsonText(rawText);
+    if (!parsedJson.ok) {
+      fail(parsedJson.error.message);
+      jsonErrorNotificationIdRef.current = notify({ type: "error", title: "JSON 格式错误", message: parsedJson.error.message });
+      return;
     }
+    const standard = StructuredResumeDraftSchema.safeParse(parsedJson.value);
+    const mapped = standard.success
+      ? { structuredDraft: standard.data, unclassifiedBlocks: [] }
+      : mapExternalResumeJson(parsedJson.value);
+    setPendingJsonMapping(standard.success ? undefined : mapped);
+    await persistJsonDraft(mapped, fileName, rawText, standard.success
+      ? "结构化 JSON 已进入核对页；确认前不会写入正式数据。"
+      : mapped.unclassifiedBlocks.length > 0
+        ? `已完成确定性字段映射，并保留 ${mapped.unclassifiedBlocks.length} 个未识别字段。可继续核对，或在确认隐私提示后使用 AI 智能映射。`
+        : "已通过常见字段别名完成映射，请核对来源路径和置信度。");
+  }
+
+  async function persistJsonDraft(output: ResumeJsonMapperOutput, fileName: string, rawText: string, successMessage: string) {
+    const now = new Date().toISOString();
+    const normalizedTextHash = await hashText(rawText);
+    const importedDraft = createImportedResumeDraftFromStructuredJson({
+      source: { fileName, mimeType: "application/json", fileHash: normalizedTextHash, normalizedTextHash, pageCount: 1, extractedAt: now },
+      structuredDraft: output.structuredDraft,
+      unclassifiedBlocks: output.unclassifiedBlocks,
+      now
+    });
+    const saved = await props.repository.saveImportedResumeDraft(importedDraft, 0);
+    selectionBaselineRef.current = saved;
+    setDraft(saved);
+    setPages([]);
+    setSelectedItemId(undefined);
+    setSelectedPageNumber(1);
+    setStatus("reviewing");
+    setMessage(successMessage);
+    if (jsonErrorNotificationIdRef.current) notificationStore.dismiss(jsonErrorNotificationIdRef.current);
+    jsonErrorNotificationIdRef.current = undefined;
+  }
+
+  async function runAiJsonMapping() {
+    if (!aiPrivacyConfirmed || !jsonText.trim()) return;
+    setStatus("importing_json");
+    setMessage("正在发送脱敏后的 JSON 内容进行智能字段映射。原始 JSON 和密钥不会写入 AI 日志。");
+    const inputHash = await hashText(jsonText);
+    const result = await invokeStructuredAi({ task: "resume-json-mapper", businessInput: { rawText: jsonText, inputHash }, outputSchema: ResumeJsonMapperOutputSchema });
+    await props.repository.saveAiLogs([result.log]);
+    if (!result.ok) {
+      setStatus(draft ? "reviewing" : "failed");
+      setMessage("AI 智能映射失败。原始 JSON 和确定性映射结果均已保留，可重试或手动核对。");
+      notify({ type: "error", title: "AI 映射失败", message: "原始 JSON 已保留，可重试或继续手动核对。" });
+      return;
+    }
+    setPendingJsonMapping(result.data);
+    await persistJsonDraft(result.data, "pasted-ai-mapped-resume.json", jsonText, "AI 映射结果已通过 Schema 校验；所有映射字段仍需用户确认。请逐项核对来源路径。 ");
   }
 
   async function createDraftFromPlainText(input: {
@@ -414,7 +457,8 @@ export function ResumeImportWizard(props: {
           pageRefs: current?.pageRefs ?? [],
           confidence: current?.confidence ?? "medium",
           sourceStatus: current?.value === value.trim() ? current.sourceStatus : "user_confirmed_modified",
-          userEdited: current?.value !== value.trim()
+          userEdited: current?.value !== value.trim(),
+          mapping: current?.mapping ? { ...current.mapping, needsConfirmation: false } : undefined
         }
       : undefined;
     await patchDraft((currentDraft) => ({
@@ -424,6 +468,38 @@ export function ResumeImportWizard(props: {
         [key]: nextField
       }
     }));
+  }
+
+  async function confirmBasicMapping(key: BasicFieldKey) {
+    await patchDraft((current) => {
+      const field = current.basics[key];
+      if (!field?.mapping) return current;
+      return { ...current, basics: { ...current.basics, [key]: { ...field, sourceStatus: "user_confirmed_modified", mapping: { ...field.mapping, needsConfirmation: false } } } };
+    });
+  }
+
+  async function confirmItemMapping(sectionId: string, itemId: string) {
+    await updateItem(sectionId, itemId, {
+      included: true,
+      sourceStatus: "user_confirmed_modified",
+      mapping: draft?.sections.flatMap((section) => section.items).find((item) => item.id === itemId)?.mapping
+        ? { ...draft.sections.flatMap((section) => section.items).find((item) => item.id === itemId)!.mapping!, needsConfirmation: false }
+        : undefined
+    });
+  }
+
+  async function applyBulkSelection(mode: ImportBulkSelectionMode, sectionId?: string) {
+    if (!draft) return;
+    await patchDraft((current) => applyImportBulkSelection({
+      draft: current,
+      baseline: selectionBaselineRef.current,
+      mode,
+      sectionId,
+      profile: props.profile
+    }));
+    if (!sectionId) {
+      if (mode === "keep_existing" || mode === "reset") setBasicMergeActions({});
+    }
   }
 
   async function updateSectionType(sectionId: string, sectionType: ImportedResumeSectionType) {
@@ -574,6 +650,11 @@ export function ResumeImportWizard(props: {
       setMessage("没有可导入的已定位或用户确认条目。");
       return;
     }
+    if (unconfirmedMappingCount > 0) {
+      setMessage(`仍有 ${unconfirmedMappingCount} 个智能映射字段需要单独确认。`);
+      notify({ type: "warning", title: "仍需核对映射", message: `请先确认 ${unconfirmedMappingCount} 个低置信或 AI 映射字段。` });
+      return;
+    }
     setStatus("confirming");
     try {
       const result = await props.repository.confirmImportedResume({
@@ -584,6 +665,7 @@ export function ResumeImportWizard(props: {
       });
       setStatus("completed");
       setMessage(result.idempotent ? "该导入已确认过，已打开现有通用简历。" : "已确认导入，并创建通用简历分支。");
+      notify({ type: "success", title: "导入成功", message: result.idempotent ? "已打开现有通用简历。" : "已创建通用简历和首个版本。" });
       await props.onImported({ profileId: result.profileId, branchId: result.branchId });
     } catch (error) {
       setStatus("reviewing");
@@ -641,9 +723,9 @@ export function ResumeImportWizard(props: {
   }
 
   return (
-    <section className="resume-import-wizard no-print" aria-live="polite">
+    <section className={`resume-import-wizard no-print ${draft ? "resume-import-wizard-review" : ""}`} aria-live="polite">
       <input ref={fileInputRef} className="visually-hidden" type="file" accept="application/pdf,.pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/json,.json,image/png,image/jpeg,.png,.jpg,.jpeg" onChange={handleFileChange} />
-      {sourceMode === "file" ? (
+      {!draft && sourceMode === "file" ? (
         <div
           className="import-dropzone"
           onDragOver={(event) => event.preventDefault()}
@@ -663,13 +745,13 @@ export function ResumeImportWizard(props: {
           }}
         >
           <span className="import-dropzone-icon" aria-hidden="true">↑</span>
-          <strong>{draft?.source.fileName ?? "拖放简历到这里"}</strong>
+          <strong>拖放简历到这里</strong>
           <span>或点击选择 PDF、DOCX、JSON 文件</span>
           <small>{importStatusLabel(status)} · {message}</small>
         </div>
       ) : null}
 
-      <details
+      {!draft ? <details
         className="import-json-details"
         open={sourceMode === "json"}
         onToggle={(event) => setSourceMode(event.currentTarget.open ? "json" : "file")}
@@ -677,21 +759,25 @@ export function ResumeImportWizard(props: {
         <summary>粘贴结构化 JSON</summary>
         <textarea
           className="textarea compact-textarea"
+          aria-label="JSON 内容"
           value={jsonText}
           onChange={(event) => setJsonText(event.target.value)}
           placeholder={JSON.stringify(sampleStructuredResumeJson(), null, 2)}
         />
+        <p className={status === "failed" ? "import-json-feedback import-json-feedback-error" : "import-json-feedback"} role={status === "failed" ? "alert" : "status"}>
+          {!jsonText.trim() ? "请先粘贴 JSON 内容。" : jsonText.length > RESUME_JSON_MAX_CHARS ? `JSON 内容超过 ${RESUME_JSON_MAX_CHARS.toLocaleString("zh-CN")} 个字符，请拆分后重试。` : message} 当前 {jsonText.length.toLocaleString("zh-CN")} / {RESUME_JSON_MAX_CHARS.toLocaleString("zh-CN")} 字符。
+        </p>
         <div className="action-row">
-          <button className="primary-button compact" onClick={() => { void startJsonImport(jsonText || JSON.stringify(sampleStructuredResumeJson()), "pasted-structured-resume.json"); }}>
+          <button className="primary-button compact" disabled={!jsonText.trim() || jsonText.length > RESUME_JSON_MAX_CHARS || status === "importing_json"} onClick={() => { void startJsonImport(jsonText, "pasted-structured-resume.json"); }}>
             导入JSON
           </button>
           <button className="secondary-button compact" onClick={() => setJsonText(JSON.stringify(sampleStructuredResumeJson(), null, 2))}>
             填入示例
           </button>
         </div>
-      </details>
+      </details> : null}
 
-      <div className="import-source-actions" aria-label="辅助导入工具">
+      {!draft ? <div className="import-source-actions" aria-label="辅助导入工具">
         {sourceMode === "json" ? (
           <button className="secondary-button compact" type="button" onClick={downloadSampleJson}>
             下载 JSON 示例
@@ -709,15 +795,31 @@ export function ResumeImportWizard(props: {
             取消当前导入
           </button>
         ) : null}
-      </div>
+      </div> : null}
 
       {draft ? (
         <>
+        <div className="import-review-toolbar">
+          <div><strong>{draft.source.fileName}</strong><span>{importStatusLabel(status)} · {message}</span></div>
+          <div className="action-row">
+            <button className="secondary-button compact" type="button" onClick={() => { void applyBulkSelection("use_imported"); }}>全部使用安全导入项</button>
+            <button className="secondary-button compact" type="button" onClick={() => { void applyBulkSelection("keep_existing"); }}>全部保留现有</button>
+            <button className="secondary-button compact" type="button" onClick={() => { void applyBulkSelection("safe_only"); }}>仅使用无冲突项</button>
+            <button className="secondary-button compact" type="button" onClick={() => { void applyBulkSelection("reset"); }}>重置选择</button>
+            <button className="secondary-button compact" type="button" onClick={cancelImport} disabled={status === "confirming"}>取消导入</button>
+          </div>
+        </div>
         {qualityReport ? <ImportQualityReport report={qualityReport} /> : null}
+        {pendingJsonMapping && jsonText ? (
+          <div className="ai-mapping-consent">
+            <label className="inline-toggle"><input type="checkbox" checked={aiPrivacyConfirmed} onChange={(event) => setAiPrivacyConfirmed(event.target.checked)} />我同意将脱敏后的 JSON 内容发送给已配置的外部模型；手机号、邮箱、身份证号和精确地址会先脱敏。</label>
+            <button className="secondary-button compact" type="button" disabled={!aiPrivacyConfirmed || status === "importing_json"} onClick={() => { void runAiJsonMapping(); }}>使用 AI 智能映射</button>
+          </div>
+        ) : null}
         <div className="import-review-grid">
           <aside className="import-source-panel">
             <div className="section-heading compact-heading">
-              <h3>来源页</h3>
+              <h3>字段来源</h3>
               <div className="action-row">
                 {draft.pages.map((page) => (
                   <button
@@ -731,29 +833,28 @@ export function ResumeImportWizard(props: {
               </div>
             </div>
             <pre className="import-source-text">
-              {highlightSourceText(selectedPage?.normalizedText ?? "", selectedItem)}
+              {selectedItem?.mapping ? formatMappingSource(selectedItem.mapping) : highlightSourceText(selectedPage?.normalizedText ?? "", selectedItem)}
             </pre>
-            <p>{pages.length} 页来源文本已保存；原始 PDF 文件未长期保存。</p>
+            <div className="import-source-footer">
+              <p>{draft.source.mimeType === "application/json" ? "原始 JSON 保留在当前导入窗口，正式提交前不会写入简历。" : `${pages.length} 页来源文本已保存；原始文件未长期保存。`}</p>
+              {draft.source.mimeType === "application/json" && jsonText ? <details><summary>查看原始 JSON</summary><pre>{jsonText}</pre></details> : null}
+            </div>
           </aside>
 
           <div className="import-structure-panel">
             <div className="section-heading compact-heading">
-              <h3>核对结构</h3>
-              <button className="primary-button compact" disabled={status === "confirming" || importableItemCount === 0} onClick={confirmImport}>
-                确认导入
-              </button>
+              <div><h3>核对结构</h3>{unconfirmedMappingCount > 0 ? <p>{unconfirmedMappingCount} 个映射待单独确认</p> : null}</div>
+              <button className="primary-button compact" disabled={status === "confirming" || importableItemCount === 0 || unconfirmedMappingCount > 0} onClick={confirmImport}>确认导入</button>
             </div>
 
             <div className="review-row">
               <strong>基本信息</strong>
               <div className="form-grid compact-form-grid">
                 {(["name", "email", "phone", "location", "summary"] as BasicFieldKey[]).map((key) => (
-                  <label key={key}>
-                    {basicLabel(key)}
-                    <input
-                      defaultValue={draft.basics[key]?.value ?? ""}
-                      onBlur={(event) => { void updateBasicField(key, event.target.value); }}
-                    />
+                  <div className="import-basic-field" key={key}>
+                    <label>{basicLabel(key)}<input defaultValue={draft.basics[key]?.value ?? ""} onBlur={(event) => { void updateBasicField(key, event.target.value); }} /></label>
+                    {draft.basics[key]?.mapping ? <MappingTrace trace={draft.basics[key]!.mapping!} /> : null}
+                    {draft.basics[key]?.mapping?.needsConfirmation ? <button className="secondary-button compact" type="button" onClick={() => { void confirmBasicMapping(key); }}>确认字段映射</button> : null}
                     {props.profile?.basics[key] && draft.basics[key]?.value && props.profile.basics[key] !== draft.basics[key]?.value ? (
                       <select
                         value={basicMergeActions[key] ?? "keep_existing"}
@@ -763,7 +864,7 @@ export function ResumeImportWizard(props: {
                         <option value="use_imported">使用导入</option>
                       </select>
                     ) : null}
-                  </label>
+                  </div>
                 ))}
               </div>
             </div>
@@ -778,6 +879,10 @@ export function ResumeImportWizard(props: {
                   <select value={section.sectionType} onChange={(event) => { void updateSectionType(section.id, event.target.value as ImportedResumeSectionType); }}>
                     {SECTION_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                   </select>
+                  <div className="action-row import-section-bulk-actions">
+                    <button className="secondary-button compact" type="button" onClick={() => { void applyBulkSelection("use_imported", section.id); }}>本栏目使用导入</button>
+                    <button className="secondary-button compact" type="button" onClick={() => { void applyBulkSelection("keep_existing", section.id); }}>本栏目保留现有</button>
+                  </div>
                 </div>
 
                 {section.items.map((item) => (
@@ -786,6 +891,8 @@ export function ResumeImportWizard(props: {
                       <input type="checkbox" checked={item.included} onChange={(event) => { void updateItem(section.id, item.id, { included: event.target.checked }); }} />
                       {sourceStatusLabel(item.sourceStatus)} / {confidenceLabel(item.confidence)} / 第 {item.pageRefs.map((ref) => ref.pageNumber).join(",") || "?"} 页
                     </label>
+                    {item.mapping ? <MappingTrace trace={item.mapping} /> : null}
+                    {item.mapping?.needsConfirmation ? <button className="secondary-button compact" type="button" onClick={() => { void confirmItemMapping(section.id, item.id); }}>确认此映射</button> : null}
                     <textarea
                       className="textarea compact-textarea"
                       defaultValue={item.normalizedText}
@@ -805,6 +912,7 @@ export function ResumeImportWizard(props: {
                 ))}
               </article>
             ))}
+            {draft.unclassifiedBlocks.length > 0 ? <section className="review-row import-unclassified-blocks"><strong>未识别内容（{draft.unclassifiedBlocks.length}）</strong><p>这些字段没有被丢弃，也不会自动写入正式简历。</p>{draft.unclassifiedBlocks.map((block) => <details key={block.sourcePath}><summary>{block.sourcePath}</summary><pre>{stringifyUnknown(block.sourceValue)}</pre></details>)}</section> : null}
           </div>
         </div>
         </>
@@ -869,7 +977,7 @@ function validateStructuredJsonText(text: string) {
   return undefined;
 }
 
-function sampleStructuredResumeJson() {
+export function sampleStructuredResumeJson() {
   return {
     schemaVersion: "structured-resume-draft-v1",
     basics: {
@@ -877,22 +985,50 @@ function sampleStructuredResumeJson() {
       email: "demo.student@example.com",
       phone: "13800000000",
       location: "上海",
-      summary: "数据分析方向学生，熟悉 Excel、Stata 和业务分析。"
+      summary: "数据分析方向学生，熟悉 Excel、Stata 和业务分析。",
+      links: ["https://www.linkedin.com/in/example"]
     },
     sections: [
       {
-        title: "项目与经历",
-        sectionType: "experience",
-        items: [
-          "使用 Stata 清洗 31 个省级样本，并完成描述统计、相关分析与区域差异分析。",
-          "使用 Excel 整理表格数据和基础分析结果。"
-        ]
+        title: "自我评价",
+        category: "summary",
+        sectionType: "summary",
+        items: ["重视数据质量与业务沟通，能够独立完成基础分析。"]
       },
       {
+        title: "教育经历",
+        category: "education",
+        sectionType: "experience",
+        items: [{ organization: "职适大学", role: "本科 · 信息管理", location: "上海", startDate: "2021-09", endDate: "2025-06", highlights: ["主修课程：统计学、数据库系统"], included: true }]
+      },
+      {
+        title: "工作 / 实习经历",
+        category: "work",
+        sectionType: "experience",
+        items: [{ organization: "示例科技", role: "数据运营实习生", location: "上海", startDate: "2024-03", endDate: "2024-08", highlights: ["整理周度经营指标并完成异常复核。"], included: true }]
+      },
+      {
+        title: "项目经历",
+        category: "project",
+        sectionType: "experience",
+        items: [{ organization: "区域数据分析项目", role: "分析成员", startDate: "2023-09", endDate: "2023-12", highlights: ["使用 Stata 清洗省级样本并完成描述统计。"], included: true }]
+      },
+      {
+        title: "校园经历",
+        category: "campus",
+        sectionType: "experience",
+        items: [{ organization: "学生会宣传部", role: "干事", startDate: "2022-09", endDate: "2023-06", highlights: ["参与校园活动内容策划。"], included: true }]
+      },
+      { title: "奖项", category: "award", sectionType: "certificates", items: [{ text: "校级一等奖学金 · 2024", included: true }] },
+      {
         title: "技能",
+        category: "skill",
         sectionType: "skills",
         items: ["Excel", "Stata", "数据清洗", "描述统计"]
-      }
+      },
+      { title: "证书", category: "certificate", sectionType: "certificates", items: [{ text: "大学英语六级", included: true }] },
+      { title: "语言", category: "language", sectionType: "certificates", items: [{ text: "英语 · 熟练", included: true }] },
+      { title: "其他内容", category: "custom", sectionType: "unknown", included: false, items: [{ text: "可到岗时间：两周内", included: false }] }
     ]
   };
 }
@@ -905,6 +1041,25 @@ function basicLabel(key: BasicFieldKey) {
     location: "地点",
     summary: "概述"
   }[key];
+}
+
+function MappingTrace({ trace }: { trace: NonNullable<ImportedResumeItem["mapping"]> }) {
+  return (
+    <div className={`mapping-trace mapping-trace-${trace.confidenceLevel}`}>
+      <span>{confidenceLabel(trace.confidenceLevel)} · {trace.needsConfirmation ? "需要确认" : "可批量处理"}</span>
+      <span>来源：{trace.sourcePaths.join("、")}</span>
+      <small>{trace.confidenceReason}</small>
+    </div>
+  );
+}
+
+function formatMappingSource(trace: NonNullable<ImportedResumeItem["mapping"]>) {
+  return trace.sourcePaths.map((path, index) => `${path}\n${stringifyUnknown(trace.sourceValues[index])}`).join("\n\n");
+}
+
+function stringifyUnknown(value: unknown) {
+  if (typeof value === "string") return value;
+  try { return JSON.stringify(value, null, 2); } catch { return String(value); }
 }
 
 type ImportQualityReport = {
