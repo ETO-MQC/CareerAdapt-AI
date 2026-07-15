@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { EntityBaseSchema, FactStatementSchema, IsoDateStringSchema } from "./common";
+import { ResumeBasicsV2Schema, ResumeItemV2Schema } from "./resumeV2";
 
 export const ExperienceTypeSchema = z.enum([
   "education",
@@ -81,6 +82,7 @@ export const CertificateSchema = EntityBaseSchema.extend({
 });
 
 export const CareerProfileSchema = EntityBaseSchema.extend({
+  schemaVersion: z.literal("career-profile-v2").optional(),
   name: z.string().min(1),
   basics: BasicInfoSchema,
   preference: CareerPreferenceSchema,
@@ -89,7 +91,12 @@ export const CareerProfileSchema = EntityBaseSchema.extend({
   skills: z.array(SkillSchema).default([]),
   certificates: z.array(CertificateSchema).default([]),
   evidences: z.array(EvidenceSchema).default([]),
-  unclassifiedBlocks: z.array(z.string()).default([])
+  unclassifiedBlocks: z.array(z.string()).default([]),
+  structuredFacts: z.array(z.object({
+    data: ResumeItemV2Schema,
+    factIds: z.array(z.string().min(1)).default([])
+  }).strict()).optional(),
+  structuredBasics: ResumeBasicsV2Schema.optional()
 });
 
 export const ActiveProfileContextSchema = z.object({
@@ -108,4 +115,7 @@ export type Evidence = z.infer<typeof EvidenceSchema>;
 export type Skill = z.infer<typeof SkillSchema>;
 export type Certificate = z.infer<typeof CertificateSchema>;
 export type CareerProfile = z.infer<typeof CareerProfileSchema>;
+export type CareerProfileV1 = Omit<CareerProfile, "schemaVersion" | "structuredFacts" | "structuredBasics"> & { schemaVersion?: undefined };
+export type CareerProfileV2 = CareerProfile & { schemaVersion: "career-profile-v2"; structuredFacts: NonNullable<CareerProfile["structuredFacts"]>; structuredBasics: NonNullable<CareerProfile["structuredBasics"]> };
+export type StoredCareerProfile = CareerProfileV1 | CareerProfileV2;
 export type ActiveProfileContext = z.infer<typeof ActiveProfileContextSchema>;

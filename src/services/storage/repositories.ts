@@ -1,5 +1,6 @@
 import { demoJobDescriptions } from "@/data/demoJobs";
 import { demoCareerProfile } from "@/data/demoProfile";
+import { migrateCareerProfileToV2, migrateResumeBranchToV2 } from "@/domain/migrations/resumeV2";
 import {
   AiLogSchema,
   AiSuggestionSchema,
@@ -178,7 +179,7 @@ export class WorkspaceRepository {
   }
 
   async saveProfile(profile: CareerProfile) {
-    const parsed = CareerProfileSchema.parse(profile);
+    const parsed = migrateCareerProfileToV2(CareerProfileSchema.parse(profile));
     await this.db.profiles.put(parsed);
     return parsed;
   }
@@ -590,12 +591,12 @@ export class WorkspaceRepository {
 
   async getProfile(id: string) {
     const profile = await this.db.profiles.get(id);
-    return profile ? CareerProfileSchema.parse(profile) : undefined;
+    return profile ? migrateCareerProfileToV2(CareerProfileSchema.parse(profile)) : undefined;
   }
 
   async listProfiles() {
     const profiles = await this.db.profiles.toArray();
-    return profiles.map((profile) => CareerProfileSchema.parse(profile));
+    return profiles.map((profile) => migrateCareerProfileToV2(CareerProfileSchema.parse(profile)));
   }
 
   async getActiveProfileId() {
@@ -774,7 +775,7 @@ export class WorkspaceRepository {
   }
 
   async saveResumeBranch(branch: ResumeBranch) {
-    const parsed = ResumeBranchSchema.parse(branch);
+    const parsed = migrateResumeBranchToV2(ResumeBranchSchema.parse(branch));
     await this.db.resumeBranches.put(parsed);
     return parsed;
   }
@@ -1858,12 +1859,12 @@ export class WorkspaceRepository {
     const branches = profileId
       ? await this.db.resumeBranches.where("profileId").equals(profileId).toArray()
       : await this.db.resumeBranches.toArray();
-    return branches.map((branch) => ResumeBranchSchema.parse(branch));
+    return branches.map((branch) => migrateResumeBranchToV2(ResumeBranchSchema.parse(branch)));
   }
 
   async getResumeBranch(branchId: string) {
     const branch = await this.db.resumeBranches.get(branchId);
-    return branch ? ResumeBranchSchema.parse(branch) : undefined;
+    return branch ? migrateResumeBranchToV2(ResumeBranchSchema.parse(branch)) : undefined;
   }
 
   async getResumePresentationConfig(branchId: string) {

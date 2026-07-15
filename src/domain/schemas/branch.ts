@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { EntityBaseSchema, IsoDateStringSchema, RiskLevelSchema } from "./common";
+import { ResumeItemV2Schema } from "./resumeV2";
 
 export const BranchLifecycleStatusSchema = z.enum(["active", "archived", "trashed"]);
 export const BranchMigrationStatusSchema = z.enum(["verified", "legacy_unverified"]);
@@ -126,6 +127,21 @@ export const BranchContentItemSchema = z.object({
   }
 });
 
+export const ResumeContentItemV2Schema = z.object({
+  id: z.string().min(1),
+  schemaVersion: z.literal("resume-content-item-v2"),
+  data: ResumeItemV2Schema,
+  factRefs: z.array(BranchFactRefSchema).default([]),
+  source: BranchContentSourceSchema,
+  order: z.number().int().min(0),
+  visible: z.boolean(),
+  guardMode: BranchGuardModeSchema,
+  guardStatus: BranchGuardStatusSchema,
+  guardFindings: z.array(BranchGuardFindingSnapshotSchema).default([]),
+  userConfirmation: BranchUserConfirmationSchema.optional(),
+  legacyTextProjection: z.string().min(1).optional()
+}).strict();
+
 export const BranchSyncStatusSchema = z.object({
   status: z.enum([
     "in_sync",
@@ -184,6 +200,7 @@ export const ResumeRevisionSchema = EntityBaseSchema.extend({
 });
 
 export const ResumeBranchSchema = EntityBaseSchema.extend({
+  schemaVersion: z.literal("resume-branch-v2").optional(),
   branchPurpose: ResumeBranchPurposeSchema.default("job_specific"),
   profileId: z.string().min(1),
   jobId: z.string().min(1).optional(),
@@ -207,7 +224,8 @@ export const ResumeBranchSchema = EntityBaseSchema.extend({
   syncStatusCache: BranchSyncStatusSchema,
   resumeBasics: ResumeBranchBasicsSchema.optional(),
   contentItems: z.array(BranchContentItemSchema).default([]),
-  legacyPayload: z.unknown().optional()
+  legacyPayload: z.unknown().optional(),
+  structuredContentItems: z.array(ResumeContentItemV2Schema).optional()
 }).superRefine((branch, ctx) => {
   if (branch.migrationStatus !== "verified") {
     return;
@@ -403,11 +421,15 @@ export type BranchGuardFindingSnapshot = z.infer<typeof BranchGuardFindingSnapsh
 export type BranchUserConfirmation = z.infer<typeof BranchUserConfirmationSchema>;
 export type ResumeBranchBasics = z.infer<typeof ResumeBranchBasicsSchema>;
 export type BranchContentItem = z.infer<typeof BranchContentItemSchema>;
+export type ResumeContentItemV2 = z.infer<typeof ResumeContentItemV2Schema>;
 export type BranchSyncStatus = z.infer<typeof BranchSyncStatusSchema>;
 export type ResumeBranchSnapshot = z.infer<typeof ResumeBranchSnapshotSchema>;
 export type ResumeRevisionSource = z.infer<typeof ResumeRevisionSourceSchema>;
 export type ResumeRevision = z.infer<typeof ResumeRevisionSchema>;
 export type ResumeBranch = z.infer<typeof ResumeBranchSchema>;
+export type ResumeBranchV1 = Omit<ResumeBranch, "schemaVersion" | "structuredContentItems"> & { schemaVersion?: undefined };
+export type ResumeBranchV2 = ResumeBranch & { schemaVersion: "resume-branch-v2"; structuredContentItems: ResumeContentItemV2[] };
+export type StoredResumeBranch = ResumeBranchV1 | ResumeBranchV2;
 export type ResumeBranchOperationType = z.infer<typeof ResumeBranchOperationTypeSchema>;
 export type ResumeBranchOperation = z.infer<typeof ResumeBranchOperationSchema>;
 export type ExportStatus = z.infer<typeof ExportStatusSchema>;
