@@ -25,17 +25,64 @@ describe("resume JSON import adapter", () => {
       technicalSkills: ["Excel", "SQL"],
       privateNote: "不得丢弃"
     };
-    const mapped = ResumeJsonMapperOutputSchema.parse(mapExternalResumeJson(input));
+    const result = mapExternalResumeJson(input);
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error(result.message);
+    const mapped = ResumeJsonMapperOutputSchema.parse(result.value);
     expect(mapped.structuredDraft.basics.name).toMatchObject({ value: "陈同学", mapping: { sourcePaths: ["personalInfo.name"] } });
     expect(mapped.structuredDraft.sections.map((section) => section.category)).toEqual(["work", "skill"]);
     expect(mapped.unclassifiedBlocks).toContainEqual(expect.objectContaining({ sourcePath: "privateNote", sourceValue: "不得丢弃" }));
   });
 
   it("does not create mapped values that are absent from source values", () => {
-    const mapped = mapExternalResumeJson({ projects: [{ name: "原始项目", role: "成员", bullets: ["完成数据清洗"] }] });
+    const result = mapExternalResumeJson({ projects: [{ name: "原始项目", role: "成员", bullets: ["完成数据清洗"] }] });
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error(result.message);
+    const mapped = result.value;
     const serializedSources = JSON.stringify(mapped.structuredDraft.sections.flatMap((section) => section.items).flatMap((item) => typeof item === "string" ? [] : item.mapping?.sourceValues ?? []));
     expect(serializedSources).toContain("原始项目");
     expect(serializedSources).toContain("成员");
     expect(serializedSources).not.toContain("负责人");
+  });
+
+  it("preserves structured items that become empty after defensive cleaning", () => {
+    const original = {
+      schemaVersion: "structured-resume-draft-v1",
+      sections: [{
+        title: "教育经历",
+        category: "education",
+        sectionType: "experience",
+        items: [{ organization: "  ", role: "", highlights: ["", "   "], vendorId: "keep-me" }]
+      }]
+    };
+    const result = mapExternalResumeJson(original);
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error(result.message);
+    expect(result.value.structuredDraft.sections).toHaveLength(1);
+    expect(result.value.structuredDraft.sections[0]?.items).toEqual([]);
+    expect(result.value.unclassifiedBlocks).toContainEqual({
+      sourcePath: "sections[0].items[0]",
+      sourceValue: original.sections[0].items[0],
+      reason: "清洗后无有效内容，保留原对象供人工核对。"
+    });
+    expect(original.sections[0].items[0]).toEqual({ organization: "  ", role: "", highlights: ["", "   "], vendorId: "keep-me" });
+  });
+
+  it("preserves unknown leaves inside a recognized structured item", () => {
+    const result = mapExternalResumeJson({
+      schemaVersion: "structured-resume-draft-v1",
+      sections: [{
+        title: "项目经历",
+        category: "project",
+        sectionType: "experience",
+        items: [{ organization: "项目 A", role: "成员", vendorMetadata: { source: "legacy" } }]
+      }]
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error(result.message);
+    expect(result.value.unclassifiedBlocks).toContainEqual(expect.objectContaining({
+      sourcePath: "sections[0].items[0].vendorMetadata.source",
+      sourceValue: "legacy"
+    }));
   });
 });

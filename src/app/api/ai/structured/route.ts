@@ -213,7 +213,9 @@ function createMockOutput(task: AiTask, input: unknown) {
   }
   if (task === "resume-json-mapper") {
     const mapperInput = input as ResumeJsonMapperTaskInput;
-    return mapExternalResumeJson(JSON.parse(redactSensitiveTextForModel(mapperInput.rawText).text));
+    const result = mapExternalResumeJson(JSON.parse(redactSensitiveTextForModel(mapperInput.rawText).text));
+    if (!result.ok) throw new Error(result.message);
+    return result.value;
   }
   if (task === "profile-builder") {
     const profileInput = input as ProfileBuilderTaskInput;

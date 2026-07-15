@@ -14,7 +14,10 @@ function cleanStringValue(value: unknown): string | undefined {
 /** 清洗 highlights 数组：过滤空条目，返回 undefined 如果结果为空 */
 function cleanHighlights(value: unknown): string[] | undefined {
   if (!Array.isArray(value)) return undefined;
-  const items = value.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
+  const items = value.flatMap((item) => {
+    const cleaned = cleanStringValue(item);
+    return cleaned ? [cleaned] : [];
+  });
   return items.length > 0 ? items : undefined;
 }
 
@@ -92,8 +95,16 @@ export type JsonMapResult =
 export function mapExternalResumeJson(value: unknown): JsonMapResult {
   try {
     const root = asRecord(value);
+    if (!root) {
+      return {
+        ok: false,
+        errorCode: "empty_input",
+        message: "外部 JSON 顶层必须是对象。"
+      };
+    }
     const usedPaths = new Set<string>();
     const basics: JsonRecord = {};
+    const preservedUnclassified: ResumeJsonMapperOutput["unclassifiedBlocks"] = [];
 
     for (const [target, aliases] of Object.entries(BASIC_ALIASES)) {
       const found = findFirst(root, aliases);
@@ -111,22 +122,22 @@ export function mapExternalResumeJson(value: unknown): JsonMapResult {
     const sectionsArray = Array.isArray(root?.sections) ? root.sections as unknown[] : [];
     const isStructuredDraft = root?.schemaVersion === "structured-resume-draft-v1" && sectionsArray.length > 0;
 
-    if (isStructuredDraft) {
-      usedPaths.add("sections");
-      usedPaths.add("schemaVersion");
-    }
+    if (isStructuredDraft) usedPaths.add("schemaVersion");
 
     const sections = SECTION_ALIASES.flatMap((definition) => {
       if (isStructuredDraft) {
-        return mapStructuredDraftSections(definition, sectionsArray, usedPaths);
+        return mapStructuredDraftSections(definition, sectionsArray, usedPaths, preservedUnclassified);
       }
-      return mapExternalFormatSections(definition, root, usedPaths);
+      return mapExternalFormatSections(definition, root, usedPaths, preservedUnclassified);
     });
 
     const leaves = flattenLeaves(value);
-    const unclassifiedBlocks = leaves
+    const unclassifiedBlocks = [
+      ...preservedUnclassified,
+      ...leaves
       .filter((leaf) => leaf.path !== "schemaVersion" && !isUsedPath(leaf.path, usedPaths))
-      .map((leaf) => ({ sourcePath: leaf.path, sourceValue: leaf.value, reason: "未匹配到当前简历字段，已完整保留。" }));
+      .map((leaf) => ({ sourcePath: leaf.path, sourceValue: leaf.value, reason: "未匹配到当前简历字段，已完整保留。" }))
+    ];
 
     // 用 safeParse 验证，不直接抛 ZodError
     const parsed = StructuredResumeDraftSchema.safeParse({ schemaVersion: "structured-resume-draft-v1", basics, sections });
@@ -155,13 +166,17 @@ export function mapExternalResumeJson(value: unknown): JsonMapResult {
 function mapStructuredDraftSections(
   definition: typeof SECTION_ALIASES[number],
   sectionsArray: unknown[],
-  usedPaths: Set<string>
+  usedPaths: Set<string>,
+  unclassifiedBlocks: ResumeJsonMapperOutput["unclassifiedBlocks"]
 ) {
   const matched = sectionsArray
     .map((item, index) => ({ item, index }))
     .filter(({ item }) => {
       const record = asRecord(item);
-      return record && (record.category === definition.category || record.sectionType === definition.sectionType);
+      if (!record) return false;
+      return typeof record.category === "string"
+        ? record.category === definition.category
+        : record.sectionType === definition.sectionType;
     });
 
   if (matched.length === 0) return [];
@@ -171,7 +186,6 @@ function mapStructuredDraftSections(
     const record = asRecord(item);
     if (!record) return [];
 
-    usedPaths.add(sectionPath);
     usedPaths.add(`${sectionPath}.title`);
     usedPaths.add(`${sectionPath}.category`);
     usedPaths.add(`${sectionPath}.sectionType`);
@@ -179,8 +193,6 @@ function mapStructuredDraftSections(
 
     const rawItems = Array.isArray(record.items) ? record.items : [];
     const items: JsonRecord[] = [];
-    const unclassifiedInSection: { sourcePath: string; sourceValue: unknown; reason: string }[] = [];
-
     for (let itemIndex = 0; itemIndex < rawItems.length; itemIndex++) {
       const rawItem = rawItems[itemIndex];
       const itemPath = `${sectionPath}.items[${itemIndex}]`;
@@ -190,6 +202,9 @@ function mapStructuredDraftSections(
         if (cleaned) {
           usedPaths.add(itemPath);
           items.push({ text: cleaned, mapping: trace([itemPath], [rawItem], "high", "数组条目可直接映射。", false) });
+        } else {
+          usedPaths.add(itemPath);
+          unclassifiedBlocks.push({ sourcePath: itemPath, sourceValue: rawItem, reason: "清洗后无有效内容，已完整保留供人工核对。" });
         }
         continue;
       }
@@ -197,7 +212,7 @@ function mapStructuredDraftSections(
       const itemRecord = asRecord(rawItem);
       if (!itemRecord) {
         usedPaths.add(itemPath);
-        unclassifiedInSection.push({ sourcePath: itemPath, sourceValue: rawItem, reason: "无法解析的条目对象。" });
+        unclassifiedBlocks.push({ sourcePath: itemPath, sourceValue: rawItem, reason: "无法解析的条目，已完整保留。" });
         continue;
       }
 
@@ -255,7 +270,7 @@ function mapStructuredDraftSections(
       // 清洗后无有效内容 → 放入 unclassifiedBlocks
       if (!hasValidContent(mapped)) {
         usedPaths.add(itemPath);
-        unclassifiedInSection.push({ sourcePath: itemPath, sourceValue: itemRecord, reason: "清洗后无有效内容，保留原对象供人工核对。" });
+        unclassifiedBlocks.push({ sourcePath: itemPath, sourceValue: itemRecord, reason: "清洗后无有效内容，保留原对象供人工核对。" });
         continue;
       }
 
@@ -280,7 +295,8 @@ function mapStructuredDraftSections(
 function mapExternalFormatSections(
   definition: typeof SECTION_ALIASES[number],
   root: JsonRecord | undefined,
-  usedPaths: Set<string>
+  usedPaths: Set<string>,
+  unclassifiedBlocks: ResumeJsonMapperOutput["unclassifiedBlocks"]
 ) {
   const found = findFirst(root, definition.aliases);
   if (!found) return [];
@@ -289,12 +305,20 @@ function mapExternalFormatSections(
     const itemPath = Array.isArray(found.value) ? `${found.path}[${index}]` : found.path;
     if (isScalar(item)) {
       const cleaned = cleanStringValue(item);
-      if (!cleaned) return [];
+      if (!cleaned) {
+        usedPaths.add(itemPath);
+        unclassifiedBlocks.push({ sourcePath: itemPath, sourceValue: item, reason: "清洗后无有效内容，已完整保留供人工核对。" });
+        return [];
+      }
       usedPaths.add(itemPath);
       return [{ text: cleaned, mapping: trace([itemPath], [item], "high", "数组条目可直接映射。", false) }];
     }
     const record = asRecord(item);
-    if (!record) return [];
+    if (!record) {
+      usedPaths.add(itemPath);
+      unclassifiedBlocks.push({ sourcePath: itemPath, sourceValue: item, reason: "无法解析的条目，已完整保留。" });
+      return [];
+    }
     const mapped: JsonRecord = {};
     const sourcePaths: string[] = [];
     const sourceValues: unknown[] = [];
@@ -318,7 +342,8 @@ function mapExternalFormatSections(
     }
     if (sourcePaths.length === 0 || !hasValidContent(mapped)) {
       usedPaths.add(itemPath);
-      return [{ text: JSON.stringify(record), mapping: trace([itemPath], [record], "low", "未识别条目结构，保留原对象供人工核对。", true) }];
+      unclassifiedBlocks.push({ sourcePath: itemPath, sourceValue: record, reason: "清洗后无有效内容，保留原对象供人工核对。" });
+      return [];
     }
     mapped.mapping = trace(sourcePaths, sourceValues, sourcePaths.length >= 2 ? "high" : "medium", "由条目中的常见字段别名组合。", sourcePaths.length < 2);
     return [mapped];

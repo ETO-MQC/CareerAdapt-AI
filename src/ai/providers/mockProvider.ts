@@ -45,7 +45,9 @@ export class MockAiProvider implements AiProvider {
 
     if (task === "resume-json-mapper") {
       const rawText = typeof input === "object" && input && "rawText" in input ? String(input.rawText) : "{}";
-      return mapExternalResumeJson(JSON.parse(redactSensitiveTextForModel(rawText).text));
+      const result = mapExternalResumeJson(JSON.parse(redactSensitiveTextForModel(rawText).text));
+      if (!result.ok) throw new Error(result.message);
+      return result.value;
     }
 
     if (task === "resume-document-mapper") {
