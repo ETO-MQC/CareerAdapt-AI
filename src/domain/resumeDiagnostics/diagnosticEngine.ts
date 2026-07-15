@@ -18,6 +18,7 @@ import type {
   TemplateId
 } from "@/domain/schemas";
 import { ResumeDiagnosticSnapshotSchema } from "@/domain/schemas";
+import { defaultResumeRenderSectionOrder } from "@/domain/resumeFields/catalog";
 import type { ResumePaginationMeasurement } from "@/services/export/pagination";
 import { stableHashText } from "@/services/security/text";
 
@@ -78,7 +79,7 @@ type IssueDraft = Omit<
   | "createdAt"
 >;
 
-const SECTION_ORDER: ResumeRenderSectionType[] = ["summary", "skills", "experience", "certificates"];
+const SECTION_ORDER: ResumeRenderSectionType[] = [...defaultResumeRenderSectionOrder];
 const REQUIRED_PRIORITIES = new Set(["must", "high", "important"]);
 const PREFERRED_PRIORITIES = new Set(["nice_to_have", "medium", "low"]);
 const MATCH_RANK: Record<RequirementBlockMatchLevel, number> = {

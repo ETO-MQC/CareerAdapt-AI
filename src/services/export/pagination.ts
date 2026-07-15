@@ -6,6 +6,7 @@ import type {
   ResumeRenderSectionType
 } from "@/domain/schemas";
 import { stableHashText } from "@/services/security/text";
+import { defaultResumeRenderSectionOrder } from "@/domain/resumeFields/catalog";
 
 export type ResumePaginationBlockMeasurement = {
   sourceItemId: string;
@@ -36,7 +37,7 @@ type MutablePaginationPage = ResumePaginationPlan["pages"][number] & {
 };
 
 const PAGE_NEAR_LIMIT_PX = 36;
-const SECTION_TYPES: ResumeRenderSectionType[] = ["summary", "experience", "skills", "certificates"];
+const SECTION_TYPES: ResumeRenderSectionType[] = [...defaultResumeRenderSectionOrder];
 
 export function collectResumePaginationMeasurement(pageElement: HTMLElement): ResumePaginationMeasurement {
   const pageRect = pageElement.getBoundingClientRect();

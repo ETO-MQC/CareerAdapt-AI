@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { JobDescription, ProfileRecycleItem, RecycleBinState, ResumeBranch } from "@/domain/schemas";
 import { WorkspaceRepository } from "@/services/storage/repositories";
 import { readDeveloperMode } from "@/services/preferences/developerMode";
+import { notify } from "@/services/notifications/store";
 
 const repository = new WorkspaceRepository();
 type RecycleFilter = "all" | "resume" | "profile" | "job";
@@ -14,7 +15,6 @@ export function RecycleBinWorkspace() {
   const [branches, setBranches] = useState<ResumeBranch[]>([]);
   const [jobs, setJobs] = useState<JobDescription[]>([]);
   const [filter, setFilter] = useState<RecycleFilter>("all");
-  const [message, setMessage] = useState<string>();
   const [pendingDelete, setPendingDelete] = useState<PendingDelete>();
   const [confirmation, setConfirmation] = useState("");
   const [developerMode] = useState(() => typeof window !== "undefined" && readDeveloperMode());
@@ -61,19 +61,19 @@ export function RecycleBinWorkspace() {
 
   async function restoreResume(branch: ResumeBranch) {
     await repository.restoreResumeBranchFromTrash({ branchId: branch.id, expectedRevision: branch.revision, operationId: `recycle-restore-${branch.id}-${branch.revision}` });
-    setMessage("简历已恢复到归档列表。");
+    notify({ type: "success", title: "恢复成功", message: "简历已恢复到归档列表。" });
     await refresh();
   }
 
   async function restoreProfile(item: ProfileRecycleItem) {
     await repository.restoreProfileRecycleItem(item.kind, item.id);
-    setMessage("资料条目已恢复到个人资料库。");
+    notify({ type: "success", title: "恢复成功", message: "资料条目已恢复到个人资料库。" });
     await refresh();
   }
 
   async function restoreJob(job: JobDescription) {
     await repository.restoreJobFromRecycleBin(job.id);
-    setMessage("岗位已恢复到当前岗位列表。");
+    notify({ type: "success", title: "恢复成功", message: "岗位已恢复到当前岗位列表。" });
     await refresh();
   }
 
@@ -81,15 +81,15 @@ export function RecycleBinWorkspace() {
     if (!pendingDelete || (!developerMode && confirmation.trim() !== deleteLabel(pendingDelete))) return;
     if (pendingDelete.kind === "resume") {
       const result = await repository.deleteResumeBranchPermanently({ branchId: pendingDelete.item.id, expectedRevision: pendingDelete.item.revision });
-      if (!result.deleted) setMessage(`无法永久删除：仍有 ${result.blockers.applications} 条求职记录或 ${result.blockers.derivedBranches} 份派生简历引用。`);
-      else setMessage("简历已永久删除。");
+      if (!result.deleted) notify({ type: "warning", title: "无法永久删除", message: `仍有 ${result.blockers.applications} 条求职记录或 ${result.blockers.derivedBranches} 份派生简历引用。` });
+      else notify({ type: "success", title: "删除成功", message: "简历已永久删除。" });
     } else if (pendingDelete.kind === "job") {
       const result = await repository.deleteJobPermanently(pendingDelete.item.id);
-      if (!result.deleted) setMessage(`无法永久删除：仍有 ${Object.values(result.blockers).reduce((sum, count) => sum + count, 0)} 条关联数据。`);
-      else setMessage("岗位已永久删除。");
+      if (!result.deleted) notify({ type: "warning", title: "无法永久删除", message: `仍有 ${Object.values(result.blockers).reduce((sum, count) => sum + count, 0)} 条关联数据。` });
+      else notify({ type: "success", title: "删除成功", message: "岗位已永久删除。" });
     } else {
       await repository.deleteProfileRecycleItemPermanently(pendingDelete.item.kind, pendingDelete.item.id);
-      setMessage("资料条目已永久删除。");
+      notify({ type: "success", title: "删除成功", message: "资料条目已永久删除。" });
     }
     setPendingDelete(undefined);
     setConfirmation("");
@@ -114,7 +114,7 @@ export function RecycleBinWorkspace() {
       if (result.deleted) deleted += 1;
       else protectedCount += 1;
     }
-    setMessage(`快速清理完成：永久删除 ${deleted} 项，保留 ${protectedCount} 项受引用保护的内容。`);
+    notify({ type: protectedCount > 0 ? "warning" : "success", title: "快速清理完成", message: `永久删除 ${deleted} 项，保留 ${protectedCount} 项受引用保护的内容。` });
     await refresh();
   }
 
@@ -124,7 +124,6 @@ export function RecycleBinWorkspace() {
         <div><p className="eyebrow">数据管理</p><h1>回收站</h1></div>
         <p>删除的内容会先保留在这里。恢复不会改写其他简历或求职记录。</p>
       </header>
-      {message ? <div className="notice" role="status" aria-live="polite">{message}</div> : null}
       <section className="panel recycle-panel">
         <div className="section-heading compact-heading"><div><h2>已删除内容</h2><p>共 {total} 项</p></div>{developerMode && total > 0 ? <button className="danger-button compact" type="button" onClick={() => { void quickCleanRecycleBin(); }}>快速清理</button> : null}</div>
         <div className="resume-filter-row" role="tablist" aria-label="回收站分类">
@@ -151,7 +150,7 @@ export function RecycleBinWorkspace() {
 }
 
 function RecycleSection({ title, empty, children }: { title: string; empty: boolean; children: React.ReactNode }) {
-  return <section className="recycle-section"><h3>{title}</h3>{empty ? <p>暂无内容。</p> : <div className="recycle-list">{children}</div>}</section>;
+  return <section className="recycle-section"><div className="recycle-section-heading"><h3>{title}</h3></div>{empty ? <p>暂无内容。</p> : <div className="recycle-list">{children}</div>}</section>;
 }
 
 function RecycleRow({ title, meta, onRestore, onDelete }: { title: string; meta: string; onRestore: () => void; onDelete: () => void }) {

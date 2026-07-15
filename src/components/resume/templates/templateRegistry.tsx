@@ -6,6 +6,7 @@ import type {
   ResumeRenderSection,
   TemplateId
 } from "@/domain/schemas";
+import { categorySourceSectionId, resumeContentCategoryOrder } from "@/domain/resumeFields/catalog";
 
 export type ResumeTemplateStyleConfig = Pick<
   ResumePresentationConfig,
@@ -491,8 +492,12 @@ function RenderSection({
 }
 
 function groupExperienceBlocks(blocks: ResumeRenderBlock[]) {
-  const order = ["experience", "education", "projects", "campus", "awards", "language", "custom"] as const;
-  const labels: Record<(typeof order)[number], string> = {
+  const supportedKeys = ["experience", "education", "projects", "campus", "awards", "language", "custom"] as const;
+  type GroupKey = (typeof supportedKeys)[number];
+  const order = resumeContentCategoryOrder
+    .map(categorySourceSectionId)
+    .filter((key): key is GroupKey => supportedKeys.includes(key as GroupKey));
+  const labels: Record<GroupKey, string> = {
     experience: "工作与实习经历",
     education: "教育经历",
     projects: "项目成果",
@@ -501,10 +506,10 @@ function groupExperienceBlocks(blocks: ResumeRenderBlock[]) {
     language: "语言",
     custom: "其他内容"
   };
-  const grouped = new Map<(typeof order)[number], ResumeRenderBlock[]>();
+  const grouped = new Map<GroupKey, ResumeRenderBlock[]>();
   for (const block of blocks) {
-    const key = order.includes(block.sourceSectionId as (typeof order)[number])
-      ? block.sourceSectionId as (typeof order)[number]
+    const key = order.includes(block.sourceSectionId as GroupKey)
+      ? block.sourceSectionId as GroupKey
       : block.itemType === "experience" ? "experience" : "custom";
     grouped.set(key, [...(grouped.get(key) ?? []), block]);
   }

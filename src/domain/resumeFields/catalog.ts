@@ -26,11 +26,38 @@ export const resumeFieldCategories: ReadonlyArray<{
   { id: "project", label: "项目成果", description: "项目职责、行动和成果", repeatable: true },
   { id: "campus", label: "校园经历", description: "社团、志愿和校内职责", repeatable: true },
   { id: "award", label: "奖项", description: "竞赛、荣誉和奖项", repeatable: true },
-  { id: "certificate", label: "证书", description: "证书、执照和认证", repeatable: true },
   { id: "skill", label: "个人技能", description: "工具、技术和方法", repeatable: true },
+  { id: "certificate", label: "证书", description: "证书、执照和认证", repeatable: true },
   { id: "language", label: "语言", description: "语言能力和等级", repeatable: true },
   { id: "custom", label: "其他内容", description: "补充或待分类内容", repeatable: true }
 ] as const;
+
+export const resumeContentCategoryOrder = resumeFieldCategories
+  .map((category) => category.id)
+  .filter((category): category is Exclude<ResumeFieldCategoryId, "basic"> => category !== "basic");
+
+export const defaultResumeRenderSectionOrder = ["summary", "experience", "skills", "certificates"] as const;
+
+export function resumeCategoryRank(category: ResumeFieldCategoryId) {
+  const rank = resumeFieldCategories.findIndex((entry) => entry.id === category);
+  return rank < 0 ? resumeFieldCategories.length : rank;
+}
+
+export function categorySourceSectionId(category: Exclude<ResumeFieldCategoryId, "basic">) {
+  const sectionIds: Record<Exclude<ResumeFieldCategoryId, "basic">, string> = {
+    summary: "summary",
+    education: "education",
+    work: "experience",
+    project: "projects",
+    campus: "campus",
+    award: "awards",
+    skill: "skills",
+    certificate: "certificates",
+    language: "language",
+    custom: "custom"
+  };
+  return sectionIds[category];
+}
 
 export type StructuredExperienceFields = {
   organization: string;

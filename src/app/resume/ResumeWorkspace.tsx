@@ -33,6 +33,7 @@ import {
   type ResumeDiagnosticTemplateInfo
 } from "@/domain/resumeDiagnostics";
 import { mapBranchToResumeDocument, type ResumeDocument, type ResumeDocumentBlock } from "@/domain/resumeDocument/mapper";
+import { resumeCategoryRank, type ResumeFieldCategoryId } from "@/domain/resumeFields/catalog";
 import { useResumePagination } from "@/components/resume/useResumePagination";
 import {
   getResumeTemplate,
@@ -4263,11 +4264,11 @@ function buildResumeStudioSections(input: {
   const languageBlocks = customBlocks.filter((b) => b.sourceSectionId === "language");
   const generalCustomBlocks = customBlocks.filter((b) => b.sourceSectionId !== "awards" && b.sourceSectionId !== "language");
   const verifiedContentCount = input.branch?.contentItems.filter((item) => item.visible && item.itemType !== "structural").length ?? 0;
-  return [
+  const sections = [
     { key: "basics", label: "个人信息", count: verifiedContentCount > 0 ? 1 : 0 },
     { key: "summary", label: "自我评价", count: bySection("summary").length, firstItemId: first("summary") },
-    { key: "experience", label: "工作 / 实习经历", count: generalExperience.length, firstItemId: generalExperience[0]?.contentItemId },
     { key: "education", label: "教育经历", count: educationBlocks.length, firstItemId: educationBlocks[0]?.contentItemId },
+    { key: "experience", label: "工作 / 实习经历", count: generalExperience.length, firstItemId: generalExperience[0]?.contentItemId },
     { key: "projects", label: "项目成果", count: projectBlocks.length, firstItemId: projectBlocks[0]?.contentItemId },
     { key: "campus", label: "校园经历", count: campusBlocks.length, firstItemId: campusBlocks[0]?.contentItemId },
     { key: "awards", label: "奖项", count: awardsBlocks.length, firstItemId: awardsBlocks[0]?.contentItemId },
@@ -4275,7 +4276,22 @@ function buildResumeStudioSections(input: {
     { key: "certificates", label: "证书", count: bySection("certificates").length, firstItemId: first("certificates") },
     { key: "language", label: "语言", count: languageBlocks.length, firstItemId: languageBlocks[0]?.contentItemId },
     { key: "custom", label: "自定义栏目", count: generalCustomBlocks.length, firstItemId: generalCustomBlocks[0]?.contentItemId }
-  ];
+  ] satisfies Array<{ key: ResumeStudioSectionKey; label: string; count: number; firstItemId?: string }>;
+  const categoryByStudioKey: Record<ResumeStudioSectionKey, ResumeFieldCategoryId> = {
+    add: "custom",
+    basics: "basic",
+    summary: "summary",
+    education: "education",
+    experience: "work",
+    projects: "project",
+    campus: "campus",
+    awards: "award",
+    skills: "skill",
+    certificates: "certificate",
+    language: "language",
+    custom: "custom"
+  };
+  return sections.sort((left, right) => resumeCategoryRank(categoryByStudioKey[left.key]) - resumeCategoryRank(categoryByStudioKey[right.key]));
 }
 
 function studioSectionForBlock(block: ResumeDocumentBlock): ResumeStudioSectionKey {

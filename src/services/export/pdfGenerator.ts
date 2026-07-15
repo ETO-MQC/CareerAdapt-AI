@@ -27,13 +27,12 @@ export async function generateResumePdf(snapshot: ResumePdfExportSnapshot) {
       }
     });
 
-    const measurement = await page.locator("[data-resume-pagination-measurement='true']").evaluate((element): ResumePaginationMeasurement => {
+    const measurement = await page.locator("[data-resume-pagination-measurement='true']").evaluate((element, sectionTypes): ResumePaginationMeasurement => {
       const pageElement = element as HTMLElement;
       const pageRect = pageElement.getBoundingClientRect();
-      const sectionTypes = ["summary", "experience", "skills", "certificates"];
       const sections = Array.from(pageElement.querySelectorAll<HTMLElement>("[data-render-section]")).flatMap((sectionElement) => {
         const sectionType = sectionElement.dataset.renderSection;
-        if (!sectionType || !sectionTypes.includes(sectionType)) {
+        if (!sectionType || !sectionTypes.includes(sectionType as (typeof sectionTypes)[number])) {
           return [];
         }
         const rect = sectionElement.getBoundingClientRect();
@@ -50,7 +49,7 @@ export async function generateResumePdf(snapshot: ResumePdfExportSnapshot) {
       const blocks = Array.from(pageElement.querySelectorAll<HTMLElement>("[data-source-item-id]")).flatMap((blockElement) => {
         const sourceItemId = blockElement.dataset.sourceItemId;
         const sectionType = blockElement.closest<HTMLElement>("[data-render-section]")?.dataset.renderSection;
-        if (!sourceItemId || !sectionType || !sectionTypes.includes(sectionType)) {
+        if (!sourceItemId || !sectionType || !sectionTypes.includes(sectionType as (typeof sectionTypes)[number])) {
           return [];
         }
         const rect = blockElement.getBoundingClientRect();
@@ -68,7 +67,7 @@ export async function generateResumePdf(snapshot: ResumePdfExportSnapshot) {
         sections,
         blocks
       };
-    });
+    }, snapshot.presentation.sectionOrder);
     const paginationPlan = createResumePaginationPlan({
       measurement,
       paginationConfig: snapshot.presentation.pagination

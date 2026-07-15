@@ -38,6 +38,7 @@ import {
 } from "@/domain/schemas";
 import { hashText, stableHashText } from "@/services/security/text";
 import { RevisionConflictError, type WorkspaceRepository } from "@/services/storage/repositories";
+import { notify } from "@/services/notifications/store";
 
 type RequirementFilter = "all" | "required" | "preferred" | "covered" | "partial" | "uncovered" | "needs_confirmation";
 type OptimizationCategory = "content" | "matching" | "gaps" | "layout";
@@ -400,6 +401,7 @@ export function JobOptimizationPanel({
       await repository.saveAiLogs([aiResult.log]);
       if (!aiResult.ok || aiResult.data.suggestions.length === 0) {
         setStatus("生成建议失败；当前简历和已有建议均已保留。请检查 AI 设置后重试。");
+        notify({ type: "error", title: "AI 调用失败", message: "当前简历和已有建议已保留，请检查 AI 设置后重试。" });
         return;
       }
 
@@ -436,6 +438,7 @@ export function JobOptimizationPanel({
       setStatus(saved.suggestion.status === "blocked_high_risk" ? "建议已生成，但事实安全检查阻断。" : "段落建议已生成，请审阅后再接受。");
     } catch {
       setStatus("生成建议失败；现有简历未被修改，可重试或查看事实缺口。");
+      notify({ type: "error", title: "AI 调用失败", message: "现有简历未被修改，可重试或查看事实缺口。" });
     } finally {
       setPending(false);
     }
@@ -474,6 +477,7 @@ export function JobOptimizationPanel({
     }
     if (activeSuggestion.riskLevel === "high" || activeSuggestion.status === "blocked_high_risk") {
       setStatus("高风险建议已阻止写入。请修改建议或先补充已确认事实。");
+      notify({ type: "warning", title: "Fact Guard 已阻止操作", message: "高风险建议未写入简历，请修改建议或补充已确认事实。" });
       return;
     }
     if (activeSuggestion.riskLevel === "medium" && !mediumRiskConfirmed) {
@@ -503,6 +507,7 @@ export function JobOptimizationPanel({
         suggestionToApply = guarded.suggestion;
         if (guarded.suggestion.status !== "edited_guarded") {
           setStatus("编辑后的建议未通过事实安全检查，尚未写入简历。");
+          notify({ type: "warning", title: "Fact Guard 已阻止操作", message: "编辑后的建议未写入简历。" });
           return;
         }
       }
@@ -521,8 +526,10 @@ export function JobOptimizationPanel({
       onBranchReady(result.branch);
       setSuggestions((current) => current.map((item) => item.id === result.suggestion.id ? result.suggestion : item));
       setStatus("建议已通过事实安全检查并写入岗位简历，已保存为新版本。");
+      notify({ type: "success", title: "建议已接受", message: "修改已通过事实安全检查，并保存为新版本。" });
     } catch (error) {
       setStatus(error instanceof RevisionConflictError ? "建议已过期：当前正文或版本已变化，请重新生成。" : "接受失败：事实安全检查或建议过期检查未通过。");
+      notify({ type: "error", title: "接受建议失败", message: error instanceof RevisionConflictError ? "当前正文或版本已变化，请重新生成。" : "事实安全检查或建议时效检查未通过。" });
     } finally {
       setPending(false);
     }
@@ -568,7 +575,7 @@ export function JobOptimizationPanel({
     : undefined;
 
   return (
-    <section className="no-print optimization-panel studio-subpanel" data-testid="job-optimization-panel">
+    <section className="no-print optimization-panel studio-subpanel" data-testid="job-optimization-panel" tabIndex={0} aria-label="AI 岗位优化内容">
       <div className="section-heading">
         <div>
           <h2>针对岗位优化</h2>
