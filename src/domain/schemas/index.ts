@@ -14,3 +14,4 @@ export * from "./profile";
 export * from "./recycleBin";
 export * from "./resumeImport";
 export * from "./resumeRender";
+export * from "./resumeV2";
