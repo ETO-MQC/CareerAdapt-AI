@@ -3,6 +3,11 @@
 import type { PdfImportErrorCode } from "@/domain/schemas";
 import { PDF_IMPORT_LIMITS } from "@/domain/pdfImport/limits";
 import { mapPdfJsError } from "@/domain/pdfImport/validation";
+import {
+  reconstructPdfPageLayout,
+  type PdfPageLayoutMetrics
+} from "@/domain/resumeImport/pdfLayout";
+import type { ResumeImportSourceClassification } from "@/domain/schemas";
 
 export type BrowserPdfExtractedPage = {
   pageNumber: number;
@@ -10,6 +15,8 @@ export type BrowserPdfExtractedPage = {
   textItemCount: number;
   warnings: string[];
   blocks: BrowserPdfExtractedBlock[];
+  classification: Extract<ResumeImportSourceClassification, "digital_pdf" | "complex_digital_pdf" | "scanned_pdf">;
+  layoutMetrics: PdfPageLayoutMetrics;
 };
 
 export type BrowserPdfExtractedBlock = {
@@ -17,8 +24,13 @@ export type BrowserPdfExtractedBlock = {
   page: number;
   text: string;
   rawText: string;
-  blockType: "text_block";
+  blockType: "paragraph" | "heading" | "list_item" | "contact" | "date" | "text_block";
   position?: { x: number; y: number; width: number; height: number };
+  sourceEngine: "pdfjs";
+  sourceEngineVersion: string;
+  extractionConfidence: number;
+  fontSize?: number;
+  sourceKind: Extract<ResumeImportSourceClassification, "digital_pdf" | "complex_digital_pdf" | "scanned_pdf">;
   order: number;
 };
 
@@ -46,6 +58,7 @@ type PdfDocumentProxy = {
   numPages: number;
   getPage(pageNumber: number): Promise<{
     getTextContent(): Promise<{ items: PdfTextItem[] }>;
+    getViewport(input: { scale: number }): { width: number; height: number };
     cleanup(): void;
   }>;
   destroy(): Promise<void>;
@@ -75,6 +88,7 @@ export async function extractTextFromPdfBuffer(
 
   try {
     const pdfjs = await import("pdfjs-dist");
+    const pdfJsVersion = typeof pdfjs.version === "string" ? pdfjs.version : "unknown";
     pdfjs.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.mjs", import.meta.url).toString();
 
     loadingTask = pdfjs.getDocument({
@@ -132,6 +146,7 @@ export async function extractTextFromPdfBuffer(
 
       const page = await document.getPage(pageNumber);
       const textContent = await page.getTextContent();
+      const viewport = page.getViewport({ scale: 1 });
       totalTextItemCount += textContent.items.length;
 
       if (textContent.items.length > PDF_IMPORT_LIMITS.maxTextItemsPerPage || totalTextItemCount > PDF_IMPORT_LIMITS.maxTextItemsTotal) {
@@ -145,27 +160,30 @@ export async function extractTextFromPdfBuffer(
         };
       }
 
-      const blocks = textContent.items.flatMap((item, order) => {
-        const text = typeof item.str === "string" ? item.str : "";
-        if (!text) return [];
-        const x = item.transform?.[4];
-        const y = item.transform?.[5];
-        return [{
-          id: `pdf-page-${pageNumber}-block-${order}`,
-          page: pageNumber,
-          text,
-          rawText: text,
-          blockType: "text_block" as const,
-          position: typeof x === "number" && typeof y === "number"
-            ? { x, y, width: Math.max(0, item.width ?? 0), height: Math.max(0, item.height ?? Math.abs(item.transform?.[3] ?? 0)) }
-            : undefined,
-          order
-        }];
+      const layout = reconstructPdfPageLayout({
+        pageNumber,
+        pageWidth: viewport.width,
+        pageHeight: viewport.height,
+        sourceEngineVersion: pdfJsVersion,
+        items: textContent.items.flatMap((item) => {
+          const text = typeof item.str === "string" ? item.str : "";
+          const x = item.transform?.[4];
+          const y = item.transform?.[5];
+          if (!text || typeof x !== "number" || typeof y !== "number") return [];
+          const height = Math.max(0, item.height ?? Math.abs(item.transform?.[3] ?? 0));
+          return [{
+            text,
+            x,
+            y,
+            width: Math.max(0, item.width ?? 0),
+            height,
+            fontSize: height,
+            hasEol: item.hasEOL
+          }];
+        })
       });
-      const rawText = textContent.items.map((item) => {
-        const text = typeof item.str === "string" ? item.str : "";
-        return item.hasEOL ? `${text}\n` : `${text} `;
-      }).join("").replace(/[ \t]+\n/g, "\n").trim();
+      const blocks = layout.blocks as BrowserPdfExtractedBlock[];
+      const rawText = layout.rawText;
 
       if (rawText.length > PDF_IMPORT_LIMITS.maxPageTextChars) {
         page.cleanup();
@@ -182,8 +200,10 @@ export async function extractTextFromPdfBuffer(
         pageNumber,
         rawText,
         textItemCount: textContent.items.length,
-        warnings: detectLayoutWarnings(textContent.items, pageNumber),
-        blocks
+        warnings: [...layout.warnings, ...detectLayoutWarnings(textContent.items, pageNumber)].filter((warning, index, all) => all.indexOf(warning) === index),
+        blocks,
+        classification: layout.classification,
+        layoutMetrics: layout.metrics
       });
       page.cleanup();
     }

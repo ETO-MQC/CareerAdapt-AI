@@ -135,6 +135,11 @@ function restoreReadingOrder(blocks: ExtractedSourceBlock[]) {
     pages.set(page, [...(pages.get(page) ?? []), block]);
   }
   return [...pages.entries()].sort(([left], [right]) => left - right).flatMap(([, pageBlocks]) => {
+    const hasReconstructedReadingOrder = pageBlocks.length > 0
+      && pageBlocks.every((block) => block.sourceEngine === "pdfjs" && block.id.startsWith("pdf:"));
+    if (hasReconstructedReadingOrder) {
+      return [...pageBlocks].sort((left, right) => left.order - right.order);
+    }
     if (pageBlocks.filter((block) => block.position).length < 2) {
       return [...pageBlocks].sort((left, right) => left.order - right.order);
     }

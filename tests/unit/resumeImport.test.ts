@@ -1,6 +1,6 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { extractTextFromDocxBuffer } from "@/domain/resumeImport/docx";
-import { benchmarkResumeOcrAdapter, runResumeOcrAdapter } from "@/domain/resumeImport/ocrAdapter";
+import { benchmarkResumeOcrAdapter, createLocalPaddleOcrAdapter } from "@/domain/resumeImport/ocrAdapter";
 import { createImportedResumeDraftFromPdf, createImportedResumeDraftFromStructuredJson } from "@/domain/resumeImport/parser";
 import { buildResumeImportConfirmation } from "@/domain/resumeImport/confirm";
 import { mapBranchToResumeRenderModel } from "@/domain/resumeRender/mapper";
@@ -60,7 +60,7 @@ describe("V2-G4a resume PDF import", () => {
     });
 
     const result = buildResumeImportConfirmation({
-      draft,
+      draft: confirmAllFieldCandidates(draft),
       operationId: "confirm-general",
       now: TEST_TIME
     });
@@ -92,7 +92,7 @@ describe("V2-G4a resume PDF import", () => {
       now: TEST_TIME
     });
 
-    const saved = await repository.saveImportedResumeDraft(draft, 0);
+    const saved = await repository.saveImportedResumeDraft(confirmAllFieldCandidates(draft), 0);
     const first = await repository.confirmImportedResume({
       importId: saved.importId,
       expectedDraftRevision: saved.revision,
@@ -151,7 +151,10 @@ describe("V2-G4a resume PDF import", () => {
       now: TEST_TIME
     });
 
-    expect(draft.schemaVersion).toBe("resume-import-v1");
+    expect(draft.schemaVersion).toBe("resume-import-v2");
+    if (draft.schemaVersion !== "resume-import-v2") throw new Error("expected a v2 import draft");
+    expect(draft.qualityReport.schemaVersion).toBe("resume-import-quality-v2");
+    expect(draft.sourceBlocks.every((block) => block.sourceEngine === "json_mapper")).toBe(true);
     expect(draft.source.mimeType).toBe("application/json");
     expect(draft.basics.name?.value).toBe("陈同学");
     expect(draft.sections[0]?.sectionType).toBe("experience");
@@ -176,21 +179,28 @@ describe("V2-G4a resume PDF import", () => {
     expect(result.ok ? result.text : "").toContain("使用 Excel 整理数据。");
   });
 
-  it("keeps OCR behind an adapter and benchmark fallback when no local engine is installed", async () => {
+  it("keeps local OCR behind a health-checked adapter with an explicit fallback", async () => {
     const file = new File(["fixture"], "scan.png", { type: "image/png" });
-    const result = await runResumeOcrAdapter(file);
-    const benchmark = await benchmarkResumeOcrAdapter();
+    const adapter = createLocalPaddleOcrAdapter({
+      fetchImpl: vi.fn(async () => new Response(JSON.stringify({
+        ok: false,
+        engine: "paddleocr-vl-local",
+        configured: true,
+        modelAvailable: true,
+        runtimeAvailable: false,
+        message: "PaddleOCR runtime is not installed."
+      }), { status: 200, headers: { "content-type": "application/json" } })) as typeof fetch
+    });
+    const result = await adapter.recognize(file);
+    const benchmark = await benchmarkResumeOcrAdapter(adapter);
 
     expect(result.ok).toBe(false);
     expect(result.ok ? "" : result.code).toBe("engine_unavailable");
     expect(benchmark.classification).toBe("B");
     expect(benchmark.supported).toBe(false);
-    expect(benchmark.recommendation).toBe("use_json_fallback");
-    expect(benchmark.model.name).toBe("Tesseract OCR");
-    expect(benchmark.measured.recognizedFieldCount).toBe(11);
-    expect(benchmark.measured.expectedFieldCount).toBe(11);
-    expect(benchmark.measured.twoColumnOrderPreserved).toBe(false);
-    expect(benchmark.conclusion).toContain("双栏顺序未保持");
+    expect(benchmark.recommendation).toBe("use_manual_fallback");
+    expect(benchmark.model.name).toBe("PaddleOCR-VL-1.6");
+    expect(benchmark.conclusion).toContain("人工核对");
   });
 });
 
@@ -245,6 +255,14 @@ function createPageTexts(): PdfPageText[] {
       updatedAt: TEST_TIME
     }
   ];
+}
+
+function confirmAllFieldCandidates<T extends ReturnType<typeof createImportedResumeDraftFromPdf>>(draft: T): T {
+  if (draft.schemaVersion !== "resume-import-v2") return draft;
+  return {
+    ...draft,
+    fieldCandidates: draft.fieldCandidates.map((candidate) => ({ ...candidate, needsConfirmation: false, userConfirmed: true }))
+  } as T;
 }
 
 function createStoredDocx(documentXml: string) {

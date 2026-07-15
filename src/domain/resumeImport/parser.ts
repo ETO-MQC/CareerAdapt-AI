@@ -8,7 +8,9 @@ import {
   type ImportedResumePageRef,
   type ImportedResumeSection,
   type ImportedResumeSectionType,
+  type ImportedResumeFieldCandidate,
   type ImportQualityReport,
+  type MappingDecision,
   type NormalizedSourceBlock,
   type ResumeSourceKind,
   StructuredResumeDraftSchema,
@@ -18,8 +20,15 @@ import {
 } from "@/domain/schemas";
 import { locatePdfSourceQuote } from "@/domain/pdfImport/sourceMapping";
 import type { ImportedResumeCategory } from "@/domain/schemas";
+import {
+  buildImportQualityReportV2,
+  buildResumeSourceBlocksV2,
+  classifyImportSource,
+  RESUME_IMPORT_PIPELINE_VERSION
+} from "./pipeline";
+import { createDeterministicFieldCandidates } from "./fieldCandidates";
 
-export const RESUME_IMPORT_PARSER_VERSION = "resume-import.local-rules.v1";
+export const RESUME_IMPORT_PARSER_VERSION = "resume-import.local-rules.v2";
 
 type PageInput = Pick<PdfPageText, "pageNumber" | "extractedPageText" | "cleanedPageText" | "charStart" | "charEnd">;
 
@@ -99,8 +108,24 @@ export function createImportedResumeDraftFromText(input: {
   }));
   const lines = pages.flatMap((page) => splitPageLines(page));
   const combinedText = pages.map((page) => page.normalizedText).join("\n\n");
-  const basics = attachBasicBlockSources(detectBasics(combinedText, pageSources), input.sourceBlocks ?? []);
-  const sections = attachSectionBlockSources(detectSections(lines), input.sourceBlocks ?? []);
+  const normalizedSourceBlocks = input.sourceBlocks?.length
+    ? input.sourceBlocks
+    : createFallbackSourceBlocks(pages, input.source.mimeType);
+  const classification = classifyImportSource({
+    sourceKind: input.sourceKind ?? (input.source.mimeType === "application/pdf" ? "text_pdf" : "docx"),
+    qualityReport: input.qualityReport,
+    blocks: normalizedSourceBlocks
+  });
+  const sourceBlocks = buildResumeSourceBlocksV2({ blocks: normalizedSourceBlocks, classification });
+  const qualityReport = buildImportQualityReportV2({
+    classification,
+    pageCount: input.source.pageCount,
+    blocks: sourceBlocks,
+    legacyReport: input.qualityReport
+  });
+  const fieldCandidates = createDeterministicFieldCandidates(sourceBlocks);
+  const basics = attachBasicBlockSources(detectBasics(combinedText, pageSources), sourceBlocks);
+  const sections = attachSectionBlockSources(detectSections(lines), sourceBlocks);
   const warnings = [
     ...sections
       .filter((section) => section.sectionType === "unknown")
@@ -122,7 +147,7 @@ export function createImportedResumeDraftFromText(input: {
 
   return ImportedResumeDraftSchema.parse({
     id: importId,
-    schemaVersion: "resume-import-v1",
+    schemaVersion: "resume-import-v2",
     importId,
     revision: 0,
     status: "reviewing",
@@ -136,14 +161,16 @@ export function createImportedResumeDraftFromText(input: {
       pageCount: input.source.pageCount,
       extractedAt: input.source.extractedAt ?? now
     },
-    sourceKind: input.sourceKind ?? (input.source.mimeType === "application/pdf" ? "text_pdf" : "docx"),
-    sourceBlocks: input.sourceBlocks ?? [],
-    qualityReport: input.qualityReport,
+    sourceKind: classification,
+    sourceBlocks,
+    qualityReport,
     basics,
     sections,
     pages,
     warnings,
-    parserVersion: RESUME_IMPORT_PARSER_VERSION,
+    mappingDecisions: [],
+    fieldCandidates,
+    parserVersion: `${RESUME_IMPORT_PIPELINE_VERSION}.${RESUME_IMPORT_PARSER_VERSION}`,
     createdAt: now,
     updatedAt: now
   });
@@ -157,12 +184,29 @@ export function createImportedResumeDraftFromStructuredJson(input: {
   sourceKind?: "standard_json" | "external_json";
   sourceBlocks?: NormalizedSourceBlock[];
   qualityReport?: ImportQualityReport;
+  mappingDecisions?: MappingDecision[];
+  fieldCandidates?: ImportedResumeFieldCandidate[];
   now?: string;
 }): ImportedResumeDraft {
   const now = input.now ?? new Date().toISOString();
   const importId = input.importId ?? `resume-import-${nanoid(10)}`;
   const structuredDraft = StructuredResumeDraftSchema.parse(input.structuredDraft);
   const pageText = structuredJsonToReviewText(structuredDraft);
+  const normalizedSourceBlocks = input.sourceBlocks?.length
+    ? input.sourceBlocks
+    : createFallbackSourceBlocks([{ pageNumber: 1, rawText: pageText, normalizedText: pageText }], input.source.mimeType);
+  const classification = classifyImportSource({
+    sourceKind: input.sourceKind ?? "standard_json",
+    qualityReport: input.qualityReport,
+    blocks: normalizedSourceBlocks
+  });
+  const sourceBlocksV2 = buildResumeSourceBlocksV2({ blocks: normalizedSourceBlocks, classification });
+  const qualityReportV2 = buildImportQualityReportV2({
+    classification,
+    pageCount: 1,
+    blocks: sourceBlocksV2,
+    legacyReport: input.qualityReport
+  });
   const pageSources = [{
     pageNumber: 1,
     cleanedPageText: pageText,
@@ -172,7 +216,7 @@ export function createImportedResumeDraftFromStructuredJson(input: {
   const structuredField = (value: NonNullable<StructuredResumeDraft["basics"]["name"]>, confidence: "high" | "medium" | "low") => {
     const field = makeStructuredField(value, pageSources, confidence);
     const mappingPaths = typeof value === "string" ? [] : value.mapping.sourcePaths;
-    const matches = (input.sourceBlocks ?? []).filter((block) => mappingPaths.includes(block.sourcePath ?? "") || block.normalizedText.includes(field.value));
+    const matches = sourceBlocksV2.filter((block) => mappingPaths.includes(block.sourcePath ?? "") || block.normalizedText.includes(field.value));
     return { ...field, sourceBlockIds: matches.map((block) => block.id), sourceQuote: field.value };
   };
   const basics = {
@@ -196,7 +240,7 @@ export function createImportedResumeDraftFromStructuredJson(input: {
     items: section.items.map((item, itemIndex) => {
       const normalized = structuredItemText(item);
       const mapping = typeof item === "string" ? undefined : item.mapping;
-      const sourceBlocks = (input.sourceBlocks ?? []).filter((block) =>
+      const sourceBlocks = sourceBlocksV2.filter((block) =>
         mapping?.sourcePaths.includes(block.sourcePath ?? "")
         || block.normalizedText.includes(normalized)
         || normalized.includes(block.normalizedText)
@@ -220,7 +264,7 @@ export function createImportedResumeDraftFromStructuredJson(input: {
 
   return ImportedResumeDraftSchema.parse({
     id: importId,
-    schemaVersion: "resume-import-v1",
+    schemaVersion: "resume-import-v2",
     importId,
     revision: 0,
     status: "reviewing",
@@ -234,9 +278,9 @@ export function createImportedResumeDraftFromStructuredJson(input: {
       pageCount: 1,
       extractedAt: input.source.extractedAt ?? now
     },
-    sourceKind: input.sourceKind ?? "standard_json",
-    sourceBlocks: input.sourceBlocks ?? [],
-    qualityReport: input.qualityReport,
+    sourceKind: classification,
+    sourceBlocks: sourceBlocksV2,
+    qualityReport: qualityReportV2,
     basics,
     sections,
     pages: [{
@@ -254,7 +298,9 @@ export function createImportedResumeDraftFromStructuredJson(input: {
         message: `JSON栏目仍需确认：${section.detectedTitle}`,
         sectionId: section.id
       })),
-    parserVersion: `${RESUME_IMPORT_PARSER_VERSION}.structured-json`,
+    mappingDecisions: input.mappingDecisions ?? [],
+    fieldCandidates: input.fieldCandidates ?? [],
+    parserVersion: `${RESUME_IMPORT_PIPELINE_VERSION}.${RESUME_IMPORT_PARSER_VERSION}.structured-json`,
     createdAt: now,
     updatedAt: now
   });
@@ -274,6 +320,32 @@ function attachBasicBlockSources<T extends ReturnType<typeof detectBasics>>(basi
     location: attach(basics.location),
     links: basics.links.map((field) => attach(field)!)
   };
+}
+
+function createFallbackSourceBlocks(
+  pages: readonly Pick<ImportedResumePage, "pageNumber" | "rawText" | "normalizedText">[],
+  mimeType: ImportedResumeSource["mimeType"]
+): NormalizedSourceBlock[] {
+  const sourceEngine = mimeType === "application/json"
+    ? "json_mapper" as const
+    : mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+      ? "docx_xml" as const
+      : mimeType === "application/pdf"
+        ? "pdfjs" as const
+        : "plain_text" as const;
+  return pages.flatMap((page, order) => page.normalizedText.trim() ? [{
+    id: `fallback:${page.pageNumber}:${order}`,
+    page: page.pageNumber,
+    text: page.rawText,
+    rawText: page.rawText,
+    normalizedText: page.normalizedText,
+    normalizationActions: [],
+    blockType: "text_block" as const,
+    sourceEngine,
+    sourceEngineVersion: "unknown",
+    extractionConfidence: 0.7,
+    order
+  }] : []);
 }
 
 function attachSectionBlockSources(sections: ImportedResumeSection[], blocks: NormalizedSourceBlock[]) {

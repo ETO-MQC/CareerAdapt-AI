@@ -25,6 +25,8 @@ describe("P3.6a DOCX sample matrix", () => {
       { blockType: "heading", text: "Experience" },
       { blockType: "paragraph", text: "Built a verified analytics dashboard." }
     ]);
+    expect(result.blocks.every((block) => block.sourceEngine === "docx_xml" && block.sourceEngineVersion.length > 0)).toBe(true);
+    expect(result.metrics).toMatchObject({ paragraphCount: 1, headingCount: 1, tableCount: 0 });
   });
 
   it("preserves table cells instead of flattening the table", async () => {
@@ -32,9 +34,10 @@ describe("P3.6a DOCX sample matrix", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.blocks).toMatchObject([
-      { blockType: "table_cell", text: "Skill" },
-      { blockType: "table_cell", text: "Python" }
+      { blockType: "table_cell", text: "Skill", parentId: "docx:table:0:row:0", rowIndex: 0, columnIndex: 0 },
+      { blockType: "table_cell", text: "Python", parentId: "docx:table:0:row:0", rowIndex: 0, columnIndex: 1 }
     ]);
+    expect(result.metrics).toMatchObject({ tableCount: 1, tableCellCount: 2 });
   });
 
   it("flags PDF-to-Word single-character paragraphs as fragmented", async () => {

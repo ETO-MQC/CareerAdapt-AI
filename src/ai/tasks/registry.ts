@@ -143,9 +143,16 @@ export const aiTaskRegistry = {
       const redacted = redactSensitiveTextForModel(input.rawText);
       return JSON.stringify({
         normalizedSourceBlocks: redacted.text,
-        schemaVersion: "resume-import-v1",
-        allowedSections: ["summary", "education", "work", "project", "campus", "award", "skill", "certificate", "language", "custom"],
-        instructions: "Map without changing facts. Cite block ids and preserve every unused block."
+        schemaVersion: "resume-import-v2",
+        catalogVersion: RESUME_CATALOG_VERSION,
+        canonicalFields: resumeFieldCatalog.filter((field) => field.aiMappable).map((field) => ({
+          id: field.id,
+          sectionType: field.sectionType,
+          valueType: field.valueType,
+          aliases: field.aliases
+        })),
+        allowedSections: ["summary", "education", "work", "internship", "project", "research", "campus", "volunteer", "awards", "skills", "certificates", "languages", "publications", "patents", "portfolio", "other", "custom"],
+        instructions: "Map without changing facts or numeric values. Cite exact block ids and quotes, preserve source date precision, and preserve every unused block."
       }, null, 2);
     },
     coerceRawOutput(rawOutput: unknown) { return rawOutput; },
@@ -740,6 +747,31 @@ function validateDocumentMapperSources(output: ResumeJsonMapperOutput, rawText: 
         throw new Error("resume_document_mapper_source_mismatch");
       }
     });
+  }
+  const decisionUseCount = new Map<string, number>();
+  for (const decision of output.mappingDecisions ?? []) {
+    for (const blockId of decision.sourceBlockIds) {
+      const block = byId.get(blockId);
+      const sourceText = typeof block?.normalizedText === "string" ? block.normalizedText : block?.text;
+      if (typeof sourceText !== "string") throw new Error("resume_document_mapper_decision_source_missing");
+      if (!normalizeMappedText(sourceText).includes(normalizeMappedText(decision.sourceQuote))) {
+        throw new Error("resume_document_mapper_decision_quote_mismatch");
+      }
+      decisionUseCount.set(blockId, (decisionUseCount.get(blockId) ?? 0) + 1);
+    }
+  }
+  for (const decision of output.mappingDecisions ?? []) {
+    if ("needsConfirmation" in decision && !decision.needsConfirmation && decision.sourceBlockIds.some((blockId) => (decisionUseCount.get(blockId) ?? 0) > 1)) {
+      throw new Error("resume_document_mapper_shared_source_requires_confirmation");
+    }
+  }
+  const citedIds = new Set([
+    ...collectMappingObjects(output).flatMap((mapping) => mapping.sourcePaths),
+    ...(output.mappingDecisions ?? []).flatMap((decision) => decision.sourceBlockIds),
+    ...output.unclassifiedBlocks.map((block) => block.sourcePath)
+  ]);
+  for (const blockId of byId.keys()) {
+    if (!citedIds.has(blockId)) throw new Error("resume_document_mapper_source_block_dropped");
   }
   validateMappedContent(output);
 }

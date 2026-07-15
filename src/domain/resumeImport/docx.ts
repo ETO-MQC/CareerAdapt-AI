@@ -1,5 +1,5 @@
 export type DocxTextExtractionResult =
-  | { ok: true; text: string; warnings: string[]; blocks: DocxExtractedBlock[] }
+  | { ok: true; text: string; warnings: string[]; blocks: DocxExtractedBlock[]; metrics: DocxExtractionMetrics }
   | { ok: false; code: "invalid_docx" | "document_xml_missing" | "unsupported_compression" | "empty_docx_text"; message: string };
 
 type ZipEntry = {
@@ -15,8 +15,28 @@ export type DocxExtractedBlock = {
   text: string;
   rawText: string;
   blockType: "paragraph" | "heading" | "list_item" | "table_cell";
+  parentId?: string;
+  rowIndex?: number;
+  columnIndex?: number;
+  sourceEngine: "docx_xml";
+  sourceEngineVersion: string;
+  extractionConfidence: number;
+  sourceKind: "docx";
   order: number;
 };
+
+export type DocxExtractionMetrics = {
+  paragraphCount: number;
+  headingCount: number;
+  listItemCount: number;
+  tableCount: number;
+  tableCellCount: number;
+  imageCount: number;
+  textBoxCount: number;
+  headerFooterPartCount: number;
+};
+
+export const DOCX_EXTRACTOR_VERSION = "resume-import.docx-xml.v2";
 
 const EOCD_SIGNATURE = 0x06054b50;
 const CENTRAL_DIRECTORY_SIGNATURE = 0x02014b50;
@@ -51,6 +71,7 @@ export async function extractTextFromDocxBuffer(buffer: ArrayBuffer): Promise<Do
     ok: true,
     text,
     blocks,
+    metrics: buildDocxMetrics(blocks, entries, xml),
     warnings: entries.some((entry) => entry.name.startsWith("word/media/"))
       ? ["DOCX 包含图片；本轮仅导入可读取的正文文本。"]
       : []
@@ -129,19 +150,31 @@ function extractWordXmlBlocks(xml: string): DocxExtractedBlock[] {
   for (const match of elements) {
     const element = match[0];
     if (element.startsWith("<w:tbl")) {
-      let cellIndex = 0;
-      for (const cell of element.matchAll(/<w:tc(?:\s[^>]*)?>[\s\S]*?<\/w:tc>/g)) {
-        const rawText = wordXmlText(cell[0]);
-        if (!rawText.trim()) continue;
-        blocks.push({
-          id: `docx-table-${tableIndex}-cell-${cellIndex}`,
-          sourcePath: `word/document.xml#table[${tableIndex}].cell[${cellIndex}]`,
-          text: rawText.trim(),
-          rawText,
-          blockType: "table_cell",
-          order: blocks.length
-        });
-        cellIndex += 1;
+      let rowIndex = 0;
+      for (const row of element.matchAll(/<w:tr(?:\s[^>]*)?>[\s\S]*?<\/w:tr>/g)) {
+        let columnIndex = 0;
+        for (const cell of row[0].matchAll(/<w:tc(?:\s[^>]*)?>[\s\S]*?<\/w:tc>/g)) {
+          const rawText = wordXmlText(cell[0]);
+          if (rawText.trim()) {
+            blocks.push({
+              id: `docx:table:${tableIndex}:row:${rowIndex}:cell:${columnIndex}`,
+              sourcePath: `word/document.xml#table[${tableIndex}].row[${rowIndex}].cell[${columnIndex}]`,
+              text: rawText.trim(),
+              rawText,
+              blockType: "table_cell",
+              parentId: `docx:table:${tableIndex}:row:${rowIndex}`,
+              rowIndex,
+              columnIndex,
+              sourceEngine: "docx_xml",
+              sourceEngineVersion: DOCX_EXTRACTOR_VERSION,
+              extractionConfidence: 0.98,
+              sourceKind: "docx",
+              order: blocks.length
+            });
+          }
+          columnIndex += 1;
+        }
+        rowIndex += 1;
       }
       tableIndex += 1;
       continue;
@@ -154,12 +187,18 @@ function extractWordXmlBlocks(xml: string): DocxExtractedBlock[] {
     const style = element.match(/<w:pStyle[^>]*w:val="([^"]+)"/)?.[1] ?? "";
     const isHeading = /heading|title|标题/i.test(style);
     const isList = /<w:numPr(?:\s|>)/.test(element);
+    const numberingId = element.match(/<w:numId[^>]*w:val="([^"]+)"/)?.[1];
     blocks.push({
-      id: `docx-paragraph-${paragraphIndex}`,
+      id: `docx:paragraph:${paragraphIndex}`,
       sourcePath: `word/document.xml#paragraph[${paragraphIndex}]`,
       text: rawText.trim(),
       rawText,
       blockType: isHeading ? "heading" : isList ? "list_item" : "paragraph",
+      parentId: isList && numberingId ? `docx:list:${numberingId}` : undefined,
+      sourceEngine: "docx_xml",
+      sourceEngineVersion: DOCX_EXTRACTOR_VERSION,
+      extractionConfidence: /<w:txbxContent(?:\s|>)/.test(element) ? 0.72 : 0.98,
+      sourceKind: "docx",
       order: blocks.length
     });
     paragraphIndex += 1;
@@ -168,9 +207,23 @@ function extractWordXmlBlocks(xml: string): DocxExtractedBlock[] {
 }
 
 function wordXmlText(xml: string) {
-  return Array.from(xml.matchAll(/<w:t(?:\s[^>]*)?>(.*?)<\/w:t>/g))
-    .map((match) => decodeXml(match[1]))
-    .join("");
+  return Array.from(xml.matchAll(/<w:t(?:\s[^>]*)?>(.*?)<\/w:t>|<w:tab\s*\/>|<w:(?:br|cr)(?:\s[^>]*)?\/>/g))
+    .map((match) => match[1] !== undefined ? decodeXml(match[1]) : match[0].startsWith("<w:tab") ? "\t" : "\n")
+    .join("")
+    .replace(/[ \t]+\n/g, "\n");
+}
+
+function buildDocxMetrics(blocks: DocxExtractedBlock[], entries: ZipEntry[], xml: string): DocxExtractionMetrics {
+  return {
+    paragraphCount: blocks.filter((block) => block.blockType === "paragraph").length,
+    headingCount: blocks.filter((block) => block.blockType === "heading").length,
+    listItemCount: blocks.filter((block) => block.blockType === "list_item").length,
+    tableCount: new Set(blocks.flatMap((block) => block.sourcePath.match(/table\[(\d+)\]/)?.[1] ?? [])).size,
+    tableCellCount: blocks.filter((block) => block.blockType === "table_cell").length,
+    imageCount: entries.filter((entry) => entry.name.startsWith("word/media/")).length,
+    textBoxCount: Array.from(xml.matchAll(/<w:txbxContent(?:\s|>)/g)).length,
+    headerFooterPartCount: entries.filter((entry) => /^word\/(?:header|footer)\d+\.xml$/.test(entry.name)).length
+  };
 }
 
 function decodeXml(value: string) {

@@ -20,6 +20,8 @@ import { createResumeRevision } from "@/domain/branch/revision";
 import { computeGeneralBranchSyncStatus } from "@/domain/branch/validation";
 import { locatePdfSourceQuote } from "@/domain/pdfImport/sourceMapping";
 import { categorySourceSectionId, resumeCategoryRank } from "@/domain/resumeFields/catalog";
+import { validateFieldCandidates } from "./fieldCandidates";
+import { validateMappingDecisions } from "./mappingValidation";
 
 export type ResumeImportConfirmationBuildResult = {
   profile: CareerProfile;
@@ -137,6 +139,15 @@ export function buildResumeImportProfileOnly(input: {
 }
 
 function validateImportedResumeSources(draft: ImportedResumeDraft) {
+  if (draft.schemaVersion === "resume-import-v2") {
+    const mappingIssues = validateMappingDecisions(draft.mappingDecisions, draft.sourceBlocks);
+    if (mappingIssues.length > 0) throw new Error(`resume_import_mapping_source_invalid:${mappingIssues[0].code}`);
+    const candidateIssues = validateFieldCandidates(draft.fieldCandidates, draft.sourceBlocks);
+    if (candidateIssues.length > 0) throw new Error(`resume_import_field_candidate_invalid:${candidateIssues[0].code}`);
+    if (draft.fieldCandidates.some((candidate) => candidate.needsConfirmation)) {
+      throw new Error("resume_import_field_candidate_unconfirmed");
+    }
+  }
   if (draft.sourceBlocks.length === 0) return;
   const blockIds = new Set(draft.sourceBlocks.map((block) => block.id));
   const sourcePaths = new Set(draft.sourceBlocks.flatMap((block) => block.sourcePath ? [block.sourcePath] : []));

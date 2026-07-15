@@ -208,7 +208,7 @@ function decisionFromSource(trace: ImportedResumeMappingTrace, targetFieldId: Ca
 }
 
 function sourceQuote(value: unknown) {
-  if (typeof value === "string") return value || "（空字符串）";
+  if (typeof value === "string") return value || JSON.stringify(value);
   const serialized = JSON.stringify(value);
   return serialized && serialized.length > 0 ? serialized : String(value);
 }
@@ -423,13 +423,16 @@ function mapExternalFormatSections(
 
 export function createJsonSourceBlocks(value: unknown): ExtractedSourceBlock[] {
   return flattenLeaves(value).map((leaf, order) => {
-    const rawText = typeof leaf.value === "string" ? leaf.value : JSON.stringify(leaf.value);
+    const rawText = typeof leaf.value === "string" && leaf.value.length > 0 ? leaf.value : JSON.stringify(leaf.value);
     return {
-      id: `json-block-${order}`,
+      id: leaf.path,
       sourcePath: leaf.path,
       text: rawText,
       rawText,
       blockType: "text_block",
+      sourceEngine: "json_mapper",
+      sourceEngineVersion: "resume-import.json-mapper.v2",
+      extractionConfidence: 1,
       order
     };
   });

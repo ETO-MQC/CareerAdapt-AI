@@ -358,7 +358,7 @@ function buildImportedGeneralResume() {
     now: TEST_TIME
   });
   const built = buildResumeImportConfirmation({
-    draft,
+    draft: confirmAllFieldCandidates(draft),
     operationId: "confirm-g5a-domain",
     now: TEST_TIME
   });
@@ -379,7 +379,7 @@ async function confirmImportedGeneralResume(repository: WorkspaceRepository) {
     pages: createPageTexts(sessionId),
     now: TEST_TIME
   });
-  const saved = await repository.saveImportedResumeDraft(draft, 0);
+  const saved = await repository.saveImportedResumeDraft(confirmAllFieldCandidates(draft), 0);
   const confirmed = await repository.confirmImportedResume({
     importId: saved.importId,
     expectedDraftRevision: saved.revision,
@@ -391,6 +391,20 @@ async function confirmImportedGeneralResume(repository: WorkspaceRepository) {
     throw new Error("g5a_test_import_confirmation_failed");
   }
   return { profile, branch };
+}
+
+function confirmAllFieldCandidates<T extends ReturnType<typeof createImportedResumeDraftFromPdf>>(draft: T): T {
+  if (draft.schemaVersion !== "resume-import-v2") {
+    throw new Error("expected_resume_import_v2_draft");
+  }
+  return {
+    ...draft,
+    fieldCandidates: draft.fieldCandidates.map((candidate) => ({
+      ...candidate,
+      needsConfirmation: false,
+      userConfirmed: true
+    }))
+  } as T;
 }
 
 function createSqlAnalystJob(): JobDescription {

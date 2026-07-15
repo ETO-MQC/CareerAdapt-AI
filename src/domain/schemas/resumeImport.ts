@@ -19,8 +19,39 @@ export const ResumeSourceKindSchema = z.enum([
   "standard_json",
   "external_json",
   "docx",
+  "digital_pdf",
+  "complex_digital_pdf",
   "text_pdf",
-  "scanned_pdf"
+  "scanned_pdf",
+  "image"
+]);
+
+export const ResumeImportSourceClassificationSchema = z.enum([
+  "standard_json",
+  "external_json",
+  "docx",
+  "digital_pdf",
+  "complex_digital_pdf",
+  "scanned_pdf",
+  "image"
+]);
+
+export const ResumeImportPipelineRouteSchema = z.enum([
+  "standard_json",
+  "deterministic_json",
+  "docx_structure",
+  "digital_pdf_layout",
+  "ocr_local",
+  "manual_review"
+]);
+
+export const ResumeSourceEngineSchema = z.enum([
+  "json_mapper",
+  "docx_xml",
+  "pdfjs",
+  "opendataloader",
+  "paddleocr_vl",
+  "plain_text"
 ]);
 
 export const ExtractedSourceBlockTypeSchema = z.enum([
@@ -28,9 +59,20 @@ export const ExtractedSourceBlockTypeSchema = z.enum([
   "heading",
   "list_item",
   "table_cell",
+  "table_row",
+  "contact",
+  "date",
+  "image_region",
   "text_block",
   "unknown"
 ]);
+
+export const ResumeSourceBoundingBoxSchema = z.object({
+  x: z.number(),
+  y: z.number(),
+  width: z.number().min(0),
+  height: z.number().min(0)
+}).strict();
 
 export const ExtractedSourceBlockSchema = z.object({
   id: z.string().min(1),
@@ -39,12 +81,15 @@ export const ExtractedSourceBlockSchema = z.object({
   text: z.string(),
   rawText: z.string(),
   blockType: ExtractedSourceBlockTypeSchema,
-  position: z.object({
-    x: z.number(),
-    y: z.number(),
-    width: z.number().min(0),
-    height: z.number().min(0)
-  }).optional(),
+  position: ResumeSourceBoundingBoxSchema.optional(),
+  parentId: z.string().min(1).optional(),
+  rowIndex: z.number().int().min(0).optional(),
+  columnIndex: z.number().int().min(0).optional(),
+  sourceEngine: ResumeSourceEngineSchema.optional(),
+  sourceEngineVersion: z.string().min(1).optional(),
+  extractionConfidence: z.number().min(0).max(1).optional(),
+  fontSize: z.number().positive().optional(),
+  sourceKind: ResumeImportSourceClassificationSchema.optional(),
   order: z.number().int().min(0)
 });
 
@@ -52,6 +97,14 @@ export const NormalizedSourceBlockSchema = ExtractedSourceBlockSchema.extend({
   normalizedText: z.string(),
   normalizationActions: z.array(z.string()).default([])
 });
+
+export const ResumeSourceBlockV2Schema = NormalizedSourceBlockSchema.extend({
+  sourceKind: ResumeImportSourceClassificationSchema,
+  sourceEngine: ResumeSourceEngineSchema,
+  sourceEngineVersion: z.string().min(1),
+  extractionConfidence: z.number().min(0).max(1),
+  position: ResumeSourceBoundingBoxSchema.optional()
+}).strict();
 
 export const ImportQualityReportSchema = z.object({
   sourceType: ResumeSourceKindSchema,
@@ -64,6 +117,96 @@ export const ImportQualityReportSchema = z.object({
   recommendedRoute: z.enum(["deterministic", "ai_text", "ocr_ai"]),
   warnings: z.array(z.string()).default([])
 });
+
+export const ImportQualityReportV2Schema = ImportQualityReportSchema.extend({
+  schemaVersion: z.literal("resume-import-quality-v2"),
+  classification: ResumeImportSourceClassificationSchema,
+  recommendedPipeline: ResumeImportPipelineRouteSchema,
+  pageCount: z.number().int().min(1),
+  coordinateCoverage: z.number().min(0).max(1),
+  hasUsableTextLayer: z.boolean(),
+  ocrRequiredPages: z.array(z.number().int().min(1)).default([]),
+  thresholds: z.object({
+    minimumTextCoverage: z.number().min(0).max(1),
+    maximumReplacementCharacterRatio: z.number().min(0).max(1),
+    maximumLineFragmentationScore: z.number().min(0).max(1)
+  }).strict()
+}).strict();
+
+export const ImportedResumeDatePrecisionSchema = z.enum(["year", "month", "day"]);
+
+export const ImportedResumeDateValueSchema = z.object({
+  rawText: z.string().min(1),
+  value: z.string().regex(/^\d{4}(?:-\d{2}(?:-\d{2})?)?$/).optional(),
+  precision: ImportedResumeDatePrecisionSchema.optional(),
+  current: z.boolean().default(false),
+  sourceBlockIds: z.array(z.string().min(1)).min(1),
+  sourceQuote: z.string().min(1),
+  confidence: z.number().min(0).max(1),
+  needsConfirmation: z.boolean()
+}).strict().superRefine((value, ctx) => {
+  if (!value.current && (!value.value || !value.precision)) {
+    ctx.addIssue({ code: "custom", message: "non-current dates require a normalized value and precision" });
+  }
+  if (value.current && value.value) {
+    ctx.addIssue({ code: "custom", path: ["value"], message: "current dates must not fabricate a normalized end date" });
+  }
+});
+
+export const ImportedResumeFieldCandidateSchema = z.object({
+  id: z.string().min(1),
+  targetFieldId: z.string().refine(isCanonicalFieldId, "targetFieldId must exist in the canonical field catalog"),
+  value: z.union([z.string(), z.number(), z.boolean(), z.array(z.string())]),
+  sourceBlockIds: z.array(z.string().min(1)).min(1),
+  sourceQuote: z.string().min(1),
+  confidence: z.number().min(0).max(1),
+  needsConfirmation: z.boolean(),
+  userConfirmed: z.boolean().default(false),
+  mappingReason: z.string().min(1),
+  dateValue: ImportedResumeDateValueSchema.optional()
+}).strict();
+
+export const ResumeOcrProgressStageSchema = z.enum([
+  "checking_engine",
+  "uploading",
+  "rendering_pages",
+  "recognizing",
+  "normalizing",
+  "completed"
+]);
+
+export const ResumeOcrBlockSchema = z.object({
+  id: z.string().min(1),
+  page: z.number().int().min(1),
+  text: z.string(),
+  rawText: z.string(),
+  blockType: ExtractedSourceBlockTypeSchema,
+  position: ResumeSourceBoundingBoxSchema.optional(),
+  order: z.number().int().min(0),
+  confidence: z.number().min(0).max(1)
+}).strict();
+
+export const ResumeOcrSuccessResponseSchema = z.object({
+  ok: z.literal(true),
+  engine: z.literal("paddleocr-vl-local"),
+  engineVersion: z.string().min(1),
+  modelName: z.string().min(1),
+  elapsedMs: z.number().int().min(0),
+  pageCount: z.number().int().min(1),
+  text: z.string(),
+  blocks: z.array(ResumeOcrBlockSchema),
+  warnings: z.array(z.string()).default([])
+}).strict();
+
+export const ResumeOcrHealthResponseSchema = z.object({
+  ok: z.boolean(),
+  engine: z.literal("paddleocr-vl-local"),
+  configured: z.boolean(),
+  modelAvailable: z.boolean(),
+  runtimeAvailable: z.boolean(),
+  device: z.string().min(1).optional(),
+  message: z.string().min(1)
+}).strict();
 
 export const ImportedResumeMappingTraceSchema = z.object({
   sourcePaths: z.array(z.string().min(1)).min(1),
@@ -282,7 +425,7 @@ function validateImportedResumeItemIds(draft: { sections: Array<{ items: Array<{
   }
 }
 
-export const ImportedResumeDraftSchema = ImportedResumeDraftBaseSchema.superRefine(validateImportedResumeItemIds);
+export const ImportedResumeDraftV1Schema = ImportedResumeDraftBaseSchema.superRefine(validateImportedResumeItemIds);
 
 const MappingSourceShape = {
   sourceBlockIds: z.array(z.string().min(1)).min(1),
@@ -322,10 +465,22 @@ export const MappingDecisionSchema = z.discriminatedUnion("kind", [
   }).strict()
 ]);
 
-export const ImportedResumeDraftV2Schema = z.intersection(
-  ImportedResumeDraftBaseSchema.omit({ schemaVersion: true }),
-  z.object({ schemaVersion: z.literal("resume-import-v2"), mappingDecisions: z.array(MappingDecisionSchema).default([]) })
-).superRefine(validateImportedResumeItemIds);
+export const ImportedResumeDraftV2Schema = ImportedResumeDraftBaseSchema.omit({
+  schemaVersion: true,
+  sourceBlocks: true,
+  qualityReport: true
+}).extend({
+  schemaVersion: z.literal("resume-import-v2"),
+  sourceBlocks: z.array(ResumeSourceBlockV2Schema).default([]),
+  qualityReport: ImportQualityReportV2Schema,
+  mappingDecisions: z.array(MappingDecisionSchema).default([]),
+  fieldCandidates: z.array(ImportedResumeFieldCandidateSchema).default([])
+}).strict().superRefine(validateImportedResumeItemIds);
+
+export const ImportedResumeDraftSchema = z.union([
+  ImportedResumeDraftV2Schema,
+  ImportedResumeDraftV1Schema
+]);
 
 export const ImportMergeDecisionSchema = z.object({
   target: z.enum(["name", "email", "phone", "location", "summary", "link"]),
@@ -366,9 +521,20 @@ export const ResumeJsonMapperOutputSchema = z.object({
 
 export type ImportedResumeDraftStatus = z.infer<typeof ImportedResumeDraftStatusSchema>;
 export type ResumeSourceKind = z.infer<typeof ResumeSourceKindSchema>;
+export type ResumeImportSourceClassification = z.infer<typeof ResumeImportSourceClassificationSchema>;
+export type ResumeImportPipelineRoute = z.infer<typeof ResumeImportPipelineRouteSchema>;
+export type ResumeSourceEngine = z.infer<typeof ResumeSourceEngineSchema>;
 export type ExtractedSourceBlock = z.infer<typeof ExtractedSourceBlockSchema>;
 export type NormalizedSourceBlock = z.infer<typeof NormalizedSourceBlockSchema>;
+export type ResumeSourceBlockV2 = z.infer<typeof ResumeSourceBlockV2Schema>;
 export type ImportQualityReport = z.infer<typeof ImportQualityReportSchema>;
+export type ImportQualityReportV2 = z.infer<typeof ImportQualityReportV2Schema>;
+export type ImportedResumeDateValue = z.infer<typeof ImportedResumeDateValueSchema>;
+export type ImportedResumeFieldCandidate = z.infer<typeof ImportedResumeFieldCandidateSchema>;
+export type ResumeOcrProgressStage = z.infer<typeof ResumeOcrProgressStageSchema>;
+export type ResumeOcrBlock = z.infer<typeof ResumeOcrBlockSchema>;
+export type ResumeOcrSuccessResponse = z.infer<typeof ResumeOcrSuccessResponseSchema>;
+export type ResumeOcrHealthResponse = z.infer<typeof ResumeOcrHealthResponseSchema>;
 export type ImportTarget = z.infer<typeof ImportTargetSchema>;
 export type ImportedResumeConfidence = z.infer<typeof ImportedResumeConfidenceSchema>;
 export type ImportedResumeMappingTrace = z.infer<typeof ImportedResumeMappingTraceSchema>;
@@ -382,6 +548,7 @@ export type ImportedResumeItem = z.infer<typeof ImportedResumeItemSchema>;
 export type ImportedResumeSection = z.infer<typeof ImportedResumeSectionSchema>;
 export type ImportedResumePage = z.infer<typeof ImportedResumePageSchema>;
 export type ImportedResumeSource = z.infer<typeof ImportedResumeSourceSchema>;
+export type ImportedResumeDraftV1 = z.infer<typeof ImportedResumeDraftV1Schema>;
 export type ImportedResumeDraft = z.infer<typeof ImportedResumeDraftSchema>;
 export type ImportedResumeDraftV2 = z.infer<typeof ImportedResumeDraftV2Schema>;
 export type MappingDecision = z.infer<typeof MappingDecisionSchema>;
