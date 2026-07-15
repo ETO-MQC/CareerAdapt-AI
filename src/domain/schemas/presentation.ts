@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { IsoDateStringSchema } from "./common";
 import { ResumeRenderSectionTypeSchema, TemplateIdSchema } from "./resumeRender";
+import { defaultResumeRenderSectionOrder } from "@/domain/resumeFields/catalog";
 
 export const PresentationBodyTextScaleSchema = z.enum(["small", "normal", "large"]);
 export const PresentationTitleTextScaleSchema = z.enum(["small", "normal", "large"]);
@@ -140,7 +141,7 @@ export const ResumePresentationConfigSchema = z.object({
     branchRevision: z.number().int().min(0),
     currentRevisionId: z.string().min(1)
   }),
-  sectionOrder: z.array(ResumeRenderSectionTypeSchema).default(["summary", "skills", "experience", "certificates"]),
+  sectionOrder: z.array(ResumeRenderSectionTypeSchema).default([...defaultResumeRenderSectionOrder]),
   itemOrderBySection: ItemOrderBySectionSchema,
   hiddenItemIds: z.array(z.string().min(1)).default([]),
   typography: PresentationTypographySchema.default(DEFAULT_TYPOGRAPHY),

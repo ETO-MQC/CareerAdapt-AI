@@ -20,7 +20,7 @@ test.describe("V2-G7b workspace UX", () => {
     await page.goto("/resume");
     await page.getByRole("button").filter({ hasText: "从个人资料库创建" }).click();
     await page.goto("/jobs");
-    await page.getByLabel("用于诊断的基础简历").selectOption({ index: 1 });
+    await page.getByLabel("来源通用简历").selectOption({ index: 1 });
     const jobTitle = await page.locator(".jobs-detail-panel strong").first().innerText();
     page.once("dialog", (dialog) => dialog.accept());
     await page.locator(".jobs-detail-panel").getByRole("button", { name: "删除", exact: true }).click();
@@ -30,7 +30,7 @@ test.describe("V2-G7b workspace UX", () => {
     const recycled = page.locator(".recycle-row").filter({ hasText: jobTitle });
     await expect(recycled).toBeVisible();
     await recycled.getByRole("button", { name: "恢复", exact: true }).click();
-    await expect(page.locator(".notice")).toContainText("岗位已恢复");
+    await expect(page.locator(".app-notification")).toContainText("岗位已恢复");
     await expect(recycled).toHaveCount(0);
   });
 
@@ -172,7 +172,7 @@ async function createBranchFromDraft(page: Page, branchName: string) {
   await page.getByRole("button").filter({ hasText: "从个人资料库创建" }).click();
   await page.getByTestId("resume-studio-workbar").getByRole("button", { name: "返回", exact: true }).click();
   await page.goto("/jobs");
-  await page.getByLabel("用于诊断的基础简历").selectOption({ index: 1 });
+  await page.getByLabel("来源通用简历").selectOption({ index: 1 });
   await page.getByTestId("run-experience-match").click();
   await expect(page.locator(".match-row").first()).toBeVisible({ timeout: 15_000 });
   await page.getByTestId("create-suggestion-draft").click();

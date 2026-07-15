@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 
 test.describe("V2-G7b.2 Resume Studio and import IA", () => {
   test("separates manual editing tools from AI optimization tools", async ({ page }) => {
-    await createBranchFromDraft(page, `G7b2 mode split ${Date.now()}`);
+    await createBranchFromJsonImport(page, `G7b2 mode split ${Date.now()}`);
 
     await expect(page.locator(".resume-inspector")).toBeVisible();
     await expect(page.getByTestId("resume-section-nav")).toBeVisible();
@@ -20,6 +20,12 @@ test.describe("V2-G7b.2 Resume Studio and import IA", () => {
     await expect(page.locator(".presentation-history-actions")).toHaveCount(0);
     await expect(page.locator(".property-panel-body")).toHaveCount(0);
     await expect(page.getByTestId("resume-ai-summary")).toBeVisible();
+    const aiScroll = await page.getByTestId("job-optimization-panel").evaluate((panel) => ({
+      overflowY: getComputedStyle(panel).overflowY,
+      minHeight: getComputedStyle(panel).minHeight,
+      tabIndex: panel.tabIndex
+    }));
+    expect(aiScroll).toEqual({ overflowY: "auto", minHeight: "0px", tabIndex: 0 });
   });
 
   test("imports structured JSON into the same review flow before confirmation", async ({ page }) => {
@@ -54,10 +60,139 @@ test.describe("V2-G7b.2 Resume Studio and import IA", () => {
     await expect(page.getByTestId("import-quality-report")).toBeVisible();
     await expect(page.locator(".import-source-text")).toContainText("JSON Candidate");
     await expect(page.locator(".import-structure-panel button.primary-button")).toBeVisible();
+    await page.locator(".import-structure-panel button.primary-button").click();
+    await expect(page.getByText("已进入导入生成的通用简历，可继续编辑、换模板、调整分页并下载 PDF。")).toBeVisible();
+    await page.getByRole("button", { name: "打开", exact: true }).click();
+    await expect(page.getByTestId("resume-studio-shell")).toBeVisible();
+    const educationBox = await page.getByRole("button", { name: "教育经历", exact: true }).boundingBox();
+    const workBox = await page.getByRole("button", { name: "工作 / 实习经历", exact: true }).boundingBox();
+    const awardBox = await page.getByRole("button", { name: "奖项", exact: true }).boundingBox();
+    const skillBox = await page.getByRole("button", { name: "技能", exact: true }).boundingBox();
+    expect(educationBox!.y).toBeLessThan(workBox!.y);
+    expect(awardBox!.y).toBeLessThan(skillBox!.y);
+  });
+
+  test("keeps malformed JSON available for correction and reports its location", async ({ page }) => {
+    await openJsonImport(page);
+    const textarea = page.locator(".import-json-details textarea");
+    const malformed = '{"name":"Candidate",}';
+    await textarea.fill(malformed);
+    await page.locator(".import-json-details button.primary-button").click();
+
+    await expect(page.locator(".app-notification-error")).toContainText(/JSON 格式错误/);
+    await expect(page.locator(".app-notification-error")).toContainText(/第 1 行|位置/);
+    await expect(textarea).toHaveValue(malformed);
+  });
+
+  test("maps external JSON deterministically and preserves trace and unclassified fields", async ({ page }) => {
+    await page.route("**/api/ai/structured", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          ok: true,
+          task: "resume-json-mapper",
+          promptVersion: "resume-json-mapper.v1",
+          output: {
+            structuredDraft: {
+              basics: {
+                name: {
+                  value: "External Candidate",
+                  mapping: { sourcePaths: ["profile.name"], sourceValues: ["External Candidate"], confidenceLevel: "high", confidenceReason: "Exact field", needsConfirmation: true }
+                }
+              },
+              sections: [{
+                title: "项目经历",
+                category: "project",
+                sectionType: "experience",
+                items: [{
+                  text: "Built a verified dashboard.",
+                  mapping: { sourcePaths: ["projects[0].description"], sourceValues: ["Built a verified dashboard."], confidenceLevel: "high", confidenceReason: "Exact field", needsConfirmation: true }
+                }]
+              }]
+            },
+            unclassifiedBlocks: [{ sourcePath: "vendorMetadata.source", sourceValue: "another-resume-site", reason: "No supported destination" }]
+          },
+          meta: { provider: "mock", model: "mock-json-mapper", inputLength: 200, outputLength: 300, latencyMs: 1 }
+        })
+      });
+    });
+    await openJsonImport(page);
+    await page.locator(".import-json-details textarea").fill(JSON.stringify({
+      profile: { name: "External Candidate", email: "external@example.com" },
+      projects: [{ projectName: "External Project", description: "Built a verified dashboard." }],
+      vendorMetadata: { source: "another-resume-site" }
+    }));
+    await page.locator(".import-json-details button.primary-button").click();
+
+    await expect(page.locator(".mapping-trace").first()).toContainText("来源：");
+    await expect(page.getByText(/未识别内容（\d+）/)).toBeVisible();
+    await expect(page.locator(".ai-mapping-consent")).toContainText("脱敏");
+    await page.locator(".ai-mapping-consent input").check();
+    await page.getByRole("button", { name: "使用 AI 智能映射", exact: true }).click();
+    await expect(page.getByText(/AI 映射结果已通过 Schema 校验/)).toBeVisible();
+    await expect(page.locator(".mapping-trace").first()).toContainText("需要确认");
+  });
+
+  test("keeps import review panels reachable without overlap at supported desktop viewports", async ({ page }) => {
+    await openJsonImport(page);
+    await page.getByRole("button", { name: "填入示例", exact: true }).click();
+    await page.locator(".import-json-details button.primary-button").click();
+    await expect(page.locator(".import-review-grid")).toBeVisible();
+
+    for (const viewport of [
+      { width: 1024, height: 768 },
+      { width: 1280, height: 720 },
+      { width: 1366, height: 768 },
+      { width: 1440, height: 900 },
+      { width: 1920, height: 1080 }
+    ]) {
+      await page.setViewportSize(viewport);
+      const layout = await page.locator(".import-review-grid").evaluate((grid) => {
+        const source = grid.querySelector<HTMLElement>(".import-source-panel")!;
+        const structure = grid.querySelector<HTMLElement>(".import-structure-panel")!;
+        const sourceRect = source.getBoundingClientRect();
+        const structureRect = structure.getBoundingClientRect();
+        return {
+          sourceRight: sourceRect.right,
+          structureLeft: structureRect.left,
+          structureClientHeight: structure.clientHeight,
+          structureScrollHeight: structure.scrollHeight,
+          structureOverflowY: getComputedStyle(structure).overflowY,
+          dialogBottom: grid.closest("[role=dialog]")!.getBoundingClientRect().bottom,
+          viewportHeight: window.innerHeight
+        };
+      });
+      expect(layout.structureLeft).toBeGreaterThanOrEqual(layout.sourceRight);
+      expect(layout.structureClientHeight).toBeGreaterThan(100);
+      expect(layout.structureScrollHeight).toBeGreaterThan(layout.structureClientHeight);
+      expect(layout.structureOverflowY).toBe("auto");
+      expect(layout.dialogBottom).toBeLessThanOrEqual(layout.viewportHeight);
+      await expect(page.locator(".import-structure-panel button.primary-button")).toBeVisible();
+    }
+  });
+
+  test("retains raw external JSON when AI mapping is unavailable", async ({ page }) => {
+    await page.route("**/api/ai/structured", (route) => route.fulfill({
+      status: 503,
+      contentType: "application/json",
+      body: JSON.stringify({ ok: false, error: { code: "provider_unavailable", message: "Unavailable" } })
+    }));
+    await openJsonImport(page);
+    const rawText = JSON.stringify({ fullName: "Retry Candidate", workExperience: ["Kept source content"] });
+    await page.locator(".import-json-details textarea").fill(rawText);
+    await page.locator(".import-json-details button.primary-button").click();
+    await page.locator(".ai-mapping-consent input").check();
+    await page.getByRole("button", { name: "使用 AI 智能映射", exact: true }).click();
+
+    await expect(page.locator(".app-notification-error")).toContainText("AI 映射失败");
+    await page.getByText("查看原始 JSON", { exact: true }).click();
+    await expect(page.locator(".import-source-footer pre")).toContainText(rawText);
+    await expect(page.getByRole("button", { name: "使用 AI 智能映射", exact: true })).toBeEnabled();
   });
 
   test("exports the active resume as structured JSON", async ({ page }) => {
-    await createBranchFromDraft(page, `G7b2 JSON export ${Date.now()}`);
+    await createBranchFromJsonImport(page, `G7b2 JSON export ${Date.now()}`);
 
     // Open the "更多" dropdown to access JSON export
     const workbar = page.getByTestId("resume-studio-workbar");
@@ -71,18 +206,21 @@ test.describe("V2-G7b.2 Resume Studio and import IA", () => {
   });
 });
 
-async function createBranchFromDraft(page: Page, branchName: string) {
-  await page.goto("/jobs");
-  await page.getByTestId("run-experience-match").click();
-  await expect(page.locator(".match-row").first()).toBeVisible({ timeout: 15_000 });
-  await page.getByTestId("create-suggestion-draft").click();
-  await expect(page.locator(".notice")).toBeVisible({ timeout: 15_000 });
-
+async function openJsonImport(page: Page) {
   await page.goto("/resume");
-  await page.getByTestId("resume-import-strip").waitFor({ state: "visible", timeout: 15_000 });
-  await page.getByTestId("job-suggestion-draft-select").first().selectOption({ index: 0 });
-  await page.getByTestId("new-resume-branch-name").first().fill(branchName);
-  await page.getByTestId("create-job-resume").first().click();
-  await expect(page.getByTestId("resume-studio-shell")).toBeVisible({ timeout: 15_000 });
-  await expect(page.getByTestId("resume-a4-page").first()).toBeVisible();
+  await page.getByRole("button", { name: "粘贴 JSON", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "导入简历" })).toBeVisible();
+}
+
+async function createBranchFromJsonImport(page: Page, candidateName: string) {
+  await openJsonImport(page);
+  await page.locator(".import-json-details textarea").fill(JSON.stringify({
+    schemaVersion: "structured-resume-draft-v1",
+    basics: { name: candidateName },
+    sections: [{ title: "Projects", category: "project", sectionType: "experience", items: ["Created a verified project result."] }]
+  }));
+  await page.locator(".import-json-details button.primary-button").click();
+  await page.locator(".import-structure-panel button.primary-button").click();
+  await page.getByRole("button", { name: "打开", exact: true }).click();
+  await expect(page.getByTestId("resume-studio-shell")).toBeVisible();
 }

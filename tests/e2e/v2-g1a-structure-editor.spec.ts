@@ -19,7 +19,7 @@ async function createBranchFromDraft(page: Page, branchName: string) {
   await page.getByRole("button").filter({ hasText: "从个人资料库创建" }).click();
   await page.getByTestId("resume-studio-workbar").getByRole("button", { name: "返回", exact: true }).click();
   await page.goto("/jobs");
-  await page.getByLabel("用于诊断的基础简历").selectOption({ index: 1 });
+  await page.getByLabel("来源通用简历").selectOption({ index: 1 });
   await page.getByTestId("run-experience-match").click();
   await expect(page.locator(".match-row").first()).toBeVisible();
   await page.getByTestId("create-suggestion-draft").click();

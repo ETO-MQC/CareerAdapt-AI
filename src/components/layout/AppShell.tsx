@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { NotificationProvider } from "@/components/notifications/NotificationProvider";
 
 type ThemePreference = "system" | "light" | "dark";
 type DensityPreference = "compact" | "comfortable";
@@ -96,6 +97,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, [pathname]);
 
   return (
+    <NotificationProvider>
     <div className={`app-shell ${sidebarVisuallyCollapsed ? "app-shell-sidebar-collapsed" : ""}`}>
       <aside className="primary-sidebar no-print" aria-label="主导航">
         <div className="sidebar-brand-row">
@@ -177,6 +179,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {children}
       </div>
     </div>
+    </NotificationProvider>
   );
 }
 

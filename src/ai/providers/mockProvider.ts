@@ -2,6 +2,8 @@ import type { AiTask } from "@/domain/schemas";
 import { demoJobDescriptions } from "@/data/demoJobs";
 import { demoCareerProfile } from "@/data/demoProfile";
 import type { AiInvokeRequest, AiProvider } from "../provider";
+import { mapExternalResumeJson } from "@/domain/resumeImport/jsonMapper";
+import { redactSensitiveTextForModel } from "@/services/security/text";
 
 type MockProviderOptions = {
   outputs?: Partial<Record<AiTask, unknown>>;
@@ -22,10 +24,10 @@ export class MockAiProvider implements AiProvider {
       return this.options.outputs[request.task];
     }
 
-    return this.defaultOutput(request.task);
+    return this.defaultOutput(request.task, request.input);
   }
 
-  private defaultOutput(task: AiTask): unknown {
+  private defaultOutput(task: AiTask, input?: unknown): unknown {
     const checkedAt = new Date().toISOString();
 
     if (task === "health-check") {
@@ -38,6 +40,11 @@ export class MockAiProvider implements AiProvider {
 
     if (task === "profile-builder") {
       return demoCareerProfile;
+    }
+
+    if (task === "resume-json-mapper") {
+      const rawText = typeof input === "object" && input && "rawText" in input ? String(input.rawText) : "{}";
+      return mapExternalResumeJson(JSON.parse(redactSensitiveTextForModel(rawText).text));
     }
 
     if (task === "jd-analyzer") {

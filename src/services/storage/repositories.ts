@@ -83,7 +83,12 @@ import { mapAdaptationDraftToResumeBranch } from "@/domain/branch/mapper";
 import { createResumeRevision } from "@/domain/branch/revision";
 import { computeBranchSyncStatus, computeGeneralBranchSyncStatus, resolveBranchFactRefs } from "@/domain/branch/validation";
 import { buildGeneralBranchFromProfile } from "@/domain/branch/profileBranch";
-import { parseStructuredExperienceText, serializeStructuredExperienceText, type ResumeFieldCategoryId } from "@/domain/resumeFields/catalog";
+import {
+  defaultResumeRenderSectionOrder,
+  parseStructuredExperienceText,
+  serializeStructuredExperienceText,
+  type ResumeFieldCategoryId
+} from "@/domain/resumeFields/catalog";
 import { buildResumeImportConfirmation } from "@/domain/resumeImport/confirm";
 import { runRuleFactGuard } from "@/domain/adaptation/factGuard";
 import {
@@ -4574,7 +4579,7 @@ function sanitizePresentationConfigForBranch(config: ResumePresentationConfig, b
 }
 
 function defaultResumeSectionOrder(): ResumeRenderSectionType[] {
-  return ["summary", "skills", "experience", "certificates"];
+  return [...defaultResumeRenderSectionOrder];
 }
 
 function sanitizeSectionOrder(sectionOrder: ResumeRenderSectionType[]) {

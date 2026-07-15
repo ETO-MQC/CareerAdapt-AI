@@ -7,10 +7,12 @@ import {
   type FactGuardTaskInput,
   type JdAnalyzerTaskInput,
   type ProfileBuilderTaskInput,
+  type ResumeJsonMapperTaskInput,
   type ResumeTailorTaskInput,
 } from "@/ai/tasks/registry";
 import type { AiTask } from "@/domain/schemas";
 import { redactSensitiveTextForModel } from "@/services/security/text";
+import { mapExternalResumeJson } from "@/domain/resumeImport/jsonMapper";
 import { decodeAiSettingsFromHeader, type AiSettings } from "@/services/storage/aiSettings";
 
 const StructuredAiRequestSchema = z
@@ -204,6 +206,10 @@ function estimateInputLength(input: unknown) {
 }
 
 function createMockOutput(task: AiTask, input: unknown) {
+  if (task === "resume-json-mapper") {
+    const mapperInput = input as ResumeJsonMapperTaskInput;
+    return mapExternalResumeJson(JSON.parse(redactSensitiveTextForModel(mapperInput.rawText).text));
+  }
   if (task === "profile-builder") {
     const profileInput = input as ProfileBuilderTaskInput;
     const firstLine = profileInput.rawText.split(/\r?\n/).find(Boolean) || profileInput.rawText.slice(0, 40);
