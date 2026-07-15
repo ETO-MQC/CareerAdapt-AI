@@ -48,6 +48,7 @@ import { isPaginationPlanBlocked, paginationStatusLabel } from "@/services/expor
 import { createResumePdfExportRequest, presentationSnapshotFromConfig } from "@/services/export/snapshot";
 import { hashBytes, stableHashText } from "@/services/security/text";
 import { RevisionConflictError, WorkspaceRepository } from "@/services/storage/repositories";
+import { notify } from "@/services/notifications/store";
 import { useWorkspace } from "@/services/workspace/useWorkspace";
 import { WorkspaceEmptyState, WorkspaceErrorState, WorkspaceLoadingState } from "@/components/workspace/WorkspaceStates";
 import { BasicsSectionPage } from "@/components/editor/sections/BasicsSectionPage";
@@ -139,6 +140,7 @@ export function ResumeWorkspace() {
   const previewStageRef = useRef<HTMLDivElement | null>(null);
   const importDialogRef = useRef<HTMLElement | null>(null);
   const importTriggerRef = useRef<HTMLElement | null>(null);
+  const profileCreateDialogRef = useRef<HTMLElement | null>(null);
   const branchesRef = useRef<ResumeBranch[]>([]);
   const editTextsRef = useRef<Record<string, string>>({});
   const contentSaveQueueRef = useRef<Promise<void>>(Promise.resolve());
@@ -157,7 +159,6 @@ export function ResumeWorkspace() {
     redoStack: []
   });
   const [revisions, setRevisions] = useState<ResumeRevision[]>([]);
-  const [message, setMessage] = useState<string | undefined>();
   const [draftName, setDraftName] = useState("");
   const [editTexts, setEditTexts] = useState<Record<string, string>>({});
   const [contentAutoSaveState, setContentAutoSaveState] = useState<ContentAutoSaveState>("idle");
@@ -267,10 +268,13 @@ export function ResumeWorkspace() {
   }, [editTexts]);
 
   useEffect(() => {
-    if (!profileSyncDialogOpen && !pendingResumeOnlyEdit && !profileLibraryOpen && !pendingPermanentDeleteBranch) return;
+    if (!profileSyncDialogOpen && !pendingResumeOnlyEdit && !profileLibraryOpen && !pendingPermanentDeleteBranch && !isProfileCreateMenuOpen) return;
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
-      if (pendingPermanentDeleteBranch) {
+      if (isProfileCreateMenuOpen) {
+        setIsProfileCreateMenuOpen(false);
+        setQuickProfileName("");
+      } else if (pendingPermanentDeleteBranch) {
         setPendingPermanentDeleteBranch(undefined);
         setPermanentDeleteName("");
       } else if (profileLibraryOpen) {
@@ -285,7 +289,7 @@ export function ResumeWorkspace() {
     };
     document.addEventListener("keydown", handleEscape);
     return () => document.removeEventListener("keydown", handleEscape);
-  }, [pendingPermanentDeleteBranch, pendingResumeOnlyEdit, profileLibraryOpen, profileSyncDialogOpen]);
+  }, [pendingPermanentDeleteBranch, pendingResumeOnlyEdit, profileLibraryOpen, profileSyncDialogOpen, isProfileCreateMenuOpen]);
 
   const profile = profileOverride ?? (workspace.status === "ready" ? workspace.profiles[0] : undefined);
   const jobs = useMemo(() => {
@@ -514,7 +518,7 @@ export function ResumeWorkspace() {
     }
     const selected = await repository.getProfile(profileId);
     if (!selected) {
-      setMessage("所选个人资料已不存在，请返回资料库重新选择。");
+      notify({ type: "error", title: "选择失败", message: "所选个人资料已不存在，请返回资料库重新选择。" });
       return;
     }
     await repository.setActiveProfileId(selected.id);
@@ -524,13 +528,13 @@ export function ResumeWorkspace() {
     setEditTexts({});
     clearStudioEditor();
     await refreshLists(selected.id);
-    setMessage(`当前人物已切换为 ${selected.name}。`);
+    notify({ type: "success", title: "已切换人物", message: `当前人物已切换为 ${selected.name}。` });
   }
 
   async function createBlankProfile() {
     const name = quickProfileName.trim();
     if (!name) {
-      setMessage("请填写新人物名称。");
+      notify({ type: "warning", title: "请输入名称", message: "请填写新人物名称。" });
       return;
     }
     const now = new Date().toISOString();
@@ -555,7 +559,7 @@ export function ResumeWorkspace() {
     setIsProfileCreateMenuOpen(false);
     setSelectedBranchId(BRANCH_LIST_SENTINEL);
     await refreshLists(created.id);
-    setMessage(`已创建空白人物：${created.name}。`);
+    notify({ type: "success", title: "人物已创建", message: `已创建空白人物：${created.name}。` });
   }
 
   const clearStudioEditor = useCallback(() => {
@@ -630,6 +634,43 @@ export function ResumeWorkspace() {
     }
   }
 
+  const closeProfileCreateDialog = useCallback(() => {
+    setIsProfileCreateMenuOpen(false);
+    setQuickProfileName("");
+  }, []);
+
+  function handleProfileCreateDialogKeyDown(event: ReactKeyboardEvent<HTMLElement>) {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeProfileCreateDialog();
+      return;
+    }
+    if (event.key !== "Tab") {
+      return;
+    }
+    const dialog = profileCreateDialogRef.current;
+    if (!dialog) {
+      return;
+    }
+    const focusable = Array.from(dialog.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), [href], input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    )).filter((element) => !element.hasAttribute("hidden"));
+    if (focusable.length === 0) {
+      event.preventDefault();
+      dialog.focus();
+      return;
+    }
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
+
   useEffect(() => {
     if (!isImportPanelOpen) {
       return;
@@ -642,6 +683,16 @@ export function ResumeWorkspace() {
       document.body.style.overflow = previousOverflow;
     };
   }, [isImportPanelOpen]);
+
+  useEffect(() => {
+    if (!isProfileCreateMenuOpen) {
+      return;
+    }
+    const frame = window.requestAnimationFrame(() => profileCreateDialogRef.current?.focus());
+    return () => {
+      window.cancelAnimationFrame(frame);
+    };
+  }, [isProfileCreateMenuOpen]);
 
   function startFieldPanelResize(event: PointerEvent<HTMLButtonElement>) {
     event.preventDefault();
@@ -1013,20 +1064,20 @@ export function ResumeWorkspace() {
           behavior: "smooth"
         });
       });
-      setMessage("已定位到诊断关联区块。");
+      notify({ type: "info", title: "已定位", message: "已定位到诊断关联区块。" });
       return;
     }
     if (issue.sectionType) {
       setActivePropertyTab("section");
       setActiveResumeSection(issue.sectionType);
-      setMessage(`诊断关联栏目：${sectionTypeLabel(issue.sectionType)}。`);
+      notify({ type: "info", title: "诊断关联", message: `诊断关联栏目：${sectionTypeLabel(issue.sectionType)}。` });
       return;
     }
     if (issue.requirementIds[0]) {
-      setMessage(`诊断关联 Requirement：${issue.requirementIds[0]}。请在岗位优化面板中查看对应要求。`);
+      notify({ type: "info", title: "诊断关联", message: `诊断关联 Requirement：${issue.requirementIds[0]}。请在岗位优化面板中查看对应要求。` });
       return;
     }
-    setMessage("该诊断项没有更细粒度定位目标。");
+    notify({ type: "info", title: "诊断项", message: "该诊断项没有更细粒度定位目标。" });
   }
 
   async function applyDiagnosticAction(issue: ResumeDiagnosticIssue, action: ResumeDiagnosticAction) {
@@ -1042,20 +1093,20 @@ export function ResumeWorkspace() {
         setActivePropertyTab("block");
         startStudioEdit(contentItemId);
       } else {
-        setMessage("请在正文编辑区选择需要修改的区块。");
+        notify({ type: "warning", title: "提示", message: "请在正文编辑区选择需要修改的区块。" });
       }
       return;
     }
     if (action.kind === "open_job_suggestion") {
-      setMessage("请在“针对岗位优化”面板中查看 Requirement 映射或生成区块建议。");
+      notify({ type: "info", title: "提示", message: "请在“针对岗位优化”面板中查看 Requirement 映射或生成区块建议。" });
       return;
     }
     if (action.kind === "open_fact_gap") {
-      setMessage("事实缺口需要先补充或确认事实；诊断不会自动写入岗位关键词。");
+      notify({ type: "warning", title: "事实缺口", message: "事实缺口需要先补充或确认事实；诊断不会自动写入岗位关键词。" });
       return;
     }
     if (!selectedBranchEditable) {
-      setMessage("当前简历不可保存展示修复。");
+      notify({ type: "warning", title: "不可编辑", message: "当前简历不可保存展示修复。" });
       return;
     }
     if (action.kind === "set_density") {
@@ -1141,7 +1192,7 @@ export function ResumeWorkspace() {
     const next = Array.from(new Set([...ignoredDiagnosticIssueKeys, issue.issueKey]));
     setIgnoredDiagnosticIssueKeys(next);
     await repository.setMeta(resumeDiagnosticsIgnoredKey(selectedBranch.id), next);
-    setMessage("已忽略该诊断项；正文和展示配置均未改变。");
+    notify({ type: "info", title: "已忽略", message: "已忽略该诊断项；正文和展示配置均未改变。" });
   }
 
   const draftOptions = useMemo(() => drafts.map((draft) => {
@@ -1156,7 +1207,7 @@ export function ResumeWorkspace() {
 
   async function createBranch() {
     if (!profile || !selectedDraft) {
-      setMessage("请先选择可用的岗位简历建议草稿。");
+      notify({ type: "warning", title: "提示", message: "请先选择可用的岗位简历建议草稿。" });
       return;
     }
 
@@ -1173,11 +1224,11 @@ export function ResumeWorkspace() {
       openResumeBranch(result.branch.id);
       setIsJobCreatePanelOpen(false);
       setIsJobCreatePanelDismissed(false);
-      setMessage(result.idempotent ? "该草稿已经创建过岗位简历，已打开现有简历。" : "岗位简历已创建，并生成首个版本。");
+      notify({ type: "success", title: "创建成功", message: result.idempotent ? "该草稿已经创建过岗位简历，已打开现有简历。" : "岗位简历已创建，并生成首个版本。" });
     } catch (error) {
-      setMessage(error instanceof RevisionConflictError
-        ? "创建失败：草稿版本已变化，请刷新后重试。"
-        : "创建失败：草稿可能已过期、含高风险内容或引用了失效事实。请返回岗位工作区修复。");
+      notify({ type: "error", title: "创建失败", message: error instanceof RevisionConflictError
+        ? "草稿版本已变化，请刷新后重试。"
+        : "草稿可能已过期、含高风险内容或引用了失效事实。请返回岗位工作区修复。" });
     }
   }
 
@@ -1194,12 +1245,12 @@ export function ResumeWorkspace() {
       setSelectedBranchId(BRANCH_LIST_SENTINEL);
     }
     setIsImportPanelOpen(false);
-    setMessage(result.branchId ? "已进入导入生成的通用简历，可继续编辑、换模板、调整分页并下载 PDF。" : "新人物资料已创建，未同时创建通用简历。");
+    notify({ type: "success", title: "导入完成", message: result.branchId ? "已进入导入生成的通用简历，可继续编辑、换模板、调整分页并下载 PDF。" : "新人物资料已创建，未同时创建通用简历。" });
   }
 
   async function createGeneralResume(options: { fromProfile: boolean }) {
     if (!profile) {
-      setMessage("请先在个人资料库填写基本信息，再创建简历。");
+      notify({ type: "warning", title: "提示", message: "请先在个人资料库填写基本信息，再创建简历。" });
       return;
     }
     const label = options.fromProfile ? "资料库简历" : "空白简历";
@@ -1215,11 +1266,11 @@ export function ResumeWorkspace() {
       openResumeBranch(result.branch.id);
       setStudioMode("edit");
       setActiveResumeSection("basics");
-      setMessage(options.fromProfile
+      notify({ type: "success", title: "创建成功", message: options.fromProfile
         ? "已从个人资料库创建独立简历副本；之后资料库变化不会自动覆盖这份简历。"
-        : "空白简历已创建。填写并确认的内容才会进入预览和导出。");
+        : "空白简历已创建。填写并确认的内容才会进入预览和导出。" });
     } catch {
-      setMessage("创建失败，请刷新个人资料库后重试。");
+      notify({ type: "error", title: "创建失败", message: "请刷新个人资料库后重试。" });
     }
   }
 
@@ -1229,9 +1280,9 @@ export function ResumeWorkspace() {
     const queuedText = editTextsRef.current[itemId]?.trim();
     if (!branchId || !queuedText) {
       if (origin === "manual") {
-        setMessage(!branchId
+        notify({ type: "warning", title: "不可编辑", message: !branchId
           ? "当前简历不可编辑：旧数据、归档、引用失效或缺少当前版本。"
-          : "请先填写要保存的文本。");
+          : "请先填写要保存的文本。" });
       }
       return;
     }
@@ -1246,7 +1297,7 @@ export function ResumeWorkspace() {
       if (!branch || !canEditBranch(branch)) {
         setContentAutoSaveState("error");
         if (origin === "manual") {
-          setMessage("当前简历不可编辑：旧数据、归档、引用失效或缺少当前版本。");
+          notify({ type: "warning", title: "不可编辑", message: "当前简历不可编辑：旧数据、归档、引用失效或缺少当前版本。" });
         }
         return;
       }
@@ -1300,9 +1351,9 @@ export function ResumeWorkspace() {
         clearSavedDraft();
         if (origin === "manual") {
           const sourceItem = result.branch.contentItems.find((item) => item.id === itemId);
-          setMessage(sourceItem?.userConfirmation?.scope === "resume_only"
+          notify({ type: "success", title: "已保存", message: sourceItem?.userConfirmation?.scope === "resume_only"
             ? "内容已保存到当前简历；个人资料库未被修改。"
-            : "简历内容已保存，事实安全检查已重新计算。");
+            : "简历内容已保存，事实安全检查已重新计算。" });
         }
       } catch (error) {
         if (error instanceof Error && error.message === "branch_edit_fact_guard_blocked") {
@@ -1311,9 +1362,9 @@ export function ResumeWorkspace() {
           return;
         }
         setContentAutoSaveState("error");
-        setMessage(error instanceof RevisionConflictError
-          ? "保存失败：简历版本已变化，请刷新后重试。"
-          : "保存失败：当前简历不可编辑或事实引用已失效。");
+        notify({ type: "error", title: "保存失败", message: error instanceof RevisionConflictError
+          ? "简历版本已变化，请刷新后重试。"
+          : "当前简历不可编辑或事实引用已失效。" });
       }
     };
 
@@ -1347,7 +1398,7 @@ export function ResumeWorkspace() {
 
   async function setContentItemVisibility(itemId: string, visible: boolean) {
     if (!selectedBranch || !selectedBranchEditable) {
-      setMessage("当前简历不可编辑：旧数据、归档、引用失效或缺少当前版本。");
+      notify({ type: "warning", title: "不可编辑", message: "当前简历不可编辑：旧数据、归档、引用失效或缺少当前版本。" });
       return;
     }
 
@@ -1360,15 +1411,15 @@ export function ResumeWorkspace() {
       });
       replaceBranch(result.branch);
       setSelectedStudioItemId(visible ? itemId : undefined);
-      setMessage(visible ? "内容已恢复到当前简历，并创建新的内容版本。" : "内容已删除，可使用撤销恢复。");
+      notify({ type: "success", title: visible ? "已恢复" : "已删除", message: visible ? "内容已恢复到当前简历，并创建新的内容版本。" : "内容已删除，可使用撤销恢复。" });
     } catch {
-      setMessage("操作失败：版本冲突、引用失效或当前简历不可编辑。");
+      notify({ type: "error", title: "操作失败", message: "版本冲突、引用失效或当前简历不可编辑。" });
     }
   }
 
   async function duplicateContentItem(itemId: string) {
     if (!selectedBranch || !selectedBranchEditable) {
-      setMessage("当前简历不可编辑：旧数据、归档、引用失效或缺少当前版本。");
+      notify({ type: "warning", title: "不可编辑", message: "当前简历不可编辑：旧数据、归档、引用失效或缺少当前版本。" });
       return;
     }
 
@@ -1381,9 +1432,9 @@ export function ResumeWorkspace() {
       });
       replaceBranch(result.branch);
       setSelectedStudioItemId(result.duplicatedItemId);
-      setMessage(result.idempotent ? "该内容已复制过，未重复创建版本。" : "内容已复制，并创建新的内容版本。");
+      notify({ type: "success", title: "已复制", message: result.idempotent ? "该内容已复制过，未重复创建版本。" : "内容已复制，并创建新的内容版本。" });
     } catch {
-      setMessage("复制失败：版本冲突、引用失效或当前简历不可编辑。");
+      notify({ type: "error", title: "复制失败", message: "版本冲突、引用失效或当前简历不可编辑。" });
     }
   }
 
@@ -1403,9 +1454,9 @@ export function ResumeWorkspace() {
         name: trimmed
       });
       replaceBranch(result.branch);
-      setMessage("简历名称已更新。");
+      notify({ type: "success", title: "已重命名", message: "简历名称已更新。" });
     } catch {
-      setMessage("重命名失败，请重试。");
+      notify({ type: "error", title: "重命名失败", message: "请重试。" });
     }
   }
 
@@ -1415,7 +1466,7 @@ export function ResumeWorkspace() {
     syncToProfile = false
   ) {
     if (!selectedBranch || !selectedBranchEditable) {
-      setMessage("当前简历不可编辑。");
+      notify({ type: "warning", title: "不可编辑", message: "当前简历不可编辑。" });
       return;
     }
     const itemTypeMap: Record<string, "experience" | "skill" | "certificate" | "summary" | "custom"> = {
@@ -1433,7 +1484,7 @@ export function ResumeWorkspace() {
     const itemType = itemTypeMap[section] ?? "custom";
     const payload = typeof draft === "string" ? { text: draft } : draft;
     if (!payload.text.trim()) {
-      setMessage("请先填写内容，再保存并确认。");
+      notify({ type: "warning", title: "提示", message: "请先填写内容，再保存并确认。" });
       return;
     }
     try {
@@ -1461,11 +1512,11 @@ export function ResumeWorkspace() {
       replaceBranch(result.branch);
       setSelectedBranchId(result.branch.id);
       setSelectedStudioItemId(result.newItemId);
-      setMessage(syncToProfile
+      notify({ type: "success", title: "已添加", message: syncToProfile
         ? "新内容已加入简历，并同步到个人资料库。"
-        : "新内容已保存到当前简历。资料库中还没有这条内容，可随时点击“同步到资料库”。");
+        : "新内容已保存到当前简历。资料库中还没有这条内容，可随时点击“同步到资料库”。" });
     } catch {
-      setMessage("添加失败：当前简历可能不可编辑。");
+      notify({ type: "error", title: "添加失败", message: "当前简历可能不可编辑。" });
     }
   }
 
@@ -1500,13 +1551,13 @@ export function ResumeWorkspace() {
       setContentAutoSaveState(Object.keys(nextDrafts).length > 0 ? "dirty" : "saved");
       if (pending.source === "preview") cancelStudioEdit();
       setPendingResumeOnlyEdit(undefined);
-      setMessage(syncAfterSave
+      notify({ type: "success", title: "已保存", message: syncAfterSave
         ? "修改已保存，并同步到个人资料库。"
-        : "修改已仅保存到当前简历；个人资料库未被修改。");
+        : "修改已仅保存到当前简历；个人资料库未被修改。" });
     } catch (error) {
-      setMessage(error instanceof RevisionConflictError
-        ? "保存失败：简历版本已变化，请刷新后重试。"
-        : "保存失败：当前简历或资料库状态已变化，请重试。");
+      notify({ type: "error", title: "保存失败", message: error instanceof RevisionConflictError
+        ? "简历版本已变化，请刷新后重试。"
+        : "当前简历或资料库状态已变化，请重试。" });
     }
   }
 
@@ -1522,11 +1573,11 @@ export function ResumeWorkspace() {
       const nextProfile = await repository.getProfile(result.branch.profileId);
       if (nextProfile) setProfileOverride(nextProfile);
       replaceBranch(result.branch);
-      setMessage("该内容已同步到个人资料库；以后仍可继续独立编辑这份简历。");
+      notify({ type: "success", title: "已同步", message: "该内容已同步到个人资料库；以后仍可继续独立编辑这份简历。" });
     } catch (error) {
-      setMessage(error instanceof RevisionConflictError
-        ? "同步失败：简历版本已变化，请刷新后重试。"
-        : "同步失败：请检查资料库状态后重试。");
+      notify({ type: "error", title: "同步失败", message: error instanceof RevisionConflictError
+        ? "简历版本已变化，请刷新后重试。"
+        : "请检查资料库状态后重试。" });
     }
   }
 
@@ -1543,13 +1594,13 @@ export function ResumeWorkspace() {
       replaceBranch(result.branch);
       setSelectedStudioItemId(result.newItemId);
       setProfileLibraryOpen(false);
-      setMessage("已从个人资料库加入当前简历；重复条目不会再次加入。");
+      notify({ type: "success", title: "已加入", message: "已从个人资料库加入当前简历；重复条目不会再次加入。" });
     } catch (error) {
-      setMessage(error instanceof RevisionConflictError
-        ? "加入失败：简历版本已变化，请刷新后重试。"
+      notify({ type: "error", title: "加入失败", message: error instanceof RevisionConflictError
+        ? "简历版本已变化，请刷新后重试。"
         : error instanceof Error && error.message === "profile_item_already_used"
           ? "这条资料已经在当前简历中。"
-          : "加入失败：该资料可能已失效、重复或尚未确认。");
+          : "该资料可能已失效、重复或尚未确认。" });
     }
   }
 
@@ -1561,7 +1612,7 @@ export function ResumeWorkspace() {
     recordHistory?: boolean;
   }) {
     if (!selectedBranch || !selectedBranchEditable || !selectedBranch.currentRevisionId) {
-      setMessage("当前简历不可保存展示配置：旧数据、归档、引用失效或缺少当前版本。");
+      notify({ type: "warning", title: "不可保存", message: "当前简历不可保存展示配置：旧数据、归档、引用失效或缺少当前版本。" });
       return undefined;
     }
 
@@ -1586,12 +1637,12 @@ export function ResumeWorkspace() {
           redoStack: queue.redoStack
         });
       }
-      setMessage(result.idempotent ? "该展示操作已保存过，未重复写入。" : input.successMessage);
+      notify({ type: "success", title: "已保存", message: result.idempotent ? "该展示操作已保存过，未重复写入。" : input.successMessage });
       return result.config;
     } catch (error) {
-      setMessage(error instanceof RevisionConflictError
+      notify({ type: "error", title: "保存失败", message: error instanceof RevisionConflictError
         ? "展示配置保存失败：内容版本或展示版本已变化，请刷新后重试。"
-        : "展示配置保存失败：可能隐藏了全部内容、简历不可编辑或配置不合法。");
+        : "展示配置保存失败：可能隐藏了全部内容、简历不可编辑或配置不合法。" });
       return undefined;
     }
   }
@@ -1605,7 +1656,7 @@ export function ResumeWorkspace() {
       return;
     }
     if (!presentationConfig) {
-      setMessage("展示配置尚未加载完成，请稍后再切换模板。");
+      notify({ type: "warning", title: "提示", message: "展示配置尚未加载完成，请稍后再切换模板。" });
       return;
     }
     if (nextTemplateId === presentationConfig.templateId) {
@@ -1803,7 +1854,7 @@ export function ResumeWorkspace() {
     }
     const block = resumeDocumentBlocksById.get(itemId);
     if (!block) {
-      setMessage("排序失败：找不到对应区块。");
+      notify({ type: "error", title: "排序失败", message: "找不到对应区块。" });
       return;
     }
     const section = resumeDocument.sections.find((candidate) => candidate.type === block.sectionType);
@@ -1811,7 +1862,7 @@ export function ResumeWorkspace() {
     const currentIndex = sectionBlocks.findIndex((candidate) => candidate.contentItemId === itemId);
     const nextIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
     if (currentIndex < 0 || nextIndex < 0 || nextIndex >= sectionBlocks.length) {
-      setMessage("当前区块已经在该栏目边界。");
+      notify({ type: "warning", title: "提示", message: "当前区块已经在该栏目边界。" });
       return;
     }
 
@@ -1853,12 +1904,12 @@ export function ResumeWorkspace() {
 
   async function undoPresentationChange() {
     if (!selectedBranch || !presentationConfig) {
-      setMessage("没有可撤销的展示操作。");
+      notify({ type: "warning", title: "提示", message: "没有可撤销的展示操作。" });
       return;
     }
     const queue = presentationQueueRef.current;
     if (queue.undoStack.length === 0) {
-      setMessage("没有可撤销的展示操作。");
+      notify({ type: "warning", title: "提示", message: "没有可撤销的展示操作。" });
       return;
     }
     enqueuePresentation(async (current) => {
@@ -1893,12 +1944,12 @@ export function ResumeWorkspace() {
 
   async function redoPresentationChange() {
     if (!selectedBranch || !presentationConfig) {
-      setMessage("没有可重做的展示操作。");
+      notify({ type: "warning", title: "提示", message: "没有可重做的展示操作。" });
       return;
     }
     const queue = presentationQueueRef.current;
     if (queue.redoStack.length === 0) {
-      setMessage("没有可重做的展示操作。");
+      notify({ type: "warning", title: "提示", message: "没有可重做的展示操作。" });
       return;
     }
     enqueuePresentation(async (current) => {
@@ -1933,7 +1984,7 @@ export function ResumeWorkspace() {
 
   async function restoreRevision(revisionId: string) {
     if (!selectedBranch || !selectedBranchEditable) {
-      setMessage("当前简历不可恢复：旧数据、归档、引用失效或缺少当前版本。");
+      notify({ type: "warning", title: "不可恢复", message: "当前简历不可恢复：旧数据、归档、引用失效或缺少当前版本。" });
       return;
     }
     try {
@@ -1944,15 +1995,15 @@ export function ResumeWorkspace() {
         operationId: `d1-restore-${selectedBranch.id}-${selectedBranch.revision}-${revisionId}`
       });
       replaceBranch(result.branch);
-      setMessage("已恢复旧版本；恢复操作已作为新的版本记录。");
+      notify({ type: "success", title: "已恢复", message: "已恢复旧版本；恢复操作已作为新的版本记录。" });
     } catch {
-      setMessage("恢复失败：版本链缺失、版本冲突或简历不可编辑。");
+      notify({ type: "error", title: "恢复失败", message: "版本链缺失、版本冲突或简历不可编辑。" });
     }
   }
 
   async function undo() {
     if (!selectedBranch || !selectedBranchEditable) {
-      setMessage("当前简历不可撤销：旧数据、归档、引用失效或缺少当前版本。");
+      notify({ type: "warning", title: "不可撤销", message: "当前简历不可撤销：旧数据、归档、引用失效或缺少当前版本。" });
       return;
     }
     try {
@@ -1962,9 +2013,9 @@ export function ResumeWorkspace() {
         operationId: `d1-undo-${selectedBranch.id}-${selectedBranch.revision}`
       });
       replaceBranch(result.branch);
-      setMessage("已撤销最近一次简历修改。");
+      notify({ type: "success", title: "已撤销", message: "已撤销最近一次简历修改。" });
     } catch {
-      setMessage("撤销失败：没有可撤销版本或当前简历已变化。");
+      notify({ type: "error", title: "撤销失败", message: "没有可撤销版本或当前简历已变化。" });
     }
   }
 
@@ -2127,7 +2178,7 @@ export function ResumeWorkspace() {
     const currentTitle = renderModel?.sections.find((section) => section.type === sectionType)?.title;
     if (nextTitle === currentTitle) {
       cancelSectionTitleEdit();
-      setMessage("栏目标题未变化，没有创建新的展示版本。");
+      notify({ type: "info", title: "未变化", message: "栏目标题未变化，没有创建新的展示版本。" });
       return;
     }
 
@@ -2214,7 +2265,7 @@ export function ResumeWorkspace() {
       setSelectedProfileFieldId(undefined);
       setProfileFieldDraftText("");
       setProfileFieldError(undefined);
-      setMessage("这份简历的个人信息已保存；个人资料库未被修改。");
+      notify({ type: "success", title: "已保存", message: "这份简历的个人信息已保存；个人资料库未被修改。" });
     } catch {
       setProfileFieldError("保存失败：版本已变化，请刷新后重试。");
     } finally {
@@ -2254,7 +2305,7 @@ export function ResumeWorkspace() {
         acknowledgeProfileVersion: true
       });
       replaceBranch(result.branch);
-      setMessage("这份简历与个人资料库的基本信息已经一致。");
+      notify({ type: "success", title: "已同步", message: "这份简历与个人资料库的基本信息已经一致。" });
       return;
     }
     setProfileSyncConflicts(conflicts);
@@ -2287,7 +2338,7 @@ export function ResumeWorkspace() {
       setProfileSyncDialogOpen(false);
       setProfileSyncConflicts([]);
       setProfileSyncChoices({});
-      setMessage("已按你的选择处理资料库差异；个人资料库未被修改。");
+      notify({ type: "success", title: "已同步", message: "已按你的选择处理资料库差异；个人资料库未被修改。" });
     } catch {
       setProfileFieldError("同步失败，请稍后重试。");
     } finally {
@@ -2323,7 +2374,7 @@ export function ResumeWorkspace() {
     }
     if (nextText === block.text.trim()) {
       cancelStudioEdit();
-      setMessage("内容未变化，没有创建新的简历版本。");
+      notify({ type: "info", title: "未变化", message: "内容未变化，没有创建新的简历版本。" });
       return;
     }
 
@@ -2348,7 +2399,7 @@ export function ResumeWorkspace() {
         delete next[block.contentItemId];
         return next;
       });
-      setMessage(result.idempotent ? "该编辑已保存过，未重复创建版本。" : "简历内容已保存，并创建新的内容版本。");
+      notify({ type: "success", title: "已保存", message: result.idempotent ? "该编辑已保存过，未重复创建版本。" : "简历内容已保存，并创建新的内容版本。" });
     } catch (error) {
       setPendingStudioOperationId(undefined);
       if (error instanceof Error && error.message === "branch_edit_fact_guard_blocked") {
@@ -2371,7 +2422,7 @@ export function ResumeWorkspace() {
       operationId: `d1-refresh-sync-${selectedBranch.id}-${stableHashText(selectedBranch.syncStatusCache.checkedAt)}`
     });
     replaceBranch(result.branch);
-    setMessage("更新提示已基于当前个人资料、岗位和事实引用重新计算；简历内容未被自动覆盖。");
+    notify({ type: "success", title: "已更新", message: "更新提示已基于当前个人资料、岗位和事实引用重新计算；简历内容未被自动覆盖。" });
   }
 
   async function openOrCreateApplication() {
@@ -2379,11 +2430,11 @@ export function ResumeWorkspace() {
       return;
     }
     if (selectedBranch.branchPurpose !== "job_specific") {
-      setMessage("通用简历不能直接加入投递工作台；请先在岗位优化面板创建岗位定制简历。");
+      notify({ type: "warning", title: "提示", message: "通用简历不能直接加入投递工作台；请先在岗位优化面板创建岗位定制简历。" });
       return;
     }
     if (!selectedBranch.currentRevisionId) {
-      setMessage("当前简历缺少可投递版本，不能加入求职进度。");
+      notify({ type: "warning", title: "提示", message: "当前简历缺少可投递版本，不能加入求职进度。" });
       return;
     }
 
@@ -2395,32 +2446,32 @@ export function ResumeWorkspace() {
         operationId: `v2-g6a-create-application-${selectedBranch.id}-${selectedBranch.revision}-${selectedBranch.currentRevisionId}`,
         initialStatus: "preparing"
       });
-      setMessage(result.duplicate
+      notify({ type: "success", title: "已加入", message: result.duplicate
         ? "该岗位简历已有未归档投递记录，已打开现有记录。"
-        : "已加入投递工作台；未自动导出PDF，也未改变投递状态。");
+        : "已加入投递工作台；未自动导出PDF，也未改变投递状态。" });
       router.push(`/applications?applicationId=${encodeURIComponent(result.application.id)}`);
     } catch (error) {
-      setMessage(error instanceof RevisionConflictError
-        ? "加入求职进度失败：简历版本已变化，请刷新后重试。"
-        : "加入求职进度失败：只有已校验的岗位定制简历可加入投递工作台。");
+      notify({ type: "error", title: "加入失败", message: error instanceof RevisionConflictError
+        ? "简历版本已变化，请刷新后重试。"
+        : "只有已校验的岗位定制简历可加入投递工作台。" });
     }
   }
 
   function downloadStructuredJson() {
     if (!renderModel || !profile || !selectedBranch) {
-      setMessage("当前没有可导出的结构化简历。");
+      notify({ type: "warning", title: "提示", message: "当前没有可导出的结构化简历。" });
       return;
     }
     const structuredDraft = buildStructuredResumeDraftFromRenderModel(renderModel, profile);
     const fileName = `${safeDownloadNamePart(renderModel.candidate.name || selectedBranch.name)}-structured-resume.json`;
     const blob = new Blob([JSON.stringify(structuredDraft, null, 2)], { type: "application/json" });
     triggerBrowserDownload(blob, fileName);
-    setMessage("结构化 JSON 已下载；可重新导入并进入核对页，不包含内部版本或密钥字段。");
+    notify({ type: "success", title: "已下载", message: "结构化 JSON 已下载；可重新导入并进入核对页，不包含内部版本或密钥字段。" });
   }
 
   async function archiveBranch(branch: ResumeBranch) {
     if (!canManageBranch(branch)) {
-      setMessage("当前简历无法归档：旧数据、已归档或缺少当前版本。");
+      notify({ type: "warning", title: "无法归档", message: "当前简历无法归档：旧数据、已归档或缺少当前版本。" });
       return;
     }
     try {
@@ -2435,11 +2486,11 @@ export function ResumeWorkspace() {
       if (profile) {
         await refreshLists(profile.id);
       }
-      setMessage("简历已归档，可通过版本历史保留记录；未删除任何文件或数据表。");
+      notify({ type: "success", title: "已归档", message: "简历已归档，可通过版本历史保留记录；未删除任何文件或数据表。" });
     } catch (error) {
-      setMessage(error instanceof RevisionConflictError
-        ? "归档失败：简历版本已变化，请刷新后重试。"
-        : "归档失败：当前简历状态不允许归档。");
+      notify({ type: "error", title: "归档失败", message: error instanceof RevisionConflictError
+        ? "简历版本已变化，请刷新后重试。"
+        : "当前简历状态不允许归档。" });
     }
   }
 
@@ -2452,9 +2503,9 @@ export function ResumeWorkspace() {
       });
       replaceBranch(result.branch, { select: false });
       setResumeListFilter("all");
-      setMessage("简历已恢复到当前简历，可继续编辑。");
+      notify({ type: "success", title: "已恢复", message: "简历已恢复到当前简历，可继续编辑。" });
     } catch (error) {
-      setMessage(error instanceof RevisionConflictError ? "恢复失败：简历版本已变化。" : "恢复失败：当前生命周期状态不允许恢复。");
+      notify({ type: "error", title: "恢复失败", message: error instanceof RevisionConflictError ? "简历版本已变化。" : "当前生命周期状态不允许恢复。" });
     }
   }
 
@@ -2466,9 +2517,9 @@ export function ResumeWorkspace() {
         operationId: `p33-trash-${branch.id}-${branch.revision}`
       });
       replaceBranch(result.branch, { select: false });
-      setMessage("简历已移入回收站，仍可恢复；尚未永久删除。");
+      notify({ type: "success", title: "已移入回收站", message: "简历已移入回收站，仍可恢复；尚未永久删除。" });
     } catch (error) {
-      setMessage(error instanceof RevisionConflictError ? "移入回收站失败：简历版本已变化。" : "移入回收站失败：请先将简历归档。");
+      notify({ type: "error", title: "操作失败", message: error instanceof RevisionConflictError ? "简历版本已变化。" : "请先将简历归档。" });
     }
   }
 
@@ -2481,9 +2532,9 @@ export function ResumeWorkspace() {
       });
       replaceBranch(result.branch, { select: false });
       setResumeListFilter("archived");
-      setMessage("简历已从回收站恢复到归档。");
+      notify({ type: "success", title: "已恢复", message: "简历已从回收站恢复到归档。" });
     } catch (error) {
-      setMessage(error instanceof RevisionConflictError ? "恢复失败：简历版本已变化。" : "恢复失败：当前简历不在回收站中。");
+      notify({ type: "error", title: "恢复失败", message: error instanceof RevisionConflictError ? "简历版本已变化。" : "当前简历不在回收站中。" });
     }
   }
 
@@ -2494,7 +2545,7 @@ export function ResumeWorkspace() {
     try {
       const result = await repository.deleteResumeBranchPermanently({ branchId: branch.id, expectedRevision: branch.revision });
       if (!result.deleted) {
-        setMessage(`无法永久删除：仍有 ${result.blockers.applications} 条求职记录和 ${result.blockers.derivedBranches} 份岗位简历引用它。`);
+        notify({ type: "warning", title: "无法删除", message: `仍有 ${result.blockers.applications} 条求职记录和 ${result.blockers.derivedBranches} 份岗位简历引用它。` });
         setPendingPermanentDeleteBranch(undefined);
         setPermanentDeleteName("");
         return;
@@ -2503,9 +2554,9 @@ export function ResumeWorkspace() {
       if (selectedBranchId === branch.id) setSelectedBranchId(BRANCH_LIST_SENTINEL);
       setPendingPermanentDeleteBranch(undefined);
       setPermanentDeleteName("");
-      setMessage("简历及其版本、操作和导出记录已永久删除。");
+      notify({ type: "success", title: "已永久删除", message: "简历及其版本、操作和导出记录已永久删除。" });
     } catch (error) {
-      setMessage(error instanceof RevisionConflictError ? "永久删除失败：简历版本已变化。" : "永久删除失败，简历仍保留在回收站。");
+      notify({ type: "error", title: "删除失败", message: error instanceof RevisionConflictError ? "简历版本已变化。" : "简历仍保留在回收站。" });
     } finally {
       setPermanentDeleting(false);
     }
@@ -2513,7 +2564,7 @@ export function ResumeWorkspace() {
 
   async function downloadPdf() {
     if (!selectedBranch || !renderModel) {
-      setMessage("当前简历无法生成正式预览，不能导出。");
+      notify({ type: "error", title: "无法导出", message: "当前简历无法生成正式预览，不能导出。" });
       setPdfExportState({
         status: "failed",
         message: "当前简历无法生成正式预览。",
@@ -2523,11 +2574,11 @@ export function ResumeWorkspace() {
       return;
     }
     if (renderModel.safety.visibleItemCount === 0) {
-      setMessage("至少确认一项简历内容后才能导出 PDF。");
+      notify({ type: "warning", title: "提示", message: "至少确认一项简历内容后才能导出 PDF。" });
       return;
     }
     if (!selectedBranchEditable || !selectedBranch.currentRevisionId) {
-      setMessage("当前简历不可导出：旧数据、归档、引用失效或缺少当前版本。");
+      notify({ type: "warning", title: "不可导出", message: "当前简历不可导出：旧数据、归档、引用失效或缺少当前版本。" });
       setPdfExportState({
         status: "failed",
         message: "当前简历不可导出。",
@@ -2536,7 +2587,7 @@ export function ResumeWorkspace() {
       return;
     }
     if (!presentationConfig) {
-      setMessage("展示配置尚未加载完成，请稍后再导出。");
+      notify({ type: "warning", title: "提示", message: "展示配置尚未加载完成，请稍后再导出。" });
       setPdfExportState({
         status: "failed",
         message: "展示配置尚未加载完成。",
@@ -2548,7 +2599,7 @@ export function ResumeWorkspace() {
 
     const paginationPlan = pagination.plan;
     if (!paginationPlan || pagination.status === "measuring" || pagination.status === "measurement_failed") {
-      setMessage("分页测量尚未完成，请稍后再导出。");
+      notify({ type: "warning", title: "提示", message: "分页测量尚未完成，请稍后再导出。" });
       setPdfExportState({
         status: "failed",
         message: "分页测量尚未完成。",
@@ -2594,7 +2645,7 @@ export function ResumeWorkspace() {
       }
       if (latestBranch.revision !== renderModel.branchRevision || latestBranch.currentRevisionId !== renderModel.branchCurrentRevisionId) {
         replaceBranch(latestBranch);
-        setMessage("导出已停止：简历版本已更新，已刷新预览，请重新检查后导出。");
+        notify({ type: "warning", title: "导出已停止", message: "简历版本已更新，已刷新预览，请重新检查后导出。" });
         setPdfExportState({
           status: "failed",
           exportId,
@@ -2642,7 +2693,7 @@ export function ResumeWorkspace() {
           pageDimensions: { widthMm: 210, heightMm: 297 },
           ...(exportDiagnosticSummary ?? {})
         });
-        setMessage("导出已阻止：当前页数超过所选页面策略。");
+        notify({ type: "warning", title: "导出已阻止", message: "当前页数超过所选页面策略。" });
         setPdfExportState({
           status: "blocked_overflow",
           exportId,
@@ -2716,9 +2767,9 @@ export function ResumeWorkspace() {
         allowHistoricalRevision: true
       });
       triggerBrowserDownload(new Blob([bytes], { type: PDF_MIME_TYPE }), fileName);
-      setMessage(paginationPlan.status === "near_one_page_limit" || paginationPlan.status === "near_limit"
-        ? "PDF 已生成并触发下载。当前接近单页上限，建议打开文件复核。"
-        : "PDF 已生成并触发下载；浏览器不允许确认是否最终保存到磁盘。");
+      notify({ type: "success", title: "PDF 已下载", message: paginationPlan.status === "near_one_page_limit" || paginationPlan.status === "near_limit"
+        ? "当前接近单页上限，建议打开文件复核。"
+        : "浏览器不允许确认是否最终保存到磁盘。" });
       setPdfExportState({
         status: "success",
         exportId,
@@ -2741,9 +2792,9 @@ export function ResumeWorkspace() {
           paginationPlan
         });
       }
-      setMessage(blockedOverflow
-        ? "导出已阻止：生成前重新检测到页数超过页面策略，请先删减内容或切换策略。"
-        : "直接下载失败：可以重试，或使用浏览器打印 fallback。");
+      notify({ type: blockedOverflow ? "warning" : "error", title: blockedOverflow ? "导出已阻止" : "下载失败", message: blockedOverflow
+        ? "生成前重新检测到页数超过页面策略，请先删减内容或切换策略。"
+        : "可以重试，或使用浏览器打印 fallback。" });
       setPdfExportState({
         status: blockedOverflow ? "blocked_overflow" : "failed",
         exportId,
@@ -2757,17 +2808,17 @@ export function ResumeWorkspace() {
 
   async function exportPdf() {
     if (!selectedBranch || !renderModel) {
-      setMessage("当前简历无法生成正式预览，不能导出。");
+      notify({ type: "error", title: "无法导出", message: "当前简历无法生成正式预览，不能导出。" });
       return;
     }
     if (renderModel.safety.visibleItemCount === 0) {
-      setMessage("至少确认一项简历内容后才能打印或保存 PDF。");
+      notify({ type: "warning", title: "提示", message: "至少确认一项简历内容后才能打印或保存 PDF。" });
       return;
     }
 
     const paginationPlan = pagination.plan;
     if (!paginationPlan || pagination.status === "measuring" || pagination.status === "measurement_failed") {
-      setMessage("分页测量尚未完成，请稍后再使用打印 fallback。");
+      notify({ type: "warning", title: "提示", message: "分页测量尚未完成，请稍后再使用打印 fallback。" });
       return;
     }
     const startedAt = new Date().toISOString();
@@ -2792,7 +2843,7 @@ export function ResumeWorkspace() {
       }
       if (latestBranch.revision !== renderModel.branchRevision || latestBranch.currentRevisionId !== renderModel.branchCurrentRevisionId) {
         replaceBranch(latestBranch);
-        setMessage("导出已停止：简历版本已更新，已刷新预览，请重新检查后导出。");
+        notify({ type: "warning", title: "导出已停止", message: "简历版本已更新，已刷新预览，请重新检查后导出。" });
         return;
       }
 
@@ -2831,7 +2882,7 @@ export function ResumeWorkspace() {
           pageDimensions: { widthMm: 210, heightMm: 297 },
           ...(exportDiagnosticSummary ?? {})
         });
-        setMessage("导出已阻止：当前页数超过所选页面策略。");
+        notify({ type: "warning", title: "导出已阻止", message: "当前页数超过所选页面策略。" });
         setPdfExportState({
           status: "blocked_overflow",
           message: "当前页数超过所选页面策略，已阻止打印 fallback。",
@@ -2868,18 +2919,18 @@ export function ResumeWorkspace() {
         ...(exportDiagnosticSummary ?? {})
       });
       printCurrentPage();
-      setMessage(paginationPlan.status === "near_one_page_limit" || paginationPlan.status === "near_limit"
-        ? "已打开浏览器打印 fallback。当前接近单页上限，请在打印预览中再次确认。"
-        : "已打开浏览器打印 fallback，可保存为文本可复制的 PDF。");
+      notify({ type: "success", title: "已打开打印", message: paginationPlan.status === "near_one_page_limit" || paginationPlan.status === "near_limit"
+        ? "当前接近单页上限，请在打印预览中再次确认。"
+        : "可保存为文本可复制的 PDF。" });
       setPdfExportState({
         status: "success",
         filename: fileName,
         message: "已打开浏览器打印 fallback。"
       });
     } catch (error) {
-      setMessage(error instanceof RevisionConflictError
-        ? "导出失败：简历版本已变化，请刷新后重试。"
-        : "导出失败：简历可能不可导出、引用失效或导出记录写入失败。");
+      notify({ type: "error", title: "导出失败", message: error instanceof RevisionConflictError
+        ? "简历版本已变化，请刷新后重试。"
+        : "简历可能不可导出、引用失效或导出记录写入失败。" });
       setPdfExportState({
         status: "failed",
         filename: fileName,
@@ -3014,7 +3065,6 @@ export function ResumeWorkspace() {
       ) : null}
 
       {workspace.status === "empty" && !profile ? <WorkspaceEmptyState /> : null}
-      {message ? <section className="notice no-print" role="status" aria-live="polite">{message}</section> : null}
 
       {!selectedBranch ? (
         <>
@@ -3034,10 +3084,66 @@ export function ResumeWorkspace() {
                   <option value="__new_profile__">＋ 新增人物</option>
                 </select>
               </label>
-              {isProfileCreateMenuOpen ? <div className="resume-profile-create-menu" role="group" aria-label="新增人物">
-                <label>人物名称<input value={quickProfileName} onChange={(event) => setQuickProfileName(event.target.value)} /></label>
-                <div className="action-row"><button className="primary-button compact" type="button" onClick={() => { void createBlankProfile(); }}>创建空白人物</button><button className="secondary-button compact" type="button" onClick={(event) => { setIsProfileCreateMenuOpen(false); openImportDialog("file", event.currentTarget, true); }}>从简历导入创建人物</button><button className="secondary-button compact" type="button" onClick={() => setIsProfileCreateMenuOpen(false)}>取消</button></div>
-              </div> : null}
+              {isProfileCreateMenuOpen ? (
+                <div
+                  className="profile-create-popover-backdrop no-print"
+                  onMouseDown={(event) => {
+                    if (event.target === event.currentTarget) closeProfileCreateDialog();
+                  }}
+                >
+                  <div
+                    className="profile-create-popover"
+                    role="dialog"
+                    aria-label="新增人物"
+                    ref={profileCreateDialogRef as React.RefObject<HTMLDivElement>}
+                    tabIndex={-1}
+                    onKeyDown={handleProfileCreateDialogKeyDown}
+                  >
+                    <h3 className="profile-create-popover-title">新增人物</h3>
+                    <label className="profile-create-popover-field">
+                      <span>人物名称</span>
+                      <input
+                        value={quickProfileName}
+                        onChange={(event) => setQuickProfileName(event.target.value)}
+                        placeholder="例如：张三、产品经理方向"
+                        autoFocus
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.preventDefault();
+                            void createBlankProfile();
+                          }
+                        }}
+                      />
+                    </label>
+                    <div className="profile-create-popover-actions">
+                      <button
+                        className="primary-button"
+                        type="button"
+                        onClick={() => { void createBlankProfile(); }}
+                      >
+                        创建空白人物
+                      </button>
+                      <button
+                        className="secondary-button"
+                        type="button"
+                        onClick={(event) => {
+                          closeProfileCreateDialog();
+                          openImportDialog("file", event.currentTarget, true);
+                        }}
+                      >
+                        从简历导入
+                      </button>
+                      <button
+                        className="secondary-button"
+                        type="button"
+                        onClick={closeProfileCreateDialog}
+                      >
+                        取消
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
             </section>
           ) : null}
           <section className="resume-import-strip no-print" data-testid="resume-import-strip">
@@ -3178,7 +3284,7 @@ export function ResumeWorkspace() {
                                 openResumeBranch(branch.id);
                                 setStudioMode("style");
                                 setStyleInspectorTab("page");
-                                setMessage("已打开该简历，可在右上角导出 PDF。");
+                                notify({ type: "info", title: "已打开", message: "可在右上角导出 PDF。" });
                               }}>导出</button>
                               <details className="resume-card-more">
                                 <summary className="secondary-button compact">更多</summary>
@@ -3342,7 +3448,7 @@ export function ResumeWorkspace() {
                   />
                   画布直接编辑
                 </label>
-                <button type="button" onClick={() => setMessage(`当前简历共有 ${revisions.length} 个版本记录。`)}>查看历史</button>
+                <button type="button" onClick={() => notify({ type: "info", title: "版本记录", message: `当前简历共有 ${revisions.length} 个版本记录。` })}>查看历史</button>
                 <button type="button" onClick={() => { void undoPresentationChange(); }} disabled={!presentationHistory.undoStack.length || !presentationConfig}>回退展示</button>
                 <button type="button" onClick={() => { void redoPresentationChange(); }} disabled={!presentationHistory.redoStack.length || !presentationConfig}>重做展示</button>
                 <button type="button" onClick={() => { void archiveBranch(selectedBranch); }} disabled={!canManageBranch(selectedBranch)}>归档</button>
@@ -3647,18 +3753,18 @@ export function ResumeWorkspace() {
                     onApplyStructureSuggestion={(kind, contentItemId) => {
                       if (kind === "hide") {
                         void setPresentationItemVisibility(contentItemId, false);
-                        setMessage("结构建议已隐藏该段落；未创建正文版本。");
+                        notify({ type: "info", title: "已隐藏", message: "结构建议已隐藏该段落；未创建正文版本。" });
                         return;
                       }
                       if (kind === "show") {
                         void setPresentationItemVisibility(contentItemId, true);
-                        setMessage("结构建议已恢复该段落；未创建正文版本。");
+                        notify({ type: "info", title: "已恢复", message: "结构建议已恢复该段落；未创建正文版本。" });
                         return;
                       }
                       void movePresentationItem(contentItemId, "up");
-                      setMessage("结构建议已上移该段落；未创建正文版本。");
+                      notify({ type: "info", title: "已上移", message: "结构建议已上移该段落；未创建正文版本。" });
                     }}
-                    onMessage={setMessage}
+                    onMessage={(msg) => notify({ type: "info", title: "提示", message: msg })}
                   />
                 )}
               </div>

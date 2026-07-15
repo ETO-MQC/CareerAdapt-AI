@@ -585,6 +585,32 @@ export function ResumeImportWizard(props: {
     });
   }
 
+  async function confirmAllMappings() {
+    if (!draft) return;
+    await patchDraft((current) => {
+      const basicsKeys = ["name", "email", "phone", "location", "summary"] as BasicFieldKey[];
+      const confirmedBasics = basicsKeys.reduce((acc, key) => {
+        const field = current.basics[key];
+        if (field?.mapping?.needsConfirmation) {
+          acc[key] = { ...field, sourceStatus: "user_confirmed_modified" as const, mapping: { ...field.mapping, needsConfirmation: false } };
+        } else {
+          acc[key] = field;
+        }
+        return acc;
+      }, {} as Record<BasicFieldKey, ImportedResumeField | undefined>);
+      const nextLinks = current.basics.links.map((link) =>
+        link?.mapping?.needsConfirmation ? { ...link, sourceStatus: "user_confirmed_modified" as const, mapping: { ...link.mapping, needsConfirmation: false } } : link
+      );
+      const nextSections = current.sections.map((section) => ({
+        ...section,
+        items: section.items.map((item) =>
+          item.mapping?.needsConfirmation ? { ...item, included: true, sourceStatus: "user_confirmed_modified" as const, mapping: { ...item.mapping, needsConfirmation: false } } : item
+        )
+      }));
+      return { ...current, basics: { ...current.basics, ...confirmedBasics, links: nextLinks }, sections: nextSections };
+    });
+  }
+
   async function applyBulkSelection(mode: ImportBulkSelectionMode, sectionId?: string) {
     if (!draft) return;
     await patchDraft((current) => applyImportBulkSelection({
@@ -983,6 +1009,7 @@ export function ResumeImportWizard(props: {
             ) : null}
             <div className="section-heading compact-heading">
               <div><h3>核对结构</h3>{unconfirmedMappingCount > 0 ? <p>{unconfirmedMappingCount} 个映射待单独确认</p> : null}</div>
+              {unconfirmedMappingCount > 0 ? <button className="primary-button compact" type="button" onClick={() => { void confirmAllMappings(); }}>确认全部</button> : null}
             </div>
 
             <div className="review-row">
@@ -991,7 +1018,6 @@ export function ResumeImportWizard(props: {
                 {(["name", "email", "phone", "location", "summary"] as BasicFieldKey[]).map((key) => (
                   <div className="import-basic-field" key={key}>
                     <label>{basicLabel(key)}<input defaultValue={draft.basics[key]?.value ?? ""} onBlur={(event) => { void updateBasicField(key, event.target.value); }} /></label>
-                    {draft.basics[key]?.mapping ? <MappingTrace trace={draft.basics[key]!.mapping!} /> : null}
                     {draft.basics[key]?.mapping?.needsConfirmation ? <button className="secondary-button compact" type="button" onClick={() => { void confirmBasicMapping(key); }}>确认字段映射</button> : null}
                     {targetMode === "existing" && targetProfile?.basics[key] && draft.basics[key]?.value && targetProfile.basics[key] !== draft.basics[key]?.value ? (
                       <select
@@ -1029,7 +1055,6 @@ export function ResumeImportWizard(props: {
                       <input type="checkbox" checked={item.included} onChange={(event) => { void updateItem(section.id, item.id, { included: event.target.checked }); }} />
                       {sourceStatusLabel(item.sourceStatus)} / {confidenceLabel(item.confidence)} / 第 {item.pageRefs.map((ref) => ref.pageNumber).join(",") || "?"} 页
                     </label>
-                    {item.mapping ? <MappingTrace trace={item.mapping} /> : null}
                     {item.mapping?.needsConfirmation ? <button className="secondary-button compact" type="button" onClick={() => { void confirmItemMapping(section.id, item.id); }}>确认此映射</button> : null}
                     <textarea
                       className="textarea compact-textarea"
@@ -1116,51 +1141,183 @@ export function sampleStructuredResumeJson() {
       name: "陈同学",
       email: "demo.student@example.com",
       phone: "13800000000",
-      location: "上海",
-      summary: "数据分析方向学生，熟悉 Excel、Stata 和业务分析。",
-      links: ["https://www.linkedin.com/in/example"]
+      location: "上海市浦东新区",
+      summary: "数据分析方向应届毕业生，熟悉 Excel、Stata、SQL 和 Python，具备业务分析与数据可视化能力，注重数据质量与跨部门沟通。",
+      links: [
+        "https://www.linkedin.com/in/example",
+        "https://github.com/example"
+      ]
     },
     sections: [
       {
         title: "自我评价",
         category: "summary",
         sectionType: "summary",
-        items: ["重视数据质量与业务沟通，能够独立完成基础分析。"]
+        items: [
+          "具备扎实的统计学基础和数据处理能力，熟练使用 Excel、Stata、SQL 进行数据清洗与分析。善于从数据中提炼业务洞察，注重逻辑严谨与结果可验证性。实习期间独立完成多项经营指标分析报告，获得团队认可。"
+        ]
       },
       {
         title: "教育经历",
         category: "education",
         sectionType: "experience",
-        items: [{ organization: "职适大学", role: "本科 · 信息管理", location: "上海", startDate: "2021-09", endDate: "2025-06", highlights: ["主修课程：统计学、数据库系统"], included: true }]
+        items: [
+          {
+            organization: "职适大学",
+            role: "本科 · 信息管理与信息系统",
+            location: "上海",
+            startDate: "2021-09",
+            endDate: "2025-06",
+            current: false,
+            highlights: [
+              "GPA 3.6 / 4.0，专业排名前 15%",
+              "主修课程：统计学、数据库系统、数据挖掘、机器学习导论、微观经济学",
+              "获校级一等奖学金（2023、2024 年度）"
+            ],
+            included: true
+          }
+        ]
       },
       {
         title: "工作 / 实习经历",
         category: "work",
         sectionType: "experience",
-        items: [{ organization: "示例科技", role: "数据运营实习生", location: "上海", startDate: "2024-03", endDate: "2024-08", highlights: ["整理周度经营指标并完成异常复核。"], included: true }]
+        items: [
+          {
+            organization: "示例科技有限公司",
+            role: "数据运营实习生",
+            location: "上海",
+            startDate: "2024-03",
+            endDate: "2024-08",
+            current: false,
+            highlights: [
+              "整理周度经营指标并完成异常复核，输出 12 份分析报告",
+              "使用 SQL 提取用户行为数据，协助完成转化漏斗分析",
+              "搭建 Excel 自动化报表模板，将周报制作时间从 4 小时缩短至 1 小时",
+              "参与季度复盘会议，提出 3 条数据驱动的运营优化建议并被采纳"
+            ],
+            included: true
+          },
+          {
+            organization: "某咨询公司",
+            role: "研究助理（兼职）",
+            location: "上海",
+            startDate: "2023-07",
+            endDate: "2023-09",
+            current: false,
+            highlights: [
+              "协助完成 2 个行业研究项目的数据收集与整理",
+              "使用 Stata 对 5000+ 条样本数据进行回归分析"
+            ],
+            included: true
+          }
+        ]
       },
       {
         title: "项目经历",
         category: "project",
         sectionType: "experience",
-        items: [{ organization: "区域数据分析项目", role: "分析成员", startDate: "2023-09", endDate: "2023-12", highlights: ["使用 Stata 清洗省级样本并完成描述统计。"], included: true }]
+        items: [
+          {
+            organization: "区域经济数据分析项目",
+            role: "核心分析成员",
+            location: "上海",
+            startDate: "2023-09",
+            endDate: "2023-12",
+            current: false,
+            highlights: [
+              "使用 Stata 清洗 31 个省级行政区 5 年面板数据，完成描述统计与相关性分析",
+              "撰写 8000 字分析报告，提出 3 条区域发展差异的政策建议",
+              "项目获课程优秀成果奖"
+            ],
+            included: true
+          },
+          {
+            organization: "个人数据分析博客",
+            role: "独立运营者",
+            startDate: "2022-06",
+            endDate: "2024-06",
+            current: false,
+            highlights: [
+              "发布 30+ 篇数据分析教程，累计阅读量 5 万+",
+              "内容涵盖 Python 数据清洗、SQL 查询优化、可视化实战"
+            ],
+            included: true
+          }
+        ]
       },
       {
         title: "校园经历",
         category: "campus",
         sectionType: "experience",
-        items: [{ organization: "学生会宣传部", role: "干事", startDate: "2022-09", endDate: "2023-06", highlights: ["参与校园活动内容策划。"], included: true }]
+        items: [
+          {
+            organization: "学生会宣传部",
+            role: "副部长",
+            location: "上海",
+            startDate: "2022-09",
+            endDate: "2023-06",
+            current: false,
+            highlights: [
+              "统筹 5 场校园活动的宣传策划，覆盖 3000+ 学生",
+              "管理 3 人小组，负责公众号内容排版与数据复盘",
+              "活动期间公众号粉丝增长 20%"
+            ],
+            included: true
+          }
+        ]
       },
-      { title: "奖项", category: "award", sectionType: "certificates", items: [{ text: "校级一等奖学金 · 2024", included: true }] },
+      {
+        title: "奖项",
+        category: "award",
+        sectionType: "certificates",
+        items: [
+          { text: "校级一等奖学金 · 2023 年度", included: true },
+          { text: "校级一等奖学金 · 2024 年度", included: true },
+          { text: "全国大学生数学建模竞赛省级二等奖 · 2023", included: true }
+        ]
+      },
       {
         title: "技能",
         category: "skill",
         sectionType: "skills",
-        items: ["Excel", "Stata", "数据清洗", "描述统计"]
+        items: [
+          "Excel（数据透视表、VBA）",
+          "SQL（复杂查询、窗口函数）",
+          "Python（Pandas、Matplotlib）",
+          "Stata（面板数据、回归分析）",
+          "数据清洗与可视化",
+          "业务分析与报告撰写"
+        ]
       },
-      { title: "证书", category: "certificate", sectionType: "certificates", items: [{ text: "大学英语六级", included: true }] },
-      { title: "语言", category: "language", sectionType: "certificates", items: [{ text: "英语 · 熟练", included: true }] },
-      { title: "其他内容", category: "custom", sectionType: "unknown", included: false, items: [{ text: "可到岗时间：两周内", included: false }] }
+      {
+        title: "证书",
+        category: "certificate",
+        sectionType: "certificates",
+        items: [
+          { text: "大学英语六级（CET-6）· 560 分", included: true },
+          { text: "全国计算机等级考试二级（Python）", included: true }
+        ]
+      },
+      {
+        title: "语言",
+        category: "language",
+        sectionType: "certificates",
+        items: [
+          { text: "英语 · 熟练（六级 560，可阅读英文文献）", included: true },
+          { text: "普通话 · 一级乙等", included: true }
+        ]
+      },
+      {
+        title: "其他内容",
+        category: "custom",
+        sectionType: "unknown",
+        included: false,
+        items: [
+          { text: "可到岗时间：2025 年 7 月", included: false },
+          { text: "期望城市：上海、杭州", included: false }
+        ]
+      }
     ]
   };
 }
@@ -1173,16 +1330,6 @@ function basicLabel(key: BasicFieldKey) {
     location: "地点",
     summary: "概述"
   }[key];
-}
-
-function MappingTrace({ trace }: { trace: NonNullable<ImportedResumeItem["mapping"]> }) {
-  return (
-    <div className={`mapping-trace mapping-trace-${trace.confidenceLevel}`}>
-      <span>{confidenceLabel(trace.confidenceLevel)} · {trace.needsConfirmation ? "需要确认" : "可批量处理"}</span>
-      <span>来源：{trace.sourcePaths.join("、")}</span>
-      <small>{trace.confidenceReason}</small>
-    </div>
-  );
 }
 
 function formatMappingSource(trace: NonNullable<ImportedResumeItem["mapping"]>) {

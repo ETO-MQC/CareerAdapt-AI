@@ -69,7 +69,121 @@ export function mapExternalResumeJson(value: unknown): ResumeJsonMapperOutput {
     };
   }
 
+  // 处理 structured-resume-draft-v1 格式：sections 数组内靠 category 区分
+  const sectionsArray = Array.isArray(root?.sections) ? root.sections as unknown[] : [];
+  const isStructuredDraft = root?.schemaVersion === "structured-resume-draft-v1" && sectionsArray.length > 0;
+
+  if (isStructuredDraft) {
+    usedPaths.add("sections");
+    usedPaths.add("schemaVersion");
+  }
+
   const sections = SECTION_ALIASES.flatMap((definition) => {
+    if (isStructuredDraft) {
+      // structured-resume-draft-v1 格式：从 sections 数组中按 category 匹配
+      const matched = sectionsArray
+        .map((item, index) => ({ item, index }))
+        .filter(({ item }) => {
+          const record = asRecord(item);
+          return record && (record.category === definition.category || record.sectionType === definition.sectionType);
+        });
+
+      if (matched.length === 0) return [];
+
+      return matched.flatMap(({ item, index }) => {
+        const sectionPath = `sections[${index}]`;
+        const record = asRecord(item);
+        if (!record) return [];
+
+        // 标记整个 section 路径为已使用
+        usedPaths.add(sectionPath);
+        usedPaths.add(`${sectionPath}.title`);
+        usedPaths.add(`${sectionPath}.category`);
+        usedPaths.add(`${sectionPath}.sectionType`);
+        if (record.included !== undefined) usedPaths.add(`${sectionPath}.included`);
+
+        const rawItems = Array.isArray(record.items) ? record.items : [];
+        const items = rawItems.map((rawItem, itemIndex) => {
+          const itemPath = `${sectionPath}.items[${itemIndex}]`;
+          if (isScalar(rawItem)) {
+            usedPaths.add(itemPath);
+            return { text: String(rawItem), mapping: trace([itemPath], [rawItem], "high", "数组条目可直接映射。", false) };
+          }
+          const itemRecord = asRecord(rawItem);
+          if (!itemRecord) return null;
+
+          const mapped: JsonRecord = {};
+          const sourcePaths: string[] = [];
+          const sourceValues: unknown[] = [];
+
+          // 处理 text 字段
+          if (itemRecord.text !== undefined && isScalar(itemRecord.text)) {
+            const textPath = `${itemPath}.text`;
+            usedPaths.add(textPath);
+            sourcePaths.push(textPath);
+            sourceValues.push(itemRecord.text);
+            mapped.text = String(itemRecord.text);
+          }
+
+          // 处理 organization/role/location/startDate/endDate/current
+          for (const field of ["organization", "role", "location", "startDate", "endDate"] as const) {
+            if (itemRecord[field] !== undefined && isScalar(itemRecord[field]) && String(itemRecord[field]).trim().length > 0) {
+              const fieldPath = `${itemPath}.${field}`;
+              usedPaths.add(fieldPath);
+              sourcePaths.push(fieldPath);
+              sourceValues.push(itemRecord[field]);
+              mapped[field] = String(itemRecord[field]);
+            }
+          }
+          if (itemRecord.current !== undefined) {
+            const fieldPath = `${itemPath}.current`;
+            usedPaths.add(fieldPath);
+            sourcePaths.push(fieldPath);
+            sourceValues.push(itemRecord.current);
+            mapped.current = Boolean(itemRecord.current);
+          }
+
+          // 处理 highlights
+          if (Array.isArray(itemRecord.highlights)) {
+            const fieldPath = `${itemPath}.highlights`;
+            usedPaths.add(fieldPath);
+            sourcePaths.push(fieldPath);
+            sourceValues.push(itemRecord.highlights);
+            mapped.highlights = itemRecord.highlights.flatMap((h, hi) => {
+              const hPath = `${fieldPath}[${hi}]`;
+              usedPaths.add(hPath);
+              return isScalar(h) ? [String(h)] : [];
+            });
+          }
+
+          // 处理 included
+          if (itemRecord.included !== undefined) {
+            usedPaths.add(`${itemPath}.included`);
+            mapped.included = Boolean(itemRecord.included);
+          }
+
+          if (sourcePaths.length === 0) {
+            usedPaths.add(itemPath);
+            return { text: JSON.stringify(itemRecord), mapping: trace([itemPath], [itemRecord], "low", "未识别条目结构，保留原对象供人工核对。", true) };
+          }
+
+          mapped.mapping = trace(sourcePaths, sourceValues, sourcePaths.length >= 2 ? "high" : "medium", "由条目中的常见字段别名组合。", sourcePaths.length < 2);
+          return mapped;
+        }).filter((item): item is JsonRecord => item !== null);
+
+        const title = isScalar(record.title) ? String(record.title) : definition.title;
+        return [{
+          title,
+          category: definition.category,
+          sectionType: definition.sectionType,
+          included: record.included !== false,
+          items,
+          mapping: trace([sectionPath], [record], "high", `由 sections 数组中 category="${definition.category}" 匹配。`, false)
+        }];
+      });
+    }
+
+    // 外部格式：根级别有 education/work 等字段
     const found = findFirst(root, definition.aliases);
     if (!found) return [];
     const values = Array.isArray(found.value) ? found.value : [found.value];
