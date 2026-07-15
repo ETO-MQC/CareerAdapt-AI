@@ -6,9 +6,16 @@ export type ResumeStudioSectionKey =
   | "education"
   | "projects"
   | "campus"
+  | "research"
+  | "volunteer"
   | "awards"
   | "language"
+  | "publications"
+  | "patents"
+  | "portfolio"
+  | "other"
   | "custom"
+  | `custom:${string}`
   | "add";
 
 export const SECTION_ORDER: ResumeStudioSectionKey[] = [
@@ -18,10 +25,16 @@ export const SECTION_ORDER: ResumeStudioSectionKey[] = [
   "education",
   "projects",
   "campus",
+  "research",
+  "volunteer",
   "skills",
   "awards",
   "certificates",
   "language",
+  "publications",
+  "patents",
+  "portfolio",
+  "other",
   "custom"
 ];
 

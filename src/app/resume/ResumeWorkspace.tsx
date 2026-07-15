@@ -33,7 +33,7 @@ import {
   type ResumeDiagnosticTemplateInfo
 } from "@/domain/resumeDiagnostics";
 import { mapBranchToResumeDocument, type ResumeDocument, type ResumeDocumentBlock } from "@/domain/resumeDocument/mapper";
-import { resumeCategoryRank, type ResumeFieldCategoryId } from "@/domain/resumeFields/catalog";
+import { getResumeSectionDefinition } from "@/domain/resumeFields";
 import { useResumePagination } from "@/components/resume/useResumePagination";
 import {
   getResumeTemplate,
@@ -60,6 +60,12 @@ import { type ResumeStudioSectionKey, type SectionNavContext } from "@/component
 const repository = new WorkspaceRepository();
 const DEFAULT_TEMPLATE_ID: TemplateId = "classic-technical";
 const BRANCH_LIST_SENTINEL = "__resume_branch_list__";
+const OPTIONAL_STUDIO_SECTIONS: ReadonlyArray<{ key: ResumeStudioSectionKey; label: string }> = [
+  { key: "research", label: "科研" }, { key: "campus", label: "校园" }, { key: "volunteer", label: "志愿" },
+  { key: "awards", label: "奖项" }, { key: "certificates", label: "证书" }, { key: "language", label: "语言" },
+  { key: "publications", label: "论文" }, { key: "patents", label: "专利" }, { key: "portfolio", label: "作品集" },
+  { key: "other", label: "其他" }
+];
 
 type WorkbenchState = {
   activeBranchId?: string | null;
@@ -69,7 +75,12 @@ type WorkbenchState = {
   manualTab?: ManualInspectorTab;
   aiTab?: AiInspectorTab;
   styleTab?: StyleInspectorTab;
+  enabledSectionsByBranch?: Record<string, ResumeStudioSectionKey[]>;
+  hiddenSectionsByBranch?: Record<string, ResumeStudioSectionKey[]>;
+  customSectionsByBranch?: Record<string, CustomStudioSection[]>;
 };
+
+type CustomStudioSection = { id: string; title: string; order: number };
 
 type ResumeImportEntryMode = "file" | "json";
 type ContentAutoSaveState = "idle" | "dirty" | "saving" | "saved" | "needs_confirmation" | "error";
@@ -194,6 +205,14 @@ export function ResumeWorkspace() {
   const [aiInspectorTab, setAiInspectorTab] = useState<AiInspectorTab>("suggestions");
   const [styleInspectorTab, setStyleInspectorTab] = useState<StyleInspectorTab>("template");
   const [activeResumeSection, setActiveResumeSection] = useState<ResumeStudioSectionKey>("basics");
+  const [enabledSectionsByBranch, setEnabledSectionsByBranch] = useState<Record<string, ResumeStudioSectionKey[]>>({});
+  const [hiddenSectionsByBranch, setHiddenSectionsByBranch] = useState<Record<string, ResumeStudioSectionKey[]>>({});
+  const [customSectionsByBranch, setCustomSectionsByBranch] = useState<Record<string, CustomStudioSection[]>>({});
+  const [isSectionMenuOpen, setIsSectionMenuOpen] = useState(false);
+  const [customSectionTitle, setCustomSectionTitle] = useState("");
+  const [customSectionError, setCustomSectionError] = useState<string>();
+  const sectionMenuButtonRef = useRef<HTMLButtonElement>(null);
+  const sectionMenuRef = useRef<HTMLDivElement>(null);
   const [canvasZoom, setCanvasZoom] = useState(0.5);
   const [canvasZoomMode, setCanvasZoomMode] = useState<CanvasZoomMode>("fit-page");
   const [studioLayout, setStudioLayout] = useState<StudioLayoutState>(() => readInitialStudioLayout());
@@ -366,8 +385,12 @@ export function ResumeWorkspace() {
   }, [profile, selectedBranch, selectedBranchJob]);
   const resumeSectionNavItems = useMemo(() => buildResumeStudioSections({
     resumeDocument,
-    branch: selectedBranch
-  }), [resumeDocument, selectedBranch]);
+    branch: selectedBranch,
+    profile,
+    enabledSections: selectedBranch ? enabledSectionsByBranch[selectedBranch.id] ?? [] : [],
+    hiddenSections: selectedBranch ? hiddenSectionsByBranch[selectedBranch.id] ?? [] : [],
+    customSections: selectedBranch ? customSectionsByBranch[selectedBranch.id] ?? [] : []
+  }), [resumeDocument, selectedBranch, profile, enabledSectionsByBranch, hiddenSectionsByBranch, customSectionsByBranch]);
   const activeSectionItem = resumeSectionNavItems.find((item) => item.key === activeResumeSection)
     ?? resumeSectionNavItems[0];
   const activeSectionBlocks = useMemo(() => {
@@ -398,11 +421,11 @@ export function ResumeWorkspace() {
     if (activeResumeSection === "custom") {
       return contentBlocks.filter((block) =>
         block.itemType === "custom"
-        && block.sourceSectionId !== "awards"
-        && block.sourceSectionId !== "language"
+        && !["research", "volunteer", "awards", "language", "publications", "patents", "portfolio", "other"].includes(block.sourceSectionId ?? "")
+        && !block.sourceSectionId?.startsWith("custom:")
       );
     }
-    if (activeResumeSection === "awards" || activeResumeSection === "language") {
+    if (["research", "volunteer", "awards", "language", "publications", "patents", "portfolio", "other"].includes(activeResumeSection) || activeResumeSection.startsWith("custom:")) {
       return contentBlocks.filter((block) =>
         block.itemType === "custom" && block.sourceSectionId === activeResumeSection
       );
@@ -764,6 +787,9 @@ export function ResumeWorkspace() {
       if (parsed.styleTab) {
         setStyleInspectorTab(parsed.styleTab);
       }
+      setEnabledSectionsByBranch(parsed.enabledSectionsByBranch ?? {});
+      setHiddenSectionsByBranch(parsed.hiddenSectionsByBranch ?? {});
+      setCustomSectionsByBranch(parsed.customSectionsByBranch ?? {});
       setWorkbenchStateHydrated(true);
     }
     void loadLists();
@@ -897,8 +923,23 @@ export function ResumeWorkspace() {
       manualTab: manualInspectorTab,
       aiTab: aiInspectorTab,
       styleTab: styleInspectorTab
+      ,enabledSectionsByBranch
+      ,hiddenSectionsByBranch
+      ,customSectionsByBranch
     } satisfies WorkbenchState);
-  }, [profile, workbenchStateHydrated, activeBranchId, effectiveTemplateId, isStylePanelOpen, studioMode, manualInspectorTab, aiInspectorTab, styleInspectorTab]);
+  }, [profile, workbenchStateHydrated, activeBranchId, effectiveTemplateId, isStylePanelOpen, studioMode, manualInspectorTab, aiInspectorTab, styleInspectorTab, enabledSectionsByBranch, hiddenSectionsByBranch, customSectionsByBranch]);
+
+  useEffect(() => {
+    if (!isSectionMenuOpen) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setIsSectionMenuOpen(false);
+      window.requestAnimationFrame(() => sectionMenuButtonRef.current?.focus());
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    window.requestAnimationFrame(() => sectionMenuRef.current?.querySelector<HTMLElement>("button, input")?.focus());
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isSectionMenuOpen]);
 
   useEffect(() => {
     window.localStorage.setItem(RESUME_STUDIO_LAYOUT_KEY, JSON.stringify(studioLayout));
@@ -1518,6 +1559,49 @@ export function ResumeWorkspace() {
     } catch {
       notify({ type: "error", title: "添加失败", message: "当前简历可能不可编辑。" });
     }
+  }
+
+  function toggleStudioSection(section: ResumeStudioSectionKey) {
+    if (!selectedBranch) return;
+    const branchId = selectedBranch.id;
+    const enabled = resumeSectionNavItems.some((item) => item.key === section);
+    if (enabled) {
+      setHiddenSectionsByBranch((current) => ({ ...current, [branchId]: [...new Set([...(current[branchId] ?? []), section])] }));
+      setEnabledSectionsByBranch((current) => ({ ...current, [branchId]: (current[branchId] ?? []).filter((key) => key !== section) }));
+      const count = resumeSectionNavItems.find((item) => item.key === section)?.count ?? 0;
+      notify({ type: "info", title: "栏目已从导航隐藏", message: count > 0 ? `栏目中的 ${count} 条内容仍完整保留，可随时恢复。` : "栏目内容未被删除，可随时恢复。" });
+      if (activeResumeSection === section) setActiveResumeSection("basics");
+      return;
+    }
+    setHiddenSectionsByBranch((current) => ({ ...current, [branchId]: (current[branchId] ?? []).filter((key) => key !== section) }));
+    setEnabledSectionsByBranch((current) => ({ ...current, [branchId]: [...new Set([...(current[branchId] ?? []), section])] }));
+    setActiveResumeSection(section);
+  }
+
+  function addCustomStudioSection() {
+    if (!selectedBranch) return;
+    const title = customSectionTitle.trim();
+    if (!title) {
+      setCustomSectionError("请输入栏目标题。");
+      return;
+    }
+    const existingTitles = [...resumeSectionNavItems.map((item) => item.label), ...(customSectionsByBranch[selectedBranch.id] ?? []).map((section) => section.title)];
+    if (existingTitles.some((existing) => existing.toLocaleLowerCase() === title.toLocaleLowerCase())) {
+      setCustomSectionError("栏目名称已存在，请换一个名称。");
+      return;
+    }
+    const id = typeof crypto.randomUUID === "function" ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const key = `custom:${id}` as const;
+    setCustomSectionsByBranch((current) => {
+      const sections = current[selectedBranch.id] ?? [];
+      return { ...current, [selectedBranch.id]: [...sections, { id, title, order: sections.length + 1 }] };
+    });
+    setEnabledSectionsByBranch((current) => ({ ...current, [selectedBranch.id]: [...new Set([...(current[selectedBranch.id] ?? []), key])] }));
+    setCustomSectionTitle("");
+    setCustomSectionError(undefined);
+    setIsSectionMenuOpen(false);
+    setActiveResumeSection(key);
+    window.requestAnimationFrame(() => sectionMenuButtonRef.current?.focus());
   }
 
   async function savePendingResumeOnlyEdit(syncAfterSave: boolean) {
@@ -3565,9 +3649,14 @@ export function ResumeWorkspace() {
                 {resumeSectionNavItems.map((item) => (
                   <button
                     key={item.key}
+                    ref={item.key === "add" ? sectionMenuButtonRef : undefined}
                     type="button"
                     className={activeSectionItem?.key === item.key ? "resume-section-nav-button resume-section-nav-button-active" : "resume-section-nav-button"}
                     onClick={() => {
+                      if (item.key === "add") {
+                        setIsSectionMenuOpen((current) => !current);
+                        return;
+                      }
                       setActiveResumeSection(item.key);
                       if (item.firstItemId) {
                         selectStudioItem(item.firstItemId);
@@ -3575,14 +3664,17 @@ export function ResumeWorkspace() {
                         clearStudioEditor();
                       }
                     }}
-                    disabled={item.key === "add" && (!activeResumeSection || activeResumeSection === "basics" || activeResumeSection === "add")}
+                    aria-expanded={item.key === "add" ? isSectionMenuOpen : undefined}
+                    aria-controls={item.key === "add" ? "resume-add-section-menu" : undefined}
+                    aria-current={activeSectionItem?.key === item.key ? "page" : undefined}
+                    aria-label={sectionNavAccessibleLabel(item.key, item.label)}
                     title={studioLayout.sectionNavCollapsed ? item.label : undefined}
                   >
                     {studioLayout.sectionNavCollapsed ? (
                       <span className="section-nav-icon">{sectionNavIcon(item.key)}</span>
                     ) : (
                       <>
-                        <span className="section-nav-label" aria-label={item.label}>
+                        <span className="section-nav-label">
                           {splitSectionNavLabel(item.label).map((line) => <span key={line}>{line}</span>)}
                         </span>
                         {item.count > 0 ? <strong>{item.count}</strong> : null}
@@ -3591,6 +3683,53 @@ export function ResumeWorkspace() {
                   </button>
                 ))}
               </nav>
+              {isSectionMenuOpen && selectedBranch ? (
+                <div
+                  id="resume-add-section-menu"
+                  ref={sectionMenuRef}
+                  className="resume-add-section-menu"
+                  role="dialog"
+                  aria-label="添加或管理简历栏目"
+                >
+                  <div className="resume-add-section-menu-heading">
+                    <strong>添加栏目</strong>
+                    <button type="button" className="secondary-button compact" aria-label="关闭添加栏目" onClick={() => { setIsSectionMenuOpen(false); sectionMenuButtonRef.current?.focus(); }}>×</button>
+                  </div>
+                  <div className="resume-add-section-options">
+                    {OPTIONAL_STUDIO_SECTIONS.map((section) => {
+                      const navItem = resumeSectionNavItems.find((item) => item.key === section.key);
+                      const enabled = Boolean(navItem);
+                      return (
+                        <button
+                          key={section.key}
+                          type="button"
+                          className="resume-add-section-option"
+                          aria-pressed={enabled}
+                          onClick={() => toggleStudioSection(section.key)}
+                        >
+                          <span>{enabled ? "✓" : "+"} {section.label}</span>
+                          <small>{enabled ? `${navItem?.count ?? 0} 条` : "添加"}</small>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <label className="field-label" htmlFor="custom-section-title">
+                    自定义栏目
+                    <input
+                      id="custom-section-title"
+                      value={customSectionTitle}
+                      maxLength={40}
+                      aria-invalid={Boolean(customSectionError)}
+                      aria-describedby={customSectionError ? "custom-section-error" : undefined}
+                      onChange={(event) => { setCustomSectionTitle(event.target.value); setCustomSectionError(undefined); }}
+                      onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addCustomStudioSection(); } }}
+                      placeholder="例如：开源贡献"
+                    />
+                  </label>
+                  {customSectionError ? <p id="custom-section-error" className="field-error" role="alert">{customSectionError}</p> : null}
+                  <button type="button" className="primary-button compact" onClick={addCustomStudioSection}>创建自定义栏目</button>
+                </div>
+              ) : null}
             </aside>
           ) : null}
           <aside className={`panel no-print resume-export-panel resume-inspector ${studioMode === "edit" ? "branch-editor" : ""}`} data-testid="resume-active-section-fields">
@@ -4409,10 +4548,13 @@ function buildRenderModel(input: {
 function buildResumeStudioSections(input: {
   resumeDocument?: ResumeDocument;
   branch?: ResumeBranch;
+  profile?: CareerProfile;
+  enabledSections: ResumeStudioSectionKey[];
+  hiddenSections: ResumeStudioSectionKey[];
+  customSections: CustomStudioSection[];
 }): Array<{ key: ResumeStudioSectionKey; label: string; count: number; firstItemId?: string }> {
   const blocks = input.resumeDocument?.blocks.filter((block) => block.itemType !== "structural" && block.contentVisible) ?? [];
   const bySection = (sectionType: ResumeRenderSectionType) => blocks.filter((block) => block.sectionType === sectionType);
-  const first = (sectionType: ResumeRenderSectionType) => bySection(sectionType)[0]?.contentItemId;
   const experienceBlocks = bySection("experience");
   const generalExperience = experienceBlocks.filter((b) => b.itemType === "experience" && b.sourceSectionId !== "education" && b.sourceSectionId !== "projects" && b.sourceSectionId !== "campus");
   const educationBlocks = experienceBlocks.filter((b) => b.sourceSectionId === "education");
@@ -4421,41 +4563,51 @@ function buildResumeStudioSections(input: {
   const customBlocks = blocks.filter((block) => block.itemType === "custom");
   const awardsBlocks = customBlocks.filter((b) => b.sourceSectionId === "awards");
   const languageBlocks = customBlocks.filter((b) => b.sourceSectionId === "language");
-  const generalCustomBlocks = customBlocks.filter((b) => b.sourceSectionId !== "awards" && b.sourceSectionId !== "language");
+  const generalCustomBlocks = customBlocks.filter((b) =>
+    !["research", "volunteer", "awards", "language", "publications", "patents", "portfolio", "other"].includes(b.sourceSectionId ?? "")
+    && !b.sourceSectionId?.startsWith("custom:")
+  );
   const verifiedContentCount = input.branch?.contentItems.filter((item) => item.visible && item.itemType !== "structural").length ?? 0;
-  const sections = [
-    { key: "basics", label: "个人信息", count: verifiedContentCount > 0 ? 1 : 0 },
-    { key: "summary", label: "自我评价", count: bySection("summary").length, firstItemId: first("summary") },
-    { key: "education", label: "教育经历", count: educationBlocks.length, firstItemId: educationBlocks[0]?.contentItemId },
-    { key: "experience", label: "工作 / 实习经历", count: generalExperience.length, firstItemId: generalExperience[0]?.contentItemId },
-    { key: "projects", label: "项目成果", count: projectBlocks.length, firstItemId: projectBlocks[0]?.contentItemId },
-    { key: "campus", label: "校园经历", count: campusBlocks.length, firstItemId: campusBlocks[0]?.contentItemId },
-    { key: "awards", label: "奖项", count: awardsBlocks.length, firstItemId: awardsBlocks[0]?.contentItemId },
-    { key: "skills", label: "技能", count: bySection("skills").length, firstItemId: first("skills") },
-    { key: "certificates", label: "证书", count: bySection("certificates").length, firstItemId: first("certificates") },
-    { key: "language", label: "语言", count: languageBlocks.length, firstItemId: languageBlocks[0]?.contentItemId },
-    { key: "custom", label: "自定义栏目", count: generalCustomBlocks.length, firstItemId: generalCustomBlocks[0]?.contentItemId }
-  ] satisfies Array<{ key: ResumeStudioSectionKey; label: string; count: number; firstItemId?: string }>;
-  const categoryByStudioKey: Record<ResumeStudioSectionKey, ResumeFieldCategoryId> = {
-    add: "custom",
-    basics: "basic",
-    summary: "summary",
-    education: "education",
-    experience: "work",
-    projects: "project",
-    campus: "campus",
-    awards: "award",
-    skills: "skill",
-    certificates: "certificate",
-    language: "language",
-    custom: "custom"
+  const customBySource = (sourceSectionId: string) => customBlocks.filter((block) => block.sourceSectionId === sourceSectionId);
+  const profileHasSection = (key: ResumeStudioSectionKey) => {
+    if (!input.profile) return false;
+    if (key === "awards") return input.profile.experiences.some((experience) => experience.type === "competition");
+    if (key === "campus") return input.profile.experiences.some((experience) => experience.type === "campus");
+    if (key === "volunteer") return input.profile.experiences.some((experience) => experience.type === "volunteer");
+    if (key === "certificates") return input.profile.certificates.length > 0;
+    if (key === "other") return input.profile.experiences.some((experience) => experience.type === "other");
+    return false;
   };
-  return sections.sort((left, right) => resumeCategoryRank(categoryByStudioKey[left.key]) - resumeCategoryRank(categoryByStudioKey[right.key]));
+  const candidates: Array<{ key: ResumeStudioSectionKey; label: string; blocks: ResumeDocumentBlock[]; defaultVisible: boolean; order: number }> = [
+    { key: "basics", label: "基本信息", blocks: [], defaultVisible: true, order: 10 },
+    { key: "summary", label: "自我评价", blocks: bySection("summary"), defaultVisible: true, order: 20 },
+    { key: "education", label: "教育经历", blocks: educationBlocks, defaultVisible: true, order: 30 },
+    { key: "experience", label: "工作 / 实习", blocks: generalExperience, defaultVisible: true, order: 40 },
+    { key: "projects", label: "项目经历", blocks: projectBlocks, defaultVisible: true, order: 60 },
+    { key: "research", label: getResumeSectionDefinition("research").label, blocks: customBySource("research"), defaultVisible: false, order: 70 },
+    { key: "campus", label: getResumeSectionDefinition("campus").label, blocks: campusBlocks, defaultVisible: false, order: 80 },
+    { key: "volunteer", label: getResumeSectionDefinition("volunteer").label, blocks: customBySource("volunteer"), defaultVisible: false, order: 90 },
+    { key: "awards", label: getResumeSectionDefinition("awards").label, blocks: awardsBlocks, defaultVisible: false, order: 100 },
+    { key: "skills", label: "技能", blocks: bySection("skills"), defaultVisible: true, order: 110 },
+    { key: "certificates", label: getResumeSectionDefinition("certificates").label, blocks: bySection("certificates"), defaultVisible: false, order: 120 },
+    { key: "language", label: getResumeSectionDefinition("languages").label, blocks: languageBlocks, defaultVisible: false, order: 130 },
+    { key: "publications", label: getResumeSectionDefinition("publications").label, blocks: customBySource("publications"), defaultVisible: false, order: 140 },
+    { key: "patents", label: getResumeSectionDefinition("patents").label, blocks: customBySource("patents"), defaultVisible: false, order: 150 },
+    { key: "portfolio", label: getResumeSectionDefinition("portfolio").label, blocks: customBySource("portfolio"), defaultVisible: false, order: 160 },
+    { key: "other", label: getResumeSectionDefinition("other").label, blocks: customBySource("other"), defaultVisible: false, order: 170 },
+    { key: "custom", label: "自定义栏目", blocks: generalCustomBlocks, defaultVisible: false, order: 180 },
+    ...input.customSections.map((section) => ({ key: `custom:${section.id}` as const, label: section.title, blocks: customBySource(`custom:${section.id}`), defaultVisible: false, order: 180 + section.order }))
+  ];
+  const sections = candidates
+    .filter((section) => section.defaultVisible || (!input.hiddenSections.includes(section.key) && (section.blocks.length > 0 || input.enabledSections.includes(section.key) || profileHasSection(section.key))))
+    .sort((left, right) => left.order - right.order)
+    .map((section) => ({ key: section.key, label: section.label, count: section.key === "basics" ? (verifiedContentCount > 0 ? 1 : 0) : section.blocks.length, firstItemId: section.blocks[0]?.contentItemId }));
+  return [...sections, { key: "add", label: "添加栏目", count: 0 }];
 }
 
 function studioSectionForBlock(block: ResumeDocumentBlock): ResumeStudioSectionKey {
   if (block.itemType === "custom") {
-    if (block.sourceSectionId === "awards" || block.sourceSectionId === "language") {
+    if (block.sourceSectionId && isResumeStudioSectionKey(block.sourceSectionId)) {
       return block.sourceSectionId;
     }
     return "custom";
@@ -4529,8 +4681,35 @@ function parseWorkbenchState(value: unknown): WorkbenchState {
     studioMode: rawStudioMode === "manual" ? "edit" : isStudioMode(rawStudioMode) ? rawStudioMode : undefined,
     manualTab: isManualInspectorTab(candidate.manualTab) ? candidate.manualTab : undefined,
     aiTab: isAiInspectorTab(candidate.aiTab) ? candidate.aiTab : undefined,
-    styleTab: isStyleInspectorTab(candidate.styleTab) ? candidate.styleTab : undefined
+    styleTab: isStyleInspectorTab(candidate.styleTab) ? candidate.styleTab : undefined,
+    enabledSectionsByBranch: parseSectionStateRecord(candidate.enabledSectionsByBranch),
+    hiddenSectionsByBranch: parseSectionStateRecord(candidate.hiddenSectionsByBranch),
+    customSectionsByBranch: parseCustomSectionState(candidate.customSectionsByBranch)
   };
+}
+
+function parseSectionStateRecord(value: unknown): Record<string, ResumeStudioSectionKey[]> | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  return Object.fromEntries(Object.entries(value).flatMap(([branchId, sections]) =>
+    Array.isArray(sections) ? [[branchId, sections.filter(isResumeStudioSectionKey)]] : []
+  ));
+}
+
+function parseCustomSectionState(value: unknown): Record<string, CustomStudioSection[]> | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  return Object.fromEntries(Object.entries(value).map(([branchId, sections]) => [branchId,
+    Array.isArray(sections) ? sections.flatMap((section, index) => {
+      if (!section || typeof section !== "object") return [];
+      const candidate = section as Partial<CustomStudioSection>;
+      return typeof candidate.id === "string" && candidate.id && typeof candidate.title === "string" && candidate.title.trim()
+        ? [{ id: candidate.id, title: candidate.title.trim(), order: typeof candidate.order === "number" ? candidate.order : index }]
+        : [];
+    }) : []
+  ]));
+}
+
+function isResumeStudioSectionKey(value: unknown): value is ResumeStudioSectionKey {
+  return typeof value === "string" && (value.startsWith("custom:") || ["basics", "summary", "experience", "education", "projects", "campus", "research", "volunteer", "skills", "awards", "certificates", "language", "publications", "patents", "portfolio", "other", "custom", "add"].includes(value));
 }
 
 function isStudioMode(value: unknown): value is StudioMode {
@@ -4978,6 +5157,13 @@ function sectionNavIcon(key: string): string {
   return icons[key] ?? "•";
 }
 
+function sectionNavAccessibleLabel(key: ResumeStudioSectionKey, label: string) {
+  if (key === "basics") return "基本信息 / 个人信息";
+  if (key === "experience") return "工作经历 / 实习经历";
+  if (key === "projects") return "项目经历 / 项目成果";
+  return label;
+}
+
 function splitSectionNavLabel(label: string) {
   const parts = label.split(/\s*\/\s*/);
   const lines: string[] = [];
@@ -5001,9 +5187,11 @@ function experienceMatchesResumeSection(
 ) {
   if (section === "education") return type === "education";
   if (section === "projects") return type === "project";
-  if (section === "campus") return type === "campus" || type === "volunteer";
+  if (section === "campus") return type === "campus";
+  if (section === "volunteer") return type === "volunteer";
   if (section === "experience") return type === "work" || type === "internship" || type === "other";
   if (section === "awards") return type === "competition";
+  if (section === "other" || section === "custom" || section.startsWith("custom:")) return type === "other";
   return false;
 }
 
