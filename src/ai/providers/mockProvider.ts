@@ -4,6 +4,7 @@ import { demoCareerProfile } from "@/data/demoProfile";
 import type { AiInvokeRequest, AiProvider } from "../provider";
 import { mapExternalResumeJson } from "@/domain/resumeImport/jsonMapper";
 import { redactSensitiveTextForModel } from "@/services/security/text";
+import { mapNormalizedBlocksToReviewDraft } from "@/domain/resumeImport/normalizer";
 
 type MockProviderOptions = {
   outputs?: Partial<Record<AiTask, unknown>>;
@@ -45,6 +46,11 @@ export class MockAiProvider implements AiProvider {
     if (task === "resume-json-mapper") {
       const rawText = typeof input === "object" && input && "rawText" in input ? String(input.rawText) : "{}";
       return mapExternalResumeJson(JSON.parse(redactSensitiveTextForModel(rawText).text));
+    }
+
+    if (task === "resume-document-mapper") {
+      const rawText = typeof input === "object" && input && "rawText" in input ? String(input.rawText) : "[]";
+      return mapNormalizedBlocksToReviewDraft(JSON.parse(redactSensitiveTextForModel(rawText).text));
     }
 
     if (task === "jd-analyzer") {

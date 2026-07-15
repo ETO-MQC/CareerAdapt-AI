@@ -37,14 +37,17 @@ export function buildResumeImportConfirmation(input: {
   draft: ImportedResumeDraft;
   existingProfile?: CareerProfile;
   mergeDecisions?: ImportMergeDecision[];
+  newProfileName?: string;
   operationId: string;
   now?: string;
 }): ResumeImportConfirmationBuildResult {
+  validateImportedResumeSources(input.draft);
   const now = input.now ?? new Date().toISOString();
   const { profile, factMappings } = mergeImportedProfile({
     draft: input.draft,
     existingProfile: input.existingProfile,
     mergeDecisions: input.mergeDecisions ?? [],
+    newProfileName: input.newProfileName,
     now
   });
   const contentItems = buildBranchContentItems({
@@ -118,15 +121,49 @@ export function buildResumeImportConfirmation(input: {
   };
 }
 
+export function buildResumeImportProfileOnly(input: {
+  draft: ImportedResumeDraft;
+  newProfileName: string;
+  now?: string;
+}) {
+  validateImportedResumeSources(input.draft);
+  const now = input.now ?? new Date().toISOString();
+  return mergeImportedProfile({
+    draft: input.draft,
+    mergeDecisions: [],
+    newProfileName: input.newProfileName,
+    now
+  }).profile;
+}
+
+function validateImportedResumeSources(draft: ImportedResumeDraft) {
+  if (draft.sourceBlocks.length === 0) return;
+  const blockIds = new Set(draft.sourceBlocks.map((block) => block.id));
+  const sourcePaths = new Set(draft.sourceBlocks.flatMap((block) => block.sourcePath ? [block.sourcePath] : []));
+  const fields = [draft.basics.name, draft.basics.email, draft.basics.phone, draft.basics.location, draft.basics.summary, ...draft.basics.links].filter(Boolean);
+  for (const field of fields) {
+    if (!field) continue;
+    const located = field.sourceBlockIds.some((id) => blockIds.has(id)) || field.mapping?.sourcePaths.some((path) => sourcePaths.has(path));
+    if (!located && !field.userEdited) throw new Error("resume_import_field_source_missing");
+  }
+  for (const section of draft.sections.filter((item) => item.included)) {
+    for (const item of section.items.filter((candidate) => candidate.included)) {
+      const located = item.sourceBlockIds.some((id) => blockIds.has(id)) || item.mapping?.sourcePaths.some((path) => blockIds.has(path) || sourcePaths.has(path));
+      if (!located && !item.userEdited) throw new Error("resume_import_item_source_missing");
+    }
+  }
+}
+
 function mergeImportedProfile(input: {
   draft: ImportedResumeDraft;
   existingProfile?: CareerProfile;
   mergeDecisions: ImportMergeDecision[];
+  newProfileName?: string;
   now: string;
 }): { profile: CareerProfile; factMappings: FactMapping[] } {
   const existing = input.existingProfile;
   const profileId = existing?.id ?? `profile-${nanoid(10)}`;
-  const basics = mergeBasics(input.draft, existing, input.mergeDecisions);
+  const basics = mergeBasics(input.draft, existing, input.mergeDecisions, input.newProfileName);
   const baseProfile: CareerProfile = existing
     ? {
         ...existing,
@@ -317,7 +354,8 @@ function buildBranchContentItems(input: {
 function mergeBasics(
   draft: ImportedResumeDraft,
   existingProfile: CareerProfile | undefined,
-  decisions: ImportMergeDecision[]
+  decisions: ImportMergeDecision[],
+  newProfileName?: string
 ): CareerProfile["basics"] {
   const existing = existingProfile?.basics;
   const decide = (target: ImportMergeDecision["target"], importedValue: string | undefined) =>
@@ -339,7 +377,7 @@ function mergeBasics(
   ]);
 
   return {
-    name: choose("name", existing?.name, draft.basics.name?.value) ?? "未命名",
+    name: existing ? choose("name", existing.name, draft.basics.name?.value) ?? existing.name : newProfileName?.trim() || draft.basics.name?.value || "未命名",
     phone: choose("phone", existing?.phone, draft.basics.phone?.value),
     email: choose("email", existing?.email, draft.basics.email?.value),
     location: choose("location", existing?.location, draft.basics.location?.value),
@@ -359,7 +397,9 @@ function createImportedFact(input: {
     pageNumber: 1,
     quote: input.item.rawText || input.item.normalizedText
   };
-  const sourceType = input.item.sourceStatus === "user_confirmed_modified" ? "user_input" : "pdf_import";
+  const sourceType = input.item.sourceStatus === "user_confirmed_modified"
+    ? "user_input"
+    : input.draft.source.mimeType === "application/pdf" ? "pdf_import" : "imported_text";
   const pageSources = input.draft.pages.map((page) => ({
     pageNumber: page.pageNumber,
     cleanedPageText: page.normalizedText,

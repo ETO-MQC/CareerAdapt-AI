@@ -9,6 +9,17 @@ export type BrowserPdfExtractedPage = {
   rawText: string;
   textItemCount: number;
   warnings: string[];
+  blocks: BrowserPdfExtractedBlock[];
+};
+
+export type BrowserPdfExtractedBlock = {
+  id: string;
+  page: number;
+  text: string;
+  rawText: string;
+  blockType: "text_block";
+  position?: { x: number; y: number; width: number; height: number };
+  order: number;
 };
 
 export type BrowserPdfExtractionResult =
@@ -28,6 +39,7 @@ type PdfTextItem = {
   hasEOL?: boolean;
   width?: number;
   transform?: number[];
+  height?: number;
 };
 
 type PdfDocumentProxy = {
@@ -133,6 +145,23 @@ export async function extractTextFromPdfBuffer(
         };
       }
 
+      const blocks = textContent.items.flatMap((item, order) => {
+        const text = typeof item.str === "string" ? item.str : "";
+        if (!text) return [];
+        const x = item.transform?.[4];
+        const y = item.transform?.[5];
+        return [{
+          id: `pdf-page-${pageNumber}-block-${order}`,
+          page: pageNumber,
+          text,
+          rawText: text,
+          blockType: "text_block" as const,
+          position: typeof x === "number" && typeof y === "number"
+            ? { x, y, width: Math.max(0, item.width ?? 0), height: Math.max(0, item.height ?? Math.abs(item.transform?.[3] ?? 0)) }
+            : undefined,
+          order
+        }];
+      });
       const rawText = textContent.items.map((item) => {
         const text = typeof item.str === "string" ? item.str : "";
         return item.hasEOL ? `${text}\n` : `${text} `;
@@ -153,7 +182,8 @@ export async function extractTextFromPdfBuffer(
         pageNumber,
         rawText,
         textItemCount: textContent.items.length,
-        warnings: detectLayoutWarnings(textContent.items, pageNumber)
+        warnings: detectLayoutWarnings(textContent.items, pageNumber),
+        blocks
       });
       page.cleanup();
     }

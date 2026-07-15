@@ -13,6 +13,56 @@ export const ImportedResumeDraftStatusSchema = z.enum([
 
 export const ImportedResumeConfidenceSchema = z.enum(["high", "medium", "low"]);
 
+export const ResumeSourceKindSchema = z.enum([
+  "standard_json",
+  "external_json",
+  "docx",
+  "text_pdf",
+  "scanned_pdf"
+]);
+
+export const ExtractedSourceBlockTypeSchema = z.enum([
+  "paragraph",
+  "heading",
+  "list_item",
+  "table_cell",
+  "text_block",
+  "unknown"
+]);
+
+export const ExtractedSourceBlockSchema = z.object({
+  id: z.string().min(1),
+  page: z.number().int().min(1).optional(),
+  sourcePath: z.string().min(1).optional(),
+  text: z.string(),
+  rawText: z.string(),
+  blockType: ExtractedSourceBlockTypeSchema,
+  position: z.object({
+    x: z.number(),
+    y: z.number(),
+    width: z.number().min(0),
+    height: z.number().min(0)
+  }).optional(),
+  order: z.number().int().min(0)
+});
+
+export const NormalizedSourceBlockSchema = ExtractedSourceBlockSchema.extend({
+  normalizedText: z.string(),
+  normalizationActions: z.array(z.string()).default([])
+});
+
+export const ImportQualityReportSchema = z.object({
+  sourceType: ResumeSourceKindSchema,
+  textCoverage: z.number().min(0).max(1),
+  replacementCharacterRatio: z.number().min(0).max(1),
+  abnormalWhitespaceRatio: z.number().min(0).max(1),
+  lineFragmentationScore: z.number().min(0).max(1),
+  readingOrderConfidence: z.enum(["high", "medium", "low"]),
+  layoutComplexity: z.enum(["single_column", "multi_column", "table", "unknown"]),
+  recommendedRoute: z.enum(["deterministic", "ai_text", "ocr_ai"]),
+  warnings: z.array(z.string()).default([])
+});
+
 export const ImportedResumeMappingTraceSchema = z.object({
   sourcePaths: z.array(z.string().min(1)).min(1),
   sourceValues: z.array(z.unknown()).min(1),
@@ -52,6 +102,8 @@ export const ImportedResumeFieldSchema = z.object({
   confidence: ImportedResumeConfidenceSchema,
   sourceStatus: ImportedResumeSourceStatusSchema,
   userEdited: z.boolean().default(false),
+  sourceBlockIds: z.array(z.string().min(1)).default([]),
+  sourceQuote: z.string().min(1).optional(),
   mapping: ImportedResumeMappingTraceSchema.optional()
 });
 
@@ -65,6 +117,8 @@ export const ImportedResumeItemSchema = z.object({
   confidence: ImportedResumeConfidenceSchema,
   sourceStatus: ImportedResumeSourceStatusSchema,
   userEdited: z.boolean().default(false),
+  sourceBlockIds: z.array(z.string().min(1)).default([]),
+  sourceQuote: z.string().min(1).optional(),
   mapping: ImportedResumeMappingTraceSchema.optional()
 });
 
@@ -119,6 +173,18 @@ export const ImportedResumeSourceSchema = z.object({
   extractedAt: IsoDateStringSchema
 });
 
+export const ImportTargetSchema = z.discriminatedUnion("mode", [
+  z.object({
+    mode: z.literal("existing"),
+    profileId: z.string().min(1)
+  }),
+  z.object({
+    mode: z.literal("new"),
+    profileName: z.string().trim().min(1).max(120),
+    createGeneralResume: z.boolean().default(true)
+  })
+]);
+
 export const StructuredResumeValueSchema = z.union([
   z.string().min(1),
   z.object({
@@ -171,6 +237,9 @@ export const ImportedResumeDraftSchema = EntityBaseSchema.extend({
   revision: z.number().int().min(0),
   status: ImportedResumeDraftStatusSchema,
   source: ImportedResumeSourceSchema,
+  sourceKind: ResumeSourceKindSchema.default("text_pdf"),
+  sourceBlocks: z.array(NormalizedSourceBlockSchema).default([]),
+  qualityReport: ImportQualityReportSchema.optional(),
   basics: z.object({
     name: ImportedResumeFieldSchema.optional(),
     email: ImportedResumeFieldSchema.optional(),
@@ -215,13 +284,26 @@ export const ImportMergeDecisionSchema = z.object({
   action: z.enum(["keep_existing", "use_imported", "keep_both"])
 });
 
-export const ImportedResumeConfirmResultSchema = z.object({
+export const ImportedResumeBranchConfirmResultSchema = z.object({
   profileId: z.string().min(1),
   branchId: z.string().min(1),
   revisionId: z.string().min(1),
   presentationRevision: z.number().int().min(0),
   idempotent: z.boolean()
 });
+
+export const ImportedResumeProfileOnlyConfirmResultSchema = z.object({
+  profileId: z.string().min(1),
+  branchId: z.undefined().optional(),
+  revisionId: z.undefined().optional(),
+  presentationRevision: z.undefined().optional(),
+  idempotent: z.boolean()
+});
+
+export const ImportedResumeConfirmResultSchema = z.union([
+  ImportedResumeBranchConfirmResultSchema,
+  ImportedResumeProfileOnlyConfirmResultSchema
+]);
 
 export const ResumeJsonMapperOutputSchema = z.object({
   structuredDraft: StructuredResumeDraftSchema,
@@ -233,6 +315,11 @@ export const ResumeJsonMapperOutputSchema = z.object({
 });
 
 export type ImportedResumeDraftStatus = z.infer<typeof ImportedResumeDraftStatusSchema>;
+export type ResumeSourceKind = z.infer<typeof ResumeSourceKindSchema>;
+export type ExtractedSourceBlock = z.infer<typeof ExtractedSourceBlockSchema>;
+export type NormalizedSourceBlock = z.infer<typeof NormalizedSourceBlockSchema>;
+export type ImportQualityReport = z.infer<typeof ImportQualityReportSchema>;
+export type ImportTarget = z.infer<typeof ImportTargetSchema>;
 export type ImportedResumeConfidence = z.infer<typeof ImportedResumeConfidenceSchema>;
 export type ImportedResumeMappingTrace = z.infer<typeof ImportedResumeMappingTraceSchema>;
 export type ImportedResumeCategory = z.infer<typeof ImportedResumeCategorySchema>;
@@ -249,4 +336,6 @@ export type ImportedResumeDraft = z.infer<typeof ImportedResumeDraftSchema>;
 export type StructuredResumeDraft = z.infer<typeof StructuredResumeDraftSchema>;
 export type ImportMergeDecision = z.infer<typeof ImportMergeDecisionSchema>;
 export type ImportedResumeConfirmResult = z.infer<typeof ImportedResumeConfirmResultSchema>;
+export type ImportedResumeBranchConfirmResult = z.infer<typeof ImportedResumeBranchConfirmResultSchema>;
+export type ImportedResumeProfileOnlyConfirmResult = z.infer<typeof ImportedResumeProfileOnlyConfirmResultSchema>;
 export type ResumeJsonMapperOutput = z.infer<typeof ResumeJsonMapperOutputSchema>;

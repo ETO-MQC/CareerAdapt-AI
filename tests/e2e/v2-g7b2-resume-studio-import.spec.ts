@@ -57,10 +57,11 @@ test.describe("V2-G7b.2 Resume Studio and import IA", () => {
     }));
     await page.locator(".import-json-details button.primary-button").click();
 
-    await expect(page.getByTestId("import-quality-report")).toBeVisible();
+    await expect(page.getByText("识别质量", { exact: true })).toHaveCount(0);
     await expect(page.locator(".import-source-text")).toContainText("JSON Candidate");
-    await expect(page.locator(".import-structure-panel button.primary-button")).toBeVisible();
-    await page.locator(".import-structure-panel button.primary-button").click();
+    await page.getByLabel("创建新人物").check();
+    await expect(page.locator(".import-review-footer button.primary-button")).toBeVisible();
+    await page.locator(".import-review-footer button.primary-button").click();
     await expect(page.getByText("已进入导入生成的通用简历，可继续编辑、换模板、调整分页并下载 PDF。")).toBeVisible();
     await page.getByRole("button", { name: "打开", exact: true }).click();
     await expect(page.getByTestId("resume-studio-shell")).toBeVisible();
@@ -168,8 +169,43 @@ test.describe("V2-G7b.2 Resume Studio and import IA", () => {
       expect(layout.structureScrollHeight).toBeGreaterThan(layout.structureClientHeight);
       expect(layout.structureOverflowY).toBe("auto");
       expect(layout.dialogBottom).toBeLessThanOrEqual(layout.viewportHeight);
-      await expect(page.locator(".import-structure-panel button.primary-button")).toBeVisible();
+      await expect(page.locator(".import-review-footer button.primary-button")).toBeVisible();
     }
+  });
+
+  test("keeps target choice and confirmation footer reachable at 1024px", async ({ page }) => {
+    await openJsonImport(page);
+    await page.getByRole("button", { name: "填入示例", exact: true }).click();
+    await page.locator(".import-json-details button.primary-button").click();
+    await page.setViewportSize({ width: 1024, height: 768 });
+    await expect(page.locator(".import-target-picker")).toBeVisible();
+    await expect(page.locator(".import-review-footer")).toBeVisible();
+    const metrics = await page.evaluate(() => {
+      const footer = document.querySelector<HTMLElement>(".import-review-footer")!;
+      const grid = document.querySelector<HTMLElement>(".import-review-grid")!;
+      return {
+        footerBottom: footer.getBoundingClientRect().bottom,
+        viewportHeight: innerHeight,
+        gridHeight: grid.clientHeight,
+        rootOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        bodyHeight: document.querySelector<HTMLElement>(".resume-import-modal-body")!.clientHeight,
+        overlappingInputs: Array.from(document.querySelectorAll<HTMLElement>(
+          ".import-structure-panel input, .import-structure-panel select, .import-structure-panel textarea"
+        )).flatMap((element, index, elements) => {
+          const first = element.getBoundingClientRect();
+          return elements.slice(index + 1).filter((candidate) => {
+            const second = candidate.getBoundingClientRect();
+            return first.left < second.right && first.right > second.left
+              && first.top < second.bottom && first.bottom > second.top;
+          }).map((candidate) => `${element.tagName}:${index}-${candidate.tagName}`);
+        })
+      };
+    });
+    expect(metrics.footerBottom).toBeLessThanOrEqual(metrics.viewportHeight);
+    expect(metrics.gridHeight).toBeGreaterThan(100);
+    expect(metrics.gridHeight / metrics.bodyHeight).toBeGreaterThanOrEqual(0.70);
+    expect(metrics.rootOverflow).toBe(0);
+    expect(metrics.overlappingInputs).toEqual([]);
   });
 
   test("retains raw external JSON when AI mapping is unavailable", async ({ page }) => {
@@ -220,7 +256,8 @@ async function createBranchFromJsonImport(page: Page, candidateName: string) {
     sections: [{ title: "Projects", category: "project", sectionType: "experience", items: ["Created a verified project result."] }]
   }));
   await page.locator(".import-json-details button.primary-button").click();
-  await page.locator(".import-structure-panel button.primary-button").click();
+  await page.getByLabel("创建新人物").check();
+  await page.locator(".import-review-footer button.primary-button").click();
   await page.getByRole("button", { name: "打开", exact: true }).click();
   await expect(page.getByTestId("resume-studio-shell")).toBeVisible();
 }

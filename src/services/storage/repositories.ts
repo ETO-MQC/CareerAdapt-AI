@@ -53,8 +53,10 @@ import {
   type JobAnalysisDraft,
   type JobDescription,
   type ImportedResumeDraft,
+  type ImportTarget,
   type ImportMergeDecision,
   type ImportedResumeConfirmResult,
+  type ImportedResumeBranchConfirmResult,
   type MatchEvaluation,
   type MatchOperation,
   type PdfImportSession,
@@ -89,7 +91,7 @@ import {
   serializeStructuredExperienceText,
   type ResumeFieldCategoryId
 } from "@/domain/resumeFields/catalog";
-import { buildResumeImportConfirmation } from "@/domain/resumeImport/confirm";
+import { buildResumeImportConfirmation, buildResumeImportProfileOnly } from "@/domain/resumeImport/confirm";
 import { runRuleFactGuard } from "@/domain/adaptation/factGuard";
 import {
   AdaptationDraftError,
@@ -434,6 +436,21 @@ export class WorkspaceRepository {
     expectedDraftRevision: number;
     operationId: string;
     mergeDecisions?: ImportMergeDecision[];
+    target?: { mode: "existing"; profileId: string } | { mode: "new"; profileName: string; createGeneralResume: true };
+  }): Promise<ImportedResumeBranchConfirmResult>;
+  async confirmImportedResume(input: {
+    importId: string;
+    expectedDraftRevision: number;
+    operationId: string;
+    mergeDecisions?: ImportMergeDecision[];
+    target?: ImportTarget;
+  }): Promise<ImportedResumeConfirmResult>;
+  async confirmImportedResume(input: {
+    importId: string;
+    expectedDraftRevision: number;
+    operationId: string;
+    mergeDecisions?: ImportMergeDecision[];
+    target?: ImportTarget;
   }): Promise<ImportedResumeConfirmResult> {
     return this.db.transaction(
       "rw",
@@ -476,16 +493,30 @@ export class WorkspaceRepository {
         }
 
         const profiles = await this.db.profiles.toArray();
-        const existingProfile = profiles[0] ? CareerProfileSchema.parse(profiles[0]) : undefined;
+        const existingProfile = input.target?.mode === "existing"
+          ? await this.db.profiles.get(input.target.profileId).then((profile) => profile ? CareerProfileSchema.parse(profile) : undefined)
+          : input.target?.mode === "new"
+            ? undefined
+            : profiles[0] ? CareerProfileSchema.parse(profiles[0]) : undefined;
+        if (input.target?.mode === "existing" && !existingProfile) {
+          throw new Error("resume_import_target_profile_missing");
+        }
         const now = new Date().toISOString();
-        const built = buildResumeImportConfirmation({
+        const createBranch = input.target?.mode !== "new" || input.target.createGeneralResume;
+        const built = createBranch ? buildResumeImportConfirmation({
           draft,
           existingProfile,
           mergeDecisions: input.mergeDecisions,
+          newProfileName: input.target?.mode === "new" ? input.target.profileName : undefined,
           operationId: input.operationId,
           now
+        }) : undefined;
+        const committedProfile = built?.profile ?? buildResumeImportProfileOnly({
+          draft,
+          newProfileName: input.target?.mode === "new" ? input.target.profileName : draft.basics.name?.value ?? "未命名",
+          now
         });
-        const operation = ResumeBranchOperationSchema.parse({
+        const operation = built ? ResumeBranchOperationSchema.parse({
           id: `resume-branch-op-${input.operationId}`,
           operationId: input.operationId,
           branchId: built.branch.id,
@@ -497,19 +528,26 @@ export class WorkspaceRepository {
           occurredAt: now,
           createdAt: now,
           updatedAt: now
-        });
-        const presentationConfig = createDefaultPresentationConfig({
+        }) : undefined;
+        const presentationConfig = built ? createDefaultPresentationConfig({
           branch: built.branch,
           now
-        });
+        }) : undefined;
 
-        await this.db.profiles.put(built.profile);
-        await this.db.resumeBranches.put(built.branch);
-        await this.db.resumeRevisions.put(built.firstRevision);
-        await this.db.resumeBranchOperations.put(operation);
+        await this.db.profiles.put(committedProfile);
+        if (built && operation && presentationConfig) {
+          await this.db.resumeBranches.put(built.branch);
+          await this.db.resumeRevisions.put(built.firstRevision);
+          await this.db.resumeBranchOperations.put(operation);
+          await this.db.appMeta.put({
+            key: resumePresentationConfigKey(built.branch.id),
+            value: presentationConfig,
+            updatedAt: now
+          });
+        }
         await this.db.appMeta.put({
-          key: resumePresentationConfigKey(built.branch.id),
-          value: presentationConfig,
+          key: ACTIVE_PROFILE_META_KEY,
+          value: ActiveProfileContextSchema.parse({ schemaVersion: "active-profile-v1", profileId: committedProfile.id }),
           updatedAt: now
         });
         await this.db.appMeta.put({
@@ -518,9 +556,9 @@ export class WorkspaceRepository {
             ...draft,
             status: "confirmed",
             revision: draft.revision + 1,
-            confirmedProfileId: built.profile.id,
-            confirmedBranchId: built.branch.id,
-            confirmedRevisionId: built.firstRevision.id,
+            confirmedProfileId: committedProfile.id,
+            confirmedBranchId: built?.branch.id,
+            confirmedRevisionId: built?.firstRevision.id,
             confirmedAt: now,
             updatedAt: now
           }),
@@ -532,7 +570,7 @@ export class WorkspaceRepository {
             await this.db.pdfImportSessions.put(PdfImportSessionSchema.parse({
               ...session,
               status: "committed",
-              committedProfileId: built.profile.id,
+              committedProfileId: committedProfile.id,
               committedAt: now,
               updatedAt: now
             }));
@@ -540,10 +578,10 @@ export class WorkspaceRepository {
         }
 
         return ImportedResumeConfirmResultSchema.parse({
-          profileId: built.profile.id,
-          branchId: built.branch.id,
-          revisionId: built.firstRevision.id,
-          presentationRevision: presentationConfig.presentationRevision,
+          profileId: committedProfile.id,
+          branchId: built?.branch.id,
+          revisionId: built?.firstRevision.id,
+          presentationRevision: presentationConfig?.presentationRevision,
           idempotent: false
         });
       }

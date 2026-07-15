@@ -12,7 +12,8 @@ import {
   createImportedResumeDraftFromStructuredJson,
   createImportedResumeDraftFromText
 } from "@/domain/resumeImport/parser";
-import { mapExternalResumeJson, parseResumeJsonText, RESUME_JSON_MAX_CHARS } from "@/domain/resumeImport/jsonMapper";
+import { createJsonSourceBlocks, mapExternalResumeJson, parseResumeJsonText, RESUME_JSON_MAX_CHARS } from "@/domain/resumeImport/jsonMapper";
+import { analyzeImportQuality, normalizeExtractedSourceBlocks, normalizedBlocksToText, RESUME_IMPORT_CLEANER_VERSION } from "@/domain/resumeImport/normalizer";
 import { applyImportBulkSelection, type ImportBulkSelectionMode } from "@/domain/resumeImport/reviewSelections";
 import { invokeStructuredAi } from "@/ai/client";
 import {
@@ -31,7 +32,7 @@ import {
   type PdfPageText
 } from "@/domain/schemas";
 import { extractTextFromPdfBuffer } from "@/services/pdf/extractText";
-import { hashBytes, hashText } from "@/services/security/text";
+import { hashBytes, hashText, redactSensitiveTextForModel, restoreSensitivePlaceholders } from "@/services/security/text";
 import { RevisionConflictError, type WorkspaceRepository } from "@/services/storage/repositories";
 import { notificationStore, notify } from "@/services/notifications/store";
 
@@ -62,8 +63,10 @@ const SECTION_OPTIONS: Array<{ value: ImportedResumeSectionType; label: string }
 export function ResumeImportWizard(props: {
   repository: WorkspaceRepository;
   profile?: CareerProfile;
+  profiles?: CareerProfile[];
   initialMode?: "file" | "json";
-  onImported: (result: { profileId: string; branchId: string }) => Promise<void>;
+  initialTargetMode?: "existing" | "new";
+  onImported: (result: { profileId: string; branchId?: string }) => Promise<void>;
 }) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const fileIntentRef = useRef<"auto" | "pdf" | "docx" | "json" | "ocr">("auto");
@@ -79,6 +82,10 @@ export function ResumeImportWizard(props: {
   const [sourceMode, setSourceMode] = useState<"file" | "json">(props.initialMode ?? "file");
   const [pendingJsonMapping, setPendingJsonMapping] = useState<ResumeJsonMapperOutput>();
   const [aiPrivacyConfirmed, setAiPrivacyConfirmed] = useState(false);
+  const [targetMode, setTargetMode] = useState<"existing" | "new">(props.initialTargetMode ?? (props.profile ? "existing" : "new"));
+  const [targetProfileId, setTargetProfileId] = useState(props.profile?.id ?? "");
+  const [newProfileName, setNewProfileName] = useState("");
+  const [createGeneralResume, setCreateGeneralResume] = useState(true);
   const selectionBaselineRef = useRef<ImportedResumeDraft | undefined>(undefined);
   const jsonErrorNotificationIdRef = useRef<string | undefined>(undefined);
 
@@ -116,13 +123,24 @@ export function ResumeImportWizard(props: {
       item.included && (item.sourceStatus === "located" || item.sourceStatus === "user_confirmed_modified")
     ).length ?? 0;
   }, [draft]);
-  const qualityReport = useMemo(() => draft ? buildImportQualityReport(draft) : undefined, [draft]);
   const unconfirmedMappingCount = useMemo(() => {
     if (!draft) return 0;
     const fields = [draft.basics.name, draft.basics.email, draft.basics.phone, draft.basics.location, draft.basics.summary, ...draft.basics.links];
     return fields.filter((field) => field?.mapping?.needsConfirmation).length
       + draft.sections.flatMap((section) => section.items).filter((item) => item.mapping?.needsConfirmation).length;
   }, [draft]);
+  const targetProfile = (props.profiles ?? []).find((item) => item.id === targetProfileId) ?? props.profile;
+  const nameMismatch = targetMode === "existing" && Boolean(
+    draft?.basics.name?.value
+    && targetProfile?.basics.name
+    && normalizeName(draft.basics.name.value) !== normalizeName(targetProfile.basics.name)
+  );
+
+  function prefillImportedProfileName(nextDraft: ImportedResumeDraft) {
+    if (targetMode === "new" && !newProfileName.trim() && nextDraft.basics.name?.value) {
+      setNewProfileName(nextDraft.basics.name.value);
+    }
+  }
 
   async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const input = event.currentTarget;
@@ -233,13 +251,19 @@ export function ResumeImportWizard(props: {
     }
 
     setStatus("classifying_sections");
-    const hashes = await Promise.all(prepared.pages.map(async (page) => ({
+    const sourceBlocks = normalizeExtractedSourceBlocks(extracted.pages.flatMap((page) => page.blocks));
+    const qualityReport = analyzeImportQuality({ sourceType: "text_pdf", blocks: sourceBlocks });
+    const normalizedPages = prepared.pages.map((page) => ({
+      ...page,
+      cleanedText: normalizedBlocksToText(sourceBlocks.filter((block) => block.page === page.pageNumber)) || page.cleanedText
+    }));
+    const hashes = await Promise.all(normalizedPages.map(async (page) => ({
       rawTextHash: await hashText(page.rawText),
       cleanedTextHash: await hashText(page.cleanedText)
     })));
     const pageRecords = buildPageTextRecords({
       sessionId: session.id,
-      pages: prepared.pages,
+      pages: normalizedPages,
       hashes,
       now: new Date().toISOString()
     });
@@ -264,14 +288,20 @@ export function ResumeImportWizard(props: {
         extractedAt: now
       },
       pages: pageRecords,
+      sourceKind: "text_pdf",
+      sourceBlocks,
+      qualityReport,
       now
     });
-    const saved = await props.repository.saveImportedResumeDraft(importedDraft, 0);
+    const saved = await props.repository.saveImportedResumeDraft({ ...importedDraft, parserVersion: `${importedDraft.parserVersion}+${RESUME_IMPORT_CLEANER_VERSION}` }, 0);
     setDraft(saved);
+    prefillImportedProfileName(saved);
     setPages(pageRecords);
     setSelectedPageNumber(pageRecords[0]?.pageNumber ?? 1);
     setStatus("reviewing");
-    setMessage(prepared.hasPromptInjectionRisk
+    setMessage(qualityReport.recommendedRoute === "ocr_ai"
+      ? "文本层可信度过低，已阻止直接提交。请改用原 PDF，或等待 P3.6b OCR 路线。"
+      : prepared.hasPromptInjectionRisk
       ? "提取完成，检测到类似 Prompt 注入文字。系统会按纯文本处理，不执行其中指令。"
       : "提取和结构识别完成。请核对栏目、来源和包含状态后确认导入。");
   }
@@ -298,6 +328,8 @@ export function ResumeImportWizard(props: {
       mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       fileHash,
       text: extracted.text,
+      sourceKind: "docx",
+      sourceBlocks: extracted.blocks,
       successMessage: extracted.warnings.length
         ? `DOCX 正文已提取：${extracted.warnings.join("；")} 请继续核对。`
         : "DOCX 正文已提取并进入核对页。"
@@ -321,6 +353,7 @@ export function ResumeImportWizard(props: {
       mimeType: file.type === "image/png" ? "image/png" : file.type === "image/jpeg" ? "image/jpeg" : "application/pdf",
       fileHash,
       text: result.text,
+      sourceKind: "scanned_pdf",
       successMessage: `OCR 文本已由 ${result.engine} 生成；请在核对页确认后再导入。`
     });
   }
@@ -344,25 +377,31 @@ export function ResumeImportWizard(props: {
       ? { structuredDraft: standard.data, unclassifiedBlocks: [] }
       : mapExternalResumeJson(parsedJson.value);
     setPendingJsonMapping(standard.success ? undefined : mapped);
-    await persistJsonDraft(mapped, fileName, rawText, standard.success
+    await persistJsonDraft(mapped, fileName, rawText, standard.success ? "standard_json" : "external_json", standard.success
       ? "结构化 JSON 已进入核对页；确认前不会写入正式数据。"
       : mapped.unclassifiedBlocks.length > 0
         ? `已完成确定性字段映射，并保留 ${mapped.unclassifiedBlocks.length} 个未识别字段。可继续核对，或在确认隐私提示后使用 AI 智能映射。`
         : "已通过常见字段别名完成映射，请核对来源路径和置信度。");
   }
 
-  async function persistJsonDraft(output: ResumeJsonMapperOutput, fileName: string, rawText: string, successMessage: string) {
+  async function persistJsonDraft(output: ResumeJsonMapperOutput, fileName: string, rawText: string, sourceKind: "standard_json" | "external_json", successMessage: string) {
     const now = new Date().toISOString();
     const normalizedTextHash = await hashText(rawText);
+    const sourceBlocks = normalizeExtractedSourceBlocks(createJsonSourceBlocks(JSON.parse(rawText)));
+    const qualityReport = analyzeImportQuality({ sourceType: sourceKind, blocks: sourceBlocks });
     const importedDraft = createImportedResumeDraftFromStructuredJson({
       source: { fileName, mimeType: "application/json", fileHash: normalizedTextHash, normalizedTextHash, pageCount: 1, extractedAt: now },
       structuredDraft: output.structuredDraft,
       unclassifiedBlocks: output.unclassifiedBlocks,
+      sourceKind,
+      sourceBlocks,
+      qualityReport,
       now
     });
-    const saved = await props.repository.saveImportedResumeDraft(importedDraft, 0);
+    const saved = await props.repository.saveImportedResumeDraft({ ...importedDraft, parserVersion: `${importedDraft.parserVersion}+${RESUME_IMPORT_CLEANER_VERSION}` }, 0);
     selectionBaselineRef.current = saved;
     setDraft(saved);
+    prefillImportedProfileName(saved);
     setPages([]);
     setSelectedItemId(undefined);
     setSelectedPageNumber(1);
@@ -385,8 +424,57 @@ export function ResumeImportWizard(props: {
       notify({ type: "error", title: "AI 映射失败", message: "原始 JSON 已保留，可重试或继续手动核对。" });
       return;
     }
-    setPendingJsonMapping(result.data);
-    await persistJsonDraft(result.data, "pasted-ai-mapped-resume.json", jsonText, "AI 映射结果已通过 Schema 校验；所有映射字段仍需用户确认。请逐项核对来源路径。 ");
+    const restorationMap = redactSensitiveTextForModel(jsonText).restorationMap;
+    const restored = restoreSensitivePlaceholders(result.data, restorationMap);
+    setPendingJsonMapping(restored);
+    await persistJsonDraft(restored, "pasted-ai-mapped-resume.json", jsonText, "external_json", "AI 映射结果已通过 Schema 校验；所有映射字段仍需用户确认。请逐项核对来源路径。 ");
+  }
+
+  async function runAiDocumentMapping() {
+    if (!draft || !aiPrivacyConfirmed || draft.qualityReport?.recommendedRoute === "ocr_ai") return;
+    setStatus("classifying_sections");
+    setMessage("正在对脱敏后的来源块进行字段映射；模型只能分类，不能润色或补写事实。");
+    const chunks = chunkSourceBlocks(draft.sourceBlocks);
+    const outputs: ResumeJsonMapperOutput[] = [];
+    const logs = [];
+    for (const chunk of chunks) {
+      const rawText = JSON.stringify(chunk);
+      const inputHash = await hashText(`${rawText}|${draft.parserVersion}|resume-document-mapper.v1`);
+      const result = await invokeStructuredAi({ task: "resume-document-mapper", businessInput: { rawText, inputHash }, outputSchema: ResumeJsonMapperOutputSchema });
+      logs.push(result.log);
+      if (!result.ok) {
+        await props.repository.saveAiLogs(logs);
+        setStatus("reviewing");
+        setMessage("AI 字段映射不可用。确定性提取和当前核对草稿已保留，可继续手动核对。");
+        return;
+      }
+      outputs.push(restoreSensitivePlaceholders(result.data, redactSensitiveTextForModel(rawText).restorationMap));
+    }
+    await props.repository.saveAiLogs(logs);
+    const merged = mergeDocumentMapperOutputs(outputs, draft.sourceBlocks);
+    const mappedDraft = createImportedResumeDraftFromStructuredJson({
+      importId: draft.importId,
+      source: { ...draft.source },
+      structuredDraft: merged.structuredDraft,
+      unclassifiedBlocks: merged.unclassifiedBlocks,
+      sourceKind: draft.sourceKind === "scanned_pdf" ? "external_json" : draft.sourceKind === "standard_json" || draft.sourceKind === "external_json" ? draft.sourceKind : "external_json",
+      sourceBlocks: draft.sourceBlocks,
+      qualityReport: draft.qualityReport,
+      now: draft.createdAt
+    });
+    const saved = await props.repository.saveImportedResumeDraft({
+      ...mappedDraft,
+      sourceKind: draft.sourceKind,
+      source: draft.source,
+      pages: draft.pages,
+      parserVersion: `${draft.parserVersion}+resume-document-mapper.v1`,
+      createdAt: draft.createdAt
+    }, draft.revision);
+    selectionBaselineRef.current = saved;
+    setDraft(saved);
+    prefillImportedProfileName(saved);
+    setStatus("reviewing");
+    setMessage("AI 字段映射已通过 Schema 与来源块校验；低置信结果仍需逐项确认。");
   }
 
   async function createDraftFromPlainText(input: {
@@ -394,11 +482,14 @@ export function ResumeImportWizard(props: {
     mimeType: ImportedResumeSource["mimeType"];
     fileHash: string;
     text: string;
+    sourceKind: "docx" | "scanned_pdf";
+    sourceBlocks?: Array<{ id: string; sourcePath?: string; text: string; rawText: string; blockType: "paragraph" | "heading" | "list_item" | "table_cell" | "text_block" | "unknown"; order: number }>;
     successMessage: string;
   }) {
     setStatus("classifying_sections");
     const now = new Date().toISOString();
-    const normalizedText = normalizeImportedPlainText(input.text);
+    const sourceBlocks = normalizeExtractedSourceBlocks(input.sourceBlocks ?? [{ id: `text-block-${nanoid(8)}`, text: input.text, rawText: input.text, blockType: "text_block", order: 0 }]);
+    const normalizedText = normalizedBlocksToText(sourceBlocks);
     if (!normalizedText) {
       fail("未读取到可导入文本。");
       return;
@@ -419,10 +510,14 @@ export function ResumeImportWizard(props: {
         extractedAt: now
       },
       pages: [pageRecord],
+      sourceKind: input.sourceKind,
+      sourceBlocks,
+      qualityReport: analyzeImportQuality({ sourceType: input.sourceKind, blocks: sourceBlocks }),
       now
     });
-    const saved = await props.repository.saveImportedResumeDraft(importedDraft, 0);
+    const saved = await props.repository.saveImportedResumeDraft({ ...importedDraft, parserVersion: `${importedDraft.parserVersion}+${RESUME_IMPORT_CLEANER_VERSION}` }, 0);
     setDraft(saved);
+    prefillImportedProfileName(saved);
     setPages([pageRecord]);
     setSelectedPageNumber(1);
     setStatus("reviewing");
@@ -458,6 +553,8 @@ export function ResumeImportWizard(props: {
           confidence: current?.confidence ?? "medium",
           sourceStatus: current?.value === value.trim() ? current.sourceStatus : "user_confirmed_modified",
           userEdited: current?.value !== value.trim(),
+          sourceBlockIds: current?.sourceBlockIds ?? [],
+          sourceQuote: current?.sourceQuote ?? current?.value,
           mapping: current?.mapping ? { ...current.mapping, needsConfirmation: false } : undefined
         }
       : undefined;
@@ -646,8 +743,24 @@ export function ResumeImportWizard(props: {
   }
 
   async function confirmImport() {
-    if (!draft || importableItemCount === 0) {
+    if (!draft || (importableItemCount === 0 && (targetMode !== "new" || createGeneralResume))) {
       setMessage("没有可导入的已定位或用户确认条目。");
+      return;
+    }
+    if (draft.qualityReport?.recommendedRoute === "ocr_ai") {
+      setMessage("文本层可信度过低，已阻止直接提交。请改用原 PDF 或等待 P3.6b OCR。");
+      return;
+    }
+    if (targetMode === "existing" && !targetProfileId) {
+      setMessage("请选择要导入到的已有人物。");
+      return;
+    }
+    if (targetMode === "new" && !newProfileName.trim()) {
+      setMessage("请填写新人物名称。");
+      return;
+    }
+    if (nameMismatch && basicMergeActions.name !== "keep_existing") {
+      setMessage("导入姓名与当前人物不一致，请改为新人物或明确继续导入当前人物。");
       return;
     }
     if (unconfirmedMappingCount > 0) {
@@ -661,11 +774,14 @@ export function ResumeImportWizard(props: {
         importId: draft.importId,
         expectedDraftRevision: draft.revision,
         operationId: `resume-import-confirm-${draft.importId}`,
-        mergeDecisions: buildMergeDecisions()
+        mergeDecisions: buildMergeDecisions(),
+        target: targetMode === "existing"
+          ? { mode: "existing", profileId: targetProfileId }
+          : { mode: "new", profileName: newProfileName.trim(), createGeneralResume }
       });
       setStatus("completed");
-      setMessage(result.idempotent ? "该导入已确认过，已打开现有通用简历。" : "已确认导入，并创建通用简历分支。");
-      notify({ type: "success", title: "导入成功", message: result.idempotent ? "已打开现有通用简历。" : "已创建通用简历和首个版本。" });
+      setMessage(result.branchId ? (result.idempotent ? "该导入已确认过，已打开现有通用简历。" : "已确认导入，并创建通用简历分支。") : "已确认导入并创建人物资料。");
+      notify({ type: "success", title: "导入成功", message: result.branchId ? (result.idempotent ? "已打开现有通用简历。" : "已创建通用简历和首个版本。") : "已创建人物资料，未创建简历。" });
       await props.onImported({ profileId: result.profileId, branchId: result.branchId });
     } catch (error) {
       setStatus("reviewing");
@@ -686,13 +802,13 @@ export function ResumeImportWizard(props: {
   }
 
   function buildMergeDecisions(): ImportMergeDecision[] {
-    if (!draft || !props.profile) {
+    if (!draft || targetMode !== "existing" || !targetProfile) {
       return [];
     }
     return (["name", "email", "phone", "location", "summary"] as BasicFieldKey[])
       .flatMap((key) => {
         const imported = draft.basics[key]?.value;
-        const existing = props.profile?.basics[key];
+        const existing = targetProfile.basics[key];
         if (!imported || !existing || imported === existing) {
           return [];
         }
@@ -725,6 +841,32 @@ export function ResumeImportWizard(props: {
   return (
     <section className={`resume-import-wizard no-print ${draft ? "resume-import-wizard-review" : ""}`} aria-live="polite">
       <input ref={fileInputRef} className="visually-hidden" type="file" accept="application/pdf,.pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/json,.json,image/png,image/jpeg,.png,.jpg,.jpeg" onChange={handleFileChange} />
+      <fieldset className="import-target-picker">
+        <legend>1. 选择导入目标</legend>
+        <div className="import-target-options">
+          <label className={targetMode === "existing" ? "import-target-option active" : "import-target-option"}>
+            <input type="radio" name="import-target" checked={targetMode === "existing"} disabled={(props.profiles ?? []).length === 0 && !props.profile} onChange={() => setTargetMode("existing")} />
+            导入到已有资料
+          </label>
+          <label className={targetMode === "new" ? "import-target-option active" : "import-target-option"}>
+            <input type="radio" name="import-target" checked={targetMode === "new"} onChange={() => { setTargetMode("new"); if (!newProfileName.trim() && draft?.basics.name?.value) setNewProfileName(draft.basics.name.value); }} />
+            创建新人物
+          </label>
+        </div>
+        {targetMode === "existing" ? (
+          <label className="import-target-field">目标人物
+            <select value={targetProfileId} onChange={(event) => setTargetProfileId(event.target.value)}>
+              {(props.profiles?.length ? props.profiles : props.profile ? [props.profile] : []).map((profile) => <option key={profile.id} value={profile.id}>{profile.name}</option>)}
+            </select>
+          </label>
+        ) : (
+          <div className="import-new-profile-fields">
+            <label className="import-target-field">人物名称<input value={newProfileName} onChange={(event) => setNewProfileName(event.target.value)} placeholder="将从导入姓名预填" /></label>
+            <label className="inline-toggle"><input type="checkbox" checked={createGeneralResume} onChange={(event) => setCreateGeneralResume(event.target.checked)} />同时创建通用简历</label>
+          </div>
+        )}
+        {nameMismatch ? <div className="import-name-mismatch" role="alert"><strong>姓名不一致</strong><span>导入姓名与当前人物不一致，建议创建新人物；也可以明确继续导入当前人物。</span><div className="action-row"><button type="button" className="secondary-button compact" onClick={() => { setTargetMode("new"); setNewProfileName(draft?.basics.name?.value ?? ""); }}>改为创建新人物</button><button type="button" className="secondary-button compact" onClick={() => setBasicMergeActions((current) => ({ ...current, name: "keep_existing" }))}>继续当前人物</button></div></div> : null}
+      </fieldset>
       {!draft && sourceMode === "file" ? (
         <div
           className="import-dropzone"
@@ -800,22 +942,13 @@ export function ResumeImportWizard(props: {
       {draft ? (
         <>
         <div className="import-review-toolbar">
-          <div><strong>{draft.source.fileName}</strong><span>{importStatusLabel(status)} · {message}</span></div>
-          <div className="action-row">
-            <button className="secondary-button compact" type="button" onClick={() => { void applyBulkSelection("use_imported"); }}>全部使用安全导入项</button>
-            <button className="secondary-button compact" type="button" onClick={() => { void applyBulkSelection("keep_existing"); }}>全部保留现有</button>
-            <button className="secondary-button compact" type="button" onClick={() => { void applyBulkSelection("safe_only"); }}>仅使用无冲突项</button>
-            <button className="secondary-button compact" type="button" onClick={() => { void applyBulkSelection("reset"); }}>重置选择</button>
-            <button className="secondary-button compact" type="button" onClick={cancelImport} disabled={status === "confirming"}>取消导入</button>
-          </div>
+          <details className="import-bulk-menu"><summary className="secondary-button compact">批量操作</summary><div>
+            <button type="button" onClick={() => { void applyBulkSelection("use_imported"); }}>全部使用安全导入项</button>
+            {targetMode === "existing" ? <button type="button" onClick={() => { void applyBulkSelection("keep_existing"); }}>全部保留现有</button> : null}
+            <button type="button" onClick={() => { void applyBulkSelection("safe_only"); }}>仅使用无冲突项</button>
+            <button type="button" onClick={() => { void applyBulkSelection("reset"); }}>重置选择</button>
+          </div></details>
         </div>
-        {qualityReport ? <ImportQualityReport report={qualityReport} /> : null}
-        {pendingJsonMapping && jsonText ? (
-          <div className="ai-mapping-consent">
-            <label className="inline-toggle"><input type="checkbox" checked={aiPrivacyConfirmed} onChange={(event) => setAiPrivacyConfirmed(event.target.checked)} />我同意将脱敏后的 JSON 内容发送给已配置的外部模型；手机号、邮箱、身份证号和精确地址会先脱敏。</label>
-            <button className="secondary-button compact" type="button" disabled={!aiPrivacyConfirmed || status === "importing_json"} onClick={() => { void runAiJsonMapping(); }}>使用 AI 智能映射</button>
-          </div>
-        ) : null}
         <div className="import-review-grid">
           <aside className="import-source-panel">
             <div className="section-heading compact-heading">
@@ -842,9 +975,14 @@ export function ResumeImportWizard(props: {
           </aside>
 
           <div className="import-structure-panel">
+            {(pendingJsonMapping && jsonText) || (["docx", "text_pdf"].includes(draft.sourceKind) && draft.qualityReport?.recommendedRoute === "ai_text") ? (
+              <div className="ai-mapping-consent">
+                <label className="inline-toggle"><input type="checkbox" checked={aiPrivacyConfirmed} onChange={(event) => setAiPrivacyConfirmed(event.target.checked)} />同意发送脱敏来源块；敏感信息使用稳定占位符。</label>
+                <button className="secondary-button compact" type="button" disabled={!aiPrivacyConfirmed || status === "importing_json" || status === "classifying_sections"} onClick={() => { void (pendingJsonMapping && jsonText ? runAiJsonMapping() : runAiDocumentMapping()); }}>使用 AI 智能映射</button>
+              </div>
+            ) : null}
             <div className="section-heading compact-heading">
               <div><h3>核对结构</h3>{unconfirmedMappingCount > 0 ? <p>{unconfirmedMappingCount} 个映射待单独确认</p> : null}</div>
-              <button className="primary-button compact" disabled={status === "confirming" || importableItemCount === 0 || unconfirmedMappingCount > 0} onClick={confirmImport}>确认导入</button>
             </div>
 
             <div className="review-row">
@@ -855,7 +993,7 @@ export function ResumeImportWizard(props: {
                     <label>{basicLabel(key)}<input defaultValue={draft.basics[key]?.value ?? ""} onBlur={(event) => { void updateBasicField(key, event.target.value); }} /></label>
                     {draft.basics[key]?.mapping ? <MappingTrace trace={draft.basics[key]!.mapping!} /> : null}
                     {draft.basics[key]?.mapping?.needsConfirmation ? <button className="secondary-button compact" type="button" onClick={() => { void confirmBasicMapping(key); }}>确认字段映射</button> : null}
-                    {props.profile?.basics[key] && draft.basics[key]?.value && props.profile.basics[key] !== draft.basics[key]?.value ? (
+                    {targetMode === "existing" && targetProfile?.basics[key] && draft.basics[key]?.value && targetProfile.basics[key] !== draft.basics[key]?.value ? (
                       <select
                         value={basicMergeActions[key] ?? "keep_existing"}
                         onChange={(event) => setBasicMergeActions((current) => ({ ...current, [key]: event.target.value as ImportMergeDecision["action"] }))}
@@ -915,6 +1053,10 @@ export function ResumeImportWizard(props: {
             {draft.unclassifiedBlocks.length > 0 ? <section className="review-row import-unclassified-blocks"><strong>未识别内容（{draft.unclassifiedBlocks.length}）</strong><p>这些字段没有被丢弃，也不会自动写入正式简历。</p>{draft.unclassifiedBlocks.map((block) => <details key={block.sourcePath}><summary>{block.sourcePath}</summary><pre>{stringifyUnknown(block.sourceValue)}</pre></details>)}</section> : null}
           </div>
         </div>
+        <footer className="import-review-footer">
+          <div><strong>{draft.qualityReport?.recommendedRoute === "ocr_ai" ? "当前文本层不可安全提交" : `${importableItemCount} 条内容待确认导入`}</strong><span>{targetMode === "new" ? `创建新人物：${newProfileName || "待填写"}` : `导入到：${targetProfile?.name ?? "待选择"}`} · {message}</span></div>
+          <div className="action-row"><button className="secondary-button" type="button" onClick={cancelImport} disabled={status === "confirming"}>取消</button><button className="primary-button" disabled={status === "confirming" || draft.qualityReport?.recommendedRoute === "ocr_ai" || (createGeneralResume && importableItemCount === 0) || unconfirmedMappingCount > 0 || (targetMode === "new" && !newProfileName.trim()) || (nameMismatch && basicMergeActions.name !== "keep_existing")} onClick={confirmImport}>确认导入</button></div>
+        </footer>
         </>
       ) : null}
     </section>
@@ -943,16 +1085,6 @@ async function buildSyntheticPageText(input: {
     createdAt: input.now,
     updatedAt: input.now
   };
-}
-
-function normalizeImportedPlainText(text: string) {
-  return text
-    .replace(/\r\n?/g, "\n")
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .join("\n")
-    .trim();
 }
 
 function isDocxFile(file: File) {
@@ -1062,58 +1194,53 @@ function stringifyUnknown(value: unknown) {
   try { return JSON.stringify(value, null, 2); } catch { return String(value); }
 }
 
-type ImportQualityReport = {
-  totalItems: number;
-  importableItems: number;
-  highConfidence: number;
-  mediumConfidence: number;
-  lowConfidence: number;
-  locatedItems: number;
-  ambiguousItems: number;
-  unlocatedItems: number;
-  unknownSections: number;
-  warningCount: number;
-};
+function normalizeName(value: string) {
+  return value.normalize("NFKC").replace(/\s+/g, "").toLocaleLowerCase();
+}
 
-function buildImportQualityReport(draft: ImportedResumeDraft): ImportQualityReport {
-  const items = draft.sections.flatMap((section) => section.items);
+function chunkSourceBlocks(blocks: ImportedResumeDraft["sourceBlocks"], maxChars = 18_000) {
+  const chunks: ImportedResumeDraft["sourceBlocks"][] = [];
+  let current: ImportedResumeDraft["sourceBlocks"] = [];
+  let size = 2;
+  for (const block of blocks) {
+    const blockSize = JSON.stringify(block).length + 1;
+    if (current.length && size + blockSize > maxChars) {
+      chunks.push(current);
+      current = [];
+      size = 2;
+    }
+    current.push(block);
+    size += blockSize;
+  }
+  if (current.length) chunks.push(current);
+  return chunks.length ? chunks : [[]];
+}
+
+function mergeDocumentMapperOutputs(outputs: ResumeJsonMapperOutput[], sourceBlocks: ImportedResumeDraft["sourceBlocks"]): ResumeJsonMapperOutput {
+  const structuredDraft = {
+    schemaVersion: "structured-resume-draft-v1" as const,
+    basics: Object.assign({}, ...outputs.map((output) => output.structuredDraft.basics)),
+    sections: outputs.flatMap((output) => output.structuredDraft.sections)
+  };
+  const cited = new Set(collectSourcePaths(structuredDraft));
+  const unclassified = outputs.flatMap((output) => output.unclassifiedBlocks);
+  for (const block of sourceBlocks) {
+    if (!cited.has(block.id) && !unclassified.some((item) => item.sourcePath === block.id)) {
+      unclassified.push({ sourcePath: block.id, sourceValue: block.normalizedText, reason: "AI 未引用该来源块，已确定性保留。" });
+    }
+  }
   return {
-    totalItems: items.length,
-    importableItems: items.filter((item) => item.included && (item.sourceStatus === "located" || item.sourceStatus === "user_confirmed_modified")).length,
-    highConfidence: items.filter((item) => item.confidence === "high").length,
-    mediumConfidence: items.filter((item) => item.confidence === "medium").length,
-    lowConfidence: items.filter((item) => item.confidence === "low").length,
-    locatedItems: items.filter((item) => item.sourceStatus === "located").length,
-    ambiguousItems: items.filter((item) => item.sourceStatus === "ambiguous").length,
-    unlocatedItems: items.filter((item) => item.sourceStatus === "unlocated").length,
-    unknownSections: draft.sections.filter((section) => section.sectionType === "unknown").length,
-    warningCount: draft.warnings.length
+    structuredDraft,
+    unclassifiedBlocks: Array.from(new Map(unclassified.map((item) => [item.sourcePath, item])).values())
   };
 }
 
-function ImportQualityReport({ report }: { report: ImportQualityReport }) {
-  return (
-    <section className="import-quality-report" data-testid="import-quality-report">
-      <div>
-        <strong>识别质量</strong>
-        <span>{report.importableItems}/{report.totalItems} 条可导入</span>
-      </div>
-      <div>
-        <span>高置信 {report.highConfidence}</span>
-        <span>中置信 {report.mediumConfidence}</span>
-        <span>低置信 {report.lowConfidence}</span>
-      </div>
-      <div>
-        <span>已定位 {report.locatedItems}</span>
-        <span>需核对 {report.ambiguousItems}</span>
-        <span>未定位 {report.unlocatedItems}</span>
-      </div>
-      <div>
-        <span>待分类栏目 {report.unknownSections}</span>
-        <span>提示 {report.warningCount}</span>
-      </div>
-    </section>
-  );
+function collectSourcePaths(value: unknown): string[] {
+  if (Array.isArray(value)) return value.flatMap(collectSourcePaths);
+  if (!value || typeof value !== "object") return [];
+  const record = value as Record<string, unknown>;
+  const own = Array.isArray(record.sourcePaths) ? record.sourcePaths.filter((item): item is string => typeof item === "string") : [];
+  return [...own, ...Object.values(record).flatMap(collectSourcePaths)];
 }
 
 function importStatusLabel(status: ImportStatus) {

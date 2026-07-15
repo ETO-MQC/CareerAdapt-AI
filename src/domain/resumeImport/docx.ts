@@ -1,5 +1,5 @@
 export type DocxTextExtractionResult =
-  | { ok: true; text: string; warnings: string[] }
+  | { ok: true; text: string; warnings: string[]; blocks: DocxExtractedBlock[] }
   | { ok: false; code: "invalid_docx" | "document_xml_missing" | "unsupported_compression" | "empty_docx_text"; message: string };
 
 type ZipEntry = {
@@ -7,6 +7,15 @@ type ZipEntry = {
   compressionMethod: number;
   compressedSize: number;
   localHeaderOffset: number;
+};
+
+export type DocxExtractedBlock = {
+  id: string;
+  sourcePath: string;
+  text: string;
+  rawText: string;
+  blockType: "paragraph" | "heading" | "list_item" | "table_cell";
+  order: number;
 };
 
 const EOCD_SIGNATURE = 0x06054b50;
@@ -33,13 +42,15 @@ export async function extractTextFromDocxBuffer(buffer: ArrayBuffer): Promise<Do
     return { ok: false, code: "unsupported_compression", message: "DOCX 使用了当前不支持的压缩方式。" };
   }
   const xml = new TextDecoder("utf-8").decode(xmlBytes);
-  const text = extractWordXmlText(xml);
+  const blocks = extractWordXmlBlocks(xml);
+  const text = blocks.map((block) => block.text).join("\n");
   if (!text.trim()) {
     return { ok: false, code: "empty_docx_text", message: "未能从 DOCX 正文中读取可导入文本。" };
   }
   return {
     ok: true,
     text,
+    blocks,
     warnings: entries.some((entry) => entry.name.startsWith("word/media/"))
       ? ["DOCX 包含图片；本轮仅导入可读取的正文文本。"]
       : []
@@ -109,15 +120,57 @@ async function inflateRaw(bytes: Uint8Array) {
   return new Uint8Array(await new Response(stream).arrayBuffer());
 }
 
-function extractWordXmlText(xml: string) {
-  return xml
-    .split(/<\/w:p>/)
-    .map((paragraph) => Array.from(paragraph.matchAll(/<w:t(?:\s[^>]*)?>(.*?)<\/w:t>/g))
-      .map((match) => decodeXml(match[1]))
-      .join(""))
-    .map((paragraph) => paragraph.trim())
-    .filter(Boolean)
-    .join("\n");
+function extractWordXmlBlocks(xml: string): DocxExtractedBlock[] {
+  const body = xml.match(/<w:body(?:\s[^>]*)?>([\s\S]*?)<\/w:body>/)?.[1] ?? xml;
+  const blocks: DocxExtractedBlock[] = [];
+  let paragraphIndex = 0;
+  let tableIndex = 0;
+  const elements = body.matchAll(/<w:tbl(?:\s[^>]*)?>[\s\S]*?<\/w:tbl>|<w:p(?:\s[^>]*)?>[\s\S]*?<\/w:p>/g);
+  for (const match of elements) {
+    const element = match[0];
+    if (element.startsWith("<w:tbl")) {
+      let cellIndex = 0;
+      for (const cell of element.matchAll(/<w:tc(?:\s[^>]*)?>[\s\S]*?<\/w:tc>/g)) {
+        const rawText = wordXmlText(cell[0]);
+        if (!rawText.trim()) continue;
+        blocks.push({
+          id: `docx-table-${tableIndex}-cell-${cellIndex}`,
+          sourcePath: `word/document.xml#table[${tableIndex}].cell[${cellIndex}]`,
+          text: rawText.trim(),
+          rawText,
+          blockType: "table_cell",
+          order: blocks.length
+        });
+        cellIndex += 1;
+      }
+      tableIndex += 1;
+      continue;
+    }
+    const rawText = wordXmlText(element);
+    if (!rawText.trim()) {
+      paragraphIndex += 1;
+      continue;
+    }
+    const style = element.match(/<w:pStyle[^>]*w:val="([^"]+)"/)?.[1] ?? "";
+    const isHeading = /heading|title|标题/i.test(style);
+    const isList = /<w:numPr(?:\s|>)/.test(element);
+    blocks.push({
+      id: `docx-paragraph-${paragraphIndex}`,
+      sourcePath: `word/document.xml#paragraph[${paragraphIndex}]`,
+      text: rawText.trim(),
+      rawText,
+      blockType: isHeading ? "heading" : isList ? "list_item" : "paragraph",
+      order: blocks.length
+    });
+    paragraphIndex += 1;
+  }
+  return blocks;
+}
+
+function wordXmlText(xml: string) {
+  return Array.from(xml.matchAll(/<w:t(?:\s[^>]*)?>(.*?)<\/w:t>/g))
+    .map((match) => decodeXml(match[1]))
+    .join("");
 }
 
 function decodeXml(value: string) {

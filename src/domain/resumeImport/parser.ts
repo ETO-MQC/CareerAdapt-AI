@@ -8,6 +8,9 @@ import {
   type ImportedResumePageRef,
   type ImportedResumeSection,
   type ImportedResumeSectionType,
+  type ImportQualityReport,
+  type NormalizedSourceBlock,
+  type ResumeSourceKind,
   StructuredResumeDraftSchema,
   type ImportedResumeSource,
   type PdfPageText,
@@ -56,6 +59,9 @@ export function createImportedResumeDraftFromPdf(input: {
   importId?: string;
   source: SourceInput;
   pages: PageInput[];
+  sourceKind?: ResumeSourceKind;
+  sourceBlocks?: NormalizedSourceBlock[];
+  qualityReport?: ImportQualityReport;
   now?: string;
 }): ImportedResumeDraft {
   return createImportedResumeDraftFromText({
@@ -71,6 +77,9 @@ export function createImportedResumeDraftFromText(input: {
   importId?: string;
   source: SourceInput & { mimeType: ImportedResumeSource["mimeType"] };
   pages: PageInput[];
+  sourceKind?: ResumeSourceKind;
+  sourceBlocks?: NormalizedSourceBlock[];
+  qualityReport?: ImportQualityReport;
   now?: string;
 }): ImportedResumeDraft {
   const now = input.now ?? new Date().toISOString();
@@ -90,8 +99,8 @@ export function createImportedResumeDraftFromText(input: {
   }));
   const lines = pages.flatMap((page) => splitPageLines(page));
   const combinedText = pages.map((page) => page.normalizedText).join("\n\n");
-  const basics = detectBasics(combinedText, pageSources);
-  const sections = detectSections(lines);
+  const basics = attachBasicBlockSources(detectBasics(combinedText, pageSources), input.sourceBlocks ?? []);
+  const sections = attachSectionBlockSources(detectSections(lines), input.sourceBlocks ?? []);
   const warnings = [
     ...sections
       .filter((section) => section.sectionType === "unknown")
@@ -127,6 +136,9 @@ export function createImportedResumeDraftFromText(input: {
       pageCount: input.source.pageCount,
       extractedAt: input.source.extractedAt ?? now
     },
+    sourceKind: input.sourceKind ?? (input.source.mimeType === "application/pdf" ? "text_pdf" : "docx"),
+    sourceBlocks: input.sourceBlocks ?? [],
+    qualityReport: input.qualityReport,
     basics,
     sections,
     pages,
@@ -139,9 +151,12 @@ export function createImportedResumeDraftFromText(input: {
 
 export function createImportedResumeDraftFromStructuredJson(input: {
   importId?: string;
-  source: SourceInput & { mimeType: "application/json" | "text/plain" };
+  source: SourceInput & { mimeType: ImportedResumeSource["mimeType"] };
   structuredDraft: StructuredResumeDraft;
   unclassifiedBlocks?: ImportedResumeDraft["unclassifiedBlocks"];
+  sourceKind?: "standard_json" | "external_json";
+  sourceBlocks?: NormalizedSourceBlock[];
+  qualityReport?: ImportQualityReport;
   now?: string;
 }): ImportedResumeDraft {
   const now = input.now ?? new Date().toISOString();
@@ -154,14 +169,20 @@ export function createImportedResumeDraftFromStructuredJson(input: {
     charStart: 0,
     charEnd: pageText.length
   }];
+  const structuredField = (value: NonNullable<StructuredResumeDraft["basics"]["name"]>, confidence: "high" | "medium" | "low") => {
+    const field = makeStructuredField(value, pageSources, confidence);
+    const mappingPaths = typeof value === "string" ? [] : value.mapping.sourcePaths;
+    const matches = (input.sourceBlocks ?? []).filter((block) => mappingPaths.includes(block.sourcePath ?? "") || block.normalizedText.includes(field.value));
+    return { ...field, sourceBlockIds: matches.map((block) => block.id), sourceQuote: field.value };
+  };
   const basics = {
-    name: structuredDraft.basics.name ? makeStructuredField(structuredDraft.basics.name, pageSources, "high") : undefined,
-    email: structuredDraft.basics.email ? makeStructuredField(structuredDraft.basics.email, pageSources, "high") : undefined,
-    phone: structuredDraft.basics.phone ? makeStructuredField(structuredDraft.basics.phone, pageSources, "medium") : undefined,
-    location: structuredDraft.basics.location ? makeStructuredField(structuredDraft.basics.location, pageSources, "medium") : undefined,
-    links: (structuredDraft.basics.links ?? []).map((link) => makeStructuredField(link, pageSources, "medium")),
+    name: structuredDraft.basics.name ? structuredField(structuredDraft.basics.name, "high") : undefined,
+    email: structuredDraft.basics.email ? structuredField(structuredDraft.basics.email, "high") : undefined,
+    phone: structuredDraft.basics.phone ? structuredField(structuredDraft.basics.phone, "medium") : undefined,
+    location: structuredDraft.basics.location ? structuredField(structuredDraft.basics.location, "medium") : undefined,
+    links: (structuredDraft.basics.links ?? []).map((link) => structuredField(link, "medium")),
     targetRole: undefined,
-    summary: structuredDraft.basics.summary ? makeStructuredField(structuredDraft.basics.summary, pageSources, "medium") : undefined
+    summary: structuredDraft.basics.summary ? structuredField(structuredDraft.basics.summary, "medium") : undefined
   };
   const sections: ImportedResumeSection[] = structuredDraft.sections.map((section, sectionIndex) => ({
     id: `import-section-${sectionIndex}-${nanoid(6)}`,
@@ -175,6 +196,11 @@ export function createImportedResumeDraftFromStructuredJson(input: {
     items: section.items.map((item, itemIndex) => {
       const normalized = structuredItemText(item);
       const mapping = typeof item === "string" ? undefined : item.mapping;
+      const sourceBlocks = (input.sourceBlocks ?? []).filter((block) =>
+        mapping?.sourcePaths.includes(block.sourcePath ?? "")
+        || block.normalizedText.includes(normalized)
+        || normalized.includes(block.normalizedText)
+      );
       return {
         id: `import-item-${nanoid(10)}`,
         rawText: normalized,
@@ -185,6 +211,8 @@ export function createImportedResumeDraftFromStructuredJson(input: {
         confidence: mapping?.confidenceLevel ?? "high" as const,
         sourceStatus: mapping?.needsConfirmation ? "ambiguous" as const : "user_confirmed_modified" as const,
         userEdited: !mapping,
+        sourceBlockIds: sourceBlocks.map((block) => block.id),
+        sourceQuote: normalized.trim(),
         mapping
       };
     })
@@ -206,6 +234,9 @@ export function createImportedResumeDraftFromStructuredJson(input: {
       pageCount: 1,
       extractedAt: input.source.extractedAt ?? now
     },
+    sourceKind: input.sourceKind ?? "standard_json",
+    sourceBlocks: input.sourceBlocks ?? [],
+    qualityReport: input.qualityReport,
     basics,
     sections,
     pages: [{
@@ -226,6 +257,40 @@ export function createImportedResumeDraftFromStructuredJson(input: {
     parserVersion: `${RESUME_IMPORT_PARSER_VERSION}.structured-json`,
     createdAt: now,
     updatedAt: now
+  });
+}
+
+function attachBasicBlockSources<T extends ReturnType<typeof detectBasics>>(basics: T, blocks: NormalizedSourceBlock[]): T {
+  const attach = (field: ImportedResumeField | undefined) => {
+    if (!field) return field;
+    const matches = findSourceBlocks(field.value, blocks);
+    return { ...field, sourceBlockIds: matches.map((block) => block.id), sourceQuote: field.value };
+  };
+  return {
+    ...basics,
+    name: attach(basics.name),
+    email: attach(basics.email),
+    phone: attach(basics.phone),
+    location: attach(basics.location),
+    links: basics.links.map((field) => attach(field)!)
+  };
+}
+
+function attachSectionBlockSources(sections: ImportedResumeSection[], blocks: NormalizedSourceBlock[]) {
+  return sections.map((section) => ({
+    ...section,
+    items: section.items.map((item) => {
+      const matches = findSourceBlocks(item.rawText, blocks);
+      return { ...item, sourceBlockIds: matches.map((block) => block.id), sourceQuote: item.rawText };
+    })
+  }));
+}
+
+function findSourceBlocks(quote: string, blocks: NormalizedSourceBlock[]) {
+  const compactQuote = quote.replace(/\s+/g, "");
+  return blocks.filter((block) => {
+    const compact = block.normalizedText.replace(/\s+/g, "");
+    return compact && (compactQuote.includes(compact) || compact.includes(compactQuote));
   });
 }
 
@@ -411,7 +476,9 @@ function createItem(lines: LineWithPage[], order: number): ImportedResumeItem {
     pageRefs,
     confidence: pageRefs.length > 0 ? "medium" : "low",
     sourceStatus: pageRefs.length > 0 ? "located" : "unlocated",
-    userEdited: false
+    userEdited: false,
+    sourceBlockIds: [],
+    sourceQuote: rawText
   };
 }
 
@@ -426,7 +493,9 @@ function makeField(
     pageRefs: location.status === "located" ? [{ pageNumber: location.locator.pageNumber, quote: value }] : [],
     confidence: location.status === "located" ? confidence : "low",
     sourceStatus: location.status,
-    userEdited: false
+    userEdited: false,
+    sourceBlockIds: [],
+    sourceQuote: value
   };
 }
 

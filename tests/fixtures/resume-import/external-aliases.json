@@ -1,0 +1,6 @@
+{
+  "profile": { "name": "Alex Chen" },
+  "education": [{ "school": "Example University", "degree": "BSc", "start": "2021-09", "end": "2025-06" }],
+  "projects": [{ "projectName": "双语数据项目", "description": "Built and verified a bilingual dataset." }],
+  "vendorMetadata": { "source": "sanitized-fixture" }
+}

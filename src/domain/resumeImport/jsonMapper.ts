@@ -1,4 +1,4 @@
-import { StructuredResumeDraftSchema, type ImportedResumeMappingTrace, type ResumeJsonMapperOutput } from "@/domain/schemas";
+import { StructuredResumeDraftSchema, type ExtractedSourceBlock, type ImportedResumeMappingTrace, type ResumeJsonMapperOutput } from "@/domain/schemas";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -124,6 +124,20 @@ export function mapExternalResumeJson(value: unknown): ResumeJsonMapperOutput {
     structuredDraft: StructuredResumeDraftSchema.parse({ schemaVersion: "structured-resume-draft-v1", basics, sections }),
     unclassifiedBlocks
   };
+}
+
+export function createJsonSourceBlocks(value: unknown): ExtractedSourceBlock[] {
+  return flattenLeaves(value).map((leaf, order) => {
+    const rawText = typeof leaf.value === "string" ? leaf.value : JSON.stringify(leaf.value);
+    return {
+      id: `json-block-${order}`,
+      sourcePath: leaf.path,
+      text: rawText,
+      rawText,
+      blockType: "text_block",
+      order
+    };
+  });
 }
 
 function trace(sourcePaths: string[], sourceValues: unknown[], confidenceLevel: ImportedResumeMappingTrace["confidenceLevel"], confidenceReason: string, needsConfirmation: boolean): ImportedResumeMappingTrace {

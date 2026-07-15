@@ -6,32 +6,33 @@ export type RedactionResult = {
     type: "phone" | "email" | "id_card" | "address";
     count: number;
   }[];
+  restorationMap: Record<string, string>;
 };
 
 const redactionPatterns: Array<{
   type: RedactionResult["redactions"][number]["type"];
   pattern: RegExp;
-  replacement: string;
+  placeholderPrefix: string;
 }> = [
   {
     type: "email",
     pattern: /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi,
-    replacement: "[redacted-email]"
+    placeholderPrefix: "EMAIL"
   },
   {
     type: "phone",
     pattern: /\b1[3-9]\d{9}\b/g,
-    replacement: "[redacted-phone]"
+    placeholderPrefix: "PHONE"
   },
   {
     type: "id_card",
     pattern: /\b\d{17}[\dXx]\b/g,
-    replacement: "[redacted-id-card]"
+    placeholderPrefix: "ID_NUMBER"
   },
   {
     type: "address",
     pattern: /[\u4e00-\u9fa5A-Za-z0-9]{2,}(?:省|市|区|县|镇|街道|路|号楼|单元|室)/g,
-    replacement: "[redacted-address]"
+    placeholderPrefix: "ADDRESS"
   }
 ];
 
@@ -82,12 +83,19 @@ export function stableHashText(text: string) {
 export function redactSensitiveTextForModel(text: string): RedactionResult {
   let redacted = text;
   const redactions: RedactionResult["redactions"] = [];
+  const restorationMap: Record<string, string> = {};
 
   for (const item of redactionPatterns) {
     let count = 0;
-    redacted = redacted.replace(item.pattern, () => {
+    const placeholders = new Map<string, string>();
+    redacted = redacted.replace(item.pattern, (matched) => {
       count += 1;
-      return item.replacement;
+      const existing = placeholders.get(matched);
+      if (existing) return existing;
+      const placeholder = `[${item.placeholderPrefix}_${placeholders.size + 1}]`;
+      placeholders.set(matched, placeholder);
+      restorationMap[placeholder] = matched;
+      return placeholder;
     });
 
     if (count > 0) {
@@ -95,7 +103,21 @@ export function redactSensitiveTextForModel(text: string): RedactionResult {
     }
   }
 
-  return { text: redacted, redactions };
+  return { text: redacted, redactions, restorationMap };
+}
+
+export function restoreSensitivePlaceholders<T>(value: T, restorationMap: Record<string, string>): T {
+  const restoreText = (text: string) => Object.entries(restorationMap)
+    .reduce((current, [placeholder, original]) => current.split(placeholder).join(original), text);
+  const visit = (current: unknown): unknown => {
+    if (typeof current === "string") return restoreText(current);
+    if (Array.isArray(current)) return current.map(visit);
+    if (current && typeof current === "object") {
+      return Object.fromEntries(Object.entries(current).map(([key, item]) => [key, visit(item)]));
+    }
+    return current;
+  };
+  return visit(value) as T;
 }
 
 export function locateSourceQuote(rawText: string, sourceQuote: string): SourceSpan | undefined {

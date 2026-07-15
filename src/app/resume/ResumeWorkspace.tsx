@@ -181,6 +181,9 @@ export function ResumeWorkspace() {
   const [isTemplateCenterOpen, setIsTemplateCenterOpen] = useState(false);
   const [isImportPanelOpen, setIsImportPanelOpen] = useState(false);
   const [importEntryMode, setImportEntryMode] = useState<ResumeImportEntryMode>("file");
+  const [importCreatesNewProfile, setImportCreatesNewProfile] = useState(false);
+  const [isProfileCreateMenuOpen, setIsProfileCreateMenuOpen] = useState(false);
+  const [quickProfileName, setQuickProfileName] = useState("");
   const [workbenchStateHydrated, setWorkbenchStateHydrated] = useState(false);
   const [isJobCreatePanelOpen, setIsJobCreatePanelOpen] = useState(false);
   const [isJobCreatePanelDismissed, setIsJobCreatePanelDismissed] = useState(false);
@@ -505,6 +508,10 @@ export function ResumeWorkspace() {
   }, []);
 
   async function selectResumeProfile(profileId: string) {
+    if (profileId === "__new_profile__") {
+      setIsProfileCreateMenuOpen(true);
+      return;
+    }
     const selected = await repository.getProfile(profileId);
     if (!selected) {
       setMessage("所选个人资料已不存在，请返回资料库重新选择。");
@@ -518,6 +525,37 @@ export function ResumeWorkspace() {
     clearStudioEditor();
     await refreshLists(selected.id);
     setMessage(`当前人物已切换为 ${selected.name}。`);
+  }
+
+  async function createBlankProfile() {
+    const name = quickProfileName.trim();
+    if (!name) {
+      setMessage("请填写新人物名称。");
+      return;
+    }
+    const now = new Date().toISOString();
+    const created: CareerProfile = {
+      id: `profile-${crypto.randomUUID()}`,
+      name,
+      basics: { name, links: [] },
+      preference: { targetRoles: [], targetCities: [], industries: [] },
+      version: 1,
+      experiences: [],
+      skills: [],
+      certificates: [],
+      evidences: [],
+      unclassifiedBlocks: [],
+      createdAt: now,
+      updatedAt: now
+    };
+    await repository.saveProfile(created);
+    await repository.setActiveProfileId(created.id);
+    setProfileOverride(created);
+    setQuickProfileName("");
+    setIsProfileCreateMenuOpen(false);
+    setSelectedBranchId(BRANCH_LIST_SENTINEL);
+    await refreshLists(created.id);
+    setMessage(`已创建空白人物：${created.name}。`);
   }
 
   const clearStudioEditor = useCallback(() => {
@@ -548,9 +586,10 @@ export function ResumeWorkspace() {
     setSelectedBranchId(branchId);
   }, []);
 
-  const openImportDialog = useCallback((mode: ResumeImportEntryMode, trigger?: HTMLElement | null) => {
+  const openImportDialog = useCallback((mode: ResumeImportEntryMode, trigger?: HTMLElement | null, createNewProfile = false) => {
     importTriggerRef.current = trigger ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
     setImportEntryMode(mode);
+    setImportCreatesNewProfile(createNewProfile);
     setIsImportPanelOpen(true);
   }, []);
 
@@ -1142,16 +1181,20 @@ export function ResumeWorkspace() {
     }
   }
 
-  async function handleImportedResumeReady(result: { profileId: string; branchId: string }) {
+  async function handleImportedResumeReady(result: { profileId: string; branchId?: string }) {
     const nextProfile = await repository.getProfile(result.profileId);
     if (nextProfile) {
       setProfileOverride(nextProfile);
       await refreshLists(nextProfile.id);
     }
-    openResumeBranch(result.branchId);
-    setIsStudioEditMode(true);
+    if (result.branchId) {
+      openResumeBranch(result.branchId);
+      setIsStudioEditMode(true);
+    } else {
+      setSelectedBranchId(BRANCH_LIST_SENTINEL);
+    }
     setIsImportPanelOpen(false);
-    setMessage("已进入导入生成的通用简历，可继续编辑、换模板、调整分页并下载 PDF。");
+    setMessage(result.branchId ? "已进入导入生成的通用简历，可继续编辑、换模板、调整分页并下载 PDF。" : "新人物资料已创建，未同时创建通用简历。");
   }
 
   async function createGeneralResume(options: { fromProfile: boolean }) {
@@ -2984,9 +3027,17 @@ export function ResumeWorkspace() {
               <label className="field-input-group profile-person-selector">
                 <span className="field-input-label">选择人物</span>
                 <select data-testid="resume-profile-selector" value={profile.id} onChange={(event) => { void selectResumeProfile(event.target.value); }}>
+                  {profileOverride && !workspace.profiles.some((item) => item.id === profileOverride.id) ? (
+                    <option value={profileOverride.id}>{profileOverride.name}</option>
+                  ) : null}
                   {workspace.profiles.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+                  <option value="__new_profile__">＋ 新增人物</option>
                 </select>
               </label>
+              {isProfileCreateMenuOpen ? <div className="resume-profile-create-menu" role="group" aria-label="新增人物">
+                <label>人物名称<input value={quickProfileName} onChange={(event) => setQuickProfileName(event.target.value)} /></label>
+                <div className="action-row"><button className="primary-button compact" type="button" onClick={() => { void createBlankProfile(); }}>创建空白人物</button><button className="secondary-button compact" type="button" onClick={(event) => { setIsProfileCreateMenuOpen(false); openImportDialog("file", event.currentTarget, true); }}>从简历导入创建人物</button><button className="secondary-button compact" type="button" onClick={() => setIsProfileCreateMenuOpen(false)}>取消</button></div>
+              </div> : null}
             </section>
           ) : null}
           <section className="resume-import-strip no-print" data-testid="resume-import-strip">
@@ -3359,6 +3410,8 @@ export function ResumeWorkspace() {
                 key={importEntryMode}
                 repository={repository}
                 profile={profile}
+                profiles={workspace.status === "ready" ? workspace.profiles : profile ? [profile] : []}
+                initialTargetMode={importCreatesNewProfile ? "new" : "existing"}
                 initialMode={importEntryMode}
                 onImported={handleImportedResumeReady}
               />

@@ -12,6 +12,7 @@ import {
 } from "@/ai/tasks/registry";
 import type { AiTask } from "@/domain/schemas";
 import { redactSensitiveTextForModel } from "@/services/security/text";
+import { mapNormalizedBlocksToReviewDraft } from "@/domain/resumeImport/normalizer";
 import { mapExternalResumeJson } from "@/domain/resumeImport/jsonMapper";
 import { decodeAiSettingsFromHeader, type AiSettings } from "@/services/storage/aiSettings";
 
@@ -206,6 +207,10 @@ function estimateInputLength(input: unknown) {
 }
 
 function createMockOutput(task: AiTask, input: unknown) {
+  if (task === "resume-document-mapper") {
+    const rawText = typeof input === "object" && input && "rawText" in input ? String(input.rawText) : "[]";
+    return mapNormalizedBlocksToReviewDraft(JSON.parse(redactSensitiveTextForModel(rawText).text));
+  }
   if (task === "resume-json-mapper") {
     const mapperInput = input as ResumeJsonMapperTaskInput;
     return mapExternalResumeJson(JSON.parse(redactSensitiveTextForModel(mapperInput.rawText).text));

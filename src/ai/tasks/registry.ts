@@ -26,6 +26,7 @@ import { jdAnalyzerPrompt } from "@/ai/prompts/jdAnalyzer";
 import { profileBuilderPrompt } from "@/ai/prompts/profileBuilder";
 import { resumeTailorPrompt } from "@/ai/prompts/resumeTailor";
 import { resumeJsonMapperPrompt } from "@/ai/prompts/resumeJsonMapper";
+import { resumeDocumentMapperPrompt } from "@/ai/prompts/resumeDocumentMapper";
 
 export const stageBAiTaskSchema = z.enum(["profile-builder", "jd-analyzer"]);
 
@@ -36,6 +37,7 @@ const BaseAiInputSchema = z.object({
 
 export const ProfileBuilderTaskInputSchema = BaseAiInputSchema;
 export const ResumeJsonMapperTaskInputSchema = BaseAiInputSchema;
+export const ResumeDocumentMapperTaskInputSchema = BaseAiInputSchema;
 
 export const JdAnalyzerTaskInputSchema = BaseAiInputSchema.extend({
   title: z.string().min(1).max(120),
@@ -105,6 +107,7 @@ export const FactGuardTaskInputSchema = z.object({
 export type StageBAiTask = z.infer<typeof stageBAiTaskSchema>;
 export type ProfileBuilderTaskInput = z.infer<typeof ProfileBuilderTaskInputSchema>;
 export type ResumeJsonMapperTaskInput = z.infer<typeof ResumeJsonMapperTaskInputSchema>;
+export type ResumeDocumentMapperTaskInput = z.infer<typeof ResumeDocumentMapperTaskInputSchema>;
 export type JdAnalyzerTaskInput = z.infer<typeof JdAnalyzerTaskInputSchema>;
 export type EvidenceMatcherTaskInput = z.infer<typeof EvidenceMatcherTaskInputSchema>;
 export type ResumeTailorTaskInput = z.infer<typeof ResumeTailorTaskInputSchema>;
@@ -128,6 +131,28 @@ export type StageBTaskDefinition<TInput, TOutput> = AiTaskDefinition<TInput, TOu
 };
 
 export const aiTaskRegistry = {
+  "resume-document-mapper": {
+    task: "resume-document-mapper",
+    promptVersion: resumeDocumentMapperPrompt.version,
+    systemPrompt: resumeDocumentMapperPrompt.system,
+    inputSchema: ResumeDocumentMapperTaskInputSchema,
+    outputSchema: ResumeJsonMapperOutputSchema,
+    maxOutputChars: 24_000,
+    buildUserPrompt(input: ResumeDocumentMapperTaskInput) {
+      const redacted = redactSensitiveTextForModel(input.rawText);
+      return JSON.stringify({
+        normalizedSourceBlocks: redacted.text,
+        schemaVersion: "resume-import-v1",
+        allowedSections: ["summary", "education", "work", "project", "campus", "award", "skill", "certificate", "language", "custom"],
+        instructions: "Map without changing facts. Cite block ids and preserve every unused block."
+      }, null, 2);
+    },
+    coerceRawOutput(rawOutput: unknown) { return rawOutput; },
+    normalizeOutput(output: ResumeJsonMapperOutput) { return ResumeJsonMapperOutputSchema.parse(output); },
+    validateOutput(output: ResumeJsonMapperOutput, input: ResumeDocumentMapperTaskInput) {
+      validateDocumentMapperSources(output, input.rawText);
+    }
+  } satisfies AiTaskDefinition<ResumeDocumentMapperTaskInput, ResumeJsonMapperOutput>,
   "resume-json-mapper": {
     task: "resume-json-mapper",
     promptVersion: resumeJsonMapperPrompt.version,
@@ -678,6 +703,30 @@ function validateJsonMapperSources(output: ResumeJsonMapperOutput, rawText: stri
       const actual = readJsonSourcePath(source, path);
       if (actual === undefined || JSON.stringify(actual) !== JSON.stringify(mapping.sourceValues[index])) {
         throw new Error("resume_json_mapper_source_mismatch");
+      }
+    });
+  }
+  validateMappedContent(output);
+}
+
+function validateDocumentMapperSources(output: ResumeJsonMapperOutput, rawText: string) {
+  const redactedText = redactSensitiveTextForModel(rawText).text;
+  let blocks: unknown;
+  try { blocks = JSON.parse(redactedText); } catch { throw new Error("resume_document_mapper_input_invalid"); }
+  if (!Array.isArray(blocks)) throw new Error("resume_document_mapper_blocks_invalid");
+  const byId = new Map(blocks.flatMap((block) => {
+    if (!block || typeof block !== "object") return [];
+    const record = block as Record<string, unknown>;
+    return typeof record.id === "string" ? [[record.id, record] as const] : [];
+  }));
+  for (const mapping of collectMappingObjects(output)) {
+    if (mapping.sourcePaths.length !== mapping.sourceValues.length) throw new Error("resume_document_mapper_source_count_mismatch");
+    mapping.sourcePaths.forEach((blockId, index) => {
+      const block = byId.get(blockId);
+      const sourceText = typeof block?.normalizedText === "string" ? block.normalizedText : block?.text;
+      const cited = mapping.sourceValues[index];
+      if (typeof sourceText !== "string" || typeof cited !== "string" || !normalizeMappedText(sourceText).includes(normalizeMappedText(cited))) {
+        throw new Error("resume_document_mapper_source_mismatch");
       }
     });
   }

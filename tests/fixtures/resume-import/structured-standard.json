@@ -1,0 +1,5 @@
+{
+  "schemaVersion": "structured-resume-draft-v1",
+  "basics": { "name": "陈同学", "email": "demo.student@example.com" },
+  "sections": [{ "title": "项目经历", "sectionType": "experience", "category": "project", "items": ["使用 Stata 清洗 31 个省级样本。"] }]
+}
