@@ -13,6 +13,7 @@ import {
   createImportedResumeDraftFromText
 } from "@/domain/resumeImport/parser";
 import { createJsonSourceBlocks, mapExternalResumeJson, parseResumeJsonText, RESUME_JSON_MAX_CHARS } from "@/domain/resumeImport/jsonMapper";
+import { adaptResumeJsonToV2, createResumeJsonV2Example, jsonV2ToLegacyMapperOutput } from "@/domain/resumeImport/jsonV2Adapter";
 import { analyzeImportQuality, normalizeExtractedSourceBlocks, normalizedBlocksToText, RESUME_IMPORT_CLEANER_VERSION } from "@/domain/resumeImport/normalizer";
 import { applyImportBulkSelection, type ImportBulkSelectionMode } from "@/domain/resumeImport/reviewSelections";
 import { invokeStructuredAi } from "@/ai/client";
@@ -374,11 +375,16 @@ export function ResumeImportWizard(props: {
         return;
       }
       const standard = StructuredResumeDraftSchema.safeParse(parsedJson.value);
+      const v2 = adaptResumeJsonToV2(parsedJson.value);
       let mapped: ResumeJsonMapperOutput;
       let sourceKind: "standard_json" | "external_json";
       let successMessage: string;
 
-      if (standard.success) {
+      if (v2.ok && v2.sourceKind === "v2") {
+        mapped = jsonV2ToLegacyMapperOutput(v2.value);
+        sourceKind = "standard_json";
+        successMessage = "CareerAdapt JSON v2 已进入逐项核对；结构化字段和未分类内容均已保留。";
+      } else if (standard.success) {
         mapped = { structuredDraft: standard.data, unclassifiedBlocks: [] };
         sourceKind = "standard_json";
         successMessage = "结构化 JSON 已进入核对页；确认前不会写入正式数据。";
@@ -396,7 +402,7 @@ export function ResumeImportWizard(props: {
           : "已通过常见字段别名完成映射，请核对来源路径和置信度。";
       }
 
-      setPendingJsonMapping(standard.success ? undefined : mapped);
+      setPendingJsonMapping(standard.success || (v2.ok && v2.sourceKind === "v2") ? undefined : mapped);
       await persistJsonDraft(mapped, fileName, rawText, sourceKind, successMessage);
     } catch (error) {
       const message = error instanceof Error ? error.message : "导入过程中发生未知错误";
@@ -879,7 +885,7 @@ export function ResumeImportWizard(props: {
   }
 
   function downloadSampleJson() {
-    const blob = new Blob([JSON.stringify(sampleStructuredResumeJson(), null, 2)], { type: "application/json" });
+    const blob = new Blob([JSON.stringify(sampleResumeJsonV2(), null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
@@ -957,7 +963,7 @@ export function ResumeImportWizard(props: {
           aria-label="JSON 内容"
           value={jsonText}
           onChange={(event) => setJsonText(event.target.value)}
-          placeholder={JSON.stringify(sampleStructuredResumeJson(), null, 2)}
+          placeholder={JSON.stringify(sampleResumeJsonV2(), null, 2)}
         />
         <p className={status === "failed" ? "import-json-feedback import-json-feedback-error" : "import-json-feedback"} role={status === "failed" ? "alert" : "status"}>
           {!jsonText.trim() ? "请先粘贴 JSON 内容。" : jsonText.length > RESUME_JSON_MAX_CHARS ? `JSON 内容超过 ${RESUME_JSON_MAX_CHARS.toLocaleString("zh-CN")} 个字符，请拆分后重试。` : message} 当前 {jsonText.length.toLocaleString("zh-CN")} / {RESUME_JSON_MAX_CHARS.toLocaleString("zh-CN")} 字符。
@@ -966,7 +972,7 @@ export function ResumeImportWizard(props: {
           <button className="primary-button compact" disabled={!jsonText.trim() || jsonText.length > RESUME_JSON_MAX_CHARS || status === "importing_json"} onClick={() => { void startJsonImport(jsonText, "pasted-structured-resume.json"); }}>
             导入JSON
           </button>
-          <button className="secondary-button compact" onClick={() => setJsonText(JSON.stringify(sampleStructuredResumeJson(), null, 2))}>
+          <button className="secondary-button compact" onClick={() => setJsonText(JSON.stringify(sampleResumeJsonV2(), null, 2))}>
             填入示例
           </button>
         </div>
@@ -1347,6 +1353,10 @@ export function sampleStructuredResumeJson() {
       }
     ]
   };
+}
+
+export function sampleResumeJsonV2() {
+  return createResumeJsonV2Example();
 }
 
 function basicLabel(key: BasicFieldKey) {

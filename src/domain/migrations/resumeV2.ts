@@ -11,6 +11,7 @@ import {
   type ResumeContentItemV2,
   type ResumeItemV2
 } from "@/domain/schemas";
+import { resumeFieldCatalog } from "@/domain/resumeFields";
 
 export function migrateCareerProfileToV2(profile: CareerProfile): CareerProfileV2 {
   if (profile.schemaVersion === "career-profile-v2" && profile.structuredFacts && profile.structuredBasics) return profile as CareerProfileV2;
@@ -64,17 +65,18 @@ export function migrateBranchContentItem(item: BranchContentItem): ResumeContent
 
 export function projectResumeItemV2(item: ResumeItemV2): string {
   if (item.sectionType === "summary") return item.text;
-  const values: string[] = [];
   const record = item as unknown as Record<string, unknown>;
-  for (const key of ["name", "title", "school", "organization", "institution", "role", "degree", "description"]) {
+  const lines = resumeFieldCatalog.filter((field) => field.sectionType === item.sectionType).flatMap((field) => {
+    const key = field.id.split(".").at(-1)!;
     const value = record[key];
-    if (typeof value === "string" && value.trim() && !values.includes(value.trim())) values.push(value.trim());
+    if (value === undefined || value === "" || value === false || (Array.isArray(value) && value.length === 0)) return [];
+    return [`${field.label}：${Array.isArray(value) ? value.join("；") : value === true ? "是" : String(value)}`];
+  });
+  for (const field of item.customFields) {
+    const value = Array.isArray(field.value) ? field.value.join("；") : String(field.value);
+    if (value.trim()) lines.push(`${field.label}：${value}`);
   }
-  for (const key of ["highlights", "outcomes"]) {
-    const value = record[key];
-    if (Array.isArray(value)) values.push(...value.filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0));
-  }
-  return values.join("\n");
+  return lines.join("\n");
 }
 
 function migrateExperience(experience: Experience): ResumeItemV2 {

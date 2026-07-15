@@ -6,6 +6,8 @@ import {
   type StructuredResumeDraft
 } from "@/domain/schemas";
 import { mapExternalResumeJson } from "./jsonMapper";
+import { projectResumeItemV2 } from "@/domain/migrations/resumeV2";
+import type { ResumeJsonMapperOutput } from "@/domain/schemas";
 
 type AdapterResult =
   | { ok: true; value: CareerAdaptResumeJsonV2; sourceKind: "v2" | "v1" | "external" }
@@ -50,6 +52,9 @@ export function v1ToJsonV2(input: StructuredResumeDraft): CareerAdaptResumeJsonV
 export function adaptResumeJsonToV2(value: unknown): AdapterResult {
   const direct = CareerAdaptResumeJsonV2Schema.safeParse(value);
   if (direct.success) return { ok: true, value: direct.data, sourceKind: "v2" };
+  if (value && typeof value === "object" && "schemaVersion" in value && (value as { schemaVersion?: unknown }).schemaVersion === "careeradapt-resume-v2") {
+    return { ok: false, message: "CareerAdapt JSON v2 不符合严格 Schema。", details: direct.error.issues };
+  }
   const v1 = StructuredResumeDraftSchema.safeParse(value);
   if (v1.success) return { ok: true, value: v1ToJsonV2(v1.data), sourceKind: "v1" };
   const external = mapExternalResumeJson(value);
@@ -76,6 +81,43 @@ export function createResumeJsonV2Example(): CareerAdaptResumeJsonV2 {
     ],
     unclassifiedBlocks: []
   });
+}
+
+export function jsonV2ToLegacyMapperOutput(input: CareerAdaptResumeJsonV2): ResumeJsonMapperOutput {
+  const resume = CareerAdaptResumeJsonV2Schema.parse(input);
+  const categoryBySection = {
+    summary: "summary", education: "education", work: "work", internship: "work", project: "project", research: "custom",
+    campus: "campus", volunteer: "campus", awards: "award", skills: "skill", certificates: "certificate", languages: "language",
+    publications: "custom", patents: "custom", portfolio: "custom", other: "custom", custom: "custom"
+  } as const;
+  const renderTypeBySection = {
+    summary: "summary", education: "experience", work: "experience", internship: "experience", project: "experience", research: "experience",
+    campus: "experience", volunteer: "experience", awards: "certificates", skills: "skills", certificates: "certificates", languages: "certificates",
+    publications: "unknown", patents: "unknown", portfolio: "unknown", other: "unknown", custom: "unknown"
+  } as const;
+  return {
+    structuredDraft: {
+      schemaVersion: "structured-resume-draft-v1",
+      basics: {
+        name: resume.basics.name,
+        email: resume.basics.email,
+        phone: resume.basics.phone,
+        location: resume.basics.location,
+        summary: resume.sections.find((section) => section.sectionType === "summary")?.items[0] && projectResumeItemV2(resume.sections.find((section) => section.sectionType === "summary")!.items[0]!),
+        links: [...resume.basics.portfolioLinks, ...resume.basics.otherLinks, ...[resume.basics.homepage, resume.basics.linkedin, resume.basics.github].filter((value): value is string => Boolean(value))]
+      },
+      sections: resume.sections.filter((section) => section.sectionType !== "summary").map((section) => ({
+        title: section.title,
+        category: categoryBySection[section.sectionType],
+        sectionType: renderTypeBySection[section.sectionType],
+        included: section.visible,
+        items: section.items.map(projectResumeItemV2).filter(Boolean)
+      }))
+    },
+    unclassifiedBlocks: resume.unclassifiedBlocks.map(({ sourcePath, sourceValue, reason }) => ({ sourcePath, sourceValue, reason })),
+    mappingDecisions: resume.sections.flatMap((section) => section.mappingTrace ?? [])
+      .map((trace) => ({ kind: "canonical_field" as const, ...trace }))
+  };
 }
 
 function readValue(value: StructuredResumeDraft["basics"]["name"]): string | undefined {
