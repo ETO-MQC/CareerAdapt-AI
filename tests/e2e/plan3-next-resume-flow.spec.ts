@@ -114,7 +114,7 @@ test.describe("Plan3 resume flow corrections", () => {
     await skillCard.getByRole("button", { name: "删除", exact: true }).click();
     await expect(fields.locator(".accordion-item").filter({ hasText: "Stata" })).toHaveCount(0);
     await expect(preview).not.toContainText("Stata");
-    await expect(page.getByRole("status")).toContainText("内容已删除");
+    await expect(page.locator(".app-notification").filter({ hasText: "内容已删除" }).last()).toBeVisible();
   });
 
   test("creates and switches independent people from personal info and self evaluation", async ({ page }) => {

@@ -68,6 +68,7 @@ test.describe("Phase B JD analysis flow", () => {
     // Wait for the page to load
     await expect(page.locator(".jobs-workspace")).toBeVisible();
     await expect(page.getByRole("heading", { name: "岗位解析与简历建议" })).toBeVisible();
+    await page.locator(".job-create-disclosure").getByText("新增或更新岗位", { exact: true }).click();
 
     // Step 1: Fill title and company
     const titleInput = page.getByTestId("job-title-input");
@@ -127,6 +128,7 @@ test.describe("Phase B JD analysis flow", () => {
   test("JD draft persists after refresh (recovery)", async ({ page }) => {
     await page.goto("/jobs");
     await expect(page.locator(".jobs-workspace")).toBeVisible();
+    await page.locator(".job-create-disclosure").getByText("新增或更新岗位", { exact: true }).click();
 
     // If previously saved draft exists, fields should be populated
     const titleInput = page.getByTestId("job-title-input");
