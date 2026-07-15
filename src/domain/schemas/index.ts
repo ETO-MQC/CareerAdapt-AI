@@ -15,3 +15,4 @@ export * from "./recycleBin";
 export * from "./resumeImport";
 export * from "./resumeRender";
 export * from "./resumeV2";
+export * from "./resumeJsonV2";
