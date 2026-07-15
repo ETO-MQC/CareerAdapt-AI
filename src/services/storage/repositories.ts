@@ -823,7 +823,8 @@ export class WorkspaceRepository {
           updatedAt: now
         });
         const presentationConfig = createDefaultPresentationConfig({ branch: built.branch, now });
-        await this.db.resumeBranches.put(built.branch);
+        const runtimeBranch = migrateResumeBranchToV2(built.branch);
+        await this.db.resumeBranches.put(runtimeBranch);
         await this.db.resumeRevisions.put(built.firstRevision);
         await this.db.resumeBranchOperations.put(operation);
         await this.db.appMeta.put({
@@ -831,7 +832,7 @@ export class WorkspaceRepository {
           value: presentationConfig,
           updatedAt: now
         });
-        return { branch: built.branch, revision: built.firstRevision, idempotent: false };
+        return { branch: runtimeBranch, revision: built.firstRevision, idempotent: false };
       }
     );
   }
@@ -911,11 +912,12 @@ export class WorkspaceRepository {
           updatedAt: now
         });
 
-        await this.db.resumeBranches.put(mapped.branch);
+        const runtimeBranch = migrateResumeBranchToV2(mapped.branch);
+        await this.db.resumeBranches.put(runtimeBranch);
         await this.db.resumeRevisions.put(mapped.firstRevision);
         await this.db.resumeBranchOperations.put(operation);
         return {
-          branch: mapped.branch,
+          branch: runtimeBranch,
           revision: mapped.firstRevision,
           idempotent: false,
           warnings: mapped.warnings

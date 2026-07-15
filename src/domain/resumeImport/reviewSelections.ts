@@ -23,10 +23,12 @@ export function applyImportBulkSelection(input: {
             return original ? { ...item, included: original.included, sourceStatus: original.sourceStatus, mapping: original.mapping } : item;
           }
           if (input.mode === "keep_existing") return { ...item, included: false };
-          if (input.mode === "use_imported") return { ...item, included: true, sourceStatus: "user_confirmed_modified" as const };
           const safe = isSafeBulkMapping(item, sourcePathCounts)
             && (input.mode !== "safe_only" || !itemConflictsWithProfile(item, input.profile));
-          return safe ? { ...item, included: true } : item;
+          if (!safe) return { ...item, included: false };
+          return input.mode === "use_imported"
+            ? { ...item, included: true, sourceStatus: "user_confirmed_modified" as const }
+            : { ...item, included: true };
         })
       };
     })
