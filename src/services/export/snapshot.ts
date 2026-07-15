@@ -6,6 +6,7 @@ import type {
   ResumeRenderModel
 } from "@/domain/schemas";
 import { stableHashText } from "@/services/security/text";
+import { RESUME_CATALOG_VERSION } from "@/domain/resumeFields";
 
 export function createResumePdfExportRequest(input: {
   exportId: string;
@@ -15,8 +16,12 @@ export function createResumePdfExportRequest(input: {
   filename: string;
   overflowStatus: ResumePdfExportSnapshot["overflowStatus"];
   paginationPlan: ResumePaginationPlan;
+  templateVersion?: number;
 }): ResumePdfExportRequest {
   const snapshotWithoutHash = {
+    renderSchemaVersion: input.renderModel.schemaVersion,
+    catalogVersion: RESUME_CATALOG_VERSION,
+    templateVersion: input.templateVersion ?? 1,
     branchId: input.renderModel.branchId,
     branchRevision: input.renderModel.branchRevision,
     currentRevisionId: input.renderModel.branchCurrentRevisionId,

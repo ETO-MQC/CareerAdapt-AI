@@ -940,7 +940,8 @@ async function regenerateApplicationPdf(context: ApplicationContext): Promise<{ 
     generatedAt,
     filename: fileName,
     overflowStatus: paginationPlan.status,
-    paginationPlan
+    paginationPlan,
+    templateVersion: template.version
   });
   const response = await fetch("/api/resume-export/pdf", {
     method: "POST",

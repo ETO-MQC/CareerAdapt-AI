@@ -9,6 +9,8 @@ import {
   type ResumeRenderSectionType
 } from "@/domain/schemas";
 import { mapBranchToResumeDocument, sectionTitle } from "@/domain/resumeDocument/mapper";
+import { migrateResumeBranchToV2, projectResumeItemV2 } from "@/domain/migrations/resumeV2";
+import { getResumeSectionDefinition, type ResumeSectionTypeV2 } from "@/domain/resumeFields";
 
 export class ResumeRenderMapperError extends Error {
   constructor(readonly code: string) {
@@ -44,6 +46,7 @@ export function mapBranchToResumeRenderModel(input: {
     .filter((block) => !block.visible || !block.renderable)
     .map((block) => block.contentItemId);
   const renderableBlocks = document.blocks.filter((block) => block.visible && block.renderable);
+  const renderableItemIds = new Set(renderableBlocks.map((block) => block.contentItemId));
   const blocks = renderableBlocks.map((block): ResumeRenderBlock => ({
     sourceItemId: block.contentItemId,
     sourceSectionId: block.sourceSectionId,
@@ -72,8 +75,22 @@ export function mapBranchToResumeRenderModel(input: {
     links: profile.basics.links
   };
 
+  const runtimeBranch = migrateResumeBranchToV2(branch);
+  const structuredItems = runtimeBranch.structuredContentItems.flatMap((item) => {
+    if (!item.visible || !renderableItemIds.has(item.id)) return [];
+    const sourceSectionId = branch.contentItems.find((legacy) => legacy.id === item.id)?.sourceSectionId;
+    const sectionType = canonicalRenderSection(item.data.sectionType, sourceSectionId);
+    const sectionId = sourceSectionId?.startsWith("custom:") ? sourceSectionId : sectionType;
+    return [{ sectionId, sectionType, itemId: item.id, data: item.data, plainText: item.legacyTextProjection ?? projectResumeItemV2(item.data) }];
+  });
+  const structuredSections = [...new Set(structuredItems.map((item) => item.sectionId))].map((sectionId, order) => {
+    const items = structuredItems.filter((item) => item.sectionId === sectionId);
+    const sectionType = items[0]!.sectionType;
+    return { sectionId, sectionType, title: sectionType === "custom" ? "自定义栏目" : getResumeSectionDefinition(sectionType).label, order, items };
+  });
+
   return ResumeRenderModelSchema.parse({
-    schemaVersion: "resume-render-v1",
+    schemaVersion: "resume-render-v2",
     branchId: branch.id,
     branchRevision: branch.revision,
     branchCurrentRevisionId: branch.currentRevisionId,
@@ -92,6 +109,8 @@ export function mapBranchToResumeRenderModel(input: {
       targetRole: job?.title
     },
     sections,
+    structuredSections,
+    compatibilityWarnings: [],
     safety: {
       ruleOnlyItemIds: renderableBlocks.filter((block) => block.guardMode === "rule_only_verified").map((block) => block.contentItemId),
       visibleItemCount: blocks.length,
@@ -105,6 +124,16 @@ export function mapBranchToResumeRenderModel(input: {
       sourceJobVersion: branch.sourceJobVersion
     }
   });
+}
+
+function canonicalRenderSection(dataSection: ResumeSectionTypeV2, sourceSectionId?: string): Exclude<ResumeSectionTypeV2, "basics"> {
+  const sourceMap: Record<string, Exclude<ResumeSectionTypeV2, "basics">> = {
+    education: "education", experience: "work", projects: "project", campus: "campus", research: "research", volunteer: "volunteer",
+    awards: "awards", skills: "skills", certificates: "certificates", language: "languages", publications: "publications",
+    patents: "patents", portfolio: "portfolio", other: "other", custom: "custom", summary: "summary"
+  };
+  if (sourceSectionId?.startsWith("custom:")) return "custom";
+  return sourceSectionId && sourceMap[sourceSectionId] ? sourceMap[sourceSectionId] : dataSection === "basics" ? "other" : dataSection;
 }
 
 function assertRenderableBranch(branch: ResumeBranch) {

@@ -77,6 +77,9 @@ export const ResumePaginationPlanSchema = z.object({
 });
 
 export const ResumePdfExportSnapshotSchema = z.object({
+  renderSchemaVersion: z.enum(["resume-render-v1", "resume-render-v2"]),
+  catalogVersion: z.string().min(1),
+  templateVersion: z.number().int().positive(),
   branchId: z.string().min(1),
   branchRevision: z.number().int().min(0),
   currentRevisionId: z.string().min(1),

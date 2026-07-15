@@ -7,6 +7,7 @@ import type {
   TemplateId
 } from "@/domain/schemas";
 import { categorySourceSectionId, resumeContentCategoryOrder } from "@/domain/resumeFields/catalog";
+import { RESUME_SECTION_TYPES_V2, type CanonicalFieldId, type ResumeSectionTypeV2 } from "@/domain/resumeFields";
 
 export type ResumeTemplateStyleConfig = Pick<
   ResumePresentationConfig,
@@ -14,6 +15,14 @@ export type ResumeTemplateStyleConfig = Pick<
 >;
 
 export type TemplateCapabilities = {
+  supportedSections: ResumeSectionTypeV2[];
+  supportedFields: CanonicalFieldId[] | "*";
+  supportsPhoto: boolean;
+  supportsCustomSections: boolean;
+  fallbackBehavior: {
+    unsupportedField: "render_plain" | "preserve_with_warning";
+    unsupportedSection: "render_under_other" | "preserve_with_warning";
+  };
   supportsAccentColor: boolean;
   supportsDensity: boolean;
   supportsBodyScale: boolean;
@@ -92,6 +101,14 @@ const DEFAULT_STYLE_CONFIG: ResumeTemplateStyleConfig = {
 };
 
 const ALL_STYLE_CAPABILITIES: TemplateCapabilities = {
+  supportedSections: [...RESUME_SECTION_TYPES_V2],
+  supportedFields: "*",
+  supportsPhoto: false,
+  supportsCustomSections: true,
+  fallbackBehavior: {
+    unsupportedField: "render_plain",
+    unsupportedSection: "render_under_other"
+  },
   supportsAccentColor: true,
   supportsDensity: true,
   supportsBodyScale: true,
@@ -104,6 +121,19 @@ const ALL_STYLE_CAPABILITIES: TemplateCapabilities = {
   supportsSectionPageBreaks: true,
   supportsContinuationHeader: false
 };
+
+export function assessTemplateCompatibility(model: ResumeRenderModel, template: ResumeTemplateDefinition) {
+  if (model.schemaVersion !== "resume-render-v2") return [];
+  const supportedSections = new Set(template.capabilities.supportedSections);
+  const warnings: string[] = [];
+  for (const section of model.structuredSections) {
+    if (!supportedSections.has(section.sectionType)) warnings.push(`模板不直接支持栏目“${section.title}”，将按 ${template.capabilities.fallbackBehavior.unsupportedSection} 保留。`);
+  }
+  if (model.candidate.contacts.length > 0 && !template.capabilities.supportsPhoto) {
+    // Photo is not represented in the v1-compatible candidate yet; capability is still declared explicitly.
+  }
+  return warnings;
+}
 
 export const resumeTemplates: ResumeTemplateDefinition[] = [
   {

@@ -37,6 +37,7 @@ import { getResumeSectionDefinition } from "@/domain/resumeFields";
 import { useResumePagination } from "@/components/resume/useResumePagination";
 import {
   getResumeTemplate,
+  assessTemplateCompatibility,
   getTemplateDefaultStyleConfig,
   isResumeTemplateId,
   resumeTemplates,
@@ -2693,6 +2694,10 @@ export function ResumeWorkspace() {
       return;
     }
     const startedAt = new Date().toISOString();
+    const templateWarnings = assessTemplateCompatibility(renderModel, selectedTemplate);
+    if (templateWarnings.length > 0) {
+      notify({ type: "warning", title: "模板兼容提示", message: templateWarnings.join("；") });
+    }
     const exportId = createExportId("v2-g3a-direct");
     const fileName = buildResumePdfFileName({
       candidateName: renderModel.candidate.name,
@@ -2707,7 +2712,8 @@ export function ResumeWorkspace() {
       generatedAt: startedAt,
       filename: fileName,
       overflowStatus: paginationPlan.status,
-      paginationPlan
+      paginationPlan,
+      templateVersion: selectedTemplate.version
     });
 
     setPdfExportState({
