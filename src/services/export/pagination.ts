@@ -107,6 +107,9 @@ export function createResumePaginationPlan(input: {
     if (sectionBlocks.length === 0) {
       continue;
     }
+    // Reset to 1 so each section starts evaluating from page 1
+    // This prevents blocks from being pushed to later pages unnecessarily
+    currentPageNumber = 1;
     if (forcedBreakBeforeSections.includes(section.sectionType) && pageHasContent(pages[currentPageNumber - 1])) {
       currentPageNumber += 1;
       ensurePage(pages, currentPageNumber);

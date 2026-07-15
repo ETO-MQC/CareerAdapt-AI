@@ -64,9 +64,9 @@ export function A4ResumePreview({
 }) {
   const [overlayRect, setOverlayRect] = useState<{ left: number; top: number; width: number } | undefined>();
   const pageModels = paginateResumeRenderModel(model, paginationPlan);
-  const visiblePageModels = paginationPlan
-    ? pageModels.slice(0, paginationPlan.requestedMaxPages)
-    : pageModels;
+  // Show all pages instead of limiting to requestedMaxPages
+  // This allows users to see and manage content across multiple pages
+  const visiblePageModels = pageModels;
   const pageCount = Math.max(1, visiblePageModels.length);
 
   function findSourceNode(target: EventTarget | null) {

@@ -2884,15 +2884,21 @@ export function ResumeWorkspace() {
       }
       notify({ type: blockedOverflow ? "warning" : "error", title: blockedOverflow ? "导出已阻止" : "下载失败", message: blockedOverflow
         ? "生成前重新检测到页数超过页面策略，请先删减内容或切换策略。"
-        : "可以重试，或使用浏览器打印 fallback。" });
+        : "正在自动切换到浏览器打印 fallback。" });
       setPdfExportState({
         status: blockedOverflow ? "blocked_overflow" : "failed",
         exportId,
         filename: fileName,
-        message: blockedOverflow ? "生成前重新检测到页数超过页面策略。" : "直接下载失败，可以重试或使用浏览器打印。",
+        message: blockedOverflow ? "生成前重新检测到页数超过页面策略。" : "直接下载失败，正在切换到浏览器打印。",
         errorCode,
         canUseFallback: !blockedOverflow
       });
+      // Auto fallback to browser print when direct download fails
+      if (!blockedOverflow) {
+        window.requestAnimationFrame(() => {
+          void exportPdf();
+        });
+      }
     }
   }
 

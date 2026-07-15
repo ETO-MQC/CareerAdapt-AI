@@ -15,7 +15,8 @@ export async function renderResumePdfHtml(
   const presentationConfig = presentationConfigFromExportSnapshot(snapshot);
   const paginationPlan = options.paginationPlan ?? snapshot.paginationPlan;
   const pageModels = paginateResumeRenderModel(snapshot.renderModel, paginationPlan);
-  const pageCount = Math.max(1, Math.min(pageModels.length, paginationPlan.requestedMaxPages));
+  // Render all pages to match preview
+  const pageCount = Math.max(1, pageModels.length);
   const stream = await renderToReadableStream(
     <>
       {options.includeMeasurement ? (
@@ -30,23 +31,24 @@ export async function renderResumePdfHtml(
         </article>
       ) : null}
       <div className="resume-preview-pages">
-        {pageModels.slice(0, paginationPlan.requestedMaxPages).map((pageModel, index) => (
-          <article
-            key={`${paginationPlan.paginationHash}-${index}`}
-            className={`resume-a4-page ${template.className}`}
-            style={resumeTemplateStyleVars(template, presentationConfig)}
-            data-testid="resume-a4-page"
-            aria-label={`A4 简历 PDF 第 ${index + 1} 页`}
-          >
-            {template.render(pageModel, {
-              presentationConfig,
-              pagination: {
-                pageNumber: index + 1,
-                pageCount,
-                isContinuation: index > 0
-              }
-            })}
-          </article>
+        {pageModels.map((pageModel, index) => (
+          <div className="resume-page-shell" key={`${paginationPlan.paginationHash}-${index}`}>
+            <article
+              className={`resume-a4-page ${template.className}`}
+              style={resumeTemplateStyleVars(template, presentationConfig)}
+              data-testid="resume-a4-page"
+              aria-label={`A4 简历 PDF 第 ${index + 1} 页`}
+            >
+              {template.render(pageModel, {
+                presentationConfig,
+                pagination: {
+                  pageNumber: index + 1,
+                  pageCount,
+                  isContinuation: index > 0
+                }
+              })}
+            </article>
+          </div>
         ))}
       </div>
     </>
@@ -73,9 +75,24 @@ export async function renderResumePdfHtml(
       font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", "Source Han Sans SC", Arial, sans-serif;
     }
 
+    .resume-preview-pages {
+      display: block;
+    }
+
+    .resume-page-shell {
+      display: block;
+    }
+
     .resume-a4-page {
       box-shadow: none !important;
+      height: 297mm;
       margin: 0 !important;
+      width: 210mm;
+    }
+
+    .resume-page-shell:not(:last-child) .resume-a4-page {
+      break-after: page;
+      page-break-after: always;
     }
   </style>
 </head>
