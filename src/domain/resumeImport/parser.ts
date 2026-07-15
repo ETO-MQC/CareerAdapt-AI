@@ -14,6 +14,7 @@ import {
   type StructuredResumeDraft
 } from "@/domain/schemas";
 import { locatePdfSourceQuote } from "@/domain/pdfImport/sourceMapping";
+import type { ImportedResumeCategory } from "@/domain/schemas";
 
 export const RESUME_IMPORT_PARSER_VERSION = "resume-import.local-rules.v1";
 
@@ -140,6 +141,7 @@ export function createImportedResumeDraftFromStructuredJson(input: {
   importId?: string;
   source: SourceInput & { mimeType: "application/json" | "text/plain" };
   structuredDraft: StructuredResumeDraft;
+  unclassifiedBlocks?: ImportedResumeDraft["unclassifiedBlocks"];
   now?: string;
 }): ImportedResumeDraft {
   const now = input.now ?? new Date().toISOString();
@@ -153,33 +155,37 @@ export function createImportedResumeDraftFromStructuredJson(input: {
     charEnd: pageText.length
   }];
   const basics = {
-    name: structuredDraft.basics.name ? makeField(structuredDraft.basics.name, pageSources, "high") : undefined,
-    email: structuredDraft.basics.email ? makeField(structuredDraft.basics.email, pageSources, "high") : undefined,
-    phone: structuredDraft.basics.phone ? makeField(structuredDraft.basics.phone, pageSources, "medium") : undefined,
-    location: structuredDraft.basics.location ? makeField(structuredDraft.basics.location, pageSources, "medium") : undefined,
-    links: (structuredDraft.basics.links ?? []).map((link) => makeField(link, pageSources, "medium")),
+    name: structuredDraft.basics.name ? makeStructuredField(structuredDraft.basics.name, pageSources, "high") : undefined,
+    email: structuredDraft.basics.email ? makeStructuredField(structuredDraft.basics.email, pageSources, "high") : undefined,
+    phone: structuredDraft.basics.phone ? makeStructuredField(structuredDraft.basics.phone, pageSources, "medium") : undefined,
+    location: structuredDraft.basics.location ? makeStructuredField(structuredDraft.basics.location, pageSources, "medium") : undefined,
+    links: (structuredDraft.basics.links ?? []).map((link) => makeStructuredField(link, pageSources, "medium")),
     targetRole: undefined,
-    summary: structuredDraft.basics.summary ? makeField(structuredDraft.basics.summary, pageSources, "medium") : undefined
+    summary: structuredDraft.basics.summary ? makeStructuredField(structuredDraft.basics.summary, pageSources, "medium") : undefined
   };
   const sections: ImportedResumeSection[] = structuredDraft.sections.map((section, sectionIndex) => ({
     id: `import-section-${sectionIndex}-${nanoid(6)}`,
     sectionType: section.sectionType,
+    category: section.category ?? inferStructuredCategory(section.title, section.sectionType),
     detectedTitle: section.title,
     included: section.included ?? section.sectionType !== "unknown",
     order: sectionIndex,
     confidence: section.sectionType === "unknown" ? "low" : "high",
+    mapping: section.mapping,
     items: section.items.map((item, itemIndex) => {
-      const normalized = typeof item === "string" ? item : item.text;
+      const normalized = structuredItemText(item);
+      const mapping = typeof item === "string" ? undefined : item.mapping;
       return {
         id: `import-item-${nanoid(10)}`,
         rawText: normalized,
         normalizedText: normalized.trim(),
-        included: typeof item === "string" ? true : item.included ?? true,
+        included: typeof item === "string" ? true : item.included ?? !mapping?.needsConfirmation,
         order: itemIndex,
         pageRefs: [{ pageNumber: 1, quote: normalized.trim().slice(0, 240) }],
-        confidence: "high" as const,
-        sourceStatus: "user_confirmed_modified" as const,
-        userEdited: true
+        confidence: mapping?.confidenceLevel ?? "high" as const,
+        sourceStatus: mapping?.needsConfirmation ? "ambiguous" as const : "user_confirmed_modified" as const,
+        userEdited: !mapping,
+        mapping
       };
     })
   }));
@@ -209,6 +215,7 @@ export function createImportedResumeDraftFromStructuredJson(input: {
       charStart: 0,
       charEnd: pageText.length
     }],
+    unclassifiedBlocks: input.unclassifiedBlocks ?? [],
     warnings: sections
       .filter((section) => section.sectionType === "unknown")
       .map((section) => ({
@@ -230,14 +237,54 @@ function structuredJsonToReviewText(draft: StructuredResumeDraft) {
     draft.basics.location,
     draft.basics.summary,
     ...(draft.basics.links ?? [])
-  ].filter((line): line is string => Boolean(line?.trim()));
+  ].map((value) => value ? structuredValueText(value) : "").filter(Boolean);
   for (const section of draft.sections) {
     lines.push(section.title);
     for (const item of section.items) {
-      lines.push(typeof item === "string" ? item : item.text);
+      lines.push(structuredItemText(item));
     }
   }
   return lines.join("\n");
+}
+
+function structuredValueText(value: StructuredResumeDraft["basics"]["name"] extends infer T ? NonNullable<T> : never) {
+  return typeof value === "string" ? value : value.value;
+}
+
+function makeStructuredField(
+  value: NonNullable<StructuredResumeDraft["basics"]["name"]>,
+  pageSources: Array<{ pageNumber: number; cleanedPageText: string; charStart: number; charEnd: number }>,
+  confidence: "high" | "medium" | "low"
+) {
+  const text = structuredValueText(value);
+  const field = makeField(text, pageSources, confidence);
+  return typeof value === "string" ? field : {
+    ...field,
+    confidence: value.mapping.confidenceLevel,
+    sourceStatus: value.mapping.needsConfirmation ? "ambiguous" as const : "user_confirmed_modified" as const,
+    mapping: value.mapping
+  };
+}
+
+function structuredItemText(item: StructuredResumeDraft["sections"][number]["items"][number]) {
+  if (typeof item === "string") return item.trim();
+  if (item.text) return item.text.trim();
+  const header = [item.organization, item.role, item.location].filter(Boolean).join(" | ");
+  const dateRange = [item.startDate, item.current ? "至今" : item.endDate].filter(Boolean).join(" - ");
+  return [header, dateRange, ...(item.highlights ?? [])].filter(Boolean).join("\n").trim();
+}
+
+function inferStructuredCategory(title: string, sectionType: ImportedResumeSectionType): ImportedResumeCategory {
+  if (sectionType === "summary") return "summary";
+  if (sectionType === "skills") return "skill";
+  if (/教育|education/i.test(title)) return "education";
+  if (/项目|project/i.test(title)) return "project";
+  if (/校园|社团|campus/i.test(title)) return "campus";
+  if (/奖项|荣誉|award|honou?r/i.test(title)) return "award";
+  if (/语言|language/i.test(title)) return "language";
+  if (/证书|certificate/i.test(title)) return "certificate";
+  if (/工作|实习|work|intern|experience/i.test(title)) return "work";
+  return sectionType === "unknown" ? "custom" : "work";
 }
 
 function splitPageLines(page: ImportedResumePage): LineWithPage[] {

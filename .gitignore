@@ -29,3 +29,7 @@ tests/fixtures/pdf/repeated-header-en.pdf
 tests/fixtures/pdf/single-page-en.pdf
 tests/fixtures/pdf/six-pages.pdf
 tests/fixtures/pdf/two-column-pdflib.pdf
+
+# Temporary audit scripts and generated UI screenshots.
+artifacts/p36-json-ui-after/
+scripts/p36-targeted-ui-audit.mjs

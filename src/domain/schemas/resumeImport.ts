@@ -13,6 +13,14 @@ export const ImportedResumeDraftStatusSchema = z.enum([
 
 export const ImportedResumeConfidenceSchema = z.enum(["high", "medium", "low"]);
 
+export const ImportedResumeMappingTraceSchema = z.object({
+  sourcePaths: z.array(z.string().min(1)).min(1),
+  sourceValues: z.array(z.unknown()).min(1),
+  confidenceLevel: ImportedResumeConfidenceSchema,
+  confidenceReason: z.string().min(1),
+  needsConfirmation: z.boolean()
+});
+
 export const ImportedResumeSourceStatusSchema = z.enum([
   "located",
   "ambiguous",
@@ -43,7 +51,8 @@ export const ImportedResumeFieldSchema = z.object({
   pageRefs: z.array(ImportedResumePageRefSchema).default([]),
   confidence: ImportedResumeConfidenceSchema,
   sourceStatus: ImportedResumeSourceStatusSchema,
-  userEdited: z.boolean().default(false)
+  userEdited: z.boolean().default(false),
+  mapping: ImportedResumeMappingTraceSchema.optional()
 });
 
 export const ImportedResumeItemSchema = z.object({
@@ -55,17 +64,33 @@ export const ImportedResumeItemSchema = z.object({
   pageRefs: z.array(ImportedResumePageRefSchema).default([]),
   confidence: ImportedResumeConfidenceSchema,
   sourceStatus: ImportedResumeSourceStatusSchema,
-  userEdited: z.boolean().default(false)
+  userEdited: z.boolean().default(false),
+  mapping: ImportedResumeMappingTraceSchema.optional()
 });
+
+export const ImportedResumeCategorySchema = z.enum([
+  "summary",
+  "education",
+  "work",
+  "project",
+  "campus",
+  "award",
+  "skill",
+  "certificate",
+  "language",
+  "custom"
+]);
 
 export const ImportedResumeSectionSchema = z.object({
   id: z.string().min(1),
   sectionType: ImportedResumeSectionTypeSchema,
+  category: ImportedResumeCategorySchema.optional(),
   detectedTitle: z.string().min(1),
   included: z.boolean(),
   order: z.number().int().min(0),
   confidence: ImportedResumeConfidenceSchema,
-  items: z.array(ImportedResumeItemSchema).default([])
+  items: z.array(ImportedResumeItemSchema).default([]),
+  mapping: ImportedResumeMappingTraceSchema.optional()
 });
 
 export const ImportedResumePageSchema = z.object({
@@ -94,29 +119,49 @@ export const ImportedResumeSourceSchema = z.object({
   extractedAt: IsoDateStringSchema
 });
 
+export const StructuredResumeValueSchema = z.union([
+  z.string().min(1),
+  z.object({
+    value: z.string().min(1),
+    mapping: ImportedResumeMappingTraceSchema
+  })
+]);
+
 export const StructuredResumeDraftItemSchema = z.union([
   z.string().min(1),
   z.object({
-    text: z.string().min(1),
-    included: z.boolean().optional()
+    text: z.string().min(1).optional(),
+    organization: z.string().min(1).optional(),
+    role: z.string().min(1).optional(),
+    location: z.string().min(1).optional(),
+    startDate: z.string().min(1).optional(),
+    endDate: z.string().min(1).optional(),
+    current: z.boolean().optional(),
+    highlights: z.array(z.string().min(1)).optional(),
+    included: z.boolean().optional(),
+    mapping: ImportedResumeMappingTraceSchema.optional()
+  }).refine((item) => Boolean(item.text || item.organization || item.role || item.highlights?.length), {
+    message: "structured resume item requires text or structured content"
   })
 ]);
 
 export const StructuredResumeDraftSchema = z.object({
   schemaVersion: z.literal("structured-resume-draft-v1").optional(),
   basics: z.object({
-    name: z.string().min(1).optional(),
-    email: z.string().min(1).optional(),
-    phone: z.string().min(1).optional(),
-    location: z.string().min(1).optional(),
-    summary: z.string().min(1).optional(),
-    links: z.array(z.string().min(1)).optional()
+    name: StructuredResumeValueSchema.optional(),
+    email: StructuredResumeValueSchema.optional(),
+    phone: StructuredResumeValueSchema.optional(),
+    location: StructuredResumeValueSchema.optional(),
+    summary: StructuredResumeValueSchema.optional(),
+    links: z.array(StructuredResumeValueSchema).optional()
   }).default({}),
   sections: z.array(z.object({
     title: z.string().min(1),
     sectionType: ImportedResumeSectionTypeSchema.default("unknown"),
+    category: ImportedResumeCategorySchema.optional(),
     included: z.boolean().optional(),
-    items: z.array(StructuredResumeDraftItemSchema).default([])
+    items: z.array(StructuredResumeDraftItemSchema).default([]),
+    mapping: ImportedResumeMappingTraceSchema.optional()
   })).default([])
 }).strict();
 
@@ -137,6 +182,11 @@ export const ImportedResumeDraftSchema = EntityBaseSchema.extend({
   }),
   sections: z.array(ImportedResumeSectionSchema).default([]),
   pages: z.array(ImportedResumePageSchema).default([]),
+  unclassifiedBlocks: z.array(z.object({
+    sourcePath: z.string().min(1),
+    sourceValue: z.unknown(),
+    reason: z.string().min(1)
+  })).default([]),
   warnings: z.array(ImportedResumeWarningSchema).default([]),
   parserVersion: z.string().min(1),
   confirmedProfileId: z.string().min(1).optional(),
@@ -173,8 +223,19 @@ export const ImportedResumeConfirmResultSchema = z.object({
   idempotent: z.boolean()
 });
 
+export const ResumeJsonMapperOutputSchema = z.object({
+  structuredDraft: StructuredResumeDraftSchema,
+  unclassifiedBlocks: z.array(z.object({
+    sourcePath: z.string().min(1),
+    sourceValue: z.unknown(),
+    reason: z.string().min(1)
+  })).default([])
+});
+
 export type ImportedResumeDraftStatus = z.infer<typeof ImportedResumeDraftStatusSchema>;
 export type ImportedResumeConfidence = z.infer<typeof ImportedResumeConfidenceSchema>;
+export type ImportedResumeMappingTrace = z.infer<typeof ImportedResumeMappingTraceSchema>;
+export type ImportedResumeCategory = z.infer<typeof ImportedResumeCategorySchema>;
 export type ImportedResumeSourceStatus = z.infer<typeof ImportedResumeSourceStatusSchema>;
 export type ImportedResumeSectionType = z.infer<typeof ImportedResumeSectionTypeSchema>;
 export type ImportedResumeWarning = z.infer<typeof ImportedResumeWarningSchema>;
@@ -188,3 +249,4 @@ export type ImportedResumeDraft = z.infer<typeof ImportedResumeDraftSchema>;
 export type StructuredResumeDraft = z.infer<typeof StructuredResumeDraftSchema>;
 export type ImportMergeDecision = z.infer<typeof ImportMergeDecisionSchema>;
 export type ImportedResumeConfirmResult = z.infer<typeof ImportedResumeConfirmResultSchema>;
+export type ResumeJsonMapperOutput = z.infer<typeof ResumeJsonMapperOutputSchema>;

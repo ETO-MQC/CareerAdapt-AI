@@ -5,6 +5,7 @@ import { MatchEvidenceRefSchema } from "./job";
 export const AiTaskSchema = z.enum([
   "health-check",
   "profile-builder",
+  "resume-json-mapper",
   "jd-analyzer",
   "evidence-matcher",
   "resume-tailor",

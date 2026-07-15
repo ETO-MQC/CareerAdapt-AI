@@ -8,6 +8,7 @@ import {
   JdAnalyzerOutputSchema,
   MatchEvidenceRefSchema,
   ProfileBuilderOutputSchema,
+  ResumeJsonMapperOutputSchema,
   ResumeTailorOutputSchema,
   type AiTask,
   type EvidenceMatcherOutput,
@@ -15,6 +16,7 @@ import {
   type JdAnalyzerOutput,
   type MatchRisk,
   type ProfileBuilderOutput,
+  type ResumeJsonMapperOutput,
   type ResumeTailorOutput
 } from "@/domain/schemas";
 import { locateSourceQuote, redactSensitiveTextForModel } from "@/services/security/text";
@@ -23,6 +25,7 @@ import { factGuardPrompt } from "@/ai/prompts/factGuard";
 import { jdAnalyzerPrompt } from "@/ai/prompts/jdAnalyzer";
 import { profileBuilderPrompt } from "@/ai/prompts/profileBuilder";
 import { resumeTailorPrompt } from "@/ai/prompts/resumeTailor";
+import { resumeJsonMapperPrompt } from "@/ai/prompts/resumeJsonMapper";
 
 export const stageBAiTaskSchema = z.enum(["profile-builder", "jd-analyzer"]);
 
@@ -32,6 +35,7 @@ const BaseAiInputSchema = z.object({
 });
 
 export const ProfileBuilderTaskInputSchema = BaseAiInputSchema;
+export const ResumeJsonMapperTaskInputSchema = BaseAiInputSchema;
 
 export const JdAnalyzerTaskInputSchema = BaseAiInputSchema.extend({
   title: z.string().min(1).max(120),
@@ -100,6 +104,7 @@ export const FactGuardTaskInputSchema = z.object({
 
 export type StageBAiTask = z.infer<typeof stageBAiTaskSchema>;
 export type ProfileBuilderTaskInput = z.infer<typeof ProfileBuilderTaskInputSchema>;
+export type ResumeJsonMapperTaskInput = z.infer<typeof ResumeJsonMapperTaskInputSchema>;
 export type JdAnalyzerTaskInput = z.infer<typeof JdAnalyzerTaskInputSchema>;
 export type EvidenceMatcherTaskInput = z.infer<typeof EvidenceMatcherTaskInputSchema>;
 export type ResumeTailorTaskInput = z.infer<typeof ResumeTailorTaskInputSchema>;
@@ -123,6 +128,31 @@ export type StageBTaskDefinition<TInput, TOutput> = AiTaskDefinition<TInput, TOu
 };
 
 export const aiTaskRegistry = {
+  "resume-json-mapper": {
+    task: "resume-json-mapper",
+    promptVersion: resumeJsonMapperPrompt.version,
+    systemPrompt: resumeJsonMapperPrompt.system,
+    inputSchema: ResumeJsonMapperTaskInputSchema,
+    outputSchema: ResumeJsonMapperOutputSchema,
+    maxOutputChars: 24_000,
+    buildUserPrompt(input: ResumeJsonMapperTaskInput) {
+      const redacted = redactSensitiveTextForModel(input.rawText);
+      return JSON.stringify({
+        externalJson: redacted.text,
+        redactions: redacted.redactions,
+        instructions: "Map fields without changing facts; preserve source paths, source values, confidence, and all unmapped leaves."
+      }, null, 2);
+    },
+    coerceRawOutput(rawOutput: unknown) {
+      return rawOutput;
+    },
+    normalizeOutput(output: ResumeJsonMapperOutput) {
+      return ResumeJsonMapperOutputSchema.parse(output);
+    },
+    validateOutput(output: ResumeJsonMapperOutput, input: ResumeJsonMapperTaskInput) {
+      validateJsonMapperSources(output, input.rawText);
+    }
+  } satisfies AiTaskDefinition<ResumeJsonMapperTaskInput, ResumeJsonMapperOutput>,
   "profile-builder": {
     task: "profile-builder",
     promptVersion: profileBuilderPrompt.version,
@@ -635,6 +665,70 @@ export function getAiTaskDefinition(task: string) {
   }
 
   return aiTaskRegistry[parsed.data as keyof typeof aiTaskRegistry];
+}
+
+function validateJsonMapperSources(output: ResumeJsonMapperOutput, rawText: string) {
+  const redactedText = redactSensitiveTextForModel(rawText).text;
+  let source: unknown;
+  try { source = JSON.parse(redactedText); } catch { throw new Error("resume_json_mapper_input_invalid"); }
+  const mappings = collectMappingObjects(output);
+  for (const mapping of mappings) {
+    if (mapping.sourcePaths.length !== mapping.sourceValues.length) throw new Error("resume_json_mapper_source_count_mismatch");
+    mapping.sourcePaths.forEach((path, index) => {
+      const actual = readJsonSourcePath(source, path);
+      if (actual === undefined || JSON.stringify(actual) !== JSON.stringify(mapping.sourceValues[index])) {
+        throw new Error("resume_json_mapper_source_mismatch");
+      }
+    });
+  }
+  validateMappedContent(output);
+}
+
+function validateMappedContent(value: unknown): void {
+  if (Array.isArray(value)) {
+    value.forEach(validateMappedContent);
+    return;
+  }
+  if (!value || typeof value !== "object") return;
+  const record = value as Record<string, unknown>;
+  const mapping = record.mapping;
+  if (mapping && typeof mapping === "object") {
+    const sourceValues = (mapping as Record<string, unknown>).sourceValues;
+    if (Array.isArray(sourceValues)) {
+      const sourceText = normalizeMappedText(JSON.stringify(sourceValues));
+      const factualValues = [record.value, record.text, record.organization, record.role, record.location, record.startDate, record.endDate];
+      if (Array.isArray(record.highlights)) factualValues.push(...record.highlights);
+      for (const factualValue of factualValues) {
+        if (typeof factualValue === "string" && factualValue.trim() && !sourceText.includes(normalizeMappedText(factualValue))) {
+          throw new Error("resume_json_mapper_invented_content");
+        }
+      }
+    }
+  }
+  Object.values(record).forEach(validateMappedContent);
+}
+
+function normalizeMappedText(value: string) {
+  return value.normalize("NFKC").toLocaleLowerCase().replace(/\s+/g, " ").trim();
+}
+
+function collectMappingObjects(value: unknown): Array<{ sourcePaths: string[]; sourceValues: unknown[] }> {
+  if (Array.isArray(value)) return value.flatMap(collectMappingObjects);
+  if (!value || typeof value !== "object") return [];
+  const record = value as Record<string, unknown>;
+  const current = Array.isArray(record.sourcePaths) && Array.isArray(record.sourceValues)
+    ? [{ sourcePaths: record.sourcePaths.filter((item): item is string => typeof item === "string"), sourceValues: record.sourceValues }]
+    : [];
+  return [...current, ...Object.values(record).flatMap(collectMappingObjects)];
+}
+
+function readJsonSourcePath(value: unknown, path: string) {
+  const tokens = path.replace(/\[(\d+)\]/g, ".$1").split(".").filter(Boolean);
+  return tokens.reduce<unknown>((current, token) => {
+    if (Array.isArray(current)) return current[Number(token)];
+    if (current && typeof current === "object") return (current as Record<string, unknown>)[token];
+    return undefined;
+  }, value);
 }
 
 function normalizeField<T extends { sourceQuote: string; sourceSpan?: unknown; confidenceLevel: "high" | "medium" | "low"; needsConfirmation: boolean }>(
