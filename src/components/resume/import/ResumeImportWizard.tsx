@@ -986,7 +986,7 @@ export function ResumeImportWizard(props: {
             <label className="inline-toggle"><input type="checkbox" checked={createGeneralResume} onChange={(event) => setCreateGeneralResume(event.target.checked)} />同时创建通用简历</label>
           </div>
         )}
-        {nameMismatch ? <div className="import-name-mismatch" role="alert"><strong>姓名不一致</strong><span>导入姓名与当前人物不一致，建议创建新人物；也可以明确继续导入当前人物。</span><div className="action-row"><button type="button" className="secondary-button compact" onClick={() => { setTargetMode("new"); setNewProfileName(draft?.basics.name?.value ?? ""); }}>改为创建新人物</button><button type="button" className="secondary-button compact" onClick={() => setBasicMergeActions((current) => ({ ...current, name: "keep_existing" }))}>继续当前人物</button></div></div> : null}
+        {nameMismatch ? <div className="import-name-mismatch" role="alert"><strong>姓名不一致</strong><div className="action-row"><button type="button" className="secondary-button compact" onClick={() => { setTargetMode("new"); setNewProfileName(draft?.basics.name?.value ?? ""); }}>改为创建新人物</button><button type="button" className="secondary-button compact" onClick={() => setBasicMergeActions((current) => ({ ...current, name: "keep_existing" }))}>继续当前人物</button></div></div> : null}
       </fieldset>
       {!draft && sourceMode === "file" ? (
         <div
