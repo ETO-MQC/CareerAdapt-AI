@@ -5,6 +5,7 @@ export * from "./applicationPreparation";
 export * from "./branch";
 export * from "./common";
 export * from "./diagnostics";
+export * from "./documentRecognition";
 export * from "./export";
 export * from "./importDraft";
 export * from "./job";

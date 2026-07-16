@@ -1,18 +1,29 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
+import type {
+  DocumentEngineHealth,
+  DocumentEngineHealthReport,
+  DocumentRecognitionPreferences
+} from "@/domain/schemas";
+import { runResumeOcrAdapter } from "@/domain/resumeImport/ocrAdapter";
 import { readDeveloperMode, writeDeveloperMode } from "@/services/preferences/developerMode";
+import {
+  readDocumentRecognitionPreferences,
+  writeDocumentRecognitionPreferences
+} from "@/services/preferences/documentRecognition";
 import { readAiSettings, writeAiSettings, clearAiSettings, type AiSettings } from "@/services/storage/aiSettings";
 
 type ThemePreference = "system" | "light" | "dark";
 type DensityPreference = "compact" | "comfortable";
-type SettingsCategory = "appearance" | "export" | "ai" | "developer" | "help";
+type SettingsCategory = "appearance" | "document" | "export" | "ai" | "developer" | "help";
 
 const themeStorageKey = "careeradapt.theme";
 const densityStorageKey = "careeradapt.density";
 
 const categories: Array<{ id: SettingsCategory; label: string; description: string }> = [
   { id: "appearance", label: "界面", description: "主题与显示密度" },
+  { id: "document", label: "文档识别", description: "PDF、DOCX 与本地 OCR" },
   { id: "ai", label: "AI 配置", description: "接口与模型设置" },
   { id: "export", label: "导出", description: "A4 与 PDF 行为" },
   { id: "developer", label: "开发者模式", description: "测试数据清理" },
@@ -20,6 +31,7 @@ const categories: Array<{ id: SettingsCategory; label: string; description: stri
 ];
 
 export default function SettingsPage() {
+  const ocrTestInputRef = useRef<HTMLInputElement | null>(null);
   const [category, setCategory] = useState<SettingsCategory>("appearance");
   const [theme, setTheme] = useState<ThemePreference>(() => typeof window === "undefined" ? "system" : readThemePreference());
   const [density, setDensity] = useState<DensityPreference>(() => typeof window === "undefined" ? "compact" : readDensityPreference());
@@ -27,6 +39,12 @@ export default function SettingsPage() {
   const [aiSettings, setAiSettings] = useState<AiSettings>(() => typeof window === "undefined" ? { baseUrl: "", apiKey: "", model: "", provider: "openai-compatible" } : readAiSettings());
   const [aiSaved, setAiSaved] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
+  const [documentPreferences, setDocumentPreferences] = useState<DocumentRecognitionPreferences>(() =>
+    typeof window === "undefined" ? readDocumentRecognitionPreferences() : readDocumentRecognitionPreferences()
+  );
+  const [engineHealth, setEngineHealth] = useState<DocumentEngineHealthReport>();
+  const [healthChecking, setHealthChecking] = useState(false);
+  const [documentFeedback, setDocumentFeedback] = useState("设置会保存在本机浏览器，不保存简历正文、OCR 输出或模型日志。");
 
   function updateTheme(nextTheme: ThemePreference) {
     setTheme(nextTheme);
@@ -38,6 +56,50 @@ export default function SettingsPage() {
     setDensity(nextDensity);
     window.localStorage.setItem(densityStorageKey, nextDensity);
     applyPreferences(theme, nextDensity);
+  }
+
+  function updateDocumentPreferences(patch: Partial<DocumentRecognitionPreferences>) {
+    setDocumentPreferences((current) => {
+      const next = { ...current, ...patch };
+      writeDocumentRecognitionPreferences(next);
+      return next;
+    });
+    setDocumentFeedback("文档识别设置已保存。");
+  }
+
+  async function checkDocumentEngines() {
+    setHealthChecking(true);
+    setDocumentFeedback("正在执行轻量检查，不会加载大型模型…");
+    try {
+      const response = await fetch("/api/document-engines/health", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          modelDirectory: documentPreferences.modelDirectory || undefined,
+          checkOpenDataLoader: documentPreferences.openDataLoaderExperimental
+        })
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(typeof payload?.message === "string" ? payload.message : "检查失败");
+      setEngineHealth(payload as DocumentEngineHealthReport);
+      if (!documentPreferences.modelDirectory && payload.suggestedModelDirectories?.[0]) {
+        updateDocumentPreferences({ modelDirectory: payload.suggestedModelDirectories[0] });
+      }
+      setDocumentFeedback("检查完成。模型只在实际识别时加载。");
+    } catch (error) {
+      setDocumentFeedback(error instanceof Error ? error.message : "文档引擎检查失败。");
+    } finally {
+      setHealthChecking(false);
+    }
+  }
+
+  async function testLocalOcr(file: File | undefined) {
+    if (!file) return;
+    setDocumentFeedback("正在测试本地识别；首次运行可能较慢…");
+    const result = await runResumeOcrAdapter(file);
+    setDocumentFeedback(result.ok
+      ? `测试完成：识别 ${result.pageCount} 页。结果仅用于本次测试，未保存。`
+      : `${result.message} 未保存 OCR 输出。`);
   }
 
   return (
@@ -89,6 +151,165 @@ export default function SettingsPage() {
                   <option value="comfortable">舒适</option>
                 </select>
               </label>
+            </div>
+          ) : null}
+
+          {category === "document" ? (
+            <div className="settings-section document-recognition-settings">
+              <div className="section-heading compact-heading">
+                <div>
+                  <h2>文档识别</h2>
+                  <p>控制 PDF、DOCX 与扫描件导入路线。所有识别结果仍需进入导入核对。</p>
+                </div>
+                <span className="settings-save-state" role="status" aria-live="polite">{documentFeedback}</span>
+              </div>
+
+              <section className="settings-group" aria-labelledby="document-parsing-mode">
+                <div className="settings-group-heading">
+                  <div>
+                    <h3 id="document-parsing-mode">解析模式</h3>
+                    <p>自动模式优先保留数字文本层，只有扫描件或损坏文本层才使用本地 OCR。</p>
+                  </div>
+                </div>
+                <label className="field-label">
+                  默认路线
+                  <select
+                    name="document-parsing-mode"
+                    value={documentPreferences.parsingMode}
+                    onChange={(event) => updateDocumentPreferences({
+                      parsingMode: event.target.value as DocumentRecognitionPreferences["parsingMode"]
+                    })}
+                  >
+                    <option value="auto">自动选择（推荐）</option>
+                    <option value="text_layer">优先使用文本层</option>
+                    <option value="local_ocr">强制本地 OCR</option>
+                    <option value="manual_review">仅手动核对</option>
+                  </select>
+                </label>
+                <label className="settings-toggle-row">
+                  <span><strong>允许导入时手动选择路线</strong><small>显示“继续文本解析、改用本地 OCR、仅人工核对”。</small></span>
+                  <input
+                    type="checkbox"
+                    checked={documentPreferences.allowManualRouteSelection}
+                    onChange={(event) => updateDocumentPreferences({ allowManualRouteSelection: event.target.checked })}
+                  />
+                </label>
+              </section>
+
+              <section className="settings-group" aria-labelledby="local-ocr-heading">
+                <div className="settings-group-heading">
+                  <div>
+                    <h3 id="local-ocr-heading">本地 OCR</h3>
+                    <p>PaddleOCR-VL-1.6 在本机 sidecar 中运行，不是百度千帆在线模型。</p>
+                  </div>
+                  <HealthBadge health={healthChecking ? loadingHealth("paddleocr-vl-local") : engineHealth?.paddleOcr} />
+                </div>
+                <label className="settings-toggle-row">
+                  <span><strong>允许使用本地 OCR</strong><small>OCR 预计较慢；失败后回退到文本解析或人工核对。</small></span>
+                  <input
+                    type="checkbox"
+                    checked={documentPreferences.localOcrEnabled}
+                    onChange={(event) => updateDocumentPreferences({ localOcrEnabled: event.target.checked })}
+                  />
+                </label>
+                <dl className="document-engine-facts">
+                  <div><dt>引擎</dt><dd>PaddleOCR-VL-1.6</dd></div>
+                  <div><dt>Python 环境</dt><dd><HealthText health={engineHealth?.python} /></dd></div>
+                  <div><dt>检测模型</dt><dd><HealthText health={engineHealth?.modelDirectory} /></dd></div>
+                </dl>
+                <label className="field-label">
+                  模型目录
+                  <input
+                    name="paddleocr-model-directory"
+                    type="text"
+                    autoComplete="off"
+                    spellCheck={false}
+                    value={documentPreferences.modelDirectory}
+                    onChange={(event) => updateDocumentPreferences({ modelDirectory: event.target.value })}
+                    placeholder="填写仓库外的 PaddleOCR-VL-1.6 目录…"
+                  />
+                </label>
+                {engineHealth?.suggestedModelDirectories.length ? (
+                  <label className="field-label">
+                    已检测目录
+                    <select
+                      name="detected-model-directory"
+                      value={documentPreferences.modelDirectory}
+                      onChange={(event) => updateDocumentPreferences({ modelDirectory: event.target.value })}
+                    >
+                      {engineHealth.suggestedModelDirectories.map((directory) => (
+                        <option key={directory} value={directory}>{directory}</option>
+                      ))}
+                    </select>
+                  </label>
+                ) : null}
+                <div className="action-row">
+                  <button className="button button-primary" type="button" disabled={healthChecking} onClick={() => { void checkDocumentEngines(); }}>
+                    {healthChecking ? "检测中…" : "检测模型"}
+                  </button>
+                  <button className="button button-secondary" type="button" onClick={() => ocrTestInputRef.current?.click()}>
+                    测试识别
+                  </button>
+                </div>
+                <input
+                  ref={ocrTestInputRef}
+                  className="visually-hidden"
+                  type="file"
+                  accept="application/pdf,image/png,image/jpeg"
+                  aria-label="选择本地 OCR 测试文件"
+                  onChange={(event) => {
+                    void testLocalOcr(event.currentTarget.files?.[0]);
+                    event.currentTarget.value = "";
+                  }}
+                />
+                <details className="settings-help-details">
+                  <summary>打开配置说明</summary>
+                  <p>在仓库外准备 Python 3、PaddleOCR/PaddlePaddle 与 PaddleOCR-VL-1.6 模型目录；通过本机环境变量启动 sidecar，并让 Next.js 仅连接 localhost endpoint。不要提交模型、真实路径或 token。</p>
+                </details>
+              </section>
+
+              <section className="settings-group" aria-labelledby="digital-pdf-heading">
+                <div className="settings-group-heading">
+                  <div><h3 id="digital-pdf-heading">数字 PDF</h3><p>PDF.js 坐标阅读顺序已正式启用。</p></div>
+                  <span className="status-badge status-badge-ready">正式启用</span>
+                </div>
+                <dl className="document-engine-facts">
+                  <div><dt>当前路由原因</dt><dd>文本层可用时优先保留坐标、阅读顺序和逐字来源。</dd></div>
+                  <div><dt>文本层质量</dt><dd>导入后显示覆盖率、乱码、碎片化与阅读顺序判断。</dd></div>
+                </dl>
+              </section>
+
+              <section className="settings-group" aria-labelledby="opendataloader-heading">
+                <div className="settings-group-heading">
+                  <div><h3 id="opendataloader-heading">OpenDataLoader</h3><p>实验功能，默认关闭；失败自动回退 PDF.js。</p></div>
+                  <span className="status-badge">实验</span>
+                </div>
+                <label className="settings-toggle-row">
+                  <span><strong>启用实验解析</strong><small>仅复杂数字 PDF 可能尝试使用，不替代正式默认解析器。</small></span>
+                  <input
+                    type="checkbox"
+                    checked={documentPreferences.openDataLoaderExperimental}
+                    onChange={(event) => updateDocumentPreferences({ openDataLoaderExperimental: event.target.checked })}
+                  />
+                </label>
+                {documentPreferences.openDataLoaderExperimental ? (
+                  <dl className="document-engine-facts">
+                    <div><dt>服务状态</dt><dd><HealthText health={engineHealth?.openDataLoader} /></dd></div>
+                    <div><dt>Java 依赖</dt><dd><HealthText health={engineHealth?.java} /></dd></div>
+                    <div><dt>Python 依赖</dt><dd><HealthText health={engineHealth?.python} /></dd></div>
+                  </dl>
+                ) : null}
+              </section>
+
+              <section className="settings-group" aria-labelledby="online-recognition-heading">
+                <div className="settings-group-heading">
+                  <div><h3 id="online-recognition-heading">在线识别</h3><p>仅预留 Adapter 与设置状态，本轮不接入真实在线 API。</p></div>
+                </div>
+                <dl className="document-engine-facts">
+                  <div><dt>百度千帆</dt><dd>尚未配置</dd></div>
+                  <div><dt>密钥</dt><dd>未提供输入，也不会保存明文 API key。</dd></div>
+                </dl>
+              </section>
             </div>
           ) : null}
 
@@ -221,6 +442,20 @@ export default function SettingsPage() {
       </section>
     </main>
   );
+}
+
+function HealthBadge({ health }: { health?: DocumentEngineHealth }) {
+  const label = !health ? "未配置" : health.status === "ready" ? "可用" : health.status === "loading" ? "加载中" : health.status === "missing" ? "未配置" : "不可用";
+  return <span className={`status-badge status-badge-${health?.status ?? "missing"}`}>{label}</span>;
+}
+
+function HealthText({ health }: { health?: DocumentEngineHealth }) {
+  if (!health) return <>尚未检测</>;
+  return <>{health.status === "ready" ? "可用" : health.status === "loading" ? "加载中" : health.status === "missing" ? "未配置" : "不可用"}{health.version ? ` · ${health.version}` : ""}{health.message ? ` · ${health.message}` : ""}</>;
+}
+
+function loadingHealth(engine: string): DocumentEngineHealth {
+  return { engine, status: "loading", message: "正在检查…" };
 }
 
 function applyPreferences(theme: ThemePreference, density: DensityPreference) {

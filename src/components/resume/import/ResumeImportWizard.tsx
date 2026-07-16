@@ -6,7 +6,12 @@ import { PDF_IMPORT_EXTRACTION_VERSION } from "@/domain/pdfImport/limits";
 import { buildPageTextRecords, preparePdfText } from "@/domain/pdfImport/text";
 import { validatePdfFileDescriptor, validatePdfHeader } from "@/domain/pdfImport/validation";
 import { extractTextFromDocxBuffer } from "@/domain/resumeImport/docx";
+import { runOpenDataLoaderAdapter } from "@/domain/resumeImport/openDataLoaderAdapter";
 import { runResumeOcrAdapter } from "@/domain/resumeImport/ocrAdapter";
+import {
+  selectDocumentImportRoute,
+  type DocumentImportRoutingDecision
+} from "@/domain/resumeImport/routing";
 import {
   createImportedResumeDraftFromPdf,
   createImportedResumeDraftFromStructuredJson,
@@ -42,6 +47,9 @@ import { hashBytes, hashText, redactSensitiveTextForModel, restoreSensitivePlace
 import { RevisionConflictError, type WorkspaceRepository } from "@/services/storage/repositories";
 import { notificationStore, notify } from "@/services/notifications/store";
 import { getResumeFieldDefinition, type CanonicalFieldId } from "@/domain/resumeFields";
+import {
+  readDocumentRecognitionPreferences
+} from "@/services/preferences/documentRecognition";
 
 type ImportStatus =
   | "idle"
@@ -82,6 +90,7 @@ export function ResumeImportWizard(props: {
   onImported: (result: { profileId: string; branchId?: string }) => Promise<void>;
 }) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const lastSelectedFileRef = useRef<File | undefined>(undefined);
   const fileIntentRef = useRef<"auto" | "pdf" | "docx" | "json" | "ocr">("auto");
   const abortRef = useRef<AbortController | undefined>(undefined);
   const [status, setStatus] = useState<ImportStatus>("idle");
@@ -102,6 +111,14 @@ export function ResumeImportWizard(props: {
   const [targetProfileId, setTargetProfileId] = useState(props.profile?.id ?? "");
   const [newProfileName, setNewProfileName] = useState("");
   const [createGeneralResume, setCreateGeneralResume] = useState(true);
+  const [documentPreferences] = useState(() => readDocumentRecognitionPreferences());
+  const [routeOverride, setRouteOverride] = useState<"text_layer" | "local_ocr" | "manual_review" | undefined>();
+  const [routingDecision, setRoutingDecision] = useState<DocumentImportRoutingDecision>(() =>
+    selectDocumentImportRoute({
+      sourceKind: "pdf",
+      preferences: readDocumentRecognitionPreferences()
+    })
+  );
   const selectionBaselineRef = useRef<ImportedResumeDraft | undefined>(undefined);
   const jsonErrorNotificationIdRef = useRef<string | undefined>(undefined);
 
@@ -120,13 +137,18 @@ export function ResumeImportWizard(props: {
         setPages(await props.repository.listPdfPageTexts(latest.source.sourceSessionId));
       }
       setMessage("已恢复上次未确认的 PDF 简历导入草稿。");
+      setRoutingDecision(selectDocumentImportRoute({
+        sourceKind: latest.sourceKind,
+        preferences: documentPreferences,
+        qualityReport: latest.qualityReport
+      }));
     }
     void restoreDraft();
     return () => {
       active = false;
       abortRef.current?.abort();
     };
-  }, [props.repository]);
+  }, [documentPreferences, props.repository]);
 
   const selectedPage = useMemo(() => {
     return draft?.pages.find((page) => page.pageNumber === selectedPageNumber);
@@ -149,6 +171,8 @@ export function ResumeImportWizard(props: {
       + draft.sections.flatMap((section) => section.items).filter((item) => item.mapping?.needsConfirmation).length
       + (draft.schemaVersion === "resume-import-v2" ? draft.fieldCandidates.filter((candidate) => candidate.reviewStatus === "needs_review").length : 0);
   }, [draft]);
+  const unsafeTextLayerBlocked = draft?.qualityReport?.recommendedRoute === "ocr_ai"
+    && routingDecision.route !== "manual_review";
   const targetProfile = (props.profiles ?? []).find((item) => item.id === targetProfileId) ?? props.profile;
   const nameMismatch = targetMode === "existing" && Boolean(
     draft?.basics.name?.value
@@ -166,6 +190,7 @@ export function ResumeImportWizard(props: {
     const input = event.currentTarget;
     const file = input.files?.[0];
     if (file) {
+      lastSelectedFileRef.current = file;
       const intent = fileIntentRef.current;
       fileIntentRef.current = "auto";
       if (intent === "docx" || (intent === "auto" && isDocxFile(file))) {
@@ -173,9 +198,12 @@ export function ResumeImportWizard(props: {
       } else if (intent === "json" || (intent === "auto" && isJsonFile(file))) {
         await startJsonImport(await file.text(), file.name);
       } else if (intent === "ocr") {
-        await startOcrImport(file);
+        setRouteOverride("local_ocr");
+        await startOcrImport(file, { fallbackToText: true });
+      } else if (routeOverride === "local_ocr") {
+        await startOcrImport(file, { fallbackToText: true });
       } else {
-        await startFileImport(file);
+        await startFileImport(file, { modeOverride: routeOverride });
       }
     }
     input.value = "";
@@ -185,6 +213,7 @@ export function ResumeImportWizard(props: {
     event.preventDefault();
     const file = event.dataTransfer.files[0];
     if (file) {
+      lastSelectedFileRef.current = file;
       if (isDocxFile(file)) {
         await startDocxImport(file);
         return;
@@ -193,11 +222,33 @@ export function ResumeImportWizard(props: {
         await startJsonImport(await file.text(), file.name);
         return;
       }
-      await startFileImport(file);
+      if (routeOverride === "local_ocr") {
+        await startOcrImport(file, { fallbackToText: true });
+        return;
+      }
+      await startFileImport(file, { modeOverride: routeOverride });
     }
   }
 
-  async function startFileImport(file: File) {
+  async function startFileImport(file: File, options: {
+    modeOverride?: "text_layer" | "manual_review";
+    skipExperimental?: boolean;
+    routeReasonPrefix?: string;
+  } = {}) {
+    const effectivePreferences = options.modeOverride
+      ? { ...documentPreferences, parsingMode: options.modeOverride }
+      : documentPreferences;
+    const initialDecision = selectDocumentImportRoute({
+      sourceKind: "pdf",
+      preferences: effectivePreferences
+    });
+    setRoutingDecision(options.routeReasonPrefix
+      ? { ...initialDecision, reason: `${options.routeReasonPrefix} ${initialDecision.reason}` }
+      : initialDecision);
+    if (!options.modeOverride && documentPreferences.parsingMode === "local_ocr" && documentPreferences.localOcrEnabled) {
+      await startOcrImport(file, { fallbackToText: true });
+      return;
+    }
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
@@ -252,7 +303,24 @@ export function ResumeImportWizard(props: {
         errorCode: extracted.code,
         errorMessage: extracted.message
       });
-      fail(extracted.code === "no_text_layer" ? "当前文件可能是扫描版PDF，G4a暂不支持OCR。" : extracted.message);
+      if (extracted.code === "no_text_layer" && effectivePreferences.parsingMode === "auto" && effectivePreferences.localOcrEnabled) {
+        setRoutingDecision(selectDocumentImportRoute({
+          sourceKind: "scanned_pdf",
+          preferences: effectivePreferences,
+          qualityReport: emptyTextQualityReport()
+        }));
+        await startOcrImport(file);
+        return;
+      }
+      setRoutingDecision(selectDocumentImportRoute({
+        sourceKind: "scanned_pdf",
+        preferences: { ...effectivePreferences, parsingMode: "manual_review" },
+        qualityReport: emptyTextQualityReport(),
+        ocrReady: false
+      }));
+      fail(extracted.code === "no_text_layer"
+        ? "PDF 没有可用文本层。当前模式不会自动使用 OCR，请改用本地 OCR 或仅人工核对。"
+        : extracted.message);
       return;
     }
 
@@ -265,8 +333,23 @@ export function ResumeImportWizard(props: {
         errorMessage: prepared.message
       });
       if (prepared.code === "no_text_layer" || prepared.code === "empty_extracted_text") {
-        setMessage("PDF 没有可用文本层，正在切换到本机 OCR。若本机未配置模型，会明确保留为失败而不会猜测内容。");
-        await startOcrImport(file);
+        if (effectivePreferences.parsingMode === "auto" && effectivePreferences.localOcrEnabled) {
+          setMessage("PDF 没有可用文本层，正在切换到本机 OCR。若本机未配置模型，将降级为人工核对。");
+          setRoutingDecision(selectDocumentImportRoute({
+            sourceKind: "scanned_pdf",
+            preferences: effectivePreferences,
+            qualityReport: emptyTextQualityReport()
+          }));
+          await startOcrImport(file);
+          return;
+        }
+        setRoutingDecision(selectDocumentImportRoute({
+          sourceKind: "scanned_pdf",
+          preferences: { ...effectivePreferences, parsingMode: "manual_review" },
+          qualityReport: emptyTextQualityReport(),
+          ocrReady: false
+        }));
+        fail("PDF 没有可用文本层。请改用本地 OCR，或保留文件进行人工核对。");
         return;
       }
       fail(prepared.message);
@@ -276,6 +359,52 @@ export function ResumeImportWizard(props: {
     setStatus("classifying_sections");
     const sourceBlocks = normalizeExtractedSourceBlocks(extracted.pages.flatMap((page) => page.blocks));
     const qualityReport = analyzeImportQuality({ sourceType: "text_pdf", blocks: sourceBlocks });
+    let decision = selectDocumentImportRoute({
+      sourceKind: "text_pdf",
+      preferences: effectivePreferences,
+      qualityReport
+    });
+    if (options.skipExperimental && decision.route === "opendataloader") {
+      decision = { ...decision, route: "pdfjs", experimental: false, reason: "OpenDataLoader 已回退，继续使用 PDF.js 坐标解析。" };
+    }
+    setRoutingDecision(options.routeReasonPrefix
+      ? { ...decision, reason: `${options.routeReasonPrefix} ${decision.reason}` }
+      : decision);
+    if (decision.route === "opendataloader") {
+      setMessage("正在尝试 OpenDataLoader 实验解析；失败会自动回退 PDF.js。");
+      const experimental = await runOpenDataLoaderAdapter(file, { signal: controller.signal });
+      if (experimental.ok) {
+        const experimentalBlocks = normalizeExtractedSourceBlocks(experimental.blocks);
+        await props.repository.updatePdfImportSession({
+          ...session,
+          status: "extracted",
+          pageCount: extracted.pageCount,
+          textLength: experimental.text.length,
+          hasPromptInjectionRisk: false,
+          warnings: [...descriptorValidation.warnings, ...experimental.warnings]
+        });
+        await createDraftFromPlainText({
+          fileName: file.name,
+          mimeType: "application/pdf",
+          fileHash,
+          text: experimental.text,
+          sourceKind: "text_pdf",
+          pageCount: extracted.pageCount,
+          sourceBlocks: experimentalBlocks,
+          successMessage: "OpenDataLoader 实验解析完成；请重点核对复杂版面。"
+        });
+        return;
+      }
+      setRoutingDecision({
+        route: "pdfjs",
+        reason: `${experimental.message} 已自动回退 PDF.js 坐标解析。`,
+        fallbackRoute: "manual_review",
+        canUseOcr: effectivePreferences.localOcrEnabled,
+        ocrExpectedSlow: false,
+        experimental: false
+      });
+      setMessage(`${experimental.message} 正在回退 PDF.js 坐标解析。`);
+    }
     const normalizedPages = prepared.pages.map((page) => ({
       ...page,
       cleanedText: normalizedBlocksToText(sourceBlocks.filter((block) => block.page === page.pageNumber)) || page.cleanedText
@@ -317,6 +446,13 @@ export function ResumeImportWizard(props: {
       now
     });
     const saved = await props.repository.saveImportedResumeDraft({ ...importedDraft, parserVersion: `${importedDraft.parserVersion}+${RESUME_IMPORT_CLEANER_VERSION}` }, 0);
+    if (decision.route === "local_ocr") {
+      await startOcrImport(file, {
+        fallbackDraft: saved,
+        fallbackPages: pageRecords
+      });
+      return;
+    }
     setDraft(saved);
     prefillImportedProfileName(saved);
     setPages(pageRecords);
@@ -330,6 +466,10 @@ export function ResumeImportWizard(props: {
   }
 
   async function startDocxImport(file: File) {
+    setRoutingDecision(selectDocumentImportRoute({
+      sourceKind: "docx",
+      preferences: documentPreferences
+    }));
     setStatus("extracting_docx");
     setMessage("正在读取 DOCX 正文。原文件不会长期保存。");
     setDraft(undefined);
@@ -359,12 +499,24 @@ export function ResumeImportWizard(props: {
     });
   }
 
-  async function startOcrImport(file: File) {
+  async function startOcrImport(file: File, options: {
+    fallbackDraft?: ImportedResumeDraft;
+    fallbackPages?: PdfPageText[];
+    fallbackToText?: boolean;
+  } = {}) {
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
     setStatus("extracting_ocr");
     setMessage("正在检查本机 PaddleOCR-VL；识别结果仍需逐项核对。");
+    setRoutingDecision({
+      route: "local_ocr",
+      reason: "当前选择本地 PaddleOCR-VL；识别通常比文本解析更慢。",
+      fallbackRoute: options.fallbackDraft || options.fallbackToText ? "pdfjs" : "manual_review",
+      canUseOcr: true,
+      ocrExpectedSlow: true,
+      experimental: false
+    });
     setDraft(undefined);
     setPages([]);
     setSelectedItemId(undefined);
@@ -373,7 +525,40 @@ export function ResumeImportWizard(props: {
       onProgress: (progress) => setMessage(progress.message)
     });
     if (!result.ok) {
-      fail(`${result.message}${result.warnings.length ? ` ${result.warnings.join("；")}` : ""}`);
+      if (options.fallbackDraft) {
+        setDraft(options.fallbackDraft);
+        selectionBaselineRef.current = options.fallbackDraft;
+        setPages(options.fallbackPages ?? []);
+        setSelectedPageNumber(options.fallbackPages?.[0]?.pageNumber ?? 1);
+        setStatus("reviewing");
+        setRoutingDecision({
+          route: "pdfjs",
+          reason: `${result.message} 已自动回退到已有文本层；请重点人工核对。`,
+          fallbackRoute: "manual_review",
+          canUseOcr: false,
+          ocrExpectedSlow: false,
+          experimental: false
+        });
+        setMessage(`${result.message} 已保留 PDF.js 文本结果，未保存 OCR 输出。`);
+        return;
+      }
+      if (options.fallbackToText) {
+        setRouteOverride("text_layer");
+        await startFileImport(file, {
+          modeOverride: "text_layer",
+          skipExperimental: true,
+          routeReasonPrefix: `${result.message} 已自动回退到文本解析。`
+        });
+        return;
+      }
+      setRoutingDecision({
+        route: "manual_review",
+        reason: `${result.message} 已降级为人工核对；未保存 OCR 输出。`,
+        canUseOcr: false,
+        ocrExpectedSlow: false,
+        experimental: false
+      });
+      fail(`${result.message}${result.warnings.length ? ` ${result.warnings.join("；")}` : ""} 可改用人工核对。`);
       return;
     }
     const fileHash = await hashBytes(new Uint8Array(await file.arrayBuffer()));
@@ -402,6 +587,10 @@ export function ResumeImportWizard(props: {
   }
 
   async function startJsonImport(rawText: string, fileName = "structured-resume.json") {
+    setRoutingDecision(selectDocumentImportRoute({
+      sourceKind: "standard_json",
+      preferences: documentPreferences
+    }));
     setStatus("importing_json");
     setMessage("正在校验结构化 JSON。JSON 不会绕过核对页。");
     try {
@@ -515,7 +704,7 @@ export function ResumeImportWizard(props: {
   }
 
   async function runAiDocumentMapping() {
-    if (!draft || !aiPrivacyConfirmed || draft.qualityReport?.recommendedRoute === "ocr_ai") return;
+    if (!draft || !aiPrivacyConfirmed || unsafeTextLayerBlocked) return;
     setStatus("classifying_sections");
     setMessage("正在对脱敏后的来源块进行字段映射；模型只能分类，不能润色或补写事实。");
     const chunks = chunkSourceBlocks(draft.sourceBlocks);
@@ -567,7 +756,7 @@ export function ResumeImportWizard(props: {
     mimeType: ImportedResumeSource["mimeType"];
     fileHash: string;
     text: string;
-    sourceKind: "docx" | "scanned_pdf" | "image";
+    sourceKind: "docx" | "text_pdf" | "scanned_pdf" | "image";
     pageCount?: number;
     sourceBlocks?: ExtractedSourceBlock[];
     successMessage: string;
@@ -917,8 +1106,8 @@ export function ResumeImportWizard(props: {
       setMessage("没有可导入的已定位或用户确认条目。");
       return;
     }
-    if (draft.qualityReport?.recommendedRoute === "ocr_ai") {
-      setMessage("文本层可信度过低，已阻止直接提交。请改用原 PDF 或等待 P3.6b OCR。");
+    if (unsafeTextLayerBlocked) {
+      setMessage("文本层可信度过低，已阻止直接提交。请改用本地 OCR 或仅人工核对。");
       return;
     }
     if (targetMode === "existing" && !targetProfileId) {
@@ -1008,6 +1197,25 @@ export function ResumeImportWizard(props: {
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
+  async function chooseImportRoute(mode: "text_layer" | "local_ocr" | "manual_review") {
+    setRouteOverride(mode);
+    const file = lastSelectedFileRef.current;
+    const preferences = { ...documentPreferences, parsingMode: mode };
+    setRoutingDecision(selectDocumentImportRoute({
+      sourceKind: file && isDocxFile(file) ? "docx" : "pdf",
+      preferences
+    }));
+    if (!file) {
+      setMessage("路线已选择；请选择文件继续。");
+      return;
+    }
+    if (mode === "local_ocr") {
+      await startOcrImport(file, { fallbackToText: true });
+      return;
+    }
+    await startFileImport(file, { modeOverride: mode });
+  }
+
   return (
     <section
       className={`resume-import-wizard no-print ${draft ? "resume-import-wizard-review" : ""}`}
@@ -1041,6 +1249,24 @@ export function ResumeImportWizard(props: {
         )}
       </fieldset>
       {nameMismatch ? <div className="import-name-mismatch" role="alert"><strong>姓名不一致</strong><div className="action-row"><button type="button" className="secondary-button compact" onClick={() => { setTargetMode("new"); setNewProfileName(draft?.basics.name?.value ?? ""); }}>改为创建新人物</button><button type="button" className="secondary-button compact" onClick={() => setBasicMergeActions((current) => ({ ...current, name: "keep_existing" }))}>继续当前人物</button></div></div> : null}
+      <section className="import-routing-panel" aria-label="文档解析路线">
+        <div>
+          <span>当前路线</span>
+          <strong>{documentImportRouteLabel(routingDecision.route)}</strong>
+          <p>{routingDecision.reason}</p>
+          <small>{routingDecision.ocrExpectedSlow ? "本地 OCR 预计较慢。 " : ""}{routingDecision.fallbackRoute ? `失败后降级：${documentImportRouteLabel(routingDecision.fallbackRoute)}。` : "完成后进入人工核对。"}</small>
+        </div>
+        {documentPreferences.allowManualRouteSelection ? (
+          <details className="import-route-actions">
+            <summary className="secondary-button compact">更改路线</summary>
+            <div>
+              <button type="button" onClick={() => { void chooseImportRoute("text_layer"); }}>继续文本解析</button>
+              <button type="button" disabled={!documentPreferences.localOcrEnabled} onClick={() => { void chooseImportRoute("local_ocr"); }}>改用本地 OCR</button>
+              <button type="button" onClick={() => { void chooseImportRoute("manual_review"); }}>仅人工核对</button>
+            </div>
+          </details>
+        ) : null}
+      </section>
       {!draft && sourceMode === "file" ? (
         <div
           className="import-dropzone"
@@ -1105,7 +1331,7 @@ export function ResumeImportWizard(props: {
           <button className="secondary-button compact" type="button" onClick={() => {
             fileIntentRef.current = "ocr";
             fileInputRef.current?.click();
-          }} disabled={status === "extracting_ocr" || status === "confirming"}>
+          }} disabled={!documentPreferences.localOcrEnabled || status === "extracting_ocr" || status === "confirming"}>
             导入扫描件（实验）
           </button>
         )}
@@ -1343,8 +1569,8 @@ export function ResumeImportWizard(props: {
           </div>
         </div>
         <footer className="import-review-footer">
-          <div><strong>{draft.qualityReport?.recommendedRoute === "ocr_ai" ? "当前文本层不可安全提交" : `${importableItemCount} 条内容待确认导入`}</strong><span>{targetMode === "new" ? `创建新人物：${newProfileName || "待填写"}` : `导入到：${targetProfile?.name ?? "待选择"}`} · {message}</span></div>
-          <div className="action-row"><button className="secondary-button" type="button" onClick={cancelImport} disabled={status === "confirming"}>取消</button><button type="button" className="primary-button" disabled={status === "confirming" || draft.qualityReport?.recommendedRoute === "ocr_ai" || (createGeneralResume && importableItemCount === 0) || unconfirmedMappingCount > 0 || (targetMode === "new" && !newProfileName.trim()) || (nameMismatch && basicMergeActions.name !== "keep_existing")} onClick={confirmImport}>确认导入</button></div>
+          <div><strong>{unsafeTextLayerBlocked ? "当前文本层不可安全提交" : `${importableItemCount} 条内容待确认导入`}</strong><span>{targetMode === "new" ? `创建新人物：${newProfileName || "待填写"}` : `导入到：${targetProfile?.name ?? "待选择"}`} · {message}</span></div>
+          <div className="action-row"><button className="secondary-button" type="button" onClick={cancelImport} disabled={status === "confirming"}>取消</button><button type="button" className="primary-button" disabled={status === "confirming" || unsafeTextLayerBlocked || (createGeneralResume && importableItemCount === 0) || unconfirmedMappingCount > 0 || (targetMode === "new" && !newProfileName.trim()) || (nameMismatch && basicMergeActions.name !== "keep_existing")} onClick={confirmImport}>确认导入</button></div>
         </footer>
         </>
       ) : null}
@@ -1855,4 +2081,28 @@ function pipelineRouteLabel(draft: ImportedResumeDraft) {
     ocr_local: "需要本地识别",
     manual_review: "本地识别后核对"
   }[draft.qualityReport.recommendedPipeline];
+}
+
+function documentImportRouteLabel(route: DocumentImportRoutingDecision["route"]) {
+  return {
+    pdfjs: "PDF.js 文本层",
+    docx: "DOCX 结构解析",
+    local_ocr: "本地 OCR",
+    manual_review: "仅人工核对",
+    opendataloader: "OpenDataLoader（实验）"
+  }[route];
+}
+
+function emptyTextQualityReport() {
+  return {
+    sourceType: "text_pdf" as const,
+    textCoverage: 0,
+    replacementCharacterRatio: 0,
+    abnormalWhitespaceRatio: 0,
+    lineFragmentationScore: 1,
+    readingOrderConfidence: "low" as const,
+    layoutComplexity: "unknown" as const,
+    recommendedRoute: "ocr_ai" as const,
+    warnings: ["PDF 没有可用文本层。"]
+  };
 }
