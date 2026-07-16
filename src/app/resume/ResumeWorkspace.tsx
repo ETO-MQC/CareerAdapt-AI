@@ -17,7 +17,6 @@ import {
   type ResumeRenderSectionType,
   type ResumeRenderModel,
   type ResumeRevision,
-  type StructuredResumeDraft,
   type TemplateId
 } from "@/domain/schemas";
 import { mapBranchToResumeRenderModel, ResumeRenderMapperError } from "@/domain/resumeRender/mapper";
@@ -57,6 +56,7 @@ import { SummarySectionPage } from "@/components/editor/sections/SummarySectionP
 import { ExperienceSectionPage } from "@/components/editor/sections/ExperienceSectionPage";
 import { SkillsSectionPage } from "@/components/editor/sections/SkillsSectionPage";
 import { type ResumeStudioSectionKey, type SectionNavContext } from "@/components/editor/sections/types";
+import { exportCareerAdaptResumeJsonV2 } from "@/domain/resumeImport/jsonV2Adapter";
 
 const repository = new WorkspaceRepository();
 const DEFAULT_TEMPLATE_ID: TemplateId = "classic-technical";
@@ -2547,7 +2547,7 @@ export function ResumeWorkspace() {
       notify({ type: "warning", title: "提示", message: "当前没有可导出的结构化简历。" });
       return;
     }
-    const structuredDraft = buildStructuredResumeDraftFromRenderModel(renderModel, profile);
+    const structuredDraft = exportCareerAdaptResumeJsonV2({ profile, branch: selectedBranch });
     const fileName = `${safeDownloadNamePart(renderModel.candidate.name || selectedBranch.name)}-structured-resume.json`;
     const blob = new Blob([JSON.stringify(structuredDraft, null, 2)], { type: "application/json" });
     triggerBrowserDownload(blob, fileName);
@@ -4819,31 +4819,6 @@ function triggerBrowserDownload(blob: Blob, fileName: string) {
   anchor.click();
   anchor.remove();
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
-function buildStructuredResumeDraftFromRenderModel(model: ResumeRenderModel, profile: CareerProfile): StructuredResumeDraft {
-  return {
-    schemaVersion: "structured-resume-draft-v1",
-    basics: {
-      name: model.candidate.name,
-      email: profile.basics.email,
-      phone: profile.basics.phone,
-      location: profile.basics.location,
-      summary: model.candidate.summary ?? profile.basics.summary,
-      links: profile.basics.links.length > 0 ? profile.basics.links : undefined
-    },
-    sections: model.sections
-      .filter((section) => section.blocks.length > 0)
-      .map((section) => ({
-        title: section.title,
-        sectionType: section.type,
-        included: true,
-        items: section.blocks.map((block) => ({
-          text: block.text,
-          included: true
-        }))
-      }))
-  };
 }
 
 function safeDownloadNamePart(value: string) {

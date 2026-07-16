@@ -188,9 +188,17 @@ function safeCandidate(
       targetFieldId,
       value,
       sourceBlockIds: [block.id],
+      sourceRanges: block.normalizedText.includes(sourceQuote)
+        ? [{
+            blockId: block.id,
+            start: block.normalizedText.indexOf(sourceQuote),
+            end: block.normalizedText.indexOf(sourceQuote) + sourceQuote.length
+          }]
+        : undefined,
       sourceQuote,
       confidence,
-      needsConfirmation: confidence < 0.9,
+      needsConfirmation: confidence < 0.95,
+      reviewStatus: confidence >= 0.95 ? "auto_selected" : "needs_review",
       mappingReason,
       dateValue
     });
@@ -220,8 +228,7 @@ export function computeConsumedRanges(
   const ranges: ConsumedSourceRange[] = [];
 
   for (const c of candidates) {
-    // Include confirmed candidates, or high-confidence auto-confirmable candidates
-    if (!c.userConfirmed && c.confidence < 0.9) continue;
+    if (c.reviewStatus === "rejected" || c.reviewStatus === "needs_review") continue;
     for (const blockId of c.sourceBlockIds) {
       const block = blockById.get(blockId);
       if (!block) continue;
@@ -443,7 +450,11 @@ export function validateFieldCandidates(
   for (const [sourceBlockId, shared] of candidatesByBlock) {
     const targets = new Set(shared.map((candidate) => candidate.targetFieldId));
     if (targets.size <= 1) continue;
-    for (const candidate of shared.filter((item) => !item.needsConfirmation && !item.userConfirmed)) {
+    for (const candidate of shared.filter((item) =>
+      !item.needsConfirmation
+      && !item.userConfirmed
+      && shared.some((other) => other.id !== item.id && candidateRangesOverlap(item, other, sourceBlockId))
+    )) {
       issues.push({ candidateId: candidate.id, code: "one_source_many_targets", message: `来源块 ${sourceBlockId} 映射到多个字段，必须逐项确认` });
     }
   }
@@ -455,18 +466,33 @@ export function canSilentlyAcceptFieldCandidate(
   candidates: readonly ImportedResumeFieldCandidate[],
   blocks: readonly NormalizedSourceBlock[]
 ) {
-  if (candidate.confidence < 0.9 || candidate.needsConfirmation) return false;
+  if (candidate.confidence < 0.95 || candidate.needsConfirmation || candidate.reviewStatus !== "auto_selected") return false;
   return !validateFieldCandidates(candidates, blocks).some((issue) => issue.candidateId === candidate.id);
 }
 
 function requireConfirmationForSharedSources(candidates: ImportedResumeFieldCandidate[]) {
-  const counts = new Map<string, number>();
-  for (const candidate of candidates) {
-    for (const blockId of candidate.sourceBlockIds) counts.set(blockId, (counts.get(blockId) ?? 0) + 1);
-  }
-  return candidates.map((candidate) => candidate.sourceBlockIds.some((blockId) => (counts.get(blockId) ?? 0) > 1)
-    ? { ...candidate, needsConfirmation: true }
+  return candidates.map((candidate) => candidates.some((other) =>
+    other.id !== candidate.id
+    && candidate.sourceBlockIds.some((blockId) =>
+      other.sourceBlockIds.includes(blockId)
+      && candidateRangesOverlap(candidate, other, blockId)
+    )
+  )
+    ? { ...candidate, needsConfirmation: true, reviewStatus: "needs_review" as const }
     : candidate);
+}
+
+function candidateRangesOverlap(
+  left: ImportedResumeFieldCandidate,
+  right: ImportedResumeFieldCandidate,
+  blockId: string
+) {
+  const leftRanges = left.sourceRanges?.filter((range) => range.blockId === blockId) ?? [];
+  const rightRanges = right.sourceRanges?.filter((range) => range.blockId === blockId) ?? [];
+  if (!leftRanges.length || !rightRanges.length) return true;
+  return leftRanges.some((leftRange) => rightRanges.some((rightRange) =>
+    leftRange.start < rightRange.end && rightRange.start < leftRange.end
+  ));
 }
 
 function dedupeCandidates(candidates: ImportedResumeFieldCandidate[]) {

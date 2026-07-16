@@ -1,6 +1,15 @@
 import { z } from "zod";
 import { EntityBaseSchema, IsoDateStringSchema, RiskLevelSchema } from "./common";
 import { ResumeItemV2Schema } from "./resumeV2";
+import { ResumeJsonV2MappingTraceSchema } from "./resumeJsonV2";
+
+const PersistedResumeSourceRangeSchema = z.object({
+  blockId: z.string().min(1),
+  start: z.number().int().min(0),
+  end: z.number().int().min(0)
+}).strict().refine((range) => range.end > range.start, {
+  message: "source range end must be greater than start"
+});
 
 export const BranchLifecycleStatusSchema = z.enum(["active", "archived", "trashed"]);
 export const BranchMigrationStatusSchema = z.enum(["verified", "legacy_unverified"]);
@@ -139,7 +148,11 @@ export const ResumeContentItemV2Schema = z.object({
   guardStatus: BranchGuardStatusSchema,
   guardFindings: z.array(BranchGuardFindingSnapshotSchema).default([]),
   userConfirmation: BranchUserConfirmationSchema.optional(),
-  legacyTextProjection: z.string().min(1).optional()
+  legacyTextProjection: z.string().min(1).optional(),
+  sourceBlockIds: z.array(z.string().min(1)).default([]),
+  sourceRanges: z.array(PersistedResumeSourceRangeSchema).default([]),
+  sourceExcerpt: z.string().min(1).optional(),
+  mappingTrace: z.array(ResumeJsonV2MappingTraceSchema).default([])
 }).strict();
 
 export const BranchSyncStatusSchema = z.object({

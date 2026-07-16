@@ -2,12 +2,16 @@ import {
   CareerAdaptResumeJsonV2Schema,
   StructuredResumeDraftSchema,
   type CareerAdaptResumeJsonV2,
+  type CareerProfile,
+  type ResumeBranch,
   type ResumeItemV2,
   type StructuredResumeDraft
 } from "@/domain/schemas";
 import { mapExternalResumeJson } from "./jsonMapper";
 import { projectResumeItemV2 } from "@/domain/migrations/resumeV2";
 import type { ResumeJsonMapperOutput } from "@/domain/schemas";
+import { migrateCareerProfileToV2, migrateResumeBranchToV2 } from "@/domain/migrations/resumeV2";
+import { getResumeSectionDefinition } from "@/domain/resumeFields";
 
 type AdapterResult =
   | { ok: true; value: CareerAdaptResumeJsonV2; sourceKind: "v2" | "v1" | "external" }
@@ -83,6 +87,49 @@ export function createResumeJsonV2Example(): CareerAdaptResumeJsonV2 {
   });
 }
 
+export function exportCareerAdaptResumeJsonV2(input: {
+  profile: CareerProfile;
+  branch: ResumeBranch;
+}): CareerAdaptResumeJsonV2 {
+  const profile = migrateCareerProfileToV2(input.profile);
+  const branch = migrateResumeBranchToV2(input.branch);
+  const branchBasics = branch.resumeBasics;
+  const basics = {
+    ...profile.structuredBasics,
+    name: branchBasics?.name || profile.structuredBasics.name,
+    email: branchBasics?.email || profile.structuredBasics.email,
+    phone: branchBasics?.phone || profile.structuredBasics.phone,
+    location: branchBasics?.location || profile.structuredBasics.location,
+    otherLinks: branchBasics?.links.length ? branchBasics.links : profile.structuredBasics.otherLinks
+  };
+  const grouped = new Map<Exclude<ResumeItemV2["sectionType"], "basics">, typeof branch.structuredContentItems>();
+  for (const item of [...branch.structuredContentItems].sort((left, right) => left.order - right.order)) {
+    const sectionType = item.data.sectionType;
+    grouped.set(sectionType, [...(grouped.get(sectionType) ?? []), item]);
+  }
+  const sections = Array.from(grouped.entries()).map(([sectionType, items], order) => ({
+    id: `section-${sectionType}`,
+    sectionType,
+    title: getResumeSectionDefinition(sectionType).label,
+    order,
+    visible: items.some((item) => item.visible),
+    items: items.filter((item) => item.visible).map((item) => item.data),
+    mappingTrace: dedupeMappingTrace(items.flatMap((item) => item.mappingTrace))
+  }));
+  return CareerAdaptResumeJsonV2Schema.parse({
+    schemaVersion: "careeradapt-resume-v2",
+    locale: "zh-CN",
+    basics,
+    sections,
+    unclassifiedBlocks: profile.unclassifiedBlocks.map((sourceValue, index) => ({
+      id: `unclassified-${index + 1}`,
+      sourcePath: `profile.unclassifiedBlocks[${index}]`,
+      sourceValue,
+      reason: "导入时未映射到正式栏目，原样保留"
+    }))
+  });
+}
+
 export function jsonV2ToLegacyMapperOutput(input: CareerAdaptResumeJsonV2): ResumeJsonMapperOutput {
   const resume = CareerAdaptResumeJsonV2Schema.parse(input);
   const categoryBySection = {
@@ -123,6 +170,14 @@ export function jsonV2ToLegacyMapperOutput(input: CareerAdaptResumeJsonV2): Resu
 function readValue(value: StructuredResumeDraft["basics"]["name"]): string | undefined {
   if (!value) return undefined;
   return typeof value === "string" ? value : value.value;
+}
+
+function dedupeMappingTrace(trace: CareerAdaptResumeJsonV2["sections"][number]["mappingTrace"]) {
+  if (!trace?.length) return undefined;
+  return Array.from(new Map(trace.map((item) => [
+    `${item.targetFieldId}\u0000${item.sourceBlockIds.join(",")}\u0000${item.sourceQuote}`,
+    item
+  ])).values());
 }
 
 function toV2Item(rawItem: StructuredResumeDraft["sections"][number]["items"][number], sectionType: keyof typeof v2Builders, id: string): ResumeItemV2 | undefined {

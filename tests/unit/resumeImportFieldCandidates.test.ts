@@ -43,14 +43,18 @@ describe("catalog-driven deterministic field candidates", () => {
     expect(validateFieldCandidates(candidates, blocks)).toEqual([]);
   });
 
-  it("requires per-field confirmation when one source block maps to multiple targets", () => {
+  it("auto-selects non-overlapping fields from one block and flags true range conflicts", () => {
     const blocks = [block("b0", "教育背景", 0), block("b1", "GPA：3.95/5.0，排名：1/42", 1)];
     const { candidates } = createDeterministicFieldCandidates(blocks);
     expect(candidates).toHaveLength(4);
-    expect(candidates.every((candidate) => candidate.needsConfirmation)).toBe(true);
-    expect(candidates.some((candidate) => canSilentlyAcceptFieldCandidate(candidate, candidates, blocks))).toBe(false);
-    const explicitlyConfirmed = candidates.map((candidate) => ({ ...candidate, needsConfirmation: false, userConfirmed: true }));
-    expect(validateFieldCandidates(explicitlyConfirmed, blocks)).toEqual([]);
+    expect(candidates.every((candidate) => candidate.reviewStatus === "auto_selected")).toBe(true);
+    expect(candidates.every((candidate) => canSilentlyAcceptFieldCandidate(candidate, candidates, blocks))).toBe(true);
+    const conflicting = candidates.map((candidate, index) => index < 2
+      ? { ...candidate, sourceRanges: [{ blockId: "b1", start: 4, end: 8 }] }
+      : candidate);
+    expect(validateFieldCandidates(conflicting, blocks)).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: "one_source_many_targets" })
+    ]));
   });
 
   it("detects numeric drift even when an AI-proposed quote is locatable", () => {

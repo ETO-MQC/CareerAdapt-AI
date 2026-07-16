@@ -14,6 +14,7 @@ import {
   type ResumeSourceKind,
   StructuredResumeDraftSchema,
   type ImportedResumeSource,
+  type CareerAdaptResumeJsonV2,
   type PdfPageText,
   type StructuredResumeDraft
 } from "@/domain/schemas";
@@ -28,6 +29,7 @@ import { computeResidualSegments, createDeterministicFieldCandidates, type Consu
 import { matchResumeSectionHeading, type ImportedResumeCategory, type ImportedResumeSectionType } from "./sectionHeading";
 import { segmentResumeItems } from "./itemSegmenter";
 import { extractSegmentedItemFields, itemDisplayLabel } from "./itemFieldExtractor";
+import { projectResumeItemV2 } from "@/domain/migrations/resumeV2";
 
 export const RESUME_IMPORT_PARSER_VERSION = "resume-import.local-rules.v2";
 
@@ -194,6 +196,7 @@ export function createImportedResumeDraftFromStructuredJson(input: {
   qualityReport?: ImportQualityReport;
   mappingDecisions?: MappingDecision[];
   fieldCandidates?: ImportedResumeFieldCandidate[];
+  canonicalResume?: CareerAdaptResumeJsonV2;
   now?: string;
 }): ImportedResumeDraft {
   const now = input.now ?? new Date().toISOString();
@@ -227,16 +230,61 @@ export function createImportedResumeDraftFromStructuredJson(input: {
     const matches = sourceBlocksV2.filter((block) => mappingPaths.includes(block.sourcePath ?? "") || block.normalizedText.includes(field.value));
     return { ...field, sourceBlockIds: matches.map((block) => block.id), sourceQuote: field.value };
   };
+  const canonicalJsonField = (value: string) => ({
+    ...makeField(value, pageSources, "high" as const),
+    sourceStatus: "user_confirmed_modified" as const,
+    userEdited: true
+  });
+  const canonicalBasics = input.canonicalResume?.basics;
   const basics = {
-    name: structuredDraft.basics.name ? structuredField(structuredDraft.basics.name, "high") : undefined,
-    email: structuredDraft.basics.email ? structuredField(structuredDraft.basics.email, "high") : undefined,
-    phone: structuredDraft.basics.phone ? structuredField(structuredDraft.basics.phone, "medium") : undefined,
-    location: structuredDraft.basics.location ? structuredField(structuredDraft.basics.location, "medium") : undefined,
-    links: (structuredDraft.basics.links ?? []).map((link) => structuredField(link, "medium")),
-    targetRole: undefined,
+    name: canonicalBasics?.name ? canonicalJsonField(canonicalBasics.name) : structuredDraft.basics.name ? structuredField(structuredDraft.basics.name, "high") : undefined,
+    email: canonicalBasics?.email ? canonicalJsonField(canonicalBasics.email) : structuredDraft.basics.email ? structuredField(structuredDraft.basics.email, "high") : undefined,
+    phone: canonicalBasics?.phone ? canonicalJsonField(canonicalBasics.phone) : structuredDraft.basics.phone ? structuredField(structuredDraft.basics.phone, "medium") : undefined,
+    location: canonicalBasics?.location ? canonicalJsonField(canonicalBasics.location) : structuredDraft.basics.location ? structuredField(structuredDraft.basics.location, "medium") : undefined,
+    links: canonicalBasics
+      ? [
+          canonicalBasics.homepage,
+          canonicalBasics.linkedin,
+          canonicalBasics.github,
+          ...canonicalBasics.portfolioLinks,
+          ...canonicalBasics.otherLinks
+        ].filter((value): value is string => Boolean(value)).map(canonicalJsonField)
+      : (structuredDraft.basics.links ?? []).map((link) => structuredField(link, "medium")),
+    targetRole: canonicalBasics?.targetRole ? canonicalJsonField(canonicalBasics.targetRole) : undefined,
     summary: structuredDraft.basics.summary ? structuredField(structuredDraft.basics.summary, "medium") : undefined
   };
-  const sections: ImportedResumeSection[] = structuredDraft.sections.map((section, sectionIndex) => ({
+  const sections: ImportedResumeSection[] = input.canonicalResume ? input.canonicalResume.sections.map((section, sectionIndex) => ({
+    id: section.id,
+    sectionType: section.sectionType,
+    category: inferStructuredCategory(section.title, section.sectionType),
+    detectedTitle: section.title,
+    included: section.visible,
+    order: section.order,
+    confidence: "high",
+    items: section.items.map((structuredItem, itemIndex) => {
+      const sourceBlocks = sourceBlocksV2.filter((block) =>
+        block.sourcePath?.includes(`sections.${sectionIndex}.items.${itemIndex}`)
+        || block.sourcePath?.includes(`sections[${sectionIndex}].items[${itemIndex}]`)
+      );
+      const text = projectResumeItemV2(structuredItem);
+      return {
+        id: structuredItem.id,
+        rawText: text,
+        normalizedText: text,
+        included: section.visible,
+        order: itemIndex,
+        pageRefs: [{ pageNumber: 1, quote: text.slice(0, 240) }],
+        confidence: "high" as const,
+        sourceStatus: "user_confirmed_modified" as const,
+        userEdited: true,
+        sourceBlockIds: sourceBlocks.map((block) => block.id),
+        sourceQuote: text,
+        itemLabel: itemDisplayLabel(structuredItem),
+        structuredItem,
+        structuredMappingTrace: section.mappingTrace ?? []
+      };
+    })
+  })) : structuredDraft.sections.map((section, sectionIndex) => ({
     id: `import-section-${sectionIndex}-${nanoid(6)}`,
     sectionType: section.sectionType,
     category: section.category ?? inferStructuredCategory(section.title, section.sectionType),
@@ -265,6 +313,7 @@ export function createImportedResumeDraftFromStructuredJson(input: {
         userEdited: !mapping,
         sourceBlockIds: sourceBlocks.map((block) => block.id),
         sourceQuote: normalized.trim(),
+        structuredMappingTrace: [],
         mapping
       };
     })
@@ -535,6 +584,7 @@ function detectSectionsFromBlocks(blocks: NormalizedSourceBlock[]): ImportedResu
         sourceRanges: segment.sourceRanges,
         itemLabel: itemDisplayLabel(structuredItem),
         structuredItem,
+        structuredMappingTrace: [],
         sourceQuote: segment.normalizedText
       };
     });
@@ -764,6 +814,7 @@ function createItem(lines: LineWithPage[], order: number): ImportedResumeItem {
     sourceStatus: pageRefs.length > 0 ? "located" : "unlocated",
     userEdited: false,
     sourceBlockIds: [],
+    structuredMappingTrace: [],
     sourceQuote: rawText
   };
 }

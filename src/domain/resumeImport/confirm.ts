@@ -2,6 +2,7 @@ import { nanoid } from "nanoid";
 import {
   BranchContentItemSchema,
   CareerProfileSchema,
+  ResumeContentItemV2Schema,
   ResumeBranchSchema,
   type BranchContentItem,
   type BranchFactRef,
@@ -14,6 +15,8 @@ import {
   type ImportedResumeSection,
   type ImportMergeDecision,
   type ResumeBranch,
+  type ResumeContentItemV2,
+  type ResumeItemV2,
   type ResumeRevision
 } from "@/domain/schemas";
 import { createResumeRevision } from "@/domain/branch/revision";
@@ -52,7 +55,7 @@ export function buildResumeImportConfirmation(input: {
     newProfileName: input.newProfileName,
     now
   });
-  const contentItems = buildBranchContentItems({
+  const { contentItems, structuredContentItems } = buildBranchContentItems({
     draft: input.draft,
     factMappings,
     now
@@ -64,6 +67,7 @@ export function buildResumeImportConfirmation(input: {
 
   const branchBase = ResumeBranchSchema.parse({
     id: `branch-general-${input.draft.importId}-${nanoid(6)}`,
+    schemaVersion: "resume-branch-v2",
     branchPurpose: "general",
     profileId: profile.id,
     name: "通用简历",
@@ -93,6 +97,7 @@ export function buildResumeImportConfirmation(input: {
       links: profile.basics.links
     },
     contentItems,
+    structuredContentItems,
     createdAt: now,
     updatedAt: now
   });
@@ -144,7 +149,7 @@ function validateImportedResumeSources(draft: ImportedResumeDraft) {
     if (mappingIssues.length > 0) throw new Error(`resume_import_mapping_source_invalid:${mappingIssues[0].code}`);
     const candidateIssues = validateFieldCandidates(draft.fieldCandidates, draft.sourceBlocks);
     if (candidateIssues.length > 0) throw new Error(`resume_import_field_candidate_invalid:${candidateIssues[0].code}`);
-    if (draft.fieldCandidates.some((candidate) => candidate.needsConfirmation)) {
+    if (draft.fieldCandidates.some((candidate) => candidate.reviewStatus === "needs_review" && !candidate.userConfirmed)) {
       throw new Error("resume_import_field_candidate_unconfirmed");
     }
   }
@@ -213,6 +218,7 @@ function mergeImportedProfile(input: {
       ? `${block.sourcePath}: ${stringifySourceValue(block.sourceValue)}`
       : `${block.sourceBlockId}[${block.sourceRange.start}:${block.sourceRange.end}]: ${block.text}`)
   ];
+  const structuredFacts = [...(baseProfile.structuredFacts ?? [])];
 
   for (const section of input.draft.sections.filter((item) => item.included)) {
     for (const item of section.items.filter(canImportItem)) {
@@ -247,6 +253,7 @@ function mergeImportedProfile(input: {
           };
         });
         factMappings.push({ itemId: item.id, factRefs: refs });
+        appendStructuredFact(structuredFacts, input.draft, item, refs);
         continue;
       }
 
@@ -271,26 +278,34 @@ function mergeImportedProfile(input: {
           itemId: item.id,
           factRefs: [{ type: "certificate_fact", certificateId, factId: fact.id }]
         });
+        appendStructuredFact(structuredFacts, input.draft, item, [{ type: "certificate_fact", certificateId, factId: fact.id }]);
         continue;
       }
 
       const experienceId = `exp-${nanoid(10)}`;
+      const structured = item.structuredItem;
       const fact = createImportedFact({
         draft: input.draft,
         item,
-        statement: item.normalizedText,
+        statement: structured ? structuredBodyText(structured) || projectStructuredItemForLegacy(structured) : item.normalizedText,
         category: section.sectionType === "summary" ? "other" : importedSectionFactCategory(section),
         now: input.now
       });
       experiences.push({
         id: experienceId,
         type: section.sectionType === "summary" ? "other" : importedExperienceType(section),
-        organization: inferOrganization(section, item),
-        role: inferRole(section, item),
+        organization: structuredOrganization(structured) ?? inferOrganization(section, item),
+        role: structuredRole(structured) ?? inferRole(section, item),
+        location: structured && "location" in structured ? structured.location : undefined,
+        degree: structured?.sectionType === "education" ? structured.degree : undefined,
+        major: structured?.sectionType === "education" ? structured.major : undefined,
+        courses: structured?.sectionType === "education" ? structured.courses : undefined,
+        startDate: structured && "startDate" in structured ? structured.startDate : undefined,
+        endDate: structured && "endDate" in structured ? structured.endDate : undefined,
         facts: [fact],
         resumeDrafts: [{
           id: `draft-${nanoid(10)}`,
-          text: item.normalizedText,
+          text: structured ? projectStructuredItemForLegacy(structured) : item.normalizedText,
           factIds: [fact.id],
           createdAt: input.now,
           updatedAt: input.now
@@ -304,6 +319,7 @@ function mergeImportedProfile(input: {
         itemId: item.id,
         factRefs: [{ type: "experience_fact", experienceId, factId: fact.id }]
       });
+      appendStructuredFact(structuredFacts, input.draft, item, [{ type: "experience_fact", experienceId, factId: fact.id }]);
 
       if (section.sectionType === "unknown") {
         unclassifiedBlocks.push(item.normalizedText);
@@ -314,10 +330,22 @@ function mergeImportedProfile(input: {
   return {
     profile: CareerProfileSchema.parse({
       ...baseProfile,
+      schemaVersion: "career-profile-v2",
       experiences,
       skills,
       certificates,
       unclassifiedBlocks,
+      structuredBasics: {
+        name: basics.name,
+        headline: input.draft.basics.targetRole?.value ?? basics.headline,
+        targetRole: input.draft.basics.targetRole?.value,
+        phone: basics.phone,
+        email: basics.email,
+        location: basics.location,
+        otherLinks: basics.links,
+        customFields: []
+      },
+      structuredFacts,
       updatedAt: input.now
     }),
     factMappings
@@ -328,10 +356,10 @@ function buildBranchContentItems(input: {
   draft: ImportedResumeDraft;
   factMappings: FactMapping[];
   now: string;
-}): BranchContentItem[] {
+}): { contentItems: BranchContentItem[]; structuredContentItems: ResumeContentItemV2[] } {
   const factRefsByItem = new Map(input.factMappings.map((mapping) => [mapping.itemId, mapping.factRefs]));
   let order = 0;
-  return input.draft.sections
+  const pairs = input.draft.sections
     .filter((section) => section.included)
     .flatMap((section) => section.items.map((item) => ({ section, item })))
     .filter(({ item }) => canImportItem(item))
@@ -341,12 +369,13 @@ function buildBranchContentItems(input: {
       if (factRefs.length === 0) {
         return undefined;
       }
-      return BranchContentItemSchema.parse({
+      const text = item.structuredItem ? projectStructuredItemForLegacy(item.structuredItem) : item.normalizedText;
+      const legacy = BranchContentItemSchema.parse({
         id: `branch-item-import-${item.id}`,
         itemType: importedSectionItemType(section),
         source: "resume_import",
         sourceSectionId: categorySourceSectionId(sectionCategory(section)),
-        text: item.normalizedText,
+        text,
         originalText: item.rawText,
         order: order++,
         visible: true,
@@ -360,8 +389,30 @@ function buildBranchContentItems(input: {
         guardedAt: input.now,
         guardVersion: input.draft.parserVersion
       });
+      const structured = ResumeContentItemV2Schema.parse({
+        id: legacy.id,
+        schemaVersion: "resume-content-item-v2",
+        data: item.structuredItem ?? legacyFallbackStructuredItem(legacy, section),
+        factRefs,
+        source: legacy.source,
+        order: legacy.order,
+        visible: legacy.visible,
+        guardMode: legacy.guardMode,
+        guardStatus: legacy.guardStatus,
+        guardFindings: legacy.guardFindings,
+        legacyTextProjection: legacy.text,
+        sourceBlockIds: item.sourceBlockIds,
+        sourceRanges: item.sourceRanges ?? [],
+        sourceExcerpt: item.rawText,
+        mappingTrace: itemMappingTrace(input.draft, item)
+      });
+      return { legacy, structured };
     })
-    .filter((item): item is BranchContentItem => Boolean(item));
+    .filter((item): item is { legacy: BranchContentItem; structured: ResumeContentItemV2 } => Boolean(item));
+  return {
+    contentItems: pairs.map((item) => item.legacy),
+    structuredContentItems: pairs.map((item) => item.structured)
+  };
 }
 
 function mergeBasics(
@@ -518,6 +569,105 @@ function sectionCategory(section: ImportedResumeSection) {
   if (/项目|project/i.test(section.detectedTitle)) return "project" as const;
   if (/校园|社团|campus/i.test(section.detectedTitle)) return "campus" as const;
   return section.sectionType === "unknown" ? "custom" as const : "work" as const;
+}
+
+function appendStructuredFact(
+  target: NonNullable<CareerProfile["structuredFacts"]>,
+  draft: ImportedResumeDraft,
+  item: ImportedResumeItem,
+  refs: BranchFactRef[]
+) {
+  if (!item.structuredItem || target.some((entry) => entry.data.id === item.structuredItem?.id)) return;
+  target.push({
+    data: item.structuredItem,
+    factIds: refs.map((ref) => "factId" in ref ? ref.factId : ref.linkedFactId),
+    sourceBlockIds: item.sourceBlockIds,
+    sourceRanges: item.sourceRanges ?? [],
+    sourceExcerpt: item.rawText,
+    mappingTrace: itemMappingTrace(draft, item)
+  });
+}
+
+function itemMappingTrace(draft: ImportedResumeDraft, item: ImportedResumeItem) {
+  if (draft.schemaVersion !== "resume-import-v2") return item.structuredMappingTrace;
+  const candidates = draft.fieldCandidates
+    .filter((candidate) =>
+      candidate.itemId === item.id
+      && candidate.reviewStatus !== "rejected"
+      && candidate.reviewStatus !== "needs_review"
+      && !candidate.needsConfirmation
+    )
+    .map((candidate) => ({
+      sourceBlockIds: candidate.sourceBlockIds,
+      sourceQuote: candidate.sourceQuote,
+      targetFieldId: candidate.targetFieldId,
+      confidence: candidate.confidence,
+      needsConfirmation: false,
+      mappingReason: candidate.mappingReason
+    }));
+  return [...item.structuredMappingTrace, ...candidates];
+}
+
+function structuredBodyText(item: ResumeItemV2) {
+  if (item.sectionType === "summary") return item.text;
+  if ("highlights" in item && item.highlights.length > 0) return item.highlights.join("\n");
+  if ("description" in item && item.description) return item.description;
+  return "";
+}
+
+function projectStructuredItemForLegacy(item: ResumeItemV2) {
+  if (item.sectionType === "summary") return item.text;
+  const header = item.sectionType === "education"
+    ? [item.school, item.degree, item.major]
+    : item.sectionType === "project"
+      ? [item.title, item.role]
+      : ["organization" in item ? item.organization : undefined, "role" in item ? item.role : undefined];
+  const location = "location" in item ? item.location : undefined;
+  const dateRange = "startDate" in item
+    ? [item.startDate, "current" in item && item.current ? "至今" : item.endDate].filter(Boolean).join(" - ")
+    : item.sectionType === "awards" ? item.awardedAt : undefined;
+  const named = item.sectionType === "awards" || item.sectionType === "certificates" || item.sectionType === "skills"
+    ? item.name
+    : item.sectionType === "languages" ? item.language : undefined;
+  const body = structuredBodyText(item);
+  return [
+    [...header, named, location].filter(Boolean).join(" | "),
+    dateRange,
+    body
+  ].filter(Boolean).join("\n");
+}
+
+function structuredOrganization(item: ResumeItemV2 | undefined) {
+  if (!item) return undefined;
+  if (item.sectionType === "education") return item.school;
+  if (item.sectionType === "project") return item.title;
+  if ("organization" in item) return item.organization;
+  if (item.sectionType === "awards" || item.sectionType === "certificates" || item.sectionType === "skills") return item.name;
+  if (item.sectionType === "languages") return item.language;
+  return undefined;
+}
+
+function structuredRole(item: ResumeItemV2 | undefined) {
+  if (!item) return undefined;
+  if (item.sectionType === "education") return item.degree ?? item.major;
+  if (item.sectionType === "project") return item.role;
+  if ("role" in item) return item.role;
+  return undefined;
+}
+
+function legacyFallbackStructuredItem(item: BranchContentItem, section: ImportedResumeSection): ResumeItemV2 {
+  const base = { id: item.id, description: item.text, highlights: [], customFields: [] };
+  const category = sectionCategory(section);
+  if (category === "summary") return { id: item.id, sectionType: "summary", text: item.text, customFields: [] };
+  if (category === "education") return { ...base, sectionType: "education", courses: [], honors: [], current: false };
+  if (category === "project") return { ...base, sectionType: "project", tools: [], outcomes: [], current: false };
+  if (category === "campus") return { ...base, sectionType: "campus", current: false };
+  if (category === "skill") return { id: item.id, sectionType: "skills", name: firstLine(item.text), description: item.text, customFields: [] };
+  if (category === "certificate") return { id: item.id, sectionType: "certificates", name: firstLine(item.text), description: item.text, customFields: [] };
+  if (category === "award") return { id: item.id, sectionType: "awards", name: firstLine(item.text), description: item.text, customFields: [] };
+  if (category === "language") return { id: item.id, sectionType: "languages", language: firstLine(item.text), description: item.text, customFields: [] };
+  if (category === "work") return { ...base, sectionType: "work", current: false };
+  return { ...base, sectionType: "other" };
 }
 
 function stringifySourceValue(value: unknown) {

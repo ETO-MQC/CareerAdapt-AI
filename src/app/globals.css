@@ -4753,6 +4753,28 @@ html[data-theme="dark"] .property-panel-heading p {
   padding-inline: 6px;
 }
 
+.import-field-candidate-actions {
+  flex-wrap: nowrap;
+  gap: 4px;
+}
+
+.import-field-candidate-edit {
+  display: grid;
+  gap: 4px;
+  min-width: 160px;
+}
+
+.import-field-candidate-edit span,
+.import-item-body-label {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.import-field-candidate-edit input {
+  min-height: 34px;
+}
+
 .import-source-text {
   margin: 0;
   max-height: none;
@@ -4828,6 +4850,25 @@ html[data-theme="dark"] .property-panel-heading p {
 
 .compact-textarea {
   min-height: 84px;
+}
+
+.import-item-source-excerpt {
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+}
+
+.import-item-source-excerpt summary {
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.import-item-source-excerpt pre {
+  margin: 8px 0 0;
+  max-height: 160px;
+  overflow: auto;
+  white-space: pre-wrap;
 }
 
 .profile-manager-grid {

@@ -1,6 +1,15 @@
 import { z } from "zod";
 import { EntityBaseSchema, FactStatementSchema, IsoDateStringSchema } from "./common";
 import { ResumeBasicsV2Schema, ResumeItemV2Schema } from "./resumeV2";
+import { ResumeJsonV2MappingTraceSchema } from "./resumeJsonV2";
+
+const PersistedResumeSourceRangeSchema = z.object({
+  blockId: z.string().min(1),
+  start: z.number().int().min(0),
+  end: z.number().int().min(0)
+}).strict().refine((range) => range.end > range.start, {
+  message: "source range end must be greater than start"
+});
 
 export const ExperienceTypeSchema = z.enum([
   "education",
@@ -94,7 +103,11 @@ export const CareerProfileSchema = EntityBaseSchema.extend({
   unclassifiedBlocks: z.array(z.string()).default([]),
   structuredFacts: z.array(z.object({
     data: ResumeItemV2Schema,
-    factIds: z.array(z.string().min(1)).default([])
+    factIds: z.array(z.string().min(1)).default([]),
+    sourceBlockIds: z.array(z.string().min(1)).default([]),
+    sourceRanges: z.array(PersistedResumeSourceRangeSchema).default([]),
+    sourceExcerpt: z.string().min(1).optional(),
+    mappingTrace: z.array(ResumeJsonV2MappingTraceSchema).default([])
   }).strict()).optional(),
   structuredBasics: ResumeBasicsV2Schema.optional()
 });

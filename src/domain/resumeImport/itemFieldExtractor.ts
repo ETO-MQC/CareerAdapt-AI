@@ -5,6 +5,7 @@ import type { SegmentedResumeItem } from "./itemSegmenter";
 const DATE_RANGE_PATTERN = /(?<!\d)((?:19|20)\d{2}(?:[./年-]\d{1,2})?(?:[./月-]\d{1,2}日?)?)\s*(?:-|–|—|至|到)\s*((?:19|20)\d{2}(?:[./年-]\d{1,2})?(?:[./月-]\d{1,2}日?)?|至今|现在|Present|Current|仍在职|在读)/i;
 const LOCATION_PATTERN = /(?:北京|上海|广州|深圳|杭州|南京|成都|武汉|西安|天津|重庆|苏州|某地|长沙|合肥|厦门|青岛|大连|昆明|济南|珠海|佛山|东莞|无锡|宁波|温州|福州|贵阳|南昌|太原|石家庄|哈尔滨|长春|沈阳|洛阳|测试市)(?:（远程）|\(远程\))?/g;
 const HIGHLIGHT_START = /(?=\s+(?:将|对|形成|协助|设计|针对|开发|实现|识别|发现|搭建|封装|适配|集成|基于|完成|复用))/g;
+const HIGHLIGHT_ACTION_START = /^(?:负责|将|对|形成|协助|设计|针对|开发|实现|识别|发现|搭建|封装|适配|集成|基于|完成|复用)/;
 
 export function extractSegmentedItemFields(item: SegmentedResumeItem): ResumeItemV2 {
   const text = item.normalizedText.replace(/\n+/g, " ").replace(/\s+/g, " ").trim();
@@ -116,7 +117,20 @@ function splitIdentity(value: string): [string, string] {
 }
 
 function splitHighlights(inline: string, continuation: string[]) {
-  const combined = [inline, ...continuation].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
+  const repairedSegments = [inline, ...continuation].reduce<string[]>((result, current) => {
+    const value = current.trim();
+    if (!value) return result;
+    const previous = result.at(-1);
+    const hardWrapped = previous
+      && !HIGHLIGHT_ACTION_START.test(value)
+      && /[\p{Script=Han}A-Za-z0-9]$/u.test(previous)
+      && /^[\p{Script=Han}A-Za-z0-9]/u.test(value)
+      && (previous.length <= 8 || value.length <= 4);
+    if (hardWrapped) result[result.length - 1] = `${previous}${value}`;
+    else result.push(value);
+    return result;
+  }, []);
+  const combined = repairedSegments.join(" ").replace(/\s+/g, " ").trim();
   if (!combined) return [];
   return combined.split(HIGHLIGHT_START).map((part) => part.trim()).filter(Boolean);
 }

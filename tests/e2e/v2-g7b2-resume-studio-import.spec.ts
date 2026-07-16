@@ -237,8 +237,20 @@ test.describe("V2-G7b.2 Resume Studio and import IA", () => {
     const downloadPromise = page.waitForEvent("download");
     await workbar.locator(".toolbar-more-popover").getByRole("button", { name: /JSON/ }).click();
     const download = await downloadPromise;
+    const stream = await download.createReadStream();
+    const chunks: Buffer[] = [];
+    for await (const chunk of stream) chunks.push(Buffer.from(chunk));
+    const exported = JSON.parse(Buffer.concat(chunks).toString("utf8")) as {
+      schemaVersion: string;
+      sections: Array<{ sectionType: string; items: unknown[] }>;
+    };
 
     expect(download.suggestedFilename()).toContain("structured-resume.json");
+    expect(exported.schemaVersion).toBe("careeradapt-resume-v2");
+    expect(exported.sections).toContainEqual(expect.objectContaining({
+      sectionType: "project",
+      items: expect.any(Array)
+    }));
     await expect(page.locator(".app-notification-success").filter({ hasText: "结构化 JSON" }).last()).toBeVisible();
   });
 });

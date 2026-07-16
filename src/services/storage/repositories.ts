@@ -534,10 +534,12 @@ export class WorkspaceRepository {
           branch: built.branch,
           now
         }) : undefined;
+        const runtimeProfile = migrateCareerProfileToV2(committedProfile);
+        const runtimeBranch = built ? migrateResumeBranchToV2(built.branch) : undefined;
 
-        await this.db.profiles.put(committedProfile);
-        if (built && operation && presentationConfig) {
-          await this.db.resumeBranches.put(built.branch);
+        await this.db.profiles.put(runtimeProfile);
+        if (built && runtimeBranch && operation && presentationConfig) {
+          await this.db.resumeBranches.put(runtimeBranch);
           await this.db.resumeRevisions.put(built.firstRevision);
           await this.db.resumeBranchOperations.put(operation);
           await this.db.appMeta.put({
@@ -548,7 +550,7 @@ export class WorkspaceRepository {
         }
         await this.db.appMeta.put({
           key: ACTIVE_PROFILE_META_KEY,
-          value: ActiveProfileContextSchema.parse({ schemaVersion: "active-profile-v1", profileId: committedProfile.id }),
+          value: ActiveProfileContextSchema.parse({ schemaVersion: "active-profile-v1", profileId: runtimeProfile.id }),
           updatedAt: now
         });
         await this.db.appMeta.put({
@@ -557,7 +559,7 @@ export class WorkspaceRepository {
             ...draft,
             status: "confirmed",
             revision: draft.revision + 1,
-            confirmedProfileId: committedProfile.id,
+            confirmedProfileId: runtimeProfile.id,
             confirmedBranchId: built?.branch.id,
             confirmedRevisionId: built?.firstRevision.id,
             confirmedAt: now,
@@ -571,7 +573,7 @@ export class WorkspaceRepository {
             await this.db.pdfImportSessions.put(PdfImportSessionSchema.parse({
               ...session,
               status: "committed",
-              committedProfileId: committedProfile.id,
+              committedProfileId: runtimeProfile.id,
               committedAt: now,
               updatedAt: now
             }));
@@ -579,7 +581,7 @@ export class WorkspaceRepository {
         }
 
         return ImportedResumeConfirmResultSchema.parse({
-          profileId: committedProfile.id,
+          profileId: runtimeProfile.id,
           branchId: built?.branch.id,
           revisionId: built?.firstRevision.id,
           presentationRevision: presentationConfig?.presentationRevision,

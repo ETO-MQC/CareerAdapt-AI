@@ -3,6 +3,7 @@ import { EntityBaseSchema, IsoDateStringSchema } from "./common";
 import { ResumeRenderSectionTypeSchema } from "./resumeRender";
 import { isCanonicalFieldId } from "@/domain/resumeFields";
 import { CustomFieldValueSchema, FlexibleSectionV2Schema, ResumeItemV2Schema, ResumeSectionTypeV2Schema } from "./resumeV2";
+import { ResumeJsonV2MappingTraceSchema } from "./resumeJsonV2";
 
 export const ImportedResumeDraftStatusSchema = z.enum([
   "extracting",
@@ -142,6 +143,13 @@ export const ImportQualityReportV2Schema = ImportQualityReportSchema.extend({
 }).strict();
 
 export const ImportedResumeDatePrecisionSchema = z.enum(["year", "month", "day"]);
+export const ImportedResumeFieldReviewStatusSchema = z.enum([
+  "auto_selected",
+  "needs_review",
+  "accepted",
+  "rejected",
+  "edited"
+]);
 
 export const ImportedResumeDateValueSchema = z.object({
   rawText: z.string().min(1),
@@ -179,6 +187,7 @@ export const ImportedResumeFieldCandidateSchema = z.object({
   confidence: z.number().min(0).max(1),
   needsConfirmation: z.boolean(),
   userConfirmed: z.boolean().default(false),
+  reviewStatus: ImportedResumeFieldReviewStatusSchema.default("needs_review"),
   mappingReason: z.string().min(1),
   dateValue: ImportedResumeDateValueSchema.optional()
 }).strict();
@@ -281,6 +290,7 @@ export const ImportedResumeItemSchema = z.object({
   sourceRanges: z.array(ResumeSourceRangeSchema).optional(),
   itemLabel: z.string().min(1).optional(),
   structuredItem: ResumeItemV2Schema.optional(),
+  structuredMappingTrace: z.array(ResumeJsonV2MappingTraceSchema).default([]),
   sourceQuote: z.string().min(1).optional(),
   mapping: ImportedResumeMappingTraceSchema.optional()
 });
@@ -559,6 +569,7 @@ export type ResumeSourceRange = z.infer<typeof ResumeSourceRangeSchema>;
 export type ImportQualityReport = z.infer<typeof ImportQualityReportSchema>;
 export type ImportQualityReportV2 = z.infer<typeof ImportQualityReportV2Schema>;
 export type ImportedResumeDateValue = z.infer<typeof ImportedResumeDateValueSchema>;
+export type ImportedResumeFieldReviewStatus = z.infer<typeof ImportedResumeFieldReviewStatusSchema>;
 export type ImportedResumeFieldCandidate = z.infer<typeof ImportedResumeFieldCandidateSchema>;
 export type ResumeOcrProgressStage = z.infer<typeof ResumeOcrProgressStageSchema>;
 export type ResumeOcrBlock = z.infer<typeof ResumeOcrBlockSchema>;

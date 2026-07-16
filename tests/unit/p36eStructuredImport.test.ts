@@ -2,6 +2,12 @@ import { describe, expect, it } from "vitest";
 import { parseResumeDateToken } from "@/domain/resumeImport/dates";
 import { createImportedResumeDraftFromText } from "@/domain/resumeImport/parser";
 import { matchResumeSectionHeading } from "@/domain/resumeImport/sectionHeading";
+import { extractSegmentedItemFields } from "@/domain/resumeImport/itemFieldExtractor";
+import { segmentResumeItems } from "@/domain/resumeImport/itemSegmenter";
+import { exportCareerAdaptResumeJsonV2, jsonV2ToLegacyMapperOutput } from "@/domain/resumeImport/jsonV2Adapter";
+import { createImportedResumeDraftFromStructuredJson } from "@/domain/resumeImport/parser";
+import { CareerAdaptDb } from "@/services/storage/db";
+import { WorkspaceRepository } from "@/services/storage/repositories";
 import type { NormalizedSourceBlock, PdfPageText } from "@/domain/schemas";
 
 const NOW = "2026-07-16T08:00:00.000Z";
@@ -117,7 +123,176 @@ describe("P3.6e grouped resume structure", () => {
       expect(unclassifiedText).not.toContain(mappedText);
     }
   });
+
+  it("persists structured items through the repository and round-trips careeradapt-resume-v2", async () => {
+    const blocks = groupedResumeBlocks();
+    const draft = acceptReviewCandidates(createImportedResumeDraftFromText({
+      importId: "p36f-repository",
+      source: {
+        sourceSessionId: "p36f-session",
+        fileName: "grouped-resume.pdf",
+        mimeType: "application/pdf",
+        fileHash: "p36f-grouped-resume-hash",
+        pageCount: 2,
+        extractedAt: NOW
+      },
+      pages: pageRecords(blocks),
+      sourceKind: "text_pdf",
+      sourceBlocks: blocks,
+      now: NOW
+    }));
+    const db = new CareerAdaptDb(`P36fRoundTrip-${crypto.randomUUID()}`);
+    const repository = new WorkspaceRepository(db);
+    try {
+      const saved = await repository.saveImportedResumeDraft(draft, 0);
+      const confirmed = await repository.confirmImportedResume({
+        importId: saved.importId,
+        expectedDraftRevision: saved.revision,
+        operationId: "p36f-confirm",
+        target: { mode: "new", profileName: "M", createGeneralResume: true }
+      });
+      const profile = await repository.getProfile(confirmed.profileId);
+      const branch = await repository.getResumeBranch(confirmed.branchId);
+      expect(profile?.schemaVersion).toBe("career-profile-v2");
+      expect(branch?.schemaVersion).toBe("resume-branch-v2");
+      expect(branch?.structuredContentItems?.every((item) => item.sourceBlockIds.length > 0 && item.sourceExcerpt)).toBe(true);
+      if (!profile || !branch) throw new Error("confirmed structured resume missing");
+
+      const exported = exportCareerAdaptResumeJsonV2({ profile, branch });
+      const count = (sectionType: typeof exported.sections[number]["sectionType"]) =>
+        exported.sections.find((section) => section.sectionType === sectionType)?.items.length ?? 0;
+      expect(exported.schemaVersion).toBe("careeradapt-resume-v2");
+      expect(exported.basics.name).toBe("M");
+      expect(count("education")).toBe(1);
+      expect(count("work")).toBe(2);
+      expect(count("project")).toBe(4);
+      expect(count("awards")).toBe(2);
+      expect(count("skills")).toBe(6);
+      expect(count("languages")).toBe(1);
+      expect(exported.sections.some((section) => section.title === "经历")).toBe(false);
+      expect(exported.unclassifiedBlocks).toHaveLength(0);
+
+      for (const item of exported.sections.flatMap((section) => section.items)) {
+        if (!("highlights" in item)) continue;
+        const forbidden = [
+          "title" in item ? item.title : undefined,
+          "organization" in item ? item.organization : undefined,
+          "role" in item ? item.role : undefined,
+          "location" in item ? item.location : undefined,
+          "startDate" in item ? item.startDate : undefined,
+          "endDate" in item ? item.endDate : undefined
+        ].filter((value): value is string => Boolean(value));
+        expect(item.highlights.some((highlight) => forbidden.some((value) => highlight.includes(value)))).toBe(false);
+      }
+
+      const mapped = jsonV2ToLegacyMapperOutput(exported);
+      const jsonBlocks = exported.sections.flatMap((section, sectionIndex) =>
+        section.items.flatMap((item, itemIndex) => Object.entries(item).filter(([, value]) => value !== undefined).map(([key, value], order) => ({
+          id: `json:${sectionIndex}:${itemIndex}:${key}`,
+          sourcePath: `sections.${sectionIndex}.items.${itemIndex}.${key}`,
+          text: typeof value === "string" ? value : JSON.stringify(value) ?? String(value),
+          rawText: typeof value === "string" ? value : JSON.stringify(value) ?? String(value),
+          normalizedText: typeof value === "string" ? value : JSON.stringify(value) ?? String(value),
+          normalizationActions: [],
+          blockType: "text_block" as const,
+          sourceEngine: "json_mapper" as const,
+          sourceEngineVersion: "test",
+          extractionConfidence: 1,
+          order
+        })))
+      );
+      const importedAgain = createImportedResumeDraftFromStructuredJson({
+        importId: "p36f-json-roundtrip",
+        source: {
+          fileName: "M-careeradapt-resume-v2.json",
+          mimeType: "application/json",
+          fileHash: "p36f-json-roundtrip-hash",
+          pageCount: 1,
+          extractedAt: NOW
+        },
+        structuredDraft: mapped.structuredDraft,
+        unclassifiedBlocks: mapped.unclassifiedBlocks,
+        sourceKind: "standard_json",
+        sourceBlocks: jsonBlocks,
+        mappingDecisions: [],
+        canonicalResume: exported,
+        now: NOW
+      });
+      const rebuilt = exportCareerAdaptResumeJsonV2(
+        await confirmDraftInNewRepository(importedAgain)
+      );
+      expect(normalizeResumeJson(rebuilt)).toEqual(normalizeResumeJson(exported));
+    } finally {
+      db.close();
+      await db.delete();
+    }
+  });
+
+  it("repairs PDF hard wraps without merging separate highlights", () => {
+    const blocks = ["示例项目 | 开发者 某地 2026-02 - 至今 完成内容模", "块", "设计校验流程"]
+      .map((normalizedText, order): NormalizedSourceBlock => ({
+        id: `hard-wrap:${order}`,
+        page: 1,
+        text: normalizedText,
+        rawText: normalizedText,
+        normalizedText,
+        normalizationActions: [],
+        blockType: "paragraph",
+        sourceEngine: "pdfjs",
+        sourceEngineVersion: "test",
+        extractionConfidence: 1,
+        sourceKind: "digital_pdf",
+        order
+      }));
+    const item = extractSegmentedItemFields(segmentResumeItems({ sectionType: "project", blocks })[0]!);
+    expect(item).toMatchObject({
+      sectionType: "project",
+      highlights: ["完成内容模块", "设计校验流程"]
+    });
+  });
 });
+
+function acceptReviewCandidates<T extends ReturnType<typeof createImportedResumeDraftFromText>>(draft: T): T {
+  if (draft.schemaVersion !== "resume-import-v2") return draft;
+  return {
+    ...draft,
+    fieldCandidates: draft.fieldCandidates.map((candidate) => candidate.reviewStatus === "needs_review"
+      ? { ...candidate, needsConfirmation: false, userConfirmed: true, reviewStatus: "accepted" as const }
+      : candidate)
+  } as T;
+}
+
+async function confirmDraftInNewRepository(draft: ReturnType<typeof createImportedResumeDraftFromStructuredJson>) {
+  const db = new CareerAdaptDb(`P36fJsonRoundTrip-${crypto.randomUUID()}`);
+  const repository = new WorkspaceRepository(db);
+  try {
+    const saved = await repository.saveImportedResumeDraft(draft, 0);
+    const confirmed = await repository.confirmImportedResume({
+      importId: saved.importId,
+      expectedDraftRevision: saved.revision,
+      operationId: "p36f-json-confirm",
+      target: { mode: "new", profileName: saved.basics.name?.value ?? "M", createGeneralResume: true }
+    });
+    const profile = await repository.getProfile(confirmed.profileId);
+    const branch = await repository.getResumeBranch(confirmed.branchId);
+    if (!profile || !branch) throw new Error("round-trip repository result missing");
+    return { profile, branch };
+  } finally {
+    db.close();
+    await db.delete();
+  }
+}
+
+function normalizeResumeJson<T extends { sections: Array<{ mappingTrace?: unknown }> }>(resume: T) {
+  return {
+    ...resume,
+    sections: resume.sections.map((section) => {
+      const normalized = { ...section };
+      delete normalized.mappingTrace;
+      return normalized;
+    })
+  };
+}
 
 function groupedResumeBlocks(): NormalizedSourceBlock[] {
   const lines: Array<[number, string, "heading" | "paragraph" | "contact", number, number]> = [

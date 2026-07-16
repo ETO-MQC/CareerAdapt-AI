@@ -19,6 +19,7 @@ import { applyImportBulkSelection, type ImportBulkSelectionMode } from "@/domain
 import { invokeStructuredAi } from "@/ai/client";
 import {
   ImportedResumeDraftSchema,
+  ResumeItemV2Schema,
   ResumeJsonMapperOutputSchema,
   StructuredResumeDraftSchema,
   type CareerProfile,
@@ -91,6 +92,7 @@ export function ResumeImportWizard(props: {
   const [selectedItemId, setSelectedItemId] = useState<string | undefined>();
   const [selectedBasicFieldKey, setSelectedBasicFieldKey] = useState<BasicFieldKey | undefined>();
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | undefined>();
+  const [editingCandidateId, setEditingCandidateId] = useState<string | undefined>();
   const [basicMergeActions, setBasicMergeActions] = useState<Record<string, ImportMergeDecision["action"]>>({});
   const [jsonText, setJsonText] = useState("");
   const [sourceMode, setSourceMode] = useState<"file" | "json">(props.initialMode ?? "file");
@@ -145,7 +147,7 @@ export function ResumeImportWizard(props: {
     const fields = [draft.basics.name, draft.basics.email, draft.basics.phone, draft.basics.location, draft.basics.summary, ...draft.basics.links];
     return fields.filter((field) => field?.mapping?.needsConfirmation).length
       + draft.sections.flatMap((section) => section.items).filter((item) => item.mapping?.needsConfirmation).length
-      + (draft.schemaVersion === "resume-import-v2" ? draft.fieldCandidates.filter((candidate) => candidate.needsConfirmation).length : 0);
+      + (draft.schemaVersion === "resume-import-v2" ? draft.fieldCandidates.filter((candidate) => candidate.reviewStatus === "needs_review").length : 0);
   }, [draft]);
   const targetProfile = (props.profiles ?? []).find((item) => item.id === targetProfileId) ?? props.profile;
   const nameMismatch = targetMode === "existing" && Boolean(
@@ -421,7 +423,7 @@ export function ResumeImportWizard(props: {
       let successMessage: string;
 
       if (v2.ok && v2.sourceKind === "v2") {
-        mapped = jsonV2ToLegacyMapperOutput(v2.value);
+        mapped = { ...jsonV2ToLegacyMapperOutput(v2.value), mappingDecisions: [] };
         sourceKind = "standard_json";
         successMessage = "CareerAdapt JSON v2 已进入逐项核对；结构化字段和未分类内容均已保留。";
       } else if (standard.success) {
@@ -443,7 +445,7 @@ export function ResumeImportWizard(props: {
       }
 
       setPendingJsonMapping(standard.success || (v2.ok && v2.sourceKind === "v2") ? undefined : mapped);
-      await persistJsonDraft(mapped, fileName, rawText, sourceKind, successMessage);
+      await persistJsonDraft(mapped, fileName, rawText, sourceKind, successMessage, v2.ok && v2.sourceKind === "v2" ? v2.value : undefined);
     } catch (error) {
       const message = error instanceof Error ? error.message : "导入过程中发生未知错误";
       fail(message);
@@ -451,7 +453,14 @@ export function ResumeImportWizard(props: {
     }
   }
 
-  async function persistJsonDraft(output: ResumeJsonMapperOutput, fileName: string, rawText: string, sourceKind: "standard_json" | "external_json", successMessage: string) {
+  async function persistJsonDraft(
+    output: ResumeJsonMapperOutput,
+    fileName: string,
+    rawText: string,
+    sourceKind: "standard_json" | "external_json",
+    successMessage: string,
+    canonicalResume?: ReturnType<typeof createResumeJsonV2Example>
+  ) {
     try {
       const now = new Date().toISOString();
       const normalizedTextHash = await hashText(rawText);
@@ -465,6 +474,7 @@ export function ResumeImportWizard(props: {
         sourceBlocks,
         qualityReport,
         mappingDecisions: output.mappingDecisions,
+        canonicalResume,
         now
       });
       const saved = await props.repository.saveImportedResumeDraft({ ...importedDraft, parserVersion: `${importedDraft.parserVersion}+${RESUME_IMPORT_CLEANER_VERSION}` }, 0);
@@ -660,10 +670,52 @@ export function ResumeImportWizard(props: {
       return {
         ...current,
         fieldCandidates: current.fieldCandidates.map((candidate) => candidate.id === candidateId
-          ? { ...candidate, needsConfirmation: false, userConfirmed: true }
+          ? { ...candidate, needsConfirmation: false, userConfirmed: true, reviewStatus: "accepted" as const }
           : candidate)
       };
     });
+  }
+
+  async function rejectFieldCandidate(candidateId: string) {
+    await patchDraft((current) => {
+      if (current.schemaVersion !== "resume-import-v2") return current;
+      const candidate = current.fieldCandidates.find((item) => item.id === candidateId);
+      if (!candidate) return current;
+      return {
+        ...current,
+        fieldCandidates: current.fieldCandidates.map((item) => item.id === candidateId
+          ? { ...item, needsConfirmation: false, userConfirmed: false, reviewStatus: "rejected" as const }
+          : item),
+        sections: updateStructuredCandidateValue(current.sections, candidate, undefined)
+      };
+    });
+    setEditingCandidateId(undefined);
+  }
+
+  async function editFieldCandidate(candidateId: string, rawValue: string) {
+    await patchDraft((current) => {
+      if (current.schemaVersion !== "resume-import-v2") return current;
+      const candidate = current.fieldCandidates.find((item) => item.id === candidateId);
+      if (!candidate) return current;
+      const value = parseEditedCandidateValue(candidate.value, rawValue);
+      return {
+        ...current,
+        fieldCandidates: current.fieldCandidates.map((item) => item.id === candidateId
+          ? {
+              ...item,
+              value,
+              needsConfirmation: false,
+              userConfirmed: true,
+              reviewStatus: "edited" as const,
+              dateValue: item.dateValue && typeof value === "string"
+                ? { ...item.dateValue, value, current: false }
+                : item.dateValue
+            }
+          : item),
+        sections: updateStructuredCandidateValue(current.sections, candidate, value)
+      };
+    });
+    setEditingCandidateId(undefined);
   }
 
   async function confirmItemMapping(sectionId: string, itemId: string) {
@@ -759,7 +811,8 @@ export function ResumeImportWizard(props: {
       return;
     }
     await updateItem(sectionId, item.id, {
-      normalizedText: text,
+      normalizedText: item.structuredItem ? item.normalizedText : text,
+      structuredItem: item.structuredItem ? updateStructuredItemBody(item.structuredItem, text) : undefined,
       sourceStatus: text === item.rawText.trim() ? item.sourceStatus : "user_confirmed_modified",
       userEdited: text !== item.rawText.trim(),
       confidence: text === item.rawText.trim() ? item.confidence : "medium"
@@ -1119,11 +1172,11 @@ export function ResumeImportWizard(props: {
             ) : null}
             <div className="section-heading compact-heading">
               <div><h3>核对结构</h3>{unconfirmedMappingCount > 0 ? <p>{unconfirmedMappingCount} 个映射待确认；一源多字段需逐项确认</p> : null}</div>
-              {unconfirmedMappingCount > fieldCandidates.filter((candidate) => candidate.needsConfirmation).length ? <button className="primary-button compact" type="button" onClick={() => { void confirmAllMappings(); }}>确认可批量项</button> : null}
+              {unconfirmedMappingCount > fieldCandidates.filter((candidate) => candidate.reviewStatus === "needs_review").length ? <button className="primary-button compact" type="button" onClick={() => { void confirmAllMappings(); }}>确认可批量项</button> : null}
             </div>
 
             {fieldCandidates.length > 0 ? <details className="import-field-candidates" open>
-              <summary>字段候选 <span>{fieldCandidates.filter((candidate) => candidate.needsConfirmation).length} 项待确认</span></summary>
+              <summary>字段候选 <span>{fieldCandidates.filter((candidate) => candidate.reviewStatus === "needs_review").length} 项待确认</span></summary>
               <div className="import-field-candidate-list">
                 {fieldCandidates.map((candidate) => (
                   <div key={candidate.id} className={selectedCandidateId === candidate.id ? "import-field-candidate active" : "import-field-candidate"}>
@@ -1139,9 +1192,29 @@ export function ResumeImportWizard(props: {
                       <strong>{formatCandidateValue(candidate.value)}</strong>
                       <small>{candidate.dateValue ? `${datePrecisionLabel(candidate.dateValue.sourcePrecision ?? candidate.dateValue.precision, candidate.dateValue.current)} · 来源 ${candidate.dateValue.rawText}` : "逐字来源"} · {Math.round(candidate.confidence * 100)}%</small>
                     </button>
-                    {candidate.needsConfirmation
-                      ? <button className="secondary-button compact" type="button" onClick={() => { void confirmFieldCandidate(candidate.id); }}>确认此字段</button>
-                      : <span className="import-field-candidate-confirmed">已确认</span>}
+                    {editingCandidateId === candidate.id ? (
+                      <label className="import-field-candidate-edit">
+                        <span>编辑值</span>
+                        <input
+                          autoFocus
+                          defaultValue={formatCandidateValue(candidate.value)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Escape") setEditingCandidateId(undefined);
+                            if (event.key === "Enter") {
+                              event.preventDefault();
+                              event.currentTarget.blur();
+                            }
+                          }}
+                          onBlur={(event) => { void editFieldCandidate(candidate.id, event.currentTarget.value); }}
+                        />
+                      </label>
+                    ) : candidate.reviewStatus === "needs_review" ? (
+                      <div className="action-row import-field-candidate-actions">
+                        <button className="secondary-button compact" type="button" onClick={() => { void confirmFieldCandidate(candidate.id); }}>采用</button>
+                        <button className="secondary-button compact" type="button" onClick={() => { void rejectFieldCandidate(candidate.id); }}>舍弃</button>
+                        <button className="secondary-button compact" type="button" onClick={() => setEditingCandidateId(candidate.id)}>编辑</button>
+                      </div>
+                    ) : <span className="import-field-candidate-confirmed">{fieldCandidateStatusLabel(candidate.reviewStatus)}</span>}
                   </div>
                 ))}
               </div>
@@ -1230,11 +1303,12 @@ export function ResumeImportWizard(props: {
                     {item.structuredItem ? <dl className="import-item-structured-fields">
                       {structuredItemFields(item.structuredItem).map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}
                     </dl> : null}
+                    <strong className="import-item-body-label">职责与成果</strong>
                     <textarea
                       className="textarea compact-textarea"
                       name={`import-item-${item.id}`}
-                      aria-label={`${section.detectedTitle}导入内容`}
-                      defaultValue={item.normalizedText}
+                      aria-label={`${section.detectedTitle}职责与成果`}
+                      defaultValue={item.structuredItem ? structuredItemBody(item.structuredItem) : item.normalizedText}
                       onFocus={() => {
                         setSelectedItemId(item.id);
                         setSelectedBasicFieldKey(undefined);
@@ -1243,6 +1317,10 @@ export function ResumeImportWizard(props: {
                       }}
                       onBlur={(event) => { void editItemText(section.id, item, event.target.value); }}
                     />
+                    <details className="import-item-source-excerpt">
+                      <summary>查看来源原文</summary>
+                      <pre>{item.rawText}</pre>
+                    </details>
                     <div className="action-row">
                       <button type="button" className="secondary-button compact" onClick={() => { void moveItem(section.id, item.id, "up"); }}>上移</button>
                       <button type="button" className="secondary-button compact" onClick={() => { void moveItem(section.id, item.id, "down"); }}>下移</button>
@@ -1666,6 +1744,81 @@ function formatCandidateValue(value: string | number | boolean | string[]) {
   if (Array.isArray(value)) return value.join("、");
   if (typeof value === "boolean") return value ? "是" : "否";
   return String(value);
+}
+
+function fieldCandidateStatusLabel(status: ImportedResumeFieldCandidate["reviewStatus"]) {
+  return {
+    auto_selected: "已预选",
+    needs_review: "待核对",
+    accepted: "已采用",
+    rejected: "已舍弃",
+    edited: "已编辑"
+  }[status];
+}
+
+function parseEditedCandidateValue(
+  current: ImportedResumeFieldCandidate["value"],
+  rawValue: string
+): ImportedResumeFieldCandidate["value"] {
+  const value = rawValue.trim();
+  if (typeof current === "boolean") return /^(true|1|是|至今)$/i.test(value);
+  if (typeof current === "number") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : current;
+  }
+  if (Array.isArray(current)) return value.split(/[，,]/).map((item) => item.trim()).filter(Boolean);
+  return value || current;
+}
+
+function updateStructuredCandidateValue(
+  sections: ImportedResumeDraft["sections"],
+  candidate: ImportedResumeFieldCandidate,
+  value: ImportedResumeFieldCandidate["value"] | undefined
+) {
+  if (!candidate.itemId || candidate.itemId === "basics") return sections;
+  const key = candidate.targetFieldId.split(".").at(-1);
+  if (!key) return sections;
+  return sections.map((section) => ({
+    ...section,
+    items: section.items.map((item) => {
+      if (item.id !== candidate.itemId || !item.structuredItem) return item;
+      const record = { ...item.structuredItem } as unknown as Record<string, unknown>;
+      if (value === undefined) {
+        if (key === "current") record.current = false;
+        else delete record[key];
+      } else {
+        record[key] = value;
+      }
+      const parsed = ResumeItemV2Schema.parse(record);
+      return { ...item, structuredItem: parsed, itemLabel: itemDisplayLabelForReview(parsed) };
+    })
+  }));
+}
+
+function structuredItemBody(item: ResumeItemV2) {
+  if (item.sectionType === "summary") return item.text;
+  if ("highlights" in item && item.highlights.length > 0) return item.highlights.join("\n");
+  if ("description" in item && item.description) return item.description;
+  return "";
+}
+
+function updateStructuredItemBody(item: ResumeItemV2, text: string): ResumeItemV2 {
+  if (item.sectionType === "summary") return ResumeItemV2Schema.parse({ ...item, text });
+  const highlights = text.split(/\n+/).map((line) => line.trim()).filter(Boolean);
+  if ("highlights" in item) {
+    return ResumeItemV2Schema.parse({ ...item, highlights, description: undefined });
+  }
+  if ("description" in item) return ResumeItemV2Schema.parse({ ...item, description: text });
+  return item;
+}
+
+function itemDisplayLabelForReview(item: ResumeItemV2) {
+  if (item.sectionType === "education") return item.school ?? "教育经历";
+  if (item.sectionType === "project") return item.title ?? "项目";
+  if ("organization" in item) return item.organization ?? ("role" in item ? item.role : undefined) ?? "经历条目";
+  if (item.sectionType === "awards" || item.sectionType === "certificates" || item.sectionType === "skills") return item.name;
+  if (item.sectionType === "languages") return item.language;
+  return "条目";
 }
 
 function datePrecisionLabel(precision: "year" | "month" | "day" | undefined, current: boolean) {
