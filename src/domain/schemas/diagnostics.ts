@@ -95,8 +95,8 @@ export const ResumeDiagnosticSummarySchema = z.object({
   }),
   page: z.object({
     pagePolicy: ResumePagePolicySchema,
-    actualPageCount: z.number().int().min(0).max(3),
-    requestedMaxPages: z.number().int().min(1).max(2),
+    actualPageCount: z.number().int().min(0).max(4),
+    requestedMaxPages: z.number().int().min(1).max(4),
     paginationBlocked: z.boolean()
   }),
   atsStructureStatus: z.enum(["structure_friendly", "minor_risk", "clear_risk", "unknown"]),

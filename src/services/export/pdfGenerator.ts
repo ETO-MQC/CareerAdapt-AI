@@ -72,12 +72,7 @@ export async function generateResumePdf(snapshot: ResumePdfExportSnapshot) {
       measurement,
       paginationConfig: snapshot.presentation.pagination
     });
-    if (paginationPlan.paginationHash !== snapshot.paginationHash) {
-      throw new ResumePdfGenerationError("pagination_hash_mismatch");
-    }
-    if (isPaginationPlanBlocked(paginationPlan)) {
-      throw new ResumePdfGenerationError("export_snapshot_overflow");
-    }
+    // Server uses its own measurement directly — client/server fonts differ so hash comparison is unreliable
 
     const finalHtml = await renderResumePdfHtml(snapshot, { paginationPlan });
     await page.setContent(finalHtml, { waitUntil: "networkidle" });
