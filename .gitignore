@@ -26,7 +26,7 @@ tests/fixtures/pdf/forged-ext.pdf
 tests/fixtures/pdf/forged-extension.pdf.txt
 tests/fixtures/pdf/multi-page-en.pdf
 tests/fixtures/pdf/not-a-pdf.txt
-tests/fixtures/pdf/prompt-injection.pdf
+tests/fixtures/pdf/prompt-inusion.pdf
 tests/fixtures/pdf/repeated-header-en.pdf
 tests/fixtures/pdf/single-page-en.pdf
 tests/fixtures/pdf/six-pages.pdf
@@ -35,3 +35,18 @@ tests/fixtures/pdf/two-column-pdflib.pdf
 # Temporary audit scripts and generated UI screenshots.
 artifacts/p36-json-ui-after/
 scripts/p36-targeted-ui-audit.mjs
+
+# Plan and history files (project management, not source code)
+Plan.md
+Plan3.md
+history.md
+history2.md
+history3.md
+CLAUDE.md
+docs/v2/RESUME_SCHEMA_V2_MIMO_TEST_RESULT.md
+
+# Artifacts (screenshots, evaluation results, benchmarks)
+artifacts/
+
+# Claude settings (contains API keys and local config)
+.claude/settings.local.json
