@@ -25,7 +25,9 @@ import {
   type ExtractedSourceBlock,
   type ImportedResumeDraft,
   type ImportedResumeField,
+  type ImportedResumeFieldCandidate,
   type ImportedResumeItem,
+  type ResumeItemV2,
   type ImportedResumeSource,
   type ImportedResumeSectionType,
   type ImportMergeDecision,
@@ -58,9 +60,15 @@ type BasicFieldKey = "name" | "email" | "phone" | "location" | "summary";
 
 const SECTION_OPTIONS: Array<{ value: ImportedResumeSectionType; label: string }> = [
   { value: "summary", label: "个人概述" },
-  { value: "experience", label: "经历/教育/项目" },
+  { value: "education", label: "教育经历" },
+  { value: "work", label: "工作经历" },
+  { value: "internship", label: "实习经历" },
+  { value: "project", label: "项目成果" },
+  { value: "awards", label: "奖项" },
   { value: "skills", label: "技能" },
-  { value: "certificates", label: "证书/奖项/语言" },
+  { value: "certificates", label: "证书" },
+  { value: "languages", label: "语言" },
+  { value: "experience", label: "旧版经历（需拆分）" },
   { value: "unknown", label: "其他/待确认" }
 ];
 
@@ -624,6 +632,7 @@ export function ResumeImportWizard(props: {
           sourceStatus: current?.value === value.trim() ? current.sourceStatus : "user_confirmed_modified",
           userEdited: current?.value !== value.trim(),
           sourceBlockIds: current?.sourceBlockIds ?? [],
+          sourceRanges: current?.sourceRanges,
           sourceQuote: current?.sourceQuote ?? current?.value,
           mapping: current?.mapping ? { ...current.mapping, needsConfirmation: false } : undefined
         }
@@ -1121,13 +1130,14 @@ export function ResumeImportWizard(props: {
                     <button type="button" className="import-field-candidate-source" aria-pressed={selectedCandidateId === candidate.id} onClick={() => {
                       setSelectedCandidateId(candidate.id);
                       setSelectedBasicFieldKey(undefined);
-                      setSelectedItemId(undefined);
+                      setSelectedItemId(candidate.itemId && candidate.itemId !== "basics" ? candidate.itemId : undefined);
                       const block = draft.sourceBlocks.find((source) => candidate.sourceBlockIds.includes(source.id));
                       if (block?.page) setSelectedPageNumber(block.page);
                     }}>
+                      <small>{candidateContextLabel(candidate, draft)}</small>
                       <span>{canonicalFieldLabel(candidate.targetFieldId)}</span>
                       <strong>{formatCandidateValue(candidate.value)}</strong>
-                      <small>{candidate.dateValue ? datePrecisionLabel(candidate.dateValue.precision, candidate.dateValue.current) : "逐字来源"} · {Math.round(candidate.confidence * 100)}%</small>
+                      <small>{candidate.dateValue ? `${datePrecisionLabel(candidate.dateValue.sourcePrecision ?? candidate.dateValue.precision, candidate.dateValue.current)} · 来源 ${candidate.dateValue.rawText}` : "逐字来源"} · {Math.round(candidate.confidence * 100)}%</small>
                     </button>
                     {candidate.needsConfirmation
                       ? <button className="secondary-button compact" type="button" onClick={() => { void confirmFieldCandidate(candidate.id); }}>确认此字段</button>
@@ -1217,6 +1227,9 @@ export function ResumeImportWizard(props: {
                       <span>来源：{item.mapping.sourcePaths.join("、")}</span>
                       <strong>{item.mapping.needsConfirmation ? "需要确认" : "来源已核对"}</strong>
                     </button> : null}
+                    {item.structuredItem ? <dl className="import-item-structured-fields">
+                      {structuredItemFields(item.structuredItem).map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}
+                    </dl> : null}
                     <textarea
                       className="textarea compact-textarea"
                       name={`import-item-${item.id}`}
@@ -1240,7 +1253,11 @@ export function ResumeImportWizard(props: {
                 ))}
               </article>
             ))}
-            {draft.unclassifiedBlocks.length > 0 ? <section className="review-row import-unclassified-blocks"><strong>未识别内容（{draft.unclassifiedBlocks.length}）</strong><p>这些字段没有被丢弃，也不会自动写入正式简历。</p>{draft.unclassifiedBlocks.map((block) => <details key={block.sourcePath}><summary>{block.sourcePath}</summary><pre>{stringifyUnknown(block.sourceValue)}</pre></details>)}</section> : null}
+            {draft.unclassifiedBlocks.length > 0 ? <section className="review-row import-unclassified-blocks"><strong>未识别内容（{draft.unclassifiedBlocks.length}）</strong><p>这些字段没有被丢弃，也不会自动写入正式简历。</p>{draft.unclassifiedBlocks.map((block) => {
+              const key = "sourcePath" in block ? block.sourcePath : `${block.sourceBlockId}:${block.sourceRange.start}-${block.sourceRange.end}`;
+              const value = "sourceValue" in block ? block.sourceValue : block.text;
+              return <details key={key}><summary>{key}</summary><pre>{stringifyUnknown(value)}</pre></details>;
+            })}</section> : null}
           </div>
         </div>
         <footer className="import-review-footer">
@@ -1613,6 +1630,36 @@ function highlightSourceText(text: string, quote: string | undefined) {
 
 function canonicalFieldLabel(fieldId: string) {
   return getResumeFieldDefinition(fieldId as CanonicalFieldId)?.label ?? fieldId;
+}
+
+function candidateContextLabel(candidate: ImportedResumeFieldCandidate, draft: ImportedResumeDraft) {
+  if (candidate.itemId === "basics") return "基本信息";
+  const section = draft.sections.find((item) => item.id === candidate.sectionId);
+  return [section?.detectedTitle, candidate.itemLabel].filter(Boolean).join(" · ") || "待确认条目";
+}
+
+function structuredItemFields(item: ResumeItemV2): Array<[string, string]> {
+  const record = item as unknown as Record<string, unknown>;
+  const labels: Record<string, string> = {
+    school: "学校",
+    degree: "学历",
+    major: "专业",
+    organization: "组织 / 标题",
+    title: "标题",
+    role: "角色",
+    location: "地点",
+    startDate: "开始日期",
+    endDate: "结束日期",
+    current: "结束状态",
+    awardedAt: "获奖时间",
+    name: "名称",
+    language: "语言"
+  };
+  return Object.entries(labels).flatMap(([key, label]) => {
+    const value = record[key];
+    if (key === "current") return value === true ? [[label, "至今"]] : [];
+    return typeof value === "string" && value.trim() ? [[label, value]] : [];
+  });
 }
 
 function formatCandidateValue(value: string | number | boolean | string[]) {

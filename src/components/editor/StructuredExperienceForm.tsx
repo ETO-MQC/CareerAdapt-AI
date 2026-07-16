@@ -52,8 +52,8 @@ export function StructuredExperienceForm({
         </div>
       )}
       <div className="section-fields-grid-2">
-        <FieldInput id={`${idPrefix}-start`} label={labels.startDate} type="date" value={value.startDate} onChange={(next) => update("startDate", next)} onFocus={onFocus} />
-        <FieldInput id={`${idPrefix}-end`} label={labels.endDate} type="date" value={value.endDate} disabled={value.current} onChange={(next) => update("endDate", next)} onFocus={onFocus} />
+        <FieldInput id={`${idPrefix}-start`} label={labels.startDate} type="month" value={value.startDate} onChange={(next) => update("startDate", next)} onFocus={onFocus} />
+        <FieldInput id={`${idPrefix}-end`} label={labels.endDate} type="month" value={value.endDate} disabled={value.current} onChange={(next) => update("endDate", next)} onFocus={onFocus} />
       </div>
       <label className="field-input-checkbox-label profile-current-toggle">
         <input type="checkbox" checked={value.current} onChange={(event) => update("current", event.target.checked)} />

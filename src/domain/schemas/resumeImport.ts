@@ -2,7 +2,7 @@ import { z } from "zod";
 import { EntityBaseSchema, IsoDateStringSchema } from "./common";
 import { ResumeRenderSectionTypeSchema } from "./resumeRender";
 import { isCanonicalFieldId } from "@/domain/resumeFields";
-import { CustomFieldValueSchema, FlexibleSectionV2Schema } from "./resumeV2";
+import { CustomFieldValueSchema, FlexibleSectionV2Schema, ResumeItemV2Schema, ResumeSectionTypeV2Schema } from "./resumeV2";
 
 export const ImportedResumeDraftStatusSchema = z.enum([
   "extracting",
@@ -74,6 +74,14 @@ export const ResumeSourceBoundingBoxSchema = z.object({
   height: z.number().min(0)
 }).strict();
 
+export const ResumeSourceRangeSchema = z.object({
+  blockId: z.string().min(1),
+  start: z.number().int().min(0),
+  end: z.number().int().min(0)
+}).strict().refine((range) => range.end > range.start, {
+  message: "source range end must be greater than start"
+});
+
 export const ExtractedSourceBlockSchema = z.object({
   id: z.string().min(1),
   page: z.number().int().min(1).optional(),
@@ -137,8 +145,10 @@ export const ImportedResumeDatePrecisionSchema = z.enum(["year", "month", "day"]
 
 export const ImportedResumeDateValueSchema = z.object({
   rawText: z.string().min(1),
-  value: z.string().regex(/^\d{4}(?:-\d{2}(?:-\d{2})?)?$/).optional(),
+  value: z.string().regex(/^\d{4}(?:-\d{2})?$/).optional(),
   precision: ImportedResumeDatePrecisionSchema.optional(),
+  sourcePrecision: ImportedResumeDatePrecisionSchema.optional(),
+  businessPrecision: z.literal("month").optional(),
   current: z.boolean().default(false),
   sourceBlockIds: z.array(z.string().min(1)).min(1),
   sourceQuote: z.string().min(1),
@@ -151,6 +161,9 @@ export const ImportedResumeDateValueSchema = z.object({
   if (value.current && value.value) {
     ctx.addIssue({ code: "custom", path: ["value"], message: "current dates must not fabricate a normalized end date" });
   }
+  if (!value.current && value.sourcePrecision && value.precision && value.sourcePrecision !== value.precision) {
+    ctx.addIssue({ code: "custom", path: ["sourcePrecision"], message: "sourcePrecision must match legacy precision" });
+  }
 });
 
 export const ImportedResumeFieldCandidateSchema = z.object({
@@ -158,6 +171,10 @@ export const ImportedResumeFieldCandidateSchema = z.object({
   targetFieldId: z.string().refine(isCanonicalFieldId, "targetFieldId must exist in the canonical field catalog"),
   value: z.union([z.string(), z.number(), z.boolean(), z.array(z.string())]),
   sourceBlockIds: z.array(z.string().min(1)).min(1),
+  sourceRanges: z.array(ResumeSourceRangeSchema).optional(),
+  sectionId: z.string().min(1).optional(),
+  itemId: z.string().min(1).optional(),
+  itemLabel: z.string().min(1).optional(),
   sourceQuote: z.string().min(1),
   confidence: z.number().min(0).max(1),
   needsConfirmation: z.boolean(),
@@ -223,10 +240,7 @@ export const ImportedResumeSourceStatusSchema = z.enum([
   "user_confirmed_modified"
 ]);
 
-export const ImportedResumeSectionTypeSchema = z.union([
-  ResumeRenderSectionTypeSchema,
-  z.literal("unknown")
-]);
+export const ImportedResumeSectionTypeSchema = z.union([ResumeRenderSectionTypeSchema, ResumeSectionTypeV2Schema, z.literal("unknown")]);
 
 export const ImportedResumeWarningSchema = z.object({
   code: z.string().min(1),
@@ -248,6 +262,7 @@ export const ImportedResumeFieldSchema = z.object({
   sourceStatus: ImportedResumeSourceStatusSchema,
   userEdited: z.boolean().default(false),
   sourceBlockIds: z.array(z.string().min(1)).default([]),
+  sourceRanges: z.array(ResumeSourceRangeSchema).optional(),
   sourceQuote: z.string().min(1).optional(),
   mapping: ImportedResumeMappingTraceSchema.optional()
 });
@@ -263,6 +278,9 @@ export const ImportedResumeItemSchema = z.object({
   sourceStatus: ImportedResumeSourceStatusSchema,
   userEdited: z.boolean().default(false),
   sourceBlockIds: z.array(z.string().min(1)).default([]),
+  sourceRanges: z.array(ResumeSourceRangeSchema).optional(),
+  itemLabel: z.string().min(1).optional(),
+  structuredItem: ResumeItemV2Schema.optional(),
   sourceQuote: z.string().min(1).optional(),
   mapping: ImportedResumeMappingTraceSchema.optional()
 });
@@ -376,6 +394,20 @@ export const StructuredResumeDraftSchema = z.object({
   })).default([])
 }).strict();
 
+const ImportedResumeUnclassifiedBlockSchema = z.union([
+  z.object({
+    sourcePath: z.string().min(1),
+    sourceValue: z.unknown(),
+    reason: z.string().min(1)
+  }).strict(),
+  z.object({
+    sourceBlockId: z.string().min(1),
+    sourceRange: ResumeSourceRangeSchema,
+    text: z.string().min(1),
+    reason: z.string().min(1)
+  }).strict()
+]);
+
 const ImportedResumeDraftBaseSchema = EntityBaseSchema.extend({
   schemaVersion: z.literal("resume-import-v1"),
   importId: z.string().min(1),
@@ -396,11 +428,7 @@ const ImportedResumeDraftBaseSchema = EntityBaseSchema.extend({
   }),
   sections: z.array(ImportedResumeSectionSchema).default([]),
   pages: z.array(ImportedResumePageSchema).default([]),
-  unclassifiedBlocks: z.array(z.object({
-    sourcePath: z.string().min(1),
-    sourceValue: z.unknown(),
-    reason: z.string().min(1)
-  })).default([]),
+  unclassifiedBlocks: z.array(ImportedResumeUnclassifiedBlockSchema).default([]),
   warnings: z.array(ImportedResumeWarningSchema).default([]),
   parserVersion: z.string().min(1),
   confirmedProfileId: z.string().min(1).optional(),
@@ -527,6 +555,7 @@ export type ResumeSourceEngine = z.infer<typeof ResumeSourceEngineSchema>;
 export type ExtractedSourceBlock = z.infer<typeof ExtractedSourceBlockSchema>;
 export type NormalizedSourceBlock = z.infer<typeof NormalizedSourceBlockSchema>;
 export type ResumeSourceBlockV2 = z.infer<typeof ResumeSourceBlockV2Schema>;
+export type ResumeSourceRange = z.infer<typeof ResumeSourceRangeSchema>;
 export type ImportQualityReport = z.infer<typeof ImportQualityReportSchema>;
 export type ImportQualityReportV2 = z.infer<typeof ImportQualityReportV2Schema>;
 export type ImportedResumeDateValue = z.infer<typeof ImportedResumeDateValueSchema>;

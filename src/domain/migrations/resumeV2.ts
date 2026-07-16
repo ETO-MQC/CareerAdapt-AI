@@ -100,7 +100,7 @@ function migrateExperience(experience: Experience): ResumeItemV2 {
   switch (experience.type) {
     case "education": return { ...common, sectionType: "education", school: experience.organization, degree: experience.role, major: experience.major, courses: experience.courses ?? [], honors: [], highlights: [], current: false };
     case "internship": return { ...common, sectionType: "internship", organization: experience.organization, role: experience.role, highlights: [], current: false };
-    case "project": return { id: experience.id, sectionType: "project", title: experience.organization, role: experience.role, startDate: experience.startDate, endDate: experience.endDate, tools: [], highlights: [], outcomes: [], customFields: [] };
+    case "project": return { id: experience.id, sectionType: "project", title: experience.organization, role: experience.role, location: experience.location, startDate: experience.startDate, endDate: experience.endDate, current: false, tools: [], highlights: [], outcomes: [], customFields: [] };
     case "competition": return { id: experience.id, sectionType: "awards", name: experience.role, issuer: experience.organization, customFields: [] };
     case "campus": return { ...common, sectionType: "campus", organization: experience.organization, role: experience.role, highlights: [], current: false };
     case "volunteer": return { ...common, sectionType: "volunteer", organization: experience.organization, role: experience.role, highlights: [], current: false };
@@ -115,7 +115,7 @@ function legacyBranchData(item: BranchContentItem): ResumeItemV2 {
   switch (item.sourceSectionId) {
     case "education": return { ...base, sectionType: "education", courses: [], honors: [], current: false };
     case "experience": return { ...base, sectionType: "work", current: false };
-    case "projects": return { ...base, sectionType: "project", tools: [], outcomes: [] };
+    case "projects": return { ...base, sectionType: "project", current: false, tools: [], outcomes: [] };
     case "campus": return { ...base, sectionType: "campus", current: false };
     default: return { ...base, sectionType: "other" };
   }

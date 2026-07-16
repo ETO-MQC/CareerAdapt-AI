@@ -41,8 +41,9 @@ describe("V2-G4a resume PDF import", () => {
     expect(draft.basics.email?.value).toBe("alex@example.com");
     expect(draft.basics.phone?.value).toContain("13800138000");
     expect(draft.sections.map((section) => section.sectionType)).toEqual(
-      expect.arrayContaining(["experience", "skills"])
+      expect.arrayContaining(["work", "project", "skills"])
     );
+    expect(draft.sections.map((section) => section.sectionType)).not.toContain("experience");
     expect(draft.sections.flatMap((section) => section.items).every((item) => item.pageRefs.length > 0)).toBe(true);
   });
 

@@ -24,8 +24,10 @@ import {
   classifyImportSource,
   RESUME_IMPORT_PIPELINE_VERSION
 } from "./pipeline";
-import { createDeterministicFieldCandidates } from "./fieldCandidates";
+import { computeResidualSegments, createDeterministicFieldCandidates, type ConsumedSourceRange } from "./fieldCandidates";
 import { matchResumeSectionHeading, type ImportedResumeCategory, type ImportedResumeSectionType } from "./sectionHeading";
+import { segmentResumeItems } from "./itemSegmenter";
+import { extractSegmentedItemFields, itemDisplayLabel } from "./itemFieldExtractor";
 
 export const RESUME_IMPORT_PARSER_VERSION = "resume-import.local-rules.v2";
 
@@ -93,8 +95,6 @@ export function createImportedResumeDraftFromText(input: {
     charStart: page.charStart,
     charEnd: page.charEnd
   }));
-  const lines = pages.flatMap((page) => splitPageLines(page));
-  const combinedText = pages.map((page) => page.normalizedText).join("\n\n");
   const normalizedSourceBlocks = input.sourceBlocks?.length
     ? input.sourceBlocks
     : createFallbackSourceBlocks(pages, input.source.mimeType);
@@ -111,9 +111,23 @@ export function createImportedResumeDraftFromText(input: {
     legacyReport: input.qualityReport
   });
   const candidateResult = createDeterministicFieldCandidates(sourceBlocks);
-  const fieldCandidates = candidateResult.candidates;
-  const basics = attachBasicBlockSources(detectBasics(combinedText, pageSources), sourceBlocks);
-  const sections = attachSectionBlockSources(detectSections(lines), sourceBlocks);
+  const basics = detectBasicsFromBlocks(sourceBlocks, pageSources);
+  const sections = detectSectionsFromBlocks(sourceBlocks);
+  const fieldCandidates = bindCandidatesToItems(candidateResult.candidates, sections, sourceBlocks);
+  const mappingDecisions = fieldCandidates.map((candidate) => ({
+    kind: "canonical_field" as const,
+    targetFieldId: candidate.targetFieldId,
+    sourceBlockIds: candidate.sourceBlockIds,
+    sourceQuote: candidate.sourceQuote,
+    confidence: candidate.confidence,
+    needsConfirmation: candidate.needsConfirmation,
+    mappingReason: candidate.mappingReason
+  }));
+  const structureConsumedRanges = collectStructureConsumedRanges({ basics, sections, sourceBlocks });
+  const residualSegments = computeResidualSegments(
+    [...candidateResult.consumedRanges, ...structureConsumedRanges],
+    sourceBlocks
+  );
   const warnings = [
     ...sections
       .filter((section) => section.sectionType === "unknown")
@@ -155,8 +169,14 @@ export function createImportedResumeDraftFromText(input: {
     basics,
     sections,
     pages,
+    unclassifiedBlocks: residualSegments.map((segment) => ({
+      sourceBlockId: segment.blockId,
+      sourceRange: { blockId: segment.blockId, start: segment.start, end: segment.end },
+      text: segment.normalizedText,
+      reason: "未映射文本区间"
+    })),
     warnings,
-    mappingDecisions: [],
+    mappingDecisions,
     fieldCandidates,
     parserVersion: `${RESUME_IMPORT_PIPELINE_VERSION}.${RESUME_IMPORT_PARSER_VERSION}`,
     createdAt: now,
@@ -294,22 +314,6 @@ export function createImportedResumeDraftFromStructuredJson(input: {
   });
 }
 
-function attachBasicBlockSources<T extends ReturnType<typeof detectBasics>>(basics: T, blocks: NormalizedSourceBlock[]): T {
-  const attach = (field: ImportedResumeField | undefined) => {
-    if (!field) return field;
-    const matches = findSourceBlocks(field.value, blocks);
-    return { ...field, sourceBlockIds: matches.map((block) => block.id), sourceQuote: field.value };
-  };
-  return {
-    ...basics,
-    name: attach(basics.name),
-    email: attach(basics.email),
-    phone: attach(basics.phone),
-    location: attach(basics.location),
-    links: basics.links.map((field) => attach(field)!)
-  };
-}
-
 function createFallbackSourceBlocks(
   pages: readonly Pick<ImportedResumePage, "pageNumber" | "rawText" | "normalizedText">[],
   mimeType: ImportedResumeSource["mimeType"]
@@ -321,37 +325,24 @@ function createFallbackSourceBlocks(
       : mimeType === "application/pdf"
         ? "pdfjs" as const
         : "plain_text" as const;
-  return pages.flatMap((page, order) => page.normalizedText.trim() ? [{
-    id: `fallback:${page.pageNumber}:${order}`,
-    page: page.pageNumber,
-    text: page.rawText,
-    rawText: page.rawText,
-    normalizedText: page.normalizedText,
-    normalizationActions: [],
-    blockType: "text_block" as const,
-    sourceEngine,
-    sourceEngineVersion: "unknown",
-    extractionConfidence: 0.7,
-    order
-  }] : []);
-}
-
-function attachSectionBlockSources(sections: ImportedResumeSection[], blocks: NormalizedSourceBlock[]) {
-  return sections.map((section) => ({
-    ...section,
-    items: section.items.map((item) => {
-      const matches = findSourceBlocks(item.rawText, blocks);
-      return { ...item, sourceBlockIds: matches.map((block) => block.id), sourceQuote: item.rawText };
-    })
-  }));
-}
-
-function findSourceBlocks(quote: string, blocks: NormalizedSourceBlock[]) {
-  const compactQuote = quote.replace(/\s+/g, "");
-  return blocks.filter((block) => {
-    const compact = block.normalizedText.replace(/\s+/g, "");
-    return compact && (compactQuote.includes(compact) || compact.includes(compactQuote));
-  });
+  let order = 0;
+  return pages.flatMap((page) => page.normalizedText
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => ({
+      id: `fallback:${page.pageNumber}:${order}`,
+      page: page.pageNumber,
+      text: line,
+      rawText: line,
+      normalizedText: line,
+      normalizationActions: [],
+      blockType: matchResumeSectionHeading(line) ? "heading" as const : "text_block" as const,
+      sourceEngine,
+      sourceEngineVersion: "unknown",
+      extractionConfidence: 0.7,
+      order: order++
+    })));
 }
 
 function structuredJsonToReviewText(draft: StructuredResumeDraft) {
@@ -412,15 +403,236 @@ function inferStructuredCategory(title: string, sectionType: ImportedResumeSecti
   return sectionType === "unknown" ? "custom" : "work";
 }
 
-function splitPageLines(page: ImportedResumePage): LineWithPage[] {
-  return page.normalizedText
-    .split(/\n+/)
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((text) => ({ text, pageNumber: page.pageNumber }));
+function detectBasicsFromBlocks(
+  blocks: NormalizedSourceBlock[],
+  pageSources: Array<{ pageNumber: number; cleanedPageText: string; charStart: number; charEnd: number }>
+) {
+  const ordered = [...blocks].sort((left, right) => left.order - right.order);
+  const firstSectionIndex = ordered.findIndex((block) => matchResumeSectionHeading(block.normalizedText)?.kind === "canonical_section");
+  const identityBlocks = ordered.slice(0, firstSectionIndex < 0 ? Math.min(ordered.length, 12) : firstSectionIndex);
+  const emailMatch = findBlockMatch(identityBlocks, EMAIL_PATTERN);
+  const phoneMatch = findBlockMatch(identityBlocks, /(?<!\d)1[3-9]\d{9}(?!\d)/);
+  const linkMatches = identityBlocks.flatMap((block) =>
+    Array.from(block.normalizedText.matchAll(new RegExp(LINK_PATTERN, "gi"))).map((match) => ({ block, match }))
+  );
+  const locationMatch = identityBlocks.map((block) => ({
+    block,
+    match: block.normalizedText.match(/(?:北京|上海|广州|深圳|杭州|南京|成都|武汉|西安|天津|重庆|苏州|某地|长沙|合肥|厦门|青岛|大连|昆明|济南|珠海|佛山|东莞|无锡|宁波|温州|福州|贵阳|南昌|太原|石家庄|哈尔滨|长春|沈阳|洛阳|测试市)(?:（远程）|\(远程\))?|(?:Remote|Hong Kong|Singapore)/i)
+  })).find((entry) => entry.match);
+  const maximumFontSize = Math.max(...identityBlocks.map((block) => block.fontSize ?? 0), 0);
+  const nameMatch = identityBlocks.flatMap((block) => {
+    const candidates = Array.from(block.normalizedText.matchAll(/(?:^|\s)([A-Za-z][A-Za-z .'-]{0,30}|[\p{Script=Han}]{2,8})(?=\s|$)/gu));
+    return candidates.map((match) => ({
+      block,
+      value: match[1].trim(),
+      start: (match.index ?? 0) + match[0].indexOf(match[1]),
+      score: (block.fontSize ?? 0) / Math.max(1, maximumFontSize)
+        + ((block.position?.x ?? 999) < 160 ? 0.4 : 0)
+    }));
+  }).filter((entry) =>
+    !EMAIL_PATTERN.test(entry.value)
+    && !PHONE_PATTERN.test(entry.value)
+    && !LINK_PATTERN.test(entry.value)
+    && !/(远程|Remote|通用简历|未指定岗位)/i.test(entry.value)
+    && entry.value !== locationMatch?.match?.[0]
+    && (entry.value.length > 1 || (entry.block.fontSize ?? 0) >= maximumFontSize * 0.9)
+  ).sort((left, right) => right.score - left.score)[0];
+  const headlineMatch = emailMatch
+    ? {
+        block: emailMatch.block,
+        value: emailMatch.block.normalizedText.replace(emailMatch.match[0], "").trim()
+      }
+    : undefined;
+
+  return {
+    name: nameMatch ? makeBlockField(nameMatch.value, nameMatch.block, "high", nameMatch.start) : undefined,
+    email: emailMatch ? makeBlockField(emailMatch.match[0], emailMatch.block, "high", emailMatch.match.index) : undefined,
+    phone: phoneMatch ? makeBlockField(phoneMatch.match[0], phoneMatch.block, "high", phoneMatch.match.index) : undefined,
+    location: locationMatch?.match ? makeBlockField(locationMatch.match[0], locationMatch.block, "high", locationMatch.match.index) : undefined,
+    links: linkMatches.map(({ block, match }) => makeBlockField(match[0], block, "high", match.index)),
+    targetRole: headlineMatch?.value ? makeBlockField(headlineMatch.value, headlineMatch.block, "high", Math.max(0, headlineMatch.block.normalizedText.indexOf(headlineMatch.value))) : undefined,
+    summary: undefined
+  };
+
+  function makeBlockField(value: string, block: NormalizedSourceBlock, confidence: "high" | "medium" | "low", start = 0): ImportedResumeField {
+    return {
+      value,
+      pageRefs: block.page ? [{ pageNumber: block.page, quote: value }] : makeField(value, pageSources, confidence).pageRefs,
+      confidence,
+      sourceStatus: "located",
+      userEdited: false,
+      sourceBlockIds: [block.id],
+      sourceRanges: [{ blockId: block.id, start, end: start + value.length }],
+      sourceQuote: value
+    };
+  }
 }
 
-function detectBasics(
+function findBlockMatch(blocks: NormalizedSourceBlock[], pattern: RegExp) {
+  for (const block of blocks) {
+    const match = new RegExp(pattern.source, pattern.flags.replace("g", "")).exec(block.normalizedText);
+    if (match) return { block, match };
+  }
+  return undefined;
+}
+
+function detectSectionsFromBlocks(blocks: NormalizedSourceBlock[]): ImportedResumeSection[] {
+  const sections: Array<{
+    heading: Extract<NonNullable<ReturnType<typeof matchResumeSectionHeading>>, { kind: "canonical_section" }>;
+    title: string;
+    headingBlock: NormalizedSourceBlock;
+    blocks: NormalizedSourceBlock[];
+  }> = [];
+  let current: (typeof sections)[number] | undefined;
+  for (const block of [...blocks].sort((left, right) => left.order - right.order)) {
+    const inlineHeading = matchInlineCanonicalSection(block.normalizedText);
+    if (inlineHeading) {
+      current = {
+        heading: inlineHeading.heading,
+        title: inlineHeading.heading.label,
+        headingBlock: block,
+        blocks: []
+      };
+      sections.push(current);
+      if (inlineHeading.content) {
+        current.blocks.push({
+          ...block,
+          text: inlineHeading.content,
+          rawText: inlineHeading.content,
+          normalizedText: inlineHeading.content
+        });
+      }
+      continue;
+    }
+    const heading = matchResumeSectionHeading(block.normalizedText);
+    if (heading?.kind === "presentation_group") {
+      current = undefined;
+      continue;
+    }
+    if (heading?.kind === "canonical_section") {
+      current = { heading, title: heading.label, headingBlock: block, blocks: [] };
+      sections.push(current);
+      continue;
+    }
+    current?.blocks.push(block);
+  }
+
+  return sections.map((section, sectionIndex): ImportedResumeSection => {
+    const segmented = segmentResumeItems({ sectionType: section.heading.sectionType, blocks: section.blocks });
+    const items = segmented.map((segment, itemIndex): ImportedResumeItem => {
+      const structuredItem = extractSegmentedItemFields(segment);
+      return {
+        id: segment.id,
+        rawText: segment.normalizedText,
+        normalizedText: segment.normalizedText,
+        included: true,
+        order: itemIndex,
+        pageRefs: pageRefsFromBlocks(segment.bodyBlocks),
+        confidence: "high",
+        sourceStatus: "located",
+        userEdited: false,
+        sourceBlockIds: segment.sourceBlockIds,
+        sourceRanges: segment.sourceRanges,
+        itemLabel: itemDisplayLabel(structuredItem),
+        structuredItem,
+        sourceQuote: segment.normalizedText
+      };
+    });
+    return {
+      id: `import-section-${sectionIndex}-${nanoid(6)}`,
+      sectionType: section.heading.sectionType as ImportedResumeSectionType,
+      category: section.heading.category,
+      detectedTitle: section.title,
+      included: true,
+      order: sectionIndex,
+      confidence: section.heading.confidence,
+      items
+    };
+  });
+}
+
+function matchInlineCanonicalSection(text: string) {
+  const match = text.trim().match(/^([^:：]{1,48})[:：]\s*(.*)$/);
+  if (!match) return undefined;
+  const heading = matchResumeSectionHeading(match[1].trim());
+  if (!heading || heading.kind !== "canonical_section") return undefined;
+  return { heading, content: match[2].trim() };
+}
+
+function pageRefsFromBlocks(blocks: NormalizedSourceBlock[]): ImportedResumePageRef[] {
+  const refs = new Map<number, string>();
+  for (const block of blocks) {
+    if (block.page && !refs.has(block.page)) refs.set(block.page, block.normalizedText.slice(0, 240));
+  }
+  return Array.from(refs, ([pageNumber, quote]) => ({ pageNumber, quote }));
+}
+
+function bindCandidatesToItems(
+  candidates: ImportedResumeFieldCandidate[],
+  sections: ImportedResumeSection[],
+  blocks: NormalizedSourceBlock[]
+) {
+  const blockById = new Map(blocks.map((block) => [block.id, block]));
+  const itemEntries = sections.flatMap((section) => section.items.map((item) => ({ section, item })));
+  return candidates.map((candidate) => {
+    const entry = itemEntries.find(({ item }) => candidate.sourceBlockIds.some((blockId) => item.sourceBlockIds.includes(blockId)));
+    const sourceRanges = candidate.sourceBlockIds.flatMap((blockId) => {
+      const block = blockById.get(blockId);
+      if (!block) return [];
+      const start = block.normalizedText.indexOf(candidate.sourceQuote);
+      return start >= 0 ? [{ blockId, start, end: start + candidate.sourceQuote.length }] : [];
+    });
+    return {
+      ...candidate,
+      sourceRanges,
+      sectionId: entry?.section.id ?? "basics",
+      itemId: entry?.item.id ?? "basics",
+      itemLabel: entry?.item.itemLabel ?? "基本信息"
+    };
+  });
+}
+
+function collectStructureConsumedRanges(input: {
+  basics: ReturnType<typeof detectBasicsFromBlocks>;
+  sections: ImportedResumeSection[];
+  sourceBlocks: NormalizedSourceBlock[];
+}): ConsumedSourceRange[] {
+  const ranges: ConsumedSourceRange[] = [];
+  const fields = [
+    input.basics.name,
+    input.basics.email,
+    input.basics.phone,
+    input.basics.location,
+    input.basics.targetRole,
+    ...input.basics.links
+  ];
+  for (const field of fields) {
+    for (const range of field?.sourceRanges ?? []) {
+      ranges.push({ ...range, targetFieldId: "structure.basics", candidateId: `structure:${range.blockId}:${range.start}` });
+    }
+  }
+  for (const section of input.sections) {
+    for (const item of section.items) {
+      for (const range of item.sourceRanges ?? []) {
+        ranges.push({ ...range, targetFieldId: `structure.${section.sectionType}`, candidateId: item.id });
+      }
+    }
+  }
+  for (const block of input.sourceBlocks) {
+    if (matchResumeSectionHeading(block.normalizedText) || matchInlineCanonicalSection(block.normalizedText)) {
+      ranges.push({
+        blockId: block.id,
+        start: 0,
+        end: block.normalizedText.length,
+        targetFieldId: "structure.heading",
+        candidateId: `heading:${block.id}`
+      });
+    }
+  }
+  return ranges;
+}
+
+export function detectBasics(
   text: string,
   pageSources: Array<{ pageNumber: number; cleanedPageText: string; charStart: number; charEnd: number }>
 ) {
@@ -461,7 +673,7 @@ function detectBasics(
   };
 }
 
-function detectSections(lines: LineWithPage[]): ImportedResumeSection[] {
+export function detectSections(lines: LineWithPage[]): ImportedResumeSection[] {
   const sections: ImportedResumeSection[] = [];
   let current: ImportedResumeSection | undefined;
   let itemBuffer: LineWithPage[] = [];
@@ -594,7 +806,7 @@ function createPageRefs(lines: LineWithPage[], normalizedText: string): Imported
 
 function classifySectionTitle(line: string) {
   const match = matchResumeSectionHeading(line);
-  if (!match) return undefined;
+  if (!match || match.kind !== "canonical_section") return undefined;
   return {
     type: match.importedSectionType,
     category: match.category,

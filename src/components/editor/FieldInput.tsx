@@ -11,7 +11,7 @@ type FieldInputProps = {
   onFocus?: () => void;
   placeholder?: string;
   disabled?: boolean;
-  type?: "text" | "email" | "tel" | "url" | "date";
+  type?: "text" | "email" | "tel" | "url" | "date" | "month";
   inputMode?: "text" | "email" | "tel" | "url" | "numeric";
   hint?: string;
   error?: string;

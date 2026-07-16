@@ -4,12 +4,7 @@
  */
 import type { ResumeSectionTypeV2 } from "@/domain/resumeFields";
 
-export type ImportedResumeSectionType =
-  | "summary"
-  | "experience"
-  | "skills"
-  | "certificates"
-  | "unknown";
+export type ImportedResumeSectionType = ResumeSectionTypeV2 | "experience" | "unknown";
 
 export type ImportedResumeCategory =
   | "summary"
@@ -23,12 +18,26 @@ export type ImportedResumeCategory =
   | "language"
   | "custom";
 
-export type SectionHeadingMatch = {
-  sectionType: ResumeSectionTypeV2;
-  importedSectionType: ImportedResumeSectionType;
-  category?: ImportedResumeCategory;
-  confidence: "high" | "medium";
-};
+export type ResumeHeadingMatch =
+  | {
+      kind: "canonical_section";
+      sectionType: ResumeSectionTypeV2;
+      importedSectionType: ImportedResumeSectionType;
+      category?: ImportedResumeCategory;
+      confidence: "high" | "medium";
+      label: string;
+    }
+  | {
+      kind: "presentation_group";
+      groupId: string;
+      label: string;
+    }
+  | {
+      kind: "unknown_heading";
+      label: string;
+    };
+
+export type SectionHeadingMatch = Extract<ResumeHeadingMatch, { kind: "canonical_section" }>;
 
 /**
  * Maps ResumeSectionTypeV2 (field catalog section) to the V1 ImportedResumeSectionType
@@ -88,7 +97,7 @@ const SECTION_HEADING_PATTERNS: SectionPatternEntry[] = [
 
   // Work & Internship (most specific first)
   { sectionType: "internship", confidence: "high", pattern: /^(?:实习经历|internships?)\s*[:：]?$/i },
-  { sectionType: "work", confidence: "high", pattern: /^(?:工作(?:与实习)?经历|工作经验|work(?:\s*(?:&|and)\s*internship)?\s*experience|employment)\s*[:：]?$/i },
+  { sectionType: "work", confidence: "high", pattern: /^(?:工作(?:与实习)?经历|工作经验|experience|work(?:\s*(?:&|and)\s*internship)?\s*experience|employment)\s*[:：]?$/i },
 
   // Research
   { sectionType: "research", confidence: "high", pattern: /^(?:科研经历|research)\s*[:：]?$/i },
@@ -117,18 +126,27 @@ const SECTION_HEADING_PATTERNS: SectionPatternEntry[] = [
  * Match a line of text against known section heading patterns.
  * Returns the match result or undefined if no pattern matches.
  */
-export function matchResumeSectionHeading(text: string): SectionHeadingMatch | undefined {
+export function matchResumeSectionHeading(text: string): ResumeHeadingMatch | undefined {
   const trimmed = text.trim();
   // Skip very long lines (not headings)
   if (Array.from(trimmed).length > 48) return undefined;
+  if (/^经历\s*[:：]?$/.test(trimmed)) {
+    return {
+      kind: "presentation_group",
+      groupId: "experience-group",
+      label: "经历"
+    };
+  }
 
   for (const entry of SECTION_HEADING_PATTERNS) {
     if (entry.pattern.test(trimmed)) {
       return {
+        kind: "canonical_section",
         sectionType: entry.sectionType,
         importedSectionType: toImportedSectionType(entry.sectionType),
         category: toImportedCategory(entry.sectionType),
-        confidence: entry.confidence
+        confidence: entry.confidence,
+        label: trimmed.replace(/[:：]\s*$/, "")
       };
     }
   }
@@ -140,7 +158,8 @@ export function matchResumeSectionHeading(text: string): SectionHeadingMatch | u
  * Returns the ResumeSectionTypeV2 (field catalog section type).
  */
 export function detectSectionType(text: string): ResumeSectionTypeV2 | undefined {
-  return matchResumeSectionHeading(text)?.sectionType;
+  const match = matchResumeSectionHeading(text);
+  return match?.kind === "canonical_section" ? match.sectionType : undefined;
 }
 
 /**

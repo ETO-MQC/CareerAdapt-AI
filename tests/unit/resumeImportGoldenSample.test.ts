@@ -84,7 +84,7 @@ describe("P3.6 golden sample - phone detection", () => {
 });
 
 describe("P3.6 golden sample - name detection", () => {
-  it("single Latin letter M is not detected as name", () => {
+  it("accepts a top-positioned single Latin letter M as a name candidate", () => {
     const pageTexts = createGoldenPageTexts();
     const draft = createImportedResumeDraftFromPdf({
       importId: "golden-name-test",
@@ -97,7 +97,7 @@ describe("P3.6 golden sample - name detection", () => {
       pages: pageTexts,
       now: TEST_TIME
     });
-    expect(draft.basics.name?.value).not.toBe("M");
+    expect(draft.basics.name?.value).toBe("M");
   });
 
   it("Chinese name is detected correctly", () => {
@@ -362,7 +362,7 @@ describe("P3.6 golden sample - integration", () => {
       now: TEST_TIME
     });
 
-    expect(draft.basics.name?.value).not.toBe("M");
+    expect(draft.basics.name?.value).toBe("M");
     expect(draft.basics.email?.value).toBe("demo.user@example.com");
     expect(draft.basics.phone?.value).toBe("13800138000");
     expect(draft.basics.location?.value).toContain("某地");

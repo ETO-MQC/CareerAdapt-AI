@@ -91,7 +91,8 @@ export const VolunteerItemV2Schema = experienceItem("volunteer");
 
 export const ProjectItemV2Schema = z.object({
   ...ItemBaseShape, sectionType: z.literal("project"), title: OptionalTextSchema, role: OptionalTextSchema,
-  organization: OptionalTextSchema, startDate: OptionalTextSchema, endDate: OptionalTextSchema, url: OptionalUrlSchema,
+  organization: OptionalTextSchema, location: OptionalTextSchema, startDate: OptionalTextSchema, endDate: OptionalTextSchema,
+  current: z.boolean().default(false), url: OptionalUrlSchema,
   tools: StringListSchema, background: OptionalTextSchema, description: OptionalTextSchema, highlights: StringListSchema, outcomes: StringListSchema
 }).strict();
 

@@ -4,8 +4,8 @@ import {
   type NormalizedSourceBlock
 } from "@/domain/schemas";
 
-const CURRENT_PATTERN = /^(?:至今|现在|目前|今|present|current|now)$/i;
-const DATE_TOKEN_PATTERN = /(?:19|20)\d{2}(?:\s*[年./]\s*\d{1,2}(?:\s*[月./]\s*\d{1,2}\s*日?)?\s*月?)?|(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+(?:19|20)\d{2}|至今|现在|目前|present|current|now/gi;
+const CURRENT_PATTERN = /^(?:至今|现在|目前|present|current|now|仍在职|在读)$/i;
+const DATE_TOKEN_PATTERN = /(?<!\d)(?:(?:19|20)\d{2}(?:\s*(?:[./-]\s*\d{1,2}(?:\s*[./-]\s*\d{1,2})?|年\s*\d{1,2}(?:\s*月\s*\d{1,2}\s*日?|\s*月)?))?|(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+(?:19|20)\d{2})(?!\d)|至今|现在|目前|present|current|now|仍在职|在读/gi;
 
 const ENGLISH_MONTHS: Record<string, number> = {
   jan: 1, january: 1, feb: 2, february: 2, mar: 3, march: 3,
@@ -25,6 +25,7 @@ export function parseResumeDateToken(input: {
     return ImportedResumeDateValueSchema.parse({
       rawText,
       current: true,
+      businessPrecision: "month",
       sourceBlockIds: [input.sourceBlockId],
       sourceQuote: rawText,
       confidence: input.confidence ?? 1,
@@ -39,11 +40,14 @@ export function parseResumeDateToken(input: {
     return dateValue(rawText, Number(english[2]), month, undefined, input);
   }
 
-  const parts = rawText.replace(/\s+/g, "").match(/^((?:19|20)\d{2})(?:[年./-](\d{1,2})(?:[月./-](\d{1,2})日?)?月?)?$/);
+  const compact = rawText.replace(/\s+/g, "");
+  const parts = compact.match(/^((?:19|20)\d{2})(?:(?:[./-](\d{1,2})(?:[./-](\d{1,2}))?)|(?:年(\d{1,2})(?:月(\d{1,2})日?|月)?))?$/);
   if (!parts) return undefined;
   const year = Number(parts[1]);
-  const month = parts[2] ? Number(parts[2]) : undefined;
-  const day = parts[3] ? Number(parts[3]) : undefined;
+  const monthText = parts[2] ?? parts[4];
+  const dayText = parts[3] ?? parts[5];
+  const month = monthText ? Number(monthText) : undefined;
+  const day = dayText ? Number(dayText) : undefined;
   if (month !== undefined && (month < 1 || month > 12)) return undefined;
   if (day !== undefined && !validDay(year, month!, day)) return undefined;
   return dateValue(rawText, year, month, day, input);
@@ -77,16 +81,14 @@ function dateValue(
   day: number | undefined,
   input: { sourceBlockId: string; confidence?: number }
 ) {
-  const precision = day !== undefined ? "day" as const : month !== undefined ? "month" as const : "year" as const;
-  const value = day !== undefined
-    ? `${year}-${pad(month!)}-${pad(day)}`
-    : month !== undefined
-      ? `${year}-${pad(month)}`
-      : String(year);
+  const sourcePrecision = day !== undefined ? "day" as const : month !== undefined ? "month" as const : "year" as const;
+  const value = month !== undefined ? `${year}-${pad(month)}` : String(year);
   return ImportedResumeDateValueSchema.parse({
     rawText,
     value,
-    precision,
+    precision: sourcePrecision,
+    sourcePrecision,
+    businessPrecision: "month",
     current: false,
     sourceBlockIds: [input.sourceBlockId],
     sourceQuote: rawText,

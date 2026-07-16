@@ -1,6 +1,6 @@
 import { chromium, type Browser } from "@playwright/test";
 import type { ResumePdfExportSnapshot } from "@/domain/schemas";
-import { createResumePaginationPlan, isPaginationPlanBlocked, type ResumePaginationMeasurement } from "./pagination";
+import { createResumePaginationPlan, type ResumePaginationMeasurement } from "./pagination";
 import { renderResumePdfHtml } from "./pdfHtml";
 
 export class ResumePdfGenerationError extends Error {

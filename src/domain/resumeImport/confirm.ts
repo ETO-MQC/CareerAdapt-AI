@@ -209,7 +209,9 @@ function mergeImportedProfile(input: {
   const certificates = [...baseProfile.certificates];
   const unclassifiedBlocks = [
     ...baseProfile.unclassifiedBlocks,
-    ...input.draft.unclassifiedBlocks.map((block) => `${block.sourcePath}: ${stringifySourceValue(block.sourceValue)}`)
+    ...input.draft.unclassifiedBlocks.map((block) => "sourcePath" in block
+      ? `${block.sourcePath}: ${stringifySourceValue(block.sourceValue)}`
+      : `${block.sourceBlockId}[${block.sourceRange.start}:${block.sourceRange.end}]: ${block.text}`)
   ];
 
   for (const section of input.draft.sections.filter((item) => item.included)) {
