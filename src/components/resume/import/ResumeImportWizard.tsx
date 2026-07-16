@@ -1039,8 +1039,8 @@ export function ResumeImportWizard(props: {
             <label className="inline-toggle"><input type="checkbox" checked={createGeneralResume} onChange={(event) => setCreateGeneralResume(event.target.checked)} />同时创建通用简历</label>
           </div>
         )}
-        {nameMismatch ? <div className="import-name-mismatch" role="alert"><strong>姓名不一致</strong><div className="action-row"><button type="button" className="secondary-button compact" onClick={() => { setTargetMode("new"); setNewProfileName(draft?.basics.name?.value ?? ""); }}>改为创建新人物</button><button type="button" className="secondary-button compact" onClick={() => setBasicMergeActions((current) => ({ ...current, name: "keep_existing" }))}>继续当前人物</button></div></div> : null}
       </fieldset>
+      {nameMismatch ? <div className="import-name-mismatch" role="alert"><strong>姓名不一致</strong><div className="action-row"><button type="button" className="secondary-button compact" onClick={() => { setTargetMode("new"); setNewProfileName(draft?.basics.name?.value ?? ""); }}>改为创建新人物</button><button type="button" className="secondary-button compact" onClick={() => setBasicMergeActions((current) => ({ ...current, name: "keep_existing" }))}>继续当前人物</button></div></div> : null}
       {!draft && sourceMode === "file" ? (
         <div
           className="import-dropzone"
@@ -1119,6 +1119,10 @@ export function ResumeImportWizard(props: {
       {draft ? (
         <>
         <div className="import-review-toolbar">
+          <div>
+            <h3>核对结构</h3>
+            <span>{unconfirmedMappingCount} 项待处理</span>
+          </div>
           <details className="import-bulk-menu"><summary className="secondary-button compact">批量操作</summary><div>
             <button type="button" onClick={() => { void applyBulkSelection("use_imported"); }}>全部使用安全导入项</button>
             {targetMode === "existing" ? <button type="button" onClick={() => { void applyBulkSelection("keep_existing"); }}>全部保留现有</button> : null}
@@ -1161,17 +1165,17 @@ export function ResumeImportWizard(props: {
               <p>{draft.source.mimeType === "application/json" ? "原始 JSON 保留在当前导入窗口，正式提交前不会写入简历。" : `${pages.length} 页来源文本已保存；原始文件未长期保存。`}</p>
               {draft.source.mimeType === "application/json" && jsonText ? <details><summary>查看原始 JSON</summary><pre>{jsonText}</pre></details> : null}
             </div>
-          </aside>
-
-          <div className="import-structure-panel">
             {(pendingJsonMapping && jsonText) || (["docx", "digital_pdf", "complex_digital_pdf", "scanned_pdf", "image", "text_pdf"].includes(draft.sourceKind) && draft.qualityReport?.recommendedRoute === "ai_text") ? (
               <div className="ai-mapping-consent">
-                <label className="inline-toggle"><input type="checkbox" checked={aiPrivacyConfirmed} onChange={(event) => setAiPrivacyConfirmed(event.target.checked)} />同意发送脱敏来源块；敏感信息使用稳定占位符。</label>
+                <label className="inline-toggle"><input type="checkbox" checked={aiPrivacyConfirmed} onChange={(event) => setAiPrivacyConfirmed(event.target.checked)} />同意发送脱敏来源块</label>
                 <button className="secondary-button compact" type="button" disabled={!aiPrivacyConfirmed || status === "importing_json" || status === "classifying_sections"} onClick={() => { void (pendingJsonMapping && jsonText ? runAiJsonMapping() : runAiDocumentMapping()); }}>使用 AI 智能映射</button>
               </div>
             ) : null}
+          </aside>
+
+          <div className="import-structure-panel">
             <div className="section-heading compact-heading">
-              <div><h3>核对结构</h3>{unconfirmedMappingCount > 0 ? <p>{unconfirmedMappingCount} 个映射待确认；一源多字段需逐项确认</p> : null}</div>
+              <div><h3>结构内容</h3>{unconfirmedMappingCount > 0 ? <p>一源多字段需逐项确认</p> : null}</div>
               {unconfirmedMappingCount > fieldCandidates.filter((candidate) => candidate.reviewStatus === "needs_review").length ? <button className="primary-button compact" type="button" onClick={() => { void confirmAllMappings(); }}>确认可批量项</button> : null}
             </div>
 

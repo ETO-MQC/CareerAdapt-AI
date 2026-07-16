@@ -69,21 +69,31 @@ describe("V2 G1a resume presentation config", () => {
     });
 
     expect(parsed.typography).toEqual({
+      chineseFont: "system_sans",
+      englishFont: "system_sans",
       bodyTextScale: "large",
       titleTextScale: "normal",
       lineHeight: "tight"
     });
     expect(parsed.spacing).toEqual({
+      pageMargin: "normal",
       sectionGap: "relaxed",
       itemGap: "tight"
     });
     expect(parsed.theme).toEqual({
+      primaryColor: "blue",
       accentColor: "blue",
+      dividerColor: "graphite",
       density: "spacious"
     });
     expect(parsed.sectionStyleOverrides).toEqual({});
     expect(parsed.pagination).toEqual({
-      pagePolicy: "one_page_strict",
+      pagePolicy: "natural",
+      preferredPageCount: 2,
+      maximumPageCount: 4,
+      overflowBehavior: "warn",
+      headerFooter: "none",
+      showPhoto: false,
       pageBreakBeforeSections: []
     });
   });
@@ -109,7 +119,12 @@ describe("V2 G1a resume presentation config", () => {
     });
 
     expect(parsed.pagination).toEqual({
-      pagePolicy: "one_page_strict",
+      pagePolicy: "natural",
+      preferredPageCount: 2,
+      maximumPageCount: 4,
+      overflowBehavior: "warn",
+      headerFooter: "none",
+      showPhoto: false,
       pageBreakBeforeSections: ["experience", "skills"]
     });
   });
@@ -400,16 +415,21 @@ describe("V2 G1a resume presentation config", () => {
         itemOrderBySection: initial.itemOrderBySection,
         hiddenItemIds: [sortableItem.id],
         typography: {
+          chineseFont: "system_sans",
+          englishFont: "system_sans",
           bodyTextScale: "small",
           titleTextScale: "large",
           lineHeight: "tight"
         },
         spacing: {
+          pageMargin: "normal",
           sectionGap: "tight",
           itemGap: "relaxed"
         },
         theme: {
+          primaryColor: "blue",
           accentColor: "blue",
+          dividerColor: "graphite",
           density: "compact"
         },
         sectionStyleOverrides: {
@@ -534,6 +554,7 @@ describe("V2 G1a resume presentation config", () => {
       operationId: "g3b-break-filter-first",
       nextConfig: nextPresentationConfig(initial, branch, {
         pagination: {
+          ...initial.pagination,
           pagePolicy: "up_to_two_pages",
           pageBreakBeforeSections: [firstSection, nonVisibleSection]
         }

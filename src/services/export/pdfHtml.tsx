@@ -14,8 +14,9 @@ export async function renderResumePdfHtml(
   const template = getResumeTemplate(snapshot.templateId);
   const presentationConfig = presentationConfigFromExportSnapshot(snapshot);
   const paginationPlan = options.paginationPlan ?? snapshot.paginationPlan;
-  const pageModels = paginateResumeRenderModel(snapshot.renderModel, paginationPlan);
-  // Render all pages to match preview
+  const pageModels = options.includeMeasurement
+    ? []
+    : paginateResumeRenderModel(snapshot.renderModel, paginationPlan);
   const pageCount = Math.max(1, pageModels.length);
   const stream = await renderToReadableStream(
     <>
@@ -47,6 +48,11 @@ export async function renderResumePdfHtml(
                   isContinuation: index > 0
                 }
               })}
+              {presentationConfig.pagination.headerFooter === "page_number" ? (
+                <footer className="resume-page-footer" aria-label={`第 ${index + 1} 页，共 ${pageCount} 页`}>
+                  {index + 1} / {pageCount}
+                </footer>
+              ) : null}
             </article>
           </div>
         ))}

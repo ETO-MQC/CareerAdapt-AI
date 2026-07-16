@@ -107,11 +107,11 @@ export async function generateResumePdf(snapshot: ResumePdfExportSnapshot) {
 async function launchChromium(): Promise<Browser> {
   try {
     return await chromium.launch({
-      channel: "msedge",
       headless: true
     });
   } catch {
     return await chromium.launch({
+      channel: "msedge",
       headless: true
     });
   }

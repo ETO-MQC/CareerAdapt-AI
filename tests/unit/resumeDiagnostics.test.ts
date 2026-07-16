@@ -52,23 +52,22 @@ describe("V2-G5b resume diagnostics", () => {
 
   it("diagnoses layout, pagination, template fit, and only offers presentation-safe actions", () => {
     const snapshot = runResumeDiagnostics(diagnosticsFixture({
-      pagePolicy: "one_page_strict",
-      actualPageCount: 2
+      pagePolicy: "natural",
+      actualPageCount: 5
     }));
     const codes = snapshot.issues.map((issue) => issue.code);
     const safeActionKinds = snapshot.issues.flatMap((issue) =>
       issue.recommendedActions.filter((action) => action.safeAutoApply).map((action) => action.kind)
     );
 
-    expect(codes).toContain("ONE_PAGE_STRICT_OVERFLOW");
+    expect(codes).toContain("EXCEEDS_RECOMMENDED_PAGE_COUNT");
     expect(codes).toContain("SMALL_AND_TIGHT_READABILITY_RISK");
     expect(codes).toContain("TWO_COLUMN_ATS_STRUCTURE_RISK");
     expect(codes).toContain("TEMPLATE_ROLE_FIT_RECOMMENDATION");
-    expect(snapshot.summary.exportHardBlocked).toBe(true);
+    expect(snapshot.summary.exportHardBlocked).toBe(false);
     expect(safeActionKinds).toEqual(expect.arrayContaining([
       "set_density",
       "set_line_height",
-      "change_page_policy",
       "switch_template",
       "show_block"
     ]));
@@ -114,7 +113,7 @@ describe("V2-G5b resume diagnostics", () => {
 
 function diagnosticsFixture(options: {
   pagePolicy?: ResumePresentationConfig["pagination"]["pagePolicy"];
-  actualPageCount?: 1 | 2 | 3;
+  actualPageCount?: number;
 } = {}): ResumeDiagnosticsInput {
   const pagePolicy = options.pagePolicy ?? "one_page_strict";
   const actualPageCount = options.actualPageCount ?? 1;
@@ -304,20 +303,30 @@ function presentationFixture(pagePolicy: ResumePresentationConfig["pagination"][
     },
     hiddenItemIds: ["exp-1"],
     typography: {
+      chineseFont: "system_sans",
+      englishFont: "system_sans",
       bodyTextScale: "small",
       titleTextScale: "small",
       lineHeight: "tight"
     },
     spacing: {
+      pageMargin: "normal",
       sectionGap: "tight",
       itemGap: "tight"
     },
     theme: {
+      primaryColor: "emerald",
       accentColor: "emerald",
+      dividerColor: "graphite",
       density: "spacious"
     },
     pagination: {
       pagePolicy,
+      preferredPageCount: 2,
+      maximumPageCount: 4,
+      overflowBehavior: "warn",
+      headerFooter: "none",
+      showPhoto: false,
       pageBreakBeforeSections: []
     },
     sectionStyleOverrides: {
@@ -389,14 +398,25 @@ function renderModelFixture(): ResumeRenderModel {
 
 function paginationPlanFixture(input: {
   pagePolicy: ResumePresentationConfig["pagination"]["pagePolicy"];
-  actualPageCount: 1 | 2 | 3;
+  actualPageCount: number;
 }): ResumePaginationPlan {
   return {
     schemaVersion: "resume-pagination-v1",
     pagePolicy: input.pagePolicy,
-    requestedMaxPages: input.pagePolicy === "up_to_two_pages" ? 2 : 1,
+    requestedMaxPages: 4,
+    preferredPageCount: 2,
+    maximumPageCount: 4,
+    overflowBehavior: "warn",
     actualPageCount: input.actualPageCount,
-    status: input.actualPageCount === 1 ? "near_one_page_limit" : input.actualPageCount === 2 ? "fits_two_pages" : "exceeds_two_pages",
+    status: input.actualPageCount === 1
+      ? "near_one_page_limit"
+      : input.actualPageCount === 2
+        ? "fits_two_pages"
+        : input.actualPageCount === 3
+          ? "fits_three_pages"
+          : input.actualPageCount === 4
+            ? "fits_four_pages"
+            : "exceeds_four_pages",
     pages: input.actualPageCount === 1
       ? [{
         pageNumber: 1,

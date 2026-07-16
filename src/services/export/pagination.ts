@@ -91,7 +91,7 @@ export function createResumePaginationPlan(input: {
   paginationConfig: ResumePresentationConfig["pagination"];
 }): ResumePaginationPlan {
   const pagePolicy = input.paginationConfig.pagePolicy;
-  const requestedMaxPages: 1 | 2 | 3 | 4 = pagePolicy === "up_to_two_pages" ? 4 : 1;
+  const requestedMaxPages = 4 as const;
   const clientHeight = Math.max(1, input.measurement.clientHeight);
   const forcedBreakBeforeSections = sanitizeForcedBreaks(
     input.paginationConfig.pageBreakBeforeSections,
@@ -107,9 +107,6 @@ export function createResumePaginationPlan(input: {
     if (sectionBlocks.length === 0) {
       continue;
     }
-    // Reset to 1 so each section starts evaluating from page 1
-    // This prevents blocks from being pushed to later pages unnecessarily
-    currentPageNumber = 1;
     if (forcedBreakBeforeSections.includes(section.sectionType) && pageHasContent(pages[currentPageNumber - 1])) {
       currentPageNumber += 1;
       ensurePage(pages, currentPageNumber);
@@ -123,7 +120,6 @@ export function createResumePaginationPlan(input: {
       } else {
         const naturalPage = Math.max(1, Math.ceil(Math.max(block.bottom, 1) / clientHeight));
         assignedPage = Math.max(currentPageNumber, naturalPage);
-        assignedPage = Math.min(assignedPage, pages.length + 1);
       }
       ensurePage(pages, assignedPage);
       addBlockToPage(pages[assignedPage - 1], block);
@@ -135,9 +131,8 @@ export function createResumePaginationPlan(input: {
   }
 
   const usedPages = pages.filter(pageHasContent);
-  const naturalPageCount = Math.max(1, Math.ceil(input.measurement.scrollHeight / clientHeight));
   const assignedPageCount = Math.max(1, ...usedPages.map((page) => page.pageNumber));
-  const actualPageCount = clampActualPageCount(Math.max(naturalPageCount, assignedPageCount));
+  const actualPageCount = clampActualPageCount(assignedPageCount);
   const status = paginationStatus({
     actualPageCount,
     remainingPx: clientHeight - input.measurement.scrollHeight,
@@ -148,9 +143,12 @@ export function createResumePaginationPlan(input: {
     schemaVersion: "resume-pagination-v1" as const,
     pagePolicy,
     requestedMaxPages,
+    preferredPageCount: input.paginationConfig.preferredPageCount,
+    maximumPageCount: input.paginationConfig.maximumPageCount,
+    overflowBehavior: input.paginationConfig.overflowBehavior,
     actualPageCount,
     status,
-    pages: usedPages.length > 0 ? usedPages.slice(0, 4) : [createPage(1)],
+    pages: usedPages.length > 0 ? usedPages : [createPage(1)],
     forcedBreakBeforeSections,
     overflowBlockIds: uniqueStrings(overflowBlockIds),
     oversizedBlockIds: uniqueStrings(oversizedBlockIds),
@@ -176,7 +174,6 @@ export function paginateResumeRenderModel(model: ResumeRenderModel, plan?: Resum
   }
 
   return plan.pages
-    .filter((page) => page.pageNumber <= plan.requestedMaxPages)
     .map((page) => ({
       ...model,
       sections: model.sections.flatMap((section) => {
@@ -196,27 +193,36 @@ export function isPaginationPlanBlocked(plan?: ResumePaginationPlan) {
   if (!plan) {
     return true;
   }
-  return plan.status === "measurement_failed" || plan.actualPageCount > plan.requestedMaxPages;
+  return plan.status === "measurement_failed";
 }
 
 export function paginationStatusAllowsExport(status: ResumePaginationStatus) {
-  return status === "fits_one_page" || status === "near_one_page_limit" || status === "fits_two_pages" || status === "fits" || status === "near_limit";
+  return status !== "measurement_failed" && status !== "measuring";
 }
 
 export function paginationStatusLabel(status: ResumePaginationStatus) {
   if (status === "fits_one_page" || status === "fits") {
-    return "fits_one_page";
+    return "1 页";
   }
   if (status === "near_one_page_limit" || status === "near_limit") {
-    return "near_one_page_limit";
+    return "接近 1 页上限";
   }
   if (status === "fits_two_pages") {
-    return "fits_two_pages";
+    return "2 页";
+  }
+  if (status === "fits_three_pages") {
+    return "3 页";
+  }
+  if (status === "fits_four_pages") {
+    return "4 页";
+  }
+  if (status === "exceeds_four_pages") {
+    return "超过 4 页";
   }
   if (status === "exceeds_two_pages" || status === "overflow") {
-    return "exceeds_two_pages";
+    return "超过建议页数";
   }
-  return status;
+  return status === "measurement_failed" ? "分页测量失败" : "正在测量";
 }
 
 function sanitizeForcedBreaks(
@@ -229,36 +235,36 @@ function sanitizeForcedBreaks(
 }
 
 function paginationStatus(input: {
-  actualPageCount: 1 | 2 | 3 | 4;
+  actualPageCount: number;
   remainingPx: number;
   measurementFailed: boolean;
 }): ResumePaginationStatus {
   if (input.measurementFailed) {
     return "measurement_failed";
   }
-  if (input.actualPageCount >= 4) {
-    return "exceeds_two_pages";
+  if (input.actualPageCount > 4) {
+    return "exceeds_four_pages";
+  }
+  if (input.actualPageCount === 4) {
+    return "fits_four_pages";
   }
   if (input.actualPageCount === 2) {
     return "fits_two_pages";
   }
   if (input.actualPageCount === 3) {
-    return "fits_two_pages";
+    return "fits_three_pages";
   }
   return input.remainingPx <= PAGE_NEAR_LIMIT_PX ? "near_one_page_limit" : "fits_one_page";
 }
 
-function clampActualPageCount(pageCount: number): 1 | 2 | 3 | 4 {
+function clampActualPageCount(pageCount: number) {
   if (pageCount <= 1) {
     return 1;
   }
   if (pageCount === 2) {
     return 2;
   }
-  if (pageCount === 3) {
-    return 3;
-  }
-  return 4;
+  return Math.ceil(pageCount);
 }
 
 function createPage(pageNumber: number): MutablePaginationPage {

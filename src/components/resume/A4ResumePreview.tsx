@@ -411,6 +411,11 @@ export function A4ResumePreview({
                   isContinuation: index > 0
                 }
               })}
+              {presentationConfig?.pagination.headerFooter === "page_number" ? (
+                <footer className="resume-page-footer" aria-label={`第 ${index + 1} 页，共 ${pageCount} 页`}>
+                  {index + 1} / {pageCount}
+                </footer>
+              ) : null}
               {pageContainsSelectedBlock(pageModel)
                 || (index === 0 && editor?.selectedProfileFieldId)
                 || (index === 0 && editor?.selectedSectionTitleId)

@@ -50,23 +50,42 @@ function getOutputDir() {
 }
 
 async function createBranchFromDraft(page: Page, branchName: string) {
-  await page.goto("/jobs");
-  await page.getByTestId("run-experience-match").click();
-  await expect(page.locator(".match-row").first()).toBeVisible();
-  await page.getByTestId("create-suggestion-draft").click();
-  await expect(page.locator(".notice")).toBeVisible();
-
   await page.goto("/resume");
-  await page.getByTestId("resume-import-strip").waitFor({ state: "visible" });
-  await page.getByTestId("job-suggestion-draft-select").selectOption({ index: 0 });
-  await page.getByTestId("new-resume-branch-name").fill(branchName);
-  await page.getByTestId("create-job-resume").click();
-  await expect(page.locator(".branch-list .match-row").filter({ hasText: branchName })).toBeVisible();
+  await page.getByRole("button").filter({ hasText: "从个人资料库创建" }).click();
+  await page.getByTestId("resume-studio-shell").waitFor({ state: "visible" });
+  await page.evaluate(async (targetName) => {
+    const request = indexedDB.open("CareerAdaptDb");
+    await new Promise<void>((resolveOpen, reject) => {
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => resolveOpen();
+    });
+    const db = request.result;
+    const tx = db.transaction("resumeBranches", "readwrite");
+    const store = tx.objectStore("resumeBranches");
+    const branches = await new Promise<Array<{ id: string; name: string; updatedAt: string }>>((resolveAll, reject) => {
+      const getAll = store.getAll();
+      getAll.onerror = () => reject(getAll.error);
+      getAll.onsuccess = () => resolveAll(getAll.result);
+    });
+    const branch = branches.sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0];
+    if (!branch) throw new Error("branch_not_found");
+    branch.name = targetName;
+    await new Promise<void>((resolvePut, reject) => {
+      const put = store.put(branch);
+      put.onerror = () => reject(put.error);
+      put.onsuccess = () => resolvePut();
+    });
+    await new Promise<void>((resolveTx, reject) => {
+      tx.oncomplete = () => resolveTx();
+      tx.onerror = () => reject(tx.error);
+    });
+    db.close();
+  }, branchName);
   await expect(page.getByTestId("resume-a4-page")).toBeVisible();
 }
 
-async function cloneExperienceItems(page: Page, branchName: string, cloneCount: number) {
-  await page.evaluate(async ({ targetName, count }) => {
+async function cloneExperienceItems(page: Page, branchName: string, cloneCount: number, textRepeat = 3) {
+  await page.evaluate(async ({ targetName, count, repeat }) => {
     type ContentItem = {
       id: string;
       itemType: string;
@@ -120,8 +139,8 @@ async function cloneExperienceItems(page: Page, branchName: string, cloneCount: 
       ...source,
       id: `${source.id}-g3b-clone-${index}`,
       itemType: "experience",
-      text: `${text}${text}${text}`,
-      originalText: `${text}${text}${text}`,
+      text: text.repeat(repeat),
+      originalText: text.repeat(repeat),
       order: maxOrder + index + 1,
       visible: true
     }));
@@ -152,27 +171,32 @@ async function cloneExperienceItems(page: Page, branchName: string, cloneCount: 
     }
     await done;
     db.close();
-  }, { targetName: branchName, count: cloneCount });
+  }, { targetName: branchName, count: cloneCount, repeat: textRepeat });
 }
 
-async function setPagePolicy(page: Page, policy: "one_page_strict" | "up_to_two_pages") {
+async function setPreferOnePage(page: Page, enabled: boolean) {
   await openManualPageTab(page);
   const selector = page.getByTestId("page-policy-selector");
   await expect(selector).toBeEnabled();
-  if (await selector.inputValue() !== policy) {
-    await selector.selectOption(policy);
+  if ((await selector.isChecked()) !== enabled) {
+    await selector.click();
   }
-  await expect(selector).toHaveValue(policy);
+  if (enabled) {
+    await expect(selector).toBeChecked();
+  } else {
+    await expect(selector).not.toBeChecked();
+  }
 }
 
 async function downloadDirectPdf(page: Page, filePrefix: string) {
   const responsePromise = page.waitForResponse((response) =>
     response.url().includes("/api/resume-export/pdf") && response.request().method() === "POST"
   );
-  const downloadPromise = page.waitForEvent("download");
+  const downloadPromise = page.waitForEvent("download", { timeout: 120_000 });
   await page.getByRole("button", { name: "下载 PDF" }).click();
-  const [response, download] = await Promise.all([responsePromise, downloadPromise]);
-  expect(response.status()).toBe(200);
+  const response = await responsePromise;
+  expect(response.status(), await response.text()).toBe(200);
+  const download = await downloadPromise;
   const outputPath = resolve(getOutputDir(), `${filePrefix}.pdf`);
   await download.saveAs(outputPath);
   return outputPath;
@@ -209,7 +233,7 @@ function expectPdfPages(path: string, pages: number) {
   expect(text).not.toContain("下载 PDF");
 }
 
-test.describe("V2-G3b pagination policy", () => {
+test.describe("P3.8a multi-page pagination policy", () => {
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(() => {
       window.print = () => {
@@ -218,47 +242,57 @@ test.describe("V2-G3b pagination policy", () => {
     });
   });
 
-  test("page-policy-selector, two-page-preview-stack and two-page-direct-pdf", async ({ page }) => {
+  test("two-page preview and direct PDF remain consistent", async ({ page }) => {
+    test.setTimeout(120_000);
     const branchName = `V2 G3b 两页 ${Date.now()}`;
     await createBranchFromDraft(page, branchName);
     await cloneExperienceItems(page, branchName, 16);
     await page.reload();
     await openManualPageTab(page);
 
-    await expect(page.getByTestId("overflow-status")).toContainText("fits_two_pages", { timeout: 10_000 });
-    await expect(page.getByRole("button", { name: "下载 PDF" })).toBeDisabled();
-
-    await setPagePolicy(page, "up_to_two_pages");
-    await expect(page.getByTestId("overflow-status")).toContainText("fits_two_pages");
+    await expect(page.getByTestId("overflow-status")).toContainText("2 页", { timeout: 10_000 });
     await expect(page.getByTestId("resume-a4-page")).toHaveCount(2);
     await expect(page.getByRole("button", { name: "下载 PDF" })).toBeEnabled();
+    const zoomBarBefore = await page.locator(".resume-canvas-toolbar").boundingBox();
+    const scrollerBefore = await page.getByTestId("resume-document-scroller").boundingBox();
+    await page.getByTestId("resume-document-scroller").evaluate((element) => {
+      element.scrollTop = element.scrollHeight;
+    });
+    const zoomBarAfter = await page.locator(".resume-canvas-toolbar").boundingBox();
+    expect(zoomBarBefore?.y).toBe(zoomBarAfter?.y);
+    expect((scrollerBefore?.y ?? 0) + (scrollerBefore?.height ?? 0)).toBeLessThanOrEqual(zoomBarBefore?.y ?? 0);
+    await setPreferOnePage(page, true);
+    await expect(page.getByTestId("resume-a4-page")).toHaveCount(2);
 
     const pdfPath = await downloadDirectPdf(page, "g3b-two-page");
     expectPdfPages(pdfPath, 2);
     const record = await latestExportRecord(page);
     expect(record.exportStatus).toBe("direct_pdf_success");
-    expect(record.pagePolicy).toBe("up_to_two_pages");
+    expect(record.pagePolicy).toBe("prefer_one_page");
     expect(record.actualPageCount).toBe(2);
-    expect(record.requestedMaxPages).toBe(2);
+    expect(record.requestedMaxPages).toBe(4);
     expect(record.paginationHash).toBeTruthy();
     expect(record.exceededPageLimit).toBe(false);
   });
 
-  test("exceeds-two-pages-blocks-direct-pdf", async ({ page }) => {
-    const branchName = `V2 G3b 超两页 ${Date.now()}`;
+  test("more than four pages warns but preserves preview and PDF pages", async ({ page }) => {
+    test.setTimeout(180_000);
+    const branchName = `P3.8a 超四页 ${Date.now()}`;
     await createBranchFromDraft(page, branchName);
-    await cloneExperienceItems(page, branchName, 45);
+    await cloneExperienceItems(page, branchName, 44, 6);
     await page.reload();
-    await setPagePolicy(page, "up_to_two_pages");
+    await openManualPageTab(page);
 
-    await expect(page.getByTestId("overflow-status")).toContainText("exceeds_two_pages", { timeout: 10_000 });
-    await expect(page.getByRole("button", { name: "下载 PDF" })).toBeDisabled();
-    await page.getByRole("button", { name: "打印 / 保存 PDF" }).click();
-    await expect(page.getByTestId("pdf-export-status")).toContainText("已阻止");
+    await expect(page.getByTestId("overflow-status")).toContainText("超过 4 页", { timeout: 10_000 });
+    const previewPageCount = await page.getByTestId("resume-a4-page").count();
+    expect(previewPageCount).toBeGreaterThan(4);
+    await expect(page.getByRole("button", { name: "下载 PDF" })).toBeEnabled();
+    const pdfPath = await downloadDirectPdf(page, "p38a-more-than-four-pages");
     const record = await latestExportRecord(page);
-    expect(record.exportStatus).toBe("blocked_overflow");
-    expect(record.pagePolicy).toBe("up_to_two_pages");
-    expect(record.actualPageCount).toBe(3);
-    expect(record.exceededPageLimit).toBe(true);
+    expectPdfPages(pdfPath, record.actualPageCount ?? previewPageCount);
+    expect(record.exportStatus).toBe("direct_pdf_success");
+    expect(record.pagePolicy).toBe("natural");
+    expect(record.actualPageCount).toBe(previewPageCount);
+    expect(record.exceededPageLimit).toBe(false);
   });
 });

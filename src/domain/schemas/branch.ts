@@ -340,6 +340,9 @@ export const ExportOverflowStatusSchema = z.enum([
   "fits_one_page",
   "near_one_page_limit",
   "fits_two_pages",
+  "fits_three_pages",
+  "fits_four_pages",
+  "exceeds_four_pages",
   "exceeds_two_pages",
   "measuring",
   "measurement_failed"
@@ -368,7 +371,7 @@ export const ExportRecordPresentationSnapshotSchema = z.object({
     titleOverride: z.string().trim().min(1).max(80).optional()
   })).optional(),
   pagination: z.object({
-    pagePolicy: z.enum(["one_page_strict", "up_to_two_pages"]),
+    pagePolicy: z.enum(["natural", "prefer_one_page", "one_page_strict", "up_to_two_pages"]),
     pageBreakBeforeSections: z.array(z.enum(["summary", "experience", "skills", "certificates"]))
   }).optional()
 });
@@ -396,8 +399,8 @@ export const ExportRecordSchema = EntityBaseSchema.extend({
   failureCode: z.string().min(1).optional(),
   snapshotHash: z.string().min(8).optional(),
   pdfContentHash: z.string().min(8).optional(),
-  pagePolicy: z.enum(["one_page_strict", "up_to_two_pages"]).optional(),
-  actualPageCount: z.number().int().min(1).max(4).optional(),
+  pagePolicy: z.enum(["natural", "prefer_one_page", "one_page_strict", "up_to_two_pages"]).optional(),
+  actualPageCount: z.number().int().min(1).optional(),
   requestedMaxPages: z.number().int().min(1).max(4).optional(),
   paginationHash: z.string().min(8).optional(),
   paginationSnapshot: z.unknown().optional(),

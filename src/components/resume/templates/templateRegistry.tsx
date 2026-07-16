@@ -85,16 +85,21 @@ export const templateFilterOptions: Array<{ key: TemplateFilterKey; label: strin
 
 const DEFAULT_STYLE_CONFIG: ResumeTemplateStyleConfig = {
   typography: {
+    chineseFont: "system_sans",
+    englishFont: "system_sans",
     bodyTextScale: "normal",
     titleTextScale: "normal",
     lineHeight: "normal"
   },
   spacing: {
+    pageMargin: "normal",
     sectionGap: "normal",
     itemGap: "normal"
   },
   theme: {
+    primaryColor: "emerald",
     accentColor: "emerald",
+    dividerColor: "graphite",
     density: "balanced"
   },
   sectionStyleOverrides: {}
@@ -192,15 +197,19 @@ export const resumeTemplates: ResumeTemplateDefinition[] = [
     defaultPresentationStyle: {
       ...DEFAULT_STYLE_CONFIG,
       typography: {
+        ...DEFAULT_STYLE_CONFIG.typography,
         bodyTextScale: "normal",
         titleTextScale: "small",
         lineHeight: "tight"
       },
       spacing: {
+        ...DEFAULT_STYLE_CONFIG.spacing,
         sectionGap: "tight",
         itemGap: "tight"
       },
       theme: {
+        ...DEFAULT_STYLE_CONFIG.theme,
+        primaryColor: "graphite",
         accentColor: "graphite",
         density: "compact"
       }
@@ -225,15 +234,19 @@ export const resumeTemplates: ResumeTemplateDefinition[] = [
     defaultPresentationStyle: {
       ...DEFAULT_STYLE_CONFIG,
       typography: {
+        ...DEFAULT_STYLE_CONFIG.typography,
         bodyTextScale: "small",
         titleTextScale: "normal",
         lineHeight: "normal"
       },
       spacing: {
+        ...DEFAULT_STYLE_CONFIG.spacing,
         sectionGap: "tight",
         itemGap: "normal"
       },
       theme: {
+        ...DEFAULT_STYLE_CONFIG.theme,
+        primaryColor: "blue",
         accentColor: "blue",
         density: "compact"
       }
@@ -311,12 +324,16 @@ export function resumeTemplateStyleVars(
 ): CSSProperties {
   const style = resolveTemplateStyleConfig(template, presentationConfig);
   const accent = accentColorTokens(style.theme.accentColor);
+  const primary = accentColorTokens(style.theme.primaryColor);
+  const divider = accentColorTokens(style.theme.dividerColor);
   const density = densityTokens(style.theme.density);
+  const pageMargin = pageMarginTokens(style.spacing.pageMargin);
   const bodyTextScale = bodyTextScaleTokens(style.typography.bodyTextScale);
   const titleTextScale = titleTextScaleTokens(style.typography.titleTextScale);
   const spacing = spacingTokens(style.spacing);
 
   return {
+    "--resume-font-family": fontFamilyToken(style.typography.chineseFont, style.typography.englishFont),
     "--resume-body-font-size": bodyTextScale.fontSize,
     "--resume-line-height": lineHeightToken(style.typography.lineHeight),
     "--resume-section-title-size": titleTextScale.sectionTitleSize,
@@ -326,14 +343,17 @@ export function resumeTemplateStyleVars(
     "--resume-item-gap": spacing.itemGap,
     "--resume-inline-gap-row": spacing.inlineGapRow,
     "--resume-inline-gap-column": spacing.inlineGapColumn,
-    "--resume-page-padding-block": density.pagePaddingBlock,
-    "--resume-page-padding-inline": density.pagePaddingInline,
+    "--resume-page-padding-block": pageMargin.pagePaddingBlock,
+    "--resume-page-padding-inline": pageMargin.pagePaddingInline,
     "--resume-modern-grid-gap": density.modernGridGap,
     "--resume-accent-color": accent.accent,
     "--resume-accent-strong": accent.strong,
     "--resume-accent-soft": accent.soft,
     "--resume-accent-border": accent.border,
-    "--resume-bullet-color": accent.bullet
+    "--resume-bullet-color": accent.bullet,
+    "--resume-primary-color": primary.accent,
+    "--resume-primary-strong": primary.strong,
+    "--resume-divider-color": divider.border
   } as CSSProperties;
 }
 
@@ -677,6 +697,33 @@ function densityTokens(density: ResumePresentationConfig["theme"]["density"]) {
     pagePaddingInline: "14mm",
     modernGridGap: "8mm"
   };
+}
+
+function pageMarginTokens(pageMargin: ResumePresentationConfig["spacing"]["pageMargin"]) {
+  if (pageMargin === "narrow") {
+    return { pagePaddingBlock: "10mm", pagePaddingInline: "12mm" };
+  }
+  if (pageMargin === "wide") {
+    return { pagePaddingBlock: "16mm", pagePaddingInline: "18mm" };
+  }
+  return { pagePaddingBlock: "12mm", pagePaddingInline: "14mm" };
+}
+
+function fontFamilyToken(
+  chineseFont: ResumePresentationConfig["typography"]["chineseFont"],
+  englishFont: ResumePresentationConfig["typography"]["englishFont"]
+) {
+  const chinese = chineseFont === "source_han_serif"
+    ? '"Source Han Serif SC", "Noto Serif CJK SC", SimSun'
+    : chineseFont === "source_han_sans"
+      ? '"Source Han Sans SC", "Noto Sans CJK SC", "Microsoft YaHei"'
+      : '"Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC"';
+  const english = englishFont === "georgia"
+    ? "Georgia"
+    : englishFont === "arial"
+      ? "Arial"
+      : '"Segoe UI", Arial';
+  return `${chinese}, ${english}, sans-serif`;
 }
 
 function bodyTextScaleTokens(scale: ResumePresentationConfig["typography"]["bodyTextScale"]) {

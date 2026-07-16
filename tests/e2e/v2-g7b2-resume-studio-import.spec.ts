@@ -11,7 +11,17 @@ test.describe("V2-G7b.2 Resume Studio and import IA", () => {
 
     await page.locator(".resume-mode-rail button").nth(2).click();
     await expect(page.locator(".resume-inspector .inspector-tablist button")).toHaveText(["模板", "颜色", "字体", "页面"]);
-    await page.locator(".resume-inspector .inspector-tablist button").nth(3).click();
+    await page.getByRole("tab", { name: "模板", exact: true }).click();
+    await expect(page.getByLabel("模板")).toBeVisible();
+    await page.getByRole("tab", { name: "颜色", exact: true }).click();
+    await expect(page.getByText("主色", { exact: true })).toBeVisible();
+    await expect(page.getByText("分隔线颜色", { exact: true })).toBeVisible();
+    await page.getByRole("tab", { name: "字体", exact: true }).click();
+    await expect(page.getByLabel("中文字体")).toBeVisible();
+    await expect(page.getByLabel("英文字体")).toBeVisible();
+    await page.getByRole("tab", { name: "页面", exact: true }).click();
+    await expect(page.getByLabel("页边距")).toBeVisible();
+    await expect(page.getByLabel("建议页数", { exact: true })).toBeVisible();
     await expect(page.getByTestId("resume-property-panel")).toBeVisible();
     await expect(page.locator(".branch-editor")).toHaveCount(0);
 
@@ -29,6 +39,7 @@ test.describe("V2-G7b.2 Resume Studio and import IA", () => {
   });
 
   test("imports structured JSON into the same review flow before confirmation", async ({ page }) => {
+    await page.setViewportSize({ width: 1024, height: 768 });
     await page.goto("/resume");
     await page.getByRole("button", { name: "粘贴 JSON", exact: true }).click();
     const dialog = page.getByRole("dialog", { name: "导入简历" });
@@ -59,7 +70,19 @@ test.describe("V2-G7b.2 Resume Studio and import IA", () => {
 
     await expect(page.getByText("识别质量", { exact: true })).toHaveCount(0);
     await expect(page.locator(".import-source-text")).toContainText("JSON Candidate");
-    await page.getByLabel("创建新人物").check();
+    const mismatch = page.locator(".import-name-mismatch");
+    const mismatchBox = await mismatch.boundingBox();
+    const emailBox = await page.getByLabel("邮箱").boundingBox();
+    const mismatchButtons = mismatch.getByRole("button");
+    expect(mismatchBox).not.toBeNull();
+    expect(emailBox).not.toBeNull();
+    expect(mismatchBox!.y + mismatchBox!.height).toBeLessThanOrEqual(emailBox!.y);
+    await expect(mismatchButtons).toHaveCount(2);
+    const firstButtonBox = await mismatchButtons.nth(0).boundingBox();
+    const secondButtonBox = await mismatchButtons.nth(1).boundingBox();
+    expect(Math.abs((firstButtonBox!.y + firstButtonBox!.height / 2) - (secondButtonBox!.y + secondButtonBox!.height / 2))).toBeLessThan(2);
+    await mismatch.getByRole("button", { name: "改为创建新人物", exact: true }).press("Enter");
+    await expect(page.getByLabel("创建新人物")).toBeChecked();
     await expect(page.locator(".import-review-footer button.primary-button")).toBeVisible();
     await page.locator(".import-review-footer button.primary-button").click();
     await expect(page.getByText("已进入导入生成的通用简历，可继续编辑、换模板、调整分页并下载 PDF。")).toBeVisible();

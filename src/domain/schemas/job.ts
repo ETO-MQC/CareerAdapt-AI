@@ -3,6 +3,25 @@ import { EntityBaseSchema, IsoDateStringSchema, RiskLevelSchema, SourceSpanSchem
 
 export const JobSourceSchema = z.enum(["demo", "manual", "imported_text", "url"]);
 
+export const JobWorkflowErrorCodeSchema = z.enum([
+  "empty_input",
+  "text_too_short",
+  "schema_validation_failed",
+  "ai_invalid_output",
+  "repository_save_failed",
+  "revision_conflict",
+  "unknown_error"
+]);
+
+export const JobWorkflowStageSchema = z.enum(["input", "parse", "validate", "save"]);
+
+export const JobWorkflowErrorStateSchema = z.object({
+  code: JobWorkflowErrorCodeSchema,
+  stage: JobWorkflowStageSchema,
+  message: z.string().min(1),
+  retryable: z.boolean()
+});
+
 export const JobRequirementCategorySchema = z.enum([
   "responsibility",
   "required_skill",
@@ -42,6 +61,10 @@ export const JobDescriptionSchema = EntityBaseSchema.extend({
   source: JobSourceSchema,
   parsedAt: IsoDateStringSchema.optional(),
   requirements: z.array(JobRequirementSchema).default([])
+});
+
+export const CommittedJobDescriptionSchema = JobDescriptionSchema.extend({
+  requirements: z.array(JobRequirementSchema).min(1)
 });
 
 export const MatchLevelSchema = z.enum(["strong", "weak", "transferable", "none"]);
@@ -170,6 +193,9 @@ export const MatchOperationSchema = EntityBaseSchema.extend({
 });
 
 export type JobSource = z.infer<typeof JobSourceSchema>;
+export type JobWorkflowErrorCode = z.infer<typeof JobWorkflowErrorCodeSchema>;
+export type JobWorkflowStage = z.infer<typeof JobWorkflowStageSchema>;
+export type JobWorkflowErrorState = z.infer<typeof JobWorkflowErrorStateSchema>;
 export type JobRequirementCategory = z.infer<typeof JobRequirementCategorySchema>;
 export type Priority = z.infer<typeof PrioritySchema>;
 export type MatchLevel = z.infer<typeof MatchLevelSchema>;
@@ -179,6 +205,7 @@ export type MatchEvaluation = z.infer<typeof MatchEvaluationSchema>;
 export type ManualMatchOverride = z.infer<typeof ManualMatchOverrideSchema>;
 export type JobRequirement = z.infer<typeof JobRequirementSchema>;
 export type JobDescription = z.infer<typeof JobDescriptionSchema>;
+export type CommittedJobDescription = z.infer<typeof CommittedJobDescriptionSchema>;
 export type RequirementMatch = z.infer<typeof RequirementMatchSchema>;
 export type EvidenceMatcherItem = z.infer<typeof EvidenceMatcherItemSchema>;
 export type EvidenceMatcherOutput = z.infer<typeof EvidenceMatcherOutputSchema>;

@@ -820,6 +820,37 @@ html[data-theme="dark"] .panel {
   margin-top: 0;
 }
 
+.jobs-tablist {
+  grid-template-columns: repeat(4, minmax(88px, 1fr));
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+}
+
+.jobs-tablist .inspector-tab {
+  box-sizing: border-box;
+  height: 36px;
+  min-height: 36px;
+  min-width: 88px;
+  padding: 0 16px;
+  white-space: nowrap;
+}
+
+.job-workflow-error {
+  align-items: center;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.job-workflow-error p {
+  margin: 4px 0 0;
+}
+
+.job-workflow-error .action-row {
+  flex: 0 0 auto;
+}
+
 .job-match-source {
   align-items: end;
   background: var(--surface-subtle);
@@ -2434,13 +2465,21 @@ html[data-theme="dark"] .mode-rail-button:hover {
   height: 100%;
   min-height: 0;
   min-width: 0;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  overflow: hidden;
+  padding: 0;
+  position: relative;
+}
+
+.resume-document-scroller {
+  align-items: start;
+  display: grid;
+  justify-items: center;
+  min-height: 0;
+  min-width: 0;
   overflow: auto;
   padding: 16px;
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
 }
 
 html[data-theme="dark"] .resume-preview-stage {
@@ -2475,15 +2514,11 @@ html[data-theme="dark"] .resume-canvas-toolbar .primary-button {
   display: flex;
   gap: 8px;
   justify-content: center;
-  left: 50%;
   margin: 0;
   padding: 5px 6px;
-  position: absolute;
   pointer-events: none;
-  bottom: 12px;
-  top: auto;
-  transform: translateX(-50%);
-  width: max-content;
+  position: static;
+  width: 100%;
   z-index: 8;
 }
 
@@ -2529,7 +2564,7 @@ html[data-theme="dark"] .resume-canvas-toolbar .primary-button {
   color: #1f2320;
   display: flex;
   flex-direction: column;
-  font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", "Source Han Sans SC", Arial, sans-serif;
+  font-family: var(--resume-font-family, "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", "Source Han Sans SC", Arial, sans-serif);
   height: 297mm;
   letter-spacing: 0;
   margin: 0 auto;
@@ -2537,6 +2572,16 @@ html[data-theme="dark"] .resume-canvas-toolbar .primary-button {
   padding: var(--resume-page-padding-block, 12mm) var(--resume-page-padding-inline, 14mm);
   position: relative;
   width: 210mm;
+}
+
+.resume-page-footer {
+  bottom: 5mm;
+  color: #5f6661;
+  font-size: 8pt;
+  left: 0;
+  position: absolute;
+  right: 0;
+  text-align: center;
 }
 
 .resume-studio-edit-enabled [data-editable-block="true"] {
@@ -2686,18 +2731,18 @@ small,
   display: flex;
   gap: 20px;
   justify-content: space-between;
-  padding: 18px 20px 15px;
+  padding: 12px 16px 10px;
 }
 
 .resume-import-modal-header h2 {
-  font-size: 20px;
+  font-size: 18px;
   margin: 0;
 }
 
 .resume-import-modal-header p {
   color: var(--muted);
-  font-size: 13px;
-  margin: 5px 0 0;
+  font-size: 12px;
+  margin: 3px 0 0;
 }
 
 .resume-import-modal-close {
@@ -3764,7 +3809,7 @@ html[data-theme="dark"] .property-panel-heading p {
 
 .resume-template-header {
   align-items: flex-start;
-  border-bottom: 2px solid var(--resume-accent-strong, #202522);
+  border-bottom: 2px solid var(--resume-primary-strong, #202522);
   display: flex;
   gap: 14px;
   justify-content: space-between;
@@ -3802,7 +3847,7 @@ html[data-theme="dark"] .property-panel-heading p {
 }
 
 .resume-template-section {
-  border-bottom: 1px solid #d9ded8;
+  border-bottom: 1px solid var(--resume-divider-color, #d9ded8);
   padding: var(--resume-section-padding-top, 5mm) 0 var(--resume-section-padding-bottom, 3.8mm);
 }
 
@@ -4242,9 +4287,9 @@ html[data-theme="dark"] .property-panel-heading p {
 }
 
 .resume-import-wizard-review {
-  gap: 12px;
+  gap: 4px;
   grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
   height: 100%;
   min-height: 0;
 }
@@ -4252,8 +4297,9 @@ html[data-theme="dark"] .property-panel-heading p {
 .resume-import-wizard-review > .visually-hidden { grid-column: 1; grid-row: 1; }
 .resume-import-wizard-review > .import-target-picker { grid-column: 1; grid-row: 1; }
 .resume-import-wizard-review > .import-review-toolbar { grid-column: 2; grid-row: 1; }
-.resume-import-wizard-review > .import-review-grid { grid-column: 1 / -1; grid-row: 2; }
-.resume-import-wizard-review > .import-review-footer { grid-column: 1 / -1; grid-row: 3; }
+.resume-import-wizard-review > .import-name-mismatch { grid-column: 1 / -1; grid-row: 2; }
+.resume-import-wizard-review > .import-review-grid { grid-column: 1 / -1; grid-row: 3; }
+.resume-import-wizard-review > .import-review-footer { grid-column: 1 / -1; grid-row: 4; }
 
 .import-review-toolbar {
   align-items: center;
@@ -4267,14 +4313,16 @@ html[data-theme="dark"] .property-panel-heading p {
   justify-content: flex-end;
 }
 
-.resume-import-wizard-review > .import-review-toolbar > div:first-child {
-  display: none;
+.import-review-toolbar > div:first-child {
+  align-items: baseline;
+  display: flex;
+  gap: 8px;
+  min-width: 0;
 }
 
-.import-review-toolbar > div:first-child {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
+.import-review-toolbar h3 {
+  font-size: 15px;
+  margin: 0;
 }
 
 .import-review-toolbar span {
@@ -4303,6 +4351,13 @@ html[data-theme="dark"] .property-panel-heading p {
   gap: 12px;
   justify-content: space-between;
   padding: 8px 10px;
+}
+
+.import-source-panel > .ai-mapping-consent {
+  bottom: 0;
+  flex-wrap: wrap;
+  position: sticky;
+  z-index: 2;
 }
 
 .import-json-details {
@@ -4363,8 +4418,8 @@ html[data-theme="dark"] .property-panel-heading p {
 
 .resume-import-wizard-review .import-target-picker {
   gap: 8px;
-  grid-template-columns: auto minmax(110px, 1fr) auto;
-  padding: 6px 8px;
+  grid-template-columns: auto minmax(140px, 1fr);
+  padding: 2px 6px;
 }
 
 .resume-import-wizard-review .import-target-picker legend {
@@ -4403,8 +4458,8 @@ html[data-theme="dark"] .property-panel-heading p {
   cursor: pointer;
   display: inline-flex;
   gap: 6px;
-  min-height: 36px;
-  padding: 6px 10px;
+  min-height: 32px;
+  padding: 4px 8px;
 }
 
 .import-target-option.active {
@@ -4429,30 +4484,15 @@ html[data-theme="dark"] .property-panel-heading p {
   background: color-mix(in srgb, var(--accent-soft) 68%, var(--surface));
   border: 1px solid color-mix(in srgb, var(--accent) 42%, var(--line));
   border-radius: 8px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 10px;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   grid-column: 1 / -1;
   padding: 8px 10px;
 }
 
 .resume-import-wizard-review .import-name-mismatch {
-  background: transparent;
-  border: 0;
-  flex-wrap: nowrap;
-  grid-column: auto;
-  padding: 0;
-  white-space: nowrap;
-}
-
-.resume-import-wizard-review .import-name-mismatch > span {
-  clip: rect(0, 0, 0, 0);
-  height: 1px;
-  margin: -1px;
-  overflow: hidden;
-  position: absolute;
-  white-space: nowrap;
-  width: 1px;
+  padding: 6px 8px;
 }
 
 .resume-import-wizard-review .import-name-mismatch > strong {
@@ -4466,11 +4506,11 @@ html[data-theme="dark"] .property-panel-heading p {
 }
 
 .import-name-mismatch .action-row {
-  margin-left: auto;
+  display: contents;
 }
 
-.resume-import-wizard-review .import-name-mismatch {
-  grid-column: 3;
+.import-name-mismatch button {
+  align-self: center;
 }
 
 .import-bulk-menu {
@@ -4514,7 +4554,7 @@ html[data-theme="dark"] .property-panel-heading p {
   box-sizing: border-box;
   display: flex;
   gap: 16px;
-  height: 52px;
+  height: 48px;
   justify-content: space-between;
   margin: 0 -16px -16px;
   padding: 8px 16px;
@@ -4587,7 +4627,7 @@ html[data-theme="dark"] .property-panel-heading p {
 .import-source-panel {
   display: grid;
   gap: 8px;
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto minmax(0, 1fr) auto auto;
   overflow-y: auto;
   overscroll-behavior: contain;
   padding-right: 4px;
@@ -5921,10 +5961,6 @@ html[data-theme="dark"] .property-panel-heading p {
 
   .resume-import-wizard-review .import-target-picker {
     grid-template-columns: auto minmax(100px, 1fr) auto;
-  }
-
-  .resume-import-wizard-review .import-name-mismatch {
-    grid-column: 3;
   }
 
   .import-review-grid {
@@ -7302,18 +7338,26 @@ html[data-theme="dark"] .section-action-button-primary {
   }
 
   .import-name-mismatch {
-    flex-wrap: nowrap;
     padding-block: 4px;
   }
 
   .import-name-mismatch .action-row {
-    flex-wrap: nowrap;
-    margin-left: 0;
+    display: contents;
   }
 
   .import-name-mismatch .action-row button {
     font-size: 11px;
     white-space: nowrap;
+  }
+}
+
+@media (max-width: 760px) {
+  .import-name-mismatch {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .import-name-mismatch > strong {
+    grid-column: 1 / -1;
   }
 }
 

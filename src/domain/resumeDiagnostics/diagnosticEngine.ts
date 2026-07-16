@@ -669,38 +669,19 @@ function paginationIssues(input: ResumeDiagnosticsInput): IssueDraft[] {
     }));
   }
 
-  if (plan.pagePolicy === "one_page_strict" && plan.actualPageCount > 1) {
+  if (plan.actualPageCount > plan.maximumPageCount) {
     result.push(issue({
       category: "pagination",
-      severity: "critical",
-      code: "ONE_PAGE_STRICT_OVERFLOW",
-      title: "严格一页策略下内容超过一页",
-      description: "当前页面策略要求一页，但测量结果需要多页；这是导出硬阻断。",
+      severity: "warning",
+      code: "EXCEEDS_RECOMMENDED_PAGE_COUNT",
+      title: "简历超过 4 页建议",
+      description: "内容会完整保留在预览和 PDF 中；建议复核是否能精简到 1—2 页。",
       evidence: [
         ...evidence("pagination", "页面策略", plan.pagePolicy),
         ...evidence("pagination", "实际页数", plan.actualPageCount)
       ],
       actions: [
-        action("change_page_policy", "改为最多两页", true, { pagePolicy: "up_to_two_pages" }),
         action("set_density", "改为紧凑密度", true, { density: "compact" })
-      ]
-    }));
-  }
-
-  if (plan.pagePolicy === "up_to_two_pages" && plan.actualPageCount > 2) {
-    result.push(issue({
-      category: "pagination",
-      severity: "critical",
-      code: "EXCEEDS_TWO_PAGES",
-      title: "最多两页策略下超过两页",
-      description: "当前最多两页策略仍无法容纳内容；这是导出硬阻断，需要编辑正文或隐藏低相关内容。",
-      evidence: [
-        ...evidence("pagination", "页面策略", plan.pagePolicy),
-        ...evidence("pagination", "实际页数", plan.actualPageCount)
-      ],
-      actions: [
-        action("set_density", "改为紧凑密度", true, { density: "compact" }),
-        action("open_content_editor", "编辑过长正文", false)
       ]
     }));
   }
@@ -892,9 +873,6 @@ function templateFitIssues(input: ResumeDiagnosticsInput): IssueDraft[] {
   if (!caps.supportsSectionPageBreaks && input.presentationConfig.pagination.pageBreakBeforeSections.length > 0) {
     unsupported.push("section_page_break");
   }
-  if (!caps.supportsTwoPages && input.presentationConfig.pagination.pagePolicy === "up_to_two_pages") {
-    unsupported.push("two_pages");
-  }
   if (unsupported.length > 0) {
     result.push(issue({
       category: "template_fit",
@@ -928,8 +906,7 @@ function templateFitIssues(input: ResumeDiagnosticsInput): IssueDraft[] {
 function buildSummary(input: ResumeDiagnosticsInput, issues: ResumeDiagnosticIssue[]): ResumeDiagnosticSnapshot["summary"] {
   const openIssues = issues.filter((issue) => issue.status === "open");
   const coverage = requirementCoverageSummary(input);
-  const paginationBlocked = Boolean(input.paginationPlan && input.paginationPlan.actualPageCount > input.paginationPlan.requestedMaxPages)
-    || input.paginationPlan?.status === "measurement_failed"
+  const paginationBlocked = input.paginationPlan?.status === "measurement_failed"
     || !input.paginationPlan;
   const exportHardBlockReasons = [
     !input.currentRevisionId ? "no_current_revision" : undefined,
@@ -947,7 +924,7 @@ function buildSummary(input: ResumeDiagnosticsInput, issues: ResumeDiagnosticIss
     page: {
       pagePolicy: input.presentationConfig.pagination.pagePolicy,
       actualPageCount: input.paginationPlan?.actualPageCount ?? 0,
-      requestedMaxPages: input.paginationPlan?.requestedMaxPages ?? (input.presentationConfig.pagination.pagePolicy === "up_to_two_pages" ? 2 : 1),
+      requestedMaxPages: input.paginationPlan?.requestedMaxPages ?? 4,
       paginationBlocked
     },
     atsStructureStatus: atsStructureStatus(input, openIssues),

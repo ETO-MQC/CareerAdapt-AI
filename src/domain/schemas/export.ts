@@ -12,7 +12,11 @@ import {
   PresentationAccentColorSchema,
   PresentationBodyTextScaleSchema,
   PresentationDensitySchema,
+  PresentationEnglishFontFamilySchema,
+  PresentationFontFamilySchema,
+  PresentationHeaderFooterSchema,
   PresentationLineHeightSchema,
+  PresentationPageMarginSchema,
   PresentationSpacingScaleSchema,
   PresentationTitleTextScaleSchema
 } from "./presentation";
@@ -29,16 +33,21 @@ export const ExportSnapshotPresentationSchema = z.object({
   itemOrderBySection: z.record(z.string(), z.array(z.string().min(1))),
   hiddenItemIds: z.array(z.string().min(1)),
   typography: z.object({
+    chineseFont: PresentationFontFamilySchema,
+    englishFont: PresentationEnglishFontFamilySchema,
     bodyTextScale: PresentationBodyTextScaleSchema,
     titleTextScale: PresentationTitleTextScaleSchema,
     lineHeight: PresentationLineHeightSchema
   }),
   spacing: z.object({
+    pageMargin: PresentationPageMarginSchema,
     sectionGap: PresentationSpacingScaleSchema,
     itemGap: PresentationSpacingScaleSchema
   }),
   theme: z.object({
+    primaryColor: PresentationAccentColorSchema,
     accentColor: PresentationAccentColorSchema,
+    dividerColor: PresentationAccentColorSchema,
     density: PresentationDensitySchema
   }),
   sectionStyleOverrides: z.record(z.string(), z.object({
@@ -47,12 +56,17 @@ export const ExportSnapshotPresentationSchema = z.object({
   })),
   pagination: z.object({
     pagePolicy: ResumePagePolicySchema,
+    preferredPageCount: z.union([z.literal(1), z.literal(2)]),
+    maximumPageCount: z.literal(4),
+    overflowBehavior: z.enum(["warn", "allow"]),
+    headerFooter: PresentationHeaderFooterSchema,
+    showPhoto: z.boolean(),
     pageBreakBeforeSections: z.array(ResumeRenderSectionTypeSchema)
   })
 });
 
 export const ResumePaginationPageSchema = z.object({
-  pageNumber: z.number().int().min(1).max(4),
+  pageNumber: z.number().int().min(1),
   sectionTypes: z.array(ResumeRenderSectionTypeSchema),
   itemIdsBySection: z.record(z.string(), z.array(z.string().min(1))),
   blockIds: z.array(z.string().min(1))
@@ -62,9 +76,12 @@ export const ResumePaginationPlanSchema = z.object({
   schemaVersion: z.literal("resume-pagination-v1"),
   pagePolicy: ResumePagePolicySchema,
   requestedMaxPages: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]),
-  actualPageCount: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]),
+  preferredPageCount: z.union([z.literal(1), z.literal(2)]),
+  maximumPageCount: z.literal(4),
+  overflowBehavior: z.enum(["warn", "allow"]),
+  actualPageCount: z.number().int().min(1),
   status: ResumePaginationStatusSchema,
-  pages: z.array(ResumePaginationPageSchema).min(1).max(4),
+  pages: z.array(ResumePaginationPageSchema).min(1),
   forcedBreakBeforeSections: z.array(ResumeRenderSectionTypeSchema),
   overflowBlockIds: z.array(z.string().min(1)),
   oversizedBlockIds: z.array(z.string().min(1)).default([]),
@@ -90,7 +107,7 @@ export const ResumePdfExportSnapshotSchema = z.object({
   overflowStatus: OverflowStatusSchema,
   pagePolicy: ResumePagePolicySchema,
   requestedMaxPages: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]),
-  actualPageCount: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]),
+  actualPageCount: z.number().int().min(1),
   pageBreakBeforeSections: z.array(ResumeRenderSectionTypeSchema),
   paginationPlan: ResumePaginationPlanSchema,
   paginationHash: z.string().min(8),

@@ -1,12 +1,11 @@
 "use client";
 
 import { nanoid } from "nanoid";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
 import { invokeStageBAi, invokeStructuredAi } from "@/ai/client";
 import { promptVersions } from "@/ai/prompts/versions";
 import { createManualJdOutput } from "@/domain/jobAnalysis/manual";
-import { mapJobDraftToJobDescription } from "@/domain/mappers/jobDraftMapper";
 import {
   FactGuardOutputSchema,
   ResumeTailorOutputSchema,
@@ -20,6 +19,7 @@ import {
   type JobAdaptationDraft,
   type JobAnalysisDraft,
   type JobDescription,
+  type JobWorkflowErrorState,
   type CareerProfile,
   type MatchEvaluation,
   type MatchEvidenceRef,
@@ -41,6 +41,13 @@ import {
 import { WorkspaceEmptyState, WorkspaceErrorState, WorkspaceLoadingState } from "@/components/workspace/WorkspaceStates";
 import { hashText, redactSensitiveTextForModel, stableHashText } from "@/services/security/text";
 import { RevisionConflictError, WorkspaceRepository } from "@/services/storage/repositories";
+import {
+  classifyJobAiFailure,
+  commitParsedJob,
+  jobWorkflowErrorState,
+  updateRequirementConfirmation,
+  validateJobInput
+} from "@/services/jobs/jobWorkflow";
 import { useWorkspace } from "@/services/workspace/useWorkspace";
 
 const repository = new WorkspaceRepository();
@@ -49,6 +56,7 @@ const jobArchiveKey = "jobWorkspace:archivedJobIds";
 type JobWorkspaceTab = "info" | "requirements" | "resumes" | "applications";
 type JobListFilter = "active" | "archived";
 type JobResumeActionStatus = "idle" | "matching" | "evaluating" | "preparing" | "saving" | "completed" | "failed";
+type JobFailedAction = "start_import" | "analyze" | "commit";
 type DerivationPrompt = {
   kind: "same_version" | "source_updated";
   existingBranch: ResumeBranch;
@@ -84,6 +92,8 @@ export function JobsWorkspace() {
   const [selectedBaseResumeId, setSelectedBaseResumeId] = useState("");
   const [resumeActionStatus, setResumeActionStatus] = useState<JobResumeActionStatus>("idle");
   const [derivationPrompt, setDerivationPrompt] = useState<DerivationPrompt>();
+  const [jobError, setJobError] = useState<JobWorkflowErrorState>();
+  const [failedAction, setFailedAction] = useState<JobFailedAction>();
 
   useEffect(() => {
     let active = true;
@@ -227,48 +237,60 @@ export function JobsWorkspace() {
   const manualCandidates = matchingProfile && selectedRequirement ? recallCandidatesForRequirement(matchingProfile, selectedRequirement) : [];
 
   async function startImport() {
-    if (!title.trim() || !company.trim() || !rawText.trim()) {
-      setMessage("请填写岗位名称、公司名称并粘贴JD原文。");
-      return;
+    try {
+      const validated = validateJobInput({ title, company, rawText });
+      const now = new Date().toISOString();
+      const inputHash = await hashText(`${validated.title}\n${validated.company}\n${validated.rawText}`);
+      const inputChanged = inputHash !== rawInput?.inputHash;
+      const nextRawInput: RawInputDocument = {
+        id: rawInput?.id ?? `raw-${nanoid(10)}`,
+        kind: "job_jd",
+        rawText: validated.rawText,
+        inputHash,
+        title: `${validated.company} / ${validated.title}`,
+        createdAt: rawInput?.createdAt ?? now,
+        updatedAt: now
+      };
+
+      await repository.saveRawInput(nextRawInput);
+
+      const nextDraft: JobAnalysisDraft = {
+        id: draft?.id ?? `job-draft-${nanoid(10)}`,
+        rawInputId: nextRawInput.id,
+        revision: draft?.revision ?? 0,
+        title: validated.title,
+        company: validated.company,
+        status: "privacy_pending",
+        promptVersion: promptVersions.jdAnalyzer,
+        attemptCount: inputChanged ? 0 : (draft?.attemptCount ?? 0),
+        analyzerOutput: inputChanged ? undefined : draft?.analyzerOutput,
+        manualRequirements: inputChanged ? [] : (draft?.manualRequirements ?? []),
+        riskNotes: inputChanged ? [] : (draft?.riskNotes ?? []),
+        saveError: undefined,
+        committedJobId: draft?.committedJobId,
+        committedAt: draft?.committedAt,
+        createdAt: draft?.createdAt ?? now,
+        updatedAt: now
+      };
+
+      const saved = draft
+        ? await repository.saveJobAnalysisDraftRevision(nextDraft, draft.revision)
+        : await repository.createJobAnalysisDraft(nextDraft);
+
+      setTitle(validated.title);
+      setCompany(validated.company);
+      setRawText(validated.rawText);
+      setRawInput(nextRawInput);
+      setDraft(saved);
+      setJobError(undefined);
+      setFailedAction(undefined);
+      setMessage("原始 JD 已保存。请确认是否发送脱敏内容给外部模型。");
+    } catch (error) {
+      setJobError(jobWorkflowErrorState(error, "repository_save_failed"));
+      setFailedAction("start_import");
+      setMessage(undefined);
+      setSaveStatus(error instanceof RevisionConflictError ? "conflict" : "failed");
     }
-
-    const now = new Date().toISOString();
-    const inputHash = await hashText(`${title}\n${company}\n${rawText}`);
-    const nextRawInput: RawInputDocument = {
-      id: rawInput?.id ?? `raw-${nanoid(10)}`,
-      kind: "job_jd",
-      rawText,
-      inputHash,
-      title: `${company} / ${title}`,
-      createdAt: rawInput?.createdAt ?? now,
-      updatedAt: now
-    };
-
-    await repository.saveRawInput(nextRawInput);
-
-    const nextDraft: JobAnalysisDraft = {
-      id: draft?.id ?? `job-draft-${nanoid(10)}`,
-      rawInputId: nextRawInput.id,
-      revision: draft?.revision ?? 0,
-      title,
-      company,
-      status: "privacy_pending",
-      promptVersion: promptVersions.jdAnalyzer,
-      attemptCount: draft?.attemptCount ?? 0,
-      analyzerOutput: draft?.analyzerOutput,
-      manualRequirements: draft?.manualRequirements ?? [],
-      riskNotes: draft?.riskNotes ?? [],
-      createdAt: draft?.createdAt ?? now,
-      updatedAt: now
-    };
-
-    const saved = draft
-      ? await repository.saveJobAnalysisDraftRevision(nextDraft, draft.revision)
-      : await repository.createJobAnalysisDraft(nextDraft);
-
-    setRawInput(nextRawInput);
-    setDraft(saved);
-    setMessage("原始JD已保存。请确认是否发送脱敏内容给外部模型。");
   }
 
   async function analyzeWithAi() {
@@ -276,50 +298,64 @@ export function JobsWorkspace() {
       return;
     }
 
-    setMessage("正在解析JD，服务端会先脱敏并校验模型输出。");
-    const analyzingDraft = await saveDraft({ ...draft, title, company, status: "analyzing" });
+    try {
+      setJobError(undefined);
+      setMessage("正在解析 JD，服务端会先脱敏并校验模型输出。");
+      const analyzingDraft = await saveDraft({ ...draft, title, company, status: "analyzing" });
 
-    const result = await invokeStageBAi({
-      task: "jd-analyzer",
-      businessInput: {
-        title,
-        company,
-        rawText: rawInput.rawText,
-        inputHash: rawInput.inputHash
-      },
-      outputSchema: JdAnalyzerOutputSchema
-    });
+      const result = await invokeStageBAi({
+        task: "jd-analyzer",
+        businessInput: {
+          title,
+          company,
+          rawText: rawInput.rawText,
+          inputHash: rawInput.inputHash
+        },
+        outputSchema: JdAnalyzerOutputSchema
+      });
 
-    await repository.saveAiLogs([result.log]);
+      await repository.saveAiLogs([result.log]);
 
-    if (!result.ok) {
-      const failedAttempt = analyzingDraft.attemptCount + 1;
-      const manual = failedAttempt >= 2 || result.errorCode !== "validation_failed";
-      const fallbackOutput = createManualJdOutput(rawInput.rawText, title, company);
+      if (!result.ok) {
+        const workflowError = classifyJobAiFailure(result.errorCode);
+        const fallbackOutput = createManualJdOutput(rawInput.rawText, title, company);
+        const saved = await saveDraft({
+          ...analyzingDraft,
+          status: "error",
+          attemptCount: analyzingDraft.attemptCount + 1,
+          manualRequirements: fallbackOutput.requirements,
+          riskNotes: fallbackOutput.riskNotes,
+          saveError: result.errorCode
+        });
+        setDraft(saved);
+        setJobError(workflowError.state);
+        setFailedAction("analyze");
+        setMessage(undefined);
+        return;
+      }
+
       const saved = await saveDraft({
         ...analyzingDraft,
-        status: manual ? "manual_mode" : "error",
-        attemptCount: failedAttempt,
-        manualRequirements: manual ? fallbackOutput.requirements : analyzingDraft.manualRequirements,
-        riskNotes: fallbackOutput.riskNotes,
-        saveError: result.errorCode
+        status: "ai_validated",
+        attemptCount: analyzingDraft.attemptCount + 1,
+        promptVersion: result.promptVersion,
+        analyzerOutput: result.data,
+        riskNotes: result.data.riskNotes,
+        saveError: undefined
       });
       setDraft(saved);
-      setMessage(manual ? "AI不可用或校验失败，已进入JD手动分类模式。" : "AI解析失败，可重试或改用手动分类。");
-      return;
+      setJobError(undefined);
+      setFailedAction(undefined);
+      setMessage("JD 解析完成。请核对原文依据并确认要求。");
+    } catch (error) {
+      setJobError(
+        error instanceof TypeError
+          ? classifyJobAiFailure("provider_unavailable").state
+          : jobWorkflowErrorState(error, "repository_save_failed")
+      );
+      setFailedAction("analyze");
+      setMessage(undefined);
     }
-
-    const saved = await saveDraft({
-      ...analyzingDraft,
-      status: "ai_validated",
-      attemptCount: analyzingDraft.attemptCount + 1,
-      promptVersion: result.promptVersion,
-      analyzerOutput: result.data,
-      riskNotes: result.data.riskNotes,
-      saveError: undefined
-    });
-    setDraft(saved);
-    setMessage("JD解析完成。请核对原文依据并确认要求。");
   }
 
   async function enterManualMode() {
@@ -327,15 +363,27 @@ export function JobsWorkspace() {
       return;
     }
 
+    const previousDraft = draft;
     const fallbackOutput = createManualJdOutput(rawInput.rawText, title, company);
-    const saved = await saveDraft({
+    const optimisticDraft: JobAnalysisDraft = {
       ...draft,
       status: "manual_mode",
       manualRequirements: draft.manualRequirements.length > 0 ? draft.manualRequirements : fallbackOutput.requirements,
       riskNotes: draft.riskNotes
-    });
-    setDraft(saved);
-    setMessage("已进入手动分类模式，外部模型不会被调用。");
+    };
+    setDraft(optimisticDraft);
+    setJobError(undefined);
+    try {
+      const saved = await saveDraft(optimisticDraft);
+      setDraft(saved);
+      setFailedAction(undefined);
+      setMessage("已进入手动分类模式，外部模型不会被调用。");
+    } catch (error) {
+      setDraft(previousDraft);
+      setJobError(jobWorkflowErrorState(error, "repository_save_failed"));
+      setFailedAction("analyze");
+      setMessage(undefined);
+    }
   }
 
   async function toggleRequirement(requirementId: string, checked: boolean) {
@@ -343,27 +391,19 @@ export function JobsWorkspace() {
       return;
     }
 
-    const nextOutput: JdAnalyzerOutput = {
-      ...output,
-      requirements: output.requirements.map((requirement) =>
-        requirement.id === requirementId
-          ? {
-              ...requirement,
-              confirmedByUser: checked,
-              needsConfirmation: !checked
-            }
-          : requirement
-      )
-    };
-
-    const saved = await saveDraft({
-      ...draft,
-      status: draft.status === "ai_validated" ? "editing" : draft.status,
-      analyzerOutput: draft.analyzerOutput ? nextOutput : draft.analyzerOutput,
-      manualRequirements: draft.analyzerOutput ? draft.manualRequirements : nextOutput.requirements,
-      riskNotes: nextOutput.riskNotes
-    });
-    setDraft(saved);
+    const previousDraft = draft;
+    const optimisticDraft = updateRequirementConfirmation(draft, requirementId, checked);
+    setDraft(optimisticDraft);
+    try {
+      const saved = await saveDraft(optimisticDraft);
+      setDraft(saved);
+      setJobError(undefined);
+    } catch (error) {
+      setDraft(previousDraft);
+      setJobError(jobWorkflowErrorState(error, "repository_save_failed"));
+      setFailedAction("commit");
+      setMessage(undefined);
+    }
   }
 
   async function removeRequirement(requirementId: string) {
@@ -380,13 +420,24 @@ export function JobsWorkspace() {
       ...output,
       requirements: output.requirements.filter((requirement) => requirement.id !== requirementId)
     };
-    const saved = await saveDraft({
+    const previousDraft = draft;
+    const optimisticDraft: JobAnalysisDraft = {
       ...draft,
       status: "editing",
       analyzerOutput: draft.analyzerOutput ? nextOutput : draft.analyzerOutput,
       manualRequirements: draft.analyzerOutput ? draft.manualRequirements : nextOutput.requirements
-    });
-    setDraft(saved);
+    };
+    setDraft(optimisticDraft);
+    try {
+      const saved = await saveDraft(optimisticDraft);
+      setDraft(saved);
+      setJobError(undefined);
+    } catch (error) {
+      setDraft(previousDraft);
+      setJobError(jobWorkflowErrorState(error, "repository_save_failed"));
+      setFailedAction("commit");
+      setMessage(undefined);
+    }
   }
 
   async function commitJob() {
@@ -396,29 +447,55 @@ export function JobsWorkspace() {
 
     try {
       setSaveStatus("saving");
-      const jobDescription = mapJobDraftToJobDescription({ draft, rawInput });
-      const result = await repository.commitJobDraft({
-        draftId: draft.id,
-        expectedRevision: draft.revision,
-        commitId: `commit-job-${draft.id}`,
-        jobDescription
-      });
-      setDraft({
-        ...draft,
-        status: "committed",
-        revision: draft.revision + (result.idempotent ? 0 : 1),
-        committedJobId: result.jobDescription.id,
-        committedAt: new Date().toISOString()
-      });
+      const result = await commitParsedJob({ repository, draft, rawInput });
+      workspace.upsertJob(result.jobDescription);
+      setDraft(result.draft);
       setSelectedJobId(result.jobDescription.id);
       setJobListFilter("active");
       setJobWorkspaceTab("requirements");
       setSaveStatus("saved");
+      setJobError(undefined);
+      setFailedAction(undefined);
       setMessage(`已写入正式岗位数据：${result.jobDescription.company} / ${result.jobDescription.title}`);
+      await workspace.refetch();
     } catch (error) {
-      setSaveStatus(error instanceof RevisionConflictError ? "conflict" : "failed");
-      setMessage(error instanceof RevisionConflictError ? "提交失败：草稿版本已变化，请刷新后重试。" : "提交失败，请至少确认一条可定位原文的岗位要求。");
+      const workflowError = jobWorkflowErrorState(error);
+      setSaveStatus(workflowError.code === "revision_conflict" ? "conflict" : "failed");
+      setJobError(workflowError);
+      setFailedAction("commit");
+      setMessage(undefined);
     }
+  }
+
+  function retryFailedJobAction() {
+    if (failedAction === "start_import") {
+      void startImport();
+    } else if (failedAction === "analyze") {
+      void analyzeWithAi();
+    } else if (failedAction === "commit") {
+      void commitJob();
+    }
+  }
+
+  function handleJobTabKeyDown(event: KeyboardEvent<HTMLButtonElement>, tab: JobWorkspaceTab) {
+    const tabs: JobWorkspaceTab[] = ["info", "requirements", "resumes", "applications"];
+    const currentIndex = tabs.indexOf(tab);
+    const nextIndex = event.key === "ArrowRight"
+      ? (currentIndex + 1) % tabs.length
+      : event.key === "ArrowLeft"
+        ? (currentIndex - 1 + tabs.length) % tabs.length
+        : event.key === "Home"
+          ? 0
+          : event.key === "End"
+            ? tabs.length - 1
+            : currentIndex;
+    if (nextIndex === currentIndex && !["Home", "End"].includes(event.key)) {
+      return;
+    }
+    event.preventDefault();
+    setJobWorkspaceTab(tabs[nextIndex]);
+    const buttons = event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]');
+    buttons?.[nextIndex]?.focus();
   }
 
   async function saveDraft(nextDraft: JobAnalysisDraft) {
@@ -995,6 +1072,26 @@ export function JobsWorkspace() {
 
       {workspace.status === "empty" ? <WorkspaceEmptyState /> : null}
       {message ? <section className="notice" role="status" aria-live="polite">{message}</section> : null}
+      {jobError ? (
+        <section className="warning-box job-workflow-error" role="alert" data-error-code={jobError.code}>
+          <div>
+            <strong>{jobWorkflowErrorLabel(jobError.code)}</strong>
+            <p>{jobError.message}</p>
+          </div>
+          <div className="action-row">
+            {jobError.retryable && failedAction ? (
+              <button className="secondary-button compact" type="button" onClick={retryFailedJobAction}>
+                重试
+              </button>
+            ) : null}
+            {draft && rawInput ? (
+              <button className="secondary-button compact" type="button" onClick={() => { void enterManualMode(); }}>
+                手动分类
+              </button>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
 
       <section className="stage-grid">
         <details className="panel job-create-disclosure">
@@ -1005,7 +1102,7 @@ export function JobsWorkspace() {
             <input data-testid="job-title-input" value={title} onChange={(event) => setTitle(event.target.value)} placeholder="岗位名称" />
             <input data-testid="job-company-input" value={company} onChange={(event) => setCompany(event.target.value)} placeholder="公司名称" />
           </div>
-          <textarea data-testid="job-raw-textarea" className="textarea" value={rawText} onChange={(event) => setRawText(event.target.value)} placeholder="粘贴岗位JD原文..." />
+          <textarea data-testid="job-raw-textarea" className="textarea" value={rawText} onChange={(event) => setRawText(event.target.value)} placeholder="粘贴岗位 JD 原文…" />
           <div className="action-row">
             <button className="primary-button" data-testid="save-job-raw-input" onClick={startImport}>
               保存原始JD
@@ -1039,7 +1136,7 @@ export function JobsWorkspace() {
               <h2>岗位要求草稿</h2>
               <p>确认后的要求才会进入正式岗位数据。删除前会提示影响。</p>
             </div>
-            <button className="primary-button" data-testid="commit-job" onClick={commitJob}>
+            <button className="primary-button" data-testid="commit-job" onClick={commitJob} disabled={saveStatus === "saving" || draft?.status === "committed"}>
               提交正式岗位
             </button>
           </div>
@@ -1091,12 +1188,24 @@ export function JobsWorkspace() {
                 type="button"
                 className={jobWorkspaceTab === tab ? "inspector-tab inspector-tab-active" : "inspector-tab"}
                 onClick={() => setJobWorkspaceTab(tab)}
+                onKeyDown={(event) => handleJobTabKeyDown(event, tab)}
+                role="tab"
+                id={`job-tab-${tab}`}
+                aria-controls={`job-tabpanel-${tab}`}
+                aria-selected={jobWorkspaceTab === tab}
+                tabIndex={jobWorkspaceTab === tab ? 0 : -1}
               >
                 {jobWorkspaceTabLabel(tab)}
               </button>
             ))}
           </div>
-          <div className="jobs-tab-content local-scroll">
+          <div
+            className="jobs-tab-content local-scroll"
+            role="tabpanel"
+            id={`job-tabpanel-${jobWorkspaceTab}`}
+            aria-labelledby={`job-tab-${jobWorkspaceTab}`}
+            tabIndex={0}
+          >
             {!selectedJob ? <p>暂无正式岗位数据。</p> : null}
             {selectedJob && jobWorkspaceTab === "info" ? (
               <div className="job-detail-stack">
@@ -1678,6 +1787,18 @@ function saveStatusLabel(status: "idle" | "saving" | "saved" | "failed" | "confl
   }[status];
 }
 
+function jobWorkflowErrorLabel(code: JobWorkflowErrorState["code"]) {
+  return {
+    empty_input: "输入不完整",
+    text_too_short: "JD 文本过短",
+    schema_validation_failed: "岗位数据校验失败",
+    ai_invalid_output: "AI 返回无效",
+    repository_save_failed: "岗位保存失败",
+    revision_conflict: "岗位草稿已变化",
+    unknown_error: "未知错误"
+  }[code];
+}
+
 function RequirementReviewRow({
   requirement,
   onToggle,
@@ -1691,6 +1812,7 @@ function RequirementReviewRow({
     <div className="review-row">
       <input
         type="checkbox"
+        aria-label={`确认岗位要求：${requirement.description}`}
         checked={requirement.confirmedByUser}
         disabled={!requirement.sourceSpan}
         onChange={(event) => onToggle(requirement.id, event.target.checked)}

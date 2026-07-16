@@ -20,6 +20,9 @@ export const ResumePaginationStatusSchema = z.enum([
   "fits_one_page",
   "near_one_page_limit",
   "fits_two_pages",
+  "fits_three_pages",
+  "fits_four_pages",
+  "exceeds_four_pages",
   "exceeds_two_pages",
   "measuring",
   "measurement_failed"

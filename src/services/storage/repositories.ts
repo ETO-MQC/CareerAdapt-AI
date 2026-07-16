@@ -712,13 +712,17 @@ export class WorkspaceRepository {
       const existingCommit = await this.db.draftCommits.get(input.commitId);
 
       if (existingCommit) {
-        const jobDescription = await this.db.jobDescriptions.get(existingCommit.entityId);
-        if (!jobDescription) {
+        const [jobDescription, committedDraft] = await Promise.all([
+          this.db.jobDescriptions.get(existingCommit.entityId),
+          this.db.jobAnalysisDrafts.get(input.draftId)
+        ]);
+        if (!jobDescription || !committedDraft) {
           throw new Error("committed_job_missing");
         }
 
         return {
           jobDescription: JobDescriptionSchema.parse(jobDescription),
+          draft: JobAnalysisDraftSchema.parse(committedDraft),
           commit: DraftCommitSchema.parse(existingCommit),
           idempotent: true
         };
@@ -731,7 +735,12 @@ export class WorkspaceRepository {
       }
 
       const now = new Date().toISOString();
-      const jobDescription = JobDescriptionSchema.parse(input.jobDescription);
+      const existingJob = await this.db.jobDescriptions.get(input.jobDescription.id);
+      const jobDescription = JobDescriptionSchema.parse({
+        ...input.jobDescription,
+        createdAt: existingJob?.createdAt ?? input.jobDescription.createdAt,
+        updatedAt: now
+      });
       const commit = DraftCommitSchema.parse({
         id: input.commitId,
         commitId: input.commitId,
@@ -745,18 +754,17 @@ export class WorkspaceRepository {
 
       await this.db.jobDescriptions.put(jobDescription);
       await this.db.draftCommits.put(commit);
-      await this.db.jobAnalysisDrafts.put(
-        JobAnalysisDraftSchema.parse({
-          ...draft,
-          revision: draft.revision + 1,
-          status: "committed",
-          committedJobId: jobDescription.id,
-          committedAt: now,
-          updatedAt: now
-        })
-      );
+      const committedDraft = JobAnalysisDraftSchema.parse({
+        ...draft,
+        revision: draft.revision + 1,
+        status: "committed",
+        committedJobId: jobDescription.id,
+        committedAt: now,
+        updatedAt: now
+      });
+      await this.db.jobAnalysisDrafts.put(committedDraft);
 
-      return { jobDescription, commit, idempotent: false };
+      return { jobDescription, draft: committedDraft, commit, idempotent: false };
     });
   }
 

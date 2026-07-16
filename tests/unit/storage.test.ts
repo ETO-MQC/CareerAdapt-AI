@@ -791,7 +791,31 @@ describe("WorkspaceRepository", () => {
     expect(secondCommit.idempotent).toBe(true);
     expect(secondCommit.jobDescription.id).toBe(firstCommit.jobDescription.id);
 
-    // Only one job stored
+    // A later draft revision updates the same formal Job instead of creating a duplicate.
+    const updatedDraft = await repository.saveJobAnalysisDraftRevision(
+      {
+        ...firstCommit.draft,
+        status: "editing",
+        title: "高级数据分析实习生"
+      },
+      firstCommit.draft.revision
+    );
+    const updatedJobDescription = mapJobDraftToJobDescription({
+      draft: updatedDraft,
+      rawInput,
+      jobId: firstCommit.jobDescription.id,
+      now: TEST_TIME
+    });
+    const updateCommit = await repository.commitJobDraft({
+      draftId: updatedDraft.id,
+      expectedRevision: updatedDraft.revision,
+      commitId: `commit-job-test-${updatedDraft.revision}`,
+      jobDescription: updatedJobDescription
+    });
+    expect(updateCommit.jobDescription.id).toBe(firstCommit.jobDescription.id);
+    expect(updateCommit.jobDescription.title).toBe("高级数据分析实习生");
+
+    // Only one job is stored after both the duplicate click and the later update.
     const allJobs = await repository.listJobDescriptions();
     const matchingJobs = allJobs.filter((job) => job.id === jobDescription.id);
     expect(matchingJobs).toHaveLength(1);
@@ -799,7 +823,7 @@ describe("WorkspaceRepository", () => {
     const exported = await repository.exportWorkspaceJson();
     expect(exported.rawInputs).toHaveLength(1);
     expect(exported.jobAnalysisDrafts).toHaveLength(1);
-    expect(exported.draftCommits).toHaveLength(1);
+    expect(exported.draftCommits).toHaveLength(2);
   });
 
   it("revision conflict prevents concurrent profile draft overwrites", async () => {

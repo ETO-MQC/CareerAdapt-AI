@@ -4,6 +4,7 @@ import { demoCareerProfile } from "@/data/demoProfile";
 import {
   AiSuggestionSchema,
   CareerProfileSchema,
+  CommittedJobDescriptionSchema,
   FactStatementSchema,
   JobDescriptionSchema,
   ResumeBranchSchema,
@@ -19,6 +20,13 @@ describe("core schemas", () => {
     for (const job of demoJobDescriptions) {
       expect(JobDescriptionSchema.safeParse(job).success).toBe(true);
     }
+  });
+
+  it("requires at least one requirement for a formal job save", () => {
+    expect(CommittedJobDescriptionSchema.safeParse({
+      ...demoJobDescriptions[0],
+      requirements: []
+    }).success).toBe(false);
   });
 
   it("requires provenance for facts that can enter resume output", () => {

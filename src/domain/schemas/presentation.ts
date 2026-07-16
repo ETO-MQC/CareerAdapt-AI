@@ -9,32 +9,54 @@ export const PresentationLineHeightSchema = z.enum(["tight", "normal", "relaxed"
 export const PresentationSpacingScaleSchema = z.enum(["tight", "normal", "relaxed"]);
 export const PresentationAccentColorSchema = z.enum(["graphite", "emerald", "blue", "rose"]);
 export const PresentationDensitySchema = z.enum(["compact", "balanced", "spacious"]);
-export const ResumePagePolicySchema = z.enum(["one_page_strict", "up_to_two_pages"]);
+export const PresentationFontFamilySchema = z.enum(["system_sans", "source_han_sans", "source_han_serif"]);
+export const PresentationEnglishFontFamilySchema = z.enum(["system_sans", "arial", "georgia"]);
+export const PresentationPageMarginSchema = z.enum(["narrow", "normal", "wide"]);
+export const PresentationHeaderFooterSchema = z.enum(["none", "page_number"]);
+export const ResumePagePolicySchema = z.enum(["natural", "prefer_one_page", "one_page_strict", "up_to_two_pages"]);
+export const ResumePreferredPageCountSchema = z.union([z.literal(1), z.literal(2)]);
+export const ResumeMaximumPageCountSchema = z.literal(4);
+export const ResumeOverflowBehaviorSchema = z.enum(["warn", "allow"]);
 
 const LEGACY_TYPOGRAPHY_SCALE = ["compact", "normal", "comfortable"] as const;
 const LEGACY_SPACING_SCALE = ["compact", "normal", "spacious"] as const;
 
 const DEFAULT_TYPOGRAPHY = {
+  chineseFont: "system_sans",
+  englishFont: "system_sans",
   bodyTextScale: "normal",
   titleTextScale: "normal",
   lineHeight: "normal"
 } as const;
 
 const DEFAULT_SPACING = {
+  pageMargin: "normal",
   sectionGap: "normal",
   itemGap: "normal"
 } as const;
 
 const DEFAULT_THEME = {
+  primaryColor: "emerald",
   accentColor: "emerald",
+  dividerColor: "graphite",
   density: "balanced"
 } as const;
 
 const DEFAULT_PAGINATION: {
-  pagePolicy: "one_page_strict";
+  pagePolicy: "natural";
+  preferredPageCount: 1 | 2;
+  maximumPageCount: 4;
+  overflowBehavior: "warn" | "allow";
+  headerFooter: "none" | "page_number";
+  showPhoto: boolean;
   pageBreakBeforeSections: Array<z.infer<typeof ResumeRenderSectionTypeSchema>>;
 } = {
-  pagePolicy: "one_page_strict",
+  pagePolicy: "natural",
+  preferredPageCount: 2,
+  maximumPageCount: 4,
+  overflowBehavior: "warn",
+  headerFooter: "none",
+  showPhoto: false,
   pageBreakBeforeSections: []
 };
 
@@ -62,17 +84,23 @@ const PresentationTypographySchema = z.preprocess((value) => {
     return DEFAULT_TYPOGRAPHY;
   }
   const candidate = value as {
+    chineseFont?: unknown;
+    englishFont?: unknown;
     bodyTextScale?: unknown;
     titleTextScale?: unknown;
     scale?: unknown;
     lineHeight?: unknown;
   };
   return {
+    chineseFont: normalizeChineseFont(candidate.chineseFont),
+    englishFont: normalizeEnglishFont(candidate.englishFont),
     bodyTextScale: normalizeBodyTextScale(candidate.bodyTextScale ?? candidate.scale),
     titleTextScale: normalizeTitleTextScale(candidate.titleTextScale),
     lineHeight: normalizeLineHeight(candidate.lineHeight)
   };
 }, z.object({
+  chineseFont: PresentationFontFamilySchema,
+  englishFont: PresentationEnglishFontFamilySchema,
   bodyTextScale: PresentationBodyTextScaleSchema,
   titleTextScale: PresentationTitleTextScaleSchema,
   lineHeight: PresentationLineHeightSchema
@@ -83,14 +111,17 @@ const PresentationSpacingSchema = z.preprocess((value) => {
     return DEFAULT_SPACING;
   }
   const candidate = value as {
+    pageMargin?: unknown;
     sectionGap?: unknown;
     itemGap?: unknown;
   };
   return {
+    pageMargin: normalizePageMargin(candidate.pageMargin),
     sectionGap: normalizeSpacingScale(candidate.sectionGap),
     itemGap: normalizeSpacingScale(candidate.itemGap)
   };
 }, z.object({
+  pageMargin: PresentationPageMarginSchema,
   sectionGap: PresentationSpacingScaleSchema,
   itemGap: PresentationSpacingScaleSchema
 }));
@@ -100,15 +131,21 @@ const PresentationThemeSchema = z.preprocess((value) => {
     return DEFAULT_THEME;
   }
   const candidate = value as {
+    primaryColor?: unknown;
     accentColor?: unknown;
+    dividerColor?: unknown;
     density?: unknown;
   };
   return {
+    primaryColor: normalizeAccentColor(candidate.primaryColor ?? candidate.accentColor),
     accentColor: normalizeAccentColor(candidate.accentColor),
+    dividerColor: normalizeAccentColor(candidate.dividerColor ?? "graphite"),
     density: normalizeDensity(candidate.density)
   };
 }, z.object({
+  primaryColor: PresentationAccentColorSchema,
   accentColor: PresentationAccentColorSchema,
+  dividerColor: PresentationAccentColorSchema,
   density: PresentationDensitySchema
 }));
 
@@ -118,18 +155,35 @@ const PresentationPaginationSchema = z.preprocess((value) => {
   }
   const candidate = value as {
     pagePolicy?: unknown;
+    preferredPageCount?: unknown;
+    maximumPageCount?: unknown;
+    overflowBehavior?: unknown;
+    headerFooter?: unknown;
+    showPhoto?: unknown;
     pageBreakBeforeSections?: unknown;
   };
-  const pagePolicy = ResumePagePolicySchema.safeParse(candidate.pagePolicy);
+  const pagePolicy = normalizePagePolicy(candidate.pagePolicy);
   const pageBreakBeforeSections = Array.isArray(candidate.pageBreakBeforeSections)
     ? uniqueSectionTypes(candidate.pageBreakBeforeSections)
     : [];
   return {
-    pagePolicy: pagePolicy.success ? pagePolicy.data : DEFAULT_PAGINATION.pagePolicy,
+    pagePolicy,
+    preferredPageCount: candidate.preferredPageCount === 1 || candidate.preferredPageCount === 2
+      ? candidate.preferredPageCount
+      : pagePolicy === "prefer_one_page" ? 1 : DEFAULT_PAGINATION.preferredPageCount,
+    maximumPageCount: 4,
+    overflowBehavior: candidate.overflowBehavior === "allow" ? "allow" : "warn",
+    headerFooter: candidate.headerFooter === "page_number" ? "page_number" : "none",
+    showPhoto: candidate.showPhoto === true,
     pageBreakBeforeSections
   };
 }, z.object({
   pagePolicy: ResumePagePolicySchema,
+  preferredPageCount: ResumePreferredPageCountSchema,
+  maximumPageCount: ResumeMaximumPageCountSchema,
+  overflowBehavior: ResumeOverflowBehaviorSchema,
+  headerFooter: PresentationHeaderFooterSchema,
+  showPhoto: z.boolean(),
   pageBreakBeforeSections: z.array(ResumeRenderSectionTypeSchema).default([])
 }));
 
@@ -196,6 +250,37 @@ function normalizeBodyTextScale(value: unknown) {
     return "normal";
   }
   return DEFAULT_TYPOGRAPHY.bodyTextScale;
+}
+
+function normalizeChineseFont(value: unknown) {
+  if (value === "system_sans" || value === "source_han_sans" || value === "source_han_serif") {
+    return value;
+  }
+  return DEFAULT_TYPOGRAPHY.chineseFont;
+}
+
+function normalizeEnglishFont(value: unknown) {
+  if (value === "system_sans" || value === "arial" || value === "georgia") {
+    return value;
+  }
+  return DEFAULT_TYPOGRAPHY.englishFont;
+}
+
+function normalizePageMargin(value: unknown) {
+  if (value === "narrow" || value === "normal" || value === "wide") {
+    return value;
+  }
+  return DEFAULT_SPACING.pageMargin;
+}
+
+function normalizePagePolicy(value: unknown): z.infer<typeof ResumePagePolicySchema> {
+  if (value === "prefer_one_page") {
+    return value;
+  }
+  if (value === "natural" || value === "one_page_strict" || value === "up_to_two_pages") {
+    return "natural";
+  }
+  return DEFAULT_PAGINATION.pagePolicy;
 }
 
 function normalizeTitleTextScale(value: unknown) {
@@ -266,4 +351,8 @@ export type PresentationLineHeight = z.infer<typeof PresentationLineHeightSchema
 export type PresentationSpacingScale = z.infer<typeof PresentationSpacingScaleSchema>;
 export type PresentationAccentColor = z.infer<typeof PresentationAccentColorSchema>;
 export type PresentationDensity = z.infer<typeof PresentationDensitySchema>;
+export type PresentationFontFamily = z.infer<typeof PresentationFontFamilySchema>;
+export type PresentationEnglishFontFamily = z.infer<typeof PresentationEnglishFontFamilySchema>;
+export type PresentationPageMargin = z.infer<typeof PresentationPageMarginSchema>;
+export type PresentationHeaderFooter = z.infer<typeof PresentationHeaderFooterSchema>;
 export type ResumePagePolicy = z.infer<typeof ResumePagePolicySchema>;
