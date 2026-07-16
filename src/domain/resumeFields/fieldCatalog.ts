@@ -27,7 +27,8 @@ const seeds: Partial<Record<Exclude<ResumeSectionTypeV2, "custom">, readonly Fie
   project: [
     ["title", "项目名称", "string", ["name"], "text"], ["role", "角色", "string", ["position"], "text"],
     ["organization", "组织", "string", ["company"], "text"], ["startDate", "开始日期", "date", ["from"], "date"],
-    ["endDate", "结束日期", "date", ["to"], "date"], ["url", "项目链接", "url", ["link"], "url"],
+    ["endDate", "结束日期", "date", ["to"], "date"], ["current", "进行中", "boolean", ["present"], "checkbox"],
+    ["url", "项目链接", "url", ["link"], "url"],
     ["tools", "技术工具", "string_list", ["technologies", "techStack"], "tags"], ["background", "项目背景", "text", ["context"], "textarea"],
     ["description", "说明", "text", ["details"], "textarea"], ["highlights", "亮点", "string_list", ["bullets", "achievements"], "tags"],
     ["outcomes", "成果", "string_list", ["results", "impact"], "tags"]
@@ -35,7 +36,8 @@ const seeds: Partial<Record<Exclude<ResumeSectionTypeV2, "custom">, readonly Fie
   research: [
     ["title", "研究题目", "string", ["name"], "text"], ["authorRole", "作者身份", "string", ["role", "authorship"], "text"],
     ["institution", "研究机构", "string", ["organization"], "text"], ["startDate", "开始日期", "date", ["from"], "date"],
-    ["endDate", "结束日期", "date", ["to"], "date"], ["methods", "研究方法", "string_list", ["methodology"], "tags"],
+    ["endDate", "结束日期", "date", ["to"], "date"], ["current", "进行中", "boolean", ["present"], "checkbox"],
+    ["methods", "研究方法", "string_list", ["methodology"], "tags"],
     ["samples", "样本", "text", ["sample"], "textarea"], ["publication", "关联论文", "string", ["paper"], "text"],
     ["publicationStatus", "发表状态", "string", ["status"], "select"], ["url", "链接", "url", ["link", "doi"], "url"],
     ["description", "说明", "text", ["details"], "textarea"], ["highlights", "亮点", "string_list", ["bullets", "findings"], "tags"]

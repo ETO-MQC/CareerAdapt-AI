@@ -26,7 +26,7 @@ describe("catalog-driven deterministic field candidates", () => {
       block("b1", "广东财经大学 资产评估 2024年9月—至今", 1),
       block("b2", "GPA：4.95/5.0，专业排名：1/42", 2)
     ];
-    const candidates = createDeterministicFieldCandidates(blocks);
+    const { candidates } = createDeterministicFieldCandidates(blocks);
     expect(candidates.map((candidate) => candidate.targetFieldId)).toEqual(expect.arrayContaining([
       "education.startDate",
       "education.current",
@@ -45,7 +45,7 @@ describe("catalog-driven deterministic field candidates", () => {
 
   it("requires per-field confirmation when one source block maps to multiple targets", () => {
     const blocks = [block("b0", "教育背景", 0), block("b1", "GPA：3.95/5.0，排名：1/42", 1)];
-    const candidates = createDeterministicFieldCandidates(blocks);
+    const { candidates } = createDeterministicFieldCandidates(blocks);
     expect(candidates).toHaveLength(4);
     expect(candidates.every((candidate) => candidate.needsConfirmation)).toBe(true);
     expect(candidates.some((candidate) => canSilentlyAcceptFieldCandidate(candidate, candidates, blocks))).toBe(false);
@@ -55,7 +55,8 @@ describe("catalog-driven deterministic field candidates", () => {
 
   it("detects numeric drift even when an AI-proposed quote is locatable", () => {
     const blocks = [block("b1", "GPA：3.95/5.0", 0)];
-    const [candidate] = createDeterministicFieldCandidates(blocks);
+    const { candidates } = createDeterministicFieldCandidates(blocks);
+    const [candidate] = candidates;
     const changed = { ...candidate, value: 3.96, needsConfirmation: false };
     expect(validateFieldCandidates([changed], blocks)).toEqual(expect.arrayContaining([
       expect.objectContaining({ code: "number_drift" })

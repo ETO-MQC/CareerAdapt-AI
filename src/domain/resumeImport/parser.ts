@@ -7,7 +7,6 @@ import {
   type ImportedResumePage,
   type ImportedResumePageRef,
   type ImportedResumeSection,
-  type ImportedResumeSectionType,
   type ImportedResumeFieldCandidate,
   type ImportQualityReport,
   type MappingDecision,
@@ -19,7 +18,6 @@ import {
   type StructuredResumeDraft
 } from "@/domain/schemas";
 import { locatePdfSourceQuote } from "@/domain/pdfImport/sourceMapping";
-import type { ImportedResumeCategory } from "@/domain/schemas";
 import {
   buildImportQualityReportV2,
   buildResumeSourceBlocksV2,
@@ -27,6 +25,7 @@ import {
   RESUME_IMPORT_PIPELINE_VERSION
 } from "./pipeline";
 import { createDeterministicFieldCandidates } from "./fieldCandidates";
+import { matchResumeSectionHeading, type ImportedResumeCategory, type ImportedResumeSectionType } from "./sectionHeading";
 
 export const RESUME_IMPORT_PARSER_VERSION = "resume-import.local-rules.v2";
 
@@ -47,26 +46,6 @@ type LineWithPage = {
   text: string;
   pageNumber: number;
 };
-
-const SECTION_PATTERNS: Array<{
-  type: ImportedResumeSectionType;
-  category?: ImportedResumeCategory;
-  confidence: "high" | "medium";
-  pattern: RegExp;
-}> = [
-  { type: "summary", confidence: "high", pattern: /^(个人概述|个人简介|自我评价|求职意向|summary|profile|objective)\s*[:：]?$/i },
-  { type: "experience", category: "education", confidence: "medium", pattern: /^(教育经历|教育背景|education)\s*[:：]?$/i },
-  { type: "experience", category: "work", confidence: "high", pattern: /^(工作(?:与实习)?经历|工作经验|work(?:\s*(?:&|and)\s*internship)?\s*experience|employment)\s*[:：]?$/i },
-  { type: "experience", category: "work", confidence: "high", pattern: /^(实习经历|internships?)\s*[:：]?$/i },
-  { type: "experience", category: "project", confidence: "high", pattern: /^(项目经历|项目成果|projects?|project(?:\s*(?:experience|results|outcomes))?)\s*[:：]?$/i },
-  { type: "experience", category: "campus", confidence: "high", pattern: /^(校园经历|社团经历|实践经历|campus experience|leadership)\s*[:：]?$/i },
-  { type: "experience", category: "work", confidence: "high", pattern: /^(科研经历|research)\s*[:：]?$/i },
-  { type: "experience", category: "work", confidence: "high", pattern: /^(志愿经历|volunteer)\s*[:：]?$/i },
-  { type: "skills", confidence: "high", pattern: /^(技能|专业技能|技能清单|skills?|technical skills)\s*[:：]?$/i },
-  { type: "certificates", category: "award", confidence: "high", pattern: /^(荣誉(?:奖项)?|奖项|awards?|honou?rs?)\s*[:：]?$/i },
-  { type: "certificates", confidence: "high", pattern: /^(证书|资格证书|certificates?|certifications?)\s*[:：]?$/i },
-  { type: "certificates", category: "language", confidence: "high", pattern: /^(语言(?:能力)?|languages?)\s*[:：]?$/i }
-];
 
 const EMAIL_PATTERN = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i;
 const PHONE_PATTERN = /(?:\+?\d[\d\s-]{7,}\d|1[3-9]\d{9})/;
@@ -131,7 +110,8 @@ export function createImportedResumeDraftFromText(input: {
     blocks: sourceBlocks,
     legacyReport: input.qualityReport
   });
-  const fieldCandidates = createDeterministicFieldCandidates(sourceBlocks);
+  const candidateResult = createDeterministicFieldCandidates(sourceBlocks);
+  const fieldCandidates = candidateResult.candidates;
   const basics = attachBasicBlockSources(detectBasics(combinedText, pageSources), sourceBlocks);
   const sections = attachSectionBlockSources(detectSections(lines), sourceBlocks);
   const warnings = [
@@ -456,7 +436,19 @@ function detectBasics(
   const email = text.match(EMAIL_PATTERN)?.[0];
   const phone = findPhoneExcludingEmail(text, email);
   const links = Array.from(text.matchAll(new RegExp(LINK_PATTERN, "gi"))).map((match) => match[0]);
-  const locationLine = firstLines.find((line) => /(北京|上海|广州|深圳|杭州|南京|成都|武汉|西安|天津|重庆|苏州|某地|长沙|合肥|厦门|青岛|大连|昆明|济南|China|Remote|New York|London)/i.test(line) || /[一-鿿].*?[一-鿿]/u.test(line) && /(远程|线上|居家)/i.test(line));
+  const locationLine = firstLines.find((line) => {
+    // Explicit location labels
+    if (/^(?:所在地|地点|Location|Base|居住地|现居|坐标)\s*[:：]/i.test(line)) return true;
+    // Known city names (hardcoded list as enhancement, not sole rule)
+    if (/(北京|上海|广州|深圳|杭州|南京|成都|武汉|西安|天津|重庆|苏州|某地|长沙|合肥|厦门|青岛|大连|昆明|济南|珠海|佛山|东莞|无锡|宁波|温州|福州|贵阳|南昌|太原|石家庄|哈尔滨|长春|沈阳|洛阳|呼和浩特|银川|西宁|拉萨|乌鲁木齐|兰州|海口|南宁|三亚|China|Remote|Tokyo|London|New York|Singapore|Hong Kong|Toronto|Sydney|Berlin)/i.test(line)) return true;
+    // Chinese city pattern with separator (e.g., 河南·某地)
+    if (/[一-鿿]{2,}·[一-鿿]{2,}/u.test(line)) return true;
+    // Remote work indicators
+    if (/(?:远程|线上|居家|Remote)/i.test(line)) return true;
+    // Parenthetical location (e.g., 某地（远程）)
+    if (/[一-鿿]{2,}[（(][一-鿿]+[）)]/u.test(line)) return true;
+    return false;
+  });
 
   return {
     name: nameLine ? makeField(nameLine, pageSources, "medium") : undefined,
@@ -601,14 +593,17 @@ function createPageRefs(lines: LineWithPage[], normalizedText: string): Imported
 }
 
 function classifySectionTitle(line: string) {
-  const normalized = line.trim();
-  if (Array.from(normalized).length > 48) {
-    return undefined;
-  }
-  return SECTION_PATTERNS.find((item) => item.pattern.test(normalized));
+  const match = matchResumeSectionHeading(line);
+  if (!match) return undefined;
+  return {
+    type: match.importedSectionType,
+    category: match.category,
+    confidence: match.confidence
+  };
 }
 
 function inferCategoryFromTitle(title: string): ImportedResumeCategory {
+  if (/自我评价|个人概述|个人简介|summary|profile|objective/i.test(title)) return "summary";
   if (/教育|education/i.test(title)) return "education";
   if (/项目|project/i.test(title)) return "project";
   if (/校园|社团|campus/i.test(title)) return "campus";
@@ -617,6 +612,8 @@ function inferCategoryFromTitle(title: string): ImportedResumeCategory {
   if (/证书|certificate/i.test(title)) return "certificate";
   if (/技能|skill/i.test(title)) return "skill";
   if (/工作|实习|work|intern|experience/i.test(title)) return "work";
+  if (/科研|research/i.test(title)) return "work";
+  if (/志愿|volunteer/i.test(title)) return "campus";
   return "custom";
 }
 

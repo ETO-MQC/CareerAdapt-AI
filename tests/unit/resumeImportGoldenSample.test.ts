@@ -22,7 +22,7 @@ function block(id: string, text: string, order: number, blockType: NormalizedSou
 describe("P3.6 golden sample - phone detection", () => {
   it("detects correct mobile number 13800138000", () => {
     const blocks = [block("b1", "13800138000", 0)];
-    const candidates = createDeterministicFieldCandidates(blocks);
+    const { candidates } = createDeterministicFieldCandidates(blocks);
     const phones = candidates.filter((c) => c.targetFieldId === "basics.phone");
     expect(phones).toHaveLength(1);
     expect(phones[0].value).toBe("13800138000");
@@ -30,7 +30,7 @@ describe("P3.6 golden sample - phone detection", () => {
 
   it("does not detect email local part 1281594372 as phone", () => {
     const blocks = [block("b1", "demo.user@example.com", 0)];
-    const candidates = createDeterministicFieldCandidates(blocks);
+    const { candidates } = createDeterministicFieldCandidates(blocks);
     const phones = candidates.filter((c) => c.targetFieldId === "basics.phone");
     expect(phones).toHaveLength(0);
     const emails = candidates.filter((c) => c.targetFieldId === "basics.email");
@@ -40,14 +40,14 @@ describe("P3.6 golden sample - phone detection", () => {
 
   it("does not detect date range 2024-09 - 2028-06 as phone", () => {
     const blocks = [block("b1", "2024-09 - 2028-06", 0)];
-    const candidates = createDeterministicFieldCandidates(blocks);
+    const { candidates } = createDeterministicFieldCandidates(blocks);
     const phones = candidates.filter((c) => c.targetFieldId === "basics.phone");
     expect(phones).toHaveLength(0);
   });
 
   it("does not detect standalone QQ number 1281594372 as phone", () => {
     const blocks = [block("b1", "QQ: 1281594372", 0)];
-    const candidates = createDeterministicFieldCandidates(blocks);
+    const { candidates } = createDeterministicFieldCandidates(blocks);
     const phones = candidates.filter((c) => c.targetFieldId === "basics.phone");
     expect(phones).toHaveLength(0);
   });
@@ -57,14 +57,14 @@ describe("P3.6 golden sample - phone detection", () => {
       block("b0", "教育经历", 0, "heading"),
       block("b1", "GPA：4.95/5.0", 1)
     ];
-    const candidates = createDeterministicFieldCandidates(blocks);
+    const { candidates } = createDeterministicFieldCandidates(blocks);
     const phones = candidates.filter((c) => c.targetFieldId === "basics.phone");
     expect(phones).toHaveLength(0);
   });
 
   it("email, URL, and phone character spans do not overlap", () => {
     const blocks = [block("b1", "13800138000 demo.user@example.com https://github.com/ETO-MQC", 0)];
-    const candidates = createDeterministicFieldCandidates(blocks);
+    const { candidates } = createDeterministicFieldCandidates(blocks);
     const phones = candidates.filter((c) => c.targetFieldId === "basics.phone");
     const emails = candidates.filter((c) => c.targetFieldId === "basics.email");
     const urls = candidates.filter((c) => c.targetFieldId === "basics.otherLinks");
@@ -77,7 +77,7 @@ describe("P3.6 golden sample - phone detection", () => {
 
   it("does not detect percentage as phone", () => {
     const blocks = [block("b1", "Top 5% of class", 0)];
-    const candidates = createDeterministicFieldCandidates(blocks);
+    const { candidates } = createDeterministicFieldCandidates(blocks);
     const phones = candidates.filter((c) => c.targetFieldId === "basics.phone");
     expect(phones).toHaveLength(0);
   });
@@ -272,7 +272,7 @@ describe("P3.6 golden sample - date binding", () => {
       block("b0", "教育经历", 0, "heading"),
       block("b1", "示例大学 计算机相关专业 2024-09 - 2028-06", 1)
     ];
-    const candidates = createDeterministicFieldCandidates(blocks);
+    const { candidates } = createDeterministicFieldCandidates(blocks);
     const start = candidates.find((c) => c.targetFieldId === "education.startDate");
     const end = candidates.find((c) => c.targetFieldId === "education.endDate");
     const current = candidates.find((c) => c.targetFieldId === "education.current");
@@ -291,7 +291,7 @@ describe("P3.6 golden sample - date binding", () => {
       block("b0", "工作与实习经历", 0, "heading"),
       block("b1", "AI辅助文档与指令评估实践 2024-09 - 至今", 1)
     ];
-    const candidates = createDeterministicFieldCandidates(blocks);
+    const { candidates } = createDeterministicFieldCandidates(blocks);
     const start = candidates.find((c) => c.targetFieldId === "work.startDate");
     const current = candidates.find((c) => c.targetFieldId === "work.current");
     const end = candidates.find((c) => c.targetFieldId === "work.endDate");
@@ -310,7 +310,7 @@ describe("P3.6 golden sample - date binding", () => {
       block("b0", "教育经历", 0, "heading"),
       block("b1", "示例大学 2025-04", 1)
     ];
-    const candidates = createDeterministicFieldCandidates(blocks);
+    const { candidates } = createDeterministicFieldCandidates(blocks);
     const current = candidates.find((c) => c.targetFieldId === "education.current");
     expect(current).toBeUndefined();
   });
@@ -320,7 +320,7 @@ describe("P3.6 golden sample - date binding", () => {
       block("b0", "教育经历", 0, "heading"),
       block("b1", "示例大学 2024-09 - 2028-06", 1)
     ];
-    const candidates = createDeterministicFieldCandidates(blocks);
+    const { candidates } = createDeterministicFieldCandidates(blocks);
     const phones = candidates.filter((c) => c.targetFieldId === "basics.phone");
     expect(phones).toHaveLength(0);
   });
