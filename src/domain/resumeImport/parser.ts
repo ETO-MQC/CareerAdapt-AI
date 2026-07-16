@@ -50,14 +50,22 @@ type LineWithPage = {
 
 const SECTION_PATTERNS: Array<{
   type: ImportedResumeSectionType;
+  category?: ImportedResumeCategory;
   confidence: "high" | "medium";
   pattern: RegExp;
 }> = [
   { type: "summary", confidence: "high", pattern: /^(个人概述|个人简介|自我评价|求职意向|summary|profile|objective)\s*[:：]?$/i },
-  { type: "experience", confidence: "high", pattern: /^(工作经历|工作经验|实习经历|项目经历|校园经历|社团经历|实践经历|experience|work experience|internship|projects?|campus experience)\s*[:：]?$/i },
-  { type: "experience", confidence: "medium", pattern: /^(教育经历|教育背景|education)\s*[:：]?$/i },
+  { type: "experience", category: "education", confidence: "medium", pattern: /^(教育经历|教育背景|education)\s*[:：]?$/i },
+  { type: "experience", category: "work", confidence: "high", pattern: /^(工作(?:与实习)?经历|工作经验|work(?:\s*(?:&|and)\s*internship)?\s*experience|employment)\s*[:：]?$/i },
+  { type: "experience", category: "work", confidence: "high", pattern: /^(实习经历|internships?)\s*[:：]?$/i },
+  { type: "experience", category: "project", confidence: "high", pattern: /^(项目经历|项目成果|projects?|project(?:\s*(?:experience|results|outcomes))?)\s*[:：]?$/i },
+  { type: "experience", category: "campus", confidence: "high", pattern: /^(校园经历|社团经历|实践经历|campus experience|leadership)\s*[:：]?$/i },
+  { type: "experience", category: "work", confidence: "high", pattern: /^(科研经历|research)\s*[:：]?$/i },
+  { type: "experience", category: "work", confidence: "high", pattern: /^(志愿经历|volunteer)\s*[:：]?$/i },
   { type: "skills", confidence: "high", pattern: /^(技能|专业技能|技能清单|skills?|technical skills)\s*[:：]?$/i },
-  { type: "certificates", confidence: "high", pattern: /^(证书|资格证书|奖项|荣誉|语言能力|certificates?|awards?|honou?rs?|languages?)\s*[:：]?$/i }
+  { type: "certificates", category: "award", confidence: "high", pattern: /^(荣誉(?:奖项)?|奖项|awards?|honou?rs?)\s*[:：]?$/i },
+  { type: "certificates", confidence: "high", pattern: /^(证书|资格证书|certificates?|certifications?)\s*[:：]?$/i },
+  { type: "certificates", category: "language", confidence: "high", pattern: /^(语言(?:能力)?|languages?)\s*[:：]?$/i }
 ];
 
 const EMAIL_PATTERN = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i;
@@ -443,11 +451,12 @@ function detectBasics(
     && !PHONE_PATTERN.test(line)
     && !LINK_PATTERN.test(line)
     && Array.from(line).length <= 32
+    && !isSingleLatinLetter(line)
   );
   const email = text.match(EMAIL_PATTERN)?.[0];
-  const phone = text.match(PHONE_PATTERN)?.[0]?.replace(/\s+/g, " ").trim();
+  const phone = findPhoneExcludingEmail(text, email);
   const links = Array.from(text.matchAll(new RegExp(LINK_PATTERN, "gi"))).map((match) => match[0]);
-  const locationLine = firstLines.find((line) => /(北京|上海|广州|深圳|杭州|南京|成都|武汉|西安|天津|重庆|苏州|China|Remote|New York|London)/i.test(line));
+  const locationLine = firstLines.find((line) => /(北京|上海|广州|深圳|杭州|南京|成都|武汉|西安|天津|重庆|苏州|某地|长沙|合肥|厦门|青岛|大连|昆明|济南|China|Remote|New York|London)/i.test(line) || /[一-鿿].*?[一-鿿]/u.test(line) && /(远程|线上|居家)/i.test(line));
 
   return {
     name: nameLine ? makeField(nameLine, pageSources, "medium") : undefined,
@@ -475,11 +484,12 @@ function detectSections(lines: LineWithPage[]): ImportedResumeSection[] {
     itemBuffer = [];
   };
 
-  const startSection = (title: string, sectionType: ImportedResumeSectionType, confidence: "high" | "medium" | "low") => {
+  const startSection = (title: string, sectionType: ImportedResumeSectionType, confidence: "high" | "medium" | "low", category?: ImportedResumeCategory) => {
     flushItem();
     current = {
       id: `import-section-${sections.length}-${nanoid(6)}`,
       sectionType,
+      category: category ?? inferCategoryFromTitle(title),
       detectedTitle: title,
       included: sectionType !== "unknown",
       order: sections.length,
@@ -492,14 +502,14 @@ function detectSections(lines: LineWithPage[]): ImportedResumeSection[] {
   for (const line of lines) {
     const inlineSection = parseInlineSectionLine(line.text);
     if (inlineSection) {
-      startSection(inlineSection.title, inlineSection.type, inlineSection.confidence);
+      startSection(inlineSection.title, inlineSection.type, inlineSection.confidence, inlineSection.category);
       itemBuffer.push({ text: inlineSection.content, pageNumber: line.pageNumber });
       continue;
     }
 
     const sectionMatch = classifySectionTitle(line.text);
     if (sectionMatch) {
-      startSection(line.text.replace(/[:：]\s*$/, ""), sectionMatch.type, sectionMatch.confidence);
+      startSection(line.text.replace(/[:：]\s*$/, ""), sectionMatch.type, sectionMatch.confidence, sectionMatch.category);
       continue;
     }
 
@@ -598,6 +608,18 @@ function classifySectionTitle(line: string) {
   return SECTION_PATTERNS.find((item) => item.pattern.test(normalized));
 }
 
+function inferCategoryFromTitle(title: string): ImportedResumeCategory {
+  if (/教育|education/i.test(title)) return "education";
+  if (/项目|project/i.test(title)) return "project";
+  if (/校园|社团|campus/i.test(title)) return "campus";
+  if (/荣誉|奖项|award|honou?r/i.test(title)) return "award";
+  if (/语言|language/i.test(title)) return "language";
+  if (/证书|certificate/i.test(title)) return "certificate";
+  if (/技能|skill/i.test(title)) return "skill";
+  if (/工作|实习|work|intern|experience/i.test(title)) return "work";
+  return "custom";
+}
+
 function parseInlineSectionLine(line: string) {
   const match = line.trim().match(/^([\p{L}\s/]+?)\s*[:：]\s*(.+)$/u);
   if (!match) {
@@ -613,7 +635,8 @@ function parseInlineSectionLine(line: string) {
     title,
     content,
     type: section.type,
-    confidence: section.confidence
+    confidence: section.confidence,
+    category: section.category
   };
 }
 
@@ -623,6 +646,30 @@ function isSectionTitle(line: string) {
 
 function isBulletLine(line: string) {
   return /^\s*(?:[-*•·●▪]|[0-9]+[.)、])\s+/.test(line);
+}
+
+function isSingleLatinLetter(line: string) {
+  const trimmed = line.trim();
+  return /^[A-Za-z]$/.test(trimmed);
+}
+
+function findPhoneExcludingEmail(text: string, email: string | undefined): string | undefined {
+  const CN_MOBILE = /(?<!\d)1[3-9]\d{9}(?!\d)/g;
+  let m: RegExpExecArray | null;
+  while ((m = CN_MOBILE.exec(text)) !== null) {
+    const phone = m[0];
+    if (email && email.includes(phone)) continue;
+    return phone;
+  }
+  const GENERIC = /(?:\+?\d[\d\s\-]{7,}\d)/g;
+  while ((m = GENERIC.exec(text)) !== null) {
+    const raw = m[0];
+    const digits = raw.replace(/[\s\-]/g, "");
+    if (email && email.includes(digits)) continue;
+    if (/^1[3-9]\d{9}$/.test(digits)) continue;
+    return raw.replace(/\s+/g, " ").trim();
+  }
+  return undefined;
 }
 
 function normalizeItemText(text: string) {

@@ -5,7 +5,7 @@ import {
 } from "@/domain/schemas";
 
 const CURRENT_PATTERN = /^(?:至今|现在|目前|今|present|current|now)$/i;
-const DATE_TOKEN_PATTERN = /(?:19|20)\d{2}(?:\s*[年./-]\s*\d{1,2}(?:\s*[月./-]\s*\d{1,2}\s*日?)?\s*月?)?|(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+(?:19|20)\d{2}|至今|现在|目前|present|current|now/gi;
+const DATE_TOKEN_PATTERN = /(?:19|20)\d{2}(?:\s*[年./]\s*\d{1,2}(?:\s*[月./]\s*\d{1,2}\s*日?)?\s*月?)?|(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+(?:19|20)\d{2}|至今|现在|目前|present|current|now/gi;
 
 const ENGLISH_MONTHS: Record<string, number> = {
   jan: 1, january: 1, feb: 2, february: 2, mar: 3, march: 3,
