@@ -91,7 +91,7 @@ export function createResumePaginationPlan(input: {
   paginationConfig: ResumePresentationConfig["pagination"];
 }): ResumePaginationPlan {
   const pagePolicy = input.paginationConfig.pagePolicy;
-  const requestedMaxPages: 1 | 2 = pagePolicy === "up_to_two_pages" ? 2 : 1;
+  const requestedMaxPages: 1 | 2 | 3 | 4 = pagePolicy === "up_to_two_pages" ? 4 : 1;
   const clientHeight = Math.max(1, input.measurement.clientHeight);
   const forcedBreakBeforeSections = sanitizeForcedBreaks(
     input.paginationConfig.pageBreakBeforeSections,
@@ -150,7 +150,7 @@ export function createResumePaginationPlan(input: {
     requestedMaxPages,
     actualPageCount,
     status,
-    pages: usedPages.length > 0 ? usedPages.slice(0, 3) : [createPage(1)],
+    pages: usedPages.length > 0 ? usedPages.slice(0, 4) : [createPage(1)],
     forcedBreakBeforeSections,
     overflowBlockIds: uniqueStrings(overflowBlockIds),
     oversizedBlockIds: uniqueStrings(oversizedBlockIds),
@@ -229,30 +229,36 @@ function sanitizeForcedBreaks(
 }
 
 function paginationStatus(input: {
-  actualPageCount: 1 | 2 | 3;
+  actualPageCount: 1 | 2 | 3 | 4;
   remainingPx: number;
   measurementFailed: boolean;
 }): ResumePaginationStatus {
   if (input.measurementFailed) {
     return "measurement_failed";
   }
-  if (input.actualPageCount >= 3) {
+  if (input.actualPageCount >= 4) {
     return "exceeds_two_pages";
   }
   if (input.actualPageCount === 2) {
     return "fits_two_pages";
   }
+  if (input.actualPageCount === 3) {
+    return "fits_two_pages";
+  }
   return input.remainingPx <= PAGE_NEAR_LIMIT_PX ? "near_one_page_limit" : "fits_one_page";
 }
 
-function clampActualPageCount(pageCount: number): 1 | 2 | 3 {
+function clampActualPageCount(pageCount: number): 1 | 2 | 3 | 4 {
   if (pageCount <= 1) {
     return 1;
   }
   if (pageCount === 2) {
     return 2;
   }
-  return 3;
+  if (pageCount === 3) {
+    return 3;
+  }
+  return 4;
 }
 
 function createPage(pageNumber: number): MutablePaginationPage {

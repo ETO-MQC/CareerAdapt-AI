@@ -31,7 +31,7 @@ describe("V2 G3b pagination planning", () => {
       paginationConfig: { pagePolicy: "up_to_two_pages", pageBreakBeforeSections: [] }
     });
 
-    expect(plan.requestedMaxPages).toBe(2);
+    expect(plan.requestedMaxPages).toBe(4);
     expect(plan.actualPageCount).toBe(2);
     expect(plan.status).toBe("fits_two_pages");
     expect(isPaginationPlanBlocked(plan)).toBe(false);
@@ -48,15 +48,15 @@ describe("V2 G3b pagination planning", () => {
     expect(isPaginationPlanBlocked(plan)).toBe(true);
   });
 
-  it("blocks content that exceeds two pages", () => {
+  it("allows content up to four pages", () => {
     const plan = createResumePaginationPlan({
       measurement: measurementFixture({ scrollHeight: 2600, clientHeight: 1000 }),
       paginationConfig: { pagePolicy: "up_to_two_pages", pageBreakBeforeSections: [] }
     });
 
     expect(plan.actualPageCount).toBe(3);
-    expect(plan.status).toBe("exceeds_two_pages");
-    expect(isPaginationPlanBlocked(plan)).toBe(true);
+    expect(plan.status).toBe("fits_two_pages");
+    expect(isPaginationPlanBlocked(plan)).toBe(false);
   });
 
   it("honors section page-break hints without creating a blank first page", () => {

@@ -52,7 +52,7 @@ export const ExportSnapshotPresentationSchema = z.object({
 });
 
 export const ResumePaginationPageSchema = z.object({
-  pageNumber: z.number().int().min(1).max(3),
+  pageNumber: z.number().int().min(1).max(4),
   sectionTypes: z.array(ResumeRenderSectionTypeSchema),
   itemIdsBySection: z.record(z.string(), z.array(z.string().min(1))),
   blockIds: z.array(z.string().min(1))
@@ -61,10 +61,10 @@ export const ResumePaginationPageSchema = z.object({
 export const ResumePaginationPlanSchema = z.object({
   schemaVersion: z.literal("resume-pagination-v1"),
   pagePolicy: ResumePagePolicySchema,
-  requestedMaxPages: z.union([z.literal(1), z.literal(2)]),
-  actualPageCount: z.union([z.literal(1), z.literal(2), z.literal(3)]),
+  requestedMaxPages: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]),
+  actualPageCount: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]),
   status: ResumePaginationStatusSchema,
-  pages: z.array(ResumePaginationPageSchema).min(1).max(3),
+  pages: z.array(ResumePaginationPageSchema).min(1).max(4),
   forcedBreakBeforeSections: z.array(ResumeRenderSectionTypeSchema),
   overflowBlockIds: z.array(z.string().min(1)),
   oversizedBlockIds: z.array(z.string().min(1)).default([]),
@@ -89,8 +89,8 @@ export const ResumePdfExportSnapshotSchema = z.object({
   filename: SafePdfFileNameSchema,
   overflowStatus: OverflowStatusSchema,
   pagePolicy: ResumePagePolicySchema,
-  requestedMaxPages: z.union([z.literal(1), z.literal(2)]),
-  actualPageCount: z.union([z.literal(1), z.literal(2), z.literal(3)]),
+  requestedMaxPages: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]),
+  actualPageCount: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]),
   pageBreakBeforeSections: z.array(ResumeRenderSectionTypeSchema),
   paginationPlan: ResumePaginationPlanSchema,
   paginationHash: z.string().min(8),
