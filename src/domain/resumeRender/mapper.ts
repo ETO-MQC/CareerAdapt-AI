@@ -76,12 +76,15 @@ export function mapBranchToResumeRenderModel(input: {
   };
 
   const runtimeBranch = migrateResumeBranchToV2(branch);
+  const seenStructuredItemIds = new Set<string>();
   const structuredItems = runtimeBranch.structuredContentItems.flatMap((item) => {
     if (!item.visible || !renderableItemIds.has(item.id)) return [];
+    if (seenStructuredItemIds.has(item.id)) return [];
+    seenStructuredItemIds.add(item.id);
     const sourceSectionId = branch.contentItems.find((legacy) => legacy.id === item.id)?.sourceSectionId;
     const sectionType = canonicalRenderSection(item.data.sectionType, sourceSectionId);
     const sectionId = sourceSectionId?.startsWith("custom:") ? sourceSectionId : sectionType;
-    return [{ sectionId, sectionType, itemId: item.id, data: item.data, plainText: item.legacyTextProjection ?? projectResumeItemV2(item.data) }];
+    return [{ sectionId, sectionType, itemId: item.id, data: item.data, plainText: projectResumeItemV2(item.data) }];
   });
   const structuredSections = [...new Set(structuredItems.map((item) => item.sectionId))].map((sectionId, order) => {
     const items = structuredItems.filter((item) => item.sectionId === sectionId);
@@ -127,13 +130,8 @@ export function mapBranchToResumeRenderModel(input: {
 }
 
 function canonicalRenderSection(dataSection: ResumeSectionTypeV2, sourceSectionId?: string): Exclude<ResumeSectionTypeV2, "basics"> {
-  const sourceMap: Record<string, Exclude<ResumeSectionTypeV2, "basics">> = {
-    education: "education", experience: "work", projects: "project", campus: "campus", research: "research", volunteer: "volunteer",
-    awards: "awards", skills: "skills", certificates: "certificates", language: "languages", publications: "publications",
-    patents: "patents", portfolio: "portfolio", other: "other", custom: "custom", summary: "summary"
-  };
   if (sourceSectionId?.startsWith("custom:")) return "custom";
-  return sourceSectionId && sourceMap[sourceSectionId] ? sourceMap[sourceSectionId] : dataSection === "basics" ? "other" : dataSection;
+  return dataSection === "basics" ? "other" : dataSection;
 }
 
 function assertRenderableBranch(branch: ResumeBranch) {

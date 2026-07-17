@@ -26,6 +26,7 @@ export function migrateCareerProfileToV2(profile: CareerProfile): CareerProfileV
     structuredBasics: {
       name: profile.basics.name,
       headline: profile.basics.headline,
+      summary: profile.basics.summary,
       phone: profile.basics.phone,
       email: profile.basics.email,
       location: profile.basics.location,
@@ -115,8 +116,22 @@ function legacyBranchData(item: BranchContentItem): ResumeItemV2 {
   switch (item.sourceSectionId) {
     case "education": return { ...base, sectionType: "education", courses: [], honors: [], current: false };
     case "experience": return { ...base, sectionType: "work", current: false };
-    case "projects": return { ...base, sectionType: "project", current: false, tools: [], outcomes: [] };
+    case "work": return { ...base, sectionType: "work", current: false };
+    case "internship": return { ...base, sectionType: "internship", current: false };
+    case "projects":
+    case "project": return { ...base, sectionType: "project", current: false, tools: [], outcomes: [] };
     case "campus": return { ...base, sectionType: "campus", current: false };
+    case "volunteer": return { ...base, sectionType: "volunteer", current: false };
+    case "research": return { ...base, sectionType: "research", title: item.text, methods: [], current: false };
+    case "awards": return { id: item.id, sectionType: "awards", name: item.text, customFields: [] };
+    case "skills": return { id: item.id, sectionType: "skills", name: item.text, customFields: [] };
+    case "certificates": return { id: item.id, sectionType: "certificates", name: item.text, customFields: [] };
+    case "language":
+    case "languages": return { id: item.id, sectionType: "languages", language: item.text, customFields: [] };
+    case "publications": return { id: item.id, sectionType: "publications", title: item.text, authors: [], customFields: [] };
+    case "patents": return { id: item.id, sectionType: "patents", title: item.text, inventors: [], customFields: [] };
+    case "portfolio": return { ...base, sectionType: "portfolio", title: item.text, tools: [] };
+    case "custom": return { ...base, sectionType: "custom" };
     default: return { ...base, sectionType: "other" };
   }
 }

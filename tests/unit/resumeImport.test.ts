@@ -105,11 +105,23 @@ describe("V2-G4a resume PDF import", () => {
       operationId: "confirm-repository"
     });
     const branch = await repository.getResumeBranch(first.branchId);
+    const originalStructured = branch!.structuredContentItems![0];
+    const structuredItem = {
+      ...originalStructured.data,
+      customFields: [{
+        id: "custom-review-note",
+        label: "补充说明",
+        valueType: "string" as const,
+        value: "仅当前简历",
+        order: 0,
+        sensitive: false
+      }]
+    };
     const edited = await repository.editResumeBranch({
       branchId: first.branchId,
       expectedRevision: branch!.revision,
       operationId: "edit-general-imported-branch",
-      edits: [{ itemId: branch!.contentItems[0].id, text: branch!.contentItems[0].text }]
+      edits: [{ itemId: branch!.contentItems[0].id, text: branch!.contentItems[0].text, structuredItem }]
     });
 
     expect(first.idempotent).toBe(false);
@@ -122,6 +134,17 @@ describe("V2-G4a resume PDF import", () => {
       presentationRevision: 0
     });
     expect(edited.branch.revision).toBe(1);
+    expect(edited.branch.structuredContentItems?.[0]?.data.customFields).toEqual(structuredItem.customFields);
+    const revisions = await repository.listResumeRevisions(first.branchId);
+    expect(revisions.at(-1)?.snapshot.structuredContentItems?.[0]?.data.customFields).toEqual(structuredItem.customFields);
+
+    const restored = await repository.restoreResumeRevision({
+      branchId: first.branchId,
+      revisionId: revisions[0].id,
+      expectedRevision: edited.branch.revision,
+      operationId: "restore-original-imported-branch"
+    });
+    expect(restored.branch.structuredContentItems?.[0]?.data.customFields).toEqual(originalStructured.data.customFields);
   });
 
   it("normalizes structured JSON into the same imported resume draft review model", () => {

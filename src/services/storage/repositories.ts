@@ -1,6 +1,6 @@
 import { demoJobDescriptions } from "@/data/demoJobs";
 import { demoCareerProfile } from "@/data/demoProfile";
-import { migrateCareerProfileToV2, migrateResumeBranchToV2 } from "@/domain/migrations/resumeV2";
+import { migrateBranchContentItem, migrateCareerProfileToV2, migrateResumeBranchToV2 } from "@/domain/migrations/resumeV2";
 import {
   AiLogSchema,
   AiSuggestionSchema,
@@ -26,6 +26,7 @@ import {
   RecycleBinStateSchema,
   RequirementMatchSchema,
   ResumeBranchSchema,
+  ResumeContentItemV2Schema,
   ResumeBranchOperationSchema,
   ResumePresentationConfigSchema,
   ResumeRevisionSchema,
@@ -68,6 +69,7 @@ import {
   type RecycleBinState,
   type RequirementMatch,
   type ResumeBranch,
+  type ResumeItemV2,
   type ResumeBranchOperation,
   type ResumePresentationConfig,
   type ResumeRenderSectionType,
@@ -113,6 +115,100 @@ import { CareerAdaptDb, careerAdaptDb, type AppMeta } from "./db";
 const RECYCLE_BIN_META_KEY = "workspaceRecycleBin:v1";
 const ACTIVE_PROFILE_META_KEY = "activeProfileContext:v1";
 const EMPTY_RECYCLE_BIN: RecycleBinState = { version: 1, jobIds: [], profileItems: [] };
+
+function syncStructuredContentItems(
+  branch: ResumeBranch,
+  contentItems: ResumeBranch["contentItems"]
+) {
+  const current = new Map((branch.structuredContentItems ?? []).map((item) => [item.id, item]));
+  return contentItems.map((legacy) => {
+    const structured = current.get(legacy.id);
+    if (!structured) return migrateBranchContentItem(legacy);
+    return ResumeContentItemV2Schema.parse({
+      ...structured,
+      order: legacy.order,
+      visible: legacy.visible,
+      source: legacy.source,
+      factRefs: legacy.factRefs,
+      guardMode: legacy.guardMode,
+      guardStatus: legacy.guardStatus,
+      guardFindings: legacy.guardFindings,
+      userConfirmation: legacy.userConfirmation,
+      legacyTextProjection: legacy.text
+    });
+  });
+}
+
+function applySuggestionToStructuredItems(
+  branch: ResumeBranch,
+  contentItems: ResumeBranch["contentItems"],
+  suggestion: AiSuggestion,
+  acceptedText: string
+) {
+  return syncStructuredContentItems(branch, contentItems).map((item) => {
+    if (item.id !== suggestion.targetContentItemId || !suggestion.targetFieldId) return item;
+    const field = suggestion.targetFieldId.split(".").at(-1)!;
+    const current = (item.data as unknown as Record<string, unknown>)[field];
+    const value = Array.isArray(current) ? [acceptedText, ...current.slice(1)] : acceptedText;
+    return ResumeContentItemV2Schema.parse({
+      ...item,
+      data: { ...item.data, [field]: value }
+    });
+  });
+}
+
+function applyLegacyTextEditToStructuredItem(item: ResumeItemV2, text: string): ResumeItemV2 {
+  const value = (candidate: string) => candidate.trim() || undefined;
+  const parsed = parseStructuredExperienceText(text);
+  const dateFields = {
+    startDate: value(parsed.startDate),
+    endDate: parsed.current ? undefined : value(parsed.endDate),
+    current: parsed.current
+  };
+
+  switch (item.sectionType) {
+    case "summary":
+      return { ...item, text: text.trim() };
+    case "education":
+      return {
+        ...item,
+        school: value(parsed.organization),
+        degree: value(parsed.degree || parsed.role),
+        major: value(parsed.major),
+        location: value(parsed.location),
+        courses: parsed.courses.trim()
+          ? parsed.courses.split(/[,，、;；]/).map((course) => course.trim()).filter(Boolean)
+          : item.courses,
+        description: value(parsed.description),
+        ...dateFields
+      };
+    case "work":
+    case "internship":
+    case "campus":
+    case "volunteer":
+      return {
+        ...item,
+        organization: value(parsed.organization),
+        role: value(parsed.role),
+        location: value(parsed.location),
+        description: value(parsed.description),
+        ...dateFields
+      };
+    case "project":
+      return {
+        ...item,
+        title: value(parsed.organization),
+        role: value(parsed.role),
+        location: value(parsed.location),
+        description: value(parsed.description),
+        ...dateFields
+      };
+    case "custom":
+      return { ...item, description: value(text) };
+    default:
+      return item;
+  }
+}
 
 export type WorkspaceExport = {
   schemaVersion: "stage-e-e1-v1";
@@ -1761,6 +1857,7 @@ export class WorkspaceRepository {
         const nextBranchBase = ResumeBranchSchema.parse({
           ...branch,
           contentItems: nextItems,
+          structuredContentItems: applySuggestionToStructuredItems(branch, nextItems, suggestion, acceptedText),
           revision: branch.revision + 1,
           updatedAt: now
         });
@@ -1992,6 +2089,7 @@ export class WorkspaceRepository {
     edits: Array<{
       itemId: string;
       text?: string;
+      structuredItem?: ResumeItemV2;
       order?: number;
       visible?: boolean;
     }>;
@@ -2063,9 +2161,30 @@ export class WorkspaceRepository {
           });
         }).sort((a, b) => a.order - b.order);
 
+        const nextStructuredItems = branch.structuredContentItems?.map((item) => {
+          const edit = input.edits.find((candidate) => candidate.itemId === item.id);
+          if (!edit) return item;
+          const legacyItem = nextItems.find((candidate) => candidate.id === item.id);
+          return ResumeContentItemV2Schema.parse({
+            ...item,
+            data: edit.structuredItem
+              ?? (edit.text !== undefined ? applyLegacyTextEditToStructuredItem(item.data, edit.text) : item.data),
+            order: edit.order ?? item.order,
+            visible: edit.visible ?? item.visible,
+            source: legacyItem?.source ?? item.source,
+            factRefs: legacyItem?.factRefs ?? item.factRefs,
+            guardMode: legacyItem?.guardMode ?? item.guardMode,
+            guardStatus: legacyItem?.guardStatus ?? item.guardStatus,
+            guardFindings: legacyItem?.guardFindings ?? item.guardFindings,
+            userConfirmation: legacyItem?.userConfirmation ?? item.userConfirmation,
+            legacyTextProjection: legacyItem?.text ?? item.legacyTextProjection
+          });
+        }).sort((a, b) => a.order - b.order);
+
         return ResumeBranchSchema.parse({
           ...branch,
-          contentItems: nextItems
+          contentItems: nextItems,
+          structuredContentItems: nextStructuredItems
         });
       }
     });
@@ -2168,7 +2287,21 @@ export class WorkspaceRepository {
 
         return ResumeBranchSchema.parse({
           ...branch,
-          contentItems: nextItems
+          contentItems: nextItems,
+          structuredContentItems: (() => {
+            const sourceStructured = branch.structuredContentItems?.find((item) => item.id === input.itemId);
+            if (!sourceStructured) return syncStructuredContentItems(branch, nextItems);
+            const withDuplicate = [
+              ...(branch.structuredContentItems ?? []),
+              ResumeContentItemV2Schema.parse({
+                ...sourceStructured,
+                id: duplicatedItemId,
+                data: { ...sourceStructured.data, id: duplicatedItemId },
+                source: "user_manual"
+              })
+            ];
+            return syncStructuredContentItems({ ...branch, structuredContentItems: withDuplicate }, nextItems);
+          })()
         });
       }
     });
@@ -2247,7 +2380,8 @@ export class WorkspaceRepository {
           );
           return ResumeBranchSchema.parse({
             ...branch,
-            contentItems: nextItems
+            contentItems: nextItems,
+            structuredContentItems: syncStructuredContentItems(branch, nextItems)
           });
         }
         const entitySuffix = stableHashText(input.operationId).replace(/[^a-zA-Z0-9-]/g, "").slice(0, 20);
@@ -2389,7 +2523,8 @@ export class WorkspaceRepository {
         return ResumeBranchSchema.parse({
           ...branch,
           sourceProfileVersion: nextProfile.version,
-          contentItems: nextItems
+          contentItems: nextItems,
+          structuredContentItems: syncStructuredContentItems(branch, nextItems)
         });
       }
     });
@@ -2596,7 +2731,8 @@ export class WorkspaceRepository {
         return ResumeBranchSchema.parse({
           ...branch,
           sourceProfileVersion: nextProfile.version,
-          contentItems: nextItems
+          contentItems: nextItems,
+          structuredContentItems: syncStructuredContentItems(branch, nextItems)
         });
       }
     });
@@ -2676,7 +2812,11 @@ export class WorkspaceRepository {
         return ResumeBranchSchema.parse({
           ...branch,
           sourceProfileVersion: profile.version,
-          contentItems: [...orderedItems, nextItem].map((item, order) => ({ ...item, order }))
+          contentItems: [...orderedItems, nextItem].map((item, order) => ({ ...item, order })),
+          structuredContentItems: syncStructuredContentItems(
+            branch,
+            [...orderedItems, nextItem].map((item, order) => ({ ...item, order }))
+          )
         });
       }
     });
@@ -2777,7 +2917,11 @@ export class WorkspaceRepository {
         return ResumeBranchSchema.parse({
           ...branch,
           sourceProfileVersion: profile.version,
-          contentItems: [...orderedItems, nextItem].map((item, order) => ({ ...item, order }))
+          contentItems: [...orderedItems, nextItem].map((item, order) => ({ ...item, order })),
+          structuredContentItems: syncStructuredContentItems(
+            branch,
+            [...orderedItems, nextItem].map((item, order) => ({ ...item, order }))
+          )
         });
       }
     });
@@ -2809,7 +2953,8 @@ export class WorkspaceRepository {
           name: parsedRevision.snapshot.name,
           lifecycleStatus: parsedRevision.snapshot.lifecycleStatus,
           resumeBasics: parsedRevision.snapshot.resumeBasics,
-          contentItems: parsedRevision.snapshot.contentItems
+          contentItems: parsedRevision.snapshot.contentItems,
+          structuredContentItems: parsedRevision.snapshot.structuredContentItems
         });
       }
     });
@@ -2847,7 +2992,8 @@ export class WorkspaceRepository {
           name: parsedPrevious.snapshot.name,
           lifecycleStatus: parsedPrevious.snapshot.lifecycleStatus,
           resumeBasics: parsedPrevious.snapshot.resumeBasics,
-          contentItems: parsedPrevious.snapshot.contentItems
+          contentItems: parsedPrevious.snapshot.contentItems,
+          structuredContentItems: parsedPrevious.snapshot.structuredContentItems
         });
       }
     });

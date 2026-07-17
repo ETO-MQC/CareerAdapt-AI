@@ -176,7 +176,10 @@ export const ResumeBranchSnapshotSchema = z.object({
   name: z.string().min(1),
   lifecycleStatus: BranchLifecycleStatusSchema,
   resumeBasics: ResumeBranchBasicsSchema.optional(),
-  contentItems: z.array(BranchContentItemSchema)
+  contentItems: z.array(BranchContentItemSchema),
+  // Optional so historical revisions remain readable without being rewritten.
+  // New revisions persist the canonical payload alongside the legacy projection.
+  structuredContentItems: z.array(ResumeContentItemV2Schema).optional()
 });
 
 export const ResumeRevisionSourceSchema = z.enum([

@@ -251,7 +251,9 @@ export function createImportedResumeDraftFromStructuredJson(input: {
         ].filter((value): value is string => Boolean(value)).map(canonicalJsonField)
       : (structuredDraft.basics.links ?? []).map((link) => structuredField(link, "medium")),
     targetRole: canonicalBasics?.targetRole ? canonicalJsonField(canonicalBasics.targetRole) : undefined,
-    summary: structuredDraft.basics.summary ? structuredField(structuredDraft.basics.summary, "medium") : undefined
+    summary: input.canonicalResume
+      ? canonicalBasics?.summary ? canonicalJsonField(canonicalBasics.summary) : undefined
+      : structuredDraft.basics.summary ? structuredField(structuredDraft.basics.summary, "medium") : undefined
   };
   const sections: ImportedResumeSection[] = input.canonicalResume ? input.canonicalResume.sections.map((section, sectionIndex) => ({
     id: section.id,
@@ -442,6 +444,14 @@ function structuredItemText(item: StructuredResumeDraft["sections"][number]["ite
 function inferStructuredCategory(title: string, sectionType: ImportedResumeSectionType): ImportedResumeCategory {
   if (sectionType === "summary") return "summary";
   if (sectionType === "skills") return "skill";
+  if (sectionType === "education") return "education";
+  if (sectionType === "project") return "project";
+  if (sectionType === "campus" || sectionType === "volunteer") return "campus";
+  if (sectionType === "awards") return "award";
+  if (sectionType === "languages") return "language";
+  if (sectionType === "certificates") return "certificate";
+  if (["research", "publications", "patents", "portfolio", "other", "custom"].includes(sectionType)) return "custom";
+  if (sectionType === "work" || sectionType === "internship") return "work";
   if (/教育|education/i.test(title)) return "education";
   if (/项目|project/i.test(title)) return "project";
   if (/校园|社团|campus/i.test(title)) return "campus";
@@ -486,12 +496,35 @@ function detectBasicsFromBlocks(
     && entry.value !== locationMatch?.match?.[0]
     && (entry.value.length > 1 || (entry.block.fontSize ?? 0) >= maximumFontSize * 0.9)
   ).sort((left, right) => right.score - left.score)[0];
-  const headlineMatch = emailMatch
-    ? {
-        block: emailMatch.block,
-        value: emailMatch.block.normalizedText.replace(emailMatch.match[0], "").trim()
-      }
-    : undefined;
+  const excludedIdentityBlockIds = new Set([
+    emailMatch?.block.id,
+    phoneMatch?.block.id,
+    locationMatch?.block.id,
+    nameMatch?.block.id,
+    ...linkMatches.map(({ block }) => block.id)
+  ].filter((id): id is string => Boolean(id)));
+  const isPresentationTag = (text: string) => /^(?:[A-Z][A-Z0-9 +#.-]*\s*[|｜]\s*){1,}[A-Z][A-Z0-9 +#.-]*$/i.test(text.trim());
+  const targetRoleBlock = identityBlocks.find((block) => {
+    const text = block.normalizedText.trim();
+    return !excludedIdentityBlockIds.has(block.id)
+      && !isPresentationTag(text)
+      && text.length <= 80
+      && /(?:训练师|工程师|设计|评测|评估|开发|分析|运营|产品|研究|顾问|实习|[|/｜／])/i.test(text);
+  });
+  const contactHeadline = emailMatch ? emailMatch.block.normalizedText
+    .replace(EMAIL_PATTERN, "")
+    .replace(PHONE_PATTERN, "")
+    .replace(new RegExp(LINK_PATTERN, "gi"), "")
+    .replace(locationMatch?.match?.[0] ?? /$^/, "")
+    .replace(/^[\s|｜·•/／-]+|[\s|｜·•/／-]+$/g, "")
+    .trim() : "";
+  const summaryBlocks = identityBlocks.filter((block) => {
+    const text = block.normalizedText.trim();
+    return !excludedIdentityBlockIds.has(block.id)
+      && block.id !== targetRoleBlock?.id
+      && !isPresentationTag(text)
+      && text.length >= 18;
+  });
 
   return {
     name: nameMatch ? makeBlockField(nameMatch.value, nameMatch.block, "high", nameMatch.start) : undefined,
@@ -499,8 +532,12 @@ function detectBasicsFromBlocks(
     phone: phoneMatch ? makeBlockField(phoneMatch.match[0], phoneMatch.block, "high", phoneMatch.match.index) : undefined,
     location: locationMatch?.match ? makeBlockField(locationMatch.match[0], locationMatch.block, "high", locationMatch.match.index) : undefined,
     links: linkMatches.map(({ block, match }) => makeBlockField(match[0], block, "high", match.index)),
-    targetRole: headlineMatch?.value ? makeBlockField(headlineMatch.value, headlineMatch.block, "high", Math.max(0, headlineMatch.block.normalizedText.indexOf(headlineMatch.value))) : undefined,
-    summary: undefined
+    targetRole: targetRoleBlock
+      ? makeBlockField(targetRoleBlock.normalizedText.trim(), targetRoleBlock, "high")
+      : contactHeadline && emailMatch
+        ? makeBlockField(contactHeadline, emailMatch.block, "medium", Math.max(0, emailMatch.block.normalizedText.indexOf(contactHeadline)))
+        : undefined,
+    summary: summaryBlocks.length ? makeBlocksField(summaryBlocks.map((block) => block.normalizedText.trim()).join(""), summaryBlocks, "high") : undefined
   };
 
   function makeBlockField(value: string, block: NormalizedSourceBlock, confidence: "high" | "medium" | "low", start = 0): ImportedResumeField {
@@ -512,6 +549,19 @@ function detectBasicsFromBlocks(
       userEdited: false,
       sourceBlockIds: [block.id],
       sourceRanges: [{ blockId: block.id, start, end: start + value.length }],
+      sourceQuote: value
+    };
+  }
+
+  function makeBlocksField(value: string, sourceBlocks: NormalizedSourceBlock[], confidence: "high" | "medium" | "low"): ImportedResumeField {
+    return {
+      value,
+      pageRefs: pageRefsFromBlocks(sourceBlocks),
+      confidence,
+      sourceStatus: "located",
+      userEdited: false,
+      sourceBlockIds: sourceBlocks.map((block) => block.id),
+      sourceRanges: sourceBlocks.map((block) => ({ blockId: block.id, start: 0, end: block.normalizedText.length })),
       sourceQuote: value
     };
   }
@@ -654,6 +704,7 @@ function collectStructureConsumedRanges(input: {
     input.basics.phone,
     input.basics.location,
     input.basics.targetRole,
+    input.basics.summary,
     ...input.basics.links
   ];
   for (const field of fields) {

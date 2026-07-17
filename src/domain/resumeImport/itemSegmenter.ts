@@ -13,7 +13,7 @@ export type SegmentedResumeItem = {
   dateCandidate?: ReturnType<typeof alignResumeDateRange>;
 };
 
-const DATE_RANGE_SIGNAL = /(?<!\d)(?:19|20)\d{2}(?:[./年-]\d{1,2})?(?:[./月-]\d{1,2}日?)?\s*(?:-|–|—|至|到)\s*(?:(?:19|20)\d{2}(?:[./年-]\d{1,2})?(?:[./月-]\d{1,2}日?)?|至今|现在|Present|Current|仍在职|在读)/i;
+const DATE_RANGE_SIGNAL = /(?<!\d)(?:19|20)\d{2}(?:\s*年\s*\d{1,2}\s*月(?:\s*\d{1,2}\s*日)?|[./-]\d{1,2}(?:[./-]\d{1,2})?)?\s*(?:-|–|—|至|到)\s*(?:(?:19|20)\d{2}(?:\s*年\s*\d{1,2}\s*月(?:\s*\d{1,2}\s*日)?|[./-]\d{1,2}(?:[./-]\d{1,2})?)?|至今|现在|Present|Current|仍在职|在读)/i;
 
 export function segmentResumeItems(input: {
   sectionType: ResumeSectionTypeV2;
@@ -23,13 +23,14 @@ export function segmentResumeItems(input: {
   if (!blocks.length) return [];
 
   if (input.sectionType === "skills") {
-    return blocks.flatMap((block, blockIndex) =>
-      splitSkillRanges(block.normalizedText).map((range, rangeIndex) =>
-        buildSegment(input.sectionType, [block], blockIndex * 10 + rangeIndex, range.start, range.end)
-      )
-    );
+    return groupHardWrappedBlocks(blocks).flatMap((group, index) => splitSkillGroup(group, index));
   }
-  if (input.sectionType === "awards" || input.sectionType === "languages" || input.sectionType === "certificates") {
+  if (input.sectionType === "awards") {
+    return blocks.flatMap((block, blockIndex) => splitDelimitedRanges(block.normalizedText).map((range, rangeIndex) =>
+      buildSegment(input.sectionType, [block], blockIndex * 10 + rangeIndex, range.start, range.end)
+    ));
+  }
+  if (input.sectionType === "languages" || input.sectionType === "certificates") {
     return blocks.map((block, index) => buildSegment(input.sectionType, [block], index));
   }
   if (input.sectionType === "summary" || input.sectionType === "education") {
@@ -72,24 +73,48 @@ function buildSegment(
     headingText: firstText,
     normalizedText: texts.join("\n"),
     bodyBlocks: blocks,
-    dateCandidate: alignResumeDateRange(first)
+    dateCandidate: alignResumeDateRange(firstStart > 0 || firstEnd < first.normalizedText.length
+      ? { ...first, text: firstText, rawText: firstText, normalizedText: firstText }
+      : first)
   };
 }
 
-function splitSkillRanges(text: string) {
-  const boundaries = [
-    "模型输出评估",
-    "需求拆解",
-    "React / Next.js / TypeScript"
-  ];
-  for (const marker of boundaries) {
-    const index = text.indexOf(marker);
-    if (index > 0) {
-      return [
-        { start: 0, end: index },
-        { start: index, end: text.length }
-      ];
-    }
+function splitDelimitedRanges(text: string) {
+  const ranges: Array<{ start: number; end: number }> = [];
+  let start = 0;
+  for (const match of text.matchAll(/[；;]/g)) {
+    const end = match.index ?? start;
+    if (text.slice(start, end).trim()) ranges.push({ start, end });
+    start = end + match[0].length;
   }
-  return [{ start: 0, end: text.length }];
+  if (text.slice(start).trim()) ranges.push({ start, end: text.length });
+  return ranges.length ? ranges : [{ start: 0, end: text.length }];
+}
+
+function groupHardWrappedBlocks(blocks: NormalizedSourceBlock[]) {
+  const groups: NormalizedSourceBlock[][] = [];
+  for (const block of blocks) {
+    const previous = groups.at(-1);
+    const previousText = previous?.at(-1)?.normalizedText.trim() ?? "";
+    if (previous && (/[、，,]$/.test(previousText) || block.normalizedText.trim().length <= 8)) previous.push(block);
+    else groups.push([block]);
+  }
+  return groups;
+}
+
+function splitSkillGroup(group: NormalizedSourceBlock[], index: number) {
+  const joined = group.map((block) => block.normalizedText.trim()).join("");
+  if (group.length !== 1 || (joined.match(/\s+[|/]\s+/g)?.length ?? 0) < 2) {
+    const segment = buildSegment("skills", group, index * 10);
+    return [{ ...segment, normalizedText: joined }];
+  }
+  const candidates = Array.from(joined.matchAll(/(?<![|/])\s+(?![|/])/g))
+    .map((match) => match.index ?? 0)
+    .filter((position) => position > joined.length * 0.25 && position < joined.length * 0.75);
+  const boundary = candidates.sort((left, right) => Math.abs(left - joined.length / 2) - Math.abs(right - joined.length / 2))[0];
+  if (!boundary) return [buildSegment("skills", group, index * 10)];
+  return [
+    buildSegment("skills", group, index * 10, 0, boundary),
+    buildSegment("skills", group, index * 10 + 1, boundary, joined.length)
+  ];
 }

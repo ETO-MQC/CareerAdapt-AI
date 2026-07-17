@@ -21,15 +21,15 @@ describe("canonical resume section order", () => {
         basics: { name: "顺序测试" },
         sections: [
           { title: "技能", category: "skill", sectionType: "skills", items: ["TypeScript"] },
-          { title: "奖项", category: "award", sectionType: "certificates", items: ["一等奖"] },
-          { title: "项目", category: "project", sectionType: "experience", items: ["项目成果"] },
-          { title: "工作", category: "work", sectionType: "experience", items: ["工作成果"] }
+          { title: "奖项", category: "award", sectionType: "awards", items: ["一等奖"] },
+          { title: "项目", category: "project", sectionType: "project", items: ["项目成果"] },
+          { title: "工作", category: "work", sectionType: "work", items: ["工作成果"] }
         ]
       },
       now
     });
     const result = buildResumeImportConfirmation({ draft, operationId: "confirm-order", now });
 
-    expect(result.branch.contentItems.map((item) => item.sourceSectionId)).toEqual(["experience", "projects", "awards", "skills"]);
+    expect(result.branch.contentItems.map((item) => item.sourceSectionId)).toEqual(["work", "project", "awards", "skills"]);
   });
 });

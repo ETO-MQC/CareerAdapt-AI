@@ -2,8 +2,8 @@ import type { ResumeItemV2 } from "@/domain/schemas";
 import { ResumeItemV2Schema } from "@/domain/schemas";
 import type { SegmentedResumeItem } from "./itemSegmenter";
 
-const DATE_RANGE_PATTERN = /(?<!\d)((?:19|20)\d{2}(?:[./年-]\d{1,2})?(?:[./月-]\d{1,2}日?)?)\s*(?:-|–|—|至|到)\s*((?:19|20)\d{2}(?:[./年-]\d{1,2})?(?:[./月-]\d{1,2}日?)?|至今|现在|Present|Current|仍在职|在读)/i;
-const LOCATION_PATTERN = /(?:北京|上海|广州|深圳|杭州|南京|成都|武汉|西安|天津|重庆|苏州|某地|长沙|合肥|厦门|青岛|大连|昆明|济南|珠海|佛山|东莞|无锡|宁波|温州|福州|贵阳|南昌|太原|石家庄|哈尔滨|长春|沈阳|洛阳|测试市)(?:（远程）|\(远程\))?/g;
+const DATE_RANGE_PATTERN = /(?<!\d)((?:19|20)\d{2}(?:\s*年\s*\d{1,2}\s*月(?:\s*\d{1,2}\s*日)?|[./-]\d{1,2}(?:[./-]\d{1,2})?)?)\s*(?:-|–|—|至|到)\s*((?:19|20)\d{2}(?:\s*年\s*\d{1,2}\s*月(?:\s*\d{1,2}\s*日)?|[./-]\d{1,2}(?:[./-]\d{1,2})?)?|至今|现在|Present|Current|仍在职|在读)/i;
+const LOCATION_PATTERN = /(?<![\p{L}\p{N}])(?:北京|上海|广州|深圳|杭州|南京|成都|武汉|西安|天津|重庆|苏州|某地|长沙|合肥|厦门|青岛|大连|昆明|济南|珠海|佛山|东莞|无锡|宁波|温州|福州|贵阳|南昌|太原|石家庄|哈尔滨|长春|沈阳|洛阳|测试市)(?:（远程）|\(远程\))?(?![\p{L}\p{N}])/gu;
 const HIGHLIGHT_START = /(?=\s+(?:将|对|形成|协助|设计|针对|开发|实现|识别|发现|搭建|封装|适配|集成|基于|完成|复用))/g;
 const HIGHLIGHT_ACTION_START = /^(?:负责|将|对|形成|协助|设计|针对|开发|实现|识别|发现|搭建|封装|适配|集成|基于|完成|复用)/;
 
@@ -78,6 +78,19 @@ export function extractSegmentedItemFields(item: SegmentedResumeItem): ResumeIte
         outcomes: [],
         description: highlights.length ? undefined : afterDate || undefined
       });
+    case "research":
+      return ResumeItemV2Schema.parse({
+        ...base,
+        sectionType: "research",
+        title: primary || text,
+        authorRole: secondary || undefined,
+        startDate,
+        endDate,
+        current,
+        methods: [],
+        highlights,
+        description: highlights.length ? undefined : afterDate || undefined
+      });
     case "awards": {
       const name = (dateMatch ? text.slice(0, dateMatch.index) : text.replace(/(?:·|•)?\s*(?:19|20)\d{2}[./-]\d{1,2}\s*$/, ""))
         .replace(/[·•\s]+$/, "").trim();
@@ -90,6 +103,16 @@ export function extractSegmentedItemFields(item: SegmentedResumeItem): ResumeIte
       return ResumeItemV2Schema.parse({ ...base, sectionType: "languages", language: text });
     case "certificates":
       return ResumeItemV2Schema.parse({ ...base, sectionType: "certificates", name: text });
+    case "publications":
+      return ResumeItemV2Schema.parse({ ...base, sectionType: "publications", title: primary || text, authors: [], description: highlights.join("\n") || undefined });
+    case "patents":
+      return ResumeItemV2Schema.parse({ ...base, sectionType: "patents", title: primary || text, inventors: [], description: highlights.join("\n") || undefined });
+    case "portfolio":
+      return ResumeItemV2Schema.parse({ ...base, sectionType: "portfolio", title: primary || text, role: secondary || undefined, tools: [], highlights });
+    case "custom":
+      return ResumeItemV2Schema.parse({ ...base, sectionType: "custom", title: primary || undefined, description: highlights.join("\n") || text, highlights: [] });
+    case "other":
+      return ResumeItemV2Schema.parse({ ...base, sectionType: "other", title: primary || undefined, description: highlights.join("\n") || text, highlights: [] });
     default:
       return ResumeItemV2Schema.parse({ ...base, sectionType: "other", description: text, highlights: [] });
   }
@@ -109,8 +132,19 @@ export function itemDisplayLabel(item: ResumeItemV2) {
 }
 
 function splitIdentity(value: string): [string, string] {
-  const separator = /\s+[|/]\s+/.exec(value);
+  const separators = Array.from(value.matchAll(/\s+[|/]\s+/g));
+  const separator = value.includes(" - ") ? separators.at(-1) : separators[0];
   if (!separator || separator.index === undefined) return [value.trim(), ""];
+  if (value.includes(" - ")) {
+    const beforeSeparator = value.slice(0, separator.index).trimEnd();
+    const roleStart = beforeSeparator.lastIndexOf(" ");
+    if (roleStart > value.indexOf(" - ") + 3) {
+      return [
+        beforeSeparator.slice(0, roleStart).trim(),
+        `${beforeSeparator.slice(roleStart).trim()}${separator[0]}${value.slice(separator.index + separator[0].length).trim()}`.trim()
+      ];
+    }
+  }
   const primary = value.slice(0, separator.index).trim();
   const secondary = value.slice(separator.index + separator[0].length).replace(/[|/]\s*$/, "").trim();
   return [primary, secondary];
@@ -122,10 +156,10 @@ function splitHighlights(inline: string, continuation: string[]) {
     if (!value) return result;
     const previous = result.at(-1);
     const hardWrapped = previous
+      && !/[。！？；;.!?]$/u.test(previous)
       && !HIGHLIGHT_ACTION_START.test(value)
       && /[\p{Script=Han}A-Za-z0-9]$/u.test(previous)
-      && /^[\p{Script=Han}A-Za-z0-9]/u.test(value)
-      && (previous.length <= 8 || value.length <= 4);
+      && /^[\p{Script=Han}A-Za-z0-9]/u.test(value);
     if (hardWrapped) result[result.length - 1] = `${previous}${value}`;
     else result.push(value);
     return result;

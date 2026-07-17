@@ -59,6 +59,7 @@ export function createBlockSuggestion(input: {
   now?: string;
 }): AiSuggestion {
   const now = input.now ?? new Date().toISOString();
+  const target = resolveCanonicalSuggestionTarget(input.branch, input.contentItem);
   const guardPreview = {
     allowed: input.guardResult.status === "pass" || input.guardResult.status === "ai_failed_rule_kept",
     reasons: input.guardResult.ruleFindings.map((finding) => finding.message)
@@ -67,8 +68,10 @@ export function createBlockSuggestion(input: {
   return AiSuggestionSchema.parse({
     id: `suggestion-${input.branch.id}-${input.contentItem.id}-${nanoid(8)}`,
     draftId: input.draftId,
-    targetSectionId: input.contentItem.sourceSectionId ?? input.contentItem.id,
+    targetSectionId: target.sectionType,
     targetContentItemId: input.contentItem.id,
+    targetFieldId: target.fieldId,
+    targetFieldPath: target.fieldPath,
     branchId: input.branch.id,
     basedOnBranchRevision: input.branch.revision,
     basedOnRevisionId: input.branch.currentRevisionId,
@@ -93,6 +96,22 @@ export function createBlockSuggestion(input: {
     createdAt: now,
     updatedAt: now
   });
+}
+
+function resolveCanonicalSuggestionTarget(branch: ResumeBranch, contentItem: BranchContentItem) {
+  const data = branch.structuredContentItems?.find((item) => item.id === contentItem.id)?.data;
+  const sectionType = data?.sectionType ?? "other";
+  const record = (data ?? {}) as Record<string, unknown>;
+  const listField = ["highlights", "outcomes"].find((field) => Array.isArray(record[field]) && (record[field] as unknown[]).length > 0);
+  const scalarField = ["description", "text", "name", "language", "title", "organization", "school"]
+    .find((field) => typeof record[field] === "string" && String(record[field]).trim());
+  const field = listField ?? scalarField ?? (sectionType === "summary" ? "text" : "description");
+  const listIndex = listField ? "[0]" : "";
+  return {
+    sectionType,
+    fieldId: `${sectionType}.${field}`,
+    fieldPath: `sections.${sectionType}.items.${contentItem.id}.${field}${listIndex}`
+  };
 }
 
 export function createDeterministicBlockSuggestion(input: {

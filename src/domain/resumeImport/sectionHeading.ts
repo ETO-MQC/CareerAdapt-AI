@@ -44,11 +44,7 @@ export type SectionHeadingMatch = Extract<ResumeHeadingMatch, { kind: "canonical
  * used by the parser draft schema.
  */
 function toImportedSectionType(sectionType: ResumeSectionTypeV2): ImportedResumeSectionType {
-  if (sectionType === "summary") return "summary";
-  if (sectionType === "skills") return "skills";
-  if (sectionType === "certificates" || sectionType === "languages" || sectionType === "awards") return "certificates";
-  // All experience-like sections
-  return "experience";
+  return sectionType;
 }
 
 /**
@@ -97,7 +93,7 @@ const SECTION_HEADING_PATTERNS: SectionPatternEntry[] = [
 
   // Work & Internship (most specific first)
   { sectionType: "internship", confidence: "high", pattern: /^(?:实习经历|internships?)\s*[:：]?$/i },
-  { sectionType: "work", confidence: "high", pattern: /^(?:工作(?:与实习)?经历|工作经验|experience|work(?:\s*(?:&|and)\s*internship)?\s*experience|employment)\s*[:：]?$/i },
+  { sectionType: "work", confidence: "high", pattern: /^(?:工作(?:与实习)?经历|工作经验|experience|work(?:\s*(?:与|and)\s*internship)?\s*experience|employment)$/i },
 
   // Research
   { sectionType: "research", confidence: "high", pattern: /^(?:科研经历|research)\s*[:：]?$/i },
@@ -110,7 +106,7 @@ const SECTION_HEADING_PATTERNS: SectionPatternEntry[] = [
   { sectionType: "volunteer", confidence: "high", pattern: /^(?:志愿经历|volunteer)\s*[:：]?$/i },
 
   // Skills
-  { sectionType: "skills", confidence: "high", pattern: /^(?:技能|专业技能|技能清单|skills?|technical skills)\s*[:：]?$/i },
+  { sectionType: "skills", confidence: "high", pattern: /^(?:技能|专业技能|技能清单|AI能力|工程与表达|skills?|technical skills)$/i },
 
   // Awards
   { sectionType: "awards", confidence: "high", pattern: /^(?:荣誉(?:奖项)?|奖项|awards?|honou?rs?)\s*[:：]?$/i },
@@ -127,15 +123,18 @@ const SECTION_HEADING_PATTERNS: SectionPatternEntry[] = [
  * Returns the match result or undefined if no pattern matches.
  */
 export function matchResumeSectionHeading(text: string): ResumeHeadingMatch | undefined {
-  const trimmed = text.trim();
+  const trimmed = normalizeResumeHeading(text);
   // Skip very long lines (not headings)
   if (Array.from(trimmed).length > 48) return undefined;
-  if (/^经历\s*[:：]?$/.test(trimmed)) {
+  if (/^经历$/.test(trimmed)) {
     return {
       kind: "presentation_group",
       groupId: "experience-group",
       label: "经历"
     };
+  }
+  if (/^奖项[、,]技能与语言$/i.test(trimmed)) {
+    return { kind: "presentation_group", groupId: "awards-skills-languages-group", label: trimmed };
   }
 
   for (const entry of SECTION_HEADING_PATTERNS) {
@@ -146,11 +145,23 @@ export function matchResumeSectionHeading(text: string): ResumeHeadingMatch | un
         importedSectionType: toImportedSectionType(entry.sectionType),
         category: toImportedCategory(entry.sectionType),
         confidence: entry.confidence,
-        label: trimmed.replace(/[:：]\s*$/, "")
+        label: trimmed
       };
     }
   }
   return undefined;
+}
+
+export function normalizeResumeHeading(text: string) {
+  return text.normalize("NFKC")
+    .trim()
+    .replace(/[：:]\s*$/, "")
+    .replace(/[／/]/g, "与")
+    .replace(/\s*(?:&|及)\s*/gi, "与")
+    .replace(/[—–-]/g, "-")
+    .replace(/\s+/g, "")
+    .toLocaleLowerCase()
+    .replace(/^ai/, "AI");
 }
 
 /**
@@ -174,11 +185,7 @@ const DATE_SECTION_TYPES = new Set<ResumeSectionTypeV2>([
  * Some section types (internship, research) don't have their own date fields in the catalog,
  * so we map them to the closest section type that does.
  */
-const DATE_FIELD_SECTION_MAP: Partial<Record<ResumeSectionTypeV2, ResumeSectionTypeV2>> = {
-  internship: "work",
-  research: "work",
-  volunteer: "campus"
-};
+const DATE_FIELD_SECTION_MAP: Partial<Record<ResumeSectionTypeV2, ResumeSectionTypeV2>> = {};
 
 /**
  * Returns the section type to use for date field candidate generation.

@@ -250,7 +250,29 @@ describe("P3.6e grouped resume structure", () => {
       highlights: ["完成内容模块", "设计校验流程"]
     });
   });
+
+  it("does not consume a city name embedded inside a school or split slash-bearing project titles", () => {
+    const educationBlock = blockForExtractor("entity-education", "示例大学 / 本科 2024-09 - 2028-06");
+    const education = extractSegmentedItemFields(segmentResumeItems({ sectionType: "education", blocks: [educationBlock] })[0]!);
+    expect(education).toMatchObject({ sectionType: "education", school: "示例大学", location: undefined });
+
+    const projectBlock = blockForExtractor("entity-project", "示例任务系统 2026-02 - 至今 完成任务系统");
+    const project = extractSegmentedItemFields(segmentResumeItems({ sectionType: "project", blocks: [projectBlock] })[0]!);
+    expect(project).toMatchObject({ sectionType: "project", title: "示例任务系统", role: undefined });
+
+    const spacedProjectBlock = blockForExtractor("entity-project-spaced", "示例任务系统 / TaskAI - AI驱动桌面任务系统 全栈开发 / AI指令设计与评估 2026年2月 - 至今");
+    const spacedProject = extractSegmentedItemFields(segmentResumeItems({ sectionType: "project", blocks: [spacedProjectBlock] })[0]!);
+    expect(spacedProject).toMatchObject({
+      sectionType: "project",
+      title: "示例任务系统 / TaskAI - AI驱动桌面任务系统",
+      role: "全栈开发 / AI指令设计与评估"
+    });
+  });
 });
+
+function blockForExtractor(id: string, normalizedText: string): NormalizedSourceBlock {
+  return { id, page: 1, text: normalizedText, rawText: normalizedText, normalizedText, normalizationActions: [], blockType: "paragraph", sourceEngine: "pdfjs", sourceEngineVersion: "test", extractionConfidence: 1, sourceKind: "digital_pdf", order: 0 };
+}
 
 function acceptReviewCandidates<T extends ReturnType<typeof createImportedResumeDraftFromText>>(draft: T): T {
   if (draft.schemaVersion !== "resume-import-v2") return draft;

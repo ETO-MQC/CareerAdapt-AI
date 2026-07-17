@@ -77,6 +77,9 @@ describe("V2-G5a job optimization", () => {
 
     expect(suggestion.branchId).toBe(branch.id);
     expect(suggestion.targetContentItemId).toBe(contentItem.id);
+    expect(suggestion.targetSectionId).toMatch(/^(summary|education|work|internship|project|research|campus|volunteer|awards|skills|certificates|languages|publications|patents|portfolio|other|custom)$/);
+    expect(suggestion.targetFieldId).toMatch(new RegExp(`^${suggestion.targetSectionId}\\.`));
+    expect(suggestion.targetFieldPath).toContain(`items.${contentItem.id}.`);
     expect(suggestion.requirementsHash).toBe(requirementsHash);
     expect(suggestion.usedEvidenceRefs.length).toBeGreaterThan(0);
     expect(suggestion.guardPreview).toBeDefined();
@@ -117,6 +120,7 @@ describe("V2-G5a job optimization", () => {
 
     expect(derived.branch.branchPurpose).toBe("job_specific");
     expect(derived.branch.sourceBranchId).toBe(generalBranch.id);
+    expect(derived.branch.structuredContentItems).toEqual(generalBranch.structuredContentItems);
     expect(duplicate.duplicate).toBe(true);
 
     const draft = await repository.createJobAdaptationDraft({
@@ -184,6 +188,9 @@ describe("V2-G5a job optimization", () => {
     expect(accepted.revision?.source).toBe("suggestion_accept");
     expect(accepted.suggestion.status).toBe("accepted");
     expect(accepted.branch.contentItems.find((item) => item.id === contentItem.id)?.sourceSuggestionIds).toContain(suggestion.id);
+    const acceptedStructured = accepted.branch.structuredContentItems?.find((item) => item.id === contentItem.id)?.data as unknown as Record<string, unknown>;
+    const targetField = suggestion.targetFieldId!.split(".").at(-1)!;
+    expect(Array.isArray(acceptedStructured[targetField]) ? acceptedStructured[targetField]?.[0] : acceptedStructured[targetField]).toBe(suggestion.suggestedText);
     expect(generalAfter?.revision).toBe(generalBranch.revision);
     expect(generalAfter?.contentItems.find((item) => item.id === contentItem.id)?.text).toBe(contentItem.text);
   });

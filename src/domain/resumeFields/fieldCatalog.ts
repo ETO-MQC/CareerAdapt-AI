@@ -6,6 +6,7 @@ const seeds: Partial<Record<Exclude<ResumeSectionTypeV2, "custom">, readonly Fie
   basics: [
     ["name", "姓名", "string", ["fullName", "姓名"], "text", true], ["photo", "照片", "url", ["avatar"], "url", true],
     ["headline", "职业标题", "string", ["title"], "text"], ["targetRole", "目标岗位", "string", ["objective", "position"], "text"],
+    ["summary", "职业简介", "text", ["profileSummary", "professionalSummary"], "textarea"],
     ["phone", "电话", "string", ["mobile", "tel"], "text", true], ["email", "邮箱", "string", ["mail"], "text", true],
     ["location", "所在地", "string", ["address", "city"], "text", true], ["homepage", "个人主页", "url", ["website"], "url"],
     ["linkedin", "LinkedIn", "url", [], "url"], ["github", "GitHub", "url", [], "url"],
@@ -26,7 +27,7 @@ const seeds: Partial<Record<Exclude<ResumeSectionTypeV2, "custom">, readonly Fie
   internship: experienceSeeds(),
   project: [
     ["title", "项目名称", "string", ["name"], "text"], ["role", "角色", "string", ["position"], "text"],
-    ["organization", "组织", "string", ["company"], "text"], ["startDate", "开始日期", "date", ["from"], "date"],
+    ["organization", "组织", "string", ["company"], "text"], ["location", "所在地", "string", ["city"], "text"], ["startDate", "开始日期", "date", ["from"], "date"],
     ["endDate", "结束日期", "date", ["to"], "date"], ["current", "进行中", "boolean", ["present"], "checkbox"],
     ["url", "项目链接", "url", ["link"], "url"],
     ["tools", "技术工具", "string_list", ["technologies", "techStack"], "tags"], ["background", "项目背景", "text", ["context"], "textarea"],

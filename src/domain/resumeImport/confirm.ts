@@ -19,6 +19,7 @@ import {
   type ResumeItemV2,
   type ResumeRevision
 } from "@/domain/schemas";
+import { auditResumeImportInvariants, resumeImportInvariantIssueCount } from "./invariants";
 import { createResumeRevision } from "@/domain/branch/revision";
 import { computeGeneralBranchSyncStatus } from "@/domain/branch/validation";
 import { locatePdfSourceQuote } from "@/domain/pdfImport/sourceMapping";
@@ -144,6 +145,10 @@ export function buildResumeImportProfileOnly(input: {
 }
 
 function validateImportedResumeSources(draft: ImportedResumeDraft) {
+  const invariantReport = auditResumeImportInvariants(draft);
+  if (resumeImportInvariantIssueCount(invariantReport) > 0) {
+    throw new Error(`resume_import_invariant_failed:${JSON.stringify(invariantReport)}`);
+  }
   if (draft.schemaVersion === "resume-import-v2") {
     const mappingIssues = validateMappingDecisions(draft.mappingDecisions, draft.sourceBlocks);
     if (mappingIssues.length > 0) throw new Error(`resume_import_mapping_source_invalid:${mappingIssues[0].code}`);
@@ -339,6 +344,7 @@ function mergeImportedProfile(input: {
         name: basics.name,
         headline: input.draft.basics.targetRole?.value ?? basics.headline,
         targetRole: input.draft.basics.targetRole?.value,
+        summary: basics.summary,
         phone: basics.phone,
         email: basics.email,
         location: basics.location,

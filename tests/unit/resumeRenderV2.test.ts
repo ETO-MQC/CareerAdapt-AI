@@ -4,6 +4,7 @@ import { migrateCareerProfileToV2, migrateResumeBranchToV2 } from "@/domain/migr
 import { ResumeBranchSchema } from "@/domain/schemas";
 import { mapBranchToResumeRenderModel } from "@/domain/resumeRender/mapper";
 import { assessTemplateCompatibility, resumeTemplates } from "@/components/resume/templates/templateRegistry";
+import { renderToStaticMarkup } from "react-dom/server";
 
 describe("resume render model v2", () => {
   it("preserves canonical sections while retaining current template projection", () => {
@@ -22,8 +23,15 @@ describe("resume render model v2", () => {
     const model = mapBranchToResumeRenderModel({ branch, profile });
     expect(model.schemaVersion).toBe("resume-render-v2");
     if (model.schemaVersion !== "resume-render-v2") throw new Error("expected v2");
-    expect(model.structuredSections[0]).toMatchObject({ sectionId: "education", sectionType: "education", items: [{ itemId: "edu-1", plainText: fact.statement }] });
+    expect(model.structuredSections[0]).toMatchObject({ sectionId: "education", sectionType: "education", items: [{ itemId: "edu-1", plainText: `说明：${fact.statement}` }] });
     expect(model.sections.flatMap((section) => section.blocks).map((block) => block.text)).toEqual([fact.statement]);
-    for (const template of resumeTemplates) expect(assessTemplateCompatibility(model, template)).toEqual([]);
+    for (const template of resumeTemplates) {
+      expect(assessTemplateCompatibility(model, template)).toEqual([]);
+      const markup = renderToStaticMarkup(template.render(model));
+      expect(markup).not.toContain('data-render-section="experience"');
+      expect(markup).not.toMatch(/<h2[^>]*>经历<\/h2>/);
+      expect(markup).toContain('data-render-section="education"');
+      expect(markup.match(/data-source-item-id="edu-1"/g)).toHaveLength(1);
+    }
   });
 });

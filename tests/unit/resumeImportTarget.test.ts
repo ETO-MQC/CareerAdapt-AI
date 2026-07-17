@@ -21,7 +21,7 @@ function draft(importId: string) {
     structuredDraft: {
       schemaVersion: "structured-resume-draft-v1",
       basics: { name: "导入人物" },
-      sections: [{ title: "项目经历", sectionType: "experience", category: "project", items: ["完成可核验的数据项目。"] }]
+      sections: [{ title: "项目经历", sectionType: "project", category: "project", items: ["完成可核验的数据项目。"] }]
     },
     sourceKind: "standard_json",
     now

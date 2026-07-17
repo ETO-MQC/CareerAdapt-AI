@@ -238,7 +238,11 @@ function isConfirmedFact(fact: CareerProfile["experiences"][number]["facts"][num
 
 function experienceSection(type: CareerProfile["experiences"][number]["type"]) {
   if (type === "education") return "education";
-  if (type === "project" || type === "competition") return "projects";
-  if (type === "campus" || type === "volunteer") return "campus";
-  return "experience";
+  if (type === "project") return "project";
+  if (type === "competition") return "awards";
+  if (type === "campus") return "campus";
+  if (type === "volunteer") return "volunteer";
+  if (type === "internship") return "internship";
+  if (type === "work") return "work";
+  return "other";
 }

@@ -47,6 +47,7 @@ export const ResumeBasicsV2Schema = z.object({
   photo: OptionalUrlSchema,
   headline: OptionalTextSchema,
   targetRole: OptionalTextSchema,
+  summary: OptionalTextSchema,
   phone: OptionalTextSchema,
   email: OptionalTextSchema,
   location: OptionalTextSchema,
@@ -99,6 +100,7 @@ export const ProjectItemV2Schema = z.object({
 export const ResearchItemV2Schema = z.object({
   ...ItemBaseShape, sectionType: z.literal("research"), title: OptionalTextSchema, authorRole: OptionalTextSchema,
   institution: OptionalTextSchema, startDate: OptionalTextSchema, endDate: OptionalTextSchema, methods: StringListSchema,
+  current: z.boolean().default(false),
   samples: OptionalTextSchema, publication: OptionalTextSchema, publicationStatus: OptionalTextSchema, url: OptionalUrlSchema,
   description: OptionalTextSchema, highlights: StringListSchema
 }).strict();

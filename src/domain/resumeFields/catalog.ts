@@ -47,13 +47,13 @@ export function categorySourceSectionId(category: Exclude<ResumeFieldCategoryId,
   const sectionIds: Record<Exclude<ResumeFieldCategoryId, "basic">, string> = {
     summary: "summary",
     education: "education",
-    work: "experience",
-    project: "projects",
+    work: "work",
+    project: "project",
     campus: "campus",
     award: "awards",
     skill: "skills",
     certificate: "certificates",
-    language: "language",
+    language: "languages",
     custom: "custom"
   };
   return sectionIds[category];

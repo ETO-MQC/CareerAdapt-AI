@@ -87,6 +87,10 @@ export const AiSuggestionSchema = EntityBaseSchema.extend({
   draftId: z.string().min(1),
   targetSectionId: z.string().min(1),
   targetContentItemId: z.string().min(1).optional(),
+  // Optional for historical suggestions; every newly generated suggestion binds
+  // to a canonical field and an addressable item path.
+  targetFieldId: z.string().min(1).optional(),
+  targetFieldPath: z.string().min(1).optional(),
   branchId: z.string().min(1).optional(),
   basedOnBranchRevision: z.number().int().min(0).optional(),
   basedOnRevisionId: z.string().min(1).optional(),
@@ -113,6 +117,9 @@ export const AiSuggestionSchema = EntityBaseSchema.extend({
 export const ResumeTailorSuggestionItemSchema = z.object({
   type: AiSuggestionTypeSchema,
   targetSectionId: z.string().min(1),
+  targetContentItemId: z.string().min(1).optional(),
+  targetFieldId: z.string().min(1).optional(),
+  targetFieldPath: z.string().min(1).optional(),
   originalText: z.string().min(1),
   suggestedText: z.string().min(1),
   reason: z.string().min(1),
