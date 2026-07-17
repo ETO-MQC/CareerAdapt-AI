@@ -39,6 +39,7 @@ import {
 } from "@/domain/resumeFields/catalog";
 import { extractTextFromPdfBuffer } from "@/services/pdf/extractText";
 import { hashBytes, hashText, redactSensitiveTextForModel } from "@/services/security/text";
+import { notify } from "@/services/notifications/store";
 import { useWorkspace } from "@/services/workspace/useWorkspace";
 import { RevisionConflictError, WorkspaceRepository } from "@/services/storage/repositories";
 
@@ -145,7 +146,6 @@ export function ProfileWorkspace() {
   const [userEditedAiText, setUserEditedAiText] = useState("");
   const [pdfStatus, setPdfStatus] = useState<"idle" | "validating" | "extracting" | "extracted" | "failed" | "cancelled">("idle");
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "failed" | "conflict">("idle");
-  const [message, setMessage] = useState<string | undefined>();
   const [loadedDraft, setLoadedDraft] = useState(false);
   const managerRef = useRef<HTMLElement | null>(null);
   const [profileOverride, setProfileOverride] = useState<CareerProfile | null | undefined>();
@@ -222,11 +222,11 @@ export function ProfileWorkspace() {
       } else if (latest.status === "extracting" || latest.status === "parsing") {
         setPdfStatus("failed");
         if (active) {
-          setMessage("PDF 提取或解析在上次会话中被中断，请重新选择原始 PDF 文件导入。");
+          notify({ type: "error", title: "PDF 提取中断", message: "上次会话未完成，请重新选择原始 PDF 文件导入。" });
         }
       } else if (latest.status === "interrupted") {
         setPdfStatus("failed");
-        setMessage("PDF 提取或解析在上次会话中被中断，请重新选择原始 PDF 文件导入。");
+        notify({ type: "error", title: "PDF 提取中断", message: "上次会话未完成，请重新选择原始 PDF 文件导入。" });
       } else if (latest.status === "failed") {
         setPdfStatus("failed");
       }
@@ -326,11 +326,11 @@ export function ProfileWorkspace() {
       setProfileOverride(saved);
       setProfileOverrides((current) => ({ ...current, [saved.id]: saved }));
       setSaveStatus("saved");
-      setMessage(successMessage);
+      notify({ type: "success", title: "保存成功", message: successMessage });
       return saved;
     } catch {
       setSaveStatus("failed");
-      setMessage("个人资料保存失败，请检查字段是否完整。");
+      notify({ type: "error", title: "保存失败", message: "个人资料保存失败，请检查字段是否完整。" });
       return undefined;
     } finally {
       setProfileSaving(false);
@@ -339,12 +339,12 @@ export function ProfileWorkspace() {
 
   async function saveProfileBasics() {
     if (!profile) {
-      setMessage("请先导入或创建个人资料。");
+      notify({ type: "warning", title: "无个人资料", message: "请先导入或创建个人资料。" });
       return;
     }
     const name = basicDraft.name.trim();
     if (!name) {
-      setMessage("姓名不能为空。");
+      notify({ type: "warning", title: "姓名必填", message: "姓名不能为空。" });
       return;
     }
 
@@ -404,7 +404,7 @@ export function ProfileWorkspace() {
   async function selectActiveProfile(profileId: string) {
     const selected = availableProfiles.find((item) => item.id === profileId) ?? await repository.getProfile(profileId);
     if (!selected) {
-      setMessage("所选个人资料已不存在，请刷新后重试。");
+      notify({ type: "error", title: "资料不存在", message: "所选个人资料已不存在，请刷新后重试。" });
       return;
     }
     await repository.setActiveProfileId(selected.id);
@@ -414,17 +414,17 @@ export function ProfileWorkspace() {
     setActiveProfileCategory("basic");
     setProfileSearch("");
     setProfileUsageFilter("all");
-    setMessage(`已切换到 ${selected.name} 的个人资料。`);
+    notify({ type: "success", title: "已切换人物", message: `已切换到 ${selected.name} 的个人资料。` });
   }
 
   async function saveNewProfile() {
     const name = newProfileDraft.name.trim();
     if (!name) {
-      setMessage("请先填写新人物的姓名。");
+      notify({ type: "warning", title: "姓名必填", message: "请先填写新人物的姓名。" });
       return;
     }
     if (activeProfileCategory === "summary" && !newProfileDraft.summary.trim()) {
-      setMessage("请先填写新人物的自我评价。");
+      notify({ type: "warning", title: "自我评价必填", message: "请先填写新人物的自我评价。" });
       return;
     }
     const now = new Date().toISOString();
@@ -467,7 +467,7 @@ export function ProfileWorkspace() {
     const blockers = await repository.getProfileDeleteBlockers(profile.id);
     const referenceCount = Object.values(blockers).reduce((sum, count) => sum + count, 0);
     if (referenceCount > 0) {
-      setMessage(`当前资料仍被 ${blockers.branches} 份简历、${blockers.applications} 条求职记录及 ${referenceCount - blockers.branches - blockers.applications} 条分析记录引用，不能删除。请先处理关联内容。`);
+      notify({ type: "warning", title: "无法删除", message: `当前资料仍被 ${blockers.branches} 份简历、${blockers.applications} 条求职记录及 ${referenceCount - blockers.branches - blockers.applications} 条分析记录引用，请先处理关联内容。` });
       managerRef.current?.scrollIntoView({ block: "start" });
       return;
     }
@@ -481,7 +481,7 @@ export function ProfileWorkspace() {
       const result = await repository.deleteProfileIfUnreferenced(profile.id);
       if (!result.deleted) {
         setProfileDeleteOpen(false);
-        setMessage("资料在确认期间产生了新的关联，未执行删除。请先处理关联内容。");
+        notify({ type: "warning", title: "删除未执行", message: "资料在确认期间产生了新的关联，请先处理关联内容。" });
         return;
       }
       const deletedProfileId = profile.id;
@@ -491,9 +491,9 @@ export function ProfileWorkspace() {
       if (nextProfile) await repository.setActiveProfileId(nextProfile.id);
       setProfileOverride(nextProfile ?? null);
       setProfileDeleteOpen(false);
-      setMessage("当前个人资料已删除；导入草稿和已有文件记录未被级联删除。");
+      notify({ type: "success", title: "资料已删除", message: "导入草稿和已有文件记录未被级联删除。" });
     } catch {
-      setMessage("删除失败，个人资料未发生变化。");
+      notify({ type: "error", title: "删除失败", message: "个人资料未发生变化。" });
     } finally {
       setProfileDeleting(false);
     }
@@ -520,7 +520,7 @@ export function ProfileWorkspace() {
     if (activeProfileCategory === "summary") {
       const summary = profileItemDraft.body.trim();
       if (!summary) {
-        setMessage("请先填写自我评价。");
+        notify({ type: "warning", title: "自我评价必填", message: "请先填写自我评价。" });
         return;
       }
       const saved = await saveProfileSnapshot({
@@ -538,11 +538,11 @@ export function ProfileWorkspace() {
     const structuredTitle = profileItemDraft.organization.trim();
     const isStructuredCategory = activeProfileCategory === "education" || activeProfileCategory === "work" || activeProfileCategory === "project" || activeProfileCategory === "campus";
     if (!(isStructuredCategory ? structuredTitle : title) && activeProfileCategory !== "custom") {
-      setMessage("请先填写条目名称。");
+      notify({ type: "warning", title: "名称必填", message: "请先填写条目名称。" });
       return;
     }
     if (activeProfileCategory === "custom" && !body) {
-      setMessage("请先填写自定义内容。");
+      notify({ type: "warning", title: "内容必填", message: "请先填写自定义内容。" });
       return;
     }
 
@@ -705,7 +705,7 @@ export function ProfileWorkspace() {
     if (!profile || item.kind === "basic" || item.kind === "summary") return;
     const referenceCount = await repository.getProfileItemReferenceCount({ kind: item.kind, id: item.id });
     if (referenceCount > 0) {
-      setMessage(`该条目仍被 ${referenceCount} 份简历引用，不能删除。可以先归档，或先移除简历中的引用。`);
+      notify({ type: "warning", title: "无法删除", message: `该条目仍被 ${referenceCount} 份简历引用，可以先归档或移除简历中的引用。` });
       return;
     }
 
@@ -747,7 +747,7 @@ export function ProfileWorkspace() {
     await repository.addProfileRecycleItem(recycleItem);
     const nextItems = buildProfileManagedItems(saved, nextArchive, activeProfileCategory, profileSearch, profileUsageFilter);
     setSelectedProfileItemKey(nextItems[0]?.key ?? `new:${activeProfileCategory}`);
-    setMessage("资料条目已移入回收站，可在统一回收站恢复。");
+    notify({ type: "success", title: "已移入回收站", message: "可在统一回收站恢复。" });
   }
 
   async function handlePdfFileChange(event: ChangeEvent<HTMLInputElement>) {
@@ -758,12 +758,12 @@ export function ProfileWorkspace() {
 
     setImportMode("pdf");
     setPdfStatus("validating");
-    setMessage("正在本地校验 PDF 文件，原始文件不会上传。");
+    notify({ type: "info", title: "正在校验", message: "本地校验 PDF 文件，原始文件不会上传。" });
 
     const descriptorValidation = validatePdfFileDescriptor(file);
     if (!descriptorValidation.ok) {
       setPdfStatus("failed");
-      setMessage(descriptorValidation.message);
+      notify({ type: "error", title: "文件校验失败", message: descriptorValidation.message });
       return;
     }
 
@@ -772,7 +772,7 @@ export function ProfileWorkspace() {
     const headerValidation = validatePdfHeader(bytes);
     if (!headerValidation.ok) {
       setPdfStatus("failed");
-      setMessage(headerValidation.message);
+      notify({ type: "error", title: "文件头校验失败", message: headerValidation.message });
       return;
     }
 
@@ -802,10 +802,14 @@ export function ProfileWorkspace() {
     setPdfText("");
     setUserEditedAiText("");
     setPdfStatus("extracting");
-    setMessage([
-      duplicate ? "检测到同一 PDF 曾经导入过；本次仍会创建新的本地导入会话。" : "正在本地提取 PDF 文本。",
-      descriptorValidation.warnings.length > 0 ? "浏览器 MIME 或扩展名仅作辅助判断，已继续执行文件头和 PDF.js 校验。" : ""
-    ].filter(Boolean).join(" "));
+    notify({
+      type: "info",
+      title: "正在提取 PDF",
+      message: [
+        duplicate ? "检测到同一 PDF 曾经导入过；本次仍会创建新的本地导入会话。" : "正在本地提取 PDF 文本。",
+        descriptorValidation.warnings.length > 0 ? "浏览器 MIME 或扩展名仅作辅助判断，已继续执行文件头和 PDF.js 校验。" : ""
+      ].filter(Boolean).join(" ")
+    });
 
     const controller = new AbortController();
     pdfAbortRef.current = controller;
@@ -853,15 +857,19 @@ export function ProfileWorkspace() {
     setPdfText(prepared.combinedText);
     setUserEditedAiText(prepared.combinedText);
     setPdfStatus("extracted");
-    setMessage(prepared.hasPromptInjectionRisk
-      ? "PDF 文本提取完成，但检测到类似 Prompt 注入的文字。系统会把它当作简历内容处理，不会执行其中指令。"
-      : "PDF 文本提取完成。请预览来源后再进入隐私确认。");
+    notify({
+      type: prepared.hasPromptInjectionRisk ? "warning" : "success",
+      title: "PDF 提取完成",
+      message: prepared.hasPromptInjectionRisk
+        ? "检测到类似 Prompt 注入的文字，系统会当作简历内容处理，不会执行其中指令。"
+        : "请预览来源后再进入隐私确认。"
+    });
   }
 
   async function startPdfDraft() {
     const aiInputText = userEditedAiText.trim();
     if (!pdfSession || pdfPages.length === 0 || !pdfText.trim() || !aiInputText) {
-      setMessage("请先选择文本型 PDF 并完成本地提取。");
+      notify({ type: "warning", title: "需要 PDF 文本", message: "请先选择文本型 PDF 并完成本地提取。" });
       return;
     }
 
@@ -931,7 +939,7 @@ export function ProfileWorkspace() {
     setRawInput(nextRawInput);
     setRawText(aiInputText);
     setDraft(savedDraft);
-    setMessage("PDF 文本已保存为导入草稿。请确认是否发送脱敏内容给外部模型。");
+    notify({ type: "success", title: "草稿已保存", message: "请确认是否发送脱敏内容给外部模型。" });
   }
 
   function handlePdfAiInputChange(value: string) {
@@ -942,7 +950,7 @@ export function ProfileWorkspace() {
         status: "privacy_pending",
         privacyConfirmedAiInputHash: undefined
       });
-      setMessage("AI 输入文本已修改，请重新保存草稿并完成隐私确认。");
+      notify({ type: "warning", title: "输入已变更", message: "AI 输入文本已修改，请重新保存草稿并完成隐私确认。" });
     }
   }
 
@@ -958,7 +966,7 @@ export function ProfileWorkspace() {
       });
       setPdfSession(saved);
     }
-    setMessage("PDF 文本提取已取消，已保留现有粘贴文本和草稿。");
+    notify({ type: "info", title: "已取消提取", message: "已保留现有粘贴文本和草稿。" });
   }
 
   async function deleteCurrentPdfSession() {
@@ -972,12 +980,12 @@ export function ProfileWorkspace() {
     setPdfText("");
     setUserEditedAiText("");
     setPdfStatus("idle");
-    setMessage("已删除当前 PDF 导入 session 及其页文本；已存在草稿将保留为手动处理线索。");
+    notify({ type: "success", title: "已删除导入记录", message: "已存在草稿将保留为手动处理线索。" });
   }
 
   async function startImport() {
     if (!rawText.trim()) {
-      setMessage("请先粘贴简历文本。");
+      notify({ type: "warning", title: "需要简历文本", message: "请先粘贴简历文本。" });
       return;
     }
 
@@ -1019,7 +1027,7 @@ export function ProfileWorkspace() {
 
     setRawInput(nextRawInput);
     setDraft(saved);
-    setMessage("原始输入已保存。请确认是否发送脱敏内容给外部模型。");
+    notify({ type: "success", title: "已保存原文", message: "请确认是否发送脱敏内容给外部模型。" });
   }
 
   async function failPdfSession(
@@ -1036,7 +1044,7 @@ export function ProfileWorkspace() {
     });
     setPdfSession(saved);
     setPdfStatus(status === "cancelled" ? "cancelled" : "failed");
-    setMessage(`${errorMessage} 可改用粘贴文本或手动创建。`);
+    notify({ type: "error", title: "PDF 导入失败", message: `${errorMessage} 可改用粘贴文本或手动创建。` });
   }
 
   async function updatePdfSessionStatus(status: PdfImportSession["status"], errorCode?: PdfImportErrorCode, errorMessage?: string) {
@@ -1072,7 +1080,7 @@ export function ProfileWorkspace() {
     }
 
     if (rawInput.kind === "resume_pdf_text" && userEditedAiText.trim() !== rawInput.rawText) {
-      setMessage("AI 输入文本已修改，请先使用当前文本重新创建草稿并完成隐私确认。");
+      notify({ type: "warning", title: "输入已变更", message: "AI 输入文本已修改，请先使用当前文本重新创建草稿并完成隐私确认。" });
       return;
     }
 
@@ -1084,7 +1092,7 @@ export function ProfileWorkspace() {
         privacyConfirmedAiInputHash: undefined
       });
       setDraft(resetDraft);
-      setMessage("AI 输入已在隐私确认后发生变化，请重新确认后再解析。");
+      notify({ type: "warning", title: "输入已变更", message: "AI 输入已在隐私确认后发生变化，请重新确认后再解析。" });
       return;
     }
 
@@ -1092,7 +1100,7 @@ export function ProfileWorkspace() {
       const pages = rawInput.sourceSessionId ? await repository.listPdfPageTexts(rawInput.sourceSessionId) : [];
       if (pages.length === 0) {
         await updatePdfSessionStatus("failed", "extract_interrupted", "pdf_page_text_missing");
-        setMessage("PDF 页文本缺失，不能把来源不可靠的内容写入事实层；请重新导入或改用手动处理。");
+        notify({ type: "error", title: "页文本缺失", message: "不能把来源不可靠的内容写入事实层，请重新导入或改用手动处理。" });
         return;
       }
       setPdfPages(pages);
@@ -1105,7 +1113,7 @@ export function ProfileWorkspace() {
     });
     setRawInput(confirmedRawInput);
 
-    setMessage("正在解析，服务端会先脱敏并校验模型输出。");
+    notify({ type: "info", title: "正在解析", message: "服务端会先脱敏并校验模型输出。" });
     const analyzingDraft = await saveDraft({
       ...draft,
       status: "analyzing",
@@ -1135,7 +1143,7 @@ export function ProfileWorkspace() {
         manualSections: manual ? fallbackOutput : analyzingDraft.manualSections,
         saveError: result.errorCode
       });
-      setMessage(manual ? "AI 不可用或校验失败，已进入手动分类模式。" : "AI 解析失败，可重试或改用手动分类。");
+      notify({ type: manual ? "warning" : "error", title: manual ? "已进入手动模式" : "AI 解析失败", message: manual ? "AI 不可用或校验失败，已进入手动分类模式。" : "可重试或改用手动分类。" });
       setDraft(saved);
       await updatePdfSessionStatus("failed", mapAiErrorToPdfError(result.errorCode), result.errorCode);
       return;
@@ -1161,7 +1169,7 @@ export function ProfileWorkspace() {
     });
     setDraft(saved);
     await updatePdfSessionStatus("draft_ready");
-    setMessage("解析完成。请核对原文依据并勾选确认事实。");
+    notify({ type: "success", title: "解析完成", message: "请核对原文依据并勾选确认事实。" });
   }
 
   async function enterManualMode() {
@@ -1175,7 +1183,7 @@ export function ProfileWorkspace() {
       manualSections: draft.manualSections ?? draft.builderOutput ?? createManualProfileOutput(rawInput.rawText)
     });
     setDraft(saved);
-    setMessage("已进入手动分类模式，外部模型不会被调用。");
+    notify({ type: "info", title: "手动模式", message: "已进入手动分类模式，外部模型不会被调用。" });
   }
 
   async function toggleFact(factId: string, checked: boolean) {
@@ -1188,7 +1196,7 @@ export function ProfileWorkspace() {
         ?? output.skills.find((item) => item.id === factId)
         ?? output.certificates.find((item) => item.id === factId);
       if (fact && !isPdfEvidenceLocated(fact)) {
-        setMessage("该事实在 PDF 页文本中未唯一定位，不能直接确认进入正式事实层。");
+        notify({ type: "warning", title: "来源未定位", message: "该事实在 PDF 页文本中未唯一定位，不能直接确认进入正式事实层。" });
         return;
       }
     }
@@ -1243,7 +1251,7 @@ export function ProfileWorkspace() {
 
     if (rawInput.kind === "resume_pdf_text" && workspace.status === "ready" && workspace.profiles.length > 0 && !draft.committedProfileId) {
       setSaveStatus("failed");
-      setMessage("已有个人资料时，PDF 导入结果会先保留为草稿；请在上方资料库中手动核对并合并。");
+      notify({ type: "warning", title: "需手动合并", message: "已有个人资料时，PDF 导入结果会先保留为草稿，请在上方资料库中手动核对并合并。" });
       return;
     }
 
@@ -1279,10 +1287,10 @@ export function ProfileWorkspace() {
         }
       }
       setSaveStatus("saved");
-      setMessage(`已写入个人资料：${result.profile.name}`);
+      notify({ type: "success", title: "已写入资料", message: `已写入个人资料：${result.profile.name}` });
     } catch (error) {
       setSaveStatus(error instanceof RevisionConflictError ? "conflict" : "failed");
-      setMessage(error instanceof RevisionConflictError ? "提交失败：草稿版本已变化，请刷新后重试。" : "提交失败，请检查已确认事实。低置信度或未定位来源不会进入个人资料。");
+      notify({ type: "error", title: "提交失败", message: error instanceof RevisionConflictError ? "草稿版本已变化，请刷新后重试。" : "请检查已确认事实，低置信度或未定位来源不会进入个人资料。" });
     }
   }
 
@@ -1323,7 +1331,6 @@ export function ProfileWorkspace() {
       </section>
 
       {workspace.status === "empty" ? <WorkspaceEmptyState /> : null}
-      {message ? <section className="notice" role="status" aria-live="polite">{message}</section> : null}
 
       {profile ? (
         <>
