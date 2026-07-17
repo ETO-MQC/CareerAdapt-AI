@@ -5498,6 +5498,42 @@ html[data-theme="dark"] .property-panel-heading p {
   max-width: 480px;
 }
 
+.blocker-category-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 16px 0;
+}
+
+.blocker-category-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  background: var(--surface-subtle, #f6f6f6);
+  border-radius: 8px;
+}
+
+.blocker-category-label {
+  flex: 1;
+  font-size: 13px;
+  color: var(--ink);
+}
+
+.blocker-category-count {
+  font-size: 13px;
+  color: var(--muted);
+  min-width: 60px;
+  text-align: right;
+}
+
+.blocker-category-done {
+  font-size: 14px;
+  color: var(--success, #22c55e);
+  min-width: 52px;
+  text-align: center;
+}
+
 .import-quality-report {
   background: color-mix(in srgb, var(--accent) 8%, var(--surface));
   border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--line));

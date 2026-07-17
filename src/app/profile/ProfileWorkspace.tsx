@@ -152,6 +152,9 @@ export function ProfileWorkspace() {
   const [profileDeleteOpen, setProfileDeleteOpen] = useState(false);
   const [profileDeleting, setProfileDeleting] = useState(false);
   const [profileSaving, setProfileSaving] = useState(false);
+  const [blockerDialogOpen, setBlockerDialogOpen] = useState(false);
+  const [blockers, setBlockers] = useState<{ branches: number; matches: number; matchOperations: number; adaptationDrafts: number; applications: number; commits: number } | null>(null);
+  const [clearingCategory, setClearingCategory] = useState<string | null>(null);
   const [basicDraftState, setBasicDraftState] = useState<BasicDraftState>(emptyBasicDraft);
   const [profileArchive, setProfileArchive] = useState<ProfileArchiveState>(emptyProfileArchive);
   const [activeProfileCategory, setActiveProfileCategory] = useState<ProfileCategoryId>("basic");
@@ -464,14 +467,70 @@ export function ProfileWorkspace() {
 
   async function requestCurrentProfileDelete() {
     if (!profile) return;
-    const blockers = await repository.getProfileDeleteBlockers(profile.id);
-    const referenceCount = Object.values(blockers).reduce((sum, count) => sum + count, 0);
+    const currentBlockers = await repository.getProfileDeleteBlockers(profile.id);
+    const referenceCount = Object.values(currentBlockers).reduce((sum, count) => sum + count, 0);
     if (referenceCount > 0) {
-      notify({ type: "warning", title: "无法删除", message: `当前资料仍被 ${blockers.branches} 份简历、${blockers.applications} 条求职记录及 ${referenceCount - blockers.branches - blockers.applications} 条分析记录引用，请先处理关联内容。` });
-      managerRef.current?.scrollIntoView({ block: "start" });
+      setBlockers(currentBlockers);
+      setBlockerDialogOpen(true);
       return;
     }
     setProfileDeleteOpen(true);
+  }
+
+  async function clearBlockerCategory(category: "branches" | "matches" | "matchOperations" | "adaptationDrafts" | "applications" | "commits") {
+    if (!profile) return;
+    setClearingCategory(category);
+    try {
+      await repository.clearProfileBlockers(profile.id, [category]);
+      const updated = await repository.getProfileDeleteBlockers(profile.id);
+      setBlockers(updated);
+      const remaining = Object.values(updated).reduce((sum, count) => sum + count, 0);
+      if (remaining === 0) {
+        setBlockerDialogOpen(false);
+        setProfileDeleteOpen(true);
+      }
+    } catch {
+      notify({ type: "error", title: "清理失败", message: "请重试或刷新后重试。" });
+    } finally {
+      setClearingCategory(null);
+    }
+  }
+
+  async function clearAllBlockers() {
+    if (!profile || !blockers) return;
+    setClearingCategory("all");
+    try {
+      const categoriesToClear = (Object.entries(blockers) as Array<[string, number]>)
+        .filter(([, count]) => count > 0)
+        .map(([key]) => key as "branches" | "matches" | "matchOperations" | "adaptationDrafts" | "applications" | "commits");
+      await repository.clearProfileBlockers(profile.id, categoriesToClear);
+      setBlockerDialogOpen(false);
+      setProfileDeleteOpen(true);
+    } catch {
+      notify({ type: "error", title: "清理失败", message: "请重试或刷新后重试。" });
+    } finally {
+      setClearingCategory(null);
+    }
+  }
+
+  async function forceDeleteProfile() {
+    if (!profile) return;
+    setProfileDeleting(true);
+    try {
+      await repository.forceDeleteProfile(profile.id);
+      const deletedProfileId = profile.id;
+      setRemovedProfileIds((current) => [...current, deletedProfileId]);
+      const remainingProfiles = (await repository.listProfiles()).filter((item) => item.id !== deletedProfileId);
+      const nextProfile = remainingProfiles[0];
+      if (nextProfile) await repository.setActiveProfileId(nextProfile.id);
+      setProfileOverride(nextProfile ?? null);
+      setBlockerDialogOpen(false);
+      notify({ type: "success", title: "资料已删除", message: "关联数据已一并清理。" });
+    } catch {
+      notify({ type: "error", title: "删除失败", message: "个人资料未发生变化。" });
+    } finally {
+      setProfileDeleting(false);
+    }
   }
 
   async function confirmCurrentProfileDelete() {
@@ -1756,6 +1815,54 @@ export function ProfileWorkspace() {
           <p>暂无个人资料。</p>
         )}
       </section>
+
+      {blockerDialogOpen && profile && blockers ? (
+        <div className="sync-dialog-overlay" role="dialog" aria-modal="true" aria-labelledby="blocker-dialog-title">
+          <div className="sync-dialog profile-delete-dialog">
+            <h3 className="sync-dialog-title" id="blocker-dialog-title">删除前需清理关联数据</h3>
+            <p className="sync-dialog-description">"{profile.name}" 仍被以下数据引用，需要先清理才能删除。</p>
+            <div className="blocker-category-list">
+              {([
+                { key: "branches" as const, label: "简历草稿", unit: "份" },
+                { key: "applications" as const, label: "求职记录", unit: "条" },
+                { key: "matches" as const, label: "岗位匹配记录", unit: "条" },
+                { key: "matchOperations" as const, label: "匹配操作记录", unit: "条" },
+                { key: "adaptationDrafts" as const, label: "适配草稿", unit: "份" },
+                { key: "commits" as const, label: "提交记录", unit: "条" }
+              ]).map(({ key, label, unit }) => {
+                const count = blockers[key];
+                return (
+                  <div key={key} className="blocker-category-row">
+                    <span className="blocker-category-label">{label}</span>
+                    <span className="blocker-category-count">{count} {unit}</span>
+                    {count > 0 ? (
+                      <button
+                        type="button"
+                        className="danger-button compact"
+                        disabled={clearingCategory !== null}
+                        onClick={() => { void clearBlockerCategory(key); }}
+                      >
+                        {clearingCategory === key ? "清理中…" : "清理"}
+                      </button>
+                    ) : (
+                      <span className="blocker-category-done">✓</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="sync-dialog-actions">
+              <button type="button" className="secondary-button" disabled={clearingCategory !== null} onClick={() => setBlockerDialogOpen(false)}>取消</button>
+              <button type="button" className="secondary-button" disabled={clearingCategory !== null} onClick={() => { void clearAllBlockers(); }}>
+                {clearingCategory === "all" ? "清理中…" : "全部清理"}
+              </button>
+              <button type="button" className="danger-button" disabled={profileDeleting} onClick={() => { void forceDeleteProfile(); }}>
+                {profileDeleting ? "删除中…" : "强制删除"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {profileDeleteOpen && profile ? (
         <div className="sync-dialog-overlay" role="dialog" aria-modal="true" aria-labelledby="profile-delete-title">

@@ -1,6 +1,8 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { notify } from "@/services/notifications/store";
+import { WorkspaceRepository } from "@/services/storage/repositories";
 import type {
   DocumentEngineHealth,
   DocumentEngineHealthReport,
@@ -45,6 +47,10 @@ export default function SettingsPage() {
   const [engineHealth, setEngineHealth] = useState<DocumentEngineHealthReport>();
   const [healthChecking, setHealthChecking] = useState(false);
   const [documentFeedback, setDocumentFeedback] = useState("设置会保存在本机浏览器，不保存简历正文、OCR 输出或模型日志。");
+  const repositoryRef = useRef(new WorkspaceRepository());
+  const [orphanedCounts, setOrphanedCounts] = useState<{ drafts: number; rawInputs: number; pdfSessions: number; orphanedDraftIds: string[]; orphanedRawInputIds: string[]; orphanedPdfSessionIds: string[] } | null>(null);
+  const [orphanedLoading, setOrphanedLoading] = useState(false);
+  const [orphanedClearing, setOrphanedClearing] = useState(false);
 
   function updateTheme(nextTheme: ThemePreference) {
     setTheme(nextTheme);
@@ -66,6 +72,39 @@ export default function SettingsPage() {
     });
     setDocumentFeedback("文档识别设置已保存。");
   }
+
+  const scanOrphanedData = useCallback(async () => {
+    setOrphanedLoading(true);
+    try {
+      const result = await repositoryRef.current.getOrphanedDataCounts();
+      setOrphanedCounts(result);
+    } catch {
+      notify({ type: "error", title: "扫描失败", message: "无法读取数据库，请刷新后重试。" });
+    } finally {
+      setOrphanedLoading(false);
+    }
+  }, []);
+
+  async function clearOrphanedData() {
+    if (!orphanedCounts) return;
+    setOrphanedClearing(true);
+    try {
+      await repositoryRef.current.clearOrphanedData(orphanedCounts.orphanedDraftIds, orphanedCounts.orphanedRawInputIds, orphanedCounts.orphanedPdfSessionIds);
+      const total = orphanedCounts.drafts + orphanedCounts.rawInputs + orphanedCounts.pdfSessions;
+      notify({ type: "success", title: "清理完成", message: `已清除 ${total} 条孤儿数据。` });
+      setOrphanedCounts(null);
+    } catch {
+      notify({ type: "error", title: "清理失败", message: "请刷新后重试。" });
+    } finally {
+      setOrphanedClearing(false);
+    }
+  }
+
+  useEffect(() => {
+    if (category === "developer" && !orphanedCounts && !orphanedLoading) {
+      void scanOrphanedData();
+    }
+  }, [category, orphanedCounts, orphanedLoading, scanOrphanedData]);
 
   async function checkDocumentEngines() {
     setHealthChecking(true);
@@ -436,6 +475,36 @@ export default function SettingsPage() {
                   }}
                 />
               </label>
+
+              <section className="settings-group" aria-labelledby="orphaned-data-heading">
+                <div className="settings-group-heading">
+                  <div>
+                    <h3 id="orphaned-data-heading">孤儿数据清理</h3>
+                    <p>删除个人资料后，关联的导入草稿、原始输入和 PDF 会话仍留在数据库中。这里可以清除它们。</p>
+                  </div>
+                  <button type="button" className="secondary-button compact" disabled={orphanedLoading} onClick={() => { void scanOrphanedData(); }}>
+                    {orphanedLoading ? "扫描中…" : "重新扫描"}
+                  </button>
+                </div>
+                {orphanedCounts ? (
+                  <>
+                    <dl className="document-engine-facts">
+                      <div><dt>导入草稿</dt><dd>{orphanedCounts.drafts} 条</dd></div>
+                      <div><dt>原始输入</dt><dd>{orphanedCounts.rawInputs} 条</dd></div>
+                      <div><dt>PDF 会话</dt><dd>{orphanedCounts.pdfSessions} 条</dd></div>
+                    </dl>
+                    {orphanedCounts.drafts + orphanedCounts.rawInputs + orphanedCounts.pdfSessions > 0 ? (
+                      <button type="button" className="danger-button" disabled={orphanedClearing} onClick={() => { void clearOrphanedData(); }}>
+                        {orphanedClearing ? "清理中…" : "清除所有孤儿数据"}
+                      </button>
+                    ) : (
+                      <p className="settings-save-state">没有孤儿数据，数据库干净。</p>
+                    )}
+                  </>
+                ) : (
+                  <p className="settings-save-state">{orphanedLoading ? "正在扫描数据库…" : "点击重新扫描查看孤儿数据。"}</p>
+                )}
+              </section>
             </div>
           ) : null}
         </section>

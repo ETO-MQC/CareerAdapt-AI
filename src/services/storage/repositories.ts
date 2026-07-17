@@ -743,6 +743,76 @@ export class WorkspaceRepository {
     return { deleted: true as const, blockers };
   }
 
+  async clearProfileBlockers(profileId: string, categories: Array<"branches" | "matches" | "matchOperations" | "adaptationDrafts" | "applications" | "commits">) {
+    const ops: Array<Promise<unknown>> = [];
+    for (const category of categories) {
+      switch (category) {
+        case "branches":
+          ops.push(this.db.resumeBranches.where("profileId").equals(profileId).delete());
+          break;
+        case "matches":
+          ops.push(this.db.requirementMatches.filter((item) => item.profileId === profileId).delete());
+          break;
+        case "matchOperations":
+          ops.push(this.db.matchOperations.filter((item) => item.profileId === profileId).delete());
+          break;
+        case "adaptationDrafts":
+          ops.push(this.db.jobAdaptationDrafts.filter((item) => item.profileId === profileId).delete());
+          break;
+        case "applications":
+          ops.push(this.db.applications.where("profileId").equals(profileId).delete());
+          break;
+        case "commits":
+          ops.push(this.db.draftCommits.where("entityId").equals(profileId).delete());
+          break;
+      }
+    }
+    await Promise.all(ops);
+  }
+
+  async forceDeleteProfile(profileId: string) {
+    await this.db.transaction("rw", this.db.profiles, this.db.appMeta, async () => {
+      await this.db.profiles.delete(profileId);
+      await this.db.appMeta.delete(`profileArchive:${profileId}:skills`);
+      await this.db.appMeta.delete(`profileArchive:${profileId}:managed-items`);
+    });
+  }
+
+  async getOrphanedDataCounts() {
+    const [allProfiles, allDrafts, allRawInputs, allPdfSessions] = await Promise.all([
+      this.db.profiles.toArray(),
+      this.db.profileImportDrafts.toArray(),
+      this.db.rawInputs.toArray(),
+      this.db.pdfImportSessions.toArray()
+    ]);
+    const profileIds = new Set(allProfiles.map((p) => p.id));
+    const orphanedDrafts = allDrafts.filter((d) => d.committedProfileId && !profileIds.has(d.committedProfileId));
+    const orphanedDraftRawInputIds = new Set(orphanedDrafts.map((d) => d.rawInputId));
+    const orphanedRawInputs = allRawInputs.filter((r) => orphanedDraftRawInputIds.has(r.id));
+    const orphanedRawInputSessionIds = new Set(
+      orphanedRawInputs.map((r) => r.sourceSessionId).filter((id): id is string => Boolean(id))
+    );
+    const orphanedPdfSessions = allPdfSessions.filter((s) => orphanedRawInputSessionIds.has(s.id));
+    return {
+      drafts: orphanedDrafts.length,
+      rawInputs: orphanedRawInputs.length,
+      pdfSessions: orphanedPdfSessions.length,
+      orphanedDraftIds: orphanedDrafts.map((d) => d.id),
+      orphanedRawInputIds: orphanedRawInputs.map((r) => r.id),
+      orphanedPdfSessionIds: orphanedPdfSessions.map((s) => s.id)
+    };
+  }
+
+  async clearOrphanedData(orphanedDraftIds: string[], orphanedRawInputIds: string[], orphanedPdfSessionIds: string[]) {
+    await this.db.transaction("rw", this.db.profileImportDrafts, this.db.rawInputs, this.db.pdfImportSessions, async () => {
+      await Promise.all([
+        ...orphanedDraftIds.map((id) => this.db.profileImportDrafts.delete(id)),
+        ...orphanedRawInputIds.map((id) => this.db.rawInputs.delete(id)),
+        ...orphanedPdfSessionIds.map((id) => this.db.pdfImportSessions.delete(id))
+      ]);
+    });
+  }
+
   async saveJobDescription(jobDescription: JobDescription) {
     const parsed = JobDescriptionSchema.parse(jobDescription);
     await this.db.jobDescriptions.put(parsed);
