@@ -63,18 +63,24 @@ test.describe("V2-G4a PDF resume import", () => {
 
     await page.locator("input[type='file']").setInputFiles(resolve(process.cwd(), "tests/fixtures/pdf/single-page-en.pdf"));
     await expect(page.locator(".import-structure-panel")).toBeVisible({ timeout: 45_000 });
-    await expect(page.locator(".import-structure-panel")).toContainText("Experience");
-    await expect(page.locator(".import-structure-panel")).toContainText("Skills");
+    await expect(page.locator(".import-structure-panel")).toContainText("工作经历");
+    await expect(page.locator(".import-structure-panel")).toContainText("技能");
 
     await page.locator(".import-item-row").filter({ hasText: "Backend Engineer" }).locator("input[type='checkbox']").uncheck();
-    await page.getByRole("button", { name: "改为创建新人物", exact: true }).click();
+    await page.getByLabel("创建新人物").check();
     const fieldConfirmationButtons = page.getByRole("button", { name: "确认此字段", exact: true });
     while (await fieldConfirmationButtons.count()) {
       await fieldConfirmationButtons.first().click();
     }
+    const unclassifiedConfirmationButtons = page.getByRole("button", { name: "核对并保留来源", exact: true });
+    while (await unclassifiedConfirmationButtons.count()) {
+      await unclassifiedConfirmationButtons.first().click();
+    }
     await page.getByRole("button", { name: "确认导入", exact: true }).click();
     await expect(page.locator(".app-notification-success").filter({ hasText: "通用简历" }).last()).toBeVisible({ timeout: 20_000 });
-    await page.getByRole("button", { name: "打开", exact: true }).click();
+    const openImportedResume = page.getByRole("button", { name: "打开", exact: true });
+    if (await openImportedResume.isVisible()) await openImportedResume.click();
+    await expect(page.getByTestId("resume-studio-shell")).toBeVisible({ timeout: 20_000 });
     await expect(page.getByTestId("resume-a4-page")).toBeVisible({ timeout: 20_000 });
     await expect(page.getByTestId("resume-a4-page")).toContainText("Data Platform Team Lead");
     await expect(page.getByTestId("resume-a4-page")).not.toContainText("Backend Engineer");
@@ -89,8 +95,9 @@ test.describe("V2-G4a PDF resume import", () => {
     await applyTemplate(page, "business-consulting");
     await expect(page.getByTestId("resume-a4-page")).toHaveClass(/template-business-consulting/);
     await openManualPageTab(page);
-    await page.getByTestId("page-policy-selector").selectOption("up_to_two_pages");
-    await expect(page.locator(".app-notification-success").filter({ hasText: "最多两页" }).last()).toBeVisible();
+    const preferOnePage = page.getByTestId("page-policy-selector");
+    if (await preferOnePage.isChecked()) await preferOnePage.click();
+    await expect(preferOnePage).not.toBeChecked();
 
     const result = await downloadDirectPdf(page, "g4a-imported-general");
     assertPdf(result.path, ["Data Platform Team Lead", "Python", "SQL"], ["Backend Engineer", "确认导入", "上传PDF简历"]);

@@ -4,9 +4,9 @@ import type {
   ResumeRenderBlock,
   ResumeRenderModel,
   ResumeRenderSection,
+  ResumeRenderStructuredSectionV2,
   TemplateId
 } from "@/domain/schemas";
-import { categorySourceSectionId, resumeContentCategoryOrder } from "@/domain/resumeFields/catalog";
 import { RESUME_SECTION_TYPES_V2, type CanonicalFieldId, type ResumeSectionTypeV2 } from "@/domain/resumeFields";
 
 export type ResumeTemplateStyleConfig = Pick<
@@ -358,6 +358,9 @@ export function resumeTemplateStyleVars(
 }
 
 function ClassicTechnicalTemplate({ model, context }: { model: ResumeRenderModel; context?: TemplateRenderContext }) {
+  if (model.schemaVersion === "resume-render-v2" && model.structuredSections.length > 0) {
+    return <>{!context?.pagination?.isContinuation ? <ResumeHeader model={model} context={context} /> : null}<RenderCanonicalSections sections={model.structuredSections} context={context} /></>;
+  }
   const experience = findSection(model, "experience");
   const beforeSkillsSectionIds = ["experience", "education", "projects", "campus", "awards"];
   const experienceBeforeSkills = experience ? {
@@ -387,6 +390,16 @@ function ClassicTechnicalTemplate({ model, context }: { model: ResumeRenderModel
 }
 
 function ModernOperationsTemplate({ model, context }: { model: ResumeRenderModel; context?: TemplateRenderContext }) {
+  if (model.schemaVersion === "resume-render-v2" && model.structuredSections.length > 0) {
+    const sidebarTypes = new Set<ResumeSectionTypeV2>(["summary", "skills", "certificates", "languages"]);
+    return <>
+      {!context?.pagination?.isContinuation ? <ResumeHeader model={model} compact context={context} /> : null}
+      <div className="resume-modern-grid">
+        <aside><RenderCanonicalSections sections={model.structuredSections.filter((section) => sidebarTypes.has(section.sectionType))} context={context} /></aside>
+        <div><RenderCanonicalSections sections={model.structuredSections.filter((section) => !sidebarTypes.has(section.sectionType))} context={context} /></div>
+      </div>
+    </>;
+  }
   const summary = findSection(model, "summary");
   const skills = findSection(model, "skills");
   const certificates = findSection(model, "certificates");
@@ -410,6 +423,9 @@ function ModernOperationsTemplate({ model, context }: { model: ResumeRenderModel
 }
 
 function AtsMinimalTemplate({ model, context }: { model: ResumeRenderModel; context?: TemplateRenderContext }) {
+  if (model.schemaVersion === "resume-render-v2" && model.structuredSections.length > 0) {
+    return <>{!context?.pagination?.isContinuation ? <ResumeHeader model={model} plain context={context} /> : null}<RenderCanonicalSections sections={model.structuredSections} context={context} compact /></>;
+  }
   return (
     <>
       {!context?.pagination?.isContinuation ? <ResumeHeader model={model} plain context={context} /> : null}
@@ -422,6 +438,16 @@ function AtsMinimalTemplate({ model, context }: { model: ResumeRenderModel; cont
 }
 
 function BusinessConsultingTemplate({ model, context }: { model: ResumeRenderModel; context?: TemplateRenderContext }) {
+  if (model.schemaVersion === "resume-render-v2" && model.structuredSections.length > 0) {
+    const sidebarTypes = new Set<ResumeSectionTypeV2>(["skills", "certificates", "languages", "awards"]);
+    return <>
+      {!context?.pagination?.isContinuation ? <ResumeHeader model={model} compact context={context} /> : null}
+      <div className="resume-business-grid">
+        <div><RenderCanonicalSections sections={model.structuredSections.filter((section) => !sidebarTypes.has(section.sectionType))} context={context} /></div>
+        <aside><RenderCanonicalSections sections={model.structuredSections.filter((section) => sidebarTypes.has(section.sectionType))} context={context} compact /></aside>
+      </div>
+    </>;
+  }
   const summary = findSection(model, "summary");
   const skills = findSection(model, "skills");
   const certificates = findSection(model, "certificates");
@@ -442,6 +468,49 @@ function BusinessConsultingTemplate({ model, context }: { model: ResumeRenderMod
       </div>
     </>
   );
+}
+
+function RenderCanonicalSections({
+  sections,
+  context,
+  compact = false
+}: {
+  sections: ResumeRenderStructuredSectionV2[];
+  context?: TemplateRenderContext;
+  compact?: boolean;
+}) {
+  return <>
+    {sections.map((section) => (
+      <section className={`resume-template-section resume-canonical-section ${compact ? "resume-section-compact" : ""}`} data-render-section={section.sectionType} key={section.sectionId}>
+        <h2 {...canonicalSectionTitleAttrs(section, context)}>{section.title}</h2>
+        <div className="resume-block-list">
+          {section.items.map((item) => (
+            <div
+              className={`resume-template-item resume-canonical-item ${item.itemId === context?.selectedItemId ? "resume-template-item-selected" : ""}`}
+              data-source-item-id={item.itemId}
+              data-editable-block="true"
+              data-selected={item.itemId === context?.selectedItemId ? "true" : "false"}
+              key={item.itemId}
+            >
+              <p>{item.plainText}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+    ))}
+  </>;
+}
+
+function canonicalSectionTitleAttrs(section: ResumeRenderStructuredSectionV2, context?: TemplateRenderContext) {
+  const fieldId = `section-title:${section.sectionId}`;
+  const selected = fieldId === context?.selectedSectionTitleId;
+  return {
+    className: selected ? "resume-template-inline-selected" : undefined,
+    "data-source-item-id": fieldId,
+    "data-section-title-id": fieldId,
+    "data-editable-block": "true",
+    "data-selected": selected ? "true" : "false"
+  };
 }
 
 function ResumeHeader({
@@ -542,25 +611,25 @@ function RenderSection({
 }
 
 function groupExperienceBlocks(blocks: ResumeRenderBlock[]) {
-  const supportedKeys = ["experience", "education", "projects", "campus", "awards", "language", "custom"] as const;
-  type GroupKey = (typeof supportedKeys)[number];
-  const order = resumeContentCategoryOrder
-    .map(categorySourceSectionId)
-    .filter((key): key is GroupKey => supportedKeys.includes(key as GroupKey));
+  type GroupKey = "work" | "internship" | "education" | "project" | "campus" | "awards" | "languages" | "custom";
+  const order: GroupKey[] = ["education", "work", "internship", "project", "campus", "awards", "languages", "custom"];
   const labels: Record<GroupKey, string> = {
-    experience: "工作与实习经历",
+    work: "工作经历",
+    internship: "实习经历",
     education: "教育经历",
-    projects: "项目成果",
+    project: "项目经历",
     campus: "校园经历",
     awards: "奖项",
-    language: "语言",
+    languages: "语言",
     custom: "其他内容"
   };
   const grouped = new Map<GroupKey, ResumeRenderBlock[]>();
   for (const block of blocks) {
-    const key = order.includes(block.sourceSectionId as GroupKey)
-      ? block.sourceSectionId as GroupKey
-      : block.itemType === "experience" ? "experience" : "custom";
+    const aliases: Record<string, GroupKey> = { experience: "work", projects: "project", language: "languages" };
+    const normalized = block.sourceSectionId ? aliases[block.sourceSectionId] ?? block.sourceSectionId : "";
+    const key = order.includes(normalized as GroupKey)
+      ? normalized as GroupKey
+      : block.itemType === "experience" ? "work" : "custom";
     grouped.set(key, [...(grouped.get(key) ?? []), block]);
   }
   return order.flatMap((key) => {

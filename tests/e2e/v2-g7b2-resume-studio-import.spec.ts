@@ -70,30 +70,26 @@ test.describe("V2-G7b.2 Resume Studio and import IA", () => {
 
     await expect(page.getByText("识别质量", { exact: true })).toHaveCount(0);
     await expect(page.locator(".import-source-text")).toContainText("JSON Candidate");
-    const mismatch = page.locator(".import-name-mismatch");
-    const mismatchBox = await mismatch.boundingBox();
-    const emailBox = await page.getByLabel("邮箱").boundingBox();
-    const mismatchButtons = mismatch.getByRole("button");
-    expect(mismatchBox).not.toBeNull();
-    expect(emailBox).not.toBeNull();
-    expect(mismatchBox!.y + mismatchBox!.height).toBeLessThanOrEqual(emailBox!.y);
-    await expect(mismatchButtons).toHaveCount(2);
-    const firstButtonBox = await mismatchButtons.nth(0).boundingBox();
-    const secondButtonBox = await mismatchButtons.nth(1).boundingBox();
-    expect(Math.abs((firstButtonBox!.y + firstButtonBox!.height / 2) - (secondButtonBox!.y + secondButtonBox!.height / 2))).toBeLessThan(2);
-    await mismatch.getByRole("button", { name: "改为创建新人物", exact: true }).press("Enter");
-    await expect(page.getByLabel("创建新人物")).toBeChecked();
+    const targetPicker = page.locator("fieldset.import-target-picker");
+    await expect(targetPicker).toBeVisible();
+    await expect(targetPicker.locator("input[type='radio']")).toHaveCount(2);
+    await expect(page.locator(".import-name-mismatch")).toHaveCount(0);
+    await page.getByLabel("创建新人物").check();
+    await resolveImportReview(page);
     await expect(page.locator(".import-review-footer button.primary-button")).toBeVisible();
     await page.locator(".import-review-footer button.primary-button").click();
     await expect(page.getByText("已进入导入生成的通用简历，可继续编辑、换模板、调整分页并下载 PDF。")).toBeVisible();
-    await page.getByRole("button", { name: "打开", exact: true }).click();
+    const openImportedResume = page.getByRole("button", { name: "打开", exact: true });
+    if (await openImportedResume.isVisible()) await openImportedResume.click();
     await expect(page.getByTestId("resume-studio-shell")).toBeVisible();
     const educationBox = await page.getByRole("button", { name: "教育经历", exact: true }).boundingBox();
-    const workBox = await page.getByRole("button", { name: "工作经历 / 实习经历", exact: true }).boundingBox();
-    const projectBox = await page.getByRole("button", { name: "项目经历 / 项目成果", exact: true }).boundingBox();
-    const skillBox = await page.getByRole("button", { name: "技能", exact: true }).boundingBox();
+    const workBox = await page.getByRole("button", { name: "工作经历", exact: true }).boundingBox();
+    const internshipBox = await page.getByRole("button", { name: "实习经历", exact: true }).boundingBox();
+    const projectBox = await page.getByRole("button", { name: "项目经历", exact: true }).boundingBox();
+    const skillBox = await page.getByRole("button", { name: "专业技能", exact: true }).boundingBox();
     expect(educationBox!.y).toBeLessThan(workBox!.y);
-    expect(workBox!.y).toBeLessThan(projectBox!.y);
+    expect(workBox!.y).toBeLessThan(internshipBox!.y);
+    expect(internshipBox!.y).toBeLessThan(projectBox!.y);
     expect(projectBox!.y).toBeLessThan(skillBox!.y);
   });
 
@@ -293,7 +289,20 @@ async function createBranchFromJsonImport(page: Page, candidateName: string) {
   }));
   await page.locator(".import-json-details button.primary-button").click();
   await page.getByLabel("创建新人物").check();
+  await resolveImportReview(page);
   await page.locator(".import-review-footer button.primary-button").click();
-  await page.getByRole("button", { name: "打开", exact: true }).click();
+  const openImportedResume = page.getByRole("button", { name: "打开", exact: true });
+  if (await openImportedResume.isVisible()) await openImportedResume.click();
   await expect(page.getByTestId("resume-studio-shell")).toBeVisible();
+}
+
+async function resolveImportReview(page: Page) {
+  const fieldConfirmationButtons = page.getByRole("button", { name: "确认此字段", exact: true });
+  while (await fieldConfirmationButtons.count()) {
+    await fieldConfirmationButtons.first().click();
+  }
+  const unclassifiedConfirmationButtons = page.getByRole("button", { name: "核对并保留来源", exact: true });
+  while (await unclassifiedConfirmationButtons.count()) {
+    await unclassifiedConfirmationButtons.first().click();
+  }
 }

@@ -19,6 +19,7 @@ import {
 } from "@/domain/resumeImport/parser";
 import { createJsonSourceBlocks, mapExternalResumeJson, parseResumeJsonText, RESUME_JSON_MAX_CHARS } from "@/domain/resumeImport/jsonMapper";
 import { adaptResumeJsonToV2, createResumeJsonV2Example, jsonV2ToLegacyMapperOutput } from "@/domain/resumeImport/jsonV2Adapter";
+import { auditResumeImportInvariants, resumeImportInvariantIssueCount } from "@/domain/resumeImport/invariants";
 import { analyzeImportQuality, normalizeExtractedSourceBlocks, normalizedBlocksToText, RESUME_IMPORT_CLEANER_VERSION } from "@/domain/resumeImport/normalizer";
 import { applyImportBulkSelection, type ImportBulkSelectionMode } from "@/domain/resumeImport/reviewSelections";
 import { invokeStructuredAi } from "@/ai/client";
@@ -26,7 +27,6 @@ import {
   ImportedResumeDraftSchema,
   ResumeItemV2Schema,
   ResumeJsonMapperOutputSchema,
-  StructuredResumeDraftSchema,
   type CareerProfile,
   type ExtractedSourceBlock,
   type ImportedResumeDraft,
@@ -111,6 +111,7 @@ export function ResumeImportWizard(props: {
   const [targetProfileId, setTargetProfileId] = useState(props.profile?.id ?? "");
   const [newProfileName, setNewProfileName] = useState("");
   const [createGeneralResume, setCreateGeneralResume] = useState(true);
+  const [reviewedUnclassifiedKeys, setReviewedUnclassifiedKeys] = useState<string[]>([]);
   const [documentPreferences] = useState(() => readDocumentRecognitionPreferences());
   const [routeOverride, setRouteOverride] = useState<"text_layer" | "local_ocr" | "manual_review" | undefined>();
   const [routingDecision, setRoutingDecision] = useState<DocumentImportRoutingDecision>(() =>
@@ -171,6 +172,12 @@ export function ResumeImportWizard(props: {
       + draft.sections.flatMap((section) => section.items).filter((item) => item.mapping?.needsConfirmation).length
       + (draft.schemaVersion === "resume-import-v2" ? draft.fieldCandidates.filter((candidate) => candidate.reviewStatus === "needs_review").length : 0);
   }, [draft]);
+  const invariantReport = useMemo(() => draft ? auditResumeImportInvariants(draft) : undefined, [draft]);
+  const invariantIssueCount = invariantReport ? resumeImportInvariantIssueCount(invariantReport) : 0;
+  const unreviewedUnclassifiedCount = draft?.unclassifiedBlocks.filter((block) =>
+    !reviewedUnclassifiedKeys.includes(unclassifiedBlockKey(block))
+  ).length ?? 0;
+  const pendingReviewCount = unconfirmedMappingCount + unreviewedUnclassifiedCount + invariantIssueCount;
   const unsafeTextLayerBlocked = draft?.qualityReport?.recommendedRoute === "ocr_ai"
     && routingDecision.route !== "manual_review";
   const targetProfile = (props.profiles ?? []).find((item) => item.id === targetProfileId) ?? props.profile;
@@ -605,20 +612,17 @@ export function ResumeImportWizard(props: {
         jsonErrorNotificationIdRef.current = notify({ type: "error", title: "JSON 格式错误", message: parsedJson.error.message });
         return;
       }
-      const standard = StructuredResumeDraftSchema.safeParse(parsedJson.value);
       const v2 = adaptResumeJsonToV2(parsedJson.value);
       let mapped: ResumeJsonMapperOutput;
       let sourceKind: "standard_json" | "external_json";
       let successMessage: string;
 
-      if (v2.ok && v2.sourceKind === "v2") {
+      if (v2.ok && v2.sourceKind !== "external") {
         mapped = { ...jsonV2ToLegacyMapperOutput(v2.value), mappingDecisions: [] };
         sourceKind = "standard_json";
-        successMessage = "CareerAdapt JSON v2 已进入逐项核对；结构化字段和未分类内容均已保留。";
-      } else if (standard.success) {
-        mapped = { structuredDraft: standard.data, unclassifiedBlocks: [] };
-        sourceKind = "standard_json";
-        successMessage = "结构化 JSON 已进入核对页；确认前不会写入正式数据。";
+        successMessage = v2.sourceKind === "v2"
+          ? "CareerAdapt JSON v2 已进入逐项核对；结构化字段和未分类内容均已保留。"
+          : "旧版 JSON 已通过 v1 → v2 适配器拆分为正式栏目，请继续核对。";
       } else {
         const mapResult = mapExternalResumeJson(parsedJson.value);
         if (!mapResult.ok) {
@@ -633,8 +637,8 @@ export function ResumeImportWizard(props: {
           : "已通过常见字段别名完成映射，请核对来源路径和置信度。";
       }
 
-      setPendingJsonMapping(standard.success || (v2.ok && v2.sourceKind === "v2") ? undefined : mapped);
-      await persistJsonDraft(mapped, fileName, rawText, sourceKind, successMessage, v2.ok && v2.sourceKind === "v2" ? v2.value : undefined);
+      setPendingJsonMapping(v2.ok && v2.sourceKind !== "external" ? undefined : mapped);
+      await persistJsonDraft(mapped, fileName, rawText, sourceKind, successMessage, v2.ok && v2.sourceKind !== "external" ? v2.value : undefined);
     } catch (error) {
       const message = error instanceof Error ? error.message : "导入过程中发生未知错误";
       fail(message);
@@ -1122,9 +1126,9 @@ export function ResumeImportWizard(props: {
       setMessage("导入姓名与当前人物不一致，请改为新人物或明确继续导入当前人物。");
       return;
     }
-    if (unconfirmedMappingCount > 0) {
-      setMessage(`仍有 ${unconfirmedMappingCount} 个智能映射字段需要单独确认。`);
-      notify({ type: "warning", title: "仍需核对映射", message: `请先确认 ${unconfirmedMappingCount} 个低置信或 AI 映射字段。` });
+    if (pendingReviewCount > 0) {
+      setMessage(`仍有 ${pendingReviewCount} 项来源、映射或结构问题需要处理。`);
+      notify({ type: "warning", title: "仍需核对", message: `请先处理 ${pendingReviewCount} 项来源、映射或结构问题。` });
       return;
     }
     setStatus("confirming");
@@ -1227,7 +1231,7 @@ export function ResumeImportWizard(props: {
         <legend>1. 选择导入目标</legend>
         <div className="import-target-options">
           <label className={targetMode === "existing" ? "import-target-option active" : "import-target-option"}>
-            <input type="radio" name="import-target" checked={targetMode === "existing"} disabled={(props.profiles ?? []).length === 0 && !props.profile} onChange={() => setTargetMode("existing")} />
+            <input type="radio" name="import-target" checked={targetMode === "existing"} disabled={(props.profiles ?? []).length === 0 && !props.profile} onChange={() => { setTargetMode("existing"); setBasicMergeActions((current) => ({ ...current, name: "keep_existing" })); }} />
             导入到已有资料
           </label>
           <label className={targetMode === "new" ? "import-target-option active" : "import-target-option"}>
@@ -1244,22 +1248,22 @@ export function ResumeImportWizard(props: {
         ) : (
           <div className="import-new-profile-fields">
             <label className="import-target-field">人物名称<input name="new-profile-name" autoComplete="off" value={newProfileName} onChange={(event) => setNewProfileName(event.target.value)} placeholder="将从导入姓名预填" /></label>
-            <label className="inline-toggle"><input type="checkbox" checked={createGeneralResume} onChange={(event) => setCreateGeneralResume(event.target.checked)} />同时创建通用简历</label>
+            <label className="inline-toggle"><input name="import-create-general-resume" type="checkbox" checked={createGeneralResume} onChange={(event) => setCreateGeneralResume(event.target.checked)} />同时创建通用简历</label>
           </div>
         )}
+        {nameMismatch ? <p className="import-target-warning" role="alert">导入姓名与当前人物不一致，请重新选择“导入到已有资料”以保留当前姓名，或选择“创建新人物”。</p> : null}
       </fieldset>
-      {nameMismatch ? <div className="import-name-mismatch" role="alert"><strong>姓名不一致</strong><div className="action-row"><button type="button" className="secondary-button compact" onClick={() => { setTargetMode("new"); setNewProfileName(draft?.basics.name?.value ?? ""); }}>改为创建新人物</button><button type="button" className="secondary-button compact" onClick={() => setBasicMergeActions((current) => ({ ...current, name: "keep_existing" }))}>继续当前人物</button></div></div> : null}
-      <section className="import-routing-panel" aria-label="文档解析路线">
+      <section className={`import-routing-panel ${draft ? "import-routing-panel-compact" : ""}`} aria-label="文档解析路线">
         <div>
-          <span>当前路线</span>
+          <span>解析方式：</span>
           <strong>{documentImportRouteLabel(routingDecision.route)}</strong>
-          <p>{routingDecision.reason}</p>
-          <small>{routingDecision.ocrExpectedSlow ? "本地 OCR 预计较慢。 " : ""}{routingDecision.fallbackRoute ? `失败后降级：${documentImportRouteLabel(routingDecision.fallbackRoute)}。` : "完成后进入人工核对。"}</small>
+          {!draft ? <><p>{routingDecision.reason}</p><small>{routingDecision.ocrExpectedSlow ? "本地 OCR 预计较慢。 " : ""}{routingDecision.fallbackRoute ? `失败后降级：${documentImportRouteLabel(routingDecision.fallbackRoute)}。` : "完成后进入人工核对。"}</small></> : null}
         </div>
         {documentPreferences.allowManualRouteSelection ? (
           <details className="import-route-actions">
-            <summary className="secondary-button compact">更改路线</summary>
+            <summary className="secondary-button compact">{draft ? "查看路线详情" : "更改路线"}</summary>
             <div>
+              {draft ? <p>{routingDecision.reason}</p> : null}
               <button type="button" onClick={() => { void chooseImportRoute("text_layer"); }}>继续文本解析</button>
               <button type="button" disabled={!documentPreferences.localOcrEnabled} onClick={() => { void chooseImportRoute("local_ocr"); }}>改用本地 OCR</button>
               <button type="button" onClick={() => { void chooseImportRoute("manual_review"); }}>仅人工核对</button>
@@ -1347,7 +1351,7 @@ export function ResumeImportWizard(props: {
         <div className="import-review-toolbar">
           <div>
             <h3>核对结构</h3>
-            <span>{unconfirmedMappingCount} 项待处理</span>
+            <span>{pendingReviewCount} 项待处理</span>
           </div>
           <details className="import-bulk-menu"><summary className="secondary-button compact">批量操作</summary><div>
             <button type="button" onClick={() => { void applyBulkSelection("use_imported"); }}>全部使用安全导入项</button>
@@ -1393,7 +1397,7 @@ export function ResumeImportWizard(props: {
             </div>
             {(pendingJsonMapping && jsonText) || (["docx", "digital_pdf", "complex_digital_pdf", "scanned_pdf", "image", "text_pdf"].includes(draft.sourceKind) && draft.qualityReport?.recommendedRoute === "ai_text") ? (
               <div className="ai-mapping-consent">
-                <label className="inline-toggle"><input type="checkbox" checked={aiPrivacyConfirmed} onChange={(event) => setAiPrivacyConfirmed(event.target.checked)} />同意发送脱敏来源块</label>
+                <label className="inline-toggle"><input name="import-ai-privacy-confirmed" type="checkbox" checked={aiPrivacyConfirmed} onChange={(event) => setAiPrivacyConfirmed(event.target.checked)} />同意发送脱敏来源块</label>
                 <button className="secondary-button compact" type="button" disabled={!aiPrivacyConfirmed || status === "importing_json" || status === "classifying_sections"} onClick={() => { void (pendingJsonMapping && jsonText ? runAiJsonMapping() : runAiDocumentMapping()); }}>使用 AI 智能映射</button>
               </div>
             ) : null}
@@ -1405,7 +1409,7 @@ export function ResumeImportWizard(props: {
               {unconfirmedMappingCount > fieldCandidates.filter((candidate) => candidate.reviewStatus === "needs_review").length ? <button className="primary-button compact" type="button" onClick={() => { void confirmAllMappings(); }}>确认可批量项</button> : null}
             </div>
 
-            {fieldCandidates.length > 0 ? <details className="import-field-candidates" open>
+            {fieldCandidates.length > 0 ? <details className="import-field-candidates" open={fieldCandidates.some((candidate) => candidate.reviewStatus === "needs_review")}>
               <summary>字段候选 <span>{fieldCandidates.filter((candidate) => candidate.reviewStatus === "needs_review").length} 项待确认</span></summary>
               <div className="import-field-candidate-list">
                 {fieldCandidates.map((candidate) => (
@@ -1426,6 +1430,8 @@ export function ResumeImportWizard(props: {
                       <label className="import-field-candidate-edit">
                         <span>编辑值</span>
                         <input
+                          name={`import-candidate-${candidate.id}`}
+                          autoComplete="off"
                           autoFocus
                           defaultValue={formatCandidateValue(candidate.value)}
                           onKeyDown={(event) => {
@@ -1497,7 +1503,7 @@ export function ResumeImportWizard(props: {
               <article key={section.id} className="review-row">
                 <div className="section-heading compact-heading">
                   <label className="inline-toggle">
-                    <input type="checkbox" checked={section.included} onChange={(event) => { void updateSectionIncluded(section.id, event.target.checked); }} />
+                    <input name={`import-section-${section.id}-included`} type="checkbox" checked={section.included} onChange={(event) => { void updateSectionIncluded(section.id, event.target.checked); }} />
                     {section.detectedTitle}
                   </label>
                   <select name={`import-section-${section.id}-type`} aria-label={`${section.detectedTitle}栏目类型`} value={section.sectionType} onChange={(event) => { void updateSectionType(section.id, event.target.value as ImportedResumeSectionType); }}>
@@ -1512,7 +1518,7 @@ export function ResumeImportWizard(props: {
                 {section.items.map((item) => (
                   <div key={item.id} className={`import-item-row ${selectedItemId === item.id ? "import-item-row-active" : ""}`}>
                     <label className="inline-toggle">
-                      <input type="checkbox" checked={item.included} onChange={(event) => { void updateItem(section.id, item.id, { included: event.target.checked }); }} />
+                      <input name={`import-item-${item.id}-included`} type="checkbox" checked={item.included} onChange={(event) => { void updateItem(section.id, item.id, { included: event.target.checked }); }} />
                       {sourceStatusLabel(item.sourceStatus)} / {confidenceLabel(item.confidence)} / 第 {item.pageRefs.map((ref) => ref.pageNumber).join(",") || "?"} 页
                     </label>
                     {item.mapping?.needsConfirmation ? <button className="secondary-button compact" type="button" onClick={() => { void confirmItemMapping(section.id, item.id); }}>确认此映射</button> : null}
@@ -1561,16 +1567,17 @@ export function ResumeImportWizard(props: {
                 ))}
               </article>
             ))}
-            {draft.unclassifiedBlocks.length > 0 ? <section className="review-row import-unclassified-blocks"><strong>未识别内容（{draft.unclassifiedBlocks.length}）</strong><p>这些字段没有被丢弃，也不会自动写入正式简历。</p>{draft.unclassifiedBlocks.map((block) => {
-              const key = "sourcePath" in block ? block.sourcePath : `${block.sourceBlockId}:${block.sourceRange.start}-${block.sourceRange.end}`;
+            {draft.unclassifiedBlocks.length > 0 ? <section className="review-row import-unclassified-blocks"><strong>未识别内容（{draft.unclassifiedBlocks.length}）</strong><p>这些字段没有被丢弃，也不会自动写入正式简历。请确认保留为来源记录。</p>{draft.unclassifiedBlocks.map((block) => {
+              const key = unclassifiedBlockKey(block);
               const value = "sourceValue" in block ? block.sourceValue : block.text;
-              return <details key={key}><summary>{key}</summary><pre>{stringifyUnknown(value)}</pre></details>;
+              const reviewed = reviewedUnclassifiedKeys.includes(key);
+              return <div className="import-unclassified-item" key={key}><details><summary>{key}</summary><pre>{stringifyUnknown(value)}</pre></details><button className="secondary-button compact" type="button" disabled={reviewed} onClick={() => setReviewedUnclassifiedKeys((current) => [...new Set([...current, key])])}>{reviewed ? "已核对保留" : "核对并保留来源"}</button></div>;
             })}</section> : null}
           </div>
         </div>
         <footer className="import-review-footer">
-          <div><strong>{unsafeTextLayerBlocked ? "当前文本层不可安全提交" : `${importableItemCount} 条内容待确认导入`}</strong><span>{targetMode === "new" ? `创建新人物：${newProfileName || "待填写"}` : `导入到：${targetProfile?.name ?? "待选择"}`} · {message}</span></div>
-          <div className="action-row"><button className="secondary-button" type="button" onClick={cancelImport} disabled={status === "confirming"}>取消</button><button type="button" className="primary-button" disabled={status === "confirming" || unsafeTextLayerBlocked || (createGeneralResume && importableItemCount === 0) || unconfirmedMappingCount > 0 || (targetMode === "new" && !newProfileName.trim()) || (nameMismatch && basicMergeActions.name !== "keep_existing")} onClick={confirmImport}>确认导入</button></div>
+          <div><strong>{unsafeTextLayerBlocked ? "当前文本层不可安全提交" : `${importableItemCount} 条已选内容`}</strong><span>{pendingReviewCount > 0 ? `${pendingReviewCount} 项待处理 · ` : ""}{targetMode === "new" ? `创建新人物：${newProfileName || "待填写"}` : `导入到：${targetProfile?.name ?? "待选择"}`} · {message}</span></div>
+          <div className="action-row"><button className="secondary-button" type="button" onClick={cancelImport} disabled={status === "confirming"}>取消</button><button type="button" className="primary-button" disabled={status === "confirming" || unsafeTextLayerBlocked || (createGeneralResume && importableItemCount === 0) || pendingReviewCount > 0 || (targetMode === "new" && !newProfileName.trim()) || (nameMismatch && basicMergeActions.name !== "keep_existing")} onClick={confirmImport}>确认导入</button></div>
         </footer>
         </>
       ) : null}
@@ -1840,6 +1847,10 @@ function formatMappingSource(trace: NonNullable<ImportedResumeItem["mapping"]>) 
 function stringifyUnknown(value: unknown) {
   if (typeof value === "string") return value;
   try { return JSON.stringify(value, null, 2); } catch { return String(value); }
+}
+
+function unclassifiedBlockKey(block: ImportedResumeDraft["unclassifiedBlocks"][number]) {
+  return "sourcePath" in block ? block.sourcePath : `${block.sourceBlockId}:${block.sourceRange.start}-${block.sourceRange.end}`;
 }
 
 function normalizeName(value: string) {

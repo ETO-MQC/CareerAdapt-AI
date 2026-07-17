@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
-import { openManualContentTab, openManualLayoutTab, openManualPageTab, openManualTemplateTab, openManualTypographyTab } from "./support/g7b2Ui";
+import { openManualContentTab, openManualPageTab, openManualTemplateTab, openManualTypographyTab } from "./support/g7b2Ui";
 
 type DbExportRecord = {
   exportStatus?: string;
@@ -58,19 +58,20 @@ function getOutputDir() {
   return outputDir;
 }
 
-async function createBranchFromDraft(page: Page, branchName: string) {
+async function createBranchFromDraft(page: Page) {
+  await page.goto("/resume");
+  await page.getByRole("button").filter({ hasText: "从个人资料库创建" }).click();
+  await expect(page.getByTestId("resume-studio-shell")).toBeVisible({ timeout: 20_000 });
+
   await page.goto("/jobs");
+  const sourceResume = page.getByLabel("来源通用简历");
+  await sourceResume.selectOption({ index: 1 });
   await page.getByTestId("run-experience-match").click();
   await expect(page.locator(".match-row").first()).toBeVisible();
-  await page.getByTestId("create-suggestion-draft").click();
-  await expect(page.locator(".notice")).toBeVisible();
-
-  await page.goto("/resume");
-  await page.getByTestId("resume-import-strip").waitFor({ state: "visible" });
-  await page.getByTestId("job-suggestion-draft-select").selectOption({ index: 0 });
-  await page.getByTestId("new-resume-branch-name").fill(branchName);
-  await page.getByTestId("create-job-resume").click();
-  await expect(page.locator(".branch-list .match-row").filter({ hasText: branchName })).toBeVisible();
+  await expect(page.getByTestId("generate-job-resume")).toBeEnabled({ timeout: 20_000 });
+  await page.getByTestId("generate-job-resume").click();
+  await expect(page).toHaveURL(/\/resume\?.*branchId=/, { timeout: 20_000 });
+  await expect(page.getByTestId("resume-studio-shell")).toBeVisible({ timeout: 20_000 });
   await expect(visibleA4Page(page)).toBeVisible();
 }
 
@@ -176,17 +177,15 @@ async function getExportRecords(page: Page): Promise<DbExportRecord[]> {
   });
 }
 
-async function firstRenderedItem(page: Page) {
-  return visibleA4Page(page).evaluate((pageElement) => {
-    const item = pageElement.querySelector<HTMLElement>('.resume-template-item[data-source-item-id]:not([data-source-item-id^="profile:"])');
-    if (!item?.dataset.sourceItemId) {
-      throw new Error("rendered_item_not_found");
-    }
-    return {
-      id: item.dataset.sourceItemId,
-      text: item.innerText.trim()
-    };
-  });
+async function firstRenderedCanonicalItem(page: Page) {
+  const selector = ["education", "work", "internship", "project", "campus"]
+    .map((sectionType) => `[data-render-section="${sectionType}"] [data-source-item-id]:not([data-source-item-id^="section-title:"]):not([data-source-item-id^="profile:"])`)
+    .join(",");
+  return visibleA4Page(page).locator(selector).first().evaluate((item) => ({
+    id: (item as HTMLElement).dataset.sourceItemId!,
+    text: (item as HTMLElement).innerText.trim(),
+    sectionType: (item as HTMLElement).closest<HTMLElement>("[data-render-section]")!.dataset.renderSection!
+  }));
 }
 
 test.describe("V2-G3a direct PDF download", () => {
@@ -199,7 +198,7 @@ test.describe("V2-G3a direct PDF download", () => {
   });
 
   test("direct-download-button-and-status, valid-pdf-response, filename-generation, Chinese-text-extractable", async ({ page }) => {
-    await createBranchFromDraft(page, `V2 G3a 直接下载 ${Date.now()}`);
+    await createBranchFromDraft(page);
     await ensureSinglePage(page);
 
     await openManualPageTab(page);
@@ -222,7 +221,7 @@ test.describe("V2-G3a direct PDF download", () => {
 
   test("classic-technical, modern-operations, ats-minimal and business-consulting direct exports", async ({ page }) => {
     test.setTimeout(90_000);
-    await createBranchFromDraft(page, `V2 G3a 四模板 ${Date.now()}`);
+    await createBranchFromDraft(page);
     await ensureSinglePage(page);
     const templateIds = ["classic-technical", "modern-operations", "ats-minimal", "business-consulting"];
 
@@ -232,7 +231,7 @@ test.describe("V2-G3a direct PDF download", () => {
       await templateSelect.selectOption(templateId);
       await expect(templateSelect).toHaveValue(templateId);
       if (templateId !== "classic-technical" && process.env.G7B2_EXPECT_TEMPLATE_TOAST === "1") {
-        await expect(page.locator(".notice")).toContainText("模板偏好已保存");
+        await expect(page.locator(".app-notification-success").filter({ hasText: "模板偏好已保存" }).last()).toBeVisible();
       }
       await ensureSinglePage(page);
       const result = await downloadDirectPdf(page, `g3a-${templateId}`);
@@ -244,23 +243,24 @@ test.describe("V2-G3a direct PDF download", () => {
   });
 
   test("style-and-hidden-content-consistency and no-editor-controls-in-pdf", async ({ page }) => {
-    await createBranchFromDraft(page, `V2 G3a 隐藏样式 ${Date.now()}`);
+    await createBranchFromDraft(page);
     await ensureSinglePage(page);
 
     await openManualTypographyTab(page);
-    await page.getByLabel("行距").selectOption("relaxed");
-    await expect(page.locator(".notice")).toContainText("行距已保存");
-    await page.getByLabel("主题强调色：蓝色").click();
-    await expect(page.locator(".notice")).toContainText("主题强调色已保存");
+    const lineHeight = page.getByLabel("行距");
+    await lineHeight.selectOption("relaxed");
+    await expect(lineHeight).toHaveValue("relaxed");
+    await page.getByRole("tab", { name: "颜色", exact: true }).click();
+    await page.getByLabel("强调色：蓝色").click();
 
-    const hidden = await firstRenderedItem(page);
-    await openManualContentTab(page);
-    await page.getByTestId("resume-section-nav").getByRole("button", { name: /工作经历/ }).click();
-    await page.getByTestId("resume-active-section-fields").locator("textarea").first().focus();
-    await openManualLayoutTab(page);
-    await page.getByRole("button", { name: "段落" }).click();
-    await page.getByTestId("block-style-panel").getByRole("button", { name: "隐藏" }).click();
-    await expect(page.locator(".notice")).toContainText("内容已隐藏");
+    const hidden = await firstRenderedCanonicalItem(page);
+    await page.locator(".resume-mode-rail button").nth(0).click();
+    const sectionLabels: Record<string, string> = {
+      education: "教育经历", work: "工作经历", internship: "实习经历", project: "项目经历", campus: "校园经历"
+    };
+    await page.getByTestId("resume-section-nav").getByRole("button", { name: sectionLabels[hidden.sectionType], exact: true }).click();
+    await page.getByLabel(/在简历中显示/).first().uncheck();
+    await expect(visibleA4Page(page).locator(`[data-source-item-id="${hidden.id}"]`)).toHaveCount(0);
 
     const result = await downloadDirectPdf(page, "g3a-hidden-style");
     const text = assertPdf(result.path, ["陈同学"], ["模板中心", "编辑区块"]);
@@ -272,7 +272,7 @@ test.describe("V2-G3a direct PDF download", () => {
   });
 
   test("frozen-snapshot-during-template-switch", async ({ page }) => {
-    await createBranchFromDraft(page, `V2 G3a 冻结模板 ${Date.now()}`);
+    await createBranchFromDraft(page);
     await ensureSinglePage(page);
 
     let continueRoute: (() => void) | undefined;
@@ -291,8 +291,9 @@ test.describe("V2-G3a direct PDF download", () => {
     await page.getByRole("button", { name: "下载 PDF" }).click();
     await expect(page.getByTestId("pdf-export-status")).toContainText("正在生成");
     await openManualTemplateTab(page);
-    await page.locator("label").filter({ hasText: "模板" }).locator("select").selectOption("ats-minimal");
-    await expect(page.locator(".notice")).toContainText("模板偏好已保存");
+    const templateSelect = page.locator("label").filter({ hasText: "模板" }).locator("select");
+    await templateSelect.selectOption("ats-minimal");
+    await expect(templateSelect).toHaveValue("ats-minimal");
     continueRoute?.();
     const [response, download] = await Promise.all([responsePromise, downloadPromise]);
     expect(response.status()).toBe(200);
@@ -304,19 +305,19 @@ test.describe("V2-G3a direct PDF download", () => {
     await page.unroute("**/api/resume-export/pdf");
   });
 
-  test("overflow-block prevents direct download", async ({ page }) => {
-    await createBranchFromDraft(page, `V2 G3a overflow ${Date.now()}`);
+  test("overflow warning preserves direct download", async ({ page }) => {
+    await createBranchFromDraft(page);
     await page.addStyleTag({
-      content: ".resume-a4-page { height: 72mm !important; }"
+      content: ".resume-a4-page { height: 35mm !important; }"
     });
     await openManualPageTab(page);
-    await expect(page.getByTestId("overflow-status")).toContainText("fits_two_pages");
-    await expect(page.getByRole("button", { name: "下载 PDF" })).toBeDisabled();
-    await expect(page.locator(".warning-box")).toContainText("正式导出会被阻止");
+    await expect(page.getByTestId("overflow-status")).toHaveClass(/overflow-status-exceeds_four_pages/);
+    await expect(page.getByRole("button", { name: "下载 PDF" })).toBeEnabled();
+    await expect(page.locator(".warning-box")).toContainText("超过建议的 4 页");
   });
 
   test("export-record-failure, retry-after-failure and browser-print-fallback", async ({ page }) => {
-    await createBranchFromDraft(page, `V2 G3a 失败重试 ${Date.now()}`);
+    await createBranchFromDraft(page);
     await ensureSinglePage(page);
 
     await page.route("**/api/resume-export/pdf", async (route) => {
@@ -347,7 +348,7 @@ test.describe("V2-G3a direct PDF download", () => {
   });
 
   test("G2-template-center, G1b-style, G0a-edit and D2-print regressions stay usable", async ({ page }) => {
-    await createBranchFromDraft(page, `V2 G3a 组合回归 ${Date.now()}`);
+    await createBranchFromDraft(page);
     // Open template center via style mode + template tab
     const modeRail = page.locator(".resume-mode-rail button");
     await expect(modeRail.nth(2)).toBeVisible({ timeout: 15_000 });
@@ -361,12 +362,15 @@ test.describe("V2-G3a direct PDF download", () => {
     await expect(page.getByTestId("template-center")).toHaveCount(0);
 
     await openManualTypographyTab(page);
-    await page.getByLabel("行距").selectOption("tight");
-    await expect(page.locator(".notice")).toContainText("行距已保存");
+    const lineHeight = page.getByLabel("行距");
+    await lineHeight.selectOption("tight");
+    await expect(lineHeight).toHaveValue("tight");
     await page.getByTestId("canvas-edit-toggle").check();
-    const item = await firstRenderedItem(page);
-    await visibleA4Page(page).locator(`[data-source-item-id="${item.id}"]`).first().click({ force: true });
+    await page.locator(".resume-mode-rail button").nth(0).click();
+    const item = await firstRenderedCanonicalItem(page);
+    await visibleA4Page(page).locator(`[data-source-item-id="${item.id}"]`).first().dblclick({ force: true });
     await expect(page.getByTestId("resume-studio-editor")).toBeVisible();
+    await page.getByTestId("resume-studio-editor").getByRole("button", { name: "取消", exact: true }).click();
 
     await openManualPageTab(page);
     await page.getByRole("button", { name: "打印 / 保存 PDF" }).click();

@@ -1,36 +1,24 @@
-import type { ResumeRenderSectionType } from "@/domain/schemas";
+import type { ResumeSectionTypeV2 } from "@/domain/resumeFields";
 
 export type ResumeStudioSectionKey =
-  | "basics"
-  | ResumeRenderSectionType
-  | "education"
-  | "projects"
-  | "campus"
-  | "research"
-  | "volunteer"
-  | "awards"
-  | "language"
-  | "publications"
-  | "patents"
-  | "portfolio"
-  | "other"
-  | "custom"
+  | ResumeSectionTypeV2
   | `custom:${string}`
   | "add";
 
 export const SECTION_ORDER: ResumeStudioSectionKey[] = [
   "basics",
   "summary",
-  "experience",
   "education",
-  "projects",
+  "work",
+  "internship",
+  "project",
   "campus",
   "research",
   "volunteer",
   "skills",
   "awards",
   "certificates",
-  "language",
+  "languages",
   "publications",
   "patents",
   "portfolio",

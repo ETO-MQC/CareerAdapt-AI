@@ -3895,6 +3895,10 @@ html[data-theme="dark"] .property-panel-heading p {
   margin-bottom: 0;
 }
 
+.resume-canonical-item > p {
+  white-space: pre-line;
+}
+
 .resume-template-item {
   break-inside: avoid;
   padding-left: 4mm;
@@ -4318,12 +4322,45 @@ html[data-theme="dark"] .property-panel-heading p {
   padding: 6px 8px;
 }
 
+.resume-import-wizard-review .import-routing-panel-compact {
+  background: transparent;
+  border-color: transparent;
+  min-height: 32px;
+  padding: 0 8px;
+}
+
+.resume-import-wizard-review .import-routing-panel-compact > div:first-child {
+  display: flex;
+  gap: 4px;
+}
+
+.resume-import-wizard-review .import-routing-panel-compact > div:first-child > span {
+  display: inline;
+}
+
+.resume-import-wizard-review .import-routing-panel-compact > div:first-child > strong {
+  grid-row: auto;
+}
+
+.import-target-warning {
+  color: var(--danger);
+  font-size: 12px;
+  margin: 4px 0 0;
+}
+
+.import-unclassified-item {
+  align-items: center;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
 .resume-import-wizard-review .import-routing-panel > div:first-child {
   column-gap: 12px;
   grid-template-columns: auto minmax(0, 1fr);
 }
 
-.resume-import-wizard-review .import-routing-panel > div:first-child > span {
+.resume-import-wizard-review .import-routing-panel:not(.import-routing-panel-compact) > div:first-child > span {
   display: none;
 }
 

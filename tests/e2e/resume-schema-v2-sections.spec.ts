@@ -12,7 +12,7 @@ test.describe("Resume Studio v2 section catalog", () => {
     await expect(nav.getByRole("button", { name: /教育经历/ })).toBeVisible();
     await expect(nav.getByRole("button", { name: /工作经历/ })).toBeVisible();
     await expect(nav.getByRole("button", { name: /项目经历/ })).toBeVisible();
-    await expect(nav.getByRole("button", { name: /^技能$/ })).toBeVisible();
+    await expect(nav.getByRole("button", { name: /^专业技能$/ })).toBeVisible();
     await expect(nav.locator(":scope > .resume-section-nav").getByRole("button", { name: "科研经历" })).toHaveCount(0);
 
     const addButton = nav.getByRole("button", { name: "添加栏目" });
