@@ -17,7 +17,7 @@
   --shadow-soft: 0 12px 30px rgba(32, 37, 34, 0.1);
   --radius: 8px;
   --header-height: 52px;
-  --sidebar-width: 192px;
+  --sidebar-width: 164px;
   --sidebar-collapsed-width: 64px;
   --workspace-gap: 16px;
   --workspace-padding: 20px;
@@ -2393,6 +2393,16 @@ html[data-theme="dark"] .mode-rail-button:hover {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.property-control-grid .field-label {
+  min-width: 0;
+}
+
+.property-control-grid .field-label select,
+.property-control-grid .field-label input {
+  min-width: 0;
+  width: 100%;
+}
+
 [data-testid="document-style-panel"] > .property-control-grid {
   background: color-mix(in srgb, var(--surface-subtle) 52%, var(--surface));
   border: 1px solid var(--line);
@@ -2416,6 +2426,12 @@ html[data-theme="dark"] .mode-rail-button:hover {
 .pagination-controls {
   border-top: 1px solid var(--line);
   padding-top: 14px;
+}
+
+.pagination-controls .inline-toggle,
+.pagination-controls .save-status,
+.pagination-controls .pagination-summary {
+  grid-column: 1 / -1;
 }
 
 .pagination-summary {

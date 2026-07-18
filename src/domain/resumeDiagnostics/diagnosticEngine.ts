@@ -616,7 +616,7 @@ function layoutIssues(input: ResumeDiagnosticsInput): IssueDraft[] {
       code: "HORIZONTAL_TEXT_OVERFLOW",
       title: "存在水平溢出文本",
       description: "长邮箱、URL 或英文串可能被裁切，建议编辑正文换行或调整模板。",
-      sectionType: block.sectionType,
+      sectionType: block.sectionType as "summary" | "experience" | "skills" | "certificates" | undefined,
       contentItemIds: [block.sourceItemId],
       evidence: evidence("measurement", "水平溢出", true, block.sourceItemId),
       actions: [
@@ -754,7 +754,7 @@ function paginationIssues(input: ResumeDiagnosticsInput): IssueDraft[] {
       code: "FORCED_BREAK_CAUSES_WHITESPACE",
       title: "强制 Section 断页造成异常留白",
       description: "当前手动断页后仍有较多空白，建议取消不必要的断页提示。",
-      sectionType: plan.forcedBreakBeforeSections[0],
+      sectionType: plan.forcedBreakBeforeSections[0] as "summary" | "experience" | "skills" | "certificates" | undefined,
       evidence: [
         ...evidence("pagination", "强制断页 Section", plan.forcedBreakBeforeSections.join(", ")),
         ...evidence("pagination", "剩余高度 px", Math.round(plan.measurement.remainingPx))

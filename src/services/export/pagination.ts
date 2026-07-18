@@ -7,10 +7,13 @@ import type {
 } from "@/domain/schemas";
 import { stableHashText } from "@/services/security/text";
 import { defaultResumeRenderSectionOrder } from "@/domain/resumeFields/catalog";
+import { RESUME_SECTION_TYPES_V2, type ResumeSectionTypeV2 } from "@/domain/resumeFields";
+
+type AnySectionType = ResumeRenderSectionType | ResumeSectionTypeV2;
 
 export type ResumePaginationBlockMeasurement = {
   sourceItemId: string;
-  sectionType: ResumeRenderSectionType;
+  sectionType: AnySectionType;
   top: number;
   bottom: number;
   height: number;
@@ -18,7 +21,7 @@ export type ResumePaginationBlockMeasurement = {
 };
 
 export type ResumePaginationSectionMeasurement = {
-  sectionType: ResumeRenderSectionType;
+  sectionType: AnySectionType;
   top: number;
   bottom: number;
   height: number;
@@ -32,12 +35,13 @@ export type ResumePaginationMeasurement = {
   blocks: ResumePaginationBlockMeasurement[];
 };
 
-type MutablePaginationPage = ResumePaginationPlan["pages"][number] & {
+type MutablePaginationPage = Omit<ResumePaginationPlan["pages"][number], "sectionTypes"> & {
+  sectionTypes: AnySectionType[];
   itemIdsBySection: Record<string, string[]>;
 };
 
 const PAGE_NEAR_LIMIT_PX = 36;
-const SECTION_TYPES: ResumeRenderSectionType[] = [...defaultResumeRenderSectionOrder];
+const SECTION_TYPES: AnySectionType[] = [...defaultResumeRenderSectionOrder, ...RESUME_SECTION_TYPES_V2.filter((t) => t !== "basics")];
 
 export function collectResumePaginationMeasurement(pageElement: HTMLElement): ResumePaginationMeasurement {
   const pageRect = pageElement.getBoundingClientRect();
@@ -174,9 +178,8 @@ export function paginateResumeRenderModel(model: ResumeRenderModel, plan?: Resum
   }
 
   return plan.pages
-    .map((page) => ({
-      ...model,
-      sections: model.sections.flatMap((section) => {
+    .map((page) => {
+      const filteredSections = model.sections.flatMap((section) => {
         const itemIds = page.itemIdsBySection[section.type] ?? [];
         if (itemIds.length === 0) {
           return [];
@@ -184,9 +187,26 @@ export function paginateResumeRenderModel(model: ResumeRenderModel, plan?: Resum
         const itemSet = new Set(itemIds);
         const blocks = section.blocks.filter((block) => itemSet.has(block.sourceItemId));
         return blocks.length > 0 ? [{ ...section, blocks }] : [];
-      })
-    }))
-    .filter((pageModel) => pageModel.sections.length > 0);
+      });
+      const isV2 = model.schemaVersion === "resume-render-v2";
+      const filteredStructuredSections = isV2
+        ? model.structuredSections.flatMap((section) => {
+          const itemIds = page.itemIdsBySection[section.sectionType] ?? [];
+          if (itemIds.length === 0) {
+            return [];
+          }
+          const itemSet = new Set(itemIds);
+          const items = section.items.filter((item) => itemSet.has(item.itemId));
+          return items.length > 0 ? [{ ...section, items }] : [];
+        })
+        : [];
+      return {
+        ...model,
+        sections: filteredSections,
+        ...(isV2 ? { structuredSections: filteredStructuredSections } : {})
+      };
+    })
+    .filter((pageModel) => pageModel.sections.length > 0 || (model.schemaVersion === "resume-render-v2" && (pageModel.structuredSections?.length ?? 0) > 0));
 }
 
 export function isPaginationPlanBlocked(plan?: ResumePaginationPlan) {
@@ -226,12 +246,12 @@ export function paginationStatusLabel(status: ResumePaginationStatus) {
 }
 
 function sanitizeForcedBreaks(
-  configured: ResumeRenderSectionType[],
-  visibleSections: ResumeRenderSectionType[]
+  configured: string[],
+  visibleSections: AnySectionType[]
 ) {
   const visible = uniqueSections(visibleSections);
   const firstVisible = visible[0];
-  return uniqueSections(configured).filter((section) => visible.includes(section) && section !== firstVisible);
+  return uniqueSections(configured as AnySectionType[]).filter((section) => visible.includes(section) && section !== firstVisible);
 }
 
 function paginationStatus(input: {
@@ -299,11 +319,11 @@ function pageHasContent(page: MutablePaginationPage | undefined) {
   return Boolean(page?.blockIds.length);
 }
 
-function parseSectionType(value: unknown): ResumeRenderSectionType | undefined {
+function parseSectionType(value: unknown): AnySectionType | undefined {
   return SECTION_TYPES.find((section) => section === value);
 }
 
-function uniqueSections(values: ResumeRenderSectionType[]) {
+function uniqueSections(values: AnySectionType[]) {
   return Array.from(new Set(values));
 }
 

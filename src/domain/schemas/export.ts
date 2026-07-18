@@ -67,7 +67,7 @@ export const ExportSnapshotPresentationSchema = z.object({
 
 export const ResumePaginationPageSchema = z.object({
   pageNumber: z.number().int().min(1),
-  sectionTypes: z.array(ResumeRenderSectionTypeSchema),
+  sectionTypes: z.array(z.string()),
   itemIdsBySection: z.record(z.string(), z.array(z.string().min(1))),
   blockIds: z.array(z.string().min(1))
 });
@@ -82,7 +82,7 @@ export const ResumePaginationPlanSchema = z.object({
   actualPageCount: z.number().int().min(1),
   status: ResumePaginationStatusSchema,
   pages: z.array(ResumePaginationPageSchema).min(1),
-  forcedBreakBeforeSections: z.array(ResumeRenderSectionTypeSchema),
+  forcedBreakBeforeSections: z.array(z.string()),
   overflowBlockIds: z.array(z.string().min(1)),
   oversizedBlockIds: z.array(z.string().min(1)).default([]),
   measurement: z.object({
@@ -108,7 +108,7 @@ export const ResumePdfExportSnapshotSchema = z.object({
   pagePolicy: ResumePagePolicySchema,
   requestedMaxPages: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]),
   actualPageCount: z.number().int().min(1),
-  pageBreakBeforeSections: z.array(ResumeRenderSectionTypeSchema),
+  pageBreakBeforeSections: z.array(z.string()),
   paginationPlan: ResumePaginationPlanSchema,
   paginationHash: z.string().min(8),
   presentation: ExportSnapshotPresentationSchema,
