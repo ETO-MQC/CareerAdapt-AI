@@ -3911,14 +3911,143 @@ html[data-theme="dark"] .property-panel-heading p {
   margin-bottom: 0;
 }
 
-.resume-canonical-item > p {
-  white-space: pre-line;
-}
-
 .resume-template-item {
   break-inside: avoid;
   padding-left: 4mm;
   position: relative;
+}
+
+.resume-canonical-item {
+  display: grid;
+  gap: 1.2mm;
+  padding-left: 0;
+}
+
+.resume-canonical-item::before {
+  display: none;
+}
+
+.resume-presentation-heading {
+  align-items: baseline;
+  display: grid;
+  gap: 2mm;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+}
+
+.resume-presentation-heading h3 {
+  color: #171b18;
+  font-size: calc(var(--resume-body-font-size, 9.3pt) * 1.08);
+  font-weight: 750;
+  line-height: 1.3;
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.resume-presentation-heading strong,
+.resume-presentation-heading time {
+  color: #303632;
+  font-size: var(--resume-body-font-size, 9.3pt);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.3;
+}
+
+.resume-presentation-heading time {
+  white-space: nowrap;
+}
+
+.resume-template-section .resume-presentation-subtitle,
+.resume-template-section .resume-presentation-meta,
+.resume-template-section .resume-presentation-secondary,
+.resume-template-section .resume-presentation-links,
+.resume-template-section .resume-presentation-custom-rows p {
+  color: #4d5650;
+  font-size: calc(var(--resume-body-font-size, 9.3pt) * 0.94);
+}
+
+.resume-presentation-meta a,
+.resume-presentation-links a {
+  color: inherit;
+  overflow-wrap: anywhere;
+  text-decoration: underline;
+  text-underline-offset: 1px;
+}
+
+.resume-presentation-highlights {
+  display: grid;
+  gap: 0.8mm;
+  list-style: disc;
+  margin: 0;
+  padding-left: 4mm;
+}
+
+.resume-presentation-highlights li {
+  color: #262b28;
+  font-size: var(--resume-body-font-size, 9.3pt);
+  line-height: var(--resume-line-height, 1.48);
+  padding-left: 0.6mm;
+}
+
+.resume-presentation-custom-rows {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1mm 4mm;
+}
+
+.resume-presentation-custom-secondary {
+  flex-basis: 100%;
+}
+
+.resume-skill-groups {
+  display: grid;
+  gap: 1.5mm;
+}
+
+.resume-skill-group {
+  align-items: baseline;
+  display: grid;
+  gap: 2mm;
+  grid-template-columns: minmax(24mm, auto) minmax(0, 1fr);
+}
+
+.resume-skill-group > strong,
+.resume-language-row > strong {
+  color: #262b28;
+  font-size: var(--resume-body-font-size, 9.3pt);
+}
+
+.resume-skill-group > strong::after {
+  content: "：";
+}
+
+.resume-skill-values {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1mm 3mm;
+}
+
+.resume-skill-values span,
+.resume-language-row {
+  color: #303632;
+  font-size: var(--resume-body-font-size, 9.3pt);
+  line-height: var(--resume-line-height, 1.48);
+}
+
+.resume-skill-values span:not(:last-child)::after {
+  content: "、";
+}
+
+.resume-language-row {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.resume-language-row .resume-presentation-custom-rows {
+  flex-basis: 100%;
+}
+
+.resume-presentation-summary p {
+  white-space: pre-line;
 }
 
 .resume-template-item::before {

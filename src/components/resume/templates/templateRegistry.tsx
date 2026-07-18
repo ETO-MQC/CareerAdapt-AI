@@ -1,6 +1,7 @@
 import type { CSSProperties, ReactNode } from "react";
 import type {
   ResumePresentationConfig,
+  ResumePresentationItem,
   ResumeRenderBlock,
   ResumeRenderModel,
   ResumeRenderSection,
@@ -483,22 +484,105 @@ function RenderCanonicalSections({
     {sections.map((section) => (
       <section className={`resume-template-section resume-canonical-section ${compact ? "resume-section-compact" : ""}`} data-render-section={section.sectionType} key={section.sectionId}>
         <h2 {...canonicalSectionTitleAttrs(section, context)}>{section.title}</h2>
-        <div className="resume-block-list">
-          {section.items.map((item) => (
-            <div
-              className={`resume-template-item resume-canonical-item ${item.itemId === context?.selectedItemId ? "resume-template-item-selected" : ""}`}
-              data-source-item-id={item.itemId}
-              data-editable-block="true"
-              data-selected={item.itemId === context?.selectedItemId ? "true" : "false"}
-              key={item.itemId}
-            >
-              <p>{item.plainText}</p>
-            </div>
-          ))}
-        </div>
+        <RenderPresentationItems items={section.items.map((item) => item.presentation)} context={context} />
       </section>
     ))}
   </>;
+}
+
+function RenderPresentationItems({ items, context }: { items: ResumePresentationItem[]; context?: TemplateRenderContext }) {
+  if (items[0]?.sectionType === "skills") return <RenderSkillPresentation items={items} context={context} />;
+  return <div className="resume-block-list">{items.map((item) => <RenderPresentationItem item={item} context={context} key={item.id} />)}</div>;
+}
+
+function RenderSkillPresentation({ items, context }: { items: ResumePresentationItem[]; context?: TemplateRenderContext }) {
+  const groups = new Map<string, ResumePresentationItem[]>();
+  for (const item of items) {
+    const label = item.groupLabel ?? "";
+    groups.set(label, [...(groups.get(label) ?? []), item]);
+  }
+  return <div className="resume-skill-groups">
+    {[...groups.entries()].map(([label, groupItems]) => (
+      <div className="resume-skill-group" key={label || "uncategorized"}>
+        {label ? <strong>{label}</strong> : null}
+        <div className="resume-skill-values">
+          {groupItems.map((item) => (
+            <span {...presentationItemAttrs(item, context)} key={item.id}>
+              {item.primaryTitle}{item.secondaryTitle ? `（${item.secondaryTitle}）` : ""}{item.description ? ` · ${item.description}` : ""}
+            </span>
+          ))}
+        </div>
+      </div>
+    ))}
+  </div>;
+}
+
+function RenderPresentationItem({ item, context }: { item: ResumePresentationItem; context?: TemplateRenderContext }) {
+  if (item.sectionType === "summary") {
+    return <div {...presentationItemAttrs(item, context, "resume-presentation-summary")}><p>{item.description}</p></div>;
+  }
+  if (item.sectionType === "languages") {
+    return <div {...presentationItemAttrs(item, context, "resume-language-row")}>
+      <strong>{item.primaryTitle}</strong>{item.secondaryTitle ? <><span aria-hidden="true">：</span><span>{item.secondaryTitle}</span></> : null}
+      {item.description ? <span className="resume-language-description"> · {item.description}</span> : null}
+      <RenderCustomRows rows={item.customRows} />
+    </div>;
+  }
+  const unlistedLinks = item.links.filter((link) => !item.inlineMeta.includes(link) && !item.secondaryMeta.includes(link));
+  return (
+    <article {...presentationItemAttrs(item, context, "resume-template-item resume-canonical-item")}>
+      {(item.primaryTitle || item.secondaryTitle || item.dateRange) ? (
+        <div className="resume-presentation-heading">
+          {item.primaryTitle ? <h3>{item.primaryTitle}</h3> : <span />}
+          {item.secondaryTitle ? <strong>{item.secondaryTitle}</strong> : null}
+          {item.dateRange ? <time>{item.dateRange}</time> : null}
+        </div>
+      ) : null}
+      {item.tertiaryTitle || item.location ? <p className="resume-presentation-subtitle">{joinPresentationValues([item.location, item.tertiaryTitle])}</p> : null}
+      {item.inlineMeta.length ? <p className="resume-presentation-meta"><RenderMetaValues values={item.inlineMeta} /></p> : null}
+      {item.secondaryMeta.map((meta) => <p className="resume-presentation-secondary" key={meta}>{meta}</p>)}
+      {item.description ? <p className="resume-presentation-description">{item.description}</p> : null}
+      {item.highlights.length ? <ul className="resume-presentation-highlights">{item.highlights.map((highlight) => <li key={highlight}>{highlight}</li>)}</ul> : null}
+      {unlistedLinks.length ? <p className="resume-presentation-links"><RenderMetaValues values={unlistedLinks} /></p> : null}
+      <RenderCustomRows rows={item.customRows} />
+    </article>
+  );
+}
+
+function RenderMetaValues({ values }: { values: string[] }) {
+  return <>{values.map((value, index) => <span key={value}>{index > 0 ? " · " : ""}{isUrl(value) ? <a href={value}>{value}</a> : value}</span>)}</>;
+}
+
+function RenderCustomRows({ rows }: { rows: ResumePresentationItem["customRows"] }) {
+  const normalRows = rows.filter((row) => row.displayMode !== "bullet");
+  const bulletRows = rows.filter((row) => row.displayMode === "bullet");
+  return <>
+    {normalRows.length ? <div className="resume-presentation-custom-rows">{normalRows.map((row) => (
+      <p className={`resume-presentation-custom-${row.displayMode}`} key={`${row.label ?? ""}-${row.value}`}>
+        {row.label ? <strong>{row.label}：</strong> : null}{row.value}
+      </p>
+    ))}</div> : null}
+    {bulletRows.length ? <ul className="resume-presentation-highlights">{bulletRows.map((row) => <li key={`${row.label ?? ""}-${row.value}`}>{row.label ? `${row.label}：` : ""}{row.value}</li>)}</ul> : null}
+  </>;
+}
+
+function presentationItemAttrs(item: ResumePresentationItem, context?: TemplateRenderContext, baseClassName?: string) {
+  const selected = item.id === context?.selectedItemId;
+  return {
+    className: [baseClassName, selected ? "resume-template-item-selected" : ""].filter(Boolean).join(" ") || undefined,
+    "data-source-item-id": item.id,
+    "data-presentation-item": item.sectionType,
+    "data-editable-block": "true",
+    "data-selected": selected ? "true" : "false"
+  };
+}
+
+function joinPresentationValues(values: Array<string | undefined>) {
+  return values.filter((value): value is string => Boolean(value)).join(" · ");
+}
+
+function isUrl(value: string) {
+  return /^https?:\/\//i.test(value);
 }
 
 function canonicalSectionTitleAttrs(section: ResumeRenderStructuredSectionV2, context?: TemplateRenderContext) {

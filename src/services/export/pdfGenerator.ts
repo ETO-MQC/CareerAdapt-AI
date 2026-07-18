@@ -1,5 +1,6 @@
 import { chromium, type Browser } from "@playwright/test";
 import type { ResumePdfExportSnapshot } from "@/domain/schemas";
+import { RESUME_SECTION_TYPES_V2 } from "@/domain/resumeFields";
 import { createResumePaginationPlan, type ResumePaginationMeasurement } from "./pagination";
 import { renderResumePdfHtml } from "./pdfHtml";
 
@@ -27,6 +28,8 @@ export async function generateResumePdf(snapshot: ResumePdfExportSnapshot) {
       }
     });
 
+    // Combine V1 sectionOrder with V2 section types so all sections are measured
+    const allSectionTypes = [...new Set([...snapshot.presentation.sectionOrder, ...RESUME_SECTION_TYPES_V2.filter((t) => t !== "basics")])];
     const measurement = await page.locator("[data-resume-pagination-measurement='true']").evaluate((element, sectionTypes): ResumePaginationMeasurement => {
       const pageElement = element as HTMLElement;
       const pageRect = pageElement.getBoundingClientRect();
@@ -67,7 +70,7 @@ export async function generateResumePdf(snapshot: ResumePdfExportSnapshot) {
         sections,
         blocks
       };
-    }, snapshot.presentation.sectionOrder);
+    }, allSectionTypes);
     const paginationPlan = createResumePaginationPlan({
       measurement,
       paginationConfig: snapshot.presentation.pagination
