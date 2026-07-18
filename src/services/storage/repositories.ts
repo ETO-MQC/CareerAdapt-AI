@@ -1,6 +1,6 @@
 import { demoJobDescriptions } from "@/data/demoJobs";
 import { demoCareerProfile } from "@/data/demoProfile";
-import { migrateBranchContentItem, migrateCareerProfileToV2, migrateResumeBranchToV2 } from "@/domain/migrations/resumeV2";
+import { migrateBranchContentItem, migrateCareerProfileToV2, migrateResumeBranchToV2, projectResumeItemV2 } from "@/domain/migrations/resumeV2";
 import {
   AiLogSchema,
   AiSuggestionSchema,
@@ -2901,7 +2901,8 @@ export class WorkspaceRepository {
     reference:
       | { type: "experience"; experienceId: string; factId: string }
       | { type: "skill"; skillId: string; factId: string }
-      | { type: "certificate"; certificateId: string; factId: string };
+      | { type: "certificate"; certificateId: string; factId: string }
+      | { type: "canonical"; itemId: string; sectionType: string };
   }) {
     const reference = input.reference;
     const newItemId = `branch-item-profile-use-${stableHashText(`${input.branchId}:${input.operationId}`).replace(/[^a-zA-Z0-9-]/g, "").slice(0, 28)}`;
@@ -2916,8 +2917,16 @@ export class WorkspaceRepository {
         let text = "";
         let itemType: "experience" | "skill" | "certificate" | "custom" = "custom";
         let factRefs: ResumeBranch["contentItems"][number]["factRefs"] = [];
+        let canonicalEntry: NonNullable<CareerProfile["structuredFacts"]>[number] | undefined;
 
-        if (reference.type === "experience") {
+        if (reference.type === "canonical") {
+          canonicalEntry = profile.structuredFacts?.find((entry) => entry.data.id === reference.itemId && entry.data.sectionType === reference.sectionType);
+          if (!canonicalEntry || input.section !== reference.sectionType) throw new Error("profile_canonical_item_unavailable");
+          factRefs = resolveStructuredProfileFactRefs(profile, canonicalEntry.factIds);
+          if (!factRefs.length || factRefs.length !== canonicalEntry.factIds.length) throw new Error("profile_canonical_fact_unavailable");
+          text = projectResumeItemV2(canonicalEntry.data);
+          itemType = canonicalBranchItemType(canonicalEntry.data.sectionType);
+        } else if (reference.type === "experience") {
           const experience = profile.experiences.find((candidate) => candidate.id === reference.experienceId);
           const fact = experience?.facts.find((candidate) => candidate.id === reference.factId);
           if (!experience || !fact || !fact.confirmedByUser || fact.riskLevel === "high") throw new Error("profile_experience_fact_unavailable");
@@ -2984,14 +2993,20 @@ export class WorkspaceRepository {
           guardedAt: now,
           guardVersion: guardResult.guardVersion
         });
+        const nextContentItems = [...orderedItems, nextItem].map((item, order) => ({ ...item, order }));
+        const syncedStructuredItems = syncStructuredContentItems(branch, nextContentItems);
+        const nextStructuredItems = canonicalEntry ? syncedStructuredItems.map((item) => item.id === newItemId ? ResumeContentItemV2Schema.parse({
+          id: newItemId, schemaVersion: "resume-content-item-v2", data: canonicalEntry!.data, factRefs,
+          source: nextItem.source, order: nextItem.order, visible: true, guardMode: nextItem.guardMode,
+          guardStatus: nextItem.guardStatus, guardFindings: nextItem.guardFindings, legacyTextProjection: text,
+          sourceBlockIds: canonicalEntry!.sourceBlockIds, sourceRanges: canonicalEntry!.sourceRanges,
+          sourceExcerpt: canonicalEntry!.sourceExcerpt, mappingTrace: canonicalEntry!.mappingTrace
+        }) : item) : syncedStructuredItems;
         return ResumeBranchSchema.parse({
           ...branch,
           sourceProfileVersion: profile.version,
-          contentItems: [...orderedItems, nextItem].map((item, order) => ({ ...item, order })),
-          structuredContentItems: syncStructuredContentItems(
-            branch,
-            [...orderedItems, nextItem].map((item, order) => ({ ...item, order }))
-          )
+          contentItems: nextContentItems,
+          structuredContentItems: nextStructuredItems
         });
       }
     });
@@ -5025,6 +5040,25 @@ function profileFactReferenceEquals(
     return left.evidenceId === right.evidenceId && left.linkedFactId === right.linkedFactId;
   }
   return false;
+}
+
+function canonicalBranchItemType(sectionType: ResumeItemV2["sectionType"]): "experience" | "skill" | "certificate" | "custom" {
+  if (sectionType === "skills") return "skill";
+  if (sectionType === "certificates") return "certificate";
+  return ["education", "work", "internship", "project", "research", "campus", "volunteer"].includes(sectionType) ? "experience" : "custom";
+}
+
+function resolveStructuredProfileFactRefs(profile: CareerProfile, factIds: string[]): ResumeBranch["contentItems"][number]["factRefs"] {
+  const refs: ResumeBranch["contentItems"][number]["factRefs"] = [];
+  for (const factId of factIds) {
+    const experience = profile.experiences.find((item) => item.facts.some((fact) => fact.id === factId && fact.confirmedByUser && fact.riskLevel !== "high"));
+    if (experience) { refs.push({ type: "experience_fact", experienceId: experience.id, factId }); continue; }
+    const skill = profile.skills.find((item) => item.fact?.id === factId && item.fact.confirmedByUser && item.fact.riskLevel !== "high");
+    if (skill) { refs.push({ type: "skill_fact", skillId: skill.id, factId }); continue; }
+    const certificate = profile.certificates.find((item) => item.fact?.id === factId && item.fact.confirmedByUser && item.fact.riskLevel !== "high");
+    if (certificate) refs.push({ type: "certificate_fact", certificateId: certificate.id, factId });
+  }
+  return refs;
 }
 
 function normalizeProfileDate(value?: string) {

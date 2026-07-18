@@ -229,7 +229,12 @@ function mergeImportedProfile(input: {
     for (const item of section.items.filter(canImportItem)) {
       const factKey = normalizeFactKey(item.normalizedText);
       if (existingFactKeys.has(factKey)) {
-        continue;
+        const existingRefs = findExistingFactRefs(baseProfile, item.normalizedText);
+        if (existingRefs.length > 0) {
+          factMappings.push({ itemId: item.id, factRefs: existingRefs });
+          appendStructuredFact(structuredFacts, input.draft, item, existingRefs);
+          continue;
+        }
       }
       existingFactKeys.add(factKey);
 
@@ -257,6 +262,20 @@ function mergeImportedProfile(input: {
             factId: fact.id
           };
         });
+        factMappings.push({ itemId: item.id, factRefs: refs });
+        appendStructuredFact(structuredFacts, input.draft, item, refs);
+        continue;
+      }
+
+      if (sectionCategory(section) === "language") {
+        const skillId = `skill-${nanoid(10)}`;
+        const fact = createImportedFact({ draft: input.draft, item, statement: item.normalizedText, category: "language", now: input.now });
+        skills.push({
+          id: skillId,
+          name: item.structuredItem?.sectionType === "languages" ? item.structuredItem.language : firstLine(item.normalizedText),
+          evidenceIds: [], fact, createdAt: input.now, updatedAt: input.now
+        });
+        const refs = [{ type: "skill_fact" as const, skillId, factId: fact.id }];
         factMappings.push({ itemId: item.id, factRefs: refs });
         appendStructuredFact(structuredFacts, input.draft, item, refs);
         continue;
@@ -560,6 +579,7 @@ function importedExperienceType(section: ImportedResumeSection): CareerProfile["
   if (category === "campus") {
     return "campus";
   }
+  if (category === "award") return "competition";
   if (category === "work") {
     return "work";
   }
@@ -715,6 +735,21 @@ function collectFactKeys(profile: CareerProfile) {
     ...profile.skills.flatMap((skill) => skill.fact ? [normalizeFactKey(skill.fact.statement)] : []),
     ...profile.certificates.flatMap((certificate) => certificate.fact ? [normalizeFactKey(certificate.fact.statement)] : [])
   ];
+}
+
+function findExistingFactRefs(profile: CareerProfile, statement: string): BranchFactRef[] {
+  const key = normalizeFactKey(statement);
+  for (const experience of profile.experiences) {
+    const fact = experience.facts.find((candidate) => normalizeFactKey(candidate.statement) === key);
+    if (fact) return [{ type: "experience_fact", experienceId: experience.id, factId: fact.id }];
+  }
+  for (const skill of profile.skills) {
+    if (skill.fact && normalizeFactKey(skill.fact.statement) === key) return [{ type: "skill_fact", skillId: skill.id, factId: skill.fact.id }];
+  }
+  for (const certificate of profile.certificates) {
+    if (certificate.fact && normalizeFactKey(certificate.fact.statement) === key) return [{ type: "certificate_fact", certificateId: certificate.id, factId: certificate.fact.id }];
+  }
+  return [];
 }
 
 function uniqueStrings(values: string[]) {

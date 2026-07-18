@@ -18,6 +18,7 @@ type CanonicalSectionPageProps = {
   onDuplicate: (itemId: string) => void;
   onMoveUp: (itemId: string) => void;
   onMoveDown: (itemId: string) => void;
+  onOpenLibrary: () => void;
   nav: SectionNavContext;
 };
 
@@ -64,6 +65,7 @@ export function CanonicalSectionPage(props: CanonicalSectionPageProps) {
       hasNext={Boolean(next)}
       onPrev={() => prev && props.nav.onNavigate(prev)}
       onNext={() => next && props.nav.onNavigate(next)}
+      headerAction={<button type="button" className="section-action-button" onClick={props.onOpenLibrary}>资料库</button>}
     >
       <AccordionList items={accordionItems} emptyHint={`暂无${props.sectionLabel}`} />
     </SectionShell>

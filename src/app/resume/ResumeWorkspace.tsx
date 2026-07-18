@@ -100,7 +100,8 @@ type ContentAutoSaveState = "idle" | "dirty" | "saving" | "saved" | "needs_confi
 type ProfileLibraryReference =
   | { type: "experience"; experienceId: string; factId: string }
   | { type: "skill"; skillId: string; factId: string }
-  | { type: "certificate"; certificateId: string; factId: string };
+  | { type: "certificate"; certificateId: string; factId: string }
+  | { type: "canonical"; itemId: string; sectionType: string };
 type ProfileLibraryItem = {
   key: string;
   title: string;
@@ -4012,6 +4013,7 @@ export function ResumeWorkspace() {
                   onDuplicate={(itemId) => void duplicateContentItem(itemId)}
                   onMoveUp={(itemId) => void movePresentationItem(itemId, "up")}
                   onMoveDown={(itemId) => void movePresentationItem(itemId, "down")}
+                  onOpenLibrary={() => setProfileLibraryOpen(true)}
                   nav={sectionNavContext}
                 />
               )
@@ -4611,7 +4613,10 @@ export function ResumeWorkspace() {
             </div>
             <div className="profile-library-list">
               {profileLibraryItems.length > 0 ? profileLibraryItems.map((item) => {
-                const alreadyUsed = selectedBranch?.contentItems.some((contentItem) => contentItem.factRefs.some((reference) => profileLibraryReferenceMatches(reference, item.reference)));
+                const libraryReference = item.reference;
+                const alreadyUsed = libraryReference.type === "canonical"
+                  ? selectedBranch?.structuredContentItems?.some((contentItem) => contentItem.data.id === libraryReference.itemId && contentItem.data.sectionType === libraryReference.sectionType)
+                  : selectedBranch?.contentItems.some((contentItem) => contentItem.factRefs.some((reference) => profileLibraryReferenceMatches(reference, libraryReference)));
                 return (
                   <article className="profile-library-item" key={item.key}>
                     <div className="profile-library-item-copy">
@@ -5289,6 +5294,15 @@ function experienceMatchesResumeSection(
 }
 
 function buildProfileLibraryItems(profile: CareerProfile, section: ResumeStudioSectionKey): ProfileLibraryItem[] {
+  if (!section.startsWith("custom:")) {
+    const canonicalItems = (profile.structuredFacts ?? []).filter((entry) => entry.data.sectionType === section && entry.factIds.length > 0);
+    if (canonicalItems.length > 0) return canonicalItems.map((entry) => ({
+      key: `canonical:${entry.data.sectionType}:${entry.data.id}`,
+      title: canonicalProfileItemTitle(entry.data), subtitle: entry.data.sectionType,
+      body: projectResumeItemV2(entry.data),
+      reference: { type: "canonical" as const, itemId: entry.data.id, sectionType: entry.data.sectionType }
+    }));
+  }
   if (section === "skills" || section === "languages") {
     return profile.skills.flatMap((skill) => {
       const fact = skill.fact;
@@ -5328,6 +5342,12 @@ function buildProfileLibraryItems(profile: CareerProfile, section: ResumeStudioS
         reference: { type: "experience" as const, experienceId: experience.id, factId: fact.id }
       }];
     }));
+}
+
+function canonicalProfileItemTitle(item: ResumeItemV2) {
+  const record = item as unknown as Record<string, unknown>;
+  return [record.title, record.name, record.organization, record.school, record.language, record.text]
+    .find((value) => typeof value === "string" && value.trim()) as string | undefined ?? item.sectionType;
 }
 
 function profileLibraryReferenceMatches(

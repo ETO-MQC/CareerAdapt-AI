@@ -17,7 +17,12 @@ export function migrateCareerProfileToV2(profile: CareerProfile): CareerProfileV
   if (profile.schemaVersion === "career-profile-v2" && profile.structuredFacts && profile.structuredBasics) return profile as CareerProfileV2;
   const structuredFacts = [
     ...profile.experiences.map((experience) => ({ data: migrateExperience(experience), factIds: experience.facts.map((fact) => fact.id) })),
-    ...profile.skills.map((skill) => ({ data: { id: skill.id, sectionType: "skills" as const, name: skill.name, level: skill.level, customFields: [] }, factIds: skill.fact ? [skill.fact.id] : [] })),
+    ...profile.skills.map((skill) => ({
+      data: skill.fact?.category === "language"
+        ? { id: skill.id, sectionType: "languages" as const, language: skill.name, description: skill.fact.statement, customFields: [] }
+        : { id: skill.id, sectionType: "skills" as const, name: skill.name, level: skill.level, description: skill.fact?.statement, customFields: [] },
+      factIds: skill.fact ? [skill.fact.id] : []
+    })),
     ...profile.certificates.map((certificate) => ({ data: { id: certificate.id, sectionType: "certificates" as const, name: certificate.name, issuer: certificate.issuer, issuedAt: certificate.issuedAt, customFields: [] }, factIds: certificate.fact ? [certificate.fact.id] : [] }))
   ];
   return CareerProfileSchema.parse({
