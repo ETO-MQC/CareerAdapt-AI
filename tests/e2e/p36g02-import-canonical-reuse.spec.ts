@@ -11,8 +11,8 @@ const expected = new Map<string, number>([
   ["awards", 2], ["skills", 6], ["languages", 1]
 ]);
 
-test.describe("P3.6g0.2 canonical import persistence", () => {
-  test("import review keeps canonical counts through Profile, Branch and Studio", async ({ page }) => {
+test.describe("P3.6g0.3 canonical Profile and Studio library", () => {
+  test("import → profile library → canonical counts", async ({ page }) => {
     const profileName = `P36g02 Import ${Date.now()}`;
     await importCanonicalJson(page, profileName, true);
 
@@ -23,6 +23,21 @@ test.describe("P3.6g0.2 canonical import persistence", () => {
     const branch = branches.find((item) => item.profileId === profile.id && item.sourceImportId)!;
     expectCanonicalCounts(profile.structuredFacts?.map((entry) => entry.data) ?? []);
     expectCanonicalCounts(branch.structuredContentItems?.filter((item) => item.visible).map((item) => item.data) ?? []);
+
+    await page.goto("/profile");
+    const categoryList = page.getByRole("listbox", { name: "资料分类" });
+    await expect(categoryList).toBeVisible();
+    const canonicalOrder = ["basics", "summary", "education", "work", "internship", "project", "research", "campus", "volunteer", "awards", "skills", "certificates", "languages", "publications", "patents", "portfolio", "other", "custom"];
+    await expect(categoryList.locator("button")).toHaveCount(canonicalOrder.length);
+    expect(await categoryList.locator("button").evaluateAll((buttons) => buttons.map((button) => button.getAttribute("data-section-type")))).toEqual(canonicalOrder);
+    for (const [sectionType, count] of [["awards", 2], ["skills", 6], ["languages", 1]] as const) {
+      await expect(categoryList.locator(`[data-section-type='${sectionType}'] b`)).toHaveText(String(count));
+      await categoryList.locator(`[data-section-type='${sectionType}']`).click();
+      await expect(page.locator(".profile-managed-row")).toHaveCount(count);
+    }
+
+    await page.goto(`/resume?branchId=${branch.id}`);
+    await expect(page.getByTestId("resume-studio-shell")).toBeVisible();
 
     for (const [label, sectionType, count] of [
       ["奖项", "awards", 2], ["专业技能", "skills", 6], ["语言", "languages", 1]
@@ -37,7 +52,7 @@ test.describe("P3.6g0.2 canonical import persistence", () => {
     }
   });
 
-  test("skills, awards and languages library picker writes Branch revisions and survives refresh", async ({ page }) => {
+  test("library picker → ResumeBranch → refresh", async ({ page }) => {
     const profileName = `P36g02 Library ${Date.now()}`;
     await importCanonicalJson(page, profileName, false);
     await page.getByRole("button", { name: "从零创建" }).click();

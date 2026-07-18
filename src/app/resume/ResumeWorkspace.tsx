@@ -5295,7 +5295,7 @@ function experienceMatchesResumeSection(
 
 function buildProfileLibraryItems(profile: CareerProfile, section: ResumeStudioSectionKey): ProfileLibraryItem[] {
   if (!section.startsWith("custom:")) {
-    const canonicalItems = (profile.structuredFacts ?? []).filter((entry) => entry.data.sectionType === section && entry.factIds.length > 0);
+    const canonicalItems = (profile.structuredFacts ?? []).filter((entry) => entry.data.sectionType === section && (entry.factIds.length > 0 || entry.data.sectionType === "summary"));
     if (canonicalItems.length > 0) return canonicalItems.map((entry) => ({
       key: `canonical:${entry.data.sectionType}:${entry.data.id}`,
       title: canonicalProfileItemTitle(entry.data), subtitle: entry.data.sectionType,

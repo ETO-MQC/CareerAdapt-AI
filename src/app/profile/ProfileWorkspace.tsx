@@ -9,6 +9,7 @@ import { applyPdfSourceMappingToProfileOutput, isPdfEvidenceLocated } from "@/do
 import { buildPageTextRecords, combinePdfPageTexts, preparePdfText } from "@/domain/pdfImport/text";
 import { validatePdfFileDescriptor, validatePdfHeader } from "@/domain/pdfImport/validation";
 import { mapProfileDraftToCareerProfile } from "@/domain/mappers/profileDraftMapper";
+import { migrateCareerProfileToV2 } from "@/domain/migrations/resumeV2";
 import {
   CareerProfileSchema,
   ProfileBuilderOutputSchema,
@@ -33,10 +34,9 @@ import { StructuredExperienceForm } from "@/components/editor/StructuredExperien
 import {
   defaultExperienceType,
   emptyStructuredExperienceFields,
-  resumeFieldCategories,
-  type ResumeFieldCategoryId,
   type StructuredExperienceFields
 } from "@/domain/resumeFields/catalog";
+import { canonicalProfileBasics, canonicalProfileLibraryItems, canonicalProfileSectionCounts, profileSectionCatalog } from "@/domain/profile/canonicalLibrary";
 import { extractTextFromPdfBuffer } from "@/services/pdf/extractText";
 import { hashBytes, hashText, redactSensitiveTextForModel } from "@/services/security/text";
 import { notify } from "@/services/notifications/store";
@@ -48,7 +48,7 @@ const pdfInputId = "resume-pdf-upload";
 const profileArchiveKey = (profileId: string) => `profileArchive:${profileId}:skills`;
 const profileArchiveV2Key = (profileId: string) => `profileArchive:${profileId}:managed-items`;
 
-type ProfileCategoryId = ResumeFieldCategoryId;
+type ProfileCategoryId = string;
 type ProfileUsageFilter = "all" | "used" | "unused" | "archived";
 type ProfileManagedKind = "basic" | "summary" | "experience" | "certificate" | "skill" | "custom";
 
@@ -101,7 +101,12 @@ const emptyProfileArchive: ProfileArchiveState = {
   customBlocks: []
 };
 
-const profileCategories = resumeFieldCategories;
+const profileCategories = profileSectionCatalog.map((section) => ({
+  id: section.id,
+  label: section.label,
+  description: section.repeatable ? "可复用的已确认资料" : "当前人物的基础资料",
+  repeatable: section.repeatable
+}));
 
 const emptyProfileItemDraft: ProfileItemDraft = {
   ...emptyStructuredExperienceFields,
@@ -160,7 +165,7 @@ export function ProfileWorkspace() {
   const [selectedBatchKeys, setSelectedBatchKeys] = useState<Set<string>>(new Set());
   const [basicDraftState, setBasicDraftState] = useState<BasicDraftState>(emptyBasicDraft);
   const [profileArchive, setProfileArchive] = useState<ProfileArchiveState>(emptyProfileArchive);
-  const [activeProfileCategory, setActiveProfileCategory] = useState<ProfileCategoryId>("basic");
+  const [activeProfileCategory, setActiveProfileCategory] = useState<ProfileCategoryId>("basics");
   const [selectedProfileItemKey, setSelectedProfileItemKey] = useState("basic:profile");
   const [profileSearch, setProfileSearch] = useState("");
   const [profileUsageFilter, setProfileUsageFilter] = useState<ProfileUsageFilter>("all");
@@ -355,6 +360,7 @@ export function ProfileWorkspace() {
     }
 
     const now = new Date().toISOString();
+    const canonical = migrateCareerProfileToV2(profile);
     await saveProfileSnapshot({
       ...profile,
       name,
@@ -367,6 +373,17 @@ export function ProfileWorkspace() {
         location: optionalText(basicDraft.location),
         links: basicDraft.link.trim() ? [basicDraft.link.trim()] : []
       },
+      schemaVersion: "career-profile-v2",
+      structuredBasics: {
+        ...canonical.structuredBasics,
+        name,
+        headline: optionalText(basicDraft.headline),
+        phone: optionalText(basicDraft.phone),
+        email: optionalText(basicDraft.email),
+        location: optionalText(basicDraft.location),
+        otherLinks: basicDraft.link.trim() ? [basicDraft.link.trim()] : []
+      },
+      structuredFacts: canonical.structuredFacts,
       version: profile.version + 1,
       updatedAt: now
     }, "个人资料已保存。");
@@ -395,7 +412,7 @@ export function ProfileWorkspace() {
   }
 
   function startManagedProfileCreate() {
-    if (activeProfileCategory === "basic" || activeProfileCategory === "summary") {
+    if (activeProfileCategory === "basics" || activeProfileCategory === "summary") {
       setSelectedProfileItemKey(`new-profile:${activeProfileCategory}`);
       setNewProfileDraft(emptyNewProfileDraft);
       setProfileItemEditing(true);
@@ -417,7 +434,7 @@ export function ProfileWorkspace() {
     setProfileOverride(selected);
     setProfileItemEditing(false);
     setSelectedProfileItemKey("basic:profile");
-    setActiveProfileCategory("basic");
+    setActiveProfileCategory("basics");
     setProfileSearch("");
     setProfileUsageFilter("all");
     notify({ type: "success", title: "已切换人物", message: `已切换到 ${selected.name} 的个人资料。` });
@@ -464,7 +481,7 @@ export function ProfileWorkspace() {
   }
 
   function editCurrentProfile() {
-    selectProfileCategory("basic");
+    selectProfileCategory("basics");
     managerRef.current?.scrollIntoView({ block: "start" });
   }
 
@@ -573,7 +590,7 @@ export function ProfileWorkspace() {
       return;
     }
 
-    if (activeProfileCategory === "basic") {
+    if (activeProfileCategory === "basics") {
       await saveProfileBasics();
       setProfileItemEditing(false);
       return;
@@ -585,9 +602,17 @@ export function ProfileWorkspace() {
         notify({ type: "warning", title: "自我评价必填", message: "请先填写自我评价。" });
         return;
       }
+      const canonical = migrateCareerProfileToV2(profile);
+      const summaryEntry = canonical.structuredFacts.find((entry) => entry.data.sectionType === "summary");
+      const structuredFacts = summaryEntry
+        ? canonical.structuredFacts.map((entry) => entry === summaryEntry ? { ...entry, data: { ...entry.data, text: summary } } : entry)
+        : [{ data: { id: `profile-summary-${profile.id}`, sectionType: "summary" as const, text: summary, customFields: [] }, factIds: [], sourceBlockIds: [], sourceRanges: [], mappingTrace: [] }, ...canonical.structuredFacts];
       const saved = await saveProfileSnapshot({
         ...profile,
         basics: { ...profile.basics, summary },
+        schemaVersion: "career-profile-v2",
+        structuredBasics: { ...canonical.structuredBasics, summary },
+        structuredFacts,
         version: profile.version + 1,
         updatedAt: new Date().toISOString()
       }, "自我评价已保存。");
@@ -1573,6 +1598,7 @@ export function ProfileWorkspace() {
                 <button
                   key={category.id}
                   type="button"
+                  data-section-type={category.id}
                   className={activeProfileCategory === category.id ? "profile-category-button profile-category-button-active" : "profile-category-button"}
                   onClick={() => selectProfileCategory(category.id)}
                 >
@@ -1594,7 +1620,7 @@ export function ProfileWorkspace() {
               </div>
               <div className="profile-list-actions">
                 <button className="primary-button compact" disabled={profileSaving} onClick={startManagedProfileCreate}>新增</button>
-                {activeProfileCategory !== "basic" && activeProfileCategory !== "summary" ? (
+                {activeProfileCategory !== "basics" && activeProfileCategory !== "summary" ? (
                   <button
                     className={batchMode ? "secondary-button compact" : "section-action-button compact"}
                     onClick={() => { setBatchMode(!batchMode); setSelectedBatchKeys(new Set()); }}
@@ -1695,7 +1721,7 @@ export function ProfileWorkspace() {
               {profileManagedItems.length === 0 ? (
                 <div className="profile-empty-list">
                   <strong>当前筛选下没有条目</strong>
-                  <p>{activeProfileCategory === "basic" ? "基本信息始终在右侧维护。" : "可以新建当前分类条目，或切换到已归档筛选恢复内容。"}</p>
+                  <p>{activeProfileCategory === "basics" ? "基本信息始终在右侧维护。" : "可以新建当前分类条目，或切换到已归档筛选恢复内容。"}</p>
                 </div>
               ) : null}
             </div>
@@ -1707,7 +1733,7 @@ export function ProfileWorkspace() {
                 <h2>详情</h2>
                 <p>{selectedProfileItem?.archived ? "归档条目可恢复到当前资料。" : "查看来源、使用状态和可编辑字段。"}</p>
               </div>
-              {activeProfileCategory !== "basic" && selectedProfileItem ? (
+              {activeProfileCategory !== "basics" && selectedProfileItem ? (
                 <div className="action-row profile-detail-actions">
                   {selectedProfileItem.archived ? (
                     <>
@@ -1727,7 +1753,7 @@ export function ProfileWorkspace() {
               ) : null}
             </div>
 
-            {activeProfileCategory === "basic" && creatingNewProfile ? (
+            {activeProfileCategory === "basics" && creatingNewProfile ? (
               <div className="profile-detail-scroll profile-detail-form">
                 <div className="profile-new-person-note">
                   <strong>新增人物</strong>
@@ -1748,7 +1774,7 @@ export function ProfileWorkspace() {
                   <button className="secondary-button" disabled={profileSaving} onClick={() => { setProfileItemEditing(false); setSelectedProfileItemKey("basic:profile"); }}>取消</button>
                 </div>
               </div>
-            ) : activeProfileCategory === "basic" ? (
+            ) : activeProfileCategory === "basics" ? (
               <div className="profile-detail-scroll profile-detail-form">
                 <div className="section-fields-grid-2">
                   <FieldInput id="profile-name" label="姓名" required autoComplete="name" value={basicDraft.name} onChange={(name) => setBasicDraft({ ...basicDraft, name })} />
@@ -1996,7 +2022,7 @@ export function ProfileWorkspace() {
         <div className="sync-dialog-overlay" role="dialog" aria-modal="true" aria-labelledby="blocker-dialog-title">
           <div className="sync-dialog profile-delete-dialog">
             <h3 className="sync-dialog-title" id="blocker-dialog-title">删除前需清理关联数据</h3>
-            <p className="sync-dialog-description">"{profile.name}" 仍被以下数据引用，需要先清理才能删除。</p>
+            <p className="sync-dialog-description">“{profile.name}”仍被以下数据引用，需要先清理才能删除。</p>
             <div className="blocker-category-list">
               {([
                 { key: "branches" as const, label: "简历草稿", unit: "份" },
@@ -2060,7 +2086,7 @@ export function ProfileWorkspace() {
           <div className="sync-dialog profile-delete-dialog">
             <h3 className="sync-dialog-title" id="force-delete-title">强制删除条目？</h3>
             <p className="sync-dialog-description">
-              " {forceDeleteDialog.item.title} " 仍被 {forceDeleteDialog.referenceCount} 份简历引用。
+              “{forceDeleteDialog.item.title}”仍被 {forceDeleteDialog.referenceCount} 份简历引用。
               强制删除后，简历中引用该条目的内容会被同步移除。
             </p>
             <div className="sync-dialog-actions">
@@ -2114,7 +2140,7 @@ function ProfileCategoryFields({
       />
     );
   }
-  if (category === "basic") return null;
+  if (category === "basics") return null;
 
   const labels: Record<Exclude<ProfileCategoryId, "basic" | "summary" | "education" | "work" | "project" | "campus">, { title: string; subtitle: string; body: string }> = {
     award: { title: "奖项名称", subtitle: "颁发机构 / 赛事", body: "获奖说明" },
@@ -2209,15 +2235,16 @@ function buildProfileManagedItems(
 }
 
 function buildCurrentProfileItems(profile: CareerProfile, category: ProfileCategoryId): ProfileManagedItem[] {
-  if (category === "basic") {
+  if (category === "basics") {
+    const basics = canonicalProfileBasics(profile);
     return [{
       key: "basic:profile",
       id: profile.id,
       kind: "basic",
-      category: "basic",
-      title: profile.basics.name,
-      subtitle: [profile.basics.email, profile.basics.phone, profile.basics.location].filter(Boolean).join(" / "),
-      body: profile.basics.summary ?? "",
+      category: "basics",
+      title: basics.name ?? profile.basics.name,
+      subtitle: [basics.email, basics.phone, basics.location].filter(Boolean).join(" / "),
+      body: basics.summary ?? "",
       source: "用户确认",
       usage: "简历页眉使用",
       used: true,
@@ -2227,6 +2254,7 @@ function buildCurrentProfileItems(profile: CareerProfile, category: ProfileCateg
   }
 
   if (category === "summary") {
+    const canonicalSummary = canonicalProfileLibraryItems(profile).find((item) => item.sectionType === "summary");
     return [{
       key: "summary:profile",
       id: profile.id,
@@ -2234,13 +2262,32 @@ function buildCurrentProfileItems(profile: CareerProfile, category: ProfileCateg
       category: "summary",
       title: "自我评价",
       subtitle: "用于简历概述，可在具体简历中独立修改",
-      body: profile.basics.summary ?? "",
+      body: canonicalSummary?.body ?? canonicalProfileBasics(profile).summary ?? "",
       source: "用户确认",
-      usage: profile.basics.summary ? "资料库概述" : "待补充",
-      used: Boolean(profile.basics.summary),
+      usage: canonicalSummary ? "已确认资料" : "待补充",
+      used: Boolean(canonicalSummary),
       archived: false,
       updatedAt: profile.updatedAt
     }];
+  }
+
+  const canonicalItems = canonicalProfileLibraryItems(profile)
+    .filter((item) => item.sectionType === category);
+  if (canonicalItems.length > 0) {
+    return canonicalItems.map((item) => ({
+      key: `canonical:${item.sectionType}:${item.id}`,
+      id: item.id,
+      kind: "custom",
+      category,
+      title: item.title,
+      subtitle: item.subtitle,
+      body: item.body,
+      source: item.factIds.length ? "已确认事实" : "用户确认",
+      usage: "可加入简历",
+      used: true,
+      archived: false,
+      updatedAt: profile.updatedAt
+    }));
   }
 
   if (category === "certificate") {
@@ -2306,9 +2353,11 @@ function buildArchivedProfileItems(archive: ProfileArchiveState, category: Profi
 }
 
 function buildProfileCategoryCounts(profile: CareerProfile, archive: ProfileArchiveState) {
+  const canonicalCounts = canonicalProfileSectionCounts(profile);
   const counts = new Map<ProfileCategoryId, number>();
   for (const category of profileCategories) {
-    counts.set(category.id, buildCurrentProfileItems(profile, category.id).length + buildArchivedProfileItems(archive, category.id).length);
+    const canonicalCount = canonicalCounts.get(category.id) ?? 0;
+    counts.set(category.id, canonicalCount + buildArchivedProfileItems(archive, category.id).length);
   }
   return counts;
 }
@@ -2507,7 +2556,7 @@ function categoryForExperience(experience: Experience): ProfileCategoryId {
 }
 
 function defaultExperienceTypeForCategory(category: ProfileCategoryId): ExperienceType {
-  return defaultExperienceType(category);
+  return defaultExperienceType(category as Parameters<typeof defaultExperienceType>[0]);
 }
 
 function factCategoryForProfileCategory(category: ProfileCategoryId): FactCategory {

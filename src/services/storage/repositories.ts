@@ -2923,7 +2923,8 @@ export class WorkspaceRepository {
           canonicalEntry = profile.structuredFacts?.find((entry) => entry.data.id === reference.itemId && entry.data.sectionType === reference.sectionType);
           if (!canonicalEntry || input.section !== reference.sectionType) throw new Error("profile_canonical_item_unavailable");
           factRefs = resolveStructuredProfileFactRefs(profile, canonicalEntry.factIds);
-          if (!factRefs.length || factRefs.length !== canonicalEntry.factIds.length) throw new Error("profile_canonical_fact_unavailable");
+          const isConfirmedNarrative = canonicalEntry.data.sectionType === "summary" && canonicalEntry.factIds.length === 0;
+          if (!isConfirmedNarrative && (!factRefs.length || factRefs.length !== canonicalEntry.factIds.length)) throw new Error("profile_canonical_fact_unavailable");
           text = projectResumeItemV2(canonicalEntry.data);
           itemType = canonicalBranchItemType(canonicalEntry.data.sectionType);
         } else if (reference.type === "experience") {
@@ -2967,6 +2968,7 @@ export class WorkspaceRepository {
 
         const duplicate = branch.contentItems.some((item) => item.factRefs.some((ref) => factRefs.some((candidate) => profileFactReferenceEquals(ref, candidate))));
         if (duplicate) throw new Error("profile_item_already_used");
+        const isConfirmedNarrative = canonicalEntry?.data.sectionType === "summary" && factRefs.length === 0;
         const guardResult = runRuleFactGuard({
           originalText: text,
           checkedText: text,
@@ -2986,12 +2988,13 @@ export class WorkspaceRepository {
           requirementIds: [],
           sourceSuggestionIds: [],
           factRefs,
-          guardMode: "rule_verified",
+          guardMode: isConfirmedNarrative ? "not_fact" : "rule_verified",
           guardStatus: "pass",
           guardRiskLevel: guardResult.riskLevel,
           guardFindings: [],
           guardedAt: now,
-          guardVersion: guardResult.guardVersion
+          guardVersion: guardResult.guardVersion,
+          userConfirmation: isConfirmedNarrative ? { scope: "resume_only", confirmedTextHash: stableHashText(text), confirmedAt: now } : undefined
         });
         const nextContentItems = [...orderedItems, nextItem].map((item, order) => ({ ...item, order }));
         const syncedStructuredItems = syncStructuredContentItems(branch, nextContentItems);
