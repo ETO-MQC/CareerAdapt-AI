@@ -3883,10 +3883,12 @@ export function ResumeWorkspace() {
                   sectionLabel={activeSectionItem?.label ?? "经历"}
                   blocks={activeSectionBlocks}
                   branch={selectedBranch}
+                  structuredItems={activeStructuredItems}
                   editTexts={editTexts}
                   selectedItemId={selectedStudioItemId}
                   onEditTextChange={(itemId, text) => setEditTexts((prev) => ({ ...prev, [itemId]: text }))}
                   onSave={saveItem}
+                  onSaveStructuredItem={saveStructuredItem}
                   onSelectItem={selectStudioItem}
                   onSetPresentationVisibility={(itemId, visible) => { void setPresentationItemVisibility(itemId, visible); }}
                   onDelete={(itemId) => { void setContentItemVisibility(itemId, false); }}

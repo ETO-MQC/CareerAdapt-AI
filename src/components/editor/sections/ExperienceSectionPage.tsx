@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { ResumeDocumentBlock } from "@/domain/resumeDocument/mapper";
-import type { ResumeBranch } from "@/domain/schemas";
+import type { ResumeBranch, ResumeContentItemV2, ResumeItemV2 } from "@/domain/schemas";
 import {
   emptyStructuredExperienceFields,
   parseStructuredExperienceText,
@@ -16,14 +16,101 @@ import { SectionShell } from "../SectionShell";
 import { contentItemTypeLabel, guardStatusLabel } from "../helpers";
 import { type SectionNavContext, prevSection, nextSection } from "./types";
 
+/** Convert a v2 canonical ResumeItemV2 to the flat StructuredExperienceFields form shape. */
+function canonicalToFormFields(item: ResumeItemV2): StructuredExperienceFields {
+  if (item.sectionType === "education") {
+    return {
+      organization: item.school ?? "",
+      role: item.degree ?? "",
+      location: item.location ?? "",
+      degree: item.degree ?? "",
+      major: item.major ?? "",
+      courses: (item.courses ?? []).join("、"),
+      startDate: item.startDate ?? "",
+      endDate: item.endDate ?? "",
+      current: item.current ?? false,
+      description: item.description ?? ""
+    };
+  }
+  if (item.sectionType === "project") {
+    return {
+      organization: item.title ?? "",
+      role: item.role ?? "",
+      location: item.location ?? "",
+      degree: "",
+      major: "",
+      courses: "",
+      startDate: item.startDate ?? "",
+      endDate: item.endDate ?? "",
+      current: item.current ?? false,
+      description: item.description ?? ""
+    };
+  }
+  // work / internship / campus / volunteer
+  const org = "organization" in item ? (item as { organization?: string }).organization ?? "" : "";
+  const role = "role" in item ? (item as { role?: string }).role ?? "" : "";
+  const loc = "location" in item ? (item as { location?: string }).location ?? "" : "";
+  const sd = "startDate" in item ? (item as { startDate?: string }).startDate ?? "" : "";
+  const ed = "endDate" in item ? (item as { endDate?: string }).endDate ?? "" : "";
+  const cur = "current" in item ? Boolean((item as { current?: boolean }).current) : false;
+  const desc = "description" in item ? (item as { description?: string }).description ?? "" : "";
+  return { organization: org, role, location: loc, degree: "", major: "", courses: "", startDate: sd, endDate: ed, current: cur, description: desc };
+}
+
+/** Convert form fields back to a patched v2 canonical item (preserving all other fields). */
+function formFieldsToCanonicalPatch(item: ResumeItemV2, fields: StructuredExperienceFields): ResumeItemV2 {
+  const desc = fields.description.trim() || undefined;
+  if (item.sectionType === "education") {
+    return {
+      ...item,
+      school: fields.organization.trim() || undefined,
+      degree: fields.degree.trim() || fields.role.trim() || undefined,
+      major: fields.major.trim() || undefined,
+      location: fields.location.trim() || undefined,
+      startDate: fields.startDate || undefined,
+      endDate: fields.current ? undefined : (fields.endDate || undefined),
+      current: fields.current,
+      courses: fields.courses.split(/[、,，;；]/).map((c) => c.trim()).filter(Boolean),
+      description: desc
+    };
+  }
+  if (item.sectionType === "project") {
+    return {
+      ...item,
+      title: fields.organization.trim() || undefined,
+      role: fields.role.trim() || undefined,
+      location: fields.location.trim() || undefined,
+      startDate: fields.startDate || undefined,
+      endDate: fields.current ? undefined : (fields.endDate || undefined),
+      current: fields.current,
+      description: desc
+    };
+  }
+  // work / internship / campus / volunteer
+  return {
+    ...item,
+    organization: fields.organization.trim() || undefined,
+    role: fields.role.trim() || undefined,
+    location: fields.location.trim() || undefined,
+    startDate: fields.startDate || undefined,
+    endDate: fields.current ? undefined : (fields.endDate || undefined),
+    current: fields.current,
+    description: desc
+  } as ResumeItemV2;
+}
+
 type ExperienceSectionPageProps = {
   sectionLabel: string;
   blocks: ResumeDocumentBlock[];
   branch?: ResumeBranch;
+  /** v2 canonical structured items — when present, form reads/writes canonical fields directly. */
+  structuredItems?: ResumeContentItemV2[];
   editTexts: Record<string, string>;
   selectedItemId?: string;
   onEditTextChange: (itemId: string, text: string) => void;
   onSave: (itemId: string) => void;
+  /** Save canonical structured item (v2 path). Called when structuredItems are available. */
+  onSaveStructuredItem?: (item: ResumeItemV2) => void;
   onSelectItem: (itemId: string) => void;
   onSetPresentationVisibility: (itemId: string, visible: boolean) => void;
   onDelete: (itemId: string) => void;
@@ -82,10 +169,12 @@ export function ExperienceSectionPage({
   sectionLabel,
   blocks,
   branch,
+  structuredItems,
   editTexts,
   selectedItemId,
   onEditTextChange,
   onSave,
+  onSaveStructuredItem,
   onSelectItem,
   onSetPresentationVisibility,
   onDelete,
@@ -100,17 +189,42 @@ export function ExperienceSectionPage({
   const prev = prevSection(nav.activeSection);
   const next = nextSection(nav.activeSection);
   const [adding, setAdding] = useState(false);
+  const structuredMap = useMemo(() => {
+    if (!structuredItems) return undefined;
+    return new Map(structuredItems.map((item) => [item.id, item]));
+  }, [structuredItems]);
 
   const accordionItems = blocks.map((block, index) => {
     const category = experienceCategoryFromLabel(sectionLabel);
     const sourceItem = branch?.contentItems.find((item) => item.id === block.contentItemId);
-    const currentText = editTexts[block.contentItemId] ?? block.text;
-    const structuredFields = parseStructuredExperienceText(currentText);
-    if (category === "education" && !structuredFields.degree) structuredFields.degree = structuredFields.role;
+    const canonicalItem = structuredMap?.get(block.contentItemId);
+
+    // When a v2 canonical item exists, derive form fields from it directly
+    // instead of re-parsing the legacy text projection.
+    const structuredFields = canonicalItem
+      ? canonicalToFormFields(canonicalItem.data)
+      : (() => {
+          const currentText = editTexts[block.contentItemId] ?? block.text;
+          const parsed = parseStructuredExperienceText(currentText);
+          if (category === "education" && !parsed.degree) parsed.degree = parsed.role;
+          return parsed;
+        })();
+
     const org = structuredFields.organization;
     const role = category === "education" ? structuredFields.degree : structuredFields.role;
     const titleText = org && role ? `${org} · ${role}` : org || role || `${sectionLabel} ${index + 1}`;
     const isOpen = selectedItemId ? selectedItemId === block.contentItemId : index === 0;
+
+    const handleFormChange = (next: StructuredExperienceFields) => {
+      if (canonicalItem && onSaveStructuredItem) {
+        // v2 path: patch canonical item and save via structured save
+        const patched = formFieldsToCanonicalPatch(canonicalItem.data, next);
+        onSaveStructuredItem(patched);
+      } else {
+        // v1 fallback: serialize to text
+        onEditTextChange(block.contentItemId, serializeStructuredExperienceText(next, category));
+      }
+    };
 
     return {
       id: block.contentItemId,
@@ -123,7 +237,7 @@ export function ExperienceSectionPage({
           <StructuredExperienceForm
             category={category}
             value={structuredFields}
-            onChange={(next) => onEditTextChange(block.contentItemId, serializeStructuredExperienceText(next, category))}
+            onChange={handleFormChange}
             idPrefix={`existing-${block.contentItemId}`}
             onFocus={() => onSelectItem(block.contentItemId)}
           />
@@ -134,7 +248,14 @@ export function ExperienceSectionPage({
             <button
               type="button"
               className="section-action-button section-action-button-primary"
-              onClick={() => onSave(block.contentItemId)}
+              onClick={() => {
+                if (canonicalItem && onSaveStructuredItem) {
+                  const patched = formFieldsToCanonicalPatch(canonicalItem.data, structuredFields);
+                  onSaveStructuredItem(patched);
+                } else {
+                  onSave(block.contentItemId);
+                }
+              }}
             >
               保存
             </button>
