@@ -643,7 +643,8 @@ function detectSectionsFromSemanticArtifacts(artifacts: ResumeLayoutArtifact[], 
         const structuredItem = mapSemanticItemToResumeItem({
           sectionType: semanticSection.sectionType,
           item: semanticItem,
-          layoutDocument: artifact.layoutDocument
+          layoutDocument: artifact.layoutDocument,
+          layoutGraph: artifact.layoutGraph
         });
         const sourceBlockIds = [...new Set(semanticItem.sourceBlockIds.flatMap((blockId) => layoutBlockById.get(blockId)?.sourceBlockRefs ?? []))]
           .filter((blockId) => sourceBlockById.has(blockId));

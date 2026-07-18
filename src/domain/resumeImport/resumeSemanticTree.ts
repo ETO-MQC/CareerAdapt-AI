@@ -13,6 +13,12 @@ export const SemanticConfidenceSchema = z.object({
   sourceBinding: z.number().min(0).max(1)
 }).strict();
 
+export const SemanticTextGroupSchema = z.object({
+  id: z.string().min(1),
+  blockIds: z.array(z.string().min(1)).min(1),
+  role: z.enum(["description", "highlight", "skill_title", "skill_description"])
+}).strict();
+
 export const ResumeSemanticItemSchema = z.object({
   id: z.string().min(1),
   sourceBlockIds: z.array(z.string().min(1)).min(1),
@@ -24,6 +30,8 @@ export const ResumeSemanticItemSchema = z.object({
   dateBlockIds: z.array(z.string().min(1)).default([]),
   bodyBlockIds: z.array(z.string().min(1)).default([]),
   highlightBlockIds: z.array(z.string().min(1)).default([]),
+  bodyGroups: z.array(SemanticTextGroupSchema).default([]),
+  highlightGroups: z.array(SemanticTextGroupSchema).default([]),
   confidence: SemanticConfidenceSchema
 }).strict();
 
@@ -55,6 +63,7 @@ export const ResumeSemanticTreeSchema = z.object({
 
 export type ResumeSemanticTree = z.infer<typeof ResumeSemanticTreeSchema>;
 export type ResumeSemanticItem = z.infer<typeof ResumeSemanticItemSchema>;
+export type SemanticTextGroup = z.infer<typeof SemanticTextGroupSchema>;
 
 export interface ResumeSemanticResolver {
   readonly id: string;
@@ -72,8 +81,6 @@ const SECTION_TYPES: Array<[RegExp, Exclude<ResumeSectionTypeV2, "basics">]> = [
   [/^证书$/u, "certificates"]
 ];
 const DATE_PATTERN = /(?<!\d)(?:19|20)\d{2}(?:[./年-]\d{1,2})?(?:\s*(?:-|–|—|至|到)\s*(?:(?:19|20)\d{2}(?:[./年-]\d{1,2})?|至今|现在|present|current))?/iu;
-const BULLET_BODY_PATTERN = /^[•·●▪◦■□◆◇▶►*-]?\s*[\p{Script=Han}A-Za-z0-9]/u;
-
 export class LocalDeterministicSemanticResolver implements ResumeSemanticResolver {
   readonly id = "local-deterministic-semantic-resolver.v1";
 
@@ -134,13 +141,21 @@ export function mapSemanticItemToResumeItem(input: {
   sectionType: Exclude<ResumeSectionTypeV2, "basics">;
   item: ResumeSemanticItem;
   layoutDocument: LayoutDocument;
+  layoutGraph?: LayoutGraph;
 }): ResumeItemV2 {
   const document = LayoutDocumentSchema.parse(input.layoutDocument);
+  const graph = input.layoutGraph ? LayoutGraphSchema.parse(input.layoutGraph) : undefined;
   const byId = new Map(document.blocks.map((block) => [block.id, block]));
   const read = (ids: readonly string[]) => joinLayoutBlockText(ids.flatMap((id) => byId.get(id) ? [byId.get(id)!] : []));
   const [startDate, endDate, current] = parseDate(read(input.item.dateBlockIds));
-  const highlights = input.item.highlightBlockIds.map((id) => stripBullet(byId.get(id)?.text ?? "")).filter(Boolean);
-  const body = read(input.item.bodyBlockIds);
+  const highlightGroups = input.item.highlightGroups.length
+    ? input.item.highlightGroups
+    : input.item.highlightBlockIds.map((id, index): SemanticTextGroup => ({ id: `${input.item.id}:legacy-highlight:${index}`, blockIds: [id], role: "highlight" }));
+  const bodyGroups = input.item.bodyGroups.length
+    ? input.item.bodyGroups
+    : input.item.bodyBlockIds.length ? [{ id: `${input.item.id}:legacy-body`, blockIds: input.item.bodyBlockIds, role: "description" as const }] : [];
+  const highlights = highlightGroups.map((group) => materializeSemanticTextGroup({ group, layoutDocument: document, layoutGraph: graph })).filter(Boolean);
+  const body = bodyGroups.map((group) => materializeSemanticTextGroup({ group, layoutDocument: document, layoutGraph: graph })).join("").trim();
   const customFields: [] = [];
   const common = { id: input.item.id, customFields };
   let candidate: ResumeItemV2;
@@ -158,10 +173,39 @@ export function mapSemanticItemToResumeItem(input: {
   else if (input.sectionType === "research") candidate = { ...common, sectionType: "research", title: read(input.item.titleBlockIds) || undefined,
     authorRole: read(input.item.roleBlockIds) || undefined, description: body || undefined, startDate, endDate, current,
     methods: [], highlights };
-  else if (input.sectionType === "skills") candidate = { ...common, sectionType: "skills", name: read(input.item.titleBlockIds) || read(input.item.sourceBlockIds), description: body || undefined };
+  else if (input.sectionType === "skills") {
+    const skillText = materializeSemanticTextGroup({
+      group: { id: `${input.item.id}:skill`, blockIds: input.item.sourceBlockIds, role: "skill_description" },
+      layoutDocument: document,
+      layoutGraph: graph
+    });
+    const boundary = skillText.search(/[:：]/u);
+    const groupedName = input.item.bodyGroups.find((group) => group.role === "skill_title");
+    const groupedDescription = input.item.bodyGroups.find((group) => group.role === "skill_description");
+    const name = groupedName ? materializeSemanticTextGroup({ group: groupedName, layoutDocument: document, layoutGraph: graph })
+      : boundary >= 0 ? skillText.slice(0, boundary).trim() : read(input.item.titleBlockIds) || skillText;
+    const description = groupedDescription ? materializeSemanticTextGroup({ group: groupedDescription, layoutDocument: document, layoutGraph: graph })
+      : boundary >= 0 ? skillText.slice(boundary + 1).trim() : body;
+    candidate = { ...common, sectionType: "skills", name, description: description || undefined };
+  }
   else if (input.sectionType === "certificates") candidate = { ...common, sectionType: "certificates", name: read(input.item.titleBlockIds) || read(input.item.sourceBlockIds), description: body || undefined };
   else candidate = { ...common, sectionType: "other", title: read(input.item.titleBlockIds) || undefined, description: body || read(input.item.sourceBlockIds), highlights };
   return ResumeItemV2Schema.parse(candidate);
+}
+
+export function materializeSemanticTextGroup(input: {
+  group: SemanticTextGroup;
+  layoutDocument: LayoutDocument;
+  layoutGraph?: LayoutGraph;
+}): string {
+  const document = LayoutDocumentSchema.parse(input.layoutDocument);
+  const graph = input.layoutGraph ? LayoutGraphSchema.parse(input.layoutGraph) : undefined;
+  const byId = new Map(document.blocks.map((block) => [block.id, block]));
+  const ids = new Set(input.group.blockIds);
+  const graphMarkers = new Set(graph?.edges.flatMap((edge) => edge.relation === "bullet_content_of" ? [edge.from] : []) ?? []);
+  const groupBlocks = [...ids].flatMap((id) => byId.get(id) ? [byId.get(id)!] : [])
+    .filter((block) => !graphMarkers.has(block.id) && !isBulletMarker(block.text));
+  return stripBullet(joinLayoutBlockText(groupBlocks, false));
 }
 
 export function semanticSourceCoverage(tree: ResumeSemanticTree): number {
@@ -200,10 +244,10 @@ function assignRoles(sectionType: Exclude<ResumeSectionTypeV2, "basics">, blocks
   const dateBlocks = dateStartBlock
     ? blocks.filter((block) => block.lineId === dateStartBlock.lineId && block.bbox.x >= dateStartBlock.bbox.x)
     : [];
-  const highlightBlocks = ["skills", "certificates"].includes(sectionType) ? [] : blocks.filter((block) => BULLET_BODY_PATTERN.test(block.text) && graph.edges.some((edge) =>
-    edge.relation === "bullet_content_of" && (edge.from === block.id || edge.to === block.id)
-  ));
   const markerBlocks = blocks.filter((block) => /^[•·●▪◦■□◆◇▶►*-]\s*$/u.test(block.text.trim()));
+  const highlightGroups = ["skills", "certificates"].includes(sectionType) ? [] : buildHighlightGroups(blocks, markerBlocks, graph, id);
+  const highlightIds = new Set(highlightGroups.flatMap((group) => group.blockIds));
+  const highlightBlocks = blocks.filter((block) => highlightIds.has(block.id));
   const headerLineId = blocks.find((block) => !markerBlocks.includes(block))?.lineId;
   const header = sectionType === "summary" ? [] : blocks.filter((block) => !dateBlocks.includes(block) && !highlightBlocks.includes(block) && !markerBlocks.includes(block) && block.lineId === headerLineId);
   const remaining = blocks.filter((block) => !dateBlocks.includes(block) && !header.includes(block) && !highlightBlocks.includes(block) && !markerBlocks.includes(block));
@@ -213,6 +257,11 @@ function assignRoles(sectionType: Exclude<ResumeSectionTypeV2, "basics">, blocks
   const roleBlockIds = ["work", "internship", "campus", "volunteer", "project", "research"].includes(sectionType) ? (headerGroups[1] ?? []).map((block) => block.id) : [];
   const majorBlockIds = sectionType === "education" ? (headerGroups[1] ?? []).map((block) => block.id) : [];
   const degreeBlockIds = sectionType === "education" ? (headerGroups[2] ?? []).map((block) => block.id) : [];
+  const bodyGroups: SemanticTextGroup[] = remaining.length ? [{
+    id: `${id}:body:0`,
+    blockIds: remaining.map((block) => block.id),
+    role: "description"
+  }] : [];
   return {
     id,
     sourceBlockIds: blocks.map((block) => block.id),
@@ -224,8 +273,47 @@ function assignRoles(sectionType: Exclude<ResumeSectionTypeV2, "basics">, blocks
     dateBlockIds: dateBlocks.map((block) => block.id),
     bodyBlockIds: remaining.map((block) => block.id),
     highlightBlockIds: highlightBlocks.map((block) => block.id),
+    bodyGroups,
+    highlightGroups,
     confidence: confidence(0.95, dateBlocks.length || ["summary", "education", "skills", "certificates"].includes(sectionType) ? 0.88 : 0.62, header.length ? 0.84 : 0.55, 1)
   };
+}
+
+function buildHighlightGroups(blocks: LayoutDocument["blocks"], markerBlocks: LayoutDocument["blocks"], graph: LayoutGraph, itemId: string): SemanticTextGroup[] {
+  const allowed = new Set(blocks.map((block) => block.id));
+  const markers = new Set(markerBlocks.map((block) => block.id));
+  const byId = new Map(blocks.map((block) => [block.id, block]));
+  return markerBlocks.flatMap((marker, index) => {
+    const nextMarkerOrder = markerBlocks[index + 1]?.order ?? Number.POSITIVE_INFINITY;
+    const seedIds = graph.edges.flatMap((edge) => edge.relation === "bullet_content_of" && edge.from === marker.id && allowed.has(edge.to) ? [edge.to] : []);
+    if (!seedIds.length) return [];
+    const ids = new Set(seedIds);
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const edge of graph.edges) {
+        if (!allowed.has(edge.from) || !allowed.has(edge.to) || markers.has(edge.from) || markers.has(edge.to)) continue;
+        const connected = edge.relation === "same_row" || edge.relation === "continuation_of";
+        if (!connected || ids.has(edge.from) === ids.has(edge.to)) continue;
+        const candidateId = ids.has(edge.from) ? edge.to : edge.from;
+        const candidate = byId.get(candidateId);
+        const anchor = byId.get(ids.has(edge.from) ? edge.from : edge.to);
+        if (!candidate || !anchor || candidate.order <= marker.order || candidate.order >= nextMarkerOrder
+          || edge.relation === "continuation_of" && !sameIndent(anchor, candidate)) continue;
+        ids.add(candidateId);
+        changed = true;
+      }
+    }
+    return [{ id: `${itemId}:highlight:${index}`, blockIds: [...ids], role: "highlight" as const }];
+  });
+}
+
+function sameIndent(left: LayoutDocument["blocks"][number], right: LayoutDocument["blocks"][number]): boolean {
+  return Math.abs(left.bbox.x - right.bbox.x) <= Math.max(left.bbox.height, right.bbox.height) * 1.6;
+}
+
+function isBulletMarker(value: string): boolean {
+  return /^[\s•·●▪◦■□◆◇▶►*-]+$/u.test(value.trim());
 }
 
 function isWithinSection(block: LayoutDocument["blocks"][number], heading: LayoutDocument["blocks"][number], next?: LayoutDocument["blocks"][number]): boolean {
@@ -266,13 +354,13 @@ function partitionHeaderFields(blocks: LayoutDocument["blocks"], targetCount: nu
   return groups;
 }
 
-function joinLayoutBlockText(blocks: LayoutDocument["blocks"]): string {
+function joinLayoutBlockText(blocks: LayoutDocument["blocks"], preserveLineBreaks = true): string {
   const sorted = [...blocks].sort((left, right) => left.page - right.page || right.bbox.y - left.bbox.y || left.bbox.x - right.bbox.x);
   let text = "";
   let previous: LayoutDocument["blocks"][number] | undefined;
   for (const block of sorted) {
     if (!previous) text = block.text.trim();
-    else if (previous.lineId !== block.lineId) text += `\n${block.text.trim()}`;
+    else if (previous.lineId !== block.lineId) text += `${preserveLineBreaks ? "\n" : ""}${block.text.trim()}`;
     else {
       const gap = block.bbox.x - (previous.bbox.x + previous.bbox.width);
       const size = Math.max(previous.font.size ?? previous.bbox.height, block.font.size ?? block.bbox.height);
