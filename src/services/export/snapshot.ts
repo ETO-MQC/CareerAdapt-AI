@@ -62,7 +62,9 @@ export function presentationSnapshotFromConfig(config: ResumePresentationConfig)
     spacing: config.spacing,
     theme: config.theme,
     pagination: config.pagination,
-    sectionStyleOverrides: config.sectionStyleOverrides
+    sectionStyleOverrides: config.sectionStyleOverrides,
+    highlightListStyle: config.highlightListStyle,
+    itemHeaderMiddleAlignment: config.itemHeaderMiddleAlignment
   };
 }
 
@@ -83,6 +85,8 @@ export function presentationConfigFromExportSnapshot(snapshot: ResumePdfExportSn
     theme: snapshot.presentation.theme,
     pagination: snapshot.presentation.pagination,
     sectionStyleOverrides: snapshot.presentation.sectionStyleOverrides,
+    highlightListStyle: "bullet" as const,
+    itemHeaderMiddleAlignment: "balanced" as const,
     presentationRevision: snapshot.presentationRevision,
     updatedAt: snapshot.generatedAt
   };

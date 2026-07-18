@@ -554,18 +554,36 @@ function RenderPresentationItem({ item, context }: { item: ResumePresentationIte
       {item.inlineMeta.length ? <p className="resume-presentation-meta" data-pagination-unit="inline-meta"><RenderMetaValues values={item.inlineMeta} /></p> : null}
       {item.secondaryMeta.map((meta, index) => <p className="resume-presentation-secondary" data-pagination-unit={`secondary-meta:${index}`} key={meta}>{meta}</p>)}
       {item.description ? <p className="resume-presentation-description" data-pagination-unit="description">{item.description}</p> : null}
-      {item.highlights.length ? <ul className="resume-presentation-highlights">{item.highlights.map((highlight, index) => <li data-pagination-unit={`highlight:${index}`} key={highlight}>{highlight}</li>)}</ul> : null}
+      {item.highlights.length ? <RenderHighlights highlights={item.highlights.map((highlight, index) => ({ value: highlight, key: `highlight:${index}` }))} context={context} /> : null}
       {unlistedLinks.length ? <p className="resume-presentation-links" data-pagination-unit="links"><RenderMetaValues values={unlistedLinks} /></p> : null}
-      <RenderCustomRows rows={item.customRows} />
+      <RenderCustomRows rows={item.customRows} context={context} />
     </article>
   );
+}
+
+function RenderHighlights({ highlights, context }: { highlights: Array<{ value: string; key: string }>; context?: TemplateRenderContext }) {
+  const listStyle = context?.presentationConfig?.highlightListStyle ?? "bullet";
+  if (!highlights.length) return null;
+  if (listStyle === "none") {
+    return <ul className="resume-presentation-highlights resume-presentation-highlights-none">
+      {highlights.map((h) => <li data-pagination-unit={h.key} key={h.key}>{h.value}</li>)}
+    </ul>;
+  }
+  if (listStyle === "numbered") {
+    return <ol className="resume-presentation-highlights">
+      {highlights.map((h) => <li data-pagination-unit={h.key} key={h.key}>{h.value}</li>)}
+    </ol>;
+  }
+  return <ul className="resume-presentation-highlights">
+    {highlights.map((h) => <li data-pagination-unit={h.key} key={h.key}>{h.value}</li>)}
+  </ul>;
 }
 
 function RenderMetaValues({ values }: { values: string[] }) {
   return <>{values.map((value, index) => <span key={value}>{index > 0 ? " · " : ""}{isUrl(value) ? <a href={value}>{value}</a> : value}</span>)}</>;
 }
 
-function RenderCustomRows({ rows }: { rows: ResumePresentationItem["customRows"] }) {
+function RenderCustomRows({ rows, context }: { rows: ResumePresentationItem["customRows"]; context?: TemplateRenderContext }) {
   const normalRows = rows.filter((row) => row.displayMode !== "bullet");
   const bulletRows = rows.filter((row) => row.displayMode === "bullet");
   return <>
@@ -574,7 +592,7 @@ function RenderCustomRows({ rows }: { rows: ResumePresentationItem["customRows"]
         {row.label ? <strong>{row.label}：</strong> : null}{row.value}
       </p>
     ))}</div> : null}
-    {bulletRows.length ? <ul className="resume-presentation-highlights">{bulletRows.map((row, index) => <li data-pagination-unit={`custom-bullet:${index}`} key={`${row.label ?? ""}-${row.value}`}>{row.label ? `${row.label}：` : ""}{row.value}</li>)}</ul> : null}
+    {bulletRows.length ? <RenderHighlights highlights={bulletRows.map((row, index) => ({ value: row.label ? `${row.label}：${row.value}` : row.value, key: `custom-bullet:${index}` }))} context={context} /> : null}
   </>;
 }
 

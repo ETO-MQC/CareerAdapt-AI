@@ -18,7 +18,9 @@ import {
   PresentationLineHeightSchema,
   PresentationPageMarginSchema,
   PresentationSpacingScaleSchema,
-  PresentationTitleTextScaleSchema
+  PresentationTitleTextScaleSchema,
+  PresentationHighlightListStyleSchema,
+  PresentationItemHeaderMiddleAlignmentSchema
 } from "./presentation";
 
 export const SafePdfFileNameSchema = z.string()
@@ -62,7 +64,9 @@ export const ExportSnapshotPresentationSchema = z.object({
     headerFooter: PresentationHeaderFooterSchema,
     showPhoto: z.boolean(),
     pageBreakBeforeSections: z.array(ResumeRenderSectionTypeSchema)
-  })
+  }),
+  highlightListStyle: PresentationHighlightListStyleSchema.default("bullet"),
+  itemHeaderMiddleAlignment: PresentationItemHeaderMiddleAlignmentSchema.default("balanced")
 });
 
 export const ResumePaginationPageSchema = z.object({

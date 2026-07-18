@@ -5,6 +5,8 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 
+export type TipTapEditorMode = "paragraph" | "highlight-list";
+
 type TipTapEditorProps = {
   value: string;
   onChange: (html: string) => void;
@@ -12,6 +14,7 @@ type TipTapEditorProps = {
   disabled?: boolean;
   minRows?: number;
   ariaLabel?: string;
+  mode?: TipTapEditorMode;
 };
 
 export function TipTapEditor({
@@ -20,9 +23,11 @@ export function TipTapEditor({
   placeholder = "在此输入内容…",
   disabled = false,
   minRows = 6,
-  ariaLabel = "内容编辑器"
+  ariaLabel = "内容编辑器",
+  mode = "paragraph"
 }: TipTapEditorProps) {
   const lastEmittedRef = useRef(value);
+  const isHighlightList = mode === "highlight-list";
 
   const editor = useEditor({
     extensions: [
@@ -87,48 +92,50 @@ export function TipTapEditor({
 
   return (
     <div className="tiptap-editor">
-      <div className="tiptap-toolbar" role="toolbar" aria-label="文本格式">
-        <button
-          type="button"
-          className={`tiptap-toolbar-button ${editor.isActive("bold") ? "tiptap-toolbar-button-active" : ""}`}
-          onClick={toggleBold}
-          disabled={disabled}
-          aria-label="加粗"
-          title="加粗"
-        >
-          <strong>B</strong>
-        </button>
-        <button
-          type="button"
-          className={`tiptap-toolbar-button ${editor.isActive("italic") ? "tiptap-toolbar-button-active" : ""}`}
-          onClick={toggleItalic}
-          disabled={disabled}
-          aria-label="斜体"
-          title="斜体"
-        >
-          <em>I</em>
-        </button>
-        <button
-          type="button"
-          className={`tiptap-toolbar-button ${editor.isActive("bulletList") ? "tiptap-toolbar-button-active" : ""}`}
-          onClick={toggleBulletList}
-          disabled={disabled}
-          aria-label="无序列表"
-          title="无序列表"
-        >
-          •≡
-        </button>
-        <button
-          type="button"
-          className={`tiptap-toolbar-button ${editor.isActive("orderedList") ? "tiptap-toolbar-button-active" : ""}`}
-          onClick={toggleOrderedList}
-          disabled={disabled}
-          aria-label="有序列表"
-          title="有序列表"
-        >
-          1.
-        </button>
-      </div>
+      {!isHighlightList ? (
+        <div className="tiptap-toolbar" role="toolbar" aria-label="文本格式">
+          <button
+            type="button"
+            className={`tiptap-toolbar-button ${editor.isActive("bold") ? "tiptap-toolbar-button-active" : ""}`}
+            onClick={toggleBold}
+            disabled={disabled}
+            aria-label="加粗"
+            title="加粗"
+          >
+            <strong>B</strong>
+          </button>
+          <button
+            type="button"
+            className={`tiptap-toolbar-button ${editor.isActive("italic") ? "tiptap-toolbar-button-active" : ""}`}
+            onClick={toggleItalic}
+            disabled={disabled}
+            aria-label="斜体"
+            title="斜体"
+          >
+            <em>I</em>
+          </button>
+          <button
+            type="button"
+            className={`tiptap-toolbar-button ${editor.isActive("bulletList") ? "tiptap-toolbar-button-active" : ""}`}
+            onClick={toggleBulletList}
+            disabled={disabled}
+            aria-label="无序列表"
+            title="无序列表"
+          >
+            •≡
+          </button>
+          <button
+            type="button"
+            className={`tiptap-toolbar-button ${editor.isActive("orderedList") ? "tiptap-toolbar-button-active" : ""}`}
+            onClick={toggleOrderedList}
+            disabled={disabled}
+            aria-label="有序列表"
+            title="有序列表"
+          >
+            1.
+          </button>
+        </div>
+      ) : null}
       <EditorContent editor={editor} />
     </div>
   );

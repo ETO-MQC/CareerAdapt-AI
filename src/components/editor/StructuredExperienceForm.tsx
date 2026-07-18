@@ -8,7 +8,7 @@ import {
 } from "@/domain/resumeFields/catalog";
 import { FieldInput } from "./FieldInput";
 import { TipTapEditor } from "./TipTapEditor";
-import { htmlToPlainText, plainTextToHtml } from "./helpers";
+import { htmlToPlainText, plainTextToHtml, highlightsToEditorHtml, editorHtmlToHighlights } from "./helpers";
 
 type StructuredExperienceFormProps = {
   category: Extract<ResumeFieldCategoryId, "education" | "work" | "project" | "campus">;
@@ -32,13 +32,6 @@ export function StructuredExperienceForm({
     const next = { ...value, [key]: nextValue };
     if (key === "current" && nextValue) next.endDate = "";
     onChange(next);
-  };
-
-  // Highlights as newline-separated string for editing
-  const highlightsText = value.highlights.join("\n");
-  const updateHighlights = (text: string) => {
-    const lines = text.split("\n").map((line) => line.trim()).filter(Boolean);
-    update("highlights", lines);
   };
 
   // Get the appropriate highlights label based on category
@@ -89,10 +82,11 @@ export function StructuredExperienceForm({
         <div className="experience-description-field">
           <label className="field-input-label">{highlightsLabel}</label>
           <TipTapEditor
-            value={plainTextToHtml(highlightsText)}
-            onChange={(html) => updateHighlights(htmlToPlainText(html))}
+            value={highlightsToEditorHtml(value.highlights)}
+            onChange={(html) => update("highlights", editorHtmlToHighlights(html))}
             placeholder="每行一条，写清职责、行动和可验证的结果…"
             minRows={4}
+            mode="highlight-list"
           />
         </div>
       ) : null}

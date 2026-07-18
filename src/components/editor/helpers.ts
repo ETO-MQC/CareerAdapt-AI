@@ -108,3 +108,85 @@ export function htmlToPlainText(html: string): string {
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
+
+// ---------------------------------------------------------------------------
+// Highlight-list codec
+// ---------------------------------------------------------------------------
+
+const BULLET_PREFIX_RE = /^[•●○\-–]\s*/;
+const NUMBERED_PREFIX_RE = /^\d+[.)、]\s*/;
+
+/**
+ * Strip display-only bullet/number prefixes from a highlight string.
+ * Preserves leading digits that are part of real content (e.g. "3 years of experience").
+ */
+function stripHighlightPrefix(raw: string): string {
+  let text = raw.trim();
+  if (!text) return text;
+  // Only strip if the prefix is clearly a bullet/number marker, not real content
+  if (BULLET_PREFIX_RE.test(text)) {
+    text = text.replace(BULLET_PREFIX_RE, "");
+  } else if (NUMBERED_PREFIX_RE.test(text)) {
+    text = text.replace(NUMBERED_PREFIX_RE, "");
+  }
+  return text.trim();
+}
+
+/**
+ * Convert a highlights string[] into HTML for the TipTap editor in highlight-list mode.
+ * Each non-empty string becomes a <li> inside a <ul>.
+ */
+export function highlightsToEditorHtml(highlights: string[]): string {
+  if (!highlights.length) return "";
+  const items = highlights
+    .map((h) => h.trim())
+    .filter((h) => h.length > 0);
+  if (!items.length) return "";
+  const listItems = items.map((h) => `<li>${escapeHtml(h)}</li>`).join("");
+  return `<ul>${listItems}</ul>`;
+}
+
+/**
+ * Extract highlights string[] from TipTap HTML output (highlight-list mode).
+ * Reads <li> nodes from the HTML and strips any display-only bullet prefixes.
+ */
+export function editorHtmlToHighlights(html: string): string[] {
+  if (!html) return [];
+  const decoded = html
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">");
+  const items: string[] = [];
+  const liRegex = /<li[^>]*>([\s\S]*?)<\/li>/gi;
+  let match = liRegex.exec(decoded);
+  while (match) {
+    const content = match[1]
+      .replace(/<[^>]+>/g, "")
+      .trim();
+    if (content) {
+      items.push(stripHighlightPrefix(content));
+    }
+    match = liRegex.exec(decoded);
+  }
+  // If no <li> found, fall back to line-by-line parsing (pasted plain text)
+  if (items.length === 0) {
+    const lines = decoded
+      .replace(/<[^>]+>/g, "")
+      .split("\n")
+      .map((line) => stripHighlightPrefix(line.trim()))
+      .filter((line) => line.length > 0);
+    return lines;
+  }
+  return items;
+}
+
+/**
+ * Escape HTML special characters in user text for safe insertion into <li>.
+ */
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}

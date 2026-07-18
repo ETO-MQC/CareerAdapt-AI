@@ -17,6 +17,8 @@ export const ResumePagePolicySchema = z.enum(["natural", "prefer_one_page", "one
 export const ResumePreferredPageCountSchema = z.union([z.literal(1), z.literal(2)]);
 export const ResumeMaximumPageCountSchema = z.literal(4);
 export const ResumeOverflowBehaviorSchema = z.enum(["warn", "allow"]);
+export const PresentationHighlightListStyleSchema = z.enum(["bullet", "numbered", "none"]);
+export const PresentationItemHeaderMiddleAlignmentSchema = z.enum(["fixed-column", "balanced", "flow"]);
 
 const LEGACY_TYPOGRAPHY_SCALE = ["compact", "normal", "comfortable"] as const;
 const LEGACY_SPACING_SCALE = ["compact", "normal", "spacious"] as const;
@@ -203,6 +205,8 @@ export const ResumePresentationConfigSchema = z.object({
   theme: PresentationThemeSchema.default(DEFAULT_THEME),
   pagination: PresentationPaginationSchema.default(DEFAULT_PAGINATION),
   sectionStyleOverrides: SectionStyleOverridesSchema,
+  highlightListStyle: PresentationHighlightListStyleSchema.default("bullet"),
+  itemHeaderMiddleAlignment: PresentationItemHeaderMiddleAlignmentSchema.default("balanced"),
   presentationRevision: z.number().int().min(0),
   updatedAt: IsoDateStringSchema
 }).superRefine((config, ctx) => {
@@ -356,3 +360,5 @@ export type PresentationEnglishFontFamily = z.infer<typeof PresentationEnglishFo
 export type PresentationPageMargin = z.infer<typeof PresentationPageMarginSchema>;
 export type PresentationHeaderFooter = z.infer<typeof PresentationHeaderFooterSchema>;
 export type ResumePagePolicy = z.infer<typeof ResumePagePolicySchema>;
+export type PresentationHighlightListStyle = z.infer<typeof PresentationHighlightListStyleSchema>;
+export type PresentationItemHeaderMiddleAlignment = z.infer<typeof PresentationItemHeaderMiddleAlignmentSchema>;

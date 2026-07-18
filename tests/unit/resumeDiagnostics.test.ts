@@ -333,6 +333,8 @@ function presentationFixture(pagePolicy: ResumePresentationConfig["pagination"][
       summary: { showTitle: false },
       experience: { showTitle: false }
     },
+    highlightListStyle: "bullet",
+    itemHeaderMiddleAlignment: "balanced",
     presentationRevision: 1,
     updatedAt: TEST_TIME
   };
