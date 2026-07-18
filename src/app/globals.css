@@ -2565,7 +2565,9 @@ html[data-theme="dark"] .resume-canvas-toolbar .primary-button {
 }
 
 .resume-pagination-measurement-page {
+  height: 297mm;
   left: -10000px;
+  overflow: visible;
   pointer-events: none;
   position: absolute !important;
   top: 0;
@@ -3864,6 +3866,7 @@ html[data-theme="dark"] .property-panel-heading p {
 
 .resume-template-section {
   border-bottom: 1px solid var(--resume-divider-color, #d9ded8);
+  flex-shrink: 0;
   padding: var(--resume-section-padding-top, 5mm) 0 var(--resume-section-padding-bottom, 3.8mm);
 }
 
@@ -3918,6 +3921,7 @@ html[data-theme="dark"] .property-panel-heading p {
 }
 
 .resume-canonical-item {
+  break-inside: auto;
   display: grid;
   gap: 1.2mm;
   padding-left: 0;
@@ -3932,6 +3936,7 @@ html[data-theme="dark"] .property-panel-heading p {
   display: grid;
   gap: 2mm;
   grid-template-columns: minmax(0, 1fr) auto auto;
+  break-after: avoid;
 }
 
 .resume-presentation-heading h3 {
@@ -3982,6 +3987,7 @@ html[data-theme="dark"] .property-panel-heading p {
 }
 
 .resume-presentation-highlights li {
+  break-inside: avoid;
   color: #262b28;
   font-size: var(--resume-body-font-size, 9.3pt);
   line-height: var(--resume-line-height, 1.48);
@@ -4037,7 +4043,8 @@ html[data-theme="dark"] .property-panel-heading p {
   content: "、";
 }
 
-.resume-language-row {
+.resume-language-row,
+.resume-language-list {
   display: flex;
   flex-wrap: wrap;
 }

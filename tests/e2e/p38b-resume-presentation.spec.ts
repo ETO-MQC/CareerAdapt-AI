@@ -30,7 +30,7 @@ test("canonical fixture stays editable while Preview and PDF use formal presenta
   const previewOutput = previewStage.getByTestId("resume-pagination-measurement-page");
   const previewText = await previewOutput.textContent() ?? "";
   for (const label of DEBUG_LABELS) expect(previewText).not.toContain(label);
-  for (const value of ["示例大学", "本科 · 计算机科学", "示例城市", "2024.09–2028.06", "中文", "母语"]) {
+  for (const value of ["示例大学", "本科 · 计算机科学", "示例城市", "2024.09–2028.06", "中文母语，英语四级备考中"]) {
     expect(previewText).toContain(value);
   }
   await expect(previewOutput.locator('[data-presentation-item="work"]')).toHaveCount(2);
@@ -40,6 +40,12 @@ test("canonical fixture stays editable while Preview and PDF use formal presenta
   await expect(previewOutput.locator('[data-presentation-item="languages"]')).toHaveCount(1);
   await expect(previewOutput.locator('[data-render-section="experience"]')).toHaveCount(0);
   expect(await duplicatePresentationItemIds(previewOutput)).toEqual([]);
+  const previewPages = previewStage.getByTestId("resume-a4-page");
+  await expect(previewPages).toHaveCount(2);
+  await expect(previewPages.nth(1)).toContainText("奖项二");
+  await expect(previewPages.nth(1)).toContainText("专业技能");
+  await expect(previewPages.nth(1)).toContainText("中文母语，英语四级备考中");
+  await expect(page.getByTestId("render-coverage-warning")).toHaveCount(0);
 
   const captureViewports = [
     { width: 1024, height: 768 },
@@ -84,7 +90,7 @@ test("canonical fixture stays editable while Preview and PDF use formal presenta
   expect(capturedRequest?.snapshot?.renderModel.schemaVersion).toBe("resume-render-v2");
 
   for (const label of DEBUG_LABELS) expect(pdfText).not.toContain(label);
-  for (const value of ["示例大学", "本科", "计算机科学", "示例城市", "2024.09–2028.06", "工作条目一", "工作条目二", "项目一", "项目二", "项目三", "项目四", "奖项一", "奖项二", "中文", "母语"]) {
+  for (const value of ["示例大学", "本科", "计算机科学", "示例城市", "2024.09–2028.06", "工作条目一", "工作条目二", "项目一", "项目二", "项目三", "项目四", "奖项一", "奖项二", "中文母语，英语四级备考中"]) {
     expect(normalizeText(pdfText)).toContain(normalizeText(value));
     expect(normalizeText(previewText)).toContain(normalizeText(value));
   }
@@ -136,6 +142,6 @@ function canonicalFixture() {
     { id: "project", sectionType: "project", title: "项目经历", order: 3, visible: true, items: ["一", "二", "三", "四"].map((suffix, index) => ({ ...common, id: `project-${index + 1}`, sectionType: "project", title: `项目${suffix}/版本—${index + 1}`, role: "项目角色", organization: "示例团队", location: "示例城市", startDate: `2025-0${index + 1}`, current: true, url: `https://example.com/project-${index + 1}`, tools: ["React", "TypeScript"], highlights: [`项目亮点${suffix}`, `项目成果${suffix}`], outcomes: [] })) },
     { id: "awards", sectionType: "awards", title: "奖项荣誉", order: 4, visible: true, items: ["一", "二"].map((suffix, index) => ({ ...common, id: `award-${index + 1}`, sectionType: "awards", name: `奖项${suffix}`, issuer: "示例机构", awardedAt: `2025-0${index + 3}` })) },
     { id: "skills", sectionType: "skills", title: "专业技能", order: 5, visible: true, items: ["AI 与模型", "工程开发", "测试工具", "数据分析", "产品设计", "协作工具"].map((category, index) => ({ ...common, id: `skill-${index + 1}`, sectionType: "skills", name: `技能${index + 1}`, category })) },
-    { id: "languages", sectionType: "languages", title: "语言能力", order: 6, visible: true, items: [{ ...common, id: "language-1", sectionType: "languages", language: "中文", level: "母语" }] }
+    { id: "languages", sectionType: "languages", title: "语言能力", order: 6, visible: true, items: [{ ...common, id: "language-1", sectionType: "languages", language: "中文母语，英语四级备考中" }] }
   ] };
 }

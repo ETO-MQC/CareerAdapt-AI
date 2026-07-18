@@ -2,6 +2,7 @@ import type {
   ResumePaginationPlan,
   ResumePaginationStatus,
   ResumePresentationConfig,
+  ResumePresentationItem,
   ResumeRenderModel,
   ResumeRenderSectionType
 } from "@/domain/schemas";
@@ -11,17 +12,27 @@ import { RESUME_SECTION_TYPES_V2, type ResumeSectionTypeV2 } from "@/domain/resu
 
 type AnySectionType = ResumeRenderSectionType | ResumeSectionTypeV2;
 
+export type ResumePaginationUnitMeasurement = {
+  key: string;
+  top: number;
+  bottom: number;
+  height: number;
+};
+
 export type ResumePaginationBlockMeasurement = {
   sourceItemId: string;
   sectionType: AnySectionType;
+  sectionId?: string;
   top: number;
   bottom: number;
   height: number;
   horizontalOverflow?: boolean;
+  units?: ResumePaginationUnitMeasurement[];
 };
 
 export type ResumePaginationSectionMeasurement = {
   sectionType: AnySectionType;
+  sectionId?: string;
   top: number;
   bottom: number;
   height: number;
@@ -38,6 +49,7 @@ export type ResumePaginationMeasurement = {
 type MutablePaginationPage = Omit<ResumePaginationPlan["pages"][number], "sectionTypes"> & {
   sectionTypes: AnySectionType[];
   itemIdsBySection: Record<string, string[]>;
+  itemFragments: NonNullable<ResumePaginationPlan["pages"][number]["itemFragments"]>;
 };
 
 const PAGE_NEAR_LIMIT_PX = 36;
@@ -46,18 +58,19 @@ const SECTION_TYPES: AnySectionType[] = [...defaultResumeRenderSectionOrder, ...
 export function collectResumePaginationMeasurement(pageElement: HTMLElement): ResumePaginationMeasurement {
   const pageRect = pageElement.getBoundingClientRect();
   const sectionElements = Array.from(pageElement.querySelectorAll<HTMLElement>("[data-render-section]"));
-  const blockElements = Array.from(pageElement.querySelectorAll<HTMLElement>("[data-source-item-id]"));
+  const blockElements = Array.from(pageElement.querySelectorAll<HTMLElement>("[data-pagination-item-id]"));
   const sections = sectionElements.flatMap((element) => {
     const sectionType = parseSectionType(element.dataset.renderSection);
     if (!sectionType) {
       return [];
     }
     const rect = element.getBoundingClientRect();
-    const blockIds = Array.from(element.querySelectorAll<HTMLElement>("[data-source-item-id]"))
-      .map((block) => block.dataset.sourceItemId)
+    const blockIds = Array.from(element.querySelectorAll<HTMLElement>("[data-pagination-item-id]"))
+      .map((block) => block.dataset.paginationItemId)
       .filter((id): id is string => Boolean(id));
     return [{
       sectionType,
+      sectionId: element.dataset.renderSectionId,
       top: rect.top - pageRect.top,
       bottom: rect.bottom - pageRect.top,
       height: rect.height,
@@ -67,18 +80,33 @@ export function collectResumePaginationMeasurement(pageElement: HTMLElement): Re
   const blocks = blockElements.flatMap((element) => {
     const sectionElement = element.closest<HTMLElement>("[data-render-section]");
     const sectionType = parseSectionType(sectionElement?.dataset.renderSection);
-    const sourceItemId = element.dataset.sourceItemId;
+    const sourceItemId = element.dataset.paginationItemId;
     if (!sectionType || !sourceItemId) {
       return [];
     }
     const rect = element.getBoundingClientRect();
+    const unitElements = element.matches("[data-pagination-unit]")
+      ? [element]
+      : Array.from(element.querySelectorAll<HTMLElement>("[data-pagination-unit]"));
     return [{
       sourceItemId,
       sectionType,
+      sectionId: sectionElement?.dataset.renderSectionId,
       top: rect.top - pageRect.top,
       bottom: rect.bottom - pageRect.top,
       height: rect.height,
-      horizontalOverflow: element.scrollWidth > element.clientWidth + 2
+      horizontalOverflow: element.scrollWidth > element.clientWidth + 2,
+      units: unitElements.flatMap((unit) => {
+        const key = unit.dataset.paginationUnit;
+        if (!key) return [];
+        const unitRect = unit.getBoundingClientRect();
+        return [{
+          key,
+          top: unitRect.top - pageRect.top,
+          bottom: unitRect.bottom - pageRect.top,
+          height: unitRect.height
+        }];
+      })
     }];
   });
 
@@ -107,7 +135,8 @@ export function createResumePaginationPlan(input: {
   let currentPageNumber = 1;
 
   for (const section of input.measurement.sections) {
-    const sectionBlocks = input.measurement.blocks.filter((block) => block.sectionType === section.sectionType);
+    const sectionBlocks = input.measurement.blocks.filter((block) => block.sectionType === section.sectionType
+      && (!section.sectionId || !block.sectionId || block.sectionId === section.sectionId));
     if (sectionBlocks.length === 0) {
       continue;
     }
@@ -116,7 +145,31 @@ export function createResumePaginationPlan(input: {
       ensurePage(pages, currentPageNumber);
     }
 
-    for (const block of sectionBlocks) {
+    for (const [blockIndex, block] of sectionBlocks.entries()) {
+      if (block.units?.length) {
+        const chunks = paginationUnitChunks(block.units);
+        for (const [fragmentIndex, chunk] of chunks.entries()) {
+          const chunkBottom = chunk.at(-1)?.bottom ?? block.bottom;
+          const naturalPage = Math.max(1, Math.ceil(Math.max(chunkBottom, 1) / clientHeight));
+          const assignedPage = Math.max(currentPageNumber, naturalPage);
+          ensurePage(pages, assignedPage);
+          addBlockToPage(pages[assignedPage - 1], block);
+          addItemFragment(pages[assignedPage - 1], {
+            sectionId: section.sectionId ?? section.sectionType,
+            sectionType: section.sectionType,
+            itemId: block.sourceItemId,
+            fragmentIndex,
+            includeSectionTitle: blockIndex === 0 && fragmentIndex === 0,
+            unitKeys: chunk.map((unit) => unit.key)
+          });
+          if (chunk.some((unit) => unit.height > clientHeight)) {
+            oversizedBlockIds.push(block.sourceItemId);
+            overflowBlockIds.push(block.sourceItemId);
+          }
+          currentPageNumber = assignedPage;
+        }
+        continue;
+      }
       let assignedPage = currentPageNumber;
       if (block.height > clientHeight) {
         oversizedBlockIds.push(block.sourceItemId);
@@ -191,6 +244,23 @@ export function paginateResumeRenderModel(model: ResumeRenderModel, plan?: Resum
       const isV2 = model.schemaVersion === "resume-render-v2";
       const filteredStructuredSections = isV2
         ? model.structuredSections.flatMap((section) => {
+          if ((page.itemFragments?.length ?? 0) > 0) {
+            const fragments = page.itemFragments!.filter((fragment) => fragment.sectionId === section.sectionId);
+            if (fragments.length === 0) return [];
+            const items = fragments.flatMap((fragment) => {
+              const item = section.items.find((candidate) => candidate.itemId === fragment.itemId);
+              if (!item) return [];
+              return [{
+                ...item,
+                presentation: applyPresentationFragment(item.presentation, fragment.unitKeys, fragment.fragmentIndex)
+              }];
+            });
+            return items.length > 0 ? [{
+              ...section,
+              showTitle: fragments.some((fragment) => fragment.includeSectionTitle),
+              items
+            }] : [];
+          }
           const itemIds = page.itemIdsBySection[section.sectionType] ?? [];
           if (itemIds.length === 0) {
             return [];
@@ -292,7 +362,58 @@ function createPage(pageNumber: number): MutablePaginationPage {
     pageNumber,
     sectionTypes: [],
     itemIdsBySection: {},
-    blockIds: []
+    blockIds: [],
+    itemFragments: []
+  };
+}
+
+function paginationUnitChunks(units: ResumePaginationUnitMeasurement[]) {
+  const highlightIndex = units.findIndex((unit) => unit.key.startsWith("highlight:"));
+  const headingIndex = units.findIndex((unit) => unit.key === "heading");
+  const prefixEnd = highlightIndex >= 0 ? highlightIndex : Math.max(0, headingIndex);
+  const prefix = units.slice(0, prefixEnd + 1);
+  const remaining = units.slice(prefixEnd + 1).map((unit) => [unit]);
+  return [prefix, ...remaining].filter((chunk) => chunk.length > 0);
+}
+
+function applyPresentationFragment(
+  item: ResumePresentationItem,
+  unitKeys: string[],
+  fragmentIndex: number
+): ResumePresentationItem {
+  if (unitKeys.includes("content")) {
+    return { ...item, sourceItemId: item.sourceItemId ?? item.id, fragmentIndex };
+  }
+  const keys = new Set(unitKeys);
+  const includeHeading = keys.has("heading");
+  const highlightIndexes = new Set(unitKeys.flatMap((key) => key.startsWith("highlight:")
+    ? [Number(key.slice("highlight:".length))]
+    : []));
+  const customBulletIndexes = new Set(unitKeys.flatMap((key) => key.startsWith("custom-bullet:")
+    ? [Number(key.slice("custom-bullet:".length))]
+    : []));
+  const normalCustomRows = item.customRows.filter((row) => row.displayMode !== "bullet");
+  const bulletCustomRows = item.customRows.filter((row) => row.displayMode === "bullet");
+
+  return {
+    ...item,
+    id: fragmentIndex === 0 ? item.id : `${item.id}::fragment:${fragmentIndex}`,
+    sourceItemId: item.sourceItemId ?? item.id,
+    fragmentIndex,
+    primaryTitle: includeHeading ? item.primaryTitle : undefined,
+    secondaryTitle: includeHeading ? item.secondaryTitle : undefined,
+    dateRange: includeHeading ? item.dateRange : undefined,
+    tertiaryTitle: keys.has("subtitle") ? item.tertiaryTitle : undefined,
+    location: keys.has("subtitle") ? item.location : undefined,
+    inlineMeta: keys.has("inline-meta") ? item.inlineMeta : [],
+    secondaryMeta: item.secondaryMeta.filter((_, index) => keys.has(`secondary-meta:${index}`)),
+    description: keys.has("description") ? item.description : undefined,
+    highlights: item.highlights.filter((_, index) => highlightIndexes.has(index)),
+    links: keys.has("links") ? item.links : [],
+    customRows: [
+      ...(keys.has("custom-rows") ? normalCustomRows : []),
+      ...bulletCustomRows.filter((_, index) => customBulletIndexes.has(index))
+    ]
   };
 }
 
@@ -313,6 +434,19 @@ function addBlockToPage(page: MutablePaginationPage, block: ResumePaginationBloc
   if (!page.blockIds.includes(block.sourceItemId)) {
     page.blockIds.push(block.sourceItemId);
   }
+}
+
+function addItemFragment(
+  page: MutablePaginationPage,
+  fragment: NonNullable<ResumePaginationPlan["pages"][number]["itemFragments"]>[number]
+) {
+  const existing = page.itemFragments.find((candidate) => candidate.sectionId === fragment.sectionId && candidate.itemId === fragment.itemId);
+  if (existing) {
+    existing.unitKeys = uniqueStrings([...existing.unitKeys, ...fragment.unitKeys]);
+    existing.includeSectionTitle ||= fragment.includeSectionTitle;
+    return;
+  }
+  page.itemFragments.push(fragment);
 }
 
 function pageHasContent(page: MutablePaginationPage | undefined) {

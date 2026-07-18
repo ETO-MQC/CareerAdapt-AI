@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { ResumePresentationConfig, ResumeRenderModel } from "@/domain/schemas";
+import { ResumeRenderModelSchema, type ResumePresentationConfig, type ResumeRenderModel } from "@/domain/schemas";
+import { coverageCounts, paginatedCoverage } from "@/services/export/renderCoverage";
 import {
   createResumePaginationPlan,
   isPaginationPlanBlocked,
@@ -136,7 +137,76 @@ describe("P3.8a multi-page pagination planning", () => {
     expect(pages[1].sections.flatMap((section) => section.blocks.map((block) => block.sourceItemId))).toContain("experience-3");
     expect(pages[0].sourceTrace).toEqual(pages[1].sourceTrace);
   });
+
+  it("keeps item heading with the first bullet while later bullets and sections continue", () => {
+    const measurement = {
+      scrollHeight: 1380,
+      clientHeight: 1000,
+      sections: [
+        measuredSection("project", "project", 680, 1120, ["project-1"]),
+        measuredSection("awards", "awards", 1130, 1200, ["award-1"]),
+        measuredSection("skills", "skills", 1210, 1280, ["skill-1"]),
+        measuredSection("languages", "languages", 1290, 1360, ["language-1"])
+      ],
+      blocks: [
+        {
+          sourceItemId: "project-1", sectionType: "project" as const, sectionId: "project", top: 720, bottom: 1110, height: 390,
+          units: [
+            unit("heading", 720, 760),
+            unit("highlight:0", 770, 850),
+            unit("highlight:1", 860, 930),
+            unit("highlight:2", 940, 1020),
+            unit("highlight:3", 1030, 1110)
+          ]
+        },
+        measuredBlock("award-1", "awards", "awards", 1150, 1180, "heading"),
+        measuredBlock("skill-1", "skills", "skills", 1230, 1260, "content"),
+        measuredBlock("language-1", "languages", "languages", 1310, 1340, "content")
+      ]
+    };
+    const plan = createResumePaginationPlan({ measurement, paginationConfig: baseConfig });
+    const pages = paginateResumeRenderModel(fragmentModelFixture(), plan);
+
+    expect(plan.actualPageCount).toBe(2);
+    expect(pages).toHaveLength(2);
+    if (pages[0].schemaVersion !== "resume-render-v2" || pages[1].schemaVersion !== "resume-render-v2") throw new Error("expected v2 pages");
+    const firstProject = pages[0].structuredSections.find((section) => section.sectionType === "project")?.items[0]?.presentation;
+    const continuedProject = pages[1].structuredSections.find((section) => section.sectionType === "project")?.items[0]?.presentation;
+    expect(firstProject).toMatchObject({ primaryTitle: "Long project", highlights: ["bullet 1", "bullet 2"], fragmentIndex: 0 });
+    expect(continuedProject).toMatchObject({ primaryTitle: undefined, highlights: ["bullet 3", "bullet 4"] });
+    expect(pages[0].structuredSections.find((section) => section.sectionType === "project")?.showTitle).toBe(true);
+    expect(pages[1].structuredSections.find((section) => section.sectionType === "project")?.showTitle).toBe(false);
+    expect(coverageCounts(paginatedCoverage(pages))).toMatchObject({ project: 1, awards: 1, skills: 1, languages: 1 });
+  });
 });
+
+function measuredSection(sectionType: "project" | "awards" | "skills" | "languages", sectionId: string, top: number, bottom: number, blockIds: string[]) {
+  return { sectionType, sectionId, top, bottom, height: bottom - top, blockIds };
+}
+
+function unit(key: string, top: number, bottom: number) {
+  return { key, top, bottom, height: bottom - top };
+}
+
+function measuredBlock(sourceItemId: string, sectionType: "awards" | "skills" | "languages", sectionId: string, top: number, bottom: number, key: string) {
+  return { sourceItemId, sectionType, sectionId, top, bottom, height: bottom - top, units: [unit(key, top, bottom)] };
+}
+
+function fragmentModelFixture(): ResumeRenderModel {
+  const items = [
+    { sectionType: "project" as const, sectionId: "project", itemId: "project-1", data: { id: "project-1", sectionType: "project" as const, title: "Long project", current: false, tools: [], highlights: ["bullet 1", "bullet 2", "bullet 3", "bullet 4"], outcomes: [], customFields: [] }, presentation: { id: "project-1", sourceItemId: "project-1", sectionType: "project" as const, primaryTitle: "Long project", inlineMeta: [], secondaryMeta: [], highlights: ["bullet 1", "bullet 2", "bullet 3", "bullet 4"], links: [], customRows: [], warnings: [] } },
+    { sectionType: "awards" as const, sectionId: "awards", itemId: "award-1", data: { id: "award-1", sectionType: "awards" as const, name: "Award", customFields: [] }, presentation: { id: "award-1", sourceItemId: "award-1", sectionType: "awards" as const, primaryTitle: "Award", inlineMeta: [], secondaryMeta: [], highlights: [], links: [], customRows: [], warnings: [] } },
+    { sectionType: "skills" as const, sectionId: "skills", itemId: "skill-1", data: { id: "skill-1", sectionType: "skills" as const, name: "Skill", customFields: [] }, presentation: { id: "skill-1", sourceItemId: "skill-1", sectionType: "skills" as const, primaryTitle: "Skill", inlineMeta: [], secondaryMeta: [], highlights: [], links: [], customRows: [], warnings: [] } },
+    { sectionType: "languages" as const, sectionId: "languages", itemId: "language-1", data: { id: "language-1", sectionType: "languages" as const, language: "Language", customFields: [] }, presentation: { id: "language-1", sourceItemId: "language-1", sectionType: "languages" as const, primaryTitle: "Language", inlineMeta: [], secondaryMeta: [], highlights: [], links: [], customRows: [], warnings: [] } }
+  ];
+  return ResumeRenderModelSchema.parse({
+    schemaVersion: "resume-render-v2", branchId: "fragment", branchRevision: 1, branchCurrentRevisionId: "rev", branchName: "fragment",
+    jobTitle: "general", company: "general", candidate: { name: "Candidate", contacts: [] }, sections: [],
+    structuredSections: items.map((item, order) => ({ sectionId: item.sectionId, sectionType: item.sectionType, title: item.sectionId, order, items: [{ ...item, plainText: item.itemId }] })),
+    compatibilityWarnings: [], safety: { ruleOnlyItemIds: [], visibleItemCount: items.length, excludedItemIds: [] },
+    sourceTrace: { profileId: "profile", currentRevisionId: "rev", sourceProfileVersion: 1 }
+  });
+}
 
 function measurementFixture(input: { scrollHeight: number; clientHeight: number }) {
   const lastBlockTop = input.scrollHeight <= input.clientHeight ? 760 : 1060;

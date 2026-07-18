@@ -69,7 +69,15 @@ export const ResumePaginationPageSchema = z.object({
   pageNumber: z.number().int().min(1),
   sectionTypes: z.array(z.string()),
   itemIdsBySection: z.record(z.string(), z.array(z.string().min(1))),
-  blockIds: z.array(z.string().min(1))
+  blockIds: z.array(z.string().min(1)),
+  itemFragments: z.array(z.object({
+    sectionId: z.string().min(1),
+    sectionType: z.string().min(1),
+    itemId: z.string().min(1),
+    fragmentIndex: z.number().int().min(0),
+    includeSectionTitle: z.boolean(),
+    unitKeys: z.array(z.string().min(1)).min(1)
+  }).strict()).optional()
 });
 
 export const ResumePaginationPlanSchema = z.object({
