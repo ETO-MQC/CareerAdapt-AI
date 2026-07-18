@@ -24,6 +24,11 @@ describe("resume render model v2", () => {
     expect(model.schemaVersion).toBe("resume-render-v2");
     if (model.schemaVersion !== "resume-render-v2") throw new Error("expected v2");
     expect(model.structuredSections[0]).toMatchObject({
+      sectionId: "summary",
+      sectionType: "summary",
+      items: [{ presentation: { sectionType: "summary" } }]
+    });
+    expect(model.structuredSections.find((section) => section.sectionType === "education")).toMatchObject({
       sectionId: "education",
       sectionType: "education",
       items: [{ itemId: "edu-1", plainText: `说明：${fact.statement}`, presentation: { id: "edu-1", sectionType: "education" } }]

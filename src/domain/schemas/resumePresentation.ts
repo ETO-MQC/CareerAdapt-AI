@@ -9,6 +9,8 @@ export const ResumePresentationCustomRowSchema = z.object({
 
 export const ResumePresentationItemSchema = z.object({
   id: z.string().min(1),
+  sourceItemId: z.string().min(1).optional(),
+  fragmentIndex: z.number().int().min(0).optional(),
   sectionType: ResumeSectionTypeV2Schema.exclude(["basics"]),
   primaryTitle: z.string().min(1).optional(),
   secondaryTitle: z.string().min(1).optional(),

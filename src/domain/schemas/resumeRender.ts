@@ -104,6 +104,7 @@ export const ResumeRenderStructuredSectionV2Schema = z.object({
   sectionType: ResumeSectionTypeV2Schema.exclude(["basics"]),
   title: z.string().min(1),
   order: z.number().int().min(0),
+  showTitle: z.boolean().optional(),
   items: z.array(ResumeRenderStructuredItemV2Schema).default([])
 }).strict();
 

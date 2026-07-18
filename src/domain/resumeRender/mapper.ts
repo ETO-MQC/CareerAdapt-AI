@@ -12,6 +12,12 @@ import { mapBranchToResumeDocument, sectionTitle } from "@/domain/resumeDocument
 import { migrateResumeBranchToV2, projectResumeItemV2 } from "@/domain/migrations/resumeV2";
 import { getResumeSectionDefinition, type ResumeSectionTypeV2 } from "@/domain/resumeFields";
 import { projectResumePresentationItem } from "@/domain/resumePresentation/projector";
+import {
+  createRenderCoverageReport,
+  presentationCoverage,
+  renderCoverageHasBlockingFailure,
+  sourceVisibleCoverage
+} from "@/services/export/renderCoverage";
 
 export class ResumeRenderMapperError extends Error {
   constructor(readonly code: string) {
@@ -92,16 +98,29 @@ export function mapBranchToResumeRenderModel(input: {
       itemId: item.id,
       data: item.data,
       plainText: projectResumeItemV2(item.data),
-      presentation: { ...presentation, id: item.id }
+      presentation: { ...presentation, id: item.id, sourceItemId: item.id }
     }];
   });
+  if (basics.summary?.trim() && !structuredItems.some((item) => item.sectionType === "summary")) {
+    const itemId = `derived-summary:${branch.id}`;
+    const data = { id: itemId, sectionType: "summary" as const, text: basics.summary.trim(), customFields: [] };
+    const presentation = projectResumePresentationItem(data);
+    structuredItems.unshift({
+      sectionId: "summary",
+      sectionType: "summary",
+      itemId,
+      data,
+      plainText: data.text,
+      presentation: { ...presentation, id: itemId, sourceItemId: itemId }
+    });
+  }
   const structuredSections = [...new Set(structuredItems.map((item) => item.sectionId))].map((sectionId, order) => {
     const items = structuredItems.filter((item) => item.sectionId === sectionId);
     const sectionType = items[0]!.sectionType;
     return { sectionId, sectionType, title: sectionType === "custom" ? "自定义栏目" : getResumeSectionDefinition(sectionType).label, order, items };
   });
 
-  return ResumeRenderModelSchema.parse({
+  const model = ResumeRenderModelSchema.parse({
     schemaVersion: "resume-render-v2",
     branchId: branch.id,
     branchRevision: branch.revision,
@@ -125,7 +144,7 @@ export function mapBranchToResumeRenderModel(input: {
     compatibilityWarnings: [],
     safety: {
       ruleOnlyItemIds: renderableBlocks.filter((block) => block.guardMode === "rule_only_verified").map((block) => block.contentItemId),
-      visibleItemCount: blocks.length,
+      visibleItemCount: structuredItems.length,
       excludedItemIds
     },
     sourceTrace: {
@@ -136,6 +155,15 @@ export function mapBranchToResumeRenderModel(input: {
       sourceJobVersion: branch.sourceJobVersion
     }
   });
+  const sourceCoverage = sourceVisibleCoverage({ branch, document, derivedSummary: basics.summary });
+  const coverage = createRenderCoverageReport({
+    source: sourceCoverage,
+    presentation: presentationCoverage(model)
+  });
+  if (renderCoverageHasBlockingFailure(coverage)) {
+    throw new ResumeRenderMapperError("render_coverage_failed");
+  }
+  return model;
 }
 
 function canonicalRenderSection(dataSection: ResumeSectionTypeV2, sourceSectionId?: string): Exclude<ResumeSectionTypeV2, "basics"> {
