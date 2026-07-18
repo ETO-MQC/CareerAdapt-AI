@@ -30,6 +30,9 @@ import { matchResumeSectionHeading, type ImportedResumeCategory, type ImportedRe
 import { segmentResumeItems } from "./itemSegmenter";
 import { extractSegmentedItemFields, itemDisplayLabel } from "./itemFieldExtractor";
 import { projectResumeItemV2 } from "@/domain/migrations/resumeV2";
+import type { LayoutDocument } from "./layoutDocument";
+import type { LayoutGraph } from "./layoutGraph";
+import { mapSemanticItemToResumeItem, type ResumeSemanticTree } from "./resumeSemanticTree";
 
 export const RESUME_IMPORT_PARSER_VERSION = "resume-import.local-rules.v2";
 
@@ -51,6 +54,12 @@ type LineWithPage = {
   pageNumber: number;
 };
 
+type ResumeLayoutArtifact = {
+  layoutDocument: LayoutDocument;
+  layoutGraph: LayoutGraph;
+  semanticTree: ResumeSemanticTree;
+};
+
 const EMAIL_PATTERN = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i;
 const PHONE_PATTERN = /(?:\+?\d[\d\s-]{7,}\d|1[3-9]\d{9})/;
 const LINK_PATTERN = /(?:https?:\/\/|www\.|github\.com\/|linkedin\.com\/)[^\s，,；;]+/i;
@@ -62,6 +71,7 @@ export function createImportedResumeDraftFromPdf(input: {
   sourceKind?: ResumeSourceKind;
   sourceBlocks?: NormalizedSourceBlock[];
   qualityReport?: ImportQualityReport;
+  layoutArtifacts?: ResumeLayoutArtifact[];
   now?: string;
 }): ImportedResumeDraft {
   return createImportedResumeDraftFromText({
@@ -80,6 +90,7 @@ export function createImportedResumeDraftFromText(input: {
   sourceKind?: ResumeSourceKind;
   sourceBlocks?: NormalizedSourceBlock[];
   qualityReport?: ImportQualityReport;
+  layoutArtifacts?: ResumeLayoutArtifact[];
   now?: string;
 }): ImportedResumeDraft {
   const now = input.now ?? new Date().toISOString();
@@ -114,8 +125,23 @@ export function createImportedResumeDraftFromText(input: {
   });
   const candidateResult = createDeterministicFieldCandidates(sourceBlocks);
   const basics = detectBasicsFromBlocks(sourceBlocks, pageSources);
-  const sections = detectSectionsFromBlocks(sourceBlocks);
-  const fieldCandidates = bindCandidatesToItems(candidateResult.candidates, sections, sourceBlocks);
+  const sections = input.layoutArtifacts?.length
+    ? detectSectionsFromSemanticArtifacts(input.layoutArtifacts, sourceBlocks)
+    : detectSectionsFromBlocks(sourceBlocks);
+  const abnormalPhoneCandidate: ImportedResumeFieldCandidate[] = basics.phone?.confidence === "low" && basics.phone.sourceBlockIds.length ? [{
+    id: `candidate-abnormal-phone-${importId}`,
+    targetFieldId: "basics.phone",
+    value: basics.phone.value,
+    sourceBlockIds: basics.phone.sourceBlockIds,
+    sourceRanges: basics.phone.sourceRanges,
+    sourceQuote: basics.phone.value,
+    confidence: 0.45,
+    needsConfirmation: true,
+    userConfirmed: false,
+    reviewStatus: "needs_review",
+    mappingReason: "电话号码位数不符合常见手机号格式，保留原值等待人工核对。"
+  }] : [];
+  const fieldCandidates = bindCandidatesToItems([...candidateResult.candidates, ...abnormalPhoneCandidate], sections, sourceBlocks);
   const mappingDecisions = fieldCandidates.map((candidate) => ({
     kind: "canonical_field" as const,
     targetFieldId: candidate.targetFieldId,
@@ -230,16 +256,23 @@ export function createImportedResumeDraftFromStructuredJson(input: {
     const matches = sourceBlocksV2.filter((block) => mappingPaths.includes(block.sourcePath ?? "") || block.normalizedText.includes(field.value));
     return { ...field, sourceBlockIds: matches.map((block) => block.id), sourceQuote: field.value };
   };
-  const canonicalJsonField = (value: string) => ({
-    ...makeField(value, pageSources, "high" as const),
-    sourceStatus: "user_confirmed_modified" as const,
-    userEdited: true
-  });
+  const canonicalJsonField = (value: string, needsConfirmation = false) => {
+    const matches = sourceBlocksV2.filter((block) => block.normalizedText.includes(value) || value.includes(block.normalizedText));
+    return {
+      ...makeField(value, pageSources, needsConfirmation ? "low" as const : "high" as const),
+      sourceStatus: needsConfirmation ? "ambiguous" as const : "located" as const,
+      userEdited: false,
+      sourceBlockIds: matches.map((block) => block.id),
+      sourceRanges: matches.flatMap((block) => block.normalizedText ? [{ blockId: block.id, start: 0, end: block.normalizedText.length }] : []),
+      sourceQuote: value
+    };
+  };
   const canonicalBasics = input.canonicalResume?.basics;
+  const abnormalCanonicalPhone = Boolean(canonicalBasics?.phone && !/^1[3-9]\d{9}$/.test(canonicalBasics.phone.replace(/\D/g, "")));
   const basics = {
     name: canonicalBasics?.name ? canonicalJsonField(canonicalBasics.name) : structuredDraft.basics.name ? structuredField(structuredDraft.basics.name, "high") : undefined,
     email: canonicalBasics?.email ? canonicalJsonField(canonicalBasics.email) : structuredDraft.basics.email ? structuredField(structuredDraft.basics.email, "high") : undefined,
-    phone: canonicalBasics?.phone ? canonicalJsonField(canonicalBasics.phone) : structuredDraft.basics.phone ? structuredField(structuredDraft.basics.phone, "medium") : undefined,
+    phone: canonicalBasics?.phone ? canonicalJsonField(canonicalBasics.phone, abnormalCanonicalPhone) : structuredDraft.basics.phone ? structuredField(structuredDraft.basics.phone, "medium") : undefined,
     location: canonicalBasics?.location ? canonicalJsonField(canonicalBasics.location) : structuredDraft.basics.location ? structuredField(structuredDraft.basics.location, "medium") : undefined,
     links: canonicalBasics
       ? [
@@ -248,7 +281,7 @@ export function createImportedResumeDraftFromStructuredJson(input: {
           canonicalBasics.github,
           ...canonicalBasics.portfolioLinks,
           ...canonicalBasics.otherLinks
-        ].filter((value): value is string => Boolean(value)).map(canonicalJsonField)
+        ].filter((value): value is string => Boolean(value)).map((value) => canonicalJsonField(value))
       : (structuredDraft.basics.links ?? []).map((link) => structuredField(link, "medium")),
     targetRole: canonicalBasics?.targetRole ? canonicalJsonField(canonicalBasics.targetRole) : undefined,
     summary: input.canonicalResume
@@ -264,10 +297,10 @@ export function createImportedResumeDraftFromStructuredJson(input: {
     order: section.order,
     confidence: "high",
     items: section.items.map((structuredItem, itemIndex) => {
-      const sourceBlocks = sourceBlocksV2.filter((block) =>
-        block.sourcePath?.includes(`sections.${sectionIndex}.items.${itemIndex}`)
-        || block.sourcePath?.includes(`sections[${sectionIndex}].items[${itemIndex}]`)
-      );
+      const traceBlockIds = new Set((section.mappingTrace ?? []).flatMap((trace) => trace.sourceBlockIds));
+      const sourceBlocks = sourceBlocksV2.filter((block) => traceBlockIds.has(block.id)
+        || block.sourcePath?.includes(`sections.${sectionIndex}.items.${itemIndex}`)
+        || block.sourcePath?.includes(`sections[${sectionIndex}].items[${itemIndex}]`));
       const text = projectResumeItemV2(structuredItem);
       return {
         id: structuredItem.id,
@@ -277,8 +310,8 @@ export function createImportedResumeDraftFromStructuredJson(input: {
         order: itemIndex,
         pageRefs: [{ pageNumber: 1, quote: text.slice(0, 240) }],
         confidence: "high" as const,
-        sourceStatus: "user_confirmed_modified" as const,
-        userEdited: true,
+        sourceStatus: sourceBlocks.length ? "located" as const : "ambiguous" as const,
+        userEdited: false,
         sourceBlockIds: sourceBlocks.map((block) => block.id),
         sourceQuote: text,
         itemLabel: itemDisplayLabel(structuredItem),
@@ -350,15 +383,30 @@ export function createImportedResumeDraftFromStructuredJson(input: {
       charEnd: pageText.length
     }],
     unclassifiedBlocks: input.unclassifiedBlocks ?? [],
-    warnings: sections
+    warnings: [
+      ...(abnormalCanonicalPhone ? [{ code: "abnormal_phone_format", message: "电话号码格式异常，已保留原值，请人工核对。" }] : []),
+      ...sections
       .filter((section) => section.sectionType === "unknown")
       .map((section) => ({
         code: "unknown_section",
         message: `JSON栏目仍需确认：${section.detectedTitle}`,
         sectionId: section.id
-      })),
+      }))
+    ],
     mappingDecisions: input.mappingDecisions ?? [],
-    fieldCandidates: input.fieldCandidates ?? [],
+    fieldCandidates: input.fieldCandidates ?? (abnormalCanonicalPhone && canonicalBasics?.phone && basics.phone?.sourceBlockIds.length ? [{
+      id: `candidate-phone-${importId}`,
+      targetFieldId: "basics.phone",
+      value: canonicalBasics.phone,
+      sourceBlockIds: basics.phone.sourceBlockIds,
+      sourceRanges: basics.phone.sourceRanges,
+      sourceQuote: canonicalBasics.phone,
+      confidence: 0.45,
+      needsConfirmation: true,
+      userConfirmed: false,
+      reviewStatus: "needs_review",
+      mappingReason: "电话号码位数不符合常见手机号格式，保留原值等待人工核对。"
+    }] : []),
     parserVersion: `${RESUME_IMPORT_PIPELINE_VERSION}.${RESUME_IMPORT_PARSER_VERSION}.structured-json`,
     createdAt: now,
     updatedAt: now
@@ -471,6 +519,7 @@ function detectBasicsFromBlocks(
   const identityBlocks = ordered.slice(0, firstSectionIndex < 0 ? Math.min(ordered.length, 12) : firstSectionIndex);
   const emailMatch = findBlockMatch(identityBlocks, EMAIL_PATTERN);
   const phoneMatch = findBlockMatch(identityBlocks, /(?<!\d)1[3-9]\d{9}(?!\d)/);
+  const abnormalPhoneMatch = phoneMatch ? undefined : findBlockMatch(identityBlocks, /(?<!\d)\d{12}(?!\d)/);
   const linkMatches = identityBlocks.flatMap((block) =>
     Array.from(block.normalizedText.matchAll(new RegExp(LINK_PATTERN, "gi"))).map((match) => ({ block, match }))
   );
@@ -498,7 +547,7 @@ function detectBasicsFromBlocks(
   ).sort((left, right) => right.score - left.score)[0];
   const excludedIdentityBlockIds = new Set([
     emailMatch?.block.id,
-    phoneMatch?.block.id,
+    phoneMatch?.block.id ?? abnormalPhoneMatch?.block.id,
     locationMatch?.block.id,
     nameMatch?.block.id,
     ...linkMatches.map(({ block }) => block.id)
@@ -529,7 +578,11 @@ function detectBasicsFromBlocks(
   return {
     name: nameMatch ? makeBlockField(nameMatch.value, nameMatch.block, "high", nameMatch.start) : undefined,
     email: emailMatch ? makeBlockField(emailMatch.match[0], emailMatch.block, "high", emailMatch.match.index) : undefined,
-    phone: phoneMatch ? makeBlockField(phoneMatch.match[0], phoneMatch.block, "high", phoneMatch.match.index) : undefined,
+    phone: phoneMatch
+      ? makeBlockField(phoneMatch.match[0], phoneMatch.block, "high", phoneMatch.match.index)
+      : abnormalPhoneMatch
+        ? { ...makeBlockField(abnormalPhoneMatch.match[0], abnormalPhoneMatch.block, "low", abnormalPhoneMatch.match.index), sourceStatus: "ambiguous" as const }
+        : undefined,
     location: locationMatch?.match ? makeBlockField(locationMatch.match[0], locationMatch.block, "high", locationMatch.match.index) : undefined,
     links: linkMatches.map(({ block, match }) => makeBlockField(match[0], block, "high", match.index)),
     targetRole: targetRoleBlock
@@ -573,6 +626,64 @@ function findBlockMatch(blocks: NormalizedSourceBlock[], pattern: RegExp) {
     if (match) return { block, match };
   }
   return undefined;
+}
+
+function detectSectionsFromSemanticArtifacts(artifacts: ResumeLayoutArtifact[], sourceBlocks: NormalizedSourceBlock[]): ImportedResumeSection[] {
+  const sourceBlockById = new Map(sourceBlocks.map((block) => [block.id, block]));
+  const sections: ImportedResumeSection[] = [];
+  for (const artifact of artifacts) {
+    const layoutBlockById = new Map(artifact.layoutDocument.blocks.map((block) => [block.id, block]));
+    const semanticItemById = new Map(artifact.semanticTree.items.map((item) => [item.id, item]));
+    for (const semanticSection of artifact.semanticTree.sections) {
+      const headingBlocks = semanticSection.headingBlockIds.flatMap((blockId) => layoutBlockById.get(blockId) ? [layoutBlockById.get(blockId)!] : []);
+      const headingText = headingBlocks.map((block) => block.text).join("").trim();
+      const items = semanticSection.itemIds.flatMap((itemId, itemIndex): ImportedResumeItem[] => {
+        const semanticItem = semanticItemById.get(itemId);
+        if (!semanticItem) return [];
+        const structuredItem = mapSemanticItemToResumeItem({
+          sectionType: semanticSection.sectionType,
+          item: semanticItem,
+          layoutDocument: artifact.layoutDocument
+        });
+        const sourceBlockIds = [...new Set(semanticItem.sourceBlockIds.flatMap((blockId) => layoutBlockById.get(blockId)?.sourceBlockRefs ?? []))]
+          .filter((blockId) => sourceBlockById.has(blockId));
+        const boundBlocks = sourceBlockIds.flatMap((blockId) => sourceBlockById.get(blockId) ? [sourceBlockById.get(blockId)!] : []);
+        const normalizedText = projectResumeItemV2(structuredItem);
+        return [{
+          id: semanticItem.id,
+          rawText: boundBlocks.map((block) => block.rawText).join("\n") || normalizedText,
+          normalizedText,
+          included: true,
+          order: itemIndex,
+          pageRefs: pageRefsFromBlocks(boundBlocks),
+          confidence: numericConfidence(semanticItem.confidence.fieldRole),
+          sourceStatus: sourceBlockIds.length ? "located" : "ambiguous",
+          userEdited: false,
+          sourceBlockIds,
+          sourceRanges: boundBlocks.flatMap((block) => block.normalizedText ? [{ blockId: block.id, start: 0, end: block.normalizedText.length }] : []),
+          itemLabel: itemDisplayLabel(structuredItem),
+          structuredItem,
+          structuredMappingTrace: [],
+          sourceQuote: boundBlocks.map((block) => block.normalizedText).join("\n") || normalizedText
+        }];
+      });
+      sections.push({
+        id: semanticSection.id,
+        sectionType: semanticSection.sectionType,
+        category: inferStructuredCategory(headingText || semanticSection.sectionType, semanticSection.sectionType),
+        detectedTitle: headingText || semanticSection.sectionType,
+        included: true,
+        order: sections.length,
+        confidence: numericConfidence(semanticSection.confidence.section),
+        items
+      });
+    }
+  }
+  return sections;
+}
+
+function numericConfidence(value: number): "high" | "medium" | "low" {
+  return value >= 0.85 ? "high" : value >= 0.6 ? "medium" : "low";
 }
 
 function detectSectionsFromBlocks(blocks: NormalizedSourceBlock[]): ImportedResumeSection[] {

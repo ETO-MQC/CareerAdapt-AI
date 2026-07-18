@@ -96,7 +96,10 @@ function groupHardWrappedBlocks(blocks: NormalizedSourceBlock[]) {
   for (const block of blocks) {
     const previous = groups.at(-1);
     const previousText = previous?.at(-1)?.normalizedText.trim() ?? "";
-    if (previous && (/[、，,]$/.test(previousText) || block.normalizedText.trim().length <= 8)) previous.push(block);
+    const groupStartsWithBullet = Boolean(previous?.[0] && /^[•·●▪◦■□◆◇▶►*-]\s*/u.test(previous[0].normalizedText.trim()));
+    const blockStartsWithBullet = /^[•·●▪◦■□◆◇▶►*-]\s*/u.test(block.normalizedText.trim());
+    if (previous && groupStartsWithBullet && !blockStartsWithBullet) previous.push(block);
+    else if (previous && (/[、，,]$/.test(previousText) || block.normalizedText.trim().length <= 8)) previous.push(block);
     else groups.push([block]);
   }
   return groups;

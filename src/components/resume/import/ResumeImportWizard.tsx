@@ -450,6 +450,11 @@ export function ResumeImportWizard(props: {
       sourceKind: "text_pdf",
       sourceBlocks,
       qualityReport,
+      layoutArtifacts: extracted.pages.map((page) => ({
+        layoutDocument: page.layoutDocument,
+        layoutGraph: page.layoutGraph,
+        semanticTree: page.semanticTree
+      })),
       now
     });
     const saved = await props.repository.saveImportedResumeDraft({ ...importedDraft, parserVersion: `${importedDraft.parserVersion}+${RESUME_IMPORT_CLEANER_VERSION}` }, 0);
@@ -617,12 +622,16 @@ export function ResumeImportWizard(props: {
       let sourceKind: "standard_json" | "external_json";
       let successMessage: string;
 
-      if (v2.ok && v2.sourceKind !== "external") {
+      if (v2.ok) {
         mapped = { ...jsonV2ToLegacyMapperOutput(v2.value), mappingDecisions: [] };
-        sourceKind = "standard_json";
+        sourceKind = v2.sourceKind === "external" ? "external_json" : "standard_json";
         successMessage = v2.sourceKind === "v2"
           ? "CareerAdapt JSON v2 已进入逐项核对；结构化字段和未分类内容均已保留。"
-          : "旧版 JSON 已通过 v1 → v2 适配器拆分为正式栏目，请继续核对。";
+          : v2.sourceKind === "v1"
+            ? "旧版 JSON 已通过 v1 → v2 适配器拆分为正式栏目，请继续核对。"
+            : v2.validationIssues?.length
+              ? `外部 JSON 已转换为 CareerAdapt v2；有 ${v2.validationIssues.length} 项格式异常需要核对。`
+              : "外部 JSON 已通过专用 Adapter 转换为 CareerAdapt v2，请核对来源证据。";
       } else {
         const mapResult = mapExternalResumeJson(parsedJson.value);
         if (!mapResult.ok) {
@@ -637,8 +646,8 @@ export function ResumeImportWizard(props: {
           : "已通过常见字段别名完成映射，请核对来源路径和置信度。";
       }
 
-      setPendingJsonMapping(v2.ok && v2.sourceKind !== "external" ? undefined : mapped);
-      await persistJsonDraft(mapped, fileName, rawText, sourceKind, successMessage, v2.ok && v2.sourceKind !== "external" ? v2.value : undefined);
+      setPendingJsonMapping(v2.ok ? undefined : mapped);
+      await persistJsonDraft(mapped, fileName, rawText, sourceKind, successMessage, v2.ok ? v2.value : undefined);
     } catch (error) {
       const message = error instanceof Error ? error.message : "导入过程中发生未知错误";
       fail(message);

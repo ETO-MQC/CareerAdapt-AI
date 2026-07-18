@@ -86,7 +86,7 @@ type SectionPatternEntry = {
  */
 const SECTION_HEADING_PATTERNS: SectionPatternEntry[] = [
   // Summary
-  { sectionType: "summary", confidence: "high", pattern: /^(?:个人概述|个人简介|自我评价|求职意向|summary|profile|objective)\s*[:：]?$/i },
+  { sectionType: "summary", confidence: "high", pattern: /^(?:个人总结|个人概述|个人简介|自我评价|求职意向|summary|profile|objective)\s*[:：]?$/i },
 
   // Education
   { sectionType: "education", confidence: "high", pattern: /^(?:教育经历|教育背景|education)\s*[:：]?$/i },
@@ -99,14 +99,14 @@ const SECTION_HEADING_PATTERNS: SectionPatternEntry[] = [
   { sectionType: "research", confidence: "high", pattern: /^(?:科研经历|research)\s*[:：]?$/i },
 
   // Project
-  { sectionType: "project", confidence: "high", pattern: /^(?:项目经历|项目成果|projects?|project(?:\s*(?:experience|results|outcomes))?)\s*[:：]?$/i },
+  { sectionType: "project", confidence: "high", pattern: /^(?:项目与研究经历|项目经历|项目成果|projects?|project(?:\s*(?:experience|results|outcomes))?)\s*[:：]?$/i },
 
   // Campus & Volunteer
   { sectionType: "campus", confidence: "high", pattern: /^(?:校园经历|社团经历|实践经历|campus experience|leadership)\s*[:：]?$/i },
   { sectionType: "volunteer", confidence: "high", pattern: /^(?:志愿经历|volunteer)\s*[:：]?$/i },
 
   // Skills
-  { sectionType: "skills", confidence: "high", pattern: /^(?:技能|专业技能|技能清单|AI能力|工程与表达|skills?|technical skills)$/i },
+  { sectionType: "skills", confidence: "high", pattern: /^(?:技能与证书|技能|专业技能|技能清单|AI能力|工程与表达|skills?|technical skills)$/i },
 
   // Awards
   { sectionType: "awards", confidence: "high", pattern: /^(?:荣誉(?:奖项)?|奖项|awards?|honou?rs?)\s*[:：]?$/i },

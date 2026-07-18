@@ -2,6 +2,9 @@ import type {
   ExtractedSourceBlock,
   ResumeImportSourceClassification
 } from "@/domain/schemas";
+import { createLayoutDocument, type LayoutDocument } from "./layoutDocument";
+import { buildLayoutGraph, type LayoutGraph } from "./layoutGraph";
+import { LocalDeterministicSemanticResolver, type ResumeSemanticTree } from "./resumeSemanticTree";
 
 export const PDF_LAYOUT_RECONSTRUCTOR_VERSION = "resume-import.pdf-layout.v2";
 
@@ -12,6 +15,9 @@ export type PdfLayoutTextItem = {
   width: number;
   height: number;
   fontSize?: number;
+  fontWeight?: number;
+  fontFamily?: string;
+  color?: string;
   hasEol?: boolean;
 };
 
@@ -31,6 +37,9 @@ export type PdfPageLayoutResult = {
   classification: Extract<ResumeImportSourceClassification, "digital_pdf" | "complex_digital_pdf" | "scanned_pdf">;
   metrics: PdfPageLayoutMetrics;
   warnings: string[];
+  layoutDocument: LayoutDocument;
+  layoutGraph: LayoutGraph;
+  semanticTree: ResumeSemanticTree;
 };
 
 type LayoutLine = {
@@ -74,6 +83,24 @@ export function reconstructPdfPageLayout(input: {
       : "high";
 
   const orderedLines = orderLines(lines, detectedColumnCount, input.pageWidth);
+  const layoutDocument = createLayoutDocument({
+    pageCount: input.pageNumber,
+    fragments: orderedLines.flatMap((line, lineIndex) => mergeLayoutItems(line.items).map((item, itemIndex) => ({
+      id: `pdf:${input.pageNumber}:line:${lineIndex}:fragment:${itemIndex}`,
+      page: input.pageNumber,
+      text: item.text,
+      bbox: { x: item.x, y: item.y, width: item.width, height: item.height },
+      fontSize: item.fontSize,
+      fontWeight: item.fontWeight,
+      fontFamily: item.fontFamily,
+      color: item.color,
+      sourceBlockRef: `pdf:${input.pageNumber}:line:${lineIndex}`,
+      lineId: `pdf:${input.pageNumber}:line:${lineIndex}`,
+      sourceEngine: "pdfjs" as const
+    })))
+  });
+  const layoutGraph = buildLayoutGraph(layoutDocument);
+  const semanticTree = new LocalDeterministicSemanticResolver().resolve({ layoutDocument, layoutGraph });
   const blocks = orderedLines.map((line, order): ExtractedSourceBlock => {
     const blockType = classifyLine(line, medianFontSize);
     return {
@@ -110,7 +137,10 @@ export function reconstructPdfPageLayout(input: {
       rightAlignedDateCount,
       readingOrderConfidence
     },
-    warnings
+    warnings,
+    layoutDocument,
+    layoutGraph,
+    semanticTree
   };
 }
 
@@ -149,6 +179,32 @@ function shouldInsertSpace(previous: PdfLayoutTextItem, current: PdfLayoutTextIt
   const left = previous.text.at(-1) ?? "";
   const right = current.text.at(0) ?? "";
   return /[A-Za-z0-9)]/.test(left) && /[A-Za-z0-9(]/.test(right) && gap > fontSize * 0.08;
+}
+
+function mergeLayoutItems(items: readonly PdfLayoutTextItem[]): PdfLayoutTextItem[] {
+  const output: PdfLayoutTextItem[] = [];
+  for (const item of [...items].sort((left, right) => left.x - right.x)) {
+    const previous = output.at(-1);
+    if (!previous) {
+      output.push({ ...item });
+      continue;
+    }
+    const fontSize = Math.max(previous.fontSize ?? previous.height, item.fontSize ?? item.height);
+    const gap = item.x - (previous.x + previous.width);
+    const sameStyle = Math.abs((previous.fontSize ?? previous.height) - (item.fontSize ?? item.height)) <= 0.5
+      && (previous.fontWeight ?? 400) === (item.fontWeight ?? 400)
+      && (previous.fontFamily ?? "") === (item.fontFamily ?? "");
+    if (!sameStyle || gap > fontSize * 0.65) {
+      output.push({ ...item });
+      continue;
+    }
+    const separator = shouldInsertSpace(previous, item, fontSize) ? " " : "";
+    const right = Math.max(previous.x + previous.width, item.x + item.width);
+    previous.text = `${previous.text}${separator}${item.text}`;
+    previous.width = right - previous.x;
+    previous.height = Math.max(previous.height, item.height);
+  }
+  return output;
 }
 
 function detectColumnCount(lines: readonly LayoutLine[], pageWidth: number): 1 | 2 {

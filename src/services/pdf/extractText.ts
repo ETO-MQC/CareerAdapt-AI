@@ -8,6 +8,9 @@ import {
   type PdfPageLayoutMetrics
 } from "@/domain/resumeImport/pdfLayout";
 import type { ResumeImportSourceClassification } from "@/domain/schemas";
+import type { LayoutDocument } from "@/domain/resumeImport/layoutDocument";
+import type { LayoutGraph } from "@/domain/resumeImport/layoutGraph";
+import type { ResumeSemanticTree } from "@/domain/resumeImport/resumeSemanticTree";
 
 export type BrowserPdfExtractedPage = {
   pageNumber: number;
@@ -17,6 +20,9 @@ export type BrowserPdfExtractedPage = {
   blocks: BrowserPdfExtractedBlock[];
   classification: Extract<ResumeImportSourceClassification, "digital_pdf" | "complex_digital_pdf" | "scanned_pdf">;
   layoutMetrics: PdfPageLayoutMetrics;
+  layoutDocument: LayoutDocument;
+  layoutGraph: LayoutGraph;
+  semanticTree: ResumeSemanticTree;
 };
 
 export type BrowserPdfExtractedBlock = {
@@ -52,12 +58,13 @@ type PdfTextItem = {
   width?: number;
   transform?: number[];
   height?: number;
+  fontName?: string;
 };
 
 type PdfDocumentProxy = {
   numPages: number;
   getPage(pageNumber: number): Promise<{
-    getTextContent(): Promise<{ items: PdfTextItem[] }>;
+    getTextContent(): Promise<{ items: PdfTextItem[]; styles?: Record<string, { fontFamily?: string }> }>;
     getViewport(input: { scale: number }): { width: number; height: number };
     cleanup(): void;
   }>;
@@ -178,6 +185,8 @@ export async function extractTextFromPdfBuffer(
             width: Math.max(0, item.width ?? 0),
             height,
             fontSize: height,
+            fontFamily: item.fontName ? textContent.styles?.[item.fontName]?.fontFamily ?? item.fontName : undefined,
+            fontWeight: item.fontName && /bold|semibold|heavy/i.test(`${item.fontName} ${textContent.styles?.[item.fontName]?.fontFamily ?? ""}`) ? 700 : 400,
             hasEol: item.hasEOL
           }];
         })
@@ -203,7 +212,10 @@ export async function extractTextFromPdfBuffer(
         warnings: [...layout.warnings, ...detectLayoutWarnings(textContent.items, pageNumber)].filter((warning, index, all) => all.indexOf(warning) === index),
         blocks,
         classification: layout.classification,
-        layoutMetrics: layout.metrics
+        layoutMetrics: layout.metrics,
+        layoutDocument: layout.layoutDocument,
+        layoutGraph: layout.layoutGraph,
+        semanticTree: layout.semanticTree
       });
       page.cleanup();
     }

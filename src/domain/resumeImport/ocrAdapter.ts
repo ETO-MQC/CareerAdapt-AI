@@ -5,6 +5,9 @@ import {
   type ResumeOcrHealthResponse,
   type ResumeOcrProgressStage
 } from "@/domain/schemas";
+import { layoutDocumentFromSourceBlocks, type LayoutDocument } from "./layoutDocument";
+import { buildLayoutGraph, type LayoutGraph } from "./layoutGraph";
+import { LocalDeterministicSemanticResolver, type ResumeSemanticTree } from "./resumeSemanticTree";
 
 export type ResumeOcrAdapterResult =
   | {
@@ -16,6 +19,9 @@ export type ResumeOcrAdapterResult =
       blocks: ResumeOcrBlock[];
       elapsedMs: number;
       warnings: string[];
+      layoutDocument: LayoutDocument;
+      layoutGraph: LayoutGraph;
+      semanticTree: ResumeSemanticTree;
     }
   | {
       ok: false;
@@ -129,6 +135,18 @@ export function createLocalPaddleOcrAdapter(input: {
           totalPages: parsed.data.pageCount,
           message: "OCR 识别完成，等待逐项核对。"
         });
+        const layoutDocument = layoutDocumentFromSourceBlocks({
+          pageCount: parsed.data.pageCount,
+          engine: "paddleocr_vl",
+          blocks: parsed.data.blocks.map((block) => ({
+            ...block,
+            sourceEngine: "paddleocr_vl" as const,
+            sourceEngineVersion: parsed.data.engineVersion,
+            extractionConfidence: block.confidence
+          }))
+        });
+        const layoutGraph = buildLayoutGraph(layoutDocument);
+        const semanticTree = new LocalDeterministicSemanticResolver().resolve({ layoutDocument, layoutGraph });
         return {
           ok: true,
           text: parsed.data.text,
@@ -137,7 +155,10 @@ export function createLocalPaddleOcrAdapter(input: {
           pageCount: parsed.data.pageCount,
           blocks: parsed.data.blocks,
           elapsedMs: parsed.data.elapsedMs,
-          warnings: parsed.data.warnings
+          warnings: parsed.data.warnings,
+          layoutDocument,
+          layoutGraph,
+          semanticTree
         };
       } catch (error) {
         if (options.signal?.aborted) return failure("cancelled", "OCR 已取消。", []);
