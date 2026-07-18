@@ -30,6 +30,7 @@ type StructuredExperienceFields = {
   endDate: string;
   current: boolean;
   description: string;
+  highlights: string[];
 };
 
 function canonicalToFormFields(item: ResumeItemV2): StructuredExperienceFields {
@@ -44,7 +45,8 @@ function canonicalToFormFields(item: ResumeItemV2): StructuredExperienceFields {
       startDate: item.startDate ?? "",
       endDate: item.endDate ?? "",
       current: item.current ?? false,
-      description: item.description ?? ""
+      description: item.description ?? "",
+      highlights: item.highlights ?? []
     };
   }
   if (item.sectionType === "project") {
@@ -58,7 +60,8 @@ function canonicalToFormFields(item: ResumeItemV2): StructuredExperienceFields {
       startDate: item.startDate ?? "",
       endDate: item.endDate ?? "",
       current: item.current ?? false,
-      description: item.description ?? ""
+      description: item.description ?? "",
+      highlights: item.highlights ?? []
     };
   }
   // work / internship / campus / volunteer
@@ -69,11 +72,13 @@ function canonicalToFormFields(item: ResumeItemV2): StructuredExperienceFields {
   const ed = "endDate" in item ? (item as { endDate?: string }).endDate ?? "" : "";
   const cur = "current" in item ? Boolean((item as { current?: boolean }).current) : false;
   const desc = "description" in item ? (item as { description?: string }).description ?? "" : "";
-  return { organization: org, role, location: loc, degree: "", major: "", courses: "", startDate: sd, endDate: ed, current: cur, description: desc };
+  const hl = "highlights" in item ? (item as { highlights?: string[] }).highlights ?? [] : [];
+  return { organization: org, role, location: loc, degree: "", major: "", courses: "", startDate: sd, endDate: ed, current: cur, description: desc, highlights: hl };
 }
 
 function formFieldsToCanonicalPatch(item: ResumeItemV2, fields: StructuredExperienceFields): ResumeItemV2 {
   const desc = fields.description.trim() || undefined;
+  const highlights = fields.highlights.map((h) => h.trim()).filter(Boolean);
   if (item.sectionType === "education") {
     return {
       ...item,
@@ -85,7 +90,8 @@ function formFieldsToCanonicalPatch(item: ResumeItemV2, fields: StructuredExperi
       endDate: fields.current ? undefined : (fields.endDate || undefined),
       current: fields.current,
       courses: fields.courses.split(/[、,，;；]/).map((c) => c.trim()).filter(Boolean),
-      description: desc
+      description: desc,
+      highlights
     };
   }
   if (item.sectionType === "project") {
@@ -97,7 +103,8 @@ function formFieldsToCanonicalPatch(item: ResumeItemV2, fields: StructuredExperi
       startDate: fields.startDate || undefined,
       endDate: fields.current ? undefined : (fields.endDate || undefined),
       current: fields.current,
-      description: desc
+      description: desc,
+      highlights
     };
   }
   // work / internship / campus / volunteer
@@ -109,7 +116,8 @@ function formFieldsToCanonicalPatch(item: ResumeItemV2, fields: StructuredExperi
     startDate: fields.startDate || undefined,
     endDate: fields.current ? undefined : (fields.endDate || undefined),
     current: fields.current,
-    description: desc
+      description: desc,
+      highlights
   } as ResumeItemV2;
 }
 
@@ -525,6 +533,91 @@ describe("P3.6g0.1 canonical field preservation", () => {
       const form = canonicalToFormFields(withCustom);
       const patched = formFieldsToCanonicalPatch(withCustom, form);
       expect(patched.customFields).toEqual(withCustom.customFields);
+    });
+  });
+
+  describe("highlights round-trip", () => {
+    it("work: reads highlights from canonical item and writes back", () => {
+      const workItem: ResumeItemV2 = {
+        ...workFixture,
+        description: undefined,
+        highlights: ["职责一", "成果二"]
+      };
+      const form = canonicalToFormFields(workItem);
+      expect(form.description).toBe("");
+      expect(form.highlights).toEqual(["职责一", "成果二"]);
+
+      const patched = formFieldsToCanonicalPatch(workItem, form) as WorkItemV2;
+      expect(patched.description).toBeUndefined();
+      expect(patched.highlights).toEqual(["职责一", "成果二"]);
+    });
+
+    it("project: description and highlights are independent", () => {
+      const projItem: ResumeItemV2 = {
+        ...projectFixture,
+        description: "项目概述",
+        highlights: ["成果一", "成果二"]
+      };
+      const form = canonicalToFormFields(projItem);
+      expect(form.description).toBe("项目概述");
+      expect(form.highlights).toEqual(["成果一", "成果二"]);
+
+      const patched = formFieldsToCanonicalPatch(projItem, form) as ProjectItemV2;
+      expect(patched.description).toBe("项目概述");
+      expect(patched.highlights).toEqual(["成果一", "成果二"]);
+    });
+
+    it("education: description and highlights are independent", () => {
+      const eduItem: ResumeItemV2 = {
+        ...educationFixture,
+        description: "教育补充说明",
+        highlights: ["校级奖学金"]
+      };
+      const form = canonicalToFormFields(eduItem);
+      expect(form.description).toBe("教育补充说明");
+      expect(form.highlights).toEqual(["校级奖学金"]);
+
+      const patched = formFieldsToCanonicalPatch(eduItem, form) as EducationItemV2;
+      expect(patched.description).toBe("教育补充说明");
+      expect(patched.highlights).toEqual(["校级奖学金"]);
+    });
+
+    it("trims and filters empty highlights", () => {
+      const workItem: ResumeItemV2 = {
+        ...workFixture,
+        highlights: []
+      };
+      const form = canonicalToFormFields(workItem);
+      form.highlights = ["  有空格  ", "", "有效内容", "  "];
+
+      const patched = formFieldsToCanonicalPatch(workItem, form) as WorkItemV2;
+      expect(patched.highlights).toEqual(["有空格", "有效内容"]);
+    });
+
+    it("preserves existing highlights when description changes", () => {
+      const workItem: ResumeItemV2 = {
+        ...workFixture,
+        description: "原始描述",
+        highlights: ["成果一", "成果二"]
+      };
+      const form = canonicalToFormFields(workItem);
+      form.description = "新描述";
+
+      const patched = formFieldsToCanonicalPatch(workItem, form) as WorkItemV2;
+      expect(patched.description).toBe("新描述");
+      expect(patched.highlights).toEqual(["成果一", "成果二"]);
+    });
+
+    it("empty highlights results in empty array", () => {
+      const workItem: ResumeItemV2 = {
+        ...workFixture,
+        highlights: ["有内容"]
+      };
+      const form = canonicalToFormFields(workItem);
+      form.highlights = [];
+
+      const patched = formFieldsToCanonicalPatch(workItem, form) as WorkItemV2;
+      expect(patched.highlights).toEqual([]);
     });
   });
 });

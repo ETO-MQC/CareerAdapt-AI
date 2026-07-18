@@ -2846,7 +2846,8 @@ export class WorkspaceRepository {
           startDate: experience.startDate ?? parsedDraft.startDate,
           endDate: experience.endDate ?? parsedDraft.endDate,
           current: Boolean(experience.startDate && !experience.endDate),
-          description: parsedDraft.organization ? parsedDraft.description : description
+          description: parsedDraft.organization ? parsedDraft.description : description,
+          highlights: []
         }, category);
         const factRefs: ResumeBranch["contentItems"][number]["factRefs"] = [{
           type: "experience_fact",
@@ -2947,7 +2948,8 @@ export class WorkspaceRepository {
             startDate: experience.startDate ?? parsedDraft.startDate,
             endDate: experience.endDate ?? parsedDraft.endDate,
             current: Boolean(experience.startDate && !experience.endDate),
-            description: parsedDraft.organization ? parsedDraft.description : description
+            description: parsedDraft.organization ? parsedDraft.description : description,
+            highlights: []
           }, category);
           itemType = input.section === "awards" ? "custom" : "experience";
           factRefs = [{ type: "experience_fact", experienceId: experience.id, factId: fact.id }];

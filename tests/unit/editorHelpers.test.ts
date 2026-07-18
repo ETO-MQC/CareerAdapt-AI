@@ -41,7 +41,8 @@ describe("resume editor structured field helpers", () => {
       startDate: "2021-09-01",
       endDate: "2025-06-30",
       current: false,
-      description: "完成毕业设计并获优秀评价。"
+      description: "完成毕业设计并获优秀评价。",
+      highlights: []
     }, "education");
 
     expect(parseStructuredExperienceText(text)).toMatchObject({

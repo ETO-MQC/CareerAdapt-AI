@@ -29,7 +29,8 @@ function canonicalToFormFields(item: ResumeItemV2): StructuredExperienceFields {
       startDate: item.startDate ?? "",
       endDate: item.endDate ?? "",
       current: item.current ?? false,
-      description: item.description ?? ""
+      description: item.description ?? "",
+      highlights: item.highlights ?? []
     };
   }
   if (item.sectionType === "project") {
@@ -43,7 +44,8 @@ function canonicalToFormFields(item: ResumeItemV2): StructuredExperienceFields {
       startDate: item.startDate ?? "",
       endDate: item.endDate ?? "",
       current: item.current ?? false,
-      description: item.description ?? ""
+      description: item.description ?? "",
+      highlights: item.highlights ?? []
     };
   }
   // work / internship / campus / volunteer
@@ -54,12 +56,14 @@ function canonicalToFormFields(item: ResumeItemV2): StructuredExperienceFields {
   const ed = "endDate" in item ? (item as { endDate?: string }).endDate ?? "" : "";
   const cur = "current" in item ? Boolean((item as { current?: boolean }).current) : false;
   const desc = "description" in item ? (item as { description?: string }).description ?? "" : "";
-  return { organization: org, role, location: loc, degree: "", major: "", courses: "", startDate: sd, endDate: ed, current: cur, description: desc };
+  const hl = "highlights" in item ? (item as { highlights?: string[] }).highlights ?? [] : [];
+  return { organization: org, role, location: loc, degree: "", major: "", courses: "", startDate: sd, endDate: ed, current: cur, description: desc, highlights: hl };
 }
 
 /** Convert form fields back to a patched v2 canonical item (preserving all other fields). */
 function formFieldsToCanonicalPatch(item: ResumeItemV2, fields: StructuredExperienceFields): ResumeItemV2 {
   const desc = fields.description.trim() || undefined;
+  const highlights = fields.highlights.map((h) => h.trim()).filter(Boolean);
   if (item.sectionType === "education") {
     return {
       ...item,
@@ -71,7 +75,8 @@ function formFieldsToCanonicalPatch(item: ResumeItemV2, fields: StructuredExperi
       endDate: fields.current ? undefined : (fields.endDate || undefined),
       current: fields.current,
       courses: fields.courses.split(/[、,，;；]/).map((c) => c.trim()).filter(Boolean),
-      description: desc
+      description: desc,
+      highlights
     };
   }
   if (item.sectionType === "project") {
@@ -83,7 +88,8 @@ function formFieldsToCanonicalPatch(item: ResumeItemV2, fields: StructuredExperi
       startDate: fields.startDate || undefined,
       endDate: fields.current ? undefined : (fields.endDate || undefined),
       current: fields.current,
-      description: desc
+      description: desc,
+      highlights
     };
   }
   // work / internship / campus / volunteer
@@ -95,7 +101,8 @@ function formFieldsToCanonicalPatch(item: ResumeItemV2, fields: StructuredExperi
     startDate: fields.startDate || undefined,
     endDate: fields.current ? undefined : (fields.endDate || undefined),
     current: fields.current,
-    description: desc
+    description: desc,
+    highlights
   } as ResumeItemV2;
 }
 

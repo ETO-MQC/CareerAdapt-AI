@@ -2389,7 +2389,8 @@ function experienceToManagedItem(experience: Experience, archived: boolean): Pro
       startDate: experience.startDate ?? "",
       endDate: experience.endDate ?? "",
       current: Boolean(experience.startDate && !experience.endDate),
-      description: firstFact?.statement ?? ""
+      description: firstFact?.statement ?? "",
+      highlights: []
     }
   };
 }

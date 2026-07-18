@@ -34,6 +34,20 @@ export function StructuredExperienceForm({
     onChange(next);
   };
 
+  // Highlights as newline-separated string for editing
+  const highlightsText = value.highlights.join("\n");
+  const updateHighlights = (text: string) => {
+    const lines = text.split("\n").map((line) => line.trim()).filter(Boolean);
+    update("highlights", lines);
+  };
+
+  // Get the appropriate highlights label based on category
+  const highlightsLabel = category === "project"
+    ? "项目成果与说明"
+    : category === "education"
+      ? "教育亮点"
+      : "工作内容与成果";
+
   return (
     <div className="section-fields profile-structured-fields">
       <div className="section-fields-grid-2">
@@ -67,10 +81,21 @@ export function StructuredExperienceForm({
         <TipTapEditor
           value={plainTextToHtml(value.description)}
           onChange={(html) => update("description", htmlToPlainText(html))}
-          placeholder="写清职责、行动和可验证的结果…"
-          minRows={4}
+          placeholder={category === "education" ? "概述性补充说明…" : "概述性段落说明…"}
+          minRows={2}
         />
       </div>
+      {value.highlights.length > 0 || category !== "education" ? (
+        <div className="experience-description-field">
+          <label className="field-input-label">{highlightsLabel}</label>
+          <TipTapEditor
+            value={plainTextToHtml(highlightsText)}
+            onChange={(html) => updateHighlights(htmlToPlainText(html))}
+            placeholder="每行一条，写清职责、行动和可验证的结果…"
+            minRows={4}
+          />
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -70,6 +70,7 @@ export type StructuredExperienceFields = {
   endDate: string;
   current: boolean;
   description: string;
+  highlights: string[];
 };
 
 export const emptyStructuredExperienceFields: StructuredExperienceFields = {
@@ -82,7 +83,8 @@ export const emptyStructuredExperienceFields: StructuredExperienceFields = {
   startDate: "",
   endDate: "",
   current: false,
-  description: ""
+  description: "",
+  highlights: []
 };
 
 export function defaultExperienceType(category: ResumeFieldCategoryId): ExperienceType {
@@ -169,7 +171,8 @@ export function parseStructuredExperienceText(text: string): StructuredExperienc
     startDate: normalizeStructuredDate(dates[0] ?? ""),
     endDate: current ? "" : normalizeStructuredDate(dates[1] ?? ""),
     current,
-    description
+    description,
+    highlights: []
   };
 }
 
