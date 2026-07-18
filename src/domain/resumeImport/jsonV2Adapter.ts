@@ -13,9 +13,10 @@ import type { ResumeJsonMapperOutput } from "@/domain/schemas";
 import { migrateCareerProfileToV2, migrateResumeBranchToV2 } from "@/domain/migrations/resumeV2";
 import { getResumeSectionDefinition } from "@/domain/resumeFields";
 import { matchResumeSectionHeading } from "./sectionHeading";
+import { adaptWenmoResumeJson, isWenmoResumeJson, type ExternalJsonValidationIssue } from "./wenmoJsonAdapter";
 
 type AdapterResult =
-  | { ok: true; value: CareerAdaptResumeJsonV2; sourceKind: "v2" | "v1" | "external" }
+  | { ok: true; value: CareerAdaptResumeJsonV2; sourceKind: "v2" | "v1" | "external"; validationIssues?: ExternalJsonValidationIssue[] }
   | { ok: false; message: string; details?: unknown };
 
 const sectionTypeByV1Category = {
@@ -71,6 +72,10 @@ export function adaptResumeJsonToV2(value: unknown): AdapterResult {
   }
   const v1 = StructuredResumeDraftSchema.safeParse(value);
   if (v1.success) return { ok: true, value: v1ToJsonV2(v1.data), sourceKind: "v1" };
+  if (isWenmoResumeJson(value)) {
+    const adapted = adaptWenmoResumeJson(value);
+    return { ok: true, value: adapted.canonicalResume, sourceKind: "external", validationIssues: adapted.issues };
+  }
   const external = mapExternalResumeJson(value);
   if (!external.ok) return { ok: false, message: external.message, details: external.details };
   const converted = v1ToJsonV2(external.value.structuredDraft);
