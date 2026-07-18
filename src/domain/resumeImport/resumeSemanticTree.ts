@@ -15,8 +15,11 @@ export const SemanticConfidenceSchema = z.object({
 
 export const SemanticTextGroupSchema = z.object({
   id: z.string().min(1),
+  role: z.enum(["description", "highlight", "skill_name", "skill_description"]),
   blockIds: z.array(z.string().min(1)).min(1),
-  role: z.enum(["description", "highlight", "skill_title", "skill_description"])
+  markerBlockIds: z.array(z.string().min(1)).default([]),
+  sourceOrderStart: z.number().int().min(0),
+  sourceOrderEnd: z.number().int().min(0)
 }).strict();
 
 export const ResumeSemanticItemSchema = z.object({
@@ -101,14 +104,16 @@ export class LocalDeterministicSemanticResolver implements ResumeSemanticResolve
       return match ? [{ block: row.blocks[0], blocks: row.blocks, text: row.text, sectionType: match[1] }] : [];
     });
     const items: ResumeSemanticItem[] = [];
+    const invariantIssues: string[] = [];
     const sections = headings.map((heading, sectionIndex) => {
       const next = headings[sectionIndex + 1]?.block;
       const body = document.blocks.filter((block) => isWithinSection(block, heading.block, next));
       const groups = groupItems(heading.sectionType, body);
       const itemIds = groups.map((group, itemIndex) => {
-        const item = assignRoles(heading.sectionType, group, `semantic:${sectionIndex}:${itemIndex}`, graph);
-        items.push(item);
-        return item.id;
+        const result = assignRoles(heading.sectionType, group, `semantic:${sectionIndex}:${itemIndex}`, graph);
+        items.push(result.item);
+        invariantIssues.push(...result.invariantIssues);
+        return result.item.id;
       });
       return {
         id: `semantic-section:${sectionIndex}`,
@@ -124,7 +129,7 @@ export class LocalDeterministicSemanticResolver implements ResumeSemanticResolve
     const basicsBlockIds = document.blocks.filter((block) => !firstHeading || block.page < firstHeading.page || (block.page === firstHeading.page && block.bbox.y > firstHeading.bbox.y)).map((block) => block.id);
     const consumedHeadingBlockIds = headings.flatMap((heading) => heading.blocks.map((block) => block.id));
     const bound = new Set([...basicsBlockIds, ...consumedHeadingBlockIds, ...items.flatMap((item) => item.sourceBlockIds)]);
-    const invariantIssues = sourceBlockIds.filter((id) => !bound.has(id)).map((id) => `unbound_source_block:${id}`);
+    invariantIssues.push(...sourceBlockIds.filter((id) => !bound.has(id)).map((id) => `unbound_source_block:${id}`));
     return ResumeSemanticTreeSchema.parse({
       schemaVersion: RESUME_SEMANTIC_TREE_VERSION,
       sourceBlockIds,
@@ -150,11 +155,13 @@ export function mapSemanticItemToResumeItem(input: {
   const [startDate, endDate, current] = parseDate(read(input.item.dateBlockIds));
   const highlightGroups = input.item.highlightGroups.length
     ? input.item.highlightGroups
-    : input.item.highlightBlockIds.map((id, index): SemanticTextGroup => ({ id: `${input.item.id}:legacy-highlight:${index}`, blockIds: [id], role: "highlight" }));
+    : input.item.highlightBlockIds.flatMap((id, index): SemanticTextGroup[] => byId.get(id)
+      ? [semanticGroup(`${input.item.id}:legacy-highlight:${index}`, "highlight", [byId.get(id)!])]
+      : []);
   const bodyGroups = input.item.bodyGroups.length
     ? input.item.bodyGroups
-    : input.item.bodyBlockIds.length ? [{ id: `${input.item.id}:legacy-body`, blockIds: input.item.bodyBlockIds, role: "description" as const }] : [];
-  const highlights = highlightGroups.map((group) => materializeSemanticTextGroup({ group, layoutDocument: document, layoutGraph: graph })).filter(Boolean);
+    : input.item.bodyBlockIds.length ? [semanticGroup(`${input.item.id}:legacy-body`, "description", input.item.bodyBlockIds.flatMap((id) => byId.get(id) ? [byId.get(id)!] : []))] : [];
+  const highlights = uniqueExact(highlightGroups.map((group) => materializeSemanticTextGroup({ group, layoutDocument: document, layoutGraph: graph })).filter(Boolean));
   const body = bodyGroups.map((group) => materializeSemanticTextGroup({ group, layoutDocument: document, layoutGraph: graph })).join("").trim();
   const customFields: [] = [];
   const common = { id: input.item.id, customFields };
@@ -175,12 +182,12 @@ export function mapSemanticItemToResumeItem(input: {
     methods: [], highlights };
   else if (input.sectionType === "skills") {
     const skillText = materializeSemanticTextGroup({
-      group: { id: `${input.item.id}:skill`, blockIds: input.item.sourceBlockIds, role: "skill_description" },
+      group: semanticGroup(`${input.item.id}:skill`, "skill_description", input.item.sourceBlockIds.flatMap((id) => byId.get(id) ? [byId.get(id)!] : [])),
       layoutDocument: document,
       layoutGraph: graph
     });
     const boundary = skillText.search(/[:：]/u);
-    const groupedName = input.item.bodyGroups.find((group) => group.role === "skill_title");
+    const groupedName = input.item.bodyGroups.find((group) => group.role === "skill_name");
     const groupedDescription = input.item.bodyGroups.find((group) => group.role === "skill_description");
     const name = groupedName ? materializeSemanticTextGroup({ group: groupedName, layoutDocument: document, layoutGraph: graph })
       : boundary >= 0 ? skillText.slice(0, boundary).trim() : read(input.item.titleBlockIds) || skillText;
@@ -205,13 +212,51 @@ export function materializeSemanticTextGroup(input: {
   const graphMarkers = new Set(graph?.edges.flatMap((edge) => edge.relation === "bullet_content_of" ? [edge.from] : []) ?? []);
   const groupBlocks = [...ids].flatMap((id) => byId.get(id) ? [byId.get(id)!] : [])
     .filter((block) => !graphMarkers.has(block.id) && !isBulletMarker(block.text));
-  return stripBullet(joinLayoutBlockText(groupBlocks, false));
+  const text = stripBullet(joinLayoutBlockText(groupBlocks, false)).replace(/[\u200B-\u200D\u2060\uFEFF]/gu, "").trim();
+  if (input.group.role === "skill_name") return text.replace(/[:：]\s*$/u, "").trim();
+  if (input.group.role === "skill_description") return text.replace(/^[:：]\s*/u, "").replace(/^、\s*$/u, "").trim();
+  return text;
 }
 
 export function semanticSourceCoverage(tree: ResumeSemanticTree): number {
   if (!tree.sourceBlockIds.length) return 1;
   const consumed = new Set([...tree.basicsBlockIds, ...tree.consumedHeadingBlockIds, ...tree.items.flatMap((item) => item.sourceBlockIds)]);
   return tree.sourceBlockIds.filter((id) => consumed.has(id)).length / tree.sourceBlockIds.length;
+}
+
+export type SemanticTextAssemblyMetrics = {
+  exactDuplicateHighlightCount: number;
+  crossGroupSharedBlockCount: number;
+  fragmentOnlyHighlightCount: number;
+  adjacentHighlightContainmentCount: number;
+};
+
+export function auditSemanticTextAssembly(input: { tree: ResumeSemanticTree; layoutDocument: LayoutDocument; layoutGraph?: LayoutGraph }): SemanticTextAssemblyMetrics {
+  const sectionByItem = new Map(input.tree.sections.flatMap((section) => section.itemIds.map((itemId) => [itemId, section.sectionType] as const)));
+  const fragments = new Set(["AI", "RAG", "SQLite", "Markdown", "KaTeX", "Mermaid", "示例自动化框架"]);
+  const metrics: SemanticTextAssemblyMetrics = { exactDuplicateHighlightCount: 0, crossGroupSharedBlockCount: 0, fragmentOnlyHighlightCount: 0, adjacentHighlightContainmentCount: 0 };
+  const owners = new Map<string, string>();
+  for (const item of input.tree.items) {
+    for (const group of [...item.bodyGroups, ...item.highlightGroups]) {
+      for (const blockId of group.blockIds) {
+        const owner = owners.get(blockId);
+        if (owner && owner !== group.id) metrics.crossGroupSharedBlockCount += 1;
+        else owners.set(blockId, group.id);
+      }
+    }
+    const sectionType = sectionByItem.get(item.id);
+    if (!sectionType) continue;
+    const mapped = mapSemanticItemToResumeItem({ sectionType, item, layoutDocument: input.layoutDocument, layoutGraph: input.layoutGraph });
+    const highlights = "highlights" in mapped ? mapped.highlights.map((value) => value.trim()).filter(Boolean) : [];
+    metrics.exactDuplicateHighlightCount += highlights.length - new Set(highlights).size;
+    metrics.fragmentOnlyHighlightCount += highlights.filter((value) => fragments.has(value)).length;
+    for (let index = 0; index < highlights.length - 1; index += 1) {
+      const left = normalizeAssemblyText(highlights[index]);
+      const right = normalizeAssemblyText(highlights[index + 1]);
+      if (left && right && (left.includes(right) || right.includes(left))) metrics.adjacentHighlightContainmentCount += 1;
+    }
+  }
+  return metrics;
 }
 
 function groupItems(sectionType: Exclude<ResumeSectionTypeV2, "basics">, blocks: LayoutDocument["blocks"]): LayoutDocument["blocks"][] {
@@ -239,30 +284,45 @@ function groupItems(sectionType: Exclude<ResumeSectionTypeV2, "basics">, blocks:
   return groups;
 }
 
-function assignRoles(sectionType: Exclude<ResumeSectionTypeV2, "basics">, blocks: LayoutDocument["blocks"], id: string, graph: LayoutGraph): ResumeSemanticItem {
+function assignRoles(sectionType: Exclude<ResumeSectionTypeV2, "basics">, blocks: LayoutDocument["blocks"], id: string, graph: LayoutGraph): { item: ResumeSemanticItem; invariantIssues: string[] } {
   const dateStartBlock = blocks.find((block) => DATE_PATTERN.test(block.text));
   const dateBlocks = dateStartBlock
     ? blocks.filter((block) => block.lineId === dateStartBlock.lineId && block.bbox.x >= dateStartBlock.bbox.x)
     : [];
   const markerBlocks = blocks.filter((block) => /^[•·●▪◦■□◆◇▶►*-]\s*$/u.test(block.text.trim()));
-  const highlightGroups = ["skills", "certificates"].includes(sectionType) ? [] : buildHighlightGroups(blocks, markerBlocks, graph, id);
+  const highlightResult = ["skills", "certificates"].includes(sectionType)
+    ? { groups: [] as SemanticTextGroup[], invariantIssues: [] as string[] }
+    : buildHighlightGroups(blocks, markerBlocks, graph, id);
+  const highlightGroups = highlightResult.groups;
   const highlightIds = new Set(highlightGroups.flatMap((group) => group.blockIds));
   const highlightBlocks = blocks.filter((block) => highlightIds.has(block.id));
   const headerLineId = blocks.find((block) => !markerBlocks.includes(block))?.lineId;
-  const header = sectionType === "summary" ? [] : blocks.filter((block) => !dateBlocks.includes(block) && !highlightBlocks.includes(block) && !markerBlocks.includes(block) && block.lineId === headerLineId);
+  const header = sectionType === "summary" || sectionType === "skills" ? [] : blocks.filter((block) => !dateBlocks.includes(block) && !highlightBlocks.includes(block) && !markerBlocks.includes(block) && block.lineId === headerLineId);
   const remaining = blocks.filter((block) => !dateBlocks.includes(block) && !header.includes(block) && !highlightBlocks.includes(block) && !markerBlocks.includes(block));
   const headerGroups = partitionHeaderFields(header, sectionType === "education" ? 3 : ["work", "internship", "campus", "volunteer", "project", "research"].includes(sectionType) ? 2 : 1);
-  const titleBlockIds = sectionType === "project" || sectionType === "research" || sectionType === "skills" || sectionType === "certificates" ? (headerGroups[0] ?? []).map((block) => block.id) : [];
+  const skillGroups = sectionType === "skills" ? buildSkillGroups(remaining, id) : [];
+  const titleBlockIds = sectionType === "skills" ? skillGroups.filter((group) => group.role === "skill_name").flatMap((group) => group.blockIds)
+    : sectionType === "project" || sectionType === "research" || sectionType === "certificates" ? (headerGroups[0] ?? []).map((block) => block.id) : [];
   const organizationBlockIds = sectionType === "education" || ["work", "internship", "campus", "volunteer"].includes(sectionType) ? (headerGroups[0] ?? []).map((block) => block.id) : [];
   const roleBlockIds = ["work", "internship", "campus", "volunteer", "project", "research"].includes(sectionType) ? (headerGroups[1] ?? []).map((block) => block.id) : [];
   const majorBlockIds = sectionType === "education" ? (headerGroups[1] ?? []).map((block) => block.id) : [];
   const degreeBlockIds = sectionType === "education" ? (headerGroups[2] ?? []).map((block) => block.id) : [];
-  const bodyGroups: SemanticTextGroup[] = remaining.length ? [{
-    id: `${id}:body:0`,
-    blockIds: remaining.map((block) => block.id),
-    role: "description"
-  }] : [];
-  return {
+  const bodyGroups: SemanticTextGroup[] = sectionType === "skills"
+    ? skillGroups
+    : remaining.length ? [semanticGroup(`${id}:body:0`, "description", remaining)] : [];
+  const claimed = new Map<string, string>();
+  const invariantIssues = [...highlightResult.invariantIssues];
+  const claim = (role: string, blockIds: readonly string[]) => {
+    for (const blockId of blockIds) {
+      const previous = claimed.get(blockId);
+      if (previous && previous !== role) invariantIssues.push(`content_ownership_conflict:${id}:${blockId}:${previous}:${role}`);
+      else claimed.set(blockId, role);
+    }
+  };
+  claim("title", titleBlockIds); claim("organization", organizationBlockIds); claim("role", roleBlockIds);
+  claim("degree", degreeBlockIds); claim("major", majorBlockIds); claim("date", dateBlocks.map((block) => block.id));
+  for (const group of [...bodyGroups, ...highlightGroups]) claim(group.role, group.blockIds);
+  const item: ResumeSemanticItem = {
     id,
     sourceBlockIds: blocks.map((block) => block.id),
     titleBlockIds,
@@ -271,20 +331,24 @@ function assignRoles(sectionType: Exclude<ResumeSectionTypeV2, "basics">, blocks
     degreeBlockIds,
     majorBlockIds,
     dateBlockIds: dateBlocks.map((block) => block.id),
-    bodyBlockIds: remaining.map((block) => block.id),
+    bodyBlockIds: sectionType === "skills" ? skillGroups.filter((group) => group.role === "skill_description").flatMap((group) => group.blockIds) : remaining.map((block) => block.id),
     highlightBlockIds: highlightBlocks.map((block) => block.id),
     bodyGroups,
     highlightGroups,
-    confidence: confidence(0.95, dateBlocks.length || ["summary", "education", "skills", "certificates"].includes(sectionType) ? 0.88 : 0.62, header.length ? 0.84 : 0.55, 1)
+    confidence: confidence(0.95, dateBlocks.length || ["summary", "education", "skills", "certificates"].includes(sectionType) ? 0.88 : 0.62, header.length ? 0.84 : 0.55, invariantIssues.length ? 0.45 : 1)
   };
+  return { item, invariantIssues: uniqueExact(invariantIssues) };
 }
 
-function buildHighlightGroups(blocks: LayoutDocument["blocks"], markerBlocks: LayoutDocument["blocks"], graph: LayoutGraph, itemId: string): SemanticTextGroup[] {
+function buildHighlightGroups(blocks: LayoutDocument["blocks"], markerBlocks: LayoutDocument["blocks"], graph: LayoutGraph, itemId: string): { groups: SemanticTextGroup[]; invariantIssues: string[] } {
   const allowed = new Set(blocks.map((block) => block.id));
   const markers = new Set(markerBlocks.map((block) => block.id));
   const byId = new Map(blocks.map((block) => [block.id, block]));
-  return markerBlocks.flatMap((marker, index) => {
-    const nextMarkerOrder = markerBlocks[index + 1]?.order ?? Number.POSITIVE_INFINITY;
+  const claimed = new Map<string, string>();
+  const invariantIssues: string[] = [];
+  const sortedMarkers = [...markerBlocks].sort((left, right) => left.order - right.order);
+  const groups = sortedMarkers.flatMap((marker, index) => {
+    const nextMarkerOrder = sortedMarkers[index + 1]?.order ?? Number.POSITIVE_INFINITY;
     const seedIds = graph.edges.flatMap((edge) => edge.relation === "bullet_content_of" && edge.from === marker.id && allowed.has(edge.to) ? [edge.to] : []);
     if (!seedIds.length) return [];
     const ids = new Set(seedIds);
@@ -293,20 +357,52 @@ function buildHighlightGroups(blocks: LayoutDocument["blocks"], markerBlocks: La
       changed = false;
       for (const edge of graph.edges) {
         if (!allowed.has(edge.from) || !allowed.has(edge.to) || markers.has(edge.from) || markers.has(edge.to)) continue;
-        const connected = edge.relation === "same_row" || edge.relation === "continuation_of";
-        if (!connected || ids.has(edge.from) === ids.has(edge.to)) continue;
-        const candidateId = ids.has(edge.from) ? edge.to : edge.from;
+        const sameRowExpansion = edge.relation === "same_row" && (ids.has(edge.from) !== ids.has(edge.to));
+        const directedContinuation = edge.relation === "continuation_of" && ids.has(edge.to) && !ids.has(edge.from);
+        if (!sameRowExpansion && !directedContinuation) continue;
+        const candidateId = directedContinuation ? edge.from : ids.has(edge.from) ? edge.to : edge.from;
         const candidate = byId.get(candidateId);
-        const anchor = byId.get(ids.has(edge.from) ? edge.from : edge.to);
+        const anchor = byId.get(directedContinuation ? edge.to : ids.has(edge.from) ? edge.from : edge.to);
         if (!candidate || !anchor || candidate.order <= marker.order || candidate.order >= nextMarkerOrder
           || edge.relation === "continuation_of" && !sameIndent(anchor, candidate)) continue;
         ids.add(candidateId);
         changed = true;
       }
     }
-    return [{ id: `${itemId}:highlight:${index}`, blockIds: [...ids], role: "highlight" as const }];
+    const groupId = `${itemId}:highlight:${index}`;
+    const exclusiveIds = [...ids].sort((left, right) => (byId.get(left)?.order ?? 0) - (byId.get(right)?.order ?? 0)).filter((blockId) => {
+      const owner = claimed.get(blockId);
+      if (!owner) { claimed.set(blockId, groupId); return true; }
+      invariantIssues.push(`cross_group_shared_block:${itemId}:${blockId}:${owner}:${groupId}`);
+      return false;
+    });
+    return exclusiveIds.length ? [semanticGroup(groupId, "highlight", exclusiveIds.map((blockId) => byId.get(blockId)! ), [marker.id])] : [];
   });
+  return { groups, invariantIssues };
 }
+
+function buildSkillGroups(blocks: LayoutDocument["blocks"], itemId: string): SemanticTextGroup[] {
+  const sorted = sortLayoutBlocks(blocks).filter((block) => !isBulletMarker(block.text) && block.text.replace(/[\u200B-\u200D\u2060\uFEFF]/gu, "").trim() !== "、");
+  if (!sorted.length) return [];
+  const boundary = sorted.findIndex((block) => /[:：]/u.test(block.text));
+  if (boundary >= 0 && /[:：]\s*$/u.test(sorted[boundary].text) && boundary < sorted.length - 1) {
+    return [semanticGroup(`${itemId}:skill-name`, "skill_name", sorted.slice(0, boundary + 1)), semanticGroup(`${itemId}:skill-description`, "skill_description", sorted.slice(boundary + 1))];
+  }
+  return [semanticGroup(`${itemId}:skill-description`, "skill_description", sorted)];
+}
+
+function semanticGroup(id: string, role: SemanticTextGroup["role"], blocks: LayoutDocument["blocks"], markerBlockIds: string[] = []): SemanticTextGroup {
+  const sorted = sortLayoutBlocks(blocks);
+  return { id, role, blockIds: sorted.map((block) => block.id), markerBlockIds, sourceOrderStart: sorted[0].order, sourceOrderEnd: sorted.at(-1)!.order };
+}
+
+function sortLayoutBlocks(blocks: LayoutDocument["blocks"]): LayoutDocument["blocks"] {
+  return [...blocks].sort((left, right) => left.page - right.page || right.bbox.y - left.bbox.y || left.bbox.x - right.bbox.x || left.order - right.order);
+}
+
+function uniqueExact<T>(values: readonly T[]): T[] { return [...new Set(values)]; }
+
+function normalizeAssemblyText(value: string): string { return value.normalize("NFKC").replace(/\s+/gu, "").trim(); }
 
 function sameIndent(left: LayoutDocument["blocks"][number], right: LayoutDocument["blocks"][number]): boolean {
   return Math.abs(left.bbox.x - right.bbox.x) <= Math.max(left.bbox.height, right.bbox.height) * 1.6;

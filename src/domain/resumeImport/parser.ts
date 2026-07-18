@@ -650,6 +650,10 @@ function detectSectionsFromSemanticArtifacts(artifacts: ResumeLayoutArtifact[], 
           .filter((blockId) => sourceBlockById.has(blockId));
         const boundBlocks = sourceBlockIds.flatMap((blockId) => sourceBlockById.get(blockId) ? [sourceBlockById.get(blockId)!] : []);
         const normalizedText = projectResumeItemV2(structuredItem);
+        const needsStructureReview = semanticItem.confidence.itemBoundary < 0.85
+          || semanticItem.confidence.fieldRole < 0.85
+          || semanticItem.confidence.sourceBinding < 0.85
+          || artifact.semanticTree.invariantIssues.some((issue) => issue.includes(semanticItem.id));
         return [{
           id: semanticItem.id,
           rawText: boundBlocks.map((block) => block.rawText).join("\n") || normalizedText,
@@ -658,7 +662,7 @@ function detectSectionsFromSemanticArtifacts(artifacts: ResumeLayoutArtifact[], 
           order: itemIndex,
           pageRefs: pageRefsFromBlocks(boundBlocks),
           confidence: numericConfidence(semanticItem.confidence.fieldRole),
-          sourceStatus: sourceBlockIds.length ? "located" : "ambiguous",
+          sourceStatus: sourceBlockIds.length && !needsStructureReview ? "located" : "ambiguous",
           userEdited: false,
           sourceBlockIds,
           sourceRanges: boundBlocks.flatMap((block) => block.normalizedText ? [{ blockId: block.id, start: 0, end: block.normalizedText.length }] : []),

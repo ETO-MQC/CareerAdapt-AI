@@ -9,6 +9,7 @@ export type ResumeImportInvariantReport = {
   sameSourceRangeConflictCount: number;
   mappedContentRepeatedInUnclassified: number;
   presentationHeadingLeakedIntoContent: number;
+  semanticStructureReviewCount: number;
 };
 
 export function auditResumeImportInvariants(draft: ImportedResumeDraft): ResumeImportInvariantReport {
@@ -41,7 +42,8 @@ export function auditResumeImportInvariants(draft: ImportedResumeDraft): ResumeI
     mappedContentRepeatedInUnclassified: unclassifiedText.filter((text) => text && mappedTexts.has(text)).length,
     presentationHeadingLeakedIntoContent: draft.sections.flatMap((section) => section.items).filter((item) =>
       /^(?:经历|奖项[、,]技能与语言)$/i.test(item.normalizedText.normalize("NFKC").trim())
-    ).length
+    ).length,
+    semanticStructureReviewCount: draft.sections.flatMap((section) => section.items).filter((item) => item.structuredItem && item.sourceStatus === "ambiguous").length
   };
 }
 
