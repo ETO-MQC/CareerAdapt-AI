@@ -155,6 +155,9 @@ export function ProfileWorkspace() {
   const [blockerDialogOpen, setBlockerDialogOpen] = useState(false);
   const [blockers, setBlockers] = useState<{ branches: number; matches: number; matchOperations: number; adaptationDrafts: number; applications: number; commits: number } | null>(null);
   const [clearingCategory, setClearingCategory] = useState<string | null>(null);
+  const [forceDeleteDialog, setForceDeleteDialog] = useState<{ item: ProfileManagedItem; referenceCount: number } | null>(null);
+  const [batchMode, setBatchMode] = useState(false);
+  const [selectedBatchKeys, setSelectedBatchKeys] = useState<Set<string>>(new Set());
   const [basicDraftState, setBasicDraftState] = useState<BasicDraftState>(emptyBasicDraft);
   const [profileArchive, setProfileArchive] = useState<ProfileArchiveState>(emptyProfileArchive);
   const [activeProfileCategory, setActiveProfileCategory] = useState<ProfileCategoryId>("basic");
@@ -764,7 +767,7 @@ export function ProfileWorkspace() {
     if (!profile || item.kind === "basic" || item.kind === "summary") return;
     const referenceCount = await repository.getProfileItemReferenceCount({ kind: item.kind, id: item.id });
     if (referenceCount > 0) {
-      notify({ type: "warning", title: "无法删除", message: `该条目仍被 ${referenceCount} 份简历引用，可以先归档或移除简历中的引用。` });
+      setForceDeleteDialog({ item, referenceCount });
       return;
     }
 
@@ -807,6 +810,155 @@ export function ProfileWorkspace() {
     const nextItems = buildProfileManagedItems(saved, nextArchive, activeProfileCategory, profileSearch, profileUsageFilter);
     setSelectedProfileItemKey(nextItems[0]?.key ?? `new:${activeProfileCategory}`);
     notify({ type: "success", title: "已移入回收站", message: "可在统一回收站恢复。" });
+  }
+
+  async function confirmForceTrashItem() {
+    if (!forceDeleteDialog || !profile) return;
+    const { item } = forceDeleteDialog;
+    setForceDeleteDialog(null);
+
+    const now = new Date().toISOString();
+    let nextProfile = profile;
+    let nextArchive = profileArchive;
+    let recycleItem: ProfileRecycleItem | undefined;
+    if (item.kind === "experience") {
+      const value = (item.archived ? profileArchive.experiences : profile.experiences).find((entry) => entry.id === item.id);
+      if (!value) return;
+      nextProfile = item.archived ? profile : { ...profile, experiences: profile.experiences.filter((entry) => entry.id !== item.id), version: profile.version + 1, updatedAt: now };
+      nextArchive = item.archived ? { ...profileArchive, experiences: profileArchive.experiences.filter((entry) => entry.id !== item.id) } : profileArchive;
+      recycleItem = { id: item.id, profileId: profile.id, kind: "experience", category: item.category, title: item.title, deletedAt: now, value };
+    } else if (item.kind === "certificate") {
+      const value = (item.archived ? profileArchive.certificates : profile.certificates).find((entry) => entry.id === item.id);
+      if (!value) return;
+      nextProfile = item.archived ? profile : { ...profile, certificates: profile.certificates.filter((entry) => entry.id !== item.id), version: profile.version + 1, updatedAt: now };
+      nextArchive = item.archived ? { ...profileArchive, certificates: profileArchive.certificates.filter((entry) => entry.id !== item.id) } : profileArchive;
+      recycleItem = { id: item.id, profileId: profile.id, kind: "certificate", category: item.category, title: item.title, deletedAt: now, value };
+    } else if (item.kind === "skill") {
+      const value = (item.archived ? profileArchive.skills : profile.skills).find((entry) => entry.id === item.id);
+      if (!value) return;
+      nextProfile = item.archived ? profile : { ...profile, skills: profile.skills.filter((entry) => entry.id !== item.id), version: profile.version + 1, updatedAt: now };
+      nextArchive = item.archived ? { ...profileArchive, skills: profileArchive.skills.filter((entry) => entry.id !== item.id) } : profileArchive;
+      recycleItem = { id: item.id, profileId: profile.id, kind: "skill", category: item.category, title: item.title, deletedAt: now, value };
+    } else {
+      const activeIndex = Number(item.id.replace("custom:", ""));
+      const archived = profileArchive.customBlocks.find((entry) => entry.id === item.id);
+      const value = item.archived ? archived?.text : profile.unclassifiedBlocks[activeIndex];
+      if (!value) return;
+      nextProfile = item.archived ? profile : { ...profile, unclassifiedBlocks: profile.unclassifiedBlocks.filter((_, index) => index !== activeIndex), version: profile.version + 1, updatedAt: now };
+      nextArchive = item.archived ? { ...profileArchive, customBlocks: profileArchive.customBlocks.filter((entry) => entry.id !== item.id) } : profileArchive;
+      recycleItem = { id: item.id, profileId: profile.id, kind: "custom", category: item.category, title: item.title, deletedAt: now, value };
+    }
+
+    const saved = nextProfile === profile ? profile : await saveProfileSnapshot(nextProfile, "资料条目已强制移入回收站。");
+    if (!saved || !recycleItem) return;
+    if (nextArchive !== profileArchive) await saveProfileArchive(nextArchive);
+    await repository.addProfileRecycleItem(recycleItem);
+
+    // Clean up references in resume branches
+    const branches = await repository.listResumeBranches(profile.id);
+    const refType = item.kind === "experience" ? "experience_fact"
+      : item.kind === "skill" ? "skill_fact"
+        : item.kind === "certificate" ? "certificate_fact" : null;
+    if (refType) {
+      const idField = item.kind === "experience" ? "experienceId"
+        : item.kind === "skill" ? "skillId"
+          : "certificateId";
+      for (const branch of branches) {
+        const cleanedItems = branch.contentItems.filter((contentItem) =>
+          !contentItem.factRefs.some((ref) => ref.type === refType && ref[idField as keyof typeof ref] === item.id)
+        );
+        if (cleanedItems.length !== branch.contentItems.length) {
+          // saveResumeBranch calls migrateResumeBranchToV2 which auto-syncs structuredContentItems
+          await repository.saveResumeBranch({ ...branch, contentItems: cleanedItems, updatedAt: now });
+        }
+      }
+    }
+
+    const nextItems = buildProfileManagedItems(saved, nextArchive, activeProfileCategory, profileSearch, profileUsageFilter);
+    setSelectedProfileItemKey(nextItems[0]?.key ?? `new:${activeProfileCategory}`);
+    const cleanedCount = branches.length > 0 ? "，已同步清理简历引用" : "";
+    notify({ type: "success", title: "已强制移入回收站", message: `可在统一回收站恢复${cleanedCount}。` });
+  }
+
+  function toggleBatchItem(key: string) {
+    setSelectedBatchKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  async function batchTrashItems() {
+    if (!profile || selectedBatchKeys.size === 0) return;
+    const items = profileManagedItems.filter((item) => selectedBatchKeys.has(item.key) && item.kind !== "basic" && item.kind !== "summary");
+    if (items.length === 0) return;
+
+    const now = new Date().toISOString();
+    let nextProfile = profile;
+    let nextArchive = profileArchive;
+    const recycleItems: ProfileRecycleItem[] = [];
+
+    for (const item of items) {
+      if (item.kind === "experience") {
+        const value = (item.archived ? nextArchive.experiences : nextProfile.experiences).find((entry) => entry.id === item.id);
+        if (!value) continue;
+        nextProfile = item.archived ? nextProfile : { ...nextProfile, experiences: nextProfile.experiences.filter((entry) => entry.id !== item.id), version: nextProfile.version + 1, updatedAt: now };
+        nextArchive = item.archived ? { ...nextArchive, experiences: nextArchive.experiences.filter((entry) => entry.id !== item.id) } : nextArchive;
+        recycleItems.push({ id: item.id, profileId: profile.id, kind: "experience", category: item.category, title: item.title, deletedAt: now, value });
+      } else if (item.kind === "certificate") {
+        const value = (item.archived ? nextArchive.certificates : nextProfile.certificates).find((entry) => entry.id === item.id);
+        if (!value) continue;
+        nextProfile = item.archived ? nextProfile : { ...nextProfile, certificates: nextProfile.certificates.filter((entry) => entry.id !== item.id), version: nextProfile.version + 1, updatedAt: now };
+        nextArchive = item.archived ? { ...nextArchive, certificates: nextArchive.certificates.filter((entry) => entry.id !== item.id) } : nextArchive;
+        recycleItems.push({ id: item.id, profileId: profile.id, kind: "certificate", category: item.category, title: item.title, deletedAt: now, value });
+      } else if (item.kind === "skill") {
+        const value = (item.archived ? nextArchive.skills : nextProfile.skills).find((entry) => entry.id === item.id);
+        if (!value) continue;
+        nextProfile = item.archived ? nextProfile : { ...nextProfile, skills: nextProfile.skills.filter((entry) => entry.id !== item.id), version: nextProfile.version + 1, updatedAt: now };
+        nextArchive = item.archived ? { ...nextArchive, skills: nextArchive.skills.filter((entry) => entry.id !== item.id) } : nextArchive;
+        recycleItems.push({ id: item.id, profileId: profile.id, kind: "skill", category: item.category, title: item.title, deletedAt: now, value });
+      } else {
+        const activeIndex = Number(item.id.replace("custom:", ""));
+        const archived = nextArchive.customBlocks.find((entry) => entry.id === item.id);
+        const value = item.archived ? archived?.text : nextProfile.unclassifiedBlocks[activeIndex];
+        if (!value) continue;
+        nextProfile = item.archived ? nextProfile : { ...nextProfile, unclassifiedBlocks: nextProfile.unclassifiedBlocks.filter((_, index) => index !== activeIndex), version: nextProfile.version + 1, updatedAt: now };
+        nextArchive = item.archived ? { ...nextArchive, customBlocks: nextArchive.customBlocks.filter((entry) => entry.id !== item.id) } : nextArchive;
+        recycleItems.push({ id: item.id, profileId: profile.id, kind: "custom", category: item.category, title: item.title, deletedAt: now, value });
+      }
+    }
+
+    if (recycleItems.length === 0) return;
+
+    const saved = nextProfile === profile ? profile : await saveProfileSnapshot(nextProfile, `批量移除 ${recycleItems.length} 个资料条目。`);
+    if (!saved) return;
+    if (nextArchive !== profileArchive) await saveProfileArchive(nextArchive);
+    for (const ri of recycleItems) await repository.addProfileRecycleItem(ri);
+
+    // Clean up references in resume branches
+    const branches = await repository.listResumeBranches(profile.id);
+    const deletedIds = new Set(recycleItems.map((ri) => ri.id));
+    for (const branch of branches) {
+      const cleanedItems = branch.contentItems.filter((contentItem) =>
+        !contentItem.factRefs.some((ref) => {
+          if (ref.type === "experience_fact") return deletedIds.has(ref.experienceId);
+          if (ref.type === "skill_fact") return deletedIds.has(ref.skillId);
+          if (ref.type === "certificate_fact") return deletedIds.has(ref.certificateId);
+          return false;
+        })
+      );
+      if (cleanedItems.length !== branch.contentItems.length) {
+        // saveResumeBranch calls migrateResumeBranchToV2 which auto-syncs structuredContentItems
+        await repository.saveResumeBranch({ ...branch, contentItems: cleanedItems, updatedAt: now });
+      }
+    }
+
+    setBatchMode(false);
+    setSelectedBatchKeys(new Set());
+    const nextItems = buildProfileManagedItems(saved, nextArchive, activeProfileCategory, profileSearch, profileUsageFilter);
+    setSelectedProfileItemKey(nextItems[0]?.key ?? `new:${activeProfileCategory}`);
+    notify({ type: "success", title: "批量删除完成", message: `已移除 ${recycleItems.length} 个条目并清理简历引用，可在统一回收站恢复。` });
   }
 
   async function handlePdfFileChange(event: ChangeEvent<HTMLInputElement>) {
@@ -1440,7 +1592,22 @@ export function ProfileWorkspace() {
                 <h2>{profileCategoryLabel(activeProfileCategory)}</h2>
                 <p>只显示当前分类，列表和详情各自滚动。</p>
               </div>
-              <button className="primary-button compact" disabled={profileSaving} onClick={startManagedProfileCreate}>新增</button>
+              <div className="profile-list-actions">
+                <button className="primary-button compact" disabled={profileSaving} onClick={startManagedProfileCreate}>新增</button>
+                {activeProfileCategory !== "basic" && activeProfileCategory !== "summary" ? (
+                  <button
+                    className={batchMode ? "secondary-button compact" : "section-action-button compact"}
+                    onClick={() => { setBatchMode(!batchMode); setSelectedBatchKeys(new Set()); }}
+                  >
+                    {batchMode ? "退出批量" : "批量删除"}
+                  </button>
+                ) : null}
+                {batchMode && selectedBatchKeys.size > 0 ? (
+                  <button className="section-action-button section-action-button-danger compact" onClick={() => { void batchTrashItems(); }}>
+                    删除选中 ({selectedBatchKeys.size})
+                  </button>
+                ) : null}
+              </div>
             </div>
             <div className="form-grid compact-form-grid">
               <label className="field-label">
@@ -1462,8 +1629,17 @@ export function ProfileWorkspace() {
                 <div
                   key={item.key}
                   className={selectedProfileItem?.key === item.key ? "profile-managed-row profile-managed-row-active" : "profile-managed-row"}
-                  onClick={() => selectManagedProfileItem(item)}
+                  onClick={() => batchMode && item.kind !== "basic" && item.kind !== "summary" ? toggleBatchItem(item.key) : selectManagedProfileItem(item)}
                 >
+                  {batchMode && item.kind !== "basic" && item.kind !== "summary" ? (
+                    <input
+                      type="checkbox"
+                      className="batch-checkbox"
+                      checked={selectedBatchKeys.has(item.key)}
+                      onChange={() => toggleBatchItem(item.key)}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  ) : null}
                   <span>
                     <strong>{item.title}</strong>
                     <small>{item.subtitle || item.body || "暂无补充说明"}</small>
@@ -1873,6 +2049,24 @@ export function ProfileWorkspace() {
               <button type="button" className="section-action-button" disabled={profileDeleting} onClick={() => setProfileDeleteOpen(false)}>取消</button>
               <button type="button" className="danger-button" disabled={profileDeleting} onClick={() => { void confirmCurrentProfileDelete(); }}>
                 {profileDeleting ? "删除中…" : "确认删除"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {forceDeleteDialog ? (
+        <div className="sync-dialog-overlay" role="dialog" aria-modal="true" aria-labelledby="force-delete-title">
+          <div className="sync-dialog profile-delete-dialog">
+            <h3 className="sync-dialog-title" id="force-delete-title">强制删除条目？</h3>
+            <p className="sync-dialog-description">
+              " {forceDeleteDialog.item.title} " 仍被 {forceDeleteDialog.referenceCount} 份简历引用。
+              强制删除后，简历中引用该条目的内容会被同步移除。
+            </p>
+            <div className="sync-dialog-actions">
+              <button type="button" className="section-action-button" onClick={() => setForceDeleteDialog(null)}>取消</button>
+              <button type="button" className="section-action-button section-action-button-danger" onClick={() => { void confirmForceTrashItem(); }}>
+                确认强制删除
               </button>
             </div>
           </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useEffectEvent, useMemo, useRef, useState, type ReactNode } from "react";
 import type { ResumeDocumentBlock } from "@/domain/resumeDocument/mapper";
 import type { ResumeBranch, ResumeContentItemV2, ResumeItemV2 } from "@/domain/schemas";
 import {
@@ -110,7 +110,7 @@ type ExperienceSectionPageProps = {
   onEditTextChange: (itemId: string, text: string) => void;
   onSave: (itemId: string) => void;
   /** Save canonical structured item (v2 path). Called when structuredItems are available. */
-  onSaveStructuredItem?: (item: ResumeItemV2) => void;
+  onSaveStructuredItem?: (itemId: string, item: ResumeItemV2, options?: { origin?: "manual" | "auto" }) => Promise<void> | void;
   onSelectItem: (itemId: string) => void;
   onSetPresentationVisibility: (itemId: string, visible: boolean) => void;
   onDelete: (itemId: string) => void;
@@ -215,17 +215,6 @@ export function ExperienceSectionPage({
     const titleText = org && role ? `${org} · ${role}` : org || role || `${sectionLabel} ${index + 1}`;
     const isOpen = selectedItemId ? selectedItemId === block.contentItemId : index === 0;
 
-    const handleFormChange = (next: StructuredExperienceFields) => {
-      if (canonicalItem && onSaveStructuredItem) {
-        // v2 path: patch canonical item and save via structured save
-        const patched = formFieldsToCanonicalPatch(canonicalItem.data, next);
-        onSaveStructuredItem(patched);
-      } else {
-        // v1 fallback: serialize to text
-        onEditTextChange(block.contentItemId, serializeStructuredExperienceText(next, category));
-      }
-    };
-
     return {
       id: block.contentItemId,
       title: titleText,
@@ -233,32 +222,19 @@ export function ExperienceSectionPage({
       badge: !block.visible ? "已隐藏" : undefined,
       defaultOpen: isOpen,
       content: (
-        <div className="experience-item-fields">
-          <StructuredExperienceForm
-            category={category}
-            value={structuredFields}
-            onChange={handleFormChange}
-            idPrefix={`existing-${block.contentItemId}`}
-            onFocus={() => onSelectItem(block.contentItemId)}
-          />
-          {block.presentationHidden ? (
+        <ExperienceItemFields
+          itemId={block.contentItemId}
+          category={category}
+          initialFields={structuredFields}
+          canonicalItem={canonicalItem?.data}
+          onEditTextChange={onEditTextChange}
+          onSave={onSave}
+          onSaveStructuredItem={onSaveStructuredItem}
+          onSelectItem={onSelectItem}
+          warning={block.presentationHidden ? (
             <div className="field-warning-box">该内容仅从当前简历预览中隐藏，仍保留在正文中。</div>
           ) : null}
-          <div className="experience-item-actions">
-            <button
-              type="button"
-              className="section-action-button section-action-button-primary"
-              onClick={() => {
-                if (canonicalItem && onSaveStructuredItem) {
-                  const patched = formFieldsToCanonicalPatch(canonicalItem.data, structuredFields);
-                  onSaveStructuredItem(patched);
-                } else {
-                  onSave(block.contentItemId);
-                }
-              }}
-            >
-              保存
-            </button>
+        >
             <button
               type="button"
               className="section-action-button"
@@ -312,8 +288,7 @@ export function ExperienceSectionPage({
             ) : (
               <span className="resume-sync-state resume-sync-state-synced">已关联资料库</span>
             )}
-          </div>
-        </div>
+        </ExperienceItemFields>
       )
     };
   });
@@ -368,5 +343,79 @@ export function ExperienceSectionPage({
         ) : undefined}
       />
     </SectionShell>
+  );
+}
+
+function ExperienceItemFields(props: {
+  itemId: string;
+  category: Extract<ResumeFieldCategoryId, "education" | "work" | "project" | "campus">;
+  initialFields: StructuredExperienceFields;
+  canonicalItem?: ResumeItemV2;
+  onEditTextChange: (itemId: string, text: string) => void;
+  onSave: (itemId: string) => void;
+  onSaveStructuredItem?: ExperienceSectionPageProps["onSaveStructuredItem"];
+  onSelectItem: (itemId: string) => void;
+  warning?: ReactNode;
+  children: ReactNode;
+}) {
+  const [fields, setFields] = useState(props.initialFields);
+  const latestFieldsRef = useRef(fields);
+  const dirtyRef = useRef(false);
+  const saveTimerRef = useRef<number | undefined>(undefined);
+
+  async function save(origin: "manual" | "auto") {
+    if (saveTimerRef.current !== undefined) window.clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = undefined;
+    if (props.canonicalItem && props.onSaveStructuredItem) {
+      await props.onSaveStructuredItem(
+        props.itemId,
+        formFieldsToCanonicalPatch(props.canonicalItem, latestFieldsRef.current),
+        { origin }
+      );
+    } else {
+      props.onEditTextChange(props.itemId, serializeStructuredExperienceText(latestFieldsRef.current, props.category));
+      props.onSave(props.itemId);
+    }
+    dirtyRef.current = false;
+  }
+
+  const flushPendingSave = useEffectEvent(() => {
+    if (dirtyRef.current) void save("auto");
+  });
+
+  useEffect(() => () => {
+    if (saveTimerRef.current !== undefined) window.clearTimeout(saveTimerRef.current);
+    flushPendingSave();
+  }, []);
+
+  function updateFields(next: StructuredExperienceFields) {
+    setFields(next);
+    latestFieldsRef.current = next;
+    dirtyRef.current = true;
+    if (saveTimerRef.current !== undefined) window.clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = window.setTimeout(() => { void save("auto"); }, 1200);
+  }
+
+  return (
+    <div className="experience-item-fields">
+      <StructuredExperienceForm
+        category={props.category}
+        value={fields}
+        onChange={updateFields}
+        idPrefix={`existing-${props.itemId}`}
+        onFocus={() => props.onSelectItem(props.itemId)}
+      />
+      {props.warning}
+      <div className="experience-item-actions">
+        <button
+          type="button"
+          className="section-action-button section-action-button-primary"
+          onClick={() => { void save("manual"); }}
+        >
+          保存
+        </button>
+        {props.children}
+      </div>
+    </div>
   );
 }

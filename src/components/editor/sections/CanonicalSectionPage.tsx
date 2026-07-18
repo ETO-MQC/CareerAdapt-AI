@@ -12,7 +12,7 @@ type CanonicalSectionPageProps = {
   sectionLabel: string;
   items: ResumeContentItemV2[];
   selectedItemId?: string;
-  onSave: (item: ResumeItemV2) => Promise<void> | void;
+  onSave: (itemId: string, item: ResumeItemV2, options?: { origin?: "manual" | "auto" }) => Promise<void> | void;
   onSetPresentationVisibility: (itemId: string, visible: boolean) => void;
   onDelete: (itemId: string) => void;
   onDuplicate: (itemId: string) => void;
@@ -40,7 +40,7 @@ export function CanonicalSectionPage(props: CanonicalSectionPageProps) {
         item={item.data}
         fields={fields}
         visible={item.visible}
-        onSave={props.onSave}
+        onSave={(draft) => props.onSave(item.id, draft)}
         onSetPresentationVisibility={(visible) => props.onSetPresentationVisibility(item.id, visible)}
         onDelete={() => props.onDelete(item.id)}
         onDuplicate={() => props.onDuplicate(item.id)}

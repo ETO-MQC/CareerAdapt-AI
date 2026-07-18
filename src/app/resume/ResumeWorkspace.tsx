@@ -1412,38 +1412,74 @@ export function ResumeWorkspace() {
     await queued;
   }
 
-  async function saveStructuredItem(item: ResumeItemV2) {
-    if (!selectedBranch || !selectedBranchEditable) {
-      notify({ type: "warning", title: "不可编辑", message: "当前简历不可编辑。" });
-      return;
-    }
-    const legacy = selectedBranch.contentItems.find((candidate) => candidate.id === item.id);
-    if (!legacy) {
-      notify({ type: "error", title: "保存失败", message: "找不到对应的简历条目。" });
+  async function saveStructuredItem(itemId: string, item: ResumeItemV2, options: { origin?: "manual" | "auto" } = {}) {
+    const origin = options.origin ?? "manual";
+    const branchId = activeBranchId;
+    if (!branchId) {
+      if (origin === "manual") notify({ type: "warning", title: "不可编辑", message: "当前简历不可编辑。" });
       return;
     }
     const text = projectResumeItemV2(item).trim();
     if (!text) {
-      notify({ type: "warning", title: "内容不能为空", message: "请至少填写一个字段。" });
+      if (origin === "manual") notify({ type: "warning", title: "内容不能为空", message: "请至少填写一个字段。" });
       return;
     }
-    try {
-      const result = await repository.editResumeBranch({
-        branchId: selectedBranch.id,
-        expectedRevision: selectedBranch.revision,
-        operationId: `canonical-edit-${selectedBranch.id}-${selectedBranch.revision}-${item.id}-${stableHashText(text)}`,
-        confirmAsResumeOnly: legacy.userConfirmation?.scope === "resume_only",
-        edits: [{ itemId: item.id, text, structuredItem: item }]
-      });
-      replaceBranch(result.branch);
-      notify({ type: "success", title: "已保存", message: "结构字段和自定义字段已保存到当前简历。" });
-    } catch (error) {
-      if (error instanceof Error && error.message === "branch_edit_fact_guard_blocked") {
-        notify({ type: "warning", title: "需要确认", message: "修改包含新的事实信息，请确认后再保存。" });
-        return;
+
+    setContentAutoSaveState("saving");
+    const operation = async () => {
+      try {
+        const branch = await repository.getResumeBranch(branchId);
+        if (!branch || !canEditBranch(branch)) {
+          if (origin === "manual") notify({ type: "warning", title: "不可编辑", message: "当前简历不可编辑。" });
+          setContentAutoSaveState("error");
+          return;
+        }
+        const legacy = branch.contentItems.find((candidate) => candidate.id === itemId);
+        if (!legacy) {
+          if (origin === "manual") notify({ type: "error", title: "保存失败", message: "找不到对应的简历条目。" });
+          setContentAutoSaveState("error");
+          return;
+        }
+        const currentStructured = branch.structuredContentItems?.find((candidate) => candidate.id === itemId);
+        if (currentStructured && JSON.stringify(currentStructured.data) === JSON.stringify(item)) {
+          setContentAutoSaveState("saved");
+          return;
+        }
+
+        const persist = (currentBranch: ResumeBranch, sourceItem: ResumeBranch["contentItems"][number]) => repository.editResumeBranch({
+          branchId: currentBranch.id,
+          expectedRevision: currentBranch.revision,
+          operationId: `canonical-edit-${currentBranch.id}-${currentBranch.revision}-${itemId}-${stableHashText(JSON.stringify(item))}`,
+          confirmAsResumeOnly: sourceItem.userConfirmation?.scope === "resume_only",
+          edits: [{ itemId, text, structuredItem: item }]
+        });
+        let result;
+        try {
+          result = await persist(branch, legacy);
+        } catch (error) {
+          if (!(error instanceof RevisionConflictError)) throw error;
+          const latestBranch = await repository.getResumeBranch(branchId);
+          const latestLegacy = latestBranch?.contentItems.find((candidate) => candidate.id === itemId);
+          if (!latestBranch || !latestLegacy || !canEditBranch(latestBranch)) throw error;
+          result = await persist(latestBranch, latestLegacy);
+        }
+        replaceBranch(result.branch, { preserveDrafts: true });
+        setContentAutoSaveState("saved");
+        if (origin === "manual") notify({ type: "success", title: "已保存", message: "结构字段和自定义字段已保存到当前简历。" });
+      } catch (error) {
+        if (error instanceof Error && error.message === "branch_edit_fact_guard_blocked") {
+          setContentAutoSaveState("needs_confirmation");
+          if (origin === "manual") notify({ type: "warning", title: "需要确认", message: "修改包含新的事实信息，请确认后再保存。" });
+          return;
+        }
+        setContentAutoSaveState("error");
+        if (origin === "manual") notify({ type: "error", title: "保存失败", message: error instanceof RevisionConflictError ? "简历版本已变化，请刷新后重试。" : "结构字段未保存，请重试。" });
       }
-      notify({ type: "error", title: "保存失败", message: error instanceof RevisionConflictError ? "简历版本已变化，请刷新后重试。" : "结构字段未保存，请重试。" });
-    }
+    };
+
+    const queued = contentSaveQueueRef.current.then(operation);
+    contentSaveQueueRef.current = queued.catch((error) => console.error("Resume structured save queue error:", error));
+    await queued;
   }
 
   useEffect(() => {
@@ -4565,7 +4601,7 @@ export function ResumeWorkspace() {
                 setPendingPermanentDeleteBranch(undefined);
                 setPermanentDeleteName("");
               }}>取消</button>
-              <button type="button" className="danger-button" disabled={permanentDeleting || permanentDeleteName.trim() !== pendingPermanentDeleteBranch.name} onClick={() => { void confirmPermanentBranchDelete(); }}>
+              <button type="button" className="section-action-button section-action-button-danger" disabled={permanentDeleting || permanentDeleteName.trim() !== pendingPermanentDeleteBranch.name} onClick={() => { void confirmPermanentBranchDelete(); }}>
                 {permanentDeleting ? "删除中…" : "永久删除"}
               </button>
             </div>
