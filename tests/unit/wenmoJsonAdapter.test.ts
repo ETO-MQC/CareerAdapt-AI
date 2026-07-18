@@ -11,6 +11,8 @@ describe("Wenmo external JSON adapter", () => {
     expect(result.canonicalResume.basics).toMatchObject({
       name: "示例用户", phone: "138001380000", email: "demo.user@example.com", targetRole: "开发工程师"
     });
+    const abnormalPhoneReviewCount = result.issues.filter((issue) => issue.code === "abnormal_phone_format" && issue.needsConfirmation).length;
+    expect(abnormalPhoneReviewCount).toBe(1);
     expect(result.issues).toEqual([expect.objectContaining({ code: "abnormal_phone_format", value: "138001380000", needsConfirmation: true })]);
     expect(counts(result.canonicalResume)).toEqual({ summary: 1, education: 1, internship: 2, project: 3, skills: 4, certificates: 0, experience: 0 });
   });

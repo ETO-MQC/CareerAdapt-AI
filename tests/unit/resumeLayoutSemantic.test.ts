@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createLayoutDocument, LayoutDocumentSchema, type LayoutTextFragment } from "@/domain/resumeImport/layoutDocument";
 import { buildLayoutGraph, LayoutGraphSchema } from "@/domain/resumeImport/layoutGraph";
-import { LocalDeterministicSemanticResolver, mapSemanticItemToResumeItem, ResumeSemanticTreeSchema } from "@/domain/resumeImport/resumeSemanticTree";
+import { LocalDeterministicSemanticResolver, mapSemanticItemToResumeItem, materializeSemanticTextGroup, ResumeSemanticTreeSchema } from "@/domain/resumeImport/resumeSemanticTree";
 
 describe("LayoutDocument, Layout Graph and semantic tree", () => {
   it("validates font/source metadata and builds all required spatial relations", () => {
@@ -41,9 +41,60 @@ describe("LayoutDocument, Layout Graph and semantic tree", () => {
     expect(semanticItem.titleBlockIds).toEqual(["title"]);
     expect(semanticItem.roleBlockIds).toEqual(["role"]);
     expect(semanticItem.dateBlockIds).toEqual(["date"]);
-    const item = mapSemanticItemToResumeItem({ sectionType: "project", item: semanticItem, layoutDocument: document });
+    const item = mapSemanticItemToResumeItem({ sectionType: "project", item: semanticItem, layoutDocument: document, layoutGraph: graph });
     expect(item).toMatchObject({ sectionType: "project", title: "示例任务系统", role: "全栈开发", startDate: "2026-02", current: true });
     expect("highlights" in item ? item.highlights : []).toEqual(["设计多轮指令框架"]);
+  });
+
+  it("assembles fragmented PDF rows and continuations into exact canonical text", () => {
+    const document = createLayoutDocument({ pageCount: 1, fragments: [
+      fragment("summary-heading", "个人总结", 20, 800, 100, 16, 700),
+      fragment("summary-body", "专注于可信AI应用开发。", 20, 775, 250, 11),
+      fragment("project-heading", "项目经历", 20, 735, 100, 16, 700),
+      fragment("project-title", "示例学习助手", 20, 710, 150, 12, 700),
+      fragment("project-role", "独立开发者", 220, 710, 80, 12),
+      fragment("project-date", "2025.01-至今", 440, 710, 100, 12),
+      fragment("bullet-1", "•", 20, 685, 8, 11),
+      fragment("h1-cn", "设计", 35, 685, 24, 11),
+      fragment("h1-ai", "AI", 61, 685, 14, 11),
+      fragment("h1-cn-2", "助手的多轮指令框架，集成", 77, 685, 150, 11),
+      fragment("h1-rag", "RAG", 229, 685, 24, 11),
+      fragment("h1-cn-3", "检索。", 255, 685, 40, 11),
+      fragment("h1-wrap", "支持Markdown、KaTeX与SQLite持久化。", 35, 669, 260, 11),
+      fragment("skills-heading", "技能", 20, 625, 100, 16, 700),
+      fragment("skill-marker", "•", 20, 600, 8, 11),
+      fragment("skill-name", "AI应用与工程化：", 35, 600, 105, 11, 700),
+      fragment("skill-desc", "熟悉RAG、提示词工程与评测。", 142, 600, 190, 11)
+    ] });
+    const graph = buildLayoutGraph(document);
+    const tree = new LocalDeterministicSemanticResolver().resolve({ layoutDocument: document, layoutGraph: graph });
+    const summarySection = tree.sections.find((section) => section.sectionType === "summary")!;
+    const projectSection = tree.sections.find((section) => section.sectionType === "project")!;
+    const skillsSection = tree.sections.find((section) => section.sectionType === "skills")!;
+    const summary = mapSemanticItemToResumeItem({ sectionType: "summary", item: tree.items.find((item) => item.id === summarySection.itemIds[0])!, layoutDocument: document, layoutGraph: graph });
+    const projectSemantic = tree.items.find((item) => item.id === projectSection.itemIds[0])!;
+    const project = mapSemanticItemToResumeItem({ sectionType: "project", item: projectSemantic, layoutDocument: document, layoutGraph: graph });
+    const skill = mapSemanticItemToResumeItem({ sectionType: "skills", item: tree.items.find((item) => item.id === skillsSection.itemIds[0])!, layoutDocument: document, layoutGraph: graph });
+
+    expect(summary).toMatchObject({ sectionType: "summary", text: "专注于可信AI应用开发。" });
+    expect(tree.consumedHeadingBlockIds).toContain("summary-heading");
+    expect(projectSemantic.highlightGroups).toHaveLength(1);
+    expect(materializeSemanticTextGroup({ group: projectSemantic.highlightGroups[0], layoutDocument: document, layoutGraph: graph }))
+      .toBe("设计AI助手的多轮指令框架，集成RAG检索。支持Markdown、KaTeX与SQLite持久化。");
+    expect("highlights" in project ? project.highlights : []).toEqual([
+      "设计AI助手的多轮指令框架，集成RAG检索。支持Markdown、KaTeX与SQLite持久化。"
+    ]);
+    expect(skill).toMatchObject({ sectionType: "skills", name: "AI应用与工程化", description: "熟悉RAG、提示词工程与评测。" });
+    const actualHighlights = "highlights" in project ? project.highlights : [];
+    const fragmentOnlyHighlightCount = actualHighlights.filter((highlight) => ["AI", "RAG", "Markdown", "KaTeX", "SQLite"].includes(highlight)).length;
+    const exactHighlightMatchRate = Number(actualHighlights[0] === "设计AI助手的多轮指令框架，集成RAG检索。支持Markdown、KaTeX与SQLite持久化。");
+    const exactCoreFieldMatchRate = Number(project.sectionType === "project" && project.title === "示例学习助手" && project.role === "独立开发者"
+      && skill.sectionType === "skills" && skill.name === "AI应用与工程化" && skill.description === "熟悉RAG、提示词工程与评测。");
+    expect({ fragmentOnlyHighlightCount, exactHighlightMatchRate, exactCoreFieldMatchRate }).toEqual({
+      fragmentOnlyHighlightCount: 0,
+      exactHighlightMatchRate: 1,
+      exactCoreFieldMatchRate: 1
+    });
   });
 
   it.each([

@@ -110,10 +110,18 @@ function pairedSemanticItem(item: ResumeItemV2, document: LayoutDocument, graph:
       else buckets.bodyBlockIds.push(...ids);
     }
   }
+  const uniqueBuckets = Object.fromEntries(Object.entries(buckets).map(([key, blockIds]) => [key, unique(blockIds)])) as typeof buckets;
+  const expectedHighlights = "highlights" in item ? item.highlights : [];
   return {
     id: `paired-item:${id}`,
     sourceBlockIds: unique(sourceBlockIds),
-    ...Object.fromEntries(Object.entries(buckets).map(([key, blockIds]) => [key, unique(blockIds)])) as typeof buckets,
+    ...uniqueBuckets,
+    bodyGroups: uniqueBuckets.bodyBlockIds.length ? [{ id: `paired-item:${id}:body`, blockIds: uniqueBuckets.bodyBlockIds, role: "description" }] : [],
+    highlightGroups: expectedHighlights.map((highlight, index) => ({
+      id: `paired-item:${id}:highlight:${index}`,
+      blockIds: unique(bind(highlight, document, graph, roles, `${item.sectionType}.highlight`)),
+      role: "highlight" as const
+    })).filter((group) => group.blockIds.length),
     confidence: confidence(1, 1, 1, sourceBlockIds.length ? 1 : 0)
   };
 }
