@@ -5,6 +5,7 @@ import {
   BranchGuardStatusSchema
 } from "./branch";
 import { ResumeItemV2Schema, ResumeSectionTypeV2Schema } from "./resumeV2";
+import { ResumePresentationItemSchema } from "./resumePresentation";
 
 export const TemplateIdSchema = z.enum([
   "classic-technical",
@@ -94,7 +95,8 @@ export const ResumeRenderStructuredItemV2Schema = z.object({
   itemId: z.string().min(1),
   sectionType: ResumeSectionTypeV2Schema.exclude(["basics"]),
   data: ResumeItemV2Schema,
-  plainText: z.string().min(1)
+  plainText: z.string().min(1),
+  presentation: ResumePresentationItemSchema
 }).strict();
 
 export const ResumeRenderStructuredSectionV2Schema = z.object({

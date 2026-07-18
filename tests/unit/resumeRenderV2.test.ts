@@ -23,7 +23,11 @@ describe("resume render model v2", () => {
     const model = mapBranchToResumeRenderModel({ branch, profile });
     expect(model.schemaVersion).toBe("resume-render-v2");
     if (model.schemaVersion !== "resume-render-v2") throw new Error("expected v2");
-    expect(model.structuredSections[0]).toMatchObject({ sectionId: "education", sectionType: "education", items: [{ itemId: "edu-1", plainText: `说明：${fact.statement}` }] });
+    expect(model.structuredSections[0]).toMatchObject({
+      sectionId: "education",
+      sectionType: "education",
+      items: [{ itemId: "edu-1", plainText: `说明：${fact.statement}`, presentation: { id: "edu-1", sectionType: "education" } }]
+    });
     expect(model.sections.flatMap((section) => section.blocks).map((block) => block.text)).toEqual([fact.statement]);
     for (const template of resumeTemplates) {
       expect(assessTemplateCompatibility(model, template)).toEqual([]);

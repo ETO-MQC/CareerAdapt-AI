@@ -11,6 +11,7 @@ import {
 import { mapBranchToResumeDocument, sectionTitle } from "@/domain/resumeDocument/mapper";
 import { migrateResumeBranchToV2, projectResumeItemV2 } from "@/domain/migrations/resumeV2";
 import { getResumeSectionDefinition, type ResumeSectionTypeV2 } from "@/domain/resumeFields";
+import { projectResumePresentationItem } from "@/domain/resumePresentation/projector";
 
 export class ResumeRenderMapperError extends Error {
   constructor(readonly code: string) {
@@ -84,7 +85,15 @@ export function mapBranchToResumeRenderModel(input: {
     const sourceSectionId = branch.contentItems.find((legacy) => legacy.id === item.id)?.sourceSectionId;
     const sectionType = canonicalRenderSection(item.data.sectionType, sourceSectionId);
     const sectionId = sourceSectionId?.startsWith("custom:") ? sourceSectionId : sectionType;
-    return [{ sectionId, sectionType, itemId: item.id, data: item.data, plainText: projectResumeItemV2(item.data) }];
+    const presentation = projectResumePresentationItem(item.data);
+    return [{
+      sectionId,
+      sectionType,
+      itemId: item.id,
+      data: item.data,
+      plainText: projectResumeItemV2(item.data),
+      presentation: { ...presentation, id: item.id }
+    }];
   });
   const structuredSections = [...new Set(structuredItems.map((item) => item.sectionId))].map((sectionId, order) => {
     const items = structuredItems.filter((item) => item.sectionId === sectionId);

@@ -15,5 +15,6 @@ export * from "./profile";
 export * from "./recycleBin";
 export * from "./resumeImport";
 export * from "./resumeRender";
+export * from "./resumePresentation";
 export * from "./resumeV2";
 export * from "./resumeJsonV2";
