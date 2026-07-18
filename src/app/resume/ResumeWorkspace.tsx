@@ -45,7 +45,16 @@ import {
 } from "@/components/resume/templates/templateRegistry";
 import { printCurrentPage } from "@/services/export/browserPrint";
 import { buildResumePdfFileName, PDF_MIME_TYPE } from "@/services/export/filename";
-import { isPaginationPlanBlocked, paginationStatusLabel } from "@/services/export/pagination";
+import { isPaginationPlanBlocked, paginateResumeRenderModel, paginationStatusLabel } from "@/services/export/pagination";
+import {
+  createRenderCoverageReport,
+  paginatedCoverage,
+  presentationCoverage,
+  renderedCoverage,
+  renderCoverageHasBlockingFailure,
+  sourceVisibleCoverage,
+  type RenderCoverageReport
+} from "@/services/export/renderCoverage";
 import { createResumePdfExportRequest, presentationSnapshotFromConfig } from "@/services/export/snapshot";
 import { hashBytes, stableHashText } from "@/services/security/text";
 import { RevisionConflictError, WorkspaceRepository } from "@/services/storage/repositories";
@@ -229,6 +238,7 @@ export function ResumeWorkspace() {
   const [diagnosticRunning, setDiagnosticRunning] = useState(false);
   const [diagnosticError, setDiagnosticError] = useState<string | undefined>();
   const [ignoredDiagnosticIssueKeys, setIgnoredDiagnosticIssueKeys] = useState<string[]>([]);
+  const [renderCoverageReport, setRenderCoverageReport] = useState<RenderCoverageReport>();
 
   const [profileSyncConflicts, setProfileSyncConflicts] = useState<Array<{
     fieldId: string;
@@ -445,6 +455,29 @@ export function ResumeWorkspace() {
     presentationConfig?.pagination.pagePolicy,
     presentationConfig?.pagination.pageBreakBeforeSections.join("|")
   ]);
+  useEffect(() => {
+    if (!renderModel || !pagination.plan) {
+      const clearFrame = window.requestAnimationFrame(() => setRenderCoverageReport(undefined));
+      return () => window.cancelAnimationFrame(clearFrame);
+    }
+    let frame = window.requestAnimationFrame(() => {
+      frame = window.requestAnimationFrame(() => {
+        const renderedRoot = previewStageRef.current?.querySelector<HTMLElement>(".resume-preview-pages");
+        if (!renderedRoot) return;
+        const source = selectedBranch && resumeDocument
+          ? sourceVisibleCoverage({ branch: selectedBranch, document: resumeDocument, derivedSummary: renderModel.candidate.summary })
+          : presentationCoverage(renderModel);
+        const pageModels = paginateResumeRenderModel(renderModel, pagination.plan);
+        setRenderCoverageReport(createRenderCoverageReport({
+          source,
+          presentation: presentationCoverage(renderModel),
+          paginated: paginatedCoverage(pageModels),
+          rendered: renderedCoverage(renderedRoot)
+        }));
+      });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [pagination.plan, renderModel, resumeDocument, selectedBranch]);
   const reductionHints = useMemo(() => renderModel ? buildReductionHints(renderModel) : [], [renderModel]);
   const presentationHiddenBlocks = useMemo(() => {
     return resumeDocument?.blocks.filter((block) => block.presentationHidden && block.contentVisible) ?? [];
@@ -2785,6 +2818,16 @@ export function ResumeWorkspace() {
       });
       return;
     }
+    if (!renderCoverageReport || renderCoverageHasBlockingFailure(renderCoverageReport)) {
+      notify({ type: "warning", title: "导出已停止", message: "检测到简历栏目或条目在渲染链路中丢失或重复，请等待预览刷新后重试。" });
+      setPdfExportState({
+        status: "failed",
+        message: "渲染覆盖检查未通过，导出未继续。",
+        errorCode: "render_coverage_failed",
+        canUseFallback: false
+      });
+      return;
+    }
     const startedAt = new Date().toISOString();
     const templateWarnings = assessTemplateCompatibility(renderModel, selectedTemplate);
     if (templateWarnings.length > 0) {
@@ -3007,6 +3050,10 @@ export function ResumeWorkspace() {
     const paginationPlan = pagination.plan;
     if (!paginationPlan || pagination.status === "measuring" || pagination.status === "measurement_failed") {
       notify({ type: "warning", title: "提示", message: "分页测量尚未完成，请稍后再使用打印 fallback。" });
+      return;
+    }
+    if (!renderCoverageReport || renderCoverageHasBlockingFailure(renderCoverageReport)) {
+      notify({ type: "warning", title: "导出已停止", message: "检测到简历栏目或条目在渲染链路中丢失或重复，请等待预览刷新后重试。" });
       return;
     }
     const startedAt = new Date().toISOString();
@@ -4319,6 +4366,9 @@ export function ResumeWorkspace() {
                       : "正在测量分页"}
                   </span>
                 </div>
+                ) : null}
+                {styleInspectorTab === "page" && renderCoverageReport && renderCoverageHasBlockingFailure(renderCoverageReport) ? (
+                  <div className="warning-box" data-testid="render-coverage-warning">检测到栏目或条目在展示、分页或模板渲染阶段丢失或重复，已停止正式导出。请等待预览刷新；若提示持续出现，请保留当前版本并报告问题。</div>
                 ) : null}
                 {styleInspectorTab === "page" && renderModel?.safety.ruleOnlyItemIds.length ? (
                   <div className="warning-box">该简历包含仅由规则检查通过的内容，工作台已显示校验状态；PDF 正文不会加入内部风险标签。</div>

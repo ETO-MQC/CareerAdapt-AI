@@ -482,8 +482,8 @@ function RenderCanonicalSections({
 }) {
   return <>
     {sections.map((section) => (
-      <section className={`resume-template-section resume-canonical-section ${compact ? "resume-section-compact" : ""}`} data-render-section={section.sectionType} key={section.sectionId}>
-        <h2 {...canonicalSectionTitleAttrs(section, context)}>{section.title}</h2>
+      <section className={`resume-template-section resume-canonical-section ${compact ? "resume-section-compact" : ""}`} data-render-section={section.sectionType} data-render-section-id={section.sectionId} data-render-section-primary={section.showTitle === false ? "false" : "true"} key={section.sectionId}>
+        {section.showTitle !== false ? <h2 {...canonicalSectionTitleAttrs(section, context)}>{section.title}</h2> : null}
         <RenderPresentationItems items={section.items.map((item) => item.presentation)} context={context} />
       </section>
     ))}
@@ -492,6 +492,7 @@ function RenderCanonicalSections({
 
 function RenderPresentationItems({ items, context }: { items: ResumePresentationItem[]; context?: TemplateRenderContext }) {
   if (items[0]?.sectionType === "skills") return <RenderSkillPresentation items={items} context={context} />;
+  if (items[0]?.sectionType === "languages") return <RenderLanguagePresentation items={items} context={context} />;
   return <div className="resume-block-list">{items.map((item) => <RenderPresentationItem item={item} context={context} key={item.id} />)}</div>;
 }
 
@@ -507,7 +508,7 @@ function RenderSkillPresentation({ items, context }: { items: ResumePresentation
         {label ? <strong>{label}</strong> : null}
         <div className="resume-skill-values">
           {groupItems.map((item) => (
-            <span {...presentationItemAttrs(item, context)} key={item.id}>
+            <span {...presentationItemAttrs(item, context)} data-pagination-unit="content" key={item.id}>
               {item.primaryTitle}{item.secondaryTitle ? `（${item.secondaryTitle}）` : ""}{item.description ? ` · ${item.description}` : ""}
             </span>
           ))}
@@ -517,12 +518,23 @@ function RenderSkillPresentation({ items, context }: { items: ResumePresentation
   </div>;
 }
 
+function RenderLanguagePresentation({ items, context }: { items: ResumePresentationItem[]; context?: TemplateRenderContext }) {
+  return <div className="resume-language-list">
+    {items.map((item, index) => (
+      <div {...presentationItemAttrs(item, context, "resume-language-row")} data-pagination-unit="content" key={item.id}>
+        {index > 0 ? "，" : ""}{[item.primaryTitle, item.secondaryTitle, item.description].filter(Boolean).join("")}
+        <RenderCustomRows rows={item.customRows} />
+      </div>
+    ))}
+  </div>;
+}
+
 function RenderPresentationItem({ item, context }: { item: ResumePresentationItem; context?: TemplateRenderContext }) {
   if (item.sectionType === "summary") {
-    return <div {...presentationItemAttrs(item, context, "resume-presentation-summary")}><p>{item.description}</p></div>;
+    return <div {...presentationItemAttrs(item, context, "resume-presentation-summary")}><p data-pagination-unit="description">{item.description}</p></div>;
   }
   if (item.sectionType === "languages") {
-    return <div {...presentationItemAttrs(item, context, "resume-language-row")}>
+    return <div {...presentationItemAttrs(item, context, "resume-language-row")} data-pagination-unit="content">
       <strong>{item.primaryTitle}</strong>{item.secondaryTitle ? <><span aria-hidden="true">：</span><span>{item.secondaryTitle}</span></> : null}
       {item.description ? <span className="resume-language-description"> · {item.description}</span> : null}
       <RenderCustomRows rows={item.customRows} />
@@ -532,18 +544,18 @@ function RenderPresentationItem({ item, context }: { item: ResumePresentationIte
   return (
     <article {...presentationItemAttrs(item, context, "resume-template-item resume-canonical-item")}>
       {(item.primaryTitle || item.secondaryTitle || item.dateRange) ? (
-        <div className="resume-presentation-heading">
+        <div className="resume-presentation-heading" data-pagination-unit="heading">
           {item.primaryTitle ? <h3>{item.primaryTitle}</h3> : <span />}
           {item.secondaryTitle ? <strong>{item.secondaryTitle}</strong> : null}
           {item.dateRange ? <time>{item.dateRange}</time> : null}
         </div>
       ) : null}
-      {item.tertiaryTitle || item.location ? <p className="resume-presentation-subtitle">{joinPresentationValues([item.location, item.tertiaryTitle])}</p> : null}
-      {item.inlineMeta.length ? <p className="resume-presentation-meta"><RenderMetaValues values={item.inlineMeta} /></p> : null}
-      {item.secondaryMeta.map((meta) => <p className="resume-presentation-secondary" key={meta}>{meta}</p>)}
-      {item.description ? <p className="resume-presentation-description">{item.description}</p> : null}
-      {item.highlights.length ? <ul className="resume-presentation-highlights">{item.highlights.map((highlight) => <li key={highlight}>{highlight}</li>)}</ul> : null}
-      {unlistedLinks.length ? <p className="resume-presentation-links"><RenderMetaValues values={unlistedLinks} /></p> : null}
+      {item.tertiaryTitle || item.location ? <p className="resume-presentation-subtitle" data-pagination-unit="subtitle">{joinPresentationValues([item.location, item.tertiaryTitle])}</p> : null}
+      {item.inlineMeta.length ? <p className="resume-presentation-meta" data-pagination-unit="inline-meta"><RenderMetaValues values={item.inlineMeta} /></p> : null}
+      {item.secondaryMeta.map((meta, index) => <p className="resume-presentation-secondary" data-pagination-unit={`secondary-meta:${index}`} key={meta}>{meta}</p>)}
+      {item.description ? <p className="resume-presentation-description" data-pagination-unit="description">{item.description}</p> : null}
+      {item.highlights.length ? <ul className="resume-presentation-highlights">{item.highlights.map((highlight, index) => <li data-pagination-unit={`highlight:${index}`} key={highlight}>{highlight}</li>)}</ul> : null}
+      {unlistedLinks.length ? <p className="resume-presentation-links" data-pagination-unit="links"><RenderMetaValues values={unlistedLinks} /></p> : null}
       <RenderCustomRows rows={item.customRows} />
     </article>
   );
@@ -557,12 +569,12 @@ function RenderCustomRows({ rows }: { rows: ResumePresentationItem["customRows"]
   const normalRows = rows.filter((row) => row.displayMode !== "bullet");
   const bulletRows = rows.filter((row) => row.displayMode === "bullet");
   return <>
-    {normalRows.length ? <div className="resume-presentation-custom-rows">{normalRows.map((row) => (
+    {normalRows.length ? <div className="resume-presentation-custom-rows" data-pagination-unit="custom-rows">{normalRows.map((row) => (
       <p className={`resume-presentation-custom-${row.displayMode}`} key={`${row.label ?? ""}-${row.value}`}>
         {row.label ? <strong>{row.label}：</strong> : null}{row.value}
       </p>
     ))}</div> : null}
-    {bulletRows.length ? <ul className="resume-presentation-highlights">{bulletRows.map((row) => <li key={`${row.label ?? ""}-${row.value}`}>{row.label ? `${row.label}：` : ""}{row.value}</li>)}</ul> : null}
+    {bulletRows.length ? <ul className="resume-presentation-highlights">{bulletRows.map((row, index) => <li data-pagination-unit={`custom-bullet:${index}`} key={`${row.label ?? ""}-${row.value}`}>{row.label ? `${row.label}：` : ""}{row.value}</li>)}</ul> : null}
   </>;
 }
 
@@ -571,6 +583,9 @@ function presentationItemAttrs(item: ResumePresentationItem, context?: TemplateR
   return {
     className: [baseClassName, selected ? "resume-template-item-selected" : ""].filter(Boolean).join(" ") || undefined,
     "data-source-item-id": item.id,
+    "data-coverage-item-id": item.sourceItemId ?? item.id,
+    "data-pagination-item-id": item.sourceItemId ?? item.id,
+    "data-render-fragment-index": item.fragmentIndex ?? 0,
     "data-presentation-item": item.sectionType,
     "data-editable-block": "true",
     "data-selected": selected ? "true" : "false"
