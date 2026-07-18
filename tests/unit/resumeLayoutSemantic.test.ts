@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { createLayoutDocument, LayoutDocumentSchema, type LayoutTextFragment } from "@/domain/resumeImport/layoutDocument";
 import { buildLayoutGraph, LayoutGraphSchema } from "@/domain/resumeImport/layoutGraph";
-import { LocalDeterministicSemanticResolver, mapSemanticItemToResumeItem, materializeSemanticTextGroup, ResumeSemanticTreeSchema } from "@/domain/resumeImport/resumeSemanticTree";
+import { auditSemanticTextAssembly, LocalDeterministicSemanticResolver, mapSemanticItemToResumeItem, materializeSemanticTextGroup, ResumeSemanticTreeSchema } from "@/domain/resumeImport/resumeSemanticTree";
+import { createImportedResumeDraftFromPdf } from "@/domain/resumeImport/parser";
+import { auditResumeImportInvariants } from "@/domain/resumeImport/invariants";
+import type { NormalizedSourceBlock } from "@/domain/schemas";
 
 describe("LayoutDocument, Layout Graph and semantic tree", () => {
   it("validates font/source metadata and builds all required spatial relations", () => {
@@ -95,6 +98,75 @@ describe("LayoutDocument, Layout Graph and semantic tree", () => {
       exactHighlightMatchRate: 1,
       exactCoreFieldMatchRate: 1
     });
+  });
+
+  it("keeps adjacent bullet fragments exclusive and removes skill display residue", () => {
+    const document = createLayoutDocument({ pageCount: 1, fragments: [
+      fragment("project-heading-x", "项目经历", 20, 800, 100, 16, 700),
+      fragment("project-title-x", "示例学习助手", 20, 775, 120, 12, 700),
+      fragment("project-role-x", "独立开发", 220, 775, 80, 12),
+      fragment("project-date-x", "2026.03-至今", 440, 775, 100, 12),
+      fragment("m1", "•", 20, 750, 8, 11), fragment("a1", "修正模型幻觉与拒答边界", 35, 750, 170, 11),
+      fragment("a1-wrap", "并建立稳定评估工作流", 35, 734, 160, 11),
+      fragment("m2", "•", 20, 714, 8, 11), fragment("a2-cn", "搭建本地", 35, 714, 55, 11), fragment("a2-rag", "RAG", 92, 714, 24, 11), fragment("a2-tail", "流程", 118, 714, 28, 11),
+      fragment("m3", "•", 20, 694, 8, 11), fragment("a3-cn", "支持", 35, 694, 28, 11), fragment("a3-md", "Markdown、KaTeX", 65, 694, 100, 11), fragment("a3-tail", "公式", 167, 694, 28, 11),
+      fragment("m4", "•", 20, 674, 8, 11), fragment("a4", "使用Mermaid输出架构图", 35, 674, 155, 11),
+      fragment("skills-heading-x", "技能", 20, 630, 100, 16, 700),
+      fragment("sm1", "•", 20, 605, 8, 11), fragment("sn1", "AI应用与工程化：", 35, 605, 110, 11, 700), fragment("sd1", "熟悉RAG与评测", 147, 605, 100, 11), fragment("residue", "、", 35, 589, 8, 11)
+    ] });
+    const graph = buildLayoutGraph(document);
+    const tree = new LocalDeterministicSemanticResolver().resolve({ layoutDocument: document, layoutGraph: graph });
+    const projectSection = tree.sections.find((section) => section.sectionType === "project")!;
+    const projectSemantic = tree.items.find((item) => item.id === projectSection.itemIds[0])!;
+    const project = mapSemanticItemToResumeItem({ sectionType: "project", item: projectSemantic, layoutDocument: document, layoutGraph: graph });
+    const skillSection = tree.sections.find((section) => section.sectionType === "skills")!;
+    const skillSemantic = tree.items.find((item) => item.id === skillSection.itemIds[0])!;
+    const skill = mapSemanticItemToResumeItem({ sectionType: "skills", item: skillSemantic, layoutDocument: document, layoutGraph: graph });
+
+    expect(projectSemantic.highlightGroups).toEqual(projectSemantic.highlightGroups.map(() => expect.objectContaining({
+      markerBlockIds: expect.any(Array), sourceOrderStart: expect.any(Number), sourceOrderEnd: expect.any(Number)
+    })));
+    expect("highlights" in project ? project.highlights : []).toEqual([
+      "修正模型幻觉与拒答边界并建立稳定评估工作流", "搭建本地RAG流程", "支持Markdown、KaTeX公式", "使用Mermaid输出架构图"
+    ]);
+    expect(skill).toMatchObject({ sectionType: "skills", name: "AI应用与工程化", description: "熟悉RAG与评测" });
+    expect(auditSemanticTextAssembly({ tree, layoutDocument: document, layoutGraph: graph })).toEqual({
+      exactDuplicateHighlightCount: 0, crossGroupSharedBlockCount: 0, fragmentOnlyHighlightCount: 0, adjacentHighlightContainmentCount: 0
+    });
+  });
+
+  it("carries abnormal PDF phone and semantic review through the production draft path", () => {
+    const document = createLayoutDocument({ pageCount: 1, fragments: [
+      fragment("prod-name", "示例用户", 20, 820, 80, 18, 700),
+      fragment("prod-phone", "138001380000", 420, 820, 100, 11),
+      fragment("prod-heading", "项目经历", 20, 780, 100, 16, 700),
+      fragment("prod-title", "示例任务系统", 20, 755, 120, 12, 700),
+      fragment("prod-role", "全栈开发", 220, 755, 80, 12),
+      fragment("prod-date", "2026.02-至今", 440, 755, 100, 12),
+      fragment("prod-marker", "•", 20, 730, 8, 11),
+      fragment("prod-body", "协助部署示例自动化框架自动化框架", 35, 730, 190, 11)
+    ] });
+    const graph = buildLayoutGraph(document);
+    const semanticTree = new LocalDeterministicSemanticResolver().resolve({ layoutDocument: document, layoutGraph: graph });
+    const sourceBlocks: NormalizedSourceBlock[] = document.blocks.map((block) => ({
+      id: block.sourceBlockRefs[0], page: block.page, text: block.text, rawText: block.text, normalizedText: block.text,
+      normalizationActions: [], blockType: "paragraph", sourceEngine: "pdfjs", sourceEngineVersion: "test",
+      extractionConfidence: 1, sourceKind: "digital_pdf", order: block.order, position: block.bbox, fontSize: block.font.size
+    }));
+    const pageText = document.blocks.map((block) => block.text).join("\n");
+    const draft = createImportedResumeDraftFromPdf({
+      importId: "production-semantic-test", source: { fileName: "sanitized.pdf", fileHash: "fixture-hash-00000001", pageCount: 1 },
+      pages: [{ pageNumber: 1, extractedPageText: pageText, cleanedPageText: pageText, charStart: 0, charEnd: pageText.length }],
+      sourceBlocks, layoutArtifacts: [{ layoutDocument: document, layoutGraph: graph, semanticTree }], now: "2026-07-18T00:00:00.000Z"
+    });
+
+    expect(draft.schemaVersion).toBe("resume-import-v2");
+    if (draft.schemaVersion !== "resume-import-v2") throw new Error("expected resume-import-v2 draft");
+    expect(draft.basics.phone).toMatchObject({ value: "138001380000", confidence: "low", sourceStatus: "ambiguous" });
+    expect(draft.fieldCandidates).toEqual(expect.arrayContaining([expect.objectContaining({ value: "138001380000", reviewStatus: "needs_review" })]));
+    expect(auditResumeImportInvariants(draft).semanticStructureReviewCount).toBeGreaterThanOrEqual(1);
+    const project = draft.sections.find((section) => section.sectionType === "project")?.items[0]?.structuredItem;
+    expect(project && "highlights" in project ? project.highlights : []).toEqual(["协助部署示例自动化框架自动化框架"]);
   });
 
   it.each([

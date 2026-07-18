@@ -116,14 +116,20 @@ function pairedSemanticItem(item: ResumeItemV2, document: LayoutDocument, graph:
     id: `paired-item:${id}`,
     sourceBlockIds: unique(sourceBlockIds),
     ...uniqueBuckets,
-    bodyGroups: uniqueBuckets.bodyBlockIds.length ? [{ id: `paired-item:${id}:body`, blockIds: uniqueBuckets.bodyBlockIds, role: "description" }] : [],
+    bodyGroups: uniqueBuckets.bodyBlockIds.length ? [pairedGroup(`paired-item:${id}:body`, "description", uniqueBuckets.bodyBlockIds, document)] : [],
     highlightGroups: expectedHighlights.map((highlight, index) => ({
-      id: `paired-item:${id}:highlight:${index}`,
-      blockIds: unique(bind(highlight, document, graph, roles, `${item.sectionType}.highlight`)),
-      role: "highlight" as const
+      ...pairedGroup(`paired-item:${id}:highlight:${index}`, "highlight", unique(bind(highlight, document, graph, roles, `${item.sectionType}.highlight`)), document)
     })).filter((group) => group.blockIds.length),
     confidence: confidence(1, 1, 1, sourceBlockIds.length ? 1 : 0)
   };
+}
+
+function pairedGroup(id: string, role: "description" | "highlight", blockIds: string[], document: LayoutDocument) {
+  const orders = blockIds.flatMap((blockId) => {
+    const block = document.blocks.find((candidate) => candidate.id === blockId);
+    return block ? [block.order] : [];
+  });
+  return { id, role, blockIds, markerBlockIds: [], sourceOrderStart: orders.length ? Math.min(...orders) : 0, sourceOrderEnd: orders.length ? Math.max(...orders) : 0 };
 }
 
 function bind(text: string, document: LayoutDocument, graph: LayoutGraph, roles: Record<string, string[]>, role: string): string[] {
