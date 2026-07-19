@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
-import { openManualPageTab } from "./support/g7b2Ui";
+import { openManualPageTab, openManualTypographyTab } from "./support/g7b2Ui";
 import type { ResumePdfExportSnapshot } from "@/domain/schemas";
 
 const DEBUG_LABELS = [
@@ -97,6 +97,36 @@ test("canonical fixture stays editable while Preview and PDF use formal presenta
   for (const uniqueValue of ["工作条目一", "工作条目二", "项目一", "项目二", "项目三", "项目四", "奖项一", "奖项二"]) {
     expect(countOccurrences(normalizeText(pdfText), normalizeText(uniqueValue))).toBe(1);
   }
+});
+
+test("one-page and relaxed two-page presets preserve natural order and all content", async ({ page }) => {
+  test.setTimeout(120_000);
+  await importCanonicalFixture(page);
+  const measurement = page.getByTestId("resume-pagination-measurement-page");
+  const expectedOrder = ["summary-1", "education-1", "work-1", "work-2", "project-1", "project-2", "project-3", "project-4", "award-1", "award-2", "skill-1", "skill-2", "skill-3", "skill-4", "skill-5", "skill-6", "language-1"];
+  const sourceOrder = async () => measurement.locator("[data-pagination-item-id]").evaluateAll((nodes) =>
+    nodes.map((node) => ((node as HTMLElement).dataset.paginationItemId ?? "").replace(/^branch-item-import-/, ""))
+  );
+  expect(await sourceOrder()).toEqual(expectedOrder);
+  await expect(page.getByTestId("resume-a4-page")).toHaveCount(2);
+
+  await openManualPageTab(page);
+  await page.getByRole("button", { name: "一页优化", exact: true }).click();
+  await expect(page.getByTestId("page-policy-selector")).toHaveValue("prefer_one_page");
+  await expect(page.getByTestId("resume-a4-page")).toHaveCount(2);
+  expect(await sourceOrder()).toEqual(expectedOrder);
+  await openManualTypographyTab(page);
+  await expect(page.getByLabel("正文字号")).toHaveValue("small");
+  await expect(page.getByLabel("行距")).toHaveValue("tight");
+
+  await openManualPageTab(page);
+  await page.getByRole("button", { name: "两页舒展", exact: true }).click();
+  await expect(page.getByTestId("page-policy-selector")).toHaveValue("up_to_two_pages");
+  await expect(page.getByTestId("resume-a4-page")).toHaveCount(2);
+  expect(await sourceOrder()).toEqual(expectedOrder);
+  await openManualTypographyTab(page);
+  await expect(page.getByLabel("正文字号")).toHaveValue("normal");
+  await expect(page.getByLabel("行距")).toHaveValue("relaxed");
 });
 
 async function importCanonicalFixture(page: Page) {
