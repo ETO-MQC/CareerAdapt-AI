@@ -29,6 +29,61 @@ export function buildGeneralBranchFromProfile(input: { profile: CareerProfile; o
   return { branch: ResumeBranchSchema.parse({ ...branchBase, currentRevisionId: firstRevision.id }), firstRevision };
 }
 
+export function buildJobBranchFromProfile(input: {
+  profile: CareerProfile;
+  jobId: string;
+  jobTitle: string;
+  jobVersion: string;
+  operationId: string;
+  name: string;
+  selectedCanonicalItemIds: string[];
+  requirementMatchIds: string[];
+  sourceMatchSetHash: string;
+  now?: string;
+}): ProfileBranchBuildResult {
+  const now = input.now ?? new Date().toISOString();
+  const selected = new Set(input.selectedCanonicalItemIds);
+  const pairs = profileContentItems(input.profile, now).filter((pair) => selected.has(pair.structured.data.id));
+  if (pairs.length === 0) throw new Error("profile_library_selection_empty");
+  const sourceProfileSnapshotId = `profile-snapshot-${input.profile.id}-${input.profile.version}-${stableHashText(input.selectedCanonicalItemIds.slice().sort().join(":"))}`;
+  const branchBase = ResumeBranchSchema.parse({
+    id: `branch-job-profile-${nanoid(10)}`,
+    schemaVersion: "resume-branch-v2",
+    branchPurpose: "job_specific",
+    profileId: input.profile.id,
+    jobId: input.jobId,
+    name: input.name.trim() || input.jobTitle,
+    sourceProfileVersion: input.profile.version,
+    sourceProfileSnapshotId,
+    sourceJobVersion: input.jobVersion,
+    derivedAt: now,
+    sourceDraftRevision: 0,
+    matcherVersion: "job-source-mode.profile-library.v2",
+    sourceMatchSetHash: input.sourceMatchSetHash,
+    requirementMatchIds: input.requirementMatchIds,
+    revision: 0,
+    lifecycleStatus: "active",
+    migrationStatus: "verified",
+    syncStatusCache: {
+      status: "in_sync",
+      sourceProfileVersion: input.profile.version,
+      currentProfileVersion: input.profile.version,
+      sourceJobVersion: input.jobVersion,
+      currentJobVersion: input.jobVersion,
+      invalidFactRefs: [],
+      checkedAt: now,
+      message: "Job branch is in sync with its profile-library source and job version."
+    },
+    resumeBasics: { ...resumeBasicsFromProfile(input.profile), targetRole: input.jobTitle },
+    contentItems: pairs.map((pair) => pair.legacy),
+    structuredContentItems: pairs.map((pair) => pair.structured),
+    createdAt: now,
+    updatedAt: now
+  });
+  const firstRevision = createResumeRevision({ branch: branchBase, source: "created_from_profile", operationId: input.operationId, now });
+  return { branch: ResumeBranchSchema.parse({ ...branchBase, currentRevisionId: firstRevision.id }), firstRevision };
+}
+
 function profileContentItems(profile: CareerProfile, now: string) {
   const facts = [...migrateCareerProfileToV2(profile).structuredFacts];
   const summary = profile.basics.summary?.trim();

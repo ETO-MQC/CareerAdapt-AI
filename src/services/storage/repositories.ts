@@ -87,7 +87,7 @@ import {
 import { mapAdaptationDraftToResumeBranch } from "@/domain/branch/mapper";
 import { createResumeRevision } from "@/domain/branch/revision";
 import { computeBranchSyncStatus, computeGeneralBranchSyncStatus, resolveBranchFactRefs } from "@/domain/branch/validation";
-import { buildGeneralBranchFromProfile } from "@/domain/branch/profileBranch";
+import { buildGeneralBranchFromProfile, buildJobBranchFromProfile } from "@/domain/branch/profileBranch";
 import {
   defaultResumeRenderSectionOrder,
   parseStructuredExperienceText,
@@ -99,6 +99,7 @@ import { runRuleFactGuard } from "@/domain/adaptation/factGuard";
 import {
   AdaptationDraftError,
   assertC2MatchesUsable,
+  collectAllowedEvidenceRefs,
   createJobAdaptationDraft
 } from "@/domain/adaptation/draft";
 import { computeRequirementsHash } from "@/domain/jobOptimization";
@@ -1016,6 +1017,81 @@ export class WorkspaceRepository {
           updatedAt: now
         });
         return { branch: runtimeBranch, revision: built.firstRevision, idempotent: false };
+      }
+    );
+  }
+
+  async createJobSpecificBranchFromProfile(input: {
+    profileId: string;
+    jobId: string;
+    operationId: string;
+    name: string;
+    selectedCanonicalItemIds: string[];
+    requirementMatchIds: string[];
+  }) {
+    return this.db.transaction(
+      "rw",
+      [
+        this.db.profiles,
+        this.db.jobDescriptions,
+        this.db.requirementMatches,
+        this.db.resumeBranches,
+        this.db.resumeRevisions,
+        this.db.resumeBranchOperations,
+        this.db.appMeta
+      ],
+      async () => {
+        const existingOperation = await this.db.resumeBranchOperations.where("operationId").equals(input.operationId).first();
+        if (existingOperation?.branchId && existingOperation.revisionId) {
+          const existingBranch = await this.db.resumeBranches.get(existingOperation.branchId);
+          if (!existingBranch) throw new Error("resume_branch_missing_for_operation");
+          return { branch: ResumeBranchSchema.parse(existingBranch), revision: await this.getResumeRevisionInTransaction(existingOperation.revisionId), idempotent: true };
+        }
+        const [storedProfile, storedJob, storedMatches] = await Promise.all([
+          this.db.profiles.get(input.profileId),
+          this.db.jobDescriptions.get(input.jobId),
+          this.db.requirementMatches.where("[profileId+jobId]").equals([input.profileId, input.jobId]).toArray()
+        ]);
+        if (!storedProfile) throw new Error("profile_missing");
+        if (!storedJob) throw new Error("job_missing");
+        const profile = CareerProfileSchema.parse(storedProfile);
+        const job = JobDescriptionSchema.parse(storedJob);
+        if (job.requirements.length === 0) throw new Error("job_has_no_requirements");
+        const requestedIds = new Set(input.requirementMatchIds);
+        const matches = storedMatches.map((match) => RequirementMatchSchema.parse(match)).filter((match) => requestedIds.has(match.id));
+        assertC2MatchesUsable({ profile, job, matches });
+        if (collectAllowedEvidenceRefs(matches).length === 0) throw new Error("matches_have_no_evidence");
+        const now = new Date().toISOString();
+        const built = buildJobBranchFromProfile({
+          profile,
+          jobId: job.id,
+          jobTitle: job.title,
+          jobVersion: job.updatedAt,
+          operationId: input.operationId,
+          name: input.name,
+          selectedCanonicalItemIds: input.selectedCanonicalItemIds,
+          requirementMatchIds: matches.map((match) => match.id),
+          sourceMatchSetHash: computeRequirementsHash({ job, matches }),
+          now
+        });
+        const operation = ResumeBranchOperationSchema.parse({
+          id: `resume-branch-op-${input.operationId}`,
+          operationId: input.operationId,
+          branchId: built.branch.id,
+          type: "derive_job_branch",
+          beforeRevision: 0,
+          afterRevision: built.branch.revision,
+          revisionId: built.firstRevision.id,
+          occurredAt: now,
+          createdAt: now,
+          updatedAt: now
+        });
+        const presentationConfig = createDefaultPresentationConfig({ branch: built.branch, now });
+        await this.db.resumeBranches.put(built.branch);
+        await this.db.resumeRevisions.put(built.firstRevision);
+        await this.db.resumeBranchOperations.put(operation);
+        await this.db.appMeta.put({ key: resumePresentationConfigKey(built.branch.id), value: presentationConfig, updatedAt: now });
+        return { branch: built.branch, revision: built.firstRevision, idempotent: false };
       }
     );
   }

@@ -258,11 +258,12 @@ export const ResumeBranchSchema = EntityBaseSchema.extend({
   }
 
   const hasDerivedSource = Boolean(branch.sourceBranchId && branch.sourceRevisionId);
-  if (branch.branchPurpose === "job_specific" && !branch.sourceAdaptationDraftId && !hasDerivedSource) {
+  const hasProfileSnapshotSource = Boolean(branch.sourceProfileSnapshotId);
+  if (branch.branchPurpose === "job_specific" && !branch.sourceAdaptationDraftId && !hasDerivedSource && !hasProfileSnapshotSource) {
     ctx.addIssue({
       code: "custom",
       path: ["sourceAdaptationDraftId"],
-      message: "job-specific branches must keep source adaptation draft id or source branch derivation"
+      message: "job-specific branches must keep an adaptation draft, source branch revision, or profile snapshot"
     });
   }
 
