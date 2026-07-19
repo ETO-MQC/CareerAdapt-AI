@@ -43,11 +43,16 @@ import { hashText, redactSensitiveTextForModel, stableHashText } from "@/service
 import { RevisionConflictError, WorkspaceRepository } from "@/services/storage/repositories";
 import {
   classifyJobAiFailure,
+  classifyJobAiFailureReason,
   commitParsedJob,
+  jobAiFailureFeedback,
+  jobResumeGenerationFeedback,
   jobWorkflowErrorState,
+  mapJobResumeGenerationError,
   updateRequirementConfirmation,
   validateJobInput
 } from "@/services/jobs/jobWorkflow";
+import type { JobResumeGenerationErrorCode } from "@/services/jobs/jobWorkflow";
 import { useWorkspace } from "@/services/workspace/useWorkspace";
 import { notify } from "@/services/notifications/store";
 
@@ -72,7 +77,6 @@ export function JobsWorkspace() {
   const [rawInput, setRawInput] = useState<RawInputDocument | undefined>();
   const [draft, setDraft] = useState<JobAnalysisDraft | undefined>();
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "failed" | "conflict">("idle");
-  const [message, setMessage] = useState<string | undefined>();
   const [loadedDraft, setLoadedDraft] = useState(false);
   const [matches, setMatches] = useState<RequirementMatch[]>([]);
   const [selectedMatchId, setSelectedMatchId] = useState<string | undefined>();
@@ -95,12 +99,24 @@ export function JobsWorkspace() {
   const [derivationPrompt, setDerivationPrompt] = useState<DerivationPrompt>();
   const [jobError, setJobError] = useState<JobWorkflowErrorState>();
   const [failedAction, setFailedAction] = useState<JobFailedAction>();
+  const [generationErrorCode, setGenerationErrorCode] = useState<JobResumeGenerationErrorCode>();
+
+  function setMessage(next?: string) {
+    if (!next) return;
+    const isFailure = /失败|无法|过期|风险/.test(next);
+    const isWarning = /请|尚未|不能|不存在/.test(next);
+    notify({
+      type: isFailure ? "error" : isWarning ? "warning" : "success",
+      title: isFailure ? "操作未完成" : isWarning ? "需要继续处理" : "操作已完成",
+      message: next.replace("resume-tailor 调用失败", "AI 优化暂时不可用").replace(/c2_[a-z_]+/g, "匹配状态异常")
+    });
+  }
 
   useEffect(() => {
     let active = true;
 
     async function loadDraft() {
-      const latest = await repository.getLatestJobAnalysisDraft();
+      const latest = await repository.getLatestActiveJobAnalysisDraft();
       if (!active || !latest) {
         setLoadedDraft(true);
         return;
@@ -285,7 +301,7 @@ export function JobsWorkspace() {
       setDraft(saved);
       setJobError(undefined);
       setFailedAction(undefined);
-      setMessage("原始 JD 已保存。请确认是否发送脱敏内容给外部模型。");
+      notify({ type: "success", title: "岗位已保存", message: "原始 JD 已安全保留。请确认是否发送脱敏内容进行 AI 解析。" });
     } catch (error) {
       setJobError(jobWorkflowErrorState(error, "repository_save_failed"));
       setFailedAction("start_import");
@@ -301,7 +317,7 @@ export function JobsWorkspace() {
 
     try {
       setJobError(undefined);
-      setMessage("正在解析 JD，服务端会先脱敏并校验模型输出。");
+      notify({ type: "info", title: "正在解析岗位", message: "系统会先脱敏，再校验 AI 返回的岗位要求。" });
       const analyzingDraft = await saveDraft({ ...draft, title, company, status: "analyzing" });
 
       const result = await invokeStageBAi({
@@ -319,6 +335,7 @@ export function JobsWorkspace() {
 
       if (!result.ok) {
         const workflowError = classifyJobAiFailure(result.errorCode);
+        const failure = jobAiFailureFeedback(classifyJobAiFailureReason(result.errorCode));
         const fallbackOutput = createManualJdOutput(rawInput.rawText, title, company);
         const saved = await saveDraft({
           ...analyzingDraft,
@@ -332,6 +349,8 @@ export function JobsWorkspace() {
         setJobError(workflowError.state);
         setFailedAction("analyze");
         setMessage(undefined);
+        notify({ type: "error", title: failure.title, message: `${failure.message}${failure.nextStep}` });
+        notify({ type: "warning", title: "已切换本地解析", message: "请核对本地岗位要求草稿，确认后仍可提交正式岗位。" });
         return;
       }
 
@@ -347,7 +366,7 @@ export function JobsWorkspace() {
       setDraft(saved);
       setJobError(undefined);
       setFailedAction(undefined);
-      setMessage("JD 解析完成。请核对原文依据并确认要求。");
+      notify({ type: "success", title: "岗位解析完成", message: "请核对原文依据并确认要写入正式岗位的要求。" });
     } catch (error) {
       setJobError(
         error instanceof TypeError
@@ -356,6 +375,8 @@ export function JobsWorkspace() {
       );
       setFailedAction("analyze");
       setMessage(undefined);
+      const failure = jobAiFailureFeedback(error instanceof TypeError ? "provider_unavailable" : "unknown");
+      notify({ type: "error", title: failure.title, message: `${failure.message}${failure.nextStep}` });
     }
   }
 
@@ -378,7 +399,7 @@ export function JobsWorkspace() {
       const saved = await saveDraft(optimisticDraft);
       setDraft(saved);
       setFailedAction(undefined);
-      setMessage("已进入手动分类模式，外部模型不会被调用。");
+      notify({ type: "warning", title: "已使用本地解析", message: "外部模型不会被调用，请核对本地岗位要求草稿。" });
     } catch (error) {
       setDraft(previousDraft);
       setJobError(jobWorkflowErrorState(error, "repository_save_failed"));
@@ -457,7 +478,7 @@ export function JobsWorkspace() {
       setRawText("");
       setSelectedJobId(result.jobDescription.id);
       setJobListFilter("active");
-      setJobWorkspaceTab("requirements");
+      setJobWorkspaceTab("resumes");
       setSaveStatus("saved");
       setJobError(undefined);
       setFailedAction(undefined);
@@ -528,7 +549,7 @@ export function JobsWorkspace() {
     await saveArchivedJobIds(Array.from(new Set([...archivedJobIds, selectedJob.id])));
     setJobListFilter("active");
     setSelectedJobId(activeJobs.find((job) => job.id !== selectedJob.id)?.id ?? "");
-    setMessage("岗位已归档；正式岗位数据保留，可切换到已归档列表恢复。");
+    notify({ type: "success", title: "岗位已归档", message: "正式岗位数据仍保留，可在已归档列表中恢复。" });
   }
 
   async function restoreSelectedJob() {
@@ -538,7 +559,7 @@ export function JobsWorkspace() {
     await saveArchivedJobIds(archivedJobIds.filter((id) => id !== selectedJob.id));
     setJobListFilter("active");
     setSelectedJobId(selectedJob.id);
-    setMessage("岗位已恢复到当前列表。");
+    notify({ type: "success", title: "岗位已恢复", message: "岗位已回到当前列表。" });
   }
 
   async function requestSafeJobDelete() {
@@ -551,12 +572,12 @@ export function JobsWorkspace() {
     await saveArchivedJobIds(archivedJobIds.filter((id) => id !== selectedJob.id));
     setTrashedJobIds(next.jobIds);
     setSelectedJobId(activeJobs.find((job) => job.id !== selectedJob.id)?.id ?? "");
-    setMessage("岗位已移入回收站；关联简历、匹配和求职记录未被删除。");
+    notify({ type: "success", title: "岗位已移入回收站", message: "关联简历、匹配和求职记录未被删除。" });
   }
 
   async function runRuleMatcher() {
     if (!matchingProfile || !selectedJob || !selectedBaseResume) {
-      setMessage("请先选择一份可用的通用简历和正式岗位。");
+      notify({ type: "warning", title: "尚未选择匹配来源", message: "请先选择一份可用的通用简历和正式岗位。" });
       return;
     }
 
@@ -577,16 +598,17 @@ export function JobsWorkspace() {
       setMatches(saved);
       setSelectedMatchId(saved[0]?.id);
       setResumeActionStatus("completed");
-      setMessage(`匹配已完成：只诊断“${selectedBaseResume.name}”当前正式版本中引用的已确认事实。`);
+      setGenerationErrorCode(undefined);
+      notify({ type: "success", title: "匹配完成", message: `已检查“${selectedBaseResume.name}”当前正式版本中的已确认事实。` });
     } catch {
       setResumeActionStatus("failed");
-      setMessage("匹配失败：请检查岗位要求、来源简历和个人资料引用后重试。");
+      notify({ type: "error", title: "匹配失败", message: "请检查岗位要求、来源简历和个人资料引用后重试。" });
     }
   }
 
   async function runAiEvidenceMatcher() {
     if (!matchingProfile || !selectedJob || matches.length === 0) {
-      setMessage("请先运行经历匹配。");
+      notify({ type: "warning", title: "尚未完成岗位匹配", message: "请先运行匹配，再使用 AI 证据评估。" });
       return;
     }
 
@@ -664,20 +686,21 @@ export function JobsWorkspace() {
       });
       setMatches(saved);
       setResumeActionStatus("completed");
-      setMessage("AI证据评估已完成；规则匹配和人工覆盖未被修改。");
+      notify({ type: "success", title: "AI 证据评估完成", message: "规则匹配和人工覆盖未被修改。" });
     } catch {
       setResumeActionStatus("failed");
-      setMessage("AI证据评估失败；规则匹配和已有数据均已保留，可稍后重试。");
+      notify({ type: "error", title: "AI 证据评估失败", message: "规则匹配和已有数据均已保留，可稍后重试。" });
     }
   }
 
   async function prepareJobResumeDerivation() {
     if (!profile || !selectedJob || !selectedBaseResume || !selectedBaseResume.currentRevisionId) {
-      setMessage("请选择一份通用简历。");
+      const code: JobResumeGenerationErrorCode = !selectedJob ? "no_job_selected" : "no_source_selected";
+      showGenerationError(code);
       return;
     }
     if (!matchState.ready) {
-      setMessage(matchState.message);
+      showGenerationError(matchState.code ?? "unknown");
       return;
     }
 
@@ -715,20 +738,27 @@ export function JobsWorkspace() {
         allowDuplicate
       });
       setResumeActionStatus("completed");
+      setGenerationErrorCode(undefined);
       setDerivationPrompt(undefined);
+      notify({ type: "success", title: "岗位简历已创建", message: "正在打开 Resume Studio，原通用简历未被修改。" });
       router.push(`/resume?branchId=${encodeURIComponent(result.branch.id)}&mode=ai&fromJobId=${encodeURIComponent(selectedJob.id)}`);
     } catch (error) {
       setResumeActionStatus("failed");
-      setMessage(error instanceof RevisionConflictError
-        ? "通用简历在创建前发生了变化，请重新检查匹配。"
-        : "生成岗位简历失败：来源版本或岗位匹配已失效，请重新运行匹配。");
+      showGenerationError(mapJobResumeGenerationError(error));
     }
   }
 
   function openExistingJobResume(branch: ResumeBranch) {
     if (!selectedJob) return;
     setDerivationPrompt(undefined);
+    notify({ type: "success", title: "已打开已有岗位简历", message: "现有岗位简历将继续保持独立。" });
     router.push(`/resume?branchId=${encodeURIComponent(branch.id)}&mode=ai&fromJobId=${encodeURIComponent(selectedJob.id)}`);
+  }
+
+  function showGenerationError(code: JobResumeGenerationErrorCode) {
+    const feedback = jobResumeGenerationFeedback(code);
+    setGenerationErrorCode(code);
+    notify({ type: code === "matches_have_no_evidence" ? "warning" : "error", title: feedback.title, message: `${feedback.message}${feedback.nextStep}` });
   }
 
   async function saveManualOverride(match: RequirementMatch) {
@@ -1077,7 +1107,6 @@ export function JobsWorkspace() {
       </section>
 
       {workspace.status === "empty" ? <WorkspaceEmptyState /> : null}
-      {message ? <section className="notice" role="status" aria-live="polite">{message}</section> : null}
       {jobError ? (
         <section className="warning-box job-workflow-error" role="alert" data-error-code={jobError.code}>
           <div>
@@ -1135,14 +1164,14 @@ export function JobsWorkspace() {
         ) : null}
       </section>
 
-      {output ? (
+      {draft && draft.status !== "committed" && output ? (
         <section className="panel">
           <div className="section-heading">
             <div>
-              <h2>岗位要求草稿</h2>
-              <p>确认后的要求才会进入正式岗位数据。删除前会提示影响。</p>
+              <h2>{draft.analyzerOutput ? "岗位要求草稿" : "本地岗位要求草稿"}</h2>
+              <p>{draft.analyzerOutput ? "确认后的要求才会进入正式岗位数据。删除前会提示影响。" : "AI 解析没有通过格式校验，系统已保留原始 JD，并使用本地规则整理以下要求。"}</p>
             </div>
-            <button className="primary-button" data-testid="commit-job" onClick={commitJob} disabled={saveStatus === "saving" || draft?.status === "committed"}>
+            <button className="primary-button" data-testid="commit-job" onClick={commitJob} disabled={saveStatus === "saving"}>
               提交正式岗位
             </button>
           </div>
@@ -1360,6 +1389,18 @@ export function JobsWorkspace() {
             <span>{matchState.message}</span>
             <small>{jobResumeActionStatusLabel(resumeActionStatus)}</small>
           </div>
+          {generationErrorCode ? (
+            <div className="warning-box job-resume-recovery" role="alert">
+              <div>
+                <strong>{jobResumeGenerationFeedback(generationErrorCode).title}</strong>
+                <p>{jobResumeGenerationFeedback(generationErrorCode).message}</p>
+                <p>{jobResumeGenerationFeedback(generationErrorCode).nextStep}</p>
+              </div>
+              {(generationErrorCode === "matches_missing" || generationErrorCode === "matches_incomplete" || generationErrorCode === "matches_stale" || generationErrorCode === "source_revision_changed") ? (
+                <button className="secondary-button compact" type="button" onClick={() => { void runRuleMatcher(); }}>重新运行匹配</button>
+              ) : null}
+            </div>
+          ) : null}
           <div className="action-row job-resume-primary-actions">
             <button className={matchState.ready ? "secondary-button" : "primary-button"} data-testid="run-experience-match" onClick={runRuleMatcher} disabled={!selectedBaseResume || resumeActionStatus === "matching"}>
               {resumeActionStatus === "matching" ? "匹配中…" : matches.length > 0 ? "重新运行匹配" : "运行规则匹配"}
@@ -1543,16 +1584,16 @@ function getJobResumeMatchState(input: {
   matches: RequirementMatch[];
 }) {
   if (!input.branch) {
-    return { ready: false, hasFreshRuleMatch: false, message: "请选择一份通用简历。" };
+    return { ready: false, hasFreshRuleMatch: false, code: "no_source_selected" as const, message: "请选择一份通用简历。" };
   }
   if (!input.profile || !input.job || !input.branch.currentRevisionId) {
-    return { ready: false, hasFreshRuleMatch: false, message: "来源简历或岗位引用已失效。" };
+    return { ready: false, hasFreshRuleMatch: false, code: "source_reference_invalid" as const, message: "来源简历或岗位引用已失效。" };
   }
   if (input.job.requirements.length === 0) {
-    return { ready: false, hasFreshRuleMatch: false, message: "当前岗位没有有效岗位要求，不能生成岗位简历。" };
+    return { ready: false, hasFreshRuleMatch: false, code: "job_has_no_requirements" as const, message: "当前岗位没有有效岗位要求，不能生成岗位简历。" };
   }
   if (input.matches.length === 0) {
-    return { ready: false, hasFreshRuleMatch: false, message: "尚无匹配结果，请运行规则匹配。" };
+    return { ready: false, hasFreshRuleMatch: false, code: "matches_missing" as const, message: "尚无匹配结果，请运行规则匹配。" };
   }
 
   const source = {
@@ -1567,14 +1608,15 @@ function getJobResumeMatchState(input: {
   const requirementIds = new Set(input.matches.map((match) => match.requirementId));
   const complete = input.job.requirements.every((requirement) => requirementIds.has(requirement.id));
   if (stale || !complete) {
-    return { ready: false, hasFreshRuleMatch: false, message: "匹配已过期或不完整，请基于当前通用简历版本重新运行规则匹配。" };
+    return { ready: false, hasFreshRuleMatch: false, code: stale ? "matches_stale" as const : "matches_incomplete" as const, message: "匹配已过期或不完整，请基于当前通用简历版本重新运行规则匹配。" };
   }
   if (collectAllowedEvidenceRefs(input.matches).length === 0) {
-    return { ready: false, hasFreshRuleMatch: true, message: "匹配中没有可使用的已确认事实，请先补充或确认个人资料事实。" };
+    return { ready: false, hasFreshRuleMatch: true, code: "matches_have_no_evidence" as const, message: "匹配中没有可使用的已确认事实，请先补充或确认个人资料事实。" };
   }
   return {
     ready: true,
     hasFreshRuleMatch: true,
+    code: undefined,
     message: `已核对 ${input.matches.length} 条岗位要求，可生成独立岗位简历。`
   };
 }
