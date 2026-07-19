@@ -2024,6 +2024,28 @@ export function ResumeWorkspace() {
     });
   }
 
+  async function relaxForTwoPages() {
+    if (!selectedBranch || !presentationConfig) return;
+    enqueuePresentation(async (current) => {
+      const nextConfig = buildNextPresentationConfig({
+        current,
+        branch: selectedBranch,
+        patch: {
+          typography: { ...current.typography, bodyTextScale: "normal", lineHeight: "relaxed" },
+          spacing: { pageMargin: "normal", sectionGap: "relaxed", itemGap: "relaxed" },
+          theme: { ...current.theme, density: "spacious" },
+          pagination: { ...current.pagination, preferredPageCount: 2, pagePolicy: "up_to_two_pages" }
+        }
+      });
+      return await savePresentationConfig({
+        nextConfig,
+        beforeConfig: current,
+        operationId: `p38c1-two-page-relaxed-${selectedBranch.id}-${current.presentationRevision}`,
+        successMessage: "已应用两页舒展；内容将按自然顺序分页。"
+      });
+    });
+  }
+
   async function updateItemHeaderAlignment(itemHeaderMiddleAlignment: ResumePresentationConfig["itemHeaderMiddleAlignment"]) {
     if (!selectedBranch || !presentationConfig) return;
     enqueuePresentation(async (current) => {
@@ -4371,7 +4393,11 @@ export function ResumeWorkspace() {
                             <option value="fixed-column">固定列</option><option value="balanced">均衡</option><option value="flow">紧凑流式</option>
                           </select>
                         </label>
-                        <button className="secondary-button compact" type="button" disabled={!presentationConfig || !selectedBranchEditable} onClick={() => { void optimizeForOnePage(); }}>一页优化</button>
+                        <div className="action-row">
+                          <button className="secondary-button compact" type="button" disabled={!presentationConfig || !selectedBranchEditable} onClick={() => { void optimizeForOnePage(); }}>一页优化</button>
+                          <button className="secondary-button compact" type="button" disabled={!presentationConfig || !selectedBranchEditable} onClick={() => { void relaxForTwoPages(); }}>两页舒展</button>
+                          <button className="secondary-button compact" type="button" disabled={!presentationConfig || !selectedBranchEditable} onClick={() => { void resetTemplateStyle(); }}>恢复当前模板默认样式</button>
+                        </div>
                         <label className="inline-toggle">
                           <input type="checkbox" checked={presentationConfig?.pagination.showPhoto ?? false} disabled={!presentationConfig || !selectedBranchEditable || !selectedTemplate.capabilities.supportsPhoto} onChange={(event) => {
                             void updatePaginationSettings({ showPhoto: event.target.checked }, "照片显示设置已保存。");
@@ -5585,9 +5611,8 @@ function pagePolicyPayload(payload: Record<string, unknown>): ResumePresentation
 
 function paginationIssueLabel(issue: NonNullable<ResumePaginationPlan["issues"]>[number]) {
   const labels = {
-    severely_underfilled: "尾页空间利用率过低；已在合法边界中选择最均衡方案。",
-    underfilled: "尾页空间利用率偏低。",
     oversized_content: "某条内容高于单页可用高度，将由浏览器按行自然分页。",
+    prefer_one_page_overflow: "当前内容在可读范围内无法压缩为一页，已按自然顺序生成两页。",
     strict_one_page_overflow: "严格一页超出；请减少内容或使用一页优化。",
     exceeds_two_pages: "内容超过两页。",
     horizontal_overflow: "检测到横向溢出。",
