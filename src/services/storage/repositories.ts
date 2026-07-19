@@ -835,6 +835,13 @@ export class WorkspaceRepository {
     return drafts[0] ? JobAnalysisDraftSchema.parse(drafts[0]) : undefined;
   }
 
+  async getLatestActiveJobAnalysisDraft() {
+    const activeStatuses = new Set(["privacy_pending", "analyzing", "ai_validated", "editing", "manual_mode", "error"]);
+    const drafts = await this.db.jobAnalysisDrafts.orderBy("updatedAt").reverse().toArray();
+    const activeDraft = drafts.find((draft) => activeStatuses.has(draft.status));
+    return activeDraft ? JobAnalysisDraftSchema.parse(activeDraft) : undefined;
+  }
+
   async saveJobAnalysisDraftRevision(draft: JobAnalysisDraft, expectedRevision: number) {
     return this.db.transaction("rw", this.db.jobAnalysisDrafts, async () => {
       const existing = await this.db.jobAnalysisDrafts.get(draft.id);

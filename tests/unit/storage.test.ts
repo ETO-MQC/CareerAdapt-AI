@@ -736,7 +736,7 @@ describe("WorkspaceRepository", () => {
             id: "req-jd-test",
             category: "responsibility",
             description: "负责用户增长数据分析",
-            priority: "important",
+            priority: "high",
             hardConstraint: false,
             sourceQuote: "负责用户增长数据分析",
             sourceSpan: { start: 5, end: 15, text: "负责用户增长数据分析" },
@@ -780,6 +780,7 @@ describe("WorkspaceRepository", () => {
 
     expect(firstCommit.idempotent).toBe(false);
     expect(firstCommit.jobDescription.title).toBe("数据分析实习生");
+    expect(await repository.getLatestActiveJobAnalysisDraft()).toBeUndefined();
 
     // Idempotent re-commit
     const secondCommit = await repository.commitJobDraft({
@@ -975,7 +976,7 @@ describe("WorkspaceRepository", () => {
             id: "req-jd-refresh",
             category: "responsibility",
             description: "数据分析",
-            priority: "important",
+            priority: "high",
             hardConstraint: false,
             sourceQuote: "数据分析",
             sourceSpan: { start: 6, end: 10, text: "数据分析" },
