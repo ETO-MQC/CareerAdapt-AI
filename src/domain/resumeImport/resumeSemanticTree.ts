@@ -272,7 +272,7 @@ function groupItems(sectionType: Exclude<ResumeSectionTypeV2, "basics">, blocks:
   }, []);
   for (const row of rows) {
     const startsItem = row.some((block) => DATE_PATTERN.test(block.text)) && current.length > 0
-      || ((sectionType === "skills" || sectionType === "certificates") && row.some((block) => /^[•·●▪◦■□◆◇▶►*-]\s*$/u.test(block.text.trim())) && current.length > 0)
+      || ((sectionType === "skills" || sectionType === "certificates") && row.some((block) => startsWithBulletMarker(block.text)) && current.length > 0)
       || ((sectionType === "skills" || sectionType === "certificates") && row.some((block) => block.font.weight !== undefined && block.font.weight >= 600) && current.length > 0);
     if (startsItem) {
       groups.push(current);
@@ -289,7 +289,7 @@ function assignRoles(sectionType: Exclude<ResumeSectionTypeV2, "basics">, blocks
   const dateBlocks = dateStartBlock
     ? blocks.filter((block) => block.lineId === dateStartBlock.lineId && block.bbox.x >= dateStartBlock.bbox.x)
     : [];
-  const markerBlocks = blocks.filter((block) => /^[•·●▪◦■□◆◇▶►*-]\s*$/u.test(block.text.trim()));
+  const markerBlocks = blocks.filter((block) => startsWithBulletMarker(block.text));
   const highlightResult = ["skills", "certificates"].includes(sectionType)
     ? { groups: [] as SemanticTextGroup[], invariantIssues: [] as string[] }
     : buildHighlightGroups(blocks, markerBlocks, graph, id);
@@ -319,7 +319,8 @@ function assignRoles(sectionType: Exclude<ResumeSectionTypeV2, "basics">, blocks
       else claimed.set(blockId, role);
     }
   };
-  claim("title", titleBlockIds); claim("organization", organizationBlockIds); claim("role", roleBlockIds);
+  if (sectionType !== "skills") claim("title", titleBlockIds);
+  claim("organization", organizationBlockIds); claim("role", roleBlockIds);
   claim("degree", degreeBlockIds); claim("major", majorBlockIds); claim("date", dateBlocks.map((block) => block.id));
   for (const group of [...bodyGroups, ...highlightGroups]) claim(group.role, group.blockIds);
   const item: ResumeSemanticItem = {
@@ -349,14 +350,24 @@ function buildHighlightGroups(blocks: LayoutDocument["blocks"], markerBlocks: La
   const sortedMarkers = [...markerBlocks].sort((left, right) => left.order - right.order);
   const groups = sortedMarkers.flatMap((marker, index) => {
     const nextMarkerOrder = sortedMarkers[index + 1]?.order ?? Number.POSITIVE_INFINITY;
-    const seedIds = graph.edges.flatMap((edge) => edge.relation === "bullet_content_of" && edge.from === marker.id && allowed.has(edge.to) ? [edge.to] : []);
+    const seedIds = startsWithInlineBullet(marker.text)
+      ? [marker.id]
+      : graph.edges.flatMap((edge) => edge.relation === "bullet_content_of" && edge.from === marker.id && allowed.has(edge.to) ? [edge.to] : []);
+    if (!seedIds.length) {
+      const adjacent = blocks
+        .filter((block) => block.order > marker.order && block.order < nextMarkerOrder && !markers.has(block.id))
+        .sort((left, right) => left.order - right.order)[0];
+      if (adjacent) seedIds.push(adjacent.id);
+    }
     if (!seedIds.length) return [];
     const ids = new Set(seedIds);
     let changed = true;
     while (changed) {
       changed = false;
       for (const edge of graph.edges) {
-        if (!allowed.has(edge.from) || !allowed.has(edge.to) || markers.has(edge.from) || markers.has(edge.to)) continue;
+        if (!allowed.has(edge.from) || !allowed.has(edge.to)
+          || markers.has(edge.from) && edge.from !== marker.id
+          || markers.has(edge.to) && edge.to !== marker.id) continue;
         const sameRowExpansion = edge.relation === "same_row" && (ids.has(edge.from) !== ids.has(edge.to));
         const directedContinuation = edge.relation === "continuation_of" && ids.has(edge.to) && !ids.has(edge.from);
         if (!sameRowExpansion && !directedContinuation) continue;
@@ -388,6 +399,7 @@ function buildSkillGroups(blocks: LayoutDocument["blocks"], itemId: string): Sem
   if (boundary >= 0 && /[:：]\s*$/u.test(sorted[boundary].text) && boundary < sorted.length - 1) {
     return [semanticGroup(`${itemId}:skill-name`, "skill_name", sorted.slice(0, boundary + 1)), semanticGroup(`${itemId}:skill-description`, "skill_description", sorted.slice(boundary + 1))];
   }
+  if (boundary >= 0) return [];
   return [semanticGroup(`${itemId}:skill-description`, "skill_description", sorted)];
 }
 
@@ -410,6 +422,14 @@ function sameIndent(left: LayoutDocument["blocks"][number], right: LayoutDocumen
 
 function isBulletMarker(value: string): boolean {
   return /^[\s•·●▪◦■□◆◇▶►*-]+$/u.test(value.trim());
+}
+
+function startsWithBulletMarker(value: string): boolean {
+  return /^[\s]*[•·●▪◦■□◆◇▶►*-]/u.test(value);
+}
+
+function startsWithInlineBullet(value: string): boolean {
+  return /^[\s]*[•·●▪◦■□◆◇▶►*-]\s*\S/u.test(value);
 }
 
 function isWithinSection(block: LayoutDocument["blocks"][number], heading: LayoutDocument["blocks"][number], next?: LayoutDocument["blocks"][number]): boolean {

@@ -164,9 +164,67 @@ describe("LayoutDocument, Layout Graph and semantic tree", () => {
     if (draft.schemaVersion !== "resume-import-v2") throw new Error("expected resume-import-v2 draft");
     expect(draft.basics.phone).toMatchObject({ value: "138001380000", confidence: "low", sourceStatus: "ambiguous" });
     expect(draft.fieldCandidates).toEqual(expect.arrayContaining([expect.objectContaining({ value: "138001380000", reviewStatus: "needs_review" })]));
-    expect(auditResumeImportInvariants(draft).semanticStructureReviewCount).toBeGreaterThanOrEqual(1);
+    expect(auditResumeImportInvariants(draft).semanticStructureReviewCount).toBe(0);
     const project = draft.sections.find((section) => section.sectionType === "project")?.items[0]?.structuredItem;
     expect(project && "highlights" in project ? project.highlights : []).toEqual(["协助部署示例自动化框架自动化框架"]);
+  });
+
+  it("keeps incomplete semantic headers ambiguous without lowering the global threshold", () => {
+    const document = createLayoutDocument({ pageCount: 1, fragments: [
+      fragment("incomplete-heading", "项目经历", 20, 800, 100, 16, 700),
+      fragment("incomplete-title", "缺少角色的项目", 20, 775, 150, 12, 700),
+      fragment("incomplete-date", "2026.01-至今", 440, 775, 100, 12),
+      fragment("incomplete-marker", "•", 20, 750, 8, 11),
+      fragment("incomplete-body", "实现可信评测流程", 35, 750, 150, 11)
+    ] });
+    const graph = buildLayoutGraph(document);
+    const semanticTree = new LocalDeterministicSemanticResolver().resolve({ layoutDocument: document, layoutGraph: graph });
+    const sourceBlocks: NormalizedSourceBlock[] = document.blocks.map((block) => ({
+      id: block.sourceBlockRefs[0], page: block.page, text: block.text, rawText: block.text, normalizedText: block.text,
+      normalizationActions: [], blockType: "paragraph", sourceEngine: "pdfjs", sourceEngineVersion: "test",
+      extractionConfidence: 1, sourceKind: "digital_pdf", order: block.order, position: block.bbox, fontSize: block.font.size
+    }));
+    const pageText = document.blocks.map((block) => block.text).join("\n");
+    const draft = createImportedResumeDraftFromPdf({
+      importId: "incomplete-semantic-test", source: { fileName: "incomplete.pdf", fileHash: "fixture-hash-incomplete", pageCount: 1 },
+      pages: [{ pageNumber: 1, extractedPageText: pageText, cleanedPageText: pageText, charStart: 0, charEnd: pageText.length }],
+      sourceBlocks, layoutArtifacts: [{ layoutDocument: document, layoutGraph: graph, semanticTree }], now: "2026-07-18T00:00:00.000Z"
+    });
+
+    expect(auditResumeImportInvariants(draft).semanticStructureReviewCount).toBe(1);
+  });
+
+  it("starts a new highlight for independent and inline bullet markers", () => {
+    const document = createLayoutDocument({ pageCount: 1, fragments: [
+      fragment("inline-heading", "项目经历", 20, 800, 100, 16, 700),
+      fragment("inline-title", "Boundary Lab", 20, 775, 120, 12, 700),
+      fragment("inline-role", "独立开发", 220, 775, 80, 12),
+      fragment("inline-date", "2026.01-至今", 440, 775, 100, 12),
+      fragment("standalone-marker", "•", 20, 750, 8, 11),
+      fragment("standalone-body", "第一条成果", 35, 750, 100, 11),
+      fragment("inline-marker-1", "• 第二条成果", 20, 730, 120, 11),
+      fragment("inline-marker-2", "• 第三条成果", 20, 710, 120, 11)
+    ] });
+    const graph = buildLayoutGraph(document);
+    const tree = new LocalDeterministicSemanticResolver().resolve({ layoutDocument: document, layoutGraph: graph });
+    const section = tree.sections.find((entry) => entry.sectionType === "project")!;
+    const item = mapSemanticItemToResumeItem({ sectionType: "project", item: tree.items.find((entry) => entry.id === section.itemIds[0])!, layoutDocument: document, layoutGraph: graph });
+
+    expect("highlights" in item ? item.highlights : []).toEqual(["第一条成果", "第二条成果", "第三条成果"]);
+  });
+
+  it.each(["AI应用与工程化：精通RAG与评测", "AI应用与工程化:精通RAG与评测"])("splits a same-block skill name and description: %s", (skillText) => {
+    const document = createLayoutDocument({ pageCount: 1, fragments: [
+      fragment("same-skill-heading", "技能", 20, 800, 100, 16, 700),
+      fragment("same-skill-marker", "•", 20, 775, 8, 11),
+      fragment("same-skill-content", skillText, 35, 775, 240, 11)
+    ] });
+    const graph = buildLayoutGraph(document);
+    const tree = new LocalDeterministicSemanticResolver().resolve({ layoutDocument: document, layoutGraph: graph });
+    const section = tree.sections.find((entry) => entry.sectionType === "skills")!;
+    const item = mapSemanticItemToResumeItem({ sectionType: "skills", item: tree.items.find((entry) => entry.id === section.itemIds[0])!, layoutDocument: document, layoutGraph: graph });
+
+    expect(item).toMatchObject({ sectionType: "skills", name: "AI应用与工程化", description: "精通RAG与评测" });
   });
 
   it.each([

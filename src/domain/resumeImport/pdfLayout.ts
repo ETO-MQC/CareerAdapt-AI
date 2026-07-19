@@ -85,7 +85,19 @@ export function reconstructPdfPageLayout(input: {
   const orderedLines = orderLines(lines, detectedColumnCount, input.pageWidth);
   const layoutDocument = createLayoutDocument({
     pageCount: input.pageNumber,
-    fragments: orderedLines.flatMap((line, lineIndex) => mergeLayoutItems(line.items).map((item, itemIndex) => ({
+    fragments: orderedLines.flatMap((line, lineIndex) => {
+      const layoutItems = LIST_PATTERN.test(line.text.trim())
+        ? [{
+            ...line.items[0],
+            text: line.text,
+            x: line.x,
+            y: line.y,
+            width: line.width,
+            height: line.height,
+            fontSize: line.fontSize
+          }]
+        : mergeLayoutItems(line.items);
+      return layoutItems.map((item, itemIndex) => ({
       id: `pdf:${input.pageNumber}:line:${lineIndex}:fragment:${itemIndex}`,
       page: input.pageNumber,
       text: item.text,
@@ -97,7 +109,8 @@ export function reconstructPdfPageLayout(input: {
       sourceBlockRef: `pdf:${input.pageNumber}:line:${lineIndex}`,
       lineId: `pdf:${input.pageNumber}:line:${lineIndex}`,
       sourceEngine: "pdfjs" as const
-    })))
+      }));
+    })
   });
   const layoutGraph = buildLayoutGraph(layoutDocument);
   const semanticTree = new LocalDeterministicSemanticResolver().resolve({ layoutDocument, layoutGraph });
