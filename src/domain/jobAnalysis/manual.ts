@@ -12,7 +12,7 @@ export function createManualJdOutput(rawText: string, title: string, company: st
     company: sourceField(company, "公司名称来自用户填写。"),
     requirements: graph.nodes.map((node) => ({
       id: node.id, category: legacyCategory(node), description: node.statement,
-      priority: node.priority === "must" ? "must" : node.priority === "nice_to_have" ? "nice_to_have" : node.priority === "uncertain" ? "uncertain" : "important",
+      priority: node.priority === "must" ? "must" : node.priority === "nice_to_have" ? "nice_to_have" : node.priority === "uncertain" ? "uncertain" : "high",
       hardConstraint: node.hardConstraint, sourceQuote: node.sourceSpan.text, sourceSpan: node.sourceSpan,
       keywords: node.exactKeywords, confidenceLevel: node.confidence >= 0.8 ? "high" : node.confidence >= 0.6 ? "medium" : "low",
       confidenceReason: `由确定性 V2 解析器按${kindLabel(node.kind)}识别；保留 JD 原文位置。`,

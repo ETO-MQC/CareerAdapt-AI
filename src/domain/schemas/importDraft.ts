@@ -56,7 +56,21 @@ export const DraftStatusSchema = z.enum([
 
 export const ConfidenceLevelSchema = z.enum(["high", "medium", "low"]);
 
-export const JdDraftPrioritySchema = z.enum(["must", "important", "nice_to_have", "uncertain"]);
+export const JdDraftPriorityV2Schema = z.enum(["must", "high", "medium", "nice_to_have", "uncertain"]);
+
+export type JdDraftPriorityV2 = z.infer<typeof JdDraftPriorityV2Schema>;
+
+export function normalizeJdPriority(value: unknown): JdDraftPriorityV2 {
+  if (value === "must" || value === "high" || value === "medium" || value === "nice_to_have" || value === "uncertain") {
+    return value;
+  }
+  if (value === "important") return "high";
+  if (value === "low") return "medium";
+  return "uncertain";
+}
+
+/** Reads legacy persisted values while exposing only the canonical V2 priority. */
+export const JdDraftPrioritySchema = z.preprocess(normalizeJdPriority, JdDraftPriorityV2Schema);
 
 export const RawInputSourceTextKindSchema = z.enum([
   "plain_text",

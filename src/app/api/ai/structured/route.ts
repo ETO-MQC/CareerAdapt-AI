@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
       systemPrompt: string;
       maxOutputChars: number;
       buildUserPrompt(input: unknown): string;
-      coerceRawOutput(rawOutput: unknown): unknown;
+      coerceRawOutput(rawOutput: unknown, input?: unknown): unknown;
       normalizeOutput(output: unknown, input: unknown): unknown;
       validateOutput?(output: unknown, input: unknown): void;
       outputSchema: { safeParse(output: unknown): { success: true; data: unknown } | { success: false } };
@@ -87,11 +87,15 @@ export async function POST(request: NextRequest) {
         signal: AbortSignal.timeout(25_000)
       });
 
-      const coerced = taskDefinition.coerceRawOutput(response.output);
+      const coerced = taskDefinition.coerceRawOutput(response.output, input.data);
       const normalized = taskDefinition.normalizeOutput(coerced, input.data);
       const parsedOutput = taskDefinition.outputSchema.safeParse(normalized);
 
       if (!parsedOutput.success) {
+        if (process.env.NODE_ENV === "development") {
+          const issues = (parsedOutput as { error?: { issues?: Array<{ path: PropertyKey[]; code: string }> } }).error?.issues ?? [];
+          console.error("[ai:validation_failed]", issues.map((issue) => ({ path: issue.path, code: issue.code })));
+        }
         lastValidationFailure = "validation_failed";
         if (attempt === 0) {
           continue;
@@ -385,7 +389,7 @@ function createMockOutput(task: AiTask, input: unknown) {
         id: "jd-analyzer-mock-req",
         category: "responsibility",
         description: sourceQuote,
-        priority: "important",
+        priority: "high",
         hardConstraint: false,
         sourceQuote,
         keywords: [],

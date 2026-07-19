@@ -6,6 +6,8 @@ import {
   FactGuardOutputSchema,
   FactGuardFindingSchema,
   JdAnalyzerOutputSchema,
+  normalizeJdPriority,
+  normalizeJobRequirementCategory,
   MatchEvidenceRefSchema,
   ProfileBuilderOutputSchema,
   ResumeJsonMapperOutputSchema,
@@ -122,7 +124,7 @@ export type AiTaskDefinition<TInput, TOutput> = {
   outputSchema: z.ZodType<TOutput>;
   maxOutputChars: number;
   buildUserPrompt(input: TInput): string;
-  coerceRawOutput(rawOutput: unknown): unknown;
+  coerceRawOutput(rawOutput: unknown, input?: TInput): unknown;
   normalizeOutput(output: TOutput, input: TInput): TOutput;
   validateOutput?(output: TOutput, input: TInput): void;
 };
@@ -345,7 +347,7 @@ export const aiTaskRegistry = {
         2
       );
     },
-    coerceRawOutput(rawOutput: unknown) {
+    coerceRawOutput(rawOutput: unknown, input?: JdAnalyzerTaskInput) {
       const raw = rawOutput as Record<string, unknown>;
       const now = new Date().toISOString();
 
@@ -382,20 +384,27 @@ export const aiTaskRegistry = {
         industry: coerceDraftField(raw.industry),
         location: coerceDraftField(raw.location),
         workType: coerceDraftField(raw.workType),
-        requirements: rawRequirements.map((req) => {
+        requirements: rawRequirements.map((req, index) => {
           const r = req as Record<string, unknown>;
+          const description = pickString(r.description, r.requirement, r.text, r.content, r.summary, r.sourceQuote);
+          const source = resolveRequirementSource({
+            rawText: input?.rawText ?? "",
+            candidates: [r.sourceQuote, r.quote, r.sourceText],
+            description,
+            index
+          });
           return {
             id: typeof r.id === "string" ? r.id : `jd-req-${nanoid(8)}`,
-            category: pickCategory(r.category, r.type, r.classification),
-            description: pickString(r.description, r.requirement, r.text, r.content, r.summary, r.sourceQuote),
-            priority: typeof r.priority === "string" ? r.priority : "uncertain",
+            category: normalizeJobRequirementCategory(r.category, r.type, r.classification),
+            description: description || source.sourceQuote,
+            priority: normalizeJdPriority(r.priority),
             hardConstraint: typeof r.hardConstraint === "boolean" ? r.hardConstraint : false,
-            sourceQuote: typeof r.sourceQuote === "string" ? r.sourceQuote : "",
-            sourceSpan: r.sourceSpan,
+            sourceQuote: source.sourceQuote,
+            sourceSpan: source.sourceSpan ?? r.sourceSpan,
             keywords: Array.isArray(r.keywords) ? r.keywords : [],
-            confidenceLevel: typeof r.confidenceLevel === "string" ? r.confidenceLevel : "low",
+            confidenceLevel: source.usedFallback ? "low" : normalizeConfidenceLevel(r.confidenceLevel),
             confidenceReason: pickString(r.confidenceReason, r.reason, r.explanation, "Model output required coercion."),
-            needsConfirmation: typeof r.needsConfirmation === "boolean" ? r.needsConfirmation : true,
+            needsConfirmation: source.usedFallback ? true : typeof r.needsConfirmation === "boolean" ? r.needsConfirmation : true,
             confirmedByUser: false,
             createdAt: typeof r.createdAt === "string" ? r.createdAt : now,
             updatedAt: typeof r.updatedAt === "string" ? r.updatedAt : now
@@ -891,23 +900,27 @@ function coerceDraftField(value: unknown): { value: string; sourceQuote: string;
   return undefined;
 }
 
-const validJdCategories = new Set([
-  "responsibility",
-  "must_have",
-  "core_skill",
-  "soft_skill",
-  "nice_to_have",
-  "risk_or_uncertain"
-]);
+function normalizeConfidenceLevel(value: unknown): "high" | "medium" | "low" {
+  return value === "high" || value === "medium" || value === "low" ? value : "low";
+}
 
-function pickCategory(...candidates: unknown[]): string {
-  for (const candidate of candidates) {
-    if (typeof candidate === "string" && validJdCategories.has(candidate)) {
-      return candidate;
-    }
+function resolveRequirementSource(input: { rawText: string; candidates: unknown[]; description: string; index: number }) {
+  for (const candidate of input.candidates) {
+    if (typeof candidate !== "string" || !candidate.trim()) continue;
+    const sourceQuote = candidate.trim();
+    const sourceSpan = locateSourceQuote(input.rawText, sourceQuote);
+    if (sourceSpan) return { sourceQuote, sourceSpan, usedFallback: false };
   }
-
-  return "risk_or_uncertain";
+  if (input.description) {
+    const sourceSpan = locateSourceQuote(input.rawText, input.description);
+    if (sourceSpan) return { sourceQuote: input.description, sourceSpan, usedFallback: true };
+  }
+  const sourceQuote = fallbackRequirementQuote(input.rawText, input.index);
+  return {
+    sourceQuote,
+    sourceSpan: locateSourceQuote(input.rawText, sourceQuote),
+    usedFallback: true
+  };
 }
 
 function fallbackRequirementQuote(rawText: string, index: number) {
@@ -916,7 +929,7 @@ function fallbackRequirementQuote(rawText: string, index: number) {
     .map((segment) => segment.replace(/^[-•\s]+/, "").trim())
     .filter((segment) => segment.length > 0 && !segment.startsWith("岗位：") && !segment.startsWith("公司："));
 
-  return segments[index % Math.max(segments.length, 1)] || rawText.slice(0, 80) || "待确认岗位要求";
+  return segments[index % Math.max(segments.length, 1)] || rawText.slice(0, 80);
 }
 
 function normalizeMatchLevel(value: unknown) {

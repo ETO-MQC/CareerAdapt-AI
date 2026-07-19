@@ -39,6 +39,41 @@ export const JobRequirementCategorySchema = z.enum([
   "risk_or_uncertain"
 ]);
 
+export type JobRequirementCategory = z.infer<typeof JobRequirementCategorySchema>;
+
+const jobRequirementCategoryAliases: Record<string, JobRequirementCategory> = {
+  responsibility: "responsibility",
+  hard_constraint: "must_have",
+  must_have: "must_have",
+  required_skill: "required_skill",
+  core_competency: "core_skill",
+  core_skill: "core_skill",
+  tool_or_technology: "tool",
+  tool: "tool",
+  experience_depth: "experience",
+  experience: "experience",
+  education: "education",
+  certificate: "certificate",
+  language: "language",
+  soft_skill: "soft_skill",
+  domain_knowledge: "other",
+  preferred: "preferred_skill",
+  preferred_skill: "preferred_skill",
+  nice_to_have: "nice_to_have",
+  uncertain: "risk_or_uncertain",
+  risk_or_uncertain: "risk_or_uncertain",
+  other: "other"
+};
+
+export function normalizeJobRequirementCategory(...values: unknown[]): JobRequirementCategory {
+  for (const value of values) {
+    if (typeof value !== "string") continue;
+    const normalized = jobRequirementCategoryAliases[value.trim().toLowerCase()];
+    if (normalized) return normalized;
+  }
+  return "risk_or_uncertain";
+}
+
 export const PrioritySchema = z.enum(["high", "medium", "low", "must", "important", "nice_to_have", "uncertain"]);
 
 export const JobRequirementSchema = EntityBaseSchema.extend({
@@ -196,7 +231,6 @@ export type JobSource = z.infer<typeof JobSourceSchema>;
 export type JobWorkflowErrorCode = z.infer<typeof JobWorkflowErrorCodeSchema>;
 export type JobWorkflowStage = z.infer<typeof JobWorkflowStageSchema>;
 export type JobWorkflowErrorState = z.infer<typeof JobWorkflowErrorStateSchema>;
-export type JobRequirementCategory = z.infer<typeof JobRequirementCategorySchema>;
 export type Priority = z.infer<typeof PrioritySchema>;
 export type MatchLevel = z.infer<typeof MatchLevelSchema>;
 export type MatchRisk = z.infer<typeof MatchRiskSchema>;

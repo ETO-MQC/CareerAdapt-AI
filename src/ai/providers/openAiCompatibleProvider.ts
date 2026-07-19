@@ -32,6 +32,12 @@ export class OpenAiCompatibleProvider {
     if (!this.apiKey || !this.model) {
       throw createAiProviderError("missing_ai_config", "AI_API_KEY and AI_MODEL are required.");
     }
+    if (this.provider.toLowerCase().includes("anthropic") || /anthropic\.com|\/messages\/?$/i.test(this.baseUrl)) {
+      throw createAiProviderError(
+        "provider_protocol_mismatch",
+        "The configured endpoint uses the Anthropic Messages protocol, but this provider requires an OpenAI-compatible chat/completions endpoint."
+      );
+    }
 
     const response = await fetch(`${this.baseUrl.replace(/\/$/, "")}/chat/completions`, {
       method: "POST",
