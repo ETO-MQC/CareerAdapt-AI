@@ -1,43 +1,35 @@
 "use client";
 
 import { nanoid } from "nanoid";
+import { Archive, BriefcaseBusiness, Database, FileText, KanbanSquare, ListChecks, MoreHorizontal, Pencil, Sparkles, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { invokeStageBAi, invokeStructuredAi } from "@/ai/client";
 import { promptVersions } from "@/ai/prompts/versions";
 import { createManualJdOutput } from "@/domain/jobAnalysis/manual";
 import {
-  FactGuardOutputSchema,
-  ResumeTailorOutputSchema,
   EvidenceMatcherOutputSchema,
   JdAnalyzerOutputSchema,
   MatchEvaluationSchema,
-  type AiSuggestion,
-  type FactGuardResult,
+  type CareerProfile,
   type JdAnalyzerOutput,
   type JdAnalyzerRequirement,
-  type JobAdaptationDraft,
   type JobAnalysisDraft,
   type JobDescription,
   type JobWorkflowErrorState,
-  type CareerProfile,
   type MatchEvaluation,
-  type MatchEvidenceRef,
   type RawInputDocument,
   type RequirementMatch,
   type ResumeBranch
 } from "@/domain/schemas";
 import { collectAllowedEvidenceRefs } from "@/domain/adaptation/draft";
-import { mergeAiFactGuardReview, runRuleFactGuard } from "@/domain/adaptation/factGuard";
 import {
-  checkRequirementMatchStale,
-  checkRequirementMatchResumeSourceStale,
   createRuleRequirementMatches,
-  evidenceRefKey,
   recallCandidatesForRequirement,
-  resolveEffectiveMatch,
   withResolvedEffectiveMatch
 } from "@/domain/match/matcher";
+import { canonicalProfileLibraryItems } from "@/domain/profile/canonicalLibrary";
 import { WorkspaceEmptyState, WorkspaceErrorState, WorkspaceLoadingState } from "@/components/workspace/WorkspaceStates";
 import { hashText, redactSensitiveTextForModel, stableHashText } from "@/services/security/text";
 import { RevisionConflictError, WorkspaceRepository } from "@/services/storage/repositories";
@@ -50,23 +42,26 @@ import {
   jobWorkflowErrorState,
   mapJobResumeGenerationError,
   updateRequirementConfirmation,
-  validateJobInput
+  validateJobInput,
+  type JobResumeGenerationErrorCode
 } from "@/services/jobs/jobWorkflow";
-import type { JobResumeGenerationErrorCode } from "@/services/jobs/jobWorkflow";
+import {
+  analyzeProfileLibrarySource,
+  recommendJobResumeSource,
+  type ProfileLibrarySourceAnalysis
+} from "@/services/jobs/jobResumeSourceModes";
+import { hasCustomAiSettings } from "@/services/storage/aiSettings";
 import { useWorkspace } from "@/services/workspace/useWorkspace";
 import { notify } from "@/services/notifications/store";
 
 const repository = new WorkspaceRepository();
 const jobArchiveKey = "jobWorkspace:archivedJobIds";
 
-type JobWorkspaceTab = "info" | "requirements" | "resumes" | "applications";
+type JobWorkspaceTab = "resumes" | "info" | "requirements" | "applications";
 type JobListFilter = "active" | "archived";
-type JobResumeActionStatus = "idle" | "matching" | "evaluating" | "preparing" | "saving" | "completed" | "failed";
+type SourceMode = "profile" | "resume";
+type JobResumeActionStatus = "idle" | "matching" | "analyzing" | "saving" | "completed" | "failed";
 type JobFailedAction = "start_import" | "analyze" | "commit";
-type DerivationPrompt = {
-  kind: "same_version" | "source_updated";
-  existingBranch: ResumeBranch;
-};
 
 export function JobsWorkspace() {
   const router = useRouter();
@@ -74,184 +69,85 @@ export function JobsWorkspace() {
   const [title, setTitle] = useState("");
   const [company, setCompany] = useState("");
   const [rawText, setRawText] = useState("");
-  const [rawInput, setRawInput] = useState<RawInputDocument | undefined>();
-  const [draft, setDraft] = useState<JobAnalysisDraft | undefined>();
-  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "failed" | "conflict">("idle");
+  const [rawInput, setRawInput] = useState<RawInputDocument>();
+  const [draft, setDraft] = useState<JobAnalysisDraft>();
   const [loadedDraft, setLoadedDraft] = useState(false);
-  const [matches, setMatches] = useState<RequirementMatch[]>([]);
-  const [selectedMatchId, setSelectedMatchId] = useState<string | undefined>();
-  const [manualLevel, setManualLevel] = useState<MatchEvaluation["matchLevel"]>("weak");
-  const [manualRisk, setManualRisk] = useState<MatchEvaluation["riskLevel"]>("medium");
-  const [manualReason, setManualReason] = useState("");
-  const [manualEvidenceKey, setManualEvidenceKey] = useState("");
-  const [adaptationDraft, setAdaptationDraft] = useState<JobAdaptationDraft | undefined>();
-  const [suggestions, setSuggestions] = useState<AiSuggestion[]>([]);
-  const [c2Status, setC2Status] = useState<"idle" | "running" | "failed">("idle");
-  const [editedSuggestions, setEditedSuggestions] = useState<Record<string, string>>({});
-  const [selectedJobId, setSelectedJobId] = useState<string>("");
-  const [jobWorkspaceTab, setJobWorkspaceTab] = useState<JobWorkspaceTab>("resumes");
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "failed" | "conflict">("idle");
+  const [jobError, setJobError] = useState<JobWorkflowErrorState>();
+  const [failedAction, setFailedAction] = useState<JobFailedAction>();
+  const [selectedJobId, setSelectedJobId] = useState(() => typeof window === "undefined" ? "" : new URLSearchParams(window.location.search).get("jobId") ?? "");
   const [jobListFilter, setJobListFilter] = useState<JobListFilter>("active");
   const [archivedJobIds, setArchivedJobIds] = useState<string[]>([]);
   const [trashedJobIds, setTrashedJobIds] = useState<string[]>([]);
+  const [tab, setTab] = useState<JobWorkspaceTab>("resumes");
+  const [showJobMenu, setShowJobMenu] = useState(false);
+  const [sourceMode, setSourceMode] = useState<SourceMode>("profile");
   const [resumeBranches, setResumeBranches] = useState<ResumeBranch[]>([]);
   const [selectedBaseResumeId, setSelectedBaseResumeId] = useState("");
+  const [matches, setMatches] = useState<RequirementMatch[]>([]);
+  const [showMatchDetails, setShowMatchDetails] = useState(false);
   const [resumeActionStatus, setResumeActionStatus] = useState<JobResumeActionStatus>("idle");
-  const [derivationPrompt, setDerivationPrompt] = useState<DerivationPrompt>();
-  const [jobError, setJobError] = useState<JobWorkflowErrorState>();
-  const [failedAction, setFailedAction] = useState<JobFailedAction>();
   const [generationErrorCode, setGenerationErrorCode] = useState<JobResumeGenerationErrorCode>();
-
-  function setMessage(next?: string) {
-    if (!next) return;
-    const isFailure = /失败|无法|过期|风险/.test(next);
-    const isWarning = /请|尚未|不能|不存在/.test(next);
-    notify({
-      type: isFailure ? "error" : isWarning ? "warning" : "success",
-      title: isFailure ? "操作未完成" : isWarning ? "需要继续处理" : "操作已完成",
-      message: next.replace("resume-tailor 调用失败", "AI 优化暂时不可用").replace(/c2_[a-z_]+/g, "匹配状态异常")
-    });
-  }
+  const [profileAnalysis, setProfileAnalysis] = useState<ProfileLibrarySourceAnalysis>();
+  const [selectedProfileItemIds, setSelectedProfileItemIds] = useState<string[]>([]);
 
   useEffect(() => {
     let active = true;
-
-    async function loadDraft() {
-      const latest = await repository.getLatestActiveJobAnalysisDraft();
-      if (!active || !latest) {
-        setLoadedDraft(true);
-        return;
-      }
-
+    void repository.getLatestActiveJobAnalysisDraft().then(async (latest) => {
+      if (!active || !latest) { setLoadedDraft(true); return; }
       const raw = await repository.getRawInput(latest.rawInputId);
-      if (!active) {
-        return;
-      }
-
-      setDraft(latest);
-      setTitle(latest.title);
-      setCompany(latest.company);
-      setRawInput(raw);
-      setRawText(raw?.rawText ?? "");
-      setLoadedDraft(true);
-    }
-
-    void loadDraft();
-
-    return () => {
-      active = false;
-    };
+      if (!active) return;
+      setDraft(latest); setTitle(latest.title); setCompany(latest.company); setRawInput(raw); setRawText(raw?.rawText ?? ""); setLoadedDraft(true);
+    });
+    return () => { active = false; };
   }, []);
 
-  const redactionPreview = useMemo(() => redactSensitiveTextForModel(rawText), [rawText]);
-  const output = draft?.analyzerOutput ?? (draft ? { requirements: draft.manualRequirements, riskNotes: draft.riskNotes } : undefined);
+  useEffect(() => {
+    let active = true;
+    void Promise.all([repository.getMeta(jobArchiveKey), repository.getRecycleBinState()]).then(([stored, recycleBin]) => {
+      if (!active) return;
+      setArchivedJobIds(parseArchivedJobIds(stored?.value)); setTrashedJobIds(recycleBin.jobIds);
+    });
+    return () => { active = false; };
+  }, []);
+
   const profile = workspace.status === "ready" ? workspace.profiles[0] : undefined;
   const jobs = useMemo(() => workspace.status === "ready" ? workspace.jobs : [], [workspace]);
   const activeJobs = jobs.filter((job) => !archivedJobIds.includes(job.id) && !trashedJobIds.includes(job.id));
   const archivedJobs = jobs.filter((job) => archivedJobIds.includes(job.id) && !trashedJobIds.includes(job.id));
-  const visibleJobs = jobListFilter === "archived" ? archivedJobs : activeJobs;
-  const availableJobs = [...activeJobs, ...archivedJobs];
-  const selectedJob = visibleJobs.find((job) => job.id === selectedJobId) ?? visibleJobs[0] ?? availableJobs.find((job) => job.id === selectedJobId) ?? availableJobs[0];
+  const visibleJobs = jobListFilter === "active" ? activeJobs : archivedJobs;
+  const selectedJob = jobs.find((job) => job.id === selectedJobId && !trashedJobIds.includes(job.id)) ?? visibleJobs[0] ?? activeJobs[0] ?? archivedJobs[0];
   const baseResumeOptions = resumeBranches.filter(isMatchBaseResume);
   const selectedBaseResume = baseResumeOptions.find((branch) => branch.id === selectedBaseResumeId);
   const matchingProfile = profile && selectedBaseResume ? profileLimitedToResume(profile, selectedBaseResume) : undefined;
-  const matchState = getJobResumeMatchState({
-    profile: matchingProfile,
-    job: selectedJob,
-    branch: selectedBaseResume,
-    matches
+  const output = draft?.analyzerOutput ?? (draft ? { requirements: draft.manualRequirements, riskNotes: draft.riskNotes } : undefined);
+  const redactionPreview = useMemo(() => redactSensitiveTextForModel(rawText), [rawText]);
+  const availableProfileItems = profile ? canonicalProfileLibraryItems(profile).length : 0;
+  const recommendation = recommendJobResumeSource({
+    profileItemCount: profileAnalysis?.availableItemCount ?? availableProfileItems,
+    profileEvidenceCount: profileAnalysis?.availableEvidenceCount ?? profile?.structuredFacts?.flatMap((item) => item.factIds).length ?? 0,
+    generalResumeCount: baseResumeOptions.length
   });
-
-  useEffect(() => {
-    let active = true;
-    async function loadJobArchive() {
-      const [stored, recycleBin] = await Promise.all([repository.getMeta(jobArchiveKey), repository.getRecycleBinState()]);
-      if (!active) {
-        return;
-      }
-      setArchivedJobIds(parseArchivedJobIds(stored?.value));
-      setTrashedJobIds(recycleBin.jobIds);
-    }
-    void loadJobArchive();
-    return () => {
-      active = false;
-    };
-  }, []);
 
   useEffect(() => {
     if (!profile) return;
     let active = true;
-    void repository.listResumeBranches(profile.id).then((items) => {
+    void repository.listResumeBranches(profile.id).then((branches) => {
       if (!active) return;
-      setResumeBranches(items);
-      setSelectedBaseResumeId((current) => items.some((branch) => branch.id === current && isMatchBaseResume(branch)) ? current : "");
+      setResumeBranches(branches);
+      setSelectedBaseResumeId((current) => branches.some((branch) => branch.id === current && isMatchBaseResume(branch)) ? current : "");
     });
     return () => { active = false; };
   }, [profile]);
 
   useEffect(() => {
-    if (jobs.length === 0 || selectedJobId) return;
-    const requestedJobId = new URLSearchParams(window.location.search).get("jobId");
-    if (!requestedJobId || !jobs.some((job) => job.id === requestedJobId)) return;
-    queueMicrotask(() => {
-      setSelectedJobId(requestedJobId);
-      setJobWorkspaceTab("resumes");
+    if (!profile || !selectedJob || !selectedBaseResumeId) return;
+    let active = true;
+    void repository.listRequirementMatches(profile.id, selectedJob.id).then((stored) => {
+      if (active) setMatches(latestMatchesForResume(stored, selectedBaseResumeId));
     });
-  }, [jobs, selectedJobId]);
-
-  useEffect(() => {
-    let active = true;
-
-    async function loadMatches() {
-      if (!profile || !selectedJob || !selectedBaseResumeId) {
-        setMatches([]);
-        setSelectedMatchId(undefined);
-        return;
-      }
-
-      const stored = await repository.listRequirementMatches(profile.id, selectedJob.id);
-      if (active) {
-        const forSelectedResume = latestMatchesForResume(stored, selectedBaseResumeId);
-        setMatches(forSelectedResume);
-        setSelectedMatchId((current) => forSelectedResume.some((match) => match.id === current) ? current : forSelectedResume[0]?.id);
-      }
-    }
-
-    void loadMatches();
-
-    return () => {
-      active = false;
-    };
+    return () => { active = false; };
   }, [profile, selectedBaseResumeId, selectedJob]);
-
-  useEffect(() => {
-    let active = true;
-
-    async function loadC2Draft() {
-      if (!profile || !selectedJob || !selectedBaseResumeId) {
-        setAdaptationDraft(undefined);
-        setSuggestions([]);
-        return;
-      }
-
-      const latestDraft = await repository.getLatestJobAdaptationDraft(profile.id, selectedJob.id);
-      const selectedDraft = latestDraft?.sourceBranchId === selectedBaseResumeId ? latestDraft : undefined;
-      const latestSuggestions = selectedDraft ? await repository.listAiSuggestions(selectedDraft.id) : [];
-      if (active) {
-        setAdaptationDraft(selectedDraft);
-        setSuggestions(latestSuggestions);
-      }
-    }
-
-    void loadC2Draft();
-
-    return () => {
-      active = false;
-    };
-  }, [profile, selectedBaseResumeId, selectedJob]);
-
-  const selectedMatch = matches.find((match) => match.id === selectedMatchId) ?? matches[0];
-  const selectedRequirement = selectedJob?.requirements.find((requirement) => requirement.id === selectedMatch?.requirementId);
-  const manualCandidates = matchingProfile && selectedRequirement ? recallCandidatesForRequirement(matchingProfile, selectedRequirement) : [];
 
   async function startImport() {
     try {
@@ -259,1622 +155,312 @@ export function JobsWorkspace() {
       const now = new Date().toISOString();
       const inputHash = await hashText(`${validated.title}\n${validated.company}\n${validated.rawText}`);
       const inputChanged = inputHash !== rawInput?.inputHash;
-      const nextRawInput: RawInputDocument = {
-        id: rawInput?.id ?? `raw-${nanoid(10)}`,
-        kind: "job_jd",
-        rawText: validated.rawText,
-        inputHash,
-        title: `${validated.company} / ${validated.title}`,
-        createdAt: rawInput?.createdAt ?? now,
-        updatedAt: now
-      };
-
+      const nextRawInput: RawInputDocument = { id: rawInput?.id ?? `raw-${nanoid(10)}`, kind: "job_jd", rawText: validated.rawText, inputHash, title: `${validated.company} / ${validated.title}`, createdAt: rawInput?.createdAt ?? now, updatedAt: now };
       await repository.saveRawInput(nextRawInput);
-
       const nextDraft: JobAnalysisDraft = {
-        id: draft?.id ?? `job-draft-${nanoid(10)}`,
-        rawInputId: nextRawInput.id,
-        revision: draft?.revision ?? 0,
-        title: validated.title,
-        company: validated.company,
-        status: "privacy_pending",
-        promptVersion: promptVersions.jdAnalyzer,
-        attemptCount: inputChanged ? 0 : (draft?.attemptCount ?? 0),
+        id: draft?.id ?? `job-draft-${nanoid(10)}`, rawInputId: nextRawInput.id, revision: draft?.revision ?? 0,
+        title: validated.title, company: validated.company, status: "privacy_pending", promptVersion: promptVersions.jdAnalyzer,
+        attemptCount: inputChanged ? 0 : draft?.attemptCount ?? 0,
         analyzerOutput: inputChanged ? undefined : draft?.analyzerOutput,
-        manualRequirements: inputChanged ? [] : (draft?.manualRequirements ?? []),
-        riskNotes: inputChanged ? [] : (draft?.riskNotes ?? []),
-        saveError: undefined,
-        committedJobId: draft?.committedJobId,
-        committedAt: draft?.committedAt,
-        createdAt: draft?.createdAt ?? now,
-        updatedAt: now
+        manualRequirements: inputChanged ? [] : draft?.manualRequirements ?? [], riskNotes: inputChanged ? [] : draft?.riskNotes ?? [],
+        committedJobId: draft?.committedJobId, committedAt: draft?.committedAt, createdAt: draft?.createdAt ?? now, updatedAt: now
       };
-
-      const saved = draft
-        ? await repository.saveJobAnalysisDraftRevision(nextDraft, draft.revision)
-        : await repository.createJobAnalysisDraft(nextDraft);
-
-      setTitle(validated.title);
-      setCompany(validated.company);
-      setRawText(validated.rawText);
-      setRawInput(nextRawInput);
-      setDraft(saved);
-      setJobError(undefined);
-      setFailedAction(undefined);
-      notify({ type: "success", title: "岗位已保存", message: "原始 JD 已安全保留。请确认是否发送脱敏内容进行 AI 解析。" });
+      const saved = draft ? await repository.saveJobAnalysisDraftRevision(nextDraft, draft.revision) : await repository.createJobAnalysisDraft(nextDraft);
+      setRawInput(nextRawInput); setDraft(saved); setSaveStatus("saved"); setJobError(undefined); setFailedAction(undefined);
+      notify({ type: "success", title: "岗位已保存", message: "原始 JD 已安全保留。确认隐私说明后即可开始解析。" });
     } catch (error) {
-      setJobError(jobWorkflowErrorState(error, "repository_save_failed"));
-      setFailedAction("start_import");
-      setMessage(undefined);
-      setSaveStatus(error instanceof RevisionConflictError ? "conflict" : "failed");
+      const state = jobWorkflowErrorState(error, "repository_save_failed");
+      setJobError(state); setFailedAction("start_import"); setSaveStatus(error instanceof RevisionConflictError ? "conflict" : "failed");
+      notify({ type: "error", title: jobWorkflowErrorLabel(state.code), message: state.message });
     }
   }
 
   async function analyzeWithAi() {
-    if (!draft || !rawInput) {
-      return;
-    }
-
+    if (!draft || !rawInput) return;
     try {
-      setJobError(undefined);
       notify({ type: "info", title: "正在解析岗位", message: "系统会先脱敏，再校验 AI 返回的岗位要求。" });
-      const analyzingDraft = await saveDraft({ ...draft, title, company, status: "analyzing" });
-
-      const result = await invokeStageBAi({
-        task: "jd-analyzer",
-        businessInput: {
-          title,
-          company,
-          rawText: rawInput.rawText,
-          inputHash: rawInput.inputHash
-        },
-        outputSchema: JdAnalyzerOutputSchema
-      });
-
+      const analyzing = await saveDraft({ ...draft, title, company, status: "analyzing" });
+      const result = await invokeStageBAi({ task: "jd-analyzer", businessInput: { title, company, rawText: rawInput.rawText, inputHash: rawInput.inputHash }, outputSchema: JdAnalyzerOutputSchema });
       await repository.saveAiLogs([result.log]);
-
       if (!result.ok) {
+        const fallback = createManualJdOutput(rawInput.rawText, title, company);
+        const saved = await saveDraft({ ...analyzing, status: "error", attemptCount: analyzing.attemptCount + 1, manualRequirements: fallback.requirements, riskNotes: fallback.riskNotes, saveError: result.errorCode });
         const workflowError = classifyJobAiFailure(result.errorCode);
-        const failure = jobAiFailureFeedback(classifyJobAiFailureReason(result.errorCode));
-        const fallbackOutput = createManualJdOutput(rawInput.rawText, title, company);
-        const saved = await saveDraft({
-          ...analyzingDraft,
-          status: "error",
-          attemptCount: analyzingDraft.attemptCount + 1,
-          manualRequirements: fallbackOutput.requirements,
-          riskNotes: fallbackOutput.riskNotes,
-          saveError: result.errorCode
-        });
-        setDraft(saved);
-        setJobError(workflowError.state);
-        setFailedAction("analyze");
-        setMessage(undefined);
-        notify({ type: "error", title: failure.title, message: `${failure.message}${failure.nextStep}` });
+        const feedback = jobAiFailureFeedback(classifyJobAiFailureReason(result.errorCode));
+        setDraft(saved); setJobError(workflowError.state); setFailedAction("analyze");
+        notify({ type: "error", title: feedback.title, message: `${feedback.message}${feedback.nextStep}` });
         notify({ type: "warning", title: "已切换本地解析", message: "请核对本地岗位要求草稿，确认后仍可提交正式岗位。" });
         return;
       }
-
-      const saved = await saveDraft({
-        ...analyzingDraft,
-        status: "ai_validated",
-        attemptCount: analyzingDraft.attemptCount + 1,
-        promptVersion: result.promptVersion,
-        analyzerOutput: result.data,
-        riskNotes: result.data.riskNotes,
-        saveError: undefined
-      });
-      setDraft(saved);
-      setJobError(undefined);
-      setFailedAction(undefined);
-      notify({ type: "success", title: "岗位解析完成", message: "请核对原文依据并确认要写入正式岗位的要求。" });
+      const saved = await saveDraft({ ...analyzing, status: "ai_validated", attemptCount: analyzing.attemptCount + 1, promptVersion: result.promptVersion, analyzerOutput: result.data, riskNotes: result.data.riskNotes, saveError: undefined });
+      setDraft(saved); setJobError(undefined); setFailedAction(undefined);
+      notify({ type: "success", title: "岗位解析完成", message: "请核对要求与原文依据，再提交正式岗位。" });
     } catch (error) {
-      setJobError(
-        error instanceof TypeError
-          ? classifyJobAiFailure("provider_unavailable").state
-          : jobWorkflowErrorState(error, "repository_save_failed")
-      );
-      setFailedAction("analyze");
-      setMessage(undefined);
-      const failure = jobAiFailureFeedback(error instanceof TypeError ? "provider_unavailable" : "unknown");
-      notify({ type: "error", title: failure.title, message: `${failure.message}${failure.nextStep}` });
+      const fallback = createManualJdOutput(rawInput.rawText, title, company);
+      try {
+        const saved = await saveDraft({ ...draft, status: "error", attemptCount: draft.attemptCount + 1, manualRequirements: fallback.requirements, riskNotes: fallback.riskNotes, saveError: "provider_unavailable" });
+        setDraft(saved);
+      } catch { /* The persistent error card retains the original input. */ }
+      const state = error instanceof TypeError ? classifyJobAiFailure("provider_unavailable").state : jobWorkflowErrorState(error, "repository_save_failed");
+      setJobError(state); setFailedAction("analyze");
+      notify({ type: "error", title: "岗位解析未完成", message: "原始 JD 已保留。请重试，或继续核对本地草稿。" });
     }
   }
 
   async function enterManualMode() {
-    if (!draft || !rawInput) {
-      return;
-    }
-
-    const previousDraft = draft;
-    const fallbackOutput = createManualJdOutput(rawInput.rawText, title, company);
-    const optimisticDraft: JobAnalysisDraft = {
-      ...draft,
-      status: "manual_mode",
-      manualRequirements: draft.manualRequirements.length > 0 ? draft.manualRequirements : fallbackOutput.requirements,
-      riskNotes: draft.riskNotes
-    };
-    setDraft(optimisticDraft);
-    setJobError(undefined);
+    if (!draft || !rawInput) return;
     try {
-      const saved = await saveDraft(optimisticDraft);
-      setDraft(saved);
-      setFailedAction(undefined);
+      const fallback = createManualJdOutput(rawInput.rawText, title, company);
+      const saved = await saveDraft({ ...draft, status: "manual_mode", manualRequirements: draft.manualRequirements.length ? draft.manualRequirements : fallback.requirements, riskNotes: fallback.riskNotes });
+      setDraft(saved); setJobError(undefined); setFailedAction(undefined);
       notify({ type: "warning", title: "已使用本地解析", message: "外部模型不会被调用，请核对本地岗位要求草稿。" });
-    } catch (error) {
-      setDraft(previousDraft);
-      setJobError(jobWorkflowErrorState(error, "repository_save_failed"));
-      setFailedAction("analyze");
-      setMessage(undefined);
-    }
+    } catch (error) { setJobError(jobWorkflowErrorState(error, "repository_save_failed")); }
   }
 
   async function toggleRequirement(requirementId: string, checked: boolean) {
-    if (!draft || !output) {
-      return;
-    }
-
-    const previousDraft = draft;
-    const optimisticDraft = updateRequirementConfirmation(draft, requirementId, checked);
-    setDraft(optimisticDraft);
-    try {
-      const saved = await saveDraft(optimisticDraft);
-      setDraft(saved);
-      setJobError(undefined);
-    } catch (error) {
-      setDraft(previousDraft);
-      setJobError(jobWorkflowErrorState(error, "repository_save_failed"));
-      setFailedAction("commit");
-      setMessage(undefined);
-    }
+    if (!draft) return;
+    const previous = draft;
+    const optimistic = updateRequirementConfirmation(draft, requirementId, checked);
+    setDraft(optimistic);
+    try { setDraft(await saveDraft(optimistic)); setJobError(undefined); }
+    catch (error) { setDraft(previous); setJobError(jobWorkflowErrorState(error, "repository_save_failed")); setFailedAction("commit"); }
   }
 
   async function removeRequirement(requirementId: string) {
-    if (!draft || !output) {
-      return;
-    }
-
-    const confirmed = window.confirm("删除后该要求不会进入正式岗位数据，但原始JD和草稿历史仍会保留。确认删除？");
-    if (!confirmed) {
-      return;
-    }
-
-    const nextOutput: JdAnalyzerOutput = {
-      ...output,
-      requirements: output.requirements.filter((requirement) => requirement.id !== requirementId)
-    };
-    const previousDraft = draft;
-    const optimisticDraft: JobAnalysisDraft = {
-      ...draft,
-      status: "editing",
-      analyzerOutput: draft.analyzerOutput ? nextOutput : draft.analyzerOutput,
-      manualRequirements: draft.analyzerOutput ? draft.manualRequirements : nextOutput.requirements
-    };
-    setDraft(optimisticDraft);
-    try {
-      const saved = await saveDraft(optimisticDraft);
-      setDraft(saved);
-      setJobError(undefined);
-    } catch (error) {
-      setDraft(previousDraft);
-      setJobError(jobWorkflowErrorState(error, "repository_save_failed"));
-      setFailedAction("commit");
-      setMessage(undefined);
-    }
+    if (!draft || !output || !window.confirm("删除后该要求不会进入正式岗位数据，但原始 JD 和草稿历史仍会保留。确认删除？")) return;
+    const nextOutput: JdAnalyzerOutput = { ...output, requirements: output.requirements.filter((item) => item.id !== requirementId) };
+    const next = { ...draft, status: "editing" as const, analyzerOutput: draft.analyzerOutput ? nextOutput : undefined, manualRequirements: draft.analyzerOutput ? draft.manualRequirements : nextOutput.requirements };
+    try { setDraft(await saveDraft(next)); } catch (error) { setJobError(jobWorkflowErrorState(error, "repository_save_failed")); }
   }
 
   async function commitJob() {
-    if (!draft || !rawInput) {
-      return;
-    }
-
+    if (!draft || !rawInput) return;
     try {
       setSaveStatus("saving");
       const result = await commitParsedJob({ repository, draft, rawInput });
       workspace.upsertJob(result.jobDescription);
-      setDraft(undefined);
-      setRawInput(undefined);
-      setTitle("");
-      setCompany("");
-      setRawText("");
-      setSelectedJobId(result.jobDescription.id);
-      setJobListFilter("active");
-      setJobWorkspaceTab("resumes");
-      setSaveStatus("saved");
-      setJobError(undefined);
-      setFailedAction(undefined);
-      setMessage(undefined);
-      notify({ type: "success", title: "岗位已提交", message: `${result.jobDescription.company} / ${result.jobDescription.title} 已写入正式岗位数据。` });
+      setDraft(undefined); setRawInput(undefined); setTitle(""); setCompany(""); setRawText(""); setSelectedJobId(result.jobDescription.id); setJobListFilter("active"); setTab("resumes"); setSaveStatus("saved"); setJobError(undefined); setFailedAction(undefined);
+      notify({ type: "success", title: "岗位已提交", message: `${result.jobDescription.company} / ${result.jobDescription.title} 已保存。` });
       await workspace.refetch();
     } catch (error) {
-      const workflowError = jobWorkflowErrorState(error);
-      setSaveStatus(workflowError.code === "revision_conflict" ? "conflict" : "failed");
-      setJobError(workflowError);
-      setFailedAction("commit");
-      setMessage(undefined);
+      const state = jobWorkflowErrorState(error); setJobError(state); setFailedAction("commit"); setSaveStatus(state.code === "revision_conflict" ? "conflict" : "failed");
+      notify({ type: "error", title: jobWorkflowErrorLabel(state.code), message: state.message });
     }
   }
 
-  function retryFailedJobAction() {
-    if (failedAction === "start_import") {
-      void startImport();
-    } else if (failedAction === "analyze") {
-      void analyzeWithAi();
-    } else if (failedAction === "commit") {
-      void commitJob();
-    }
-  }
-
-  function handleJobTabKeyDown(event: KeyboardEvent<HTMLButtonElement>, tab: JobWorkspaceTab) {
-    const tabs: JobWorkspaceTab[] = ["info", "requirements", "resumes", "applications"];
-    const currentIndex = tabs.indexOf(tab);
-    const nextIndex = event.key === "ArrowRight"
-      ? (currentIndex + 1) % tabs.length
-      : event.key === "ArrowLeft"
-        ? (currentIndex - 1 + tabs.length) % tabs.length
-        : event.key === "Home"
-          ? 0
-          : event.key === "End"
-            ? tabs.length - 1
-            : currentIndex;
-    if (nextIndex === currentIndex && !["Home", "End"].includes(event.key)) {
-      return;
-    }
-    event.preventDefault();
-    setJobWorkspaceTab(tabs[nextIndex]);
-    const buttons = event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]');
-    buttons?.[nextIndex]?.focus();
-  }
-
-  async function saveDraft(nextDraft: JobAnalysisDraft) {
+  async function saveDraft(next: JobAnalysisDraft) {
     setSaveStatus("saving");
+    try { const saved = await repository.saveJobAnalysisDraftRevision(next, next.revision); setSaveStatus("saved"); return saved; }
+    catch (error) { setSaveStatus(error instanceof RevisionConflictError ? "conflict" : "failed"); throw error; }
+  }
+
+  async function analyzeProfileLibrary() {
+    if (!profile || !selectedJob) { showGenerationError(!selectedJob ? "no_job_selected" : "source_reference_invalid"); return; }
+    setResumeActionStatus("analyzing"); setGenerationErrorCode(undefined);
     try {
-      const saved = await repository.saveJobAnalysisDraftRevision(nextDraft, nextDraft.revision);
-      setSaveStatus("saved");
-      return saved;
+      const analysis = analyzeProfileLibrarySource({ profile, job: selectedJob });
+      setProfileAnalysis(analysis);
+      setSelectedProfileItemIds(analysis.recommendations.filter((item) => item.disposition !== "hide").map((item) => item.id));
+      setResumeActionStatus("idle");
+      notify({ type: "success", title: "匹配完成", message: `已从资料库整理 ${analysis.recommendations.length} 项内容，请确认选择。` });
     } catch (error) {
-      setSaveStatus(error instanceof RevisionConflictError ? "conflict" : "failed");
-      throw error;
+      setResumeActionStatus("failed"); showGenerationError(mapJobResumeGenerationError(error));
     }
   }
 
-  async function saveArchivedJobIds(nextIds: string[]) {
-    setArchivedJobIds(nextIds);
-    await repository.setMeta(jobArchiveKey, nextIds);
-  }
-
-  async function archiveSelectedJob() {
-    if (!selectedJob) {
-      return;
-    }
-    await saveArchivedJobIds(Array.from(new Set([...archivedJobIds, selectedJob.id])));
-    setJobListFilter("active");
-    setSelectedJobId(activeJobs.find((job) => job.id !== selectedJob.id)?.id ?? "");
-    notify({ type: "success", title: "岗位已归档", message: "正式岗位数据仍保留，可在已归档列表中恢复。" });
-  }
-
-  async function restoreSelectedJob() {
-    if (!selectedJob) {
-      return;
-    }
-    await saveArchivedJobIds(archivedJobIds.filter((id) => id !== selectedJob.id));
-    setJobListFilter("active");
-    setSelectedJobId(selectedJob.id);
-    notify({ type: "success", title: "岗位已恢复", message: "岗位已回到当前列表。" });
-  }
-
-  async function requestSafeJobDelete() {
-    if (!selectedJob) {
-      return;
-    }
-    const confirmed = window.confirm(`将“${selectedJob.company} / ${selectedJob.title}”移入回收站？之后可在统一回收站恢复。`);
-    if (!confirmed) return;
-    const next = await repository.moveJobToRecycleBin(selectedJob.id);
-    await saveArchivedJobIds(archivedJobIds.filter((id) => id !== selectedJob.id));
-    setTrashedJobIds(next.jobIds);
-    setSelectedJobId(activeJobs.find((job) => job.id !== selectedJob.id)?.id ?? "");
-    notify({ type: "success", title: "岗位已移入回收站", message: "关联简历、匹配和求职记录未被删除。" });
-  }
-
-  async function runRuleMatcher() {
-    if (!matchingProfile || !selectedJob || !selectedBaseResume) {
-      notify({ type: "warning", title: "尚未选择匹配来源", message: "请先选择一份可用的通用简历和正式岗位。" });
-      return;
-    }
-
-    setResumeActionStatus("matching");
-    setDerivationPrompt(undefined);
-    try {
-      const nextMatches = createRuleRequirementMatches({ profile: matchingProfile, job: selectedJob }).map((match) => ({
-        ...match,
-        sourceResumeBranchId: selectedBaseResume.id,
-        sourceResumeBranchRevision: selectedBaseResume.revision,
-        sourceResumeRevisionId: selectedBaseResume.currentRevisionId ?? undefined
-      }));
-      const saved = await repository.saveRuleRequirementMatches({
-        profile: matchingProfile,
-        job: selectedJob,
-        matches: nextMatches
-      });
-      setMatches(saved);
-      setSelectedMatchId(saved[0]?.id);
-      setResumeActionStatus("completed");
-      setGenerationErrorCode(undefined);
-      notify({ type: "success", title: "匹配完成", message: `已检查“${selectedBaseResume.name}”当前正式版本中的已确认事实。` });
-    } catch {
-      setResumeActionStatus("failed");
-      notify({ type: "error", title: "匹配失败", message: "请检查岗位要求、来源简历和个人资料引用后重试。" });
-    }
-  }
-
-  async function runAiEvidenceMatcher() {
-    if (!matchingProfile || !selectedJob || matches.length === 0) {
-      notify({ type: "warning", title: "尚未完成岗位匹配", message: "请先运行匹配，再使用 AI 证据评估。" });
-      return;
-    }
-
-    setResumeActionStatus("evaluating");
-    const nextMatches: RequirementMatch[] = [];
-
-    for (const match of matches) {
-      const stale = checkRequirementMatchStale(match, { profile: matchingProfile, job: selectedJob });
-      const requirement = selectedJob.requirements.find((item) => item.id === match.requirementId);
-      if (stale.isStale || !requirement) {
-        nextMatches.push({ ...match, isStale: true });
-        continue;
-      }
-
-      const candidates = recallCandidatesForRequirement(matchingProfile, requirement);
-      const result = await invokeStructuredAi({
-        task: "evidence-matcher",
-        businessInput: {
-          profileId: matchingProfile.id,
-          jobId: selectedJob.id,
-          profileVersion: matchingProfile.version,
-          jobVersion: selectedJob.updatedAt,
-          matcherVersion: match.matcherVersion,
-          candidateSetHash: match.candidateSetHash,
-          requirement: {
-            id: requirement.id,
-            description: requirement.description,
-            sourceQuote: requirement.sourceSpan.text,
-            hardConstraint: requirement.hardConstraint,
-            keywords: requirement.keywords
-          },
-          candidates: candidates.map((candidate) => ({
-            evidenceRef: candidate.ref,
-            searchText: candidate.searchText
-          }))
-        },
-        outputSchema: EvidenceMatcherOutputSchema
-      });
-
-      await repository.saveAiLogs([result.log]);
-
-      if (!result.ok) {
-        nextMatches.push(match);
-        continue;
-      }
-
-      const evaluation = result.data.evaluations.find((item) => item.requirementId === requirement.id);
-      if (!evaluation) {
-        nextMatches.push(match);
-        continue;
-      }
-
-      const aiEvaluation = MatchEvaluationSchema.parse({
-        source: "ai",
-        matchLevel: evaluation.matchLevel,
-        riskLevel: evaluation.riskLevel,
-        risks: evaluation.risks,
-        evidenceRefs: evaluation.evidenceRefs,
-        explanation: evaluation.explanation,
-        evaluatedAt: new Date().toISOString()
-      }) as MatchEvaluation & { source: "ai" };
-
-      nextMatches.push(withResolvedEffectiveMatch({
-        ...match,
-        aiEvaluation,
-        updatedAt: new Date().toISOString()
-      }));
-    }
-
-    try {
-      const saved = await repository.saveAiRequirementMatches({
-        profile: matchingProfile,
-        job: selectedJob,
-        matches: nextMatches
-      });
-      setMatches(saved);
-      setResumeActionStatus("completed");
-      notify({ type: "success", title: "AI 证据评估完成", message: "规则匹配和人工覆盖未被修改。" });
-    } catch {
-      setResumeActionStatus("failed");
-      notify({ type: "error", title: "AI 证据评估失败", message: "规则匹配和已有数据均已保留，可稍后重试。" });
-    }
-  }
-
-  async function prepareJobResumeDerivation() {
-    if (!profile || !selectedJob || !selectedBaseResume || !selectedBaseResume.currentRevisionId) {
-      const code: JobResumeGenerationErrorCode = !selectedJob ? "no_job_selected" : "no_source_selected";
-      showGenerationError(code);
-      return;
-    }
-    if (!matchState.ready) {
-      showGenerationError(matchState.code ?? "unknown");
-      return;
-    }
-
-    setResumeActionStatus("preparing");
-    const existing = await repository.findDerivedJobBranches({
-      sourceBranchId: selectedBaseResume.id,
-      jobId: selectedJob.id
-    });
-    const sameVersion = existing.find((branch) => branch.sourceRevisionId === selectedBaseResume.currentRevisionId);
-    if (sameVersion) {
-      setDerivationPrompt({ kind: "same_version", existingBranch: sameVersion });
-      setResumeActionStatus("idle");
-      return;
-    }
-    if (existing[0]) {
-      setDerivationPrompt({ kind: "source_updated", existingBranch: existing[0] });
-      setResumeActionStatus("idle");
-      return;
-    }
-    await createAndOpenJobResume(false);
-  }
-
-  async function createAndOpenJobResume(allowDuplicate: boolean) {
-    if (!profile || !selectedJob || !selectedBaseResume?.currentRevisionId) return;
+  async function createFromProfileLibrary() {
+    if (!profile || !selectedJob || !profileAnalysis) { showGenerationError("matches_missing"); return; }
+    if (!selectedProfileItemIds.length) { showGenerationError("matches_have_no_evidence"); return; }
     setResumeActionStatus("saving");
     try {
-      const baseName = `${selectedJob.title} - ${selectedJob.company} - ${profile.basics.name}`;
-      const result = await repository.deriveJobSpecificBranchFromBranch({
-        sourceBranchId: selectedBaseResume.id,
-        jobId: selectedJob.id,
-        expectedSourceRevision: selectedBaseResume.revision,
-        expectedSourceRevisionId: selectedBaseResume.currentRevisionId,
-        operationId: `p34-derive-${selectedBaseResume.id}-${selectedJob.id}-${selectedBaseResume.currentRevisionId}-${nanoid(8)}`,
-        name: uniqueBranchName(baseName, resumeBranches),
-        allowDuplicate
+      const nextMatches = createRuleRequirementMatches({ profile, job: selectedJob });
+      const savedMatches = await repository.saveRuleRequirementMatches({ profile, job: selectedJob, matches: nextMatches });
+      if (!collectAllowedEvidenceRefs(savedMatches).length) throw new Error("matches_have_no_evidence");
+      const operationId = `profile-job-${profile.id}-${profile.version}-${selectedJob.id}-${profileAnalysis.analysisHash}-${stableHashText(selectedProfileItemIds.slice().sort().join(":"))}`;
+      const result = await repository.createJobSpecificBranchFromProfile({
+        profileId: profile.id, jobId: selectedJob.id, operationId,
+        name: uniqueBranchName(`${selectedJob.title} - ${selectedJob.company} - ${profile.basics.name}`, resumeBranches),
+        selectedCanonicalItemIds: selectedProfileItemIds, requirementMatchIds: savedMatches.map((match) => match.id)
       });
-      setResumeActionStatus("completed");
-      setGenerationErrorCode(undefined);
-      setDerivationPrompt(undefined);
-      notify({ type: "success", title: "岗位简历已创建", message: "正在打开 Resume Studio，原通用简历未被修改。" });
+      setResumeActionStatus("completed"); setGenerationErrorCode(undefined);
+      notify({ type: "success", title: result.idempotent ? "已打开已有岗位简历" : "岗位简历已创建", message: "个人资料库没有被修改，正在打开 Resume Studio。" });
       router.push(`/resume?branchId=${encodeURIComponent(result.branch.id)}&mode=ai&fromJobId=${encodeURIComponent(selectedJob.id)}`);
-    } catch (error) {
-      setResumeActionStatus("failed");
-      showGenerationError(mapJobResumeGenerationError(error));
-    }
+    } catch (error) { setResumeActionStatus("failed"); showGenerationError(mapJobResumeGenerationError(error)); }
   }
 
-  function openExistingJobResume(branch: ResumeBranch) {
-    if (!selectedJob) return;
-    setDerivationPrompt(undefined);
-    notify({ type: "success", title: "已打开已有岗位简历", message: "现有岗位简历将继续保持独立。" });
-    router.push(`/resume?branchId=${encodeURIComponent(branch.id)}&mode=ai&fromJobId=${encodeURIComponent(selectedJob.id)}`);
+  async function analyzeAndGenerateFromResume() {
+    if (!profile || !selectedJob || !selectedBaseResume?.currentRevisionId || !matchingProfile) { showGenerationError(!selectedJob ? "no_job_selected" : "no_source_selected"); return; }
+    setResumeActionStatus("matching"); setGenerationErrorCode(undefined);
+    try {
+      const deterministic = createRuleRequirementMatches({ profile: matchingProfile, job: selectedJob }).map((match) => ({ ...match, sourceResumeBranchId: selectedBaseResume.id, sourceResumeBranchRevision: selectedBaseResume.revision, sourceResumeRevisionId: selectedBaseResume.currentRevisionId ?? undefined }));
+      let savedMatches = await repository.saveRuleRequirementMatches({ profile: matchingProfile, job: selectedJob, matches: deterministic });
+      setMatches(savedMatches);
+      if (hasCustomAiSettings()) savedMatches = await runOptionalSemanticEvaluation({ profile: matchingProfile, job: selectedJob, branch: selectedBaseResume, matches: savedMatches });
+      if (!collectAllowedEvidenceRefs(savedMatches).length) throw new Error("matches_have_no_evidence");
+      const existing = (await repository.findDerivedJobBranches({ sourceBranchId: selectedBaseResume.id, jobId: selectedJob.id, sourceRevisionId: selectedBaseResume.currentRevisionId }))[0];
+      if (existing) {
+        setResumeActionStatus("completed"); notify({ type: "success", title: "已打开已有岗位简历", message: "当前来源版本已经生成过岗位简历。" });
+        router.push(`/resume?branchId=${encodeURIComponent(existing.id)}&mode=ai&fromJobId=${encodeURIComponent(selectedJob.id)}`); return;
+      }
+      setResumeActionStatus("saving");
+      const result = await repository.deriveJobSpecificBranchFromBranch({
+        sourceBranchId: selectedBaseResume.id, jobId: selectedJob.id, expectedSourceRevision: selectedBaseResume.revision,
+        expectedSourceRevisionId: selectedBaseResume.currentRevisionId,
+        operationId: `job-resume-${selectedBaseResume.id}-${selectedJob.id}-${selectedBaseResume.currentRevisionId}-${nanoid(8)}`,
+        name: uniqueBranchName(`${selectedJob.title} - ${selectedJob.company} - ${profile.basics.name}`, resumeBranches)
+      });
+      setResumeActionStatus("completed"); notify({ type: "success", title: "岗位简历已创建", message: "原通用简历没有被修改，正在打开 Resume Studio。" });
+      router.push(`/resume?branchId=${encodeURIComponent(result.branch.id)}&mode=ai&fromJobId=${encodeURIComponent(selectedJob.id)}`);
+    } catch (error) { setResumeActionStatus("failed"); showGenerationError(mapJobResumeGenerationError(error)); }
+  }
+
+  async function runOptionalSemanticEvaluation(input: { profile: CareerProfile; job: JobDescription; branch: ResumeBranch; matches: RequirementMatch[] }) {
+    const evaluated: RequirementMatch[] = [];
+    for (const match of input.matches) {
+      const requirement = input.job.requirements.find((item) => item.id === match.requirementId);
+      const candidates = requirement ? recallCandidatesForRequirement(input.profile, requirement) : [];
+      if (!requirement) { evaluated.push(match); continue; }
+      const result = await invokeStructuredAi({
+        task: "evidence-matcher",
+        businessInput: { profileId: input.profile.id, jobId: input.job.id, profileVersion: input.profile.version, jobVersion: input.job.updatedAt, matcherVersion: match.matcherVersion, candidateSetHash: match.candidateSetHash, requirement: { id: requirement.id, description: requirement.description, sourceQuote: requirement.sourceSpan.text, hardConstraint: requirement.hardConstraint, keywords: requirement.keywords }, candidates: candidates.map((candidate) => ({ evidenceRef: candidate.ref, searchText: candidate.searchText })) },
+        outputSchema: EvidenceMatcherOutputSchema
+      });
+      await repository.saveAiLogs([result.log]);
+      const item = result.ok ? result.data.evaluations.find((candidate) => candidate.requirementId === requirement.id) : undefined;
+      if (!item) { evaluated.push(match); continue; }
+      const aiEvaluation = MatchEvaluationSchema.parse({ source: "ai", matchLevel: item.matchLevel, riskLevel: item.riskLevel, risks: item.risks, evidenceRefs: item.evidenceRefs, explanation: item.explanation, evaluatedAt: new Date().toISOString() }) as MatchEvaluation & { source: "ai" };
+      evaluated.push(withResolvedEffectiveMatch({ ...match, aiEvaluation, updatedAt: new Date().toISOString() }));
+    }
+    const saved = await repository.saveAiRequirementMatches({ profile: input.profile, job: input.job, matches: evaluated });
+    setMatches(saved); return saved;
   }
 
   function showGenerationError(code: JobResumeGenerationErrorCode) {
-    const feedback = jobResumeGenerationFeedback(code);
-    setGenerationErrorCode(code);
+    const feedback = jobResumeGenerationFeedback(code); setGenerationErrorCode(code);
     notify({ type: code === "matches_have_no_evidence" ? "warning" : "error", title: feedback.title, message: `${feedback.message}${feedback.nextStep}` });
   }
 
-  async function saveManualOverride(match: RequirementMatch) {
-    if (!matchingProfile || !selectedJob) {
-      return;
-    }
+  async function saveArchivedJobIds(next: string[]) { setArchivedJobIds(next); await repository.setMeta(jobArchiveKey, next); }
+  async function archiveSelectedJob() { if (!selectedJob) return; await saveArchivedJobIds([...new Set([...archivedJobIds, selectedJob.id])]); setJobListFilter("active"); setSelectedJobId(activeJobs.find((job) => job.id !== selectedJob.id)?.id ?? ""); notify({ type: "success", title: "岗位已归档", message: "正式岗位数据仍保留，可在已归档列表恢复。" }); }
+  async function restoreSelectedJob() { if (!selectedJob) return; await saveArchivedJobIds(archivedJobIds.filter((id) => id !== selectedJob.id)); setJobListFilter("active"); setSelectedJobId(selectedJob.id); notify({ type: "success", title: "岗位已恢复", message: "岗位已回到当前列表。" }); }
+  async function requestSafeJobDelete() { if (!selectedJob || !window.confirm(`将“${selectedJob.company} / ${selectedJob.title}”移入回收站？之后可在统一回收站恢复。`)) return; const next = await repository.moveJobToRecycleBin(selectedJob.id); await saveArchivedJobIds(archivedJobIds.filter((id) => id !== selectedJob.id)); setTrashedJobIds(next.jobIds); setSelectedJobId(activeJobs.find((job) => job.id !== selectedJob.id)?.id ?? ""); notify({ type: "success", title: "岗位已移入回收站", message: "关联简历、匹配和求职记录未被删除。" }); }
 
-    if (!manualReason.trim()) {
-      setMessage("人工覆盖必须填写说明。");
-      return;
-    }
+  function editSelectedJob() { if (!selectedJob) return; setTitle(selectedJob.title); setCompany(selectedJob.company); setRawText(selectedJob.rawText); setRawInput(undefined); setDraft(undefined); setShowJobMenu(false); window.scrollTo({ top: 0, behavior: "smooth" }); }
+  function retryFailedJobAction() { if (failedAction === "start_import") void startImport(); else if (failedAction === "analyze") void analyzeWithAi(); else if (failedAction === "commit") void commitJob(); }
+  function selectJob(id: string) { setSelectedJobId(id); setTab("resumes"); setSourceMode("profile"); setSelectedBaseResumeId(""); setMatches([]); setProfileAnalysis(undefined); setSelectedProfileItemIds([]); setGenerationErrorCode(undefined); setShowMatchDetails(false); setResumeActionStatus("idle"); setShowJobMenu(false); }
+  function handleTabKeyDown(event: KeyboardEvent<HTMLButtonElement>, current: JobWorkspaceTab) { const tabs: JobWorkspaceTab[] = ["resumes", "info", "requirements", "applications"]; const index = tabs.indexOf(current); const next = event.key === "ArrowRight" ? (index + 1) % tabs.length : event.key === "ArrowLeft" ? (index - 1 + tabs.length) % tabs.length : event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : index; if (next === index && !["Home", "End"].includes(event.key)) return; event.preventDefault(); setTab(tabs[next]); event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next]?.focus(); }
 
-    const evidenceRefs = manualLevel === "none" ? [] : selectedManualEvidenceRef();
-    if (manualLevel !== "none" && evidenceRefs.length === 0) {
-      setMessage("人工覆盖为 strong、weak 或 transferable 时必须选择至少一条正式事实。");
-      return;
-    }
-
-    const nextEvaluation = MatchEvaluationSchema.parse({
-      source: "manual",
-      matchLevel: manualLevel,
-      riskLevel: manualRisk,
-      risks: manualRisk === "low" ? [] : ["low_confidence"],
-      evidenceRefs,
-      explanation: manualReason,
-      evaluatedAt: new Date().toISOString()
-    }) as MatchEvaluation & { source: "manual" };
-
-    const saved = await repository.saveManualMatchOverride({
-      profile: matchingProfile,
-      job: selectedJob,
-      matchId: match.id,
-      operationId: `manual-${stableHashText(JSON.stringify({
-        matchId: match.id,
-        manualLevel,
-        manualRisk,
-        manualReason,
-        manualEvidenceKey
-      }))}`,
-      nextEvaluation,
-      reason: manualReason
-    });
-
-    setMatches((current) => current.map((item) => (item.id === saved.id ? saved : item)));
-    setManualReason("");
-    setMessage("人工覆盖已保存，并记录修改前后结果。");
-  }
-
-  async function createC2Draft() {
-    if (!matchingProfile || !selectedJob || !selectedBaseResume || matches.length === 0) {
-      setMessage("请先完成经历匹配，再创建简历建议草稿。");
-      return undefined;
-    }
-
-    try {
-      setC2Status("running");
-      const operationId = `c2-create-${stableHashText(JSON.stringify({
-        profileId: matchingProfile.id,
-        jobId: selectedJob.id,
-        sourceBranchId: selectedBaseResume.id,
-        sourceRevisionId: selectedBaseResume.currentRevisionId ?? undefined,
-        matchIds: matches.map((match) => match.id).sort()
-      }))}`;
-      const result = await repository.createJobAdaptationDraft({
-        profile: matchingProfile,
-        job: selectedJob,
-        matches,
-        operationId,
-        sourceBranchId: selectedBaseResume.id,
-        sourceRevisionId: selectedBaseResume.currentRevisionId ?? undefined,
-        sourceBranchRevision: selectedBaseResume.revision
-      });
-      setAdaptationDraft(result.draft);
-      setC2Status("idle");
-      setMessage(result.idempotent ? "简历建议草稿已存在，已恢复。" : "简历建议草稿已创建。");
-      return result.draft;
-    } catch (error) {
-      setC2Status("failed");
-      setMessage(error instanceof Error && error.message.includes("c2_match_stale")
-        ? "存在过期匹配，暂不能生成建议。请重新运行经历匹配。"
-        : "创建简历建议草稿失败，请确认匹配结果未过期。");
-      return undefined;
-    }
-  }
-
-  async function generateC2Suggestions() {
-    if (!profile || !selectedJob) {
-      return;
-    }
-
-    const draftForGeneration = adaptationDraft ?? await createC2Draft();
-    if (!draftForGeneration) {
-      return;
-    }
-
-    try {
-      setC2Status("running");
-      const usableMatches = getC2UsableMatches();
-      const tailorInput = buildResumeTailorInput(draftForGeneration, usableMatches);
-      const result = await invokeStructuredAi({
-        task: "resume-tailor",
-        businessInput: tailorInput,
-        outputSchema: ResumeTailorOutputSchema
-      });
-      await repository.saveAiLogs([result.log]);
-
-      if (!result.ok) {
-        setC2Status("failed");
-        setMessage("resume-tailor 调用失败，已保留现有草稿和建议。");
-        return;
-      }
-
-      const now = new Date().toISOString();
-      const nextSuggestions: AiSuggestion[] = [];
-      for (const item of result.data.suggestions) {
-        const guardResult = await runFullFactGuard(item.originalText, item.suggestedText, item.usedEvidenceRefs);
-        nextSuggestions.push({
-          id: `suggestion-${nanoid(10)}`,
-          draftId: draftForGeneration.id,
-          targetSectionId: item.targetSectionId,
-          type: item.type,
-          originalText: item.originalText,
-          suggestedText: item.suggestedText,
-          reason: item.reason,
-          requirementIds: item.requirementIds,
-          usedEvidenceRefs: item.usedEvidenceRefs,
-          guardResult,
-          riskLevel: guardResult.riskLevel,
-          status: guardResult.status === "blocked_high_risk" ? "blocked_high_risk" : "pending_review",
-          promptVersion: result.promptVersion,
-          createdAt: now,
-          updatedAt: now
-        });
-      }
-
-      const saved = await repository.saveGeneratedSuggestions({
-        profile,
-        job: selectedJob,
-        draftId: draftForGeneration.id,
-        matches: usableMatches,
-        suggestions: nextSuggestions,
-        expectedRevision: draftForGeneration.revision,
-        operationId: `c2-generate-${draftForGeneration.id}-${stableHashText(JSON.stringify(nextSuggestions.map((item) => item.id)))}`
-      });
-      setAdaptationDraft(saved.draft);
-      setSuggestions(saved.suggestions);
-      setC2Status("idle");
-      setMessage("AI简历建议已生成，并完成事实安全检查。");
-    } catch {
-      setC2Status("failed");
-      setMessage("生成简历建议失败。已有草稿和规则检测结果不会被清空。");
-    }
-  }
-
-  async function runFullFactGuard(originalText: string, checkedText: string, usedEvidenceRefs: AiSuggestion["usedEvidenceRefs"]): Promise<FactGuardResult> {
-    const ruleResult = runRuleFactGuard({ originalText, checkedText, usedEvidenceRefs });
-    const aiResult = await invokeStructuredAi({
-      task: "fact-guard",
-      businessInput: {
-        originalText,
-        checkedText,
-        usedEvidenceRefs,
-        ruleFindings: ruleResult.ruleFindings
-      },
-      outputSchema: FactGuardOutputSchema
-    });
-    await repository.saveAiLogs([aiResult.log]);
-    return mergeAiFactGuardReview({
-      ruleResult,
-      aiReview: aiResult.ok ? aiResult.data : undefined,
-      aiFailed: !aiResult.ok
-    });
-  }
-
-  async function acceptSuggestion(suggestion: AiSuggestion) {
-    if (!profile || !selectedJob || !adaptationDraft) {
-      return;
-    }
-
-    try {
-      const result = await repository.acceptSuggestion({
-        profile,
-        job: selectedJob,
-        matches: getC2UsableMatches(),
-        draftId: adaptationDraft.id,
-        suggestionId: suggestion.id,
-        expectedRevision: adaptationDraft.revision,
-        operationId: `c2-accept-${suggestion.id}-${adaptationDraft.revision}`
-      });
-      setAdaptationDraft(result.draft);
-      setSuggestions((current) => current.map((item) => item.id === result.suggestion.id ? result.suggestion : item));
-      setMessage("建议已接受，草稿文本和快照已保存。");
-    } catch {
-      setMessage("该建议无法接受：可能是高风险、未通过事实安全检查、版本冲突或匹配已过期。");
-    }
-  }
-
-  async function rejectSuggestion(suggestion: AiSuggestion) {
-    if (!adaptationDraft) {
-      return;
-    }
-
-    const result = await repository.rejectSuggestion({
-      draftId: adaptationDraft.id,
-      suggestionId: suggestion.id,
-      expectedRevision: adaptationDraft.revision,
-      operationId: `c2-reject-${suggestion.id}-${adaptationDraft.revision}`
-    });
-    setAdaptationDraft(result.draft);
-    setSuggestions((current) => current.map((item) => item.id === result.suggestion.id ? result.suggestion : item));
-    setMessage("建议已拒绝，并已记录快照。");
-  }
-
-  async function editAndGuardSuggestion(suggestion: AiSuggestion) {
-    if (!adaptationDraft) {
-      return;
-    }
-
-    const editedText = editedSuggestions[suggestion.id]?.trim();
-    if (!editedText) {
-      setMessage("请先填写编辑后的文本。");
-      return;
-    }
-
-    const guardResult = await runFullFactGuard(suggestion.originalText, editedText, suggestion.usedEvidenceRefs);
-    const result = await repository.editSuggestionGuarded({
-      draftId: adaptationDraft.id,
-      suggestionId: suggestion.id,
-      expectedRevision: adaptationDraft.revision,
-      operationId: `c2-edit-${suggestion.id}-${stableHashText(editedText)}-${adaptationDraft.revision}`,
-      editedText,
-      guardResult
-    });
-    setAdaptationDraft(result.draft);
-    setSuggestions((current) => current.map((item) => item.id === result.suggestion.id ? result.suggestion : item));
-    setMessage(guardResult.status === "pass" ? "编辑文本已通过事实安全检查，可单条接受。" : "编辑文本仍存在事实风险，请删除风险内容后重新检测。");
-  }
-
-  async function rerunGuardSuggestion(suggestion: AiSuggestion) {
-    if (!adaptationDraft) {
-      return;
-    }
-
-    const checkedText = suggestion.editedText ?? suggestion.suggestedText;
-    const guardResult = await runFullFactGuard(suggestion.originalText, checkedText, suggestion.usedEvidenceRefs);
-    const result = await repository.rerunSuggestionGuard({
-      draftId: adaptationDraft.id,
-      suggestionId: suggestion.id,
-      expectedRevision: adaptationDraft.revision,
-      operationId: `c2-rerun-guard-${suggestion.id}-${stableHashText(checkedText)}-${adaptationDraft.revision}`,
-      checkedText,
-      guardResult
-    });
-    setAdaptationDraft(result.draft);
-    setSuggestions((current) => current.map((item) => item.id === result.suggestion.id ? result.suggestion : item));
-    setMessage("事实安全检查已重新检测。");
-  }
-
-  async function undoSuggestion(suggestion: AiSuggestion) {
-    if (!adaptationDraft) {
-      return;
-    }
-
-    const result = await repository.undoSuggestion({
-      draftId: adaptationDraft.id,
-      suggestionId: suggestion.id,
-      expectedRevision: adaptationDraft.revision,
-      operationId: `c2-undo-${suggestion.id}-${adaptationDraft.revision}`
-    });
-    setAdaptationDraft(result.draft);
-    setSuggestions((current) => current.map((item) => item.id === result.suggestion.id ? result.suggestion : item));
-    setMessage("已撤销该建议造成的草稿变更。");
-  }
-
-  function getC2UsableMatches() {
-    if (!profile || !selectedJob) {
-      return [];
-    }
-    return matches.filter((match) => {
-      const stale = checkRequirementMatchStale(match, { profile: matchingProfile ?? profile, job: selectedJob });
-      return match.profileId === profile.id && match.jobId === selectedJob.id && !match.isStale && !stale.isStale;
-    });
-  }
-
-  function buildResumeTailorInput(draftForGeneration: JobAdaptationDraft, usableMatches: RequirementMatch[]) {
-    const allowedEvidenceRefs = collectAllowedEvidenceRefs(usableMatches);
-    return {
-      draftId: draftForGeneration.id,
-      profileId: draftForGeneration.profileId,
-      jobId: draftForGeneration.jobId,
-      profileVersion: draftForGeneration.profileVersion,
-      jobVersion: draftForGeneration.jobVersion,
-      matcherVersion: draftForGeneration.matcherVersion,
-      requirementIds: usableMatches.map((match) => match.requirementId),
-      allowedEvidenceRefs,
-      sectionTexts: draftForGeneration.sectionTexts.map((section) => ({
-        sectionId: section.sectionId,
-        sectionType: section.sectionType,
-        text: section.text,
-        originalText: section.originalText,
-        order: section.order
-      })),
-      matches: usableMatches.map((match) => {
-        const effective = resolveEffectiveMatch(match);
-        const requirement = selectedJob?.requirements.find((item) => item.id === match.requirementId);
-        return {
-          requirementId: match.requirementId,
-          requirementDescription: requirement?.description ?? match.requirementQuote.text,
-          matchLevel: effective.matchLevel,
-          riskLevel: effective.riskLevel,
-          risks: effective.risks,
-          evidenceRefs: effective.evidenceRefs,
-          explanation: effective.explanation
-        };
-      })
-    };
-  }
-
-  function selectedManualEvidenceRef(): MatchEvidenceRef[] {
-    const candidate = manualCandidates.find((item) => evidenceRefKey(item.ref) === manualEvidenceKey);
-    return candidate ? [candidate.ref] : [];
-  }
-
-  if (workspace.status === "loading" || !loadedDraft) {
-    return (
-      <main className="page-shell">
-        <WorkspaceLoadingState />
-      </main>
-    );
-  }
-
-  if (workspace.status === "error") {
-    return (
-      <main className="page-shell">
-        <WorkspaceErrorState message={workspace.error} />
-      </main>
-    );
-  }
+  if (workspace.status === "loading" || !loadedDraft) return <main className="page-shell"><WorkspaceLoadingState /></main>;
+  if (workspace.status === "error") return <main className="page-shell"><WorkspaceErrorState message={workspace.error} /></main>;
 
   return (
-    <main className="page-shell jobs-workspace">
-      <section className="page-title">
-        <p className="eyebrow">岗位工作区</p>
-        <h1>岗位解析与简历建议</h1>
-        <p>粘贴岗位描述，提取要求，匹配你的个人资料，并生成可审阅的简历修改建议。</p>
-      </section>
-
+    <main className="page-shell jobs-workspace jobs-workspace-v2">
+      <header className="page-title jobs-page-title"><div><p className="eyebrow">岗位工作区</p><h1>岗位与岗位简历</h1></div><p>保存岗位描述，确认要求，再从资料库或现有简历生成独立的岗位简历。</p></header>
       {workspace.status === "empty" ? <WorkspaceEmptyState /> : null}
-      {jobError ? (
-        <section className="warning-box job-workflow-error" role="alert" data-error-code={jobError.code}>
-          <div>
-            <strong>{jobWorkflowErrorLabel(jobError.code)}</strong>
-            <p>{jobError.message}</p>
-          </div>
-          <div className="action-row">
-            {jobError.retryable && failedAction ? (
-              <button className="secondary-button compact" type="button" onClick={retryFailedJobAction}>
-                重试
-              </button>
-            ) : null}
-            {draft && rawInput ? (
-              <button className="secondary-button compact" type="button" onClick={() => { void enterManualMode(); }}>
-                手动分类
-              </button>
-            ) : null}
-          </div>
-        </section>
-      ) : null}
+      {jobError ? <PersistentJobError error={jobError} canUseFallback={Boolean(draft && rawInput)} onRetry={retryFailedJobAction} onFallback={() => void enterManualMode()} /> : null}
 
-      <section className="stage-grid">
-        <details className="panel job-create-disclosure">
-          <summary>新增或更新岗位</summary>
-          <div className="job-create-disclosure-body">
-          <h2>粘贴岗位描述</h2>
-          <div className="form-grid">
-            <input data-testid="job-title-input" value={title} onChange={(event) => setTitle(event.target.value)} placeholder="岗位名称" />
-            <input data-testid="job-company-input" value={company} onChange={(event) => setCompany(event.target.value)} placeholder="公司名称" />
+      <section className="jobs-overview-grid">
+        <article className="panel job-entry-panel">
+          <header><div><h2>新增 / 更新岗位</h2><p>粘贴完整 JD，系统会保留原文和来源。</p></div><span className={`save-status save-status-${saveStatus}`}>{saveStatusLabel(saveStatus)}</span></header>
+          <div className="job-entry-fields">
+            <label htmlFor="job-title-input">岗位名称<input id="job-title-input" name="job-title" autoComplete="off" data-testid="job-title-input" value={title} onChange={(event) => setTitle(event.target.value)} placeholder="例如：数据产品经理…" /></label>
+            <label htmlFor="job-company-input">公司名称<input id="job-company-input" name="job-company" autoComplete="organization" data-testid="job-company-input" value={company} onChange={(event) => setCompany(event.target.value)} placeholder="例如：某科技公司…" /></label>
+            <label className="job-jd-field" htmlFor="job-raw-textarea">岗位描述<textarea id="job-raw-textarea" name="job-description" data-testid="job-raw-textarea" value={rawText} onChange={(event) => setRawText(event.target.value)} placeholder="粘贴岗位职责、任职要求和加分项…" /></label>
           </div>
-          <textarea data-testid="job-raw-textarea" className="textarea" value={rawText} onChange={(event) => setRawText(event.target.value)} placeholder="粘贴岗位 JD 原文…" />
-          <div className="action-row">
-            <button className="primary-button" data-testid="save-job-raw-input" onClick={startImport}>
-              保存原始JD
-            </button>
-            <span className={`save-status save-status-${saveStatus}`}>保存状态：{saveStatusLabel(saveStatus)}</span>
-          </div>
-          </div>
-        </details>
+          <footer className="job-entry-actions">
+            {draft?.status === "privacy_pending" ? <div className="privacy-inline"><span>{redactionPreview.redactions.length ? `已识别 ${redactionPreview.redactions.length} 类隐私信息，将先脱敏。` : "未发现需脱敏的联系信息。"}</span><button className="secondary-button" type="button" data-testid="job-manual-mode" onClick={() => void enterManualMode()}>使用本地解析</button><button className="primary-button" type="button" data-testid="job-analyze-ai" onClick={() => void analyzeWithAi()}>同意脱敏并解析</button></div> : <button className="primary-button" type="button" data-testid="save-job-raw-input" onClick={() => void startImport()} disabled={saveStatus === "saving"}>{saveStatus === "saving" ? "保存中…" : "保存并分析岗位"}</button>}
+          </footer>
+        </article>
 
-        {draft?.status === "privacy_pending" ? (
-          <article className="panel">
-            <h2>2. 外部模型与隐私说明</h2>
-            <p>系统会在服务端默认脱敏手机号、邮箱、身份证号和精确地址后再发送给外部模型。</p>
-            <p>本次脱敏预览：{redactionPreview.redactions.length === 0 ? "未发现需脱敏内容" : redactionPreview.redactions.map((item) => `${item.type} x${item.count}`).join(" / ")}</p>
-            <div className="action-row">
-              <button className="primary-button" data-testid="job-analyze-ai" onClick={analyzeWithAi}>
-                同意脱敏并解析
-              </button>
-              <button className="secondary-button" data-testid="job-manual-mode" onClick={enterManualMode}>
-                拒绝，手动分类
-              </button>
-            </div>
-          </article>
-        ) : null}
-      </section>
-
-      {draft && draft.status !== "committed" && output ? (
-        <section className="panel">
-          <div className="section-heading">
-            <div>
-              <h2>{draft.analyzerOutput ? "岗位要求草稿" : "本地岗位要求草稿"}</h2>
-              <p>{draft.analyzerOutput ? "确认后的要求才会进入正式岗位数据。删除前会提示影响。" : "AI 解析没有通过格式校验，系统已保留原始 JD，并使用本地规则整理以下要求。"}</p>
-            </div>
-            <button className="primary-button" data-testid="commit-job" onClick={commitJob} disabled={saveStatus === "saving"}>
-              提交正式岗位
-            </button>
-          </div>
-          <div className="requirement-list">
-            {output.requirements.map((requirement) => (
-              <RequirementReviewRow key={requirement.id} requirement={requirement} onToggle={toggleRequirement} onRemove={removeRequirement} />
-            ))}
-          </div>
-        </section>
-      ) : null}
-
-      <section className="jobs-manager-grid">
         <aside className="panel jobs-list-panel">
-          <div className="section-heading compact-heading">
-            <div>
-              <h2>岗位列表</h2>
-              <p>{activeJobs.length} 个当前岗位 / {archivedJobs.length} 个已归档</p>
-            </div>
-          </div>
-          <div className="action-row job-list-filter">
-            <button className={jobListFilter === "active" ? "primary-button compact" : "secondary-button compact"} onClick={() => setJobListFilter("active")}>当前</button>
-            <button className={jobListFilter === "archived" ? "primary-button compact" : "secondary-button compact"} onClick={() => setJobListFilter("archived")}>已归档</button>
-          </div>
-          <div className="job-list local-scroll">
-            {visibleJobs.length > 0 ? visibleJobs.map((job) => (
-              <button
-                key={job.id}
-                type="button"
-                className={selectedJob?.id === job.id ? "match-row match-row-active" : "match-row"}
-                onClick={() => {
-                  setSelectedJobId(job.id);
-                  setSelectedMatchId(undefined);
-                  setAdaptationDraft(undefined);
-                  setSuggestions([]);
-                }}
-              >
-                <strong>{job.company} / {job.title}</strong>
-                <span>{job.requirements.length} 条要求 / {job.source}</span>
-              </button>
-            )) : <p>当前筛选下没有岗位。</p>}
-          </div>
-        </aside>
-
-        <section className="panel jobs-tab-panel">
-          <div className="inspector-tablist jobs-tablist" role="tablist" aria-label="岗位内容">
-            {(["info", "requirements", "resumes", "applications"] as const).map((tab) => (
-              <button
-                key={tab}
-                type="button"
-                className={jobWorkspaceTab === tab ? "inspector-tab inspector-tab-active" : "inspector-tab"}
-                onClick={() => setJobWorkspaceTab(tab)}
-                onKeyDown={(event) => handleJobTabKeyDown(event, tab)}
-                role="tab"
-                id={`job-tab-${tab}`}
-                aria-controls={`job-tabpanel-${tab}`}
-                aria-selected={jobWorkspaceTab === tab}
-                tabIndex={jobWorkspaceTab === tab ? 0 : -1}
-              >
-                {jobWorkspaceTabLabel(tab)}
-              </button>
-            ))}
-          </div>
-          <div
-            className="jobs-tab-content local-scroll"
-            role="tabpanel"
-            id={`job-tabpanel-${jobWorkspaceTab}`}
-            aria-labelledby={`job-tab-${jobWorkspaceTab}`}
-            tabIndex={0}
-          >
-            {!selectedJob ? <p>暂无正式岗位数据。</p> : null}
-            {selectedJob && jobWorkspaceTab === "info" ? (
-              <div className="job-detail-stack">
-                <h3>{selectedJob.company} / {selectedJob.title}</h3>
-                <dl className="info-list">
-                  <div><dt>地点</dt><dd>{selectedJob.location ?? "未填写"}</dd></div>
-                  <div><dt>工作类型</dt><dd>{selectedJob.workType ?? "未填写"}</dd></div>
-                  <div><dt>行业</dt><dd>{selectedJob.industry ?? "未填写"}</dd></div>
-                  <div><dt>来源</dt><dd>{selectedJob.source}</dd></div>
-                </dl>
-                <p className="raw-text">{selectedJob.rawText.slice(0, 900)}</p>
-              </div>
-            ) : null}
-            {selectedJob && jobWorkspaceTab === "requirements" ? (
-              <div className="requirement-list">
-                {selectedJob.requirements.map((requirement) => (
-                  <div key={requirement.id}>
-                    <span><strong>{requirement.category}</strong> / {requirement.priority}</span>
-                    <p>{requirement.description}</p>
-                  </div>
-                ))}
-              </div>
-            ) : null}
-            {selectedJob && jobWorkspaceTab === "resumes" ? (
-              <div className="job-detail-stack">
-                <h3>关联简历</h3>
-                <p>在此运行经历匹配、生成可审计的简历建议，并在简历工作台中继续编辑。</p>
-                <dl className="info-list">
-                  <div><dt>匹配结果</dt><dd>{matches.length} 条</dd></div>
-                  <div><dt>建议草稿</dt><dd>{adaptationDraft ? "已创建" : "未创建"}</dd></div>
-                  <div><dt>AI建议</dt><dd>{suggestions.length} 条</dd></div>
-                </dl>
-              </div>
-            ) : null}
-            {selectedJob && jobWorkspaceTab === "applications" ? (
-              <div className="job-detail-stack">
-                <h3>求职进度</h3>
-                <p>求职记录在求职工作台维护；这里保留岗位侧入口和状态摘要，避免把 Application 详情铺到岗位页面。</p>
-              </div>
-            ) : null}
-          </div>
-        </section>
-
-        <aside className="panel jobs-detail-panel">
-          <div className="section-heading compact-heading">
-            <div>
-              <h2>岗位详情</h2>
-              <p>归档不会删除正式岗位数据。</p>
-            </div>
-          </div>
-          {selectedJob ? (
-            <div className="job-detail-stack local-scroll">
-              <strong>{selectedJob.company} / {selectedJob.title}</strong>
-              <span>{selectedJob.requirements.length} 条要求</span>
-              <div className="action-row">
-                {archivedJobIds.includes(selectedJob.id) ? (
-                  <button className="primary-button compact" onClick={() => { void restoreSelectedJob(); }}>恢复</button>
-                ) : (
-                  <button className="secondary-button compact" onClick={() => { void archiveSelectedJob(); }}>归档</button>
-                )}
-                <button className="danger-button compact" onClick={() => { void requestSafeJobDelete(); }}>删除</button>
-              </div>
-              <div className="profile-source-list">
-                <strong>本地说明</strong>
-                <p>编辑岗位信息请从上方 JD 草稿重新提交；这能保留来源文本和要求解析链路。</p>
-              </div>
-            </div>
-          ) : <p>请选择一个岗位。</p>}
+          <header><div><h2>岗位列表</h2><p>{activeJobs.length} 个当前岗位 · {archivedJobs.length} 个已归档</p></div></header>
+          <div className="job-list-filter" role="group" aria-label="岗位状态"><button className={jobListFilter === "active" ? "is-active" : ""} type="button" onClick={() => setJobListFilter("active")}>当前</button><button className={jobListFilter === "archived" ? "is-active" : ""} type="button" onClick={() => setJobListFilter("archived")}>已归档</button></div>
+          <div className="job-card-list local-scroll">{visibleJobs.length ? visibleJobs.map((job) => <button key={job.id} type="button" className={selectedJob?.id === job.id ? "job-card is-selected" : "job-card"} onClick={() => selectJob(job.id)}><strong>{job.title}</strong><span className="job-card-company">{job.company}</span><small>{job.requirements.length} 条要求 · {formatJobDate(job.updatedAt)} · {jobSourceLabel(job.source)}</small></button>) : <p className="empty-copy">当前筛选下没有岗位。</p>}</div>
         </aside>
       </section>
 
-      <section className="panel legacy-job-panel-hidden" aria-hidden="true">
-        <h2>当前正式岗位数据</h2>
-        {jobs.length > 0 ? (
-          <label className="field-label">
-            当前岗位
-            <select data-testid="current-job-select" value={selectedJob?.id ?? ""} onChange={(event) => {
-              setSelectedJobId(event.target.value);
-              setSelectedMatchId(undefined);
-              setAdaptationDraft(undefined);
-              setSuggestions([]);
-            }}>
-              {jobs.map((job) => (
-                <option key={job.id} value={job.id}>
-                  {job.company} / {job.title}
-                </option>
-              ))}
-            </select>
-          </label>
-        ) : null}
-        <div className="job-list">
-          {jobs.length > 0 ? (
-            jobs.map((job) => (
-              <article key={job.id}>
-                <h3>
-                  {job.company} / {job.title}
-                </h3>
-                <p>{job.requirements.length} 条要求，来源：{job.source}</p>
-              </article>
-            ))
-          ) : (
-            <p>暂无正式岗位数据。</p>
-          )}
+      {draft && draft.status !== "committed" && output ? <DraftReview draft={draft} output={output} saveStatus={saveStatus} onToggle={toggleRequirement} onRemove={removeRequirement} onCommit={() => void commitJob()} /> : null}
+
+      {selectedJob ? <section className="panel selected-job-workspace">
+        <header className="selected-job-context">
+          <div className="selected-job-title"><span>{selectedJob.company}</span><h2>{selectedJob.title}</h2><p>{selectedJob.requirements.length} 条已确认要求 · {archivedJobIds.includes(selectedJob.id) ? "已归档" : "当前岗位"} · 当前来源：{sourceMode === "profile" ? "个人资料库" : selectedBaseResume?.name ?? "尚未选择简历"}</p></div>
+          <div className="job-context-actions"><button className="secondary-button compact" type="button" onClick={editSelectedJob}><Pencil size={15} aria-hidden="true" />重新编辑 JD</button><button className="icon-button" type="button" aria-label="更多岗位操作" aria-expanded={showJobMenu} onClick={() => setShowJobMenu((current) => !current)}><MoreHorizontal size={18} aria-hidden="true" /></button>{showJobMenu ? <div className="job-more-menu">{archivedJobIds.includes(selectedJob.id) ? <button type="button" onClick={() => void restoreSelectedJob()}><BriefcaseBusiness size={15} aria-hidden="true" />恢复到当前</button> : <button type="button" onClick={() => void archiveSelectedJob()}><Archive size={15} aria-hidden="true" />归档岗位</button>}<button className="danger-text" type="button" onClick={() => void requestSafeJobDelete()}><Trash2 size={15} aria-hidden="true" />移入回收站</button></div> : null}</div>
+        </header>
+        <div className="job-primary-tabs" role="tablist" aria-label="岗位工作内容">{(["resumes", "info", "requirements", "applications"] as const).map((item) => { const Icon = tabIcon(item); return <button key={item} type="button" role="tab" aria-selected={tab === item} tabIndex={tab === item ? 0 : -1} className={tab === item ? "is-active" : ""} onClick={() => setTab(item)} onKeyDown={(event) => handleTabKeyDown(event, item)}><Icon size={20} aria-hidden="true" /><span>{tabLabel(item)}</span></button>; })}</div>
+        <div className="selected-job-content local-scroll" role="tabpanel" tabIndex={0}>
+          {tab === "resumes" ? <ResumeSourcePanel mode={sourceMode} onMode={setSourceMode} recommendation={recommendation} profile={profile} profileAnalysis={profileAnalysis} selectedProfileItemIds={selectedProfileItemIds} onSelectedProfileItemIds={setSelectedProfileItemIds} onAnalyzeProfile={() => void analyzeProfileLibrary()} onCreateProfile={() => void createFromProfileLibrary()} baseResumeOptions={baseResumeOptions} selectedBaseResumeId={selectedBaseResumeId} onBaseResume={(id) => { setSelectedBaseResumeId(id); setMatches([]); setGenerationErrorCode(undefined); }} onAnalyzeResume={() => void analyzeAndGenerateFromResume()} matches={matches} showMatchDetails={showMatchDetails} onShowMatchDetails={() => setShowMatchDetails((current) => !current)} status={resumeActionStatus} generationErrorCode={generationErrorCode} onRetryMatch={() => sourceMode === "profile" ? void analyzeProfileLibrary() : void analyzeAndGenerateFromResume()} /> : null}
+          {tab === "info" ? <JobInfo job={selectedJob} /> : null}
+          {tab === "requirements" ? <JobRequirements job={selectedJob} /> : null}
+          {tab === "applications" ? <ApplicationEmpty jobId={selectedJob.id} /> : null}
         </div>
-      </section>
-
-      {profile && selectedJob && jobWorkspaceTab === "resumes" ? (
-        <section className="panel job-resume-flow" data-testid="job-resume-flow">
-          <ol className="job-resume-steps" aria-label="岗位简历生成流程">
-            <li className="is-complete">选择岗位</li>
-            <li className={selectedBaseResume ? "is-complete" : "is-current"}>选择通用简历</li>
-            <li className={matchState.ready ? "is-complete" : selectedBaseResume ? "is-current" : ""}>检查匹配</li>
-            <li className={matchState.ready ? "is-current" : ""}>生成岗位简历</li>
-            <li>AI 优化</li>
-          </ol>
-          <div className="section-heading">
-            <div>
-              <h2>为当前岗位生成独立简历</h2>
-              <p>先明确选择一份通用简历，再检查匹配。生成后会直接进入该岗位简历，不会修改来源简历。</p>
-            </div>
-          </div>
-          <div className="job-match-source">
-            <label className="field-label" htmlFor="job-match-base-resume">
-              来源通用简历
-              <select id="job-match-base-resume" value={selectedBaseResumeId} onChange={(event) => {
-                setSelectedBaseResumeId(event.target.value);
-                setMatches([]);
-                setSelectedMatchId(undefined);
-                setAdaptationDraft(undefined);
-                setSuggestions([]);
-                setResumeActionStatus("idle");
-                setDerivationPrompt(undefined);
-              }}>
-                <option value="">请选择一份简历</option>
-                {baseResumeOptions.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}
-              </select>
-            </label>
-            <p>{baseResumeOptions.length === 0
-              ? "暂无可用通用简历。请先在简历中心创建或恢复一份有正式正文的通用简历。"
-              : selectedBaseResume
-                ? `已选择“${selectedBaseResume.name}”第 ${selectedBaseResume.revision + 1} 个正式版本。`
-                : "请选择一份通用简历。系统不会默认选择第一份。"}</p>
-          </div>
-          <div className={`job-resume-readiness ${matchState.ready ? "is-ready" : ""}`} role="status" aria-live="polite">
-            <strong>{matchState.ready ? "匹配可用于生成" : "下一步"}</strong>
-            <span>{matchState.message}</span>
-            <small>{jobResumeActionStatusLabel(resumeActionStatus)}</small>
-          </div>
-          {generationErrorCode ? (
-            <div className="warning-box job-resume-recovery" role="alert">
-              <div>
-                <strong>{jobResumeGenerationFeedback(generationErrorCode).title}</strong>
-                <p>{jobResumeGenerationFeedback(generationErrorCode).message}</p>
-                <p>{jobResumeGenerationFeedback(generationErrorCode).nextStep}</p>
-              </div>
-              {(generationErrorCode === "matches_missing" || generationErrorCode === "matches_incomplete" || generationErrorCode === "matches_stale" || generationErrorCode === "source_revision_changed") ? (
-                <button className="secondary-button compact" type="button" onClick={() => { void runRuleMatcher(); }}>重新运行匹配</button>
-              ) : null}
-            </div>
-          ) : null}
-          <div className="action-row job-resume-primary-actions">
-            <button className={matchState.ready ? "secondary-button" : "primary-button"} data-testid="run-experience-match" onClick={runRuleMatcher} disabled={!selectedBaseResume || resumeActionStatus === "matching"}>
-              {resumeActionStatus === "matching" ? "匹配中…" : matches.length > 0 ? "重新运行匹配" : "运行规则匹配"}
-            </button>
-            <button className="secondary-button" data-testid="run-ai-evidence-explanation" onClick={runAiEvidenceMatcher} disabled={!matchState.hasFreshRuleMatch || resumeActionStatus === "evaluating"}>
-              {resumeActionStatus === "evaluating" ? "评估中…" : "运行 AI 证据评估"}
-            </button>
-            <button className={matchState.ready ? "primary-button" : "secondary-button"} data-testid="generate-job-resume" onClick={() => { void prepareJobResumeDerivation(); }} disabled={!matchState.ready || resumeActionStatus === "preparing" || resumeActionStatus === "saving"}>
-              {resumeActionStatus === "preparing" ? "准备中…" : resumeActionStatus === "saving" ? "保存中…" : "生成岗位简历"}
-            </button>
-          </div>
-
-          {derivationPrompt ? (
-            <div className="job-derivation-prompt" role="dialog" aria-modal="false" aria-labelledby="job-derivation-prompt-title">
-              <div>
-                <h3 id="job-derivation-prompt-title">{derivationPrompt.kind === "same_version"
-                  ? "已存在基于当前通用简历版本生成的岗位简历。"
-                  : "通用简历在岗位分支创建后发生了变化。"}</h3>
-                <p>{derivationPrompt.kind === "same_version"
-                  ? "你可以打开已有岗位简历，或明确重新生成一个新分支。"
-                  : "不会自动覆盖旧岗位简历。你可以保持当前岗位简历，或基于最新通用简历新建分支。"}</p>
-              </div>
-              <div className="action-row">
-                <button className="primary-button" type="button" onClick={() => openExistingJobResume(derivationPrompt.existingBranch)}>
-                  {derivationPrompt.kind === "same_version" ? "打开已有岗位简历" : "保持并打开当前岗位简历"}
-                </button>
-                <button className="secondary-button" type="button" onClick={() => { void createAndOpenJobResume(true); }}>
-                  {derivationPrompt.kind === "same_version" ? "重新生成新分支" : "基于最新版本新建"}
-                </button>
-                <button className="secondary-button" type="button" onClick={() => setDerivationPrompt(undefined)}>
-                  {derivationPrompt.kind === "same_version" ? "取消" : "稍后处理"}
-                </button>
-              </div>
-            </div>
-          ) : null}
-
-          {matches.length === 0 ? (
-            <p className="empty-copy">尚未生成匹配结果。选择来源简历后运行规则匹配。</p>
-          ) : (
-            <details className="job-match-details">
-              <summary>查看 {matches.length} 条岗位匹配详情</summary>
-              <div className="match-layout">
-              <div className="match-list">
-                {matches.map((match) => {
-                  const effective = resolveEffectiveMatch(match);
-                  const stale = checkRequirementMatchStale(match, { profile: matchingProfile ?? profile, job: selectedJob });
-                  const sourceStale = selectedBaseResume?.currentRevisionId
-                    ? checkRequirementMatchResumeSourceStale(match, {
-                      branchId: selectedBaseResume.id,
-                      branchRevision: selectedBaseResume.revision,
-                      revisionId: selectedBaseResume.currentRevisionId
-                    })
-                    : { isStale: true };
-                  return (
-                    <button
-                      className={`match-row ${match.id === selectedMatch?.id ? "match-row-active" : ""}`}
-                      key={match.id}
-                      onClick={() => setSelectedMatchId(match.id)}
-                    >
-                      <strong>{selectedJob.requirements.find((item) => item.id === match.requirementId)?.description}</strong>
-                      <span>{matchLevelLabel(effective.matchLevel)} / {riskLabel(effective.riskLevel)} / {sourceLabel(effective.source)}{stale.isStale || sourceStale.isStale ? " / 已过期" : ""}</span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {selectedMatch ? (
-                <MatchDetail
-                  match={selectedMatch}
-                  profile={matchingProfile ?? profile}
-                  job={selectedJob}
-                  manualLevel={manualLevel}
-                  manualRisk={manualRisk}
-                  manualReason={manualReason}
-                  manualEvidenceKey={manualEvidenceKey}
-                  manualCandidates={manualCandidates}
-                  onManualLevel={setManualLevel}
-                  onManualRisk={setManualRisk}
-                  onManualReason={setManualReason}
-                  onManualEvidence={setManualEvidenceKey}
-                  onSaveManual={() => saveManualOverride(selectedMatch)}
-                />
-              ) : null}
-              </div>
-            </details>
-          )}
-        </section>
-      ) : null}
-
-      {profile && selectedJob && jobWorkspaceTab === "resumes" ? (
-        <section className="panel legacy-job-panel-hidden" aria-hidden="true">
-          <div className="section-heading">
-            <div>
-              <h2>AI简历建议与事实安全检查</h2>
-              <p>只读取未过期的匹配结果；建议会先进入草稿，接受前不会修改个人资料。</p>
-            </div>
-            <div className="action-row">
-              <button className="primary-button" data-testid="create-suggestion-draft" onClick={createC2Draft} disabled={matches.length === 0 || c2Status === "running"}>
-                创建建议草稿
-              </button>
-              <button className="secondary-button" data-testid="generate-ai-suggestions" onClick={generateC2Suggestions} disabled={matches.length === 0 || c2Status === "running"}>
-                生成AI建议
-              </button>
-            </div>
-          </div>
-
-          {adaptationDraft ? (
-            <div className="c2-layout">
-              <article className="draft-preview">
-                <h3>建议草稿</h3>
-                {adaptationDraft.sectionTexts.map((section) => (
-                  <p key={section.sectionId}><strong>{section.sectionType}</strong>：{section.text}</p>
-                ))}
-              </article>
-              <div className="suggestion-list">
-                {suggestions.length === 0 ? <p>尚未生成建议。</p> : suggestions.map((suggestion) => (
-                  <SuggestionCard
-                    key={suggestion.id}
-                    suggestion={suggestion}
-                    editedText={editedSuggestions[suggestion.id] ?? suggestion.editedText ?? ""}
-                    onEditedText={(text) => setEditedSuggestions((current) => ({ ...current, [suggestion.id]: text }))}
-                    onAccept={() => acceptSuggestion(suggestion)}
-                    onReject={() => rejectSuggestion(suggestion)}
-                    onEditGuard={() => editAndGuardSuggestion(suggestion)}
-                    onRerunGuard={() => rerunGuardSuggestion(suggestion)}
-                    onUndo={() => undoSuggestion(suggestion)}
-                  />
-                ))}
-              </div>
-            </div>
-          ) : (
-            <p>请先创建建议草稿。若任一引用匹配过期，系统会要求重新运行经历匹配。</p>
-          )}
-        </section>
-      ) : null}
+      </section> : <section className="panel jobs-empty-selection"><BriefcaseBusiness size={22} aria-hidden="true" /><h2>先添加或选择一个岗位</h2><p>正式岗位提交后，这里会提供两种岗位简历生成方式。</p></section>}
     </main>
   );
 }
 
-function profileLimitedToResume(profile: CareerProfile, branch: ResumeBranch): CareerProfile {
-  const experienceIds = new Set<string>();
-  const skillIds = new Set<string>();
-  const certificateIds = new Set<string>();
-  for (const item of branch.contentItems) {
-    for (const ref of item.factRefs) {
-      if (ref.type === "experience_fact") experienceIds.add(ref.experienceId);
-      if (ref.type === "skill_fact") skillIds.add(ref.skillId);
-      if (ref.type === "certificate_fact") certificateIds.add(ref.certificateId);
-    }
-  }
-  return {
-    ...profile,
-    experiences: profile.experiences.filter((item) => experienceIds.has(item.id)),
-    skills: profile.skills.filter((item) => skillIds.has(item.id)),
-    certificates: profile.certificates.filter((item) => certificateIds.has(item.id))
-  };
+function PersistentJobError({ error, canUseFallback, onRetry, onFallback }: { error: JobWorkflowErrorState; canUseFallback: boolean; onRetry: () => void; onFallback: () => void }) {
+  return <section className="warning-box job-workflow-error" role="alert"><div><strong>{jobWorkflowErrorLabel(error.code)}</strong><p>{error.message}</p></div><div className="action-row">{error.retryable ? <button className="secondary-button compact" type="button" onClick={onRetry}>重试</button> : null}{canUseFallback ? <button className="secondary-button compact" type="button" onClick={onFallback}>使用本地解析</button> : null}</div></section>;
 }
 
-function isMatchBaseResume(branch: ResumeBranch) {
-  return branch.branchPurpose === "general"
-    && branch.lifecycleStatus === "active"
-    && branch.migrationStatus === "verified"
-    && Boolean(branch.currentRevisionId)
-    && branch.syncStatusCache.status !== "invalid_reference";
+function DraftReview({ draft, output, saveStatus, onToggle, onRemove, onCommit }: { draft: JobAnalysisDraft; output: JdAnalyzerOutput; saveStatus: string; onToggle: (id: string, checked: boolean) => void; onRemove: (id: string) => void; onCommit: () => void }) {
+  return <section className="panel job-draft-review"><header><div><h2>{draft.analyzerOutput ? "岗位要求草稿" : "本地岗位要求草稿"}</h2><p>{draft.analyzerOutput ? "核对并确认后，再写入正式岗位。" : "AI 解析没有通过格式校验，系统已保留原始 JD，并使用本地规则整理以下要求。"}</p></div><button className="primary-button" type="button" data-testid="commit-job" disabled={saveStatus === "saving"} onClick={onCommit}>提交正式岗位</button></header><div className="requirement-review-list">{output.requirements.map((requirement) => <RequirementReviewRow key={requirement.id} requirement={requirement} onToggle={onToggle} onRemove={onRemove} />)}</div></section>;
 }
 
-function latestMatchesForResume(matches: RequirementMatch[], branchId: string) {
-  const latestByRequirement = new Map<string, RequirementMatch>();
-  for (const match of [...matches]
-    .filter((candidate) => candidate.sourceResumeBranchId === branchId)
-    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))) {
-    if (!latestByRequirement.has(match.requirementId)) latestByRequirement.set(match.requirementId, match);
-  }
-  return [...latestByRequirement.values()];
+function RequirementReviewRow({ requirement, onToggle, onRemove }: { requirement: JdAnalyzerRequirement; onToggle: (id: string, checked: boolean) => void; onRemove: (id: string) => void }) {
+  return <div className="review-row"><label><input type="checkbox" checked={requirement.confirmedByUser} disabled={!requirement.sourceSpan} onChange={(event) => onToggle(requirement.id, event.target.checked)} /><span><strong>{requirement.description}</strong><small>{categoryLabel(requirement.category)} · {priorityLabel(requirement.priority)}</small></span></label><details><summary>查看依据</summary><p>{requirement.sourceSpan?.text ?? "原文位置待确认"}</p></details><button className="secondary-button compact" type="button" onClick={() => onRemove(requirement.id)}>删除</button></div>;
 }
 
-function getJobResumeMatchState(input: {
-  profile?: CareerProfile;
-  job?: JobDescription;
-  branch?: ResumeBranch;
-  matches: RequirementMatch[];
+function ResumeSourcePanel(props: {
+  mode: SourceMode; onMode: (mode: SourceMode) => void; recommendation: ReturnType<typeof recommendJobResumeSource>;
+  profile?: CareerProfile; profileAnalysis?: ProfileLibrarySourceAnalysis; selectedProfileItemIds: string[]; onSelectedProfileItemIds: (ids: string[]) => void;
+  onAnalyzeProfile: () => void; onCreateProfile: () => void; baseResumeOptions: ResumeBranch[]; selectedBaseResumeId: string; onBaseResume: (id: string) => void;
+  onAnalyzeResume: () => void; matches: RequirementMatch[]; showMatchDetails: boolean; onShowMatchDetails: () => void; status: JobResumeActionStatus;
+  generationErrorCode?: JobResumeGenerationErrorCode; onRetryMatch: () => void;
 }) {
-  if (!input.branch) {
-    return { ready: false, hasFreshRuleMatch: false, code: "no_source_selected" as const, message: "请选择一份通用简历。" };
-  }
-  if (!input.profile || !input.job || !input.branch.currentRevisionId) {
-    return { ready: false, hasFreshRuleMatch: false, code: "source_reference_invalid" as const, message: "来源简历或岗位引用已失效。" };
-  }
-  if (input.job.requirements.length === 0) {
-    return { ready: false, hasFreshRuleMatch: false, code: "job_has_no_requirements" as const, message: "当前岗位没有有效岗位要求，不能生成岗位简历。" };
-  }
-  if (input.matches.length === 0) {
-    return { ready: false, hasFreshRuleMatch: false, code: "matches_missing" as const, message: "尚无匹配结果，请运行规则匹配。" };
-  }
-
-  const source = {
-    branchId: input.branch.id,
-    branchRevision: input.branch.revision,
-    revisionId: input.branch.currentRevisionId
-  };
-  const stale = input.matches.some((match) =>
-    checkRequirementMatchStale(match, { profile: input.profile!, job: input.job! }).isStale
-    || checkRequirementMatchResumeSourceStale(match, source).isStale
-  );
-  const requirementIds = new Set(input.matches.map((match) => match.requirementId));
-  const complete = input.job.requirements.every((requirement) => requirementIds.has(requirement.id));
-  if (stale || !complete) {
-    return { ready: false, hasFreshRuleMatch: false, code: stale ? "matches_stale" as const : "matches_incomplete" as const, message: "匹配已过期或不完整，请基于当前通用简历版本重新运行规则匹配。" };
-  }
-  if (collectAllowedEvidenceRefs(input.matches).length === 0) {
-    return { ready: false, hasFreshRuleMatch: true, code: "matches_have_no_evidence" as const, message: "匹配中没有可使用的已确认事实，请先补充或确认个人资料事实。" };
-  }
-  return {
-    ready: true,
-    hasFreshRuleMatch: true,
-    code: undefined,
-    message: `已核对 ${input.matches.length} 条岗位要求，可生成独立岗位简历。`
-  };
-}
-
-function jobResumeActionStatusLabel(status: JobResumeActionStatus) {
-  const labels: Record<JobResumeActionStatus, string> = {
-    idle: "等待下一步",
-    matching: "匹配中…",
-    evaluating: "AI 证据评估中…",
-    preparing: "准备中…",
-    saving: "保存中…",
-    completed: "已完成",
-    failed: "已失败"
-  };
-  return labels[status];
-}
-
-function uniqueBranchName(baseName: string, branches: ResumeBranch[]) {
-  const names = new Set(branches.map((branch) => branch.name));
-  if (!names.has(baseName)) return baseName;
-  const dated = `${baseName} - ${new Date().toISOString().slice(0, 10)}`;
-  if (!names.has(dated)) return dated;
-  let sequence = 2;
-  while (names.has(`${dated} - ${sequence}`)) sequence += 1;
-  return `${dated} - ${sequence}`;
-}
-
-function SuggestionCard({
-  suggestion,
-  editedText,
-  onEditedText,
-  onAccept,
-  onReject,
-  onEditGuard,
-  onRerunGuard,
-  onUndo
-}: {
-  suggestion: AiSuggestion;
-  editedText: string;
-  onEditedText: (text: string) => void;
-  onAccept: () => void;
-  onReject: () => void;
-  onEditGuard: () => void;
-  onRerunGuard: () => void;
-  onUndo: () => void;
-}) {
-  const canAccept = (suggestion.guardResult.status === "pass" || suggestion.guardResult.status === "ai_failed_rule_kept")
-    && suggestion.status !== "blocked_high_risk"
-    && suggestion.riskLevel !== "high";
-
-  return (
-    <article className={`suggestion-card suggestion-card-${suggestion.guardResult.riskLevel}`}>
-      <div className="section-heading compact-heading">
-        <div>
-          <h3>{suggestion.type} / {suggestion.status}</h3>
-          <p>风险：{suggestion.guardResult.status} / {suggestion.guardResult.riskLevel}</p>
-        </div>
-      </div>
-      <p><strong>原文：</strong>{suggestion.originalText}</p>
-      <p><strong>建议：</strong>{suggestion.suggestedText}</p>
-      <p><strong>原因：</strong>{suggestion.reason}</p>
-      <p><strong>岗位依据：</strong>{suggestion.requirementIds.join(" / ")}</p>
-      <div className="evidence-list">
-        {suggestion.usedEvidenceRefs.length > 0 ? suggestion.usedEvidenceRefs.map((ref) => (
-          <p key={evidenceRefKey(ref)}><strong>事实依据：</strong>{ref.factText}</p>
-        )) : <p>无可引用事实，不能补写新事实。</p>}
-      </div>
-      {suggestion.guardResult.ruleFindings.length > 0 ? (
-        <div className="warning-box">
-          {suggestion.guardResult.ruleFindings.map((finding) => (
-            <p key={`${finding.type}-${finding.text}`}>{finding.type}：{finding.text} / {finding.message}</p>
-          ))}
-        </div>
-      ) : null}
-      <textarea
-        className="textarea small-textarea"
-        value={editedText}
-        onChange={(event) => onEditedText(event.target.value)}
-        placeholder="编辑后必须重新检测，不能在建议卡片中直接确认新增事实。"
-      />
-      <div className="action-row">
-        <button className="primary-button" onClick={onAccept} disabled={!canAccept}>接受</button>
-        <button className="secondary-button" onClick={onReject}>拒绝</button>
-        <button className="secondary-button" onClick={onEditGuard}>编辑后检测</button>
-        <button className="secondary-button" onClick={onRerunGuard}>重新检测</button>
-        <button className="secondary-button" onClick={onUndo}>撤销</button>
-      </div>
-    </article>
-  );
-}
-
-function MatchDetail({
-  match,
-  profile,
-  job,
-  manualLevel,
-  manualRisk,
-  manualReason,
-  manualEvidenceKey,
-  manualCandidates,
-  onManualLevel,
-  onManualRisk,
-  onManualReason,
-  onManualEvidence,
-  onSaveManual
-}: {
-  match: RequirementMatch;
-  profile: CareerProfile;
-  job: JobDescription;
-  manualLevel: MatchEvaluation["matchLevel"];
-  manualRisk: MatchEvaluation["riskLevel"];
-  manualReason: string;
-  manualEvidenceKey: string;
-  manualCandidates: ReturnType<typeof recallCandidatesForRequirement>;
-  onManualLevel: (level: MatchEvaluation["matchLevel"]) => void;
-  onManualRisk: (risk: MatchEvaluation["riskLevel"]) => void;
-  onManualReason: (reason: string) => void;
-  onManualEvidence: (key: string) => void;
-  onSaveManual: () => void;
-}) {
-  const effective = resolveEffectiveMatch(match);
-  const stale = checkRequirementMatchStale(match, { profile, job });
-  const requirement = job.requirements.find((item) => item.id === match.requirementId);
-
-  return (
-    <article className="match-detail">
-      {stale.isStale ? <div className="warning-box">该匹配已过期，需要重新运行经历匹配后才能继续使用。</div> : null}
-      <h3>{requirement?.description}</h3>
-      <p><strong>岗位原文：</strong>{match.requirementQuote.text}</p>
-      <p><strong>有效结果：</strong>{matchLevelLabel(effective.matchLevel)} / {riskLabel(effective.riskLevel)} / 来源：{sourceLabel(effective.source)}</p>
-      <p><strong>解释：</strong>{effective.explanation}</p>
-      <div className="evidence-list">
-        {effective.evidenceRefs.length > 0 ? effective.evidenceRefs.map((ref) => (
-          <p key={evidenceRefKey(ref)}><strong>事实依据：</strong>{ref.factText}<br /><small>{ref.factQuote}</small></p>
-        )) : <p>当前无证据。</p>}
-      </div>
-      <div className="manual-override">
-        <h4>人工覆盖</h4>
-        <div className="form-grid">
-          <select value={manualLevel} onChange={(event) => onManualLevel(event.target.value as MatchEvaluation["matchLevel"])}>
-            <option value="strong">直接匹配</option>
-            <option value="weak">部分匹配</option>
-            <option value="transferable">可迁移</option>
-            <option value="none">暂无匹配</option>
-          </select>
-          <select value={manualRisk} onChange={(event) => onManualRisk(event.target.value as MatchEvaluation["riskLevel"])}>
-            <option value="low">低风险</option>
-            <option value="medium">中风险</option>
-            <option value="high">高风险</option>
-          </select>
-        </div>
-        {manualLevel !== "none" ? (
-          <select value={manualEvidenceKey} onChange={(event) => onManualEvidence(event.target.value)}>
-            <option value="">选择已确认事实</option>
-            {manualCandidates.map((candidate) => (
-              <option key={evidenceRefKey(candidate.ref)} value={evidenceRefKey(candidate.ref)}>
-                {candidate.ref.factText}
-              </option>
-            ))}
-          </select>
-        ) : null}
-        <textarea className="textarea small-textarea" value={manualReason} onChange={(event) => onManualReason(event.target.value)} placeholder="填写人工覆盖说明..." />
-        <button className="secondary-button" onClick={onSaveManual}>保存人工覆盖</button>
-      </div>
-    </article>
-  );
-}
-
-function matchLevelLabel(level: MatchEvaluation["matchLevel"]) {
-  return {
-    strong: "直接匹配",
-    weak: "部分匹配",
-    transferable: "可迁移",
-    none: "暂无匹配"
-  }[level];
-}
-
-function riskLabel(risk: MatchEvaluation["riskLevel"]) {
-  return {
-    low: "低风险",
-    medium: "中风险",
-    high: "高风险"
-  }[risk];
-}
-
-function sourceLabel(source: string) {
-  return {
-    rule: "规则",
-    ai: "AI解释",
-    manual: "人工确认",
-    fallback: "本地规则"
-  }[source] ?? source;
-}
-
-function jobWorkspaceTabLabel(tab: JobWorkspaceTab) {
-  const labels: Record<JobWorkspaceTab, string> = {
-    info: "岗位信息",
-    requirements: "岗位要求",
-    resumes: "关联简历",
-    applications: "求职进度"
-  };
-  return labels[tab];
-}
-
-function parseArchivedJobIds(value: unknown) {
-  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
-}
-
-function saveStatusLabel(status: "idle" | "saving" | "saved" | "failed" | "conflict") {
-  return {
-    idle: "等待保存",
-    saving: "保存中",
-    saved: "已保存",
-    failed: "保存失败",
-    conflict: "需要刷新后重试"
-  }[status];
-}
-
-function jobWorkflowErrorLabel(code: JobWorkflowErrorState["code"]) {
-  return {
-    empty_input: "输入不完整",
-    text_too_short: "JD 文本过短",
-    schema_validation_failed: "岗位数据校验失败",
-    ai_invalid_output: "AI 返回无效",
-    repository_save_failed: "岗位保存失败",
-    revision_conflict: "岗位草稿已变化",
-    unknown_error: "未知错误"
-  }[code];
-}
-
-function RequirementReviewRow({
-  requirement,
-  onToggle,
-  onRemove
-}: {
-  requirement: JdAnalyzerRequirement;
-  onToggle: (requirementId: string, checked: boolean) => void;
-  onRemove: (requirementId: string) => void;
-}) {
-  return (
-    <div className="review-row">
-      <input
-        type="checkbox"
-        aria-label={`确认岗位要求：${requirement.description}`}
-        checked={requirement.confirmedByUser}
-        disabled={!requirement.sourceSpan}
-        onChange={(event) => onToggle(requirement.id, event.target.checked)}
-      />
-      <span>
-        <strong>{requirement.description}</strong>
-        <small>
-          {requirement.category} / {requirement.priority} / {requirement.confidenceLevel} / 原文：
-          {requirement.sourceSpan?.text ?? "未定位，待确认"}
-        </small>
-      </span>
-      <button className="secondary-button compact" onClick={() => onRemove(requirement.id)}>
-        删除
-      </button>
+  const selected = new Set(props.selectedProfileItemIds);
+  return <div className="job-source-panel">
+    <header className="source-panel-heading"><div><h3>选择生成方式</h3><p>两种方式都会创建独立岗位简历，不修改个人资料或原简历。</p></div><span className={`source-recommendation is-${props.recommendation.mode}`}>{props.recommendation.label}</span></header>
+    <div className="source-mode-cards" role="radiogroup" aria-label="岗位简历来源">
+      <button type="button" role="radio" aria-checked={props.mode === "profile"} className={props.mode === "profile" ? "source-mode-card is-active" : "source-mode-card"} onClick={() => props.onMode("profile")}><Database size={22} aria-hidden="true" /><span><strong>从资料库生成</strong><small>从完整个人资料中筛选最相关的经历、项目和技能，重新组合岗位简历。</small></span></button>
+      <button type="button" role="radio" aria-checked={props.mode === "resume"} className={props.mode === "resume" ? "source-mode-card is-active" : "source-mode-card"} onClick={() => props.onMode("resume")}><Sparkles size={22} aria-hidden="true" /><span><strong>优化已有简历</strong><small>以一份现有简历为基础，调整重点、顺序和表达；原简历不会被修改。</small></span></button>
     </div>
-  );
+    <p className="recommendation-reason">{props.recommendation.reason}</p>
+    {props.mode === "profile" ? <div className="source-mode-body" data-testid="profile-source-mode">
+      <div className="source-summary"><div><strong>{props.profileAnalysis?.availableItemCount ?? canonicalProfileLibraryItems(props.profile ?? emptyProfile).length}</strong><span>项可用内容</span></div><div><strong>{props.profileAnalysis?.availableEvidenceCount ?? canonicalProfileLibraryItems(props.profile ?? emptyProfile).flatMap((item) => item.factIds).length}</strong><span>条已确认事实</span></div><div><strong>{props.profileAnalysis?.coverage.overallCoverage ?? "—"}</strong><span>岗位证据覆盖度</span></div></div>
+      {!props.profileAnalysis ? <div className="source-intro"><p>{canonicalProfileLibraryItems(props.profile ?? emptyProfile).length < 6 ? "资料库内容较少，使用已有简历可能更快。系统不会自动替你切换。" : "系统将运行确定性召回与 V2 岗位匹配，再由你确认最终内容。"}</p><button className="primary-button" type="button" data-testid="analyze-profile-source" disabled={!props.profile || props.status === "analyzing"} onClick={props.onAnalyzeProfile}>{props.status === "analyzing" ? "分析中…" : "检查资料库并匹配"}</button></div> : <>
+        <div className="profile-recommendation-list">{props.profileAnalysis.recommendations.map((item) => <label key={item.id} className={`profile-recommendation-item is-${item.disposition}`}><input type="checkbox" checked={selected.has(item.id)} onChange={(event) => props.onSelectedProfileItemIds(event.target.checked ? [...selected, item.id] : [...selected].filter((id) => id !== item.id))} /><span><strong>{item.title}</strong><small>{item.subtitle || sectionLabel(item.sectionType)} · {dispositionLabel(item.disposition)}</small><p>{item.reason}</p></span></label>)}</div>
+        {props.profileAnalysis.factGaps.length ? <details className="fact-gap-list"><summary>查看 {props.profileAnalysis.factGaps.length} 个事实缺口</summary>{props.profileAnalysis.factGaps.map((gap) => <p key={gap}>{gap}</p>)}</details> : null}
+        <div className="source-confirm-actions"><span>已选择 {props.selectedProfileItemIds.length} 项内容</span><button className="primary-button" type="button" data-testid="create-from-profile-source" disabled={!props.selectedProfileItemIds.length || props.status === "saving"} onClick={props.onCreateProfile}>{props.status === "saving" ? "创建中…" : "确认并创建岗位简历"}</button></div>
+      </>}
+    </div> : <div className="source-mode-body" data-testid="resume-source-mode">
+      <label className="field-label" htmlFor="job-match-base-resume">来源通用简历<select id="job-match-base-resume" value={props.selectedBaseResumeId} onChange={(event) => props.onBaseResume(event.target.value)}><option value="">请选择一份通用简历</option>{props.baseResumeOptions.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}</select></label>
+      <div className="source-confirm-actions"><span>{props.selectedBaseResumeId ? "将分析当前正式版本；如已生成过则打开已有岗位简历。" : "请选择来源简历。系统不会默认替你选择。"}</span><button className="primary-button" type="button" data-testid="analyze-and-generate-job-resume" disabled={!props.selectedBaseResumeId || ["matching", "saving"].includes(props.status)} onClick={props.onAnalyzeResume}>{props.status === "matching" ? "分析中…" : props.status === "saving" ? "创建中…" : "分析并生成岗位简历"}</button></div>
+      <button className="text-button" type="button" onClick={props.onShowMatchDetails}>查看匹配详情</button>
+      {props.showMatchDetails ? <div className="match-detail-summary">{props.matches.length ? props.matches.map((match) => <div key={match.id}><strong>{match.requirementQuote.text}</strong><span>{match.isStale ? "匹配已过期" : match.effectiveEvaluation?.evidenceRefs.length ? "已有事实支持" : "暂无事实支持"}</span></div>) : <p>尚未运行岗位匹配。</p>}</div> : null}
+    </div>}
+    {props.generationErrorCode ? <div className="warning-box job-resume-recovery" role="alert"><div><strong>{jobResumeGenerationFeedback(props.generationErrorCode).title}</strong><p>{jobResumeGenerationFeedback(props.generationErrorCode).message}</p><p>{jobResumeGenerationFeedback(props.generationErrorCode).nextStep}</p></div>{["matches_missing", "matches_incomplete", "matches_stale", "source_revision_changed"].includes(props.generationErrorCode) ? <button className="secondary-button compact" type="button" onClick={props.onRetryMatch}>重新运行匹配</button> : null}</div> : null}
+  </div>;
 }
+
+function JobInfo({ job }: { job: JobDescription }) { return <div className="job-info-panel"><header><h3>岗位信息</h3><span>更新于 {formatJobDate(job.updatedAt)}</span></header><dl className="info-list"><div><dt>公司</dt><dd>{job.company}</dd></div><div><dt>岗位名称</dt><dd>{job.title}</dd></div><div><dt>地点</dt><dd>{job.location ?? "未填写"}</dd></div><div><dt>工作方式</dt><dd>{job.workType ?? "未填写"}</dd></div><div><dt>行业</dt><dd>{job.industry ?? "未填写"}</dd></div><div><dt>JD 来源</dt><dd>{jobSourceLabel(job.source)}</dd></div></dl><section className="raw-jd-section"><h4>原始 JD</h4><p>{job.rawText}</p></section></div>; }
+function JobRequirements({ job }: { job: JobDescription }) { return <div className="job-requirement-cards"><header><h3>岗位要求</h3><span>{job.requirements.length} 条已确认要求</span></header>{job.requirements.map((requirement) => <article key={requirement.id}><strong>{requirement.description}</strong><span>{categoryLabel(requirement.category)} · {priorityLabel(requirement.priority)}</span><details><summary>查看依据</summary><p>{requirement.sourceSpan.text}</p><small>置信度 {confidenceLabel(requirement.confidence)}</small></details></article>)}</div>; }
+function ApplicationEmpty({ jobId }: { jobId: string }) { return <div className="application-empty"><KanbanSquare size={28} aria-hidden="true" /><h3>该岗位暂未创建求职记录</h3><p>求职记录将在求职进度工作台中维护，岗位页只保留入口。</p><Link className="primary-button" href={`/applications?jobId=${encodeURIComponent(jobId)}`}>创建求职记录</Link></div>; }
+
+const emptyProfile = { id: "empty", name: "空资料", basics: { name: "空资料", links: [] }, preference: { targetRoles: [], targetCities: [], industries: [] }, version: 1, experiences: [], skills: [], certificates: [], evidences: [], unclassifiedBlocks: [], createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" } satisfies CareerProfile;
+
+function profileLimitedToResume(profile: CareerProfile, branch: ResumeBranch): CareerProfile { const experienceIds = new Set<string>(); const skillIds = new Set<string>(); const certificateIds = new Set<string>(); for (const item of branch.contentItems) for (const ref of item.factRefs) { if (ref.type === "experience_fact") experienceIds.add(ref.experienceId); if (ref.type === "skill_fact") skillIds.add(ref.skillId); if (ref.type === "certificate_fact") certificateIds.add(ref.certificateId); } return { ...profile, experiences: profile.experiences.filter((item) => experienceIds.has(item.id)), skills: profile.skills.filter((item) => skillIds.has(item.id)), certificates: profile.certificates.filter((item) => certificateIds.has(item.id)) }; }
+function isMatchBaseResume(branch: ResumeBranch) { return branch.branchPurpose === "general" && branch.lifecycleStatus === "active" && branch.migrationStatus === "verified" && Boolean(branch.currentRevisionId) && branch.syncStatusCache.status !== "invalid_reference"; }
+function latestMatchesForResume(matches: RequirementMatch[], branchId: string) { const latest = new Map<string, RequirementMatch>(); for (const match of [...matches].filter((item) => item.sourceResumeBranchId === branchId).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))) if (!latest.has(match.requirementId)) latest.set(match.requirementId, match); return [...latest.values()]; }
+function uniqueBranchName(base: string, branches: ResumeBranch[]) { const names = new Set(branches.map((branch) => branch.name)); if (!names.has(base)) return base; const dated = `${base} - ${new Date().toISOString().slice(0, 10)}`; if (!names.has(dated)) return dated; let index = 2; while (names.has(`${dated} - ${index}`)) index += 1; return `${dated} - ${index}`; }
+function parseArchivedJobIds(value: unknown) { return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : []; }
+function formatJobDate(value: string) { return new Intl.DateTimeFormat("zh-CN", { month: "numeric", day: "numeric" }).format(new Date(value)); }
+function tabLabel(tab: JobWorkspaceTab) { return { resumes: "生成岗位简历", info: "岗位信息", requirements: "岗位要求", applications: "求职进度" }[tab]; }
+function tabIcon(tab: JobWorkspaceTab) { return { resumes: Sparkles, info: FileText, requirements: ListChecks, applications: KanbanSquare }[tab]; }
+function saveStatusLabel(status: "idle" | "saving" | "saved" | "failed" | "conflict") { return { idle: "等待保存", saving: "保存中…", saved: "已保存", failed: "保存失败", conflict: "内容已变化" }[status]; }
+function jobWorkflowErrorLabel(code: JobWorkflowErrorState["code"]) { return { empty_input: "输入不完整", text_too_short: "JD 文本过短", schema_validation_failed: "岗位数据校验失败", ai_invalid_output: "岗位解析格式不完整", repository_save_failed: "岗位保存失败", revision_conflict: "岗位草稿已变化", unknown_error: "操作未完成" }[code]; }
+function jobSourceLabel(source: JobDescription["source"]) { return { manual: "手动录入", imported_text: "文本导入", url: "链接导入", demo: "示例岗位" }[source]; }
+function categoryLabel(value: string) { return ({ responsibility: "工作职责", must_have: "必备条件", required_skill: "必备技能", core_skill: "核心能力", preferred_skill: "加分技能", nice_to_have: "加分项", experience: "工作经验", education: "学历要求", certificate: "证书要求", language: "语言要求", tool: "工具与技术", soft_skill: "通用能力", risk_or_uncertain: "待确认", other: "其他要求" } as Record<string, string>)[value] ?? "其他要求"; }
+function priorityLabel(value: string) { return ({ must: "必须满足", high: "高优先", important: "高优先", medium: "一般要求", low: "低优先", nice_to_have: "加分项", uncertain: "待确认" } as Record<string, string>)[value] ?? "待确认"; }
+function confidenceLabel(value: number) { return value >= 0.8 ? "高" : value >= 0.6 ? "中" : "低"; }
+function sectionLabel(value: string) { return ({ summary: "个人总结", education: "教育经历", work: "工作经历", internship: "实习经历", project: "项目经历", research: "研究经历", campus: "校园经历", volunteer: "志愿经历", awards: "荣誉奖项", skills: "技能", certificates: "证书", languages: "语言", publications: "出版物", patents: "专利", portfolio: "作品集", other: "其他", custom: "自定义内容" } as Record<string, string>)[value] ?? "其他内容"; }
+function dispositionLabel(value: "prioritize" | "keep" | "hide") { return { prioritize: "推荐前置", keep: "推荐保留", hide: "可隐藏" }[value]; }
