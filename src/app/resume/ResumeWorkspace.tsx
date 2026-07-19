@@ -4343,6 +4343,11 @@ export function ResumeWorkspace() {
 
                     {styleInspectorTab === "page" ? (
                       <div className="property-control-grid pagination-controls" data-testid="pagination-controls">
+                        <div className="preset-buttons-row">
+                          <button className="secondary-button compact" type="button" disabled={!presentationConfig || !selectedBranchEditable} onClick={() => { void optimizeForOnePage(); }}>一页优化</button>
+                          <button className="secondary-button compact" type="button" disabled={!presentationConfig || !selectedBranchEditable} onClick={() => { void relaxForTwoPages(); }}>两页舒展</button>
+                          <button className="secondary-button compact" type="button" disabled={!presentationConfig || !selectedBranchEditable} onClick={() => { void resetTemplateStyle(); }}>恢复默认</button>
+                        </div>
                         <label className="field-label">页边距
                           <select aria-label="页边距" value={presentationConfig?.spacing.pageMargin ?? "normal"} disabled={!presentationConfig || !selectedBranchEditable} onChange={(event) => {
                             const pageMargin = event.target.value as ResumePresentationConfig["spacing"]["pageMargin"];
@@ -4393,11 +4398,6 @@ export function ResumeWorkspace() {
                             <option value="fixed-column">固定列</option><option value="balanced">均衡</option><option value="flow">紧凑流式</option>
                           </select>
                         </label>
-                        <div className="action-row">
-                          <button className="secondary-button compact" type="button" disabled={!presentationConfig || !selectedBranchEditable} onClick={() => { void optimizeForOnePage(); }}>一页优化</button>
-                          <button className="secondary-button compact" type="button" disabled={!presentationConfig || !selectedBranchEditable} onClick={() => { void relaxForTwoPages(); }}>两页舒展</button>
-                          <button className="secondary-button compact" type="button" disabled={!presentationConfig || !selectedBranchEditable} onClick={() => { void resetTemplateStyle(); }}>恢复当前模板默认样式</button>
-                        </div>
                         <label className="inline-toggle">
                           <input type="checkbox" checked={presentationConfig?.pagination.showPhoto ?? false} disabled={!presentationConfig || !selectedBranchEditable || !selectedTemplate.capabilities.supportsPhoto} onChange={(event) => {
                             void updatePaginationSettings({ showPhoto: event.target.checked }, "照片显示设置已保存。");

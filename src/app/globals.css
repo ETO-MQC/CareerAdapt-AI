@@ -279,7 +279,7 @@ html[data-theme="dark"] .brand {
   font-size: 14px;
   font-weight: 650;
   min-height: var(--control-height);
-  padding: 0 14px;
+  padding: 0 8px;
 }
 
 .nav-link {
@@ -348,6 +348,7 @@ html[data-theme="dark"] .nav-link-active {
 
 .app-shell-sidebar-collapsed .nav-link {
   justify-content: center;
+  gap: 0;
   padding: 0;
 }
 
@@ -2429,6 +2430,20 @@ html[data-theme="dark"] .mode-rail-button:hover {
   padding-top: 14px;
 }
 
+.pagination-controls .preset-buttons-row {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 4px;
+}
+
+.pagination-controls .preset-buttons-row .secondary-button {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  padding: 3px 4px;
+  text-align: center;
+}
+
 .pagination-controls .inline-toggle,
 .pagination-controls .save-status,
 .pagination-controls .pagination-summary {
@@ -3079,7 +3094,7 @@ small,
   gap: 12px;
   grid-template-columns: minmax(0, 1fr) auto;
   padding: 12px;
-  height: 76px;
+  height: 84px;
 }
 
 .resume-card-main {
