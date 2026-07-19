@@ -103,9 +103,8 @@ export const ResumePaginationPlanSchema = z.object({
   overflowBlockIds: z.array(z.string().min(1)),
   oversizedBlockIds: z.array(z.string().min(1)).default([]),
   issues: z.array(z.enum([
-    "severely_underfilled",
-    "underfilled",
     "oversized_content",
+    "prefer_one_page_overflow",
     "strict_one_page_overflow",
     "exceeds_two_pages",
     "horizontal_overflow",

@@ -18,6 +18,29 @@ const baseConfig: ResumePresentationConfig["pagination"] = {
 };
 
 describe("P3.8a multi-page pagination planning", () => {
+  it("uses sequential first-fit and never moves a fitting item to balance two pages", () => {
+    const measurement = {
+      scrollHeight: 1050,
+      clientHeight: 1000,
+      sections: [{ sectionType: "experience" as const, top: 0, bottom: 1050, height: 1050, blockIds: ["item-1", "item-2", "item-3"] }],
+      blocks: [
+        { sourceItemId: "item-1", sectionType: "experience" as const, top: 0, bottom: 400, height: 400 },
+        { sourceItemId: "item-2", sectionType: "experience" as const, top: 400, bottom: 800, height: 400 },
+        { sourceItemId: "item-3", sectionType: "experience" as const, top: 800, bottom: 1050, height: 250 }
+      ]
+    };
+    const plan = createResumePaginationPlan({ measurement, paginationConfig: baseConfig });
+    expect(plan.pages.map((page) => page.blockIds)).toEqual([["item-1", "item-2"], ["item-3"]]);
+  });
+
+  it("keeps a fitting resume on one page even when two pages are preferred", () => {
+    const plan = createResumePaginationPlan({
+      measurement: measurementFixture({ scrollHeight: 900, clientHeight: 1000 }),
+      paginationConfig: { ...baseConfig, pagePolicy: "up_to_two_pages", preferredPageCount: 2 }
+    });
+    expect(plan.actualPageCount).toBe(1);
+  });
+
   it("creates a one-page plan by default", () => {
     const plan = createResumePaginationPlan({
       measurement: measurementFixture({ scrollHeight: 900, clientHeight: 1000 }),
@@ -192,8 +215,8 @@ describe("P3.8a multi-page pagination planning", () => {
     if (pages[0].schemaVersion !== "resume-render-v2" || pages[1].schemaVersion !== "resume-render-v2") throw new Error("expected v2 pages");
     const firstProject = pages[0].structuredSections.find((section) => section.sectionType === "project")?.items[0]?.presentation;
     const continuedProject = pages[1].structuredSections.find((section) => section.sectionType === "project")?.items[0]?.presentation;
-    expect(firstProject).toMatchObject({ primaryTitle: "Long project", highlights: ["bullet 1"], fragmentIndex: 0 });
-    expect(continuedProject).toMatchObject({ primaryTitle: undefined, highlights: ["bullet 2", "bullet 3", "bullet 4"], fragmentIndex: 1 });
+    expect(firstProject).toMatchObject({ primaryTitle: "Long project", highlights: ["bullet 1", "bullet 2"], fragmentIndex: 0 });
+    expect(continuedProject).toMatchObject({ primaryTitle: undefined, highlights: ["bullet 3", "bullet 4"], fragmentIndex: 1 });
     expect(pages[0].structuredSections.find((section) => section.sectionType === "project")?.showTitle).toBe(true);
     expect(pages[1].structuredSections.find((section) => section.sectionType === "project")?.showTitle).toBe(false);
     expect(coverageCounts(paginatedCoverage(pages))).toMatchObject({ project: 1, awards: 1, skills: 1, languages: 1 });

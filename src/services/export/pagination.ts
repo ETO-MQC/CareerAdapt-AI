@@ -149,7 +149,7 @@ export function createResumePaginationPlan(input: {
   const overflowBlockIds: string[] = [];
   const oversizedBlockIds: string[] = [];
   const units = createPaginationUnits(input.measurement, forcedBreakBeforeSections);
-  const assignments = packPaginationUnits(units, clientHeight, input.paginationConfig.preferredPageCount);
+  const assignments = packPaginationUnits(units, clientHeight);
   for (const [unitIndex, pageIndex] of assignments.entries()) {
     const unit = units[unitIndex];
     const block = input.measurement.blocks.find((candidate) => candidate.sourceItemId === unit.itemId)!;
@@ -181,13 +181,11 @@ export function createResumePaginationPlan(input: {
     const usedHeight = units.reduce((total, unit, index) => assignments[index] === page.pageNumber - 1 ? total + unit.height : total, 0);
     page.utilization = { usedHeight, availableHeight: clientHeight, ratio: usedHeight / clientHeight };
   }
-  const lastRatio = usedPages.at(-1)?.utilization?.ratio ?? 0;
   const issues: NonNullable<ResumePaginationPlan["issues"]> = [];
-  if (lastRatio < 0.3 && usedPages.length > 1) issues.push("severely_underfilled");
-  else if (lastRatio < 0.4 && usedPages.length > 1) issues.push("underfilled");
   if (oversizedBlockIds.length) issues.push("oversized_content");
   if (input.measurement.blocks.some((block) => block.horizontalOverflow)) issues.push("horizontal_overflow");
   if (input.measurement.clientHeight <= 0) issues.push("measurement_failed");
+  if (pagePolicy === "prefer_one_page" && actualPageCount > 1) issues.push("prefer_one_page_overflow");
   if (pagePolicy === "one_page_strict" && actualPageCount > 1) issues.push("strict_one_page_overflow");
   if (pagePolicy === "up_to_two_pages" && actualPageCount > 2) issues.push("exceeds_two_pages");
 
@@ -422,7 +420,7 @@ export function createPaginationUnits(
   return result;
 }
 
-function packPaginationUnits(units: PaginationUnit[], availableHeight: number, preferredPageCount: 1 | 2) {
+function packPaginationUnits(units: PaginationUnit[], availableHeight: number) {
   if (!units.length) return [] as number[];
   const assignments: number[] = [];
   let page = 0;
@@ -435,28 +433,7 @@ function packPaginationUnits(units: PaginationUnit[], availableHeight: number, p
     assignments.push(page);
     used += unit.height;
   }
-  if (page !== 1 || units.some((unit) => unit.forcedBreakBefore)) return assignments;
-
-  let bestBoundary = assignments.findIndex((assignedPage) => assignedPage === 1);
-  let bestScore = Number.POSITIVE_INFINITY;
-  const total = units.reduce((sum, unit) => sum + unit.height, 0);
-  for (let boundary = 1; boundary < units.length; boundary += 1) {
-    if (!units[boundary].breakBeforeAllowed) continue;
-    const first = units.slice(0, boundary).reduce((sum, unit) => sum + unit.height, 0);
-    const second = total - first;
-    if (first > availableHeight || second > availableHeight) continue;
-    const lastRatio = second / availableHeight;
-    const underfillPenalty = lastRatio < 0.3 ? (0.3 - lastRatio) * availableHeight * 12
-      : lastRatio < 0.4 ? (0.4 - lastRatio) * availableHeight * 4 : 0;
-    const imbalancePenalty = Math.abs(first - second);
-    const preferencePenalty = preferredPageCount === 1 ? 1 : 0;
-    const score = underfillPenalty + imbalancePenalty + preferencePenalty;
-    if (score < bestScore) {
-      bestScore = score;
-      bestBoundary = boundary;
-    }
-  }
-  return units.map((_, index) => index < bestBoundary ? 0 : 1);
+  return assignments;
 }
 
 function applyPresentationFragment(
