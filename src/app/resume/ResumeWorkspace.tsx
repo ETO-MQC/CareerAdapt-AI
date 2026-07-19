@@ -3,6 +3,23 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent } from "react";
 import { useRouter } from "next/navigation";
 import {
+  User,
+  FileText,
+  Briefcase,
+  Compass,
+  GraduationCap,
+  Rocket,
+  School,
+  Zap,
+  Trophy,
+  Scroll,
+  Globe,
+  Sparkles,
+  Plus,
+  PanelLeftOpen,
+  PanelLeftClose
+} from "lucide-react";
+import {
   type JobAdaptationDraft,
   type CareerProfile,
   type JobDescription,
@@ -111,7 +128,7 @@ type ProfileLibraryItem = {
 };
 
 type ResumeListFilter = "recent" | "all" | "general" | "job" | "archived" | "trash";
-type CanvasZoomMode = "fit-page" | "custom";
+type CanvasZoomMode = "fit-page" | "fit-whole-page" | "custom";
 type StudioLayoutState = {
   sectionNavCollapsed: boolean;
   fieldPanelCollapsed: boolean;
@@ -228,7 +245,7 @@ export function ResumeWorkspace() {
   const [customSectionError, setCustomSectionError] = useState<string>();
   const sectionMenuButtonRef = useRef<HTMLButtonElement>(null);
   const sectionMenuRef = useRef<HTMLDivElement>(null);
-  const [canvasZoom, setCanvasZoom] = useState(0.5);
+  const [canvasZoom, setCanvasZoom] = useState(0.8);
   const [canvasZoomMode, setCanvasZoomMode] = useState<CanvasZoomMode>("fit-page");
   const [studioLayout, setStudioLayout] = useState<StudioLayoutState>(() => readInitialStudioLayout());
   const [pendingTemplateApplyId, setPendingTemplateApplyId] = useState<TemplateId | undefined>();
@@ -544,7 +561,7 @@ export function ResumeWorkspace() {
     selectedBranch.syncStatusCache.status !== "in_sync" ? syncStatusMessage(selectedBranch.syncStatusCache.status) : undefined
   ].filter((item): item is string => Boolean(item)) : [];
   const studioLayoutStyle = {
-    "--resume-section-nav-width": studioLayout.sectionNavCollapsed ? "16px" : "108px",
+    "--resume-section-nav-width": studioLayout.sectionNavCollapsed ? "44px" : "80px",
     "--resume-field-panel-width": studioLayout.fieldPanelCollapsed ? "20px" : `${studioLayout.fieldPanelWidth}px`
   } as CSSProperties;
 
@@ -973,47 +990,41 @@ export function ResumeWorkspace() {
   }, [studioLayout]);
 
   useEffect(() => {
-    if (canvasZoomMode !== "fit-page") {
+    if (canvasZoomMode !== "fit-page" && canvasZoomMode !== "fit-whole-page") {
       return;
     }
     const stage = previewStageRef.current;
     if (!stage) {
       return;
     }
-    let frame = 0;
     const updateFitZoom = () => {
-      window.cancelAnimationFrame(frame);
-      frame = window.requestAnimationFrame(() => {
-        const rect = stage.getBoundingClientRect();
-        const availableWidth = Math.max(240, rect.width - 52);
-        const availableHeight = Math.max(320, rect.height - 70);
+      const rect = stage.getBoundingClientRect();
+      if (canvasZoomMode === "fit-page") {
+        // A4纸左右各留8px
+        const availableWidth = rect.width - 16;
+        const nextZoom = clampNumber(availableWidth / A4_PAGE_WIDTH_PX, MIN_CANVAS_ZOOM, 1);
+        setCanvasZoom(Number(nextZoom.toFixed(2)));
+      } else {
+        // 整页模式：宽高都适配，保证看到完整一页
+        const availableWidth = rect.width - 16;
+        const availableHeight = rect.height - 16;
         const nextZoom = clampNumber(
-          Math.min(1, availableWidth / A4_PAGE_WIDTH_PX, availableHeight / A4_PAGE_HEIGHT_PX),
+          Math.min(availableWidth / A4_PAGE_WIDTH_PX, availableHeight / A4_PAGE_HEIGHT_PX),
           MIN_CANVAS_ZOOM,
           1
         );
-        setCanvasZoom((current) => Math.abs(current - nextZoom) < 0.01 ? current : Number(nextZoom.toFixed(2)));
-      });
+        setCanvasZoom(Number(nextZoom.toFixed(2)));
+      }
     };
     updateFitZoom();
     const observer = new ResizeObserver(updateFitZoom);
     observer.observe(stage);
     window.addEventListener("resize", updateFitZoom);
     return () => {
-      window.cancelAnimationFrame(frame);
       observer.disconnect();
       window.removeEventListener("resize", updateFitZoom);
     };
-  }, [
-    activeBranchId,
-    canvasZoomMode,
-    pagination.plan?.actualPageCount,
-    presentationConfig?.presentationRevision,
-    studioLayout.fieldPanelCollapsed,
-    studioLayout.fieldPanelWidth,
-    studioLayout.sectionNavCollapsed,
-    studioMode
-  ]);
+  }, [canvasZoomMode]);
 
   const runDiagnostics = useCallback(async () => {
     if (!selectedBranch || !renderModel || !presentationConfig) {
@@ -3274,13 +3285,13 @@ export function ResumeWorkspace() {
   const sectionNavContext: SectionNavContext = {
     activeSection: activeResumeSection,
     onNavigate: (section) => {
-      setActiveResumeSection(section);
       const item = resumeSectionNavItems.find((i) => i.key === section);
       if (item?.firstItemId) {
         selectStudioItem(item.firstItemId);
       } else {
         clearStudioEditor();
       }
+      setActiveResumeSection(section);
     },
     canUndo: Boolean(presentationHistory.undoStack.length),
     canRedo: Boolean(presentationHistory.redoStack.length),
@@ -3774,29 +3785,19 @@ export function ResumeWorkspace() {
               data-testid="resume-section-nav"
               aria-label="简历栏目导航"
             >
-              {studioLayout.sectionNavCollapsed ? (
-                <button
-                  className="secondary-button compact section-nav-expand-btn"
-                  type="button"
-                  aria-label="展开栏目导航"
-                  onClick={() => setStudioLayout((current) => ({ ...current, sectionNavCollapsed: false }))}
-                  title="展开栏目导航"
-                >
-                  ▸
-                </button>
-              ) : (
-                <div className="property-panel-heading">
-                  <h2>栏目</h2>
-                  <button
-                    className="secondary-button compact"
-                    type="button"
-                    aria-label="收起栏目导航"
-                    onClick={() => setStudioLayout((current) => ({ ...current, sectionNavCollapsed: true }))}
-                  >
-                    ◂
-                  </button>
-                </div>
-              )}
+              <button
+                className="section-nav-collapse-toggle"
+                type="button"
+                aria-label={studioLayout.sectionNavCollapsed ? "展开栏目导航" : "收起栏目导航"}
+                onClick={() => setStudioLayout((current) => ({ ...current, sectionNavCollapsed: !current.sectionNavCollapsed }))}
+                title={studioLayout.sectionNavCollapsed ? "展开栏目导航" : "收起栏目导航"}
+              >
+                {studioLayout.sectionNavCollapsed ? (
+                  <PanelLeftOpen size={18} strokeWidth={1.5} />
+                ) : (
+                  <PanelLeftClose size={18} strokeWidth={1.5} />
+                )}
+              </button>
               <nav className="resume-section-nav">
                 {resumeSectionNavItems.map((item) => (
                   <button
@@ -3809,12 +3810,12 @@ export function ResumeWorkspace() {
                         setIsSectionMenuOpen((current) => !current);
                         return;
                       }
-                      setActiveResumeSection(item.key);
                       if (item.firstItemId) {
                         selectStudioItem(item.firstItemId);
                       } else {
                         clearStudioEditor();
                       }
+                      setActiveResumeSection(item.key);
                     }}
                     aria-expanded={item.key === "add" ? isSectionMenuOpen : undefined}
                     aria-controls={item.key === "add" ? "resume-add-section-menu" : undefined}
@@ -4510,7 +4511,10 @@ export function ResumeWorkspace() {
                 <span>{Math.round(canvasZoom * 100)}%</span>
                 <button className="secondary-button compact" type="button" aria-label="放大预览" onClick={() => updateCanvasZoom((value) => value + 0.08)}>+</button>
                 <button className={canvasZoomMode === "fit-page" ? "primary-button compact" : "secondary-button compact"} type="button" onClick={() => setCanvasZoomMode("fit-page")}>
-                  适合页面
+                  适合宽度
+                </button>
+                <button className={canvasZoomMode === "fit-whole-page" ? "primary-button compact" : "secondary-button compact"} type="button" onClick={() => setCanvasZoomMode("fit-whole-page")}>
+                  整页
                 </button>
               </div>
             </div>
@@ -5238,23 +5242,25 @@ function accentSwatchColor(value: "graphite" | "emerald" | "blue" | "rose") {
   return "#176b5b";
 }
 
-function sectionNavIcon(key: string): string {
-  const icons: Record<string, string> = {
-    basics: "👤",
-    summary: "📝",
-    work: "💼",
-    internship: "🧭",
-    education: "🎓",
-    project: "🚀",
-    campus: "🏫",
-    skills: "⚡",
-    awards: "🏆",
-    certificates: "📜",
-    languages: "🌐",
-    custom: "✨",
-    add: "＋"
+function sectionNavIcon(key: string): React.ReactNode {
+  const iconSize = 18;
+  const iconStrokeWidth = 1.5;
+  const icons: Record<string, React.ReactNode> = {
+    basics: <User size={iconSize} strokeWidth={iconStrokeWidth} />,
+    summary: <FileText size={iconSize} strokeWidth={iconStrokeWidth} />,
+    work: <Briefcase size={iconSize} strokeWidth={iconStrokeWidth} />,
+    internship: <Compass size={iconSize} strokeWidth={iconStrokeWidth} />,
+    education: <GraduationCap size={iconSize} strokeWidth={iconStrokeWidth} />,
+    project: <Rocket size={iconSize} strokeWidth={iconStrokeWidth} />,
+    campus: <School size={iconSize} strokeWidth={iconStrokeWidth} />,
+    skills: <Zap size={iconSize} strokeWidth={iconStrokeWidth} />,
+    awards: <Trophy size={iconSize} strokeWidth={iconStrokeWidth} />,
+    certificates: <Scroll size={iconSize} strokeWidth={iconStrokeWidth} />,
+    languages: <Globe size={iconSize} strokeWidth={iconStrokeWidth} />,
+    custom: <Sparkles size={iconSize} strokeWidth={iconStrokeWidth} />,
+    add: <Plus size={iconSize} strokeWidth={iconStrokeWidth} />
   };
-  return icons[key] ?? "•";
+  return icons[key] ?? <span style={{ fontSize: '18px' }}>•</span>;
 }
 
 function sectionNavAccessibleLabel(key: ResumeStudioSectionKey, label: string) {

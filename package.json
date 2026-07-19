@@ -21,6 +21,7 @@
     "@tiptap/react": "^3.27.3",
     "@tiptap/starter-kit": "^3.27.3",
     "dexie": "^4.4.4",
+    "lucide-react": "^1.25.0",
     "nanoid": "^5.1.16",
     "next": "^16.2.9",
     "pdfjs-dist": "5.4.296",
