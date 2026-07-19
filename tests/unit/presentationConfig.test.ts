@@ -129,6 +129,22 @@ describe("V2 G1a resume presentation config", () => {
     });
   });
 
+  it.each(["natural", "prefer_one_page", "one_page_strict", "up_to_two_pages"] as const)(
+    "preserves the %s page policy",
+    (pagePolicy) => {
+      const parsed = ResumePresentationConfigSchema.parse({
+        schemaVersion: "resume-presentation-v1",
+        branchId: "branch",
+        templateId: "classic-technical",
+        contentRevision: { branchRevision: 0, currentRevisionId: "revision" },
+        pagination: { pagePolicy },
+        presentationRevision: 0,
+        updatedAt: "2026-07-03T00:00:00.000Z"
+      });
+      expect(parsed.pagination.pagePolicy).toBe(pagePolicy);
+    }
+  );
+
   it("persists display-only config without creating ResumeRevision and guards idempotency/conflicts", async () => {
     const { repository, branch } = await createBranchFixture("CareerAdaptG1aPresentationDb");
     const initial = await repository.getResumePresentationConfig(branch.id);

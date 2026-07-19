@@ -178,14 +178,8 @@ async function setPreferOnePage(page: Page, enabled: boolean) {
   await openManualPageTab(page);
   const selector = page.getByTestId("page-policy-selector");
   await expect(selector).toBeEnabled();
-  if ((await selector.isChecked()) !== enabled) {
-    await selector.click();
-  }
-  if (enabled) {
-    await expect(selector).toBeChecked();
-  } else {
-    await expect(selector).not.toBeChecked();
-  }
+  await selector.selectOption(enabled ? "prefer_one_page" : "natural");
+  await expect(selector).toHaveValue(enabled ? "prefer_one_page" : "natural");
 }
 
 async function downloadDirectPdf(page: Page, filePrefix: string) {

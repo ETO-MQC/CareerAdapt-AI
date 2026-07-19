@@ -74,6 +74,11 @@ export const ResumePaginationPageSchema = z.object({
   sectionTypes: z.array(z.string()),
   itemIdsBySection: z.record(z.string(), z.array(z.string().min(1))),
   blockIds: z.array(z.string().min(1)),
+  utilization: z.object({
+    usedHeight: z.number().nonnegative(),
+    availableHeight: z.number().positive(),
+    ratio: z.number().nonnegative()
+  }).optional(),
   itemFragments: z.array(z.object({
     sectionId: z.string().min(1),
     sectionType: z.string().min(1),
@@ -97,6 +102,15 @@ export const ResumePaginationPlanSchema = z.object({
   forcedBreakBeforeSections: z.array(z.string()),
   overflowBlockIds: z.array(z.string().min(1)),
   oversizedBlockIds: z.array(z.string().min(1)).default([]),
+  issues: z.array(z.enum([
+    "severely_underfilled",
+    "underfilled",
+    "oversized_content",
+    "strict_one_page_overflow",
+    "exceeds_two_pages",
+    "horizontal_overflow",
+    "measurement_failed"
+  ])).optional(),
   measurement: z.object({
     scrollHeight: z.number().nonnegative(),
     clientHeight: z.number().positive(),

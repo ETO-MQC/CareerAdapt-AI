@@ -278,11 +278,8 @@ function normalizePageMargin(value: unknown) {
 }
 
 function normalizePagePolicy(value: unknown): z.infer<typeof ResumePagePolicySchema> {
-  if (value === "prefer_one_page") {
+  if (value === "natural" || value === "prefer_one_page" || value === "one_page_strict" || value === "up_to_two_pages") {
     return value;
-  }
-  if (value === "natural" || value === "one_page_strict" || value === "up_to_two_pages") {
-    return "natural";
   }
   return DEFAULT_PAGINATION.pagePolicy;
 }

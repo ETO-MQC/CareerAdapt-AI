@@ -52,6 +52,22 @@ type MutablePaginationPage = Omit<ResumePaginationPlan["pages"][number], "sectio
   itemFragments: NonNullable<ResumePaginationPlan["pages"][number]["itemFragments"]>;
 };
 
+export type PaginationUnit = {
+  id: string;
+  sectionId: string;
+  sectionType: AnySectionType;
+  itemId: string;
+  kind: "resume-header" | "section-title" | "item-heading" | "description" | "highlight" | "skill-item" | "custom-row";
+  height: number;
+  keepWithNext: boolean;
+  breakBeforeAllowed: boolean;
+  breakAfterAllowed: boolean;
+  sourceOrder: number;
+  unitKeys: string[];
+  includeSectionTitle: boolean;
+  forcedBreakBefore: boolean;
+};
+
 const PAGE_NEAR_LIMIT_PX = 36;
 const SECTION_TYPES: AnySectionType[] = [...defaultResumeRenderSectionOrder, ...RESUME_SECTION_TYPES_V2.filter((t) => t !== "basics")];
 
@@ -132,58 +148,24 @@ export function createResumePaginationPlan(input: {
   const pages: MutablePaginationPage[] = [createPage(1)];
   const overflowBlockIds: string[] = [];
   const oversizedBlockIds: string[] = [];
-  let currentPageNumber = 1;
-
-  for (const section of input.measurement.sections) {
-    const sectionBlocks = input.measurement.blocks.filter((block) => block.sectionType === section.sectionType
-      && (!section.sectionId || !block.sectionId || block.sectionId === section.sectionId));
-    if (sectionBlocks.length === 0) {
-      continue;
-    }
-    if (forcedBreakBeforeSections.includes(section.sectionType) && pageHasContent(pages[currentPageNumber - 1])) {
-      currentPageNumber += 1;
-      ensurePage(pages, currentPageNumber);
-    }
-
-    for (const [blockIndex, block] of sectionBlocks.entries()) {
-      if (block.units?.length) {
-        const chunks = paginationUnitChunks(block.units);
-        for (const [fragmentIndex, chunk] of chunks.entries()) {
-          const chunkBottom = chunk.at(-1)?.bottom ?? block.bottom;
-          const naturalPage = Math.max(1, Math.ceil(Math.max(chunkBottom, 1) / clientHeight));
-          const assignedPage = Math.max(currentPageNumber, naturalPage);
-          ensurePage(pages, assignedPage);
-          addBlockToPage(pages[assignedPage - 1], block);
-          addItemFragment(pages[assignedPage - 1], {
-            sectionId: section.sectionId ?? section.sectionType,
-            sectionType: section.sectionType,
-            itemId: block.sourceItemId,
-            fragmentIndex,
-            includeSectionTitle: blockIndex === 0 && fragmentIndex === 0,
-            unitKeys: chunk.map((unit) => unit.key)
-          });
-          if (chunk.some((unit) => unit.height > clientHeight)) {
-            oversizedBlockIds.push(block.sourceItemId);
-            overflowBlockIds.push(block.sourceItemId);
-          }
-          currentPageNumber = assignedPage;
-        }
-        continue;
-      }
-      let assignedPage = currentPageNumber;
-      if (block.height > clientHeight) {
-        oversizedBlockIds.push(block.sourceItemId);
-        overflowBlockIds.push(block.sourceItemId);
-      } else {
-        const naturalPage = Math.max(1, Math.ceil(Math.max(block.bottom, 1) / clientHeight));
-        assignedPage = Math.max(currentPageNumber, naturalPage);
-      }
-      ensurePage(pages, assignedPage);
-      addBlockToPage(pages[assignedPage - 1], block);
-      if (block.bottom > assignedPage * clientHeight + 2) {
-        overflowBlockIds.push(block.sourceItemId);
-      }
-      currentPageNumber = assignedPage;
+  const units = createPaginationUnits(input.measurement, forcedBreakBeforeSections);
+  const assignments = packPaginationUnits(units, clientHeight, input.paginationConfig.preferredPageCount);
+  for (const [unitIndex, pageIndex] of assignments.entries()) {
+    const unit = units[unitIndex];
+    const block = input.measurement.blocks.find((candidate) => candidate.sourceItemId === unit.itemId)!;
+    ensurePage(pages, pageIndex + 1);
+    addBlockToPage(pages[pageIndex], block);
+    addItemFragment(pages[pageIndex], {
+      sectionId: unit.sectionId,
+      sectionType: unit.sectionType,
+      itemId: unit.itemId,
+      fragmentIndex: uniqueNumbers(assignments.slice(0, unitIndex).filter((_, index) => units[index].itemId === unit.itemId)).length,
+      includeSectionTitle: unit.includeSectionTitle,
+      unitKeys: unit.unitKeys
+    });
+    if (unit.height > clientHeight) {
+      oversizedBlockIds.push(unit.itemId);
+      overflowBlockIds.push(unit.itemId);
     }
   }
 
@@ -195,6 +177,19 @@ export function createResumePaginationPlan(input: {
     remainingPx: clientHeight - input.measurement.scrollHeight,
     measurementFailed: input.measurement.clientHeight <= 0
   });
+  for (const page of usedPages) {
+    const usedHeight = units.reduce((total, unit, index) => assignments[index] === page.pageNumber - 1 ? total + unit.height : total, 0);
+    page.utilization = { usedHeight, availableHeight: clientHeight, ratio: usedHeight / clientHeight };
+  }
+  const lastRatio = usedPages.at(-1)?.utilization?.ratio ?? 0;
+  const issues: NonNullable<ResumePaginationPlan["issues"]> = [];
+  if (lastRatio < 0.3 && usedPages.length > 1) issues.push("severely_underfilled");
+  else if (lastRatio < 0.4 && usedPages.length > 1) issues.push("underfilled");
+  if (oversizedBlockIds.length) issues.push("oversized_content");
+  if (input.measurement.blocks.some((block) => block.horizontalOverflow)) issues.push("horizontal_overflow");
+  if (input.measurement.clientHeight <= 0) issues.push("measurement_failed");
+  if (pagePolicy === "one_page_strict" && actualPageCount > 1) issues.push("strict_one_page_overflow");
+  if (pagePolicy === "up_to_two_pages" && actualPageCount > 2) issues.push("exceeds_two_pages");
 
   const planWithoutHash = {
     schemaVersion: "resume-pagination-v1" as const,
@@ -209,6 +204,7 @@ export function createResumePaginationPlan(input: {
     forcedBreakBeforeSections,
     overflowBlockIds: uniqueStrings(overflowBlockIds),
     oversizedBlockIds: uniqueStrings(oversizedBlockIds),
+    issues,
     measurement: {
       scrollHeight: input.measurement.scrollHeight,
       clientHeight,
@@ -376,6 +372,93 @@ function paginationUnitChunks(units: ResumePaginationUnitMeasurement[]) {
   return [prefix, ...remaining].filter((chunk) => chunk.length > 0);
 }
 
+export function createPaginationUnits(
+  measurement: ResumePaginationMeasurement,
+  forcedBreakBeforeSections: AnySectionType[] = []
+): PaginationUnit[] {
+  const result: PaginationUnit[] = [];
+  let previousBottom = 0;
+  let sourceOrder = 0;
+  for (const section of measurement.sections) {
+    const blocks = measurement.blocks.filter((block) => block.sectionType === section.sectionType
+      && (!section.sectionId || !block.sectionId || block.sectionId === section.sectionId));
+    for (const [blockIndex, block] of blocks.entries()) {
+      const measuredChunks = block.units?.length ? paginationUnitChunks(block.units) : [[{
+        key: block.sectionType === "skills" ? "content" : "description",
+        top: block.top,
+        bottom: block.bottom,
+        height: block.height
+      }]];
+      for (const [chunkIndex, chunk] of measuredChunks.entries()) {
+        const top = chunk[0]?.top ?? block.top;
+        const bottom = chunk.at(-1)?.bottom ?? block.bottom;
+        const leadingGap = Math.max(0, top - previousBottom);
+        const unitKeys = chunk.map((unit) => unit.key);
+        const heading = unitKeys.includes("heading");
+        const kind: PaginationUnit["kind"] = block.sectionType === "skills"
+          ? "skill-item"
+          : heading ? "item-heading"
+            : unitKeys.some((key) => key.startsWith("highlight:")) ? "highlight"
+              : unitKeys.includes("description") ? "description" : "custom-row";
+        result.push({
+          id: `${section.sectionId ?? section.sectionType}:${block.sourceItemId}:${chunkIndex}`,
+          sectionId: section.sectionId ?? section.sectionType,
+          sectionType: section.sectionType,
+          itemId: block.sourceItemId,
+          kind,
+          height: Math.max(0, bottom - top) + leadingGap,
+          keepWithNext: heading,
+          breakBeforeAllowed: result.length > 0,
+          breakAfterAllowed: true,
+          sourceOrder: sourceOrder++,
+          unitKeys,
+          includeSectionTitle: blockIndex === 0 && chunkIndex === 0,
+          forcedBreakBefore: blockIndex === 0 && chunkIndex === 0 && forcedBreakBeforeSections.includes(section.sectionType)
+        });
+        previousBottom = bottom;
+      }
+    }
+  }
+  return result;
+}
+
+function packPaginationUnits(units: PaginationUnit[], availableHeight: number, preferredPageCount: 1 | 2) {
+  if (!units.length) return [] as number[];
+  const assignments: number[] = [];
+  let page = 0;
+  let used = 0;
+  for (const unit of units) {
+    if ((unit.forcedBreakBefore && used > 0) || (used > 0 && used + unit.height > availableHeight)) {
+      page += 1;
+      used = 0;
+    }
+    assignments.push(page);
+    used += unit.height;
+  }
+  if (page !== 1 || units.some((unit) => unit.forcedBreakBefore)) return assignments;
+
+  let bestBoundary = assignments.findIndex((assignedPage) => assignedPage === 1);
+  let bestScore = Number.POSITIVE_INFINITY;
+  const total = units.reduce((sum, unit) => sum + unit.height, 0);
+  for (let boundary = 1; boundary < units.length; boundary += 1) {
+    if (!units[boundary].breakBeforeAllowed) continue;
+    const first = units.slice(0, boundary).reduce((sum, unit) => sum + unit.height, 0);
+    const second = total - first;
+    if (first > availableHeight || second > availableHeight) continue;
+    const lastRatio = second / availableHeight;
+    const underfillPenalty = lastRatio < 0.3 ? (0.3 - lastRatio) * availableHeight * 12
+      : lastRatio < 0.4 ? (0.4 - lastRatio) * availableHeight * 4 : 0;
+    const imbalancePenalty = Math.abs(first - second);
+    const preferencePenalty = preferredPageCount === 1 ? 1 : 0;
+    const score = underfillPenalty + imbalancePenalty + preferencePenalty;
+    if (score < bestScore) {
+      bestScore = score;
+      bestBoundary = boundary;
+    }
+  }
+  return units.map((_, index) => index < bestBoundary ? 0 : 1);
+}
+
 function applyPresentationFragment(
   item: ResumePresentationItem,
   unitKeys: string[],
@@ -462,6 +545,10 @@ function uniqueSections(values: AnySectionType[]) {
 }
 
 function uniqueStrings(values: string[]) {
+  return Array.from(new Set(values));
+}
+
+function uniqueNumbers(values: number[]) {
   return Array.from(new Set(values));
 }
 
