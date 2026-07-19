@@ -10,6 +10,7 @@ export * from "./export";
 export * from "./importDraft";
 export * from "./job";
 export * from "./jobOptimization";
+export * from "./jobOptimizationV2";
 export * from "./presentation";
 export * from "./profile";
 export * from "./recycleBin";

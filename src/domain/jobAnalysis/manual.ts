@@ -1,83 +1,36 @@
-import { nanoid } from "nanoid";
-import type { JdAnalyzerOutput } from "@/domain/schemas";
+import type { JdAnalyzerOutput, JobRequirementNodeV2 } from "@/domain/schemas";
+import { analyzeJobDescriptionV2 } from "@/domain/jobOptimization/v2/analyze";
 
+/** Compatibility adapter: deterministic V2 parsing, persisted through the existing draft contract. */
 export function createManualJdOutput(rawText: string, title: string, company: string): JdAnalyzerOutput {
   const now = new Date().toISOString();
-  const sourceQuote = rawText.split(/[。；;\n]/).find(Boolean)?.slice(0, 120) || rawText.slice(0, 120);
-  const start = rawText.indexOf(sourceQuote);
-  const sourceSpan = start >= 0 ? { start, end: start + sourceQuote.length, text: sourceQuote } : undefined;
-
+  const graph = analyzeJobDescriptionV2({ rawText, now });
+  const first = graph.nodes[0]?.sourceSpan ?? graph.unclassifiedSourceSpans[0] ?? { start: 0, end: Math.min(rawText.length, 120), text: rawText.slice(0, 120) };
+  const sourceField = (value: string, reason: string) => ({ value, sourceQuote: first.text || value, sourceSpan: first.text ? first : undefined, confidenceLevel: "medium" as const, confidenceReason: reason, needsConfirmation: false });
   return {
-    title: {
-      value: title,
-      sourceQuote,
-      sourceSpan,
-      confidenceLevel: "medium",
-      confidenceReason: "岗位名称来自用户填写。",
-      needsConfirmation: false
-    },
-    company: {
-      value: company,
-      sourceQuote,
-      sourceSpan,
-      confidenceLevel: "medium",
-      confidenceReason: "公司名称来自用户填写。",
-      needsConfirmation: false
-    },
-    requirements: splitRequirementQuotes(rawText).map((quote, index) => {
-      const quoteStart = rawText.indexOf(quote);
-      const span = quoteStart >= 0 ? { start: quoteStart, end: quoteStart + quote.length, text: quote } : sourceSpan;
-      return {
-        id: `manual-req-${nanoid(8)}`,
-        category: guessRequirementCategory(quote),
-        description: quote || "待补充岗位要求",
-        priority: index === 0 ? "important" : "uncertain",
-        hardConstraint: /必须|需要|要求|熟练|required|must/i.test(quote),
-        sourceQuote: quote,
-        sourceSpan: span,
-        keywords: extractKeywords(quote),
-        confidenceLevel: "low",
-        confidenceReason: "手动模式默认条目，需要用户分类确认。",
-        needsConfirmation: false,
-        confirmedByUser: true,
-        createdAt: now,
-        updatedAt: now
-      };
-    }),
-    riskNotes: []
+    title: sourceField(title, "岗位名称来自用户填写。"),
+    company: sourceField(company, "公司名称来自用户填写。"),
+    requirements: graph.nodes.map((node) => ({
+      id: node.id, category: legacyCategory(node), description: node.statement,
+      priority: node.priority === "must" ? "must" : node.priority === "nice_to_have" ? "nice_to_have" : node.priority === "uncertain" ? "uncertain" : "important",
+      hardConstraint: node.hardConstraint, sourceQuote: node.sourceSpan.text, sourceSpan: node.sourceSpan,
+      keywords: node.exactKeywords, confidenceLevel: node.confidence >= 0.8 ? "high" : node.confidence >= 0.6 ? "medium" : "low",
+      confidenceReason: `由确定性 V2 解析器按${kindLabel(node.kind)}识别；保留 JD 原文位置。`,
+      needsConfirmation: node.needsConfirmation, confirmedByUser: !node.needsConfirmation, createdAt: now, updatedAt: now
+    })),
+    riskNotes: graph.unclassifiedSourceSpans.map((span) => `未分类来源（未丢弃）：${span.text}`)
   };
 }
 
-function splitRequirementQuotes(rawText: string) {
-  const parts = rawText
-    .split(/[。；;\n]/)
-    .map((part) => part.trim())
-    .filter((part) => part.length > 0)
-    .slice(0, 8);
-  return parts.length > 0 ? parts : [rawText.slice(0, 120) || "待补充岗位要求"];
+function legacyCategory(node: JobRequirementNodeV2) {
+  const map = {
+    responsibility: "responsibility", hard_constraint: "must_have", core_competency: "core_skill",
+    tool_or_technology: "tool", experience_depth: "experience", education: "education", language: "language",
+    soft_skill: "soft_skill", domain_knowledge: "core_skill", preferred: "nice_to_have", risk_or_uncertain: "risk_or_uncertain"
+  } as const;
+  return map[node.kind];
 }
-
-function guessRequirementCategory(text: string) {
-  if (/SQL|Python|Excel|Tableau|Power BI|Java|React|Next\.js|TypeScript|工具|技能/i.test(text)) {
-    return "required_skill" as const;
-  }
-  if (/本科|硕士|学历|专业|大学|education/i.test(text)) {
-    return "education" as const;
-  }
-  if (/证书|认证|certificate/i.test(text)) {
-    return "certificate" as const;
-  }
-  if (/经验|实习|年/.test(text)) {
-    return "experience" as const;
-  }
-  if (/沟通|协作|表达|推动/.test(text)) {
-    return "soft_skill" as const;
-  }
-  return "responsibility" as const;
-}
-
-function extractKeywords(text: string) {
-  const alnum = text.match(/[A-Za-z0-9+#.]+/g) ?? [];
-  const chinese = text.match(/[\u4e00-\u9fa5]{2,}/g) ?? [];
-  return Array.from(new Set([...alnum, ...chinese].map((item) => item.trim()).filter((item) => item.length >= 2))).slice(0, 8);
+function kindLabel(kind: JobRequirementNodeV2["kind"]) {
+  const labels: Record<JobRequirementNodeV2["kind"], string> = { responsibility: "岗位职责", hard_constraint: "硬性条件", core_competency: "核心能力", tool_or_technology: "工具或技术", experience_depth: "经验年限", education: "学历", language: "语言", soft_skill: "软技能", domain_knowledge: "领域知识", preferred: "加分项", risk_or_uncertain: "不确定要求" };
+  return labels[kind];
 }
