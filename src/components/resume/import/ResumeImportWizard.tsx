@@ -165,19 +165,22 @@ export function ResumeImportWizard(props: {
       item.included && (item.sourceStatus === "located" || item.sourceStatus === "user_confirmed_modified")
     ).length ?? 0;
   }, [draft]);
-  const unconfirmedMappingCount = useMemo(() => {
+  const fieldCandidateReviewCount = useMemo(() => {
     if (!draft) return 0;
     const fields = [draft.basics.name, draft.basics.email, draft.basics.phone, draft.basics.location, draft.basics.summary, ...draft.basics.links];
     return fields.filter((field) => field?.mapping?.needsConfirmation).length
-      + draft.sections.flatMap((section) => section.items).filter((item) => item.mapping?.needsConfirmation).length
+      + draft.sections.flatMap((section) => section.items).filter((item) => !item.structuredItem && item.mapping?.needsConfirmation).length
       + (draft.schemaVersion === "resume-import-v2" ? draft.fieldCandidates.filter((candidate) => candidate.reviewStatus === "needs_review").length : 0);
   }, [draft]);
   const invariantReport = useMemo(() => draft ? auditResumeImportInvariants(draft) : undefined, [draft]);
-  const invariantIssueCount = invariantReport ? resumeImportInvariantIssueCount(invariantReport) : 0;
+  const structureReviewCount = invariantReport?.semanticStructureReviewCount ?? 0;
+  const structureConflictCount = invariantReport
+    ? resumeImportInvariantIssueCount(invariantReport) - structureReviewCount
+    : 0;
   const unreviewedUnclassifiedCount = draft?.unclassifiedBlocks.filter((block) =>
     !reviewedUnclassifiedKeys.includes(unclassifiedBlockKey(block))
   ).length ?? 0;
-  const pendingReviewCount = unconfirmedMappingCount + unreviewedUnclassifiedCount + invariantIssueCount;
+  const pendingReviewCount = fieldCandidateReviewCount + structureReviewCount + unreviewedUnclassifiedCount + structureConflictCount;
   const unsafeTextLayerBlocked = draft?.qualityReport?.recommendedRoute === "ocr_ai"
     && routingDecision.route !== "manual_review";
   const targetProfile = (props.profiles ?? []).find((item) => item.id === targetProfileId) ?? props.profile;
@@ -924,10 +927,41 @@ export function ResumeImportWizard(props: {
     await updateItem(sectionId, itemId, {
       included: true,
       sourceStatus: "user_confirmed_modified",
+      userEdited: false,
       mapping: draft?.sections.flatMap((section) => section.items).find((item) => item.id === itemId)?.mapping
         ? { ...draft.sections.flatMap((section) => section.items).find((item) => item.id === itemId)!.mapping!, needsConfirmation: false }
         : undefined
     });
+  }
+
+  async function discardStructuredItem(sectionId: string, itemId: string) {
+    await updateItem(sectionId, itemId, {
+      included: false,
+      sourceStatus: "user_confirmed_modified",
+      userEdited: false
+    });
+  }
+
+  async function confirmCurrentSemanticStructure() {
+    if (!draft) return;
+    await patchDraft((current) => ({
+      ...current,
+      sections: current.sections.map((section) => ({
+        ...section,
+        items: section.items.map((item) => item.structuredItem
+          && item.sourceStatus === "ambiguous"
+          && hasCompleteItemSource(item)
+          && !hasItemSourceConflict(current, item)
+          ? {
+              ...item,
+              included: true,
+              sourceStatus: "user_confirmed_modified" as const,
+              userEdited: false,
+              mapping: item.mapping ? { ...item.mapping, needsConfirmation: false } : undefined
+            }
+          : item)
+      }))
+    }));
   }
 
   async function confirmAllMappings() {
@@ -1361,7 +1395,9 @@ export function ResumeImportWizard(props: {
           <div>
             <h3>核对结构</h3>
             <span>{pendingReviewCount} 项待处理</span>
+            <span>字段候选 {fieldCandidateReviewCount} 项待确认 · 结构条目 {structureReviewCount} 项待确认 · 未识别来源 {unreviewedUnclassifiedCount} 项 · 结构冲突 {structureConflictCount} 项</span>
           </div>
+          {structureReviewCount > 0 ? <button className="secondary-button compact" type="button" onClick={() => { void confirmCurrentSemanticStructure(); }}>确认全部当前结构</button> : null}
           <details className="import-bulk-menu"><summary className="secondary-button compact">批量操作</summary><div>
             <button type="button" onClick={() => { void applyBulkSelection("use_imported"); }}>全部使用安全导入项</button>
             {targetMode === "existing" ? <button type="button" onClick={() => { void applyBulkSelection("keep_existing"); }}>全部保留现有</button> : null}
@@ -1414,8 +1450,8 @@ export function ResumeImportWizard(props: {
 
           <div className="import-structure-panel">
             <div className="section-heading compact-heading">
-              <div><h3>结构内容</h3>{unconfirmedMappingCount > 0 ? <p>一源多字段需逐项确认</p> : null}</div>
-              {unconfirmedMappingCount > fieldCandidates.filter((candidate) => candidate.reviewStatus === "needs_review").length ? <button className="primary-button compact" type="button" onClick={() => { void confirmAllMappings(); }}>确认可批量项</button> : null}
+              <div><h3>结构内容</h3>{fieldCandidateReviewCount > 0 ? <p>一源多字段需逐项确认</p> : null}</div>
+              {fieldCandidateReviewCount > fieldCandidates.filter((candidate) => candidate.reviewStatus === "needs_review").length ? <button className="primary-button compact" type="button" onClick={() => { void confirmAllMappings(); }}>确认可批量项</button> : null}
             </div>
 
             {fieldCandidates.length > 0 ? <details className="import-field-candidates" open={fieldCandidates.some((candidate) => candidate.reviewStatus === "needs_review")}>
@@ -1530,7 +1566,14 @@ export function ResumeImportWizard(props: {
                       <input name={`import-item-${item.id}-included`} type="checkbox" checked={item.included} onChange={(event) => { void updateItem(section.id, item.id, { included: event.target.checked }); }} />
                       {sourceStatusLabel(item.sourceStatus)} / {confidenceLabel(item.confidence)} / 第 {item.pageRefs.map((ref) => ref.pageNumber).join(",") || "?"} 页
                     </label>
-                    {item.mapping?.needsConfirmation ? <button className="secondary-button compact" type="button" onClick={() => { void confirmItemMapping(section.id, item.id); }}>确认此映射</button> : null}
+                    {item.structuredItem && item.sourceStatus === "ambiguous" ? <div className="action-row">
+                      <button className="secondary-button compact" type="button" onClick={() => { void confirmItemMapping(section.id, item.id); }}>采用此条</button>
+                      <button className="secondary-button compact" type="button" onClick={() => { void discardStructuredItem(section.id, item.id); }}>舍弃</button>
+                      <button className="secondary-button compact" type="button" onClick={() => {
+                        setSelectedItemId(item.id);
+                        requestAnimationFrame(() => document.getElementById(`import-item-editor-${item.id}`)?.focus());
+                      }}>编辑</button>
+                    </div> : item.mapping?.needsConfirmation ? <button className="secondary-button compact" type="button" onClick={() => { void confirmItemMapping(section.id, item.id); }}>确认此映射</button> : null}
                     {item.mapping ? <button
                       type="button"
                       className={`mapping-trace ${item.mapping.confidenceLevel === "low" ? "mapping-trace-low" : ""}`}
@@ -1550,6 +1593,7 @@ export function ResumeImportWizard(props: {
                     </dl> : null}
                     <strong className="import-item-body-label">职责与成果</strong>
                     <textarea
+                      id={`import-item-editor-${item.id}`}
                       className="textarea compact-textarea"
                       name={`import-item-${item.id}`}
                       aria-label={`${section.detectedTitle}职责与成果`}
@@ -1585,7 +1629,7 @@ export function ResumeImportWizard(props: {
           </div>
         </div>
         <footer className="import-review-footer">
-          <div><strong>{unsafeTextLayerBlocked ? "当前文本层不可安全提交" : `${importableItemCount} 条已选内容`}</strong><span>{pendingReviewCount > 0 ? `${pendingReviewCount} 项待处理 · ` : ""}{targetMode === "new" ? `创建新人物：${newProfileName || "待填写"}` : `导入到：${targetProfile?.name ?? "待选择"}`} · {message}</span></div>
+          <div><strong>{unsafeTextLayerBlocked ? "当前文本层不可安全提交" : `${importableItemCount} 条已选内容`}</strong><span>{pendingReviewCount > 0 ? `确认导入暂不可用：${importBlockReason({ fieldCandidateReviewCount, structureReviewCount, unreviewedUnclassifiedCount, structureConflictCount })} · ` : ""}{targetMode === "new" ? `创建新人物：${newProfileName || "待填写"}` : `导入到：${targetProfile?.name ?? "待选择"}`} · {message}</span></div>
           <div className="action-row"><button className="secondary-button" type="button" onClick={cancelImport} disabled={status === "confirming"}>取消</button><button type="button" className="primary-button" disabled={status === "confirming" || unsafeTextLayerBlocked || (createGeneralResume && importableItemCount === 0) || pendingReviewCount > 0 || (targetMode === "new" && !newProfileName.trim()) || (nameMismatch && basicMergeActions.name !== "keep_existing")} onClick={confirmImport}>确认导入</button></div>
         </footer>
         </>
@@ -1943,6 +1987,40 @@ function sourceStatusLabel(status: ImportedResumeItem["sourceStatus"]) {
     unlocated: "未定位",
     user_confirmed_modified: "用户已修正"
   }[status];
+}
+
+function hasCompleteItemSource(item: ImportedResumeItem) {
+  return item.sourceBlockIds.length > 0
+    && item.pageRefs.length > 0
+    && item.pageRefs.every((ref) => ref.quote.trim().length > 0);
+}
+
+function hasItemSourceConflict(draft: ImportedResumeDraft, item: ImportedResumeItem) {
+  if (draft.schemaVersion !== "resume-import-v2") return false;
+  const targetsByRange = new Map<string, Set<string>>();
+  for (const candidate of draft.fieldCandidates.filter((entry) => entry.itemId === item.id)) {
+    for (const range of candidate.sourceRanges ?? []) {
+      const key = `${range.blockId}:${range.start}:${range.end}`;
+      const targets = targetsByRange.get(key) ?? new Set<string>();
+      targets.add(candidate.targetFieldId);
+      targetsByRange.set(key, targets);
+    }
+  }
+  return [...targetsByRange.values()].some((targets) => targets.size > 1);
+}
+
+function importBlockReason(counts: {
+  fieldCandidateReviewCount: number;
+  structureReviewCount: number;
+  unreviewedUnclassifiedCount: number;
+  structureConflictCount: number;
+}) {
+  return [
+    counts.fieldCandidateReviewCount ? `${counts.fieldCandidateReviewCount} 项字段候选待确认` : "",
+    counts.structureReviewCount ? `${counts.structureReviewCount} 项结构条目待确认` : "",
+    counts.unreviewedUnclassifiedCount ? `${counts.unreviewedUnclassifiedCount} 项未识别来源待核对` : "",
+    counts.structureConflictCount ? `${counts.structureConflictCount} 项结构冲突需处理` : ""
+  ].filter(Boolean).join("、");
 }
 
 function highlightSourceText(text: string, quote: string | undefined) {

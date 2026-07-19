@@ -650,8 +650,17 @@ function detectSectionsFromSemanticArtifacts(artifacts: ResumeLayoutArtifact[], 
           .filter((blockId) => sourceBlockById.has(blockId));
         const boundBlocks = sourceBlockIds.flatMap((blockId) => sourceBlockById.get(blockId) ? [sourceBlockById.get(blockId)!] : []);
         const normalizedText = projectResumeItemV2(structuredItem);
+        const structurallyComplete = hasCompleteSemanticStructure(
+          semanticSection.sectionType,
+          semanticItem,
+          structuredItem,
+          artifact.semanticTree.invariantIssues
+        );
+        const effectiveFieldRoleConfidence = structurallyComplete
+          ? Math.max(semanticItem.confidence.fieldRole, 0.85)
+          : semanticItem.confidence.fieldRole;
         const needsStructureReview = semanticItem.confidence.itemBoundary < 0.85
-          || semanticItem.confidence.fieldRole < 0.85
+          || effectiveFieldRoleConfidence < 0.85
           || semanticItem.confidence.sourceBinding < 0.85
           || artifact.semanticTree.invariantIssues.some((issue) => issue.includes(semanticItem.id));
         return [{
@@ -661,7 +670,7 @@ function detectSectionsFromSemanticArtifacts(artifacts: ResumeLayoutArtifact[], 
           included: true,
           order: itemIndex,
           pageRefs: pageRefsFromBlocks(boundBlocks),
-          confidence: numericConfidence(semanticItem.confidence.fieldRole),
+          confidence: numericConfidence(effectiveFieldRoleConfidence),
           sourceStatus: sourceBlockIds.length && !needsStructureReview ? "located" : "ambiguous",
           userEdited: false,
           sourceBlockIds,
@@ -685,6 +694,34 @@ function detectSectionsFromSemanticArtifacts(artifacts: ResumeLayoutArtifact[], 
     }
   }
   return sections;
+}
+
+function hasCompleteSemanticStructure(
+  sectionType: Exclude<ResumeSemanticTree["sections"][number]["sectionType"], "basics">,
+  item: ResumeSemanticTree["items"][number],
+  structuredItem: ReturnType<typeof mapSemanticItemToResumeItem>,
+  invariantIssues: readonly string[]
+) {
+  const value = structuredItem as unknown as Record<string, unknown>;
+  const hasText = (key: string) => typeof value[key] === "string" && Boolean((value[key] as string).trim());
+  const headerComplete = sectionType === "summary"
+    ? hasText("text")
+    : sectionType === "education"
+      ? hasText("school") && (hasText("major") || hasText("degree"))
+      : ["work", "internship", "campus", "volunteer"].includes(sectionType)
+        ? hasText("organization") && hasText("role")
+        : ["project", "research"].includes(sectionType)
+          ? hasText("title") && (hasText("role") || hasText("authorRole"))
+          : sectionType === "skills" || sectionType === "certificates"
+            ? hasText("name")
+            : item.sourceBlockIds.length > 0;
+  const dateBindingClear = !["education", "work", "internship", "campus", "volunteer", "project", "research"].includes(sectionType)
+    || item.dateBlockIds.length > 0;
+  return headerComplete
+    && dateBindingClear
+    && item.sourceBlockIds.length > 0
+    && item.confidence.sourceBinding >= 0.85
+    && !invariantIssues.some((issue) => issue.includes(item.id));
 }
 
 function numericConfidence(value: number): "high" | "medium" | "low" {
