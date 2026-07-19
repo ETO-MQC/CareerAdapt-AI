@@ -7,10 +7,16 @@ import { promptVersions } from "@/ai/prompts/versions";
 import { mergeAiFactGuardReview, runRuleFactGuard } from "@/domain/adaptation/factGuard";
 import { createManualJdOutput } from "@/domain/jobAnalysis/manual";
 import {
+  analyzeJobDescriptionV2,
+  buildCandidateEvidenceUnits,
+  buildJobCoverageReport,
   buildJobOptimizationSummary,
   buildRequirementBlockMatches,
   computeRequirementsHash,
   createBlockSuggestion,
+  createResumeOptimizationPlan,
+  evaluateRequirementEvidence,
+  recallEvidenceCandidates,
   staleReasonForSuggestion
 } from "@/domain/jobOptimization";
 import { mapJobDraftToJobDescription } from "@/domain/mappers/jobDraftMapper";
@@ -42,6 +48,8 @@ import { notify } from "@/services/notifications/store";
 
 type RequirementFilter = "all" | "required" | "preferred" | "covered" | "partial" | "uncovered" | "needs_confirmation";
 type OptimizationCategory = "content" | "matching" | "gaps" | "layout";
+type OptimizationStepV2 = "job" | "report" | "plan";
+type PlanFilterV2 = "all" | "high" | "rewrite" | "order" | "hide" | "gaps";
 
 export function JobOptimizationPanel({
   repository,
@@ -83,6 +91,9 @@ export function JobOptimizationPanel({
   const [acceptedText, setAcceptedText] = useState("");
   const [category, setCategory] = useState<OptimizationCategory>("content");
   const [mediumRiskConfirmed, setMediumRiskConfirmed] = useState(false);
+  const [optimizationStepV2, setOptimizationStepV2] = useState<OptimizationStepV2>("job");
+  const [selectedRequirementV2, setSelectedRequirementV2] = useState("");
+  const [planFilterV2, setPlanFilterV2] = useState<PlanFilterV2>("all");
 
   const allJobs = useMemo(() => {
     const byId = new Map<string, JobDescription>();
@@ -150,6 +161,31 @@ export function JobOptimizationPanel({
       blockedSuggestions: suggestions.filter((suggestion) => suggestion.status === "blocked_high_risk").length
     })
     : undefined;
+  const optimizationV2 = (() => {
+    if (!matchingProfile || !targetJob || !branch || !branch.currentRevisionId) return undefined;
+    try {
+      const graph = analyzeJobDescriptionV2({ rawText: targetJob.rawText, now: targetJob.updatedAt });
+      const evidenceUnits = buildCandidateEvidenceUnits({ profile: matchingProfile, branch });
+      const recalls = recallEvidenceCandidates({ graph, evidenceUnits });
+      const matrix = evaluateRequirementEvidence({ profile: matchingProfile, graph, evidenceUnits, recalls, now: targetJob.updatedAt });
+      const report = buildJobCoverageReport({ graph, matrix });
+      const plan = createResumeOptimizationPlan({ profile: matchingProfile, branch, jobId: targetJob.id, graph, evidenceUnits, matrix, coverage: report, now: targetJob.updatedAt });
+      return { graph, evidenceUnits, matrix, report, plan };
+    } catch {
+      return undefined;
+    }
+  })();
+  const selectedV2Node = optimizationV2?.graph.nodes.find((node) => node.id === selectedRequirementV2) ?? optimizationV2?.graph.nodes[0];
+  const selectedV2Evaluation = optimizationV2?.matrix.evaluations.find((item) => item.requirementId === selectedV2Node?.id);
+  const selectedV2Evidence = optimizationV2?.evidenceUnits.filter((unit) => selectedV2Evaluation?.evidenceUnitIds.includes(unit.id)) ?? [];
+  const filteredPlanActions = optimizationV2?.plan.actions.filter((action) => {
+    if (planFilterV2 === "high") return action.riskLevel === "high" || action.expectedImpact === "hard_constraint";
+    if (planFilterV2 === "rewrite") return action.type === "rewrite_highlight" || action.type === "shorten_highlight";
+    if (planFilterV2 === "order") return action.type === "prioritize_item" || action.type === "reorder_item";
+    if (planFilterV2 === "hide") return action.type === "hide_item";
+    if (planFilterV2 === "gaps") return action.type === "add_follow_up_question";
+    return true;
+  }) ?? [];
 
   useEffect(() => {
     let active = true;
@@ -595,6 +631,89 @@ export function JobOptimizationPanel({
           </button>
         </div>
 
+        {optimizationV2 ? (
+          <section className="optimization-v2" data-testid="job-optimization-v2" aria-label="岗位优化三步流程">
+            <div className="optimization-v2-steps" role="tablist" aria-label="岗位优化步骤">
+              {(["job", "report", "plan"] as const).map((step, index) => (
+                <button key={step} type="button" role="tab" aria-selected={optimizationStepV2 === step} className={optimizationStepV2 === step ? "inspector-tab inspector-tab-active" : "inspector-tab"} onClick={() => setOptimizationStepV2(step)}>
+                  <span>{index + 1}</span>{step === "job" ? "岗位" : step === "report" ? "匹配报告" : "优化方案"}
+                </button>
+              ))}
+            </div>
+
+            {optimizationStepV2 === "job" ? (
+              <div className="optimization-v2-job" data-testid="optimization-v2-job">
+                <div><span>公司</span><strong>{targetJob?.company}</strong></div>
+                <div><span>岗位名称</span><strong>{targetJob?.title}</strong></div>
+                <div className="optimization-v2-jd"><span>JD 原文</span><p>{targetJob?.rawText}</p></div>
+                <div className="optimization-v2-counts" aria-label="已识别要求统计">
+                  <span>已识别 {optimizationV2.graph.nodes.length}</span>
+                  <span>必备 {optimizationV2.graph.nodes.filter((node) => node.hardConstraint).length}</span>
+                  <span>核心 {optimizationV2.graph.nodes.filter((node) => node.priority === "high").length}</span>
+                  <span>加分 {optimizationV2.graph.nodes.filter((node) => node.priority === "nice_to_have").length}</span>
+                  <span>不确定 {optimizationV2.graph.nodes.filter((node) => node.needsConfirmation).length}</span>
+                </div>
+                <button className="secondary-button compact" type="button" disabled={pending} onClick={() => { void refreshMatches(); }}>重新分析</button>
+              </div>
+            ) : null}
+
+            {optimizationStepV2 === "report" ? (
+              <div className="optimization-v2-report" data-testid="optimization-v2-report">
+                <header className="coverage-score-v2">
+                  <div><span>岗位证据覆盖度</span><strong>{optimizationV2.report.overallCoverage}</strong></div>
+                  <p>不是 ATS 通过概率</p>
+                </header>
+                <div className="coverage-subscores-v2">
+                  <span>必备条件 <strong>{optimizationV2.report.subScores.hardConstraints}</strong></span>
+                  <span>核心能力 <strong>{optimizationV2.report.subScores.coreCompetencies}</strong></span>
+                  <span>职责覆盖 <strong>{optimizationV2.report.subScores.responsibilities}</strong></span>
+                  <span>加分项 <strong>{optimizationV2.report.subScores.preferredQualifications}</strong></span>
+                  <span>术语覆盖 <strong>{optimizationV2.report.subScores.terminologyCoverage}</strong></span>
+                </div>
+                <p className="coverage-explanation-v2">{optimizationV2.report.scoreExplanation}</p>
+                <div className="optimization-v2-split">
+                  <div className="requirement-list" data-testid="requirement-v2-list">
+                    {optimizationV2.graph.nodes.map((node) => {
+                      const evaluation = optimizationV2.matrix.evaluations.find((item) => item.requirementId === node.id);
+                      return <button key={node.id} type="button" className={`match-row ${selectedV2Node?.id === node.id ? "match-row-active" : ""}`} onClick={() => setSelectedRequirementV2(node.id)}><strong>{node.statement}</strong><span>{matchLevelV2Label(evaluation?.matchLevel ?? "none")} · {node.hardConstraint ? "必备" : priorityV2Label(node.priority)}</span></button>;
+                    })}
+                  </div>
+                  <article className="requirement-detail-v2" data-testid="requirement-v2-detail">
+                    <h3>{selectedV2Node?.statement}</h3>
+                    <dl>
+                      <div><dt>JD 原文</dt><dd>{selectedV2Node?.sourceSpan.text}</dd></div>
+                      <div><dt>匹配解释</dt><dd>{selectedV2Evaluation?.explanation ?? "暂无评估"}</dd></div>
+                      <div><dt>匹配证据</dt><dd>{selectedV2Evidence.length ? selectedV2Evidence.map((unit) => unit.text).join("；") : "没有可引用的已确认事实"}</dd></div>
+                      <div><dt>来源经历</dt><dd>{selectedV2Evidence.map((unit) => [unit.organization, unit.role, unit.fieldPath].filter(Boolean).join(" / ")).join("；") || "无"}</dd></div>
+                      <div><dt>风险</dt><dd>{selectedV2Evaluation?.risks.length ? selectedV2Evaluation.risks.join("、") : "未发现额外风险"}</dd></div>
+                    </dl>
+                  </article>
+                </div>
+              </div>
+            ) : null}
+
+            {optimizationStepV2 === "plan" ? (
+              <div className="optimization-v2-plan" data-testid="optimization-v2-plan">
+                <p>{optimizationV2.plan.executiveSummary}</p>
+                <div className="requirement-filter-row" aria-label="优化方案筛选">
+                  {(["all", "high", "rewrite", "order", "hide", "gaps"] as const).map((value) => <button key={value} type="button" className={`secondary-button compact ${planFilterV2 === value ? "property-tab-active" : ""}`} onClick={() => setPlanFilterV2(value)}>{planFilterV2Label(value)}</button>)}
+                </div>
+                <div className="optimization-plan-list-v2">
+                  {filteredPlanActions.map((action) => (
+                    <article key={action.id} className="optimization-plan-action-v2">
+                      <div><strong>{planActionV2Label(action.type)}</strong><span className={`risk-chip risk-chip-${action.riskLevel}`}>{riskLabel(action.riskLevel)}风险</span></div>
+                      <p>{action.proposedIntent}</p><small>{action.reason}</small>
+                    </article>
+                  ))}
+                  {filteredPlanActions.length === 0 ? <p className="empty-copy">当前筛选下没有优化动作。</p> : null}
+                </div>
+                {optimizationV2.plan.factGaps.length ? <div className="fact-gap-list"><h3>需要补充事实</h3>{optimizationV2.plan.factGaps.map((gap) => <article className="warning-box" key={gap.requirementId}><strong>{gap.question}</strong><p>{gap.reason}</p></article>)}</div> : null}
+                <p className="coverage-explanation-v2">本轮仅展示计划和选择状态，不会批量改写或应用到简历。</p>
+              </div>
+            ) : null}
+          </section>
+        ) : null}
+
         {branch?.branchPurpose === "general" ? (
           <div className="warning-box">
             这是一份通用简历。请返回岗位页，明确选择岗位和来源简历、完成匹配后再生成岗位简历。
@@ -902,6 +1021,22 @@ function filterLabel(filter: RequirementFilter) {
     needs_confirmation: "待确认"
   };
   return labels[filter];
+}
+
+function matchLevelV2Label(level: string) {
+  return ({ direct: "直接覆盖", strong_transferable: "可迁移能力", partial: "部分覆盖", weak: "弱相关", none: "事实缺口", needs_confirmation: "待确认" } as Record<string, string>)[level] ?? level;
+}
+
+function priorityV2Label(priority: string) {
+  return ({ high: "核心", medium: "一般", nice_to_have: "加分", uncertain: "不确定", must: "必备" } as Record<string, string>)[priority] ?? priority;
+}
+
+function planFilterV2Label(filter: PlanFilterV2) {
+  return ({ all: "全部", high: "高优先级", rewrite: "内容改写", order: "顺序调整", hide: "隐藏建议", gaps: "事实缺口" } as Record<PlanFilterV2, string>)[filter];
+}
+
+function planActionV2Label(type: string) {
+  return ({ prioritize_item: "推荐前置", reorder_item: "调整顺序", rewrite_highlight: "改写重点", shorten_highlight: "压缩表达", hide_item: "建议隐藏", show_item: "建议显示", adjust_target_role: "调整目标岗位", add_follow_up_question: "补充事实", no_change: "保持不变" } as Record<string, string>)[type] ?? type;
 }
 
 function optimizationCategoryLabel(

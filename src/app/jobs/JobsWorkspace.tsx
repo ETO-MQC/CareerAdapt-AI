@@ -49,6 +49,7 @@ import {
   validateJobInput
 } from "@/services/jobs/jobWorkflow";
 import { useWorkspace } from "@/services/workspace/useWorkspace";
+import { notify } from "@/services/notifications/store";
 
 const repository = new WorkspaceRepository();
 const jobArchiveKey = "jobWorkspace:archivedJobIds";
@@ -449,14 +450,19 @@ export function JobsWorkspace() {
       setSaveStatus("saving");
       const result = await commitParsedJob({ repository, draft, rawInput });
       workspace.upsertJob(result.jobDescription);
-      setDraft(result.draft);
+      setDraft(undefined);
+      setRawInput(undefined);
+      setTitle("");
+      setCompany("");
+      setRawText("");
       setSelectedJobId(result.jobDescription.id);
       setJobListFilter("active");
       setJobWorkspaceTab("requirements");
       setSaveStatus("saved");
       setJobError(undefined);
       setFailedAction(undefined);
-      setMessage(`已写入正式岗位数据：${result.jobDescription.company} / ${result.jobDescription.title}`);
+      setMessage(undefined);
+      notify({ type: "success", title: "岗位已提交", message: `${result.jobDescription.company} / ${result.jobDescription.title} 已写入正式岗位数据。` });
       await workspace.refetch();
     } catch (error) {
       const workflowError = jobWorkflowErrorState(error);
