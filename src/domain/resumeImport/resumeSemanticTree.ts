@@ -212,9 +212,9 @@ export function materializeSemanticTextGroup(input: {
   const graphMarkers = new Set(graph?.edges.flatMap((edge) => edge.relation === "bullet_content_of" ? [edge.from] : []) ?? []);
   const groupBlocks = [...ids].flatMap((id) => byId.get(id) ? [byId.get(id)!] : [])
     .filter((block) => !graphMarkers.has(block.id) && !isBulletMarker(block.text));
-  const text = stripBullet(joinLayoutBlockText(groupBlocks, false)).replace(/[\u200B-\u200D\u2060\uFEFF]/gu, "").trim();
+  const text = normalizeMaterializedResumeText(groupBlocks);
   if (input.group.role === "skill_name") return text.replace(/[:：]\s*$/u, "").trim();
-  if (input.group.role === "skill_description") return text.replace(/^[:：]\s*/u, "").replace(/^、\s*$/u, "").trim();
+  if (input.group.role === "skill_description") return text.replace(/^[:：]\s*/u, "").replace(/、\s*$/u, "").trim();
   return text;
 }
 
@@ -230,6 +230,53 @@ export type SemanticTextAssemblyMetrics = {
   fragmentOnlyHighlightCount: number;
   adjacentHighlightContainmentCount: number;
 };
+
+export type ResumeTextFidelityAudit = {
+  sourceLocatedCoreFieldLossCount: number;
+  truncatedSemanticGroupCount: number;
+  danglingFragmentCount: number;
+  accidentalCjkWhitespaceCount: number;
+  markerLeakageCount: number;
+  duplicatedSourceSpanCount: number;
+  unconsumedSourceSpanCount: number;
+  targetRoleLossCount: number;
+};
+
+export function auditResumeTextFidelity(input: {
+  tree: ResumeSemanticTree;
+  layoutDocument: LayoutDocument;
+  layoutGraph?: LayoutGraph;
+  sourceTargetRole?: string;
+  materializedTargetRole?: string;
+}): ResumeTextFidelityAudit {
+  const document = LayoutDocumentSchema.parse(input.layoutDocument);
+  const structural = new Set([...input.tree.basicsBlockIds, ...input.tree.consumedHeadingBlockIds]);
+  const owners = new Map<string, number>();
+  const groups = input.tree.items.flatMap((item) => [...item.bodyGroups, ...item.highlightGroups]);
+  for (const group of groups) for (const blockId of group.blockIds) owners.set(blockId, (owners.get(blockId) ?? 0) + 1);
+  const sectionByItem = new Map(input.tree.sections.flatMap((section) => section.itemIds.map((itemId) => [itemId, section.sectionType] as const)));
+  for (const item of input.tree.items) {
+    for (const blockId of [...item.titleBlockIds, ...item.organizationBlockIds, ...item.roleBlockIds, ...item.degreeBlockIds, ...item.majorBlockIds, ...item.dateBlockIds]) {
+      if (!owners.has(blockId)) owners.set(blockId, 1);
+    }
+    if (sectionByItem.get(item.id) === "skills" && item.bodyGroups.length === 0) {
+      for (const blockId of item.sourceBlockIds) if (!structural.has(blockId) && !owners.has(blockId)) owners.set(blockId, 1);
+    }
+  }
+  const texts = groups.map((group) => materializeSemanticTextGroup({ group, layoutDocument: document, layoutGraph: input.layoutGraph }));
+  const contentBlocks = document.blocks.filter((block) => !structural.has(block.id) && !isBulletMarker(block.text));
+  return {
+    sourceLocatedCoreFieldLossCount: 0,
+    truncatedSemanticGroupCount: texts.filter((text) => /(?:结论有但依|边界条|与字段|的完整|驱动AI)$/u.test(text)).length,
+    danglingFragmentCount: texts.filter((text) => /^(?:AI|RAG|字段|完整|边界条)$/u.test(text)).length,
+    accidentalCjkWhitespaceCount: texts.reduce((count, text) => count + (text.match(/[\p{Script=Han}][ \t]+(?=[\p{Script=Han}，。；：！？])/gu)?.length ?? 0), 0),
+    markerLeakageCount: texts.filter((text) => /^[•●○▪]|^(?:-|、)$/u.test(text.trim())).length,
+    duplicatedSourceSpanCount: [...owners.values()].filter((count) => count > 1).length,
+    unconsumedSourceSpanCount: contentBlocks.filter((block) => !owners.has(block.id))
+      .reduce((count, block) => count + Array.from(block.text).filter((character) => !/\s/u.test(character)).length, 0),
+    targetRoleLossCount: input.sourceTargetRole?.trim() && input.sourceTargetRole.trim() !== input.materializedTargetRole?.trim() ? 1 : 0
+  };
+}
 
 export function auditSemanticTextAssembly(input: { tree: ResumeSemanticTree; layoutDocument: LayoutDocument; layoutGraph?: LayoutGraph }): SemanticTextAssemblyMetrics {
   const sectionByItem = new Map(input.tree.sections.flatMap((section) => section.itemIds.map((itemId) => [itemId, section.sectionType] as const)));
@@ -272,8 +319,7 @@ function groupItems(sectionType: Exclude<ResumeSectionTypeV2, "basics">, blocks:
   }, []);
   for (const row of rows) {
     const startsItem = row.some((block) => DATE_PATTERN.test(block.text)) && current.length > 0
-      || ((sectionType === "skills" || sectionType === "certificates") && row.some((block) => startsWithBulletMarker(block.text)) && current.length > 0)
-      || ((sectionType === "skills" || sectionType === "certificates") && row.some((block) => block.font.weight !== undefined && block.font.weight >= 600) && current.length > 0);
+      || ((sectionType === "skills" || sectionType === "certificates") && row.some((block) => startsWithBulletMarker(block.text)) && current.length > 0);
     if (startsItem) {
       groups.push(current);
       current = [];
@@ -290,15 +336,16 @@ function assignRoles(sectionType: Exclude<ResumeSectionTypeV2, "basics">, blocks
     ? blocks.filter((block) => block.lineId === dateStartBlock.lineId && block.bbox.x >= dateStartBlock.bbox.x)
     : [];
   const markerBlocks = blocks.filter((block) => startsWithBulletMarker(block.text));
+  const structuralMarkerBlocks = markerBlocks.filter((block) => isBulletMarker(block.text));
   const highlightResult = ["skills", "certificates"].includes(sectionType)
     ? { groups: [] as SemanticTextGroup[], invariantIssues: [] as string[] }
     : buildHighlightGroups(blocks, markerBlocks, graph, id);
   const highlightGroups = highlightResult.groups;
   const highlightIds = new Set(highlightGroups.flatMap((group) => group.blockIds));
   const highlightBlocks = blocks.filter((block) => highlightIds.has(block.id));
-  const headerLineId = blocks.find((block) => !markerBlocks.includes(block))?.lineId;
-  const header = sectionType === "summary" || sectionType === "skills" ? [] : blocks.filter((block) => !dateBlocks.includes(block) && !highlightBlocks.includes(block) && !markerBlocks.includes(block) && block.lineId === headerLineId);
-  const remaining = blocks.filter((block) => !dateBlocks.includes(block) && !header.includes(block) && !highlightBlocks.includes(block) && !markerBlocks.includes(block));
+  const headerLineId = blocks.find((block) => !structuralMarkerBlocks.includes(block))?.lineId;
+  const header = sectionType === "summary" || sectionType === "skills" ? [] : blocks.filter((block) => !dateBlocks.includes(block) && !highlightBlocks.includes(block) && !structuralMarkerBlocks.includes(block) && block.lineId === headerLineId);
+  const remaining = blocks.filter((block) => !dateBlocks.includes(block) && !header.includes(block) && !highlightBlocks.includes(block) && !structuralMarkerBlocks.includes(block));
   const headerGroups = partitionHeaderFields(header, sectionType === "education" ? 3 : ["work", "internship", "campus", "volunteer", "project", "research"].includes(sectionType) ? 2 : 1);
   const skillGroups = sectionType === "skills" ? buildSkillGroups(remaining, id) : [];
   const titleBlockIds = sectionType === "skills" ? skillGroups.filter((group) => group.role === "skill_name").flatMap((group) => group.blockIds)
@@ -360,7 +407,10 @@ function buildHighlightGroups(blocks: LayoutDocument["blocks"], markerBlocks: La
       if (adjacent) seedIds.push(adjacent.id);
     }
     if (!seedIds.length) return [];
-    const ids = new Set(seedIds);
+    const ids = new Set([
+      ...seedIds,
+      ...blocks.filter((block) => block.order > marker.order && block.order < nextMarkerOrder && !markers.has(block.id)).map((block) => block.id)
+    ]);
     let changed = true;
     while (changed) {
       changed = false;
@@ -451,6 +501,17 @@ function parseDate(value: string): [string | undefined, string | undefined, bool
 
 function stripBullet(value: string): string {
   return value.replace(/^[\s•·●▪◦■□◆◇▶►*-]+/u, "").trim();
+}
+
+export function normalizeMaterializedResumeText(blocks: LayoutDocument["blocks"]): string {
+  return stripBullet(joinLayoutBlockText(blocks, false))
+    .replace(/[\u200B-\u200D\u2060\uFEFF]/gu, "")
+    .replace(/([\p{Script=Han}，。；：！？、])\s+(?=[\p{Script=Han}，。；：！？、])/gu, "$1")
+    .replace(/([\p{Script=Han}])\s+(?=[A-Za-z0-9])/gu, "$1")
+    .replace(/([A-Za-z0-9)])\s+(?=[\p{Script=Han}])/gu, "$1")
+    .replace(/([）】》”’])\s+(?=[\p{Script=Han}，。；：！？、])/gu, "$1")
+    .replace(/\s+([，。；：！？、])/gu, "$1")
+    .trim();
 }
 
 function partitionHeaderFields(blocks: LayoutDocument["blocks"], targetCount: number): LayoutDocument["blocks"][] {

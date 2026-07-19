@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createLayoutDocument, LayoutDocumentSchema, type LayoutTextFragment } from "@/domain/resumeImport/layoutDocument";
 import { buildLayoutGraph, LayoutGraphSchema } from "@/domain/resumeImport/layoutGraph";
-import { auditSemanticTextAssembly, LocalDeterministicSemanticResolver, mapSemanticItemToResumeItem, materializeSemanticTextGroup, ResumeSemanticTreeSchema } from "@/domain/resumeImport/resumeSemanticTree";
+import { auditResumeTextFidelity, auditSemanticTextAssembly, LocalDeterministicSemanticResolver, mapSemanticItemToResumeItem, materializeSemanticTextGroup, ResumeSemanticTreeSchema } from "@/domain/resumeImport/resumeSemanticTree";
 import { createImportedResumeDraftFromPdf } from "@/domain/resumeImport/parser";
 import { auditResumeImportInvariants } from "@/domain/resumeImport/invariants";
 import type { NormalizedSourceBlock } from "@/domain/schemas";
@@ -225,6 +225,56 @@ describe("LayoutDocument, Layout Graph and semantic tree", () => {
     const item = mapSemanticItemToResumeItem({ sectionType: "skills", item: tree.items.find((entry) => entry.id === section.itemIds[0])!, layoutDocument: document, layoutGraph: graph });
 
     expect(item).toMatchObject({ sectionType: "skills", name: "AI应用与工程化", description: "精通RAG与评测" });
+  });
+
+  it("keeps the description when an inline bullet contains the skill name, colon, and first line", () => {
+    const document = createLayoutDocument({ pageCount: 1, fragments: [
+      fragment("inline-skill-heading", "技能", 20, 800, 100, 16, 700),
+      fragment("inline-skill-first", "• 全栈开发与自动化：后端开发（Python / FastAPI）；前端开发（React / Next.js / TypeScript）；熟练利用", 20, 775, 500, 11),
+      fragment("inline-skill-wrap", "Playwright实现AI辅助下的端到端自动化测试。、", 35, 759, 280, 11, 700)
+    ] });
+    const graph = buildLayoutGraph(document);
+    const tree = new LocalDeterministicSemanticResolver().resolve({ layoutDocument: document, layoutGraph: graph });
+    const section = tree.sections.find((entry) => entry.sectionType === "skills")!;
+    const item = mapSemanticItemToResumeItem({ sectionType: "skills", item: tree.items.find((entry) => entry.id === section.itemIds[0])!, layoutDocument: document, layoutGraph: graph });
+    expect(item).toMatchObject({ sectionType: "skills", name: "全栈开发与自动化",
+      description: "后端开发（Python / FastAPI）；前端开发（React / Next.js / TypeScript）；熟练利用Playwright实现AI辅助下的端到端自动化测试。" });
+  });
+
+  it("keeps visual continuation lines, bold skill fragments, and intentional English spaces", () => {
+    const document = createLayoutDocument({ pageCount: 1, fragments: [
+      fragment("role-name", "开发工程师", 20, 830, 90, 12),
+      fragment("project-heading-fidelity", "项目经历", 20, 800, 100, 16, 700),
+      fragment("project-title-fidelity", "示例学习助手", 20, 775, 140, 12, 700),
+      fragment("project-role-fidelity", "独立开发者", 220, 775, 80, 12),
+      fragment("project-date-fidelity", "2026.03-至今", 440, 775, 100, 12),
+      fragment("fidelity-marker", "•", 20, 750, 8, 11),
+      fragment("fidelity-first", "发现模型在 RAG 检索结果不足时倾向于捏造依据，增加拒答边界条", 35, 750, 430, 11),
+      fragment("fidelity-wrap", "件并验证 Prompt Engineering 多轮 指令", 52, 734, 250, 11),
+      fragment("skills-heading-fidelity", "技能", 20, 700, 100, 16, 700),
+      fragment("skill-marker-fidelity", "•", 20, 675, 8, 11),
+      fragment("skill-name-fidelity", "全栈开发与自动化：", 35, 675, 120, 11, 700),
+      fragment("skill-desc-fidelity", "后端开发（Python / FastAPI）；前端开发（React / Next.js / TypeScript）；熟练利用", 157, 675, 380, 11),
+      fragment("skill-wrap-fidelity", "Playwright 实现 AI 辅助下的端到端自动化测试。、", 35, 659, 300, 11, 700)
+    ] });
+    const graph = buildLayoutGraph(document);
+    const tree = new LocalDeterministicSemanticResolver().resolve({ layoutDocument: document, layoutGraph: graph });
+    const projectSection = tree.sections.find((section) => section.sectionType === "project")!;
+    const skillSection = tree.sections.find((section) => section.sectionType === "skills")!;
+    const project = mapSemanticItemToResumeItem({ sectionType: "project", item: tree.items.find((item) => item.id === projectSection.itemIds[0])!, layoutDocument: document, layoutGraph: graph });
+    const skill = mapSemanticItemToResumeItem({ sectionType: "skills", item: tree.items.find((item) => item.id === skillSection.itemIds[0])!, layoutDocument: document, layoutGraph: graph });
+
+    expect("highlights" in project ? project.highlights : []).toEqual([
+      "发现模型在RAG检索结果不足时倾向于捏造依据，增加拒答边界条件并验证Prompt Engineering多轮指令"
+    ]);
+    expect(skill).toMatchObject({
+      sectionType: "skills",
+      name: "全栈开发与自动化",
+      description: "后端开发（Python / FastAPI）；前端开发（React / Next.js / TypeScript）；熟练利用Playwright实现AI辅助下的端到端自动化测试。"
+    });
+    expect(auditResumeTextFidelity({ tree, layoutDocument: document, layoutGraph: graph, sourceTargetRole: "开发工程师", materializedTargetRole: "开发工程师" }))
+      .toEqual({ sourceLocatedCoreFieldLossCount: 0, truncatedSemanticGroupCount: 0, danglingFragmentCount: 0, accidentalCjkWhitespaceCount: 0,
+        markerLeakageCount: 0, duplicatedSourceSpanCount: 0, unconsumedSourceSpanCount: 0, targetRoleLossCount: 0 });
   });
 
   it.each([
