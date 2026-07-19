@@ -2002,6 +2002,41 @@ export function ResumeWorkspace() {
     });
   }
 
+  async function optimizeForOnePage() {
+    if (!selectedBranch || !presentationConfig) return;
+    enqueuePresentation(async (current) => {
+      const nextConfig = buildNextPresentationConfig({
+        current,
+        branch: selectedBranch,
+        patch: {
+          typography: { ...current.typography, bodyTextScale: "small", lineHeight: "tight" },
+          spacing: { pageMargin: "narrow", sectionGap: "tight", itemGap: "tight" },
+          theme: { ...current.theme, density: "compact" },
+          pagination: { ...current.pagination, preferredPageCount: 1, pagePolicy: "prefer_one_page" }
+        }
+      });
+      return await savePresentationConfig({
+        nextConfig,
+        beforeConfig: current,
+        operationId: `p38c-one-page-optimize-${selectedBranch.id}-${current.presentationRevision}`,
+        successMessage: "已应用一页优化；内容不会被删除或裁切。"
+      });
+    });
+  }
+
+  async function updateItemHeaderAlignment(itemHeaderMiddleAlignment: ResumePresentationConfig["itemHeaderMiddleAlignment"]) {
+    if (!selectedBranch || !presentationConfig) return;
+    enqueuePresentation(async (current) => {
+      const nextConfig = buildNextPresentationConfig({ current, branch: selectedBranch, patch: { itemHeaderMiddleAlignment } });
+      return await savePresentationConfig({
+        nextConfig,
+        beforeConfig: current,
+        operationId: `p38c-heading-${selectedBranch.id}-${current.presentationRevision}-${itemHeaderMiddleAlignment}`,
+        successMessage: "条目头部对齐已保存。"
+      });
+    });
+  }
+
   async function setSectionPageBreak(sectionType: NonNullable<typeof selectedStudioBlock>["sectionType"], enabled: boolean) {
     if (!selectedBranch || !presentationConfig) {
       return;
@@ -4319,12 +4354,24 @@ export function ResumeWorkspace() {
                             <option value="none">不显示</option><option value="page_number">显示页码</option>
                           </select>
                         </label>
-                        <label className="inline-toggle">
-                          <input type="checkbox" data-testid="page-policy-selector" checked={presentationConfig?.pagination.pagePolicy === "prefer_one_page"} disabled={!presentationConfig || !selectedBranchEditable} onChange={(event) => {
-                            void updatePagePolicy(event.target.checked ? "prefer_one_page" : "natural");
-                          }} />
-                          优先压缩到一页
+                        <label className="field-label">页面策略
+                          <select data-testid="page-policy-selector" aria-label="页面策略" value={presentationConfig?.pagination.pagePolicy ?? "natural"} disabled={!presentationConfig || !selectedBranchEditable} onChange={(event) => {
+                            void updatePagePolicy(event.target.value as ResumePresentationConfig["pagination"]["pagePolicy"]);
+                          }}>
+                            <option value="natural">自然分页</option>
+                            <option value="prefer_one_page">优先一页</option>
+                            <option value="one_page_strict">严格一页</option>
+                            <option value="up_to_two_pages">最多两页</option>
+                          </select>
                         </label>
+                        <label className="field-label">条目头部
+                          <select aria-label="条目头部对齐" value={presentationConfig?.itemHeaderMiddleAlignment ?? "balanced"} disabled={!presentationConfig || !selectedBranchEditable} onChange={(event) => {
+                            void updateItemHeaderAlignment(event.target.value as ResumePresentationConfig["itemHeaderMiddleAlignment"]);
+                          }}>
+                            <option value="fixed-column">固定列</option><option value="balanced">均衡</option><option value="flow">紧凑流式</option>
+                          </select>
+                        </label>
+                        <button className="secondary-button compact" type="button" disabled={!presentationConfig || !selectedBranchEditable} onClick={() => { void optimizeForOnePage(); }}>一页优化</button>
                         <label className="inline-toggle">
                           <input type="checkbox" checked={presentationConfig?.pagination.showPhoto ?? false} disabled={!presentationConfig || !selectedBranchEditable || !selectedTemplate.capabilities.supportsPhoto} onChange={(event) => {
                             void updatePaginationSettings({ showPhoto: event.target.checked }, "照片显示设置已保存。");
@@ -4333,9 +4380,10 @@ export function ResumeWorkspace() {
                         </label>
                         {!selectedTemplate.capabilities.supportsPhoto ? <p className="save-status">当前模板不支持照片。</p> : null}
                         <div className="pagination-summary" data-testid="pagination-summary">
-                          <strong>实际页数：{pagination.plan?.actualPageCount ?? "测量中"}</strong>
+                          <strong>当前：{pagination.plan?.actualPageCount ?? "测量中"} 页</strong>
                           <span>{paginationStatusLabel(pagination.status)}</span>
-                          <span>超过 4 页时提醒，不裁切内容。</span>
+                          {pagination.plan?.pages.map((page) => <span key={page.pageNumber}>第 {page.pageNumber} 页利用率：{Math.round((page.utilization?.ratio ?? 0) * 100)}%</span>)}
+                          {pagination.plan?.issues?.map((issue) => <span className="save-status save-status-failed" key={issue}>{paginationIssueLabel(issue)}</span>)}
                         </div>
                       </div>
                     ) : null}
@@ -4841,7 +4889,7 @@ function buildNextPresentationConfig(input: {
   branch: ResumeBranch;
   patch: Partial<Pick<
     ResumePresentationConfig,
-    "templateId" | "itemOrderBySection" | "hiddenItemIds" | "typography" | "spacing" | "theme" | "pagination" | "sectionOrder" | "sectionStyleOverrides"
+    "templateId" | "itemOrderBySection" | "hiddenItemIds" | "typography" | "spacing" | "theme" | "pagination" | "sectionOrder" | "sectionStyleOverrides" | "itemHeaderMiddleAlignment"
   >>;
 }): ResumePresentationConfig {
   if (!input.branch.currentRevisionId) {
@@ -5533,6 +5581,19 @@ function pagePolicyPayload(payload: Record<string, unknown>): ResumePresentation
   return value === "natural" || value === "prefer_one_page" || value === "one_page_strict" || value === "up_to_two_pages"
     ? value
     : undefined;
+}
+
+function paginationIssueLabel(issue: NonNullable<ResumePaginationPlan["issues"]>[number]) {
+  const labels = {
+    severely_underfilled: "尾页空间利用率过低；已在合法边界中选择最均衡方案。",
+    underfilled: "尾页空间利用率偏低。",
+    oversized_content: "某条内容高于单页可用高度，将由浏览器按行自然分页。",
+    strict_one_page_overflow: "严格一页超出；请减少内容或使用一页优化。",
+    exceeds_two_pages: "内容超过两页。",
+    horizontal_overflow: "检测到横向溢出。",
+    measurement_failed: "分页测量失败，请重试。"
+  } satisfies Record<NonNullable<ResumePaginationPlan["issues"]>[number], string>;
+  return labels[issue];
 }
 
 function templateIdPayload(payload: Record<string, unknown>): TemplateId | undefined {

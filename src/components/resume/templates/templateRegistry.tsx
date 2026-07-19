@@ -544,7 +544,7 @@ function RenderPresentationItem({ item, context }: { item: ResumePresentationIte
   return (
     <article {...presentationItemAttrs(item, context, "resume-template-item resume-canonical-item")}>
       {(item.primaryTitle || item.secondaryTitle || item.dateRange) ? (
-        <div className="resume-presentation-heading" data-pagination-unit="heading">
+        <div className={`resume-presentation-heading resume-presentation-heading-${context?.presentationConfig?.itemHeaderMiddleAlignment ?? "balanced"}`} data-pagination-unit="heading">
           {item.primaryTitle ? <h3>{item.primaryTitle}</h3> : <span />}
           {item.secondaryTitle ? <strong>{item.secondaryTitle}</strong> : null}
           {item.dateRange ? <time>{item.dateRange}</time> : null}

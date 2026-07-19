@@ -4012,6 +4012,23 @@ html[data-theme="dark"] .property-panel-heading p {
   break-after: avoid;
 }
 
+.resume-presentation-heading-fixed-column {
+  grid-template-columns: minmax(0, 1fr) minmax(34mm, 0.7fr) max-content;
+}
+
+.resume-presentation-heading-balanced {
+  grid-template-columns: minmax(0, 1fr) minmax(0, auto) max-content;
+}
+
+.resume-presentation-heading-flow {
+  grid-template-columns: auto minmax(0, 1fr) max-content;
+}
+
+.resume-presentation-heading strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .resume-presentation-heading h3 {
   color: #171b18;
   font-size: calc(var(--resume-body-font-size, 9.3pt) * 1.08);
@@ -4110,10 +4127,6 @@ html[data-theme="dark"] .property-panel-heading p {
   color: #303632;
   font-size: var(--resume-body-font-size, 9.3pt);
   line-height: var(--resume-line-height, 1.48);
-}
-
-.resume-skill-values span:not(:last-child)::after {
-  content: "、";
 }
 
 .resume-language-row,
