@@ -73,13 +73,9 @@ export function buildRequirementBlockMatches(input: {
       .filter((item) => item.itemType !== "structural")
       .filter((item) => item.factRefs.some((ref) => evidenceKeys.has(branchFactRefKey(ref))));
 
-    const keywordMatchedItems = directlyMatchedItems.length > 0
-      ? []
-      : input.branch.contentItems
-        .filter((item) => item.itemType !== "structural")
-        .filter((item) => keywordHit(item.text, [...requirement.keywords, requirement.description, requirement.sourceSpan.text]));
-
-    const targetItems = directlyMatchedItems.length > 0 ? directlyMatchedItems : keywordMatchedItems;
+    // Text similarity is recall-only in V2. A block is not promoted to a match
+    // unless its confirmed fact refs intersect the requirement evaluation.
+    const targetItems = directlyMatchedItems;
     if (targetItems.length === 0) {
       return [RequirementBlockMatchSchema.parse({
         id: `rbm-${requirement.id}-none-${nanoid(8)}`,
@@ -112,7 +108,7 @@ export function buildRequirementBlockMatches(input: {
       const matchedEvidenceRefs = evidenceRefs.length > 0
         ? itemEvidenceRefs.filter((ref) => evidenceKeys.has(branchFactRefKey(toBranchFactRef(ref))))
         : itemEvidenceRefs;
-      const level = directMatchLevel(effective?.matchLevel, matchedEvidenceRefs.length > 0, keywordMatchedItems.includes(item));
+      const level = directMatchLevel(effective?.matchLevel, matchedEvidenceRefs.length > 0);
       return RequirementBlockMatchSchema.parse({
         id: `rbm-${requirement.id}-${item.id}-${nanoid(8)}`,
         jobId: input.job.id,
@@ -211,12 +207,8 @@ function buildBlocksByEvidence(profile: CareerProfile, branch: ResumeBranch) {
 
 function directMatchLevel(
   existingLevel: string | undefined,
-  hasEvidence: boolean,
-  keywordOnly: boolean
+  hasEvidence: boolean
 ): RequirementBlockMatchLevel {
-  if (!hasEvidence && keywordOnly) {
-    return "needs_confirmation";
-  }
   if (!hasEvidence) {
     return "none";
   }
@@ -270,18 +262,6 @@ function levelRank(level: RequirementBlockMatchLevel) {
     none: 0
   };
   return rank[level];
-}
-
-function keywordHit(text: string, candidates: string[]) {
-  const normalized = normalizeText(text);
-  return candidates.flatMap(splitKeywords).some((keyword) => keyword.length >= 2 && normalized.includes(keyword));
-}
-
-function splitKeywords(text: string) {
-  const normalized = normalizeText(text);
-  const alnum = normalized.match(/[a-z0-9+#.]+/g) ?? [];
-  const chinese = normalized.match(/[\u4e00-\u9fa5]{2,}/g) ?? [];
-  return [...alnum, ...chinese];
 }
 
 function normalizeText(text: string) {
