@@ -32,7 +32,9 @@ test.describe("P3.4a job persistence and immediate refresh", () => {
     const savedJobRow = page.locator(".jobs-list-panel .match-row").filter({ hasText: "即时刷新测试公司 / P3.4a 数据分析师" });
     await expect(savedJobRow).toHaveCount(1);
     await expect(savedJobRow).toBeVisible();
-    await expect(page.getByTestId("commit-job")).toBeDisabled();
+    await expect(page.getByTestId("commit-job")).toHaveCount(0);
+    await expect(page.getByTestId("job-title-input")).toHaveValue("");
+    await expect(page.locator(".app-notification")).toContainText("岗位已提交");
 
     const tabs = page.getByRole("tab");
     await expect(tabs).toHaveCount(4);

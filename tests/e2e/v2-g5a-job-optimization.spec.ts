@@ -22,6 +22,33 @@ type DbSuggestion = {
 };
 
 test.describe("P3.4 job resume derivation and suggestion closure", () => {
+  test("shows JD → evidence report → whole-resume optimization plan", async ({ page }) => {
+    await ensureGeneralResume(page);
+    await deriveSelectedJobResume(page);
+    const panel = page.getByTestId("job-optimization-panel");
+    await expect(panel.getByTestId("job-optimization-v2")).toBeVisible({ timeout: 20_000 });
+    await panel.getByRole("tab", { name: /匹配报告/ }).click();
+    const report = panel.getByTestId("optimization-v2-report");
+    await expect(report).toContainText("岗位证据覆盖度");
+    await expect(report).toContainText("不是 ATS 通过概率");
+    await expect(report.getByTestId("requirement-v2-list").locator(".match-row").first()).toBeVisible();
+    await report.getByTestId("requirement-v2-list").locator(".match-row").first().click();
+    await expect(report.getByTestId("requirement-v2-detail")).toContainText("JD 原文");
+    await panel.getByRole("tab", { name: /优化方案/ }).click();
+    await expect(panel.getByTestId("optimization-v2-plan")).toContainText("本轮仅展示计划");
+  });
+
+  test("keeps hard gaps as questions and exposes no apply action in the V2 plan", async ({ page }) => {
+    await ensureGeneralResume(page);
+    await deriveSelectedJobResume(page);
+    const panel = page.getByTestId("job-optimization-panel");
+    await panel.getByRole("tab", { name: /优化方案/ }).click();
+    const plan = panel.getByTestId("optimization-v2-plan");
+    await expect(plan).toBeVisible({ timeout: 20_000 });
+    await expect(plan).not.toContainText("拥有三年经验");
+    await expect(plan.getByRole("button", { name: /应用|批量生成|写入简历/ })).toHaveCount(0);
+  });
+
   test("explicitly selects a general resume, derives an isolated job branch, and accepts a guarded suggestion", async ({ page }) => {
     test.setTimeout(150_000);
     await setupStableAiMock(page);
