@@ -83,6 +83,8 @@ export function mapBranchToResumeRenderModel(input: {
   };
 
   const runtimeBranch = migrateResumeBranchToV2(branch);
+  const targetRole = job?.title ?? profile.structuredBasics?.targetRole ?? profile.structuredBasics?.headline
+    ?? profile.preference.targetRoles[0];
   const seenStructuredItemIds = new Set<string>();
   const structuredItems = runtimeBranch.structuredContentItems.flatMap((item) => {
     if (!item.visible || !renderableItemIds.has(item.id)) return [];
@@ -126,8 +128,8 @@ export function mapBranchToResumeRenderModel(input: {
     branchRevision: branch.revision,
     branchCurrentRevisionId: branch.currentRevisionId,
     branchName: branch.name,
-    jobTitle: job?.title ?? "通用简历",
-    company: job?.company ?? "未指定岗位",
+    jobTitle: targetRole ?? "通用简历",
+    company: job?.company ?? "通用简历",
     candidate: {
       name: basics.name,
       summary: basics.summary || undefined,
@@ -137,7 +139,7 @@ export function mapBranchToResumeRenderModel(input: {
         basics.email,
         ...basics.links
       ].filter((value): value is string => Boolean(value?.trim())),
-      targetRole: job?.title
+      targetRole
     },
     sections,
     structuredSections,

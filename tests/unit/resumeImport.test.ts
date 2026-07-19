@@ -74,7 +74,11 @@ describe("V2-G4a resume PDF import", () => {
     expect(result.branch.jobId).toBeUndefined();
     expect(result.branch.requirementMatchIds).toEqual([]);
     expect(result.firstRevision.source).toBe("import_confirmed");
-    expect(renderModel.jobTitle).toBe("通用简历");
+    expect(result.profile.preference.targetRoles).toEqual(["开发工程师"]);
+    expect(result.profile.structuredBasics).toMatchObject({ headline: "开发工程师", targetRole: "开发工程师" });
+    expect(result.firstRevision.snapshot.resumeBasics?.name).toBe(result.profile.basics.name);
+    expect(renderModel.jobTitle).toBe("开发工程师");
+    expect(renderModel.candidate.targetRole).toBe("开发工程师");
     expect(renderModel.sourceTrace.jobId).toBeUndefined();
   });
 
@@ -231,6 +235,7 @@ describe("V2-G4a resume PDF import", () => {
 function createPageTexts(): PdfPageText[] {
   const page1 = [
     "Alex Chen",
+    "开发工程师",
     "alex@example.com 13800138000",
     "Summary",
     "Data analyst focused on clean reporting and dashboard automation.",
