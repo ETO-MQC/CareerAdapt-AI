@@ -3022,6 +3022,29 @@ small,
   font-weight: 700;
 }
 
+.resume-card-rename-editor {
+  display: grid;
+  gap: 4px;
+}
+
+.resume-card-rename-editor input {
+  min-width: 0;
+  height: 32px;
+}
+
+.resume-card-rename-editor small {
+  color: var(--danger);
+}
+
+.resume-card-target-role {
+  color: var(--text-secondary);
+}
+
+.resume-card-rename-button {
+  width: 32px;
+  padding-inline: 0;
+}
+
 .resume-create-inline-panel {
   border-top: 1px solid var(--line);
   display: grid;
@@ -3081,7 +3104,7 @@ small,
   white-space: nowrap;
 }
 
-.resume-card-main:disabled {
+.resume-card-main[aria-disabled="true"] {
   cursor: not-allowed;
   opacity: 0.66;
 }

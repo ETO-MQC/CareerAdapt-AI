@@ -109,7 +109,7 @@ export function mapAdaptationDraftToResumeBranch(input: {
     revision: 0,
     lifecycleStatus: "active" as const,
     migrationStatus: "verified" as const,
-    resumeBasics: resumeBasicsFromProfile(input.profile),
+    resumeBasics: { ...resumeBasicsFromProfile(input.profile), targetRole: input.job.title },
     contentItems,
     createdAt: now,
     updatedAt: now

@@ -17,7 +17,8 @@ import {
   Sparkles,
   Plus,
   PanelLeftOpen,
-  PanelLeftClose
+  PanelLeftClose,
+  Pencil
 } from "lucide-react";
 import {
   type JobAdaptationDraft,
@@ -86,6 +87,7 @@ import { CanonicalSectionPage } from "@/components/editor/sections/CanonicalSect
 import { type ResumeStudioSectionKey, type SectionNavContext } from "@/components/editor/sections/types";
 import { exportCareerAdaptResumeJsonV2 } from "@/domain/resumeImport/jsonV2Adapter";
 import { projectResumeItemV2 } from "@/domain/migrations/resumeV2";
+import { resolveResumeTargetRole } from "@/domain/branch/targetRole";
 
 const repository = new WorkspaceRepository();
 const DEFAULT_TEMPLATE_ID: TemplateId = "classic-technical";
@@ -232,6 +234,10 @@ export function ResumeWorkspace() {
   const [isJobCreatePanelOpen, setIsJobCreatePanelOpen] = useState(false);
   const [isJobCreatePanelDismissed, setIsJobCreatePanelDismissed] = useState(false);
   const [resumeListFilter, setResumeListFilter] = useState<ResumeListFilter>("recent");
+  const [renamingBranchId, setRenamingBranchId] = useState<string>();
+  const [renameBranchDraft, setRenameBranchDraft] = useState("");
+  const [renameBranchError, setRenameBranchError] = useState<string>();
+  const [renameBranchPending, setRenameBranchPending] = useState(false);
   const [studioMode, setStudioMode] = useState<StudioMode>("edit");
   const [manualInspectorTab, setManualInspectorTab] = useState<ManualInspectorTab>("content");
   const [aiInspectorTab, setAiInspectorTab] = useState<AiInspectorTab>("suggestions");
@@ -1590,25 +1596,41 @@ export function ResumeWorkspace() {
     }
   }
 
-  async function renameBranch(newName: string) {
-    if (!selectedBranch || !selectedBranchEditable) {
+  async function renameBranch(branch: ResumeBranch, newName: string) {
+    if (!canEditBranch(branch) || renameBranchPending) {
       return;
     }
     const trimmed = newName.trim();
-    if (!trimmed || trimmed === selectedBranch.name) {
+    if (!trimmed) {
+      setRenameBranchError("简历名称不能为空");
       return;
     }
+    if (trimmed.length > 120) {
+      setRenameBranchError("简历名称不能超过 120 个字符");
+      return;
+    }
+    if (trimmed === branch.name) {
+      setRenamingBranchId(undefined);
+      setRenameBranchError(undefined);
+      return;
+    }
+    setRenameBranchPending(true);
+    setRenameBranchError(undefined);
     try {
       const result = await repository.renameResumeBranch({
-        branchId: selectedBranch.id,
-        expectedRevision: selectedBranch.revision,
-        operationId: `rename-${selectedBranch.id}-${selectedBranch.revision}-${stableHashText(trimmed)}`,
+        branchId: branch.id,
+        expectedRevision: branch.revision,
+        operationId: `rename-${branch.id}-${branch.revision}-${stableHashText(trimmed)}`,
         name: trimmed
       });
-      replaceBranch(result.branch);
+      replaceBranch(result.branch, { select: false });
+      setRenamingBranchId(undefined);
+      setRenameBranchDraft("");
       notify({ type: "success", title: "已重命名", message: "简历名称已更新。" });
     } catch {
-      notify({ type: "error", title: "重命名失败", message: "请重试。" });
+      setRenameBranchError("重命名失败，请刷新后重试");
+    } finally {
+      setRenameBranchPending(false);
     }
   }
 
@@ -3508,24 +3530,78 @@ export function ResumeWorkspace() {
                 <div className="branch-list resume-card-list">
                   {visibleBranches.map((branch) => {
                     const branchEditable = canEditBranch(branch);
+                    const branchJob = branch.jobId ? localJobs.find((job) => job.id === branch.jobId) : undefined;
+                    const branchTargetRole = profile ? resolveResumeTargetRole({ branch, profile, job: branchJob }) : branch.resumeBasics?.targetRole?.trim();
+                    const isRenaming = renamingBranchId === branch.id;
                     return (
                       <article
                         key={branch.id}
                         className={`match-row resume-card ${branch.id === activeBranchId ? "match-row-active" : ""}`}
                       >
-                        <button
+                        <div
                           className="resume-card-main"
-                          type="button"
-                          disabled={!branchEditable}
-                          onClick={() => openResumeBranch(branch.id)}
+                          role={isRenaming ? undefined : "button"}
+                          tabIndex={!isRenaming && branchEditable ? 0 : undefined}
+                          aria-disabled={!isRenaming && !branchEditable ? "true" : undefined}
+                          onClick={(event) => {
+                            if ((event.target as Element).closest(".resume-card-rename-editor")) return;
+                            if (!isRenaming && branchEditable) openResumeBranch(branch.id);
+                          }}
+                          onKeyDown={(event) => {
+                            if ((event.target as Element).closest(".resume-card-rename-editor")) return;
+                            if (!isRenaming && branchEditable && (event.key === "Enter" || event.key === " ")) {
+                              event.preventDefault();
+                              openResumeBranch(branch.id);
+                            }
+                          }}
                         >
-                          <strong>{branch.name}</strong>
+                          {isRenaming ? (
+                            <span className="resume-card-rename-editor" onClick={(event) => event.stopPropagation()}>
+                              <input
+                                autoFocus
+                                aria-label="简历名称"
+                                data-testid={`resume-rename-input-${branch.id}`}
+                                maxLength={120}
+                                value={renameBranchDraft}
+                                disabled={renameBranchPending}
+                                onChange={(event) => {
+                                  setRenameBranchDraft(event.target.value);
+                                  setRenameBranchError(undefined);
+                                }}
+                                onBlur={() => { void renameBranch(branch, renameBranchDraft); }}
+                                onKeyDown={(event) => {
+                                  event.stopPropagation();
+                                  if (event.key === "Enter") {
+                                    event.preventDefault();
+                                    event.currentTarget.blur();
+                                  } else if (event.key === "Escape") {
+                                    event.preventDefault();
+                                    setRenamingBranchId(undefined);
+                                    setRenameBranchError(undefined);
+                                  }
+                                }}
+                              />
+                              {renameBranchError ? <small role="alert">{renameBranchError}</small> : null}
+                            </span>
+                          ) : <strong>{branch.name}</strong>}
+                          {branchTargetRole ? <span className="resume-card-target-role">{branchTargetRole}</span> : null}
                           <span>{branchPurposeLabel(branch.branchPurpose)} / {branchStatusLabel(branch)} / {syncStatusLabel(branch.syncStatusCache.status)}</span>
                           <small>更新于 {formatLocalDateTime(branch.updatedAt)}</small>
-                        </button>
+                        </div>
                         <div className="resume-card-actions">
                           {branch.lifecycleStatus === "active" ? (
                             <>
+                              <button
+                                className="secondary-button compact resume-card-rename-button"
+                                type="button"
+                                aria-label="重命名简历"
+                                disabled={!branchEditable || renameBranchPending}
+                                onClick={() => {
+                                  setRenamingBranchId(branch.id);
+                                  setRenameBranchDraft(branch.name);
+                                  setRenameBranchError(undefined);
+                                }}
+                              ><Pencil aria-hidden="true" size={15} /></button>
                               <button className="primary-button compact" type="button" disabled={!branchEditable} onClick={() => openResumeBranch(branch.id)}>打开</button>
                               <button className="secondary-button compact" type="button" disabled={!branchEditable} onClick={() => {
                                 openResumeBranch(branch.id);
@@ -3939,10 +4015,7 @@ export function ResumeWorkspace() {
                   branchEditable={selectedBranchEditable}
                   profileFieldError={profileFieldError}
                   onSaveProfileField={saveProfileFieldText}
-                  onBranchNameChange={(name) => {
-                    if (selectedBranch) replaceBranch({ ...selectedBranch, name });
-                  }}
-                  onRenameBranch={renameBranch}
+                  onSaveBranchBasicsField={(_field, value) => { void saveProfileFieldText("branch:targetRole", value); }}
                   nav={sectionNavContext}
                 />
               ) : activeResumeSection === "summary" ? (
@@ -5107,11 +5180,14 @@ function sectionTitleFieldLabel(fieldId: string | undefined) {
   return sectionType ? sectionTypeLabel(sectionType) : "栏目标题";
 }
 
-type EditableProfileFieldKey = "name" | "phone" | "email" | "location" | "link";
+type EditableProfileFieldKey = "name" | "targetRole" | "phone" | "email" | "location" | "link";
 
 function profileFieldKey(fieldId: string): EditableProfileFieldKey | undefined {
   if (fieldId === "profile:name") {
     return "name";
+  }
+  if (fieldId === "branch:targetRole") {
+    return "targetRole";
   }
   if (fieldId === "profile:phone") {
     return "phone";
@@ -5140,6 +5216,7 @@ function profileFieldLabel(fieldId?: string) {
   }
   const labels: Record<EditableProfileFieldKey, string> = {
     name: "姓名",
+    targetRole: "目标职位",
     phone: "电话",
     email: "邮箱",
     location: "所在地",

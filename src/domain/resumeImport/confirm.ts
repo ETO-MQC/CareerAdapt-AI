@@ -91,6 +91,7 @@ export function buildResumeImportConfirmation(input: {
     },
     resumeBasics: {
       name: profile.basics.name,
+      targetRole: input.draft.basics.targetRole?.value ?? "",
       email: profile.basics.email ?? "",
       phone: profile.basics.phone ?? "",
       location: profile.basics.location ?? "",

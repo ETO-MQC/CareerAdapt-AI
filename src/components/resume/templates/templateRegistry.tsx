@@ -645,7 +645,9 @@ function ResumeHeader({
     <header className={`resume-template-header ${compact ? "resume-template-header-compact" : ""} ${plain ? "resume-template-header-plain" : ""}`}>
       <div>
         <h1 {...profileFieldAttrs("profile:name", context)}>{model.candidate.name}</h1>
-        <p>{model.company} / {model.jobTitle}</p>
+        {model.candidate.targetRole?.trim() ? (
+          <p {...profileFieldAttrs("branch:targetRole", context)}>{model.candidate.targetRole}</p>
+        ) : null}
       </div>
       <address>
         {(() => {

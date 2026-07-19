@@ -1223,6 +1223,7 @@ export class WorkspaceRepository {
           currentRevisionId: undefined,
           lifecycleStatus: "active",
           migrationStatus: "verified",
+          resumeBasics: { ...sourceBranch.resumeBasics, targetRole: parsedJob.title },
           contentItems: sourceBranch.contentItems,
           syncStatusCache: {
             status: "in_sync",
@@ -2304,9 +2305,13 @@ export class WorkspaceRepository {
       type: "manual_edit",
       source: "manual_edit",
       mutate: async ({ branch }) => {
+        const name = input.name.trim();
+        if (!name) {
+          throw new Error("resume_branch_name_required");
+        }
         return ResumeBranchSchema.parse({
           ...branch,
-          name: input.name.trim() || branch.name
+          name
         });
       }
     });

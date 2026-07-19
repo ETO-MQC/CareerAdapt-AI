@@ -95,8 +95,14 @@ describe("D1 resume branch domain", () => {
       branchId: created.branch.id,
       expectedRevision: created.branch.revision,
       operationId: "g7b5-edit-basics-repository",
-      basics: { name: "独立简历姓名", email: "resume@example.com" }
+      basics: { name: "独立简历姓名", targetRole: "测试工程师", email: "resume@example.com" }
     });
+    await expect(repository.renameResumeBranch({
+      branchId: basics.branch.id,
+      expectedRevision: basics.branch.revision,
+      operationId: "g7b5-reject-empty-branch-name",
+      name: "   "
+    })).rejects.toThrow("resume_branch_name_required");
     const added = await repository.addResumeContentItem({
       branchId: basics.branch.id,
       expectedRevision: basics.branch.revision,
@@ -111,7 +117,8 @@ describe("D1 resume branch domain", () => {
     const savedProfile = await repository.getProfile(demoCareerProfile.id);
     const addedItem = added.branch.contentItems.find((item) => item.id === added.newItemId);
 
-    expect(basics.branch.resumeBasics).toMatchObject({ name: "独立简历姓名", email: "resume@example.com" });
+    expect(basics.branch.resumeBasics).toMatchObject({ name: "独立简历姓名", targetRole: "测试工程师", email: "resume@example.com" });
+    expect((await repository.listResumeRevisions(basics.branch.id)).some((revision) => revision.snapshot.resumeBasics?.targetRole === "测试工程师")).toBe(true);
     expect(added.branch.revision).toBe(2);
     expect(addedItem?.factRefs).toHaveLength(0);
     expect(addedItem?.userConfirmation?.scope).toBe("resume_only");

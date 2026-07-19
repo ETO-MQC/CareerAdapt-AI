@@ -6,7 +6,7 @@ import { FieldInput } from "../FieldInput";
 import { SectionShell } from "../SectionShell";
 import { type SectionNavContext, prevSection, nextSection } from "./types";
 
-type DraftField = "name" | "headline" | "email" | "phone" | "location" | "linkedin";
+type DraftField = "name" | "targetRole" | "email" | "phone" | "location" | "linkedin";
 
 type BasicsSectionPageProps = {
   profile?: CareerProfile;
@@ -14,8 +14,7 @@ type BasicsSectionPageProps = {
   branchEditable: boolean;
   profileFieldError?: string;
   onSaveProfileField: (fieldId: string, value: string) => void;
-  onBranchNameChange: (name: string) => void;
-  onRenameBranch: (name: string) => void;
+  onSaveBranchBasicsField: (field: "targetRole", value: string) => void;
   nav: SectionNavContext;
 };
 
@@ -23,7 +22,7 @@ function getFieldValue(profile: CareerProfile | undefined, branch: ResumeBranch 
   const basics = branch?.resumeBasics;
   switch (field) {
     case "name": return basics?.name ?? profile?.basics.name ?? "";
-    case "headline": return branch?.name ?? "";
+    case "targetRole": return basics?.targetRole ?? "";
     case "email": return basics?.email ?? profile?.basics.email ?? "";
     case "phone": return basics?.phone ?? profile?.basics.phone ?? "";
     case "location": return basics?.location ?? profile?.basics.location ?? "";
@@ -33,7 +32,7 @@ function getFieldValue(profile: CareerProfile | undefined, branch: ResumeBranch 
 
 const FIELD_SAVE_MAP: Record<DraftField, (value: string, props: BasicsSectionPageProps) => void> = {
   name: (v, p) => p.onSaveProfileField("profile:name", v),
-  headline: (v, p) => { p.onBranchNameChange(v); p.onRenameBranch(v); },
+  targetRole: (v, p) => p.onSaveBranchBasicsField("targetRole", v),
   email: (v, p) => p.onSaveProfileField("profile:email", v),
   phone: (v, p) => p.onSaveProfileField("profile:phone", v),
   location: (v, p) => p.onSaveProfileField("profile:location", v),
@@ -94,13 +93,13 @@ export function BasicsSectionPage(props: BasicsSectionPageProps) {
           error={profileFieldError}
         />
         <FieldInput
-          label="职位名称"
+          label="目标职位"
           id="basics-headline"
-          value={getValue("headline")}
+          value={getValue("targetRole")}
           placeholder="例如：软件工程师"
-          hint="您正在申请或以此为目标的职位。"
-          onChange={(v) => handleChange("headline", v)}
-          onBlur={() => handleBlur("headline")}
+          hint="显示在简历顶部，例如：开发工程师。不会改变简历名称。"
+          onChange={(v) => handleChange("targetRole", v)}
+          onBlur={() => handleBlur("targetRole")}
         />
         <div className="section-fields-grid-2">
           <FieldInput

@@ -12,6 +12,7 @@ import { mapBranchToResumeDocument, sectionTitle } from "@/domain/resumeDocument
 import { migrateResumeBranchToV2, projectResumeItemV2 } from "@/domain/migrations/resumeV2";
 import { getResumeSectionDefinition, type ResumeSectionTypeV2 } from "@/domain/resumeFields";
 import { projectResumePresentationItem } from "@/domain/resumePresentation/projector";
+import { resolveResumeTargetRole } from "@/domain/branch/targetRole";
 import {
   createRenderCoverageReport,
   presentationCoverage,
@@ -83,8 +84,7 @@ export function mapBranchToResumeRenderModel(input: {
   };
 
   const runtimeBranch = migrateResumeBranchToV2(branch);
-  const targetRole = job?.title ?? profile.structuredBasics?.targetRole ?? profile.structuredBasics?.headline
-    ?? profile.preference.targetRoles[0];
+  const targetRole = resolveResumeTargetRole({ branch, profile, job });
   const seenStructuredItemIds = new Set<string>();
   const structuredItems = runtimeBranch.structuredContentItems.flatMap((item) => {
     if (!item.visible || !renderableItemIds.has(item.id)) return [];
@@ -128,7 +128,7 @@ export function mapBranchToResumeRenderModel(input: {
     branchRevision: branch.revision,
     branchCurrentRevisionId: branch.currentRevisionId,
     branchName: branch.name,
-    jobTitle: targetRole ?? "通用简历",
+    jobTitle: job?.title ?? targetRole ?? "Resume",
     company: job?.company ?? "通用简历",
     candidate: {
       name: basics.name,

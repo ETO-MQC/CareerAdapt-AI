@@ -84,6 +84,8 @@ export const BranchUserConfirmationSchema = z.object({
 
 export const ResumeBranchBasicsSchema = z.object({
   name: z.string().default(""),
+  // Optional keeps historical branches distinguishable from an explicitly cleared role.
+  targetRole: z.string().optional(),
   email: z.string().default(""),
   phone: z.string().default(""),
   location: z.string().default(""),
