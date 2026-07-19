@@ -3583,8 +3583,12 @@ export function ResumeWorkspace() {
                               />
                               {renameBranchError ? <small role="alert">{renameBranchError}</small> : null}
                             </span>
-                          ) : <strong>{branch.name}</strong>}
-                          {branchTargetRole ? <span className="resume-card-target-role">{branchTargetRole}</span> : null}
+                          ) : (
+                            <strong className="resume-card-title">
+                              {branch.name}
+                              {branchTargetRole ? <span className="resume-card-target-role">（{branchTargetRole}）</span> : null}
+                            </strong>
+                          )}
                           <span>{branchPurposeLabel(branch.branchPurpose)} / {branchStatusLabel(branch)} / {syncStatusLabel(branch.syncStatusCache.status)}</span>
                           <small>更新于 {formatLocalDateTime(branch.updatedAt)}</small>
                         </div>

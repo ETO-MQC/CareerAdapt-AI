@@ -14,8 +14,8 @@ test.describe("P3.6g1.3a resume name and target role", () => {
     const renameInput = card.getByLabel("简历名称");
     await renameInput.fill("2026校招主投版");
     await renameInput.press("Enter");
-    await expect(card.locator("strong")).toHaveText("2026校招主投版");
-    await expect(card.locator(".resume-card-target-role")).toHaveText("开发工程师");
+    await expect(card.locator("strong")).toHaveText("2026校招主投版（开发工程师）");
+    await expect(card.locator(".resume-card-target-role")).toHaveText("（开发工程师）");
 
     await card.getByRole("button", { name: "打开", exact: true }).click();
     await expect(page.locator('[data-profile-field-id="branch:targetRole"]').first()).toHaveText("开发工程师");

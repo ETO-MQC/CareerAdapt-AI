@@ -102,7 +102,7 @@ const emptyProfileArchive: ProfileArchiveState = {
 };
 
 const profileCategories = profileSectionCatalog.map((section) => ({
-  id: section.id,
+  id: managedProfileCategoryId(section.id),
   label: section.label,
   description: section.repeatable ? "可复用的已确认资料" : "当前人物的基础资料",
   repeatable: section.repeatable
@@ -333,7 +333,7 @@ export function ProfileWorkspace() {
   async function saveProfileSnapshot(nextProfile: CareerProfile, successMessage: string) {
     setProfileSaving(true);
     try {
-      const saved = await repository.saveProfile(nextProfile);
+      const saved = await repository.saveProfile(synchronizeProfileStructuredFacts(nextProfile, profile));
       setProfileOverride(saved);
       setProfileOverrides((current) => ({ ...current, [saved.id]: saved }));
       setSaveStatus("saved");
@@ -2271,37 +2271,20 @@ function buildCurrentProfileItems(profile: CareerProfile, category: ProfileCateg
     }];
   }
 
-  const canonicalItems = canonicalProfileLibraryItems(profile)
-    .filter((item) => item.sectionType === category);
-  if (canonicalItems.length > 0) {
-    return canonicalItems.map((item) => ({
-      key: `canonical:${item.sectionType}:${item.id}`,
-      id: item.id,
-      kind: "custom",
-      category,
-      title: item.title,
-      subtitle: item.subtitle,
-      body: item.body,
-      source: item.factIds.length ? "已确认事实" : "用户确认",
-      usage: "可加入简历",
-      used: true,
-      archived: false,
-      updatedAt: profile.updatedAt
-    }));
-  }
-
   if (category === "certificate") {
-    return profile.certificates.map((certificate) => certificateToManagedItem(certificate, false));
+    const certificates = profile.certificates.map((certificate) => certificateToManagedItem(certificate, false));
+    if (certificates.length > 0) return certificates;
   }
 
   if (category === "skill" || category === "language") {
-    return profile.skills
+    const skills = profile.skills
       .filter((skill) => isLanguageSkill(skill) === (category === "language"))
       .map((skill) => skillToManagedItem(skill, category, false));
+    if (skills.length > 0) return skills;
   }
 
   if (category === "custom") {
-    return profile.unclassifiedBlocks.map((block, index) => ({
+    const customBlocks: ProfileManagedItem[] = profile.unclassifiedBlocks.map((block, index) => ({
       key: `custom:current:${index}`,
       id: `custom:${index}`,
       kind: "custom",
@@ -2315,11 +2298,30 @@ function buildCurrentProfileItems(profile: CareerProfile, category: ProfileCateg
       archived: false,
       updatedAt: profile.updatedAt
     }));
+    if (customBlocks.length > 0) return customBlocks;
   }
 
-  return profile.experiences
+  const legacyExperiences = profile.experiences
     .filter((experience) => categoryForExperience(experience) === category)
     .map((experience) => experienceToManagedItem(experience, false));
+  if (legacyExperiences.length > 0) return legacyExperiences;
+
+  return canonicalProfileLibraryItems(profile)
+    .filter((item) => managedProfileCategoryId(item.sectionType) === category)
+    .map((item) => ({
+      key: `canonical:${item.sectionType}:${item.id}`,
+      id: item.id,
+      kind: "custom" as const,
+      category,
+      title: item.title,
+      subtitle: item.subtitle,
+      body: item.body,
+      source: item.factIds.length ? "已确认事实" : "用户确认",
+      usage: "可加入简历",
+      used: true,
+      archived: false,
+      updatedAt: profile.updatedAt
+    }));
 }
 
 function buildArchivedProfileItems(archive: ProfileArchiveState, category: ProfileCategoryId): ProfileManagedItem[] {
@@ -2356,7 +2358,8 @@ function buildProfileCategoryCounts(profile: CareerProfile, archive: ProfileArch
   const canonicalCounts = canonicalProfileSectionCounts(profile);
   const counts = new Map<ProfileCategoryId, number>();
   for (const category of profileCategories) {
-    const canonicalCount = canonicalCounts.get(category.id) ?? 0;
+    const canonicalSectionId = profileSectionCatalog.find((section) => managedProfileCategoryId(section.id) === category.id)?.id;
+    const canonicalCount = canonicalSectionId ? canonicalCounts.get(canonicalSectionId) ?? 0 : 0;
     counts.set(category.id, canonicalCount + buildArchivedProfileItems(archive, category.id).length);
   }
   return counts;
@@ -2632,6 +2635,44 @@ function FactReviewRow({
 function optionalText(text: string) {
   const trimmed = text.trim();
   return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function managedProfileCategoryId(category: string): ProfileCategoryId {
+  if (category === "skills") return "skill";
+  if (category === "certificates") return "certificate";
+  if (category === "languages") return "language";
+  if (category === "awards") return "award";
+  return category;
+}
+
+function synchronizeProfileStructuredFacts(nextProfile: CareerProfile, previousProfile: CareerProfile | undefined): CareerProfile {
+  const previous = previousProfile ?? nextProfile;
+  const previousLegacyIds = new Set([
+    ...previous.experiences.map((item) => item.id),
+    ...previous.skills.map((item) => item.id),
+    ...previous.certificates.map((item) => item.id)
+  ]);
+  const previousLegacyFactIds = new Set([
+    ...previous.experiences.flatMap((item) => item.facts.map((fact) => fact.id)),
+    ...previous.skills.flatMap((item) => item.fact ? [item.fact.id] : []),
+    ...previous.certificates.flatMap((item) => item.fact ? [item.fact.id] : [])
+  ]);
+  const canonicalOnlyFacts = (previous.structuredFacts ?? []).filter((entry) =>
+    !previousLegacyIds.has(entry.data.id)
+    && !entry.factIds.some((factId) => previousLegacyFactIds.has(factId))
+  );
+  const rebuilt = migrateCareerProfileToV2({
+    ...nextProfile,
+    schemaVersion: undefined,
+    structuredBasics: undefined,
+    structuredFacts: undefined
+  });
+  return CareerProfileSchema.parse({
+    ...nextProfile,
+    schemaVersion: "career-profile-v2",
+    structuredBasics: nextProfile.structuredBasics ?? rebuilt.structuredBasics,
+    structuredFacts: [...rebuilt.structuredFacts, ...canonicalOnlyFacts]
+  });
 }
 
 function basicDraftFromProfile(profile: CareerProfile, profileKey: string): BasicDraftState {

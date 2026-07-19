@@ -3038,6 +3038,9 @@ small,
 
 .resume-card-target-role {
   color: var(--text-secondary);
+  font-size: 0.94em;
+  font-weight: 500;
+  margin-left: 4px;
 }
 
 .resume-card-rename-button {
@@ -3102,6 +3105,10 @@ small,
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.resume-card-main .resume-card-target-role {
+  display: inline;
 }
 
 .resume-card-main[aria-disabled="true"] {
