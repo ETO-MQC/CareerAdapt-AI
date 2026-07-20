@@ -311,41 +311,35 @@ function createMockOutput(task: AiTask, input: unknown) {
 
   if (task === "resume-tailor") {
     const tailorInput = input as ResumeTailorTaskInput;
-    const firstSection = tailorInput.sectionTexts[0];
-    const firstMatch = tailorInput.matches[0];
     const firstEvidence = tailorInput.allowedEvidenceRefs[0];
+    const before = tailorInput.currentContent.fieldValue;
+    const beforeText = Array.isArray(before) ? before.join("；") : before;
+    const keywords = tailorInput.relevantRequirements.flatMap((item) => item.keywords).filter((item) => item.toLowerCase() !== "ai").slice(0, 4);
+    const after = `围绕${keywords.join("、") || tailorInput.jobContext.title}重写：${beforeText}`;
 
     return {
       suggestions: [
         {
-          type: "rewrite",
-          targetSectionId: firstSection?.sectionId ?? "section-missing",
-          originalText: firstSection?.text ?? "当前无草稿文本。",
-          suggestedText: firstSection?.text ? `围绕岗位要求优化表达：${firstSection.text}` : "当前无草稿文本。",
-          reason: "Mock resume-tailor keeps the wording grounded in the existing draft section and linked evidence.",
-          requirementIds: firstMatch ? [firstMatch.requirementId] : tailorInput.requirementIds.slice(0, 1),
-          usedEvidenceRefs: firstEvidence ? [firstEvidence] : [],
-          riskLevel: "low"
-        },
-        {
-          type: "remove_or_shorten",
-          targetSectionId: firstSection?.sectionId ?? "section-missing",
-          originalText: firstSection?.text ?? "当前无草稿文本。",
-          suggestedText: firstSection?.text?.slice(0, 80) ?? "当前无草稿文本。",
-          reason: "Mock resume-tailor provides a shorter version for compact resume space.",
-          requirementIds: firstMatch ? [firstMatch.requirementId] : tailorInput.requirementIds.slice(0, 1),
-          usedEvidenceRefs: firstEvidence ? [firstEvidence] : [],
-          riskLevel: "low"
-        },
-        {
-          type: "follow_up_question",
-          targetSectionId: firstSection?.sectionId ?? "section-missing",
-          originalText: firstSection?.text ?? "当前无草稿文本。",
-          suggestedText: "是否有已确认的量化结果或证据可以补充？",
-          reason: "Mock resume-tailor asks a follow-up instead of inventing unsupported facts.",
-          requirementIds: firstMatch ? [firstMatch.requirementId] : tailorInput.requirementIds.slice(0, 1),
-          usedEvidenceRefs: [],
-          riskLevel: "medium"
+          id: "mock-tailoring-suggestion",
+          intensity: tailorInput.intensity,
+          operation: "rewrite",
+          targetSectionType: tailorInput.target.sectionType,
+          targetSectionId: tailorInput.target.sectionId,
+          targetItemId: tailorInput.target.itemId,
+          targetFieldPath: tailorInput.target.fieldPath,
+          before,
+          after,
+          changedFields: [tailorInput.target.fieldPath.split(".").at(-1) ?? "field"],
+          requirementIds: tailorInput.relevantRequirements.map((item) => item.requirementId),
+          targetKeywords: keywords,
+          coveredKeywordsBefore: [],
+          coveredKeywordsAfter: keywords,
+          claimSupportLevel: firstEvidence ? "verified" : "reasonable_inference",
+          evidenceRefs: firstEvidence ? [firstEvidence] : [],
+          rationale: `针对 ${tailorInput.relevantRequirements[0]?.description ?? tailorInput.jobContext.title} 调整当前字段表达。`,
+          riskLevel: firstEvidence ? "low" : "medium",
+          metrics: { textChangeRatio: 0.5, keywordGain: keywords.length },
+          status: firstEvidence ? "ready" : "requires_confirmation"
         }
       ]
     };

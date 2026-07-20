@@ -9525,7 +9525,7 @@ html[data-theme="dark"] .floating-window-titlebar {
 }
 
 .tailoring-panel { display: grid; gap: 12px; }
-.tailoring-view-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
+.tailoring-view-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; margin-top: 8px; }
 .tailoring-page { display: grid; gap: 16px; min-width: 0; }
 .tailoring-hero { align-items: center; display: flex; justify-content: space-between; gap: 16px; border-bottom: 1px solid var(--border); padding-bottom: 16px; }
 .tailoring-hero h2, .tailoring-page h2, .tailoring-page h3, .tailoring-hero p { margin: 0; }
@@ -9536,13 +9536,20 @@ html[data-theme="dark"] .floating-window-titlebar {
 .tailoring-score-grid strong { font-size: 20px; font-variant-numeric: tabular-nums; }
 .tailoring-result-list { display: grid; gap: 8px; }
 .tailoring-result-list ul { display: grid; gap: 4px; margin: 0; padding-left: 20px; }
-.tailoring-suggestion-group, .tailoring-confirmations { display: grid; gap: 8px; }
-.tailoring-suggestion-card, .tailoring-confirmation-card { border: 1px solid var(--border); border-radius: 8px; display: grid; gap: 8px; padding: 12px; }
-.tailoring-suggestion-card p, .tailoring-confirmation-card p { margin: 0; }
+.tailoring-suggestion-group, .tailoring-confirmations { display: grid; gap: 0; }
+.tailoring-suggestion-group h3 { font-size: 14px; font-weight: 700; color: var(--ink); padding: 8px 0; border-bottom: 1px solid var(--line); margin-bottom: 8px; }
+.tailoring-suggestion-card, .tailoring-confirmation-card { border: 1px solid var(--border); border-radius: 8px; display: grid; gap: 8px; padding: 12px; border-bottom: 1px solid var(--line); }
+.tailoring-suggestion-card:last-child, .tailoring-confirmation-card:last-child { border-bottom: none; }
+.tailoring-suggestion-card p, .tailoring-confirmation-card p { margin: 0; font-size: 13px; line-height: 1.5; }
+.tailoring-suggestion-card small { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
 .tailoring-suggestion-status { align-items: center; display: flex; justify-content: space-between; }
 .tailoring-apply-summary { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
 .tailoring-apply-summary span { border: 1px solid var(--border); border-radius: 8px; display: grid; gap: 4px; padding: 12px; }
-.muted-copy { color: var(--text-muted); }
+.muted-copy { color: var(--text-muted); font-size: 12px; }
+.keyword-phrase { background: var(--chip-bg); border: 1px solid var(--chip-border); border-radius: 6px; color: var(--chip-color); font-size: 12px; font-weight: 600; padding: 4px 8px; display: inline-block; }
+.tailoring-suggestion-card mark { background: color-mix(in srgb, var(--accent) 16%, transparent); color: inherit; border-radius: 3px; padding: 0 1px; }
+.tailoring-suggestion-meta { display: grid; gap: 3px; color: var(--text-muted); font-size: 12px; }
+.tailoring-suggestion-meta p { margin: 0; }
 
 @media (max-width: 1100px) {
   .tailoring-score-grid, .tailoring-apply-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
