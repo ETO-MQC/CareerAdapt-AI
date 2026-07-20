@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import type {
   ResumeDiagnosticAction,
   ResumeDiagnosticCategory,
@@ -42,6 +43,17 @@ export function ResumeDiagnosticsPanel({
     const keys: DiagnosticFilter[] = ["all", ...Array.from(new Set(openIssues.map((issue) => issue.category)))];
     return keys;
   }, [openIssues]);
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  function scrollCards(direction: "left" | "right") {
+    if (!scrollRef.current) return;
+    const scrollAmount = 300;
+    scrollRef.current.scrollBy({
+      left: direction === "left" ? -scrollAmount : scrollAmount,
+      behavior: "smooth"
+    });
+  }
 
   return (
     <section className="no-print diagnostics-panel studio-subpanel" data-testid="resume-diagnostics-panel">
@@ -99,21 +111,39 @@ export function ResumeDiagnosticsPanel({
                   </button>
                 ))}
               </div>
-              <div className="diagnostic-issue-list" data-testid="diagnostic-issue-list">
-                {filteredIssues.length > 0 ? filteredIssues.map((issue) => (
-                  <DiagnosticIssueCard
-                    key={issue.id}
-                    issue={issue}
-                    canEdit={canEdit}
-                    onLocate={() => onLocateIssue(issue)}
-                    onApplyAction={(action) => onApplyAction(issue, action)}
-                    onIgnore={() => onIgnoreIssue(issue)}
-                  />
-                )) : <p className="save-status">当前筛选下没有未处理诊断项。</p>}
+              <div className="diagnostic-cards-wrapper">
+                <button
+                  type="button"
+                  className="diagnostic-scroll-btn diagnostic-scroll-btn-left"
+                  onClick={() => scrollCards("left")}
+                  aria-label="向左滚动"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                <div className="diagnostic-issue-list" ref={scrollRef} data-testid="diagnostic-issue-list">
+                  {filteredIssues.length > 0 ? filteredIssues.map((issue) => (
+                    <DiagnosticIssueCard
+                      key={issue.id}
+                      issue={issue}
+                      canEdit={canEdit}
+                      onLocate={() => onLocateIssue(issue)}
+                      onApplyAction={(action) => onApplyAction(issue, action)}
+                      onIgnore={() => onIgnoreIssue(issue)}
+                    />
+                  )) : <p className="save-status">当前筛选下没有未处理诊断项。</p>}
+                </div>
+                <button
+                  type="button"
+                  className="diagnostic-scroll-btn diagnostic-scroll-btn-right"
+                  onClick={() => scrollCards("right")}
+                  aria-label="向右滚动"
+                >
+                  <ChevronRight size={16} />
+                </button>
               </div>
             </>
           ) : (
-            <div className="diagnostic-notice">点击“重新检查”后，会基于当前正文、岗位要求、展示设置、模板和分页状态生成诊断结果。</div>
+            <div className="diagnostic-notice">点击"重新检查"后，会基于当前正文、岗位要求、展示设置、模板和分页状态生成诊断结果。</div>
           )}
         </>
       ) : null}

@@ -44,6 +44,7 @@ import { TemplateCenter } from "@/components/resume/TemplateCenter";
 import { ResumeDiagnosticsPanel } from "@/components/resume/diagnostics/ResumeDiagnosticsPanel";
 import { ResumeImportWizard } from "@/components/resume/import/ResumeImportWizard";
 import { JobOptimizationPanel } from "@/components/resume/optimization/JobOptimizationPanel";
+import { FloatingWindow } from "@/components/ui/FloatingWindow";
 import { buildRequirementBlockMatches, computeRequirementsHash } from "@/domain/jobOptimization";
 import {
   isResumeDiagnosticSnapshotStale,
@@ -241,6 +242,7 @@ export function ResumeWorkspace() {
   const [studioMode, setStudioMode] = useState<StudioMode>("edit");
   const [manualInspectorTab, setManualInspectorTab] = useState<ManualInspectorTab>("content");
   const [aiInspectorTab, setAiInspectorTab] = useState<AiInspectorTab>("suggestions");
+  const [aiFloatingOpen, setAiFloatingOpen] = useState(true);
   const [styleInspectorTab, setStyleInspectorTab] = useState<StyleInspectorTab>("template");
   const [activeResumeSection, setActiveResumeSection] = useState<ResumeStudioSectionKey>("basics");
   const [enabledSectionsByBranch, setEnabledSectionsByBranch] = useState<Record<string, ResumeStudioSectionKey[]>>({});
@@ -4025,8 +4027,8 @@ export function ResumeWorkspace() {
           <aside className={`panel no-print resume-export-panel resume-inspector ${studioMode === "edit" ? "branch-editor" : ""}`} data-testid="resume-active-section-fields">
             {studioMode !== "edit" ? <div className="property-panel-heading">
               <div>
-                <h2>{studioMode === "style" ? "样式" : "AI岗位优化"}</h2>
-                <p>{studioMode === "style" ? "模板、颜色、文字和分页集中调整。" : "建议、质量和事实缺口分层查看。"}</p>
+                {studioMode === "style" ? <h2>样式</h2> : null}
+                {studioMode === "style" ? <p>模板、颜色、文字和分页集中调整。</p> : null}
               </div>
               {studioMode === "style" ? (
                 <div className="panel-heading-actions">
@@ -4039,20 +4041,7 @@ export function ResumeWorkspace() {
                 </div>
               ) : null}
             </div> : null}
-            {studioMode === "ai" ? (
-              <div className="inspector-tablist" role="tablist" aria-label="AI岗位优化工具">
-                {(["suggestions", "quality"] as const).map((tab) => (
-                  <button
-                    key={tab}
-                    type="button"
-                    className={aiInspectorTab === tab ? "inspector-tab inspector-tab-active" : "inspector-tab"}
-                    onClick={() => setAiInspectorTab(tab)}
-                  >
-                    {aiInspectorTabLabel(tab)}
-                  </button>
-                ))}
-              </div>
-            ) : studioMode === "style" ? (
+            {studioMode === "ai" ? null : studioMode === "style" ? (
               <div className="inspector-tablist" role="tablist" aria-label="样式工具">
                 {(["template", "colors", "font", "page"] as const).map((tab) => (
                   <button
@@ -4152,68 +4141,6 @@ export function ResumeWorkspace() {
                   nav={sectionNavContext}
                 />
               )
-            ) : null}
-            {studioMode === "ai" ? (
-              <div className="studio-sidebar-section">
-                <div className="resume-ai-summary-grid" data-testid="resume-ai-summary">
-                  {[
-                    ["内容表达", diagnosticSnapshot?.summary.warning ?? 0, "建议"],
-                    ["岗位相关", selectedBranchJob ? selectedBranchJob.title : "未绑定", "目标"],
-                    ["关键词", diagnosticSnapshot?.summary.requirementCoverage.covered ?? 0, "覆盖"],
-                    ["结构", pagination.plan?.actualPageCount ?? "测量", "页数"],
-                    ["页面可读性", paginationStatusLabel(pagination.status), "状态"],
-                    ["事实安全", diagnosticSnapshot?.summary.critical ?? 0, "高风险"]
-                  ].map(([label, value, suffix]) => (
-                    <div
-                      key={label}
-                      className="resume-ai-summary-card"
-                    >
-                      <span>{label}</span>
-                      <strong>{value}</strong>
-                      <small>{suffix}</small>
-                    </div>
-                  ))}
-                </div>
-                {aiInspectorTab === "quality" ? (
-                  <ResumeDiagnosticsPanel
-                    snapshot={diagnosticSnapshot}
-                    stale={diagnosticsStale}
-                    running={diagnosticRunning}
-                    error={diagnosticError}
-                    canEdit={selectedBranchEditable}
-                    onRun={() => { void runDiagnostics(); }}
-                    onLocateIssue={locateDiagnosticIssue}
-                    onApplyAction={(issue, action) => { void applyDiagnosticAction(issue, action); }}
-                    onIgnoreIssue={(issue) => { void ignoreDiagnosticIssue(issue); }}
-                  />
-                ) : (
-                  <JobOptimizationPanel
-                    repository={repository}
-                    profile={profile}
-                    jobs={jobs}
-                    branch={selectedBranch}
-                    selectedContentItemId={selectedStudioItemId}
-                    canEdit={selectedBranchEditable}
-                    onJobCreated={(job) => setLocalJobs((current) => [job, ...current.filter((item) => item.id !== job.id)])}
-                    onBranchReady={replaceBranch}
-                    onApplyStructureSuggestion={(kind, contentItemId) => {
-                      if (kind === "hide") {
-                        void setPresentationItemVisibility(contentItemId, false);
-                        notify({ type: "info", title: "已隐藏", message: "结构建议已隐藏该段落；未创建正文版本。" });
-                        return;
-                      }
-                      if (kind === "show") {
-                        void setPresentationItemVisibility(contentItemId, true);
-                        notify({ type: "info", title: "已恢复", message: "结构建议已恢复该段落；未创建正文版本。" });
-                        return;
-                      }
-                      void movePresentationItem(contentItemId, "up");
-                      notify({ type: "info", title: "已上移", message: "结构建议已上移该段落；未创建正文版本。" });
-                    }}
-                    onMessage={(msg) => notify({ type: "info", title: "提示", message: msg })}
-                  />
-                )}
-              </div>
             ) : null}
             {studioMode === "style" ? (
               <>
@@ -4572,6 +4499,102 @@ export function ResumeWorkspace() {
             ) : null}
             {renderResult.error ? <p className="save-status save-status-failed">{renderResult.error}</p> : null}
           </aside>
+
+          {studioMode === "ai" ? (
+            <FloatingWindow
+              title="AI 岗位优化"
+              isOpen={aiFloatingOpen}
+              onClose={() => setAiFloatingOpen(false)}
+              defaultX={100}
+              defaultY={80}
+              defaultWidth={1000}
+              defaultHeight={600}
+            >
+              <div className="ai-sidebar-layout">
+                <nav className="ai-nav-rail" role="tablist" aria-label="AI岗位优化工具">
+                  <button
+                    type="button"
+                    className={aiInspectorTab === "suggestions" ? "ai-nav-btn ai-nav-btn-active" : "ai-nav-btn"}
+                    onClick={() => setAiInspectorTab("suggestions")}
+                    title="岗位优化"
+                  >
+                    <span className="ai-nav-label">岗位</span>
+                    <span className="ai-nav-label">优化</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={aiInspectorTab === "quality" ? "ai-nav-btn ai-nav-btn-active" : "ai-nav-btn"}
+                    onClick={() => setAiInspectorTab("quality")}
+                    title="质量检查"
+                  >
+                    <span className="ai-nav-label">质量</span>
+                    <span className="ai-nav-label">检查</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="ai-nav-btn ai-refresh-btn"
+                    disabled={diagnosticRunning || !selectedBranch || selectedBranch.branchPurpose !== "job_specific"}
+                    onClick={() => { void runDiagnostics(); }}
+                    title="刷新"
+                  >
+                    <span className="ai-nav-label">刷新</span>
+                    <span className="ai-nav-label">匹配</span>
+                  </button>
+                </nav>
+                <div className="ai-content-area studio-sidebar-section">
+                  {aiInspectorTab === "quality" ? (
+                    <ResumeDiagnosticsPanel
+                      snapshot={diagnosticSnapshot}
+                      stale={diagnosticsStale}
+                      running={diagnosticRunning}
+                      error={diagnosticError}
+                      canEdit={selectedBranchEditable}
+                      onRun={() => { void runDiagnostics(); }}
+                      onLocateIssue={locateDiagnosticIssue}
+                      onApplyAction={(issue, action) => { void applyDiagnosticAction(issue, action); }}
+                      onIgnoreIssue={(issue) => { void ignoreDiagnosticIssue(issue); }}
+                    />
+                  ) : (
+                    <JobOptimizationPanel
+                      repository={repository}
+                      profile={profile}
+                      jobs={jobs}
+                      branch={selectedBranch}
+                      selectedContentItemId={selectedStudioItemId}
+                      canEdit={selectedBranchEditable}
+                      onJobCreated={(job) => setLocalJobs((current) => [job, ...current.filter((item) => item.id !== job.id)])}
+                      onBranchReady={replaceBranch}
+                      onApplyStructureSuggestion={(kind, contentItemId) => {
+                        if (kind === "hide") {
+                          void setPresentationItemVisibility(contentItemId, false);
+                          notify({ type: "info", title: "已隐藏", message: "结构建议已隐藏该段落；未创建正文版本。" });
+                          return;
+                        }
+                        if (kind === "show") {
+                          void setPresentationItemVisibility(contentItemId, true);
+                          notify({ type: "info", title: "已恢复", message: "结构建议已恢复该段落；未创建正文版本。" });
+                          return;
+                        }
+                        void movePresentationItem(contentItemId, "up");
+                        notify({ type: "info", title: "已上移", message: "结构建议已上移该段落；未创建正文版本。" });
+                      }}
+                      onMessage={(msg) => notify({ type: "info", title: "提示", message: msg })}
+                    />
+                  )}
+                </div>
+              </div>
+            </FloatingWindow>
+          ) : null}
+
+          {studioMode === "ai" && !aiFloatingOpen ? (
+            <button
+              type="button"
+              className="floating-window-minimized"
+              onClick={() => setAiFloatingOpen(true)}
+            >
+              AI 岗位优化
+            </button>
+          ) : null}
 
           <button
             className="studio-resize-handle no-print"

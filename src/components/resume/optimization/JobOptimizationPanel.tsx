@@ -612,25 +612,8 @@ export function JobOptimizationPanel({
 
   return (
     <section className="no-print optimization-panel studio-subpanel" data-testid="job-optimization-panel" tabIndex={0} aria-label="AI 岗位优化内容">
-      <div className="section-heading">
-        <div>
-          <h2>针对岗位优化</h2>
-          <p role="status" aria-live="polite">{status}</p>
-        </div>
-        <button className="secondary-button compact" type="button" onClick={() => setOpen((current) => !current)}>
-          {open ? "收起" : "展开"}
-        </button>
-      </div>
       {open ? (
         <>
-          <div className="optimization-context-bar">
-          <div><span>当前岗位</span><strong>{targetJob ? `${targetJob.company} / ${targetJob.title}` : "未绑定"}</strong></div>
-          <div><span>当前版本</span><strong>{branch?.currentRevisionId ? `正文版本 ${branch.revision + 1}` : "无正式版本"}</strong></div>
-          <button className="secondary-button compact" disabled={pending || !targetJob || branch?.branchPurpose !== "job_specific"} onClick={() => { void refreshMatches(); }}>
-            刷新匹配状态
-          </button>
-        </div>
-
         {optimizationV2 ? (
           <section className="optimization-v2" data-testid="job-optimization-v2" aria-label="岗位优化三步流程">
             <div className="optimization-v2-steps" role="tablist" aria-label="岗位优化步骤">
@@ -729,24 +712,6 @@ export function JobOptimizationPanel({
           </div>
         ) : null}
 
-        {summary ? (
-          <div className="optimization-summary" data-testid="optimization-summary">
-            <span>总要求 {summary.totalRequirements}</span>
-            <span>直接匹配 {summary.strong}</span>
-            <span>部分匹配 {summary.partial}</span>
-            <span>较弱 {summary.weak}</span>
-            <span>事实缺口 {summary.none + summary.needsConfirmation}</span>
-            <span>待处理建议 {summary.pendingSuggestions}</span>
-          </div>
-        ) : null}
-
-        <div className="optimization-category-tabs" role="tablist" aria-label="优化建议分类">
-          {(["content", "matching", "gaps", "layout"] as const).map((value) => (
-            <button key={value} type="button" role="tab" aria-selected={category === value} className={category === value ? "inspector-tab inspector-tab-active" : "inspector-tab"} onClick={() => setCategory(value)}>
-              {optimizationCategoryLabel(value, coverage, suggestions)}
-            </button>
-          ))}
-        </div>
 
         {category === "matching" ? (
           <div className="optimization-column">

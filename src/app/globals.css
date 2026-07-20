@@ -341,9 +341,14 @@ html[data-theme="dark"] .nav-link-active {
 
 .app-shell-sidebar-collapsed .sidebar-collapse-button {
   position: absolute;
-  right: -15px;
+  right: -12px;
   top: 16px;
   background: var(--surface);
+  width: 24px !important;
+  min-width: 20px !important;
+  flex: 0 0 20px;
+  height: 30px;
+  border-radius: 6px;
 }
 
 .app-shell-sidebar-collapsed .nav-link {
@@ -806,7 +811,7 @@ html[data-theme="dark"] .panel {
 .job-detail-stack,
 .local-scroll {
   min-height: 0;
-  overflow: auto;
+  overflow: visible;
 }
 
 .jobs-tab-content,
@@ -842,6 +847,7 @@ html[data-theme="dark"] .panel {
   gap: 16px;
   justify-content: space-between;
   margin-bottom: 16px;
+  padding: 8px;
 }
 
 .job-workflow-error p {
@@ -995,8 +1001,9 @@ html[data-theme="dark"] .panel {
   gap: 12px;
   height: calc(100dvh - var(--header-height));
   min-height: 0;
-  overflow: hidden;
+  overflow-y: auto;
   padding-bottom: 16px;
+  scrollbar-gutter: stable;
 }
 
 .jobs-workspace-v2 > * {
@@ -1271,11 +1278,10 @@ html[data-theme="dark"] .panel {
 
 .selected-job-workspace {
   display: grid;
-  flex: 1 1 0;
-  grid-template-rows: auto auto minmax(0, 1fr);
-  min-height: 260px;
-  overflow: hidden;
+  grid-template-rows: auto auto auto;
+  overflow: visible;
   padding: 0;
+  margin-bottom: 20px;
 }
 
 .selected-job-context {
@@ -1410,7 +1416,6 @@ html[data-theme="dark"] .panel {
 }
 
 .selected-job-content {
-  min-height: 0;
   overscroll-behavior: contain;
   padding: 0 16px 16px;
 }
@@ -1604,6 +1609,7 @@ html[data-theme="dark"] .panel {
   display: flex;
   gap: 12px;
   justify-content: space-between;
+  padding: 8px;
 }
 
 .job-resume-recovery p {
@@ -2270,6 +2276,7 @@ html[data-theme="dark"] .save-status {
 .resume-studio-shell-ai .resume-inspector {
   grid-template-rows: auto auto minmax(0, 1fr);
   overflow: hidden;
+  padding: 0 !important;
   position: static;
 }
 
@@ -2307,16 +2314,171 @@ html[data-theme="dark"] .save-status {
 }
 
 .optimization-category-tabs {
-  display: grid;
+  display: flex;
   gap: 4px;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.optimization-category-tabs button {
+  flex: 1;
+  font-size: 12px;
+  min-height: 32px;
+  padding: 4px 6px;
+}
+
+/* AI优化栏：左栏+内容区布局 */
+.ai-sidebar-layout {
+  display: flex;
+  gap: 0;
+  min-height: 0;
+}
+
+/* 左栏导航：正方形按钮，字分两行 */
+.ai-nav-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 4px;
+  border-right: 1px solid var(--line);
+  flex: 0 0 48px;
+}
+
+.ai-nav-btn {
+  align-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--muted);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  gap: 2px;
+  justify-content: center;
+  min-height: 48px;
+  min-width: 40px;
+  padding: 4px 2px;
+  text-align: center;
+}
+
+.ai-nav-btn:hover {
+  background: var(--surface-subtle);
+  color: var(--ink);
+}
+
+.ai-nav-btn-active {
+  background: var(--tab-active-bg);
+  border-color: var(--accent);
+  color: var(--accent-strong);
+}
+
+.ai-nav-label {
+  display: block;
+  line-height: 1.2;
+}
+
+/* 右侧内容区域 */
+.ai-content-area {
+  flex: 1;
+  min-height: 0;
+  margin-top: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  padding-left: 6px;
+}
+
+/* AI优化栏内容区域 */
+.studio-sidebar-section {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.studio-sidebar-section > * {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+/* 质量检查面板：卡片化建议 */
+.diagnostics-panel {
+  max-height: calc(90vh - 200px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+/* 卡片包装器：带左右箭头 */
+.diagnostic-cards-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.diagnostic-scroll-btn {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  color: var(--muted);
+  cursor: pointer;
+  display: flex;
+  flex-shrink: 0;
+  height: 28px;
+  justify-content: center;
+  width: 28px;
+}
+
+.diagnostic-scroll-btn:hover {
+  background: var(--surface-subtle);
+  color: var(--ink);
+}
+
+.diagnostic-scroll-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.diagnostics-panel .diagnostic-issue-list {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 12px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  padding-bottom: 8px;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.diagnostics-panel .diagnostic-issue-list::-webkit-scrollbar {
+  display: none;
+}
+
+.diagnostics-panel .diagnostic-card {
+  flex: 0 0 280px;
+  scroll-snap-align: start;
 }
 
 .optimization-content-grid {
   align-items: start;
   display: grid;
   gap: 12px;
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: 1fr;
+}
+
+.optimization-content-grid > .optimization-column {
+  min-height: 0;
+  max-height: calc(90vh - 200px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
 }
 
 .fact-gap-list,
@@ -2385,9 +2547,16 @@ html[data-theme="dark"] .save-status {
 
 .optimization-panel .section-heading p {
   color: var(--muted);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   margin: 4px 0 0;
+}
+
+.optimization-category-tabs + .warning-box {
+  max-height: calc(80vh - 200px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
 }
 
 .optimization-grid {
@@ -2432,10 +2601,10 @@ html[data-theme="dark"] .save-status {
   border: 1px solid var(--line);
   border-radius: 8px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 750;
-  min-height: 28px;
-  padding: 5px 8px;
+  min-height: 26px;
+  padding: 4px 6px;
 }
 
 .optimization-v2 {
@@ -2455,8 +2624,11 @@ html[data-theme="dark"] .save-status {
 .optimization-v2-steps button {
   align-items: center;
   display: flex;
-  gap: 8px;
+  gap: 6px;
   justify-content: center;
+  font-size: 12px;
+  min-height: 32px;
+  padding: 4px 6px;
 }
 
 .optimization-v2-steps button > span {
@@ -2464,10 +2636,10 @@ html[data-theme="dark"] .save-status {
   border: 1px solid currentColor;
   border-radius: 999px;
   display: inline-flex;
-  font-size: 11px;
-  height: 20px;
+  font-size: 10px;
+  height: 18px;
   justify-content: center;
-  width: 20px;
+  width: 18px;
 }
 
 .optimization-v2-job,
@@ -2513,7 +2685,8 @@ html[data-theme="dark"] .save-status {
   background: var(--surface-subtle);
   border: 1px solid var(--line);
   border-radius: 8px;
-  padding: 5px 8px;
+  font-size: 11px;
+  padding: 4px 6px;
 }
 
 .coverage-score-v2 {
@@ -2525,7 +2698,7 @@ html[data-theme="dark"] .save-status {
 }
 
 .coverage-score-v2 div { display: grid; gap: 2px; }
-.coverage-score-v2 strong { font-size: 32px; font-variant-numeric: tabular-nums; line-height: 1; }
+.coverage-score-v2 strong { font-size: 24px; font-variant-numeric: tabular-nums; line-height: 1; }
 .coverage-score-v2 p,
 .coverage-explanation-v2 { color: var(--muted); font-size: 12px; margin: 0; }
 
@@ -2554,7 +2727,13 @@ html[data-theme="dark"] .save-status {
 .requirement-filter-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 4px;
+}
+
+.requirement-filter-row button {
+  font-size: 11px;
+  min-height: 28px;
+  padding: 3px 6px;
 }
 
 .requirement-list {
@@ -3088,7 +3267,7 @@ html[data-theme="dark"] .mode-rail-button:hover {
   display: grid;
   gap: 12px;
   grid-auto-rows: min-content;
-  padding: 16px;
+  padding: 0px;
   position: sticky;
   min-width: 0;
   overflow-x: hidden;
@@ -4017,8 +4196,8 @@ small,
   border-top: 1px solid var(--line);
   display: grid;
   gap: 14px;
-  margin-top: 16px;
-  padding-top: 16px;
+  margin-top: 0px;
+  padding-top: 0px;
 }
 
 .studio-sidebar-section h2 {
@@ -4075,6 +4254,11 @@ small,
 .resume-section-nav-panel-collapsed {
   overflow: hidden;
   padding: 6px 4px;
+}
+
+/* 折叠时缩小左侧栏 grid 列宽 */
+.resume-studio-shell-edit:has(.resume-section-nav-panel-collapsed) {
+  grid-template-columns: 48px minmax(300px, 1fr) 10px minmax(360px, 1fr) !important;
 }
 
 .resume-section-nav-panel-collapsed .property-panel-heading {
@@ -9140,6 +9324,25 @@ html[data-theme="dark"] .workspace-message {
   pointer-events: none;
 }
 
+/* Light mode scrollbar */
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(32, 37, 34, 0.15);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(32, 37, 34, 0.25);
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
 /* Dark mode scrollbar */
 html[data-theme="dark"] ::-webkit-scrollbar {
   width: 7px;
@@ -9153,6 +9356,275 @@ html[data-theme="dark"] ::-webkit-scrollbar-thumb {
 
 html[data-theme="dark"] ::-webkit-scrollbar-track {
   background: transparent;
+}
+
+/* ========== Floating Window ========== */
+.floating-window {
+  position: fixed;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 12px 40px rgba(32, 37, 34, 0.18);
+  z-index: 50;
+  overflow: hidden;
+  min-width: 320px;
+  min-height: 200px;
+}
+
+html[data-theme="dark"] .floating-window {
+  background: #13181b;
+  border-color: rgba(255, 255, 255, 0.06);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+}
+
+/* Title bar */
+.floating-window-titlebar {
+  align-items: center;
+  background: var(--surface-subtle);
+  border-bottom: 1px solid var(--line);
+  cursor: grab;
+  display: flex;
+  flex-shrink: 0;
+  gap: 8px;
+  justify-content: space-between;
+  min-height: 34px;
+  padding: 0 8px 0 12px;
+  user-select: none;
+  touch-action: none;
+}
+
+.floating-window-titlebar:active {
+  cursor: grabbing;
+}
+
+html[data-theme="dark"] .floating-window-titlebar {
+  background: #0e1316;
+  border-bottom-color: rgba(255, 255, 255, 0.06);
+}
+
+.floating-window-title {
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.floating-window-btns {
+  display: flex;
+  gap: 4px;
+}
+
+.floating-window-btn {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  color: var(--muted);
+  cursor: pointer;
+  display: flex;
+  height: 22px;
+  justify-content: center;
+  padding: 0;
+  width: 22px;
+}
+
+.floating-window-btn:hover {
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.floating-window-close:hover {
+  background: var(--danger);
+  color: white;
+}
+
+/* Body */
+.floating-window-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-bottom: 8px;
+  scrollbar-gutter: stable;
+}
+
+/* 悬浮窗口内：内容单列线性排列，统一滚动 */
+.floating-window-body .ai-sidebar-layout {
+  height: 100%;
+}
+
+.floating-window-body .ai-content-area {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: transparent;
+  border: none;
+}
+
+.floating-window-body .optimization-panel {
+  max-height: none;
+  overflow: visible;
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+.floating-window-body .diagnostics-panel {
+  max-height: none;
+  overflow: visible;
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+.floating-window-body .diagnostic-cards-wrapper {
+  max-height: none;
+}
+
+/* 内容改为单列排列 */
+.floating-window-body .optimization-content-grid {
+  grid-template-columns: 1fr;
+}
+
+.floating-window-body .optimization-content-grid > .optimization-column {
+  max-height: none;
+  overflow: visible;
+  background: var(--surface-subtle);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.floating-window-body .warning-box {
+  background: color-mix(in srgb, var(--amber) 14%, var(--surface));
+  border: 1px solid #ecd9bd;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.floating-window-body .property-summary {
+  background: var(--surface-subtle);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.floating-window-body .action-row {
+  padding: 0;
+}
+
+.floating-window-body .suggestion-list {
+  background: transparent;
+}
+
+.floating-window-body > *:last-child {
+  margin-bottom: 0;
+}
+
+/* Minimized state */
+.floating-window-minimized {
+  position: fixed;
+  bottom: 16px;
+  right: 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(32, 37, 34, 0.12);
+  color: var(--ink);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 8px 14px;
+  z-index: 50;
+}
+
+html[data-theme="dark"] .floating-window-minimized {
+  background: #13181b;
+  border-color: rgba(255, 255, 255, 0.06);
+  color: #ffffff;
+}
+
+/* Resize handles */
+.floating-window-resize {
+  position: absolute;
+  pointer-events: auto;
+}
+
+.floating-window-resize-n {
+  top: 0;
+  left: 8px;
+  right: 8px;
+  height: 4px;
+  cursor: n-resize;
+}
+
+.floating-window-resize-s {
+  bottom: 0;
+  left: 8px;
+  right: 8px;
+  height: 4px;
+  cursor: s-resize;
+}
+
+.floating-window-resize-e {
+  top: 8px;
+  right: 0;
+  bottom: 8px;
+  width: 4px;
+  cursor: e-resize;
+}
+
+.floating-window-resize-w {
+  top: 8px;
+  left: 0;
+  bottom: 8px;
+  width: 4px;
+  cursor: w-resize;
+}
+
+.floating-window-resize-ne {
+  top: 0;
+  right: 0;
+  width: 10px;
+  height: 10px;
+  cursor: ne-resize;
+}
+
+.floating-window-resize-nw {
+  top: 0;
+  left: 0;
+  width: 10px;
+  height: 10px;
+  cursor: nw-resize;
+}
+
+.floating-window-resize-se {
+  bottom: 0;
+  right: 0;
+  width: 10px;
+  height: 10px;
+  cursor: se-resize;
+}
+
+.floating-window-resize-sw {
+  bottom: 0;
+  left: 0;
+  width: 10px;
+  height: 10px;
+  cursor: sw-resize;
+}
+
+/* AI mode: full-width preview */
+.resume-studio-shell-ai {
+  grid-template-columns: 1fr !important;
+}
+
+.resume-studio-shell-ai .resume-inspector {
+  display: none;
 }
 
 /* Dark mode selection */
