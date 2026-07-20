@@ -57,7 +57,7 @@ export function createResumeOptimizationPlan(input: {
     id: `optimization-plan-${stableHashText(`${input.branch.id}:${input.jobId}:${input.branch.revision}:${requirementsHash}`)}`,
     branchId: input.branch.id, jobId: input.jobId, basedOnBranchRevision: input.branch.revision,
     basedOnRevisionId: input.branch.currentRevisionId, requirementsHash,
-    executiveSummary: input.coverage.blockingGaps.length ? `当前岗位证据覆盖度 ${input.coverage.overallCoverage}。先处理 ${input.coverage.blockingGaps.length} 个必备事实缺口，再前置最相关经历；计划不会写入简历。` : `当前岗位证据覆盖度 ${input.coverage.overallCoverage}。优先前置直接证据并压缩弱相关内容；计划不会写入简历。`,
+    executiveSummary: input.coverage.blockingGaps.length ? `当前岗位适配度 ${input.coverage.overallCoverage}。有 ${input.coverage.blockingGaps.length} 个硬性条件仍需提供真实信息；这不会阻止创建岗位简历。` : `当前岗位适配度 ${input.coverage.overallCoverage}。优先前置相关经历并压缩弱相关内容。`,
     actions, factGaps, createdAt: now
   });
 }

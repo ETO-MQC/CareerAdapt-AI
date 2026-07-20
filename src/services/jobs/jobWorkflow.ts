@@ -143,7 +143,7 @@ export function jobResumeGenerationFeedback(code: JobResumeGenerationErrorCode):
     matches_missing: { title: "尚未完成岗位匹配", message: "系统还不知道哪些经历支持该岗位。", nextStep: "请先运行匹配。" },
     matches_incomplete: { title: "岗位匹配尚不完整", message: "部分岗位要求还没有对应的匹配结果。", nextStep: "请重新运行岗位匹配。" },
     matches_stale: { title: "匹配结果已经过期", message: "资料、岗位或来源简历已发生变化。", nextStep: "请重新运行岗位匹配。" },
-    matches_have_no_evidence: { title: "没有可用的已确认事实", message: "岗位要求没有匹配到资料库中的已确认事实。", nextStep: "请补充资料，或选择另一份简历。" },
+    matches_have_no_evidence: { title: "请选择真实来源内容", message: "当前没有选中可用于创建岗位简历的真实内容。", nextStep: "请至少选择一项资料；未覆盖的岗位要求会保留为可补充项。" },
     repository_write_failed: { title: "岗位简历保存失败", message: "系统未能写入新的岗位简历，现有资料没有被修改。", nextStep: "请稍后重试；若持续失败，请检查本地存储空间。" },
     unknown: { title: "岗位简历生成失败", message: "系统未能完成岗位简历创建，现有资料没有被修改。", nextStep: "请重新检查来源与匹配后再试。" }
   };

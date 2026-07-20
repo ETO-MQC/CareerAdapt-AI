@@ -72,6 +72,7 @@ import {
   type ResumeItemV2,
   type ResumeBranchOperation,
   type ResumePresentationConfig,
+  type ResumeTailoringPlan,
   type ResumeRenderSectionType,
   type ResumeRevision,
   type SuggestionOperation
@@ -99,7 +100,6 @@ import { runRuleFactGuard } from "@/domain/adaptation/factGuard";
 import {
   AdaptationDraftError,
   assertC2MatchesUsable,
-  collectAllowedEvidenceRefs,
   createJobAdaptationDraft
 } from "@/domain/adaptation/draft";
 import { computeRequirementsHash } from "@/domain/jobOptimization";
@@ -964,6 +964,65 @@ export class WorkspaceRepository {
     return parsed;
   }
 
+  async applyTailoringPlan(input: {
+    plan: ResumeTailoringPlan;
+    operationId: string;
+    expectedBranchRevision: number;
+    expectedRevisionId: string;
+  }) {
+    return this.db.transaction("rw", [this.db.resumeBranches, this.db.resumeRevisions, this.db.resumeBranchOperations], async () => {
+      const existing = await this.db.resumeBranchOperations.where("operationId").equals(input.operationId).first();
+      if (existing?.revisionId) {
+        const branch = await this.db.resumeBranches.get(input.plan.branchId);
+        if (!branch) throw new Error("tailoring_branch_missing");
+        return { branch: ResumeBranchSchema.parse(branch), revision: await this.getResumeRevisionInTransaction(existing.revisionId), idempotent: true };
+      }
+      const branch = await this.requireEditableResumeBranch(input.plan.branchId);
+      if (branch.branchPurpose !== "job_specific" || branch.jobId !== input.plan.jobId) throw new Error("tailoring_plan_target_invalid");
+      if (branch.revision !== input.expectedBranchRevision || branch.currentRevisionId !== input.expectedRevisionId || input.plan.basedOnBranchRevision !== branch.revision) throw new RevisionConflictError();
+      const applicable = input.plan.claims.filter((claim) => claim.syncScope !== "rejected" && (claim.decision === "auto_applicable" || claim.confirmed));
+      if (input.plan.claims.some((claim) => claim.decision === "blocked" && claim.syncScope !== "rejected")) throw new Error("unsupported_hard_fact_blocked");
+      if (input.plan.claims.some((claim) => claim.decision === "requires_confirmation" && !claim.confirmed && claim.syncScope !== "rejected")) throw new Error("tailoring_claim_confirmation_required");
+      const byItem = new Map(applicable.filter((claim) => claim.targetContentItemId).map((claim) => [claim.targetContentItemId!, claim]));
+      const now = new Date().toISOString();
+      const contentItems = branch.contentItems.map((item) => {
+        const claim = byItem.get(item.id);
+        if (!claim) return item;
+        return BranchContentItemSchema.parse({
+          ...item,
+          text: claim.proposedText,
+          source: claim.supportLevel === "verified" ? "adaptation_draft" : "user_manual",
+          guardMode: claim.supportLevel === "verified" ? "rule_verified" : "not_fact",
+          guardStatus: "pass",
+          guardRiskLevel: claim.supportLevel === "verified" ? "low" : "medium",
+          userConfirmation: claim.supportLevel === "verified" ? undefined : {
+            scope: "resume_only",
+            confirmedTextHash: stableHashText(claim.proposedText),
+            confirmedAt: now
+          }
+        });
+      });
+      const nextBase = ResumeBranchSchema.parse({
+        ...branch,
+        contentItems,
+        structuredContentItems: syncStructuredContentItems(branch, contentItems),
+        revision: branch.revision + 1,
+        updatedAt: now
+      });
+      const revision = createResumeRevision({ branch: nextBase, source: "suggestion_accept", operationId: input.operationId, previousRevisionId: branch.currentRevisionId, now });
+      const nextBranch = ResumeBranchSchema.parse({ ...nextBase, currentRevisionId: revision.id });
+      const operation = ResumeBranchOperationSchema.parse({
+        id: `resume-branch-op-${input.operationId}`, operationId: input.operationId, branchId: branch.id, type: "suggestion_accept",
+        expectedRevision: input.expectedBranchRevision, beforeRevision: branch.revision, afterRevision: nextBranch.revision,
+        revisionId: revision.id, occurredAt: now, createdAt: now, updatedAt: now
+      });
+      await this.db.resumeBranches.put(nextBranch);
+      await this.db.resumeRevisions.put(revision);
+      await this.db.resumeBranchOperations.put(operation);
+      return { branch: nextBranch, revision, idempotent: false };
+    });
+  }
+
   async createGeneralResumeBranch(input: {
     profileId: string;
     operationId: string;
@@ -1059,8 +1118,9 @@ export class WorkspaceRepository {
         if (job.requirements.length === 0) throw new Error("job_has_no_requirements");
         const requestedIds = new Set(input.requirementMatchIds);
         const matches = storedMatches.map((match) => RequirementMatchSchema.parse(match)).filter((match) => requestedIds.has(match.id));
-        assertC2MatchesUsable({ profile, job, matches });
-        if (collectAllowedEvidenceRefs(matches).length === 0) throw new Error("matches_have_no_evidence");
+        // Branch creation copies only explicitly selected, already-confirmed source
+        // content. Evidence coverage is required when applying generated claims,
+        // not when creating an isolated job-specific branch.
         const now = new Date().toISOString();
         const built = buildJobBranchFromProfile({
           profile,
@@ -1277,10 +1337,10 @@ export class WorkspaceRepository {
             branchRevision: sourceBranch.revision,
             revisionId: sourceBranch.currentRevisionId ?? ""
           }));
-        if (parsedJob.requirements.length === 0 || parsedMatches.length === 0) {
-          throw new Error("derive_branch_requires_requirement_matches");
+        if (parsedJob.requirements.length === 0) throw new Error("job_has_no_requirements");
+        if (sourceBranch.contentItems.every((item) => item.itemType === "structural" || !item.text.trim())) {
+          throw new Error("source_resume_has_no_content");
         }
-        assertC2MatchesUsable({ profile: parsedProfile, job: parsedJob, matches: parsedMatches });
 
         const now = new Date().toISOString();
         const sourceMatchSetHash = computeRequirementsHash({ job: parsedJob, matches: parsedMatches });

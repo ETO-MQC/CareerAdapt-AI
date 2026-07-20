@@ -19,3 +19,4 @@ export * from "./resumeRender";
 export * from "./resumePresentation";
 export * from "./resumeV2";
 export * from "./resumeJsonV2";
+export * from "./tailoring";

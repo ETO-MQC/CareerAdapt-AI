@@ -283,14 +283,6 @@ export const ResumeBranchSchema = EntityBaseSchema.extend({
     });
   }
 
-  if (branch.branchPurpose === "job_specific" && branch.requirementMatchIds.length === 0) {
-    ctx.addIssue({
-      code: "custom",
-      path: ["requirementMatchIds"],
-      message: "verified resume branches must keep source requirement match ids"
-    });
-  }
-
   if (branch.contentItems.length === 0) {
     ctx.addIssue({
       code: "custom",
