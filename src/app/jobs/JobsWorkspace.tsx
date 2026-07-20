@@ -23,7 +23,6 @@ import {
   type RequirementMatch,
   type ResumeBranch
 } from "@/domain/schemas";
-import { collectAllowedEvidenceRefs } from "@/domain/adaptation/draft";
 import {
   createRuleRequirementMatches,
   recallCandidatesForRequirement,
@@ -53,6 +52,7 @@ import {
 import { hasCustomAiSettings } from "@/services/storage/aiSettings";
 import { useWorkspace } from "@/services/workspace/useWorkspace";
 import { notify } from "@/services/notifications/store";
+import { createJobResume } from "@/services/jobs/tailoringService";
 
 const repository = new WorkspaceRepository();
 const jobArchiveKey = "jobWorkspace:archivedJobIds";
@@ -275,16 +275,14 @@ export function JobsWorkspace() {
     try {
       const nextMatches = createRuleRequirementMatches({ profile, job: selectedJob });
       const savedMatches = await repository.saveRuleRequirementMatches({ profile, job: selectedJob, matches: nextMatches });
-      if (!collectAllowedEvidenceRefs(savedMatches).length) throw new Error("matches_have_no_evidence");
       const operationId = `profile-job-${profile.id}-${profile.version}-${selectedJob.id}-${profileAnalysis.analysisHash}-${stableHashText(selectedProfileItemIds.slice().sort().join(":"))}`;
-      const result = await repository.createJobSpecificBranchFromProfile({
-        profileId: profile.id, jobId: selectedJob.id, operationId,
+      const result = await createJobResume({ repository, job: selectedJob, operationId,
         name: uniqueBranchName(`${selectedJob.title} - ${selectedJob.company} - ${profile.basics.name}`, resumeBranches),
-        selectedCanonicalItemIds: selectedProfileItemIds, requirementMatchIds: savedMatches.map((match) => match.id)
+        source: { type: "profile", profileId: profile.id, selectedCanonicalItemIds: selectedProfileItemIds, requirementMatchIds: savedMatches.map((match) => match.id) }
       });
       setResumeActionStatus("completed"); setGenerationErrorCode(undefined);
-      notify({ type: "success", title: result.idempotent ? "已打开已有岗位简历" : "岗位简历已创建", message: "个人资料库没有被修改，正在打开 Resume Studio。" });
-      router.push(`/resume?branchId=${encodeURIComponent(result.branch.id)}&mode=ai&fromJobId=${encodeURIComponent(selectedJob.id)}`);
+      notify({ type: "success", title: "岗位简历已创建", message: "个人资料库没有被修改，正在打开 Resume Studio。" });
+      router.push(`/resume?branchId=${encodeURIComponent(result.resultRefs!.branchId!)}&mode=ai&fromJobId=${encodeURIComponent(selectedJob.id)}`);
     } catch (error) { setResumeActionStatus("failed"); showGenerationError(mapJobResumeGenerationError(error)); }
   }
 
@@ -296,21 +294,19 @@ export function JobsWorkspace() {
       let savedMatches = await repository.saveRuleRequirementMatches({ profile: matchingProfile, job: selectedJob, matches: deterministic });
       setMatches(savedMatches);
       if (hasCustomAiSettings()) savedMatches = await runOptionalSemanticEvaluation({ profile: matchingProfile, job: selectedJob, branch: selectedBaseResume, matches: savedMatches });
-      if (!collectAllowedEvidenceRefs(savedMatches).length) throw new Error("matches_have_no_evidence");
       const existing = (await repository.findDerivedJobBranches({ sourceBranchId: selectedBaseResume.id, jobId: selectedJob.id, sourceRevisionId: selectedBaseResume.currentRevisionId }))[0];
       if (existing) {
         setResumeActionStatus("completed"); notify({ type: "success", title: "已打开已有岗位简历", message: "当前来源版本已经生成过岗位简历。" });
         router.push(`/resume?branchId=${encodeURIComponent(existing.id)}&mode=ai&fromJobId=${encodeURIComponent(selectedJob.id)}`); return;
       }
       setResumeActionStatus("saving");
-      const result = await repository.deriveJobSpecificBranchFromBranch({
-        sourceBranchId: selectedBaseResume.id, jobId: selectedJob.id, expectedSourceRevision: selectedBaseResume.revision,
-        expectedSourceRevisionId: selectedBaseResume.currentRevisionId,
+      const result = await createJobResume({ repository, job: selectedJob,
         operationId: `job-resume-${selectedBaseResume.id}-${selectedJob.id}-${selectedBaseResume.currentRevisionId}-${nanoid(8)}`,
-        name: uniqueBranchName(`${selectedJob.title} - ${selectedJob.company} - ${profile.basics.name}`, resumeBranches)
+        name: uniqueBranchName(`${selectedJob.title} - ${selectedJob.company} - ${profile.basics.name}`, resumeBranches),
+        source: { type: "resume", branch: selectedBaseResume }
       });
       setResumeActionStatus("completed"); notify({ type: "success", title: "岗位简历已创建", message: "原通用简历没有被修改，正在打开 Resume Studio。" });
-      router.push(`/resume?branchId=${encodeURIComponent(result.branch.id)}&mode=ai&fromJobId=${encodeURIComponent(selectedJob.id)}`);
+      router.push(`/resume?branchId=${encodeURIComponent(result.resultRefs!.branchId!)}&mode=ai&fromJobId=${encodeURIComponent(selectedJob.id)}`);
     } catch (error) { setResumeActionStatus("failed"); showGenerationError(mapJobResumeGenerationError(error)); }
   }
 
@@ -429,7 +425,7 @@ function ResumeSourcePanel(props: {
       <div className="source-summary"><div><strong>{props.profileAnalysis?.availableItemCount ?? canonicalProfileLibraryItems(props.profile ?? emptyProfile).length}</strong><span>项可用内容</span></div><div><strong>{props.profileAnalysis?.availableEvidenceCount ?? canonicalProfileLibraryItems(props.profile ?? emptyProfile).flatMap((item) => item.factIds).length}</strong><span>条已确认事实</span></div><div><strong>{props.profileAnalysis?.coverage.overallCoverage ?? "—"}</strong><span>岗位证据覆盖度</span></div></div>
       {!props.profileAnalysis ? <div className="source-intro"><p>{canonicalProfileLibraryItems(props.profile ?? emptyProfile).length < 6 ? "资料库内容较少，使用已有简历可能更快。系统不会自动替你切换。" : "系统将运行确定性召回与 V2 岗位匹配，再由你确认最终内容。"}</p><button className="primary-button" type="button" data-testid="analyze-profile-source" disabled={!props.profile || props.status === "analyzing"} onClick={props.onAnalyzeProfile}>{props.status === "analyzing" ? "分析中…" : "检查资料库并匹配"}</button></div> : <>
         <div className="profile-recommendation-list">{props.profileAnalysis.recommendations.map((item) => <label key={item.id} className={`profile-recommendation-item is-${item.disposition}`}><input type="checkbox" checked={selected.has(item.id)} onChange={(event) => props.onSelectedProfileItemIds(event.target.checked ? [...selected, item.id] : [...selected].filter((id) => id !== item.id))} /><span><strong>{item.title}</strong><small>{item.subtitle || sectionLabel(item.sectionType)} · {dispositionLabel(item.disposition)}</small><p>{item.reason}</p></span></label>)}</div>
-        {props.profileAnalysis.factGaps.length ? <details className="fact-gap-list"><summary>查看 {props.profileAnalysis.factGaps.length} 个事实缺口</summary>{props.profileAnalysis.factGaps.map((gap) => <p key={gap}>{gap}</p>)}</details> : null}
+        {props.profileAnalysis.factGaps.length ? <details className="fact-gap-list"><summary>查看 {props.profileAnalysis.factGaps.length} 个可补充项</summary>{props.profileAnalysis.factGaps.map((gap) => <p key={gap}>这项岗位要求暂未在简历中体现：{gap}</p>)}</details> : null}
         <div className="source-confirm-actions"><span>已选择 {props.selectedProfileItemIds.length} 项内容</span><button className="primary-button" type="button" data-testid="create-from-profile-source" disabled={!props.selectedProfileItemIds.length || props.status === "saving"} onClick={props.onCreateProfile}>{props.status === "saving" ? "创建中…" : "确认并创建岗位简历"}</button></div>
       </>}
     </div> : <div className="source-mode-body" data-testid="resume-source-mode">
