@@ -65,4 +65,26 @@ describe("job resume source modes", () => {
     expect(await repository.getProfile(demoCareerProfile.id)).toEqual(before);
     expect((await repository.listResumeBranches(demoCareerProfile.id)).some((branch) => branch.id === result.branch.id)).toBe(true);
   });
+
+  it("creates a job branch when selected real source content has no requirement evidence", async () => {
+    db = new CareerAdaptDb(`JobResumeWithoutEvidence-${crypto.randomUUID()}`);
+    const repository = new WorkspaceRepository(db);
+    await repository.saveProfile(demoCareerProfile);
+    await repository.saveJobDescription(demoJobDescriptions[0]);
+    const analysis = analyzeProfileLibrarySource({ profile: demoCareerProfile, job: demoJobDescriptions[0] });
+    const selected = analysis.recommendations.slice(0, 1).map((item) => item.id);
+
+    const result = await repository.createJobSpecificBranchFromProfile({
+      profileId: demoCareerProfile.id,
+      jobId: demoJobDescriptions[0].id,
+      operationId: "profile-source-without-evidence",
+      name: "岗位简历",
+      selectedCanonicalItemIds: selected,
+      requirementMatchIds: []
+    });
+
+    expect(result.branch.branchPurpose).toBe("job_specific");
+    expect(result.branch.requirementMatchIds).toEqual([]);
+    expect(result.revision?.id).toBe(result.branch.currentRevisionId);
+  });
 });
