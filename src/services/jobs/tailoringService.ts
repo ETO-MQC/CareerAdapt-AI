@@ -2,11 +2,13 @@ import {
   analyzeJobDescriptionV2,
   buildCandidateEvidenceUnits,
   buildJobCoverageReport,
-  classifyTailoringClaim,
+  buildTailoringJobContext,
+  createDeterministicTailoringSuggestions,
+  createResumeTailorTaskInputs,
   evaluateRequirementEvidence,
   recallEvidenceCandidates,
   recommendedTailoringIntensity,
-  sectionTailoringPolicy
+  validateTailoringDelta
 } from "@/domain/jobOptimization";
 import type {
   CareerProfile,
@@ -15,13 +17,16 @@ import type {
   JobDescription,
   ResumeBranch,
   ResumeTailoringPlan,
+  ResumeTailorTaskInputV2,
   TailoringClaim,
-  TailoringIntensity
+  TailoringIntensity,
+  TailoringSuggestion
 } from "@/domain/schemas";
-import { ResumeTailoringPlanSchema } from "@/domain/schemas";
+import { ResumeTailoringPlanSchema, TailoringSuggestionSchema } from "@/domain/schemas";
 import { resolveBranchFactRefs } from "@/domain/branch/validation";
 import { stableHashText } from "@/services/security/text";
 import type { WorkspaceRepository } from "@/services/storage/repositories";
+import { runRuleFactGuard } from "@/domain/adaptation/factGuard";
 
 export type ClaimConfirmationGroup = {
   id: string;
@@ -38,6 +43,7 @@ export type TailoringServiceResult = {
   plan?: ResumeTailoringPlan;
   confirmationGroups?: ClaimConfirmationGroup[];
   resultRefs?: { branchId?: string; revisionId?: string; planId?: string };
+  taskInputs?: ResumeTailorTaskInputV2[];
 };
 
 export function analyzeJobFit(input: { profile: CareerProfile; branch: ResumeBranch; job: JobDescription }): TailoringServiceResult {
@@ -64,34 +70,33 @@ export function createTailoringPlan(input: {
   const analyzed = analyzeJobFit(input);
   const report = analyzed.report!;
   const intensity = input.intensity ?? recommendedTailoringIntensity(report.overallCoverage);
-  const requirements = analyzeJobDescriptionV2({ rawText: input.job.rawText }).nodes;
-  const claims: TailoringClaim[] = [];
-  for (const item of input.branch.contentItems.filter((candidate) => candidate.itemType !== "structural" && candidate.visible).slice(0, 12)) {
-    const section = item.itemType === "skill" ? "skills" : item.itemType === "summary" ? "summary" : "project";
-    const policy = sectionTailoringPolicy(section, intensity);
-    if (!policy.allowedActions.includes("rewrite") && !policy.allowedActions.includes("keyword_align")) continue;
-    const requirement = requirements.find((node) => node.exactKeywords.some((keyword) => item.text.toLowerCase().includes(keyword.toLowerCase()))) ?? requirements[0];
-    if (!requirement) continue;
-    const proposedText = item.text;
-    claims.push(classifyTailoringClaim({
-      id: `claim-${stableHashText(`${input.operationId}:${item.id}:${requirement.id}`)}`,
-      section,
-      targetContentItemId: item.id,
-      currentText: item.text,
-      proposedText,
-      reason: `让已有内容更贴近“${requirement.statement}”，不新增未经确认的事实。`,
-      keywords: requirement.exactKeywords.slice(0, 4),
-      evidenceRefs: resolveBranchFactRefs(input.profile, item.factRefs),
-      inferred: intensity !== "conservative" && section === "project"
-    }));
-  }
+  const jobContext = buildTailoringJobContext(input.job);
+  const taskInputs = createResumeTailorTaskInputs({
+    draftId: `tailoring-draft-${input.branch.id}`,
+    profileId: input.profile.id,
+    branch: input.branch,
+    job: input.job,
+    intensity,
+    resolveEvidenceRefs: (item) => resolveBranchFactRefs(input.profile, item.factRefs)
+  });
+  const suggestions = createDeterministicTailoringSuggestions({
+    branch: input.branch,
+    job: input.job,
+    intensity,
+    operationId: input.operationId,
+    resolveEvidenceRefs: (item) => resolveBranchFactRefs(input.profile, item.factRefs)
+  });
+  const claims = claimsFromSuggestions(suggestions);
   const plan = ResumeTailoringPlanSchema.parse({
     id: `tailoring-plan-${stableHashText(input.operationId)}`,
     branchId: input.branch.id,
     jobId: input.job.id,
     intensity,
+    promptVersion: "resume-tailor.v2",
+    jobContext,
     basedOnBranchRevision: input.branch.revision,
     claims,
+    suggestions,
     estimatedFitScore: Math.min(100, report.overallCoverage + claims.length * 2),
     createdAt: input.now ?? new Date().toISOString()
   });
@@ -102,8 +107,76 @@ export function createTailoringPlan(input: {
     report,
     plan,
     confirmationGroups,
+    taskInputs,
     resultRefs: { branchId: input.branch.id, planId: plan.id }
   };
+}
+
+export function validateTailoringSuggestions(input: { suggestions: TailoringSuggestion[] }) {
+  const valid: TailoringSuggestion[] = [];
+  const rejected: Array<{ suggestion: TailoringSuggestion; code: "invalid_ai_output" | "no_change_needed"; reasons: string[] }> = [];
+  for (const candidate of input.suggestions) {
+    const suggestion = TailoringSuggestionSchema.parse(candidate);
+    const validation = validateTailoringDelta({
+      before: suggestion.before,
+      after: suggestion.after,
+      intensity: suggestion.intensity,
+      targetKeywords: suggestion.targetKeywords,
+      sectionType: suggestion.targetSectionType,
+      rationale: suggestion.rationale
+    });
+    if (validation.valid) {
+      const guard = runRuleFactGuard({ originalText: renderSuggestionValue(suggestion.before), checkedText: renderSuggestionValue(suggestion.after), usedEvidenceRefs: suggestion.evidenceRefs });
+      const blocked = guard.status === "blocked_high_risk";
+      const requiresConfirmation = !blocked && (suggestion.claimSupportLevel === "reasonable_inference" || suggestion.claimSupportLevel === "user_declared");
+      valid.push(TailoringSuggestionSchema.parse({
+        ...suggestion,
+        claimSupportLevel: blocked ? "unsupported_hard_fact" : suggestion.claimSupportLevel,
+        status: blocked ? "blocked" : requiresConfirmation ? "requires_confirmation" : "ready",
+        riskLevel: blocked ? "high" : requiresConfirmation ? "medium" : suggestion.riskLevel,
+        metrics: validation.metrics,
+        coveredKeywordsBefore: validation.coveredKeywordsBefore,
+        coveredKeywordsAfter: validation.coveredKeywordsAfter
+      }));
+    }
+    else rejected.push({ suggestion, code: validation.status === "no_change_needed" ? "no_change_needed" : "invalid_ai_output", reasons: validation.reasons });
+  }
+  return { status: rejected.length ? (valid.length ? "ready" : "blocked") : "ready", suggestions: valid, rejected } as const;
+}
+
+export function withTailoringSuggestions(input: {
+  plan: ResumeTailoringPlan;
+  suggestions: TailoringSuggestion[];
+  invalidOutputCodes?: Array<"invalid_ai_output" | "no_change_needed">;
+}) {
+  return ResumeTailoringPlanSchema.parse({
+    ...input.plan,
+    claims: claimsFromSuggestions(input.suggestions),
+    suggestions: input.suggestions,
+    invalidOutputCodes: input.invalidOutputCodes ?? []
+  });
+}
+
+export async function generateTailoringSuggestions(input: {
+  requests: Array<{ intensity: TailoringIntensity; targetSectionType: TailoringSuggestion["targetSectionType"]; before: string | string[]; targetKeywords: string[]; requirementDescriptions: string[] }>;
+  generate: (request: typeof input.requests[number] & { retryContext?: { previousWasNoOp: true } }) => Promise<TailoringSuggestion | null | undefined>;
+}) {
+  const suggestions: TailoringSuggestion[] = [];
+  const invalidOutputCodes: Array<"invalid_ai_output" | "no_change_needed"> = [];
+  for (const request of input.requests) {
+    let candidate = await input.generate(request);
+    let validation = candidate ? validateTailoringDelta({ before: request.before, after: candidate.after, intensity: request.intensity, targetKeywords: request.targetKeywords, sectionType: request.targetSectionType, rationale: candidate.rationale, requirementDescriptions: request.requirementDescriptions }) : undefined;
+    if (!candidate || !validation?.valid) {
+      candidate = await input.generate({ ...request, retryContext: { previousWasNoOp: true } });
+      validation = candidate ? validateTailoringDelta({ before: request.before, after: candidate.after, intensity: request.intensity, targetKeywords: request.targetKeywords, sectionType: request.targetSectionType, rationale: candidate.rationale, requirementDescriptions: request.requirementDescriptions }) : undefined;
+    }
+    if (!candidate || !validation?.valid) {
+      invalidOutputCodes.push(validation?.status === "no_change_needed" ? "no_change_needed" : "invalid_ai_output");
+      continue;
+    }
+    suggestions.push(TailoringSuggestionSchema.parse({ ...candidate, metrics: validation.metrics, coveredKeywordsBefore: validation.coveredKeywordsBefore, coveredKeywordsAfter: validation.coveredKeywordsAfter }));
+  }
+  return { status: suggestions.length ? "ready" as const : "blocked" as const, suggestions, invalidOutputCodes };
 }
 
 export function confirmTailoringClaims(input: { plan: ResumeTailoringPlan; confirmations: ClaimConfirmation[] }): TailoringServiceResult {
@@ -184,4 +257,27 @@ function buildConfirmationGroups(claims: TailoringClaim[]): ClaimConfirmationGro
 
 function intensityLabel(intensity: TailoringIntensity) {
   return ({ conservative: "保守对齐", balanced: "平衡强化", proactive: "主动定向" } as const)[intensity];
+}
+
+function renderSuggestionValue(value: string | string[]) {
+  return Array.isArray(value) ? value.join("\n") : value;
+}
+
+function claimsFromSuggestions(suggestions: TailoringSuggestion[]): TailoringClaim[] {
+  return suggestions.map((suggestion) => ({
+    id: suggestion.id,
+    section: suggestion.targetSectionType,
+    targetContentItemId: suggestion.targetItemId,
+    targetFieldPath: suggestion.targetFieldPath,
+    currentText: renderSuggestionValue(suggestion.before),
+    proposedText: renderSuggestionValue(suggestion.after),
+    reason: suggestion.rationale,
+    keywords: suggestion.targetKeywords,
+    requirementIds: suggestion.requirementIds,
+    supportLevel: suggestion.claimSupportLevel,
+    decision: suggestion.status === "ready" ? "auto_applicable" : suggestion.status === "requires_confirmation" ? "requires_confirmation" : "blocked",
+    evidenceRefs: suggestion.evidenceRefs,
+    syncScope: suggestion.status === "blocked" ? "rejected" : "resume_only",
+    confirmed: suggestion.status === "ready"
+  }));
 }

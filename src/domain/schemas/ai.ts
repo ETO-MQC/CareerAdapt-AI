@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { EntityBaseSchema, RiskLevelSchema } from "./common";
 import { MatchEvidenceRefSchema } from "./job";
+import { TailoringSuggestionSchema } from "./tailoring";
 
 export const AiTaskSchema = z.enum([
   "health-check",
@@ -114,19 +115,7 @@ export const AiSuggestionSchema = EntityBaseSchema.extend({
   promptVersion: z.string().min(1)
 });
 
-export const ResumeTailorSuggestionItemSchema = z.object({
-  type: AiSuggestionTypeSchema,
-  targetSectionId: z.string().min(1),
-  targetContentItemId: z.string().min(1).optional(),
-  targetFieldId: z.string().min(1).optional(),
-  targetFieldPath: z.string().min(1).optional(),
-  originalText: z.string().min(1),
-  suggestedText: z.string().min(1),
-  reason: z.string().min(1),
-  requirementIds: z.array(z.string().min(1)).default([]),
-  usedEvidenceRefs: z.array(MatchEvidenceRefSchema).default([]),
-  riskLevel: RiskLevelSchema
-});
+export const ResumeTailorSuggestionItemSchema = TailoringSuggestionSchema;
 
 export const ResumeTailorOutputSchema = z.object({
   suggestions: z.array(ResumeTailorSuggestionItemSchema).default([])

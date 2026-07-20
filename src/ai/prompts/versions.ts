@@ -3,7 +3,7 @@ export const promptVersions = {
   profileBuilder: "profile-builder.v1",
   jdAnalyzer: "jd-analyzer.v2",
   evidenceMatcher: "evidence-matcher.v2",
-  resumeTailor: "resume-tailor.v1",
+  resumeTailor: "resume-tailor.v2",
   resumeOptimizationPlanner: "resume-optimization-planner.v1",
   factGuard: "fact-guard.v1"
 } as const;

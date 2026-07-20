@@ -120,31 +120,26 @@ describe("stage C1 evidence-matcher real model integration", () => {
         draftId: "draft-real-c2",
         profileId: "profile-real-c2",
         jobId: "job-real-c2",
-        profileVersion: 1,
-        jobVersion: "2026-07-02T10:00:00.000Z",
-        matcherVersion: "evidence-matcher.v1",
-        requirementIds: ["req-real-c2"],
+        intensity: "balanced",
+        jobContext: {
+          title: "数据分析师",
+          company: "测试公司",
+          rawText: "使用 SQL 和 Excel 产出周期性数据报表。",
+          responsibilities: ["产出周期性数据报表"],
+          mustHave: ["SQL", "Excel"],
+          niceToHave: [],
+          tools: ["SQL", "Excel"],
+          keywords: ["SQL", "Excel", "数据报表"]
+        },
+        target: { sectionType: "project", sectionId: "project", itemId: "section-real-c2", fieldPath: "sections.project.items.section-real-c2.highlights" },
+        currentContent: {
+          structuredItem: { id: "section-real-c2", sectionType: "project", title: "数据分析", current: false, tools: ["SQL", "Excel"], highlights: ["使用 SQL 清洗用户行为数据，并用 Excel 整理周报。"], outcomes: [], customFields: [] },
+          fieldValue: ["使用 SQL 清洗用户行为数据，并用 Excel 整理周报。"],
+          renderedText: "使用 SQL 清洗用户行为数据，并用 Excel 整理周报。"
+        },
+        relevantRequirements: [{ requirementId: "req-real-c2", description: "使用 SQL 和 Excel 产出周期性数据报表。", priority: "high", keywords: ["SQL", "Excel", "数据报表"], relevanceScore: 1 }],
         allowedEvidenceRefs: [evidenceRef],
-        sectionTexts: [
-          {
-            sectionId: "section-real-c2",
-            sectionType: "experience",
-            text: "使用 SQL 清洗用户行为数据，并用 Excel 整理周报。",
-            originalText: "使用 SQL 清洗用户行为数据，并用 Excel 整理周报。",
-            order: 0
-          }
-        ],
-        matches: [
-          {
-            requirementId: "req-real-c2",
-            requirementDescription: "使用 SQL 和 Excel 产出周期性数据报表。",
-            matchLevel: "strong",
-            riskLevel: "low",
-            risks: [],
-            evidenceRefs: [evidenceRef],
-            explanation: "已确认事实直接支持 SQL 和 Excel 报表经历。"
-          }
-        ]
+        allowedFacts: [{ value: evidenceRef.factText, evidenceRefs: [evidenceRef] }]
       };
 
       const provider = new OpenAiCompatibleProvider();
@@ -154,7 +149,7 @@ describe("stage C1 evidence-matcher real model integration", () => {
         maxOutputChars: definition.maxOutputChars,
         signal: AbortSignal.timeout(30_000)
       });
-      const coerced = definition.coerceRawOutput(response.output);
+      const coerced = definition.coerceRawOutput(response.output, input);
       const normalized = definition.normalizeOutput(coerced as ResumeTailorOutput, input);
       const parsed = ResumeTailorOutputSchema.safeParse(normalized);
 

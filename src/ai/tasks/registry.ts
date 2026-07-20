@@ -11,7 +11,9 @@ import {
   MatchEvidenceRefSchema,
   ProfileBuilderOutputSchema,
   ResumeJsonMapperOutputSchema,
+  ResumeTailorTaskInputV2Schema,
   ResumeTailorOutputSchema,
+  TailoringSuggestionSchema,
   type AiTask,
   type EvidenceMatcherOutput,
   type FactGuardOutput,
@@ -87,18 +89,7 @@ export const ResumeTailorMatchSchema = z.object({
   explanation: z.string().min(1)
 });
 
-export const ResumeTailorTaskInputSchema = z.object({
-  draftId: z.string().min(1),
-  profileId: z.string().min(1),
-  jobId: z.string().min(1),
-  profileVersion: z.number().int().min(1),
-  jobVersion: z.string().min(1),
-  matcherVersion: z.string().min(1),
-  requirementIds: z.array(z.string().min(1)).min(1),
-  allowedEvidenceRefs: z.array(MatchEvidenceRefSchema).default([]),
-  sectionTexts: z.array(ResumeTailorSectionSchema).default([]),
-  matches: z.array(ResumeTailorMatchSchema).min(1)
-});
+export const ResumeTailorTaskInputSchema = ResumeTailorTaskInputV2Schema;
 
 export const FactGuardTaskInputSchema = z.object({
   originalText: z.string().min(1).max(4_000),
@@ -562,23 +553,31 @@ export const aiTaskRegistry = {
       return JSON.stringify(
         {
           draftId: input.draftId,
+          profileId: input.profileId,
           jobId: input.jobId,
-          requirementIds: input.requirementIds,
+          intensity: input.intensity,
+          jobContext: input.jobContext,
+          target: input.target,
+          currentContent: input.currentContent,
+          relevantRequirements: input.relevantRequirements,
           allowedEvidenceRefs: input.allowedEvidenceRefs,
-          sectionTexts: input.sectionTexts,
-          matches: input.matches,
+          allowedFacts: input.allowedFacts,
+          retryContext: input.retryContext,
           instructions: [
-            "Generate concise, explainable suggestions for the draft sections.",
-            "Every suggestion must cite requirementIds from requirementIds.",
+            intensityInstruction(input.intensity),
+            "Generate exactly one field-level suggestion for target.fieldPath.",
+            "Every suggestion must cite requirementIds from relevantRequirements.",
             "Every usedEvidenceRefs item must be copied from allowedEvidenceRefs.",
-            "If evidence is missing, use risk_warning or follow_up_question."
-          ]
+            "Use currentContent.fieldValue only as before; never use it as an after fallback.",
+            "If no valid rewrite can be produced, return an empty suggestions array.",
+            input.retryContext?.previousWasNoOp ? "The previous result copied the original. Produce a materially different result; do not repeat it." : undefined
+          ].filter(Boolean)
         },
         null,
         2
       );
     },
-    coerceRawOutput(rawOutput: unknown) {
+    coerceRawOutput(rawOutput: unknown, input?: ResumeTailorTaskInput) {
       const raw = rawOutput as Record<string, unknown>;
       const suggestions = Array.isArray(raw.suggestions)
         ? raw.suggestions
@@ -589,56 +588,68 @@ export const aiTaskRegistry = {
       return {
         suggestions: suggestions.map((item) => {
           const suggestion = item as Record<string, unknown>;
+          const before = suggestion.before ?? suggestion.originalText ?? suggestion.original;
+          const after = suggestion.after ?? suggestion.suggestedText ?? suggestion.suggested;
           return {
-            type: normalizeSuggestionType(suggestion.type),
-            targetSectionId: typeof suggestion.targetSectionId === "string" ? suggestion.targetSectionId : "",
-            originalText: pickString(suggestion.originalText, suggestion.original, suggestion.sourceText),
-            suggestedText: pickString(suggestion.suggestedText, suggestion.suggested, suggestion.text),
-            reason: pickString(suggestion.reason, suggestion.explanation, "AI generated a role adaptation suggestion."),
-            requirementIds: Array.isArray(suggestion.requirementIds)
-              ? suggestion.requirementIds
-              : Array.isArray(suggestion.jobRequirementIds)
-                ? suggestion.jobRequirementIds
-                : [],
-            usedEvidenceRefs: Array.isArray(suggestion.usedEvidenceRefs)
-              ? suggestion.usedEvidenceRefs
-              : Array.isArray(suggestion.evidenceRefs)
-                ? suggestion.evidenceRefs
-                : [],
-            riskLevel: normalizeRiskLevel(suggestion.riskLevel ?? suggestion.risk)
+            id: pickString(suggestion.id, `tailoring-ai-${nanoid(8)}`),
+            intensity: suggestion.intensity ?? input?.intensity,
+            operation: suggestion.operation ?? (normalizeSuggestionType(suggestion.type) === "reorder" ? "reorder" : "rewrite"),
+            targetSectionType: suggestion.targetSectionType ?? input?.target.sectionType,
+            targetSectionId: pickString(suggestion.targetSectionId, input?.target.sectionId),
+            targetItemId: suggestion.targetItemId ?? suggestion.targetContentItemId ?? input?.target.itemId,
+            targetFieldPath: pickString(suggestion.targetFieldPath, input?.target.fieldPath),
+            before,
+            after,
+            changedFields: Array.isArray(suggestion.changedFields) ? suggestion.changedFields : [input?.target.fieldPath.split(".").at(-1) ?? "field"],
+            requirementIds: Array.isArray(suggestion.requirementIds) ? suggestion.requirementIds : [],
+            targetKeywords: Array.isArray(suggestion.targetKeywords) ? suggestion.targetKeywords : [],
+            coveredKeywordsBefore: Array.isArray(suggestion.coveredKeywordsBefore) ? suggestion.coveredKeywordsBefore : [],
+            coveredKeywordsAfter: Array.isArray(suggestion.coveredKeywordsAfter) ? suggestion.coveredKeywordsAfter : [],
+            claimSupportLevel: suggestion.claimSupportLevel ?? "reasonable_inference",
+            evidenceRefs: Array.isArray(suggestion.evidenceRefs) ? suggestion.evidenceRefs : Array.isArray(suggestion.usedEvidenceRefs) ? suggestion.usedEvidenceRefs : [],
+            rationale: pickString(suggestion.rationale, suggestion.reason, suggestion.explanation),
+            riskLevel: normalizeRiskLevel(suggestion.riskLevel ?? suggestion.risk),
+            metrics: suggestion.metrics ?? { textChangeRatio: 0, keywordGain: 0 },
+            status: suggestion.status ?? "requires_confirmation"
           };
         })
       };
     },
     normalizeOutput(output: ResumeTailorOutput, input: ResumeTailorTaskInput) {
-      const fallbackSection = input.sectionTexts[0];
       return {
-        suggestions: output.suggestions.map((suggestion) => ({
-          ...suggestion,
-          targetSectionId: input.sectionTexts.some((section) => section.sectionId === suggestion.targetSectionId)
-            ? suggestion.targetSectionId
-            : fallbackSection?.sectionId ?? "draft-section-missing",
-          originalText: suggestion.originalText || fallbackSection?.text || "No original section text.",
-          suggestedText: suggestion.suggestedText || suggestion.originalText || fallbackSection?.text || "No suggested text.",
-          requirementIds: suggestion.requirementIds.filter((id) => input.requirementIds.includes(id)),
-          usedEvidenceRefs: normalizeEvidenceRefs(suggestion.usedEvidenceRefs, {
+        suggestions: output.suggestions.flatMap((suggestion) => {
+          const parsed = TailoringSuggestionSchema.safeParse({
+            ...suggestion,
+            intensity: input.intensity,
+            targetSectionType: input.target.sectionType,
+            targetSectionId: input.target.sectionId,
+            targetItemId: input.target.itemId,
+            targetFieldPath: input.target.fieldPath,
+            before: input.currentContent.fieldValue,
+            targetKeywords: suggestion.targetKeywords.length > 0
+              ? suggestion.targetKeywords
+              : Array.from(new Set(input.relevantRequirements.flatMap((requirement) => requirement.keywords).filter((keyword) => keyword.trim().toLowerCase() !== "ai"))).slice(0, 8),
+            requirementIds: suggestion.requirementIds.filter((id) => input.relevantRequirements.some((requirement) => requirement.requirementId === id)),
+            evidenceRefs: normalizeEvidenceRefs(suggestion.evidenceRefs, {
             candidates: input.allowedEvidenceRefs.map((evidenceRef) => ({ evidenceRef, searchText: "" }))
-          } as EvidenceMatcherTaskInput)
-        }))
+            } as EvidenceMatcherTaskInput)
+          });
+          return parsed.success ? [parsed.data] : [];
+        })
       };
     },
     validateOutput(output: ResumeTailorOutput, input: ResumeTailorTaskInput) {
       const allowedRefs = new Set(input.allowedEvidenceRefs.map((ref) => JSON.stringify(ref)));
-      const sectionIds = new Set(input.sectionTexts.map((section) => section.sectionId));
-
+      if (output.suggestions.length === 0) throw new Error("invalid_ai_output");
       for (const suggestion of output.suggestions) {
-        if (!sectionIds.has(suggestion.targetSectionId)) {
+        if (suggestion.targetSectionId !== input.target.sectionId || suggestion.targetFieldPath !== input.target.fieldPath) {
           throw new Error("resume_tailor_section_out_of_scope");
         }
-        if (suggestion.requirementIds.length === 0 || suggestion.requirementIds.some((id) => !input.requirementIds.includes(id))) {
+        if (suggestion.requirementIds.length === 0 || suggestion.requirementIds.some((id) => !input.relevantRequirements.some((requirement) => requirement.requirementId === id))) {
           throw new Error("resume_tailor_requirement_out_of_scope");
         }
-        for (const ref of suggestion.usedEvidenceRefs) {
+        if (JSON.stringify(suggestion.before) === JSON.stringify(suggestion.after)) throw new Error("resume_tailor_no_op");
+        for (const ref of suggestion.evidenceRefs) {
           if (!allowedRefs.has(JSON.stringify(ref))) {
             throw new Error("resume_tailor_evidence_ref_out_of_scope");
           }
@@ -975,6 +986,16 @@ function normalizeSuggestionType(value: unknown) {
     return "follow_up_question";
   }
   return "rewrite";
+}
+
+function intensityInstruction(intensity: ResumeTailorTaskInput["intensity"]) {
+  if (intensity === "conservative") {
+    return "Conservative: preserve facts and field structure; only align keywords, compress, or reorder. Add no capability claims, but make at least one meaningful wording change and never copy the original.";
+  }
+  if (intensity === "balanced") {
+    return "Balanced: rewrite summary, skill descriptions, or relevant highlights using JD language; regroup sentences and foreground relevant results. Mark reasonable inference for confirmation and make the output clearly different.";
+  }
+  return "Proactive: center content selection, order, and expression on the JD; fully rewrite summary, restructure skill categories, and rewrite/reorder project highlights. New skills are user_declared and require confirmation. Never invent organizations, dates, credentials, awards, numbers, or responsibilities.";
 }
 
 function normalizeGuardStatus(value: unknown) {

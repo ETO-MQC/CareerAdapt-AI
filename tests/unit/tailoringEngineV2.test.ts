@@ -1,0 +1,108 @@
+import { describe, expect, it } from "vitest";
+import { createTailoringPlan } from "@/services/jobs/tailoringService";
+import { aggregateDelta, routeTailoringRequirements, validateTailoringDelta } from "@/domain/jobOptimization";
+import type { CareerProfile, JobDescription, ResumeBranch, TailoringIntensity } from "@/domain/schemas";
+
+const NOW = "2026-07-20T08:00:00.000Z";
+const jdText = `AI 软件工程师\n岗位职责\n大模型应用开发，搭建和调优 RAG 系统与 AI Agent 任务规划、工具调用\n使用 Python / FastAPI 完成接口开发\n使用 Playwright 进行端到端自动化测试\n负责模型输出评估、Prompt Engineering 与结构化输出验证`;
+
+describe("Tailoring Engine v2 regression", () => {
+  it.each(["conservative", "balanced", "proactive"] as TailoringIntensity[])(
+    "%s does not disguise copied source text as a rewrite",
+    (intensity) => {
+      const result = createTailoringPlan({
+        profile: fixtureProfile(),
+        branch: fixtureBranch(),
+        job: fixtureJob(),
+        intensity,
+        operationId: `regression-${intensity}`,
+        now: NOW
+      });
+
+      expect(result.plan?.claims.length).toBeGreaterThan(0);
+      expect(result.plan?.claims.every((claim) => claim.proposedText !== claim.currentText)).toBe(true);
+      expect(result.taskInputs?.every((request) => request.intensity === intensity)).toBe(true);
+      expect(result.taskInputs?.every((request) => request.jobContext.rawText === jdText)).toBe(true);
+    }
+  );
+
+  it("creates progressively stronger summary, skills and project deltas", () => {
+    const plans = (["conservative", "balanced", "proactive"] as TailoringIntensity[]).map((intensity) => createTailoringPlan({
+      profile: fixtureProfile(), branch: fixtureBranch(), job: fixtureJob(), intensity, operationId: `progressive-${intensity}`, now: NOW
+    }).plan!);
+    const [conservative, balanced, proactive] = plans.map((plan) => plan.suggestions!);
+
+    for (const suggestions of [conservative, balanced, proactive]) {
+      expect(suggestions.filter((item) => item.targetSectionType === "summary")).toHaveLength(1);
+      expect(suggestions.filter((item) => item.targetSectionType === "skills")).toHaveLength(1);
+      expect(suggestions.filter((item) => item.targetSectionType === "project")).toHaveLength(3);
+      expect(suggestions.every((item) => JSON.stringify(item.before) !== JSON.stringify(item.after))).toBe(true);
+      expect(suggestions.every((item) => item.targetKeywords.some((keyword) => keyword.toLowerCase() !== "ai"))).toBe(true);
+      expect(suggestions.reduce((total, item) => total + item.metrics.keywordGain, 0)).toBeGreaterThan(0);
+    }
+    expect(aggregateDelta(proactive)).toBeGreaterThan(aggregateDelta(balanced));
+    expect(aggregateDelta(balanced)).toBeGreaterThan(aggregateDelta(conservative));
+    const projectRequirements = proactive.filter((item) => item.targetSectionType === "project").map((item) => item.requirementIds.join(","));
+    expect(new Set(projectRequirements).size).toBeGreaterThan(1);
+  });
+
+  it("rejects copied or empty model output instead of falling back to before", () => {
+    const copied = validateTailoringDelta({ before: "RAG 系统搭建与调优", after: "RAG 系统搭建与调优", intensity: "balanced", targetKeywords: ["RAG", "FastAPI"], sectionType: "project" });
+    const empty = validateTailoringDelta({ before: "RAG 系统搭建与调优", after: "", intensity: "balanced", targetKeywords: ["RAG", "FastAPI"], sectionType: "project" });
+    expect(copied).toMatchObject({ valid: false, status: "no_change_needed" });
+    expect(empty).toMatchObject({ valid: false, status: "invalid_ai_output" });
+  });
+
+  it("routes different requirements to skills and individual projects", () => {
+    const job = fixtureJob();
+    const skills = routeTailoringRequirements({ job, sectionType: "skills", renderedText: "Python FastAPI Playwright", itemId: "skill-python" });
+    const smartFocus = routeTailoringRequirements({ job, sectionType: "project", renderedText: "示例任务系统 RAG 系统搭建与调优", itemId: "smartfocus" });
+    const learnKata = routeTailoringRequirements({ job, sectionType: "project", renderedText: "示例学习助手 AI Agent 任务规划与工具调用", itemId: "learnkata" });
+    expect(skills.map((item) => item.requirementId)).toContain("req-api");
+    expect(smartFocus[0].requirementId).toBe("req-rag");
+    expect(learnKata[0].requirementId).toBe("req-agent");
+  });
+});
+
+function fixtureJob(): JobDescription {
+  const requirements = [
+    ["rag", "大模型应用开发与 RAG 系统搭建调优", ["大模型应用开发", "RAG"]],
+    ["agent", "AI Agent 任务规划与工具调用", ["AI Agent", "任务规划", "工具调用"]],
+    ["api", "Python / FastAPI 接口开发", ["Python", "FastAPI", "接口开发"]],
+    ["test", "Playwright 端到端自动化测试", ["Playwright", "自动化测试"]],
+    ["eval", "模型输出评估与结构化输出验证", ["模型输出评估", "结构化输出验证", "Prompt Engineering"]]
+  ].map(([id, description, keywords], index) => ({
+    id: `req-${id}`, category: index < 2 ? "responsibility" as const : "required_skill" as const,
+    description: description as string, priority: "high" as const, hardConstraint: false,
+    sourceSpan: { start: 0, end: jdText.length, text: jdText }, keywords: keywords as string[], confidence: 1,
+    createdAt: NOW, updatedAt: NOW
+  }));
+  return { id: "job-ai", title: "AI 软件工程师", company: "目标公司", rawText: jdText, source: "manual", requirements, createdAt: NOW, updatedAt: NOW };
+}
+
+function fixtureProfile(): CareerProfile {
+  return {
+    id: "profile-ai", name: "测试用户", basics: { name: "测试用户", links: [] },
+    preference: { targetRoles: [], targetCities: [], industries: [] }, version: 1,
+    experiences: [], skills: [], certificates: [], evidences: [], unclassifiedBlocks: [], createdAt: NOW, updatedAt: NOW
+  } as CareerProfile;
+}
+
+function fixtureBranch(): ResumeBranch {
+  const rows = [
+    ["summary", "summary", "具备 AI 领域的软件工程化和产品开发经验。"],
+    ["skill-python", "skill", "Python / FastAPI；Playwright 端到端测试；结构化输出验证"],
+    ["smartfocus", "experience", "示例任务系统：完成 RAG 系统搭建与调优。"],
+    ["learnkata", "experience", "示例学习助手：实现 AI Agent 任务规划与工具调用。"],
+    ["redbook", "experience", "示例内容分析项目：开展模型输出评估。"]
+  ] as const;
+  return {
+    id: "branch-ai", schemaVersion: "resume-branch-v2", branchPurpose: "job_specific", profileId: "profile-ai", jobId: "job-ai",
+    name: "AI 软件工程师岗位简历", sourceProfileVersion: 1, sourceProfileSnapshotId: "snapshot-ai", sourceJobVersion: "job-v1", sourceDraftRevision: 0,
+    matcherVersion: "matcher-v2", sourceMatchSetHash: "hash-ai-123", requirementMatchIds: [], revision: 1,
+    currentRevisionId: "revision-ai", lifecycleStatus: "active", migrationStatus: "verified",
+    syncStatusCache: { status: "in_sync", sourceProfileVersion: 1, currentProfileVersion: 1, invalidFactRefs: [], checkedAt: NOW, message: "in sync" },
+    contentItems: rows.map(([id, itemType, text], order) => ({ id, itemType, source: "user_manual", sourceSectionId: itemType, text, originalText: text, order, visible: true, requirementIds: [], sourceSuggestionIds: [], factRefs: [], guardMode: "not_fact", guardStatus: "pass", guardRiskLevel: "low", guardFindings: [], userConfirmation: { scope: "resume_only", confirmedTextHash: `confirmed-${id}`, confirmedAt: NOW } })),
+    structuredContentItems: [], createdAt: NOW, updatedAt: NOW
+  } as ResumeBranch;
+}
