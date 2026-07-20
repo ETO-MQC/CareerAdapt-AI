@@ -73,6 +73,7 @@ import {
   type ResumeBranchOperation,
   type ResumePresentationConfig,
   type ResumeTailoringPlan,
+  type TailoringClaim,
   type ResumeRenderSectionType,
   type ResumeRevision,
   type SuggestionOperation
@@ -138,6 +139,72 @@ function syncStructuredContentItems(
       legacyTextProjection: legacy.text
     });
   });
+}
+
+function applyTailoringClaimsToBranch(
+  branch: ResumeBranch,
+  claims: TailoringClaim[],
+  plan: ResumeTailoringPlan,
+  now: string
+) {
+  const byItem = new Map<string, TailoringClaim[]>();
+  for (const claim of claims) {
+    if (!claim.targetContentItemId) continue;
+    byItem.set(claim.targetContentItemId, [...(byItem.get(claim.targetContentItemId) ?? []), claim]);
+  }
+  const suggestions = new Map((plan.suggestions ?? []).map((suggestion) => [suggestion.id, suggestion]));
+  const structuredContentItems = syncStructuredContentItems(branch, branch.contentItems).map((item) => {
+    const itemClaims = byItem.get(item.id) ?? [];
+    let data = item.data as ResumeItemV2;
+    for (const claim of itemClaims) {
+      if (!claim.targetFieldPath) continue;
+      const segment = claim.targetFieldPath.split(".").at(-1)!;
+      const match = /^(\w+)(?:\[(\d+)\])?$/.exec(segment);
+      if (!match) throw new Error("tailoring_field_path_invalid");
+      const [, field, indexText] = match;
+      const current = (data as unknown as Record<string, unknown>)[field];
+      const suggestion = suggestions.get(claim.id);
+      const proposed = suggestion?.after ?? claim.proposedText;
+      let value: unknown = proposed;
+      if (indexText !== undefined) {
+        if (!Array.isArray(current)) throw new Error("tailoring_field_path_not_list");
+        const nextList = [...current];
+        nextList[Number(indexText)] = Array.isArray(proposed) ? proposed[0] : proposed;
+        value = nextList;
+      } else if (Array.isArray(current)) {
+        value = Array.isArray(proposed) ? proposed : proposed.split(/\r?\n/).filter(Boolean);
+      } else if (Array.isArray(proposed)) {
+        value = proposed.join("\n");
+      }
+      const parsed = ResumeContentItemV2Schema.parse({ ...item, data: { ...data, [field]: value } });
+      data = parsed.data;
+    }
+    return ResumeContentItemV2Schema.parse({ ...item, data });
+  });
+  const structuredById = new Map(structuredContentItems.map((item) => [item.id, item]));
+  const contentItems = branch.contentItems.map((item) => {
+    const itemClaims = byItem.get(item.id) ?? [];
+    if (!itemClaims.length) return item;
+    const structured = structuredById.get(item.id);
+    const fallbackClaim = itemClaims.at(-1)!;
+    const hasFieldPatch = itemClaims.some((claim) => claim.targetFieldPath);
+    const text = hasFieldPatch && structured ? projectResumeItemV2(structured.data) : fallbackClaim.proposedText;
+    const supportLevel = itemClaims.some((claim) => claim.supportLevel !== "verified") ? "reasonable_inference" : "verified";
+    return BranchContentItemSchema.parse({
+      ...item,
+      text,
+      source: supportLevel === "verified" ? "adaptation_draft" : "user_manual",
+      guardMode: supportLevel === "verified" ? "rule_verified" : "not_fact",
+      guardStatus: "pass",
+      guardRiskLevel: supportLevel === "verified" ? "low" : "medium",
+      userConfirmation: supportLevel === "verified" ? undefined : {
+        scope: "resume_only",
+        confirmedTextHash: stableHashText(text),
+        confirmedAt: now
+      }
+    });
+  });
+  return { contentItems, structuredContentItems };
 }
 
 function applySuggestionToStructuredItems(
@@ -983,29 +1050,13 @@ export class WorkspaceRepository {
       const applicable = input.plan.claims.filter((claim) => claim.syncScope !== "rejected" && (claim.decision === "auto_applicable" || claim.confirmed));
       if (input.plan.claims.some((claim) => claim.decision === "blocked" && claim.syncScope !== "rejected")) throw new Error("unsupported_hard_fact_blocked");
       if (input.plan.claims.some((claim) => claim.decision === "requires_confirmation" && !claim.confirmed && claim.syncScope !== "rejected")) throw new Error("tailoring_claim_confirmation_required");
-      const byItem = new Map(applicable.filter((claim) => claim.targetContentItemId).map((claim) => [claim.targetContentItemId!, claim]));
       const now = new Date().toISOString();
-      const contentItems = branch.contentItems.map((item) => {
-        const claim = byItem.get(item.id);
-        if (!claim) return item;
-        return BranchContentItemSchema.parse({
-          ...item,
-          text: claim.proposedText,
-          source: claim.supportLevel === "verified" ? "adaptation_draft" : "user_manual",
-          guardMode: claim.supportLevel === "verified" ? "rule_verified" : "not_fact",
-          guardStatus: "pass",
-          guardRiskLevel: claim.supportLevel === "verified" ? "low" : "medium",
-          userConfirmation: claim.supportLevel === "verified" ? undefined : {
-            scope: "resume_only",
-            confirmedTextHash: stableHashText(claim.proposedText),
-            confirmedAt: now
-          }
-        });
-      });
+      const patched = applyTailoringClaimsToBranch(branch, applicable, input.plan, now);
+      const contentItems = patched.contentItems;
       const nextBase = ResumeBranchSchema.parse({
         ...branch,
         contentItems,
-        structuredContentItems: syncStructuredContentItems(branch, contentItems),
+        structuredContentItems: patched.structuredContentItems,
         revision: branch.revision + 1,
         updatedAt: now
       });
