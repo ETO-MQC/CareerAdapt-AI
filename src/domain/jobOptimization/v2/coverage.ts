@@ -32,8 +32,10 @@ export function buildJobCoverageReport(input: { graph: JobRequirementGraphV2; ma
   const uncoveredRequirementIds = contributions.filter((item) => !item.evaluation || item.evaluation.matchLevel === "none").map((item) => item.requirement.id);
   const uncoveredRequirementDescriptions = contributions.filter((item) => !item.evaluation || item.evaluation.matchLevel === "none").map((item) => item.requirement.sourceSpan?.text || item.requirement.statement);
   const confirmationRequirementIds = contributions.filter((item) => item.evaluation?.matchLevel === "needs_confirmation" || item.requirement.needsConfirmation).map((item) => item.requirement.id);
+  const coveredRequirementDescriptions = contributions.filter((item) => item.evaluation && ["direct", "strong_transferable"].includes(item.evaluation.matchLevel)).map((item) => item.requirement.statement);
+  const partialRequirementDescriptions = contributions.filter((item) => item.evaluation && ["partial", "weak"].includes(item.evaluation.matchLevel)).map((item) => item.requirement.statement);
   return JobCoverageReportV2Schema.parse({
-    overallCoverage, subScores, coveredRequirementIds, partialRequirementIds, uncoveredRequirementIds, confirmationRequirementIds, uncoveredRequirementDescriptions,
+    overallCoverage, subScores, coveredRequirementIds, partialRequirementIds, uncoveredRequirementIds, confirmationRequirementIds, coveredRequirementDescriptions, partialRequirementDescriptions, uncoveredRequirementDescriptions,
     blockingGaps: hardGaps.map((item) => item.requirement.statement),
     improvementOpportunities: contributions.filter((item) => !item.requirement.hardConstraint && item.value < 0.72).map((item) => item.requirement.statement),
     scoreVersion: JOB_COVERAGE_SCORE_VERSION,

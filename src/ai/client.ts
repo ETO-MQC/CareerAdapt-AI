@@ -37,6 +37,7 @@ export async function invokeStructuredAi<TOutput>(input: {
   task: AiTask;
   businessInput: unknown;
   outputSchema: z.ZodType<TOutput>;
+  signal?: AbortSignal;
 }) {
   const aiSettings = readAiSettings();
   const hasCustomSettings = aiSettings.apiKey.length > 0 || aiSettings.baseUrl.length > 0 || aiSettings.model.length > 0;
@@ -49,14 +50,15 @@ export async function invokeStructuredAi<TOutput>(input: {
     headers["x-ai-config"] = encodeAiSettingsForHeader(aiSettings);
   }
 
-  const response = await fetch("/api/ai/structured", {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      task: input.task,
-      input: input.businessInput
-    })
-  });
+  const requestInit: RequestInit = {
+    method: "POST", headers, signal: input.signal,
+    body: JSON.stringify({ task: input.task, input: input.businessInput })
+  };
+  let response = await fetch("/api/ai/structured", requestInit);
+  if ([429, 502, 503].includes(response.status) && !input.signal?.aborted) {
+    await abortableDelay(response.status === 429 ? 500 : 250, input.signal);
+    response = await fetch("/api/ai/structured", requestInit);
+  }
 
   const payload = (await response.json()) as StructuredAiResponse<unknown>;
 
@@ -106,6 +108,14 @@ export async function invokeStructuredAi<TOutput>(input: {
       meta: payload.meta
     })
   };
+}
+
+function abortableDelay(ms: number, signal?: AbortSignal) {
+  return new Promise<void>((resolve, reject) => {
+    if (signal?.aborted) return reject(signal.reason ?? new DOMException("Aborted", "AbortError"));
+    const timer = setTimeout(resolve, ms);
+    signal?.addEventListener("abort", () => { clearTimeout(timer); reject(signal.reason ?? new DOMException("Aborted", "AbortError")); }, { once: true });
+  });
 }
 
 export async function invokeStageBAi<TOutput>(input: {

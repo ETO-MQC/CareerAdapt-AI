@@ -42,6 +42,10 @@ describe("Tailoring Engine v2 repository application", () => {
     if (updated.sectionType !== "project") throw new Error("project_result_expected");
     expect(updated.highlights).toEqual(after);
     expect({ title: updated.title, role: updated.role, startDate: updated.startDate, endDate: updated.endDate }).toEqual({ title: structured.data.title, role: structured.data.role, startDate: structured.data.startDate, endDate: structured.data.endDate });
+    const legacy = applied.branch.contentItems.find((item) => item.id === structured.id)?.text ?? "";
+    expect(legacy).toContain(updated.title!);
+    expect(legacy).toContain(after[0]);
+    expect(applied.branch.structuredContentItems?.find((item) => item.id === structured.id)?.legacyTextProjection).toBe(legacy);
     expect(applied.revision?.source).toBe("suggestion_accept");
     expect((await repository.getResumeBranch(general.branch.id))?.structuredContentItems).toEqual(general.branch.structuredContentItems);
 

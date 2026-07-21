@@ -10,7 +10,7 @@ import {
   type ResumeJsonMapperTaskInput,
   type ResumeTailorTaskInput,
 } from "@/ai/tasks/registry";
-import type { AiTask } from "@/domain/schemas";
+import type { AiTask, ResumeTailorBatchInput } from "@/domain/schemas";
 import { redactSensitiveTextForModel } from "@/services/security/text";
 import { mapNormalizedBlocksToReviewDraft } from "@/domain/resumeImport/normalizer";
 import { mapExternalResumeJson } from "@/domain/resumeImport/jsonMapper";
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
 
     const provider = new OpenAiCompatibleProvider(customSettings);
     const baseUserPrompt = taskDefinition.buildUserPrompt(input.data);
-    let lastValidationFailure: "validation_failed" | "semantic_validation_failed" | undefined;
+    let lastValidationFailure: string | undefined;
 
     for (let attempt = 0; attempt < 2; attempt += 1) {
       const response = await provider.invoke({
@@ -87,8 +87,36 @@ export async function POST(request: NextRequest) {
         signal: AbortSignal.timeout(60_000)
       });
 
-      const coerced = taskDefinition.coerceRawOutput(response.output, input.data);
-      const normalized = taskDefinition.normalizeOutput(coerced, input.data);
+      console.info("[ai:attempt]", {
+        task: taskDefinition.task,
+        attempt: attempt + 1,
+        failureCode: lastValidationFailure,
+        provider: response.provider,
+        model: response.model,
+        latency: Date.now() - startedAt,
+        outputLength: response.outputLength
+      });
+
+      let normalized: unknown;
+      try {
+        const coerced = taskDefinition.coerceRawOutput(response.output, input.data);
+        normalized = taskDefinition.normalizeOutput(coerced, input.data);
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : "resume_tailor_model_shape_invalid";
+        const issues = (error as { issues?: Array<{ path: PropertyKey[]; code: string }> }).issues ?? [];
+        if (process.env.NODE_ENV === "development" && body.data.task.startsWith("resume-tailor")) {
+          console.warn("[resume-tailor:normalization-failed]", issues.map((issue, suggestionIndex) => ({
+            suggestionIndex,
+            paths: [issue.path.join(".")],
+            codes: [issue.code]
+          })));
+        }
+        lastValidationFailure = reason;
+        if (attempt === 0) continue;
+        return aiError(reason, "Model returned content, but its shape did not pass validation.", 422, startedAt, {
+          provider: response.provider, model: response.model, inputLength: baseUserPrompt.length, outputLength: response.outputLength
+        });
+      }
       const parsedOutput = taskDefinition.outputSchema.safeParse(normalized);
 
       if (!parsedOutput.success) {
@@ -104,19 +132,29 @@ export async function POST(request: NextRequest) {
         return aiError("validation_failed", "Model output failed server schema validation.", 422, startedAt, {
           provider: response.provider,
           model: response.model,
-          inputLength: estimateInputLength(input.data),
+          inputLength: baseUserPrompt.length,
           outputLength: response.outputLength
         });
       }
 
       try {
+        if (body.data.task.startsWith("resume-tailor") && (parsedOutput.data as { suggestions?: unknown[] }).suggestions?.length === 0) {
+          if (attempt === 0) {
+            lastValidationFailure = "no_change_needed";
+            continue;
+          }
+          return aiSuccess(taskDefinition.task, taskDefinition.promptVersion, parsedOutput.data, {
+            provider: response.provider, model: response.model, inputLength: baseUserPrompt.length,
+            outputLength: response.outputLength, latencyMs: Date.now() - startedAt
+          });
+        }
         taskDefinition.validateOutput?.(parsedOutput.data, input.data);
       } catch (error) {
         const reason = error instanceof Error ? error.message : "unknown";
         if (process.env.NODE_ENV === "development") {
           console.warn(`[ai:semantic_validation] task=${body.data.task} attempt=${attempt} reason=${reason}`);
         }
-        lastValidationFailure = "semantic_validation_failed";
+        lastValidationFailure = reason;
         if (attempt === 0) {
           continue;
         }
@@ -124,7 +162,7 @@ export async function POST(request: NextRequest) {
         return aiError(`semantic_validation_failed:${reason}`, `Semantic validation failed: ${reason}`, 422, startedAt, {
           provider: response.provider,
           model: response.model,
-          inputLength: estimateInputLength(input.data),
+          inputLength: baseUserPrompt.length,
           outputLength: response.outputLength
         });
       }
@@ -132,7 +170,7 @@ export async function POST(request: NextRequest) {
       return aiSuccess(taskDefinition.task, taskDefinition.promptVersion, parsedOutput.data, {
         provider: response.provider,
         model: response.model,
-        inputLength: estimateInputLength(input.data),
+        inputLength: baseUserPrompt.length,
         outputLength: response.outputLength,
         latencyMs: Date.now() - startedAt
       });
@@ -148,12 +186,18 @@ export async function POST(request: NextRequest) {
 }
 
 function buildRetryPrompt(baseUserPrompt: string, failure: string | undefined) {
+  const reason = failure === "resume_tailor_requirement_out_of_scope" || failure === "resume_tailor_requirement_binding_failed"
+    ? "requirementIds did not match the supplied IDs"
+    : failure === "resume_tailor_after_missing" ? "after was missing"
+      : failure === "resume_tailor_no_op" ? "after was identical to before"
+        : failure === "no_change_needed" ? "the response contained no suggestion"
+          : failure ?? "schema validation failed";
   return [
     baseUserPrompt,
     "",
-    "The previous model response failed server validation.",
-    `Failure code: ${failure ?? "validation_failed"}.`,
-    "Retry once. Return only strict JSON matching the registered schema, with sourceQuote values copied from the input text."
+    `Previous response failed because ${reason}.`,
+    "Return only:",
+    '{"suggestions":[{"after":"...","rationale":"...","requirementIds":["an ID copied from relevantRequirements"]}]}'
   ].join("\n");
 }
 
@@ -211,7 +255,7 @@ function estimateInputLength(input: unknown) {
     return input.rawText.length;
   }
 
-  return 0;
+  return JSON.stringify(input).length;
 }
 
 function createMockOutput(task: AiTask, input: unknown) {
@@ -346,6 +390,27 @@ function createMockOutput(task: AiTask, input: unknown) {
           status: firstEvidence ? "ready" : "requires_confirmation"
         }
       ]
+    };
+  }
+
+  if (task === "resume-tailor-batch") {
+    const batchInput = input as ResumeTailorBatchInput;
+    return {
+      suggestions: batchInput.targets.map((target, index) => {
+        const beforeText = Array.isArray(target.before) ? target.before.join("；") : target.before;
+        const keywords = target.relevantRequirements.flatMap((item) => item.keywords).filter((item) => item.toLowerCase() !== "ai").slice(0, 4);
+        return {
+          id: `mock-tailoring-batch-${index}`,
+          intensity: batchInput.intensity, operation: "rewrite", targetSectionType: target.sectionType,
+          targetSectionId: target.sectionId, targetItemId: target.itemId, targetFieldPath: target.fieldPath,
+          before: target.before, after: `围绕${keywords.join("、") || batchInput.compactJobContext.title}重写：${beforeText}`,
+          changedFields: [target.fieldPath.split(".").at(-1) ?? "field"],
+          requirementIds: target.relevantRequirements.map((item) => item.requirementId), targetKeywords: keywords,
+          coveredKeywordsBefore: [], coveredKeywordsAfter: keywords, claimSupportLevel: "reasonable_inference",
+          evidenceRefs: target.allowedEvidenceRefs, rationale: `针对 ${target.relevantRequirements[0]?.description ?? batchInput.compactJobContext.title} 调整表达。`,
+          riskLevel: "medium", metrics: { textChangeRatio: 0.5, keywordGain: keywords.length }, status: "requires_confirmation"
+        };
+      })
     };
   }
 

@@ -11,6 +11,7 @@ export const AiTaskSchema = z.enum([
   "jd-analyzer",
   "evidence-matcher",
   "resume-tailor",
+  "resume-tailor-batch",
   "resume-optimization-planner",
   "fact-guard"
 ]);

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { analyzeJobDescriptionV2, buildCandidateEvidenceUnits, buildJobCoverageReport, createResumeOptimizationPlan, evaluateRequirementEvidence, evaluateRequirementEvidenceWithAi, recallEvidenceCandidates } from "@/domain/jobOptimization";
-import type { CareerProfile, ResumeBranch, ResumeContentItemV2 } from "@/domain/schemas";
+import { analyzeJobDescriptionV2, buildCandidateEvidenceUnits, buildCanonicalJobRequirementGraph, buildJobCoverageReport, createResumeOptimizationPlan, evaluateRequirementEvidence, evaluateRequirementEvidenceWithAi, recallEvidenceCandidates } from "@/domain/jobOptimization";
+import type { CareerProfile, JobDescription, ResumeBranch, ResumeContentItemV2 } from "@/domain/schemas";
 import { jobOptimizationV2GoldenCases } from "../fixtures/jobOptimizationV2";
 
 const NOW = "2026-07-19T08:00:00.000Z";
@@ -16,6 +16,20 @@ describe("JD Optimization Engine V2", () => {
     expect(graph.nodes.some((node) => node.kind === "education")).toBe(true);
     expect(graph.nodes.some((node) => node.kind === "language")).toBe(true);
     expect(graph.nodes.some((node) => node.statement.includes("五险一金"))).toBe(false);
+  });
+
+  it("filters JD headings and metadata while preserving canonical requirement IDs", () => {
+    const rawText = "Vibe Coding\n关联项目\n【Code】General coding\n职责内容\n设计 coding agent badcase\n岗位要求\n熟悉 Cursor 与 Claude Code";
+    const parsed = analyzeJobDescriptionV2({ rawText, now: NOW });
+    expect(parsed.nodes.map((node) => node.statement)).not.toEqual(expect.arrayContaining(["Vibe Coding", "关联项目", "【Code】General coding", "职责内容", "岗位要求"]));
+    const job = {
+      id: "job-canonical", title: "AI Coding 任务设计专家", company: "测试公司", rawText, source: "manual",
+      requirements: [{ id: "jd-req-cursor", category: "tool", description: "熟悉 Cursor 与 Claude Code", priority: "high", hardConstraint: false, sourceSpan: { start: rawText.indexOf("熟悉"), end: rawText.length, text: "熟悉 Cursor 与 Claude Code" }, keywords: [], confidence: 0.9, createdAt: NOW, updatedAt: NOW }],
+      createdAt: NOW, updatedAt: NOW
+    } as JobDescription;
+    const graph = buildCanonicalJobRequirementGraph(job);
+    expect(graph.nodes.map((node) => node.id)).toEqual(["jd-req-cursor"]);
+    expect(graph.nodes[0].exactKeywords).toEqual(expect.arrayContaining(["Cursor", "Claude"]));
   });
 
   it.each([

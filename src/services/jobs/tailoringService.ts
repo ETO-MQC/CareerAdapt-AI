@@ -1,5 +1,5 @@
 import {
-  analyzeJobDescriptionV2,
+  buildCanonicalJobRequirementGraph,
   buildCandidateEvidenceUnits,
   buildJobCoverageReport,
   buildTailoringJobContext,
@@ -47,7 +47,7 @@ export type TailoringServiceResult = {
 };
 
 export function analyzeJobFit(input: { profile: CareerProfile; branch: ResumeBranch; job: JobDescription }): TailoringServiceResult {
-  const graph = analyzeJobDescriptionV2({ rawText: input.job.rawText });
+  const graph = buildCanonicalJobRequirementGraph(input.job);
   const evidenceUnits = buildCandidateEvidenceUnits({ profile: input.profile, branch: input.branch });
   const recalls = recallEvidenceCandidates({ graph, evidenceUnits });
   const matrix = evaluateRequirementEvidence({ profile: input.profile, graph, evidenceUnits, recalls });

@@ -12,6 +12,9 @@ import {
   ProfileBuilderOutputSchema,
   ResumeJsonMapperOutputSchema,
   ResumeTailorTaskInputV2Schema,
+  ResumeTailorModelOutputSchema,
+  ResumeTailorBatchInputSchema,
+  ResumeTailorBatchModelOutputSchema,
   ResumeTailorOutputSchema,
   ResumeTailorPlannerInputSchema,
   ResumeTailorPlannerOutputSchema,
@@ -24,6 +27,8 @@ import {
   type ProfileBuilderOutput,
   type ResumeJsonMapperOutput,
   type ResumeTailorOutput,
+  type ResumeTailorBatchInput,
+  type TailoringSuggestion,
   type ResumeTailorPlannerInput,
   type ResumeTailorPlannerOutput
 } from "@/domain/schemas";
@@ -557,95 +562,109 @@ export const aiTaskRegistry = {
     buildUserPrompt(input: ResumeTailorTaskInput) {
       return JSON.stringify(
         {
-          draftId: input.draftId,
-          profileId: input.profileId,
-          jobId: input.jobId,
           intensity: input.intensity,
-          jobContext: input.jobContext,
-          target: input.target,
-          currentContent: input.currentContent,
+          compactJobContext: {
+            title: input.jobContext.title,
+            roleMission: input.jobContext.roleMission,
+            topResponsibilities: input.jobContext.responsibilities.slice(0, 4),
+            targetKeywords: input.jobContext.keywords.slice(0, 12)
+          },
+          before: input.currentContent.fieldValue,
           relevantRequirements: input.relevantRequirements,
-          allowedEvidenceRefs: input.allowedEvidenceRefs,
           allowedFacts: input.allowedFacts,
-          retryContext: input.retryContext,
+          outputContract: {
+            suggestions: [{
+              after: "改写后的文本",
+              rationale: "为什么这样修改",
+              requirementIds: ["输入中存在的 requirementId"],
+              targetKeywords: ["Cursor", "Claude Code", "badcase"],
+              claimSupportLevel: "verified"
+            }]
+          },
           instructions: [
             intensityInstruction(input.intensity),
-            "Generate exactly one field-level suggestion for target.fieldPath.",
-            "Every suggestion must cite requirementIds from relevantRequirements.",
-            "Every usedEvidenceRefs item must be copied from allowedEvidenceRefs.",
-            "Use currentContent.fieldValue only as before; never use it as an after fallback.",
-            "If no valid rewrite can be produced, return an empty suggestions array.",
-            input.retryContext?.previousWasNoOp ? "The previous result copied the original. Produce a materially different result; do not repeat it." : undefined
+            "Return exactly one suggestion and only the fields shown in outputContract.",
+            "Copy requirementIds exactly from relevantRequirements; never return requirement descriptions as IDs.",
+            "after must differ from before and contain no Markdown or code fences.",
+            "Use only allowedFacts. Never invent numbers, company, school, role, certificate, duration, launch outcome, revenue, stars, or users.",
+            "For a summary, reorganize existing user facts toward the target role.",
+            "If no safe rewrite is possible, return {\"suggestions\":[]} and nothing else."
           ].filter(Boolean)
         },
         null,
         2
       );
     },
-    coerceRawOutput(rawOutput: unknown, input?: ResumeTailorTaskInput) {
+    coerceRawOutput(rawOutput: unknown) {
       const raw = rawOutput as Record<string, unknown>;
-      const suggestions = Array.isArray(raw.suggestions)
+      const rootSuggestion = "after" in raw || "suggestedText" in raw ? [raw] : undefined;
+      const suggestions = rootSuggestion ?? (Array.isArray(raw.suggestions)
         ? raw.suggestions
         : Array.isArray(raw.items)
           ? raw.items
-          : [];
+          : []);
 
       return {
         suggestions: suggestions.map((item) => {
           const suggestion = item as Record<string, unknown>;
-          const before = suggestion.before ?? suggestion.originalText ?? suggestion.original;
-          const after = suggestion.after ?? suggestion.suggestedText ?? suggestion.suggested;
+          const rawAfter = suggestion.after ?? suggestion.suggestedText ?? suggestion.suggested;
+          const after = Array.isArray(rawAfter)
+            ? rawAfter.filter((value): value is string => typeof value === "string" && value.trim().length > 0).map((value) => value.trim())
+            : typeof rawAfter === "string" ? rawAfter.trim() : rawAfter;
           return {
-            id: pickString(suggestion.id, `tailoring-ai-${nanoid(8)}`),
-            intensity: suggestion.intensity ?? input?.intensity,
-            operation: suggestion.operation ?? (normalizeSuggestionType(suggestion.type) === "reorder" ? "reorder" : "rewrite"),
-            targetSectionType: suggestion.targetSectionType ?? input?.target.sectionType,
-            targetSectionId: pickString(suggestion.targetSectionId, input?.target.sectionId),
-            targetItemId: suggestion.targetItemId ?? suggestion.targetContentItemId ?? input?.target.itemId,
-            targetFieldPath: pickString(suggestion.targetFieldPath, input?.target.fieldPath),
-            before,
             after,
-            changedFields: Array.isArray(suggestion.changedFields) ? suggestion.changedFields : [input?.target.fieldPath.split(".").at(-1) ?? "field"],
             requirementIds: Array.isArray(suggestion.requirementIds) ? suggestion.requirementIds : [],
             targetKeywords: Array.isArray(suggestion.targetKeywords) ? suggestion.targetKeywords : [],
-            coveredKeywordsBefore: Array.isArray(suggestion.coveredKeywordsBefore) ? suggestion.coveredKeywordsBefore : [],
-            coveredKeywordsAfter: Array.isArray(suggestion.coveredKeywordsAfter) ? suggestion.coveredKeywordsAfter : [],
             claimSupportLevel: suggestion.claimSupportLevel ?? "reasonable_inference",
-            evidenceRefs: Array.isArray(suggestion.evidenceRefs) ? suggestion.evidenceRefs : Array.isArray(suggestion.usedEvidenceRefs) ? suggestion.usedEvidenceRefs : [],
-            rationale: pickString(suggestion.rationale, suggestion.reason, suggestion.explanation),
-            riskLevel: normalizeRiskLevel(suggestion.riskLevel ?? suggestion.risk),
-            metrics: suggestion.metrics ?? { textChangeRatio: 0, keywordGain: 0 },
-            status: suggestion.status ?? "requires_confirmation"
+            rationale: pickString(suggestion.rationale, suggestion.reason, suggestion.explanation)
           };
         })
       };
     },
     normalizeOutput(output: ResumeTailorOutput, input: ResumeTailorTaskInput) {
+      const modelOutput = ResumeTailorModelOutputSchema.safeParse(output);
+      if (!modelOutput.success) {
+        const afterMissing = modelOutput.error.issues.some((issue) => issue.path.at(-1) === "after");
+        const error = new Error(afterMissing ? "resume_tailor_after_missing" : "resume_tailor_model_shape_invalid");
+        Object.assign(error, { issues: modelOutput.error.issues.map((issue) => ({ path: issue.path, code: issue.code })) });
+        throw error;
+      }
+      const fallbackRequirementIds = [...input.relevantRequirements]
+        .sort((a, b) => b.relevanceScore - a.relevanceScore)
+        .slice(0, 3)
+        .map((requirement) => requirement.requirementId);
+      const localKeywords = extractTailoringKeywords(input.relevantRequirements.flatMap((requirement) => [requirement.description, ...requirement.keywords]));
       return {
-        suggestions: output.suggestions.flatMap((suggestion) => {
-          const parsed = TailoringSuggestionSchema.safeParse({
-            ...suggestion,
+        suggestions: modelOutput.data.suggestions.map((suggestion) => {
+          const validRequirementIds = (suggestion.requirementIds ?? []).filter((id) => input.relevantRequirements.some((requirement) => requirement.requirementId === id));
+          return TailoringSuggestionSchema.parse({
+            id: `tailoring-ai-${nanoid(8)}`,
             intensity: input.intensity,
+            operation: "rewrite",
             targetSectionType: input.target.sectionType,
             targetSectionId: input.target.sectionId,
             targetItemId: input.target.itemId,
             targetFieldPath: input.target.fieldPath,
             before: input.currentContent.fieldValue,
-            targetKeywords: suggestion.targetKeywords.length > 0
-              ? suggestion.targetKeywords
-              : Array.from(new Set(input.relevantRequirements.flatMap((requirement) => requirement.keywords).filter((keyword) => keyword.trim().toLowerCase() !== "ai"))).slice(0, 8),
-            requirementIds: suggestion.requirementIds.filter((id) => input.relevantRequirements.some((requirement) => requirement.requirementId === id)),
-            evidenceRefs: normalizeEvidenceRefs(suggestion.evidenceRefs, {
-            candidates: input.allowedEvidenceRefs.map((evidenceRef) => ({ evidenceRef, searchText: "" }))
-            } as EvidenceMatcherTaskInput)
+            after: suggestion.after,
+            changedFields: [input.target.fieldPath.split(".").at(-1) ?? "field"],
+            requirementIds: validRequirementIds.length > 0 ? validRequirementIds : fallbackRequirementIds,
+            targetKeywords: extractTailoringKeywords(suggestion.targetKeywords ?? []).length > 0 ? extractTailoringKeywords(suggestion.targetKeywords ?? []) : localKeywords,
+            coveredKeywordsBefore: [],
+            coveredKeywordsAfter: [],
+            claimSupportLevel: suggestion.claimSupportLevel ?? "reasonable_inference",
+            evidenceRefs: input.allowedEvidenceRefs,
+            rationale: suggestion.rationale,
+            riskLevel: suggestion.claimSupportLevel === "verified" ? "low" : "medium",
+            metrics: { textChangeRatio: 0, keywordGain: 0 },
+            status: suggestion.claimSupportLevel === "verified" ? "ready" : "requires_confirmation"
           });
-          return parsed.success ? [parsed.data] : [];
         })
       };
     },
     validateOutput(output: ResumeTailorOutput, input: ResumeTailorTaskInput) {
       const allowedRefs = new Set(input.allowedEvidenceRefs.map((ref) => JSON.stringify(ref)));
-      if (output.suggestions.length === 0) throw new Error("invalid_ai_output");
+      if (output.suggestions.length === 0) return;
       for (const suggestion of output.suggestions) {
         if (suggestion.targetSectionId !== input.target.sectionId || suggestion.targetFieldPath !== input.target.fieldPath) {
           throw new Error("resume_tailor_section_out_of_scope");
@@ -662,6 +681,64 @@ export const aiTaskRegistry = {
       }
     }
   } satisfies AiTaskDefinition<ResumeTailorTaskInput, ResumeTailorOutput>,
+  "resume-tailor-batch": {
+    task: "resume-tailor-batch",
+    promptVersion: resumeTailorPrompt.version,
+    systemPrompt: resumeTailorPrompt.system,
+    inputSchema: ResumeTailorBatchInputSchema,
+    outputSchema: ResumeTailorOutputSchema,
+    maxOutputChars: 18_000,
+    buildUserPrompt(input: ResumeTailorBatchInput) {
+      return JSON.stringify({
+        intensity: input.intensity,
+        compactJobContext: input.compactJobContext,
+        targets: input.targets.map((target) => ({
+          itemId: target.itemId, sectionType: target.sectionType, fieldPath: target.fieldPath,
+          before: target.before, relevantRequirements: target.relevantRequirements,
+          allowedFacts: target.allowedFacts
+        })),
+        outputContract: { suggestions: [{ itemId: "copied target itemId", after: "改写后的文本", rationale: "为什么这样修改", requirementIds: ["copied requirementId"], targetKeywords: ["Cursor"] }] },
+        instructions: [
+          "Return at most one suggestion per target and copy itemId exactly.",
+          "Return only the fields shown in outputContract. Do not return Markdown or code fences.",
+          "Copy requirementIds from that target's relevantRequirements and use only that target's allowedFacts.",
+          "after must differ from before. Never invent numbers, organizations, roles, credentials, duration, or outcomes.",
+          "Omit a target when no safe rewrite is possible."
+        ]
+      }, null, 2);
+    },
+    coerceRawOutput(rawOutput: unknown) {
+      const raw = rawOutput as Record<string, unknown>;
+      const suggestions = Array.isArray(raw.suggestions) ? raw.suggestions : Array.isArray(raw.items) ? raw.items : [];
+      return { suggestions: suggestions.map((value) => {
+        const item = value as Record<string, unknown>;
+        return { itemId: item.itemId, after: item.after ?? item.suggestedText, rationale: item.rationale ?? item.reason, requirementIds: item.requirementIds, targetKeywords: item.targetKeywords, claimSupportLevel: item.claimSupportLevel };
+      }) };
+    },
+    normalizeOutput(output: ResumeTailorOutput, input: ResumeTailorBatchInput): ResumeTailorOutput {
+      const parsed = ResumeTailorBatchModelOutputSchema.safeParse(output);
+      if (!parsed.success) {
+        const afterMissing = parsed.error.issues.some((issue) => issue.path.at(-1) === "after");
+        throw new Error(afterMissing ? "resume_tailor_after_missing" : "resume_tailor_model_shape_invalid");
+      }
+      const suggestions: TailoringSuggestion[] = parsed.data.suggestions.flatMap((modelSuggestion): TailoringSuggestion[] => {
+        const target = input.targets.find((candidate) => candidate.itemId === modelSuggestion.itemId);
+        if (!target) return [];
+        const synthetic: ResumeTailorTaskInput = {
+          draftId: input.draftId, profileId: input.profileId, jobId: input.jobId, intensity: input.intensity,
+          jobContext: { title: input.compactJobContext.title, rawText: input.compactJobContext.title, roleMission: input.compactJobContext.roleMission, responsibilities: input.compactJobContext.topResponsibilities, keywords: input.compactJobContext.targetKeywords, mustHave: [], niceToHave: [], tools: [] },
+          target: { sectionType: target.sectionType, sectionId: target.sectionId, itemId: target.itemId, fieldPath: target.fieldPath },
+          currentContent: { structuredItem: target.structuredItem, fieldValue: target.before, renderedText: target.renderedText },
+          relevantRequirements: target.relevantRequirements, allowedEvidenceRefs: target.allowedEvidenceRefs, allowedFacts: target.allowedFacts
+        };
+        return [completeResumeTailorSuggestion(modelSuggestion, synthetic)];
+      });
+      return { suggestions };
+    },
+    validateOutput(output: ResumeTailorOutput) {
+      if (!output.suggestions.length) return;
+    }
+  } satisfies AiTaskDefinition<ResumeTailorBatchInput, ResumeTailorOutput>,
   "fact-guard": {
     task: "fact-guard",
     promptVersion: factGuardPrompt.version,
@@ -1012,28 +1089,6 @@ function normalizeRiskLevel(value: unknown) {
   return "medium";
 }
 
-function normalizeSuggestionType(value: unknown) {
-  if (
-    value === "rewrite" ||
-    value === "remove_or_shorten" ||
-    value === "reorder" ||
-    value === "risk_warning" ||
-    value === "follow_up_question"
-  ) {
-    return value;
-  }
-  if (value === "trim" || value === "remove" || value === "shorten") {
-    return "remove_or_shorten";
-  }
-  if (value === "risk") {
-    return "risk_warning";
-  }
-  if (value === "follow_up") {
-    return "follow_up_question";
-  }
-  return "rewrite";
-}
-
 function intensityInstruction(intensity: ResumeTailorTaskInput["intensity"]) {
   if (intensity === "conservative") {
     return "Conservative: preserve facts and field structure; only align keywords, compress, or reorder. Add no capability claims, but make at least one meaningful wording change and never copy the original.";
@@ -1042,6 +1097,42 @@ function intensityInstruction(intensity: ResumeTailorTaskInput["intensity"]) {
     return "Balanced: rewrite summary, skill descriptions, or relevant highlights using JD language; regroup sentences and foreground relevant results. Mark reasonable inference for confirmation and make the output clearly different.";
   }
   return "Proactive: center content selection, order, and expression on the JD; fully rewrite summary, restructure skill categories, and rewrite/reorder project highlights. New skills are user_declared and require confirmation. Never invent organizations, dates, credentials, awards, numbers, or responsibilities.";
+}
+
+const genericTailoringKeywords = new Set(["ai", "人工智能", "岗位", "工作", "职责", "要求", "能力", "经验"]);
+
+function extractTailoringKeywords(values: string[]) {
+  const namedTerms = /Claude Code|Cursor|Codex|Windsurf|Vibe Coding|reward hacking|badcase|verifier|benchmark|Playwright|FastAPI|RAG|Agent/gi;
+  const candidates = values.flatMap((value) => [
+    ...(value.match(namedTerms) ?? []),
+    ...value.split(/[，。；、,;:\s/]+/).filter((term) => /^[A-Za-z][A-Za-z0-9.+#-]{2,}$/.test(term))
+  ]);
+  return Array.from(new Set(candidates.map((term) => term.trim()).filter((term) => term && !genericTailoringKeywords.has(term.toLowerCase())))).slice(0, 12);
+}
+
+function completeResumeTailorSuggestion(
+  suggestion: { after: string | string[]; rationale: string; requirementIds?: string[]; targetKeywords?: string[]; claimSupportLevel?: "verified" | "reasonable_inference" | "user_declared" },
+  input: ResumeTailorTaskInput
+): TailoringSuggestion {
+  const fallbackRequirementIds = [...input.relevantRequirements].sort((a, b) => b.relevanceScore - a.relevanceScore).slice(0, 3).map((requirement) => requirement.requirementId);
+  const validRequirementIds = (suggestion.requirementIds ?? []).filter((id) => input.relevantRequirements.some((requirement) => requirement.requirementId === id));
+  const modelKeywords = extractTailoringKeywords(suggestion.targetKeywords ?? []);
+  const localKeywords = extractTailoringKeywords(input.relevantRequirements.flatMap((requirement) => [requirement.description, ...requirement.keywords]));
+  return TailoringSuggestionSchema.parse({
+    id: `tailoring-ai-${nanoid(8)}`, intensity: input.intensity, operation: "rewrite",
+    targetSectionType: input.target.sectionType, targetSectionId: input.target.sectionId,
+    targetItemId: input.target.itemId, targetFieldPath: input.target.fieldPath,
+    before: input.currentContent.fieldValue, after: suggestion.after,
+    changedFields: [input.target.fieldPath.split(".").at(-1) ?? "field"],
+    requirementIds: validRequirementIds.length ? validRequirementIds : fallbackRequirementIds,
+    targetKeywords: modelKeywords.length ? modelKeywords : localKeywords,
+    coveredKeywordsBefore: [], coveredKeywordsAfter: [],
+    claimSupportLevel: suggestion.claimSupportLevel ?? "reasonable_inference",
+    evidenceRefs: input.allowedEvidenceRefs, rationale: suggestion.rationale,
+    riskLevel: suggestion.claimSupportLevel === "verified" ? "low" : "medium",
+    metrics: { textChangeRatio: 0, keywordGain: 0 },
+    status: suggestion.claimSupportLevel === "verified" ? "ready" : "requires_confirmation"
+  });
 }
 
 function normalizeGuardStatus(value: unknown) {

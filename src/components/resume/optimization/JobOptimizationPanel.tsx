@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Check, ChevronLeft, Sparkles } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
+import { Check, ChevronLeft, Sparkles, Square } from "lucide-react";
 import { analyzeJobFit, applyTailoringPlan, confirmTailoringClaims, createTailoringPlan, validateTailoringSuggestions, withTailoringSuggestions } from "@/services/jobs/tailoringService";
 import { invokeStructuredAi } from "@/ai/client";
 import type {
@@ -46,6 +46,8 @@ export function JobOptimizationPanel({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirmations, setConfirmations] = useState<Record<string, ClaimConfirmation>>({});
   const [pending, setPending] = useState(false);
+  const [progress, setProgress] = useState({ step: 0, completed: 0, skipped: 0, failed: 0 });
+  const generationController = useRef<AbortController | undefined>(undefined);
   const [plannerAssessment, setPlannerAssessment] = useState<{ globalNotes?: string; skippedCount: number; rewrittenCount: number }>();
   const targetJob = useMemo(() => jobs.find((job) => job.id === branch?.jobId), [branch?.jobId, jobs]);
   const analysis = useMemo(() => profile && branch && targetJob ? analyzeJobFit({ profile, branch, job: targetJob }) : undefined, [profile, branch, targetJob]);
@@ -66,7 +68,11 @@ export function JobOptimizationPanel({
   const hiddenCount = selectedClaims.filter((claim) => claim.section === "ordering" && /隐藏/.test(claim.reason)).length;
 
   async function generatePlan() {
+    generationController.current?.abort();
+    const controller = new AbortController();
+    generationController.current = controller;
     setPending(true);
+    setProgress({ step: 1, completed: 0, skipped: 0, failed: 0 });
     setPlannerAssessment(undefined);
     setView("suggestions");
     try {
@@ -84,7 +90,7 @@ export function JobOptimizationPanel({
         requirements: activeJob.requirements.map((r) => ({ id: r.id, description: r.description, priority: r.priority, category: r.category, keywords: r.keywords })),
         sections: taskInputs.map((t) => ({ sectionType: t.target.sectionType, itemId: t.target.itemId ?? "", currentText: typeof t.currentContent.fieldValue === "string" ? t.currentContent.fieldValue : t.currentContent.fieldValue.join("；"), relevantRequirementIds: t.relevantRequirements.map((r) => r.requirementId) }))
       };
-      const plannerResponse = await invokeStructuredAi({ task: "resume-optimization-planner", businessInput: plannerInput, outputSchema: ResumeTailorPlannerOutputSchema });
+      const plannerResponse = await invokeStructuredAi({ task: "resume-optimization-planner", businessInput: plannerInput, outputSchema: ResumeTailorPlannerOutputSchema, signal: controller.signal });
       await repository.saveAiLogs([plannerResponse.log]);
 
       const skipIds = new Set<string>();
@@ -100,32 +106,44 @@ export function JobOptimizationPanel({
       } else {
         setPlannerAssessment({ globalNotes: "AI 评估未能完成，将对所有片段尝试改写。", skippedCount: 0, rewrittenCount: taskInputs.length });
       }
+      setProgress((current) => ({ ...current, step: 2, skipped: skipIds.size }));
 
       // --- Phase 2: 仅对可改写片段发送改写请求 ---
       const generated: TailoringSuggestion[] = [];
       const allRejectedReasons: string[] = [];
-      const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
       const rewriteInputs = taskInputs.filter((t) => !skipIds.has(t.target.itemId ?? ""));
-      for (let i = 0; i < rewriteInputs.length; i++) {
-        const request = rewriteInputs[i];
-        let response = await invokeStructuredAi({ task: "resume-tailor", businessInput: request, outputSchema: ResumeTailorOutputSchema });
+      setProgress((current) => ({ ...current, step: 3 }));
+      const batchSize = Math.ceil(rewriteInputs.length / Math.min(2, rewriteInputs.length || 1));
+      const batches = Array.from({ length: Math.ceil(rewriteInputs.length / batchSize) }, (_, index) => rewriteInputs.slice(index * batchSize, (index + 1) * batchSize));
+      for (const batch of batches) {
+        if (controller.signal.aborted) break;
+        const first = batch[0];
+        const response = await invokeStructuredAi({
+          task: "resume-tailor-batch",
+          businessInput: {
+            draftId: first.draftId, profileId: first.profileId, jobId: first.jobId, intensity: first.intensity,
+            compactJobContext: {
+              title: first.jobContext.title, roleMission: first.jobContext.roleMission,
+              topResponsibilities: first.jobContext.responsibilities.slice(0, 4), targetKeywords: first.jobContext.keywords.slice(0, 16)
+            },
+            targets: batch.map((request) => ({
+              itemId: request.target.itemId ?? request.target.sectionId, sectionType: request.target.sectionType, sectionId: request.target.sectionId, fieldPath: request.target.fieldPath,
+              structuredItem: request.currentContent.structuredItem, before: request.currentContent.fieldValue, renderedText: request.currentContent.renderedText,
+              relevantRequirements: request.relevantRequirements.slice(0, 4), allowedEvidenceRefs: request.allowedEvidenceRefs, allowedFacts: request.allowedFacts
+            }))
+          },
+          outputSchema: ResumeTailorOutputSchema,
+          signal: controller.signal
+        });
         await repository.saveAiLogs([response.log]);
-        let validated = response.ok ? validateTailoringSuggestions({ suggestions: response.data.suggestions }) : undefined;
-        if (!response.ok && (response as { errorCode?: string }).errorCode?.includes("429")) {
-          await sleep(5000);
-          response = await invokeStructuredAi({ task: "resume-tailor", businessInput: request, outputSchema: ResumeTailorOutputSchema });
-          await repository.saveAiLogs([response.log]);
-          validated = response.ok ? validateTailoringSuggestions({ suggestions: response.data.suggestions }) : undefined;
-        }
-        if (!response.ok || !validated?.suggestions.length) {
-          response = await invokeStructuredAi({ task: "resume-tailor", businessInput: { ...request, retryContext: { previousWasNoOp: true } }, outputSchema: ResumeTailorOutputSchema });
-          await repository.saveAiLogs([response.log]);
-          validated = response.ok ? validateTailoringSuggestions({ suggestions: response.data.suggestions }) : undefined;
-        }
+        const validated = response.ok ? validateTailoringSuggestions({ suggestions: response.data.suggestions }) : undefined;
         if (validated?.suggestions.length) generated.push(...validated.suggestions);
         else if (validated?.rejected.length) allRejectedReasons.push(...validated.rejected.flatMap((r) => r.reasons));
         else allRejectedReasons.push(response.ok ? "empty_suggestions" : (response as { errorCode?: string }).errorCode ?? "provider_error");
-        if (i < rewriteInputs.length - 1) await sleep(3000);
+        setProgress((current) => ({ ...current, completed: current.completed + (validated?.suggestions.length ?? 0), failed: current.failed + Math.max(0, batch.length - (validated?.suggestions.length ?? 0)) }));
+        const partialPlan = result.plan ? withTailoringSuggestions({ plan: result.plan, suggestions: generated, invalidOutputCodes: [] }) : undefined;
+        setPlan(partialPlan);
+        setSelected(new Set(partialPlan?.claims.filter((claim) => claim.decision !== "blocked").map((claim) => claim.id)));
       }
 
       const nextPlan = result.plan ? withTailoringSuggestions({ plan: result.plan, suggestions: generated, invalidOutputCodes: allRejectedReasons.includes("no_change_needed") ? ["no_change_needed"] : ["invalid_ai_output"] }) : undefined;
@@ -135,8 +153,12 @@ export function JobOptimizationPanel({
       else if (!generated.length && allRejectedReasons.length) onMessage(summarizeRejectionReasons(allRejectedReasons));
       else if (!generated.length) onMessage("AI 未能生成有效改写内容。");
     } catch (error) {
+      if (controller.signal.aborted) {
+        onMessage("已停止生成，已完成的建议会保留。");
+        return;
+      }
       onMessage(error instanceof Error ? `生成失败：${error.message}` : "AI 生成改写时出现异常，请稍后重试。");
-    } finally { setPending(false); }
+    } finally { setPending(false); generationController.current = undefined; }
   }
 
   function updateConfirmation(claim: TailoringClaim, proficiency: ClaimConfirmation["proficiency"] | undefined, accepted = true) {
@@ -189,8 +211,8 @@ export function JobOptimizationPanel({
         <div className="tailoring-score-grid">
           {report ? Object.entries(report.subScores).map(([key, score]) => <div key={key}><span>{scoreLabel(key)}</span><strong>{score}</strong></div>) : null}
         </div>
-        <ResultList title="你的优势" items={(report?.coveredRequirementIds ?? []).slice(0, 4).map((id) => requirementText(activeJob, id))} empty="已有真实内容可作为定制基础" />
-        <ResultList title="主要缺口" items={(report?.uncoveredRequirementDescriptions ?? []).slice(0, 4)} empty="暂未发现明显缺口" />
+        <ResultList title="你的优势" items={(report?.coveredRequirementDescriptions ?? []).slice(0, 4).map((description) => `匹配能力：${description}`)} empty="暂未识别到可直接证明的岗位优势" />
+        <ResultList title="主要缺口" items={(report?.uncoveredRequirementDescriptions ?? []).slice(0, 4).map((description) => `尚无直接证据：${description}`)} empty="暂未发现明显缺口" />
         <div className="info-box"><strong>推荐策略</strong><p>{strategyCopy(intensity)}</p></div>
         <button className="primary-button" type="button" disabled={pending || !canEdit} onClick={() => { void generatePlan(); }}><Sparkles size={16} />生成改写建议</button>
       </div> : null}
@@ -210,7 +232,7 @@ export function JobOptimizationPanel({
           <div className="tailoring-suggestion-meta"><p><strong>为什么修改：</strong>{claim.reason}</p><p><strong>覆盖要求：</strong>{(claim.requirementIds ?? []).map((id) => requirementText(activeJob, id)).join("、") || "对应岗位要求"}</p><p><strong>新增关键词：</strong>{suggestion?.coveredKeywordsAfter.filter((keyword) => !suggestion.coveredKeywordsBefore.includes(keyword)).join("、") || "表达结构调整"}</p><p><strong>依据来源：</strong>{claim.evidenceRefs.length ? `${claim.evidenceRefs.length} 条已确认事实证据` : "当前岗位简历中的用户确认内容"}</p><p><strong>修改风险：</strong>{suggestion?.riskLevel === "low" ? "低" : suggestion?.riskLevel === "high" ? "高" : "中，需确认"}</p></div>
           {claim.keywords.length ? <div className="keyword-phrase">{claim.keywords.join("、")}</div> : null}
         </article>; })}</section>)}
-        {!claims.length && pending ? <div className="info-box">AI 正在分析岗位要求并生成改写建议，请稍候…</div> : null}
+        {pending ? <div className="info-box" aria-live="polite"><strong>{progress.step}/3 {progress.step === 1 ? "正在分析岗位要求" : progress.step === 2 ? "正在筛选需要改写的内容" : "正在生成并验证建议"}</strong><p>已完成 {progress.completed} 项　跳过 {progress.skipped} 项　失败 {progress.failed} 项</p><button className="secondary-button compact" type="button" onClick={() => generationController.current?.abort()}><Square size={14} aria-hidden="true" />停止生成</button></div> : null}
         {!claims.length && !pending ? <div className="info-box">当前内容已较匹配，无需修改。可返回上一步调整岗位描述后重试。</div> : null}
         <div className="action-row"><button className="secondary-button" onClick={() => { setPlan(undefined); setPlannerAssessment(undefined); setSelected(new Set()); setView("overview"); }}>弃用建议</button><button className="secondary-button" onClick={() => setView("overview")}><ChevronLeft size={16} />返回概览</button><button className="primary-button" onClick={() => setView("apply")}>确认并应用</button></div>
       </div> : null}

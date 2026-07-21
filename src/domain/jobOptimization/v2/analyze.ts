@@ -1,18 +1,22 @@
-import { JobRequirementGraphV2Schema, type JobRequirementGraphV2, type JobRequirementNodeV2 } from "@/domain/schemas";
+import { JobRequirementGraphV2Schema, type JobDescription, type JobRequirementGraphV2, type JobRequirementNodeV2 } from "@/domain/schemas";
 import { stableHashText } from "@/services/security/text";
 
 const ANALYZER_VERSION = "jd-analyzer.deterministic-v2.0";
-type Section = "responsibility" | "required" | "must_required" | "preferred" | "technology" | "location" | "excluded" | "unknown";
+type Section = "responsibility" | "required" | "must_required" | "preferred" | "technology" | "location" | "verification" | "role_profile" | "excluded" | "unknown";
 
 const HEADING_RULES: Array<[RegExp, Section]> = [
-  [/^(职位职责|岗位职责|工作职责|主要职责|职责描述|responsibilities?)\s*[:：]?$/i, "responsibility"],
+  [/^(职位职责|岗位职责|工作职责|主要职责|职责描述|职责内容|工作内容|responsibilities?)\s*[:：]?$/i, "responsibility"],
   [/^(必备条件|硬性条件|must have)\s*[:：]?$/i, "must_required"],
-  [/^(任职要求|职位要求|任职资格|基本要求|requirements?|qualifications?)\s*[:：]?$/i, "required"],
+  [/^(任职要求|职位要求|任职资格|基本要求|参与要求|岗位要求|申请要求|候选人要求|requirements?|qualifications?)\s*[:：]?$/i, "required"],
   [/^(加分项|优先条件|优先考虑|preferred|nice to have)\s*[:：]?$/i, "preferred"],
   [/^(技术栈|工具与技术|tech(?:nology)? stack)\s*[:：]?$/i, "technology"],
   [/^(工作地点|办公地点|location)\s*[:：]?$/i, "location"],
+  [/^(候选人需提供的验证材料|验证材料)\s*[:：]?$/i, "verification"],
+  [/^(我们希望你是这样的人)\s*[:：]?$/i, "role_profile"],
   [/^(公司介绍|关于我们|团队介绍|薪资福利|福利待遇|员工福利|company|about us|benefits?)\s*[:：]?$/i, "excluded"]
 ];
+
+const METADATA_ONLY = /^(Vibe Coding|关联项目|【?Code】?|General coding|职责内容|岗位要求|优先考虑)$/i;
 
 const EXCLUDED_TEXT = /五险一金|团建|下午茶|带薪年假|公司成立|公司愿景|我们是一家|福利待遇|薪资范围|股票期权/i;
 const PREFERRED = /优先|加分|更佳|preferred|nice[ -]?to[ -]?have|a plus/i;
@@ -32,7 +36,7 @@ export function analyzeJobDescriptionV2(input: { rawText: string; now?: string }
   const unclassifiedSourceSpans: JobRequirementGraphV2["unclassifiedSourceSpans"] = [];
 
   for (const segment of extracted) {
-    if (segment.section === "excluded" || EXCLUDED_TEXT.test(segment.text)) continue;
+    if (segment.section === "excluded" || EXCLUDED_TEXT.test(segment.text) || METADATA_ONLY.test(segment.text)) continue;
     if (segment.heading) continue;
     const clauses = splitIndependentClauses(segment.text, segment.start);
     for (const clause of clauses) {
@@ -71,6 +75,40 @@ export function analyzeJobDescriptionV2(input: { rawText: string; now?: string }
     schemaVersion: "job-requirement-graph-v2", nodes: merged, unclassifiedSourceSpans,
     analyzedAt: input.now ?? new Date().toISOString(), analyzerVersion: ANALYZER_VERSION
   });
+}
+
+export function buildCanonicalJobRequirementGraph(job: JobDescription): JobRequirementGraphV2 {
+  if (job.requirements.length === 0) return analyzeJobDescriptionV2({ rawText: job.rawText });
+  const nodes = job.requirements
+    .filter((requirement) => !METADATA_ONLY.test(requirement.description))
+    .map((requirement): JobRequirementNodeV2 => ({
+      id: requirement.id,
+      kind: requirement.category === "responsibility" ? "responsibility"
+        : requirement.category === "tool" ? "tool_or_technology"
+          : requirement.category === "preferred_skill" || requirement.category === "nice_to_have" ? "preferred"
+            : requirement.category === "education" ? "education"
+              : requirement.category === "language" ? "language"
+                : requirement.category === "experience" ? "experience_depth"
+                  : requirement.category === "soft_skill" ? "soft_skill"
+                    : requirement.category === "verification_material" ? "risk_or_uncertain"
+                      : requirement.hardConstraint ? "hard_constraint" : "core_competency",
+      statement: requirement.description,
+      normalizedIntent: normalizeIntent(requirement.description),
+      priority: requirement.category === "verification_material" ? "uncertain"
+        : requirement.priority === "must" || requirement.hardConstraint ? "must"
+          : requirement.priority === "high" || requirement.priority === "important" ? "high"
+            : requirement.priority === "nice_to_have" || requirement.priority === "low" ? "nice_to_have" : "medium",
+      hardConstraint: requirement.category === "verification_material" ? false : requirement.hardConstraint,
+      exactKeywords: unique(requirement.keywords.length ? requirement.keywords : extractKeywords(requirement.description)),
+      semanticAliases: aliasesFor(requirement.description),
+      sourceSpan: requirement.sourceSpan,
+      sourceSpans: [requirement.sourceSpan],
+      confidence: requirement.confidence,
+      needsConfirmation: requirement.category === "verification_material" || requirement.category === "risk_or_uncertain",
+      relatedRequirementIds: []
+    }));
+  linkRelatedNodes(nodes);
+  return JobRequirementGraphV2Schema.parse({ schemaVersion: "job-requirement-graph-v2", nodes, unclassifiedSourceSpans: [], analyzedAt: new Date().toISOString(), analyzerVersion: `${ANALYZER_VERSION}.canonical` });
 }
 
 function extractSegments(rawText: string) {
@@ -112,11 +150,13 @@ function splitIndependentClauses(text: string, start: number) {
 }
 
 function classify(text: string, section: Section): Omit<JobRequirementNodeV2, "id" | "statement" | "normalizedIntent" | "exactKeywords" | "semanticAliases" | "sourceSpan" | "sourceSpans" | "relatedRequirementIds"> | undefined {
+  if (section === "role_profile") return undefined;
   const preferred = section === "preferred" || PREFERRED.test(text);
   const years = YEARS.exec(text);
   const hardConstraint = !preferred && (MUST.test(text) || Boolean(years) || EDUCATION.test(text) || LANGUAGE.test(text) || section === "location" || section === "must_required");
   let kind: JobRequirementNodeV2["kind"];
-  if (preferred) kind = "preferred";
+  if (section === "verification") kind = "risk_or_uncertain";
+  else if (preferred) kind = "preferred";
   else if (years) kind = "experience_depth";
   else if (EDUCATION.test(text)) kind = "education";
   else if (LANGUAGE.test(text)) kind = "language";

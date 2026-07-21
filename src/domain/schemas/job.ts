@@ -36,6 +36,7 @@ export const JobRequirementCategorySchema = z.enum([
   "core_skill",
   "soft_skill",
   "nice_to_have",
+  "verification_material",
   "risk_or_uncertain"
 ]);
 
@@ -60,6 +61,7 @@ const jobRequirementCategoryAliases: Record<string, JobRequirementCategory> = {
   preferred: "preferred_skill",
   preferred_skill: "preferred_skill",
   nice_to_have: "nice_to_have",
+  verification_material: "verification_material",
   uncertain: "risk_or_uncertain",
   risk_or_uncertain: "risk_or_uncertain",
   other: "other"

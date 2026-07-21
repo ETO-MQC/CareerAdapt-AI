@@ -65,6 +65,38 @@ export const ResumeTailorTaskInputV2Schema = z.object({
   retryContext: z.object({ previousWasNoOp: z.literal(true) }).optional()
 }).strict();
 
+export const ResumeTailorModelSuggestionSchema = z.object({
+  after: z.union([z.string().min(1), z.array(z.string().min(1)).min(1)]),
+  rationale: z.string().min(1),
+  requirementIds: z.array(z.string()).optional(),
+  targetKeywords: z.array(z.string()).optional(),
+  claimSupportLevel: z.enum(["verified", "reasonable_inference", "user_declared"]).optional()
+}).passthrough();
+
+export const ResumeTailorModelOutputSchema = z.object({
+  suggestions: z.array(ResumeTailorModelSuggestionSchema)
+}).passthrough();
+
+export const ResumeTailorBatchInputSchema = z.object({
+  draftId: z.string().min(1), profileId: z.string().min(1), jobId: z.string().min(1),
+  intensity: TailoringIntensitySchema,
+  compactJobContext: z.object({
+    title: z.string().min(1), roleMission: z.string().optional(),
+    topResponsibilities: z.array(z.string()).max(4), targetKeywords: z.array(z.string()).max(16)
+  }).strict(),
+  targets: z.array(z.object({
+    itemId: z.string().min(1), sectionType: TailoringSectionPolicySchema, sectionId: z.string().min(1), fieldPath: z.string().min(1),
+    structuredItem: ResumeItemV2Schema, before: z.union([z.string(), z.array(z.string())]), renderedText: z.string(),
+    relevantRequirements: z.array(TailoringRequirementSchema).min(1).max(4),
+    allowedEvidenceRefs: z.array(MatchEvidenceRefSchema).default([]),
+    allowedFacts: z.array(z.object({ value: z.string().min(1), evidenceRefs: z.array(MatchEvidenceRefSchema).default([]) }).strict()).default([])
+  }).strict()).min(1).max(6)
+}).strict();
+
+export const ResumeTailorBatchModelOutputSchema = z.object({
+  suggestions: z.array(ResumeTailorModelSuggestionSchema.extend({ itemId: z.string().min(1) }).passthrough())
+}).passthrough();
+
 export const TailoringSuggestionSchema = z.object({
   id: z.string().min(1),
   intensity: TailoringIntensitySchema,
@@ -139,6 +171,9 @@ export type TailoringSuggestionStatus = z.infer<typeof TailoringSuggestionStatus
 export type TailoringRequirement = z.infer<typeof TailoringRequirementSchema>;
 export type TailoringJobContext = z.infer<typeof TailoringJobContextSchema>;
 export type ResumeTailorTaskInputV2 = z.infer<typeof ResumeTailorTaskInputV2Schema>;
+export type ResumeTailorModelSuggestion = z.infer<typeof ResumeTailorModelSuggestionSchema>;
+export type ResumeTailorModelOutput = z.infer<typeof ResumeTailorModelOutputSchema>;
+export type ResumeTailorBatchInput = z.infer<typeof ResumeTailorBatchInputSchema>;
 export type TailoringSuggestion = z.infer<typeof TailoringSuggestionSchema>;
 export type TailoringSection = z.infer<typeof TailoringSectionSchema>;
 export type SkillProficiency = z.infer<typeof SkillProficiencySchema>;
