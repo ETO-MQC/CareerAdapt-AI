@@ -13,6 +13,8 @@ import {
   ResumeJsonMapperOutputSchema,
   ResumeTailorTaskInputV2Schema,
   ResumeTailorOutputSchema,
+  ResumeTailorPlannerInputSchema,
+  ResumeTailorPlannerOutputSchema,
   TailoringSuggestionSchema,
   type AiTask,
   type EvidenceMatcherOutput,
@@ -21,7 +23,9 @@ import {
   type MatchRisk,
   type ProfileBuilderOutput,
   type ResumeJsonMapperOutput,
-  type ResumeTailorOutput
+  type ResumeTailorOutput,
+  type ResumeTailorPlannerInput,
+  type ResumeTailorPlannerOutput
 } from "@/domain/schemas";
 import { locateSourceQuote, redactSensitiveTextForModel } from "@/services/security/text";
 import { evidenceMatcherPrompt } from "@/ai/prompts/evidenceMatcher";
@@ -31,6 +35,7 @@ import { profileBuilderPrompt } from "@/ai/prompts/profileBuilder";
 import { resumeTailorPrompt } from "@/ai/prompts/resumeTailor";
 import { resumeJsonMapperPrompt } from "@/ai/prompts/resumeJsonMapper";
 import { resumeDocumentMapperPrompt } from "@/ai/prompts/resumeDocumentMapper";
+import { resumeTailorPlannerPrompt } from "@/ai/prompts/resumeTailorPlanner";
 import { RESUME_CATALOG_VERSION, resumeFieldCatalog } from "@/domain/resumeFields";
 
 export const stageBAiTaskSchema = z.enum(["profile-builder", "jd-analyzer"]);
@@ -694,7 +699,48 @@ export const aiTaskRegistry = {
     normalizeOutput(output: FactGuardOutput) {
       return output;
     }
-  } satisfies AiTaskDefinition<FactGuardTaskInput, FactGuardOutput>
+  } satisfies AiTaskDefinition<FactGuardTaskInput, FactGuardOutput>,
+
+  "resume-optimization-planner": {
+    task: "resume-optimization-planner",
+    promptVersion: resumeTailorPlannerPrompt.version,
+    systemPrompt: resumeTailorPlannerPrompt.system,
+    inputSchema: ResumeTailorPlannerInputSchema,
+    outputSchema: ResumeTailorPlannerOutputSchema,
+    maxOutputChars: 4_000,
+    buildUserPrompt(input: ResumeTailorPlannerInput) {
+      return JSON.stringify({
+        jobContext: input.jobContext,
+        requirements: input.requirements,
+        sections: input.sections,
+        instructions: [
+          "分析每个简历片段与岗位要求的匹配程度。",
+          "对于不匹配的片段，给出具体原因。",
+          "对于可改写的片段，指出应该补充的关键词。",
+          "不要尝试改写，只做判断。"
+        ]
+      }, null, 2);
+    },
+    coerceRawOutput(rawOutput: unknown) {
+      const raw = rawOutput as Record<string, unknown>;
+      const assessments = Array.isArray(raw.assessments) ? raw.assessments : [];
+      return {
+        assessments: assessments.filter((a: Record<string, unknown>) => typeof a.itemId === "string" && a.itemId.length > 0).map((a: Record<string, unknown>) => ({
+          itemId: String(a.itemId),
+          verdict: a.verdict === "rewrite" ? "rewrite" : "skip",
+          reason: String(a.reason ?? "未评估"),
+          suggestedKeywords: Array.isArray(a.suggestedKeywords) ? a.suggestedKeywords : []
+        })),
+        globalNotes: typeof raw.globalNotes === "string" ? raw.globalNotes : undefined
+      };
+    },
+    normalizeOutput(output: ResumeTailorPlannerOutput) {
+      return output;
+    },
+    validateOutput(output: ResumeTailorPlannerOutput) {
+      if (!output.assessments.length) throw new Error("planner_no_assessments");
+    }
+  } satisfies AiTaskDefinition<ResumeTailorPlannerInput, ResumeTailorPlannerOutput>
 } as const;
 
 export const stageBTaskRegistry = {

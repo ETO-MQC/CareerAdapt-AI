@@ -226,6 +226,18 @@ export function JobsWorkspace() {
     catch (error) { setDraft(previous); setJobError(jobWorkflowErrorState(error, "repository_save_failed")); setFailedAction("commit"); }
   }
 
+  async function toggleAllRequirements(checked: boolean) {
+    if (!draft) return;
+    const previous = draft;
+    let optimistic = draft;
+    for (const req of output?.requirements ?? []) {
+      optimistic = updateRequirementConfirmation(optimistic, req.id, checked);
+    }
+    setDraft(optimistic);
+    try { setDraft(await saveDraft(optimistic)); setJobError(undefined); }
+    catch (error) { setDraft(previous); setJobError(jobWorkflowErrorState(error, "repository_save_failed")); setFailedAction("commit"); }
+  }
+
   async function removeRequirement(requirementId: string) {
     if (!draft || !output || !window.confirm("删除后该要求不会进入正式岗位数据，但原始 JD 和草稿历史仍会保留。确认删除？")) return;
     const nextOutput: JdAnalyzerOutput = { ...output, requirements: output.requirements.filter((item) => item.id !== requirementId) };
@@ -311,11 +323,12 @@ export function JobsWorkspace() {
   }
 
   async function runOptionalSemanticEvaluation(input: { profile: CareerProfile; job: JobDescription; branch: ResumeBranch; matches: RequirementMatch[] }) {
-    const evaluated: RequirementMatch[] = [];
-    for (const match of input.matches) {
+    const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+    const results = await Promise.all(input.matches.map(async (match, index) => {
+      if (index > 0) await sleep(500);
       const requirement = input.job.requirements.find((item) => item.id === match.requirementId);
       const candidates = requirement ? recallCandidatesForRequirement(input.profile, requirement) : [];
-      if (!requirement) { evaluated.push(match); continue; }
+      if (!requirement) return match;
       const result = await invokeStructuredAi({
         task: "evidence-matcher",
         businessInput: { profileId: input.profile.id, jobId: input.job.id, profileVersion: input.profile.version, jobVersion: input.job.updatedAt, matcherVersion: match.matcherVersion, candidateSetHash: match.candidateSetHash, requirement: { id: requirement.id, description: requirement.description, sourceQuote: requirement.sourceSpan.text, hardConstraint: requirement.hardConstraint, keywords: requirement.keywords }, candidates: candidates.map((candidate) => ({ evidenceRef: candidate.ref, searchText: candidate.searchText })) },
@@ -323,11 +336,11 @@ export function JobsWorkspace() {
       });
       await repository.saveAiLogs([result.log]);
       const item = result.ok ? result.data.evaluations.find((candidate) => candidate.requirementId === requirement.id) : undefined;
-      if (!item) { evaluated.push(match); continue; }
+      if (!item) return match;
       const aiEvaluation = MatchEvaluationSchema.parse({ source: "ai", matchLevel: item.matchLevel, riskLevel: item.riskLevel, risks: item.risks, evidenceRefs: item.evidenceRefs, explanation: item.explanation, evaluatedAt: new Date().toISOString() }) as MatchEvaluation & { source: "ai" };
-      evaluated.push(withResolvedEffectiveMatch({ ...match, aiEvaluation, updatedAt: new Date().toISOString() }));
-    }
-    const saved = await repository.saveAiRequirementMatches({ profile: input.profile, job: input.job, matches: evaluated });
+      return withResolvedEffectiveMatch({ ...match, aiEvaluation, updatedAt: new Date().toISOString() });
+    }));
+    const saved = await repository.saveAiRequirementMatches({ profile: input.profile, job: input.job, matches: results });
     setMatches(saved); return saved;
   }
 
@@ -375,7 +388,7 @@ export function JobsWorkspace() {
         </aside>
       </section>
 
-      {draft && draft.status !== "committed" && output ? <DraftReview draft={draft} output={output} saveStatus={saveStatus} onToggle={toggleRequirement} onRemove={removeRequirement} onCommit={() => void commitJob()} /> : null}
+      {draft && draft.status !== "committed" && output ? <DraftReview draft={draft} output={output} saveStatus={saveStatus} onToggle={toggleRequirement} onToggleAll={toggleAllRequirements} onRemove={removeRequirement} onCommit={() => void commitJob()} /> : null}
 
       {selectedJob ? <section className="panel selected-job-workspace">
         <header className="selected-job-context">
@@ -398,8 +411,9 @@ function PersistentJobError({ error, canUseFallback, onRetry, onFallback }: { er
   return <section className="warning-box job-workflow-error" role="alert"><div><strong>{jobWorkflowErrorLabel(error.code)}</strong><p>{error.message}</p></div><div className="action-row">{error.retryable ? <button className="secondary-button compact" type="button" onClick={onRetry}>重试</button> : null}{canUseFallback ? <button className="secondary-button compact" type="button" onClick={onFallback}>使用本地解析</button> : null}</div></section>;
 }
 
-function DraftReview({ draft, output, saveStatus, onToggle, onRemove, onCommit }: { draft: JobAnalysisDraft; output: JdAnalyzerOutput; saveStatus: string; onToggle: (id: string, checked: boolean) => void; onRemove: (id: string) => void; onCommit: () => void }) {
-  return <section className="panel job-draft-review"><header><div><h2>{draft.analyzerOutput ? "岗位要求草稿" : "本地岗位要求草稿"}</h2><p>{draft.analyzerOutput ? "核对并确认后，再写入正式岗位。" : "AI 解析没有通过格式校验，系统已保留原始 JD，并使用本地规则整理以下要求。"}</p></div><button className="primary-button" type="button" data-testid="commit-job" disabled={saveStatus === "saving"} onClick={onCommit}>提交正式岗位</button></header><div className="requirement-review-list">{output.requirements.map((requirement) => <RequirementReviewRow key={requirement.id} requirement={requirement} onToggle={onToggle} onRemove={onRemove} />)}</div></section>;
+function DraftReview({ draft, output, saveStatus, onToggle, onToggleAll, onRemove, onCommit }: { draft: JobAnalysisDraft; output: JdAnalyzerOutput; saveStatus: string; onToggle: (id: string, checked: boolean) => void; onToggleAll: (checked: boolean) => void; onRemove: (id: string) => void; onCommit: () => void }) {
+  const allChecked = output.requirements.every((r) => r.confirmedByUser);
+  return <section className="panel job-draft-review"><header><div><h2>{draft.analyzerOutput ? "岗位要求草稿" : "本地岗位要求草稿"}</h2><p>{draft.analyzerOutput ? "核对并确认后，再写入正式岗位。" : "AI 解析没有通过格式校验，系统已保留原始 JD，并使用本地规则整理以下要求。"}</p></div><div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}><button className="secondary-button compact" type="button" onClick={() => onToggleAll(!allChecked)}>{allChecked ? "取消全选" : "全选"}</button><button className="primary-button" type="button" data-testid="commit-job" disabled={saveStatus === "saving"} onClick={onCommit}>提交正式岗位</button></div></header><div className="requirement-review-list">{output.requirements.map((requirement) => <RequirementReviewRow key={requirement.id} requirement={requirement} onToggle={onToggle} onRemove={onRemove} />)}</div></section>;
 }
 
 function RequirementReviewRow({ requirement, onToggle, onRemove }: { requirement: JdAnalyzerRequirement; onToggle: (id: string, checked: boolean) => void; onRemove: (id: string) => void }) {

@@ -74,6 +74,7 @@ import {
   type ResumePresentationConfig,
   type ResumeTailoringPlan,
   type TailoringClaim,
+  type TailoringSuggestion,
   type ResumeRenderSectionType,
   type ResumeRevision,
   type SuggestionOperation
@@ -141,6 +142,33 @@ function syncStructuredContentItems(
   });
 }
 
+function applyFieldPatchesPreservingFormat(
+  originalText: string,
+  claims: TailoringClaim[],
+  suggestions: Map<string, TailoringSuggestion>
+): string {
+  let result = originalText;
+  for (const claim of claims) {
+    if (!claim.targetFieldPath) continue;
+    const suggestion = suggestions.get(claim.id);
+    const after = suggestion?.after;
+    // only patch when we have a structured suggestion with an `after` value
+    if (!after) continue;
+    const proposedValues = Array.isArray(after) ? after : [after];
+    const currentValues = Array.isArray(claim.currentText) ? claim.currentText : [claim.currentText];
+    // replace each current value with the corresponding proposed value, preserving HTML context
+    const maxLen = Math.max(currentValues.length, proposedValues.length);
+    for (let i = 0; i < maxLen; i++) {
+      const oldText = currentValues[i] ?? "";
+      const newText = proposedValues[i] ?? "";
+      if (oldText && newText && oldText !== newText && result.includes(oldText)) {
+        result = result.replace(oldText, newText);
+      }
+    }
+  }
+  return result;
+}
+
 function applyTailoringClaimsToBranch(
   branch: ResumeBranch,
   claims: TailoringClaim[],
@@ -188,7 +216,7 @@ function applyTailoringClaimsToBranch(
     const structured = structuredById.get(item.id);
     const fallbackClaim = itemClaims.at(-1)!;
     const hasFieldPatch = itemClaims.some((claim) => claim.targetFieldPath);
-    const text = hasFieldPatch && structured ? projectResumeItemV2(structured.data) : fallbackClaim.proposedText;
+    const text = hasFieldPatch && structured ? applyFieldPatchesPreservingFormat(item.text, itemClaims, suggestions) : fallbackClaim.proposedText;
     const supportLevel = itemClaims.some((claim) => claim.supportLevel !== "verified") ? "reasonable_inference" : "verified";
     return BranchContentItemSchema.parse({
       ...item,

@@ -1173,6 +1173,7 @@ html[data-theme="dark"] .panel {
   display: grid;
   gap: 8px;
   min-height: 0;
+  overflow-y: auto;
   overscroll-behavior: contain;
   padding: 2px;
 }
@@ -1232,7 +1233,7 @@ html[data-theme="dark"] .panel {
 .job-draft-review {
   display: grid;
   gap: 12px;
-  max-height: 220px;
+  max-height: 600px;
   min-height: 0;
   overflow: hidden;
   padding: 16px;
@@ -9526,6 +9527,7 @@ html[data-theme="dark"] .floating-window-titlebar {
 
 .tailoring-panel { display: grid; gap: 12px; }
 .tailoring-view-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; margin-top: 8px; }
+.tailoring-view-tabs .inspector-tab { font-size: 14px; min-height: 42px; padding: 8px 12px; font-weight: 600; }
 .tailoring-page { display: grid; gap: 16px; min-width: 0; }
 .tailoring-hero { align-items: center; display: flex; justify-content: space-between; gap: 16px; border-bottom: 1px solid var(--border); padding-bottom: 16px; }
 .tailoring-hero h2, .tailoring-page h2, .tailoring-page h3, .tailoring-hero p { margin: 0; }

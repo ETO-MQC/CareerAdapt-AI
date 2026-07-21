@@ -78,6 +78,7 @@ export const JobCoverageReportV2Schema = z.object({
   overallCoverage: z.number().min(0).max(100),
   subScores: z.object({ hardConstraints: z.number(), coreCompetencies: z.number(), responsibilities: z.number(), preferredQualifications: z.number(), terminologyCoverage: z.number() }),
   coveredRequirementIds: z.array(z.string()), partialRequirementIds: z.array(z.string()), uncoveredRequirementIds: z.array(z.string()), confirmationRequirementIds: z.array(z.string()),
+  uncoveredRequirementDescriptions: z.array(z.string()).default([]),
   blockingGaps: z.array(z.string()), improvementOpportunities: z.array(z.string()),
   scoreVersion: z.string().min(1), scoreExplanation: z.string().min(1)
 }).strict();

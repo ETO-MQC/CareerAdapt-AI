@@ -58,7 +58,7 @@ export class OpenAiCompatibleProvider {
     });
 
     if (!response.ok) {
-      throw createAiProviderError("provider_http_error", `Provider returned ${response.status}.`);
+      throw createAiProviderError(`provider_http_${response.status}`, `Provider returned HTTP ${response.status}.`);
     }
 
     const payload = await response.json();
@@ -101,6 +101,15 @@ function parseJsonContent(content: string) {
   try {
     return JSON.parse(trimmed);
   } catch {
+    // Some models wrap JSON in explanatory text; try to extract the JSON object/array.
+    const objectMatch = trimmed.match(/\{[\s\S]*\}/);
+    if (objectMatch) {
+      try { return JSON.parse(objectMatch[0]); } catch { /* fall through */ }
+    }
+    const arrayMatch = trimmed.match(/\[[\s\S]*\]/);
+    if (arrayMatch) {
+      try { return JSON.parse(arrayMatch[0]); } catch { /* fall through */ }
+    }
     throw createAiProviderError("invalid_json", "Provider returned content that is not valid JSON.");
   }
 }

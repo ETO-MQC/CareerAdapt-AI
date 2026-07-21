@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
         systemPrompt: taskDefinition.systemPrompt,
         userPrompt: attempt === 0 ? baseUserPrompt : buildRetryPrompt(baseUserPrompt, lastValidationFailure),
         maxOutputChars: taskDefinition.maxOutputChars,
-        signal: AbortSignal.timeout(25_000)
+        signal: AbortSignal.timeout(60_000)
       });
 
       const coerced = taskDefinition.coerceRawOutput(response.output, input.data);
@@ -111,13 +111,17 @@ export async function POST(request: NextRequest) {
 
       try {
         taskDefinition.validateOutput?.(parsedOutput.data, input.data);
-      } catch {
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : "unknown";
+        if (process.env.NODE_ENV === "development") {
+          console.warn(`[ai:semantic_validation] task=${body.data.task} attempt=${attempt} reason=${reason}`);
+        }
         lastValidationFailure = "semantic_validation_failed";
         if (attempt === 0) {
           continue;
         }
 
-        return aiError("semantic_validation_failed", "Model output failed business semantic validation.", 422, startedAt, {
+        return aiError(`semantic_validation_failed:${reason}`, `Semantic validation failed: ${reason}`, 422, startedAt, {
           provider: response.provider,
           model: response.model,
           inputLength: estimateInputLength(input.data),
@@ -342,6 +346,19 @@ function createMockOutput(task: AiTask, input: unknown) {
           status: firstEvidence ? "ready" : "requires_confirmation"
         }
       ]
+    };
+  }
+
+  if (task === "resume-optimization-planner") {
+    const plannerInput = input as { sections: Array<{ itemId: string; currentText: string }> };
+    return {
+      assessments: plannerInput.sections.map((section) => ({
+        itemId: section.itemId,
+        verdict: "rewrite" as const,
+        reason: "Mock planner: all sections marked for rewrite.",
+        suggestedKeywords: []
+      })),
+      globalNotes: "Mock 模式：所有片段均已标记为可改写。"
     };
   }
 

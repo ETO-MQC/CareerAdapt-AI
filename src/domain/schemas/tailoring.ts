@@ -145,3 +145,34 @@ export type SkillProficiency = z.infer<typeof SkillProficiencySchema>;
 export type TailoringClaim = z.infer<typeof TailoringClaimSchema>;
 export type ResumeTailoringPlan = z.infer<typeof ResumeTailoringPlanSchema>;
 export type ClaimConfirmation = z.infer<typeof ClaimConfirmationSchema>;
+
+// --- Phase 1: Planner schemas ---
+export const ResumeTailorPlannerInputSchema = z.object({
+  jobContext: TailoringJobContextSchema,
+  requirements: z.array(z.object({
+    id: z.string().min(1),
+    description: z.string().min(1),
+    priority: z.string().min(1),
+    category: z.string().min(1),
+    keywords: z.array(z.string().min(1)).default([])
+  }).strict()),
+  sections: z.array(z.object({
+    sectionType: z.string().min(1),
+    itemId: z.string(),
+    currentText: z.string().min(1),
+    relevantRequirementIds: z.array(z.string().min(1)).default([])
+  }).strict())
+}).strict();
+
+export const ResumeTailorPlannerOutputSchema = z.object({
+  assessments: z.array(z.object({
+    itemId: z.string().min(1),
+    verdict: z.enum(["rewrite", "skip"]),
+    reason: z.string().min(1),
+    suggestedKeywords: z.array(z.string().min(1)).default([])
+  }).strict()),
+  globalNotes: z.string().optional()
+}).strict();
+
+export type ResumeTailorPlannerInput = z.infer<typeof ResumeTailorPlannerInputSchema>;
+export type ResumeTailorPlannerOutput = z.infer<typeof ResumeTailorPlannerOutputSchema>;

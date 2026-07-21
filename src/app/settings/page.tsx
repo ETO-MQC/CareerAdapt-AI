@@ -41,6 +41,7 @@ export default function SettingsPage() {
   const [aiSettings, setAiSettings] = useState<AiSettings>(() => typeof window === "undefined" ? { baseUrl: "", apiKey: "", model: "", provider: "openai-compatible" } : readAiSettings());
   const [aiSaved, setAiSaved] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
+  const [aiTesting, setAiTesting] = useState(false);
   const [documentPreferences, setDocumentPreferences] = useState<DocumentRecognitionPreferences>(() =>
     typeof window === "undefined" ? readDocumentRecognitionPreferences() : readDocumentRecognitionPreferences()
   );
@@ -411,7 +412,7 @@ export default function SettingsPage() {
                   </label>
                 </>
               ) : null}
-              <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem" }}>
+              <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem", flexWrap: "wrap" }}>
                 <button
                   type="button"
                   className="button button-primary"
@@ -422,6 +423,46 @@ export default function SettingsPage() {
                   }}
                 >
                   {aiSaved ? "已保存 ✓" : "保存配置"}
+                </button>
+                <button
+                  type="button"
+                  className="button button-secondary"
+                  disabled={aiTesting || aiSettings.provider === "mock"}
+                  onClick={async () => {
+                    setAiTesting(true);
+                    try {
+                      const headers: Record<string, string> = { "Content-Type": "application/json" };
+                      const hasCustom = aiSettings.apiKey.length > 0 || aiSettings.baseUrl.length > 0 || aiSettings.model.length > 0;
+                      if (hasCustom) {
+                        const { encodeAiSettingsForHeader } = await import("@/services/storage/aiSettings");
+                        headers["x-ai-config"] = encodeAiSettingsForHeader(aiSettings);
+                      }
+                      const res = await fetch("/api/ai/test", { method: "POST", headers });
+                      const data = await res.json();
+                      if (data.ok) {
+                        notify({ type: "success", title: "连接成功", message: `已连接 ${data.model}，响应 ${data.latencyMs}ms。` });
+                      } else {
+                        const descriptions: Record<string, string> = {
+                          "missing_ai_config": "缺少 API Key 或模型名称，请填写后再测试。",
+                          "provider_protocol_mismatch": "API 地址使用了不兼容的协议，请确认是 OpenAI 兼容接口。",
+                          "provider_http_401": "API Key 无效或已过期，请检查后重试。",
+                          "provider_http_403": "API Key 无权限访问该模型，请检查模型名称和 Key 是否匹配。",
+                          "provider_http_429": "请求过于频繁，请稍后再试。",
+                          "provider_http_500": "服务端内部错误，请稍后再试。",
+                          "provider_http_502": "网关错误，请检查 API 地址是否正确。",
+                          "provider_http_503": "服务暂时不可用，请稍后再试。",
+                          "model_output_too_large": "模型返回内容过长，已安全截断，连接正常。"
+                        };
+                        notify({ type: "error", title: "连接失败", message: descriptions[data.code] ?? data.message ?? "未知错误。" });
+                      }
+                    } catch {
+                      notify({ type: "error", title: "连接失败", message: "网络请求异常，请检查 API 地址和网络连接。" });
+                    } finally {
+                      setAiTesting(false);
+                    }
+                  }}
+                >
+                  {aiTesting ? "测试中…" : "测试连接"}
                 </button>
                 <button
                   type="button"
