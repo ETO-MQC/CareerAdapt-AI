@@ -16,6 +16,10 @@ export const resumeTailorPrompt = {
     "Do not include Markdown or code fences.",
     "Never return the original content as after, and never fabricate an after value when generation fails.",
     "Keep company, school, dates, degrees, awards, certificates, numeric outcomes and responsibility ownership unchanged unless directly supported.",
+    "For project, work, and internship targets, return only highlights or description content; never flatten or repeat title, organization, role, location, or dates.",
+    "Never emit internal labels such as 组织：, 职位/角色：, 项目名称：, 开始日期：, 结束日期：, 进行中：, or 亮点：.",
+    "Resume text must use direct action and verification language. Do not write analytical commentary such as 此经验可迁移到, 该能力适用于, 该实践积累了, or 为目标岗位提供方法论基础.",
+    "A summary must be complete, end naturally, and must never be truncated or saved from an ellipsized preview.",
     "A reasonable inference requires confirmation; a newly suggested skill is user_declared and requires a proficiency confirmation."
   ].join("\n")
 };

@@ -17,6 +17,7 @@ import type {
 import { ResumeTailorOutputSchema, ResumeTailorPlannerOutputSchema } from "@/domain/schemas";
 import type { WorkspaceRepository } from "@/services/storage/repositories";
 import { nanoid } from "nanoid";
+import { groupTailoringKeywords } from "@/domain/jobOptimization";
 
 type TailoringView = "overview" | "suggestions" | "apply";
 
@@ -45,11 +46,12 @@ export function JobOptimizationPanel({
   const [plan, setPlan] = useState<ResumeTailoringPlan>();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirmations, setConfirmations] = useState<Record<string, ClaimConfirmation>>({});
+  const [confirmationEdits, setConfirmationEdits] = useState<Record<string, string>>({});
   const [pending, setPending] = useState(false);
   const [progress, setProgress] = useState({ step: 0, completed: 0, skipped: 0, failed: 0 });
   const generationController = useRef<AbortController | undefined>(undefined);
   const [plannerAssessment, setPlannerAssessment] = useState<{ globalNotes?: string; skippedCount: number; rewrittenCount: number }>();
-  const [fitDelta, setFitDelta] = useState<{ beforeScore: number; afterScore: number; beforeCovered: number; afterCovered: number }>();
+  const [fitDelta, setFitDelta] = useState<{ beforeScore: number; afterScore: number; newlyCovered: string[]; newKeywords: string[]; userDeclared: string[]; remaining: string[] }>();
   const targetJob = useMemo(() => jobs.find((job) => job.id === branch?.jobId), [branch?.jobId, jobs]);
   const analysis = useMemo(() => profile && branch && targetJob ? analyzeJobFit({ profile, branch, job: targetJob }) : undefined, [profile, branch, targetJob]);
 
@@ -65,7 +67,8 @@ export function JobOptimizationPanel({
   const suggestionsById = new Map((plan?.suggestions ?? []).map((suggestion) => [suggestion.id, suggestion]));
   const selectedClaims = claims.filter((claim) => selected.has(claim.id));
   const confirmationCount = selectedClaims.filter((claim) => claim.decision === "requires_confirmation").length;
-  const keywordCount = new Set(selectedClaims.flatMap((claim) => claim.keywords)).size;
+  const keywordGroups = groupTailoringKeywords(selectedClaims.flatMap((claim) => claim.keywords));
+  const keywordCount = keywordGroups.core.length + keywordGroups.confirmableTools.length;
   const hiddenCount = selectedClaims.filter((claim) => claim.section === "ordering" && /隐藏/.test(claim.reason)).length;
 
   async function generatePlan() {
@@ -162,8 +165,8 @@ export function JobOptimizationPanel({
     } finally { setPending(false); generationController.current = undefined; }
   }
 
-  function updateConfirmation(claim: TailoringClaim, proficiency: ClaimConfirmation["proficiency"] | undefined, accepted = true) {
-    setConfirmations((current) => ({ ...current, [claim.id]: { claimId: claim.id, accepted, proficiency, syncScope: accepted ? "resume_only" : "rejected" } }));
+  function updateConfirmation(claim: TailoringClaim, proficiency: ClaimConfirmation["proficiency"] | undefined, accepted = true, editedText?: string) {
+    setConfirmations((current) => ({ ...current, [claim.id]: { claimId: claim.id, accepted, proficiency, editedText: accepted ? editedText : undefined, syncScope: accepted ? "resume_only" : "rejected" } }));
   }
 
   async function applySelected() {
@@ -183,7 +186,15 @@ export function JobOptimizationPanel({
         apply: async ({ plan: confirmedPlan, operationId }) => {
           const saved = await repository.applyTailoringPlan({ plan: confirmedPlan, operationId, expectedBranchRevision: activeBranch.revision, expectedRevisionId: activeBranch.currentRevisionId! });
           const afterReport = analyzeJobFit({ profile: activeProfile, branch: saved.branch, job: activeJob }).report!;
-          setFitDelta({ beforeScore: report?.overallCoverage ?? 0, afterScore: afterReport.overallCoverage, beforeCovered: report?.coveredRequirementIds.length ?? 0, afterCovered: afterReport.coveredRequirementIds.length });
+          const beforeCovered = new Set(report?.coveredRequirementIds ?? []);
+          setFitDelta({
+            beforeScore: report?.overallCoverage ?? 0,
+            afterScore: afterReport.overallCoverage,
+            newlyCovered: afterReport.coveredRequirementIds.filter((id) => !beforeCovered.has(id)).map((id) => requirementText(activeJob, id)),
+            newKeywords: newlyAppliedKeywords(confirmedPlan.claims, activeBranch, saved.branch),
+            userDeclared: confirmedPlan.claims.filter((claim) => claim.supportLevel === "user_declared" && claim.syncScope !== "rejected").map((claim) => claim.label ?? claim.claimText ?? claim.proposedText),
+            remaining: afterReport.uncoveredRequirementDescriptions
+          });
           onBranchReady(saved.branch);
           return { branchId: saved.branch.id, revisionId: saved.revision?.id ?? saved.branch.currentRevisionId! };
         }
@@ -229,11 +240,11 @@ export function JobOptimizationPanel({
             可改写 {plannerAssessment.rewrittenCount} 项，跳过 {plannerAssessment.skippedCount} 项。
           </p>
         </div> : null}
-        {sectionGroups(claims).map(([section, items]) => <section key={section} className="tailoring-suggestion-group"><h3>{sectionLabel(section)}</h3>{items.map((claim) => { const suggestion = suggestionsById.get(claim.id); return <article key={claim.id} className="tailoring-suggestion-card">
+        {sectionGroups(claims).map(([section, items]) => <section key={section} className="tailoring-suggestion-group"><h3>{sectionLabel(section)}</h3>{items.map((claim) => { const suggestion = suggestionsById.get(claim.id); const groupedKeywords = groupTailoringKeywords(claim.keywords); return <article key={claim.id} className="tailoring-suggestion-card">
           <div className="tailoring-suggestion-status"><span>{decisionLabel(claim)}</span><input type="checkbox" aria-label="采用建议" checked={selected.has(claim.id)} disabled={claim.decision === "blocked"} onChange={(event) => setSelected((current) => { const next = new Set(current); if (event.target.checked) next.add(claim.id); else next.delete(claim.id); return next; })} /></div>
-          <div><small>当前内容</small><p>{claim.currentText || "暂无"}</p></div><div><small>建议内容</small><p><FieldDiff before={claim.currentText} after={claim.proposedText} /></p></div>
-          <div className="tailoring-suggestion-meta"><p><strong>为什么修改：</strong>{claim.reason}</p><p><strong>覆盖要求：</strong>{(claim.requirementIds ?? []).map((id) => requirementText(activeJob, id)).join("、") || "对应岗位要求"}</p><p><strong>新增关键词：</strong>{suggestion?.coveredKeywordsAfter.filter((keyword) => !suggestion.coveredKeywordsBefore.includes(keyword)).join("、") || "表达结构调整"}</p><p><strong>依据来源：</strong>{claim.evidenceRefs.length ? `${claim.evidenceRefs.length} 条已确认事实证据` : "当前岗位简历中的用户确认内容"}</p><p><strong>修改风险：</strong>{suggestion?.riskLevel === "low" ? "低" : suggestion?.riskLevel === "high" ? "高" : "中，需确认"}</p></div>
-          {claim.keywords.length ? <div className="keyword-phrase">{claim.keywords.join("、")}</div> : null}
+          <header className="tailoring-suggestion-title"><strong>{claim.label ?? sectionLabel(claim.section)}</strong><span>{fieldLocationLabel(claim)}</span></header>
+          <div><small>原句</small><p>{claim.currentText || "暂无"}</p></div><div><small>改写句</small><p><FieldDiff before={claim.currentText} after={claim.claimText ?? claim.proposedText} /></p></div>
+          <details className="tailoring-suggestion-details"><summary>查看详细依据</summary><div className="tailoring-suggestion-meta"><p><strong>完整当前条目：</strong>{currentItemText(activeBranch, claim)}</p><p><strong>详细修改理由：</strong>{claim.reason}</p><p><strong>岗位要求：</strong>{(claim.requirementIds ?? []).map((id) => requirementText(activeJob, id)).join("、") || "对应岗位要求"}</p><p><strong>EvidenceRefs：</strong>{claim.evidenceRefs.length ? `${claim.evidenceRefs.length} 条已确认事实证据` : "当前岗位简历中的用户确认内容"}</p><p><strong>Requirement IDs：</strong>{(claim.requirementIds ?? []).join("、") || "无"}</p><p><strong>风险：</strong>{suggestion?.riskLevel === "low" ? "低" : suggestion?.riskLevel === "high" ? "高" : "中，需确认"}</p>{groupedKeywords.core.length ? <div className="keyword-phrase"><strong>核心岗位词：</strong>{groupedKeywords.core.join("、")}</div> : null}{groupedKeywords.confirmableTools.length ? <div className="keyword-phrase"><strong>需确认工具：</strong>{groupedKeywords.confirmableTools.join("、")}</div> : null}{groupedKeywords.materials.length ? <div className="keyword-phrase"><strong>材料要求：</strong>{groupedKeywords.materials.join("、")}</div> : null}</div></details>
         </article>; })}</section>)}
         {plan?.clarificationQuestions?.length ? <section className="tailoring-suggestion-group"><h3>待补充材料</h3>{plan.clarificationQuestions.map((item) => <article key={item.id} className="tailoring-suggestion-card"><strong>{item.question}</strong><p>{item.candidateClaim}</p><small>关联要求 {item.requirementIds.length} 项 · 关联简历内容 {item.relatedItemIds.length} 项</small></article>)}</section> : null}
         {plan?.materialSuggestions?.length ? <ResultList title="材料补充建议" items={plan.materialSuggestions} empty="暂无" /> : null}
@@ -245,8 +256,13 @@ export function JobOptimizationPanel({
       {view === "apply" ? <div className="tailoring-page" data-testid="tailoring-apply">
         <h2>确认并应用</h2>
         <div className="tailoring-apply-summary"><span>将修改 <strong>{selectedClaims.length}</strong> 处</span><span>新增关键词 <strong>{keywordCount}</strong> 个</span><span>隐藏 <strong>{hiddenCount}</strong> 项</span><span>需确认 <strong>{confirmationCount}</strong> 项</span><span>当前岗位适配度 <strong>{report?.overallCoverage ?? 0}</strong></span></div>
-        {fitDelta ? <div className="info-box" aria-live="polite"><strong>岗位适配度：{fitDelta.beforeScore} → {fitDelta.afterScore}</strong><p>已覆盖核心要求：{fitDelta.beforeCovered} → {fitDelta.afterCovered}。分数基于应用后的岗位简历重新计算。</p></div> : null}
-        {selectedClaims.filter((claim) => claim.decision === "requires_confirmation").length ? <section className="tailoring-confirmations"><h3>待确认能力与表达</h3>{selectedClaims.filter((claim) => claim.decision === "requires_confirmation").map((claim) => <article key={claim.id} className="tailoring-confirmation-card"><strong>{claim.proposedText.length > 50 ? `${claim.proposedText.slice(0, 50)}...` : claim.proposedText}</strong><p>你的资料中没有直接记录这项表述，请选择最符合真实情况的描述。默认仅用于当前岗位简历。</p><div className="chip-row">{([['proficient','熟练使用'],['familiar','熟悉基础'],['aware','了解'],['learning','正在学习']] as const).map(([value, label]) => <button type="button" key={value} className={confirmations[claim.id]?.proficiency === value ? "secondary-button compact property-tab-active" : "secondary-button compact"} onClick={() => updateConfirmation(claim, value)}>{label}</button>)}<button type="button" className="secondary-button compact" onClick={() => updateConfirmation(claim, undefined, false)}>不添加</button></div><small>保存范围：仅用于当前岗位简历</small></article>)}</section> : null}
+        {fitDelta ? <div className="info-box tailoring-fit-delta" aria-live="polite"><strong>岗位适配度：{fitDelta.beforeScore} → {fitDelta.afterScore}</strong><p>新覆盖要求：{fitDelta.newlyCovered.join("、") || "无新增"}</p><p>新关键词：{fitDelta.newKeywords.join("、") || "无新增"}</p><p>用户声明能力：{fitDelta.userDeclared.join("、") || "无"}</p><p>仍缺失要求：{fitDelta.remaining.join("、") || "无"}</p></div> : null}
+        {selectedClaims.filter((claim) => claim.decision === "requires_confirmation").length ? <section className="tailoring-confirmations"><h3>待确认能力与表达</h3>{selectedClaims.filter((claim) => claim.decision === "requires_confirmation").map((claim) => { const confirmation = confirmations[claim.id]; const finalText = finalTextForClaim(claim, confirmation); const isProficiencyClaim = ["tool", "skill", "workflow"].includes(claim.claimType ?? ""); const editText = confirmationEdits[claim.id] ?? claim.claimText ?? claim.proposedText; return <article key={claim.id} className="tailoring-confirmation-card">
+          <strong>{claim.label ?? "确认岗位相关表达"}</strong>
+          <div className="tailoring-confirmation-context"><p><span>最终写入句</span><strong aria-live="polite">{finalText}</strong></p><p><span>来源经历</span>{sourceItemsLabel(activeBranch, claim)}</p><p><span>对应岗位要求</span>{(claim.requirementIds ?? []).map((id) => requirementText(activeJob, id)).join("、") || "对应岗位要求"}</p></div>
+          {isProficiencyClaim ? <div className="chip-row" aria-label="选择真实熟练度">{([['proficient','熟练使用'],['familiar','熟悉基础'],['aware','了解'],['learning','正在学习']] as const).map(([value, label]) => <button type="button" key={value} className={confirmation?.proficiency === value && confirmation.accepted ? "secondary-button compact property-tab-active" : "secondary-button compact"} onClick={() => updateConfirmation(claim, value)}>{label}</button>)}<button type="button" className={!confirmation?.accepted && confirmation?.syncScope === "rejected" ? "secondary-button compact property-tab-active" : "secondary-button compact"} onClick={() => updateConfirmation(claim, undefined, false)}>不添加</button></div> : <><label className="field-label" htmlFor={`claim-edit-${claim.id}`}>编辑最终句<textarea id={`claim-edit-${claim.id}`} value={editText} onChange={(event) => setConfirmationEdits((current) => ({ ...current, [claim.id]: event.target.value }))} /></label><div className="chip-row"><button type="button" className={confirmation?.accepted && !confirmation.editedText ? "secondary-button compact property-tab-active" : "secondary-button compact"} onClick={() => updateConfirmation(claim, undefined, true)}>确认采用</button><button type="button" className={confirmation?.editedText ? "secondary-button compact property-tab-active" : "secondary-button compact"} onClick={() => updateConfirmation(claim, undefined, true, editText)}>编辑后采用</button><button type="button" className={!confirmation?.accepted && confirmation?.syncScope === "rejected" ? "secondary-button compact property-tab-active" : "secondary-button compact"} onClick={() => updateConfirmation(claim, undefined, false)}>不采用</button></div></>}
+          <small>保存范围：仅用于当前岗位简历</small>
+        </article>; })}</section> : null}
         <div className="info-box"><strong>导出前检查</strong><p><Check size={14} /> 通过 / 有建议 / 需要处理将在保存后显示；它不会改变事实。</p></div>
         <button className="primary-button" type="button" disabled={pending || !canEdit} onClick={() => { void applySelected(); }}>应用选择并保存新版本</button>
         <p className="muted-copy">来源通用简历和个人资料库默认不变。保存后会创建新版本，可以撤销。</p>
@@ -263,7 +279,43 @@ function strategyCopy(intensity: TailoringIntensity) { return intensity === "con
 function decisionLabel(claim: TailoringClaim) { return claim.decision === "auto_applicable" ? "可直接采用" : claim.decision === "blocked" ? "不能添加硬事实" : claim.supportLevel === "reasonable_inference" ? "不建议但可确认" : "需要确认"; }
 function requirementText(job: JobDescription, id: string) { return job.requirements.find((item) => item.id === id)?.description ?? "这项岗位要求暂未在简历中体现"; }
 function sectionGroups(claims: TailoringClaim[]) { const order: TailoringClaim["section"][] = ["summary", "skills", "project", "work", "internship", "ordering"]; return order.map((section) => [section, claims.filter((claim) => claim.section === section)] as const).filter(([, items]) => items.length); }
+function fieldLocationLabel(claim: TailoringClaim) {
+  const field = claim.targetPatches?.[0]?.fieldPath ?? claim.targetFieldPath?.split(".").at(-1);
+  return `${sectionLabel(claim.section)} · ${({ text: "正文", name: "技能名称", description: "描述", highlights: "亮点", visible: "显示状态", order: "排序" } as Record<string, string>)[field ?? ""] ?? "正文"}`;
+}
+function finalTextForClaim(claim: TailoringClaim, confirmation?: ClaimConfirmation) {
+  if (!confirmation?.accepted) return claim.claimText ?? claim.proposedText;
+  if (confirmation.editedText) return confirmation.editedText;
+  if (confirmation.proficiency && claim.finalTextByProficiency) return claim.finalTextByProficiency[confirmation.proficiency];
+  return claim.claimText ?? claim.proposedText;
+}
+function sourceItemsLabel(branch: ResumeBranch, claim: TailoringClaim) {
+  const ids = claim.sourceItemIds ?? (claim.targetContentItemId ? [claim.targetContentItemId] : []);
+  const labels = ids.map((id) => {
+    const structured = branch.structuredContentItems?.find((item) => item.id === id)?.data;
+    if (structured?.sectionType === "project") return structured.title ?? id;
+    if (structured && ["work", "internship"].includes(structured.sectionType)) return "organization" in structured ? structured.organization ?? structured.role ?? id : id;
+    if (structured?.sectionType === "skills") return structured.name;
+    return branch.contentItems.find((item) => item.id === id)?.text.split(/[；;。\n]/)[0] ?? id;
+  });
+  return labels.join("、") || "当前岗位简历";
+}
+function currentItemText(branch: ResumeBranch, claim: TailoringClaim) {
+  const id = claim.targetContentItemId ?? claim.sourceItemIds?.[0];
+  return branch.contentItems.find((item) => item.id === id)?.text ?? claim.currentText ?? "暂无";
+}
 function normalizeDiffText(value: string) { return value.replace(/<[^>]+>/g, "").replace(/[\s\p{P}\p{S}]/gu, "").toLowerCase(); }
+function newlyAppliedKeywords(claims: TailoringClaim[], before: ResumeBranch, after: ResumeBranch) {
+  const beforeText = JSON.stringify(before.structuredContentItems ?? before.contentItems).toLowerCase();
+  const afterText = JSON.stringify(after.structuredContentItems ?? after.contentItems).toLowerCase();
+  return [...new Set(claims
+    .filter((claim) => claim.syncScope !== "rejected")
+    .flatMap((claim) => claim.keywords)
+    .filter((keyword) => {
+      const normalized = keyword.trim().toLowerCase();
+      return normalized && !beforeText.includes(normalized) && afterText.includes(normalized);
+    }))];
+}
 function summarizeRejectionReasons(reasons: string[]): string {
   const unique = [...new Set(reasons)];
   if (!unique.length) return "AI 未能生成有效改写内容。建议检查岗位描述是否包含具体技能或职责描述。";

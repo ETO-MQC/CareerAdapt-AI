@@ -587,7 +587,9 @@ export const aiTaskRegistry = {
             "Copy requirementIds exactly from relevantRequirements; never return requirement descriptions as IDs.",
             "after must differ from before and contain no Markdown or code fences.",
             "Use only allowedFacts. Never invent numbers, company, school, role, certificate, duration, launch outcome, revenue, stars, or users.",
-            "For a summary, reorganize existing user facts toward the target role.",
+            "For a summary, reorganize existing user facts toward the target role and return a complete sentence without truncation or ellipsis.",
+            "For project, work, or internship, preserve the input array shape and return only highlights/description text without metadata labels.",
+            "Use direct actions such as 设计、开发、复现、定位、验证、调试、约束、重构、评测、迭代; do not add transferability analysis commentary.",
             "If no safe rewrite is possible, return {\"suggestions\":[]} and nothing else."
           ].filter(Boolean)
         },
@@ -703,6 +705,9 @@ export const aiTaskRegistry = {
           "Return only the fields shown in outputContract. Do not return Markdown or code fences.",
           "Copy requirementIds from that target's relevantRequirements and use only that target's allowedFacts.",
           "after must differ from before. Never invent numbers, organizations, roles, credentials, duration, or outcomes.",
+          "Preserve array shape for highlights. Never include title, organization, role, location, dates, or internal field labels in after.",
+          "Keep summaries complete; never return ellipsized or truncated text.",
+          "Use direct action and verification language; omit transferability-analysis boilerplate.",
           "Omit a target when no safe rewrite is possible."
         ]
       }, null, 2);

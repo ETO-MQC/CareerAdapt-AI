@@ -48,10 +48,13 @@ export const CandidateEvidenceUnitSchema = z.object({
   id: z.string().min(1), sourceType: CandidateEvidenceSourceTypeSchema,
   sectionType: ResumeSectionTypeV2Schema, itemId: z.string().min(1), fieldPath: z.string().min(1),
   text: z.string().min(1), normalizedText: z.string().min(1),
-  factRefs: z.array(BranchFactRefSchema).min(1), sourceBlockIds: z.array(z.string().min(1)).default([]),
+  factRefs: z.array(BranchFactRefSchema).default([]), sourceBlockIds: z.array(z.string().min(1)).default([]),
+  supportLevel: z.enum(["verified", "user_declared"]).default("verified"),
   organization: z.string().min(1).optional(), role: z.string().min(1).optional(), dateRange: z.string().min(1).optional(),
   confirmed: z.literal(true)
-}).strict();
+}).strict().superRefine((unit, context) => {
+  if (unit.supportLevel === "verified" && unit.factRefs.length === 0) context.addIssue({ code: "custom", path: ["factRefs"], message: "verified evidence requires fact references" });
+});
 
 export const EvidenceRecallCandidateSchema = z.object({
   evidenceUnitId: z.string().min(1), score: z.number().min(0), reasons: z.array(z.string().min(1)).min(1)

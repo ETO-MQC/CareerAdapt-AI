@@ -19,6 +19,50 @@ export const TailoringSectionSchema = z.enum([
 ]);
 export const SkillProficiencySchema = z.enum(["proficient", "familiar", "aware", "learning"]);
 export const TailoringClaimClassSchema = z.enum(["verified_rewrite", "reasonable_reframe", "user_confirmable_capability", "unsupported_hard_fact"]);
+export const ResumeFieldPathSchema = z.enum(["text", "name", "description", "highlights", "visible", "order"]);
+export const ResumeFieldPatchOperationSchema = z.enum(["replace", "append", "remove"]);
+const ResumeFieldPatchValueSchema = z.union([z.string(), z.array(z.string()), z.boolean(), z.number()]);
+const INTERNAL_FIELD_LABEL = /(?:^|[\s；;])(?:组织|职位\/角色|项目名称|开始日期|结束日期|进行中|亮点)：/;
+
+export const ResumeFieldPatchSchema = z.object({
+  sectionId: z.string().min(1),
+  itemId: z.string().min(1),
+  fieldPath: ResumeFieldPathSchema,
+  operation: ResumeFieldPatchOperationSchema,
+  before: ResumeFieldPatchValueSchema,
+  after: ResumeFieldPatchValueSchema
+}).strict().superRefine((patch, context) => {
+  const expected = patch.fieldPath === "highlights" ? "array"
+    : patch.fieldPath === "visible" ? "boolean"
+      : patch.fieldPath === "order" ? "number"
+        : "string";
+  for (const key of ["before", "after"] as const) {
+    const value = patch[key];
+    const actual = Array.isArray(value) ? "array" : typeof value;
+    if (actual !== expected) context.addIssue({ code: "custom", path: [key], message: `${patch.fieldPath} patch requires ${expected}` });
+  }
+  const before = Array.isArray(patch.before) ? patch.before.join("\n") : String(patch.before);
+  const after = Array.isArray(patch.after) ? patch.after.join("\n") : String(patch.after);
+  if (!INTERNAL_FIELD_LABEL.test(before) && INTERNAL_FIELD_LABEL.test(after)) {
+    context.addIssue({ code: "custom", path: ["after"], message: "internal field labels cannot be introduced into resume text" });
+  }
+});
+
+export const ConfirmableClaimSchema = z.object({
+  id: z.string().min(1),
+  label: z.string().min(1),
+  claimText: z.string().min(1),
+  finalTextByProficiency: z.object({
+    proficient: z.string().min(1),
+    familiar: z.string().min(1),
+    aware: z.string().min(1),
+    learning: z.string().min(1)
+  }).strict().optional(),
+  sourceItemIds: z.array(z.string().min(1)).min(1),
+  requirementIds: z.array(z.string().min(1)).min(1),
+  targetPatches: z.array(ResumeFieldPatchSchema).min(1),
+  claimType: z.enum(["tool", "skill", "workflow", "experience_reframe", "material"])
+}).strict();
 
 export const TailoringRequirementSchema = z.object({
   requirementId: z.string().min(1),
@@ -123,6 +167,12 @@ export const TailoringSuggestionSchema = z.object({
 
 export const TailoringClaimSchema = z.object({
   id: z.string().min(1),
+  label: z.string().min(1).optional(),
+  claimText: z.string().min(1).optional(),
+  finalTextByProficiency: ConfirmableClaimSchema.shape.finalTextByProficiency,
+  sourceItemIds: z.array(z.string().min(1)).optional(),
+  targetPatches: z.array(ResumeFieldPatchSchema).min(1).optional(),
+  claimType: ConfirmableClaimSchema.shape.claimType.optional(),
   section: TailoringSectionSchema,
   targetContentItemId: z.string().min(1).optional(),
   targetFieldPath: z.string().min(1).optional(),
@@ -192,6 +242,8 @@ export type TailoringSuggestion = z.infer<typeof TailoringSuggestionSchema>;
 export type TailoringSection = z.infer<typeof TailoringSectionSchema>;
 export type SkillProficiency = z.infer<typeof SkillProficiencySchema>;
 export type TailoringClaimClass = z.infer<typeof TailoringClaimClassSchema>;
+export type ResumeFieldPatch = z.infer<typeof ResumeFieldPatchSchema>;
+export type ConfirmableClaim = z.infer<typeof ConfirmableClaimSchema>;
 export type TailoringClaim = z.infer<typeof TailoringClaimSchema>;
 export type TailoringClarificationQuestion = z.infer<typeof TailoringClarificationQuestionSchema>;
 export type ResumeTailoringPlan = z.infer<typeof ResumeTailoringPlanSchema>;

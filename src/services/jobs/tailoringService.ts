@@ -10,6 +10,7 @@ import {
   recommendedTailoringIntensity,
   validateTailoringDelta
 } from "@/domain/jobOptimization";
+import { buildConfirmableClaim, resolveConfirmableClaim } from "@/domain/jobOptimization/confirmation";
 import type {
   CareerProfile,
   ClaimConfirmation,
@@ -190,10 +191,23 @@ export function confirmTailoringClaims(input: { plan: ResumeTailoringPlan; confi
     if (claim.decision === "blocked") return { ...claim, confirmed: false, syncScope: "rejected" as const };
     const confirmation = decisions.get(claim.id);
     if (!confirmation) return claim;
+    const resolvedClaim = claim.targetPatches && claim.label && claim.claimText && claim.sourceItemIds && claim.requirementIds && claim.claimType
+      ? resolveConfirmableClaim({
+          id: claim.id,
+          label: claim.label,
+          claimText: claim.claimText,
+          finalTextByProficiency: claim.finalTextByProficiency,
+          sourceItemIds: claim.sourceItemIds,
+          requirementIds: claim.requirementIds,
+          targetPatches: claim.targetPatches,
+          claimType: claim.claimType
+        }, confirmation)
+      : undefined;
     return {
       ...claim,
       proposedText: confirmation.editedText ?? claim.proposedText,
-      resolvedText: confirmation.accepted ? resolveConfirmedClaimText(claim, confirmation) : undefined,
+      resolvedText: confirmation.accepted ? resolvedClaim?.resolvedText ?? resolveConfirmedClaimText(claim, confirmation) : undefined,
+      targetPatches: resolvedClaim?.targetPatches ?? claim.targetPatches,
       confirmed: confirmation.accepted,
       syncScope: confirmation.accepted ? confirmation.syncScope : "rejected" as const,
       proficiency: confirmation.proficiency
@@ -233,6 +247,7 @@ function buildClarificationQuestions(input: { job: JobDescription; taskInputs: R
 
 function resolveConfirmedClaimText(claim: TailoringClaim, confirmation: ClaimConfirmation) {
   if (confirmation.editedText) return confirmation.editedText;
+  if (claim.finalTextByProficiency && confirmation.proficiency) return claim.finalTextByProficiency[confirmation.proficiency];
   if (!confirmation.proficiency) return claim.proposedText;
   const tool = claim.keywords.find((keyword) => /cursor|claude code|codex|windsurf/i.test(keyword)) ?? "AI Coding 工具";
   const textByLevel = {
@@ -304,7 +319,10 @@ function renderSuggestionValue(value: string | string[]) {
 }
 
 function claimsFromSuggestions(suggestions: TailoringSuggestion[]): TailoringClaim[] {
-  return suggestions.map((suggestion) => ({
+  return suggestions.map((suggestion) => {
+    const confirmable = buildConfirmableClaim(suggestion);
+    return ({
+    ...confirmable,
     id: suggestion.id,
     section: suggestion.targetSectionType,
     targetContentItemId: suggestion.targetItemId,
@@ -319,5 +337,6 @@ function claimsFromSuggestions(suggestions: TailoringSuggestion[]): TailoringCla
     evidenceRefs: suggestion.evidenceRefs,
     syncScope: suggestion.status === "blocked" ? "rejected" : "resume_only",
     confirmed: suggestion.status === "ready"
-  }));
+  });
+  });
 }

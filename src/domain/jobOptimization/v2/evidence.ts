@@ -18,11 +18,12 @@ export function buildCandidateEvidenceUnits(input: { profile: CareerProfile; bra
   const branch = migrateResumeBranchToV2(input.branch);
   const units: CandidateEvidenceUnit[] = [];
   for (const item of branch.structuredContentItems) {
-    if (!item.visible || item.factRefs.length === 0 || item.data.sectionType === "summary") continue;
-    try { resolveBranchFactRefs(input.profile, item.factRefs); } catch { continue; }
+    const userDeclared = item.factRefs.length === 0 && Boolean(item.userConfirmation);
+    if (!item.visible || (!item.factRefs.length && !userDeclared) || item.data.sectionType === "summary") continue;
+    if (item.factRefs.length) try { resolveBranchFactRefs(input.profile, item.factRefs); } catch { continue; }
     const data = item.data as ResumeItemV2 & Record<string, unknown>;
     const common = {
-      sectionType: data.sectionType, itemId: item.id, factRefs: item.factRefs, sourceBlockIds: item.sourceBlockIds,
+      sectionType: data.sectionType, itemId: item.id, factRefs: item.factRefs, sourceBlockIds: item.sourceBlockIds, supportLevel: userDeclared ? "user_declared" as const : "verified" as const,
       organization: stringValue(data.organization) ?? stringValue(data.school) ?? stringValue(data.institution),
       role: stringValue(data.role) ?? stringValue(data.title),
       dateRange: [stringValue(data.startDate), stringValue(data.endDate)].filter(Boolean).join(" — ") || undefined,
@@ -129,14 +130,15 @@ function deterministicEvaluation(requirement: JobRequirementGraphV2["nodes"][num
   const units = top.map((item) => unitById.get(item.evidenceUnitId)!).filter(Boolean);
   const direct = top[0].score >= 0.64 && units.some((unit) => ["skill", "certificate", "education"].includes(unit.sourceType) || ngramDice(requirement.normalizedIntent, unit.normalizedText) >= 0.72);
   const transferable = !direct && top[0].reasons.some((reason) => reason.startsWith("语义别名")) && top[0].score >= 0.32;
-  const level = direct ? "direct" : transferable ? "strong_transferable" : top[0].score >= 0.3 ? "partial" : "weak";
+  const hasUserDeclared = units.some((unit) => unit.supportLevel === "user_declared");
+  const level = hasUserDeclared ? "partial" : direct ? "direct" : transferable ? "strong_transferable" : top[0].score >= 0.3 ? "partial" : "weak";
   return RequirementEvidenceEvaluationV2Schema.parse({
     requirementId: requirement.id, matchLevel: level, evidenceUnitIds: units.map((unit) => unit.id),
     evidenceRefs: resolveEvaluationRefs(profile, units.map((unit) => unit.id), unitById),
     coveredAspects: requirement.exactKeywords.filter((term) => units.some((unit) => containsTerm(unit.normalizedText, term))),
     missingAspects: level === "direct" ? [] : [requirement.statement],
-    risks: level === "weak" ? ["low_confidence"] : [],
-    explanation: level === "direct" ? "已确认事实直接覆盖要求中的核心对象或资格。" : level === "strong_transferable" ? "证据所处场景不同，但任务机制与能力可明确迁移；不等同于已承担完整岗位职责。" : level === "partial" ? "已确认事实只覆盖该要求的一部分。" : "仅存在弱相关证据，不能据此主张满足要求。",
+    risks: hasUserDeclared ? ["new_fact_risk"] : level === "weak" ? ["low_confidence"] : [],
+    explanation: hasUserDeclared ? "该内容由用户为当前岗位简历明确声明，按 user_declared 证据计入部分覆盖，不升级为资料库事实。" : level === "direct" ? "已确认事实直接覆盖要求中的核心对象或资格。" : level === "strong_transferable" ? "证据所处场景不同，但任务机制与能力可明确迁移；不等同于已承担完整岗位职责。" : level === "partial" ? "已确认事实只覆盖该要求的一部分。" : "仅存在弱相关证据，不能据此主张满足要求。",
     confidence: Number(top[0].score.toFixed(2))
   });
 }

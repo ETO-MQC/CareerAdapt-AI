@@ -69,9 +69,11 @@ import {
   type RecycleBinState,
   type RequirementMatch,
   type ResumeBranch,
+  type ResumeContentItemV2,
   type ResumeItemV2,
   type ResumeBranchOperation,
   type ResumePresentationConfig,
+  type ResumeFieldPatch,
   type ResumeTailoringPlan,
   type TailoringClaim,
   type ResumeRenderSectionType,
@@ -144,70 +146,112 @@ function syncStructuredContentItems(
 function applyTailoringClaimsToBranch(
   branch: ResumeBranch,
   claims: TailoringClaim[],
-  plan: ResumeTailoringPlan,
   now: string
 ) {
-  const byItem = new Map<string, TailoringClaim[]>();
-  for (const claim of claims) {
-    if (!claim.targetContentItemId) continue;
-    byItem.set(claim.targetContentItemId, [...(byItem.get(claim.targetContentItemId) ?? []), claim]);
-  }
-  const suggestions = new Map((plan.suggestions ?? []).map((suggestion) => [suggestion.id, suggestion]));
-  const structuredContentItems = syncStructuredContentItems(branch, branch.contentItems).map((item) => {
-    const itemClaims = byItem.get(item.id) ?? [];
-    let data = item.data as ResumeItemV2;
-    for (const claim of itemClaims) {
-      if (!claim.targetFieldPath) continue;
-      const segment = claim.targetFieldPath.split(".").at(-1)!;
-      const match = /^(\w+)(?:\[(\d+)\])?$/.exec(segment);
-      if (!match) throw new Error("tailoring_field_path_invalid");
-      const [, field, indexText] = match;
-      const allowedField = item.data.sectionType === "summary" ? field === "text"
-        : item.data.sectionType === "skills" ? field === "description"
-          : ["project", "work", "internship"].includes(item.data.sectionType) && field === "highlights";
-      if (!allowedField) throw new Error("tailoring_field_path_not_allowed");
-      const current = (data as unknown as Record<string, unknown>)[field];
-      const suggestion = suggestions.get(claim.id);
-      const proposed = claim.resolvedText ?? suggestion?.after ?? claim.proposedText;
-      let value: unknown = proposed;
-      if (indexText !== undefined) {
-        if (!Array.isArray(current)) throw new Error("tailoring_field_path_not_list");
-        const nextList = [...current];
-        nextList[Number(indexText)] = Array.isArray(proposed) ? proposed[0] : proposed;
-        value = nextList;
-      } else if (Array.isArray(current)) {
-        value = Array.isArray(proposed) ? proposed : proposed.split(/\r?\n/).filter(Boolean);
-      } else if (Array.isArray(proposed)) {
-        value = proposed.join("\n");
-      }
-      const parsed = ResumeContentItemV2Schema.parse({ ...item, data: { ...data, [field]: value } });
-      data = parsed.data;
-    }
-    return ResumeContentItemV2Schema.parse({ ...item, data, legacyTextProjection: projectResumeItemV2(data) });
+  const patches = claims.flatMap((claim) => {
+    if (!claim.targetPatches?.length) throw new Error("tailoring_typed_patch_required");
+    return claim.targetPatches.map((patch) => ({ patch, claim }));
   });
-  const structuredById = new Map(structuredContentItems.map((item) => [item.id, item]));
-  const contentItems = branch.contentItems.map((item) => {
-    const itemClaims = byItem.get(item.id) ?? [];
-    if (!itemClaims.length) return item;
-    const structured = structuredById.get(item.id);
-    const fallbackClaim = itemClaims.at(-1)!;
-    const text = structured ? projectResumeItemV2(structured.data) : fallbackClaim.proposedText;
-    const supportLevel = itemClaims.some((claim) => claim.supportLevel !== "verified") ? "reasonable_inference" : "verified";
+  let structuredContentItems = syncStructuredContentItems(branch, branch.contentItems);
+  for (const { patch } of patches) {
+    const index = structuredContentItems.findIndex((item) => item.id === patch.itemId);
+    if (index < 0) {
+      structuredContentItems = [...structuredContentItems, createConfirmedSkillItem(patch, structuredContentItems, now)];
+      continue;
+    }
+    const current = structuredContentItems[index];
+    structuredContentItems[index] = applyTypedPatchToStructuredItem(current, patch);
+  }
+
+  const claimsByItem = new Map<string, TailoringClaim[]>();
+  for (const claim of claims) for (const patch of claim.targetPatches ?? []) claimsByItem.set(patch.itemId, [...(claimsByItem.get(patch.itemId) ?? []), claim]);
+  const previousById = new Map(branch.contentItems.map((item) => [item.id, item]));
+  const contentItems = structuredContentItems.map((structured) => {
+    const previous = previousById.get(structured.id);
+    const itemClaims = claimsByItem.get(structured.id) ?? [];
+    if (!itemClaims.length && previous) return previous;
+    const text = tailoringBodyProjection(structured.data);
+    const userDeclared = itemClaims.some((claim) => claim.supportLevel !== "verified");
+    const confirmation = userDeclared ? { scope: "resume_only" as const, confirmedTextHash: stableHashText(text), confirmedAt: now } : undefined;
     return BranchContentItemSchema.parse({
-      ...item,
+      ...(previous ?? {}),
+      id: structured.id,
+      itemType: structured.data.sectionType === "summary" ? "summary" : structured.data.sectionType === "skills" ? "skill" : "experience",
+      source: userDeclared ? "user_manual" : "adaptation_draft",
+      sourceSectionId: structured.data.sectionType,
       text,
-      source: supportLevel === "verified" ? "adaptation_draft" : "user_manual",
-      guardMode: supportLevel === "verified" ? "rule_verified" : "not_fact",
+      originalText: previous?.originalText ?? text,
+      order: structured.order,
+      visible: structured.visible,
+      requirementIds: Array.from(new Set(itemClaims.flatMap((claim) => claim.requirementIds ?? []))),
+      sourceSuggestionIds: itemClaims.map((claim) => claim.id),
+      factRefs: structured.factRefs,
+      guardMode: userDeclared ? "not_fact" : "rule_verified",
       guardStatus: "pass",
-      guardRiskLevel: supportLevel === "verified" ? "low" : "medium",
-      userConfirmation: supportLevel === "verified" ? undefined : {
-        scope: "resume_only",
-        confirmedTextHash: stableHashText(text),
-        confirmedAt: now
-      }
+      guardRiskLevel: userDeclared ? "medium" : "low",
+      guardFindings: [],
+      guardedAt: now,
+      guardVersion: "tailoring-field-patch-v1",
+      userConfirmation: confirmation
     });
   });
   return { contentItems, structuredContentItems };
+}
+
+function applyTypedPatchToStructuredItem(item: ResumeContentItemV2, patch: ResumeFieldPatch) {
+  if (patch.sectionId !== item.data.sectionType) throw new Error("tailoring_patch_section_mismatch");
+  if (patch.fieldPath === "visible" || patch.fieldPath === "order") {
+    const current = item[patch.fieldPath];
+    assertPatchBefore(current, patch.before, patch);
+    return ResumeContentItemV2Schema.parse({ ...item, [patch.fieldPath]: patch.after });
+  }
+  const allowed = item.data.sectionType === "summary" ? ["text"]
+    : item.data.sectionType === "skills" ? ["name", "description"]
+      : ["project", "work", "internship"].includes(item.data.sectionType) ? ["description", "highlights"] : [];
+  if (!allowed.includes(patch.fieldPath)) throw new Error("tailoring_field_path_not_allowed");
+  const data = item.data as ResumeItemV2;
+  const current = (data as unknown as Record<string, unknown>)[patch.fieldPath] ?? (patch.fieldPath === "highlights" ? [] : "");
+  assertPatchBefore(current, patch.before, patch);
+  const parsed = ResumeContentItemV2Schema.parse({ ...item, data: { ...data, [patch.fieldPath]: patch.after } });
+  return ResumeContentItemV2Schema.parse({ ...parsed, legacyTextProjection: tailoringBodyProjection(parsed.data) });
+}
+
+function createConfirmedSkillItem(patch: ResumeFieldPatch, existing: ResumeContentItemV2[], now: string) {
+  if (patch.sectionId !== "skills" || patch.fieldPath !== "name" || patch.operation !== "append" || typeof patch.after !== "string") {
+    throw new Error("tailoring_patch_item_missing");
+  }
+  const text = patch.after.trim();
+  return ResumeContentItemV2Schema.parse({
+    id: patch.itemId,
+    schemaVersion: "resume-content-item-v2",
+    data: { id: patch.itemId, sectionType: "skills", name: text, customFields: [] },
+    factRefs: [],
+    source: "user_manual",
+    order: Math.max(-1, ...existing.map((item) => item.order)) + 1,
+    visible: true,
+    guardMode: "not_fact",
+    guardStatus: "pass",
+    guardFindings: [],
+    userConfirmation: { scope: "resume_only", confirmedTextHash: stableHashText(text), confirmedAt: now },
+    legacyTextProjection: text,
+    sourceBlockIds: [],
+    sourceRanges: [],
+    mappingTrace: []
+  });
+}
+
+function assertPatchBefore(current: unknown, before: unknown, patch: ResumeFieldPatch) {
+  if (JSON.stringify(current) !== JSON.stringify(before)) throw new Error(`tailoring_patch_before_mismatch:${patch.itemId}:${patch.fieldPath}`);
+}
+
+function tailoringBodyProjection(item: ResumeItemV2) {
+  if (item.sectionType === "summary") return item.text;
+  if (item.sectionType === "skills") return item.description?.trim() || item.name;
+  if (["project", "work", "internship"].includes(item.sectionType)) {
+    const experience = item as Extract<ResumeItemV2, { sectionType: "project" | "work" | "internship" }>;
+    return [experience.description, ...experience.highlights].filter((value): value is string => Boolean(value?.trim())).join("\n");
+  }
+  throw new Error("tailoring_body_projection_not_allowed");
 }
 
 function applySuggestionToStructuredItems(
@@ -1054,7 +1098,7 @@ export class WorkspaceRepository {
       if (input.plan.claims.some((claim) => claim.decision === "blocked" && claim.syncScope !== "rejected")) throw new Error("unsupported_hard_fact_blocked");
       if (input.plan.claims.some((claim) => claim.decision === "requires_confirmation" && !claim.confirmed && claim.syncScope !== "rejected")) throw new Error("tailoring_claim_confirmation_required");
       const now = new Date().toISOString();
-      const patched = applyTailoringClaimsToBranch(branch, applicable, input.plan, now);
+      const patched = applyTailoringClaimsToBranch(branch, applicable, now);
       const contentItems = patched.contentItems;
       const nextBase = ResumeBranchSchema.parse({
         ...branch,

@@ -15,6 +15,7 @@ import { TailoringSuggestionSchema } from "@/domain/schemas";
 import { stableHashText } from "@/services/security/text";
 import { migrateBranchContentItem } from "@/domain/migrations/resumeV2";
 import { ResumeTailorTaskInputV2Schema, type ResumeTailorTaskInputV2 } from "@/domain/schemas";
+import { tailoringTargetPriority } from "./confirmation";
 
 const GENERIC_REQUIREMENT = "负责AI领域的软件工程化和产品开发";
 const sectionOrder: Record<TailoringSectionPolicy, number> = { summary: 0, skills: 1, project: 2, work: 3, internship: 3, ordering: 4 };
@@ -100,6 +101,8 @@ export function validateTailoringDelta(input: {
   const reasons: string[] = [];
   if (!normalizedAfter) reasons.push("missing_after");
   if (normalizedAfter === normalizedBefore) reasons.push("copied_original");
+  if (input.sectionType === "summary" && looksLikeTruncatedSummary(before, after)) reasons.push("truncated_summary");
+  if (containsResumeAnalysisBoilerplate(after)) reasons.push("resume_analysis_boilerplate");
   const minimum = adjustedMinimum(input.intensity, input.sectionType, normalizedBefore.length);
   if (textChangeRatio < minimum) reasons.push("insufficient_text_delta");
   if (input.intensity === "conservative" && normalizedBefore.length >= 30 && textChangeRatio > 0.34) reasons.push("conservative_delta_too_large");
@@ -139,7 +142,7 @@ export function createDeterministicTailoringSuggestions(input: {
   const candidates = input.branch.contentItems.filter((item) => item.visible && item.itemType !== "structural")
     .map((item) => targetFor(input.branch, item))
     .filter((target): target is NonNullable<typeof target> => Boolean(target))
-    .sort((a, b) => sectionOrder[a.sectionType] - sectionOrder[b.sectionType] || a.item.order - b.item.order);
+    .sort(compareTailoringTargets);
   const suggestions: TailoringSuggestion[] = [];
   for (const target of candidates) {
     const relevant = routeTailoringRequirements({ job: input.job, sectionType: target.sectionType, renderedText: target.renderedText, itemId: target.item.id });
@@ -190,7 +193,7 @@ export function createResumeTailorTaskInputs(input: {
   return input.branch.contentItems.filter((item) => item.visible && item.itemType !== "structural")
     .map((item) => targetFor(input.branch, item))
     .filter((target): target is NonNullable<typeof target> => Boolean(target))
-    .sort((a, b) => sectionOrder[a.sectionType] - sectionOrder[b.sectionType] || a.item.order - b.item.order)
+    .sort(compareTailoringTargets)
     .flatMap((target) => {
       const relevantRequirements = routeTailoringRequirements({ job: input.job, sectionType: target.sectionType, renderedText: target.renderedText, itemId: target.item.id });
       if (!relevantRequirements.length) return [];
@@ -221,8 +224,9 @@ function targetFor(branch: ResumeBranch, item: BranchContentItem) {
   if (structured?.sectionType === "skills") return { item, sectionType, before: structured.description || structured.name, renderedText: item.text, fieldPath: `sections.skills.items.${item.id}.description` };
   if (structured && ["project", "work", "internship"].includes(structured.sectionType)) {
     const highlights = "highlights" in structured ? structured.highlights : [];
-    const before = highlights.length ? highlights : ("description" in structured && structured.description ? [structured.description] : [item.text]);
-    return { item, sectionType, before, renderedText: item.text, fieldPath: `sections.${sectionType}.items.${item.id}.highlights` };
+    if (highlights.length) return { item, sectionType, before: highlights, renderedText: item.text, fieldPath: `sections.${sectionType}.items.${item.id}.highlights` };
+    if ("description" in structured && structured.description) return { item, sectionType, before: structured.description, renderedText: item.text, fieldPath: `sections.${sectionType}.items.${item.id}.description` };
+    return undefined;
   }
   const field = sectionType === "summary" ? "text" : sectionType === "skills" ? "description" : "highlights";
   return { item, sectionType, before: item.text, renderedText: item.text, fieldPath: `sections.${sectionType}.items.${item.id}.${field}` };
@@ -240,15 +244,15 @@ function rewriteField(input: { before: string | string[]; intensity: TailoringIn
   const focus = keywords.join("、") || input.requirements[0].description;
   let rewritten: string;
   if (input.intensity === "conservative") {
-    rewritten = input.sectionType === "summary" ? `${before}，重点面向${input.jobTitle}` : `${before}；突出${focus}`;
+    rewritten = input.sectionType === "summary" ? `${before}。关注${input.jobTitle}要求中的${focus}。` : `${before}；补充验证${focus}相关流程。`;
   } else if (input.intensity === "balanced") {
     rewritten = input.sectionType === "summary"
-      ? `面向${input.jobTitle}，聚焦${focus}。基于已有经历，${lowerFirst(before)}。`
-      : `围绕${focus}开展岗位相关实践：${before}。`;
+      ? `持续实践${focus}，能够复现问题、定位原因并验证输出。${before}。`
+      : `设计并验证${focus}相关流程：${before}。`;
   } else {
     rewritten = input.sectionType === "summary"
-      ? `${input.jobTitle}方向的工程实践者，核心关注${focus}。能够基于已有经验完成从任务分析到质量验证的闭环：${before}。`
-      : `以${input.jobTitle}的核心要求为主线，聚焦${focus}；基于现有事实完成${before}，并将相关能力前置呈现。`;
+      ? `${input.jobTitle}方向的工程实践者，围绕${focus}复现问题、定位原因、验证输出并迭代约束。${before}。`
+      : `围绕${focus}复现问题、定位原因并验证结果：${before}。`;
   }
   if (Array.isArray(input.before)) {
     const original = input.before.filter(Boolean);
@@ -307,7 +311,25 @@ function normalize(value: string) { return value.trim().replace(/\s+/g, " ").toL
 function tokenize(value: string) { return unique(normalize(value).split(/[^\p{L}\p{N}+#.]+/u).filter(Boolean)); }
 function render(value: string | string[]) { return Array.isArray(value) ? value.join("\n") : value; }
 function covered(keywords: string[], text: string) { const normalized = normalize(text); return unique(keywords.filter((keyword) => isUsefulKeyword(keyword) && normalized.includes(normalize(keyword)))); }
-function isUsefulKeyword(keyword: string) { const normalized = normalizeComparable(keyword); return normalized.length > 1 && normalized !== "ai" && normalized !== "人工智能"; }
+function isUsefulKeyword(keyword: string) {
+  const normalized = normalizeComparable(keyword);
+  return normalized.length > 1 && !["ai", "人工智能", "coding", "agent", "codingagent", "vibe", "vibecoding"].includes(normalized);
+}
 function unique<T>(values: T[]) { return Array.from(new Set(values)); }
-function lowerFirst(value: string) { return value ? `${value[0].toLowerCase()}${value.slice(1)}` : value; }
 function addedTokens(before: string, after: string) { const existing = new Set(tokenize(before)); return tokenize(after).filter((token) => !existing.has(token)); }
+
+function compareTailoringTargets(a: NonNullable<ReturnType<typeof targetFor>>, b: NonNullable<ReturnType<typeof targetFor>>) {
+  if (a.sectionType === "summary" || b.sectionType === "summary") return sectionOrder[a.sectionType] - sectionOrder[b.sectionType];
+  const relevance = tailoringTargetPriority(b.item.id, b.renderedText) - tailoringTargetPriority(a.item.id, a.renderedText);
+  return relevance || sectionOrder[a.sectionType] - sectionOrder[b.sectionType] || a.item.order - b.item.order;
+}
+
+function looksLikeTruncatedSummary(before: string, after: string) {
+  const trimmed = after.trim();
+  if (!trimmed || /[…\.。！？!?；;：:]$/.test(trimmed)) return false;
+  return before.trim().length >= 40 && trimmed.length < before.trim().length;
+}
+
+function containsResumeAnalysisBoilerplate(text: string) {
+  return /此经验可迁移到|该能力适用于|该实践积累了|为目标岗位提供方法论基础|此工作流为.+提供/.test(text);
+}

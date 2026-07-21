@@ -9545,6 +9545,13 @@ html[data-theme="dark"] .floating-window-titlebar {
 .tailoring-suggestion-card p, .tailoring-confirmation-card p { margin: 0; font-size: 13px; line-height: 1.5; }
 .tailoring-suggestion-card small { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
 .tailoring-suggestion-status { align-items: center; display: flex; justify-content: space-between; }
+.tailoring-suggestion-title { align-items: baseline; display: flex; flex-wrap: wrap; gap: 4px 12px; justify-content: space-between; min-width: 0; }
+.tailoring-suggestion-title strong { min-width: 0; overflow-wrap: anywhere; }
+.tailoring-suggestion-title span { color: var(--text-muted); font-size: 12px; }
+.tailoring-suggestion-details { border-top: 1px solid var(--line); padding-top: 8px; }
+.tailoring-suggestion-details summary { color: var(--accent-strong); cursor: pointer; font-size: 12px; font-weight: 700; }
+.tailoring-suggestion-details summary:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 3px; }
+.tailoring-suggestion-details[open] summary { margin-bottom: 8px; }
 .tailoring-apply-summary { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
 .tailoring-apply-summary span { border: 1px solid var(--border); border-radius: 8px; display: grid; gap: 4px; padding: 12px; }
 .muted-copy { color: var(--text-muted); font-size: 12px; }
@@ -9552,6 +9559,11 @@ html[data-theme="dark"] .floating-window-titlebar {
 .tailoring-suggestion-card mark { background: color-mix(in srgb, var(--accent) 16%, transparent); color: inherit; border-radius: 3px; padding: 0 1px; }
 .tailoring-suggestion-meta { display: grid; gap: 3px; color: var(--text-muted); font-size: 12px; }
 .tailoring-suggestion-meta p { margin: 0; }
+.tailoring-confirmation-context { background: var(--surface-muted); border: 1px solid var(--line); border-radius: 6px; display: grid; gap: 8px; padding: 8px 12px; }
+.tailoring-confirmation-context p { display: grid; gap: 2px; overflow-wrap: anywhere; }
+.tailoring-confirmation-context span { color: var(--text-muted); font-size: 11px; font-weight: 700; }
+.tailoring-confirmation-card textarea { min-height: 76px; resize: vertical; }
+.tailoring-fit-delta { display: grid; gap: 4px; }
 
 @media (max-width: 1100px) {
   .tailoring-score-grid, .tailoring-apply-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }

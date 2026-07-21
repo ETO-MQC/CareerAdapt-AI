@@ -94,6 +94,29 @@ describe("JD Optimization Engine V2", () => {
     expect(JSON.stringify(plan)).not.toContain("拥有三年经验");
   });
 
+  it("recalculates coverage from the patched branch and marks confirmed additions as user_declared", () => {
+    const { profile, branch } = fixture();
+    const graph = analyzeJobDescriptionV2({ rawText: "任职要求\n熟悉 Cursor", now: NOW });
+    const score = (candidate: ResumeBranch) => {
+      const evidenceUnits = buildCandidateEvidenceUnits({ profile, branch: candidate });
+      const recalls = recallEvidenceCandidates({ graph, evidenceUnits });
+      const matrix = evaluateRequirementEvidence({ profile, graph, evidenceUnits, recalls, now: NOW });
+      return { evidenceUnits, matrix, coverage: buildJobCoverageReport({ graph, matrix }) };
+    };
+    const before = score(branch);
+    const declared = {
+      id: "skill-cursor", schemaVersion: "resume-content-item-v2" as const,
+      data: { id: "skill-cursor", sectionType: "skills" as const, name: "Cursor", description: "了解 Cursor 等 AI Coding 工具的基本工作方式。", customFields: [] },
+      factRefs: [], source: "user_manual" as const, order: 2, visible: true, guardMode: "not_fact" as const, guardStatus: "pass" as const, guardFindings: [],
+      userConfirmation: { scope: "resume_only" as const, confirmedTextHash: "cursor-confirmed", confirmedAt: NOW }, legacyTextProjection: "Cursor · 了解 Cursor 等 AI Coding 工具的基本工作方式。", sourceBlockIds: [], sourceRanges: [], mappingTrace: []
+    };
+    const afterBranch = { ...branch, structuredContentItems: [...(branch.structuredContentItems ?? []), declared], contentItems: [...branch.contentItems, { id: declared.id, itemType: "skill" as const, source: "user_manual" as const, sourceSectionId: "skills", text: declared.legacyTextProjection, originalText: declared.legacyTextProjection, order: 2, visible: true, requirementIds: [graph.nodes[0].id], sourceSuggestionIds: ["claim-cursor"], factRefs: [], guardMode: "not_fact" as const, guardStatus: "pass" as const, guardRiskLevel: "medium" as const, guardFindings: [], userConfirmation: declared.userConfirmation }] } as ResumeBranch;
+    const after = score(afterBranch);
+    expect(after.evidenceUnits.find((unit) => unit.itemId === "skill-cursor")?.supportLevel).toBe("user_declared");
+    expect(after.matrix.evaluations[0]).toMatchObject({ matchLevel: "partial", risks: ["new_fact_risk"] });
+    expect(after.coverage.overallCoverage).toBeGreaterThan(before.coverage.overallCoverage);
+  });
+
   it("meets the four-case grounding benchmark and records a V1/V2 comparison", () => {
     const { profile, branch } = fixture();
     const comparison = jobOptimizationV2GoldenCases.map((golden) => {
