@@ -804,9 +804,11 @@ export const aiTaskRegistry = {
       return {
         assessments: assessments.filter((a: Record<string, unknown>) => typeof a.itemId === "string" && a.itemId.length > 0).map((a: Record<string, unknown>) => ({
           itemId: String(a.itemId),
-          verdict: a.verdict === "rewrite" ? "rewrite" : "skip",
+          action: ["keep", "rewrite_from_evidence", "propose_confirmable_claim", "ask_user", "hide_or_deprioritize"].includes(String(a.action)) ? a.action : "ask_user",
           reason: String(a.reason ?? "未评估"),
-          suggestedKeywords: Array.isArray(a.suggestedKeywords) ? a.suggestedKeywords : []
+          suggestedKeywords: Array.isArray(a.suggestedKeywords) ? a.suggestedKeywords : [],
+          relatedRequirementIds: Array.isArray(a.relatedRequirementIds) ? a.relatedRequirementIds : [],
+          clarificationQuestions: Array.isArray(a.clarificationQuestions) ? a.clarificationQuestions : []
         })),
         globalNotes: typeof raw.globalNotes === "string" ? raw.globalNotes : undefined
       };

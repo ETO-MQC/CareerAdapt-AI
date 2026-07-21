@@ -419,9 +419,11 @@ function createMockOutput(task: AiTask, input: unknown) {
     return {
       assessments: plannerInput.sections.map((section) => ({
         itemId: section.itemId,
-        verdict: "rewrite" as const,
+        action: "rewrite_from_evidence" as const,
         reason: "Mock planner: all sections marked for rewrite.",
-        suggestedKeywords: []
+        suggestedKeywords: [],
+        relatedRequirementIds: [],
+        clarificationQuestions: []
       })),
       globalNotes: "Mock 模式：所有片段均已标记为可改写。"
     };

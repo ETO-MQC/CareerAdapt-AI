@@ -1,4 +1,5 @@
 import { runRuleFactGuard } from "@/domain/adaptation/factGuard";
+import { resolveTailoringClaimPolicy } from "./tailoringClaimPolicy";
 import type { ClaimDecision, ClaimSupportLevel, MatchEvidenceRef, TailoringClaim } from "@/domain/schemas";
 
 export function claimDecisionFor(level: ClaimSupportLevel): ClaimDecision {
@@ -25,8 +26,16 @@ export function classifyTailoringClaim(input: {
     checkedText: input.proposedText,
     usedEvidenceRefs: evidenceRefs
   });
-  const supportLevel: ClaimSupportLevel = guard.status === "blocked_high_risk"
+  const policy = resolveTailoringClaimPolicy({
+    suggestion: { claimSupportLevel: input.declaredByUser ? "user_declared" : input.inferred ? "reasonable_inference" : "verified" },
+    guardResult: guard,
+    sectionType: ["summary", "skills", "project", "work", "internship", "ordering"].includes(input.section) ? input.section as "summary" | "skills" | "project" | "work" | "internship" | "ordering" : "ordering",
+    intensity: "balanced"
+  });
+  const supportLevel: ClaimSupportLevel = policy.claimClass === "unsupported_hard_fact"
     ? "unsupported_hard_fact"
+    : policy.claimClass === "user_confirmable_capability"
+      ? "user_declared"
     : input.declaredByUser
       ? "user_declared"
       : input.inferred
@@ -43,7 +52,7 @@ export function classifyTailoringClaim(input: {
     reason: input.reason,
     keywords: input.keywords ?? [],
     supportLevel,
-    decision: claimDecisionFor(supportLevel),
+    decision: policy.decision,
     evidenceRefs,
     syncScope: supportLevel === "unsupported_hard_fact" ? "rejected" : "resume_only",
     confirmed: supportLevel === "verified"

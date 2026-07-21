@@ -168,7 +168,7 @@ function applyTailoringClaimsToBranch(
       if (!allowedField) throw new Error("tailoring_field_path_not_allowed");
       const current = (data as unknown as Record<string, unknown>)[field];
       const suggestion = suggestions.get(claim.id);
-      const proposed = suggestion?.after ?? claim.proposedText;
+      const proposed = claim.resolvedText ?? suggestion?.after ?? claim.proposedText;
       let value: unknown = proposed;
       if (indexText !== undefined) {
         if (!Array.isArray(current)) throw new Error("tailoring_field_path_not_list");

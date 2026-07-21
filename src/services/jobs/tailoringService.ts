@@ -27,6 +27,7 @@ import { resolveBranchFactRefs } from "@/domain/branch/validation";
 import { stableHashText } from "@/services/security/text";
 import type { WorkspaceRepository } from "@/services/storage/repositories";
 import { runRuleFactGuard } from "@/domain/adaptation/factGuard";
+import { resolveTailoringClaimPolicy } from "@/domain/jobOptimization/tailoringClaimPolicy";
 
 export type ClaimConfirmationGroup = {
   id: string;
@@ -87,6 +88,7 @@ export function createTailoringPlan(input: {
     resolveEvidenceRefs: (item) => resolveBranchFactRefs(input.profile, item.factRefs)
   });
   const claims = claimsFromSuggestions(suggestions);
+  const clarificationQuestions = buildClarificationQuestions({ job: input.job, taskInputs });
   const plan = ResumeTailoringPlanSchema.parse({
     id: `tailoring-plan-${stableHashText(input.operationId)}`,
     branchId: input.branch.id,
@@ -96,8 +98,10 @@ export function createTailoringPlan(input: {
     jobContext,
     basedOnBranchRevision: input.branch.revision,
     claims,
+    clarificationQuestions,
+    materialSuggestions: clarificationQuestions.length ? ["可访问项目、GitHub 仓库或作品演示链接", "Coding Agent usage dashboard、订阅记录或任务日志"] : [],
     suggestions,
-    estimatedFitScore: Math.min(100, report.overallCoverage + claims.length * 2),
+    estimatedFitScore: report.overallCoverage,
     createdAt: input.now ?? new Date().toISOString()
   });
   const confirmationGroups = buildConfirmationGroups(plan.claims);
@@ -127,13 +131,14 @@ export function validateTailoringSuggestions(input: { suggestions: TailoringSugg
     });
     if (validation.valid) {
       const guard = runRuleFactGuard({ originalText: renderSuggestionValue(suggestion.before), checkedText: renderSuggestionValue(suggestion.after), usedEvidenceRefs: suggestion.evidenceRefs });
-      const blocked = guard.status === "blocked_high_risk";
-      const requiresConfirmation = !blocked && (suggestion.claimSupportLevel === "reasonable_inference" || suggestion.claimSupportLevel === "user_declared");
+      const policy = resolveTailoringClaimPolicy({ suggestion, guardResult: guard, sectionType: suggestion.targetSectionType, intensity: suggestion.intensity });
+      const blocked = policy.decision === "blocked";
+      const requiresConfirmation = policy.decision === "requires_confirmation";
       valid.push(TailoringSuggestionSchema.parse({
         ...suggestion,
-        claimSupportLevel: blocked ? "unsupported_hard_fact" : suggestion.claimSupportLevel,
+        claimSupportLevel: blocked ? "unsupported_hard_fact" : policy.claimClass === "user_confirmable_capability" ? "user_declared" : policy.claimClass === "reasonable_reframe" ? "reasonable_inference" : "verified",
         status: blocked ? "blocked" : requiresConfirmation ? "requires_confirmation" : "ready",
-        riskLevel: blocked ? "high" : requiresConfirmation ? "medium" : suggestion.riskLevel,
+        riskLevel: policy.riskLevel,
         metrics: validation.metrics,
         coveredKeywordsBefore: validation.coveredKeywordsBefore,
         coveredKeywordsAfter: validation.coveredKeywordsAfter
@@ -188,6 +193,7 @@ export function confirmTailoringClaims(input: { plan: ResumeTailoringPlan; confi
     return {
       ...claim,
       proposedText: confirmation.editedText ?? claim.proposedText,
+      resolvedText: confirmation.accepted ? resolveConfirmedClaimText(claim, confirmation) : undefined,
       confirmed: confirmation.accepted,
       syncScope: confirmation.accepted ? confirmation.syncScope : "rejected" as const,
       proficiency: confirmation.proficiency
@@ -202,6 +208,40 @@ export function confirmTailoringClaims(input: { plan: ResumeTailoringPlan; confi
     confirmationGroups: buildConfirmationGroups(pending),
     resultRefs: { branchId: plan.branchId, planId: plan.id }
   };
+}
+
+function buildClarificationQuestions(input: { job: JobDescription; taskInputs: ResumeTailorTaskInputV2[] }) {
+  const raw = `${input.job.title} ${input.job.rawText}`;
+  if (!/cursor|claude code|codex|windsurf|coding agent|badcase|verifier/i.test(raw)) return [];
+  const requirementIds = input.job.requirements.slice(0, 4).map((item) => item.id);
+  if (!requirementIds.length) return [];
+  const related = input.taskInputs.filter((item) => ["summary", "skills", "project", "work", "internship"].includes(item.target.sectionType)).slice(0, 4);
+  const relatedItemIds = [...new Set(related.map((item) => item.target.itemId ?? item.target.sectionId))];
+  const targetFieldPaths = [...new Set(related.map((item) => item.target.fieldPath))];
+  if (!relatedItemIds.length || !targetFieldPaths.length) return [];
+  const specs = [
+    ["是否在 示例任务系统、示例学习助手 或其他项目中使用过 Cursor、Claude Code、Codex 或 Windsurf？", "工具使用经历", "boolean"],
+    ["使用程度属于哪一档？", "AI Coding 工具熟练程度", "proficiency"],
+    ["是否遇到过 coding agent 看似完成但实际没有完成的真实 badcase？", "Coding Agent badcase 经验", "boolean"],
+    ["能否说明失败表现、复现步骤和失败原因？", "复现并定位 Coding Agent 失败", "text"],
+    ["是否设计过自动化测试、验收脚本、Playwright E2E、Vitest 或其他 verifier？", "自动化 verifier 设计经验", "multi_select"],
+    ["是否比较过不同 coding agent 的能力差异？", "Coding Agent 能力评测经验", "boolean"],
+    ["是否有 usage dashboard、订阅记录、GitHub 或可访问项目可以作为材料？", "可核验的补充材料", "url"]
+  ] as const;
+  return specs.map(([question, candidateClaim, answerType], index) => ({ id: `clarification-${index + 1}`, question, requirementIds, relatedItemIds, candidateClaim, targetFieldPaths, answerType }));
+}
+
+function resolveConfirmedClaimText(claim: TailoringClaim, confirmation: ClaimConfirmation) {
+  if (confirmation.editedText) return confirmation.editedText;
+  if (!confirmation.proficiency) return claim.proposedText;
+  const tool = claim.keywords.find((keyword) => /cursor|claude code|codex|windsurf/i.test(keyword)) ?? "AI Coding 工具";
+  const textByLevel = {
+    proficient: `熟练使用 ${tool} 完成多文件开发、代码修改与问题定位。`,
+    familiar: `熟悉 ${tool} 的项目开发、代码修改与调试流程。`,
+    aware: `了解 ${tool} 等 AI Coding 工具的基本工作方式。`,
+    learning: `正在学习 ${tool} 等 AI Coding 工具在真实开发任务中的应用。`
+  } as const;
+  return textByLevel[confirmation.proficiency];
 }
 
 export async function applyTailoringPlan(input: {
