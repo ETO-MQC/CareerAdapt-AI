@@ -5,11 +5,9 @@ import {
   EvidenceMatcherOutputSchema,
   FactGuardOutputSchema,
   FactGuardFindingSchema,
-  JdAnalyzerOutputSchema,
+  JdAnalyzerModelOutputSchema,
   JdSourceUnitSchema,
   RequirementGroupSchema,
-  normalizeJdPriority,
-  normalizeJobRequirementCategory,
   MatchEvidenceRefSchema,
   ProfileBuilderOutputSchema,
   ResumeJsonMapperOutputSchema,
@@ -24,7 +22,8 @@ import {
   type AiTask,
   type EvidenceMatcherOutput,
   type FactGuardOutput,
-  type JdAnalyzerOutput,
+  type JdAnalyzerModelOutput,
+  type JdUnitAssignment,
   type MatchRisk,
   type ProfileBuilderOutput,
   type ResumeJsonMapperOutput,
@@ -337,8 +336,8 @@ export const aiTaskRegistry = {
     promptVersion: jdAnalyzerPrompt.version,
     systemPrompt: jdAnalyzerPrompt.system,
     inputSchema: JdAnalyzerTaskInputSchema,
-    outputSchema: JdAnalyzerOutputSchema,
-    maxOutputChars: 14_000,
+    outputSchema: JdAnalyzerModelOutputSchema,
+    maxOutputChars: 24_000,
     buildUserPrompt(input: JdAnalyzerTaskInput) {
       const redacted = redactSensitiveTextForModel(input.rawText);
       return JSON.stringify(
@@ -350,102 +349,29 @@ export const aiTaskRegistry = {
           deterministicGroups: input.deterministicGroups ?? [],
           deterministicHierarchy: input.deterministicHierarchy ?? [],
           redactions: redacted.redactions,
-          instructions: "Classify every supplied sourceUnitId exactly once. Preserve the deterministic source spans and hierarchy."
+          instructions: "Return compact JSON. Cover every sourceUnitId exactly once. For unchanged deterministic classifications return only {sourceUnitId,verdict:'accept'}. Use verdict:'override' plus changed fields only when necessary. Never return source text, sourceSpan, legacy requirements, or redundant reasons/keywords."
         },
         null,
         2
       );
     },
-    coerceRawOutput(rawOutput: unknown, input?: JdAnalyzerTaskInput) {
+    coerceRawOutput(rawOutput: unknown) {
       const raw = rawOutput as Record<string, unknown>;
-      const now = new Date().toISOString();
-
-      // Map top-level field variations — title/company may come as plain strings or be missing
-      const titleStr = typeof raw.jobTitle === "string" ? raw.jobTitle
-        : typeof raw.title === "string" ? raw.title : "";
-      const titleValue = typeof raw.title === "object" && raw.title !== null
-        ? raw.title
-        : {
-            value: titleStr || "待确认岗位",
-            sourceQuote: titleStr || "待确认岗位",
-            confidenceLevel: titleStr ? ("medium" as const) : ("low" as const),
-            confidenceReason: titleStr ? "Coerced from model output; value from user-provided job metadata." : "Model did not return title; using placeholder.",
-            needsConfirmation: !titleStr
-          };
-
-      const companyStr = typeof raw.company === "string" ? raw.company : "";
-      const companyValue = typeof raw.company === "object" && raw.company !== null
-        ? raw.company
-        : {
-            value: companyStr || "待确认公司",
-            sourceQuote: companyStr || "待确认公司",
-            confidenceLevel: companyStr ? ("medium" as const) : ("low" as const),
-            confidenceReason: companyStr ? "Coerced from model output; value from user-provided job metadata." : "Model did not return company; using placeholder.",
-            needsConfirmation: !companyStr
-          };
-
-      // Requirements can be under different keys
-      const rawRequirements = (raw.requirements ?? raw.parsedRequirements ?? raw.items ?? []) as unknown[];
-
+      const diagnostics: string[] = [];
+      const unitAssignments = (Array.isArray(raw.unitAssignments) ? raw.unitAssignments : []).flatMap((assignment, index) => {
+        const normalized = normalizeJdUnitAssignment(assignment);
+        if (!normalized) diagnostics.push(`assignment_schema_partial:${index}`);
+        return normalized ? [normalized] : [];
+      });
       return {
-        title: titleValue,
-        company: companyValue,
-        industry: coerceDraftField(raw.industry),
-        location: coerceDraftField(raw.location),
-        workType: coerceDraftField(raw.workType),
-        requirements: rawRequirements.map((req, index) => {
-          const r = req as Record<string, unknown>;
-          const description = pickString(r.description, r.requirement, r.text, r.content, r.summary, r.sourceQuote);
-          const source = resolveRequirementSource({
-            rawText: input?.rawText ?? "",
-            candidates: [r.sourceQuote, r.quote, r.sourceText],
-            description,
-            index
-          });
-          return {
-            id: typeof r.id === "string" ? r.id : `jd-req-${nanoid(8)}`,
-            category: normalizeJobRequirementCategory(r.category, r.type, r.classification),
-            description: description || source.sourceQuote,
-            priority: normalizeJdPriority(r.priority),
-            hardConstraint: typeof r.hardConstraint === "boolean" ? r.hardConstraint : false,
-            sourceQuote: source.sourceQuote,
-            sourceSpan: source.sourceSpan ?? r.sourceSpan,
-            keywords: Array.isArray(r.keywords) ? r.keywords : [],
-            confidenceLevel: source.usedFallback ? "low" : normalizeConfidenceLevel(r.confidenceLevel),
-            confidenceReason: pickString(r.confidenceReason, r.reason, r.explanation, "Model output required coercion."),
-            needsConfirmation: source.usedFallback ? true : typeof r.needsConfirmation === "boolean" ? r.needsConfirmation : true,
-            confirmedByUser: false,
-            createdAt: typeof r.createdAt === "string" ? r.createdAt : now,
-            updatedAt: typeof r.updatedAt === "string" ? r.updatedAt : now
-          };
-        }),
-        unitAssignments: Array.isArray(raw.unitAssignments) ? raw.unitAssignments : [],
+        unitAssignments,
         groupAdjustments: Array.isArray(raw.groupAdjustments) ? raw.groupAdjustments : [],
-        roleMission: typeof raw.roleMission === "string" ? raw.roleMission : undefined,
-        level: typeof raw.level === "string" ? raw.level : undefined,
-        domain: typeof raw.domain === "string" ? raw.domain : undefined,
-        riskNotes: Array.isArray(raw.riskNotes) ? raw.riskNotes : []
+        ...optionalTrimmedFields(raw, ["roleMission", "level", "domain"]),
+        riskNotes: [...stringArray(raw.riskNotes), ...diagnostics]
       };
     },
-    normalizeOutput(output: JdAnalyzerOutput, input: JdAnalyzerTaskInput) {
-      return {
-        ...output,
-        title: normalizeField(output.title, input.rawText),
-        company: normalizeField(output.company, input.rawText),
-        industry: normalizeField(output.industry, input.rawText),
-        location: normalizeField(output.location, input.rawText),
-        workType: normalizeField(output.workType, input.rawText),
-        requirements: (output.requirements ?? []).map((requirement, index) => {
-          const fallback = fallbackRequirementQuote(input.rawText, index);
-          return normalizeEvidenceItem({
-            ...requirement,
-            description: requirement.description || fallback,
-            sourceQuote: requirement.sourceQuote || fallback
-          }, input.rawText);
-        })
-      };
-    }
-  } satisfies StageBTaskDefinition<JdAnalyzerTaskInput, JdAnalyzerOutput>,
+    normalizeOutput(output: JdAnalyzerModelOutput) { return output; }
+  } satisfies StageBTaskDefinition<JdAnalyzerTaskInput, JdAnalyzerModelOutput>,
   "evidence-matcher": {
     task: "evidence-matcher",
     promptVersion: evidenceMatcherPrompt.version,
@@ -865,6 +791,57 @@ export function getAiTaskDefinition(task: string) {
   return aiTaskRegistry[parsed.data as keyof typeof aiTaskRegistry];
 }
 
+const JD_DISPOSITIONS = new Set(["heading", "wrapper", "metadata", "requirement", "requirement_detail", "verification_material", "hiring_signal", "excluded", "unclassified"]);
+const JD_SECTIONS = new Set(["responsibility", "required", "preferred", "verification", "role_profile", "unknown"]);
+const JD_KINDS = new Set(["responsibility", "hard_constraint", "core_competency", "tool_or_technology", "experience_depth", "education", "language", "soft_skill", "domain_knowledge", "preferred", "risk_or_uncertain"]);
+const JD_PRIORITIES = new Set(["must", "high", "medium", "nice_to_have", "uncertain"]);
+
+export function normalizeJdUnitAssignment(value: unknown): JdUnitAssignment | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const raw = value as Record<string, unknown>;
+  const sourceUnitId = trimmed(raw.sourceUnitId);
+  if (!sourceUnitId) return undefined;
+  const confidence = normalizeJdConfidence(raw.confidence);
+  const candidate = {
+    sourceUnitId,
+    verdict: enumValue(raw.verdict, new Set(["accept", "override"])),
+    disposition: enumValue(raw.disposition, JD_DISPOSITIONS),
+    section: enumValue(raw.section, JD_SECTIONS),
+    kind: enumValue(raw.kind, JD_KINDS),
+    priority: enumValue(raw.priority, JD_PRIORITIES),
+    hardConstraint: typeof raw.hardConstraint === "boolean" ? raw.hardConstraint : undefined,
+    parentUnitId: trimmed(raw.parentUnitId),
+    normalizedIntent: trimmed(raw.normalizedIntent),
+    exactKeywords: uniqueStrings(raw.exactKeywords),
+    semanticAliases: uniqueStrings(raw.semanticAliases),
+    confidence,
+    reason: trimmed(raw.reason)
+  };
+  const parsed = JdAnalyzerModelOutputSchema.shape.unitAssignments.element.safeParse(stripUndefined(candidate));
+  return parsed.success ? parsed.data : undefined;
+}
+
+export function normalizeJdConfidence(value: unknown): number | undefined {
+  if (typeof value === "string") {
+    const named = { high: 0.9, medium: 0.7, low: 0.45 }[value.trim().toLowerCase()];
+    if (named !== undefined) return named;
+    const numeric = Number(value);
+    if (Number.isFinite(numeric)) value = numeric;
+  }
+  return typeof value === "number" && Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : undefined;
+}
+
+function enumValue(value: unknown, allowed: Set<string>) {
+  const normalized = trimmed(value)?.toLowerCase().replace(/[\s-]+/g, "_");
+  return normalized && allowed.has(normalized) ? normalized : undefined;
+}
+
+function trimmed(value: unknown) { return typeof value === "string" && value.trim() ? value.trim() : undefined; }
+function uniqueStrings(value: unknown) { const values = Array.isArray(value) ? [...new Set(value.map(trimmed).filter(Boolean))] as string[] : []; return values.length ? values : undefined; }
+function stringArray(value: unknown) { return Array.isArray(value) ? value.map(trimmed).filter(Boolean) as string[] : []; }
+function stripUndefined<T extends Record<string, unknown>>(value: T) { return Object.fromEntries(Object.entries(value).filter(([, item]) => item !== undefined)); }
+function optionalTrimmedFields(raw: Record<string, unknown>, keys: string[]) { return Object.fromEntries(keys.flatMap((key) => { const value = trimmed(raw[key]); return value ? [[key, value]] : []; })); }
+
 function validateJsonMapperSources(output: ResumeJsonMapperOutput, rawText: string) {
   const redactedText = redactSensitiveTextForModel(rawText).text;
   let source: unknown;
@@ -1052,38 +1029,6 @@ function coerceDraftField(value: unknown): { value: string; sourceQuote: string;
   }
 
   return undefined;
-}
-
-function normalizeConfidenceLevel(value: unknown): "high" | "medium" | "low" {
-  return value === "high" || value === "medium" || value === "low" ? value : "low";
-}
-
-function resolveRequirementSource(input: { rawText: string; candidates: unknown[]; description: string; index: number }) {
-  for (const candidate of input.candidates) {
-    if (typeof candidate !== "string" || !candidate.trim()) continue;
-    const sourceQuote = candidate.trim();
-    const sourceSpan = locateSourceQuote(input.rawText, sourceQuote);
-    if (sourceSpan) return { sourceQuote, sourceSpan, usedFallback: false };
-  }
-  if (input.description) {
-    const sourceSpan = locateSourceQuote(input.rawText, input.description);
-    if (sourceSpan) return { sourceQuote: input.description, sourceSpan, usedFallback: true };
-  }
-  const sourceQuote = fallbackRequirementQuote(input.rawText, input.index);
-  return {
-    sourceQuote,
-    sourceSpan: locateSourceQuote(input.rawText, sourceQuote),
-    usedFallback: true
-  };
-}
-
-function fallbackRequirementQuote(rawText: string, index: number) {
-  const segments = rawText
-    .split(/[\n；;。]/)
-    .map((segment) => segment.replace(/^[-•\s]+/, "").trim())
-    .filter((segment) => segment.length > 0 && !segment.startsWith("岗位：") && !segment.startsWith("公司："));
-
-  return segments[index % Math.max(segments.length, 1)] || rawText.slice(0, 80);
 }
 
 function normalizeMatchLevel(value: unknown) {

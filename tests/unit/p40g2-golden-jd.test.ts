@@ -31,6 +31,12 @@ describe("P4.0g.2 golden JD semantic ledger", () => {
     expect(first.requirements.map((r) => r.id)).toEqual(second.requirements.map((r) => r.id));
   });
 
+  it("keeps the full-JD compact assignment output below the provider limit", () => {
+    const graph = analyzeJobDescriptionV3({ rawText: AI_CODING_TASK_DESIGNER_JD });
+    const output = JSON.stringify({ unitAssignments: graph.sourceUnits?.map((unit) => ({ sourceUnitId: unit.id, verdict: "accept" })), groupAdjustments: [], riskNotes: [] });
+    expect(output.length).toBeLessThan(24_000);
+  });
+
   it("is stable across five deterministic parses", () => {
     const graphs = Array.from({ length: 5 }, () => analyzeJobDescriptionV3({ rawText: AI_CODING_TASK_DESIGNER_JD }));
     expect(new Set(graphs.map((graph) => graph.graphHash))).toHaveLength(1);

@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import { OpenAiCompatibleProvider } from "@/ai/providers/openAiCompatibleProvider";
 import { stageBTaskRegistry, type ProfileBuilderTaskInput, type JdAnalyzerTaskInput, type StageBTaskDefinition } from "@/ai/tasks/registry";
 import { stableHashText } from "@/services/security/text";
-import { ProfileBuilderOutputSchema, JdAnalyzerOutputSchema, type ProfileBuilderOutput, type JdAnalyzerOutput } from "@/domain/schemas";
+import { ProfileBuilderOutputSchema, JdAnalyzerModelOutputSchema, type ProfileBuilderOutput, type JdAnalyzerModelOutput } from "@/domain/schemas";
+import { analyzeJobDescriptionV3 } from "@/domain/jobOptimization";
+import { AI_CODING_TASK_DESIGNER_JD } from "../fixtures/aiCodingTaskDesignerJd";
 
 const hasRealAiConfig = Boolean(process.env.AI_API_KEY && process.env.AI_MODEL);
 
@@ -27,27 +29,6 @@ const PROFILE_SAMPLE = `教育经历
 技能
 - 编程语言：Python, JavaScript, SQL
 - 工具：Excel, Tableau, Git
-`;
-
-const JD_SAMPLE = `岗位：数据分析实习生
-公司：某互联网公司
-工作地点：北京
-工作类型：全职实习
-
-岗位职责：
-- 协助分析师完成数据采集、清洗和建模
-- 使用 SQL 和 Excel 产出周期性数据报表
-- 参与用户行为分析和增长策略讨论
-
-任职要求：
-- 统计学、数学、计算机等相关专业本科及以上
-- 熟练使用 SQL 和 Excel，熟悉 Python 优先
-- 每周至少实习4天，实习期不少于3个月
-- 具备良好的沟通和团队协作能力
-
-加分项：
-- 有 Tableau 或 Power BI 经验
-- 参加过数据分析竞赛
 `;
 
 describe("stage B real AI smoke test", () => {
@@ -185,13 +166,9 @@ describe("jd-analyzer real model integration", () => {
   (hasRealAiConfig ? it : it.skip)(
     "produces valid JdAnalyzerOutput from redacted Chinese JD text",
     async () => {
-      const definition = stageBTaskRegistry["jd-analyzer"] as StageBTaskDefinition<JdAnalyzerTaskInput, JdAnalyzerOutput>;
-      const input: JdAnalyzerTaskInput = {
-        title: "数据分析实习生",
-        company: "某互联网公司",
-        rawText: JD_SAMPLE,
-        inputHash: stableHashText(JD_SAMPLE)
-      };
+      const definition = stageBTaskRegistry["jd-analyzer"] as StageBTaskDefinition<JdAnalyzerTaskInput, JdAnalyzerModelOutput>;
+      const deterministic = analyzeJobDescriptionV3({ rawText: AI_CODING_TASK_DESIGNER_JD });
+      const input: JdAnalyzerTaskInput = { title: "AI Coding 任务设计专家", company: "测试公司", rawText: AI_CODING_TASK_DESIGNER_JD, inputHash: stableHashText(AI_CODING_TASK_DESIGNER_JD), sourceUnits: deterministic.sourceUnits, deterministicGroups: deterministic.groups, deterministicHierarchy: deterministic.requirements.map((requirement) => ({ sourceUnitId: requirement.sourceUnitId, detailUnitIds: requirement.details.map((detail) => detail.sourceUnitId), parentGroupId: requirement.parentGroupId })) };
 
       const provider = new OpenAiCompatibleProvider();
       const response = await provider.invoke({
@@ -205,8 +182,8 @@ describe("jd-analyzer real model integration", () => {
       expect(response.model).toBeTruthy();
 
       const coerced = definition.coerceRawOutput(response.output);
-      const normalized = definition.normalizeOutput(coerced as JdAnalyzerOutput, input);
-      const parsed = JdAnalyzerOutputSchema.safeParse(normalized);
+      const normalized = definition.normalizeOutput(coerced as JdAnalyzerModelOutput, input);
+      const parsed = JdAnalyzerModelOutputSchema.safeParse(normalized);
 
       if (!parsed.success) {
         console.error("[jd-analyzer] Schema validation failed:", JSON.stringify(parsed.error.issues, null, 2));
@@ -220,54 +197,12 @@ describe("jd-analyzer real model integration", () => {
 
       const output = parsed.data;
 
-      // Verify requirements are present
-      expect(output.requirements.length).toBeGreaterThan(0);
-
-      // Verify each requirement has valid category and priority
-      const validCategories = ["responsibility", "must_have", "core_skill", "soft_skill", "nice_to_have", "risk_or_uncertain"];
-      const validPriorities = ["must", "important", "nice_to_have", "uncertain"];
-
-      for (const requirement of output.requirements) {
-        expect(validCategories).toContain(requirement.category);
-        expect(validPriorities).toContain(requirement.priority);
-        expect(requirement.sourceQuote.length).toBeGreaterThan(0);
-        expect(requirement.confidenceReason.length).toBeGreaterThan(0);
-        expect(typeof requirement.hardConstraint).toBe("boolean");
-        expect(typeof requirement.needsConfirmation).toBe("boolean");
-      }
-
-      // Verify sourceQuote locatability
-      const allQuotes = output.requirements.map((r) => r.sourceQuote);
-      for (const quote of allQuotes) {
-        const directMatch = JD_SAMPLE.includes(quote.trim());
-        const compactRaw = JD_SAMPLE.replace(/\s+/g, "");
-        const compactQuote = quote.trim().replace(/\s+/g, "");
-        const compactMatch = compactRaw.includes(compactQuote);
-        expect(
-          directMatch || compactMatch,
-          `sourceQuote "${quote.slice(0, 40)}..." should be locatable in JD text`
-        ).toBe(true);
-      }
-
-      // Verify requirements without sourceSpan have low confidence
-      for (const requirement of output.requirements) {
-        if (!requirement.sourceSpan) {
-          expect(requirement.confidenceLevel).toBe("low");
-          expect(requirement.needsConfirmation).toBe(true);
-        }
-      }
-
-      // Verify title/company from input are preserved or locatable
-      if (output.title) {
-        expect(["high", "medium", "low"]).toContain(output.title.confidenceLevel);
-      }
-      if (output.company) {
-        expect(["high", "medium", "low"]).toContain(output.company.confidenceLevel);
-      }
+      expect(output.unitAssignments).toBeDefined();
+      for (const assignment of output.unitAssignments) expect(assignment.sourceUnitId.length).toBeGreaterThan(0);
 
       console.log(
         `[jd-analyzer] provider=${response.provider} model=${response.model} ` +
-        `requirements=${output.requirements.length} riskNotes=${output.riskNotes.length}`
+        `assignments=${output.unitAssignments.length} riskNotes=${output.riskNotes.length}`
       );
     }
   );

@@ -53,8 +53,21 @@ export const DraftStatusSchema = z.enum([
   "manual_mode",
   "confirming",
   "committed",
+  "discarded",
   "error"
 ]);
+
+export const JobAnalysisRunStatusSchema = z.enum([
+  "saved", "local_analyzing", "ai_analyzing", "validating", "review_ready",
+  "local_ready_ai_failed", "interrupted", "committed", "discarded"
+]);
+
+export const JobAnalysisRunSchema = z.object({
+  id: z.string().min(1), startedAt: IsoDateStringSchema, finishedAt: IsoDateStringSchema.optional(),
+  status: JobAnalysisRunStatusSchema, provider: z.string().optional(), model: z.string().optional(),
+  analyzerVersion: z.string().min(1), graphHash: z.string().optional(), semanticEnrichmentHash: z.string().optional(),
+  sourceUnitCount: z.number().int().min(0).optional(), assignmentCount: z.number().int().min(0).optional(), errorCode: z.string().optional()
+}).strict();
 
 export const ConfidenceLevelSchema = z.enum(["high", "medium", "low"]);
 
@@ -263,6 +276,39 @@ export const JdAnalyzerRequirementSchema = EntityBaseSchema.extend({
   confirmedByUser: z.boolean().default(false)
 });
 
+export const JdUnitAssignmentSchema = z.object({
+  sourceUnitId: z.string().min(1),
+  verdict: z.enum(["accept", "override"]).optional(),
+  disposition: z.enum(["heading", "wrapper", "metadata", "requirement", "requirement_detail", "verification_material", "hiring_signal", "excluded", "unclassified"]).optional(),
+  section: z.enum(["responsibility", "required", "preferred", "verification", "role_profile", "unknown"]).optional(),
+  kind: z.enum(["responsibility", "hard_constraint", "core_competency", "tool_or_technology", "experience_depth", "education", "language", "soft_skill", "domain_knowledge", "preferred", "risk_or_uncertain"]).optional(),
+  priority: z.enum(["must", "high", "medium", "nice_to_have", "uncertain"]).optional(),
+  hardConstraint: z.boolean().optional(),
+  parentUnitId: z.string().min(1).optional(),
+  normalizedIntent: z.string().min(1).optional(),
+  exactKeywords: z.array(z.string().min(1)).optional(),
+  semanticAliases: z.array(z.string().min(1)).optional(),
+  confidence: z.number().min(0).max(1).optional(),
+  reason: z.string().min(1).optional()
+}).strict();
+
+export const JdGroupAdjustmentSchema = z.object({
+  groupId: z.string().min(1),
+  relation: z.enum(["all_of", "any_of", "preferred_any_of", "evidence_bundle"]).optional(),
+  parentUnitId: z.string().min(1).optional(),
+  reason: z.string().min(1).optional()
+}).strict();
+
+/** Compact protocol returned directly by the model. */
+export const JdAnalyzerModelOutputSchema = z.object({
+  unitAssignments: z.array(JdUnitAssignmentSchema),
+  groupAdjustments: z.array(JdGroupAdjustmentSchema).default([]),
+  roleMission: z.string().min(1).optional(),
+  level: z.string().min(1).optional(),
+  domain: z.string().min(1).optional(),
+  riskNotes: z.array(z.string()).default([])
+}).strict();
+
 export const JdAnalyzerOutputSchema = z.object({
   title: DraftSourceFieldSchema.optional(),
   company: DraftSourceFieldSchema.optional(),
@@ -270,26 +316,8 @@ export const JdAnalyzerOutputSchema = z.object({
   location: DraftSourceFieldSchema.optional(),
   workType: DraftSourceFieldSchema.optional(),
   requirements: z.array(JdAnalyzerRequirementSchema).default([]),
-  unitAssignments: z.array(z.object({
-    sourceUnitId: z.string().min(1),
-    disposition: z.enum(["heading", "wrapper", "metadata", "requirement", "requirement_detail", "verification_material", "hiring_signal", "excluded", "unclassified"]),
-    section: z.enum(["responsibility", "required", "preferred", "verification", "role_profile", "unknown"]).optional(),
-    kind: z.enum(["responsibility", "hard_constraint", "core_competency", "tool_or_technology", "experience_depth", "education", "language", "soft_skill", "domain_knowledge", "preferred", "risk_or_uncertain"]).optional(),
-    priority: z.enum(["must", "high", "medium", "nice_to_have", "uncertain"]).optional(),
-    hardConstraint: z.boolean().optional(),
-    parentUnitId: z.string().min(1).optional(),
-    normalizedIntent: z.string().min(1).optional(),
-    exactKeywords: z.array(z.string().min(1)).optional(),
-    semanticAliases: z.array(z.string().min(1)).optional(),
-    confidence: z.number().min(0).max(1),
-    reason: z.string().min(1)
-  }).strict()).optional(),
-  groupAdjustments: z.array(z.object({
-    groupId: z.string().min(1),
-    relation: z.enum(["all_of", "any_of", "preferred_any_of", "evidence_bundle"]).optional(),
-    parentUnitId: z.string().min(1).optional(),
-    reason: z.string().min(1)
-  }).strict()).optional(),
+  unitAssignments: z.array(JdUnitAssignmentSchema).optional(),
+  groupAdjustments: z.array(JdGroupAdjustmentSchema).optional(),
   roleMission: z.string().min(1).optional(),
   level: z.string().min(1).optional(),
   domain: z.string().min(1).optional(),
@@ -312,7 +340,9 @@ export const JobAnalysisDraftSchema = EntityBaseSchema.extend({
   saveError: z.string().optional(),
   lastAutosavedAt: IsoDateStringSchema.optional(),
   committedJobId: z.string().optional(),
-  committedAt: IsoDateStringSchema.optional()
+  committedAt: IsoDateStringSchema.optional(),
+  analysisRunStatus: JobAnalysisRunStatusSchema.optional(),
+  analysisRuns: z.array(JobAnalysisRunSchema).max(10).optional()
 });
 
 export const DraftCommitKindSchema = z.enum(["profile", "job"]);
@@ -329,6 +359,8 @@ export type RawInputKind = z.infer<typeof RawInputKindSchema>;
 export type PdfImportStatus = z.infer<typeof PdfImportStatusSchema>;
 export type PdfImportErrorCode = z.infer<typeof PdfImportErrorCodeSchema>;
 export type DraftStatus = z.infer<typeof DraftStatusSchema>;
+export type JobAnalysisRunStatus = z.infer<typeof JobAnalysisRunStatusSchema>;
+export type JobAnalysisRun = z.infer<typeof JobAnalysisRunSchema>;
 export type ConfidenceLevel = z.infer<typeof ConfidenceLevelSchema>;
 export type JdDraftPriority = z.infer<typeof JdDraftPrioritySchema>;
 export type RawInputSourceTextKind = z.infer<typeof RawInputSourceTextKindSchema>;
@@ -344,6 +376,8 @@ export type ProfileBuilderCertificate = z.infer<typeof ProfileBuilderCertificate
 export type ProfileBuilderOutput = z.infer<typeof ProfileBuilderOutputSchema>;
 export type ProfileImportDraft = z.infer<typeof ProfileImportDraftSchema>;
 export type JdAnalyzerRequirement = z.infer<typeof JdAnalyzerRequirementSchema>;
+export type JdUnitAssignment = z.infer<typeof JdUnitAssignmentSchema>;
+export type JdAnalyzerModelOutput = z.infer<typeof JdAnalyzerModelOutputSchema>;
 export type JdAnalyzerOutput = z.infer<typeof JdAnalyzerOutputSchema>;
 export type JobAnalysisDraft = z.infer<typeof JobAnalysisDraftSchema>;
 export type DraftCommit = z.infer<typeof DraftCommitSchema>;

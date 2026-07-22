@@ -138,7 +138,7 @@ export function reconcileJobRequirementGraphV3(input: { rawText: string; aiOutpu
     const assignment = validAssignments.find((a) => a.sourceUnitId === node.sourceUnitId);
     const legacy = input.aiOutput?.requirements.find((candidate) => candidate.id === node.id || candidate.sourceSpan?.start === node.sourceSpan.start);
     if (!assignment && !legacy) return node;
-    if (assignment && ["metadata", "heading", "wrapper", "requirement_detail", "verification_material"].includes(assignment.disposition)) return node;
+    if (assignment?.disposition && ["metadata", "heading", "wrapper", "requirement_detail", "verification_material"].includes(assignment.disposition)) return node;
     const legacyKind = legacy ? categoryToKind(legacy.category) : node.kind;
     return { ...node, normalizedIntent: assignment?.normalizedIntent || node.normalizedIntent, exactKeywords: unique([...node.exactKeywords, ...(assignment?.exactKeywords ?? []), ...(legacy?.keywords ?? [])]), semanticAliases: unique([...node.semanticAliases, ...(assignment?.semanticAliases ?? [])]), confidence: Math.max(node.confidence, legacy ? confidenceNumber(legacy.confidenceLevel) : 0), needsConfirmation: node.needsConfirmation || Boolean(assignment && assignment.disposition !== "requirement") || legacyKind !== node.kind };
   });

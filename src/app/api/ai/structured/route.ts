@@ -15,6 +15,7 @@ import { redactSensitiveTextForModel } from "@/services/security/text";
 import { mapNormalizedBlocksToReviewDraft } from "@/domain/resumeImport/normalizer";
 import { mapExternalResumeJson } from "@/domain/resumeImport/jsonMapper";
 import { decodeAiSettingsFromHeader, type AiSettings } from "@/services/storage/aiSettings";
+import { buildRetryPrompt } from "@/ai/retryPrompt";
 
 const StructuredAiRequestSchema = z
   .object({
@@ -82,7 +83,7 @@ export async function POST(request: NextRequest) {
     for (let attempt = 0; attempt < 2; attempt += 1) {
       const response = await provider.invoke({
         systemPrompt: taskDefinition.systemPrompt,
-        userPrompt: attempt === 0 ? baseUserPrompt : buildRetryPrompt(baseUserPrompt, lastValidationFailure),
+        userPrompt: attempt === 0 ? baseUserPrompt : buildRetryPrompt({ task: taskDefinition.task, baseUserPrompt, failure: lastValidationFailure, input: input.data }),
         maxOutputChars: taskDefinition.maxOutputChars,
         signal: AbortSignal.timeout(60_000)
       });
@@ -137,6 +138,21 @@ export async function POST(request: NextRequest) {
         });
       }
 
+      if (process.env.NODE_ENV === "development" && taskDefinition.task === "jd-analyzer") {
+        const sourceIds = new Set((input.data as JdAnalyzerTaskInput).sourceUnits?.map((unit) => unit.id) ?? []);
+        const assignments = (parsedOutput.data as { unitAssignments?: Array<{ sourceUnitId: string }> }).unitAssignments ?? [];
+        const returnedIds = assignments.map((assignment) => assignment.sourceUnitId);
+        const uniqueReturnedIds = new Set(returnedIds);
+        console.info("[jd-analyzer:diagnostics]", {
+          task: taskDefinition.task, attempt: attempt + 1, errorStage: "none", issuePaths: [], issueCodes: [],
+          sourceUnitCount: sourceIds.size, assignmentCount: assignments.length,
+          missingCount: [...sourceIds].filter((id) => !uniqueReturnedIds.has(id)).length,
+          duplicateCount: returnedIds.length - uniqueReturnedIds.size,
+          inventedCount: [...uniqueReturnedIds].filter((id) => !sourceIds.has(id)).length,
+          outputLength: response.outputLength
+        });
+      }
+
       try {
         if (body.data.task.startsWith("resume-tailor") && (parsedOutput.data as { suggestions?: unknown[] }).suggestions?.length === 0) {
           if (attempt === 0) {
@@ -183,22 +199,6 @@ export async function POST(request: NextRequest) {
     const code = typeof (error as AiProviderError).code === "string" ? (error as AiProviderError).code : "provider_failed";
     return aiError(code, "AI request failed.", code === "missing_ai_config" ? 503 : 502, startedAt);
   }
-}
-
-function buildRetryPrompt(baseUserPrompt: string, failure: string | undefined) {
-  const reason = failure === "resume_tailor_requirement_out_of_scope" || failure === "resume_tailor_requirement_binding_failed"
-    ? "requirementIds did not match the supplied IDs"
-    : failure === "resume_tailor_after_missing" ? "after was missing"
-      : failure === "resume_tailor_no_op" ? "after was identical to before"
-        : failure === "no_change_needed" ? "the response contained no suggestion"
-          : failure ?? "schema validation failed";
-  return [
-    baseUserPrompt,
-    "",
-    `Previous response failed because ${reason}.`,
-    "Return only:",
-    '{"suggestions":[{"after":"...","rationale":"...","requirementIds":["an ID copied from relevantRequirements"]}]}'
-  ].join("\n");
 }
 
 function aiSuccess(
