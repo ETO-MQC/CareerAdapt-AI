@@ -4525,14 +4525,15 @@ export function ResumeWorkspace() {
                     type="button"
                     className={aiInspectorTab === "quality" ? "ai-nav-btn ai-nav-btn-active" : "ai-nav-btn"}
                     onClick={() => setAiInspectorTab("quality")}
-                    title="质量检查"
+                    title="投递检查"
                   >
-                    <span className="ai-nav-label">质量</span>
+                    <span className="ai-nav-label">投递</span>
                     <span className="ai-nav-label">检查</span>
                   </button>
                   <button
                     type="button"
                     className="ai-nav-btn ai-refresh-btn"
+                    hidden
                     disabled={diagnosticRunning || !selectedBranch || selectedBranch.branchPurpose !== "job_specific"}
                     onClick={() => { void runDiagnostics(); }}
                     title="刷新"
@@ -5328,14 +5329,6 @@ function profileFieldLabel(fieldId?: string) {
     return "邮箱";
   }
   return key ? labels[key] : "基本信息";
-}
-
-function aiInspectorTabLabel(tab: AiInspectorTab) {
-  const labels: Record<AiInspectorTab, string> = {
-    suggestions: "岗位优化",
-    quality: "质量检查"
-  };
-  return labels[tab];
 }
 
 function styleInspectorTabLabel(tab: StyleInspectorTab) {

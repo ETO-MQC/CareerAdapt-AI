@@ -691,7 +691,7 @@ function buildSelfIntroductionContent(context: ApplicationPreparationContext, la
 }
 
 function buildInterviewQuestions(context: ApplicationPreparationContext): InterviewQuestionItem[] {
-  const requirement = context.requirements[0];
+  const requirement = [...context.requirements].sort((left, right) => requirementPriority(right) - requirementPriority(left))[0];
   const block = selectEvidenceBlocks(context)[0];
   const questions: InterviewQuestionItem[] = [];
   if (requirement) {
@@ -744,6 +744,34 @@ function buildInterviewQuestions(context: ApplicationPreparationContext): Interv
       preparationStatus: "draft"
     });
   }
+  const verificationMaterial = context.verificationMaterials[0];
+  if (verificationMaterial) {
+    questions.push({
+      id: `interview-question-material-${verificationMaterial.id}`,
+      category: "verification",
+      question: `申请材料要求“${trimText(verificationMaterial.label, 70)}”，你准备提供哪些可核验内容？`,
+      whyAsked: "该项属于申请材料清单，不是简历技能或硬性能力。",
+      requirementIds: [],
+      contentItemIds: [],
+      evidenceRefs: [],
+      answerOutline: verificationMaterial.requiredComponents.length ? [`逐项准备：${verificationMaterial.requiredComponents.join("、")}`] : ["确认材料可访问，并避免在简历中把材料名称写成技能。"],
+      preparationStatus: "needs_fact"
+    });
+  }
+  const hiringSignal = context.hiringSignals[0];
+  if (hiringSignal) {
+    questions.push({
+      id: `interview-question-signal-${hiringSignal.id}`,
+      category: "behavioral",
+      question: `请用真实经历说明：${trimText(hiringSignal.statement, 80)}`,
+      whyAsked: "这是候选人画像信号，可用于自我评价和面试准备，但不作为硬条件计分。",
+      requirementIds: [],
+      contentItemIds: block ? [block.id] : [],
+      evidenceRefs: block ? evidenceRefsForBlocks([block], context) : [],
+      answerOutline: block ? [`只引用已确认经历：${trimText(block.text, 100)}`] : ["先补充一段真实经历，再组织回答。"],
+      preparationStatus: block ? "draft" : "needs_fact"
+    });
+  }
   return questions.length > 0 ? questions : [{
     id: `interview-question-needs-fact-${context.applicationId}`,
     category: "verification",
@@ -755,6 +783,13 @@ function buildInterviewQuestions(context: ApplicationPreparationContext): Interv
     answerOutline: [],
     preparationStatus: "needs_fact"
   }];
+}
+
+function requirementPriority(requirement: ApplicationPreparationContext["requirements"][number]) {
+  if (requirement.hardConstraint || requirement.priority === "must") return 4;
+  if (requirement.priority === "high" || requirement.priority === "important") return 3;
+  if (requirement.priority === "medium") return 2;
+  return 1;
 }
 
 function buildStarStoryContent(context: ApplicationPreparationContext): StarStoryContent {

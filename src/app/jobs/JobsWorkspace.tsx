@@ -8,6 +8,7 @@ import Link from "next/link";
 import { invokeStageBAi, invokeStructuredAi } from "@/ai/client";
 import { promptVersions } from "@/ai/prompts/versions";
 import { createManualJdOutput } from "@/domain/jobAnalysis/manual";
+import { analyzeJobDescriptionV3, projectJobGraphV3ToAnalyzerOutput, reconcileJobRequirementGraphV3 } from "@/domain/jobOptimization";
 import {
   EvidenceMatcherOutputSchema,
   JdAnalyzerOutputSchema,
@@ -162,6 +163,8 @@ export function JobsWorkspace() {
         title: validated.title, company: validated.company, status: "privacy_pending", promptVersion: promptVersions.jdAnalyzer,
         attemptCount: inputChanged ? 0 : draft?.attemptCount ?? 0,
         analyzerOutput: inputChanged ? undefined : draft?.analyzerOutput,
+        requirementGraph: inputChanged ? undefined : draft?.requirementGraph,
+        analysisIssues: inputChanged ? [] : draft?.analysisIssues ?? [],
         manualRequirements: inputChanged ? [] : draft?.manualRequirements ?? [], riskNotes: inputChanged ? [] : draft?.riskNotes ?? [],
         committedJobId: draft?.committedJobId, committedAt: draft?.committedAt, createdAt: draft?.createdAt ?? now, updatedAt: now
       };
@@ -180,11 +183,13 @@ export function JobsWorkspace() {
     try {
       notify({ type: "info", title: "正在解析岗位", message: "系统会先脱敏，再校验 AI 返回的岗位要求。" });
       const analyzing = await saveDraft({ ...draft, title, company, status: "analyzing" });
+      const deterministicGraph = analyzeJobDescriptionV3({ rawText: rawInput.rawText });
       const result = await invokeStageBAi({ task: "jd-analyzer", businessInput: { title, company, rawText: rawInput.rawText, inputHash: rawInput.inputHash }, outputSchema: JdAnalyzerOutputSchema });
       await repository.saveAiLogs([result.log]);
       if (!result.ok) {
-        const fallback = createManualJdOutput(rawInput.rawText, title, company);
-        const saved = await saveDraft({ ...analyzing, status: "error", attemptCount: analyzing.attemptCount + 1, manualRequirements: fallback.requirements, riskNotes: fallback.riskNotes, saveError: result.errorCode });
+        const fallback = projectJobGraphV3ToAnalyzerOutput({ graph: deterministicGraph, title, company });
+        const validation = reconcileJobRequirementGraphV3({ rawText: rawInput.rawText });
+        const saved = await saveDraft({ ...analyzing, status: validation.status === "validated" ? "manual_mode" : "needs_review", attemptCount: analyzing.attemptCount + 1, manualRequirements: fallback.requirements, requirementGraph: validation.graph, analysisIssues: validation.issues, riskNotes: fallback.riskNotes, saveError: result.errorCode });
         const workflowError = classifyJobAiFailure(result.errorCode);
         const feedback = jobAiFailureFeedback(classifyJobAiFailureReason(result.errorCode));
         setDraft(saved); setJobError(workflowError.state); setFailedAction("analyze");
@@ -192,13 +197,19 @@ export function JobsWorkspace() {
         notify({ type: "warning", title: "已切换本地解析", message: "请核对本地岗位要求草稿，确认后仍可提交正式岗位。" });
         return;
       }
-      const saved = await saveDraft({ ...analyzing, status: "ai_validated", attemptCount: analyzing.attemptCount + 1, promptVersion: result.promptVersion, analyzerOutput: result.data, riskNotes: result.data.riskNotes, saveError: undefined });
+      const reconciled = reconcileJobRequirementGraphV3({ rawText: rawInput.rawText, aiOutput: result.data });
+      const projection = projectJobGraphV3ToAnalyzerOutput({ graph: reconciled.graph, title, company });
+      const analyzerOutput = { ...result.data, requirements: projection.requirements, riskNotes: [...result.data.riskNotes, ...projection.riskNotes] };
+      const saved = await saveDraft({ ...analyzing, status: reconciled.status === "validated" ? "ai_validated" : "needs_review", attemptCount: analyzing.attemptCount + 1, promptVersion: result.promptVersion, analyzerOutput, requirementGraph: reconciled.graph, analysisIssues: reconciled.issues, riskNotes: analyzerOutput.riskNotes, saveError: undefined });
       setDraft(saved); setJobError(undefined); setFailedAction(undefined);
-      notify({ type: "success", title: "岗位解析完成", message: "请核对要求与原文依据，再提交正式岗位。" });
+      notify(reconciled.status === "validated"
+        ? { type: "success", title: "岗位解析完成", message: "请核对要求与原文依据，再提交正式岗位。" }
+        : { type: "warning", title: "岗位解析需要核对", message: reconciled.issues.join("；") || "部分来源尚未完整覆盖，请核对缺失区域。" });
     } catch (error) {
       const fallback = createManualJdOutput(rawInput.rawText, title, company);
+      const validation = reconcileJobRequirementGraphV3({ rawText: rawInput.rawText });
       try {
-        const saved = await saveDraft({ ...draft, status: "error", attemptCount: draft.attemptCount + 1, manualRequirements: fallback.requirements, riskNotes: fallback.riskNotes, saveError: "provider_unavailable" });
+        const saved = await saveDraft({ ...draft, status: validation.status === "validated" ? "manual_mode" : "needs_review", attemptCount: draft.attemptCount + 1, manualRequirements: fallback.requirements, requirementGraph: validation.graph, analysisIssues: validation.issues, riskNotes: fallback.riskNotes, saveError: "provider_unavailable" });
         setDraft(saved);
       } catch { /* The persistent error card retains the original input. */ }
       const state = error instanceof TypeError ? classifyJobAiFailure("provider_unavailable").state : jobWorkflowErrorState(error, "repository_save_failed");
@@ -211,7 +222,8 @@ export function JobsWorkspace() {
     if (!draft || !rawInput) return;
     try {
       const fallback = createManualJdOutput(rawInput.rawText, title, company);
-      const saved = await saveDraft({ ...draft, status: "manual_mode", manualRequirements: draft.manualRequirements.length ? draft.manualRequirements : fallback.requirements, riskNotes: fallback.riskNotes });
+      const validation = reconcileJobRequirementGraphV3({ rawText: rawInput.rawText });
+      const saved = await saveDraft({ ...draft, status: validation.status === "validated" ? "manual_mode" : "needs_review", manualRequirements: draft.manualRequirements.length ? draft.manualRequirements : fallback.requirements, requirementGraph: validation.graph, analysisIssues: validation.issues, riskNotes: fallback.riskNotes });
       setDraft(saved); setJobError(undefined); setFailedAction(undefined);
       notify({ type: "warning", title: "已使用本地解析", message: "外部模型不会被调用，请核对本地岗位要求草稿。" });
     } catch (error) { setJobError(jobWorkflowErrorState(error, "repository_save_failed")); }
@@ -355,6 +367,8 @@ export function JobsWorkspace() {
   async function requestSafeJobDelete() { if (!selectedJob || !window.confirm(`将“${selectedJob.company} / ${selectedJob.title}”移入回收站？之后可在统一回收站恢复。`)) return; const next = await repository.moveJobToRecycleBin(selectedJob.id); await saveArchivedJobIds(archivedJobIds.filter((id) => id !== selectedJob.id)); setTrashedJobIds(next.jobIds); setSelectedJobId(activeJobs.find((job) => job.id !== selectedJob.id)?.id ?? ""); notify({ type: "success", title: "岗位已移入回收站", message: "关联简历、匹配和求职记录未被删除。" }); }
 
   function editSelectedJob() { if (!selectedJob) return; setTitle(selectedJob.title); setCompany(selectedJob.company); setRawText(selectedJob.rawText); setRawInput(undefined); setDraft(undefined); setShowJobMenu(false); window.scrollTo({ top: 0, behavior: "smooth" }); }
+  function editJobFromCard(job: JobDescription) { setSelectedJobId(job.id); setTitle(job.title); setCompany(job.company); setRawText(job.rawText); setRawInput(undefined); setDraft(undefined); setShowJobMenu(false); setTab("resumes"); setSourceMode("profile"); setSelectedBaseResumeId(""); setMatches([]); setProfileAnalysis(undefined); setSelectedProfileItemIds([]); setGenerationErrorCode(undefined); setShowMatchDetails(false); setResumeActionStatus("idle"); window.scrollTo({ top: 0, behavior: "smooth" }); }
+  async function deleteJobFromCard(job: JobDescription) { if (!window.confirm(`将"${job.company} / ${job.title}"移入回收站？之后可在统一回收站恢复。`)) return; const next = await repository.moveJobToRecycleBin(job.id); await saveArchivedJobIds(archivedJobIds.filter((id) => id !== job.id)); setTrashedJobIds(next.jobIds); setSelectedJobId(activeJobs.find((j) => j.id !== job.id)?.id ?? ""); notify({ type: "success", title: "岗位已移入回收站", message: "关联简历、匹配和求职记录未被删除。" }); }
   function retryFailedJobAction() { if (failedAction === "start_import") void startImport(); else if (failedAction === "analyze") void analyzeWithAi(); else if (failedAction === "commit") void commitJob(); }
   function selectJob(id: string) { setSelectedJobId(id); setTab("resumes"); setSourceMode("profile"); setSelectedBaseResumeId(""); setMatches([]); setProfileAnalysis(undefined); setSelectedProfileItemIds([]); setGenerationErrorCode(undefined); setShowMatchDetails(false); setResumeActionStatus("idle"); setShowJobMenu(false); }
   function handleTabKeyDown(event: KeyboardEvent<HTMLButtonElement>, current: JobWorkspaceTab) { const tabs: JobWorkspaceTab[] = ["resumes", "info", "requirements", "applications"]; const index = tabs.indexOf(current); const next = event.key === "ArrowRight" ? (index + 1) % tabs.length : event.key === "ArrowLeft" ? (index - 1 + tabs.length) % tabs.length : event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : index; if (next === index && !["Home", "End"].includes(event.key)) return; event.preventDefault(); setTab(tabs[next]); event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next]?.focus(); }
@@ -384,10 +398,11 @@ export function JobsWorkspace() {
         <aside className="panel jobs-list-panel">
           <header><div><h2>岗位列表</h2><p>{activeJobs.length} 个当前岗位 · {archivedJobs.length} 个已归档</p></div></header>
           <div className="job-list-filter" role="group" aria-label="岗位状态"><button className={jobListFilter === "active" ? "is-active" : ""} type="button" onClick={() => setJobListFilter("active")}>当前</button><button className={jobListFilter === "archived" ? "is-active" : ""} type="button" onClick={() => setJobListFilter("archived")}>已归档</button></div>
-          <div className="job-card-list local-scroll">{visibleJobs.length ? visibleJobs.map((job) => <button key={job.id} type="button" className={selectedJob?.id === job.id ? "job-card is-selected" : "job-card"} onClick={() => selectJob(job.id)}><strong>{job.title}</strong><span className="job-card-company">{job.company}</span><small>{job.requirements.length} 条要求 · {formatJobDate(job.updatedAt)} · {jobSourceLabel(job.source)}</small></button>) : <p className="empty-copy">当前筛选下没有岗位。</p>}</div>
+          <div className="job-card-list local-scroll">{visibleJobs.length ? visibleJobs.map((job) => <div key={job.id} className={selectedJob?.id === job.id ? "job-card is-selected" : "job-card"}><div className="job-card-body" role="button" tabIndex={0} onClick={() => selectJob(job.id)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selectJob(job.id); } }}><strong>{job.title}</strong><span className="job-card-company">{job.company}</span><small>{job.requirements.length} 条要求 · {formatJobDate(job.updatedAt)} · {jobSourceLabel(job.source)}</small></div><div className="job-card-actions"><button type="button" className="icon-button" aria-label={`编辑 ${job.title}`} onClick={(e) => { e.stopPropagation(); editJobFromCard(job); }}><Pencil size={14} aria-hidden="true" /></button><button type="button" className="icon-button danger" aria-label={`删除 ${job.title}`} onClick={(e) => { e.stopPropagation(); void deleteJobFromCard(job); }}><Trash2 size={14} aria-hidden="true" /></button></div></div>) : <p className="empty-copy">当前筛选下没有岗位。</p>}</div>
         </aside>
       </section>
 
+      {draft?.status === "needs_review" ? <section className="warning-box" role="status"><div><strong>岗位解析需要核对</strong><p>{draft.analysisIssues?.join("；") || "部分来源尚未完整覆盖。"}</p></div></section> : null}
       {draft && draft.status !== "committed" && output ? <DraftReview draft={draft} output={output} saveStatus={saveStatus} onToggle={toggleRequirement} onToggleAll={toggleAllRequirements} onRemove={removeRequirement} onCommit={() => void commitJob()} /> : null}
 
       {selectedJob ? <section className="panel selected-job-workspace">
@@ -453,7 +468,21 @@ function ResumeSourcePanel(props: {
 }
 
 function JobInfo({ job }: { job: JobDescription }) { return <div className="job-info-panel"><header><h3>岗位信息</h3><span>更新于 {formatJobDate(job.updatedAt)}</span></header><dl className="info-list"><div><dt>公司</dt><dd>{job.company}</dd></div><div><dt>岗位名称</dt><dd>{job.title}</dd></div><div><dt>地点</dt><dd>{job.location ?? "未填写"}</dd></div><div><dt>工作方式</dt><dd>{job.workType ?? "未填写"}</dd></div><div><dt>行业</dt><dd>{job.industry ?? "未填写"}</dd></div><div><dt>JD 来源</dt><dd>{jobSourceLabel(job.source)}</dd></div></dl><section className="raw-jd-section"><h4>原始 JD</h4><p>{job.rawText}</p></section></div>; }
-function JobRequirements({ job }: { job: JobDescription }) { return <div className="job-requirement-cards"><header><h3>岗位要求</h3><span>{job.requirements.length} 条已确认要求</span></header>{job.requirements.map((requirement) => <article key={requirement.id}><strong>{requirement.description}</strong><span>{categoryLabel(requirement.category)} · {priorityLabel(requirement.priority)}</span><details><summary>查看依据</summary><p>{requirement.sourceSpan.text}</p><small>置信度 {confidenceLabel(requirement.confidence)}</small></details></article>)}</div>; }
+function JobRequirements({ job }: { job: JobDescription }) {
+  const graph = job.requirementGraph;
+  return <div className="job-requirement-cards">
+    <header><h3>岗位要求</h3><span>{job.requirements.length} 条已确认要求{graph ? ` · 来源覆盖 ${Math.round(graph.sourceCoverage.coverageRatio * 100)}%` : ""}</span></header>
+    {graph?.groups.filter((group) => group.relation !== "evidence_bundle").map((group) => <section key={group.id} className="job-requirement-group"><h4>{groupLabel(group.relation)}{group.minimumSatisfied ? `（至少满足 ${group.minimumSatisfied} 项）` : ""}</h4>{group.requirementIds.map((id) => {
+      const requirement = job.requirements.find((item) => item.id === id);
+      return requirement ? <RequirementArticle key={id} requirement={requirement} /> : null;
+    })}</section>)}
+    {graph ? job.requirements.filter((requirement) => !graph.groups.some((group) => group.requirementIds.includes(requirement.id))).map((requirement) => <RequirementArticle key={requirement.id} requirement={requirement} />) : job.requirements.map((requirement) => <RequirementArticle key={requirement.id} requirement={requirement} />)}
+    {graph?.verificationMaterials.length ? <section className="job-requirement-group"><h4>申请材料清单</h4>{graph.verificationMaterials.map((item) => <article key={item.id}><strong>{item.label}</strong><span>验证材料，不计入技能匹配</span>{item.requiredComponents.length ? <small>{item.requiredComponents.join(" · ")}</small> : null}</article>)}</section> : null}
+    {graph?.roleProfile.hiringSignals.length ? <section className="job-requirement-group"><h4>候选人画像</h4>{graph.roleProfile.hiringSignals.map((item) => <article key={item.id}><strong>{item.statement}</strong><span>用于叙事与面试准备，不作为硬条件</span></article>)}</section> : null}
+  </div>;
+}
+function RequirementArticle({ requirement }: { requirement: JobDescription["requirements"][number] }) { return <article><strong>{requirement.description}</strong><span>{categoryLabel(requirement.category)} · {priorityLabel(requirement.priority)}</span><details><summary>查看依据</summary><p>{requirement.sourceSpan.text}</p><small>置信度 {confidenceLabel(requirement.confidence)}</small></details></article>; }
+function groupLabel(relation: "all_of" | "any_of" | "preferred_any_of" | "evidence_bundle") { return { all_of: "全部要求", any_of: "满足任一即可", preferred_any_of: "加分项（满足任一）", evidence_bundle: "申请材料清单" }[relation]; }
 function ApplicationEmpty({ jobId }: { jobId: string }) { return <div className="application-empty"><KanbanSquare size={28} aria-hidden="true" /><h3>该岗位暂未创建求职记录</h3><p>求职记录将在求职进度工作台中维护，岗位页只保留入口。</p><Link className="primary-button" href={`/applications?jobId=${encodeURIComponent(jobId)}`}>创建求职记录</Link></div>; }
 
 const emptyProfile = { id: "empty", name: "空资料", basics: { name: "空资料", links: [] }, preference: { targetRoles: [], targetCities: [], industries: [] }, version: 1, experiences: [], skills: [], certificates: [], evidences: [], unclassifiedBlocks: [], createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" } satisfies CareerProfile;

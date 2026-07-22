@@ -5,6 +5,8 @@ import {
   type ExportRecord,
   type JobDescription,
   type JobRequirement,
+  type HiddenSignal,
+  type VerificationMaterial,
   type MatchEvidenceRef,
   type RequirementBlockMatch,
   type RequirementMatch,
@@ -12,7 +14,7 @@ import {
   type ResumeRevision
 } from "@/domain/schemas";
 import { resolveBranchFactRefs } from "@/domain/branch/validation";
-import { buildRequirementBlockMatches, computeRequirementsHash } from "@/domain/jobOptimization";
+import { buildCanonicalJobRequirementGraphV3, buildRequirementBlockMatches, computeRequirementsHash } from "@/domain/jobOptimization";
 
 export type ApplicationPreparationResumeBlock = {
   id: string;
@@ -37,6 +39,8 @@ export type ApplicationPreparationContext = {
   jobTitle: string;
   company?: string;
   requirements: JobRequirement[];
+  verificationMaterials: VerificationMaterial[];
+  hiringSignals: HiddenSignal[];
   resumeBlocks: ApplicationPreparationResumeBlock[];
   evidenceRefs: MatchEvidenceRef[];
   requirementBlockMatches: RequirementBlockMatch[];
@@ -81,6 +85,7 @@ export function buildApplicationPreparationContext(input: {
       evidenceRefs: safeResolveEvidenceRefs(input.profile, item.factRefs)
     }));
   const evidenceRefs = uniqueEvidenceRefs(resumeBlocks.flatMap((block) => block.evidenceRefs));
+  const graph = buildCanonicalJobRequirementGraphV3(input.job);
   const sourceTextBaseline = [
     input.job.title,
     input.job.company,
@@ -102,6 +107,8 @@ export function buildApplicationPreparationContext(input: {
     jobTitle: input.job.title,
     company: input.job.company,
     requirements: input.job.requirements,
+    verificationMaterials: graph.verificationMaterials,
+    hiringSignals: graph.roleProfile.hiringSignals,
     resumeBlocks,
     evidenceRefs,
     requirementBlockMatches,

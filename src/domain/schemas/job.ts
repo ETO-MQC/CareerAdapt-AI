@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { EntityBaseSchema, IsoDateStringSchema, RiskLevelSchema, SourceSpanSchema } from "./common";
+import { JobRequirementGraphV3Schema } from "./jobOptimizationV3";
 
 export const JobSourceSchema = z.enum(["demo", "manual", "imported_text", "url"]);
 
@@ -97,7 +98,10 @@ export const JobDescriptionSchema = EntityBaseSchema.extend({
   rawText: z.string().min(1),
   source: JobSourceSchema,
   parsedAt: IsoDateStringSchema.optional(),
-  requirements: z.array(JobRequirementSchema).default([])
+  requirements: z.array(JobRequirementSchema).default([]),
+  requirementGraph: JobRequirementGraphV3Schema.optional(),
+  analysisStatus: z.enum(["validated", "needs_review"]).optional(),
+  analysisIssues: z.array(z.string().min(1)).optional()
 });
 
 export const CommittedJobDescriptionSchema = JobDescriptionSchema.extend({

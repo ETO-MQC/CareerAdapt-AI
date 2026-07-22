@@ -26,6 +26,9 @@ export function mapJobDraftToJobDescription(input: {
     rawText: input.rawInput.rawText,
     source: "imported_text",
     parsedAt: now,
+    requirementGraph: input.draft.requirementGraph,
+    analysisStatus: input.draft.status === "needs_review" ? "needs_review" : input.draft.requirementGraph ? "validated" : undefined,
+    analysisIssues: input.draft.analysisIssues,
     requirements: output.requirements
       .filter((requirement) => requirement.confirmedByUser && requirement.sourceSpan)
       .map((requirement) => ({

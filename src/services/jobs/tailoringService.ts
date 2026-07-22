@@ -1,5 +1,6 @@
 import {
   buildCanonicalJobRequirementGraph,
+  buildCanonicalJobRequirementGraphV3,
   buildCandidateEvidenceUnits,
   buildJobCoverageReport,
   buildTailoringJobContext,
@@ -100,7 +101,7 @@ export function createTailoringPlan(input: {
     basedOnBranchRevision: input.branch.revision,
     claims,
     clarificationQuestions,
-    materialSuggestions: clarificationQuestions.length ? ["可访问项目、GitHub 仓库或作品演示链接", "Coding Agent usage dashboard、订阅记录或任务日志"] : [],
+    materialSuggestions: jobContext.verificationMaterials ?? [],
     suggestions,
     estimatedFitScore: report.overallCoverage,
     createdAt: input.now ?? new Date().toISOString()
@@ -224,25 +225,37 @@ export function confirmTailoringClaims(input: { plan: ResumeTailoringPlan; confi
   };
 }
 
-function buildClarificationQuestions(input: { job: JobDescription; taskInputs: ResumeTailorTaskInputV2[] }) {
-  const raw = `${input.job.title} ${input.job.rawText}`;
-  if (!/cursor|claude code|codex|windsurf|coding agent|badcase|verifier/i.test(raw)) return [];
-  const requirementIds = input.job.requirements.slice(0, 4).map((item) => item.id);
-  if (!requirementIds.length) return [];
-  const related = input.taskInputs.filter((item) => ["summary", "skills", "project", "work", "internship"].includes(item.target.sectionType)).slice(0, 4);
-  const relatedItemIds = [...new Set(related.map((item) => item.target.itemId ?? item.target.sectionId))];
-  const targetFieldPaths = [...new Set(related.map((item) => item.target.fieldPath))];
-  if (!relatedItemIds.length || !targetFieldPaths.length) return [];
-  const specs = [
-    ["是否在 示例任务系统、示例学习助手 或其他项目中使用过 Cursor、Claude Code、Codex 或 Windsurf？", "工具使用经历", "boolean"],
-    ["使用程度属于哪一档？", "AI Coding 工具熟练程度", "proficiency"],
-    ["是否遇到过 coding agent 看似完成但实际没有完成的真实 badcase？", "Coding Agent badcase 经验", "boolean"],
-    ["能否说明失败表现、复现步骤和失败原因？", "复现并定位 Coding Agent 失败", "text"],
-    ["是否设计过自动化测试、验收脚本、Playwright E2E、Vitest 或其他 verifier？", "自动化 verifier 设计经验", "multi_select"],
-    ["是否比较过不同 coding agent 的能力差异？", "Coding Agent 能力评测经验", "boolean"],
-    ["是否有 usage dashboard、订阅记录、GitHub 或可访问项目可以作为材料？", "可核验的补充材料", "url"]
-  ] as const;
-  return specs.map(([question, candidateClaim, answerType], index) => ({ id: `clarification-${index + 1}`, question, requirementIds, relatedItemIds, candidateClaim, targetFieldPaths, answerType }));
+export function buildClarificationQuestions(input: { job: JobDescription; taskInputs: ResumeTailorTaskInputV2[] }) {
+  const graph = buildCanonicalJobRequirementGraphV3(input.job);
+  const candidates = graph.requirements.filter((node) => node.priority === "must" || node.priority === "high");
+  const fallbackTargets = input.taskInputs.filter((item) => ["summary", "skills", "project", "work", "internship"].includes(item.target.sectionType)).slice(0, 4);
+  return candidates.flatMap((requirement, index) => {
+    const directlyRelated = input.taskInputs.filter((item) => item.relevantRequirements.some((related) => related.requirementId === requirement.id));
+    const hasEvidence = directlyRelated.some((item) => item.allowedEvidenceRefs.length > 0);
+    if (hasEvidence) return [];
+    const related = (directlyRelated.length ? directlyRelated : fallbackTargets).slice(0, 4);
+    const sourceItemIds = [...new Set(related.map((item) => item.target.itemId ?? item.target.sectionId))];
+    const targetFieldPaths = [...new Set(related.map((item) => item.target.fieldPath))];
+    if (!sourceItemIds.length || !targetFieldPaths.length) return [];
+    return [{
+      id: `clarification-${requirement.id}-${index + 1}`,
+      question: `你是否具备“${requirement.statement}”相关的真实经历或可核验材料？`,
+      requirementIds: [requirement.id],
+      groupId: requirement.parentGroupId,
+      sourceItemIds,
+      relatedItemIds: sourceItemIds,
+      candidateClaim: requirement.statement,
+      targetFieldPaths,
+      answerType: clarificationAnswerType(requirement.statement)
+    }];
+  });
+}
+
+function clarificationAnswerType(statement: string): "boolean" | "proficiency" | "text" | "url" | "multi_select" {
+  if (/cursor|claude code|codex|windsurf/i.test(statement)) return "proficiency";
+  if (/badcase|复现|原因|failure/i.test(statement)) return "text";
+  if (/playwright|vitest|verifier|benchmark/i.test(statement)) return "multi_select";
+  return "boolean";
 }
 
 function resolveConfirmedClaimText(claim: TailoringClaim, confirmation: ClaimConfirmation) {

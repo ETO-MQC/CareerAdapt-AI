@@ -2,6 +2,7 @@ import { z } from "zod";
 import { EntityBaseSchema, IsoDateStringSchema, PdfLocatorStatusSchema, PdfSourceLocatorSchema, SourceSpanSchema } from "./common";
 import { ExperienceTypeSchema } from "./profile";
 import { JobRequirementCategorySchema } from "./job";
+import { JobRequirementGraphV3Schema } from "./jobOptimizationV3";
 
 export const RawInputKindSchema = z.enum(["resume_text", "resume_pdf_text", "job_jd"]);
 
@@ -47,6 +48,7 @@ export const DraftStatusSchema = z.enum([
   "privacy_pending",
   "analyzing",
   "ai_validated",
+  "needs_review",
   "editing",
   "manual_mode",
   "confirming",
@@ -280,6 +282,8 @@ export const JobAnalysisDraftSchema = EntityBaseSchema.extend({
   promptVersion: z.string().min(1),
   attemptCount: z.number().int().min(0).default(0),
   analyzerOutput: JdAnalyzerOutputSchema.optional(),
+  requirementGraph: JobRequirementGraphV3Schema.optional(),
+  analysisIssues: z.array(z.string().min(1)).optional(),
   manualRequirements: z.array(JdAnalyzerRequirementSchema).default([]),
   riskNotes: z.array(z.string()).default([]),
   saveError: z.string().optional(),

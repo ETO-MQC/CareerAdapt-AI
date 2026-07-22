@@ -78,6 +78,25 @@ export function analyzeJobDescriptionV2(input: { rawText: string; now?: string }
 }
 
 export function buildCanonicalJobRequirementGraph(job: JobDescription): JobRequirementGraphV2 {
+  if (job.requirementGraph) {
+    const nodes = job.requirementGraph.requirements.map((node): JobRequirementNodeV2 => ({
+      id: node.id,
+      kind: node.kind,
+      statement: node.statement,
+      normalizedIntent: node.normalizedIntent,
+      priority: node.priority,
+      hardConstraint: node.hardConstraint,
+      exactKeywords: node.exactKeywords,
+      semanticAliases: node.semanticAliases,
+      sourceSpan: node.sourceSpan,
+      sourceSpans: node.sourceSpans,
+      confidence: node.confidence,
+      needsConfirmation: node.needsConfirmation,
+      relatedRequirementIds: []
+    }));
+    linkRelatedNodes(nodes);
+    return JobRequirementGraphV2Schema.parse({ schemaVersion: "job-requirement-graph-v2", nodes, unclassifiedSourceSpans: job.requirementGraph.sourceCoverage.unclassifiedSpans, analyzedAt: new Date().toISOString(), analyzerVersion: `${job.requirementGraph.analyzerVersion}.v2-projection` });
+  }
   if (job.requirements.length === 0) return analyzeJobDescriptionV2({ rawText: job.rawText });
   const nodes = job.requirements
     .filter((requirement) => !METADATA_ONLY.test(requirement.description))

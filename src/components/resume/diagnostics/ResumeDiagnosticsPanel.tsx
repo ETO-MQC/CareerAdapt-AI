@@ -1,26 +1,12 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import type {
-  ResumeDiagnosticAction,
-  ResumeDiagnosticCategory,
-  ResumeDiagnosticIssue,
-  ResumeDiagnosticSnapshot
-} from "@/domain/schemas";
+import { useMemo, useState } from "react";
+import type { ResumeDiagnosticAction, ResumeDiagnosticIssue, ResumeDiagnosticSnapshot } from "@/domain/schemas";
 
-type DiagnosticFilter = "all" | ResumeDiagnosticCategory;
+type DeliveryFilter = "all" | "must_handle" | "job_match" | "content" | "format";
 
 export function ResumeDiagnosticsPanel({
-  snapshot,
-  stale,
-  running,
-  error,
-  canEdit,
-  onRun,
-  onLocateIssue,
-  onApplyAction,
-  onIgnoreIssue
+  snapshot, stale, running, error, canEdit, onRun, onLocateIssue, onApplyAction, onIgnoreIssue
 }: {
   snapshot?: ResumeDiagnosticSnapshot;
   stale: boolean;
@@ -33,272 +19,101 @@ export function ResumeDiagnosticsPanel({
   onIgnoreIssue: (issue: ResumeDiagnosticIssue) => void;
 }) {
   const [open, setOpen] = useState(true);
-  const [filter, setFilter] = useState<DiagnosticFilter>("all");
-  const openIssues = useMemo(() => snapshot?.issues.filter((issue) => issue.status !== "ignored") ?? [], [snapshot]);
-  const filteredIssues = useMemo(() => {
-    const issues = openIssues.filter((issue) => filter === "all" || issue.category === filter);
-    return [...issues].sort((left, right) => severityRank(right) - severityRank(left) || left.code.localeCompare(right.code));
-  }, [filter, openIssues]);
-  const categories = useMemo(() => {
-    const keys: DiagnosticFilter[] = ["all", ...Array.from(new Set(openIssues.map((issue) => issue.category)))];
-    return keys;
-  }, [openIssues]);
-
-  const scrollRef = useRef<HTMLDivElement>(null);
-
-  function scrollCards(direction: "left" | "right") {
-    if (!scrollRef.current) return;
-    const scrollAmount = 300;
-    scrollRef.current.scrollBy({
-      left: direction === "left" ? -scrollAmount : scrollAmount,
-      behavior: "smooth"
-    });
-  }
+  const [filter, setFilter] = useState<DeliveryFilter>("all");
+  const issues = useMemo(() => mergePrimaryIssues(snapshot?.issues.filter((issue) => issue.status !== "ignored") ?? []), [snapshot]);
+  const filtered = useMemo(() => issues
+    .filter((issue) => filter === "all" || deliveryCategory(issue) === filter)
+    .sort((left, right) => severityRank(right) - severityRank(left) || left.title.localeCompare(right.title, "zh-CN")), [filter, issues]);
+  const counts = useMemo(() => ({
+    must_handle: issues.filter((issue) => deliveryCategory(issue) === "must_handle").length,
+    job_match: issues.filter((issue) => deliveryCategory(issue) === "job_match").length,
+    content: issues.filter((issue) => deliveryCategory(issue) === "content").length,
+    format: issues.filter((issue) => deliveryCategory(issue) === "format").length
+  }), [issues]);
 
   return (
     <section className="no-print diagnostics-panel studio-subpanel" data-testid="resume-diagnostics-panel">
       <div className="section-heading">
         <div>
-          <h2>简历诊断</h2>
-          <p aria-live="polite">
-            {running
-              ? "正在检查当前内容、岗位匹配和版面状态。"
-              : stale
-                ? "诊断已过期，请重新检查。"
-                : snapshot
-                  ? `最近诊断：${snapshot.summary.open} 个未处理问题。`
-                  : "尚未运行诊断。"}
-          </p>
+          <h2>投递检查</h2>
+          <p aria-live="polite">{running ? "正在检查岗位匹配、内容表达和排版…" : stale ? "检查结果已过期，请重新检查。" : snapshot ? `还有 ${issues.length} 项可处理。` : "检查投递前需要处理的内容。"}</p>
         </div>
         <div className="action-row">
-          <button className="secondary-button compact" type="button" onClick={() => setOpen((current) => !current)}>
-            {open ? "收起" : "展开"}
-          </button>
-          <button className="primary-button compact" data-testid="run-resume-diagnostics" type="button" disabled={running} onClick={onRun}>
-            重新检查
-          </button>
+          <button className="secondary-button compact" type="button" onClick={() => setOpen((current) => !current)}>{open ? "收起" : "展开"}</button>
+          <button className="primary-button compact" data-testid="run-resume-diagnostics" type="button" disabled={running} onClick={onRun}>重新检查</button>
         </div>
       </div>
-      {open ? (
-        <>
-          {error ? <div className="diagnostic-notice" data-testid="diagnostic-error">{error}</div> : null}
-          {snapshot ? (
-            <>
-              <div className="diagnostics-summary" data-testid="diagnostics-summary">
-                <SummaryTile label="总问题" value={snapshot.summary.open} />
-                <SummaryTile label="严重" value={snapshot.summary.critical} tone="critical" />
-                <SummaryTile label="提醒" value={snapshot.summary.warning} tone="warning" />
-                <SummaryTile label="提示" value={snapshot.summary.info} />
-                <SummaryTile label="岗位覆盖" value={`${snapshot.summary.requirementCoverage.covered}/${snapshot.summary.requirementCoverage.totalRequirements}`} />
-                <SummaryTile label="页数" value={`${snapshot.summary.page.actualPageCount}/${snapshot.summary.page.requestedMaxPages}`} />
-                <SummaryTile label="系统解析友好度" value={atsStatusLabel(snapshot.summary.atsStructureStatus)} />
-                <SummaryTile
-                  label="导出"
-                  value={snapshot.summary.exportHardBlocked ? "已阻断" : "可继续"}
-                  tone={snapshot.summary.exportHardBlocked ? "critical" : undefined}
-                />
-              </div>
-              {stale ? <div className="diagnostic-notice" data-testid="stale-diagnostic">当前内容、岗位、模板或分页已变化，旧诊断仅供参考。</div> : null}
-              <div className="diagnostic-filter-row" data-testid="diagnostic-category-filters">
-                {categories.map((category) => (
-                  <button
-                    key={category}
-                    type="button"
-                    className={`secondary-button compact ${filter === category ? "property-tab-active" : ""}`}
-                    onClick={() => setFilter(category)}
-                  >
-                    {categoryLabel(category)}
-                  </button>
-                ))}
-              </div>
-              <div className="diagnostic-cards-wrapper">
-                <button
-                  type="button"
-                  className="diagnostic-scroll-btn diagnostic-scroll-btn-left"
-                  onClick={() => scrollCards("left")}
-                  aria-label="向左滚动"
-                >
-                  <ChevronLeft size={16} />
-                </button>
-                <div className="diagnostic-issue-list" ref={scrollRef} data-testid="diagnostic-issue-list">
-                  {filteredIssues.length > 0 ? filteredIssues.map((issue) => (
-                    <DiagnosticIssueCard
-                      key={issue.id}
-                      issue={issue}
-                      canEdit={canEdit}
-                      onLocate={() => onLocateIssue(issue)}
-                      onApplyAction={(action) => onApplyAction(issue, action)}
-                      onIgnore={() => onIgnoreIssue(issue)}
-                    />
-                  )) : <p className="save-status">当前筛选下没有未处理诊断项。</p>}
-                </div>
-                <button
-                  type="button"
-                  className="diagnostic-scroll-btn diagnostic-scroll-btn-right"
-                  onClick={() => scrollCards("right")}
-                  aria-label="向右滚动"
-                >
-                  <ChevronRight size={16} />
-                </button>
-              </div>
-            </>
-          ) : (
-            <div className="diagnostic-notice">点击"重新检查"后，会基于当前正文、岗位要求、展示设置、模板和分页状态生成诊断结果。</div>
-          )}
-        </>
-      ) : null}
+      {open ? <>
+        {error ? <div className="diagnostic-notice" role="alert" data-testid="diagnostic-error">{error}</div> : null}
+        {snapshot ? <>
+          <div className="diagnostics-summary" data-testid="diagnostics-summary">
+            <SummaryTile label="必须处理" value={counts.must_handle || "已通过"} tone={counts.must_handle ? "critical" : undefined} />
+            <SummaryTile label="岗位匹配" value={counts.job_match || "已通过"} />
+            <SummaryTile label="内容表达" value={counts.content || "已通过"} />
+            <SummaryTile label="排版与系统解析" value={counts.format || "已通过"} />
+          </div>
+          {stale ? <div className="diagnostic-notice" data-testid="stale-diagnostic">正文、岗位、模板或分页已变化，旧结果仅供参考。</div> : null}
+          <div className="diagnostic-filter-row" data-testid="diagnostic-category-filters">
+            {(["all", "must_handle", "job_match", "content", "format"] as const).map((value) => <button key={value} type="button" className={`secondary-button compact ${filter === value ? "property-tab-active" : ""}`} onClick={() => setFilter(value)}>{filterLabel(value, counts)}</button>)}
+          </div>
+          <div className="diagnostic-issue-list" data-testid="diagnostic-issue-list">
+            {filtered.length ? filtered.map((issue) => <DiagnosticIssue key={issue.id} issue={issue} canEdit={canEdit} onLocate={() => onLocateIssue(issue)} onApply={(action) => onApplyAction(issue, action)} onIgnore={() => onIgnoreIssue(issue)} />) : <p className="save-status">这一类已通过检查。</p>}
+          </div>
+        </> : <div className="diagnostic-notice">点击“重新检查”，查看投递前需要处理和建议优化的项目。</div>}
+      </> : null}
     </section>
   );
 }
 
-function SummaryTile({ label, value, tone }: { label: string; value: string | number; tone?: "critical" | "warning" }) {
-  return (
-    <div className={`diagnostics-summary-tile ${tone ? `diagnostics-summary-tile-${tone}` : ""}`}>
-      <span>{label}</span>
-      <strong>{value}</strong>
+function SummaryTile({ label, value, tone }: { label: string; value: string | number; tone?: "critical" }) {
+  return <div className={`diagnostics-summary-tile ${tone ? `diagnostics-summary-tile-${tone}` : ""}`}><span>{label}</span><strong>{value}</strong></div>;
+}
+
+function DiagnosticIssue({ issue, canEdit, onLocate, onApply, onIgnore }: { issue: ResumeDiagnosticIssue; canEdit: boolean; onLocate: () => void; onApply: (action: ResumeDiagnosticAction) => void; onIgnore: () => void }) {
+  return <article className={`diagnostic-card diagnostic-card-${issue.severity}`} data-testid={`diagnostic-issue-${issue.code}`}>
+    <div className="diagnostic-card-heading"><span className="diagnostic-severity">{statusLabel(issue)}</span><span>{factStatus(issue)}</span></div>
+    <h3>{issue.title}</h3>
+    <p>{issue.description}</p>
+    <div className="action-row diagnostic-card-actions">
+      <button className="secondary-button compact" type="button" onClick={onLocate}>定位内容</button>
+      {issue.recommendedActions.map((action) => <button key={action.id} className={action.safeAutoApply ? "primary-button compact" : "secondary-button compact"} type="button" disabled={action.safeAutoApply && !canEdit} onClick={() => onApply(action)}>{action.label.replace(/G5a\s*/g, "")}</button>)}
+      <button className="secondary-button compact" type="button" onClick={onIgnore}>可忽略</button>
     </div>
-  );
+    <details>
+      <summary>技术详情</summary>
+      <div className="diagnostic-targets"><span>问题代码：{issue.code}</span>{issue.requirementIds.length ? <span>要求：{issue.requirementIds.join(", ")}</span> : null}{issue.contentItemIds.length ? <span>内容：{issue.contentItemIds.join(", ")}</span> : null}</div>
+      {issue.evidence.length ? <dl className="diagnostic-evidence">{issue.evidence.map((item, index) => <div key={`${item.label}-${index}`}><dt>{item.label}</dt><dd>{String(item.value)}</dd></div>)}</dl> : null}
+    </details>
+  </article>;
 }
 
-function DiagnosticIssueCard({
-  issue,
-  canEdit,
-  onLocate,
-  onApplyAction,
-  onIgnore
-}: {
-  issue: ResumeDiagnosticIssue;
-  canEdit: boolean;
-  onLocate: () => void;
-  onApplyAction: (action: ResumeDiagnosticAction) => void;
-  onIgnore: () => void;
-}) {
-  return (
-    <article className={`diagnostic-card diagnostic-card-${issue.severity}`} data-testid={`diagnostic-issue-${issue.code}`}>
-      <div className="diagnostic-card-heading">
-        <div>
-          <span className="diagnostic-severity">{severityLabel(issue.severity)}</span>
-          <span className="diagnostic-category">{categoryLabel(issue.category)}</span>
-        </div>
-        <span>{issue.code}</span>
-      </div>
-      <h3>{issue.title}</h3>
-      <ExpandableText text={issue.description} threshold={150} />
-      <div className="diagnostic-targets">
-        {issue.requirementIds.length ? <span>岗位要求：{issue.requirementIds.join(", ")}</span> : null}
-        {issue.sectionType ? <span>栏目：{sectionTypeLabel(issue.sectionType)}</span> : null}
-        {issue.contentItemIds.length ? <span>段落：{issue.contentItemIds.join(", ")}</span> : null}
-      </div>
-      {issue.evidence.length ? (
-        <dl className="diagnostic-evidence">
-          {issue.evidence.map((item, index) => (
-            <div key={`${item.label}-${index}`}>
-              <dt>{item.label}</dt>
-              <dd>{String(item.value)}</dd>
-            </div>
-          ))}
-        </dl>
-      ) : null}
-      <div className="action-row diagnostic-card-actions">
-        <button className="secondary-button compact" type="button" onClick={onLocate}>
-          定位
-        </button>
-        {issue.recommendedActions.map((action) => (
-          <button
-            key={action.id}
-            className={action.safeAutoApply ? "primary-button compact" : "secondary-button compact"}
-            type="button"
-            disabled={action.safeAutoApply && !canEdit}
-            onClick={() => onApplyAction(action)}
-          >
-            {action.label}
-          </button>
-        ))}
-        <button className="secondary-button compact" type="button" onClick={onIgnore}>
-          忽略
-        </button>
-      </div>
-    </article>
-  );
+function mergePrimaryIssues(issues: ResumeDiagnosticIssue[]) {
+  const byKey = new Map<string, ResumeDiagnosticIssue>();
+  for (const issue of issues) {
+    const requirementId = issue.requirementIds[0];
+    const key = requirementId && ["REQUIRED_REQUIREMENT_NOT_COVERED", "PREFERRED_REQUIREMENT_NOT_COVERED", "REQUIREMENT_FACT_GAP"].includes(issue.code) ? `requirement-gap:${requirementId}` : issue.id;
+    const existing = byKey.get(key);
+    if (!existing || severityRank(issue) > severityRank(existing) || issue.code.includes("NOT_COVERED")) byKey.set(key, issue);
+  }
+  return [...byKey.values()];
 }
 
-function severityRank(issue: ResumeDiagnosticIssue) {
-  if (issue.severity === "critical") {
-    return 3;
-  }
-  if (issue.severity === "warning") {
-    return 2;
-  }
-  return 1;
+function deliveryCategory(issue: ResumeDiagnosticIssue): Exclude<DeliveryFilter, "all"> {
+  if (issue.severity === "critical") return "must_handle";
+  if (["requirement_coverage", "fact_gap"].includes(issue.category)) return "job_match";
+  if (["content_relevance", "content_density", "readability", "contact_completeness", "section_structure"].includes(issue.category)) return "content";
+  return "format";
 }
-
-function severityLabel(severity: ResumeDiagnosticIssue["severity"]) {
-  if (severity === "critical") {
-    return "严重";
-  }
-  if (severity === "warning") {
-    return "提醒";
-  }
-  return "提示";
+function statusLabel(issue: ResumeDiagnosticIssue) { return issue.severity === "critical" ? "必须处理" : issue.severity === "warning" ? "建议优化" : "可忽略"; }
+function factStatus(issue: ResumeDiagnosticIssue) {
+  if (/FACT_GAP|NOT_COVERED/.test(issue.code)) return "需要补充材料";
+  if (/CONFIRM|RISK/.test(issue.code)) return "需要用户确认";
+  if (issue.evidence.length) return "已有事实支持";
+  return "不适合加入简历";
 }
-
-function categoryLabel(category: DiagnosticFilter) {
-  const labels: Record<DiagnosticFilter, string> = {
-    all: "全部诊断",
-    requirement_coverage: "岗位覆盖",
-    fact_gap: "事实缺口",
-    content_relevance: "相关性",
-    content_density: "内容密度",
-    readability: "可读性",
-    spacing: "间距",
-    pagination: "分页",
-    template_fit: "模板适配",
-    ats_structure: "系统解析",
-    contact_completeness: "联系方式",
-    section_structure: "栏目结构"
-  };
-  return labels[category];
-}
-
-function sectionTypeLabel(sectionType: ResumeDiagnosticIssue["sectionType"]) {
-  const labels: Record<string, string> = {
-    summary: "个人总结",
-    experience: "经历",
-    skills: "技能",
-    certificates: "证书"
-  };
-  return sectionType ? labels[sectionType] ?? sectionType : "";
-}
-
-function atsStatusLabel(status: ResumeDiagnosticSnapshot["summary"]["atsStructureStatus"]) {
-  if (status === "structure_friendly") {
-    return "结构友好";
-  }
-  if (status === "minor_risk") {
-    return "轻度风险";
-  }
-  if (status === "clear_risk") {
-    return "明显风险";
-  }
-  return "无法确认";
-}
-
-function ExpandableText({ text, threshold = 150 }: { text: string; threshold?: number }) {
-  const [expanded, setExpanded] = useState(false);
-  if (text.length <= threshold) {
-    return <p>{text}</p>;
-  }
-  return (
-    <p>
-      {expanded ? text : `${text.slice(0, threshold)}…`}
-      <button
-        type="button"
-        className="secondary-button compact"
-        style={{ marginLeft: 6, verticalAlign: "middle" }}
-        onClick={() => setExpanded((current) => !current)}
-      >
-        {expanded ? "收起" : "展开全文"}
-      </button>
-    </p>
-  );
+function severityRank(issue: ResumeDiagnosticIssue) { return issue.severity === "critical" ? 3 : issue.severity === "warning" ? 2 : 1; }
+function filterLabel(value: DeliveryFilter, counts: Record<Exclude<DeliveryFilter, "all">, number>) {
+  if (value === "all") return "全部";
+  const label = { must_handle: "必须处理", job_match: "岗位匹配", content: "内容表达", format: "排版与系统解析" }[value];
+  return `${label} ${counts[value]}`;
 }

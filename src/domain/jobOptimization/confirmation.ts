@@ -73,7 +73,7 @@ export function tailoringTargetPriority(itemId: string, text: string) {
   const value = `${itemId} ${text}`.toLowerCase();
   let score = 0;
   const signals: Array<[RegExp, number]> = [
-    [/smartfocus/, 120], [/learnkata/, 105], [/示例内容|redbook/, 90], [/ai\s*辅助开发|指令评估/, 75],
+    [/ai\s*辅助开发|指令评估/, 20],
     [/coding agent/, 18], [/复杂任务拆解|多文件/, 16], [/错误复现|复现/, 15], [/模型输出验证|验证模型输出/, 14],
     [/自动化测试|playwright|vitest/, 13], [/风险操作|约束/, 12], [/rag.*幻觉|拒答边界/, 11], [/badcase|verifier|benchmark/, 10]
   ];

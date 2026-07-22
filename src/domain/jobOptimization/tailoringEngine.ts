@@ -1,4 +1,4 @@
-import { analyzeJobDescriptionV2 } from "./v2";
+import { buildCanonicalJobRequirementGraphV3 } from "./v3";
 import type {
   BranchContentItem,
   JobDescription,
@@ -30,10 +30,8 @@ export type TailoringDeltaValidation = {
 };
 
 export function buildTailoringJobContext(job: JobDescription): TailoringJobContext {
-  const graph = analyzeJobDescriptionV2({ rawText: job.rawText });
-  const requirements = job.requirements.length ? job.requirements.map((item) => ({
-    description: item.description, category: item.category, priority: item.priority, keywords: item.keywords
-  })) : graph.nodes.map((item) => ({
+  const graph = buildCanonicalJobRequirementGraphV3(job);
+  const requirements = graph.requirements.map((item) => ({
     description: item.statement, category: item.kind, priority: item.priority, keywords: item.exactKeywords
   }));
   const byCategory = (categories: string[]) => requirements.filter((item) => categories.includes(item.category)).map((item) => item.description);
@@ -42,10 +40,12 @@ export function buildTailoringJobContext(job: JobDescription): TailoringJobConte
     title: job.title,
     company: job.company || undefined,
     rawText: job.rawText,
-    roleMission: byCategory(["responsibility"])[0] ?? requirements[0]?.description,
+    roleMission: graph.roleProfile.mission ?? byCategory(["responsibility"])[0] ?? requirements[0]?.description,
     responsibilities: byCategory(["responsibility"]),
     mustHave: requirements.filter((item) => item.priority === "must" || item.priority === "high" || ["must_have", "required_skill", "core_skill"].includes(item.category)).map((item) => item.description),
     niceToHave: requirements.filter((item) => item.priority === "nice_to_have" || ["nice_to_have", "preferred_skill"].includes(item.category)).map((item) => item.description),
+    verificationMaterials: graph.verificationMaterials.map((item) => item.label),
+    hiringSignals: graph.roleProfile.hiringSignals.map((item) => item.statement),
     tools: unique(requirements.filter((item) => ["tool", "required_skill", "core_skill"].includes(item.category)).flatMap((item) => item.keywords)),
     keywords
   };
@@ -57,10 +57,8 @@ export function routeTailoringRequirements(input: {
   renderedText: string;
   itemId?: string;
 }): TailoringRequirement[] {
-  const graph = analyzeJobDescriptionV2({ rawText: input.job.rawText });
-  const source = input.job.requirements.length ? input.job.requirements.map((item) => ({
-    id: item.id, description: item.description, priority: item.priority, category: item.category, keywords: item.keywords
-  })) : graph.nodes.map((item) => ({
+  const graph = buildCanonicalJobRequirementGraphV3(input.job);
+  const source = graph.requirements.map((item) => ({
     id: item.id, description: item.statement, priority: item.priority, category: item.kind, keywords: item.exactKeywords
   }));
   const haystack = normalize(`${input.itemId ?? ""} ${input.renderedText}`);
@@ -68,7 +66,7 @@ export function routeTailoringRequirements(input: {
     const keywordHits = unique(item.keywords).filter((keyword) => haystack.includes(normalize(keyword))).length;
     const descriptionHits = tokenize(item.description).filter((token) => token.length > 1 && haystack.includes(token)).length;
     const categoryScore = categoryRelevance(input.sectionType, item.category);
-    const priorityScore = item.priority === "must" || item.priority === "high" ? 4 : item.priority === "important" || item.priority === "medium" ? 2 : 0;
+    const priorityScore = item.priority === "must" || item.priority === "high" ? 4 : item.priority === "medium" ? 2 : 0;
     return {
       requirementId: item.id,
       description: item.description,
@@ -211,7 +209,8 @@ export function createResumeTailorTaskInputs(input: {
         allowedEvidenceRefs,
         allowedFacts: unique(allowedEvidenceRefs.map((ref) => ref.factText)).map((value) => ({ value, evidenceRefs: allowedEvidenceRefs.filter((ref) => ref.factText === value) }))
       })];
-    });
+    })
+    .sort(compareTailoringTaskInputs);
 }
 
 function targetFor(branch: ResumeBranch, item: BranchContentItem) {
@@ -233,32 +232,20 @@ function targetFor(branch: ResumeBranch, item: BranchContentItem) {
 }
 
 function rewriteField(input: { before: string | string[]; intensity: TailoringIntensity; sectionType: TailoringSectionPolicy; jobTitle: string; requirements: TailoringRequirement[]; targetKeywords: string[] }): string | string[] {
+  if (input.intensity === "conservative") return mapFieldValue(input.before, alignKeywordVariants);
+  if (input.intensity === "balanced") return mapFieldValue(input.before, (value) => foregroundExistingEvidence(alignKeywordVariants(value), input.targetKeywords));
   const before = render(input.before).trim().replace(/[。；;]+$/, "");
   const matched = input.targetKeywords.filter((keyword) => normalize(before).includes(normalize(keyword)));
   const missing = input.targetKeywords.filter((keyword) => !matched.includes(keyword));
-  const keywords = input.intensity === "conservative"
-    ? unique([...matched.slice(0, 1), ...missing.slice(0, 1)])
-    : input.intensity === "balanced"
-      ? unique([...matched.slice(0, 2), ...missing.slice(0, 2)])
-      : unique([...matched.slice(0, 3), ...missing.slice(0, 3)]);
+  const keywords = unique([...matched.slice(0, 3), ...missing.slice(0, 3)]);
   const focus = keywords.join("、") || input.requirements[0].description;
   let rewritten: string;
-  if (input.intensity === "conservative") {
-    rewritten = input.sectionType === "summary" ? `${before}。关注${input.jobTitle}要求中的${focus}。` : `${before}；补充验证${focus}相关流程。`;
-  } else if (input.intensity === "balanced") {
-    rewritten = input.sectionType === "summary"
-      ? `持续实践${focus}，能够复现问题、定位原因并验证输出。${before}。`
-      : `设计并验证${focus}相关流程：${before}。`;
-  } else {
-    rewritten = input.sectionType === "summary"
-      ? `${input.jobTitle}方向的工程实践者，围绕${focus}复现问题、定位原因、验证输出并迭代约束。${before}。`
-      : `围绕${focus}复现问题、定位原因并验证结果：${before}。`;
-  }
+  rewritten = input.sectionType === "summary"
+    ? `${input.jobTitle}方向的工程实践者，围绕${focus}复现问题、定位原因、验证输出并迭代约束。${before}。`
+    : `围绕${focus}复现问题、定位原因并验证结果：${before}。`;
   if (Array.isArray(input.before)) {
     const original = input.before.filter(Boolean);
-    if (input.intensity === "conservative") return original.map((line, index) => index === 0 ? rewritten : line);
-    if (input.intensity === "balanced") return [rewritten, ...original.slice(1, 3)];
-    return [rewritten, ...original.slice(0, 2)].slice(0, 3);
+    return original.map((line, index) => index === 0 ? rewritten : line);
   }
   return rewritten;
 }
@@ -310,6 +297,22 @@ function normalizeComparable(value: string) { return value.replace(/<[^>]+>/g, "
 function normalize(value: string) { return value.trim().replace(/\s+/g, " ").toLowerCase(); }
 function tokenize(value: string) { return unique(normalize(value).split(/[^\p{L}\p{N}+#.]+/u).filter(Boolean)); }
 function render(value: string | string[]) { return Array.isArray(value) ? value.join("\n") : value; }
+function mapFieldValue(value: string | string[], transform: (item: string) => string) { return Array.isArray(value) ? value.map(transform) : transform(value); }
+function alignKeywordVariants(value: string) {
+  return value
+    .replace(/React\.js|ReactJS/gi, "React")
+    .replace(/NextJS/gi, "Next.js")
+    .replace(/Type Script/gi, "TypeScript")
+    .replace(/ClaudeCode/gi, "Claude Code")
+    .replace(/Play Wright/gi, "Playwright");
+}
+function foregroundExistingEvidence(value: string, keywords: string[]) {
+  const clauses = value.split(/(?<=[。；;])/).map((item) => item.trim()).filter(Boolean);
+  if (clauses.length < 2) return value;
+  const relevant = clauses.filter((clause) => keywords.some((keyword) => normalize(clause).includes(normalize(keyword))));
+  if (!relevant.length) return value;
+  return [...relevant, ...clauses.filter((clause) => !relevant.includes(clause))].join("");
+}
 function covered(keywords: string[], text: string) { const normalized = normalize(text); return unique(keywords.filter((keyword) => isUsefulKeyword(keyword) && normalized.includes(normalize(keyword)))); }
 function isUsefulKeyword(keyword: string) {
   const normalized = normalizeComparable(keyword);
@@ -322,6 +325,19 @@ function compareTailoringTargets(a: NonNullable<ReturnType<typeof targetFor>>, b
   if (a.sectionType === "summary" || b.sectionType === "summary") return sectionOrder[a.sectionType] - sectionOrder[b.sectionType];
   const relevance = tailoringTargetPriority(b.item.id, b.renderedText) - tailoringTargetPriority(a.item.id, a.renderedText);
   return relevance || sectionOrder[a.sectionType] - sectionOrder[b.sectionType] || a.item.order - b.item.order;
+}
+
+function compareTailoringTaskInputs(a: ResumeTailorTaskInputV2, b: ResumeTailorTaskInputV2) {
+  const experienceSections = new Set(["project", "work", "internship"]);
+  if (experienceSections.has(a.target.sectionType) && experienceSections.has(b.target.sectionType)) {
+    const score = taskEvidenceScore(b) - taskEvidenceScore(a);
+    if (score) return score;
+  }
+  return sectionOrder[a.target.sectionType] - sectionOrder[b.target.sectionType];
+}
+
+function taskEvidenceScore(input: ResumeTailorTaskInputV2) {
+  return Math.max(0, ...input.relevantRequirements.map((item) => item.relevanceScore)) + input.allowedEvidenceRefs.length * 10;
 }
 
 function looksLikeTruncatedSummary(before: string, after: string) {

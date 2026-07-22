@@ -80,6 +80,8 @@ export const TailoringJobContextSchema = z.object({
   responsibilities: z.array(z.string()).default([]),
   mustHave: z.array(z.string()).default([]),
   niceToHave: z.array(z.string()).default([]),
+  verificationMaterials: z.array(z.string()).optional(),
+  hiringSignals: z.array(z.string()).optional(),
   tools: z.array(z.string()).default([]),
   keywords: z.array(z.string()).default([])
 }).strict();
@@ -194,6 +196,8 @@ export const TailoringClarificationQuestionSchema = z.object({
   id: z.string().min(1),
   question: z.string().min(1),
   requirementIds: z.array(z.string().min(1)).min(1),
+  groupId: z.string().min(1).optional(),
+  sourceItemIds: z.array(z.string().min(1)).min(1),
   relatedItemIds: z.array(z.string().min(1)).min(1),
   candidateClaim: z.string().min(1),
   targetFieldPaths: z.array(z.string().min(1)).min(1),

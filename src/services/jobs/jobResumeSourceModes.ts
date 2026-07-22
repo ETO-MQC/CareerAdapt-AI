@@ -1,7 +1,7 @@
 import { buildGeneralBranchFromProfile } from "@/domain/branch/profileBranch";
 import { canonicalProfileLibraryItems, type CanonicalProfileLibraryItem } from "@/domain/profile/canonicalLibrary";
 import {
-  analyzeJobDescriptionV2,
+  buildCanonicalJobRequirementGraph,
   buildCandidateEvidenceUnits,
   buildJobCoverageReport,
   createResumeOptimizationPlan,
@@ -37,7 +37,7 @@ export function analyzeProfileLibrarySource(input: { profile: CareerProfile; job
     includeProfileBasics: true,
     now
   }).branch;
-  const graph = analyzeJobDescriptionV2({ rawText: input.job.rawText, now });
+  const graph = buildCanonicalJobRequirementGraph(input.job);
   const evidenceUnits = buildCandidateEvidenceUnits({ profile: input.profile, branch: ephemeral });
   const recalls = recallEvidenceCandidates({ graph, evidenceUnits });
   const matrix = evaluateRequirementEvidence({ profile: input.profile, graph, evidenceUnits, recalls, now });
