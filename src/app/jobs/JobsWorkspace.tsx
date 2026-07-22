@@ -184,7 +184,13 @@ export function JobsWorkspace() {
       notify({ type: "info", title: "正在解析岗位", message: "系统会先脱敏，再校验 AI 返回的岗位要求。" });
       const analyzing = await saveDraft({ ...draft, title, company, status: "analyzing" });
       const deterministicGraph = analyzeJobDescriptionV3({ rawText: rawInput.rawText });
-      const result = await invokeStageBAi({ task: "jd-analyzer", businessInput: { title, company, rawText: rawInput.rawText, inputHash: rawInput.inputHash }, outputSchema: JdAnalyzerOutputSchema });
+      const deterministic = analyzeJobDescriptionV3({ rawText: rawInput.rawText });
+      const result = await invokeStageBAi({ task: "jd-analyzer", businessInput: {
+        title, company, rawText: rawInput.rawText, inputHash: rawInput.inputHash,
+        sourceUnits: deterministic.sourceUnits,
+        deterministicGroups: deterministic.groups,
+        deterministicHierarchy: deterministic.requirements.map((requirement) => ({ sourceUnitId: requirement.sourceUnitId, detailUnitIds: requirement.details.map((detail) => detail.sourceUnitId), parentGroupId: requirement.parentGroupId }))
+      }, outputSchema: JdAnalyzerOutputSchema });
       await repository.saveAiLogs([result.log]);
       if (!result.ok) {
         const fallback = projectJobGraphV3ToAnalyzerOutput({ graph: deterministicGraph, title, company });
@@ -428,11 +434,21 @@ function PersistentJobError({ error, canUseFallback, onRetry, onFallback }: { er
 
 function DraftReview({ draft, output, saveStatus, onToggle, onToggleAll, onRemove, onCommit }: { draft: JobAnalysisDraft; output: JdAnalyzerOutput; saveStatus: string; onToggle: (id: string, checked: boolean) => void; onToggleAll: (checked: boolean) => void; onRemove: (id: string) => void; onCommit: () => void }) {
   const allChecked = output.requirements.every((r) => r.confirmedByUser);
-  return <section className="panel job-draft-review"><header><div><h2>{draft.analyzerOutput ? "岗位要求草稿" : "本地岗位要求草稿"}</h2><p>{draft.analyzerOutput ? "核对并确认后，再写入正式岗位。" : "AI 解析没有通过格式校验，系统已保留原始 JD，并使用本地规则整理以下要求。"}</p></div><div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}><button className="secondary-button compact" type="button" onClick={() => onToggleAll(!allChecked)}>{allChecked ? "取消全选" : "全选"}</button><button className="primary-button" type="button" data-testid="commit-job" disabled={saveStatus === "saving"} onClick={onCommit}>提交正式岗位</button></div></header><div className="requirement-review-list">{output.requirements.map((requirement) => <RequirementReviewRow key={requirement.id} requirement={requirement} onToggle={onToggle} onRemove={onRemove} />)}</div></section>;
+  const graph = draft.requirementGraph;
+  const section = (title: string, nodes: NonNullable<typeof graph>["requirements"], description?: string) => nodes.length ? <section className="job-draft-section"><header><div><h3>{title}</h3>{description ? <p>{description}</p> : null}</div><span>{nodes.length} 条</span></header><div className="requirement-review-list">{nodes.map((node) => { const requirement = output.requirements.find((item) => item.id === node.id); return requirement ? <RequirementReviewRow key={node.id} requirement={requirement} details={node.details} onToggle={onToggle} onRemove={onRemove} /> : null; })}</div></section> : null;
+  return <section className="panel job-draft-review"><header><div><h2>{draft.analyzerOutput ? "岗位语义核对" : "本地岗位语义核对"}</h2><p>按职责、条件与申请材料核对；子详情不会作为独立要求计分。</p></div><div className="job-draft-actions"><button className="secondary-button compact" type="button" onClick={() => onToggleAll(!allChecked)}>{allChecked ? "取消全选" : "全选"}</button><button className="primary-button" type="button" data-testid="commit-job" disabled={saveStatus === "saving"} onClick={onCommit}>提交正式岗位</button></div></header>{graph ? <div className="job-draft-sections">
+    {graph.roleProfile.mission ? <section className="job-draft-section"><header><h3>岗位核心使命</h3></header><p className="job-mission-copy">{graph.roleProfile.mission}</p></section> : null}
+    {section("工作职责", graph.requirements.filter((node) => node.section === "responsibility"))}
+    {section("必备条件", graph.requirements.filter((node) => node.section === "required"), graph.groups.find((group) => group.relation === "any_of") ? `以下 ${graph.groups.find((group) => group.relation === "any_of")!.requirementIds.length} 条满足任意 1 条即可` : undefined)}
+    {section("加分条件", graph.requirements.filter((node) => node.section === "preferred"), graph.groups.find((group) => group.relation === "preferred_any_of") ? `以下 ${graph.groups.find((group) => group.relation === "preferred_any_of")!.requirementIds.length} 条具备任意一条均为加分` : undefined)}
+    {graph.verificationMaterials.length ? <section className="job-draft-section verification-materials"><header><div><h3>验证材料</h3><p>用于申请材料清单，不计入技能或硬性条件。</p></div><span>{graph.verificationMaterials.length} 条</span></header>{graph.verificationMaterials.map((item) => <article key={item.id}><strong>{item.label}</strong>{item.requiredComponents.length ? <small>{item.requiredComponents.join(" · ")}</small> : null}</article>)}</section> : null}
+    {graph.roleProfile.hiringSignals.length ? <section className="job-draft-section hiring-signals"><header><div><h3>招聘画像</h3><p>招聘方关注特征，用于自我评价与项目叙事。</p></div><span>{graph.roleProfile.hiringSignals.length} 条</span></header>{graph.roleProfile.hiringSignals.map((item) => <article key={item.id}>{item.statement}</article>)}</section> : null}
+    {graph.sourceCoverage.unassignedUnitIds.length ? <section className="job-draft-section"><header><h3>未分类内容</h3></header>{graph.sourceUnits?.filter((unit) => graph.sourceCoverage.unassignedUnitIds.includes(unit.id)).map((unit) => <p key={unit.id}>{unit.text}</p>)}</section> : null}
+  </div> : <div className="requirement-review-list">{output.requirements.map((requirement) => <RequirementReviewRow key={requirement.id} requirement={requirement} details={[]} onToggle={onToggle} onRemove={onRemove} />)}</div>}</section>;
 }
 
-function RequirementReviewRow({ requirement, onToggle, onRemove }: { requirement: JdAnalyzerRequirement; onToggle: (id: string, checked: boolean) => void; onRemove: (id: string) => void }) {
-  return <div className="review-row"><label><input type="checkbox" checked={requirement.confirmedByUser} disabled={!requirement.sourceSpan} onChange={(event) => onToggle(requirement.id, event.target.checked)} /><span><strong>{requirement.description}</strong><small>{categoryLabel(requirement.category)} · {priorityLabel(requirement.priority)}</small></span></label><details><summary>查看依据</summary><p>{requirement.sourceSpan?.text ?? "原文位置待确认"}</p></details><button className="secondary-button compact" type="button" onClick={() => onRemove(requirement.id)}>删除</button></div>;
+function RequirementReviewRow({ requirement, details, onToggle, onRemove }: { requirement: JdAnalyzerRequirement; details: Array<{ id: string; type: string; text: string }>; onToggle: (id: string, checked: boolean) => void; onRemove: (id: string) => void }) {
+  return <article className="review-row"><label><input type="checkbox" checked={requirement.confirmedByUser} disabled={!requirement.sourceSpan} onChange={(event) => onToggle(requirement.id, event.target.checked)} /><span><strong>{requirement.description}</strong><small>{categoryLabel(requirement.category)} · {priorityLabel(requirement.priority)}</small></span></label>{details.length ? <details><summary>{details.length} 条子详情</summary><ul>{details.map((detail) => <li key={detail.id}>{detail.text}</li>)}</ul></details> : null}<details><summary>查看来源</summary><p>{requirement.sourceSpan?.text ?? "原文位置待确认"}</p></details><button className="secondary-button compact" type="button" onClick={() => onRemove(requirement.id)}>排除</button></article>;
 }
 
 function ResumeSourcePanel(props: {
@@ -478,7 +494,7 @@ function JobRequirements({ job }: { job: JobDescription }) {
     })}</section>)}
     {graph ? job.requirements.filter((requirement) => !graph.groups.some((group) => group.requirementIds.includes(requirement.id))).map((requirement) => <RequirementArticle key={requirement.id} requirement={requirement} />) : job.requirements.map((requirement) => <RequirementArticle key={requirement.id} requirement={requirement} />)}
     {graph?.verificationMaterials.length ? <section className="job-requirement-group"><h4>申请材料清单</h4>{graph.verificationMaterials.map((item) => <article key={item.id}><strong>{item.label}</strong><span>验证材料，不计入技能匹配</span>{item.requiredComponents.length ? <small>{item.requiredComponents.join(" · ")}</small> : null}</article>)}</section> : null}
-    {graph?.roleProfile.hiringSignals.length ? <section className="job-requirement-group"><h4>候选人画像</h4>{graph.roleProfile.hiringSignals.map((item) => <article key={item.id}><strong>{item.statement}</strong><span>用于叙事与面试准备，不作为硬条件</span></article>)}</section> : null}
+    {graph?.roleProfile.hiringSignals.length ? <section className="job-requirement-group"><h4>招聘方关注特征</h4>{graph.roleProfile.hiringSignals.map((item) => <article key={item.id}><strong>{item.statement}</strong><span>用于自我评价、项目叙事与面试准备，不作为硬条件</span></article>)}</section> : null}
   </div>;
 }
 function RequirementArticle({ requirement }: { requirement: JobDescription["requirements"][number] }) { return <article><strong>{requirement.description}</strong><span>{categoryLabel(requirement.category)} · {priorityLabel(requirement.priority)}</span><details><summary>查看依据</summary><p>{requirement.sourceSpan.text}</p><small>置信度 {confidenceLabel(requirement.confidence)}</small></details></article>; }

@@ -228,8 +228,14 @@ export function confirmTailoringClaims(input: { plan: ResumeTailoringPlan; confi
 export function buildClarificationQuestions(input: { job: JobDescription; taskInputs: ResumeTailorTaskInputV2[] }) {
   const graph = buildCanonicalJobRequirementGraphV3(input.job);
   const candidates = graph.requirements.filter((node) => node.priority === "must" || node.priority === "high");
+  const emittedAnyOfGroups = new Set<string>();
   const fallbackTargets = input.taskInputs.filter((item) => ["summary", "skills", "project", "work", "internship"].includes(item.target.sectionType)).slice(0, 4);
   return candidates.flatMap((requirement, index) => {
+    const group = requirement.parentGroupId ? graph.groups.find((item) => item.id === requirement.parentGroupId) : undefined;
+    if (group?.relation === "any_of") {
+      if (emittedAnyOfGroups.has(group.id)) return [];
+      emittedAnyOfGroups.add(group.id);
+    }
     const directlyRelated = input.taskInputs.filter((item) => item.relevantRequirements.some((related) => related.requirementId === requirement.id));
     const hasEvidence = directlyRelated.some((item) => item.allowedEvidenceRefs.length > 0);
     if (hasEvidence) return [];
@@ -239,8 +245,8 @@ export function buildClarificationQuestions(input: { job: JobDescription; taskIn
     if (!sourceItemIds.length || !targetFieldPaths.length) return [];
     return [{
       id: `clarification-${requirement.id}-${index + 1}`,
-      question: `你是否具备“${requirement.statement}”相关的真实经历或可核验材料？`,
-      requirementIds: [requirement.id],
+      question: group?.relation === "any_of" ? `以下 ${group.requirementIds.length} 项满足任一项即可；你具备其中哪一项真实经历或可核验材料？` : `你是否具备“${requirement.statement}”相关的真实经历或可核验材料？`,
+      requirementIds: group?.relation === "any_of" ? group.requirementIds : [requirement.id],
       groupId: requirement.parentGroupId,
       sourceItemIds,
       relatedItemIds: sourceItemIds,

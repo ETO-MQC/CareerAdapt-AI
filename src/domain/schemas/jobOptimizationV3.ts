@@ -9,6 +9,30 @@ export const RequirementKindV3Schema = z.enum([
 ]);
 export const RequirementPriorityV3Schema = z.enum(["must", "high", "medium", "nice_to_have", "uncertain"]);
 
+export const JdSourceUnitDispositionSchema = z.enum([
+  "heading", "wrapper", "metadata", "requirement", "requirement_detail",
+  "verification_material", "hiring_signal", "excluded", "unclassified"
+]);
+
+export const JdSourceUnitSchema = z.object({
+  id: z.string().min(1),
+  text: z.string().min(1),
+  sourceSpan: SourceSpanSchema,
+  lineNumber: z.number().int().min(1),
+  indentation: z.number().int().min(0),
+  punctuation: z.enum(["colon_lead", "semicolon_item", "sentence", "heading", "plain"]),
+  disposition: JdSourceUnitDispositionSchema,
+  parentUnitId: z.string().min(1).optional()
+}).strict();
+
+export const RequirementDetailSchema = z.object({
+  id: z.string().min(1),
+  type: z.enum(["scenario", "required_field", "failure_pattern", "constraint", "example", "note"]),
+  text: z.string().min(1),
+  sourceSpan: SourceSpanSchema,
+  sourceUnitId: z.string().min(1)
+}).strict();
+
 export const HiddenSignalSchema = z.object({
   id: z.string().min(1),
   statement: z.string().min(1),
@@ -22,6 +46,7 @@ export const VerificationMaterialSchema = z.object({
   label: z.string().min(1),
   kind: z.enum(["usage_dashboard", "billing_history", "github", "badcase", "other"]),
   requiredComponents: z.array(z.string().min(1)).default([]),
+  sourceUnitId: z.string().min(1).optional(),
   sourceSpan: SourceSpanSchema,
   confidence: z.number().min(0).max(1),
   needsConfirmation: z.boolean()
@@ -47,6 +72,8 @@ export const RequirementNodeV3Schema = z.object({
   exactKeywords: z.array(z.string().min(1)).default([]),
   semanticAliases: z.array(z.string().min(1)).default([]),
   parentGroupId: z.string().min(1).optional(),
+  sourceUnitId: z.string().min(1).optional(),
+  details: z.array(RequirementDetailSchema).default([]),
   sourceSpan: SourceSpanSchema,
   sourceSpans: z.array(SourceSpanSchema).min(1),
   confidence: z.number().min(0).max(1),
@@ -65,13 +92,23 @@ export const JobRequirementGraphV3Schema = z.object({
   groups: z.array(RequirementGroupSchema),
   requirements: z.array(RequirementNodeV3Schema),
   verificationMaterials: z.array(VerificationMaterialSchema),
+  sourceUnits: z.array(JdSourceUnitSchema).optional(),
   sourceCoverage: z.object({
     coveredSpans: z.array(SourceSpanSchema),
     unclassifiedSpans: z.array(SourceSpanSchema),
+    totalMeaningfulUnits: z.number().int().min(0).default(0),
+    assignedUnits: z.number().int().min(0).default(0),
+    unassignedUnitIds: z.array(z.string()).default([]),
+    metadataUnitIds: z.array(z.string()).default([]),
+    excludedUnitIds: z.array(z.string()).default([]),
+    requirementUnitIds: z.array(z.string()).default([]),
+    detailUnitIds: z.array(z.string()).default([]),
+    inventedReferenceCount: z.number().int().min(0).default(0),
     coverageRatio: z.number().min(0).max(1)
   }).strict(),
   analyzerVersion: z.string().min(1),
-  graphHash: z.string().min(8)
+  graphHash: z.string().min(8),
+  semanticEnrichmentHash: z.string().min(8).optional()
 }).strict();
 
 export type HiddenSignal = z.infer<typeof HiddenSignalSchema>;
@@ -79,3 +116,5 @@ export type VerificationMaterial = z.infer<typeof VerificationMaterialSchema>;
 export type RequirementGroup = z.infer<typeof RequirementGroupSchema>;
 export type RequirementNodeV3 = z.infer<typeof RequirementNodeV3Schema>;
 export type JobRequirementGraphV3 = z.infer<typeof JobRequirementGraphV3Schema>;
+export type JdSourceUnit = z.infer<typeof JdSourceUnitSchema>;
+export type RequirementDetail = z.infer<typeof RequirementDetailSchema>;

@@ -32,7 +32,7 @@ export type TailoringDeltaValidation = {
 export function buildTailoringJobContext(job: JobDescription): TailoringJobContext {
   const graph = buildCanonicalJobRequirementGraphV3(job);
   const requirements = graph.requirements.map((item) => ({
-    description: item.statement, category: item.kind, priority: item.priority, keywords: item.exactKeywords
+    description: item.statement, category: item.kind, priority: item.priority, keywords: unique([...item.exactKeywords, ...item.details.flatMap((detail) => tokenize(detail.text))])
   }));
   const byCategory = (categories: string[]) => requirements.filter((item) => categories.includes(item.category)).map((item) => item.description);
   const keywords = unique(requirements.flatMap((item) => item.keywords).filter(isUsefulKeyword));
@@ -59,7 +59,7 @@ export function routeTailoringRequirements(input: {
 }): TailoringRequirement[] {
   const graph = buildCanonicalJobRequirementGraphV3(input.job);
   const source = graph.requirements.map((item) => ({
-    id: item.id, description: item.statement, priority: item.priority, category: item.kind, keywords: item.exactKeywords
+    id: item.id, description: item.statement, priority: item.priority, category: item.kind, keywords: unique([...item.exactKeywords, ...item.details.flatMap((detail) => tokenize(detail.text))])
   }));
   const haystack = normalize(`${input.itemId ?? ""} ${input.renderedText}`);
   return source.map((item) => {
@@ -239,8 +239,7 @@ function rewriteField(input: { before: string | string[]; intensity: TailoringIn
   const missing = input.targetKeywords.filter((keyword) => !matched.includes(keyword));
   const keywords = unique([...matched.slice(0, 3), ...missing.slice(0, 3)]);
   const focus = keywords.join("、") || input.requirements[0].description;
-  let rewritten: string;
-  rewritten = input.sectionType === "summary"
+  const rewritten = input.sectionType === "summary"
     ? `${input.jobTitle}方向的工程实践者，围绕${focus}复现问题、定位原因、验证输出并迭代约束。${before}。`
     : `围绕${focus}复现问题、定位原因并验证结果：${before}。`;
   if (Array.isArray(input.before)) {

@@ -15,6 +15,12 @@ export function mapJobDraftToJobDescription(input: {
 }): JobDescription {
   const now = input.now ?? new Date().toISOString();
   const output = getJobOutput(input.draft);
+  const confirmedIds = new Set(output.requirements.filter((requirement) => requirement.confirmedByUser && requirement.sourceSpan).map((requirement) => requirement.id));
+  const requirementGraph = input.draft.requirementGraph ? {
+    ...input.draft.requirementGraph,
+    requirements: input.draft.requirementGraph.requirements.filter((requirement) => confirmedIds.has(requirement.id)),
+    groups: input.draft.requirementGraph.groups.map((group) => ({ ...group, requirementIds: group.requirementIds.filter((id) => confirmedIds.has(id) || input.draft.requirementGraph!.verificationMaterials.some((material) => material.id === id)) }))
+  } : undefined;
 
   return JobDescriptionSchema.parse({
     id: input.jobId ?? `job-${nanoid(10)}`,
@@ -26,7 +32,7 @@ export function mapJobDraftToJobDescription(input: {
     rawText: input.rawInput.rawText,
     source: "imported_text",
     parsedAt: now,
-    requirementGraph: input.draft.requirementGraph,
+    requirementGraph,
     analysisStatus: input.draft.status === "needs_review" ? "needs_review" : input.draft.requirementGraph ? "validated" : undefined,
     analysisIssues: input.draft.analysisIssues,
     requirements: output.requirements

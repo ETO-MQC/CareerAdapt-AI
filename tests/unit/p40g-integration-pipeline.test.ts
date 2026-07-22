@@ -85,7 +85,8 @@ describe("P4.0g Integration: full JD → Graph v3 → matching → tailoring →
     const reconciledFirst = reconciled.graph.requirements.find((r) => r.id === graph.requirements[0].id);
     expect(reconciledFirst?.exactKeywords).toContain("AI测试关键词");
     expect(reconciled.metrics.silentLoss).toBe(0);
-    expect(reconciled.graph.graphHash).not.toBe(graph.graphHash);
+    expect(reconciled.graph.graphHash).toBe(graph.graphHash);
+    expect(reconciled.graph.semanticEnrichmentHash).not.toBe(graph.semanticEnrichmentHash);
 
     // Step 3: Graph v3 → JobDescription projection
     const job = fixtureJob();

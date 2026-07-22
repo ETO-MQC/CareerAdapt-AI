@@ -6,6 +6,8 @@ import {
   FactGuardOutputSchema,
   FactGuardFindingSchema,
   JdAnalyzerOutputSchema,
+  JdSourceUnitSchema,
+  RequirementGroupSchema,
   normalizeJdPriority,
   normalizeJobRequirementCategory,
   MatchEvidenceRefSchema,
@@ -56,7 +58,10 @@ export const ResumeDocumentMapperTaskInputSchema = BaseAiInputSchema;
 
 export const JdAnalyzerTaskInputSchema = BaseAiInputSchema.extend({
   title: z.string().min(1).max(120),
-  company: z.string().min(1).max(120)
+  company: z.string().min(1).max(120),
+  sourceUnits: z.array(JdSourceUnitSchema).optional(),
+  deterministicGroups: z.array(RequirementGroupSchema).optional(),
+  deterministicHierarchy: z.array(z.object({ sourceUnitId: z.string().optional(), detailUnitIds: z.array(z.string()), parentGroupId: z.string().optional() })).optional()
 });
 
 export const EvidenceMatcherCandidateSchema = z.object({
@@ -341,8 +346,11 @@ export const aiTaskRegistry = {
           title: input.title,
           company: input.company,
           rawText: redacted.text,
+          sourceUnits: input.sourceUnits ?? [],
+          deterministicGroups: input.deterministicGroups ?? [],
+          deterministicHierarchy: input.deterministicHierarchy ?? [],
           redactions: redacted.redactions,
-          instructions: "Analyze this redacted job description into structured requirements."
+          instructions: "Classify every supplied sourceUnitId exactly once. Preserve the deterministic source spans and hierarchy."
         },
         null,
         2
@@ -411,6 +419,11 @@ export const aiTaskRegistry = {
             updatedAt: typeof r.updatedAt === "string" ? r.updatedAt : now
           };
         }),
+        unitAssignments: Array.isArray(raw.unitAssignments) ? raw.unitAssignments : [],
+        groupAdjustments: Array.isArray(raw.groupAdjustments) ? raw.groupAdjustments : [],
+        roleMission: typeof raw.roleMission === "string" ? raw.roleMission : undefined,
+        level: typeof raw.level === "string" ? raw.level : undefined,
+        domain: typeof raw.domain === "string" ? raw.domain : undefined,
         riskNotes: Array.isArray(raw.riskNotes) ? raw.riskNotes : []
       };
     },

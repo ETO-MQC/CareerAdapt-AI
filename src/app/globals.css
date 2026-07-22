@@ -1302,6 +1302,64 @@ html[data-theme="dark"] .panel {
   padding: 16px;
 }
 
+.job-draft-actions {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.job-draft-sections {
+  display: grid;
+  gap: 16px;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.job-draft-section {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 8px;
+  padding-top: 12px;
+}
+
+.job-draft-section > header {
+  align-items: start;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.job-draft-section h3,
+.job-draft-section p {
+  margin: 0;
+}
+
+.job-draft-section > header p,
+.job-draft-section > header span,
+.job-draft-section article small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.job-mission-copy,
+.verification-materials article,
+.hiring-signals article {
+  background: var(--surface-subtle);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.verification-materials article {
+  display: grid;
+  gap: 4px;
+}
+
+.requirement-review-list .review-row ul {
+  margin: 8px 0 0;
+  padding-left: 20px;
+}
+
 .requirement-review-list {
   display: grid;
   gap: 8px;

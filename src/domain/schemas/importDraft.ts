@@ -270,6 +270,29 @@ export const JdAnalyzerOutputSchema = z.object({
   location: DraftSourceFieldSchema.optional(),
   workType: DraftSourceFieldSchema.optional(),
   requirements: z.array(JdAnalyzerRequirementSchema).default([]),
+  unitAssignments: z.array(z.object({
+    sourceUnitId: z.string().min(1),
+    disposition: z.enum(["heading", "wrapper", "metadata", "requirement", "requirement_detail", "verification_material", "hiring_signal", "excluded", "unclassified"]),
+    section: z.enum(["responsibility", "required", "preferred", "verification", "role_profile", "unknown"]).optional(),
+    kind: z.enum(["responsibility", "hard_constraint", "core_competency", "tool_or_technology", "experience_depth", "education", "language", "soft_skill", "domain_knowledge", "preferred", "risk_or_uncertain"]).optional(),
+    priority: z.enum(["must", "high", "medium", "nice_to_have", "uncertain"]).optional(),
+    hardConstraint: z.boolean().optional(),
+    parentUnitId: z.string().min(1).optional(),
+    normalizedIntent: z.string().min(1).optional(),
+    exactKeywords: z.array(z.string().min(1)).optional(),
+    semanticAliases: z.array(z.string().min(1)).optional(),
+    confidence: z.number().min(0).max(1),
+    reason: z.string().min(1)
+  }).strict()).optional(),
+  groupAdjustments: z.array(z.object({
+    groupId: z.string().min(1),
+    relation: z.enum(["all_of", "any_of", "preferred_any_of", "evidence_bundle"]).optional(),
+    parentUnitId: z.string().min(1).optional(),
+    reason: z.string().min(1)
+  }).strict()).optional(),
+  roleMission: z.string().min(1).optional(),
+  level: z.string().min(1).optional(),
+  domain: z.string().min(1).optional(),
   riskNotes: z.array(z.string()).default([])
 });
 

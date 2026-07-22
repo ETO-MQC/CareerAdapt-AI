@@ -1,6 +1,7 @@
 import {
   JobRequirementGraphV3Schema,
   type JdAnalyzerOutput,
+  type JdSourceUnit,
   type JobDescription,
   type JobRequirementGraphV3,
   type RequirementNodeV3,
@@ -8,34 +9,34 @@ import {
 } from "@/domain/schemas";
 import { stableHashText } from "@/services/security/text";
 
-export const JOB_REQUIREMENT_ANALYZER_V3 = "jd-analyzer.reconciled-v3.0";
+export const JOB_REQUIREMENT_ANALYZER_V3 = "jd-analyzer.unit-ledger-v3.1";
 
 type Section = RequirementNodeV3["section"] | "excluded";
-type Line = { text: string; contentSpan: SourceSpan; lineSpan: SourceSpan; section: Section; heading: boolean; wrapper?: GroupIntent };
-type GroupIntent = { relation: "any_of" | "preferred_any_of" | "evidence_bundle"; minimumSatisfied?: number };
+type Relation = JobRequirementGraphV3["groups"][number]["relation"];
+type UnitContext = { unit: JdSourceUnit; section: Section; relation?: Relation; minimumSatisfied?: number };
 
-const HEADINGS: Array<[RegExp, Section]> = [
-  [/^(岗位职责|职位职责|工作职责|主要职责|职责描述|工作内容|responsibilities?)\s*[:：]?$/i, "responsibility"],
-  [/^(必备条件|硬性条件|任职要求|职位要求|任职资格|基本要求|参与要求|岗位要求|申请要求|候选人要求|requirements?|qualifications?)\s*[:：]?$/i, "required"],
-  [/^(加分项|优先条件|优先考虑|preferred|nice to have)\s*[:：]?$/i, "preferred"],
+const HEADING_RULES: Array<[RegExp, Section]> = [
+  [/^(职责内容|岗位职责|职位职责|工作职责|主要职责|职责描述|工作内容|responsibilities?)\s*[:：]?$/i, "responsibility"],
+  [/^(参与要求|岗位要求|必备条件|硬性条件|任职要求|职位要求|任职资格|基本要求|申请要求|候选人要求|requirements?|qualifications?)\s*[:：]?$/i, "required"],
+  [/^(优先考虑|加分项|优先条件|preferred|nice to have)\s*[:：]?$/i, "preferred"],
   [/^(候选人需提供的验证材料|验证材料|申请材料)\s*[:：]?$/i, "verification"],
   [/^(我们希望你是这样的人|候选人画像|人物画像)\s*[:：]?$/i, "role_profile"],
   [/^(公司介绍|关于我们|团队介绍|薪资福利|福利待遇|员工福利|company|about us|benefits?)\s*[:：]?$/i, "excluded"]
 ];
-
-const WRAPPERS: Array<[RegExp, GroupIntent]> = [
-  [/^(满足以下任一条件即可|满足任一条件即可|以下任一条件)\s*[:：]?$/i, { relation: "any_of", minimumSatisfied: 1 }],
-  [/^具备以下任一条件者优先\s*[:：]?$/i, { relation: "preferred_any_of" }],
-  [/^(根据自身情况提供以下材料|包括但不限于)\s*[:：]?$/i, { relation: "evidence_bundle" }]
+const METADATA = /^(关联项目|岗位标签|职位类别|Vibe Coding|【[^】]+】(?:\s*[\w -]+)?)\s*[:：]?$/i;
+const WRAPPERS: Array<[RegExp, Relation, number?]> = [
+  [/^(满足以下任一条件即可|满足任一条件即可|以下任一条件)\s*[:：]?$/i, "any_of", 1],
+  [/^具备以下任一条件者优先\s*[:：]?$/i, "preferred_any_of"],
+  [/^根据自身情况提供以下材料\s*[:：]?$/i, "evidence_bundle"]
 ];
-
-const TECH_TERMS = [
-  "Cursor Pro", "Claude Code", "Coding Agent", "Vibe Coding", "Playwright", "Vitest", "training data",
-  "reward hacking", "long context", "multi-file", "Cursor", "Codex", "Windsurf", "verifier", "benchmark", "badcase", "RL"
+const DETAIL_LEADS: Array<[RegExp, RequirementNodeV3["details"][number]["type"]]> = [
+  [/(?:包括但不限于)[:：]\s*$/, "scenario"],
+  [/(?:明确写出)[:：]\s*$/, "required_field"],
+  [/(?:例如)[:：]\s*$/, "failure_pattern"]
 ];
-const WRAPPER_TEXT = /^(岗位要求|优先考虑|满足以下任一条件即可|满足任一条件即可|以下任一条件|具备以下任一条件者优先|根据自身情况提供以下材料|包括但不限于|我们希望你是这样的人)$/i;
+const BADCASE_LEAD = /至少\s*1\s*个真实\s*coding agent badcase.*需包括[:：]\s*$/i;
+const TECH_TERMS = ["Cursor Pro", "Claude Code", "Coding Agent", "Vibe Coding", "Playwright", "Vitest", "Python", "FastAPI", "RAG", "GitHub", "training data", "reward hacking", "long context", "multi-file", "Cursor", "Codex", "Windsurf", "verifier", "benchmark", "badcase", "RL"];
 const MUST = /必须|必备|至少|不少于|需具备|required|must|minimum/i;
-const RESPONSIBILITY = /负责|参与|推动|设计|开发|维护|交付|分析|管理|build|develop|design|maintain|lead|deliver/i;
 const SOFT = /沟通|协作|表达|学习能力|责任心|抗压|团队合作|好奇心|自驱|communication|collaboration/i;
 const YEARS = /(?:至少|不少于|minimum\s*)?(\d+(?:\.\d+)?)\s*(?:年|years?)/i;
 
@@ -44,313 +45,209 @@ export type JobGraphValidation = {
   status: "validated" | "needs_review";
   issues: string[];
   metrics: {
-    sourceCoverage: number;
-    hardWrapperNodes: number;
-    danglingGroupChildren: number;
-    duplicateNormalizedIntent: number;
-    sourceQuoteNotFound: number;
-    silentLoss: number;
+    sourceCoverage: number; allSourceUnitsAssigned: boolean; metadataInRequirements: number;
+    headingInRequirements: number; wrapperInRequirements: number; orphanDetails: number;
+    inventedReferences: number; duplicateTopLevelIntent: number; verificationInRequirements: number;
+    hiringSignalHardConstraint: number; emptyGroups: number; sourceSpanRoundTripFailure: number;
+    hardWrapperNodes: number; danglingGroupChildren: number; duplicateNormalizedIntent: number;
+    sourceQuoteNotFound: number; silentLoss: number;
   };
 };
-
 export type ReconciledJobGraph = JobGraphValidation & { graph: JobRequirementGraphV3 };
 
 export function analyzeJobDescriptionV3(input: { rawText: string }): JobRequirementGraphV3 {
-  const lines = extractLines(input.rawText);
-  const groups: JobRequirementGraphV3["groups"] = [];
+  const contexts = segmentSourceUnits(input.rawText);
+  const sourceUnits = contexts.map((item) => item.unit);
   const requirements: RequirementNodeV3[] = [];
+  const groups: JobRequirementGraphV3["groups"] = [];
   const verificationMaterials: JobRequirementGraphV3["verificationMaterials"] = [];
   const hiringSignals: JobRequirementGraphV3["roleProfile"]["hiringSignals"] = [];
-  const coveredSpans: SourceSpan[] = [];
-  const unclassifiedSpans: SourceSpan[] = [];
   let activeGroup: JobRequirementGraphV3["groups"][number] | undefined;
+  let detailParent: RequirementNodeV3 | undefined;
+  let detailType: RequirementNodeV3["details"][number]["type"] | undefined;
+  let badcaseMaterial: JobRequirementGraphV3["verificationMaterials"][number] | undefined;
 
-  for (const line of lines) {
-    if (line.heading || line.wrapper) coveredSpans.push(line.lineSpan);
-    if (line.heading) {
-      activeGroup = undefined;
-      if (line.section === "verification") {
-        activeGroup = makeGroup(line, "evidence_bundle");
-        groups.push(activeGroup);
-      }
+  for (const context of contexts) {
+    const unit = context.unit;
+    if (["heading", "metadata", "excluded"].includes(unit.disposition)) { activeGroup = undefined; detailParent = undefined; detailType = undefined; badcaseMaterial = undefined; if (unit.disposition === "heading" && context.section === "verification") { activeGroup = makeGroup(unit, "evidence_bundle"); groups.push(activeGroup); } continue; }
+    if (unit.disposition === "wrapper") {
+      if (!activeGroup || activeGroup.relation !== context.relation) { activeGroup = makeGroup(unit, context.relation!, context.minimumSatisfied); groups.push(activeGroup); }
+      detailParent = undefined; detailType = undefined; continue;
+    }
+    if (unit.disposition === "requirement_detail" && detailParent && detailType) {
+      unit.parentUnitId = detailParent.sourceUnitId;
+      detailParent.details.push({ id: `detail-${stableHashText(unit.id)}`, type: detailType, text: unit.text.replace(/[；。]$/, ""), sourceSpan: unit.sourceSpan, sourceUnitId: unit.id });
       continue;
     }
-    if (line.wrapper) {
-      const relation = line.wrapper.relation;
-      const groupSection = relation === "preferred_any_of" ? "preferred" : relation === "evidence_bundle" ? "verification" : "required";
-      line.section = groupSection;
-      if (!activeGroup || activeGroup.relation !== relation) {
-        activeGroup = makeGroup(line, relation, line.wrapper.minimumSatisfied);
-        groups.push(activeGroup);
-      }
+    if (unit.disposition === "requirement_detail" && badcaseMaterial) {
+      unit.parentUnitId = badcaseMaterial.sourceUnitId;
       continue;
     }
-    if (line.section === "excluded") {
-      coveredSpans.push(line.lineSpan);
-      continue;
-    }
-    if (line.section === "role_profile") {
-      hiringSignals.push({
-        id: `signal-${stableHashText(normalize(line.text))}`,
-        statement: line.text,
-        normalizedIntent: normalizeIntent(line.text),
-        sourceSpan: line.contentSpan,
-        confidence: 0.9
-      });
-      coveredSpans.push(line.lineSpan);
-      continue;
-    }
-    if (line.section === "verification") {
-      const material = toVerificationMaterial(line);
+    if (unit.disposition === "verification_material") {
+      const material = toVerificationMaterial(unit);
       verificationMaterials.push(material);
-      coveredSpans.push(line.lineSpan);
-      if (!activeGroup || activeGroup.relation !== "evidence_bundle") {
-        activeGroup = makeGroup(line, "evidence_bundle");
-        groups.push(activeGroup);
-      }
-      activeGroup.requirementIds.push(material.id);
+      if (activeGroup?.relation === "evidence_bundle") activeGroup.requirementIds.push(material.id);
+      if (BADCASE_LEAD.test(unit.text)) badcaseMaterial = material;
       continue;
     }
-    if (!line.text) continue;
-    const node = toRequirement(line, activeGroup);
+    if (unit.disposition === "hiring_signal") {
+      hiringSignals.push({ id: `signal-${stableHashText(unit.id)}`, statement: unit.text, normalizedIntent: normalizeIntent(unit.text), sourceSpan: unit.sourceSpan, confidence: 0.9 });
+      continue;
+    }
+    if (unit.disposition !== "requirement") continue;
+    const node = toRequirement(unit, context.section, activeGroup);
     requirements.push(node);
-    coveredSpans.push(line.lineSpan);
     if (activeGroup && activeGroup.relation !== "evidence_bundle") activeGroup.requirementIds.push(node.id);
+    const lead = DETAIL_LEADS.find(([pattern]) => pattern.test(unit.text));
+    detailParent = lead ? node : undefined;
+    detailType = lead?.[1];
   }
 
-  const merged = mergeRequirements(requirements);
-  for (const group of groups) group.requirementIds = unique(group.requirementIds.filter((id) => merged.some((node) => node.id === id) || verificationMaterials.some((item) => item.id === id)));
-  const coverageRatio = calculateCoverage(input.rawText, coveredSpans);
+  const mergedRequirements = mergeRequirements(requirements);
+  const replacementIds = new Map(requirements.map((item) => [item.id, mergedRequirements.find((merged) => merged.normalizedIntent === item.normalizedIntent)?.id ?? item.id]));
+  for (const group of groups) group.requirementIds = unique(group.requirementIds.map((id) => replacementIds.get(id) ?? id));
+  const meaningful = sourceUnits.filter((u) => u.disposition !== "excluded");
+  const unassigned = meaningful.filter((u) => u.disposition === "unclassified");
+  const coveredSpans = sourceUnits.map((u) => u.sourceSpan);
   const graphBase = {
     schemaVersion: "job-requirement-graph-v3" as const,
-    roleProfile: { hiringSignals },
-    groups: groups.filter((group) => group.requirementIds.length > 0),
-    requirements: merged,
-    verificationMaterials,
-    sourceCoverage: { coveredSpans: mergeSpans(coveredSpans), unclassifiedSpans, coverageRatio },
-    analyzerVersion: JOB_REQUIREMENT_ANALYZER_V3
+    roleProfile: { mission: requirements.find((r) => r.section === "responsibility")?.statement, hiringSignals },
+    groups: groups.filter((g) => g.requirementIds.length), requirements: mergedRequirements, verificationMaterials, sourceUnits,
+    sourceCoverage: {
+      coveredSpans, unclassifiedSpans: unassigned.map((u) => u.sourceSpan), totalMeaningfulUnits: meaningful.length,
+      assignedUnits: meaningful.length - unassigned.length, unassignedUnitIds: unassigned.map((u) => u.id),
+      metadataUnitIds: sourceUnits.filter((u) => u.disposition === "metadata").map((u) => u.id),
+      excludedUnitIds: sourceUnits.filter((u) => u.disposition === "excluded").map((u) => u.id),
+      requirementUnitIds: sourceUnits.filter((u) => u.disposition === "requirement").map((u) => u.id),
+      detailUnitIds: sourceUnits.filter((u) => u.disposition === "requirement_detail").map((u) => u.id),
+      inventedReferenceCount: 0,
+      coverageRatio: meaningful.length ? (meaningful.length - unassigned.length) / meaningful.length : 1
+    }, analyzerVersion: JOB_REQUIREMENT_ANALYZER_V3
   };
-  return JobRequirementGraphV3Schema.parse({ ...graphBase, graphHash: stableHashText(stableGraphJson(graphBase)) });
+  return withHashes(graphBase);
 }
 
 export function reconcileJobRequirementGraphV3(input: { rawText: string; aiOutput?: JdAnalyzerOutput }): ReconciledJobGraph {
   const deterministic = analyzeJobDescriptionV3({ rawText: input.rawText });
-  if (!input.aiOutput) {
-    const validation = validateJobRequirementGraphV3(deterministic);
-    return { graph: deterministic, ...validation };
-  }
+  const assignments = input.aiOutput?.unitAssignments ?? [];
+  const sourceIds = new Set(deterministic.sourceUnits?.map((u) => u.id));
+  const invented = assignments.filter((a) => !sourceIds.has(a.sourceUnitId)).length;
+  const duplicate = assignments.length - new Set(assignments.map((a) => a.sourceUnitId)).size;
+  const validAssignments = assignments.filter((a) => sourceIds.has(a.sourceUnitId));
   const requirements = deterministic.requirements.map((node) => {
-    const ai = input.aiOutput!.requirements.find((candidate) => sameSource(candidate.sourceSpan, node.sourceSpan) || normalizeIntent(candidate.description) === node.normalizedIntent);
-    if (!ai) return node;
-    const aiKind = categoryToKind(ai.category);
-    const classificationConflict = aiKind !== node.kind && !(aiKind === "core_competency" && node.kind === "tool_or_technology");
-    return {
-      ...node,
-      exactKeywords: unique([...node.exactKeywords, ...ai.keywords]),
-      sourceSpans: uniqueSpans([...node.sourceSpans, ...(ai.sourceSpan ? [ai.sourceSpan] : [])]),
-      confidence: Math.max(node.confidence, confidenceNumber(ai.confidenceLevel)),
-      needsConfirmation: node.needsConfirmation || ai.needsConfirmation || classificationConflict
-    };
+    const assignment = validAssignments.find((a) => a.sourceUnitId === node.sourceUnitId);
+    const legacy = input.aiOutput?.requirements.find((candidate) => candidate.id === node.id || candidate.sourceSpan?.start === node.sourceSpan.start);
+    if (!assignment && !legacy) return node;
+    if (assignment && ["metadata", "heading", "wrapper", "requirement_detail", "verification_material"].includes(assignment.disposition)) return node;
+    const legacyKind = legacy ? categoryToKind(legacy.category) : node.kind;
+    return { ...node, normalizedIntent: assignment?.normalizedIntent || node.normalizedIntent, exactKeywords: unique([...node.exactKeywords, ...(assignment?.exactKeywords ?? []), ...(legacy?.keywords ?? [])]), semanticAliases: unique([...node.semanticAliases, ...(assignment?.semanticAliases ?? [])]), confidence: Math.max(node.confidence, legacy ? confidenceNumber(legacy.confidenceLevel) : 0), needsConfirmation: node.needsConfirmation || Boolean(assignment && assignment.disposition !== "requirement") || legacyKind !== node.kind };
   });
-  const graphBase = { ...deterministic, requirements, analyzerVersion: `${JOB_REQUIREMENT_ANALYZER_V3}+ai-reconcile` };
-  const graph = JobRequirementGraphV3Schema.parse({ ...graphBase, graphHash: stableHashText(stableGraphJson({ ...graphBase, graphHash: undefined })) });
+  const enrichment = { assignments: validAssignments.map((a) => ({ id: a.sourceUnitId, keywords: [...(a.exactKeywords ?? [])].sort(), aliases: [...(a.semanticAliases ?? [])].sort(), confidence: a.confidence })), legacy: (input.aiOutput?.requirements ?? []).map((item) => ({ id: item.id, keywords: [...item.keywords].sort(), confidenceLevel: item.confidenceLevel })).sort((a, b) => a.id.localeCompare(b.id)) };
+  const graph = withHashes({ ...deterministic, requirements, sourceCoverage: { ...deterministic.sourceCoverage, inventedReferenceCount: invented + Math.max(0, duplicate) }, analyzerVersion: input.aiOutput ? `${JOB_REQUIREMENT_ANALYZER_V3}+ai-reconcile` : JOB_REQUIREMENT_ANALYZER_V3 }, enrichment);
   const validation = validateJobRequirementGraphV3(graph, deterministic.requirements.length);
+  if (assignments.length) {
+    const missing = (deterministic.sourceUnits ?? []).filter((unit) => !validAssignments.some((assignment) => assignment.sourceUnitId === unit.id)).map((unit) => unit.id);
+    if (missing.length) validation.issues.push(`AI 遗漏 ${missing.length} 个 Source Unit`);
+    if (duplicate) validation.issues.push(`AI 重复返回 ${duplicate} 个 Source Unit`);
+    if (invented) validation.issues.push(`AI 返回 ${invented} 个不存在的 Source Unit`);
+    validation.valid = validation.issues.length === 0; validation.status = validation.valid ? "validated" : "needs_review";
+  }
   return { graph, ...validation };
 }
 
 export function validateJobRequirementGraphV3(graph: JobRequirementGraphV3, deterministicCount = graph.requirements.length): JobGraphValidation {
-  const nodeIds = new Set(graph.requirements.map((node) => node.id));
-  const materialIds = new Set(graph.verificationMaterials.map((item) => item.id));
-  const allChildIds = new Set([...nodeIds, ...materialIds]);
-  const groupIds = new Set(graph.groups.map((group) => group.id));
+  const units = graph.sourceUnits ?? [];
+  const dispositions = new Map(units.map((u) => [u.id, u.disposition]));
+  const nodeIds = new Set(graph.requirements.map((r) => r.id));
+  const materialIds = new Set(graph.verificationMaterials.map((m) => m.id));
+  const referencedUnits = [...graph.requirements.map((r) => r.sourceUnitId), ...graph.requirements.flatMap((r) => r.details.map((d) => d.sourceUnitId)), ...graph.verificationMaterials.map((m) => m.sourceUnitId)].filter(Boolean) as string[];
   const metrics = {
     sourceCoverage: graph.sourceCoverage.coverageRatio,
-    hardWrapperNodes: graph.requirements.filter((node) => WRAPPER_TEXT.test(node.statement)).length,
-    danglingGroupChildren: graph.groups.flatMap((group) => group.requirementIds).filter((id) => !allChildIds.has(id)).length
-      + graph.requirements.filter((node) => node.parentGroupId && !groupIds.has(node.parentGroupId)).length,
-    duplicateNormalizedIntent: graph.requirements.length - new Set(graph.requirements.map((node) => node.normalizedIntent)).size,
-    sourceQuoteNotFound: [...graph.requirements.map((node) => node.sourceSpan), ...graph.verificationMaterials.map((item) => item.sourceSpan), ...graph.roleProfile.hiringSignals.map((item) => item.sourceSpan)]
-      .filter((span) => graph.sourceCoverage.coveredSpans.every((covered) => covered.start > span.start || covered.end < span.end)).length,
+    allSourceUnitsAssigned: graph.sourceCoverage.unassignedUnitIds.length === 0,
+    metadataInRequirements: graph.requirements.filter((r) => dispositions.get(r.sourceUnitId ?? "") === "metadata").length,
+    headingInRequirements: graph.requirements.filter((r) => dispositions.get(r.sourceUnitId ?? "") === "heading").length,
+    wrapperInRequirements: graph.requirements.filter((r) => dispositions.get(r.sourceUnitId ?? "") === "wrapper").length,
+    orphanDetails: graph.requirements.reduce((count, requirement) => count + requirement.details.filter((d) => !units.some((u) => u.id === d.sourceUnitId && u.parentUnitId === requirement.sourceUnitId)).length, 0),
+    inventedReferences: graph.sourceCoverage.inventedReferenceCount + referencedUnits.filter((id) => !dispositions.has(id)).length,
+    duplicateTopLevelIntent: graph.requirements.length - new Set(graph.requirements.map((r) => r.normalizedIntent)).size,
+    verificationInRequirements: graph.requirements.filter((r) => dispositions.get(r.sourceUnitId ?? "") === "verification_material").length,
+    hiringSignalHardConstraint: 0,
+    emptyGroups: graph.groups.filter((g) => ["any_of", "preferred_any_of"].includes(g.relation) && g.requirementIds.length === 0).length,
+    sourceSpanRoundTripFailure: [...units.map((u) => u.sourceSpan), ...graph.requirements.map((r) => r.sourceSpan)].filter((s) => s.text.length !== s.end - s.start).length,
+    hardWrapperNodes: graph.requirements.filter((r) => dispositions.get(r.sourceUnitId ?? "") === "wrapper").length,
+    danglingGroupChildren: graph.groups.flatMap((g) => g.requirementIds).filter((id) => !nodeIds.has(id) && !materialIds.has(id)).length,
+    duplicateNormalizedIntent: graph.requirements.length - new Set(graph.requirements.map((r) => r.normalizedIntent)).size,
+    sourceQuoteNotFound: referencedUnits.filter((id) => !dispositions.has(id)).length,
     silentLoss: Math.max(0, deterministicCount - graph.requirements.length)
   };
   const issues: string[] = [];
-  if (metrics.sourceCoverage < 0.95) issues.push(`来源覆盖率仅 ${(metrics.sourceCoverage * 100).toFixed(1)}%`);
-  if (graph.sourceCoverage.unclassifiedSpans.length) issues.push(`未分类区域：${graph.sourceCoverage.unclassifiedSpans.map((span) => span.text).join("｜")}`);
-  if (metrics.hardWrapperNodes) issues.push(`仍有 ${metrics.hardWrapperNodes} 条包装句被误判为要求`);
-  if (metrics.danglingGroupChildren) issues.push(`有 ${metrics.danglingGroupChildren} 个分组子项无法定位`);
-  if (metrics.duplicateNormalizedIntent) issues.push(`有 ${metrics.duplicateNormalizedIntent} 条重复要求`);
-  if (metrics.sourceQuoteNotFound) issues.push(`有 ${metrics.sourceQuoteNotFound} 条来源无法回跳`);
-  if (metrics.silentLoss) issues.push(`对账后仍丢失 ${metrics.silentLoss} 条确定性要求`);
+  for (const [key, value] of Object.entries(metrics)) if (key !== "sourceCoverage" && key !== "allSourceUnitsAssigned" && typeof value === "number" && value > 0) issues.push(`${key}: ${value}`);
+  if (!metrics.allSourceUnitsAssigned) issues.push(`未分类 Source Unit：${graph.sourceCoverage.unassignedUnitIds.join("、")}`);
+  if (metrics.sourceCoverage < 1) issues.push(`语义来源覆盖率仅 ${(metrics.sourceCoverage * 100).toFixed(1)}%`);
   return { valid: issues.length === 0, status: issues.length ? "needs_review" : "validated", issues, metrics };
 }
 
 export function buildCanonicalJobRequirementGraphV3(job: JobDescription) {
   if (job.requirementGraph) return job.requirementGraph;
-  const deterministic = analyzeJobDescriptionV3({ rawText: job.rawText });
-  if (!job.requirements.length) return deterministic;
-  const requirements = job.requirements.map((item): RequirementNodeV3 => ({
-    id: item.id,
-    section: item.category === "responsibility" ? "responsibility" : ["preferred_skill", "nice_to_have"].includes(item.category) ? "preferred" : "required",
-    kind: categoryToKind(item.category),
-    statement: item.description,
-    normalizedIntent: normalizeIntent(item.description),
+  const graph = analyzeJobDescriptionV3({ rawText: job.rawText });
+  if (!job.requirements.length) return graph;
+  const byId = new Map(graph.requirements.map((r) => [r.id, r]));
+  const projected = job.requirements.map((item) => byId.get(item.id) ?? ({
+    id: item.id, section: item.category === "responsibility" ? "responsibility" : ["preferred_skill", "nice_to_have"].includes(item.category) ? "preferred" : "required",
+    kind: categoryToKind(item.category), statement: item.description, normalizedIntent: normalizeIntent(item.description),
     priority: item.priority === "must" || item.hardConstraint ? "must" : item.priority === "high" || item.priority === "important" ? "high" : item.priority === "nice_to_have" || item.priority === "low" ? "nice_to_have" : item.priority === "uncertain" ? "uncertain" : "medium",
-    hardConstraint: item.hardConstraint,
-    exactKeywords: item.keywords.length ? item.keywords : extractKeywords(item.description),
-    semanticAliases: aliasesFor(item.description),
-    sourceSpan: item.sourceSpan,
-    sourceSpans: [item.sourceSpan],
-    confidence: item.confidence,
-    needsConfirmation: item.category === "risk_or_uncertain"
-  }));
-  const graphBase = { ...deterministic, groups: [], requirements, analyzerVersion: `${JOB_REQUIREMENT_ANALYZER_V3}.flat-projection` };
-  return JobRequirementGraphV3Schema.parse({ ...graphBase, graphHash: stableHashText(stableGraphJson({ ...graphBase, graphHash: undefined })) });
+    hardConstraint: item.hardConstraint, exactKeywords: item.keywords, semanticAliases: [], details: [], sourceSpan: item.sourceSpan,
+    sourceSpans: [item.sourceSpan], confidence: item.confidence, needsConfirmation: item.category === "risk_or_uncertain"
+  } satisfies RequirementNodeV3));
+  return withHashes({ ...graph, groups: [], requirements: projected, analyzerVersion: `${JOB_REQUIREMENT_ANALYZER_V3}.flat-projection` });
 }
 
-function extractLines(rawText: string): Line[] {
-  const result: Line[] = [];
-  let section: Section = "unknown";
-  for (const match of rawText.matchAll(/[^\r\n]+/g)) {
-    const raw = match[0];
-    const trimmed = raw.trim();
-    if (!trimmed) continue;
-    const lineStart = (match.index ?? 0) + raw.indexOf(trimmed);
-    const lineSpan = { start: lineStart, end: lineStart + trimmed.length, text: trimmed };
-    const content = trimmed.replace(/^(?:[-*•·]|\d+[.)、]|[一二三四五六七八九十]+[、.])\s*/, "").trim();
-    const contentStart = lineStart + trimmed.indexOf(content);
-    const heading = HEADINGS.find(([pattern]) => pattern.test(content));
-    if (heading) section = heading[1];
-    const wrapper = WRAPPERS.find(([pattern]) => pattern.test(content))?.[1];
-    if (wrapper?.relation === "preferred_any_of") section = "preferred";
-    if (wrapper?.relation === "evidence_bundle") section = "verification";
-    result.push({
-      text: content,
-      contentSpan: { start: contentStart, end: contentStart + content.length, text: content },
-      lineSpan,
-      section,
-      heading: Boolean(heading),
-      wrapper
-    });
-  }
+export function segmentJdSourceUnits(rawText: string) { return segmentSourceUnits(rawText).map((c) => c.unit); }
+
+function segmentSourceUnits(rawText: string): UnitContext[] {
+  const result: UnitContext[] = []; let section: Section = "responsibility"; let activeRelation: Relation | undefined; let detailType: RequirementNodeV3["details"][number]["type"] | undefined; let detailParentId: string | undefined; let detailRemaining = 0; let badcaseParentId: string | undefined; let badcaseRemaining = 0;
+  const lines = rawText.split(/\r?\n/); let offset = 0;
+  lines.forEach((raw, index) => {
+    const trimmed = raw.trim(); const start = offset + raw.indexOf(trimmed); offset += raw.length + (rawText.slice(offset + raw.length, offset + raw.length + 2) === "\r\n" ? 2 : 1); if (!trimmed) return;
+    const text = trimmed.replace(/^(?:[-*•·]|\d+[.)、]|[一二三四五六七八九十]+[、.])\s*/, "").trim(); const textStart = start + trimmed.indexOf(text);
+    const span = { start: textStart, end: textStart + text.length, text }; const id = `unit-${stableHashText(`${textStart}:${text}`)}`;
+    const heading = HEADING_RULES.find(([p]) => p.test(text)); const wrapper = WRAPPERS.find(([p]) => p.test(text));
+    let disposition: JdSourceUnit["disposition"] = "requirement"; let relation: Relation | undefined; let minimumSatisfied: number | undefined;
+    if (METADATA.test(text)) disposition = "metadata";
+    else if (heading) { disposition = /^(职责内容|参与要求)$/.test(text) ? "metadata" : "heading"; section = heading[1]; activeRelation = undefined; }
+    else if (wrapper) { disposition = "wrapper"; relation = wrapper[1]; minimumSatisfied = wrapper[2]; activeRelation = relation; if (relation === "preferred_any_of") section = "preferred"; if (relation === "evidence_bundle") section = "verification"; }
+    else if (section === "excluded") disposition = "excluded";
+    else if (section === "role_profile") disposition = "hiring_signal";
+    else if (section === "verification") disposition = badcaseParentId && badcaseRemaining > 0 ? "requirement_detail" : "verification_material";
+    else if (detailType && detailParentId && detailRemaining > 0) disposition = "requirement_detail";
+    const punctuation: JdSourceUnit["punctuation"] = heading ? "heading" : /[:：]$/.test(text) ? "colon_lead" : /；$/.test(text) ? "semicolon_item" : /[。！？]$/.test(text) ? "sentence" : "plain";
+    const unit: JdSourceUnit = { id, text, sourceSpan: span, lineNumber: index + 1, indentation: raw.length - raw.trimStart().length, punctuation, disposition, ...(disposition === "requirement_detail" && (detailParentId || badcaseParentId) ? { parentUnitId: detailParentId || badcaseParentId } : {}) };
+    result.push({ unit, section, relation, minimumSatisfied });
+    const lead = DETAIL_LEADS.find(([p]) => p.test(text)); if (lead && disposition === "requirement") { detailType = lead[1]; detailParentId = id; detailRemaining = 6; }
+    else if (BADCASE_LEAD.test(text) && disposition === "verification_material") { badcaseParentId = id; badcaseRemaining = 5; }
+    else if (disposition === "requirement_detail" && detailRemaining > 0) { detailRemaining -= 1; if (!detailRemaining) { detailType = undefined; detailParentId = undefined; } }
+    else if (disposition === "requirement_detail" && badcaseRemaining > 0) { badcaseRemaining -= 1; if (!badcaseRemaining) badcaseParentId = undefined; }
+    else if (disposition !== "requirement_detail") { detailType = undefined; detailParentId = undefined; if (disposition !== "verification_material") badcaseParentId = undefined; }
+    if (activeRelation && !relation) result[result.length - 1].relation = activeRelation;
+  });
   return result;
 }
 
-function makeGroup(line: Line, relation: JobRequirementGraphV3["groups"][number]["relation"], minimumSatisfied?: number) {
-  return {
-    id: `group-${stableHashText(`${relation}:${line.contentSpan.start}:${normalize(line.text)}`)}`,
-    label: line.text,
-    relation,
-    minimumSatisfied,
-    requirementIds: [],
-    sourceSpan: line.contentSpan
-  };
+function makeGroup(unit: JdSourceUnit, relation: Relation, minimumSatisfied?: number) { return { id: `group-${stableHashText(`${relation}:${unit.id}`)}`, label: unit.text, relation, minimumSatisfied, requirementIds: [], sourceSpan: unit.sourceSpan }; }
+function toRequirement(unit: JdSourceUnit, section: Section, group?: JobRequirementGraphV3["groups"][number]): RequirementNodeV3 {
+  const preferred = section === "preferred" || group?.relation === "preferred_any_of"; const keywords = extractKeywords(unit.text); const technical = keywords.some((term) => TECH_TERMS.some((known) => normalize(known) === normalize(term))); const hard = !preferred && (MUST.test(unit.text) || Boolean(YEARS.exec(unit.text)) || group?.relation === "any_of");
+  const kind: RequirementNodeV3["kind"] = preferred ? "preferred" : technical ? "tool_or_technology" : SOFT.test(unit.text) ? "soft_skill" : section === "responsibility" ? "responsibility" : section === "required" ? "core_competency" : "risk_or_uncertain";
+  return { id: `jrv3-${stableHashText(unit.id)}`, section: section === "excluded" ? "unknown" : section, kind, statement: unit.text, normalizedIntent: normalizeIntent(unit.text), priority: preferred ? "nice_to_have" : hard ? "must" : section === "responsibility" ? "high" : "medium", hardConstraint: hard, exactKeywords: keywords, semanticAliases: aliasesFor(unit.text), parentGroupId: group && group.relation !== "evidence_bundle" ? group.id : undefined, sourceUnitId: unit.id, details: [], sourceSpan: unit.sourceSpan, sourceSpans: [unit.sourceSpan], confidence: 0.9, needsConfirmation: false };
 }
-
-function toRequirement(line: Line, activeGroup?: JobRequirementGraphV3["groups"][number]): RequirementNodeV3 {
-  const preferred = line.section === "preferred" || activeGroup?.relation === "preferred_any_of";
-  const years = YEARS.exec(line.text);
-  const exactKeywords = extractKeywords(line.text);
-  const technical = exactKeywords.some((term) => TECH_TERMS.some((known) => normalize(known) === normalize(term)));
-  const hardConstraint = !preferred && (MUST.test(line.text) || Boolean(years) || activeGroup?.relation === "any_of");
-  const kind: RequirementNodeV3["kind"] = preferred ? "preferred"
-    : years ? "experience_depth"
-      : technical ? "tool_or_technology"
-        : SOFT.test(line.text) ? "soft_skill"
-          : line.section === "responsibility" || RESPONSIBILITY.test(line.text) ? "responsibility"
-            : line.section === "required" ? "core_competency" : "risk_or_uncertain";
-  const normalizedIntent = normalizeIntent(line.text);
-  return {
-    id: `jrv3-${stableHashText(`${normalizedIntent}:${line.contentSpan.start}`)}`,
-    section: line.section === "excluded" ? "unknown" : line.section,
-    kind,
-    statement: line.text,
-    normalizedIntent,
-    priority: preferred ? "nice_to_have" : hardConstraint ? "must" : line.section === "responsibility" ? "high" : kind === "risk_or_uncertain" ? "uncertain" : "medium",
-    hardConstraint,
-    exactKeywords,
-    semanticAliases: aliasesFor(line.text),
-    parentGroupId: activeGroup && activeGroup.relation !== "evidence_bundle" ? activeGroup.id : undefined,
-    sourceSpan: line.contentSpan,
-    sourceSpans: [line.contentSpan],
-    confidence: kind === "risk_or_uncertain" ? 0.55 : 0.9,
-    needsConfirmation: kind === "risk_or_uncertain"
-  };
-}
-
-function toVerificationMaterial(line: Line): JobRequirementGraphV3["verificationMaterials"][number] {
-  const normalized = normalize(line.text);
-  const kind = normalized.includes("dashboard") ? "usage_dashboard"
-    : normalized.includes("billing") ? "billing_history"
-      : normalized.includes("github") ? "github"
-        : normalized.includes("badcase") ? "badcase" : "other";
-  return {
-    id: `material-${stableHashText(`${normalized}:${line.contentSpan.start}`)}`,
-    label: line.text,
-    kind,
-    requiredComponents: kind === "badcase" ? ["agent", "goal", "failure", "reproduction", "cause"] : [],
-    sourceSpan: line.contentSpan,
-    confidence: 0.92,
-    needsConfirmation: false
-  };
-}
-
-function mergeRequirements(nodes: RequirementNodeV3[]) {
-  const result = new Map<string, RequirementNodeV3>();
-  for (const node of nodes) {
-    const existing = result.get(node.normalizedIntent);
-    if (!existing) result.set(node.normalizedIntent, node);
-    else {
-      existing.sourceSpans = uniqueSpans([...existing.sourceSpans, ...node.sourceSpans]);
-      existing.exactKeywords = unique([...existing.exactKeywords, ...node.exactKeywords]);
-      existing.semanticAliases = unique([...existing.semanticAliases, ...node.semanticAliases]);
-      existing.needsConfirmation ||= existing.kind !== node.kind || existing.parentGroupId !== node.parentGroupId;
-    }
-  }
-  return [...result.values()];
-}
-
-function calculateCoverage(rawText: string, spans: SourceSpan[]) {
-  const meaningful = [...rawText].map((char, index) => ({ char, index })).filter(({ char }) => !/\s/.test(char));
-  if (!meaningful.length) return 1;
-  const covered = meaningful.filter(({ index }) => spans.some((span) => index >= span.start && index < span.end)).length;
-  return Number((covered / meaningful.length).toFixed(4));
-}
-
-function mergeSpans(spans: SourceSpan[]) {
-  return [...spans].sort((a, b) => a.start - b.start).filter((span, index, values) => index === 0 || span.start !== values[index - 1].start || span.end !== values[index - 1].end);
-}
-
-function sameSource(left: SourceSpan | undefined, right: SourceSpan) { return Boolean(left && left.start === right.start && left.end === right.end); }
-function normalize(value: string) { return value.toLowerCase().replace(/[\s,，。；;：:、()（）/]/g, ""); }
-function normalizeIntent(value: string) { return normalize(value).replace(/^(负责|参与|协助|要求|必须|熟悉|掌握|具备)/, "").replace(/(者优先|优先)$/, ""); }
-function unique<T>(values: T[]) { return [...new Set(values.filter(Boolean))]; }
-function uniqueSpans(values: SourceSpan[]) { return values.filter((span, index) => values.findIndex((candidate) => candidate.start === span.start && candidate.end === span.end) === index); }
-function extractKeywords(text: string) {
-  const exact = TECH_TERMS.filter((term) => normalize(text).includes(normalize(term)));
-  const tokens = text.match(/[A-Za-z][A-Za-z0-9+#.-]*/g) ?? [];
-  return unique([...exact, ...tokens]).slice(0, 20);
-}
-function aliasesFor(text: string) {
-  const aliases: Array<[RegExp, string[]]> = [
-    [/Claude Code/i, ["Claude", "AI coding assistant"]],
-    [/Coding Agent/i, ["code agent", "agentic coding"]],
-    [/Vibe Coding/i, ["AI-assisted development"]],
-    [/badcase/i, ["failure case", "reproduction case"]],
-    [/long context/i, ["long-context"]]
-  ];
-  return unique(aliases.flatMap(([pattern, values]) => pattern.test(text) ? values : []));
-}
-function categoryToKind(category: JdAnalyzerOutput["requirements"][number]["category"]): RequirementNodeV3["kind"] {
-  if (category === "responsibility") return "responsibility";
-  if (["tool", "required_skill"].includes(category)) return "tool_or_technology";
-  if (["preferred_skill", "nice_to_have"].includes(category)) return "preferred";
-  if (category === "experience") return "experience_depth";
-  if (category === "education") return "education";
-  if (category === "language") return "language";
-  if (category === "soft_skill") return "soft_skill";
-  if (["must_have"].includes(category)) return "hard_constraint";
-  if (["verification_material", "risk_or_uncertain"].includes(category)) return "risk_or_uncertain";
-  return "core_competency";
-}
+function toVerificationMaterial(unit: JdSourceUnit): JobRequirementGraphV3["verificationMaterials"][number] { const n = normalize(unit.text); const kind = n.includes("dashboard") ? "usage_dashboard" : n.includes("billing") ? "billing_history" : n.includes("github") ? "github" : n.includes("badcase") ? "badcase" : "other"; return { id: `material-${stableHashText(unit.id)}`, label: unit.text, kind, requiredComponents: kind === "badcase" ? ["agent", "goal", "failure", "reproduction", "cause"] : [], sourceUnitId: unit.id, sourceSpan: unit.sourceSpan, confidence: 0.9, needsConfirmation: false }; }
+function mergeRequirements(items: RequirementNodeV3[]) { const result: RequirementNodeV3[] = []; for (const item of items) { const existing = result.find((candidate) => candidate.normalizedIntent === item.normalizedIntent); if (!existing) { result.push(item); continue; } existing.sourceSpans = uniqueSpans([...existing.sourceSpans, ...item.sourceSpans]); existing.exactKeywords = unique([...existing.exactKeywords, ...item.exactKeywords]); existing.details = [...existing.details, ...item.details]; } return result; }
+function uniqueSpans(items: SourceSpan[]) { const seen = new Set<string>(); return items.filter((item) => { const key = `${item.start}:${item.end}`; if (seen.has(key)) return false; seen.add(key); return true; }); }
+function withHashes(base: Omit<JobRequirementGraphV3, "graphHash" | "semanticEnrichmentHash"> & Partial<Pick<JobRequirementGraphV3, "graphHash" | "semanticEnrichmentHash">>, enrichment?: unknown) { const canonical = { sourceUnits: base.sourceUnits?.map((u) => ({ id: u.id, disposition: u.disposition, parentUnitId: u.parentUnitId, sourceSpan: u.sourceSpan })), requirements: base.requirements.map((r) => ({ id: r.id, sourceUnitId: r.sourceUnitId, section: r.section, kind: r.kind, priority: r.priority, normalizedIntent: r.normalizedIntent, parentGroupId: r.parentGroupId, sourceSpan: r.sourceSpan, details: r.details.map((d) => ({ id: d.id, type: d.type, sourceUnitId: d.sourceUnitId, sourceSpan: d.sourceSpan })) })), groups: base.groups.map((g) => ({ id: g.id, relation: g.relation, minimumSatisfied: g.minimumSatisfied, requirementIds: [...g.requirementIds].sort(), sourceSpan: g.sourceSpan })), materials: base.verificationMaterials.map((m) => ({ id: m.id, sourceUnitId: m.sourceUnitId, sourceSpan: m.sourceSpan })) }; return JobRequirementGraphV3Schema.parse({ ...base, graphHash: stableHashText(stableJson(canonical)), semanticEnrichmentHash: stableHashText(stableJson(enrichment ?? {})) }); }
+function extractKeywords(text: string) { return unique(TECH_TERMS.filter((term) => normalize(text).includes(normalize(term))).sort((a, b) => a.localeCompare(b))); }
+function aliasesFor(text: string) { const pairs: Array<[RegExp, string[]]> = [[/reward hacking/i, ["投机行为", "评测规避"]], [/badcase/i, ["失败案例", "反例"]], [/vibe coding/i, ["AI 辅助开发"]]]; return unique(pairs.filter(([p]) => p.test(text)).flatMap(([, a]) => a)); }
+function categoryToKind(category: string): RequirementNodeV3["kind"] { if (category === "responsibility") return "responsibility"; if (["preferred_skill", "nice_to_have"].includes(category)) return "preferred"; if (category === "tool") return "tool_or_technology"; if (category === "soft_skill") return "soft_skill"; if (category === "education") return "education"; if (category === "language") return "language"; if (category === "experience") return "experience_depth"; return "core_competency"; }
 function confidenceNumber(level: "high" | "medium" | "low") { return level === "high" ? 0.9 : level === "medium" ? 0.7 : 0.45; }
-function stableGraphJson(value: unknown) { return JSON.stringify(value, (_key, item) => item === undefined ? undefined : item); }
+function normalize(value: string) { return value.toLowerCase().replace(/\s+/g, " ").trim(); }
+function normalizeIntent(value: string) { return normalize(value).replace(/[，。；、:：,.!?！？（）()]/g, " ").replace(/\s+/g, " ").trim(); }
+function unique<T>(items: T[]) { return [...new Set(items)]; }
+function stableJson(value: unknown): string { if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`; if (value && typeof value === "object") return `{${Object.entries(value as Record<string, unknown>).filter(([, v]) => v !== undefined).sort(([a], [b]) => a.localeCompare(b)).map(([k, v]) => `${JSON.stringify(k)}:${stableJson(v)}`).join(",")}}`; return JSON.stringify(value); }
