@@ -1447,7 +1447,22 @@ html[data-theme="dark"] .panel {
   display: grid;
   gap: 8px;
   min-height: 0;
-  overflow: auto;
+  max-height: 480px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.requirement-review-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.requirement-review-list::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 3px;
+}
+
+.requirement-review-list::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
 }
 
 .requirement-review-list .review-row {
