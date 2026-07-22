@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  appendJobAnalysisRun,
+  recoverInterruptedJobAnalysis,
   classifyJobAiFailure,
   classifyJobAiFailureReason,
   commitParsedJob,
@@ -147,5 +149,17 @@ describe("job workflow", () => {
         retryable: true
       })
     });
+  });
+
+  it("marks stale analysis as interrupted", () => {
+    const draft = appendJobAnalysisRun(createDraft(), { id: "run-1", startedAt: now, status: "ai_analyzing", analyzerVersion: "v3" });
+    expect(recoverInterruptedJobAnalysis(draft, Date.parse(now) + 6 * 60 * 1000).analysisRunStatus).toBe("interrupted");
+  });
+
+  it("keeps only the latest 10 analysis runs", () => {
+    let draft = createDraft();
+    for (let index = 0; index < 12; index += 1) draft = appendJobAnalysisRun(draft, { id: `run-${index}`, startedAt: now, status: "saved", analyzerVersion: "v3" });
+    expect(draft.analysisRuns).toHaveLength(10);
+    expect(draft.analysisRuns?.[0].id).toBe("run-2");
   });
 });

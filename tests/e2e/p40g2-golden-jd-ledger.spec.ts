@@ -2,12 +2,17 @@ import { expect, test } from "@playwright/test";
 import { AI_CODING_TASK_DESIGNER_JD } from "../fixtures/aiCodingTaskDesignerJd";
 
 test("P4.0g.2 完整 JD 按层级核对并完整提交", async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 768 });
   await page.goto("/jobs");
   await page.getByTestId("job-title-input").fill("AI Coding 任务设计专家");
   await page.getByTestId("job-company-input").fill("Golden Fixture 公司");
   await page.getByTestId("job-raw-textarea").fill(AI_CODING_TASK_DESIGNER_JD);
   await page.getByTestId("save-job-raw-input").click();
-  await page.getByTestId("job-manual-mode").click();
+  await expect(page.getByRole("dialog", { name: "AI Coding 任务设计专家" })).toBeVisible();
+  await page.getByRole("button", { name: "关闭岗位解析窗口" }).click();
+  await expect(page.getByTestId("open-job-analysis")).toBeVisible();
+  await page.getByTestId("open-job-analysis").click();
+  await page.getByTestId("job-manual-mode-dialog").click();
 
   const review = page.locator(".job-draft-review");
   await expect(review.getByRole("heading", { name: "岗位核心使命" })).toBeVisible();

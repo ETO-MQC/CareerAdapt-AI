@@ -3,6 +3,8 @@ import {
   CommittedJobDescriptionSchema,
   JobWorkflowErrorStateSchema,
   type JobAnalysisDraft,
+  type JobAnalysisRun,
+  type JobAnalysisRunStatus,
   type JobWorkflowErrorCode,
   type JobWorkflowErrorState,
   type RawInputDocument
@@ -11,6 +13,20 @@ import { mapJobDraftToJobDescription } from "@/domain/mappers/jobDraftMapper";
 import { RevisionConflictError, type WorkspaceRepository } from "@/services/storage/repositories";
 
 export const MIN_JD_TEXT_LENGTH = 20;
+export const JOB_ANALYSIS_STALE_MS = 5 * 60 * 1000;
+
+export function appendJobAnalysisRun(draft: JobAnalysisDraft, run: JobAnalysisRun): JobAnalysisDraft {
+  return { ...draft, analysisRunStatus: run.status, analysisRuns: [...(draft.analysisRuns ?? []).filter((item) => item.id !== run.id), run].slice(-10) };
+}
+
+export function recoverInterruptedJobAnalysis(draft: JobAnalysisDraft, now = Date.now()): JobAnalysisDraft {
+  const active: JobAnalysisRunStatus[] = ["local_analyzing", "ai_analyzing", "validating"];
+  if (!draft.analysisRunStatus || !active.includes(draft.analysisRunStatus) || now - Date.parse(draft.updatedAt) <= JOB_ANALYSIS_STALE_MS) return draft;
+  const runs = [...(draft.analysisRuns ?? [])];
+  const last = runs.at(-1);
+  if (last && active.includes(last.status)) runs[runs.length - 1] = { ...last, status: "interrupted", finishedAt: new Date(now).toISOString() };
+  return { ...draft, analysisRunStatus: "interrupted", analysisRuns: runs };
+}
 
 export type JobAiFailureReason =
   | "provider_unavailable"

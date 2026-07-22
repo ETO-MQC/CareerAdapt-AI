@@ -1046,6 +1046,8 @@ export class WorkspaceRepository {
         ...draft,
         revision: draft.revision + 1,
         status: "committed",
+        analysisRunStatus: "committed",
+        analysisRuns: (draft.analysisRuns ?? []).map((run, index, runs) => index === runs.length - 1 ? { ...run, status: "committed", finishedAt: run.finishedAt ?? now } : run),
         committedJobId: jobDescription.id,
         committedAt: now,
         updatedAt: now

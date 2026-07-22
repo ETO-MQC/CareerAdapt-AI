@@ -1,8 +1,8 @@
 "use client";
 
 import { nanoid } from "nanoid";
-import { Archive, BriefcaseBusiness, Database, FileText, KanbanSquare, ListChecks, MoreHorizontal, Pencil, Sparkles, Trash2 } from "lucide-react";
-import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
+import { Archive, BriefcaseBusiness, Database, FileText, KanbanSquare, ListChecks, LoaderCircle, MoreHorizontal, Pencil, Sparkles, Trash2, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { invokeStageBAi, invokeStructuredAi } from "@/ai/client";
@@ -11,7 +11,7 @@ import { createManualJdOutput } from "@/domain/jobAnalysis/manual";
 import { analyzeJobDescriptionV3, projectJobGraphV3ToAnalyzerOutput, reconcileJobRequirementGraphV3 } from "@/domain/jobOptimization";
 import {
   EvidenceMatcherOutputSchema,
-  JdAnalyzerOutputSchema,
+  JdAnalyzerModelOutputSchema,
   MatchEvaluationSchema,
   type CareerProfile,
   type JdAnalyzerOutput,
@@ -34,12 +34,11 @@ import { WorkspaceEmptyState, WorkspaceErrorState, WorkspaceLoadingState } from 
 import { hashText, redactSensitiveTextForModel, stableHashText } from "@/services/security/text";
 import { RevisionConflictError, WorkspaceRepository } from "@/services/storage/repositories";
 import {
-  classifyJobAiFailure,
-  classifyJobAiFailureReason,
   commitParsedJob,
-  jobAiFailureFeedback,
   jobResumeGenerationFeedback,
   jobWorkflowErrorState,
+  appendJobAnalysisRun,
+  recoverInterruptedJobAnalysis,
   mapJobResumeGenerationError,
   updateRequirementConfirmation,
   validateJobInput,
@@ -72,6 +71,7 @@ export function JobsWorkspace() {
   const [rawText, setRawText] = useState("");
   const [rawInput, setRawInput] = useState<RawInputDocument>();
   const [draft, setDraft] = useState<JobAnalysisDraft>();
+  const [isJobAnalysisDialogOpen, setJobAnalysisDialogOpen] = useState(false);
   const [loadedDraft, setLoadedDraft] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "failed" | "conflict">("idle");
   const [jobError, setJobError] = useState<JobWorkflowErrorState>();
@@ -98,7 +98,10 @@ export function JobsWorkspace() {
       if (!active || !latest) { setLoadedDraft(true); return; }
       const raw = await repository.getRawInput(latest.rawInputId);
       if (!active) return;
-      setDraft(latest); setTitle(latest.title); setCompany(latest.company); setRawInput(raw); setRawText(raw?.rawText ?? ""); setLoadedDraft(true);
+      const recovered = recoverInterruptedJobAnalysis(latest);
+      const persisted = recovered === latest ? latest : await repository.saveJobAnalysisDraftRevision(recovered, latest.revision);
+      if (!active) return;
+      setDraft(persisted); setTitle(persisted.title); setCompany(persisted.company); setRawInput(raw); setRawText(raw?.rawText ?? ""); setLoadedDraft(true);
     });
     return () => { active = false; };
   }, []);
@@ -166,10 +169,13 @@ export function JobsWorkspace() {
         requirementGraph: inputChanged ? undefined : draft?.requirementGraph,
         analysisIssues: inputChanged ? [] : draft?.analysisIssues ?? [],
         manualRequirements: inputChanged ? [] : draft?.manualRequirements ?? [], riskNotes: inputChanged ? [] : draft?.riskNotes ?? [],
-        committedJobId: draft?.committedJobId, committedAt: draft?.committedAt, createdAt: draft?.createdAt ?? now, updatedAt: now
+        committedJobId: draft?.committedJobId, committedAt: draft?.committedAt,
+        analysisRunStatus: "saved",
+        analysisRuns: inputChanged ? [{ id: `job-run-${nanoid(8)}`, startedAt: now, status: "saved", analyzerVersion: "job-requirement-analyzer-v3" }] : draft?.analysisRuns ?? [],
+        createdAt: draft?.createdAt ?? now, updatedAt: now
       };
       const saved = draft ? await repository.saveJobAnalysisDraftRevision(nextDraft, draft.revision) : await repository.createJobAnalysisDraft(nextDraft);
-      setRawInput(nextRawInput); setDraft(saved); setSaveStatus("saved"); setJobError(undefined); setFailedAction(undefined);
+      setRawInput(nextRawInput); setDraft(saved); setJobAnalysisDialogOpen(true); setSaveStatus("saved"); setJobError(undefined); setFailedAction(undefined);
       notify({ type: "success", title: "岗位已保存", message: "原始 JD 已安全保留。确认隐私说明后即可开始解析。" });
     } catch (error) {
       const state = jobWorkflowErrorState(error, "repository_save_failed");
@@ -182,45 +188,45 @@ export function JobsWorkspace() {
     if (!draft || !rawInput) return;
     try {
       notify({ type: "info", title: "正在解析岗位", message: "系统会先脱敏，再校验 AI 返回的岗位要求。" });
-      const analyzing = await saveDraft({ ...draft, title, company, status: "analyzing" });
+      const currentRun = draft.analysisRuns?.at(-1) ?? { id: `job-run-${nanoid(8)}`, startedAt: new Date().toISOString(), status: "saved" as const, analyzerVersion: "job-requirement-analyzer-v3" };
+      const localAnalyzing = await saveDraft(appendJobAnalysisRun({ ...draft, title, company, status: "analyzing" }, { ...currentRun, status: "local_analyzing" }));
       const deterministicGraph = analyzeJobDescriptionV3({ rawText: rawInput.rawText });
       const deterministic = analyzeJobDescriptionV3({ rawText: rawInput.rawText });
+      const analyzing = await saveDraft(appendJobAnalysisRun({ ...localAnalyzing, requirementGraph: deterministicGraph }, { ...currentRun, status: "ai_analyzing", sourceUnitCount: deterministic.sourceUnits?.length ?? 0, graphHash: deterministicGraph.graphHash }));
       const result = await invokeStageBAi({ task: "jd-analyzer", businessInput: {
         title, company, rawText: rawInput.rawText, inputHash: rawInput.inputHash,
         sourceUnits: deterministic.sourceUnits,
         deterministicGroups: deterministic.groups,
         deterministicHierarchy: deterministic.requirements.map((requirement) => ({ sourceUnitId: requirement.sourceUnitId, detailUnitIds: requirement.details.map((detail) => detail.sourceUnitId), parentGroupId: requirement.parentGroupId }))
-      }, outputSchema: JdAnalyzerOutputSchema });
+      }, outputSchema: JdAnalyzerModelOutputSchema });
       await repository.saveAiLogs([result.log]);
       if (!result.ok) {
         const fallback = projectJobGraphV3ToAnalyzerOutput({ graph: deterministicGraph, title, company });
         const validation = reconcileJobRequirementGraphV3({ rawText: rawInput.rawText });
-        const saved = await saveDraft({ ...analyzing, status: validation.status === "validated" ? "manual_mode" : "needs_review", attemptCount: analyzing.attemptCount + 1, manualRequirements: fallback.requirements, requirementGraph: validation.graph, analysisIssues: validation.issues, riskNotes: fallback.riskNotes, saveError: result.errorCode });
-        const workflowError = classifyJobAiFailure(result.errorCode);
-        const feedback = jobAiFailureFeedback(classifyJobAiFailureReason(result.errorCode));
-        setDraft(saved); setJobError(workflowError.state); setFailedAction("analyze");
-        notify({ type: "error", title: feedback.title, message: `${feedback.message}${feedback.nextStep}` });
-        notify({ type: "warning", title: "已切换本地解析", message: "请核对本地岗位要求草稿，确认后仍可提交正式岗位。" });
+        const saved = await saveDraft(appendJobAnalysisRun({ ...analyzing, status: validation.status === "validated" ? "manual_mode" : "needs_review", attemptCount: analyzing.attemptCount + 1, manualRequirements: fallback.requirements, requirementGraph: validation.graph, analysisIssues: validation.issues, riskNotes: fallback.riskNotes, saveError: result.errorCode }, { ...currentRun, status: "local_ready_ai_failed", finishedAt: new Date().toISOString(), sourceUnitCount: deterministic.sourceUnits?.length ?? 0, assignmentCount: 0, graphHash: validation.graph.graphHash, errorCode: result.errorCode }));
+        setDraft(saved); setJobError(undefined); setFailedAction("analyze");
+        notify({ type: "warning", title: "本地解析已完成，AI 增强未完成", message: "岗位职责、条件和申请材料已经整理完成。你可以直接核对并提交，或重试 AI 增强。" });
         return;
       }
-      const reconciled = reconcileJobRequirementGraphV3({ rawText: rawInput.rawText, aiOutput: result.data });
+      const modelOutput = { ...result.data, requirements: [] };
+      const reconciled = reconcileJobRequirementGraphV3({ rawText: rawInput.rawText, aiOutput: modelOutput });
       const projection = projectJobGraphV3ToAnalyzerOutput({ graph: reconciled.graph, title, company });
-      const analyzerOutput = { ...result.data, requirements: projection.requirements, riskNotes: [...result.data.riskNotes, ...projection.riskNotes] };
-      const saved = await saveDraft({ ...analyzing, status: reconciled.status === "validated" ? "ai_validated" : "needs_review", attemptCount: analyzing.attemptCount + 1, promptVersion: result.promptVersion, analyzerOutput, requirementGraph: reconciled.graph, analysisIssues: reconciled.issues, riskNotes: analyzerOutput.riskNotes, saveError: undefined });
+      const analyzerOutput = { ...modelOutput, requirements: projection.requirements, riskNotes: [...result.data.riskNotes, ...projection.riskNotes] };
+      const saved = await saveDraft(appendJobAnalysisRun({ ...analyzing, status: reconciled.status === "validated" ? "ai_validated" : "needs_review", attemptCount: analyzing.attemptCount + 1, promptVersion: result.promptVersion, analyzerOutput, requirementGraph: reconciled.graph, analysisIssues: reconciled.issues, riskNotes: analyzerOutput.riskNotes, saveError: undefined }, { ...currentRun, status: "review_ready", finishedAt: new Date().toISOString(), sourceUnitCount: deterministic.sourceUnits?.length ?? 0, assignmentCount: result.data.unitAssignments.length, graphHash: reconciled.graph.graphHash, semanticEnrichmentHash: reconciled.graph.semanticEnrichmentHash }));
       setDraft(saved); setJobError(undefined); setFailedAction(undefined);
       notify(reconciled.status === "validated"
         ? { type: "success", title: "岗位解析完成", message: "请核对要求与原文依据，再提交正式岗位。" }
         : { type: "warning", title: "岗位解析需要核对", message: reconciled.issues.join("；") || "部分来源尚未完整覆盖，请核对缺失区域。" });
-    } catch (error) {
+    } catch {
       const fallback = createManualJdOutput(rawInput.rawText, title, company);
       const validation = reconcileJobRequirementGraphV3({ rawText: rawInput.rawText });
       try {
-        const saved = await saveDraft({ ...draft, status: validation.status === "validated" ? "manual_mode" : "needs_review", attemptCount: draft.attemptCount + 1, manualRequirements: fallback.requirements, requirementGraph: validation.graph, analysisIssues: validation.issues, riskNotes: fallback.riskNotes, saveError: "provider_unavailable" });
+        const currentRun = draft.analysisRuns?.at(-1) ?? { id: `job-run-${nanoid(8)}`, startedAt: new Date().toISOString(), status: "saved" as const, analyzerVersion: "job-requirement-analyzer-v3" };
+        const saved = await saveDraft(appendJobAnalysisRun({ ...draft, status: validation.status === "validated" ? "manual_mode" : "needs_review", attemptCount: draft.attemptCount + 1, manualRequirements: fallback.requirements, requirementGraph: validation.graph, analysisIssues: validation.issues, riskNotes: fallback.riskNotes, saveError: "provider_unavailable" }, { ...currentRun, status: "local_ready_ai_failed", finishedAt: new Date().toISOString(), graphHash: validation.graph.graphHash, errorCode: "provider_unavailable" }));
         setDraft(saved);
       } catch { /* The persistent error card retains the original input. */ }
-      const state = error instanceof TypeError ? classifyJobAiFailure("provider_unavailable").state : jobWorkflowErrorState(error, "repository_save_failed");
-      setJobError(state); setFailedAction("analyze");
-      notify({ type: "error", title: "岗位解析未完成", message: "原始 JD 已保留。请重试，或继续核对本地草稿。" });
+      setJobError(undefined); setFailedAction("analyze");
+      notify({ type: "warning", title: "本地解析已完成，AI 增强未完成", message: "岗位职责、条件和申请材料已经整理完成。你可以直接核对并提交，或重试 AI 增强。" });
     }
   }
 
@@ -229,7 +235,8 @@ export function JobsWorkspace() {
     try {
       const fallback = createManualJdOutput(rawInput.rawText, title, company);
       const validation = reconcileJobRequirementGraphV3({ rawText: rawInput.rawText });
-      const saved = await saveDraft({ ...draft, status: validation.status === "validated" ? "manual_mode" : "needs_review", manualRequirements: draft.manualRequirements.length ? draft.manualRequirements : fallback.requirements, requirementGraph: validation.graph, analysisIssues: validation.issues, riskNotes: fallback.riskNotes });
+      const currentRun = draft.analysisRuns?.at(-1) ?? { id: `job-run-${nanoid(8)}`, startedAt: new Date().toISOString(), status: "saved" as const, analyzerVersion: "job-requirement-analyzer-v3" };
+      const saved = await saveDraft(appendJobAnalysisRun({ ...draft, status: validation.status === "validated" ? "manual_mode" : "needs_review", manualRequirements: draft.manualRequirements.length ? draft.manualRequirements : fallback.requirements, requirementGraph: validation.graph, analysisIssues: validation.issues, riskNotes: fallback.riskNotes }, { ...currentRun, status: "review_ready", finishedAt: new Date().toISOString(), graphHash: validation.graph.graphHash }));
       setDraft(saved); setJobError(undefined); setFailedAction(undefined);
       notify({ type: "warning", title: "已使用本地解析", message: "外部模型不会被调用，请核对本地岗位要求草稿。" });
     } catch (error) { setJobError(jobWorkflowErrorState(error, "repository_save_failed")); }
@@ -282,6 +289,13 @@ export function JobsWorkspace() {
     setSaveStatus("saving");
     try { const saved = await repository.saveJobAnalysisDraftRevision(next, next.revision); setSaveStatus("saved"); return saved; }
     catch (error) { setSaveStatus(error instanceof RevisionConflictError ? "conflict" : "failed"); throw error; }
+  }
+
+  async function discardDraft() {
+    if (!draft || !window.confirm("弃用后，岗位解析任务入口会移除。原始 JD 不会进入正式岗位。确认弃用？")) return;
+    const currentRun = draft.analysisRuns?.at(-1) ?? { id: `job-run-${nanoid(8)}`, startedAt: new Date().toISOString(), status: "saved" as const, analyzerVersion: "job-requirement-analyzer-v3" };
+    await saveDraft(appendJobAnalysisRun({ ...draft, status: "discarded" }, { ...currentRun, status: "discarded", finishedAt: new Date().toISOString() }));
+    setDraft(undefined); setRawInput(undefined); setTitle(""); setCompany(""); setRawText(""); setJobAnalysisDialogOpen(false);
   }
 
   async function analyzeProfileLibrary() {
@@ -408,8 +422,9 @@ export function JobsWorkspace() {
         </aside>
       </section>
 
-      {draft?.status === "needs_review" ? <section className="warning-box" role="status"><div><strong>岗位解析需要核对</strong><p>{draft.analysisIssues?.join("；") || "部分来源尚未完整覆盖。"}</p></div></section> : null}
-      {draft && draft.status !== "committed" && output ? <DraftReview draft={draft} output={output} saveStatus={saveStatus} onToggle={toggleRequirement} onToggleAll={toggleAllRequirements} onRemove={removeRequirement} onCommit={() => void commitJob()} /> : null}
+      {draft && !["committed", "discarded"].includes(draft.status) ? <section className="panel job-analysis-task" aria-live="polite"><div><span>{jobAnalysisTaskLabel(draft.analysisRunStatus)}</span><strong>{draft.title}</strong><p>{jobAnalysisTaskDescription(draft)}</p></div><div className="action-row"><button className="secondary-button compact" type="button" data-testid="open-job-analysis" onClick={() => setJobAnalysisDialogOpen(true)}>{draft.analysisRunStatus === "ai_analyzing" ? "查看进度" : "继续核对"}</button>{draft.analysisRunStatus === "local_ready_ai_failed" ? <button className="secondary-button compact" type="button" onClick={() => { setJobAnalysisDialogOpen(true); void analyzeWithAi(); }}>重试 AI</button> : null}</div></section> : null}
+
+      {draft && output ? <JobAnalysisDialog open={isJobAnalysisDialogOpen} draft={draft} output={output} saveStatus={saveStatus} onClose={() => setJobAnalysisDialogOpen(false)} onRetry={() => void analyzeWithAi()} onManual={() => void enterManualMode()} onToggle={toggleRequirement} onToggleAll={toggleAllRequirements} onRemove={removeRequirement} onDiscard={() => void discardDraft()} onCommit={() => void commitJob()} /> : null}
 
       {selectedJob ? <section className="panel selected-job-workspace">
         <header className="selected-job-context">
@@ -428,15 +443,54 @@ export function JobsWorkspace() {
   );
 }
 
+function JobAnalysisDialog(props: { open: boolean; draft: JobAnalysisDraft; output: JdAnalyzerOutput; saveStatus: string; onClose: () => void; onRetry: () => void; onManual: () => void; onToggle: (id: string, checked: boolean) => void; onToggleAll: (checked: boolean) => void; onRemove: (id: string) => void; onDiscard: () => void; onCommit: () => void }) {
+  const { open, onClose } = props;
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    returnFocusRef.current = document.activeElement as HTMLElement;
+    const dialog = dialogRef.current;
+    dialog?.focus();
+    const onKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape") { event.preventDefault(); onClose(); return; }
+      if (event.key !== "Tab" || !dialog) return;
+      const focusable = [...dialog.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), summary, [tabindex]:not([tabindex="-1"])')];
+      if (!focusable.length) return;
+      const first = focusable[0]; const last = focusable.at(-1)!;
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => { document.removeEventListener("keydown", onKeyDown); returnFocusRef.current?.focus(); };
+  }, [open, onClose]);
+  if (!open) return null;
+  const statuses = ["原始 JD 已保存", "本地结构化", "AI 语义增强", "来源与 Schema 校验", "等待核对"];
+  const activeIndex = props.draft.analysisRunStatus === "saved" ? 0 : props.draft.analysisRunStatus === "local_analyzing" ? 1 : props.draft.analysisRunStatus === "ai_analyzing" ? 2 : props.draft.analysisRunStatus === "validating" ? 3 : 4;
+  const busy = ["local_analyzing", "ai_analyzing", "validating"].includes(props.draft.analysisRunStatus ?? "");
+  return <div className="job-analysis-dialog-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) props.onClose(); }}>
+    <div ref={dialogRef} className="job-analysis-dialog" role="dialog" aria-modal="true" aria-labelledby="job-analysis-dialog-title" tabIndex={-1}>
+      <header className="job-analysis-dialog-header"><div><span>岗位解析任务</span><h2 id="job-analysis-dialog-title">{props.draft.title}</h2><p>{props.draft.company}</p></div><button className="icon-button" type="button" aria-label="关闭岗位解析窗口" onClick={props.onClose}><X size={18} aria-hidden="true" /></button></header>
+      <ol className="job-analysis-stages">{statuses.map((label, index) => <li key={label} className={index < activeIndex ? "is-complete" : index === activeIndex ? "is-active" : ""}><span>{busy && index === activeIndex ? <LoaderCircle size={14} aria-hidden="true" /> : index + 1}</span>{label}</li>)}</ol>
+      <div className="job-analysis-dialog-body local-scroll">
+        {props.draft.analysisRunStatus === "local_ready_ai_failed" ? <section className="job-analysis-warning" role="status"><strong>本地解析已完成，AI 增强未完成</strong><p>岗位职责、条件和申请材料已经整理完成。你可以直接核对并提交，或重试 AI 增强。</p><button className="secondary-button compact" type="button" onClick={props.onRetry}>重试 AI</button></section> : null}
+        {props.draft.status === "privacy_pending" ? <section className="job-analysis-privacy"><h3>开始语义增强前确认</h3><p>系统会先脱敏联系信息。原始 JD 已保存，关闭窗口不会删除任务。</p><div className="action-row"><button className="secondary-button" type="button" data-testid="job-manual-mode-dialog" onClick={props.onManual}>使用本地解析</button><button className="primary-button" type="button" onClick={props.onRetry}>同意脱敏并解析</button></div></section> : <DraftReview draft={props.draft} output={props.output} saveStatus={props.saveStatus} onToggle={props.onToggle} onToggleAll={props.onToggleAll} onRemove={props.onRemove} onCommit={props.onCommit} />}
+        <details className="job-analysis-history"><summary>解析历史</summary><ul>{[...(props.draft.analysisRuns ?? [])].reverse().map((run, index) => <li key={run.id}><strong>{index === 0 ? "本次" : "上一次"}</strong><span>{jobAnalysisRunLabel(run.status)}</span><small>{new Intl.DateTimeFormat("zh-CN", { dateStyle: "short", timeStyle: "short" }).format(new Date(run.startedAt))}</small></li>)}</ul></details>
+      </div>
+      <footer className="job-analysis-dialog-footer"><button className="danger-text" type="button" onClick={props.onDiscard}>弃用草稿</button><button className="secondary-button" type="button" onClick={props.onClose}>稍后处理</button><button className="primary-button" type="button" data-testid="commit-job" disabled={props.saveStatus === "saving" || props.draft.status === "privacy_pending"} onClick={props.onCommit}>提交正式岗位</button></footer>
+    </div>
+  </div>;
+}
+
 function PersistentJobError({ error, canUseFallback, onRetry, onFallback }: { error: JobWorkflowErrorState; canUseFallback: boolean; onRetry: () => void; onFallback: () => void }) {
   return <section className="warning-box job-workflow-error" role="alert"><div><strong>{jobWorkflowErrorLabel(error.code)}</strong><p>{error.message}</p></div><div className="action-row">{error.retryable ? <button className="secondary-button compact" type="button" onClick={onRetry}>重试</button> : null}{canUseFallback ? <button className="secondary-button compact" type="button" onClick={onFallback}>使用本地解析</button> : null}</div></section>;
 }
 
-function DraftReview({ draft, output, saveStatus, onToggle, onToggleAll, onRemove, onCommit }: { draft: JobAnalysisDraft; output: JdAnalyzerOutput; saveStatus: string; onToggle: (id: string, checked: boolean) => void; onToggleAll: (checked: boolean) => void; onRemove: (id: string) => void; onCommit: () => void }) {
+function DraftReview({ draft, output, onToggle, onToggleAll, onRemove }: { draft: JobAnalysisDraft; output: JdAnalyzerOutput; saveStatus: string; onToggle: (id: string, checked: boolean) => void; onToggleAll: (checked: boolean) => void; onRemove: (id: string) => void; onCommit: () => void }) {
   const allChecked = output.requirements.every((r) => r.confirmedByUser);
   const graph = draft.requirementGraph;
   const section = (title: string, nodes: NonNullable<typeof graph>["requirements"], description?: string) => nodes.length ? <section className="job-draft-section"><header><div><h3>{title}</h3>{description ? <p>{description}</p> : null}</div><span>{nodes.length} 条</span></header><div className="requirement-review-list">{nodes.map((node) => { const requirement = output.requirements.find((item) => item.id === node.id); return requirement ? <RequirementReviewRow key={node.id} requirement={requirement} details={node.details} onToggle={onToggle} onRemove={onRemove} /> : null; })}</div></section> : null;
-  return <section className="panel job-draft-review"><header><div><h2>{draft.analyzerOutput ? "岗位语义核对" : "本地岗位语义核对"}</h2><p>按职责、条件与申请材料核对；子详情不会作为独立要求计分。</p></div><div className="job-draft-actions"><button className="secondary-button compact" type="button" onClick={() => onToggleAll(!allChecked)}>{allChecked ? "取消全选" : "全选"}</button><button className="primary-button" type="button" data-testid="commit-job" disabled={saveStatus === "saving"} onClick={onCommit}>提交正式岗位</button></div></header>{graph ? <div className="job-draft-sections">
+  return <section className="job-draft-review"><header><div><h2>{draft.analyzerOutput ? "岗位语义核对" : "本地岗位语义核对"}</h2><p>按职责、条件与申请材料核对；子详情不会作为独立要求计分。</p></div><button className="secondary-button compact" type="button" onClick={() => onToggleAll(!allChecked)}>{allChecked ? "取消全选" : "全选"}</button></header>{graph ? <div className="job-draft-sections">
     {graph.roleProfile.mission ? <section className="job-draft-section"><header><h3>岗位核心使命</h3></header><p className="job-mission-copy">{graph.roleProfile.mission}</p></section> : null}
     {section("工作职责", graph.requirements.filter((node) => node.section === "responsibility"))}
     {section("必备条件", graph.requirements.filter((node) => node.section === "required"), graph.groups.find((group) => group.relation === "any_of") ? `以下 ${graph.groups.find((group) => group.relation === "any_of")!.requirementIds.length} 条满足任意 1 条即可` : undefined)}
@@ -515,6 +569,9 @@ function saveStatusLabel(status: "idle" | "saving" | "saved" | "failed" | "confl
 function jobWorkflowErrorLabel(code: JobWorkflowErrorState["code"]) { return { empty_input: "输入不完整", text_too_short: "JD 文本过短", schema_validation_failed: "岗位数据校验失败", ai_invalid_output: "岗位解析格式不完整", repository_save_failed: "岗位保存失败", revision_conflict: "岗位草稿已变化", unknown_error: "操作未完成" }[code]; }
 function jobSourceLabel(source: JobDescription["source"]) { return { manual: "手动录入", imported_text: "文本导入", url: "链接导入", demo: "示例岗位" }[source]; }
 function categoryLabel(value: string) { return ({ responsibility: "工作职责", must_have: "必备条件", required_skill: "必备技能", core_skill: "核心能力", preferred_skill: "加分技能", nice_to_have: "加分项", experience: "工作经验", education: "学历要求", certificate: "证书要求", language: "语言要求", tool: "工具与技术", soft_skill: "通用能力", risk_or_uncertain: "待确认", other: "其他要求" } as Record<string, string>)[value] ?? "其他要求"; }
+function jobAnalysisRunLabel(value: string) { return ({ saved: "原始 JD 已保存", local_analyzing: "正在本地结构化", ai_analyzing: "正在进行 AI 语义增强", validating: "正在校验来源与 Schema", review_ready: "已完成，等待核对", local_ready_ai_failed: "本地完成，AI 增强失败", interrupted: "已中断，可继续解析", committed: "已提交", discarded: "已弃用" } as Record<string, string>)[value] ?? "等待处理"; }
+function jobAnalysisTaskLabel(value?: string) { return value === "ai_analyzing" || value === "local_analyzing" || value === "validating" ? "分析中" : value === "interrupted" ? "已中断" : "待核对"; }
+function jobAnalysisTaskDescription(draft: JobAnalysisDraft) { if (draft.analysisRunStatus === "local_ready_ai_failed") return "本地结果可用 · AI 增强未完成"; if (draft.analysisRunStatus === "interrupted") return "上次解析被中断，原始 JD 和本地解析结果仍已保存"; if (["ai_analyzing", "local_analyzing", "validating"].includes(draft.analysisRunStatus ?? "")) return jobAnalysisRunLabel(draft.analysisRunStatus ?? ""); return `本地解析完成 · ${draft.requirementGraph?.requirements.length ?? draft.manualRequirements.length} 条语义节点待核对`; }
 function priorityLabel(value: string) { return ({ must: "必须满足", high: "高优先", important: "高优先", medium: "一般要求", low: "低优先", nice_to_have: "加分项", uncertain: "待确认" } as Record<string, string>)[value] ?? "待确认"; }
 function confidenceLabel(value: number) { return value >= 0.8 ? "高" : value >= 0.6 ? "中" : "低"; }
 function sectionLabel(value: string) { return ({ summary: "个人总结", education: "教育经历", work: "工作经历", internship: "实习经历", project: "项目经历", research: "研究经历", campus: "校园经历", volunteer: "志愿经历", awards: "荣誉奖项", skills: "技能", certificates: "证书", languages: "语言", publications: "出版物", patents: "专利", portfolio: "作品集", other: "其他", custom: "自定义内容" } as Record<string, string>)[value] ?? "其他内容"; }
