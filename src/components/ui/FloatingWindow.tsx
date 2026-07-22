@@ -13,6 +13,7 @@ type FloatingWindowState = {
 const STORAGE_KEY = "careeradapt:floating-window";
 const MIN_WIDTH = 320;
 const MIN_HEIGHT = 200;
+const HEADER_HEIGHT = 0; // 顶部菜单栏高度，防止悬浮窗被遮挡
 
 function loadState(defaults: { x: number; y: number; width: number; height: number }): FloatingWindowState {
   if (typeof window === "undefined") return { ...defaults, minimized: false };
@@ -87,7 +88,8 @@ export function FloatingWindow({
       if (!d) return;
       const dx = moveEvent.clientX - d.startX;
       const dy = moveEvent.clientY - d.startY;
-      setState((prev) => ({ ...prev, x: d.startPosX + dx, y: d.startPosY + dy }));
+      const newY = Math.max(HEADER_HEIGHT, d.startPosY + dy);
+      setState((prev) => ({ ...prev, x: d.startPosX + dx, y: newY }));
     };
 
     const handleUp = () => {
@@ -121,7 +123,7 @@ export function FloatingWindow({
       if (dir.includes("e")) newW = clampNumber(r.startPosW + dx, MIN_WIDTH, window.innerWidth - 40);
       if (dir.includes("w")) { newW = clampNumber(r.startPosW - dx, MIN_WIDTH, window.innerWidth - 40); newX = r.startPosX + (r.startPosW - newW); }
       if (dir.includes("s")) newH = clampNumber(r.startPosH + dy, MIN_HEIGHT, window.innerHeight - 40);
-      if (dir.includes("n")) { newH = clampNumber(r.startPosH - dy, MIN_HEIGHT, window.innerHeight - 40); newY = r.startPosY + (r.startPosH - newH); }
+      if (dir.includes("n")) { newH = clampNumber(r.startPosH - dy, MIN_HEIGHT, window.innerHeight - 40); newY = Math.max(HEADER_HEIGHT, r.startPosY + (r.startPosH - newH)); }
 
       setState((prev) => ({ ...prev, x: newX, y: newY, width: newW, height: newH }));
     };
@@ -191,6 +193,17 @@ export function FloatingWindow({
       </div>
       <div className="floating-window-body">
         {children}
+      </div>
+      {/* 左下角拖动按钮 - 用于将卡住的窗口拉下来 */}
+      <div
+        className="floating-window-drag-handle"
+        onPointerDown={handleDragStart}
+        title="拖动窗口"
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+          <path d="M18 11V6a2 2 0 0 0-4 0v1M14 7V4a2 2 0 0 0-4 0v6M10 6V4a2 2 0 0 0-4 0v8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M18 11a2 2 0 0 1 2 2v1a8 8 0 0 1-8 8h-1a8 8 0 0 1-5.66-2.34L4 19" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
       </div>
       {/* Resize handles */}
       {["n", "s", "e", "w", "ne", "nw", "se", "sw"].map((dir) => (

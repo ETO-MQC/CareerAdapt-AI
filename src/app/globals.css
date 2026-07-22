@@ -1176,6 +1176,25 @@ html[data-theme="dark"] .panel {
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 2px;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+}
+
+.job-card-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.job-card-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.job-card-list::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 3px;
+}
+
+.job-card-list::-webkit-scrollbar-thumb:hover {
+  background: var(--line-strong);
 }
 
 .job-card {
@@ -1183,13 +1202,57 @@ html[data-theme="dark"] .panel {
   border: 1px solid var(--line);
   border-radius: 8px;
   color: var(--ink);
-  cursor: pointer;
-  display: grid;
-  gap: 2px;
+  display: flex;
+  gap: 4px;
   height: 80px;
   min-width: 0;
-  padding: 10px 12px;
   text-align: left;
+}
+
+.job-card-body {
+  display: grid;
+  flex: 1;
+  gap: 2px;
+  min-width: 0;
+  padding: 10px 12px;
+  cursor: pointer;
+  border-radius: 7px 0 0 7px;
+}
+
+.job-card-body:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.job-card-actions {
+  align-items: center;
+  display: flex;
+  flex-shrink: 0;
+  gap: 4px;
+  opacity: 0;
+  padding-right: 8px;
+  transition: opacity 0.12s ease-in-out;
+}
+
+.job-card:hover .job-card-actions,
+.job-card.is-selected .job-card-actions {
+  opacity: 1;
+}
+
+.job-card-actions .icon-button {
+  flex-shrink: 0;
+  height: 24px;
+  width: 24px;
+}
+
+.job-card-actions .icon-button svg {
+  height: 14px;
+  width: 14px;
+}
+
+.job-card-actions .icon-button.danger:hover {
+  color: var(--danger, #dc3545);
+  border-color: var(--danger, #dc3545);
 }
 
 .job-card:hover {
@@ -1203,7 +1266,7 @@ html[data-theme="dark"] .panel {
   box-shadow: inset 3px 0 0 var(--accent);
 }
 
-.job-card strong {
+.job-card-body strong {
   display: -webkit-box;
   line-height: 1.25;
   max-height: 2.5em;
@@ -1212,20 +1275,20 @@ html[data-theme="dark"] .panel {
   -webkit-line-clamp: 2;
 }
 
-.job-card-company,
-.job-card small {
+.job-card-body .job-card-company,
+.job-card-body small {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.job-card-company {
+.job-card-body .job-card-company {
   color: var(--ink);
   font-size: 13px;
 }
 
-.job-card small {
+.job-card-body small {
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
@@ -2414,57 +2477,9 @@ html[data-theme="dark"] .save-status {
   scrollbar-gutter: stable;
 }
 
-/* 卡片包装器：带左右箭头 */
-.diagnostic-cards-wrapper {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.diagnostic-scroll-btn {
-  align-items: center;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 50%;
-  color: var(--muted);
-  cursor: pointer;
-  display: flex;
-  flex-shrink: 0;
-  height: 28px;
-  justify-content: center;
-  width: 28px;
-}
-
-.diagnostic-scroll-btn:hover {
-  background: var(--surface-subtle);
-  color: var(--ink);
-}
-
-.diagnostic-scroll-btn:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
-}
-
 .diagnostics-panel .diagnostic-issue-list {
-  display: flex;
-  flex-wrap: nowrap;
+  display: grid;
   gap: 12px;
-  overflow-x: auto;
-  overscroll-behavior-x: contain;
-  padding-bottom: 8px;
-  scroll-snap-type: x mandatory;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-
-.diagnostics-panel .diagnostic-issue-list::-webkit-scrollbar {
-  display: none;
-}
-
-.diagnostics-panel .diagnostic-card {
-  flex: 0 0 280px;
-  scroll-snap-align: start;
 }
 
 .optimization-content-grid {
@@ -9572,8 +9587,8 @@ html[data-theme="dark"] .floating-window-titlebar {
 /* Minimized state */
 .floating-window-minimized {
   position: fixed;
-  bottom: 16px;
-  right: 16px;
+  bottom: 24px;
+  right: 24px;
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -9581,7 +9596,7 @@ html[data-theme="dark"] .floating-window-titlebar {
   color: var(--ink);
   cursor: pointer;
   font: inherit;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 700;
   padding: 8px 14px;
   z-index: 50;
@@ -9591,6 +9606,47 @@ html[data-theme="dark"] .floating-window-minimized {
   background: #13181b;
   border-color: rgba(255, 255, 255, 0.06);
   color: #ffffff;
+}
+
+/* 左下角拖动按钮 */
+.floating-window-drag-handle {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: var(--surface-subtle);
+  border: 1px solid var(--line);
+  color: var(--muted);
+  cursor: grab;
+  z-index: 10;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.floating-window-drag-handle:hover {
+  background: var(--accent);
+  color: #ffffff;
+  border-color: var(--accent);
+}
+
+.floating-window-drag-handle:active {
+  cursor: grabbing;
+}
+
+html[data-theme="dark"] .floating-window-drag-handle {
+  background: var(--surface-subtle);
+  border-color: rgba(255, 255, 255, 0.06);
+  color: var(--muted);
+}
+
+html[data-theme="dark"] .floating-window-drag-handle:hover {
+  background: var(--accent);
+  color: #111619;
+  border-color: var(--accent);
 }
 
 /* Resize handles */

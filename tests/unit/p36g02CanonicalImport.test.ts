@@ -46,7 +46,15 @@ describe("P3.6g0.2 canonical import persistence", () => {
 
 function draft(id: string) {
   const canonicalResume = { ...fullAiTemplateFixture, sections: fullAiTemplateFixture.sections.map((section) => ({ ...section, items: Array.from({ length: expected.get(section.sectionType) ?? 1 }, (_, index) => ({ ...section.items[0], id: `${section.sectionType}-${id}-${index}` })) as ResumeItemV2[] })) };
-  return createImportedResumeDraftFromStructuredJson({ importId: `p36g02-${id}`, source: { fileName: "canonical.json", mimeType: "application/json", fileHash: `p36g02-${id}-hash`, pageCount: 1, extractedAt: "2026-07-18T08:00:00.000Z" }, structuredDraft: { schemaVersion: "structured-resume-draft-v1", basics: {}, sections: [] }, canonicalResume, now: "2026-07-18T08:00:00.000Z" });
+  const raw = createImportedResumeDraftFromStructuredJson({ importId: `p36g02-${id}`, source: { fileName: "canonical.json", mimeType: "application/json", fileHash: `p36g02-${id}-hash`, pageCount: 1, extractedAt: "2026-07-18T08:00:00.000Z" }, structuredDraft: { schemaVersion: "structured-resume-draft-v1", basics: {}, sections: [] }, canonicalResume, now: "2026-07-18T08:00:00.000Z" });
+  if (raw.schemaVersion !== "resume-import-v2") return raw;
+  return {
+    ...raw,
+    sections: raw.sections.map((section) => ({
+      ...section,
+      items: section.items.map((item) => item.sourceStatus === "ambiguous" ? { ...item, sourceStatus: "located" as const } : item)
+    }))
+  };
 }
 
 function assertCounts(items: ResumeItemV2[]) {

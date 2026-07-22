@@ -233,7 +233,7 @@ function requirementCoverageIssues(input: ResumeDiagnosticsInput): IssueDraft[] 
     if (!best || best.matchLevel === "none") {
       result.push(issue({
         category: required ? "requirement_coverage" : "fact_gap",
-        severity: required ? "critical" : "warning",
+        severity: "warning",
         code: required ? "REQUIRED_REQUIREMENT_NOT_COVERED" : "PREFERRED_REQUIREMENT_NOT_COVERED",
         title: required ? "必备岗位要求尚未覆盖" : "加分岗位要求尚未覆盖",
         description: required
@@ -246,20 +246,6 @@ function requirementCoverageIssues(input: ResumeDiagnosticsInput): IssueDraft[] 
         ],
         actions: [action("open_fact_gap", "补充或确认事实", false, { requirementId: requirement.id })]
       }));
-      result.push(issue({
-        category: "fact_gap",
-        severity: required ? "warning" : "info",
-        code: "REQUIREMENT_FACT_GAP",
-        title: "岗位要求缺少事实依据",
-        description: "当前资料未找到可支持该要求的事实依据，诊断不会生成可直接接受的虚假文本。",
-        requirementIds: [requirement.id],
-        evidence: [
-          ...evidence("requirement", "岗位要求", requirementLabel, requirement.id),
-          ...evidence("requirement", "事实证据数", evidenceCount)
-        ],
-        actions: [action("open_fact_gap", "补充或确认事实", false, { requirementId: requirement.id })]
-      }));
-      continue;
     }
 
     if (required && best.matchLevel === "weak") {

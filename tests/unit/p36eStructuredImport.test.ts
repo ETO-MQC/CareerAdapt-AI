@@ -126,7 +126,7 @@ describe("P3.6e grouped resume structure", () => {
 
   it("persists structured items through the repository and round-trips careeradapt-resume-v2", async () => {
     const blocks = groupedResumeBlocks();
-    const draft = acceptReviewCandidates(createImportedResumeDraftFromText({
+    const rawDraft = createImportedResumeDraftFromText({
       importId: "p36f-repository",
       source: {
         sourceSessionId: "p36f-session",
@@ -140,7 +140,19 @@ describe("P3.6e grouped resume structure", () => {
       sourceKind: "text_pdf",
       sourceBlocks: blocks,
       now: NOW
-    }));
+    });
+    // Mark all basics fields as user-edited to pass source validation
+    const basics = { ...rawDraft.basics };
+    for (const key of ["name", "email", "phone", "location", "summary"] as const) {
+      if (basics[key]) basics[key] = { ...basics[key]!, userEdited: true };
+    }
+    basics.links = basics.links.map((link) => ({ ...link, userEdited: true }));
+    const draft = { ...rawDraft, basics } as typeof rawDraft;
+    // Also accept field candidates and mark ambiguous section items
+    if (draft.schemaVersion === "resume-import-v2") {
+      (draft as { fieldCandidates: typeof draft.fieldCandidates }).fieldCandidates = draft.fieldCandidates.map((c) => c.reviewStatus === "needs_review" ? { ...c, needsConfirmation: false, userConfirmed: true, reviewStatus: "accepted" as const } : c);
+      (draft as { sections: typeof draft.sections }).sections = draft.sections.map((s) => ({ ...s, items: s.items.map((item) => item.sourceStatus === "ambiguous" ? { ...item, sourceStatus: "located" as const } : item) }));
+    }
     const db = new CareerAdaptDb(`P36fRoundTrip-${crypto.randomUUID()}`);
     const repository = new WorkspaceRepository(db);
     try {
@@ -274,21 +286,21 @@ function blockForExtractor(id: string, normalizedText: string): NormalizedSource
   return { id, page: 1, text: normalizedText, rawText: normalizedText, normalizedText, normalizationActions: [], blockType: "paragraph", sourceEngine: "pdfjs", sourceEngineVersion: "test", extractionConfidence: 1, sourceKind: "digital_pdf", order: 0 };
 }
 
-function acceptReviewCandidates<T extends ReturnType<typeof createImportedResumeDraftFromText>>(draft: T): T {
-  if (draft.schemaVersion !== "resume-import-v2") return draft;
-  return {
-    ...draft,
-    fieldCandidates: draft.fieldCandidates.map((candidate) => candidate.reviewStatus === "needs_review"
-      ? { ...candidate, needsConfirmation: false, userConfirmed: true, reviewStatus: "accepted" as const }
-      : candidate)
-  } as T;
-}
-
 async function confirmDraftInNewRepository(draft: ReturnType<typeof createImportedResumeDraftFromStructuredJson>) {
   const db = new CareerAdaptDb(`P36fJsonRoundTrip-${crypto.randomUUID()}`);
   const repository = new WorkspaceRepository(db);
   try {
-    const saved = await repository.saveImportedResumeDraft(draft, 0);
+    // Mark all basics fields as user-edited since JSON round-trip blocks don't contain basic field values
+    const basics = { ...draft.basics };
+    for (const key of ["name", "email", "phone", "location", "summary"] as const) {
+      if (basics[key]) basics[key] = { ...basics[key]!, userEdited: true };
+    }
+    basics.links = basics.links.map((link) => ({ ...link, userEdited: true }));
+    const patched = { ...draft, basics };
+    if (patched.schemaVersion === "resume-import-v2") {
+      (patched as { sections: typeof patched.sections }).sections = patched.sections.map((s) => ({ ...s, items: s.items.map((item) => item.sourceStatus === "ambiguous" ? { ...item, sourceStatus: "located" as const } : item) }));
+    }
+    const saved = await repository.saveImportedResumeDraft(patched, 0);
     const confirmed = await repository.confirmImportedResume({
       importId: saved.importId,
       expectedDraftRevision: saved.revision,

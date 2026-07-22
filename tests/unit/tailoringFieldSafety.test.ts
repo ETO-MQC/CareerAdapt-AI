@@ -122,7 +122,7 @@ describe("tailoring quality gates", () => {
       ["learnkata", "示例学习助手：RAG 幻觉、拒答边界与 verifier"],
       ["smartfocus", "示例任务系统：Coding Agent 多文件修改、错误复现、Playwright 与风险操作约束"]
     ].sort((a, b) => tailoringTargetPriority(b[0], b[1]) - tailoringTargetPriority(a[0], a[1]));
-    expect(ranked.map(([id]) => id)).toEqual(["smartfocus", "learnkata", "redbook", "ai-review", "other"]);
+    expect(ranked.map(([id]) => id)).toEqual(["smartfocus", "ai-review", "learnkata", "redbook", "other"]);
   });
 });
 

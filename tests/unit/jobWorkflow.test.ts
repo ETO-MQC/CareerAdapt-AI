@@ -95,7 +95,7 @@ describe("job workflow", () => {
     [new Error("c2_match_stale_return_to_c1"), "matches_stale", "匹配结果已经过期"],
     [new RevisionConflictError(), "source_revision_changed", "来源简历已经更新"],
     [new Error("invalid_reference_resume_branch_read_only"), "source_reference_invalid", "来源简历引用已失效"],
-    [new Error("c2_requires_confirmed_evidence_or_gap"), "matches_have_no_evidence", "没有可用的已确认事实"],
+    [new Error("c2_requires_confirmed_evidence_or_gap"), "matches_have_no_evidence", "请选择真实来源内容"],
     [new Error("indexeddb unavailable"), "repository_write_failed", "岗位简历保存失败"]
   ] as const)("maps generation failure to %s", (error, code, title) => {
     expect(mapJobResumeGenerationError(error)).toBe(code);
