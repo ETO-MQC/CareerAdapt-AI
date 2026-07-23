@@ -8,6 +8,7 @@ import {
   type SourceSpan
 } from "@/domain/schemas";
 import { stableHashText } from "@/services/security/text";
+import { adaptJobRequirementGraphV4ToV3 } from "../v4/analyze";
 
 export const JOB_REQUIREMENT_ANALYZER_V3 = "jd-analyzer.unit-ledger-v3.1";
 
@@ -188,7 +189,9 @@ export function validateJobRequirementGraphV3(graph: JobRequirementGraphV3, dete
 }
 
 export function buildCanonicalJobRequirementGraphV3(job: JobDescription) {
-  if (job.requirementGraph) return job.requirementGraph;
+  if (job.requirementGraph) return job.requirementGraph.schemaVersion === "job-requirement-graph-v4"
+    ? adaptJobRequirementGraphV4ToV3(job.requirementGraph)
+    : job.requirementGraph;
   const graph = analyzeJobDescriptionV3({ rawText: job.rawText });
   if (!job.requirements.length) return graph;
   const byId = new Map(graph.requirements.map((r) => [r.id, r]));

@@ -1,7 +1,25 @@
-import type { JdAnalyzerOutput, JobRequirementGraphV3, RequirementNodeV3 } from "@/domain/schemas";
+import type { JdAnalyzerOutput, JobRequirementGraphV3, JobRequirementGraphV4, RequirementNodeV3 } from "@/domain/schemas";
 
 export function projectJobGraphV3ToAnalyzerOutput(input: {
   graph: JobRequirementGraphV3;
+  title: string;
+  company: string;
+  now?: string;
+}): JdAnalyzerOutput {
+  return projectJobGraphToAnalyzerOutput(input);
+}
+
+export function projectJobGraphV4ToAnalyzerOutput(input: {
+  graph: JobRequirementGraphV4;
+  title: string;
+  company: string;
+  now?: string;
+}): JdAnalyzerOutput {
+  return projectJobGraphToAnalyzerOutput(input);
+}
+
+function projectJobGraphToAnalyzerOutput(input: {
+  graph: JobRequirementGraphV3 | JobRequirementGraphV4;
   title: string;
   company: string;
   now?: string;

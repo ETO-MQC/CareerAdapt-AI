@@ -3,6 +3,7 @@ import { EntityBaseSchema, IsoDateStringSchema, PdfLocatorStatusSchema, PdfSourc
 import { ExperienceTypeSchema } from "./profile";
 import { JobRequirementCategorySchema } from "./job";
 import { JobRequirementGraphV3Schema } from "./jobOptimizationV3";
+import { JobRequirementGraphV4Schema } from "./jobOptimizationV4";
 
 export const RawInputKindSchema = z.enum(["resume_text", "resume_pdf_text", "job_jd"]);
 
@@ -278,13 +279,14 @@ export const JdAnalyzerRequirementSchema = EntityBaseSchema.extend({
 
 export const JdUnitAssignmentSchema = z.object({
   sourceUnitId: z.string().min(1),
-  verdict: z.enum(["accept", "override"]).optional(),
-  disposition: z.enum(["heading", "wrapper", "metadata", "requirement", "requirement_detail", "verification_material", "hiring_signal", "excluded", "unclassified"]).optional(),
+  verdict: z.enum(["accept", "override"]),
+  disposition: z.enum(["heading", "context", "group_wrapper", "metadata", "requirement", "requirement_detail", "verification_material", "hiring_signal", "excluded", "unclassified"]).optional(),
   section: z.enum(["responsibility", "required", "preferred", "verification", "role_profile", "unknown"]).optional(),
   kind: z.enum(["responsibility", "hard_constraint", "core_competency", "tool_or_technology", "experience_depth", "education", "language", "soft_skill", "domain_knowledge", "preferred", "risk_or_uncertain"]).optional(),
   priority: z.enum(["must", "high", "medium", "nice_to_have", "uncertain"]).optional(),
   hardConstraint: z.boolean().optional(),
-  parentUnitId: z.string().min(1).optional(),
+  parentUnitId: z.string().min(1).nullable().optional(),
+  groupRelation: z.enum(["all_of", "any_of", "preferred_any_of", "examples", "evidence_bundle", "topic_list"]).optional(),
   normalizedIntent: z.string().min(1).optional(),
   exactKeywords: z.array(z.string().min(1)).optional(),
   semanticAliases: z.array(z.string().min(1)).optional(),
@@ -333,7 +335,7 @@ export const JobAnalysisDraftSchema = EntityBaseSchema.extend({
   promptVersion: z.string().min(1),
   attemptCount: z.number().int().min(0).default(0),
   analyzerOutput: JdAnalyzerOutputSchema.optional(),
-  requirementGraph: JobRequirementGraphV3Schema.optional(),
+  requirementGraph: z.union([JobRequirementGraphV3Schema, JobRequirementGraphV4Schema]).optional(),
   analysisIssues: z.array(z.string().min(1)).optional(),
   manualRequirements: z.array(JdAnalyzerRequirementSchema).default([]),
   riskNotes: z.array(z.string()).default([]),
