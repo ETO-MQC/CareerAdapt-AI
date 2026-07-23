@@ -635,8 +635,9 @@ export const aiTaskRegistry = {
         compactJobContext: input.compactJobContext,
         targets: input.targets.map((target) => ({
           itemId: target.itemId, sectionType: target.sectionType, fieldPath: target.fieldPath,
-          before: target.before, relevantRequirements: target.relevantRequirements,
-          allowedFacts: target.allowedFacts
+          structuredItem: target.structuredItem, renderedText: target.renderedText, before: target.before,
+          relevantRequirements: target.relevantRequirements, evidenceBundle: target.evidenceBundle,
+          currentSectionContext: target.currentSectionContext, allowedFacts: target.allowedFacts
         })),
         outputContract: { suggestions: [{ itemId: "copied target itemId", after: "改写后的文本", rationale: "为什么这样修改", requirementIds: ["copied requirementId"], targetKeywords: ["Cursor"] }] },
         instructions: [
@@ -645,9 +646,36 @@ export const aiTaskRegistry = {
           "Copy requirementIds from that target's relevantRequirements and use only that target's allowedFacts.",
           "after must differ from before. Never invent numbers, organizations, roles, credentials, duration, or outcomes.",
           "Preserve array shape for highlights. Never include title, organization, role, location, dates, or internal field labels in after.",
+          "Do not modify title, organization, role, school, date, location, award, certificate, or numeric outcomes unless the target field explicitly names it and confirmed evidence supports it.",
+          "For project/work bullets prefer strong verb + specific action + result or verifiable qualitative impact. Never invent metrics.",
+          "For skills describe applied capability separately from the skill name; proficiency requires confirmed evidence.",
           "Keep summaries complete; never return ellipsized or truncated text.",
           "Use direct action and verification language; omit transferability-analysis boilerplate.",
-          "Omit a target when no safe rewrite is possible."
+          "Omit a target when no safe rewrite is possible.",
+          "",
+          "## 改写质量要求",
+          "",
+          "### 禁止行为",
+          "- 禁止只在原文前加通用前缀（如'围绕任务背景、任务目标、输入与约束'）",
+          "- 禁止重复原文内容（改写后不能出现两遍相同内容）",
+          "- 禁止使用相同的改写策略处理所有目标（每个目标需要针对性改写）",
+          "",
+          "### 必须行为",
+          "- 先理解简历内容的实际含义（这个项目做了什么？解决了什么问题？）",
+          "- 再思考哪些部分与 JD 要求相关",
+          "- 然后针对性地重组语言，突出相关经验",
+          "- 使用更强的动词（影响 > 动作 > 工具）",
+          "- 自然融入 JD 中的关键词（如果事实匹配）",
+          "",
+          "### 改写示例",
+          "",
+          "❌ 错误（只加前缀）：",
+          "before: 设计AI助手的多轮指令框架",
+          "after: 围绕任务背景、任务目标、输入与约束：设计AI助手的多轮指令框架",
+          "",
+          "✅ 正确（实质性改写）：",
+          "before: 设计AI助手的多轮指令框架，将自然语言解析为结构化操作",
+          "after: 主导多轮指令框架设计，将模糊自然语言转化为可执行结构化操作，解决模型在模糊指令下的过度执行问题"
         ]
       }, null, 2);
     },
@@ -728,7 +756,7 @@ export const aiTaskRegistry = {
     systemPrompt: resumeTailorPlannerPrompt.system,
     inputSchema: ResumeTailorPlannerInputSchema,
     outputSchema: ResumeTailorPlannerOutputSchema,
-    maxOutputChars: 4_000,
+    maxOutputChars: 12_000,
     buildUserPrompt(input: ResumeTailorPlannerInput) {
       return JSON.stringify({
         jobContext: input.jobContext,
@@ -748,7 +776,7 @@ export const aiTaskRegistry = {
       return {
         assessments: assessments.filter((a: Record<string, unknown>) => typeof a.itemId === "string" && a.itemId.length > 0).map((a: Record<string, unknown>) => ({
           itemId: String(a.itemId),
-          action: ["keep", "rewrite_from_evidence", "propose_confirmable_claim", "ask_user", "hide_or_deprioritize"].includes(String(a.action)) ? a.action : "ask_user",
+          action: ["verified_rewrite", "confirmable_rewrite", "clarification_required", "material_task", "keep", "deprioritize", "rewrite_from_evidence", "propose_confirmable_claim", "ask_user", "hide_or_deprioritize"].includes(String(a.action)) ? a.action : "clarification_required",
           reason: String(a.reason ?? "未评估"),
           suggestedKeywords: Array.isArray(a.suggestedKeywords) ? a.suggestedKeywords : [],
           relatedRequirementIds: Array.isArray(a.relatedRequirementIds) ? a.relatedRequirementIds : [],

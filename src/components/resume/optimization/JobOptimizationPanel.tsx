@@ -2,7 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import { Check, ChevronLeft, Sparkles, Square } from "lucide-react";
-import { analyzeJobFit, applyTailoringPlan, confirmTailoringClaims, createTailoringPlan, validateTailoringSuggestions, withTailoringSuggestions } from "@/services/jobs/tailoringService";
+import { analyzeJobFit, answerTailoringClarification, applyTailoringPlan, confirmTailoringClaims, createTailoringPlan, validateTailoringSuggestions, withPlannerActions, withTailoringSuggestions } from "@/services/jobs/tailoringService";
 import { invokeStructuredAi } from "@/ai/client";
 import type {
   CareerProfile,
@@ -19,7 +19,7 @@ import type { WorkspaceRepository } from "@/services/storage/repositories";
 import { nanoid } from "nanoid";
 import { groupTailoringKeywords } from "@/domain/jobOptimization";
 
-type TailoringView = "overview" | "suggestions" | "apply";
+type TailoringView = "overview" | "clarification" | "suggestions" | "apply";
 
 export function JobOptimizationPanel({
   repository,
@@ -28,7 +28,9 @@ export function JobOptimizationPanel({
   branch,
   canEdit,
   onBranchReady,
-  onMessage
+  onMessage,
+  showDebugPanel,
+  setShowDebugPanel
 }: {
   repository: WorkspaceRepository;
   profile?: CareerProfile;
@@ -40,6 +42,8 @@ export function JobOptimizationPanel({
   onBranchReady: (branch: ResumeBranch) => void;
   onApplyStructureSuggestion: (kind: "reorder" | "hide" | "show", contentItemId: string) => void;
   onMessage: (message: string) => void;
+  showDebugPanel: boolean;
+  setShowDebugPanel: (value: boolean | ((prev: boolean) => boolean)) => void;
 }) {
   const [view, setView] = useState<TailoringView>("overview");
   const [intensity, setIntensity] = useState<TailoringIntensity>("balanced");
@@ -50,9 +54,62 @@ export function JobOptimizationPanel({
   const [pending, setPending] = useState(false);
   const [progress, setProgress] = useState({ step: 0, completed: 0, skipped: 0, failed: 0 });
   const generationController = useRef<AbortController | undefined>(undefined);
-  const [plannerAssessment, setPlannerAssessment] = useState<{ globalNotes?: string; skippedCount: number; rewrittenCount: number }>();
+  const [plannerAssessment, setPlannerAssessment] = useState<{ globalNotes?: string; direct: number; confirmable: number; clarification: number; materials: number; keep: number }>();
+  const [activeQuestionIndex, setActiveQuestionIndex] = useState(0);
+  const [clarificationAnswer, setClarificationAnswer] = useState<string | string[] | boolean>("");
+  const [answeredQuestionIds, setAnsweredQuestionIds] = useState<Set<string>>(new Set());
   const [fitDelta, setFitDelta] = useState<{ beforeScore: number; afterScore: number; newlyCovered: string[]; newKeywords: string[]; userDeclared: string[]; remaining: string[] }>();
+  const [pendingTaskInputs, setPendingTaskInputs] = useState<unknown[]>([]);
+  const [pendingBasePlan, setPendingBasePlan] = useState<ResumeTailoringPlan | undefined>();
+  const [debugLogs, setDebugLogs] = useState<Array<{ timestamp: number; type: string; phase: string; data: unknown }>>([]);
+  const [debugPanelPos, setDebugPanelPos] = useState({ x: window.innerWidth - 540, y: window.innerHeight - 500 });
+  const [debugPanelSize, setDebugPanelSize] = useState({ width: 500, height: 400 });
+  const debugPanelDragRef = useRef<{ startX: number; startY: number; startPosX: number; startPosY: number } | null>(null);
+  const debugPanelResizeRef = useRef<{ startX: number; startY: number; startW: number; startH: number } | null>(null);
   const targetJob = useMemo(() => jobs.find((job) => job.id === branch?.jobId), [branch?.jobId, jobs]);
+
+  function addDebugLog(type: string, phase: string, data: unknown) {
+    setDebugLogs((prev) => [...prev, { timestamp: Date.now(), type, phase, data }]);
+  }
+
+  // 调试面板拖动处理
+  function handleDebugPanelDragStart(e: React.MouseEvent) {
+    e.preventDefault();
+    debugPanelDragRef.current = { startX: e.clientX, startY: e.clientY, startPosX: debugPanelPos.x, startPosY: debugPanelPos.y };
+    const handleMouseMove = (moveE: MouseEvent) => {
+      if (!debugPanelDragRef.current) return;
+      const dx = moveE.clientX - debugPanelDragRef.current.startX;
+      const dy = moveE.clientY - debugPanelDragRef.current.startY;
+      setDebugPanelPos({ x: debugPanelDragRef.current.startPosX + dx, y: debugPanelDragRef.current.startPosY + dy });
+    };
+    const handleMouseUp = () => {
+      debugPanelDragRef.current = null;
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+  }
+
+  // 调试面板缩放处理
+  function handleDebugPanelResizeStart(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    debugPanelResizeRef.current = { startX: e.clientX, startY: e.clientY, startW: debugPanelSize.width, startH: debugPanelSize.height };
+    const handleMouseMove = (moveE: MouseEvent) => {
+      if (!debugPanelResizeRef.current) return;
+      const dx = moveE.clientX - debugPanelResizeRef.current.startX;
+      const dy = moveE.clientY - debugPanelResizeRef.current.startY;
+      setDebugPanelSize({ width: Math.max(300, debugPanelResizeRef.current.startW + dx), height: Math.max(200, debugPanelResizeRef.current.startH + dy) });
+    };
+    const handleMouseUp = () => {
+      debugPanelResizeRef.current = null;
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+  }
   const analysis = useMemo(() => profile && branch && targetJob ? analyzeJobFit({ profile, branch, job: targetJob }) : undefined, [profile, branch, targetJob]);
 
   if (!profile || !branch || !targetJob) {
@@ -66,6 +123,7 @@ export function JobOptimizationPanel({
   const claims = (plan?.claims ?? []).filter((claim) => normalizeDiffText(claim.currentText) !== normalizeDiffText(claim.proposedText));
   const suggestionsById = new Map((plan?.suggestions ?? []).map((suggestion) => [suggestion.id, suggestion]));
   const selectedClaims = claims.filter((claim) => selected.has(claim.id));
+  const unansweredQuestions = (plan?.clarificationQuestions ?? []).filter((question) => !answeredQuestionIds.has(question.id));
   const confirmationCount = selectedClaims.filter((claim) => claim.decision === "requires_confirmation").length;
   const keywordGroups = groupTailoringKeywords(selectedClaims.flatMap((claim) => claim.keywords));
   const keywordCount = keywordGroups.core.length + keywordGroups.confirmableTools.length;
@@ -78,6 +136,9 @@ export function JobOptimizationPanel({
     setPending(true);
     setProgress({ step: 1, completed: 0, skipped: 0, failed: 0 });
     setPlannerAssessment(undefined);
+    setAnsweredQuestionIds(new Set());
+    setClarificationAnswer("");
+    setActiveQuestionIndex(0);
     setView("suggestions");
     try {
       const result = createTailoringPlan({ profile: activeProfile, branch: activeBranch, job: activeJob, intensity, operationId: `plan-${activeBranch.id}-${activeBranch.revision}-${activeJob.id}` });
@@ -94,66 +155,96 @@ export function JobOptimizationPanel({
         requirements: activeJob.requirements.map((r) => ({ id: r.id, description: r.description, priority: r.priority, category: r.category, keywords: r.keywords })),
         sections: taskInputs.map((t) => ({ sectionType: t.target.sectionType, itemId: t.target.itemId ?? "", currentText: typeof t.currentContent.fieldValue === "string" ? t.currentContent.fieldValue : t.currentContent.fieldValue.join("；"), relevantRequirementIds: t.relevantRequirements.map((r) => r.requirementId) }))
       };
+      addDebugLog("request", "planner", { input: plannerInput });
       const plannerResponse = await invokeStructuredAi({ task: "resume-optimization-planner", businessInput: plannerInput, outputSchema: ResumeTailorPlannerOutputSchema, signal: controller.signal });
+      addDebugLog("response", "planner", { ok: plannerResponse.ok, data: plannerResponse.ok ? plannerResponse.data : plannerResponse.errorCode, log: plannerResponse.log });
       await repository.saveAiLogs([plannerResponse.log]);
 
-      const skipIds = new Set<string>();
+      const rewriteIds = new Set<string>();
+      let basePlan = result.plan;
       if (plannerResponse.ok) {
-        for (const assessment of plannerResponse.data.assessments) {
-          if (assessment.action === "keep" || assessment.action === "hide_or_deprioritize") skipIds.add(assessment.itemId);
-        }
+        basePlan = result.plan ? withPlannerActions({ plan: result.plan, assessments: plannerResponse.data.assessments }) : undefined;
+        const actions = basePlan?.plannerActions ?? [];
+        actions.filter((item) => item.action === "verified_rewrite").forEach((item) => rewriteIds.add(item.itemId));
         setPlannerAssessment({
           globalNotes: plannerResponse.data.globalNotes,
-          skippedCount: skipIds.size,
-          rewrittenCount: plannerResponse.data.assessments.length - skipIds.size
+          direct: actions.filter((item) => item.action === "verified_rewrite").length,
+          confirmable: actions.filter((item) => item.action === "confirmable_rewrite").length,
+          clarification: actions.filter((item) => item.action === "clarification_required").length,
+          materials: (basePlan?.materialTasks?.length ?? 0) + actions.filter((item) => item.action === "material_task").length,
+          keep: actions.filter((item) => item.action === "keep" || item.action === "deprioritize").length
         });
       } else {
-        setPlannerAssessment({ globalNotes: "AI 评估未能完成，将对所有片段尝试改写。", skippedCount: 0, rewrittenCount: taskInputs.length });
+        taskInputs.forEach((item) => rewriteIds.add(item.target.itemId ?? item.target.sectionId));
+        const failure = plannerFailureMessage(plannerResponse.errorCode);
+        setPlannerAssessment({ globalNotes: `${failure} 已切换为基于已确认事实的安全改写。`, direct: taskInputs.length, confirmable: 0, clarification: 0, materials: result.plan?.materialTasks?.length ?? 0, keep: 0 });
+        onMessage(failure);
       }
-      setProgress((current) => ({ ...current, step: 2, skipped: skipIds.size }));
+      setPlan(basePlan);
+      setProgress((current) => ({ ...current, step: 2, skipped: taskInputs.length - rewriteIds.size }));
+
+      // --- 检查是否需要先问问题 ---
+      const hasClarificationQuestions = (basePlan?.clarificationQuestions?.length ?? 0) > 0;
+      if (hasClarificationQuestions) {
+        // 存储状态，等用户回答完再继续
+        setPendingTaskInputs(taskInputs);
+        setPendingBasePlan(basePlan);
+        setView("clarification");
+        setPending(false);
+        onMessage("AI 发现一些不确定的地方，需要你先回答几个问题。");
+        return;
+      }
 
       // --- Phase 2: 仅对可改写片段发送改写请求 ---
       const generated: TailoringSuggestion[] = [];
       const allRejectedReasons: string[] = [];
-      const rewriteInputs = taskInputs.filter((t) => !skipIds.has(t.target.itemId ?? ""));
+      const rewriteInputs = taskInputs.filter((t) => rewriteIds.has(t.target.itemId ?? t.target.sectionId));
+      addDebugLog("info", "phase2", { rewriteIdsCount: rewriteIds.size, rewriteInputsCount: rewriteInputs.length, taskInputsCount: taskInputs.length });
       setProgress((current) => ({ ...current, step: 3 }));
       const batchSize = Math.ceil(rewriteInputs.length / Math.min(2, rewriteInputs.length || 1));
       const batches = Array.from({ length: Math.ceil(rewriteInputs.length / batchSize) }, (_, index) => rewriteInputs.slice(index * batchSize, (index + 1) * batchSize));
       for (const batch of batches) {
         if (controller.signal.aborted) break;
         const first = batch[0];
+        const batchInput = {
+          draftId: first.draftId, profileId: first.profileId, jobId: first.jobId, intensity: first.intensity,
+          compactJobContext: {
+            title: first.jobContext.title, roleMission: first.jobContext.roleMission,
+            topResponsibilities: first.jobContext.responsibilities.slice(0, 4), targetKeywords: first.jobContext.keywords.slice(0, 16)
+          },
+          targets: batch.map((request) => ({
+            itemId: request.target.itemId ?? request.target.sectionId, sectionType: request.target.sectionType, sectionId: request.target.sectionId, fieldPath: request.target.fieldPath,
+            structuredItem: request.currentContent.structuredItem, before: request.currentContent.fieldValue, renderedText: request.currentContent.renderedText,
+            relevantRequirements: request.relevantRequirements.slice(0, 4), allowedEvidenceRefs: request.allowedEvidenceRefs, allowedFacts: request.allowedFacts,
+            currentSectionContext: taskInputs.filter((item) => item.target.sectionType === request.target.sectionType).map((item) => item.currentContent.renderedText).slice(0, 6),
+            evidenceBundle: request.evidenceBundle
+          }))
+        };
+        addDebugLog("request", "tailor-batch", { batchIndex: batches.indexOf(batch), targetsCount: batchInput.targets.length, targets: batchInput.targets.map(t => ({ itemId: t.itemId, sectionType: t.sectionType, beforePreview: String(t.before).slice(0, 100) })) });
         const response = await invokeStructuredAi({
           task: "resume-tailor-batch",
-          businessInput: {
-            draftId: first.draftId, profileId: first.profileId, jobId: first.jobId, intensity: first.intensity,
-            compactJobContext: {
-              title: first.jobContext.title, roleMission: first.jobContext.roleMission,
-              topResponsibilities: first.jobContext.responsibilities.slice(0, 4), targetKeywords: first.jobContext.keywords.slice(0, 16)
-            },
-            targets: batch.map((request) => ({
-              itemId: request.target.itemId ?? request.target.sectionId, sectionType: request.target.sectionType, sectionId: request.target.sectionId, fieldPath: request.target.fieldPath,
-              structuredItem: request.currentContent.structuredItem, before: request.currentContent.fieldValue, renderedText: request.currentContent.renderedText,
-              relevantRequirements: request.relevantRequirements.slice(0, 4), allowedEvidenceRefs: request.allowedEvidenceRefs, allowedFacts: request.allowedFacts
-            }))
-          },
+          businessInput: batchInput,
           outputSchema: ResumeTailorOutputSchema,
           signal: controller.signal
         });
+        addDebugLog("response", "tailor-batch", { batchIndex: batches.indexOf(batch), ok: response.ok, data: response.ok ? { suggestionsCount: response.data.suggestions.length, suggestions: response.data.suggestions.map(s => ({ id: s.id, afterPreview: String(s.after).slice(0, 150) })) } : (response as { errorCode?: string }).errorCode, rawLog: response.log });
         await repository.saveAiLogs([response.log]);
         const validated = response.ok ? validateTailoringSuggestions({ suggestions: response.data.suggestions }) : undefined;
         if (validated?.suggestions.length) generated.push(...validated.suggestions);
         else if (validated?.rejected.length) allRejectedReasons.push(...validated.rejected.flatMap((r) => r.reasons));
         else allRejectedReasons.push(response.ok ? "empty_suggestions" : (response as { errorCode?: string }).errorCode ?? "provider_error");
+        if (validated?.rejected.length) addDebugLog("rejected", "validation", { rejected: validated.rejected.map(r => ({ reasons: r.reasons, afterPreview: String(r.suggestion.after).slice(0, 100) })) });
         setProgress((current) => ({ ...current, completed: current.completed + (validated?.suggestions.length ?? 0), failed: current.failed + Math.max(0, batch.length - (validated?.suggestions.length ?? 0)) }));
-        const partialPlan = result.plan ? withTailoringSuggestions({ plan: result.plan, suggestions: generated, invalidOutputCodes: [] }) : undefined;
+        const partialPlan = basePlan ? withTailoringSuggestions({ plan: basePlan, suggestions: generated, invalidOutputCodes: [] }) : undefined;
         setPlan(partialPlan);
         setSelected(new Set(partialPlan?.claims.filter((claim) => claim.decision !== "blocked").map((claim) => claim.id)));
       }
 
-      const nextPlan = result.plan ? withTailoringSuggestions({ plan: result.plan, suggestions: generated, invalidOutputCodes: allRejectedReasons.includes("no_change_needed") ? ["no_change_needed"] : ["invalid_ai_output"] }) : undefined;
+      const nextPlan = basePlan ? withTailoringSuggestions({ plan: basePlan, suggestions: generated, invalidOutputCodes: allRejectedReasons.includes("no_change_needed") ? ["no_change_needed"] : ["invalid_ai_output"] }) : undefined;
+      addDebugLog("summary", "complete", { generatedCount: generated.length, rejectedReasons: allRejectedReasons, finalClaimsCount: nextPlan?.claims.length ?? 0, finalSuggestionsCount: nextPlan?.suggestions?.length ?? 0 });
       setPlan(nextPlan);
       setSelected(new Set(nextPlan?.claims.filter((claim) => claim.decision !== "blocked").map((claim) => claim.id)));
-      if (!generated.length && skipIds.size && rewriteInputs.length === 0) onMessage("AI 评估认为当前简历内容已与岗位匹配，无需改写。");
+      if (!generated.length && rewriteInputs.length === 0 && (nextPlan?.clarificationQuestions?.length ?? 0) > 0) onMessage("需要补充信息后才能生成部分建议。");
       else if (!generated.length && allRejectedReasons.length) onMessage(summarizeRejectionReasons(allRejectedReasons));
       else if (!generated.length) onMessage("AI 未能生成有效改写内容。");
     } catch (error) {
@@ -167,6 +258,111 @@ export function JobOptimizationPanel({
 
   function updateConfirmation(claim: TailoringClaim, proficiency: ClaimConfirmation["proficiency"] | undefined, accepted = true, editedText?: string) {
     setConfirmations((current) => ({ ...current, [claim.id]: { claimId: claim.id, accepted, proficiency, editedText: accepted ? editedText : undefined, syncScope: accepted ? "resume_only" : "rejected" } }));
+  }
+
+  function submitClarificationAnswer() {
+    const question = unansweredQuestions[activeQuestionIndex];
+    if (!plan || !question || clarificationAnswer === "" || (Array.isArray(clarificationAnswer) && !clarificationAnswer.length)) return;
+    const proficiency = question.answerType === "proficiency" ? ({ "熟练使用": "proficient", "熟悉基础": "familiar", "了解": "aware", "正在学习": "learning" } as const)[String(clarificationAnswer) as "熟练使用" | "熟悉基础" | "了解" | "正在学习"] : undefined;
+    const next = answerTailoringClarification({ plan, question, answer: clarificationAnswer, proficiency, branch: activeBranch });
+    const newIds = next.claims.filter((claim) => !plan.claims.some((existing) => existing.id === claim.id)).map((claim) => claim.id);
+    if (!newIds.length && clarificationAnswer !== false && clarificationAnswer !== "没有使用") {
+      onMessage("未能为这个回答找到安全的写入字段，请返回简历补充对应条目后重试。");
+      return;
+    }
+    setPlan(next);
+    setSelected((current) => new Set([...current, ...newIds]));
+    setAnsweredQuestionIds((current) => new Set([...current, question.id]));
+    setClarificationAnswer("");
+    setActiveQuestionIndex(0);
+    onMessage(newIds.length ? '已根据回答生成候选句，请在"确认后可加入"中核对。' : "已记录为不添加该能力。");
+
+    // 检查是否还有更多问题，如果没有则自动继续生成建议
+    const remainingQuestions = (next.clarificationQuestions ?? []).filter((q) => !answeredQuestionIds.has(q.id) && q.id !== question.id);
+    if (remainingQuestions.length === 0 && pendingBasePlan && pendingTaskInputs.length) {
+      // 所有问题已回答，自动继续生成建议
+      setTimeout(() => { void continueToSuggestions(); }, 500);
+    }
+  }
+
+  async function continueToSuggestions() {
+    if (!pendingTaskInputs.length) return;
+    const controller = new AbortController();
+    generationController.current = controller;
+    setPending(true);
+    setProgress({ step: 2, completed: 0, skipped: 0, failed: 0 });
+    setView("suggestions");
+    try {
+      // 使用更新后的 plan（包含用户回答），而不是原始的 pendingBasePlan
+      const basePlan = plan ?? pendingBasePlan;
+      const taskInputs = pendingTaskInputs as Array<{ target: { sectionType: string; sectionId: string; itemId?: string; fieldPath: string }; currentContent: { fieldValue: string | string[]; renderedText: string; structuredItem: unknown }; relevantRequirements: Array<{ requirementId: string }>; allowedEvidenceRefs: unknown[]; allowedFacts: unknown[]; evidenceBundle: unknown; draftId: string; profileId: string; jobId: string; intensity: TailoringIntensity; jobContext: { title: string; roleMission?: string; responsibilities: string[]; keywords: string[] } }>;
+      const rewriteIds = new Set<string>();
+      (basePlan?.plannerActions ?? []).filter((item) => item.action === "verified_rewrite").forEach((item) => rewriteIds.add(item.itemId));
+      addDebugLog("info", "continue", { hasUpdatedPlan: !!plan, rewriteIdsCount: rewriteIds.size, clarifiedQuestionsCount: answeredQuestionIds.size });
+
+      // --- Phase 2: 仅对可改写片段发送改写请求 ---
+      const generated: TailoringSuggestion[] = [];
+      const allRejectedReasons: string[] = [];
+      const rewriteInputs = taskInputs.filter((t) => rewriteIds.has(t.target.itemId ?? t.target.sectionId));
+      addDebugLog("info", "phase2-continue", { rewriteInputsCount: rewriteInputs.length });
+      setProgress((current) => ({ ...current, step: 3 }));
+      const batchSize = Math.ceil(rewriteInputs.length / Math.min(2, rewriteInputs.length || 1));
+      const batches = Array.from({ length: Math.ceil(rewriteInputs.length / batchSize) }, (_, index) => rewriteInputs.slice(index * batchSize, (index + 1) * batchSize));
+      for (const batch of batches) {
+        if (controller.signal.aborted) break;
+        const first = batch[0];
+        const batchInput = {
+          draftId: first.draftId, profileId: first.profileId, jobId: first.jobId, intensity: first.intensity,
+          compactJobContext: {
+            title: first.jobContext.title, roleMission: first.jobContext.roleMission,
+            topResponsibilities: first.jobContext.responsibilities.slice(0, 4), targetKeywords: first.jobContext.keywords.slice(0, 16)
+          },
+          targets: batch.map((request) => ({
+            itemId: request.target.itemId ?? request.target.sectionId, sectionType: request.target.sectionType, sectionId: request.target.sectionId, fieldPath: request.target.fieldPath,
+            structuredItem: request.currentContent.structuredItem, before: request.currentContent.fieldValue, renderedText: request.currentContent.renderedText,
+            relevantRequirements: request.relevantRequirements.slice(0, 4), allowedEvidenceRefs: request.allowedEvidenceRefs, allowedFacts: request.allowedFacts,
+            currentSectionContext: taskInputs.filter((item) => item.target.sectionType === request.target.sectionType).map((item) => item.currentContent.renderedText).slice(0, 6),
+            evidenceBundle: request.evidenceBundle
+          }))
+        };
+        addDebugLog("request", "tailor-batch-continue", { batchIndex: batches.indexOf(batch), targetsCount: batchInput.targets.length });
+        const response = await invokeStructuredAi({
+          task: "resume-tailor-batch",
+          businessInput: batchInput,
+          outputSchema: ResumeTailorOutputSchema,
+          signal: controller.signal
+        });
+        addDebugLog("response", "tailor-batch-continue", { batchIndex: batches.indexOf(batch), ok: response.ok, data: response.ok ? { suggestionsCount: response.data.suggestions.length } : (response as { errorCode?: string }).errorCode });
+        await repository.saveAiLogs([response.log]);
+        const validated = response.ok ? validateTailoringSuggestions({ suggestions: response.data.suggestions }) : undefined;
+        if (validated?.suggestions.length) generated.push(...validated.suggestions);
+        else if (validated?.rejected.length) allRejectedReasons.push(...validated.rejected.flatMap((r) => r.reasons));
+        else allRejectedReasons.push(response.ok ? "empty_suggestions" : (response as { errorCode?: string }).errorCode ?? "provider_error");
+        if (validated?.rejected.length) addDebugLog("rejected", "validation-continue", { rejected: validated.rejected.map(r => ({ reasons: r.reasons })) });
+        setProgress((current) => ({ ...current, completed: current.completed + (validated?.suggestions.length ?? 0), failed: current.failed + Math.max(0, batch.length - (validated?.suggestions.length ?? 0)) }));
+        const partialPlan = basePlan ? withTailoringSuggestions({ plan: basePlan, suggestions: generated, invalidOutputCodes: [] }) : undefined;
+        setPlan(partialPlan);
+        setSelected(new Set(partialPlan?.claims.filter((claim) => claim.decision !== "blocked").map((claim) => claim.id)));
+      }
+
+      const nextPlan = basePlan ? withTailoringSuggestions({ plan: basePlan, suggestions: generated, invalidOutputCodes: allRejectedReasons.includes("no_change_needed") ? ["no_change_needed"] : ["invalid_ai_output"] }) : undefined;
+      addDebugLog("summary", "complete-continue", { generatedCount: generated.length, rejectedReasons: allRejectedReasons, finalClaimsCount: nextPlan?.claims.length ?? 0 });
+      setPlan(nextPlan);
+      setSelected(new Set(nextPlan?.claims.filter((claim) => claim.decision !== "blocked").map((claim) => claim.id)));
+      if (!generated.length && allRejectedReasons.length) onMessage(summarizeRejectionReasons(allRejectedReasons));
+      else if (!generated.length) onMessage("AI 未能生成有效改写内容。");
+    } catch (error) {
+      if (controller.signal.aborted) {
+        onMessage("已停止生成，已完成的建议会保留。");
+        return;
+      }
+      onMessage(error instanceof Error ? `生成失败：${error.message}` : "AI 生成改写时出现异常，请稍后重试。");
+    } finally {
+      setPending(false);
+      generationController.current = undefined;
+      setPendingTaskInputs([]);
+      setPendingBasePlan(undefined);
+    }
   }
 
   async function applySelected() {
@@ -207,9 +403,10 @@ export function JobOptimizationPanel({
   }
 
   return (
+    <>
     <section className="optimization-panel tailoring-panel studio-subpanel" data-testid="job-optimization-panel" aria-label="AI 岗位优化">
       <nav className="tailoring-view-tabs" aria-label="岗位定制步骤">
-        {(["overview", "suggestions", "apply"] as const).map((item, index) => <button key={item} type="button" className={view === item ? "inspector-tab inspector-tab-active" : "inspector-tab"} onClick={() => setView(item)} disabled={item !== "overview" && !plan}>{index + 1} {viewLabel(item)}</button>)}
+        {(["overview", "clarification", "suggestions", "apply"] as const).map((item, index) => <button key={item} type="button" className={view === item ? "inspector-tab inspector-tab-active" : "inspector-tab"} onClick={() => setView(item)} disabled={item !== "overview" && !plan}>{index + 1} {viewLabel(item)}</button>)}
       </nav>
 
       {view === "overview" ? <div className="tailoring-page" data-testid="tailoring-overview">
@@ -231,13 +428,30 @@ export function JobOptimizationPanel({
         <button className="primary-button" type="button" disabled={pending || !canEdit} onClick={() => { void generatePlan(); }}><Sparkles size={16} />生成改写建议</button>
       </div> : null}
 
+      {view === "clarification" ? <div className="tailoring-page" data-testid="tailoring-clarification">
+        <div className="section-heading compact-heading"><div><h2>补充信息</h2><p>AI 发现一些不确定的地方，需要你先回答几个问题，这样改写建议会更准确。</p></div></div>
+        {plannerAssessment ? <div className="info-box" style={{ marginBottom: "0.75rem" }}>
+          <strong>AI 评估结果</strong>
+          <p>{plannerAssessment.globalNotes ?? "已完成匹配分析。"}</p>
+          <p style={{ marginTop: "0.25rem", fontSize: "0.85rem", color: "var(--color-text-secondary, #666)" }}>
+            可直接改写 {plannerAssessment.direct} 项 · 确认后可加入 {plannerAssessment.confirmable} 项 · 需要回答 {plannerAssessment.clarification} 项 · 建议准备材料 {plannerAssessment.materials} 项 · 保持不变 {plannerAssessment.keep} 项
+          </p>
+        </div> : null}
+        {unansweredQuestions.length ? <section className="tailoring-suggestion-group"><h3>需要你回答</h3><p>请回答以下问题，帮助 AI 更准确地改写你的简历。一次只回答 1 个问题。</p>{(() => { const item = unansweredQuestions[activeQuestionIndex]; return <article key={item.id} className="tailoring-suggestion-card"><strong>{item.question}</strong>{item.answerType === "proficiency" ? <div className="chip-row" aria-label="选择真实熟练度">{["熟练使用", "熟悉基础", "了解", "正在学习", "没有使用"].map((option) => <button type="button" key={option} className={clarificationAnswer === option ? "secondary-button compact property-tab-active" : "secondary-button compact"} onClick={() => setClarificationAnswer(option)}>{option}</button>)}</div> : item.answerType === "boolean" ? <div className="chip-row">{["有", "没有"].map((option) => <button type="button" key={option} className={clarificationAnswer === (option === "有") ? "secondary-button compact property-tab-active" : "secondary-button compact"} onClick={() => setClarificationAnswer(option === "有")}>{option}</button>)}</div> : item.answerType === "multi_select" ? <div className="chip-row" aria-label="选择适用项">{["Cursor", "Claude Code", "Codex", "Windsurf", "其他"].map((option) => <button type="button" key={option} className={Array.isArray(clarificationAnswer) && clarificationAnswer.includes(option) ? "secondary-button compact property-tab-active" : "secondary-button compact"} onClick={() => setClarificationAnswer((current) => { const values = Array.isArray(current) ? current : []; return values.includes(option) ? values.filter((value) => value !== option) : [...values, option]; })}>{option}</button>)}</div> : <label className="field-label" htmlFor={`clarification-${item.id}`}>{item.answerType === "url" ? "链接" : "你的回答"}<input id={`clarification-${item.id}`} name={`clarification-${item.id}`} type={item.answerType === "url" ? "url" : "text"} autoComplete="off" value={typeof clarificationAnswer === "string" ? clarificationAnswer : ""} onChange={(event) => setClarificationAnswer(event.target.value)} /></label>}<small>剩余 {unansweredQuestions.length} 个问题</small><button type="button" className="primary-button" onClick={submitClarificationAnswer}>提交回答</button></article>; })()}</section> : <div className="info-box" aria-live="polite"><strong>所有问题已回答完毕</strong><p>现在可以继续生成改写建议了。</p></div>}
+        <div className="action-row">
+          <button className="secondary-button" onClick={() => { setPlan(undefined); setPlannerAssessment(undefined); setSelected(new Set()); setPendingTaskInputs([]); setPendingBasePlan(undefined); setView("overview"); }}>弃用建议</button>
+          <button className="secondary-button" onClick={() => setView("overview")}><ChevronLeft size={16} />返回概览</button>
+          <button className="primary-button" disabled={unansweredQuestions.length > 0} onClick={() => { void continueToSuggestions(); }}>继续生成改写建议</button>
+        </div>
+      </div> : null}
+
       {view === "suggestions" ? <div className="tailoring-page" data-testid="tailoring-suggestions">
         <div className="section-heading compact-heading"><div><h2>改写建议</h2><p>可直接采用的建议已选中，需要确认的内容集中在下一步处理。</p></div><button className="secondary-button compact" onClick={() => setSelected(new Set(claims.filter((claim) => claim.decision === "auto_applicable").map((claim) => claim.id)))}>采用全部可直接应用建议</button></div>
         {plannerAssessment ? <div className="info-box" style={{ marginBottom: "0.75rem" }}>
           <strong>AI 评估结果</strong>
           <p>{plannerAssessment.globalNotes ?? "已完成匹配分析。"}</p>
           <p style={{ marginTop: "0.25rem", fontSize: "0.85rem", color: "var(--color-text-secondary, #666)" }}>
-            可改写 {plannerAssessment.rewrittenCount} 项，跳过 {plannerAssessment.skippedCount} 项。
+            可直接改写 {plannerAssessment.direct} 项 · 确认后可加入 {plannerAssessment.confirmable} 项 · 需要回答 {plannerAssessment.clarification} 项 · 建议准备材料 {plannerAssessment.materials} 项 · 保持不变 {plannerAssessment.keep} 项
           </p>
         </div> : null}
         {sectionGroups(claims).map(([section, items]) => <section key={section} className="tailoring-suggestion-group"><h3>{sectionLabel(section)}</h3>{items.map((claim) => { const suggestion = suggestionsById.get(claim.id); const groupedKeywords = groupTailoringKeywords(claim.keywords); return <article key={claim.id} className="tailoring-suggestion-card">
@@ -246,10 +460,9 @@ export function JobOptimizationPanel({
           <div><small>原句</small><p>{claim.currentText || "暂无"}</p></div><div><small>改写句</small><p><FieldDiff before={claim.currentText} after={claim.claimText ?? claim.proposedText} /></p></div>
           <details className="tailoring-suggestion-details"><summary>查看详细依据</summary><div className="tailoring-suggestion-meta"><p><strong>完整当前条目：</strong>{currentItemText(activeBranch, claim)}</p><p><strong>详细修改理由：</strong>{claim.reason}</p><p><strong>岗位要求：</strong>{(claim.requirementIds ?? []).map((id) => requirementText(activeJob, id)).join("、") || "对应岗位要求"}</p><p><strong>EvidenceRefs：</strong>{claim.evidenceRefs.length ? `${claim.evidenceRefs.length} 条已确认事实证据` : "当前岗位简历中的用户确认内容"}</p><p><strong>Requirement IDs：</strong>{(claim.requirementIds ?? []).join("、") || "无"}</p><p><strong>风险：</strong>{suggestion?.riskLevel === "low" ? "低" : suggestion?.riskLevel === "high" ? "高" : "中，需确认"}</p>{groupedKeywords.core.length ? <div className="keyword-phrase"><strong>核心岗位词：</strong>{groupedKeywords.core.join("、")}</div> : null}{groupedKeywords.confirmableTools.length ? <div className="keyword-phrase"><strong>需确认工具：</strong>{groupedKeywords.confirmableTools.join("、")}</div> : null}{groupedKeywords.materials.length ? <div className="keyword-phrase"><strong>材料要求：</strong>{groupedKeywords.materials.join("、")}</div> : null}</div></details>
         </article>; })}</section>)}
-        {plan?.clarificationQuestions?.length ? <section className="tailoring-suggestion-group"><h3>待补充材料</h3>{plan.clarificationQuestions.map((item) => <article key={item.id} className="tailoring-suggestion-card"><strong>{item.question}</strong><p>{item.candidateClaim}</p><small>关联要求 {item.requirementIds.length} 项 · 关联简历内容 {item.relatedItemIds.length} 项</small></article>)}</section> : null}
-        {plan?.materialSuggestions?.length ? <ResultList title="材料补充建议" items={plan.materialSuggestions} empty="暂无" /> : null}
+        {plan?.materialTasks?.length ? <ResultList title={`申请前建议准备 ${plan.materialTasks.length} 项材料`} items={plan.materialTasks.map((item) => item.label)} empty="暂无" /> : null}
         {pending ? <div className="info-box" aria-live="polite"><strong>{progress.step}/3 {progress.step === 1 ? "正在分析岗位要求" : progress.step === 2 ? "正在筛选需要改写的内容" : "正在生成并验证建议"}</strong><p>已完成 {progress.completed} 项　跳过 {progress.skipped} 项　失败 {progress.failed} 项</p><button className="secondary-button compact" type="button" onClick={() => generationController.current?.abort()}><Square size={14} aria-hidden="true" />停止生成</button></div> : null}
-        {!claims.length && !pending ? <div className="info-box">当前内容已较匹配，无需修改。可返回上一步调整岗位描述后重试。</div> : null}
+        {!claims.length && !pending ? <div className="info-box">{plan?.clarificationQuestions?.length ? "需要补充信息后才能生成部分建议。" : "没有生成可安全应用的具体文本；请检查岗位要求和已确认事实。"}</div> : null}
         <div className="action-row"><button className="secondary-button" onClick={() => { setPlan(undefined); setPlannerAssessment(undefined); setSelected(new Set()); setView("overview"); }}>弃用建议</button><button className="secondary-button" onClick={() => setView("overview")}><ChevronLeft size={16} />返回概览</button><button className="primary-button" onClick={() => setView("apply")}>确认并应用</button></div>
       </div> : null}
 
@@ -264,15 +477,71 @@ export function JobOptimizationPanel({
           <small>保存范围：仅用于当前岗位简历</small>
         </article>; })}</section> : null}
         <div className="info-box"><strong>导出前检查</strong><p><Check size={14} /> 通过 / 有建议 / 需要处理将在保存后显示；它不会改变事实。</p></div>
-        <button className="primary-button" type="button" disabled={pending || !canEdit} onClick={() => { void applySelected(); }}>应用选择并保存新版本</button>
+        {!selectedClaims.length ? <div className="info-box"><strong>尚未选中任何修改</strong><p>请选择具体改写，或返回回答问题后生成确认项。</p><button type="button" className="secondary-button compact" onClick={() => setView("suggestions")}>返回回答问题</button></div> : null}
+        <button className="primary-button" type="button" disabled={pending || !canEdit || selectedClaims.length === 0} onClick={() => { void applySelected(); }}>应用选择并保存新版本</button>
         <p className="muted-copy">来源通用简历和个人资料库默认不变。保存后会创建新版本，可以撤销。</p>
       </div> : null}
+
     </section>
+
+    {/* 调试日志面板 - 可拖动、可缩放 */}
+    {showDebugPanel ? <div data-testid="debug-panel" style={{
+      position: "fixed",
+      left: debugPanelPos.x,
+      top: debugPanelPos.y,
+      width: debugPanelSize.width,
+      height: debugPanelSize.height,
+      backgroundColor: "var(--color-background, #fff)",
+      border: "1px solid var(--color-border, #e0e0e0)",
+      borderRadius: "8px",
+      boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+      zIndex: 1000,
+      display: "flex",
+      flexDirection: "column",
+      overflow: "hidden"
+    }}>
+      <div
+        style={{ padding: "12px 16px", borderBottom: "1px solid var(--color-border, #e0e0e0)", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "move", userSelect: "none" }}
+        onMouseDown={handleDebugPanelDragStart}
+      >
+        <div>
+          <h3 style={{ margin: 0, fontSize: "16px" }}>AI 调试日志</h3>
+          <p style={{ margin: "4px 0 0", fontSize: "12px", color: "var(--color-text-secondary, #666)" }}>拖动标题栏移动，拖动右下角缩放</p>
+        </div>
+        <div style={{ display: "flex", gap: "8px" }}>
+          <button className="secondary-button compact" onClick={(e) => { e.stopPropagation(); setDebugLogs([]); }}>清空</button>
+          <button className="secondary-button compact" onClick={(e) => { e.stopPropagation(); setShowDebugPanel(false); }}>✕</button>
+        </div>
+      </div>
+      <div style={{ flex: 1, overflow: "auto", padding: "12px" }}>
+        {debugLogs.length === 0 ? <div className="info-box">暂无日志。点击"生成改写建议"后，AI 的请求和响应会显示在这里。</div> : null}
+        {debugLogs.map((log, index) => <details key={index} open={index === debugLogs.length - 1} className="tailoring-suggestion-card" style={{ marginBottom: "8px" }}>
+          <summary style={{ cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px" }}>
+            <span>
+              <span style={{ color: log.type === "request" ? "#2563eb" : log.type === "response" ? "#16a34a" : log.type === "rejected" ? "#d97706" : "#6b7280" }}>
+                {log.type === "request" ? "📤" : log.type === "response" ? "📥" : log.type === "rejected" ? "⚠️" : "ℹ️"}
+              </span>
+              <span style={{ marginLeft: "6px", fontWeight: 600 }}>{log.phase}</span>
+            </span>
+            <span style={{ fontSize: "11px", color: "#9ca3af" }}>{new Date(log.timestamp).toLocaleTimeString()}</span>
+          </summary>
+          <pre style={{ whiteSpace: "pre-wrap", wordBreak: "break-all", fontSize: "11px", padding: "8px", margin: "0 8px 8px", background: "#f3f4f6", borderRadius: "4px", maxHeight: "300px", overflow: "auto" }}>
+            {JSON.stringify(log.data, null, 2)}
+          </pre>
+        </details>)}
+      </div>
+      {/* 缩放手柄 */}
+      <div
+        style={{ position: "absolute", right: 0, bottom: 0, width: "16px", height: "16px", cursor: "nwse-resize", background: "linear-gradient(135deg, transparent 50%, var(--color-border, #ccc) 50%)" }}
+        onMouseDown={handleDebugPanelResizeStart}
+      />
+    </div> : null}
+    </>
   );
 }
 
 function ResultList({ title, items, empty }: { title: string; items: string[]; empty: string }) { return <section className="tailoring-result-list"><h3>{title}</h3><ul>{items.length ? items.map((item, index) => <li key={`${item}-${index}`}>{item}</li>) : <li>{empty}</li>}</ul></section>; }
-function viewLabel(view: TailoringView) { return ({ overview: "匹配概览", suggestions: "改写建议", apply: "确认并应用" } as const)[view]; }
+function viewLabel(view: TailoringView) { return ({ overview: "匹配概览", clarification: "补充信息", suggestions: "改写建议", apply: "确认并应用" } as const)[view]; }
 function scoreLabel(key: string) { return ({ hardConstraints: "硬性条件", coreCompetencies: "核心能力", responsibilities: "职责匹配", preferredQualifications: "加分项", terminologyCoverage: "关键词覆盖" } as Record<string, string>)[key] ?? key; }
 function sectionLabel(section: TailoringClaim["section"]) { return ({ summary: "自我评价", skills: "技能", project: "项目经历", work: "工作 / 实习经历", internship: "工作 / 实习经历", ordering: "排序与隐藏" } as Partial<Record<TailoringClaim["section"], string>>)[section] ?? "其他"; }
 function strategyCopy(intensity: TailoringIntensity) { return intensity === "conservative" ? "对齐关键词、压缩句子并调整顺序，不产生新能力陈述。" : intensity === "balanced" ? "用岗位语言重组真实经历；合理推导项集中确认后再应用。" : "更主动地重构相关内容并建议能力项；所有非直接依据内容都需确认。"; }
@@ -362,6 +631,23 @@ function summarizeRejectionReasons(reasons: string[]): string {
   if (unique.includes("conservative_delta_too_large")) messages.push("保守模式下改写幅度过大");
   if (!messages.length) messages.push("AI 改写未通过校验");
   return `改写建议未通过校验：${messages.join("；")}（${unique.join(", ")}）。请调整岗位描述后重试。`;
+}
+function plannerFailureMessage(code: string): string {
+  const messages: Record<string, string> = {
+    missing_ai_config: "岗位评估失败：AI 配置不完整，请在设置中检查 API Key 和模型名称。",
+    provider_protocol_mismatch: "岗位评估失败：当前地址不是 OpenAI 兼容的 chat/completions 接口。",
+    provider_http_401: "岗位评估失败：API Key 无效或已过期。",
+    provider_http_403: "岗位评估失败：当前 API Key 无权访问所选模型。",
+    provider_http_429: "岗位评估失败：AI 服务请求过于频繁，请稍后重试。",
+    provider_http_502: "岗位评估失败：AI 服务网关异常，请检查服务地址。",
+    provider_http_503: "岗位评估失败：AI 服务暂时不可用，请稍后重试。",
+    invalid_json: "岗位评估失败：模型未返回有效 JSON，请重试或更换支持结构化输出的模型。",
+    model_output_too_large: "岗位评估失败：模型输出超过长度限制，请重试。",
+    planner_no_assessments: "岗位评估失败：模型没有返回任何条目判断，请重试。",
+    validation_failed: "岗位评估失败：模型返回的数据不符合动作合同，请重试。",
+    client_schema_validation_failed: "岗位评估失败：返回结果未通过客户端校验，请重试。"
+  };
+  return messages[code] ?? `岗位评估失败（${code}），请检查 AI 服务日志后重试。`;
 }
 function FieldDiff({ before, after }: { before: string; after: string }) {
   let prefix = 0;

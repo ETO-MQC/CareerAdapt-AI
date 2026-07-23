@@ -592,6 +592,7 @@ function sectionCategory(section: ImportedResumeSection) {
   if (section.sectionType === "summary") return "summary" as const;
   if (section.sectionType === "skills") return "skill" as const;
   if (section.sectionType === "certificates") return "certificate" as const;
+  if (section.sectionType === "internship" || /实习|intern/i.test(section.detectedTitle)) return "internship" as const;
   if (/教育|education/i.test(section.detectedTitle)) return "education" as const;
   if (/项目|project/i.test(section.detectedTitle)) return "project" as const;
   if (/校园|社团|campus/i.test(section.detectedTitle)) return "campus" as const;
@@ -689,6 +690,7 @@ function legacyFallbackStructuredItem(item: BranchContentItem, section: Imported
   if (category === "education") return { ...base, sectionType: "education", courses: [], honors: [], current: false };
   if (category === "project") return { ...base, sectionType: "project", tools: [], outcomes: [], current: false };
   if (category === "campus") return { ...base, sectionType: "campus", current: false };
+  if (category === "internship") return { ...base, sectionType: "internship", current: false };
   if (category === "skill") return { id: item.id, sectionType: "skills", name: firstLine(item.text), description: item.text, customFields: [] };
   if (category === "certificate") return { id: item.id, sectionType: "certificates", name: firstLine(item.text), description: item.text, customFields: [] };
   if (category === "award") return { id: item.id, sectionType: "awards", name: firstLine(item.text), description: item.text, customFields: [] };

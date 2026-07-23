@@ -22,7 +22,7 @@ test.describe("P4.0b result-first tailoring", () => {
     await expect(panel.getByRole("button", { name: "采用全部可直接应用建议" })).toBeVisible();
   });
 
-  test("confirmed resume-only claim creates a revision without changing source resume or profile", async ({ page }) => {
+  test("zero selected claims cannot create an empty revision or change source data", async ({ page }) => {
     const { sourceId, derivedId } = await createJobResume(page);
     const sourceBefore = await readStore<DbBranch>(page, "resumeBranches", sourceId);
     const derivedBefore = await readStore<DbBranch>(page, "resumeBranches", derivedId);
@@ -30,15 +30,9 @@ test.describe("P4.0b result-first tailoring", () => {
     const panel = page.getByTestId("job-optimization-panel");
     await panel.getByRole("button", { name: "生成改写建议" }).click();
     await panel.getByRole("button", { name: "确认并应用" }).last().click();
-    const confirmations = panel.locator(".tailoring-confirmation-card");
-    for (let index = 0; index < await confirmations.count(); index += 1) {
-      const confirmation = confirmations.nth(index);
-      const aware = confirmation.getByRole("button", { name: "了解", exact: true });
-      if (await aware.count()) await aware.click();
-      else await confirmation.getByRole("button", { name: "确认采用", exact: true }).click();
-    }
-    await panel.getByRole("button", { name: "应用选择并保存新版本" }).click();
-    await expect.poll(async () => (await readStore<DbBranch>(page, "resumeBranches", derivedId))?.revision).toBe((derivedBefore?.revision ?? 0) + 1);
+    await expect(panel.getByRole("button", { name: "应用选择并保存新版本" })).toBeDisabled();
+    await expect(panel.getByRole("button", { name: "返回回答问题" })).toBeVisible();
+    expect((await readStore<DbBranch>(page, "resumeBranches", derivedId))?.revision).toBe(derivedBefore?.revision);
     expect(await readStore<DbBranch>(page, "resumeBranches", sourceId)).toEqual(sourceBefore);
     expect(await readFirstStore(page, "profiles")).toEqual(profileBefore);
   });

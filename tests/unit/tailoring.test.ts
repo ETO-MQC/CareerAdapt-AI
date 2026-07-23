@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { classifyTailoringClaim, claimDecisionFor } from "@/domain/jobOptimization/claimGuard";
 import { recommendedTailoringIntensity, sectionTailoringPolicy } from "@/domain/jobOptimization/sectionPolicy";
-import { applyTailoringPlan, confirmTailoringClaims, validateTailoringSuggestions } from "@/services/jobs/tailoringService";
+import { answerTailoringClarification, applyTailoringPlan, confirmTailoringClaims, validateTailoringSuggestions, withTailoringSuggestions } from "@/services/jobs/tailoringService";
 import { resolveTailoringClaimPolicy } from "@/domain/jobOptimization/tailoringClaimPolicy";
 import { runRuleFactGuard } from "@/domain/adaptation/factGuard";
 import { ResumeTailorPlannerOutputSchema } from "@/domain/schemas";
@@ -34,7 +34,7 @@ describe("Claim Guard", () => {
   });
 
   it("accepts planner ask_user actions and bound clarification questions", () => {
-    expect(ResumeTailorPlannerOutputSchema.parse({ assessments: [{ itemId: "summary", action: "ask_user", reason: "需要确认工具经验", suggestedKeywords: ["Cursor"], relatedRequirementIds: ["req-cursor"], clarificationQuestions: ["是否使用过 Cursor？"] }] }).assessments[0].action).toBe("ask_user");
+    expect(ResumeTailorPlannerOutputSchema.parse({ assessments: [{ itemId: "summary", action: "ask_user", reason: "需要确认工具经验", suggestedKeywords: ["Cursor"], relatedRequirementIds: ["req-cursor"], clarificationQuestions: ["是否使用过 Cursor？"] }] }).assessments[0].action).toBe("clarification_required");
   });
 
   it("keeps an AI suggestion with a new tool selectable pending confirmation", () => {
@@ -115,5 +115,27 @@ describe("tailoring application service", () => {
   it("does not produce resolved text when the user chooses not to add", () => {
     const confirmed = confirmTailoringClaims({ plan, confirmations: [{ claimId: "claim-1", accepted: false, syncScope: "rejected" }] });
     expect(confirmed.plan?.claims[0].resolvedText).toBeUndefined();
+  });
+
+  it("does not erase deterministic claims when AI returns no suggestions", () => {
+    expect(withTailoringSuggestions({ plan, suggestions: [] }).claims).toEqual(plan.claims);
+  });
+
+  it("turns a clarification answer into a resume-only confirmable claim", () => {
+    const patch = { sectionId: "skills", itemId: "skill-1", fieldPath: "description" as const, operation: "replace" as const, before: "工程开发", after: "工程开发" };
+    const base = { ...plan, claims: [{ ...plan.claims[0], targetContentItemId: "skill-1", targetPatches: [patch] }] };
+    const question = { id: "q-cursor", question: "你使用过哪些 AI Coding 工具？", requirementIds: ["req-cursor"], sourceItemIds: ["skill-1"], relatedItemIds: ["skill-1"], candidateClaim: "AI Coding 工具", targetFieldPaths: ["description"], answerType: "multi_select" as const };
+    const answered = answerTailoringClarification({ plan: base, question, answer: ["Cursor", "Codex"] });
+    expect(answered.claims.at(-1)).toMatchObject({ supportLevel: "user_declared", decision: "requires_confirmation", syncScope: "resume_only", keywords: ["Cursor", "Codex"] });
+    expect(answered.claims.at(-1)?.proposedText).toContain("Cursor");
+  });
+
+  it("builds a safe fallback patch when clarification has no deterministic suggestion", () => {
+    const question = { id: "q-fallback", question: "请描述 badcase", requirementIds: ["req-badcase"], sourceItemIds: ["project-1"], relatedItemIds: ["project-1"], candidateClaim: "badcase 复盘", targetFieldPaths: ["sections.project.items.project-1.highlights"], answerType: "text" as const };
+    const branch = { contentItems: [{ id: "project-1", text: "定位并修复模型输出问题" }], structuredContentItems: [{ id: "project-1", data: { id: "project-1", sectionType: "project", highlights: ["定位并修复模型输出问题"] } }] } as never;
+    const answered = answerTailoringClarification({ plan: { ...plan, claims: [], suggestions: [] }, question, answer: "复现失败输出并定位提示词约束缺失", branch });
+    expect(answered.claims).toHaveLength(1);
+    expect(answered.claims[0].targetPatches?.[0]).toMatchObject({ itemId: "project-1", fieldPath: "highlights", before: ["定位并修复模型输出问题"] });
+    expect(answered.claims[0].proposedText).toContain("复现失败输出");
   });
 });

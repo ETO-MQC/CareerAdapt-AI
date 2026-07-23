@@ -17,6 +17,7 @@ export type ResumeDocumentBlock = {
   contentItemId: string;
   sectionType: ResumeRenderSectionType;
   sourceSectionId?: string;
+  canonicalSectionType?: string;
   itemType: BranchContentItem["itemType"];
   text: string;
   order: number;
@@ -66,13 +67,15 @@ export function mapBranchToResumeDocument(input: {
     throw new Error("resume_document_source_job_missing");
   }
   const branchEditability = getBranchEditability(input.branch);
+  const structuredByItem = new Map((input.branch.structuredContentItems ?? []).map((s) => [s.id, s.data.sectionType]));
   const baseBlocks = [...input.branch.contentItems]
     .sort((a, b) => sectionRank(a.itemType) - sectionRank(b.itemType) || a.order - b.order)
     .map((item) => mapContentItemToBlock({
       item,
       profile: input.profile,
       branchEditable: branchEditability.editable,
-      branchNotEditableReason: branchEditability.reason
+      branchNotEditableReason: branchEditability.reason,
+      canonicalSectionType: structuredByItem.get(item.id)
     }));
   const blocks = applyPresentationConfig(baseBlocks, input.presentationConfig);
 
@@ -169,6 +172,7 @@ function mapContentItemToBlock(input: {
   profile: CareerProfile;
   branchEditable: boolean;
   branchNotEditableReason?: string;
+  canonicalSectionType?: string;
 }): ResumeDocumentBlock {
   const renderability = isRenderableContentItem({ item: input.item, profile: input.profile });
   const editable = input.branchEditable && input.item.itemType !== "structural";
@@ -178,6 +182,7 @@ function mapContentItemToBlock(input: {
     contentItemId: input.item.id,
     sectionType: blockSectionType(input.item.itemType),
     sourceSectionId: input.item.sourceSectionId,
+    canonicalSectionType: input.canonicalSectionType,
     itemType: input.item.itemType,
     text: input.item.text,
     order: input.item.order,

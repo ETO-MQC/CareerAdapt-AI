@@ -11,6 +11,7 @@ export const ClaimSupportLevelSchema = z.enum([
 export const ClaimDecisionSchema = z.enum(["auto_applicable", "requires_confirmation", "blocked"]);
 export const ClaimSyncScopeSchema = z.enum(["resume_only", "resume_and_profile", "rejected"]);
 export const TailoringIntensitySchema = z.enum(["conservative", "balanced", "proactive"]);
+export const TailoringActionSchema = z.enum(["verified_rewrite", "confirmable_rewrite", "clarification_required", "material_task", "keep", "deprioritize"]);
 export const TailoringSectionPolicySchema = z.enum(["summary", "skills", "project", "work", "internship", "ordering"]);
 export const TailoringOperationSchema = z.enum(["rewrite", "replace", "add", "remove", "hide", "reorder"]);
 export const TailoringSuggestionStatusSchema = z.enum(["ready", "requires_confirmation", "blocked", "no_change_needed"]);
@@ -109,6 +110,12 @@ export const ResumeTailorTaskInputV2Schema = z.object({
     value: z.string().min(1),
     evidenceRefs: z.array(MatchEvidenceRefSchema).default([])
   }).strict()).default([]),
+  evidenceBundle: z.object({
+    directEvidence: z.array(z.object({ value: z.string(), evidenceRefs: z.array(MatchEvidenceRefSchema) })),
+    relatedResumeEvidence: z.array(z.object({ value: z.string(), evidenceRefs: z.array(MatchEvidenceRefSchema) })),
+    relatedProfileEvidence: z.array(z.object({ value: z.string(), evidenceRefs: z.array(MatchEvidenceRefSchema) })),
+    confirmableSignals: z.array(z.string())
+  }).optional(),
   retryContext: z.object({ previousWasNoOp: z.literal(true) }).optional()
 }).strict();
 
@@ -135,6 +142,13 @@ export const ResumeTailorBatchInputSchema = z.object({
     itemId: z.string().min(1), sectionType: TailoringSectionPolicySchema, sectionId: z.string().min(1), fieldPath: z.string().min(1),
     structuredItem: ResumeItemV2Schema, before: z.union([z.string(), z.array(z.string())]), renderedText: z.string(),
     relevantRequirements: z.array(TailoringRequirementSchema).min(1).max(4),
+    currentSectionContext: z.array(z.string()).optional(),
+    evidenceBundle: z.object({
+      directEvidence: z.array(z.object({ value: z.string(), evidenceRefs: z.array(MatchEvidenceRefSchema) })),
+      relatedResumeEvidence: z.array(z.object({ value: z.string(), evidenceRefs: z.array(MatchEvidenceRefSchema) })),
+      relatedProfileEvidence: z.array(z.object({ value: z.string(), evidenceRefs: z.array(MatchEvidenceRefSchema) })),
+      confirmableSignals: z.array(z.string())
+    }).optional(),
     allowedEvidenceRefs: z.array(MatchEvidenceRefSchema).default([]),
     allowedFacts: z.array(z.object({ value: z.string().min(1), evidenceRefs: z.array(MatchEvidenceRefSchema).default([]) }).strict()).default([])
   }).strict()).min(1).max(6)
@@ -213,8 +227,14 @@ export const ResumeTailoringPlanSchema = z.object({
   jobContext: TailoringJobContextSchema.optional(),
   basedOnBranchRevision: z.number().int().min(0),
   claims: z.array(TailoringClaimSchema),
+  plannerActions: z.array(z.object({
+    itemId: z.string().min(1), action: TailoringActionSchema, reason: z.string().min(1),
+    suggestedKeywords: z.array(z.string()).default([]), requirementIds: z.array(z.string()).default([]),
+    clarificationQuestionIds: z.array(z.string()).default([])
+  }).strict()).optional(),
   clarificationQuestions: z.array(TailoringClarificationQuestionSchema).optional(),
   materialSuggestions: z.array(z.string().min(1)).optional(),
+  materialTasks: z.array(z.object({ id: z.string().min(1), label: z.string().min(1), requirementIds: z.array(z.string()).default([]) }).strict()).optional(),
   suggestions: z.array(TailoringSuggestionSchema).optional(),
   invalidOutputCodes: z.array(z.enum(["invalid_ai_output", "no_change_needed"])).optional(),
   estimatedFitScore: z.number().min(0).max(100),
@@ -233,6 +253,7 @@ export type ClaimSupportLevel = z.infer<typeof ClaimSupportLevelSchema>;
 export type ClaimDecision = z.infer<typeof ClaimDecisionSchema>;
 export type ClaimSyncScope = z.infer<typeof ClaimSyncScopeSchema>;
 export type TailoringIntensity = z.infer<typeof TailoringIntensitySchema>;
+export type TailoringAction = z.infer<typeof TailoringActionSchema>;
 export type TailoringSectionPolicy = z.infer<typeof TailoringSectionPolicySchema>;
 export type TailoringOperation = z.infer<typeof TailoringOperationSchema>;
 export type TailoringSuggestionStatus = z.infer<typeof TailoringSuggestionStatusSchema>;
@@ -274,7 +295,7 @@ export const ResumeTailorPlannerInputSchema = z.object({
 export const ResumeTailorPlannerOutputSchema = z.object({
   assessments: z.array(z.object({
     itemId: z.string().min(1),
-    action: z.enum(["keep", "rewrite_from_evidence", "propose_confirmable_claim", "ask_user", "hide_or_deprioritize"]),
+    action: z.preprocess((value) => ({ rewrite_from_evidence: "verified_rewrite", propose_confirmable_claim: "confirmable_rewrite", ask_user: "clarification_required", hide_or_deprioritize: "deprioritize" }[String(value)] ?? value), TailoringActionSchema),
     reason: z.string().min(1),
     suggestedKeywords: z.array(z.string().min(1)).default([]),
     relatedRequirementIds: z.array(z.string().min(1)).default([]),

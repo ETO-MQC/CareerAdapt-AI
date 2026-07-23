@@ -243,6 +243,7 @@ export function ResumeWorkspace() {
   const [manualInspectorTab, setManualInspectorTab] = useState<ManualInspectorTab>("content");
   const [aiInspectorTab, setAiInspectorTab] = useState<AiInspectorTab>("suggestions");
   const [aiFloatingOpen, setAiFloatingOpen] = useState(true);
+  const [showDebugPanel, setShowDebugPanel] = useState(false);
   const [styleInspectorTab, setStyleInspectorTab] = useState<StyleInspectorTab>("template");
   const [activeResumeSection, setActiveResumeSection] = useState<ResumeStudioSectionKey>("basics");
   const [enabledSectionsByBranch, setEnabledSectionsByBranch] = useState<Record<string, ResumeStudioSectionKey[]>>({});
@@ -2336,7 +2337,10 @@ export function ResumeWorkspace() {
     }
     const block = resumeDocumentBlocksById.get(itemId);
     if (block) {
-      setActiveResumeSection(studioSectionForBlock(block));
+      const targetSection = studioSectionForBlock(block);
+      if (targetSection !== activeResumeSection) {
+        setActiveResumeSection(targetSection);
+      }
     }
     setSelectedStudioItemId(itemId);
     setSelectedProfileFieldId(undefined);
@@ -4532,14 +4536,12 @@ export function ResumeWorkspace() {
                   </button>
                   <button
                     type="button"
-                    className="ai-nav-btn ai-refresh-btn"
-                    hidden
-                    disabled={diagnosticRunning || !selectedBranch || selectedBranch.branchPurpose !== "job_specific"}
-                    onClick={() => { void runDiagnostics(); }}
-                    title="刷新"
+                    className="ai-nav-btn"
+                    onClick={() => setShowDebugPanel((prev) => !prev)}
+                    title="查看 AI 调试日志"
                   >
-                    <span className="ai-nav-label">刷新</span>
-                    <span className="ai-nav-label">匹配</span>
+                    <span className="ai-nav-label">📋</span>
+                    <span className="ai-nav-label">日志</span>
                   </button>
                 </nav>
                 <div className="ai-content-area studio-sidebar-section">
@@ -4563,6 +4565,8 @@ export function ResumeWorkspace() {
                       branch={selectedBranch}
                       selectedContentItemId={selectedStudioItemId}
                       canEdit={selectedBranchEditable}
+                      showDebugPanel={showDebugPanel}
+                      setShowDebugPanel={setShowDebugPanel}
                       onJobCreated={(job) => setLocalJobs((current) => [job, ...current.filter((item) => item.id !== job.id)])}
                       onBranchReady={replaceBranch}
                       onApplyStructureSuggestion={(kind, contentItemId) => {
@@ -4925,6 +4929,8 @@ function studioSectionForBlock(block: ResumeDocumentBlock): ResumeStudioSectionK
     return "custom";
   }
   if (block.sectionType === "experience") {
+    const canonical = block.canonicalSectionType;
+    if (canonical === "internship" || canonical === "education" || canonical === "project" || canonical === "campus" || canonical === "work") return canonical;
     if (block.sourceSectionId === "projects" || block.sourceSectionId === "project") return "project";
     if (block.sourceSectionId === "education" || block.sourceSectionId === "campus") return block.sourceSectionId;
     if (block.sourceSectionId === "internship") return "internship";

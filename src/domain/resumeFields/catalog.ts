@@ -5,6 +5,7 @@ export type ResumeFieldCategoryId =
   | "summary"
   | "education"
   | "work"
+  | "internship"
   | "project"
   | "campus"
   | "award"
@@ -22,7 +23,8 @@ export const resumeFieldCategories: ReadonlyArray<{
   { id: "basic", label: "个人信息", description: "姓名、联系方式和所在地", repeatable: false },
   { id: "summary", label: "自我评价", description: "个人优势和职业概述", repeatable: false },
   { id: "education", label: "教育经历", description: "学校、学历、专业和课程", repeatable: true },
-  { id: "work", label: "工作 / 实习经历", description: "全职、实习和岗位经历", repeatable: true },
+  { id: "work", label: "工作经历", description: "全职和岗位经历", repeatable: true },
+  { id: "internship", label: "实习经历", description: "实习和见习经历", repeatable: true },
   { id: "project", label: "项目成果", description: "项目职责、行动和成果", repeatable: true },
   { id: "campus", label: "校园经历", description: "社团、志愿和校内职责", repeatable: true },
   { id: "award", label: "奖项", description: "竞赛、荣誉和奖项", repeatable: true },
@@ -48,6 +50,7 @@ export function categorySourceSectionId(category: Exclude<ResumeFieldCategoryId,
     summary: "summary",
     education: "education",
     work: "work",
+    internship: "internship",
     project: "project",
     campus: "campus",
     award: "awards",
@@ -91,6 +94,7 @@ export function defaultExperienceType(category: ResumeFieldCategoryId): Experien
   const defaults: Partial<Record<ResumeFieldCategoryId, ExperienceType>> = {
     education: "education",
     work: "work",
+    internship: "internship",
     project: "project",
     campus: "campus",
     award: "competition",
@@ -128,6 +132,16 @@ export function experienceFieldLabels(category: ResumeFieldCategoryId) {
       startDate: "开始日期",
       endDate: "结束日期",
       description: "经历与成果"
+    };
+  }
+  if (category === "internship") {
+    return {
+      organization: "实习单位",
+      role: "实习岗位",
+      location: "实习地点",
+      startDate: "开始日期",
+      endDate: "结束日期",
+      description: "实习内容与成果"
     };
   }
   return {

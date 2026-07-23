@@ -165,8 +165,9 @@ function DefaultExperienceFields({ sectionLabel, onAdd, onCancel }: { sectionLab
   );
 }
 
-function experienceCategoryFromLabel(sectionLabel: string): Extract<ResumeFieldCategoryId, "education" | "work" | "project" | "campus"> {
+function experienceCategoryFromLabel(sectionLabel: string): Extract<ResumeFieldCategoryId, "education" | "work" | "internship" | "project" | "campus"> {
   if (sectionLabel === "教育经历") return "education";
+  if (sectionLabel === "实习经历") return "internship";
   if (sectionLabel === "项目经历" || sectionLabel === "项目成果") return "project";
   if (sectionLabel === "校园经历") return "campus";
   return "work";
@@ -355,7 +356,7 @@ export function ExperienceSectionPage({
 
 function ExperienceItemFields(props: {
   itemId: string;
-  category: Extract<ResumeFieldCategoryId, "education" | "work" | "project" | "campus">;
+  category: Extract<ResumeFieldCategoryId, "education" | "work" | "internship" | "project" | "campus">;
   initialFields: StructuredExperienceFields;
   canonicalItem?: ResumeItemV2;
   onEditTextChange: (itemId: string, text: string) => void;

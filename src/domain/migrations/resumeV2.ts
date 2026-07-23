@@ -56,6 +56,9 @@ function branchContentV2IsCurrent(branch: ResumeBranch) {
   const byId = new Map(branch.structuredContentItems.map((item) => [item.id, item]));
   return branch.contentItems.every((legacy) => {
     const item = byId.get(legacy.id);
+    if (!item) return false;
+    // Detect legacy data where internship was misclassified as work
+    if (legacy.sourceSectionId === "internship" && item.data.sectionType === "work") return false;
     return Boolean(item
       && item.legacyTextProjection === legacy.text
       && item.order === legacy.order

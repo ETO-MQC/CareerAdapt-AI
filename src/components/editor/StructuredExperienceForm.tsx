@@ -11,7 +11,7 @@ import { TipTapEditor } from "./TipTapEditor";
 import { htmlToPlainText, plainTextToHtml, highlightsToEditorHtml, editorHtmlToHighlights } from "./helpers";
 
 type StructuredExperienceFormProps = {
-  category: Extract<ResumeFieldCategoryId, "education" | "work" | "project" | "campus">;
+  category: Extract<ResumeFieldCategoryId, "education" | "work" | "internship" | "project" | "campus">;
   value: StructuredExperienceFields;
   onChange: (value: StructuredExperienceFields) => void;
   idPrefix: string;
@@ -39,7 +39,9 @@ export function StructuredExperienceForm({
     ? "项目成果与说明"
     : category === "education"
       ? "教育亮点"
-      : "工作内容与成果";
+      : category === "internship"
+        ? "实习内容与成果"
+        : "工作内容与成果";
 
   return (
     <div className="section-fields profile-structured-fields">
@@ -78,7 +80,7 @@ export function StructuredExperienceForm({
           minRows={2}
         />
       </div>
-      {value.highlights.length > 0 || category !== "education" ? (
+      {value.highlights.length > 0 || (category !== "education" && category !== "work" && category !== "internship") ? (
         <div className="experience-description-field">
           <label className="field-input-label">{highlightsLabel}</label>
           <TipTapEditor

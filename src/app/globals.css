@@ -9697,7 +9697,7 @@ html[data-theme="dark"] .floating-window-titlebar {
 }
 
 .tailoring-panel { display: grid; gap: 12px; }
-.tailoring-view-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; margin-top: 8px; }
+.tailoring-view-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; margin-top: 8px; }
 .tailoring-view-tabs .inspector-tab { font-size: 14px; min-height: 42px; padding: 8px 12px; font-weight: 600; }
 .tailoring-page { display: grid; gap: 16px; min-width: 0; }
 .tailoring-hero { align-items: center; display: flex; justify-content: space-between; gap: 16px; border-bottom: 1px solid var(--border); padding-bottom: 16px; }

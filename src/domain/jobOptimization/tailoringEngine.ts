@@ -1,6 +1,7 @@
 import { buildCanonicalJobRequirementGraphV3 } from "./v3";
 import type {
   BranchContentItem,
+  CareerProfile,
   JobDescription,
   MatchEvidenceRef,
   ResumeBranch,
@@ -16,6 +17,8 @@ import { stableHashText } from "@/services/security/text";
 import { migrateBranchContentItem } from "@/domain/migrations/resumeV2";
 import { ResumeTailorTaskInputV2Schema, type ResumeTailorTaskInputV2 } from "@/domain/schemas";
 import { tailoringTargetPriority } from "./confirmation";
+import { buildCandidateEvidenceUnits } from "./v2/evidence";
+import { resolveBranchFactRefs } from "@/domain/branch/validation";
 
 const GENERIC_REQUIREMENT = "负责AI领域的软件工程化和产品开发";
 const sectionOrder: Record<TailoringSectionPolicy, number> = { summary: 0, skills: 1, project: 2, work: 3, internship: 3, ordering: 4 };
@@ -79,6 +82,19 @@ export function routeTailoringRequirements(input: {
     .slice(0, input.sectionType === "summary" ? 4 : 3);
 }
 
+// 检测通用前缀（这些前缀不增加价值，只是机械地添加）
+const GENERIC_PREFIXES = [
+  "围绕任务背景、任务目标、输入与约束",
+  "围绕任务背景、任务目标、输入与约束复现问题、定位原因并验证结果",
+  "围绕多步骤开发任务、长流程代码修改、真实环境配置与调试",
+  "围绕多步骤开发任务、长流程代码修改、真实环境配置与调试复现问题、定位原因并验证结果"
+];
+
+function containsGenericPrefix(text: string): boolean {
+  const normalized = normalize(text);
+  return GENERIC_PREFIXES.some((prefix) => normalized.startsWith(normalize(prefix)));
+}
+
 export function validateTailoringDelta(input: {
   before: string | string[];
   after: string | string[] | null | undefined;
@@ -105,13 +121,46 @@ export function validateTailoringDelta(input: {
   if (textChangeRatio < minimum) reasons.push("insufficient_text_delta");
   if (input.intensity === "conservative" && normalizedBefore.length >= 30 && textChangeRatio > 0.34) reasons.push("conservative_delta_too_large");
   const structuralChange = structureSignature(before) !== structureSignature(after) || Math.abs(after.length - before.length) >= Math.max(6, Math.round(before.length * 0.12));
-  if (keywordGain === 0 && !structuralChange) reasons.push("no_keyword_or_structure_gain");
+  // 放宽规则：只要有文本变化就允许，不要求必须有关键词增益
+  // if (keywordGain === 0 && !structuralChange) reasons.push("no_keyword_or_structure_gain");
   const usefulTargets = unique(input.targetKeywords.filter(isUsefulKeyword));
   if (input.targetKeywords.length > 0 && usefulTargets.length === 0) reasons.push("generic_target_keywords");
+
+  // 检查是否有重复内容（after 中出现两遍相同的 before 内容）
+  if (Array.isArray(input.after) && input.after.length > 1) {
+    const afterTexts = input.after.map((item) => normalizeComparable(String(item)));
+    const duplicates = afterTexts.filter((text, index) => afterTexts.indexOf(text) !== index);
+    if (duplicates.length > 0) reasons.push("duplicate_content_in_after");
+  }
+
+  // 检查是否只添加了通用前缀（没有实质性改写）
+  if (containsGenericPrefix(after)) {
+    // 检查去掉前缀后是否和原文一样
+    const afterWithoutPrefix = after.replace(/^围绕[^：：]*[：:]\s*/, "").trim();
+    if (normalizeComparable(afterWithoutPrefix) === normalizeComparable(before)) {
+      reasons.push("generic_prefix_only");
+    }
+  }
+
+  // 检查垃圾数据：布尔值、单个工具名、过短文本
+  const normalizedAfterTrimmed = normalizedAfter.trim().toLowerCase();
+  if (normalizedAfterTrimmed === "true" || normalizedAfterTrimmed === "false") {
+    reasons.push("invalid_boolean_output");
+  }
+  const singleToolNames = ["cursor", "claude code", "codex", "windsurf", "github copilot"];
+  if (singleToolNames.includes(normalizedAfterTrimmed)) {
+    reasons.push("invalid_single_tool_name");
+  }
+  if (after.length > 0 && after.length < 10 && !Array.isArray(input.after)) {
+    reasons.push("output_too_short");
+  }
+
   if (input.rationale !== undefined) {
     const rationale = normalize(input.rationale);
+    // 放宽规则：只要 rationale 长度足够就允许，不要求精确匹配关键词
     const related = [...usefulTargets, ...(input.requirementDescriptions ?? [])].some((value) => tokenize(value).some((token) => token.length > 1 && rationale.includes(token)));
-    if (!related) reasons.push("irrelevant_rationale");
+    // 只有当 rationale 太短或太通用时才拒绝
+    if (!related && rationale.length < 10) reasons.push("irrelevant_rationale");
     if ((input.requirementDescriptions ?? []).some((description) => normalizeComparable(description) === normalizeComparable(input.rationale!))) reasons.push("rationale_copies_requirement");
     if (normalizeComparable(input.rationale) === normalizeComparable(GENERIC_REQUIREMENT)) reasons.push("generic_rationale");
   }
@@ -185,6 +234,7 @@ export function createResumeTailorTaskInputs(input: {
   branch: ResumeBranch;
   job: JobDescription;
   intensity: TailoringIntensity;
+  profile?: CareerProfile;
   resolveEvidenceRefs: (item: BranchContentItem) => MatchEvidenceRef[];
 }): ResumeTailorTaskInputV2[] {
   const jobContext = buildTailoringJobContext(input.job);
@@ -195,7 +245,9 @@ export function createResumeTailorTaskInputs(input: {
     .flatMap((target) => {
       const relevantRequirements = routeTailoringRequirements({ job: input.job, sectionType: target.sectionType, renderedText: target.renderedText, itemId: target.item.id });
       if (!relevantRequirements.length) return [];
-      const allowedEvidenceRefs = input.resolveEvidenceRefs(target.item);
+      const evidenceBundle = input.profile ? buildTailoringEvidenceBundle({ profile: input.profile, branch: input.branch, target: { itemId: target.item.id }, requirements: relevantRequirements }) : undefined;
+      const allowedFacts = evidenceBundle ? [...evidenceBundle.directEvidence, ...evidenceBundle.relatedResumeEvidence, ...evidenceBundle.relatedProfileEvidence].slice(0, 12) : [];
+      const allowedEvidenceRefs = allowedFacts.length ? dedupeEvidenceRefs(allowedFacts.flatMap((fact) => fact.evidenceRefs)) : input.resolveEvidenceRefs(target.item);
       const structuredItem = input.branch.structuredContentItems?.find((item) => item.id === target.item.id)?.data ?? migrateBranchContentItem(target.item).data;
       return [ResumeTailorTaskInputV2Schema.parse({
         draftId: input.draftId,
@@ -207,10 +259,53 @@ export function createResumeTailorTaskInputs(input: {
         currentContent: { structuredItem, fieldValue: target.before, renderedText: target.renderedText },
         relevantRequirements,
         allowedEvidenceRefs,
-        allowedFacts: unique(allowedEvidenceRefs.map((ref) => ref.factText)).map((value) => ({ value, evidenceRefs: allowedEvidenceRefs.filter((ref) => ref.factText === value) }))
+        evidenceBundle,
+        allowedFacts: allowedFacts.length ? allowedFacts : unique(allowedEvidenceRefs.map((ref) => ref.factText)).map((value) => ({ value, evidenceRefs: allowedEvidenceRefs.filter((ref) => ref.factText === value) }))
       })];
     })
     .sort(compareTailoringTaskInputs);
+}
+
+export function buildTailoringEvidenceBundle(input: {
+  profile: CareerProfile;
+  branch: ResumeBranch;
+  target: { itemId: string };
+  requirements: TailoringRequirement[];
+}) {
+  const units = buildCandidateEvidenceUnits({ profile: input.profile, branch: input.branch });
+  const terms = unique(input.requirements.flatMap((requirement) => [...requirement.keywords, ...tokenize(requirement.description)])).filter((term) => term.length > 1);
+  const ranked = units.map((unit) => ({ unit, score: terms.reduce((score, term) => score + (normalize(unit.text).includes(normalize(term)) ? 1 : 0), 0) }))
+    .filter(({ unit, score }) => unit.supportLevel === "verified" && (score > 0 || unit.itemId === input.target.itemId))
+    .sort((a, b) => (b.unit.itemId === input.target.itemId ? 1 : 0) - (a.unit.itemId === input.target.itemId ? 1 : 0) || b.score - a.score)
+    .slice(0, 12);
+  const toFact = (entry: typeof ranked[number]) => ({ value: entry.unit.text, evidenceRefs: dedupeEvidenceRefs(resolveBranchFactRefs(input.profile, entry.unit.factRefs)) });
+  const directEvidence = ranked.filter(({ unit }) => unit.itemId === input.target.itemId).map(toFact);
+  const relatedResumeEvidence = ranked.filter(({ unit }) => unit.itemId !== input.target.itemId).map(toFact);
+  const usedRefs = new Set([...directEvidence, ...relatedResumeEvidence].flatMap((fact) => fact.evidenceRefs).map((ref) => JSON.stringify(ref)));
+  const relatedProfileEvidence = profileEvidenceFacts(input.profile).map((fact) => ({ ...fact, score: terms.reduce((score, term) => score + (normalize(fact.value).includes(normalize(term)) ? 1 : 0), 0) }))
+    .filter((fact) => fact.score > 0 && fact.evidenceRefs.some((ref) => !usedRefs.has(JSON.stringify(ref))))
+    .sort((a, b) => b.score - a.score).slice(0, Math.max(0, 12 - directEvidence.length - relatedResumeEvidence.length))
+    .map(({ value, evidenceRefs }) => ({ value, evidenceRefs }));
+  return {
+    directEvidence,
+    relatedResumeEvidence,
+    relatedProfileEvidence,
+    confirmableSignals: unique(input.requirements.flatMap((requirement) => requirement.keywords)).filter((keyword) => !ranked.some(({ unit }) => normalize(unit.text).includes(normalize(keyword)))).slice(0, 8)
+  };
+}
+
+function profileEvidenceFacts(profile: CareerProfile) {
+  const confirmed = (fact: CareerProfile["experiences"][number]["facts"][number]) => fact.confirmedByUser && fact.riskLevel !== "high" && fact.provenance.some((item) => item.confirmedByUser);
+  return [
+    ...profile.experiences.flatMap((experience) => experience.facts.filter(confirmed).map((fact) => ({ value: fact.statement, evidenceRefs: resolveBranchFactRefs(profile, [{ type: "experience_fact" as const, experienceId: experience.id, factId: fact.id }]) }))),
+    ...profile.skills.flatMap((skill) => skill.fact && confirmed(skill.fact) ? [{ value: skill.fact.statement, evidenceRefs: resolveBranchFactRefs(profile, [{ type: "skill_fact" as const, skillId: skill.id, factId: skill.fact.id }]) }] : []),
+    ...profile.certificates.flatMap((certificate) => certificate.fact && confirmed(certificate.fact) ? [{ value: certificate.fact.statement, evidenceRefs: resolveBranchFactRefs(profile, [{ type: "certificate_fact" as const, certificateId: certificate.id, factId: certificate.fact.id }]) }] : [])
+  ];
+}
+
+function dedupeEvidenceRefs(refs: MatchEvidenceRef[]) {
+  const seen = new Set<string>();
+  return refs.filter((ref) => { const key = JSON.stringify(ref); if (seen.has(key)) return false; seen.add(key); return true; });
 }
 
 function targetFor(branch: ResumeBranch, item: BranchContentItem) {
@@ -266,9 +361,9 @@ function categoryRelevance(section: TailoringSectionPolicy, category: string) {
 }
 
 function adjustedMinimum(intensity: TailoringIntensity, section: TailoringSectionPolicy, length: number) {
-  const base = intensity === "conservative" ? 0.08 : intensity === "balanced" ? 0.2 : 0.4;
-  if (length < 24) return Math.min(base, intensity === "conservative" ? 0.06 : intensity === "balanced" ? 0.16 : 0.32);
-  if (section === "skills" && length < 50) return base * 0.85;
+  const base = intensity === "conservative" ? 0.05 : intensity === "balanced" ? 0.1 : 0.25;
+  if (length < 24) return Math.min(base, intensity === "conservative" ? 0.03 : intensity === "balanced" ? 0.08 : 0.2);
+  if (section === "skills" && length < 50) return base * 0.7;
   return base;
 }
 

@@ -6,7 +6,7 @@ import { defaultResumeRenderSectionOrder, resumeContentCategoryOrder, resumeFiel
 describe("canonical resume section order", () => {
   it("keeps navigation order and places skills after awards", () => {
     expect(resumeFieldCategories.map((category) => category.id)).toEqual([
-      "basic", "summary", "education", "work", "project", "campus", "award", "skill", "certificate", "language", "custom"
+      "basic", "summary", "education", "work", "internship", "project", "campus", "award", "skill", "certificate", "language", "custom"
     ]);
     expect(resumeContentCategoryOrder.indexOf("skill")).toBeGreaterThan(resumeContentCategoryOrder.indexOf("award"));
     expect(defaultResumeRenderSectionOrder).toEqual(["summary", "experience", "skills", "certificates"]);

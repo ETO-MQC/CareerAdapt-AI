@@ -128,8 +128,13 @@ function syncStructuredContentItems(
   return contentItems.map((legacy) => {
     const structured = current.get(legacy.id);
     if (!structured) return migrateBranchContentItem(legacy);
+    // Fix legacy data where internship was misclassified as work
+    const patchedData = legacy.sourceSectionId === "internship" && structured.data.sectionType === "work"
+      ? { ...structured.data, sectionType: "internship" as const }
+      : structured.data;
     return ResumeContentItemV2Schema.parse({
       ...structured,
+      data: patchedData,
       order: legacy.order,
       visible: legacy.visible,
       source: legacy.source,
@@ -2764,9 +2769,10 @@ export class WorkspaceRepository {
         } else {
           const experienceId = `exp-user-${entitySuffix}`;
           const experienceType = input.section === "education" ? "education"
-            : input.section === "projects" ? "project"
-              : input.section === "campus" ? "campus"
-                : input.itemType === "experience" ? "work" : "other";
+            : input.section === "internship" ? "internship"
+              : input.section === "projects" ? "project"
+                : input.section === "campus" ? "campus"
+                  : input.itemType === "experience" ? "work" : "other";
           nextProfile = CareerProfileSchema.parse({
             ...profile,
             version: profile.version + 1,
@@ -3082,7 +3088,8 @@ export class WorkspaceRepository {
         const description = draft?.text.trim() || fact.statement.trim();
         const category: ResumeFieldCategoryId = experience.type === "education" ? "education"
           : experience.type === "project" ? "project"
-            : experience.type === "campus" || experience.type === "volunteer" ? "campus" : "work";
+            : experience.type === "internship" ? "internship"
+              : experience.type === "campus" || experience.type === "volunteer" ? "campus" : "work";
         const parsedDraft = parseStructuredExperienceText(description);
         const text = serializeStructuredExperienceText({
           organization: experience.organization,
@@ -3184,7 +3191,8 @@ export class WorkspaceRepository {
           const description = draft?.text.trim() || fact.statement.trim();
           const category: ResumeFieldCategoryId = experience.type === "education" ? "education"
             : experience.type === "project" ? "project"
-              : experience.type === "campus" || experience.type === "volunteer" ? "campus" : "work";
+              : experience.type === "internship" ? "internship"
+                : experience.type === "campus" || experience.type === "volunteer" ? "campus" : "work";
           const parsedDraft = parseStructuredExperienceText(description);
           text = serializeStructuredExperienceText({
             organization: experience.organization,
