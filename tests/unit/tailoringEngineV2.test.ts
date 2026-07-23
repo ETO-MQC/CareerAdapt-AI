@@ -99,7 +99,7 @@ function fixtureBranch(): ResumeBranch {
     id: "branch-ai", schemaVersion: "resume-branch-v2", branchPurpose: "job_specific", profileId: "profile-ai", jobId: "job-ai",
     name: "AI 软件工程师岗位简历", sourceProfileVersion: 1, sourceProfileSnapshotId: "snapshot-ai", sourceJobVersion: "job-v1", sourceDraftRevision: 0,
     matcherVersion: "matcher-v2", sourceMatchSetHash: "hash-ai-123", requirementMatchIds: [], revision: 1,
-    currentRevisionId: "revision-ai", lifecycleStatus: "active", migrationStatus: "verified",
+    currentRevisionId: "revision-ai", tailoringAppliedCount: 0, lifecycleStatus: "active", migrationStatus: "verified",
     syncStatusCache: { status: "in_sync", sourceProfileVersion: 1, currentProfileVersion: 1, invalidFactRefs: [], checkedAt: NOW, message: "in sync" },
     contentItems: rows.map(([id, itemType, text], order) => ({ id, itemType, source: "user_manual", sourceSectionId: itemType, text, originalText: text, order, visible: true, requirementIds: [], sourceSuggestionIds: [], factRefs: [], guardMode: "not_fact", guardStatus: "pass", guardRiskLevel: "low", guardFindings: [], userConfirmation: { scope: "resume_only", confirmedTextHash: `confirmed-${id}`, confirmedAt: NOW } })),
     structuredContentItems: [

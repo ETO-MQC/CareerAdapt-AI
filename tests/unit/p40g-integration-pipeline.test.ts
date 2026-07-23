@@ -111,7 +111,7 @@ describe("P4.0g Integration: full JD → Graph v3 → matching → tailoring →
       id: "b", schemaVersion: "resume-branch-v2", branchPurpose: "job_specific", profileId: "p", jobId: "j",
       name: "测试", sourceProfileVersion: 1, sourceProfileSnapshotId: "s", sourceJobVersion: "v1", sourceDraftRevision: 0,
       matcherVersion: "m", sourceMatchSetHash: "h", requirementMatchIds: [], revision: 1, currentRevisionId: "r",
-      lifecycleStatus: "active", migrationStatus: "verified",
+      tailoringAppliedCount: 0, lifecycleStatus: "active", migrationStatus: "verified",
       syncStatusCache: { status: "in_sync", sourceProfileVersion: 1, currentProfileVersion: 1, invalidFactRefs: [], checkedAt: NOW, message: "ok" },
       contentItems: fixtureBranchItems(),
       structuredContentItems: [

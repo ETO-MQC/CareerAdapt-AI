@@ -60,6 +60,7 @@ describe("core schemas", () => {
       requirementMatchIds: ["match-schema-test"],
       revision: 0,
       currentRevisionId: "revision-stage-d1",
+      tailoringAppliedCount: 0,
       lifecycleStatus: "active",
       migrationStatus: "verified",
       syncStatusCache: {

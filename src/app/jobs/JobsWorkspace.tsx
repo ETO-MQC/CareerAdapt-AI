@@ -90,6 +90,7 @@ export function JobsWorkspace() {
   const [generationErrorCode, setGenerationErrorCode] = useState<JobResumeGenerationErrorCode>();
   const [profileAnalysis, setProfileAnalysis] = useState<ProfileLibrarySourceAnalysis>();
   const [selectedProfileItemIds, setSelectedProfileItemIds] = useState<string[]>([]);
+  const [existingJobBranch, setExistingJobBranch] = useState<ResumeBranch | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -340,8 +341,9 @@ export function JobsWorkspace() {
       if (hasCustomAiSettings()) savedMatches = await runOptionalSemanticEvaluation({ profile: matchingProfile, job: selectedJob, branch: selectedBaseResume, matches: savedMatches });
       const existing = (await repository.findDerivedJobBranches({ sourceBranchId: selectedBaseResume.id, jobId: selectedJob.id, sourceRevisionId: selectedBaseResume.currentRevisionId }))[0];
       if (existing) {
-        setResumeActionStatus("completed"); notify({ type: "success", title: "已打开已有岗位简历", message: "当前来源版本已经生成过岗位简历。" });
-        router.push(`/resume?branchId=${encodeURIComponent(existing.id)}&mode=ai&fromJobId=${encodeURIComponent(selectedJob.id)}`); return;
+        setResumeActionStatus("completed");
+        setExistingJobBranch(existing);
+        return;
       }
       setResumeActionStatus("saving");
       const result = await createJobResume({ repository, job: selectedJob,
@@ -350,6 +352,21 @@ export function JobsWorkspace() {
         source: { type: "resume", branch: selectedBaseResume }
       });
       setResumeActionStatus("completed"); notify({ type: "success", title: "岗位简历已创建", message: "原通用简历没有被修改，正在打开 Resume Studio。" });
+      router.push(`/resume?branchId=${encodeURIComponent(result.resultRefs!.branchId!)}&mode=ai&fromJobId=${encodeURIComponent(selectedJob.id)}`);
+    } catch (error) { setResumeActionStatus("failed"); showGenerationError(mapJobResumeGenerationError(error)); }
+  }
+
+  async function createNewJobBranchFromBase() {
+    if (!profile || !selectedJob || !selectedBaseResume?.currentRevisionId) return;
+    setExistingJobBranch(null);
+    setResumeActionStatus("saving");
+    try {
+      const result = await createJobResume({ repository, job: selectedJob,
+        operationId: `job-resume-${selectedBaseResume.id}-${selectedJob.id}-${selectedBaseResume.currentRevisionId}-${nanoid(8)}`,
+        name: uniqueBranchName(`${selectedJob.title} - ${selectedJob.company} - ${profile.basics.name} - 新优化`, resumeBranches),
+        source: { type: "resume", branch: selectedBaseResume }
+      });
+      setResumeActionStatus("completed"); notify({ type: "success", title: "新岗位简历已创建", message: "基于原始通用简历创建了新的岗位优化版本，正在打开 Resume Studio。" });
       router.push(`/resume?branchId=${encodeURIComponent(result.resultRefs!.branchId!)}&mode=ai&fromJobId=${encodeURIComponent(selectedJob.id)}`);
     } catch (error) { setResumeActionStatus("failed"); showGenerationError(mapJobResumeGenerationError(error)); }
   }
@@ -438,6 +455,16 @@ export function JobsWorkspace() {
           {tab === "requirements" ? <JobRequirements job={selectedJob} /> : null}
           {tab === "applications" ? <ApplicationEmpty jobId={selectedJob.id} /> : null}
         </div>
+        {existingJobBranch ? <div className="sync-dialog-overlay" onClick={() => setExistingJobBranch(null)}>
+          <div className="sync-dialog" onClick={(event) => event.stopPropagation()} role="dialog" aria-modal="true" aria-label="已存在优化简历">
+            <h3>已存在优化过的岗位简历</h3>
+            <p>当前来源简历针对「{selectedJob?.title}」已有优化版本（{existingJobBranch.tailoringAppliedCount ? `已优化 ${existingJobBranch.tailoringAppliedCount} 次` : "已创建"}）。你可以前往已有版本继续调整，或基于原始通用简历创建一份新的优化版本。</p>
+            <div className="sync-dialog-actions">
+              <button className="secondary-button" type="button" onClick={() => { router.push(`/resume?branchId=${encodeURIComponent(existingJobBranch.id)}&mode=ai&fromJobId=${encodeURIComponent(selectedJob?.id ?? "")}`); setExistingJobBranch(null); }}>前往已有简历</button>
+              <button className="primary-button" type="button" onClick={() => void createNewJobBranchFromBase()}>创建新的优化</button>
+            </div>
+          </div>
+        </div> : null}
       </section> : <section className="panel jobs-empty-selection"><BriefcaseBusiness size={22} aria-hidden="true" /><h2>先添加或选择一个岗位</h2><p>正式岗位提交后，这里会提供两种岗位简历生成方式。</p></section>}
     </main>
   );
@@ -531,7 +558,7 @@ function ResumeSourcePanel(props: {
       </>}
     </div> : <div className="source-mode-body" data-testid="resume-source-mode">
       <label className="field-label" htmlFor="job-match-base-resume">来源通用简历<select id="job-match-base-resume" value={props.selectedBaseResumeId} onChange={(event) => props.onBaseResume(event.target.value)}><option value="">请选择一份通用简历</option>{props.baseResumeOptions.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}</select></label>
-      <div className="source-confirm-actions"><span>{props.selectedBaseResumeId ? "将分析当前正式版本；如已生成过则打开已有岗位简历。" : "请选择来源简历。系统不会默认替你选择。"}</span><button className="primary-button" type="button" data-testid="analyze-and-generate-job-resume" disabled={!props.selectedBaseResumeId || ["matching", "saving"].includes(props.status)} onClick={props.onAnalyzeResume}>{props.status === "matching" ? "分析中…" : props.status === "saving" ? "创建中…" : "分析并生成岗位简历"}</button></div>
+      <div className="source-confirm-actions"><span>{props.selectedBaseResumeId ? "将分析当前正式版本并生成岗位简历；如已存在优化版本，可选择前往或新建。" : "请选择来源简历。系统不会默认替你选择。"}</span><button className="primary-button" type="button" data-testid="analyze-and-generate-job-resume" disabled={!props.selectedBaseResumeId || ["matching", "saving"].includes(props.status)} onClick={props.onAnalyzeResume}>{props.status === "matching" ? "分析中…" : props.status === "saving" ? "创建中…" : "分析并生成岗位简历"}</button></div>
       <button className="text-button" type="button" onClick={props.onShowMatchDetails}>查看匹配详情</button>
       {props.showMatchDetails ? <div className="match-detail-summary">{props.matches.length ? props.matches.map((match) => <div key={match.id}><strong>{match.requirementQuote.text}</strong><span>{match.isStale ? "匹配已过期" : match.effectiveEvaluation?.evidenceRefs.length ? "已有事实支持" : "暂无事实支持"}</span></div>) : <p>尚未运行岗位匹配。</p>}</div> : null}
     </div>}

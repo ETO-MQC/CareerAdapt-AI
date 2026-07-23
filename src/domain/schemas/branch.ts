@@ -243,7 +243,8 @@ export const ResumeBranchSchema = EntityBaseSchema.extend({
   resumeBasics: ResumeBranchBasicsSchema.optional(),
   contentItems: z.array(BranchContentItemSchema).default([]),
   legacyPayload: z.unknown().optional(),
-  structuredContentItems: z.array(ResumeContentItemV2Schema).optional()
+  structuredContentItems: z.array(ResumeContentItemV2Schema).optional(),
+  tailoringAppliedCount: z.number().int().min(0).default(0)
 }).superRefine((branch, ctx) => {
   if (branch.migrationStatus !== "verified") {
     return;

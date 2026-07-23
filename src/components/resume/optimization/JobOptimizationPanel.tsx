@@ -138,6 +138,10 @@ export function JobOptimizationPanel({
   const conflictingClaimIds = duplicateFinalTextClaimIds(selectedClaims, confirmations);
 
   async function generatePlan() {
+    if (activeBranch.tailoringAppliedCount) {
+      const proceed = window.confirm(`此简历已优化过 ${activeBranch.tailoringAppliedCount} 次，是否继续重新优化？`);
+      if (!proceed) return;
+    }
     generationController.current?.abort();
     const controller = new AbortController();
     generationController.current = controller;
@@ -427,6 +431,7 @@ export function JobOptimizationPanel({
           <div><span>{activeJob.company}</span><h2>{activeJob.title}</h2><p>岗位适配度，不代表 ATS 通过率或录取概率</p></div>
           <strong aria-label="岗位适配度">{report?.overallCoverage ?? 0}</strong>
         </header>
+        {activeBranch.tailoringAppliedCount ? <div className="info-box" style={{ marginBottom: "0.5rem" }}><span>✅ 此简历已优化 {activeBranch.tailoringAppliedCount} 次，再次优化将基于当前内容重新生成建议。</span></div> : null}
         <label className="field-label">推荐改写力度
           <select value={intensity} onChange={(event) => setIntensity(event.target.value as TailoringIntensity)}>
             <option value="conservative">保守对齐</option><option value="balanced">平衡强化</option><option value="proactive">主动定向</option>

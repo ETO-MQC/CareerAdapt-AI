@@ -192,6 +192,7 @@ function createBranch(): ResumeBranch {
     requirementMatchIds: ["match-readiness"],
     revision: 0,
     currentRevisionId: "revision-readiness",
+    tailoringAppliedCount: 0,
     lifecycleStatus: "active",
     migrationStatus: "verified",
     syncStatusCache: {

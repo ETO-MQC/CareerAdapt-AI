@@ -321,6 +321,7 @@ describe("WorkspaceRepository", () => {
       requirementMatchIds: ["match-storage-test"],
       revision: 0,
       currentRevisionId: "revision-storage-test",
+      tailoringAppliedCount: 0,
       lifecycleStatus: "active",
       migrationStatus: "verified",
       syncStatusCache: {

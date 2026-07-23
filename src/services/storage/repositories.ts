@@ -1124,7 +1124,7 @@ export class WorkspaceRepository {
         updatedAt: now
       });
       const revision = createResumeRevision({ branch: nextBase, source: "suggestion_accept", operationId: input.operationId, previousRevisionId: branch.currentRevisionId, now });
-      const nextBranch = ResumeBranchSchema.parse({ ...nextBase, currentRevisionId: revision.id });
+      const nextBranch = ResumeBranchSchema.parse({ ...nextBase, currentRevisionId: revision.id, tailoringAppliedCount: (branch.tailoringAppliedCount ?? 0) + 1 });
       const operation = ResumeBranchOperationSchema.parse({
         id: `resume-branch-op-${input.operationId}`, operationId: input.operationId, branchId: branch.id, type: "suggestion_accept",
         expectedRevision: input.expectedBranchRevision, beforeRevision: branch.revision, afterRevision: nextBranch.revision,
@@ -1208,7 +1208,7 @@ export class WorkspaceRepository {
         updatedAt: now
       });
       const revision = createResumeRevision({ branch: nextBase, source: "suggestion_accept", operationId: input.operationId, previousRevisionId: branch.currentRevisionId, now });
-      const nextBranch = ResumeBranchSchema.parse({ ...nextBase, currentRevisionId: revision.id });
+      const nextBranch = ResumeBranchSchema.parse({ ...nextBase, currentRevisionId: revision.id, tailoringAppliedCount: (branch.tailoringAppliedCount ?? 0) + 1 });
       const operation = ResumeBranchOperationSchema.parse({
         id: `resume-branch-op-${input.operationId}`,
         operationId: input.operationId,

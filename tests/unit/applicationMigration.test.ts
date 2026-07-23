@@ -117,6 +117,7 @@ function createBranch(): ResumeBranch {
     requirementMatchIds: ["v7-match"],
     revision: 0,
     currentRevisionId: "v7-revision-application",
+    tailoringAppliedCount: 0,
     lifecycleStatus: "active",
     migrationStatus: "verified",
     syncStatusCache: {
