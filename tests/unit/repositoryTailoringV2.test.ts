@@ -6,6 +6,7 @@ import { WorkspaceRepository } from "@/services/storage/repositories";
 import { presentationSnapshotFromConfig } from "@/services/export/snapshot";
 import { analyzeJobFit } from "@/services/jobs/tailoringService";
 import { JobDescriptionSchema } from "@/domain/schemas";
+import { tailoringValueHash } from "@/domain/jobOptimization";
 
 const NOW = "2026-07-20T08:00:00.000Z";
 let db: CareerAdaptDb | undefined;
@@ -44,6 +45,25 @@ describe("Tailoring Engine v2 repository application", () => {
       suggestions: [{ id: suggestionId, intensity: "balanced", operation: "rewrite", targetSectionType: "project", targetSectionId: "project", targetItemId: structured.id, targetFieldPath: `sections.project.items.${structured.id}.highlights`, before, after, changedFields: ["highlights"], requirementIds: ["req-rag"], targetKeywords: ["RAG", "FastAPI"], coveredKeywordsBefore: ["RAG"], coveredKeywordsAfter: ["RAG", "FastAPI"], claimSupportLevel: "verified", evidenceRefs: [], rationale: "示例任务系统 对 RAG 与 FastAPI 要求最相关，重写项目要点。", riskLevel: "low", metrics: { textChangeRatio: 0.55, keywordGain: 1 }, status: "ready" }]
     };
 
+    const staleSnapshotPlan: ResumeTailoringPlan = {
+      ...plan,
+      basedOnRevisionId: job.branch.currentRevisionId!,
+      claims: plan.claims.map((claim) => ({
+        ...claim,
+        baseRevisionId: "older-revision",
+        originalValue: before,
+        originalValueHash: tailoringValueHash(before),
+        suggestedValue: after,
+        resolvedValue: after
+      }))
+    };
+    await expect(repository.applyTailoringPlan({
+      plan: staleSnapshotPlan,
+      operationId: "apply-stale-snapshot",
+      expectedBranchRevision: job.branch.revision,
+      expectedRevisionId: job.branch.currentRevisionId!
+    })).rejects.toThrow("original_snapshot_mismatch");
+
     const applied = await repository.applyTailoringPlan({ plan, operationId: "apply-plan-ai", expectedBranchRevision: job.branch.revision, expectedRevisionId: job.branch.currentRevisionId! });
     const updated = applied.branch.structuredContentItems![0].data;
     if (updated.sectionType !== "project") throw new Error("project_result_expected");
@@ -79,11 +99,11 @@ describe("Tailoring Engine v2 repository application", () => {
     await db.resumeRevisions.bulkPut([general.firstRevision, job.firstRevision]);
     const plan: ResumeTailoringPlan = {
       id: "plan-cursor", branchId: job.branch.id, jobId: "job-ai", intensity: "balanced", basedOnBranchRevision: job.branch.revision, estimatedFitScore: 0, createdAt: NOW,
-      claims: [{ id: "claim-cursor", label: "确认 Cursor 的使用程度", claimText: "了解 Cursor 等 AI Coding 工具的基本工作方式。", finalTextByProficiency: { proficient: "熟练使用 Cursor 完成多文件开发、代码修改与问题定位。", familiar: "熟悉 Cursor 的项目开发、代码修改与调试流程。", aware: "了解 Cursor 等 AI Coding 工具的基本工作方式。", learning: "正在学习 Cursor 等 AI Coding 工具在真实开发任务中的应用。" }, sourceItemIds: [job.branch.contentItems[0].id], requirementIds: ["req-cursor"], targetPatches: [{ sectionId: "skills", itemId: "skill-cursor", fieldPath: "name", operation: "append", before: "", after: "Cursor" }], claimType: "tool", section: "skills", targetContentItemId: "skill-cursor", targetFieldPath: "sections.skills.items.skill-cursor.name", currentText: "", proposedText: "Cursor", resolvedText: "了解 Cursor 等 AI Coding 工具的基本工作方式。", reason: "岗位工具要求", keywords: ["Cursor"], supportLevel: "user_declared", decision: "requires_confirmation", evidenceRefs: [], syncScope: "resume_only", proficiency: "aware", confirmed: true }]
+      claims: [{ id: "claim-cursor", label: "确认 Cursor 的使用程度", claimText: "了解 Cursor 等 AI Coding 工具的基本工作方式。", finalTextByProficiency: { proficient: "熟练使用 Cursor 完成多文件开发、代码修改与问题定位。", familiar: "熟悉 Cursor 的项目开发、代码修改与调试流程。", aware: "了解 Cursor 等 AI Coding 工具的基本工作方式。", learning: "正在学习 Cursor 等 AI Coding 工具在真实开发任务中的应用。" }, sourceItemIds: [job.branch.contentItems[0].id], requirementIds: ["req-cursor"], targetPatches: [{ sectionId: "skills", itemId: "skill-cursor", fieldPath: "name", operation: "append", before: "", after: "Cursor" }, { sectionId: "skills", itemId: "skill-cursor", fieldPath: "description", operation: "replace", before: "", after: "了解 Cursor 等 AI Coding 工具的基本工作方式。" }], claimType: "tool", section: "skills", targetContentItemId: "skill-cursor", targetFieldPath: "sections.skills.items.skill-cursor.description", currentText: "", proposedText: "了解 Cursor 等 AI Coding 工具的基本工作方式。", resolvedText: "了解 Cursor 等 AI Coding 工具的基本工作方式。", reason: "岗位工具要求", keywords: ["Cursor"], supportLevel: "user_declared", decision: "requires_confirmation", evidenceRefs: [], syncScope: "resume_only", proficiency: "aware", confirmed: true }]
     };
     const applied = await repository.applyTailoringPlan({ plan, operationId: "apply-cursor", expectedBranchRevision: job.branch.revision, expectedRevisionId: job.branch.currentRevisionId! });
     const skill = applied.branch.structuredContentItems?.find((item) => item.id === "skill-cursor");
-    expect(skill?.data).toMatchObject({ id: "skill-cursor", sectionType: "skills", name: "Cursor" });
+    expect(skill?.data).toMatchObject({ id: "skill-cursor", sectionType: "skills", name: "Cursor", description: "了解 Cursor 等 AI Coding 工具的基本工作方式。" });
     expect(skill).toMatchObject({ source: "user_manual", factRefs: [], userConfirmation: { scope: "resume_only" } });
     expect((await repository.getResumeBranch(general.branch.id))?.structuredContentItems).toEqual(general.branch.structuredContentItems);
   });

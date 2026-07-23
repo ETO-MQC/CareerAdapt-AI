@@ -20,9 +20,9 @@ test("P4.0f claim confirmation keeps the decision context visible", async ({ pag
   await expect(panel.getByTestId("tailoring-apply")).toBeVisible();
   const cards = panel.locator(".tailoring-confirmation-card");
   expect(await cards.count()).toBeGreaterThan(0);
-  await expect(cards.first()).toContainText("最终写入句");
-  await expect(cards.first()).toContainText("来源经历");
-  await expect(cards.first()).toContainText("对应岗位要求");
+  for (const label of ["原简历内容", "AI 建议内容", "用户确认后的最终内容", "修改位置", "修改原因", "覆盖要求", "依据", "保存范围"]) {
+    await expect(cards.first()).toContainText(label);
+  }
   const titles = await cards.locator(":scope > strong").allTextContents();
   expect(titles.every((title) => title.length < 50 && !title.includes("项目名称：") && !title.endsWith("..."))).toBe(true);
   const proficiencyCards = cards.filter({ has: page.getByRole("button", { name: "了解", exact: true }) });
@@ -33,8 +33,8 @@ test("P4.0f claim confirmation keeps the decision context visible", async ({ pag
       continue;
     }
     await card.getByRole("button", { name: "了解", exact: true }).click();
-    await expect(card.getByText("最终写入句").locator("..")).toContainText("了解");
-    await expect(card.getByText("最终写入句").locator("..")).not.toContainText(/熟练|精通|深度使用/);
+    await expect(card.getByText("用户确认后的最终内容").locator("..")).toContainText("了解");
+    await expect(card.getByText("用户确认后的最终内容").locator("..")).not.toContainText(/熟练|精通|深度使用/);
   }
   const reframeCards = cards.filter({ has: page.getByRole("button", { name: "确认采用", exact: true }) });
   for (let index = 0; index < await reframeCards.count(); index += 1) await reframeCards.nth(index).getByRole("button", { name: "确认采用", exact: true }).click();

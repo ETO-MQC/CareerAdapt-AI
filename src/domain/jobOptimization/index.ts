@@ -6,6 +6,8 @@ export * from "./tailoringEngine";
 export * from "./tailoringDiff";
 export * from "./keywordTaxonomy";
 export * from "./confirmation";
+export * from "./capabilityResolver";
+export * from "./tailoringClosure";
 export * from "./v2";
 export * from "./v3";
 export * from "./v4";

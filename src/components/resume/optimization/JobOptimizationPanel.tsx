@@ -17,7 +17,7 @@ import type {
 import { ResumeTailorOutputSchema, ResumeTailorPlannerOutputSchema } from "@/domain/schemas";
 import type { WorkspaceRepository } from "@/services/storage/repositories";
 import { nanoid } from "nanoid";
-import { groupTailoringKeywords } from "@/domain/jobOptimization";
+import { capabilityAllowsProficiency, groupTailoringKeywords } from "@/domain/jobOptimization";
 
 type TailoringView = "overview" | "clarification" | "suggestions" | "apply";
 
@@ -135,6 +135,7 @@ export function JobOptimizationPanel({
   const keywordGroups = groupTailoringKeywords(selectedClaims.flatMap((claim) => claim.keywords));
   const keywordCount = keywordGroups.core.length + keywordGroups.confirmableTools.length;
   const hiddenCount = selectedClaims.filter((claim) => claim.section === "ordering" && /隐藏/.test(claim.reason)).length;
+  const conflictingClaimIds = duplicateFinalTextClaimIds(selectedClaims, confirmations);
 
   async function generatePlan() {
     generationController.current?.abort();
@@ -375,6 +376,10 @@ export function JobOptimizationPanel({
 
   async function applySelected() {
     if (!plan || !activeBranch.currentRevisionId) return;
+    if (conflictingClaimIds.size) {
+      onMessage("存在相同最终句写入多个位置的冲突，请调整或取消重复项后再应用。");
+      return;
+    }
     setPending(true);
     try {
       const deselected: ClaimConfirmation[] = claims.filter((claim) => !selected.has(claim.id)).map((claim) => ({ claimId: claim.id, accepted: false, syncScope: "rejected" }));
@@ -462,13 +467,14 @@ export function JobOptimizationPanel({
             可直接改写 {plannerAssessment.direct} 项 · 确认后可加入 {plannerAssessment.confirmable} 项 · 需要回答 {plannerAssessment.clarification} 项 · 建议准备材料 {plannerAssessment.materials} 项 · 保持不变 {plannerAssessment.keep} 项
           </p>
         </div> : null}
-        {suggestionStatusGroups(claims).map(([group, items]) => <section key={group} className="tailoring-suggestion-group"><h3>{group}</h3>{items.map((claim) => { const suggestion = suggestionsById.get(claim.id); const groupedKeywords = groupTailoringKeywords(claim.keywords); return <article key={claim.id} className="tailoring-suggestion-card">
+        {suggestionStatusGroups(claims.slice(0, 5)).map(([group, items]) => <section key={group} className="tailoring-suggestion-group"><h3>{group}</h3>{items.map((claim) => { const suggestion = suggestionsById.get(claim.id); const groupedKeywords = groupTailoringKeywords(claim.keywords); return <article key={claim.id} className="tailoring-suggestion-card">
           <div className="tailoring-suggestion-status"><span>{decisionLabel(claim)}</span><input type="checkbox" aria-label="采用建议" checked={selected.has(claim.id)} disabled={claim.decision === "blocked"} onChange={(event) => setSelected((current) => { const next = new Set(current); if (event.target.checked) next.add(claim.id); else next.delete(claim.id); return next; })} /></div>
           <header className="tailoring-suggestion-title"><strong>{claim.label ?? sectionLabel(claim.section)}</strong><span>{fieldLocationLabel(claim)}</span></header>
-          <div><small>原文 → 改写后</small><div className="inline-diff"><FieldDiff before={claim.currentText} after={claim.claimText ?? claim.proposedText} /></div></div>
+          <div className="tailoring-suggestion-comparison"><p><strong>完整原文：</strong>{renderFieldValue(claim.originalValue ?? claim.currentText)}</p><p><strong>完整改写后：</strong>{renderFieldValue(claim.suggestedValue ?? claim.claimText ?? claim.proposedText)}</p></div>
           <p className="tailoring-suggestion-reason"><strong>修改原因：</strong>{claim.reason}</p>
-          <details className="tailoring-suggestion-details"><summary>查看详细依据</summary><div className="tailoring-suggestion-meta"><p><strong>完整当前条目：</strong>{currentItemText(activeBranch, claim)}</p><p><strong>岗位要求：</strong>{(claim.requirementIds ?? []).map((id) => requirementText(activeJob, id)).join("、") || "对应岗位要求"}</p><p><strong>EvidenceRefs：</strong>{claim.evidenceRefs.length ? `${claim.evidenceRefs.length} 条已确认事实证据` : "当前岗位简历中的用户确认内容"}</p><p><strong>Requirement IDs：</strong>{(claim.requirementIds ?? []).join("、") || "无"}</p><p><strong>风险：</strong>{suggestion?.riskLevel === "low" ? "低" : suggestion?.riskLevel === "high" ? "高" : "中，需确认"}</p>{groupedKeywords.core.length ? <div className="keyword-phrase"><strong>核心岗位词：</strong>{groupedKeywords.core.join("、")}</div> : null}{groupedKeywords.confirmableTools.length ? <div className="keyword-phrase"><strong>需确认工具：</strong>{groupedKeywords.confirmableTools.join("、")}</div> : null}{groupedKeywords.materials.length ? <div className="keyword-phrase"><strong>材料要求：</strong>{groupedKeywords.materials.join("、")}</div> : null}</div></details>
+          <details className="tailoring-suggestion-details"><summary>查看详细差异与依据</summary><div className="inline-diff"><FieldDiff before={claim.originalValue ?? claim.currentText} after={claim.suggestedValue ?? claim.claimText ?? claim.proposedText} /></div><div className="tailoring-suggestion-meta"><p><strong>完整当前条目：</strong>{currentItemText(activeBranch, claim)}</p><p><strong>岗位要求：</strong>{(claim.requirementIds ?? []).map((id) => requirementText(activeJob, id)).join("、") || "对应岗位要求"}</p><p><strong>EvidenceRefs：</strong>{claim.evidenceRefs.length ? `${claim.evidenceRefs.length} 条已确认事实证据` : "当前岗位简历中的用户确认内容"}</p><p><strong>Requirement IDs：</strong>{(claim.requirementIds ?? []).join("、") || "无"}</p><p><strong>风险：</strong>{suggestion?.riskLevel === "low" ? "低" : suggestion?.riskLevel === "high" ? "高" : "中，需确认"}</p>{groupedKeywords.core.length ? <div className="keyword-phrase"><strong>核心岗位词：</strong>{groupedKeywords.core.join("、")}</div> : null}{groupedKeywords.confirmableTools.length ? <div className="keyword-phrase"><strong>需确认工具：</strong>{groupedKeywords.confirmableTools.join("、")}</div> : null}{groupedKeywords.materials.length ? <div className="keyword-phrase"><strong>材料要求：</strong>{groupedKeywords.materials.join("、")}</div> : null}</div></details>
         </article>; })}</section>)}
+        {claims.length > 5 ? <details className="tailoring-suggestion-details"><summary>更多建议（{claims.length - 5}）</summary><div className="tailoring-suggestion-meta">{claims.slice(5).map((claim) => <p key={claim.id}><strong>{fieldLocationLabel(claim)}：</strong>{claim.reason}</p>)}</div></details> : null}
         {plan?.materialTasks?.length ? <ResultList title={`申请前建议准备 ${plan.materialTasks.length} 项材料`} items={plan.materialTasks.map((item) => item.label)} empty="暂无" /> : null}
         {pending ? <div className="info-box" aria-live="polite"><strong>{progress.step}/3 {progress.step === 1 ? "正在分析岗位要求" : progress.step === 2 ? "正在筛选需要改写的内容" : "正在生成并验证建议"}</strong><p>已完成 {progress.completed} 项　跳过 {progress.skipped} 项　失败 {progress.failed} 项</p><button className="secondary-button compact" type="button" onClick={() => generationController.current?.abort()}><Square size={14} aria-hidden="true" />停止生成</button></div> : null}
         {!claims.length && !pending ? <div className="info-box">{plan?.clarificationQuestions?.length ? "需要补充信息后才能生成部分建议。" : "没有生成可安全应用的具体文本；请检查岗位要求和已确认事实。"}</div> : null}
@@ -478,17 +484,17 @@ export function JobOptimizationPanel({
       {view === "apply" ? <div className="tailoring-page" data-testid="tailoring-apply">
         <h2>确认并应用</h2>
         <div className="tailoring-apply-summary"><span>将修改 <strong>{selectedClaims.length}</strong> 处</span><span>新增关键词 <strong>{keywordCount}</strong> 个</span><span>隐藏 <strong>{hiddenCount}</strong> 项</span><span>需确认 <strong>{confirmationCount}</strong> 项</span><span>当前岗位适配度 <strong>{report?.overallCoverage ?? 0}</strong></span></div>
-        {selectedClaims.length ? <section className="tailoring-suggestion-group"><h3>本次真正写入的数据</h3>{selectedClaims.map((claim) => { const patch = claim.targetPatches?.[0]; return <article key={claim.id} className="tailoring-suggestion-card"><header className="tailoring-suggestion-title"><strong>{fieldLocationLabel(claim)}</strong><span>{patch?.fieldPath ?? claim.targetFieldPath ?? "text"} · {patch?.operation ?? "replace"}</span></header><FieldDiff before={patch?.before ?? claim.currentText} after={patch?.after ?? finalTextForClaim(claim, confirmations[claim.id])} /><p><strong>覆盖要求：</strong>{(claim.requirementIds ?? []).map((id) => requirementText(activeJob, id)).join("、") || "无"}</p><p><strong>用户确认能力：</strong>{claim.supportLevel === "verified" ? "无需额外确认" : confirmations[claim.id]?.accepted ? "已确认" : "等待确认"}</p></article>; })}</section> : null}
+        {selectedClaims.length ? <section className="tailoring-suggestion-group"><h3>本次真正写入的数据</h3>{selectedClaims.map((claim) => { const patch = claim.targetPatches?.at(-1); const finalText = finalTextForClaim(claim, confirmations[claim.id]); return <article key={claim.id} className="tailoring-suggestion-card"><header className="tailoring-suggestion-title"><strong>{fieldLocationLabel(claim)}</strong><span>{patch?.fieldPath ?? claim.targetFieldPath ?? "text"} · {patch?.operation ?? "replace"}</span></header><div className="tailoring-confirmation-context"><p><span>原简历内容</span><strong>{renderFieldValue(claim.originalValue ?? patch?.before ?? claim.currentText)}</strong></p><p><span>AI 建议内容</span><strong>{renderFieldValue(claim.suggestedValue ?? patch?.after ?? claim.proposedText)}</strong></p><p><span>用户确认后的最终内容</span><strong>{finalText}</strong></p><p><span>修改位置</span>{fieldLocationLabel(claim)}</p><p><span>修改原因</span>{claim.reason}</p><p><span>覆盖要求</span>{(claim.requirementIds ?? []).map((id) => requirementText(activeJob, id)).join("、") || "无"}</p><p><span>依据</span>{claim.evidenceRefs.length ? `${claim.evidenceRefs.length} 条已确认事实证据` : "用户本轮确认"}</p><p><span>保存范围</span>仅用于当前岗位简历</p></div>{conflictingClaimIds.has(claim.id) ? <div className="warning-box" role="alert">相同最终句还指向其他位置，必须先解决冲突。</div> : null}</article>; })}</section> : null}
         {fitDelta ? <div className="info-box tailoring-fit-delta" aria-live="polite"><strong>岗位适配度：{fitDelta.beforeScore} → {fitDelta.afterScore}</strong><p>新覆盖要求：{fitDelta.newlyCovered.join("、") || "无新增"}</p><p>新关键词：{fitDelta.newKeywords.join("、") || "无新增"}</p><p>用户声明能力：{fitDelta.userDeclared.join("、") || "无"}</p><p>仍缺失要求：{fitDelta.remaining.join("、") || "无"}</p></div> : null}
-        {selectedClaims.filter((claim) => claim.decision === "requires_confirmation").length ? <section className="tailoring-confirmations"><h3>待确认能力与表达</h3>{selectedClaims.filter((claim) => claim.decision === "requires_confirmation").map((claim) => { const confirmation = confirmations[claim.id]; const finalText = finalTextForClaim(claim, confirmation); const isProficiencyClaim = ["tool", "skill", "workflow"].includes(claim.claimType ?? ""); const editText = confirmationEdits[claim.id] ?? claim.claimText ?? claim.proposedText; return <article key={claim.id} className="tailoring-confirmation-card">
+        {selectedClaims.filter((claim) => claim.decision === "requires_confirmation").length ? <section className="tailoring-confirmations"><h3>待确认能力与表达</h3>{selectedClaims.filter((claim) => claim.decision === "requires_confirmation").map((claim) => { const confirmation = confirmations[claim.id]; const finalText = finalTextForClaim(claim, confirmation); const isProficiencyClaim = capabilityAllowsProficiency(claim.capability) && Boolean(claim.finalTextByProficiency); const editText = confirmationEdits[claim.id] ?? claim.claimText ?? claim.proposedText; return <article key={claim.id} className="tailoring-confirmation-card">
           <strong>{claim.label ?? "确认岗位相关表达"}</strong>
-          <div className="tailoring-confirmation-context"><p><span>最终写入句</span><strong aria-live="polite">{finalText}</strong></p><p><span>来源经历</span>{sourceItemsLabel(activeBranch, claim)}</p><p><span>对应岗位要求</span>{(claim.requirementIds ?? []).map((id) => requirementText(activeJob, id)).join("、") || "对应岗位要求"}</p></div>
+          <div className="tailoring-confirmation-context"><p><span>原简历内容</span><strong>{renderFieldValue(claim.originalValue ?? claim.currentText)}</strong></p><p><span>AI 建议内容</span><strong>{renderFieldValue(claim.suggestedValue ?? claim.proposedText)}</strong></p><p><span>用户确认后的最终内容</span><strong aria-live="polite">{finalText}</strong></p><p><span>修改位置</span>{fieldLocationLabel(claim)}</p><p><span>修改原因</span>{claim.reason}</p><p><span>覆盖要求</span>{(claim.requirementIds ?? []).map((id) => requirementText(activeJob, id)).join("、") || "对应岗位要求"}</p><p><span>依据</span>{claim.evidenceRefs.length ? `${claim.evidenceRefs.length} 条已确认事实证据` : `用户确认 · 来源：${sourceItemsLabel(activeBranch, claim)}`}</p><p><span>保存范围</span>仅用于当前岗位简历</p></div>
           {isProficiencyClaim ? <div className="chip-row" aria-label="选择真实熟练度">{([['proficient','熟练使用'],['familiar','熟悉基础'],['aware','了解'],['learning','正在学习']] as const).map(([value, label]) => <button type="button" key={value} className={confirmation?.proficiency === value && confirmation.accepted ? "secondary-button compact property-tab-active" : "secondary-button compact"} onClick={() => updateConfirmation(claim, value)}>{label}</button>)}<button type="button" className={!confirmation?.accepted && confirmation?.syncScope === "rejected" ? "secondary-button compact property-tab-active" : "secondary-button compact"} onClick={() => updateConfirmation(claim, undefined, false)}>不添加</button></div> : <><label className="field-label" htmlFor={`claim-edit-${claim.id}`}>编辑最终句<textarea id={`claim-edit-${claim.id}`} value={editText} onChange={(event) => setConfirmationEdits((current) => ({ ...current, [claim.id]: event.target.value }))} /></label><div className="chip-row"><button type="button" className={confirmation?.accepted && !confirmation.editedText ? "secondary-button compact property-tab-active" : "secondary-button compact"} onClick={() => updateConfirmation(claim, undefined, true)}>确认采用</button><button type="button" className={confirmation?.editedText ? "secondary-button compact property-tab-active" : "secondary-button compact"} onClick={() => updateConfirmation(claim, undefined, true, editText)}>编辑后采用</button><button type="button" className={!confirmation?.accepted && confirmation?.syncScope === "rejected" ? "secondary-button compact property-tab-active" : "secondary-button compact"} onClick={() => updateConfirmation(claim, undefined, false)}>不采用</button></div></>}
           <small>保存范围：仅用于当前岗位简历</small>
         </article>; })}</section> : null}
         <div className="info-box"><strong>导出前检查</strong><p><Check size={14} /> 通过 / 有建议 / 需要处理将在保存后显示；它不会改变事实。</p></div>
         {!selectedClaims.length ? <div className="info-box"><strong>尚未选中任何修改</strong><p>请选择具体改写，或返回回答问题后生成确认项。</p><button type="button" className="secondary-button compact" onClick={() => setView("suggestions")}>返回回答问题</button></div> : null}
-        <button className="primary-button" type="button" disabled={pending || !canEdit || selectedClaims.length === 0} onClick={() => { void applySelected(); }}>应用选择并保存新版本</button>
+        <button className="primary-button" type="button" disabled={pending || !canEdit || selectedClaims.length === 0 || conflictingClaimIds.size > 0} onClick={() => { void applySelected(); }}>应用选择并保存新版本</button>
         <p className="muted-copy">来源通用简历和个人资料库默认不变。保存后会创建新版本，可以撤销。</p>
       </div> : null}
 
@@ -566,7 +572,7 @@ function suggestionStatusGroups(claims: TailoringClaim[]) {
   return groups.map(([label, predicate]) => [label, claims.filter(predicate)] as const).filter(([, items]) => items.length);
 }
 function fieldLocationLabel(claim: TailoringClaim) {
-  const field = claim.targetPatches?.[0]?.fieldPath ?? claim.targetFieldPath?.split(".").at(-1);
+  const field = claim.targetPatches?.at(-1)?.fieldPath ?? claim.targetFieldPath?.split(".").at(-1);
   return `${sectionLabel(claim.section)} · ${({ text: "正文", name: "技能名称", description: "描述", highlights: "亮点", visible: "显示状态", order: "排序" } as Record<string, string>)[field ?? ""] ?? "正文"}`;
 }
 function finalTextForClaim(claim: TailoringClaim, confirmation?: ClaimConfirmation) {
@@ -574,6 +580,23 @@ function finalTextForClaim(claim: TailoringClaim, confirmation?: ClaimConfirmati
   if (confirmation.editedText) return confirmation.editedText;
   if (confirmation.proficiency && claim.finalTextByProficiency) return claim.finalTextByProficiency[confirmation.proficiency];
   return claim.claimText ?? claim.proposedText;
+}
+function renderFieldValue(value: string | string[] | boolean | number) {
+  return Array.isArray(value) ? value.join("\n") : String(value);
+}
+function duplicateFinalTextClaimIds(claims: TailoringClaim[], confirmations: Record<string, ClaimConfirmation>) {
+  const firstByText = new Map<string, string>();
+  const conflicts = new Set<string>();
+  for (const claim of claims) {
+    const normalized = normalizeDiffText(finalTextForClaim(claim, confirmations[claim.id]));
+    if (!normalized) continue;
+    const first = firstByText.get(normalized);
+    if (first) {
+      conflicts.add(first);
+      conflicts.add(claim.id);
+    } else firstByText.set(normalized, claim.id);
+  }
+  return conflicts;
 }
 function sourceItemsLabel(branch: ResumeBranch, claim: TailoringClaim) {
   const ids = claim.sourceItemIds ?? (claim.targetContentItemId ? [claim.targetContentItemId] : []);

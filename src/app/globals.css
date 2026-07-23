@@ -811,7 +811,6 @@ html[data-theme="dark"] .panel {
 .job-detail-stack,
 .local-scroll {
   min-height: 0;
-  overflow: visible;
 }
 
 .jobs-tab-content,
@@ -1298,8 +1297,22 @@ html[data-theme="dark"] .panel {
   gap: 12px;
   max-height: 600px;
   min-height: 0;
-  overflow: hidden;
+  overflow-y: auto;
   padding: 16px;
+  scrollbar-width: thin;
+}
+
+.job-draft-review::-webkit-scrollbar {
+  width: 6px;
+}
+
+.job-draft-review::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 3px;
+}
+
+.job-draft-review::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
 }
 
 .job-analysis-task {
@@ -1395,8 +1408,6 @@ html[data-theme="dark"] .panel {
   display: grid;
   gap: 16px;
   min-height: 0;
-  overflow: auto;
-  overscroll-behavior: contain;
 }
 
 .job-draft-section {
@@ -1447,9 +1458,6 @@ html[data-theme="dark"] .panel {
   display: grid;
   gap: 8px;
   min-height: 0;
-  max-height: 480px;
-  overflow-y: auto;
-  scrollbar-width: thin;
 }
 
 .requirement-review-list::-webkit-scrollbar {
@@ -5395,9 +5403,27 @@ html[data-theme="dark"] .property-panel-heading p {
 }
 
 .resume-skill-values {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1mm 3mm;
+  display: grid;
+  gap: 1.5mm;
+}
+
+.resume-skill-item {
+  display: grid;
+  gap: 0.5mm;
+}
+
+.resume-skill-name {
+  color: #262b28;
+  font-size: var(--resume-body-font-size, 9.3pt);
+}
+
+.resume-skill-level {
+  color: #4d5650;
+}
+
+.resume-skill-description {
+  color: #303632;
+  display: block;
 }
 
 .resume-skill-values span,

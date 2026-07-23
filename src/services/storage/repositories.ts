@@ -107,7 +107,7 @@ import {
   assertC2MatchesUsable,
   createJobAdaptationDraft
 } from "@/domain/adaptation/draft";
-import { computeRequirementsHash } from "@/domain/jobOptimization";
+import { computeRequirementsHash, validateTailoringClaimClosure } from "@/domain/jobOptimization";
 import { isTextSuggestionType, staleReasonForSuggestion } from "@/domain/jobOptimization/suggestions";
 import {
   matchesResumeSource,
@@ -171,7 +171,10 @@ function applyTailoringClaimsToBranch(
   }
 
   const claimsByItem = new Map<string, TailoringClaim[]>();
-  for (const claim of claims) for (const patch of claim.targetPatches ?? []) claimsByItem.set(patch.itemId, [...(claimsByItem.get(patch.itemId) ?? []), claim]);
+  for (const claim of claims) for (const patch of claim.targetPatches ?? []) {
+    const current = claimsByItem.get(patch.itemId) ?? [];
+    if (!current.some((item) => item.id === claim.id)) claimsByItem.set(patch.itemId, [...current, claim]);
+  }
   const previousById = new Map(branch.contentItems.map((item) => [item.id, item]));
   const contentItems = structuredContentItems.map((structured) => {
     const previous = previousById.get(structured.id);
@@ -1107,6 +1110,9 @@ export class WorkspaceRepository {
       if (input.plan.claims.some((claim) => claim.decision === "blocked" && claim.syncScope !== "rejected")) throw new Error("unsupported_hard_fact_blocked");
       if (input.plan.claims.some((claim) => claim.decision === "requires_confirmation" && !claim.confirmed && claim.syncScope !== "rejected")) throw new Error("tailoring_claim_confirmation_required");
       if (!applicable.length) throw new Error("tailoring_no_selected_changes");
+      if (input.plan.basedOnRevisionId && input.plan.basedOnRevisionId !== branch.currentRevisionId) throw new RevisionConflictError();
+      const closureIssues = validateTailoringClaimClosure({ claims: applicable, branch });
+      if (closureIssues.length) throw new Error(closureIssues[0].code);
       const now = new Date().toISOString();
       const patched = applyTailoringClaimsToBranch(branch, applicable, now);
       const contentItems = patched.contentItems;

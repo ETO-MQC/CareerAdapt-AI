@@ -72,5 +72,15 @@ describe.each(resumeTemplates)("$id formal presentation", (template) => {
     expect(text).toContain("英语");
     expect(host.querySelectorAll(".resume-presentation-highlights li").length).toBeGreaterThan(0);
     expect(host.querySelector('a[href="https://example.com/project"]')).not.toBeNull();
+    const internship = host.querySelector('[data-render-section="internship"]');
+    expect(internship?.textContent).toContain("示例研究院");
+    expect(internship?.textContent).toMatch(/实习|工程师|分析/);
+    expect(internship?.querySelector("time")?.textContent).toMatch(/\d{4}/);
+    expect(internship?.querySelectorAll(".resume-presentation-highlights li").length).toBeGreaterThan(0);
+    const project = host.querySelector('[data-render-section="project"]');
+    expect(project?.querySelectorAll(".resume-presentation-highlights li").length).toBeGreaterThanOrEqual(2);
+    const skillItems = host.querySelectorAll(".resume-skill-item");
+    expect(skillItems.length).toBeGreaterThan(0);
+    expect([...skillItems].every((item) => item.querySelector(".resume-skill-name"))).toBe(true);
   });
 });

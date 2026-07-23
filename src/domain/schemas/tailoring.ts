@@ -19,6 +19,22 @@ export const TailoringSectionSchema = z.enum([
   "summary", "skills", "project", "work", "internship", "education", "awards", "certificates", "publications", "patents", "ordering"
 ]);
 export const SkillProficiencySchema = z.enum(["proficient", "familiar", "aware", "learning"]);
+export const CapabilityEntityTypeSchema = z.enum([
+  "tool", "model", "skill", "workflow", "platform", "company", "domain", "material", "unknown"
+]);
+export const CapabilityEntitySourceSchema = z.enum([
+  "job_title", "job_company", "requirement", "keyword", "user_answer"
+]);
+export const CapabilityEntitySchema = z.object({
+  id: z.string().min(1),
+  label: z.string().min(1),
+  normalizedLabel: z.string().min(1),
+  type: CapabilityEntityTypeSchema,
+  source: CapabilityEntitySourceSchema
+}).strict();
+export const TailoringTargetPolicySchema = z.enum([
+  "summary_once", "skill_once", "specific_item", "material_only"
+]);
 export const TailoringClaimClassSchema = z.enum(["verified_rewrite", "reasonable_reframe", "user_confirmable_capability", "unsupported_hard_fact"]);
 export const ResumeFieldPathSchema = z.enum(["text", "name", "description", "highlights", "visible", "order"]);
 export const ResumeFieldPatchOperationSchema = z.enum(["replace", "append", "remove"]);
@@ -29,6 +45,7 @@ export const ResumeFieldPatchSchema = z.object({
   sectionId: z.string().min(1),
   itemId: z.string().min(1),
   fieldPath: ResumeFieldPathSchema,
+  targetIndex: z.number().int().min(0).optional(),
   operation: ResumeFieldPatchOperationSchema,
   before: ResumeFieldPatchValueSchema,
   after: ResumeFieldPatchValueSchema
@@ -44,6 +61,9 @@ export const ResumeFieldPatchSchema = z.object({
   }
   const before = Array.isArray(patch.before) ? patch.before.join("\n") : String(patch.before);
   const after = Array.isArray(patch.after) ? patch.after.join("\n") : String(patch.after);
+  if (patch.targetIndex !== undefined && patch.fieldPath !== "highlights") {
+    context.addIssue({ code: "custom", path: ["targetIndex"], message: "targetIndex is only valid for highlights" });
+  }
   if (!INTERNAL_FIELD_LABEL.test(before) && INTERNAL_FIELD_LABEL.test(after)) {
     context.addIssue({ code: "custom", path: ["after"], message: "internal field labels cannot be introduced into resume text" });
   }
@@ -82,7 +102,17 @@ export const TailoringDiffRejectionReasonSchema = z.enum([
   "confirmation_required",
   "reorder_membership_changed",
   "append_not_allowed",
-  "hide_not_allowed"
+  "hide_not_allowed",
+  "duplicate_sentence",
+  "platform_as_skill",
+  "company_as_skill",
+  "generic_proficiency_sentence",
+  "malformed_chinese_phrase",
+  "repeated_claim_target",
+  "original_snapshot_mismatch",
+  "empty_revision",
+  "unsupported_metric",
+  "identity_field_changed"
 ]);
 
 export const TailoringGapSchema = z.object({
@@ -262,6 +292,13 @@ export const TailoringClaimSchema = z.object({
   section: TailoringSectionSchema,
   targetContentItemId: z.string().min(1).optional(),
   targetFieldPath: z.string().min(1).optional(),
+  targetPolicy: TailoringTargetPolicySchema.optional(),
+  capability: CapabilityEntitySchema.optional(),
+  baseRevisionId: z.string().min(1).optional(),
+  originalValue: ResumeFieldPatchValueSchema.optional(),
+  originalValueHash: z.string().min(8).optional(),
+  suggestedValue: ResumeFieldPatchValueSchema.optional(),
+  resolvedValue: ResumeFieldPatchValueSchema.optional(),
   currentText: z.string().default(""),
   proposedText: z.string().min(1),
   reason: z.string().min(1),
@@ -285,8 +322,16 @@ export const TailoringClarificationQuestionSchema = z.object({
   relatedItemIds: z.array(z.string().min(1)).min(1),
   candidateClaim: z.string().min(1),
   targetFieldPaths: z.array(z.string().min(1)).min(1),
+  capability: CapabilityEntitySchema.optional(),
+  targetPolicy: TailoringTargetPolicySchema.optional(),
   answerType: z.enum(["boolean", "proficiency", "text", "url", "multi_select"])
-}).strict();
+}).strict().transform((question) => ({
+  ...question,
+  answerType: question.answerType === "proficiency"
+    && !["tool", "model", "skill", "workflow"].includes(question.capability?.type ?? "")
+      ? "text" as const
+      : question.answerType
+}));
 
 export const ResumeTailoringPlanSchema = z.object({
   id: z.string().min(1),
@@ -296,6 +341,7 @@ export const ResumeTailoringPlanSchema = z.object({
   promptVersion: z.string().min(1).optional(),
   jobContext: TailoringJobContextSchema.optional(),
   basedOnBranchRevision: z.number().int().min(0),
+  basedOnRevisionId: z.string().min(1).optional(),
   claims: z.array(TailoringClaimSchema),
   plannerActions: z.array(z.object({
     itemId: z.string().min(1), action: TailoringActionSchema, reason: z.string().min(1),
@@ -341,6 +387,10 @@ export type ResumeTailorBatchInput = z.infer<typeof ResumeTailorBatchInputSchema
 export type TailoringSuggestion = z.infer<typeof TailoringSuggestionSchema>;
 export type TailoringSection = z.infer<typeof TailoringSectionSchema>;
 export type SkillProficiency = z.infer<typeof SkillProficiencySchema>;
+export type CapabilityEntityType = z.infer<typeof CapabilityEntityTypeSchema>;
+export type CapabilityEntitySource = z.infer<typeof CapabilityEntitySourceSchema>;
+export type CapabilityEntity = z.infer<typeof CapabilityEntitySchema>;
+export type TailoringTargetPolicy = z.infer<typeof TailoringTargetPolicySchema>;
 export type TailoringClaimClass = z.infer<typeof TailoringClaimClassSchema>;
 export type ResumeFieldPatch = z.infer<typeof ResumeFieldPatchSchema>;
 export type ResumeTailoringDiff = z.infer<typeof ResumeTailoringDiffSchema>;

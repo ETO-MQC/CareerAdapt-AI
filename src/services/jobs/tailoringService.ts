@@ -12,6 +12,16 @@ import {
   validateTailoringDelta
 } from "@/domain/jobOptimization";
 import { buildConfirmableClaim, resolveConfirmableClaim } from "@/domain/jobOptimization/confirmation";
+import {
+  capabilityAllowsProficiency,
+  capabilityIsMaterialOnly,
+  captureAndDedupeTailoringClaims,
+  dedupeTailoringClaims,
+  pickProficiencyCapability,
+  resolveCapabilityEntities,
+  tailoringValueHash,
+  validateTailoringClaimClosure
+} from "@/domain/jobOptimization";
 import type {
   CareerProfile,
   ClaimConfirmation,
@@ -92,7 +102,11 @@ export function createTailoringPlan(input: {
     operationId: input.operationId,
     resolveEvidenceRefs: (item) => resolveBranchFactRefs(input.profile, item.factRefs)
   });
-  const claims = claimsFromSuggestions(suggestions);
+  const claims = captureAndDedupeTailoringClaims({
+    claims: claimsFromSuggestions(suggestions, input.branch.currentRevisionId ?? undefined),
+    branch: input.branch,
+    jobId: input.job.id
+  });
   const clarificationQuestions = buildClarificationQuestions({ job: input.job, taskInputs });
   const plan = ResumeTailoringPlanSchema.parse({
     id: `tailoring-plan-${stableHashText(input.operationId)}`,
@@ -102,6 +116,7 @@ export function createTailoringPlan(input: {
     promptVersion: "resume-tailor.v2",
     jobContext,
     basedOnBranchRevision: input.branch.revision,
+    basedOnRevisionId: input.branch.currentRevisionId,
     claims,
     plannerActions: [],
     clarificationQuestions,
@@ -162,7 +177,10 @@ export function withTailoringSuggestions(input: {
   invalidOutputCodes?: Array<"invalid_ai_output" | "no_change_needed">;
 }) {
   const mergedSuggestions = mergeById(input.plan.suggestions ?? [], input.suggestions);
-  const mergedClaims = mergeById(input.plan.claims, claimsFromSuggestions(input.suggestions));
+  const mergedClaims = dedupeTailoringClaims({
+    claims: mergeById(input.plan.claims, claimsFromSuggestions(input.suggestions, input.plan.basedOnRevisionId)),
+    jobId: input.plan.jobId
+  });
   return ResumeTailoringPlanSchema.parse({
     ...input.plan,
     claims: mergedClaims,
@@ -188,19 +206,39 @@ export function withPlannerActions(input: { plan: ResumeTailoringPlan; assessmen
   // 从 planner 的 clarification_required 评估中创建澄清问题
   const plannerQuestions = input.assessments
     .filter((assessment) => normalizeTailoringAction(assessment.action) === "clarification_required" && assessment.clarificationQuestions.length > 0)
-    .flatMap((assessment) => assessment.clarificationQuestions.map((questionText, index) => ({
-      id: `planner-clarification-${assessment.itemId}-${index}`,
-      question: questionText,
-      requirementIds: assessment.relatedRequirementIds,
-      sourceItemIds: [assessment.itemId],
-      relatedItemIds: [assessment.itemId],
-      candidateClaim: assessment.reason,
-      targetFieldPaths: [`sections.${assessment.itemId}`],
-      answerType: clarificationAnswerTypeFromAssessment(questionText) as TailoringClarificationQuestion["answerType"]
-    })));
+    .flatMap((assessment) => assessment.clarificationQuestions.map((questionText, index) => {
+      const targetClaim = input.plan.claims.find((claim) => claim.targetContentItemId === assessment.itemId);
+      const capability = pickProficiencyCapability(resolveCapabilityEntities({
+        job: input.plan.jobContext,
+        requirements: [questionText],
+        keywords: assessment.suggestedKeywords
+      })) ?? resolveCapabilityEntities({ requirements: [questionText], keywords: assessment.suggestedKeywords })[0];
+      const targetPolicy = capabilityIsMaterialOnly(capability)
+        ? "material_only" as const
+        : targetClaim?.section === "summary"
+          ? "summary_once" as const
+          : targetClaim?.section === "skills"
+            ? "skill_once" as const
+            : "specific_item" as const;
+      const inferredAnswerType = clarificationAnswerTypeFromAssessment(questionText);
+      return {
+        id: `planner-clarification-${assessment.itemId}-${index}`,
+        question: questionText,
+        requirementIds: assessment.relatedRequirementIds,
+        sourceItemIds: [assessment.itemId],
+        relatedItemIds: [assessment.itemId],
+        candidateClaim: assessment.reason,
+        targetFieldPaths: [targetClaim?.targetFieldPath ?? `sections.${assessment.itemId}`],
+        capability,
+        targetPolicy,
+        answerType: inferredAnswerType === "proficiency" && !capabilityAllowsProficiency(capability)
+          ? "text" as const
+          : inferredAnswerType as TailoringClarificationQuestion["answerType"]
+      };
+    }));
 
   // 合并现有的澄清问题和 planner 创建的澄清问题
-  const allQuestions = [...questions, ...plannerQuestions];
+  const allQuestions = dedupeClarificationQuestions([...questions, ...plannerQuestions], input.plan.jobId);
 
   return ResumeTailoringPlanSchema.parse({
     ...input.plan,
@@ -247,22 +285,35 @@ export function answerTailoringClarification(input: { plan: ResumeTailoringPlan;
     ]
   });
   if (rejected) return withAnswerRecord(input.plan);
-  const sourceItemId = input.question.sourceItemIds[0];
-  const existing = input.plan.claims.find((claim) => claim.targetContentItemId === sourceItemId)
-    ?? claimsFromSuggestions((input.plan.suggestions ?? []).filter((suggestion) => suggestion.targetItemId === sourceItemId).slice(0, 1))[0];
-  const fallback = !existing && input.branch ? clarificationFallbackClaim(input.branch, input.question) : undefined;
-  const claimSource = existing ?? fallback;
-  if (!claimSource?.targetPatches?.[0]) return withAnswerRecord(input.plan);
+  if (input.question.targetPolicy === "material_only") return withAnswerRecord(input.plan);
   const answerText = Array.isArray(input.answer) ? input.answer.join("、") : String(input.answer);
+  const answerCapabilities = resolveCapabilityEntities({ userAnswers: Array.isArray(input.answer) ? input.answer : [answerText] });
+  const capability = input.question.capability ?? pickProficiencyCapability(answerCapabilities);
+  if (input.question.answerType === "proficiency" && !capabilityAllowsProficiency(capability)) {
+    return withAnswerRecord(input.plan);
+  }
+  const sourceItemId = targetItemForQuestion(input.plan, input.question);
+  const existing = input.plan.claims.find((claim) => claim.targetContentItemId === sourceItemId)
+    ?? claimsFromSuggestions(
+      (input.plan.suggestions ?? []).filter((suggestion) => suggestion.targetItemId === sourceItemId).slice(0, 1),
+      input.plan.basedOnRevisionId
+    )[0];
+  const fallback = !existing && input.branch
+    ? clarificationFallbackClaim(input.branch, { ...input.question, sourceItemIds: [sourceItemId] })
+    : undefined;
+  const skillProposal = !existing && !fallback && input.question.targetPolicy === "skill_once" && capabilityAllowsProficiency(capability) && input.branch
+    ? newCapabilitySkillClaim(input.branch, input.question, capability!)
+    : undefined;
+  const claimSource = existing ?? fallback ?? skillProposal;
+  if (!claimSource?.targetPatches?.[0]) return withAnswerRecord(input.plan);
   const label = input.question.candidateClaim;
 
-  // 根据问题类型生成不同的文本
   let resolved: string;
   let finalTextByProficiency: { proficient: string; familiar: string; aware: string; learning: string } | undefined;
 
   if (input.question.answerType === "multi_select" && Array.isArray(input.answer)) {
-    // 多选问题：用户选择了工具列表
-    const tools = input.answer.join("、");
+    const tools = answerCapabilities.filter(capabilityAllowsProficiency).map((item) => item.label).join("、");
+    if (!tools) return withAnswerRecord(input.plan);
     resolved = `在 ${tools} 等 AI Coding 工具辅助下完成开发任务，具备真实使用经验。`;
     finalTextByProficiency = {
       proficient: `熟练使用 ${tools} 完成多文件开发、代码修改与问题定位。`,
@@ -271,10 +322,7 @@ export function answerTailoringClarification(input: { plan: ResumeTailoringPlan;
       learning: `正在学习 ${tools} 等 AI Coding 工具在真实开发任务中的应用。`
     };
   } else if (input.question.answerType === "proficiency" && input.proficiency) {
-    // 熟练度问题：用户选择了熟练度
-    // 从问题或关键词中提取工具名
-    const toolMatch = input.question.question.match(/(Cursor|Claude Code|Codex|Windsurf|AI Coding 工具)/i);
-    const tool = toolMatch ? toolMatch[1] : "AI Coding 工具";
+    const tool = capability!.label;
     finalTextByProficiency = {
       proficient: `熟练使用 ${tool} 完成多文件开发、代码修改与问题定位。`,
       familiar: `熟悉 ${tool} 的项目开发、代码修改与调试流程。`,
@@ -283,18 +331,23 @@ export function answerTailoringClarification(input: { plan: ResumeTailoringPlan;
     };
     resolved = finalTextByProficiency[input.proficiency];
   } else {
-    // 其他问题：直接使用回答文本
     resolved = answerText;
   }
 
-  const patch = { ...claimSource.targetPatches[0], after: Array.isArray(claimSource.targetPatches[0].before) ? [resolved, ...claimSource.targetPatches[0].before] : resolved };
-  const claim: TailoringClaim = {
+  const patches = resolveClarificationPatches(claimSource.targetPatches, resolved, input.question.targetPolicy);
+  const patch = patches.at(-1)!;
+  const claim = captureClarificationClaimSnapshot({
     ...claimSource, id: `clarification-claim-${stableHashText(`${input.question.id}:${answerText}`)}`, label, claimText: resolved,
-    finalTextByProficiency, proposedText: resolved, targetPatches: [patch], keywords: Array.isArray(input.answer) ? input.answer : [answerText],
+    finalTextByProficiency, proposedText: renderPatchValue(patch.after), targetPatches: patches,
+    keywords: Array.isArray(input.answer)
+      ? answerCapabilities.filter(capabilityAllowsProficiency).map((item) => item.label)
+      : capability ? [capability.label] : [answerText],
     requirementIds: input.question.requirementIds, supportLevel: "user_declared", decision: "requires_confirmation", confirmed: false, syncScope: "resume_only",
+    capability, targetPolicy: input.question.targetPolicy,
     reason: `根据你对"${input.question.question}"的回答生成，应用前仍需确认最终文本。`
-  };
-  return withAnswerRecord(ResumeTailoringPlanSchema.parse({ ...input.plan, claims: mergeById(input.plan.claims, [claim]) }));
+  }, input.plan.basedOnRevisionId);
+  const claims = dedupeTailoringClaims({ claims: [...input.plan.claims, claim], jobId: input.plan.jobId });
+  return withAnswerRecord(ResumeTailoringPlanSchema.parse({ ...input.plan, claims }));
 }
 
 function clarificationFallbackClaim(branch: ResumeBranch, question: TailoringClarificationQuestion): TailoringClaim | undefined {
@@ -313,8 +366,109 @@ function clarificationFallbackClaim(branch: ResumeBranch, question: TailoringCla
     proposedText: Array.isArray(before) ? before.join("\n") : before, reason: question.question, keywords: [], supportLevel: "user_declared",
     decision: "requires_confirmation", evidenceRefs: [], syncScope: "resume_only", confirmed: false, sourceItemIds: [itemId],
     requirementIds: question.requirementIds, claimType: structured.sectionType === "skills" ? "skill" : "experience_reframe",
+    capability: question.capability, targetPolicy: question.targetPolicy, baseRevisionId: branch.currentRevisionId ?? undefined,
+    originalValue: before, originalValueHash: tailoringValueHash(before), suggestedValue: before,
     targetPatches: [{ sectionId: structured.sectionType, itemId, fieldPath, operation: "replace", before, after: before }]
   };
+}
+
+function targetItemForQuestion(plan: ResumeTailoringPlan, question: TailoringClarificationQuestion) {
+  if (question.targetPolicy === "summary_once") {
+    return plan.claims.find((claim) => claim.section === "summary")?.targetContentItemId ?? question.sourceItemIds[0];
+  }
+  if (question.targetPolicy === "skill_once") {
+    const capability = question.capability?.normalizedLabel;
+    return plan.claims.find((claim) =>
+      claim.section === "skills"
+      && (!capability || claim.capability?.normalizedLabel === capability || claim.keywords.some((value) => value.toLowerCase() === question.capability?.label.toLowerCase()))
+    )?.targetContentItemId ?? question.sourceItemIds[0];
+  }
+  return question.sourceItemIds[0];
+}
+
+function newCapabilitySkillClaim(
+  branch: ResumeBranch,
+  question: TailoringClarificationQuestion,
+  capability: NonNullable<TailoringClarificationQuestion["capability"]>
+): TailoringClaim {
+  const itemId = `tailoring-skill-${stableHashText(`${branch.id}:${capability.normalizedLabel}`)}`;
+  const empty = "";
+  return {
+    id: `clarification-base-${question.id}`,
+    section: "skills",
+    targetContentItemId: itemId,
+    targetFieldPath: `sections.skills.items.${itemId}.description`,
+    currentText: empty,
+    proposedText: empty,
+    reason: question.question,
+    keywords: [capability.label],
+    supportLevel: "user_declared",
+    decision: "requires_confirmation",
+    evidenceRefs: [],
+    syncScope: "resume_only",
+    confirmed: false,
+    sourceItemIds: [itemId],
+    requirementIds: question.requirementIds,
+    claimType: capability.type === "workflow" ? "workflow" : capability.type === "skill" ? "skill" : "tool",
+    capability,
+    targetPolicy: "skill_once",
+    baseRevisionId: branch.currentRevisionId ?? undefined,
+    originalValue: empty,
+    originalValueHash: tailoringValueHash(empty),
+    suggestedValue: empty,
+    targetPatches: [
+      { sectionId: "skills", itemId, fieldPath: "name", operation: "append", before: empty, after: capability.label },
+      { sectionId: "skills", itemId, fieldPath: "description", operation: "replace", before: empty, after: empty }
+    ]
+  };
+}
+
+function resolveClarificationPatches(
+  patches: NonNullable<TailoringClaim["targetPatches"]>,
+  resolved: string,
+  targetPolicy: TailoringClarificationQuestion["targetPolicy"]
+) {
+  return patches.map((patch, index) => {
+    if (patches.length > 1 && index === 0 && patch.fieldPath === "name") return patch;
+    if (!Array.isArray(patch.before)) return {
+      ...patch,
+      after: targetPolicy === "summary_once" && String(patch.before).trim()
+        ? appendUniqueSentence(String(patch.before), resolved)
+        : resolved
+    };
+    if (patch.targetIndex !== undefined && patch.targetIndex < patch.before.length) {
+      return { ...patch, operation: "replace" as const, after: patch.before.map((value, itemIndex) => itemIndex === patch.targetIndex ? resolved : value) };
+    }
+    return patch.before.some((value) => normalizeSentence(value) === normalizeSentence(resolved))
+      ? { ...patch, after: patch.before }
+      : { ...patch, operation: "append" as const, after: [...patch.before, resolved] };
+  });
+}
+
+function captureClarificationClaimSnapshot(claim: TailoringClaim, baseRevisionId?: string): TailoringClaim {
+  const valuePatch = claim.targetPatches?.at(-1);
+  const originalValue = valuePatch?.before ?? claim.originalValue ?? claim.currentText;
+  const suggestedValue = valuePatch?.after ?? claim.suggestedValue ?? claim.proposedText;
+  return {
+    ...claim,
+    baseRevisionId,
+    originalValue,
+    originalValueHash: tailoringValueHash(originalValue),
+    suggestedValue,
+    resolvedValue: undefined,
+    currentText: renderSuggestionValue(originalValue as string | string[]),
+    proposedText: renderSuggestionValue(suggestedValue as string | string[])
+  };
+}
+
+function appendUniqueSentence(original: string, addition: string) {
+  return normalizeSentence(original).includes(normalizeSentence(addition))
+    ? original
+    : `${original.trim()}${/[。！？!?]$/.test(original.trim()) ? "" : "。"}${addition}`;
+}
+
+function normalizeSentence(value: string) {
+  return value.replace(/\s+/g, "").replace(/[。；;，,！!？?]+$/g, "").toLowerCase();
 }
 
 function mergeById<T extends { id: string }>(base: T[], additions: T[]) {
@@ -365,9 +519,12 @@ export function confirmTailoringClaims(input: { plan: ResumeTailoringPlan; confi
       : undefined;
     return {
       ...claim,
-      proposedText: confirmation.editedText ?? claim.proposedText,
+      proposedText: claim.proposedText,
       resolvedText: confirmation.accepted ? resolvedClaim?.resolvedText ?? resolveConfirmedClaimText(claim, confirmation) : undefined,
       targetPatches: resolvedClaim?.targetPatches ?? claim.targetPatches,
+      resolvedValue: confirmation.accepted
+        ? resolvedClaim?.targetPatches.at(-1)?.after ?? resolveConfirmedClaimText(claim, confirmation)
+        : undefined,
       confirmed: confirmation.accepted,
       syncScope: confirmation.accepted ? confirmation.syncScope : "rejected" as const,
       proficiency: confirmation.proficiency
@@ -389,7 +546,7 @@ export function buildClarificationQuestions(input: { job: JobDescription; taskIn
   const candidates = graph.requirements.filter((node) => node.priority === "must" || node.priority === "high");
   const emittedAnyOfGroups = new Set<string>();
   const fallbackTargets = input.taskInputs.filter((item) => ["summary", "skills", "project", "work", "internship"].includes(item.target.sectionType)).slice(0, 4);
-  return candidates.flatMap((requirement, index) => {
+  const questions = candidates.flatMap((requirement, index) => {
     const group = requirement.parentGroupId ? graph.groups.find((item) => item.id === requirement.parentGroupId) : undefined;
     if (group?.relation === "any_of") {
       if (emittedAnyOfGroups.has(group.id)) return [];
@@ -402,6 +559,24 @@ export function buildClarificationQuestions(input: { job: JobDescription; taskIn
     const sourceItemIds = [...new Set(related.map((item) => item.target.itemId ?? item.target.sectionId))];
     const targetFieldPaths = [...new Set(related.map((item) => item.target.fieldPath))];
     if (!sourceItemIds.length || !targetFieldPaths.length) return [];
+    const entities = resolveCapabilityEntities({
+      job: input.job,
+      requirements: [requirement.statement],
+      keywords: requirement.exactKeywords
+    });
+    const capability = pickProficiencyCapability(entities) ?? entities.find((item) => item.source === "requirement");
+    const materialOnly = capabilityIsMaterialOnly(capability);
+    const singleTarget = related.length === 1 ? related[0] : undefined;
+    const targetPolicy = materialOnly
+      ? "material_only" as const
+      : singleTarget?.target.sectionType === "summary"
+        ? "summary_once" as const
+        : singleTarget?.target.sectionType === "skills"
+          ? "skill_once" as const
+          : singleTarget
+            ? "specific_item" as const
+            : capabilityAllowsProficiency(capability) ? "skill_once" as const : "summary_once" as const;
+    const inferredAnswerType = clarificationAnswerType(requirement.statement);
     return [{
       id: `clarification-${requirement.id}-${index + 1}`,
       question: group?.relation === "any_of" ? `以下 ${group.requirementIds.length} 项满足任一项即可；你具备其中哪一项真实经历或可核验材料？` : `你是否具备"${requirement.statement}"相关的真实经历或可核验材料？`,
@@ -411,9 +586,12 @@ export function buildClarificationQuestions(input: { job: JobDescription; taskIn
       relatedItemIds: sourceItemIds,
       candidateClaim: requirement.statement,
       targetFieldPaths,
-      answerType: clarificationAnswerType(requirement.statement)
+      capability,
+      targetPolicy,
+      answerType: inferredAnswerType === "proficiency" && !capabilityAllowsProficiency(capability) ? "text" as const : inferredAnswerType
     }];
   });
+  return dedupeClarificationQuestions(questions, input.job.id);
 }
 
 function clarificationAnswerType(statement: string): "boolean" | "proficiency" | "text" | "url" | "multi_select" {
@@ -423,11 +601,36 @@ function clarificationAnswerType(statement: string): "boolean" | "proficiency" |
   return "boolean";
 }
 
+export function dedupeClarificationQuestions(questions: TailoringClarificationQuestion[], jobId: string) {
+  const merged = new Map<string, TailoringClarificationQuestion>();
+  for (const question of questions) {
+    const capability = question.capability?.normalizedLabel ?? "none";
+    const targetItemId = question.targetPolicy === "specific_item" ? question.sourceItemIds[0] : question.targetPolicy;
+    const targetFieldPath = question.targetPolicy === "specific_item" ? question.targetFieldPaths[0] : question.targetPolicy;
+    const key = [jobId, capability, question.targetPolicy, targetItemId, targetFieldPath].join("|");
+    const existing = merged.get(key);
+    if (!existing) {
+      merged.set(key, question);
+      continue;
+    }
+    merged.set(key, {
+      ...existing,
+      requirementIds: [...new Set([...existing.requirementIds, ...question.requirementIds])],
+      sourceItemIds: [...new Set([...existing.sourceItemIds, ...question.sourceItemIds])],
+      relatedItemIds: [...new Set([...existing.relatedItemIds, ...question.relatedItemIds])],
+      targetFieldPaths: [...new Set([...existing.targetFieldPaths, ...question.targetFieldPaths])]
+    });
+  }
+  return [...merged.values()];
+}
+
 function resolveConfirmedClaimText(claim: TailoringClaim, confirmation: ClaimConfirmation) {
   if (confirmation.editedText) return confirmation.editedText;
   if (claim.finalTextByProficiency && confirmation.proficiency) return claim.finalTextByProficiency[confirmation.proficiency];
   if (!confirmation.proficiency) return claim.proposedText;
-  const tool = claim.keywords.find((keyword) => /cursor|claude code|codex|windsurf/i.test(keyword)) ?? "AI Coding 工具";
+  const capability = claim.capability ?? pickProficiencyCapability(resolveCapabilityEntities({ keywords: claim.keywords }));
+  if (!capabilityAllowsProficiency(capability)) return claim.proposedText;
+  const tool = capability!.label;
   const textByLevel = {
     proficient: `熟练使用 ${tool} 完成多文件开发、代码修改与问题定位。`,
     familiar: `熟悉 ${tool} 的项目开发、代码修改与调试流程。`,
@@ -442,6 +645,10 @@ export async function applyTailoringPlan(input: {
   operationId: string;
   apply: (payload: { plan: ResumeTailoringPlan; operationId: string }) => Promise<{ branchId: string; revisionId: string }>;
 }): Promise<TailoringServiceResult> {
+  const closureIssues = validateTailoringClaimClosure({ claims: input.plan.claims.filter((claim) => claim.syncScope !== "rejected") });
+  if (closureIssues.length) {
+    return { status: "blocked", summary: `存在不能应用的岗位定制冲突：${closureIssues.map((item) => item.code).join("、")}`, plan: input.plan };
+  }
   if (input.plan.claims.some((claim) => claim.decision === "blocked" && claim.syncScope !== "rejected")) {
     return { status: "blocked", summary: "存在不能自动添加的硬事实，请先改成真实表述。", plan: input.plan };
   }
@@ -496,17 +703,35 @@ function renderSuggestionValue(value: string | string[]) {
   return Array.isArray(value) ? value.join("\n") : value;
 }
 
-function claimsFromSuggestions(suggestions: TailoringSuggestion[]): TailoringClaim[] {
-  return suggestions.map((suggestion) => {
+function renderPatchValue(value: string | string[] | number | boolean) {
+  return Array.isArray(value) ? value.join("\n") : String(value);
+}
+
+function claimsFromSuggestions(suggestions: TailoringSuggestion[], baseRevisionId?: string): TailoringClaim[] {
+  return suggestions.flatMap((suggestion): TailoringClaim[] => {
+    const capability = pickProficiencyCapability(resolveCapabilityEntities({ keywords: suggestion.targetKeywords }))
+      ?? resolveCapabilityEntities({ keywords: suggestion.targetKeywords }).find((item) => capabilityIsMaterialOnly(item));
+    if (suggestion.targetSectionType === "skills" && capabilityIsMaterialOnly(capability)) return [];
     const confirmable = buildConfirmableClaim(suggestion);
-    return ({
+    const originalValue = confirmable.targetPatches[0].before;
+    const suggestedValue = confirmable.targetPatches[0].after;
+    return [{
     ...confirmable,
     id: suggestion.id,
     section: suggestion.targetSectionType,
     targetContentItemId: suggestion.targetItemId,
     targetFieldPath: suggestion.targetFieldPath,
-    currentText: renderSuggestionValue(suggestion.before),
-    proposedText: renderSuggestionValue(suggestion.after),
+    targetPolicy: capabilityIsMaterialOnly(capability) ? "material_only"
+      : suggestion.targetSectionType === "summary" ? "summary_once"
+        : suggestion.targetSectionType === "skills" ? "skill_once" : "specific_item",
+    capability,
+    baseRevisionId,
+    originalValue,
+    originalValueHash: tailoringValueHash(originalValue),
+    suggestedValue,
+    resolvedValue: suggestion.status === "ready" ? suggestedValue : undefined,
+    currentText: renderSuggestionValue(originalValue as string | string[]),
+    proposedText: renderSuggestionValue(suggestedValue as string | string[]),
     reason: suggestion.rationale,
     keywords: suggestion.targetKeywords,
     requirementIds: suggestion.requirementIds,
@@ -515,6 +740,6 @@ function claimsFromSuggestions(suggestions: TailoringSuggestion[]): TailoringCla
     evidenceRefs: suggestion.evidenceRefs,
     syncScope: suggestion.status === "blocked" ? "rejected" : "resume_only",
     confirmed: suggestion.status === "ready"
-  });
+    }];
   });
 }

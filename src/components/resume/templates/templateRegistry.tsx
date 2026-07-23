@@ -508,9 +508,11 @@ function RenderSkillPresentation({ items, context }: { items: ResumePresentation
         {label ? <strong>{label}</strong> : null}
         <div className="resume-skill-values">
           {groupItems.map((item) => (
-            <span {...presentationItemAttrs(item, context)} data-pagination-unit="content" key={item.id}>
-              {item.primaryTitle}{item.secondaryTitle ? `（${item.secondaryTitle}）` : ""}{item.description ? ` · ${item.description}` : ""}
-            </span>
+            <div {...presentationItemAttrs(item, context, "resume-skill-item")} data-pagination-unit="content" key={item.id}>
+              <strong className="resume-skill-name">{item.primaryTitle}</strong>
+              {item.secondaryTitle ? <span className="resume-skill-level">（{item.secondaryTitle}）</span> : null}
+              {item.description ? <span className="resume-skill-description">{item.description}</span> : null}
+            </div>
           ))}
         </div>
       </div>
