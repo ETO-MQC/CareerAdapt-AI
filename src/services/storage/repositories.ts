@@ -74,12 +74,14 @@ import {
   type ResumeBranchOperation,
   type ResumePresentationConfig,
   type ResumeFieldPatch,
+  type ResumeTailoringDiff,
   type ResumeTailoringPlan,
   type TailoringClaim,
   type ResumeRenderSectionType,
   type ResumeRevision,
   type SuggestionOperation
 } from "@/domain/schemas";
+import { validateEachTailoringDiffLocally } from "@/domain/jobOptimization/tailoringDiff";
 import { assertApplicationStatusTransition, computeApplicationReadiness } from "@/domain/application";
 import {
   buildApplicationPreparationContext,
@@ -1104,6 +1106,7 @@ export class WorkspaceRepository {
       const applicable = input.plan.claims.filter((claim) => claim.syncScope !== "rejected" && (claim.decision === "auto_applicable" || claim.confirmed));
       if (input.plan.claims.some((claim) => claim.decision === "blocked" && claim.syncScope !== "rejected")) throw new Error("unsupported_hard_fact_blocked");
       if (input.plan.claims.some((claim) => claim.decision === "requires_confirmation" && !claim.confirmed && claim.syncScope !== "rejected")) throw new Error("tailoring_claim_confirmation_required");
+      if (!applicable.length) throw new Error("tailoring_no_selected_changes");
       const now = new Date().toISOString();
       const patched = applyTailoringClaimsToBranch(branch, applicable, now);
       const contentItems = patched.contentItems;
@@ -1125,6 +1128,105 @@ export class WorkspaceRepository {
       await this.db.resumeRevisions.put(revision);
       await this.db.resumeBranchOperations.put(operation);
       return { branch: nextBranch, revision, idempotent: false };
+    });
+  }
+
+  async applyTailoringDiffs(input: {
+    branchId: string;
+    jobId: string;
+    diffs: ResumeTailoringDiff[];
+    confirmedRequirementIds?: string[];
+    operationId: string;
+    expectedBranchRevision: number;
+    expectedRevisionId: string;
+  }) {
+    return this.db.transaction("rw", [this.db.resumeBranches, this.db.resumeRevisions, this.db.resumeBranchOperations], async () => {
+      const existing = await this.db.resumeBranchOperations.where("operationId").equals(input.operationId).first();
+      if (existing?.revisionId) {
+        const branch = await this.db.resumeBranches.get(input.branchId);
+        if (!branch) throw new Error("tailoring_branch_missing");
+        return {
+          branch: ResumeBranchSchema.parse(branch),
+          revision: await this.getResumeRevisionInTransaction(existing.revisionId),
+          appliedDiffs: input.diffs,
+          rejectedDiffs: [],
+          warnings: [],
+          idempotent: true
+        };
+      }
+      const branch = await this.requireEditableResumeBranch(input.branchId);
+      if (branch.branchPurpose !== "job_specific" || branch.jobId !== input.jobId) throw new Error("tailoring_plan_target_invalid");
+      if (branch.revision !== input.expectedBranchRevision || branch.currentRevisionId !== input.expectedRevisionId) throw new RevisionConflictError();
+
+      const validation = validateEachTailoringDiffLocally({
+        branch,
+        diffs: input.diffs,
+        confirmedRequirementIds: input.confirmedRequirementIds,
+        allowUnconfirmed: false
+      });
+      if (!validation.patches.length) {
+        return {
+          branch,
+          revision: undefined,
+          appliedDiffs: validation.appliedDiffs,
+          rejectedDiffs: validation.rejectedDiffs,
+          warnings: [...validation.warnings, "No valid selected diff was written; no revision was created."],
+          idempotent: false
+        };
+      }
+
+      const now = new Date().toISOString();
+      const claims = validation.appliedDiffs.map((diff, index): TailoringClaim => ({
+        id: `tailoring-diff-${input.operationId}-${index}`,
+        section: diff.target.sectionId as TailoringClaim["section"],
+        targetContentItemId: diff.target.itemId,
+        targetFieldPath: diff.target.fieldPath,
+        currentText: Array.isArray(diff.original) ? diff.original.join("\n") : String(diff.original),
+        proposedText: Array.isArray(diff.value) ? diff.value.join("\n") : String(diff.value),
+        reason: diff.reason,
+        keywords: diff.targetKeywords,
+        requirementIds: diff.requirementIds,
+        supportLevel: diff.supportLevel,
+        decision: diff.supportLevel === "verified" ? "auto_applicable" : "requires_confirmation",
+        evidenceRefs: diff.evidenceRefs,
+        syncScope: "resume_only",
+        confirmed: diff.supportLevel !== "verified",
+        targetPatches: [validation.patches[index]]
+      }));
+      const patched = applyTailoringClaimsToBranch(branch, claims, now);
+      const nextBase = ResumeBranchSchema.parse({
+        ...branch,
+        contentItems: patched.contentItems,
+        structuredContentItems: patched.structuredContentItems,
+        revision: branch.revision + 1,
+        updatedAt: now
+      });
+      const revision = createResumeRevision({ branch: nextBase, source: "suggestion_accept", operationId: input.operationId, previousRevisionId: branch.currentRevisionId, now });
+      const nextBranch = ResumeBranchSchema.parse({ ...nextBase, currentRevisionId: revision.id });
+      const operation = ResumeBranchOperationSchema.parse({
+        id: `resume-branch-op-${input.operationId}`,
+        operationId: input.operationId,
+        branchId: branch.id,
+        type: "suggestion_accept",
+        expectedRevision: input.expectedBranchRevision,
+        beforeRevision: branch.revision,
+        afterRevision: nextBranch.revision,
+        revisionId: revision.id,
+        occurredAt: now,
+        createdAt: now,
+        updatedAt: now
+      });
+      await this.db.resumeBranches.put(nextBranch);
+      await this.db.resumeRevisions.put(revision);
+      await this.db.resumeBranchOperations.put(operation);
+      return {
+        branch: nextBranch,
+        revision,
+        appliedDiffs: validation.appliedDiffs,
+        rejectedDiffs: validation.rejectedDiffs,
+        warnings: validation.warnings,
+        idempotent: false
+      };
     });
   }
 

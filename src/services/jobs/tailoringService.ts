@@ -26,7 +26,7 @@ import type {
   TailoringIntensity,
   TailoringSuggestion
 } from "@/domain/schemas";
-import { ResumeTailoringPlanSchema, TailoringSuggestionSchema } from "@/domain/schemas";
+import { ClarificationAnswerRecordSchema, ResumeTailoringPlanSchema, TailoringSuggestionSchema } from "@/domain/schemas";
 import { resolveBranchFactRefs } from "@/domain/branch/validation";
 import { stableHashText } from "@/services/security/text";
 import type { WorkspaceRepository } from "@/services/storage/repositories";
@@ -196,7 +196,7 @@ export function withPlannerActions(input: { plan: ResumeTailoringPlan; assessmen
       relatedItemIds: [assessment.itemId],
       candidateClaim: assessment.reason,
       targetFieldPaths: [`sections.${assessment.itemId}`],
-      answerType: clarificationAnswerTypeFromAssessment(questionText, assessment.suggestedKeywords) as TailoringClarificationQuestion["answerType"]
+      answerType: clarificationAnswerTypeFromAssessment(questionText) as TailoringClarificationQuestion["answerType"]
     })));
 
   // 合并现有的澄清问题和 planner 创建的澄清问题
@@ -217,7 +217,7 @@ export function withPlannerActions(input: { plan: ResumeTailoringPlan; assessmen
   });
 }
 
-function clarificationAnswerTypeFromAssessment(questionText: string, keywords: string[]): string {
+function clarificationAnswerTypeFromAssessment(questionText: string): string {
   if (/cursor|claude code|codex|windsurf/i.test(questionText) && /哪些|什么|哪个/i.test(questionText)) return "multi_select";
   if (/cursor|claude code|codex|windsurf/i.test(questionText)) return "proficiency";
   if (/badcase|复现|原因|failure/i.test(questionText)) return "text";
@@ -228,13 +228,31 @@ function clarificationAnswerTypeFromAssessment(questionText: string, keywords: s
 }
 
 export function answerTailoringClarification(input: { plan: ResumeTailoringPlan; question: TailoringClarificationQuestion; answer: string | string[] | boolean; proficiency?: ClaimConfirmation["proficiency"]; branch?: ResumeBranch }) {
-  if (input.answer === false || input.answer === "没有使用" || (Array.isArray(input.answer) && input.answer.length === 0)) return input.plan;
+  const normalizedAnswer = typeof input.answer === "string" ? input.answer.trim() : input.answer;
+  const rejected = normalizedAnswer === false
+    || (typeof normalizedAnswer === "string" && /^(?:没有|没有使用|不具备|不添加|否|无)$/.test(normalizedAnswer))
+    || (Array.isArray(normalizedAnswer) && normalizedAnswer.length === 0);
+  const answerRecord = ClarificationAnswerRecordSchema.parse({
+    questionId: input.question.id,
+    status: rejected ? "rejected" : "accepted",
+    answer: input.answer,
+    proficiency: input.proficiency,
+    resolvedAt: new Date().toISOString()
+  });
+  const withAnswerRecord = (plan: ResumeTailoringPlan) => ResumeTailoringPlanSchema.parse({
+    ...plan,
+    clarificationAnswers: [
+      ...(plan.clarificationAnswers ?? []).filter((record) => record.questionId !== input.question.id),
+      answerRecord
+    ]
+  });
+  if (rejected) return withAnswerRecord(input.plan);
   const sourceItemId = input.question.sourceItemIds[0];
   const existing = input.plan.claims.find((claim) => claim.targetContentItemId === sourceItemId)
     ?? claimsFromSuggestions((input.plan.suggestions ?? []).filter((suggestion) => suggestion.targetItemId === sourceItemId).slice(0, 1))[0];
   const fallback = !existing && input.branch ? clarificationFallbackClaim(input.branch, input.question) : undefined;
   const claimSource = existing ?? fallback;
-  if (!claimSource?.targetPatches?.[0]) return input.plan;
+  if (!claimSource?.targetPatches?.[0]) return withAnswerRecord(input.plan);
   const answerText = Array.isArray(input.answer) ? input.answer.join("、") : String(input.answer);
   const label = input.question.candidateClaim;
 
@@ -276,7 +294,7 @@ export function answerTailoringClarification(input: { plan: ResumeTailoringPlan;
     requirementIds: input.question.requirementIds, supportLevel: "user_declared", decision: "requires_confirmation", confirmed: false, syncScope: "resume_only",
     reason: `根据你对"${input.question.question}"的回答生成，应用前仍需确认最终文本。`
   };
-  return ResumeTailoringPlanSchema.parse({ ...input.plan, claims: mergeById(input.plan.claims, [claim]) });
+  return withAnswerRecord(ResumeTailoringPlanSchema.parse({ ...input.plan, claims: mergeById(input.plan.claims, [claim]) }));
 }
 
 function clarificationFallbackClaim(branch: ResumeBranch, question: TailoringClarificationQuestion): TailoringClaim | undefined {

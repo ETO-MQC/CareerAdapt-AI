@@ -9,7 +9,7 @@ import { ConfirmableClaimSchema, ResumeFieldPatchSchema } from "@/domain/schemas
 
 const TOOL_PATTERN = /cursor|claude code|codex|windsurf|playwright|vitest/i;
 const MATERIAL_PATTERN = /github|仓库|作品|演示|dashboard|日志|订阅/i;
-const GENERIC_KEYWORD = /^(?:ai|人工智能|coding|agent|coding agent|vibe|vibe coding)$/i;
+const GENERIC_KEYWORD = /^(?:ai|人工智能|coding|agent|vibe)$/i;
 
 export function buildConfirmableClaim(suggestion: TailoringSuggestion): ConfirmableClaim {
   if (!suggestion.targetItemId) throw new Error("tailoring_patch_item_missing");
@@ -105,7 +105,7 @@ function displayItemName(value: string) {
 }
 
 function preferredCapability(keywords: string[]) {
-  return keywords.find((keyword) => !GENERIC_KEYWORD.test(keyword) && !/coding agent/i.test(keyword));
+  return keywords.find((keyword) => !GENERIC_KEYWORD.test(keyword));
 }
 
 function proficiencyText(tool: string): Record<SkillProficiency, string> {

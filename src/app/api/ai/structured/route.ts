@@ -10,7 +10,7 @@ import {
   type ResumeJsonMapperTaskInput,
   type ResumeTailorTaskInput,
 } from "@/ai/tasks/registry";
-import type { AiTask, ResumeTailorBatchInput } from "@/domain/schemas";
+import type { AiTask, ResumeTailorBatchInput, ResumeTailoringDiffTaskInput } from "@/domain/schemas";
 import { redactSensitiveTextForModel } from "@/services/security/text";
 import { mapNormalizedBlocksToReviewDraft } from "@/domain/resumeImport/normalizer";
 import { mapExternalResumeJson } from "@/domain/resumeImport/jsonMapper";
@@ -411,6 +411,41 @@ function createMockOutput(task: AiTask, input: unknown) {
           riskLevel: "medium", metrics: { textChangeRatio: 0.5, keywordGain: keywords.length }, status: "requires_confirmation"
         };
       })
+    };
+  }
+
+  if (task === "resume-tailor-diff") {
+    const diffInput = input as ResumeTailoringDiffTaskInput;
+    const itemId = diffInput.target.itemId;
+    if (!itemId) return { diffs: [], clarifications: [] };
+    const evidenceRefs = diffInput.allowedEvidenceRefs.slice(0, 3);
+    if (!evidenceRefs.length) {
+      return {
+        diffs: [],
+        clarifications: [{
+          question: `请补充一个可核验案例，说明你如何满足“${diffInput.relevantRequirements[0]?.description ?? "该岗位要求"}”。`,
+          requirementIds: diffInput.relevantRequirements.map((item) => item.requirementId).slice(0, 3),
+          answerType: "text"
+        }]
+      };
+    }
+    return {
+      diffs: [{
+        target: {
+          sectionId: diffInput.target.sectionId,
+          itemId,
+          fieldPath: diffInput.target.fieldPath
+        },
+        operation: diffInput.allowedOperation,
+        original: diffInput.currentContent.fieldValue,
+        value: diffInput.currentContent.fieldValue,
+        reason: "Mock provider preserves the verified source value.",
+        requirementIds: diffInput.relevantRequirements.map((item) => item.requirementId).slice(0, 3),
+        targetKeywords: diffInput.relevantRequirements.flatMap((item) => item.keywords).slice(0, 4),
+        evidenceRefs,
+        supportLevel: "verified"
+      }],
+      clarifications: []
     };
   }
 

@@ -2957,6 +2957,38 @@ html[data-theme="dark"] .save-status {
   color: var(--muted);
 }
 
+.tailoring-question-progress {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  justify-content: space-between;
+}
+
+.tailoring-question-progress span,
+.array-field-diff-label {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.tailoring-suggestion-reason {
+  margin: 0;
+}
+
+.array-field-diff {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+}
+
+.array-field-diff-row {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 5px;
+  padding-top: 8px;
+  width: 100%;
+}
+
 .suggestion-card-low {
   border-color: color-mix(in srgb, var(--accent) 44%, var(--line));
 }

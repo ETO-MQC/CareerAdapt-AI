@@ -120,9 +120,7 @@ export function validateTailoringDelta(input: {
   const minimum = adjustedMinimum(input.intensity, input.sectionType, normalizedBefore.length);
   if (textChangeRatio < minimum) reasons.push("insufficient_text_delta");
   if (input.intensity === "conservative" && normalizedBefore.length >= 30 && textChangeRatio > 0.34) reasons.push("conservative_delta_too_large");
-  const structuralChange = structureSignature(before) !== structureSignature(after) || Math.abs(after.length - before.length) >= Math.max(6, Math.round(before.length * 0.12));
-  // 放宽规则：只要有文本变化就允许，不要求必须有关键词增益
-  // if (keywordGain === 0 && !structuralChange) reasons.push("no_keyword_or_structure_gain");
+  // Legacy suggestions keep textChangeRatio as a diagnostic. Diff V3 validates by operation.
   const usefulTargets = unique(input.targetKeywords.filter(isUsefulKeyword));
   if (input.targetKeywords.length > 0 && usefulTargets.length === 0) reasons.push("generic_target_keywords");
 
@@ -186,6 +184,7 @@ export function createDeterministicTailoringSuggestions(input: {
   operationId: string;
   resolveEvidenceRefs: (item: BranchContentItem) => MatchEvidenceRef[];
 }): TailoringSuggestion[] {
+  if (input.intensity !== "conservative") return [];
   const candidates = input.branch.contentItems.filter((item) => item.visible && item.itemType !== "structural")
     .map((item) => targetFor(input.branch, item))
     .filter((target): target is NonNullable<typeof target> => Boolean(target))
@@ -195,13 +194,10 @@ export function createDeterministicTailoringSuggestions(input: {
     const relevant = routeTailoringRequirements({ job: input.job, sectionType: target.sectionType, renderedText: target.renderedText, itemId: target.item.id });
     if (!relevant.length) continue;
     const targetKeywords = unique(relevant.flatMap((item) => item.keywords).filter(isUsefulKeyword)).slice(0, 8);
-    const after = rewriteField({ before: target.before, intensity: input.intensity, sectionType: target.sectionType, jobTitle: input.job.title, requirements: relevant, targetKeywords });
-    const rationale = rationaleFor(target.item, target.sectionType, relevant, targetKeywords);
+    const after = mapFieldValue(target.before, alignKeywordVariants);
+    const rationale = "仅执行完全等价的术语、标点或格式规范化，不新增能力或职责。";
     const validation = validateTailoringDelta({ before: target.before, after, intensity: input.intensity, targetKeywords, sectionType: target.sectionType, rationale, requirementDescriptions: relevant.map((item) => item.description) });
     if (!validation.valid) continue;
-    const beforeText = render(target.before);
-    const afterText = render(after);
-    const supportLevel = addedTokens(beforeText, afterText).some((token) => targetKeywords.some((keyword) => normalize(keyword).includes(token))) ? "reasonable_inference" as const : "verified" as const;
     suggestions.push(TailoringSuggestionSchema.parse({
       id: `tailoring-${stableHashText(`${input.operationId}:${target.item.id}:${target.fieldPath}`)}`,
       intensity: input.intensity,
@@ -217,12 +213,12 @@ export function createDeterministicTailoringSuggestions(input: {
       targetKeywords,
       coveredKeywordsBefore: validation.coveredKeywordsBefore,
       coveredKeywordsAfter: validation.coveredKeywordsAfter,
-      claimSupportLevel: supportLevel,
+      claimSupportLevel: "verified",
       evidenceRefs: input.resolveEvidenceRefs(target.item),
       rationale,
-      riskLevel: supportLevel === "verified" ? "low" : "medium",
+      riskLevel: "low",
       metrics: validation.metrics,
-      status: supportLevel === "verified" ? "ready" : "requires_confirmation"
+      status: "ready"
     }));
   }
   return suggestions;
@@ -326,31 +322,6 @@ function targetFor(branch: ResumeBranch, item: BranchContentItem) {
   return { item, sectionType, before: item.text, renderedText: item.text, fieldPath: `sections.${sectionType}.items.${item.id}.${field}` };
 }
 
-function rewriteField(input: { before: string | string[]; intensity: TailoringIntensity; sectionType: TailoringSectionPolicy; jobTitle: string; requirements: TailoringRequirement[]; targetKeywords: string[] }): string | string[] {
-  if (input.intensity === "conservative") return mapFieldValue(input.before, alignKeywordVariants);
-  if (input.intensity === "balanced") return mapFieldValue(input.before, (value) => foregroundExistingEvidence(alignKeywordVariants(value), input.targetKeywords));
-  const before = render(input.before).trim().replace(/[。；;]+$/, "");
-  const matched = input.targetKeywords.filter((keyword) => normalize(before).includes(normalize(keyword)));
-  const missing = input.targetKeywords.filter((keyword) => !matched.includes(keyword));
-  const keywords = unique([...matched.slice(0, 3), ...missing.slice(0, 3)]);
-  const focus = keywords.join("、") || input.requirements[0].description;
-  const rewritten = input.sectionType === "summary"
-    ? `${input.jobTitle}方向的工程实践者，围绕${focus}复现问题、定位原因、验证输出并迭代约束。${before}。`
-    : `围绕${focus}复现问题、定位原因并验证结果：${before}。`;
-  if (Array.isArray(input.before)) {
-    const original = input.before.filter(Boolean);
-    return original.map((line, index) => index === 0 ? rewritten : line);
-  }
-  return rewritten;
-}
-
-function rationaleFor(item: BranchContentItem, section: TailoringSectionPolicy, requirements: TailoringRequirement[], keywords: string[]) {
-  const label = item.text.split(/[：:。]/)[0].slice(0, 28) || item.id;
-  const requirementNames = requirements.slice(0, 3).map((item) => item.description).join("、");
-  const keywordNames = keywords.slice(0, 5).join("、");
-  return `${label} 与 ${requirementNames} 的相关度最高；对${section}字段进行岗位化重写，突出${keywordNames || "对应职责"}，同时保留原有事实边界。`;
-}
-
 function categoryRelevance(section: TailoringSectionPolicy, category: string) {
   const skills = ["required_skill", "preferred_skill", "core_skill", "tool", "language"];
   if (section === "skills") return skills.includes(category) ? 9 : -3;
@@ -386,7 +357,6 @@ function levenshtein(a: string, b: string) {
   return row[b.length];
 }
 
-function structureSignature(value: string) { return `${(value.match(/[；;。.!?\n]/g) ?? []).length}:${value.split(/\n/).length}`; }
 function normalizeComparable(value: string) { return value.replace(/<[^>]+>/g, "").replace(/[\s\p{P}\p{S}]/gu, "").toLowerCase(); }
 function normalize(value: string) { return value.trim().replace(/\s+/g, " ").toLowerCase(); }
 function tokenize(value: string) { return unique(normalize(value).split(/[^\p{L}\p{N}+#.]+/u).filter(Boolean)); }
@@ -400,20 +370,12 @@ function alignKeywordVariants(value: string) {
     .replace(/ClaudeCode/gi, "Claude Code")
     .replace(/Play Wright/gi, "Playwright");
 }
-function foregroundExistingEvidence(value: string, keywords: string[]) {
-  const clauses = value.split(/(?<=[。；;])/).map((item) => item.trim()).filter(Boolean);
-  if (clauses.length < 2) return value;
-  const relevant = clauses.filter((clause) => keywords.some((keyword) => normalize(clause).includes(normalize(keyword))));
-  if (!relevant.length) return value;
-  return [...relevant, ...clauses.filter((clause) => !relevant.includes(clause))].join("");
-}
 function covered(keywords: string[], text: string) { const normalized = normalize(text); return unique(keywords.filter((keyword) => isUsefulKeyword(keyword) && normalized.includes(normalize(keyword)))); }
 function isUsefulKeyword(keyword: string) {
-  const normalized = normalizeComparable(keyword);
-  return normalized.length > 1 && !["ai", "人工智能", "coding", "agent", "codingagent", "vibe", "vibecoding"].includes(normalized);
+  const normalized = normalize(keyword);
+  return normalized.length > 1 && !["ai", "人工智能", "coding", "agent", "vibe"].includes(normalized);
 }
 function unique<T>(values: T[]) { return Array.from(new Set(values)); }
-function addedTokens(before: string, after: string) { const existing = new Set(tokenize(before)); return tokenize(after).filter((token) => !existing.has(token)); }
 
 function compareTailoringTargets(a: NonNullable<ReturnType<typeof targetFor>>, b: NonNullable<ReturnType<typeof targetFor>>) {
   if (a.sectionType === "summary" || b.sectionType === "summary") return sectionOrder[a.sectionType] - sectionOrder[b.sectionType];

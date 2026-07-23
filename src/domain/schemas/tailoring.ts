@@ -49,6 +49,59 @@ export const ResumeFieldPatchSchema = z.object({
   }
 });
 
+export const ResumeTailoringDiffSchema = z.object({
+  target: z.object({
+    sectionId: z.string().min(1),
+    itemId: z.string().min(1),
+    fieldPath: ResumeFieldPathSchema
+  }).strict(),
+  operation: z.enum(["replace", "reorder", "append", "hide"]),
+  original: ResumeFieldPatchValueSchema,
+  value: ResumeFieldPatchValueSchema,
+  reason: z.string().min(1),
+  requirementIds: z.array(z.string().min(1)).default([]),
+  targetKeywords: z.array(z.string().min(1)).default([]),
+  evidenceRefs: z.array(MatchEvidenceRefSchema).default([]),
+  supportLevel: z.enum(["verified", "reasonable_inference", "user_declared"])
+}).strict();
+
+export const TailoringDiffRejectionReasonSchema = z.enum([
+  "target_not_found",
+  "path_not_allowed",
+  "original_mismatch",
+  "blocked_identity_path",
+  "invalid_value_type",
+  "empty_value",
+  "no_op",
+  "truncated_output",
+  "mechanical_prefix",
+  "duplicate_original",
+  "invented_metric",
+  "responsibility_upgrade",
+  "insufficient_evidence",
+  "confirmation_required",
+  "reorder_membership_changed",
+  "append_not_allowed",
+  "hide_not_allowed"
+]);
+
+export const TailoringGapSchema = z.object({
+  requirementId: z.string().min(1),
+  status: z.enum(["covered", "rewriteable", "confirmable", "material_only", "not_applicable", "uncovered"]),
+  evidenceRefs: z.array(MatchEvidenceRefSchema).default([]),
+  candidateItemIds: z.array(z.string().min(1)).default([]),
+  missingKeywords: z.array(z.string().min(1)).default([]),
+  clarificationQuestionIds: z.array(z.string().min(1)).default([])
+}).strict();
+
+export const ClarificationAnswerRecordSchema = z.object({
+  questionId: z.string().min(1),
+  status: z.enum(["accepted", "rejected", "skipped"]),
+  answer: z.union([z.string(), z.array(z.string()), z.boolean()]).optional(),
+  proficiency: SkillProficiencySchema.optional(),
+  resolvedAt: z.string().datetime({ offset: true })
+}).strict();
+
 export const ConfirmableClaimSchema = z.object({
   id: z.string().min(1),
   label: z.string().min(1),
@@ -130,6 +183,23 @@ export const ResumeTailorModelSuggestionSchema = z.object({
 export const ResumeTailorModelOutputSchema = z.object({
   suggestions: z.array(ResumeTailorModelSuggestionSchema)
 }).passthrough();
+
+export const ResumeTailoringDiffTaskInputSchema = ResumeTailorTaskInputV2Schema.extend({
+  target: ResumeTailorTaskInputV2Schema.shape.target.extend({
+    fieldPath: ResumeFieldPathSchema
+  }).strict(),
+  allowedOperation: z.enum(["replace", "reorder", "append", "hide"]),
+  requirementDetails: z.record(z.string(), z.array(z.string())).default({})
+}).strict();
+
+export const ResumeTailoringDiffModelOutputSchema = z.object({
+  diffs: z.array(ResumeTailoringDiffSchema).max(1),
+  clarifications: z.array(z.object({
+    question: z.string().min(1),
+    requirementIds: z.array(z.string().min(1)).min(1),
+    answerType: z.enum(["boolean", "proficiency", "multi_select", "text", "url"])
+  }).strict()).default([])
+}).strict();
 
 export const ResumeTailorBatchInputSchema = z.object({
   draftId: z.string().min(1), profileId: z.string().min(1), jobId: z.string().min(1),
@@ -233,6 +303,9 @@ export const ResumeTailoringPlanSchema = z.object({
     clarificationQuestionIds: z.array(z.string()).default([])
   }).strict()).optional(),
   clarificationQuestions: z.array(TailoringClarificationQuestionSchema).optional(),
+  clarificationAnswers: z.array(ClarificationAnswerRecordSchema).optional(),
+  gaps: z.array(TailoringGapSchema).optional(),
+  diffs: z.array(ResumeTailoringDiffSchema).optional(),
   materialSuggestions: z.array(z.string().min(1)).optional(),
   materialTasks: z.array(z.object({ id: z.string().min(1), label: z.string().min(1), requirementIds: z.array(z.string()).default([]) }).strict()).optional(),
   suggestions: z.array(TailoringSuggestionSchema).optional(),
@@ -262,12 +335,18 @@ export type TailoringJobContext = z.infer<typeof TailoringJobContextSchema>;
 export type ResumeTailorTaskInputV2 = z.infer<typeof ResumeTailorTaskInputV2Schema>;
 export type ResumeTailorModelSuggestion = z.infer<typeof ResumeTailorModelSuggestionSchema>;
 export type ResumeTailorModelOutput = z.infer<typeof ResumeTailorModelOutputSchema>;
+export type ResumeTailoringDiffTaskInput = z.infer<typeof ResumeTailoringDiffTaskInputSchema>;
+export type ResumeTailoringDiffModelOutput = z.infer<typeof ResumeTailoringDiffModelOutputSchema>;
 export type ResumeTailorBatchInput = z.infer<typeof ResumeTailorBatchInputSchema>;
 export type TailoringSuggestion = z.infer<typeof TailoringSuggestionSchema>;
 export type TailoringSection = z.infer<typeof TailoringSectionSchema>;
 export type SkillProficiency = z.infer<typeof SkillProficiencySchema>;
 export type TailoringClaimClass = z.infer<typeof TailoringClaimClassSchema>;
 export type ResumeFieldPatch = z.infer<typeof ResumeFieldPatchSchema>;
+export type ResumeTailoringDiff = z.infer<typeof ResumeTailoringDiffSchema>;
+export type TailoringDiffRejectionReason = z.infer<typeof TailoringDiffRejectionReasonSchema>;
+export type TailoringGap = z.infer<typeof TailoringGapSchema>;
+export type ClarificationAnswerRecord = z.infer<typeof ClarificationAnswerRecordSchema>;
 export type ConfirmableClaim = z.infer<typeof ConfirmableClaimSchema>;
 export type TailoringClaim = z.infer<typeof TailoringClaimSchema>;
 export type TailoringClarificationQuestion = z.infer<typeof TailoringClarificationQuestionSchema>;

@@ -55,7 +55,7 @@ export function JobOptimizationPanel({
   const [progress, setProgress] = useState({ step: 0, completed: 0, skipped: 0, failed: 0 });
   const generationController = useRef<AbortController | undefined>(undefined);
   const [plannerAssessment, setPlannerAssessment] = useState<{ globalNotes?: string; direct: number; confirmable: number; clarification: number; materials: number; keep: number }>();
-  const [activeQuestionIndex, setActiveQuestionIndex] = useState(0);
+  const [activeQuestionId, setActiveQuestionId] = useState<string>();
   const [clarificationAnswer, setClarificationAnswer] = useState<string | string[] | boolean>("");
   const [answeredQuestionIds, setAnsweredQuestionIds] = useState<Set<string>>(new Set());
   const [fitDelta, setFitDelta] = useState<{ beforeScore: number; afterScore: number; newlyCovered: string[]; newKeywords: string[]; userDeclared: string[]; remaining: string[] }>();
@@ -123,7 +123,14 @@ export function JobOptimizationPanel({
   const claims = (plan?.claims ?? []).filter((claim) => normalizeDiffText(claim.currentText) !== normalizeDiffText(claim.proposedText));
   const suggestionsById = new Map((plan?.suggestions ?? []).map((suggestion) => [suggestion.id, suggestion]));
   const selectedClaims = claims.filter((claim) => selected.has(claim.id));
-  const unansweredQuestions = (plan?.clarificationQuestions ?? []).filter((question) => !answeredQuestionIds.has(question.id));
+  const completedQuestionIds = new Set([
+    ...answeredQuestionIds,
+    ...(plan?.clarificationAnswers ?? []).map((record) => record.questionId)
+  ]);
+  const allQuestions = plan?.clarificationQuestions ?? [];
+  const unansweredQuestions = allQuestions.filter((question) => !completedQuestionIds.has(question.id));
+  const activeQuestion = unansweredQuestions.find((question) => question.id === activeQuestionId) ?? unansweredQuestions[0];
+  const activeQuestionPosition = activeQuestion ? allQuestions.findIndex((question) => question.id === activeQuestion.id) + 1 : 0;
   const confirmationCount = selectedClaims.filter((claim) => claim.decision === "requires_confirmation").length;
   const keywordGroups = groupTailoringKeywords(selectedClaims.flatMap((claim) => claim.keywords));
   const keywordCount = keywordGroups.core.length + keywordGroups.confirmableTools.length;
@@ -138,7 +145,7 @@ export function JobOptimizationPanel({
     setPlannerAssessment(undefined);
     setAnsweredQuestionIds(new Set());
     setClarificationAnswer("");
-    setActiveQuestionIndex(0);
+    setActiveQuestionId(undefined);
     setView("suggestions");
     try {
       const result = createTailoringPlan({ profile: activeProfile, branch: activeBranch, job: activeJob, intensity, operationId: `plan-${activeBranch.id}-${activeBranch.revision}-${activeJob.id}` });
@@ -261,7 +268,7 @@ export function JobOptimizationPanel({
   }
 
   function submitClarificationAnswer() {
-    const question = unansweredQuestions[activeQuestionIndex];
+    const question = activeQuestion;
     if (!plan || !question || clarificationAnswer === "" || (Array.isArray(clarificationAnswer) && !clarificationAnswer.length)) return;
     const proficiency = question.answerType === "proficiency" ? ({ "熟练使用": "proficient", "熟悉基础": "familiar", "了解": "aware", "正在学习": "learning" } as const)[String(clarificationAnswer) as "熟练使用" | "熟悉基础" | "了解" | "正在学习"] : undefined;
     const next = answerTailoringClarification({ plan, question, answer: clarificationAnswer, proficiency, branch: activeBranch });
@@ -274,7 +281,8 @@ export function JobOptimizationPanel({
     setSelected((current) => new Set([...current, ...newIds]));
     setAnsweredQuestionIds((current) => new Set([...current, question.id]));
     setClarificationAnswer("");
-    setActiveQuestionIndex(0);
+    const nextQuestion = (next.clarificationQuestions ?? []).find((item) => item.id !== question.id && !completedQuestionIds.has(item.id));
+    setActiveQuestionId(nextQuestion?.id);
     onMessage(newIds.length ? '已根据回答生成候选句，请在"确认后可加入"中核对。' : "已记录为不添加该能力。");
 
     // 检查是否还有更多问题，如果没有则自动继续生成建议
@@ -437,7 +445,7 @@ export function JobOptimizationPanel({
             可直接改写 {plannerAssessment.direct} 项 · 确认后可加入 {plannerAssessment.confirmable} 项 · 需要回答 {plannerAssessment.clarification} 项 · 建议准备材料 {plannerAssessment.materials} 项 · 保持不变 {plannerAssessment.keep} 项
           </p>
         </div> : null}
-        {unansweredQuestions.length ? <section className="tailoring-suggestion-group"><h3>需要你回答</h3><p>请回答以下问题，帮助 AI 更准确地改写你的简历。一次只回答 1 个问题。</p>{(() => { const item = unansweredQuestions[activeQuestionIndex]; return <article key={item.id} className="tailoring-suggestion-card"><strong>{item.question}</strong>{item.answerType === "proficiency" ? <div className="chip-row" aria-label="选择真实熟练度">{["熟练使用", "熟悉基础", "了解", "正在学习", "没有使用"].map((option) => <button type="button" key={option} className={clarificationAnswer === option ? "secondary-button compact property-tab-active" : "secondary-button compact"} onClick={() => setClarificationAnswer(option)}>{option}</button>)}</div> : item.answerType === "boolean" ? <div className="chip-row">{["有", "没有"].map((option) => <button type="button" key={option} className={clarificationAnswer === (option === "有") ? "secondary-button compact property-tab-active" : "secondary-button compact"} onClick={() => setClarificationAnswer(option === "有")}>{option}</button>)}</div> : item.answerType === "multi_select" ? <div className="chip-row" aria-label="选择适用项">{["Cursor", "Claude Code", "Codex", "Windsurf", "其他"].map((option) => <button type="button" key={option} className={Array.isArray(clarificationAnswer) && clarificationAnswer.includes(option) ? "secondary-button compact property-tab-active" : "secondary-button compact"} onClick={() => setClarificationAnswer((current) => { const values = Array.isArray(current) ? current : []; return values.includes(option) ? values.filter((value) => value !== option) : [...values, option]; })}>{option}</button>)}</div> : <label className="field-label" htmlFor={`clarification-${item.id}`}>{item.answerType === "url" ? "链接" : "你的回答"}<input id={`clarification-${item.id}`} name={`clarification-${item.id}`} type={item.answerType === "url" ? "url" : "text"} autoComplete="off" value={typeof clarificationAnswer === "string" ? clarificationAnswer : ""} onChange={(event) => setClarificationAnswer(event.target.value)} /></label>}<small>剩余 {unansweredQuestions.length} 个问题</small><button type="button" className="primary-button" onClick={submitClarificationAnswer}>提交回答</button></article>; })()}</section> : <div className="info-box" aria-live="polite"><strong>所有问题已回答完毕</strong><p>现在可以继续生成改写建议了。</p></div>}
+        {activeQuestion ? <section className="tailoring-suggestion-group"><h3>需要你回答</h3><p>一次只展开一个问题；否定回答会被记录，且不会重复询问。</p><article key={activeQuestion.id} className="tailoring-suggestion-card"><div className="tailoring-question-progress"><strong>问题 {activeQuestionPosition} / {allQuestions.length}</strong><span>已完成 {completedQuestionIds.size}</span><span>剩余 {unansweredQuestions.length}</span></div><strong>{activeQuestion.question}</strong>{activeQuestion.answerType === "proficiency" ? <div className="chip-row" aria-label="选择真实熟练度">{["熟练使用", "熟悉基础", "了解", "正在学习", "没有使用"].map((option) => <button type="button" key={option} className={clarificationAnswer === option ? "secondary-button compact property-tab-active" : "secondary-button compact"} onClick={() => setClarificationAnswer(option)}>{option}</button>)}</div> : activeQuestion.answerType === "boolean" ? <div className="chip-row">{["有", "没有"].map((option) => <button type="button" key={option} className={clarificationAnswer === (option === "有") ? "secondary-button compact property-tab-active" : "secondary-button compact"} onClick={() => setClarificationAnswer(option === "有")}>{option}</button>)}</div> : activeQuestion.answerType === "multi_select" ? <div className="chip-row" aria-label="选择适用项">{["Cursor", "Claude Code", "Codex", "Windsurf", "其他"].map((option) => <button type="button" key={option} className={Array.isArray(clarificationAnswer) && clarificationAnswer.includes(option) ? "secondary-button compact property-tab-active" : "secondary-button compact"} onClick={() => setClarificationAnswer((current) => { const values = Array.isArray(current) ? current : []; return values.includes(option) ? values.filter((value) => value !== option) : [...values, option]; })}>{option}</button>)}</div> : <label className="field-label" htmlFor={`clarification-${activeQuestion.id}`}>{activeQuestion.answerType === "url" ? "链接" : "你的回答"}<input id={`clarification-${activeQuestion.id}`} name={`clarification-${activeQuestion.id}`} type={activeQuestion.answerType === "url" ? "url" : "text"} autoComplete="off" value={typeof clarificationAnswer === "string" ? clarificationAnswer : ""} onChange={(event) => setClarificationAnswer(event.target.value)} /></label>}<button type="button" className="primary-button" onClick={submitClarificationAnswer}>提交回答</button></article></section> : <div className="info-box" aria-live="polite"><strong>所有问题已回答完毕</strong><p>现在可以继续生成改写建议了。</p></div>}
         <div className="action-row">
           <button className="secondary-button" onClick={() => { setPlan(undefined); setPlannerAssessment(undefined); setSelected(new Set()); setPendingTaskInputs([]); setPendingBasePlan(undefined); setView("overview"); }}>弃用建议</button>
           <button className="secondary-button" onClick={() => setView("overview")}><ChevronLeft size={16} />返回概览</button>
@@ -454,11 +462,12 @@ export function JobOptimizationPanel({
             可直接改写 {plannerAssessment.direct} 项 · 确认后可加入 {plannerAssessment.confirmable} 项 · 需要回答 {plannerAssessment.clarification} 项 · 建议准备材料 {plannerAssessment.materials} 项 · 保持不变 {plannerAssessment.keep} 项
           </p>
         </div> : null}
-        {sectionGroups(claims).map(([section, items]) => <section key={section} className="tailoring-suggestion-group"><h3>{sectionLabel(section)}</h3>{items.map((claim) => { const suggestion = suggestionsById.get(claim.id); const groupedKeywords = groupTailoringKeywords(claim.keywords); return <article key={claim.id} className="tailoring-suggestion-card">
+        {suggestionStatusGroups(claims).map(([group, items]) => <section key={group} className="tailoring-suggestion-group"><h3>{group}</h3>{items.map((claim) => { const suggestion = suggestionsById.get(claim.id); const groupedKeywords = groupTailoringKeywords(claim.keywords); return <article key={claim.id} className="tailoring-suggestion-card">
           <div className="tailoring-suggestion-status"><span>{decisionLabel(claim)}</span><input type="checkbox" aria-label="采用建议" checked={selected.has(claim.id)} disabled={claim.decision === "blocked"} onChange={(event) => setSelected((current) => { const next = new Set(current); if (event.target.checked) next.add(claim.id); else next.delete(claim.id); return next; })} /></div>
           <header className="tailoring-suggestion-title"><strong>{claim.label ?? sectionLabel(claim.section)}</strong><span>{fieldLocationLabel(claim)}</span></header>
-          <div><small>原句</small><p>{claim.currentText || "暂无"}</p></div><div><small>改写句</small><p><FieldDiff before={claim.currentText} after={claim.claimText ?? claim.proposedText} /></p></div>
-          <details className="tailoring-suggestion-details"><summary>查看详细依据</summary><div className="tailoring-suggestion-meta"><p><strong>完整当前条目：</strong>{currentItemText(activeBranch, claim)}</p><p><strong>详细修改理由：</strong>{claim.reason}</p><p><strong>岗位要求：</strong>{(claim.requirementIds ?? []).map((id) => requirementText(activeJob, id)).join("、") || "对应岗位要求"}</p><p><strong>EvidenceRefs：</strong>{claim.evidenceRefs.length ? `${claim.evidenceRefs.length} 条已确认事实证据` : "当前岗位简历中的用户确认内容"}</p><p><strong>Requirement IDs：</strong>{(claim.requirementIds ?? []).join("、") || "无"}</p><p><strong>风险：</strong>{suggestion?.riskLevel === "low" ? "低" : suggestion?.riskLevel === "high" ? "高" : "中，需确认"}</p>{groupedKeywords.core.length ? <div className="keyword-phrase"><strong>核心岗位词：</strong>{groupedKeywords.core.join("、")}</div> : null}{groupedKeywords.confirmableTools.length ? <div className="keyword-phrase"><strong>需确认工具：</strong>{groupedKeywords.confirmableTools.join("、")}</div> : null}{groupedKeywords.materials.length ? <div className="keyword-phrase"><strong>材料要求：</strong>{groupedKeywords.materials.join("、")}</div> : null}</div></details>
+          <div><small>原文 → 改写后</small><div className="inline-diff"><FieldDiff before={claim.currentText} after={claim.claimText ?? claim.proposedText} /></div></div>
+          <p className="tailoring-suggestion-reason"><strong>修改原因：</strong>{claim.reason}</p>
+          <details className="tailoring-suggestion-details"><summary>查看详细依据</summary><div className="tailoring-suggestion-meta"><p><strong>完整当前条目：</strong>{currentItemText(activeBranch, claim)}</p><p><strong>岗位要求：</strong>{(claim.requirementIds ?? []).map((id) => requirementText(activeJob, id)).join("、") || "对应岗位要求"}</p><p><strong>EvidenceRefs：</strong>{claim.evidenceRefs.length ? `${claim.evidenceRefs.length} 条已确认事实证据` : "当前岗位简历中的用户确认内容"}</p><p><strong>Requirement IDs：</strong>{(claim.requirementIds ?? []).join("、") || "无"}</p><p><strong>风险：</strong>{suggestion?.riskLevel === "low" ? "低" : suggestion?.riskLevel === "high" ? "高" : "中，需确认"}</p>{groupedKeywords.core.length ? <div className="keyword-phrase"><strong>核心岗位词：</strong>{groupedKeywords.core.join("、")}</div> : null}{groupedKeywords.confirmableTools.length ? <div className="keyword-phrase"><strong>需确认工具：</strong>{groupedKeywords.confirmableTools.join("、")}</div> : null}{groupedKeywords.materials.length ? <div className="keyword-phrase"><strong>材料要求：</strong>{groupedKeywords.materials.join("、")}</div> : null}</div></details>
         </article>; })}</section>)}
         {plan?.materialTasks?.length ? <ResultList title={`申请前建议准备 ${plan.materialTasks.length} 项材料`} items={plan.materialTasks.map((item) => item.label)} empty="暂无" /> : null}
         {pending ? <div className="info-box" aria-live="polite"><strong>{progress.step}/3 {progress.step === 1 ? "正在分析岗位要求" : progress.step === 2 ? "正在筛选需要改写的内容" : "正在生成并验证建议"}</strong><p>已完成 {progress.completed} 项　跳过 {progress.skipped} 项　失败 {progress.failed} 项</p><button className="secondary-button compact" type="button" onClick={() => generationController.current?.abort()}><Square size={14} aria-hidden="true" />停止生成</button></div> : null}
@@ -469,6 +478,7 @@ export function JobOptimizationPanel({
       {view === "apply" ? <div className="tailoring-page" data-testid="tailoring-apply">
         <h2>确认并应用</h2>
         <div className="tailoring-apply-summary"><span>将修改 <strong>{selectedClaims.length}</strong> 处</span><span>新增关键词 <strong>{keywordCount}</strong> 个</span><span>隐藏 <strong>{hiddenCount}</strong> 项</span><span>需确认 <strong>{confirmationCount}</strong> 项</span><span>当前岗位适配度 <strong>{report?.overallCoverage ?? 0}</strong></span></div>
+        {selectedClaims.length ? <section className="tailoring-suggestion-group"><h3>本次真正写入的数据</h3>{selectedClaims.map((claim) => { const patch = claim.targetPatches?.[0]; return <article key={claim.id} className="tailoring-suggestion-card"><header className="tailoring-suggestion-title"><strong>{fieldLocationLabel(claim)}</strong><span>{patch?.fieldPath ?? claim.targetFieldPath ?? "text"} · {patch?.operation ?? "replace"}</span></header><FieldDiff before={patch?.before ?? claim.currentText} after={patch?.after ?? finalTextForClaim(claim, confirmations[claim.id])} /><p><strong>覆盖要求：</strong>{(claim.requirementIds ?? []).map((id) => requirementText(activeJob, id)).join("、") || "无"}</p><p><strong>用户确认能力：</strong>{claim.supportLevel === "verified" ? "无需额外确认" : confirmations[claim.id]?.accepted ? "已确认" : "等待确认"}</p></article>; })}</section> : null}
         {fitDelta ? <div className="info-box tailoring-fit-delta" aria-live="polite"><strong>岗位适配度：{fitDelta.beforeScore} → {fitDelta.afterScore}</strong><p>新覆盖要求：{fitDelta.newlyCovered.join("、") || "无新增"}</p><p>新关键词：{fitDelta.newKeywords.join("、") || "无新增"}</p><p>用户声明能力：{fitDelta.userDeclared.join("、") || "无"}</p><p>仍缺失要求：{fitDelta.remaining.join("、") || "无"}</p></div> : null}
         {selectedClaims.filter((claim) => claim.decision === "requires_confirmation").length ? <section className="tailoring-confirmations"><h3>待确认能力与表达</h3>{selectedClaims.filter((claim) => claim.decision === "requires_confirmation").map((claim) => { const confirmation = confirmations[claim.id]; const finalText = finalTextForClaim(claim, confirmation); const isProficiencyClaim = ["tool", "skill", "workflow"].includes(claim.claimType ?? ""); const editText = confirmationEdits[claim.id] ?? claim.claimText ?? claim.proposedText; return <article key={claim.id} className="tailoring-confirmation-card">
           <strong>{claim.label ?? "确认岗位相关表达"}</strong>
@@ -514,7 +524,7 @@ export function JobOptimizationPanel({
         </div>
       </div>
       <div style={{ flex: 1, overflow: "auto", padding: "12px" }}>
-        {debugLogs.length === 0 ? <div className="info-box">暂无日志。点击"生成改写建议"后，AI 的请求和响应会显示在这里。</div> : null}
+        {debugLogs.length === 0 ? <div className="info-box">暂无日志。点击“生成改写建议”后，AI 的请求和响应会显示在这里。</div> : null}
         {debugLogs.map((log, index) => <details key={index} open={index === debugLogs.length - 1} className="tailoring-suggestion-card" style={{ marginBottom: "8px" }}>
           <summary style={{ cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px" }}>
             <span>
@@ -547,7 +557,14 @@ function sectionLabel(section: TailoringClaim["section"]) { return ({ summary: "
 function strategyCopy(intensity: TailoringIntensity) { return intensity === "conservative" ? "对齐关键词、压缩句子并调整顺序，不产生新能力陈述。" : intensity === "balanced" ? "用岗位语言重组真实经历；合理推导项集中确认后再应用。" : "更主动地重构相关内容并建议能力项；所有非直接依据内容都需确认。"; }
 function decisionLabel(claim: TailoringClaim) { return claim.decision === "auto_applicable" ? "可直接采用" : claim.decision === "blocked" ? "不能添加硬事实" : claim.supportLevel === "reasonable_inference" ? "不建议但可确认" : "需要确认"; }
 function requirementText(job: JobDescription, id: string) { return job.requirements.find((item) => item.id === id)?.description ?? "这项岗位要求暂未在简历中体现"; }
-function sectionGroups(claims: TailoringClaim[]) { const order: TailoringClaim["section"][] = ["summary", "skills", "project", "work", "internship", "ordering"]; return order.map((section) => [section, claims.filter((claim) => claim.section === section)] as const).filter(([, items]) => items.length); }
+function suggestionStatusGroups(claims: TailoringClaim[]) {
+  const groups = [
+    ["可直接应用", (claim: TailoringClaim) => claim.decision === "auto_applicable" && claim.section !== "ordering"],
+    ["确认后可加入", (claim: TailoringClaim) => claim.decision === "requires_confirmation" && claim.section !== "ordering"],
+    ["保持不变 / 降低优先级", (claim: TailoringClaim) => claim.section === "ordering" || claim.decision === "blocked"]
+  ] as const;
+  return groups.map(([label, predicate]) => [label, claims.filter(predicate)] as const).filter(([, items]) => items.length);
+}
 function fieldLocationLabel(claim: TailoringClaim) {
   const field = claim.targetPatches?.[0]?.fieldPath ?? claim.targetFieldPath?.split(".").at(-1);
   return `${sectionLabel(claim.section)} · ${({ text: "正文", name: "技能名称", description: "描述", highlights: "亮点", visible: "显示状态", order: "排序" } as Record<string, string>)[field ?? ""] ?? "正文"}`;
@@ -649,11 +666,50 @@ function plannerFailureMessage(code: string): string {
   };
   return messages[code] ?? `岗位评估失败（${code}），请检查 AI 服务日志后重试。`;
 }
-function FieldDiff({ before, after }: { before: string; after: string }) {
-  let prefix = 0;
-  while (prefix < before.length && prefix < after.length && before[prefix] === after[prefix]) prefix += 1;
-  let suffix = 0;
-  while (suffix < before.length - prefix && suffix < after.length - prefix && before[before.length - 1 - suffix] === after[after.length - 1 - suffix]) suffix += 1;
-  const end = suffix ? after.length - suffix : after.length;
-  return <>{after.slice(0, prefix)}<mark>{after.slice(prefix, end)}</mark>{after.slice(end)}</>;
+function FieldDiff({ before, after }: { before: string | string[] | boolean | number; after: string | string[] | boolean | number }) {
+  if (Array.isArray(before) || Array.isArray(after)) {
+    const left = (Array.isArray(before) ? before : [before]).map(String);
+    const right = (Array.isArray(after) ? after : [after]).map(String);
+    const count = Math.max(left.length, right.length);
+    return <div className="array-field-diff">{Array.from({ length: count }, (_, index) => <div className="array-field-diff-row" key={index}><strong>Bullet {index + 1}</strong><span className="array-field-diff-label">原文</span><StringFieldDiff before={left[index] ?? ""} after="" /><span className="array-field-diff-label">新文</span><StringFieldDiff before="" after={right[index] ?? ""} /></div>)}</div>;
+  }
+  return <StringFieldDiff before={String(before)} after={String(after)} />;
+}
+
+function StringFieldDiff({ before, after }: { before: string; after: string }) {
+  const tokens = wordLevelDiff(before, after);
+  return <div aria-label={`原文：${before}；新文：${after}`}>{tokens.map((token, index) => <span key={`${token.type}-${index}`} className={`diff-token diff-${token.type}`}>{token.text}</span>)}</div>;
+}
+
+function wordLevelDiff(before: string, after: string) {
+  const left = tokenizeDiffText(before);
+  const right = tokenizeDiffText(after);
+  const table = Array.from({ length: left.length + 1 }, () => Array<number>(right.length + 1).fill(0));
+  for (let i = left.length - 1; i >= 0; i -= 1) {
+    for (let j = right.length - 1; j >= 0; j -= 1) {
+      table[i][j] = left[i] === right[j] ? table[i + 1][j + 1] + 1 : Math.max(table[i + 1][j], table[i][j + 1]);
+    }
+  }
+  const raw: Array<{ type: "keep" | "delete" | "add"; text: string }> = [];
+  let i = 0;
+  let j = 0;
+  while (i < left.length || j < right.length) {
+    if (i < left.length && j < right.length && left[i] === right[j]) {
+      raw.push({ type: "keep", text: left[i] }); i += 1; j += 1;
+    } else if (j < right.length && (i === left.length || table[i][j + 1] >= table[i + 1][j])) {
+      raw.push({ type: "add", text: right[j] }); j += 1;
+    } else {
+      raw.push({ type: "delete", text: left[i] }); i += 1;
+    }
+  }
+  return raw.reduce<typeof raw>((result, token) => {
+    const previous = result.at(-1);
+    if (previous?.type === token.type) previous.text += token.text;
+    else result.push({ ...token });
+    return result;
+  }, []);
+}
+
+function tokenizeDiffText(value: string) {
+  return value.match(/[\p{Script=Han}]|[A-Za-z0-9.+#-]+|\s+|[^\s]/gu) ?? [];
 }

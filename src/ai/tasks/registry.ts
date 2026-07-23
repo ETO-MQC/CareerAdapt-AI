@@ -6,6 +6,7 @@ import {
   FactGuardOutputSchema,
   FactGuardFindingSchema,
   JdAnalyzerModelOutputSchema,
+  JdSemanticUnitSchema,
   JdSourceUnitSchema,
   RequirementGroupSchema,
   MatchEvidenceRefSchema,
@@ -15,6 +16,8 @@ import {
   ResumeTailorModelOutputSchema,
   ResumeTailorBatchInputSchema,
   ResumeTailorBatchModelOutputSchema,
+  ResumeTailoringDiffModelOutputSchema,
+  ResumeTailoringDiffTaskInputSchema,
   ResumeTailorOutputSchema,
   ResumeTailorPlannerInputSchema,
   ResumeTailorPlannerOutputSchema,
@@ -29,6 +32,8 @@ import {
   type ResumeJsonMapperOutput,
   type ResumeTailorOutput,
   type ResumeTailorBatchInput,
+  type ResumeTailoringDiffModelOutput,
+  type ResumeTailoringDiffTaskInput,
   type TailoringSuggestion,
   type ResumeTailorPlannerInput,
   type ResumeTailorPlannerOutput
@@ -39,6 +44,7 @@ import { factGuardPrompt } from "@/ai/prompts/factGuard";
 import { jdAnalyzerPrompt } from "@/ai/prompts/jdAnalyzer";
 import { profileBuilderPrompt } from "@/ai/prompts/profileBuilder";
 import { resumeTailorPrompt } from "@/ai/prompts/resumeTailor";
+import { resumeTailoringDiffPrompt } from "@/ai/prompts/resumeTailoringDiff";
 import { resumeJsonMapperPrompt } from "@/ai/prompts/resumeJsonMapper";
 import { resumeDocumentMapperPrompt } from "@/ai/prompts/resumeDocumentMapper";
 import { resumeTailorPlannerPrompt } from "@/ai/prompts/resumeTailorPlanner";
@@ -58,7 +64,7 @@ export const ResumeDocumentMapperTaskInputSchema = BaseAiInputSchema;
 export const JdAnalyzerTaskInputSchema = BaseAiInputSchema.extend({
   title: z.string().min(1).max(120),
   company: z.string().min(1).max(120),
-  sourceUnits: z.array(JdSourceUnitSchema).optional(),
+  sourceUnits: z.array(z.union([JdSemanticUnitSchema, JdSourceUnitSchema])).optional(),
   deterministicGroups: z.array(RequirementGroupSchema).optional(),
   deterministicHierarchy: z.array(z.object({ sourceUnitId: z.string().optional(), detailUnitIds: z.array(z.string()), parentGroupId: z.string().optional() })).optional()
 });
@@ -345,11 +351,11 @@ export const aiTaskRegistry = {
           title: input.title,
           company: input.company,
           rawText: redacted.text,
-          sourceUnits: input.sourceUnits ?? [],
+          provisionalUnits: input.sourceUnits ?? [],
           deterministicGroups: input.deterministicGroups ?? [],
           deterministicHierarchy: input.deterministicHierarchy ?? [],
           redactions: redacted.redactions,
-          instructions: "Return compact JSON. Cover every sourceUnitId exactly once. For unchanged deterministic classifications return only {sourceUnitId,verdict:'accept'}. Use verdict:'override' plus changed fields only when necessary. Never return source text, sourceSpan, legacy requirements, or redundant reasons/keywords."
+          instructions: "Return compact JSON. Cover every sourceUnitId exactly once. Accept items contain only sourceUnitId and verdict. Override items contain changed semantic fields only. Never return source text, sourceSpan, compiled requirements, or invented IDs."
         },
         null,
         2
@@ -711,6 +717,81 @@ export const aiTaskRegistry = {
       if (!output.suggestions.length) return;
     }
   } satisfies AiTaskDefinition<ResumeTailorBatchInput, ResumeTailorOutput>,
+  "resume-tailor-diff": {
+    task: "resume-tailor-diff",
+    promptVersion: resumeTailoringDiffPrompt.version,
+    systemPrompt: resumeTailoringDiffPrompt.system,
+    inputSchema: ResumeTailoringDiffTaskInputSchema,
+    outputSchema: ResumeTailoringDiffModelOutputSchema,
+    maxOutputChars: 8_000,
+    buildUserPrompt(input: ResumeTailoringDiffTaskInput) {
+      return JSON.stringify({
+        target: {
+          sectionType: input.target.sectionType,
+          sectionId: input.target.sectionId,
+          itemId: input.target.itemId,
+          fieldPath: input.target.fieldPath
+        },
+        structuredItem: input.currentContent.structuredItem,
+        renderedText: input.currentContent.renderedText,
+        exactOriginal: input.currentContent.fieldValue,
+        relevantRequirements: input.relevantRequirements,
+        requirementDetails: input.requirementDetails,
+        directEvidence: input.evidenceBundle?.directEvidence ?? [],
+        relatedResumeEvidence: input.evidenceBundle?.relatedResumeEvidence ?? [],
+        relatedProfileEvidence: input.evidenceBundle?.relatedProfileEvidence ?? [],
+        confirmableSignals: input.evidenceBundle?.confirmableSignals ?? [],
+        intensity: input.intensity,
+        allowedOperation: input.allowedOperation,
+        allowedEvidenceRefs: input.allowedEvidenceRefs,
+        outputContract: {
+          diffs: [{
+            target: { sectionId: "copy target.sectionId", itemId: "copy target.itemId", fieldPath: "copy target.fieldPath" },
+            operation: "copy allowedOperation",
+            original: "copy exactOriginal verbatim",
+            value: "changed field value only",
+            reason: "specific reason",
+            requirementIds: ["copy requirement ids"],
+            targetKeywords: ["supported phrases"],
+            evidenceRefs: ["copy allowed evidence refs"],
+            supportLevel: "verified | reasonable_inference | user_declared"
+          }],
+          clarifications: [{ question: "concrete missing fact question", requirementIds: ["copy requirement ids"], answerType: "boolean | proficiency | multi_select | text | url" }]
+        }
+      }, null, 2);
+    },
+    coerceRawOutput(rawOutput: unknown) {
+      const raw = rawOutput as Record<string, unknown>;
+      return {
+        diffs: Array.isArray(raw.diffs) ? raw.diffs : [],
+        clarifications: Array.isArray(raw.clarifications) ? raw.clarifications : []
+      };
+    },
+    normalizeOutput(output: ResumeTailoringDiffModelOutput) {
+      return ResumeTailoringDiffModelOutputSchema.parse(output);
+    },
+    validateOutput(output: ResumeTailoringDiffModelOutput, input: ResumeTailoringDiffTaskInput) {
+      const allowedRequirements = new Set(input.relevantRequirements.map((item) => item.requirementId));
+      const allowedEvidence = new Set(input.allowedEvidenceRefs.map((item) => JSON.stringify(item)));
+      for (const diff of output.diffs) {
+        if (
+          diff.target.sectionId !== input.target.sectionId ||
+          diff.target.itemId !== input.target.itemId ||
+          diff.target.fieldPath !== input.target.fieldPath ||
+          diff.operation !== input.allowedOperation
+        ) throw new Error("resume_tailor_diff_target_out_of_scope");
+        if (JSON.stringify(diff.original) !== JSON.stringify(input.currentContent.fieldValue)) {
+          throw new Error("resume_tailor_diff_original_mismatch");
+        }
+        if (diff.requirementIds.some((id) => !allowedRequirements.has(id))) {
+          throw new Error("resume_tailor_diff_requirement_out_of_scope");
+        }
+        if (diff.evidenceRefs.some((item) => !allowedEvidence.has(JSON.stringify(item)))) {
+          throw new Error("resume_tailor_diff_evidence_out_of_scope");
+        }
+      }
+    }
+  } satisfies AiTaskDefinition<ResumeTailoringDiffTaskInput, ResumeTailoringDiffModelOutput>,
   "fact-guard": {
     task: "fact-guard",
     promptVersion: factGuardPrompt.version,
@@ -819,26 +900,31 @@ export function getAiTaskDefinition(task: string) {
   return aiTaskRegistry[parsed.data as keyof typeof aiTaskRegistry];
 }
 
-const JD_DISPOSITIONS = new Set(["heading", "wrapper", "metadata", "requirement", "requirement_detail", "verification_material", "hiring_signal", "excluded", "unclassified"]);
+const JD_DISPOSITIONS = new Set(["heading", "context", "group_wrapper", "metadata", "requirement", "requirement_detail", "verification_material", "hiring_signal", "excluded", "unclassified"]);
 const JD_SECTIONS = new Set(["responsibility", "required", "preferred", "verification", "role_profile", "unknown"]);
 const JD_KINDS = new Set(["responsibility", "hard_constraint", "core_competency", "tool_or_technology", "experience_depth", "education", "language", "soft_skill", "domain_knowledge", "preferred", "risk_or_uncertain"]);
 const JD_PRIORITIES = new Set(["must", "high", "medium", "nice_to_have", "uncertain"]);
+const JD_GROUP_RELATIONS = new Set(["all_of", "any_of", "preferred_any_of", "examples", "evidence_bundle", "topic_list"]);
 
 export function normalizeJdUnitAssignment(value: unknown): JdUnitAssignment | undefined {
   if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
   const raw = value as Record<string, unknown>;
   const sourceUnitId = trimmed(raw.sourceUnitId);
   if (!sourceUnitId) return undefined;
+  const verdict = enumValue(raw.verdict, new Set(["accept", "override"]));
+  if (!verdict) return undefined;
+  if (verdict === "accept") return { sourceUnitId, verdict };
   const confidence = normalizeJdConfidence(raw.confidence);
   const candidate = {
     sourceUnitId,
-    verdict: enumValue(raw.verdict, new Set(["accept", "override"])),
-    disposition: enumValue(raw.disposition, JD_DISPOSITIONS),
+    verdict,
+    disposition: raw.disposition === "wrapper" ? "group_wrapper" : enumValue(raw.disposition, JD_DISPOSITIONS),
     section: enumValue(raw.section, JD_SECTIONS),
     kind: enumValue(raw.kind, JD_KINDS),
     priority: enumValue(raw.priority, JD_PRIORITIES),
     hardConstraint: typeof raw.hardConstraint === "boolean" ? raw.hardConstraint : undefined,
-    parentUnitId: trimmed(raw.parentUnitId),
+    parentUnitId: raw.parentUnitId === null ? null : trimmed(raw.parentUnitId),
+    groupRelation: enumValue(raw.groupRelation, JD_GROUP_RELATIONS),
     normalizedIntent: trimmed(raw.normalizedIntent),
     exactKeywords: uniqueStrings(raw.exactKeywords),
     semanticAliases: uniqueStrings(raw.semanticAliases),
@@ -1095,7 +1181,7 @@ function intensityInstruction(intensity: ResumeTailorTaskInput["intensity"]) {
 const genericTailoringKeywords = new Set(["ai", "人工智能", "岗位", "工作", "职责", "要求", "能力", "经验"]);
 
 function extractTailoringKeywords(values: string[]) {
-  const namedTerms = /Claude Code|Cursor|Codex|Windsurf|Vibe Coding|reward hacking|badcase|verifier|benchmark|Playwright|FastAPI|RAG|Agent/gi;
+  const namedTerms = /Prompt Engineering|Output Quality Evaluation|Complex Task Planning|Claude Code|Coding Agent|AI Coding|Vibe Coding|AI Agent|Cursor|Codex|Windsurf|reward hacking|badcase|verifier|benchmark|Playwright|FastAPI|RAG|Agent/gi;
   const candidates = values.flatMap((value) => [
     ...(value.match(namedTerms) ?? []),
     ...value.split(/[，。；、,;:\s/]+/).filter((term) => /^[A-Za-z][A-Za-z0-9.+#-]{2,}$/.test(term))

@@ -7,8 +7,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { invokeStageBAi, invokeStructuredAi } from "@/ai/client";
 import { promptVersions } from "@/ai/prompts/versions";
-import { createManualJdOutput } from "@/domain/jobAnalysis/manual";
-import { analyzeJobDescriptionV3, projectJobGraphV3ToAnalyzerOutput, reconcileJobRequirementGraphV3 } from "@/domain/jobOptimization";
+import { analyzeJobDescriptionV4, projectJobGraphV4ToAnalyzerOutput } from "@/domain/jobOptimization";
 import {
   EvidenceMatcherOutputSchema,
   JdAnalyzerModelOutputSchema,
@@ -171,7 +170,7 @@ export function JobsWorkspace() {
         manualRequirements: inputChanged ? [] : draft?.manualRequirements ?? [], riskNotes: inputChanged ? [] : draft?.riskNotes ?? [],
         committedJobId: draft?.committedJobId, committedAt: draft?.committedAt,
         analysisRunStatus: "saved",
-        analysisRuns: inputChanged ? [{ id: `job-run-${nanoid(8)}`, startedAt: now, status: "saved", analyzerVersion: "job-requirement-analyzer-v3" }] : draft?.analysisRuns ?? [],
+        analysisRuns: inputChanged ? [{ id: `job-run-${nanoid(8)}`, startedAt: now, status: "saved", analyzerVersion: "jd-analyzer.semantic-ledger-v4.0" }] : draft?.analysisRuns ?? [],
         createdAt: draft?.createdAt ?? now, updatedAt: now
       };
       const saved = draft ? await repository.saveJobAnalysisDraftRevision(nextDraft, draft.revision) : await repository.createJobAnalysisDraft(nextDraft);
@@ -188,41 +187,42 @@ export function JobsWorkspace() {
     if (!draft || !rawInput) return;
     try {
       notify({ type: "info", title: "正在解析岗位", message: "系统会先脱敏，再校验 AI 返回的岗位要求。" });
-      const currentRun = draft.analysisRuns?.at(-1) ?? { id: `job-run-${nanoid(8)}`, startedAt: new Date().toISOString(), status: "saved" as const, analyzerVersion: "job-requirement-analyzer-v3" };
+      const currentRun = draft.analysisRuns?.at(-1) ?? { id: `job-run-${nanoid(8)}`, startedAt: new Date().toISOString(), status: "saved" as const, analyzerVersion: "jd-analyzer.semantic-ledger-v4.0" };
       const localAnalyzing = await saveDraft(appendJobAnalysisRun({ ...draft, title, company, status: "analyzing" }, { ...currentRun, status: "local_analyzing" }));
-      const deterministicGraph = analyzeJobDescriptionV3({ rawText: rawInput.rawText });
-      const deterministic = analyzeJobDescriptionV3({ rawText: rawInput.rawText });
-      const analyzing = await saveDraft(appendJobAnalysisRun({ ...localAnalyzing, requirementGraph: deterministicGraph }, { ...currentRun, status: "ai_analyzing", sourceUnitCount: deterministic.sourceUnits?.length ?? 0, graphHash: deterministicGraph.graphHash }));
+      const deterministic = analyzeJobDescriptionV4({ rawText: rawInput.rawText });
+      const deterministicGraph = deterministic.graph;
+      const analyzing = await saveDraft(appendJobAnalysisRun({ ...localAnalyzing, requirementGraph: deterministicGraph }, { ...currentRun, status: "ai_analyzing", sourceUnitCount: deterministic.provisionalUnits.length, graphHash: deterministicGraph.graphHash }));
       const result = await invokeStageBAi({ task: "jd-analyzer", businessInput: {
         title, company, rawText: rawInput.rawText, inputHash: rawInput.inputHash,
-        sourceUnits: deterministic.sourceUnits,
-        deterministicGroups: deterministic.groups,
-        deterministicHierarchy: deterministic.requirements.map((requirement) => ({ sourceUnitId: requirement.sourceUnitId, detailUnitIds: requirement.details.map((detail) => detail.sourceUnitId), parentGroupId: requirement.parentGroupId }))
+        sourceUnits: deterministic.provisionalUnits,
+        deterministicGroups: deterministicGraph.groups,
+        deterministicHierarchy: deterministic.provisionalUnits.map((unit) => ({ sourceUnitId: unit.id, detailUnitIds: deterministic.provisionalUnits.filter((candidate) => candidate.provisional.parentUnitId === unit.id).map((candidate) => candidate.id) }))
       }, outputSchema: JdAnalyzerModelOutputSchema });
       await repository.saveAiLogs([result.log]);
       if (!result.ok) {
-        const fallback = projectJobGraphV3ToAnalyzerOutput({ graph: deterministicGraph, title, company });
-        const validation = reconcileJobRequirementGraphV3({ rawText: rawInput.rawText });
-        const saved = await saveDraft(appendJobAnalysisRun({ ...analyzing, status: validation.status === "validated" ? "manual_mode" : "needs_review", attemptCount: analyzing.attemptCount + 1, manualRequirements: fallback.requirements, requirementGraph: validation.graph, analysisIssues: validation.issues, riskNotes: fallback.riskNotes, saveError: result.errorCode }, { ...currentRun, status: "local_ready_ai_failed", finishedAt: new Date().toISOString(), sourceUnitCount: deterministic.sourceUnits?.length ?? 0, assignmentCount: 0, graphHash: validation.graph.graphHash, errorCode: result.errorCode }));
+        const fallback = projectJobGraphV4ToAnalyzerOutput({ graph: deterministicGraph, title, company });
+        const analysisIssues = deterministic.validation.issues.map((item) => item.message);
+        const saved = await saveDraft(appendJobAnalysisRun({ ...analyzing, status: deterministic.validation.status === "validated" ? "manual_mode" : "needs_review", attemptCount: analyzing.attemptCount + 1, manualRequirements: fallback.requirements, requirementGraph: deterministicGraph, analysisIssues, riskNotes: fallback.riskNotes, saveError: result.errorCode }, { ...currentRun, status: "local_ready_ai_failed", finishedAt: new Date().toISOString(), sourceUnitCount: deterministic.provisionalUnits.length, assignmentCount: 0, graphHash: deterministicGraph.graphHash, errorCode: result.errorCode }));
         setDraft(saved); setJobError(undefined); setFailedAction("analyze");
         notify({ type: "warning", title: "本地解析已完成，AI 增强未完成", message: "岗位职责、条件和申请材料已经整理完成。你可以直接核对并提交，或重试 AI 增强。" });
         return;
       }
       const modelOutput = { ...result.data, requirements: [] };
-      const reconciled = reconcileJobRequirementGraphV3({ rawText: rawInput.rawText, aiOutput: modelOutput });
-      const projection = projectJobGraphV3ToAnalyzerOutput({ graph: reconciled.graph, title, company });
+      const reconciled = analyzeJobDescriptionV4({ rawText: rawInput.rawText, aiAssignments: result.data.unitAssignments });
+      const projection = projectJobGraphV4ToAnalyzerOutput({ graph: reconciled.graph, title, company });
       const analyzerOutput = { ...modelOutput, requirements: projection.requirements, riskNotes: [...result.data.riskNotes, ...projection.riskNotes] };
-      const saved = await saveDraft(appendJobAnalysisRun({ ...analyzing, status: reconciled.status === "validated" ? "ai_validated" : "needs_review", attemptCount: analyzing.attemptCount + 1, promptVersion: result.promptVersion, analyzerOutput, requirementGraph: reconciled.graph, analysisIssues: reconciled.issues, riskNotes: analyzerOutput.riskNotes, saveError: undefined }, { ...currentRun, status: "review_ready", finishedAt: new Date().toISOString(), sourceUnitCount: deterministic.sourceUnits?.length ?? 0, assignmentCount: result.data.unitAssignments.length, graphHash: reconciled.graph.graphHash, semanticEnrichmentHash: reconciled.graph.semanticEnrichmentHash }));
+      const analysisIssues = reconciled.validation.issues.map((item) => item.message);
+      const saved = await saveDraft(appendJobAnalysisRun({ ...analyzing, status: reconciled.validation.status === "validated" ? "ai_validated" : "needs_review", attemptCount: analyzing.attemptCount + 1, promptVersion: result.promptVersion, analyzerOutput, requirementGraph: reconciled.graph, analysisIssues, riskNotes: analyzerOutput.riskNotes, saveError: undefined }, { ...currentRun, status: "review_ready", finishedAt: new Date().toISOString(), sourceUnitCount: deterministic.provisionalUnits.length, assignmentCount: result.data.unitAssignments.length, graphHash: reconciled.graph.graphHash, semanticEnrichmentHash: reconciled.graph.semanticEnrichmentHash }));
       setDraft(saved); setJobError(undefined); setFailedAction(undefined);
-      notify(reconciled.status === "validated"
+      notify(reconciled.validation.status === "validated"
         ? { type: "success", title: "岗位解析完成", message: "请核对要求与原文依据，再提交正式岗位。" }
-        : { type: "warning", title: "岗位解析需要核对", message: reconciled.issues.join("；") || "部分来源尚未完整覆盖，请核对缺失区域。" });
+        : { type: "warning", title: "岗位解析需要核对", message: analysisIssues.join("；") || "部分来源尚未完整覆盖，请核对缺失区域。" });
     } catch {
-      const fallback = createManualJdOutput(rawInput.rawText, title, company);
-      const validation = reconcileJobRequirementGraphV3({ rawText: rawInput.rawText });
+      const validation = analyzeJobDescriptionV4({ rawText: rawInput.rawText });
+      const fallback = projectJobGraphV4ToAnalyzerOutput({ graph: validation.graph, title, company });
       try {
-        const currentRun = draft.analysisRuns?.at(-1) ?? { id: `job-run-${nanoid(8)}`, startedAt: new Date().toISOString(), status: "saved" as const, analyzerVersion: "job-requirement-analyzer-v3" };
-        const saved = await saveDraft(appendJobAnalysisRun({ ...draft, status: validation.status === "validated" ? "manual_mode" : "needs_review", attemptCount: draft.attemptCount + 1, manualRequirements: fallback.requirements, requirementGraph: validation.graph, analysisIssues: validation.issues, riskNotes: fallback.riskNotes, saveError: "provider_unavailable" }, { ...currentRun, status: "local_ready_ai_failed", finishedAt: new Date().toISOString(), graphHash: validation.graph.graphHash, errorCode: "provider_unavailable" }));
+        const currentRun = draft.analysisRuns?.at(-1) ?? { id: `job-run-${nanoid(8)}`, startedAt: new Date().toISOString(), status: "saved" as const, analyzerVersion: "jd-analyzer.semantic-ledger-v4.0" };
+        const saved = await saveDraft(appendJobAnalysisRun({ ...draft, status: validation.validation.status === "validated" ? "manual_mode" : "needs_review", attemptCount: draft.attemptCount + 1, manualRequirements: fallback.requirements, requirementGraph: validation.graph, analysisIssues: validation.validation.issues.map((item) => item.message), riskNotes: fallback.riskNotes, saveError: "provider_unavailable" }, { ...currentRun, status: "local_ready_ai_failed", finishedAt: new Date().toISOString(), graphHash: validation.graph.graphHash, errorCode: "provider_unavailable" }));
         setDraft(saved);
       } catch { /* The persistent error card retains the original input. */ }
       setJobError(undefined); setFailedAction("analyze");
@@ -233,10 +233,10 @@ export function JobsWorkspace() {
   async function enterManualMode() {
     if (!draft || !rawInput) return;
     try {
-      const fallback = createManualJdOutput(rawInput.rawText, title, company);
-      const validation = reconcileJobRequirementGraphV3({ rawText: rawInput.rawText });
-      const currentRun = draft.analysisRuns?.at(-1) ?? { id: `job-run-${nanoid(8)}`, startedAt: new Date().toISOString(), status: "saved" as const, analyzerVersion: "job-requirement-analyzer-v3" };
-      const saved = await saveDraft(appendJobAnalysisRun({ ...draft, status: validation.status === "validated" ? "manual_mode" : "needs_review", manualRequirements: draft.manualRequirements.length ? draft.manualRequirements : fallback.requirements, requirementGraph: validation.graph, analysisIssues: validation.issues, riskNotes: fallback.riskNotes }, { ...currentRun, status: "review_ready", finishedAt: new Date().toISOString(), graphHash: validation.graph.graphHash }));
+      const validation = analyzeJobDescriptionV4({ rawText: rawInput.rawText });
+      const fallback = projectJobGraphV4ToAnalyzerOutput({ graph: validation.graph, title, company });
+      const currentRun = draft.analysisRuns?.at(-1) ?? { id: `job-run-${nanoid(8)}`, startedAt: new Date().toISOString(), status: "saved" as const, analyzerVersion: "jd-analyzer.semantic-ledger-v4.0" };
+      const saved = await saveDraft(appendJobAnalysisRun({ ...draft, status: validation.validation.status === "validated" ? "manual_mode" : "needs_review", manualRequirements: draft.manualRequirements.length ? draft.manualRequirements : fallback.requirements, requirementGraph: validation.graph, analysisIssues: validation.validation.issues.map((item) => item.message), riskNotes: fallback.riskNotes }, { ...currentRun, status: "review_ready", finishedAt: new Date().toISOString(), graphHash: validation.graph.graphHash }));
       setDraft(saved); setJobError(undefined); setFailedAction(undefined);
       notify({ type: "warning", title: "已使用本地解析", message: "外部模型不会被调用，请核对本地岗位要求草稿。" });
     } catch (error) { setJobError(jobWorkflowErrorState(error, "repository_save_failed")); }
@@ -492,12 +492,14 @@ function DraftReview({ draft, output, onToggle, onToggleAll, onRemove }: { draft
   const section = (title: string, nodes: NonNullable<typeof graph>["requirements"], description?: string) => nodes.length ? <section className="job-draft-section"><header><div><h3>{title}</h3>{description ? <p>{description}</p> : null}</div><span>{nodes.length} 条</span></header><div className="requirement-review-list">{nodes.map((node) => { const requirement = output.requirements.find((item) => item.id === node.id); return requirement ? <RequirementReviewRow key={node.id} requirement={requirement} details={node.details} onToggle={onToggle} onRemove={onRemove} /> : null; })}</div></section> : null;
   return <section className="job-draft-review"><header><div><h2>{draft.analyzerOutput ? "岗位语义核对" : "本地岗位语义核对"}</h2><p>按职责、条件与申请材料核对；子详情不会作为独立要求计分。</p></div><button className="secondary-button compact" type="button" onClick={() => onToggleAll(!allChecked)}>{allChecked ? "取消全选" : "全选"}</button></header>{graph ? <div className="job-draft-sections">
     {graph.roleProfile.mission ? <section className="job-draft-section"><header><h3>岗位核心使命</h3></header><p className="job-mission-copy">{graph.roleProfile.mission}</p></section> : null}
-    {section("工作职责", graph.requirements.filter((node) => node.section === "responsibility"))}
+    {section("工作职责", graph.requirements.filter((node) => node.section === "responsibility" && node.statement !== graph.roleProfile.mission))}
+    {graph.schemaVersion === "job-requirement-graph-v4" && graph.contextGroups.length ? <section className="job-draft-section context-groups"><header><div><h3>岗位上下文</h3><p>用于理解岗位方向，不计入匹配分母。</p></div><span>{graph.contextGroups.length} 组</span></header>{graph.contextGroups.map((group) => <article key={group.id}><strong>{group.label}</strong><ul>{group.details.map((detail) => <li key={detail.id}>{detail.text}</li>)}</ul></article>)}</section> : null}
     {section("必备条件", graph.requirements.filter((node) => node.section === "required"), graph.groups.find((group) => group.relation === "any_of") ? `以下 ${graph.groups.find((group) => group.relation === "any_of")!.requirementIds.length} 条满足任意 1 条即可` : undefined)}
     {section("加分条件", graph.requirements.filter((node) => node.section === "preferred"), graph.groups.find((group) => group.relation === "preferred_any_of") ? `以下 ${graph.groups.find((group) => group.relation === "preferred_any_of")!.requirementIds.length} 条具备任意一条均为加分` : undefined)}
     {graph.verificationMaterials.length ? <section className="job-draft-section verification-materials"><header><div><h3>验证材料</h3><p>用于申请材料清单，不计入技能或硬性条件。</p></div><span>{graph.verificationMaterials.length} 条</span></header>{graph.verificationMaterials.map((item) => <article key={item.id}><strong>{item.label}</strong>{item.requiredComponents.length ? <small>{item.requiredComponents.join(" · ")}</small> : null}</article>)}</section> : null}
     {graph.roleProfile.hiringSignals.length ? <section className="job-draft-section hiring-signals"><header><div><h3>招聘画像</h3><p>招聘方关注特征，用于自我评价与项目叙事。</p></div><span>{graph.roleProfile.hiringSignals.length} 条</span></header>{graph.roleProfile.hiringSignals.map((item) => <article key={item.id}>{item.statement}</article>)}</section> : null}
-    {graph.sourceCoverage.unassignedUnitIds.length ? <section className="job-draft-section"><header><h3>未分类内容</h3></header>{graph.sourceUnits?.filter((unit) => graph.sourceCoverage.unassignedUnitIds.includes(unit.id)).map((unit) => <p key={unit.id}>{unit.text}</p>)}</section> : null}
+    {graph.sourceCoverage.unassignedUnitIds.length ? <section className="job-draft-section"><header><h3>未分类内容</h3></header>{(graph.schemaVersion === "job-requirement-graph-v4" ? graph.semanticUnits : graph.sourceUnits)?.filter((unit) => graph.sourceCoverage.unassignedUnitIds.includes(unit.id)).map((unit) => <p key={unit.id}>{unit.text}</p>)}</section> : null}
+    {draft.analysisIssues?.length ? <section className="job-analysis-warning" role="status"><strong>需要核对的来源问题</strong><ul>{draft.analysisIssues.map((issue) => <li key={issue}>{issue}</li>)}</ul></section> : null}
   </div> : <div className="requirement-review-list">{output.requirements.map((requirement) => <RequirementReviewRow key={requirement.id} requirement={requirement} details={[]} onToggle={onToggle} onRemove={onRemove} />)}</div>}</section>;
 }
 
