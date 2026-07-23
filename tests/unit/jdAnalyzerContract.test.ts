@@ -9,7 +9,7 @@ describe("JD analyzer model contract", () => {
 
   it("strips extra fields and permits accept without reason", () => {
     expect(normalizeJdUnitAssignment({ sourceUnitId: " unit-1 ", verdict: "ACCEPT", confidence: "high", sourceText: "private" })).toEqual({
-      sourceUnitId: "unit-1", verdict: "accept", confidence: 0.9
+      sourceUnitId: "unit-1", verdict: "accept"
     });
   });
 

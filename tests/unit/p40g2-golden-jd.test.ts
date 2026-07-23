@@ -24,7 +24,7 @@ describe("P4.0g.2 golden JD semantic ledger", () => {
 
   it("keeps canonical hash stable across enrichment differences", () => {
     const base = analyzeJobDescriptionV3({ rawText: AI_CODING_TASK_DESIGNER_JD });
-    const assignments = base.sourceUnits!.map((unit, index) => ({ sourceUnitId: unit.id, disposition: unit.disposition, confidence: index % 2 ? 0.51 : 0.99, reason: `run-${index}` }));
+    const assignments = base.sourceUnits!.map((unit, index) => ({ sourceUnitId: unit.id, verdict: "override" as const, disposition: unit.disposition === "wrapper" ? "group_wrapper" as const : unit.disposition, confidence: index % 2 ? 0.51 : 0.99, reason: `run-${index}` }));
     const first = reconcileJobRequirementGraphV3({ rawText: AI_CODING_TASK_DESIGNER_JD, aiOutput: { requirements: [], unitAssignments: assignments, riskNotes: [] } }).graph;
     const second = reconcileJobRequirementGraphV3({ rawText: AI_CODING_TASK_DESIGNER_JD, aiOutput: { requirements: [], unitAssignments: [...assignments].reverse().map((a) => ({ ...a, confidence: 0.77, reason: "changed" })), riskNotes: [] } }).graph;
     expect(first.graphHash).toBe(second.graphHash);
@@ -49,8 +49,8 @@ describe("P4.0g.2 golden JD semantic ledger", () => {
     const base = analyzeJobDescriptionV3({ rawText: AI_CODING_TASK_DESIGNER_JD });
     const detail = base.sourceUnits!.find((unit) => unit.disposition === "requirement_detail")!;
     const result = reconcileJobRequirementGraphV3({ rawText: AI_CODING_TASK_DESIGNER_JD, aiOutput: { requirements: [], unitAssignments: [
-      { sourceUnitId: detail.id, disposition: "requirement", confidence: 0.99, reason: "promote" },
-      { sourceUnitId: "invented-unit", disposition: "requirement", confidence: 0.99, reason: "invented" }
+      { sourceUnitId: detail.id, verdict: "override", disposition: "requirement", confidence: 0.99, reason: "promote" },
+      { sourceUnitId: "invented-unit", verdict: "override", disposition: "requirement", confidence: 0.99, reason: "invented" }
     ], riskNotes: [] } });
     expect(result.status).toBe("needs_review");
     expect(result.graph.sourceCoverage.inventedReferenceCount).toBe(1);

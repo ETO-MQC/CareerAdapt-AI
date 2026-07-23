@@ -4,6 +4,8 @@ import type { CareerProfile, ResumeTailoringPlan } from "@/domain/schemas";
 import { CareerAdaptDb } from "@/services/storage/db";
 import { WorkspaceRepository } from "@/services/storage/repositories";
 import { presentationSnapshotFromConfig } from "@/services/export/snapshot";
+import { analyzeJobFit } from "@/services/jobs/tailoringService";
+import { JobDescriptionSchema } from "@/domain/schemas";
 
 const NOW = "2026-07-20T08:00:00.000Z";
 let db: CareerAdaptDb | undefined;
@@ -84,6 +86,132 @@ describe("Tailoring Engine v2 repository application", () => {
     expect(skill?.data).toMatchObject({ id: "skill-cursor", sectionType: "skills", name: "Cursor" });
     expect(skill).toMatchObject({ source: "user_manual", factRefs: [], userConfirmation: { scope: "resume_only" } });
     expect((await repository.getResumeBranch(general.branch.id))?.structuredContentItems).toEqual(general.branch.structuredContentItems);
+  });
+
+  it("applies valid diffs independently, preserves presentation, and supports undo", async () => {
+    const profile = fixtureProfile();
+    const job = buildJobBranchFromProfile({
+      profile,
+      jobId: "job-diff",
+      jobTitle: "AI 评测工程师",
+      jobVersion: "job-v1",
+      operationId: "job-diff-create",
+      name: "岗位简历",
+      selectedCanonicalItemIds: ["smartfocus"],
+      requirementMatchIds: [],
+      sourceMatchSetHash: "match-hash-diff",
+      now: NOW
+    });
+    db = new CareerAdaptDb(`TailoringDiff-${crypto.randomUUID()}`);
+    const repository = new WorkspaceRepository(db);
+    await repository.saveProfile(profile);
+    const fitJob = JobDescriptionSchema.parse({
+      id: "job-diff",
+      title: "AI 评测工程师",
+      company: "测试公司",
+      rawText: "负责 RAG 输出验证。",
+      source: "manual",
+      requirements: [{
+        id: "req-rag",
+        category: "core_skill",
+        description: "具备 RAG 输出验证经验。",
+        priority: "high",
+        hardConstraint: false,
+        sourceSpan: { start: 3, end: 11, text: "RAG 输出验证" },
+        keywords: ["RAG", "输出验证"],
+        confidence: 1,
+        createdAt: NOW,
+        updatedAt: NOW
+      }],
+      createdAt: NOW,
+      updatedAt: NOW
+    });
+    await repository.saveJobDescription(fitJob);
+    await repository.saveResumeBranch(job.branch);
+    await db.resumeRevisions.put(job.firstRevision);
+    const presentationBefore = presentationSnapshotFromConfig(await repository.getResumePresentationConfig(job.branch.id));
+    const structured = job.branch.structuredContentItems![0];
+    if (structured.data.sectionType !== "project") throw new Error("project_fixture_expected");
+    const before = structured.data.highlights;
+    const after = [...before, "验证 RAG 输出并定位逻辑缺陷"];
+    const valid = {
+      target: { sectionId: "project", itemId: structured.id, fieldPath: "highlights" as const },
+      operation: "replace" as const,
+      original: before,
+      value: after,
+      reason: "突出已验证的模型输出评估经验",
+      requirementIds: ["req-eval"],
+      targetKeywords: ["输出质量评估", "逻辑缺陷识别"],
+      evidenceRefs: [{ type: "experience_fact" as const, experienceId: "smartfocus", factId: "fact-rag", factQuote: profile.experiences[0].facts[0].statement, factText: profile.experiences[0].facts[0].statement }],
+      supportLevel: "verified" as const
+    };
+    const stale = { ...valid, original: ["旧 Revision 文本"], value: ["不会写入"] };
+
+    const applied = await repository.applyTailoringDiffs({
+      branchId: job.branch.id,
+      jobId: "job-diff",
+      diffs: [valid, stale],
+      operationId: "apply-diffs-partial",
+      expectedBranchRevision: job.branch.revision,
+      expectedRevisionId: job.branch.currentRevisionId!
+    });
+    expect(applied.appliedDiffs).toHaveLength(1);
+    expect(applied.rejectedDiffs).toEqual([expect.objectContaining({ reasonCode: "original_mismatch" })]);
+    expect(applied.revision).toBeDefined();
+    expect(presentationSnapshotFromConfig(await repository.getResumePresentationConfig(job.branch.id))).toEqual(presentationBefore);
+    const updated = applied.branch.structuredContentItems?.find((item) => item.id === structured.id);
+    expect(updated?.data.sectionType === "project" ? updated.data.highlights : []).toEqual(after);
+    const beforeFit = analyzeJobFit({ profile, branch: job.branch, job: fitJob }).report!.overallCoverage;
+    const afterFit = analyzeJobFit({ profile, branch: applied.branch, job: fitJob }).report!.overallCoverage;
+    expect([beforeFit, afterFit]).toEqual([0, 50]);
+
+    const undone = await repository.undoResumeBranch({ branchId: job.branch.id, expectedRevision: applied.branch.revision, operationId: "undo-diffs-partial" });
+    expect(undone.branch.structuredContentItems).toEqual(job.branch.structuredContentItems);
+  });
+
+  it("does not create an empty revision when every diff is rejected", async () => {
+    const profile = fixtureProfile();
+    const job = buildJobBranchFromProfile({
+      profile,
+      jobId: "job-empty-diff",
+      jobTitle: "AI 评测工程师",
+      jobVersion: "job-v1",
+      operationId: "job-empty-create",
+      name: "岗位简历",
+      selectedCanonicalItemIds: ["smartfocus"],
+      requirementMatchIds: [],
+      sourceMatchSetHash: "match-hash-empty",
+      now: NOW
+    });
+    db = new CareerAdaptDb(`TailoringEmptyDiff-${crypto.randomUUID()}`);
+    const repository = new WorkspaceRepository(db);
+    await repository.saveProfile(profile);
+    await repository.saveJobDescription({ id: "job-empty-diff", title: "AI 评测工程师", company: "测试公司", rawText: "负责模型输出质量评估与逻辑缺陷识别。", source: "manual", requirements: [], createdAt: NOW, updatedAt: NOW });
+    await repository.saveResumeBranch(job.branch);
+    await db.resumeRevisions.put(job.firstRevision);
+    const structured = job.branch.structuredContentItems![0];
+    const beforeRevisionCount = await db.resumeRevisions.count();
+    const result = await repository.applyTailoringDiffs({
+      branchId: job.branch.id,
+      jobId: "job-empty-diff",
+      diffs: [{
+        target: { sectionId: "project", itemId: structured.id, fieldPath: "description" },
+        operation: "replace",
+        original: "stale",
+        value: "new",
+        reason: "stale test",
+        requirementIds: ["req-eval"],
+        targetKeywords: [],
+        evidenceRefs: [],
+        supportLevel: "reasonable_inference"
+      }],
+      operationId: "apply-empty-diffs",
+      expectedBranchRevision: job.branch.revision,
+      expectedRevisionId: job.branch.currentRevisionId!
+    });
+    expect(result.revision).toBeUndefined();
+    expect(result.branch.revision).toBe(job.branch.revision);
+    expect(await db.resumeRevisions.count()).toBe(beforeRevisionCount);
   });
 });
 

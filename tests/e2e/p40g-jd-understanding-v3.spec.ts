@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 
 const JD_TEXT = `AI 软件工程师
 岗位职责
@@ -31,94 +31,55 @@ test.describe("P4.0g JD Understanding v3 E2E", () => {
   });
 
   test("同一 JD 连续解析两次，结构一致", async ({ page }) => {
-    // First parse
-    const jdInput = page.locator("textarea, [contenteditable]").first();
-    await jdInput.fill(JD_TEXT);
-    const submitBtn = page.locator("button").filter({ hasText: /解析|提交|分析|保存/ }).first();
-    await submitBtn.click();
-    await page.waitForTimeout(2000);
+    const firstDialog = await analyzeFixture(page, "AI 软件工程师 A");
+    const firstResult = await firstDialog.locator(".review-row").count();
+    await firstDialog.getByRole("button", { name: "关闭岗位解析窗口" }).click();
+    await expect(firstDialog).toBeHidden();
 
-    // Capture first result
-    const firstResult = await page.locator(".requirement-item, [data-requirement]").count();
-
-    // Navigate away and back
-    await page.goto("/");
-    await page.goto("/jobs");
-    await page.waitForLoadState("networkidle");
-
-    // Second parse with same JD
-    const jdInput2 = page.locator("textarea, [contenteditable]").first();
-    await jdInput2.fill(JD_TEXT);
-    const submitBtn2 = page.locator("button").filter({ hasText: /解析|提交|分析|保存/ }).first();
-    await submitBtn2.click();
-    await page.waitForTimeout(2000);
-
-    // Verify structure is consistent
-    const secondResult = await page.locator(".requirement-item, [data-requirement]").count();
+    const secondDialog = await analyzeFixture(page, "AI 软件工程师 A");
+    const secondResult = await secondDialog.locator(".review-row").count();
     expect(secondResult).toBe(firstResult);
   });
 
   test("页面不出现包装句作为 requirement", async ({ page }) => {
-    const jdInput = page.locator("textarea, [contenteditable]").first();
-    await jdInput.fill(JD_TEXT);
-    const submitBtn = page.locator("button").filter({ hasText: /解析|提交|分析|保存/ }).first();
-    await submitBtn.click();
-    await page.waitForTimeout(2000);
+    const dialog = await analyzeFixture(page, "AI 软件工程师 B");
 
     // Wrapper texts should NOT appear as requirements
-    const pageText = await page.locator("body").textContent();
-    expect(pageText).not.toContain("满足以下任一条件即可");
-    expect(pageText).not.toContain("具备以下任一条件者优先");
-    expect(pageText).not.toContain("根据自身情况提供以下材料");
+    const requirements = await dialog.locator(".review-row strong").allTextContents();
+    expect(requirements).not.toContain("满足以下任一条件即可");
+    expect(requirements).not.toContain("具备以下任一条件者优先");
+    expect(requirements).not.toContain("根据自身情况提供以下材料");
   });
 
   test("提交正式岗位后 Graph 与平面要求一致", async ({ page }) => {
-    const jdInput = page.locator("textarea, [contenteditable]").first();
-    await jdInput.fill(JD_TEXT);
-    const submitBtn = page.locator("button").filter({ hasText: /解析|提交|分析|保存/ }).first();
-    await submitBtn.click();
-    await page.waitForTimeout(2000);
-
-    // Submit formal job
-    const formalSubmit = page.locator("button").filter({ hasText: /提交|确认|正式/ }).first();
-    if (await formalSubmit.isVisible()) {
-      await formalSubmit.click();
-      await page.waitForTimeout(2000);
-    }
+    await analyzeFixture(page, "AI 软件工程师 C", true);
+    await page.getByRole("tab", { name: "岗位要求" }).click();
 
     // Verify requirements are displayed (excluding headings/wrappers)
-    const requirementItems = page.locator(".requirement-item, [data-requirement]");
+    const requirementItems = page.locator(".job-requirement-cards article");
     const count = await requirementItems.count();
     expect(count).toBeGreaterThan(0);
 
     // Verify headings are not shown as requirements
-    const allText = await page.locator("body").textContent();
-    expect(allText).not.toMatch(/^(岗位职责|任职要求|加分项|验证材料|候选人画像)$/);
+    const allText = await page.locator(".job-requirement-cards").textContent();
+    expect(allText).not.toContain("满足以下任一条件即可");
   });
 
   test("岗位定制使用正确的 must-any-of 子项", async ({ page }) => {
-    const jdInput = page.locator("textarea, [contenteditable]").first();
-    await jdInput.fill(JD_TEXT);
-    const submitBtn = page.locator("button").filter({ hasText: /解析|提交|分析|保存/ }).first();
-    await submitBtn.click();
-    await page.waitForTimeout(2000);
+    const dialog = await analyzeFixture(page, "AI 软件工程师 D");
 
     // Check for any_of group in the UI
-    const pageText = await page.locator("body").textContent();
+    const pageText = await dialog.textContent();
     // The any_of group should have children listed
     expect(pageText).toContain("RAG");
     expect(pageText).toContain("Agent");
   });
 
   test("验证材料进入申请清单，不进入技能改写", async ({ page }) => {
-    const jdInput = page.locator("textarea, [contenteditable]").first();
-    await jdInput.fill(JD_TEXT);
-    const submitBtn = page.locator("button").filter({ hasText: /解析|提交|分析|保存/ }).first();
-    await submitBtn.click();
-    await page.waitForTimeout(2000);
+    const dialog = await analyzeFixture(page, "AI 软件工程师 E");
 
     // Verification materials should be visible
-    const pageText = await page.locator("body").textContent();
+    const pageText = await dialog.textContent();
     expect(pageText).toContain("GitHub");
     expect(pageText).toContain("作品集");
   });
@@ -186,3 +147,21 @@ test.describe("P4.0g JD Understanding v3 E2E", () => {
     }
   });
 });
+
+async function analyzeFixture(page: Page, title: string, commit = false) {
+  await page.getByLabel("岗位名称").fill(title);
+  await page.getByLabel("公司名称").fill("脱敏测试公司");
+  await page.getByLabel("岗位描述").fill(JD_TEXT);
+  await page.getByRole("button", { name: "保存并分析岗位" }).click();
+  const dialog = page.getByRole("dialog", { name: title });
+  await expect(dialog).toBeVisible();
+  const localButton = dialog.getByTestId("job-manual-mode-dialog");
+  if (await localButton.isVisible()) await localButton.click();
+  await expect(dialog.locator(".review-row").first()).toBeVisible();
+  if (commit) {
+    await dialog.getByTestId("commit-job").click();
+    await expect(dialog).toBeHidden();
+    await expect(page.getByRole("heading", { name: title })).toBeVisible();
+  }
+  return dialog;
+}

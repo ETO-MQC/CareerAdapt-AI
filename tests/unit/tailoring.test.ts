@@ -130,6 +130,13 @@ describe("tailoring application service", () => {
     expect(answered.claims.at(-1)?.proposedText).toContain("Cursor");
   });
 
+  it("records a negative clarification answer and does not create a claim", () => {
+    const question = { id: "q-negative", question: "你使用过 Cursor 吗？", requirementIds: ["req-cursor"], sourceItemIds: ["skill-1"], relatedItemIds: ["skill-1"], candidateClaim: "Cursor", targetFieldPaths: ["description"], answerType: "boolean" as const };
+    const answered = answerTailoringClarification({ plan: { ...plan, claims: [] }, question, answer: false });
+    expect(answered.claims).toHaveLength(0);
+    expect(answered.clarificationAnswers).toEqual([expect.objectContaining({ questionId: "q-negative", status: "rejected", answer: false })]);
+  });
+
   it("builds a safe fallback patch when clarification has no deterministic suggestion", () => {
     const question = { id: "q-fallback", question: "请描述 badcase", requirementIds: ["req-badcase"], sourceItemIds: ["project-1"], relatedItemIds: ["project-1"], candidateClaim: "badcase 复盘", targetFieldPaths: ["sections.project.items.project-1.highlights"], answerType: "text" as const };
     const branch = { contentItems: [{ id: "project-1", text: "定位并修复模型输出问题" }], structuredContentItems: [{ id: "project-1", data: { id: "project-1", sectionType: "project", highlights: ["定位并修复模型输出问题"] } }] } as never;
