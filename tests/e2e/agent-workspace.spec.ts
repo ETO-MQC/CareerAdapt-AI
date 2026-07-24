@@ -47,7 +47,7 @@ test.describe("AI workspace shell", () => {
     await page.goto("/resume");
     await expect(page.getByText("正在处理")).toBeVisible();
     await expect(page.getByRole("status").getByText("生成岗位定制简历")).toBeVisible();
-    await page.getByRole("link", { name: "返回 AI 任务" }).click();
+    await page.getByRole("link", { name: "返回任务" }).click();
     await expect(page.getByRole("heading", { name: "生成岗位定制简历" })).toBeVisible();
 
     await page.locator('input[type="file"]').setInputFiles("tests/fixtures/pdf/chinese-resume-reportlab.pdf");
@@ -160,7 +160,7 @@ test.describe("AI workspace shell", () => {
     await expect(page.getByRole("heading", { name: "保存这个岗位？" })).toBeVisible();
     await page.getByRole("button", { name: "确认并继续" }).click();
     await page.getByRole("button", { name: "分析匹配并生成建议" }).click();
-    await expect(page.locator(".agent-task-panel")).not.toHaveAttribute("data-workflow-step", "generate_plan", { timeout: 20_000 });
+    await expect(page.locator(".agent-interactive-card")).not.toHaveAttribute("data-workflow-step", "generate_plan", { timeout: 20_000 });
     await expect(page.locator("#agent-question-answer")).toBeVisible({ timeout: 60_000 });
     await page.locator("#agent-question-answer").fill("我参与过 AI 应用项目的需求梳理、原型设计和功能验收。");
     await page.getByRole("button", { name: "提交回答" }).click();
