@@ -23,6 +23,10 @@ import { ApplicationMaterialsPanel } from "@/components/applications/materials/A
 import { hashBytes, stableHashText } from "@/services/security/text";
 import { WorkspaceRepository, type ApplicationContext } from "@/services/storage/repositories";
 import { WorkspaceEmptyState, WorkspaceErrorState, WorkspaceLoadingState } from "@/components/workspace/WorkspaceStates";
+import {
+  ProductEmptyState,
+  ProductTopbar
+} from "@/components/ui/product";
 
 const repository = new WorkspaceRepository();
 
@@ -169,31 +173,34 @@ export function ApplicationWorkspace() {
 
   return (
     <main className="page-shell application-workspace" data-testid="application-workspace">
-      <section className="page-title no-print">
-        <p className="eyebrow">求职进度</p>
-        <h1>求职进度</h1>
-        <p>集中管理岗位机会、岗位定制简历、导出记录、投递状态、日期提醒和过程时间线。</p>
-      </section>
+      <ProductTopbar title="求职进度" status={applications.length ? `${applications.length} 条记录` : "暂无记录"} />
 
       {message ? <section className="notice no-print">{message}</section> : null}
 
       {!loadState.profileId ? <WorkspaceEmptyState /> : null}
 
-      <ApplicationFilters
-        filters={filters}
-        viewMode={viewMode}
-        onFiltersChange={setFilters}
-        onViewModeChange={setViewMode}
-      />
+      {applications.length ? (
+        <ApplicationFilters
+          filters={filters}
+          viewMode={viewMode}
+          onFiltersChange={setFilters}
+          onViewModeChange={setViewMode}
+        />
+      ) : null}
 
       <section className="application-workarea">
         <div className="application-primary-pane">
           {applications.length === 0 ? (
-            <section className="panel application-empty" data-testid="applications-empty-state">
-              <h2>暂无投递记录</h2>
-              <p>打开一份岗位定制简历，点击“加入求职进度”后，会在这里出现第一条投递记录。</p>
-              <Link className="primary-link" href="/resume">去简历工作台</Link>
-            </section>
+            <ProductEmptyState
+              title="暂无投递记录"
+              description="选择一份岗位定制简历后，可在这里管理投递状态、材料与时间线。"
+              actions={(
+                <>
+                  <Link className="product-button" data-variant="primary" href="/resume">选择岗位简历</Link>
+                  <Link className="product-button" data-variant="secondary" href="/ai-workspace">返回 AI 助手</Link>
+                </>
+              )}
+            />
           ) : filteredApplications.length === 0 ? (
             <section className="panel application-empty" data-testid="applications-empty-result">
               <h2>没有符合条件的机会</h2>
@@ -226,10 +233,10 @@ export function ApplicationWorkspace() {
             }}
           />
         ) : (
-          <section className="panel application-detail application-empty" data-testid="application-detail-placeholder">
+          applications.length ? <section className="panel application-detail application-empty" data-testid="application-detail-placeholder">
             <h2>选择一条进度</h2>
             <p>左侧选择机会后，在这里查看时间线、材料、提醒和锁定的投递版本。</p>
-          </section>
+          </section> : null
         )}
       </section>
     </main>

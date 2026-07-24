@@ -30,6 +30,7 @@ import {
 } from "@/domain/schemas";
 import { WorkspaceEmptyState, WorkspaceErrorState, WorkspaceLoadingState } from "@/components/workspace/WorkspaceStates";
 import { FieldInput } from "@/components/editor/FieldInput";
+import { ProductTopbar } from "@/components/ui/product";
 import { StructuredExperienceForm } from "@/components/editor/StructuredExperienceForm";
 import {
   defaultExperienceType,
@@ -1560,11 +1561,7 @@ export function ProfileWorkspace() {
 
   return (
     <main className="page-shell profile-workspace">
-      <section className="page-title">
-        <p className="eyebrow">个人资料库</p>
-        <h1>个人经历资料</h1>
-        <p>维护简历会用到的真实经历、联系方式和技能；导入内容需要你确认后才会进入资料库。</p>
-      </section>
+      <ProductTopbar title="个人资料库" status={profile ? `${profile.name} · 本地已保存` : "未选择人物"} />
 
       {workspace.status === "empty" ? <WorkspaceEmptyState /> : null}
 

@@ -45,6 +45,10 @@ import { ResumeDiagnosticsPanel } from "@/components/resume/diagnostics/ResumeDi
 import { ResumeImportWizard } from "@/components/resume/import/ResumeImportWizard";
 import { JobOptimizationPanel } from "@/components/resume/optimization/JobOptimizationPanel";
 import { FloatingWindow } from "@/components/ui/FloatingWindow";
+import {
+  ProductButton,
+  ProductTopbar
+} from "@/components/ui/product";
 import { buildRequirementBlockMatches, computeRequirementsHash } from "@/domain/jobOptimization";
 import {
   isResumeDiagnosticSnapshotStale,
@@ -3387,13 +3391,18 @@ export function ResumeWorkspace() {
   return (
     <main className={`page-shell resume-workspace ${selectedBranch ? "resume-workspace-studio" : "resume-workspace-center"}`}>
       {!selectedBranch ? (
-        <section className="page-title no-print">
-          <div>
-            <p className="eyebrow">我的简历</p>
-            <h1>我的简历</h1>
-          </div>
-          <p>导入、创建和管理你的简历版本。</p>
-        </section>
+        <ProductTopbar
+          title="我的简历"
+          status={`${activeBranches.length} 份当前简历`}
+          actions={(
+            <>
+              <ProductButton onClick={(event) => openImportDialog("file", event.currentTarget)}>导入</ProductButton>
+              <ProductButton variant="primary" disabled={!profile} onClick={() => { void createGeneralResume({ fromProfile: false }); }}>
+                <Plus aria-hidden="true" /> 新建简历
+              </ProductButton>
+            </>
+          )}
+        />
       ) : null}
 
       {workspace.status === "empty" && !profile ? <WorkspaceEmptyState /> : null}

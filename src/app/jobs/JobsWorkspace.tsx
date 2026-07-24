@@ -30,6 +30,7 @@ import {
 } from "@/domain/match/matcher";
 import { canonicalProfileLibraryItems } from "@/domain/profile/canonicalLibrary";
 import { WorkspaceEmptyState, WorkspaceErrorState, WorkspaceLoadingState } from "@/components/workspace/WorkspaceStates";
+import { ProductTopbar } from "@/components/ui/product";
 import { hashText, redactSensitiveTextForModel, stableHashText } from "@/services/security/text";
 import { RevisionConflictError, WorkspaceRepository } from "@/services/storage/repositories";
 import {
@@ -415,7 +416,7 @@ export function JobsWorkspace() {
 
   return (
     <main className="page-shell jobs-workspace jobs-workspace-v2">
-      <header className="page-title jobs-page-title"><div><p className="eyebrow">岗位工作区</p><h1>岗位与岗位简历</h1></div><p>保存岗位描述，确认要求，再从资料库或现有简历生成独立的岗位简历。</p></header>
+      <ProductTopbar title="岗位" status={`${activeJobs.length} 个当前岗位 · ${archivedJobs.length} 个已归档`} />
       {workspace.status === "empty" ? <WorkspaceEmptyState /> : null}
       {jobError ? <PersistentJobError error={jobError} canUseFallback={Boolean(draft && rawInput)} onRetry={retryFailedJobAction} onFallback={() => void enterManualMode()} /> : null}
 

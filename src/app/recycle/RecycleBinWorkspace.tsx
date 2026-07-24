@@ -5,6 +5,10 @@ import type { JobDescription, ProfileRecycleItem, RecycleBinState, ResumeBranch 
 import { WorkspaceRepository } from "@/services/storage/repositories";
 import { readDeveloperMode } from "@/services/preferences/developerMode";
 import { notify } from "@/services/notifications/store";
+import {
+  ProductSurface,
+  ProductTopbar
+} from "@/components/ui/product";
 
 const repository = new WorkspaceRepository();
 type RecycleFilter = "all" | "resume" | "profile" | "job";
@@ -120,11 +124,8 @@ export function RecycleBinWorkspace() {
 
   return (
     <main className="page-shell recycle-workspace">
-      <header className="page-heading">
-        <div><p className="eyebrow">数据管理</p><h1>回收站</h1></div>
-        <p>删除的内容会先保留在这里。恢复不会改写其他简历或求职记录。</p>
-      </header>
-      <section className="panel recycle-panel">
+      <ProductTopbar title="回收站" status={`${total} 项已删除内容`} />
+      <ProductSurface className="recycle-panel">
         <div className="section-heading compact-heading"><div><h2>已删除内容</h2><p>共 {total} 项</p></div>{developerMode && total > 0 ? <button className="danger-button compact" type="button" onClick={() => { void quickCleanRecycleBin(); }}>快速清理</button> : null}</div>
         <div className="resume-filter-row" role="tablist" aria-label="回收站分类">
           {([['all', '全部', total], ['resume', '简历', branches.length], ['profile', '资料', state.profileItems.length], ['job', '岗位', jobs.length]] as const).map(([key, label, count]) => (
@@ -132,11 +133,12 @@ export function RecycleBinWorkspace() {
           ))}
         </div>
         <div className="recycle-section-list">
-          {sections.resume ? <RecycleSection title="简历" empty={branches.length === 0}>{branches.map((branch) => <RecycleRow key={branch.id} title={branch.name} meta="恢复后进入归档列表" onRestore={() => { void restoreResume(branch); }} onDelete={() => { setPendingDelete({ kind: "resume", item: branch }); setConfirmation(""); }} />)}</RecycleSection> : null}
-          {sections.profile ? <RecycleSection title="个人资料" empty={state.profileItems.length === 0}>{state.profileItems.map((item) => <RecycleRow key={`${item.kind}:${item.id}`} title={item.title} meta="恢复后回到原个人资料" onRestore={() => { void restoreProfile(item); }} onDelete={() => { setPendingDelete({ kind: "profile", item }); setConfirmation(""); }} />)}</RecycleSection> : null}
-          {sections.job ? <RecycleSection title="岗位" empty={jobs.length === 0}>{jobs.map((job) => <RecycleRow key={job.id} title={`${job.company} / ${job.title}`} meta="恢复后进入当前岗位" onRestore={() => { void restoreJob(job); }} onDelete={() => { setPendingDelete({ kind: "job", item: job }); setConfirmation(""); }} />)}</RecycleSection> : null}
+          {sections.resume && branches.length > 0 ? <RecycleSection title="简历">{branches.map((branch) => <RecycleRow key={branch.id} title={branch.name} meta="恢复后进入归档列表" onRestore={() => { void restoreResume(branch); }} onDelete={() => { setPendingDelete({ kind: "resume", item: branch }); setConfirmation(""); }} />)}</RecycleSection> : null}
+          {sections.profile && state.profileItems.length > 0 ? <RecycleSection title="个人资料">{state.profileItems.map((item) => <RecycleRow key={`${item.kind}:${item.id}`} title={item.title} meta="恢复后回到原个人资料" onRestore={() => { void restoreProfile(item); }} onDelete={() => { setPendingDelete({ kind: "profile", item }); setConfirmation(""); }} />)}</RecycleSection> : null}
+          {sections.job && jobs.length > 0 ? <RecycleSection title="岗位">{jobs.map((job) => <RecycleRow key={job.id} title={`${job.company} / ${job.title}`} meta="恢复后进入当前岗位" onRestore={() => { void restoreJob(job); }} onDelete={() => { setPendingDelete({ kind: "job", item: job }); setConfirmation(""); }} />)}</RecycleSection> : null}
+          {total === 0 ? <p className="recycle-empty">回收站为空。</p> : null}
         </div>
-      </section>
+      </ProductSurface>
       {pendingDelete ? <div className="sync-dialog-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setPendingDelete(undefined); }}>
         <section className="sync-dialog profile-delete-dialog" role="dialog" aria-modal="true" aria-labelledby="recycle-delete-title">
           <h2 id="recycle-delete-title">永久删除？</h2>
@@ -149,12 +151,12 @@ export function RecycleBinWorkspace() {
   );
 }
 
-function RecycleSection({ title, empty, children }: { title: string; empty: boolean; children: React.ReactNode }) {
-  return <section className="recycle-section"><div className="recycle-section-heading"><h3>{title}</h3></div>{empty ? <p>暂无内容。</p> : <div className="recycle-list">{children}</div>}</section>;
+function RecycleSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return <section className="recycle-section"><div className="recycle-section-heading"><h3>{title}</h3></div><div className="recycle-list">{children}</div></section>;
 }
 
 function RecycleRow({ title, meta, onRestore, onDelete }: { title: string; meta: string; onRestore: () => void; onDelete: () => void }) {
-  return <article className="recycle-row"><div><strong>{title}</strong><span>{meta}</span></div><div className="action-row"><button className="secondary-button compact" type="button" onClick={onRestore}>恢复</button><button className="danger-button compact" type="button" onClick={onDelete}>永久删除</button></div></article>;
+  return <article className="recycle-row product-data-row"><div><strong>{title}</strong><span>{meta}</span></div><div className="action-row"><button className="secondary-button compact" type="button" onClick={onRestore}>恢复</button><button className="danger-button compact" type="button" onClick={onDelete}>永久删除</button></div></article>;
 }
 
 function deleteLabel(item: PendingDelete) {

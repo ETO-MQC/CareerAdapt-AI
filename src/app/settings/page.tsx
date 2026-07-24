@@ -18,6 +18,11 @@ import { readAiSettings, writeAiSettings, clearAiSettings, type AiSettings } fro
 import { AgentSessionStore } from "@/services/agent/agentSessionStore";
 import type { AgentSession } from "@/agent/contracts/agentSession";
 import { RotateCcw, Trash2 } from "lucide-react";
+import {
+  ProductField,
+  ProductSelect,
+  ProductTopbar
+} from "@/components/ui/product";
 
 type ThemePreference = "system" | "light" | "dark";
 type DensityPreference = "compact" | "comfortable";
@@ -109,9 +114,9 @@ export default function SettingsPage() {
   }
 
   useEffect(() => {
-    if (category === "developer" && !orphanedCounts && !orphanedLoading) {
-      void scanOrphanedData();
-    }
+    if (category !== "developer" || orphanedCounts || orphanedLoading) return;
+    const timer = window.setTimeout(() => { void scanOrphanedData(); }, 0);
+    return () => window.clearTimeout(timer);
   }, [category, orphanedCounts, orphanedLoading, scanOrphanedData]);
 
   async function checkDocumentEngines() {
@@ -151,13 +156,9 @@ export default function SettingsPage() {
 
   return (
     <main className="page-shell settings-workspace">
-      <section className="page-title">
-        <p className="eyebrow">偏好</p>
-        <h1>设置</h1>
-        <p>调整应用界面偏好。简历纸张、模板颜色和 PDF 导出不会随应用主题反转。</p>
-      </section>
+      <ProductTopbar title="设置" status="偏好仅保存在本机" />
 
-      <section className="settings-layout">
+      <section className="settings-layout product-settings-layout">
         <aside className="panel settings-nav">
           {categories.map((item) => (
             <button
@@ -183,21 +184,19 @@ export default function SettingsPage() {
                   <p>偏好保存在本机浏览器，不创建简历版本，也不修改简历正文。</p>
                 </div>
               </div>
-              <label className="field-label">
-                主题
-                <select value={theme} onChange={(event) => updateTheme(event.target.value as ThemePreference)}>
+              <ProductField label="主题">
+                <ProductSelect aria-label="主题" value={theme} onChange={(event) => updateTheme(event.target.value as ThemePreference)}>
                   <option value="system">跟随系统</option>
                   <option value="light">明亮</option>
                   <option value="dark">暗黑</option>
-                </select>
-              </label>
-              <label className="field-label">
-                显示密度
-                <select value={density} onChange={(event) => updateDensity(event.target.value as DensityPreference)}>
+                </ProductSelect>
+              </ProductField>
+              <ProductField label="显示密度">
+                <ProductSelect aria-label="显示密度" value={density} onChange={(event) => updateDensity(event.target.value as DensityPreference)}>
                   <option value="compact">紧凑</option>
                   <option value="comfortable">舒适</option>
-                </select>
-              </label>
+                </ProductSelect>
+              </ProductField>
             </div>
           ) : null}
 
