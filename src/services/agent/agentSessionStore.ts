@@ -15,4 +15,24 @@ export class AgentSessionStore {
   list(limit?: number) {
     return this.repository.listAgentSessions(limit);
   }
+
+  listArchived(limit?: number) {
+    return this.repository.listArchivedAgentSessions(limit);
+  }
+
+  archive(id: string) {
+    return this.repository.archiveAgentSession(id);
+  }
+
+  unarchive(id: string) {
+    return this.repository.unarchiveAgentSession(id);
+  }
+
+  rename(id: string, title: string) {
+    return this.repository.renameAgentSession(id, title);
+  }
+
+  delete(id: string) {
+    return this.repository.deleteAgentSession(id);
+  }
 }

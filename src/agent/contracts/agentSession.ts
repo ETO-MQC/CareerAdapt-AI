@@ -50,6 +50,8 @@ export const AgentSessionSchema = z.object({
   activeJobId: z.string().min(1).optional(),
   conversationSummary: z.string().max(6000).default(""),
   pendingConfirmation: AgentConfirmationSchema.optional(),
+  archived: z.boolean().default(false),
+  archivedAt: z.string().datetime({ offset: true }).optional(),
   createdAt: z.string().datetime({ offset: true }),
   updatedAt: z.string().datetime({ offset: true })
 }).strict();

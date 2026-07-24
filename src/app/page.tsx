@@ -1,5 +1,5 @@
-import { HomeWorkspace } from "./HomeWorkspace";
+import { ModeAwareHome } from "./ModeAwareHome";
 
 export default function HomePage() {
-  return <HomeWorkspace />;
+  return <ModeAwareHome />;
 }

@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { NotificationProvider } from "@/components/notifications/NotificationProvider";
+import { useWorkspaceMode } from "@/components/layout/WorkspaceModeProvider";
+import { WORKSPACE_MODE_OPTIONS } from "@/services/preferences/workspaceMode";
 
 type ThemePreference = "system" | "light" | "dark";
 type DensityPreference = "compact" | "comfortable";
@@ -49,6 +51,7 @@ const pageTitles: Record<string, string> = {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() || "/";
+  const { mode, setMode } = useWorkspaceMode();
   const [theme, setTheme] = useState<ThemePreference>(() => readInitialTheme());
   const [density, setDensity] = useState<DensityPreference>(() => readInitialDensity());
   const [hasSidebarPreference, setHasSidebarPreference] = useState(() => readHasSidebarPreference());
@@ -141,6 +144,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <strong>{currentTitle}</strong>
           </div>
           <div className="topbar-actions">
+            <div className="workspace-mode-compact" aria-label="工作区模式">
+              {WORKSPACE_MODE_OPTIONS.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  aria-pressed={mode === option.value}
+                  className={mode === option.value ? "is-active" : ""}
+                  onClick={() => setMode(option.value)}
+                >
+                  {option.label.replace("模式", "")}
+                </button>
+              ))}
+            </div>
             <details className="appearance-menu">
               <summary className="secondary-button compact">
                 <ShellIcon name="appearance" />

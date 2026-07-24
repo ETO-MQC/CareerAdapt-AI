@@ -15,10 +15,13 @@ import {
   writeDocumentRecognitionPreferences
 } from "@/services/preferences/documentRecognition";
 import { readAiSettings, writeAiSettings, clearAiSettings, type AiSettings } from "@/services/storage/aiSettings";
+import { AgentSessionStore } from "@/services/agent/agentSessionStore";
+import type { AgentSession } from "@/agent/contracts/agentSession";
+import { RotateCcw, Trash2 } from "lucide-react";
 
 type ThemePreference = "system" | "light" | "dark";
 type DensityPreference = "compact" | "comfortable";
-type SettingsCategory = "appearance" | "document" | "export" | "ai" | "developer" | "help";
+type SettingsCategory = "appearance" | "document" | "export" | "ai" | "data" | "developer" | "help";
 
 const themeStorageKey = "careeradapt.theme";
 const densityStorageKey = "careeradapt.density";
@@ -28,6 +31,7 @@ const categories: Array<{ id: SettingsCategory; label: string; description: stri
   { id: "document", label: "文档识别", description: "PDF、DOCX 与本地 OCR" },
   { id: "ai", label: "AI 配置", description: "接口与模型设置" },
   { id: "export", label: "导出", description: "A4 与 PDF 行为" },
+  { id: "data", label: "数据管理", description: "归档任务与回收站" },
   { id: "developer", label: "开发者模式", description: "测试数据清理" },
   { id: "help", label: "帮助", description: "说明入口" }
 ];
@@ -52,6 +56,9 @@ export default function SettingsPage() {
   const [orphanedCounts, setOrphanedCounts] = useState<{ drafts: number; rawInputs: number; pdfSessions: number; orphanedDraftIds: string[]; orphanedRawInputIds: string[]; orphanedPdfSessionIds: string[] } | null>(null);
   const [orphanedLoading, setOrphanedLoading] = useState(false);
   const [orphanedClearing, setOrphanedClearing] = useState(false);
+  const [archivedSessions, setArchivedSessions] = useState<AgentSession[]>([]);
+  const [archivedLoading, setArchivedLoading] = useState(false);
+  const sessionStoreRef = useRef(new AgentSessionStore());
 
   function updateTheme(nextTheme: ThemePreference) {
     setTheme(nextTheme);
@@ -487,6 +494,73 @@ export default function SettingsPage() {
                 <div><dt>PDF</dt><dd>不受应用明亮或暗黑主题影响。</dd></div>
                 <div><dt>模板颜色</dt><dd>由简历工作台的模板设置控制。</dd></div>
               </dl>
+            </div>
+          ) : null}
+
+          {category === "data" ? (
+            <div className="settings-section">
+              <div className="section-heading compact-heading">
+                <div>
+                  <h2>归档任务</h2>
+                  <p>已归档的 AI 任务会从侧栏隐藏，可在此恢复或永久删除。</p>
+                </div>
+                <button
+                  className="secondary-button compact"
+                  type="button"
+                  disabled={archivedLoading}
+                  onClick={() => {
+                    setArchivedLoading(true);
+                    void sessionStoreRef.current.listArchived().then((items) => {
+                      setArchivedSessions(items);
+                      setArchivedLoading(false);
+                    });
+                  }}
+                >
+                  {archivedLoading ? "加载中…" : "刷新"}
+                </button>
+              </div>
+              {archivedSessions.length === 0 ? (
+                <p className="settings-empty-note">暂无归档任务。</p>
+              ) : (
+                <ul className="settings-archive-list">
+                  {archivedSessions.map((session) => (
+                    <li key={session.id} className="settings-archive-item">
+                      <div className="settings-archive-info">
+                        <strong>{session.title}</strong>
+                        <small>归档于 {session.archivedAt ? new Date(session.archivedAt).toLocaleDateString("zh-CN") : "未知"}</small>
+                      </div>
+                      <div className="settings-archive-actions">
+                        <button
+                          className="secondary-button compact"
+                          type="button"
+                          onClick={() => {
+                            void sessionStoreRef.current.unarchive(session.id).then(() => {
+                              setArchivedSessions((prev) => prev.filter((s) => s.id !== session.id));
+                              window.dispatchEvent(new CustomEvent("careeradapt-agent-sessions-change"));
+                              notify({ type: "success", title: "已恢复", message: `「${session.title}」已恢复到侧栏。` });
+                            });
+                          }}
+                        >
+                          <RotateCcw size={14} aria-hidden="true" /> 恢复
+                        </button>
+                        <button
+                          className="secondary-button compact danger-text"
+                          type="button"
+                          onClick={() => {
+                            if (!window.confirm(`永久删除「${session.title}」？此操作不可撤销。`)) return;
+                            void sessionStoreRef.current.delete(session.id).then(() => {
+                              setArchivedSessions((prev) => prev.filter((s) => s.id !== session.id));
+                              notify({ type: "success", title: "已删除", message: `「${session.title}」已永久删除。` });
+                            });
+                          }}
+                        >
+                          <Trash2 size={14} aria-hidden="true" /> 删除
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           ) : null}
 

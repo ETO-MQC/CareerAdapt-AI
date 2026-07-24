@@ -1,25 +1,74 @@
 import { expect, test } from "@playwright/test";
 
 test.describe("AI workspace shell", () => {
-  test("shows six truthful quick starts and remains usable at compact desktop width", async ({ page }) => {
-    await page.setViewportSize({ width: 1024, height: 768 });
-    await page.goto("/ai-workspace");
+  test.beforeEach(async ({ page }) => {
+    await page.route("**/api/agent/turn", async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          type: "ask_user",
+          message: "好的。请先提供这项任务需要的真实材料，我会逐步与你核对。"
+        })
+      });
+    });
+  });
 
-    await expect(page.getByRole("heading", { name: "AI 工作台", exact: true })).toBeVisible();
+  test("shows the six-card AI-first zero state without fixed artifacts or overflow", async ({ page }) => {
+    await page.setViewportSize({ width: 1024, height: 768 });
+    await page.goto("/");
+
+    await expect(page.getByRole("heading", { name: "今天想从哪一步开始？" })).toBeVisible();
     const cards = page.locator(".agent-quick-card");
     await expect(cards).toHaveCount(6);
-    await expect(cards.filter({ hasText: "即将开放" })).toHaveCount(4);
-    await expect(page.getByRole("button", { name: /已有简历适配目标岗位/ })).toBeEnabled();
-    await expect(page.getByRole("button", { name: /从资料库生成岗位简历/ })).toBeEnabled();
+    await expect(cards.filter({ hasText: "即将开放" })).toHaveCount(0);
+    await expect(page.locator(".workspace-topbar")).toHaveCount(0);
     await expect(page.locator(".agent-composer")).toBeVisible();
-    await expect(page.locator(".agent-artifact-panel")).toBeVisible();
+    await expect(page.locator(".agent-artifact-drawer")).toHaveCount(0);
     expect(await page.locator("html").evaluate((node) => node.scrollWidth - node.clientWidth)).toBe(0);
     expect(await page.locator(".agent-workspace").evaluate((node) => node.scrollHeight - node.clientHeight)).toBeLessThanOrEqual(1);
     await page.screenshot({ path: "artifacts/agent-workspace-1024x768.png", fullPage: true });
-    await page.setViewportSize({ width: 1366, height: 768 });
-    await page.screenshot({ path: "artifacts/agent-workspace-1366x768.png", fullPage: true });
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.screenshot({ path: "artifacts/agent-workspace-1440x900.png", fullPage: true });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    const reducedTransitionMs = await cards.first().evaluate((element) => {
+      const value = getComputedStyle(element).transitionDuration.split(",")[0]?.trim() ?? "0s";
+      return value.endsWith("ms") ? Number.parseFloat(value) : Number.parseFloat(value) * 1000;
+    });
+    expect(reducedTransitionMs).toBeLessThanOrEqual(0.02);
+  });
+
+  test("starts a quick workflow, preserves it across an asset page, and handles PDF as partial", async ({ page }) => {
+    await page.goto("/ai-workspace");
+    await page.getByRole("button", { name: /生成岗位定制简历/ }).click();
+    await expect(page).toHaveURL(/\/ai-workspace$/);
+    await expect(page.getByRole("heading", { name: "今天想从哪一步开始？" })).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "生成岗位定制简历" })).toBeVisible();
+
+    await page.goto("/resume");
+    await expect(page.getByText("正在处理")).toBeVisible();
+    await expect(page.getByRole("status").getByText("生成岗位定制简历")).toBeVisible();
+    await page.getByRole("link", { name: "返回 AI 任务" }).click();
+    await expect(page.getByRole("heading", { name: "生成岗位定制简历" })).toBeVisible();
+
+    await page.locator('input[type="file"]').setInputFiles("tests/fixtures/pdf/chinese-resume-reportlab.pdf");
+    await expect(page.locator(".agent-artifact-drawer")).toBeVisible();
+    await expect(page.getByText(/当前 Agent Tool 需要已有 PDF 导入流程/)).toBeVisible();
+    await expect(page).toHaveURL(/\/ai-workspace$/);
+    await page.getByRole("button", { name: "关闭任务产物" }).last().click();
+    await expect(page.getByRole("button", { name: /产物 1/ })).toBeVisible();
+  });
+
+  test("switches between AI, collaboration, and manual shells without horizontal overflow", async ({ page }) => {
+    await page.goto("/");
+    await page.getByRole("button", { name: "协作" }).click();
+    await expect(page.locator(".agent-dock")).toBeVisible();
+    await expect(page.locator(".workspace-topbar")).toBeVisible();
+
+    await page.goto("/");
+    await page.getByRole("button", { name: "手动" }).click();
+    await expect(page.getByRole("heading", { name: "首页" })).toBeVisible();
+    await expect(page.locator(".agent-workspace")).toHaveCount(0);
+    expect(await page.locator("html").evaluate((node) => node.scrollWidth - node.clientWidth)).toBe(0);
   });
 
   test("tailors an existing resume, confirms a new revision, and restores the completed session", async ({ page }) => {
@@ -93,7 +142,7 @@ test.describe("AI workspace shell", () => {
     await expect(page.getByTestId("resume-studio-shell")).toBeVisible({ timeout: 20_000 });
 
     await page.goto("/ai-workspace");
-    await page.getByRole("button", { name: /已有简历适配目标岗位/ }).click();
+    await page.getByRole("button", { name: /生成岗位定制简历/ }).click();
     await page.getByLabel("选择已有简历").selectOption({ index: 1 });
     await page.getByRole("button", { name: "使用这份简历" }).click();
     await page.getByLabel("岗位名称").fill("高级产品经理");
@@ -118,12 +167,12 @@ test.describe("AI workspace shell", () => {
     await expect(page.getByRole("heading", { name: "使用这项补充信息？" })).toBeVisible();
     returnDiffs = true;
     await page.getByRole("button", { name: "确认并继续" }).click();
-    await expect(page.getByText("Tailoring Diff").first()).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByText("定制修改").first()).toBeVisible({ timeout: 60_000 });
     await page.getByRole("button", { name: "预览将应用的修改" }).click();
     await expect(page.getByRole("heading", { name: "应用这些简历修改？" })).toBeVisible();
     await page.getByRole("button", { name: "确认并继续" }).click();
     await expect(page.getByText("新版本已创建")).toBeVisible({ timeout: 20_000 });
-    await page.getByRole("link", { name: "打开编辑器" }).click();
+    await page.getByRole("link", { name: "打开简历编辑器" }).click();
     await expect(page).toHaveURL(/\/resume\?branchId=/);
 
     await page.goto("/ai-workspace");

@@ -417,7 +417,43 @@ export class WorkspaceRepository {
 
   async listAgentSessions(limit = 30) {
     const sessions = await this.db.agentSessions.orderBy("updatedAt").reverse().limit(Math.min(Math.max(limit, 1), 100)).toArray();
-    return sessions.map((session) => AgentSessionSchema.parse(session));
+    return sessions.filter((s) => !s.archived).map((session) => AgentSessionSchema.parse(session));
+  }
+
+  async listArchivedAgentSessions(limit = 50) {
+    const sessions = await this.db.agentSessions.orderBy("updatedAt").reverse().limit(Math.min(Math.max(limit, 1), 200)).toArray();
+    return sessions.filter((s) => s.archived).map((session) => AgentSessionSchema.parse(session));
+  }
+
+  async archiveAgentSession(id: string) {
+    const session = await this.db.agentSessions.get(id);
+    if (!session) return;
+    const now = new Date().toISOString();
+    const updated = AgentSessionSchema.parse({ ...session, archived: true, archivedAt: now, updatedAt: now });
+    await this.db.agentSessions.put(updated);
+    return updated;
+  }
+
+  async unarchiveAgentSession(id: string) {
+    const session = await this.db.agentSessions.get(id);
+    if (!session) return;
+    const now = new Date().toISOString();
+    const updated = AgentSessionSchema.parse({ ...session, archived: false, archivedAt: undefined, updatedAt: now });
+    await this.db.agentSessions.put(updated);
+    return updated;
+  }
+
+  async renameAgentSession(id: string, title: string) {
+    const session = await this.db.agentSessions.get(id);
+    if (!session) return;
+    const now = new Date().toISOString();
+    const updated = AgentSessionSchema.parse({ ...session, title, updatedAt: now });
+    await this.db.agentSessions.put(updated);
+    return updated;
+  }
+
+  async deleteAgentSession(id: string) {
+    await this.db.agentSessions.delete(id);
   }
 
   async seedDemoWorkspace() {

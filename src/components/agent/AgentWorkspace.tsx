@@ -1,8 +1,7 @@
 "use client";
 
-import { ArrowLeft, History, Pause, Play } from "lucide-react";
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { useRouter } from "next/navigation";
+import { History, Pause, Play, RotateCw, WifiOff } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { AgentRuntime, browserAgentPlanner } from "@/agent/runtime/agentRuntime";
 import { AgentEventBus } from "@/agent/runtime/agentEventBus";
 import { AgentExecutor } from "@/agent/runtime/agentExecutor";
@@ -12,19 +11,33 @@ import {
   tailorExistingResumeWorkflow
 } from "@/agent/workflows/tailorExistingResumeWorkflow";
 import type { AgentMessage, AgentSession } from "@/agent/contracts/agentSession";
+import type { AgentArtifactRef } from "@/agent/contracts/agentArtifact";
+import {
+  createQuickActionIntent,
+  type AgentQuickActionId
+} from "@/agent/contracts/agentQuickAction";
 import { BrowserAgentToolService } from "@/services/agent/agentToolService";
 import { AgentSessionStore } from "@/services/agent/agentSessionStore";
-import { AgentArtifactPanel } from "./AgentArtifactPanel";
+import { useWorkspaceMode } from "@/components/layout/WorkspaceModeProvider";
+import { ACTIVE_SESSION_KEY } from "@/components/agent/shell/AgentSidebar";
+import {
+  AgentArtifactDrawer,
+  type AgentArtifactDrawerState
+} from "./artifacts/AgentArtifactDrawer";
 import { AgentComposer } from "./AgentComposer";
-import { AgentConfirmationCard } from "./AgentConfirmationCard";
 import { AgentConversation } from "./AgentConversation";
 import { AgentHistoryDialog } from "./AgentHistoryDialog";
-import { AgentProgressTimeline } from "./AgentProgressTimeline";
-import { AgentQuickStartCards } from "./AgentQuickStartCards";
+import { AgentZeroState } from "./workspace/AgentZeroState";
+import { AgentWorkspaceLayout } from "./workspace/AgentWorkspaceLayout";
+import { AgentWorkflowRenderer } from "./workspace/AgentWorkflowRenderer";
 
 type ResumeSummary = { id: string; profileId: string; name: string; purpose: string; revision: number };
 export function AgentWorkspace() {
-  const router = useRouter();
+  return <AgentWorkspaceController />;
+}
+
+export function AgentWorkspaceController() {
+  const { setMode } = useWorkspaceMode();
   const dependencies = useMemo(() => {
     const service = new BrowserAgentToolService();
     const registry = createAgentToolRegistry(service);
@@ -53,11 +66,36 @@ export function AgentWorkspace() {
   const [workflowActive, setWorkflowActive] = useState(false);
   const [runtimeBusy, setRuntimeBusy] = useState(false);
   const [runtimePaused, setRuntimePaused] = useState(false);
+  const [providerUnavailable, setProviderUnavailable] = useState(false);
+  const [lastUserMessage, setLastUserMessage] = useState("");
+  const [restoredSession, setRestoredSession] = useState(false);
+  const [quickTasksOpen, setQuickTasksOpen] = useState(false);
+  const [drawerState, setDrawerState] = useState<AgentArtifactDrawerState>("closed");
   const [selectedResume, setSelectedResume] = useState("");
   const [jobTitle, setJobTitle] = useState("");
   const [jobCompany, setJobCompany] = useState("");
   const [jobText, setJobText] = useState("");
   const [answer, setAnswer] = useState("");
+  const runtimeRef = useRef<AgentRuntime | undefined>(undefined);
+  const previousArtifactCount = useRef(0);
+
+  const restoreSession = useCallback((selected: AgentSession) => {
+    setSession(selected);
+    setRestoredSession(true);
+    setWorkflowActive(selected.workflowState.workflowId === tailorExistingResumeWorkflow.id);
+    setHistoryOpen(false);
+    window.localStorage.setItem(ACTIVE_SESSION_KEY, selected.id);
+    if (selected.workflowState.workflowId === tailorExistingResumeWorkflow.id) {
+      const data = selected.workflowState.data;
+      dependencies.controller.restore({
+        step: selected.workflowState.step,
+        profileId: typeof data.profileId === "string" ? data.profileId : undefined,
+        resumeId: typeof data.resumeId === "string" ? data.resumeId : undefined,
+        jobId: typeof data.jobId === "string" ? data.jobId : undefined,
+        revisionId: typeof data.revisionId === "string" ? data.revisionId : undefined
+      });
+    }
+  }, [dependencies.controller]);
 
   useEffect(() => {
     let active = true;
@@ -70,9 +108,11 @@ export function AgentWorkspace() {
       setResumes(readArray(resumeResult.data, "resumes") as ResumeSummary[]);
       readArray(profileResult.data, "profiles");
       setSessions(storedSessions);
-      if (storedSessions[0]) {
-        const restored = storedSessions[0];
+      const requestedSessionId = window.localStorage.getItem(ACTIVE_SESSION_KEY);
+      const restored = storedSessions.find((item) => item.id === requestedSessionId) ?? storedSessions[0];
+      if (restored) {
         setSession(restored);
+        setRestoredSession(true);
         if (restored.workflowState.workflowId === tailorExistingResumeWorkflow.id) {
           const data = restored.workflowState.data;
           dependencies.controller.restore({
@@ -88,6 +128,62 @@ export function AgentWorkspace() {
     });
     return () => { active = false; };
   }, [dependencies]);
+
+  useEffect(() => {
+    const selectSession = (event: Event) => {
+      const sessionId = (event as CustomEvent<{ sessionId?: string }>).detail?.sessionId;
+      const selected = sessions.find((item) => item.id === sessionId);
+      if (selected) restoreSession(selected);
+    };
+    const newTask = () => {
+      dependencies.controller.restore({ step: tailorExistingResumeWorkflow.initialStep });
+      setSession(AgentRuntime.create("agent_quick_action", "collecting_intent", "新的 AI 任务"));
+      setWorkflowActive(false);
+      setRestoredSession(false);
+      setQuickTasksOpen(false);
+      setDrawerState("closed");
+    };
+    const openHistory = () => {
+      void dependencies.store.list().then((items) => {
+        setSessions(items);
+        setHistoryOpen(true);
+      });
+    };
+    const revisionChanged = (event: Event) => {
+      const detail = (event as CustomEvent<{ branchId?: string; revisionId?: string }>).detail;
+      if (!detail?.revisionId) return;
+      const revisionId = detail.revisionId;
+      setSession((current) => {
+        if (current.workflowState.data.revisionId === revisionId) return current;
+        const notified = appendLocalMessage(
+          current,
+          "assistant",
+          "检测到简历已更新。后续步骤会使用最新版本；旧 Revision 不会被静默继续执行。"
+        );
+        const next = {
+          ...notified,
+          activeResumeId: detail.branchId ?? notified.activeResumeId,
+          workflowState: {
+            ...notified.workflowState,
+            status: "waiting_for_user" as const,
+            data: { ...notified.workflowState.data, revisionId }
+          }
+        };
+        void dependencies.store.save(next);
+        return next;
+      });
+    };
+    window.addEventListener("careeradapt-agent-session-select", selectSession);
+    window.addEventListener("careeradapt-agent-new-task", newTask);
+    window.addEventListener("careeradapt-agent-history-open", openHistory);
+    window.addEventListener("careeradapt-agent-revision-change", revisionChanged);
+    return () => {
+      window.removeEventListener("careeradapt-agent-session-select", selectSession);
+      window.removeEventListener("careeradapt-agent-new-task", newTask);
+      window.removeEventListener("careeradapt-agent-history-open", openHistory);
+      window.removeEventListener("careeradapt-agent-revision-change", revisionChanged);
+    };
+  }, [dependencies.controller, dependencies.store, restoreSession, sessions]);
 
   useEffect(() => {
     if (!workflowActive) return;
@@ -116,9 +212,29 @@ export function AgentWorkspace() {
     void dependencies.store.save(next);
   }, [dependencies.store, session, workflowActive, workflowState]);
 
-  async function sendMessage(message: string) {
+  const workflowArtifacts = useMemo(
+    () => buildArtifactRefs(workflowState, session.updatedAt),
+    [session.updatedAt, workflowState]
+  );
+  const artifacts = useMemo(() => {
+    const merged = new Map<string, AgentArtifactRef>();
+    for (const artifact of [...session.artifactRefs, ...workflowArtifacts]) merged.set(artifact.id, artifact);
+    return [...merged.values()];
+  }, [session.artifactRefs, workflowArtifacts]);
+
+  useEffect(() => {
+    if (artifacts.length > previousArtifactCount.current) {
+      setDrawerState(window.matchMedia("(min-width: 1200px)").matches ? "pinned" : "open");
+    }
+    previousArtifactCount.current = artifacts.length;
+  }, [artifacts.length]);
+
+  async function sendMessage(message: string, sessionOverride?: AgentSession) {
+    const currentSession = sessionOverride ?? session;
     setRuntimeBusy(true);
-    const runtime = new AgentRuntime(session, {
+    setLastUserMessage(message);
+    setProviderUnavailable(false);
+    const runtime = new AgentRuntime(currentSession, {
       planner: browserAgentPlanner,
       executor: dependencies.executor,
       persistence: dependencies.store,
@@ -126,9 +242,11 @@ export function AgentWorkspace() {
       toolManifest: dependencies.registry.manifest(),
       maxToolCalls: 12
     });
+    runtimeRef.current = runtime;
     try {
       const next = await runtime.turn(message, {
-        pathname: "/ai-workspace",
+        pathname: window.location.pathname,
+        route: window.location.pathname,
         title: "AI 工作台",
         activeProfileId: workflowState.profileId,
         activeResumeId: workflowState.resumeId,
@@ -136,170 +254,233 @@ export function AgentWorkspace() {
         query: {}
       });
       setSession(next);
+      window.localStorage.setItem(ACTIVE_SESSION_KEY, next.id);
+      window.dispatchEvent(new CustomEvent("careeradapt-agent-sessions-change"));
     } catch (error) {
-      const fallback = appendLocalMessage(session, "assistant", error instanceof Error ? `暂时无法连接规划器：${error.message}` : "暂时无法连接规划器。");
+      const snapshot = runtime.getSnapshot();
+      const fallback = appendLocalMessage(
+        snapshot,
+        "assistant",
+        error instanceof Error
+          ? `AI 服务暂时不可用：${error.message}。任务和已输入内容已保留，你可以重试或切换到手动模式。`
+          : "AI 服务暂时不可用。任务和已输入内容已保留，你可以重试或切换到手动模式。"
+      );
       setSession(await dependencies.store.save(fallback));
+      setProviderUnavailable(true);
     } finally {
+      runtimeRef.current = undefined;
       setRuntimeBusy(false);
     }
   }
 
-  async function upload(file: File) {
-    if (file.type === "application/pdf") {
-      router.push("/resume?import=pdf");
-      return;
-    }
-    const text = await file.text();
-    await sendMessage(`我上传了文件“${file.name}”，共 ${text.length} 个字符。请先确认要执行的任务。`);
+  async function startQuickAction(actionId: AgentQuickActionId) {
+    const quickIntent = createQuickActionIntent(actionId, quickTasksOpen ? "quick_tasks" : "zero_state");
+    const reuse = session.messages.every((message) => message.role === "system")
+      && session.artifactRefs.length === 0;
+    const prepared = reuse ? {
+      ...session,
+      title: quickActionTitle(actionId),
+      workflowState: {
+        ...session.workflowState,
+        workflowId: actionId === "tailor_resume_to_job" ? tailorExistingResumeWorkflow.id : `quick_action:${actionId}`,
+        step: actionId === "tailor_resume_to_job" ? tailorExistingResumeWorkflow.initialStep : "collecting_intent",
+        status: "waiting_for_user" as const,
+        data: {
+          ...session.workflowState.data,
+          quickActionId: quickIntent.actionId,
+          initialIntent: quickIntent.intent
+        }
+      }
+    } : AgentRuntime.create(
+      actionId === "tailor_resume_to_job" ? tailorExistingResumeWorkflow.id : `quick_action:${actionId}`,
+      actionId === "tailor_resume_to_job" ? tailorExistingResumeWorkflow.initialStep : "collecting_intent",
+      quickActionTitle(actionId)
+    );
+    const next = prepared.workflowState.data.quickActionId ? prepared : {
+      ...prepared,
+      workflowState: {
+        ...prepared.workflowState,
+        data: {
+          ...prepared.workflowState.data,
+          quickActionId: quickIntent.actionId,
+          initialIntent: quickIntent.intent
+        }
+      }
+    };
+    setSession(next);
+    setRestoredSession(false);
+    setQuickTasksOpen(false);
+    setWorkflowActive(actionId === "tailor_resume_to_job");
+    await sendMessage(quickIntent.intent, next);
   }
 
-  const pending = workflowState.pendingConfirmation;
-  const firstQuestion = firstClarification(workflowState.tailoringSession);
+  async function upload(file: File): Promise<"ready" | "partial"> {
+    const now = new Date().toISOString();
+    const uploadId = `resume-upload-${crypto.randomUUID()}`;
+    const artifact: AgentArtifactRef = {
+      id: `artifact-${uploadId}`,
+      kind: "resume_import_review",
+      title: `导入核对 · ${file.name}`,
+      entityType: "resume_import_draft",
+      entityId: uploadId,
+      status: "active",
+      summary: file.type === "application/pdf"
+        ? "文件已接收。当前 Agent Tool 需要已有 PDF 导入流程提供页面文本，已标记为 partial，原导入页仍可继续使用。"
+        : "文件已接收，正在通过现有简历解析工具生成待核对草稿。",
+      createdAt: now,
+      updatedAt: now
+    };
+    let next = appendLocalMessage({
+      ...session,
+      title: session.messages.length ? session.title : `导入简历 · ${file.name}`,
+      artifactRefs: [...session.artifactRefs, artifact],
+      workflowState: {
+        ...session.workflowState,
+        workflowId: "quick_action:import_existing_resume",
+        step: "collecting_intent",
+        status: "running",
+        data: { ...session.workflowState.data, quickActionId: "import_existing_resume", uploadName: file.name }
+      }
+    }, "user", `我上传了文件“${file.name}”，请解析并让我核对内容来源。`);
+    setSession(next);
+    setDrawerState("open");
+    const text = file.type === "application/pdf" ? "" : await file.text();
+    const result = await dependencies.executor.execute({
+      toolName: "parse_resume_file",
+      toolInput: { fileName: file.name, mimeType: file.type || "text/plain", text },
+      operationId: `parse-resume-${crypto.randomUUID()}`
+    });
+    const partial = file.type === "application/pdf" || !result.ok;
+    next = appendLocalMessage(next, "tool", partial ? "已接收文件，等待 PDF 页面文本接入后继续提取。" : "已提取简历内容，等待你逐项核对。", "parse_resume_file");
+    next = appendLocalMessage(next, "assistant", partial
+      ? "文件已安全保留，但当前 Agent 接入只能完成部分步骤。下一步需要复用现有 PDF 文本提取结果；我不会跳转页面或假装导入已完成。"
+      : "已生成待核对内容。请在右侧产物中查看，并确认下一步。");
+    next = {
+      ...next,
+      workflowState: { ...next.workflowState, status: "waiting_for_user" },
+      artifactRefs: next.artifactRefs.map((item) => item.id === artifact.id
+        ? { ...item, summary: partial ? artifact.summary : "解析已完成，等待 resume_import_review 渲染器接入逐项核对。", updatedAt: new Date().toISOString() }
+        : item)
+    };
+    setSession(await dependencies.store.save(next));
+    window.dispatchEvent(new CustomEvent("careeradapt-agent-sessions-change"));
+    return partial ? "partial" : "ready";
+  }
+
+  const hasActualUserTask = session.messages.some((message) => message.role === "user");
+  const showZeroState = quickTasksOpen || (
+    !hasActualUserTask
+    && !workflowActive
+    && artifacts.length === 0
+    && !restoredSession
+  );
+
+  const openHistory = async () => {
+    setSessions(await dependencies.store.list());
+    setHistoryOpen(true);
+  };
 
   return (
-    <main className="agent-workspace">
-      <header className="agent-workspace-header">
-        <div>
-          <p className="eyebrow">统一工具编排</p>
-          <h1>AI 工作台</h1>
-          <p>让 AI 调用现有业务能力；每次写入前由你确认。</p>
+    <AgentWorkspaceLayout
+      sessionTitle={showZeroState ? "AI 助手" : session.title}
+      status={workflowStatusLabel(runtimeBusy ? "running" : session.workflowState.status)}
+      artifactCount={artifacts.length}
+      onOpenArtifacts={() => setDrawerState("open")}
+      onOpenHistory={() => void openHistory()}
+    >
+      {providerUnavailable ? (
+        <div className="agent-offline-banner" role="alert">
+          <WifiOff aria-hidden="true" />
+          <div><strong>AI 服务暂时不可用</strong><span>任务、会话和上传文件都已保留，不会自动切换模式。</span></div>
+          <button type="button" onClick={() => void sendMessage(lastUserMessage)}><RotateCw aria-hidden="true" /> 重试</button>
+          <button type="button" onClick={() => setMode("manual")}>切换手动模式</button>
         </div>
-        <div className="agent-header-actions">
-          <span className={`agent-status agent-status-${workflowState.busy ? "running" : workflowState.step === "completed" ? "complete" : "idle"}`}>
-            {workflowState.busy ? "处理中…" : workflowState.step === "completed" ? "已完成" : "等待操作"}
-          </span>
-          <button
-            className="secondary-button compact"
-            type="button"
-            onClick={() => setRuntimePaused((value) => !value)}
-          >
-            {runtimePaused ? <Play aria-hidden="true" size={16} /> : <Pause aria-hidden="true" size={16} />}
-            {runtimePaused ? "恢复" : "暂停"}
-          </button>
-          <button className="secondary-button compact" type="button" onClick={async () => {
-            setSessions(await dependencies.store.list());
-            setHistoryOpen(true);
-          }}>
-            <History aria-hidden="true" size={16} /> 历史记录
-          </button>
-        </div>
-      </header>
+      ) : null}
 
-      <div className="agent-workspace-grid">
+      <div className={drawerState === "pinned" && artifacts.length ? "agent-workspace-body has-pinned-artifacts" : "agent-workspace-body"}>
         <section className="agent-main-column">
-          {!workflowActive ? (
-            <AgentQuickStartCards onSelect={(id) => {
-              if (id === "from-profile") {
-                router.push("/jobs?source=profile");
-                return;
-              }
-              setWorkflowActive(true);
-            }} />
+          {showZeroState ? (
+            <AgentZeroState onSelect={(id) => void startQuickAction(id)} />
           ) : (
-            <section className="agent-task-panel" aria-labelledby="agent-task-title" data-workflow-step={workflowState.step}>
-              <div className="agent-section-heading">
-                <div>
-                  <button className="agent-back-button" type="button" onClick={() => setWorkflowActive(false)}>
-                    <ArrowLeft size={16} aria-hidden="true" />
-                    <span>返回</span>
-                  </button>
-                  <p className="eyebrow">当前任务</p>
-                  <h2 id="agent-task-title">已有简历适配目标岗位</h2>
-                </div>
+            <>
+              <div className="agent-conversation-toolbar">
+                <button type="button" onClick={() => setQuickTasksOpen(true)}>快捷任务</button>
+                <button
+                  type="button"
+                  onClick={() => setRuntimePaused((value) => !value)}
+                >
+                  {runtimePaused ? <Play aria-hidden="true" /> : <Pause aria-hidden="true" />}
+                  {runtimePaused ? "恢复任务" : "暂停任务"}
+                </button>
+                <button type="button" onClick={() => void openHistory()}>
+                  <History aria-hidden="true" /> 历史
+                </button>
               </div>
-              <AgentProgressTimeline currentStep={workflowState.step} />
-
-              {workflowState.step === "select_resume" ? (
-                <form className="agent-task-form" onSubmit={(event) => {
-                  event.preventDefault();
-                  const resume = resumes.find((item) => item.id === selectedResume);
-                  if (resume) dependencies.controller.selectResume(resume.profileId, resume.id);
-                }}>
-                  <label htmlFor="agent-resume-select">选择已有简历</label>
-                  <select id="agent-resume-select" name="resumeId" value={selectedResume} onChange={(event) => setSelectedResume(event.target.value)}>
-                    <option value="">请选择…</option>
-                    {resumes.map((resume) => <option key={resume.id} value={resume.id}>{resume.name} · v{resume.revision}</option>)}
-                  </select>
-                  {resumes.length === 0 ? <p className="agent-inline-note">还没有可用简历，请先在“我的简历”中创建或导入。</p> : null}
-                  <button className="primary-button" type="submit" disabled={!selectedResume}>使用这份简历</button>
-                </form>
-              ) : null}
-
-              {workflowState.step === "collect_job" ? (
-                <form className="agent-task-form" onSubmit={(event) => {
-                  event.preventDefault();
-                  void dependencies.controller.parseJob({ title: jobTitle, company: jobCompany, rawText: jobText });
-                }}>
-                  <div className="agent-inline-fields">
-                    <label>岗位名称<input name="jobTitle" value={jobTitle} onChange={(event) => setJobTitle(event.target.value)} autoComplete="off" placeholder="例如：高级产品经理…" /></label>
-                    <label>公司<input name="jobCompany" value={jobCompany} onChange={(event) => setJobCompany(event.target.value)} autoComplete="organization" placeholder="例如：目标公司…" /></label>
-                  </div>
-                  <label htmlFor="agent-jd-input">岗位描述</label>
-                  <textarea id="agent-jd-input" name="jobDescription" rows={9} value={jobText} onChange={(event) => setJobText(event.target.value)} placeholder="粘贴完整 JD，系统会保留来源并生成语义核对结果…" />
-                  <button className="primary-button" type="submit" disabled={workflowState.busy || jobTitle.trim().length === 0 || jobCompany.trim().length === 0 || jobText.trim().length < 20}>
-                    {workflowState.busy ? "解析中…" : "解析岗位"}
-                  </button>
-                </form>
-              ) : null}
-
-              {workflowState.step === "analyze_fit" && !pending ? (
-                <div className="agent-next-action">
-                  <p>岗位已保存。下一步会只读分析匹配情况，并生成安全改写建议。</p>
-                  <button className="primary-button" type="button" disabled={workflowState.busy} onClick={() => void dependencies.controller.analyzeFitAndPlan()}>
-                    分析匹配并生成建议
-                  </button>
-                </div>
-              ) : null}
-
-              {workflowState.step === "answer_questions" && firstQuestion ? (
-                <form className="agent-task-form" onSubmit={(event) => {
-                  event.preventDefault();
-                  dependencies.controller.requestAnswer(firstQuestion.id, answer);
-                }}>
-                  <label htmlFor="agent-question-answer">{firstQuestion.question}</label>
-                  <textarea id="agent-question-answer" name="tailoringAnswer" rows={4} value={answer} onChange={(event) => setAnswer(event.target.value)} placeholder="只填写你能确认的真实经历或能力…" />
-                  <button className="primary-button" type="submit" disabled={!answer.trim()}>提交回答</button>
-                </form>
-              ) : null}
-
-              {workflowState.step === "preview_changes" && !pending ? (
-                <div className="agent-next-action">
-                  <p>修改差异已显示在右侧。预览会再次执行本地字段与事实边界校验。</p>
-                  <button className="primary-button" type="button" disabled={workflowState.busy || workflowState.diffs.length === 0} onClick={() => void dependencies.controller.preview()}>
-                    预览将应用的修改
-                  </button>
-                </div>
-              ) : null}
-
-              {workflowState.error ? <p className="agent-error" role="alert">{workflowState.error}</p> : null}
-              {pending ? (
-                <AgentConfirmationCard
-                  busy={workflowState.busy}
-                  title={confirmationCopy(pending).title}
-                  description={confirmationCopy(pending).description}
-                  onCancel={() => void dependencies.controller.confirmPending(false)}
-                  onConfirm={() => void dependencies.controller.confirmPending(true)}
-                />
-              ) : null}
-            </section>
+              <AgentConversation
+                messages={session.messages}
+                onUndoLastUser={() => {
+                  const index = session.messages.findLastIndex((message) => message.role === "user");
+                  if (index < 0) return;
+                  const next = { ...session, messages: session.messages.slice(0, index), updatedAt: new Date().toISOString() };
+                  setSession(next);
+                  void dependencies.store.save(next);
+                }}
+                onRegenerate={lastUserMessage ? () => void sendMessage(lastUserMessage) : undefined}
+              />
+            </>
           )}
-          <AgentConversation messages={session.messages} />
-          <AgentComposer disabled={runtimeBusy || runtimePaused} onSend={sendMessage} onUpload={upload} />
+
+          {workflowActive ? (
+            <AgentWorkflowRenderer
+              state={workflowState}
+              resumes={resumes}
+              selectedResume={selectedResume}
+              jobTitle={jobTitle}
+              jobCompany={jobCompany}
+              jobText={jobText}
+              answer={answer}
+              onSelectedResumeChange={setSelectedResume}
+              onSelectResume={() => {
+                const resume = resumes.find((item) => item.id === selectedResume);
+                if (resume) dependencies.controller.selectResume(resume.profileId, resume.id);
+              }}
+              onJobTitleChange={setJobTitle}
+              onJobCompanyChange={setJobCompany}
+              onJobTextChange={setJobText}
+              onParseJob={() => void dependencies.controller.parseJob({ title: jobTitle, company: jobCompany, rawText: jobText })}
+              onAnswerChange={setAnswer}
+              onAnswer={(questionId) => dependencies.controller.requestAnswer(questionId, answer)}
+              onAnalyze={() => void dependencies.controller.analyzeFitAndPlan()}
+              onPreview={() => void dependencies.controller.preview()}
+              onConfirm={(confirmed) => void dependencies.controller.confirmPending(confirmed)}
+              onChooseAnotherTask={() => setQuickTasksOpen(true)}
+            />
+          ) : null}
+
+          <AgentComposer
+            disabled={runtimePaused}
+            running={runtimeBusy}
+            aiStatus={providerUnavailable ? "AI 不可用" : undefined}
+            onSend={sendMessage}
+            onUpload={upload}
+            onStop={() => runtimeRef.current?.abort()}
+          />
         </section>
-        <AgentArtifactPanel state={workflowState} />
+        <AgentArtifactDrawer
+          artifacts={artifacts}
+          state={drawerState}
+          workflowState={workflowState}
+          onStateChange={setDrawerState}
+        />
       </div>
 
       <AgentHistoryDialog
         open={historyOpen}
         sessions={sessions}
         onClose={() => setHistoryOpen(false)}
-        onSelect={(selected) => {
-          setSession(selected);
-          setHistoryOpen(false);
-          if (selected.workflowState.workflowId === tailorExistingResumeWorkflow.id) setWorkflowActive(true);
-        }}
+        onSelect={restoreSession}
       />
-    </main>
+    </AgentWorkspaceLayout>
   );
 }
 
@@ -309,43 +490,35 @@ function readArray(value: unknown, key: string) {
   return Array.isArray(found) ? found : [];
 }
 
-function appendLocalMessage(session: AgentSession, role: AgentMessage["role"], content: string): AgentSession {
+function appendLocalMessage(
+  session: AgentSession,
+  role: AgentMessage["role"],
+  content: string,
+  toolName?: string
+): AgentSession {
   const now = new Date().toISOString();
   return {
     ...session,
-    messages: [...session.messages, { id: `agent-message-${crypto.randomUUID()}`, role, content, createdAt: now }].slice(-40),
+    messages: [...session.messages, {
+      id: `agent-message-${crypto.randomUUID()}`,
+      role,
+      content,
+      ...(toolName ? { toolName } : {}),
+      createdAt: now
+    }].slice(-40),
     updatedAt: now
   };
 }
 
-function firstClarification(session: unknown) {
-  if (typeof session !== "object" || session === null) return undefined;
-  const plan = (session as Record<string, unknown>).plan;
-  if (typeof plan !== "object" || plan === null) return undefined;
-  const questions = (plan as Record<string, unknown>).clarificationQuestions;
-  if (!Array.isArray(questions) || !questions[0] || typeof questions[0] !== "object") return undefined;
-  const question = questions[0] as Record<string, unknown>;
-  return { id: String(question.id), question: String(question.question) };
-}
-
-function confirmationCopy(name: NonNullable<ReturnType<TailorExistingResumeWorkflowController["getSnapshot"]>["pendingConfirmation"]>) {
-  const copy = {
-    commit_job: { title: "保存这个岗位？", description: "确认后会把核对结果写入岗位库。你仍可在岗位页继续编辑。" },
-    answer_tailoring_question: { title: "使用这项补充信息？", description: "这属于你主动声明的能力信息。确认后只用于当前岗位定制，不会隐式写回个人资料库。" },
-    apply_tailoring_changes: { title: "应用这些简历修改？", description: "确认后会创建一个新的 ResumeRevision；来源简历和个人资料库不会被覆盖。" }
-  };
-  return copy[name];
-}
-
 function buildArtifactRefs(state: ReturnType<TailorExistingResumeWorkflowController["getSnapshot"]>, now: string) {
   const refs = [];
-  if (state.jobGraph && state.jobId) refs.push({
-    id: `artifact-job-${state.jobId}`,
+  if (state.jobGraph) refs.push({
+    id: `artifact-job-${state.jobId ?? "pending-review"}`,
     kind: "job_semantic_review" as const,
     title: "岗位语义核对",
     entityType: "job" as const,
-    entityId: state.jobId,
-    route: `/jobs?jobId=${encodeURIComponent(state.jobId)}`,
+    entityId: state.jobId ?? "pending-job-review",
+    ...(state.jobId ? { route: `/jobs?jobId=${encodeURIComponent(state.jobId)}` } : {}),
     status: "active" as const,
     createdAt: now,
     updatedAt: now
@@ -372,4 +545,29 @@ function buildArtifactRefs(state: ReturnType<TailorExistingResumeWorkflowControl
     updatedAt: now
   });
   return refs;
+}
+
+function quickActionTitle(actionId: AgentQuickActionId) {
+  const titles: Record<AgentQuickActionId, string> = {
+    build_profile_from_scratch: "从零整理经历",
+    import_existing_resume: "导入现有简历",
+    tailor_resume_to_job: "生成岗位定制简历",
+    build_resume_from_profile: "从资料库组装简历",
+    analyze_job_fit: "分析岗位匹配度",
+    repair_and_export_resume: "修复和导出简历"
+  };
+  return titles[actionId];
+}
+
+function workflowStatusLabel(status: AgentSession["workflowState"]["status"]) {
+  const labels: Record<AgentSession["workflowState"]["status"], string> = {
+    idle: "等待开始",
+    running: "处理中…",
+    waiting_for_user: "等待你的输入",
+    waiting_for_confirmation: "等待确认",
+    paused: "已暂停",
+    completed: "已完成",
+    failed: "需要处理"
+  };
+  return labels[status];
 }
