@@ -359,7 +359,7 @@
   background: var(--ai-surface);
   border-bottom: 1px solid var(--ai-border);
   display: flex;
-  flex: 0 0 48px;
+  flex: 0 0 44px;
   gap: 12px;
   min-width: 0;
   padding: 6px 16px;
@@ -408,8 +408,11 @@
 }
 
 .ai-context-status {
+  align-items: center;
   color: var(--ai-accent);
+  display: inline-flex;
   font-size: 12px;
+  gap: 5px;
 }
 
 .ai-asset-content .workspace-band .eyebrow,

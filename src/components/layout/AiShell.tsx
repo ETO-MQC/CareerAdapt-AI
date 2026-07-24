@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, Bot } from "lucide-react";
+import { ArrowLeft, CircleDot } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { AgentSession } from "@/agent/contracts/agentSession";
@@ -9,6 +9,7 @@ import { useAgentPageContext } from "@/components/agent/context/AgentPageContext
 import { AgentSidebar } from "@/components/agent/shell/AgentSidebar";
 import { AgentSessionStore } from "@/services/agent/agentSessionStore";
 import { WorkspaceRepository } from "@/services/storage/repositories";
+import { ACTIVE_SESSION_KEY } from "@/components/agent/shell/AgentSidebar";
 
 const assetRoutes = ["/resume", "/profile", "/jobs", "/applications"];
 
@@ -63,9 +64,15 @@ export function AiShell({ children }: { children: React.ReactNode }) {
               <span>正在处理</span>
               <strong>{session?.title ?? "浏览求职资产"}</strong>
             </div>
-            <span className="ai-context-status">{statusLabel(session?.workflowState.status)}</span>
-            <Link href="/ai-workspace"><ArrowLeft aria-hidden="true" /> 返回 AI 任务</Link>
-            <Link href="/ai-workspace"><Bot aria-hidden="true" /> 打开 AI 助手</Link>
+            <span className="ai-context-status"><CircleDot aria-hidden="true" /> {statusLabel(session?.workflowState.status)}</span>
+            <Link
+              href="/ai-workspace"
+              onClick={() => {
+                if (session) window.localStorage.setItem(ACTIVE_SESSION_KEY, session.id);
+              }}
+            >
+              <ArrowLeft aria-hidden="true" /> 返回任务
+            </Link>
           </div>
         ) : null}
         <div className={isAssetPage ? "ai-shell-content ai-asset-content" : "ai-shell-content"}>

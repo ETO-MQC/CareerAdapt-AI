@@ -1,0 +1,246 @@
+.product-page-grid {
+  display: grid;
+  gap: var(--product-space-4);
+}
+
+.ai-shell {
+  --bg: var(--product-app-bg);
+  --surface: var(--product-surface);
+  --paper: var(--product-surface-elevated);
+  --surface-subtle: var(--product-surface-subtle);
+  --card-bg: var(--product-surface);
+  --card-border: var(--product-border);
+  --line: var(--product-border);
+  --ink: var(--product-text);
+  --muted: var(--product-text-secondary);
+  --accent: var(--product-accent);
+  --accent-strong: var(--product-accent-hover);
+  --danger: var(--product-danger);
+  --amber: var(--product-warning);
+  --workspace-padding: var(--product-space-6);
+  --workspace-gap: var(--product-space-4);
+  --control-height: var(--product-control-normal);
+}
+
+.ai-asset-content {
+  overflow: hidden;
+  padding-left: 0;
+}
+
+.ai-asset-content > .page-shell {
+  height: 100%;
+  margin: 0;
+  overflow: auto;
+  padding: 0 var(--product-space-6) var(--product-space-6);
+}
+
+.ai-asset-content .product-topbar {
+  margin-inline: calc(var(--product-space-6) * -1);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.ai-asset-content .panel,
+.ai-asset-content .product-surface {
+  border-color: var(--product-border);
+  border-radius: var(--product-radius-3);
+  box-shadow: var(--product-shadow-none);
+}
+
+.ai-asset-content .primary-button,
+.ai-asset-content .secondary-button,
+.ai-asset-content .danger-button,
+.ai-asset-content .icon-button {
+  min-height: var(--product-control-normal);
+}
+
+.ai-asset-content .profile-person-toolbar {
+  border-radius: 0;
+  margin: 0;
+  min-height: 52px;
+  padding: var(--product-space-2) 0;
+}
+
+.ai-asset-content .profile-person-toolbar > div span {
+  display: none;
+}
+
+.ai-asset-content .profile-person-toolbar > div strong {
+  font: var(--product-font-label);
+}
+
+.ai-asset-content .resume-import-strip {
+  display: none;
+}
+
+.ai-asset-content .resume-entry-grid {
+  grid-template-columns: 1fr;
+}
+
+.ai-asset-content .resume-create-panel {
+  padding: var(--product-space-3);
+}
+
+.ai-asset-content .resume-create-panel .section-heading {
+  display: none;
+}
+
+.ai-asset-content .resume-create-card-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.ai-asset-content .resume-create-card {
+  min-height: 72px;
+  padding: var(--product-space-3);
+}
+
+.ai-asset-content .resume-library-panel {
+  padding: var(--product-space-4);
+}
+
+.ai-asset-content .profile-manager-grid {
+  grid-template-columns: minmax(220px, 250px) minmax(320px, 380px) minmax(480px, 1fr);
+  height: calc(100dvh - 44px - 52px - 72px);
+  min-height: 480px;
+  overflow: hidden;
+}
+
+.ai-asset-content .profile-category-panel,
+.ai-asset-content .profile-list-panel,
+.ai-asset-content .profile-detail-panel {
+  height: 100%;
+  max-height: none;
+  min-height: 0;
+}
+
+.ai-asset-content .jobs-overview-grid {
+  grid-template-columns: minmax(340px, 42%) minmax(420px, 58%);
+}
+
+.ai-asset-content .application-workarea:has(.product-empty-state) {
+  display: block;
+}
+
+.ai-asset-content .recycle-workspace {
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.ai-asset-content .recycle-panel {
+  margin-top: var(--product-space-4);
+  overflow: auto;
+}
+
+.ai-asset-content .settings-layout {
+  grid-template-columns: 220px minmax(0, 840px);
+  margin-top: var(--product-space-4);
+}
+
+.product-card-grid {
+  display: grid;
+  gap: var(--product-space-3);
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+}
+
+.product-settings-layout {
+  display: grid;
+  gap: var(--product-space-6);
+  grid-template-columns: 220px minmax(0, 840px);
+}
+
+.product-settings-nav {
+  align-self: start;
+  display: grid;
+  gap: var(--product-space-1);
+  position: sticky;
+  top: 0;
+}
+
+.agent-interactive-card {
+  background: var(--ai-surface-soft);
+  border: 1px solid var(--ai-border);
+  border-radius: var(--ai-radius-lg);
+  margin: 8px 0 16px;
+  padding: 16px;
+}
+
+.agent-error-status {
+  align-items: flex-start;
+  background: color-mix(in srgb, var(--ai-danger) 8%, var(--ai-surface));
+  border: 1px solid color-mix(in srgb, var(--ai-danger) 28%, var(--ai-border));
+  border-radius: var(--ai-radius-md);
+  display: flex;
+  gap: 10px;
+  margin: 8px 0 16px;
+  padding: 12px;
+}
+
+.agent-error-status.is-retrying {
+  background: color-mix(in srgb, var(--ai-warning) 8%, var(--ai-surface));
+  border-color: color-mix(in srgb, var(--ai-warning) 28%, var(--ai-border));
+}
+
+.agent-error-status.is-recovered {
+  background: color-mix(in srgb, var(--ai-accent) 8%, var(--ai-surface));
+  border-color: color-mix(in srgb, var(--ai-accent) 28%, var(--ai-border));
+}
+
+.agent-error-status svg { flex: 0 0 18px; height: 18px; width: 18px; }
+.agent-error-status p { color: var(--ai-muted); margin: 3px 0 0; }
+
+.agent-message-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.agent-message-options button {
+  background: var(--ai-surface-raised);
+  border: 1px solid var(--ai-border);
+  border-radius: 8px;
+  color: var(--ai-text);
+  font: inherit;
+  min-height: 34px;
+  padding: 0 12px;
+}
+
+.agent-message-options button:hover {
+  border-color: var(--ai-border-strong);
+}
+
+.agent-message-options button:focus-visible {
+  outline: 2px solid var(--ai-accent);
+  outline-offset: 2px;
+}
+
+@media (max-width: 760px) {
+  .product-settings-layout { grid-template-columns: 1fr; }
+  .product-settings-nav { position: static; }
+}
+
+@media (max-width: 1100px) {
+  .ai-asset-content > .page-shell {
+    padding-inline: var(--product-space-4);
+  }
+
+  .ai-asset-content .product-topbar {
+    margin-inline: calc(var(--product-space-4) * -1);
+  }
+
+  .ai-asset-content .resume-create-card-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ai-asset-content .profile-manager-grid {
+    grid-template-columns: 220px minmax(320px, 1fr);
+  }
+
+  .ai-asset-content .profile-detail-panel {
+    display: none;
+  }
+
+  .ai-asset-content .jobs-overview-grid {
+    grid-template-columns: minmax(300px, 42%) minmax(360px, 58%);
+  }
+}

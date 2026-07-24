@@ -11,6 +11,10 @@ import "@/styles/agent-tokens.css";
 import "@/styles/agent-shell.css";
 import "@/styles/agent-workspace.css";
 import "@/styles/agent-artifacts.css";
+import "@/styles/product-tokens.css";
+import "@/styles/product-shell.css";
+import "@/styles/product-components.css";
+import "@/styles/product-pages.css";
 
 export const metadata: Metadata = {
   title: "职适AI",

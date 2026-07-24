@@ -1,0 +1,245 @@
+.product-surface {
+  background: var(--product-surface);
+  border: 1px solid var(--product-border);
+  border-radius: var(--product-radius-3);
+  box-shadow: var(--product-shadow-none);
+  min-width: 0;
+}
+
+.product-surface[data-density="compact"] { padding: var(--product-space-3); }
+.product-surface[data-density="normal"] { padding: var(--product-space-4); }
+.product-surface[data-density="spacious"] { padding: var(--product-space-5); }
+
+.product-section {
+  display: grid;
+  gap: var(--product-space-3);
+}
+
+.product-section > header {
+  align-items: center;
+  display: flex;
+  gap: var(--product-space-3);
+  justify-content: space-between;
+}
+
+.product-section h2 {
+  font: var(--product-font-section-title);
+  margin: 0;
+}
+
+.product-button,
+.product-icon-button,
+.product-input,
+.product-select {
+  border-radius: var(--product-radius-2);
+  font: var(--product-font-body);
+  min-height: var(--product-control-normal);
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.product-button,
+.product-icon-button {
+  align-items: center;
+  border: 1px solid transparent;
+  cursor: pointer;
+  display: inline-flex;
+  font-weight: 600;
+  gap: var(--product-space-2);
+  justify-content: center;
+  padding: 0 var(--product-space-3);
+  touch-action: manipulation;
+  white-space: nowrap;
+}
+
+.product-button[data-variant="primary"] {
+  background: var(--product-accent);
+  color: var(--product-accent-ink);
+}
+
+.product-button[data-variant="secondary"],
+.product-icon-button {
+  background: var(--product-surface-elevated);
+  border-color: var(--product-border);
+  color: var(--product-text);
+}
+
+.product-button[data-variant="ghost"] {
+  background: transparent;
+  color: var(--product-text-secondary);
+}
+
+.product-button[data-variant="danger"] {
+  background: color-mix(in srgb, var(--product-danger) 10%, var(--product-surface));
+  border-color: color-mix(in srgb, var(--product-danger) 32%, var(--product-border));
+  color: var(--product-danger);
+}
+
+.product-button:hover:not(:disabled)[data-variant="primary"] {
+  background: var(--product-accent-hover);
+}
+
+.product-button:hover:not(:disabled)[data-variant="secondary"],
+.product-icon-button:hover:not(:disabled) {
+  background: var(--product-surface-subtle);
+  border-color: var(--product-border-strong);
+}
+
+.product-button:hover:not(:disabled)[data-variant="ghost"] {
+  background: var(--product-surface-subtle);
+  color: var(--product-text);
+}
+
+.product-button:active:not(:disabled),
+.product-icon-button:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.product-button:disabled,
+.product-icon-button:disabled,
+.product-input:disabled,
+.product-select:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.product-icon-button {
+  height: var(--product-control-compact);
+  min-height: var(--product-control-compact);
+  padding: 0;
+  width: var(--product-control-compact);
+}
+
+.product-input,
+.product-select {
+  background: var(--product-surface-elevated);
+  border: 1px solid var(--product-border);
+  color: var(--product-text);
+  min-width: 0;
+  padding: 0 var(--product-space-3);
+}
+
+.product-input::placeholder {
+  color: var(--product-text-secondary);
+}
+
+.product-button:focus-visible,
+.product-icon-button:focus-visible,
+.product-input:focus-visible,
+.product-select:focus-visible,
+.product-tabs button:focus-visible {
+  outline: 2px solid var(--product-accent);
+  outline-offset: 2px;
+}
+
+.product-tabs {
+  align-items: center;
+  background: var(--product-surface-subtle);
+  border: 1px solid var(--product-border);
+  border-radius: var(--product-radius-2);
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+}
+
+.product-tabs button {
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: var(--product-text-secondary);
+  font: var(--product-font-label);
+  min-height: 30px;
+  padding: 0 var(--product-space-3);
+}
+
+.product-tabs button[aria-selected="true"] {
+  background: var(--product-surface-elevated);
+  box-shadow: var(--product-shadow-subtle);
+  color: var(--product-text);
+}
+
+.product-badge {
+  align-items: center;
+  background: var(--product-surface-subtle);
+  border: 1px solid var(--product-border);
+  border-radius: 999px;
+  color: var(--product-text-secondary);
+  display: inline-flex;
+  font: var(--product-font-caption);
+  min-height: 24px;
+  padding: 0 var(--product-space-2);
+}
+
+.product-data-card {
+  background: var(--product-surface);
+  border: 1px solid var(--product-border);
+  border-radius: var(--product-radius-3);
+  padding: var(--product-space-4);
+}
+
+.product-data-row {
+  align-items: center;
+  border-bottom: 1px solid var(--product-border);
+  display: grid;
+  gap: var(--product-space-3);
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-height: 56px;
+  padding: var(--product-space-2) 0;
+}
+
+.product-data-row:last-child { border-bottom: 0; }
+
+.product-empty-state {
+  align-items: center;
+  color: var(--product-text-secondary);
+  display: flex;
+  flex-direction: column;
+  gap: var(--product-space-3);
+  justify-content: center;
+  min-height: 280px;
+  padding: var(--product-space-8);
+  text-align: center;
+}
+
+.product-empty-state h2 {
+  color: var(--product-text);
+  font: var(--product-font-section-title);
+  margin: 0;
+}
+
+.product-empty-state p { margin: 0; max-width: 520px; }
+
+.product-field {
+  display: grid;
+  gap: var(--product-space-2);
+}
+
+.product-field > label {
+  color: var(--product-text);
+  font: var(--product-font-label);
+}
+
+.product-dialog,
+.product-drawer {
+  background: var(--product-surface-elevated);
+  border: 1px solid var(--product-border);
+  box-shadow: var(--product-shadow-floating);
+  color: var(--product-text);
+  overscroll-behavior: contain;
+}
+
+.product-dialog { border-radius: var(--product-radius-4); }
+.product-drawer { height: 100%; overflow: auto; }
+
+@media (prefers-reduced-motion: reduce) {
+  .product-button,
+  .product-icon-button,
+  .product-input,
+  .product-select {
+    transition-duration: 0.01ms;
+  }
+}

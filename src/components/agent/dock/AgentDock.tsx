@@ -16,6 +16,12 @@ export function AgentDock() {
     void new AgentSessionStore().list(1).then((items) => setSession(items[0]));
   }, []);
 
+  useEffect(() => {
+    const openDock = () => setOpen(true);
+    window.addEventListener("careeradapt-agent-dock-open", openDock);
+    return () => window.removeEventListener("careeradapt-agent-dock-open", openDock);
+  }, []);
+
   return (
     <aside className={open ? "agent-dock is-open" : "agent-dock"} aria-label="AI 协作助手">
       <button

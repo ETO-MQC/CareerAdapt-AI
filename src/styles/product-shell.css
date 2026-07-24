@@ -1,0 +1,116 @@
+.product-page {
+  background: var(--product-app-bg);
+  color: var(--product-text);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.product-page-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--product-space-5) var(--product-space-6);
+}
+
+.product-topbar {
+  align-items: center;
+  background: var(--product-app-bg);
+  border-bottom: 1px solid var(--product-border);
+  display: flex;
+  flex: 0 0 52px;
+  gap: var(--product-space-4);
+  justify-content: space-between;
+  min-width: 0;
+  padding: 0 var(--product-space-6);
+}
+
+.product-topbar-heading {
+  align-items: baseline;
+  display: flex;
+  gap: var(--product-space-2);
+  min-width: 0;
+}
+
+.product-topbar h1 {
+  font: var(--product-font-page-title);
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.product-topbar-status {
+  color: var(--product-text-secondary);
+  font: var(--product-font-caption);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.product-topbar-actions,
+.product-toolbar,
+.product-filter-bar {
+  align-items: center;
+  display: flex;
+  gap: var(--product-space-2);
+  min-width: 0;
+}
+
+.product-toolbar,
+.product-filter-bar {
+  flex-wrap: wrap;
+}
+
+.product-split-pane {
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-columns: minmax(220px, 250px) minmax(320px, 380px) minmax(480px, 1fr);
+  min-height: 0;
+  overflow: hidden;
+}
+
+.product-split-pane > * {
+  min-height: 0;
+  min-width: 0;
+  overflow: auto;
+}
+
+.product-split-pane > * + * {
+  border-left: 1px solid var(--product-border);
+}
+
+@media (max-width: 1100px) {
+  .product-page-scroll {
+    padding: var(--product-space-4);
+  }
+
+  .product-split-pane {
+    grid-template-columns: 220px minmax(300px, 1fr);
+  }
+
+  .product-split-pane > :last-child {
+    display: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .product-topbar {
+    padding-inline: var(--product-space-4);
+  }
+
+  .product-topbar-status {
+    display: none;
+  }
+
+  .product-split-pane {
+    grid-template-columns: 1fr;
+  }
+
+  .product-split-pane > :first-child {
+    display: none;
+  }
+}
