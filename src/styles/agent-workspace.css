@@ -281,19 +281,6 @@
   font-size: 12px;
 }
 
-.agent-task-panel {
-  background: var(--ai-surface-soft);
-  border: 1px solid var(--ai-border);
-  border-radius: var(--ai-radius-lg);
-  flex: 0 1 auto;
-  margin: 0 auto 12px;
-  max-height: min(48dvh, 520px);
-  max-width: 820px;
-  overflow: auto;
-  padding: 16px;
-  width: calc(100% - 48px);
-}
-
 .agent-section-heading {
   margin-bottom: 12px;
 }
@@ -612,10 +599,6 @@
 
   .agent-composer {
     margin-inline: 12px;
-    width: calc(100% - 24px);
-  }
-
-  .agent-task-panel {
     width: calc(100% - 24px);
   }
 

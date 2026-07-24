@@ -59,7 +59,7 @@ export function AgentWorkflowRenderer({
   const firstQuestion = firstClarification(state.tailoringSession);
 
   return (
-    <section className="agent-task-panel" aria-labelledby="agent-task-title" data-workflow-step={state.step}>
+    <article className="agent-interactive-card" aria-labelledby="agent-task-title" data-workflow-step={state.step}>
       <div className="agent-section-heading">
         <div>
           <button className="agent-back-button" type="button" onClick={onChooseAnotherTask}>
@@ -155,7 +155,7 @@ export function AgentWorkflowRenderer({
           onConfirm={() => onConfirm(true)}
         />
       ) : null}
-    </section>
+    </article>
   );
 }
 

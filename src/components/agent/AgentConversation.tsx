@@ -1,19 +1,25 @@
 import type { AgentMessage } from "@/agent/contracts/agentSession";
-import { RotateCcw, Undo2 } from "lucide-react";
+import { AlertCircle, CheckCircle2, LoaderCircle, RotateCcw, Undo2 } from "lucide-react";
 
 export function AgentConversation({
   messages,
   onUndoLastUser,
-  onRegenerate
+  onRegenerate,
+  onOption,
+  children
 }: {
   messages: AgentMessage[];
   onUndoLastUser?(): void;
   onRegenerate?(): void;
+  onOption?(value: string): void;
+  children?: React.ReactNode;
 }) {
   const visibleMessages = messages.filter((message) => message.role !== "system");
   return (
     <section className="agent-conversation" aria-label="AI 对话" aria-live="polite">
-      {visibleMessages.map((message) => message.role === "tool" ? (
+      {visibleMessages.map((message) => message.kind === "error_status" ? (
+        <AgentErrorStatus key={message.id} message={message} />
+      ) : message.role === "tool" ? (
         <div className="agent-tool-status-row" key={message.id} role="status">
           <span aria-hidden="true" />
           <strong>{toolStatus(message)}</strong>
@@ -22,8 +28,18 @@ export function AgentConversation({
         <article className={`agent-message agent-message-${message.role}`} key={message.id}>
           <span>{message.role === "user" ? "你" : "AI 助手"}</span>
           <p>{message.content}</p>
+          {message.options?.length ? (
+            <div className="agent-message-options" aria-label="可选回答">
+              {message.options.map((option) => (
+                <button key={option.value} type="button" onClick={() => onOption?.(option.value)}>
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          ) : null}
         </article>
       ))}
+      {children}
       {visibleMessages.length ? (
         <div className="agent-conversation-actions">
           {onUndoLastUser ? (
@@ -35,6 +51,26 @@ export function AgentConversation({
         </div>
       ) : null}
     </section>
+  );
+}
+
+export const AgentConversationTimeline = AgentConversation;
+
+function AgentErrorStatus({ message }: { message: AgentMessage }) {
+  const status = message.status ?? "failed";
+  const Icon = status === "retrying"
+    ? LoaderCircle
+    : status === "recovered"
+      ? CheckCircle2
+      : AlertCircle;
+  return (
+    <div className={`agent-error-status is-${status}`} role={status === "failed" ? "alert" : "status"}>
+      <Icon aria-hidden="true" />
+      <div>
+        <strong>{status === "retrying" ? "正在重试" : status === "recovered" ? "连接已恢复" : "任务暂时中断"}</strong>
+        <p>{message.content}</p>
+      </div>
+    </div>
   );
 }
 
