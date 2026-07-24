@@ -106,6 +106,43 @@
   overflow: hidden;
 }
 
+.ai-asset-content .profile-workspace {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding-bottom: 0;
+}
+
+.ai-asset-content .profile-workspace > .profile-person-toolbar {
+  flex: 0 0 auto;
+}
+
+.ai-asset-content .profile-workspace > .profile-manager-grid {
+  flex: 1 1 auto;
+  height: auto;
+  margin-bottom: 0;
+}
+
+.ai-asset-content .profile-workspace > .stage-grid,
+.ai-asset-content .profile-workspace > .current-profile-panel {
+  display: none;
+}
+
+.ai-asset-content .profile-workspace.is-import-open {
+  overflow: auto;
+  padding-bottom: var(--product-space-6);
+}
+
+.ai-asset-content .profile-workspace.is-import-open > .profile-person-toolbar,
+.ai-asset-content .profile-workspace.is-import-open > .profile-manager-grid {
+  display: none;
+}
+
+.ai-asset-content .profile-workspace.is-import-open > .stage-grid {
+  display: grid;
+  margin-top: var(--product-space-4);
+}
+
 .ai-asset-content .profile-category-panel,
 .ai-asset-content .profile-list-panel,
 .ai-asset-content .profile-detail-panel {

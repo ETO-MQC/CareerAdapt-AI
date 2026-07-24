@@ -17,6 +17,9 @@ test("asset workspaces use compact product topbars without root overflow", async
     await expect(topbar.getByRole("heading", { name: target.title })).toBeVisible();
     expect((await topbar.boundingBox())?.height).toBeLessThanOrEqual(56);
     expect(await page.locator("html").evaluate((node) => node.scrollWidth - node.clientWidth)).toBe(0);
+    if (target.route === "/profile") {
+      expect(await page.locator(".profile-workspace").evaluate((node) => node.scrollHeight - node.clientHeight)).toBeLessThanOrEqual(1);
+    }
     await page.screenshot({ path: `artifacts/p41/${target.slug}-dark-1440x900.png`, fullPage: false });
   }
   await page.getByLabel("主题").selectOption("light");

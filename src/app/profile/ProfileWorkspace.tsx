@@ -30,7 +30,10 @@ import {
 } from "@/domain/schemas";
 import { WorkspaceEmptyState, WorkspaceErrorState, WorkspaceLoadingState } from "@/components/workspace/WorkspaceStates";
 import { FieldInput } from "@/components/editor/FieldInput";
-import { ProductTopbar } from "@/components/ui/product";
+import {
+  ProductButton,
+  ProductTopbar
+} from "@/components/ui/product";
 import { StructuredExperienceForm } from "@/components/editor/StructuredExperienceForm";
 import {
   defaultExperienceType,
@@ -140,6 +143,7 @@ const emptyBasicDraft: BasicDraftState = { name: "", headline: "", phone: "", em
 const emptyNewProfileDraft: NewProfileDraft = { name: "", headline: "", phone: "", email: "", location: "", link: "", summary: "" };
 
 export function ProfileWorkspace() {
+  const [importWorkspaceOpen, setImportWorkspaceOpen] = useState(false);
   const workspace = useWorkspace(repository);
   const pdfAbortRef = useRef<AbortController | undefined>(undefined);
   const [importMode, setImportMode] = useState<"paste" | "pdf">("paste");
@@ -1560,8 +1564,19 @@ export function ProfileWorkspace() {
   }
 
   return (
-    <main className="page-shell profile-workspace">
-      <ProductTopbar title="个人资料库" status={profile ? `${profile.name} · 本地已保存` : "未选择人物"} />
+    <main className={importWorkspaceOpen ? "page-shell profile-workspace is-import-open" : "page-shell profile-workspace"}>
+      <ProductTopbar
+        title="个人资料库"
+        status={profile ? `${profile.name} · 本地已保存` : "未选择人物"}
+        actions={(
+          <ProductButton
+            variant={importWorkspaceOpen ? "primary" : "secondary"}
+            onClick={() => setImportWorkspaceOpen((value) => !value)}
+          >
+            {importWorkspaceOpen ? "返回资料库" : "导入资料"}
+          </ProductButton>
+        )}
+      />
 
       {workspace.status === "empty" ? <WorkspaceEmptyState /> : null}
 
