@@ -22,7 +22,15 @@ const ToolCallSchema = z.object({
 export const AgentPlannerActionSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("assistant_message"), message: z.string().min(1).max(4000) }).strict(),
   z.object({ type: z.literal("tool_call"), calls: z.array(ToolCallSchema).min(1).max(4) }).strict(),
-  z.object({ type: z.literal("ask_user"), message: z.string().min(1).max(2000), field: z.string().min(1).optional() }).strict(),
+  z.object({
+    type: z.literal("ask_user"),
+    message: z.string().min(1).max(2000),
+    field: z.string().min(1).optional(),
+    options: z.array(z.object({
+      value: z.string().min(1).max(240),
+      label: z.string().min(1).max(240)
+    }).strict()).min(1).max(12).optional()
+  }).strict(),
   z.object({ type: z.literal("request_confirmation"), message: z.string().min(1).max(2000), call: ToolCallSchema }).strict(),
   z.object({ type: z.literal("workflow_complete"), message: z.string().min(1).max(2000) }).strict(),
   z.object({ type: z.literal("workflow_failed"), code: z.string().min(1), message: z.string().min(1).max(2000), retryable: z.boolean().default(false) }).strict()
@@ -96,12 +104,16 @@ export class AgentRuntime {
     return this.session;
   }
 
-  async turn(userMessage: string, pageContext: AgentPageContext) {
+  async turn(
+    userMessage: string,
+    pageContext: AgentPageContext,
+    options: { appendUserMessage?: boolean } = {}
+  ) {
     if (this.paused) throw Object.assign(new Error("agent_runtime_paused"), { code: "agent_runtime_paused" });
     if (this.controller) throw Object.assign(new Error("agent_turn_in_progress"), { code: "agent_turn_in_progress" });
     this.controller = new AbortController();
     const signal = this.controller.signal;
-    if (userMessage.trim()) this.appendMessage("user", userMessage.trim());
+    if (userMessage.trim() && options.appendUserMessage !== false) this.appendMessage("user", userMessage.trim());
     await this.persist();
 
     try {
@@ -176,7 +188,7 @@ export class AgentRuntime {
         this.appendMessage("assistant", action.message);
         return false;
       case "ask_user":
-        this.appendMessage("assistant", action.message);
+        this.appendMessage("assistant", action.message, undefined, undefined, action.options);
         this.session = { ...this.session, workflowState: { ...this.session.workflowState, status: "waiting_for_user" } };
         return false;
       case "request_confirmation":
@@ -261,13 +273,20 @@ export class AgentRuntime {
     });
   }
 
-  private appendMessage(role: AgentMessage["role"], content: string, toolName?: string, operationId?: string) {
+  private appendMessage(
+    role: AgentMessage["role"],
+    content: string,
+    toolName?: string,
+    operationId?: string,
+    options?: AgentMessage["options"]
+  ) {
     const message: AgentMessage = {
       id: `agent-message-${nanoid(12)}`,
       role,
       content,
       toolName,
       operationId,
+      options,
       createdAt: new Date().toISOString()
     };
     const messages = [...this.session.messages, message];

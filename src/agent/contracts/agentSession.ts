@@ -8,6 +8,14 @@ export const AgentMessageSchema = z.object({
   id: z.string().min(1),
   role: z.enum(["user", "assistant", "tool", "system"]),
   content: z.string().max(8000),
+  kind: z.enum(["text", "error_status"]).optional(),
+  status: z.enum(["failed", "retrying", "recovered"]).optional(),
+  errorCode: z.string().min(1).optional(),
+  userMessageId: z.string().min(1).optional(),
+  options: z.array(z.object({
+    value: z.string().min(1).max(240),
+    label: z.string().min(1).max(240)
+  }).strict()).min(1).max(12).optional(),
   toolName: z.string().min(1).optional(),
   operationId: z.string().min(8).max(160).optional(),
   createdAt: z.string().datetime({ offset: true })

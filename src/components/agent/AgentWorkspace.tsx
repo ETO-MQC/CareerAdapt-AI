@@ -25,7 +25,7 @@ import {
   type AgentArtifactDrawerState
 } from "./artifacts/AgentArtifactDrawer";
 import { AgentComposer } from "./AgentComposer";
-import { AgentConversation } from "./AgentConversation";
+import { AgentConversationTimeline } from "./AgentConversation";
 import { AgentHistoryDialog } from "./AgentHistoryDialog";
 import { AgentZeroState } from "./workspace/AgentZeroState";
 import { AgentWorkspaceLayout } from "./workspace/AgentWorkspaceLayout";
@@ -230,7 +230,23 @@ export function AgentWorkspaceController() {
   }, [artifacts.length]);
 
   async function sendMessage(message: string, sessionOverride?: AgentSession) {
-    const currentSession = sessionOverride ?? session;
+    let currentSession = sessionOverride ?? session;
+    const previousError = [...currentSession.messages].reverse().find((item) =>
+      item.kind === "error_status"
+      && item.errorCode
+      && item.userMessageId
+      && item.status !== "recovered"
+    );
+    if (previousError) {
+      currentSession = upsertAgentErrorStatus(currentSession, {
+        userMessageId: previousError.userMessageId!,
+        errorCode: previousError.errorCode!,
+        status: "retrying",
+        content: "正在重新连接规划器，任务与已输入内容保持不变。"
+      });
+      setSession(currentSession);
+      await dependencies.store.save(currentSession);
+    }
     setRuntimeBusy(true);
     setLastUserMessage(message);
     setProviderUnavailable(false);
@@ -252,19 +268,30 @@ export function AgentWorkspaceController() {
         activeResumeId: workflowState.resumeId,
         activeJobId: workflowState.jobId,
         query: {}
-      });
-      setSession(next);
+      }, { appendUserMessage: !previousError });
+      const recovered = previousError
+        ? upsertAgentErrorStatus(next, {
+          userMessageId: previousError.userMessageId!,
+          errorCode: previousError.errorCode!,
+          status: "recovered",
+          content: "规划器已恢复，任务继续执行。"
+        })
+        : next;
+      setSession(await dependencies.store.save(recovered));
       window.localStorage.setItem(ACTIVE_SESSION_KEY, next.id);
       window.dispatchEvent(new CustomEvent("careeradapt-agent-sessions-change"));
     } catch (error) {
       const snapshot = runtime.getSnapshot();
-      const fallback = appendLocalMessage(
-        snapshot,
-        "assistant",
-        error instanceof Error
-          ? `AI 服务暂时不可用：${error.message}。任务和已输入内容已保留，你可以重试或切换到手动模式。`
-          : "AI 服务暂时不可用。任务和已输入内容已保留，你可以重试或切换到手动模式。"
-      );
+      const userMessageId = previousError?.userMessageId
+        ?? [...snapshot.messages].reverse().find((item) => item.role === "user")?.id
+        ?? `agent-user-${crypto.randomUUID()}`;
+      const errorCode = plannerErrorCode(error);
+      const fallback = upsertAgentErrorStatus(snapshot, {
+        userMessageId,
+        errorCode,
+        status: "failed",
+        content: plannerErrorMessage(errorCode)
+      });
       setSession(await dependencies.store.save(fallback));
       setProviderUnavailable(true);
     } finally {
@@ -416,7 +443,7 @@ export function AgentWorkspaceController() {
                   <History aria-hidden="true" /> 历史
                 </button>
               </div>
-              <AgentConversation
+              <AgentConversationTimeline
                 messages={session.messages}
                 onUndoLastUser={() => {
                   const index = session.messages.findLastIndex((message) => message.role === "user");
@@ -425,37 +452,43 @@ export function AgentWorkspaceController() {
                   setSession(next);
                   void dependencies.store.save(next);
                 }}
-                onRegenerate={lastUserMessage ? () => void sendMessage(lastUserMessage) : undefined}
-              />
+                onRegenerate={lastUserMessage ? () => {
+                  const prepared = replaceErrorForRegenerate(session);
+                  setSession(prepared);
+                  void dependencies.store.save(prepared);
+                  void sendMessage(lastUserMessage, prepared);
+                } : undefined}
+                onOption={(value) => void sendMessage(value)}
+              >
+                {workflowActive ? (
+                  <AgentWorkflowRenderer
+                    state={workflowState}
+                    resumes={resumes}
+                    selectedResume={selectedResume}
+                    jobTitle={jobTitle}
+                    jobCompany={jobCompany}
+                    jobText={jobText}
+                    answer={answer}
+                    onSelectedResumeChange={setSelectedResume}
+                    onSelectResume={() => {
+                      const resume = resumes.find((item) => item.id === selectedResume);
+                      if (resume) dependencies.controller.selectResume(resume.profileId, resume.id);
+                    }}
+                    onJobTitleChange={setJobTitle}
+                    onJobCompanyChange={setJobCompany}
+                    onJobTextChange={setJobText}
+                    onParseJob={() => void dependencies.controller.parseJob({ title: jobTitle, company: jobCompany, rawText: jobText })}
+                    onAnswerChange={setAnswer}
+                    onAnswer={(questionId) => dependencies.controller.requestAnswer(questionId, answer)}
+                    onAnalyze={() => void dependencies.controller.analyzeFitAndPlan()}
+                    onPreview={() => void dependencies.controller.preview()}
+                    onConfirm={(confirmed) => void dependencies.controller.confirmPending(confirmed)}
+                    onChooseAnotherTask={() => setQuickTasksOpen(true)}
+                  />
+                ) : null}
+              </AgentConversationTimeline>
             </>
           )}
-
-          {workflowActive ? (
-            <AgentWorkflowRenderer
-              state={workflowState}
-              resumes={resumes}
-              selectedResume={selectedResume}
-              jobTitle={jobTitle}
-              jobCompany={jobCompany}
-              jobText={jobText}
-              answer={answer}
-              onSelectedResumeChange={setSelectedResume}
-              onSelectResume={() => {
-                const resume = resumes.find((item) => item.id === selectedResume);
-                if (resume) dependencies.controller.selectResume(resume.profileId, resume.id);
-              }}
-              onJobTitleChange={setJobTitle}
-              onJobCompanyChange={setJobCompany}
-              onJobTextChange={setJobText}
-              onParseJob={() => void dependencies.controller.parseJob({ title: jobTitle, company: jobCompany, rawText: jobText })}
-              onAnswerChange={setAnswer}
-              onAnswer={(questionId) => dependencies.controller.requestAnswer(questionId, answer)}
-              onAnalyze={() => void dependencies.controller.analyzeFitAndPlan()}
-              onPreview={() => void dependencies.controller.preview()}
-              onConfirm={(confirmed) => void dependencies.controller.confirmPending(confirmed)}
-              onChooseAnotherTask={() => setQuickTasksOpen(true)}
-            />
-          ) : null}
 
           <AgentComposer
             disabled={runtimePaused}
@@ -508,6 +541,77 @@ function appendLocalMessage(
     }].slice(-40),
     updatedAt: now
   };
+}
+
+export function upsertAgentErrorStatus(
+  session: AgentSession,
+  input: {
+    userMessageId: string;
+    errorCode: string;
+    status: "failed" | "retrying" | "recovered";
+    content: string;
+  }
+): AgentSession {
+  const keyMatches = (message: AgentMessage) =>
+    message.kind === "error_status"
+    && message.userMessageId === input.userMessageId
+    && message.errorCode === input.errorCode;
+  const existingIndex = session.messages.findIndex(keyMatches);
+  const now = new Date().toISOString();
+  if (existingIndex >= 0) {
+    return {
+      ...session,
+      messages: session.messages.map((message, index) => index === existingIndex
+        ? { ...message, status: input.status, content: input.content, createdAt: now }
+        : message),
+      updatedAt: now
+    };
+  }
+  return {
+    ...session,
+    messages: [...session.messages, {
+      id: `agent-error-${crypto.randomUUID()}`,
+      role: "assistant" as const,
+      kind: "error_status" as const,
+      status: input.status,
+      errorCode: input.errorCode,
+      userMessageId: input.userMessageId,
+      content: input.content,
+      createdAt: now
+    }].slice(-40),
+    updatedAt: now
+  };
+}
+
+export function replaceErrorForRegenerate(session: AgentSession): AgentSession {
+  const error = [...session.messages].reverse().find((item) => item.kind === "error_status");
+  if (!error?.userMessageId) return session;
+  return {
+    ...session,
+    messages: session.messages.filter((item) =>
+      item.id !== error.id && item.id !== error.userMessageId
+    ),
+    updatedAt: new Date().toISOString()
+  };
+}
+
+function plannerErrorCode(error: unknown) {
+  if (typeof error === "object" && error && "code" in error) {
+    return String((error as { code?: unknown }).code ?? "planner_provider_failed");
+  }
+  return "planner_provider_failed";
+}
+
+function plannerErrorMessage(code: string) {
+  const messages: Record<string, string> = {
+    planner_invalid_json: "规划器返回的 JSON 无法解析。任务已保留，可重试。",
+    planner_schema_mismatch: "规划器输出结构仍不受支持。任务已保留，可重试。",
+    planner_unregistered_tool: "规划器请求了未注册工具，已安全阻止。",
+    planner_confirmation_boundary: "规划器尝试越过确认边界，已安全阻止。",
+    planner_provider_failed: "AI 服务暂时不可用。任务和已输入内容已保留。",
+    planner_timeout: "规划器响应超时。任务和已输入内容已保留。"
+  };
+  return messages[code] ?? "AI 服务暂时不可用。任务和已输入内容已保留。";
 }
 
 function buildArtifactRefs(state: ReturnType<TailorExistingResumeWorkflowController["getSnapshot"]>, now: string) {
