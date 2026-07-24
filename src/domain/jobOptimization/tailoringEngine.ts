@@ -75,7 +75,9 @@ export function routeTailoringRequirements(input: {
       description: item.description,
       priority: item.priority,
       keywords: unique(item.keywords.filter(isUsefulKeyword)),
-      relevanceScore: keywordHits * 12 + descriptionHits * 2 + categoryScore + priorityScore
+      // categoryRelevance bottoms out at -3. Offset every score equally so the
+      // Zod contract stays non-negative without changing requirement ordering.
+      relevanceScore: keywordHits * 12 + descriptionHits * 2 + categoryScore + priorityScore + 3
     };
   }).filter((item) => item.description !== GENERIC_REQUIREMENT || source.length === 1)
     .sort((a, b) => b.relevanceScore - a.relevanceScore || a.requirementId.localeCompare(b.requirementId))

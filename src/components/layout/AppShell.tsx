@@ -7,7 +7,7 @@ import { NotificationProvider } from "@/components/notifications/NotificationPro
 
 type ThemePreference = "system" | "light" | "dark";
 type DensityPreference = "compact" | "comfortable";
-type NavIconName = "home" | "resume" | "profile" | "jobs" | "applications" | "recycle" | "settings";
+type NavIconName = "home" | "agent" | "resume" | "profile" | "jobs" | "applications" | "recycle" | "settings";
 
 const themeStorageKey = "careeradapt.theme";
 const densityStorageKey = "careeradapt.density";
@@ -15,6 +15,7 @@ const sidebarCollapsedStorageKey = "careeradapt.sidebarCollapsed";
 
 const navItems = [
   { href: "/", label: "首页", icon: "home" },
+  { href: "/ai-workspace", label: "AI 工作台", icon: "agent" },
   { href: "/resume", label: "我的简历", icon: "resume" },
   { href: "/profile", label: "个人资料库", icon: "profile" },
   { href: "/jobs", label: "岗位", icon: "jobs" },
@@ -36,6 +37,7 @@ const densityOptions: Array<{ value: DensityPreference; label: string }> = [
 
 const pageTitles: Record<string, string> = {
   "/": "首页",
+  "/ai-workspace": "AI 工作台",
   "/resume": "我的简历",
   "/profile": "个人资料库",
   "/jobs": "岗位",
@@ -246,6 +248,7 @@ function applyRootPreferences(theme: ThemePreference, density: DensityPreference
 function NavIcon({ name }: { name: NavIconName }) {
   const paths: Record<NavIconName, string[]> = {
     home: ["M4 11.5 12 5l8 6.5", "M6.5 10.5V19h11v-8.5", "M10 19v-5h4v5"],
+    agent: ["M12 3v3", "M12 18v3", "M3 12h3", "M18 12h3", "M6.5 6.5l2 2", "M15.5 15.5l2 2", "M17.5 6.5l-2 2", "M8.5 15.5l-2 2", "M9 12a3 3 0 1 0 6 0 3 3 0 0 0-6 0Z"],
     resume: ["M7 4h7l3 3v13H7z", "M14 4v4h4", "M9.5 11h5", "M9.5 14h5", "M9.5 17h3"],
     profile: ["M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Z", "M5.5 20a6.5 6.5 0 0 1 13 0"],
     jobs: ["M8 7V5.5A1.5 1.5 0 0 1 9.5 4h5A1.5 1.5 0 0 1 16 5.5V7", "M5 8h14v11H5z", "M5 12h14"],

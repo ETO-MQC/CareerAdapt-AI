@@ -81,6 +81,7 @@ import {
   type ResumeRevision,
   type SuggestionOperation
 } from "@/domain/schemas";
+import { AgentSessionSchema, serializeAgentSession, type AgentSession } from "@/agent/contracts/agentSession";
 import { validateEachTailoringDiffLocally } from "@/domain/jobOptimization/tailoringDiff";
 import { assertApplicationStatusTransition, computeApplicationReadiness } from "@/domain/application";
 import {
@@ -92,7 +93,12 @@ import {
 } from "@/domain/applicationPreparation";
 import { mapAdaptationDraftToResumeBranch } from "@/domain/branch/mapper";
 import { createResumeRevision } from "@/domain/branch/revision";
-import { computeBranchSyncStatus, computeGeneralBranchSyncStatus, resolveBranchFactRefs } from "@/domain/branch/validation";
+import {
+  computeBranchSyncStatus,
+  computeGeneralBranchSyncStatus,
+  resolveBranchFactRefs,
+  toBranchFactRef
+} from "@/domain/branch/validation";
 import { buildGeneralBranchFromProfile, buildJobBranchFromProfile } from "@/domain/branch/profileBranch";
 import {
   defaultResumeRenderSectionOrder,
@@ -160,14 +166,21 @@ function applyTailoringClaimsToBranch(
     return claim.targetPatches.map((patch) => ({ patch, claim }));
   });
   let structuredContentItems = syncStructuredContentItems(branch, branch.contentItems);
-  for (const { patch } of patches) {
+  for (const { patch, claim } of patches) {
     const index = structuredContentItems.findIndex((item) => item.id === patch.itemId);
     if (index < 0) {
       structuredContentItems = [...structuredContentItems, createConfirmedSkillItem(patch, structuredContentItems, now)];
       continue;
     }
     const current = structuredContentItems[index];
-    structuredContentItems[index] = applyTypedPatchToStructuredItem(current, patch);
+    const patched = applyTypedPatchToStructuredItem(current, patch);
+    const verifiedFactRefs = claim.supportLevel === "verified"
+      ? claim.evidenceRefs.map(toBranchFactRef)
+      : [];
+    structuredContentItems[index] = ResumeContentItemV2Schema.parse({
+      ...patched,
+      factRefs: dedupeBranchFactRefs([...patched.factRefs, ...verifiedFactRefs])
+    });
   }
 
   const claimsByItem = new Map<string, TailoringClaim[]>();
@@ -206,6 +219,16 @@ function applyTailoringClaimsToBranch(
     });
   });
   return { contentItems, structuredContentItems };
+}
+
+function dedupeBranchFactRefs<T>(refs: T[]) {
+  const seen = new Set<string>();
+  return refs.filter((ref) => {
+    const key = JSON.stringify(ref);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function applyTypedPatchToStructuredItem(item: ResumeContentItemV2, patch: ResumeFieldPatch) {
@@ -380,6 +403,22 @@ export type ApplicationContext = {
 
 export class WorkspaceRepository {
   constructor(private readonly db: CareerAdaptDb = careerAdaptDb) {}
+
+  async saveAgentSession(session: AgentSession) {
+    const parsed = AgentSessionSchema.parse(serializeAgentSession(session));
+    await this.db.agentSessions.put(parsed);
+    return parsed;
+  }
+
+  async getAgentSession(sessionId: string) {
+    const session = await this.db.agentSessions.get(sessionId);
+    return session ? AgentSessionSchema.parse(session) : undefined;
+  }
+
+  async listAgentSessions(limit = 30) {
+    const sessions = await this.db.agentSessions.orderBy("updatedAt").reverse().limit(Math.min(Math.max(limit, 1), 100)).toArray();
+    return sessions.map((session) => AgentSessionSchema.parse(session));
+  }
 
   async seedDemoWorkspace() {
     await this.saveProfile(demoCareerProfile);
