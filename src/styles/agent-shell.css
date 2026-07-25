@@ -83,7 +83,7 @@
   border-radius: var(--ai-radius-sm);
   cursor: pointer;
   font: inherit;
-  min-height: 38px;
+  min-height: 36px !important;
   transition:
     background-color var(--ai-motion) ease,
     border-color var(--ai-motion) ease,
@@ -110,8 +110,8 @@
 
 .agent-sidebar-primary {
   display: grid;
-  gap: 4px;
-  margin-bottom: 16px;
+  gap: 0px;
+  margin-bottom: 4px;
 }
 
 .agent-sidebar-action,
@@ -145,7 +145,8 @@
 
 .agent-sidebar-assets {
   display: grid;
-  gap: 3px;
+  gap: 0px;
+  margin-bottom: 0px;
 }
 
 .agent-sidebar-section-label {

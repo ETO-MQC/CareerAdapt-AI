@@ -484,7 +484,17 @@ export function AgentWorkspaceController() {
           ) : (
             <>
               <div className="agent-conversation-toolbar">
-                <button type="button" onClick={() => setQuickTasksOpen(true)}>快捷任务</button>
+                <button type="button" onClick={() => {
+                  const messages = session.messages.filter((m) => m.role !== "system");
+                  if (!messages.length) return;
+                  const blob = new Blob([JSON.stringify(messages, null, 2)], { type: "application/json" });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = `ai-conversation-${new Date().toISOString().slice(0, 10)}.json`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }}>导出对话</button>
                 <button
                   type="button"
                   onClick={() => setRuntimePaused((value) => !value)}

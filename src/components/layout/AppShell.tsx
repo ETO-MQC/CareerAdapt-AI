@@ -259,6 +259,7 @@ function applyRootPreferences(theme: ThemePreference, density: DensityPreference
   root.dataset.theme = resolved;
   root.dataset.themePreference = theme;
   root.dataset.density = density;
+  root.style.colorScheme = resolved;
 }
 
 function NavIcon({ name }: { name: NavIconName }) {

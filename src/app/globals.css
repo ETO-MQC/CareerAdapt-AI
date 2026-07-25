@@ -1044,11 +1044,20 @@ html[data-theme="dark"] .panel {
   padding: 16px;
 }
 
-.job-entry-panel,
-.jobs-overview-grid .jobs-list-panel {
+.job-entry-panel {
   display: grid;
   gap: 12px;
   grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+/* HARD CONSTRAINT: 三行布局 header(auto) + filter(auto) + card-list(1fr)
+   card-list 必须在 filter 按钮下方滚动，禁止修改此行顺序。
+   如果需要调整 header 或 filter 的高度，只能改各自的内部样式，
+   不得将 1fr 分配给 header 或 filter 行。 */
+.jobs-overview-grid .jobs-list-panel {
+  display: grid !important;
+  gap: 12px;
+  grid-template-rows: auto auto minmax(0, 1fr) !important;
 }
 
 .job-entry-panel > header,

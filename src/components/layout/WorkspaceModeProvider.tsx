@@ -81,4 +81,5 @@ function applyInitialAppearance(mode: WorkspaceMode, force = false) {
   document.documentElement.dataset.density = window.localStorage.getItem("careeradapt.density") === "comfortable"
     ? "comfortable"
     : "compact";
+  document.documentElement.style.colorScheme = resolved;
 }

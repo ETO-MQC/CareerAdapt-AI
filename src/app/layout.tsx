@@ -28,8 +28,32 @@ export default async function RootLayout({
 }>) {
   const cookieStore = await cookies();
   const initialMode = parseWorkspaceMode(cookieStore.get(WORKSPACE_MODE_COOKIE_KEY)?.value) ?? "ai";
+  const themeBootstrap = `(() => {
+try {
+  const preference = window.localStorage.getItem("careeradapt.theme");
+  const density = window.localStorage.getItem("careeradapt.density") === "comfortable" ? "comfortable" : "compact";
+  const mode = ${JSON.stringify(initialMode)};
+  const resolved = preference === "light" || preference === "dark"
+    ? preference
+    : mode === "ai"
+      ? "dark"
+      : window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  const root = document.documentElement;
+  root.dataset.theme = resolved;
+  root.dataset.themePreference = preference === "light" || preference === "dark" || preference === "system"
+    ? preference
+    : mode === "ai" ? "dark" : "system";
+  root.dataset.density = density;
+  root.style.colorScheme = resolved;
+} catch {
+  document.documentElement.dataset.theme = ${JSON.stringify(initialMode === "ai" ? "dark" : "light")};
+}
+})();`;
   return (
-    <html lang="zh-CN">
+    <html lang="zh-CN" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeBootstrap }} />
+      </head>
       <body>
         <WorkspaceModeProvider initialMode={initialMode}>
           <ModeAwareAppShell>{children}</ModeAwareAppShell>

@@ -563,6 +563,34 @@ export default function SettingsPage() {
             </div>
           ) : null}
 
+          {category === "data" ? (
+            <div className="settings-section">
+              <h2>导出任务数据</h2>
+              <p>将所有 AI 任务（含对话历史、工作流状态和产物引用）导出为 JSON 文件。</p>
+              <button
+                className="secondary-button compact"
+                type="button"
+                style={{ marginTop: 8 }}
+                onClick={() => {
+                  void sessionStoreRef.current.list(999).then(async (active) => {
+                    const archived = await sessionStoreRef.current.listArchived(999);
+                    const all = [...active, ...archived];
+                    const blob = new Blob([JSON.stringify(all, null, 2)], { type: "application/json" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `careeradapt-ai-tasks-${new Date().toISOString().slice(0, 10)}.json`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                    notify({ type: "success", title: "导出成功", message: `已导出 ${all.length} 条任务。` });
+                  });
+                }}
+              >
+                导出全部任务
+              </button>
+            </div>
+          ) : null}
+
           {category === "help" ? (
             <div className="settings-section">
               <h2>帮助</h2>
@@ -648,6 +676,7 @@ function applyPreferences(theme: ThemePreference, density: DensityPreference) {
   document.documentElement.dataset.theme = resolvedTheme;
   document.documentElement.dataset.themePreference = theme;
   document.documentElement.dataset.density = density;
+  document.documentElement.style.colorScheme = resolvedTheme;
   window.dispatchEvent(new Event("careeradapt-preferences-change"));
 }
 
