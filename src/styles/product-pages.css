@@ -281,3 +281,141 @@
     grid-template-columns: minmax(300px, 42%) minmax(360px, 58%);
   }
 }
+
+/* P4.1d AI mode asset surface closure. */
+.ai-asset-content {
+  --workspace-padding: var(--ai-page-padding);
+  --workspace-gap: var(--ai-section-gap);
+  --control-height: var(--ai-control-height);
+}
+
+.ai-asset-content > .page-shell {
+  padding: 0 var(--ai-page-padding) var(--ai-page-padding);
+}
+
+.ai-asset-content .resume-workspace,
+.ai-asset-content .profile-workspace,
+.ai-asset-content .jobs-workspace-v2,
+.ai-asset-content .recycle-workspace {
+  gap: var(--ai-section-gap);
+  min-height: calc(100dvh - 44px - var(--ai-page-padding) * 2);
+}
+
+.ai-asset-content .resume-workspace > .panel,
+.ai-asset-content .profile-manager-grid,
+.ai-asset-content .jobs-intake-panel,
+.ai-asset-content .jobs-list-panel,
+.ai-asset-content .selected-job-workspace,
+.ai-asset-content .recycle-panel {
+  background: var(--ai-surface);
+  border: 1px solid var(--ai-border);
+  border-radius: var(--ai-large-radius);
+  box-shadow: var(--ai-shadow-low);
+}
+
+.ai-asset-content .resume-workspace > .panel,
+.ai-asset-content .jobs-intake-panel,
+.ai-asset-content .jobs-list-panel,
+.ai-asset-content .selected-job-workspace,
+.ai-asset-content .recycle-panel {
+  padding: var(--ai-card-padding);
+}
+
+.ai-asset-content .resume-workspace > .page-title,
+.ai-asset-content .profile-workspace > .page-title,
+.ai-asset-content .jobs-workspace-v2 > .jobs-page-title {
+  margin-bottom: 0;
+  padding-bottom: 16px;
+}
+
+.ai-asset-content .resume-create-panel {
+  max-width: 980px;
+}
+
+.ai-asset-content .resume-create-card-grid {
+  gap: 12px;
+}
+
+.ai-asset-content .resume-create-card,
+.ai-asset-content .resume-branch-card,
+.ai-asset-content .product-data-row {
+  border-radius: var(--ai-card-radius);
+}
+
+.ai-asset-content .profile-manager-grid {
+  grid-template-columns: 240px 360px minmax(0, 1fr);
+  height: min(760px, calc(100dvh - 44px - 112px));
+  min-height: 0;
+  overflow: hidden;
+  padding: 0;
+}
+
+.ai-asset-content .profile-manager-grid > .panel {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--ai-card-padding);
+}
+
+.ai-asset-content .profile-detail-panel {
+  padding-right: 24px;
+}
+
+.ai-asset-content .jobs-workspace-v2 {
+  height: calc(100dvh - 44px - var(--ai-page-padding) * 2);
+  overflow: hidden;
+}
+
+.ai-asset-content .jobs-overview-grid {
+  grid-template-columns: minmax(340px, 42%) minmax(420px, 58%);
+  min-height: 0;
+}
+
+.ai-asset-content .job-card-list,
+.ai-asset-content .selected-job-content,
+.ai-asset-content .recycle-section-list {
+  max-height: 100%;
+  min-height: 0;
+  overflow: auto;
+}
+
+.ai-asset-content .jobs-list-panel {
+  max-height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.ai-asset-content .job-primary-tabs button {
+  border-radius: 12px;
+  min-height: var(--ai-control-height-lg);
+}
+
+.ai-asset-content .selected-job-workspace {
+  margin-top: 16px;
+}
+
+.ai-asset-content .recycle-workspace {
+  align-content: start;
+  display: grid;
+  justify-items: center;
+}
+
+.ai-asset-content .recycle-panel {
+  width: min(980px, 100%);
+}
+
+.ai-asset-content .recycle-empty {
+  background: transparent;
+  border: 0;
+  padding: 24px 0;
+}
+
+.ai-asset-content .primary-button,
+.ai-asset-content .secondary-button,
+.ai-asset-content .danger-button,
+.ai-asset-content input,
+.ai-asset-content select {
+  min-height: var(--ai-control-height);
+}

@@ -1,6 +1,7 @@
 "use client";
 
 import type { AgentMessage } from "@/agent/contracts/agentSession";
+import type { AgentOption } from "@/agent/contracts/agentActions";
 import {
   AlertCircle,
   Bot,
@@ -32,7 +33,7 @@ export function AgentConversation({
   onEditUserMessage?(message: AgentMessage): void;
   onContinueFromMessage?(message: AgentMessage): void;
   onCopyMessage?(message: AgentMessage): void;
-  onOption?(value: string): void;
+  onOption?(option: AgentOption): void;
   children?: React.ReactNode;
 }) {
   const visibleMessages = messages.filter((message) => message.role !== "system");
@@ -105,7 +106,7 @@ function AgentMessageRow({
   onContinueFromMessage?(message: AgentMessage): void;
   onCopyMessage?(message: AgentMessage): void;
   onRegenerate?(): void;
-  onOption?(value: string): void;
+  onOption?(option: AgentOption): void;
 }) {
   const isUser = message.role === "user";
   const streaming = isStreamingMessage(message);
@@ -125,7 +126,7 @@ function AgentMessageRow({
         {message.options?.length ? (
           <div className="agent-message-options" aria-label="可选回答">
             {message.options.map((option) => (
-              <button key={option.value} type="button" onClick={() => onOption?.(option.value)}>
+              <button key={option.id} type="button" onClick={() => onOption?.(option)}>
                 {option.label}
               </button>
             ))}

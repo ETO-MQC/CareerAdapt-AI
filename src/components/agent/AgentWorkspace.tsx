@@ -3,7 +3,7 @@
 import { History, Pause, Play, RotateCw, WifiOff } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { AgentRuntime, browserAgentPlanner } from "@/agent/runtime/agentRuntime";
+import { AgentRuntime, AgentTurnRequestSchema } from "@/agent/runtime/agentRuntime";
 import { AgentEventBus } from "@/agent/runtime/agentEventBus";
 import { AgentExecutor } from "@/agent/runtime/agentExecutor";
 import { createAgentToolRegistry } from "@/agent/tools/registry";
@@ -17,6 +17,10 @@ import {
   createQuickActionIntent,
   type AgentQuickActionId
 } from "@/agent/contracts/agentQuickAction";
+import type { AgentOption, AgentUiAction, AgentWorkflowControl } from "@/agent/contracts/agentActions";
+import { routeAgentIntent } from "@/agent/runtime/agentIntentRouter";
+import { parseAgentSseStream } from "@/agent/runtime/agentSse";
+import { getWorkflowDefinition } from "@/agent/workflows/workflowRegistry";
 import { BrowserAgentToolService } from "@/services/agent/agentToolService";
 import { AgentSessionStore } from "@/services/agent/agentSessionStore";
 import { useWorkspaceMode } from "@/components/layout/WorkspaceModeProvider";
@@ -79,7 +83,9 @@ export function AgentWorkspaceController() {
   const [jobText, setJobText] = useState("");
   const [answer, setAnswer] = useState("");
   const [composerDraft, setComposerDraft] = useState("");
-  const runtimeRef = useRef<AgentRuntime | undefined>(undefined);
+  const [floatingAction, setFloatingAction] = useState<AgentUiAction | undefined>();
+  const [switchChoice, setSwitchChoice] = useState<Extract<AgentWorkflowControl, { type: "switch_workflow" }> | undefined>();
+  const abortRef = useRef<AbortController | undefined>(undefined);
   const previousArtifactCount = useRef(0);
 
   const restoreSession = useCallback((selected: AgentSession) => {
@@ -244,6 +250,99 @@ export function AgentWorkspaceController() {
     previousArtifactCount.current = artifacts.length;
   }, [artifacts.length]);
 
+  function createAbortController() {
+    const controller = new AbortController();
+    abortRef.current = controller;
+    return controller;
+  }
+
+  function handleUiAction(action: AgentUiAction) {
+    if (action.type === "open_artifact") {
+      setDrawerState("open");
+      return;
+    }
+    setFloatingAction(action);
+  }
+
+  async function handleWorkflowControl(
+    action: AgentWorkflowControl,
+    baseSession: AgentSession = session,
+    thinkingMessageId?: string
+  ) {
+    if (
+      action.type === "switch_workflow"
+      && action.workflowId === "job_ingestion"
+      && isActiveWorkflow(baseSession)
+      && baseSession.workflowState.workflowId !== "job_ingestion"
+      && action.preserveCurrent
+    ) {
+      setSwitchChoice(action);
+      handleUiAction({ type: "open_job_import_dialog" });
+      return replaceThinkingWithAssistant(baseSession, thinkingMessageId, "可以录入岗位。当前任务会先暂存，岗位录入只影响新的岗位流程。", "");
+    }
+
+    if (action.type === "pause_workflow") {
+      const next = replaceThinkingWithAssistant(baseSession, thinkingMessageId, "任务已暂停。", "");
+      setRuntimePaused(true);
+      return { ...next, workflowState: { ...next.workflowState, status: "paused" as const } };
+    }
+    if (action.type === "resume_workflow") {
+      const next = replaceThinkingWithAssistant(baseSession, thinkingMessageId, "任务已恢复。", "");
+      setRuntimePaused(false);
+      return { ...next, workflowState: { ...next.workflowState, status: "waiting_for_user" as const } };
+    }
+    if (action.type === "cancel_workflow") {
+      setSwitchChoice(undefined);
+      const next = replaceThinkingWithAssistant(baseSession, thinkingMessageId, "任务已取消。", "");
+      return { ...next, workflowState: { ...next.workflowState, status: "completed" as const } };
+    }
+    if (action.type === "go_back") {
+      return replaceThinkingWithAssistant(baseSession, thinkingMessageId, "已返回上一步。", "");
+    }
+
+    const workflowId = action.workflowId;
+    const definition = getWorkflowDefinition(workflowId);
+    const nextWorkflowData: AgentSession["workflowState"]["data"] =
+      action.type === "switch_workflow" && action.preserveCurrent
+        ? { preservedWorkflowId: baseSession.workflowState.workflowId }
+        : {};
+    const nextWorkflowState: AgentSession["workflowState"] = {
+      workflowId,
+      step: definition?.initialStep ?? "collecting_intent",
+      status: "waiting_for_user",
+      toolCallCount: 0,
+      data: nextWorkflowData
+    };
+    if (workflowId === tailorExistingResumeWorkflow.id) {
+      dependencies.controller.restore({ step: tailorExistingResumeWorkflow.initialStep });
+      setWorkflowActive(true);
+    } else {
+      setWorkflowActive(false);
+    }
+    if (workflowId === "job_ingestion") handleUiAction({ type: "open_job_import_dialog" });
+    return {
+      ...replaceThinkingWithAssistant(baseSession, thinkingMessageId, workflowStartMessage(workflowId), ""),
+      title: workflowTitle(workflowId),
+      workflowState: nextWorkflowState
+    };
+  }
+
+  function handleOption(option: AgentOption) {
+    const action = option.action;
+    if (action.type === "answer") {
+      void sendMessage(String(action.value ?? option.label));
+      return;
+    }
+    if (isUiAction(action)) {
+      handleUiAction(action);
+      return;
+    }
+    void handleWorkflowControl(action).then(async (next) => {
+      setSession(next);
+      await dependencies.store.save(next);
+    });
+  }
+
   async function sendMessage(message: string, sessionOverride?: AgentSession) {
     let currentSession = sessionOverride ?? session;
     const previousError = [...currentSession.messages].reverse().find((item) =>
@@ -257,7 +356,7 @@ export function AgentWorkspaceController() {
         userMessageId: previousError.userMessageId!,
         errorCode: previousError.errorCode!,
         status: "retrying",
-        content: "正在重新连接 AI，任务与已输入内容保持不变。"
+        content: "?????? AI??????????????"
       });
     }
 
@@ -289,52 +388,38 @@ export function AgentWorkspaceController() {
     window.localStorage.setItem(ACTIVE_SESSION_KEY, optimistic.id);
     window.dispatchEvent(new CustomEvent("careeradapt-agent-sessions-change"));
 
-    const runtime = new AgentRuntime(runtimeBase, {
-      planner: browserAgentPlanner,
-      executor: dependencies.executor,
-      persistence: dependencies.store,
-      eventBus: dependencies.eventBus,
-      toolManifest: dependencies.registry.manifest(),
-      maxToolCalls: 12
-    });
-    runtimeRef.current = runtime;
     try {
-      const next = await runtime.turn(message, {
-        pathname: window.location.pathname,
-        route: window.location.pathname,
-        title: "AI 工作台",
-        activeProfileId: workflowState.profileId,
-        activeResumeId: workflowState.resumeId,
-        activeJobId: workflowState.jobId,
-        query: {}
-      }, { appendUserMessage: false });
-      const recovered = previousError
-        ? upsertAgentErrorStatus(next, {
-          userMessageId: previousError.userMessageId!,
-          errorCode: previousError.errorCode!,
-          status: "recovered",
-          content: "AI 连接已恢复，任务继续执行。"
-        })
-        : next;
-      const finalSession = normalizeAssistantMessages(recovered, message);
-      await streamAssistantReply({
+      const routed = routeAgentIntent(message, { activeWorkflowId: runtimeBase.workflowState.workflowId });
+      if (routed.kind === "workflow_control") {
+        const next = await handleWorkflowControl(routed.action, runtimeBase, thinkingMessageId);
+        setSession(next);
+        await dependencies.store.save(next);
+        return;
+      }
+      if (routed.kind === "ui_action") {
+        handleUiAction(routed.action);
+        const next = replaceThinkingWithAssistant(runtimeBase, thinkingMessageId, uiActionStatus(routed.action), message);
+        setSession(await dependencies.store.save(next));
+        return;
+      }
+      const finalSession = await consumeAgentStream({
+        base: runtimeBase,
         optimistic,
-        runtimeBase,
-        finalSession,
         thinkingMessageId,
-        store: dependencies.store,
-        setSession
+        userMessage: message,
+        signalController: createAbortController(),
+        onUiAction: handleUiAction,
+        onWorkflowControl: (action) => void handleWorkflowControl(action, runtimeBase, thinkingMessageId)
       });
       window.localStorage.setItem(ACTIVE_SESSION_KEY, finalSession.id);
       window.dispatchEvent(new CustomEvent("careeradapt-agent-sessions-change"));
     } catch (error) {
-      const snapshot = runtime.getSnapshot();
       const userMessageId = previousError?.userMessageId
         ?? latestUserMessage?.id
-        ?? [...snapshot.messages].reverse().find((item) => item.role === "user")?.id
+        ?? [...runtimeBase.messages].reverse().find((item) => item.role === "user")?.id
         ?? `agent-user-${crypto.randomUUID()}`;
       const errorCode = plannerErrorCode(error);
-      const fallback = upsertAgentErrorStatus(snapshot, {
+      const fallback = upsertAgentErrorStatus(runtimeBase, {
         userMessageId,
         errorCode,
         status: "failed",
@@ -346,9 +431,99 @@ export function AgentWorkspaceController() {
       }));
       setProviderUnavailable(true);
     } finally {
-      runtimeRef.current = undefined;
+      abortRef.current = undefined;
       setRuntimeBusy(false);
     }
+  }
+
+  async function consumeAgentStream(input: {
+    base: AgentSession;
+    optimistic: AgentSession;
+    thinkingMessageId: string;
+    userMessage: string;
+    signalController: AbortController;
+    onUiAction(action: AgentUiAction): void;
+    onWorkflowControl(action: AgentWorkflowControl): void;
+  }) {
+    const pageContext = {
+      pathname: window.location.pathname,
+      route: window.location.pathname,
+      title: "AI 工作台",
+      activeProfileId: workflowState.profileId,
+      activeResumeId: workflowState.resumeId,
+      activeJobId: workflowState.jobId,
+      query: {}
+    };
+    const requestBody = AgentTurnRequestSchema.parse({
+      userMessage: input.userMessage,
+      sessionSummary: input.base.conversationSummary,
+      workflowState: input.base.workflowState,
+      pageContext,
+      toolManifest: dependencies.registry.manifest(),
+      recentToolResults: []
+    });
+    const response = await fetch("/api/agent/stream", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(requestBody),
+      signal: input.signalController.signal
+    });
+    if (!response.ok || !response.body) throw Object.assign(new Error("agent_stream_failed"), { code: "agent_stream_failed" });
+
+    let streamingMessage: AgentMessage | undefined;
+    let visible = "";
+    let final = input.optimistic;
+    for await (const event of parseAgentSseStream(response.body)) {
+      if (event.type === "assistant_start") {
+        streamingMessage = {
+          id: input.thinkingMessageId,
+          role: "assistant",
+          content: "",
+          kind: "assistant_streaming",
+          type: "assistant_streaming",
+          status: "streaming",
+          streaming: true,
+          language: "unknown",
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        final = {
+          ...input.optimistic,
+          messages: input.optimistic.messages.map((message) =>
+            message.id === input.thinkingMessageId ? streamingMessage! : message
+          )
+        };
+        setSession(final);
+      }
+      if (event.type === "assistant_delta") {
+        visible += event.delta;
+        final = {
+          ...final,
+          messages: final.messages.map((message) =>
+            message.id === input.thinkingMessageId
+              ? {
+                  ...(streamingMessage ?? message),
+                  content: visible,
+                  status: "streaming" as const,
+                  streaming: true,
+                  updatedAt: new Date().toISOString()
+                }
+              : message
+          )
+        };
+        setSession(final);
+      }
+      if (event.type === "ui_action" && isUiAction(event.action)) input.onUiAction(event.action);
+      if (event.type === "done") {
+        if (isWorkflowControl(event.action)) input.onWorkflowControl(event.action);
+        const doneText = typeof event.message === "string" && event.message.trim() ? event.message : visible;
+        final = replaceThinkingWithAssistant(final, input.thinkingMessageId, doneText, doneText);
+      }
+      if (event.type === "error") throw Object.assign(new Error(event.message), { code: event.code });
+    }
+    const saved = await dependencies.store.save(normalizeAssistantMessages(final, finalAssistantText(final)));
+    setSession(saved);
+    return saved;
   }
 
   async function startQuickAction(actionId: AgentQuickActionId) {
@@ -524,7 +699,7 @@ export function AgentWorkspaceController() {
                 onEditUserMessage={(message) => setComposerDraft(message.content)}
                 onContinueFromMessage={(message) => setComposerDraft(`基于这条回复继续：\n${normalizeAgentMessageText(message.content)}`)}
                 onCopyMessage={(message) => void navigator.clipboard?.writeText(normalizeAgentMessageText(message.content))}
-                onOption={(value) => void sendMessage(value)}
+                onOption={handleOption}
               >
                 {workflowActive ? (
                   <AgentWorkflowRenderer
@@ -563,8 +738,9 @@ export function AgentWorkspaceController() {
             draft={composerDraft}
             onDraftChange={setComposerDraft}
             onSend={sendMessage}
+            onUiAction={handleUiAction}
             onUpload={upload}
-            onStop={() => runtimeRef.current?.abort()}
+            onStop={() => abortRef.current?.abort()}
           />
         </section>
         <AgentArtifactDrawer
@@ -581,7 +757,134 @@ export function AgentWorkspaceController() {
         onClose={() => setHistoryOpen(false)}
         onSelect={restoreSession}
       />
+      {switchChoice ? (
+        <AgentWorkflowSwitchCard
+          onPreserve={() => {
+            void handleWorkflowControl({ ...switchChoice, preserveCurrent: true }).then(async (next) => {
+              setSwitchChoice(undefined);
+              setSession(next);
+              await dependencies.store.save(next);
+            });
+          }}
+          onContinue={() => setSwitchChoice(undefined)}
+          onCancelAndSwitch={() => {
+            void handleWorkflowControl({ ...switchChoice, preserveCurrent: false, type: "switch_workflow" }).then(async (next) => {
+              setSwitchChoice(undefined);
+              setSession(next);
+              await dependencies.store.save(next);
+            });
+          }}
+        />
+      ) : null}
+      <AgentFloatingAction
+        action={floatingAction}
+        resumes={resumes}
+        onClose={() => setFloatingAction(undefined)}
+        onSelectResume={(resume) => {
+          setSelectedResume(resume.id);
+          setFloatingAction(undefined);
+          if (workflowActive) dependencies.controller.selectResume(resume.profileId, resume.id);
+        }}
+        onSubmitJob={(job) => {
+          setJobTitle(job.title);
+          setJobCompany(job.company);
+          setJobText(job.rawText);
+          setFloatingAction(undefined);
+          void handleWorkflowControl({ type: "switch_workflow", workflowId: "job_ingestion", preserveCurrent: true }).then(async (next) => {
+            setSession(next);
+            await dependencies.store.save(next);
+          });
+        }}
+        onSend={sendMessage}
+      />
     </AgentWorkspaceLayout>
+  );
+}
+
+function AgentWorkflowSwitchCard(props: {
+  onPreserve(): void;
+  onContinue(): void;
+  onCancelAndSwitch(): void;
+}) {
+  return (
+    <div className="agent-modal-backdrop" role="presentation">
+      <section className="agent-floating-panel agent-switch-card" role="dialog" aria-modal="true" aria-labelledby="agent-switch-title">
+        <header>
+          <h2 id="agent-switch-title">切换任务</h2>
+          <p>当前还有一个进行中的任务。你可以先暂存它，再录入岗位。</p>
+        </header>
+        <div className="agent-floating-actions">
+          <button className="primary-button" type="button" onClick={props.onPreserve}>暂存当前任务并录入岗位</button>
+          <button className="secondary-button" type="button" onClick={props.onContinue}>继续当前任务</button>
+          <button className="danger-button" type="button" onClick={props.onCancelAndSwitch}>取消当前任务并切换</button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function AgentFloatingAction(props: {
+  action?: AgentUiAction;
+  resumes: ResumeSummary[];
+  onClose(): void;
+  onSelectResume(resume: ResumeSummary): void;
+  onSubmitJob(job: { title: string; company: string; rawText: string }): void;
+  onSend(message: string): void;
+}) {
+  const [query, setQuery] = useState("");
+  const [job, setJob] = useState({ title: "", company: "", rawText: "" });
+  if (!props.action) return null;
+  const filteredResumes = props.resumes.filter((resume) =>
+    `${resume.name} ${resume.purpose}`.toLowerCase().includes(query.trim().toLowerCase())
+  );
+  return (
+    <div className="agent-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) props.onClose(); }}>
+      <section className="agent-floating-panel" role="dialog" aria-modal="true" aria-labelledby="agent-floating-title">
+        <header>
+          <h2 id="agent-floating-title">{floatingTitle(props.action)}</h2>
+          <button type="button" className="icon-button" aria-label="关闭" onClick={props.onClose}>×</button>
+        </header>
+        {props.action.type === "open_resume_picker" ? (
+          <div className="agent-picker-stack">
+            <input aria-label="搜索简历" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索、筛选、最近使用" />
+            <div className="agent-picker-list">
+              {filteredResumes.map((resume) => (
+                <button key={resume.id} type="button" onClick={() => props.onSelectResume(resume)}>
+                  <strong>{resume.name || "未命名简历"}</strong>
+                  <span>{resume.purpose} · v{resume.revision}</span>
+                </button>
+              ))}
+              {!filteredResumes.length ? <p>暂无可选简历。</p> : null}
+            </div>
+          </div>
+        ) : null}
+        {props.action.type === "open_job_import_dialog" ? (
+          <form className="agent-picker-stack" onSubmit={(event) => {
+            event.preventDefault();
+            props.onSubmitJob(job);
+          }}>
+            <input aria-label="岗位名称" value={job.title} onChange={(event) => setJob({ ...job, title: event.target.value })} placeholder="岗位名称" />
+            <input aria-label="公司" value={job.company} onChange={(event) => setJob({ ...job, company: event.target.value })} placeholder="公司" />
+            <textarea aria-label="岗位描述" value={job.rawText} onChange={(event) => setJob({ ...job, rawText: event.target.value })} placeholder="粘贴 JD 原文" />
+            <div className="agent-floating-actions">
+              <button className="secondary-button" type="button" onClick={props.onClose}>取消</button>
+              <button className="primary-button" type="submit" disabled={!job.title.trim() || !job.company.trim() || job.rawText.trim().length < 20}>保存并进入岗位录入</button>
+            </div>
+          </form>
+        ) : null}
+        {props.action.type === "open_profile_browser" ? (
+          <div className="agent-picker-stack">
+            <p>资料库选择会保留事实边界。请选择人物、经历范围和事实后继续。</p>
+            <button className="primary-button" type="button" onClick={() => { props.onClose(); void props.onSend("从资料库组装简历"); }}>从资料库组装简历</button>
+          </div>
+        ) : null}
+        {props.action.type === "open_tool_palette" ? (
+          <div className="agent-picker-list">
+            {["选择简历", "导入岗位", "打开资料库", "导出简历"].map((item) => <button key={item} type="button" onClick={() => { props.onClose(); void props.onSend(item); }}>{item}</button>)}
+          </div>
+        ) : null}
+      </section>
+    </div>
   );
 }
 
@@ -615,8 +918,8 @@ function appendLocalMessage(
   };
 }
 
-function normalizeAssistantMessages(session: AgentSession, userMessage: string): AgentSession {
-  const language = detectMessageLanguage(userMessage);
+function normalizeAssistantMessages(session: AgentSession, assistantText: string): AgentSession {
+  const language = detectMessageLanguage(assistantText);
   return {
     ...session,
     messages: session.messages.map((message) => {
@@ -637,86 +940,102 @@ function normalizeAssistantMessages(session: AgentSession, userMessage: string):
   };
 }
 
-async function streamAssistantReply({
-  optimistic,
-  runtimeBase,
-  finalSession,
-  thinkingMessageId,
-  store,
-  setSession
-}: {
-  optimistic: AgentSession;
-  runtimeBase: AgentSession;
-  finalSession: AgentSession;
-  thinkingMessageId: string;
-  store: AgentSessionStore;
-  setSession(session: AgentSession): void;
-}) {
-  const runtimeBaseIds = new Set(runtimeBase.messages.map((message) => message.id));
-  const additions = finalSession.messages.filter((message) => !runtimeBaseIds.has(message.id));
-  const assistantIndex = additions.findIndex((message) => message.role === "assistant" && message.kind !== "error_status");
-  if (assistantIndex < 0) {
-    const stable = {
-      ...finalSession,
-      messages: finalSession.messages.filter((message) => message.id !== thinkingMessageId)
-    };
-    setSession(await store.save(stable));
-    return;
-  }
-
-  const beforeAssistant = additions.slice(0, assistantIndex);
-  const assistant = additions[assistantIndex];
-  const streamingAssistant: AgentMessage = {
-    ...assistant,
-    id: thinkingMessageId,
-    kind: "assistant_streaming",
-    type: "assistant_streaming",
-    status: "streaming",
-    streaming: true,
-    updatedAt: new Date().toISOString()
-  };
-  const seed = {
-    ...optimistic,
-    messages: optimistic.messages.flatMap((message) =>
-      message.id === thinkingMessageId ? [...beforeAssistant, streamingAssistant] : [message]
-    )
-  };
-  const chunks = sliceForStreaming(assistant.content);
-  let visible = "";
-  for (const chunk of chunks) {
-    visible += chunk;
-    const frame = {
-      ...seed,
-      messages: seed.messages.map((message) =>
-        message.id === thinkingMessageId
-          ? { ...streamingAssistant, content: visible, updatedAt: new Date().toISOString() }
-          : message
-      )
-    };
-    setSession(frame);
-    await wait(10);
-  }
-  setSession(await store.save(finalSession));
-}
-
-function sliceForStreaming(content: string) {
-  const text = content.trim();
-  if (!text) return [""];
-  const targetChunks = Math.min(36, Math.max(8, Math.ceil(text.length / 18)));
-  const size = Math.max(1, Math.ceil(text.length / targetChunks));
-  const chunks: string[] = [];
-  for (let index = 0; index < text.length; index += size) chunks.push(text.slice(index, index + size));
-  return chunks;
-}
-
-function wait(ms: number) {
-  return new Promise((resolve) => window.setTimeout(resolve, ms));
-}
-
 function detectMessageLanguage(message: string): AgentMessage["language"] {
   if (/[\u4e00-\u9fff]/.test(message)) return "zh";
   if (/[a-z]/i.test(message)) return "en";
   return "unknown";
+}
+
+function replaceThinkingWithAssistant(
+  session: AgentSession,
+  thinkingMessageId: string | undefined,
+  content: string,
+  languageSource: string
+): AgentSession {
+  const now = new Date().toISOString();
+  const text = normalizeAgentMessageText(content);
+  const message: AgentMessage = {
+    id: thinkingMessageId ?? `agent-message-${crypto.randomUUID()}`,
+    role: "assistant",
+    content: text,
+    kind: "text",
+    type: "text",
+    status: "complete",
+    streaming: false,
+    language: detectMessageLanguage(text || languageSource),
+    createdAt: now,
+    updatedAt: now
+  };
+  const replaced = thinkingMessageId
+    ? session.messages.map((item) => item.id === thinkingMessageId ? message : item)
+    : [...session.messages, message];
+  return { ...session, messages: replaced.slice(-40), updatedAt: now };
+}
+
+function isUiAction(action: unknown): action is AgentUiAction {
+  return Boolean(action && typeof action === "object" && "type" in action && [
+    "open_resume_picker",
+    "open_job_import_dialog",
+    "open_profile_browser",
+    "open_tool_palette",
+    "open_artifact"
+  ].includes(String((action as { type?: unknown }).type)));
+}
+
+function isWorkflowControl(action: unknown): action is AgentWorkflowControl {
+  return Boolean(action && typeof action === "object" && "type" in action && [
+    "start_workflow",
+    "switch_workflow",
+    "pause_workflow",
+    "resume_workflow",
+    "cancel_workflow",
+    "go_back"
+  ].includes(String((action as { type?: unknown }).type)));
+}
+
+function isActiveWorkflow(session: AgentSession) {
+  return ["running", "waiting_for_user", "waiting_for_confirmation", "paused"].includes(session.workflowState.status);
+}
+
+function workflowStartMessage(workflowId: string) {
+  if (workflowId === "job_ingestion") return "已进入岗位录入。请补充岗位名称、公司和 JD 原文。";
+  if (workflowId === "build_resume_from_profile") return "已进入从资料库组装简历。请选择人物、经历范围和确认事实。";
+  if (workflowId === "resume_import") return "已进入简历导入。请上传或选择要解析的简历文件。";
+  if (workflowId === tailorExistingResumeWorkflow.id) return "已进入优化已有简历。请先选择一份简历。";
+  return "已切换到新的任务。";
+}
+
+function workflowTitle(workflowId: string) {
+  const titles: Record<string, string> = {
+    guided_profile_intake: "整理个人资料",
+    resume_import: "导入简历",
+    job_ingestion: "录入岗位",
+    build_resume_from_profile: "从资料库组装简历",
+    tailor_existing_resume: "优化已有简历",
+    analyze_job_fit: "分析岗位匹配",
+    repair_and_export_resume: "修复并导出简历"
+  };
+  return titles[workflowId] ?? "AI 求职任务";
+}
+
+function uiActionStatus(action: AgentUiAction) {
+  if (action.type === "open_resume_picker") return "已打开简历选择窗口。";
+  if (action.type === "open_job_import_dialog") return "已打开岗位录入窗口。";
+  if (action.type === "open_profile_browser") return "已打开资料库选择窗口。";
+  if (action.type === "open_tool_palette") return "已打开当前可用工具。";
+  return "已打开任务产物。";
+}
+
+function finalAssistantText(session: AgentSession) {
+  return [...session.messages].reverse().find((message) => message.role === "assistant")?.content ?? "";
+}
+
+function floatingTitle(action: AgentUiAction) {
+  if (action.type === "open_resume_picker") return "选择简历";
+  if (action.type === "open_job_import_dialog") return "导入岗位";
+  if (action.type === "open_profile_browser") return "从资料库选择";
+  if (action.type === "open_tool_palette") return "可用工具";
+  return "任务产物";
 }
 
 export function upsertAgentErrorStatus(

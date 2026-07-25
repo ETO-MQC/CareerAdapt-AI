@@ -1,5 +1,6 @@
 import "server-only";
 import type { AiSettings } from "@/services/storage/aiSettings";
+import { parseOpenAiCompatibleSse } from "./openAiSse";
 
 export type OpenAiCompatibleRequest = {
   systemPrompt: string;
@@ -14,6 +15,10 @@ export type OpenAiCompatibleResponse = {
   model: string;
   outputLength: number;
 };
+
+export type OpenAiCompatibleTextChunk =
+  | { type: "delta"; delta: string }
+  | { type: "done"; output: string; provider: string; model: string; outputLength: number };
 
 export class OpenAiCompatibleProvider {
   readonly provider: string;
@@ -78,6 +83,62 @@ export class OpenAiCompatibleProvider {
       model: this.model,
       outputLength: content.length
     };
+  }
+
+  async *streamText(request: OpenAiCompatibleRequest): AsyncGenerator<OpenAiCompatibleTextChunk> {
+    this.assertUsable();
+    const response = await fetch(`${this.baseUrl.replace(/\/$/, "")}/chat/completions`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${this.apiKey}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: this.model,
+        stream: true,
+        messages: [
+          { role: "system", content: request.systemPrompt },
+          { role: "user", content: request.userPrompt }
+        ],
+        temperature: 0.2
+      }),
+      signal: request.signal
+    });
+
+    if (!response.ok) {
+      throw createAiProviderError(`provider_http_${response.status}`, `Provider returned HTTP ${response.status}.`);
+    }
+    if (!response.body) {
+      throw createAiProviderError("empty_stream_body", "Provider returned an empty stream body.");
+    }
+
+    let output = "";
+    for await (const delta of parseOpenAiCompatibleSse(response.body)) {
+      output += delta;
+      if (output.length > request.maxOutputChars) {
+        throw createAiProviderError("model_output_too_large", "Provider output exceeded the task limit.");
+      }
+      yield { type: "delta", delta };
+    }
+    yield {
+      type: "done",
+      output,
+      provider: this.provider,
+      model: this.model,
+      outputLength: output.length
+    };
+  }
+
+  private assertUsable() {
+    if (!this.apiKey || !this.model) {
+      throw createAiProviderError("missing_ai_config", "AI_API_KEY and AI_MODEL are required.");
+    }
+    if (this.provider.toLowerCase().includes("anthropic") || /anthropic\.com|\/messages\/?$/i.test(this.baseUrl)) {
+      throw createAiProviderError(
+        "provider_protocol_mismatch",
+        "The configured endpoint uses the Anthropic Messages protocol, but this provider requires an OpenAI-compatible chat/completions endpoint."
+      );
+    }
   }
 }
 

@@ -11,7 +11,7 @@ import { AgentSessionStore } from "@/services/agent/agentSessionStore";
 import { WorkspaceRepository } from "@/services/storage/repositories";
 import { ACTIVE_SESSION_KEY } from "@/components/agent/shell/AgentSidebar";
 
-const assetRoutes = ["/resume", "/profile", "/jobs", "/applications"];
+const assetRoutes = ["/resume", "/profile", "/jobs", "/applications", "/recycle"];
 
 export function AiShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() || "/";

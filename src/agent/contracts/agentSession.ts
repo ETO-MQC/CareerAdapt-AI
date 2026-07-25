@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { AgentArtifactRefSchema } from "./agentArtifact";
 import { AgentErrorSchema } from "./agentTool";
+import { AgentOptionSchema } from "./agentActions";
 
 export const AGENT_SESSION_MAX_MESSAGES = 48;
 
@@ -29,10 +30,7 @@ export const AgentMessageSchema = z.object({
   status: z.enum(["pending", "thinking", "streaming", "complete", "failed", "retrying", "recovered"]).optional(),
   errorCode: z.string().min(1).optional(),
   userMessageId: z.string().min(1).optional(),
-  options: z.array(z.object({
-    value: z.string().min(1).max(240),
-    label: z.string().min(1).max(240)
-  }).strict()).min(1).max(12).optional(),
+  options: z.array(AgentOptionSchema).min(1).max(12).optional(),
   toolName: z.string().min(1).optional(),
   operationId: z.string().min(8).max(160).optional(),
   parentMessageId: z.string().min(1).optional(),

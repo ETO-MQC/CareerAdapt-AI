@@ -348,11 +348,11 @@
 .ai-shell-content {
   flex: 1 1 auto;
   overflow: hidden;
-  padding-left: var(--workspace-padding, 20px);
+  padding-left: var(--ai-page-padding, 24px);
 }
 
 .ai-asset-content {
-  overflow: auto;
+  overflow: hidden;
 }
 
 .ai-context-bar {

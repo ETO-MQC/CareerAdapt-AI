@@ -71,6 +71,22 @@ export function safePlannerIssueSummary(error: z.ZodError) {
   }));
 }
 
+export function recoverUnknownToolCall(requestedToolName: string, allowedNames: Set<string>) {
+  const normalized = requestedToolName.trim().toLowerCase().replace(/[-\s]+/g, "_");
+  const aliases: Record<string, string> = {
+    parse_job: "parse_job_description",
+    save_job: "commit_job",
+    create_job: "commit_job",
+    import_job: "parse_job_description",
+    list_resume: "list_resumes",
+    list_profile: "list_profiles",
+    list_job: "list_jobs",
+    export_pdf: "export_resume"
+  };
+  const candidate = aliases[normalized] ?? normalized;
+  return allowedNames.has(candidate) ? candidate : undefined;
+}
+
 function normalizeToolCall(value: unknown) {
   const source = isRecord(value) ? stripDisplayFields(value) : {};
   return compact({
@@ -87,7 +103,11 @@ function normalizeOptions(value: unknown) {
   if (!Array.isArray(value)) return undefined;
   const options = value.flatMap((option) => {
     if (typeof option === "string" && option.trim()) {
-      return [{ value: option.trim(), label: option.trim() }];
+      return [{
+        id: stableOptionId(option.trim()),
+        label: option.trim(),
+        action: { type: "answer", field: "choice", value: option.trim() }
+      }];
     }
     if (!isRecord(option)) return [];
     const label = stringValue(option.label)
@@ -95,8 +115,11 @@ function normalizeOptions(value: unknown) {
       ?? stringValue(option.value);
     if (!label) return [];
     return [{
-      value: stringValue(option.value) ?? label,
-      label
+      id: stringValue(option.id) ?? stableOptionId(label),
+      label,
+      action: isRecord(option.action)
+        ? option.action
+        : { type: "answer", field: stringValue(option.field) ?? "choice", value: stringValue(option.value) ?? label }
     }];
   });
   return options.length ? options.slice(0, 12) : undefined;
@@ -135,4 +158,8 @@ function recordValue(value: unknown) {
 
 function stringValue(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function stableOptionId(value: string) {
+  return `option-${value.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-|-$/g, "").slice(0, 40) || "choice"}`;
 }

@@ -2,6 +2,26 @@ import { expect, test } from "@playwright/test";
 
 test.describe("AI workspace shell", () => {
   test.beforeEach(async ({ page }) => {
+    await page.route("**/api/agent/stream", async (route) => {
+      await route.fulfill({
+        contentType: "text/event-stream",
+        body: [
+          "event: turn_ack",
+          "data: {\"type\":\"turn_ack\"}",
+          "",
+          "event: assistant_start",
+          "data: {\"type\":\"assistant_start\"}",
+          "",
+          "event: assistant_delta",
+          "data: {\"type\":\"assistant_delta\",\"delta\":\"好的。请先提供这项任务需要的真实材料，我会逐步与你核对。\"}",
+          "",
+          "event: done",
+          "data: {\"type\":\"done\",\"message\":\"好的。请先提供这项任务需要的真实材料，我会逐步与你核对。\"}",
+          "",
+          ""
+        ].join("\n")
+      });
+    });
     await page.route("**/api/agent/turn", async (route) => {
       await route.fulfill({
         contentType: "application/json",

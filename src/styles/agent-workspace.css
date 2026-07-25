@@ -831,6 +831,104 @@
   width: 16px;
 }
 
+.agent-modal-backdrop {
+  align-items: center;
+  background: rgba(0, 0, 0, 0.42);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 24px;
+  position: fixed;
+  z-index: 120;
+}
+
+.agent-floating-panel {
+  background: var(--ai-surface);
+  border: 1px solid var(--ai-border);
+  border-radius: var(--ai-large-radius);
+  box-shadow: var(--ai-shadow-low);
+  color: var(--ai-text);
+  display: grid;
+  gap: 16px;
+  max-height: min(680px, calc(100dvh - 48px));
+  max-width: 680px;
+  overflow: hidden;
+  padding: 20px;
+  width: min(680px, calc(100vw - 48px));
+}
+
+.agent-floating-panel > header {
+  align-items: start;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.agent-floating-panel h2,
+.agent-floating-panel p {
+  margin: 0;
+}
+
+.agent-floating-panel p {
+  color: var(--ai-muted);
+}
+
+.agent-picker-stack {
+  display: grid;
+  gap: 12px;
+  min-height: 0;
+}
+
+.agent-picker-stack input,
+.agent-picker-stack textarea {
+  background: var(--ai-surface-soft);
+  border: 1px solid var(--ai-border);
+  border-radius: 10px;
+  color: var(--ai-text);
+  font: inherit;
+  min-height: var(--ai-control-height-lg);
+  padding: 8px 10px;
+}
+
+.agent-picker-stack textarea {
+  min-height: 180px;
+  resize: vertical;
+}
+
+.agent-picker-list {
+  display: grid;
+  gap: 8px;
+  max-height: 420px;
+  min-height: 0;
+  overflow: auto;
+}
+
+.agent-picker-list button {
+  background: var(--ai-surface-soft);
+  border: 1px solid var(--ai-border);
+  border-radius: var(--ai-card-radius);
+  color: var(--ai-text);
+  cursor: pointer;
+  display: grid;
+  gap: 4px;
+  min-height: 56px;
+  padding: 12px;
+  text-align: left;
+}
+
+.agent-picker-list span {
+  color: var(--ai-muted);
+  font-size: 12px;
+}
+
+.agent-floating-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
 @keyframes agent-spin {
   to { transform: rotate(360deg); }
 }

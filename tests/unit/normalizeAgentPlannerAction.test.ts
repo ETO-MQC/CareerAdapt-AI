@@ -40,8 +40,8 @@ describe("normalizeAgentPlannerAction", () => {
       type: "ask_user",
       message: "选择继续方式",
       options: [
-        { value: "existing", label: "使用现有简历" },
-        { value: "从零创建", label: "从零创建" }
+        { id: "option-使用现有简历", label: "使用现有简历", action: { type: "answer", field: "choice", value: "existing" } },
+        { id: "option-从零创建", label: "从零创建", action: { type: "answer", field: "choice", value: "从零创建" } }
       ]
     });
   });

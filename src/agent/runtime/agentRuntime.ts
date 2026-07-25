@@ -12,6 +12,8 @@ import { AgentEventBus } from "./agentEventBus";
 import { AgentConfirmationRequiredError, AgentExecutor } from "./agentExecutor";
 import { workflowReducer } from "./workflowReducer";
 import { encodeAiSettingsForHeader, readAiSettings } from "@/services/storage/aiSettings";
+import { allowedToolManifestForStep } from "@/agent/workflows/workflowRegistry";
+import { recoverUnknownToolCall } from "./normalizeAgentPlannerAction";
 
 const ToolCallSchema = z.object({
   toolName: z.string().min(1),
@@ -27,8 +29,22 @@ export const AgentPlannerActionSchema = z.discriminatedUnion("type", [
     message: z.string().min(1).max(2000),
     field: z.string().min(1).optional(),
     options: z.array(z.object({
-      value: z.string().min(1).max(240),
-      label: z.string().min(1).max(240)
+      id: z.string().min(1),
+      label: z.string().min(1).max(240),
+      action: z.union([
+        z.object({ type: z.literal("answer"), field: z.string().min(1), value: z.unknown() }).strict(),
+        z.object({ type: z.literal("start_workflow"), workflowId: z.string().min(1) }).strict(),
+        z.object({ type: z.literal("switch_workflow"), workflowId: z.string().min(1), preserveCurrent: z.boolean() }).strict(),
+        z.object({ type: z.literal("pause_workflow"), workflowId: z.string().min(1) }).strict(),
+        z.object({ type: z.literal("resume_workflow"), workflowId: z.string().min(1) }).strict(),
+        z.object({ type: z.literal("cancel_workflow"), workflowId: z.string().min(1) }).strict(),
+        z.object({ type: z.literal("go_back"), workflowId: z.string().min(1) }).strict(),
+        z.object({ type: z.literal("open_resume_picker") }).strict(),
+        z.object({ type: z.literal("open_job_import_dialog") }).strict(),
+        z.object({ type: z.literal("open_profile_browser") }).strict(),
+        z.object({ type: z.literal("open_tool_palette") }).strict(),
+        z.object({ type: z.literal("open_artifact"), artifactId: z.string().min(1) }).strict()
+      ])
     }).strict()).min(1).max(12).optional()
   }).strict(),
   z.object({ type: z.literal("request_confirmation"), message: z.string().min(1).max(2000), call: ToolCallSchema }).strict(),
@@ -126,7 +142,11 @@ export class AgentRuntime {
           sessionSummary: this.session.conversationSummary,
           workflowState: this.session.workflowState,
           pageContext: AgentPageContextSchema.parse(pageContext),
-          toolManifest: this.dependencies.toolManifest,
+          toolManifest: allowedToolManifestForStep(
+            this.session.workflowState.workflowId,
+            this.session.workflowState.step,
+            this.dependencies.toolManifest
+          ),
           recentToolResults: this.recentResults.slice(-8).map(compactToolResult)
         }, signal));
         this.emit("action_received", { payload: { actionType: action.type } });
@@ -204,11 +224,29 @@ export class AgentRuntime {
         this.emit("workflow_failed", { message: action.message, payload: { code: action.code, retryable: action.retryable } });
         return false;
       case "tool_call": {
-        const tools = action.calls.map((call) => this.dependencies.executor.getDefinition(call.toolName));
-        if (action.calls.length > 1 && tools.some((tool) => !tool || tool.risk !== "read")) {
+        const allowedManifest = allowedToolManifestForStep(
+          this.session.workflowState.workflowId,
+          this.session.workflowState.step,
+          this.dependencies.toolManifest
+        );
+        const allowedNames = new Set(allowedManifest.map((tool) => String(tool.name)));
+        const normalizedCalls = action.calls.map((call) => {
+          if (allowedNames.has(call.toolName)) return call;
+          const recovered = recoverUnknownToolCall(call.toolName, allowedNames);
+          if (recovered) {
+            console.warn("[agent-planner-tool-alias]", { requestedToolName: call.toolName, normalizedToolName: recovered });
+            return { ...call, toolName: recovered };
+          }
+          console.warn("[agent-planner-unknown-tool]", { requestedToolName: call.toolName, workflowId: this.session.workflowState.workflowId, step: this.session.workflowState.step });
+          this.appendMessage("assistant", recoveryMessage(allowedNames));
+          return undefined;
+        }).filter((call): call is PendingCall => Boolean(call));
+        if (!normalizedCalls.length) return false;
+        const tools = normalizedCalls.map((call) => this.dependencies.executor.getDefinition(call.toolName));
+        if (normalizedCalls.length > 1 && tools.some((tool) => !tool || tool.risk !== "read")) {
           throw Object.assign(new Error("parallel_tool_calls_must_be_read_only"), { code: "parallel_tool_calls_must_be_read_only" });
         }
-        const results = await Promise.all(action.calls.map((call) => this.executeCall(call, signal)));
+        const results = await Promise.all(normalizedCalls.map((call) => this.executeCall(call, signal)));
         return results.every((result) => result.ok);
       }
     }
@@ -330,6 +368,24 @@ export class AgentRuntime {
       updatedAt: new Date().toISOString()
     });
   }
+}
+
+function recoveryMessage(allowedNames: Set<string>) {
+  const labels = [...allowedNames].map(toolLabel).filter(Boolean);
+  if (!labels.length) return "当前步骤需要先由你补充信息，我不会执行不可用的工具。";
+  return `当前步骤可以继续：${labels.join("、")}。我已安全忽略不可用的工具请求。`;
+}
+
+function toolLabel(name: string) {
+  const labels: Record<string, string> = {
+    list_resumes: "选择简历",
+    list_profiles: "打开资料库",
+    list_jobs: "查看岗位",
+    parse_job_description: "解析岗位描述",
+    commit_job: "保存岗位",
+    export_resume: "导出简历"
+  };
+  return labels[name] ?? name;
 }
 
 function compactToolResult(result: AgentToolResult) {

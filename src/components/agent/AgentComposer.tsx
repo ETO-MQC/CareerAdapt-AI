@@ -13,6 +13,7 @@ import {
   X
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import type { AgentUiAction } from "@/agent/contracts/agentActions";
 
 type Attachment = {
   id: string;
@@ -27,6 +28,7 @@ export function AgentComposer(props: {
   draft?: string;
   onDraftChange?(value: string): void;
   onSend(message: string): Promise<void> | void;
+  onUiAction?(action: AgentUiAction): void;
   onUpload(file: File): Promise<"ready" | "partial" | void> | "ready" | "partial" | void;
   onStop?(): void;
 }) {
@@ -152,16 +154,16 @@ export function AgentComposer(props: {
           }}
         />
         <div className="agent-composer-tools">
-          <button type="button" onClick={() => setMessage("请让我选择一份已有简历。")}>
+          <button type="button" onClick={() => props.onUiAction?.({ type: "open_resume_picker" })}>
             <FileText aria-hidden="true" /><span>选择简历</span>
           </button>
-          <button type="button" onClick={() => setMessage("我想导入一份目标岗位描述：\n")}>
+          <button type="button" onClick={() => props.onUiAction?.({ type: "open_job_import_dialog" })}>
             <BriefcaseBusiness aria-hidden="true" /><span>导入岗位</span>
           </button>
-          <button type="button" onClick={() => setMessage("请从个人资料库中选择合适的真实经历。")}>
+          <button type="button" onClick={() => props.onUiAction?.({ type: "open_profile_browser" })}>
             <Database aria-hidden="true" /><span>从资料库</span>
           </button>
-          <button type="button" onClick={() => setMessage("请列出这项任务可以使用的工具。")}>
+          <button type="button" onClick={() => props.onUiAction?.({ type: "open_tool_palette" })}>
             <Wrench aria-hidden="true" /><span>工具</span>
           </button>
         </div>
