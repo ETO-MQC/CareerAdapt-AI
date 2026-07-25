@@ -1,6 +1,7 @@
 "use client";
 
 import { History, Pause, Play, RotateCw, WifiOff } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { AgentRuntime, browserAgentPlanner } from "@/agent/runtime/agentRuntime";
 import { AgentEventBus } from "@/agent/runtime/agentEventBus";
@@ -25,7 +26,7 @@ import {
   type AgentArtifactDrawerState
 } from "./artifacts/AgentArtifactDrawer";
 import { AgentComposer } from "./AgentComposer";
-import { AgentConversationTimeline } from "./AgentConversation";
+import { AgentConversationTimeline, normalizeAgentMessageText } from "./AgentConversation";
 import { AgentHistoryDialog } from "./AgentHistoryDialog";
 import { AgentZeroState } from "./workspace/AgentZeroState";
 import { AgentWorkspaceLayout } from "./workspace/AgentWorkspaceLayout";
@@ -37,6 +38,7 @@ export function AgentWorkspace() {
 }
 
 export function AgentWorkspaceController() {
+  const router = useRouter();
   const { setMode } = useWorkspaceMode();
   const dependencies = useMemo(() => {
     const service = new BrowserAgentToolService();
@@ -76,6 +78,7 @@ export function AgentWorkspaceController() {
   const [jobCompany, setJobCompany] = useState("");
   const [jobText, setJobText] = useState("");
   const [answer, setAnswer] = useState("");
+  const [composerDraft, setComposerDraft] = useState("");
   const runtimeRef = useRef<AgentRuntime | undefined>(undefined);
   const previousArtifactCount = useRef(0);
 
@@ -149,6 +152,16 @@ export function AgentWorkspaceController() {
         setHistoryOpen(true);
       });
     };
+    const syncActiveSession = () => {
+      const sessionId = window.localStorage.getItem(ACTIVE_SESSION_KEY);
+      if (!sessionId) return;
+      void dependencies.store.get(sessionId).then((selected) => {
+        if (!selected) return;
+        setSession(selected);
+        setRestoredSession(true);
+        setWorkflowActive(selected.workflowState.workflowId === tailorExistingResumeWorkflow.id);
+      });
+    };
     const revisionChanged = (event: Event) => {
       const detail = (event as CustomEvent<{ branchId?: string; revisionId?: string }>).detail;
       if (!detail?.revisionId) return;
@@ -176,11 +189,13 @@ export function AgentWorkspaceController() {
     window.addEventListener("careeradapt-agent-session-select", selectSession);
     window.addEventListener("careeradapt-agent-new-task", newTask);
     window.addEventListener("careeradapt-agent-history-open", openHistory);
+    window.addEventListener("careeradapt-agent-sessions-change", syncActiveSession);
     window.addEventListener("careeradapt-agent-revision-change", revisionChanged);
     return () => {
       window.removeEventListener("careeradapt-agent-session-select", selectSession);
       window.removeEventListener("careeradapt-agent-new-task", newTask);
       window.removeEventListener("careeradapt-agent-history-open", openHistory);
+      window.removeEventListener("careeradapt-agent-sessions-change", syncActiveSession);
       window.removeEventListener("careeradapt-agent-revision-change", revisionChanged);
     };
   }, [dependencies.controller, dependencies.store, restoreSession, sessions]);
@@ -242,15 +257,39 @@ export function AgentWorkspaceController() {
         userMessageId: previousError.userMessageId!,
         errorCode: previousError.errorCode!,
         status: "retrying",
-        content: "正在重新连接规划器，任务与已输入内容保持不变。"
+        content: "正在重新连接 AI，任务与已输入内容保持不变。"
       });
-      setSession(currentSession);
-      await dependencies.store.save(currentSession);
     }
+
+    const userAlreadyAppended = Boolean(previousError);
+    const optimisticBase = userAlreadyAppended
+      ? currentSession
+      : appendLocalMessage(currentSession, "user", message.trim());
+    const latestUserMessage = [...optimisticBase.messages].reverse().find((item) => item.role === "user");
+    const thinkingMessageId = `agent-thinking-${crypto.randomUUID()}`;
+    const optimistic = appendLocalMessage(optimisticBase, "assistant", "", undefined, {
+      id: thinkingMessageId,
+      kind: "assistant_thinking",
+      type: "assistant_thinking",
+      status: "thinking",
+      streaming: true,
+      parentMessageId: latestUserMessage?.id,
+      language: detectMessageLanguage(message)
+    });
+    const runtimeBase = {
+      ...optimistic,
+      messages: optimistic.messages.filter((item) => item.id !== thinkingMessageId)
+    };
+
+    setSession(optimistic);
     setRuntimeBusy(true);
     setLastUserMessage(message);
     setProviderUnavailable(false);
-    const runtime = new AgentRuntime(currentSession, {
+    await dependencies.store.save(optimistic);
+    window.localStorage.setItem(ACTIVE_SESSION_KEY, optimistic.id);
+    window.dispatchEvent(new CustomEvent("careeradapt-agent-sessions-change"));
+
+    const runtime = new AgentRuntime(runtimeBase, {
       planner: browserAgentPlanner,
       executor: dependencies.executor,
       persistence: dependencies.store,
@@ -268,21 +307,30 @@ export function AgentWorkspaceController() {
         activeResumeId: workflowState.resumeId,
         activeJobId: workflowState.jobId,
         query: {}
-      }, { appendUserMessage: !previousError });
+      }, { appendUserMessage: false });
       const recovered = previousError
         ? upsertAgentErrorStatus(next, {
           userMessageId: previousError.userMessageId!,
           errorCode: previousError.errorCode!,
           status: "recovered",
-          content: "规划器已恢复，任务继续执行。"
+          content: "AI 连接已恢复，任务继续执行。"
         })
         : next;
-      setSession(await dependencies.store.save(recovered));
-      window.localStorage.setItem(ACTIVE_SESSION_KEY, next.id);
+      const finalSession = normalizeAssistantMessages(recovered, message);
+      await streamAssistantReply({
+        optimistic,
+        runtimeBase,
+        finalSession,
+        thinkingMessageId,
+        store: dependencies.store,
+        setSession
+      });
+      window.localStorage.setItem(ACTIVE_SESSION_KEY, finalSession.id);
       window.dispatchEvent(new CustomEvent("careeradapt-agent-sessions-change"));
     } catch (error) {
       const snapshot = runtime.getSnapshot();
       const userMessageId = previousError?.userMessageId
+        ?? latestUserMessage?.id
         ?? [...snapshot.messages].reverse().find((item) => item.role === "user")?.id
         ?? `agent-user-${crypto.randomUUID()}`;
       const errorCode = plannerErrorCode(error);
@@ -292,7 +340,10 @@ export function AgentWorkspaceController() {
         status: "failed",
         content: plannerErrorMessage(errorCode)
       });
-      setSession(await dependencies.store.save(fallback));
+      setSession(await dependencies.store.save({
+        ...fallback,
+        messages: fallback.messages.filter((item) => item.id !== thinkingMessageId)
+      }));
       setProviderUnavailable(true);
     } finally {
       runtimeRef.current = undefined;
@@ -338,7 +389,9 @@ export function AgentWorkspaceController() {
     setRestoredSession(false);
     setQuickTasksOpen(false);
     setWorkflowActive(actionId === "tailor_resume_to_job");
-    await sendMessage(quickIntent.intent, next);
+    const pendingTurn = sendMessage(quickIntent.intent, next);
+    if (window.location.pathname !== "/ai-workspace") router.push("/ai-workspace");
+    await pendingTurn;
   }
 
   async function upload(file: File): Promise<"ready" | "partial"> {
@@ -453,11 +506,14 @@ export function AgentWorkspaceController() {
                   void dependencies.store.save(next);
                 }}
                 onRegenerate={lastUserMessage ? () => {
-                  const prepared = replaceErrorForRegenerate(session);
+                  const prepared = replaceLastAssistantForRegenerate(session);
                   setSession(prepared);
                   void dependencies.store.save(prepared);
                   void sendMessage(lastUserMessage, prepared);
                 } : undefined}
+                onEditUserMessage={(message) => setComposerDraft(message.content)}
+                onContinueFromMessage={(message) => setComposerDraft(`基于这条回复继续：\n${normalizeAgentMessageText(message.content)}`)}
+                onCopyMessage={(message) => void navigator.clipboard?.writeText(normalizeAgentMessageText(message.content))}
                 onOption={(value) => void sendMessage(value)}
               >
                 {workflowActive ? (
@@ -494,6 +550,8 @@ export function AgentWorkspaceController() {
             disabled={runtimePaused}
             running={runtimeBusy}
             aiStatus={providerUnavailable ? "AI 不可用" : undefined}
+            draft={composerDraft}
+            onDraftChange={setComposerDraft}
             onSend={sendMessage}
             onUpload={upload}
             onStop={() => runtimeRef.current?.abort()}
@@ -527,20 +585,128 @@ function appendLocalMessage(
   session: AgentSession,
   role: AgentMessage["role"],
   content: string,
-  toolName?: string
+  toolName?: string,
+  overrides: Partial<AgentMessage> = {}
 ): AgentSession {
   const now = new Date().toISOString();
+  const message: AgentMessage = {
+    id: `agent-message-${crypto.randomUUID()}`,
+    role,
+    content,
+    ...(toolName ? { toolName } : {}),
+    createdAt: now,
+    ...overrides,
+    updatedAt: overrides.updatedAt ?? now
+  };
   return {
     ...session,
-    messages: [...session.messages, {
-      id: `agent-message-${crypto.randomUUID()}`,
-      role,
-      content,
-      ...(toolName ? { toolName } : {}),
-      createdAt: now
-    }].slice(-40),
+    messages: [...session.messages, message].slice(-40),
     updatedAt: now
   };
+}
+
+function normalizeAssistantMessages(session: AgentSession, userMessage: string): AgentSession {
+  const language = detectMessageLanguage(userMessage);
+  return {
+    ...session,
+    messages: session.messages.map((message) => {
+      if (message.role === "tool") {
+        return { ...message, kind: "tool_status" as const, type: "tool_status" as const, status: "complete" as const };
+      }
+      if (message.role !== "assistant" || message.kind === "error_status") return message;
+      return {
+        ...message,
+        content: normalizeAgentMessageText(message.content),
+        kind: message.kind ?? "text",
+        type: message.type ?? "text",
+        status: "complete" as const,
+        streaming: false,
+        language
+      };
+    })
+  };
+}
+
+async function streamAssistantReply({
+  optimistic,
+  runtimeBase,
+  finalSession,
+  thinkingMessageId,
+  store,
+  setSession
+}: {
+  optimistic: AgentSession;
+  runtimeBase: AgentSession;
+  finalSession: AgentSession;
+  thinkingMessageId: string;
+  store: AgentSessionStore;
+  setSession(session: AgentSession): void;
+}) {
+  const runtimeBaseIds = new Set(runtimeBase.messages.map((message) => message.id));
+  const additions = finalSession.messages.filter((message) => !runtimeBaseIds.has(message.id));
+  const assistantIndex = additions.findIndex((message) => message.role === "assistant" && message.kind !== "error_status");
+  if (assistantIndex < 0) {
+    const stable = {
+      ...finalSession,
+      messages: finalSession.messages.filter((message) => message.id !== thinkingMessageId)
+    };
+    setSession(await store.save(stable));
+    return;
+  }
+
+  const beforeAssistant = additions.slice(0, assistantIndex);
+  const assistant = additions[assistantIndex];
+  const streamingAssistant: AgentMessage = {
+    ...assistant,
+    id: thinkingMessageId,
+    kind: "assistant_streaming",
+    type: "assistant_streaming",
+    status: "streaming",
+    streaming: true,
+    updatedAt: new Date().toISOString()
+  };
+  const seed = {
+    ...optimistic,
+    messages: optimistic.messages.flatMap((message) =>
+      message.id === thinkingMessageId ? [...beforeAssistant, streamingAssistant] : [message]
+    )
+  };
+  const chunks = sliceForStreaming(assistant.content);
+  let visible = "";
+  for (const chunk of chunks) {
+    visible += chunk;
+    const frame = {
+      ...seed,
+      messages: seed.messages.map((message) =>
+        message.id === thinkingMessageId
+          ? { ...streamingAssistant, content: visible, updatedAt: new Date().toISOString() }
+          : message
+      )
+    };
+    setSession(frame);
+    await wait(10);
+  }
+  setSession(await store.save(finalSession));
+}
+
+function sliceForStreaming(content: string) {
+  const text = content.trim();
+  if (!text) return [""];
+  const targetChunks = Math.min(36, Math.max(8, Math.ceil(text.length / 18)));
+  const size = Math.max(1, Math.ceil(text.length / targetChunks));
+  const chunks: string[] = [];
+  for (let index = 0; index < text.length; index += size) chunks.push(text.slice(index, index + size));
+  return chunks;
+}
+
+function wait(ms: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+function detectMessageLanguage(message: string): AgentMessage["language"] {
+  if (/[\u4e00-\u9fff]/.test(message)) return "zh";
+  if (/[a-z]/i.test(message)) return "en";
+  return "unknown";
 }
 
 export function upsertAgentErrorStatus(
@@ -595,6 +761,23 @@ export function replaceErrorForRegenerate(session: AgentSession): AgentSession {
   };
 }
 
+export function replaceLastAssistantForRegenerate(session: AgentSession): AgentSession {
+  const error = [...session.messages].reverse().find((item) => item.kind === "error_status");
+  if (error?.userMessageId) return replaceErrorForRegenerate(session);
+  const index = session.messages.findLastIndex((item) =>
+    item.role === "assistant"
+    && item.kind !== "error_status"
+    && item.kind !== "assistant_thinking"
+    && item.kind !== "assistant_streaming"
+  );
+  if (index < 0) return session;
+  return {
+    ...session,
+    messages: session.messages.filter((_, messageIndex) => messageIndex !== index),
+    updatedAt: new Date().toISOString()
+  };
+}
+
 function plannerErrorCode(error: unknown) {
   if (typeof error === "object" && error && "code" in error) {
     return String((error as { code?: unknown }).code ?? "planner_provider_failed");
@@ -604,12 +787,12 @@ function plannerErrorCode(error: unknown) {
 
 function plannerErrorMessage(code: string) {
   const messages: Record<string, string> = {
-    planner_invalid_json: "规划器返回的 JSON 无法解析。任务已保留，可重试。",
-    planner_schema_mismatch: "规划器输出结构仍不受支持。任务已保留，可重试。",
-    planner_unregistered_tool: "规划器请求了未注册工具，已安全阻止。",
-    planner_confirmation_boundary: "规划器尝试越过确认边界，已安全阻止。",
+    planner_invalid_json: "AI 返回内容暂时无法处理。任务已保留，可重试。",
+    planner_schema_mismatch: "AI 返回内容暂时无法用于下一步。任务已保留，可重试。",
+    planner_unregistered_tool: "AI 请求了当前不可用的工具，已安全阻止。",
+    planner_confirmation_boundary: "AI 请求越过确认边界，已安全阻止。",
     planner_provider_failed: "AI 服务暂时不可用。任务和已输入内容已保留。",
-    planner_timeout: "规划器响应超时。任务和已输入内容已保留。"
+    planner_timeout: "AI 响应超时。任务和已输入内容已保留。"
   };
   return messages[code] ?? "AI 服务暂时不可用。任务和已输入内容已保留。";
 }

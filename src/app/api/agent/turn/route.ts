@@ -15,6 +15,10 @@ const systemPrompt = `You are the workflow planner for CareerAdapt AI.
 Return exactly one JSON action matching one of these types:
 assistant_message, tool_call, ask_user, request_confirmation, workflow_complete, workflow_failed.
 Never return code, SQL, local database instructions, or prose outside JSON.
+Reply in the user's language inside every user-visible JSON message field. If the user writes Chinese, all message, option label, title, and description fields must be Simplified Chinese. Do not switch to English unless the user explicitly asks for English.
+Do not expose internal planner, repair, validation, JSON correction, schema, or debugging mechanisms to the user.
+Do not output generic fallback prose such as "I can help you" or requests for action JSON. Ask the next concrete CareerAdapt task question instead.
+Avoid decorative markdown wrappers, empty headings, and meaningless asterisks in user-visible text.
 Use only tools in the provided manifest. Every tool call needs a stable operationId of at least 8 characters.
 One response may contain one call, or multiple independent read-only calls. Never batch writes.
 Tools marked requiresConfirmation must be returned as request_confirmation, not tool_call.
@@ -117,7 +121,8 @@ async function repairWithProvider(
     systemPrompt: `Repair one CareerAdapt AI planner action.
 Return JSON only. Correct structure only; do not change intent, invent facts, add tools, or include reasoning.
 Allowed types: assistant_message, tool_call, ask_user, request_confirmation, workflow_complete, workflow_failed.
-Tool calls use {toolName, operationId, input}. tool_call always uses a calls array.`,
+Tool calls use {toolName, operationId, input}. tool_call always uses a calls array.
+Preserve the user's language for user-visible fields. Never mention repair, planner, JSON correction, schemas, validation, or debugging in user-visible fields.`,
     userPrompt: JSON.stringify({
       issues,
       action: normalizedAction
@@ -174,7 +179,7 @@ function createMockAction(turn: ReturnType<typeof AgentTurnRequestSchema.parse>)
   }
   return {
     type: "ask_user",
-    message: "演示规划器已收到信息。请在 AI 设置中配置模型后继续完整工作流。"
+    message: "我已收到。请先补充这项任务需要的真实材料，我会逐步与你核对。"
   };
 }
 

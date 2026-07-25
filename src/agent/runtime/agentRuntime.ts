@@ -113,8 +113,10 @@ export class AgentRuntime {
     if (this.controller) throw Object.assign(new Error("agent_turn_in_progress"), { code: "agent_turn_in_progress" });
     this.controller = new AbortController();
     const signal = this.controller.signal;
-    if (userMessage.trim() && options.appendUserMessage !== false) this.appendMessage("user", userMessage.trim());
-    await this.persist();
+    if (userMessage.trim() && options.appendUserMessage !== false) {
+      this.appendMessage("user", userMessage.trim());
+      await this.persist();
+    }
 
     try {
       for (;;) {

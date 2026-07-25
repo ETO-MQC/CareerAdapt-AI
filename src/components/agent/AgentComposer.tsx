@@ -12,7 +12,7 @@ import {
   Wrench,
   X
 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type Attachment = {
   id: string;
@@ -24,14 +24,29 @@ export function AgentComposer(props: {
   disabled?: boolean;
   running?: boolean;
   aiStatus?: string;
+  draft?: string;
+  onDraftChange?(value: string): void;
   onSend(message: string): Promise<void> | void;
   onUpload(file: File): Promise<"ready" | "partial" | void> | "ready" | "partial" | void;
   onStop?(): void;
 }) {
-  const [message, setMessage] = useState("");
+  const [localMessage, setLocalMessage] = useState("");
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [dragActive, setDragActive] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const message = props.draft ?? localMessage;
+  const setMessage = (value: string) => {
+    props.onDraftChange?.(value);
+    if (props.draft === undefined) setLocalMessage(value);
+  };
+
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    textarea.style.height = "auto";
+    textarea.style.height = `${Math.min(textarea.scrollHeight, 176)}px`;
+  }, [message]);
 
   const uploadFile = async (file: File) => {
     const id = crypto.randomUUID();
@@ -92,46 +107,51 @@ export function AgentComposer(props: {
         </div>
       ) : null}
 
-      <label className="sr-only" htmlFor="agent-message-input">描述你的求职任务</label>
-      <textarea
-        id="agent-message-input"
-        name="agentMessage"
-        rows={1}
-        value={message}
-        disabled={props.disabled}
-        autoComplete="off"
-        placeholder="描述你的求职任务，或粘贴一份岗位描述…"
-        onChange={(event) => setMessage(event.target.value)}
-        onInput={(event) => {
-          event.currentTarget.style.height = "auto";
-          event.currentTarget.style.height = `${Math.min(event.currentTarget.scrollHeight, 176)}px`;
-        }}
-        onKeyDown={(event) => {
-          if (event.key === "Enter" && !event.shiftKey) {
-            event.preventDefault();
-            event.currentTarget.form?.requestSubmit();
-          }
-        }}
-      />
+      <div className="agent-composer-input-row">
+        <label className="sr-only" htmlFor="agent-message-input">描述你的求职任务</label>
+        <textarea
+          ref={textareaRef}
+          id="agent-message-input"
+          name="agentMessage"
+          rows={1}
+          value={message}
+          disabled={props.disabled}
+          autoComplete="off"
+          placeholder="描述你的求职任务，或粘贴一份岗位描述..."
+          onChange={(event) => setMessage(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" && !event.shiftKey) {
+              event.preventDefault();
+              event.currentTarget.form?.requestSubmit();
+            }
+          }}
+        />
+      </div>
 
       <div className="agent-composer-toolbar">
+        <button
+          className="agent-composer-icon-button"
+          type="button"
+          aria-label="上传文件"
+          title="上传文件"
+          disabled={props.disabled}
+          onClick={() => inputRef.current?.click()}
+        >
+          <Plus aria-hidden="true" />
+        </button>
+        <input
+          ref={inputRef}
+          className="sr-only"
+          type="file"
+          accept=".txt,.json,.pdf,.docx"
+          disabled={props.disabled}
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (file) void uploadFile(file);
+            event.currentTarget.value = "";
+          }}
+        />
         <div className="agent-composer-tools">
-          <button type="button" aria-label="上传文件" title="上传文件" onClick={() => inputRef.current?.click()}>
-            <Plus aria-hidden="true" />
-            <span>上传</span>
-          </button>
-          <input
-            ref={inputRef}
-            className="sr-only"
-            type="file"
-            accept=".txt,.json,.pdf,.docx"
-            disabled={props.disabled}
-            onChange={(event) => {
-              const file = event.target.files?.[0];
-              if (file) void uploadFile(file);
-              event.currentTarget.value = "";
-            }}
-          />
           <button type="button" onClick={() => setMessage("请让我选择一份已有简历。")}>
             <FileText aria-hidden="true" /><span>选择简历</span>
           </button>
@@ -146,7 +166,7 @@ export function AgentComposer(props: {
           </button>
         </div>
         <div className="agent-composer-submit">
-          <span>{props.aiStatus ?? (props.running ? "AI 正在处理…" : "AI 就绪")}</span>
+          <span>{props.aiStatus ?? (props.running ? "AI 正在处理..." : "AI 就绪")}</span>
           {props.running ? (
             <button className="agent-stop-button" type="button" aria-label="停止运行" onClick={props.onStop}>
               <Square aria-hidden="true" />

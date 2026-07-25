@@ -13,6 +13,58 @@ test.describe("AI workspace shell", () => {
     });
   });
 
+  test("enters conversation immediately from a quick card and shows thinking before planner returns", async ({ page }) => {
+    await page.unroute("**/api/agent/turn");
+    await page.route("**/api/agent/turn", async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 900));
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          type: "ask_user",
+          message: "好的，我们先从最近一段真实经历开始。请告诉我公司、岗位和时间范围。"
+        })
+      });
+    });
+
+    await page.goto("/");
+    await page.getByRole("button", { name: /从零整理我的经历/ }).click();
+
+    await expect(page).toHaveURL(/\/ai-workspace$/);
+    await expect(page.getByText("我想从零整理自己的真实经历")).toBeVisible();
+    await expect(page.locator('[data-message-status="thinking"]')).toBeVisible();
+    await expect(page.locator(".agent-streaming-indicator")).toBeVisible();
+    await expect(page.getByText("好的，我们先从最近一段真实经历开始")).toBeVisible();
+  });
+
+  test("sends a normal Chinese turn with streaming UI and message actions", async ({ page }) => {
+    await page.unroute("**/api/agent/turn");
+    await page.route("**/api/agent/turn", async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          type: "ask_user",
+          message: "可以。请先选择一段你确认真实存在的经历，我会按背景、职责、成果逐步提问。"
+        })
+      });
+    });
+
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/ai-workspace");
+    await page.getByLabel("描述你的求职任务").fill("你好，请帮我整理项目经历");
+    await page.getByRole("button", { name: "发送消息" }).click();
+
+    await expect(page.getByText("你好，请帮我整理项目经历")).toBeVisible();
+    await expect(page.locator('[data-message-status="thinking"], [data-message-status="streaming"]').first()).toBeVisible();
+    await expect(page.getByText("可以。请先选择一段你确认真实存在的经历")).toBeVisible();
+    await expect(page.locator(".agent-message-row.is-assistant").last().getByRole("button", { name: "复制消息" })).toBeVisible();
+    await expect(page.locator(".agent-message-row.is-assistant").last().getByRole("button", { name: "重新生成" })).toBeVisible();
+    await expect(page.locator(".agent-message-row.is-user").last().getByRole("button", { name: "编辑并重发" })).toBeVisible();
+    await page.screenshot({ path: "artifacts/agent-conversation-after-1440x900.png", fullPage: true });
+    await page.setViewportSize({ width: 1024, height: 768 });
+    await page.screenshot({ path: "artifacts/agent-conversation-after-1024x768.png", fullPage: true });
+  });
+
   test("shows the six-card AI-first zero state without fixed artifacts or overflow", async ({ page }) => {
     await page.setViewportSize({ width: 1024, height: 768 });
     await page.goto("/");

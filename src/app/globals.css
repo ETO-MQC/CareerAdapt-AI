@@ -10232,15 +10232,14 @@ html[data-theme="dark"] .inspector-tab-active {
 }
 
 .agent-composer {
-  align-items: flex-end;
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 12px;
-  display: grid;
+  display: flex;
   flex: 0 0 auto;
+  flex-direction: column;
   gap: 8px;
-  grid-template-columns: 36px minmax(0, 1fr) 36px;
-  padding: 8px;
+  padding: 10px 12px;
 }
 
 .agent-composer:focus-within {
@@ -10252,50 +10251,104 @@ html[data-theme="dark"] .inspector-tab-active {
   background: transparent;
   border: 0;
   color: var(--ink);
-  max-height: 120px;
-  min-height: 34px;
+  font: inherit;
+  line-height: 1.55;
+  max-height: 176px;
+  min-height: 54px;
   outline: 0;
-  padding: 7px 4px;
+  padding: 4px 4px 2px;
   resize: none;
+  width: 100%;
 }
 
-.agent-upload-button,
-.agent-send-button {
+.agent-composer-input-row {
+  align-items: stretch;
+  display: flex;
+}
+
+.agent-composer-toolbar,
+.agent-composer-tools,
+.agent-composer-submit {
   align-items: center;
+  display: flex;
+}
+
+.agent-composer-toolbar {
+  gap: 8px;
+  justify-content: flex-start;
+  min-height: 36px;
+  padding: 0;
+}
+
+.agent-composer-tools {
+  flex: 1 1 auto;
+  gap: 4px;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.agent-composer-tools button,
+.agent-composer-submit button,
+.agent-composer-icon-button,
+.agent-send-button,
+.agent-stop-button {
+  align-items: center;
+  background: transparent;
+  border: 0;
   border-radius: 8px;
+  color: var(--muted);
   cursor: pointer;
   display: inline-flex;
-  height: 36px;
+  font: inherit;
+  flex: 0 0 auto;
   justify-content: center;
+}
+
+.agent-composer-icon-button,
+.agent-send-button,
+.agent-stop-button {
+  height: 36px;
   width: 36px;
 }
 
-.agent-upload-button {
-  color: var(--muted);
+.agent-composer-tools button {
+  font-size: 12px;
+  gap: 5px;
+  height: 36px;
+  padding: 0 8px;
 }
 
-.agent-upload-button:hover {
+.agent-composer-tools button:hover,
+.agent-composer-icon-button:hover {
   background: var(--surface-subtle);
   color: var(--ink);
 }
 
-.agent-upload-button input {
-  clip: rect(0 0 0 0);
-  clip-path: inset(50%);
-  height: 1px;
-  overflow: hidden;
-  position: absolute;
-  white-space: nowrap;
-  width: 1px;
+.agent-composer-submit {
+  flex: 0 0 auto;
+  gap: 10px;
+  margin-left: auto;
 }
 
-.agent-send-button {
+.agent-composer-submit > span {
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.agent-send-button,
+.agent-stop-button {
   background: var(--accent);
-  border: 0;
   color: #fff;
 }
 
-.agent-send-button:disabled {
+.agent-stop-button {
+  background: var(--danger);
+}
+
+.agent-send-button:disabled,
+.agent-stop-button:disabled {
   cursor: not-allowed;
   opacity: 0.48;
 }
