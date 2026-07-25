@@ -9325,12 +9325,18 @@ html[data-theme="dark"] .section-action-button-danger:hover:not(:disabled) {
 }
 
 .profile-person-toolbar {
-  align-items: end;
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: none;
   display: flex;
   gap: 20px;
   justify-content: space-between;
-  margin-bottom: 12px;
-  padding: 12px 16px;
+  margin-bottom: 16px;
+  margin-top: 16px;
+  overflow: hidden;
+  padding: 18px;
 }
 
 .profile-person-toolbar > div {

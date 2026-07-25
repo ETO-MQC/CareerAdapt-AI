@@ -401,6 +401,32 @@ export type ApplicationContext = {
   preparationPackCorrupted?: boolean;
 };
 
+function migrateLegacyAgentOptions(option: Record<string, unknown>) {
+  if ("id" in option && "action" in option && "label" in option && !("value" in option)) return option;
+  const { value: _legacyValue, description: _desc, field: _field, ...rest } = option;
+  const label = typeof option.label === "string" ? option.label
+    : typeof _legacyValue === "string" ? _legacyValue
+    : typeof _desc === "string" ? _desc
+    : undefined;
+  if (!label) return option;
+  const id = typeof option.id === "string" ? option.id : `option-${label.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-|-$/g, "").slice(0, 40) || "choice"}`;
+  const action = typeof option.action === "object" && option.action !== null
+    ? option.action
+    : { type: "answer", field: typeof _field === "string" ? _field : "choice", value: typeof _legacyValue === "string" ? _legacyValue : label };
+  return { ...rest, id, label, action };
+}
+
+function migrateLegacyAgentSession(raw: Record<string, unknown>) {
+  if (!Array.isArray(raw.messages)) return raw;
+  return {
+    ...raw,
+    messages: raw.messages.map((msg: Record<string, unknown>) => {
+      if (!Array.isArray(msg.options)) return msg;
+      return { ...msg, options: msg.options.map((opt: unknown) => typeof opt === "object" && opt !== null ? migrateLegacyAgentOptions(opt as Record<string, unknown>) : opt) };
+    })
+  };
+}
+
 export class WorkspaceRepository {
   constructor(private readonly db: CareerAdaptDb = careerAdaptDb) {}
 
@@ -412,24 +438,26 @@ export class WorkspaceRepository {
 
   async getAgentSession(sessionId: string) {
     const session = await this.db.agentSessions.get(sessionId);
-    return session ? AgentSessionSchema.parse(session) : undefined;
+    if (!session) return undefined;
+    return AgentSessionSchema.parse(migrateLegacyAgentSession(session as unknown as Record<string, unknown>));
   }
 
   async listAgentSessions(limit = 30) {
     const sessions = await this.db.agentSessions.orderBy("updatedAt").reverse().limit(Math.min(Math.max(limit, 1), 100)).toArray();
-    return sessions.filter((s) => !s.archived).map((session) => AgentSessionSchema.parse(session));
+    return sessions.filter((s) => !s.archived).map((session) => AgentSessionSchema.parse(migrateLegacyAgentSession(session as unknown as Record<string, unknown>)));
   }
 
   async listArchivedAgentSessions(limit = 50) {
     const sessions = await this.db.agentSessions.orderBy("updatedAt").reverse().limit(Math.min(Math.max(limit, 1), 200)).toArray();
-    return sessions.filter((s) => s.archived).map((session) => AgentSessionSchema.parse(session));
+    return sessions.filter((s) => s.archived).map((session) => AgentSessionSchema.parse(migrateLegacyAgentSession(session as unknown as Record<string, unknown>)));
   }
 
   async archiveAgentSession(id: string) {
     const session = await this.db.agentSessions.get(id);
     if (!session) return;
     const now = new Date().toISOString();
-    const updated = AgentSessionSchema.parse({ ...session, archived: true, archivedAt: now, updatedAt: now });
+    const migrated = migrateLegacyAgentSession(session as unknown as Record<string, unknown>);
+    const updated = AgentSessionSchema.parse({ ...migrated, archived: true, archivedAt: now, updatedAt: now });
     await this.db.agentSessions.put(updated);
     return updated;
   }
@@ -438,7 +466,8 @@ export class WorkspaceRepository {
     const session = await this.db.agentSessions.get(id);
     if (!session) return;
     const now = new Date().toISOString();
-    const updated = AgentSessionSchema.parse({ ...session, archived: false, archivedAt: undefined, updatedAt: now });
+    const migrated = migrateLegacyAgentSession(session as unknown as Record<string, unknown>);
+    const updated = AgentSessionSchema.parse({ ...migrated, archived: false, archivedAt: undefined, updatedAt: now });
     await this.db.agentSessions.put(updated);
     return updated;
   }
@@ -447,7 +476,8 @@ export class WorkspaceRepository {
     const session = await this.db.agentSessions.get(id);
     if (!session) return;
     const now = new Date().toISOString();
-    const updated = AgentSessionSchema.parse({ ...session, title, updatedAt: now });
+    const migrated = migrateLegacyAgentSession(session as unknown as Record<string, unknown>);
+    const updated = AgentSessionSchema.parse({ ...migrated, title, updatedAt: now });
     await this.db.agentSessions.put(updated);
     return updated;
   }

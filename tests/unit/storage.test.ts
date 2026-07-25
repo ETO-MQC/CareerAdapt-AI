@@ -82,6 +82,55 @@ afterEach(async () => {
 });
 
 describe("WorkspaceRepository", () => {
+  it("migrates legacy agent message options before archive and rename writes", async () => {
+    db = new CareerAdaptDb(`CareerAdaptAgentSessionMigrationDb-${crypto.randomUUID()}`);
+    const repository = new WorkspaceRepository(db);
+    const now = "2026-07-25T10:00:00.000Z";
+    await db.agentSessions.put({
+      id: "agent-session-legacy-options",
+      title: "Legacy options",
+      messages: [
+        { id: "m-user", role: "user", content: "start", createdAt: now },
+        {
+          id: "m-assistant",
+          role: "assistant",
+          content: "choose",
+          options: [
+            { value: "cancel", label: "取消" },
+            { value: "continue", label: "继续" }
+          ],
+          createdAt: now
+        }
+      ],
+      workflowState: {
+        workflowId: "job_ingestion",
+        step: "collect_job_identity",
+        status: "waiting_for_user",
+        toolCallCount: 0,
+        data: {}
+      },
+      artifactRefs: [],
+      conversationSummary: "",
+      createdAt: now,
+      updatedAt: now
+    } as never);
+
+    const archived = await repository.archiveAgentSession("agent-session-legacy-options");
+    expect(archived?.archived).toBe(true);
+    expect(archived?.messages[1].options?.[0]).toMatchObject({
+      id: "option-取消",
+      label: "取消",
+      action: { type: "answer", field: "choice", value: "cancel" }
+    });
+
+    const renamed = await repository.renameAgentSession("agent-session-legacy-options", "Renamed");
+    expect(renamed?.title).toBe("Renamed");
+    expect(renamed?.messages[1].options?.[1]).toMatchObject({
+      id: "option-继续",
+      action: { type: "answer", value: "continue" }
+    });
+  });
+
   it("persists only an existing profile as the active profile context", async () => {
     db = new CareerAdaptDb(`CareerAdaptActiveProfileDb-${crypto.randomUUID()}`);
     const repository = new WorkspaceRepository(db);

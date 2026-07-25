@@ -419,3 +419,65 @@
 .ai-asset-content select {
   min-height: var(--ai-control-height);
 }
+
+/* P4.1d surface tune-up for asset workspaces. */
+.ai-asset-content .resume-workspace > .profile-person-toolbar.resume-person-toolbar {
+  background: var(--ai-surface);
+  border: 1px solid var(--ai-border);
+  border-radius: var(--ai-card-radius);
+  box-shadow: none;
+  margin: 16px 0 20px;
+  min-height: 40px;
+  padding: 8px 18px;
+}
+
+.ai-asset-content .resume-workspace > .profile-person-toolbar.resume-person-toolbar > div {
+  gap: 0;
+  min-height: 22px;
+}
+
+.ai-asset-content .resume-workspace > .profile-person-toolbar.resume-person-toolbar .action-row {
+  align-items: center;
+}
+
+.ai-asset-content .resume-create-panel {
+  box-shadow: none;
+}
+
+.ai-asset-content .profile-category-panel,
+.ai-asset-content .job-card,
+.ai-asset-content .jobs-intake-panel,
+.ai-asset-content .jobs-list-panel,
+.ai-asset-content .selected-job-workspace,
+.ai-asset-content .recycle-panel,
+.ai-asset-content .recycle-row {
+  box-shadow: none;
+}
+
+.ai-asset-content .job-card.is-selected {
+  border-left: 3px solid var(--accent);
+  box-shadow: none;
+}
+
+.ai-asset-content .recycle-row {
+  align-items: flex-start;
+  padding: 14px 14px 14px 18px;
+}
+
+.ai-asset-content .recycle-row > div:first-child {
+  padding-left: 6px;
+}
+
+.ai-asset-content .recycle-row > .action-row {
+  align-items: flex-start;
+  align-self: flex-start;
+  gap: 8px;
+  padding-top: 0;
+}
+
+.ai-asset-content .recycle-row > .action-row .secondary-button,
+.ai-asset-content .recycle-row > .action-row .danger-button {
+  height: 40px;
+  min-height: 40px;
+  padding: 0 14px;
+}

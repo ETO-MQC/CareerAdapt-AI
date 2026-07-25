@@ -64,7 +64,7 @@ export const AgentTurnRequestSchema = z.object({
     toolName: z.string(),
     operationId: z.string(),
     ok: z.boolean(),
-    summary: z.string().max(1000)
+    summary: z.string().max(3000)
   }).strict()).max(8)
 }).strict();
 

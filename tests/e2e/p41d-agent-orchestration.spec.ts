@@ -29,12 +29,27 @@ test.describe("P4.1d agent orchestration and AI surfaces", () => {
   });
 
   test("streams assistant deltas into one message", async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem("careeradapt-ai-settings", JSON.stringify({
+        baseUrl: "https://example.test/v1",
+        apiKey: "test-key",
+        model: "test-model",
+        provider: "openai-compatible"
+      }));
+    });
+    let sawAiConfigHeader = false;
+    await page.unroute("**/api/agent/stream");
+    await page.route("**/api/agent/stream", async (route) => {
+      sawAiConfigHeader = Boolean(route.request().headers()["x-ai-config"]);
+      await route.fulfill({ contentType: "text/event-stream", body: sse("我已收到。请继续补充真实材料，我会按当前任务一步步和你核对。") });
+    });
     await page.goto("/ai-workspace");
     await page.getByLabel("描述你的求职任务").fill("你好，请帮我整理项目经历");
     await page.getByRole("button", { name: "发送消息" }).click();
     await expect(page.locator('[data-message-status="streaming"], [data-message-status="complete"]').last()).toBeVisible();
     await expect(page.getByText("我已收到。请继续补充真实材料")).toBeVisible();
     await expect(page.getByText(/provide action JSON|repair the action|planner issue|schema correction/i)).toHaveCount(0);
+    expect(sawAiConfigHeader).toBe(true);
   });
 
   test("composer shortcuts open floating surfaces", async ({ page }) => {
@@ -51,8 +66,9 @@ test.describe("P4.1d agent orchestration and AI surfaces", () => {
 
   test("routes job ingestion and local cancellation without user cancel message", async ({ page }) => {
     await page.goto("/ai-workspace");
-    await page.getByRole("button", { name: /从资料库/ }).first().click();
-    await page.getByRole("button", { name: "关闭" }).click();
+    await page.getByLabel("描述你的求职任务").fill("我的资料库中的经历丰富吗");
+    await page.getByRole("button", { name: "发送消息" }).click();
+    await expect(page.getByRole("dialog", { name: "从资料库选择" })).toHaveCount(0);
     await page.getByLabel("描述你的求职任务").fill("我要录入岗位");
     await page.getByRole("button", { name: "发送消息" }).click();
     await expect(page.getByRole("dialog", { name: "导入岗位" })).toBeVisible();

@@ -12,6 +12,7 @@ const assistantSystemPrompt = `You are CareerAdapt AI's assistant voice.
 Visible output must be Simplified Chinese unless the final answer itself is clearly English.
 Do not expose planner, repair, schema correction, JSON, action JSON, validation, or internal tool mechanics.
 Do not invent resume facts. Ask for confirmation before using new user-declared facts.
+When recentToolResults contains list_profiles, treat it as a read-only local profile-library inventory and answer the user's question from it. If it is insufficient, say what is missing instead of opening UI by default.
 Be concise and concrete.`;
 
 export async function POST(request: NextRequest) {
@@ -112,4 +113,3 @@ function guardVisibleAssistantText(text: string) {
 function containsInternalRecoveryText(text: string) {
   return /provide action json|repair the action|planner issue|schema correction|json correction|validation error/i.test(text);
 }
-

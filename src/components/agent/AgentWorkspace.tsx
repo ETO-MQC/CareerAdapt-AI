@@ -23,6 +23,7 @@ import { parseAgentSseStream } from "@/agent/runtime/agentSse";
 import { getWorkflowDefinition } from "@/agent/workflows/workflowRegistry";
 import { BrowserAgentToolService } from "@/services/agent/agentToolService";
 import { AgentSessionStore } from "@/services/agent/agentSessionStore";
+import { encodeAiSettingsForHeader, readAiSettings } from "@/services/storage/aiSettings";
 import { useWorkspaceMode } from "@/components/layout/WorkspaceModeProvider";
 import { ACTIVE_SESSION_KEY } from "@/components/agent/shell/AgentSidebar";
 import {
@@ -460,11 +461,16 @@ export function AgentWorkspaceController() {
       workflowState: input.base.workflowState,
       pageContext,
       toolManifest: dependencies.registry.manifest(),
-      recentToolResults: []
+      recentToolResults: await buildLocalRecentToolResults(input.userMessage, dependencies.executor)
     });
+    const aiSettings = readAiSettings();
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (aiSettings.apiKey || aiSettings.baseUrl || aiSettings.model) {
+      headers["x-ai-config"] = encodeAiSettingsForHeader(aiSettings);
+    }
     const response = await fetch("/api/agent/stream", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify(requestBody),
       signal: input.signalController.signal
     });
@@ -527,6 +533,18 @@ export function AgentWorkspaceController() {
   }
 
   async function startQuickAction(actionId: AgentQuickActionId) {
+    const workflowId = quickActionWorkflowId(actionId);
+    if (workflowId) {
+      setRestoredSession(false);
+      setQuickTasksOpen(false);
+      const next = await handleWorkflowControl({ type: "start_workflow", workflowId });
+      const titled = { ...next, title: quickActionTitle(actionId) };
+      setSession(titled);
+      await dependencies.store.save(titled);
+      if (window.location.pathname !== "/ai-workspace") router.push("/ai-workspace");
+      return;
+    }
+
     const quickIntent = createQuickActionIntent(actionId, quickTasksOpen ? "quick_tasks" : "zero_state");
     const reuse = session.messages.every((message) => message.role === "system")
       && session.artifactRefs.length === 0;
@@ -795,6 +813,13 @@ export function AgentWorkspaceController() {
             await dependencies.store.save(next);
           });
         }}
+        onWorkflowControl={(action) => {
+          setFloatingAction(undefined);
+          void handleWorkflowControl(action).then(async (next) => {
+            setSession(next);
+            await dependencies.store.save(next);
+          });
+        }}
         onSend={sendMessage}
       />
     </AgentWorkspaceLayout>
@@ -829,6 +854,7 @@ function AgentFloatingAction(props: {
   onClose(): void;
   onSelectResume(resume: ResumeSummary): void;
   onSubmitJob(job: { title: string; company: string; rawText: string }): void;
+  onWorkflowControl(action: AgentWorkflowControl): void;
   onSend(message: string): void;
 }) {
   const [query, setQuery] = useState("");
@@ -875,7 +901,7 @@ function AgentFloatingAction(props: {
         {props.action.type === "open_profile_browser" ? (
           <div className="agent-picker-stack">
             <p>资料库选择会保留事实边界。请选择人物、经历范围和事实后继续。</p>
-            <button className="primary-button" type="button" onClick={() => { props.onClose(); void props.onSend("从资料库组装简历"); }}>从资料库组装简历</button>
+            <button className="primary-button" type="button" onClick={() => props.onWorkflowControl({ type: "start_workflow", workflowId: "build_resume_from_profile" })}>从资料库组装简历</button>
           </div>
         ) : null}
         {props.action.type === "open_tool_palette" ? (
@@ -944,6 +970,33 @@ function detectMessageLanguage(message: string): AgentMessage["language"] {
   if (/[\u4e00-\u9fff]/.test(message)) return "zh";
   if (/[a-z]/i.test(message)) return "en";
   return "unknown";
+}
+
+function shouldAttachProfileInventory(message: string) {
+  const compact = message.trim().toLowerCase().replace(/\s+/g, "");
+  if (!compact) return false;
+  const mentionsProfile = /资料库|个人资料|经历|项目|技能|证书|profile/.test(compact);
+  const asksAboutContent = /丰富|有哪些|有什么|多少|够不够|看看|分析|评价|总结|盘点|缺什么|适合|能不能|吗|呢|\?/.test(compact);
+  const explicitOpen = /^(打开|进入|浏览|去)(个人)?资料库$/.test(compact);
+  const explicitBuild = /从资料库(生成|组装|创建|制作)?简历|资料库组装简历|组装简历/.test(compact);
+  return mentionsProfile && asksAboutContent && !explicitOpen && !explicitBuild;
+}
+
+async function buildLocalRecentToolResults(userMessage: string, executor: AgentExecutor) {
+  if (!shouldAttachProfileInventory(userMessage)) return [];
+  const result = await executor.execute({
+    toolName: "list_profiles",
+    toolInput: {},
+    operationId: `list-profiles-context-${crypto.randomUUID()}`
+  });
+  return [{
+    toolName: "list_profiles",
+    operationId: result.operationId,
+    ok: result.ok,
+    summary: result.ok
+      ? JSON.stringify(result.data).slice(0, 2400)
+      : `${result.error?.code}: ${result.error?.message}`.slice(0, 1000)
+  }];
 }
 
 function replaceThinkingWithAssistant(
@@ -1173,6 +1226,18 @@ function quickActionTitle(actionId: AgentQuickActionId) {
     repair_and_export_resume: "修复和导出简历"
   };
   return titles[actionId];
+}
+
+function quickActionWorkflowId(actionId: AgentQuickActionId) {
+  const workflows: Record<AgentQuickActionId, string> = {
+    build_profile_from_scratch: "guided_profile_intake",
+    import_existing_resume: "resume_import",
+    tailor_resume_to_job: tailorExistingResumeWorkflow.id,
+    build_resume_from_profile: "build_resume_from_profile",
+    analyze_job_fit: "analyze_job_fit",
+    repair_and_export_resume: "repair_and_export_resume"
+  };
+  return workflows[actionId];
 }
 
 function workflowStatusLabel(status: AgentSession["workflowState"]["status"]) {

@@ -25,6 +25,7 @@ import { analyzeJobFit } from "@/services/jobs/tailoringService";
 import { hashText, stableHashText } from "@/services/security/text";
 import { WorkspaceRepository } from "@/services/storage/repositories";
 import type { AgentToolServices } from "@/agent/tools/registry";
+import { canonicalProfileLibraryItems, canonicalProfileSectionCounts } from "@/domain/profile/canonicalLibrary";
 
 export class BrowserAgentToolService implements AgentToolServices {
   constructor(private readonly repository = new WorkspaceRepository()) {}
@@ -57,6 +58,15 @@ export class BrowserAgentToolService implements AgentToolServices {
         version: profile.version,
         experienceCount: profile.experiences.length,
         skillCount: profile.skills.length,
+        sectionCounts: Object.fromEntries(canonicalProfileSectionCounts(profile)),
+        items: canonicalProfileLibraryItems(profile).slice(0, 24).map((item) => ({
+          id: item.id,
+          sectionType: item.sectionType,
+          title: item.title,
+          subtitle: item.subtitle,
+          body: item.body.slice(0, 360),
+          factCount: item.factIds.length
+        })),
         updatedAt: profile.updatedAt
       }))
     };

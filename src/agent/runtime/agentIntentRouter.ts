@@ -23,7 +23,7 @@ export function routeAgentIntent(input: string, context: RouteContext = {}): Age
   const text = normalize(input);
   if (!text) return { kind: "llm", confidence: "low" };
 
-  if (matches(text, ["取消", "不用了", "结束任务", "停止当前任务", "cancel"])) {
+  if (matches(text, ["取消", "确认取消", "不用了", "结束任务", "停止当前任务", "cancel"])) {
     return workflow("取消任务", { type: "cancel_workflow", workflowId: context.activeWorkflowId || WORKFLOWS.jobIngestion });
   }
   if (matches(text, ["暂停", "先暂停", "pause"])) {
@@ -39,7 +39,7 @@ export function routeAgentIntent(input: string, context: RouteContext = {}): Age
   if (matches(text, ["选择简历", "选简历", "打开简历选择", "resume picker"])) {
     return ui("选择简历", { type: "open_resume_picker" });
   }
-  if (matches(text, ["打开资料库", "个人资料库", "资料库", "profile browser"])) {
+  if (matches(text, ["打开资料库", "打开个人资料库", "进入资料库", "进入个人资料库", "浏览资料库", "浏览个人资料库", "去资料库", "profile browser"])) {
     return ui("打开资料库", { type: "open_profile_browser" });
   }
   if (matches(text, ["打开工具", "工具", "工具箱", "工具面板", "tool palette"])) {
@@ -55,7 +55,7 @@ export function routeAgentIntent(input: string, context: RouteContext = {}): Age
   if (matches(text, ["导入简历", "上传简历", "解析简历"])) {
     return workflow("导入简历", { type: "start_workflow", workflowId: WORKFLOWS.resumeImport });
   }
-  if (matches(text, ["从资料库生成", "资料库组装", "组装简历", "从资料库组装简历"])) {
+  if (matches(text, ["从资料库生成简历", "资料库组装简历", "组装简历", "从资料库组装简历", "用资料库做简历"])) {
     return workflow("从资料库生成", { type: "start_workflow", workflowId: WORKFLOWS.buildFromProfile });
   }
   if (matches(text, ["优化已有简历", "定制简历", "改简历", "tailor"])) {
@@ -64,7 +64,7 @@ export function routeAgentIntent(input: string, context: RouteContext = {}): Age
   if (matches(text, ["匹配度", "岗位匹配", "分析岗位", "fit"])) {
     return workflow("分析岗位匹配", { type: "start_workflow", workflowId: WORKFLOWS.analyzeFit });
   }
-  if (matches(text, ["导出", "导出简历", "生成 pdf", "pdf"])) {
+  if (matches(text, ["导出", "导出简历", "生成pdf", "pdf"])) {
     return workflow("导出简历", { type: "start_workflow", workflowId: WORKFLOWS.repairExport });
   }
 
@@ -86,4 +86,3 @@ function normalize(input: string) {
 function matches(text: string, phrases: string[]) {
   return phrases.some((phrase) => text.includes(phrase.toLowerCase().replace(/\s+/g, "")));
 }
-
