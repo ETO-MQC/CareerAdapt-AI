@@ -29,20 +29,15 @@ describe("Tailoring Engine v2 regression", () => {
     }
   );
 
-  it("generates suggestions with correct structure and keyword coverage", () => {
-    const plan = createTailoringPlan({
+  it("routes proactive tailoring through evidence-constrained model task inputs", () => {
+    const proactive = createTailoringPlan({
       profile: fixtureProfile(), branch: fixtureBranch(), job: fixtureJob(), intensity: "proactive", operationId: "structure-proactive", now: NOW
-    }).plan!;
-    const suggestions = plan.suggestions!;
-
-    expect(suggestions.length).toBeGreaterThan(0);
-    expect(suggestions.some((item) => item.targetSectionType === "summary")).toBe(true);
-    expect(suggestions.some((item) => item.targetSectionType === "skills")).toBe(true);
-    expect(suggestions.every((item) => JSON.stringify(item.before) !== JSON.stringify(item.after))).toBe(true);
-    expect(suggestions.every((item) => item.targetKeywords.some((keyword) => keyword.toLowerCase() !== "ai"))).toBe(true);
-    expect(suggestions.reduce((total, item) => total + item.metrics.keywordGain, 0)).toBeGreaterThan(0);
-    const projectRequirements = suggestions.filter((item) => item.targetSectionType === "project").map((item) => item.requirementIds.join(","));
-    expect(new Set(projectRequirements).size).toBeGreaterThan(0);
+    });
+    expect(proactive.plan!.suggestions).toEqual([]);
+    expect(proactive.taskInputs!.length).toBeGreaterThan(0);
+    expect(proactive.taskInputs!.some((item) => item.target.sectionType === "summary")).toBe(true);
+    expect(proactive.taskInputs!.some((item) => item.target.sectionType === "skills")).toBe(true);
+    expect(proactive.taskInputs!.every((item) => item.allowedFacts.every((fact) => fact.value.trim().length > 0))).toBe(true);
   });
 
   it("rejects copied or empty model output instead of falling back to before", () => {

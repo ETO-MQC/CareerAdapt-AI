@@ -20,7 +20,7 @@ import {
   UserRound,
   X
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AgentSession } from "@/agent/contracts/agentSession";
 import { AgentSessionStore } from "@/services/agent/agentSessionStore";
 import { WORKSPACE_MODE_OPTIONS } from "@/services/preferences/workspaceMode";
@@ -50,11 +50,11 @@ export function AgentSidebar() {
   const [renameValue, setRenameValue] = useState("");
   const renameInputRef = useRef<HTMLInputElement>(null);
 
-  const store = new AgentSessionStore();
+  const store = useMemo(() => new AgentSessionStore(), []);
 
-  const refreshSessions = () => {
+  const refreshSessions = useCallback(() => {
     void store.list(6).then(setSessions);
-  };
+  }, [store]);
 
   useEffect(() => {
     let active = true;
@@ -66,7 +66,7 @@ export function AgentSidebar() {
       active = false;
       window.removeEventListener("careeradapt-agent-sessions-change", refreshSessions);
     };
-  }, []);
+  }, [refreshSessions, store]);
 
   const handleArchive = async (id: string) => {
     await store.archive(id);

@@ -189,25 +189,6 @@ const projectFixture: ResumeItemV2 = {
   customFields: []
 };
 
-const researchFixture: ResumeItemV2 = {
-  id: "res-1",
-  sectionType: "research",
-  title: "基于大模型的简历优化研究",
-  authorRole: "第一作者",
-  institution: "示例大学",
-  startDate: "2024-01",
-  endDate: "2024-06",
-  methods: ["NLP", "LLM"],
-  current: false,
-  samples: "100份简历",
-  publication: "ICLR 2025",
-  publicationStatus: "已录用",
-  url: "https://arxiv.org/example",
-  description: "研究大模型在简历优化中的应用",
-  highlights: [],
-  customFields: []
-};
-
 const campusFixture: ResumeItemV2 = {
   id: "campus-1",
   sectionType: "campus",

@@ -74,7 +74,7 @@ export function FloatingWindow({
     if (isOpen) {
       saveState(state);
     }
-  }, [state.x, state.y, state.width, state.height, state.minimized, isOpen]);
+  }, [isOpen, state]);
 
   const handleDragStart = useCallback((e: React.PointerEvent) => {
     if ((e.target as HTMLElement).closest(".floating-window-btn")) return;
@@ -180,7 +180,15 @@ export function FloatingWindow({
       <div className="floating-window-titlebar" onPointerDown={handleDragStart}>
         <span className="floating-window-title">{title}</span>
         <div className="floating-window-btns">
-          <button type="button" className="floating-window-btn" onClick={() => setState((prev) => ({ ...prev, minimized: true }))} aria-label="最小化">
+          <button
+            type="button"
+            className="floating-window-btn"
+            onClick={() => {
+              setState((prev) => ({ ...prev, minimized: true }));
+              onMinimize?.();
+            }}
+            aria-label="最小化"
+          >
             <svg width="12" height="12" viewBox="0 0 12 12"><path d="M2 6h8" stroke="currentColor" strokeWidth="1.5" fill="none" /></svg>
           </button>
           <button type="button" className="floating-window-btn" onClick={toggleMaximize} aria-label="最大化">
