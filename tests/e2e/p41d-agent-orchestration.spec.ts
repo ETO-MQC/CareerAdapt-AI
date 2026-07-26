@@ -24,7 +24,12 @@ function sse(message: string) {
 test.describe("P4.1d agent orchestration and AI surfaces", () => {
   test.beforeEach(async ({ page }) => {
     await page.route("**/api/agent/stream", async (route) => {
-      await route.fulfill({ contentType: "text/event-stream", body: sse("我已收到。请继续补充真实材料，我会按当前任务一步步和你核对。") });
+      const body = route.request().postDataJSON() as { mode?: string; draft?: string };
+      if (body.mode === "decision") {
+        await route.fulfill({ contentType: "application/json", body: JSON.stringify({ stopReason: "final", text: "我已收到。请继续补充真实材料，我会按当前任务一步步和你核对。" }) });
+        return;
+      }
+      await route.fulfill({ contentType: "text/event-stream", body: sse(body.draft ?? "我已收到。请继续补充真实材料，我会按当前任务一步步和你核对。") });
     });
   });
 
@@ -41,7 +46,12 @@ test.describe("P4.1d agent orchestration and AI surfaces", () => {
     await page.unroute("**/api/agent/stream");
     await page.route("**/api/agent/stream", async (route) => {
       sawAiConfigHeader = Boolean(route.request().headers()["x-ai-config"]);
-      await route.fulfill({ contentType: "text/event-stream", body: sse("我已收到。请继续补充真实材料，我会按当前任务一步步和你核对。") });
+      const body = route.request().postDataJSON() as { mode?: string; draft?: string };
+      if (body.mode === "decision") {
+        await route.fulfill({ contentType: "application/json", body: JSON.stringify({ stopReason: "final", text: "我已收到。请继续补充真实材料，我会按当前任务一步步和你核对。" }) });
+        return;
+      }
+      await route.fulfill({ contentType: "text/event-stream", body: sse(body.draft ?? "我已收到。请继续补充真实材料，我会按当前任务一步步和你核对。") });
     });
     await page.goto("/ai-workspace");
     await page.getByLabel("描述你的求职任务").fill("你好，请帮我整理项目经历");

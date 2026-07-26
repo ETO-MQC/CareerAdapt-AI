@@ -1,12 +1,14 @@
 export type AgentStreamEvent =
   | { type: "turn_ack"; sessionId?: string }
-  | { type: "status"; message: string }
+  | { type: "thinking"; stage: string; label: string }
+  | { type: "skill_loaded"; skillId: string; label: string }
   | { type: "assistant_start"; messageId?: string }
   | { type: "assistant_delta"; delta: string }
   | { type: "ui_action"; action: unknown }
-  | { type: "tool_started"; toolName: string; operationId: string }
-  | { type: "tool_completed"; toolName: string; operationId: string; ok: boolean }
+  | { type: "tool_started"; toolName: string; operationId: string; userLabel: string }
+  | { type: "tool_result"; toolName: string; operationId: string; ok: boolean; summary: string; artifactIds?: string[] }
   | { type: "confirmation_required"; confirmation: unknown }
+  | { type: "workflow_updated"; workflowState: unknown }
   | { type: "done"; action?: unknown; message?: string }
   | { type: "error"; code: string; message: string };
 

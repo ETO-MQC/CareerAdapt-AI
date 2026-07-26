@@ -1,0 +1,21 @@
+{
+  "source": "ai-conversation-2026-07-26.json",
+  "userTurns": [
+    "我的经历现在丰富吗",
+    "我说我资料库中的经历",
+    "算了，你知道我是谁吗",
+    "你自己可以看我的资料",
+    "资料库"
+  ],
+  "forbiddenUngroundedClaims": [
+    "我目前不知道您是谁",
+    "我只能通过对话中您提供的信息来了解您",
+    "我目前无法主动查看您在系统中的所有历史资料",
+    "您的资料库目前是空的"
+  ],
+  "requiredProfileTools": [
+    "get_active_profile",
+    "get_profile",
+    "search_profile_facts"
+  ]
+}

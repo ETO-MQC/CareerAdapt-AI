@@ -509,19 +509,37 @@
 }
 
 .agent-tool-status-row {
-  align-items: center;
   color: var(--ai-muted);
-  display: flex;
   font-size: 12px;
-  gap: 8px;
   margin: 4px 0 16px;
 }
 
-.agent-tool-status-row > span {
-  background: var(--ai-accent);
-  border-radius: 999px;
-  height: 7px;
-  width: 7px;
+.agent-tool-status-row > summary {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  gap: 8px;
+  list-style: none;
+  min-height: 28px;
+}
+
+.agent-tool-status-row > summary::-webkit-details-marker {
+  display: none;
+}
+
+.agent-tool-status-row svg {
+  color: var(--ai-accent);
+  height: 15px;
+  width: 15px;
+}
+
+.agent-tool-status-row.is-failed svg {
+  color: var(--ai-danger);
+}
+
+.agent-tool-status-row > p {
+  margin: 4px 0 0 23px;
+  max-width: 560px;
 }
 
 .agent-conversation-actions {

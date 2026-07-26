@@ -46,4 +46,18 @@ describe("agent sse parsing", () => {
     ].join("\n")))) deltas.push(delta);
     expect(deltas.join("")).toBe("你好");
   });
+
+  it("parses activity, Skill, tool result, and workflow update events", async () => {
+    const frames = [
+      { type: "thinking", stage: "planning", label: "正在规划下一步" },
+      { type: "skill_loaded", skillId: "jd-analysis", label: "已加载岗位分析方法" },
+      { type: "tool_started", toolName: "get_job", operationId: "operation-job-1", userLabel: "正在读取目标岗位" },
+      { type: "tool_result", toolName: "get_job", operationId: "operation-job-1", ok: true, summary: "已读取岗位详情。" },
+      { type: "workflow_updated", workflowState: { step: "review_result" } }
+    ];
+    const body = frames.map((event) => `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`).join("");
+    const parsed = [];
+    for await (const event of parseAgentSseStream(stream(body))) parsed.push(event);
+    expect(parsed).toEqual(frames);
+  });
 });

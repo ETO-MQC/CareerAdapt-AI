@@ -2,6 +2,8 @@ import { z } from "zod";
 import { AgentArtifactRefSchema } from "./agentArtifact";
 import { AgentErrorSchema } from "./agentTool";
 import { AgentOptionSchema } from "./agentActions";
+import { AgentTrajectorySchema } from "../kernel/AgentTrajectory";
+import { AgentReflectionSchema } from "../kernel/AgentReflection";
 
 export const AGENT_SESSION_MAX_MESSAGES = 48;
 
@@ -67,6 +69,18 @@ export const AgentConfirmationSchema = z.object({
   resolvedAt: z.string().datetime({ offset: true }).optional()
 }).strict();
 
+export const AgentMemoryStateSchema = z.object({
+  userPreferences: z.array(z.string().max(500)).max(32).default([]),
+  episodic: z.array(z.string().max(1000)).max(32).default([]),
+  procedural: z.array(z.string().max(160)).max(32).default([])
+}).strict();
+
+export const AgentPendingToolCallSchema = z.object({
+  toolName: z.string().min(1),
+  operationId: z.string().min(8).max(160),
+  input: z.record(z.string(), z.unknown())
+}).strict();
+
 export const AgentSessionSchema = z.object({
   id: z.string().min(1),
   title: z.string().min(1).max(160),
@@ -77,7 +91,11 @@ export const AgentSessionSchema = z.object({
   activeResumeId: z.string().min(1).optional(),
   activeJobId: z.string().min(1).optional(),
   conversationSummary: z.string().max(6000).default(""),
+  memory: AgentMemoryStateSchema.optional(),
+  trajectory: AgentTrajectorySchema.optional(),
+  reflection: AgentReflectionSchema.optional(),
   pendingConfirmation: AgentConfirmationSchema.optional(),
+  pendingToolCall: AgentPendingToolCallSchema.optional(),
   archived: z.boolean().default(false),
   archivedAt: z.string().datetime({ offset: true }).optional(),
   createdAt: z.string().datetime({ offset: true }),

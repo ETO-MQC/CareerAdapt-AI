@@ -1,6 +1,12 @@
 import "server-only";
 import type { AiSettings } from "@/services/storage/aiSettings";
 import { parseOpenAiCompatibleSse } from "./openAiSse";
+import {
+  AgentModelResultSchema,
+  type AgentModelMessage,
+  type AgentModelRequest,
+  type AgentModelResult
+} from "@/agent/model/agentModel";
 
 export type OpenAiCompatibleRequest = {
   systemPrompt: string;
@@ -85,6 +91,62 @@ export class OpenAiCompatibleProvider {
     };
   }
 
+  async completeWithTools(request: AgentModelRequest & { signal?: AbortSignal }): Promise<AgentModelResult> {
+    this.assertUsable();
+    const response = await fetch(`${this.baseUrl.replace(/\/$/, "")}/chat/completions`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${this.apiKey}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: this.model,
+        messages: [
+          { role: "system", content: request.systemPrompt },
+          ...request.messages.map(toOpenAiMessage)
+        ],
+        tools: request.tools.map((tool) => ({
+          type: "function",
+          function: {
+            name: tool.name,
+            description: tool.description,
+            parameters: tool.inputSchema
+          }
+        })),
+        tool_choice: request.tools.length ? "auto" : undefined,
+        temperature: 0.1
+      }),
+      signal: request.signal
+    });
+
+    if (!response.ok) {
+      if ([400, 404, 422].includes(response.status)) return this.completeWithStructuredActions(request);
+      throw createAiProviderError(`provider_http_${response.status}`, `Provider returned HTTP ${response.status}.`);
+    }
+    const payload = await response.json();
+    const choice = payload?.choices?.[0];
+    const message = choice?.message;
+    const toolCalls = Array.isArray(message?.tool_calls)
+      ? message.tool_calls.map((call: Record<string, unknown>, index: number) => {
+          const fn = call.function as Record<string, unknown> | undefined;
+          return {
+            id: typeof call.id === "string" ? call.id : `tool-call-${index + 1}`,
+            name: String(fn?.name ?? ""),
+            arguments: parseToolArguments(fn?.arguments)
+          };
+        })
+      : [];
+    return AgentModelResultSchema.parse({
+      text: typeof message?.content === "string" && message.content.trim() ? message.content : undefined,
+      toolCalls: toolCalls.length ? toolCalls : undefined,
+      stopReason: toolCalls.length ? "tool_calls" : choice?.finish_reason === "length" ? "length" : "final",
+      usage: payload?.usage ? {
+        inputTokens: numberOrUndefined(payload.usage.prompt_tokens),
+        outputTokens: numberOrUndefined(payload.usage.completion_tokens)
+      } : undefined
+    });
+  }
+
   async *streamText(request: OpenAiCompatibleRequest): AsyncGenerator<OpenAiCompatibleTextChunk> {
     this.assertUsable();
     const response = await fetch(`${this.baseUrl.replace(/\/$/, "")}/chat/completions`, {
@@ -140,6 +202,22 @@ export class OpenAiCompatibleProvider {
       );
     }
   }
+
+  private async completeWithStructuredActions(request: AgentModelRequest & { signal?: AbortSignal }) {
+    const response = await this.invoke({
+      systemPrompt: `${request.systemPrompt}
+
+This provider does not expose native function calling. Return exactly one JSON object:
+{"text":"final answer","stopReason":"final"}
+or
+{"toolCalls":[{"id":"stable-id","name":"allowed_tool","arguments":{}}],"stopReason":"tool_calls"}.
+Use only the provided tool names. Do not include reasoning or markdown fences.`,
+      userPrompt: JSON.stringify({ messages: request.messages, tools: request.tools }),
+      maxOutputChars: 16_000,
+      signal: request.signal
+    });
+    return AgentModelResultSchema.parse(response.output);
+  }
 }
 
 export class AiProviderError extends Error {
@@ -173,4 +251,42 @@ function parseJsonContent(content: string) {
     }
     throw createAiProviderError("invalid_json", "Provider returned content that is not valid JSON.");
   }
+}
+
+function toOpenAiMessage(message: AgentModelMessage) {
+  if (message.role === "assistant" && message.toolCalls?.length) {
+    return {
+      role: "assistant",
+      content: message.content || null,
+      tool_calls: message.toolCalls.map((call) => ({
+        id: call.id,
+        type: "function",
+        function: { name: call.name, arguments: JSON.stringify(call.arguments) }
+      }))
+    };
+  }
+  if (message.role === "tool") {
+    return {
+      role: "tool",
+      content: message.content,
+      tool_call_id: message.toolCallId,
+      name: message.name
+    };
+  }
+  return { role: message.role, content: message.content };
+}
+
+function parseToolArguments(value: unknown) {
+  if (typeof value === "object" && value !== null && !Array.isArray(value)) return value as Record<string, unknown>;
+  if (typeof value !== "string" || !value.trim()) return {};
+  try {
+    const parsed = JSON.parse(value);
+    return typeof parsed === "object" && parsed !== null && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    throw createAiProviderError("invalid_tool_arguments", "Provider returned invalid tool arguments.");
+  }
+}
+
+function numberOrUndefined(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }

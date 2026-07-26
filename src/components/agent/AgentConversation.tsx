@@ -51,12 +51,7 @@ export function AgentConversation({
             return <AgentErrorStatus key={message.id} message={message} />;
           }
           if (message.role === "tool" || message.kind === "tool_status" || message.type === "tool_status") {
-            return (
-              <div className="agent-tool-status-row" key={message.id} role="status">
-                <span aria-hidden="true" />
-                <strong>{toolStatus(message)}</strong>
-              </div>
-            );
+            return <AgentActivityRow key={message.id} message={message} />;
           }
           return (
             <AgentMessageRow
@@ -88,6 +83,20 @@ export function AgentConversation({
         <div ref={endRef} aria-hidden="true" />
       </div>
     </section>
+  );
+}
+
+function AgentActivityRow({ message }: { message: AgentMessage }) {
+  const state = String(message.metadata?.activityState ?? (message.status === "failed" ? "failed" : "complete"));
+  const Icon = state === "running" ? LoaderCircle : state === "failed" ? AlertCircle : CheckCircle2;
+  return (
+    <details className={`agent-tool-status-row is-${state}`}>
+      <summary role="status">
+        <Icon className={state === "running" ? "is-spinning" : undefined} aria-hidden="true" />
+        <strong>{toolStatus(message)}</strong>
+      </summary>
+      <p>{state === "running" ? "完成后会在这里更新结果。" : "此步骤只读取或处理当前任务允许的数据。"}</p>
+    </details>
   );
 }
 
@@ -246,6 +255,7 @@ function AgentErrorStatus({ message }: { message: AgentMessage }) {
 }
 
 function toolStatus(message: AgentMessage) {
+  if (message.metadata?.activityState || message.toolName === "skill_loaded") return message.content;
   const labels: Record<string, string> = {
     parse_resume_file: "已接收文件，正在提取可核对内容",
     parse_job_description: "已生成岗位语义草稿",

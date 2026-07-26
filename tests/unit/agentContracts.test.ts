@@ -32,6 +32,39 @@ describe("agent contracts", () => {
     expect(() => AgentPageContextSchema.parse({ ...context, resume: { id: "resume-1" } })).toThrow();
   });
 
+  it("restores workflow pointers, scoped memory, and operational trajectory without copying profile facts", () => {
+    const session = AgentRuntime.create("analyze_job_fit", "select_assets");
+    const restored = AgentSessionSchema.parse({
+      ...session,
+      activeProfileId: "profile-1",
+      activeResumeId: "resume-1",
+      activeJobId: "job-1",
+      memory: {
+        userPreferences: ["回复保持简洁"],
+        episodic: ["用户纠正了目标岗位名称"],
+        procedural: ["jd-analysis"]
+      },
+      trajectory: {
+        taskId: "task-restore-1",
+        workflowId: "analyze_job_fit",
+        turns: 1,
+        skillsLoaded: ["jd-analysis"],
+        toolCalls: [],
+        confirmations: [],
+        artifacts: [],
+        outcome: "running",
+        errors: []
+      }
+    });
+    expect(restored).toMatchObject({
+      activeProfileId: "profile-1",
+      activeResumeId: "resume-1",
+      activeJobId: "job-1",
+      workflowState: { workflowId: "analyze_job_fit", step: "select_assets" }
+    });
+    expect(JSON.stringify(restored.memory)).not.toContain("experiences");
+  });
+
   it("keeps the planner API independent from Dexie and WorkspaceRepository", () => {
     const source = fs.readFileSync(path.resolve("src/app/api/agent/turn/route.ts"), "utf8");
     expect(source).not.toContain("Dexie");

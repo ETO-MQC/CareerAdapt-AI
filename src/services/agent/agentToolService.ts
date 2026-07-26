@@ -26,6 +26,7 @@ import { hashText, stableHashText } from "@/services/security/text";
 import { WorkspaceRepository } from "@/services/storage/repositories";
 import type { AgentToolServices } from "@/agent/tools/registry";
 import { canonicalProfileLibraryItems, canonicalProfileSectionCounts } from "@/domain/profile/canonicalLibrary";
+import { agentSkillRegistry } from "@/agent/kernel/AgentSkillRegistry";
 
 export class BrowserAgentToolService implements AgentToolServices {
   constructor(private readonly repository = new WorkspaceRepository()) {}
@@ -85,6 +86,177 @@ export class BrowserAgentToolService implements AgentToolServices {
         updatedAt: job.updatedAt
       }))
     };
+  }
+
+  async getActiveProfile(signal?: AbortSignal) {
+    assertNotAborted(signal);
+    const profileId = await this.repository.getActiveProfileId();
+    if (!profileId) {
+      const profiles = await this.repository.listProfiles();
+      return {
+        selected: false,
+        profileId: null,
+        availableProfiles: profiles.map((profile) => ({ id: profile.id, name: profile.name }))
+      };
+    }
+    const profile = await this.repository.getProfile(profileId);
+    if (!profile) throw toolError("active_profile_not_found", "The selected profile no longer exists.");
+    return { selected: true, profileId: profile.id, name: profile.name, version: profile.version };
+  }
+
+  async getProfile(rawInput: unknown, signal?: AbortSignal) {
+    assertNotAborted(signal);
+    const input = rawInput as { profileId: string };
+    const profile = await this.repository.getProfile(input.profileId);
+    if (!profile) throw toolError("profile_not_found", "Profile no longer exists.");
+    const items = canonicalProfileLibraryItems(profile);
+    return {
+      profile: {
+        id: profile.id,
+        name: profile.name,
+        version: profile.version,
+        basics: profile.basics,
+        preference: profile.preference,
+        sectionCounts: Object.fromEntries(canonicalProfileSectionCounts(profile)),
+        experienceCount: profile.experiences.length,
+        skillCount: profile.skills.length,
+        certificateCount: profile.certificates.length,
+        items: items.slice(0, 60).map((item) => ({
+          id: item.id,
+          sectionType: item.sectionType,
+          title: item.title,
+          subtitle: item.subtitle,
+          body: item.body.slice(0, 800),
+          factIds: item.factIds
+        })),
+        unclassifiedBlockCount: profile.unclassifiedBlocks.length,
+        updatedAt: profile.updatedAt
+      }
+    };
+  }
+
+  async searchProfileFacts(rawInput: unknown, signal?: AbortSignal) {
+    assertNotAborted(signal);
+    const input = rawInput as { profileId: string; query: string; sectionTypes?: string[]; limit?: number };
+    const profile = await this.repository.getProfile(input.profileId);
+    if (!profile) throw toolError("profile_not_found", "Profile no longer exists.");
+    const terms = input.query.toLowerCase().split(/[\s,，。；;、/]+/).filter(Boolean);
+    const sections = new Set(input.sectionTypes ?? []);
+    const results = canonicalProfileLibraryItems(profile)
+      .filter((item) => !sections.size || sections.has(item.sectionType))
+      .map((item) => {
+        const haystack = `${item.title}\n${item.subtitle ?? ""}\n${item.body}`.toLowerCase();
+        const score = terms.reduce((total, term) => total + (haystack.includes(term) ? 1 : 0), 0);
+        return { item, score };
+      })
+      .filter((entry) => entry.score > 0)
+      .sort((left, right) => right.score - left.score)
+      .slice(0, input.limit ?? 12)
+      .map(({ item, score }) => ({
+        id: item.id,
+        sectionType: item.sectionType,
+        title: item.title,
+        subtitle: item.subtitle,
+        body: item.body.slice(0, 800),
+        factIds: item.factIds,
+        score
+      }));
+    return { profileId: profile.id, query: input.query, results };
+  }
+
+  async getResume(rawInput: unknown, signal?: AbortSignal) {
+    assertNotAborted(signal);
+    const input = rawInput as { resumeId: string };
+    const branch = await this.repository.getResumeBranch(input.resumeId);
+    if (!branch) throw toolError("resume_not_found", "Resume no longer exists.");
+    return {
+      resume: {
+        id: branch.id,
+        profileId: branch.profileId,
+        jobId: branch.jobId,
+        name: branch.name,
+        purpose: branch.branchPurpose,
+        revision: branch.revision,
+        currentRevisionId: branch.currentRevisionId,
+        contentItems: branch.contentItems,
+        structuredContentItems: branch.structuredContentItems,
+        updatedAt: branch.updatedAt
+      }
+    };
+  }
+
+  async getResumeRevision(rawInput: unknown, signal?: AbortSignal) {
+    assertNotAborted(signal);
+    const input = rawInput as { resumeId: string; revisionId?: string };
+    const branch = await this.repository.getResumeBranch(input.resumeId);
+    if (!branch) throw toolError("resume_not_found", "Resume no longer exists.");
+    const revisionId = input.revisionId ?? branch.currentRevisionId;
+    if (!revisionId) throw toolError("resume_revision_not_found", "Resume does not have a revision.");
+    const revisions = await this.repository.listResumeRevisions(branch.id);
+    const revision = revisions.find((candidate) => candidate.id === revisionId);
+    if (!revision) throw toolError("resume_revision_not_found", "Resume revision no longer exists.");
+    return { resumeId: branch.id, revision };
+  }
+
+  async getJob(rawInput: unknown, signal?: AbortSignal) {
+    assertNotAborted(signal);
+    const input = rawInput as { jobId: string };
+    const job = await this.repository.getJobDescription(input.jobId);
+    if (!job) throw toolError("job_not_found", "Job no longer exists.");
+    return { job };
+  }
+
+  async getAgentTaskContext(rawInput: unknown, signal?: AbortSignal) {
+    assertNotAborted(signal);
+    const input = rawInput as { sessionId: string };
+    const session = await this.repository.getAgentSession(input.sessionId);
+    if (!session) throw toolError("agent_session_not_found", "Agent session no longer exists.");
+    return {
+      sessionId: session.id,
+      title: session.title,
+      workflowState: session.workflowState,
+      activeProfileId: session.activeProfileId,
+      activeResumeId: session.activeResumeId,
+      activeJobId: session.activeJobId,
+      artifactRefs: session.artifactRefs,
+      conversationSummary: session.conversationSummary,
+      updatedAt: session.updatedAt
+    };
+  }
+
+  async searchAgentSessions(rawInput: unknown, signal?: AbortSignal) {
+    assertNotAborted(signal);
+    const input = rawInput as { query: string; limit?: number };
+    const query = input.query.trim().toLowerCase();
+    const sessions = await this.repository.listAgentSessions(100);
+    return {
+      query: input.query,
+      sessions: sessions
+        .filter((session) => `${session.title}\n${session.conversationSummary}\n${session.messages.map((message) => message.content).join("\n")}`.toLowerCase().includes(query))
+        .slice(0, input.limit ?? 8)
+        .map((session) => ({
+          id: session.id,
+          title: session.title,
+          workflowId: session.workflowState.workflowId,
+          step: session.workflowState.step,
+          status: session.workflowState.status,
+          summary: session.conversationSummary.slice(-1200),
+          updatedAt: session.updatedAt
+        }))
+    };
+  }
+
+  async skillsList(signal?: AbortSignal) {
+    assertNotAborted(signal);
+    return { skills: agentSkillRegistry.list() };
+  }
+
+  async skillView(rawInput: unknown, signal?: AbortSignal) {
+    assertNotAborted(signal);
+    const input = rawInput as { skillId: string; referencePath?: string };
+    return input.referencePath
+      ? agentSkillRegistry.view(input.skillId, input.referencePath)
+      : agentSkillRegistry.view(input.skillId);
   }
 
   async parseResumeFile(rawInput: unknown, signal?: AbortSignal) {

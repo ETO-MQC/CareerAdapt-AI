@@ -3,7 +3,7 @@
 import { History, Pause, Play, RotateCw, WifiOff } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { AgentRuntime, AgentTurnRequestSchema } from "@/agent/runtime/agentRuntime";
+import { AgentRuntime } from "@/agent/runtime/agentRuntime";
 import { AgentEventBus } from "@/agent/runtime/agentEventBus";
 import { AgentExecutor } from "@/agent/runtime/agentExecutor";
 import { createAgentToolRegistry } from "@/agent/tools/registry";
@@ -19,11 +19,12 @@ import {
 } from "@/agent/contracts/agentQuickAction";
 import type { AgentOption, AgentUiAction, AgentWorkflowControl } from "@/agent/contracts/agentActions";
 import { routeAgentIntent } from "@/agent/runtime/agentIntentRouter";
-import { parseAgentSseStream } from "@/agent/runtime/agentSse";
 import { getWorkflowDefinition } from "@/agent/workflows/workflowRegistry";
+import { AgentKernel } from "@/agent/kernel/AgentKernel";
+import { AgentToolResolver } from "@/agent/kernel/AgentToolResolver";
+import { HttpAgentModel } from "@/agent/model/httpAgentModel";
 import { BrowserAgentToolService } from "@/services/agent/agentToolService";
 import { AgentSessionStore } from "@/services/agent/agentSessionStore";
-import { encodeAiSettingsForHeader, readAiSettings } from "@/services/storage/aiSettings";
 import { useWorkspaceMode } from "@/components/layout/WorkspaceModeProvider";
 import { ACTIVE_SESSION_KEY } from "@/components/agent/shell/AgentSidebar";
 import {
@@ -31,6 +32,7 @@ import {
   type AgentArtifactDrawerState
 } from "./artifacts/AgentArtifactDrawer";
 import { AgentComposer } from "./AgentComposer";
+import { AgentConfirmationCard } from "./AgentConfirmationCard";
 import { AgentConversationTimeline, normalizeAgentMessageText } from "./AgentConversation";
 import { AgentHistoryDialog } from "./AgentHistoryDialog";
 import { AgentZeroState } from "./workspace/AgentZeroState";
@@ -56,6 +58,11 @@ export function AgentWorkspaceController() {
       executor,
       store,
       eventBus: new AgentEventBus(),
+      kernel: new AgentKernel({
+        model: new HttpAgentModel(),
+        executor,
+        toolResolver: new AgentToolResolver(registry)
+      }),
       controller: new TailorExistingResumeWorkflowController(executor)
     };
   }, []);
@@ -213,9 +220,9 @@ export function AgentWorkspaceController() {
     const artifactRefs = buildArtifactRefs(workflowState, now);
     const next: AgentSession = {
       ...session,
-      activeProfileId: workflowState.profileId,
-      activeResumeId: workflowState.resumeId,
-      activeJobId: workflowState.jobId,
+      activeProfileId: workflowState.profileId ?? input.base.activeProfileId,
+      activeResumeId: workflowState.resumeId ?? input.base.activeResumeId,
+      activeJobId: workflowState.jobId ?? input.base.activeJobId,
       workflowState: {
         ...session.workflowState,
         workflowId: tailorExistingResumeWorkflow.id,
@@ -357,7 +364,7 @@ export function AgentWorkspaceController() {
         userMessageId: previousError.userMessageId!,
         errorCode: previousError.errorCode!,
         status: "retrying",
-        content: "?????? AI??????????????"
+        content: "正在重新连接 AI 服务，当前任务和输入已保留。"
       });
     }
 
@@ -455,31 +462,58 @@ export function AgentWorkspaceController() {
       activeJobId: workflowState.jobId,
       query: {}
     };
-    const requestBody = AgentTurnRequestSchema.parse({
-      userMessage: input.userMessage,
-      sessionSummary: input.base.conversationSummary,
-      workflowState: input.base.workflowState,
-      pageContext,
-      toolManifest: dependencies.registry.manifest(),
-      recentToolResults: await buildLocalRecentToolResults(input.userMessage, dependencies.executor)
-    });
-    const aiSettings = readAiSettings();
-    const headers: Record<string, string> = { "Content-Type": "application/json" };
-    if (aiSettings.apiKey || aiSettings.baseUrl || aiSettings.model) {
-      headers["x-ai-config"] = encodeAiSettingsForHeader(aiSettings);
-    }
-    const response = await fetch("/api/agent/stream", {
-      method: "POST",
-      headers,
-      body: JSON.stringify(requestBody),
-      signal: input.signalController.signal
-    });
-    if (!response.ok || !response.body) throw Object.assign(new Error("agent_stream_failed"), { code: "agent_stream_failed" });
-
     let streamingMessage: AgentMessage | undefined;
     let visible = "";
     let final = input.optimistic;
-    for await (const event of parseAgentSseStream(response.body)) {
+    const result = await dependencies.kernel.runTurn({
+      session: input.base,
+      pageContext,
+      userMessage: input.userMessage,
+      signal: input.signalController.signal,
+      emit: (event) => {
+      if (event.type === "thinking") {
+        final = {
+          ...final,
+          messages: final.messages.map((message) =>
+            message.id === input.thinkingMessageId
+              ? { ...message, content: event.label, status: "thinking", updatedAt: new Date().toISOString() }
+              : message
+          )
+        };
+        setSession(final);
+      }
+      if (event.type === "skill_loaded") {
+        final = appendActivityMessage(final, {
+          id: `agent-skill-${event.skillId}-${crypto.randomUUID()}`,
+          content: event.label,
+          toolName: "skill_loaded",
+          status: "complete",
+          metadata: { skillId: event.skillId, activityState: "complete" }
+        });
+        setSession(final);
+      }
+      if (event.type === "tool_started") {
+        final = upsertActivityMessage(final, {
+          id: `agent-tool-${event.operationId}`,
+          content: event.userLabel,
+          toolName: event.toolName,
+          operationId: event.operationId,
+          status: "pending",
+          metadata: { activityState: "running" }
+        });
+        setSession(final);
+      }
+      if (event.type === "tool_result") {
+        final = upsertActivityMessage(final, {
+          id: `agent-tool-${event.operationId}`,
+          content: event.summary,
+          toolName: event.toolName,
+          operationId: event.operationId,
+          status: event.ok ? "complete" : "failed",
+          metadata: { activityState: event.ok ? "complete" : "failed", artifactIds: event.artifactIds ?? [] }
+        });
+        setSession(final);
+      }
       if (event.type === "assistant_start") {
         streamingMessage = {
           id: input.thinkingMessageId,
@@ -494,8 +528,8 @@ export function AgentWorkspaceController() {
           updatedAt: new Date().toISOString()
         };
         final = {
-          ...input.optimistic,
-          messages: input.optimistic.messages.map((message) =>
+          ...final,
+          messages: final.messages.map((message) =>
             message.id === input.thinkingMessageId ? streamingMessage! : message
           )
         };
@@ -520,13 +554,42 @@ export function AgentWorkspaceController() {
         setSession(final);
       }
       if (event.type === "ui_action" && isUiAction(event.action)) input.onUiAction(event.action);
+      if (event.type === "confirmation_required") {
+        const confirmation = event.confirmation as NonNullable<AgentSession["pendingConfirmation"]>;
+        final = upsertActivityMessage(final, {
+          id: `agent-tool-${confirmation.operationId}`,
+          content: "等待你确认后继续",
+          toolName: confirmation.toolName,
+          operationId: confirmation.operationId,
+          status: "pending",
+          metadata: { activityState: "waiting_confirmation" }
+        });
+        final = {
+          ...final,
+          pendingConfirmation: confirmation,
+          workflowState: { ...final.workflowState, status: "waiting_for_confirmation" }
+        };
+        setSession(final);
+      }
       if (event.type === "done") {
         if (isWorkflowControl(event.action)) input.onWorkflowControl(event.action);
         const doneText = typeof event.message === "string" && event.message.trim() ? event.message : visible;
         final = replaceThinkingWithAssistant(final, input.thinkingMessageId, doneText, doneText);
       }
       if (event.type === "error") throw Object.assign(new Error(event.message), { code: event.code });
-    }
+      }
+    });
+    final = {
+      ...final,
+      trajectory: result.trajectory,
+      reflection: result.reflection,
+      pendingConfirmation: result.pendingConfirmation,
+      pendingToolCall: result.pendingCall,
+      workflowState: {
+        ...final.workflowState,
+        status: result.pendingConfirmation ? "waiting_for_confirmation" : final.workflowState.status
+      }
+    };
     const saved = await dependencies.store.save(normalizeAssistantMessages(final, finalAssistantText(final)));
     setSession(saved);
     return saved;
@@ -585,6 +648,47 @@ export function AgentWorkspaceController() {
     const pendingTurn = sendMessage(quickIntent.intent, next);
     if (window.location.pathname !== "/ai-workspace") router.push("/ai-workspace");
     await pendingTurn;
+  }
+
+  async function confirmKernelAction(confirmed: boolean) {
+    const call = session.pendingToolCall;
+    if (!session.pendingConfirmation || !call) return;
+    if (!confirmed) {
+      const next = appendLocalMessage({
+        ...session,
+        pendingConfirmation: undefined,
+        pendingToolCall: undefined,
+        workflowState: { ...session.workflowState, status: "waiting_for_user" }
+      }, "assistant", "已取消这次操作，现有数据没有改变。");
+      setSession(await dependencies.store.save(next));
+      return;
+    }
+    setRuntimeBusy(true);
+    try {
+      const result = await dependencies.executor.execute({
+        toolName: call.toolName,
+        toolInput: call.input,
+        operationId: call.operationId,
+        confirmed: true
+      });
+      const cleared = {
+        ...session,
+        pendingConfirmation: undefined,
+        pendingToolCall: undefined,
+        workflowState: { ...session.workflowState, status: result.ok ? "waiting_for_user" as const : "failed" as const }
+      };
+      const next = upsertActivityMessage(cleared, {
+        id: `agent-tool-${call.operationId}`,
+        content: result.ok ? "已按你的确认完成这一步。" : "这一步未能完成，现有任务信息已保留。",
+        toolName: call.toolName,
+        operationId: call.operationId,
+        status: result.ok ? "complete" : "failed",
+        metadata: { activityState: result.ok ? "complete" : "failed", artifactIds: result.artifactIds }
+      });
+      setSession(await dependencies.store.save(next));
+    } finally {
+      setRuntimeBusy(false);
+    }
   }
 
   async function upload(file: File): Promise<"ready" | "partial"> {
@@ -743,6 +847,15 @@ export function AgentWorkspaceController() {
                     onPreview={() => void dependencies.controller.preview()}
                     onConfirm={(confirmed) => void dependencies.controller.confirmPending(confirmed)}
                     onChooseAnotherTask={() => setQuickTasksOpen(true)}
+                  />
+                ) : null}
+                {session.pendingConfirmation && session.pendingToolCall && !workflowState.pendingConfirmation ? (
+                  <AgentConfirmationCard
+                    busy={runtimeBusy}
+                    title={session.pendingConfirmation.title}
+                    description={session.pendingConfirmation.description}
+                    onCancel={() => void confirmKernelAction(false)}
+                    onConfirm={() => void confirmKernelAction(true)}
                   />
                 ) : null}
               </AgentConversationTimeline>
@@ -950,7 +1063,13 @@ function normalizeAssistantMessages(session: AgentSession, assistantText: string
     ...session,
     messages: session.messages.map((message) => {
       if (message.role === "tool") {
-        return { ...message, kind: "tool_status" as const, type: "tool_status" as const, status: "complete" as const };
+        const activityState = String(message.metadata?.activityState ?? "");
+        const status = activityState === "failed"
+          ? "failed" as const
+          : activityState === "running" || activityState === "waiting_confirmation"
+            ? "pending" as const
+            : "complete" as const;
+        return { ...message, kind: "tool_status" as const, type: "tool_status" as const, status };
       }
       if (message.role !== "assistant" || message.kind === "error_status") return message;
       return {
@@ -966,37 +1085,49 @@ function normalizeAssistantMessages(session: AgentSession, assistantText: string
   };
 }
 
+function appendActivityMessage(
+  session: AgentSession,
+  activity: Pick<AgentMessage, "id" | "content" | "toolName" | "operationId" | "status" | "metadata">
+) {
+  const now = new Date().toISOString();
+  const message: AgentMessage = {
+    id: activity.id,
+    role: "tool",
+    content: activity.content,
+    kind: "tool_status",
+    type: "tool_status",
+    status: activity.status,
+    toolName: activity.toolName,
+    operationId: activity.operationId,
+    metadata: activity.metadata,
+    createdAt: now,
+    updatedAt: now
+  };
+  return { ...session, messages: [...session.messages, message].slice(-40), updatedAt: now };
+}
+
+function upsertActivityMessage(
+  session: AgentSession,
+  activity: Pick<AgentMessage, "id" | "content" | "toolName" | "operationId" | "status" | "metadata">
+) {
+  const existing = session.messages.some((message) => message.id === activity.id);
+  if (!existing) return appendActivityMessage(session, activity);
+  const now = new Date().toISOString();
+  return {
+    ...session,
+    messages: session.messages.map((message) =>
+      message.id === activity.id
+        ? { ...message, ...activity, kind: "tool_status" as const, type: "tool_status" as const, updatedAt: now }
+        : message
+    ),
+    updatedAt: now
+  };
+}
+
 function detectMessageLanguage(message: string): AgentMessage["language"] {
   if (/[\u4e00-\u9fff]/.test(message)) return "zh";
   if (/[a-z]/i.test(message)) return "en";
   return "unknown";
-}
-
-function shouldAttachProfileInventory(message: string) {
-  const compact = message.trim().toLowerCase().replace(/\s+/g, "");
-  if (!compact) return false;
-  const mentionsProfile = /资料库|个人资料|经历|项目|技能|证书|profile/.test(compact);
-  const asksAboutContent = /丰富|有哪些|有什么|多少|够不够|看看|分析|评价|总结|盘点|缺什么|适合|能不能|吗|呢|\?/.test(compact);
-  const explicitOpen = /^(打开|进入|浏览|去)(个人)?资料库$/.test(compact);
-  const explicitBuild = /从资料库(生成|组装|创建|制作)?简历|资料库组装简历|组装简历/.test(compact);
-  return mentionsProfile && asksAboutContent && !explicitOpen && !explicitBuild;
-}
-
-async function buildLocalRecentToolResults(userMessage: string, executor: AgentExecutor) {
-  if (!shouldAttachProfileInventory(userMessage)) return [];
-  const result = await executor.execute({
-    toolName: "list_profiles",
-    toolInput: {},
-    operationId: `list-profiles-context-${crypto.randomUUID()}`
-  });
-  return [{
-    toolName: "list_profiles",
-    operationId: result.operationId,
-    ok: result.ok,
-    summary: result.ok
-      ? JSON.stringify(result.data).slice(0, 2400)
-      : `${result.error?.code}: ${result.error?.message}`.slice(0, 1000)
-  }];
 }
 
 function replaceThinkingWithAssistant(

@@ -1,9 +1,11 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { AgentTurnRequestSchema } from "@/agent/runtime/agentRuntime";
 import { decodeAiSettingsFromHeader } from "@/services/storage/aiSettings";
 import { OpenAiCompatibleProvider, type AiProviderError } from "@/ai/providers/openAiCompatibleProvider";
 import { encodeAgentSseEvent, type AgentStreamEvent } from "@/agent/runtime/agentSse";
 import { routeAgentIntent } from "@/agent/runtime/agentIntentRouter";
+import { AgentModelRequestSchema, AgentModelResultSchema, type AgentModelMessage } from "@/agent/model/agentModel";
+import { z } from "zod";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,12 +18,17 @@ When recentToolResults contains list_profiles, treat it as a read-only local pro
 Be concise and concrete.`;
 
 export async function POST(request: NextRequest) {
+  const raw = await request.json();
+  const mode = typeof raw === "object" && raw && "mode" in raw ? String(raw.mode) : undefined;
+  if (mode === "decision") return modelDecision(request, raw);
+  if (mode === "narration") return modelNarration(request, raw);
+
   const encoder = new TextEncoder();
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       const send = (event: AgentStreamEvent) => controller.enqueue(encoder.encode(encodeAgentSseEvent(event)));
       try {
-        const parsed = AgentTurnRequestSchema.safeParse(await request.json());
+        const parsed = AgentTurnRequestSchema.safeParse(raw);
         if (!parsed.success) {
           send({ type: "error", code: "invalid_agent_turn", message: "请求内容无效。" });
           controller.close();
@@ -39,7 +46,7 @@ export async function POST(request: NextRequest) {
           return;
         }
         if (routed.kind === "workflow_control") {
-          send({ type: "status", message: routed.label });
+          send({ type: "thinking", stage: "routing", label: routed.label });
           if (routed.action.type === "switch_workflow" && routed.action.workflowId === "job_ingestion") {
             send({ type: "ui_action", action: { type: "open_job_import_dialog" } });
           }
@@ -58,7 +65,7 @@ export async function POST(request: NextRequest) {
           recentToolResults: parsed.data.recentToolResults
         });
 
-        send({ type: "status", message: "正在组织回复" });
+        send({ type: "thinking", stage: "narrating", label: "正在组织回复" });
         send({ type: "assistant_start" });
         if (effectiveProvider === "mock") {
           const text = "我已收到。请先补充这项任务需要的真实材料，我会按步骤和你核对。";
@@ -100,6 +107,145 @@ export async function POST(request: NextRequest) {
       Connection: "keep-alive"
     }
   });
+}
+
+async function modelDecision(request: NextRequest, raw: unknown) {
+  const parsed = AgentModelRequestSchema.safeParse(stripMode(raw));
+  if (!parsed.success) return modelError("invalid_agent_model_request", "Agent model input failed validation.", 400);
+  try {
+    const settings = settingsFrom(request);
+    const effectiveProvider = settings?.provider || process.env.AI_PROVIDER || "openai-compatible";
+    if (effectiveProvider === "mock") return NextResponse.json(AgentModelResultSchema.parse(mockModelDecision(parsed.data.messages)));
+    const provider = new OpenAiCompatibleProvider(settings);
+    return NextResponse.json(await provider.completeWithTools({
+      ...parsed.data,
+      signal: AbortSignal.any([request.signal, AbortSignal.timeout(60_000)])
+    }));
+  } catch (cause) {
+    const code = typeof cause === "object" && cause && "code" in cause ? String((cause as AiProviderError).code) : "agent_model_failed";
+    return modelError(code, "Agent model could not decide the next safe action.", 502);
+  }
+}
+
+async function modelNarration(request: NextRequest, raw: unknown) {
+  const schema = AgentModelRequestSchema.extend({ draft: z.string().min(1).max(8000) });
+  const parsed = schema.safeParse(stripMode(raw));
+  if (!parsed.success) return modelError("invalid_agent_narration_request", "Agent narration input failed validation.", 400);
+  const encoder = new TextEncoder();
+  const settings = settingsFrom(request);
+  const effectiveProvider = settings?.provider || process.env.AI_PROVIDER || "openai-compatible";
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      const send = (event: AgentStreamEvent) => controller.enqueue(encoder.encode(encodeAgentSseEvent(event)));
+      try {
+        send({ type: "assistant_start" });
+        if (effectiveProvider === "mock") {
+          send({ type: "assistant_delta", delta: parsed.data.draft });
+          send({ type: "done", message: parsed.data.draft });
+          return;
+        }
+        const provider = new OpenAiCompatibleProvider(settings);
+        let full = "";
+        for await (const chunk of provider.streamText({
+          systemPrompt: `You are CareerAdapt AI's final answer narrator.
+Output only the supplied draft in the user's language. Preserve every fact, count, uncertainty, and conclusion. Do not add facts, explanations, headings about tools, or hidden reasoning.`,
+          userPrompt: parsed.data.draft,
+          maxOutputChars: 8000,
+          signal: AbortSignal.any([request.signal, AbortSignal.timeout(60_000)])
+        })) {
+          if (chunk.type === "delta") {
+            full += chunk.delta;
+            send({ type: "assistant_delta", delta: chunk.delta });
+          }
+        }
+        send({ type: "done", message: full });
+      } catch (cause) {
+        const code = typeof cause === "object" && cause && "code" in cause ? String((cause as AiProviderError).code) : "agent_narration_failed";
+        send({ type: "error", code, message: "AI 回复暂时不可用，任务和输入已保留。" });
+      } finally {
+        controller.close();
+      }
+    }
+  });
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/event-stream; charset=utf-8",
+      "Cache-Control": "no-cache, no-transform",
+      Connection: "keep-alive"
+    }
+  });
+}
+
+function settingsFrom(request: NextRequest) {
+  const header = request.headers.get("x-ai-config");
+  return header ? decodeAiSettingsFromHeader(header) : undefined;
+}
+
+function stripMode(raw: unknown) {
+  if (!raw || typeof raw !== "object") return raw;
+  const value = { ...raw as Record<string, unknown> };
+  delete value.mode;
+  return value;
+}
+
+function modelError(code: string, message: string, status: number) {
+  return NextResponse.json({ error: { code, message } }, { status });
+}
+
+function mockModelDecision(messages: AgentModelMessage[]) {
+  const latestUser = [...messages].reverse().find((message) => message.role === "user")?.content ?? "";
+  const observations = messages.filter((message) => message.role === "tool");
+  const active = lastObservation(observations, "get_active_profile");
+  const profile = lastObservation(observations, "get_profile");
+  const search = lastObservation(observations, "search_profile_facts");
+  if (/我是谁|知道我|资料库|经历|AI\s*相关/i.test(latestUser)) {
+    if (!active) {
+      return { stopReason: "tool_calls", toolCalls: [{ id: `mock-active-${Date.now()}`, name: "get_active_profile", arguments: {} }] };
+    }
+    const activeData = safeJson(active.content) as { selected?: boolean; profileId?: string | null; name?: string };
+    if (!activeData.selected || !activeData.profileId) {
+      return { stopReason: "final", text: "目前还没有选中的资料库。我不会据此判断资料库为空；请先选择一个资料库。" };
+    }
+    if (/AI\s*相关/i.test(latestUser) && !search) {
+      return {
+        stopReason: "tool_calls",
+        toolCalls: [{ id: `mock-search-${Date.now()}`, name: "search_profile_facts", arguments: { profileId: activeData.profileId, query: "AI 人工智能 大模型 机器学习", limit: 12 } }]
+      };
+    }
+    if (/AI\s*相关/i.test(latestUser) && search) {
+      const data = safeJson(search.content) as { results?: Array<{ title?: string; body?: string }> };
+      const results = data.results ?? [];
+      return {
+        stopReason: "final",
+        text: results.length
+          ? `我在当前资料库中找到 ${results.length} 条 AI 相关经历：${results.slice(0, 5).map((item) => item.title).filter(Boolean).join("、")}。这些结论只来自已保存资料。`
+          : "我已检索当前资料库，但没有找到明确的 AI 相关事实；这不等于你没有相关能力，只表示资料库里还没有可引用的证据。"
+      };
+    }
+    if (!profile) {
+      return { stopReason: "tool_calls", toolCalls: [{ id: `mock-profile-${Date.now()}`, name: "get_profile", arguments: { profileId: activeData.profileId } }] };
+    }
+    const data = safeJson(profile.content) as { profile?: { name?: string; sectionCounts?: Record<string, number>; items?: Array<{ title?: string }> } };
+    const detail = data.profile;
+    const counts = detail?.sectionCounts ?? {};
+    const total = Object.values(counts).reduce((sum, value) => sum + Number(value || 0), 0);
+    if (/我是谁|知道我/.test(latestUser)) {
+      return { stopReason: "final", text: `我知道你当前选择的是“${detail?.name ?? activeData.name ?? "未命名"}”资料库。现有资料共 ${total} 项；我只会依据这些已保存内容描述你，不会补造未知信息。` };
+    }
+    return {
+      stopReason: "final",
+      text: `我已读取当前资料库：共 ${total} 项内容。代表经历包括 ${(detail?.items ?? []).slice(0, 4).map((item) => item.title).filter(Boolean).join("、") || "暂无可概括条目"}。优势是已有内容可追溯；明显空白应以各分类计数为 0 的部分为准，不能用推测补齐。`
+    };
+  }
+  return { stopReason: "final", text: "我已收到。请告诉我你想查看资料、分析岗位，还是准备简历。" };
+}
+
+function lastObservation(messages: AgentModelMessage[], name: string) {
+  return [...messages].reverse().find((message) => message.name === name);
+}
+
+function safeJson(value: string) {
+  try { return JSON.parse(value); } catch { return {}; }
 }
 
 function guardVisibleAssistantText(text: string) {

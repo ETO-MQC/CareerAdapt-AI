@@ -12,13 +12,17 @@ export type AgentWorkflowDefinition = {
   resumePolicy: "resume_from_step" | "restart_step" | "manual_review";
 };
 
-const readTools = ["list_resumes", "list_profiles", "list_jobs"];
+const profileReadTools = ["list_profiles", "get_active_profile", "get_profile", "search_profile_facts"];
+const resumeReadTools = ["list_resumes", "get_resume", "get_resume_revision"];
+const jobReadTools = ["list_jobs", "get_job"];
+const readTools = [...profileReadTools, ...resumeReadTools, ...jobReadTools];
+const proceduralTools = ["skills_list", "skill_view", "get_agent_task_context", "search_agent_sessions"];
 
 export const agentWorkflowRegistry: Record<string, AgentWorkflowDefinition> = {
   guided_profile_intake: workflow("guided_profile_intake", "collect_profile_scope", ["collect_profile_scope", "collect_experience", "review_facts", "confirm_commit", "completed"], {
-    collect_profile_scope: ["list_profiles"],
-    collect_experience: [],
-    review_facts: [],
+    collect_profile_scope: profileReadTools,
+    collect_experience: profileReadTools,
+    review_facts: profileReadTools,
     confirm_commit: []
   }, {
     collect_profile_scope: ["open_profile_browser"],
@@ -68,9 +72,9 @@ export const agentWorkflowRegistry: Record<string, AgentWorkflowDefinition> = {
     resumePolicy: "resume_from_step"
   },
   build_resume_from_profile: workflow("build_resume_from_profile", "select_profile_scope", ["select_profile_scope", "select_facts", "review_resume_plan", "confirm_create", "completed"], {
-    select_profile_scope: ["list_profiles"],
-    select_facts: ["list_profiles"],
-    review_resume_plan: [],
+    select_profile_scope: [...profileReadTools, ...jobReadTools],
+    select_facts: [...profileReadTools, ...jobReadTools],
+    review_resume_plan: [...profileReadTools, ...jobReadTools],
     confirm_create: []
   }, {
     select_profile_scope: ["open_profile_browser"],
@@ -78,14 +82,14 @@ export const agentWorkflowRegistry: Record<string, AgentWorkflowDefinition> = {
     review_resume_plan: ["open_artifact"]
   }, ["profileId", "selectedFactIds"]),
   tailor_existing_resume: workflow("tailor_existing_resume", "select_resume", ["select_resume", "collect_job", "analyze_job", "review_job", "analyze_fit", "generate_plan", "answer_questions", "preview_changes", "confirm_apply", "completed"], {
-    select_resume: ["list_resumes", "list_profiles"],
-    collect_job: [],
-    analyze_job: ["parse_job_description"],
-    review_job: ["commit_job"],
-    analyze_fit: ["analyze_job_fit"],
-    generate_plan: ["create_tailoring_session"],
+    select_resume: [...profileReadTools, ...resumeReadTools, ...jobReadTools],
+    collect_job: [...profileReadTools, ...resumeReadTools, ...jobReadTools],
+    analyze_job: [...profileReadTools, ...resumeReadTools, ...jobReadTools, "parse_job_description"],
+    review_job: [...jobReadTools, "commit_job"],
+    analyze_fit: [...profileReadTools, ...resumeReadTools, ...jobReadTools, "analyze_job_fit"],
+    generate_plan: [...profileReadTools, ...resumeReadTools, ...jobReadTools, "create_tailoring_session"],
     answer_questions: ["answer_tailoring_question"],
-    preview_changes: ["preview_tailoring_changes"],
+    preview_changes: [...profileReadTools, ...resumeReadTools, ...jobReadTools, "preview_tailoring_changes"],
     confirm_apply: ["apply_tailoring_changes"]
   }, {
     select_resume: ["open_resume_picker"],
@@ -95,16 +99,16 @@ export const agentWorkflowRegistry: Record<string, AgentWorkflowDefinition> = {
   }, ["profileId", "resumeId", "jobId"]),
   analyze_job_fit: workflow("analyze_job_fit", "select_assets", ["select_assets", "analyze_fit", "review_result", "completed"], {
     select_assets: readTools,
-    analyze_fit: ["analyze_job_fit"],
-    review_result: []
+    analyze_fit: [...readTools, "analyze_job_fit"],
+    review_result: readTools
   }, {
     select_assets: ["open_resume_picker", "open_job_import_dialog", "open_profile_browser"],
     review_result: ["open_artifact"]
   }, ["profileId", "resumeId", "jobId"]),
   repair_and_export_resume: workflow("repair_and_export_resume", "select_resume", ["select_resume", "review_export", "export", "completed"], {
-    select_resume: ["list_resumes"],
-    review_export: [],
-    export: ["export_resume"]
+    select_resume: resumeReadTools,
+    review_export: resumeReadTools,
+    export: [...resumeReadTools, "export_resume"]
   }, {
     select_resume: ["open_resume_picker"],
     review_export: ["open_artifact"]
@@ -122,7 +126,7 @@ export function allowedToolManifestForStep(
 ) {
   const definition = getWorkflowDefinition(workflowId);
   if (!definition) return manifest;
-  const allowed = new Set(definition.allowedToolsByStep[step] ?? []);
+  const allowed = new Set([...(definition.allowedToolsByStep[step] ?? []), ...proceduralTools]);
   return manifest.filter((tool) => allowed.has(String(tool.name)));
 }
 

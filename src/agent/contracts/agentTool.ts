@@ -30,7 +30,12 @@ export const AgentToolManifestItemSchema = z.object({
   requiresConfirmation: z.boolean(),
   idempotent: z.boolean(),
   resumable: z.boolean(),
-  inputSchema: z.record(z.string(), z.unknown())
+  category: z.string().min(1),
+  dataScope: z.string().min(1),
+  producesArtifact: z.boolean(),
+  external: z.boolean(),
+  inputSchema: z.record(z.string(), z.unknown()),
+  outputSchema: z.record(z.string(), z.unknown())
 }).strict();
 
 export type AgentError = z.infer<typeof AgentErrorSchema>;
@@ -49,6 +54,10 @@ export type AgentToolDefinition<TInput = unknown, TOutput = unknown> = {
   requiresConfirmation: boolean;
   idempotent: boolean;
   resumable: boolean;
+  category?: string;
+  dataScope?: string;
+  producesArtifact?: boolean;
+  external?: boolean;
   inputSchema: z.ZodType<TInput>;
   outputSchema: z.ZodType<TOutput>;
   execute(input: TInput, context: AgentToolExecutionContext): Promise<TOutput> | TOutput;
