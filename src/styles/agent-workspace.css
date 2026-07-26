@@ -350,6 +350,8 @@
   gap: 10px;
   margin-bottom: 16px;
   width: 100%;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 96px;
 }
 
 .agent-message-row.is-user {
@@ -418,7 +420,108 @@
   line-height: 1.68;
   margin: 0;
   overflow-wrap: anywhere;
-  white-space: pre-wrap;
+  white-space: normal;
+}
+
+.agent-markdown > :first-child {
+  margin-top: 0;
+}
+
+.agent-markdown > :last-child {
+  margin-bottom: 0;
+}
+
+.agent-markdown p,
+.agent-markdown blockquote,
+.agent-markdown ul,
+.agent-markdown ol,
+.agent-markdown pre,
+.agent-markdown table {
+  margin: 0 0 10px;
+}
+
+.agent-markdown p {
+  white-space: pre-line;
+}
+
+.agent-markdown h1,
+.agent-markdown h2,
+.agent-markdown h3,
+.agent-markdown h4,
+.agent-markdown h5,
+.agent-markdown h6 {
+  line-height: 1.35;
+  margin: 18px 0 8px;
+  text-wrap: balance;
+}
+
+.agent-markdown h1 { font-size: 20px; }
+.agent-markdown h2 { font-size: 18px; }
+.agent-markdown h3 { font-size: 16px; }
+.agent-markdown h4,
+.agent-markdown h5,
+.agent-markdown h6 { font-size: 14px; }
+
+.agent-markdown ul,
+.agent-markdown ol {
+  padding-left: 22px;
+}
+
+.agent-markdown li + li {
+  margin-top: 4px;
+}
+
+.agent-markdown blockquote {
+  border-left: 3px solid var(--ai-border-strong);
+  color: var(--ai-muted);
+  padding-left: 12px;
+}
+
+.agent-markdown code {
+  background: var(--ai-surface-raised);
+  border-radius: 6px;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.9em;
+  padding: 2px 5px;
+}
+
+.agent-markdown pre {
+  background: var(--ai-surface-raised);
+  border: 1px solid var(--ai-border);
+  border-radius: 8px;
+  max-width: 100%;
+  overflow: auto;
+  padding: 12px;
+  white-space: pre;
+}
+
+.agent-markdown pre code {
+  background: transparent;
+  padding: 0;
+}
+
+.agent-markdown a {
+  color: var(--ai-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.agent-markdown-table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.agent-markdown table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.agent-markdown th,
+.agent-markdown td {
+  border: 1px solid var(--ai-border);
+  padding: 6px 8px;
+  text-align: left;
+  vertical-align: top;
 }
 
 .agent-message-options {
@@ -522,6 +625,20 @@
   color: var(--ai-muted);
   font-size: 12px;
   margin: 4px 0 16px;
+}
+
+.agent-message-stack > .agent-tool-status-row {
+  margin: 0 0 6px;
+}
+
+.agent-tool-activity-list {
+  list-style: none;
+  margin: 4px 0 0 23px;
+  padding: 0;
+}
+
+.agent-tool-activity-list li + li {
+  margin-top: 4px;
 }
 
 .agent-tool-status-row > summary {

@@ -16,6 +16,7 @@ import {
   UserRound
 } from "lucide-react";
 import { useEffect, useRef } from "react";
+import { AgentMarkdown } from "./AgentMarkdown";
 
 export function AgentConversation({
   messages,
@@ -52,6 +53,19 @@ export function AgentConversation({
         {conversationItems.map((item) => {
           if (item.type === "activity") {
             return <AgentActivityGroup key={item.id} messages={item.messages} />;
+          }
+          if (item.type === "assistant_turn") {
+            return (
+              <AgentMessageRow
+                key={item.id}
+                message={item.message}
+                activity={item.activity}
+                onContinueFromMessage={onContinueFromMessage}
+                onCopyMessage={onCopyMessage}
+                onRegenerate={onRegenerate}
+                onOption={onOption}
+              />
+            );
           }
           const message = item.message;
           if (message.kind === "error_status" || message.type === "error") {
@@ -95,7 +109,7 @@ function AgentActivityGroup({ messages }: { messages: AgentMessage[] }) {
   const failed = messages.some((message) => message.metadata?.activityState === "failed" || message.status === "failed");
   const Icon = running ? LoaderCircle : failed ? AlertCircle : CheckCircle2;
   return (
-    <details className={`agent-tool-status-row is-${running ? "running" : failed ? "failed" : "complete"}`} open={running || undefined}>
+    <details className={`agent-tool-status-row is-${running ? "running" : failed ? "failed" : "complete"}`} open={running || failed || undefined}>
       <summary role="status">
         <Icon className={running ? "is-spinning" : undefined} aria-hidden="true" />
         <strong>{running ? "正在执行任务步骤" : failed ? "部分任务步骤需要处理" : `已完成 ${messages.length} 个任务步骤`}</strong>
@@ -111,6 +125,7 @@ export const AgentConversationTimeline = AgentConversation;
 
 function AgentMessageRow({
   message,
+  activity,
   onEditUserMessage,
   onContinueFromMessage,
   onCopyMessage,
@@ -118,6 +133,7 @@ function AgentMessageRow({
   onOption
 }: {
   message: AgentMessage;
+  activity?: AgentMessage[];
   onEditUserMessage?(message: AgentMessage): void;
   onContinueFromMessage?(message: AgentMessage): void;
   onCopyMessage?(message: AgentMessage): void;
@@ -138,6 +154,7 @@ function AgentMessageRow({
     >
       {!isUser ? <AgentAvatar role="assistant" /> : null}
       <div className="agent-message-stack">
+        {!isUser && activity?.length ? <AgentActivityGroup messages={activity} /> : null}
         <AgentMessageBubble message={message} />
         {message.options?.length ? (
           <div className="agent-message-options" aria-label="可选回答">
@@ -184,10 +201,10 @@ function AgentMessageBubble({ message }: { message: AgentMessage }) {
 function AgentMessageContent({ content, streaming }: { content: string; streaming: boolean }) {
   if (streaming && !content.trim()) return <AgentStreamingIndicator />;
   return (
-    <p className="agent-message-content">
-      {content}
+    <div className="agent-message-content">
+      <AgentMarkdown>{content}</AgentMarkdown>
       {streaming ? <span className="agent-stream-cursor" aria-hidden="true" /> : null}
-    </p>
+    </div>
   );
 }
 
@@ -288,22 +305,43 @@ function isStreamingMessage(message: AgentMessage) {
 }
 
 function groupConversationItems(messages: AgentMessage[]) {
+  const activityByTurn = new Map<string, AgentMessage[]>();
+  const lastAssistantByTurn = new Map<string, string>();
+  for (const message of messages) {
+    if (isActivityMessage(message) && message.turnId) {
+      activityByTurn.set(message.turnId, [...(activityByTurn.get(message.turnId) ?? []), message]);
+    } else if (message.role === "assistant" && message.turnId) {
+      lastAssistantByTurn.set(message.turnId, message.id);
+    }
+  }
   const items: Array<
     | { type: "message"; id: string; message: AgentMessage }
     | { type: "activity"; id: string; messages: AgentMessage[] }
+    | { type: "assistant_turn"; id: string; message: AgentMessage; activity: AgentMessage[] }
   > = [];
   for (const message of messages) {
-    const activity = message.role === "tool" || message.kind === "tool_status" || message.type === "tool_status";
-    const previous = items.at(-1);
-    if (activity && previous?.type === "activity") {
-      previous.messages.push(message);
-    } else if (activity) {
+    if (isActivityMessage(message) && message.turnId) continue;
+    const activity = message.turnId && lastAssistantByTurn.get(message.turnId) === message.id
+      ? activityByTurn.get(message.turnId)
+      : undefined;
+    if (message.role === "assistant" && activity?.length) {
+      items.push({
+        type: "assistant_turn",
+        id: `turn-${message.turnId}`,
+        message,
+        activity
+      });
+    } else if (isActivityMessage(message)) {
       items.push({ type: "activity", id: `activity-${message.id}`, messages: [message] });
     } else {
       items.push({ type: "message", id: message.id, message });
     }
   }
   return items;
+}
+
+function isActivityMessage(message: AgentMessage) {
+  return message.role === "tool" || message.kind === "tool_status" || message.type === "tool_status";
 }
 
 export function normalizeAgentMessageText(input: string) {
@@ -315,17 +353,6 @@ export function normalizeAgentMessageText(input: string) {
   ];
   let text = input.replace(/\r\n/g, "\n");
   for (const pattern of fallbackPatterns) text = text.replace(pattern, "");
-  text = text
-    .split("\n")
-    .map((line) => {
-      const trimmed = line.trim();
-      if (/^#{1,6}\s*$/.test(trimmed)) return "";
-      if (/^\*{1,3}\s*$/.test(trimmed)) return "";
-      if (/^\*{1,2}([^*\n]{1,80})\*{1,2}$/.test(trimmed)) return trimmed.replace(/^\*{1,2}|\*{1,2}$/g, "");
-      return line.replace(/(?<!\*)\*(?!\*)/g, "");
-    })
-    .join("\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
+  text = text.replace(/\n{3,}/g, "\n\n").trim();
   return text || "我已经收到。请继续补充你的真实情况，我会按步骤和你核对。";
 }
