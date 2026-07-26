@@ -220,9 +220,9 @@ export function AgentWorkspaceController() {
     const artifactRefs = buildArtifactRefs(workflowState, now);
     const next: AgentSession = {
       ...session,
-      activeProfileId: workflowState.profileId ?? input.base.activeProfileId,
-      activeResumeId: workflowState.resumeId ?? input.base.activeResumeId,
-      activeJobId: workflowState.jobId ?? input.base.activeJobId,
+      activeProfileId: workflowState.profileId ?? session.activeProfileId,
+      activeResumeId: workflowState.resumeId ?? session.activeResumeId,
+      activeJobId: workflowState.jobId ?? session.activeJobId,
       workflowState: {
         ...session.workflowState,
         workflowId: tailorExistingResumeWorkflow.id,
