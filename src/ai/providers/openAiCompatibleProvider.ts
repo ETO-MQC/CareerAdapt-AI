@@ -1,11 +1,13 @@
 import "server-only";
 import type { AiSettings } from "@/services/storage/aiSettings";
 import { parseOpenAiCompatibleSse } from "./openAiSse";
+import { parseOpenAiJsonSse } from "./openAiToolSse";
 import {
   AgentModelResultSchema,
   type AgentModelMessage,
   type AgentModelRequest,
-  type AgentModelResult
+  type AgentModelResult,
+  type AgentModelStreamEvent
 } from "@/agent/model/agentModel";
 
 export type OpenAiCompatibleRequest = {
@@ -145,6 +147,93 @@ export class OpenAiCompatibleProvider {
         outputTokens: numberOrUndefined(payload.usage.completion_tokens)
       } : undefined
     });
+  }
+
+  async *streamTurn(request: AgentModelRequest & { signal?: AbortSignal }): AsyncGenerator<AgentModelStreamEvent> {
+    this.assertUsable();
+    const response = await fetch(`${this.baseUrl.replace(/\/$/, "")}/chat/completions`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${this.apiKey}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: this.model,
+        stream: true,
+        stream_options: { include_usage: true },
+        messages: [
+          { role: "system", content: request.systemPrompt },
+          ...request.messages.map(toOpenAiMessage)
+        ],
+        tools: request.tools.map((tool) => ({
+          type: "function",
+          function: { name: tool.name, description: tool.description, parameters: tool.inputSchema }
+        })),
+        tool_choice: request.tools.length ? "auto" : undefined,
+        temperature: 0.1
+      }),
+      signal: request.signal
+    });
+    if (!response.ok) {
+      throw createAiProviderError(
+        [400, 404, 405, 422].includes(response.status) ? "native_tool_streaming_unsupported" : `provider_http_${response.status}`,
+        `Provider returned HTTP ${response.status}.`
+      );
+    }
+    if (!response.body) throw createAiProviderError("empty_stream_body", "Provider returned an empty stream body.");
+
+    const calls = new Map<number, { id: string; name: string; argumentsText: string }>();
+    let finishReason: unknown;
+    for await (const payload of parseOpenAiJsonSse(response.body)) {
+      const usage = objectRecord(payload.usage);
+      if (usage) {
+        yield {
+          type: "usage",
+          inputTokens: numberOrUndefined(usage.prompt_tokens),
+          outputTokens: numberOrUndefined(usage.completion_tokens)
+        };
+      }
+      const choice = Array.isArray(payload.choices) ? objectRecord(payload.choices[0]) : undefined;
+      if (!choice) continue;
+      finishReason = choice.finish_reason ?? finishReason;
+      const delta = objectRecord(choice.delta);
+      if (!delta) continue;
+      if (typeof delta.content === "string" && delta.content) {
+        yield { type: "assistant_text_delta", delta: delta.content };
+      }
+      if (!Array.isArray(delta.tool_calls)) continue;
+      for (const rawCall of delta.tool_calls) {
+        const part = objectRecord(rawCall);
+        if (!part) continue;
+        const index = typeof part.index === "number" ? part.index : calls.size;
+        const fn = objectRecord(part.function);
+        const prior = calls.get(index);
+        const id = typeof part.id === "string" ? part.id : prior?.id ?? `tool-call-${index + 1}`;
+        const name = typeof fn?.name === "string" ? fn.name : prior?.name ?? "";
+        if (!prior) {
+          calls.set(index, { id, name, argumentsText: "" });
+          yield { type: "tool_call_start", index, id, name };
+        } else {
+          prior.id = id;
+          prior.name = name;
+        }
+        if (typeof fn?.arguments === "string" && fn.arguments) {
+          calls.get(index)!.argumentsText += fn.arguments;
+          yield { type: "tool_call_arguments_delta", index, id, delta: fn.arguments };
+        }
+      }
+    }
+    for (const [index, call] of [...calls.entries()].sort(([left], [right]) => left - right)) {
+      yield {
+        type: "tool_call_complete",
+        index,
+        call: { id: call.id, name: call.name, arguments: parseToolArguments(call.argumentsText) }
+      };
+    }
+    yield {
+      type: "finish",
+      stopReason: calls.size ? "tool_calls" : finishReason === "length" ? "length" : "final"
+    };
   }
 
   async *streamText(request: OpenAiCompatibleRequest): AsyncGenerator<OpenAiCompatibleTextChunk> {
@@ -289,4 +378,8 @@ function parseToolArguments(value: unknown) {
 
 function numberOrUndefined(value: unknown) {
   return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function objectRecord(value: unknown): Record<string, unknown> | undefined {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : undefined;
 }

@@ -7,6 +7,7 @@ import { AgentReflectionSchema } from "../kernel/AgentReflection";
 
 export const AgentMessageSchema = z.object({
   id: z.string().min(1),
+  turnId: z.string().min(1).optional(),
   role: z.enum(["user", "assistant", "tool", "system"]),
   content: z.string().max(8000),
   kind: z.enum([
@@ -62,6 +63,7 @@ export const AgentWorkflowStateSchema = z.object({
 
 export const AgentConfirmationSchema = z.object({
   id: z.string().min(1),
+  turnId: z.string().min(1).optional(),
   operationId: z.string().min(8).max(160),
   toolName: z.string().min(1),
   title: z.string().min(1).max(160),
@@ -82,9 +84,39 @@ export const AgentMemoryStateSchema = z.object({
 }).strict();
 
 export const AgentPendingToolCallSchema = z.object({
+  turnId: z.string().min(1).optional(),
   toolName: z.string().min(1),
   operationId: z.string().min(8).max(160),
   input: z.record(z.string(), z.unknown())
+}).strict();
+
+export const AgentTurnSchema = z.object({
+  id: z.string().min(1),
+  sessionId: z.string().min(1),
+  userMessageId: z.string().min(1).optional(),
+  status: z.enum(["running", "waiting_for_user", "waiting_for_confirmation", "completed", "failed", "aborted"]),
+  startedAt: z.string().datetime({ offset: true }),
+  completedAt: z.string().datetime({ offset: true }).optional()
+}).strict();
+
+export const AgentTaskStateSchema = z.object({
+  goal: z.string().max(500).default("conversation"),
+  workflowId: z.string().min(1),
+  stage: z.string().min(1),
+  requiredSlots: z.array(z.string().min(1)).max(32).default([]),
+  knownSlots: z.record(z.string(), z.unknown()).default({}),
+  missingSlots: z.array(z.string().min(1)).max(32).default([]),
+  selectedEntities: z.object({
+    profileId: z.string().min(1).optional(),
+    resumeId: z.string().min(1).optional(),
+    jobId: z.string().min(1).optional(),
+    revisionId: z.string().min(1).optional()
+  }).strict().default({}),
+  artifacts: z.array(z.string().min(1)).max(128).default([]),
+  lastObservation: z.unknown().optional(),
+  completionStatus: z.enum(["active", "waiting_for_user", "waiting_for_confirmation", "completed", "failed", "cancelled"]).default("active"),
+  computeTier: z.enum(["T0", "T1", "T2", "T3", "T4"]).default("T0"),
+  updatedAt: z.string().datetime({ offset: true })
 }).strict();
 
 export const AgentSessionSchema = z.object({
@@ -106,6 +138,8 @@ export const AgentSessionSchema = z.object({
   reflection: AgentReflectionSchema.optional(),
   pendingConfirmation: AgentConfirmationSchema.optional(),
   pendingToolCall: AgentPendingToolCallSchema.optional(),
+  activeTurn: AgentTurnSchema.optional(),
+  taskState: AgentTaskStateSchema.optional(),
   archived: z.boolean().default(false),
   archivedAt: z.string().datetime({ offset: true }).optional(),
   createdAt: z.string().datetime({ offset: true }),
@@ -117,6 +151,8 @@ export type AgentMessageRecord = z.infer<typeof AgentMessageRecordSchema>;
 export type AgentSession = z.infer<typeof AgentSessionSchema>;
 export type AgentWorkflowState = z.infer<typeof AgentWorkflowStateSchema>;
 export type AgentConfirmation = z.infer<typeof AgentConfirmationSchema>;
+export type AgentTurn = z.infer<typeof AgentTurnSchema>;
+export type AgentTaskState = z.infer<typeof AgentTaskStateSchema>;
 
 export function serializeAgentSession(value: AgentSession) {
   return AgentSessionSchema.parse(value);

@@ -1,4 +1,4 @@
-import type { AgentSession } from "@/agent/contracts/agentSession";
+import { serializeAgentSession, type AgentSession } from "@/agent/contracts/agentSession";
 import { WorkspaceRepository } from "@/services/storage/repositories";
 
 export class AgentSessionStore {
@@ -34,5 +34,11 @@ export class AgentSessionStore {
 
   delete(id: string) {
     return this.repository.deleteAgentSession(id);
+  }
+
+  async exportJson(id: string) {
+    const session = await this.get(id);
+    if (!session) throw Object.assign(new Error("Agent session not found."), { code: "agent_session_not_found" });
+    return JSON.stringify(serializeAgentSession(session), null, 2);
   }
 }

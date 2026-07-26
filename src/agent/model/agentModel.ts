@@ -42,8 +42,22 @@ export type AgentModelTool = z.infer<typeof AgentModelToolSchema>;
 export type AgentModelResult = z.infer<typeof AgentModelResultSchema>;
 export type AgentModelRequest = z.infer<typeof AgentModelRequestSchema>;
 
+export type AgentModelStreamEvent =
+  | { type: "assistant_text_delta"; delta: string }
+  | { type: "tool_call_start"; index: number; id: string; name: string }
+  | { type: "tool_call_arguments_delta"; index: number; id: string; delta: string }
+  | { type: "tool_call_complete"; index: number; call: AgentModelToolCall }
+  | { type: "usage"; inputTokens?: number; outputTokens?: number }
+  | { type: "finish"; stopReason: AgentModelResult["stopReason"] };
+
 export interface AgentModel {
+  readonly capabilities?: {
+    nativeToolStreaming: boolean;
+  };
   completeWithTools(request: AgentModelRequest & { signal?: AbortSignal }): Promise<AgentModelResult>;
+  streamTurn?(
+    request: AgentModelRequest & { signal?: AbortSignal }
+  ): AsyncIterable<AgentModelStreamEvent>;
   streamFinalText?(
     request: AgentModelRequest & { draft: string; signal?: AbortSignal }
   ): AsyncIterable<string>;

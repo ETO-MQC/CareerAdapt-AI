@@ -46,15 +46,25 @@ export function AgentWorkspaceController() {
     dependencies.controller.getSnapshot,
     dependencies.controller.getSnapshot
   );
+  const hostSnapshot = useSyncExternalStore(
+    dependencies.state.subscribe,
+    dependencies.state.getSnapshot,
+    dependencies.state.getSnapshot
+  );
   const [session, setSession] = useState<AgentSession>(() =>
-    AgentRuntime.create(tailorExistingResumeWorkflow.id, tailorExistingResumeWorkflow.initialStep, "AI 求职任务")
+    dependencies.state.getSnapshot().activeSession
+      ?? AgentRuntime.create(tailorExistingResumeWorkflow.id, tailorExistingResumeWorkflow.initialStep, "AI 求职任务")
   );
   const [sessions, setSessions] = useState<AgentSession[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [resumes, setResumes] = useState<ResumeSummary[]>([]);
   const [workflowActive, setWorkflowActive] = useState(false);
-  const [runtimeBusy, setRuntimeBusy] = useState(false);
-  const [runtimePaused, setRuntimePaused] = useState(false);
+  const runtimeBusy = hostSnapshot.turnStatus === "running";
+  const runtimePaused = hostSnapshot.turnStatus === "paused";
+  const setRuntimeBusy = (busy: boolean) => dependencies.state.setBusy(busy);
+  const setRuntimePaused = (value: boolean | ((previous: boolean) => boolean)) => {
+    dependencies.state.setPaused(typeof value === "function" ? value(runtimePaused) : value);
+  };
   const [providerUnavailable, setProviderUnavailable] = useState(false);
   const [lastUserMessage, setLastUserMessage] = useState("");
   const [restoredSession, setRestoredSession] = useState(false);
@@ -68,10 +78,18 @@ export function AgentWorkspaceController() {
   const [composerDraft, setComposerDraft] = useState("");
   const [floatingAction, setFloatingAction] = useState<AgentUiAction | undefined>();
   const [switchChoice, setSwitchChoice] = useState<Extract<AgentWorkflowControl, { type: "switch_workflow" }> | undefined>();
-  const abortRef = useRef<AbortController | undefined>(undefined);
   const previousArtifactCount = useRef(0);
+  const abortRef = useRef<AbortController | undefined>(undefined);
+
+  useEffect(() => {
+    return dependencies.state.subscribe(() => {
+      const activeSession = dependencies.state.getSnapshot().activeSession;
+      if (activeSession) setSession(activeSession);
+    });
+  }, [dependencies.state]);
 
   const restoreSession = useCallback((selected: AgentSession) => {
+    dependencies.state.adopt(selected);
     setSession(selected);
     setRestoredSession(true);
     setWorkflowActive(selected.workflowState.workflowId === tailorExistingResumeWorkflow.id);
@@ -87,7 +105,7 @@ export function AgentWorkspaceController() {
         revisionId: typeof data.revisionId === "string" ? data.revisionId : undefined
       });
     }
-  }, [dependencies.controller]);
+  }, [dependencies.controller, dependencies.state]);
 
   useEffect(() => {
     let active = true;
@@ -103,6 +121,7 @@ export function AgentWorkspaceController() {
       const requestedSessionId = window.localStorage.getItem(ACTIVE_SESSION_KEY);
       const restored = storedSessions.find((item) => item.id === requestedSessionId) ?? storedSessions[0];
       if (restored) {
+        dependencies.state.adopt(restored);
         setSession(restored);
         setRestoredSession(true);
         if (restored.workflowState.workflowId === tailorExistingResumeWorkflow.id) {
@@ -129,7 +148,9 @@ export function AgentWorkspaceController() {
     };
     const newTask = () => {
       dependencies.controller.restore({ step: tailorExistingResumeWorkflow.initialStep });
-      setSession(AgentRuntime.create("agent_quick_action", "collecting_intent", "新的 AI 任务"));
+      const created = AgentRuntime.create("agent_quick_action", "collecting_intent", "新的 AI 任务");
+      dependencies.state.adopt(created);
+      setSession(created);
       setWorkflowActive(false);
       setRestoredSession(false);
       setQuickTasksOpen(false);
@@ -146,6 +167,7 @@ export function AgentWorkspaceController() {
       if (!sessionId) return;
       void dependencies.store.get(sessionId).then((selected) => {
         if (!selected) return;
+        dependencies.state.adopt(selected);
         setSession((current) =>
           selected.sessionRevision < current.sessionRevision ? current : selected
         );
@@ -189,10 +211,10 @@ export function AgentWorkspaceController() {
       window.removeEventListener("careeradapt-agent-sessions-change", syncActiveSession);
       window.removeEventListener("careeradapt-agent-revision-change", revisionChanged);
     };
-  }, [dependencies.controller, dependencies.store, restoreSession, sessions]);
+  }, [dependencies.controller, dependencies.state, dependencies.store, restoreSession, sessions]);
 
   useEffect(() => {
-    if (!workflowActive) return;
+    if (!workflowActive || runtimeBusy) return;
     const now = new Date().toISOString();
     const artifactRefs = buildArtifactRefs(workflowState, now);
     const next: AgentSession = {
@@ -216,7 +238,7 @@ export function AgentWorkspaceController() {
       updatedAt: now
     };
     void dependencies.store.save(next);
-  }, [dependencies.store, session, workflowActive, workflowState]);
+  }, [dependencies.store, runtimeBusy, session, workflowActive, workflowState]);
 
   const workflowArtifacts = useMemo(
     () => buildArtifactRefs(workflowState, session.updatedAt),
@@ -267,12 +289,12 @@ export function AgentWorkspaceController() {
 
     if (action.type === "pause_workflow") {
       const next = replaceThinkingWithAssistant(baseSession, thinkingMessageId, "任务已暂停。", "");
-      setRuntimePaused(true);
+      dependencies.state.setPaused(true);
       return { ...next, workflowState: { ...next.workflowState, status: "paused" as const } };
     }
     if (action.type === "resume_workflow") {
       const next = replaceThinkingWithAssistant(baseSession, thinkingMessageId, "任务已恢复。", "");
-      setRuntimePaused(false);
+      dependencies.state.setPaused(false);
       return { ...next, workflowState: { ...next.workflowState, status: "waiting_for_user" as const } };
     }
     if (action.type === "cancel_workflow") {
@@ -327,6 +349,32 @@ export function AgentWorkspaceController() {
   }
 
   async function sendMessage(message: string, sessionOverride?: AgentSession) {
+    const routedForHost = routeAgentIntent(message, {
+      activeWorkflowId: (sessionOverride ?? session).workflowState.workflowId
+    });
+    if (routedForHost.kind === "llm") {
+      setLastUserMessage(message);
+      setProviderUnavailable(false);
+      const result = await dependencies.state.startTurn({
+        session: sessionOverride ?? session,
+        userMessage: message,
+        pageContext: {
+          pathname: window.location.pathname,
+          route: window.location.pathname,
+          title: "AI 工作台",
+          activeProfileId: workflowState.profileId,
+          activeResumeId: workflowState.resumeId,
+          activeJobId: workflowState.jobId,
+          query: {}
+        }
+      });
+      if (result) {
+        setSession(result);
+        window.localStorage.setItem(ACTIVE_SESSION_KEY, result.id);
+        window.dispatchEvent(new CustomEvent("careeradapt-agent-sessions-change"));
+      }
+      return;
+    }
     let currentSession = sessionOverride ?? session;
     const interrupted = dependencies.hasActiveTurn();
     if (interrupted) {
@@ -626,17 +674,6 @@ export function AgentWorkspaceController() {
 
   async function startQuickAction(actionId: AgentQuickActionId) {
     const workflowId = quickActionWorkflowId(actionId);
-    if (workflowId) {
-      setRestoredSession(false);
-      setQuickTasksOpen(false);
-      const next = await handleWorkflowControl({ type: "start_workflow", workflowId });
-      const titled = { ...next, title: quickActionTitle(actionId) };
-      setSession(titled);
-      await dependencies.store.save(titled);
-      if (window.location.pathname !== "/ai-workspace") router.push("/ai-workspace");
-      return;
-    }
-
     const quickIntent = createQuickActionIntent(actionId, quickTasksOpen ? "quick_tasks" : "zero_state");
     const reuse = session.messages.every((message) => message.role === "system")
       && session.artifactRefs.length === 0;
@@ -645,8 +682,10 @@ export function AgentWorkspaceController() {
       title: quickActionTitle(actionId),
       workflowState: {
         ...session.workflowState,
-        workflowId: actionId === "tailor_resume_to_job" ? tailorExistingResumeWorkflow.id : `quick_action:${actionId}`,
-        step: actionId === "tailor_resume_to_job" ? tailorExistingResumeWorkflow.initialStep : "collecting_intent",
+        workflowId: workflowId ?? (actionId === "tailor_resume_to_job" ? tailorExistingResumeWorkflow.id : `quick_action:${actionId}`),
+        step: workflowId
+          ? getWorkflowDefinition(workflowId)?.initialStep ?? "collecting_intent"
+          : actionId === "tailor_resume_to_job" ? tailorExistingResumeWorkflow.initialStep : "collecting_intent",
         status: "waiting_for_user" as const,
         data: {
           ...session.workflowState.data,
@@ -655,8 +694,10 @@ export function AgentWorkspaceController() {
         }
       }
     } : AgentRuntime.create(
-      actionId === "tailor_resume_to_job" ? tailorExistingResumeWorkflow.id : `quick_action:${actionId}`,
-      actionId === "tailor_resume_to_job" ? tailorExistingResumeWorkflow.initialStep : "collecting_intent",
+      workflowId ?? (actionId === "tailor_resume_to_job" ? tailorExistingResumeWorkflow.id : `quick_action:${actionId}`),
+      workflowId
+        ? getWorkflowDefinition(workflowId)?.initialStep ?? "collecting_intent"
+        : actionId === "tailor_resume_to_job" ? tailorExistingResumeWorkflow.initialStep : "collecting_intent",
       quickActionTitle(actionId)
     );
     const next = prepared.workflowState.data.quickActionId ? prepared : {
@@ -673,83 +714,24 @@ export function AgentWorkspaceController() {
     setSession(next);
     setRestoredSession(false);
     setQuickTasksOpen(false);
-    setWorkflowActive(actionId === "tailor_resume_to_job");
-    const pendingTurn = sendMessage(quickIntent.intent, next);
+    setWorkflowActive((workflowId ?? "") === tailorExistingResumeWorkflow.id || actionId === "tailor_resume_to_job");
+    dependencies.state.adopt(next);
     if (window.location.pathname !== "/ai-workspace") router.push("/ai-workspace");
+    const pendingTurn = sendMessage(quickIntent.intent, next);
     await pendingTurn;
   }
 
   async function confirmKernelAction(confirmed: boolean) {
-    const call = session.pendingToolCall;
-    if (!session.pendingConfirmation || !call) return;
-    if (!confirmed) {
-      const next = {
-        ...session,
-        pendingConfirmation: undefined,
-        pendingToolCall: undefined,
-        workflowState: { ...session.workflowState, status: "waiting_for_user" as const }
-      };
-      const saved = await dependencies.store.save(next);
-      await resumeKernelAfterConfirmation(
-        saved,
-        `[USER_REJECTED_ACTION] The user rejected ${call.toolName}. No data changed. Choose a safe alternative or ask one focused question.`
-      );
-      return;
-    }
-    setRuntimeBusy(true);
-    try {
-      const result = await dependencies.executor.execute({
-        toolName: call.toolName,
-        toolInput: call.input,
-        operationId: call.operationId,
-        confirmed: true
-      });
-      const cleared = {
-        ...session,
-        pendingConfirmation: undefined,
-        pendingToolCall: undefined,
-        workflowState: { ...session.workflowState, status: result.ok ? "waiting_for_user" as const : "failed" as const }
-      };
-      const next = upsertActivityMessage(cleared, {
-        id: `agent-tool-${call.operationId}`,
-        content: result.ok ? "已按你的确认完成这一步。" : "这一步未能完成，现有任务信息已保留。",
-        toolName: call.toolName,
-        operationId: call.operationId,
-        status: result.ok ? "complete" : "failed",
-        metadata: { activityState: result.ok ? "complete" : "failed", artifactIds: result.artifactIds }
-      });
-      const saved = await dependencies.store.save(next);
-      await resumeKernelAfterConfirmation(
-        saved,
-        `[AUTHORITATIVE_TOOL_OBSERVATION] ${call.toolName} completed with ${JSON.stringify(
-          result.ok ? result.data : { error: result.error }
-        ).slice(0, 6000)}. Continue the active task automatically.`
-      );
-    } finally {
-      setRuntimeBusy(false);
-    }
-  }
-
-  async function resumeKernelAfterConfirmation(base: AgentSession, observation: string) {
-    const thinkingMessageId = `agent-thinking-${crypto.randomUUID()}`;
-    const optimistic = appendLocalMessage(base, "assistant", "正在根据确认结果继续…", undefined, {
-      id: thinkingMessageId,
-      kind: "assistant_thinking",
-      type: "assistant_thinking",
-      status: "thinking",
-      streaming: true,
-      language: "zh"
+    const resolved = await dependencies.state.resolveConfirmation(confirmed, {
+      pathname: window.location.pathname,
+      route: window.location.pathname,
+      title: "AI 工作台",
+      activeProfileId: workflowState.profileId,
+      activeResumeId: workflowState.resumeId,
+      activeJobId: workflowState.jobId,
+      query: {}
     });
-    setSession(optimistic);
-    return consumeAgentStream({
-      base,
-      optimistic,
-      thinkingMessageId,
-      userMessage: observation,
-      signalController: createAbortController(),
-      onUiAction: handleUiAction,
-      onWorkflowControl: (action) => void handleWorkflowControl(action, base, thinkingMessageId)
-    });
+    if (resolved) setSession(resolved);
   }
 
   async function upload(file: File): Promise<"ready" | "partial"> {
@@ -940,7 +922,10 @@ export function AgentWorkspaceController() {
             onSend={sendMessage}
             onUiAction={handleUiAction}
             onUpload={upload}
-            onStop={() => abortRef.current?.abort()}
+            onStop={() => {
+              dependencies.state.interrupt();
+              abortRef.current?.abort();
+            }}
           />
         </section>
         <AgentArtifactDrawer
@@ -1121,7 +1106,7 @@ function appendLocalMessage(
   };
   return {
     ...session,
-    messages: [...session.messages, message].slice(-40),
+    messages: [...session.messages, message],
     updatedAt: now
   };
 }
@@ -1172,7 +1157,7 @@ function appendActivityMessage(
     createdAt: now,
     updatedAt: now
   };
-  return { ...session, messages: [...session.messages, message].slice(-40), updatedAt: now };
+  return { ...session, messages: [...session.messages, message], updatedAt: now };
 }
 
 function upsertActivityMessage(
@@ -1222,7 +1207,7 @@ function replaceThinkingWithAssistant(
   const replaced = thinkingMessageId
     ? session.messages.map((item) => item.id === thinkingMessageId ? message : item)
     : [...session.messages, message];
-  return { ...session, messages: replaced.slice(-40), updatedAt: now };
+  return { ...session, messages: replaced, updatedAt: now };
 }
 
 function isUiAction(action: unknown): action is AgentUiAction {
@@ -1326,7 +1311,7 @@ export function upsertAgentErrorStatus(
       userMessageId: input.userMessageId,
       content: input.content,
       createdAt: now
-    }].slice(-40),
+    }],
     updatedAt: now
   };
 }

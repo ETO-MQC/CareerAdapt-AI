@@ -15,6 +15,8 @@ export type AgentToolServices = {
   getResume?(input: unknown, signal?: AbortSignal): Promise<unknown>;
   getResumeRevision?(input: unknown, signal?: AbortSignal): Promise<unknown>;
   getJob?(input: unknown, signal?: AbortSignal): Promise<unknown>;
+  recommendResumeSource?(input: unknown, signal?: AbortSignal): Promise<unknown>;
+  createJobResumeFromProfile?(input: unknown, operationId: string, signal?: AbortSignal): Promise<unknown>;
   getAgentTaskContext?(input: unknown, signal?: AbortSignal): Promise<unknown>;
   searchAgentSessions?(input: unknown, signal?: AbortSignal): Promise<unknown>;
   skillsList?(signal?: AbortSignal): Promise<unknown>;
@@ -95,6 +97,8 @@ const ProfileIdInputSchema = z.object({ profileId: z.string().min(1) }).strict()
 const ResumeIdInputSchema = z.object({ resumeId: z.string().min(1) }).strict();
 const RevisionInputSchema = z.object({ resumeId: z.string().min(1), revisionId: z.string().min(1).optional() }).strict();
 const JobIdInputSchema = z.object({ jobId: z.string().min(1) }).strict();
+const SourceRouteInputSchema = z.object({ profileId: z.string().min(1), jobId: z.string().min(1) }).strict();
+const ProfileJobResumeInputSchema = SourceRouteInputSchema.extend({ name: z.string().min(1).max(120).optional() }).strict();
 const ProfileSearchInputSchema = z.object({
   profileId: z.string().min(1),
   query: z.string().min(1).max(240),
@@ -132,6 +136,8 @@ export function createAgentToolRegistry(services: AgentToolServices) {
     define(services, meta("get_resume", "按 resumeId 读取简历分支的权威结构与当前 Revision 指针。", "read", false, true, true, ResumeIdInputSchema, "resume", "resume_detail"), (input, _, signal) => services.getResume ? services.getResume(input, signal) : unavailableTool("get_resume")),
     define(services, meta("get_resume_revision", "读取指定简历的当前或指定 Revision 快照。", "read", false, true, true, RevisionInputSchema, "resume", "resume_revision"), (input, _, signal) => services.getResumeRevision ? services.getResumeRevision(input, signal) : unavailableTool("get_resume_revision")),
     define(services, meta("get_job", "按 jobId 读取已保存岗位的权威要求详情。", "read", false, true, true, JobIdInputSchema, "job", "job_detail"), (input, _, signal) => services.getJob ? services.getJob(input, signal) : unavailableTool("get_job")),
+    define(services, meta("recommend_resume_source", "根据资料证据丰富度、简历成熟度、岗位覆盖、来源、时效和缺失项推荐资料来源；用户可覆盖。", "read", false, true, true, SourceRouteInputSchema, "tailoring", "career_assets"), (input, _, signal) => services.recommendResumeSource ? services.recommendResumeSource(input, signal) : unavailableTool("recommend_resume_source")),
+    define(services, meta("create_job_resume_from_profile", "从资料库中按岗位相关性选择已确认内容并创建独立岗位简历。", "write", true, true, true, ProfileJobResumeInputSchema, "tailoring", "resume_revision", true), (input, operationId, signal) => services.createJobResumeFromProfile ? services.createJobResumeFromProfile(input, operationId, signal) : unavailableTool("create_job_resume_from_profile")),
     define(services, meta("get_agent_task_context", "读取一个 Agent Session 的工作流、步骤和已选实体指针。", "read", false, true, true, TaskContextInputSchema, "agent", "task_context"), (input, _, signal) => services.getAgentTaskContext ? services.getAgentTaskContext(input, signal) : unavailableTool("get_agent_task_context")),
     define(services, meta("search_agent_sessions", "按标题、摘要和用户修正检索历史 Agent Session。", "read", false, true, true, SessionSearchInputSchema, "agent", "episodic_memory"), (input, _, signal) => services.searchAgentSessions ? services.searchAgentSessions(input, signal) : unavailableTool("search_agent_sessions")),
     define(services, meta("skills_list", "列出可按需加载的 CareerAdapt 程序性 Skills 元数据。", "read", false, true, true, EmptyInputSchema, "skill", "procedural_memory"), (_, __, signal) => services.skillsList ? services.skillsList(signal) : unavailableTool("skills_list")),
@@ -231,14 +237,15 @@ export class AgentToolRegistry {
         completedAt: new Date().toISOString()
       };
     } catch (error) {
+      const code = typeof error === "object" && error && "code" in error ? String(error.code) : "tool_execution_failed";
       return {
         ok: false,
         operationId,
         toolName: name,
         error: {
-          code: typeof error === "object" && error && "code" in error ? String(error.code) : "tool_execution_failed",
+          code,
           message: error instanceof Error ? error.message : "Tool execution failed.",
-          retryable: false
+          retryable: isRetryableToolError(code)
         },
         artifactIds: [],
         completedAt: new Date().toISOString()
@@ -247,11 +254,16 @@ export class AgentToolRegistry {
   }
 }
 
+function isRetryableToolError(code: string) {
+  return /temporar|timeout|network|unavailable|provider_http_(408|429|5\d\d)/i.test(code);
+}
+
 export const agentToolNames = [
   "list_resumes", "list_profiles", "list_jobs", "get_active_profile", "get_profile", "search_profile_facts",
   "get_resume", "get_resume_revision", "get_job", "get_agent_task_context", "search_agent_sessions",
+  "recommend_resume_source",
   "skills_list", "skill_view", "parse_resume_file", "create_resume_import_draft",
-  "commit_resume_import", "parse_job_description", "commit_job", "analyze_job_fit",
+  "commit_resume_import", "parse_job_description", "commit_job", "create_job_resume_from_profile", "analyze_job_fit",
   "create_tailoring_session", "answer_tailoring_question", "preview_tailoring_changes",
   "apply_tailoring_changes", "export_resume"
 ] as const;

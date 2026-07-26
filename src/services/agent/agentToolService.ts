@@ -27,6 +27,8 @@ import { WorkspaceRepository } from "@/services/storage/repositories";
 import type { AgentToolServices } from "@/agent/tools/registry";
 import { canonicalProfileLibraryItems, canonicalProfileSectionCounts } from "@/domain/profile/canonicalLibrary";
 import { agentSkillRegistry } from "@/agent/kernel/AgentSkillRegistry";
+import { recommendSourceRoute } from "@/agent/orchestration/sourceRouteRecommendation";
+import { analyzeProfileLibrarySource } from "@/services/jobs/jobResumeSourceModes";
 
 export class BrowserAgentToolService implements AgentToolServices {
   constructor(private readonly repository = new WorkspaceRepository()) {}
@@ -204,6 +206,89 @@ export class BrowserAgentToolService implements AgentToolServices {
     const job = await this.repository.getJobDescription(input.jobId);
     if (!job) throw toolError("job_not_found", "Job no longer exists.");
     return { job };
+  }
+
+  async recommendResumeSource(rawInput: unknown, signal?: AbortSignal) {
+    assertNotAborted(signal);
+    const input = rawInput as { profileId: string; jobId: string };
+    const [profile, job, branches] = await Promise.all([
+      this.repository.getProfile(input.profileId),
+      this.repository.getJobDescription(input.jobId),
+      this.repository.listResumeBranches()
+    ]);
+    if (!profile) throw toolError("profile_not_found", "Profile no longer exists.");
+    if (!job) throw toolError("job_not_found", "Job no longer exists.");
+    const candidates = branches.filter((branch) =>
+      branch.profileId === profile.id
+      && branch.lifecycleStatus === "active"
+      && branch.migrationStatus === "verified"
+    );
+    const keywords = [...new Set(job.requirements.flatMap((requirement) => requirement.keywords).filter((keyword) => keyword.length > 1))];
+    const profileItems = canonicalProfileLibraryItems(profile);
+    const profileText = profileItems.map((item) => `${item.title} ${item.subtitle ?? ""} ${item.body}`).join("\n").toLowerCase();
+    const rankedResumes = candidates.map((branch) => {
+      const text = branch.contentItems.filter((item) => item.visible).map((item) => item.text).join("\n").toLowerCase();
+      return {
+        id: branch.id,
+        name: branch.name,
+        maturity: Math.min(1, branch.contentItems.filter((item) => item.visible).length / 12),
+        relevance: keywordCoverage(text, keywords),
+        provenance: branch.contentItems.length
+          ? branch.contentItems.filter((item) => item.factRefs.length > 0 || item.guardStatus === "pass").length / branch.contentItems.length
+          : 0,
+        recency: recencyScore(branch.updatedAt),
+        missingData: branch.contentItems.length ? 0 : 1
+      };
+    }).sort((left, right) => (right.maturity + right.relevance) - (left.maturity + left.relevance));
+    const best = rankedResumes[0];
+    const recommendation = recommendSourceRoute({
+      profileEvidenceRichness: Math.min(1, profileItems.length / 16),
+      resumeMaturity: best?.maturity ?? 0,
+      profileJobRelevance: keywordCoverage(profileText, keywords),
+      resumeJobRelevance: best?.relevance ?? 0,
+      profileProvenanceCoverage: profileItems.length
+        ? profileItems.filter((item) => item.factIds.length > 0).length / profileItems.length
+        : 0,
+      resumeProvenanceCoverage: best?.provenance ?? 0,
+      resumeRecency: best?.recency ?? 0,
+      profileMissingData: profileItems.length ? 0 : 1,
+      resumeMissingData: best?.missingData ?? 1
+    });
+    return { recommendation, recommendedResumeId: best?.id, resumeCandidates: rankedResumes };
+  }
+
+  async createJobResumeFromProfile(rawInput: unknown, operationId: string, signal?: AbortSignal) {
+    assertNotAborted(signal);
+    const input = rawInput as { profileId: string; jobId: string; name?: string };
+    const [profile, job] = await Promise.all([
+      this.repository.getProfile(input.profileId),
+      this.repository.getJobDescription(input.jobId)
+    ]);
+    if (!profile) throw toolError("profile_not_found", "Profile no longer exists.");
+    if (!job) throw toolError("job_not_found", "Job no longer exists.");
+    const analysis = analyzeProfileLibrarySource({ profile, job });
+    const selectedCanonicalItemIds = analysis.recommendations
+      .filter((item) => item.disposition !== "hide")
+      .map((item) => item.id);
+    if (!selectedCanonicalItemIds.length) {
+      throw toolError("profile_library_selection_empty", "No confirmed profile content can support this job yet.");
+    }
+    const created = await this.repository.createJobSpecificBranchFromProfile({
+      profileId: profile.id,
+      jobId: job.id,
+      operationId,
+      name: input.name?.trim() || `${profile.name} · ${job.title}`,
+      selectedCanonicalItemIds,
+      requirementMatchIds: []
+    });
+    return {
+      resumeId: created.branch.id,
+      revisionId: created.revision?.id ?? created.branch.currentRevisionId,
+      selectedCanonicalItemIds,
+      analysisHash: analysis.analysisHash,
+      factGaps: analysis.factGaps,
+      idempotent: created.idempotent
+    };
   }
 
   async getAgentTaskContext(rawInput: unknown, signal?: AbortSignal) {
@@ -525,4 +610,15 @@ function assertNotAborted(signal?: AbortSignal) {
 
 function toolError(code: string, message: string) {
   return Object.assign(new Error(message), { code });
+}
+
+function keywordCoverage(text: string, keywords: string[]) {
+  if (!keywords.length) return 0;
+  const matches = keywords.filter((keyword) => text.includes(keyword.toLowerCase())).length;
+  return Math.round((matches / keywords.length) * 1000) / 1000;
+}
+
+function recencyScore(updatedAt: string) {
+  const ageDays = Math.max(0, (Date.now() - new Date(updatedAt).getTime()) / 86_400_000);
+  return Math.round(Math.max(0, 1 - ageDays / 730) * 1000) / 1000;
 }

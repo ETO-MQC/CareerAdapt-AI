@@ -4,12 +4,15 @@ import { allowedToolManifestForStep, getWorkflowDefinition } from "@/agent/workf
 import type { AgentSkill } from "./AgentSkillRegistry";
 import type { AgentSession } from "@/agent/contracts/agentSession";
 import { AgentCapabilityBroker } from "./AgentCapabilityBroker";
+import { AgentToolEligibility } from "./AgentToolEligibility";
+import { AgentTaskStateReducer } from "@/agent/runtime/AgentTaskStateReducer";
 import { z } from "zod";
 
 export class AgentToolResolver {
   constructor(
     private readonly registry: AgentToolRegistry,
-    private readonly broker = new AgentCapabilityBroker()
+    private readonly broker = new AgentCapabilityBroker(),
+    private readonly eligibility = new AgentToolEligibility()
   ) {}
 
   allowedTools(input: {
@@ -25,7 +28,7 @@ export class AgentToolResolver {
       ? allowedToolManifestForStep(input.workflowId, input.step, manifest)
       : [];
     const workflowToolNames = workflowAllowed.map((tool) => String(tool.name));
-    const allowedNames = new Set(
+    const capabilityToolNames =
       input.session && input.userMessage !== undefined
         ? this.broker.allowedToolNames({
             session: input.session,
@@ -34,11 +37,22 @@ export class AgentToolResolver {
           })
         : workflowToolNames.length
           ? workflowToolNames
-          : ["get_active_profile", "get_profile", "search_profile_facts"]
-    );
-    return manifest
-      .filter((tool) => allowedNames.has(String(tool.name)))
-      .map((tool) => this.registry.require(String(tool.name)));
+          : ["get_active_profile", "get_profile", "search_profile_facts"];
+    if (!input.session) {
+      const allowedNames = new Set(capabilityToolNames);
+      return manifest.filter((tool) => allowedNames.has(String(tool.name))).map((tool) => this.registry.require(String(tool.name)));
+    }
+    const reducer = new AgentTaskStateReducer();
+    const taskState = input.session.taskState ?? reducer.create(input.session);
+    const nextTaskState = input.userMessage === undefined
+      ? taskState
+      : reducer.reduce(taskState, { type: "user_message", message: input.userMessage });
+    return this.eligibility.eligible({
+      tools: this.registry.list(),
+      workflowToolNames,
+      capabilityToolNames,
+      taskState: nextTaskState
+    });
   }
 
   modelManifest(tools: AgentToolDefinition[]) {

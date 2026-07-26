@@ -4,6 +4,7 @@ export type AgentStreamEvent =
   | { type: "skill_loaded"; skillId: string; label: string }
   | { type: "assistant_start"; messageId?: string }
   | { type: "assistant_delta"; delta: string }
+  | { type: "usage"; inputTokens?: number; outputTokens?: number }
   | { type: "ui_action"; action: unknown }
   | { type: "tool_started"; toolName: string; operationId: string; userLabel: string }
   | { type: "tool_result"; toolName: string; operationId: string; ok: boolean; summary: string; artifactIds?: string[] }
@@ -12,7 +13,15 @@ export type AgentStreamEvent =
   | { type: "done"; action?: unknown; message?: string }
   | { type: "error"; code: string; message: string };
 
-export async function* parseAgentSseStream(stream: ReadableStream<Uint8Array>): AsyncGenerator<AgentStreamEvent> {
+export type AgentModelWireEvent =
+  | { type: "model_text_delta"; delta: string }
+  | { type: "model_tool_call_start"; index: number; id: string; name: string }
+  | { type: "model_tool_arguments_delta"; index: number; id: string; delta: string }
+  | { type: "model_tool_call_complete"; index: number; call: { id: string; name: string; arguments: Record<string, unknown> } }
+  | { type: "model_usage"; inputTokens?: number; outputTokens?: number }
+  | { type: "model_finish"; stopReason: "final" | "tool_calls" | "ask_user" | "confirmation" | "length" | "error" };
+
+export async function* parseAgentSseStream(stream: ReadableStream<Uint8Array>): AsyncGenerator<AgentStreamEvent | AgentModelWireEvent> {
   const reader = stream.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
@@ -34,13 +43,13 @@ export async function* parseAgentSseStream(stream: ReadableStream<Uint8Array>): 
   if (event) yield event;
 }
 
-export function encodeAgentSseEvent(event: AgentStreamEvent) {
+export function encodeAgentSseEvent(event: AgentStreamEvent | AgentModelWireEvent) {
   return `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`;
 }
 
-function parseFrame(frame: string): AgentStreamEvent | undefined {
+function parseFrame(frame: string): AgentStreamEvent | AgentModelWireEvent | undefined {
   const data = frame.split(/\r?\n/).find((line) => line.startsWith("data:"))?.slice(5).trim();
   if (!data) return undefined;
-  return JSON.parse(data) as AgentStreamEvent;
+  return JSON.parse(data) as AgentStreamEvent | AgentModelWireEvent;
 }
 

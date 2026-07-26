@@ -11,24 +11,28 @@ import { createAgentToolRegistry } from "@/agent/tools/registry";
 import { TailorExistingResumeWorkflowController } from "@/agent/workflows/tailorExistingResumeWorkflow";
 import { BrowserAgentToolService } from "@/services/agent/agentToolService";
 import { AgentSessionStore } from "@/services/agent/agentSessionStore";
+import { AgentHostStore } from "@/agent/runtime/AgentHostStore";
 
 function createAgentHost() {
   const service = new BrowserAgentToolService();
   const registry = createAgentToolRegistry(service);
   const executor = new AgentExecutor(registry);
   let activeController: AbortController | undefined;
+  const store = new AgentSessionStore();
+  const kernel = new AgentKernel({
+    model: new HttpAgentModel(),
+    executor,
+    toolResolver: new AgentToolResolver(registry),
+    observationCache: new AgentObservationCache()
+  });
   return {
     service,
     registry,
     executor,
-    store: new AgentSessionStore(),
+    store,
     eventBus: new AgentEventBus(),
-    kernel: new AgentKernel({
-      model: new HttpAgentModel(),
-      executor,
-      toolResolver: new AgentToolResolver(registry),
-      observationCache: new AgentObservationCache()
-    }),
+    kernel,
+    state: new AgentHostStore({ kernel, executor, persistence: store }),
     controller: new TailorExistingResumeWorkflowController(executor),
     beginTurn() {
       const interrupted = Boolean(activeController);

@@ -33,6 +33,18 @@ export class AgentContextAssembler {
         step: workflow.step,
         status: workflow.status,
         requiredSlots: Object.keys(workflow.data),
+        taskState: input.session.taskState
+          ? {
+              goal: input.session.taskState.goal,
+              stage: input.session.taskState.stage,
+              requiredSlots: input.session.taskState.requiredSlots,
+              knownSlots: input.session.taskState.knownSlots,
+              missingSlots: input.session.taskState.missingSlots,
+              selectedEntities: input.session.taskState.selectedEntities,
+              completionStatus: input.session.taskState.completionStatus,
+              computeTier: input.session.taskState.computeTier
+            }
+          : undefined,
         activeSkills: input.activeSkills.map((skill) => ({
           id: skill.id,
           name: skill.name,

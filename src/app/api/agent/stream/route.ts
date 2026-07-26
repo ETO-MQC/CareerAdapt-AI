@@ -21,6 +21,7 @@ export async function POST(request: NextRequest) {
   const raw = await request.json();
   const mode = typeof raw === "object" && raw && "mode" in raw ? String(raw.mode) : undefined;
   if (mode === "decision") return modelDecision(request, raw);
+  if (mode === "native_turn") return modelNativeTurn(request, raw);
   if (mode === "narration") return modelNarration(request, raw);
 
   const encoder = new TextEncoder();
@@ -97,6 +98,56 @@ export async function POST(request: NextRequest) {
     }
   });
 
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/event-stream; charset=utf-8",
+      "Cache-Control": "no-cache, no-transform",
+      Connection: "keep-alive"
+    }
+  });
+}
+
+async function modelNativeTurn(request: NextRequest, raw: unknown) {
+  const parsed = AgentModelRequestSchema.safeParse(stripMode(raw));
+  if (!parsed.success) return modelError("invalid_agent_model_request", "Agent model input failed validation.", 400);
+  const encoder = new TextEncoder();
+  const settings = settingsFrom(request);
+  const effectiveProvider = settings?.provider || process.env.AI_PROVIDER || "openai-compatible";
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      const send = (event: Parameters<typeof encodeAgentSseEvent>[0]) =>
+        controller.enqueue(encoder.encode(encodeAgentSseEvent(event)));
+      try {
+        if (effectiveProvider === "mock") {
+          const result = AgentModelResultSchema.parse(mockModelDecision(parsed.data.messages));
+          if (result.text) send({ type: "model_text_delta", delta: result.text });
+          for (const [index, call] of (result.toolCalls ?? []).entries()) {
+            send({ type: "model_tool_call_start", index, id: call.id, name: call.name });
+            send({ type: "model_tool_call_complete", index, call });
+          }
+          send({ type: "model_finish", stopReason: result.stopReason });
+          return;
+        }
+        const provider = new OpenAiCompatibleProvider(settings);
+        for await (const event of provider.streamTurn({
+          ...parsed.data,
+          signal: AbortSignal.any([request.signal, AbortSignal.timeout(60_000)])
+        })) {
+          if (event.type === "assistant_text_delta") send({ type: "model_text_delta", delta: event.delta });
+          if (event.type === "tool_call_start") send({ type: "model_tool_call_start", index: event.index, id: event.id, name: event.name });
+          if (event.type === "tool_call_arguments_delta") send({ type: "model_tool_arguments_delta", index: event.index, id: event.id, delta: event.delta });
+          if (event.type === "tool_call_complete") send({ type: "model_tool_call_complete", index: event.index, call: event.call });
+          if (event.type === "usage") send({ type: "model_usage", inputTokens: event.inputTokens, outputTokens: event.outputTokens });
+          if (event.type === "finish") send({ type: "model_finish", stopReason: event.stopReason });
+        }
+      } catch (cause) {
+        const code = typeof cause === "object" && cause && "code" in cause ? String((cause as AiProviderError).code) : "agent_model_failed";
+        send({ type: "error", code, message: "AI 流式响应暂时不可用，任务和输入已保留。" });
+      } finally {
+        controller.close();
+      }
+    }
+  });
   return new Response(stream, {
     headers: {
       "Content-Type": "text/event-stream; charset=utf-8",
