@@ -32,4 +32,10 @@ describe("agent intent router", () => {
       action: { type: "open_profile_browser" }
     });
   });
+
+  it("does not steal domain text or continuation because it contains a UI keyword", () => {
+    expect(routeAgentIntent("熟悉 TypeScript、自动化测试或 AI Coding 工具")).toMatchObject({ kind: "llm" });
+    expect(routeAgentIntent("继续")).toMatchObject({ kind: "llm" });
+    expect(routeAgentIntent("就按这些改")).toMatchObject({ kind: "llm" });
+  });
 });
