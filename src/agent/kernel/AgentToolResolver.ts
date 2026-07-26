@@ -23,9 +23,14 @@ export class AgentToolResolver {
     userMessage?: string;
   }) {
     const manifest = this.registry.manifest();
-    const workflow = getWorkflowDefinition(input.workflowId);
+    const taskState = input.session
+      ? input.session.taskState ?? new AgentTaskStateReducer().create(input.session)
+      : undefined;
+    const workflowId = taskState?.workflowId ?? input.workflowId;
+    const step = taskState?.stage ?? input.step;
+    const workflow = getWorkflowDefinition(workflowId);
     const workflowAllowed = workflow
-      ? allowedToolManifestForStep(input.workflowId, input.step, manifest)
+      ? allowedToolManifestForStep(workflowId, step, manifest)
       : [];
     const workflowToolNames = workflowAllowed.map((tool) => String(tool.name));
     const capabilityToolNames =
@@ -42,12 +47,11 @@ export class AgentToolResolver {
       const allowedNames = new Set(capabilityToolNames);
       return manifest.filter((tool) => allowedNames.has(String(tool.name))).map((tool) => this.registry.require(String(tool.name)));
     }
-    const taskState = input.session.taskState ?? new AgentTaskStateReducer().create(input.session);
     return this.eligibility.eligible({
       tools: this.registry.list(),
       workflowToolNames,
       capabilityToolNames,
-      taskState
+      taskState: taskState!
     });
   }
 

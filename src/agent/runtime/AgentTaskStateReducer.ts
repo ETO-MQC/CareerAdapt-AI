@@ -1,6 +1,9 @@
 import type { AgentSession, AgentTaskState } from "@/agent/contracts/agentSession";
 import { getWorkflowDefinition } from "@/agent/workflows/workflowRegistry";
-import { TaskContinuationResolver } from "./TaskContinuationResolver";
+import {
+  deriveNextLegalStage,
+  TaskContinuationResolver
+} from "./TaskContinuationResolver";
 
 export type AgentTaskEvent =
   | { type: "user_message"; message: string; goal?: string }
@@ -44,8 +47,10 @@ export class AgentTaskStateReducer {
       const continuation = new TaskContinuationResolver().resolve(state, event.message);
       if (continuation.consumed) {
         if (continuation.goal) state.goal = continuation.goal;
-        if (continuation.stage) state.stage = continuation.stage;
         Object.assign(state.knownSlots, continuation.slotUpdates);
+        if (continuation.intent === "continue") {
+          state.stage = deriveNextLegalStage(state);
+        }
         state.completionStatus = "active";
         state.computeTier = computeTier(state.goal, event.message);
         return normalize(state);
@@ -57,15 +62,23 @@ export class AgentTaskStateReducer {
         state.workflowId = "tailor_existing_resume";
       } else if (/分析.*(岗位|职位).*(匹配|适配)|匹配度/i.test(event.message)) {
         state.goal = "analyze_job_fit";
+        state.workflowId = "analyze_job_fit";
       } else if (/导入.*简历|上传.*简历/i.test(event.message)) {
         state.goal = "import_resume";
       } else if (/从资料库.*(生成|创建).*简历/i.test(event.message)) {
         state.goal = "create_resume_from_profile";
       } else if (/导出.*简历/i.test(event.message)) {
         state.goal = "export_resume";
+      } else if (/归档.*简历/i.test(event.message)) {
+        state.goal = "archive_resume";
+      } else if (/恢复.*简历/i.test(event.message)) {
+        state.goal = "restore_resume";
       }
+      captureEntityReferences(state, event.message);
       if (looksLikeJd(event.message)) {
-        state.goal = "apply_to_job";
+        state.goal = "ingest_job";
+        state.workflowId = "job_ingestion";
+        state.stage = "parse_job";
         state.knownSlots.rawText = event.message.trim();
       } else if (/应聘|申请.*岗位|这工作.*试试|想试试.*岗位/i.test(event.message)) {
         state.goal = "apply_to_job";
@@ -90,8 +103,8 @@ export class AgentTaskStateReducer {
       state.artifacts = unique([...state.artifacts, ...(event.artifactIds ?? [])]);
       mergeObservationSlots(state, event.toolName, event.observation);
       if (event.toolName === "commit_job") {
-        state.stage = "choose_resume_source";
-        state.completionStatus = "active";
+        state.stage = state.goal === "ingest_job" ? "completed" : "choose_resume_source";
+        state.completionStatus = state.goal === "ingest_job" ? "completed" : "active";
       } else if (event.toolName === "recommend_resume_source") {
         const value = objectValue(event.observation);
         state.knownSlots.sourceRecommendation = value.recommendation;
@@ -107,17 +120,29 @@ export class AgentTaskStateReducer {
         state.stage = "analyze_fit";
         state.completionStatus = "active";
       } else if (event.toolName === "analyze_job_fit") {
-        state.stage = "generate_plan";
-        state.completionStatus = "active";
+        state.knownSlots.fitAnalysis = objectValue(event.observation).analysis ?? event.observation;
+        state.stage = state.goal === "analyze_job_fit" ? "completed" : "generate_plan";
+        state.completionStatus = state.goal === "analyze_job_fit" ? "completed" : "active";
       } else if (event.toolName === "create_tailoring_session") {
         captureTailoringTruth(state, event.observation);
       } else if (event.toolName === "answer_tailoring_question") {
         captureTailoringTruth(state, event.observation);
       } else if (event.toolName === "preview_tailoring_changes") {
+        state.knownSlots.previewComplete = true;
         state.stage = "confirm_apply";
         state.completionStatus = "waiting_for_confirmation";
       } else if (event.toolName === "apply_tailoring_changes") {
+        const value = objectValue(event.observation);
+        state.knownSlots.qualityResult = value.qualityResult ?? {
+          status: "passed",
+          factGuard: "passed",
+          revisionCreated: Boolean(value.revision ?? value.revisionId)
+        };
         state.stage = "quality_result";
+        state.completionStatus = "completed";
+      } else if (event.toolName === "archive_resume" || event.toolName === "restore_resume") {
+        state.stage = "lifecycle_result";
+        state.knownSlots.lifecycleResult = event.observation;
         state.completionStatus = "completed";
       }
     }
@@ -130,6 +155,7 @@ export class AgentTaskStateReducer {
     }
     if (event.type === "confirmation_accepted") {
       state.completionStatus = "active";
+      state.knownSlots.confirmationAccepted = true;
       delete state.knownSlots.pendingConfirmation;
     }
     if (event.type === "confirmation_rejected") {
@@ -150,9 +176,17 @@ export class AgentTaskStateReducer {
 }
 
 function normalize(state: AgentTaskState): AgentTaskState {
+  if (state.workflowId === "tailor_existing_resume") {
+    if (state.stage === "select_resume") state.stage = "choose_resume_source";
+    if (state.stage === "answer_questions") state.stage = "clarify_unsupported_facts";
+    if (state.stage === "completed") state.stage = "quality_result";
+  }
   if (
-    (state.goal === "apply_to_job" || state.workflowId === "job_ingestion" || state.workflowId === "tailor_existing_resume")
-    && !["choose_resume_source", "create_profile_resume", "analyze_fit", "generate_plan", "clarify_unsupported_facts", "preview_changes", "confirm_apply", "quality_result"].includes(state.stage)
+    state.workflowId === "job_ingestion"
+    && (
+      !["collect_job_identity", "collect_job_description", "parse_job", "confirm_commit", "completed"].includes(state.stage)
+      || (state.stage === "parse_job" && hasValue(state.knownSlots.graph))
+    )
   ) {
     const hasRawText = hasValue(state.knownSlots.rawText);
     const hasGraph = hasValue(state.knownSlots.graph);
@@ -171,7 +205,7 @@ function normalize(state: AgentTaskState): AgentTaskState {
         state.completionStatus = "waiting_for_confirmation";
       }
     }
-  } else {
+  } else if (state.workflowId !== "job_ingestion") {
     const workflow = getWorkflowDefinition(state.workflowId);
     state.requiredSlots = workflow?.requiredSlots[state.stage] ?? state.requiredSlots;
   }
@@ -181,6 +215,18 @@ function normalize(state: AgentTaskState): AgentTaskState {
 
 function mergeObservationSlots(state: AgentTaskState, toolName: string, observation: unknown) {
   const value = objectValue(observation);
+  if (toolName === "list_resumes") {
+    const resumes = Array.isArray(value.resumes) ? value.resumes.map(objectValue) : [];
+    const selected = selectResumeReference(resumes, state.knownSlots.resumeReference);
+    const id = stringValue(selected?.id);
+    if (id) state.selectedEntities.resumeId = id;
+  }
+  if (toolName === "list_jobs") {
+    const jobs = Array.isArray(value.jobs) ? value.jobs.map(objectValue) : [];
+    const selected = selectJobReference(jobs, state.knownSlots.jobReference);
+    const id = stringValue(selected?.id);
+    if (id) state.selectedEntities.jobId = id;
+  }
   if (toolName === "get_active_profile") {
     const id = stringValue(value.profileId);
     if (id) state.selectedEntities.profileId = id;
@@ -200,8 +246,12 @@ function mergeObservationSlots(state: AgentTaskState, toolName: string, observat
     if (id) state.selectedEntities.jobId = id;
   }
   if (toolName === "apply_tailoring_changes") {
-    const id = stringValue(value.revisionId);
+    const revision = objectValue(value.revision);
+    const branch = objectValue(value.branch);
+    const id = stringValue(value.revisionId ?? revision.id);
     if (id) state.selectedEntities.revisionId = id;
+    const branchId = stringValue(value.branchId ?? branch.id);
+    if (branchId) state.selectedEntities.resumeId = branchId;
   }
 }
 
@@ -265,4 +315,48 @@ function hasValue(value: unknown) {
 
 function unique(values: string[]) {
   return [...new Set(values)];
+}
+
+function captureEntityReferences(state: AgentTaskState, message: string) {
+  if (/最新的?通用简历/.test(message)) {
+    state.knownSlots.resumeReference = "latest_general";
+  } else if (/第二份简历/.test(message)) {
+    state.knownSlots.resumeReference = "second";
+  }
+  const jobMatch = message.match(/针对\s*([^，。,]{2,40}?)(?:做|创建|定制|$)/);
+  if (jobMatch?.[1]) state.knownSlots.jobReference = jobMatch[1].trim();
+  if (/刚才那个岗位|还是上一份/.test(message)) {
+    state.knownSlots.reuseSelectedJob = true;
+  }
+}
+
+function selectResumeReference(
+  resumes: Record<string, unknown>[],
+  reference: unknown
+) {
+  if (reference === "second") return resumes[1];
+  if (reference === "latest_general") {
+    return resumes
+      .filter((resume) => resume.purpose === "general")
+      .sort(byLatest)[0];
+  }
+  if (typeof reference === "string") {
+    return resumes.find((resume) => resume.id === reference || resume.name === reference);
+  }
+  return undefined;
+}
+
+function selectJobReference(jobs: Record<string, unknown>[], reference: unknown) {
+  if (typeof reference !== "string") return undefined;
+  return jobs
+    .filter((job) =>
+      job.id === reference
+      || job.title === reference
+      || `${job.title ?? ""}${job.company ?? ""}`.includes(reference)
+    )
+    .sort(byLatest)[0];
+}
+
+function byLatest(left: Record<string, unknown>, right: Record<string, unknown>) {
+  return String(right.updatedAt ?? "").localeCompare(String(left.updatedAt ?? ""));
 }

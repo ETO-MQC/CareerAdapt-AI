@@ -27,13 +27,13 @@ const CAPABILITIES: Record<AgentIntentClass, string[]> = {
   conversation: [],
   profile_identity: ["get_active_profile", "get_profile"],
   profile_search: ["get_active_profile", "get_profile", "search_profile_facts"],
-  resume: ["list_resumes", "get_resume", "get_resume_revision"],
+  resume: ["list_resumes", "get_resume", "get_resume_revision", "archive_resume", "restore_resume"],
   application_intent: ["list_jobs"],
   job_ingestion: ["parse_job_description", "commit_job"],
   job: ["list_jobs", "get_job"],
   tailoring: [
-    "list_resumes", "get_resume", "list_jobs", "get_job", "get_active_profile",
-    "get_profile", "recommend_resume_source", "create_job_resume_from_profile", "analyze_job_fit", "create_tailoring_session",
+    "list_resumes", "get_resume", "get_resume_revision", "list_jobs", "get_job", "list_profiles", "get_active_profile",
+    "get_profile", "search_profile_facts", "recommend_resume_source", "create_job_resume_from_profile", "analyze_job_fit", "create_tailoring_session",
     "answer_tailoring_question", "preview_tailoring_changes", "apply_tailoring_changes"
   ],
   export: ["get_resume", "get_resume_revision", "export_resume"],

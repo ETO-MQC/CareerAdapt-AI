@@ -13,9 +13,9 @@ export class AgentMemoryManager {
     const memory = session.memory;
     return {
       working: {
-        workflowId: session.workflowState.workflowId,
-        step: session.workflowState.step,
-        ...session.workflowState.data
+        workflowId: session.taskState?.workflowId ?? session.workflowState.workflowId,
+        step: session.taskState?.stage ?? session.workflowState.step,
+        ...(session.taskState?.knownSlots ?? session.workflowState.data)
       },
       userPreferences: memory?.userPreferences ?? [],
       episodic: memory?.episodic ?? [],

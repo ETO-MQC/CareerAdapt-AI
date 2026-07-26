@@ -21,6 +21,9 @@ export class AgentToolEligibility {
 }
 
 function safeAutonomousJump(toolName: string, state: AgentTaskState) {
+  if (state.workflowId === "tailor_existing_resume" || state.workflowId === "analyze_job_fit") {
+    return false;
+  }
   if (toolName === "parse_job_description") return has(state, "rawText");
   if (toolName === "commit_job") {
     return state.goal === "apply_to_job"
@@ -28,6 +31,9 @@ function safeAutonomousJump(toolName: string, state: AgentTaskState) {
   }
   if (["list_profiles", "list_resumes", "list_jobs", "get_active_profile"].includes(toolName)) return true;
   if (["get_profile", "search_profile_facts", "get_resume", "get_resume_revision", "get_job"].includes(toolName)) return true;
+  if (["archive_resume", "restore_resume"].includes(toolName)) {
+    return Boolean(state.selectedEntities.resumeId);
+  }
   if (toolName === "analyze_job_fit" || toolName === "create_tailoring_session") {
     return Boolean(state.selectedEntities.profileId && state.selectedEntities.resumeId && state.selectedEntities.jobId);
   }
@@ -69,6 +75,9 @@ function preconditions(toolName: string, state: AgentTaskState) {
     return state.stage === "preview_changes"
       && Boolean(state.knownSlots.tailoringSession)
       && Array.isArray(state.knownSlots.selectedDiffs);
+  }
+  if (["archive_resume", "restore_resume"].includes(toolName)) {
+    return Boolean(state.selectedEntities.resumeId);
   }
   return true;
 }

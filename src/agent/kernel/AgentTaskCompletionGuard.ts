@@ -1,8 +1,26 @@
 import type { AgentTaskState } from "@/agent/contracts/agentSession";
+import {
+  deriveNextLegalStage,
+  hasUnresolvedClarifications
+} from "@/agent/runtime/TaskContinuationResolver";
 
 export type AgentTaskCompletionDecision =
   | { canFinish: true; reason: "goal_completed" | "waiting_for_user" | "waiting_for_confirmation" | "blocked" | "analysis_complete" | "no_safe_next_step" }
-  | { canFinish: false; reason: "task_incomplete"; requiredNextStage: string };
+  | {
+      canFinish: false;
+      reason: "task_incomplete";
+      requiredNextStage: string;
+      nextAction: AgentNextActionHint;
+    };
+
+export type AgentNextActionHint = {
+  goal: string;
+  stage: string;
+  missingSlots: string[];
+  requiredNextStage: string;
+  legalNextTools: string[];
+  selected: AgentTaskState["selectedEntities"];
+};
 
 const TERMINAL_STAGES: Record<string, Set<string>> = {
   create_tailored_resume: new Set(["quality_result"]),
@@ -10,8 +28,23 @@ const TERMINAL_STAGES: Record<string, Set<string>> = {
   import_resume: new Set(["import_complete"]),
   export_resume: new Set(["export_complete"]),
   analyze_job_fit: new Set(["generate_plan", "quality_result", "completed"]),
-  analyze_resume: new Set(["completed"])
+  analyze_resume: new Set(["completed"]),
+  ingest_job: new Set(["completed"]),
+  archive_resume: new Set(["lifecycle_result"]),
+  restore_resume: new Set(["lifecycle_result"])
 };
+
+const CONVERSATION_GOALS = new Set(["conversation", "career_exploration"]);
+const KNOWN_DOMAIN_GOALS = new Set([
+  ...Object.keys(TERMINAL_STAGES),
+  "create_tailored_resume",
+  "create_resume_from_profile",
+  "import_resume",
+  "ingest_job",
+  "export_resume",
+  "analyze_resume",
+  "analyze_job_fit"
+]);
 
 export class AgentTaskCompletionGuard {
   evaluate(state: AgentTaskState): AgentTaskCompletionDecision {
@@ -24,37 +57,91 @@ export class AgentTaskCompletionGuard {
     if (state.completionStatus === "failed" || state.completionStatus === "cancelled") {
       return { canFinish: true, reason: "blocked" };
     }
+    if (CONVERSATION_GOALS.has(state.goal)) {
+      return { canFinish: true, reason: "goal_completed" };
+    }
     const terminal = TERMINAL_STAGES[state.goal];
-    if (!terminal) return { canFinish: true, reason: "no_safe_next_step" };
+    if (!terminal) {
+      if (!KNOWN_DOMAIN_GOALS.has(state.goal) && state.workflowId === "agent_quick_action") {
+        return { canFinish: true, reason: "no_safe_next_step" };
+      }
+      return incomplete(state, "clarification_required");
+    }
+    if (state.goal === "create_tailored_resume" && !tailoringContractComplete(state)) {
+      return incomplete(state, requiredNextStage(state));
+    }
     if (terminal.has(state.stage) || state.completionStatus === "completed") {
       return {
         canFinish: true,
         reason: state.goal.startsWith("analyze_") ? "analysis_complete" : "goal_completed"
       };
     }
-    return {
-      canFinish: false,
-      reason: "task_incomplete",
-      requiredNextStage: requiredNextStage(state)
-    };
+    return incomplete(state, requiredNextStage(state));
   }
 }
 
 function requiredNextStage(state: AgentTaskState) {
   if (state.goal === "create_tailored_resume") {
-    const order = [
-      "choose_resume_source",
-      "analyze_fit",
-      "generate_plan",
-      "clarify_unsupported_facts",
-      "preview_changes",
-      "confirm_apply",
-      "quality_result"
-    ];
-    const index = order.indexOf(state.stage);
-    return index >= 0 ? order[Math.min(index + 1, order.length - 1)] : "choose_resume_source";
+    if (!state.selectedEntities.resumeId) return "choose_resume_source";
+    if (!state.selectedEntities.jobId) return "choose_job";
+    if (!state.knownSlots.fitAnalysis) return "analyze_fit";
+    if (!state.knownSlots.tailoringSession) return "generate_plan";
+    if (hasUnresolvedClarifications(state)) return "clarify_unsupported_facts";
+    if (!state.knownSlots.previewComplete) return "preview_changes";
+    if (!state.knownSlots.confirmationAccepted) return "confirm_apply";
+    if (!state.selectedEntities.revisionId) return "apply";
+    return deriveNextLegalStage(state);
   }
   if (state.goal === "import_resume") return "import_review";
   if (state.goal === "export_resume") return "export_complete";
   return state.stage;
+}
+
+function incomplete(
+  state: AgentTaskState,
+  requiredNextStage: string
+): AgentTaskCompletionDecision {
+  return {
+    canFinish: false,
+    reason: "task_incomplete",
+    requiredNextStage,
+    nextAction: {
+      goal: state.goal,
+      stage: state.stage,
+      missingSlots: state.missingSlots,
+      requiredNextStage,
+      legalNextTools: legalToolsFor(requiredNextStage),
+      selected: state.selectedEntities
+    }
+  };
+}
+
+function tailoringContractComplete(state: AgentTaskState) {
+  return Boolean(
+    state.selectedEntities.resumeId
+    && state.selectedEntities.jobId
+    && state.knownSlots.fitAnalysis
+    && state.knownSlots.tailoringSession
+    && !hasUnresolvedClarifications(state)
+    && state.knownSlots.previewComplete
+    && state.knownSlots.confirmationAccepted
+    && state.selectedEntities.revisionId
+    && state.knownSlots.qualityResult
+    && state.stage === "quality_result"
+    && state.completionStatus === "completed"
+  );
+}
+
+function legalToolsFor(stage: string) {
+  const tools: Record<string, string[]> = {
+    choose_resume_source: ["list_resumes"],
+    choose_job: ["list_jobs"],
+    analyze_fit: ["analyze_job_fit"],
+    generate_plan: ["create_tailoring_session"],
+    clarify_unsupported_facts: ["answer_tailoring_question"],
+    preview_changes: ["preview_tailoring_changes"],
+    confirm_apply: ["apply_tailoring_changes"],
+    apply: ["apply_tailoring_changes"]
+  };
+  return tools[stage] ?? [];
 }

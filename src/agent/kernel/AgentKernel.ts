@@ -17,6 +17,10 @@ import { AgentToolResolver } from "./AgentToolResolver";
 import { AgentTrajectory, type AgentTrajectorySnapshot } from "./AgentTrajectory";
 import { AgentTaskStateReducer } from "@/agent/runtime/AgentTaskStateReducer";
 import { AgentTaskCompletionGuard } from "./AgentTaskCompletionGuard";
+import {
+  projectTaskStateIntoSession,
+  projectTaskStateToWorkflowState
+} from "@/agent/runtime/projectTaskStateToWorkflowState";
 
 export type AgentKernelResult = {
   text?: string;
@@ -62,7 +66,6 @@ export class AgentKernel {
   }): Promise<AgentKernelResult> {
     const maxIterations = this.dependencies.maxIterations ?? 8;
     const maxToolCalls = this.dependencies.maxToolCalls ?? 12;
-    const trajectory = new AgentTrajectory(`agent-task-${nanoid(12)}`, input.session.workflowState.workflowId);
     const guard = new AgentPolicyGuard();
     const canonicalEntities = new AgentCanonicalEntityGuard();
     const taskReducer = new AgentTaskStateReducer();
@@ -83,15 +86,19 @@ export class AgentKernel {
         toolName: input.internalObservation.toolName
       });
     }
-    const authoritativeSession = { ...input.session, taskState };
-    const skills = (this.dependencies.skillRegistry ?? agentSkillRegistry).discover({
+    const trajectory = new AgentTrajectory(`agent-task-${nanoid(12)}`, taskState.workflowId);
+    const authoritativeSession = projectTaskStateIntoSession(input.session, taskState);
+    const skillRegistry = this.dependencies.skillRegistry ?? agentSkillRegistry;
+    let skills = skillRegistry.discover({
       workflowId: taskState.workflowId,
       step: taskState.stage,
       selectedEntities: taskState.selectedEntities,
       userMessage: input.userMessage
     });
-    const memory = (this.dependencies.memoryManager ?? new AgentMemoryManager()).retrieve(authoritativeSession);
-    const systemPrompt = (this.dependencies.contextAssembler ?? new AgentContextAssembler()).assemble({
+    const memoryManager = this.dependencies.memoryManager ?? new AgentMemoryManager();
+    const contextAssembler = this.dependencies.contextAssembler ?? new AgentContextAssembler();
+    const memory = memoryManager.retrieve(authoritativeSession);
+    let systemPrompt = contextAssembler.assemble({
       session: authoritativeSession,
       pageContext: input.pageContext,
       userMessage: input.userMessage,
@@ -99,8 +106,8 @@ export class AgentKernel {
       activeSkills: skills
     });
     let allowedTools = this.dependencies.toolResolver.allowedTools({
-      workflowId: input.session.workflowState.workflowId,
-      step: input.session.workflowState.step,
+      workflowId: taskState.workflowId,
+      step: taskState.stage,
       skills,
       session: authoritativeSession,
       userMessage: input.userMessage
@@ -126,7 +133,10 @@ export class AgentKernel {
     const streamState = { started: false };
 
     await emit(input, { type: "turn_ack", sessionId: input.session.id });
-    await emit(input, { type: "workflow_updated", workflowState: input.session.workflowState });
+    await emit(input, {
+      type: "workflow_updated",
+      workflowState: projectTaskStateToWorkflowState(taskState, input.session.workflowState)
+    });
     for (const skill of skills) {
       trajectory.skill(skill.id);
       await emit(input, { type: "skill_loaded", skillId: skill.id, label: `已加载${skill.name}方法` });
@@ -227,6 +237,20 @@ export class AgentKernel {
                   observation: result.data,
                   artifactIds: result.artifactIds
                 });
+                const transitionedSession = projectTaskStateIntoSession(input.session, taskState);
+                skills = skillRegistry.discover({
+                  workflowId: taskState.workflowId,
+                  step: taskState.stage,
+                  selectedEntities: taskState.selectedEntities,
+                  userMessage: input.userMessage
+                });
+                systemPrompt = contextAssembler.assemble({
+                  session: transitionedSession,
+                  pageContext: input.pageContext,
+                  userMessage: input.userMessage,
+                  memory: memoryManager.retrieve(transitionedSession),
+                  activeSkills: skills
+                });
               }
               trajectory.toolCompleted(operationId, result.ok, result.artifactIds);
               await emit(input, {
@@ -239,10 +263,10 @@ export class AgentKernel {
               });
               messages.push(toolObservation(call, result));
               allowedTools = this.dependencies.toolResolver.allowedTools({
-                workflowId: input.session.workflowState.workflowId,
+                workflowId: taskState.workflowId,
                 step: taskState.stage,
                 skills,
-                session: { ...input.session, taskState },
+                session: projectTaskStateIntoSession(input.session, taskState),
                 userMessage: input.userMessage
               });
               modelTools = this.dependencies.toolResolver.modelManifest(allowedTools);
@@ -285,7 +309,7 @@ export class AgentKernel {
               role: "system",
               content: JSON.stringify({
                 reason: completion.reason,
-                requiredNextStage: completion.requiredNextStage
+                plannerHint: completion.nextAction
               })
             });
             await emit(input, {

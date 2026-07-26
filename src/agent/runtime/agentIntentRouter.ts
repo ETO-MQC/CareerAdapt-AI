@@ -33,7 +33,7 @@ export function routeAgentIntent(input: string, context: RouteContext = {}): Age
   if (matches(text, ["暂停", "先暂停", "pause"])) {
     return workflow("暂停任务", { type: "pause_workflow", workflowId: context.activeWorkflowId || WORKFLOWS.tailorExisting });
   }
-  if (matches(text, ["继续", "恢复", "接着来", "resume"])) {
+  if (matches(text, ["继续任务", "恢复任务", "resume workflow"])) {
     return workflow("继续任务", { type: "resume_workflow", workflowId: context.activeWorkflowId || WORKFLOWS.tailorExisting });
   }
   if (matches(text, ["返回", "上一步", "回退", "go back"])) {
@@ -67,5 +67,5 @@ function normalize(input: string) {
 }
 
 function matches(text: string, phrases: string[]) {
-  return phrases.some((phrase) => text.includes(phrase.toLowerCase().replace(/\s+/g, "")));
+  return phrases.some((phrase) => text === phrase.toLowerCase().replace(/\s+/g, ""));
 }

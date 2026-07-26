@@ -42,28 +42,34 @@ export const agentWorkflowRegistry: Record<string, AgentWorkflowDefinition> = {
   job_ingestion: {
     id: "job_ingestion",
     initialStep: "collect_job_identity",
-    states: ["collect_job_identity", "collect_job_description", "parse_job", "review_job_semantics", "confirm_commit", "completed"],
+    states: ["collect_job_identity", "complete_job_identity", "collect_job_description", "parse_job", "review_job", "review_job_semantics", "confirm_commit", "completed"],
     allowedToolsByStep: {
       collect_job_identity: [],
+      complete_job_identity: [],
       collect_job_description: [],
       parse_job: ["parse_job_description"],
       review_job_semantics: [],
+      review_job: ["commit_job"],
       confirm_commit: ["commit_job"],
       completed: []
     },
     allowedUiActionsByStep: {
       collect_job_identity: ["open_job_import_dialog"],
+      complete_job_identity: ["open_job_import_dialog"],
       collect_job_description: ["open_job_import_dialog"],
       parse_job: [],
       review_job_semantics: ["open_artifact"],
+      review_job: ["open_artifact"],
       confirm_commit: ["open_job_import_dialog"],
       completed: []
     },
     requiredSlots: {
       collect_job_identity: ["title", "company"],
+      complete_job_identity: ["title", "company"],
       collect_job_description: ["rawText"],
       parse_job: ["rawText"],
       review_job_semantics: ["graph"],
+      review_job: ["title", "company", "rawText", "graph"],
       confirm_commit: ["title", "company", "rawText", "graph"],
       completed: []
     },
@@ -81,16 +87,19 @@ export const agentWorkflowRegistry: Record<string, AgentWorkflowDefinition> = {
     select_facts: ["open_profile_browser"],
     review_resume_plan: ["open_artifact"]
   }, ["profileId", "selectedFactIds"]),
-  tailor_existing_resume: workflow("tailor_existing_resume", "select_resume", ["select_resume", "collect_job", "analyze_job", "review_job", "analyze_fit", "generate_plan", "answer_questions", "preview_changes", "confirm_apply", "completed"], {
+  tailor_existing_resume: workflow("tailor_existing_resume", "choose_resume_source", ["select_resume", "choose_resume_source", "collect_job", "analyze_job", "review_job", "analyze_fit", "generate_plan", "answer_questions", "clarify_unsupported_facts", "preview_changes", "confirm_apply", "quality_result", "completed"], {
     select_resume: [...profileReadTools, ...resumeReadTools, ...jobReadTools],
+    choose_resume_source: [...profileReadTools, ...resumeReadTools, ...jobReadTools, "recommend_resume_source"],
     collect_job: [...profileReadTools, ...resumeReadTools, ...jobReadTools],
     analyze_job: [...profileReadTools, ...resumeReadTools, ...jobReadTools, "parse_job_description"],
     review_job: [...jobReadTools, "commit_job"],
     analyze_fit: [...profileReadTools, ...resumeReadTools, ...jobReadTools, "analyze_job_fit"],
     generate_plan: [...profileReadTools, ...resumeReadTools, ...jobReadTools, "create_tailoring_session"],
     answer_questions: ["answer_tailoring_question"],
+    clarify_unsupported_facts: ["answer_tailoring_question"],
     preview_changes: [...profileReadTools, ...resumeReadTools, ...jobReadTools, "preview_tailoring_changes"],
-    confirm_apply: ["apply_tailoring_changes"]
+    confirm_apply: ["apply_tailoring_changes"],
+    quality_result: [...resumeReadTools]
   }, {
     select_resume: ["open_resume_picker"],
     collect_job: ["open_job_import_dialog"],
