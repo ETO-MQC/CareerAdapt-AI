@@ -7,8 +7,18 @@ import type { AgentStreamEvent } from "@/agent/runtime/agentSse";
 import type { AgentKernel } from "@/agent/kernel/AgentKernel";
 import type { AgentExecutor } from "@/agent/runtime/agentExecutor";
 import type { AgentSessionStore } from "@/services/agent/agentSessionStore";
+import type { AgentOption, AgentUiAction, AgentWorkflowControl } from "@/agent/contracts/agentActions";
 import { AgentTaskStateReducer } from "./AgentTaskStateReducer";
 import { appendAgentMessage, replaceAgentThinking, upsertAgentActivity } from "./AgentSessionMessages";
+import { routeAgentIntent } from "./agentIntentRouter";
+
+export type AgentHostInput =
+  | { type: "message"; text: string }
+  | { type: "file"; file: File }
+  | { type: "option"; action: AgentOption["action"] }
+  | { type: "confirmation"; confirmed: boolean }
+  | { type: "ui_control"; action: AgentUiAction | AgentWorkflowControl }
+  | { type: "external_event"; observation: unknown; toolName?: string };
 
 export type AgentHostSnapshot = {
   activeSessionId?: string;
@@ -20,6 +30,7 @@ export type AgentHostSnapshot = {
   streamEvents: AgentStreamEvent[];
   artifacts: AgentArtifactRef[];
   currentObservation?: unknown;
+  uiAction?: AgentUiAction;
 };
 
 export class AgentHostStore {
@@ -69,6 +80,68 @@ export class AgentHostStore {
 
   interrupt() {
     this.activeController?.abort();
+  }
+
+  async dispatch(
+    input: AgentHostInput,
+    context: { session?: AgentSession; pageContext: AgentPageContext }
+  ): Promise<AgentSession | undefined> {
+    const session = context.session ?? this.snapshot.activeSession;
+    if (!session) throw new Error("agent_session_required");
+    if (input.type === "confirmation") {
+      return this.resolveConfirmation(input.confirmed, context.pageContext);
+    }
+    if (input.type === "external_event") {
+      const turnId = session.activeTurn?.id ?? `agent-turn-${crypto.randomUUID()}`;
+      return this.resume(session, {
+        reason: "external_event",
+        toolName: input.toolName,
+        observation: input.observation
+      }, context.pageContext, turnId);
+    }
+    if (input.type === "file") {
+      return this.startTurn({
+        session,
+        userMessage: `导入简历文件：${input.file.name}`,
+        pageContext: context.pageContext
+      });
+    }
+    if (input.type === "option") {
+      if (input.action.type === "answer") {
+        return this.startTurn({
+          session,
+          userMessage: String(input.action.value ?? ""),
+          pageContext: context.pageContext
+        });
+      }
+      return this.dispatch({ type: "ui_control", action: input.action }, context);
+    }
+    if (input.type === "ui_control") {
+      if (isUiAction(input.action)) {
+        this.patch({ uiAction: input.action });
+        return session;
+      }
+      return this.applyWorkflowControl(session, input.action);
+    }
+    const routed = routeAgentIntent(input.text, {
+      activeWorkflowId: session.workflowState.workflowId
+    });
+    if (routed.kind === "ui_action") {
+      this.patch({ uiAction: routed.action });
+      return session;
+    }
+    if (routed.kind === "workflow_control") {
+      return this.applyWorkflowControl(session, routed.action);
+    }
+    return this.startTurn({
+      session,
+      userMessage: input.text,
+      pageContext: context.pageContext
+    });
+  }
+
+  clearUiAction() {
+    this.patch({ uiAction: undefined });
   }
 
   async startTurn(input: {
@@ -160,9 +233,8 @@ export class AgentHostStore {
         workflowState: { ...current.workflowState, status: "waiting_for_user" as const },
         taskState: current.taskState
           ? new AgentTaskStateReducer().reduce(current.taskState, {
-              type: "confirmation_result",
-              toolName: call.toolName,
-              confirmed: false
+              type: "confirmation_rejected",
+              toolName: call.toolName
             })
           : current.taskState
       };
@@ -175,6 +247,15 @@ export class AgentHostStore {
     }
 
     this.patch({ turnStatus: "running" });
+    if (current.taskState) {
+      current = {
+        ...current,
+        taskState: new AgentTaskStateReducer().reduce(current.taskState, {
+          type: "confirmation_accepted",
+          toolName: call.toolName
+        })
+      };
+    }
     const result = await this.dependencies.executor.execute({
       toolName: call.toolName,
       toolInput: call.input,
@@ -402,6 +483,7 @@ export class AgentHostStore {
             session: current,
             pageContext: input.pageContext,
             userMessage: input.userMessage ?? "",
+            taskEventAlreadyReduced: true,
             signal: input.controller.signal,
             emit: onEvent
           });
@@ -475,10 +557,81 @@ export class AgentHostStore {
     });
   }
 
+  private async applyWorkflowControl(session: AgentSession, action: AgentWorkflowControl) {
+    if (action.type === "cancel_workflow") {
+      this.interrupt();
+      const current = await this.dependencies.persistence.save({
+        ...completeTurn(session, "aborted"),
+        workflowState: { ...session.workflowState, status: "completed" },
+        taskState: session.taskState
+          ? { ...session.taskState, completionStatus: "cancelled", updatedAt: new Date().toISOString() }
+          : session.taskState
+      });
+      this.patchSession(current, { turnStatus: "completed" });
+      return current;
+    }
+    if (action.type === "pause_workflow") {
+      this.interrupt();
+      const current = await this.dependencies.persistence.save({
+        ...session,
+        workflowState: { ...session.workflowState, status: "paused" }
+      });
+      this.patchSession(current, { turnStatus: "paused" });
+      return current;
+    }
+    if (action.type === "resume_workflow") {
+      this.patch({ turnStatus: "idle" });
+      return session;
+    }
+    if (action.type === "go_back") {
+      const current = await this.dependencies.persistence.save({
+        ...session,
+        workflowState: { ...session.workflowState, status: "waiting_for_user" }
+      });
+      this.patchSession(current, { turnStatus: "idle" });
+      return current;
+    }
+    // Explicit UI workflow buttons may seed TaskState, but execution remains
+    // owned by the next AgentHost turn.
+    const reducer = new AgentTaskStateReducer();
+    const current = await this.dependencies.persistence.save({
+      ...session,
+      workflowState: {
+        workflowId: action.workflowId,
+        step: "collecting_intent",
+        status: "waiting_for_user",
+        toolCallCount: 0,
+        data: {}
+      },
+      taskState: reducer.create({
+        ...session,
+        workflowState: {
+          workflowId: action.workflowId,
+          step: "collecting_intent",
+          status: "waiting_for_user",
+          toolCallCount: 0,
+          data: {}
+        }
+      })
+    });
+    this.patchSession(current, { turnStatus: "idle" });
+    return current;
+  }
+
   private patch(patch: Partial<AgentHostSnapshot>) {
     this.snapshot = { ...this.snapshot, ...patch };
     for (const listener of this.listeners) listener();
   }
+}
+
+function isUiAction(action: AgentUiAction | AgentWorkflowControl): action is AgentUiAction {
+  return [
+    "open_resume_picker",
+    "open_job_import_dialog",
+    "open_profile_browser",
+    "open_tool_palette",
+    "open_artifact"
+  ].includes(action.type);
 }
 
 function completeTurn(session: AgentSession, status: "failed" | "aborted") {

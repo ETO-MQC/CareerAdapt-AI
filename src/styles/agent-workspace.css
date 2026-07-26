@@ -156,6 +156,16 @@
   position: relative;
 }
 
+.agent-conversation-panel {
+  align-items: stretch;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
 .agent-main-column {
   align-items: stretch;
   display: flex;

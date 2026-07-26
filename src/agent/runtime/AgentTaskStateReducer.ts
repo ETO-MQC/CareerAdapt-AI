@@ -1,11 +1,14 @@
 import type { AgentSession, AgentTaskState } from "@/agent/contracts/agentSession";
 import { getWorkflowDefinition } from "@/agent/workflows/workflowRegistry";
+import { TaskContinuationResolver } from "./TaskContinuationResolver";
 
 export type AgentTaskEvent =
   | { type: "user_message"; message: string; goal?: string }
   | { type: "slot_answer"; slot: string; value: unknown }
   | { type: "tool_observation"; toolName: string; observation: unknown; artifactIds?: string[] }
-  | { type: "confirmation_result"; toolName: string; confirmed: boolean; observation?: unknown }
+  | { type: "confirmation_requested"; toolName: string; operationId: string }
+  | { type: "confirmation_accepted"; toolName: string }
+  | { type: "confirmation_rejected"; toolName: string }
   | { type: "entity_revision"; entityType: "profile" | "resume" | "job"; entityId: string; revisionId?: string }
   | { type: "failed"; errorCode: string };
 
@@ -38,8 +41,29 @@ export class AgentTaskStateReducer {
     const state = structuredClone(previous);
     state.updatedAt = new Date().toISOString();
     if (event.type === "user_message") {
+      const continuation = new TaskContinuationResolver().resolve(state, event.message);
+      if (continuation.consumed) {
+        if (continuation.goal) state.goal = continuation.goal;
+        if (continuation.stage) state.stage = continuation.stage;
+        Object.assign(state.knownSlots, continuation.slotUpdates);
+        state.completionStatus = "active";
+        state.computeTier = computeTier(state.goal, event.message);
+        return normalize(state);
+      }
       if (event.goal) state.goal = event.goal;
       if (state.completionStatus !== "waiting_for_confirmation") state.completionStatus = "active";
+      if (/基于现有简历.*岗位定制|定制简历|创建.*岗位简历|创建.*定制简历/i.test(event.message)) {
+        state.goal = "create_tailored_resume";
+        state.workflowId = "tailor_existing_resume";
+      } else if (/分析.*(岗位|职位).*(匹配|适配)|匹配度/i.test(event.message)) {
+        state.goal = "analyze_job_fit";
+      } else if (/导入.*简历|上传.*简历/i.test(event.message)) {
+        state.goal = "import_resume";
+      } else if (/从资料库.*(生成|创建).*简历/i.test(event.message)) {
+        state.goal = "create_resume_from_profile";
+      } else if (/导出.*简历/i.test(event.message)) {
+        state.goal = "export_resume";
+      }
       if (looksLikeJd(event.message)) {
         state.goal = "apply_to_job";
         state.knownSlots.rawText = event.message.trim();
@@ -97,12 +121,20 @@ export class AgentTaskStateReducer {
         state.completionStatus = "completed";
       }
     }
-    if (event.type === "confirmation_result") {
-      state.completionStatus = event.confirmed ? "active" : "waiting_for_user";
-      if (event.confirmed && event.observation !== undefined) {
-        state.lastObservation = { toolName: event.toolName, value: event.observation };
-        mergeObservationSlots(state, event.toolName, event.observation);
-      }
+    if (event.type === "confirmation_requested") {
+      state.completionStatus = "waiting_for_confirmation";
+      state.knownSlots.pendingConfirmation = {
+        toolName: event.toolName,
+        operationId: event.operationId
+      };
+    }
+    if (event.type === "confirmation_accepted") {
+      state.completionStatus = "active";
+      delete state.knownSlots.pendingConfirmation;
+    }
+    if (event.type === "confirmation_rejected") {
+      state.completionStatus = "waiting_for_user";
+      delete state.knownSlots.pendingConfirmation;
     }
     if (event.type === "entity_revision") {
       const key = `${event.entityType}Id` as "profileId" | "resumeId" | "jobId";

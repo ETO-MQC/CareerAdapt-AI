@@ -10,13 +10,8 @@ type RouteContext = {
 };
 
 const WORKFLOWS = {
-  profileIntake: "guided_profile_intake",
-  resumeImport: "resume_import",
   jobIngestion: "job_ingestion",
-  buildFromProfile: "build_resume_from_profile",
-  tailorExisting: "tailor_existing_resume",
-  analyzeFit: "analyze_job_fit",
-  repairExport: "repair_and_export_resume"
+  tailorExisting: "tailor_existing_resume"
 } as const;
 
 export function routeAgentIntent(input: string, context: RouteContext = {}): AgentRoutedIntent {
@@ -54,25 +49,8 @@ export function routeAgentIntent(input: string, context: RouteContext = {}): Age
   if (matches(text, ["打开工具", "工具", "工具箱", "工具面板", "tool palette"])) {
     return ui("打开工具", { type: "open_tool_palette" });
   }
-  if (matches(text, ["录入岗位", "新增岗位", "导入岗位", "添加岗位", "粘贴岗位", "我要录入岗位"])) {
-    return workflow("录入岗位", { type: "switch_workflow", workflowId: WORKFLOWS.jobIngestion, preserveCurrent: true });
-  }
-  if (matches(text, ["导入简历", "上传简历", "解析简历"])) {
-    return workflow("导入简历", { type: "start_workflow", workflowId: WORKFLOWS.resumeImport });
-  }
-  if (matches(text, ["从资料库生成简历", "资料库组装简历", "组装简历", "从资料库组装简历", "用资料库做简历"])) {
-    return workflow("从资料库生成", { type: "start_workflow", workflowId: WORKFLOWS.buildFromProfile });
-  }
-  if (matches(text, ["优化已有简历", "定制简历", "改简历", "tailor"])) {
-    return workflow("优化已有简历", { type: "start_workflow", workflowId: WORKFLOWS.tailorExisting });
-  }
-  if (matches(text, ["匹配度", "岗位匹配", "分析岗位", "fit"])) {
-    return workflow("分析岗位匹配", { type: "start_workflow", workflowId: WORKFLOWS.analyzeFit });
-  }
-  if (matches(text, ["导出", "导出简历", "生成pdf", "pdf"])) {
-    return workflow("导出简历", { type: "start_workflow", workflowId: WORKFLOWS.repairExport });
-  }
-
+  // Natural-language domain intent is always interpreted by AgentHost/Kernel.
+  // Typed UI controls above remain deterministic; they never own a business turn.
   return { kind: "llm", confidence: "low" };
 }
 

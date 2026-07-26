@@ -16,6 +16,7 @@ import { agentSkillRegistry, type AgentSkillRegistry } from "./AgentSkillRegistr
 import { AgentToolResolver } from "./AgentToolResolver";
 import { AgentTrajectory, type AgentTrajectorySnapshot } from "./AgentTrajectory";
 import { AgentTaskStateReducer } from "@/agent/runtime/AgentTaskStateReducer";
+import { AgentTaskCompletionGuard } from "./AgentTaskCompletionGuard";
 
 export type AgentKernelResult = {
   text?: string;
@@ -57,33 +58,18 @@ export class AgentKernel {
       toolName?: string;
       observation: unknown;
     };
+    taskEventAlreadyReduced?: boolean;
   }): Promise<AgentKernelResult> {
     const maxIterations = this.dependencies.maxIterations ?? 8;
     const maxToolCalls = this.dependencies.maxToolCalls ?? 12;
     const trajectory = new AgentTrajectory(`agent-task-${nanoid(12)}`, input.session.workflowState.workflowId);
     const guard = new AgentPolicyGuard();
     const canonicalEntities = new AgentCanonicalEntityGuard();
-    const skills = (this.dependencies.skillRegistry ?? agentSkillRegistry).discover({
-      workflowId: input.session.workflowState.workflowId,
-      step: input.session.workflowState.step,
-      selectedEntities: {
-        profileId: input.session.activeProfileId,
-        resumeId: input.session.activeResumeId,
-        jobId: input.session.activeJobId
-      },
-      userMessage: input.userMessage
-    });
-    const memory = (this.dependencies.memoryManager ?? new AgentMemoryManager()).retrieve(input.session);
-    const systemPrompt = (this.dependencies.contextAssembler ?? new AgentContextAssembler()).assemble({
-      session: input.session,
-      pageContext: input.pageContext,
-      userMessage: input.userMessage,
-      memory,
-      activeSkills: skills
-    });
     const taskReducer = new AgentTaskStateReducer();
     let taskState = input.session.taskState ?? taskReducer.create(input.session);
-    taskState = taskReducer.reduce(taskState, { type: "user_message", message: input.userMessage });
+    if (!input.taskEventAlreadyReduced) {
+      taskState = taskReducer.reduce(taskState, { type: "user_message", message: input.userMessage });
+    }
     if (input.internalObservation?.reason === "tool_observation" && input.internalObservation.toolName) {
       taskState = taskReducer.reduce(taskState, {
         type: "tool_observation",
@@ -93,16 +79,30 @@ export class AgentKernel {
     }
     if (input.internalObservation?.reason === "confirmation_rejected" && input.internalObservation.toolName) {
       taskState = taskReducer.reduce(taskState, {
-        type: "confirmation_result",
-        toolName: input.internalObservation.toolName,
-        confirmed: false
+        type: "confirmation_rejected",
+        toolName: input.internalObservation.toolName
       });
     }
+    const authoritativeSession = { ...input.session, taskState };
+    const skills = (this.dependencies.skillRegistry ?? agentSkillRegistry).discover({
+      workflowId: taskState.workflowId,
+      step: taskState.stage,
+      selectedEntities: taskState.selectedEntities,
+      userMessage: input.userMessage
+    });
+    const memory = (this.dependencies.memoryManager ?? new AgentMemoryManager()).retrieve(authoritativeSession);
+    const systemPrompt = (this.dependencies.contextAssembler ?? new AgentContextAssembler()).assemble({
+      session: authoritativeSession,
+      pageContext: input.pageContext,
+      userMessage: input.userMessage,
+      memory,
+      activeSkills: skills
+    });
     let allowedTools = this.dependencies.toolResolver.allowedTools({
       workflowId: input.session.workflowState.workflowId,
       step: input.session.workflowState.step,
       skills,
-      session: { ...input.session, taskState },
+      session: authoritativeSession,
       userMessage: input.userMessage
     });
     let modelTools = this.dependencies.toolResolver.modelManifest(allowedTools);
@@ -256,9 +256,9 @@ export class AgentKernel {
                   trajectory: trajectory.value(),
                   conversationSummary: contextWindow.conversationSummary,
                   taskState: taskReducer.reduce(taskState, {
-                    type: "confirmation_result",
+                    type: "confirmation_requested",
                     toolName: validated.tool.name,
-                    confirmed: true
+                    operationId
                   })
                 };
               }
@@ -278,6 +278,23 @@ export class AgentKernel {
 
         const text = response.text?.trim() ? canonicalEntities.preserve(response.text.trim()) : undefined;
         if (text) {
+          const completion = new AgentTaskCompletionGuard().evaluate(taskState);
+          if (!completion.canFinish) {
+            messages.push({ role: "assistant", content: text });
+            messages.push({
+              role: "system",
+              content: JSON.stringify({
+                reason: completion.reason,
+                requiredNextStage: completion.requiredNextStage
+              })
+            });
+            await emit(input, {
+              type: "thinking",
+              stage: "observing",
+              label: "当前目标尚未完成，正在继续执行下一步"
+            });
+            continue;
+          }
           const visible = nativeStreaming
             ? await finishNativeStream(text, input, streamState)
             : await streamFinal(this.dependencies.model, { systemPrompt, messages, tools: modelTools }, text, input);
@@ -331,7 +348,8 @@ export class AgentKernel {
         reason: input.reason,
         toolName: input.toolName,
         observation: input.observation
-      }
+      },
+      taskEventAlreadyReduced: true
     });
   }
 }

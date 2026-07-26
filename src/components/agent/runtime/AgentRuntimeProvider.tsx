@@ -8,7 +8,6 @@ import { HttpAgentModel } from "@/agent/model/httpAgentModel";
 import { AgentEventBus } from "@/agent/runtime/agentEventBus";
 import { AgentExecutor } from "@/agent/runtime/agentExecutor";
 import { createAgentToolRegistry } from "@/agent/tools/registry";
-import { TailorExistingResumeWorkflowController } from "@/agent/workflows/tailorExistingResumeWorkflow";
 import { BrowserAgentToolService } from "@/services/agent/agentToolService";
 import { AgentSessionStore } from "@/services/agent/agentSessionStore";
 import { AgentHostStore } from "@/agent/runtime/AgentHostStore";
@@ -17,7 +16,6 @@ function createAgentHost() {
   const service = new BrowserAgentToolService();
   const registry = createAgentToolRegistry(service);
   const executor = new AgentExecutor(registry);
-  let activeController: AbortController | undefined;
   const store = new AgentSessionStore();
   const kernel = new AgentKernel({
     model: new HttpAgentModel(),
@@ -32,26 +30,7 @@ function createAgentHost() {
     store,
     eventBus: new AgentEventBus(),
     kernel,
-    state: new AgentHostStore({ kernel, executor, persistence: store }),
-    controller: new TailorExistingResumeWorkflowController(executor),
-    beginTurn() {
-      const interrupted = Boolean(activeController);
-      activeController?.abort();
-      activeController = new AbortController();
-      return { controller: activeController, interrupted };
-    },
-    finishTurn(controller: AbortController) {
-      if (activeController !== controller) return false;
-      activeController = undefined;
-      return true;
-    },
-    hasActiveTurn() {
-      return Boolean(activeController);
-    },
-    interruptTurn() {
-      activeController?.abort();
-      activeController = undefined;
-    }
+    state: new AgentHostStore({ kernel, executor, persistence: store })
   };
 }
 

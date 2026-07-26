@@ -42,16 +42,12 @@ export class AgentToolResolver {
       const allowedNames = new Set(capabilityToolNames);
       return manifest.filter((tool) => allowedNames.has(String(tool.name))).map((tool) => this.registry.require(String(tool.name)));
     }
-    const reducer = new AgentTaskStateReducer();
-    const taskState = input.session.taskState ?? reducer.create(input.session);
-    const nextTaskState = input.userMessage === undefined
-      ? taskState
-      : reducer.reduce(taskState, { type: "user_message", message: input.userMessage });
+    const taskState = input.session.taskState ?? new AgentTaskStateReducer().create(input.session);
     return this.eligibility.eligible({
       tools: this.registry.list(),
       workflowToolNames,
       capabilityToolNames,
-      taskState: nextTaskState
+      taskState
     });
   }
 

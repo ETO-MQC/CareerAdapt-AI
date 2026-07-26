@@ -32,6 +32,45 @@
   width: var(--agent-artifact-width, 432px);
 }
 
+.agent-artifact-drawer.is-collapsed {
+  align-items: center;
+  box-shadow: none;
+  flex: 0 0 44px;
+  justify-content: flex-start;
+  padding-top: 8px;
+  position: relative;
+  width: 44px;
+}
+
+.agent-artifact-drawer.is-collapsed > button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  color: var(--ai-muted);
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 40px;
+  justify-content: center;
+  width: 36px;
+}
+
+.agent-artifact-drawer.is-collapsed > button:hover,
+.agent-artifact-drawer.is-collapsed > button:focus-visible {
+  background: var(--ai-surface-raised);
+  color: var(--ai-text);
+}
+
+.agent-artifact-drawer.is-collapsed svg {
+  height: 16px;
+  width: 16px;
+}
+
+.agent-artifact-drawer.is-collapsed span {
+  font-size: 10px;
+}
+
 .agent-artifact-resizer {
   bottom: 0;
   cursor: col-resize;
@@ -234,6 +273,17 @@
     top: 0;
     width: min(440px, calc(100vw - 24px));
     z-index: 71;
+  }
+
+  .agent-artifact-drawer.is-collapsed {
+    bottom: auto;
+    left: auto;
+    max-width: none;
+    position: absolute;
+    right: 0;
+    top: 8px;
+    width: 44px;
+    z-index: 30;
   }
 
   .agent-artifact-resizer {
