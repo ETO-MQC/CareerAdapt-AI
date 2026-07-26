@@ -11,6 +11,10 @@ import type { AgentOption, AgentUiAction, AgentWorkflowControl } from "@/agent/c
 import { AgentTaskStateReducer } from "./AgentTaskStateReducer";
 import { appendAgentMessage, replaceAgentThinking, upsertAgentActivity } from "./AgentSessionMessages";
 import { routeAgentIntent } from "./agentIntentRouter";
+import {
+  projectTaskStateIntoSession,
+  projectTaskStateToWorkflowState
+} from "./projectTaskStateToWorkflowState";
 
 export type AgentHostInput =
   | { type: "message"; text: string }
@@ -26,6 +30,9 @@ export type AgentHostSnapshot = {
   activeTask?: AgentTaskState;
   turnStatus: "idle" | "running" | "paused" | "waiting_for_confirmation" | "completed" | "failed";
   activeTurnId?: string;
+  startedAt?: string;
+  lastProgressAt?: string;
+  stalled: boolean;
   pendingConfirmation?: AgentSession["pendingConfirmation"];
   streamEvents: AgentStreamEvent[];
   artifacts: AgentArtifactRef[];
@@ -37,16 +44,19 @@ export class AgentHostStore {
   private snapshot: AgentHostSnapshot = {
     turnStatus: "idle",
     streamEvents: [],
-    artifacts: []
+    artifacts: [],
+    stalled: false
   };
   private readonly listeners = new Set<() => void>();
   private activeController?: AbortController;
+  private stallTimer?: ReturnType<typeof setTimeout>;
   private runGeneration = 0;
 
   constructor(private readonly dependencies: {
     kernel: AgentKernel;
     executor: AgentExecutor;
     persistence: AgentSessionStore;
+    stallThresholdMs?: number;
   }) {}
 
   subscribe = (listener: () => void) => {
@@ -60,13 +70,16 @@ export class AgentHostStore {
 
   adopt(session: AgentSession) {
     if (this.snapshot.activeSessionId === session.id && this.snapshot.turnStatus === "running") return;
+    const recoverable = recoverOrphanedThinking(session);
+    if (recoverable !== session) void this.dependencies.persistence.save(recoverable);
     this.patch({
-      activeSessionId: session.id,
-      activeSession: session,
-      activeTask: session.taskState,
-      pendingConfirmation: session.pendingConfirmation,
-      artifacts: session.artifactRefs,
-      turnStatus: session.pendingConfirmation ? "waiting_for_confirmation" : "idle"
+      activeSessionId: recoverable.id,
+      activeSession: recoverable,
+      activeTask: recoverable.taskState,
+      pendingConfirmation: recoverable.pendingConfirmation,
+      artifacts: recoverable.artifactRefs,
+      turnStatus: recoverable.pendingConfirmation ? "waiting_for_confirmation" : "idle",
+      stalled: false
     });
   }
 
@@ -80,6 +93,10 @@ export class AgentHostStore {
 
   interrupt() {
     this.activeController?.abort();
+  }
+
+  continueWaiting() {
+    this.markProgress();
   }
 
   async dispatch(
@@ -124,7 +141,7 @@ export class AgentHostStore {
       return this.applyWorkflowControl(session, input.action);
     }
     const routed = routeAgentIntent(input.text, {
-      activeWorkflowId: session.workflowState.workflowId
+      activeWorkflowId: session.taskState?.workflowId ?? session.workflowState.workflowId
     });
     if (routed.kind === "ui_action") {
       this.patch({ uiAction: routed.action });
@@ -187,21 +204,22 @@ export class AgentHostStore {
       message: input.userMessage
     });
     current = {
-      ...current,
-      taskState,
+      ...projectTaskStateIntoSession(current, taskState),
       activeTurn: {
         id: turnId,
         sessionId: current.id,
         userMessageId,
         status: "running",
         startedAt: now
-      },
-      workflowState: { ...current.workflowState, status: "running" }
+      }
     };
     current = await this.dependencies.persistence.save(current);
     this.patchSession(current, {
       turnStatus: "running",
       activeTurnId: turnId,
+      startedAt: now,
+      lastProgressAt: now,
+      stalled: false,
       streamEvents: [],
       currentObservation: undefined
     });
@@ -230,7 +248,6 @@ export class AgentHostStore {
     if (!confirmed) {
       current = {
         ...current,
-        workflowState: { ...current.workflowState, status: "waiting_for_user" as const },
         taskState: current.taskState
           ? new AgentTaskStateReducer().reduce(current.taskState, {
               type: "confirmation_rejected",
@@ -238,6 +255,7 @@ export class AgentHostStore {
             })
           : current.taskState
       };
+      if (current.taskState) current = projectTaskStateIntoSession(current, current.taskState);
       current = await this.dependencies.persistence.save(current);
       return this.resume(current, {
         reason: "confirmation_rejected",
@@ -248,13 +266,11 @@ export class AgentHostStore {
 
     this.patch({ turnStatus: "running" });
     if (current.taskState) {
-      current = {
-        ...current,
-        taskState: new AgentTaskStateReducer().reduce(current.taskState, {
+      const taskState = new AgentTaskStateReducer().reduce(current.taskState, {
           type: "confirmation_accepted",
           toolName: call.toolName
-        })
-      };
+        });
+      current = projectTaskStateIntoSession(current, taskState);
     }
     const result = await this.dependencies.executor.execute({
       toolName: call.toolName,
@@ -271,10 +287,13 @@ export class AgentHostStore {
       status: result.ok ? "complete" : "failed",
       metadata: { activityState: result.ok ? "complete" : "failed", artifactIds: result.artifactIds }
     });
-    current = {
-      ...current,
-      workflowState: { ...current.workflowState, status: result.ok ? "running" : "failed" }
-    };
+    if (!result.ok && current.taskState) {
+      current = projectTaskStateIntoSession(current, {
+        ...current.taskState,
+        completionStatus: "failed",
+        updatedAt: new Date().toISOString()
+      });
+    }
     current = await this.dependencies.persistence.save(current);
     return this.resume(current, {
       reason: "tool_observation",
@@ -351,6 +370,7 @@ export class AgentHostStore {
     let visible = "";
     const onEvent = async (event: AgentStreamEvent) => {
       if (input.generation !== this.runGeneration) return;
+      if (isProgressEvent(event)) this.markProgress();
       this.patch({ streamEvents: [...this.snapshot.streamEvents, event].slice(-200) });
       if (event.type === "thinking") {
         current = {
@@ -411,6 +431,33 @@ export class AgentHostStore {
               }
             ]
           };
+        }
+        if (event.ok && ["analyze_job_fit", "create_tailoring_session", "preview_tailoring_changes", "apply_tailoring_changes"].includes(event.toolName)) {
+          const now = new Date().toISOString();
+          const artifactId = event.artifactIds?.[0] ?? `agent-artifact-${event.toolName}-${event.operationId}`;
+          const descriptor = artifactDescriptor(event.toolName);
+          if (descriptor) {
+            current = {
+              ...current,
+              artifactRefs: [
+                ...current.artifactRefs.filter((artifact) => artifact.id !== artifactId),
+                {
+                  id: artifactId,
+                  kind: descriptor.kind,
+                  title: descriptor.title,
+                  entityType: descriptor.entityType,
+                  entityId: current.taskState?.selectedEntities.resumeId
+                    ?? current.taskState?.selectedEntities.jobId
+                    ?? `pending-${event.operationId}`,
+                  route: descriptor.route,
+                  status: "active",
+                  summary: event.summary,
+                  createdAt: now,
+                  updatedAt: now
+                }
+              ]
+            };
+          }
         }
         this.patch({ currentObservation: { toolName: event.toolName, summary: event.summary } });
         await this.dependencies.persistence.save(current);
@@ -490,6 +537,12 @@ export class AgentHostStore {
       if (input.generation !== this.runGeneration) return this.snapshot.activeSession;
       const outcome = result.pendingConfirmation
         ? "waiting_for_confirmation"
+        : result.taskState?.completionStatus === "waiting_for_confirmation"
+          ? "waiting_for_confirmation"
+          : result.taskState?.completionStatus === "waiting_for_user"
+            ? "waiting_for_user"
+            : result.taskState?.completionStatus === "failed"
+              ? "failed"
         : result.trajectory.outcome === "failed"
           ? "failed"
           : result.trajectory.outcome === "aborted"
@@ -511,16 +564,9 @@ export class AgentHostStore {
           status: outcome,
           completedAt: outcome === "waiting_for_confirmation" ? undefined : new Date().toISOString()
         },
-        workflowState: {
-          ...current.workflowState,
-          status: outcome === "waiting_for_confirmation"
-            ? "waiting_for_confirmation"
-            : outcome === "failed"
-              ? "failed"
-              : outcome === "completed"
-                ? "completed"
-                : "waiting_for_user"
-        }
+        workflowState: result.taskState
+          ? projectTaskStateToWorkflowState(result.taskState, current.workflowState)
+          : current.workflowState
       };
       current = await this.dependencies.persistence.save(current);
       this.patchSession(current, {
@@ -542,7 +588,17 @@ export class AgentHostStore {
       this.patchSession(current, { turnStatus: "failed" });
       return current;
     } finally {
-      if (input.generation === this.runGeneration) this.activeController = undefined;
+      if (input.generation === this.runGeneration) {
+        this.activeController = undefined;
+        this.clearStallTimer();
+        const settled = settleThinkingMessages(this.snapshot.activeSession ?? current, input.turnId);
+        if (settled !== (this.snapshot.activeSession ?? current)) {
+          void this.dependencies.persistence.save(settled);
+          this.patchSession(settled, { stalled: false });
+        } else {
+          this.patch({ stalled: false });
+        }
+      }
     }
   }
 
@@ -622,6 +678,23 @@ export class AgentHostStore {
     this.snapshot = { ...this.snapshot, ...patch };
     for (const listener of this.listeners) listener();
   }
+
+  private markProgress() {
+    const now = new Date().toISOString();
+    this.patch({ lastProgressAt: now, stalled: false });
+    this.clearStallTimer();
+    if (!this.activeController) return;
+    this.stallTimer = setTimeout(() => {
+      if (this.activeController && this.snapshot.turnStatus === "running") {
+        this.patch({ stalled: true });
+      }
+    }, this.dependencies.stallThresholdMs ?? 30_000);
+  }
+
+  private clearStallTimer() {
+    if (this.stallTimer) clearTimeout(this.stallTimer);
+    this.stallTimer = undefined;
+  }
 }
 
 function isUiAction(action: AgentUiAction | AgentWorkflowControl): action is AgentUiAction {
@@ -648,4 +721,69 @@ function completeTurn(session: AgentSession, status: "failed" | "aborted") {
 
 function errorCode(value: unknown) {
   return typeof value === "object" && value && "code" in value ? String(value.code) : "agent_runtime_failed";
+}
+
+function isProgressEvent(event: AgentStreamEvent) {
+  return [
+    "assistant_delta",
+    "thinking",
+    "tool_started",
+    "tool_result",
+    "confirmation_required"
+  ].includes(event.type);
+}
+
+function settleThinkingMessages(session: AgentSession, turnId: string) {
+  let changed = false;
+  const messages = session.messages.map((message) => {
+    if (
+      message.turnId === turnId
+      && message.kind === "assistant_thinking"
+      && (message.status === "thinking" || message.streaming)
+    ) {
+      changed = true;
+      return {
+        ...message,
+        content: "这一步已中断，可重试或继续任务。",
+        kind: "system_notice" as const,
+        type: "system_notice" as const,
+        status: "recovered" as const,
+        streaming: false,
+        updatedAt: new Date().toISOString()
+      };
+    }
+    return message;
+  });
+  return changed ? { ...session, messages } : session;
+}
+
+function recoverOrphanedThinking(session: AgentSession) {
+  if (session.activeTurn?.status !== "running") return session;
+  const settled = settleThinkingMessages(session, session.activeTurn.id);
+  return {
+    ...settled,
+    activeTurn: {
+      ...session.activeTurn,
+      status: "aborted" as const,
+      completedAt: new Date().toISOString()
+    }
+  };
+}
+
+function artifactDescriptor(toolName: string): {
+  kind: AgentArtifactRef["kind"];
+  title: string;
+  entityType: AgentArtifactRef["entityType"];
+  route?: string;
+} | undefined {
+  if (toolName === "analyze_job_fit") {
+    return { kind: "job_fit_overview", title: "岗位匹配分析", entityType: "job" };
+  }
+  if (toolName === "create_tailoring_session" || toolName === "preview_tailoring_changes") {
+    return { kind: "tailoring_diff", title: "简历定制修改预览", entityType: "tailoring_session" };
+  }
+  if (toolName === "apply_tailoring_changes") {
+    return { kind: "quality_result", title: "定制简历质量结果", entityType: "resume_branch", route: "/resume" };
+  }
+  return undefined;
 }

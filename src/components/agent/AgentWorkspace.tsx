@@ -169,6 +169,22 @@ export function AgentWorkspace() {
                   <History aria-hidden="true" />历史
                 </button>
               </div>
+              {snapshot.stalled ? (
+                <div className="agent-stall-watchdog" role="status">
+                  <span>这一步响应时间较长</span>
+                  <div>
+                    <button type="button" onClick={() => host.state.continueWaiting()}>继续等待</button>
+                    <button type="button" onClick={() => host.state.interrupt()}>停止任务</button>
+                    <button
+                      type="button"
+                      disabled={!lastUserMessage || Boolean(session.pendingConfirmation)}
+                      onClick={() => void dispatchMessage(lastUserMessage)}
+                    >
+                      重试
+                    </button>
+                  </div>
+                </div>
+              ) : null}
               <AgentConversationTimeline
                 messages={session.messages}
                 onRegenerate={lastUserMessage ? () => void dispatchMessage(lastUserMessage) : undefined}
