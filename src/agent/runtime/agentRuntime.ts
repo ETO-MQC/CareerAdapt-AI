@@ -76,6 +76,10 @@ export type AgentSessionPersistence = {
 
 type PendingCall = z.infer<typeof ToolCallSchema>;
 
+/**
+ * @deprecated Compatibility runtime for legacy planner tests and migrations.
+ * Production orchestration is owned by AgentKernel through AgentRuntimeProvider.
+ */
 export class AgentRuntime {
   private controller?: AbortController;
   private readonly recentResults: AgentToolResult[] = [];
@@ -330,13 +334,9 @@ export class AgentRuntime {
       createdAt: new Date().toISOString()
     };
     const messages = [...this.session.messages, message];
-    const overflow = messages.slice(0, Math.max(0, messages.length - 40));
     this.session = {
       ...this.session,
-      messages: messages.slice(-40),
-      conversationSummary: overflow.length
-        ? `${this.session.conversationSummary}\n${overflow.map((item) => `${item.role}: ${item.content.slice(0, 240)}`).join("\n")}`.slice(-6000)
-        : this.session.conversationSummary
+      messages
     };
   }
 

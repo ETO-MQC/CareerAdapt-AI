@@ -20,6 +20,15 @@ const WORKFLOWS = {
 } as const;
 
 export function routeAgentIntent(input: string, context: RouteContext = {}): AgentRoutedIntent {
+  const raw = input.trim().toLowerCase();
+  if (/打开.*(岗位|职位).*(表单|窗口|录入框)|open.*job.*(form|dialog)/i.test(raw)) {
+    return ui("打开岗位录入表单", { type: "open_job_import_dialog" });
+  }
+  // Typed job-ingestion intent belongs to AgentKernel. Only explicit requests
+  // for the structured form are UI actions.
+  if (/(录入|导入|新增|添加|粘贴).*(岗位|职位)/.test(raw)) {
+    return { kind: "llm", confidence: "low" };
+  }
   const text = normalize(input);
   if (!text) return { kind: "llm", confidence: "low" };
 
@@ -45,10 +54,6 @@ export function routeAgentIntent(input: string, context: RouteContext = {}): Age
   if (matches(text, ["打开工具", "工具", "工具箱", "工具面板", "tool palette"])) {
     return ui("打开工具", { type: "open_tool_palette" });
   }
-  if (matches(text, ["打开岗位", "岗位列表", "查看岗位"])) {
-    return ui("打开岗位", { type: "open_job_import_dialog" });
-  }
-
   if (matches(text, ["录入岗位", "新增岗位", "导入岗位", "添加岗位", "粘贴岗位", "我要录入岗位"])) {
     return workflow("录入岗位", { type: "switch_workflow", workflowId: WORKFLOWS.jobIngestion, preserveCurrent: true });
   }

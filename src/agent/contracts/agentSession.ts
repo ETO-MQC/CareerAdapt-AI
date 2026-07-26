@@ -5,8 +5,6 @@ import { AgentOptionSchema } from "./agentActions";
 import { AgentTrajectorySchema } from "../kernel/AgentTrajectory";
 import { AgentReflectionSchema } from "../kernel/AgentReflection";
 
-export const AGENT_SESSION_MAX_MESSAGES = 48;
-
 export const AgentMessageSchema = z.object({
   id: z.string().min(1),
   role: z.enum(["user", "assistant", "tool", "system"]),
@@ -43,6 +41,11 @@ export const AgentMessageSchema = z.object({
   createdAt: z.string().datetime({ offset: true })
 }).strict();
 
+export const AgentMessageRecordSchema = AgentMessageSchema.extend({
+  sessionId: z.string().min(1),
+  sequence: z.number().int().min(0)
+}).strict();
+
 export const AgentWorkflowStateSchema = z.object({
   workflowId: z.string().min(1),
   step: z.string().min(1),
@@ -70,6 +73,9 @@ export const AgentConfirmationSchema = z.object({
 }).strict();
 
 export const AgentMemoryStateSchema = z.object({
+  currentGoal: z.string().max(500).optional(),
+  missingSlots: z.array(z.string().max(120)).max(24).default([]),
+  currentStage: z.string().max(160).optional(),
   userPreferences: z.array(z.string().max(500)).max(32).default([]),
   episodic: z.array(z.string().max(1000)).max(32).default([]),
   procedural: z.array(z.string().max(160)).max(32).default([])
@@ -84,7 +90,11 @@ export const AgentPendingToolCallSchema = z.object({
 export const AgentSessionSchema = z.object({
   id: z.string().min(1),
   title: z.string().min(1).max(160),
-  messages: z.array(AgentMessageSchema).max(AGENT_SESSION_MAX_MESSAGES),
+  // Hydrated by WorkspaceRepository from the append-only AgentMessageRecord store.
+  // This is intentionally unbounded at the session-contract level: model context
+  // has its own independent budget in AgentContextWindow.
+  messages: z.array(AgentMessageSchema),
+  sessionRevision: z.number().int().min(0).default(0),
   workflowState: AgentWorkflowStateSchema,
   artifactRefs: z.array(AgentArtifactRefSchema).max(64),
   activeProfileId: z.string().min(1).optional(),
@@ -103,13 +113,11 @@ export const AgentSessionSchema = z.object({
 }).strict();
 
 export type AgentMessage = z.infer<typeof AgentMessageSchema>;
+export type AgentMessageRecord = z.infer<typeof AgentMessageRecordSchema>;
 export type AgentSession = z.infer<typeof AgentSessionSchema>;
 export type AgentWorkflowState = z.infer<typeof AgentWorkflowStateSchema>;
 export type AgentConfirmation = z.infer<typeof AgentConfirmationSchema>;
 
 export function serializeAgentSession(value: AgentSession) {
-  return AgentSessionSchema.parse({
-    ...value,
-    messages: value.messages.slice(-AGENT_SESSION_MAX_MESSAGES)
-  });
+  return AgentSessionSchema.parse(value);
 }

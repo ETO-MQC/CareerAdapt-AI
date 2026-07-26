@@ -36,7 +36,10 @@ export function AgentConversation({
   onOption?(option: AgentOption): void;
   children?: React.ReactNode;
 }) {
-  const visibleMessages = messages.filter((message) => message.role !== "system");
+  const visibleMessages = messages.filter((message) =>
+    message.role !== "system" && message.metadata?.retracted !== true
+  );
+  const conversationItems = groupConversationItems(visibleMessages);
   const latestMessageContent = visibleMessages.at(-1)?.content;
   const endRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -46,12 +49,13 @@ export function AgentConversation({
   return (
     <section className="agent-conversation" aria-label="AI 对话" aria-live="polite">
       <div className="agent-conversation-inner">
-        {visibleMessages.map((message) => {
+        {conversationItems.map((item) => {
+          if (item.type === "activity") {
+            return <AgentActivityGroup key={item.id} messages={item.messages} />;
+          }
+          const message = item.message;
           if (message.kind === "error_status" || message.type === "error") {
             return <AgentErrorStatus key={message.id} message={message} />;
-          }
-          if (message.role === "tool" || message.kind === "tool_status" || message.type === "tool_status") {
-            return <AgentActivityRow key={message.id} message={message} />;
           }
           return (
             <AgentMessageRow
@@ -86,16 +90,19 @@ export function AgentConversation({
   );
 }
 
-function AgentActivityRow({ message }: { message: AgentMessage }) {
-  const state = String(message.metadata?.activityState ?? (message.status === "failed" ? "failed" : "complete"));
-  const Icon = state === "running" ? LoaderCircle : state === "failed" ? AlertCircle : CheckCircle2;
+function AgentActivityGroup({ messages }: { messages: AgentMessage[] }) {
+  const running = messages.some((message) => message.metadata?.activityState === "running" || message.status === "pending");
+  const failed = messages.some((message) => message.metadata?.activityState === "failed" || message.status === "failed");
+  const Icon = running ? LoaderCircle : failed ? AlertCircle : CheckCircle2;
   return (
-    <details className={`agent-tool-status-row is-${state}`}>
+    <details className={`agent-tool-status-row is-${running ? "running" : failed ? "failed" : "complete"}`} open={running || undefined}>
       <summary role="status">
-        <Icon className={state === "running" ? "is-spinning" : undefined} aria-hidden="true" />
-        <strong>{toolStatus(message)}</strong>
+        <Icon className={running ? "is-spinning" : undefined} aria-hidden="true" />
+        <strong>{running ? "正在执行任务步骤" : failed ? "部分任务步骤需要处理" : `已完成 ${messages.length} 个任务步骤`}</strong>
       </summary>
-      <p>{state === "running" ? "完成后会在这里更新结果。" : "此步骤只读取或处理当前任务允许的数据。"}</p>
+      <ul className="agent-tool-activity-list">
+        {messages.map((message) => <li key={message.id}>{toolStatus(message)}</li>)}
+      </ul>
     </details>
   );
 }
@@ -278,6 +285,25 @@ function isStreamingMessage(message: AgentMessage) {
     || message.status === "thinking"
     || message.status === "streaming"
   );
+}
+
+function groupConversationItems(messages: AgentMessage[]) {
+  const items: Array<
+    | { type: "message"; id: string; message: AgentMessage }
+    | { type: "activity"; id: string; messages: AgentMessage[] }
+  > = [];
+  for (const message of messages) {
+    const activity = message.role === "tool" || message.kind === "tool_status" || message.type === "tool_status";
+    const previous = items.at(-1);
+    if (activity && previous?.type === "activity") {
+      previous.messages.push(message);
+    } else if (activity) {
+      items.push({ type: "activity", id: `activity-${message.id}`, messages: [message] });
+    } else {
+      items.push({ type: "message", id: message.id, message });
+    }
+  }
+  return items;
 }
 
 export function normalizeAgentMessageText(input: string) {

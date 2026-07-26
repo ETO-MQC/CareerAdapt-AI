@@ -4,12 +4,9 @@ import { History, Pause, Play, RotateCw, WifiOff } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { AgentRuntime } from "@/agent/runtime/agentRuntime";
-import { AgentEventBus } from "@/agent/runtime/agentEventBus";
-import { AgentExecutor } from "@/agent/runtime/agentExecutor";
-import { createAgentToolRegistry } from "@/agent/tools/registry";
 import {
-  TailorExistingResumeWorkflowController,
-  tailorExistingResumeWorkflow
+  tailorExistingResumeWorkflow,
+  type TailorExistingResumeWorkflowController
 } from "@/agent/workflows/tailorExistingResumeWorkflow";
 import type { AgentMessage, AgentSession } from "@/agent/contracts/agentSession";
 import type { AgentArtifactRef } from "@/agent/contracts/agentArtifact";
@@ -20,11 +17,7 @@ import {
 import type { AgentOption, AgentUiAction, AgentWorkflowControl } from "@/agent/contracts/agentActions";
 import { routeAgentIntent } from "@/agent/runtime/agentIntentRouter";
 import { getWorkflowDefinition } from "@/agent/workflows/workflowRegistry";
-import { AgentKernel } from "@/agent/kernel/AgentKernel";
-import { AgentToolResolver } from "@/agent/kernel/AgentToolResolver";
-import { HttpAgentModel } from "@/agent/model/httpAgentModel";
-import { BrowserAgentToolService } from "@/services/agent/agentToolService";
-import { AgentSessionStore } from "@/services/agent/agentSessionStore";
+import { useAgentHost } from "@/components/agent/runtime/AgentRuntimeProvider";
 import { useWorkspaceMode } from "@/components/layout/WorkspaceModeProvider";
 import { ACTIVE_SESSION_KEY } from "@/components/agent/shell/AgentSidebar";
 import {
@@ -47,25 +40,7 @@ export function AgentWorkspace() {
 export function AgentWorkspaceController() {
   const router = useRouter();
   const { setMode } = useWorkspaceMode();
-  const dependencies = useMemo(() => {
-    const service = new BrowserAgentToolService();
-    const registry = createAgentToolRegistry(service);
-    const executor = new AgentExecutor(registry);
-    const store = new AgentSessionStore();
-    return {
-      service,
-      registry,
-      executor,
-      store,
-      eventBus: new AgentEventBus(),
-      kernel: new AgentKernel({
-        model: new HttpAgentModel(),
-        executor,
-        toolResolver: new AgentToolResolver(registry)
-      }),
-      controller: new TailorExistingResumeWorkflowController(executor)
-    };
-  }, []);
+  const dependencies = useAgentHost();
   const workflowState = useSyncExternalStore(
     dependencies.controller.subscribe,
     dependencies.controller.getSnapshot,
@@ -171,7 +146,9 @@ export function AgentWorkspaceController() {
       if (!sessionId) return;
       void dependencies.store.get(sessionId).then((selected) => {
         if (!selected) return;
-        setSession(selected);
+        setSession((current) =>
+          selected.sessionRevision < current.sessionRevision ? current : selected
+        );
         setRestoredSession(true);
         setWorkflowActive(selected.workflowState.workflowId === tailorExistingResumeWorkflow.id);
       });
@@ -259,7 +236,7 @@ export function AgentWorkspaceController() {
   }, [artifacts.length]);
 
   function createAbortController() {
-    const controller = new AbortController();
+    const { controller } = dependencies.beginTurn();
     abortRef.current = controller;
     return controller;
   }
@@ -285,7 +262,6 @@ export function AgentWorkspaceController() {
       && action.preserveCurrent
     ) {
       setSwitchChoice(action);
-      handleUiAction({ type: "open_job_import_dialog" });
       return replaceThinkingWithAssistant(baseSession, thinkingMessageId, "可以录入岗位。当前任务会先暂存，岗位录入只影响新的岗位流程。", "");
     }
 
@@ -327,7 +303,6 @@ export function AgentWorkspaceController() {
     } else {
       setWorkflowActive(false);
     }
-    if (workflowId === "job_ingestion") handleUiAction({ type: "open_job_import_dialog" });
     return {
       ...replaceThinkingWithAssistant(baseSession, thinkingMessageId, workflowStartMessage(workflowId), ""),
       title: workflowTitle(workflowId),
@@ -353,6 +328,17 @@ export function AgentWorkspaceController() {
 
   async function sendMessage(message: string, sessionOverride?: AgentSession) {
     let currentSession = sessionOverride ?? session;
+    const interrupted = dependencies.hasActiveTurn();
+    if (interrupted) {
+      dependencies.interruptTurn();
+      currentSession = appendLocalMessage(
+        currentSession,
+        "system",
+        "上一轮已中断；已完成的工具结果会保留，并按你的新意图重新规划。",
+        undefined,
+        { kind: "system_notice", type: "system_notice", status: "complete" }
+      );
+    }
     const previousError = [...currentSession.messages].reverse().find((item) =>
       item.kind === "error_status"
       && item.errorCode
@@ -374,7 +360,7 @@ export function AgentWorkspaceController() {
       : appendLocalMessage(currentSession, "user", message.trim());
     const latestUserMessage = [...optimisticBase.messages].reverse().find((item) => item.role === "user");
     const thinkingMessageId = `agent-thinking-${crypto.randomUUID()}`;
-    const optimistic = appendLocalMessage(optimisticBase, "assistant", "", undefined, {
+    const optimisticMessage = appendLocalMessage(optimisticBase, "assistant", "", undefined, {
       id: thinkingMessageId,
       kind: "assistant_thinking",
       type: "assistant_thinking",
@@ -383,7 +369,16 @@ export function AgentWorkspaceController() {
       parentMessageId: latestUserMessage?.id,
       language: detectMessageLanguage(message)
     });
-    const runtimeBase = {
+    const optimistic = {
+      ...optimisticMessage,
+      workflowState: { ...optimisticMessage.workflowState, status: "running" as const },
+      memory: {
+        ...(optimisticMessage.memory ?? { missingSlots: [], userPreferences: [], episodic: [], procedural: [] }),
+        currentGoal: optimisticMessage.memory?.currentGoal ?? optimisticMessage.title,
+        currentStage: optimisticMessage.workflowState.step
+      }
+    };
+    let runtimeBase: AgentSession = {
       ...optimistic,
       messages: optimistic.messages.filter((item) => item.id !== thinkingMessageId)
     };
@@ -392,10 +387,16 @@ export function AgentWorkspaceController() {
     setRuntimeBusy(true);
     setLastUserMessage(message);
     setProviderUnavailable(false);
-    await dependencies.store.save(optimistic);
+    const persistedOptimistic = await dependencies.store.save(optimistic);
+    runtimeBase = {
+      ...persistedOptimistic,
+      messages: persistedOptimistic.messages.filter((item) => item.id !== thinkingMessageId)
+    };
+    setSession(persistedOptimistic);
     window.localStorage.setItem(ACTIVE_SESSION_KEY, optimistic.id);
     window.dispatchEvent(new CustomEvent("careeradapt-agent-sessions-change"));
 
+    let signalController: AbortController | undefined;
     try {
       const routed = routeAgentIntent(message, { activeWorkflowId: runtimeBase.workflowState.workflowId });
       if (routed.kind === "workflow_control") {
@@ -410,12 +411,13 @@ export function AgentWorkspaceController() {
         setSession(await dependencies.store.save(next));
         return;
       }
+      signalController = createAbortController();
       const finalSession = await consumeAgentStream({
         base: runtimeBase,
         optimistic,
         thinkingMessageId,
         userMessage: message,
-        signalController: createAbortController(),
+        signalController,
         onUiAction: handleUiAction,
         onWorkflowControl: (action) => void handleWorkflowControl(action, runtimeBase, thinkingMessageId)
       });
@@ -439,8 +441,10 @@ export function AgentWorkspaceController() {
       }));
       setProviderUnavailable(true);
     } finally {
-      abortRef.current = undefined;
-      setRuntimeBusy(false);
+      if (!signalController || dependencies.finishTurn(signalController)) {
+        abortRef.current = undefined;
+        setRuntimeBusy(false);
+      }
     }
   }
 
@@ -512,6 +516,27 @@ export function AgentWorkspaceController() {
           status: event.ok ? "complete" : "failed",
           metadata: { activityState: event.ok ? "complete" : "failed", artifactIds: event.artifactIds ?? [] }
         });
+        if (event.ok && event.toolName === "parse_job_description") {
+          const now = new Date().toISOString();
+          const artifactId = event.artifactIds?.[0] ?? `agent-artifact-parse_job_description-${event.operationId}`;
+          final = {
+            ...final,
+            artifactRefs: [
+              ...final.artifactRefs.filter((artifact) => artifact.id !== artifactId),
+              {
+                id: artifactId,
+                kind: "job_semantic_review",
+                title: "岗位语义核对",
+                entityType: "job",
+                entityId: `pending-${event.operationId}`,
+                status: "active",
+                summary: event.summary,
+                createdAt: now,
+                updatedAt: now
+              }
+            ]
+          };
+        }
         setSession(final);
       }
       if (event.type === "assistant_start") {
@@ -583,11 +608,15 @@ export function AgentWorkspaceController() {
       ...final,
       trajectory: result.trajectory,
       reflection: result.reflection,
+      conversationSummary: result.conversationSummary ?? final.conversationSummary,
+      memory: updateAgentMemory(final, result.reflection),
       pendingConfirmation: result.pendingConfirmation,
       pendingToolCall: result.pendingCall,
       workflowState: {
         ...final.workflowState,
-        status: result.pendingConfirmation ? "waiting_for_confirmation" : final.workflowState.status
+        status: result.pendingConfirmation
+          ? "waiting_for_confirmation"
+          : trajectoryWorkflowStatus(result.trajectory.outcome)
       }
     };
     const saved = await dependencies.store.save(normalizeAssistantMessages(final, finalAssistantText(final)));
@@ -654,13 +683,17 @@ export function AgentWorkspaceController() {
     const call = session.pendingToolCall;
     if (!session.pendingConfirmation || !call) return;
     if (!confirmed) {
-      const next = appendLocalMessage({
+      const next = {
         ...session,
         pendingConfirmation: undefined,
         pendingToolCall: undefined,
-        workflowState: { ...session.workflowState, status: "waiting_for_user" }
-      }, "assistant", "已取消这次操作，现有数据没有改变。");
-      setSession(await dependencies.store.save(next));
+        workflowState: { ...session.workflowState, status: "waiting_for_user" as const }
+      };
+      const saved = await dependencies.store.save(next);
+      await resumeKernelAfterConfirmation(
+        saved,
+        `[USER_REJECTED_ACTION] The user rejected ${call.toolName}. No data changed. Choose a safe alternative or ask one focused question.`
+      );
       return;
     }
     setRuntimeBusy(true);
@@ -685,10 +718,38 @@ export function AgentWorkspaceController() {
         status: result.ok ? "complete" : "failed",
         metadata: { activityState: result.ok ? "complete" : "failed", artifactIds: result.artifactIds }
       });
-      setSession(await dependencies.store.save(next));
+      const saved = await dependencies.store.save(next);
+      await resumeKernelAfterConfirmation(
+        saved,
+        `[AUTHORITATIVE_TOOL_OBSERVATION] ${call.toolName} completed with ${JSON.stringify(
+          result.ok ? result.data : { error: result.error }
+        ).slice(0, 6000)}. Continue the active task automatically.`
+      );
     } finally {
       setRuntimeBusy(false);
     }
+  }
+
+  async function resumeKernelAfterConfirmation(base: AgentSession, observation: string) {
+    const thinkingMessageId = `agent-thinking-${crypto.randomUUID()}`;
+    const optimistic = appendLocalMessage(base, "assistant", "正在根据确认结果继续…", undefined, {
+      id: thinkingMessageId,
+      kind: "assistant_thinking",
+      type: "assistant_thinking",
+      status: "thinking",
+      streaming: true,
+      language: "zh"
+    });
+    setSession(optimistic);
+    return consumeAgentStream({
+      base,
+      optimistic,
+      thinkingMessageId,
+      userMessage: observation,
+      signalController: createAbortController(),
+      onUiAction: handleUiAction,
+      onWorkflowControl: (action) => void handleWorkflowControl(action, base, thinkingMessageId)
+    });
   }
 
   async function upload(file: File): Promise<"ready" | "partial"> {
@@ -760,7 +821,7 @@ export function AgentWorkspaceController() {
   return (
     <AgentWorkspaceLayout
       sessionTitle={showZeroState ? "AI 助手" : session.title}
-      status={workflowStatusLabel(runtimeBusy ? "running" : session.workflowState.status)}
+      status={`${workflowStatusLabel(runtimeBusy ? "running" : session.workflowState.status)} · ${workflowStageLabel(session.workflowState.step)}`}
       artifactCount={artifacts.length}
       onOpenArtifacts={() => setDrawerState("open")}
       onOpenHistory={() => void openHistory()}
@@ -808,7 +869,15 @@ export function AgentWorkspaceController() {
                 onUndoLastUser={() => {
                   const index = session.messages.findLastIndex((message) => message.role === "user");
                   if (index < 0) return;
-                  const next = { ...session, messages: session.messages.slice(0, index), updatedAt: new Date().toISOString() };
+                  const next = {
+                    ...session,
+                    messages: session.messages.map((message, messageIndex) =>
+                      messageIndex >= index
+                        ? { ...message, metadata: { ...message.metadata, retracted: true } }
+                        : message
+                    ),
+                    updatedAt: new Date().toISOString()
+                  };
                   setSession(next);
                   void dependencies.store.save(next);
                 }}
@@ -1382,4 +1451,50 @@ function workflowStatusLabel(status: AgentSession["workflowState"]["status"]) {
     failed: "需要处理"
   };
   return labels[status];
+}
+
+function updateAgentMemory(
+  session: AgentSession,
+  reflection: AgentSession["reflection"]
+): AgentSession["memory"] {
+  const previous = session.memory ?? {
+    missingSlots: [],
+    userPreferences: [],
+    episodic: [],
+    procedural: []
+  };
+  if (!reflection) {
+    return {
+      ...previous,
+      currentGoal: previous.currentGoal ?? session.title,
+      currentStage: session.workflowState.step,
+      missingSlots: previous.missingSlots ?? []
+    };
+  }
+  return {
+    ...previous,
+    currentGoal: previous.currentGoal ?? session.title,
+    currentStage: session.workflowState.step,
+    missingSlots: previous.missingSlots ?? [],
+    userPreferences: [...new Set([...previous.userPreferences, ...reflection.userCorrections])].slice(-32),
+    episodic: [...previous.episodic, reflection.summary].slice(-32),
+    procedural: reflection.reusableProcedureCandidate
+      ? [...new Set([...previous.procedural, reflection.reusableProcedureCandidate])].slice(-32)
+      : previous.procedural
+  };
+}
+
+function trajectoryWorkflowStatus(
+  outcome: NonNullable<AgentSession["trajectory"]>["outcome"]
+): AgentSession["workflowState"]["status"] {
+  if (outcome === "completed") return "completed";
+  if (outcome === "failed") return "failed";
+  if (outcome === "aborted") return "paused";
+  if (outcome === "waiting_for_confirmation") return "waiting_for_confirmation";
+  if (outcome === "running") return "running";
+  return "waiting_for_user";
+}
+
+function workflowStageLabel(step: string) {
+  return step.replaceAll("_", " ");
 }

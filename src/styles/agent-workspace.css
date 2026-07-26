@@ -70,6 +70,16 @@
   font-size: 12px;
 }
 
+.agent-tool-activity-list {
+  color: var(--ai-muted);
+  display: grid;
+  font-size: 12px;
+  gap: 4px;
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0 0 0 22px;
+}
+
 .agent-topbar-menu {
   position: relative;
 }

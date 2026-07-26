@@ -21,7 +21,7 @@ import type {
   ResumeRevision,
   SuggestionOperation
 } from "@/domain/schemas";
-import type { AgentSession } from "@/agent/contracts/agentSession";
+import type { AgentMessageRecord, AgentSession } from "@/agent/contracts/agentSession";
 
 export type AppMeta = {
   key: string;
@@ -51,6 +51,7 @@ export class CareerAdaptDb extends Dexie {
   exportRecords!: Table<ExportRecord, string>;
   applications!: Table<ApplicationRecord, string>;
   agentSessions!: Table<AgentSession, string>;
+  agentMessages!: Table<AgentMessageRecord, string>;
   appMeta!: Table<AppMeta, string>;
 
   constructor(name = "CareerAdaptDb") {
@@ -316,6 +317,49 @@ export class CareerAdaptDb extends Dexie {
       applications: "id, profileId, jobId, jobSpecificBranchId, status, updatedAt, [profileId+status]",
       agentSessions: "id, updatedAt, createdAt, [workflowState.status+updatedAt]",
       appMeta: "key"
+    });
+
+    this.version(10).stores({
+      profiles: "id, name, updatedAt",
+      jobDescriptions: "id, title, company, updatedAt",
+      rawInputs: "id, kind, inputHash, sourceSessionId, updatedAt",
+      pdfImportSessions: "id, status, fileHash, normalizedTextHash, rawInputId, draftId, updatedAt",
+      pdfPageTexts: "id, sessionId, [sessionId+pageNumber], pageNumber, updatedAt",
+      profileImportDrafts: "id, rawInputId, status, updatedAt",
+      jobAnalysisDrafts: "id, rawInputId, status, updatedAt",
+      draftCommits: "commitId, draftId, kind, entityId",
+      requirementMatches: "id, [profileId+jobId], requirementId, isStale, updatedAt",
+      matchOperations: "id, operationId, requirementMatchId, [profileId+jobId], type, occurredAt",
+      jobAdaptationDrafts: "id, [profileId+jobId], status, updatedAt",
+      aiSuggestions: "id, draftId, status, type, updatedAt",
+      adaptationSnapshots: "id, draftId, revision, operationId, updatedAt",
+      suggestionOperations: "id, operationId, draftId, suggestionId, type, occurredAt",
+      resumeBranches: "id, profileId, jobId, sourceAdaptationDraftId, lifecycleStatus, migrationStatus, updatedAt",
+      resumeRevisions: "id, branchId, revisionNumber, operationId, source, createdAt",
+      resumeBranchOperations: "id, &operationId, branchId, sourceAdaptationDraftId, type, occurredAt",
+      aiLogs: "id, task, provider, createdAt",
+      exportRecords: "id, &operationId, branchId, branchRevision, templateId, exportStatus, exportedAt",
+      applications: "id, profileId, jobId, jobSpecificBranchId, status, updatedAt, [profileId+status]",
+      agentSessions: "id, updatedAt, createdAt, sessionRevision, [workflowState.status+updatedAt]",
+      agentMessages: "id, sessionId, &[sessionId+sequence], [sessionId+createdAt], role, kind",
+      appMeta: "key"
+    }).upgrade(async (tx) => {
+      const sessions = await tx.table("agentSessions").toArray();
+      const messages = tx.table("agentMessages");
+      for (const raw of sessions) {
+        const session = raw as AgentSession;
+        const records = (session.messages ?? []).map((message, sequence) => ({
+          ...message,
+          sessionId: session.id,
+          sequence
+        }));
+        if (records.length) await messages.bulkPut(records);
+        await tx.table("agentSessions").put({
+          ...session,
+          messages: [],
+          sessionRevision: session.sessionRevision ?? 0
+        });
+      }
     });
   }
 }

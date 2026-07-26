@@ -1,0 +1,20 @@
+{
+  "source": "ai-conversation-2026-07-26 (2).json",
+  "canonicalName": "示例用户",
+  "turns": [
+    { "role": "user", "content": "你好" },
+    { "role": "assistant", "content": "你好明启！" },
+    { "role": "user", "content": "我的名字是不是错了" },
+    { "role": "user", "content": "我想应聘一个岗位" },
+    {
+      "role": "user",
+      "content": "想应聘这个：Vibe Coding、AI Coding 任务设计专家\n职责内容\n使用真实 vibe coding 工作流，持续测试 coding agent。\n岗位要求\n能够提供真实使用记录，并设计 verifier。"
+    }
+  ],
+  "observedUnnecessaryTools": [
+    "list_resumes",
+    "list_jobs",
+    "get_active_profile",
+    "get_profile"
+  ]
+}

@@ -57,7 +57,7 @@ describe("Application Dexie v8 migration", () => {
   it("creates an empty v8 database with a readable applications table", async () => {
     db = new CareerAdaptDb(`CareerAdaptEmptyV8Db-${crypto.randomUUID()}`);
     await db.open();
-    expect(db.verno).toBe(8);
+    expect(db.verno).toBe(10);
     await db.applications.put(createApplicationRecord("empty-v8"));
     expect(await db.applications.count()).toBe(1);
   });
@@ -81,7 +81,7 @@ describe("Application Dexie v8 migration", () => {
     const repository = new WorkspaceRepository(db);
     const exported = await repository.exportWorkspaceJson();
 
-    expect(db.verno).toBe(8);
+    expect(db.verno).toBe(10);
     expect(exported.profiles.map((profile) => profile.id)).toContain(demoCareerProfile.id);
     expect(exported.jobDescriptions.map((job) => job.id)).toContain(demoJobDescriptions[0].id);
     expect(exported.resumeBranches.map((item) => item.id)).toContain(branch.id);

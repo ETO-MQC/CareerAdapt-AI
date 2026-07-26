@@ -11,6 +11,8 @@ test.describe("P4.2a Agent Kernel", () => {
         mode?: string;
         draft?: string;
         messages?: Array<{ role: string; name?: string; content: string }>;
+        tools?: Array<{ name: string }>;
+        systemPrompt?: string;
       };
       if (body.mode === "narration") {
         await route.fulfill({ contentType: "text/event-stream", body: sse(body.draft ?? "") });
@@ -19,18 +21,33 @@ test.describe("P4.2a Agent Kernel", () => {
       const observations = body.messages?.filter((message) => message.role === "tool") ?? [];
       const active = observations.findLast((message) => message.name === "get_active_profile");
       const profile = observations.findLast((message) => message.name === "get_profile");
-      if (!active) {
+      if (!active && !profile && body.tools?.some((tool) => tool.name === "get_active_profile")) {
         await route.fulfill({
           contentType: "application/json",
           body: JSON.stringify({ stopReason: "tool_calls", toolCalls: [{ id: "e2e-active-profile", name: "get_active_profile", arguments: {} }] })
         });
         return;
       }
-      const activeData = JSON.parse(active.content) as { profileId: string };
       if (!profile) {
+        const activeData = active
+          ? JSON.parse(active.content) as { profileId?: string | null; availableProfiles?: Array<{ id: string }> }
+          : undefined;
+        const pointedProfileId = /activeProfileId:([^"\\]+)/.exec(body.systemPrompt ?? "")?.[1];
         await route.fulfill({
           contentType: "application/json",
-          body: JSON.stringify({ stopReason: "tool_calls", toolCalls: [{ id: "e2e-profile-detail", name: "get_profile", arguments: { profileId: activeData.profileId } }] })
+          body: JSON.stringify({
+            stopReason: "tool_calls",
+            toolCalls: [{
+              id: "e2e-profile-detail",
+              name: "get_profile",
+              arguments: {
+                profileId: activeData?.profileId
+                  ?? activeData?.availableProfiles?.[0]?.id
+                  ?? pointedProfileId
+                  ?? "profile-demo-student"
+              }
+            }]
+          })
         });
         return;
       }
@@ -49,9 +66,9 @@ test.describe("P4.2a Agent Kernel", () => {
     await page.getByRole("button", { name: "发送消息" }).click();
 
     await expect(page.getByText(/你当前选择的是“.+”资料库，共有 \d+ 项已保存内容/)).toBeVisible();
-    await expect(page.getByText("已找到当前资料库。")).toBeVisible();
-    await expect(page.getByText(/已读取资料库中的 \d+ 项内容/)).toBeVisible();
-    await expect(page.locator(".agent-tool-status-row:not([open])")).toHaveCount(2);
+    await expect(page.getByText(/已读取资料库中的 \d+ 项内容/)).toHaveCount(1);
+    await expect(page.locator(".agent-tool-status-row:not([open])")).toHaveCount(1);
+    expect(await page.locator(".agent-tool-activity-list li").count()).toBeGreaterThanOrEqual(1);
     await expect(page.getByText(/get_active_profile|get_profile|operationId|tool schema/i)).toHaveCount(0);
   });
 });

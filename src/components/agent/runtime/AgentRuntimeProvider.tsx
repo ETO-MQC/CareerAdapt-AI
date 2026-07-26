@@ -1,0 +1,67 @@
+"use client";
+
+import { createContext, useContext, useState } from "react";
+import { AgentKernel } from "@/agent/kernel/AgentKernel";
+import { AgentObservationCache } from "@/agent/kernel/AgentObservationCache";
+import { AgentToolResolver } from "@/agent/kernel/AgentToolResolver";
+import { HttpAgentModel } from "@/agent/model/httpAgentModel";
+import { AgentEventBus } from "@/agent/runtime/agentEventBus";
+import { AgentExecutor } from "@/agent/runtime/agentExecutor";
+import { createAgentToolRegistry } from "@/agent/tools/registry";
+import { TailorExistingResumeWorkflowController } from "@/agent/workflows/tailorExistingResumeWorkflow";
+import { BrowserAgentToolService } from "@/services/agent/agentToolService";
+import { AgentSessionStore } from "@/services/agent/agentSessionStore";
+
+function createAgentHost() {
+  const service = new BrowserAgentToolService();
+  const registry = createAgentToolRegistry(service);
+  const executor = new AgentExecutor(registry);
+  let activeController: AbortController | undefined;
+  return {
+    service,
+    registry,
+    executor,
+    store: new AgentSessionStore(),
+    eventBus: new AgentEventBus(),
+    kernel: new AgentKernel({
+      model: new HttpAgentModel(),
+      executor,
+      toolResolver: new AgentToolResolver(registry),
+      observationCache: new AgentObservationCache()
+    }),
+    controller: new TailorExistingResumeWorkflowController(executor),
+    beginTurn() {
+      const interrupted = Boolean(activeController);
+      activeController?.abort();
+      activeController = new AbortController();
+      return { controller: activeController, interrupted };
+    },
+    finishTurn(controller: AbortController) {
+      if (activeController !== controller) return false;
+      activeController = undefined;
+      return true;
+    },
+    hasActiveTurn() {
+      return Boolean(activeController);
+    },
+    interruptTurn() {
+      activeController?.abort();
+      activeController = undefined;
+    }
+  };
+}
+
+export type AgentHost = ReturnType<typeof createAgentHost>;
+
+const AgentRuntimeContext = createContext<AgentHost | undefined>(undefined);
+
+export function AgentRuntimeProvider({ children }: { children: React.ReactNode }) {
+  const [host] = useState(createAgentHost);
+  return <AgentRuntimeContext.Provider value={host}>{children}</AgentRuntimeContext.Provider>;
+}
+
+export function useAgentHost() {
+  const host = useContext(AgentRuntimeContext);
+  if (!host) throw new Error("useAgentHost must be used within AgentRuntimeProvider.");
+  return host;
+}

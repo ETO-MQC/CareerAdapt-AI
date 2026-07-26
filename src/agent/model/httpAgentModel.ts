@@ -12,7 +12,7 @@ import { parseAgentSseStream } from "@/agent/runtime/agentSse";
 export class HttpAgentModel implements AgentModel {
   async completeWithTools(request: AgentModelRequest & { signal?: AbortSignal }) {
     const { signal, ...wireRequest } = request;
-    const response = await fetch("/api/agent/stream", {
+    const response = await fetchRetryable("/api/agent/stream", {
       method: "POST",
       headers: modelHeaders(),
       body: JSON.stringify({
@@ -32,7 +32,7 @@ export class HttpAgentModel implements AgentModel {
 
   async *streamFinalText(request: AgentModelRequest & { draft: string; signal?: AbortSignal }) {
     const { signal, draft, ...wireRequest } = request;
-    const response = await fetch("/api/agent/stream", {
+    const response = await fetchRetryable("/api/agent/stream", {
       method: "POST",
       headers: modelHeaders(),
       body: JSON.stringify({
@@ -48,6 +48,21 @@ export class HttpAgentModel implements AgentModel {
       if (event.type === "error") throw Object.assign(new Error(event.message), { code: event.code });
     }
   }
+}
+
+async function fetchRetryable(input: RequestInfo | URL, init: RequestInit) {
+  try {
+    const response = await fetch(input, init);
+    if (!isRetryableStatus(response.status) || init.signal?.aborted) return response;
+    return fetch(input, init);
+  } catch (error) {
+    if (init.signal?.aborted || error instanceof DOMException && error.name === "AbortError") throw error;
+    return fetch(input, init);
+  }
+}
+
+function isRetryableStatus(status: number) {
+  return status === 408 || status === 429 || status >= 500;
 }
 
 function modelHeaders() {

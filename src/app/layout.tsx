@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { ModeAwareAppShell } from "@/components/layout/ModeAwareAppShell";
 import { WorkspaceModeProvider } from "@/components/layout/WorkspaceModeProvider";
+import { AgentRuntimeProvider } from "@/components/agent/runtime/AgentRuntimeProvider";
 import {
   parseWorkspaceMode,
   WORKSPACE_MODE_COOKIE_KEY
@@ -56,7 +57,9 @@ try {
       </head>
       <body>
         <WorkspaceModeProvider initialMode={initialMode}>
-          <ModeAwareAppShell>{children}</ModeAwareAppShell>
+          <AgentRuntimeProvider>
+            <ModeAwareAppShell>{children}</ModeAwareAppShell>
+          </AgentRuntimeProvider>
         </WorkspaceModeProvider>
       </body>
     </html>

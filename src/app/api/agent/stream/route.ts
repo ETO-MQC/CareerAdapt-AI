@@ -47,9 +47,6 @@ export async function POST(request: NextRequest) {
         }
         if (routed.kind === "workflow_control") {
           send({ type: "thinking", stage: "routing", label: routed.label });
-          if (routed.action.type === "switch_workflow" && routed.action.workflowId === "job_ingestion") {
-            send({ type: "ui_action", action: { type: "open_job_import_dialog" } });
-          }
           send({ type: "done", action: routed.action, message: routed.label });
           controller.close();
           return;

@@ -52,12 +52,14 @@ const ResumeCommitInputSchema = z.object({
 }).strict();
 
 const JobParseInputSchema = z.object({
-  title: z.string().min(1).max(160),
-  company: z.string().min(1).max(160),
+  title: z.string().min(1).max(160).optional(),
+  company: z.string().min(1).max(160).optional(),
   rawText: z.string().min(20).max(24_000)
 }).strict();
 
 const JobCommitInputSchema = JobParseInputSchema.extend({
+  title: z.string().min(1).max(160),
+  company: z.string().min(1).max(160),
   graph: z.unknown()
 }).strict();
 
@@ -225,7 +227,7 @@ export class AgentToolRegistry {
         operationId,
         toolName: name,
         data: output,
-        artifactIds: [],
+        artifactIds: tool.producesArtifact ? [`agent-artifact-${name}-${operationId}`] : [],
         completedAt: new Date().toISOString()
       };
     } catch (error) {

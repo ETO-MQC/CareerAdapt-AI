@@ -6,7 +6,10 @@ import type { AgentModel, AgentModelMessage, AgentModelToolCall } from "@/agent/
 import type { AgentStreamEvent } from "@/agent/runtime/agentSse";
 import { AgentConfirmationRequiredError, AgentExecutor } from "@/agent/runtime/agentExecutor";
 import { AgentContextAssembler } from "./AgentContextAssembler";
+import { AgentCanonicalEntityGuard } from "./AgentCanonicalEntityGuard";
+import { AgentContextWindow } from "./AgentContextWindow";
 import { AgentMemoryManager } from "./AgentMemoryManager";
+import { AgentObservationCache } from "./AgentObservationCache";
 import { AgentPolicyError, AgentPolicyGuard } from "./AgentPolicyGuard";
 import { AgentReflection, type AgentReflectionResult } from "./AgentReflection";
 import { agentSkillRegistry, type AgentSkillRegistry } from "./AgentSkillRegistry";
@@ -19,20 +22,27 @@ export type AgentKernelResult = {
   pendingCall?: { toolName: string; operationId: string; input: Record<string, unknown> };
   trajectory: AgentTrajectorySnapshot;
   reflection?: AgentReflectionResult;
+  conversationSummary?: string;
 };
 
 export class AgentKernel {
+  private readonly observationCache: AgentObservationCache;
+
   constructor(private readonly dependencies: {
     model: AgentModel;
     executor: AgentExecutor;
     toolResolver: AgentToolResolver;
     skillRegistry?: AgentSkillRegistry;
     contextAssembler?: AgentContextAssembler;
+    contextWindow?: AgentContextWindow;
+    observationCache?: AgentObservationCache;
     memoryManager?: AgentMemoryManager;
     reflection?: AgentReflection;
     maxIterations?: number;
     maxToolCalls?: number;
-  }) {}
+  }) {
+    this.observationCache = dependencies.observationCache ?? new AgentObservationCache();
+  }
 
   async runTurn(input: {
     session: AgentSession;
@@ -45,8 +55,15 @@ export class AgentKernel {
     const maxToolCalls = this.dependencies.maxToolCalls ?? 12;
     const trajectory = new AgentTrajectory(`agent-task-${nanoid(12)}`, input.session.workflowState.workflowId);
     const guard = new AgentPolicyGuard();
+    const canonicalEntities = new AgentCanonicalEntityGuard();
     const skills = (this.dependencies.skillRegistry ?? agentSkillRegistry).discover({
       workflowId: input.session.workflowState.workflowId,
+      step: input.session.workflowState.step,
+      selectedEntities: {
+        profileId: input.session.activeProfileId,
+        resumeId: input.session.activeResumeId,
+        jobId: input.session.activeJobId
+      },
       userMessage: input.userMessage
     });
     const memory = (this.dependencies.memoryManager ?? new AgentMemoryManager()).retrieve(input.session);
@@ -60,10 +77,16 @@ export class AgentKernel {
     const allowedTools = this.dependencies.toolResolver.allowedTools({
       workflowId: input.session.workflowState.workflowId,
       step: input.session.workflowState.step,
-      skills
+      skills,
+      session: input.session,
+      userMessage: input.userMessage
     });
     const modelTools = this.dependencies.toolResolver.modelManifest(allowedTools);
-    const messages = toModelMessages(input.session, input.userMessage);
+    const contextWindow = (this.dependencies.contextWindow ?? new AgentContextWindow()).build(
+      input.session,
+      input.userMessage
+    );
+    const messages = contextWindow.messages;
     let toolCallCount = 0;
 
     await emit(input, { type: "turn_ack", sessionId: input.session.id });
@@ -98,7 +121,29 @@ export class AgentKernel {
           }
 
           for (const call of response.toolCalls) {
-            const validated = guard.validate({ call, allowedTools, toolCallCount, maxToolCalls });
+            let validated;
+            try {
+              validated = guard.validate({ call, allowedTools, toolCallCount, maxToolCalls });
+            } catch (error) {
+              if (error instanceof AgentPolicyError && error.code === "agent_duplicate_tool_call") {
+                await emit(input, {
+                  type: "tool_result",
+                  toolName: call.name,
+                  operationId: stableOperationId(call),
+                  ok: true,
+                  summary: "Equivalent result already available.",
+                  artifactIds: []
+                });
+                messages.push({
+                  role: "tool",
+                  name: call.name,
+                  toolCallId: call.id,
+                  content: JSON.stringify({ observation: "Equivalent result already available." })
+                });
+                continue;
+              }
+              throw error;
+            }
             toolCallCount += 1;
             const operationId = stableOperationId(call);
             trajectory.toolStarted(validated.tool.name, operationId);
@@ -109,12 +154,16 @@ export class AgentKernel {
               userLabel: toolActivityLabel(validated.tool.name)
             });
             try {
-              const result = await this.dependencies.executor.execute({
-                toolName: validated.tool.name,
-                toolInput: validated.input,
-                operationId,
-                signal: input.signal
-              });
+              const cached = this.observationCache.get(validated.tool.name, validated.input);
+              const result = cached ?? await this.dependencies.executor.execute({
+                  toolName: validated.tool.name,
+                  toolInput: validated.input,
+                  operationId,
+                  signal: input.signal
+                });
+              if (!cached) this.observationCache.set(validated.tool.name, validated.input, result);
+              this.observationCache.invalidateAfter(validated.tool.name);
+              if (result.ok) canonicalEntities.observe(result.data);
               trajectory.toolCompleted(operationId, result.ok, result.artifactIds);
               await emit(input, {
                 type: "tool_result",
@@ -132,7 +181,8 @@ export class AgentKernel {
                 return {
                   pendingConfirmation: error.confirmation,
                   pendingCall: { toolName: validated.tool.name, operationId, input: validated.input as Record<string, unknown> },
-                  trajectory: trajectory.value()
+                  trajectory: trajectory.value(),
+                  conversationSummary: contextWindow.conversationSummary
                 };
               }
               throw error;
@@ -142,13 +192,13 @@ export class AgentKernel {
         }
 
         if (response.stopReason === "ask_user") {
-          const text = response.text?.trim() || "请补充继续这项任务所需的真实信息。";
+          const text = canonicalEntities.preserve(response.text?.trim() || "请补充继续这项任务所需的真实信息。");
           await streamFinal(this.dependencies.model, { systemPrompt, messages, tools: modelTools }, text, input);
           trajectory.finish("waiting_for_user");
-          return { text, trajectory: trajectory.value() };
+          return { text, trajectory: trajectory.value(), conversationSummary: contextWindow.conversationSummary };
         }
 
-        const text = response.text?.trim();
+        const text = response.text?.trim() ? canonicalEntities.preserve(response.text.trim()) : undefined;
         if (text) {
           const visible = await streamFinal(this.dependencies.model, { systemPrompt, messages, tools: modelTools }, text, input);
           trajectory.finish("completed");
@@ -156,7 +206,11 @@ export class AgentKernel {
           return {
             text: visible,
             trajectory: snapshot,
-            reflection: (this.dependencies.reflection ?? new AgentReflection()).create(snapshot)
+            reflection: (this.dependencies.reflection ?? new AgentReflection()).create(snapshot, {
+              userMessage: input.userMessage,
+              goal: input.session.memory?.currentGoal ?? input.session.title
+            }),
+            conversationSummary: contextWindow.conversationSummary
           };
         }
       }
@@ -195,17 +249,6 @@ async function streamFinal(
   const final = visible.trim() || draft;
   await emit(input, { type: "done", message: final });
   return final;
-}
-
-function toModelMessages(session: AgentSession, userMessage: string): AgentModelMessage[] {
-  const messages = session.messages
-    .filter((message) => message.role === "user" || message.role === "assistant")
-    .slice(-20)
-    .map((message) => ({ role: message.role as "user" | "assistant", content: message.content }));
-  if (!messages.length || messages.at(-1)?.role !== "user" || messages.at(-1)?.content !== userMessage) {
-    messages.push({ role: "user", content: userMessage });
-  }
-  return messages;
 }
 
 function toolObservation(call: AgentModelToolCall, result: AgentToolResult): AgentModelMessage {

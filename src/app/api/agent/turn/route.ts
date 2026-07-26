@@ -7,6 +7,8 @@ import type { AgentModelTool } from "@/agent/model/agentModel";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+// Deprecated compatibility endpoint. AgentKernel production traffic uses
+// /api/agent/stream in decision/narration mode.
 const legacySystemPrompt = `You are CareerAdapt AI's legacy planner compatibility wrapper.
 Choose only from the supplied tools. CareerProfile and FactProvenance are authoritative.
 Never invent facts or expose hidden reasoning. Return a concise final answer in the user's language when no tool is needed.`;

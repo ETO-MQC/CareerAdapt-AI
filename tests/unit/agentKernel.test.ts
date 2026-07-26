@@ -82,16 +82,16 @@ describe("AgentKernel", () => {
     expect(events).toEqual(expect.arrayContaining(["turn_ack", "tool_started", "tool_result", "assistant_start", "assistant_delta", "done"]));
   });
 
-  it("stops equivalent repeated calls and records the loop error", async () => {
+  it("returns a recoverable observation for equivalent repeated calls", async () => {
     const repeated = { stopReason: "tool_calls", toolCalls: [{ id: "repeat-call-id", name: "get_active_profile", arguments: {} }] } satisfies AgentModelResult;
-    const { kernel } = harness(scriptedModel(repeated, repeated));
+    const { kernel } = harness(scriptedModel(repeated, repeated, { stopReason: "final", text: "已复用现有结果。" }));
     const result = await kernel.runTurn({
       session: AgentRuntime.create("agent_quick_action", "collecting_intent"),
       pageContext: { pathname: "/ai-workspace", query: {} },
       userMessage: "资料库"
     });
-    expect(result.trajectory.outcome).toBe("failed");
-    expect(result.trajectory.errors[0]?.code).toBe("agent_duplicate_tool_call");
+    expect(result.trajectory.outcome).toBe("completed");
+    expect(result.text).toBeTruthy();
   });
 
   it("enforces the total tool-call budget", async () => {

@@ -314,8 +314,20 @@ export class BrowserAgentToolService implements AgentToolServices {
   }
 
   async parseJobDescription(rawInput: unknown, operationId: string, signal?: AbortSignal) {
-    const input = rawInput as { rawText: string };
-    return analyzeJobCommand({ operationId, rawText: input.rawText }, signal);
+    const input = rawInput as { rawText: string; title?: string; company?: string };
+    const analyzed = analyzeJobCommand({ operationId, rawText: input.rawText }, signal);
+    const candidateTitle = input.title?.trim() || inferJobTitle(input.rawText);
+    const candidateCompany = input.company?.trim() || inferJobCompany(input.rawText);
+    return {
+      ...analyzed,
+      candidateTitle,
+      candidateCompany,
+      missingIdentityFields: [
+        ...(candidateTitle ? [] : ["title"]),
+        ...(candidateCompany ? [] : ["company"])
+      ],
+      reviewStatus: analyzed.needsReview ? "needs_review" : "ready_for_identity_review"
+    };
   }
 
   async commitJob(rawInput: unknown, operationId: string, signal?: AbortSignal) {
@@ -475,6 +487,23 @@ export class BrowserAgentToolService implements AgentToolServices {
       }
     });
   }
+}
+
+function inferJobTitle(rawText: string) {
+  const lines = rawText.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  const labeled = lines.find((line) => /^(岗位|职位|job\s*title)\s*[:：]/i.test(line));
+  if (labeled) return labeled.replace(/^[^:：]+[:：]\s*/, "").slice(0, 160) || undefined;
+  const first = lines[0];
+  return first && first.length <= 80 && !/职责|要求|招聘|responsibilit|requirement/i.test(first)
+    ? first.slice(0, 160)
+    : undefined;
+}
+
+function inferJobCompany(rawText: string) {
+  const line = rawText.split(/\r?\n/).map((value) => value.trim()).find((value) =>
+    /^(公司|企业|company)\s*[:：]/i.test(value)
+  );
+  return line?.replace(/^[^:：]+[:：]\s*/, "").slice(0, 160) || undefined;
 }
 
 function parseTailoringChanges(rawInput: unknown) {

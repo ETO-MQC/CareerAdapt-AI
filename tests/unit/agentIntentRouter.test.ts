@@ -2,12 +2,9 @@ import { describe, expect, it } from "vitest";
 import { routeAgentIntent } from "@/agent/runtime/agentIntentRouter";
 
 describe("agent intent router", () => {
-  it("routes high-confidence job ingestion before the planner", () => {
+  it("keeps typed job ingestion Agent-led", () => {
     const routed = routeAgentIntent("我要录入岗位", { activeWorkflowId: "build_resume_from_profile" });
-    expect(routed).toMatchObject({
-      kind: "workflow_control",
-      action: { type: "switch_workflow", workflowId: "job_ingestion", preserveCurrent: true }
-    });
+    expect(routed).toEqual({ kind: "llm", confidence: "low" });
   });
 
   it("routes cancel to workflow control instead of conversation input", () => {

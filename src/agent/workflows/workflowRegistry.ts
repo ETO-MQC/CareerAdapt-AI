@@ -62,7 +62,7 @@ export const agentWorkflowRegistry: Record<string, AgentWorkflowDefinition> = {
     requiredSlots: {
       collect_job_identity: ["title", "company"],
       collect_job_description: ["rawText"],
-      parse_job: ["title", "company", "rawText"],
+      parse_job: ["rawText"],
       review_job_semantics: ["graph"],
       confirm_commit: ["title", "company", "rawText", "graph"],
       completed: []

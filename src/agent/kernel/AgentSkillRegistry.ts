@@ -60,13 +60,22 @@ export class AgentSkillRegistry {
     }));
   }
 
-  discover(input: { workflowId: string; userMessage: string }) {
+  discover(input: {
+    workflowId: string;
+    step?: string;
+    userMessage: string;
+    selectedEntities?: { profileId?: string; resumeId?: string; jobId?: string };
+  }) {
     const text = input.userMessage.toLowerCase();
+    const explicitSignals = (candidate: AgentSkill) =>
+      candidate.tags.reduce((sum, tag) => sum + Number(text.includes(tag.toLowerCase())), 0);
     return skills
       .map((candidate) => ({
         candidate,
-        score: Number(candidate.applicableWorkflows.includes(input.workflowId)) * 4
-          + candidate.tags.reduce((sum, tag) => sum + Number(text.includes(tag.toLowerCase())), 0)
+        score: explicitSignals(candidate) * 5
+          + Number(explicitSignals(candidate) > 0 && candidate.applicableWorkflows.includes(input.workflowId)) * 2
+          + Number(explicitSignals(candidate) > 0 && Boolean(input.step))
+          + Number(explicitSignals(candidate) > 0 && Object.values(input.selectedEntities ?? {}).some(Boolean))
       }))
       .filter((entry) => entry.score > 0)
       .sort((left, right) => right.score - left.score)
