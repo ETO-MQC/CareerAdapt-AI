@@ -2,6 +2,7 @@
 
 import { type ChangeEvent, type DragEvent, useEffect, useMemo, useRef, useState } from "react";
 import { nanoid } from "nanoid";
+import { RESUME_IMPORT_ACCEPT } from "@/agent/capabilities/AgentProductCapabilityManifest";
 import { PDF_IMPORT_EXTRACTION_VERSION } from "@/domain/pdfImport/limits";
 import { buildPageTextRecords, preparePdfText } from "@/domain/pdfImport/text";
 import { validatePdfFileDescriptor, validatePdfHeader } from "@/domain/pdfImport/validation";
@@ -1269,7 +1270,7 @@ export function ResumeImportWizard(props: {
       aria-busy={["validating_file", "extracting_pdf", "extracting_docx", "extracting_ocr", "importing_json", "classifying_sections", "confirming"].includes(status)}
     >
       <p className="visually-hidden" role="status" aria-live="polite">{importStatusLabel(status)}。{message}</p>
-      <input ref={fileInputRef} className="visually-hidden" type="file" name="resume-file" aria-label="选择要导入的简历文件" accept="application/pdf,.pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/json,.json,image/png,image/jpeg,.png,.jpg,.jpeg" onChange={handleFileChange} />
+      <input ref={fileInputRef} className="visually-hidden" type="file" name="resume-file" aria-label="选择要导入的简历文件" accept={RESUME_IMPORT_ACCEPT} onChange={handleFileChange} />
       <fieldset className="import-target-picker">
         <legend>1. 选择导入目标</legend>
         <div className="import-target-options">

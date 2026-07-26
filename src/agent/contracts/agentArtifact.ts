@@ -6,6 +6,7 @@ export const AgentArtifactKindSchema = z.enum([
   "job_fit_overview",
   "clarification_questions",
   "tailoring_diff",
+  "quality_result",
   "pdf_preview"
 ]);
 

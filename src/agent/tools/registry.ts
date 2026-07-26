@@ -31,6 +31,8 @@ export type AgentToolServices = {
   answerTailoringQuestion(input: unknown, operationId: string, signal?: AbortSignal): Promise<unknown>;
   previewTailoringChanges(input: unknown, operationId: string, signal?: AbortSignal): Promise<unknown>;
   applyTailoringChanges(input: unknown, operationId: string, signal?: AbortSignal): Promise<unknown>;
+  archiveResume?(input: unknown, operationId: string, signal?: AbortSignal): Promise<unknown>;
+  restoreResume?(input: unknown, operationId: string, signal?: AbortSignal): Promise<unknown>;
   exportResume(input: unknown, operationId: string, signal?: AbortSignal): Promise<unknown>;
 };
 
@@ -95,6 +97,10 @@ const ExportInputSchema = z.object({
 
 const ProfileIdInputSchema = z.object({ profileId: z.string().min(1) }).strict();
 const ResumeIdInputSchema = z.object({ resumeId: z.string().min(1) }).strict();
+const ResumeLifecycleInputSchema = z.object({
+  resumeId: z.string().min(1),
+  expectedRevision: z.number().int().min(0)
+}).strict();
 const RevisionInputSchema = z.object({ resumeId: z.string().min(1), revisionId: z.string().min(1).optional() }).strict();
 const JobIdInputSchema = z.object({ jobId: z.string().min(1) }).strict();
 const SourceRouteInputSchema = z.object({ profileId: z.string().min(1), jobId: z.string().min(1) }).strict();
@@ -152,6 +158,8 @@ export function createAgentToolRegistry(services: AgentToolServices) {
     define(services, meta("answer_tailoring_question", "记录用户对改写澄清问题的回答。", "user_declared", true, true, true, TailoringQuestionInputSchema, "tailoring", "user_declared_fact"), (input, operationId, signal) => services.answerTailoringQuestion(input, operationId, signal)),
     define(services, meta("preview_tailoring_changes", "校验并预览将要应用的改写差异。", "read", false, true, true, TailoringChangesInputSchema, "tailoring", "resume_preview", true), (input, operationId, signal) => services.previewTailoringChanges(input, operationId, signal)),
     define(services, meta("apply_tailoring_changes", "应用已确认的改写并创建新版本。", "write", true, true, true, TailoringChangesInputSchema, "tailoring", "resume_revision", true), (input, operationId, signal) => services.applyTailoringChanges(input, operationId, signal)),
+    define(services, meta("archive_resume", "归档一份当前处于 active 状态的精确简历；不会删除内容。", "write", true, true, true, ResumeLifecycleInputSchema, "resume", "resume_lifecycle"), (input, operationId, signal) => services.archiveResume ? services.archiveResume(input, operationId, signal) : unavailableTool("archive_resume")),
+    define(services, meta("restore_resume", "将一份已归档简历恢复为 active 状态。", "write", true, true, true, ResumeLifecycleInputSchema, "resume", "resume_lifecycle"), (input, operationId, signal) => services.restoreResume ? services.restoreResume(input, operationId, signal) : unavailableTool("restore_resume")),
     define(services, meta("export_resume", "为指定简历创建 PDF 导出入口。", "write", false, true, true, ExportInputSchema, "export", "resume_export", true), (input, operationId, signal) => services.exportResume(input, operationId, signal))
   ] as AgentToolDefinition[];
 
@@ -265,5 +273,5 @@ export const agentToolNames = [
   "skills_list", "skill_view", "parse_resume_file", "create_resume_import_draft",
   "commit_resume_import", "parse_job_description", "commit_job", "create_job_resume_from_profile", "analyze_job_fit",
   "create_tailoring_session", "answer_tailoring_question", "preview_tailoring_changes",
-  "apply_tailoring_changes", "export_resume"
+  "apply_tailoring_changes", "archive_resume", "restore_resume", "export_resume"
 ] as const;

@@ -2,6 +2,7 @@ import type { AgentSession } from "@/agent/contracts/agentSession";
 import type { AgentPageContext } from "@/agent/contracts/agentContext";
 import type { AgentMemoryContext } from "./AgentMemoryManager";
 import type { AgentSkill } from "./AgentSkillRegistry";
+import { capabilityManifestForPrompt } from "@/agent/capabilities/AgentProductCapabilityManifest";
 
 export class AgentContextAssembler {
   assemble(input: {
@@ -12,6 +13,7 @@ export class AgentContextAssembler {
     activeSkills: AgentSkill[];
   }) {
     const workflow = input.session.workflowState;
+    const task = input.session.taskState;
     return [
       "Tier 1 — stable policy",
       "You are CareerAdapt AI, a career orchestration agent over existing domain tools.",
@@ -29,20 +31,20 @@ export class AgentContextAssembler {
       "",
       "Tier 2 — task",
       JSON.stringify({
-        workflowId: workflow.workflowId,
-        step: workflow.step,
-        status: workflow.status,
-        requiredSlots: Object.keys(workflow.data),
-        taskState: input.session.taskState
+        workflowId: task?.workflowId ?? workflow.workflowId,
+        step: task?.stage ?? workflow.step,
+        status: task?.completionStatus ?? workflow.status,
+        requiredSlots: task?.requiredSlots ?? [],
+        taskState: task
           ? {
-              goal: input.session.taskState.goal,
-              stage: input.session.taskState.stage,
-              requiredSlots: input.session.taskState.requiredSlots,
-              knownSlots: input.session.taskState.knownSlots,
-              missingSlots: input.session.taskState.missingSlots,
-              selectedEntities: input.session.taskState.selectedEntities,
-              completionStatus: input.session.taskState.completionStatus,
-              computeTier: input.session.taskState.computeTier
+              goal: task.goal,
+              stage: task.stage,
+              requiredSlots: task.requiredSlots,
+              knownSlots: task.knownSlots,
+              missingSlots: task.missingSlots,
+              selectedEntities: task.selectedEntities,
+              completionStatus: task.completionStatus,
+              computeTier: task.computeTier
             }
           : undefined,
         activeSkills: input.activeSkills.map((skill) => ({
@@ -61,6 +63,8 @@ export class AgentContextAssembler {
       "",
       "Tier 4 — volatile context",
       JSON.stringify({ pageContext: input.pageContext, latestUserTurn: input.userMessage }),
+      "Product capability manifest (authoritative; do not claim unlisted formats or features):",
+      JSON.stringify(capabilityManifestForPrompt()),
       "",
       "Return a concise user-visible final answer in the user's language, or use the allowed tools. Use tools autonomously when facts are needed."
     ].join("\n");

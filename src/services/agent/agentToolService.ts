@@ -527,6 +527,49 @@ export class BrowserAgentToolService implements AgentToolServices {
     });
   }
 
+  async archiveResume(rawInput: unknown, operationId: string, signal?: AbortSignal) {
+    assertNotAborted(signal);
+    const input = rawInput as { resumeId: string; expectedRevision: number };
+    const branch = await this.repository.getResumeBranch(input.resumeId);
+    if (!branch) throw toolError("resume_not_found", "Resume no longer exists.");
+    if (branch.lifecycleStatus !== "active") {
+      throw toolError("resume_not_active", "Only an active resume can be archived.");
+    }
+    const result = await this.repository.archiveResumeBranch({
+      branchId: branch.id,
+      expectedRevision: input.expectedRevision,
+      operationId,
+      confirmedImpact: true
+    });
+    return {
+      resumeId: result.branch.id,
+      lifecycleStatus: result.branch.lifecycleStatus,
+      revision: result.branch.revision,
+      idempotent: result.idempotent
+    };
+  }
+
+  async restoreResume(rawInput: unknown, operationId: string, signal?: AbortSignal) {
+    assertNotAborted(signal);
+    const input = rawInput as { resumeId: string; expectedRevision: number };
+    const branch = await this.repository.getResumeBranch(input.resumeId);
+    if (!branch) throw toolError("resume_not_found", "Resume no longer exists.");
+    if (branch.lifecycleStatus !== "archived") {
+      throw toolError("resume_not_archived", "Only an archived resume can be restored.");
+    }
+    const result = await this.repository.restoreArchivedResumeBranch({
+      branchId: branch.id,
+      expectedRevision: input.expectedRevision,
+      operationId
+    });
+    return {
+      resumeId: result.branch.id,
+      lifecycleStatus: result.branch.lifecycleStatus,
+      revision: result.branch.revision,
+      idempotent: result.idempotent
+    };
+  }
+
   async exportResume(rawInput: unknown, operationId: string, signal?: AbortSignal) {
     assertNotAborted(signal);
     const input = rawInput as { resumeId: string; templateId?: string };
