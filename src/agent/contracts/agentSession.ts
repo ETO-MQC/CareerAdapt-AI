@@ -99,8 +99,11 @@ export const AgentTurnSchema = z.object({
   completedAt: z.string().datetime({ offset: true }).optional()
 }).strict();
 
-export const AgentTaskStateSchema = z.object({
+const AgentTaskStateObjectSchema = z.object({
+  // `goal` is retained as a persisted compatibility alias for rootGoal.
   goal: z.string().max(500).default("conversation"),
+  rootGoal: z.string().max(500),
+  activeGoal: z.string().max(500),
   workflowId: z.string().min(1),
   stage: z.string().min(1),
   requiredSlots: z.array(z.string().min(1)).max(32).default([]),
@@ -118,6 +121,22 @@ export const AgentTaskStateSchema = z.object({
   computeTier: z.enum(["T0", "T1", "T2", "T3", "T4"]).default("T0"),
   updatedAt: z.string().datetime({ offset: true })
 }).strict();
+
+export const AgentTaskStateSchema = z.preprocess((value) => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+  const state = value as Record<string, unknown>;
+  const rootGoal = typeof state.rootGoal === "string"
+    ? state.rootGoal
+    : typeof state.goal === "string"
+      ? state.goal
+      : "conversation";
+  return {
+    ...state,
+    goal: rootGoal,
+    rootGoal,
+    activeGoal: typeof state.activeGoal === "string" ? state.activeGoal : rootGoal
+  };
+}, AgentTaskStateObjectSchema);
 
 export const AgentSessionSchema = z.object({
   id: z.string().min(1),

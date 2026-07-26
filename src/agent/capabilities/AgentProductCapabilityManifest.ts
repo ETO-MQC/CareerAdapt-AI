@@ -16,14 +16,28 @@ export const RESUME_IMPORT_ACCEPT = RESUME_IMPORT_FORMATS
   .join(",");
 
 export const AgentProductCapabilityManifest = {
-  supportedInputFormats: RESUME_IMPORT_FORMATS.map(({ id, label }) => ({ id, label })),
+  inputFormats: RESUME_IMPORT_FORMATS.map(({ id, label }) => ({
+    id,
+    label,
+    productStatus: "available" as const,
+    entrypoints: {
+      manual: "available" as const,
+      // P4.2a.3c will connect these formats to the shared import orchestrator.
+      agent: "manual_only" as const
+    }
+  })),
   supportedExportFormats: [
-    { id: "pdf", label: "PDF" },
-    { id: "json", label: "结构化 JSON" }
+    { id: "pdf", label: "PDF", productStatus: "available", entrypoints: { manual: "available", agent: "available" } },
+    { id: "json", label: "结构化 JSON", productStatus: "available", entrypoints: { manual: "available", agent: "available" } }
   ],
   ocr: {
     supportedInputs: ["pdf", "png", "jpeg"],
-    status: "optional_local_service",
+    productStatus: "partial",
+    entrypoints: {
+      manual: "partial",
+      agent: "unavailable"
+    },
+    runtime: "optional_local_service",
     fallback: "manual_review_required"
   },
   operation: {
@@ -43,7 +57,7 @@ export const AgentProductCapabilityManifest = {
 
 export function capabilityManifestForPrompt() {
   return {
-    inputFormats: AgentProductCapabilityManifest.supportedInputFormats,
+    inputFormats: AgentProductCapabilityManifest.inputFormats,
     exportFormats: AgentProductCapabilityManifest.supportedExportFormats,
     ocr: AgentProductCapabilityManifest.ocr,
     operation: AgentProductCapabilityManifest.operation,

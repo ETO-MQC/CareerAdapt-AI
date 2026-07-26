@@ -26,7 +26,7 @@ function safeAutonomousJump(toolName: string, state: AgentTaskState) {
   }
   if (toolName === "parse_job_description") return has(state, "rawText");
   if (toolName === "commit_job") {
-    return state.goal === "apply_to_job"
+    return state.rootGoal === "apply_to_job"
       && ["title", "company", "rawText", "graph"].every((slot) => has(state, slot));
   }
   if (["list_profiles", "list_resumes", "list_jobs", "get_active_profile"].includes(toolName)) return true;

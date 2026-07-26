@@ -12,7 +12,7 @@ import { createAgentToolRegistry, type AgentToolServices } from "@/agent/tools/r
 import { AgentProductCapabilityManifest, RESUME_IMPORT_ACCEPT } from "@/agent/capabilities/AgentProductCapabilityManifest";
 import { BrowserAgentToolService } from "@/services/agent/agentToolService";
 import { AgentHostStore } from "@/agent/runtime/AgentHostStore";
-import type { AgentSession } from "@/agent/contracts/agentSession";
+import { AgentSessionSchema, AgentTaskStateSchema, type AgentSession } from "@/agent/contracts/agentSession";
 
 describe("P4.2a.3b canonical task runtime", () => {
   it("replaces a stale quick-action workflow and uses the task workflow for every later resolution", () => {
@@ -93,6 +93,8 @@ describe("P4.2a.3b canonical task runtime", () => {
     const unknown = {
       ...analysis,
       goal: "unknown_domain_mutation",
+      rootGoal: "unknown_domain_mutation",
+      activeGoal: "unknown_domain_mutation",
       workflowId: "tailor_existing_resume",
       stage: "generate_plan",
       completionStatus: "active" as const
@@ -115,6 +117,8 @@ describe("P4.2a.3b canonical task runtime", () => {
     );
     expect(state).toMatchObject({
       goal: "ingest_job",
+      rootGoal: "ingest_job",
+      activeGoal: "ingest_job",
       workflowId: "job_ingestion",
       stage: "parse_job"
     });
@@ -134,6 +138,151 @@ describe("P4.2a.3b canonical task runtime", () => {
       observation: { jobId: "job-ai-trainer" }
     });
     expect(state).toMatchObject({ stage: "completed", completionStatus: "completed" });
+  });
+
+  it("sets ingest_job as the root before the user supplies the JD", () => {
+    const reducer = new AgentTaskStateReducer();
+    const state = reducer.reduce(
+      reducer.create(AgentRuntime.create("agent_quick_action", "collecting_intent")),
+      { type: "user_message", message: "录入这个岗位" }
+    );
+    expect(state).toMatchObject({
+      rootGoal: "ingest_job",
+      activeGoal: "ingest_job",
+      workflowId: "job_ingestion",
+      stage: "collect_job_description",
+      completionStatus: "active"
+    });
+  });
+
+  it("keeps apply_to_job as the root goal while ingest_job is an active subtask", () => {
+    const reducer = new AgentTaskStateReducer();
+    const jd = `岗位：AI训练师
+公司：示例科技
+岗位职责：负责训练数据设计、质量验收与迭代复盘，维护可追溯的任务记录。
+任职要求：具备 AI 应用、数据分析和清晰书面沟通能力。`.repeat(3);
+    let state = reducer.reduce(
+      reducer.create(AgentRuntime.create("agent_quick_action", "collecting_intent")),
+      { type: "user_message", message: "我想应聘这个岗位" }
+    );
+    expect(state).toMatchObject({
+      rootGoal: "apply_to_job",
+      activeGoal: "apply_to_job"
+    });
+
+    state = reducer.reduce(state, { type: "user_message", message: jd });
+    expect(state).toMatchObject({
+      goal: "apply_to_job",
+      rootGoal: "apply_to_job",
+      activeGoal: "ingest_job",
+      workflowId: "job_ingestion",
+      stage: "parse_job"
+    });
+    state = reducer.reduce(state, {
+      type: "tool_observation",
+      toolName: "parse_job_description",
+      observation: {
+        graph: { requirements: [] },
+        candidateTitle: "AI训练师",
+        candidateCompany: "示例科技"
+      }
+    });
+    state = reducer.reduce(state, {
+      type: "tool_observation",
+      toolName: "commit_job",
+      observation: { jobId: "job-ai-trainer" }
+    });
+
+    expect(state).toMatchObject({
+      rootGoal: "apply_to_job",
+      activeGoal: "resolve_resume_source",
+      workflowId: "tailor_existing_resume",
+      stage: "choose_resume_source",
+      completionStatus: "active",
+      selectedEntities: { jobId: "job-ai-trainer" }
+    });
+    expect(new AgentTaskCompletionGuard().evaluate(state)).toMatchObject({
+      canFinish: false,
+      requiredNextStage: "choose_resume_source"
+    });
+  });
+
+  it("does not let fit analysis complete a tailoring root goal", () => {
+    const reducer = new AgentTaskStateReducer();
+    let state = reducer.create(
+      AgentRuntime.create("tailor_existing_resume", "analyze_fit"),
+      "create_tailored_resume"
+    );
+    state = {
+      ...state,
+      selectedEntities: {
+        profileId: "profile-1",
+        resumeId: "resume-general",
+        jobId: "job-ai-trainer"
+      }
+    };
+    state = reducer.reduce(state, {
+      type: "tool_observation",
+      toolName: "analyze_job_fit",
+      observation: { analysis: { score: 88 } }
+    });
+    expect(state).toMatchObject({
+      rootGoal: "create_tailored_resume",
+      activeGoal: "create_tailored_resume",
+      stage: "generate_plan",
+      completionStatus: "active"
+    });
+    expect(new AgentTaskCompletionGuard().evaluate(state)).toMatchObject({
+      canFinish: false,
+      requiredNextStage: "generate_plan"
+    });
+  });
+
+  it("migrates legacy goal state and persists root/subtask semantics across reload", () => {
+    const migrated = AgentTaskStateSchema.parse({
+      goal: "apply_to_job",
+      workflowId: "job_ingestion",
+      stage: "completed",
+      requiredSlots: [],
+      knownSlots: {},
+      missingSlots: [],
+      selectedEntities: { jobId: "job-1" },
+      artifacts: [],
+      completionStatus: "active",
+      computeTier: "T3",
+      updatedAt: new Date().toISOString()
+    });
+    expect(migrated).toMatchObject({
+      rootGoal: "apply_to_job",
+      activeGoal: "apply_to_job"
+    });
+
+    const base = AgentRuntime.create("tailor_existing_resume", "clarify_unsupported_facts");
+    const persisted = AgentSessionSchema.parse({
+      ...base,
+      activeResumeId: "resume-1",
+      activeJobId: "job-1",
+      taskState: {
+        ...migrated,
+        activeGoal: "create_tailored_resume",
+        workflowId: "tailor_existing_resume",
+        stage: "clarify_unsupported_facts",
+        selectedEntities: {
+          resumeId: "resume-1",
+          jobId: "job-1"
+        },
+        completionStatus: "waiting_for_user"
+      }
+    });
+    expect(persisted.taskState).toMatchObject({
+      rootGoal: "apply_to_job",
+      activeGoal: "create_tailored_resume",
+      stage: "clarify_unsupported_facts",
+      selectedEntities: {
+        resumeId: "resume-1",
+        jobId: "job-1"
+      }
+    });
   });
 
   it.each([
@@ -163,6 +312,23 @@ describe("P4.2a.3b canonical task runtime", () => {
   it("uses one truthful product manifest and repository-backed archive semantics", async () => {
     expect(RESUME_IMPORT_ACCEPT).toContain(".docx");
     expect(RESUME_IMPORT_ACCEPT).not.toContain(".rtf");
+    expect(AgentProductCapabilityManifest.inputFormats).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: "pdf",
+        productStatus: "available",
+        entrypoints: { manual: "available", agent: "manual_only" }
+      }),
+      expect.objectContaining({
+        id: "docx",
+        productStatus: "available",
+        entrypoints: { manual: "available", agent: "manual_only" }
+      }),
+      expect.objectContaining({
+        id: "json",
+        productStatus: "available",
+        entrypoints: { manual: "available", agent: "manual_only" }
+      })
+    ]));
     expect(AgentProductCapabilityManifest.supportedExportFormats.map((item) => item.id)).toEqual(["pdf", "json"]);
 
     const repository = {
@@ -187,6 +353,36 @@ describe("P4.2a.3b canonical task runtime", () => {
       confirmedImpact: true
     });
     expect(result).toMatchObject({ lifecycleStatus: "archived", revision: 5 });
+  });
+
+  it("resolves the latest general resume before exposing archive_resume", () => {
+    const reducer = new AgentTaskStateReducer();
+    const base = AgentRuntime.create("agent_quick_action", "collecting_intent");
+    let state = reducer.reduce(reducer.create(base), {
+      type: "user_message",
+      message: "归档最新的通用简历"
+    });
+    state = reducer.reduce(state, {
+      type: "tool_observation",
+      toolName: "list_resumes",
+      observation: {
+        resumes: [{
+          id: "resume-general",
+          purpose: "general",
+          revision: 1,
+          updatedAt: new Date().toISOString()
+        }]
+      }
+    });
+    const tools = new AgentToolResolver(createAgentToolRegistry(services())).allowedTools({
+      workflowId: base.workflowState.workflowId,
+      step: base.workflowState.step,
+      skills: [],
+      session: { ...base, taskState: state },
+      userMessage: "归档最新的通用简历"
+    });
+    expect(state.selectedEntities.resumeId).toBe("resume-general");
+    expect(tools.map((tool) => tool.name)).toContain("archive_resume");
   });
 
   it("recovers orphaned thinking when a persisted session is adopted without a live turn", () => {

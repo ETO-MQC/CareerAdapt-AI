@@ -56,8 +56,8 @@ function isContinuable(state: AgentTaskState) {
     && state.completionStatus !== "cancelled"
     && (
       state.workflowId === "tailor_existing_resume"
-      || state.goal === "create_tailored_resume"
-      || state.goal === "apply_to_job"
+      || state.rootGoal === "create_tailored_resume"
+      || state.rootGoal === "apply_to_job"
       || ACTIVE_TAILORING_STAGES.has(state.stage)
     );
 }

@@ -684,11 +684,29 @@ export class AgentHostStore {
     this.patch({ lastProgressAt: now, stalled: false });
     this.clearStallTimer();
     if (!this.activeController) return;
+    this.scheduleStallCheck();
+  }
+
+  private scheduleStallCheck() {
+    const thresholdMs = this.dependencies.stallThresholdMs ?? 30_000;
+    const lastProgressAt = this.snapshot.lastProgressAt;
+    const elapsedMs = lastProgressAt
+      ? Math.max(0, Date.now() - Date.parse(lastProgressAt))
+      : thresholdMs;
+    const remainingMs = Math.max(0, thresholdMs - elapsedMs);
     this.stallTimer = setTimeout(() => {
-      if (this.activeController && this.snapshot.turnStatus === "running") {
+      if (!this.activeController || this.snapshot.turnStatus !== "running") return;
+      const latestProgressAt = this.snapshot.lastProgressAt;
+      const latestElapsedMs = latestProgressAt
+        ? Math.max(0, Date.now() - Date.parse(latestProgressAt))
+        : thresholdMs;
+      if (latestElapsedMs >= thresholdMs) {
         this.patch({ stalled: true });
+      } else {
+        this.clearStallTimer();
+        this.scheduleStallCheck();
       }
-    }, this.dependencies.stallThresholdMs ?? 30_000);
+    }, remainingMs);
   }
 
   private clearStallTimer() {

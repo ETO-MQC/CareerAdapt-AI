@@ -21,6 +21,8 @@ export class AgentTaskStateReducer {
     const knownSlots = { ...session.workflowState.data };
     const state: AgentTaskState = {
       goal,
+      rootGoal: goal,
+      activeGoal: goal,
       workflowId: session.workflowState.workflowId,
       stage: session.workflowState.step,
       requiredSlots: [],
@@ -42,57 +44,67 @@ export class AgentTaskStateReducer {
 
   reduce(previous: AgentTaskState, event: AgentTaskEvent): AgentTaskState {
     const state = structuredClone(previous);
+    const previouslyFinished = isFinishedRootTask(state);
     state.updatedAt = new Date().toISOString();
     if (event.type === "user_message") {
       const continuation = new TaskContinuationResolver().resolve(state, event.message);
       if (continuation.consumed) {
-        if (continuation.goal) state.goal = continuation.goal;
+        if (continuation.goal) setUserRootGoal(state, continuation.goal);
         Object.assign(state.knownSlots, continuation.slotUpdates);
         if (continuation.intent === "continue") {
           state.stage = deriveNextLegalStage(state);
         }
         state.completionStatus = "active";
-        state.computeTier = computeTier(state.goal, event.message);
+        state.computeTier = computeTier(state.rootGoal, event.message);
         return normalize(state);
       }
-      if (event.goal) state.goal = event.goal;
+      if (event.goal) setUserRootGoal(state, event.goal);
       if (state.completionStatus !== "waiting_for_confirmation") state.completionStatus = "active";
       if (/基于现有简历.*岗位定制|定制简历|创建.*岗位简历|创建.*定制简历/i.test(event.message)) {
-        state.goal = "create_tailored_resume";
+        setUserRootGoal(state, "create_tailored_resume");
         state.workflowId = "tailor_existing_resume";
       } else if (/分析.*(岗位|职位).*(匹配|适配)|匹配度/i.test(event.message)) {
-        state.goal = "analyze_job_fit";
+        setUserRootGoal(state, "analyze_job_fit");
         state.workflowId = "analyze_job_fit";
       } else if (/导入.*简历|上传.*简历/i.test(event.message)) {
-        state.goal = "import_resume";
+        setUserRootGoal(state, "import_resume");
       } else if (/从资料库.*(生成|创建).*简历/i.test(event.message)) {
-        state.goal = "create_resume_from_profile";
+        setUserRootGoal(state, "create_resume_from_profile");
       } else if (/导出.*简历/i.test(event.message)) {
-        state.goal = "export_resume";
+        setUserRootGoal(state, "export_resume");
       } else if (/归档.*简历/i.test(event.message)) {
-        state.goal = "archive_resume";
+        setUserRootGoal(state, "archive_resume");
       } else if (/恢复.*简历/i.test(event.message)) {
-        state.goal = "restore_resume";
+        setUserRootGoal(state, "restore_resume");
+      } else if (/录入.*岗位|导入.*岗位|新增.*岗位/i.test(event.message)) {
+        setUserRootGoal(state, "ingest_job");
+        state.workflowId = "job_ingestion";
+        state.stage = "collect_job_description";
       }
       captureEntityReferences(state, event.message);
+      const applicationIntent = /应聘|申请.*岗位|想投.*岗位|这工作.*试试|想试试.*岗位/i.test(event.message);
+      if (applicationIntent) setUserRootGoal(state, "apply_to_job");
       if (looksLikeJd(event.message)) {
-        state.goal = "ingest_job";
+        if (state.rootGoal === "conversation" || (previouslyFinished && !applicationIntent)) {
+          setUserRootGoal(state, "ingest_job");
+        } else {
+          state.activeGoal = "ingest_job";
+        }
         state.workflowId = "job_ingestion";
         state.stage = "parse_job";
         state.knownSlots.rawText = event.message.trim();
-      } else if (/应聘|申请.*岗位|这工作.*试试|想试试.*岗位/i.test(event.message)) {
-        state.goal = "apply_to_job";
       }
-      if (/从资料库|资料库生成|路线\s*A/i.test(event.message)) {
+      const sourceSelectionAllowed = ["apply_to_job", "create_tailored_resume"].includes(state.rootGoal);
+      if (sourceSelectionAllowed && /从资料库|资料库生成|路线\s*A/i.test(event.message)) {
         state.knownSlots.sourceRoute = "profile_to_job_resume";
         state.stage = "create_profile_resume";
-      } else if (/已有简历|现有简历|路线\s*B/i.test(event.message)) {
+      } else if (sourceSelectionAllowed && /已有简历|现有简历|通用简历|路线\s*B/i.test(event.message)) {
         state.knownSlots.sourceRoute = "existing_resume_to_job_revision";
         const recommendedResumeId = stringValue(state.knownSlots.recommendedResumeId);
         if (recommendedResumeId) state.selectedEntities.resumeId = recommendedResumeId;
         state.stage = recommendedResumeId ? "analyze_fit" : "choose_resume_source";
       }
-      state.computeTier = computeTier(state.goal, event.message);
+      state.computeTier = computeTier(state.rootGoal, event.message);
     }
     if (event.type === "slot_answer") {
       state.knownSlots[event.slot] = event.value;
@@ -103,9 +115,18 @@ export class AgentTaskStateReducer {
       state.artifacts = unique([...state.artifacts, ...(event.artifactIds ?? [])]);
       mergeObservationSlots(state, event.toolName, event.observation);
       if (event.toolName === "commit_job") {
-        state.stage = state.goal === "ingest_job" ? "completed" : "choose_resume_source";
-        state.completionStatus = state.goal === "ingest_job" ? "completed" : "active";
+        if (state.rootGoal === "ingest_job") {
+          state.activeGoal = "ingest_job";
+          state.stage = "completed";
+          state.completionStatus = "completed";
+        } else {
+          state.activeGoal = "resolve_resume_source";
+          state.workflowId = "tailor_existing_resume";
+          state.stage = "choose_resume_source";
+          state.completionStatus = "active";
+        }
       } else if (event.toolName === "recommend_resume_source") {
+        state.activeGoal = "resolve_resume_source";
         const value = objectValue(event.observation);
         state.knownSlots.sourceRecommendation = value.recommendation;
         state.knownSlots.recommendedResumeId = value.recommendedResumeId;
@@ -117,13 +138,22 @@ export class AgentTaskStateReducer {
         const revisionId = stringValue(value.revisionId);
         if (resumeId) state.selectedEntities.resumeId = resumeId;
         if (revisionId) state.selectedEntities.revisionId = revisionId;
+        state.activeGoal = "analyze_job_fit";
         state.stage = "analyze_fit";
         state.completionStatus = "active";
       } else if (event.toolName === "analyze_job_fit") {
         state.knownSlots.fitAnalysis = objectValue(event.observation).analysis ?? event.observation;
-        state.stage = state.goal === "analyze_job_fit" ? "completed" : "generate_plan";
-        state.completionStatus = state.goal === "analyze_job_fit" ? "completed" : "active";
+        if (state.rootGoal === "analyze_job_fit") {
+          state.activeGoal = "analyze_job_fit";
+          state.stage = "completed";
+          state.completionStatus = "completed";
+        } else {
+          state.activeGoal = "create_tailored_resume";
+          state.stage = "generate_plan";
+          state.completionStatus = "active";
+        }
       } else if (event.toolName === "create_tailoring_session") {
+        state.activeGoal = "create_tailored_resume";
         captureTailoringTruth(state, event.observation);
       } else if (event.toolName === "answer_tailoring_question") {
         captureTailoringTruth(state, event.observation);
@@ -138,6 +168,7 @@ export class AgentTaskStateReducer {
           factGuard: "passed",
           revisionCreated: Boolean(value.revision ?? value.revisionId)
         };
+        state.activeGoal = "quality_result";
         state.stage = "quality_result";
         state.completionStatus = "completed";
       } else if (event.toolName === "archive_resume" || event.toolName === "restore_resume") {
@@ -176,6 +207,7 @@ export class AgentTaskStateReducer {
 }
 
 function normalize(state: AgentTaskState): AgentTaskState {
+  state.goal = state.rootGoal;
   if (state.workflowId === "tailor_existing_resume") {
     if (state.stage === "select_resume") state.stage = "choose_resume_source";
     if (state.stage === "answer_questions") state.stage = "clarify_unsupported_facts";
@@ -211,6 +243,18 @@ function normalize(state: AgentTaskState): AgentTaskState {
   }
   state.missingSlots = state.requiredSlots.filter((slot) => !hasValue(state.knownSlots[slot]));
   return state;
+}
+
+function setUserRootGoal(state: AgentTaskState, goal: string) {
+  state.goal = goal;
+  state.rootGoal = goal;
+  state.activeGoal = goal;
+}
+
+function isFinishedRootTask(state: AgentTaskState) {
+  return state.completionStatus === "completed"
+    || state.completionStatus === "failed"
+    || state.completionStatus === "cancelled";
 }
 
 function mergeObservationSlots(state: AgentTaskState, toolName: string, observation: unknown) {
@@ -252,6 +296,17 @@ function mergeObservationSlots(state: AgentTaskState, toolName: string, observat
     if (id) state.selectedEntities.revisionId = id;
     const branchId = stringValue(value.branchId ?? branch.id);
     if (branchId) state.selectedEntities.resumeId = branchId;
+  }
+  if (
+    state.knownSlots.sourceRoute === "existing_resume_to_job_revision"
+    && state.stage === "choose_resume_source"
+    && state.selectedEntities.profileId
+    && state.selectedEntities.resumeId
+    && state.selectedEntities.jobId
+  ) {
+    state.activeGoal = "analyze_job_fit";
+    state.stage = "analyze_fit";
+    state.completionStatus = "active";
   }
 }
 

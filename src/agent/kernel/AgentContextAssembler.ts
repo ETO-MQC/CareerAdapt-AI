@@ -36,8 +36,9 @@ export class AgentContextAssembler {
         status: task?.completionStatus ?? workflow.status,
         requiredSlots: task?.requiredSlots ?? [],
         taskState: task
-          ? {
-              goal: task.goal,
+            ? {
+              rootGoal: task.rootGoal,
+              activeGoal: task.activeGoal,
               stage: task.stage,
               requiredSlots: task.requiredSlots,
               knownSlots: task.knownSlots,

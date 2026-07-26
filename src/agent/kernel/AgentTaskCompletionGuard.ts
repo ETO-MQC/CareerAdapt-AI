@@ -28,6 +28,7 @@ const TERMINAL_STAGES: Record<string, Set<string>> = {
   import_resume: new Set(["import_complete"]),
   export_resume: new Set(["export_complete"]),
   analyze_job_fit: new Set(["generate_plan", "quality_result", "completed"]),
+  apply_to_job: new Set(["quality_result"]),
   analyze_resume: new Set(["completed"]),
   ingest_job: new Set(["completed"]),
   archive_resume: new Set(["lifecycle_result"]),
@@ -57,23 +58,23 @@ export class AgentTaskCompletionGuard {
     if (state.completionStatus === "failed" || state.completionStatus === "cancelled") {
       return { canFinish: true, reason: "blocked" };
     }
-    if (CONVERSATION_GOALS.has(state.goal)) {
+    if (CONVERSATION_GOALS.has(state.rootGoal)) {
       return { canFinish: true, reason: "goal_completed" };
     }
-    const terminal = TERMINAL_STAGES[state.goal];
+    const terminal = TERMINAL_STAGES[state.rootGoal];
     if (!terminal) {
-      if (!KNOWN_DOMAIN_GOALS.has(state.goal) && state.workflowId === "agent_quick_action") {
+      if (!KNOWN_DOMAIN_GOALS.has(state.rootGoal) && state.workflowId === "agent_quick_action") {
         return { canFinish: true, reason: "no_safe_next_step" };
       }
       return incomplete(state, "clarification_required");
     }
-    if (state.goal === "create_tailored_resume" && !tailoringContractComplete(state)) {
+    if (["create_tailored_resume", "apply_to_job"].includes(state.rootGoal) && !tailoringContractComplete(state)) {
       return incomplete(state, requiredNextStage(state));
     }
     if (terminal.has(state.stage) || state.completionStatus === "completed") {
       return {
         canFinish: true,
-        reason: state.goal.startsWith("analyze_") ? "analysis_complete" : "goal_completed"
+        reason: state.rootGoal.startsWith("analyze_") ? "analysis_complete" : "goal_completed"
       };
     }
     return incomplete(state, requiredNextStage(state));
@@ -81,7 +82,7 @@ export class AgentTaskCompletionGuard {
 }
 
 function requiredNextStage(state: AgentTaskState) {
-  if (state.goal === "create_tailored_resume") {
+  if (["create_tailored_resume", "apply_to_job"].includes(state.rootGoal)) {
     if (!state.selectedEntities.resumeId) return "choose_resume_source";
     if (!state.selectedEntities.jobId) return "choose_job";
     if (!state.knownSlots.fitAnalysis) return "analyze_fit";
@@ -92,8 +93,8 @@ function requiredNextStage(state: AgentTaskState) {
     if (!state.selectedEntities.revisionId) return "apply";
     return deriveNextLegalStage(state);
   }
-  if (state.goal === "import_resume") return "import_review";
-  if (state.goal === "export_resume") return "export_complete";
+  if (state.rootGoal === "import_resume") return "import_review";
+  if (state.rootGoal === "export_resume") return "export_complete";
   return state.stage;
 }
 
@@ -106,7 +107,7 @@ function incomplete(
     reason: "task_incomplete",
     requiredNextStage,
     nextAction: {
-      goal: state.goal,
+      goal: state.rootGoal,
       stage: state.stage,
       missingSlots: state.missingSlots,
       requiredNextStage,

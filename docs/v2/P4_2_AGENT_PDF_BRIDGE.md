@@ -19,3 +19,14 @@ Remaining integration work:
 - add a browser E2E covering upload → extraction/OCR → review artifact → confirmed import.
 
 No duplicate PDF parser or OCR dependency is introduced by P4.2a.1.
+
+## Runtime progress and watchdog contract
+
+The Agent watchdog measures inactivity from `lastProgressAt`, not total task
+duration from `startedAt`. Model deltas, tool status, OCR page progress, or
+other heartbeat events must refresh `lastProgressAt`.
+
+Long-running extraction or local OCR may legitimately take more than 30
+seconds. It is not stalled while progress heartbeats continue. The 30-second
+warning applies only when no progress event has been observed for that period;
+it never authorizes an automatic retry of a write operation.

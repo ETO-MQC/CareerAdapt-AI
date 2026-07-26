@@ -81,7 +81,8 @@ function updateSummary(session: AgentSession, messages: AgentMessage[]) {
   const outcomes = eligible.filter((message) => message.role === "assistant" && /已完成|已保存|已创建|未能|失败/.test(message.content)).slice(-8);
   const marker = `[summary-through:${eligible.length}]`;
   const body = [
-    `当前目标：${session.taskState?.goal ?? session.memory?.currentGoal ?? session.title}`,
+    `当前目标：${session.taskState?.rootGoal ?? session.taskState?.goal ?? session.memory?.currentGoal ?? session.title}`,
+    `当前子任务：${session.taskState?.activeGoal ?? session.taskState?.goal ?? session.title}`,
     `当前阶段：${session.taskState?.stage ?? session.workflowState.step}`,
     `已选实体：${JSON.stringify(session.taskState?.selectedEntities ?? {
       profileId: session.activeProfileId,
