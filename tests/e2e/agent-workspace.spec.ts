@@ -3,20 +3,24 @@ import { expect, test } from "@playwright/test";
 test.describe("AI workspace shell", () => {
   test.beforeEach(async ({ page }) => {
     await page.route("**/api/agent/stream", async (route) => {
+      const body = route.request().postDataJSON() as {
+        messages?: Array<{ content: string }>;
+      };
+      const prompt = body.messages?.at(-1)?.content ?? "";
+      const response = prompt.includes("从零整理")
+        ? "好的，我们先从最近一段真实经历开始。请告诉我公司、岗位和时间范围。"
+        : prompt.includes("整理项目经历")
+          ? "可以。请先选择一段你确认真实存在的经历，我会按背景、职责、成果逐步提问。"
+          : "好的。请先提供这项任务需要的真实材料，我会逐步与你核对。";
+      await new Promise((resolve) => setTimeout(resolve, prompt.includes("从零整理") ? 900 : 300));
       await route.fulfill({
         contentType: "text/event-stream",
         body: [
-          "event: turn_ack",
-          "data: {\"type\":\"turn_ack\"}",
+          "event: model_text_delta",
+          `data: ${JSON.stringify({ type: "model_text_delta", delta: response })}`,
           "",
-          "event: assistant_start",
-          "data: {\"type\":\"assistant_start\"}",
-          "",
-          "event: assistant_delta",
-          "data: {\"type\":\"assistant_delta\",\"delta\":\"好的。请先提供这项任务需要的真实材料，我会逐步与你核对。\"}",
-          "",
-          "event: done",
-          "data: {\"type\":\"done\",\"message\":\"好的。请先提供这项任务需要的真实材料，我会逐步与你核对。\"}",
+          "event: model_finish",
+          "data: {\"type\":\"model_finish\",\"stopReason\":\"final\"}",
           "",
           ""
         ].join("\n")
@@ -51,8 +55,7 @@ test.describe("AI workspace shell", () => {
 
     await expect(page).toHaveURL(/\/ai-workspace$/);
     await expect(page.getByText("我想从零整理自己的真实经历")).toBeVisible();
-    await expect(page.locator('[data-message-status="thinking"]')).toBeVisible();
-    await expect(page.locator(".agent-streaming-indicator")).toBeVisible();
+    await expect(page.locator('[data-message-status="thinking"].is-streaming')).toBeVisible();
     await expect(page.getByText("好的，我们先从最近一段真实经历开始")).toBeVisible();
   });
 
@@ -109,9 +112,10 @@ test.describe("AI workspace shell", () => {
     expect(reducedTransitionMs).toBeLessThanOrEqual(0.02);
   });
 
-  test("starts a quick workflow, preserves it across an asset page, and handles PDF as partial", async ({ page }) => {
+  test("starts an explicit advanced workflow, preserves it across an asset page, and handles PDF as partial", async ({ page }) => {
     await page.goto("/ai-workspace");
-    await page.getByRole("button", { name: /生成岗位定制简历/ }).click();
+    await page.getByLabel("描述你的求职任务").fill("优化已有简历");
+    await page.getByRole("button", { name: "发送消息" }).click();
     await expect(page).toHaveURL(/\/ai-workspace$/);
     await expect(page.getByRole("heading", { name: "今天想从哪一步开始？" })).toHaveCount(0);
     await expect(page.getByRole("heading", { name: "生成岗位定制简历" })).toBeVisible();
@@ -214,7 +218,8 @@ test.describe("AI workspace shell", () => {
     await expect(page.getByTestId("resume-studio-shell")).toBeVisible({ timeout: 20_000 });
 
     await page.goto("/ai-workspace");
-    await page.getByRole("button", { name: /生成岗位定制简历/ }).click();
+    await page.getByLabel("描述你的求职任务").fill("优化已有简历");
+    await page.getByRole("button", { name: "发送消息" }).click();
     await page.getByLabel("选择已有简历").selectOption({ index: 1 });
     await page.getByRole("button", { name: "使用这份简历" }).click();
     await page.getByLabel("岗位名称").fill("高级产品经理");

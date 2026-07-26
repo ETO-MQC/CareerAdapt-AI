@@ -5,6 +5,7 @@ import { AgentExecutor } from "@/agent/runtime/agentExecutor";
 import { AgentRuntime } from "@/agent/runtime/agentRuntime";
 import { createAgentToolRegistry, type AgentToolServices } from "@/agent/tools/registry";
 import type { AgentModel, AgentModelResult } from "@/agent/model/agentModel";
+import { AgentTaskStateReducer } from "@/agent/runtime/AgentTaskStateReducer";
 
 function services(overrides: Partial<AgentToolServices> = {}): AgentToolServices {
   const result = async () => ({ value: "ok" });
@@ -113,7 +114,19 @@ describe("AgentKernel", () => {
       stopReason: "tool_calls",
       toolCalls: [{ id: "confirm-job-call", name: "commit_job", arguments: { title: "AI 训练师", company: "A", rawText: "x".repeat(30), graph: {} } }]
     }), { commitJob });
-    const session = AgentRuntime.create("job_ingestion", "confirm_commit");
+    const base = AgentRuntime.create("job_ingestion", "confirm_commit");
+    const reducer = new AgentTaskStateReducer();
+    let taskState = reducer.create(base, "apply_to_job");
+    for (const [slot, value] of Object.entries({
+      title: "AI 训练师",
+      company: "A",
+      rawText: "x".repeat(30),
+      graph: {}
+    })) {
+      taskState = reducer.reduce(taskState, { type: "slot_answer", slot, value });
+    }
+    taskState = { ...taskState, completionStatus: "waiting_for_confirmation" };
+    const session = { ...base, taskState };
     const result = await kernel.runTurn({
       session,
       pageContext: { pathname: "/ai-workspace", query: {} },

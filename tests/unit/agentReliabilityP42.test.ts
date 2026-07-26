@@ -62,7 +62,7 @@ describe("P4.2 agent reliability regressions", () => {
     const result = new AgentContextWindow().build(session, "继续讨论第 3 轮项目");
     expect(session.messages).toHaveLength(420);
     expect(result.messages.length).toBeLessThanOrEqual(21);
-    expect(result.conversationSummary).toContain("用户：");
+    expect(result.conversationSummary).toContain("当前目标：");
   });
 
   it("persists 100+ dialogue turns plus 300 activities and rejects stale metadata", async () => {
@@ -130,11 +130,12 @@ describe("P4.2 agent reliability regressions", () => {
 
   it("mounts the single Agent host above route pages and resumes confirmations", () => {
     const layout = fs.readFileSync("src/app/layout.tsx", "utf8");
-    const workspace = fs.readFileSync("src/components/agent/AgentWorkspace.tsx", "utf8");
+    const host = fs.readFileSync("src/agent/runtime/AgentHostStore.ts", "utf8");
     expect(layout.indexOf("<AgentRuntimeProvider>")).toBeLessThan(layout.indexOf("<ModeAwareAppShell>"));
-    expect(workspace).toContain("resumeKernelAfterConfirmation");
-    expect(workspace).toContain("[AUTHORITATIVE_TOOL_OBSERVATION]");
-    expect(workspace).toContain("[USER_REJECTED_ACTION]");
+    expect(host).toContain("kernel.resumeTurn");
+    expect(host).toContain('reason: "tool_observation"');
+    expect(host).not.toContain("[AUTHORITATIVE_TOOL_OBSERVATION]");
+    expect(host).not.toContain("[USER_REJECTED_ACTION]");
   });
 });
 

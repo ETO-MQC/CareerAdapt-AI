@@ -27,7 +27,7 @@ describe("agent tool registry", () => {
   it("rejects unknown tools and exposes the required policy metadata", () => {
     const registry = createAgentToolRegistry(services());
     expect(() => registry.require("drop_database")).toThrow("Unknown agent tool");
-    expect(registry.list()).toHaveLength(24);
+    expect(registry.list()).toHaveLength(26);
     expect(registry.require("list_resumes")).toMatchObject({ risk: "read", requiresConfirmation: false });
     expect(registry.require("commit_job")).toMatchObject({ risk: "write", requiresConfirmation: true });
     expect(registry.require("answer_tailoring_question")).toMatchObject({ risk: "user_declared", requiresConfirmation: true });
