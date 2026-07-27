@@ -1031,7 +1031,9 @@ export class WorkspaceRepository {
             reconciliationPlan = new ProfileReconciliationEngine().resolve({
               plan: reconciliationPlan,
               incomingItemId: pending.incomingItemId,
-              resolution: mergeDecision.action
+              resolution: mergeDecision.action === "keep_both"
+                ? "keep_both_as_distinct"
+                : mergeDecision.action
             });
           }
           if (reconciliationPlan.reviewUnits.some((unit) => !unit.resolved)
