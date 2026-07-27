@@ -83,9 +83,32 @@ test.describe("AI workspace shell", () => {
     await expect(page.locator(".agent-message-row.is-assistant").last().getByRole("button", { name: "复制消息" })).toBeVisible();
     await expect(page.locator(".agent-message-row.is-assistant").last().getByRole("button", { name: "重新生成" })).toBeVisible();
     await expect(page.locator(".agent-message-row.is-user").last().getByRole("button", { name: "编辑并重发" })).toBeVisible();
+    const assistantRow = page.locator(".agent-message-row.is-assistant").last();
+    expect(await assistantRow.evaluate((element) => getComputedStyle(element).contentVisibility)).toBe("visible");
+    await assistantRow.getByLabel("更多消息操作").click();
+    await expect(assistantRow.getByRole("menu")).toBeVisible();
+    const menuBox = await assistantRow.getByRole("menu").boundingBox();
+    expect(menuBox?.y).toBeGreaterThanOrEqual(0);
     await page.screenshot({ path: "artifacts/agent-conversation-after-1440x900.png", fullPage: true });
     await page.setViewportSize({ width: 1024, height: 768 });
     await page.screenshot({ path: "artifacts/agent-conversation-after-1024x768.png", fullPage: true });
+  });
+
+  test("keeps a new task on the zero state instead of restoring the last session", async ({ page }) => {
+    await page.goto("/ai-workspace");
+    await page.getByLabel("描述你的求职任务").fill("你好，请帮我整理项目经历");
+    await page.getByRole("button", { name: "发送消息" }).click();
+    await expect(page.getByText("可以。请先选择一段你确认真实存在的经历")).toBeVisible();
+
+    await page.goto("/recycle");
+    await page.getByRole("button", { name: "新任务" }).click();
+
+    await expect(page).toHaveURL(/\/ai-workspace$/);
+    await expect(page.getByRole("heading", { name: "今天想从哪一步开始？" })).toBeVisible();
+    await expect(page.locator(".agent-message-row")).toHaveCount(0);
+    await page.reload();
+    await expect(page.getByRole("heading", { name: "今天想从哪一步开始？" })).toBeVisible();
+    await expect(page.locator(".agent-message-row")).toHaveCount(0);
   });
 
   test("shows the six-card AI-first zero state without fixed artifacts or overflow", async ({ page }) => {

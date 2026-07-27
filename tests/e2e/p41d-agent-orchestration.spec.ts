@@ -69,7 +69,10 @@ test.describe("P4.1d agent orchestration and AI surfaces", () => {
     await page.getByRole("button", { name: "关闭" }).click();
     await page.getByRole("button", { name: "导入岗位" }).click();
     await expect(page.getByRole("dialog", { name: "导入岗位" })).toBeVisible();
-    await page.getByRole("button", { name: "取消", exact: true }).click();
+    await expect(page.getByLabel("岗位名称")).toHaveAttribute("placeholder", "例如：高级产品经理");
+    await expect(page.getByLabel("公司")).toHaveAttribute("placeholder", "例如：CareerAdapt AI");
+    await expect(page.getByLabel("岗位描述")).toHaveAttribute("placeholder", "粘贴完整岗位描述，AI 会提取职责与要求…");
+    await page.getByRole("button", { name: "关闭" }).click();
     await page.getByRole("button", { name: "工具" }).click();
     await expect(page.getByRole("dialog", { name: "可用工具" })).toBeVisible();
   });
@@ -96,4 +99,16 @@ test.describe("P4.1d agent orchestration and AI surfaces", () => {
       expect(await page.locator("html").evaluate((node) => node.scrollWidth - node.clientWidth)).toBe(0);
     });
   }
+
+  test("keeps recycle filters in a compact 60px menu row", async ({ page }) => {
+    await page.setViewportSize({ width: 1366, height: 768 });
+    await page.goto("/recycle");
+    const filterRow = page.locator(".recycle-panel > .resume-filter-row");
+    await expect(filterRow).toBeVisible();
+    expect((await filterRow.boundingBox())?.height).toBeCloseTo(60, 0);
+    const buttonHeights = await filterRow.getByRole("button").evaluateAll((buttons) =>
+      buttons.map((button) => button.getBoundingClientRect().height)
+    );
+    expect(buttonHeights.every((height) => height <= 36)).toBe(true);
+  });
 });

@@ -1,14 +1,17 @@
 "use client";
 
 import { History, Pause, Play, WifiOff } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { AgentMessage, AgentSession } from "@/agent/contracts/agentSession";
 import type { AgentUiAction } from "@/agent/contracts/agentActions";
 import { createQuickActionIntent, type AgentQuickActionId } from "@/agent/contracts/agentQuickAction";
 import { AgentRuntime } from "@/agent/runtime/agentRuntime";
 import type { TailorWorkflowViewState } from "@/agent/workflows/tailorExistingResumeWorkflow";
 import { useAgentHost } from "@/components/agent/runtime/AgentRuntimeProvider";
-import { ACTIVE_SESSION_KEY } from "@/components/agent/shell/AgentSidebar";
+import {
+  ACTIVE_SESSION_KEY,
+  NEW_TASK_SESSION_VALUE
+} from "@/components/agent/shell/AgentSidebar";
 import { AgentArtifactDrawer, type AgentArtifactDrawerState } from "./artifacts/AgentArtifactDrawer";
 import { AgentComposer } from "./AgentComposer";
 import { AgentConfirmationCard } from "./AgentConfirmationCard";
@@ -32,6 +35,7 @@ export function AgentWorkspace() {
   const [draft, setDraft] = useState("");
   const [lastUserMessage, setLastUserMessage] = useState("");
   const [floatingAction, setFloatingAction] = useState<AgentUiAction>();
+  const initialSessionRef = useRef(session);
   const running = snapshot.turnStatus === "running";
   const paused = snapshot.turnStatus === "paused";
 
@@ -76,12 +80,18 @@ export function AgentWorkspace() {
       setResumes(readArray(resumeResult.data, "resumes") as ResumeSummary[]);
       setSessions(storedSessions);
       const requested = window.localStorage.getItem(ACTIVE_SESSION_KEY);
+      if (requested === NEW_TASK_SESSION_VALUE) {
+        const created = AgentRuntime.create("agent_quick_action", "collecting_intent", "新的 AI 任务");
+        host.state.adopt(created);
+        setSession(created);
+        return;
+      }
       const restored = storedSessions.find((item) => item.id === requested) ?? storedSessions[0];
       if (restored) restoreSession(restored);
-      else host.state.adopt(session);
+      else host.state.adopt(initialSessionRef.current);
     });
     return () => { active = false; };
-  }, [host.executor, host.state, host.store, restoreSession, session]);
+  }, [host.executor, host.state, host.store, restoreSession]);
 
   useEffect(() => {
     const selectSession = (event: Event) => {
@@ -94,7 +104,7 @@ export function AgentWorkspace() {
       host.state.adopt(created);
       setSession(created);
       setDrawerState("closed");
-      window.localStorage.setItem(ACTIVE_SESSION_KEY, created.id);
+      window.localStorage.setItem(ACTIVE_SESSION_KEY, NEW_TASK_SESSION_VALUE);
     };
     const openHistory = () => void host.store.list().then((items) => {
       setSessions(items);
@@ -294,9 +304,9 @@ function AgentFloatingAction(props: {
             event.preventDefault();
             props.onSend(`录入岗位：${job.title}\n公司：${job.company}\n${job.rawText}`);
           }}>
-            <input aria-label="岗位名称" value={job.title} onChange={(event) => setJob({ ...job, title: event.target.value })} />
-            <input aria-label="公司" value={job.company} onChange={(event) => setJob({ ...job, company: event.target.value })} />
-            <textarea aria-label="岗位描述" value={job.rawText} onChange={(event) => setJob({ ...job, rawText: event.target.value })} />
+            <input aria-label="岗位名称" placeholder="例如：高级产品经理" value={job.title} onChange={(event) => setJob({ ...job, title: event.target.value })} />
+            <input aria-label="公司" placeholder="例如：CareerAdapt AI" value={job.company} onChange={(event) => setJob({ ...job, company: event.target.value })} />
+            <textarea aria-label="岗位描述" placeholder="粘贴完整岗位描述，AI 会提取职责与要求…" value={job.rawText} onChange={(event) => setJob({ ...job, rawText: event.target.value })} />
             <button className="primary-button" type="submit" disabled={!job.title.trim() || !job.company.trim() || job.rawText.trim().length < 20}>
               交给 AI 处理
             </button>

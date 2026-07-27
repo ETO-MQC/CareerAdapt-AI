@@ -360,8 +360,6 @@
   gap: 10px;
   margin-bottom: 16px;
   width: 100%;
-  content-visibility: auto;
-  contain-intrinsic-size: auto 96px;
 }
 
 .agent-message-row.is-user {
@@ -636,7 +634,7 @@
   min-width: 148px;
   padding: 4px;
   position: absolute;
-  top: 32px;
+  bottom: 32px;
   z-index: 20;
 }
 
@@ -686,7 +684,7 @@
 }
 
 .agent-stream-cursor {
-  animation: agent-cursor-blink 900ms steps(2, start) infinite;
+  animation: agent-cursor-blink 1s step-end infinite;
   background: var(--ai-accent);
   display: inline-block;
   height: 1.1em;
@@ -1112,6 +1110,12 @@
 .agent-picker-stack textarea {
   min-height: 180px;
   resize: vertical;
+}
+
+.agent-picker-stack input::placeholder,
+.agent-picker-stack textarea::placeholder {
+  color: color-mix(in srgb, var(--ai-muted) 72%, transparent);
+  opacity: 1;
 }
 
 .agent-picker-list {

@@ -28,6 +28,7 @@ import { useWorkspaceMode } from "@/components/layout/WorkspaceModeProvider";
 
 const COLLAPSED_KEY = "careeradapt.agentSidebarCollapsed.v1";
 export const ACTIVE_SESSION_KEY = "careeradapt.agent.activeSessionId";
+export const NEW_TASK_SESSION_VALUE = "__careeradapt_new_task__";
 
 const assetItems = [
   { href: "/ai-workspace", label: "AI 助手", icon: Bot },
@@ -97,7 +98,9 @@ export function AgentSidebar() {
   };
 
   const startNewTask = () => {
-    window.localStorage.removeItem(ACTIVE_SESSION_KEY);
+    // Keep an explicit request across navigation. The workspace may not be
+    // mounted yet, so an in-memory event alone is not a reliable boundary.
+    window.localStorage.setItem(ACTIVE_SESSION_KEY, NEW_TASK_SESSION_VALUE);
     router.push("/ai-workspace");
     window.dispatchEvent(new CustomEvent("careeradapt-agent-new-task"));
   };

@@ -45,7 +45,9 @@ export function AgentConversation({
   const endRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (typeof endRef.current?.scrollIntoView !== "function") return;
-    endRef.current.scrollIntoView({ block: "end", behavior: "smooth" });
+    // Streaming can update several times per second. Re-starting a smooth
+    // scroll for every delta makes the whole conversation appear to flicker.
+    endRef.current.scrollIntoView({ block: "end", behavior: "auto" });
   }, [visibleMessages.length, latestMessageContent]);
   return (
     <section className="agent-conversation" aria-label="AI 对话" aria-live="polite">

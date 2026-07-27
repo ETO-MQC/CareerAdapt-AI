@@ -403,7 +403,21 @@
 }
 
 .ai-asset-content .recycle-panel {
+  grid-template-rows: auto 60px minmax(0, 1fr);
   width: min(980px, 100%);
+}
+
+.ai-asset-content .recycle-panel > .resume-filter-row {
+  align-items: center;
+  flex-wrap: nowrap;
+  height: 60px;
+}
+
+.ai-asset-content .recycle-panel > .resume-filter-row > button {
+  font-size: 12px;
+  height: 34px;
+  min-height: 34px;
+  white-space: nowrap;
 }
 
 .ai-asset-content .recycle-empty {
