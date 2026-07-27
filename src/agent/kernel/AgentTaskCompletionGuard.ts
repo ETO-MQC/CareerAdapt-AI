@@ -71,6 +71,9 @@ export class AgentTaskCompletionGuard {
     if (["create_tailored_resume", "apply_to_job"].includes(state.rootGoal) && !tailoringContractComplete(state)) {
       return incomplete(state, requiredNextStage(state));
     }
+    if (state.rootGoal === "import_resume" && !importContractComplete(state)) {
+      return incomplete(state, requiredNextStage(state));
+    }
     if (terminal.has(state.stage) || state.completionStatus === "completed") {
       return {
         canFinish: true,
@@ -93,7 +96,13 @@ function requiredNextStage(state: AgentTaskState) {
     if (!state.selectedEntities.revisionId) return "apply";
     return deriveNextLegalStage(state);
   }
-  if (state.rootGoal === "import_resume") return "import_review";
+  if (state.rootGoal === "import_resume") {
+    if (!state.attachment && !state.knownSlots.importId) return "select_source";
+    if (!state.knownSlots.importId) return "prepare_import";
+    if (state.knownSlots.reviewStatus !== "reviewed") return "import_review";
+    if (!state.knownSlots.importTarget) return "resolve_target";
+    return "confirm_import";
+  }
   if (state.rootGoal === "export_resume") return "export_complete";
   return state.stage;
 }
@@ -133,8 +142,24 @@ function tailoringContractComplete(state: AgentTaskState) {
   );
 }
 
+function importContractComplete(state: AgentTaskState) {
+  return Boolean(
+    state.stage === "import_complete"
+    && state.completionStatus === "completed"
+    && state.knownSlots.importId
+    && state.knownSlots.expectedDraftRevision !== undefined
+    && state.knownSlots.reviewStatus === "reviewed"
+    && state.knownSlots.importTarget
+    && state.selectedEntities.profileId
+    && state.knownSlots.importResult
+  );
+}
+
 function legalToolsFor(stage: string) {
   const tools: Record<string, string[]> = {
+    prepare_import: ["prepare_resume_import"],
+    import_review: ["review_resume_import"],
+    confirm_import: ["commit_resume_import"],
     choose_resume_source: ["list_resumes"],
     choose_job: ["list_jobs"],
     analyze_fit: ["analyze_job_fit"],

@@ -233,6 +233,8 @@ export function AgentWorkspace() {
           artifacts={artifacts}
           state={drawerState}
           workflowState={workflowView}
+          taskState={session.taskState}
+          onImportAction={(message) => void dispatchMessage(message)}
           onStateChange={setDrawerState}
         />
       </div>

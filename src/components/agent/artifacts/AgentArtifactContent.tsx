@@ -1,15 +1,64 @@
 import Link from "next/link";
 import type { TailorWorkflowViewState } from "@/agent/workflows/tailorExistingResumeWorkflow";
+import type { AgentTaskState } from "@/agent/contracts/agentSession";
 
-export function AgentArtifactContent({ state }: { state: TailorWorkflowViewState }) {
+export function AgentArtifactContent({
+  state,
+  taskState,
+  onImportAction
+}: {
+  state: TailorWorkflowViewState;
+  taskState?: AgentTaskState;
+  onImportAction?(message: string): void;
+}) {
   const graph = asRecord(state.jobGraph);
   const requirements = Array.isArray(graph.requirements) ? graph.requirements : [];
   const analysis = asRecord(state.fitAnalysis);
   const plan = asRecord(asRecord(state.tailoringSession).plan);
   const questions = Array.isArray(plan.clarificationQuestions) ? plan.clarificationQuestions : [];
+  const importArtifact = asRecord(taskState?.knownSlots.importArtifact);
+  const importReview = asRecord(taskState?.knownSlots.importReviewSummary);
 
   return (
     <div className="agent-artifact-content">
+      {taskState?.rootGoal === "import_resume" && Object.keys(importArtifact).length ? (
+        <section className="agent-artifact agent-import-review-artifact" aria-label="简历导入核对">
+          <header>
+            <div>
+              <strong>{String(importArtifact.sourceFile ?? taskState.attachment?.fileName ?? "简历文件")}</strong>
+              <span>{sourceTypeLabel(importArtifact.sourceType)}</span>
+            </div>
+            <span className="agent-import-review-state">
+              {taskState.knownSlots.reviewStatus === "reviewed" ? "已核对" : "待核对"}
+            </span>
+          </header>
+          <dl>
+            <div><dt>识别内容</dt><dd>{numberValue(importReview.itemCount)} 项</dd></div>
+            <div><dt>来源明确</dt><dd>{numberValue(importReview.highConfidenceCount)} 项</dd></div>
+            <div><dt>需要确认</dt><dd>{numberValue(importReview.needsReviewCount)} 项</dd></div>
+            <div><dt>未分类</dt><dd>{numberValue(importReview.unclassifiedCount)} 项</dd></div>
+          </dl>
+          {Array.isArray(importArtifact.warnings) && importArtifact.warnings.length ? (
+            <details>
+              <summary>提示与冲突 <span>{importArtifact.warnings.length}</span></summary>
+              <ul>
+                {importArtifact.warnings.slice(0, 8).map((warning, index) => (
+                  <li key={`${index}-${String(warning)}`}>{String(warning)}</li>
+                ))}
+              </ul>
+            </details>
+          ) : (
+            <p>来源与结构检查未发现阻断项。</p>
+          )}
+          <div className="agent-import-review-actions">
+            <button type="button" onClick={() => onImportAction?.("查看这份导入草稿的来源证据")}>查看来源</button>
+            <button type="button" onClick={() => onImportAction?.("打开导入草稿进行编辑")}>编辑</button>
+            <button type="button" onClick={() => onImportAction?.("确认这些信息，采用所有来源明确的内容并继续导入")}>采用</button>
+            <button type="button" onClick={() => onImportAction?.("忽略所有未分类内容，保留来源明确的内容并继续导入")}>忽略</button>
+            <button className="is-primary" type="button" onClick={() => onImportAction?.("核对完成，确认导入")}>确认导入</button>
+          </div>
+        </section>
+      ) : null}
       {state.jobGraph ? (
         <details className="agent-artifact" open>
           <summary>岗位语义核对 <span>{requirements.length} 项要求</span></summary>
@@ -62,6 +111,22 @@ export function AgentArtifactContent({ state }: { state: TailorWorkflowViewState
       ) : null}
     </div>
   );
+}
+
+function numberValue(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
+function sourceTypeLabel(value: unknown) {
+  const labels: Record<string, string> = {
+    text_pdf: "PDF",
+    digital_pdf: "PDF",
+    complex_digital_pdf: "PDF",
+    docx: "DOCX",
+    standard_json: "JSON v2",
+    external_json: "外部 JSON"
+  };
+  return labels[String(value)] ?? String(value ?? "待识别");
 }
 
 function asRecord(value: unknown): Record<string, unknown> {

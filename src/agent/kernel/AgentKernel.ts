@@ -54,6 +54,10 @@ export class AgentKernel {
     this.observationCache = dependencies.observationCache ?? new AgentObservationCache();
   }
 
+  invalidateObservationsAfter(toolName: string) {
+    this.observationCache.invalidateAfter(toolName);
+  }
+
   async runTurn(input: {
     session: AgentSession;
     pageContext: AgentPageContext;

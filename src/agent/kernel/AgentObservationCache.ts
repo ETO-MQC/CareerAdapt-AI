@@ -85,7 +85,14 @@ function stableStringify(value: unknown): string {
 function incomplete(value: unknown) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const record = value as Record<string, unknown>;
-  return record.partial === true || record.complete === false || record.status === "partial" || record.status === "error";
+  if (record.partial === true || record.complete === false || record.status === "partial" || record.status === "error") {
+    return true;
+  }
+  // Empty discovery results are time-sensitive: a confirmed mutation can
+  // create the first entity before a later turn asks for the list again.
+  return ["profiles", "resumes", "jobs"].some((key) =>
+    Array.isArray(record[key]) && (record[key] as unknown[]).length === 0
+  );
 }
 
 function authoritativeIdentity(value: unknown) {

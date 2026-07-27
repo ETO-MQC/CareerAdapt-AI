@@ -26,6 +26,8 @@ export class AgentContextAssembler {
       "Natural-language task intent is Agent-led. Do not open a manual panel unless the user explicitly asks for a form/window or structured review materially improves safety.",
       "For application intent without a pasted JD, inspect only saved-job availability, then ask whether to continue an existing job or add a new one. Do not preload profile or resumes.",
       "When the latest turn contains a complete JD, call parse_job_description with rawText immediately, present its semantic review artifact, ask only for missing title/company, and require confirmation before commit_job.",
+      "For rootGoal import_resume with a local attachment, call prepare_resume_import with only attachment.id. Never place File, binary, base64, extracted PDF text, or structured JSON content in model context. Draft creation is not task completion; commit_resume_import requires explicit target and confirmation.",
+      "If import review has uncertain content, wait for an explicit user choice, then call review_resume_import with importId, expectedDraftRevision, and the matching decision. Never treat opening the artifact as review completion.",
       "After a confirmed or rejected action, treat the authoritative observation as the next loop input and continue automatically.",
       "Write tools must stop at their confirmation boundary. Never expose hidden reasoning, raw planner JSON, schemas, operation IDs, or engineering tool names.",
       "",
@@ -44,6 +46,7 @@ export class AgentContextAssembler {
               knownSlots: promptKnownSlots(task.knownSlots),
               missingSlots: task.missingSlots,
               selectedEntities: task.selectedEntities,
+              attachment: task.attachment,
               pendingDecision: task.pendingDecision,
               dependencySnapshots: task.dependencySnapshots,
               completionStatus: task.completionStatus,
@@ -83,6 +86,12 @@ function promptKnownSlots(slots: Record<string, unknown>) {
     "confirmedRequirementIds",
     "previewComplete",
     "confirmationAccepted"
+    ,"attachmentId"
+    ,"importId"
+    ,"expectedDraftRevision"
+    ,"reviewStatus"
+    ,"reviewDecision"
+    ,"importTarget"
   ];
   const compact = Object.fromEntries(
     retained.flatMap((key) => slots[key] === undefined ? [] : [[key, slots[key]]])

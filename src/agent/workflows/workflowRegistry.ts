@@ -30,15 +30,19 @@ export const agentWorkflowRegistry: Record<string, AgentWorkflowDefinition> = {
     review_facts: ["open_profile_browser"],
     confirm_commit: ["open_profile_browser"]
   }, ["profileId"]),
-  resume_import: workflow("resume_import", "select_file", ["select_file", "parse_resume", "review_sources", "confirm_commit", "completed"], {
-    select_file: [],
-    parse_resume: ["parse_resume_file", "create_resume_import_draft"],
-    review_sources: [],
-    confirm_commit: ["commit_resume_import"]
+  resume_import: workflow("resume_import", "select_source", ["select_source", "prepare_import", "import_review", "resolve_target", "confirm_import", "import_complete"], {
+    select_source: [],
+    prepare_import: ["prepare_resume_import"],
+    import_review: ["review_resume_import"],
+    resolve_target: [...profileReadTools],
+    confirm_import: ["commit_resume_import"],
+    import_complete: []
   }, {
-    select_file: ["open_resume_picker"],
-    review_sources: ["open_artifact"]
-  }, ["fileName"]),
+    select_source: ["open_resume_picker"],
+    import_review: ["open_artifact"],
+    resolve_target: ["open_profile_browser"],
+    confirm_import: ["open_artifact"]
+  }, ["attachmentId"]),
   job_ingestion: {
     id: "job_ingestion",
     initialStep: "collect_job_identity",

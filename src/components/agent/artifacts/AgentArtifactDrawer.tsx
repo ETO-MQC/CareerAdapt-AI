@@ -4,6 +4,7 @@ import { PanelRightOpen, Pin, PinOff, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { AgentArtifactRef } from "@/agent/contracts/agentArtifact";
 import type { TailorWorkflowViewState } from "@/agent/workflows/tailorExistingResumeWorkflow";
+import type { AgentTaskState } from "@/agent/contracts/agentSession";
 import { AgentArtifactContent } from "./AgentArtifactContent";
 
 export type AgentArtifactDrawerState = "closed" | "open" | "pinned" | "collapsed";
@@ -12,11 +13,15 @@ export function AgentArtifactDrawer({
   artifacts,
   state,
   workflowState,
+  taskState,
+  onImportAction,
   onStateChange
 }: {
   artifacts: AgentArtifactRef[];
   state: AgentArtifactDrawerState;
   workflowState: TailorWorkflowViewState;
+  taskState?: AgentTaskState;
+  onImportAction?(message: string): void;
   onStateChange(state: AgentArtifactDrawerState): void;
 }) {
   const [width, setWidth] = useState(432);
@@ -68,7 +73,7 @@ export function AgentArtifactDrawer({
           <span>{artifacts.length}</span>
         </button>
         <div hidden aria-hidden="true">
-          <AgentArtifactContent state={workflowState} />
+          <AgentArtifactContent state={workflowState} taskState={taskState} onImportAction={onImportAction} />
         </div>
       </aside>
     );
@@ -147,8 +152,8 @@ export function AgentArtifactDrawer({
           ))}
         </div>
         <div className="agent-artifact-drawer-body">
-          <AgentArtifactContent state={workflowState} />
-          {workflowState.jobGraph || workflowState.fitAnalysis || workflowState.tailoringSession || workflowState.appliedRevisionId ? null : (
+          <AgentArtifactContent state={workflowState} taskState={taskState} onImportAction={onImportAction} />
+          {workflowState.jobGraph || workflowState.fitAnalysis || workflowState.tailoringSession || workflowState.appliedRevisionId || taskState?.knownSlots.importArtifact ? null : (
             <div className="agent-artifact-partial">
               <strong>{selectedArtifact?.title}</strong>
               <p>{selectedArtifact?.summary ?? "产物已创建，正在等待下一步处理。"}</p>

@@ -4,6 +4,7 @@ import { AgentErrorSchema } from "./agentTool";
 import { AgentOptionSchema } from "./agentActions";
 import { AgentTrajectorySchema } from "../kernel/AgentTrajectory";
 import { AgentReflectionSchema } from "../kernel/AgentReflection";
+import { AgentAttachmentRefSchema } from "@/services/agent/AgentAttachmentStore";
 
 export const AgentMessageSchema = z.object({
   id: z.string().min(1),
@@ -140,6 +141,7 @@ const AgentTaskStateObjectSchema = z.object({
     tailoringSessionId: z.string().min(1).optional(),
     revisionId: z.string().min(1).optional()
   }).strict().default({}),
+  attachment: AgentAttachmentRefSchema.optional(),
   pendingDecision: AgentPendingDecisionSchema.optional(),
   dependencySnapshots: z.object({
     fitResult: AgentDependencySnapshotSchema.optional(),

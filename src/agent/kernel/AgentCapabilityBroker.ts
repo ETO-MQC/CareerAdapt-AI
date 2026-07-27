@@ -27,7 +27,10 @@ const CAPABILITIES: Record<AgentIntentClass, string[]> = {
   conversation: [],
   profile_identity: ["get_active_profile", "get_profile"],
   profile_search: ["get_active_profile", "get_profile", "search_profile_facts"],
-  resume: ["list_resumes", "get_resume", "get_resume_revision", "archive_resume", "restore_resume"],
+  resume: [
+    "list_resumes", "get_resume", "get_resume_revision", "archive_resume", "restore_resume",
+    "prepare_resume_import", "review_resume_import", "list_profiles", "commit_resume_import"
+  ],
   application_intent: ["list_jobs"],
   job_ingestion: ["parse_job_description", "commit_job"],
   job: ["list_jobs", "get_job"],
@@ -59,6 +62,7 @@ export class AgentCapabilityBroker {
     const compact = text.toLowerCase().replace(/\s+/g, "");
     let result: AgentIntentRoute;
     if (!compact || CASUAL_TURNS.has(compact)) result = route("conversation", "conversation", 1, [], []);
+    else if (/导入简历文件|上传简历文件/i.test(text)) result = route("resume", "import_resume", 1, ["resume"], ["resume"], "resume_import");
     else if (looksLikeJobDescription(text)) result = route("job_ingestion", "apply_to_job", 0.99, ["job"], ["job_ingestion"], "job_ingestion");
     else if (/这工作.*(合适|不错|可以).*(试试|申请|应聘)|想试试.*(工作|岗位)/i.test(text)) {
       result = route("application_intent", "apply_to_job", 0.92, ["job", "application"], ["job", "tailoring"], "tailor_existing_resume");

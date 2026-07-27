@@ -29,9 +29,67 @@ import { canonicalProfileLibraryItems, canonicalProfileSectionCounts } from "@/d
 import { agentSkillRegistry } from "@/agent/kernel/AgentSkillRegistry";
 import { recommendSourceRoute } from "@/agent/orchestration/sourceRouteRecommendation";
 import { analyzeProfileLibrarySource } from "@/services/jobs/jobResumeSourceModes";
+import { agentAttachmentStore } from "@/services/agent/AgentAttachmentStore";
+import { ResumeImportOrchestrator } from "@/services/resumeImport/ResumeImportOrchestrator";
+import {
+  applyResumeImportReviewDecision,
+  type ResumeImportReviewDecision
+} from "@/domain/resumeImport/reviewDecisions";
+import { agentImportProgressBus } from "@/services/agent/AgentImportProgressBus";
 
 export class BrowserAgentToolService implements AgentToolServices {
   constructor(private readonly repository = new WorkspaceRepository()) {}
+
+  async prepareResumeImport(rawInput: unknown, signal?: AbortSignal) {
+    assertNotAborted(signal);
+    const input = rawInput as { attachmentId: string };
+    const { ref, file } = agentAttachmentStore.resolve(input.attachmentId);
+    const prepared = await new ResumeImportOrchestrator(this.repository).prepare({
+      fileName: ref.fileName,
+      mimeType: ref.mimeType,
+      size: ref.size,
+      file
+    }, {
+      signal,
+      onProgress: (progress) => agentImportProgressBus.emit(progress)
+    });
+    return {
+      importId: prepared.importId,
+      expectedDraftRevision: prepared.draftRevision,
+      sourceKind: prepared.sourceKind,
+      fileName: prepared.fileName,
+      fileHash: prepared.fileHash,
+      status: prepared.status,
+      quality: prepared.quality,
+      reviewSummary: prepared.reviewSummary,
+      artifactPayload: prepared.artifactPayload,
+      warnings: prepared.warnings
+    };
+  }
+
+  async reviewResumeImport(rawInput: unknown, signal?: AbortSignal) {
+    assertNotAborted(signal);
+    const input = rawInput as {
+      importId: string;
+      expectedDraftRevision: number;
+      decision: ResumeImportReviewDecision;
+    };
+    const draft = await this.repository.getImportedResumeDraft(input.importId);
+    if (!draft) throw toolError("resume_import_draft_missing", "导入草稿不存在，请重新选择文件。");
+    if (draft.revision !== input.expectedDraftRevision) {
+      throw toolError("resume_import_stale_revision", "导入草稿已变化，请刷新核对结果后重试。");
+    }
+    const saved = await this.repository.saveImportedResumeDraft(
+      applyResumeImportReviewDecision(draft, input.decision),
+      input.expectedDraftRevision
+    );
+    return {
+      importId: saved.importId,
+      expectedDraftRevision: saved.revision,
+      reviewStatus: "reviewed",
+      decision: input.decision
+    };
+  }
 
   async listResumes(signal?: AbortSignal) {
     assertNotAborted(signal);
@@ -404,7 +462,7 @@ export class BrowserAgentToolService implements AgentToolServices {
     const input = rawInput as {
       importId: string;
       expectedDraftRevision: number;
-      target?: { mode: "existing"; profileId: string } | { mode: "new"; profileName: string; createGeneralResume: true };
+      target: { mode: "existing"; profileId: string } | { mode: "new"; profileName: string; createGeneralResume: true };
     };
     return this.repository.confirmImportedResume({ ...input, operationId });
   }

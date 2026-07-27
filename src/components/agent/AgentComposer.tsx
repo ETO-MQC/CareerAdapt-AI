@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { AgentUiAction } from "@/agent/contracts/agentActions";
+import { AGENT_RESUME_IMPORT_ACCEPT } from "@/agent/capabilities/AgentProductCapabilityManifest";
 
 type Attachment = {
   id: string;
@@ -145,7 +146,7 @@ export function AgentComposer(props: {
           ref={inputRef}
           className="sr-only"
           type="file"
-          accept=".txt,.json,.pdf,.docx"
+          accept={AGENT_RESUME_IMPORT_ACCEPT}
           disabled={props.disabled}
           onChange={(event) => {
             const file = event.target.files?.[0];

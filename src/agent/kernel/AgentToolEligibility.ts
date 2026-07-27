@@ -25,6 +25,21 @@ function safeAutonomousJump(toolName: string, state: AgentTaskState) {
     return false;
   }
   if (toolName === "parse_job_description") return has(state, "rawText");
+  if (toolName === "prepare_resume_import") {
+    return state.rootGoal === "import_resume" && Boolean(state.attachment?.id);
+  }
+  if (toolName === "review_resume_import") {
+    return state.rootGoal === "import_resume"
+      && state.stage === "import_review"
+      && has(state, "reviewDecision");
+  }
+  if (toolName === "commit_resume_import") {
+    return state.rootGoal === "import_resume"
+      && state.stage === "confirm_import"
+      && has(state, "importId")
+      && has(state, "expectedDraftRevision")
+      && has(state, "importTarget");
+  }
   if (toolName === "commit_job") {
     return state.rootGoal === "apply_to_job"
       && ["title", "company", "rawText", "graph"].every((slot) => has(state, slot));
@@ -53,6 +68,22 @@ function safeAutonomousJump(toolName: string, state: AgentTaskState) {
 }
 
 function preconditions(toolName: string, state: AgentTaskState) {
+  if (toolName === "prepare_resume_import") {
+    return state.stage === "prepare_import" && Boolean(state.attachment?.id);
+  }
+  if (toolName === "review_resume_import") {
+    return state.stage === "import_review"
+      && has(state, "importId")
+      && has(state, "expectedDraftRevision")
+      && has(state, "reviewDecision");
+  }
+  if (toolName === "commit_resume_import") {
+    return state.stage === "confirm_import"
+      && state.completionStatus === "waiting_for_confirmation"
+      && has(state, "importId")
+      && has(state, "expectedDraftRevision")
+      && has(state, "importTarget");
+  }
   if (toolName === "parse_job_description") return has(state, "rawText");
   if (toolName === "commit_job") {
     return ["title", "company", "rawText", "graph"].every((slot) => has(state, slot))

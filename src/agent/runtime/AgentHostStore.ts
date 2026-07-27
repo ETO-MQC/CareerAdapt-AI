@@ -15,6 +15,8 @@ import {
   projectTaskStateIntoSession,
   projectTaskStateToWorkflowState
 } from "./projectTaskStateToWorkflowState";
+import { agentAttachmentStore, type AgentAttachmentRef } from "@/services/agent/AgentAttachmentStore";
+import { agentImportProgressBus } from "@/services/agent/AgentImportProgressBus";
 
 export type AgentHostInput =
   | { type: "message"; text: string }
@@ -58,7 +60,40 @@ export class AgentHostStore {
     executor: AgentExecutor;
     persistence: AgentSessionStore;
     stallThresholdMs?: number;
-  }) {}
+  }) {
+    agentImportProgressBus.subscribe((progress) => {
+      if (this.snapshot.turnStatus !== "running") return;
+      this.markProgress();
+      const activeSession = this.snapshot.activeSession;
+      const progressedSession = activeSession
+        ? {
+            ...activeSession,
+            messages: activeSession.messages.map((message) =>
+              message.toolName === "prepare_resume_import" && message.status === "pending"
+                ? {
+                    ...message,
+                    content: progress.message,
+                    updatedAt: progress.at
+                  }
+                : message
+            ),
+            updatedAt: progress.at
+          }
+        : undefined;
+      this.patch({
+        activeSession: progressedSession ?? activeSession,
+        currentObservation: {
+          toolName: "prepare_resume_import",
+          stage: progress.stage,
+          message: progress.message,
+          heartbeat: progress.heartbeat
+        }
+      });
+      if (progressedSession && !progress.heartbeat) {
+        void this.dependencies.persistence.save(progressedSession);
+      }
+    });
+  }
 
   subscribe = (listener: () => void) => {
     this.listeners.add(listener);
@@ -118,10 +153,12 @@ export class AgentHostStore {
       }, context.pageContext, turnId);
     }
     if (input.type === "file") {
+      const attachment = await agentAttachmentStore.register(input.file);
       return this.startTurn({
         session,
         userMessage: `导入简历文件：${input.file.name}`,
-        pageContext: context.pageContext
+        pageContext: context.pageContext,
+        attachment
       });
     }
     if (input.type === "option") {
@@ -169,6 +206,7 @@ export class AgentHostStore {
     session: AgentSession;
     userMessage: string;
     pageContext: AgentPageContext;
+    attachment?: AgentAttachmentRef;
   }) {
     const previousGeneration = this.runGeneration;
     if (this.activeController) {
@@ -203,10 +241,16 @@ export class AgentHostStore {
       parentMessageId: userMessageId
     });
     const reducer = new AgentTaskStateReducer();
-    const taskState = reducer.reduce(current.taskState ?? reducer.create(current), {
+    let taskState = reducer.reduce(current.taskState ?? reducer.create(current), {
       type: "user_message",
       message: input.userMessage
     });
+    if (input.attachment) {
+      taskState = reducer.reduce(taskState, {
+        type: "attachment_selected",
+        attachment: input.attachment
+      });
+    }
     current = {
       ...projectTaskStateIntoSession(current, taskState),
       activeTurn: {
@@ -341,6 +385,9 @@ export class AgentHostStore {
       operationId: call.operationId,
       confirmed: true
     });
+    if (result.ok && typeof this.dependencies.kernel.invalidateObservationsAfter === "function") {
+      this.dependencies.kernel.invalidateObservationsAfter(call.toolName);
+    }
     current = upsertAgentActivity(current, {
       id: `agent-tool-${call.operationId}`,
       turnId,
@@ -621,6 +668,31 @@ export class AgentHostStore {
             ]
           };
         }
+        if (event.ok && event.toolName === "prepare_resume_import") {
+          const now = new Date().toISOString();
+          const artifactId = event.artifactIds?.[0] ?? `agent-artifact-prepare_resume_import-${event.operationId}`;
+          const observation = objectValue(this.snapshot.currentObservation);
+          const taskObservation = objectValue(current.taskState?.lastObservation);
+          const result = objectValue(taskObservation.value ?? observation);
+          const importId = stringValue(result.importId) ?? `pending-${event.operationId}`;
+          current = {
+            ...current,
+            artifactRefs: [
+              ...current.artifactRefs.filter((artifact) => artifact.id !== artifactId),
+              {
+                id: artifactId,
+                kind: "resume_import_review",
+                title: "简历导入核对",
+                entityType: "resume_import_draft",
+                entityId: importId,
+                status: "active",
+                summary: event.summary,
+                createdAt: now,
+                updatedAt: now
+              }
+            ]
+          };
+        }
         if (event.ok && ["analyze_job_fit", "create_tailoring_session", "preview_tailoring_changes", "apply_tailoring_changes"].includes(event.toolName)) {
           const now = new Date().toISOString();
           const artifactId = event.artifactIds?.[0] ?? `agent-artifact-${event.toolName}-${event.operationId}`;
@@ -771,6 +843,19 @@ export class AgentHostStore {
           ? projectTaskStateToWorkflowState(result.taskState, current.workflowState)
           : current.workflowState
       };
+      const importedId = result.taskState?.rootGoal === "import_resume"
+        ? stringValue(result.taskState.knownSlots.importId)
+        : undefined;
+      if (importedId) {
+        current = {
+          ...current,
+          artifactRefs: current.artifactRefs.map((artifact) =>
+            artifact.kind === "resume_import_review" && artifact.entityId.startsWith("pending-")
+              ? { ...artifact, entityId: importedId, updatedAt: new Date().toISOString() }
+              : artifact
+          )
+        };
+      }
       if (result.taskState?.pendingDecision) {
         current = attachPendingDecisionOptions(current, result.taskState.pendingDecision);
       }
@@ -1080,4 +1165,14 @@ function artifactDescriptor(toolName: string): {
     return { kind: "quality_result", title: "定制简历质量结果", entityType: "resume_branch", route: "/resume" };
   }
   return undefined;
+}
+
+function objectValue(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+}
+
+function stringValue(value: unknown) {
+  return typeof value === "string" && value.trim() ? value : undefined;
 }

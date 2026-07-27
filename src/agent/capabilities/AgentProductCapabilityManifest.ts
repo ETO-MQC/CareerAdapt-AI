@@ -24,8 +24,7 @@ export const AgentProductCapabilityManifest = {
       productStatus: imageRequiresPartialOcr ? "partial" as const : "available" as const,
       entrypoints: {
         manual: imageRequiresPartialOcr ? "partial" as const : "available" as const,
-        // P4.2a.3c will connect PDF/DOCX/JSON to the shared import orchestrator.
-        agent: imageRequiresPartialOcr ? "unavailable" as const : "manual_only" as const
+        agent: imageRequiresPartialOcr ? "unavailable" as const : "available" as const
       }
     };
   }),
@@ -57,6 +56,14 @@ export const AgentProductCapabilityManifest = {
     "resume_export"
   ]
 } as const;
+
+export const AGENT_RESUME_IMPORT_ACCEPT = AgentProductCapabilityManifest.inputFormats
+  .filter((format) => format.entrypoints.agent === "available")
+  .flatMap((format) => {
+    const definition = RESUME_IMPORT_FORMATS.find((candidate) => candidate.id === format.id);
+    return definition ? [...definition.mimeTypes, ...definition.extensions] : [];
+  })
+  .join(",");
 
 export function capabilityManifestForPrompt() {
   return {
