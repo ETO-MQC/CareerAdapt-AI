@@ -125,8 +125,11 @@ export function createImportedResumeDraftFromText(input: {
   });
   const candidateResult = createDeterministicFieldCandidates(sourceBlocks);
   const basics = detectBasicsFromBlocks(sourceBlocks, pageSources);
-  const sections = input.layoutArtifacts?.length
+  const semanticSections = input.layoutArtifacts?.length
     ? detectSectionsFromSemanticArtifacts(input.layoutArtifacts, sourceBlocks)
+    : [];
+  const sections = semanticSections.length > 0
+    ? semanticSections
     : detectSectionsFromBlocks(sourceBlocks);
   const abnormalPhoneCandidate: ImportedResumeFieldCandidate[] = basics.phone?.confidence === "low" && basics.phone.sourceBlockIds.length ? [{
     id: `candidate-abnormal-phone-${importId}`,

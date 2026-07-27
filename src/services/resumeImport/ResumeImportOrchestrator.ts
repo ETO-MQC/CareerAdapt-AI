@@ -213,7 +213,23 @@ export class ResumeImportOrchestrator {
 
     emit(context, "normalizing", "正在还原阅读顺序并规范化来源块。");
     const sourceBlocks = normalizeExtractedSourceBlocks(extracted.pages.flatMap((page) => page.blocks));
-    const quality = analyzeImportQuality({ sourceType: "text_pdf", blocks: sourceBlocks });
+    const analyzedQuality = analyzeImportQuality({ sourceType: "text_pdf", blocks: sourceBlocks });
+    const hasComplexPdfLayout = extracted.pages.some((page) =>
+      page.classification === "complex_digital_pdf"
+      || page.warnings.some((warning) => warning.startsWith("complex_layout:"))
+    );
+    const quality: ImportQualityReport = hasComplexPdfLayout
+      ? {
+          ...analyzedQuality,
+          readingOrderConfidence: analyzedQuality.readingOrderConfidence === "low" ? "low" : "medium",
+          layoutComplexity: "multi_column",
+          recommendedRoute: analyzedQuality.recommendedRoute === "ocr_ai" ? "ocr_ai" : "ai_text",
+          warnings: Array.from(new Set([
+            ...analyzedQuality.warnings,
+            "检测到多栏布局，已按坐标恢复阅读顺序，请重点核对跨栏内容。"
+          ]))
+        }
+      : analyzedQuality;
     const preferences = context.preferences ?? DEFAULT_DOCUMENT_RECOGNITION_PREFERENCES;
     let decision = selectDocumentImportRoute({
       sourceKind: "text_pdf",
@@ -247,6 +263,7 @@ export class ResumeImportOrchestrator {
         return this.persistTextDraft({
           source,
           fileHash,
+          sourceSessionId: session.id,
           sourceKind: "text_pdf",
           text: experimental.text,
           sourceBlocks: blocks,
@@ -398,6 +415,7 @@ export class ResumeImportOrchestrator {
     input: {
       source: ResumeImportLocalSource;
       fileHash: string;
+      sourceSessionId?: string;
       sourceKind: "docx" | "text_pdf";
       text: string;
       sourceBlocks: ExtractedSourceBlock[];
@@ -416,6 +434,7 @@ export class ResumeImportOrchestrator {
     const normalizedTextHash = await hashText(normalizedText);
     const now = new Date().toISOString();
     const pages = await buildSyntheticPageTexts({
+      sessionId: input.sourceSessionId,
       fileName: input.source.fileName,
       pageTexts: Array.from({ length: input.pageCount ?? 1 }, (_, index) =>
         normalizedBlocksToText(blocks.filter((block) => (block.page ?? 1) === index + 1))
@@ -426,6 +445,7 @@ export class ResumeImportOrchestrator {
     emit(context, "mapping", "正在映射简历结构并保留来源证据。");
     const draft = createImportedResumeDraftFromText({
       source: {
+        sourceSessionId: input.sourceSessionId,
         fileName: input.source.fileName,
         mimeType: input.source.mimeType as "application/pdf" | "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         fileHash: input.fileHash,
@@ -439,6 +459,9 @@ export class ResumeImportOrchestrator {
       qualityReport: analyzeImportQuality({ sourceType: input.sourceKind, blocks }),
       now
     });
+    if (input.sourceSessionId) {
+      await this.repository.savePdfPageTexts(input.sourceSessionId, pages);
+    }
     const withWarnings = {
       ...draft,
       warnings: [
@@ -550,12 +573,13 @@ function summarizeDraft(draft: ImportedResumeDraft): ResumeImportReviewSummary {
 }
 
 async function buildSyntheticPageTexts(input: {
+  sessionId?: string;
   fileName: string;
   pageTexts: string[];
   fallbackText: string;
   now: string;
 }) {
-  const sessionId = `synthetic-${nanoid(10)}`;
+  const sessionId = input.sessionId ?? `synthetic-${nanoid(10)}`;
   const sourcePages = input.pageTexts.some((text) => text.trim()) ? input.pageTexts : [input.fallbackText];
   const pages: PdfPageText[] = [];
   let charStart = 0;

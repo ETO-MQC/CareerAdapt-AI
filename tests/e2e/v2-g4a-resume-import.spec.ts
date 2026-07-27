@@ -54,14 +54,13 @@ function getOutputDir() {
 test.describe("V2-G4a PDF resume import", () => {
   test("upload text PDF, review, confirm general branch, edit template and download PDF", async ({ page }) => {
     await page.goto("/resume");
-    await expect(page.getByRole("heading", { name: "导入已有简历", exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "选择或拖放文件", exact: true }).click();
+    await page.getByRole("button", { name: "导入", exact: true }).click();
     await expect(page.getByRole("dialog", { name: "导入简历" })).toBeVisible();
 
     const beforeBranches = await getBranches(page);
     expect(beforeBranches.filter((branch) => branch.branchPurpose === "general")).toHaveLength(0);
 
-    await page.locator("input[type='file']").setInputFiles(resolve(process.cwd(), "tests/fixtures/pdf/single-page-en.pdf"));
+    await page.getByLabel("选择要导入的简历文件").setInputFiles(resolve(process.cwd(), "tests/fixtures/pdf/single-page-en.pdf"));
     await expect(page.locator(".import-structure-panel")).toBeVisible({ timeout: 45_000 });
     await expect(page.locator(".import-structure-panel")).toContainText("工作经历");
     await expect(page.locator(".import-structure-panel")).toContainText("技能");
@@ -96,8 +95,8 @@ test.describe("V2-G4a PDF resume import", () => {
     await expect(page.getByTestId("resume-a4-page")).toHaveClass(/template-business-consulting/);
     await openManualPageTab(page);
     const preferOnePage = page.getByTestId("page-policy-selector");
-    if (await preferOnePage.isChecked()) await preferOnePage.click();
-    await expect(preferOnePage).not.toBeChecked();
+    await preferOnePage.selectOption("natural");
+    await expect(preferOnePage).toHaveValue("natural");
 
     const result = await downloadDirectPdf(page, "g4a-imported-general");
     assertPdf(result.path, ["Data Platform Team Lead", "Python", "SQL"], ["Backend Engineer", "确认导入", "上传PDF简历"]);
@@ -111,10 +110,10 @@ test.describe("V2-G4a PDF resume import", () => {
 
   test("rejects non-pdf file at the import entrance", async ({ page }) => {
     await page.goto("/resume");
-    await page.getByRole("button", { name: "选择或拖放文件", exact: true }).click();
+    await page.getByRole("button", { name: "导入", exact: true }).click();
     await expect(page.getByRole("dialog", { name: "导入简历" })).toBeVisible();
-    await page.locator("input[type='file']").setInputFiles(resolve(process.cwd(), "tests/fixtures/pdf/not-a-pdf.txt"));
-    await expect(page.locator(".import-dropzone")).toContainText("文件头不是 PDF 格式", { timeout: 10_000 });
+    await page.getByLabel("选择要导入的简历文件").setInputFiles(resolve(process.cwd(), "tests/fixtures/pdf/not-a-pdf.txt"));
+    await expect(page.locator(".import-dropzone")).toContainText("当前仅支持 PDF、DOCX 和 JSON 简历文件", { timeout: 10_000 });
     const branches = await getBranches(page);
     expect(branches.filter((branch) => branch.branchPurpose === "general")).toHaveLength(0);
   });
