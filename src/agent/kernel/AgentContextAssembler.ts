@@ -28,6 +28,8 @@ export class AgentContextAssembler {
       "When the latest turn contains a complete JD, call parse_job_description with rawText immediately, present its semantic review artifact, ask only for missing title/company, and require confirmation before commit_job.",
       "For rootGoal import_resume with a local attachment, call prepare_resume_import with only attachment.id. Never place File, binary, base64, extracted PDF text, or structured JSON content in model context. Draft creation is not task completion; commit_resume_import requires explicit target and confirmation.",
       "If import review has uncertain content, wait for an explicit user choice, then call review_resume_import with importId, expectedDraftRevision, and the matching decision. Never treat opening the artifact as review completion.",
+      "For an existing Profile target, call reconcile_resume_import before commit_resume_import. Deterministic reconciliation is authoritative: ask only about unresolved likely duplicates or conflicts, record each explicit decision with resolve_resume_reconciliation, and pass expectedReconciliationRevision when committing.",
+      "After reconciliation, summarize the artifact in one compact sentence using its exact counts: 已整理这份简历：X 项资料库已有，Y 项可安全合并来源，Z 项是新内容，N 项需要你确认。 Do not ask about auto-safe decisions.",
       "After a confirmed or rejected action, treat the authoritative observation as the next loop input and continue automatically.",
       "Write tools must stop at their confirmation boundary. Never expose hidden reasoning, raw planner JSON, schemas, operation IDs, or engineering tool names.",
       "",
@@ -92,10 +94,23 @@ function promptKnownSlots(slots: Record<string, unknown>) {
     ,"reviewStatus"
     ,"reviewDecision"
     ,"importTarget"
+    ,"expectedReconciliationRevision"
+    ,"reconciliationDecision"
   ];
   const compact = Object.fromEntries(
     retained.flatMap((key) => slots[key] === undefined ? [] : [[key, slots[key]]])
   );
+  const reconciliation = objectValue(slots.importReconciliation);
+  if (Object.keys(reconciliation).length) {
+    compact.importReconciliation = {
+      profileId: reconciliation.profileId,
+      status: reconciliation.status,
+      summary: reconciliation.summary,
+      unresolved: Array.isArray(reconciliation.unresolved)
+        ? reconciliation.unresolved.slice(0, 12)
+        : []
+    };
+  }
   const sourceRecommendation = objectValue(slots.sourceRecommendation);
   if (Object.keys(sourceRecommendation).length) {
     compact.sourceRecommendation = {

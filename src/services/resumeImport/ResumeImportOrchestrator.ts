@@ -546,28 +546,49 @@ function validateJsonText(text: string) {
 
 function summarizeDraft(draft: ImportedResumeDraft): ResumeImportReviewSummary {
   const items = draft.sections.flatMap((section) => section.items);
-  const fields = [
-    draft.basics.name,
-    draft.basics.email,
-    draft.basics.phone,
-    draft.basics.location,
-    draft.basics.summary,
-    ...draft.basics.links
-  ].filter((field): field is NonNullable<typeof field> => Boolean(field));
+  const namedFields = [
+    ["name", draft.basics.name],
+    ["email", draft.basics.email],
+    ["phone", draft.basics.phone],
+    ["location", draft.basics.location],
+    ["summary", draft.basics.summary],
+    ...draft.basics.links.map((field, index) => [`link:${index}`, field] as const)
+  ] as const;
+  const fields = namedFields
+    .map(([, field]) => field)
+    .filter((field): field is NonNullable<typeof field> => Boolean(field));
   const candidates = draft.schemaVersion === "resume-import-v2" ? draft.fieldCandidates : [];
-  const needsReviewCount =
-    fields.filter((field) => field.mapping?.needsConfirmation || field.confidence === "low").length
-    + items.filter((item) => item.mapping?.needsConfirmation || item.confidence === "low").length
-    + candidates.filter((candidate) => candidate.reviewStatus === "needs_review").length
-    + draft.unclassifiedBlocks.length;
+  const reviewUnits = new Set<string>();
+  for (const candidate of candidates.filter((candidate) => candidate.reviewStatus === "needs_review")) {
+    reviewUnits.add(`candidate:${candidate.itemId ?? "basics"}:${candidate.targetFieldId}`);
+  }
+  for (const [fieldName, field] of namedFields) {
+    if (!field || (!field.mapping?.needsConfirmation && field.confidence !== "low")) continue;
+    const represented = candidates.some((candidate) =>
+      candidate.reviewStatus === "needs_review"
+      && (candidate.itemId === "basics" || !candidate.itemId)
+      && candidate.targetFieldId.endsWith(fieldName.split(":")[0])
+    );
+    if (!represented) reviewUnits.add(`basic:${fieldName}`);
+  }
+  for (const item of items) {
+    if (!item.mapping?.needsConfirmation && item.confidence !== "low") continue;
+    const represented = candidates.some((candidate) =>
+      candidate.reviewStatus === "needs_review" && candidate.itemId === item.id
+    );
+    if (!represented) reviewUnits.add(`item:${item.id}`);
+  }
+  for (const [index, block] of draft.unclassifiedBlocks.entries()) {
+    reviewUnits.add(`unclassified:${"sourcePath" in block ? block.sourcePath : `${block.sourceBlockId}:${block.sourceRange.start}:${block.sourceRange.end}`}:${index}`);
+  }
   return {
     sectionCount: draft.sections.length,
     itemCount: items.length + fields.length,
     highConfidenceCount:
       fields.filter((field) => field.confidence === "high" && !field.mapping?.needsConfirmation).length
       + items.filter((item) => item.confidence === "high" && !item.mapping?.needsConfirmation).length,
-    needsReviewCount,
-    conflictCount: candidates.filter((candidate) => candidate.reviewStatus === "needs_review").length,
+    needsReviewCount: reviewUnits.size,
+    conflictCount: 0,
     unclassifiedCount: draft.unclassifiedBlocks.length
   };
 }

@@ -5,7 +5,9 @@ const manifest = [
   { name: "list_resumes" },
   { name: "parse_job_description" },
   { name: "commit_job" },
-  { name: "apply_tailoring_changes" }
+  { name: "apply_tailoring_changes" },
+  { name: "reconcile_resume_import" },
+  { name: "resolve_resume_reconciliation" }
 ];
 
 describe("agent workflow registry", () => {
@@ -24,6 +26,8 @@ describe("agent workflow registry", () => {
   it("gates tools by the current workflow step", () => {
     expect(allowedToolManifestForStep("job_ingestion", "parse_job", manifest).map((tool) => tool.name)).toEqual(["parse_job_description"]);
     expect(allowedToolManifestForStep("job_ingestion", "confirm_commit", manifest).map((tool) => tool.name)).toEqual(["commit_job"]);
+    expect(allowedToolManifestForStep("resume_import", "reconcile_profile", manifest).map((tool) => tool.name)).toEqual(["reconcile_resume_import"]);
+    expect(allowedToolManifestForStep("resume_import", "resolve_conflicts", manifest).map((tool) => tool.name)).toEqual(["resolve_resume_reconciliation"]);
   });
 
   it("gates UI actions by the current workflow step", () => {

@@ -91,6 +91,8 @@ describe("ResumeImportOrchestrator", () => {
     expect(result.sourceKind).toBe("external_json");
     expect(result.draft.sourceBlocks.length).toBeGreaterThan(0);
     expect(result.draft.schemaVersion).toBe("resume-import-v2");
+    expect(result.reviewSummary.conflictCount).toBe(0);
+    expect(result.reviewSummary.needsReviewCount).toBeGreaterThanOrEqual(result.reviewSummary.unclassifiedCount);
     const reviewed = await repository.saveImportedResumeDraft(
       applyResumeImportReviewDecision(result.draft, "accept_all"),
       result.draftRevision
@@ -118,6 +120,55 @@ describe("ResumeImportOrchestrator", () => {
       branchId: expect.any(String),
       revisionId: expect.any(String)
     });
+  });
+
+  it.each([
+    ["DOCX", "tests/fixtures/resume-import/ordinary.docx", "ordinary.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
+    ["JSON", "tests/fixtures/resume-import/reconciliation-v2.json", "reconciliation-v2.json", "application/json"]
+  ])("N/O reconciles repeated %s imports through the shared orchestrator boundary", async (_, path, name, type) => {
+    const repository = createRepository();
+    const orchestrator = new ResumeImportOrchestrator(repository);
+    const file = await fixtureFile(path, name, type);
+    const firstPrepared = await orchestrator.prepare({
+      file,
+      fileName: file.name,
+      mimeType: file.type,
+      size: file.size
+    });
+    const firstReviewed = await repository.saveImportedResumeDraft(
+      applyResumeImportReviewDecision(firstPrepared.draft, "accept_all"),
+      firstPrepared.draftRevision
+    );
+    const first = await repository.confirmImportedResume({
+      importId: firstReviewed.importId,
+      expectedDraftRevision: firstReviewed.revision,
+      operationId: `first-${name}`,
+      target: {
+        mode: "new",
+        profileName: firstReviewed.basics.name?.value ?? `Profile ${name}`,
+        createGeneralResume: true
+      }
+    });
+    const secondPrepared = await orchestrator.prepare({
+      file,
+      fileName: file.name,
+      mimeType: file.type,
+      size: file.size
+    });
+    const secondReviewed = await repository.saveImportedResumeDraft(
+      applyResumeImportReviewDecision(secondPrepared.draft, "accept_all"),
+      secondPrepared.draftRevision
+    );
+    const plan = await repository.reconcileImportedResume({
+      importId: secondReviewed.importId,
+      expectedDraftRevision: secondReviewed.revision,
+      profileId: first.profileId
+    });
+
+    expect(plan.summary.requiresReview).toBe(0);
+    expect(plan.decisions.every((decision) =>
+      decision.state === "exact_duplicate" || decision.state === "evidence_extension"
+    )).toBe(true);
   });
 });
 
@@ -232,6 +283,56 @@ describe("Agent local attachment and import task state", () => {
     expect(state.knownSlots.reviewDecision).toBe("accept_all");
     expect(state.knownSlots.importTargetIntent).toBe("existing");
     expect(state.knownSlots.importTargetProfileName).toBe("测试用户");
+  });
+
+  it("routes an existing target through shared reconciliation and only pauses for unresolved units", () => {
+    const session = AgentRuntime.create("resume_import", "reconcile_profile", "导入到现有资料库");
+    const reducer = new AgentTaskStateReducer();
+    let state = reducer.create(session, "import_resume");
+    state.attachment = {
+      id: "agent-attachment-reconcile",
+      fileName: "resume.json",
+      mimeType: "application/json",
+      size: 100,
+      createdAt: "2026-07-27T00:00:00.000Z"
+    };
+    state.knownSlots = {
+      importId: "import-reconcile",
+      expectedDraftRevision: 2,
+      reviewStatus: "reviewed",
+      importTarget: { mode: "existing", profileId: "profile-existing" }
+    };
+    state.stage = "reconcile_profile";
+    state = reducer.reduce(state, {
+      type: "tool_observation",
+      toolName: "reconcile_resume_import",
+      observation: {
+        importId: "import-reconcile",
+        profileId: "profile-existing",
+        expectedDraftRevision: 2,
+        expectedPlanRevision: 0,
+        status: "needs_review",
+        summary: { existing: 21, mergedEvidence: 7, newFacts: 4, requiresReview: 2 },
+        unresolved: [{ incomingItemId: "work-1", state: "conflict" }]
+      }
+    });
+
+    expect(state.stage).toBe("resolve_conflicts");
+    expect(state.completionStatus).toBe("waiting_for_user");
+    state = reducer.reduce(state, {
+      type: "tool_observation",
+      toolName: "resolve_resume_reconciliation",
+      observation: {
+        importId: "import-reconcile",
+        expectedPlanRevision: 1,
+        status: "resolved",
+        summary: { existing: 21, mergedEvidence: 7, newFacts: 4, requiresReview: 0 },
+        unresolvedCount: 0
+      }
+    });
+    expect(state.stage).toBe("confirm_import");
+    expect(state.knownSlots.expectedReconciliationRevision).toBe(1);
+    expect(state.completionStatus).toBe("waiting_for_confirmation");
   });
 });
 

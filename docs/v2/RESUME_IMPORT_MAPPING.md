@@ -32,3 +32,16 @@
 4. 人工核对：高置信度预选，低置信度明确标记，未定位内容不自动进入正式数据。
 
 评估必须使用真实单栏、双栏、表格、扫描和中英文样本，至少记录字段级 precision/recall、阅读顺序正确率、零命中率与用户平均修订量。正式 OCR 接入仍需单独确认引擎、中文模型体积、Worker 性能和隐私边界。
+
+## P4.2a.3d 既有资料库核对
+
+解析/字段映射解决“来源中有什么”，`ProfileReconciliationEngine` 解决“这些 canonical items 与既有 CareerProfile 是什么关系”。两者职责不混用，LLM 也不是去重权威。
+
+- Level 1：canonical identity 完全相同，安全判为已存在或融合新来源。
+- Level 2：类型专用结构身份一致且只有缺失字段/新 bullet，生成 compatible update。
+- Level 3：近似重复但权威字段未完全一致，生成 stable review unit。
+- Level 4：日期、组织、角色、issuer、credential ID、score 或 quantitative claim 冲突，必须显式选择。
+
+技能在 `Python、SQL、Stata` 等分隔符拆分后逐项匹配，`C`、`C++`、`C#`、`Java`、`JavaScript` 与 `TypeScript` 不使用 substring 合并。项目/经历的 entity identity 与 fact/bullet identity 分开处理。
+
+相同 Fact 的第二来源保留同一 Fact ID，并追加带 source hash 与 PDF locator/source block 的 provenance；同一来源再次出现不重复追加。计划与 draft revision、Profile version 一起持久化，reload 可以继续未完成的冲突核对，stale version 不能提交。

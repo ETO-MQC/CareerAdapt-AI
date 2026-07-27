@@ -321,6 +321,33 @@
   margin-top: 10px;
 }
 
+.agent-reconciliation-list {
+  display: grid;
+  gap: 8px;
+}
+
+.agent-reconciliation-list > article {
+  border-bottom: 1px solid var(--ai-border);
+  display: grid;
+  gap: 2px;
+  padding-bottom: 8px;
+}
+
+.agent-reconciliation-list > article > div:first-child {
+  display: grid;
+  gap: 1px;
+}
+
+.agent-reconciliation-list strong {
+  color: var(--ai-text);
+  font-size: 12px;
+}
+
+.agent-reconciliation-list span {
+  color: var(--ai-muted);
+  font-size: 11px;
+}
+
 .agent-import-review-actions button {
   background: transparent;
   border: 0;

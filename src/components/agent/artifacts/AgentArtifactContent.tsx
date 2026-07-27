@@ -18,6 +18,11 @@ export function AgentArtifactContent({
   const questions = Array.isArray(plan.clarificationQuestions) ? plan.clarificationQuestions : [];
   const importArtifact = asRecord(taskState?.knownSlots.importArtifact);
   const importReview = asRecord(taskState?.knownSlots.importReviewSummary);
+  const importReconciliation = asRecord(taskState?.knownSlots.importReconciliation);
+  const reconciliationSummary = asRecord(importReconciliation.summary);
+  const unresolvedReconciliation = Array.isArray(importReconciliation.unresolved)
+    ? importReconciliation.unresolved.map(asRecord)
+    : [];
 
   return (
     <div className="agent-artifact-content">
@@ -33,11 +38,37 @@ export function AgentArtifactContent({
             </span>
           </header>
           <dl>
-            <div><dt>识别内容</dt><dd>{numberValue(importReview.itemCount)} 项</dd></div>
-            <div><dt>来源明确</dt><dd>{numberValue(importReview.highConfidenceCount)} 项</dd></div>
-            <div><dt>需要确认</dt><dd>{numberValue(importReview.needsReviewCount)} 项</dd></div>
-            <div><dt>未分类</dt><dd>{numberValue(importReview.unclassifiedCount)} 项</dd></div>
+            {Object.keys(reconciliationSummary).length ? (
+              <>
+                <div><dt>新增</dt><dd>{numberValue(reconciliationSummary.newFacts)} 项</dd></div>
+                <div><dt>已存在</dt><dd>{numberValue(reconciliationSummary.existing)} 项</dd></div>
+                <div><dt>融合来源</dt><dd>{numberValue(reconciliationSummary.mergedEvidence)} 项</dd></div>
+                <div><dt>需确认</dt><dd>{numberValue(reconciliationSummary.requiresReview)} 项</dd></div>
+              </>
+            ) : (
+              <>
+                <div><dt>识别内容</dt><dd>{numberValue(importReview.itemCount)} 项</dd></div>
+                <div><dt>来源明确</dt><dd>{numberValue(importReview.highConfidenceCount)} 项</dd></div>
+                <div><dt>需要确认</dt><dd>{numberValue(importReview.needsReviewCount)} 项</dd></div>
+                <div><dt>未分类</dt><dd>{numberValue(importReview.unclassifiedCount)} 项</dd></div>
+              </>
+            )}
           </dl>
+          {unresolvedReconciliation.length ? (
+            <div className="agent-reconciliation-list">
+              {unresolvedReconciliation.map((item) => (
+                <article key={String(item.incomingItemId)}>
+                  <div><strong>{String(item.label ?? "待核对内容")}</strong><span>{item.state === "conflict" ? "字段冲突" : "可能重复"}</span></div>
+                  <div className="agent-import-review-actions">
+                    <button type="button" onClick={() => onImportAction?.(`对“${String(item.label ?? "这项内容")}”保留资料库原数据`)}>保留原数据</button>
+                    <button type="button" onClick={() => onImportAction?.(`对“${String(item.label ?? "这项内容")}”采用本次导入`)}>采用本次</button>
+                    <button type="button" onClick={() => onImportAction?.(`将“${String(item.label ?? "这项内容")}”视为不同经历并分别保留`)}>视为不同经历</button>
+                    <button type="button" onClick={() => onImportAction?.(`我要编辑“${String(item.label ?? "这项内容")}”的冲突值`)}>编辑</button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : null}
           {Array.isArray(importArtifact.warnings) && importArtifact.warnings.length ? (
             <details>
               <summary>提示与冲突 <span>{importArtifact.warnings.length}</span></summary>

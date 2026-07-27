@@ -269,11 +269,35 @@ export class AgentTaskStateReducer {
         state.knownSlots.expectedDraftRevision = value.expectedDraftRevision;
         state.knownSlots.reviewStatus = "reviewed";
         delete state.knownSlots.reviewDecision;
+        delete state.knownSlots.importReconciliation;
+        delete state.knownSlots.expectedReconciliationRevision;
         state.activeGoal = "resolve_import_target";
-        state.stage = hasValue(state.knownSlots.importTarget) ? "confirm_import" : "resolve_target";
+        state.stage = hasValue(state.knownSlots.importTarget) ? "reconcile_profile" : "resolve_target";
         state.completionStatus = hasValue(state.knownSlots.importTarget)
-          ? "waiting_for_confirmation"
+          ? "active"
           : "waiting_for_user";
+      } else if (event.toolName === "reconcile_resume_import") {
+        const value = objectValue(event.observation);
+        state.knownSlots.importReconciliation = event.observation;
+        state.knownSlots.expectedReconciliationRevision = value.expectedPlanRevision;
+        const summary = objectValue(value.summary);
+        const requiresReview = typeof summary.requiresReview === "number" ? summary.requiresReview : 0;
+        state.activeGoal = requiresReview > 0 ? "resolve_import_conflicts" : "confirm_import";
+        state.stage = requiresReview > 0 ? "resolve_conflicts" : "confirm_import";
+        state.completionStatus = requiresReview > 0 ? "waiting_for_user" : "waiting_for_confirmation";
+      } else if (event.toolName === "resolve_resume_reconciliation") {
+        const value = objectValue(event.observation);
+        state.knownSlots.expectedReconciliationRevision = value.expectedPlanRevision;
+        const current = objectValue(state.knownSlots.importReconciliation);
+        state.knownSlots.importReconciliation = {
+          ...current,
+          ...value
+        };
+        delete state.knownSlots.reconciliationDecision;
+        const unresolvedCount = typeof value.unresolvedCount === "number" ? value.unresolvedCount : 0;
+        state.stage = unresolvedCount > 0 ? "resolve_conflicts" : "confirm_import";
+        state.activeGoal = unresolvedCount > 0 ? "resolve_import_conflicts" : "confirm_import";
+        state.completionStatus = unresolvedCount > 0 ? "waiting_for_user" : "waiting_for_confirmation";
       } else if (event.toolName === "commit_resume_import") {
         const value = objectValue(event.observation);
         const profileId = stringValue(value.profileId);
@@ -351,13 +375,34 @@ function normalize(state: AgentTaskState): AgentTaskState {
     } else if (state.stage !== "import_complete") {
       const reviewed = state.knownSlots.reviewStatus === "reviewed";
       const targetSelected = hasValue(state.knownSlots.importTarget);
-      state.stage = !reviewed ? "import_review" : !targetSelected ? "resolve_target" : "confirm_import";
+      const target = objectValue(state.knownSlots.importTarget);
+      const reconciliation = objectValue(state.knownSlots.importReconciliation);
+      const reconciliationSummary = objectValue(reconciliation.summary);
+      const targetNeedsReconciliation = target.mode === "existing";
+      const reconciliationMatchesTarget = reconciliation.profileId === target.profileId;
+      const unresolved = typeof reconciliationSummary.requiresReview === "number"
+        ? reconciliationSummary.requiresReview
+        : 0;
+      state.stage = !reviewed
+        ? "import_review"
+        : !targetSelected
+          ? "resolve_target"
+          : targetNeedsReconciliation && !reconciliationMatchesTarget
+            ? "reconcile_profile"
+            : unresolved > 0
+              ? "resolve_conflicts"
+              : "confirm_import";
       if (
         reviewed
         && targetSelected
+        && state.stage === "confirm_import"
         && !["completed", "failed", "cancelled"].includes(state.completionStatus)
       ) {
         state.completionStatus = "waiting_for_confirmation";
+      } else if (state.stage === "reconcile_profile") {
+        state.completionStatus = "active";
+      } else if (state.stage === "resolve_conflicts") {
+        state.completionStatus = "waiting_for_user";
       }
     }
   }
@@ -735,6 +780,13 @@ function captureEntityReferences(state: AgentTaskState, message: string) {
 }
 
 function captureImportTargetIntent(state: AgentTaskState, message: string) {
+  if (/保留(资料库)?原数据/.test(message)) {
+    state.knownSlots.reconciliationDecision = "keep_existing";
+  } else if (/采用本次(导入)?/.test(message)) {
+    state.knownSlots.reconciliationDecision = "use_imported";
+  } else if (/视为不同(经历|项目|内容)/.test(message)) {
+    state.knownSlots.reconciliationDecision = "keep_both_as_distinct";
+  }
   if (/新建|新资料库|新人物/.test(message)) {
     const name = message.match(/(?:叫|名称为|名为)\s*([^，。,]{1,40})/)?.[1]?.trim();
     state.knownSlots.importTargetIntent = "new";

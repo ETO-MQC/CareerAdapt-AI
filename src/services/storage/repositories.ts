@@ -21,6 +21,7 @@ import {
   PdfImportSessionSchema,
   PdfPageTextSchema,
   ProfileImportDraftSchema,
+  ProfileReconciliationPlanSchema,
   ProfileRecycleItemSchema,
   RawInputDocumentSchema,
   RecycleBinStateSchema,
@@ -64,6 +65,8 @@ import {
   type PdfImportSession,
   type PdfPageText,
   type ProfileImportDraft,
+  type ProfileReconciliationPlan,
+  type ProfileReconciliationResolution,
   type RawInputDocument,
   type ProfileRecycleItem,
   type RecycleBinState,
@@ -113,7 +116,12 @@ import {
   serializeStructuredExperienceText,
   type ResumeFieldCategoryId
 } from "@/domain/resumeFields/catalog";
-import { buildResumeImportConfirmation, buildResumeImportProfileOnly } from "@/domain/resumeImport/confirm";
+import {
+  buildResumeImportConfirmation,
+  buildResumeImportProfileOnly,
+  buildResumeImportReconciledProfileOnly
+} from "@/domain/resumeImport/confirm";
+import { ProfileReconciliationEngine } from "@/domain/profileReconciliation/ProfileReconciliationEngine";
 import { runRuleFactGuard } from "@/domain/adaptation/factGuard";
 import {
   AdaptationDraftError,
@@ -133,6 +141,7 @@ import { CareerAdaptDb, careerAdaptDb, type AppMeta } from "./db";
 
 const RECYCLE_BIN_META_KEY = "workspaceRecycleBin:v1";
 const ACTIVE_PROFILE_META_KEY = "activeProfileContext:v1";
+const PROFILE_RECONCILIATION_META_KEY_PREFIX = "profileReconciliation:v1:";
 const EMPTY_RECYCLE_BIN: RecycleBinState = { version: 1, jobIds: [], profileItems: [] };
 
 function syncStructuredContentItems(
@@ -829,11 +838,89 @@ export class WorkspaceRepository {
     }, expectedRevision);
   }
 
+  async reconcileImportedResume(input: {
+    importId: string;
+    expectedDraftRevision: number;
+    profileId: string;
+  }) {
+    const [draft, profile, stored] = await Promise.all([
+      this.getImportedResumeDraft(input.importId),
+      this.getProfile(input.profileId),
+      this.db.appMeta.get(profileReconciliationMetaKey(input.importId))
+    ]);
+    if (!draft) throw new Error("resume_import_draft_missing");
+    if (draft.revision !== input.expectedDraftRevision) throw new RevisionConflictError();
+    if (!profile) throw new Error("resume_import_target_profile_missing");
+    const existing = ProfileReconciliationPlanSchema.safeParse(stored?.value);
+    if (existing.success
+      && existing.data.draftRevision === draft.revision
+      && existing.data.profileId === profile.id
+      && existing.data.profileVersion === profile.version
+      && existing.data.status !== "stale") {
+      return existing.data;
+    }
+    const plan = new ProfileReconciliationEngine().createPlan({ draft, profile });
+    await this.db.appMeta.put({
+      key: profileReconciliationMetaKey(input.importId),
+      value: plan,
+      updatedAt: plan.updatedAt
+    });
+    return plan;
+  }
+
+  async getProfileReconciliationPlan(importId: string) {
+    const stored = await this.db.appMeta.get(profileReconciliationMetaKey(importId));
+    const parsed = ProfileReconciliationPlanSchema.safeParse(stored?.value);
+    return parsed.success ? parsed.data : undefined;
+  }
+
+  async resolveProfileReconciliation(input: {
+    importId: string;
+    expectedPlanRevision: number;
+    incomingItemId: string;
+    resolution: ProfileReconciliationResolution;
+    editedValue?: string;
+  }) {
+    return this.db.transaction("rw", this.db.appMeta, this.db.profiles, async () => {
+      const stored = await this.db.appMeta.get(profileReconciliationMetaKey(input.importId));
+      const plan = ProfileReconciliationPlanSchema.parse(stored?.value);
+      if (plan.revision !== input.expectedPlanRevision) throw new RevisionConflictError();
+      const profile = await this.db.profiles.get(plan.profileId);
+      if (!profile || CareerProfileSchema.parse(profile).version !== plan.profileVersion) {
+        const stale = ProfileReconciliationPlanSchema.parse({
+          ...plan,
+          revision: plan.revision + 1,
+          status: "stale",
+          updatedAt: new Date().toISOString()
+        });
+        await this.db.appMeta.put({
+          key: profileReconciliationMetaKey(input.importId),
+          value: stale,
+          updatedAt: stale.updatedAt
+        });
+        throw new RevisionConflictError();
+      }
+      const resolved = new ProfileReconciliationEngine().resolve({
+        plan,
+        incomingItemId: input.incomingItemId,
+        resolution: input.resolution,
+        editedValue: input.editedValue
+      });
+      await this.db.appMeta.put({
+        key: profileReconciliationMetaKey(input.importId),
+        value: resolved,
+        updatedAt: resolved.updatedAt
+      });
+      return resolved;
+    });
+  }
+
   async confirmImportedResume(input: {
     importId: string;
     expectedDraftRevision: number;
     operationId: string;
     mergeDecisions?: ImportMergeDecision[];
+    expectedReconciliationRevision?: number;
     target?: { mode: "existing"; profileId: string } | { mode: "new"; profileName: string; createGeneralResume: true };
   }): Promise<ImportedResumeBranchConfirmResult>;
   async confirmImportedResume(input: {
@@ -841,6 +928,7 @@ export class WorkspaceRepository {
     expectedDraftRevision: number;
     operationId: string;
     mergeDecisions?: ImportMergeDecision[];
+    expectedReconciliationRevision?: number;
     target?: ImportTarget;
   }): Promise<ImportedResumeConfirmResult>;
   async confirmImportedResume(input: {
@@ -848,6 +936,7 @@ export class WorkspaceRepository {
     expectedDraftRevision: number;
     operationId: string;
     mergeDecisions?: ImportMergeDecision[];
+    expectedReconciliationRevision?: number;
     target?: ImportTarget;
   }): Promise<ImportedResumeConfirmResult> {
     return this.db.transaction(
@@ -861,6 +950,14 @@ export class WorkspaceRepository {
         this.db.pdfImportSessions
       ],
       async () => {
+        const storedImportOperation = await this.db.appMeta.get(resumeImportOperationMetaKey(input.operationId));
+        const parsedStoredImportOperation = ImportedResumeConfirmResultSchema.safeParse(storedImportOperation?.value);
+        if (parsedStoredImportOperation.success) {
+          return ImportedResumeConfirmResultSchema.parse({
+            ...parsedStoredImportOperation.data,
+            idempotent: true
+          });
+        }
         const existingOperation = await this.db.resumeBranchOperations.where("operationId").equals(input.operationId).first();
         if (existingOperation?.branchId && existingOperation.revisionId) {
           const branch = await this.db.resumeBranches.get(existingOperation.branchId);
@@ -900,20 +997,94 @@ export class WorkspaceRepository {
           throw new Error("resume_import_target_profile_missing");
         }
         const now = new Date().toISOString();
-        const createBranch = input.target?.mode !== "new" || input.target.createGeneralResume;
+        let reconciliationPlan: ProfileReconciliationPlan | undefined;
+        if (existingProfile) {
+          const storedPlan = await this.db.appMeta.get(profileReconciliationMetaKey(input.importId));
+          const parsedPlan = ProfileReconciliationPlanSchema.safeParse(storedPlan?.value);
+          const storedPlanMatchesAuthority = parsedPlan.success
+            && parsedPlan.data.draftRevision === draft.revision
+            && parsedPlan.data.profileId === existingProfile.id
+            && parsedPlan.data.profileVersion === existingProfile.version;
+          if (input.expectedReconciliationRevision !== undefined && !storedPlanMatchesAuthority) {
+            throw new RevisionConflictError();
+          }
+          reconciliationPlan = parsedPlan.success
+            && storedPlanMatchesAuthority
+            ? parsedPlan.data
+            : new ProfileReconciliationEngine().createPlan({ draft, profile: existingProfile, now });
+          if (input.expectedReconciliationRevision !== undefined
+            && reconciliationPlan.revision !== input.expectedReconciliationRevision) {
+            throw new RevisionConflictError();
+          }
+          for (const pending of reconciliationPlan.decisions.filter((decision) =>
+            decision.requiresUserConfirmation && !decision.resolution
+          )) {
+            const candidate = reconciliationPlan.candidates.find((item) =>
+              item.incomingItemId === pending.incomingItemId
+            );
+            if (candidate?.entityType !== "basic") continue;
+            const mergeDecision = input.mergeDecisions?.find((item) =>
+              item.target === candidate.normalizedFields.field
+              && item.importedValue === candidate.factStatements[0]
+            );
+            if (!mergeDecision) continue;
+            reconciliationPlan = new ProfileReconciliationEngine().resolve({
+              plan: reconciliationPlan,
+              incomingItemId: pending.incomingItemId,
+              resolution: mergeDecision.action
+            });
+          }
+          if (reconciliationPlan.reviewUnits.some((unit) => !unit.resolved)
+            || reconciliationPlan.status === "stale") {
+            throw new Error("profile_reconciliation_unresolved");
+          }
+          await this.db.appMeta.put({
+            key: profileReconciliationMetaKey(input.importId),
+            value: reconciliationPlan,
+            updatedAt: reconciliationPlan.updatedAt
+          });
+        }
+        const existingGeneralResumeCount = existingProfile
+          ? await this.db.resumeBranches
+            .where("profileId")
+            .equals(existingProfile.id)
+            .filter((branch) => branch.branchPurpose === "general" && branch.lifecycleStatus === "active")
+            .count()
+          : 0;
+        const reconciliationCreatesResumeContent = reconciliationPlan
+          ? reconciliationPlan.decisions.some((decision) =>
+              decision.state !== "exact_duplicate"
+              && reconciliationPlan.candidates.find((candidate) =>
+                candidate.incomingItemId === decision.incomingItemId
+              )?.entityType !== "basic"
+            )
+            || reconciliationPlan.summary.unclassified > 0
+          : true;
+        const createBranch = input.target?.mode === "new"
+          ? input.target.createGeneralResume
+          : !existingProfile || (existingGeneralResumeCount === 0 && reconciliationCreatesResumeContent);
         const built = createBranch ? buildResumeImportConfirmation({
           draft,
           existingProfile,
           mergeDecisions: input.mergeDecisions,
+          reconciliationPlan,
           newProfileName: input.target?.mode === "new" ? input.target.profileName : undefined,
           operationId: input.operationId,
           now
         }) : undefined;
-        const committedProfile = built?.profile ?? buildResumeImportProfileOnly({
-          draft,
-          newProfileName: input.target?.mode === "new" ? input.target.profileName : draft.basics.name?.value ?? "未命名",
-          now
-        });
+        const committedProfile = built?.profile ?? (existingProfile && reconciliationPlan
+          ? buildResumeImportReconciledProfileOnly({
+              draft,
+              existingProfile,
+              reconciliationPlan,
+              mergeDecisions: input.mergeDecisions,
+              now
+            })
+          : buildResumeImportProfileOnly({
+              draft,
+              newProfileName: input.target?.mode === "new" ? input.target.profileName : draft.basics.name?.value ?? "未命名",
+              now
+            }));
         const operation = built ? ResumeBranchOperationSchema.parse({
           id: `resume-branch-op-${input.operationId}`,
           operationId: input.operationId,
@@ -977,13 +1148,32 @@ export class WorkspaceRepository {
           }
         }
 
-        return ImportedResumeConfirmResultSchema.parse({
+        if (reconciliationPlan) {
+          const committedPlan = ProfileReconciliationPlanSchema.parse({
+            ...reconciliationPlan,
+            revision: reconciliationPlan.revision + 1,
+            status: "committed",
+            updatedAt: now
+          });
+          await this.db.appMeta.put({
+            key: profileReconciliationMetaKey(input.importId),
+            value: committedPlan,
+            updatedAt: now
+          });
+        }
+        const result = ImportedResumeConfirmResultSchema.parse({
           profileId: runtimeProfile.id,
           branchId: built?.branch.id,
           revisionId: built?.firstRevision.id,
           presentationRevision: presentationConfig?.presentationRevision,
           idempotent: false
         });
+        await this.db.appMeta.put({
+          key: resumeImportOperationMetaKey(input.operationId),
+          value: result,
+          updatedAt: now
+        });
+        return result;
       }
     );
   }
@@ -5327,6 +5517,14 @@ const IMPORTED_RESUME_DRAFT_KEY_PREFIX = "importedResumeDraft:";
 
 function importedResumeDraftKey(importId: string) {
   return `${IMPORTED_RESUME_DRAFT_KEY_PREFIX}${importId}`;
+}
+
+function profileReconciliationMetaKey(importId: string) {
+  return `${PROFILE_RECONCILIATION_META_KEY_PREFIX}${importId}`;
+}
+
+function resumeImportOperationMetaKey(operationId: string) {
+  return `resumeImportOperation:v1:${operationId}`;
 }
 
 function resumeWorkbenchStateKey(profileId: string) {

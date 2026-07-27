@@ -34,6 +34,8 @@ import {
   type ImportedResumeSectionType,
   type ImportMergeDecision,
   type NormalizedSourceBlock,
+  type ProfileReconciliationPlan,
+  type ProfileReconciliationResolution,
   type ResumeJsonMapperOutput,
   type PdfPageText
 } from "@/domain/schemas";
@@ -111,6 +113,10 @@ export function ResumeImportWizard(props: {
   const [newProfileName, setNewProfileName] = useState("");
   const [createGeneralResume, setCreateGeneralResume] = useState(true);
   const [reviewedUnclassifiedKeys, setReviewedUnclassifiedKeys] = useState<string[]>([]);
+  const [reconciliationPlan, setReconciliationPlan] = useState<ProfileReconciliationPlan>();
+  const [reconciliationStatus, setReconciliationStatus] = useState<"idle" | "loading" | "ready" | "failed">("idle");
+  const [reconciliationEdits, setReconciliationEdits] = useState<Record<string, string>>({});
+  const [reconciliationAttempt, setReconciliationAttempt] = useState(0);
   const [documentPreferences] = useState(() => readDocumentRecognitionPreferences());
   const [routeOverride, setRouteOverride] = useState<"text_layer" | "local_ocr" | "manual_review" | undefined>();
   const [routingDecision, setRoutingDecision] = useState<DocumentImportRoutingDecision>(() =>
@@ -183,6 +189,56 @@ export function ResumeImportWizard(props: {
   const unsafeTextLayerBlocked = draft?.qualityReport?.recommendedRoute === "ocr_ai"
     && routingDecision.route !== "manual_review";
   const targetProfile = (props.profiles ?? []).find((item) => item.id === targetProfileId) ?? props.profile;
+  const activeReconciliationPlan = reconciliationPlan
+    && draft
+    && reconciliationPlan.importId === draft.importId
+    && reconciliationPlan.draftRevision === draft.revision
+    && reconciliationPlan.profileId === targetProfileId
+    ? reconciliationPlan
+    : undefined;
+  useEffect(() => {
+    if (!draft || targetMode !== "existing" || !targetProfileId || pendingReviewCount > 0) {
+      return;
+    }
+    if (
+      reconciliationPlan?.importId === draft.importId
+      && reconciliationPlan.draftRevision === draft.revision
+      && reconciliationPlan.profileId === targetProfileId
+    ) {
+      return;
+    }
+    const sourceDraft = draft;
+    const profileId = targetProfileId;
+    let active = true;
+    async function reconcile() {
+      setReconciliationStatus("loading");
+      try {
+        const plan = await props.repository.reconcileImportedResume({
+          importId: sourceDraft.importId,
+          expectedDraftRevision: sourceDraft.revision,
+          profileId
+        });
+        if (!active) return;
+        setReconciliationPlan(plan);
+        setReconciliationStatus("ready");
+      } catch {
+        if (!active) return;
+        setReconciliationStatus("failed");
+      }
+    }
+    void reconcile();
+    return () => {
+      active = false;
+    };
+  }, [
+    draft,
+    pendingReviewCount,
+    props.repository,
+    reconciliationAttempt,
+    reconciliationPlan,
+    targetMode,
+    targetProfileId
+  ]);
   const nameMismatch = targetMode === "existing" && Boolean(
     draft?.basics.name?.value
     && targetProfile?.basics.name
@@ -904,6 +960,16 @@ export function ResumeImportWizard(props: {
       notify({ type: "warning", title: "仍需核对", message: `请先处理 ${pendingReviewCount} 项来源、映射或结构问题。` });
       return;
     }
+    if (targetMode === "existing" && (
+      reconciliationStatus !== "ready"
+      || !activeReconciliationPlan
+      || activeReconciliationPlan.summary.requiresReview > 0
+    )) {
+      setMessage(reconciliationStatus === "loading"
+        ? "正在比对资料库，请稍候。"
+        : `仍有 ${activeReconciliationPlan?.summary.requiresReview ?? 0} 项资料库冲突或近似重复需要确认。`);
+      return;
+    }
     setStatus("confirming");
     try {
       const result = await props.repository.confirmImportedResume({
@@ -911,6 +977,7 @@ export function ResumeImportWizard(props: {
         expectedDraftRevision: draft.revision,
         operationId: `resume-import-confirm-${draft.importId}`,
         mergeDecisions: buildMergeDecisions(),
+        expectedReconciliationRevision: targetMode === "existing" ? activeReconciliationPlan?.revision : undefined,
         target: targetMode === "existing"
           ? { mode: "existing", profileId: targetProfileId }
           : { mode: "new", profileName: newProfileName.trim(), createGeneralResume }
@@ -922,6 +989,47 @@ export function ResumeImportWizard(props: {
     } catch (error) {
       setStatus("reviewing");
       setMessage(error instanceof RevisionConflictError ? "确认失败：草稿已变化，请刷新后重试。" : "确认失败：请检查未定位条目、重复确认或本地数据状态。");
+    }
+  }
+
+  async function resolveReconciliation(
+    incomingItemId: string,
+    resolution: ProfileReconciliationResolution
+  ) {
+    if (!draft || !activeReconciliationPlan) return;
+    const editedValue = resolution === "edit_value"
+      ? reconciliationEdits[incomingItemId]?.trim()
+      : undefined;
+    if (resolution === "edit_value" && !editedValue) {
+      setMessage("请先填写编辑后的值。");
+      return;
+    }
+    try {
+      const next = await props.repository.resolveProfileReconciliation({
+        importId: draft.importId,
+        expectedPlanRevision: activeReconciliationPlan.revision,
+        incomingItemId,
+        resolution,
+        editedValue
+      });
+      setReconciliationPlan(next);
+      setReconciliationStatus("ready");
+      const candidate = next.candidates.find((item) => item.incomingItemId === incomingItemId);
+      const field = candidate?.entityType === "basic" ? candidate.normalizedFields.field : undefined;
+      if (field && ["name", "email", "phone", "location", "summary"].includes(field)) {
+        setBasicMergeActions((current) => ({
+          ...current,
+          [field]: resolution === "use_imported" || resolution === "edit_value"
+            ? "use_imported"
+            : "keep_existing"
+        }));
+      }
+    } catch (error) {
+      setMessage(error instanceof RevisionConflictError
+        ? "资料库已变化，正在重新生成核对计划。"
+        : "无法保存当前核对决定，请重试。");
+      setReconciliationPlan(undefined);
+      setReconciliationStatus("idle");
     }
   }
 
@@ -1135,6 +1243,62 @@ export function ResumeImportWizard(props: {
             <button type="button" onClick={() => { void applyBulkSelection("reset"); }}>重置选择</button>
           </div></details>
         </div>
+        {targetMode === "existing" && pendingReviewCount === 0 ? (
+          <section className="profile-reconciliation-review" aria-label="资料库导入核对">
+            <div className="profile-reconciliation-heading">
+              <div>
+                <h3>导入概览</h3>
+                <p>{reconciliationStatus === "loading"
+                  ? "正在与现有资料库进行确定性比对…"
+                  : reconciliationStatus === "failed"
+                    ? "比对计划加载失败，请重试后再确认导入。"
+                    : "只需处理近似重复或真实字段冲突。"}</p>
+              </div>
+              {reconciliationStatus === "failed" ? <button className="secondary-button compact" type="button" onClick={() => setReconciliationAttempt((value) => value + 1)}>重新比对</button> : null}
+            </div>
+            {activeReconciliationPlan ? (
+              <>
+                <dl className="profile-reconciliation-summary">
+                  <div><dt>新增</dt><dd>{activeReconciliationPlan.summary.newFacts}</dd></div>
+                  <div><dt>已存在</dt><dd>{activeReconciliationPlan.summary.existing}</dd></div>
+                  <div><dt>融合来源</dt><dd>{activeReconciliationPlan.summary.mergedEvidence}</dd></div>
+                  <div><dt>需确认</dt><dd>{activeReconciliationPlan.summary.requiresReview}</dd></div>
+                </dl>
+                {activeReconciliationPlan.decisions.filter((decision) =>
+                  decision.requiresUserConfirmation
+                  && !activeReconciliationPlan.reviewUnits.find((unit) => unit.incomingItemId === decision.incomingItemId)?.resolved
+                ).map((decision) => {
+                  const candidate = activeReconciliationPlan.candidates.find((item) => item.incomingItemId === decision.incomingItemId);
+                  const conflictFields = decision.fieldComparisons.filter((comparison) =>
+                    comparison.relation === "conflicting" || comparison.relation === "different"
+                  );
+                  return (
+                    <article className="profile-reconciliation-item" key={decision.incomingItemId}>
+                      <header>
+                        <div><strong>{candidate?.displayLabel ?? "待核对内容"}</strong><span>{decision.state === "conflict" ? "字段冲突" : "可能重复"}</span></div>
+                        <small>{Math.round(decision.confidence * 100)}% 匹配</small>
+                      </header>
+                      {conflictFields.length ? <dl className="profile-reconciliation-comparison">
+                        {conflictFields.map((comparison) => <div key={comparison.field}>
+                          <dt>{comparison.field}</dt>
+                          <dd><span>资料库</span>{comparison.existingValue ?? "—"}</dd>
+                          <dd><span>本次导入</span>{comparison.incomingValue ?? "—"}</dd>
+                        </div>)}
+                      </dl> : null}
+                      <div className="profile-reconciliation-actions">
+                        <button type="button" onClick={() => { void resolveReconciliation(decision.incomingItemId, "keep_existing"); }}>保留原数据</button>
+                        <button type="button" onClick={() => { void resolveReconciliation(decision.incomingItemId, "use_imported"); }}>采用本次</button>
+                        <button type="button" onClick={() => { void resolveReconciliation(decision.incomingItemId, "keep_both_as_distinct"); }}>视为不同经历</button>
+                        <label><span className="visually-hidden">编辑后的值</span><input type="text" value={reconciliationEdits[decision.incomingItemId] ?? ""} placeholder="编辑值" onChange={(event) => setReconciliationEdits((current) => ({ ...current, [decision.incomingItemId]: event.target.value }))} /></label>
+                        <button type="button" onClick={() => { void resolveReconciliation(decision.incomingItemId, "edit_value"); }}>保存编辑</button>
+                      </div>
+                    </article>
+                  );
+                })}
+              </>
+            ) : null}
+          </section>
+        ) : null}
         <div className="import-review-grid">
           <aside className="import-source-panel">
             <div className="section-heading compact-heading">
@@ -1360,7 +1524,7 @@ export function ResumeImportWizard(props: {
         </div>
         <footer className="import-review-footer">
           <div><strong>{unsafeTextLayerBlocked ? "当前文本层不可安全提交" : `${importableItemCount} 条已选内容`}</strong><span>{pendingReviewCount > 0 ? `确认导入暂不可用：${importBlockReason({ fieldCandidateReviewCount, structureReviewCount, unreviewedUnclassifiedCount, structureConflictCount })} · ` : ""}{targetMode === "new" ? `创建新人物：${newProfileName || "待填写"}` : `导入到：${targetProfile?.name ?? "待选择"}`} · {message}</span></div>
-          <div className="action-row"><button className="secondary-button" type="button" onClick={cancelImport} disabled={status === "confirming"}>取消</button><button type="button" className="primary-button" disabled={status === "confirming" || unsafeTextLayerBlocked || (createGeneralResume && importableItemCount === 0) || pendingReviewCount > 0 || (targetMode === "new" && !newProfileName.trim()) || (nameMismatch && basicMergeActions.name !== "keep_existing")} onClick={confirmImport}>确认导入</button></div>
+          <div className="action-row"><button className="secondary-button" type="button" onClick={cancelImport} disabled={status === "confirming"}>取消</button><button type="button" className="primary-button" disabled={status === "confirming" || unsafeTextLayerBlocked || (createGeneralResume && importableItemCount === 0) || pendingReviewCount > 0 || (targetMode === "existing" && (reconciliationStatus !== "ready" || !activeReconciliationPlan || activeReconciliationPlan.summary.requiresReview > 0)) || (targetMode === "new" && !newProfileName.trim()) || (nameMismatch && basicMergeActions.name !== "keep_existing")} onClick={confirmImport}>确认导入</button></div>
         </footer>
         </>
       ) : null}

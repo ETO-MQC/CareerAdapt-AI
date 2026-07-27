@@ -133,6 +133,7 @@ test.describe("P4.2a.3c autonomous resume import", () => {
     let existingProfileId = "";
     let commitCount = 0;
     const commitResults: Record<string, unknown>[] = [];
+    let reconciliation: Record<string, unknown> | undefined;
     let useExisting = false;
     await routeImportAgent(page, async ({ route, body, tools, observations }) => {
       const commit = observations.findLast((item) => item.name === "commit_resume_import");
@@ -141,7 +142,7 @@ test.describe("P4.2a.3c autonomous resume import", () => {
         commitResults.push(value);
         existingProfileId = String(value.profileId ?? existingProfileId);
         commitCount += 1;
-        await fulfillFinal(route, useExisting ? "已合并到现有资料库，并创建通用简历。" : "已创建测试资料库和通用简历。");
+        await fulfillFinal(route, useExisting ? "已合并到现有资料库，并保留现有通用简历。" : "已创建测试资料库和通用简历。");
         return;
       }
       const prepare = observations.findLast((item) => item.name === "prepare_resume_import");
@@ -151,6 +152,10 @@ test.describe("P4.2a.3c autonomous resume import", () => {
         const reviewed = readObservation(review.content);
         prepared = { ...prepared, expectedDraftRevision: reviewed.expectedDraftRevision };
       }
+      const reconciliationObservation = observations.findLast((item) => item.name === "reconcile_resume_import");
+      if (reconciliationObservation) reconciliation = readObservation(reconciliationObservation.content);
+      const resolutionObservation = observations.findLast((item) => item.name === "resolve_resume_reconciliation");
+      if (resolutionObservation) reconciliation = readObservation(resolutionObservation.content);
       const profilesObservation = observations.findLast((item) => item.name === "list_profiles");
       let observedProfiles: Array<{ id: string }> = [];
       if (profilesObservation) {
@@ -176,10 +181,35 @@ test.describe("P4.2a.3c autonomous resume import", () => {
         });
         return;
       }
+      if (tools.includes("reconcile_resume_import") && prepared && useExisting && !reconciliation) {
+        await fulfillTool(route, "reconcile-existing-import", "reconcile_resume_import", {
+          importId: prepared.importId,
+          expectedDraftRevision: prepared.expectedDraftRevision,
+          profileId: existingProfileId
+        });
+        return;
+      }
+      const unresolved = Array.isArray(reconciliation?.unresolved)
+        ? reconciliation.unresolved as Array<Record<string, unknown>>
+        : [];
+      if (
+        tools.includes("resolve_resume_reconciliation")
+        && unresolved[0]
+        && body.systemPrompt?.includes('"reconciliationDecision":"keep_existing"')
+      ) {
+        await fulfillTool(route, "resolve-existing-import-conflict", "resolve_resume_reconciliation", {
+          importId: prepared?.importId,
+          expectedPlanRevision: reconciliation?.expectedPlanRevision,
+          incomingItemId: unresolved[0].incomingItemId,
+          resolution: "keep_existing"
+        });
+        return;
+      }
       if (tools.includes("commit_resume_import") && prepared) {
         await fulfillTool(route, `commit-existing-${commitCount}`, "commit_resume_import", {
           importId: prepared.importId,
           expectedDraftRevision: prepared.expectedDraftRevision,
+          expectedReconciliationRevision: useExisting ? reconciliation?.expectedPlanRevision : undefined,
           target: useExisting
             ? { mode: "existing", profileId: existingProfileId }
             : { mode: "new", profileName: "测试用户", createGeneralResume: true }
@@ -200,14 +230,15 @@ test.describe("P4.2a.3c autonomous resume import", () => {
 
     useExisting = true;
     prepared = undefined;
+    reconciliation = undefined;
     await page.locator('.agent-composer input[type="file"]').setInputFiles(resolve(process.cwd(), "tests/fixtures/resume-import/external-aliases.json"));
     await expect.poll(() => prepared?.sourceKind).toBe("external_json");
     await expect(page.getByText(/已识别 \d+ 项信息/).last()).toBeVisible();
     await page.getByLabel("描述你的求职任务").fill(`确认这些信息，保存到${existingProfile.name}的资料库`);
     await page.getByRole("button", { name: "发送消息" }).click();
     await expect.poll(() => latestImportTaskState(page)).toMatchObject({
-      stage: "confirm_import",
-      completionStatus: "waiting_for_confirmation",
+      stage: "resolve_conflicts",
+      completionStatus: "waiting_for_user",
       knownSlots: {
         reviewStatus: "reviewed",
         importTargetIntent: "existing",
@@ -215,13 +246,24 @@ test.describe("P4.2a.3c autonomous resume import", () => {
         importTarget: { mode: "existing", profileId: existingProfileId }
       },
       lastObservation: {
-        toolName: "list_profiles",
-        value: { profiles: [{ id: existingProfileId, name: existingProfile.name }] }
+        toolName: "reconcile_resume_import",
+        value: { profileId: existingProfileId, expectedPlanRevision: 0 }
       }
     });
+    await page.getByRole("button", { name: /产物 \d+/ }).click();
+    const reconciliationArtifact = page.getByRole("region", { name: "简历导入核对" });
+    await expect(reconciliationArtifact).toContainText("融合来源");
+    await expect(reconciliationArtifact).toContainText("需确认");
+    await reconciliationArtifact.getByRole("button", { name: "保留原数据", exact: true }).click();
+    await expect.poll(() => latestImportTaskState(page)).toMatchObject({
+      stage: "confirm_import",
+      completionStatus: "waiting_for_confirmation",
+      knownSlots: { expectedReconciliationRevision: 1 }
+    });
+    await page.getByRole("button", { name: "关闭任务产物" }).click();
     await expect(page.getByRole("region", { name: "确认写入简历与资料库" })).toBeVisible();
     await page.getByRole("button", { name: "确认并继续" }).click();
-    await expect(page.getByText("已合并到现有资料库，并创建通用简历。")).toBeVisible();
+    await expect(page.getByText("已合并到现有资料库，并保留现有通用简历。")).toBeVisible();
     expect(commitCount).toBe(2);
     expect(commitResults[1]).toMatchObject({
       profileId: existingProfileId,
@@ -229,8 +271,8 @@ test.describe("P4.2a.3c autonomous resume import", () => {
     });
     expect(await profileVersion(page, existingProfileId)).toBeGreaterThan(beforeVersion);
     const counts = await storeCounts(page);
-    expect(counts.resumeBranches).toBe(2);
-    expect(counts.resumeRevisions).toBe(2);
+    expect(counts.resumeBranches).toBe(1);
+    expect(counts.resumeRevisions).toBe(1);
   });
 
   test("G — cancellation before confirmation leaves Profile and Resume stores unchanged", async ({ page }) => {
@@ -324,7 +366,7 @@ test.describe("P4.2a.3c autonomous resume import", () => {
   });
 
   for (const manualCase of [
-    { label: "PDF", fixture: "tests/fixtures/pdf/two-column-reportlab.pdf", sourceKind: "digital_pdf" },
+    { label: "PDF", fixture: "tests/fixtures/pdf/two-column-reportlab.pdf", sourceKind: "complex_digital_pdf" },
     { label: "DOCX", fixture: "tests/fixtures/resume-import/ordinary.docx", sourceKind: "docx" },
     { label: "JSON", fixture: "tests/fixtures/resume-import/structured-standard.json", sourceKind: "standard_json" }
   ]) {

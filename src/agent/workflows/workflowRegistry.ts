@@ -30,11 +30,13 @@ export const agentWorkflowRegistry: Record<string, AgentWorkflowDefinition> = {
     review_facts: ["open_profile_browser"],
     confirm_commit: ["open_profile_browser"]
   }, ["profileId"]),
-  resume_import: workflow("resume_import", "select_source", ["select_source", "prepare_import", "import_review", "resolve_target", "confirm_import", "import_complete"], {
+  resume_import: workflow("resume_import", "select_source", ["select_source", "prepare_import", "import_review", "resolve_target", "reconcile_profile", "resolve_conflicts", "confirm_import", "import_complete"], {
     select_source: [],
     prepare_import: ["prepare_resume_import"],
     import_review: ["review_resume_import"],
     resolve_target: [...profileReadTools],
+    reconcile_profile: ["reconcile_resume_import"],
+    resolve_conflicts: ["resolve_resume_reconciliation"],
     confirm_import: ["commit_resume_import"],
     import_complete: []
   }, {

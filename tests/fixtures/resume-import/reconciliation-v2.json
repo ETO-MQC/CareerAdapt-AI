@@ -1,0 +1,68 @@
+{
+  "schemaVersion": "careeradapt-resume-v2",
+  "locale": "zh-CN",
+  "basics": {
+    "name": "核对测试用户",
+    "email": "reconciliation@example.com",
+    "portfolioLinks": [],
+    "otherLinks": [],
+    "customFields": []
+  },
+  "sections": [
+    {
+      "id": "section-project",
+      "sectionType": "project",
+      "title": "项目经历",
+      "order": 0,
+      "visible": true,
+      "items": [
+        {
+          "id": "project-smart-focus",
+          "sectionType": "project",
+          "title": "示例任务系统",
+          "organization": "CareerAdapt",
+          "startDate": "2025-01",
+          "current": true,
+          "tools": ["Tauri", "React"],
+          "outcomes": [],
+          "highlights": ["实现 AI Command Stream"],
+          "customFields": []
+        }
+      ]
+    },
+    {
+      "id": "section-skills",
+      "sectionType": "skills",
+      "title": "技能",
+      "order": 1,
+      "visible": true,
+      "items": [
+        {
+          "id": "skill-combined",
+          "sectionType": "skills",
+          "name": "Python、SQL、Stata",
+          "customFields": []
+        }
+      ]
+    },
+    {
+      "id": "section-certificates",
+      "sectionType": "certificates",
+      "title": "证书",
+      "order": 2,
+      "visible": true,
+      "items": [
+        {
+          "id": "certificate-cloud",
+          "sectionType": "certificates",
+          "name": "Cloud Professional",
+          "issuer": "Vendor",
+          "credentialId": "CERT-2026-001",
+          "issuedAt": "2026-03",
+          "customFields": []
+        }
+      ]
+    }
+  ],
+  "unclassifiedBlocks": []
+}

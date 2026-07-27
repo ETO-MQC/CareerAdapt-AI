@@ -14,12 +14,16 @@ pipeline:
    through the existing extractors and adapters.
 4. The orchestrator persists an `ImportedResumeDraft v2` and returns a compact
    review summary plus a `resume_import_review` artifact payload.
-5. The user reviews uncertain/conflicting material and explicitly selects an
+5. The user reviews uncertain source mapping and explicitly selects an
    existing or new profile target.
-6. `commit_resume_import` requires `importId`, `expectedDraftRevision`, an
-   explicit target, and confirmation. The write remains
+6. For an existing target, `reconcile_resume_import` creates a persisted,
+   deterministic `ProfileReconciliationPlan`. Only likely duplicates and real
+   field conflicts enter `resolve_resume_reconciliation`.
+7. `commit_resume_import` requires `importId`, `expectedDraftRevision`, an
+   explicit target, confirmation, and the current reconciliation revision for
+   an existing Profile. The write remains
    `WorkspaceRepository.confirmImportedResume()`.
-7. `import_resume` reaches `import_complete` only after the Repository returns
+8. `import_resume` reaches `import_complete` only after the Repository returns
    authoritative Profile/Resume/Revision IDs.
 
 No PDF bytes, base64, full extracted document text, or canonical JSON payload
@@ -78,9 +82,33 @@ capability manifest. TXT is not declared as an Agent resume import format.
 ## Remaining limits
 
 - OCR quality and scanned/image Agent import remain a separate future task.
-- Exact duplicate and existing merge decisions remain authoritative. Semantic
-  near-duplicate resolution requires a future `ProfileReconciliationEngine`;
-  P4.2a.3c does not add a fuzzy merge engine.
+- Matching is deterministic and conservative. Unsupported semantic aliases and
+  custom sections may remain separate or require review; an LLM can only
+  propose an unresolved match and can never mutate CareerProfile.
+
+## P4.2a.3d reconciliation authority
+
+The existing-Profile path is:
+
+`ImportedResumeDraft → ProfileReconciliationEngine → ProfileReconciliationPlan
+→ explicit unresolved decisions → confirmation-bound Repository mutation`.
+
+The plan binds the draft revision and authoritative Profile version. A stale
+Profile invalidates the plan before commit. Every incoming item has exactly one
+decision: `exact_duplicate`, `evidence_extension`, `compatible_update`,
+`likely_duplicate`, `conflict`, `new_fact`, or `keep_separate`.
+
+Entity matching is type-specific. Skills split before canonical-name matching;
+experience and project entries match entity identity separately from their
+facts/bullets; certificate credential ID is primary but cannot hide conflicting
+issuer/date fields. Materially different dates, organizations, roles, scores,
+credential IDs, or quantitative claims are never silently replaced.
+
+Evidence fusion reuses the existing Fact ID and appends provenance keyed by
+source hash, source type, quote, and page locator. The append is idempotent.
+Importing the same source/content again produces no Profile semantic change and
+does not implicitly create another general Resume. Wizard and Agent are
+different presentations over this same Repository plan.
 
 ## Runtime progress and watchdog contract
 

@@ -33,6 +33,17 @@ function safeAutonomousJump(toolName: string, state: AgentTaskState) {
       && state.stage === "import_review"
       && has(state, "reviewDecision");
   }
+  if (toolName === "reconcile_resume_import") {
+    return state.rootGoal === "import_resume"
+      && state.stage === "reconcile_profile"
+      && has(state, "importTarget");
+  }
+  if (toolName === "resolve_resume_reconciliation") {
+    return state.rootGoal === "import_resume"
+      && state.stage === "resolve_conflicts"
+      && has(state, "importReconciliation")
+      && has(state, "reconciliationDecision");
+  }
   if (toolName === "commit_resume_import") {
     return state.rootGoal === "import_resume"
       && state.stage === "confirm_import"
@@ -77,6 +88,18 @@ function preconditions(toolName: string, state: AgentTaskState) {
       && has(state, "expectedDraftRevision")
       && has(state, "reviewDecision");
   }
+  if (toolName === "reconcile_resume_import") {
+    return state.stage === "reconcile_profile"
+      && has(state, "importId")
+      && has(state, "expectedDraftRevision")
+      && objectValue(state.knownSlots.importTarget).mode === "existing";
+  }
+  if (toolName === "resolve_resume_reconciliation") {
+    return state.stage === "resolve_conflicts"
+      && has(state, "importId")
+      && has(state, "expectedReconciliationRevision")
+      && has(state, "reconciliationDecision");
+  }
   if (toolName === "commit_resume_import") {
     return state.stage === "confirm_import"
       && state.completionStatus === "waiting_for_confirmation"
@@ -116,4 +139,8 @@ function preconditions(toolName: string, state: AgentTaskState) {
 function has(state: AgentTaskState, slot: string) {
   const value = state.knownSlots[slot];
   return value !== undefined && value !== null && value !== "";
+}
+
+function objectValue(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" ? value as Record<string, unknown> : {};
 }

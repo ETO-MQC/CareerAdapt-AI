@@ -101,6 +101,9 @@ function requiredNextStage(state: AgentTaskState) {
     if (!state.knownSlots.importId) return "prepare_import";
     if (state.knownSlots.reviewStatus !== "reviewed") return "import_review";
     if (!state.knownSlots.importTarget) return "resolve_target";
+    const target = objectValue(state.knownSlots.importTarget);
+    if (target.mode === "existing" && !state.knownSlots.importReconciliation) return "reconcile_profile";
+    if (objectValue(objectValue(state.knownSlots.importReconciliation).summary).requiresReview) return "resolve_conflicts";
     return "confirm_import";
   }
   if (state.rootGoal === "export_resume") return "export_complete";
@@ -159,6 +162,8 @@ function legalToolsFor(stage: string) {
   const tools: Record<string, string[]> = {
     prepare_import: ["prepare_resume_import"],
     import_review: ["review_resume_import"],
+    reconcile_profile: ["reconcile_resume_import"],
+    resolve_conflicts: ["resolve_resume_reconciliation"],
     confirm_import: ["commit_resume_import"],
     choose_resume_source: ["list_resumes"],
     choose_job: ["list_jobs"],
@@ -170,4 +175,8 @@ function legalToolsFor(stage: string) {
     apply: ["apply_tailoring_changes"]
   };
   return tools[stage] ?? [];
+}
+
+function objectValue(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" ? value as Record<string, unknown> : {};
 }

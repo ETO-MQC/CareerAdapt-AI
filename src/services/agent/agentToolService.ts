@@ -4,6 +4,7 @@ import {
   JobRequirementGraphV4Schema,
   RawInputDocumentSchema,
   ResumeTailoringDiffSchema,
+  type ProfileReconciliationPlan,
   TailoringIntensitySchema
 } from "@/domain/schemas";
 import { projectJobGraphV4ToAnalyzerOutput } from "@/domain/jobOptimization/v3/project";
@@ -88,6 +89,33 @@ export class BrowserAgentToolService implements AgentToolServices {
       expectedDraftRevision: saved.revision,
       reviewStatus: "reviewed",
       decision: input.decision
+    };
+  }
+
+  async reconcileResumeImport(rawInput: unknown, signal?: AbortSignal) {
+    assertNotAborted(signal);
+    const input = rawInput as {
+      importId: string;
+      expectedDraftRevision: number;
+      profileId: string;
+    };
+    const plan = await this.repository.reconcileImportedResume(input);
+    return reconciliationToolResult(plan);
+  }
+
+  async resolveResumeReconciliation(rawInput: unknown, signal?: AbortSignal) {
+    assertNotAborted(signal);
+    const input = rawInput as {
+      importId: string;
+      expectedPlanRevision: number;
+      incomingItemId: string;
+      resolution: "keep_existing" | "use_imported" | "keep_both_as_distinct" | "edit_value" | "defer";
+      editedValue?: string;
+    };
+    const plan = await this.repository.resolveProfileReconciliation(input);
+    return {
+      ...reconciliationToolResult(plan),
+      unresolvedCount: plan.summary.requiresReview
     };
   }
 
@@ -462,6 +490,7 @@ export class BrowserAgentToolService implements AgentToolServices {
     const input = rawInput as {
       importId: string;
       expectedDraftRevision: number;
+      expectedReconciliationRevision?: number;
       target: { mode: "existing"; profileId: string } | { mode: "new"; profileName: string; createGeneralResume: true };
     };
     return this.repository.confirmImportedResume({ ...input, operationId });
@@ -775,6 +804,35 @@ function selectionDependencies(
 
 function childOperationId(operationId: string, suffix: string) {
   return `${operationId.slice(0, 150 - suffix.length)}-${suffix}`;
+}
+
+function reconciliationToolResult(plan: ProfileReconciliationPlan) {
+  return {
+    importId: plan.importId,
+    expectedDraftRevision: plan.draftRevision,
+    expectedPlanRevision: plan.revision,
+    profileId: plan.profileId,
+    status: plan.status,
+    summary: plan.summary,
+    unresolved: plan.decisions
+      .filter((decision) =>
+        decision.requiresUserConfirmation
+        && !plan.reviewUnits.find((unit) => unit.incomingItemId === decision.incomingItemId)?.resolved
+      )
+      .map((decision) => {
+        const candidate = plan.candidates.find((item) => item.incomingItemId === decision.incomingItemId);
+        return {
+          incomingItemId: decision.incomingItemId,
+          entityType: candidate?.entityType,
+          label: candidate?.displayLabel,
+          state: decision.state,
+          fieldComparisons: decision.fieldComparisons,
+          supportedResolutions: decision.state === "conflict"
+            ? ["keep_existing", "use_imported", "keep_both_as_distinct", "edit_value", "defer"]
+            : ["keep_existing", "use_imported", "keep_both_as_distinct", "defer"]
+        };
+      })
+  };
 }
 
 function assertNotAborted(signal?: AbortSignal) {

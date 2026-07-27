@@ -23,6 +23,8 @@ export type AgentToolServices = {
   skillView?(input: unknown, signal?: AbortSignal): Promise<unknown>;
   prepareResumeImport?(input: unknown, signal?: AbortSignal): Promise<unknown>;
   reviewResumeImport?(input: unknown, signal?: AbortSignal): Promise<unknown>;
+  reconcileResumeImport?(input: unknown, signal?: AbortSignal): Promise<unknown>;
+  resolveResumeReconciliation?(input: unknown, signal?: AbortSignal): Promise<unknown>;
   parseResumeFile(input: unknown, signal?: AbortSignal): Promise<unknown>;
   createResumeImportDraft(input: unknown, signal?: AbortSignal): Promise<unknown>;
   commitResumeImport(input: unknown, operationId: string, signal?: AbortSignal): Promise<unknown>;
@@ -54,6 +56,20 @@ const ResumeImportReviewInputSchema = z.object({
   decision: z.enum(["accept_all", "ignore_uncertain"])
 }).strict();
 
+const ResumeImportReconcileInputSchema = z.object({
+  importId: z.string().min(1),
+  expectedDraftRevision: z.number().int().min(0),
+  profileId: z.string().min(1)
+}).strict();
+
+const ResumeImportReconciliationResolutionInputSchema = z.object({
+  importId: z.string().min(1),
+  expectedPlanRevision: z.number().int().min(0),
+  incomingItemId: z.string().min(1),
+  resolution: z.enum(["keep_existing", "use_imported", "keep_both_as_distinct", "edit_value", "defer"]),
+  editedValue: z.string().min(1).optional()
+}).strict();
+
 const ResumeDraftInputSchema = z.object({
   parsedResume: z.unknown()
 }).strict();
@@ -61,6 +77,7 @@ const ResumeDraftInputSchema = z.object({
 const ResumeCommitInputSchema = z.object({
   importId: z.string().min(1),
   expectedDraftRevision: z.number().int().min(0),
+  expectedReconciliationRevision: z.number().int().min(0).optional(),
   target: z.union([
     z.object({ mode: z.literal("existing"), profileId: z.string().min(1) }).strict(),
     z.object({ mode: z.literal("new"), profileName: z.string().min(1).max(120), createGeneralResume: z.literal(true) }).strict()
@@ -162,6 +179,8 @@ export function createAgentToolRegistry(services: AgentToolServices) {
     define(services, meta("skill_view", "读取一个 Skill 的方法或其允许的单个参考文件。", "read", false, true, true, SkillViewInputSchema, "skill", "procedural_memory"), (input, _, signal) => services.skillView ? services.skillView(input, signal) : unavailableTool("skill_view")),
     define(services, meta("prepare_resume_import", "通过本地附件引用解析 PDF、DOCX 或 JSON，并创建可恢复的简历导入核对草稿。不得传入文件二进制或提取文本。", "write", false, true, true, ResumeImportPrepareInputSchema, "resume", "import_draft", true), (input, _, signal) => services.prepareResumeImport ? services.prepareResumeImport(input, signal) : unavailableTool("prepare_resume_import")),
     define(services, meta("review_resume_import", "记录用户对导入草稿不确定内容的明确采用或忽略决定，并推进草稿 revision。", "user_declared", false, true, true, ResumeImportReviewInputSchema, "resume", "import_draft"), (input, _, signal) => services.reviewResumeImport ? services.reviewResumeImport(input, signal) : unavailableTool("review_resume_import")),
+    define(services, meta("reconcile_resume_import", "使用确定性 Profile Reconciliation Engine 比对导入草稿与指定已有资料库；只生成计划，不写入 Profile。", "read", false, true, false, ResumeImportReconcileInputSchema, "resume", "import_draft"), (input, _, signal) => services.reconcileResumeImport ? services.reconcileResumeImport(input, signal) : unavailableTool("reconcile_resume_import")),
+    define(services, meta("resolve_resume_reconciliation", "记录用户对一个近似重复或真实字段冲突的明确决定；不会直接写入 Profile。", "user_declared", false, true, true, ResumeImportReconciliationResolutionInputSchema, "resume", "import_draft"), (input, _, signal) => services.resolveResumeReconciliation ? services.resolveResumeReconciliation(input, signal) : unavailableTool("resolve_resume_reconciliation")),
     // Compatibility-only tools. Canonical workflow eligibility never exposes these to planning.
     define(services, meta("parse_resume_file", "兼容旧版纯文本导入；不可用于 PDF/DOCX/JSON 的 canonical Agent 导入。", "read", false, true, true, ResumeFileInputSchema, "resume", "import_source"), (input, _, signal) => services.parseResumeFile(input, signal)),
     define(services, meta("create_resume_import_draft", "兼容旧版已构建 draft 保存；canonical Agent 导入必须使用 prepare_resume_import。", "write", false, true, true, ResumeDraftInputSchema, "resume", "import_draft", true), (input, _, signal) => services.createResumeImportDraft(input, signal)),
@@ -285,7 +304,8 @@ export const agentToolNames = [
   "list_resumes", "list_profiles", "list_jobs", "get_active_profile", "get_profile", "search_profile_facts",
   "get_resume", "get_resume_revision", "get_job", "get_agent_task_context", "search_agent_sessions",
   "recommend_resume_source",
-  "skills_list", "skill_view", "prepare_resume_import", "review_resume_import", "parse_resume_file", "create_resume_import_draft",
+  "skills_list", "skill_view", "prepare_resume_import", "review_resume_import", "reconcile_resume_import",
+  "resolve_resume_reconciliation", "parse_resume_file", "create_resume_import_draft",
   "commit_resume_import", "parse_job_description", "commit_job", "create_job_resume_from_profile", "analyze_job_fit",
   "create_tailoring_session", "answer_tailoring_question", "preview_tailoring_changes",
   "apply_tailoring_changes", "archive_resume", "restore_resume", "export_resume"

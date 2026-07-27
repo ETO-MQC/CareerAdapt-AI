@@ -14,6 +14,8 @@ import {
   type ImportedResumeItem,
   type ImportedResumeSection,
   type ImportMergeDecision,
+  type ProfileReconciliationCandidate,
+  type ProfileReconciliationPlan,
   type ResumeBranch,
   type ResumeContentItemV2,
   type ResumeItemV2,
@@ -43,6 +45,7 @@ export function buildResumeImportConfirmation(input: {
   draft: ImportedResumeDraft;
   existingProfile?: CareerProfile;
   mergeDecisions?: ImportMergeDecision[];
+  reconciliationPlan?: ProfileReconciliationPlan;
   newProfileName?: string;
   operationId: string;
   now?: string;
@@ -53,6 +56,7 @@ export function buildResumeImportConfirmation(input: {
     draft: input.draft,
     existingProfile: input.existingProfile,
     mergeDecisions: input.mergeDecisions ?? [],
+    reconciliationPlan: input.reconciliationPlan,
     newProfileName: input.newProfileName,
     now
   });
@@ -145,6 +149,24 @@ export function buildResumeImportProfileOnly(input: {
   }).profile;
 }
 
+export function buildResumeImportReconciledProfileOnly(input: {
+  draft: ImportedResumeDraft;
+  existingProfile: CareerProfile;
+  reconciliationPlan: ProfileReconciliationPlan;
+  mergeDecisions?: ImportMergeDecision[];
+  now?: string;
+}) {
+  validateImportedResumeSources(input.draft);
+  const now = input.now ?? new Date().toISOString();
+  return mergeImportedProfile({
+    draft: input.draft,
+    existingProfile: input.existingProfile,
+    mergeDecisions: input.mergeDecisions ?? [],
+    reconciliationPlan: input.reconciliationPlan,
+    now
+  }).profile;
+}
+
 function validateImportedResumeSources(draft: ImportedResumeDraft) {
   const invariantReport = auditResumeImportInvariants(draft);
   if (resumeImportInvariantIssueCount(invariantReport) > 0) {
@@ -177,6 +199,23 @@ function validateImportedResumeSources(draft: ImportedResumeDraft) {
 }
 
 function mergeImportedProfile(input: {
+  draft: ImportedResumeDraft;
+  existingProfile?: CareerProfile;
+  mergeDecisions: ImportMergeDecision[];
+  reconciliationPlan?: ProfileReconciliationPlan;
+  newProfileName?: string;
+  now: string;
+}): { profile: CareerProfile; factMappings: FactMapping[] } {
+  if (input.existingProfile && input.reconciliationPlan) {
+    return mergeImportedProfileWithReconciliation(input as typeof input & {
+      existingProfile: CareerProfile;
+      reconciliationPlan: ProfileReconciliationPlan;
+    });
+  }
+  return mergeImportedProfileLegacy(input);
+}
+
+function mergeImportedProfileLegacy(input: {
   draft: ImportedResumeDraft;
   existingProfile?: CareerProfile;
   mergeDecisions: ImportMergeDecision[];
@@ -240,7 +279,10 @@ function mergeImportedProfile(input: {
       existingFactKeys.add(factKey);
 
       if (sectionCategory(section) === "skill") {
-        const refs = splitSkillText(item.normalizedText).map((skillName) => {
+        const skillText = item.structuredItem?.sectionType === "skills"
+          ? item.structuredItem.name
+          : item.normalizedText;
+        const refs = splitSkillText(skillText).map((skillName) => {
           const skillId = `skill-${nanoid(10)}`;
           const fact = createImportedFact({
             draft: input.draft,
@@ -378,6 +420,480 @@ function mergeImportedProfile(input: {
   };
 }
 
+function mergeImportedProfileWithReconciliation(input: {
+  draft: ImportedResumeDraft;
+  existingProfile: CareerProfile;
+  mergeDecisions: ImportMergeDecision[];
+  reconciliationPlan: ProfileReconciliationPlan;
+  newProfileName?: string;
+  now: string;
+}): { profile: CareerProfile; factMappings: FactMapping[] } {
+  const { reconciliationPlan: plan, existingProfile: existing } = input;
+  if (plan.importId !== input.draft.importId || plan.draftRevision !== input.draft.revision) {
+    throw new Error("profile_reconciliation_draft_stale");
+  }
+  if (plan.profileId !== existing.id || plan.profileVersion !== existing.version) {
+    throw new Error("profile_reconciliation_profile_stale");
+  }
+  if (plan.reviewUnits.some((unit) => !unit.resolved)
+    || plan.decisions.some((decision) => decision.resolution === "defer")) {
+    throw new Error("profile_reconciliation_unresolved");
+  }
+
+  const imported = mergeImportedProfileLegacy({
+    draft: input.draft,
+    mergeDecisions: [],
+    newProfileName: existing.name,
+    now: input.now
+  });
+  let basics = mergeBasics(input.draft, existing, input.mergeDecisions, existing.name);
+  const experiences = existing.experiences.map((experience) => ({
+    ...experience,
+    facts: [...experience.facts],
+    resumeDrafts: [...experience.resumeDrafts]
+  }));
+  const skills = existing.skills.map((skill) => ({ ...skill }));
+  const certificates = existing.certificates.map((certificate) => ({ ...certificate }));
+  let structuredFacts = (existing.structuredFacts ?? []).map((entry) => ({
+    ...entry,
+    factIds: [...entry.factIds],
+    sourceBlockIds: [...entry.sourceBlockIds],
+    sourceRanges: [...entry.sourceRanges],
+    mappingTrace: [...entry.mappingTrace]
+  }));
+  let changed = JSON.stringify(basics) !== JSON.stringify(existing.basics);
+  const mappings = new Map<string, BranchFactRef[]>();
+  const candidates = new Map(plan.candidates.map((candidate) => [candidate.incomingItemId, candidate]));
+  const sourceItemById = new Map(input.draft.sections.flatMap((section) =>
+    section.items.map((item) => [item.id, item] as const)
+  ));
+
+  const addMapping = (sourceItemId: string, refs: BranchFactRef[]) => {
+    const current = mappings.get(sourceItemId) ?? [];
+    mappings.set(sourceItemId, uniqueFactRefs([...current, ...refs]));
+  };
+
+  for (const decision of plan.decisions) {
+    const candidate = candidates.get(decision.incomingItemId);
+    if (!candidate) throw new Error("profile_reconciliation_candidate_missing");
+    if (candidate.entityType === "basic") {
+      basics = applyBasicReconciliationDecision(basics, candidate, decision);
+      changed ||= JSON.stringify(basics) !== JSON.stringify(existing.basics);
+      continue;
+    }
+
+    const keepExisting = decision.resolution === "keep_existing";
+    const createDistinct = decision.state === "new_fact"
+      || decision.state === "keep_separate"
+      || decision.resolution === "keep_both_as_distinct";
+    const mergeExisting = Boolean(decision.existingEntityId) && !createDistinct;
+
+    if (candidate.entityType === "skills") {
+      if (mergeExisting) {
+        const index = skills.findIndex((skill) => skill.id === decision.existingEntityId);
+        if (index < 0) throw new Error("profile_reconciliation_existing_skill_missing");
+        const current = skills[index];
+        const fact = current.fact ?? createReconciledFact(candidate, "skill", input.now);
+        const fused = keepExisting ? fact : appendUniqueProvenance(fact, candidate.sourceProvenance, input.now);
+        const itemChanged = fused !== fact || !current.fact;
+        changed ||= itemChanged;
+        skills[index] = { ...current, fact: fused, updatedAt: itemChanged ? input.now : current.updatedAt };
+        addMapping(candidate.sourceItemId, [{ type: "skill_fact", skillId: current.id, factId: fused.id }]);
+        structuredFacts = mergeStructuredSkill(structuredFacts, sourceItemById.get(candidate.sourceItemId), candidate, fused.id);
+      } else {
+        const fact = createReconciledFact(candidate, "skill", input.now);
+        const skillId = `skill-${nanoid(10)}`;
+        skills.push({
+          id: skillId,
+          name: candidate.factStatements[0],
+          evidenceIds: [],
+          fact,
+          createdAt: input.now,
+          updatedAt: input.now
+        });
+        addMapping(candidate.sourceItemId, [{ type: "skill_fact", skillId, factId: fact.id }]);
+        structuredFacts = appendStructuredSkill(structuredFacts, sourceItemById.get(candidate.sourceItemId), candidate, fact.id);
+        changed = true;
+      }
+      continue;
+    }
+
+    if (mergeExisting && decision.existingEntityId) {
+      if (candidate.entityType === "certificates") {
+        const index = certificates.findIndex((certificate) => certificate.id === decision.existingEntityId);
+        if (index < 0) throw new Error("profile_reconciliation_existing_certificate_missing");
+        const current = certificates[index];
+        const fact = current.fact ?? createReconciledFact(candidate, "certificate", input.now);
+        const fused = keepExisting ? fact : appendUniqueProvenance(fact, candidate.sourceProvenance, input.now);
+        const sourceItem = sourceItemById.get(candidate.sourceItemId)?.structuredItem;
+        const shouldMergeFields = decision.state === "compatible_update"
+          || decision.resolution === "use_imported"
+          || decision.resolution === "edit_value";
+        const next = shouldMergeFields && sourceItem?.sectionType === "certificates"
+          ? mergeCertificateFields(current, sourceItem, decision)
+          : current;
+        const itemChanged = fused !== fact || JSON.stringify(next) !== JSON.stringify(current);
+        certificates[index] = { ...next, fact: fused, updatedAt: itemChanged ? input.now : current.updatedAt };
+        addMapping(candidate.sourceItemId, [{ type: "certificate_fact", certificateId: current.id, factId: fused.id }]);
+        structuredFacts = mergeStructuredEntry(structuredFacts, decision, sourceItemById.get(candidate.sourceItemId), [fused.id], keepExisting);
+        changed ||= itemChanged;
+        continue;
+      }
+
+      const index = experiences.findIndex((experience) => experience.id === decision.existingEntityId);
+      if (index < 0) throw new Error("profile_reconciliation_existing_experience_missing");
+      const current = experiences[index];
+      const nextFacts = [...current.facts];
+      const refs: BranchFactRef[] = [];
+      for (const statement of candidate.factStatements) {
+        const existingFact = nextFacts.find((fact) => normalizeReconciledFact(fact.statement) === normalizeReconciledFact(statement));
+        if (existingFact) {
+          const fused = keepExisting ? existingFact : appendUniqueProvenance(existingFact, candidate.sourceProvenance, input.now);
+          const factIndex = nextFacts.findIndex((fact) => fact.id === existingFact.id);
+          nextFacts[factIndex] = fused;
+          changed ||= fused !== existingFact;
+          refs.push({ type: "experience_fact", experienceId: current.id, factId: fused.id });
+        } else if (!keepExisting) {
+          const fact = createReconciledFact({ ...candidate, factStatements: [statement] }, importedFactCategory(candidate.entityType), input.now);
+          nextFacts.push(fact);
+          refs.push({ type: "experience_fact", experienceId: current.id, factId: fact.id });
+          changed = true;
+        }
+      }
+      if (refs.length === 0) {
+        refs.push(...current.facts.map((fact) => ({
+          type: "experience_fact" as const,
+          experienceId: current.id,
+          factId: fact.id
+        })));
+      }
+      const sourceItem = sourceItemById.get(candidate.sourceItemId)?.structuredItem;
+      const nextExperience = sourceItem
+        ? mergeExperienceFields({ ...current, facts: nextFacts }, sourceItem, decision)
+        : { ...current, facts: nextFacts };
+      experiences[index] = {
+        ...nextExperience,
+        updatedAt: changed ? input.now : current.updatedAt
+      };
+      addMapping(candidate.sourceItemId, refs);
+      structuredFacts = mergeStructuredEntry(
+        structuredFacts,
+        decision,
+        sourceItemById.get(candidate.sourceItemId),
+        refs.map((ref) => "factId" in ref ? ref.factId : ref.linkedFactId),
+        keepExisting
+      );
+      continue;
+    }
+
+    const sourceItem = sourceItemById.get(candidate.sourceItemId);
+    const importedEntry = sourceItem?.structuredItem
+      ? imported.profile.structuredFacts?.find((entry) => entry.data.id === sourceItem.structuredItem?.id)
+      : undefined;
+    const importedFactIds = new Set(importedEntry?.factIds ?? []);
+    const importedExperience = imported.profile.experiences.find((experience) =>
+      experience.facts.some((fact) =>
+        importedFactIds.has(fact.id)
+        || candidate.factStatements.some((statement) =>
+          normalizeReconciledFact(statement) === normalizeReconciledFact(fact.statement)
+        )
+      )
+    );
+    const importedCertificate = imported.profile.certificates.find((certificate) =>
+      certificate.fact && importedFactIds.has(certificate.fact.id)
+    );
+    if (candidate.entityType === "certificates" && importedCertificate?.fact) {
+      certificates.push(importedCertificate);
+      structuredFacts = importedEntry ? [...structuredFacts, importedEntry] : structuredFacts;
+      addMapping(candidate.sourceItemId, [{
+        type: "certificate_fact",
+        certificateId: importedCertificate.id,
+        factId: importedCertificate.fact.id
+      }]);
+      changed = true;
+      continue;
+    }
+    if (importedExperience) {
+      experiences.push(importedExperience);
+      structuredFacts = importedEntry ? [...structuredFacts, importedEntry] : structuredFacts;
+      addMapping(candidate.sourceItemId, importedExperience.facts.map((fact) => ({
+        type: "experience_fact" as const,
+        experienceId: importedExperience.id,
+        factId: fact.id
+      })));
+      changed = true;
+    }
+  }
+
+  const unclassifiedBlocks = uniqueStrings([
+    ...existing.unclassifiedBlocks,
+    ...input.draft.unclassifiedBlocks.map((block) => "sourcePath" in block
+      ? `${block.sourcePath}: ${stringifySourceValue(block.sourceValue)}`
+      : `${block.sourceBlockId}[${block.sourceRange.start}:${block.sourceRange.end}]: ${block.text}`)
+  ]);
+  changed ||= unclassifiedBlocks.length !== existing.unclassifiedBlocks.length;
+  const profile = changed ? CareerProfileSchema.parse({
+    ...existing,
+    basics,
+    name: basics.name,
+    version: existing.version + 1,
+    experiences,
+    skills,
+    certificates,
+    unclassifiedBlocks,
+    structuredBasics: {
+      ...(existing.structuredBasics ?? { portfolioLinks: [], otherLinks: [], customFields: [] }),
+      name: basics.name,
+      summary: basics.summary,
+      phone: basics.phone,
+      email: basics.email,
+      location: basics.location,
+      otherLinks: basics.links
+    },
+    structuredFacts,
+    updatedAt: input.now
+  }) : existing;
+
+  return {
+    profile,
+    factMappings: [...mappings].map(([itemId, factRefs]) => ({ itemId, factRefs }))
+  };
+}
+
+function applyBasicReconciliationDecision(
+  basics: CareerProfile["basics"],
+  candidate: ProfileReconciliationCandidate,
+  decision: ProfileReconciliationPlan["decisions"][number]
+) {
+  if (decision.state === "exact_duplicate" || decision.state === "evidence_extension"
+    || decision.resolution === "keep_existing"
+    || decision.resolution === "keep_both_as_distinct") return basics;
+  const field = candidate.normalizedFields.field;
+  const rawValue = candidate.factStatements[0];
+  const value = decision.resolution === "edit_value" ? decision.editedValue ?? rawValue : rawValue;
+  if (field === "link") return { ...basics, links: uniqueStrings([...basics.links, value]) };
+  if (!["name", "email", "phone", "location", "summary"].includes(field)) return basics;
+  return { ...basics, [field]: value };
+}
+
+function appendUniqueProvenance(fact: FactStatement, incoming: FactProvenance[], now: string) {
+  const next = [...fact.provenance];
+  for (const provenance of incoming) {
+    if (!next.some((existing) => reconciliationProvenanceKey(existing) === reconciliationProvenanceKey(provenance))) {
+      next.push(provenance);
+    }
+  }
+  if (next.length === fact.provenance.length) return fact;
+  return { ...fact, provenance: next, updatedAt: now };
+}
+
+function reconciliationProvenanceKey(provenance: FactProvenance) {
+  return [
+    provenance.sourceType,
+    provenance.sourceId,
+    provenance.fileName?.trim().toLowerCase() ?? "",
+    normalizeReconciledFact(provenance.sourceQuote ?? provenance.sourceText),
+    provenance.pageNumber ?? ""
+  ].join("|");
+}
+
+function createReconciledFact(candidate: ProfileReconciliationCandidate, category: FactCategory, now: string): FactStatement {
+  return {
+    id: `fact-import-${nanoid(10)}`,
+    statement: candidate.factStatements[0],
+    category,
+    provenance: candidate.sourceProvenance,
+    confirmedByUser: true,
+    riskLevel: candidate.sourceProvenance.some((item) => item.riskLevel === "high") ? "high"
+      : candidate.sourceProvenance.some((item) => item.riskLevel === "medium") ? "medium" : "low",
+    createdAt: now,
+    updatedAt: now
+  };
+}
+
+function importedFactCategory(entityType: ProfileReconciliationCandidate["entityType"]): FactCategory {
+  if (entityType === "skills") return "skill";
+  if (entityType === "certificates") return "certificate";
+  if (entityType === "education") return "education";
+  if (entityType === "awards") return "achievement";
+  return ["work", "internship", "project", "research", "campus", "volunteer"].includes(entityType)
+    ? "experience"
+    : "other";
+}
+
+function mergeExperienceFields(
+  current: CareerProfile["experiences"][number],
+  source: ResumeItemV2,
+  decision: ProfileReconciliationPlan["decisions"][number]
+) {
+  const useImported = decision.resolution === "use_imported";
+  const editedField = decision.resolution === "edit_value"
+    ? decision.fieldComparisons.find((comparison) => comparison.relation === "conflicting")?.field
+    : undefined;
+  const value = (field: string, incoming: string | undefined, existing: string | undefined) => {
+    if (editedField === field) return decision.editedValue;
+    return useImported ? incoming ?? existing : existing ?? incoming;
+  };
+  return {
+    ...current,
+    organization: value("organization", structuredOrganization(source), current.organization) ?? current.organization,
+    role: value("role", structuredRole(source), current.role) ?? current.role,
+    location: value("location", "location" in source ? source.location : undefined, current.location),
+    degree: value("degree", source.sectionType === "education" ? source.degree : undefined, current.degree),
+    major: value("major", source.sectionType === "education" ? source.major : undefined, current.major),
+    startDate: value("startDate", "startDate" in source ? source.startDate : undefined, current.startDate),
+    endDate: value("endDate", "endDate" in source ? source.endDate : undefined, current.endDate)
+  };
+}
+
+function mergeCertificateFields(
+  current: CareerProfile["certificates"][number],
+  source: Extract<ResumeItemV2, { sectionType: "certificates" }>,
+  decision: ProfileReconciliationPlan["decisions"][number]
+) {
+  const useImported = decision.resolution === "use_imported";
+  return {
+    ...current,
+    name: useImported ? source.name : current.name,
+    issuer: useImported ? source.issuer ?? current.issuer : current.issuer ?? source.issuer,
+    issuedAt: useImported ? source.issuedAt ?? current.issuedAt : current.issuedAt ?? source.issuedAt
+  };
+}
+
+function mergeStructuredEntry(
+  target: NonNullable<CareerProfile["structuredFacts"]>,
+  decision: ProfileReconciliationPlan["decisions"][number],
+  sourceItem: ImportedResumeItem | undefined,
+  factIds: string[],
+  keepExisting: boolean
+) {
+  const index = target.findIndex((entry) =>
+    entry.data.id === decision.existingStructuredItemId
+    || entry.factIds.some((id) => decision.existingFactIds.includes(id))
+  );
+  if (index < 0 || !sourceItem?.structuredItem) return target;
+  const current = target[index];
+  const useImported = decision.resolution === "use_imported";
+  const data = keepExisting ? current.data : mergeResumeItemFields(current.data, sourceItem.structuredItem, useImported, decision);
+  const next = [...target];
+  next[index] = {
+    ...current,
+    data,
+    factIds: uniqueStrings([...current.factIds, ...factIds]),
+    sourceBlockIds: uniqueStrings([...current.sourceBlockIds, ...sourceItem.sourceBlockIds]),
+    sourceRanges: uniqueSourceRanges([...current.sourceRanges, ...(sourceItem.sourceRanges ?? [])]),
+    mappingTrace: uniqueMappingTrace([...current.mappingTrace, ...itemMappingTraceForReconciliation(sourceItem)])
+  };
+  return next;
+}
+
+function mergeStructuredSkill(
+  target: NonNullable<CareerProfile["structuredFacts"]>,
+  sourceItem: ImportedResumeItem | undefined,
+  candidate: ProfileReconciliationCandidate,
+  factId: string
+) {
+  const index = target.findIndex((entry) =>
+    entry.factIds.includes(factId)
+    || (entry.data.sectionType === "skills"
+      && normalizeReconciledFact(entry.data.name) === normalizeReconciledFact(candidate.factStatements[0]))
+  );
+  if (index < 0) return appendStructuredSkill(target, sourceItem, candidate, factId);
+  const current = target[index];
+  const next = [...target];
+  next[index] = {
+    ...current,
+    factIds: uniqueStrings([...current.factIds, factId]),
+    sourceBlockIds: uniqueStrings([...current.sourceBlockIds, ...(sourceItem?.sourceBlockIds ?? [])]),
+    sourceRanges: uniqueSourceRanges([...current.sourceRanges, ...(sourceItem?.sourceRanges ?? [])])
+  };
+  return next;
+}
+
+function appendStructuredSkill(
+  target: NonNullable<CareerProfile["structuredFacts"]>,
+  sourceItem: ImportedResumeItem | undefined,
+  candidate: ProfileReconciliationCandidate,
+  factId: string
+) {
+  return [...target, {
+    data: {
+      id: `profile-skill-${nanoid(10)}`,
+      sectionType: "skills" as const,
+      name: candidate.factStatements[0],
+      customFields: []
+    },
+    factIds: [factId],
+    sourceBlockIds: sourceItem?.sourceBlockIds ?? [],
+    sourceRanges: sourceItem?.sourceRanges ?? [],
+    sourceExcerpt: sourceItem?.rawText,
+    mappingTrace: []
+  }];
+}
+
+function mergeResumeItemFields(
+  current: ResumeItemV2,
+  incoming: ResumeItemV2,
+  useImported: boolean,
+  decision: ProfileReconciliationPlan["decisions"][number]
+): ResumeItemV2 {
+  if (current.sectionType !== incoming.sectionType) return current;
+  const result = { ...current } as Record<string, unknown>;
+  const imported = incoming as unknown as Record<string, unknown>;
+  for (const [field, value] of Object.entries(imported)) {
+    if (field === "id" || field === "sectionType" || value === undefined || value === "") continue;
+    const currentValue = result[field];
+    if (useImported || currentValue === undefined || currentValue === "" || (Array.isArray(currentValue) && currentValue.length === 0)) {
+      result[field] = value;
+    } else if (Array.isArray(currentValue) && Array.isArray(value)) {
+      result[field] = uniqueStrings([...currentValue, ...value].filter((item): item is string => typeof item === "string"));
+    }
+  }
+  if (decision.resolution === "edit_value") {
+    const field = decision.fieldComparisons.find((comparison) => comparison.relation === "conflicting")?.field;
+    if (field && decision.editedValue) result[field] = decision.editedValue;
+  }
+  return result as ResumeItemV2;
+}
+
+function itemMappingTraceForReconciliation(item: ImportedResumeItem) {
+  return item.structuredMappingTrace;
+}
+
+function uniqueFactRefs(refs: BranchFactRef[]) {
+  const seen = new Set<string>();
+  return refs.filter((ref) => {
+    const key = JSON.stringify(ref);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function uniqueSourceRanges<T extends { blockId: string; start: number; end: number }>(ranges: T[]) {
+  const seen = new Set<string>();
+  return ranges.filter((range) => {
+    const key = `${range.blockId}:${range.start}:${range.end}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function uniqueMappingTrace<T extends { sourceBlockIds: string[]; targetFieldId: string; sourceQuote: string }>(traces: T[]) {
+  const seen = new Set<string>();
+  return traces.filter((trace) => {
+    const key = `${trace.targetFieldId}:${trace.sourceBlockIds.join(",")}:${trace.sourceQuote}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function normalizeReconciledFact(value: string) {
+  return value.normalize("NFKC").toLowerCase().replace(/[\s\p{P}]+/gu, "");
+}
+
 function buildBranchContentItems(input: {
   draft: ImportedResumeDraft;
   factMappings: FactMapping[];
@@ -503,7 +1019,7 @@ function createImportedFact(input: {
   const locatedLocation = location?.status === "located" ? location : undefined;
   const provenance: FactProvenance = {
     sourceType,
-    sourceId: input.draft.importId,
+    sourceId: input.draft.source.fileHash,
     sourceText: sourceType === "pdf_import" ? pageRef.quote : input.item.normalizedText,
     confidence: input.item.confidence === "high" ? 0.9 : input.item.confidence === "medium" ? 0.72 : 0.55,
     confirmedByUser: true,
