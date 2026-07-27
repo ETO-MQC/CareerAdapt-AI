@@ -19,17 +19,24 @@ const readTools = [...profileReadTools, ...resumeReadTools, ...jobReadTools];
 const proceduralTools = ["skills_list", "skill_view", "get_agent_task_context", "search_agent_sessions"];
 
 export const agentWorkflowRegistry: Record<string, AgentWorkflowDefinition> = {
-  guided_profile_intake: workflow("guided_profile_intake", "collect_profile_scope", ["collect_profile_scope", "collect_experience", "review_facts", "confirm_commit", "completed"], {
-    collect_profile_scope: profileReadTools,
+  guided_profile_intake: workflow("guided_profile_intake", "resolve_profile_target", ["resolve_profile_target", "collect_experience", "structure_facts", "review_facts", "reconcile_profile", "resolve_conflicts", "confirm_commit", "profile_complete", "optional_resume_decision", "resume_ready"], {
+    resolve_profile_target: profileReadTools,
     collect_experience: profileReadTools,
-    review_facts: profileReadTools,
-    confirm_commit: []
+    structure_facts: [...profileReadTools, "capture_profile_intake"],
+    review_facts: [...profileReadTools, "review_profile_intake"],
+    reconcile_profile: ["reconcile_profile_intake"],
+    resolve_conflicts: ["resolve_profile_intake_conflict"],
+    confirm_commit: ["commit_profile_intake"],
+    profile_complete: [],
+    optional_resume_decision: ["ensure_general_resume_from_profile"],
+    resume_ready: []
   }, {
-    collect_profile_scope: ["open_profile_browser"],
+    resolve_profile_target: ["open_profile_browser"],
     collect_experience: ["open_profile_browser"],
     review_facts: ["open_profile_browser"],
-    confirm_commit: ["open_profile_browser"]
-  }, ["profileId"]),
+    confirm_commit: ["open_profile_browser"],
+    optional_resume_decision: ["open_artifact"]
+  }, []),
   resume_import: workflow("resume_import", "select_source", ["select_source", "prepare_import", "import_review", "resolve_target", "reconcile_profile", "resolve_conflicts", "confirm_import", "import_complete"], {
     select_source: [],
     prepare_import: ["prepare_resume_import"],
@@ -120,10 +127,11 @@ export const agentWorkflowRegistry: Record<string, AgentWorkflowDefinition> = {
     select_assets: ["open_resume_picker", "open_job_import_dialog", "open_profile_browser"],
     review_result: ["open_artifact"]
   }, ["profileId", "resumeId", "jobId"]),
-  repair_and_export_resume: workflow("repair_and_export_resume", "select_resume", ["select_resume", "review_export", "export", "completed"], {
+  repair_and_export_resume: workflow("repair_and_export_resume", "select_resume", ["select_resume", "review_export", "export", "export_ready"], {
     select_resume: resumeReadTools,
     review_export: resumeReadTools,
-    export: [...resumeReadTools, "export_resume"]
+    export: [...resumeReadTools, "export_resume"],
+    export_ready: []
   }, {
     select_resume: ["open_resume_picker"],
     review_export: ["open_artifact"]

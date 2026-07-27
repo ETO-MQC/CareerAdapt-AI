@@ -3,15 +3,22 @@ import type { AgentToolRegistry } from "@/agent/tools/registry";
 import { allowedToolManifestForStep, getWorkflowDefinition } from "@/agent/workflows/workflowRegistry";
 import type { AgentSkill } from "./AgentSkillRegistry";
 import type { AgentSession } from "@/agent/contracts/agentSession";
-import { AgentCapabilityBroker } from "./AgentCapabilityBroker";
+import { LegacyAgentCapabilityAdapter } from "./AgentCapabilityBroker";
 import { AgentToolEligibility } from "./AgentToolEligibility";
 import { AgentTaskStateReducer } from "@/agent/runtime/AgentTaskStateReducer";
 import { z } from "zod";
 
+const ROUTE_B_EXACT_TOOL_EXCLUSIONS = new Set([
+  "get_agent_task_context",
+  "search_agent_sessions",
+  "skills_list",
+  "skill_view"
+]);
+
 export class AgentToolResolver {
   constructor(
     private readonly registry: AgentToolRegistry,
-    private readonly broker = new AgentCapabilityBroker(),
+    private readonly legacyCapabilityAdapter = new LegacyAgentCapabilityAdapter(),
     private readonly eligibility = new AgentToolEligibility()
   ) {}
 
@@ -32,10 +39,16 @@ export class AgentToolResolver {
     const workflowAllowed = workflow
       ? allowedToolManifestForStep(workflowId, step, manifest)
       : [];
-    const workflowToolNames = workflowAllowed.map((tool) => String(tool.name));
-    const capabilityToolNames =
-      input.session && input.userMessage !== undefined
-        ? this.broker.allowedToolNames({
+    const workflowToolNames = workflowAllowed
+      .map((tool) => String(tool.name))
+      .filter((name) =>
+        workflowId !== "tailor_existing_resume"
+        || !ROUTE_B_EXACT_TOOL_EXCLUSIONS.has(name)
+      );
+    const capabilityToolNames = workflow
+      ? workflowToolNames
+      : input.session && input.userMessage !== undefined
+        ? this.legacyCapabilityAdapter.allowedToolNames({
             session: input.session,
             userMessage: input.userMessage,
             workflowToolNames

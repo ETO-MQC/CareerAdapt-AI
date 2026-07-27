@@ -2037,6 +2037,7 @@ function datePrecisionLabel(precision: "year" | "month" | "day" | undefined, cur
 
 function sourceKindLabel(sourceKind: ImportedResumeDraft["sourceKind"]) {
   return {
+    conversation: "对话访谈",
     standard_json: "标准 JSON",
     external_json: "外部 JSON",
     docx: "DOCX 结构",

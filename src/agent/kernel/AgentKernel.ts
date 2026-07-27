@@ -26,6 +26,7 @@ import {
 } from "@/agent/runtime/projectTaskStateToWorkflowState";
 import type { TurnIntent, TurnToolScope } from "@/agent/runtime/AgentTurnIntent";
 import { capabilityManifestForPrompt } from "@/agent/capabilities/AgentProductCapabilityManifest";
+import { groundMutationClaims, type AuthoritativeTurnObservation } from "./AgentMutationClaimGuard";
 
 export type AgentKernelResult = {
   text?: string;
@@ -146,6 +147,10 @@ export class AgentKernel {
       });
     }
     let toolCallCount = 0;
+    const turnObservations: AuthoritativeTurnObservation[] =
+      input.internalObservation?.reason === "tool_observation" && input.internalObservation.toolName
+        ? [{ toolName: input.internalObservation.toolName, value: input.internalObservation.observation }]
+        : [];
     const turnId = input.turnId ?? input.session.activeTurn?.id ?? `agent-turn-${nanoid(12)}`;
     let previousNoProgressFingerprint: string | undefined;
 
@@ -253,7 +258,10 @@ export class AgentKernel {
                 });
               if (!cached) this.observationCache.set(validated.tool.name, validated.input, result);
               this.observationCache.invalidateAfter(validated.tool.name);
-              if (result.ok) canonicalEntities.observe(result.data);
+              if (result.ok) {
+                canonicalEntities.observe(result.data);
+                turnObservations.push({ toolName: result.toolName, value: result.data });
+              }
               if (result.ok) {
                 const selection = validated.input as Record<string, unknown>;
                 for (const [entityType, key] of [["profile", "profileId"], ["resume", "resumeId"], ["job", "jobId"]] as const) {
@@ -336,14 +344,24 @@ export class AgentKernel {
         }
 
         if (response.stopReason === "ask_user") {
-          const text = canonicalEntities.preserve(response.text?.trim() || "请补充继续这项任务所需的真实信息。");
+          const text = groundMutationClaims({
+            text: canonicalEntities.preserve(response.text?.trim() || "请补充继续这项任务所需的真实信息。"),
+            userMessage: input.userMessage,
+            observations: turnObservations
+          });
           if (nativeStreaming) await publishFinalStream(text, input, { turnId, iterationId });
           else await streamFinal(this.dependencies.model, { systemPrompt, messages, tools: modelTools }, text, input, { turnId, iterationId });
           trajectory.finish("waiting_for_user");
           return { text, trajectory: trajectory.value(), conversationSummary: contextWindow.conversationSummary, taskState };
         }
 
-        const text = response.text?.trim() ? canonicalEntities.preserve(response.text.trim()) : undefined;
+        const text = response.text?.trim()
+          ? groundMutationClaims({
+              text: canonicalEntities.preserve(response.text.trim()),
+              userMessage: input.userMessage,
+              observations: turnObservations
+            })
+          : undefined;
         if (text) {
           if (input.turnIntent === "casual_side_turn" || input.turnIntent === "reference_followup") {
             const visible = nativeStreaming
@@ -565,10 +583,102 @@ function stableOperationId(call: AgentModelToolCall) {
   return candidate.length >= 8 ? candidate : `agent-op-${candidate}-${nanoid(8)}`;
 }
 
+function objectValue(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+}
+
 function bindAuthoritativeTaskInput(
   call: AgentModelToolCall,
   taskState: NonNullable<AgentSession["taskState"]>
 ): AgentModelToolCall {
+  const slots = taskState.knownSlots;
+  if (call.name === "capture_profile_intake") {
+    const source = objectValue(slots.latestIntakeSource);
+    return {
+      ...call,
+      arguments: {
+        ...call.arguments,
+        sessionId: source.sessionId,
+        messageId: source.messageId,
+        turnId: source.turnId,
+        text: source.exactSourceQuote,
+        capturedAt: source.capturedAt,
+        targetProfileId: slots.targetProfileId,
+        expectedProfileVersion: slots.expectedProfileVersion,
+        acknowledgedActiveProfileId: slots.acknowledgedActiveProfileId
+      }
+    };
+  }
+  if (call.name === "review_profile_intake") {
+    return {
+      ...call,
+      arguments: {
+        ...call.arguments,
+        importId: slots.intakeImportId,
+        expectedDraftRevision: slots.expectedIntakeDraftRevision
+      }
+    };
+  }
+  if (call.name === "reconcile_profile_intake") {
+    return {
+      ...call,
+      arguments: {
+        ...call.arguments,
+        importId: slots.intakeImportId,
+        expectedDraftRevision: slots.expectedIntakeDraftRevision,
+        targetProfileId: slots.targetProfileId,
+        expectedProfileVersion: slots.expectedProfileVersion,
+        acknowledgedActiveProfileId: slots.acknowledgedActiveProfileId
+      }
+    };
+  }
+  if (call.name === "resolve_profile_intake_conflict") {
+    return {
+      ...call,
+      arguments: {
+        ...call.arguments,
+        importId: slots.intakeImportId,
+        expectedPlanRevision: slots.expectedIntakeReconciliationRevision,
+        targetProfileId: slots.targetProfileId
+      }
+    };
+  }
+  if (call.name === "commit_profile_intake") {
+    return {
+      ...call,
+      arguments: {
+        ...call.arguments,
+        importId: slots.intakeImportId,
+        expectedDraftRevision: slots.expectedIntakeDraftRevision,
+        expectedReconciliationRevision: slots.expectedIntakeReconciliationRevision,
+        targetProfileId: slots.targetProfileId,
+        expectedProfileVersion: slots.expectedProfileVersion,
+        acknowledgedActiveProfileId: slots.acknowledgedActiveProfileId
+      }
+    };
+  }
+  if (call.name === "ensure_general_resume_from_profile") {
+    return {
+      ...call,
+      arguments: {
+        ...call.arguments,
+        targetProfileId: slots.targetProfileId,
+        expectedProfileVersion: slots.expectedProfileVersion,
+        acknowledgedActiveProfileId: slots.acknowledgedActiveProfileId
+      }
+    };
+  }
+  if (call.name === "export_resume" && taskState.selectedEntities.resumeId) {
+    return {
+      ...call,
+      arguments: {
+        ...call.arguments,
+        resumeId: taskState.selectedEntities.resumeId
+      }
+    };
+  }
   if (![
     "answer_tailoring_question",
     "preview_tailoring_changes",
@@ -628,7 +738,13 @@ function summarizeToolResult(result: AgentToolResult) {
     create_tailoring_session: "已准备简历改写方案。",
     preview_tailoring_changes: "已准备修改预览。",
     recommend_resume_source: "已完成简历来源路线评估。",
-    create_job_resume_from_profile: "已从资料库创建独立岗位简历。"
+    create_job_resume_from_profile: "已从资料库创建独立岗位简历。",
+    capture_profile_intake: "已整理访谈中的经历候选。",
+    review_profile_intake: "已记录这项经历的核对决定。",
+    reconcile_profile_intake: "已完成经历与资料库的对账。",
+    resolve_profile_intake_conflict: "已记录资料冲突处理决定。",
+    commit_profile_intake: "已将确认事实保存到资料库。",
+    ensure_general_resume_from_profile: "已从确认资料创建或同步通用简历。"
   };
   return labels[result.toolName] ?? "这一步已完成。";
 }
@@ -651,7 +767,13 @@ function toolActivityLabel(toolName: string) {
     recommend_resume_source: "正在比较资料库与现有简历",
     create_job_resume_from_profile: "正在从资料库准备岗位简历",
     apply_tailoring_changes: "正在创建新的简历版本",
-    export_resume: "正在准备简历导出"
+    export_resume: "正在准备简历导出",
+    capture_profile_intake: "正在整理刚才的经历",
+    review_profile_intake: "正在记录经历核对决定",
+    reconcile_profile_intake: "正在与资料库对账",
+    resolve_profile_intake_conflict: "正在处理资料冲突",
+    commit_profile_intake: "正在保存确认的经历",
+    ensure_general_resume_from_profile: "正在生成或同步通用简历"
   };
   return labels[toolName] ?? "正在处理这一步";
 }

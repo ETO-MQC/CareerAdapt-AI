@@ -24,6 +24,9 @@ export function classifyImportSource(input: {
   qualityReport?: ImportQualityReport;
   blocks: readonly NormalizedSourceBlock[];
 }): ResumeImportSourceClassification {
+  if (input.sourceKind === "conversation") {
+    throw new Error("conversation_intake_does_not_use_resume_import_pipeline");
+  }
   if (input.sourceKind !== "text_pdf") return input.sourceKind;
   if (input.qualityReport?.recommendedRoute === "ocr_ai" || visibleCharacters(input.blocks) < 20) return "scanned_pdf";
   if (input.qualityReport?.layoutComplexity === "multi_column" || input.qualityReport?.layoutComplexity === "table") {

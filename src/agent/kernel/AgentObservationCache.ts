@@ -7,7 +7,9 @@ type CachedObservation = {
 };
 
 const CACHEABLE_READS = new Set([
-  "get_active_profile", "get_profile", "search_profile_facts",
+  // The active Profile pointer is UI-owned authority and can change between
+  // turns without an Agent mutation, so it must always be re-read.
+  "get_profile", "search_profile_facts",
   "get_resume", "get_resume_revision", "get_job",
   "list_profiles", "list_resumes", "list_jobs"
 ]);

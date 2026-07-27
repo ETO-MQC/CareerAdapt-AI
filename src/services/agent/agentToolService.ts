@@ -37,6 +37,7 @@ import {
   type ResumeImportReviewDecision
 } from "@/domain/resumeImport/reviewDecisions";
 import { agentImportProgressBus } from "@/services/agent/AgentImportProgressBus";
+import { adaptConversationMessageToIntakeDraft } from "@/domain/profileIntake/ConversationIntakeAdapter";
 
 export class BrowserAgentToolService implements AgentToolServices {
   constructor(private readonly repository = new WorkspaceRepository()) {}
@@ -116,6 +117,160 @@ export class BrowserAgentToolService implements AgentToolServices {
     return {
       ...reconciliationToolResult(plan),
       unresolvedCount: plan.summary.requiresReview
+    };
+  }
+
+  async captureProfileIntake(rawInput: unknown, signal?: AbortSignal) {
+    assertNotAborted(signal);
+    const input = rawInput as {
+      sessionId: string;
+      messageId: string;
+      turnId: string;
+      text: string;
+      capturedAt: string;
+      targetProfileId: string;
+      expectedProfileVersion: number;
+      acknowledgedActiveProfileId?: string;
+    };
+    await assertActiveProfileBinding(this.repository, input);
+    const profile = await this.repository.getProfile(input.targetProfileId);
+    if (!profile) throw toolError("profile_intake_target_missing", "目标资料库不存在，请重新选择。");
+    if (profile.version !== input.expectedProfileVersion) {
+      throw toolError("profile_intake_stale_profile", "资料库已更新，请先基于最新版本重新对账。");
+    }
+    const adapted = adaptConversationMessageToIntakeDraft(input);
+    const existing = await this.repository.getImportedResumeDraft(adapted.draft.importId);
+    const saved = existing ?? await this.repository.saveImportedResumeDraft(adapted.draft, 0);
+    return {
+      importId: saved.importId,
+      expectedDraftRevision: saved.revision,
+      targetProfileId: profile.id,
+      expectedProfileVersion: profile.version,
+      candidateCount: adapted.candidates.length,
+      needsConfirmationCount: adapted.candidates.filter((candidate) => candidate.needsConfirmation).length,
+      candidates: adapted.candidates,
+      artifactPayload: adapted.artifact
+    };
+  }
+
+  async reviewProfileIntake(rawInput: unknown, signal?: AbortSignal) {
+    assertNotAborted(signal);
+    const input = rawInput as {
+      importId: string;
+      expectedDraftRevision: number;
+      candidateId: string;
+      decision: "accept" | "reject";
+    };
+    const draft = await this.repository.getImportedResumeDraft(input.importId);
+    if (!draft || draft.sourceKind !== "conversation") {
+      throw toolError("profile_intake_draft_missing", "访谈草稿不存在，请重新整理刚才的回答。");
+    }
+    if (draft.revision !== input.expectedDraftRevision) {
+      throw toolError("profile_intake_stale_revision", "访谈草稿已更新，请刷新后继续核对。");
+    }
+    let found = false;
+    const sections = draft.sections.map((section) => {
+      const items = section.items.map((item) => {
+        if (item.id !== input.candidateId) return item;
+        found = true;
+        return {
+          ...item,
+          included: input.decision === "accept",
+          sourceStatus: "user_confirmed_modified" as const,
+          userEdited: true
+        };
+      });
+      return {
+        ...section,
+        included: items.some((item) => item.included),
+        items
+      };
+    });
+    if (!found) throw toolError("profile_intake_candidate_missing", "待核对经历不存在。");
+    const saved = await this.repository.saveImportedResumeDraft(
+      ImportedResumeDraftSchema.parse({ ...draft, sections }),
+      input.expectedDraftRevision
+    );
+    const unresolved = saved.sections.flatMap((section) => section.items)
+      .filter((item) => item.sourceStatus === "ambiguous").length;
+    return {
+      importId: saved.importId,
+      expectedDraftRevision: saved.revision,
+      candidateId: input.candidateId,
+      decision: input.decision,
+      unresolvedCount: unresolved
+    };
+  }
+
+  async reconcileProfileIntake(rawInput: unknown, signal?: AbortSignal) {
+    assertNotAborted(signal);
+    const input = rawInput as {
+      importId: string;
+      expectedDraftRevision: number;
+      targetProfileId: string;
+      expectedProfileVersion: number;
+      acknowledgedActiveProfileId?: string;
+    };
+    await assertActiveProfileBinding(this.repository, input);
+    const profile = await this.repository.getProfile(input.targetProfileId);
+    if (!profile || profile.version !== input.expectedProfileVersion) {
+      throw toolError("profile_intake_stale_profile", "资料库已变化，请基于最新版本重新对账。");
+    }
+    const plan = await this.repository.reconcileImportedResume({
+      importId: input.importId,
+      expectedDraftRevision: input.expectedDraftRevision,
+      profileId: input.targetProfileId
+    });
+    return reconciliationToolResult(plan);
+  }
+
+  async resolveProfileIntakeConflict(rawInput: unknown, signal?: AbortSignal) {
+    return this.resolveResumeReconciliation(rawInput, signal);
+  }
+
+  async commitProfileIntake(rawInput: unknown, operationId: string, signal?: AbortSignal) {
+    assertNotAborted(signal);
+    const input = rawInput as {
+      importId: string;
+      expectedDraftRevision: number;
+      expectedReconciliationRevision: number;
+      targetProfileId: string;
+      expectedProfileVersion: number;
+      acknowledgedActiveProfileId?: string;
+    };
+    await assertActiveProfileBinding(this.repository, input);
+    return this.repository.confirmProfileIntake({
+      ...input,
+      operationId
+    });
+  }
+
+  async ensureGeneralResumeFromProfile(rawInput: unknown, operationId: string, signal?: AbortSignal) {
+    assertNotAborted(signal);
+    const input = rawInput as {
+      targetProfileId: string;
+      expectedProfileVersion: number;
+      acknowledgedActiveProfileId?: string;
+      name?: string;
+    };
+    await assertActiveProfileBinding(this.repository, input);
+    const profile = await this.repository.getProfile(input.targetProfileId);
+    if (!profile || profile.version !== input.expectedProfileVersion) {
+      throw toolError("profile_intake_stale_profile", "资料库已变化，请先读取最新版本后再生成通用简历。");
+    }
+    const result = await this.repository.ensureGeneralResumeFromProfile({
+      profileId: input.targetProfileId,
+      operationId,
+      name: input.name
+    });
+    return {
+      profileId: input.targetProfileId,
+      profileVersion: profile.version,
+      resumeId: result.branch.id,
+      revisionId: result.revision?.id,
+      revision: result.branch.revision,
+      mode: result.mode,
+      idempotent: result.idempotent
     };
   }
 
@@ -804,6 +959,23 @@ function selectionDependencies(
 
 function childOperationId(operationId: string, suffix: string) {
   return `${operationId.slice(0, 150 - suffix.length)}-${suffix}`;
+}
+
+async function assertActiveProfileBinding(
+  repository: WorkspaceRepository,
+  input: { targetProfileId: string; acknowledgedActiveProfileId?: string }
+) {
+  const activeProfileId = await repository.getActiveProfileId();
+  if (
+    activeProfileId
+    && activeProfileId !== input.targetProfileId
+    && input.acknowledgedActiveProfileId !== activeProfileId
+  ) {
+    throw toolError(
+      "profile_intake_active_profile_changed",
+      "当前活动资料库已变化，请确认这批经历要写入哪个资料库。"
+    );
+  }
 }
 
 function reconciliationToolResult(plan: ProfileReconciliationPlan) {

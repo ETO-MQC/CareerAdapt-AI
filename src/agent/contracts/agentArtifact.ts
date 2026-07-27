@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export const AgentArtifactKindSchema = z.enum([
+  "profile_intake_review",
   "resume_import_review",
   "job_semantic_review",
   "job_fit_overview",
@@ -14,7 +15,7 @@ export const AgentArtifactRefSchema = z.object({
   id: z.string().min(1),
   kind: AgentArtifactKindSchema,
   title: z.string().min(1).max(160),
-  entityType: z.enum(["resume_import_draft", "resume_branch", "job", "tailoring_session", "export"]),
+  entityType: z.enum(["profile_intake_draft", "resume_import_draft", "resume_branch", "job", "tailoring_session", "export"]),
   entityId: z.string().min(1),
   route: z.string().startsWith("/").optional(),
   status: z.enum(["active", "collapsed", "resolved"]).default("active"),

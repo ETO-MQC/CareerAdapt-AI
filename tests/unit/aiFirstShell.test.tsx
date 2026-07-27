@@ -37,7 +37,12 @@ describe("AI-first workspace foundations", () => {
       expect(createQuickActionIntent(actionId)).toEqual({
         actionId,
         intent: AGENT_QUICK_ACTION_INTENTS[actionId],
-        source: "zero_state"
+        source: "zero_state",
+        task: expect.objectContaining({
+          rootGoal: expect.any(String),
+          workflowId: expect.any(String),
+          stage: expect.any(String)
+        })
       });
     }
   });

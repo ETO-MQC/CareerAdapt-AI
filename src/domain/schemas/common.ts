@@ -53,6 +53,9 @@ export const FactProvenanceSchema = z.object({
   createdAt: IsoDateStringSchema,
   sourceInputId: z.string().min(1).optional(),
   sourceSessionId: z.string().min(1).optional(),
+  sourceMessageId: z.string().min(1).optional(),
+  sourceTurnId: z.string().min(1).optional(),
+  capturedAt: IsoDateStringSchema.optional(),
   fileName: z.string().min(1).optional(),
   pageNumber: z.number().int().min(1).optional(),
   pageRange: z.object({

@@ -18,9 +18,11 @@ import {
 import { agentAttachmentStore, type AgentAttachmentRef } from "@/services/agent/AgentAttachmentStore";
 import { agentImportProgressBus } from "@/services/agent/AgentImportProgressBus";
 import { classifyTurnIntent, type TurnIntentDecision } from "./AgentTurnIntent";
+import type { AgentQuickActionId, QuickActionIntent } from "@/agent/contracts/agentQuickAction";
 
 export type AgentHostInput =
   | { type: "message"; text: string; references?: AgentMessageReference[] }
+  | { type: "quick_action"; actionId: AgentQuickActionId; text: string; task: QuickActionIntent["task"] }
   | { type: "file"; file: File }
   | { type: "option"; action: AgentOption["action"] }
   | { type: "confirmation"; confirmed: boolean }
@@ -182,6 +184,14 @@ export class AgentHostStore {
       }
       return this.applyWorkflowControl(session, input.action);
     }
+    if (input.type === "quick_action") {
+      return this.startTurn({
+        session,
+        userMessage: input.text,
+        pageContext: context.pageContext,
+        typedTask: input.task
+      });
+    }
     const routed = routeAgentIntent(input.text, {
       activeWorkflowId: session.taskState?.workflowId ?? session.workflowState.workflowId
     });
@@ -210,6 +220,7 @@ export class AgentHostStore {
     pageContext: AgentPageContext;
     attachment?: AgentAttachmentRef;
     references?: AgentMessageReference[];
+    typedTask?: QuickActionIntent["task"];
   }) {
     const previousGeneration = this.runGeneration;
     if (this.activeController) {
@@ -229,11 +240,24 @@ export class AgentHostStore {
     const turnId = `agent-turn-${crypto.randomUUID()}`;
     const userMessageId = `agent-user-${crypto.randomUUID()}`;
     const thinkingMessageId = `agent-thinking-${crypto.randomUUID()}`;
-    const turnDecision = classifyTurnIntent({
+    const classifiedTurn = classifyTurnIntent({
       text: input.userMessage,
       references: input.references,
       taskState: input.session.taskState
     });
+    const turnDecision: TurnIntentDecision = input.typedTask
+      ? {
+          intent: "new_domain_task",
+          confidence: "high",
+          taskMutation: "replace",
+          toolScope: "domain",
+          newTask: {
+            goal: input.typedTask.rootGoal,
+            workflowId: input.typedTask.workflowId,
+            stage: input.typedTask.stage
+          }
+        }
+      : classifiedTurn;
     let current = appendAgentMessage(input.session, "user", input.userMessage.trim(), {
       id: userMessageId,
       turnId,
@@ -258,6 +282,12 @@ export class AgentHostStore {
           ...turnDecision.newTask
         });
       }
+      if (turnDecision.taskMutation === "continue" && turnDecision.newTask) {
+        taskState = reducer.reduce(taskState, {
+          type: "new_active_task",
+          ...turnDecision.newTask
+        });
+      }
       if (turnDecision.taskMutation === "recover") {
         taskState = {
           ...taskState,
@@ -267,7 +297,11 @@ export class AgentHostStore {
       }
       taskState = reducer.reduce(taskState, {
         type: "user_message",
-        message: input.userMessage
+        message: input.userMessage,
+        sessionId: current.id,
+        messageId: userMessageId,
+        turnId,
+        capturedAt: now
       });
     }
     if (input.attachment) {
@@ -536,9 +570,15 @@ export class AgentHostStore {
       return session;
     }
     const turnId = `agent-turn-${crypto.randomUUID()}`;
-    const label = action.option === "profile"
-      ? "使用个人资料库生成岗位简历"
-      : "使用现有简历（路线 B）";
+    const decisionLabels: Record<typeof action.option, string> = {
+      profile: "使用个人资料库生成岗位简历",
+      existing_resume: "使用现有简历（路线 B）",
+      switch_to_active: "写入当前活动资料库",
+      keep_original: "继续写入原资料库",
+      save_profile_only: "仅保存资料库",
+      generate_general_resume: "生成一份通用简历"
+    };
+    const label = decisionLabels[action.option];
     const reducer = new AgentTaskStateReducer();
     const taskState = reducer.reduce(session.taskState, {
       type: "decision_selected",
@@ -717,6 +757,30 @@ export class AgentHostStore {
                 kind: "resume_import_review",
                 title: "简历导入核对",
                 entityType: "resume_import_draft",
+                entityId: importId,
+                status: "active",
+                summary: event.summary,
+                createdAt: now,
+                updatedAt: now
+              }
+            ]
+          };
+        }
+        if (event.ok && event.toolName === "capture_profile_intake") {
+          const now = new Date().toISOString();
+          const artifactId = event.artifactIds?.[0] ?? `agent-artifact-capture_profile_intake-${event.operationId}`;
+          const taskObservation = objectValue(current.taskState?.lastObservation);
+          const result = objectValue(taskObservation.value);
+          const importId = stringValue(result.importId) ?? `pending-${event.operationId}`;
+          current = {
+            ...current,
+            artifactRefs: [
+              ...current.artifactRefs.filter((artifact) => artifact.id !== artifactId),
+              {
+                id: artifactId,
+                kind: "profile_intake_review",
+                title: "经历核对",
+                entityType: "profile_intake_draft",
                 entityId: importId,
                 status: "active",
                 summary: event.summary,
@@ -1140,7 +1204,14 @@ function attachPendingDecisionOptions(
 ) {
   const options: AgentOption[] = decision.options.map((option) => ({
     id: `decision-${decision.type}-${option}`,
-    label: option === "profile" ? "使用个人资料库" : "使用现有简历",
+    label: {
+      profile: "使用个人资料库",
+      existing_resume: "使用现有简历",
+      switch_to_active: "写入当前资料库",
+      keep_original: "继续写入原资料库",
+      save_profile_only: "仅保存资料库",
+      generate_general_resume: "生成一份通用简历"
+    }[option],
     action: {
       type: "task_decision",
       decisionType: decision.type,

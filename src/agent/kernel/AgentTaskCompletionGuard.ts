@@ -26,7 +26,8 @@ const TERMINAL_STAGES: Record<string, Set<string>> = {
   create_tailored_resume: new Set(["quality_result"]),
   create_resume_from_profile: new Set(["quality_result", "completed"]),
   import_resume: new Set(["import_complete"]),
-  export_resume: new Set(["export_complete"]),
+  export_resume: new Set(["export_ready"]),
+  profile_intake: new Set(["profile_complete", "resume_ready"]),
   analyze_job_fit: new Set(["generate_plan", "quality_result", "completed"]),
   apply_to_job: new Set(["quality_result"]),
   analyze_resume: new Set(["completed"]),
@@ -106,7 +107,7 @@ function requiredNextStage(state: AgentTaskState) {
     if (objectValue(objectValue(state.knownSlots.importReconciliation).summary).requiresReview) return "resolve_conflicts";
     return "confirm_import";
   }
-  if (state.rootGoal === "export_resume") return "export_complete";
+  if (state.rootGoal === "export_resume") return "export_ready";
   return state.stage;
 }
 

@@ -115,6 +115,13 @@ export class AgentCapabilityBroker {
   }
 }
 
+/**
+ * Compatibility adapter for sessions that predate canonical workflow TaskState.
+ * Canonical turns must use AgentTurnIntent plus the workflow registry and must
+ * never pass arbitrary user narrative through this legacy text classifier.
+ */
+export class LegacyAgentCapabilityAdapter extends AgentCapabilityBroker {}
+
 function route(
   intent: AgentIntentClass,
   goal: string,

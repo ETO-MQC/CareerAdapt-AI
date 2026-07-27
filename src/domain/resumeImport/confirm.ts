@@ -1003,7 +1003,7 @@ function createImportedFact(input: {
     pageNumber: 1,
     quote: input.item.rawText || input.item.normalizedText
   };
-  const sourceType = input.item.sourceStatus === "user_confirmed_modified"
+  const sourceType = input.draft.sourceKind === "conversation" || input.item.sourceStatus === "user_confirmed_modified"
     ? "user_input"
     : input.draft.source.mimeType === "application/pdf" ? "pdf_import" : "imported_text";
   const pageSources = input.draft.pages.map((page) => ({
@@ -1026,6 +1026,9 @@ function createImportedFact(input: {
     riskLevel: sourceType === "pdf_import" ? "low" : "medium",
     createdAt: input.now,
     sourceSessionId: input.draft.source.sourceSessionId,
+    sourceMessageId: input.draft.source.sourceMessageId,
+    sourceTurnId: input.draft.source.sourceTurnId,
+    capturedAt: input.draft.source.capturedAt,
     fileName: input.draft.source.fileName,
     pageNumber: sourceType === "pdf_import" ? locatedLocation?.locator.pageNumber : undefined,
     pageRange: sourceType === "pdf_import" && locatedLocation ? { startPage: locatedLocation.locator.pageNumber, endPage: locatedLocation.locator.pageNumber } : undefined,

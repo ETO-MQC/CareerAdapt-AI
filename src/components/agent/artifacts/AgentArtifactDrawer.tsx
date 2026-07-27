@@ -153,7 +153,7 @@ export function AgentArtifactDrawer({
         </div>
         <div className="agent-artifact-drawer-body">
           <AgentArtifactContent state={workflowState} taskState={taskState} onImportAction={onImportAction} />
-          {workflowState.jobGraph || workflowState.fitAnalysis || workflowState.tailoringSession || workflowState.appliedRevisionId || taskState?.knownSlots.importArtifact ? null : (
+          {workflowState.jobGraph || workflowState.fitAnalysis || workflowState.tailoringSession || workflowState.appliedRevisionId || taskState?.knownSlots.importArtifact || taskState?.knownSlots.intakeArtifact ? null : (
             <div className="agent-artifact-partial">
               <strong>{selectedArtifact?.title}</strong>
               <p>{selectedArtifact?.summary ?? "产物已创建，正在等待下一步处理。"}</p>

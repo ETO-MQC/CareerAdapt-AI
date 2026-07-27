@@ -17,6 +17,7 @@ export const ImportedResumeDraftStatusSchema = z.enum([
 export const ImportedResumeConfidenceSchema = z.enum(["high", "medium", "low"]);
 
 export const ResumeSourceKindSchema = z.enum([
+  "conversation",
   "standard_json",
   "external_json",
   "docx",
@@ -330,6 +331,9 @@ export const ImportedResumePageSchema = z.object({
 
 export const ImportedResumeSourceSchema = z.object({
   sourceSessionId: z.string().min(1).optional(),
+  sourceMessageId: z.string().min(1).optional(),
+  sourceTurnId: z.string().min(1).optional(),
+  capturedAt: IsoDateStringSchema.optional(),
   rawInputId: z.string().min(1).optional(),
   fileName: z.string().min(1),
   mimeType: z.enum([
@@ -338,7 +342,8 @@ export const ImportedResumeSourceSchema = z.object({
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     "image/jpeg",
     "image/png",
-    "text/plain"
+    "text/plain",
+    "application/x-careeradapt-conversation"
   ]),
   fileHash: z.string().min(16),
   normalizedTextHash: z.string().min(8).optional(),

@@ -25,6 +25,12 @@ export type AgentToolServices = {
   reviewResumeImport?(input: unknown, signal?: AbortSignal): Promise<unknown>;
   reconcileResumeImport?(input: unknown, signal?: AbortSignal): Promise<unknown>;
   resolveResumeReconciliation?(input: unknown, signal?: AbortSignal): Promise<unknown>;
+  captureProfileIntake?(input: unknown, signal?: AbortSignal): Promise<unknown>;
+  reviewProfileIntake?(input: unknown, signal?: AbortSignal): Promise<unknown>;
+  reconcileProfileIntake?(input: unknown, signal?: AbortSignal): Promise<unknown>;
+  resolveProfileIntakeConflict?(input: unknown, signal?: AbortSignal): Promise<unknown>;
+  commitProfileIntake?(input: unknown, operationId: string, signal?: AbortSignal): Promise<unknown>;
+  ensureGeneralResumeFromProfile?(input: unknown, operationId: string, signal?: AbortSignal): Promise<unknown>;
   parseResumeFile(input: unknown, signal?: AbortSignal): Promise<unknown>;
   createResumeImportDraft(input: unknown, signal?: AbortSignal): Promise<unknown>;
   commitResumeImport(input: unknown, operationId: string, signal?: AbortSignal): Promise<unknown>;
@@ -68,6 +74,52 @@ const ResumeImportReconciliationResolutionInputSchema = z.object({
   incomingItemId: z.string().min(1),
   resolution: z.enum(["keep_existing", "use_imported", "keep_both_as_distinct", "edit_value", "defer"]),
   editedValue: z.string().min(1).optional()
+}).strict();
+
+const ProfileIntakeCaptureInputSchema = z.object({
+  sessionId: z.string().min(1),
+  messageId: z.string().min(1),
+  turnId: z.string().min(1),
+  text: z.string().min(1).max(24_000),
+  capturedAt: z.string().datetime({ offset: true }),
+  targetProfileId: z.string().min(1),
+  expectedProfileVersion: z.number().int().min(1),
+  acknowledgedActiveProfileId: z.string().min(1).optional()
+}).strict();
+
+const ProfileIntakeReviewInputSchema = z.object({
+  importId: z.string().min(1),
+  expectedDraftRevision: z.number().int().min(0),
+  candidateId: z.string().min(1),
+  decision: z.enum(["accept", "reject"])
+}).strict();
+
+const ProfileIntakeReconcileInputSchema = z.object({
+  importId: z.string().min(1),
+  expectedDraftRevision: z.number().int().min(0),
+  targetProfileId: z.string().min(1),
+  expectedProfileVersion: z.number().int().min(1),
+  acknowledgedActiveProfileId: z.string().min(1).optional()
+}).strict();
+
+const ProfileIntakeConflictInputSchema = ResumeImportReconciliationResolutionInputSchema.extend({
+  targetProfileId: z.string().min(1)
+}).strict();
+
+const ProfileIntakeCommitInputSchema = z.object({
+  importId: z.string().min(1),
+  expectedDraftRevision: z.number().int().min(0),
+  expectedReconciliationRevision: z.number().int().min(0),
+  targetProfileId: z.string().min(1),
+  expectedProfileVersion: z.number().int().min(1),
+  acknowledgedActiveProfileId: z.string().min(1).optional()
+}).strict();
+
+const EnsureGeneralResumeInputSchema = z.object({
+  targetProfileId: z.string().min(1),
+  expectedProfileVersion: z.number().int().min(1),
+  acknowledgedActiveProfileId: z.string().min(1).optional(),
+  name: z.string().min(1).max(120).optional()
 }).strict();
 
 const ResumeDraftInputSchema = z.object({
@@ -181,6 +233,12 @@ export function createAgentToolRegistry(services: AgentToolServices) {
     define(services, meta("review_resume_import", "记录用户对导入草稿不确定内容的明确采用或忽略决定，并推进草稿 revision。", "user_declared", false, true, true, ResumeImportReviewInputSchema, "resume", "import_draft"), (input, _, signal) => services.reviewResumeImport ? services.reviewResumeImport(input, signal) : unavailableTool("review_resume_import")),
     define(services, meta("reconcile_resume_import", "使用确定性 Profile Reconciliation Engine 比对导入草稿与指定已有资料库；只生成计划，不写入 Profile。", "read", false, true, false, ResumeImportReconcileInputSchema, "resume", "import_draft"), (input, _, signal) => services.reconcileResumeImport ? services.reconcileResumeImport(input, signal) : unavailableTool("reconcile_resume_import")),
     define(services, meta("resolve_resume_reconciliation", "记录用户对一个近似重复或真实字段冲突的明确决定；不会直接写入 Profile。", "user_declared", false, true, true, ResumeImportReconciliationResolutionInputSchema, "resume", "import_draft"), (input, _, signal) => services.resolveResumeReconciliation ? services.resolveResumeReconciliation(input, signal) : unavailableTool("resolve_resume_reconciliation")),
+    define(services, meta("capture_profile_intake", "将当前访谈回答结构化为可恢复的经历核对草稿；保留 session、message、turn 和原文来源，不写入 CareerProfile。", "write", false, true, true, ProfileIntakeCaptureInputSchema, "profile", "conversation_intake", true), (input, _, signal) => services.captureProfileIntake ? services.captureProfileIntake(input, signal) : unavailableTool("capture_profile_intake")),
+    define(services, meta("review_profile_intake", "记录用户对一个有歧义访谈候选的采用或忽略决定。", "user_declared", false, true, true, ProfileIntakeReviewInputSchema, "profile", "conversation_intake"), (input, _, signal) => services.reviewProfileIntake ? services.reviewProfileIntake(input, signal) : unavailableTool("review_profile_intake")),
+    define(services, meta("reconcile_profile_intake", "复用 ProfileReconciliationEngine 将访谈草稿与目标资料库对账；只生成计划。", "read", false, true, true, ProfileIntakeReconcileInputSchema, "profile", "profile_reconciliation", true), (input, _, signal) => services.reconcileProfileIntake ? services.reconcileProfileIntake(input, signal) : unavailableTool("reconcile_profile_intake")),
+    define(services, meta("resolve_profile_intake_conflict", "记录用户对访谈资料与现有资料冲突的明确决定。", "user_declared", false, true, true, ProfileIntakeConflictInputSchema, "profile", "profile_reconciliation"), (input, _, signal) => services.resolveProfileIntakeConflict ? services.resolveProfileIntakeConflict(input, signal) : unavailableTool("resolve_profile_intake_conflict")),
+    define(services, meta("commit_profile_intake", "将已核对、已对账的访谈事实写入绑定的 CareerProfile；不生成简历。", "write", true, true, true, ProfileIntakeCommitInputSchema, "profile", "career_profile", true), (input, operationId, signal) => services.commitProfileIntake ? services.commitProfileIntake(input, operationId, signal) : unavailableTool("commit_profile_intake")),
+    define(services, meta("ensure_general_resume_from_profile", "在 Profile 已提交后创建或同步同一 Profile 的通用简历 Revision；不会创建重复通用简历。", "write", true, true, true, EnsureGeneralResumeInputSchema, "resume", "resume_revision", true), (input, operationId, signal) => services.ensureGeneralResumeFromProfile ? services.ensureGeneralResumeFromProfile(input, operationId, signal) : unavailableTool("ensure_general_resume_from_profile")),
     // Compatibility-only tools. Canonical workflow eligibility never exposes these to planning.
     define(services, meta("parse_resume_file", "兼容旧版纯文本导入；不可用于 PDF/DOCX/JSON 的 canonical Agent 导入。", "read", false, true, true, ResumeFileInputSchema, "resume", "import_source"), (input, _, signal) => services.parseResumeFile(input, signal)),
     define(services, meta("create_resume_import_draft", "兼容旧版已构建 draft 保存；canonical Agent 导入必须使用 prepare_resume_import。", "write", false, true, true, ResumeDraftInputSchema, "resume", "import_draft", true), (input, _, signal) => services.createResumeImportDraft(input, signal)),
@@ -306,6 +364,8 @@ export const agentToolNames = [
   "recommend_resume_source",
   "skills_list", "skill_view", "prepare_resume_import", "review_resume_import", "reconcile_resume_import",
   "resolve_resume_reconciliation", "parse_resume_file", "create_resume_import_draft",
+  "capture_profile_intake", "review_profile_intake", "reconcile_profile_intake",
+  "resolve_profile_intake_conflict", "commit_profile_intake", "ensure_general_resume_from_profile",
   "commit_resume_import", "parse_job_description", "commit_job", "create_job_resume_from_profile", "analyze_job_fit",
   "create_tailoring_session", "answer_tailoring_question", "preview_tailoring_changes",
   "apply_tailoring_changes", "archive_resume", "restore_resume", "export_resume"

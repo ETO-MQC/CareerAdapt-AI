@@ -649,13 +649,17 @@ function provenance(
 ): FactProvenance {
   if (draft.source.mimeType !== "application/pdf") {
     return {
-      sourceType: "imported_text",
+      sourceType: draft.sourceKind === "conversation" ? "user_input" : "imported_text",
       sourceId: draft.source.fileHash,
       sourceText,
       confidence: 0.9,
       confirmedByUser: true,
       riskLevel: "medium",
       createdAt: now,
+      sourceSessionId: draft.source.sourceSessionId,
+      sourceMessageId: draft.source.sourceMessageId,
+      sourceTurnId: draft.source.sourceTurnId,
+      capturedAt: draft.source.capturedAt,
       fileName: draft.source.fileName,
       sourceQuote
     };

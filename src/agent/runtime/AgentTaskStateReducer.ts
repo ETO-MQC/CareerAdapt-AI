@@ -7,11 +7,23 @@ import {
 import type { AgentAttachmentRef } from "@/services/agent/AgentAttachmentStore";
 
 export type AgentTaskEvent =
-  | { type: "user_message"; message: string; goal?: string }
+  | {
+      type: "user_message";
+      message: string;
+      sessionId?: string;
+      messageId?: string;
+      turnId?: string;
+      capturedAt?: string;
+    }
   | { type: "new_root_task"; goal: string; workflowId: string; stage: string }
+  | { type: "new_active_task"; goal: string; workflowId: string; stage: string }
   | { type: "attachment_selected"; attachment: AgentAttachmentRef }
   | { type: "slot_answer"; slot: string; value: unknown }
-  | { type: "decision_selected"; decisionType: "resume_source_route"; option: "profile" | "existing_resume" }
+  | {
+      type: "decision_selected";
+      decisionType: "resume_source_route" | "profile_intake_target" | "profile_intake_resume";
+      option: "profile" | "existing_resume" | "switch_to_active" | "keep_original" | "save_profile_only" | "generate_general_resume";
+    }
   | { type: "tool_observation"; toolName: string; observation: unknown; artifactIds?: string[] }
   | { type: "confirmation_requested"; toolName: string; operationId: string }
   | { type: "confirmation_accepted"; toolName: string }
@@ -60,7 +72,6 @@ export class AgentTaskStateReducer {
 
   reduce(previous: AgentTaskState, event: AgentTaskEvent): AgentTaskState {
     const state = structuredClone(previous);
-    const previouslyFinished = isFinishedRootTask(state);
     state.updatedAt = new Date().toISOString();
     if (event.type === "new_root_task") {
       return normalize({
@@ -86,7 +97,39 @@ export class AgentTaskStateReducer {
         updatedAt: new Date().toISOString()
       });
     }
+    if (event.type === "new_active_task") {
+      state.activeGoal = event.goal;
+      state.workflowId = event.workflowId;
+      state.stage = event.stage;
+      state.requiredSlots = [];
+      state.missingSlots = [];
+      state.pendingDecision = undefined;
+      state.completionStatus = "active";
+      return normalize(state);
+    }
     if (event.type === "user_message") {
+      if (state.workflowId === "guided_profile_intake") {
+        state.knownSlots.latestIntakeSource = {
+          sessionId: event.sessionId,
+          messageId: event.messageId,
+          turnId: event.turnId,
+          exactSourceQuote: event.message,
+          capturedAt: event.capturedAt ?? state.updatedAt
+        };
+        if (state.stage === "collect_experience" && event.message.trim().length >= 80) {
+          state.stage = "structure_facts";
+        }
+        if (state.stage === "profile_complete") {
+          if (/仅保存(?:资料库)?|不(?:需要|用)生成(?:通用)?简历/.test(event.message)) {
+            state.pendingDecision = undefined;
+            state.completionStatus = "completed";
+          } else if (/生成(?:一份)?(?:通用)?简历|创建(?:一份)?(?:通用)?简历/.test(event.message)) {
+            state.pendingDecision = undefined;
+            state.stage = "optional_resume_decision";
+            state.completionStatus = "active";
+          }
+        }
+      }
       // Import review replies commonly combine the review decision and target
       // selection in one sentence. Capture both before the continuation
       // resolver can consume the reply and return early.
@@ -95,12 +138,6 @@ export class AgentTaskStateReducer {
       }
       const continuation = new TaskContinuationResolver().resolve(state, event.message);
       if (continuation.consumed) {
-        if (
-          continuation.goal
-          && !["apply_to_job", "create_tailored_resume"].includes(state.rootGoal)
-        ) {
-          setUserRootGoal(state, continuation.goal);
-        }
         Object.assign(state.knownSlots, continuation.slotUpdates);
         if (continuation.intent === "continue") {
           state.stage = deriveNextLegalStage(state);
@@ -109,41 +146,9 @@ export class AgentTaskStateReducer {
         state.computeTier = computeTier(state.rootGoal, event.message);
         return normalize(state);
       }
-      if (event.goal) setUserRootGoal(state, event.goal);
       if (state.completionStatus !== "waiting_for_confirmation") state.completionStatus = "active";
-      if (/基于现有简历.*岗位定制|定制简历|创建.*岗位简历|创建.*定制简历/i.test(event.message)) {
-        setUserRootGoal(state, "create_tailored_resume");
-        state.workflowId = "tailor_existing_resume";
-      } else if (/分析.*(岗位|职位).*(匹配|适配)|匹配度/i.test(event.message)) {
-        setUserRootGoal(state, "analyze_job_fit");
-        state.workflowId = "analyze_job_fit";
-      } else if (/导入.*简历|上传.*简历/i.test(event.message)) {
-        setUserRootGoal(state, "import_resume");
-        state.workflowId = "resume_import";
-        state.stage = state.attachment ? "prepare_import" : "select_source";
-      } else if (/从资料库.*(生成|创建).*简历/i.test(event.message)) {
-        setUserRootGoal(state, "create_resume_from_profile");
-      } else if (/导出.*简历/i.test(event.message)) {
-        setUserRootGoal(state, "export_resume");
-      } else if (/归档.*简历/i.test(event.message)) {
-        setUserRootGoal(state, "archive_resume");
-      } else if (/恢复.*简历/i.test(event.message)) {
-        setUserRootGoal(state, "restore_resume");
-      } else if (/录入.*岗位|导入.*岗位|新增.*岗位/i.test(event.message)) {
-        setUserRootGoal(state, "ingest_job");
-        state.workflowId = "job_ingestion";
-        state.stage = "collect_job_description";
-      }
       captureEntityReferences(state, event.message);
-      const applicationIntent = /应聘|申请.*岗位|想投.*岗位|这工作.*试试|想试试.*岗位/i.test(event.message);
-      if (applicationIntent) setUserRootGoal(state, "apply_to_job");
-      if (looksLikeJd(event.message)) {
-        if (state.rootGoal === "conversation" || (previouslyFinished && !applicationIntent)) {
-          setUserRootGoal(state, "ingest_job");
-        } else {
-          state.activeGoal = "ingest_job";
-        }
-        state.workflowId = "job_ingestion";
+      if (state.workflowId === "job_ingestion" && looksLikeJd(event.message)) {
         state.stage = "parse_job";
         state.knownSlots.rawText = event.message.trim();
       }
@@ -198,7 +203,20 @@ export class AgentTaskStateReducer {
         state.pendingDecision?.type === event.decisionType
         && state.pendingDecision.options.includes(event.option)
       ) {
-        selectResumeSourceRoute(state, event.option);
+        if (event.decisionType === "resume_source_route" && (event.option === "profile" || event.option === "existing_resume")) {
+          selectResumeSourceRoute(state, event.option);
+        } else if (event.decisionType === "profile_intake_target") {
+          resolveProfileIntakeTargetDecision(state, event.option);
+        } else if (event.decisionType === "profile_intake_resume") {
+          state.pendingDecision = undefined;
+          if (event.option === "save_profile_only") {
+            state.stage = "profile_complete";
+            state.completionStatus = "completed";
+          } else if (event.option === "generate_general_resume") {
+            state.stage = "optional_resume_decision";
+            state.completionStatus = "active";
+          }
+        }
       }
     }
     if (event.type === "tool_observation") {
@@ -274,6 +292,85 @@ export class AgentTaskStateReducer {
       } else if (event.toolName === "archive_resume" || event.toolName === "restore_resume") {
         state.stage = "lifecycle_result";
         state.knownSlots.lifecycleResult = event.observation;
+        state.completionStatus = "completed";
+      } else if (event.toolName === "export_resume") {
+        state.knownSlots.exportResult = event.observation;
+        state.activeGoal = "export_resume";
+        state.stage = "export_ready";
+        state.completionStatus = "completed";
+      } else if (event.toolName === "capture_profile_intake") {
+        const value = objectValue(event.observation);
+        state.knownSlots.intakeImportId = value.importId;
+        state.knownSlots.expectedIntakeDraftRevision = value.expectedDraftRevision;
+        state.knownSlots.intakeCandidates = value.candidates;
+        state.knownSlots.intakeArtifact = value.artifactPayload;
+        const needsConfirmation = typeof value.needsConfirmationCount === "number"
+          ? value.needsConfirmationCount
+          : 0;
+        state.stage = needsConfirmation > 0 ? "review_facts" : "reconcile_profile";
+        state.completionStatus = needsConfirmation > 0 ? "waiting_for_user" : "active";
+      } else if (event.toolName === "review_profile_intake") {
+        const value = objectValue(event.observation);
+        state.knownSlots.expectedIntakeDraftRevision = value.expectedDraftRevision;
+        const unresolved = typeof value.unresolvedCount === "number" ? value.unresolvedCount : 0;
+        state.stage = unresolved > 0 ? "review_facts" : "reconcile_profile";
+        state.completionStatus = unresolved > 0 ? "waiting_for_user" : "active";
+      } else if (event.toolName === "reconcile_profile_intake") {
+        const value = objectValue(event.observation);
+        const summary = objectValue(value.summary);
+        const unresolved = typeof summary.requiresReview === "number" ? summary.requiresReview : 0;
+        state.knownSlots.intakeReconciliation = event.observation;
+        state.knownSlots.expectedIntakeReconciliationRevision = value.expectedPlanRevision;
+        state.knownSlots.intakeArtifact = {
+          ...objectValue(state.knownSlots.intakeArtifact),
+          duplicates: Array.isArray(value.existing) ? value.existing : [],
+          additions: Array.isArray(value.additions) ? value.additions : [],
+          reconciliationSummary: summary
+        };
+        state.stage = unresolved > 0 ? "resolve_conflicts" : "confirm_commit";
+        state.completionStatus = unresolved > 0 ? "waiting_for_user" : "waiting_for_confirmation";
+      } else if (event.toolName === "resolve_profile_intake_conflict") {
+        const value = objectValue(event.observation);
+        const unresolved = typeof value.unresolvedCount === "number" ? value.unresolvedCount : 0;
+        state.knownSlots.expectedIntakeReconciliationRevision = value.expectedPlanRevision;
+        state.knownSlots.intakeReconciliation = {
+          ...objectValue(state.knownSlots.intakeReconciliation),
+          ...value
+        };
+        state.stage = unresolved > 0 ? "resolve_conflicts" : "confirm_commit";
+        state.completionStatus = unresolved > 0 ? "waiting_for_user" : "waiting_for_confirmation";
+      } else if (event.toolName === "commit_profile_intake") {
+        const value = objectValue(event.observation);
+        const profileId = stringValue(value.profileId);
+        const profileVersion = scalarValue(value.profileVersion);
+        if (!profileId || typeof profileVersion !== "number") {
+          state.stage = "confirm_commit";
+          state.completionStatus = "failed";
+          return normalize(state);
+        }
+        state.selectedEntities.profileId = profileId;
+        state.selectedEntities.profileVersion = profileVersion;
+        state.knownSlots.targetProfileId = profileId;
+        state.knownSlots.expectedProfileVersion = profileVersion;
+        state.knownSlots.profileCommitResult = event.observation;
+        state.pendingDecision = {
+          type: "profile_intake_resume",
+          options: ["save_profile_only", "generate_general_resume"]
+        };
+        state.stage = "profile_complete";
+        state.completionStatus = "waiting_for_user";
+        state.completionStatus = "waiting_for_user";
+      } else if (event.toolName === "ensure_general_resume_from_profile") {
+        const value = objectValue(event.observation);
+        const resumeId = stringValue(value.resumeId);
+        const revisionId = stringValue(value.revisionId);
+        if (resumeId) state.selectedEntities.resumeId = resumeId;
+        if (revisionId) {
+          state.selectedEntities.resumeRevisionId = revisionId;
+          state.selectedEntities.revisionId = revisionId;
+        }
+        state.knownSlots.generalResumeResult = event.observation;
+        state.stage = "resume_ready";
         state.completionStatus = "completed";
       } else if (event.toolName === "prepare_resume_import") {
         const value = objectValue(event.observation);
@@ -357,6 +454,9 @@ export class AgentTaskStateReducer {
       }
       if (event.toolName === "commit_resume_import") {
         state.stage = "confirm_import";
+      }
+      if (event.toolName === "commit_profile_intake") {
+        state.stage = "confirm_commit";
       }
     }
     if (event.type === "confirmation_accepted") {
@@ -469,17 +569,15 @@ function setUserRootGoal(state: AgentTaskState, goal: string) {
   state.goal = state.rootGoal;
 }
 
-function isFinishedRootTask(state: AgentTaskState) {
-  return state.completionStatus === "completed"
-    || state.completionStatus === "failed"
-    || state.completionStatus === "cancelled";
-}
-
 function mergeObservationSlots(state: AgentTaskState, toolName: string, observation: unknown) {
   const value = objectValue(observation);
   if (toolName === "list_resumes") {
     const resumes = Array.isArray(value.resumes) ? value.resumes.map(objectValue) : [];
-    const selected = selectResumeReference(resumes, state.knownSlots.resumeReference);
+    const targetProfileId = stringValue(state.knownSlots.targetProfileId);
+    const ownedResumes = targetProfileId
+      ? resumes.filter((resume) => resume.profileId === targetProfileId)
+      : resumes;
+    const selected = selectResumeReference(ownedResumes, state.knownSlots.resumeReference);
     const id = stringValue(selected?.id);
     if (id) {
       updateAuthoritativeEntity(state, {
@@ -506,12 +604,20 @@ function mergeObservationSlots(state: AgentTaskState, toolName: string, observat
   if (toolName === "get_active_profile") {
     const id = stringValue(value.profileId);
     if (id) {
-      updateAuthoritativeEntity(state, {
-        type: "entity_revision",
-        entityType: "profile",
-        entityId: id,
-        version: scalarValue(value.version)
-      });
+      if (state.workflowId === "guided_profile_intake") {
+        observeProfileIntakeTarget(state, {
+          profileId: id,
+          profileName: stringValue(value.name),
+          profileVersion: scalarValue(value.version)
+        });
+      } else {
+        updateAuthoritativeEntity(state, {
+          type: "entity_revision",
+          entityType: "profile",
+          entityId: id,
+          version: scalarValue(value.version)
+        });
+      }
     }
   }
   if (toolName === "list_profiles" && state.rootGoal === "import_resume") {
@@ -529,18 +635,37 @@ function mergeObservationSlots(state: AgentTaskState, toolName: string, observat
     const profile = objectValue(value.profile);
     const id = stringValue(profile.id ?? value.profileId);
     if (id) {
-      updateAuthoritativeEntity(state, {
-        type: "entity_revision",
-        entityType: "profile",
-        entityId: id,
-        version: scalarValue(profile.version ?? value.profileVersion)
-      });
+      if (state.workflowId === "guided_profile_intake") {
+        observeProfileIntakeTarget(state, {
+          profileId: id,
+          profileName: stringValue(profile.name ?? value.name),
+          profileVersion: scalarValue(profile.version ?? value.profileVersion)
+        });
+      } else {
+        updateAuthoritativeEntity(state, {
+          type: "entity_revision",
+          entityType: "profile",
+          entityId: id,
+          version: scalarValue(profile.version ?? value.profileVersion)
+        });
+      }
     }
   }
   if (toolName === "get_resume") {
     const resume = objectValue(value.resume);
     const id = stringValue(resume.id ?? value.resumeId);
     if (id) {
+      const resumeProfileId = stringValue(resume.profileId ?? value.profileId);
+      const targetProfileId = stringValue(state.knownSlots.targetProfileId);
+      if (targetProfileId && resumeProfileId && resumeProfileId !== targetProfileId) {
+        clearResumeSelection(state);
+        state.knownSlots.resumeOwnershipMismatch = {
+          resumeId: id,
+          resumeProfileId,
+          targetProfileId
+        };
+        return;
+      }
       updateAuthoritativeEntity(state, {
         type: "entity_revision",
         entityType: "resume",
@@ -549,6 +674,10 @@ function mergeObservationSlots(state: AgentTaskState, toolName: string, observat
         version: scalarValue(resume.revision),
         hash: stringValue(resume.resumeHash ?? value.resumeHash)
       });
+      if (state.rootGoal === "export_resume" && state.workflowId === "repair_and_export_resume") {
+        state.stage = "export";
+        state.completionStatus = "active";
+      }
     }
   }
   if (toolName === "get_job") {
@@ -605,6 +734,106 @@ function mergeObservationSlots(state: AgentTaskState, toolName: string, observat
     state.stage = "analyze_fit";
     state.completionStatus = "active";
   }
+}
+
+function observeProfileIntakeTarget(state: AgentTaskState, authority: {
+  profileId: string;
+  profileName?: string;
+  profileVersion?: string | number;
+}) {
+  const targetProfileId = stringValue(state.knownSlots.targetProfileId);
+  const expectedVersion = scalarValue(state.knownSlots.expectedProfileVersion);
+  if (!targetProfileId) {
+    state.knownSlots.targetProfileId = authority.profileId;
+    state.knownSlots.targetProfileName = authority.profileName;
+    state.knownSlots.expectedProfileVersion = authority.profileVersion;
+    state.knownSlots.acknowledgedActiveProfileId = authority.profileId;
+    state.selectedEntities.profileId = authority.profileId;
+    state.selectedEntities.profileVersion = authority.profileVersion;
+    if (state.stage === "resolve_profile_target") {
+      state.stage = "collect_experience";
+      state.completionStatus = "waiting_for_user";
+    }
+    return;
+  }
+  if (targetProfileId === authority.profileId) {
+    const versionChanged = expectedVersion !== undefined
+      && authority.profileVersion !== undefined
+      && expectedVersion !== authority.profileVersion;
+    state.knownSlots.targetProfileName = authority.profileName ?? state.knownSlots.targetProfileName;
+    state.knownSlots.expectedProfileVersion = authority.profileVersion ?? expectedVersion;
+    state.selectedEntities.profileId = authority.profileId;
+    state.selectedEntities.profileVersion = authority.profileVersion ?? expectedVersion;
+    if (versionChanged && hasValue(state.knownSlots.intakeImportId)) {
+      delete state.knownSlots.intakeReconciliation;
+      delete state.knownSlots.expectedIntakeReconciliationRevision;
+      state.stage = "reconcile_profile";
+      state.completionStatus = "active";
+    } else if (state.stage === "resolve_profile_target") {
+      state.stage = "collect_experience";
+      state.completionStatus = "waiting_for_user";
+    }
+    return;
+  }
+  state.knownSlots.pendingProfileTarget = {
+    original: {
+      profileId: targetProfileId,
+      profileName: state.knownSlots.targetProfileName,
+      profileVersion: expectedVersion
+    },
+    active: {
+      profileId: authority.profileId,
+      profileName: authority.profileName,
+      profileVersion: authority.profileVersion
+    }
+  };
+  state.pendingDecision = {
+    type: "profile_intake_target",
+    options: ["switch_to_active", "keep_original"]
+  };
+  state.stage = "resolve_profile_target";
+  state.completionStatus = "waiting_for_user";
+}
+
+function resolveProfileIntakeTargetDecision(
+  state: AgentTaskState,
+  option: "profile" | "existing_resume" | "switch_to_active" | "keep_original" | "save_profile_only" | "generate_general_resume"
+) {
+  const pending = objectValue(state.knownSlots.pendingProfileTarget);
+  const target = option === "switch_to_active"
+    ? objectValue(pending.active)
+    : option === "keep_original"
+      ? objectValue(pending.original)
+      : undefined;
+  const profileId = stringValue(target?.profileId);
+  if (!profileId) return;
+  const changed = profileId !== state.knownSlots.targetProfileId;
+  state.knownSlots.targetProfileId = profileId;
+  state.knownSlots.targetProfileName = target?.profileName;
+  state.knownSlots.expectedProfileVersion = scalarValue(target?.profileVersion);
+  state.knownSlots.acknowledgedActiveProfileId = stringValue(objectValue(pending.active).profileId);
+  state.selectedEntities.profileId = profileId;
+  state.selectedEntities.profileVersion = scalarValue(target?.profileVersion);
+  if (changed) {
+    clearResumeSelection(state);
+    delete state.knownSlots.intakeReconciliation;
+    delete state.knownSlots.expectedIntakeReconciliationRevision;
+  }
+  delete state.knownSlots.pendingProfileTarget;
+  state.pendingDecision = undefined;
+  state.stage = hasValue(state.knownSlots.intakeImportId) ? "reconcile_profile" : "collect_experience";
+  state.completionStatus = state.stage === "collect_experience" ? "waiting_for_user" : "active";
+}
+
+function clearResumeSelection(state: AgentTaskState) {
+  state.selectedEntities.resumeId = undefined;
+  state.selectedEntities.resumeRevisionId = undefined;
+  state.selectedEntities.resumeHash = undefined;
+  state.selectedEntities.revisionId = undefined;
+  for (const key of ["resumeId", "resumeRevisionId", "resumeHash", "recommendedResumeId"]) {
+    delete state.knownSlots[key];
+  }
+  state.dependencySnapshots = {};
 }
 
 function captureTailoringTruth(state: AgentTaskState, observation: unknown) {

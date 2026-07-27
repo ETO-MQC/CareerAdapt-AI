@@ -144,7 +144,21 @@ export function AgentWorkspace() {
 
   function dispatchQuickAction(actionId: AgentQuickActionId) {
     const intent = createQuickActionIntent(actionId);
-    void dispatchMessage(intent.intent);
+    setLastUserMessage(intent.intent);
+    void host.state.dispatch(
+      {
+        type: "quick_action",
+        actionId: intent.actionId,
+        text: intent.intent,
+        task: intent.task
+      },
+      { session, pageContext: pageContext() }
+    ).then((result) => {
+      if (!result) return;
+      setSession(result);
+      window.localStorage.setItem(ACTIVE_SESSION_KEY, result.id);
+      window.dispatchEvent(new CustomEvent("careeradapt-agent-sessions-change"));
+    });
   }
 
   const workflowView = useMemo(() => taskToWorkflowView(session), [session]);

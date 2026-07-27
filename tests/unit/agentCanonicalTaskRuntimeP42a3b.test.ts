@@ -12,16 +12,29 @@ import { createAgentToolRegistry, type AgentToolServices } from "@/agent/tools/r
 import { AgentProductCapabilityManifest, RESUME_IMPORT_ACCEPT } from "@/agent/capabilities/AgentProductCapabilityManifest";
 import { BrowserAgentToolService } from "@/services/agent/agentToolService";
 import { AgentHostStore } from "@/agent/runtime/AgentHostStore";
-import { AgentSessionSchema, AgentTaskStateSchema, type AgentSession } from "@/agent/contracts/agentSession";
+import { AgentSessionSchema, AgentTaskStateSchema, type AgentSession, type AgentTaskState } from "@/agent/contracts/agentSession";
+import { classifyTurnIntent } from "@/agent/runtime/AgentTurnIntent";
+
+function routeTurn(
+  reducer: AgentTaskStateReducer,
+  state: AgentTaskState,
+  message: string
+) {
+  const decision = classifyTurnIntent({ text: message, taskState: state });
+  let routed = state;
+  if (decision.newTask && decision.taskMutation === "replace") {
+    routed = reducer.reduce(routed, { type: "new_root_task", ...decision.newTask });
+  } else if (decision.newTask && decision.taskMutation === "continue") {
+    routed = reducer.reduce(routed, { type: "new_active_task", ...decision.newTask });
+  }
+  return reducer.reduce(routed, { type: "user_message", message });
+}
 
 describe("P4.2a.3b canonical task runtime", () => {
   it("replaces a stale quick-action workflow and uses the task workflow for every later resolution", () => {
     const base = AgentRuntime.create("agent_quick_action", "collecting_intent");
     const reducer = new AgentTaskStateReducer();
-    const task = reducer.reduce(reducer.create(base), {
-      type: "user_message",
-      message: "基于现有简历做岗位定制"
-    });
+    const task = routeTurn(reducer, reducer.create(base), "基于现有简历做岗位定制");
     const staleSession = { ...base, taskState: task };
     const names = new AgentToolResolver(createAgentToolRegistry(services())).allowedTools({
       workflowId: base.workflowState.workflowId,
@@ -111,9 +124,10 @@ describe("P4.2a.3b canonical task runtime", () => {
 公司：示例科技
 岗位职责：负责训练数据设计、质量验收与迭代复盘，维护可追溯的任务记录。
 任职要求：具备 AI 应用、数据分析和清晰书面沟通能力。`.repeat(3);
-    let state = reducer.reduce(
+    let state = routeTurn(
+      reducer,
       reducer.create(AgentRuntime.create("agent_quick_action", "collecting_intent")),
-      { type: "user_message", message: jd }
+      jd
     );
     expect(state).toMatchObject({
       goal: "ingest_job",
@@ -142,9 +156,10 @@ describe("P4.2a.3b canonical task runtime", () => {
 
   it("sets ingest_job as the root before the user supplies the JD", () => {
     const reducer = new AgentTaskStateReducer();
-    const state = reducer.reduce(
+    const state = routeTurn(
+      reducer,
       reducer.create(AgentRuntime.create("agent_quick_action", "collecting_intent")),
-      { type: "user_message", message: "录入这个岗位" }
+      "录入这个岗位"
     );
     expect(state).toMatchObject({
       rootGoal: "ingest_job",
@@ -161,16 +176,17 @@ describe("P4.2a.3b canonical task runtime", () => {
 公司：示例科技
 岗位职责：负责训练数据设计、质量验收与迭代复盘，维护可追溯的任务记录。
 任职要求：具备 AI 应用、数据分析和清晰书面沟通能力。`.repeat(3);
-    let state = reducer.reduce(
+    let state = routeTurn(
+      reducer,
       reducer.create(AgentRuntime.create("agent_quick_action", "collecting_intent")),
-      { type: "user_message", message: "我想应聘这个岗位" }
+      "我想应聘这个岗位"
     );
     expect(state).toMatchObject({
       rootGoal: "apply_to_job",
       activeGoal: "apply_to_job"
     });
 
-    state = reducer.reduce(state, { type: "user_message", message: jd });
+    state = routeTurn(reducer, state, jd);
     expect(state).toMatchObject({
       goal: "apply_to_job",
       rootGoal: "apply_to_job",

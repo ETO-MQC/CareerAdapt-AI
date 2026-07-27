@@ -24,6 +24,44 @@ export type QuickActionIntent = {
   actionId: AgentQuickActionId;
   intent: string;
   source: "zero_state" | "quick_tasks";
+  task: {
+    rootGoal: string;
+    workflowId: string;
+    stage: string;
+  };
+};
+
+export const AGENT_QUICK_ACTION_TASKS: Record<AgentQuickActionId, QuickActionIntent["task"]> = {
+  build_profile_from_scratch: {
+    rootGoal: "profile_intake",
+    workflowId: "guided_profile_intake",
+    stage: "resolve_profile_target"
+  },
+  import_existing_resume: {
+    rootGoal: "import_resume",
+    workflowId: "resume_import",
+    stage: "select_source"
+  },
+  tailor_resume_to_job: {
+    rootGoal: "create_tailored_resume",
+    workflowId: "tailor_existing_resume",
+    stage: "choose_resume_source"
+  },
+  build_resume_from_profile: {
+    rootGoal: "create_resume_from_profile",
+    workflowId: "build_resume_from_profile",
+    stage: "select_profile_scope"
+  },
+  analyze_job_fit: {
+    rootGoal: "analyze_job_fit",
+    workflowId: "analyze_job_fit",
+    stage: "select_assets"
+  },
+  repair_and_export_resume: {
+    rootGoal: "export_resume",
+    workflowId: "repair_and_export_resume",
+    stage: "select_resume"
+  }
 };
 
 export function createQuickActionIntent(
@@ -33,6 +71,7 @@ export function createQuickActionIntent(
   return AgentQuickActionIdSchema.parse(actionId) && {
     actionId,
     intent: AGENT_QUICK_ACTION_INTENTS[actionId],
-    source
+    source,
+    task: AGENT_QUICK_ACTION_TASKS[actionId]
   };
 }

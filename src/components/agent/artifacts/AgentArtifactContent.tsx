@@ -23,9 +23,64 @@ export function AgentArtifactContent({
   const unresolvedReconciliation = Array.isArray(importReconciliation.unresolved)
     ? importReconciliation.unresolved.map(asRecord)
     : [];
+  const intakeArtifact = asRecord(taskState?.knownSlots.intakeArtifact);
+  const recognizedIntake = arrayOfRecords(intakeArtifact.recognized);
+  const uncertainIntake = arrayOfRecords(intakeArtifact.needsConfirmation);
+  const duplicateIntake = arrayOfRecords(intakeArtifact.duplicates);
+  const additionIntake = arrayOfRecords(intakeArtifact.additions);
+  const intakeSources = arrayOfRecords(intakeArtifact.sources);
 
   return (
     <div className="agent-artifact-content">
+      {taskState?.rootGoal === "profile_intake" && Object.keys(intakeArtifact).length ? (
+        <section className="agent-artifact agent-import-review-artifact" aria-label="经历核对">
+          <header>
+            <div>
+              <strong>经历核对</strong>
+              <span>{recognizedIntake.length + uncertainIntake.length} 项候选</span>
+            </div>
+            <span className="agent-import-review-state">
+              {uncertainIntake.length ? `${uncertainIntake.length} 项待确认` : "可对账"}
+            </span>
+          </header>
+          <dl>
+            <div><dt>已识别</dt><dd>{recognizedIntake.length} 项</dd></div>
+            <div><dt>需要确认</dt><dd>{uncertainIntake.length} 项</dd></div>
+            <div><dt>与资料库重复</dt><dd>{duplicateIntake.length} 项</dd></div>
+            <div><dt>将新增</dt><dd>{additionIntake.length} 项</dd></div>
+          </dl>
+          {recognizedIntake.length ? (
+            <details open>
+              <summary>已识别 <span>{recognizedIntake.length}</span></summary>
+              <ul>{recognizedIntake.map((item) => <li key={String(item.id)}>{String(item.label)}</li>)}</ul>
+            </details>
+          ) : null}
+          {uncertainIntake.length ? (
+            <div className="agent-reconciliation-list">
+              {uncertainIntake.map((item) => (
+                <article key={String(item.id)}>
+                  <div><strong>{String(item.label)}</strong><span>需要确认</span></div>
+                  <p>{String(item.reason ?? "名称或表述需要确认")}</p>
+                  <div className="agent-import-review-actions">
+                    <button type="button" onClick={() => onImportAction?.(`确认采用经历候选 ${String(item.id)}`)}>采用</button>
+                    <button type="button" onClick={() => onImportAction?.(`忽略经历候选 ${String(item.id)}`)}>忽略</button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : null}
+          <details>
+            <summary>来源 <span>{intakeSources.length}</span></summary>
+            <ul>
+              {intakeSources.map((source) => (
+                <li key={`${String(source.sessionId)}:${String(source.messageId)}`}>
+                  对话 {String(source.messageId)} · {formatArtifactDate(source.capturedAt)}
+                </li>
+              ))}
+            </ul>
+          </details>
+        </section>
+      ) : null}
       {taskState?.rootGoal === "import_resume" && Object.keys(importArtifact).length ? (
         <section className="agent-artifact agent-import-review-artifact" aria-label="简历导入核对">
           <header>
@@ -162,6 +217,20 @@ function sourceTypeLabel(value: unknown) {
 
 function asRecord(value: unknown): Record<string, unknown> {
   return typeof value === "object" && value !== null ? value as Record<string, unknown> : {};
+}
+
+function arrayOfRecords(value: unknown) {
+  return Array.isArray(value) ? value.map(asRecord) : [];
+}
+
+function formatArtifactDate(value: unknown) {
+  if (typeof value !== "string") return "时间未知";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "时间未知";
+  return new Intl.DateTimeFormat("zh-CN", {
+    dateStyle: "medium",
+    timeStyle: "short"
+  }).format(date);
 }
 
 function fitSummary(analysis: Record<string, unknown>) {
