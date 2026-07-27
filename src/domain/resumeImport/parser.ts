@@ -298,9 +298,16 @@ export function createImportedResumeDraftFromStructuredJson(input: {
     confidence: "high",
     items: section.items.map((structuredItem, itemIndex) => {
       const traceBlockIds = new Set((section.mappingTrace ?? []).flatMap((trace) => trace.sourceBlockIds));
+      const evidenceValues = structuredItemEvidenceValues(structuredItem);
       const sourceBlocks = sourceBlocksV2.filter((block) => traceBlockIds.has(block.id)
+        || Boolean(block.sourcePath && traceBlockIds.has(block.sourcePath))
         || block.sourcePath?.includes(`sections.${sectionIndex}.items.${itemIndex}`)
-        || block.sourcePath?.includes(`sections[${sectionIndex}].items[${itemIndex}]`));
+        || block.sourcePath?.includes(`sections[${sectionIndex}].items[${itemIndex}]`)
+        || evidenceValues.some((value) =>
+          block.normalizedText === value
+          || block.normalizedText.includes(value)
+          || value.includes(block.normalizedText)
+        ));
       const text = projectResumeItemV2(structuredItem);
       return {
         id: structuredItem.id,
@@ -1021,6 +1028,19 @@ function createItem(lines: LineWithPage[], order: number): ImportedResumeItem {
     structuredMappingTrace: [],
     sourceQuote: rawText
   };
+}
+
+function structuredItemEvidenceValues(value: unknown): string[] {
+  if (typeof value === "string") {
+    const normalized = value.trim();
+    return normalized.length >= 2 ? [normalized] : [];
+  }
+  if (typeof value === "number" && Number.isFinite(value)) return [String(value)];
+  if (Array.isArray(value)) return [...new Set(value.flatMap(structuredItemEvidenceValues))];
+  if (!value || typeof value !== "object") return [];
+  return [...new Set(Object.entries(value as Record<string, unknown>)
+    .filter(([key]) => !["id", "sectionType", "current"].includes(key))
+    .flatMap(([, entry]) => structuredItemEvidenceValues(entry)))];
 }
 
 function makeField(

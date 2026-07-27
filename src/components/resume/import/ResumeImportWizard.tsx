@@ -3,26 +3,21 @@
 import { type ChangeEvent, type DragEvent, useEffect, useMemo, useRef, useState } from "react";
 import { nanoid } from "nanoid";
 import { RESUME_IMPORT_ACCEPT } from "@/agent/capabilities/AgentProductCapabilityManifest";
-import { PDF_IMPORT_EXTRACTION_VERSION } from "@/domain/pdfImport/limits";
-import { buildPageTextRecords, preparePdfText } from "@/domain/pdfImport/text";
-import { validatePdfFileDescriptor, validatePdfHeader } from "@/domain/pdfImport/validation";
-import { extractTextFromDocxBuffer } from "@/domain/resumeImport/docx";
-import { runOpenDataLoaderAdapter } from "@/domain/resumeImport/openDataLoaderAdapter";
 import { runResumeOcrAdapter } from "@/domain/resumeImport/ocrAdapter";
 import {
   selectDocumentImportRoute,
   type DocumentImportRoutingDecision
 } from "@/domain/resumeImport/routing";
 import {
-  createImportedResumeDraftFromPdf,
   createImportedResumeDraftFromStructuredJson,
   createImportedResumeDraftFromText
 } from "@/domain/resumeImport/parser";
-import { createJsonSourceBlocks, mapExternalResumeJson, parseResumeJsonText, RESUME_JSON_MAX_CHARS } from "@/domain/resumeImport/jsonMapper";
-import { adaptResumeJsonToV2, createResumeJsonV2Example, jsonV2ToLegacyMapperOutput } from "@/domain/resumeImport/jsonV2Adapter";
+import { createJsonSourceBlocks, RESUME_JSON_MAX_CHARS } from "@/domain/resumeImport/jsonMapper";
+import { createResumeJsonV2Example } from "@/domain/resumeImport/jsonV2Adapter";
 import { auditResumeImportInvariants, resumeImportInvariantIssueCount } from "@/domain/resumeImport/invariants";
 import { analyzeImportQuality, normalizeExtractedSourceBlocks, normalizedBlocksToText, RESUME_IMPORT_CLEANER_VERSION } from "@/domain/resumeImport/normalizer";
 import { applyImportBulkSelection, type ImportBulkSelectionMode } from "@/domain/resumeImport/reviewSelections";
+import { applyResumeImportReviewDecision } from "@/domain/resumeImport/reviewDecisions";
 import { invokeStructuredAi } from "@/ai/client";
 import {
   ImportedResumeDraftSchema,
@@ -40,10 +35,8 @@ import {
   type ImportMergeDecision,
   type NormalizedSourceBlock,
   type ResumeJsonMapperOutput,
-  type PdfImportSession,
   type PdfPageText
 } from "@/domain/schemas";
-import { extractTextFromPdfBuffer } from "@/services/pdf/extractText";
 import { hashBytes, hashText, redactSensitiveTextForModel, restoreSensitivePlaceholders } from "@/services/security/text";
 import { RevisionConflictError, type WorkspaceRepository } from "@/services/storage/repositories";
 import { notificationStore, notify } from "@/services/notifications/store";
@@ -51,6 +44,11 @@ import { getResumeFieldDefinition, type CanonicalFieldId } from "@/domain/resume
 import {
   readDocumentRecognitionPreferences
 } from "@/services/preferences/documentRecognition";
+import {
+  ResumeImportOrchestrator,
+  ResumeImportOrchestratorError,
+  type ResumeImportProgressStage
+} from "@/services/resumeImport/ResumeImportOrchestrator";
 
 type ImportStatus =
   | "idle"
@@ -249,270 +247,32 @@ export function ResumeImportWizard(props: {
     const effectivePreferences = options.modeOverride
       ? { ...documentPreferences, parsingMode: options.modeOverride }
       : documentPreferences;
-    const initialDecision = selectDocumentImportRoute({
-      sourceKind: "pdf",
-      preferences: effectivePreferences
-    });
-    setRoutingDecision(options.routeReasonPrefix
-      ? { ...initialDecision, reason: `${options.routeReasonPrefix} ${initialDecision.reason}` }
-      : initialDecision);
     if (!options.modeOverride && documentPreferences.parsingMode === "local_ocr" && documentPreferences.localOcrEnabled) {
       await startOcrImport(file, { fallbackToText: true });
       return;
     }
-    abortRef.current?.abort();
-    const controller = new AbortController();
-    abortRef.current = controller;
-    setStatus("validating_file");
-    setMessage("正在本地校验 PDF 文件。原始文件不会上传，也不会长期保存。");
-    setDraft(undefined);
-    setPages([]);
-    setSelectedItemId(undefined);
-
-    const descriptorValidation = validatePdfFileDescriptor(file);
-    if (!descriptorValidation.ok) {
-      fail(descriptorValidation.message);
-      return;
-    }
-
-    const buffer = await file.arrayBuffer();
-    const bytes = new Uint8Array(buffer);
-    const headerValidation = validatePdfHeader(bytes);
-    if (!headerValidation.ok) {
-      fail(headerValidation.message);
-      return;
-    }
-
-    const now = new Date().toISOString();
-    const fileHash = await hashBytes(bytes);
-    const duplicate = await props.repository.findPdfImportByFileHash(fileHash);
-    const session: PdfImportSession = {
-      id: `pdf-session-${nanoid(10)}`,
-      status: "extracting",
-      fileName: file.name,
-      fileSize: file.size,
-      mimeType: descriptorValidation.mimeType,
-      extension: descriptorValidation.extension,
-      fileHash,
-      pageCount: 0,
-      textLength: 0,
-      extractionVersion: PDF_IMPORT_EXTRACTION_VERSION,
-      hasPromptInjectionRisk: false,
-      warnings: descriptorValidation.warnings,
-      createdAt: now,
-      updatedAt: now
-    };
-    await props.repository.createPdfImportSession(session);
-
-    setStatus("extracting_pdf");
-    setMessage(duplicate ? "检测到同一 PDF 曾经导入过；本次会创建新的核对草稿。" : "正在本地提取 PDF 文本。");
-    const extracted = await extractTextFromPdfBuffer(buffer, controller.signal);
-    if (!extracted.ok) {
-      await props.repository.updatePdfImportSession({
-        ...session,
-        status: extracted.code === "extract_cancelled" ? "cancelled" : "failed",
-        errorCode: extracted.code,
-        errorMessage: extracted.message
-      });
-      if (extracted.code === "no_text_layer" && effectivePreferences.parsingMode === "auto" && effectivePreferences.localOcrEnabled) {
-        setRoutingDecision(selectDocumentImportRoute({
-          sourceKind: "scanned_pdf",
-          preferences: effectivePreferences,
-          qualityReport: emptyTextQualityReport()
-        }));
+    try {
+      await prepareWithOrchestrator(file, effectivePreferences);
+    } catch (error) {
+      if (
+        error instanceof ResumeImportOrchestratorError
+        && error.code === "resume_import_ocr_required"
+        && effectivePreferences.localOcrEnabled
+        && effectivePreferences.parsingMode === "auto"
+      ) {
         await startOcrImport(file);
         return;
       }
-      setRoutingDecision(selectDocumentImportRoute({
-        sourceKind: "scanned_pdf",
-        preferences: { ...effectivePreferences, parsingMode: "manual_review" },
-        qualityReport: emptyTextQualityReport(),
-        ocrReady: false
-      }));
-      fail(extracted.code === "no_text_layer"
-        ? "PDF 没有可用文本层。当前模式不会自动使用 OCR，请改用本地 OCR 或仅人工核对。"
-        : extracted.message);
-      return;
+      fail(error instanceof Error ? error.message : "PDF 导入失败。");
     }
-
-    const prepared = preparePdfText(extracted.pages);
-    if (!prepared.ok) {
-      await props.repository.updatePdfImportSession({
-        ...session,
-        status: "failed",
-        errorCode: prepared.code,
-        errorMessage: prepared.message
-      });
-      if (prepared.code === "no_text_layer" || prepared.code === "empty_extracted_text") {
-        if (effectivePreferences.parsingMode === "auto" && effectivePreferences.localOcrEnabled) {
-          setMessage("PDF 没有可用文本层，正在切换到本机 OCR。若本机未配置模型，将降级为人工核对。");
-          setRoutingDecision(selectDocumentImportRoute({
-            sourceKind: "scanned_pdf",
-            preferences: effectivePreferences,
-            qualityReport: emptyTextQualityReport()
-          }));
-          await startOcrImport(file);
-          return;
-        }
-        setRoutingDecision(selectDocumentImportRoute({
-          sourceKind: "scanned_pdf",
-          preferences: { ...effectivePreferences, parsingMode: "manual_review" },
-          qualityReport: emptyTextQualityReport(),
-          ocrReady: false
-        }));
-        fail("PDF 没有可用文本层。请改用本地 OCR，或保留文件进行人工核对。");
-        return;
-      }
-      fail(prepared.message);
-      return;
-    }
-
-    setStatus("classifying_sections");
-    const sourceBlocks = normalizeExtractedSourceBlocks(extracted.pages.flatMap((page) => page.blocks));
-    const qualityReport = analyzeImportQuality({ sourceType: "text_pdf", blocks: sourceBlocks });
-    let decision = selectDocumentImportRoute({
-      sourceKind: "text_pdf",
-      preferences: effectivePreferences,
-      qualityReport
-    });
-    if (options.skipExperimental && decision.route === "opendataloader") {
-      decision = { ...decision, route: "pdfjs", experimental: false, reason: "OpenDataLoader 已回退，继续使用 PDF.js 坐标解析。" };
-    }
-    setRoutingDecision(options.routeReasonPrefix
-      ? { ...decision, reason: `${options.routeReasonPrefix} ${decision.reason}` }
-      : decision);
-    if (decision.route === "opendataloader") {
-      setMessage("正在尝试 OpenDataLoader 实验解析；失败会自动回退 PDF.js。");
-      const experimental = await runOpenDataLoaderAdapter(file, { signal: controller.signal });
-      if (experimental.ok) {
-        const experimentalBlocks = normalizeExtractedSourceBlocks(experimental.blocks);
-        await props.repository.updatePdfImportSession({
-          ...session,
-          status: "extracted",
-          pageCount: extracted.pageCount,
-          textLength: experimental.text.length,
-          hasPromptInjectionRisk: false,
-          warnings: [...descriptorValidation.warnings, ...experimental.warnings]
-        });
-        await createDraftFromPlainText({
-          fileName: file.name,
-          mimeType: "application/pdf",
-          fileHash,
-          text: experimental.text,
-          sourceKind: "text_pdf",
-          pageCount: extracted.pageCount,
-          sourceBlocks: experimentalBlocks,
-          successMessage: "OpenDataLoader 实验解析完成；请重点核对复杂版面。"
-        });
-        return;
-      }
-      setRoutingDecision({
-        route: "pdfjs",
-        reason: `${experimental.message} 已自动回退 PDF.js 坐标解析。`,
-        fallbackRoute: "manual_review",
-        canUseOcr: effectivePreferences.localOcrEnabled,
-        ocrExpectedSlow: false,
-        experimental: false
-      });
-      setMessage(`${experimental.message} 正在回退 PDF.js 坐标解析。`);
-    }
-    const normalizedPages = prepared.pages.map((page) => ({
-      ...page,
-      cleanedText: normalizedBlocksToText(sourceBlocks.filter((block) => block.page === page.pageNumber)) || page.cleanedText
-    }));
-    const hashes = await Promise.all(normalizedPages.map(async (page) => ({
-      rawTextHash: await hashText(page.rawText),
-      cleanedTextHash: await hashText(page.cleanedText)
-    })));
-    const pageRecords = buildPageTextRecords({
-      sessionId: session.id,
-      pages: normalizedPages,
-      hashes,
-      now: new Date().toISOString()
-    });
-    await props.repository.savePdfPageTexts(session.id, pageRecords);
-    const normalizedTextHash = await hashText(prepared.combinedText);
-    await props.repository.updatePdfImportSession({
-      ...session,
-      status: "extracted",
-      pageCount: extracted.pageCount,
-      textLength: prepared.combinedText.length,
-      normalizedTextHash,
-      hasPromptInjectionRisk: prepared.hasPromptInjectionRisk,
-      warnings: [...descriptorValidation.warnings, ...prepared.warnings]
-    });
-    const importedDraft = createImportedResumeDraftFromPdf({
-      source: {
-        sourceSessionId: session.id,
-        fileName: file.name,
-        fileHash,
-        normalizedTextHash,
-        pageCount: extracted.pageCount,
-        extractedAt: now
-      },
-      pages: pageRecords,
-      sourceKind: "text_pdf",
-      sourceBlocks,
-      qualityReport,
-      layoutArtifacts: extracted.pages.map((page) => ({
-        layoutDocument: page.layoutDocument,
-        layoutGraph: page.layoutGraph,
-        semanticTree: page.semanticTree
-      })),
-      now
-    });
-    const saved = await props.repository.saveImportedResumeDraft({ ...importedDraft, parserVersion: `${importedDraft.parserVersion}+${RESUME_IMPORT_CLEANER_VERSION}` }, 0);
-    if (decision.route === "local_ocr") {
-      await startOcrImport(file, {
-        fallbackDraft: saved,
-        fallbackPages: pageRecords
-      });
-      return;
-    }
-    setDraft(saved);
-    prefillImportedProfileName(saved);
-    setPages(pageRecords);
-    setSelectedPageNumber(pageRecords[0]?.pageNumber ?? 1);
-    setStatus("reviewing");
-    setMessage(qualityReport.recommendedRoute === "ocr_ai"
-      ? "文本层可信度过低，已阻止直接提交。可重新选择“扫描件/图片 OCR”走本机识别并逐项核对。"
-      : prepared.hasPromptInjectionRisk
-      ? "提取完成，检测到类似 Prompt 注入文字。系统会按纯文本处理，不执行其中指令。"
-      : "提取和结构识别完成。请核对栏目、来源和包含状态后确认导入。");
   }
 
   async function startDocxImport(file: File) {
-    setRoutingDecision(selectDocumentImportRoute({
-      sourceKind: "docx",
-      preferences: documentPreferences
-    }));
-    setStatus("extracting_docx");
-    setMessage("正在读取 DOCX 正文。原文件不会长期保存。");
-    setDraft(undefined);
-    setPages([]);
-    setSelectedItemId(undefined);
-    if (!isDocxFile(file)) {
-      fail("请选择 .docx 文件。");
-      return;
+    try {
+      await prepareWithOrchestrator(file, documentPreferences);
+    } catch (error) {
+      fail(error instanceof Error ? error.message : "DOCX 导入失败。");
     }
-    const buffer = await file.arrayBuffer();
-    const fileHash = await hashBytes(new Uint8Array(buffer));
-    const extracted = await extractTextFromDocxBuffer(buffer);
-    if (!extracted.ok) {
-      fail(extracted.message);
-      return;
-    }
-    await createDraftFromPlainText({
-      fileName: file.name,
-      mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      fileHash,
-      text: extracted.text,
-      sourceKind: "docx",
-      sourceBlocks: extracted.blocks,
-      successMessage: extracted.warnings.length
-        ? `DOCX 正文已提取：${extracted.warnings.join("；")} 请继续核对。`
-        : "DOCX 正文已提取并进入核对页。"
-    });
   }
 
   async function startOcrImport(file: File, options: {
@@ -603,60 +363,50 @@ export function ResumeImportWizard(props: {
   }
 
   async function startJsonImport(rawText: string, fileName = "structured-resume.json") {
-    setRoutingDecision(selectDocumentImportRoute({
-      sourceKind: "standard_json",
-      preferences: documentPreferences
-    }));
-    setStatus("importing_json");
-    setMessage("正在校验结构化 JSON。JSON 不会绕过核对页。");
     try {
-      const risk = validateStructuredJsonText(rawText);
-      if (risk) {
-        fail(risk);
-        return;
-      }
-      const parsedJson = parseResumeJsonText(rawText);
-      if (!parsedJson.ok) {
-        fail(parsedJson.error.message);
-        jsonErrorNotificationIdRef.current = notify({ type: "error", title: "JSON 格式错误", message: parsedJson.error.message });
-        return;
-      }
-      const v2 = adaptResumeJsonToV2(parsedJson.value);
-      let mapped: ResumeJsonMapperOutput;
-      let sourceKind: "standard_json" | "external_json";
-      let successMessage: string;
-
-      if (v2.ok) {
-        mapped = { ...jsonV2ToLegacyMapperOutput(v2.value), mappingDecisions: [] };
-        sourceKind = v2.sourceKind === "external" ? "external_json" : "standard_json";
-        successMessage = v2.sourceKind === "v2"
-          ? "CareerAdapt JSON v2 已进入逐项核对；结构化字段和未分类内容均已保留。"
-          : v2.sourceKind === "v1"
-            ? "旧版 JSON 已通过 v1 → v2 适配器拆分为正式栏目，请继续核对。"
-            : v2.validationIssues?.length
-              ? `外部 JSON 已转换为 CareerAdapt v2；有 ${v2.validationIssues.length} 项格式异常需要核对。`
-              : "外部 JSON 已通过专用 Adapter 转换为 CareerAdapt v2，请核对来源证据。";
-      } else {
-        const mapResult = mapExternalResumeJson(parsedJson.value);
-        if (!mapResult.ok) {
-          fail(mapResult.message);
-          jsonErrorNotificationIdRef.current = notify({ type: "error", title: "JSON 映射失败", message: mapResult.message });
-          return;
-        }
-        mapped = mapResult.value;
-        sourceKind = "external_json";
-        successMessage = mapped.unclassifiedBlocks.length > 0
-          ? `已完成确定性字段映射，并保留 ${mapped.unclassifiedBlocks.length} 个未识别字段。可继续核对，或在确认隐私提示后使用 AI 智能映射。`
-          : "已通过常见字段别名完成映射，请核对来源路径和置信度。";
-      }
-
-      setPendingJsonMapping(v2.ok ? undefined : mapped);
-      await persistJsonDraft(mapped, fileName, rawText, sourceKind, successMessage, v2.ok ? v2.value : undefined);
+      const file = new File([rawText], fileName, { type: "application/json" });
+      await prepareWithOrchestrator(file, documentPreferences);
+      setPendingJsonMapping(undefined);
+      if (jsonErrorNotificationIdRef.current) notificationStore.dismiss(jsonErrorNotificationIdRef.current);
+      jsonErrorNotificationIdRef.current = undefined;
     } catch (error) {
       const message = error instanceof Error ? error.message : "导入过程中发生未知错误";
       fail(message);
       jsonErrorNotificationIdRef.current = notify({ type: "error", title: "导入失败", message });
     }
+  }
+
+  async function prepareWithOrchestrator(
+    file: File,
+    preferences: typeof documentPreferences
+  ) {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    setDraft(undefined);
+    setPages([]);
+    setSelectedItemId(undefined);
+    const prepared = await new ResumeImportOrchestrator(props.repository).prepare({
+      fileName: file.name,
+      mimeType: file.type,
+      size: file.size,
+      file
+    }, {
+      signal: controller.signal,
+      preferences,
+      onProgress: (progress) => {
+        setStatus(importStatusFromProgress(progress.stage, file));
+        setMessage(progress.message);
+      }
+    });
+    selectionBaselineRef.current = prepared.draft;
+    setDraft(prepared.draft);
+    prefillImportedProfileName(prepared.draft);
+    setPages(prepared.pages);
+    setSelectedPageNumber(prepared.pages[0]?.pageNumber ?? 1);
+    setRoutingDecision(prepared.routingDecision);
+    setStatus("reviewing");
+    setMessage(`已识别 ${prepared.reviewSummary.itemCount} 项信息，其中 ${prepared.reviewSummary.needsReviewCount} 项需要核对。`);
   }
 
   async function persistJsonDraft(
@@ -967,28 +717,7 @@ export function ResumeImportWizard(props: {
 
   async function confirmAllMappings() {
     if (!draft) return;
-    await patchDraft((current) => {
-      const basicsKeys = ["name", "email", "phone", "location", "summary"] as BasicFieldKey[];
-      const confirmedBasics = basicsKeys.reduce((acc, key) => {
-        const field = current.basics[key];
-        if (field?.mapping?.needsConfirmation) {
-          acc[key] = { ...field, sourceStatus: "user_confirmed_modified" as const, mapping: { ...field.mapping, needsConfirmation: false } };
-        } else {
-          acc[key] = field;
-        }
-        return acc;
-      }, {} as Record<BasicFieldKey, ImportedResumeField | undefined>);
-      const nextLinks = current.basics.links.map((link) =>
-        link?.mapping?.needsConfirmation ? { ...link, sourceStatus: "user_confirmed_modified" as const, mapping: { ...link.mapping, needsConfirmation: false } } : link
-      );
-      const nextSections = current.sections.map((section) => ({
-        ...section,
-        items: section.items.map((item) =>
-          item.mapping?.needsConfirmation ? { ...item, included: true, sourceStatus: "user_confirmed_modified" as const, mapping: { ...item.mapping, needsConfirmation: false } } : item
-        )
-      }));
-      return { ...current, basics: { ...current.basics, ...confirmedBasics, links: nextLinks }, sections: nextSections };
-    });
+    await patchDraft((current) => applyResumeImportReviewDecision(current, "accept_all"));
   }
 
   async function applyBulkSelection(mode: ImportBulkSelectionMode, sectionId?: string) {
@@ -1679,19 +1408,6 @@ function isJsonFile(file: File) {
   return file.name.toLowerCase().endsWith(".json") || file.type === "application/json";
 }
 
-function validateStructuredJsonText(text: string) {
-  if (!text.trim()) {
-    return "请先粘贴或选择结构化 JSON。";
-  }
-  if (/<\/?(script|style|iframe|object|embed)\b/i.test(text)) {
-    return "JSON 中包含脚本或样式片段，已阻止导入。";
-  }
-  if (/(api[_-]?key|secret[_-]?key|OPENAI_API_KEY|AI_API_KEY|-----BEGIN\s+(?:RSA|PRIVATE))/i.test(text)) {
-    return "JSON 中疑似包含密钥或私密凭据，已阻止导入。";
-  }
-  return undefined;
-}
-
 export function sampleStructuredResumeJson() {
   return {
     schemaVersion: "structured-resume-draft-v1",
@@ -2192,16 +1908,15 @@ function documentImportRouteLabel(route: DocumentImportRoutingDecision["route"])
   }[route];
 }
 
-function emptyTextQualityReport() {
-  return {
-    sourceType: "text_pdf" as const,
-    textCoverage: 0,
-    replacementCharacterRatio: 0,
-    abnormalWhitespaceRatio: 0,
-    lineFragmentationScore: 1,
-    readingOrderConfidence: "low" as const,
-    layoutComplexity: "unknown" as const,
-    recommendedRoute: "ocr_ai" as const,
-    warnings: ["PDF 没有可用文本层。"]
-  };
+function importStatusFromProgress(stage: ResumeImportProgressStage, file: File): ImportStatus {
+  if (stage === "validating") return "validating_file";
+  if (stage === "extracting") {
+    return isDocxFile(file) ? "extracting_docx" : isJsonFile(file) ? "importing_json" : "extracting_pdf";
+  }
+  if (stage === "normalizing" || stage === "mapping" || stage === "building_draft") {
+    return "classifying_sections";
+  }
+  if (stage === "ready_for_review") return "reviewing";
+  if (stage === "failed") return "failed";
+  return isJsonFile(file) ? "importing_json" : "extracting_pdf";
 }
