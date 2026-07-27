@@ -16,16 +16,19 @@ export const RESUME_IMPORT_ACCEPT = RESUME_IMPORT_FORMATS
   .join(",");
 
 export const AgentProductCapabilityManifest = {
-  inputFormats: RESUME_IMPORT_FORMATS.map(({ id, label }) => ({
-    id,
-    label,
-    productStatus: "available" as const,
-    entrypoints: {
-      manual: "available" as const,
-      // P4.2a.3c will connect these formats to the shared import orchestrator.
-      agent: "manual_only" as const
-    }
-  })),
+  inputFormats: RESUME_IMPORT_FORMATS.map(({ id, label }) => {
+    const imageRequiresPartialOcr = id === "png" || id === "jpeg";
+    return {
+      id,
+      label,
+      productStatus: imageRequiresPartialOcr ? "partial" as const : "available" as const,
+      entrypoints: {
+        manual: imageRequiresPartialOcr ? "partial" as const : "available" as const,
+        // P4.2a.3c will connect PDF/DOCX/JSON to the shared import orchestrator.
+        agent: imageRequiresPartialOcr ? "unavailable" as const : "manual_only" as const
+      }
+    };
+  }),
   supportedExportFormats: [
     { id: "pdf", label: "PDF", productStatus: "available", entrypoints: { manual: "available", agent: "available" } },
     { id: "json", label: "结构化 JSON", productStatus: "available", entrypoints: { manual: "available", agent: "available" } }

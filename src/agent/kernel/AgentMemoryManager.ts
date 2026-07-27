@@ -11,11 +11,15 @@ export type AgentMemoryContext = {
 export class AgentMemoryManager {
   retrieve(session: AgentSession): AgentMemoryContext {
     const memory = session.memory;
+    const task = session.taskState;
     return {
       working: {
-        workflowId: session.taskState?.workflowId ?? session.workflowState.workflowId,
-        step: session.taskState?.stage ?? session.workflowState.step,
-        ...(session.taskState?.knownSlots ?? session.workflowState.data)
+        workflowId: task?.workflowId ?? session.workflowState.workflowId,
+        step: task?.stage ?? session.workflowState.step,
+        rootGoal: task?.rootGoal,
+        activeGoal: task?.activeGoal,
+        selectedEntities: task?.selectedEntities,
+        pendingDecision: task?.pendingDecision
       },
       userPreferences: memory?.userPreferences ?? [],
       episodic: memory?.episodic ?? [],

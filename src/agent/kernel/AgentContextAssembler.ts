@@ -41,9 +41,11 @@ export class AgentContextAssembler {
               activeGoal: task.activeGoal,
               stage: task.stage,
               requiredSlots: task.requiredSlots,
-              knownSlots: task.knownSlots,
+              knownSlots: promptKnownSlots(task.knownSlots),
               missingSlots: task.missingSlots,
               selectedEntities: task.selectedEntities,
+              pendingDecision: task.pendingDecision,
+              dependencySnapshots: task.dependencySnapshots,
               completionStatus: task.completionStatus,
               computeTier: task.computeTier
             }
@@ -70,4 +72,89 @@ export class AgentContextAssembler {
       "Return a concise user-visible final answer in the user's language, or use the allowed tools. Use tools autonomously when facts are needed."
     ].join("\n");
   }
+}
+
+function promptKnownSlots(slots: Record<string, unknown>) {
+  const retained = [
+    "title",
+    "company",
+    "sourceRoute",
+    "recommendedResumeId",
+    "confirmedRequirementIds",
+    "previewComplete",
+    "confirmationAccepted"
+  ];
+  const compact = Object.fromEntries(
+    retained.flatMap((key) => slots[key] === undefined ? [] : [[key, slots[key]]])
+  );
+  const sourceRecommendation = objectValue(slots.sourceRecommendation);
+  if (Object.keys(sourceRecommendation).length) {
+    compact.sourceRecommendation = {
+      route: sourceRecommendation.route,
+      reason: sourceRecommendation.reason,
+      resumeId: sourceRecommendation.resumeId
+    };
+  }
+  const currentClarification = compactClarification(slots.currentClarification);
+  if (currentClarification) compact.currentClarification = currentClarification;
+  const qualityResult = objectValue(slots.qualityResult);
+  if (Object.keys(qualityResult).length) {
+    compact.qualityResult = {
+      status: qualityResult.status,
+      score: qualityResult.score,
+      summary: qualityResult.summary
+    };
+  }
+  const session = objectValue(slots.tailoringSession);
+  const plan = objectValue(session.plan);
+  if (Object.keys(session).length) {
+    const questions = Array.isArray(plan.clarificationQuestions)
+      ? plan.clarificationQuestions.map(compactClarification).filter(Boolean)
+      : [];
+    const answers = Array.isArray(plan.clarificationAnswers)
+      ? plan.clarificationAnswers.map((answer) => {
+        const value = objectValue(answer);
+        return {
+          questionId: value.questionId,
+          status: value.status,
+          requirementIds: stringArray(value.requirementIds)
+        };
+      })
+      : [];
+    compact.tailoringSession = {
+      id: session.id,
+      profileId: objectValue(session.profile).id,
+      resumeId: objectValue(session.branch).id,
+      resumeRevisionId: objectValue(session.branch).currentRevisionId,
+      jobId: objectValue(session.job).id,
+      clarificationQuestions: questions,
+      clarificationAnswers: answers,
+      diffCount: Array.isArray(slots.selectedDiffs) ? slots.selectedDiffs.length : 0,
+      note: "The runtime binds the authoritative persisted session and selected diffs to the next tailoring tool call."
+    };
+  }
+  return compact;
+}
+
+function compactClarification(value: unknown) {
+  const item = objectValue(value);
+  if (!Object.keys(item).length) return undefined;
+  return {
+    id: item.id,
+    question: item.question,
+    answerType: item.answerType,
+    requirementIds: stringArray(item.requirementIds)
+  };
+}
+
+function stringArray(value: unknown) {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
+}
+
+function objectValue(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
 }

@@ -20,6 +20,11 @@ export const AgentUiActionSchema = z.discriminatedUnion("type", [
 export const AgentOptionActionSchema = z.union([
   AgentWorkflowControlSchema,
   AgentUiActionSchema,
+  z.object({
+    type: z.literal("task_decision"),
+    decisionType: z.literal("resume_source_route"),
+    option: z.enum(["profile", "existing_resume"])
+  }).strict(),
   z.object({ type: z.literal("answer"), field: z.string().min(1), value: z.unknown() }).strict()
 ]);
 

@@ -28,10 +28,14 @@ export function projectTaskStateIntoSession(
   session: AgentSession,
   taskState: AgentTaskState
 ): AgentSession {
+  const projectedTaskState = {
+    ...taskState,
+    goal: taskState.rootGoal
+  };
   return {
     ...session,
-    taskState,
-    workflowState: projectTaskStateToWorkflowState(taskState, session.workflowState)
+    taskState: projectedTaskState,
+    workflowState: projectTaskStateToWorkflowState(projectedTaskState, session.workflowState)
   };
 }
 

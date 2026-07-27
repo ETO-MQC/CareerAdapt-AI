@@ -167,6 +167,7 @@ function AgentMessageRow({
         ) : null}
         <AgentMessageActions
           message={message}
+          activity={activity}
           onEditUserMessage={onEditUserMessage}
           onContinueFromMessage={onContinueFromMessage}
           onCopyMessage={onCopyMessage}
@@ -221,12 +222,14 @@ function AgentStreamingIndicator() {
 
 function AgentMessageActions({
   message,
+  activity,
   onEditUserMessage,
   onContinueFromMessage,
   onCopyMessage,
   onRegenerate
 }: {
   message: AgentMessage;
+  activity?: AgentMessage[];
   onEditUserMessage?(message: AgentMessage): void;
   onContinueFromMessage?(message: AgentMessage): void;
   onCopyMessage?(message: AgentMessage): void;
@@ -253,10 +256,92 @@ function AgentMessageActions({
       <button type="button" title="复制" aria-label="复制消息" disabled={disabled} onClick={() => onCopyMessage?.(message)}>
         <Clipboard aria-hidden="true" />
       </button>
-      <button type="button" title="更多" aria-label="更多消息操作">
-        <MoreHorizontal aria-hidden="true" />
-      </button>
+      {!disabled ? (
+        <AgentMessageMoreMenu
+          message={message}
+          activity={activity}
+          disabled={disabled}
+          onEditUserMessage={onEditUserMessage}
+          onContinueFromMessage={onContinueFromMessage}
+          onCopyMessage={onCopyMessage}
+        />
+      ) : null}
     </div>
+  );
+}
+
+function AgentMessageMoreMenu({
+  message,
+  activity,
+  disabled,
+  onEditUserMessage,
+  onContinueFromMessage,
+  onCopyMessage
+}: {
+  message: AgentMessage;
+  activity?: AgentMessage[];
+  disabled: boolean;
+  onEditUserMessage?(message: AgentMessage): void;
+  onContinueFromMessage?(message: AgentMessage): void;
+  onCopyMessage?(message: AgentMessage): void;
+}) {
+  const menuRef = useRef<HTMLDetailsElement>(null);
+  const isUser = message.role === "user";
+  const run = (action: (() => void) | undefined) => {
+    action?.();
+    if (menuRef.current) menuRef.current.open = false;
+  };
+  return (
+    <details ref={menuRef} className="agent-message-more">
+      <summary title="更多" aria-label="更多消息操作" aria-disabled={disabled || undefined}>
+        <MoreHorizontal aria-hidden="true" />
+      </summary>
+      <div className="agent-message-more-menu" role="menu">
+        {isUser ? (
+          <>
+            {onEditUserMessage ? (
+              <button type="button" role="menuitem" disabled={disabled} onClick={() => run(() => onEditUserMessage(message))}>
+                编辑并重新发送
+              </button>
+            ) : null}
+            {onCopyMessage ? (
+              <button type="button" role="menuitem" disabled={disabled} onClick={() => run(() => onCopyMessage(message))}>
+                复制
+              </button>
+            ) : null}
+          </>
+        ) : (
+          <>
+            {onCopyMessage ? (
+              <button type="button" role="menuitem" disabled={disabled} onClick={() => run(() => onCopyMessage(message))}>
+                复制 Markdown
+              </button>
+            ) : null}
+            {onContinueFromMessage ? (
+              <button type="button" role="menuitem" disabled={disabled} onClick={() => run(() => onContinueFromMessage(message))}>
+                引用这条回复
+              </button>
+            ) : null}
+            {activity?.length ? (
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => run(() => {
+                  const row = menuRef.current?.closest(".agent-message-row");
+                  const steps = row?.querySelector<HTMLDetailsElement>(".agent-tool-status-row");
+                  if (steps) {
+                    steps.open = true;
+                    steps.focus();
+                  }
+                })}
+              >
+                查看任务步骤
+              </button>
+            ) : null}
+          </>
+        )}
+      </div>
+    </details>
   );
 }
 

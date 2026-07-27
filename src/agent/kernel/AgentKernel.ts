@@ -15,7 +15,10 @@ import { AgentReflection, type AgentReflectionResult } from "./AgentReflection";
 import { agentSkillRegistry, type AgentSkillRegistry } from "./AgentSkillRegistry";
 import { AgentToolResolver } from "./AgentToolResolver";
 import { AgentTrajectory, type AgentTrajectorySnapshot } from "./AgentTrajectory";
-import { AgentTaskStateReducer } from "@/agent/runtime/AgentTaskStateReducer";
+import {
+  AgentTaskStateReducer,
+  dependencySnapshot
+} from "@/agent/runtime/AgentTaskStateReducer";
 import { AgentTaskCompletionGuard } from "./AgentTaskCompletionGuard";
 import {
   projectTaskStateIntoSession,
@@ -123,10 +126,10 @@ export class AgentKernel {
         role: input.internalObservation.reason === "tool_observation" ? "tool" : "system",
         name: input.internalObservation.toolName,
         toolCallId: input.internalObservation.reason === "tool_observation" ? `resume-${input.internalObservation.toolName ?? "event"}` : undefined,
-        content: JSON.stringify({
+        content: boundedObservationJson({
           reason: input.internalObservation.reason,
           observation: input.internalObservation.observation
-        }).slice(0, 16_000)
+        })
       });
     }
     let toolCallCount = 0;
@@ -178,7 +181,12 @@ export class AgentKernel {
           for (const call of response.toolCalls) {
             let validated;
             try {
-              validated = guard.validate({ call, allowedTools, toolCallCount, maxToolCalls });
+              validated = guard.validate({
+                call: bindAuthoritativeTaskInput(call, taskState),
+                allowedTools,
+                toolCallCount,
+                maxToolCalls
+              });
             } catch (error) {
               if (error instanceof AgentPolicyError && error.code === "agent_duplicate_tool_call") {
                 await emit(input, {
@@ -273,9 +281,14 @@ export class AgentKernel {
             } catch (error) {
               if (error instanceof AgentConfirmationRequiredError) {
                 trajectory.confirmation(validated.tool.name, operationId);
-                await emit(input, { type: "confirmation_required", confirmation: error.confirmation });
+                const confirmation: AgentConfirmation = {
+                  ...error.confirmation,
+                  validatedInput: validated.input as Record<string, unknown>,
+                  dependencyExpectation: dependencySnapshot(taskState)
+                };
+                await emit(input, { type: "confirmation_required", confirmation });
                 return {
-                  pendingConfirmation: error.confirmation,
+                  pendingConfirmation: confirmation,
                   pendingCall: { toolName: validated.tool.name, operationId, input: validated.input as Record<string, unknown> },
                   trajectory: trajectory.value(),
                   conversationSummary: contextWindow.conversationSummary,
@@ -329,7 +342,7 @@ export class AgentKernel {
             trajectory: snapshot,
             reflection: (this.dependencies.reflection ?? new AgentReflection()).create(snapshot, {
               userMessage: input.userMessage,
-              goal: input.session.memory?.currentGoal ?? input.session.title
+              goal: taskState.rootGoal
             }),
             conversationSummary: contextWindow.conversationSummary,
             taskState
@@ -450,17 +463,86 @@ async function streamFinal(
 }
 
 function toolObservation(call: AgentModelToolCall, result: AgentToolResult): AgentModelMessage {
+  const value = result.ok ? result.data : { error: result.error };
   return {
     role: "tool",
     name: result.toolName,
     toolCallId: call.id,
-    content: JSON.stringify(result.ok ? result.data : { error: result.error }).slice(0, 16_000)
+    content: boundedObservationJson(value)
   };
+}
+
+function boundedObservationJson(value: unknown) {
+  const serialized = JSON.stringify(value);
+  if (serialized.length <= 16_000) return serialized;
+  const compact = JSON.stringify(compactObservationValue(value, 0));
+  return compact.length <= 16_000
+    ? compact
+    : JSON.stringify({ truncated: true, summary: "Authoritative result persisted; use task state pointers." });
+}
+
+function compactObservationValue(value: unknown, depth: number): unknown {
+  if (typeof value === "string") return value.slice(0, 500);
+  if (value === null || typeof value !== "object") return value;
+  if (depth >= 3) {
+    const record = value as Record<string, unknown>;
+    return {
+      id: record.id,
+      revision: record.revision,
+      currentRevisionId: record.currentRevisionId,
+      status: record.status
+    };
+  }
+  if (Array.isArray(value)) {
+    return value.slice(0, 8).map((item) => compactObservationValue(item, depth + 1));
+  }
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>)
+      .slice(0, 40)
+      .map(([key, item]) => [key, compactObservationValue(item, depth + 1)])
+  );
 }
 
 function stableOperationId(call: AgentModelToolCall) {
   const candidate = call.id.replace(/[^\w-]/g, "-").slice(0, 120);
   return candidate.length >= 8 ? candidate : `agent-op-${candidate}-${nanoid(8)}`;
+}
+
+function bindAuthoritativeTaskInput(
+  call: AgentModelToolCall,
+  taskState: NonNullable<AgentSession["taskState"]>
+): AgentModelToolCall {
+  if (![
+    "answer_tailoring_question",
+    "preview_tailoring_changes",
+    "apply_tailoring_changes"
+  ].includes(call.name)) {
+    return call;
+  }
+  const session = taskState.knownSlots.tailoringSession;
+  if (!session) return call;
+  if (call.name === "answer_tailoring_question") {
+    return {
+      ...call,
+      arguments: {
+        ...call.arguments,
+        session
+      }
+    };
+  }
+  return {
+    ...call,
+    arguments: {
+      ...call.arguments,
+      session,
+      selectedDiffs: Array.isArray(taskState.knownSlots.selectedDiffs)
+        ? taskState.knownSlots.selectedDiffs
+        : [],
+      confirmedRequirementIds: Array.isArray(taskState.knownSlots.confirmedRequirementIds)
+        ? taskState.knownSlots.confirmedRequirementIds
+        : []
+    }
+  };
 }
 
 function summarizeToolResult(result: AgentToolResult) {

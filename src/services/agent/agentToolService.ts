@@ -180,6 +180,11 @@ export class BrowserAgentToolService implements AgentToolServices {
         purpose: branch.branchPurpose,
         revision: branch.revision,
         currentRevisionId: branch.currentRevisionId,
+        resumeHash: stableHashText(JSON.stringify({
+          currentRevisionId: branch.currentRevisionId,
+          contentItems: branch.contentItems,
+          structuredContentItems: branch.structuredContentItems
+        })),
         contentItems: branch.contentItems,
         structuredContentItems: branch.structuredContentItems,
         updatedAt: branch.updatedAt
@@ -205,7 +210,13 @@ export class BrowserAgentToolService implements AgentToolServices {
     const input = rawInput as { jobId: string };
     const job = await this.repository.getJobDescription(input.jobId);
     if (!job) throw toolError("job_not_found", "Job no longer exists.");
-    return { job };
+    return {
+      job: {
+        ...job,
+        jobRevision: job.updatedAt,
+        jobGraphHash: stableHashText(JSON.stringify(job.requirementGraph ?? job.requirements))
+      }
+    };
   }
 
   async recommendResumeSource(rawInput: unknown, signal?: AbortSignal) {
@@ -456,13 +467,25 @@ export class BrowserAgentToolService implements AgentToolServices {
     });
     await this.repository.saveRawInput(rawDocument);
     await this.repository.createJobAnalysisDraft(draft);
-    return commitParsedJob({ repository: this.repository, draft, rawInput: rawDocument });
+    const committed = await commitParsedJob({ repository: this.repository, draft, rawInput: rawDocument });
+    return {
+      jobId: committed.jobDescription.id,
+      jobRevision: committed.jobDescription.updatedAt,
+      jobGraphHash: stableHashText(JSON.stringify(
+        committed.jobDescription.requirementGraph ?? committed.jobDescription.requirements
+      )),
+      ...committed
+    };
   }
 
   async analyzeJobFit(rawInput: unknown, operationId: string, signal?: AbortSignal) {
     assertNotAborted(signal);
     const { profile, branch, job } = await this.loadSelection(rawInput);
-    return { operationId, analysis: analyzeJobFit({ profile, branch, job }) };
+    return {
+      operationId,
+      analysis: analyzeJobFit({ profile, branch, job }),
+      dependencies: selectionDependencies(profile, branch, job)
+    };
   }
 
   async createTailoringSession(rawInput: unknown, operationId: string, signal?: AbortSignal) {
@@ -475,7 +498,14 @@ export class BrowserAgentToolService implements AgentToolServices {
       job,
       intensity: input.intensity ? TailoringIntensitySchema.parse(input.intensity) : undefined
     }, signal);
-    return this.generateDiffs(operationId, created.session, signal);
+    const generated = await this.generateDiffs(operationId, created.session, signal);
+    return {
+      ...generated,
+      dependencies: {
+        ...selectionDependencies(profile, branch, job),
+        tailoringSessionId: created.session.id
+      }
+    };
   }
 
   async answerTailoringQuestion(rawInput: unknown, operationId: string, signal?: AbortSignal) {
@@ -517,7 +547,7 @@ export class BrowserAgentToolService implements AgentToolServices {
       });
     }
 
-    return applyTailoringSessionCommand({
+    const result = await applyTailoringSessionCommand({
       repository: this.repository,
       operationId: childOperationId(operationId, "apply"),
       session,
@@ -525,6 +555,17 @@ export class BrowserAgentToolService implements AgentToolServices {
       confirmedRequirementIds: input.confirmedRequirementIds,
       signal
     });
+    return {
+      branchId: result.branch.id,
+      branchRevision: result.branch.revision,
+      revisionId: result.revision?.id,
+      resumeHash: stableHashText(JSON.stringify({
+        currentRevisionId: result.branch.currentRevisionId,
+        contentItems: result.branch.contentItems,
+        structuredContentItems: result.branch.structuredContentItems
+      })),
+      ...result
+    };
   }
 
   async archiveResume(rawInput: unknown, operationId: string, signal?: AbortSignal) {
@@ -640,6 +681,37 @@ function parseTailoringChanges(rawInput: unknown) {
     session: TailoringSessionSchema.parse(input.session),
     selectedDiffs: input.selectedDiffs.map((diff) => ResumeTailoringDiffSchema.parse(diff)),
     confirmedRequirementIds: input.confirmedRequirementIds ?? []
+  };
+}
+
+function selectionDependencies(
+  profile: { id: string; version: number },
+  branch: {
+    id: string;
+    currentRevisionId?: string | null;
+    contentItems: unknown;
+    structuredContentItems?: unknown;
+  },
+  job: {
+    id: string;
+    updatedAt: string;
+    requirementGraph?: unknown;
+    requirements: unknown;
+  }
+) {
+  return {
+    profileId: profile.id,
+    profileVersion: profile.version,
+    resumeId: branch.id,
+    resumeRevisionId: branch.currentRevisionId,
+    resumeHash: stableHashText(JSON.stringify({
+      currentRevisionId: branch.currentRevisionId,
+      contentItems: branch.contentItems,
+      structuredContentItems: branch.structuredContentItems
+    })),
+    jobId: job.id,
+    jobRevision: job.updatedAt,
+    jobGraphHash: stableHashText(JSON.stringify(job.requirementGraph ?? job.requirements))
   };
 }
 

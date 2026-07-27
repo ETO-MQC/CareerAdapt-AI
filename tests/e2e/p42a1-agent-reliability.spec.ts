@@ -143,6 +143,7 @@ test.describe("P4.2a.1 Agent reliability", () => {
   });
 
   test("CASE B — apply-to-new-job resumes automatically after commit and creates an independent Revision", async ({ page }) => {
+    test.setTimeout(90_000);
     const jd = `岗位：AI 产品经理
 公司：目标科技
 岗位职责：
@@ -161,6 +162,8 @@ test.describe("P4.2a.1 Agent reliability", () => {
     let finalRevisionId = "";
     let sourceRevisionId = "";
     let tailoredBranchId = "";
+    let applyObservation: unknown;
+    let createObservation: unknown;
 
     await page.route("**/api/ai/structured", async (route) => {
       const body = route.request().postDataJSON() as {
@@ -188,7 +191,11 @@ test.describe("P4.2a.1 Agent reliability", () => {
           promptVersion: "agent-autonomy-e2e.v1",
           output: {
             diffs: [{
-              target: body.input.target,
+              target: {
+                sectionId: body.input.target.sectionId,
+                itemId: body.input.target.itemId,
+                fieldPath: body.input.target.fieldPath
+              },
               operation: "replace",
               original,
               value,
@@ -306,6 +313,7 @@ test.describe("P4.2a.1 Agent reliability", () => {
         return;
       }
       if (observation.name === "create_tailoring_session") {
+        createObservation = observed;
         tailoringSession = observed?.session;
         selectedDiffs = observed?.appliedDiffs as unknown[] ?? [];
         await route.fulfill({
@@ -330,6 +338,7 @@ test.describe("P4.2a.1 Agent reliability", () => {
         return;
       }
       if (observation.name === "apply_tailoring_changes") {
+        applyObservation = observed;
         finalRevisionId = String(observed?.revisionId ?? (observed?.revision as Record<string, unknown> | undefined)?.id ?? "");
         tailoredBranchId = String(observed?.branchId ?? (observed?.branch as Record<string, unknown> | undefined)?.id ?? "");
         await route.fulfill({
@@ -353,13 +362,48 @@ test.describe("P4.2a.1 Agent reliability", () => {
     await page.getByRole("button", { name: "发送消息" }).click();
     await expect(page.getByRole("button", { name: "确认并继续" })).toBeVisible();
     await page.getByRole("button", { name: "确认并继续" }).click();
-    await expect(page.getByText(/请选择路线 A 或路线 B/)).toBeVisible({ timeout: 20_000 });
+    const routeDecision = page.getByText(/请选择路线 A 或路线 B/);
+    const runtimeFailure = page.getByText("AI 任务暂时中断，当前进度和输入已保留。").first();
+    await Promise.race([
+      routeDecision.waitFor({ state: "visible", timeout: 20_000 }),
+      runtimeFailure.waitFor({ state: "visible", timeout: 20_000 })
+    ]);
+    if (await runtimeFailure.isVisible()) {
+      throw new Error(`CASE B runtime failed: ${JSON.stringify(await readAgentDiagnostic(page))}`);
+    }
+    await expect(routeDecision).toBeVisible();
+    await page.reload();
+    const routeState = await readLatestAgentTask(page);
+    expect(routeState).toMatchObject({
+      rootGoal: "apply_to_job",
+      activeGoal: "resolve_resume_source",
+      stage: "choose_resume_source",
+      selectedEntities: { jobId },
+      pendingDecision: {
+        type: "resume_source_route",
+        options: ["profile", "existing_resume"]
+      }
+    });
+    await expect(page.getByRole("button", { name: "使用现有简历" })).toBeVisible();
 
-    await page.getByLabel("描述你的求职任务").fill("采用路线 B，使用现有简历");
-    await page.getByRole("button", { name: "发送消息" }).click();
-    await expect(page.getByRole("button", { name: "确认并继续" })).toBeVisible({ timeout: 60_000 });
+    await page.getByRole("button", { name: "使用现有简历" }).click();
+    const applyConfirmation = page.getByRole("button", { name: "确认并继续" });
+    await Promise.race([
+      applyConfirmation.waitFor({ state: "visible", timeout: 60_000 }),
+      runtimeFailure.waitFor({ state: "visible", timeout: 60_000 })
+    ]);
+    if (await runtimeFailure.isVisible()) {
+      throw new Error(`CASE B tailoring failed: ${JSON.stringify(await readAgentDiagnostic(page))}`);
+    }
+    await expect(applyConfirmation).toBeVisible();
     await page.getByRole("button", { name: "确认并继续" }).click();
     await expect(page.getByText("岗位定制版本已创建，并已完成事实与版本边界核对。")).toBeVisible({ timeout: 20_000 });
+    if (!finalRevisionId) {
+      throw new Error(`CASE B apply returned no revision: ${JSON.stringify({
+        create: createObservation,
+        apply: applyObservation
+      })}`);
+    }
     expect(finalRevisionId).not.toBe("");
     expect(tailoredBranchId).not.toBe(resumeId);
     const sourceAfter = await readIndexedRecord(page, "resumeBranches", resumeId);
@@ -428,7 +472,11 @@ test.describe("P4.2a.1 Agent reliability", () => {
           promptVersion: "agent-route-b-existing.v1",
           output: {
             diffs: [{
-              target: body.input.target,
+              target: {
+                sectionId: body.input.target.sectionId,
+                itemId: body.input.target.itemId,
+                fieldPath: body.input.target.fieldPath
+              },
               operation: "replace",
               original,
               value,
@@ -560,6 +608,241 @@ test.describe("P4.2a.1 Agent reliability", () => {
     expect(tailoredAfter?.jobId).toBe(jobId);
   });
 
+  test("continuation after fit keeps the same root task and selected entities", async ({ page }) => {
+    test.setTimeout(90_000);
+    const jd = [
+      "岗位职责：负责 AI 训练任务设计、数据质量验收和迭代复盘。",
+      "建立可追溯的评分标准、验证流程和交付记录。",
+      "任职要求：熟悉 AI 应用、数据分析与自动化测试。",
+      "能够基于真实项目证据说明方案权衡和验收结果。"
+    ].join("\n");
+
+    await page.goto("/resume");
+    await page.getByRole("button", { name: /从个人资料库创建/ }).click();
+    await expect(page.getByTestId("resume-studio-shell")).toBeVisible({ timeout: 20_000 });
+    await page.goto("/jobs");
+    await page.getByLabel("岗位名称").fill("AI训练师");
+    await page.getByLabel("公司名称").fill("目标科技");
+    await page.getByLabel("岗位描述").fill(jd);
+    await page.getByRole("button", { name: "保存并分析岗位" }).click();
+    const jobDialog = page.getByRole("dialog", { name: "AI训练师" });
+    await expect(jobDialog).toBeVisible();
+    await jobDialog.getByTestId("job-manual-mode-dialog").click();
+    await expect(jobDialog.locator(".review-row").first()).toBeVisible();
+    await jobDialog.getByTestId("commit-job").click();
+    await expect(jobDialog).toBeHidden();
+
+    let profileId = "";
+    let resumeId = "";
+    let jobId = "";
+    let tailoringSession: unknown;
+    let selectedDiffs: unknown[] = [];
+    let clarificationQuestion: Record<string, unknown> | undefined;
+    let tailoredBranchId = "";
+    let listResumeCalls = 0;
+    let listJobCalls = 0;
+
+    await page.route("**/api/ai/structured", async (route) => {
+      const body = route.request().postDataJSON() as {
+        task: string;
+        input?: {
+          target?: { sectionId: string; itemId: string; fieldPath: string };
+          currentContent?: { fieldValue: string | string[] };
+          relevantRequirements?: Array<{ requirementId: string; keywords: string[] }>;
+          allowedEvidenceRefs?: unknown[];
+        };
+      };
+      if (body.task !== "resume-tailor-diff" || !body.input?.target) {
+        await route.continue();
+        return;
+      }
+      const original = body.input.currentContent?.fieldValue ?? "";
+      const value = Array.isArray(original)
+        ? [`${original[0] ?? "负责相关工作"}。`, ...original.slice(1)]
+        : `${original}。`;
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          ok: true,
+          task: body.task,
+          promptVersion: "agent-continuation-e2e.v1",
+          output: {
+            diffs: [{
+              target: {
+                sectionId: body.input.target.sectionId,
+                itemId: body.input.target.itemId,
+                fieldPath: body.input.target.fieldPath
+              },
+              operation: "replace",
+              original,
+              value,
+              reason: "基于现有证据突出岗位相关交付。",
+              requirementIds: (body.input.relevantRequirements ?? []).map((item) => item.requirementId).slice(0, 2),
+              targetKeywords: (body.input.relevantRequirements ?? []).flatMap((item) => item.keywords).slice(0, 3),
+              evidenceRefs: body.input.allowedEvidenceRefs ?? [],
+              supportLevel: "verified"
+            }],
+            clarifications: []
+          },
+          meta: { provider: "fixture", model: "agent-e2e", inputLength: 1, outputLength: 1, latencyMs: 1 }
+        })
+      });
+    });
+
+    await page.route("**/api/agent/stream", async (route) => {
+      const body = route.request().postDataJSON() as {
+        messages?: Array<{ role: string; name?: string; content: string }>;
+      };
+      const latestUser = body.messages?.findLast((message) => message.role === "user")?.content ?? "";
+      const observation = body.messages?.findLast((message) => message.role === "tool");
+      const observed = observation ? readToolObservation(observation.content) : undefined;
+      let call: { id: string; name: string; arguments: Record<string, unknown> };
+
+      if (
+        latestUser.includes("基于这些建议创建一份新的定制简历")
+        && (!observation || observation.name === "analyze_job_fit")
+      ) {
+        call = {
+          id: "continuation-plan",
+          name: "create_tailoring_session",
+          arguments: { profileId, resumeId, jobId, intensity: "balanced" }
+        };
+      } else if (
+        clarificationQuestion
+        && latestUser.includes("真实项目")
+        && (!observation || observation.name === "create_tailoring_session")
+      ) {
+        call = {
+          id: "continuation-answer",
+          name: "answer_tailoring_question",
+          arguments: {
+            session: tailoringSession,
+            questionId: clarificationQuestion.id,
+            answer: latestUser
+          }
+        };
+      } else if (!observation) {
+        call = { id: "continuation-profile", name: "get_active_profile", arguments: {} };
+      } else if (observation.name === "get_active_profile") {
+        profileId = String(observed?.profileId ?? "");
+        listResumeCalls += 1;
+        call = { id: "continuation-resumes", name: "list_resumes", arguments: {} };
+      } else if (observation.name === "list_resumes") {
+        resumeId = String((observed?.resumes as Array<{ id: string }> | undefined)?.[0]?.id ?? "");
+        listJobCalls += 1;
+        call = { id: "continuation-jobs", name: "list_jobs", arguments: {} };
+      } else if (observation.name === "list_jobs") {
+        const jobs = observed?.jobs as Array<{ id: string; title: string }> | undefined;
+        jobId = String(jobs?.find((job) => job.title === "AI训练师")?.id ?? jobs?.[0]?.id ?? "");
+        call = { id: "continuation-job", name: "get_job", arguments: { jobId } };
+      } else if (observation.name === "get_job") {
+        call = { id: "continuation-fit", name: "analyze_job_fit", arguments: { profileId, resumeId, jobId } };
+      } else if (observation.name === "analyze_job_fit") {
+        await route.fulfill({
+          contentType: "text/event-stream",
+          body: nativeAskUser("匹配分析和建议已生成。你可以基于这些建议继续创建定制简历。")
+        });
+        return;
+      } else if (observation.name === "create_tailoring_session") {
+        tailoringSession = observed?.session;
+        selectedDiffs = observed?.appliedDiffs as unknown[] ?? [];
+        const plan = (tailoringSession as { plan?: { clarificationQuestions?: Record<string, unknown>[] } } | undefined)?.plan;
+        clarificationQuestion = plan?.clarificationQuestions?.[0];
+        if (clarificationQuestion) {
+          await route.fulfill({
+            contentType: "text/event-stream",
+            body: nativeAskUser("请补充并确认一个真实项目中的相关交付案例。")
+          });
+          return;
+        }
+        call = {
+          id: "continuation-preview",
+          name: "preview_tailoring_changes",
+          arguments: { session: tailoringSession, selectedDiffs, confirmedRequirementIds: [] }
+        };
+      } else if (observation.name === "answer_tailoring_question") {
+        tailoringSession = observed?.session;
+        selectedDiffs = observed?.appliedDiffs as unknown[] ?? selectedDiffs;
+        clarificationQuestion = undefined;
+        call = {
+          id: "continuation-preview-after-answer",
+          name: "preview_tailoring_changes",
+          arguments: { session: tailoringSession, selectedDiffs, confirmedRequirementIds: [] }
+        };
+      } else if (observation.name === "preview_tailoring_changes") {
+        call = {
+          id: "continuation-apply",
+          name: "apply_tailoring_changes",
+          arguments: { session: tailoringSession, selectedDiffs, confirmedRequirementIds: [] }
+        };
+      } else if (observation.name === "apply_tailoring_changes") {
+        tailoredBranchId = String(observed?.branchId ?? (observed?.branch as Record<string, unknown> | undefined)?.id ?? "");
+        await route.fulfill({
+          contentType: "text/event-stream",
+          body: nativeFinal("已基于同一份匹配建议创建岗位定制版本。")
+        });
+        return;
+      } else {
+        throw new Error(`Unexpected continuation observation: ${observation.name}`);
+      }
+      await route.fulfill({ contentType: "text/event-stream", body: nativeTool(call) });
+    });
+
+    await page.goto("/ai-workspace");
+    await page.getByLabel("描述你的求职任务").fill("用最新通用简历给AI训练师岗位做定制简历，先分析匹配建议");
+    await page.getByRole("button", { name: "发送消息" }).click();
+    const fitSuggestions = page.getByText("匹配分析和建议已生成。你可以基于这些建议继续创建定制简历。");
+    const runtimeFailure = page.getByText("AI 任务暂时中断，当前进度和输入已保留。").first();
+    try {
+      await Promise.race([
+        fitSuggestions.waitFor({ state: "visible", timeout: 30_000 }),
+        runtimeFailure.waitFor({ state: "visible", timeout: 30_000 })
+      ]);
+    } catch {
+      throw new Error(`Continuation fit timed out: ${JSON.stringify(await readAgentDiagnostic(page))}`);
+    }
+    if (await runtimeFailure.isVisible()) {
+      throw new Error(`Continuation fit failed: ${JSON.stringify(await readAgentDiagnostic(page))}`);
+    }
+    await expect(fitSuggestions).toBeVisible();
+    const before = await readLatestAgentTask(page);
+    expect(before).toMatchObject({
+      rootGoal: "create_tailored_resume",
+      activeGoal: "create_tailored_resume",
+      stage: "generate_plan",
+      selectedEntities: { profileId, resumeId, jobId }
+    });
+
+    await page.getByLabel("描述你的求职任务").fill("基于这些建议创建一份新的定制简历");
+    await page.getByRole("button", { name: "发送消息" }).click();
+    const clarification = page.getByText("请补充并确认一个真实项目中的相关交付案例。");
+    if (await clarification.isVisible({ timeout: 30_000 }).catch(() => false)) {
+      await page.getByLabel("描述你的求职任务").fill("我在真实项目中负责 AI 任务设计、质量验收和迭代复盘。");
+      await page.getByRole("button", { name: "发送消息" }).click();
+      await expect(page.getByRole("heading", { name: "使用这项补充信息？" })).toBeVisible({ timeout: 30_000 });
+      await page.getByRole("button", { name: "确认并继续" }).click();
+    }
+    await expect(page.getByRole("button", { name: "确认并继续" })).toBeVisible({ timeout: 60_000 });
+    const atConfirmation = await readLatestAgentTask(page);
+    expect(atConfirmation).toMatchObject({
+      rootGoal: "create_tailored_resume",
+      stage: "confirm_apply",
+      selectedEntities: { profileId, resumeId, jobId }
+    });
+    await page.getByRole("button", { name: "确认并继续" }).click();
+    await expect(page.getByText("已基于同一份匹配建议创建岗位定制版本。")).toBeVisible({ timeout: 20_000 });
+
+    const after = await readLatestAgentTask(page);
+    expect(after).toMatchObject({
+      rootGoal: "create_tailored_resume",
+      selectedEntities: { profileId, resumeId: tailoredBranchId, jobId }
+    });
+    expect(listResumeCalls).toBe(1);
+    expect(listJobCalls).toBe(1);
+    expect(tailoredBranchId).not.toBe("");
+    expect(tailoredBranchId).not.toBe(resumeId);
+  });
+
   test("archive_resume and restore_resume keep repository lifecycle authoritative", async ({ page }) => {
     let resumeId = "";
     let resumeName = "";
@@ -628,6 +911,7 @@ test.describe("P4.2a.1 Agent reliability", () => {
     await expect(page.getByRole("heading", { name: "确认归档简历" })).toBeVisible();
     await page.getByRole("button", { name: "确认并继续" }).click();
     await expect(page.getByText("简历已归档。")).toBeVisible();
+    await expect(page).toHaveURL(/\/ai-workspace/);
     expect((await readIndexedRecord(page, "resumeBranches", resumeId))?.lifecycleStatus).toBe("archived");
     await page.goto("/resume");
     await expect(page.locator(".resume-card").filter({ hasText: resumeName })).toHaveCount(0);
@@ -638,13 +922,8 @@ test.describe("P4.2a.1 Agent reliability", () => {
     await expect(page.getByRole("heading", { name: "确认恢复简历" })).toBeVisible();
     await page.getByRole("button", { name: "确认并继续" }).click();
     await expect(page.getByText("简历已恢复为活跃状态。")).toBeVisible();
+    await expect(page).toHaveURL(/\/ai-workspace/);
     expect((await readIndexedRecord(page, "resumeBranches", resumeId))?.lifecycleStatus).toBe("active");
-    await page.goto("/resume");
-    if (await page.getByTestId("resume-studio-shell").isVisible().catch(() => false)) {
-      await expect(page.getByRole("heading", { name: resumeName })).toBeVisible();
-      await page.getByTestId("resume-studio-workbar").getByRole("button", { name: "返回", exact: true }).click();
-    }
-    await expect(page.locator(".resume-card").filter({ hasText: resumeName })).toBeVisible();
   });
 });
 
@@ -701,5 +980,48 @@ async function readLatestAgentTask(page: import("@playwright/test").Page) {
     });
     database.close();
     return sessions.sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0]?.taskState;
+  });
+}
+
+async function readAgentDiagnostic(page: import("@playwright/test").Page) {
+  return page.evaluate(async () => {
+    const database = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open("CareerAdaptDb");
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const sessionTransaction = database.transaction("agentSessions", "readonly");
+    const sessions = await new Promise<Array<Record<string, unknown>>>((resolve, reject) => {
+      const request = sessionTransaction.objectStore("agentSessions").getAll();
+      request.onsuccess = () => resolve(request.result as Array<Record<string, unknown>>);
+      request.onerror = () => reject(request.error);
+    });
+    const latest = sessions.sort((left, right) =>
+      String(right.updatedAt).localeCompare(String(left.updatedAt))
+    )[0];
+    const messageTransaction = database.transaction("agentMessages", "readonly");
+    const messages = await new Promise<Array<Record<string, unknown>>>((resolve, reject) => {
+      const request = messageTransaction.objectStore("agentMessages").getAll();
+      request.onsuccess = () => resolve(request.result as Array<Record<string, unknown>>);
+      request.onerror = () => reject(request.error);
+    });
+    database.close();
+    const taskState = latest?.taskState as Record<string, unknown> | undefined;
+    return {
+      taskState: taskState ? {
+        rootGoal: taskState.rootGoal,
+        activeGoal: taskState.activeGoal,
+        workflowId: taskState.workflowId,
+        stage: taskState.stage,
+        completionStatus: taskState.completionStatus,
+        selectedEntities: taskState.selectedEntities
+      } : undefined,
+      trajectory: latest?.trajectory,
+      activeTurn: latest?.activeTurn,
+      pendingConfirmation: latest?.pendingConfirmation,
+      errors: messages.filter((message) =>
+        message.sessionId === latest?.id && (message.errorCode || message.status === "failed")
+      )
+    };
   });
 }

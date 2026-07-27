@@ -8,7 +8,9 @@ export type AgentStreamEvent =
   | { type: "ui_action"; action: unknown }
   | { type: "tool_started"; toolName: string; operationId: string; userLabel: string }
   | { type: "tool_result"; toolName: string; operationId: string; ok: boolean; summary: string; artifactIds?: string[] }
+  | { type: "artifact"; artifactId: string; label?: string }
   | { type: "confirmation_required"; confirmation: unknown }
+  | { type: "heartbeat"; stage?: string }
   | { type: "workflow_updated"; workflowState: unknown }
   | { type: "done"; action?: unknown; message?: string }
   | { type: "error"; code: string; message: string };

@@ -51,6 +51,7 @@ export class AgentHostStore {
   private activeController?: AbortController;
   private stallTimer?: ReturnType<typeof setTimeout>;
   private runGeneration = 0;
+  private readonly confirmationExecutions = new Map<string, Promise<AgentSession | undefined>>();
 
   constructor(private readonly dependencies: {
     kernel: AgentKernel;
@@ -124,6 +125,9 @@ export class AgentHostStore {
       });
     }
     if (input.type === "option") {
+      if (input.action.type === "task_decision") {
+        return this.resolveTaskDecision(session, input.action, context.pageContext);
+      }
       if (input.action.type === "answer") {
         return this.startTurn({
           session,
@@ -235,10 +239,22 @@ export class AgentHostStore {
   }
 
   async resolveConfirmation(confirmed: boolean, pageContext: AgentPageContext) {
+    const operationId = this.snapshot.activeSession?.pendingConfirmation?.operationId;
+    if (!operationId) return this.snapshot.activeSession;
+    const running = this.confirmationExecutions.get(operationId);
+    if (running) return running;
+    const execution = this.resolveConfirmationOnce(confirmed, pageContext)
+      .finally(() => this.confirmationExecutions.delete(operationId));
+    this.confirmationExecutions.set(operationId, execution);
+    return execution;
+  }
+
+  private async resolveConfirmationOnce(confirmed: boolean, pageContext: AgentPageContext) {
     const session = this.snapshot.activeSession;
     const confirmation = session?.pendingConfirmation;
     const call = session?.pendingToolCall;
     if (!session || !confirmation || !call) return session;
+    this.markProgress();
     const turnId = call.turnId ?? confirmation.turnId ?? session.activeTurn?.id ?? `agent-turn-${crypto.randomUUID()}`;
     let current: AgentSession = {
       ...session,
@@ -265,6 +281,53 @@ export class AgentHostStore {
     }
 
     this.patch({ turnStatus: "running" });
+    if (
+      confirmation.dependencyExpectation
+      && current.taskState
+      && !dependencyExpectationMatches(
+        confirmation.dependencyExpectation,
+        current.taskState.selectedEntities
+      )
+    ) {
+      const invalidated = new AgentTaskStateReducer().reduce(
+        current.taskState,
+        { type: "dependencies_invalidated" }
+      );
+      current = projectTaskStateIntoSession(
+        appendAgentMessage(current, "system", "上游资料或版本已变化，这次确认已失效。请重新规划后再应用。", {
+          kind: "system_notice",
+          type: "system_notice",
+          status: "complete"
+        }),
+        invalidated
+      );
+      current = await this.dependencies.persistence.save(current);
+      this.patchSession(current, { turnStatus: "idle" });
+      return current;
+    }
+    const dependencyChanges = await this.readDependencyChanges(
+      confirmation.operationId,
+      confirmation.dependencyExpectation
+    );
+    if (dependencyChanges.length && current.taskState) {
+      const reducer = new AgentTaskStateReducer();
+      let taskState = current.taskState;
+      for (const change of dependencyChanges) {
+        taskState = reducer.reduce(taskState, change);
+      }
+      taskState = reducer.reduce(taskState, { type: "dependencies_invalidated" });
+      current = projectTaskStateIntoSession(
+        appendAgentMessage(current, "system", "上游资料或版本已变化，这次确认已失效。请重新分析并生成预览。", {
+          kind: "system_notice",
+          type: "system_notice",
+          status: "complete"
+        }),
+        taskState
+      );
+      current = await this.dependencies.persistence.save(current);
+      this.patchSession(current, { turnStatus: "idle" });
+      return current;
+    }
     if (current.taskState) {
       const taskState = new AgentTaskStateReducer().reduce(current.taskState, {
           type: "confirmation_accepted",
@@ -274,7 +337,7 @@ export class AgentHostStore {
     }
     const result = await this.dependencies.executor.execute({
       toolName: call.toolName,
-      toolInput: call.input,
+      toolInput: confirmation.validatedInput ?? call.input,
       operationId: call.operationId,
       confirmed: true
     });
@@ -299,6 +362,132 @@ export class AgentHostStore {
       reason: "tool_observation",
       toolName: call.toolName,
       observation: result.ok ? result.data : { error: result.error }
+    }, pageContext, turnId);
+  }
+
+  private async readDependencyChanges(
+    operationId: string,
+    expectation?: Record<string, unknown>
+  ) {
+    if (!expectation) return [];
+    const changes: Array<{
+      type: "entity_revision";
+      entityType: "profile" | "resume" | "job";
+      entityId: string;
+      revisionId?: string;
+      version?: string | number;
+      hash?: string;
+    }> = [];
+    const profileId = stringRecordValue(expectation.profileId);
+    if (profileId && expectation.profileVersion !== undefined) {
+      const result = await this.dependencies.executor.execute({
+        toolName: "get_profile",
+        toolInput: { profileId },
+        operationId: dependencyCheckOperationId(operationId, "profile")
+      });
+      const profile = objectRecordValue(objectRecordValue(result.data).profile);
+      const version = scalarRecordValue(profile.version);
+      if (!result.ok || version !== expectation.profileVersion) {
+        changes.push({ type: "entity_revision", entityType: "profile", entityId: profileId, version });
+      }
+    }
+    const resumeId = stringRecordValue(expectation.resumeId);
+    if (
+      resumeId
+      && (expectation.resumeRevisionId !== undefined || expectation.resumeHash !== undefined)
+    ) {
+      const result = await this.dependencies.executor.execute({
+        toolName: "get_resume",
+        toolInput: { resumeId },
+        operationId: dependencyCheckOperationId(operationId, "resume")
+      });
+      const value = objectRecordValue(result.data);
+      const resume = objectRecordValue(value.resume);
+      const revisionId = stringRecordValue(resume.currentRevisionId ?? value.resumeRevisionId);
+      const hash = stringRecordValue(value.resumeHash ?? resume.resumeHash);
+      if (
+        !result.ok
+        || expectation.resumeRevisionId !== undefined && revisionId !== expectation.resumeRevisionId
+        || expectation.resumeHash !== undefined && hash !== expectation.resumeHash
+      ) {
+        changes.push({
+          type: "entity_revision",
+          entityType: "resume",
+          entityId: resumeId,
+          revisionId,
+          hash
+        });
+      }
+    }
+    const jobId = stringRecordValue(expectation.jobId);
+    if (
+      jobId
+      && (expectation.jobRevision !== undefined || expectation.jobGraphHash !== undefined)
+    ) {
+      const result = await this.dependencies.executor.execute({
+        toolName: "get_job",
+        toolInput: { jobId },
+        operationId: dependencyCheckOperationId(operationId, "job")
+      });
+      const value = objectRecordValue(result.data);
+      const job = objectRecordValue(value.job);
+      const version = scalarRecordValue(value.jobRevision ?? job.updatedAt);
+      const hash = stringRecordValue(value.jobGraphHash ?? job.jobGraphHash);
+      if (
+        !result.ok
+        || expectation.jobRevision !== undefined && version !== expectation.jobRevision
+        || expectation.jobGraphHash !== undefined && hash !== expectation.jobGraphHash
+      ) {
+        changes.push({
+          type: "entity_revision",
+          entityType: "job",
+          entityId: jobId,
+          version,
+          hash
+        });
+      }
+    }
+    return changes;
+  }
+
+  private async resolveTaskDecision(
+    session: AgentSession,
+    action: Extract<AgentOption["action"], { type: "task_decision" }>,
+    pageContext: AgentPageContext
+  ) {
+    if (
+      session.taskState?.pendingDecision?.type !== action.decisionType
+      || !session.taskState.pendingDecision.options.includes(action.option)
+    ) {
+      return session;
+    }
+    const turnId = `agent-turn-${crypto.randomUUID()}`;
+    const label = action.option === "profile"
+      ? "使用个人资料库生成岗位简历"
+      : "使用现有简历（路线 B）";
+    const reducer = new AgentTaskStateReducer();
+    const taskState = reducer.reduce(session.taskState, {
+      type: "decision_selected",
+      decisionType: action.decisionType,
+      option: action.option
+    });
+    let current = appendAgentMessage(session, "user", label, {
+      turnId,
+      status: "complete",
+      metadata: {
+        decisionType: action.decisionType,
+        decisionOption: action.option
+      }
+    });
+    current = projectTaskStateIntoSession(current, taskState);
+    current = await this.dependencies.persistence.save(current);
+    return this.resume(current, {
+      reason: "external_event",
+      observation: {
+        type: "task_decision",
+        decisionType: action.decisionType,
+        option: action.option
+      }
     }, pageContext, turnId);
   }
 
@@ -511,7 +700,21 @@ export class AgentHostStore {
       if (event.type === "done") {
         current = replaceAgentThinking(current, input.thinkingMessageId, event.message?.trim() || visible, input.turnId);
       }
-      if (event.type === "error") throw Object.assign(new Error(event.message), { code: event.code });
+      if (event.type === "error") {
+        current = replaceAgentThinking(current, input.thinkingMessageId, event.message, input.turnId);
+        current = {
+          ...current,
+          messages: current.messages.map((message) => message.id === input.thinkingMessageId
+            ? {
+                ...message,
+                kind: "error_status" as const,
+                type: "error" as const,
+                status: "failed" as const,
+                errorCode: event.code
+              }
+            : message)
+        };
+      }
       this.patchSession(current);
     };
 
@@ -568,6 +771,9 @@ export class AgentHostStore {
           ? projectTaskStateToWorkflowState(result.taskState, current.workflowState)
           : current.workflowState
       };
+      if (result.taskState?.pendingDecision) {
+        current = attachPendingDecisionOptions(current, result.taskState.pendingDecision);
+      }
       current = await this.dependencies.persistence.save(current);
       this.patchSession(current, {
         turnStatus: outcome === "waiting_for_confirmation" ? "waiting_for_confirmation" : outcome === "failed" ? "failed" : "completed",
@@ -741,14 +947,84 @@ function errorCode(value: unknown) {
   return typeof value === "object" && value && "code" in value ? String(value.code) : "agent_runtime_failed";
 }
 
+function dependencyCheckOperationId(operationId: string, entity: "profile" | "resume" | "job") {
+  const suffix = `-dependency-${entity}`;
+  return `${operationId.slice(0, 160 - suffix.length)}${suffix}`;
+}
+
+function objectRecordValue(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+}
+
+function stringRecordValue(value: unknown) {
+  return typeof value === "string" && value ? value : undefined;
+}
+
+function scalarRecordValue(value: unknown) {
+  return typeof value === "string" || typeof value === "number" ? value : undefined;
+}
+
 function isProgressEvent(event: AgentStreamEvent) {
   return [
+    "assistant_start",
     "assistant_delta",
     "thinking",
     "tool_started",
     "tool_result",
-    "confirmation_required"
+    "artifact",
+    "confirmation_required",
+    "heartbeat"
   ].includes(event.type);
+}
+
+function attachPendingDecisionOptions(
+  session: AgentSession,
+  decision: NonNullable<AgentTaskState["pendingDecision"]>
+) {
+  const options: AgentOption[] = decision.options.map((option) => ({
+    id: `decision-${decision.type}-${option}`,
+    label: option === "profile" ? "使用个人资料库" : "使用现有简历",
+    action: {
+      type: "task_decision",
+      decisionType: decision.type,
+      option
+    }
+  }));
+  const assistantIndex = session.messages.findLastIndex((message) =>
+    message.role === "assistant" && message.kind !== "assistant_thinking"
+  );
+  if (assistantIndex < 0) return session;
+  return {
+    ...session,
+    messages: session.messages.map((message, index) =>
+      index === assistantIndex ? { ...message, options } : message
+    )
+  };
+}
+
+function dependencyExpectationMatches(
+  expectation: Record<string, unknown>,
+  current: AgentTaskState["selectedEntities"]
+) {
+  for (const key of [
+    "profileId",
+    "profileVersion",
+    "resumeId",
+    "resumeRevisionId",
+    "resumeHash",
+    "jobId",
+    "jobRevision",
+    "jobGraphHash",
+    "tailoringSessionId"
+  ] as const) {
+    const expected = expectation[key];
+    if (expected !== undefined && current[key] !== undefined && expected !== current[key]) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function settleThinkingMessages(session: AgentSession, turnId: string) {

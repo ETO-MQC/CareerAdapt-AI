@@ -238,6 +238,34 @@ describe("P4.2a.3b canonical task runtime", () => {
     });
   });
 
+  it("does not let an ingestion subtask complete a create_tailored_resume root goal", () => {
+    const reducer = new AgentTaskStateReducer();
+    const state = reducer.reduce({
+      ...reducer.create(
+        AgentRuntime.create("job_ingestion", "confirm_commit"),
+        "create_tailored_resume"
+      ),
+      activeGoal: "ingest_job",
+      knownSlots: {
+        rawText: "岗位职责与任职要求",
+        graph: { requirements: [] },
+        title: "AI训练师",
+        company: "目标科技"
+      }
+    }, {
+      type: "tool_observation",
+      toolName: "commit_job",
+      observation: { jobId: "job-ai-trainer" }
+    });
+    expect(state).toMatchObject({
+      rootGoal: "create_tailored_resume",
+      activeGoal: "resolve_resume_source",
+      stage: "choose_resume_source",
+      completionStatus: "active",
+      selectedEntities: { jobId: "job-ai-trainer" }
+    });
+  });
+
   it("migrates legacy goal state and persists root/subtask semantics across reload", () => {
     const migrated = AgentTaskStateSchema.parse({
       goal: "apply_to_job",
@@ -275,6 +303,7 @@ describe("P4.2a.3b canonical task runtime", () => {
       }
     });
     expect(persisted.taskState).toMatchObject({
+      goal: "apply_to_job",
       rootGoal: "apply_to_job",
       activeGoal: "create_tailored_resume",
       stage: "clarify_unsupported_facts",
@@ -283,6 +312,133 @@ describe("P4.2a.3b canonical task runtime", () => {
         jobId: "job-1"
       }
     });
+  });
+
+  it("derives the compatibility goal from rootGoal and never lets a stale legacy goal overwrite it", () => {
+    const timestamp = new Date().toISOString();
+    const fresh = AgentTaskStateSchema.parse({
+      goal: "stale_ingest_job",
+      rootGoal: "apply_to_job",
+      activeGoal: "analyze_job_fit",
+      workflowId: "tailor_existing_resume",
+      stage: "analyze_fit",
+      requiredSlots: [],
+      knownSlots: {},
+      missingSlots: [],
+      selectedEntities: {},
+      artifacts: [],
+      completionStatus: "active",
+      computeTier: "T3",
+      updatedAt: timestamp
+    });
+    expect(fresh.goal).toBe(fresh.rootGoal);
+    expect(fresh.rootGoal).toBe("apply_to_job");
+
+    const legacy = AgentTaskStateSchema.parse({
+      goal: "create_tailored_resume",
+      workflowId: "tailor_existing_resume",
+      stage: "choose_resume_source",
+      updatedAt: timestamp
+    });
+    expect(legacy).toMatchObject({
+      goal: "create_tailored_resume",
+      rootGoal: "create_tailored_resume",
+      activeGoal: "create_tailored_resume"
+    });
+  });
+
+  it("persists a typed resume route decision and resumes the correct stage after reload", () => {
+    const reducer = new AgentTaskStateReducer();
+    let state = reducer.create(
+      AgentRuntime.create("tailor_existing_resume", "choose_resume_source"),
+      "apply_to_job"
+    );
+    state = reducer.reduce(state, {
+      type: "tool_observation",
+      toolName: "recommend_resume_source",
+      observation: {
+        recommendedResumeId: "resume-general",
+        recommendation: { route: "existing_resume", resumeId: "resume-general" }
+      }
+    });
+    const reloaded = AgentTaskStateSchema.parse(JSON.parse(JSON.stringify(state)));
+    expect(reloaded.pendingDecision).toEqual({
+      type: "resume_source_route",
+      options: ["profile", "existing_resume"]
+    });
+
+    const selected = reducer.reduce(reloaded, {
+      type: "decision_selected",
+      decisionType: "resume_source_route",
+      option: "existing_resume"
+    });
+    expect(selected).toMatchObject({
+      rootGoal: "apply_to_job",
+      activeGoal: "analyze_job_fit",
+      stage: "analyze_fit",
+      selectedEntities: { resumeId: "resume-general" }
+    });
+    expect(selected.pendingDecision).toBeUndefined();
+  });
+
+  it("invalidates every downstream result when the selected resume revision changes", () => {
+    const reducer = new AgentTaskStateReducer();
+    const seeded = {
+      ...tailoringState("confirm_apply"),
+      selectedEntities: {
+        profileId: "profile-1",
+        profileVersion: 3,
+        resumeId: "resume-1",
+        resumeRevisionId: "revision-a",
+        resumeHash: "hash-a",
+        jobId: "job-1",
+        jobRevision: "job-revision-a",
+        jobGraphHash: "job-hash-a",
+        tailoringSessionId: "tailoring-1"
+      },
+      knownSlots: {
+        fitAnalysis: { score: 80 },
+        tailoringSession: { id: "tailoring-1" },
+        selectedDiffs: [{ id: "diff-1" }],
+        confirmedRequirementIds: ["requirement-1"],
+        currentClarification: { id: "question-1" },
+        previewComplete: true,
+        confirmationAccepted: true,
+        qualityResult: { status: "passed" },
+        pendingConfirmation: { toolName: "apply_tailoring_changes", operationId: "operation-1" }
+      },
+      dependencySnapshots: {
+        fitResult: { resumeId: "resume-1", resumeRevisionId: "revision-a" },
+        tailoringSession: { resumeId: "resume-1", resumeRevisionId: "revision-a" },
+        clarificationAnswers: { resumeId: "resume-1", resumeRevisionId: "revision-a" },
+        preview: { resumeId: "resume-1", resumeRevisionId: "revision-a" },
+        pendingApplyConfirmation: { resumeId: "resume-1", resumeRevisionId: "revision-a" },
+        qualityResult: { resumeId: "resume-1", resumeRevisionId: "revision-a" }
+      }
+    };
+    const invalidated = reducer.reduce(AgentTaskStateSchema.parse(seeded), {
+      type: "entity_revision",
+      entityType: "resume",
+      entityId: "resume-1",
+      revisionId: "revision-b",
+      hash: "hash-b"
+    });
+    expect(invalidated).toMatchObject({
+      rootGoal: "create_tailored_resume",
+      activeGoal: "analyze_job_fit",
+      stage: "analyze_fit",
+      selectedEntities: {
+        resumeId: "resume-1",
+        resumeRevisionId: "revision-b",
+        resumeHash: "hash-b"
+      },
+      dependencySnapshots: {}
+    });
+    expect(invalidated.knownSlots).not.toHaveProperty("fitAnalysis");
+    expect(invalidated.knownSlots).not.toHaveProperty("tailoringSession");
+    expect(invalidated.knownSlots).not.toHaveProperty("previewComplete");
+    expect(invalidated.knownSlots).not.toHaveProperty("pendingConfirmation");
+    expect(invalidated.knownSlots).not.toHaveProperty("qualityResult");
   });
 
   it.each([
@@ -327,6 +483,16 @@ describe("P4.2a.3b canonical task runtime", () => {
         id: "json",
         productStatus: "available",
         entrypoints: { manual: "available", agent: "manual_only" }
+      }),
+      expect.objectContaining({
+        id: "png",
+        productStatus: "partial",
+        entrypoints: { manual: "partial", agent: "unavailable" }
+      }),
+      expect.objectContaining({
+        id: "jpeg",
+        productStatus: "partial",
+        entrypoints: { manual: "partial", agent: "unavailable" }
       })
     ]));
     expect(AgentProductCapabilityManifest.supportedExportFormats.map((item) => item.id)).toEqual(["pdf", "json"]);
@@ -353,6 +519,7 @@ describe("P4.2a.3b canonical task runtime", () => {
       confirmedImpact: true
     });
     expect(result).toMatchObject({ lifecycleStatus: "archived", revision: 5 });
+    expect(result).not.toHaveProperty("route");
   });
 
   it("resolves the latest general resume before exposing archive_resume", () => {
@@ -421,6 +588,203 @@ describe("P4.2a.3b canonical task runtime", () => {
       streaming: false
     });
   });
+
+  it("executes a persisted confirmation exactly once when confirm is double-clicked", async () => {
+    const now = new Date().toISOString();
+    const base = AgentRuntime.create("tailor_existing_resume", "confirm_apply");
+    const taskState = tailoringState("confirm_apply");
+    const session: AgentSession = {
+      ...base,
+      taskState,
+      pendingConfirmation: {
+        id: "confirmation-1",
+        operationId: "apply-operation-1",
+        toolName: "apply_tailoring_changes",
+        title: "应用定制",
+        description: "确认创建岗位专属版本。",
+        destructive: false,
+        status: "pending",
+        validatedInput: { session: { id: "tailoring-1" }, selectedDiffs: [] },
+        dependencyExpectation: {
+          profileId: "profile-1",
+          resumeId: "resume-1",
+          jobId: "job-1"
+        },
+        requestedAt: now
+      },
+      pendingToolCall: {
+        toolName: "apply_tailoring_changes",
+        operationId: "apply-operation-1",
+        input: { ambiguous: "model-input-is-not-authoritative" }
+      }
+    };
+    const execute = vi.fn(async () => ({
+      ok: true,
+      toolName: "apply_tailoring_changes",
+      data: { branchId: "resume-job-1", revisionId: "revision-2" },
+      artifactIds: []
+    }));
+    const save = vi.fn(async (value: AgentSession) => value);
+    const kernelResult = {
+      trajectory: completedTrajectory(taskState.workflowId),
+      conversationSummary: "",
+      taskState: { ...taskState, completionStatus: "completed" as const }
+    };
+    const host = new AgentHostStore({
+      kernel: { resumeTurn: vi.fn(async () => kernelResult) } as never,
+      executor: { execute } as never,
+      persistence: { save } as never
+    });
+    host.adopt(session);
+    await Promise.all([
+      host.dispatch({ type: "confirmation", confirmed: true }, {
+        pageContext: { pathname: "/ai-workspace", query: {} }
+      }),
+      host.dispatch({ type: "confirmation", confirmed: true }, {
+        pageContext: { pathname: "/ai-workspace", query: {} }
+      })
+    ]);
+    expect(execute).toHaveBeenCalledTimes(1);
+    expect(execute).toHaveBeenCalledWith(expect.objectContaining({
+      operationId: "apply-operation-1",
+      toolInput: expect.objectContaining({ selectedDiffs: [] }),
+      confirmed: true
+    }));
+  });
+
+  it("revalidates dependencies before a confirmed write and invalidates a stale preview", async () => {
+    const now = new Date().toISOString();
+    const base = AgentRuntime.create("tailor_existing_resume", "confirm_apply");
+    const taskState = AgentTaskStateSchema.parse({
+      ...tailoringState("confirm_apply"),
+      selectedEntities: {
+        profileId: "profile-1",
+        resumeId: "resume-1",
+        resumeRevisionId: "revision-a",
+        resumeHash: "hash-a",
+        jobId: "job-1"
+      },
+      knownSlots: {
+        tailoringSession: { id: "tailoring-1" },
+        selectedDiffs: [{ id: "diff-1" }],
+        previewComplete: true,
+        pendingConfirmation: {
+          toolName: "apply_tailoring_changes",
+          operationId: "apply-operation-stale"
+        }
+      },
+      dependencySnapshots: {
+        preview: {
+          resumeId: "resume-1",
+          resumeRevisionId: "revision-a",
+          resumeHash: "hash-a"
+        },
+        pendingApplyConfirmation: {
+          resumeId: "resume-1",
+          resumeRevisionId: "revision-a",
+          resumeHash: "hash-a"
+        }
+      }
+    });
+    const session: AgentSession = {
+      ...base,
+      taskState,
+      pendingConfirmation: {
+        id: "confirmation-stale",
+        operationId: "apply-operation-stale",
+        toolName: "apply_tailoring_changes",
+        title: "应用定制",
+        description: "确认创建岗位专属版本。",
+        destructive: false,
+        status: "pending",
+        validatedInput: { session: { id: "tailoring-1" }, selectedDiffs: [{ id: "diff-1" }] },
+        dependencyExpectation: {
+          resumeId: "resume-1",
+          resumeRevisionId: "revision-a",
+          resumeHash: "hash-a"
+        },
+        requestedAt: now
+      },
+      pendingToolCall: {
+        toolName: "apply_tailoring_changes",
+        operationId: "apply-operation-stale",
+        input: {}
+      }
+    };
+    const execute = vi.fn(async (input: { toolName: string }) => {
+      if (input.toolName !== "get_resume") throw new Error("stale write must not execute");
+      return {
+        ok: true,
+        toolName: "get_resume",
+        data: {
+          resume: { id: "resume-1", currentRevisionId: "revision-b" },
+          resumeHash: "hash-b"
+        },
+        artifactIds: []
+      };
+    });
+    const save = vi.fn(async (value: AgentSession) => value);
+    const host = new AgentHostStore({
+      kernel: {} as never,
+      executor: { execute } as never,
+      persistence: { save } as never
+    });
+    host.adopt(session);
+    const result = await host.dispatch({ type: "confirmation", confirmed: true }, {
+      pageContext: { pathname: "/ai-workspace", query: {} }
+    });
+    expect(execute).toHaveBeenCalledTimes(1);
+    expect(execute).toHaveBeenCalledWith(expect.objectContaining({ toolName: "get_resume" }));
+    expect(result?.taskState).toMatchObject({
+      stage: "analyze_fit",
+      selectedEntities: {
+        resumeRevisionId: "revision-b",
+        resumeHash: "hash-b"
+      },
+      dependencySnapshots: {}
+    });
+    expect(result?.taskState?.knownSlots).not.toHaveProperty("previewComplete");
+  });
+
+  it("does not stall a 60-second operation that reports heartbeat progress every 10 seconds", async () => {
+    vi.useFakeTimers();
+    try {
+      const base = AgentRuntime.create("analyze_job_fit", "analyze_fit");
+      const taskState = new AgentTaskStateReducer().create(base, "analyze_job_fit");
+      const save = vi.fn(async (value: AgentSession) => value);
+      const runTurn = vi.fn(async (input: {
+        emit(event: { type: "heartbeat"; stage: string }): void | Promise<void>;
+      }) => {
+        for (let elapsed = 10; elapsed <= 60; elapsed += 10) {
+          await new Promise((resolve) => setTimeout(resolve, 10_000));
+          await input.emit({ type: "heartbeat", stage: `elapsed-${elapsed}` });
+        }
+        return {
+          trajectory: completedTrajectory(taskState.workflowId),
+          conversationSummary: "",
+          taskState: { ...taskState, completionStatus: "completed" as const }
+        };
+      });
+      const host = new AgentHostStore({
+        kernel: { runTurn } as never,
+        executor: {} as never,
+        persistence: { save } as never,
+        stallThresholdMs: 30_000
+      });
+      const running = host.startTurn({
+        session: { ...base, taskState },
+        userMessage: "分析岗位匹配",
+        pageContext: { pathname: "/ai-workspace", query: {} }
+      });
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(host.getSnapshot().stalled).toBe(false);
+      await running;
+      expect(host.getSnapshot().turnStatus).toBe("completed");
+      expect(runTurn).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
 
 function tailoringState(stage: string) {
@@ -460,5 +824,19 @@ function services(): AgentToolServices {
     archiveResume: result,
     restoreResume: result,
     exportResume: result
+  };
+}
+
+function completedTrajectory(workflowId: string) {
+  return {
+    taskId: "task-test",
+    workflowId,
+    turns: 1,
+    skillsLoaded: [],
+    toolCalls: [],
+    confirmations: [],
+    artifacts: [],
+    outcome: "completed" as const,
+    errors: []
   };
 }

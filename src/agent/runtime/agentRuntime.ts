@@ -43,7 +43,12 @@ export const AgentPlannerActionSchema = z.discriminatedUnion("type", [
         z.object({ type: z.literal("open_job_import_dialog") }).strict(),
         z.object({ type: z.literal("open_profile_browser") }).strict(),
         z.object({ type: z.literal("open_tool_palette") }).strict(),
-        z.object({ type: z.literal("open_artifact"), artifactId: z.string().min(1) }).strict()
+        z.object({ type: z.literal("open_artifact"), artifactId: z.string().min(1) }).strict(),
+        z.object({
+          type: z.literal("task_decision"),
+          decisionType: z.literal("resume_source_route"),
+          option: z.enum(["profile", "existing_resume"])
+        }).strict()
       ])
     }).strict()).min(1).max(12).optional()
   }).strict(),

@@ -69,9 +69,28 @@ export const AgentConfirmationSchema = z.object({
   title: z.string().min(1).max(160),
   description: z.string().min(1).max(1200),
   destructive: z.boolean().default(false),
+  validatedInput: z.record(z.string(), z.unknown()).optional(),
+  dependencyExpectation: z.record(z.string(), z.unknown()).optional(),
   status: z.enum(["pending", "confirmed", "rejected"]).default("pending"),
   requestedAt: z.string().datetime({ offset: true }),
   resolvedAt: z.string().datetime({ offset: true }).optional()
+}).strict();
+
+export const AgentDependencySnapshotSchema = z.object({
+  profileId: z.string().min(1).optional(),
+  profileVersion: z.union([z.string().min(1), z.number().int().min(0)]).optional(),
+  resumeId: z.string().min(1).optional(),
+  resumeRevisionId: z.string().min(1).optional(),
+  resumeHash: z.string().min(1).optional(),
+  jobId: z.string().min(1).optional(),
+  jobRevision: z.union([z.string().min(1), z.number().int().min(0)]).optional(),
+  jobGraphHash: z.string().min(1).optional(),
+  tailoringSessionId: z.string().min(1).optional()
+}).strict();
+
+export const AgentPendingDecisionSchema = z.object({
+  type: z.literal("resume_source_route"),
+  options: z.array(z.enum(["profile", "existing_resume"])).min(2).max(2)
 }).strict();
 
 export const AgentMemoryStateSchema = z.object({
@@ -111,9 +130,24 @@ const AgentTaskStateObjectSchema = z.object({
   missingSlots: z.array(z.string().min(1)).max(32).default([]),
   selectedEntities: z.object({
     profileId: z.string().min(1).optional(),
+    profileVersion: z.union([z.string().min(1), z.number().int().min(0)]).optional(),
     resumeId: z.string().min(1).optional(),
+    resumeRevisionId: z.string().min(1).optional(),
+    resumeHash: z.string().min(1).optional(),
     jobId: z.string().min(1).optional(),
+    jobRevision: z.union([z.string().min(1), z.number().int().min(0)]).optional(),
+    jobGraphHash: z.string().min(1).optional(),
+    tailoringSessionId: z.string().min(1).optional(),
     revisionId: z.string().min(1).optional()
+  }).strict().default({}),
+  pendingDecision: AgentPendingDecisionSchema.optional(),
+  dependencySnapshots: z.object({
+    fitResult: AgentDependencySnapshotSchema.optional(),
+    tailoringSession: AgentDependencySnapshotSchema.optional(),
+    clarificationAnswers: AgentDependencySnapshotSchema.optional(),
+    preview: AgentDependencySnapshotSchema.optional(),
+    pendingApplyConfirmation: AgentDependencySnapshotSchema.optional(),
+    qualityResult: AgentDependencySnapshotSchema.optional()
   }).strict().default({}),
   artifacts: z.array(z.string().min(1)).max(128).default([]),
   lastObservation: z.unknown().optional(),
