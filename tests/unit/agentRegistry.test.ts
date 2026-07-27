@@ -9,6 +9,8 @@ function services(): AgentToolServices {
     listResumes: result,
     listProfiles: result,
     listJobs: result,
+    prepareResumeImport: result,
+    reviewResumeImport: result,
     parseResumeFile: result,
     createResumeImportDraft: result,
     commitResumeImport: result,
@@ -27,8 +29,10 @@ describe("agent tool registry", () => {
   it("rejects unknown tools and exposes the required policy metadata", () => {
     const registry = createAgentToolRegistry(services());
     expect(() => registry.require("drop_database")).toThrow("Unknown agent tool");
-    expect(registry.list()).toHaveLength(28);
+    expect(registry.list()).toHaveLength(30);
     expect(registry.require("list_resumes")).toMatchObject({ risk: "read", requiresConfirmation: false });
+    expect(registry.require("prepare_resume_import")).toMatchObject({ risk: "write", requiresConfirmation: false, resumable: true });
+    expect(registry.require("review_resume_import")).toMatchObject({ risk: "user_declared", requiresConfirmation: false });
     expect(registry.require("commit_job")).toMatchObject({ risk: "write", requiresConfirmation: true });
     expect(registry.require("answer_tailoring_question")).toMatchObject({ risk: "user_declared", requiresConfirmation: true });
     expect(registry.require("apply_tailoring_changes")).toMatchObject({ risk: "write", requiresConfirmation: true });

@@ -472,17 +472,17 @@ describe("P4.2a.3b canonical task runtime", () => {
       expect.objectContaining({
         id: "pdf",
         productStatus: "available",
-        entrypoints: { manual: "available", agent: "manual_only" }
+        entrypoints: { manual: "available", agent: "available" }
       }),
       expect.objectContaining({
         id: "docx",
         productStatus: "available",
-        entrypoints: { manual: "available", agent: "manual_only" }
+        entrypoints: { manual: "available", agent: "available" }
       }),
       expect.objectContaining({
         id: "json",
         productStatus: "available",
-        entrypoints: { manual: "available", agent: "manual_only" }
+        entrypoints: { manual: "available", agent: "available" }
       }),
       expect.objectContaining({
         id: "png",

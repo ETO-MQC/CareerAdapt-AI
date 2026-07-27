@@ -1,32 +1,93 @@
-# P4.2 Agent PDF import bridge
+# P4.2 Agent resume import boundary
 
-The Agent must not parse PDF bytes itself.
+## Shared production path
 
-Production boundary:
+P4.2a.3c removes the former text bridge as the canonical Agent import path.
+Both the manual Wizard and Agent now use the same deterministic application
+pipeline:
 
-1. Existing PDF extraction/OCR pipeline produces ordered page text and source evidence.
-2. `adaptExtractedPdfForAgent` normalizes that result into an Agent import source.
-3. `parse_resume_file` parses the provided text.
-4. Existing import draft services preserve evidence and produce a `resume_import_review` artifact.
-5. The user reviews and confirms before any profile or resume write.
+1. The browser keeps the selected `File` in `AgentAttachmentStore` and exposes
+   only an `AgentAttachmentRef` to task state and model context.
+2. `prepare_resume_import({ attachmentId })` resolves the local file in the
+   browser executor.
+3. `ResumeImportOrchestrator.prepare()` validates and routes PDF, DOCX, or JSON
+   through the existing extractors and adapters.
+4. The orchestrator persists an `ImportedResumeDraft v2` and returns a compact
+   review summary plus a `resume_import_review` artifact payload.
+5. The user reviews uncertain/conflicting material and explicitly selects an
+   existing or new profile target.
+6. `commit_resume_import` requires `importId`, `expectedDraftRevision`, an
+   explicit target, and confirmation. The write remains
+   `WorkspaceRepository.confirmImportedResume()`.
+7. `import_resume` reaches `import_complete` only after the Repository returns
+   authoritative Profile/Resume/Revision IDs.
 
-Remaining integration work:
+No PDF bytes, base64, full extracted document text, or canonical JSON payload
+is sent through model tool input.
 
-- expose the existing PDF import session/page-text result to `AgentWorkspace` after extraction completes;
-- pass those pages through `adaptExtractedPdfForAgent`;
-- extend `parse_resume_file` input to accept the adapter evidence alongside text;
-- map adapter evidence into the existing `ImportedResumeDraft` provenance records;
-- add a browser E2E covering upload → extraction/OCR → review artifact → confirmed import.
+## Orchestrator responsibilities
 
-No duplicate PDF parser or OCR dependency is introduced by P4.2a.1.
+`ResumeImportOrchestrator` is UI-independent. It coordinates existing:
+
+- PDF descriptor/header validation, PDF.js extraction, `preparePdfText`,
+  normalized source blocks, `LayoutDocument`, `LayoutGraph`, and
+  `ResumeSemanticTree`;
+- import quality analysis and the existing optional OpenDataLoader route with
+  deterministic PDF.js fallback;
+- DOCX XML extraction;
+- canonical JSON v2, v1-to-v2, Wenmo, and deterministic external JSON adapters;
+- `ImportedResumeDraft v2` construction, evidence binding, invariant
+  validation, and Repository draft persistence.
+
+It emits `validating`, `extracting`, `normalizing`, `mapping`,
+`building_draft`, `ready_for_review`, `fallback`, and `failed` progress events.
+A ten-second heartbeat refreshes the AgentHost watchdog during long local
+operations.
+
+`ResumeImportWizard` now owns only file/paste input, visible progress, review
+edits and selections, target choice, and final confirmation UI. OCR and the
+advanced AI-assisted JSON recovery route remain manual recovery paths.
+
+## Attachment and persistence semantics
+
+`AgentAttachmentRef` persists safe metadata (`id`, file name, MIME type, size,
+optional hash, and creation time). The actual `File` is transient and local to
+the current browser host.
+
+- After draft persistence, reload restores the review artifact without
+  reparsing.
+- Before draft persistence, lost source bytes produce
+  `agent_attachment_lost` and the user-facing recovery “请重新选择文件”.
+- Abort can stop file reading/parsing. It does not replay a confirmed write.
+- Confirmed writes keep operation-ID idempotency and draft-revision checks.
+
+## Capability status
+
+- PDF: product/manual/Agent available; browser-proven through real PDF.js
+  parsing and provenance persistence.
+- DOCX: product/manual/Agent available; browser-proven through real DOCX
+  extraction.
+- JSON: product/manual/Agent available; browser-proven for canonical v2 and
+  deterministic external adapters without text flattening.
+- PNG/JPEG/OCR: still partial/manual. Agent OCR remains unavailable and is not
+  represented as production-quality support.
+
+`AgentComposer` derives its accepted attachment types from the same product
+capability manifest. TXT is not declared as an Agent resume import format.
+
+## Remaining limits
+
+- OCR quality and scanned/image Agent import remain a separate future task.
+- Exact duplicate and existing merge decisions remain authoritative. Semantic
+  near-duplicate resolution requires a future `ProfileReconciliationEngine`;
+  P4.2a.3c does not add a fuzzy merge engine.
 
 ## Runtime progress and watchdog contract
 
 The Agent watchdog measures inactivity from `lastProgressAt`, not total task
-duration from `startedAt`. Model deltas, tool status, OCR page progress, or
-other heartbeat events must refresh `lastProgressAt`.
+duration from `startedAt`. Model deltas, tool status, artifact updates, import
+progress, and heartbeat events refresh `lastProgressAt`.
 
-Long-running extraction or local OCR may legitimately take more than 30
-seconds. It is not stalled while progress heartbeats continue. The 30-second
-warning applies only when no progress event has been observed for that period;
-it never authorizes an automatic retry of a write operation.
+Long-running extraction or manual OCR may legitimately exceed 30 seconds. It
+is not stalled while heartbeats continue. The warning never authorizes an
+automatic retry of a write operation.
