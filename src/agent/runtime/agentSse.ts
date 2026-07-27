@@ -2,8 +2,8 @@ export type AgentStreamEvent =
   | { type: "turn_ack"; sessionId?: string }
   | { type: "thinking"; stage: string; label: string }
   | { type: "skill_loaded"; skillId: string; label: string }
-  | { type: "assistant_start"; messageId?: string }
-  | { type: "assistant_delta"; delta: string }
+  | { type: "assistant_start"; messageId?: string; turnId?: string; streamId?: string; iterationId?: string }
+  | { type: "assistant_delta"; delta: string; turnId?: string; streamId?: string; iterationId?: string }
   | { type: "usage"; inputTokens?: number; outputTokens?: number }
   | { type: "ui_action"; action: unknown }
   | { type: "tool_started"; toolName: string; operationId: string; userLabel: string }
@@ -12,7 +12,7 @@ export type AgentStreamEvent =
   | { type: "confirmation_required"; confirmation: unknown }
   | { type: "heartbeat"; stage?: string }
   | { type: "workflow_updated"; workflowState: unknown }
-  | { type: "done"; action?: unknown; message?: string }
+  | { type: "done"; action?: unknown; message?: string; turnId?: string; streamId?: string; iterationId?: string }
   | { type: "error"; code: string; message: string };
 
 export type AgentModelWireEvent =

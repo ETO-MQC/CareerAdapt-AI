@@ -196,6 +196,12 @@ function AgentMessageBubble({ message }: { message: AgentMessage }) {
     : normalizeAgentMessageText(message.content);
   return (
     <div className="agent-message-bubble">
+      {message.role === "user" && message.references?.length ? (
+        <div className="agent-message-reference">
+          <strong>回复 AI</strong>
+          <span>“{message.references[0].excerpt ?? "已引用一条回复"}”</span>
+        </div>
+      ) : null}
       <AgentMessageContent content={content} streaming={streaming} />
     </div>
   );

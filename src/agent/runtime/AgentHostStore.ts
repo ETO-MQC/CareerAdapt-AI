@@ -1,7 +1,7 @@
 "use client";
 
 import type { AgentArtifactRef } from "@/agent/contracts/agentArtifact";
-import type { AgentSession, AgentTaskState } from "@/agent/contracts/agentSession";
+import type { AgentMessageReference, AgentSession, AgentTaskState } from "@/agent/contracts/agentSession";
 import type { AgentPageContext } from "@/agent/contracts/agentContext";
 import type { AgentStreamEvent } from "@/agent/runtime/agentSse";
 import type { AgentKernel } from "@/agent/kernel/AgentKernel";
@@ -17,9 +17,10 @@ import {
 } from "./projectTaskStateToWorkflowState";
 import { agentAttachmentStore, type AgentAttachmentRef } from "@/services/agent/AgentAttachmentStore";
 import { agentImportProgressBus } from "@/services/agent/AgentImportProgressBus";
+import { classifyTurnIntent, type TurnIntentDecision } from "./AgentTurnIntent";
 
 export type AgentHostInput =
-  | { type: "message"; text: string }
+  | { type: "message"; text: string; references?: AgentMessageReference[] }
   | { type: "file"; file: File }
   | { type: "option"; action: AgentOption["action"] }
   | { type: "confirmation"; confirmed: boolean }
@@ -106,7 +107,7 @@ export class AgentHostStore {
 
   adopt(session: AgentSession) {
     if (this.snapshot.activeSessionId === session.id && this.snapshot.turnStatus === "running") return;
-    const recoverable = recoverOrphanedThinking(session);
+    const recoverable = enforceExactlyOneFinal(recoverOrphanedThinking(session));
     if (recoverable !== session) void this.dependencies.persistence.save(recoverable);
     this.patch({
       activeSessionId: recoverable.id,
@@ -194,7 +195,8 @@ export class AgentHostStore {
     return this.startTurn({
       session,
       userMessage: input.text,
-      pageContext: context.pageContext
+      pageContext: context.pageContext,
+      references: input.references
     });
   }
 
@@ -207,6 +209,7 @@ export class AgentHostStore {
     userMessage: string;
     pageContext: AgentPageContext;
     attachment?: AgentAttachmentRef;
+    references?: AgentMessageReference[];
   }) {
     const previousGeneration = this.runGeneration;
     if (this.activeController) {
@@ -226,10 +229,16 @@ export class AgentHostStore {
     const turnId = `agent-turn-${crypto.randomUUID()}`;
     const userMessageId = `agent-user-${crypto.randomUUID()}`;
     const thinkingMessageId = `agent-thinking-${crypto.randomUUID()}`;
+    const turnDecision = classifyTurnIntent({
+      text: input.userMessage,
+      references: input.references,
+      taskState: input.session.taskState
+    });
     let current = appendAgentMessage(input.session, "user", input.userMessage.trim(), {
       id: userMessageId,
       turnId,
-      status: "complete"
+      status: "complete",
+      references: input.references?.length ? input.references : undefined
     });
     current = appendAgentMessage(current, "assistant", "正在规划下一步", {
       id: thinkingMessageId,
@@ -241,10 +250,26 @@ export class AgentHostStore {
       parentMessageId: userMessageId
     });
     const reducer = new AgentTaskStateReducer();
-    let taskState = reducer.reduce(current.taskState ?? reducer.create(current), {
-      type: "user_message",
-      message: input.userMessage
-    });
+    let taskState = current.taskState ?? reducer.create(current);
+    if (turnDecision.taskMutation !== "preserve") {
+      if (turnDecision.taskMutation === "replace" && turnDecision.newTask) {
+        taskState = reducer.reduce(taskState, {
+          type: "new_root_task",
+          ...turnDecision.newTask
+        });
+      }
+      if (turnDecision.taskMutation === "recover") {
+        taskState = {
+          ...taskState,
+          completionStatus: "active",
+          updatedAt: new Date().toISOString()
+        };
+      }
+      taskState = reducer.reduce(taskState, {
+        type: "user_message",
+        message: input.userMessage
+      });
+    }
     if (input.attachment) {
       taskState = reducer.reduce(taskState, {
         type: "attachment_selected",
@@ -278,7 +303,9 @@ export class AgentHostStore {
       thinkingMessageId,
       turnId,
       pageContext: input.pageContext,
-      userMessage: input.userMessage
+      userMessage: input.userMessage,
+      references: input.references,
+      turnDecision
     });
   }
 
@@ -596,6 +623,8 @@ export class AgentHostStore {
     turnId: string;
     pageContext: AgentPageContext;
     userMessage?: string;
+    references?: AgentMessageReference[];
+    turnDecision?: TurnIntentDecision;
     resume?: {
       reason: "tool_observation" | "confirmation_rejected" | "external_event";
       toolName?: string;
@@ -604,8 +633,12 @@ export class AgentHostStore {
   }) {
     let current = input.current;
     let visible = "";
+    let activeStreamId: string | undefined;
+    let activeIterationId: string | undefined;
+    let finalDone = false;
     const onEvent = async (event: AgentStreamEvent) => {
       if (input.generation !== this.runGeneration) return;
+      if ("turnId" in event && event.turnId && event.turnId !== input.turnId) return;
       if (isProgressEvent(event)) this.markProgress();
       this.patch({ streamEvents: [...this.snapshot.streamEvents, event].slice(-200) });
       if (event.type === "thinking") {
@@ -724,6 +757,10 @@ export class AgentHostStore {
         await this.dependencies.persistence.save(current);
       }
       if (event.type === "assistant_start") {
+        if (finalDone) return;
+        if (activeStreamId || activeIterationId) return;
+        activeStreamId = event.streamId;
+        activeIterationId = event.iterationId;
         visible = "";
         current = {
           ...current,
@@ -742,6 +779,7 @@ export class AgentHostStore {
         };
       }
       if (event.type === "assistant_delta") {
+        if (finalDone || !matchesActiveStream(event, activeStreamId, activeIterationId)) return;
         visible += event.delta;
         current = {
           ...current,
@@ -770,6 +808,8 @@ export class AgentHostStore {
         };
       }
       if (event.type === "done") {
+        if (finalDone || !matchesActiveStream(event, activeStreamId, activeIterationId)) return;
+        finalDone = true;
         current = replaceAgentThinking(current, input.thinkingMessageId, event.message?.trim() || visible, input.turnId);
       }
       if (event.type === "error") {
@@ -805,12 +845,20 @@ export class AgentHostStore {
             session: current,
             pageContext: input.pageContext,
             userMessage: input.userMessage ?? "",
+            references: input.references,
+            turnId: input.turnId,
+            turnIntent: input.turnDecision?.intent,
+            toolScope: input.turnDecision?.toolScope,
             taskEventAlreadyReduced: true,
             signal: input.controller.signal,
             emit: onEvent
           });
       if (input.generation !== this.runGeneration) return this.snapshot.activeSession;
-      const outcome = result.pendingConfirmation
+      const isolatedConversationalTurn = input.turnDecision?.intent === "casual_side_turn"
+        || input.turnDecision?.intent === "reference_followup";
+      const outcome = isolatedConversationalTurn
+        ? result.trajectory.outcome === "aborted" ? "aborted" : "completed"
+        : result.pendingConfirmation
         ? "waiting_for_confirmation"
         : result.taskState?.completionStatus === "waiting_for_confirmation"
           ? "waiting_for_confirmation"
@@ -831,8 +879,16 @@ export class AgentHostStore {
         reflection: result.reflection,
         conversationSummary: result.conversationSummary ?? current.conversationSummary,
         taskState: result.taskState ?? current.taskState,
-        pendingConfirmation: result.pendingConfirmation ? { ...result.pendingConfirmation, turnId: input.turnId } : undefined,
-        pendingToolCall: result.pendingCall ? { ...result.pendingCall, turnId: input.turnId } : undefined,
+        pendingConfirmation: isolatedConversationalTurn
+          ? current.pendingConfirmation
+          : result.pendingConfirmation
+            ? { ...result.pendingConfirmation, turnId: input.turnId }
+            : undefined,
+        pendingToolCall: isolatedConversationalTurn
+          ? current.pendingToolCall
+          : result.pendingCall
+            ? { ...result.pendingCall, turnId: input.turnId }
+            : undefined,
         activeTurn: {
           ...current.activeTurn!,
           id: input.turnId,
@@ -859,6 +915,7 @@ export class AgentHostStore {
       if (result.taskState?.pendingDecision) {
         current = attachPendingDecisionOptions(current, result.taskState.pendingDecision);
       }
+      current = settleThinkingMessages(current, input.turnId);
       current = await this.dependencies.persistence.save(current);
       this.patchSession(current, {
         turnStatus: outcome === "waiting_for_confirmation" ? "waiting_for_confirmation" : outcome === "failed" ? "failed" : "completed",
@@ -1064,6 +1121,19 @@ function isProgressEvent(event: AgentStreamEvent) {
   ].includes(event.type);
 }
 
+function matchesActiveStream(
+  event: Extract<AgentStreamEvent, { type: "assistant_delta" | "done" }>,
+  activeStreamId?: string,
+  activeIterationId?: string
+) {
+  if (event.streamId && activeStreamId && event.streamId !== activeStreamId) return false;
+  if (event.iterationId && activeIterationId && event.iterationId !== activeIterationId) return false;
+  // Identified deltas must follow an identified start. Legacy unscoped events
+  // remain accepted for route compatibility outside AgentKernel.
+  if ((event.streamId || event.iterationId) && !activeStreamId && !activeIterationId) return false;
+  return true;
+}
+
 function attachPendingDecisionOptions(
   session: AgentSession,
   decision: NonNullable<AgentTaskState["pendingDecision"]>
@@ -1114,20 +1184,33 @@ function dependencyExpectationMatches(
 
 function settleThinkingMessages(session: AgentSession, turnId: string) {
   let changed = false;
+  const hasFinal = session.messages.some((message) =>
+    message.turnId === turnId
+    && message.role === "assistant"
+    && message.status === "complete"
+    && message.kind !== "assistant_thinking"
+    && message.kind !== "assistant_streaming"
+  );
   const messages = session.messages.map((message) => {
     if (
       message.turnId === turnId
-      && message.kind === "assistant_thinking"
-      && (message.status === "thinking" || message.streaming)
+      && (
+        message.kind === "assistant_thinking"
+        || message.kind === "assistant_streaming"
+        || message.status === "thinking"
+        || message.status === "streaming"
+        || message.streaming
+      )
     ) {
       changed = true;
       return {
         ...message,
-        content: "这一步已中断，可重试或继续任务。",
+        content: hasFinal ? message.content : "这一步已中断，可重试或继续任务。",
         kind: "system_notice" as const,
         type: "system_notice" as const,
         status: "recovered" as const,
         streaming: false,
+        metadata: hasFinal ? { ...message.metadata, retracted: true } : message.metadata,
         updatedAt: new Date().toISOString()
       };
     }
@@ -1137,8 +1220,20 @@ function settleThinkingMessages(session: AgentSession, turnId: string) {
 }
 
 function recoverOrphanedThinking(session: AgentSession) {
-  if (session.activeTurn?.status !== "running") return session;
-  const settled = settleThinkingMessages(session, session.activeTurn.id);
+  const orphanTurnIds = new Set(session.messages.flatMap((message) =>
+    message.turnId && (
+      message.kind === "assistant_thinking"
+      || message.kind === "assistant_streaming"
+      || message.status === "thinking"
+      || message.status === "streaming"
+      || message.streaming
+    )
+      ? [message.turnId]
+      : []
+  ));
+  let settled = session;
+  for (const turnId of orphanTurnIds) settled = settleThinkingMessages(settled, turnId);
+  if (session.activeTurn?.status !== "running") return settled;
   return {
     ...settled,
     activeTurn: {
@@ -1146,6 +1241,34 @@ function recoverOrphanedThinking(session: AgentSession) {
       status: "aborted" as const,
       completedAt: new Date().toISOString()
     }
+  };
+}
+
+function enforceExactlyOneFinal(session: AgentSession) {
+  const finalIdsByTurn = new Map<string, string[]>();
+  for (const message of session.messages) {
+    if (
+      message.turnId
+      && message.role === "assistant"
+      && message.status === "complete"
+      && message.kind !== "assistant_thinking"
+      && message.kind !== "assistant_streaming"
+      && message.metadata?.retracted !== true
+    ) {
+      finalIdsByTurn.set(message.turnId, [...(finalIdsByTurn.get(message.turnId) ?? []), message.id]);
+    }
+  }
+  const duplicateIds = new Set(
+    [...finalIdsByTurn.values()].flatMap((ids) => ids.length > 1 ? ids.slice(0, -1) : [])
+  );
+  if (!duplicateIds.size) return session;
+  return {
+    ...session,
+    messages: session.messages.map((message) =>
+      duplicateIds.has(message.id)
+        ? { ...message, metadata: { ...message.metadata, retracted: true } }
+        : message
+    )
   };
 }
 

@@ -62,4 +62,11 @@ export class AgentToolResolver {
       inputSchema: z.toJSONSchema(tool.inputSchema) as Record<string, unknown>
     }));
   }
+
+  narrowReadTools(names: string[]) {
+    const requested = new Set(names);
+    return this.registry.list().filter((tool) =>
+      requested.has(tool.name) && tool.risk === "read"
+    );
+  }
 }

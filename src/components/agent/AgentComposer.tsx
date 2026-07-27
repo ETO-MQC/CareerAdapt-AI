@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { AgentUiAction } from "@/agent/contracts/agentActions";
+import type { AgentMessageReference } from "@/agent/contracts/agentSession";
 import { AGENT_RESUME_IMPORT_ACCEPT } from "@/agent/capabilities/AgentProductCapabilityManifest";
 
 type Attachment = {
@@ -27,6 +28,8 @@ export function AgentComposer(props: {
   running?: boolean;
   aiStatus?: string;
   draft?: string;
+  reference?: AgentMessageReference;
+  onRemoveReference?(): void;
   onDraftChange?(value: string): void;
   onSend(message: string): Promise<void> | void;
   onUiAction?(action: AgentUiAction): void;
@@ -91,6 +94,17 @@ export function AgentComposer(props: {
         await props.onSend(content);
       }}
     >
+      {props.reference ? (
+        <div className="agent-reference-chip" aria-label="引用的 AI 回复">
+          <div>
+            <strong>回复 AI</strong>
+            <span>“{props.reference.excerpt ?? "已引用一条回复"}”</span>
+          </div>
+          <button type="button" aria-label="移除引用" onClick={props.onRemoveReference}>
+            <X aria-hidden="true" />
+          </button>
+        </div>
+      ) : null}
       {attachments.length ? (
         <div className="agent-attachment-list" aria-live="polite">
           {attachments.map((attachment) => (

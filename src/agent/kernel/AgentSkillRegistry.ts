@@ -25,7 +25,7 @@ const skills: AgentSkill[] = [
   skill("career-profile-intake", "职业资料建档", "建立或核对真实、可溯源的职业资料。", ["资料库", "建档", "身份", "profile"], ["guided_profile_intake"], ["get_active_profile", "get_profile", "search_profile_facts", "list_profiles"], [
     "确认当前资料库与建档目标。", "读取现有资料，避免重复创建。", "缺失事实逐项询问并保留来源。", "写入前展示核对范围并请求确认。"
   ]),
-  skill("career-experience-digging", "经历深挖", "从现有事实中发现可补充的职责、方法、规模和结果。", ["经历", "项目", "丰富", "缺口", "AI"], ["guided_profile_intake", "build_resume_from_profile", "analyze_job_fit"], ["get_active_profile", "get_profile", "search_profile_facts"], [
+  skill("career-experience-digging", "经历深挖", "从现有事实中发现可补充的职责、方法、规模和结果。", ["经历", "项目", "丰富", "缺口"], ["guided_profile_intake", "build_resume_from_profile", "analyze_job_fit"], ["get_active_profile", "get_profile", "search_profile_facts"], [
     "读取已有经历与事实证据。", "区分已知事实、合理问题和未知信息。", "总结代表经历、优势与空白。", "只把用户明确确认的信息交给写入流程。"
   ]),
   skill("jd-analysis", "岗位分析", "解析岗位要求并与真实资料、简历进行匹配。", ["JD", "岗位", "匹配", "适合"], ["job_ingestion", "analyze_job_fit", "tailor_existing_resume"], ["list_jobs", "get_job", "parse_job_description", "commit_job", "get_active_profile", "get_profile", "get_resume", "analyze_job_fit"], [
@@ -66,20 +66,18 @@ export class AgentSkillRegistry {
     userMessage: string;
     selectedEntities?: { profileId?: string; resumeId?: string; jobId?: string };
   }) {
-    const text = input.userMessage.toLowerCase();
-    const explicitSignals = (candidate: AgentSkill) =>
-      candidate.tags.reduce((sum, tag) => sum + Number(text.includes(tag.toLowerCase())), 0);
+    const text = input.userMessage.trim();
+    if (isConversationalOrCapabilityTurn(text)) return [];
     return skills
       .map((candidate) => ({
         candidate,
-        score: explicitSignals(candidate) * 5
-          + Number(explicitSignals(candidate) > 0 && candidate.applicableWorkflows.includes(input.workflowId)) * 2
-          + Number(explicitSignals(candidate) > 0 && Boolean(input.step))
-          + Number(explicitSignals(candidate) > 0 && Object.values(input.selectedEntities ?? {}).some(Boolean))
+        relevant: explicitSkillRelevance(candidate.id, text),
+        compatible: candidate.applicableWorkflows.includes(input.workflowId)
       }))
-      .filter((entry) => entry.score > 0)
-      .sort((left, right) => right.score - left.score)
-      .slice(0, 2)
+      .filter((entry) => entry.relevant && entry.compatible)
+      // One primary Skill is the safe default. Supporting Skills can be added
+      // later only through an explicit cross-skill rule, never tag overlap.
+      .slice(0, 1)
       .map((entry) => entry.candidate);
   }
 
@@ -93,6 +91,25 @@ export class AgentSkillRegistry {
     if (!content) throw Object.assign(new Error("Skill reference is not available."), { code: "skill_reference_not_found" });
     return { skillId, referencePath: normalizeReferencePath(referencePath), content };
   }
+}
+
+function isConversationalOrCapabilityTurn(text: string) {
+  const compact = text.toLowerCase().replace(/[\s？?！!。,.，]/g, "");
+  return /^(你好|您好|嗨|hi|hello|谢谢|感谢|你(还)?能做什么|你可以做什么|你能联网吗|你能连接外网吗)$/.test(compact)
+    || /^(你能|可以).*(读取|查看|访问).*(资料库|个人资料)$/i.test(text);
+}
+
+function explicitSkillRelevance(skillId: string, text: string) {
+  const patterns: Record<string, RegExp> = {
+    "career-profile-intake": /(建立|补充|更新|核对).*(资料库|职业资料|个人资料)|职业资料.*建档/i,
+    "career-experience-digging": /(深挖|丰富|补充|梳理|挖掘).*(经历|项目)|(经历|项目).*(深挖|丰富|补充|缺口|亮点)/i,
+    "jd-analysis": /(分析|解析|看看).*(JD|岗位描述|职位描述)|岗位.*(匹配|要求|分析)|JD/i,
+    "resume-from-profile": /从资料库.*(生成|创建|组装).*简历/i,
+    "resume-tailoring": /(定制|针对.*优化|改写).*(简历)|岗位简历/i,
+    "resume-quality-gate": /(检查|评估|审核).*(简历质量|ATS)|简历.*(够不够|质量门禁)/i,
+    "resume-export": /(导出|生成).*(PDF|简历文件)|PDF.*导出/i
+  };
+  return patterns[skillId]?.test(text) ?? false;
 }
 
 function renderSkillMarkdown(value: AgentSkill) {

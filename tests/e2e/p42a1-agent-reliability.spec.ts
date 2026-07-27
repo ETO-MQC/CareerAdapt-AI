@@ -17,15 +17,10 @@ function nativeTool(call: { id: string; name: string; arguments: Record<string, 
 }
 
 test.describe("P4.2a.1 Agent reliability", () => {
-  test("answers a greeting with zero domain tools", async ({ page }) => {
-    let exposedTools: string[] | undefined;
+  test("answers a greeting deterministically with zero model/domain calls", async ({ page }) => {
+    let modelRequests = 0;
     await page.route("**/api/agent/stream", async (route) => {
-      const body = route.request().postDataJSON() as {
-        mode?: string;
-        draft?: string;
-        tools?: Array<{ name: string }>;
-      };
-      exposedTools = body.tools?.map((tool) => tool.name);
+      modelRequests += 1;
       await route.fulfill({
         contentType: "text/event-stream",
         body: nativeFinal("你好！今天想处理哪项求职任务？")
@@ -37,7 +32,7 @@ test.describe("P4.2a.1 Agent reliability", () => {
     await page.getByRole("button", { name: "发送消息" }).click();
 
     await expect(page.getByText("你好！今天想处理哪项求职任务？")).toBeVisible();
-    expect(exposedTools).toEqual([]);
+    expect(modelRequests).toBe(0);
     await expect(page.locator(".agent-tool-status-row")).toHaveCount(0);
   });
 

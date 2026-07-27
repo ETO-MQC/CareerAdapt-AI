@@ -97,4 +97,27 @@ describe("AgentConversationTimeline", () => {
     expect(document.querySelector<HTMLDetailsElement>(".agent-tool-status-row")?.open).toBe(true);
     expect(screen.queryByRole("menuitem", { name: "从这里创建新对话" })).toBeNull();
   });
+
+  it("shows a compact structured reference without duplicating it into user text", () => {
+    render(
+      <AgentConversationTimeline
+        messages={[{
+          id: "user-reference",
+          turnId: "turn-reference",
+          role: "user",
+          content: "这里面的岗位匹配是什么意思？",
+          references: [{
+            messageId: "assistant-capabilities",
+            role: "assistant",
+            type: "assistant_message",
+            excerpt: "除了刚才展示的资料库读取功能……"
+          }],
+          createdAt: "2026-07-27T08:00:00.000Z"
+        }]}
+      />
+    );
+    expect(screen.getByText("回复 AI")).toBeInTheDocument();
+    expect(screen.getByText("这里面的岗位匹配是什么意思？")).toBeInTheDocument();
+    expect(screen.getAllByText(/除了刚才展示/)).toHaveLength(1);
+  });
 });

@@ -6,6 +6,13 @@ import { AgentTrajectorySchema } from "../kernel/AgentTrajectory";
 import { AgentReflectionSchema } from "../kernel/AgentReflection";
 import { AgentAttachmentRefSchema } from "@/services/agent/AgentAttachmentStore";
 
+export const AgentMessageReferenceSchema = z.object({
+  messageId: z.string().min(1),
+  role: z.enum(["user", "assistant", "tool", "system"]),
+  type: z.enum(["assistant_message", "user_message", "artifact", "tool_result"]),
+  excerpt: z.string().max(280).optional()
+}).strict();
+
 export const AgentMessageSchema = z.object({
   id: z.string().min(1),
   turnId: z.string().min(1).optional(),
@@ -36,6 +43,7 @@ export const AgentMessageSchema = z.object({
   toolName: z.string().min(1).optional(),
   operationId: z.string().min(8).max(160).optional(),
   parentMessageId: z.string().min(1).optional(),
+  references: z.array(AgentMessageReferenceSchema).max(4).optional(),
   language: z.enum(["zh", "en", "unknown"]).optional(),
   streaming: z.boolean().optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
@@ -202,6 +210,7 @@ export const AgentSessionSchema = z.object({
 }).strict();
 
 export type AgentMessage = z.infer<typeof AgentMessageSchema>;
+export type AgentMessageReference = z.infer<typeof AgentMessageReferenceSchema>;
 export type AgentMessageRecord = z.infer<typeof AgentMessageRecordSchema>;
 export type AgentSession = z.infer<typeof AgentSessionSchema>;
 export type AgentWorkflowState = z.infer<typeof AgentWorkflowStateSchema>;

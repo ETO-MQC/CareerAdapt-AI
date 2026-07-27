@@ -1278,3 +1278,54 @@
   display: flex;
   gap: 8px;
 }
+.agent-reference-chip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 12px 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--ai-border);
+  border-radius: 8px;
+  background: var(--ai-surface-soft);
+  font-size: 12px;
+}
+
+.agent-reference-chip > div,
+.agent-message-reference {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.agent-reference-chip span,
+.agent-message-reference span {
+  overflow: hidden;
+  color: var(--ai-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-reference-chip button {
+  display: grid;
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+}
+
+.agent-reference-chip button svg {
+  width: 14px;
+  height: 14px;
+}
+
+.agent-message-reference {
+  max-width: 36rem;
+  margin-bottom: 8px;
+  padding-left: 8px;
+  border-left: 2px solid var(--ai-border-strong);
+  font-size: 12px;
+}

@@ -1,6 +1,6 @@
 import "server-only";
 import type { AiSettings } from "@/services/storage/aiSettings";
-import { parseOpenAiCompatibleSse } from "./openAiSse";
+import { normalizeProviderFrame, parseOpenAiCompatibleSse } from "./openAiSse";
 import { parseOpenAiJsonSse } from "./openAiToolSse";
 import {
   AgentModelResultSchema,
@@ -184,6 +184,7 @@ export class OpenAiCompatibleProvider {
 
     const calls = new Map<number, { id: string; name: string; argumentsText: string }>();
     let finishReason: unknown;
+    let assistantText = "";
     for await (const payload of parseOpenAiJsonSse(response.body)) {
       const usage = objectRecord(payload.usage);
       if (usage) {
@@ -199,7 +200,11 @@ export class OpenAiCompatibleProvider {
       const delta = objectRecord(choice.delta);
       if (!delta) continue;
       if (typeof delta.content === "string" && delta.content) {
-        yield { type: "assistant_text_delta", delta: delta.content };
+        const normalized = normalizeProviderFrame(assistantText, delta.content);
+        if (normalized) {
+          assistantText += normalized;
+          yield { type: "assistant_text_delta", delta: normalized };
+        }
       }
       if (!Array.isArray(delta.tool_calls)) continue;
       for (const rawCall of delta.tool_calls) {

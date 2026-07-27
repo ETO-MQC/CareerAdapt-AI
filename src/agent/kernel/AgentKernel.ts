@@ -1,5 +1,5 @@
 import { nanoid } from "nanoid";
-import type { AgentSession, AgentConfirmation } from "@/agent/contracts/agentSession";
+import type { AgentSession, AgentConfirmation, AgentMessageReference } from "@/agent/contracts/agentSession";
 import type { AgentPageContext } from "@/agent/contracts/agentContext";
 import type { AgentToolResult } from "@/agent/contracts/agentTool";
 import type { AgentModel, AgentModelMessage, AgentModelResult, AgentModelToolCall } from "@/agent/model/agentModel";
@@ -24,6 +24,8 @@ import {
   projectTaskStateIntoSession,
   projectTaskStateToWorkflowState
 } from "@/agent/runtime/projectTaskStateToWorkflowState";
+import type { TurnIntent, TurnToolScope } from "@/agent/runtime/AgentTurnIntent";
+import { capabilityManifestForPrompt } from "@/agent/capabilities/AgentProductCapabilityManifest";
 
 export type AgentKernelResult = {
   text?: string;
@@ -62,6 +64,10 @@ export class AgentKernel {
     session: AgentSession;
     pageContext: AgentPageContext;
     userMessage: string;
+    references?: AgentMessageReference[];
+    turnId?: string;
+    turnIntent?: TurnIntent;
+    toolScope?: TurnToolScope;
     signal?: AbortSignal;
     emit?(event: AgentStreamEvent): void | Promise<void>;
     internalObservation?: {
@@ -77,7 +83,7 @@ export class AgentKernel {
     const canonicalEntities = new AgentCanonicalEntityGuard();
     const taskReducer = new AgentTaskStateReducer();
     let taskState = input.session.taskState ?? taskReducer.create(input.session);
-    if (!input.taskEventAlreadyReduced) {
+    if (!input.taskEventAlreadyReduced && input.turnIntent !== "casual_side_turn" && input.turnIntent !== "reference_followup") {
       taskState = taskReducer.reduce(taskState, { type: "user_message", message: input.userMessage });
     }
     if (input.internalObservation?.reason === "tool_observation" && input.internalObservation.toolName) {
@@ -110,7 +116,9 @@ export class AgentKernel {
       pageContext: input.pageContext,
       userMessage: input.userMessage,
       memory,
-      activeSkills: skills
+      activeSkills: skills,
+      references: resolveReferences(authoritativeSession, input.references),
+      turnIntent: input.turnIntent
     });
     let allowedTools = this.dependencies.toolResolver.allowedTools({
       workflowId: taskState.workflowId,
@@ -119,6 +127,7 @@ export class AgentKernel {
       session: authoritativeSession,
       userMessage: input.userMessage
     });
+    allowedTools = toolsForTurnScope(this.dependencies.toolResolver, allowedTools, input.toolScope);
     let modelTools = this.dependencies.toolResolver.modelManifest(allowedTools);
     const contextWindow = (this.dependencies.contextWindow ?? new AgentContextWindow()).build(
       input.session,
@@ -137,7 +146,8 @@ export class AgentKernel {
       });
     }
     let toolCallCount = 0;
-    const streamState = { started: false };
+    const turnId = input.turnId ?? input.session.activeTurn?.id ?? `agent-turn-${nanoid(12)}`;
+    let previousNoProgressFingerprint: string | undefined;
 
     await emit(input, { type: "turn_ack", sessionId: input.session.id });
     await emit(input, {
@@ -150,7 +160,20 @@ export class AgentKernel {
     }
 
     try {
+      const capabilityAnswer = deterministicCapabilityAnswer(input.userMessage);
+      if (capabilityAnswer && (input.turnIntent === "casual_side_turn" || input.toolScope === "none")) {
+        const iterationId = `${turnId}:iteration:1`;
+        await publishFinalStream(capabilityAnswer, input, { turnId, iterationId });
+        trajectory.finish("completed");
+        return {
+          text: capabilityAnswer,
+          trajectory: trajectory.value(),
+          conversationSummary: contextWindow.conversationSummary,
+          taskState
+        };
+      }
       for (let iteration = 0; iteration < maxIterations; iteration += 1) {
+        const iterationId = `${turnId}:iteration:${iteration + 1}`;
         throwIfAborted(input.signal);
         await emit(input, {
           type: "thinking",
@@ -165,7 +188,7 @@ export class AgentKernel {
               messages,
               tools: modelTools,
               signal: input.signal
-            }, input, streamState)
+            }, input)
           : await this.dependencies.model.completeWithTools({
               systemPrompt,
               messages,
@@ -261,7 +284,9 @@ export class AgentKernel {
                   pageContext: input.pageContext,
                   userMessage: input.userMessage,
                   memory: memoryManager.retrieve(transitionedSession),
-                  activeSkills: skills
+                  activeSkills: skills,
+                  references: resolveReferences(transitionedSession, input.references),
+                  turnIntent: input.turnIntent
                 });
               }
               trajectory.toolCompleted(operationId, result.ok, result.artifactIds);
@@ -281,6 +306,7 @@ export class AgentKernel {
                 session: projectTaskStateIntoSession(input.session, taskState),
                 userMessage: input.userMessage
               });
+              allowedTools = toolsForTurnScope(this.dependencies.toolResolver, allowedTools, input.toolScope);
               modelTools = this.dependencies.toolResolver.modelManifest(allowedTools);
             } catch (error) {
               if (error instanceof AgentConfirmationRequiredError) {
@@ -311,16 +337,46 @@ export class AgentKernel {
 
         if (response.stopReason === "ask_user") {
           const text = canonicalEntities.preserve(response.text?.trim() || "请补充继续这项任务所需的真实信息。");
-          if (nativeStreaming) await finishNativeStream(text, input, streamState);
-          else await streamFinal(this.dependencies.model, { systemPrompt, messages, tools: modelTools }, text, input);
+          if (nativeStreaming) await publishFinalStream(text, input, { turnId, iterationId });
+          else await streamFinal(this.dependencies.model, { systemPrompt, messages, tools: modelTools }, text, input, { turnId, iterationId });
           trajectory.finish("waiting_for_user");
           return { text, trajectory: trajectory.value(), conversationSummary: contextWindow.conversationSummary, taskState };
         }
 
         const text = response.text?.trim() ? canonicalEntities.preserve(response.text.trim()) : undefined;
         if (text) {
+          if (input.turnIntent === "casual_side_turn" || input.turnIntent === "reference_followup") {
+            const visible = nativeStreaming
+              ? await publishFinalStream(text, input, { turnId, iterationId })
+              : await streamFinal(this.dependencies.model, { systemPrompt, messages, tools: modelTools }, text, input, { turnId, iterationId });
+            trajectory.finish("completed");
+            return {
+              text: visible,
+              trajectory: trajectory.value(),
+              conversationSummary: contextWindow.conversationSummary,
+              taskState
+            };
+          }
           const completion = new AgentTaskCompletionGuard().evaluate(taskState);
           if (!completion.canFinish) {
+            const fingerprint = noProgressFingerprint({
+              taskState,
+              allowedToolNames: allowedTools.map((tool) => tool.name),
+              stopReason: response.stopReason,
+              requiredNextStage: completion.requiredNextStage
+            });
+            if (fingerprint === previousNoProgressFingerprint) {
+              const recovery = noProgressRecovery(completion.nextAction);
+              await publishFinalStream(recovery, input, { turnId, iterationId });
+              trajectory.finish("waiting_for_user");
+              return {
+                text: recovery,
+                trajectory: trajectory.value(),
+                conversationSummary: contextWindow.conversationSummary,
+                taskState: { ...taskState, completionStatus: "waiting_for_user", updatedAt: new Date().toISOString() }
+              };
+            }
+            previousNoProgressFingerprint = fingerprint;
             messages.push({ role: "assistant", content: text });
             messages.push({
               role: "system",
@@ -337,8 +393,8 @@ export class AgentKernel {
             continue;
           }
           const visible = nativeStreaming
-            ? await finishNativeStream(text, input, streamState)
-            : await streamFinal(this.dependencies.model, { systemPrompt, messages, tools: modelTools }, text, input);
+            ? await publishFinalStream(text, input, { turnId, iterationId })
+            : await streamFinal(this.dependencies.model, { systemPrompt, messages, tools: modelTools }, text, input, { turnId, iterationId });
           trajectory.finish("completed");
           const snapshot = trajectory.value();
           return {
@@ -363,7 +419,10 @@ export class AgentKernel {
       trajectory.error(code, error instanceof Error ? error.message : "Agent turn failed.");
       trajectory.finish("failed");
       await emit(input, { type: "error", code, message: userErrorMessage(code) });
-      return { trajectory: trajectory.value(), taskState };
+      return {
+        trajectory: trajectory.value(),
+        taskState: taskReducer.reduce(taskState, { type: "failed", errorCode: code })
+      };
     }
   }
 
@@ -398,20 +457,14 @@ export class AgentKernel {
 async function consumeNativeTurn(
   model: AgentModel,
   request: Parameters<NonNullable<AgentModel["streamTurn"]>>[0],
-  input: { signal?: AbortSignal; emit?(event: AgentStreamEvent): void | Promise<void> },
-  streamState: { started: boolean }
+  input: { signal?: AbortSignal; emit?(event: AgentStreamEvent): void | Promise<void> }
 ) {
   let text = "";
   let stopReason: AgentModelResult["stopReason"] = "final";
   const calls = new Map<number, AgentModelToolCall>();
   for await (const event of model.streamTurn!(request)) {
     if (event.type === "assistant_text_delta") {
-      if (!streamState.started) {
-        streamState.started = true;
-        await emit(input, { type: "assistant_start" });
-      }
       text += event.delta;
-      await emit(input, { type: "assistant_delta", delta: event.delta });
     }
     if (event.type === "tool_call_complete") calls.set(event.index, event.call);
     if (event.type === "usage") {
@@ -430,17 +483,15 @@ async function consumeNativeTurn(
   };
 }
 
-async function finishNativeStream(
+async function publishFinalStream(
   text: string,
   input: { emit?(event: AgentStreamEvent): void | Promise<void> },
-  streamState: { started: boolean }
+  identity: { turnId: string; iterationId: string }
 ) {
-  if (!streamState.started) {
-    streamState.started = true;
-    await emit(input, { type: "assistant_start" });
-    await emit(input, { type: "assistant_delta", delta: text });
-  }
-  await emit(input, { type: "done", message: text });
+  const streamId = `${identity.turnId}:final`;
+  await emit(input, { type: "assistant_start", ...identity, streamId });
+  await emit(input, { type: "assistant_delta", delta: text, ...identity, streamId });
+  await emit(input, { type: "done", message: text, ...identity, streamId });
   return text;
 }
 
@@ -448,21 +499,23 @@ async function streamFinal(
   model: AgentModel,
   request: { systemPrompt: string; messages: AgentModelMessage[]; tools: Array<{ name: string; description: string; inputSchema: Record<string, unknown> }> },
   draft: string,
-  input: { signal?: AbortSignal; emit?(event: AgentStreamEvent): void | Promise<void> }
+  input: { signal?: AbortSignal; emit?(event: AgentStreamEvent): void | Promise<void> },
+  identity: { turnId: string; iterationId: string }
 ) {
-  await emit(input, { type: "assistant_start" });
+  const streamId = `${identity.turnId}:final`;
+  await emit(input, { type: "assistant_start", ...identity, streamId });
   if (!model.streamFinalText) {
-    await emit(input, { type: "assistant_delta", delta: draft });
-    await emit(input, { type: "done", message: draft });
+    await emit(input, { type: "assistant_delta", delta: draft, ...identity, streamId });
+    await emit(input, { type: "done", message: draft, ...identity, streamId });
     return draft;
   }
   let visible = "";
   for await (const delta of model.streamFinalText({ ...request, draft, signal: input.signal })) {
     visible += delta;
-    await emit(input, { type: "assistant_delta", delta });
+    await emit(input, { type: "assistant_delta", delta, ...identity, streamId });
   }
   const final = visible.trim() || draft;
-  await emit(input, { type: "done", message: final });
+  await emit(input, { type: "done", message: final, ...identity, streamId });
   return final;
 }
 
@@ -628,6 +681,97 @@ function errorCode(error: unknown) {
 
 function throwIfAborted(signal?: AbortSignal) {
   if (signal?.aborted) throw Object.assign(new DOMException("Aborted", "AbortError"), { code: "AbortError" });
+}
+
+function toolsForTurnScope<T extends { name: string }>(
+  resolver: AgentToolResolver,
+  tools: T[],
+  scope?: TurnToolScope
+) {
+  if (!scope || scope === "domain") return tools;
+  if (scope === "none") return [];
+  return resolver.narrowReadTools(["get_active_profile", "get_profile", "search_profile_facts"]);
+}
+
+function resolveReferences(session: AgentSession, references?: AgentMessageReference[]) {
+  if (!references?.length) return [];
+  const byId = new Map(session.messages.map((message) => [message.id, message]));
+  return references.slice(0, 4).flatMap((reference) => {
+    const source = byId.get(reference.messageId);
+    if (!source || source.role !== reference.role) return [];
+    return [{
+      ...reference,
+      content: source.content.slice(0, 1_200)
+    }];
+  });
+}
+
+function deterministicCapabilityAnswer(userMessage: string) {
+  const compact = userMessage.trim().replace(/\s+/g, "");
+  const manifest = capabilityManifestForPrompt();
+  if (/^(你好|您好|嗨|hi|hello|hey)[！!。.]?$/i.test(compact)) {
+    return "你好！今天想处理哪项求职任务？";
+  }
+  if (/^(谢谢|感谢)[你呀啊！!。.]?$/i.test(compact)) {
+    return "不客气。当前任务进度会保留，需要时可以明确说“继续刚才的任务”。";
+  }
+  if (/你能(联网|连接外网)|可以(联网|连接外网)/i.test(compact)) {
+    return manifest.operation.externalTools === "availability_is_runtime_discovered"
+      ? "当前工作区本身以本地数据为主；外部工具能力由运行时发现，只有实际可用并获准的工具才会显示和使用。我不会在未发现工具时假装已经联网。"
+      : "当前运行时没有提供外部联网工具。";
+  }
+  if (/你(还)?能做什么|你可以做什么|支持什么能力/i.test(compact)) {
+    return "我可以基于当前工作区处理职业资料、简历分析、岗位匹配、岗位简历定制、简历归档恢复与导出。需要资料事实时，我会先读取权威资料；涉及写入或应用变更时，会在确认边界停下来让你核对。";
+  }
+  return undefined;
+}
+
+function noProgressFingerprint(input: {
+  taskState: NonNullable<AgentSession["taskState"]>;
+  allowedToolNames: string[];
+  stopReason: AgentModelResult["stopReason"];
+  requiredNextStage: string;
+}) {
+  const state = input.taskState;
+  return JSON.stringify({
+    rootGoal: state.rootGoal,
+    activeGoal: state.activeGoal,
+    workflowId: state.workflowId,
+    stage: state.stage,
+    selectedEntities: state.selectedEntities,
+    missingSlots: state.missingSlots,
+    allowedToolNames: [...input.allowedToolNames].sort(),
+    observation: compactIdentity(state.lastObservation),
+    stopReason: input.stopReason,
+    requiredNextStage: input.requiredNextStage
+  });
+}
+
+function compactIdentity(value: unknown) {
+  if (value === undefined) return undefined;
+  const serialized = JSON.stringify(value);
+  return serialized.length > 500 ? serialized.slice(0, 500) : serialized;
+}
+
+function noProgressRecovery(nextAction: {
+  missingSlots: string[];
+  requiredNextStage: string;
+}) {
+  if (nextAction.missingSlots.length) {
+    return `要继续这项任务，请先补充：${nextAction.missingSlots.join("、")}。`;
+  }
+  const labels: Record<string, string> = {
+    choose_resume_source: "请选择要使用的简历来源。",
+    choose_job: "请选择要匹配的岗位。",
+    clarify_unsupported_facts: "请回答当前待确认的事实问题。",
+    import_review: "请先核对导入内容。",
+    resolve_target: "请选择导入目标。",
+    resolve_conflicts: "请处理仍有冲突的导入内容。",
+    confirm_import: "导入已准备好，请确认后继续。",
+    confirm_apply: "改动已准备好，请确认后应用。"
+  };
+  return labels[nextAction.requiredNextStage]
+    ?? `这项任务停在“${nextAction.requiredNextStage}”，当前没有产生新进展。你可以补充所需信息，或明确要求重试。`;
 }
 
 async function emit(

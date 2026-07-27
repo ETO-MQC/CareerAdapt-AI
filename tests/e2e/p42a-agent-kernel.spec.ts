@@ -1,7 +1,12 @@
 import { expect, test } from "@playwright/test";
 
-function sse(message: string) {
-  return `event: assistant_delta\ndata: ${JSON.stringify({ type: "assistant_delta", delta: message })}\n\nevent: done\ndata: ${JSON.stringify({ type: "done", message })}\n\n`;
+function modelFinal(message: string) {
+  return `event: model_text_delta\ndata: ${JSON.stringify({ type: "model_text_delta", delta: message })}\n\nevent: model_finish\ndata: ${JSON.stringify({ type: "model_finish", stopReason: "final" })}\n\n`;
+}
+
+function modelTool(id: string, name: string, args: Record<string, unknown>) {
+  const call = { id, name, arguments: args };
+  return `event: model_tool_call_start\ndata: ${JSON.stringify({ type: "model_tool_call_start", index: 0, id, name })}\n\nevent: model_tool_call_complete\ndata: ${JSON.stringify({ type: "model_tool_call_complete", index: 0, call })}\n\nevent: model_finish\ndata: ${JSON.stringify({ type: "model_finish", stopReason: "tool_calls" })}\n\n`;
 }
 
 test.describe("P4.2a Agent Kernel", () => {
@@ -14,17 +19,14 @@ test.describe("P4.2a Agent Kernel", () => {
         tools?: Array<{ name: string }>;
         systemPrompt?: string;
       };
-      if (body.mode === "narration") {
-        await route.fulfill({ contentType: "text/event-stream", body: sse(body.draft ?? "") });
-        return;
-      }
+      expect(body.mode).toBe("native_turn");
       const observations = body.messages?.filter((message) => message.role === "tool") ?? [];
       const active = observations.findLast((message) => message.name === "get_active_profile");
       const profile = observations.findLast((message) => message.name === "get_profile");
       if (!active && !profile && body.tools?.some((tool) => tool.name === "get_active_profile")) {
         await route.fulfill({
-          contentType: "application/json",
-          body: JSON.stringify({ stopReason: "tool_calls", toolCalls: [{ id: "e2e-active-profile", name: "get_active_profile", arguments: {} }] })
+          contentType: "text/event-stream",
+          body: modelTool("e2e-active-profile", "get_active_profile", {})
         });
         return;
       }
@@ -34,19 +36,12 @@ test.describe("P4.2a Agent Kernel", () => {
           : undefined;
         const pointedProfileId = /activeProfileId:([^"\\]+)/.exec(body.systemPrompt ?? "")?.[1];
         await route.fulfill({
-          contentType: "application/json",
-          body: JSON.stringify({
-            stopReason: "tool_calls",
-            toolCalls: [{
-              id: "e2e-profile-detail",
-              name: "get_profile",
-              arguments: {
-                profileId: activeData?.profileId
-                  ?? activeData?.availableProfiles?.[0]?.id
-                  ?? pointedProfileId
-                  ?? "profile-demo-student"
-              }
-            }]
+          contentType: "text/event-stream",
+          body: modelTool("e2e-profile-detail", "get_profile", {
+            profileId: activeData?.profileId
+              ?? activeData?.availableProfiles?.[0]?.id
+              ?? pointedProfileId
+              ?? "profile-demo-student"
           })
         });
         return;
@@ -54,8 +49,8 @@ test.describe("P4.2a Agent Kernel", () => {
       const detail = JSON.parse(profile.content) as { profile: { name: string; sectionCounts: Record<string, number> } };
       const total = Object.values(detail.profile.sectionCounts).reduce((sum, count) => sum + count, 0);
       await route.fulfill({
-        contentType: "application/json",
-        body: JSON.stringify({ stopReason: "final", text: `你当前选择的是“${detail.profile.name}”资料库，共有 ${total} 项已保存内容。` })
+        contentType: "text/event-stream",
+        body: modelFinal(`你当前选择的是“${detail.profile.name}”资料库，共有 ${total} 项已保存内容。`)
       });
     });
 

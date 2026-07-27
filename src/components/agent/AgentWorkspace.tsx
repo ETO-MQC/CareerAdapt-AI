@@ -2,7 +2,7 @@
 
 import { History, Pause, Play, WifiOff } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import type { AgentMessage, AgentSession } from "@/agent/contracts/agentSession";
+import type { AgentMessage, AgentMessageReference, AgentSession } from "@/agent/contracts/agentSession";
 import type { AgentUiAction } from "@/agent/contracts/agentActions";
 import { createQuickActionIntent, type AgentQuickActionId } from "@/agent/contracts/agentQuickAction";
 import { AgentRuntime } from "@/agent/runtime/agentRuntime";
@@ -33,6 +33,7 @@ export function AgentWorkspace() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [drawerState, setDrawerState] = useState<AgentArtifactDrawerState>("closed");
   const [draft, setDraft] = useState("");
+  const [draftReference, setDraftReference] = useState<AgentMessageReference>();
   const [lastUserMessage, setLastUserMessage] = useState("");
   const [floatingAction, setFloatingAction] = useState<AgentUiAction>();
   const initialSessionRef = useRef(session);
@@ -123,10 +124,11 @@ export function AgentWorkspace() {
   async function dispatchMessage(text: string) {
     setLastUserMessage(text);
     const result = await host.state.dispatch(
-      { type: "message", text },
+      { type: "message", text, references: draftReference ? [draftReference] : undefined },
       { session, pageContext: pageContext() }
     );
     if (result) {
+      setDraftReference(undefined);
       setSession(result);
       window.localStorage.setItem(ACTIVE_SESSION_KEY, result.id);
       window.dispatchEvent(new CustomEvent("careeradapt-agent-sessions-change"));
@@ -167,6 +169,22 @@ export function AgentWorkspace() {
                 {snapshot.turnStatus === "failed" ? <span><WifiOff aria-hidden="true" />任务已中断，可重试</span> : null}
                 <button
                   type="button"
+                  onClick={() => {
+                    const messages = session.messages.filter((m) => m.role !== "system");
+                    if (!messages.length) return;
+                    const blob = new Blob([JSON.stringify(messages, null, 2)], { type: "application/json" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `ai-conversation-${new Date().toISOString().slice(0, 10)}.json`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  }}
+                >
+                  导出对话
+                </button>
+                <button
+                  type="button"
                   onClick={() => void host.state.dispatch(
                     { type: "ui_control", action: { type: paused ? "resume_workflow" : "pause_workflow", workflowId: session.workflowState.workflowId } },
                     { session, pageContext: pageContext() }
@@ -198,8 +216,19 @@ export function AgentWorkspace() {
               <AgentConversationTimeline
                 messages={session.messages}
                 onRegenerate={lastUserMessage ? () => void dispatchMessage(lastUserMessage) : undefined}
-                onEditUserMessage={(message) => setDraft(message.content)}
-                onContinueFromMessage={(message) => setDraft(`基于这条回复继续：\n${normalizeAgentMessageText(message.content)}`)}
+                onEditUserMessage={(message) => {
+                  setDraftReference(undefined);
+                  setDraft(message.content);
+                }}
+                onContinueFromMessage={(message) => {
+                  setDraft("");
+                  setDraftReference({
+                    messageId: message.id,
+                    role: message.role,
+                    type: "assistant_message",
+                    excerpt: referenceExcerpt(normalizeAgentMessageText(message.content))
+                  });
+                }}
                 onCopyMessage={(message) => void navigator.clipboard?.writeText(normalizeAgentMessageText(message.content))}
                 onOption={(option) => void host.state.dispatch(
                   { type: "option", action: option.action },
@@ -229,6 +258,8 @@ export function AgentWorkspace() {
             disabled={paused}
             running={running}
             draft={draft}
+            reference={draftReference}
+            onRemoveReference={() => setDraftReference(undefined)}
             onDraftChange={setDraft}
             onSend={dispatchMessage}
             onUiAction={dispatchUi}
@@ -265,6 +296,11 @@ export function AgentWorkspace() {
       />
     </AgentWorkspaceLayout>
   );
+}
+
+function referenceExcerpt(content: string) {
+  const compact = content.replace(/\s+/g, " ").trim();
+  return compact.length > 120 ? `${compact.slice(0, 117)}…` : compact;
 }
 
 function AgentFloatingAction(props: {

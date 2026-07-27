@@ -1,0 +1,40 @@
+{
+  "source": "ai-conversation-2026-07-27 (2).json",
+  "cases": {
+    "quotedFollowup": {
+      "userText": "",
+      "reference": {
+        "messageId": "agent-thinking-2335b50f-bdce-44a2-98d9-858a99589d1b",
+        "role": "assistant",
+        "type": "assistant_message",
+        "excerpt": "除了刚才展示的资料库读取功能，我还能做以下事情……"
+      },
+      "legacyStoredContentPrefix": "基于这条回复继续：\n除了刚才展示的资料库读取功能",
+      "observedSkills": ["career-experience-digging", "jd-analysis"],
+      "observedError": "agent_iteration_budget_exceeded"
+    },
+    "postFailureGreeting": {
+      "userText": "你好",
+      "failedTask": {
+        "rootGoal": "create_tailored_resume",
+        "completionStatus": "failed"
+      },
+      "observedError": "agent_iteration_budget_exceeded"
+    },
+    "concatenatedGreeting": {
+      "userText": "你好",
+      "persistedKind": "assistant_streaming",
+      "persistedStatus": "streaming",
+      "answerOccurrences": 6
+    }
+  },
+  "acceptanceSequence": [
+    "你好",
+    "你能读取资料库吗",
+    "我是谁",
+    "你还能做什么",
+    "reference:capability-response",
+    "这里面的岗位匹配是什么意思？",
+    "你好"
+  ]
+}

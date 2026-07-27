@@ -8,6 +8,7 @@ import type { AgentAttachmentRef } from "@/services/agent/AgentAttachmentStore";
 
 export type AgentTaskEvent =
   | { type: "user_message"; message: string; goal?: string }
+  | { type: "new_root_task"; goal: string; workflowId: string; stage: string }
   | { type: "attachment_selected"; attachment: AgentAttachmentRef }
   | { type: "slot_answer"; slot: string; value: unknown }
   | { type: "decision_selected"; decisionType: "resume_source_route"; option: "profile" | "existing_resume" }
@@ -61,6 +62,30 @@ export class AgentTaskStateReducer {
     const state = structuredClone(previous);
     const previouslyFinished = isFinishedRootTask(state);
     state.updatedAt = new Date().toISOString();
+    if (event.type === "new_root_task") {
+      return normalize({
+        ...state,
+        goal: event.goal,
+        rootGoal: event.goal,
+        activeGoal: event.goal,
+        workflowId: event.workflowId,
+        stage: event.stage,
+        requiredSlots: [],
+        knownSlots: {},
+        missingSlots: [],
+        selectedEntities: {
+          profileId: state.selectedEntities.profileId,
+          profileVersion: state.selectedEntities.profileVersion
+        },
+        pendingDecision: undefined,
+        dependencySnapshots: {},
+        artifacts: [],
+        lastObservation: undefined,
+        completionStatus: "active",
+        computeTier: computeTier(event.goal),
+        updatedAt: new Date().toISOString()
+      });
+    }
     if (event.type === "user_message") {
       // Import review replies commonly combine the review decision and target
       // selection in one sentence. Capture both before the continuation
