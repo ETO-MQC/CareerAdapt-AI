@@ -85,7 +85,11 @@ export class AgentKernel {
     const taskReducer = new AgentTaskStateReducer();
     let taskState = input.session.taskState ?? taskReducer.create(input.session);
     if (!input.taskEventAlreadyReduced && input.turnIntent !== "casual_side_turn" && input.turnIntent !== "reference_followup") {
-      taskState = taskReducer.reduce(taskState, { type: "user_message", message: input.userMessage });
+      taskState = taskReducer.reduce(taskState, {
+        type: "user_message",
+        message: input.userMessage,
+        turnIntent: input.turnIntent
+      });
     }
     if (input.internalObservation?.reason === "tool_observation" && input.internalObservation.toolName) {
       taskState = taskReducer.reduce(taskState, {
@@ -147,6 +151,8 @@ export class AgentKernel {
       });
     }
     let toolCallCount = 0;
+    const unavailableToolNames = new Set<string>();
+    const exhaustedEmptyReads = new Set<string>();
     const turnObservations: AuthoritativeTurnObservation[] =
       input.internalObservation?.reason === "tool_observation" && input.internalObservation.toolName
         ? [{ toolName: input.internalObservation.toolName, value: input.internalObservation.observation }]
@@ -185,21 +191,49 @@ export class AgentKernel {
           stage: iteration ? "observing" : "planning",
           label: iteration ? "正在根据已读取的信息继续分析" : thinkingLabel(input.userMessage)
         });
+        if (
+          taskState.workflowId === "guided_profile_intake"
+          && taskState.stage === "profile_complete"
+          && taskState.completionStatus === "waiting_for_user"
+          && taskState.pendingDecision?.type === "profile_intake_resume"
+          && taskState.knownSlots.profileCommitResult
+        ) {
+          const text = "资料已成功保存到个人资料库。你可以选择仅保存资料库，或继续生成一份通用简历。";
+          await publishFinalStream(text, input, { turnId, iterationId });
+          trajectory.finish("waiting_for_user");
+          return {
+            text,
+            trajectory: trajectory.value(),
+            conversationSummary: contextWindow.conversationSummary,
+            taskState
+          };
+        }
         const nativeStreaming = this.dependencies.model.capabilities?.nativeToolStreaming === true
           && Boolean(this.dependencies.model.streamTurn);
-        const response = nativeStreaming
-          ? await consumeNativeTurn(this.dependencies.model, {
-              systemPrompt,
-              messages,
-              tools: modelTools,
-              signal: input.signal
-            }, input)
-          : await this.dependencies.model.completeWithTools({
-              systemPrompt,
-              messages,
-              tools: modelTools,
-              signal: input.signal
-            });
+        const boundaryTool = deterministicBoundaryTool(taskState, allowedTools);
+        const rawResponse: AgentModelResult = boundaryTool
+          ? {
+              stopReason: "tool_calls",
+              toolCalls: [{
+                id: `${turnId}-${boundaryTool}-confirmation`,
+                name: boundaryTool,
+                arguments: {}
+              }]
+            }
+          : nativeStreaming
+            ? await consumeNativeTurn(this.dependencies.model, {
+                systemPrompt,
+                messages,
+                tools: modelTools,
+                signal: input.signal
+              }, input)
+            : await this.dependencies.model.completeWithTools({
+                systemPrompt,
+                messages,
+                tools: modelTools,
+                signal: input.signal
+              });
+        const response = normalizeTextualToolProtocol(rawResponse, modelTools);
 
         if (response.toolCalls?.length) {
           messages.push({ role: "assistant", content: response.text ?? "", toolCalls: response.toolCalls });
@@ -211,6 +245,21 @@ export class AgentKernel {
           }
 
           for (const call of response.toolCalls) {
+            if (exhaustedEmptyReads.has(call.name)) {
+              const recovery = emptyReadRecovery(call.name, taskState);
+              await publishFinalStream(recovery, input, { turnId, iterationId });
+              trajectory.finish("waiting_for_user");
+              return {
+                text: recovery,
+                trajectory: trajectory.value(),
+                conversationSummary: contextWindow.conversationSummary,
+                taskState: {
+                  ...taskState,
+                  completionStatus: "waiting_for_user",
+                  updatedAt: new Date().toISOString()
+                }
+              };
+            }
             let validated;
             try {
               validated = guard.validate({
@@ -261,6 +310,11 @@ export class AgentKernel {
               if (result.ok) {
                 canonicalEntities.observe(result.data);
                 turnObservations.push({ toolName: result.toolName, value: result.data });
+                if (isExhaustedEmptyRead(result)) {
+                  exhaustedEmptyReads.add(result.toolName);
+                }
+              } else if (!result.error?.retryable) {
+                unavailableToolNames.add(result.toolName);
               }
               if (result.ok) {
                 const selection = validated.input as Record<string, unknown>;
@@ -315,6 +369,10 @@ export class AgentKernel {
                 userMessage: input.userMessage
               });
               allowedTools = toolsForTurnScope(this.dependencies.toolResolver, allowedTools, input.toolScope);
+              allowedTools = allowedTools.filter((tool) =>
+                !unavailableToolNames.has(tool.name)
+                && !exhaustedEmptyReads.has(tool.name)
+              );
               modelTools = this.dependencies.toolResolver.modelManifest(allowedTools);
             } catch (error) {
               if (error instanceof AgentConfirmationRequiredError) {
@@ -384,7 +442,10 @@ export class AgentKernel {
               requiredNextStage: completion.requiredNextStage
             });
             if (fingerprint === previousNoProgressFingerprint) {
-              const recovery = noProgressRecovery(completion.nextAction);
+              const exhaustedTool = exhaustedEmptyReads.values().next().value as string | undefined;
+              const recovery = exhaustedTool
+                ? emptyReadRecovery(exhaustedTool, taskState)
+                : noProgressRecovery(completion.nextAction);
               await publishFinalStream(recovery, input, { turnId, iterationId });
               trajectory.finish("waiting_for_user");
               return {
@@ -589,6 +650,34 @@ function objectValue(value: unknown): Record<string, unknown> {
     : {};
 }
 
+function isExhaustedEmptyRead(result: AgentToolResult) {
+  if (!result.ok) return false;
+  const data = objectValue(result.data);
+  if (result.toolName === "search_profile_facts") {
+    return Array.isArray(data.results) && data.results.length === 0;
+  }
+  if (result.toolName === "search_agent_sessions") {
+    return Array.isArray(data.sessions) && data.sessions.length === 0;
+  }
+  return false;
+}
+
+function emptyReadRecovery(
+  toolName: string,
+  taskState: NonNullable<AgentSession["taskState"]>
+) {
+  if (toolName === "search_agent_sessions") {
+    return "没有找到匹配的历史任务。我不会重复查询；请直接描述你现在要继续完成的事情，我会按当前信息开始处理。";
+  }
+  if (taskState.rootGoal === "profile_intake") {
+    return "资料库中没有找到与当前问题匹配的已有经历。我不会重复查询；请直接告诉我这段经历的项目名称、你做了什么和结果，我会从你的回答继续整理。";
+  }
+  if (["create_tailored_resume", "create_resume_from_profile", "analyze_job_fit", "apply_to_job"].includes(taskState.rootGoal)) {
+    return "资料库中没有找到可用于当前步骤的已确认经历。我不会重复查询或编造内容；请补充一段与目标岗位相关的真实经历、职责或结果，我会据此继续完成当前流程。";
+  }
+  return "资料库中没有找到匹配的经历或事实。我不会重复查询；请直接补充你希望用于当前步骤的真实经历，我会从这条信息继续处理。";
+}
+
 function bindAuthoritativeTaskInput(
   call: AgentModelToolCall,
   taskState: NonNullable<AgentSession["taskState"]>
@@ -713,7 +802,23 @@ function bindAuthoritativeTaskInput(
 }
 
 function summarizeToolResult(result: AgentToolResult) {
-  if (!result.ok) return "这一步未能完成，任务信息已保留。";
+  if (!result.ok) {
+    const actions: Record<string, string> = {
+      get_agent_task_context: "读取指定任务的当前进度",
+      search_agent_sessions: "检索历史任务",
+      skills_list: "读取可用方法列表",
+      skill_view: "读取任务方法",
+      get_active_profile: "确认当前资料库",
+      get_profile: "读取资料库",
+      capture_profile_intake: "整理访谈中的经历"
+    };
+    const reason = result.error?.code === "agent_session_not_found"
+      ? "指定会话不存在或已失效"
+      : result.error?.retryable
+        ? "服务暂时不可用，可以稍后重试"
+        : "请求所需的信息不存在或未通过校验";
+    return `${actions[result.toolName] ?? `执行 ${result.toolName}`}未完成：${reason}。任务信息已保留。`;
+  }
   const data = result.data as Record<string, unknown> | undefined;
   if (result.toolName === "get_active_profile") return data?.selected ? "已找到当前资料库。" : "尚未选择当前资料库。";
   if (result.toolName === "get_profile") {
@@ -726,6 +831,11 @@ function summarizeToolResult(result: AgentToolResult) {
     const count = Array.isArray(data?.results) ? data.results.length : 0;
     return `已找到 ${count} 条相关经历或事实。`;
   }
+  if (result.toolName === "search_agent_sessions") {
+    const count = Array.isArray(data?.sessions) ? data.sessions.length : 0;
+    return `已检索历史任务，找到 ${count} 条相关记录。`;
+  }
+  if (result.toolName === "get_agent_task_context") return "已读取指定任务的当前进度。";
   const labels: Record<string, string> = {
     list_profiles: "已读取资料库列表。",
     list_resumes: "已读取简历列表。",
@@ -746,7 +856,7 @@ function summarizeToolResult(result: AgentToolResult) {
     commit_profile_intake: "已将确认事实保存到资料库。",
     ensure_general_resume_from_profile: "已从确认资料创建或同步通用简历。"
   };
-  return labels[result.toolName] ?? "这一步已完成。";
+  return labels[result.toolName] ?? `已完成工具步骤：${result.toolName}。`;
 }
 
 function toolActivityLabel(toolName: string) {
@@ -773,9 +883,13 @@ function toolActivityLabel(toolName: string) {
     reconcile_profile_intake: "正在与资料库对账",
     resolve_profile_intake_conflict: "正在处理资料冲突",
     commit_profile_intake: "正在保存确认的经历",
-    ensure_general_resume_from_profile: "正在生成或同步通用简历"
+    ensure_general_resume_from_profile: "正在生成或同步通用简历",
+    get_agent_task_context: "正在读取指定任务的当前进度",
+    search_agent_sessions: "正在检索历史任务",
+    skills_list: "正在读取可用方法列表",
+    skill_view: "正在读取任务方法"
   };
-  return labels[toolName] ?? "正在处理这一步";
+  return labels[toolName] ?? `正在执行工具步骤：${toolName}`;
 }
 
 function thinkingLabel(message: string) {
@@ -786,7 +900,8 @@ function thinkingLabel(message: string) {
 
 function userErrorMessage(code: string) {
   if (code === "agent_duplicate_tool_call") return "我检测到重复步骤并已停止，现有任务信息仍然保留。";
-  if (code.includes("budget")) return "这项任务的自动步骤已达到安全上限，现有进度已保留。";
+  if (code === "provider_textual_tool_protocol") return "模型返回了不兼容的工具指令，已在写入前拦截；你的原始输入和当前进度仍然保留。请回复“重试刚才”，系统会从当前步骤继续。";
+  if (code.includes("budget")) return "自动处理没有完成：连续步骤未能推进。你的原始输入和现有进度已保留，尚未写入资料库。回复“重试刚才”重新执行当前步骤，或回复“结束任务”退出。";
   if (/missing_ai_config|provider_protocol_mismatch|provider_http/i.test(code)) return "AI 服务当前不可用。请检查模型设置后重试，任务进度已保留。";
   if (/precondition|invalid_tool_arguments|schema/i.test(code)) return "继续任务所需的信息还不完整。我会保留当前进度并只询问缺少的内容。";
   if (/stale|revision/i.test(code)) return "检测到资料版本已更新。我会基于最新版本重新规划，不会覆盖新内容。";
@@ -794,6 +909,74 @@ function userErrorMessage(code: string) {
   if (/unsupported|not_allowed|unknown_agent_tool/i.test(code)) return "当前能力无法安全完成这一步。我会尝试可用路径；如确实需要额外信息再向你确认。";
   if (/tool.*unavailable|temporar|timeout/i.test(code)) return "所需步骤暂时不可用。可重试的进度已保留，我不会重复已完成的写入。";
   return "AI 任务暂时中断，当前进度和输入已保留。";
+}
+
+function normalizeTextualToolProtocol(
+  response: AgentModelResult,
+  allowedTools: Array<{ name: string }>
+): AgentModelResult {
+  if (response.toolCalls?.length || !containsTextualToolProtocol(response.text)) return response;
+  const text = response.text ?? "";
+  const allowed = new Set(allowedTools.map((tool) => tool.name));
+  const calls = [...text.matchAll(/<tool_call\b[^>]*>([\s\S]*?)<\/tool_call>/gi)]
+    .flatMap((match, index) => {
+      const body = match[1] ?? "";
+      const functionMatch = body.match(/<function=([A-Za-z_][\w.-]*)\s*>([\s\S]*?)(?:<\/function>|$)/i);
+      if (!functionMatch) return [];
+      const requestedName = functionMatch[1];
+      const name = allowed.has(requestedName)
+        ? requestedName
+        : textualToolAlias(requestedName, allowed);
+      if (!name) return [];
+      const argumentsValue: Record<string, unknown> = {};
+      for (const parameter of functionMatch[2].matchAll(
+        /<parameter=([A-Za-z_][\w.-]*)\s*>([\s\S]*?)(?=<parameter=|<\/function>|<\/tool_call>|$)/gi
+      )) {
+        argumentsValue[parameter[1]] = parseTextualToolParameter(parameter[2]);
+      }
+      return [{
+        id: `textual-tool-call-${index + 1}`,
+        name,
+        arguments: argumentsValue
+      }];
+    });
+  if (!calls.length) {
+    throw Object.assign(new Error("Provider returned a textual tool call that cannot be executed safely."), {
+      code: "provider_textual_tool_protocol"
+    });
+  }
+  const visibleText = text
+    .replace(/<tool_call\b[^>]*>[\s\S]*?<\/tool_call>/gi, "")
+    .trim();
+  return {
+    ...response,
+    text: visibleText || undefined,
+    toolCalls: calls,
+    stopReason: "tool_calls"
+  };
+}
+
+function textualToolAlias(requestedName: string, allowed: Set<string>) {
+  const aliases: Record<string, string> = {
+    read_profile: "get_profile"
+  };
+  const canonical = aliases[requestedName];
+  return canonical && allowed.has(canonical) ? canonical : undefined;
+}
+
+function containsTextualToolProtocol(text?: string) {
+  return typeof text === "string"
+    && /<tool_call\b|<function=|<parameter=/i.test(text);
+}
+
+function parseTextualToolParameter(value: string): unknown {
+  const trimmed = value.replace(/<\/parameter>\s*$/i, "").trim();
+  if (!trimmed) return "";
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return trimmed;
+  }
 }
 
 function errorCode(error: unknown) {
@@ -875,25 +1058,99 @@ function compactIdentity(value: unknown) {
   return serialized.length > 500 ? serialized.slice(0, 500) : serialized;
 }
 
+const RECOVERY_SLOT_LABELS: Record<string, string> = {
+  profileId: "要使用的个人资料库",
+  resumeId: "要比较的简历",
+  jobId: "目标岗位",
+  rawText: "岗位描述原文",
+  title: "岗位名称",
+  company: "公司名称",
+  attachmentId: "要导入的简历文件",
+  selectedFactIds: "要使用的经历范围",
+  graph: "岗位解析结果"
+};
+
+const RECOVERY_STAGE_LABELS: Record<string, string> = {
+  choose_resume_source: "请选择要使用的简历来源。",
+  choose_job: "请选择要匹配的岗位。",
+  clarify_unsupported_facts: "请回答当前待确认的事实问题。",
+  import_review: "请先核对导入内容。",
+  resolve_target: "请选择导入目标。",
+  resolve_conflicts: "请处理仍有冲突的导入内容。",
+  confirm_import: "导入已准备好，请确认后继续。",
+  confirm_apply: "改动已准备好，请确认后应用。",
+  select_resume: "请告诉我要处理哪一份简历，说名称即可。",
+  select_source: "请先选择要导入的简历文件。",
+  select_profile_scope: "请告诉我要使用哪一份资料库和经历范围。",
+  resolve_profile_target: "请先确认要整理到哪一份资料库。",
+  collect_job_identity: "请告诉我目标岗位的岗位名称和公司。",
+  complete_job_identity: "请告诉我目标岗位的岗位名称和公司。",
+  collect_job_description: "请粘贴目标岗位的招聘描述原文。",
+  parse_job: "请粘贴目标岗位的招聘描述原文。",
+  review_job: "请核对解析出的岗位信息。",
+  review_job_semantics: "请核对解析出的岗位信息。",
+  analyze_fit: "请确认要分析的简历和岗位。",
+  preview_changes: "请先核对改动预览。",
+  review_result: "请查看分析结果，并告诉我下一步。"
+};
+
 function noProgressRecovery(nextAction: {
+  goal?: string;
+  stage?: string;
   missingSlots: string[];
   requiredNextStage: string;
 }) {
-  if (nextAction.missingSlots.length) {
-    return `要继续这项任务，请先补充：${nextAction.missingSlots.join("、")}。`;
+  const withExitPaths = (instruction: string) =>
+    `${instruction}\n\n如果这一步仍然没有推进：回复“重试刚才”重新执行当前步骤；回复“结束任务”退出；也可以直接告诉我你想改做什么。`;
+  if (nextAction.goal === "analyze_job_fit") {
+    return withExitPaths("我可以帮你分析岗位匹配度。请告诉我要比较哪一份简历、哪一个目标岗位：已保存的直接说名称即可；如果是新岗位，也可以直接把岗位描述粘贴给我。");
   }
-  const labels: Record<string, string> = {
-    choose_resume_source: "请选择要使用的简历来源。",
-    choose_job: "请选择要匹配的岗位。",
-    clarify_unsupported_facts: "请回答当前待确认的事实问题。",
-    import_review: "请先核对导入内容。",
-    resolve_target: "请选择导入目标。",
-    resolve_conflicts: "请处理仍有冲突的导入内容。",
-    confirm_import: "导入已准备好，请确认后继续。",
-    confirm_apply: "改动已准备好，请确认后应用。"
+  if (nextAction.goal === "ingest_job") {
+    return withExitPaths("请提供目标岗位信息：可以直接粘贴招聘描述原文，或告诉我岗位名称和公司。");
+  }
+  if (nextAction.missingSlots.length) {
+    const labels = [...new Set(
+      nextAction.missingSlots
+        .map((slot) => RECOVERY_SLOT_LABELS[slot])
+        .filter((label): label is string => Boolean(label))
+    )];
+    if (labels.length) {
+      return withExitPaths(`要继续这项任务，请先补充：${labels.join("、")}。`);
+    }
+    return withExitPaths("我没能确定当前缺少哪项信息。请换一种说法补充你希望我使用的真实信息，我会按步骤和你核对。");
+  }
+  const instruction = RECOVERY_STAGE_LABELS[nextAction.requiredNextStage]
+    ?? "当前步骤没有成功推进。你可以换一种说法告诉我下一步要完成什么。";
+  return withExitPaths(instruction);
+}
+
+function deterministicBoundaryTool(
+  taskState: NonNullable<AgentSession["taskState"]>,
+  allowedTools: Array<{ name: string }>
+) {
+  if (
+    taskState.workflowId === "guided_profile_intake"
+    && taskState.stage === "structure_facts"
+    && taskState.knownSlots.latestIntakeSource
+    && allowedTools.some((tool) => tool.name === "capture_profile_intake")
+  ) {
+    return "capture_profile_intake";
+  }
+  if (
+    taskState.completionStatus !== "waiting_for_confirmation"
+    || taskState.knownSlots.pendingConfirmation
+  ) {
+    return undefined;
+  }
+  const candidates: Record<string, string> = {
+    confirm_commit: "commit_profile_intake",
+    confirm_import: "commit_resume_import",
+    confirm_apply: "apply_tailoring_changes"
   };
-  return labels[nextAction.requiredNextStage]
-    ?? `这项任务停在“${nextAction.requiredNextStage}”，当前没有产生新进展。你可以补充所需信息，或明确要求重试。`;
+  const toolName = candidates[taskState.stage];
+  return toolName && allowedTools.some((tool) => tool.name === toolName)
+    ? toolName
+    : undefined;
 }
 
 async function emit(

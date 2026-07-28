@@ -56,10 +56,9 @@
 }
 
 .ai-asset-content .profile-person-toolbar {
-  border-radius: 0;
   margin: 0;
   min-height: 52px;
-  padding: var(--product-space-2) 0;
+  padding: var(--product-space-2) var(--ai-card-padding);
 }
 
 .ai-asset-content .profile-person-toolbar > div span {
@@ -164,13 +163,15 @@
 }
 
 .ai-asset-content .recycle-panel {
-  margin-top: var(--product-space-4);
+  margin-top: var(--product-space-2);
   overflow: auto;
 }
 
 .ai-asset-content .settings-layout {
   grid-template-columns: 220px minmax(0, 840px);
-  margin-top: var(--product-space-4);
+  margin-inline: auto;
+  margin-top: 0;
+  max-width: 1080px;
 }
 
 .product-card-grid {
@@ -183,6 +184,8 @@
   display: grid;
   gap: var(--product-space-6);
   grid-template-columns: 220px minmax(0, 840px);
+  margin-inline: auto;
+  max-width: 1080px;
 }
 
 .product-settings-nav {
@@ -343,6 +346,7 @@
 }
 
 .ai-asset-content .profile-manager-grid {
+  box-shadow: none;
   grid-template-columns: 240px 360px minmax(0, 1fr);
   height: min(760px, calc(100dvh - 44px - 112px));
   min-height: 0;
@@ -360,7 +364,19 @@
 }
 
 .ai-asset-content .profile-detail-panel {
+  display: flex;
+  flex-direction: column;
   padding-right: 24px;
+}
+
+.ai-asset-content .profile-detail-panel > .section-heading {
+  background: var(--ai-surface);
+  flex: 0 0 auto;
+  margin-top: 0;
+  padding-bottom: 8px;
+  position: sticky;
+  top: 0;
+  z-index: 2;
 }
 
 .ai-asset-content .jobs-workspace-v2 {
@@ -399,24 +415,30 @@
 .ai-asset-content .recycle-workspace {
   align-content: start;
   display: grid;
-  justify-items: center;
+  grid-template-columns: 1fr;
+}
+
+.ai-asset-content .recycle-workspace > .product-topbar {
+  justify-self: stretch;
 }
 
 .ai-asset-content .recycle-panel {
-  grid-template-rows: auto 60px minmax(0, 1fr);
-  width: min(980px, 100%);
+  grid-template-rows: auto 44px minmax(0, 1fr);
+  margin-inline: auto;
+  max-width: 10800px;
+  width: calc(100% - 0px);
 }
 
 .ai-asset-content .recycle-panel > .resume-filter-row {
   align-items: center;
   flex-wrap: nowrap;
-  height: 60px;
+  height: 44px;
 }
 
 .ai-asset-content .recycle-panel > .resume-filter-row > button {
   font-size: 12px;
-  height: 34px;
-  min-height: 34px;
+  height: 30px;
+  min-height: 30px;
   white-space: nowrap;
 }
 
@@ -474,24 +496,25 @@
 }
 
 .ai-asset-content .recycle-row {
-  align-items: flex-start;
-  padding: 14px 14px 14px 18px;
+  align-items: center;
+  padding: 8px 12px 8px 14px;
 }
 
 .ai-asset-content .recycle-row > div:first-child {
-  padding-left: 6px;
+  padding-left: 4px;
 }
 
 .ai-asset-content .recycle-row > .action-row {
-  align-items: flex-start;
-  align-self: flex-start;
-  gap: 8px;
+  align-items: center;
+  align-self: center;
+  gap: 6px;
   padding-top: 0;
 }
 
 .ai-asset-content .recycle-row > .action-row .secondary-button,
 .ai-asset-content .recycle-row > .action-row .danger-button {
-  height: 40px;
-  min-height: 40px;
-  padding: 0 14px;
+  font-size: 12px;
+  height: 30px;
+  min-height: 30px;
+  padding: 0 10px;
 }

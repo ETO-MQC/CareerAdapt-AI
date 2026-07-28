@@ -91,7 +91,8 @@ const ProfileIntakeReviewInputSchema = z.object({
   importId: z.string().min(1),
   expectedDraftRevision: z.number().int().min(0),
   candidateId: z.string().min(1),
-  decision: z.enum(["accept", "reject"])
+  decision: z.enum(["accept", "reject"]),
+  editedLabel: z.string().trim().min(1).max(240).optional()
 }).strict();
 
 const ProfileIntakeReconcileInputSchema = z.object({

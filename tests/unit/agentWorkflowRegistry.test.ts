@@ -6,8 +6,13 @@ const manifest = [
   { name: "parse_job_description" },
   { name: "commit_job" },
   { name: "apply_tailoring_changes" },
+  { name: "capture_profile_intake" },
   { name: "reconcile_resume_import" },
-  { name: "resolve_resume_reconciliation" }
+  { name: "resolve_resume_reconciliation" },
+  { name: "skills_list" },
+  { name: "skill_view" },
+  { name: "get_agent_task_context" },
+  { name: "search_agent_sessions" }
 ];
 
 describe("agent workflow registry", () => {
@@ -28,6 +33,13 @@ describe("agent workflow registry", () => {
     expect(allowedToolManifestForStep("job_ingestion", "confirm_commit", manifest).map((tool) => tool.name)).toEqual(["commit_job"]);
     expect(allowedToolManifestForStep("resume_import", "reconcile_profile", manifest).map((tool) => tool.name)).toEqual(["reconcile_resume_import"]);
     expect(allowedToolManifestForStep("resume_import", "resolve_conflicts", manifest).map((tool) => tool.name)).toEqual(["resolve_resume_reconciliation"]);
+    expect(allowedToolManifestForStep("guided_profile_intake", "structure_facts", manifest).map((tool) => tool.name)).toEqual(["capture_profile_intake"]);
+  });
+
+  it("does not expose procedural or session-memory tools inside a canonical domain step", () => {
+    expect(allowedToolManifestForStep("guided_profile_intake", "structure_facts", manifest).map((tool) => tool.name)).toEqual([
+      "capture_profile_intake"
+    ]);
   });
 
   it("gates UI actions by the current workflow step", () => {

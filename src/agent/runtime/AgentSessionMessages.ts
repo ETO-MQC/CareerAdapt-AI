@@ -49,7 +49,9 @@ export function replaceAgentThinking(
   turnId?: string
 ) {
   const now = new Date().toISOString();
+  const existing = session.messages.find((item) => item.id === messageId);
   const message: AgentMessage = {
+    ...existing,
     id: messageId,
     turnId,
     role: "assistant",
@@ -59,7 +61,8 @@ export function replaceAgentThinking(
     status: "complete",
     streaming: false,
     language: detectLanguage(content),
-    createdAt: session.messages.find((item) => item.id === messageId)?.createdAt ?? now,
+    metadata: { ...existing?.metadata, retracted: false },
+    createdAt: existing?.createdAt ?? now,
     updatedAt: now
   };
   return {

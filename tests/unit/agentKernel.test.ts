@@ -83,6 +83,92 @@ describe("AgentKernel", () => {
     expect(events).toEqual(expect.arrayContaining(["turn_ack", "tool_started", "tool_result", "assistant_start", "assistant_delta", "done"]));
   });
 
+  it("converts an allowed textual tool protocol into a guarded tool call without exposing it", async () => {
+    const getActiveProfile = vi.fn(async () => ({
+      selected: true,
+      profileId: "profile-1",
+      name: "MQC"
+    }));
+    const rawToolProtocol = [
+      "我先读取资料库。",
+      "<tool_call>",
+      "<function=get_active_profile>",
+      "</function>",
+      "</tool_call>"
+    ].join("\n");
+    const model = scriptedModel(
+      { stopReason: "final", text: rawToolProtocol },
+      { stopReason: "final", text: "已确认当前资料库为 MQC。" }
+    );
+    const events: Array<{ type: string; delta?: string; message?: string }> = [];
+    const { kernel } = harness(model, { getActiveProfile });
+
+    const result = await kernel.runTurn({
+      session: AgentRuntime.create("agent_quick_action", "collecting_intent"),
+      pageContext: { pathname: "/ai-workspace", query: {} },
+      userMessage: "你知道我是谁吗",
+      emit: (event) => { events.push(event); }
+    });
+
+    expect(getActiveProfile).toHaveBeenCalledTimes(1);
+    expect(result.text).toBe("已确认当前资料库为 MQC。");
+    expect(JSON.stringify(events)).not.toContain("<tool_call>");
+    expect(JSON.stringify(events)).not.toContain("<function=");
+  });
+
+  it("maps the provider's read_profile textual alias to the allowed read-only tool", async () => {
+    const leaked = "<tool_call><function=read_profile><parameter=profileId>profile-1</parameter></function></tool_call>";
+    const getActiveProfile = vi.fn(async () => ({
+      selected: true,
+      profileId: "profile-1",
+      name: "MQC"
+    }));
+    const getProfile = vi.fn(async () => ({ profile: { id: "profile-1", name: "MQC" } }));
+    const model = scriptedModel(
+      {
+        stopReason: "tool_calls",
+        toolCalls: [{ id: "resolve-active-profile", name: "get_active_profile", arguments: {} }]
+      },
+      { stopReason: "final", text: leaked },
+      { stopReason: "final", text: "已读取当前资料库。" }
+    );
+    const { kernel } = harness(model, { getActiveProfile, getProfile });
+
+    const result = await kernel.runTurn({
+      session: AgentRuntime.create("agent_quick_action", "collecting_intent"),
+      pageContext: { pathname: "/ai-workspace", query: {} },
+      userMessage: "你知道我是谁吗"
+    });
+
+    expect(getActiveProfile).toHaveBeenCalledTimes(1);
+    expect(getProfile).toHaveBeenCalledTimes(1);
+    expect(result.text).toBe("已读取当前资料库。");
+    expect(result.trajectory.errors).toEqual([]);
+  });
+
+  it("blocks unknown textual tool protocols before they reach the conversation", async () => {
+    const leaked = "<tool_call><function=delete_profile><parameter=profileId>profile-1</parameter></function></tool_call>";
+    const events: Array<{ type: string; code?: string; message?: string }> = [];
+    const { kernel } = harness(scriptedModel({ stopReason: "final", text: leaked }));
+
+    const result = await kernel.runTurn({
+      session: AgentRuntime.create("agent_quick_action", "collecting_intent"),
+      pageContext: { pathname: "/ai-workspace", query: {} },
+      userMessage: "你知道我是谁吗",
+      emit: (event) => { events.push(event); }
+    });
+
+    expect(result.text).toBeUndefined();
+    expect(result.trajectory.errors).toEqual([
+      expect.objectContaining({ code: "provider_textual_tool_protocol" })
+    ]);
+    expect(JSON.stringify(events)).not.toContain("<tool_call>");
+    expect(events).toContainEqual(expect.objectContaining({
+      type: "error",
+      code: "provider_textual_tool_protocol"
+    }));
+  });
+
   it("returns a recoverable observation for equivalent repeated calls", async () => {
     const repeated = { stopReason: "tool_calls", toolCalls: [{ id: "repeat-call-id", name: "get_active_profile", arguments: {} }] } satisfies AgentModelResult;
     const { kernel } = harness(scriptedModel(repeated, repeated, { stopReason: "final", text: "已复用现有结果。" }));
@@ -93,6 +179,96 @@ describe("AgentKernel", () => {
     });
     expect(result.trajectory.outcome).toBe("completed");
     expect(result.text).toBeTruthy();
+  });
+
+  it("stops a persistently repeated empty fact search without reaching the safety budget", async () => {
+    const searchProfileFacts = vi.fn(async () => ({ results: [] }));
+    const repeatedEmptySearch = {
+      stopReason: "tool_calls",
+      toolCalls: [{
+        id: "repeat-empty-facts",
+        name: "search_profile_facts",
+        arguments: {
+          profileId: "profile-1",
+          query: "Smart Focus AI"
+        }
+      }]
+    } satisfies AgentModelResult;
+    const model = scriptedModel(repeatedEmptySearch);
+    const events: Array<{ type: string; toolName?: string }> = [];
+    const { kernel } = harness(model, { searchProfileFacts });
+    const reducer = new AgentTaskStateReducer();
+    const base = AgentRuntime.create("guided_profile_intake", "collect_experience");
+    const taskState = {
+      ...reducer.create(base, "profile_intake"),
+      stage: "collect_experience",
+      completionStatus: "active" as const,
+      selectedEntities: { profileId: "profile-1" }
+    };
+
+    const result = await kernel.runTurn({
+      session: { ...base, taskState },
+      pageContext: { pathname: "/ai-workspace", query: {} },
+      userMessage: "继续整理 Smart Focus AI 的经历",
+      taskEventAlreadyReduced: true,
+      emit: (event) => {
+        events.push(event);
+      }
+    });
+
+    expect(searchProfileFacts).toHaveBeenCalledTimes(1);
+    expect(model.completeWithTools).toHaveBeenCalledTimes(2);
+    expect(events.filter((event) =>
+      event.type === "tool_result"
+      && event.toolName === "search_profile_facts"
+    )).toHaveLength(1);
+    expect(result.text).toContain("不会重复查询");
+    expect(result.text).not.toContain("当前步骤没有成功推进");
+    expect(result.text).not.toContain("重试刚才");
+    expect(result.trajectory.errors).toEqual([]);
+    expect(result.trajectory.outcome).toBe("waiting_for_user");
+  });
+
+  it("replaces generic no-progress recovery after an empty fact search with a specific next input", async () => {
+    const searchProfileFacts = vi.fn(async () => ({ results: [] }));
+    const model = scriptedModel(
+      {
+        stopReason: "tool_calls",
+        toolCalls: [{
+          id: "empty-facts-before-no-progress",
+          name: "search_profile_facts",
+          arguments: {
+            profileId: "profile-1",
+            query: "不存在的经历"
+          }
+        }]
+      },
+      { stopReason: "final", text: "我会继续处理。" },
+      { stopReason: "final", text: "我会继续处理。" }
+    );
+    const { kernel } = harness(model, { searchProfileFacts });
+    const reducer = new AgentTaskStateReducer();
+    const base = AgentRuntime.create("guided_profile_intake", "collect_experience");
+    const taskState = {
+      ...reducer.create(base, "profile_intake"),
+      stage: "collect_experience",
+      completionStatus: "active" as const,
+      selectedEntities: { profileId: "profile-1" }
+    };
+
+    const result = await kernel.runTurn({
+      session: { ...base, taskState },
+      pageContext: { pathname: "/ai-workspace", query: {} },
+      userMessage: "继续整理这段经历",
+      taskEventAlreadyReduced: true
+    });
+
+    expect(searchProfileFacts).toHaveBeenCalledTimes(1);
+    expect(model.completeWithTools).toHaveBeenCalledTimes(3);
+    expect(result.text).toContain("项目名称、你做了什么和结果");
+    expect(result.text).not.toContain("当前步骤没有成功推进");
+    expect(result.text).not.toContain("重试刚才");
+    expect(result.trajectory.errors).toEqual([]);
   });
 
   it("enforces the total tool-call budget", async () => {
@@ -135,6 +311,333 @@ describe("AgentKernel", () => {
     expect(commitJob).not.toHaveBeenCalled();
     expect(result.pendingConfirmation?.toolName).toBe("commit_job");
     expect(result.trajectory.outcome).toBe("waiting_for_confirmation");
+  });
+
+  it("creates the profile intake confirmation deterministically at the confirmation boundary", async () => {
+    const model = scriptedModel({ stopReason: "final", text: "不应由模型只输出一句请确认。" });
+    const { kernel } = harness(model);
+    const reducer = new AgentTaskStateReducer();
+    const base = AgentRuntime.create("guided_profile_intake", "confirm_commit");
+    const taskState = {
+      ...reducer.create(base, "profile_intake"),
+      rootGoal: "profile_intake",
+      activeGoal: "profile_intake",
+      goal: "profile_intake",
+      workflowId: "guided_profile_intake",
+      stage: "confirm_commit",
+      completionStatus: "waiting_for_confirmation" as const,
+      knownSlots: {
+        intakeImportId: "intake-1",
+        expectedIntakeDraftRevision: 1,
+        expectedIntakeReconciliationRevision: 1,
+        targetProfileId: "profile-1",
+        expectedProfileVersion: 1,
+        acknowledgedActiveProfileId: "profile-1"
+      },
+      selectedEntities: {
+        profileId: "profile-1",
+        profileVersion: 1
+      }
+    };
+
+    const result = await kernel.runTurn({
+      session: { ...base, taskState },
+      pageContext: { pathname: "/ai-workspace", query: {} },
+      userMessage: "请让我确认后再写入",
+      taskEventAlreadyReduced: true
+    });
+
+    expect(model.completeWithTools).not.toHaveBeenCalled();
+    expect(result.pendingConfirmation).toMatchObject({
+      toolName: "commit_profile_intake",
+      title: "确认写入个人资料库"
+    });
+    expect(result.pendingCall?.input).toMatchObject({
+      importId: "intake-1",
+      expectedDraftRevision: 1,
+      expectedReconciliationRevision: 1,
+      targetProfileId: "profile-1",
+      expectedProfileVersion: 1
+    });
+  });
+
+  it("finishes profile commit messaging without another model request", async () => {
+    const model = scriptedModel({
+      stopReason: "final",
+      text: "不应请求模型生成提交后的总结。"
+    });
+    const { kernel } = harness(model);
+    const reducer = new AgentTaskStateReducer();
+    const base = AgentRuntime.create("guided_profile_intake", "profile_complete");
+    const taskState = {
+      ...reducer.create(base, "profile_intake"),
+      workflowId: "guided_profile_intake",
+      stage: "profile_complete",
+      completionStatus: "waiting_for_user" as const,
+      pendingDecision: {
+        type: "profile_intake_resume" as const,
+        options: ["save_profile_only" as const, "generate_general_resume" as const]
+      },
+      knownSlots: {
+        profileCommitResult: {
+          profileId: "profile-1",
+          profileVersion: 2,
+          committedItemCount: 8
+        }
+      }
+    };
+
+    const result = await kernel.runTurn({
+      session: { ...base, taskState },
+      pageContext: { pathname: "/ai-workspace", query: {} },
+      userMessage: "导入",
+      taskEventAlreadyReduced: true
+    });
+
+    expect(model.completeWithTools).not.toHaveBeenCalled();
+    expect(result.text).toContain("资料已成功保存");
+    expect(result.trajectory.outcome).toBe("waiting_for_user");
+    expect(result.taskState?.completionStatus).toBe("waiting_for_user");
+  });
+
+  it("continues a profile interview without treating the command as stalled work", async () => {
+    const model = scriptedModel({
+      stopReason: "final",
+      text: "好，我们继续。你想先整理实习、项目、校园活动还是技能证书？"
+    });
+    const { kernel } = harness(model);
+    const reducer = new AgentTaskStateReducer();
+    const base = AgentRuntime.create("guided_profile_intake", "collect_experience");
+    const taskState = {
+      ...reducer.create(base, "profile_intake"),
+      stage: "collect_experience",
+      completionStatus: "waiting_for_user" as const
+    };
+
+    const result = await kernel.runTurn({
+      session: { ...base, taskState },
+      pageContext: { pathname: "/ai-workspace", query: {} },
+      userMessage: "继续添加经历",
+      turnIntent: "continue_current_task"
+    });
+
+    expect(model.completeWithTools).toHaveBeenCalledTimes(1);
+    expect(result.text).toContain("你想先整理");
+    expect(result.text).not.toContain("暂时没有新进展");
+    expect(result.taskState).toMatchObject({
+      stage: "collect_experience",
+      completionStatus: "waiting_for_user"
+    });
+    expect(result.taskState?.knownSlots).not.toHaveProperty("latestIntakeSource");
+  });
+
+  it("captures a submitted experience deterministically before asking the model for the next step", async () => {
+    const model = scriptedModel({
+      stopReason: "final",
+      text: "我已整理出可核对的经历候选，请先确认其中标记不确定的内容。"
+    });
+    const captureProfileIntake = vi.fn(async () => {
+      expect(model.completeWithTools).not.toHaveBeenCalled();
+      return {
+        importId: "intake-long-answer",
+        expectedDraftRevision: 0,
+        targetProfileId: "profile-1",
+        expectedProfileVersion: 1,
+        candidateCount: 4,
+        needsConfirmationCount: 2,
+        candidates: [{ id: "candidate-1" }],
+        artifactPayload: { title: "经历核对" }
+      };
+    });
+    const { kernel } = harness(model, { captureProfileIntake });
+    const reducer = new AgentTaskStateReducer();
+    const base = AgentRuntime.create("guided_profile_intake", "structure_facts");
+    const taskState = {
+      ...reducer.create(base, "profile_intake"),
+      stage: "structure_facts",
+      completionStatus: "active" as const,
+      knownSlots: {
+        targetProfileId: "profile-1",
+        expectedProfileVersion: 1,
+        acknowledgedActiveProfileId: "profile-1",
+        latestIntakeSource: {
+          sessionId: base.id,
+          messageId: "message-long-answer",
+          turnId: "turn-long-answer",
+          exactSourceQuote: "我参加课程项目，负责心跳模块、摔倒模块和蓝牙联调。",
+          capturedAt: "2026-07-28T05:00:00.000Z"
+        }
+      },
+      selectedEntities: {
+        profileId: "profile-1",
+        profileVersion: 1
+      }
+    };
+
+    const result = await kernel.runTurn({
+      session: { ...base, taskState },
+      pageContext: { pathname: "/ai-workspace", query: {} },
+      userMessage: "我参加课程项目，负责心跳模块、摔倒模块和蓝牙联调。",
+      taskEventAlreadyReduced: true
+    });
+
+    expect(captureProfileIntake).toHaveBeenCalledTimes(1);
+    expect(model.completeWithTools).toHaveBeenCalledTimes(1);
+    expect(result.taskState).toMatchObject({
+      stage: "review_facts",
+      completionStatus: "waiting_for_user",
+      knownSlots: {
+        intakeImportId: "intake-long-answer",
+        expectedIntakeDraftRevision: 0
+      }
+    });
+    expect(result.trajectory.errors).toEqual([]);
+  });
+
+  it("binds a profile candidate name correction to the existing review draft", async () => {
+    const reviewProfileIntake = vi.fn(async () => ({
+      importId: "intake-1",
+      expectedDraftRevision: 2,
+      candidateId: "candidate-smart",
+      decision: "accept" as const,
+      editedLabel: "Smart Focus AI",
+      unresolvedCount: 1
+    }));
+    const model = scriptedModel(
+      {
+        stopReason: "tool_calls",
+        toolCalls: [{
+          id: "review-smart-focus",
+          name: "review_profile_intake",
+          arguments: {
+            candidateId: "candidate-smart",
+            decision: "accept",
+            editedLabel: "Smart Focus AI"
+          }
+        }]
+      },
+      { stopReason: "final", text: "已按你的更正更新项目名称。" }
+    );
+    const { kernel } = harness(model, { reviewProfileIntake });
+    const reducer = new AgentTaskStateReducer();
+    const base = AgentRuntime.create("guided_profile_intake", "review_facts");
+    const candidate = {
+      id: "candidate-smart",
+      label: "Smart Fox",
+      needsConfirmation: true,
+      reason: "名称需要确认"
+    };
+    const taskState = {
+      ...reducer.create(base, "profile_intake"),
+      stage: "review_facts",
+      completionStatus: "waiting_for_user" as const,
+      knownSlots: {
+        intakeImportId: "intake-1",
+        expectedIntakeDraftRevision: 1,
+        intakeCandidates: [candidate],
+        intakeArtifact: {
+          recognized: [],
+          needsConfirmation: [candidate]
+        }
+      }
+    };
+
+    const result = await kernel.runTurn({
+      session: { ...base, taskState },
+      pageContext: { pathname: "/ai-workspace", query: {} },
+      userMessage: "就叫 Smart Focus AI 吧",
+      taskEventAlreadyReduced: true,
+      turnIntent: "clarification_answer"
+    });
+
+    expect(reviewProfileIntake).toHaveBeenCalledWith({
+      importId: "intake-1",
+      expectedDraftRevision: 1,
+      candidateId: "candidate-smart",
+      decision: "accept",
+      editedLabel: "Smart Focus AI"
+    }, undefined);
+    expect(result.taskState).toMatchObject({
+      stage: "review_facts",
+      knownSlots: {
+        expectedIntakeDraftRevision: 2,
+        intakeArtifact: {
+          recognized: [expect.objectContaining({
+            id: "candidate-smart",
+            label: "Smart Focus AI"
+          })],
+          needsConfirmation: []
+        }
+      }
+    });
+  });
+
+  it("offers executable retry and exit paths when a step genuinely cannot progress", async () => {
+    const repeated = { stopReason: "final" as const, text: "我会继续处理。" };
+    const { kernel } = harness(scriptedModel(repeated, repeated));
+    const base = AgentRuntime.create("guided_profile_intake", "unmapped_stage");
+    const reducer = new AgentTaskStateReducer();
+    const taskState = {
+      ...reducer.create(base, "profile_intake"),
+      stage: "unmapped_stage",
+      completionStatus: "active" as const
+    };
+
+    const result = await kernel.runTurn({
+      session: { ...base, taskState },
+      pageContext: { pathname: "/ai-workspace", query: {} },
+      userMessage: "继续",
+      taskEventAlreadyReduced: true
+    });
+
+    expect(result.text).toContain("重试刚才");
+    expect(result.text).toContain("结束任务");
+    expect(result.text).toContain("直接告诉我你想改做什么");
+    expect(result.text).not.toContain("这项任务暂时没有新进展");
+    expect(result.taskState?.completionStatus).toBe("waiting_for_user");
+  });
+
+  it("reports a concrete tool failure and does not offer the same non-retryable tool again", async () => {
+    const model = {
+      completeWithTools: vi.fn()
+        .mockResolvedValueOnce({
+          stopReason: "tool_calls" as const,
+          toolCalls: [{
+            id: "read-missing-session",
+            name: "get_agent_task_context",
+            arguments: { sessionId: "missing-session" }
+          }]
+        })
+        .mockImplementationOnce(async (request: Parameters<AgentModel["completeWithTools"]>[0]) => {
+          expect(request.tools.map((tool) => tool.name)).not.toContain("get_agent_task_context");
+          return { stopReason: "final" as const, text: "没有找到该历史任务，请选择仍然存在的任务。" };
+        })
+    } satisfies AgentModel;
+    const missingSession = Object.assign(new Error("Agent session no longer exists."), {
+      code: "agent_session_not_found"
+    });
+    const events: Array<{ type: string; summary?: string }> = [];
+    const { kernel } = harness(model, {
+      getAgentTaskContext: vi.fn(async () => {
+        throw missingSession;
+      })
+    });
+
+    const result = await kernel.runTurn({
+      session: AgentRuntime.create("agent_quick_action", "collecting_intent"),
+      pageContext: { pathname: "/ai-workspace", query: {} },
+      userMessage: "读取上次任务",
+      emit: (event) => {
+        events.push(event);
+      }
+    });
+
+    expect(model.completeWithTools).toHaveBeenCalledTimes(2);
+    expect(events).toContainEqual(expect.objectContaining({
+      type: "tool_result",
+      summary: expect.stringContaining("读取指定任务的当前进度未完成：指定会话不存在或已失效")
+    }));
+    expect(result.text).toContain("没有找到该历史任务");
   });
 
   it("rejects a tool hidden by the current workflow step", async () => {

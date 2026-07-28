@@ -51,7 +51,9 @@ const KNOWN_DOMAIN_GOALS = new Set([
 export class AgentTaskCompletionGuard {
   evaluate(state: AgentTaskState): AgentTaskCompletionDecision {
     if (state.completionStatus === "waiting_for_confirmation") {
-      return { canFinish: true, reason: "waiting_for_confirmation" };
+      return state.knownSlots.pendingConfirmation
+        ? { canFinish: true, reason: "waiting_for_confirmation" }
+        : incomplete(state, requiredNextStage(state));
     }
     if (state.completionStatus === "waiting_for_user") {
       return { canFinish: true, reason: "waiting_for_user" };
@@ -108,6 +110,7 @@ function requiredNextStage(state: AgentTaskState) {
     return "confirm_import";
   }
   if (state.rootGoal === "export_resume") return "export_ready";
+  if (state.rootGoal === "profile_intake" && state.stage === "confirm_commit") return "confirm_commit";
   return state.stage;
 }
 
@@ -166,6 +169,7 @@ function legalToolsFor(stage: string) {
     reconcile_profile: ["reconcile_resume_import"],
     resolve_conflicts: ["resolve_resume_reconciliation"],
     confirm_import: ["commit_resume_import"],
+    confirm_commit: ["commit_profile_intake"],
     choose_resume_source: ["list_resumes"],
     choose_job: ["list_jobs"],
     analyze_fit: ["analyze_job_fit"],

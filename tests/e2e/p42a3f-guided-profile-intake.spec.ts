@@ -33,15 +33,25 @@ test.describe("P4.2a.3f guided profile intake closure", () => {
       const body = route.request().postDataJSON() as ModelBody;
       const observations = toolObservations(body);
       const latestUser = latestUserMessage(body);
-      if (!observations.some((item) => item.name === "get_active_profile")) {
+      if (
+        (body.tools ?? []).some((tool) => tool.name === "get_active_profile")
+        && !observations.some((item) => item.name === "get_active_profile")
+      ) {
         await fulfillTool(route, "profile-target-a", "get_active_profile", {});
         return;
       }
-      if (latestUser.includes("示例大学") && !observations.some((item) => item.name === "capture_profile_intake")) {
+      if (
+        (body.tools ?? []).some((tool) => tool.name === "capture_profile_intake")
+        && latestUser.includes("示例大学")
+        && !observations.some((item) => item.name === "capture_profile_intake")
+      ) {
         await fulfillTool(route, "capture-real-a", "capture_profile_intake", {});
         return;
       }
-      if (observations.some((item) => item.name === "capture_profile_intake")) {
+      if (
+        observations.some((item) => item.name === "capture_profile_intake")
+        || (latestUser.includes("示例大学") && (body.tools ?? []).some((tool) => tool.name === "reconcile_profile_intake"))
+      ) {
         await fulfillAsk(route, "我从刚才的内容中整理出多项经历。我会把完整结构放在经历核对中，只询问高风险信息。");
         return;
       }
@@ -56,14 +66,15 @@ test.describe("P4.2a.3f guided profile intake closure", () => {
       rootGoal: "profile_intake",
       workflowId: "guided_profile_intake"
     });
+    await expect(page.getByLabel("描述你的求职任务")).toBeEnabled();
     await send(page, REAL_LONG_ANSWER);
-    expect(await readLatestAgentTask(page)).toMatchObject({
+    await expect.poll(() => readLatestAgentTask(page)).toMatchObject({
       rootGoal: "profile_intake",
       workflowId: "guided_profile_intake",
-      stage: "structure_facts",
+      stage: "reconcile_profile",
       completionStatus: "active"
     });
-    await expect(page.getByText(/我从刚才的内容中整理出多项经历/)).toBeVisible();
+    await expect(page.getByText(/我从刚才的内容中整理出多项经历/).last()).toBeVisible();
 
     const task = await readLatestAgentTask(page);
     expect(task).toMatchObject({
@@ -78,6 +89,70 @@ test.describe("P4.2a.3f guided profile intake closure", () => {
     await expect(artifact).toContainText("已识别");
     await expect(artifact).toContainText("将新增");
     await expect(page.getByText(/agent_no_progress|agent_iteration_budget_exceeded|export_complete/)).toHaveCount(0);
+  });
+
+  test("A2 — a single concise interview answer reaches profile fact capture", async ({ page }) => {
+    const answer = "我现在是示例大学本科学生，计算机相关专业专业，2024年9月入学，预计2028年6月毕业";
+    await page.route("**/api/agent/stream", async (route) => {
+      const body = route.request().postDataJSON() as ModelBody;
+      const observations = toolObservations(body);
+      const tools = new Set((body.tools ?? []).map((tool) => tool.name));
+      const latestUser = latestUserMessage(body);
+      if (tools.has("get_active_profile") && !observations.some((item) => item.name === "get_active_profile")) {
+        await fulfillTool(route, "profile-target-short", "get_active_profile", {});
+        return;
+      }
+      if (latestUser === answer && !tools.has("capture_profile_intake")) {
+        await fulfillAsk(route, "已整理这段教育经历，请继续补充下一段真实经历。");
+        return;
+      }
+      if (latestUser === answer) {
+        await fulfillFinal(route, "经历解析步骤不应再交给模型选择。");
+        return;
+      }
+      await fulfillAsk(route, "请先介绍你的教育背景。");
+    });
+
+    await startProfileIntake(page);
+    await expect(page.getByText("请先介绍你的教育背景。")).toBeVisible();
+    await send(page, answer);
+    await expect(page.getByText("已整理这段教育经历，请继续补充下一段真实经历。")).toBeVisible();
+    expect(await readLatestAgentTask(page)).toMatchObject({
+      rootGoal: "profile_intake",
+      stage: "reconcile_profile"
+    });
+    await expect(page.getByText(/这项任务暂时没有新进展|agent_no_progress|agent_iteration_budget_exceeded/)).toHaveCount(0);
+  });
+
+  test("A3 — continuing the interview asks the next question instead of reporting no progress", async ({ page }) => {
+    await page.route("**/api/agent/stream", async (route) => {
+      const body = route.request().postDataJSON() as ModelBody;
+      const observations = toolObservations(body);
+      const latestUser = latestUserMessage(body);
+      if (
+        (body.tools ?? []).some((tool) => tool.name === "get_active_profile")
+        && !observations.some((item) => item.name === "get_active_profile")
+      ) {
+        await fulfillTool(route, "profile-target-continue", "get_active_profile", {});
+        return;
+      }
+      if (latestUser === "继续添加经历") {
+        await fulfillAsk(route, "好，我们继续。你想先整理实习、项目、校园活动还是技能证书？");
+        return;
+      }
+      await fulfillAsk(route, "你想先整理哪一类经历？");
+    });
+
+    await startProfileIntake(page);
+    await expect(page.getByText("你想先整理哪一类经历？")).toBeVisible();
+    await send(page, "继续添加经历");
+    await expect(page.getByText("好，我们继续。你想先整理实习、项目、校园活动还是技能证书？")).toBeVisible();
+    await expect.poll(() => readLatestAgentTask(page)).toMatchObject({
+      rootGoal: "profile_intake",
+      stage: "collect_experience",
+      completionStatus: "waiting_for_user"
+    });
+    await expect(page.getByText(/这项任务暂时没有新进展|agent_no_progress|agent_iteration_budget_exceeded/)).toHaveCount(0);
   });
 
   for (const scenario of [
@@ -98,12 +173,13 @@ test.describe("P4.2a.3f guided profile intake closure", () => {
       await startProfileIntake(page);
       await send(page, `${REAL_LONG_ANSWER}以上内容均为我确认的真实经历，请整理后让我确认写入。`);
 
-      await expect(page.getByRole("button", { name: "确认并继续" })).toBeVisible();
-      await page.getByRole("button", { name: "确认并继续" }).click();
+      await expect(page.getByRole("button", { name: "确认", exact: true })).toBeVisible();
+      await page.getByRole("button", { name: "确认", exact: true }).click();
+      await expect(page.getByText("您已确认").first()).toBeVisible();
       await expect(page.getByRole("button", { name: "生成一份通用简历" })).toBeVisible();
       await page.getByRole("button", { name: "生成一份通用简历" }).click();
-      await expect(page.getByRole("button", { name: "确认并继续" })).toBeVisible();
-      await page.getByRole("button", { name: "确认并继续" }).click();
+      await expect(page.getByRole("button", { name: "确认", exact: true })).toBeVisible();
+      await page.getByRole("button", { name: "确认", exact: true }).click();
       await expect(page.getByText("资料库已确认保存，通用简历已准备好。")).toBeVisible();
 
       const result = await profileAndResumeSnapshot(page);
@@ -235,6 +311,66 @@ test.describe("P4.2a.3f guided profile intake closure", () => {
     });
     await expect(page.getByText(/export_complete|agent_no_progress|agent_iteration_budget_exceeded/)).toHaveCount(0);
   });
+
+  test("H — correcting an unclicked confirmation rebuilds it, and cancellation stays silent", async ({ page }) => {
+    await routeCompletedIntake(page);
+    await startProfileIntake(page);
+    await send(page, "我现在是示例大学本科学生，计算机相关专业专业，2024年9月入学，预计2028年6月毕业");
+    await expect(page.getByRole("button", { name: "确认", exact: true })).toBeVisible();
+
+    await send(page, "更正一下，我是2025年9月入学，预计2029年6月毕业。");
+    await expect(page.getByText("已根据您的纠正重新核对")).toBeVisible();
+    await expect(page.getByRole("button", { name: "确认", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "取消", exact: true }).click();
+
+    await expect(page.getByText("您已取消")).toBeVisible();
+    await expect(page.getByRole("button", { name: "确认", exact: true })).toHaveCount(0);
+    await expect(page.getByLabel("描述你的求职任务")).toBeEnabled();
+  });
+
+  test("I — artifact ignore is a typed decision and does not become a user message", async ({ page }) => {
+    await routeCompletedIntake(page);
+    await startProfileIntake(page);
+    await send(page, "我在示例大学学习，开发的学习助手项目可能叫 LearnCat。");
+
+    await page.getByRole("button", { name: /产物 \d+/ }).click();
+    const candidate = page.locator(".agent-reconciliation-list article").filter({ hasText: "LearnCat" });
+    await expect(candidate).toBeVisible();
+    await candidate.getByRole("button", { name: "忽略" }).click();
+
+    await expect(page.getByRole("button", { name: "确认", exact: true })).toBeVisible();
+    await expect(page.locator(".agent-message-row.is-user").filter({ hasText: "忽略经历候选" })).toHaveCount(0);
+    await expect(candidate).toHaveCount(0);
+  });
+
+  test("J — an explicit import command recovers the original narrative after a completed intake", async ({ page }) => {
+    test.setTimeout(60_000);
+    await routeCompletedIntake(page);
+    await startProfileIntake(page);
+    await send(page, REAL_LONG_ANSWER);
+
+    await expect(page.getByRole("button", { name: "确认", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "确认", exact: true }).click();
+    await expect(page.getByRole("button", { name: "仅保存资料库" })).toBeVisible();
+    await page.getByRole("button", { name: "仅保存资料库" }).click();
+    await expect.poll(() => readLatestAgentTask(page)).toMatchObject({
+      stage: "profile_complete",
+      completionStatus: "completed"
+    });
+
+    await send(page, "导入");
+
+    await expect(page.getByRole("button", { name: "确认", exact: true })).toBeVisible();
+    await expect.poll(() => readLatestAgentTask(page)).toMatchObject({
+      rootGoal: "profile_intake",
+      stage: "confirm_commit",
+      completionStatus: "waiting_for_confirmation"
+    });
+    const task = await readLatestAgentTask(page);
+    expect(task.knownSlots.latestIntakeSource).toMatchObject({
+      exactSourceQuote: REAL_LONG_ANSWER
+    });
+  });
 });
 
 async function routeCompletedIntake(page: Page) {
@@ -247,7 +383,11 @@ async function routeCompletedIntake(page: Page) {
       await fulfillTool(route, "intake-target", "get_active_profile", {});
       return;
     }
-    if (latestUser.includes("示例大学") && !observations.some((item) => item.name === "capture_profile_intake")) {
+    if (
+      tools.has("capture_profile_intake")
+      && (latestUser.includes("示例大学") || latestUser.includes("更正一下"))
+      && !observations.some((item) => item.name === "capture_profile_intake")
+    ) {
       await fulfillTool(route, "intake-capture", "capture_profile_intake", {});
       return;
     }

@@ -63,6 +63,7 @@ export class AgentExecutor {
 function confirmationTitle(toolName: string) {
   const titles: Record<string, string> = {
     commit_resume_import: "确认写入简历与资料库",
+    commit_profile_intake: "确认写入个人资料库",
     commit_job: "确认保存岗位",
     answer_tailoring_question: "确认使用你补充的能力信息",
     apply_tailoring_changes: "确认应用简历修改",

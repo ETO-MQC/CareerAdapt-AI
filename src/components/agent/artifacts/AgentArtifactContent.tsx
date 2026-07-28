@@ -1,15 +1,18 @@
 import Link from "next/link";
 import type { TailorWorkflowViewState } from "@/agent/workflows/tailorExistingResumeWorkflow";
 import type { AgentTaskState } from "@/agent/contracts/agentSession";
+import type { AgentArtifactAction } from "@/agent/contracts/agentActions";
 
 export function AgentArtifactContent({
   state,
   taskState,
-  onImportAction
+  onImportAction,
+  onArtifactAction
 }: {
   state: TailorWorkflowViewState;
   taskState?: AgentTaskState;
   onImportAction?(message: string): void;
+  onArtifactAction?(action: AgentArtifactAction): void;
 }) {
   const graph = asRecord(state.jobGraph);
   const requirements = Array.isArray(graph.requirements) ? graph.requirements : [];
@@ -62,8 +65,16 @@ export function AgentArtifactContent({
                   <div><strong>{String(item.label)}</strong><span>需要确认</span></div>
                   <p>{String(item.reason ?? "名称或表述需要确认")}</p>
                   <div className="agent-import-review-actions">
-                    <button type="button" onClick={() => onImportAction?.(`确认采用经历候选 ${String(item.id)}`)}>采用</button>
-                    <button type="button" onClick={() => onImportAction?.(`忽略经历候选 ${String(item.id)}`)}>忽略</button>
+                    <button type="button" onClick={() => onArtifactAction?.({
+                      type: "profile_intake_candidate_decision",
+                      candidateId: String(item.id),
+                      decision: "accept"
+                    })}>采用</button>
+                    <button type="button" onClick={() => onArtifactAction?.({
+                      type: "profile_intake_candidate_decision",
+                      candidateId: String(item.id),
+                      decision: "reject"
+                    })}>忽略</button>
                   </div>
                 </article>
               ))}
@@ -115,9 +126,21 @@ export function AgentArtifactContent({
                 <article key={String(item.incomingItemId)}>
                   <div><strong>{String(item.label ?? "待核对内容")}</strong><span>{item.state === "conflict" ? "字段冲突" : "可能重复"}</span></div>
                   <div className="agent-import-review-actions">
-                    <button type="button" onClick={() => onImportAction?.(`对“${String(item.label ?? "这项内容")}”保留资料库原数据`)}>保留原数据</button>
-                    <button type="button" onClick={() => onImportAction?.(`对“${String(item.label ?? "这项内容")}”采用本次导入`)}>采用本次</button>
-                    <button type="button" onClick={() => onImportAction?.(`将“${String(item.label ?? "这项内容")}”视为不同经历并分别保留`)}>视为不同经历</button>
+                    <button type="button" onClick={() => onArtifactAction?.({
+                      type: "resume_import_reconciliation_decision",
+                      incomingItemId: String(item.incomingItemId),
+                      resolution: "keep_existing"
+                    })}>保留原数据</button>
+                    <button type="button" onClick={() => onArtifactAction?.({
+                      type: "resume_import_reconciliation_decision",
+                      incomingItemId: String(item.incomingItemId),
+                      resolution: "use_imported"
+                    })}>采用本次</button>
+                    <button type="button" onClick={() => onArtifactAction?.({
+                      type: "resume_import_reconciliation_decision",
+                      incomingItemId: String(item.incomingItemId),
+                      resolution: "keep_both_as_distinct"
+                    })}>视为不同经历</button>
                     <button type="button" onClick={() => onImportAction?.(`我要编辑“${String(item.label ?? "这项内容")}”的冲突值`)}>编辑</button>
                   </div>
                 </article>
@@ -139,8 +162,14 @@ export function AgentArtifactContent({
           <div className="agent-import-review-actions">
             <button type="button" onClick={() => onImportAction?.("查看这份导入草稿的来源证据")}>查看来源</button>
             <button type="button" onClick={() => onImportAction?.("打开导入草稿进行编辑")}>编辑</button>
-            <button type="button" onClick={() => onImportAction?.("确认这些信息，采用所有来源明确的内容并继续导入")}>采用</button>
-            <button type="button" onClick={() => onImportAction?.("忽略所有未分类内容，保留来源明确的内容并继续导入")}>忽略</button>
+            <button type="button" onClick={() => onArtifactAction?.({
+              type: "resume_import_review_decision",
+              decision: "accept_all"
+            })}>采用</button>
+            <button type="button" onClick={() => onArtifactAction?.({
+              type: "resume_import_review_decision",
+              decision: "ignore_uncertain"
+            })}>忽略</button>
             <button className="is-primary" type="button" onClick={() => onImportAction?.("核对完成，确认导入")}>确认导入</button>
           </div>
         </section>

@@ -112,9 +112,9 @@ test.describe("P4.2a.1 Agent reliability", () => {
     await page.getByRole("button", { name: "发送消息" }).click();
 
     await expect(page.getByRole("region", { name: "确认保存岗位" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "确认并继续" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "确认", exact: true })).toBeVisible();
     await expect(page.getByRole("dialog")).toHaveCount(0);
-    await page.getByRole("button", { name: "确认并继续" }).dispatchEvent("click");
+    await page.getByRole("button", { name: "确认", exact: true }).dispatchEvent("click");
     await expect(page.getByText("岗位已保存，录入任务已完成。")).toBeVisible();
     expect(observedToolNames).toEqual(["parse_job_description", "commit_job"]);
     expect(observedToolNames).not.toContain("analyze_job_fit");
@@ -355,8 +355,8 @@ test.describe("P4.2a.1 Agent reliability", () => {
     await expect(page.getByText("请粘贴这个岗位的完整 JD。")).toBeVisible();
     await page.getByLabel("描述你的求职任务").fill(jd);
     await page.getByRole("button", { name: "发送消息" }).click();
-    await expect(page.getByRole("button", { name: "确认并继续" })).toBeVisible();
-    await page.getByRole("button", { name: "确认并继续" }).click();
+    await expect(page.getByRole("button", { name: "确认", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "确认", exact: true }).click();
     const routeDecision = page.getByText(/请选择路线 A 或路线 B/);
     const runtimeFailure = page.getByText("AI 任务暂时中断，当前进度和输入已保留。").first();
     await Promise.race([
@@ -382,7 +382,7 @@ test.describe("P4.2a.1 Agent reliability", () => {
     await expect(page.getByRole("button", { name: "使用现有简历" })).toBeVisible();
 
     await page.getByRole("button", { name: "使用现有简历" }).click();
-    const applyConfirmation = page.getByRole("button", { name: "确认并继续" });
+    const applyConfirmation = page.getByRole("button", { name: "确认", exact: true });
     await Promise.race([
       applyConfirmation.waitFor({ state: "visible", timeout: 60_000 }),
       runtimeFailure.waitFor({ state: "visible", timeout: 60_000 })
@@ -391,7 +391,7 @@ test.describe("P4.2a.1 Agent reliability", () => {
       throw new Error(`CASE B tailoring failed: ${JSON.stringify(await readAgentDiagnostic(page))}`);
     }
     await expect(applyConfirmation).toBeVisible();
-    await page.getByRole("button", { name: "确认并继续" }).click();
+    await page.getByRole("button", { name: "确认", exact: true }).click();
     await expect(page.getByText("岗位定制版本已创建，并已完成事实与版本边界核对。")).toBeVisible({ timeout: 20_000 });
     if (!finalRevisionId) {
       throw new Error(`CASE B apply returned no revision: ${JSON.stringify({
@@ -577,9 +577,9 @@ test.describe("P4.2a.1 Agent reliability", () => {
       await page.getByLabel("描述你的求职任务").fill("我在真实项目中负责 AI 任务设计、质量验收和迭代复盘。");
       await page.getByRole("button", { name: "发送消息" }).click();
       await expect(page.getByRole("heading", { name: "使用这项补充信息？" })).toBeVisible({ timeout: 30_000 });
-      await page.getByRole("button", { name: "确认并继续" }).click();
+      await page.getByRole("button", { name: "确认", exact: true }).click();
     }
-    await expect(page.getByRole("button", { name: "确认并继续" })).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByRole("button", { name: "确认", exact: true })).toBeVisible({ timeout: 60_000 });
     await page.reload();
     const persisted = await readLatestAgentTask(page);
     expect(persisted).toMatchObject({
@@ -591,8 +591,8 @@ test.describe("P4.2a.1 Agent reliability", () => {
         jobId
       }
     });
-    await expect(page.getByRole("button", { name: "确认并继续" })).toBeVisible();
-    await page.getByRole("button", { name: "确认并继续" }).click();
+    await expect(page.getByRole("button", { name: "确认", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "确认", exact: true }).click();
     await expect(page.getByText("AI训练师岗位定制简历已完成。")).toBeVisible({ timeout: 20_000 });
 
     expect(tailoredBranchId).not.toBe("");
@@ -815,16 +815,16 @@ test.describe("P4.2a.1 Agent reliability", () => {
       await page.getByLabel("描述你的求职任务").fill("我在真实项目中负责 AI 任务设计、质量验收和迭代复盘。");
       await page.getByRole("button", { name: "发送消息" }).click();
       await expect(page.getByRole("heading", { name: "使用这项补充信息？" })).toBeVisible({ timeout: 30_000 });
-      await page.getByRole("button", { name: "确认并继续" }).click();
+      await page.getByRole("button", { name: "确认", exact: true }).click();
     }
-    await expect(page.getByRole("button", { name: "确认并继续" })).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByRole("button", { name: "确认", exact: true })).toBeVisible({ timeout: 60_000 });
     const atConfirmation = await readLatestAgentTask(page);
     expect(atConfirmation).toMatchObject({
       rootGoal: "create_tailored_resume",
       stage: "confirm_apply",
       selectedEntities: { profileId, resumeId, jobId }
     });
-    await page.getByRole("button", { name: "确认并继续" }).click();
+    await page.getByRole("button", { name: "确认", exact: true }).click();
     await expect(page.getByText("已基于同一份匹配建议创建岗位定制版本。")).toBeVisible({ timeout: 20_000 });
 
     const after = await readLatestAgentTask(page);
@@ -904,7 +904,7 @@ test.describe("P4.2a.1 Agent reliability", () => {
     await page.getByLabel("描述你的求职任务").fill("归档最新的通用简历");
     await page.getByRole("button", { name: "发送消息" }).click();
     await expect(page.getByRole("heading", { name: "确认归档简历" })).toBeVisible();
-    await page.getByRole("button", { name: "确认并继续" }).click();
+    await page.getByRole("button", { name: "确认", exact: true }).click();
     await expect(page.getByText("简历已归档。")).toBeVisible();
     await expect(page).toHaveURL(/\/ai-workspace/);
     expect((await readIndexedRecord(page, "resumeBranches", resumeId))?.lifecycleStatus).toBe("archived");
@@ -915,7 +915,7 @@ test.describe("P4.2a.1 Agent reliability", () => {
     await page.getByLabel("描述你的求职任务").fill("恢复刚才归档的简历");
     await page.getByRole("button", { name: "发送消息" }).click();
     await expect(page.getByRole("heading", { name: "确认恢复简历" })).toBeVisible();
-    await page.getByRole("button", { name: "确认并继续" }).click();
+    await page.getByRole("button", { name: "确认", exact: true }).click();
     await expect(page.getByText("简历已恢复为活跃状态。")).toBeVisible();
     await expect(page).toHaveURL(/\/ai-workspace/);
     expect((await readIndexedRecord(page, "resumeBranches", resumeId))?.lifecycleStatus).toBe("active");

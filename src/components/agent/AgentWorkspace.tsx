@@ -3,7 +3,7 @@
 import { History, Pause, Play, WifiOff } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { AgentMessage, AgentMessageReference, AgentSession } from "@/agent/contracts/agentSession";
-import type { AgentUiAction } from "@/agent/contracts/agentActions";
+import type { AgentArtifactAction, AgentUiAction } from "@/agent/contracts/agentActions";
 import { createQuickActionIntent, type AgentQuickActionId } from "@/agent/contracts/agentQuickAction";
 import { AgentRuntime } from "@/agent/runtime/agentRuntime";
 import type { TailorWorkflowViewState } from "@/agent/workflows/tailorExistingResumeWorkflow";
@@ -14,13 +14,15 @@ import {
 } from "@/components/agent/shell/AgentSidebar";
 import { AgentArtifactDrawer, type AgentArtifactDrawerState } from "./artifacts/AgentArtifactDrawer";
 import { AgentComposer } from "./AgentComposer";
-import { AgentConfirmationCard } from "./AgentConfirmationCard";
 import { AgentConversationTimeline, normalizeAgentMessageText } from "./AgentConversation";
 import { AgentHistoryDialog } from "./AgentHistoryDialog";
 import { AgentZeroState } from "./workspace/AgentZeroState";
 import { AgentWorkspaceLayout } from "./workspace/AgentWorkspaceLayout";
 
 type ResumeSummary = { id: string; profileId: string; name: string; purpose: string; revision: number };
+type SessionComposerDrafts = Record<string, string>;
+
+const AGENT_COMPOSER_DRAFTS_KEY = "careerad-agent-composer-drafts:v1";
 
 export function AgentWorkspace() {
   const host = useAgentHost();
@@ -32,13 +34,34 @@ export function AgentWorkspace() {
   const [resumes, setResumes] = useState<ResumeSummary[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [drawerState, setDrawerState] = useState<AgentArtifactDrawerState>("closed");
-  const [draft, setDraft] = useState("");
-  const [draftReference, setDraftReference] = useState<AgentMessageReference>();
+  const [draftsBySession, setDraftsBySession] = useState<SessionComposerDrafts>(readSessionComposerDrafts);
+  const draftsBySessionRef = useRef(draftsBySession);
+  const [draftReferencesBySession, setDraftReferencesBySession] = useState<Record<string, AgentMessageReference | undefined>>({});
   const [lastUserMessage, setLastUserMessage] = useState("");
   const [floatingAction, setFloatingAction] = useState<AgentUiAction>();
   const initialSessionRef = useRef(session);
   const running = snapshot.turnStatus === "running";
   const paused = snapshot.turnStatus === "paused";
+  const draft = draftsBySession[session.id] ?? "";
+  const draftReference = draftReferencesBySession[session.id];
+
+  const setSessionDraft = useCallback((value: string) => {
+    const next = { ...draftsBySessionRef.current };
+    if (value) next[session.id] = value;
+    else delete next[session.id];
+    draftsBySessionRef.current = next;
+    setDraftsBySession(next);
+    persistSessionComposerDrafts(next);
+  }, [session.id]);
+
+  const setSessionDraftReference = useCallback((reference?: AgentMessageReference) => {
+    setDraftReferencesBySession((current) => {
+      const next = { ...current };
+      if (reference) next[session.id] = reference;
+      else delete next[session.id];
+      return next;
+    });
+  }, [session.id]);
 
   const pageContext = useCallback(() => ({
     pathname: window.location.pathname,
@@ -80,6 +103,12 @@ export function AgentWorkspace() {
       if (!active) return;
       setResumes(readArray(resumeResult.data, "resumes") as ResumeSummary[]);
       setSessions(storedSessions);
+      const live = host.state.getSnapshot();
+      if (live.activeSession && live.turnStatus === "running") {
+        setSession(live.activeSession);
+        window.localStorage.setItem(ACTIVE_SESSION_KEY, live.activeSession.id);
+        return;
+      }
       const requested = window.localStorage.getItem(ACTIVE_SESSION_KEY);
       if (requested === NEW_TASK_SESSION_VALUE) {
         const created = AgentRuntime.create("agent_quick_action", "collecting_intent", "新的 AI 任务");
@@ -123,12 +152,13 @@ export function AgentWorkspace() {
 
   async function dispatchMessage(text: string) {
     setLastUserMessage(text);
+    window.localStorage.setItem(ACTIVE_SESSION_KEY, session.id);
     const result = await host.state.dispatch(
       { type: "message", text, references: draftReference ? [draftReference] : undefined },
       { session, pageContext: pageContext() }
     );
     if (result) {
-      setDraftReference(undefined);
+      setSessionDraftReference(undefined);
       setSession(result);
       window.localStorage.setItem(ACTIVE_SESSION_KEY, result.id);
       window.dispatchEvent(new CustomEvent("careeradapt-agent-sessions-change"));
@@ -140,6 +170,18 @@ export function AgentWorkspace() {
       { type: "ui_control", action },
       { session, pageContext: pageContext() }
     );
+  }
+
+  function dispatchArtifactAction(action: AgentArtifactAction) {
+    void host.state.dispatch(
+      { type: "artifact_action", action },
+      { session, pageContext: pageContext() }
+    ).then((result) => {
+      if (!result) return;
+      setSession(result);
+      window.localStorage.setItem(ACTIVE_SESSION_KEY, result.id);
+      window.dispatchEvent(new CustomEvent("careeradapt-agent-sessions-change"));
+    });
   }
 
   function dispatchQuickAction(actionId: AgentQuickActionId) {
@@ -228,15 +270,32 @@ export function AgentWorkspace() {
                 </div>
               ) : null}
               <AgentConversationTimeline
+                key={session.id}
                 messages={session.messages}
-                onRegenerate={lastUserMessage ? () => void dispatchMessage(lastUserMessage) : undefined}
-                onEditUserMessage={(message) => {
-                  setDraftReference(undefined);
-                  setDraft(message.content);
+                onRegenerate={async (message) => {
+                  const result = await host.state.dispatch(
+                    { type: "regenerate_message", messageId: message.id },
+                    { session, pageContext: pageContext() }
+                  );
+                  if (!result) return;
+                  setSession(result);
+                  window.localStorage.setItem(ACTIVE_SESSION_KEY, result.id);
+                  window.dispatchEvent(new CustomEvent("careeradapt-agent-sessions-change"));
+                }}
+                onEditUserMessage={async (message, content) => {
+                  setLastUserMessage(content);
+                  const result = await host.state.dispatch(
+                    { type: "edit_message", messageId: message.id, text: content },
+                    { session, pageContext: pageContext() }
+                  );
+                  if (!result) return;
+                  setSession(result);
+                  window.localStorage.setItem(ACTIVE_SESSION_KEY, result.id);
+                  window.dispatchEvent(new CustomEvent("careeradapt-agent-sessions-change"));
                 }}
                 onContinueFromMessage={(message) => {
-                  setDraft("");
-                  setDraftReference({
+                  setSessionDraft("");
+                  setSessionDraftReference({
                     messageId: message.id,
                     role: message.role,
                     type: "assistant_message",
@@ -248,24 +307,13 @@ export function AgentWorkspace() {
                   { type: "option", action: option.action },
                   { session, pageContext: pageContext() }
                 )}
-              >
-                {session.pendingConfirmation && session.pendingToolCall ? (
-                  <AgentConfirmationCard
-                    busy={running}
-                    title={session.pendingConfirmation.title}
-                    description={session.pendingConfirmation.description}
-                    destructive={session.pendingConfirmation.destructive}
-                    onCancel={() => void host.state.dispatch(
-                      { type: "confirmation", confirmed: false },
-                      { session, pageContext: pageContext() }
-                    )}
-                    onConfirm={() => void host.state.dispatch(
-                      { type: "confirmation", confirmed: true },
-                      { session, pageContext: pageContext() }
-                    )}
-                  />
-                ) : null}
-              </AgentConversationTimeline>
+                confirmation={session.pendingToolCall ? session.pendingConfirmation : undefined}
+                confirmationBusy={running}
+                onConfirmation={(confirmed) => void host.state.dispatch(
+                  { type: "confirmation", confirmed },
+                  { session, pageContext: pageContext() }
+                )}
+              />
             </>
           )}
           <AgentComposer
@@ -273,8 +321,8 @@ export function AgentWorkspace() {
             running={running}
             draft={draft}
             reference={draftReference}
-            onRemoveReference={() => setDraftReference(undefined)}
-            onDraftChange={setDraft}
+            onRemoveReference={() => setSessionDraftReference(undefined)}
+            onDraftChange={setSessionDraft}
             onSend={dispatchMessage}
             onUiAction={dispatchUi}
             onUpload={async (file) => {
@@ -290,6 +338,7 @@ export function AgentWorkspace() {
           workflowState={workflowView}
           taskState={session.taskState}
           onImportAction={(message) => void dispatchMessage(message)}
+          onArtifactAction={dispatchArtifactAction}
           onStateChange={setDrawerState}
         />
       </div>
@@ -310,6 +359,31 @@ export function AgentWorkspace() {
       />
     </AgentWorkspaceLayout>
   );
+}
+
+export function readSessionComposerDrafts(): SessionComposerDrafts {
+  if (typeof window === "undefined") return {};
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(AGENT_COMPOSER_DRAFTS_KEY) ?? "{}") as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+    return Object.fromEntries(
+      Object.entries(parsed)
+        .filter((entry): entry is [string, string] =>
+          Boolean(entry[0]) && typeof entry[1] === "string" && entry[1].length <= 8000
+        )
+        .slice(-100)
+    );
+  } catch {
+    return {};
+  }
+}
+
+function persistSessionComposerDrafts(drafts: SessionComposerDrafts) {
+  try {
+    window.localStorage.setItem(AGENT_COMPOSER_DRAFTS_KEY, JSON.stringify(drafts));
+  } catch {
+    // Draft persistence is best-effort; the in-memory per-session draft remains.
+  }
 }
 
 function referenceExcerpt(content: string) {

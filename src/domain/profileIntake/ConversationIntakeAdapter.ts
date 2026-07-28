@@ -164,9 +164,13 @@ function extractCandidates(text: string, seed: string): ConversationIntakeCandid
     ambiguous: /Smart\s*Fox/i,
     reason: "项目名称可能是 示例任务系统、Smart Fox 或 TaskAI"
   });
-  add("project", "learnkata", projectLabel(text, /Learn\s*(Kata|Cat)|Deep\w*/i, "示例学习助手"), /Learn\s*(Kata|Cat)|Deep\w*/i, {
-    ambiguous: /Learn\s*Cat|Deep\w*/i,
-    reason: "项目名称或对比产品名称可能被语音转写"
+  add("project", "learning-assistant", projectLabel(
+    text,
+    /Learn\s*(?:Some|Kata|Cat)(?:\s*AI\s*Tool)?/i,
+    "AI 学习助手"
+  ), /Learn\s*(?:Some|Kata|Cat)(?:\s*AI\s*Tool)?/i, {
+    ambiguous: /Learn\s*Cat/i,
+    reason: "项目名称可能被语音转写"
   });
   add("project", "xiaohongshu", "示例内容采集与 AI 可信度分析", /示例内容.*(可信度|可视|采集)|可信度分析.*示例内容/);
   add("project", "careeradap", "CareerAdapt AI", /CareerAdapt\s*AI|职适\s*AI|简历制作平台/i);
@@ -174,14 +178,16 @@ function extractCandidates(text: string, seed: string): ConversationIntakeCandid
 }
 
 function sourceSentence(text: string, pattern: RegExp) {
-  const match = pattern.exec(text);
-  if (!match || match.index === undefined) return undefined;
-  const punctuation = /[。！？；\n]/;
-  let start = match.index;
-  while (start > 0 && !punctuation.test(text[start - 1]!)) start -= 1;
-  let end = match.index + match[0].length;
-  while (end < text.length && !punctuation.test(text[end]!)) end += 1;
-  return text.slice(start, Math.min(text.length, end + 1)).trim().slice(0, 1200);
+  const clauses = text
+    .split(/[。！？；\n]+|(?:然后|还有|下一个|第二个|第三个|第四个)/u)
+    .map((clause) => clause.trim())
+    .filter(Boolean);
+  const clause = clauses.find((value) => {
+    pattern.lastIndex = 0;
+    return pattern.test(value);
+  });
+  pattern.lastIndex = 0;
+  return clause?.slice(0, 1200);
 }
 
 function projectLabel(text: string, pattern: RegExp, fallback: string) {
@@ -233,13 +239,15 @@ function structuredItem(candidate: ConversationIntakeCandidate): ResumeItemV2 {
     });
   }
   if (candidate.kind === "campus") {
+    const activityDescription = /团日活动|组织|负责|解答|传达|社会实践/u.test(candidate.sourceQuote)
+      ? candidate.sourceQuote
+      : undefined;
     return ResumeItemV2Schema.parse({
       ...base,
       sectionType: "campus",
-      organization: "示例大学",
       role: "团支书",
       current: false,
-      description: candidate.sourceQuote,
+      description: activityDescription,
       highlights: []
     });
   }

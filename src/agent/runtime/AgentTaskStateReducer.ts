@@ -1,5 +1,6 @@
 import type { AgentSession, AgentTaskState } from "@/agent/contracts/agentSession";
 import { getWorkflowDefinition } from "@/agent/workflows/workflowRegistry";
+import type { TurnIntent } from "./AgentTurnIntent";
 import {
   deriveNextLegalStage,
   TaskContinuationResolver
@@ -14,9 +15,11 @@ export type AgentTaskEvent =
       messageId?: string;
       turnId?: string;
       capturedAt?: string;
+      turnIntent?: TurnIntent;
     }
   | { type: "new_root_task"; goal: string; workflowId: string; stage: string }
   | { type: "new_active_task"; goal: string; workflowId: string; stage: string }
+  | { type: "restart_profile_intake" }
   | { type: "attachment_selected"; attachment: AgentAttachmentRef }
   | { type: "slot_answer"; slot: string; value: unknown }
   | {
@@ -107,16 +110,36 @@ export class AgentTaskStateReducer {
       state.completionStatus = "active";
       return normalize(state);
     }
+    if (event.type === "restart_profile_intake") {
+      resetProfileIntakeDraft(state);
+      state.stage = "collect_experience";
+      state.completionStatus = "active";
+      return normalize(state);
+    }
     if (event.type === "user_message") {
       if (state.workflowId === "guided_profile_intake") {
-        state.knownSlots.latestIntakeSource = {
-          sessionId: event.sessionId,
-          messageId: event.messageId,
-          turnId: event.turnId,
-          exactSourceQuote: event.message,
-          capturedAt: event.capturedAt ?? state.updatedAt
-        };
-        if (state.stage === "collect_experience" && event.message.trim().length >= 80) {
+        const hasIntakeEvidence = isProfileIntakeEvidence(event.message);
+        if (
+          isSubstantiveProfileIntakeNarrative(event.message)
+          && (state.stage === "profile_complete" || state.stage === "resume_ready")
+        ) {
+          resetProfileIntakeDraft(state);
+          state.stage = "collect_experience";
+        }
+        const isIntakeAnswer = (
+          state.stage === "collect_experience"
+          && event.message.trim()
+          && isProfileIntakeAnswerTurn(event.turnIntent)
+          && hasIntakeEvidence
+        );
+        if (isIntakeAnswer) {
+          state.knownSlots.latestIntakeSource = {
+            sessionId: event.sessionId,
+            messageId: event.messageId,
+            turnId: event.turnId,
+            exactSourceQuote: event.message,
+            capturedAt: event.capturedAt ?? state.updatedAt
+          };
           state.stage = "structure_facts";
         }
         if (state.stage === "profile_complete") {
@@ -161,6 +184,18 @@ export class AgentTaskStateReducer {
       state.computeTier = computeTier(state.rootGoal, event.message);
       if (state.rootGoal === "import_resume") {
         captureImportTargetIntent(state, event.message);
+      }
+      if (
+        state.workflowId === "guided_profile_intake"
+        && state.stage === "collect_experience"
+        && (
+          !isProfileIntakeAnswerTurn(event.turnIntent)
+          || !isProfileIntakeEvidence(event.message)
+        )
+      ) {
+        // Commands such as "继续添加经历" ask the interview to continue; they
+        // are neither source evidence nor a reason to leave the user-input boundary.
+        state.completionStatus = "waiting_for_user";
       }
     }
     if (event.type === "attachment_selected") {
@@ -312,6 +347,45 @@ export class AgentTaskStateReducer {
       } else if (event.toolName === "review_profile_intake") {
         const value = objectValue(event.observation);
         state.knownSlots.expectedIntakeDraftRevision = value.expectedDraftRevision;
+        const candidateId = stringValue(value.candidateId);
+        const decision = value.decision === "accept" || value.decision === "reject"
+          ? value.decision
+          : undefined;
+        if (candidateId && decision) {
+          const editedLabel = stringValue(value.editedLabel);
+          const candidates = Array.isArray(state.knownSlots.intakeCandidates)
+            ? state.knownSlots.intakeCandidates.map(objectValue)
+            : [];
+          const reviewed = candidates.find((candidate) => candidate.id === candidateId);
+          state.knownSlots.intakeCandidates = candidates.map((candidate) =>
+            candidate.id === candidateId
+              ? {
+                  ...candidate,
+                  label: editedLabel ?? candidate.label,
+                  needsConfirmation: false,
+                  decision
+                }
+              : candidate
+          );
+          const artifact = objectValue(state.knownSlots.intakeArtifact);
+          const recognized = Array.isArray(artifact.recognized)
+            ? artifact.recognized.map(objectValue)
+            : [];
+          state.knownSlots.intakeArtifact = {
+            ...artifact,
+            recognized: decision === "accept" && reviewed
+              ? [...recognized.filter((item) => item.id !== candidateId), {
+                  id: candidateId,
+                  label: editedLabel ?? reviewed.label
+                }]
+              : recognized.filter((item) => item.id !== candidateId),
+            needsConfirmation: Array.isArray(artifact.needsConfirmation)
+              ? artifact.needsConfirmation
+                  .map(objectValue)
+                  .filter((item) => item.id !== candidateId)
+              : []
+          };
+        }
         const unresolved = typeof value.unresolvedCount === "number" ? value.unresolvedCount : 0;
         state.stage = unresolved > 0 ? "review_facts" : "reconcile_profile";
         state.completionStatus = unresolved > 0 ? "waiting_for_user" : "active";
@@ -470,6 +544,19 @@ export class AgentTaskStateReducer {
       state.completionStatus = "waiting_for_user";
       delete state.knownSlots.pendingConfirmation;
       delete state.dependencySnapshots.pendingApplyConfirmation;
+      if (event.toolName === "commit_profile_intake") {
+        for (const slot of [
+          "intakeImportId",
+          "expectedIntakeDraftRevision",
+          "intakeCandidates",
+          "intakeArtifact",
+          "intakeReconciliation",
+          "expectedIntakeReconciliationRevision"
+        ]) {
+          delete state.knownSlots[slot];
+        }
+        state.stage = "collect_experience";
+      }
     }
     if (event.type === "entity_revision") {
       updateAuthoritativeEntity(state, event);
@@ -478,11 +565,59 @@ export class AgentTaskStateReducer {
       invalidateDerivedState(state);
     }
     if (event.type === "failed") {
-      state.completionStatus = "failed";
+      const committedProfileIntake = (
+        state.workflowId === "guided_profile_intake"
+        && Boolean(state.knownSlots.profileCommitResult)
+        && (state.stage === "profile_complete" || state.stage === "resume_ready")
+      );
+      if (!committedProfileIntake) state.completionStatus = "failed";
       state.lastObservation = { errorCode: event.errorCode };
     }
     return normalize(state);
   }
+}
+
+function isProfileIntakeAnswerTurn(intent?: TurnIntent) {
+  // Direct reducer callers predate explicit turn intent. Runtime turns always
+  // provide it, so only actual interview answers or fresh domain narratives
+  // advance into fact capture; side questions and task controls never do.
+  return intent === undefined
+    || intent === "clarification_answer"
+    || intent === "new_domain_task";
+}
+
+function isProfileIntakeEvidence(message: string) {
+  const text = message.trim();
+  if (!text) return false;
+  if (/^(?:是|是的|对|对的|好的?|嗯|确认|没问题|没有问题|全部确认|都正确|导入|写入|保存|开始导入|确认导入)[。！!]?$/u.test(text)) {
+    return false;
+  }
+  return true;
+}
+
+function isSubstantiveProfileIntakeNarrative(message: string) {
+  const text = message.trim();
+  return text.length >= 12
+    && /项目|实习|比赛|竞赛|经历|负责|开发|组织|课题|工作|活动|获奖|学校|专业|教育/u.test(text);
+}
+
+function resetProfileIntakeDraft(state: AgentTaskState) {
+  for (const key of [
+    "latestIntakeSource",
+    "intakeImportId",
+    "expectedIntakeDraftRevision",
+    "intakeCandidates",
+    "intakeArtifact",
+    "intakeReconciliation",
+    "expectedIntakeReconciliationRevision",
+    "profileCommitResult",
+    "pendingConfirmation"
+  ]) {
+    delete state.knownSlots[key];
+  }
+  state.pendingDecision = undefined;
+  state.lastObservation = undefined;
+  state.completionStatus = "active";
 }
 
 function normalize(state: AgentTaskState): AgentTaskState {

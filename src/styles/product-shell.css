@@ -21,8 +21,8 @@
   background: var(--product-app-bg);
   border-bottom: 1px solid var(--product-border);
   display: flex;
-  flex: 0 0 52px;
   gap: var(--product-space-4);
+  height: 52px;
   justify-content: space-between;
   min-width: 0;
   padding: 0 var(--product-space-6);

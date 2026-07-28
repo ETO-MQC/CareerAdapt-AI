@@ -13,6 +13,12 @@ export const AgentMessageReferenceSchema = z.object({
   excerpt: z.string().max(280).optional()
 }).strict();
 
+export const AgentMessageRevisionSchema = z.object({
+  id: z.string().min(1),
+  content: z.string().max(8000),
+  createdAt: z.string().datetime({ offset: true })
+}).strict();
+
 export const AgentMessageSchema = z.object({
   id: z.string().min(1),
   turnId: z.string().min(1).optional(),
@@ -44,6 +50,7 @@ export const AgentMessageSchema = z.object({
   operationId: z.string().min(8).max(160).optional(),
   parentMessageId: z.string().min(1).optional(),
   references: z.array(AgentMessageReferenceSchema).max(4).optional(),
+  revisions: z.array(AgentMessageRevisionSchema).max(20).optional(),
   language: z.enum(["zh", "en", "unknown"]).optional(),
   streaming: z.boolean().optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
@@ -217,6 +224,7 @@ export const AgentSessionSchema = z.object({
 }).strict();
 
 export type AgentMessage = z.infer<typeof AgentMessageSchema>;
+export type AgentMessageRevision = z.infer<typeof AgentMessageRevisionSchema>;
 export type AgentMessageReference = z.infer<typeof AgentMessageReferenceSchema>;
 export type AgentMessageRecord = z.infer<typeof AgentMessageRecordSchema>;
 export type AgentSession = z.infer<typeof AgentSessionSchema>;

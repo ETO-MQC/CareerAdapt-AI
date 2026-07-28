@@ -42,6 +42,7 @@ import {
 } from "@/domain/resumeFields/catalog";
 import { canonicalProfileBasics, canonicalProfileLibraryItems, canonicalProfileSectionCounts, profileSectionCatalog } from "@/domain/profile/canonicalLibrary";
 import { extractTextFromPdfBuffer } from "@/services/pdf/extractText";
+import { buildProfileJsonExport, profileJsonExportFileName } from "@/services/export/profileJson";
 import { hashBytes, hashText, redactSensitiveTextForModel } from "@/services/security/text";
 import { notify } from "@/services/notifications/store";
 import { useWorkspace } from "@/services/workspace/useWorkspace";
@@ -162,6 +163,7 @@ export function ProfileWorkspace() {
   const [profileDeleteOpen, setProfileDeleteOpen] = useState(false);
   const [profileDeleting, setProfileDeleting] = useState(false);
   const [profileSaving, setProfileSaving] = useState(false);
+  const [profileExporting, setProfileExporting] = useState(false);
   const [blockerDialogOpen, setBlockerDialogOpen] = useState(false);
   const [blockers, setBlockers] = useState<{ branches: number; matches: number; matchOperations: number; adaptationDrafts: number; applications: number; commits: number } | null>(null);
   const [clearingCategory, setClearingCategory] = useState<string | null>(null);
@@ -443,6 +445,48 @@ export function ProfileWorkspace() {
     setProfileSearch("");
     setProfileUsageFilter("all");
     notify({ type: "success", title: "已切换人物", message: `已切换到 ${selected.name} 的个人资料。` });
+  }
+
+  async function exportCurrentProfileJson() {
+    if (!profile) {
+      notify({ type: "warning", title: "无个人资料", message: "请先选择要导出的人物。" });
+      return;
+    }
+    setProfileExporting(true);
+    try {
+      const [storedProfile, storedArchive, storedLegacyArchive] = await Promise.all([
+        repository.getProfile(profile.id),
+        repository.getMeta(profileArchiveV2Key(profile.id)),
+        repository.getMeta(profileArchiveKey(profile.id))
+      ]);
+      if (!storedProfile) {
+        notify({ type: "error", title: "导出失败", message: "当前人物资料已不存在，请刷新后重试。" });
+        return;
+      }
+      const archive = parseProfileArchive(
+        storedArchive?.value,
+        parseArchivedSkills(storedLegacyArchive?.value)
+      );
+      const exportedAt = new Date().toISOString();
+      const payload = buildProfileJsonExport({
+        profile: storedProfile,
+        archive,
+        exportedAt
+      });
+      triggerJsonDownload(
+        payload,
+        profileJsonExportFileName(storedProfile, exportedAt.slice(0, 10))
+      );
+      notify({
+        type: "success",
+        title: "导出成功",
+        message: `已导出 ${storedProfile.name} 的完整资料库 JSON。`
+      });
+    } catch {
+      notify({ type: "error", title: "导出失败", message: "资料读取或 JSON 生成失败，请重试。" });
+    } finally {
+      setProfileExporting(false);
+    }
   }
 
   async function saveNewProfile() {
@@ -1569,12 +1613,21 @@ export function ProfileWorkspace() {
         title="个人资料库"
         status={profile ? `${profile.name} · 本地已保存` : "未选择人物"}
         actions={(
-          <ProductButton
-            variant={importWorkspaceOpen ? "primary" : "secondary"}
-            onClick={() => setImportWorkspaceOpen((value) => !value)}
-          >
-            {importWorkspaceOpen ? "返回资料库" : "导入资料"}
-          </ProductButton>
+          <>
+            <ProductButton
+              variant="secondary"
+              disabled={!profile || profileExporting}
+              onClick={() => { void exportCurrentProfileJson(); }}
+            >
+              {profileExporting ? "导出中" : "导出 JSON"}
+            </ProductButton>
+            <ProductButton
+              variant={importWorkspaceOpen ? "primary" : "secondary"}
+              onClick={() => setImportWorkspaceOpen((value) => !value)}
+            >
+              {importWorkspaceOpen ? "返回资料库" : "导入资料"}
+            </ProductButton>
+          </>
         )}
       />
 
@@ -2647,6 +2700,19 @@ function FactReviewRow({
 function optionalText(text: string) {
   const trimmed = text.trim();
   return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function triggerJsonDownload(payload: unknown, fileName: string) {
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = fileName;
+  anchor.rel = "noopener";
+  document.body.append(anchor);
+  anchor.click();
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 function managedProfileCategoryId(category: string): ProfileCategoryId {

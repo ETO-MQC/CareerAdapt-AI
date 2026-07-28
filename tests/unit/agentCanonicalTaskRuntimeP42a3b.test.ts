@@ -27,7 +27,11 @@ function routeTurn(
   } else if (decision.newTask && decision.taskMutation === "continue") {
     routed = reducer.reduce(routed, { type: "new_active_task", ...decision.newTask });
   }
-  return reducer.reduce(routed, { type: "user_message", message });
+  return reducer.reduce(routed, {
+    type: "user_message",
+    message,
+    turnIntent: decision.intent
+  });
 }
 
 describe("P4.2a.3b canonical task runtime", () => {
@@ -612,8 +616,19 @@ describe("P4.2a.3b canonical task runtime", () => {
     const session: AgentSession = {
       ...base,
       taskState,
+      messages: [{
+        id: "assistant-confirmation-1",
+        turnId: "turn-confirmation-1",
+        role: "assistant",
+        content: "请确认是否应用这次修改。",
+        kind: "text",
+        type: "text",
+        status: "complete",
+        createdAt: now
+      }],
       pendingConfirmation: {
         id: "confirmation-1",
+        turnId: "turn-confirmation-1",
         operationId: "apply-operation-1",
         toolName: "apply_tailoring_changes",
         title: "应用定制",
@@ -629,6 +644,7 @@ describe("P4.2a.3b canonical task runtime", () => {
         requestedAt: now
       },
       pendingToolCall: {
+        turnId: "turn-confirmation-1",
         toolName: "apply_tailoring_changes",
         operationId: "apply-operation-1",
         input: { ambiguous: "model-input-is-not-authoritative" }
@@ -652,7 +668,7 @@ describe("P4.2a.3b canonical task runtime", () => {
       persistence: { save } as never
     });
     host.adopt(session);
-    await Promise.all([
+    const [confirmed] = await Promise.all([
       host.dispatch({ type: "confirmation", confirmed: true }, {
         pageContext: { pathname: "/ai-workspace", query: {} }
       }),
@@ -666,6 +682,356 @@ describe("P4.2a.3b canonical task runtime", () => {
       toolInput: expect.objectContaining({ selectedDiffs: [] }),
       confirmed: true
     }));
+    expect(confirmed?.messages.filter((message) => message.role === "user")).toHaveLength(0);
+    expect(confirmed?.messages.find((message) => message.id === "assistant-confirmation-1")?.metadata)
+      .toMatchObject({ confirmationResolution: "confirmed" });
+  });
+
+  it("persists a compact authoritative receipt for a confirmed profile intake commit", async () => {
+    const now = new Date().toISOString();
+    const base = AgentRuntime.create("guided_profile_intake", "confirm_commit");
+    const reducer = new AgentTaskStateReducer();
+    const taskState = AgentTaskStateSchema.parse({
+      ...reducer.create(base, "profile_intake"),
+      stage: "confirm_commit",
+      completionStatus: "waiting_for_confirmation",
+      knownSlots: {
+        targetProfileId: "profile-1",
+        expectedProfileVersion: 1,
+        intakeImportId: "intake-diagnostic",
+        expectedIntakeDraftRevision: 0,
+        expectedIntakeReconciliationRevision: 0,
+        pendingConfirmation: {
+          toolName: "commit_profile_intake",
+          operationId: "commit-profile-diagnostic"
+        }
+      }
+    });
+    const session: AgentSession = {
+      ...base,
+      taskState,
+      messages: [{
+        id: "assistant-profile-diagnostic",
+        turnId: "turn-profile-diagnostic",
+        role: "assistant",
+        content: "请确认写入资料库。",
+        kind: "text",
+        type: "text",
+        status: "complete",
+        createdAt: now
+      }],
+      pendingConfirmation: {
+        id: "confirmation-profile-diagnostic",
+        turnId: "turn-profile-diagnostic",
+        operationId: "commit-profile-diagnostic",
+        toolName: "commit_profile_intake",
+        title: "写入资料库？",
+        description: "确认后保存已核对事实。",
+        destructive: false,
+        status: "pending",
+        requestedAt: now
+      },
+      pendingToolCall: {
+        turnId: "turn-profile-diagnostic",
+        toolName: "commit_profile_intake",
+        operationId: "commit-profile-diagnostic",
+        input: {}
+      }
+    };
+    const execute = vi.fn(async () => ({
+      ok: true,
+      toolName: "commit_profile_intake",
+      data: {
+        profileId: "profile-1",
+        profileVersion: 2,
+        committedItemCount: 8,
+        committedFactCount: 8,
+        idempotent: false
+      },
+      artifactIds: []
+    }));
+    const save = vi.fn(async (value: AgentSession) => value);
+    const resumeTurn = vi.fn(async (input: { session: AgentSession }) => ({
+      trajectory: completedTrajectory("guided_profile_intake"),
+      conversationSummary: "",
+      taskState: new AgentTaskStateReducer().reduce(input.session.taskState!, {
+        type: "tool_observation",
+        toolName: "commit_profile_intake",
+        observation: {
+          profileId: "profile-1",
+          profileVersion: 2,
+          committedItemCount: 8,
+          committedFactCount: 8,
+          idempotent: false
+        }
+      })
+    }));
+    const host = new AgentHostStore({
+      kernel: { resumeTurn } as never,
+      executor: { execute } as never,
+      persistence: { save } as never
+    });
+    host.adopt(session);
+
+    const confirmed = await host.dispatch({ type: "confirmation", confirmed: true }, {
+      pageContext: { pathname: "/ai-workspace", query: {} }
+    });
+
+    expect(confirmed?.messages.find((message) =>
+      message.toolName === "commit_profile_intake"
+      && message.operationId === "commit-profile-diagnostic"
+    )?.metadata).toMatchObject({
+      diagnostic: {
+        ok: true,
+        profileId: "profile-1",
+        profileVersion: 2,
+        committedItemCount: 8,
+        committedFactCount: 8,
+        idempotent: false
+      }
+    });
+  });
+
+  it("silently cancels profile intake confirmation and returns to interview collection", async () => {
+    const now = new Date().toISOString();
+    const base = AgentRuntime.create("guided_profile_intake", "confirm_commit");
+    const reducer = new AgentTaskStateReducer();
+    const taskState = AgentTaskStateSchema.parse({
+      ...reducer.create(base, "profile_intake"),
+      stage: "confirm_commit",
+      completionStatus: "waiting_for_confirmation",
+      knownSlots: {
+        intakeImportId: "intake-1",
+        expectedIntakeDraftRevision: 1,
+        intakeReconciliation: { additions: [{}] },
+        expectedIntakeReconciliationRevision: 1,
+        pendingConfirmation: {
+          toolName: "commit_profile_intake",
+          operationId: "commit-profile-operation"
+        }
+      }
+    });
+    const session: AgentSession = {
+      ...base,
+      taskState,
+      messages: [{
+        id: "assistant-profile-confirmation",
+        turnId: "turn-profile-confirmation",
+        role: "assistant",
+        content: "是否写入这项教育经历？",
+        kind: "text",
+        type: "text",
+        status: "complete",
+        createdAt: now
+      }],
+      pendingConfirmation: {
+        id: "profile-confirmation",
+        turnId: "turn-profile-confirmation",
+        operationId: "commit-profile-operation",
+        toolName: "commit_profile_intake",
+        title: "写入资料库？",
+        description: "确认后保存已核对事实。",
+        destructive: false,
+        status: "pending",
+        requestedAt: now
+      },
+      pendingToolCall: {
+        turnId: "turn-profile-confirmation",
+        toolName: "commit_profile_intake",
+        operationId: "commit-profile-operation",
+        input: {}
+      }
+    };
+    const save = vi.fn(async (value: AgentSession) => value);
+    const resumeTurn = vi.fn(async (input: { session: AgentSession }) => ({
+      trajectory: completedTrajectory("guided_profile_intake"),
+      conversationSummary: "",
+      taskState: input.session.taskState
+    }));
+    const execute = vi.fn();
+    const host = new AgentHostStore({
+      kernel: { resumeTurn } as never,
+      executor: { execute } as never,
+      persistence: { save } as never
+    });
+    host.adopt(session);
+
+    const cancelled = await host.dispatch({ type: "confirmation", confirmed: false }, {
+      pageContext: { pathname: "/ai-workspace", query: {} }
+    });
+
+    expect(execute).not.toHaveBeenCalled();
+    expect(cancelled?.messages.filter((message) => message.role === "user")).toHaveLength(0);
+    expect(cancelled?.messages.find((message) => message.id === "assistant-profile-confirmation")?.metadata)
+      .toMatchObject({ confirmationResolution: "rejected" });
+    expect(cancelled?.taskState).toMatchObject({
+      stage: "collect_experience",
+      completionStatus: "waiting_for_user"
+    });
+    expect(cancelled?.taskState?.knownSlots).not.toHaveProperty("intakeImportId");
+  });
+
+  it("executes a profile intake artifact decision directly without a synthetic user turn", async () => {
+    const base = AgentRuntime.create("guided_profile_intake", "review_facts");
+    const reducer = new AgentTaskStateReducer();
+    const taskState = AgentTaskStateSchema.parse({
+      ...reducer.create(base, "profile_intake"),
+      stage: "review_facts",
+      completionStatus: "waiting_for_user",
+      knownSlots: {
+        intakeImportId: "intake-review-1",
+        expectedIntakeDraftRevision: 2,
+        intakeCandidates: [{
+          id: "candidate-deep-tutor",
+          label: "DeepTutor",
+          needsConfirmation: true
+        }]
+      }
+    });
+    const session: AgentSession = { ...base, taskState };
+    const execute = vi.fn(async () => ({
+      ok: true,
+      operationId: "artifact-action-profile",
+      toolName: "review_profile_intake",
+      data: {
+        importId: "intake-review-1",
+        expectedDraftRevision: 3,
+        candidateId: "candidate-deep-tutor",
+        decision: "reject",
+        unresolvedCount: 0
+      },
+      artifactIds: [],
+      completedAt: new Date().toISOString()
+    }));
+    const resumeTurn = vi.fn(async (input: { session: AgentSession }) => ({
+      trajectory: completedTrajectory("guided_profile_intake"),
+      conversationSummary: "",
+      taskState: input.session.taskState
+    }));
+    const save = vi.fn(async (value: AgentSession) => value);
+    const host = new AgentHostStore({
+      kernel: { resumeTurn } as never,
+      executor: { execute } as never,
+      persistence: { save } as never
+    });
+    host.adopt(session);
+
+    const result = await host.dispatch({
+      type: "artifact_action",
+      action: {
+        type: "profile_intake_candidate_decision",
+        candidateId: "candidate-deep-tutor",
+        decision: "reject"
+      }
+    }, {
+      pageContext: { pathname: "/ai-workspace", query: {} }
+    });
+
+    expect(execute).toHaveBeenCalledTimes(1);
+    expect(execute).toHaveBeenCalledWith(expect.objectContaining({
+      toolName: "review_profile_intake",
+      toolInput: {
+        importId: "intake-review-1",
+        expectedDraftRevision: 2,
+        candidateId: "candidate-deep-tutor",
+        decision: "reject"
+      }
+    }));
+    expect(resumeTurn).toHaveBeenCalledWith(expect.objectContaining({
+      reason: "tool_observation",
+      toolName: "review_profile_intake",
+      observation: expect.objectContaining({
+        candidateId: "candidate-deep-tutor",
+        decision: "reject"
+      })
+    }));
+    expect(result?.messages.filter((message) => message.role === "user")).toHaveLength(0);
+  });
+
+  it("invalidates an unclicked confirmation when the user corrects the facts and captures the correction", async () => {
+    const now = new Date().toISOString();
+    const base = AgentRuntime.create("guided_profile_intake", "confirm_commit");
+    const reducer = new AgentTaskStateReducer();
+    const taskState = AgentTaskStateSchema.parse({
+      ...reducer.create(base, "profile_intake"),
+      stage: "confirm_commit",
+      completionStatus: "waiting_for_confirmation",
+      knownSlots: {
+        intakeImportId: "intake-before-correction",
+        expectedIntakeDraftRevision: 1,
+        intakeReconciliation: { additions: [{}] },
+        expectedIntakeReconciliationRevision: 1,
+        pendingConfirmation: {
+          toolName: "commit_profile_intake",
+          operationId: "commit-before-correction"
+        }
+      }
+    });
+    const session: AgentSession = {
+      ...base,
+      taskState,
+      messages: [{
+        id: "assistant-before-correction",
+        turnId: "turn-before-correction",
+        role: "assistant",
+        content: "是否写入这项教育经历？",
+        kind: "text",
+        type: "text",
+        status: "complete",
+        createdAt: now
+      }],
+      pendingConfirmation: {
+        id: "confirmation-before-correction",
+        turnId: "turn-before-correction",
+        operationId: "commit-before-correction",
+        toolName: "commit_profile_intake",
+        title: "写入资料库？",
+        description: "确认后保存已核对事实。",
+        destructive: false,
+        status: "pending",
+        requestedAt: now
+      },
+      pendingToolCall: {
+        turnId: "turn-before-correction",
+        toolName: "commit_profile_intake",
+        operationId: "commit-before-correction",
+        input: {}
+      }
+    };
+    const runTurn = vi.fn(async (input: { session: AgentSession }) => ({
+      trajectory: completedTrajectory("guided_profile_intake"),
+      conversationSummary: "",
+      taskState: input.session.taskState
+    }));
+    const save = vi.fn(async (value: AgentSession) => value);
+    const host = new AgentHostStore({
+      kernel: { runTurn } as never,
+      executor: {} as never,
+      persistence: { save } as never
+    });
+    host.adopt(session);
+
+    const corrected = await host.dispatch({
+      type: "message",
+      text: "更正一下，我是2025年9月入学。"
+    }, {
+      pageContext: { pathname: "/ai-workspace", query: {} }
+    });
+
+    expect(runTurn).toHaveBeenCalledTimes(1);
+    expect(corrected?.pendingConfirmation).toBeUndefined();
+    expect(corrected?.messages.find((message) => message.id === "assistant-before-correction")?.metadata)
+      .toMatchObject({ confirmationResolution: "superseded" });
+    expect(corrected?.messages.filter((message) => message.role === "user").at(-1)?.content)
+      .toBe("更正一下，我是2025年9月入学。");
+    expect(corrected?.taskState).toMatchObject({
+      stage: "structure_facts",
+      knownSlots: {
+        latestIntakeSource: {
+          exactSourceQuote: "更正一下，我是2025年9月入学。"
+        }
+      }
+    });
   });
 
   it("revalidates dependencies before a confirmed write and invalidates a stale preview", async () => {

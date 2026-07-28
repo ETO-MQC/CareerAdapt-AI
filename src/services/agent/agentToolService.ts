@@ -160,6 +160,7 @@ export class BrowserAgentToolService implements AgentToolServices {
       expectedDraftRevision: number;
       candidateId: string;
       decision: "accept" | "reject";
+      editedLabel?: string;
     };
     const draft = await this.repository.getImportedResumeDraft(input.importId);
     if (!draft || draft.sourceKind !== "conversation") {
@@ -173,8 +174,13 @@ export class BrowserAgentToolService implements AgentToolServices {
       const items = section.items.map((item) => {
         if (item.id !== input.candidateId) return item;
         found = true;
+        const editedLabel = input.editedLabel?.trim();
         return {
           ...item,
+          itemLabel: editedLabel ?? item.itemLabel,
+          structuredItem: editedLabel
+            ? renameStructuredItem(item.structuredItem, editedLabel)
+            : item.structuredItem,
           included: input.decision === "accept",
           sourceStatus: "user_confirmed_modified" as const,
           userEdited: true
@@ -198,6 +204,7 @@ export class BrowserAgentToolService implements AgentToolServices {
       expectedDraftRevision: saved.revision,
       candidateId: input.candidateId,
       decision: input.decision,
+      editedLabel: input.editedLabel?.trim(),
       unresolvedCount: unresolved
     };
   }
@@ -1005,6 +1012,20 @@ function reconciliationToolResult(plan: ProfileReconciliationPlan) {
         };
       })
   };
+}
+
+function renameStructuredItem<T extends { sectionType: string } | undefined>(
+  item: T,
+  label: string
+): T {
+  if (!item) return item;
+  if (item.sectionType === "project" || item.sectionType === "research") {
+    return { ...item, title: label } as T;
+  }
+  if (item.sectionType === "awards" || item.sectionType === "certificates") {
+    return { ...item, name: label } as T;
+  }
+  return item;
 }
 
 function assertNotAborted(signal?: AbortSignal) {

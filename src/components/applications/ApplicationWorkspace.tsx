@@ -23,10 +23,7 @@ import { ApplicationMaterialsPanel } from "@/components/applications/materials/A
 import { hashBytes, stableHashText } from "@/services/security/text";
 import { WorkspaceRepository, type ApplicationContext } from "@/services/storage/repositories";
 import { WorkspaceEmptyState, WorkspaceErrorState, WorkspaceLoadingState } from "@/components/workspace/WorkspaceStates";
-import {
-  ProductEmptyState,
-  ProductTopbar
-} from "@/components/ui/product";
+import { ProductEmptyState } from "@/components/ui/product";
 
 const repository = new WorkspaceRepository();
 
@@ -173,7 +170,12 @@ export function ApplicationWorkspace() {
 
   return (
     <main className="page-shell application-workspace" data-testid="application-workspace">
-      <ProductTopbar title="求职进度" status={applications.length ? `${applications.length} 条记录` : "暂无记录"} />
+      <header className="product-topbar">
+        <div className="product-topbar-heading">
+          <h1>求职进度</h1>
+          <span className="product-topbar-status">{applications.length} 条记录</span>
+        </div>
+      </header>
 
       {message ? <section className="notice no-print">{message}</section> : null}
 

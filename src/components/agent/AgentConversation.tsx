@@ -1,21 +1,27 @@
 "use client";
 
-import type { AgentMessage } from "@/agent/contracts/agentSession";
+import type { AgentConfirmation, AgentMessage } from "@/agent/contracts/agentSession";
 import type { AgentOption } from "@/agent/contracts/agentActions";
 import {
   AlertCircle,
   Bot,
+  Check,
   CheckCircle2,
   Clipboard,
   Edit3,
+  History,
   LoaderCircle,
   MessageSquarePlus,
   MoreHorizontal,
   RotateCcw,
   Undo2,
-  UserRound
+  UserRound,
+  X,
+  XCircle
 } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { AgentConfirmationCard } from "./AgentConfirmationCard";
 import { AgentMarkdown } from "./AgentMarkdown";
 
 export function AgentConversation({
@@ -26,23 +32,42 @@ export function AgentConversation({
   onContinueFromMessage,
   onCopyMessage,
   onOption,
+  confirmation,
+  confirmationBusy,
+  onConfirmation,
   children
 }: {
   messages: AgentMessage[];
   onUndoLastUser?(): void;
-  onRegenerate?(): void;
-  onEditUserMessage?(message: AgentMessage): void;
+  onRegenerate?(message: AgentMessage): Promise<void> | void;
+  onEditUserMessage?(message: AgentMessage, content: string): Promise<void> | void;
   onContinueFromMessage?(message: AgentMessage): void;
   onCopyMessage?(message: AgentMessage): void;
   onOption?(option: AgentOption): void;
+  confirmation?: AgentConfirmation;
+  confirmationBusy?: boolean;
+  onConfirmation?(confirmed: boolean): void;
   children?: React.ReactNode;
 }) {
   const visibleMessages = messages.filter((message) =>
     message.role !== "system" && message.metadata?.retracted !== true
   );
   const conversationItems = groupConversationItems(visibleMessages);
+  const confirmationMessageId = confirmation
+    ? [...visibleMessages].reverse().find((message) =>
+        message.role === "assistant"
+        && message.kind !== "assistant_thinking"
+        && (!confirmation.turnId || message.turnId === confirmation.turnId)
+      )?.id
+    : undefined;
   const latestMessageContent = visibleMessages.at(-1)?.content;
+  const latestAssistantMessage = visibleMessages.findLast((message) =>
+    message.role === "assistant" && !isStreamingMessage(message)
+  );
   const endRef = useRef<HTMLDivElement>(null);
+  const [editing, setEditing] = useState<{ messageId: string; content: string }>();
+  const [historyMessageId, setHistoryMessageId] = useState<string>();
+  const [editSaving, setEditSaving] = useState(false);
   useEffect(() => {
     if (typeof endRef.current?.scrollIntoView !== "function") return;
     // Streaming can update several times per second. Re-starting a smooth
@@ -57,15 +82,51 @@ export function AgentConversation({
             return <AgentActivityGroup key={item.id} messages={item.messages} />;
           }
           if (item.type === "assistant_turn") {
+            if (item.message.kind === "error_status" || item.message.type === "error") {
+              return (
+                <div key={item.id} className="agent-error-turn">
+                  <AgentActivityGroup messages={item.activity} />
+                  <AgentErrorStatus message={item.message} />
+                </div>
+              );
+            }
             return (
               <AgentMessageRow
                 key={item.id}
                 message={item.message}
                 activity={item.activity}
+                editingContent={editing?.messageId === item.message.id ? editing.content : undefined}
+                historyOpen={historyMessageId === item.message.id}
+                editSaving={editSaving}
+                onBeginEdit={(content) => {
+                  setHistoryMessageId(undefined);
+                  setEditing({ messageId: item.message.id, content });
+                }}
+                onEditChange={(content) => setEditing((current) =>
+                  current?.messageId === item.message.id ? { ...current, content } : current
+                )}
+                onCancelEdit={() => setEditing(undefined)}
+                onConfirmEdit={async () => {
+                  if (!editing || editing.messageId !== item.message.id || !editing.content.trim()) return;
+                  setEditSaving(true);
+                  const pending = onEditUserMessage?.(item.message, editing.content.trim());
+                  setEditing(undefined);
+                  try {
+                    await pending;
+                  } finally {
+                    setEditSaving(false);
+                  }
+                }}
+                onToggleHistory={() => setHistoryMessageId((current) =>
+                  current === item.message.id ? undefined : item.message.id
+                )}
                 onContinueFromMessage={onContinueFromMessage}
                 onCopyMessage={onCopyMessage}
                 onRegenerate={onRegenerate}
                 onOption={onOption}
+                confirmation={item.message.id === confirmationMessageId ? confirmation : undefined}
+                confirmationBusy={confirmationBusy}
+                onConfirmation={onConfirmation}
               />
             );
           }
@@ -77,11 +138,38 @@ export function AgentConversation({
             <AgentMessageRow
               key={message.id}
               message={message}
-              onEditUserMessage={onEditUserMessage}
+              editingContent={editing?.messageId === message.id ? editing.content : undefined}
+              historyOpen={historyMessageId === message.id}
+              editSaving={editSaving}
+              onBeginEdit={(content) => {
+                setHistoryMessageId(undefined);
+                setEditing({ messageId: message.id, content });
+              }}
+              onEditChange={(content) => setEditing((current) =>
+                current?.messageId === message.id ? { ...current, content } : current
+              )}
+              onCancelEdit={() => setEditing(undefined)}
+              onConfirmEdit={async () => {
+                if (!editing || editing.messageId !== message.id || !editing.content.trim()) return;
+                setEditSaving(true);
+                const pending = onEditUserMessage?.(message, editing.content.trim());
+                setEditing(undefined);
+                try {
+                  await pending;
+                } finally {
+                  setEditSaving(false);
+                }
+              }}
+              onToggleHistory={() => setHistoryMessageId((current) =>
+                current === message.id ? undefined : message.id
+              )}
               onContinueFromMessage={onContinueFromMessage}
               onCopyMessage={onCopyMessage}
               onRegenerate={onRegenerate}
               onOption={onOption}
+              confirmation={message.id === confirmationMessageId ? confirmation : undefined}
+              confirmationBusy={confirmationBusy}
+              onConfirmation={onConfirmation}
             />
           );
         })}
@@ -93,8 +181,8 @@ export function AgentConversation({
                 <Undo2 aria-hidden="true" /> 撤回最近输入
               </button>
             ) : null}
-            {onRegenerate ? (
-              <button type="button" onClick={onRegenerate}>
+            {onRegenerate && latestAssistantMessage ? (
+              <button type="button" onClick={() => void onRegenerate(latestAssistantMessage)}>
                 <RotateCcw aria-hidden="true" /> 重新生成最近回答
               </button>
             ) : null}
@@ -109,15 +197,28 @@ export function AgentConversation({
 function AgentActivityGroup({ messages }: { messages: AgentMessage[] }) {
   const running = messages.some((message) => message.metadata?.activityState === "running" || message.status === "pending");
   const failed = messages.some((message) => message.metadata?.activityState === "failed" || message.status === "failed");
-  const Icon = running ? LoaderCircle : failed ? AlertCircle : CheckCircle2;
   return (
-    <details className={`agent-tool-status-row is-${running ? "running" : failed ? "failed" : "complete"}`} open={running || failed || undefined}>
+    <details className={`agent-tool-status-row is-${running ? "running" : failed ? "failed" : "complete"}`} open={failed || undefined}>
       <summary role="status">
-        <Icon className={running ? "is-spinning" : undefined} aria-hidden="true" />
+        <span className="agent-tool-status-icon" aria-hidden="true">
+          <LoaderCircle className={`is-running is-spinning${running ? " is-visible" : ""}`} />
+          <AlertCircle className={`is-failed${failed ? " is-visible" : ""}`} />
+          <CheckCircle2 className={`is-complete${!running && !failed ? " is-visible" : ""}`} />
+        </span>
         <strong>{running ? "正在执行任务步骤" : failed ? "部分任务步骤需要处理" : `已完成 ${messages.length} 个任务步骤`}</strong>
       </summary>
       <ul className="agent-tool-activity-list">
-        {messages.map((message) => <li key={message.id}>{toolStatus(message)}</li>)}
+        {messages.map((message) => {
+          const state = message.metadata?.activityState ?? message.status;
+          const failed = state === "failed";
+          const running = state === "running" || state === "pending";
+          return (
+            <li key={message.id} className={failed ? "is-failed" : running ? "is-running" : "is-complete"}>
+              <strong>{failed ? "未完成" : running ? "进行中" : "已完成"}</strong>
+              <span>{toolStatus(message)}</span>
+            </li>
+          );
+        })}
       </ul>
     </details>
   );
@@ -128,19 +229,39 @@ export const AgentConversationTimeline = AgentConversation;
 function AgentMessageRow({
   message,
   activity,
-  onEditUserMessage,
+  editingContent,
+  historyOpen,
+  editSaving,
+  onBeginEdit,
+  onEditChange,
+  onCancelEdit,
+  onConfirmEdit,
+  onToggleHistory,
   onContinueFromMessage,
   onCopyMessage,
   onRegenerate,
-  onOption
+  onOption,
+  confirmation,
+  confirmationBusy,
+  onConfirmation
 }: {
   message: AgentMessage;
   activity?: AgentMessage[];
-  onEditUserMessage?(message: AgentMessage): void;
+  editingContent?: string;
+  historyOpen?: boolean;
+  editSaving?: boolean;
+  onBeginEdit(content: string): void;
+  onEditChange(content: string): void;
+  onCancelEdit(): void;
+  onConfirmEdit(): void;
+  onToggleHistory(): void;
   onContinueFromMessage?(message: AgentMessage): void;
   onCopyMessage?(message: AgentMessage): void;
-  onRegenerate?(): void;
+  onRegenerate?(message: AgentMessage): Promise<void> | void;
   onOption?(option: AgentOption): void;
+  confirmation?: AgentConfirmation;
+  confirmationBusy?: boolean;
+  onConfirmation?(confirmed: boolean): void;
 }) {
   const isUser = message.role === "user";
   const streaming = isStreamingMessage(message);
@@ -151,33 +272,85 @@ function AgentMessageRow({
         isUser ? "is-user" : "is-assistant",
         streaming ? "is-streaming" : ""
       ].filter(Boolean).join(" ")}
+      data-message-id={message.id}
       data-message-role={message.role}
       data-message-status={message.status ?? message.kind ?? "complete"}
     >
-      {!isUser ? <AgentAvatar role="assistant" /> : null}
-      <div className="agent-message-stack">
-        {!isUser && activity?.length ? <AgentActivityGroup messages={activity} /> : null}
-        <AgentMessageBubble message={message} />
-        {message.options?.length ? (
-          <div className="agent-message-options" aria-label="可选回答">
-            {message.options.map((option) => (
-              <button key={option.id} type="button" onClick={() => onOption?.(option)}>
-                {option.label}
-              </button>
-            ))}
-          </div>
-        ) : null}
-        <AgentMessageActions
-          message={message}
-          activity={activity}
-          onEditUserMessage={onEditUserMessage}
-          onContinueFromMessage={onContinueFromMessage}
-          onCopyMessage={onCopyMessage}
-          onRegenerate={onRegenerate}
-        />
+      {!isUser && activity?.length ? <AgentActivityGroup messages={activity} /> : null}
+      <div className="agent-message-main">
+        {!isUser ? <AgentAvatar role="assistant" /> : null}
+        <div className="agent-message-stack">
+          {isUser && editingContent !== undefined ? (
+            <AgentInlineMessageEditor
+              content={editingContent}
+              saving={Boolean(editSaving)}
+              onCancel={onCancelEdit}
+              onChange={onEditChange}
+              onConfirm={onConfirmEdit}
+            />
+          ) : (
+            <AgentMessageBubble message={message} />
+          )}
+          {isUser && historyOpen ? (
+            <AgentMessageVersionHistory
+              message={message}
+              onEditVersion={onBeginEdit}
+              onClose={onToggleHistory}
+            />
+          ) : null}
+          <AgentConfirmationResolution message={message} />
+          {confirmation ? (
+            <AgentConfirmationCard
+              busy={confirmationBusy}
+              title={confirmation.title}
+              description={confirmation.description}
+              destructive={confirmation.destructive}
+              onCancel={() => onConfirmation?.(false)}
+              onConfirm={() => onConfirmation?.(true)}
+            />
+          ) : null}
+          {message.options?.length ? (
+            <div className="agent-message-options" aria-label="可选回答">
+              {message.options.map((option) => (
+                <button key={option.id} type="button" onClick={() => onOption?.(option)}>
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          ) : null}
+          {editingContent === undefined ? (
+            <AgentMessageActions
+              message={message}
+              activity={activity}
+              onBeginEdit={() => onBeginEdit(message.content)}
+              onToggleHistory={onToggleHistory}
+              onContinueFromMessage={onContinueFromMessage}
+              onCopyMessage={onCopyMessage}
+              onRegenerate={onRegenerate}
+            />
+          ) : null}
+        </div>
+        {isUser ? <AgentAvatar role="user" /> : null}
       </div>
-      {isUser ? <AgentAvatar role="user" /> : null}
     </article>
+  );
+}
+
+function AgentConfirmationResolution({ message }: { message: AgentMessage }) {
+  const resolution = message.metadata?.confirmationResolution;
+  if (resolution !== "confirmed" && resolution !== "rejected" && resolution !== "superseded") return null;
+  const confirmed = resolution === "confirmed";
+  return (
+    <div className={`agent-confirmation-resolution is-${resolution}`} role="status">
+      {confirmed ? <CheckCircle2 aria-hidden="true" /> : <XCircle aria-hidden="true" />}
+      <span>
+        {confirmed
+          ? "您已确认"
+          : resolution === "rejected"
+            ? "您已取消"
+            : "已根据您的纠正重新核对"}
+      </span>
+    </div>
   );
 }
 
@@ -228,32 +401,198 @@ function AgentStreamingIndicator() {
   );
 }
 
+function AgentInlineMessageEditor(props: {
+  content: string;
+  saving: boolean;
+  onCancel(): void;
+  onChange(content: string): void;
+  onConfirm(): void;
+}) {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [props.content]);
+
+  return (
+    <div className="agent-inline-message-editor">
+      <label className="sr-only" htmlFor="agent-inline-message-edit">编辑消息</label>
+      <textarea
+        ref={textareaRef}
+        id="agent-inline-message-edit"
+        aria-label="编辑消息"
+        autoFocus
+        rows={1}
+        value={props.content}
+        disabled={props.saving}
+        onChange={(event) => props.onChange(event.target.value)}
+      />
+      <div className="agent-inline-message-editor-actions">
+        <button type="button" disabled={props.saving} onClick={props.onCancel}>
+          <X aria-hidden="true" />取消
+        </button>
+        <button
+          className="is-primary"
+          type="button"
+          disabled={props.saving || !props.content.trim()}
+          onClick={props.onConfirm}
+        >
+          <Check aria-hidden="true" />{props.saving ? "发送中…" : "确认并重发"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function AgentMessageVersionHistory(props: {
+  message: AgentMessage;
+  onEditVersion(content: string): void;
+  onClose(): void;
+}) {
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLElement>(null);
+  const onCloseRef = useRef(props.onClose);
+  const titleId = `agent-message-history-${props.message.id.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+  useEffect(() => {
+    onCloseRef.current = props.onClose;
+  }, [props.onClose]);
+  useEffect(() => {
+    const previouslyFocused = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : undefined;
+    closeButtonRef.current?.focus();
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onCloseRef.current();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const focusable = dialogRef.current?.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], textarea:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+      if (!focusable?.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      previouslyFocused?.focus();
+    };
+  }, []);
+  const versions = [
+    {
+      id: "current",
+      content: props.message.content,
+      createdAt: props.message.updatedAt ?? props.message.createdAt,
+      current: true
+    },
+    ...[...(props.message.revisions ?? [])]
+      .reverse()
+      .map((revision) => ({ ...revision, current: false }))
+  ];
+  if (typeof document === "undefined") return null;
+  return createPortal(
+    <div
+      className="agent-message-version-backdrop"
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.currentTarget === event.target) props.onClose();
+      }}
+    >
+      <section
+        ref={dialogRef}
+        className="agent-message-version-history"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+      >
+        <header>
+          <div>
+            <h2 id={titleId}>消息历史版本</h2>
+            <p>查看这条消息的当前内容与此前版本。</p>
+          </div>
+          <button ref={closeButtonRef} type="button" aria-label="关闭历史版本" onClick={props.onClose}>
+            <X aria-hidden="true" />
+          </button>
+        </header>
+        <ol>
+          {versions.map((version, index) => (
+            <li key={version.id}>
+              <div>
+                <strong>{version.current ? "当前版本" : `历史版本 ${versions.length - index}`}</strong>
+                <time dateTime={version.createdAt}>{formatMessageVersionTime(version.createdAt)}</time>
+              </div>
+              <p>{version.content}</p>
+              {!version.current ? (
+                <button type="button" onClick={() => props.onEditVersion(version.content)}>
+                  恢复此版本并编辑
+                </button>
+              ) : null}
+            </li>
+          ))}
+        </ol>
+      </section>
+    </div>,
+    document.body
+  );
+}
+
+function formatMessageVersionTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "时间未知";
+  return new Intl.DateTimeFormat("zh-CN", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit"
+  }).format(date);
+}
+
 function AgentMessageActions({
   message,
   activity,
-  onEditUserMessage,
+  onBeginEdit,
+  onToggleHistory,
   onContinueFromMessage,
   onCopyMessage,
   onRegenerate
 }: {
   message: AgentMessage;
   activity?: AgentMessage[];
-  onEditUserMessage?(message: AgentMessage): void;
+  onBeginEdit(): void;
+  onToggleHistory(): void;
   onContinueFromMessage?(message: AgentMessage): void;
   onCopyMessage?(message: AgentMessage): void;
-  onRegenerate?(): void;
+  onRegenerate?(message: AgentMessage): Promise<void> | void;
 }) {
   const isUser = message.role === "user";
   const disabled = isStreamingMessage(message);
   return (
     <div className="agent-message-actions" aria-label={isUser ? "用户消息操作" : "AI 消息操作"}>
       {isUser ? (
-        <button type="button" title="编辑并重发" aria-label="编辑并重发" onClick={() => onEditUserMessage?.(message)}>
-          <Edit3 aria-hidden="true" />
-        </button>
+        <>
+          <button type="button" title="编辑并重发" aria-label="编辑并重发" onClick={onBeginEdit}>
+            <Edit3 aria-hidden="true" />
+          </button>
+          <button type="button" title="历史版本" aria-label="历史版本" onClick={onToggleHistory}>
+            <History aria-hidden="true" />
+          </button>
+        </>
       ) : (
         <>
-          <button type="button" title="重新生成" aria-label="重新生成" disabled={disabled} onClick={onRegenerate}>
+          <button type="button" title="重新生成" aria-label="重新生成" disabled={disabled} onClick={() => void onRegenerate?.(message)}>
             <RotateCcw aria-hidden="true" />
           </button>
           <button type="button" title="基于此继续" aria-label="基于此继续" disabled={disabled} onClick={() => onContinueFromMessage?.(message)}>
@@ -269,7 +608,8 @@ function AgentMessageActions({
           message={message}
           activity={activity}
           disabled={disabled}
-          onEditUserMessage={onEditUserMessage}
+          onBeginEdit={onBeginEdit}
+          onToggleHistory={onToggleHistory}
           onContinueFromMessage={onContinueFromMessage}
           onCopyMessage={onCopyMessage}
         />
@@ -282,14 +622,16 @@ function AgentMessageMoreMenu({
   message,
   activity,
   disabled,
-  onEditUserMessage,
+  onBeginEdit,
+  onToggleHistory,
   onContinueFromMessage,
   onCopyMessage
 }: {
   message: AgentMessage;
   activity?: AgentMessage[];
   disabled: boolean;
-  onEditUserMessage?(message: AgentMessage): void;
+  onBeginEdit(): void;
+  onToggleHistory(): void;
   onContinueFromMessage?(message: AgentMessage): void;
   onCopyMessage?(message: AgentMessage): void;
 }) {
@@ -307,11 +649,12 @@ function AgentMessageMoreMenu({
       <div className="agent-message-more-menu" role="menu">
         {isUser ? (
           <>
-            {onEditUserMessage ? (
-              <button type="button" role="menuitem" disabled={disabled} onClick={() => run(() => onEditUserMessage(message))}>
-                编辑并重新发送
-              </button>
-            ) : null}
+            <button type="button" role="menuitem" disabled={disabled} onClick={() => run(onBeginEdit)}>
+              编辑并重新发送
+            </button>
+            <button type="button" role="menuitem" disabled={disabled} onClick={() => run(onToggleHistory)}>
+              查看历史版本
+            </button>
             {onCopyMessage ? (
               <button type="button" role="menuitem" disabled={disabled} onClick={() => run(() => onCopyMessage(message))}>
                 复制

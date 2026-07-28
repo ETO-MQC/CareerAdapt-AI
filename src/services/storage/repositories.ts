@@ -1,6 +1,7 @@
 import { demoJobDescriptions } from "@/data/demoJobs";
 import { demoCareerProfile } from "@/data/demoProfile";
 import { migrateBranchContentItem, migrateCareerProfileToV2, migrateResumeBranchToV2, projectResumeItemV2 } from "@/domain/migrations/resumeV2";
+import { canonicalProfileLibraryItems } from "@/domain/profile/canonicalLibrary";
 import {
   AiLogSchema,
   AiSuggestionSchema,
@@ -928,6 +929,7 @@ export class WorkspaceRepository {
     profileVersion: number;
     importId: string;
     committedFactCount: number;
+    committedItemCount: number;
     idempotent: boolean;
   }> {
     return this.db.transaction("rw", this.db.appMeta, this.db.profiles, async () => {
@@ -946,6 +948,9 @@ export class WorkspaceRepository {
             profileVersion: value.profileVersion,
             importId: value.importId,
             committedFactCount: value.committedFactCount,
+            committedItemCount: typeof value.committedItemCount === "number"
+              ? value.committedItemCount
+              : 0,
             idempotent: true
           };
         }
@@ -992,6 +997,7 @@ export class WorkspaceRepository {
         confirmedAt: now,
         updatedAt: now
       });
+      const existingItemIds = new Set(canonicalProfileLibraryItems(profile).map((item) => item.id));
       const result = {
         profileId: committedProfile.id,
         profileVersion: committedProfile.version,
@@ -1000,6 +1006,9 @@ export class WorkspaceRepository {
           !["exact_duplicate", "likely_duplicate"].includes(decision.state)
           && decision.resolution !== "keep_existing"
         ).length,
+        committedItemCount: canonicalProfileLibraryItems(committedProfile)
+          .filter((item) => !existingItemIds.has(item.id))
+          .length,
         idempotent: false
       };
       await this.db.profiles.put(committedProfile);

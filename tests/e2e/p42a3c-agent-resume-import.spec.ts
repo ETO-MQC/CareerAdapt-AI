@@ -109,7 +109,7 @@ test.describe("P4.2a.3c autonomous resume import", () => {
     await page.getByLabel("描述你的求职任务").fill("确认这些信息，新建资料库，名称为 测试导入用户");
     await page.getByRole("button", { name: "发送消息" }).click();
     await expect(page.getByRole("region", { name: "确认写入简历与资料库" })).toBeVisible();
-    await page.getByRole("button", { name: "确认并继续" }).click();
+    await page.getByRole("button", { name: "确认", exact: true }).click();
     await expect(page.getByText("已保存到测试导入用户的资料库，并创建通用简历。")).toBeVisible();
     expect(commitObservation?.profileId).toEqual(expect.any(String));
     expect(commitObservation?.branchId).toEqual(expect.any(String));
@@ -223,7 +223,7 @@ test.describe("P4.2a.3c autonomous resume import", () => {
     await expect(page.getByText(/已识别 \d+ 项信息/)).toBeVisible();
     await page.getByLabel("描述你的求职任务").fill("新建资料库，名称为 测试用户");
     await page.getByRole("button", { name: "发送消息" }).click();
-    await page.getByRole("button", { name: "确认并继续" }).click();
+    await page.getByRole("button", { name: "确认", exact: true }).click();
     await expect(page.getByText("已创建测试资料库和通用简历。")).toBeVisible();
     const existingProfile = await profileSnapshot(page, existingProfileId);
     const beforeVersion = existingProfile.version;
@@ -262,7 +262,7 @@ test.describe("P4.2a.3c autonomous resume import", () => {
     });
     await page.getByRole("button", { name: "关闭任务产物" }).click();
     await expect(page.getByRole("region", { name: "确认写入简历与资料库" })).toBeVisible();
-    await page.getByRole("button", { name: "确认并继续" }).click();
+    await page.getByRole("button", { name: "确认", exact: true }).click();
     await expect(page.getByText("已合并到现有资料库，并保留现有通用简历。")).toBeVisible();
     expect(commitCount).toBe(2);
     expect(commitResults[1]).toMatchObject({
@@ -357,7 +357,7 @@ test.describe("P4.2a.3c autonomous resume import", () => {
     await page.getByLabel("描述你的求职任务").fill("新建资料库，名称为 不会写入");
     await page.getByRole("button", { name: "发送消息" }).click();
     await expect(page.getByRole("region", { name: "确认写入简历与资料库" })).toBeVisible();
-    await page.getByRole("button", { name: "确认并继续" }).click();
+    await page.getByRole("button", { name: "确认", exact: true }).click();
     await expect(page.getByText("导入草稿版本已变化，本次写入已拒绝。请刷新核对结果后重试。")).toBeVisible();
     expect(commitError).toBeTruthy();
     const counts = await storeCounts(page);

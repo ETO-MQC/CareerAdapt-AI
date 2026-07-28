@@ -44,6 +44,7 @@ describe("P4.2a.3f profile commit and General Resume bootstrap", () => {
       operationId: "profile-intake-commit-no-resume"
     });
     expect(committed.profileVersion).toBe(2);
+    expect(committed.committedItemCount).toBeGreaterThanOrEqual(3);
     expect(await repository.listResumeBranches(profile.id)).toHaveLength(0);
     const storedProfile = await repository.getProfile(profile.id);
     expect(storedProfile?.experiences.length).toBeGreaterThanOrEqual(3);

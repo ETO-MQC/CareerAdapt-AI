@@ -111,6 +111,132 @@ test.describe("AI workspace shell", () => {
     await expect(page.locator(".agent-message-row")).toHaveCount(0);
   });
 
+  test("keeps the active user and thinking messages when navigating away and back", async ({ page }) => {
+    await page.unroute("**/api/agent/stream");
+    await page.route("**/api/agent/stream", async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 2_000));
+      await route.fulfill({
+        contentType: "text/event-stream",
+        body: [
+          "event: model_text_delta",
+          `data: ${JSON.stringify({ type: "model_text_delta", delta: "跨页面任务已经正常完成。" })}`,
+          "",
+          "event: model_finish",
+          "data: {\"type\":\"model_finish\",\"stopReason\":\"final\"}",
+          "",
+          ""
+        ].join("\n")
+      });
+    });
+
+    await page.goto("/ai-workspace");
+    await page.getByLabel("描述你的求职任务").fill("请保留这条跨页面消息");
+    await page.getByRole("button", { name: "发送消息" }).click();
+    await expect(page.getByText("请保留这条跨页面消息")).toBeVisible();
+    await expect(page.locator('[data-message-status="thinking"], [data-message-status="streaming"]').first()).toBeVisible();
+
+    await page.getByRole("link", { name: "个人资料库" }).click();
+    await expect(page).toHaveURL(/\/profile$/);
+    await page.getByRole("link", { name: "返回任务" }).click();
+    await expect(page).toHaveURL(/\/ai-workspace$/);
+    await expect(page.getByText("请保留这条跨页面消息")).toBeVisible();
+    await expect(page.locator('[data-message-status="thinking"], [data-message-status="streaming"]').first()).toBeVisible();
+
+    await expect(page.getByText("跨页面任务已经正常完成。")).toBeVisible();
+    await expect(page.getByText("请保留这条跨页面消息")).toBeVisible();
+  });
+
+  test("keeps unsent composer drafts isolated by task and restores them when returning", async ({ page }) => {
+    await page.goto("/ai-workspace");
+    const composer = page.getByLabel("描述你的求职任务");
+    await composer.fill("请帮我整理项目经历");
+    await page.getByRole("button", { name: "发送消息" }).click();
+    await expect(page.locator(".agent-message-row.is-assistant").last()).toBeVisible();
+
+    await composer.fill("A 任务里尚未发送的补充内容");
+    await page.getByRole("button", { name: "新任务" }).click();
+    await expect(page.getByRole("heading", { name: "今天想从哪一步开始？" })).toBeVisible();
+    await expect(composer).toHaveValue("");
+
+    await composer.fill("新任务自己的草稿");
+    await page.getByRole("button", { name: /搜索 \/ 历史/ }).click();
+    const history = page.getByRole("dialog", { name: "历史记录" });
+    await expect(history).toBeVisible();
+    await history.locator(".agent-history-list > button").first().click();
+
+    await expect(page.locator(".agent-message-row.is-user").first()).toBeVisible();
+    await expect(composer).toHaveValue("A 任务里尚未发送的补充内容");
+  });
+
+  test("edits the original user message in place and exposes its prior version", async ({ page }) => {
+    let turnRequestCount = 0;
+    page.on("request", (request) => {
+      if (request.method() === "POST" && /\/api\/agent\/(?:turn|stream)$/.test(new URL(request.url()).pathname)) {
+        turnRequestCount += 1;
+      }
+    });
+    await page.setViewportSize({ width: 1366, height: 768 });
+    await page.goto("/ai-workspace");
+    const composer = page.getByLabel("描述你的求职任务");
+    await composer.fill("请帮我整理项目经历");
+    await page.getByRole("button", { name: "发送消息" }).click();
+    await expect(page.locator(".agent-message-row.is-assistant").last()).toBeVisible();
+
+    const userRow = page.locator(".agent-message-row.is-user").first();
+    await userRow.getByRole("button", { name: "编辑并重发" }).click();
+    const inlineEditor = userRow.getByRole("textbox", { name: "编辑消息" });
+    await expect(inlineEditor).toHaveValue("请帮我整理项目经历");
+    await expect(composer).toHaveValue("");
+
+    await userRow.getByRole("button", { name: "确认并重发" }).click();
+    await expect.poll(() => turnRequestCount).toBe(2);
+    await expect(userRow.getByText("请帮我整理项目经历")).toBeVisible();
+
+    await userRow.getByRole("button", { name: "编辑并重发" }).click();
+    const changedEditor = userRow.getByRole("textbox", { name: "编辑消息" });
+    await changedEditor.fill("请先帮我整理最近一段项目经历");
+    await page.screenshot({ path: "artifacts/agent-inline-editor-after-1366x768.png", fullPage: true });
+    await userRow.getByRole("button", { name: "取消" }).click();
+    await expect(userRow.getByText("请帮我整理项目经历")).toBeVisible();
+
+    await userRow.getByRole("button", { name: "编辑并重发" }).click();
+    await userRow.getByRole("textbox", { name: "编辑消息" }).fill("请先帮我整理最近一段项目经历");
+    await userRow.getByRole("button", { name: "确认并重发" }).click();
+    await expect(userRow.getByText("请先帮我整理最近一段项目经历")).toBeVisible();
+    await expect.poll(() => turnRequestCount).toBe(3);
+
+    await userRow.getByRole("button", { name: "历史版本" }).click();
+    const versions = page.getByRole("dialog", { name: "消息历史版本" });
+    await expect(versions).toContainText("当前版本");
+    await expect(versions).toContainText("请帮我整理项目经历");
+    await page.screenshot({ path: "artifacts/agent-message-history-after-1366x768.png", fullPage: true });
+    await page.setViewportSize({ width: 1024, height: 768 });
+    await page.screenshot({ path: "artifacts/agent-message-history-after-1024x768.png", fullPage: true });
+  });
+
+  test("regenerates the selected AI reply in place and executes a new turn", async ({ page }) => {
+    let turnRequestCount = 0;
+    page.on("request", (request) => {
+      if (request.method() === "POST" && /\/api\/agent\/(?:turn|stream)$/.test(new URL(request.url()).pathname)) {
+        turnRequestCount += 1;
+      }
+    });
+    await page.goto("/ai-workspace");
+    await page.getByLabel("描述你的求职任务").fill("请帮我整理项目经历");
+    await page.getByRole("button", { name: "发送消息" }).click();
+
+    const assistantRows = page.locator(".agent-message-row.is-assistant");
+    await expect(assistantRows).toHaveCount(1);
+    await expect.poll(() => turnRequestCount).toBe(1);
+    const messageId = await assistantRows.first().getAttribute("data-message-id");
+
+    await assistantRows.first().getByRole("button", { name: "重新生成" }).click();
+    await expect(assistantRows).toHaveCount(1);
+    await expect.poll(() => turnRequestCount).toBe(2);
+    await expect(assistantRows.first()).toHaveAttribute("data-message-id", messageId ?? "");
+    await expect(assistantRows.first().getByRole("button", { name: "重新生成" })).toBeVisible();
+  });
+
   test("shows the six-card AI-first zero state without fixed artifacts or overflow", async ({ page }) => {
     await page.setViewportSize({ width: 1024, height: 768 });
     await page.goto("/");
@@ -258,7 +384,7 @@ test.describe("AI workspace shell", () => {
     await page.getByRole("button", { name: "解析岗位" }).click();
     await expect(page.getByText(/岗位语义核对/).first()).toBeVisible();
     await expect(page.getByRole("heading", { name: "保存这个岗位？" })).toBeVisible();
-    await page.getByRole("button", { name: "确认并继续" }).click();
+    await page.getByRole("button", { name: "确认", exact: true }).click();
     await page.getByRole("button", { name: "分析匹配并生成建议" }).click();
     await expect(page.locator(".agent-interactive-card")).not.toHaveAttribute("data-workflow-step", "generate_plan", { timeout: 20_000 });
     await expect(page.locator("#agent-question-answer")).toBeVisible({ timeout: 60_000 });
@@ -266,11 +392,11 @@ test.describe("AI workspace shell", () => {
     await page.getByRole("button", { name: "提交回答" }).click();
     await expect(page.getByRole("heading", { name: "使用这项补充信息？" })).toBeVisible();
     returnDiffs = true;
-    await page.getByRole("button", { name: "确认并继续" }).click();
+    await page.getByRole("button", { name: "确认", exact: true }).click();
     await expect(page.getByText("定制修改").first()).toBeVisible({ timeout: 60_000 });
     await page.getByRole("button", { name: "预览将应用的修改" }).click();
     await expect(page.getByRole("heading", { name: "应用这些简历修改？" })).toBeVisible();
-    await page.getByRole("button", { name: "确认并继续" }).click();
+    await page.getByRole("button", { name: "确认", exact: true }).click();
     await expect(page.getByText("新版本已创建")).toBeVisible({ timeout: 20_000 });
     await page.getByRole("link", { name: "打开简历编辑器" }).click();
     await expect(page).toHaveURL(/\/resume\?branchId=/);

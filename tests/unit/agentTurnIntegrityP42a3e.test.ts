@@ -74,6 +74,11 @@ describe("P4.2a.3e turn intent and task isolation", () => {
     ["谢谢", "casual_side_turn"],
     ["你能做什么", "casual_side_turn"],
     ["你能联网吗", "casual_side_turn"],
+    ["我的名字是什么", "casual_side_turn"],
+    ["当前活动资料库已经切换，请重新读取并确认写入目标。", "casual_side_turn"],
+    ["我已经改成小明了，请读取当前资料库确认后继续。", "casual_side_turn"],
+    ["刚才暂时没有新进展的原因是什么", "casual_side_turn"],
+    ["我应该补充什么信息", "casual_side_turn"],
     ["继续", "continue_current_task"],
     ["继续刚才的简历任务", "continue_current_task"],
     ["导入一个岗位", "new_domain_task"],
@@ -93,6 +98,26 @@ describe("P4.2a.3e turn intent and task isolation", () => {
     expect(classified.intent).toBe("casual_side_turn");
     expect(classified.taskMutation).toBe("preserve");
     expect(failed.rootGoal).toBe("create_tailored_resume");
+  });
+
+  it("answers profile identity as a read-only side turn without advancing profile intake", () => {
+    const reducer = new AgentTaskStateReducer();
+    const intake = reducer.create(
+      AgentRuntime.create("guided_profile_intake", "collect_experience"),
+      "profile_intake"
+    );
+    const classified = classifyTurnIntent({
+      text: "我的名字是什么？",
+      taskState: intake
+    });
+
+    expect(classified).toMatchObject({
+      intent: "casual_side_turn",
+      taskMutation: "preserve",
+      toolScope: "profile_read"
+    });
+    expect(intake.rootGoal).toBe("profile_intake");
+    expect(intake.stage).toBe("collect_experience");
   });
 
   it("requires explicit continuation before recovering a terminal task", () => {
@@ -125,6 +150,13 @@ describe("P4.2a.3e turn intent and task isolation", () => {
       goal: "ingest_job",
       workflowId: "job_ingestion",
       stage: "collect_job_description"
+    });
+    expect(classifyTurnIntent({
+      text: "我想分析自己与目标岗位的匹配度。请先向我收集岗位描述和要比较的简历或资料。"
+    }).newTask).toEqual({
+      goal: "analyze_job_fit",
+      workflowId: "analyze_job_fit",
+      stage: "select_assets"
     });
   });
 });
@@ -480,6 +512,66 @@ describe("P4.2a.3e AgentHost isolation and exactly-once persistence", () => {
       status: "recovered",
       streaming: false
     });
+  });
+
+  it("recovers the last substantive intake answer when an older session resumes with 导入", async () => {
+    const reducer = new AgentTaskStateReducer();
+    const base = AgentRuntime.create("guided_profile_intake", "collect_experience");
+    const narrative = "我参加了 ESP32 课程项目，负责心跳模块、摔倒模块和蓝牙联调，并排查了接线错误。";
+    const taskState = {
+      ...reducer.create(base, "profile_intake"),
+      rootGoal: "profile_intake",
+      activeGoal: "profile_intake",
+      goal: "profile_intake",
+      workflowId: "guided_profile_intake",
+      stage: "collect_experience",
+      completionStatus: "waiting_for_user" as const
+    };
+    const session: AgentSession = {
+      ...base,
+      taskState,
+      messages: [{
+        id: "legacy-intake-answer",
+        turnId: "legacy-intake-turn",
+        role: "user",
+        content: narrative,
+        status: "complete",
+        createdAt: "2026-07-28T08:18:25.450Z",
+        updatedAt: "2026-07-28T08:18:25.450Z"
+      }]
+    };
+    const save = vi.fn(async (value: AgentSession) => value);
+    const runTurn = vi.fn(async (input: { session: AgentSession }) => ({
+      trajectory: trajectory("completed"),
+      taskState: input.session.taskState
+    }));
+    const host = new AgentHostStore({
+      kernel: { runTurn } as never,
+      executor: {} as never,
+      persistence: { save } as never
+    });
+
+    await host.startTurn({
+      session,
+      userMessage: "导入",
+      pageContext: { pathname: "/ai-workspace", query: {} }
+    });
+
+    expect(runTurn).toHaveBeenCalledWith(expect.objectContaining({
+      userMessage: "导入",
+      session: expect.objectContaining({
+        taskState: expect.objectContaining({
+          stage: "structure_facts",
+          knownSlots: expect.objectContaining({
+            latestIntakeSource: expect.objectContaining({
+              messageId: "legacy-intake-answer",
+              turnId: "legacy-intake-turn",
+              exactSourceQuote: narrative
+            })
+          })
+        })
+      })
+    }));
   });
 });
 

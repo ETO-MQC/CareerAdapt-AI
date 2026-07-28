@@ -7030,15 +7030,27 @@ html[data-theme="dark"] .property-panel-heading p {
 
 .recycle-workspace {
   display: grid;
-  gap: 16px;
+  gap: 10px;
 }
 
-.recycle-panel,
-.recycle-section-list,
-.recycle-section,
+.recycle-panel {
+  display: grid;
+  gap: 8px;
+}
+
+.recycle-section-list {
+  display: grid;
+  gap: 8px;
+}
+
+.recycle-section {
+  display: grid;
+  gap: 6px;
+}
+
 .recycle-list {
   display: grid;
-  gap: 12px;
+  gap: 6px;
 }
 
 .import-section-bulk-actions {
@@ -7111,7 +7123,7 @@ html[data-theme="dark"] .property-panel-heading p {
 .recycle-section {
   border-top: 1px solid var(--line);
   min-width: 0;
-  padding-top: 12px;
+  padding-top: 8px;
 }
 
 .recycle-row {
@@ -7119,15 +7131,15 @@ html[data-theme="dark"] .property-panel-heading p {
   border: 1px solid var(--line);
   border-radius: 8px;
   display: flex;
-  gap: 16px;
+  gap: 12px;
   justify-content: space-between;
-  min-height: 64px;
-  padding: 12px;
+  min-height: 44px;
+  padding: 8px 12px;
 }
 
 .recycle-row > div:first-child {
   display: grid;
-  gap: 4px;
+  gap: 2px;
   min-width: 0;
 }
 
@@ -7137,6 +7149,7 @@ html[data-theme="dark"] .property-panel-heading p {
 }
 
 .recycle-row strong {
+  font-size: 15px;
   overflow-wrap: anywhere;
 }
 
@@ -7666,7 +7679,12 @@ html[data-theme="dark"] .property-panel-heading p {
 }
 
 .settings-workspace {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   max-width: none;
+  min-height: calc(100dvh - var(--workspace-padding) * 2);
 }
 
 .settings-layout {
@@ -7674,6 +7692,9 @@ html[data-theme="dark"] .property-panel-heading p {
   display: grid;
   gap: 16px;
   grid-template-columns: minmax(220px, 0.45fr) minmax(0, 1fr);
+  margin: 0 auto;
+  max-width: 1080px;
+  width: 100%;
 }
 
 .settings-panel {

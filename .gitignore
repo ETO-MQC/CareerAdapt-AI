@@ -50,3 +50,4 @@ artifacts/
 
 # Claude settings (contains API keys and local config)
 .claude/settings.local.json
+.qoder

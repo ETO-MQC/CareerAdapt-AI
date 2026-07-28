@@ -24,6 +24,9 @@ function safeAutonomousJump(toolName: string, state: AgentTaskState) {
   if (state.workflowId === "tailor_existing_resume" || state.workflowId === "analyze_job_fit") {
     return false;
   }
+  if (["get_agent_task_context", "search_agent_sessions"].includes(toolName)) {
+    return state.workflowId === "agent_quick_action" && state.rootGoal === "conversation";
+  }
   if (toolName === "parse_job_description") return has(state, "rawText");
   if (toolName === "prepare_resume_import") {
     return state.rootGoal === "import_resume" && Boolean(state.attachment?.id);

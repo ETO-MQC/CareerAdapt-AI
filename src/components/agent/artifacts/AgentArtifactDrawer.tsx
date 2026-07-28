@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import type { AgentArtifactRef } from "@/agent/contracts/agentArtifact";
 import type { TailorWorkflowViewState } from "@/agent/workflows/tailorExistingResumeWorkflow";
 import type { AgentTaskState } from "@/agent/contracts/agentSession";
+import type { AgentArtifactAction } from "@/agent/contracts/agentActions";
 import { AgentArtifactContent } from "./AgentArtifactContent";
 
 export type AgentArtifactDrawerState = "closed" | "open" | "pinned" | "collapsed";
@@ -15,6 +16,7 @@ export function AgentArtifactDrawer({
   workflowState,
   taskState,
   onImportAction,
+  onArtifactAction,
   onStateChange
 }: {
   artifacts: AgentArtifactRef[];
@@ -22,6 +24,7 @@ export function AgentArtifactDrawer({
   workflowState: TailorWorkflowViewState;
   taskState?: AgentTaskState;
   onImportAction?(message: string): void;
+  onArtifactAction?(action: AgentArtifactAction): void;
   onStateChange(state: AgentArtifactDrawerState): void;
 }) {
   const [width, setWidth] = useState(432);
@@ -73,7 +76,7 @@ export function AgentArtifactDrawer({
           <span>{artifacts.length}</span>
         </button>
         <div hidden aria-hidden="true">
-          <AgentArtifactContent state={workflowState} taskState={taskState} onImportAction={onImportAction} />
+          <AgentArtifactContent state={workflowState} taskState={taskState} onImportAction={onImportAction} onArtifactAction={onArtifactAction} />
         </div>
       </aside>
     );
@@ -152,7 +155,7 @@ export function AgentArtifactDrawer({
           ))}
         </div>
         <div className="agent-artifact-drawer-body">
-          <AgentArtifactContent state={workflowState} taskState={taskState} onImportAction={onImportAction} />
+          <AgentArtifactContent state={workflowState} taskState={taskState} onImportAction={onImportAction} onArtifactAction={onArtifactAction} />
           {workflowState.jobGraph || workflowState.fitAnalysis || workflowState.tailoringSession || workflowState.appliedRevisionId || taskState?.knownSlots.importArtifact || taskState?.knownSlots.intakeArtifact ? null : (
             <div className="agent-artifact-partial">
               <strong>{selectedArtifact?.title}</strong>

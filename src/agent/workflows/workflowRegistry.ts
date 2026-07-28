@@ -16,7 +16,6 @@ const profileReadTools = ["list_profiles", "get_active_profile", "get_profile", 
 const resumeReadTools = ["list_resumes", "get_resume", "get_resume_revision"];
 const jobReadTools = ["list_jobs", "get_job"];
 const readTools = [...profileReadTools, ...resumeReadTools, ...jobReadTools];
-const proceduralTools = ["skills_list", "skill_view", "get_agent_task_context", "search_agent_sessions"];
 
 export const agentWorkflowRegistry: Record<string, AgentWorkflowDefinition> = {
   guided_profile_intake: workflow("guided_profile_intake", "resolve_profile_target", ["resolve_profile_target", "collect_experience", "structure_facts", "review_facts", "reconcile_profile", "resolve_conflicts", "confirm_commit", "profile_complete", "optional_resume_decision", "resume_ready"], {
@@ -149,7 +148,10 @@ export function allowedToolManifestForStep(
 ) {
   const definition = getWorkflowDefinition(workflowId);
   if (!definition) return manifest;
-  const allowed = new Set([...(definition.allowedToolsByStep[step] ?? []), ...proceduralTools]);
+  // Canonical workflows already carry their task state and active Skills.
+  // Session-memory/procedural tools must not compete with the required domain
+  // action (for example, experience capture) and consume the iteration budget.
+  const allowed = new Set(definition.allowedToolsByStep[step] ?? []);
   return manifest.filter((tool) => allowed.has(String(tool.name)));
 }
 

@@ -5,10 +5,7 @@ import type { JobDescription, ProfileRecycleItem, RecycleBinState, ResumeBranch 
 import { WorkspaceRepository } from "@/services/storage/repositories";
 import { readDeveloperMode } from "@/services/preferences/developerMode";
 import { notify } from "@/services/notifications/store";
-import {
-  ProductSurface,
-  ProductTopbar
-} from "@/components/ui/product";
+import { ProductSurface } from "@/components/ui/product";
 
 const repository = new WorkspaceRepository();
 type RecycleFilter = "all" | "resume" | "profile" | "job";
@@ -124,7 +121,12 @@ export function RecycleBinWorkspace() {
 
   return (
     <main className="page-shell recycle-workspace">
-      <ProductTopbar title="回收站" status={`${total} 项已删除内容`} />
+      <header className="product-topbar">
+        <div className="product-topbar-heading">
+          <h1>回收站</h1>
+          <span className="product-topbar-status">{total} 项已删除内容</span>
+        </div>
+      </header>
       <ProductSurface className="recycle-panel">
         <div className="section-heading compact-heading"><div><h2>已删除内容</h2><p>共 {total} 项</p></div>{developerMode && total > 0 ? <button className="danger-button compact" type="button" onClick={() => { void quickCleanRecycleBin(); }}>快速清理</button> : null}</div>
         <div className="resume-filter-row" role="tablist" aria-label="回收站分类">

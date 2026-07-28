@@ -55,11 +55,23 @@ export function classifyTurnIntent(input: {
   ) {
     return decision("casual_side_turn", "preserve", "none");
   }
-  if (/^(你能|可以).*(读取|查看|访问).*(资料库|个人资料)|^我是谁$/i.test(text)) {
+  if (
+    /^(你能|可以).*(读取|查看|访问).*(资料库|个人资料)/i.test(text)
+    || /^(?:我的)?(?:名字|姓名)(?:是|叫)?什么(?:来着)?[？?]?$/i.test(text)
+    || /^我是谁[？?]?$/i.test(text)
+    || /^(?:你应该|请|以后)?怎么称呼我[？?]?$/i.test(text)
+    || /(?:资料库|个人资料).*(?:已经)?(?:切换|改名|重命名).*(?:重新)?读取|(?:已经)?(?:切换|改名|重命名|改成).*(?:请)?(?:重新)?读取.*(?:资料库|个人资料)|(?:当前|活动)资料库.*(?:确认|写入目标)/i.test(text)
+  ) {
     return decision("casual_side_turn", "preserve", "profile_read");
   }
   if (
-    /导入(一个|新的?|这个|该)?(岗位|职位)|重新.*(另一份|新的?).*简历|我想(申请|应聘|投)(这个|该)?(岗位|职位)|录入(一个|新的?|这个|该)?(岗位|职位)|上传.*简历|分析.*(JD|岗位描述|职位描述)|(深挖|丰富|梳理|挖掘).*(经历|项目)|从零.*(整理|梳理).*(经历|资料)|定制简历|岗位定制/i.test(text)
+    /^(?:刚才|为什么|为何).*(?:暂时)?没有新进展.*(?:原因|怎么回事|为什么)?[？?]?$/i.test(text)
+    || /^(?:我)?(?:应该|需要|还要)(?:补充|提供)(?:什么|哪些).*(?:信息|资料)?[？?]?$/i.test(text)
+  ) {
+    return decision("casual_side_turn", "preserve", "none");
+  }
+  if (
+    /导入(一个|新的?|这个|该)?(岗位|职位)|重新.*(另一份|新的?).*简历|我想(申请|应聘|投)(这个|该)?(岗位|职位)|录入(一个|新的?|这个|该)?(岗位|职位)|上传.*简历|分析.*(JD|岗位描述|职位描述)|(深挖|丰富|梳理|挖掘).*(经历|项目)|从零.*(整理|梳理).*(经历|资料)|定制简历|岗位定制|匹配度|岗位.*匹配|匹配.*岗位/i.test(text)
     || isExplicitExportIntent(text)
     || looksLikeJobDescription(text)
   ) {
@@ -86,6 +98,9 @@ function newDomainTask(text: string): NonNullable<TurnIntentDecision["newTask"]>
   }
   if (/从零.*(整理|梳理).*(经历|资料)|整理自己的真实经历/i.test(text)) {
     return { goal: "profile_intake", workflowId: "guided_profile_intake", stage: "resolve_profile_target" };
+  }
+  if (/匹配度|岗位.*匹配|匹配.*岗位/i.test(text)) {
+    return { goal: "analyze_job_fit", workflowId: "analyze_job_fit", stage: "select_assets" };
   }
   if (/分析.*(JD|岗位描述|职位描述)|JD.*分析/i.test(text)) {
     return { goal: "ingest_job", workflowId: "job_ingestion", stage: "collect_job_description" };
@@ -114,7 +129,7 @@ function decision(
 }
 
 function referenceToolScope(text: string): TurnToolScope {
-  return /我是谁|读取.*资料库|查看.*资料库/i.test(text) ? "profile_read" : "none";
+  return /我是谁|我的名字|姓名|怎么称呼我|读取.*资料库|查看.*资料库/i.test(text) ? "profile_read" : "none";
 }
 
 function isExplicitExportIntent(text: string) {
