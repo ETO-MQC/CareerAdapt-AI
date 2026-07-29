@@ -348,6 +348,100 @@
   font-size: 11px;
 }
 
+.agent-career-asset-list {
+  display: grid;
+  gap: 8px;
+  max-height: min(56vh, 560px);
+  overscroll-behavior: contain;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.agent-career-follow-up {
+  border-left: 2px solid var(--ai-accent);
+  margin: 0 0 12px;
+  padding-left: 8px;
+}
+
+.agent-career-follow-up strong {
+  color: var(--ai-text);
+}
+
+.agent-career-asset {
+  border: 1px solid var(--ai-border);
+  border-radius: var(--ai-radius-sm);
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 12px;
+}
+
+.agent-career-asset > header {
+  align-items: flex-start;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.agent-career-asset > header > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.agent-career-asset > header strong,
+.agent-career-asset-detail strong {
+  color: var(--ai-text);
+}
+
+.agent-career-asset-type {
+  color: var(--ai-muted);
+  font-size: 11px;
+}
+
+.agent-career-asset-status {
+  border: 1px solid var(--ai-border);
+  border-radius: 999px;
+  flex: 0 0 auto;
+  font-size: 11px;
+  padding: 2px 8px;
+}
+
+.agent-career-asset-status.is-confirmed {
+  color: var(--ai-accent);
+}
+
+.agent-career-asset-status.is-conflict,
+.agent-career-asset-status.is-insufficient {
+  color: var(--ai-danger);
+}
+
+.agent-career-asset-meta,
+.agent-career-asset-description {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.agent-career-asset-description {
+  color: var(--ai-text);
+  white-space: pre-line;
+}
+
+.agent-career-asset details {
+  border-top: 1px solid var(--ai-border);
+  padding-top: 8px;
+}
+
+.agent-career-asset-detail {
+  display: grid;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.agent-career-asset-detail ul {
+  margin: 0;
+}
+
 .agent-import-review-actions button {
   background: transparent;
   border: 0;

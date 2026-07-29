@@ -5047,8 +5047,8 @@ export class WorkspaceRepository {
     return next;
   }
 
-  async getProfileItemReferenceCount(item: { kind: "experience" | "certificate" | "skill" | "custom"; id: string }) {
-    if (item.kind === "custom") return 0;
+  async getProfileItemReferenceCount(item: { kind: "experience" | "certificate" | "skill" | "custom" | "canonical"; id: string }) {
+    if (item.kind === "custom" || item.kind === "canonical") return 0;
     return this.db.resumeBranches.filter((branch) => branch.contentItems.some((content) => content.factRefs.some((ref) =>
       item.kind === "experience" ? ref.type === "experience_fact" && ref.experienceId === item.id
         : item.kind === "certificate" ? ref.type === "certificate_fact" && ref.certificateId === item.id

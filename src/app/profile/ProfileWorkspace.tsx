@@ -55,7 +55,7 @@ const profileArchiveV2Key = (profileId: string) => `profileArchive:${profileId}:
 
 type ProfileCategoryId = string;
 type ProfileUsageFilter = "all" | "used" | "unused" | "archived";
-type ProfileManagedKind = "basic" | "summary" | "experience" | "certificate" | "skill" | "custom";
+type ProfileManagedKind = "basic" | "summary" | "experience" | "certificate" | "skill" | "custom" | "canonical";
 
 type ArchivedCustomBlock = {
   id: string;
@@ -767,6 +767,14 @@ export function ProfileWorkspace() {
       }
       nextArchive = { ...profileArchive, skills: [{ ...target, updatedAt: now }, ...profileArchive.skills.filter((entry) => entry.id !== item.id)] };
       nextProfile = { ...profile, skills: profile.skills.filter((entry) => entry.id !== item.id), version: profile.version + 1, updatedAt: now };
+    } else if (item.kind === "canonical") {
+      const factEntry = (profile.structuredFacts ?? []).find((entry) => entry.data.id === item.id);
+      if (!factEntry) return;
+      nextArchive = {
+        ...profileArchive,
+        customBlocks: [{ id: `custom-archive-${nanoid(8)}`, text: item.body, createdAt: now, updatedAt: now }, ...profileArchive.customBlocks]
+      };
+      nextProfile = { ...profile, structuredFacts: (profile.structuredFacts ?? []).filter((entry) => entry.data.id !== item.id), version: profile.version + 1, updatedAt: now };
     } else {
       const index = Number(item.id.replace("custom:", ""));
       const target = profile.unclassifiedBlocks[index];
@@ -867,6 +875,11 @@ export function ProfileWorkspace() {
       nextProfile = item.archived ? profile : { ...profile, skills: profile.skills.filter((entry) => entry.id !== item.id), version: profile.version + 1, updatedAt: now };
       nextArchive = item.archived ? { ...profileArchive, skills: profileArchive.skills.filter((entry) => entry.id !== item.id) } : profileArchive;
       recycleItem = { id: item.id, profileId: profile.id, kind: "skill", category: item.category, title: item.title, deletedAt: now, value };
+    } else if (item.kind === "canonical") {
+      const factEntry = (profile.structuredFacts ?? []).find((entry) => entry.data.id === item.id);
+      if (!factEntry) return;
+      nextProfile = { ...profile, structuredFacts: (profile.structuredFacts ?? []).filter((entry) => entry.data.id !== item.id), version: profile.version + 1, updatedAt: now };
+      recycleItem = { id: item.id, profileId: profile.id, kind: "custom", category: item.category, title: item.title, deletedAt: now, value: item.body };
     } else {
       const activeIndex = Number(item.id.replace("custom:", ""));
       const archived = profileArchive.customBlocks.find((entry) => entry.id === item.id);
@@ -913,6 +926,11 @@ export function ProfileWorkspace() {
       nextProfile = item.archived ? profile : { ...profile, skills: profile.skills.filter((entry) => entry.id !== item.id), version: profile.version + 1, updatedAt: now };
       nextArchive = item.archived ? { ...profileArchive, skills: profileArchive.skills.filter((entry) => entry.id !== item.id) } : profileArchive;
       recycleItem = { id: item.id, profileId: profile.id, kind: "skill", category: item.category, title: item.title, deletedAt: now, value };
+    } else if (item.kind === "canonical") {
+      const factEntry = (profile.structuredFacts ?? []).find((entry) => entry.data.id === item.id);
+      if (!factEntry) return;
+      nextProfile = { ...profile, structuredFacts: (profile.structuredFacts ?? []).filter((entry) => entry.data.id !== item.id), version: profile.version + 1, updatedAt: now };
+      recycleItem = { id: item.id, profileId: profile.id, kind: "custom", category: item.category, title: item.title, deletedAt: now, value: item.body };
     } else {
       const activeIndex = Number(item.id.replace("custom:", ""));
       const archived = profileArchive.customBlocks.find((entry) => entry.id === item.id);
@@ -992,6 +1010,11 @@ export function ProfileWorkspace() {
         nextProfile = item.archived ? nextProfile : { ...nextProfile, skills: nextProfile.skills.filter((entry) => entry.id !== item.id), version: nextProfile.version + 1, updatedAt: now };
         nextArchive = item.archived ? { ...nextArchive, skills: nextArchive.skills.filter((entry) => entry.id !== item.id) } : nextArchive;
         recycleItems.push({ id: item.id, profileId: profile.id, kind: "skill", category: item.category, title: item.title, deletedAt: now, value });
+      } else if (item.kind === "canonical") {
+        const factEntry = (nextProfile.structuredFacts ?? []).find((entry) => entry.data.id === item.id);
+        if (!factEntry) continue;
+        nextProfile = { ...nextProfile, structuredFacts: (nextProfile.structuredFacts ?? []).filter((entry) => entry.data.id !== item.id), version: nextProfile.version + 1, updatedAt: now };
+        recycleItems.push({ id: item.id, profileId: profile.id, kind: "custom", category: item.category, title: item.title, deletedAt: now, value: item.body });
       } else {
         const activeIndex = Number(item.id.replace("custom:", ""));
         const archived = nextArchive.customBlocks.find((entry) => entry.id === item.id);
@@ -2376,7 +2399,7 @@ function buildCurrentProfileItems(profile: CareerProfile, category: ProfileCateg
     .map((item) => ({
       key: `canonical:${item.sectionType}:${item.id}`,
       id: item.id,
-      kind: "custom" as const,
+      kind: "canonical" as const,
       category,
       title: item.title,
       subtitle: item.subtitle,
@@ -2735,9 +2758,11 @@ function synchronizeProfileStructuredFacts(nextProfile: CareerProfile, previousP
     ...previous.skills.flatMap((item) => item.fact ? [item.fact.id] : []),
     ...previous.certificates.flatMap((item) => item.fact ? [item.fact.id] : [])
   ]);
+  const nextFactIds = new Set((nextProfile.structuredFacts ?? []).map((entry) => entry.data.id));
   const canonicalOnlyFacts = (previous.structuredFacts ?? []).filter((entry) =>
     !previousLegacyIds.has(entry.data.id)
     && !entry.factIds.some((factId) => previousLegacyFactIds.has(factId))
+    && nextFactIds.has(entry.data.id)
   );
   const rebuilt = migrateCareerProfileToV2({
     ...nextProfile,

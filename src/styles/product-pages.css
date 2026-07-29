@@ -425,7 +425,7 @@
 .ai-asset-content .recycle-panel {
   grid-template-rows: auto 44px minmax(0, 1fr);
   margin-inline: auto;
-  max-width: 10800px;
+  max-width: 1080px;
   width: calc(100% - 0px);
 }
 

@@ -12,11 +12,14 @@
 ## Procedure
 1. 读取已有经历和证据。
 2. 区分已知事实、待确认问题和未知信息。
-3. 总结代表经历、优势与缺口。
-4. 对最有价值的空白逐项追问。
+3. 对每段经历评估 identity、time、role、action、tools/methods、challenge、scope、result/outcome、collaboration、evidence。
+4. 这些维度不是表单必填项。使用 deterministic completeness / utility 规则，只把会明显提高后续简历价值的缺口列为追问候选。
+5. 按 action → result/outcome → tools/methods → challenge → necessary scope → collaboration boundary 的顺序评估价值。
+6. 一次只问一个最高价值问题；回答后更新同一 candidate。若回答包含完全新的经历，追加到同一 Intake Draft，不要求重新开始。
+7. 总结代表经历、优势与仍有价值的缺口。
 
 ## Boundaries and fact rules
-不得把问题中的假设当作事实；未确认的新信息不得进入简历预览、PDF 或资料库。
+不得把问题中的假设当作事实；未确认的新信息不得进入简历预览、PDF 或资料库。不得把协助升级为主导、参与升级为负责、接触升级为熟练，也不得制造数字、个人成果、工具或结果。
 
 ## Recovery and completion
-证据不足时说明缺失类型，不做负面身份推断。完成标准是结论均能回指资料条目。
+证据不足时保留原始回答并说明缺失类型，不做负面身份推断。非关键细节优先采用不依赖该细节的安全表达。完成标准是结论均能回指资料条目和原始消息证据。

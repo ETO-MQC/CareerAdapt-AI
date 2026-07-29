@@ -1,18 +1,42 @@
 import { ImportedResumeDraftSchema, type ImportedResumeDraft } from "@/domain/schemas";
 import { stableHashText } from "@/services/security/text";
 import { ProfileIntakeNormalizer } from "./ProfileIntakeNormalizer";
+import type {
+  ProfileIntakeSemanticResult,
+  VerifiedProfileIntakeCandidate
+} from "./ProfileIntakeSemanticService";
 
 export type ConversationIntakeCandidate = {
   id: string;
-  kind: "education" | "project" | "award" | "research" | "campus";
+  sectionType: VerifiedProfileIntakeCandidate["normalization"]["sectionType"];
+  kind: "education" | "work" | "internship" | "project" | "award" | "research" | "campus" | "volunteer" | "other";
   label: string;
   sourceQuote: string;
   needsConfirmation: boolean;
   reason?: string;
+  status: "confirmed" | "ai_review" | "insufficient";
+  professionalDescription: string;
 };
 
 export type ConversationIntakeArtifact = {
   title: "经历核对";
+  followUpQuestion?: string;
+  candidates: Array<{
+    id: string;
+    sectionType: ConversationIntakeCandidate["sectionType"];
+    label: string;
+    time?: string;
+    organization?: string;
+    role?: string;
+    professionalDescription: string;
+    highlights: string[];
+    toolsOrMethods: string[];
+    outcomes: string[];
+    sources: string[];
+    status: "confirmed" | "ai_review" | "insufficient" | "duplicate" | "conflict";
+    confidence: number;
+    reason?: string;
+  }>;
   recognized: Array<{ id: string; label: string }>;
   needsConfirmation: Array<{ id: string; label: string; reason: string }>;
   duplicates: Array<{ id: string; label: string }>;
@@ -32,6 +56,7 @@ export function adaptConversationMessageToIntakeDraft(input: {
   text: string;
   capturedAt: string;
   importId?: string;
+  semanticResult?: ProfileIntakeSemanticResult;
 }): {
   draft: ImportedResumeDraft;
   candidates: ConversationIntakeCandidate[];
@@ -43,22 +68,40 @@ export function adaptConversationMessageToIntakeDraft(input: {
   const hash = `${shortHash}${stableHashText(`${text}:${input.turnId}`)}`;
   const importId = input.importId ?? `conversation-intake-${hash.slice(0, 20)}`;
   const normalizer = new ProfileIntakeNormalizer();
-  const candidates = extractCandidates(text, hash.slice(0, 8)).map((candidate) => {
-    const normalized = normalizer.normalize(candidate);
-    return normalized.needsConfirmation && !candidate.needsConfirmation
-      ? {
-          ...candidate,
-          needsConfirmation: true,
-          reason: "来源包含可能影响职业事实准确性的表述，请确认"
-        }
-      : candidate;
-  });
+  const semanticResult = input.semanticResult ?? {
+    mode: "deterministic" as const,
+    providerStatus: "failed" as const,
+    warning: "AI 语义整理尚未执行；已保留原始回答。",
+    candidates: [{
+      id: `intake-${hash.slice(0, 16)}-fallback`,
+      label: "待整理经历",
+      sourceQuote: text,
+      normalization: normalizer.fallback(text)
+    }]
+  };
+  const candidates: ConversationIntakeCandidate[] = semanticResult.candidates.map((candidate) => ({
+    id: candidate.id,
+    sectionType: candidate.normalization.sectionType,
+    kind: candidateKind(candidate.normalization.sectionType),
+    label: candidate.label,
+    sourceQuote: candidate.sourceQuote,
+    needsConfirmation: candidate.normalization.needsConfirmation,
+    reason: candidate.normalization.needsNormalization
+      ? "AI 语义整理暂不可用，原始回答已保留，请重试或手动核对"
+      : candidate.normalization.needsConfirmation
+        ? "AI 已整理，但有信息需要确认"
+        : undefined,
+    status: candidate.normalization.needsNormalization
+      ? "insufficient"
+      : candidate.normalization.needsConfirmation ? "ai_review" : "confirmed",
+    professionalDescription: candidate.normalization.normalizedText
+  }));
   const sections = candidates.map((candidate, order) => {
-    const normalized = normalizer.normalize(candidate);
+    const normalized = semanticResult.candidates[order].normalization;
     return {
     id: `section-${candidate.id}`,
-    sectionType: candidateSectionType(candidate.kind),
-    category: candidateCategory(candidate.kind),
+    sectionType: candidate.sectionType,
+    category: candidateCategory(candidate.sectionType),
     detectedTitle: candidate.label,
     included: !candidate.needsConfirmation,
     order,
@@ -88,7 +131,7 @@ export function adaptConversationMessageToIntakeDraft(input: {
       }],
       careerNormalization: {
         version: "profile-intake-normalization-v1" as const,
-        mode: "deterministic" as const,
+        mode: semanticResult.mode,
         needsNormalization: normalized.needsNormalization,
         fieldEvidence: normalized.fieldEvidence
       }
@@ -125,13 +168,20 @@ export function adaptConversationMessageToIntakeDraft(input: {
       charEnd: text.length
     }],
     unclassifiedBlocks: [],
-    warnings: candidates.filter((candidate) => candidate.needsConfirmation).map((candidate) => ({
+    warnings: [
+      ...(semanticResult.warning ? [{
+        code: "provider_unavailable" as const,
+        message: semanticResult.warning,
+        pageNumber: 1
+      }] : []),
+      ...candidates.filter((candidate) => candidate.needsConfirmation).map((candidate) => ({
       code: "ambiguous_field",
       message: candidate.reason ?? `${candidate.label} 需要确认`,
       pageNumber: 1,
       itemId: candidate.id,
       sectionId: `section-${candidate.id}`
-    })),
+      }))
+    ],
     parserVersion: "conversation-intake.v1",
     createdAt: input.capturedAt,
     updatedAt: input.capturedAt
@@ -142,6 +192,11 @@ export function adaptConversationMessageToIntakeDraft(input: {
     candidates,
     artifact: {
       title: "经历核对",
+      followUpQuestion: semanticResult.followUpQuestion,
+      candidates: candidates.map((candidate, index) => artifactCandidate(
+        candidate,
+        semanticResult.candidates[index].normalization
+      )),
       recognized: recognized.map(({ id, label }) => ({ id, label })),
       needsConfirmation: candidates
         .filter((candidate) => candidate.needsConfirmation)
@@ -158,85 +213,99 @@ export function adaptConversationMessageToIntakeDraft(input: {
   };
 }
 
-function extractCandidates(text: string, seed: string): ConversationIntakeCandidate[] {
-  const result: ConversationIntakeCandidate[] = [];
-  const add = (
-    kind: ConversationIntakeCandidate["kind"],
-    key: string,
-    label: string,
-    pattern: RegExp,
-    options?: { ambiguous?: RegExp; reason?: string }
-  ) => {
-    const sourceQuote = sourceSentence(text, pattern);
-    if (!sourceQuote) return;
-    const needsConfirmation = Boolean(options?.ambiguous?.test(sourceQuote));
-    result.push({
-      id: `intake-${seed}-${key}`,
-      kind,
-      label,
-      sourceQuote,
-      needsConfirmation,
-      reason: needsConfirmation ? options?.reason : undefined
-    });
+export function mergeConversationIntakeDraft(
+  existing: ImportedResumeDraft,
+  addition: ImportedResumeDraft
+): ImportedResumeDraft {
+  if (existing.sourceKind !== "conversation" || addition.sourceKind !== "conversation") {
+    throw new Error("profile_intake_merge_requires_conversation_drafts");
+  }
+  const existingIds = new Set(existing.sections.flatMap((section) => section.items.map((item) => item.id)));
+  const additions = addition.sections
+    .map((section) => ({
+      ...section,
+      order: existing.sections.length + section.order,
+      items: section.items.filter((item) => !existingIds.has(item.id))
+    }))
+    .filter((section) => section.items.length);
+  const rawText = [existing.pages[0]?.rawText, addition.pages[0]?.rawText].filter(Boolean).join("\n");
+  return ImportedResumeDraftSchema.parse({
+    ...existing,
+    sections: [...existing.sections, ...additions],
+    pages: [{
+      pageNumber: 1,
+      rawText,
+      normalizedText: rawText,
+      charStart: 0,
+      charEnd: rawText.length
+    }],
+    warnings: [...existing.warnings, ...addition.warnings],
+    updatedAt: addition.updatedAt
+  });
+}
+
+function candidateCategory(sectionType: ConversationIntakeCandidate["sectionType"]) {
+  const category = {
+    summary: "summary",
+    education: "education",
+    work: "work",
+    internship: "work",
+    project: "project",
+    research: "custom",
+    campus: "campus",
+    volunteer: "custom",
+    awards: "award",
+    skills: "skill",
+    certificates: "certificate",
+    languages: "language",
+    publications: "custom",
+    patents: "custom",
+    portfolio: "custom",
+    other: "custom",
+    custom: "custom"
+  } as const;
+  return category[sectionType];
+}
+
+function candidateKind(sectionType: ConversationIntakeCandidate["sectionType"]): ConversationIntakeCandidate["kind"] {
+  if (sectionType === "awards") return "award";
+  if (["education", "work", "internship", "project", "research", "campus", "volunteer"].includes(sectionType)) {
+    return sectionType as ConversationIntakeCandidate["kind"];
+  }
+  return "other";
+}
+
+function artifactCandidate(
+  candidate: ConversationIntakeCandidate,
+  normalized: VerifiedProfileIntakeCandidate["normalization"]
+): ConversationIntakeArtifact["candidates"][number] {
+  const item = normalized.structuredItem;
+  const date = item.sectionType === "awards"
+    ? item.awardedAt
+    : "startDate" in item
+      ? [item.startDate, item.current ? "至今" : item.endDate].filter(Boolean).join(" — ")
+      : undefined;
+  const organization = "organization" in item ? item.organization
+    : "institution" in item ? item.institution
+      : item.sectionType === "education" ? item.school
+        : "issuer" in item ? item.issuer : undefined;
+  const role = "role" in item ? item.role
+    : "authorRole" in item ? item.authorRole
+      : item.sectionType === "education" ? item.major : undefined;
+  return {
+    id: candidate.id,
+    sectionType: candidate.sectionType,
+    label: candidate.label,
+    time: date,
+    organization,
+    role,
+    professionalDescription: normalized.normalizedText,
+    highlights: "highlights" in item ? item.highlights : [],
+    toolsOrMethods: "tools" in item ? item.tools : "methods" in item ? item.methods : [],
+    outcomes: "outcomes" in item ? item.outcomes : [],
+    sources: [...new Set(normalized.fieldEvidence.map((entry) => entry.sourceQuote))],
+    status: candidate.status,
+    confidence: normalized.confidence,
+    reason: candidate.reason
   };
-
-  add("education", "education", educationLabel(text), /示例大学|计算机相关专业/);
-  add("project", "esp32", "ESP32 穿戴设备课程项目", /ESP\s*32|心跳.*摔倒|摔倒.*心跳/i);
-  add("award", "lanqiao", "示例编程竞赛某省省级三等奖", /示例编程竞赛|南郊杯|蓝郊杯/, {
-    ambiguous: /南郊杯|蓝郊杯|示例编程竞赛.*南郊杯/,
-    reason: "竞赛名称存在可能的语音转写差异"
-  });
-  add("research", "research", "视觉模型 / Python PDF 数据提取", /1000\s*页|视觉模型.*Python|Python.*PDF/i);
-  add("campus", "league", "团支书与团日活动", /团支书|团日活动/);
-  add("project", "smartfocus", projectLabel(text, /Smart\s*(Focus|Fox)|Task\s*AI/i, "示例任务系统 / TaskAI"), /Smart\s*(Focus|Fox)|Task\s*AI/i, {
-    ambiguous: /Smart\s*Fox/i,
-    reason: "项目名称可能是 示例任务系统、Smart Fox 或 TaskAI"
-  });
-  add("project", "learning-assistant", projectLabel(
-    text,
-    /Learn\s*(?:Some|Kata|Cat)(?:\s*AI\s*Tool)?/i,
-    "AI 学习助手"
-  ), /Learn\s*(?:Some|Kata|Cat)(?:\s*AI\s*Tool)?/i, {
-    ambiguous: /Learn\s*Cat/i,
-    reason: "项目名称可能被语音转写"
-  });
-  add("project", "xiaohongshu", "示例内容采集与 AI 可信度分析", /示例内容.*(可信度|可视|采集)|可信度分析.*示例内容/);
-  add("project", "careeradap", "CareerAdapt AI", /CareerAdapt\s*AI|职适\s*AI|简历制作平台/i);
-  return result;
-}
-
-function sourceSentence(text: string, pattern: RegExp) {
-  const clauses = text
-    .split(/[。！？；\n]+|(?:然后)?(?=社团学生组织)|(?:下一个|第二个|第三个|第四个)/u)
-    .map((clause) => clause.trim())
-    .filter(Boolean);
-  const clause = clauses.find((value) => {
-    pattern.lastIndex = 0;
-    return pattern.test(value);
-  });
-  pattern.lastIndex = 0;
-  return clause?.slice(0, 1200);
-}
-
-function projectLabel(text: string, pattern: RegExp, fallback: string) {
-  return pattern.exec(text)?.[0]?.trim() || fallback;
-}
-
-function educationLabel(text: string) {
-  const values = [
-    /示例大学/u.test(text) ? "示例大学" : undefined,
-    /计算机相关专业/u.test(text) ? "计算机相关专业" : undefined
-  ].filter(Boolean);
-  return values.join(" / ");
-}
-
-function candidateSectionType(kind: ConversationIntakeCandidate["kind"]) {
-  if (kind === "award") return "awards" as const;
-  return kind;
-}
-
-function candidateCategory(kind: ConversationIntakeCandidate["kind"]) {
-  if (kind === "award") return "award" as const;
-  if (kind === "research") return "custom" as const;
-  return kind;
 }

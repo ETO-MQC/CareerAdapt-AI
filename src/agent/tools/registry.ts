@@ -84,7 +84,9 @@ const ProfileIntakeCaptureInputSchema = z.object({
   capturedAt: z.string().datetime({ offset: true }),
   targetProfileId: z.string().min(1),
   expectedProfileVersion: z.number().int().min(1),
-  acknowledgedActiveProfileId: z.string().min(1).optional()
+  acknowledgedActiveProfileId: z.string().min(1).optional(),
+  importId: z.string().min(1).optional(),
+  expectedDraftRevision: z.number().int().min(0).optional()
 }).strict();
 
 const ProfileIntakeReviewInputSchema = z.object({

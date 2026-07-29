@@ -27,6 +27,7 @@ export function AgentArtifactContent({
     ? importReconciliation.unresolved.map(asRecord)
     : [];
   const intakeArtifact = asRecord(taskState?.knownSlots.intakeArtifact);
+  const richIntakeCandidates = arrayOfRecords(intakeArtifact.candidates);
   const recognizedIntake = arrayOfRecords(intakeArtifact.recognized);
   const uncertainIntake = arrayOfRecords(intakeArtifact.needsConfirmation);
   const duplicateIntake = arrayOfRecords(intakeArtifact.duplicates);
@@ -52,13 +53,64 @@ export function AgentArtifactContent({
             <div><dt>与资料库重复</dt><dd>{duplicateIntake.length} 项</dd></div>
             <div><dt>将新增</dt><dd>{additionIntake.length} 项</dd></div>
           </dl>
-          {recognizedIntake.length ? (
+          {typeof intakeArtifact.followUpQuestion === "string" ? (
+            <p className="agent-career-follow-up">
+              <strong>建议下一问：</strong>{intakeArtifact.followUpQuestion}
+            </p>
+          ) : null}
+          {richIntakeCandidates.length ? (
+            <div className="agent-career-asset-list">
+              {richIntakeCandidates.map((item) => {
+                const highlights = stringArray(item.highlights);
+                const tools = stringArray(item.toolsOrMethods);
+                const outcomes = stringArray(item.outcomes);
+                const sources = stringArray(item.sources);
+                const status = intakeStatusLabel(item.status);
+                return (
+                  <article key={String(item.id)} className="agent-career-asset">
+                    <header>
+                      <div>
+                        <span className="agent-career-asset-type">{sectionTypeLabel(item.sectionType)}</span>
+                        <strong>{String(item.label ?? "待核对经历")}</strong>
+                      </div>
+                      <span className={`agent-career-asset-status is-${String(item.status ?? "insufficient")}`}>{status}</span>
+                    </header>
+                    <p className="agent-career-asset-meta">
+                      {[item.time, item.organization, item.role].filter(Boolean).map(String).join(" · ") || "时间 / 组织 / 角色待补充"}
+                    </p>
+                    <p className="agent-career-asset-description">{String(item.professionalDescription ?? "职业化表达待整理")}</p>
+                    <details>
+                      <summary>查看细节与来源</summary>
+                      {highlights.length ? <DetailList title="要点" values={highlights} /> : null}
+                      {tools.length ? <DetailList title="方法 / 工具" values={tools} /> : null}
+                      {outcomes.length ? <DetailList title="结果" values={outcomes} /> : null}
+                      <DetailList title="来源" values={sources.length ? sources : ["原始对话已保留"]} />
+                    </details>
+                    <div className="agent-import-review-actions" aria-label={`${String(item.label ?? "经历")}操作`}>
+                      <button type="button" onClick={() => onArtifactAction?.({
+                        type: "profile_intake_candidate_decision",
+                        candidateId: String(item.id),
+                        decision: "accept"
+                      })}>采用</button>
+                      <button type="button" onClick={() => onImportAction?.(`编辑“${String(item.label ?? "这项经历")}”后采用`)}>编辑后采用</button>
+                      <button type="button" onClick={() => onArtifactAction?.({
+                        type: "profile_intake_candidate_decision",
+                        candidateId: String(item.id),
+                        decision: "reject"
+                      })}>忽略</button>
+                      <button type="button" onClick={() => onImportAction?.(`补充“${String(item.label ?? "这项经历")}”最有价值的细节`)}>补充细节</button>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          ) : recognizedIntake.length ? (
             <details open>
               <summary>已识别 <span>{recognizedIntake.length}</span></summary>
               <ul>{recognizedIntake.map((item) => <li key={String(item.id)}>{String(item.label)}</li>)}</ul>
             </details>
           ) : null}
-          {uncertainIntake.length ? (
+          {!richIntakeCandidates.length && uncertainIntake.length ? (
             <div className="agent-reconciliation-list">
               {uncertainIntake.map((item) => (
                 <article key={String(item.id)}>
@@ -272,4 +324,37 @@ function fitSummary(analysis: Record<string, unknown>) {
 
 function renderValue(value: unknown) {
   return Array.isArray(value) ? value.join("；") : String(value ?? "");
+}
+
+function DetailList({ title, values }: { title: string; values: string[] }) {
+  return (
+    <div className="agent-career-asset-detail">
+      <strong>{title}</strong>
+      <ul>{values.map((value, index) => <li key={`${index}-${value}`}>{value}</li>)}</ul>
+    </div>
+  );
+}
+
+function stringArray(value: unknown) {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string" && Boolean(item.trim())) : [];
+}
+
+function intakeStatusLabel(value: unknown) {
+  const labels: Record<string, string> = {
+    confirmed: "已确认",
+    ai_review: "AI 整理待确认",
+    insufficient: "信息不足",
+    duplicate: "与资料库可能重复",
+    conflict: "存在冲突"
+  };
+  return labels[String(value)] ?? "信息不足";
+}
+
+function sectionTypeLabel(value: unknown) {
+  const labels: Record<string, string> = {
+    education: "教育", work: "工作", internship: "实习", project: "项目", research: "科研",
+    campus: "校园", volunteer: "志愿", awards: "奖项", skills: "技能", certificates: "证书",
+    languages: "语言", publications: "出版物", patents: "专利", portfolio: "作品", other: "其他", custom: "自定义"
+  };
+  return labels[String(value)] ?? "经历";
 }

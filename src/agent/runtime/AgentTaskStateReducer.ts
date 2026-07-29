@@ -349,10 +349,29 @@ export class AgentTaskStateReducer {
         state.completionStatus = "completed";
       } else if (event.toolName === "capture_profile_intake") {
         const value = objectValue(event.observation);
+        const previousArtifact = objectValue(state.knownSlots.intakeArtifact);
+        const nextArtifact = objectValue(value.artifactPayload);
+        const previousRich = Array.isArray(previousArtifact.candidates)
+          ? previousArtifact.candidates.map(objectValue)
+          : [];
+        const nextRich = Array.isArray(nextArtifact.candidates)
+          ? nextArtifact.candidates.map(objectValue)
+          : [];
         state.knownSlots.intakeImportId = value.importId;
         state.knownSlots.expectedIntakeDraftRevision = value.expectedDraftRevision;
         state.knownSlots.intakeCandidates = value.candidates;
-        state.knownSlots.intakeArtifact = value.artifactPayload;
+        state.knownSlots.intakeArtifact = {
+          ...previousArtifact,
+          ...nextArtifact,
+          candidates: [
+            ...previousRich.filter((candidate) => !nextRich.some((item) => item.id === candidate.id)),
+            ...nextRich
+          ],
+          sources: [
+            ...(Array.isArray(previousArtifact.sources) ? previousArtifact.sources : []),
+            ...(Array.isArray(nextArtifact.sources) ? nextArtifact.sources : [])
+          ]
+        };
         const needsConfirmation = typeof value.needsConfirmationCount === "number"
           ? value.needsConfirmationCount
           : 0;
@@ -387,6 +406,13 @@ export class AgentTaskStateReducer {
             : [];
           state.knownSlots.intakeArtifact = {
             ...artifact,
+            candidates: Array.isArray(artifact.candidates)
+              ? artifact.candidates.map(objectValue)
+                  .filter((item) => decision !== "reject" || item.id !== candidateId)
+                  .map((item) => item.id === candidateId
+                    ? { ...item, label: editedLabel ?? item.label, status: "confirmed" }
+                    : item)
+              : [],
             recognized: decision === "accept" && reviewed
               ? [...recognized.filter((item) => item.id !== candidateId), {
                   id: candidateId,
@@ -409,8 +435,18 @@ export class AgentTaskStateReducer {
         const unresolved = typeof summary.requiresReview === "number" ? summary.requiresReview : 0;
         state.knownSlots.intakeReconciliation = event.observation;
         state.knownSlots.expectedIntakeReconciliationRevision = value.expectedPlanRevision;
+        const currentArtifact = objectValue(state.knownSlots.intakeArtifact);
+        const unresolvedItems = Array.isArray(value.unresolved) ? value.unresolved.map(objectValue) : [];
         state.knownSlots.intakeArtifact = {
-          ...objectValue(state.knownSlots.intakeArtifact),
+          ...currentArtifact,
+          candidates: Array.isArray(currentArtifact.candidates)
+            ? currentArtifact.candidates.map(objectValue).map((candidate) => {
+                const match = unresolvedItems.find((item) => item.incomingItemId === candidate.id);
+                return match
+                  ? { ...candidate, status: match.state === "conflict" ? "conflict" : "duplicate" }
+                  : candidate;
+              })
+            : [],
           duplicates: Array.isArray(value.existing) ? value.existing : [],
           additions: Array.isArray(value.additions) ? value.additions : [],
           reconciliationSummary: summary

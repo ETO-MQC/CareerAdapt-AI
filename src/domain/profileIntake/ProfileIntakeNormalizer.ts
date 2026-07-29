@@ -37,7 +37,7 @@ export const ProfileIntakeFieldEvidenceSchema = z.object({
 }).strict();
 
 export const ProfileIntakeNormalizationResultSchema = z.object({
-  sectionType: ResumeSectionTypeV2Schema,
+  sectionType: ResumeSectionTypeV2Schema.exclude(["basics"]),
   normalizedText: z.string().min(1),
   structuredItem: ResumeItemV2Schema,
   confidence: z.number().min(0).max(1),
@@ -52,13 +52,18 @@ export type ProfileIntakeNormalizationResult = z.infer<typeof ProfileIntakeNorma
 
 type NormalizationCandidate = {
   id: string;
-  kind: "education" | "project" | "award" | "research" | "campus";
+  kind: "education" | "work" | "internship" | "project" | "award" | "research" | "campus" | "volunteer" | "other";
   label: string;
   sourceQuote: string;
   needsConfirmation: boolean;
 };
 
 export class ProfileIntakeNormalizer {
+  /**
+   * Deterministic normalization is deliberately narrow. It canonicalizes
+   * dates and an already-classified candidate; semantic classification belongs
+   * to ProfileIntakeSemanticService.
+   */
   normalize(candidate: NormalizationCandidate): ProfileIntakeNormalizationResult {
     const dates = extractCareerDates(candidate.sourceQuote);
     const structuredItem = buildStructuredItem(candidate, dates.patch);
@@ -77,9 +82,38 @@ export class ProfileIntakeNormalizer {
       structuredItem,
       confidence: candidate.needsConfirmation || uncertain ? 0.68 : 0.9,
       needsConfirmation: candidate.needsConfirmation || uncertain,
-      needsNormalization: false,
+      needsNormalization: candidate.kind === "other",
       fieldEvidence
     });
+  }
+
+  fallback(rawNarrative: string): ProfileIntakeNormalizationResult {
+    const sourceQuote = rawNarrative.trim();
+    const id = `intake-fallback-${simpleHash(sourceQuote)}`;
+    const dates = extractCareerDates(sourceQuote);
+    const structuredItem = ResumeItemV2Schema.parse({
+      id,
+      sectionType: "other",
+      description: sourceQuote,
+      highlights: [],
+      customFields: []
+    });
+    return ProfileIntakeNormalizationResultSchema.parse({
+      sectionType: "other",
+      normalizedText: sourceQuote,
+      structuredItem,
+      confidence: dates.fields.length ? 0.45 : 0.2,
+      needsConfirmation: true,
+      needsNormalization: true,
+      fieldEvidence: [
+        evidence("description", sourceQuote, "explicit", 1, true),
+        ...dates.fields.map((field) => evidence(field, sourceQuote, "explicit", 0.99, true))
+      ]
+    });
+  }
+
+  canonicalizeDates(sectionType: ResumeItemV2["sectionType"], patch: ProfileIntakeStructuredPatch) {
+    return canonicalizePatchDates(sectionType, patch);
   }
 }
 
@@ -113,12 +147,12 @@ function canonicalizePatchDates(sectionType: ResumeItemV2["sectionType"], patch:
   if (sectionType === "awards" && (startDate || endDate)) {
     throw new Error("profile_intake_award_requires_awarded_at");
   }
-  return {
+  return Object.fromEntries(Object.entries({
     ...patch,
     ...(startDate ? { startDate } : {}),
     ...(endDate ? { endDate } : {}),
     ...(awardedAt ? { awardedAt } : {})
-  };
+  }).filter(([, value]) => value !== undefined)) as ProfileIntakeStructuredPatch;
 }
 
 function extractCareerDates(text: string): {
@@ -182,8 +216,7 @@ function buildStructuredItem(
     return ResumeItemV2Schema.parse({
       ...base,
       sectionType: "education",
-      ...(/示例大学/u.test(candidate.sourceQuote) ? { school: "示例大学" } : {}),
-      ...(/计算机相关专业/u.test(candidate.sourceQuote) ? { major: "计算机相关专业" } : {}),
+      school: candidate.label,
       current: false,
       courses: [],
       honors: [],
@@ -201,55 +234,35 @@ function buildStructuredItem(
     });
   }
   if (candidate.kind === "research") {
-    const hasPdfEvidence = /PDF|页/iu.test(candidate.sourceQuote);
     return ResumeItemV2Schema.parse({
       ...base,
       sectionType: "research",
       title: candidate.label,
-      methods: explicitTools(candidate.sourceQuote, ["Python", "视觉模型"]),
+      methods: [],
       current: false,
-      description: hasPdfEvidence
-        ? "使用视觉模型与 Python 处理实验数据 PDF，参与数据提取。"
-        : "使用视觉模型与 Python 参与数据处理与提取。",
+      description: ensureSentence(cleanColloquial(candidate.sourceQuote)),
       highlights: [],
       ...datePatch
     });
   }
-  if (candidate.kind === "campus") {
-    const hasResponsibilityEvidence = /每个月|每月|团日活动|团务|解答|答疑|社会实践|通知|传达/iu.test(candidate.sourceQuote);
+  if (["work", "internship", "campus", "volunteer"].includes(candidate.kind)) {
     return ResumeItemV2Schema.parse({
       ...base,
-      sectionType: "campus",
-      role: "团支书",
+      sectionType: candidate.kind,
+      role: candidate.label,
       current: false,
-      ...(hasResponsibilityEvidence ? {
-        description: "担任团支书，负责班级团务组织与信息沟通。",
-        highlights: [
-          "每月组织团日活动。",
-          "负责团务信息答疑及社会实践等活动通知传达。"
-        ]
-      } : { highlights: [] }),
+      description: ensureSentence(cleanColloquial(candidate.sourceQuote)),
+      highlights: [],
       ...datePatch
     });
   }
-  if (/ESP\s*32|心跳.*摔倒|摔倒.*心跳/iu.test(candidate.sourceQuote)) {
+  if (candidate.kind === "other") {
     return ResumeItemV2Schema.parse({
       ...base,
-      sectionType: "project",
+      sectionType: "other",
       title: candidate.label,
-      current: false,
-      tools: explicitTools(candidate.sourceQuote, ["ESP32", "蓝牙"]),
-      description: "基于 ESP32 开发心率与跌倒检测穿戴设备，参与多个硬件与通信模块集成。",
-      highlights: [
-        ...(/协助.*心|心跳模块/iu.test(candidate.sourceQuote)
-          ? ["协助开发心率检测模块，并参与心率、跌倒检测与蓝牙模块集成。"] : []),
-        ...(/线接错|接线|走线/iu.test(candidate.sourceQuote)
-          ? ["排查跌倒模块持续报警问题，定位接线异常并调整走线恢复正常。"] : []),
-        ...(/蓝牙/iu.test(candidate.sourceQuote)
-          ? ["解决蓝牙连接问题，完成相关模块联调。"] : [])
-      ],
-      outcomes: [],
-      ...datePatch
+      description: candidate.sourceQuote,
+      highlights: []
     });
   }
   return ResumeItemV2Schema.parse({
@@ -257,24 +270,12 @@ function buildStructuredItem(
     sectionType: "project",
     title: candidate.label,
     current: false,
-    tools: explicitTools(candidate.sourceQuote, ["ESP32", "RPA", "AI"]),
-    description: normalizeProjectDescription(candidate),
+    tools: [],
+    description: ensureSentence(cleanColloquial(candidate.sourceQuote)),
     highlights: [],
     outcomes: [],
     ...datePatch
   });
-}
-
-function normalizeProjectDescription(candidate: NormalizationCandidate) {
-  if (/Smart\s*(?:Focus|Fox)|Task\s*AI/iu.test(candidate.sourceQuote)) {
-    return /全栈/iu.test(candidate.sourceQuote)
-      ? "全栈开发 AI 驱动的桌面任务学习规划系统。"
-      : "开发 AI 驱动的桌面任务学习规划系统。";
-  }
-  if (/Learn\s*(?:Some|Kata|Cat)/iu.test(candidate.sourceQuote)) return "开发 AI 学习辅助工具。";
-  if (/示例内容/iu.test(candidate.sourceQuote)) return "开发示例内容内容采集与 AI 可信度分析系统。";
-  if (/CareerAdapt|职适\s*AI|简历制作平台/iu.test(candidate.sourceQuote)) return "开发 CareerAdapt AI 简历制作平台。";
-  return ensureSentence(cleanColloquial(candidate.sourceQuote));
 }
 
 function cleanColloquial(value: string) {
@@ -284,10 +285,6 @@ function cleanColloquial(value: string) {
     .replace(/[，,]\s*[，,]+/g, "，")
     .replace(/^[，,、；;\s]+|[，,、；;\s]+$/g, "")
     .trim();
-}
-
-function explicitTools(text: string, candidates: string[]) {
-  return candidates.filter((tool) => new RegExp(tool.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "iu").test(text));
 }
 
 export function profileIntakeCareerReadyText(item: ResumeItemV2) {
@@ -312,7 +309,7 @@ function displayLabel(item: ResumeItemV2) {
 function identityEvidence(candidate: NormalizationCandidate, item: ResumeItemV2): ProfileIntakeFieldEvidence[] {
   const field = item.sectionType === "awards" ? "name"
     : item.sectionType === "education" ? "school"
-      : item.sectionType === "campus" ? "role" : "title";
+      : ["work", "internship", "campus", "volunteer"].includes(item.sectionType) ? "role" : "title";
   return [evidence(field, candidate.sourceQuote, "explicit", 0.95, candidate.needsConfirmation)];
 }
 
@@ -346,4 +343,13 @@ function hasMaterialUncertainty(value: string) {
 function ensureSentence(value: string) {
   if (!value) return "待补充职业化描述。";
   return /[。！？]$/u.test(value) ? value : `${value}。`;
+}
+
+function simpleHash(value: string) {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36);
 }

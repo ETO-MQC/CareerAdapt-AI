@@ -696,7 +696,15 @@ function bindAuthoritativeTaskInput(
         capturedAt: source.capturedAt,
         targetProfileId: slots.targetProfileId,
         expectedProfileVersion: slots.expectedProfileVersion,
-        acknowledgedActiveProfileId: slots.acknowledgedActiveProfileId
+        acknowledgedActiveProfileId: slots.acknowledgedActiveProfileId,
+        ...(slots.profileCommitResult === undefined
+          && typeof slots.intakeImportId === "string"
+          && typeof slots.expectedIntakeDraftRevision === "number"
+          ? {
+              importId: slots.intakeImportId,
+              expectedDraftRevision: slots.expectedIntakeDraftRevision
+            }
+          : {})
       }
     };
   }

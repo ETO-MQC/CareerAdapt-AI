@@ -334,7 +334,7 @@ describe("P4.2a.3f guided profile intake intent authority", () => {
     expect(new AgentTaskCompletionGuard().evaluate(state).canFinish).toBe(true);
   });
 
-  it("structures one long answer into many reviewable candidates with conversation provenance", () => {
+  it("keeps the full long answer reviewable when semantic normalization has not run", () => {
     const captured = adaptConversationMessageToIntakeDraft({
       sessionId: "session-real-regression",
       messageId: "message-long-answer",
@@ -343,17 +343,13 @@ describe("P4.2a.3f guided profile intake intent authority", () => {
       capturedAt: "2026-07-27T10:09:56.725Z"
     });
 
-    expect(captured.candidates.map((candidate) => candidate.label)).toEqual(expect.arrayContaining([
-      "示例大学 / 计算机相关专业",
-      "ESP32 穿戴设备课程项目",
-      "示例编程竞赛某省省级三等奖",
-      "视觉模型 / Python PDF 数据提取",
-      "团支书与团日活动",
-      "示例任务系统",
-      "示例学习助手",
-      "示例内容采集与 AI 可信度分析",
-      "CareerAdapt AI"
-    ]));
+    expect(captured.candidates).toHaveLength(1);
+    expect(captured.candidates[0]).toMatchObject({
+      label: "待整理经历",
+      sourceQuote: REAL_LONG_PROFILE_ANSWER,
+      needsConfirmation: true,
+      status: "insufficient"
+    });
     expect(captured.artifact.sources).toEqual([{
       sessionId: "session-real-regression",
       messageId: "message-long-answer",
@@ -366,17 +362,16 @@ describe("P4.2a.3f guided profile intake intent authority", () => {
       profile: demoCareerProfile,
       now: "2026-07-27T10:10:00.000Z"
     });
-    expect(plan.candidates.length).toBeGreaterThanOrEqual(8);
-    expect(plan.candidates[0]?.sourceProvenance[0]).toMatchObject({
-      sourceType: "user_input",
-      sourceSessionId: "session-real-regression",
-      sourceMessageId: "message-long-answer",
-      sourceTurnId: "turn-long-answer",
-      sourceQuote: expect.any(String)
+    expect(plan.candidates).toHaveLength(0);
+    expect(captured.draft.sections[0]?.items[0]?.conversationEvidence?.[0]).toMatchObject({
+      sessionId: "session-real-regression",
+      messageId: "message-long-answer",
+      turnId: "turn-long-answer",
+      sourceQuote: REAL_LONG_PROFILE_ANSWER
     });
   });
 
-  it("keeps uncertain transcriptions reviewable instead of auto-correcting them", () => {
+  it("keeps uncertain transcriptions raw instead of applying fixture corrections", () => {
     const captured = adaptConversationMessageToIntakeDraft({
       sessionId: "session-ambiguous",
       messageId: "message-ambiguous",
@@ -385,15 +380,14 @@ describe("P4.2a.3f guided profile intake intent authority", () => {
       capturedAt: "2026-07-27T10:09:56.725Z"
     });
 
-    expect(captured.artifact.needsConfirmation.map((item) => item.label)).toEqual(expect.arrayContaining([
-      "示例编程竞赛某省省级三等奖",
-      "Smart Fox",
-      "LearnCat"
-    ]));
+    expect(captured.artifact.needsConfirmation).toEqual([
+      expect.objectContaining({ label: "待整理经历" })
+    ]);
+    expect(captured.candidates[0]?.sourceQuote).toContain("南郊杯");
     expect(captured.draft.sections.every((section) => !section.included)).toBe(true);
   });
 
-  it("keeps adjacent research and campus clauses out of each other's fact text", () => {
+  it("does not invent clause classification before a semantic proposal exists", () => {
     const captured = adaptConversationMessageToIntakeDraft({
       sessionId: "session-clause-boundary",
       messageId: "message-clause-boundary",
@@ -401,14 +395,13 @@ describe("P4.2a.3f guided profile intake intent authority", () => {
       text: "还有实验室课题组，使用视觉模型和 Python 处理近1000页 PDF。然后社团学生组织，我是团支书，每月组织团日活动并负责信息解答。",
       capturedAt: "2026-07-28T08:50:00.000Z"
     });
-    const research = captured.candidates.find((candidate) => candidate.kind === "research");
-    const campus = captured.candidates.find((candidate) => candidate.kind === "campus");
-
-    expect(research?.sourceQuote).not.toContain("团支书");
-    expect(campus?.sourceQuote).not.toContain("视觉模型");
+    expect(captured.candidates).toHaveLength(1);
+    expect(captured.candidates[0]?.kind).toBe("other");
+    expect(captured.candidates[0]?.sourceQuote).toContain("视觉模型");
+    expect(captured.candidates[0]?.sourceQuote).toContain("团支书");
   });
 
-  it("does not turn a date-only campus clarification into organization or description facts", () => {
+  it("does not turn a mixed date clarification into invented structured identity facts", () => {
     const captured = adaptConversationMessageToIntakeDraft({
       sessionId: "session-campus-date",
       messageId: "message-campus-date",
@@ -416,17 +409,10 @@ describe("P4.2a.3f guided profile intake intent authority", () => {
       text: "实验室课题组是大一下学期的寒假，大概是2025.02月，做了一星期左右，在除夕前做好了，然后团支书是从大一一直到现在",
       capturedAt: "2026-07-28T08:50:00.000Z"
     });
-    const campusItem = captured.draft.sections
-      .flatMap((section) => section.items)
-      .find((item) => item.structuredItem?.sectionType === "campus")
-      ?.structuredItem;
-
-    expect(campusItem).toMatchObject({
-      sectionType: "campus",
-      role: "团支书"
-    });
-    expect(campusItem).not.toHaveProperty("organization");
-    expect(campusItem && "description" in campusItem ? campusItem.description : undefined).toBeUndefined();
+    const fallback = captured.draft.sections[0]?.items[0]?.structuredItem;
+    expect(fallback).toMatchObject({ sectionType: "other" });
+    expect(fallback).not.toHaveProperty("organization");
+    expect(fallback).not.toHaveProperty("role");
   });
 
   it("preserves a successful profile commit if a later model-only step fails", () => {
@@ -454,7 +440,7 @@ describe("P4.2a.3f guided profile intake intent authority", () => {
     expect(state.lastObservation).toEqual({ errorCode: "agent_model_failed" });
   });
 
-  it("keeps the user's learning assistant and excludes a referenced comparison product", () => {
+  it("does not guess ownership boundaries without a semantic proposal", () => {
     const captured = adaptConversationMessageToIntakeDraft({
       sessionId: "session-learning-assistant",
       messageId: "message-learning-assistant",
@@ -463,8 +449,10 @@ describe("P4.2a.3f guided profile intake intent authority", () => {
       capturedAt: "2026-07-28T06:52:08.157Z"
     });
 
-    expect(captured.candidates.map((candidate) => candidate.label)).toContain("LearnSome AI Tool");
-    expect(captured.candidates.some((candidate) => /Deep/i.test(candidate.label))).toBe(false);
+    expect(captured.candidates).toHaveLength(1);
+    expect(captured.candidates[0]?.sourceQuote).toContain("LearnSome AI Tool");
+    expect(captured.candidates[0]?.sourceQuote).toContain("DeepTutor");
+    expect(captured.candidates[0]?.needsConfirmation).toBe(true);
   });
 
   it("removes an ignored candidate from the review artifact and advances", () => {

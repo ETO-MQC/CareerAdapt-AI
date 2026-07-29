@@ -28,6 +28,10 @@ const REAL_LONG_ANSWER = [
 ].join("");
 
 test.describe("P4.2a.3f guided profile intake closure", () => {
+  test.beforeEach(async ({ page }) => {
+    await mockSemanticIntake(page);
+  });
+
   test("A — exact long narrative stays in profile intake and produces a review artifact", async ({ page }) => {
     await page.route("**/api/agent/stream", async (route) => {
       const body = route.request().postDataJSON() as ModelBody;
@@ -334,7 +338,7 @@ test.describe("P4.2a.3f guided profile intake closure", () => {
     await send(page, "我在示例大学学习，开发的学习助手项目可能叫 LearnCat。");
 
     await page.getByRole("button", { name: /产物 \d+/ }).click();
-    const candidate = page.locator(".agent-reconciliation-list article").filter({ hasText: "LearnCat" });
+    const candidate = page.locator(".agent-career-asset").filter({ hasText: "LearnCat" });
     await expect(candidate).toBeVisible();
     await candidate.getByRole("button", { name: "忽略" }).click();
 
@@ -370,6 +374,121 @@ test.describe("P4.2a.3f guided profile intake closure", () => {
     expect(task.knownSlots.latestIntakeSource).toMatchObject({
       exactSourceQuote: REAL_LONG_ANSWER
     });
+  });
+
+  test("K — a completely new user reaches rich review and confirmed CareerProfile write-back", async ({ page }) => {
+    test.setTimeout(60_000);
+    const internshipQuote = "2025年6月至8月，我在海岚物流做运营实习生，用 Excel 整理每日配送异常并协助客服核对原因。";
+    const projectQuote = "另外我开发了 TideNote 离线笔记工具，用 Rust 写本地索引，用 Tauri 做桌面界面。";
+    const narrative = `${internshipQuote}${projectQuote}`;
+    await page.route("**/api/ai/structured", async (route) => {
+      const body = route.request().postDataJSON() as { task?: string };
+      if (body.task !== "profile-intake-semantic") {
+        await route.continue();
+        return;
+      }
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          ok: true,
+          task: "profile-intake-semantic",
+          promptVersion: "profile-intake-semantic.e2e",
+          output: {
+            candidates: [{
+              candidateKey: "hailan-internship",
+              sectionType: "internship",
+              title: "海岚物流运营实习",
+              organization: "海岚物流",
+              role: "运营实习生",
+              startDate: "2025-06",
+              endDate: "2025-08",
+              current: false,
+              description: "使用 Excel 整理每日配送异常，并协助客服核对原因。",
+              highlights: [],
+              tools: ["Excel"],
+              methods: [],
+              outcomes: [],
+              sourceQuote: internshipQuote,
+              confidence: 0.94,
+              needsConfirmation: false,
+              fieldEvidence: ["title", "organization", "role", "startDate", "endDate", "description", "tools"].map((field) => ({
+                field, sourceQuote: internshipQuote, support: field === "description" ? "derived" : "explicit", confidence: 0.94, needsConfirmation: false
+              }))
+            }, {
+              candidateKey: "tidenote-project",
+              sectionType: "project",
+              title: "TideNote",
+              current: false,
+              description: "开发离线笔记工具，使用 Rust 实现本地索引，并使用 Tauri 构建桌面界面。",
+              highlights: [],
+              tools: ["Rust", "Tauri"],
+              methods: [],
+              outcomes: [],
+              sourceQuote: projectQuote,
+              confidence: 0.95,
+              needsConfirmation: false,
+              fieldEvidence: ["title", "description", "tools"].map((field) => ({
+                field, sourceQuote: projectQuote, support: field === "description" ? "derived" : "explicit", confidence: 0.95, needsConfirmation: false
+              }))
+            }]
+          },
+          meta: { provider: "mock", model: "semantic-e2e", inputLength: narrative.length, outputLength: 1200, latencyMs: 1 }
+        })
+      });
+    });
+    await page.route("**/api/agent/stream", async (route) => {
+      const body = route.request().postDataJSON() as ModelBody;
+      const observations = toolObservations(body);
+      const tools = new Set((body.tools ?? []).map((tool) => tool.name));
+      if (tools.has("get_active_profile") && !observations.some((item) => item.name === "get_active_profile")) {
+        await fulfillTool(route, "semantic-target", "get_active_profile", {});
+        return;
+      }
+      if (tools.has("capture_profile_intake") && !observations.some((item) => item.name === "capture_profile_intake")) {
+        await fulfillTool(route, "semantic-capture", "capture_profile_intake", {});
+        return;
+      }
+      if (tools.has("reconcile_profile_intake") && !observations.some((item) => item.name === "reconcile_profile_intake")) {
+        await fulfillTool(route, "semantic-reconcile", "reconcile_profile_intake", {});
+        return;
+      }
+      if (tools.has("commit_profile_intake") && !observations.some((item) => item.name === "commit_profile_intake")) {
+        await fulfillTool(route, "semantic-commit", "commit_profile_intake", {});
+        return;
+      }
+      if (observations.some((item) => item.name === "commit_profile_intake")) {
+        await fulfillAsk(route, "新经历已确认保存到资料库。");
+        return;
+      }
+      await fulfillAsk(route, "请自然讲讲你的经历。");
+    });
+
+    await startProfileIntake(page);
+    await send(page, narrative);
+    await expect(page.getByRole("button", { name: "确认", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: /产物 \d+/ }).click();
+    const artifact = page.getByRole("region", { name: "经历核对" });
+    await expect(artifact).toContainText("海岚物流运营实习");
+    await expect(artifact).toContainText("TideNote");
+    await expect(artifact).toContainText("2025-06 — 2025-08");
+    await expect(artifact).toContainText("运营实习生");
+    await expect(artifact).toContainText("使用 Excel 整理每日配送异常");
+    await expect(artifact.getByRole("button", { name: "编辑后采用" }).first()).toBeVisible();
+    await expect(artifact.getByRole("button", { name: "补充细节" }).first()).toBeVisible();
+    await page.getByRole("button", { name: "关闭任务产物" }).click();
+    await page.getByRole("button", { name: "确认", exact: true }).click();
+    await expect(page.getByRole("button", { name: "仅保存资料库" })).toBeVisible();
+    await page.getByRole("button", { name: "仅保存资料库" }).click();
+    await expect.poll(() => readLatestAgentTask(page)).toMatchObject({
+      stage: "profile_complete",
+      completionStatus: "completed"
+    });
+
+    const stored = await activeProfileStructuredFacts(page);
+    expect(stored.map((entry) => entry.sectionType)).toEqual(expect.arrayContaining(["internship", "project"]));
+    expect(JSON.stringify(stored)).toContain("海岚物流");
+    expect(JSON.stringify(stored)).toContain("TideNote");
+    expect(JSON.stringify(stored)).not.toContain("主导");
   });
 });
 
@@ -523,6 +642,84 @@ async function activeProfileSnapshot(page: Page) {
     const profile = await read<{ id: string; name: string; version: number }>("profiles", meta.value.profileId);
     database.close();
     return profile!;
+  });
+}
+
+async function mockSemanticIntake(page: Page) {
+  await page.route("**/api/ai/structured", async (route) => {
+    const body = route.request().postDataJSON() as {
+      task?: string;
+      input?: { rawNarrative?: string };
+    };
+    if (body.task !== "profile-intake-semantic") {
+      await route.continue();
+      return;
+    }
+    const raw = body.input?.rawNarrative?.trim() ?? "";
+    const isEducation = /大学|本科|专业|入学|毕业/u.test(raw);
+    const isUncertainProject = /LearnCat/u.test(raw);
+    const sectionType = isEducation ? "education" : "project";
+    const title = isUncertainProject ? "LearnCat"
+      : isEducation ? "教育经历"
+        : "通用职业经历";
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        ok: true,
+        task: "profile-intake-semantic",
+        promptVersion: "profile-intake-semantic.legacy-e2e",
+        output: {
+          candidates: [{
+            candidateKey: `legacy-${sectionType}`,
+            sectionType,
+            title,
+            institution: isEducation && raw.includes("示例大学") ? "示例大学" : undefined,
+            role: isEducation && raw.includes("计算机相关专业") ? "计算机相关专业" : undefined,
+            current: false,
+            description: isEducation ? "教育背景待核对。" : "保留用户明确描述的职业经历。",
+            highlights: [],
+            tools: [],
+            methods: [],
+            outcomes: [],
+            sourceQuote: raw,
+            confidence: isUncertainProject ? 0.55 : 0.9,
+            needsConfirmation: isUncertainProject,
+            fieldEvidence: [
+              "title",
+              ...(isEducation && raw.includes("示例大学") ? ["institution"] : []),
+              ...(isEducation && raw.includes("计算机相关专业") ? ["role"] : []),
+              "description"
+            ].map((field) => ({
+              field,
+              sourceQuote: raw,
+              support: field === "description" ? "derived" : "explicit",
+              confidence: isUncertainProject ? 0.55 : 0.9,
+              needsConfirmation: isUncertainProject
+            }))
+          }]
+        },
+        meta: { provider: "mock", model: "legacy-semantic-e2e", inputLength: raw.length, outputLength: 400, latencyMs: 1 }
+      })
+    });
+  });
+}
+
+async function activeProfileStructuredFacts(page: Page) {
+  return page.evaluate(async () => {
+    const database = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open("CareerAdaptDb");
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const read = <T>(storeName: string, key: IDBValidKey) => new Promise<T>((resolve, reject) => {
+      const request = database.transaction(storeName, "readonly").objectStore(storeName).get(key);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const meta = await read<{ value: { profileId: string } }>("appMeta", "activeProfileContext:v1");
+    const profile = await read<{ structuredFacts?: Array<{ data: Record<string, unknown> }> }>("profiles", meta.value.profileId);
+    database.close();
+    return (profile.structuredFacts ?? []).map((entry) => entry.data);
   });
 }
 

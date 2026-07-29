@@ -43,12 +43,19 @@ import { evidenceMatcherPrompt } from "@/ai/prompts/evidenceMatcher";
 import { factGuardPrompt } from "@/ai/prompts/factGuard";
 import { jdAnalyzerPrompt } from "@/ai/prompts/jdAnalyzer";
 import { profileBuilderPrompt } from "@/ai/prompts/profileBuilder";
+import { profileIntakeSemanticPrompt } from "@/ai/prompts/profileIntakeSemantic";
 import { resumeTailorPrompt } from "@/ai/prompts/resumeTailor";
 import { resumeTailoringDiffPrompt } from "@/ai/prompts/resumeTailoringDiff";
 import { resumeJsonMapperPrompt } from "@/ai/prompts/resumeJsonMapper";
 import { resumeDocumentMapperPrompt } from "@/ai/prompts/resumeDocumentMapper";
 import { resumeTailorPlannerPrompt } from "@/ai/prompts/resumeTailorPlanner";
 import { RESUME_CATALOG_VERSION, resumeFieldCatalog } from "@/domain/resumeFields";
+import {
+  ProfileIntakeSemanticInputSchema,
+  ProfileIntakeSemanticOutputSchema,
+  type ProfileIntakeSemanticInput,
+  type ProfileIntakeSemanticOutput
+} from "@/domain/profileIntake/ProfileIntakeSemanticService";
 
 export const stageBAiTaskSchema = z.enum(["profile-builder", "jd-analyzer"]);
 
@@ -58,6 +65,9 @@ const BaseAiInputSchema = z.object({
 });
 
 export const ProfileBuilderTaskInputSchema = BaseAiInputSchema;
+export const ProfileIntakeSemanticTaskInputSchema = ProfileIntakeSemanticInputSchema.extend({
+  inputHash: z.string().min(8)
+}).strict();
 export const ResumeJsonMapperTaskInputSchema = BaseAiInputSchema;
 export const ResumeDocumentMapperTaskInputSchema = BaseAiInputSchema;
 
@@ -120,6 +130,7 @@ export const FactGuardTaskInputSchema = z.object({
 
 export type StageBAiTask = z.infer<typeof stageBAiTaskSchema>;
 export type ProfileBuilderTaskInput = z.infer<typeof ProfileBuilderTaskInputSchema>;
+export type ProfileIntakeSemanticTaskInput = z.infer<typeof ProfileIntakeSemanticTaskInputSchema>;
 export type ResumeJsonMapperTaskInput = z.infer<typeof ResumeJsonMapperTaskInputSchema>;
 export type ResumeDocumentMapperTaskInput = z.infer<typeof ResumeDocumentMapperTaskInputSchema>;
 export type JdAnalyzerTaskInput = z.infer<typeof JdAnalyzerTaskInputSchema>;
@@ -145,6 +156,34 @@ export type StageBTaskDefinition<TInput, TOutput> = AiTaskDefinition<TInput, TOu
 };
 
 export const aiTaskRegistry = {
+  "profile-intake-semantic": {
+    task: "profile-intake-semantic",
+    promptVersion: profileIntakeSemanticPrompt.version,
+    systemPrompt: profileIntakeSemanticPrompt.system,
+    inputSchema: ProfileIntakeSemanticTaskInputSchema,
+    outputSchema: ProfileIntakeSemanticOutputSchema,
+    maxOutputChars: 28_000,
+    buildUserPrompt(input: ProfileIntakeSemanticTaskInput) {
+      return JSON.stringify({
+        rawNarrative: input.rawNarrative,
+        existingDraftContext: input.existingDraftContext,
+        canonicalSections: input.canonicalSections,
+        instructions: "Extract grounded general career assets. Preserve ownership and uncertainty. Return one highest-value follow-up question at most."
+      }, null, 2);
+    },
+    coerceRawOutput(rawOutput: unknown) { return rawOutput; },
+    normalizeOutput(output: ProfileIntakeSemanticOutput) {
+      return ProfileIntakeSemanticOutputSchema.parse(output);
+    },
+    validateOutput(output: ProfileIntakeSemanticOutput, input: ProfileIntakeSemanticInput) {
+      for (const candidate of output.candidates) {
+        if (!input.rawNarrative.includes(candidate.sourceQuote)) throw new Error("profile_intake_candidate_source_missing");
+        for (const evidence of candidate.fieldEvidence) {
+          if (!input.rawNarrative.includes(evidence.sourceQuote)) throw new Error("profile_intake_field_source_missing");
+        }
+      }
+    }
+  } satisfies AiTaskDefinition<ProfileIntakeSemanticTaskInput, ProfileIntakeSemanticOutput>,
   "resume-document-mapper": {
     task: "resume-document-mapper",
     promptVersion: resumeDocumentMapperPrompt.version,

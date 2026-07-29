@@ -6,6 +6,7 @@ import { TailoringSuggestionSchema } from "./tailoring";
 export const AiTaskSchema = z.enum([
   "health-check",
   "profile-builder",
+  "profile-intake-semantic",
   "resume-json-mapper",
   "resume-document-mapper",
   "jd-analyzer",

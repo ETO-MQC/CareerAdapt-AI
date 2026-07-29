@@ -259,6 +259,34 @@ function estimateInputLength(input: unknown) {
 }
 
 function createMockOutput(task: AiTask, input: unknown) {
+  if (task === "profile-intake-semantic") {
+    const semanticInput = input as { rawNarrative: string };
+    const sourceQuote = semanticInput.rawNarrative.trim();
+    return {
+      candidates: [{
+        candidateKey: "mock-safe-fallback",
+        sectionType: "other",
+        title: "待核对职业经历",
+        current: false,
+        description: sourceQuote,
+        highlights: [],
+        tools: [],
+        methods: [],
+        outcomes: [],
+        sourceQuote,
+        confidence: 0.35,
+        needsConfirmation: true,
+        fieldEvidence: [{
+          field: "description",
+          sourceQuote,
+          support: "explicit",
+          confidence: 1,
+          needsConfirmation: true
+        }]
+      }],
+      followUpQuestion: "这段经历中，你本人完成的最重要的一项工作是什么？"
+    };
+  }
   if (task === "resume-document-mapper") {
     const rawText = typeof input === "object" && input && "rawText" in input ? String(input.rawText) : "[]";
     return mapNormalizedBlocksToReviewDraft(JSON.parse(redactSensitiveTextForModel(rawText).text));

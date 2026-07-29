@@ -37,7 +37,11 @@ import {
   type ResumeImportReviewDecision
 } from "@/domain/resumeImport/reviewDecisions";
 import { agentImportProgressBus } from "@/services/agent/AgentImportProgressBus";
-import { adaptConversationMessageToIntakeDraft } from "@/domain/profileIntake/ConversationIntakeAdapter";
+import {
+  adaptConversationMessageToIntakeDraft,
+  mergeConversationIntakeDraft
+} from "@/domain/profileIntake/ConversationIntakeAdapter";
+import { ProfileIntakeSemanticService } from "@/domain/profileIntake/ProfileIntakeSemanticService";
 import {
   applyProfileIntakeStructuredPatch,
   profileIntakeCareerReadyText,
@@ -45,7 +49,10 @@ import {
 } from "@/domain/profileIntake/ProfileIntakeNormalizer";
 
 export class BrowserAgentToolService implements AgentToolServices {
-  constructor(private readonly repository = new WorkspaceRepository()) {}
+  constructor(
+    private readonly repository = new WorkspaceRepository(),
+    private readonly profileIntakeSemantic = new ProfileIntakeSemanticService()
+  ) {}
 
   async prepareResumeImport(rawInput: unknown, signal?: AbortSignal) {
     assertNotAborted(signal);
@@ -136,6 +143,8 @@ export class BrowserAgentToolService implements AgentToolServices {
       targetProfileId: string;
       expectedProfileVersion: number;
       acknowledgedActiveProfileId?: string;
+      importId?: string;
+      expectedDraftRevision?: number;
     };
     await assertActiveProfileBinding(this.repository, input);
     const profile = await this.repository.getProfile(input.targetProfileId);
@@ -143,17 +152,53 @@ export class BrowserAgentToolService implements AgentToolServices {
     if (profile.version !== input.expectedProfileVersion) {
       throw toolError("profile_intake_stale_profile", "资料库已更新，请先基于最新版本重新对账。");
     }
-    const adapted = adaptConversationMessageToIntakeDraft(input);
-    const existing = await this.repository.getImportedResumeDraft(adapted.draft.importId);
-    const saved = existing ?? await this.repository.saveImportedResumeDraft(adapted.draft, 0);
+    const existing = input.importId
+      ? await this.repository.getImportedResumeDraft(input.importId)
+      : undefined;
+    if (input.importId && (!existing || existing.sourceKind !== "conversation")) {
+      throw toolError("profile_intake_draft_missing", "访谈草稿不存在，请重新整理刚才的回答。");
+    }
+    if (existing && existing.revision !== input.expectedDraftRevision) {
+      throw toolError("profile_intake_stale_revision", "访谈草稿已更新，请刷新后继续补充。");
+    }
+    const semanticResult = await this.profileIntakeSemantic.normalize({
+      rawNarrative: input.text,
+      existingDraft: existing,
+      signal
+    });
+    const adapted = adaptConversationMessageToIntakeDraft({
+      ...input,
+      importId: existing?.importId,
+      semanticResult
+    });
+    const sameSourceExisting = existing
+      ? undefined
+      : await this.repository.getImportedResumeDraft(adapted.draft.importId);
+    const nextDraft = existing
+      ? mergeConversationIntakeDraft(existing, adapted.draft)
+      : adapted.draft;
+    const saved = sameSourceExisting ?? await this.repository.saveImportedResumeDraft(
+      nextDraft,
+      existing?.revision ?? 0
+    );
+    const allCandidates = saved.sections.flatMap((section) => section.items.map((item) => ({
+        id: item.id,
+        sectionType: item.structuredItem?.sectionType ?? section.sectionType,
+        label: item.itemLabel ?? section.detectedTitle,
+        sourceQuote: item.sourceQuote ?? item.rawText,
+        needsConfirmation: item.sourceStatus === "ambiguous",
+        reason: item.careerNormalization?.needsNormalization
+          ? "AI 语义整理暂不可用，原始回答已保留，请重试或手动核对"
+          : undefined
+      })));
     return {
       importId: saved.importId,
       expectedDraftRevision: saved.revision,
       targetProfileId: profile.id,
       expectedProfileVersion: profile.version,
-      candidateCount: adapted.candidates.length,
-      needsConfirmationCount: adapted.candidates.filter((candidate) => candidate.needsConfirmation).length,
-      candidates: adapted.candidates,
+      candidateCount: allCandidates.length,
+      needsConfirmationCount: allCandidates.filter((candidate) => candidate.needsConfirmation).length,
+      candidates: allCandidates,
       artifactPayload: adapted.artifact
     };
   }

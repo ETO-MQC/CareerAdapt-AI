@@ -5,6 +5,10 @@ import { adaptConversationMessageToIntakeDraft } from "@/domain/profileIntake/Co
 import { CareerAdaptDb } from "@/services/storage/db";
 import { WorkspaceRepository } from "@/services/storage/repositories";
 import { BrowserAgentToolService } from "@/services/agent/agentToolService";
+import {
+  ProfileIntakeSemanticService,
+  type ProfileIntakeSemanticResult
+} from "@/domain/profileIntake/ProfileIntakeSemanticService";
 
 let db: CareerAdaptDb | undefined;
 
@@ -20,11 +24,13 @@ describe("P4.2a.3f profile commit and General Resume bootstrap", () => {
     const repository = createRepository();
     const profile = emptyProfile("profile-no-resume", "示例用户");
     await repository.saveProfile(profile);
+    const raw = "示例大学计算机相关专业。开发 ESP32 心跳与摔倒检测课程项目。开发 CareerAdapt AI 简历制作平台。";
     const prepared = adaptConversationMessageToIntakeDraft({
       sessionId: "session-no-resume",
       messageId: "message-no-resume",
       turnId: "turn-no-resume",
-      text: "示例大学计算机相关专业。开发 ESP32 心跳与摔倒检测课程项目。开发 CareerAdapt AI 简历制作平台。",
+      text: raw,
+      semanticResult: semanticProjects(raw, ["教育背景", "穿戴设备课程项目", "简历制作平台"]),
       capturedAt: "2026-07-27T10:09:56.725Z"
     });
     const saved = await repository.saveImportedResumeDraft(prepared.draft, 0);
@@ -78,11 +84,13 @@ describe("P4.2a.3f profile commit and General Resume bootstrap", () => {
       includeProfileFacts: false,
       includeProfileBasics: false
     });
+    const raw = "开发示例内容分析系统，支持多格式报告导出。开发 CareerAdapt AI 简历制作平台。";
     const prepared = adaptConversationMessageToIntakeDraft({
       sessionId: "session-blank",
       messageId: "message-blank",
       turnId: "turn-blank",
-      text: "开发示例内容分析系统，支持多格式报告导出。开发 CareerAdapt AI 简历制作平台。",
+      text: raw,
+      semanticResult: semanticProjects(raw, ["内容分析系统", "职业资料工具"]),
       capturedAt: "2026-07-27T10:09:56.725Z"
     });
     const saved = await repository.saveImportedResumeDraft(prepared.draft, 0);
@@ -201,7 +209,32 @@ describe("P4.2a.3f profile commit and General Resume bootstrap", () => {
     const repository = createRepository();
     const profile = emptyProfile("profile-follow-up-patch", "小明");
     await repository.saveProfile(profile);
-    const service = new BrowserAgentToolService(repository);
+    const service = new BrowserAgentToolService(repository, new ProfileIntakeSemanticService(async (input) => ({
+      ok: true,
+      data: {
+        candidates: [{
+          candidateKey: "smart-focus-fixture",
+          sectionType: "project",
+          title: "Smart Focus - Task AI",
+          current: false,
+          description: "全栈开发桌面任务学习规划系统。",
+          highlights: [],
+          tools: [],
+          methods: [],
+          outcomes: [],
+          sourceQuote: input.rawNarrative,
+          confidence: 0.9,
+          needsConfirmation: false,
+          fieldEvidence: ["title", "description"].map((field) => ({
+            field,
+            sourceQuote: input.rawNarrative,
+            support: field === "description" ? "derived" as const : "explicit" as const,
+            confidence: 0.9,
+            needsConfirmation: false
+          }))
+        }]
+      }
+    })));
     const raw = "Smart Focus - Task AI 是我全栈开发的，反正就是个桌面任务学习规划系统。";
     const captured = await service.captureProfileIntake({
       sessionId: "session-follow-up",
@@ -276,7 +309,7 @@ describe("P4.2a.3f profile commit and General Resume bootstrap", () => {
       startDate: "2026-02",
       endDate: "2026-04",
       current: false,
-      description: "全栈开发 AI 驱动的桌面任务学习规划系统。"
+      description: "全栈开发桌面任务学习规划系统。"
     });
     const facts = committed?.experiences.flatMap((experience) => experience.facts) ?? [];
     const committedFact = facts.find((fact) => structured?.factIds.includes(fact.id));
@@ -292,6 +325,78 @@ describe("P4.2a.3f profile commit and General Resume bootstrap", () => {
         sourceQuote: expect.stringContaining("startDate=2026.02")
       })
     ]));
+  });
+
+  it("adds a completely new follow-up experience to the same Intake Draft", async () => {
+    const repository = createRepository();
+    const profile = emptyProfile("profile-additive-follow-up", "林澄");
+    await repository.saveProfile(profile);
+    const semantic = new ProfileIntakeSemanticService(async (input) => {
+      const isSecond = input.rawNarrative.includes("青禾社区");
+      const title = isSecond ? "青禾社区志愿服务" : "TideNote";
+      const sectionType = isSecond ? "volunteer" as const : "project" as const;
+      return {
+        ok: true as const,
+        data: {
+          candidates: [{
+            candidateKey: isSecond ? "volunteer-follow-up" : "project-initial",
+            sectionType,
+            title,
+            organization: isSecond ? "青禾社区" : undefined,
+            role: isSecond ? "志愿者" : undefined,
+            current: false,
+            description: isSecond ? "讲解手机挂号操作。" : "开发离线笔记工具。",
+            highlights: [],
+            tools: [],
+            methods: [],
+            outcomes: [],
+            sourceQuote: input.rawNarrative,
+            confidence: 0.9,
+            needsConfirmation: false,
+            fieldEvidence: [
+              "title",
+              ...(isSecond ? ["organization", "role"] : []),
+              "description"
+            ].map((field) => ({
+              field,
+              sourceQuote: input.rawNarrative,
+              support: field === "description" ? "derived" as const : "explicit" as const,
+              confidence: 0.9,
+              needsConfirmation: false
+            }))
+          }]
+        }
+      };
+    });
+    const service = new BrowserAgentToolService(repository, semantic);
+    const first = await service.captureProfileIntake({
+      sessionId: "session-additive",
+      messageId: "message-project",
+      turnId: "turn-project",
+      text: "我开发了 TideNote 离线笔记工具。",
+      capturedAt: "2026-07-29T08:00:00.000Z",
+      targetProfileId: profile.id,
+      expectedProfileVersion: profile.version
+    });
+    const second = await service.captureProfileIntake({
+      sessionId: "session-additive",
+      messageId: "message-volunteer",
+      turnId: "turn-volunteer",
+      text: "另外，我在青禾社区做志愿者，给老人讲手机挂号操作。",
+      capturedAt: "2026-07-29T08:02:00.000Z",
+      targetProfileId: profile.id,
+      expectedProfileVersion: profile.version,
+      importId: first.importId,
+      expectedDraftRevision: first.expectedDraftRevision
+    });
+    const reloaded = await repository.getImportedResumeDraft(first.importId);
+
+    expect(second.importId).toBe(first.importId);
+    expect(second.expectedDraftRevision).toBe(first.expectedDraftRevision + 1);
+    expect(reloaded?.sections.flatMap((section) => section.items).map((item) => item.structuredItem?.sectionType))
+      .toEqual(["project", "volunteer"]);
+    expect(reloaded?.sections.flatMap((section) => section.items).flatMap((item) => item.conversationEvidence ?? [])
+      .map((evidence) => evidence.messageId)).toEqual(["message-project", "message-volunteer"]);
   });
 });
 
@@ -320,4 +425,41 @@ function emptyProfile(id: string, name: string) {
     createdAt: now,
     updatedAt: now
   });
+}
+
+function semanticProjects(raw: string, titles: string[]): ProfileIntakeSemanticResult {
+  return {
+    mode: "ai",
+    providerStatus: "available",
+    candidates: titles.map((title, index) => ({
+      id: `semantic-project-${index}`,
+      label: title,
+      sourceQuote: raw,
+      normalization: {
+        sectionType: "project",
+        normalizedText: `开发${title}。`,
+        structuredItem: {
+          id: `semantic-project-${index}`,
+          sectionType: "project",
+          title,
+          current: false,
+          description: `开发${title}。`,
+          highlights: [],
+          tools: [],
+          outcomes: [],
+          customFields: []
+        },
+        confidence: 0.9,
+        needsConfirmation: false,
+        needsNormalization: false,
+        fieldEvidence: [{
+          field: "description",
+          sourceQuote: raw,
+          support: "derived",
+          confidence: 0.9,
+          needsConfirmation: false
+        }]
+      }
+    }))
+  };
 }
