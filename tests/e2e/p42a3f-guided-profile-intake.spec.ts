@@ -1,5 +1,9 @@
+import { execFileSync } from "node:child_process";
+import { existsSync, mkdirSync, statSync } from "node:fs";
+import { resolve } from "node:path";
 import { expect, test, type Page, type Route } from "@playwright/test";
 import type { AgentTaskState } from "@/agent/contracts/agentSession";
+import { openManualPageTab } from "./support/g7b2Ui";
 
 type ModelBody = {
   messages?: Array<{ role: string; name?: string; content: string }>;
@@ -26,6 +30,14 @@ const REAL_LONG_ANSWER = [
   "示例内容分析项目，支持多格式报告导出。",
   "最近开发 CareerAdapt AI 简历制作平台。"
 ].join("");
+
+function resolvePopplerBinary(name: "pdftotext") {
+  const candidates = [
+    "E:/Pycharm/Lib/poppler/Library/bin/pdftotext.exe",
+    "C:/Users/mqcin/AppData/Local/Programs/MiKTeX/miktex/bin/x64/pdftotext.exe"
+  ];
+  return candidates.find((candidate) => existsSync(candidate)) ?? name;
+}
 
 test.describe("P4.2a.3f guided profile intake closure", () => {
   test.beforeEach(async ({ page }) => {
@@ -75,16 +87,16 @@ test.describe("P4.2a.3f guided profile intake closure", () => {
     await expect.poll(() => readLatestAgentTask(page)).toMatchObject({
       rootGoal: "profile_intake",
       workflowId: "guided_profile_intake",
-      stage: "reconcile_profile",
-      completionStatus: "active"
+      stage: "confirm_commit",
+      completionStatus: "waiting_for_confirmation"
     });
-    await expect(page.getByText(/我从刚才的内容中整理出多项经历/).last()).toBeVisible();
+    await expect(page.getByRole("button", { name: "确认", exact: true })).toBeVisible();
 
     const task = await readLatestAgentTask(page);
     expect(task).toMatchObject({
       rootGoal: "profile_intake",
       workflowId: "guided_profile_intake",
-      stage: "reconcile_profile"
+      stage: "confirm_commit"
     });
     expect(task).not.toMatchObject({ rootGoal: "export_resume" });
     expect(task).not.toMatchObject({ stage: "export_complete" });
@@ -120,10 +132,11 @@ test.describe("P4.2a.3f guided profile intake closure", () => {
     await startProfileIntake(page);
     await expect(page.getByText("请先介绍你的教育背景。")).toBeVisible();
     await send(page, answer);
-    await expect(page.getByText("已整理这段教育经历，请继续补充下一段真实经历。")).toBeVisible();
+    await expect(page.getByRole("button", { name: "确认", exact: true })).toBeVisible();
     expect(await readLatestAgentTask(page)).toMatchObject({
       rootGoal: "profile_intake",
-      stage: "reconcile_profile"
+      stage: "confirm_commit",
+      completionStatus: "waiting_for_confirmation"
     });
     await expect(page.getByText(/这项任务暂时没有新进展|agent_no_progress|agent_iteration_budget_exceeded/)).toHaveCount(0);
   });
@@ -317,19 +330,96 @@ test.describe("P4.2a.3f guided profile intake closure", () => {
   });
 
   test("H — correcting an unclicked confirmation rebuilds it, and cancellation stays silent", async ({ page }) => {
+    await page.goto("/profile");
+    await expect(page.getByLabel("选择人物")).toBeVisible();
+    const before = await profileAndResumeSnapshot(page);
     await routeCompletedIntake(page);
     await startProfileIntake(page);
     await send(page, "我现在是示例大学本科学生，计算机相关专业专业，2024年9月入学，预计2028年6月毕业");
     await expect(page.getByRole("button", { name: "确认", exact: true })).toBeVisible();
 
-    await send(page, "更正一下，我是2025年9月入学，预计2029年6月毕业。");
+    await send(page, "更正一下，我是示例大学本科学生，计算机相关专业专业，2025年9月入学，预计2029年6月毕业。");
     await expect(page.getByText("已根据您的纠正重新核对")).toBeVisible();
+    if ((await readLatestAgentTask(page)).stage === "review_facts") {
+      await page.getByRole("button", { name: /产物 \d+/ }).click();
+      const artifact = page.getByRole("region", { name: "经历核对" });
+      while (await artifact.getByRole("button", { name: "采用", exact: true }).count()) {
+        await artifact.getByRole("button", { name: "采用", exact: true }).first().click();
+      }
+      await page.getByRole("button", { name: "关闭任务产物" }).click();
+    }
+    await expect.poll(() => readLatestAgentTask(page)).toMatchObject({
+      stage: "confirm_commit",
+      completionStatus: "waiting_for_confirmation"
+    });
+    const readyTask = await readLatestAgentTask(page);
+    const persistence = await profileIntakePersistenceSnapshot(page, String(readyTask.knownSlots.intakeImportId));
+    expect({
+      expectedDraftRevision: readyTask.knownSlots.expectedIntakeDraftRevision,
+      expectedPlanRevision: readyTask.knownSlots.expectedIntakeReconciliationRevision,
+      expectedProfileVersion: readyTask.knownSlots.expectedProfileVersion,
+      planDraftRevision: readyTask.knownSlots.expectedIntakeDraftRevision
+    }).toEqual({
+      expectedDraftRevision: persistence.draft.revision,
+      expectedPlanRevision: persistence.plan.revision,
+      expectedProfileVersion: persistence.plan.profileVersion,
+      planDraftRevision: persistence.plan.draftRevision
+    });
     await expect(page.getByRole("button", { name: "确认", exact: true })).toBeVisible();
     await page.getByRole("button", { name: "取消", exact: true }).click();
 
     await expect(page.getByText("您已取消")).toBeVisible();
     await expect(page.getByRole("button", { name: "确认", exact: true })).toHaveCount(0);
     await expect(page.getByLabel("描述你的求职任务")).toBeEnabled();
+    const after = await profileAndResumeSnapshot(page);
+    expect(after.profile.version).toBe(before.profile.version);
+    expect(after.branches).toEqual(before.branches);
+    expect(after.revisions).toEqual(before.revisions);
+    expect(await readLatestAgentTask(page)).toMatchObject({
+      completionStatus: "waiting_for_user"
+    });
+  });
+
+  test("H2 — superseded confirmation is replaced and the corrected intake commits exactly once", async ({ page }) => {
+    await page.goto("/profile");
+    await expect(page.getByLabel("选择人物")).toBeVisible();
+    const before = await profileAndResumeSnapshot(page);
+    await routeCompletedIntake(page);
+    await startProfileIntake(page);
+    await send(page, "我现在是示例大学本科学生，计算机相关专业专业，2024年9月入学，预计2028年6月毕业");
+    await expect(page.getByRole("button", { name: "确认", exact: true })).toHaveCount(1);
+
+    await send(page, "更正一下，我是示例大学本科学生，计算机相关专业专业，2025年9月入学，预计2029年6月毕业。");
+    await expect(page.getByText("已根据您的纠正重新核对")).toBeVisible();
+    await expect.poll(() => readLatestAgentTask(page)).toMatchObject({
+      stage: "confirm_commit",
+      completionStatus: "waiting_for_confirmation"
+    });
+    const readyTask = await readLatestAgentTask(page);
+    const persistence = await profileIntakePersistenceSnapshot(page, String(readyTask.knownSlots.intakeImportId));
+    expect({
+      expectedDraftRevision: readyTask.knownSlots.expectedIntakeDraftRevision,
+      expectedPlanRevision: readyTask.knownSlots.expectedIntakeReconciliationRevision,
+      expectedProfileVersion: readyTask.knownSlots.expectedProfileVersion,
+      planDraftRevision: readyTask.knownSlots.expectedIntakeDraftRevision
+    }).toEqual({
+      expectedDraftRevision: persistence.draft.revision,
+      expectedPlanRevision: persistence.plan.revision,
+      expectedProfileVersion: persistence.plan.profileVersion,
+      planDraftRevision: persistence.plan.draftRevision
+    });
+    await expect(page.getByRole("button", { name: "确认", exact: true })).toHaveCount(1);
+    await page.getByRole("button", { name: "确认", exact: true }).click();
+    await expect.poll(() => readLatestAgentTask(page)).toMatchObject({
+      stage: "profile_complete",
+      completionStatus: "waiting_for_user"
+    });
+    await expect(page.getByRole("button", { name: "仅保存资料库" })).toBeVisible();
+
+    const after = await profileAndResumeSnapshot(page);
+    expect(after.profile.version).toBe(before.profile.version + 1);
+    expect(after.branches).toEqual(before.branches);
+    expect(after.revisions).toEqual(before.revisions);
   });
 
   test("I — artifact ignore is a typed decision and does not become a user message", async ({ page }) => {
@@ -492,6 +582,143 @@ test.describe("P4.2a.3f guided profile intake closure", () => {
   });
 });
 
+test("RC2 J2 — real semantic provider reaches confirmed Profile, General Resume, and PDF", async ({ page }) => {
+  test.setTimeout(300_000);
+  const narrative = [
+    "2025年6月至8月，我在海岚物流担任运营实习生，用 Excel 整理每日配送异常并协助客服核对原因。",
+    "另外我独立开发 TideNote 离线笔记工具，用 Rust 编写本地索引，并用 Tauri 完成桌面界面。"
+  ].join("");
+  await page.goto("/profile");
+  await expect(page.locator(".ai-asset-content")).toBeVisible();
+  await expect(page.getByLabel("选择人物")).toBeVisible();
+  const beforeProfile = await activeProfileSnapshot(page);
+
+  await page.route("**/api/agent/stream", async (route) => {
+    const body = route.request().postDataJSON() as ModelBody;
+    const observations = toolObservations(body);
+    const tools = new Set((body.tools ?? []).map((tool) => tool.name));
+    const latestUser = latestUserMessage(body);
+    if (tools.has("get_active_profile") && !observations.some((item) => item.name === "get_active_profile")) {
+      await fulfillTool(route, "j2-real-target", "get_active_profile", {});
+      return;
+    }
+    if (tools.has("capture_profile_intake") && !observations.some((item) => item.name === "capture_profile_intake")) {
+      await fulfillTool(route, "j2-real-capture", "capture_profile_intake", {});
+      return;
+    }
+    if (tools.has("reconcile_profile_intake") && !observations.some((item) => item.name === "reconcile_profile_intake")) {
+      await fulfillTool(route, "j2-real-reconcile", "reconcile_profile_intake", {});
+      return;
+    }
+    if (tools.has("commit_profile_intake") && !observations.some((item) => item.name === "commit_profile_intake")) {
+      await fulfillTool(route, "j2-real-commit", "commit_profile_intake", {});
+      return;
+    }
+    if (observations.some((item) => item.name === "commit_profile_intake") && !latestUser.includes("生成一份通用简历")) {
+      await fulfillAsk(route, "经历已写入资料库。你可以仅保存资料库，或生成一份通用简历。");
+      return;
+    }
+    if (tools.has("ensure_general_resume_from_profile") && !observations.some((item) => item.name === "ensure_general_resume_from_profile")) {
+      await fulfillTool(route, "j2-real-resume", "ensure_general_resume_from_profile", {});
+      return;
+    }
+    if (observations.some((item) => item.name === "ensure_general_resume_from_profile")) {
+      await fulfillFinal(route, "资料库已确认保存，通用简历已准备好。");
+      return;
+    }
+    await fulfillAsk(route, "请自然讲讲你的经历。");
+  });
+
+  await startProfileIntake(page);
+  const semanticResponsePromise = page.waitForResponse((response) => {
+    if (!response.url().includes("/api/ai/structured") || response.request().method() !== "POST") return false;
+    const body = response.request().postDataJSON() as { task?: string };
+    return body.task === "profile-intake-semantic";
+  }, { timeout: 120_000 });
+  await send(page, narrative);
+  const semanticResponse = await semanticResponsePromise;
+  expect(semanticResponse.status()).toBe(200);
+  const semantic = await semanticResponse.json() as {
+    ok?: boolean;
+    output?: {
+      candidates?: Array<{
+        sectionType?: string;
+        sourceQuote?: string;
+        fieldEvidence?: Array<{ field?: string; sourceQuote?: string }>;
+      }>;
+    };
+  };
+  expect(semantic.ok).toBe(true);
+  expect(semantic.output?.candidates?.length).toBeGreaterThanOrEqual(2);
+  for (const candidate of semantic.output?.candidates ?? []) {
+    expect(candidate.sectionType).toBeTruthy();
+    expect(candidate.sourceQuote).toBeTruthy();
+    expect(narrative).toContain(candidate.sourceQuote);
+    expect(candidate.fieldEvidence?.length).toBeGreaterThan(0);
+    for (const evidence of candidate.fieldEvidence ?? []) {
+      expect(evidence.field).toBeTruthy();
+      expect(evidence.sourceQuote).toBeTruthy();
+      expect(narrative).toContain(evidence.sourceQuote);
+    }
+  }
+
+  await page.getByRole("button", { name: /产物 \d+/ }).click();
+  const artifact = page.getByRole("region", { name: "经历核对" });
+  await expect(artifact).toBeVisible();
+  await expect(artifact.locator(".agent-career-asset")).toHaveCount(semantic.output?.candidates?.length ?? 0);
+  for (let index = 0; index < (semantic.output?.candidates?.length ?? 0); index += 1) {
+    const beforeReview = await readLatestAgentTask(page);
+    if (beforeReview.stage !== "review_facts") break;
+    const accept = artifact.locator(".agent-career-asset:has(.is-ai_review)")
+      .getByRole("button", { name: "采用", exact: true })
+      .first();
+    await expect(accept).toBeVisible();
+    const beforeRevision = beforeReview.knownSlots.expectedIntakeDraftRevision;
+    await accept.click();
+    await expect.poll(async () => {
+      const next = await readLatestAgentTask(page);
+      return next.stage !== "review_facts"
+        || next.knownSlots.expectedIntakeDraftRevision !== beforeRevision;
+    }).toBe(true);
+  }
+  await page.getByRole("button", { name: "关闭任务产物" }).click();
+  await expect(page.getByRole("button", { name: "确认", exact: true })).toBeVisible({ timeout: 30_000 });
+  await page.getByRole("button", { name: "确认", exact: true }).click();
+  await expect(page.getByRole("button", { name: "生成一份通用简历" })).toBeVisible({ timeout: 30_000 });
+  await page.getByRole("button", { name: "生成一份通用简历" }).click();
+  await expect(page.getByRole("button", { name: "确认", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "确认", exact: true }).click();
+  await expect(page.getByText("资料库已确认保存，通用简历已准备好。")).toBeVisible({ timeout: 30_000 });
+
+  const stored = await activeProfileStructuredFacts(page);
+  expect(stored.length).toBeGreaterThanOrEqual(2);
+  expect(JSON.stringify(stored)).toContain("海岚物流");
+  expect(JSON.stringify(stored)).toContain("TideNote");
+  const result = await profileAndResumeSnapshot(page);
+  expect(result.profile.version).toBeGreaterThan(beforeProfile.version);
+  expect(result.branches).toHaveLength(1);
+  expect(result.branches[0]?.contentItems.some((item) => item.visible && item.factRefs.length > 0)).toBe(true);
+
+  await page.goto(`/resume?branchId=${encodeURIComponent(result.branches[0]!.id)}`);
+  await expect(page.getByTestId("resume-a4-page").first()).toBeVisible({ timeout: 20_000 });
+  await openManualPageTab(page);
+  const responsePromise = page.waitForResponse((response) =>
+    response.url().includes("/api/resume-export/pdf") && response.request().method() === "POST"
+  );
+  const downloadPromise = page.waitForEvent("download", { timeout: 120_000 });
+  await page.getByRole("button", { name: "下载 PDF" }).click();
+  const [pdfResponse, download] = await Promise.all([responsePromise, downloadPromise]);
+  expect(pdfResponse.status()).toBe(200);
+  const outputDir = resolve(process.cwd(), "artifacts", "rc2");
+  if (!existsSync(outputDir)) mkdirSync(outputDir, { recursive: true });
+  const pdfPath = resolve(outputDir, "j2-real-provider-resume.pdf");
+  await download.saveAs(pdfPath);
+  expect(statSync(pdfPath).size).toBeGreaterThan(1_000);
+  const pdfText = execFileSync(resolvePopplerBinary("pdftotext"), [pdfPath, "-"], { encoding: "utf8" });
+  expect(pdfText).toContain("海岚物流");
+  expect(pdfText).toContain("TideNote");
+});
+
 async function routeCompletedIntake(page: Page) {
   await page.route("**/api/agent/stream", async (route) => {
     const body = route.request().postDataJSON() as ModelBody;
@@ -624,6 +851,30 @@ async function readLatestAgentTask(page: Page): Promise<AgentTaskState> {
     database.close();
     return sessions.sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0]?.taskState as AgentTaskState;
   });
+}
+
+async function profileIntakePersistenceSnapshot(page: Page, importId: string) {
+  return page.evaluate(async (id) => {
+    const database = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open("CareerAdaptDb");
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const readMeta = (key: string) => new Promise<{ value: Record<string, unknown> }>((resolve, reject) => {
+      const request = database.transaction("appMeta", "readonly").objectStore("appMeta").get(key);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const [draft, plan] = await Promise.all([
+      readMeta(`importedResumeDraft:${id}`),
+      readMeta(`profileReconciliation:v1:${id}`)
+    ]);
+    database.close();
+    return { draft: draft.value, plan: plan.value };
+  }, importId) as Promise<{
+    draft: { revision: number };
+    plan: { revision: number; profileVersion: number; draftRevision: number };
+  }>;
 }
 
 async function activeProfileSnapshot(page: Page) {

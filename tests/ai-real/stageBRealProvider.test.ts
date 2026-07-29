@@ -1,10 +1,22 @@
 import { describe, expect, it } from "vitest";
 import { OpenAiCompatibleProvider } from "@/ai/providers/openAiCompatibleProvider";
-import { stageBTaskRegistry, type ProfileBuilderTaskInput, type JdAnalyzerTaskInput, type StageBTaskDefinition } from "@/ai/tasks/registry";
+import {
+  aiTaskRegistry,
+  stageBTaskRegistry,
+  type AiTaskDefinition,
+  type ProfileBuilderTaskInput,
+  type ProfileIntakeSemanticTaskInput,
+  type JdAnalyzerTaskInput,
+  type StageBTaskDefinition
+} from "@/ai/tasks/registry";
 import { stableHashText } from "@/services/security/text";
 import { ProfileBuilderOutputSchema, JdAnalyzerModelOutputSchema, type ProfileBuilderOutput, type JdAnalyzerModelOutput } from "@/domain/schemas";
 import { analyzeJobDescriptionV3 } from "@/domain/jobOptimization";
 import { AI_CODING_TASK_DESIGNER_JD } from "../fixtures/aiCodingTaskDesignerJd";
+import {
+  ProfileIntakeSemanticOutputSchema,
+  type ProfileIntakeSemanticOutput
+} from "@/domain/profileIntake/ProfileIntakeSemanticService";
 
 const hasRealAiConfig = Boolean(process.env.AI_API_KEY && process.env.AI_MODEL);
 
@@ -46,6 +58,46 @@ describe("stage B real AI smoke test", () => {
       expect(result.provider).toBeTruthy();
       expect(result.model).toBeTruthy();
       expect(result.output).toMatchObject({ status: "ok" });
+    }
+  );
+
+  (hasRealAiConfig ? it : it.skip)(
+    "profile-intake-semantic: returns grounded schema-valid candidates",
+    async () => {
+      const definition = aiTaskRegistry["profile-intake-semantic"] as AiTaskDefinition<
+        ProfileIntakeSemanticTaskInput,
+        ProfileIntakeSemanticOutput
+      >;
+      const rawNarrative =
+        "2025年3月至6月，我在云帆公益组织担任志愿者，用 Excel 整理活动报名信息，并协助核对参与者名单。";
+      const input: ProfileIntakeSemanticTaskInput = {
+        rawNarrative,
+        inputHash: stableHashText(rawNarrative),
+        existingDraftContext: [],
+        canonicalSections: [
+          "education", "work", "internship", "project", "research", "campus", "volunteer",
+          "awards", "skills", "certificates", "languages", "publications", "patents",
+          "portfolio", "other", "custom"
+        ]
+      };
+
+      const provider = new OpenAiCompatibleProvider();
+      const response = await provider.invoke({
+        systemPrompt: definition.systemPrompt,
+        userPrompt: definition.buildUserPrompt(input),
+        maxOutputChars: definition.maxOutputChars,
+        signal: AbortSignal.timeout(30_000)
+      });
+      const coerced = definition.coerceRawOutput(response.output, input);
+      const normalized = definition.normalizeOutput(coerced as ProfileIntakeSemanticOutput, input);
+      const parsed = ProfileIntakeSemanticOutputSchema.safeParse(normalized);
+
+      expect(response.provider).toBeTruthy();
+      expect(response.model).toBeTruthy();
+      expect(parsed.success).toBe(true);
+      if (!parsed.success) return;
+      expect(parsed.data.candidates.length).toBeGreaterThan(0);
+      expect(() => definition.validateOutput?.(parsed.data, input)).not.toThrow();
     }
   );
 });
@@ -175,7 +227,7 @@ describe("jd-analyzer real model integration", () => {
         systemPrompt: definition.systemPrompt,
         userPrompt: definition.buildUserPrompt(input),
         maxOutputChars: definition.maxOutputChars,
-        signal: AbortSignal.timeout(30_000)
+        signal: AbortSignal.timeout(55_000)
       });
 
       expect(response.provider).toBeTruthy();

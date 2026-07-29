@@ -5,6 +5,8 @@ import type { ResumeDocumentBlock } from "@/domain/resumeDocument/mapper";
 import type { ResumeBranch, ResumeContentItemV2, ResumeItemV2 } from "@/domain/schemas";
 import {
   emptyStructuredExperienceFields,
+  canonicalToStructuredExperienceFields,
+  patchCanonicalExperienceFields,
   parseStructuredExperienceText,
   serializeStructuredExperienceText,
   type ResumeFieldCategoryId,
@@ -16,95 +18,6 @@ import { SectionShell } from "../SectionShell";
 import { contentItemTypeLabel, guardStatusLabel } from "../helpers";
 import { type SectionNavContext, prevSection, nextSection } from "./types";
 
-/** Convert a v2 canonical ResumeItemV2 to the flat StructuredExperienceFields form shape. */
-function canonicalToFormFields(item: ResumeItemV2): StructuredExperienceFields {
-  if (item.sectionType === "education") {
-    return {
-      organization: item.school ?? "",
-      role: item.degree ?? "",
-      location: item.location ?? "",
-      degree: item.degree ?? "",
-      major: item.major ?? "",
-      courses: (item.courses ?? []).join("、"),
-      startDate: item.startDate ?? "",
-      endDate: item.endDate ?? "",
-      current: item.current ?? false,
-      description: item.description ?? "",
-      highlights: item.highlights ?? []
-    };
-  }
-  if (item.sectionType === "project") {
-    return {
-      organization: item.title ?? "",
-      role: item.role ?? "",
-      location: item.location ?? "",
-      degree: "",
-      major: "",
-      courses: "",
-      startDate: item.startDate ?? "",
-      endDate: item.endDate ?? "",
-      current: item.current ?? false,
-      description: item.description ?? "",
-      highlights: item.highlights ?? []
-    };
-  }
-  // work / internship / campus / volunteer
-  const org = "organization" in item ? (item as { organization?: string }).organization ?? "" : "";
-  const role = "role" in item ? (item as { role?: string }).role ?? "" : "";
-  const loc = "location" in item ? (item as { location?: string }).location ?? "" : "";
-  const sd = "startDate" in item ? (item as { startDate?: string }).startDate ?? "" : "";
-  const ed = "endDate" in item ? (item as { endDate?: string }).endDate ?? "" : "";
-  const cur = "current" in item ? Boolean((item as { current?: boolean }).current) : false;
-  const desc = "description" in item ? (item as { description?: string }).description ?? "" : "";
-  const hl = "highlights" in item ? (item as { highlights?: string[] }).highlights ?? [] : [];
-  return { organization: org, role, location: loc, degree: "", major: "", courses: "", startDate: sd, endDate: ed, current: cur, description: desc, highlights: hl };
-}
-
-/** Convert form fields back to a patched v2 canonical item (preserving all other fields). */
-function formFieldsToCanonicalPatch(item: ResumeItemV2, fields: StructuredExperienceFields): ResumeItemV2 {
-  const desc = fields.description.trim() || undefined;
-  const highlights = fields.highlights.map((h) => h.trim()).filter(Boolean);
-  if (item.sectionType === "education") {
-    return {
-      ...item,
-      school: fields.organization.trim() || undefined,
-      degree: fields.degree.trim() || fields.role.trim() || undefined,
-      major: fields.major.trim() || undefined,
-      location: fields.location.trim() || undefined,
-      startDate: fields.startDate || undefined,
-      endDate: fields.current ? undefined : (fields.endDate || undefined),
-      current: fields.current,
-      courses: fields.courses.split(/[、,，;；]/).map((c) => c.trim()).filter(Boolean),
-      description: desc,
-      highlights
-    };
-  }
-  if (item.sectionType === "project") {
-    return {
-      ...item,
-      title: fields.organization.trim() || undefined,
-      role: fields.role.trim() || undefined,
-      location: fields.location.trim() || undefined,
-      startDate: fields.startDate || undefined,
-      endDate: fields.current ? undefined : (fields.endDate || undefined),
-      current: fields.current,
-      description: desc,
-      highlights
-    };
-  }
-  // work / internship / campus / volunteer
-  return {
-    ...item,
-    organization: fields.organization.trim() || undefined,
-    role: fields.role.trim() || undefined,
-    location: fields.location.trim() || undefined,
-    startDate: fields.startDate || undefined,
-    endDate: fields.current ? undefined : (fields.endDate || undefined),
-    current: fields.current,
-    description: desc,
-    highlights
-  } as ResumeItemV2;
-}
 
 type ExperienceSectionPageProps = {
   sectionLabel: string;
@@ -210,7 +123,7 @@ export function ExperienceSectionPage({
     // When a v2 canonical item exists, derive form fields from it directly
     // instead of re-parsing the legacy text projection.
     const structuredFields = canonicalItem
-      ? canonicalToFormFields(canonicalItem.data)
+      ? canonicalToStructuredExperienceFields(canonicalItem.data)
       : (() => {
           const currentText = editTexts[block.contentItemId] ?? block.text;
           const parsed = parseStructuredExperienceText(currentText);
@@ -377,7 +290,7 @@ function ExperienceItemFields(props: {
     if (props.canonicalItem && props.onSaveStructuredItem) {
       await props.onSaveStructuredItem(
         props.itemId,
-        formFieldsToCanonicalPatch(props.canonicalItem, latestFieldsRef.current),
+        patchCanonicalExperienceFields(props.canonicalItem, latestFieldsRef.current),
         { origin }
       );
     } else {

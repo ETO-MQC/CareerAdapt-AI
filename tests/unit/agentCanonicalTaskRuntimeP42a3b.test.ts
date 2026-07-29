@@ -149,7 +149,22 @@ describe("P4.2a.3b canonical task runtime", () => {
         candidateCompany: "示例科技"
       }
     });
-    expect(state.stage).toBe("review_job");
+    expect(state).toMatchObject({ stage: "confirm_commit", completionStatus: "active" });
+    expect(state.knownSlots).not.toHaveProperty("pendingConfirmation");
+    state = reducer.reduce(state, {
+      type: "confirmation_requested",
+      toolName: "commit_job",
+      operationId: "commit-job-1"
+    });
+    expect(state).toMatchObject({ stage: "confirm_commit", completionStatus: "waiting_for_confirmation" });
+    expect(state.knownSlots.pendingConfirmation).toEqual({
+      toolName: "commit_job",
+      operationId: "commit-job-1"
+    });
+    state = reducer.reduce(state, {
+      type: "confirmation_accepted",
+      toolName: "commit_job"
+    });
     state = reducer.reduce(state, {
       type: "tool_observation",
       toolName: "commit_job",
@@ -1183,7 +1198,7 @@ function tailoringState(stage: string) {
       tailoringSession: { plan: { clarificationQuestions: [], clarificationAnswers: [] } },
       selectedDiffs: []
     },
-    completionStatus: stage === "confirm_apply" ? "waiting_for_confirmation" as const : "active" as const
+    completionStatus: "active" as const
   };
 }
 

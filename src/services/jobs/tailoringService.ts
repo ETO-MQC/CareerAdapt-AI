@@ -666,6 +666,7 @@ export async function createJobResume(input: {
   job: JobDescription;
   operationId: string;
   name: string;
+  allowDuplicate?: boolean;
 }): Promise<TailoringServiceResult> {
   const result = input.source.type === "profile"
     ? await input.repository.createJobSpecificBranchFromProfile({
@@ -674,7 +675,8 @@ export async function createJobResume(input: {
       })
     : await input.repository.deriveJobSpecificBranchFromBranch({
         sourceBranchId: input.source.branch.id, jobId: input.job.id, expectedSourceRevision: input.source.branch.revision,
-        expectedSourceRevisionId: input.source.branch.currentRevisionId ?? "", operationId: input.operationId, name: input.name
+        expectedSourceRevisionId: input.source.branch.currentRevisionId ?? "", operationId: input.operationId, name: input.name,
+        allowDuplicate: input.allowDuplicate
       });
   return {
     status: "completed",

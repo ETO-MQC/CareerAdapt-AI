@@ -176,7 +176,7 @@ describe("P4.2a.2 autonomy closure", () => {
     })).toEqual([]);
 
     state = reducer.reduce(state, { type: "slot_answer", slot: "company", value: "示例公司" });
-    expect(state.stage).toBe("review_job");
+    expect(state.stage).toBe("confirm_commit");
     expect(state.missingSlots).toEqual([]);
     expect(eligibility.eligible({
       tools: [registry.require("commit_job")],

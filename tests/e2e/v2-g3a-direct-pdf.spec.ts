@@ -64,12 +64,10 @@ async function createBranchFromDraft(page: Page) {
   await expect(page.getByTestId("resume-studio-shell")).toBeVisible({ timeout: 20_000 });
 
   await page.goto("/jobs");
+  await page.getByRole("radio", { name: /优化已有简历/ }).click();
   const sourceResume = page.getByLabel("来源通用简历");
   await sourceResume.selectOption({ index: 1 });
-  await page.getByTestId("run-experience-match").click();
-  await expect(page.locator(".match-row").first()).toBeVisible();
-  await expect(page.getByTestId("generate-job-resume")).toBeEnabled({ timeout: 20_000 });
-  await page.getByTestId("generate-job-resume").click();
+  await page.getByTestId("analyze-and-generate-job-resume").click();
   await expect(page).toHaveURL(/\/resume\?.*branchId=/, { timeout: 20_000 });
   await expect(page.getByTestId("resume-studio-shell")).toBeVisible({ timeout: 20_000 });
   await expect(visibleA4Page(page)).toBeVisible();

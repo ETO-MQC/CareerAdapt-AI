@@ -53,6 +53,7 @@ import { RESUME_CATALOG_VERSION, resumeFieldCatalog } from "@/domain/resumeField
 import {
   ProfileIntakeSemanticInputSchema,
   ProfileIntakeSemanticOutputSchema,
+  validateProfileIntakeProposalGrounding,
   type ProfileIntakeSemanticInput,
   type ProfileIntakeSemanticOutput
 } from "@/domain/profileIntake/ProfileIntakeSemanticService";
@@ -155,6 +156,124 @@ export type StageBTaskDefinition<TInput, TOutput> = AiTaskDefinition<TInput, TOu
   task: StageBAiTask;
 };
 
+const profileIntakeOptionalFields = [
+  "title",
+  "titleKind",
+  "name",
+  "organization",
+  "institution",
+  "role",
+  "startDate",
+  "endDate",
+  "awardedAt",
+  "description"
+] as const;
+
+const profileIntakeEvidenceFields = [
+  "title",
+  "name",
+  "organization",
+  "institution",
+  "role",
+  "startDate",
+  "endDate",
+  "awardedAt",
+  "description",
+  "highlights",
+  "tools",
+  "methods",
+  "outcomes"
+] as const;
+
+function coerceProfileIntakeSemanticOutput(rawOutput: unknown) {
+  if (!rawOutput || typeof rawOutput !== "object" || Array.isArray(rawOutput)) return rawOutput;
+  const output = { ...(rawOutput as Record<string, unknown>) };
+  if (output.followUpQuestion === null) delete output.followUpQuestion;
+  if (!Array.isArray(output.candidates)) return output;
+  output.candidates = output.candidates.map((candidate) => {
+    if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) return candidate;
+    const normalized = { ...(candidate as Record<string, unknown>) };
+    for (const field of profileIntakeOptionalFields) {
+      if (normalized[field] === null) delete normalized[field];
+    }
+    const sourceQuote = typeof normalized.sourceQuote === "string" ? normalized.sourceQuote : "";
+    const evidence = Array.isArray(normalized.fieldEvidence)
+      ? normalized.fieldEvidence.filter((entry) => {
+          if (!entry || typeof entry !== "object" || Array.isArray(entry)) return true;
+          const quote = (entry as Record<string, unknown>).sourceQuote;
+          return typeof quote !== "string" || !sourceQuote || sourceQuote.includes(quote);
+        })
+      : normalized.fieldEvidence;
+    normalized.fieldEvidence = evidence;
+    const hasEvidence = (field: string) => Array.isArray(evidence)
+      && evidence.some((entry) =>
+        entry && typeof entry === "object" && !Array.isArray(entry)
+        && (entry as Record<string, unknown>).field === field
+      );
+    const evidenceText = (field: string) => Array.isArray(evidence)
+      ? evidence.flatMap((entry) => {
+          if (!entry || typeof entry !== "object" || Array.isArray(entry)) return [];
+          const record = entry as Record<string, unknown>;
+          return record.field === field && typeof record.sourceQuote === "string"
+            ? [record.sourceQuote]
+            : [];
+        }).join("\n")
+      : "";
+    for (const field of profileIntakeEvidenceFields) {
+      const value = normalized[field];
+      const populated = Array.isArray(value)
+        ? value.length > 0
+        : typeof value === "string" && value.length > 0;
+      if (!populated || hasEvidence(field)) continue;
+      if (Array.isArray(value)) normalized[field] = [];
+      else delete normalized[field];
+    }
+    for (const field of ["name", "organization", "institution", "role"] as const) {
+      const value = normalized[field];
+      if (typeof value === "string" && !includesLooseGrounding(evidenceText(field), value)) {
+        delete normalized[field];
+      }
+    }
+    if (
+      normalized.titleKind === "explicit"
+      && typeof normalized.title === "string"
+      && !includesLooseGrounding(evidenceText("title"), normalized.title)
+    ) {
+      delete normalized.title;
+      delete normalized.titleKind;
+    }
+    for (const field of ["tools", "methods"] as const) {
+      const values = normalized[field];
+      if (Array.isArray(values)) {
+        const grounding = evidenceText(field);
+        normalized[field] = values.filter((value) =>
+          typeof value === "string" && includesLooseGrounding(grounding, value)
+        );
+      }
+    }
+    for (const field of ["startDate", "endDate", "awardedAt"] as const) {
+      const value = normalized[field];
+      if (typeof value !== "string") continue;
+      const grounding = evidenceText(field);
+      const [year, month] = value.split("-");
+      if (!grounding.includes(year) || !new RegExp(`(?:^|\\D)0?${Number(month)}(?:\\D|$)`, "u").test(grounding)) {
+        delete normalized[field];
+      }
+    }
+    if (normalized.current === true && !/(?:至今|现在|目前|ongoing|present|current)/iu.test(evidenceText("current"))) {
+      normalized.current = false;
+    }
+    return normalized;
+  });
+  return output;
+}
+
+function includesLooseGrounding(text: string, value: string) {
+  return text.toLocaleLowerCase().replace(/\s+/gu, "").includes(
+    value.toLocaleLowerCase().replace(/\s+/gu, "")
+  );
+}
+
 export const aiTaskRegistry = {
   "profile-intake-semantic": {
     task: "profile-intake-semantic",
@@ -171,7 +290,7 @@ export const aiTaskRegistry = {
         instructions: "Extract grounded general career assets. Preserve ownership and uncertainty. Return one highest-value follow-up question at most."
       }, null, 2);
     },
-    coerceRawOutput(rawOutput: unknown) { return rawOutput; },
+    coerceRawOutput(rawOutput: unknown) { return coerceProfileIntakeSemanticOutput(rawOutput); },
     normalizeOutput(output: ProfileIntakeSemanticOutput) {
       return ProfileIntakeSemanticOutputSchema.parse(output);
     },
@@ -183,6 +302,16 @@ export const aiTaskRegistry = {
             throw new Error("profile_intake_field_source_outside_candidate");
           }
         }
+        for (const field of profileIntakeEvidenceFields) {
+          const value = candidate[field];
+          const populated = Array.isArray(value)
+            ? value.length > 0
+            : typeof value === "string" && value.length > 0;
+          if (populated && !candidate.fieldEvidence.some((evidence) => evidence.field === field)) {
+            throw new Error(`profile_intake_field_evidence_missing:${field}`);
+          }
+        }
+        validateProfileIntakeProposalGrounding(candidate, input.rawNarrative);
       }
     }
   } satisfies AiTaskDefinition<ProfileIntakeSemanticTaskInput, ProfileIntakeSemanticOutput>,

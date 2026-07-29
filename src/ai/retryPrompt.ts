@@ -12,6 +12,24 @@ export function buildRetryPrompt({ task, baseUserPrompt, failure, input }: { tas
             : `The previous output failed validation (${failure ?? "schema field error"}). Normalize disposition/priority values and use numeric confidence from 0 to 1.`;
     return [baseUserPrompt, "", detail, `Expected sourceUnitIds: ${JSON.stringify(sourceUnitIds)}`, "Return only compact JD Analyzer V3 JSON:", '{"unitAssignments":[{"sourceUnitId":"copy exactly from input","verdict":"accept"}],"groupAdjustments":[],"riskNotes":[]}'].join("\n");
   }
+  if (task === "profile-intake-semantic") {
+    return [
+      baseUserPrompt,
+      "",
+      `Previous profile-intake-semantic response failed (${failure ?? "schema validation failed"}).`,
+      "Never output null. Omit every unsupported or unknown optional candidate field instead.",
+      "Return exactly one object with only candidates and optional followUpQuestion.",
+      "For each candidate, choose one exact continuous rawNarrative substring that contains only that candidate's experience.",
+      "Set candidate.sourceQuote to that substring and set every fieldEvidence.sourceQuote for that candidate to exactly the same substring.",
+      "For every populated factual candidate field and every non-empty list, add at least one fieldEvidence item whose field exactly matches that candidate key. titleKind is metadata and uses field=title evidence.",
+      "Values for name, organization, institution, role, titleKind=explicit, tools, and methods must appear verbatim in that candidate source substring; never paraphrase or broaden them.",
+      "Only return a YYYY-MM date when both its year and month are explicitly present in that candidate source substring.",
+      "Set current=true only when the candidate source explicitly says the experience is ongoing; a missing end date is not evidence, so otherwise set current=false.",
+      "If a field needs evidence outside that substring, split it into another candidate or omit the unsupported field. Never combine evidence from separate experiences.",
+      "Do not normalize punctuation, dates, spacing, or wording in sourceQuote.",
+      "Return only the corrected compact JSON object. Do not add a wrapper or explanation."
+    ].join("\n");
+  }
   if (!task.startsWith("resume-tailor")) return [baseUserPrompt, "", `Previous ${task} response failed (${failure ?? "schema validation failed"}).`, "Return only compact JSON matching this task's requested schema; do not use another task's example."].join("\n");
   const reason = failure === "resume_tailor_requirement_out_of_scope" || failure === "resume_tailor_requirement_binding_failed" ? "requirementIds did not match the supplied IDs" : failure === "resume_tailor_after_missing" ? "after was missing" : failure === "resume_tailor_no_op" ? "after was identical to before" : failure === "no_change_needed" ? "the response contained no suggestion" : failure ?? "schema validation failed";
   return [baseUserPrompt, "", `Previous response failed because ${reason}.`, "Return only:", '{"suggestions":[{"after":"...","rationale":"...","requirementIds":["an ID copied from relevantRequirements"]}]}'].join("\n");

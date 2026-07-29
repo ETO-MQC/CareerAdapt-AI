@@ -1,4 +1,5 @@
 import type { ExperienceType } from "@/domain/schemas/profile";
+import type { ResumeItemV2 } from "@/domain/schemas";
 
 export type ResumeFieldCategoryId =
   | "basic"
@@ -89,6 +90,106 @@ export const emptyStructuredExperienceFields: StructuredExperienceFields = {
   description: "",
   highlights: []
 };
+
+export function canonicalToStructuredExperienceFields(item: ResumeItemV2): StructuredExperienceFields {
+  if (item.sectionType === "education") {
+    return {
+      organization: item.school ?? "",
+      role: item.degree ?? "",
+      location: item.location ?? "",
+      degree: item.degree ?? "",
+      major: item.major ?? "",
+      courses: (item.courses ?? []).join("、"),
+      startDate: item.startDate ?? "",
+      endDate: item.endDate ?? "",
+      current: item.current ?? false,
+      description: item.description ?? "",
+      highlights: item.highlights ?? []
+    };
+  }
+  if (item.sectionType === "project") {
+    return {
+      organization: item.title ?? "",
+      role: item.role ?? "",
+      location: item.location ?? "",
+      degree: "",
+      major: "",
+      courses: "",
+      startDate: item.startDate ?? "",
+      endDate: item.endDate ?? "",
+      current: item.current ?? false,
+      description: item.description ?? "",
+      highlights: item.highlights ?? []
+    };
+  }
+  const record = item as unknown as Record<string, unknown>;
+  return {
+    organization: text(record.organization),
+    role: text(record.role),
+    location: text(record.location),
+    degree: "",
+    major: "",
+    courses: "",
+    startDate: text(record.startDate),
+    endDate: text(record.endDate),
+    current: record.current === true,
+    description: text(record.description),
+    highlights: Array.isArray(record.highlights)
+      ? record.highlights.filter((value): value is string => typeof value === "string")
+      : []
+  };
+}
+
+export function patchCanonicalExperienceFields(
+  item: ResumeItemV2,
+  fields: StructuredExperienceFields
+): ResumeItemV2 {
+  const description = fields.description.trim() || undefined;
+  const highlights = fields.highlights.map((value) => value.trim()).filter(Boolean);
+  if (item.sectionType === "education") {
+    return {
+      ...item,
+      school: fields.organization.trim() || undefined,
+      degree: fields.degree.trim() || fields.role.trim() || undefined,
+      major: fields.major.trim() || undefined,
+      location: fields.location.trim() || undefined,
+      startDate: fields.startDate || undefined,
+      endDate: fields.current ? undefined : fields.endDate || undefined,
+      current: fields.current,
+      courses: fields.courses.split(/[、,，;；]/).map((value) => value.trim()).filter(Boolean),
+      description,
+      highlights
+    };
+  }
+  if (item.sectionType === "project") {
+    return {
+      ...item,
+      title: fields.organization.trim() || undefined,
+      role: fields.role.trim() || undefined,
+      location: fields.location.trim() || undefined,
+      startDate: fields.startDate || undefined,
+      endDate: fields.current ? undefined : fields.endDate || undefined,
+      current: fields.current,
+      description,
+      highlights
+    };
+  }
+  return {
+    ...item,
+    organization: fields.organization.trim() || undefined,
+    role: fields.role.trim() || undefined,
+    location: fields.location.trim() || undefined,
+    startDate: fields.startDate || undefined,
+    endDate: fields.current ? undefined : fields.endDate || undefined,
+    current: fields.current,
+    description,
+    highlights
+  } as ResumeItemV2;
+}
+
+function text(value: unknown) {
+  return typeof value === "string" ? value : "";
+}
 
 export function defaultExperienceType(category: ResumeFieldCategoryId): ExperienceType {
   const defaults: Partial<Record<ResumeFieldCategoryId, ExperienceType>> = {

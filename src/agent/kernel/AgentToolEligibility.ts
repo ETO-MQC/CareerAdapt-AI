@@ -105,7 +105,7 @@ function preconditions(toolName: string, state: AgentTaskState) {
   }
   if (toolName === "commit_resume_import") {
     return state.stage === "confirm_import"
-      && state.completionStatus === "waiting_for_confirmation"
+      && state.completionStatus === "active"
       && has(state, "importId")
       && has(state, "expectedDraftRevision")
       && has(state, "importTarget");
@@ -113,7 +113,7 @@ function preconditions(toolName: string, state: AgentTaskState) {
   if (toolName === "parse_job_description") return has(state, "rawText");
   if (toolName === "commit_job") {
     return ["title", "company", "rawText", "graph"].every((slot) => has(state, slot))
-      && state.completionStatus === "waiting_for_confirmation";
+      && state.completionStatus === "active";
   }
   if (toolName === "analyze_job_fit" || toolName === "create_tailoring_session") {
     return Boolean(state.selectedEntities.profileId && state.selectedEntities.resumeId && state.selectedEntities.jobId);
@@ -124,7 +124,7 @@ function preconditions(toolName: string, state: AgentTaskState) {
   }
   if (toolName === "apply_tailoring_changes") {
     return state.stage === "confirm_apply"
-      && state.completionStatus === "waiting_for_confirmation"
+      && state.completionStatus === "active"
       && Boolean(state.knownSlots.tailoringSession)
       && Array.isArray(state.knownSlots.selectedDiffs);
   }

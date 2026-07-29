@@ -125,6 +125,13 @@ export class ProfileIntakeSemanticService {
         verificationErrors.push(error instanceof Error ? error.message : "profile_intake_proposal_invalid");
       }
     }
+    if (verificationErrors.length) {
+      console.warn("[profile-intake:proposal-validation]", {
+        candidateCount: response.data.candidates.length,
+        acceptedCount: verified.length,
+        errorCodes: verificationErrors
+      });
+    }
     if (!verified.length) {
       return deterministicFallback(
         input.rawNarrative,
@@ -166,6 +173,49 @@ function verifyProposal(
   rawNarrative: string,
   index: number
 ): VerifiedProfileIntakeCandidate {
+  validateProfileIntakeProposalGrounding(proposal, rawNarrative);
+  for (const field of ["description", "highlights", "outcomes"] as const) {
+    const value = proposal[field];
+    const checkedText = Array.isArray(value) ? value.join("\n") : value;
+    if (!checkedText) continue;
+    const guard = runRuleFactGuard({
+      originalText: canonicalFactWording(proposal.sourceQuote),
+      checkedText,
+      usedEvidenceRefs: []
+    });
+    if (guard.status === "blocked_high_risk" || guard.status === "needs_edit") {
+      throw new Error(`profile_intake_fact_guard:${field}:${guard.ruleFindings.map((finding) => finding.type).join(",")}`);
+    }
+  }
+  const id = `intake-${stableHashText(`${proposal.candidateKey}:${proposal.sourceQuote}`).slice(0, 16)}-${index}`;
+  const item = buildResumeItem(id, proposal);
+  if (item) assertFactPreserving(item, proposal.sourceQuote);
+  const missingIdentity = !item;
+  const normalizedText = item
+    ? profileText(item)
+    : proposal.description ?? "需要补充正式名称后才能写入资料库。";
+  return {
+    id,
+    label: proposal.title ?? proposal.name ?? displayLabel(item),
+    sourceQuote: proposal.sourceQuote,
+    normalization: {
+      sectionType: proposal.sectionType,
+      normalizedText,
+      structuredItem: item,
+      confidence: proposal.confidence,
+      needsConfirmation: missingIdentity
+        || proposal.needsConfirmation
+        || proposal.fieldEvidence.some((entry) => entry.needsConfirmation),
+      needsNormalization: false,
+      fieldEvidence: proposal.fieldEvidence
+    }
+  };
+}
+
+export function validateProfileIntakeProposalGrounding(
+  proposal: ProfileIntakeSemanticCandidate,
+  rawNarrative: string
+) {
   if (!rawNarrative.includes(proposal.sourceQuote)) throw new Error("profile_intake_source_quote_missing");
   for (const evidence of proposal.fieldEvidence) {
     if (!proposal.sourceQuote.includes(evidence.sourceQuote)) {
@@ -214,42 +264,6 @@ function verifyProposal(
   )) {
     throw new Error("profile_intake_current_not_grounded");
   }
-  for (const field of ["description", "highlights", "outcomes"] as const) {
-    const value = proposal[field];
-    const checkedText = Array.isArray(value) ? value.join("\n") : value;
-    if (!checkedText) continue;
-    const guard = runRuleFactGuard({
-      originalText: canonicalFactWording(proposal.sourceQuote),
-      checkedText,
-      usedEvidenceRefs: []
-    });
-    if (guard.status === "blocked_high_risk" || guard.status === "needs_edit") {
-      throw new Error(`profile_intake_fact_guard:${field}:${guard.ruleFindings.map((finding) => finding.type).join(",")}`);
-    }
-  }
-  const id = `intake-${stableHashText(`${proposal.candidateKey}:${proposal.sourceQuote}`).slice(0, 16)}-${index}`;
-  const item = buildResumeItem(id, proposal);
-  if (item) assertFactPreserving(item, proposal.sourceQuote);
-  const missingIdentity = !item;
-  const normalizedText = item
-    ? profileText(item)
-    : proposal.description ?? "需要补充正式名称后才能写入资料库。";
-  return {
-    id,
-    label: proposal.title ?? proposal.name ?? displayLabel(item),
-    sourceQuote: proposal.sourceQuote,
-    normalization: {
-      sectionType: proposal.sectionType,
-      normalizedText,
-      structuredItem: item,
-      confidence: proposal.confidence,
-      needsConfirmation: missingIdentity
-        || proposal.needsConfirmation
-        || proposal.fieldEvidence.some((entry) => entry.needsConfirmation),
-      needsNormalization: false,
-      fieldEvidence: proposal.fieldEvidence
-    }
-  };
 }
 
 function populatedProposalFields(proposal: ProfileIntakeSemanticCandidate) {

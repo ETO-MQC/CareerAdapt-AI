@@ -77,6 +77,119 @@ test("P4.0f claim confirmation keeps the decision context visible", async ({ pag
   writeFileSync(resolve(verificationDir, "verification.json"), JSON.stringify({ presentationHashBefore, presentationHashAfter, fitDeltaText }, null, 2), "utf8");
 });
 
+test("confirmed Job Branch survives export failure and retries the same valid PDF artifact", async ({ page }) => {
+  test.setTimeout(180_000);
+  const { sourceId, derivedId } = await openTailoringSuggestions(page);
+  const branchBefore = await readStore<DbBranch>(page, "resumeBranches", derivedId);
+  const sourceBefore = await readStore<DbBranch>(page, "resumeBranches", sourceId);
+  const profileBefore = await readStore<Record<string, unknown>>(page, "profiles", branchBefore!.profileId!);
+  await confirmAndApplyTailoring(page, derivedId);
+
+  const applied = await readStore<DbBranch>(page, "resumeBranches", derivedId);
+  expect(applied).toMatchObject({
+    branchPurpose: "job_specific",
+    sourceBranchId: sourceId,
+    jobId: expect.any(String),
+    revision: (branchBefore?.revision ?? 0) + 1,
+    currentRevisionId: expect.any(String)
+  });
+  expect(await readStore<DbBranch>(page, "resumeBranches", sourceId)).toEqual(sourceBefore);
+  expect(await readStore<Record<string, unknown>>(page, "profiles", branchBefore!.profileId!)).toEqual(profileBefore);
+  await expect(page.getByTestId("render-coverage-warning")).toHaveCount(0);
+
+  let failedRequest: {
+    exportId: string;
+    snapshot: {
+      snapshotHash: string;
+      branchId: string;
+      branchRevision: number;
+      templateId: string;
+      paginationPlan: { paginationHash: string };
+      renderModel: unknown;
+    };
+  } | undefined;
+  await page.route("**/api/resume-export/pdf", async (route) => {
+    failedRequest = route.request().postDataJSON();
+    await route.fulfill({
+      status: 500,
+      contentType: "application/json",
+      body: JSON.stringify({ code: "pdf_generation_failed" })
+    });
+  });
+  await openManualPageTab(page);
+  await page.getByRole("button", { name: "下载 PDF" }).click();
+  await expect(page.getByTestId("pdf-export-status")).toContainText("直接下载失败");
+  expect(await readStore<DbBranch>(page, "resumeBranches", derivedId)).toEqual(applied);
+  expect(await readStore<DbBranch>(page, "resumeBranches", sourceId)).toEqual(sourceBefore);
+  expect(await readStore<Record<string, unknown>>(page, "profiles", branchBefore!.profileId!)).toEqual(profileBefore);
+
+  await page.unroute("**/api/resume-export/pdf");
+  let retryRequest: typeof failedRequest;
+  page.on("request", (request) => {
+    if (request.url().includes("/api/resume-export/pdf") && request.method() === "POST") {
+      retryRequest = request.postDataJSON();
+    }
+  });
+  const responsePromise = page.waitForResponse((response) =>
+    response.url().includes("/api/resume-export/pdf") && response.request().method() === "POST"
+  );
+  const downloadPromise = page.waitForEvent("download", { timeout: 120_000 });
+  await page.getByRole("button", { name: "下载 PDF" }).click();
+  const [response, download] = await Promise.all([responsePromise, downloadPromise]);
+  expect(response.status()).toBe(200);
+  expect(retryRequest).toMatchObject({
+    snapshot: {
+      branchId: derivedId,
+      branchRevision: applied?.revision,
+      templateId: failedRequest?.snapshot.templateId,
+      paginationPlan: {
+        paginationHash: failedRequest?.snapshot.paginationPlan.paginationHash
+      },
+      renderModel: failedRequest?.snapshot.renderModel
+    }
+  });
+
+  const outputDir = resolve(process.cwd(), "artifacts", "rc2");
+  mkdirSync(outputDir, { recursive: true });
+  const pdfPath = resolve(outputDir, "final-job-resume.pdf");
+  await download.saveAs(pdfPath);
+  const info = execFileSync(PDFINFO, [pdfPath], { encoding: "utf8" });
+  const text = execFileSync(PDFTOTEXT, [pdfPath, "-"], { encoding: "utf8" });
+  expect(info).toContain("PDF version");
+  const pages = Number(info.match(/Pages:\s+(\d+)/)?.[1] ?? 0);
+  expect(pages).toBeGreaterThanOrEqual(1);
+  expect(pages).toBeLessThanOrEqual(4);
+  expect(normalize(text)).toContain(normalize("陈同学"));
+  expect(normalize(text)).toContain(normalize("统计建模竞赛项目"));
+  expect(count(normalize(text), normalize("统计建模竞赛项目"))).toBe(1);
+
+  const exportRecords = await readAllStore<Array<{
+    branchId: string;
+    revisionId: string;
+    branchRevision: number;
+    exportStatus: string;
+    snapshotHash?: string;
+  }>[number]>(page, "exportRecords");
+  expect(exportRecords.some((record) =>
+    record.branchId === derivedId
+    && record.revisionId === applied?.currentRevisionId
+    && record.branchRevision === applied?.revision
+    && record.exportStatus === "direct_pdf_success"
+    && record.snapshotHash === retryRequest?.snapshot.snapshotHash
+  )).toBe(true);
+
+  const resumeUrl = page.url();
+  await page.reload();
+  expect(await readStore<DbBranch>(page, "resumeBranches", derivedId)).toEqual(applied);
+  const reopened = await page.context().newPage();
+  await reopened.goto(resumeUrl);
+  await expect(reopened.getByTestId("resume-studio-shell")).toBeVisible({ timeout: 20_000 });
+  expect(await readStore<DbBranch>(reopened, "resumeBranches", derivedId)).toEqual(applied);
+  expect(await readStore<DbBranch>(reopened, "resumeBranches", sourceId)).toEqual(sourceBefore);
+  expect(await readStore<Record<string, unknown>>(reopened, "profiles", branchBefore!.profileId!)).toEqual(profileBefore);
+  await reopened.close();
+});
+
 test("attachment-shaped final resume keeps canonical counts, complete summary, and clean 1-2 page PDF", async ({ page }) => {
   test.setTimeout(180_000);
   await importFinalFixture(page);
@@ -116,7 +229,15 @@ test("attachment-shaped final resume keeps canonical counts, complete summary, a
   expect(exportedPages).toBeLessThanOrEqual(2);
 });
 
-type DbBranch = { revision: number; structuredContentItems?: Array<{ id: string; data: Record<string, unknown> }> };
+type DbBranch = {
+  revision: number;
+  currentRevisionId?: string;
+  profileId?: string;
+  jobId?: string;
+  branchPurpose?: string;
+  sourceBranchId?: string;
+  structuredContentItems?: Array<{ id: string; data: Record<string, unknown> }>;
+};
 
 async function openTailoringSuggestions(page: Page) {
   await page.goto("/resume");
@@ -124,7 +245,9 @@ async function openTailoringSuggestions(page: Page) {
   await expect(page.getByTestId("resume-studio-shell")).toBeVisible({ timeout: 20_000 });
   await page.goto("/jobs");
   await page.getByRole("radio", { name: /优化已有简历/ }).click();
-  await page.getByLabel("来源通用简历").selectOption({ index: 1 });
+  const source = page.getByLabel("来源通用简历");
+  await source.selectOption({ index: 1 });
+  const sourceId = await source.inputValue();
   await page.getByTestId("analyze-and-generate-job-resume").click();
   await expect(page).toHaveURL(/\/resume\?.*branchId=/, { timeout: 20_000 });
   const panel = page.getByTestId("job-optimization-panel");
@@ -152,14 +275,35 @@ async function openTailoringSuggestions(page: Page) {
   });
   await panel.getByRole("button", { name: "生成改写建议" }).click();
   await expect(panel.getByTestId("tailoring-suggestions")).toBeVisible({ timeout: 60_000 });
-  return { derivedId: new URL(page.url()).searchParams.get("branchId")! };
+  return { sourceId, derivedId: new URL(page.url()).searchParams.get("branchId")! };
+}
+
+async function confirmAndApplyTailoring(page: Page, derivedId: string) {
+  const before = await readStore<DbBranch>(page, "resumeBranches", derivedId);
+  const panel = page.getByTestId("job-optimization-panel");
+  await panel.getByRole("button", { name: "确认并应用" }).last().click();
+  const cards = panel.locator(".tailoring-confirmation-card");
+  for (let index = 0; index < await cards.count(); index += 1) {
+    const card = cards.nth(index);
+    const noAdd = card.getByRole("button", { name: "不添加", exact: true });
+    const aware = card.getByRole("button", { name: "了解", exact: true });
+    const accept = card.getByRole("button", { name: "确认采用", exact: true });
+    if (await noAdd.count()) await noAdd.click();
+    else if (await aware.count()) await aware.click();
+    else if (await accept.count()) await accept.click();
+  }
+  await panel.getByRole("button", { name: "应用选择并保存新版本" }).click();
+  await expect.poll(async () => (await readStore<DbBranch>(page, "resumeBranches", derivedId))?.revision)
+    .toBe((before?.revision ?? 0) + 1);
 }
 
 async function importFinalFixture(page: Page) {
   await page.goto("/resume");
-  await page.getByRole("button", { name: "粘贴 JSON", exact: true }).click();
-  await page.locator(".import-json-details textarea").fill(JSON.stringify(finalFixture()));
-  await page.locator(".import-json-details button.primary-button").click();
+  await page.getByRole("button", { name: "导入", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "导入简历" });
+  await dialog.getByText("粘贴结构化 JSON", { exact: true }).click();
+  await dialog.getByLabel("JSON 内容").fill(JSON.stringify(finalFixture()));
+  await dialog.getByRole("button", { name: "导入JSON", exact: true }).click();
   await page.getByLabel("创建新人物").check();
   while (await page.getByRole("button", { name: "确认此字段", exact: true }).count()) await page.getByRole("button", { name: "确认此字段", exact: true }).first().click();
   while (await page.getByRole("button", { name: "核对并保留来源", exact: true }).count()) await page.getByRole("button", { name: "核对并保留来源", exact: true }).first().click();
@@ -216,4 +360,20 @@ async function readStore<T>(page: Page, storeName: string, key: string): Promise
     request.onerror = () => reject(request.error);
     request.onsuccess = () => { const db = request.result; const get = db.transaction(storeName, "readonly").objectStore(storeName).get(key); get.onerror = () => reject(get.error); get.onsuccess = () => { resolveValue(get.result as T | undefined); db.close(); }; };
   }), { storeName, key });
+}
+
+async function readAllStore<T>(page: Page, storeName: string): Promise<T[]> {
+  return page.evaluate((name) => new Promise<T[]>((resolveValue, reject) => {
+    const request = indexedDB.open("CareerAdaptDb");
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const db = request.result;
+      const get = db.transaction(name, "readonly").objectStore(name).getAll();
+      get.onerror = () => reject(get.error);
+      get.onsuccess = () => {
+        resolveValue(get.result as T[]);
+        db.close();
+      };
+    };
+  }), storeName);
 }

@@ -59,6 +59,46 @@ test.describe("P4.0a.1 job resume source modes", () => {
     const sourceAfter = await readFromStore<DbBranch>(page, "resumeBranches", sourceId);
     expect(sourceAfter).toEqual(sourceBefore);
   });
+
+  test("creates Job A and Job B through the current source panel and preserves both after reload", async ({ page }) => {
+    await ensureGeneralResume(page);
+    const source = (await readAllFromStore(page, "resumeBranches") as DbBranch[])
+      .find((branch) => branch.branchPurpose === "general")!;
+    const sourceBefore = await readFromStore<DbBranch>(page, "resumeBranches", source.id);
+    const profilesBefore = await readAllFromStore(page, "profiles");
+    const jobs = await readAllFromStore(page, "jobDescriptions") as Array<{ id: string; title: string }>;
+    expect(jobs.length).toBeGreaterThanOrEqual(2);
+
+    const branchIds: string[] = [];
+    for (const job of jobs.slice(0, 2)) {
+      await page.goto("/jobs");
+      await page.locator(".job-card").filter({ hasText: job.title }).first().click();
+      await page.getByRole("radio", { name: /优化已有简历/ }).click();
+      await page.getByLabel("来源通用简历").selectOption(source.id);
+      await page.getByTestId("analyze-and-generate-job-resume").click();
+      await expect(page).toHaveURL(/\/resume\?.*branchId=/, { timeout: 20_000 });
+      branchIds.push(new URL(page.url()).searchParams.get("branchId")!);
+    }
+
+    const [branchA, branchB] = await Promise.all(branchIds.map((id) =>
+      readFromStore<DbBranch & { jobId: string }>(page, "resumeBranches", id)
+    ));
+    expect(branchA?.jobId).not.toBe(branchB?.jobId);
+    for (const branch of [branchA, branchB]) {
+      expect(branch).toMatchObject({
+        branchPurpose: "job_specific",
+        sourceBranchId: source.id,
+        sourceRevisionId: sourceBefore?.currentRevisionId,
+        currentRevisionId: expect.any(String)
+      });
+    }
+    const branchABeforeReload = JSON.stringify(branchA);
+    await page.reload();
+    expect(JSON.stringify(await readFromStore(page, "resumeBranches", branchIds[0]))).toBe(branchABeforeReload);
+    expect(await readFromStore(page, "resumeBranches", branchIds[1])).toEqual(branchB);
+    expect(await readFromStore(page, "resumeBranches", source.id)).toEqual(sourceBefore);
+    expect(await readAllFromStore(page, "profiles")).toEqual(profilesBefore);
+  });
 });
 
 async function ensureGeneralResume(page: Page) {

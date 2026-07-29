@@ -26,6 +26,7 @@ import {
   type ProfileImportDraft,
   type ProfileRecycleItem,
   type RawInputDocument,
+  type ResumeItemV2,
   type Skill
 } from "@/domain/schemas";
 import { WorkspaceEmptyState, WorkspaceErrorState, WorkspaceLoadingState } from "@/components/workspace/WorkspaceStates";
@@ -38,9 +39,16 @@ import { StructuredExperienceForm } from "@/components/editor/StructuredExperien
 import {
   defaultExperienceType,
   emptyStructuredExperienceFields,
+  canonicalToStructuredExperienceFields,
+  patchCanonicalExperienceFields,
   type StructuredExperienceFields
 } from "@/domain/resumeFields/catalog";
 import { canonicalProfileBasics, canonicalProfileLibraryItems, canonicalProfileSectionCounts, profileSectionCatalog } from "@/domain/profile/canonicalLibrary";
+import {
+  canonicalSectionTypeForProfileCategory,
+  profileCategoryForCanonicalSection,
+  type ProfileUiCategoryId
+} from "@/domain/profile/profileCategories";
 import { extractTextFromPdfBuffer } from "@/services/pdf/extractText";
 import { buildProfileJsonExport, profileJsonExportFileName } from "@/services/export/profileJson";
 import { hashBytes, hashText, redactSensitiveTextForModel } from "@/services/security/text";
@@ -53,7 +61,7 @@ const pdfInputId = "resume-pdf-upload";
 const profileArchiveKey = (profileId: string) => `profileArchive:${profileId}:skills`;
 const profileArchiveV2Key = (profileId: string) => `profileArchive:${profileId}:managed-items`;
 
-type ProfileCategoryId = string;
+type ProfileCategoryId = ProfileUiCategoryId;
 type ProfileUsageFilter = "all" | "used" | "unused" | "archived";
 type ProfileManagedKind = "basic" | "summary" | "experience" | "certificate" | "skill" | "custom" | "canonical";
 
@@ -88,6 +96,7 @@ type ProfileManagedItem = {
   skillLevel?: Skill["level"];
   date?: string;
   structured?: StructuredExperienceFields;
+  canonicalData?: ResumeItemV2;
 };
 
 type ProfileItemDraft = StructuredExperienceFields & {
@@ -107,7 +116,8 @@ const emptyProfileArchive: ProfileArchiveState = {
 };
 
 const profileCategories = profileSectionCatalog.map((section) => ({
-  id: managedProfileCategoryId(section.id),
+  id: profileCategoryForCanonicalSection(section.id),
+  sectionType: section.id,
   label: section.label,
   description: section.repeatable ? "可复用的已确认资料" : "当前人物的基础资料",
   repeatable: section.repeatable
@@ -687,7 +697,19 @@ export function ProfileWorkspace() {
     const selected = selectedProfileItem?.key === selectedProfileItemKey ? selectedProfileItem : undefined;
     const isNew = selectedProfileItemKey.startsWith("new:");
 
-    if (activeProfileCategory === "certificate") {
+    if (selected?.kind === "canonical" && selected.canonicalData) {
+      const updatedData = patchCanonicalProfileDraft(selected.canonicalData, profileItemDraft);
+      nextProfile = {
+        ...profile,
+        structuredFacts: (profile.structuredFacts ?? []).map((entry) =>
+          entry.data.id === selected.id
+            ? { ...entry, data: updatedData }
+            : entry
+        ),
+        version: profile.version + 1,
+        updatedAt: now
+      };
+    } else if (activeProfileCategory === "certificate") {
       const certificate = buildCertificateFromDraft(profileItemDraft, selected?.id, now);
       nextProfile = {
         ...profile,
@@ -1686,7 +1708,8 @@ export function ProfileWorkspace() {
                 <button
                   key={category.id}
                   type="button"
-                  data-section-type={category.id}
+                  data-profile-category={category.id}
+                  data-section-type={category.sectionType}
                   className={activeProfileCategory === category.id ? "profile-category-button profile-category-button-active" : "profile-category-button"}
                   onClick={() => selectProfileCategory(category.id)}
                 >
@@ -2230,14 +2253,14 @@ function ProfileCategoryFields({
   }
   if (category === "basics") return null;
 
-  const labels: Record<Exclude<ProfileCategoryId, "basic" | "summary" | "education" | "work" | "project" | "campus">, { title: string; subtitle: string; body: string }> = {
+  const labels: Partial<Record<ProfileCategoryId, { title: string; subtitle: string; body: string }>> = {
     award: { title: "奖项名称", subtitle: "颁发机构 / 赛事", body: "获奖说明" },
     certificate: { title: "证书名称", subtitle: "颁发机构", body: "证书说明" },
     skill: { title: "技能名称", subtitle: "技能方向", body: "使用场景或能力说明" },
     language: { title: "语言", subtitle: "考试 / 证书", body: "语言能力说明" },
     custom: { title: "内容标题", subtitle: "栏目名称", body: "详细内容" }
   };
-  const currentLabels = labels[category];
+  const currentLabels = labels[category] ?? { title: "名称", subtitle: "补充信息", body: "详细内容" };
   return (
     <div className="section-fields">
       <div className="section-fields-grid-2">
@@ -2395,7 +2418,7 @@ function buildCurrentProfileItems(profile: CareerProfile, category: ProfileCateg
   if (legacyExperiences.length > 0) return legacyExperiences;
 
   return canonicalProfileLibraryItems(profile)
-    .filter((item) => managedProfileCategoryId(item.sectionType) === category)
+    .filter((item) => profileCategoryForCanonicalSection(item.sectionType) === category)
     .map((item) => ({
       key: `canonical:${item.sectionType}:${item.id}`,
       id: item.id,
@@ -2408,7 +2431,12 @@ function buildCurrentProfileItems(profile: CareerProfile, category: ProfileCateg
       usage: "可加入简历",
       used: true,
       archived: false,
-      updatedAt: profile.updatedAt
+      updatedAt: profile.updatedAt,
+      canonicalData: item.data,
+      structured: isStructuredCanonicalSection(item.data.sectionType)
+        ? canonicalToStructuredExperienceFields(item.data)
+        : undefined,
+      date: canonicalItemDate(item.data)
     }));
 }
 
@@ -2446,11 +2474,63 @@ function buildProfileCategoryCounts(profile: CareerProfile, archive: ProfileArch
   const canonicalCounts = canonicalProfileSectionCounts(profile);
   const counts = new Map<ProfileCategoryId, number>();
   for (const category of profileCategories) {
-    const canonicalSectionId = profileSectionCatalog.find((section) => managedProfileCategoryId(section.id) === category.id)?.id;
+    const canonicalSectionId = canonicalSectionTypeForProfileCategory(category.id);
     const canonicalCount = canonicalSectionId ? canonicalCounts.get(canonicalSectionId) ?? 0 : 0;
     counts.set(category.id, canonicalCount + buildArchivedProfileItems(archive, category.id).length);
   }
   return counts;
+}
+
+function isStructuredCanonicalSection(sectionType: ResumeItemV2["sectionType"]) {
+  return ["education", "work", "internship", "project", "campus", "volunteer"].includes(sectionType);
+}
+
+function canonicalItemDate(item: ResumeItemV2) {
+  if (item.sectionType === "awards") return item.awardedAt ?? "";
+  if (item.sectionType === "certificates") return item.issuedAt ?? "";
+  if ("startDate" in item && typeof item.startDate === "string") return item.startDate;
+  return "";
+}
+
+function patchCanonicalProfileDraft(item: ResumeItemV2, draft: ProfileItemDraft): ResumeItemV2 {
+  if (isStructuredCanonicalSection(item.sectionType)) {
+    return patchCanonicalExperienceFields(item, draft);
+  }
+  if (item.sectionType === "awards") {
+    return {
+      ...item,
+      name: draft.title.trim(),
+      issuer: optionalText(draft.subtitle),
+      awardedAt: optionalText(draft.date),
+      description: optionalText(draft.body)
+    };
+  }
+  if (item.sectionType === "skills") {
+    return {
+      ...item,
+      name: draft.title.trim(),
+      category: optionalText(draft.subtitle),
+      description: optionalText(draft.body)
+    };
+  }
+  if (item.sectionType === "certificates") {
+    return {
+      ...item,
+      name: draft.title.trim(),
+      issuer: optionalText(draft.subtitle),
+      issuedAt: optionalText(draft.date),
+      description: optionalText(draft.body)
+    };
+  }
+  if (item.sectionType === "languages") {
+    return {
+      ...item,
+      language: draft.title.trim(),
+      level: optionalText(draft.subtitle),
+      description: optionalText(draft.body)
+    };
+  }
+  return item;
 }
 
 function experienceToManagedItem(experience: Experience, archived: boolean): ProfileManagedItem {
@@ -2738,14 +2818,6 @@ function triggerJsonDownload(payload: unknown, fileName: string) {
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-function managedProfileCategoryId(category: string): ProfileCategoryId {
-  if (category === "skills") return "skill";
-  if (category === "certificates") return "certificate";
-  if (category === "languages") return "language";
-  if (category === "awards") return "award";
-  return category;
-}
-
 function synchronizeProfileStructuredFacts(nextProfile: CareerProfile, previousProfile: CareerProfile | undefined): CareerProfile {
   const previous = previousProfile ?? nextProfile;
   const previousLegacyIds = new Set([
@@ -2759,7 +2831,7 @@ function synchronizeProfileStructuredFacts(nextProfile: CareerProfile, previousP
     ...previous.certificates.flatMap((item) => item.fact ? [item.fact.id] : [])
   ]);
   const nextFactIds = new Set((nextProfile.structuredFacts ?? []).map((entry) => entry.data.id));
-  const canonicalOnlyFacts = (previous.structuredFacts ?? []).filter((entry) =>
+  const canonicalOnlyFacts = (nextProfile.structuredFacts ?? []).filter((entry) =>
     !previousLegacyIds.has(entry.data.id)
     && !entry.factIds.some((factId) => previousLegacyFactIds.has(factId))
     && nextFactIds.has(entry.data.id)

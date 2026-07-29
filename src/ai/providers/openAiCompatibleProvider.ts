@@ -1,5 +1,10 @@
 import "server-only";
 import type { AiSettings } from "@/services/storage/aiSettings";
+import {
+  resolveEffectiveAiConfiguration,
+  safeAiConfigurationDiagnostic,
+  type SafeAiConfigurationDiagnostic
+} from "./effectiveConfiguration";
 import { normalizeProviderFrame, parseOpenAiCompatibleSse } from "./openAiSse";
 import { parseOpenAiJsonSse } from "./openAiToolSse";
 import {
@@ -35,11 +40,15 @@ export class OpenAiCompatibleProvider {
   private readonly apiKey: string;
 
   constructor(settings?: AiSettings) {
-    this.provider = settings?.provider || process.env.AI_PROVIDER || "openai-compatible";
-    this.model = settings?.model || process.env.AI_MODEL || "";
-    this.baseUrl = settings?.baseUrl || process.env.AI_BASE_URL || "https://api.openai.com/v1";
-    this.apiKey = settings?.apiKey || process.env.AI_API_KEY || "";
+    const configuration = resolveEffectiveAiConfiguration(settings);
+    this.provider = configuration.provider;
+    this.model = configuration.model;
+    this.baseUrl = configuration.baseUrl;
+    this.apiKey = configuration.apiKey;
+    this.configurationDiagnostic = safeAiConfigurationDiagnostic(configuration);
   }
+
+  readonly configurationDiagnostic: SafeAiConfigurationDiagnostic;
 
   async invoke(request: OpenAiCompatibleRequest): Promise<OpenAiCompatibleResponse> {
     if (!this.apiKey || !this.model) {

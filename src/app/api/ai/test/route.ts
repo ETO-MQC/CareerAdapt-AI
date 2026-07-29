@@ -21,12 +21,22 @@ export async function POST(request: NextRequest) {
       ok: true,
       provider: response.provider,
       model: response.model,
+      configuration: provider.configurationDiagnostic,
       latencyMs: Date.now() - started
     });
   } catch (error) {
     const raw = error as AiProviderError;
     const code = typeof raw.code === "string" ? raw.code : "provider_failed";
     const message = error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json({ ok: false, code, message }, { status: 502 });
+    console.warn("ai_provider_connection_test_failed", {
+      code,
+      configuration: provider.configurationDiagnostic
+    });
+    return NextResponse.json({
+      ok: false,
+      code,
+      message,
+      configuration: provider.configurationDiagnostic
+    }, { status: 502 });
   }
 }

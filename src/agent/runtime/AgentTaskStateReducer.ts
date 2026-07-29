@@ -31,6 +31,7 @@ export type AgentTaskEvent =
   | { type: "confirmation_requested"; toolName: string; operationId: string }
   | { type: "confirmation_accepted"; toolName: string }
   | { type: "confirmation_rejected"; toolName: string }
+  | { type: "confirmation_superseded"; toolName: string }
   | {
       type: "entity_revision";
       entityType: "profile" | "resume" | "job";
@@ -48,7 +49,13 @@ export class AgentTaskStateReducer {
     goal = session.taskState?.rootGoal ?? session.memory?.currentGoal ?? "conversation"
   ): AgentTaskState {
     const now = new Date().toISOString();
-    const knownSlots = { ...session.workflowState.data };
+    const knownSlots: AgentTaskState["knownSlots"] = { ...session.workflowState.data };
+    if (session.pendingConfirmation && session.pendingToolCall) {
+      knownSlots.pendingConfirmation = {
+        toolName: session.pendingToolCall.toolName,
+        operationId: session.pendingConfirmation.operationId
+      };
+    }
     const state: AgentTaskState = {
       goal,
       rootGoal: goal,
@@ -326,7 +333,7 @@ export class AgentTaskStateReducer {
         state.knownSlots.previewComplete = true;
         state.dependencySnapshots.preview = dependencySnapshot(state, event.observation);
         state.stage = "confirm_apply";
-        state.completionStatus = "waiting_for_confirmation";
+        state.completionStatus = "active";
       } else if (event.toolName === "apply_tailoring_changes") {
         const value = objectValue(event.observation);
         state.knownSlots.qualityResult = value.qualityResult ?? {
@@ -434,7 +441,7 @@ export class AgentTaskStateReducer {
           reconciliationSummary: summary
         };
         state.stage = unresolved > 0 ? "resolve_conflicts" : "confirm_commit";
-        state.completionStatus = unresolved > 0 ? "waiting_for_user" : "waiting_for_confirmation";
+        state.completionStatus = unresolved > 0 ? "waiting_for_user" : "active";
       } else if (event.toolName === "resolve_profile_intake_conflict") {
         const value = objectValue(event.observation);
         const unresolved = typeof value.unresolvedCount === "number" ? value.unresolvedCount : 0;
@@ -444,7 +451,7 @@ export class AgentTaskStateReducer {
           ...value
         };
         state.stage = unresolved > 0 ? "resolve_conflicts" : "confirm_commit";
-        state.completionStatus = unresolved > 0 ? "waiting_for_user" : "waiting_for_confirmation";
+        state.completionStatus = unresolved > 0 ? "waiting_for_user" : "active";
       } else if (event.toolName === "commit_profile_intake") {
         const value = objectValue(event.observation);
         const profileId = stringValue(value.profileId);
@@ -512,7 +519,7 @@ export class AgentTaskStateReducer {
         const requiresReview = typeof summary.requiresReview === "number" ? summary.requiresReview : 0;
         state.activeGoal = requiresReview > 0 ? "resolve_import_conflicts" : "confirm_import";
         state.stage = requiresReview > 0 ? "resolve_conflicts" : "confirm_import";
-        state.completionStatus = requiresReview > 0 ? "waiting_for_user" : "waiting_for_confirmation";
+        state.completionStatus = requiresReview > 0 ? "waiting_for_user" : "active";
       } else if (event.toolName === "resolve_resume_reconciliation") {
         const value = objectValue(event.observation);
         state.knownSlots.expectedReconciliationRevision = value.expectedPlanRevision;
@@ -525,7 +532,7 @@ export class AgentTaskStateReducer {
         const unresolvedCount = typeof value.unresolvedCount === "number" ? value.unresolvedCount : 0;
         state.stage = unresolvedCount > 0 ? "resolve_conflicts" : "confirm_import";
         state.activeGoal = unresolvedCount > 0 ? "resolve_import_conflicts" : "confirm_import";
-        state.completionStatus = unresolvedCount > 0 ? "waiting_for_user" : "waiting_for_confirmation";
+        state.completionStatus = unresolvedCount > 0 ? "waiting_for_user" : "active";
       } else if (event.toolName === "commit_resume_import") {
         const value = objectValue(event.observation);
         const profileId = stringValue(value.profileId);
@@ -589,6 +596,9 @@ export class AgentTaskStateReducer {
         }
         state.stage = "collect_experience";
       }
+    }
+    if (event.type === "confirmation_superseded") {
+      supersedeConfirmation(state, event.toolName);
     }
     if (event.type === "entity_revision") {
       updateAuthoritativeEntity(state, event);
@@ -690,7 +700,9 @@ function normalize(state: AgentTaskState): AgentTaskState {
         && state.stage === "confirm_import"
         && !["completed", "failed", "cancelled"].includes(state.completionStatus)
       ) {
-        state.completionStatus = "waiting_for_confirmation";
+        state.completionStatus = hasValue(state.knownSlots.pendingConfirmation)
+          ? "waiting_for_confirmation"
+          : "active";
       } else if (state.stage === "reconcile_profile") {
         state.completionStatus = "active";
       } else if (state.stage === "resolve_conflicts") {
@@ -718,16 +730,55 @@ function normalize(state: AgentTaskState): AgentTaskState {
       const missingIdentity = identity.filter((slot) => !hasValue(state.knownSlots[slot]));
       state.stage = missingIdentity.length ? "complete_job_identity" : "review_job";
       state.requiredSlots = identity;
-      if (!missingIdentity.length && state.completionStatus === "active") {
-        state.completionStatus = "waiting_for_confirmation";
-      }
+      if (!missingIdentity.length && state.completionStatus === "active") state.stage = "confirm_commit";
     }
   } else if (state.workflowId !== "job_ingestion") {
     const workflow = getWorkflowDefinition(state.workflowId);
     state.requiredSlots = workflow?.requiredSlots[state.stage] ?? state.requiredSlots;
   }
   state.missingSlots = state.requiredSlots.filter((slot) => !hasValue(state.knownSlots[slot]));
+  if (
+    state.completionStatus === "waiting_for_confirmation"
+    && !hasValue(state.knownSlots.pendingConfirmation)
+  ) {
+    state.completionStatus = "active";
+  }
   return state;
+}
+
+function supersedeConfirmation(state: AgentTaskState, toolName: string) {
+  delete state.knownSlots.pendingConfirmation;
+  delete state.knownSlots.confirmationAccepted;
+  delete state.dependencySnapshots.pendingApplyConfirmation;
+  state.completionStatus = "active";
+
+  if (toolName === "commit_profile_intake") {
+    // The reviewed intake draft is authoritative upstream data. A correction
+    // supersedes only the commit/reconciliation derived from it; the next
+    // capture can merge the user's correction into the same draft revision.
+    for (const slot of [
+      "intakeReconciliation",
+      "expectedIntakeReconciliationRevision"
+    ]) {
+      delete state.knownSlots[slot];
+    }
+    state.stage = "collect_experience";
+    return;
+  }
+  if (toolName === "commit_resume_import") {
+    delete state.knownSlots.importReconciliation;
+    delete state.knownSlots.expectedReconciliationRevision;
+    delete state.knownSlots.reconciliationDecision;
+    state.stage = hasValue(state.knownSlots.importTarget) ? "reconcile_profile" : "resolve_target";
+    return;
+  }
+  if (toolName === "apply_tailoring_changes") {
+    invalidateDerivedState(state);
+    return;
+  }
+  if (toolName === "commit_job") {
+    state.stage = hasValue(state.knownSlots.graph) ? "confirm_commit" : "parse_job";
+  }
 }
 
 function setUserRootGoal(state: AgentTaskState, goal: string) {

@@ -1523,7 +1523,7 @@ function invalidatePendingConfirmationForCorrection(session: AgentSession) {
   let current = markConfirmationResolution(session, "superseded");
   if (current.taskState && call) {
     const taskState = new AgentTaskStateReducer().reduce(current.taskState, {
-      type: "confirmation_rejected",
+      type: "confirmation_superseded",
       toolName: call.toolName
     });
     current = projectTaskStateIntoSession(current, taskState);

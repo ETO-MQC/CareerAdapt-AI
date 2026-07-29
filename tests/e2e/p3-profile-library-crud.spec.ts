@@ -1,9 +1,55 @@
 import { expect, test } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 
+test("canonical profile categories preserve structured fields, identities, and section types after reload", async ({ page }) => {
+  await page.goto("/profile");
+  await expect(page.getByLabel("选择人物")).toBeVisible();
+  await expect(page.getByLabel("选择人物").locator("option")).not.toHaveCount(0);
+  const seeded = await seedCanonicalProfileFacts(page);
+  await page.reload();
+
+  const edits = [
+    { category: "project", sectionType: "project", selector: "#profile-project-organization", before: "Canonical Project A", after: "Canonical Project A RC2", id: "canonical-project-a", field: "title" },
+    { category: "award", sectionType: "awards", selector: "#profile-award-title", before: "Canonical Award", after: "Canonical Award RC2", id: "canonical-award", field: "name" },
+    { category: "skill", sectionType: "skills", selector: "#profile-skill-title", before: "Canonical Skill", after: "Canonical Skill RC2", id: "canonical-skill", field: "name" },
+    { category: "certificate", sectionType: "certificates", selector: "#profile-certificate-title", before: "Canonical Certificate", after: "Canonical Certificate RC2", id: "canonical-certificate", field: "name" },
+    { category: "language", sectionType: "languages", selector: "#profile-language-title", before: "Canonical Language", after: "Canonical Language RC2", id: "canonical-language", field: "language" }
+  ] as const;
+
+  for (const edit of edits) {
+    const category = page.locator(`[data-profile-category="${edit.category}"]`);
+    await expect(category).toHaveAttribute("data-section-type", edit.sectionType);
+    await category.click();
+    const row = page.getByTestId("profile-managed-list").locator(".profile-managed-row").filter({ hasText: edit.before });
+    await expect(row).toBeVisible();
+    await row.getByRole("button", { name: `编辑 ${edit.before}` }).click();
+    await page.locator(edit.selector).fill(edit.after);
+    await page.locator(".profile-detail-panel").getByRole("button", { name: "保存", exact: true }).click();
+    await expect(page.getByTestId("profile-managed-list")).toContainText(edit.after);
+
+    if (edit.category === "project") {
+      await page.getByTestId("profile-managed-list").locator(".profile-managed-row").filter({ hasText: "Canonical Project B" }).click();
+      await page.getByTestId("profile-managed-list").locator(".profile-managed-row").filter({ hasText: edit.after }).click();
+      await expect(page.locator(".profile-detail-panel")).toContainText(edit.after);
+    }
+  }
+
+  await page.reload();
+  const stored = await readProfileRecord(page, seeded.profileId);
+  expect(stored.version).toBe(seeded.version + edits.length);
+  for (const edit of edits) {
+    const entry = stored.structuredFacts.find((item) => item.data.id === edit.id);
+    expect(entry?.data.sectionType).toBe(edit.sectionType);
+    expect(entry?.data[edit.field]).toBe(edit.after);
+    expect(entry?.factIds).toEqual([`fact-${edit.id}`]);
+    expect(entry?.mappingTrace).toEqual([]);
+  }
+  expect(stored.structuredFacts.find((item) => item.data.id === "canonical-project-b")?.data.title).toBe("Canonical Project B");
+});
+
 test("profile items edit in place and support archive, delete, and batch delete", async ({ page }) => {
   await page.goto("/profile");
-  await page.locator('[data-section-type="skill"]').click();
+  await page.locator('[data-profile-category="skill"]').click();
 
   const list = page.getByTestId("profile-managed-list");
   const rows = list.locator(".profile-managed-row");
@@ -73,3 +119,81 @@ test("exports only the selected person's complete profile library as JSON", asyn
   expect(payload).not.toHaveProperty("agentSessions");
   await expect(page.getByText(`已导出 ${selectedProfileName} 的完整资料库 JSON。`)).toBeVisible();
 });
+
+type StoredProfile = {
+  id: string;
+  version: number;
+  structuredFacts: Array<{
+    data: Record<string, unknown> & { id: string; sectionType: string };
+    factIds: string[];
+    mappingTrace: unknown[];
+  }>;
+};
+
+async function seedCanonicalProfileFacts(page: import("@playwright/test").Page) {
+  return page.evaluate(async () => {
+    const request = indexedDB.open("CareerAdaptDb");
+    const database = await new Promise<IDBDatabase>((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const transaction = database.transaction("profiles", "readwrite");
+    const store = transaction.objectStore("profiles");
+    const profiles = await new Promise<Array<Record<string, unknown>>>((resolve, reject) => {
+      const get = store.getAll();
+      get.onsuccess = () => resolve(get.result as Array<Record<string, unknown>>);
+      get.onerror = () => reject(get.error);
+    });
+    const profile = profiles[0];
+    const version = Number(profile.version);
+    const entry = (data: Record<string, unknown> & { id: string; sectionType: string }) => ({
+      data,
+      factIds: [`fact-${data.id}`],
+      sourceBlockIds: [`block-${data.id}`],
+      sourceRanges: [],
+      mappingTrace: []
+    });
+    const common = { customFields: [] };
+    const structuredFacts = [
+      entry({ ...common, id: "canonical-project-a", sectionType: "project", title: "Canonical Project A", role: "Owner", startDate: "2025-01", current: true, tools: ["TypeScript"], highlights: ["Structured project description"], outcomes: [] }),
+      entry({ ...common, id: "canonical-project-b", sectionType: "project", title: "Canonical Project B", role: "Reviewer", startDate: "2024-01", endDate: "2024-12", current: false, tools: [], highlights: ["Sibling item"], outcomes: [] }),
+      entry({ ...common, id: "canonical-award", sectionType: "awards", name: "Canonical Award", issuer: "RC Committee", awardedAt: "2025-05", description: "Award description" }),
+      entry({ ...common, id: "canonical-skill", sectionType: "skills", name: "Canonical Skill", category: "Engineering", description: "Skill description" }),
+      entry({ ...common, id: "canonical-certificate", sectionType: "certificates", name: "Canonical Certificate", issuer: "RC Institute", issuedAt: "2025-04", description: "Certificate description" }),
+      entry({ ...common, id: "canonical-language", sectionType: "languages", language: "Canonical Language", level: "Professional", description: "Language description" })
+    ];
+    store.put({
+      ...profile,
+      experiences: [],
+      skills: [],
+      certificates: [],
+      structuredFacts,
+      version,
+      updatedAt: new Date().toISOString()
+    });
+    await new Promise<void>((resolve, reject) => {
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+      transaction.onabort = () => reject(transaction.error);
+    });
+    database.close();
+    return { profileId: String(profile.id), version };
+  });
+}
+
+async function readProfileRecord(page: import("@playwright/test").Page, profileId: string) {
+  return page.evaluate(async (id) => {
+    const request = indexedDB.open("CareerAdaptDb");
+    const database = await new Promise<IDBDatabase>((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const profile = await new Promise<StoredProfile>((resolve, reject) => {
+      const get = database.transaction("profiles", "readonly").objectStore("profiles").get(id);
+      get.onsuccess = () => resolve(get.result as StoredProfile);
+      get.onerror = () => reject(get.error);
+    });
+    database.close();
+    return profile;
+  }, profileId);
+}

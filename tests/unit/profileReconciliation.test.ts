@@ -385,6 +385,92 @@ describe("ProfileReconciliationEngine deterministic matching", () => {
     })).resolves.toMatchObject({ profileId: first.profileId, branchId: undefined });
   });
 
+  it("uses imported conflicting fields as one authoritative update with provenance after reload", async () => {
+    const repository = createRepository();
+    const original = await repository.saveImportedResumeDraft(located(draft("use-imported-a", "resume-a.json", [
+      work("work-a", { startDate: "2024-09" })
+    ])), 0);
+    const first = await repository.confirmImportedResume({
+      importId: original.importId,
+      expectedDraftRevision: original.revision,
+      operationId: "use-imported-first",
+      target: { mode: "new", profileName: "测试用户", createGeneralResume: true }
+    });
+    const before = (await repository.getProfile(first.profileId))!;
+    const existingId = before.experiences[0].id;
+    const incoming = await repository.saveImportedResumeDraft(located(draft("use-imported-b", "resume-b.json", [
+      work("work-b", { startDate: "2024-10" })
+    ])), 0);
+    const plan = await repository.reconcileImportedResume({
+      importId: incoming.importId,
+      expectedDraftRevision: incoming.revision,
+      profileId: first.profileId
+    });
+    const resolved = await repository.resolveProfileReconciliation({
+      importId: incoming.importId,
+      expectedPlanRevision: plan.revision,
+      incomingItemId: plan.decisions[0].incomingItemId,
+      resolution: "use_imported"
+    });
+    await repository.confirmImportedResume({
+      importId: incoming.importId,
+      expectedDraftRevision: incoming.revision,
+      expectedReconciliationRevision: resolved.revision,
+      operationId: "use-imported-commit",
+      target: { mode: "existing", profileId: first.profileId }
+    });
+
+    const reloaded = (await new WorkspaceRepository(database!).getProfile(first.profileId))!;
+    expect(reloaded.experiences).toHaveLength(before.experiences.length);
+    expect(reloaded.experiences[0]).toMatchObject({ id: existingId, startDate: "2024-10" });
+    expect(reloaded.experiences[0].facts[0].provenance.map((item) => item.fileName)).toEqual([
+      "resume-a.json", "resume-b.json"
+    ]);
+  });
+
+  it("keeps a reviewed similar item as a distinct canonical asset with unique provenance after reload", async () => {
+    const repository = createRepository();
+    const original = await repository.saveImportedResumeDraft(located(draft("keep-both-a", "resume-a.json", [
+      project("project-a", { title: "示例任务系统", startDate: "2025-01", endDate: "2025-12", current: false })
+    ])), 0);
+    const first = await repository.confirmImportedResume({
+      importId: original.importId,
+      expectedDraftRevision: original.revision,
+      operationId: "keep-both-first",
+      target: { mode: "new", profileName: "测试用户", createGeneralResume: true }
+    });
+    const incoming = await repository.saveImportedResumeDraft(located(draft("keep-both-b", "resume-b.json", [
+      project("project-b", { title: "示例任务系统", startDate: "2026-01", endDate: "2026-12", current: false })
+    ])), 0);
+    const plan = await repository.reconcileImportedResume({
+      importId: incoming.importId,
+      expectedDraftRevision: incoming.revision,
+      profileId: first.profileId
+    });
+    expect(plan.decisions[0].requiresUserConfirmation).toBe(true);
+    const resolved = await repository.resolveProfileReconciliation({
+      importId: incoming.importId,
+      expectedPlanRevision: plan.revision,
+      incomingItemId: plan.decisions[0].incomingItemId,
+      resolution: "keep_both_as_distinct"
+    });
+    await repository.confirmImportedResume({
+      importId: incoming.importId,
+      expectedDraftRevision: incoming.revision,
+      expectedReconciliationRevision: resolved.revision,
+      operationId: "keep-both-commit",
+      target: { mode: "existing", profileId: first.profileId }
+    });
+
+    const reloaded = (await new WorkspaceRepository(database!).getProfile(first.profileId))!;
+    const projects = reloaded.experiences.filter((item) => item.type === "project");
+    expect(projects).toHaveLength(2);
+    expect(new Set(projects.map((item) => item.id)).size).toBe(2);
+    expect(projects.map((item) => item.facts[0].provenance[0].fileName).sort()).toEqual([
+      "resume-a.json", "resume-b.json"
+    ]);
+  });
+
   it("R invalidates a reconciliation plan when the authoritative Profile version changes", async () => {
     const repository = createRepository();
     const original = await repository.saveImportedResumeDraft(located(draft("repository-stale-a", "resume-a.json", [

@@ -767,6 +767,32 @@ function bindAuthoritativeTaskInput(
       }
     };
   }
+  if (call.name === "commit_resume_import") {
+    return {
+      ...call,
+      arguments: {
+        ...call.arguments,
+        importId: slots.importId,
+        expectedDraftRevision: slots.expectedDraftRevision,
+        ...(typeof slots.expectedReconciliationRevision === "number"
+          ? { expectedReconciliationRevision: slots.expectedReconciliationRevision }
+          : {}),
+        target: slots.importTarget
+      }
+    };
+  }
+  if (call.name === "commit_job") {
+    return {
+      ...call,
+      arguments: {
+        ...call.arguments,
+        title: slots.title,
+        company: slots.company,
+        rawText: slots.rawText,
+        graph: slots.graph
+      }
+    };
+  }
   if (call.name === "ensure_general_resume_from_profile") {
     return {
       ...call,
@@ -1156,17 +1182,29 @@ function deterministicBoundaryTool(
     return "capture_profile_intake";
   }
   if (
-    taskState.completionStatus !== "waiting_for_confirmation"
+    taskState.workflowId === "guided_profile_intake"
+    && taskState.stage === "reconcile_profile"
+    && taskState.completionStatus === "active"
+    && taskState.knownSlots.intakeImportId
+    && allowedTools.some((tool) => tool.name === "reconcile_profile_intake")
+  ) {
+    return "reconcile_profile_intake";
+  }
+  if (
+    taskState.completionStatus !== "active"
     || taskState.knownSlots.pendingConfirmation
   ) {
     return undefined;
   }
-  const candidates: Record<string, string> = {
-    confirm_commit: "commit_profile_intake",
-    confirm_import: "commit_resume_import",
-    confirm_apply: "apply_tailoring_changes"
-  };
-  const toolName = candidates[taskState.stage];
+  const toolName = taskState.workflowId === "guided_profile_intake" && taskState.stage === "confirm_commit"
+    ? "commit_profile_intake"
+    : taskState.workflowId === "job_ingestion" && taskState.stage === "confirm_commit"
+      ? "commit_job"
+      : taskState.stage === "confirm_import"
+        ? "commit_resume_import"
+        : taskState.stage === "confirm_apply"
+          ? "apply_tailoring_changes"
+          : undefined;
   return toolName && allowedTools.some((tool) => tool.name === toolName)
     ? toolName
     : undefined;

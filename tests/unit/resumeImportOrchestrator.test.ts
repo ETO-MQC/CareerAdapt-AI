@@ -332,7 +332,18 @@ describe("Agent local attachment and import task state", () => {
     });
     expect(state.stage).toBe("confirm_import");
     expect(state.knownSlots.expectedReconciliationRevision).toBe(1);
+    expect(state.completionStatus).toBe("active");
+    expect(state.knownSlots).not.toHaveProperty("pendingConfirmation");
+    state = reducer.reduce(state, {
+      type: "confirmation_requested",
+      toolName: "commit_resume_import",
+      operationId: "commit-import-reconcile"
+    });
     expect(state.completionStatus).toBe("waiting_for_confirmation");
+    expect(state.knownSlots.pendingConfirmation).toEqual({
+      toolName: "commit_resume_import",
+      operationId: "commit-import-reconcile"
+    });
   });
 });
 

@@ -221,6 +221,20 @@ describe("V2-G5a job optimization", () => {
     expect(duplicate.duplicate).toBe(true);
     expect(duplicate.branch.id).toBe(first.branch.id);
 
+    const explicitlyIndependent = await repository.deriveJobSpecificBranchFromBranch({
+      sourceBranchId: originalGeneral.id,
+      jobId: job.id,
+      expectedSourceRevision: originalGeneral.revision,
+      expectedSourceRevisionId: originalGeneral.currentRevisionId!,
+      operationId: "p34-source-v1-explicit-independent",
+      name: "Explicit independent optimization",
+      allowDuplicate: true
+    });
+    expect(explicitlyIndependent.duplicate).toBe(false);
+    expect(explicitlyIndependent.branch.id).not.toBe(first.branch.id);
+    expect(explicitlyIndependent.branch.sourceBranchId).toBe(originalGeneral.id);
+    expect(explicitlyIndependent.branch.sourceRevisionId).toBe(originalGeneral.currentRevisionId);
+
     const firstItem = originalGeneral.contentItems[0];
     const edited = await repository.editResumeBranch({
       branchId: originalGeneral.id,
@@ -243,6 +257,58 @@ describe("V2-G5a job optimization", () => {
     expect(second.branch.id).not.toBe(first.branch.id);
     expect(second.branch.sourceRevisionId).toBe(edited.branch.currentRevisionId);
     expect(first.branch.contentItems[0].text).toBe(firstItem.text);
+  });
+
+  it("keeps Job A and Job B sibling revisions isolated in both directions", async () => {
+    const repository = createRepository();
+    const { profile, branch: general } = await confirmImportedGeneralResume(repository);
+    const jobA = await repository.saveJobDescription(createSqlAnalystJob());
+    const jobB = await repository.saveJobDescription({
+      ...createSqlAnalystJob(),
+      id: "job-sibling-b",
+      title: "SQL Operations Analyst"
+    });
+    for (const job of [jobA, jobB]) {
+      await repository.saveRuleRequirementMatches({
+        profile,
+        job,
+        matches: bindMatchesToResume(createRuleRequirementMatches({ profile, job }, TEST_TIME), general)
+      });
+    }
+    const createSibling = (job: JobDescription, operationId: string) => repository.deriveJobSpecificBranchFromBranch({
+      sourceBranchId: general.id,
+      jobId: job.id,
+      expectedSourceRevision: general.revision,
+      expectedSourceRevisionId: general.currentRevisionId!,
+      operationId,
+      name: `${job.title} branch`
+    });
+    const branchA = (await createSibling(jobA, "sibling-a-create")).branch;
+    const branchB = (await createSibling(jobB, "sibling-b-create")).branch;
+    const profileBefore = await repository.getProfile(profile.id);
+    const generalBefore = await repository.getResumeBranch(general.id);
+
+    const itemA = branchA.contentItems[0];
+    const editedA = await repository.editResumeBranch({
+      branchId: branchA.id,
+      expectedRevision: branchA.revision,
+      operationId: "sibling-a-edit",
+      edits: [{ itemId: itemA.id, text: `${itemA.text}。` }]
+    });
+    expect(await repository.getResumeBranch(branchB.id)).toEqual(branchB);
+
+    const itemB = branchB.contentItems[0];
+    const editedB = await repository.editResumeBranch({
+      branchId: branchB.id,
+      expectedRevision: branchB.revision,
+      operationId: "sibling-b-edit",
+      edits: [{ itemId: itemB.id, text: `${itemB.text}。` }]
+    });
+    expect(await repository.getResumeBranch(branchA.id)).toEqual(editedA.branch);
+    expect(editedB.branch.jobId).toBe(jobB.id);
+    expect(editedA.branch.jobId).toBe(jobA.id);
+    expect(await repository.getProfile(profile.id)).toEqual(profileBefore);
+    expect(await repository.getResumeBranch(general.id)).toEqual(generalBefore);
   });
 
   it("blocks high-risk accepted edits and stale branch revisions", async () => {

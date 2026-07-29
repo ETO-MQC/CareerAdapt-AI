@@ -301,7 +301,7 @@ describe("AgentKernel", () => {
     })) {
       taskState = reducer.reduce(taskState, { type: "slot_answer", slot, value });
     }
-    taskState = { ...taskState, completionStatus: "waiting_for_confirmation" };
+    taskState = { ...taskState, completionStatus: "active" };
     const session = { ...base, taskState };
     const result = await kernel.runTurn({
       session,
@@ -309,6 +309,7 @@ describe("AgentKernel", () => {
       userMessage: "确认保存岗位"
     });
     expect(commitJob).not.toHaveBeenCalled();
+    expect(result.trajectory.errors).toEqual([]);
     expect(result.pendingConfirmation?.toolName).toBe("commit_job");
     expect(result.trajectory.outcome).toBe("waiting_for_confirmation");
   });
@@ -325,7 +326,7 @@ describe("AgentKernel", () => {
       goal: "profile_intake",
       workflowId: "guided_profile_intake",
       stage: "confirm_commit",
-      completionStatus: "waiting_for_confirmation" as const,
+      completionStatus: "active" as const,
       knownSlots: {
         intakeImportId: "intake-1",
         expectedIntakeDraftRevision: 1,

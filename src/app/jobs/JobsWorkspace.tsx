@@ -365,7 +365,8 @@ export function JobsWorkspace() {
       const result = await createJobResume({ repository, job: selectedJob,
         operationId: `job-resume-${selectedBaseResume.id}-${selectedJob.id}-${selectedBaseResume.currentRevisionId}-${nanoid(8)}`,
         name: uniqueBranchName(`${selectedJob.title} - ${selectedJob.company} - ${profile.basics.name} - 新优化`, resumeBranches),
-        source: { type: "resume", branch: selectedBaseResume }
+        source: { type: "resume", branch: selectedBaseResume },
+        allowDuplicate: true
       });
       setResumeActionStatus("completed"); notify({ type: "success", title: "新岗位简历已创建", message: "基于原始通用简历创建了新的岗位优化版本，正在打开 Resume Studio。" });
       router.push(`/resume?branchId=${encodeURIComponent(result.resultRefs!.branchId!)}&mode=ai&fromJobId=${encodeURIComponent(selectedJob.id)}`);
