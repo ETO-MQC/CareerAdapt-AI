@@ -66,6 +66,8 @@ export function AgentArtifactContent({
                 const outcomes = stringArray(item.outcomes);
                 const sources = stringArray(item.sources);
                 const status = intakeStatusLabel(item.status);
+                const needsNormalization = item.needsNormalization === true;
+                const canAccept = item.canAccept !== false && !needsNormalization;
                 return (
                   <article key={String(item.id)} className="agent-career-asset">
                     <header>
@@ -87,18 +89,22 @@ export function AgentArtifactContent({
                       <DetailList title="来源" values={sources.length ? sources : ["原始对话已保留"]} />
                     </details>
                     <div className="agent-import-review-actions" aria-label={`${String(item.label ?? "经历")}操作`}>
-                      <button type="button" onClick={() => onArtifactAction?.({
-                        type: "profile_intake_candidate_decision",
-                        candidateId: String(item.id),
-                        decision: "accept"
-                      })}>采用</button>
+                      {needsNormalization ? (
+                        <button type="button" onClick={() => onImportAction?.(`重试整理“${String(item.label ?? "这项经历")}”`)}>重试整理</button>
+                      ) : canAccept ? (
+                        <button type="button" onClick={() => onArtifactAction?.({
+                          type: "profile_intake_candidate_decision",
+                          candidateId: String(item.id),
+                          decision: "accept"
+                        })}>采用</button>
+                      ) : null}
                       <button type="button" onClick={() => onImportAction?.(`编辑“${String(item.label ?? "这项经历")}”后采用`)}>编辑后采用</button>
+                      <button type="button" onClick={() => onImportAction?.(`补充“${String(item.label ?? "这项经历")}”最有价值的细节`)}>补充细节</button>
                       <button type="button" onClick={() => onArtifactAction?.({
                         type: "profile_intake_candidate_decision",
                         candidateId: String(item.id),
                         decision: "reject"
                       })}>忽略</button>
-                      <button type="button" onClick={() => onImportAction?.(`补充“${String(item.label ?? "这项经历")}”最有价值的细节`)}>补充细节</button>
                     </div>
                   </article>
                 );

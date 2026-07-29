@@ -1840,7 +1840,13 @@ function artifactActionExecution(
       : [];
     if (
       state.stage !== "review_facts"
-      || !candidates.some((candidate) => candidate.id === action.candidateId)
+      || !candidates.some((candidate) =>
+        candidate.id === action.candidateId
+        && (
+          action.decision === "reject"
+          || (candidate.needsNormalization !== true && candidate.canAccept !== false)
+        )
+      )
       || typeof state.knownSlots.intakeImportId !== "string"
       || typeof state.knownSlots.expectedIntakeDraftRevision !== "number"
     ) {

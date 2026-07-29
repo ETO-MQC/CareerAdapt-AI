@@ -4,6 +4,7 @@ import {
   JobRequirementGraphV4Schema,
   RawInputDocumentSchema,
   ResumeTailoringDiffSchema,
+  type ImportedResumeDraft,
   type ProfileReconciliationPlan,
   TailoringIntensitySchema
 } from "@/domain/schemas";
@@ -254,6 +255,26 @@ export class BrowserAgentToolService implements AgentToolServices {
         const structuredItem = patchValidation && renamed
           ? applyProfileIntakeStructuredPatch(renamed, patchValidation.patch)
           : renamed;
+        const normalizationResolved = item.careerNormalization?.needsNormalization === true
+          && input.decision === "accept"
+          ? Boolean(patchValidation && structuredItem && hasCareerReadyPatch(patchValidation.patch))
+          : false;
+        if (input.decision === "accept" && !structuredItem) {
+          throw toolError(
+            "profile_intake_identity_missing",
+            "这项内容还缺少正式名称，请编辑名称或补充细节后再采用。"
+          );
+        }
+        if (
+          input.decision === "accept"
+          && item.careerNormalization?.needsNormalization === true
+          && !normalizationResolved
+        ) {
+          throw toolError(
+            "profile_intake_normalization_required",
+            "这项原始回答尚未整理完成，请重试整理、编辑后采用、补充细节或忽略。"
+          );
+        }
         const patchedFields = patchValidation ? Object.keys(patchValidation.patch) : [];
         const followUpEvidence = input.evidence
           ? {
@@ -280,6 +301,9 @@ export class BrowserAgentToolService implements AgentToolServices {
           careerNormalization: item.careerNormalization
             ? {
                 ...item.careerNormalization,
+                needsNormalization: normalizationResolved
+                  ? false
+                  : item.careerNormalization.needsNormalization,
                 fieldEvidence: [
                   ...item.careerNormalization.fieldEvidence,
                   ...(patchValidation?.fieldEvidence ?? [])
@@ -349,6 +373,8 @@ export class BrowserAgentToolService implements AgentToolServices {
       acknowledgedActiveProfileId?: string;
     };
     await assertActiveProfileBinding(this.repository, input);
+    const draft = await this.repository.getImportedResumeDraft(input.importId);
+    assertConversationIntakeCommitEligible(draft);
     return this.repository.confirmProfileIntake({
       ...input,
       operationId
@@ -1007,6 +1033,38 @@ export class BrowserAgentToolService implements AgentToolServices {
         return result.data;
       }
     });
+  }
+}
+
+function hasCareerReadyPatch(patch: ProfileIntakeStructuredPatch) {
+  return Boolean(
+    patch.title
+    || patch.name
+    || patch.organization
+    || patch.institution
+    || patch.role
+    || patch.description
+    || patch.highlights?.length
+    || patch.tools?.length
+    || patch.methods?.length
+    || patch.outcomes?.length
+  );
+}
+
+function assertConversationIntakeCommitEligible(draft: ImportedResumeDraft | undefined) {
+  if (!draft || draft.sourceKind !== "conversation") {
+    throw toolError("profile_intake_draft_missing", "访谈草稿不存在，请重新整理刚才的回答。");
+  }
+  const blocked = draft.sections.flatMap((section) => section.items)
+    .some((item) =>
+      item.included
+      && (item.careerNormalization?.needsNormalization === true || !item.structuredItem)
+    );
+  if (blocked) {
+    throw toolError(
+      "profile_intake_normalization_required",
+      "仍有内容尚未形成可写入资料库的正式事实，请先重试整理、编辑或补充细节。"
+    );
   }
 }
 

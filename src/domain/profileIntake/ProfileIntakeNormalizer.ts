@@ -41,7 +41,7 @@ export const ProfileIntakeFieldEvidenceSchema = z.object({
 export const ProfileIntakeNormalizationResultSchema = z.object({
   sectionType: ResumeSectionTypeV2Schema.exclude(["basics"]),
   normalizedText: z.string().min(1),
-  structuredItem: ResumeItemV2Schema,
+  structuredItem: ResumeItemV2Schema.optional(),
   confidence: z.number().min(0).max(1),
   needsConfirmation: z.boolean(),
   needsNormalization: z.boolean(),

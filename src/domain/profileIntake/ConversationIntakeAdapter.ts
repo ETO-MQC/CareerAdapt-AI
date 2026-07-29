@@ -36,6 +36,8 @@ export type ConversationIntakeArtifact = {
     status: "confirmed" | "ai_review" | "insufficient" | "duplicate" | "conflict";
     confidence: number;
     reason?: string;
+    needsNormalization: boolean;
+    canAccept: boolean;
   }>;
   recognized: Array<{ id: string; label: string }>;
   needsConfirmation: Array<{ id: string; label: string; reason: string }>;
@@ -232,7 +234,7 @@ export function buildConversationIntakeArtifact(
         })
       : {
           id: item.id,
-          sectionType: "other",
+          sectionType: conversationSectionType(section.sectionType),
           label,
           professionalDescription: item.normalizedText,
           highlights: [],
@@ -240,7 +242,9 @@ export function buildConversationIntakeArtifact(
           outcomes: [],
           sources: [item.sourceQuote ?? item.rawText],
           status,
-          confidence: 0.5
+          confidence: 0.5,
+          needsNormalization,
+          canAccept: false
         };
     const fallbackDates = item.careerNormalization?.deterministicDatePatch;
     if (!candidate.time && fallbackDates) {
@@ -351,6 +355,7 @@ function artifactCandidate(
   normalized: VerifiedProfileIntakeCandidate["normalization"]
 ): ConversationIntakeArtifact["candidates"][number] {
   const item = normalized.structuredItem;
+  if (!item) throw new Error("profile_intake_artifact_item_missing");
   const date = item.sectionType === "awards"
     ? item.awardedAt
     : "startDate" in item
@@ -377,6 +382,16 @@ function artifactCandidate(
     sources: [...new Set(normalized.fieldEvidence.map((entry) => entry.sourceQuote))],
     status: candidate.status,
     confidence: normalized.confidence,
-    reason: candidate.reason
+    reason: candidate.reason,
+    needsNormalization: normalized.needsNormalization,
+    canAccept: Boolean(normalized.structuredItem) && !normalized.needsNormalization
   };
+}
+
+function conversationSectionType(
+  value: ImportedResumeDraft["sections"][number]["sectionType"]
+): ConversationIntakeCandidate["sectionType"] {
+  return value === "basics" || value === "experience" || value === "unknown"
+    ? "other"
+    : value;
 }

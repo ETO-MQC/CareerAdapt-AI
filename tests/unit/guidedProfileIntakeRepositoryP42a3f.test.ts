@@ -471,6 +471,66 @@ describe("P4.2a.3f profile commit and General Resume bootstrap", () => {
     expect(artifact.duplicates).toHaveLength(0);
     expect(artifact.sources).toHaveLength(3);
   });
+
+  it("blocks unnormalized conversation candidates in both review and repository commit paths", async () => {
+    const repository = createRepository();
+    const profile = emptyProfile("profile-normalization-guard", "林澄");
+    await repository.saveProfile(profile);
+    const semantic = new ProfileIntakeSemanticService(async () => ({
+      ok: false as const,
+      errorCode: "provider_unavailable"
+    }));
+    const service = new BrowserAgentToolService(repository, semantic);
+    const captured = await service.captureProfileIntake({
+      sessionId: "session-normalization-guard",
+      messageId: "message-normalization-guard",
+      turnId: "turn-normalization-guard",
+      text: "2025年3月做过一段经历，但正式名称和职责还没有整理好。",
+      capturedAt: "2026-07-29T10:00:00.000Z",
+      targetProfileId: profile.id,
+      expectedProfileVersion: profile.version
+    });
+    const candidateId = captured.candidates[0].id;
+
+    await expect(service.reviewProfileIntake({
+      importId: captured.importId,
+      expectedDraftRevision: captured.expectedDraftRevision,
+      candidateId,
+      decision: "accept"
+    })).rejects.toMatchObject({ code: "profile_intake_normalization_required" });
+
+    const draft = await repository.getImportedResumeDraft(captured.importId);
+    expect(draft).toBeTruthy();
+    const forced = await repository.saveImportedResumeDraft({
+      ...draft!,
+      sections: draft!.sections.map((section) => ({
+        ...section,
+        included: true,
+        items: section.items.map((item) => ({
+          ...item,
+          included: true,
+          sourceStatus: "user_confirmed_modified" as const
+        }))
+      }))
+    }, draft!.revision);
+    const plan = await repository.reconcileImportedResume({
+      importId: forced.importId,
+      expectedDraftRevision: forced.revision,
+      profileId: profile.id
+    });
+
+    await expect(repository.confirmProfileIntake({
+      importId: forced.importId,
+      expectedDraftRevision: forced.revision,
+      expectedReconciliationRevision: plan.revision,
+      targetProfileId: profile.id,
+      expectedProfileVersion: profile.version,
+      operationId: "forced-normalization-commit"
+    })).rejects.toThrow("profile_intake_normalization_required");
+    const unchanged = await repository.getProfile(profile.id);
+    expect(unchanged?.version).toBe(profile.version);
+    expect(unchanged?.structuredFacts).toHaveLength(0);
+  });
 });
 
 function createRepository() {

@@ -92,4 +92,48 @@ describe("Agent artifact decisions", () => {
     expect(onImportAction).toHaveBeenCalledWith("补充“TideNote”最有价值的细节");
     expect(screen.queryByText(/operationId|expectedVersion|structuredPatch/)).not.toBeInTheDocument();
   });
+
+  it("offers only recovery actions for candidates that still need normalization", () => {
+    const onArtifactAction = vi.fn();
+    const onImportAction = vi.fn();
+    render(
+      <AgentArtifactContent
+        state={{ step: "select_resume", busy: false, diffs: [], confirmedRequirementIds: [] }}
+        taskState={{
+          rootGoal: "profile_intake",
+          knownSlots: {
+            intakeArtifact: {
+              candidates: [{
+                id: "candidate-raw",
+                sectionType: "other",
+                label: "待整理回答",
+                professionalDescription: "原始证据已保留。",
+                highlights: [],
+                toolsOrMethods: [],
+                outcomes: [],
+                sources: ["原始回答"],
+                status: "insufficient",
+                confidence: 0.2,
+                needsNormalization: true,
+                canAccept: false
+              }],
+              recognized: [],
+              needsConfirmation: [{ id: "candidate-raw", label: "待整理回答", reason: "需要整理" }],
+              duplicates: [],
+              additions: [],
+              sources: []
+            }
+          }
+        } as unknown as AgentTaskState}
+        onArtifactAction={onArtifactAction}
+        onImportAction={onImportAction}
+      />
+    );
+
+    expect(screen.queryByRole("button", { name: "采用" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "重试整理" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "编辑后采用" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "补充细节" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "忽略" })).toBeVisible();
+  });
 });

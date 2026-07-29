@@ -962,6 +962,12 @@ export class WorkspaceRepository {
       ]);
       if (!draft || draft.sourceKind !== "conversation") throw new Error("profile_intake_draft_missing");
       if (draft.revision !== input.expectedDraftRevision) throw new RevisionConflictError();
+      if (draft.sections.flatMap((section) => section.items).some((item) =>
+        item.included
+        && (item.careerNormalization?.needsNormalization === true || !item.structuredItem)
+      )) {
+        throw new Error("profile_intake_normalization_required");
+      }
       if (!storedProfile) throw new Error("profile_intake_target_missing");
       const profile = CareerProfileSchema.parse(storedProfile);
       if (profile.version !== input.expectedProfileVersion) throw new RevisionConflictError();

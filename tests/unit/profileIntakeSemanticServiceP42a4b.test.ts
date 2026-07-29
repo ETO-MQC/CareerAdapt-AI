@@ -108,6 +108,72 @@ describe("P4.2a.4b general semantic career intake", () => {
     expect(result.candidates.map((candidate) => candidate.normalization.sectionType)).toEqual(["internship", "project", "awards"]);
   });
 
+  it.each([
+    ["education", "校园学习经历"],
+    ["awards", "区域竞赛获奖"],
+    ["skills", "数据分析能力"],
+    ["certificates", "行业能力认证"],
+    ["languages", "外语沟通能力"]
+  ] as const)("keeps a derived %s label out of canonical identity", async (sectionType, label) => {
+    const narrative = `我还需要核对正式名称，暂时可以显示为“${label}”。`;
+    const candidate: ProfileIntakeSemanticCandidate = {
+      candidateKey: `derived-${sectionType}`,
+      sectionType,
+      title: label,
+      titleKind: "derived_display",
+      current: false,
+      description: "正式名称尚待本人核对。",
+      highlights: [],
+      tools: [],
+      methods: [],
+      outcomes: [],
+      sourceQuote: narrative,
+      confidence: 0.8,
+      needsConfirmation: false,
+      fieldEvidence: [
+        {
+          field: "title",
+          sourceQuote: narrative,
+          support: "derived",
+          confidence: 0.8,
+          needsConfirmation: false
+        },
+        {
+          field: "description",
+          sourceQuote: narrative,
+          support: "derived",
+          confidence: 0.8,
+          needsConfirmation: false
+        }
+      ]
+    };
+
+    const result = await serviceReturning({ candidates: [candidate] }).normalize({ rawNarrative: narrative });
+
+    expect(result.candidates[0].label).toBe(label);
+    expect(result.candidates[0].normalization.structuredItem).toBeUndefined();
+    expect(result.candidates[0].normalization.needsConfirmation).toBe(true);
+  });
+
+  it("requires confirmation when several candidates reuse the same whole narrative span", async () => {
+    const narrative = `${fixtures[0].narrative}\n${fixtures[5].narrative}`;
+    const [internship, project] = [fixtures[0].proposals[0], fixtures[5].proposals[0]].map((candidate) => ({
+      ...candidate,
+      sourceQuote: narrative,
+      fieldEvidence: candidate.fieldEvidence.map((evidence) => ({ ...evidence, sourceQuote: narrative }))
+    }));
+
+    const result = await serviceReturning({ candidates: [internship, project] }).normalize({ rawNarrative: narrative });
+
+    expect(result.mode, result.warning).toBe("ai");
+    expect(result.candidates).toHaveLength(2);
+    expect(result.candidates.every((candidate) => candidate.normalization.structuredItem)).toBe(true);
+    expect(result.candidates.every((candidate) => candidate.normalization.needsConfirmation)).toBe(true);
+    expect(result.candidates.every((candidate) =>
+      candidate.normalization.fieldEvidence.every((evidence) => evidence.needsConfirmation)
+    )).toBe(true);
+  });
+
   it("rejects responsibility upgrades and preserves the raw narrative as fallback", async () => {
     const narrative = "我协助青石团队整理客户反馈。";
     const unsafe = proposal("unsafe", "work", "青石团队客户反馈", narrative, {
@@ -135,7 +201,7 @@ describe("P4.2a.4b general semantic career intake", () => {
   it("uses deterministic utility rules and asks only the highest-value question", () => {
     const item = fixtures[1].proposals[0];
     return serviceReturning({ candidates: [item] }).normalize({ rawNarrative: fixtures[1].narrative }).then((result) => {
-      const assessment = assessCareerAssetCompleteness(result.candidates[0].normalization.structuredItem);
+      const assessment = assessCareerAssetCompleteness(result.candidates[0].normalization.structuredItem!);
       expect(assessment.nextQuestion).toBeTruthy();
       expect(result.followUpQuestion).toBe(assessment.nextQuestion);
       expect(result.followUpQuestion).not.toContain("？；");

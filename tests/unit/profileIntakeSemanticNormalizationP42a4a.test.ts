@@ -83,7 +83,7 @@ describe("P4.2a.4a deterministic profile intake normalization layer", () => {
       deterministicDatePatch: { startDate: "2025-03" }
     });
     expect(result.structuredItem).toMatchObject({ description: "原始回答已保留，等待职业化整理。" });
-    expect("description" in result.structuredItem ? result.structuredItem.description : undefined).not.toBe(raw);
+    expect("description" in result.structuredItem! ? result.structuredItem!.description : undefined).not.toBe(raw);
     expect(result.fieldEvidence[0]).toMatchObject({ field: "rawNarrative", sourceQuote: raw, support: "explicit" });
   });
 

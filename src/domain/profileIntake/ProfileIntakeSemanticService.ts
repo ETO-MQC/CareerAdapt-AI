@@ -132,12 +132,15 @@ export class ProfileIntakeSemanticService {
         "invalid"
       );
     }
+    const localized = applyCandidateSourceSpanSanity(verified);
     return {
       mode: "ai",
       providerStatus: "available",
-      candidates: verified,
+      candidates: localized,
       followUpQuestion: highestValueFollowUp(
-        verified.map((candidate) => candidate.normalization.structuredItem)
+        localized.flatMap((candidate) =>
+          candidate.normalization.structuredItem ? [candidate.normalization.structuredItem] : []
+        )
       )
     };
   }
@@ -226,18 +229,23 @@ function verifyProposal(
   }
   const id = `intake-${stableHashText(`${proposal.candidateKey}:${proposal.sourceQuote}`).slice(0, 16)}-${index}`;
   const item = buildResumeItem(id, proposal);
-  assertFactPreserving(item, proposal.sourceQuote);
-  const normalizedText = profileText(item);
+  if (item) assertFactPreserving(item, proposal.sourceQuote);
+  const missingIdentity = !item;
+  const normalizedText = item
+    ? profileText(item)
+    : proposal.description ?? "需要补充正式名称后才能写入资料库。";
   return {
     id,
     label: proposal.title ?? proposal.name ?? displayLabel(item),
     sourceQuote: proposal.sourceQuote,
     normalization: {
-      sectionType: item.sectionType,
+      sectionType: proposal.sectionType,
       normalizedText,
       structuredItem: item,
       confidence: proposal.confidence,
-      needsConfirmation: proposal.needsConfirmation || proposal.fieldEvidence.some((entry) => entry.needsConfirmation),
+      needsConfirmation: missingIdentity
+        || proposal.needsConfirmation
+        || proposal.fieldEvidence.some((entry) => entry.needsConfirmation),
       needsNormalization: false,
       fieldEvidence: proposal.fieldEvidence
     }
@@ -254,7 +262,7 @@ function populatedProposalFields(proposal: ProfileIntakeSemanticCandidate) {
   });
 }
 
-function buildResumeItem(id: string, candidate: ProfileIntakeSemanticCandidate): ResumeItemV2 {
+function buildResumeItem(id: string, candidate: ProfileIntakeSemanticCandidate): ResumeItemV2 | undefined {
   const dates = new ProfileIntakeNormalizer().canonicalizeDates(candidate.sectionType, {
     startDate: candidate.startDate,
     endDate: candidate.endDate,
@@ -272,8 +280,11 @@ function buildResumeItem(id: string, candidate: ProfileIntakeSemanticCandidate):
       && includesLoose(evidenceTextForField(candidate, "title"), candidate.title))
   ) ? candidate.title : undefined;
   switch (candidate.sectionType) {
-    case "education":
-      return ResumeItemV2Schema.parse({ ...base, sectionType: "education", school: candidate.institution ?? candidate.organization ?? candidate.name ?? candidate.title, major: candidate.role, courses: [], honors: [], ...shared, ...dates });
+    case "education": {
+      const school = candidate.institution ?? candidate.organization ?? candidate.name ?? groundedTitle;
+      if (!school) return undefined;
+      return ResumeItemV2Schema.parse({ ...base, sectionType: "education", school, major: candidate.role, courses: [], honors: [], ...shared, ...dates });
+    }
     case "work":
     case "internship":
     case "campus":
@@ -283,22 +294,38 @@ function buildResumeItem(id: string, candidate: ProfileIntakeSemanticCandidate):
       return ResumeItemV2Schema.parse({ ...base, sectionType: "project", title: groundedTitle ?? candidate.name, organization: candidate.organization, role: candidate.role, tools: candidate.tools, outcomes: candidate.outcomes, ...shared, ...dates });
     case "research":
       return ResumeItemV2Schema.parse({ ...base, sectionType: "research", title: groundedTitle ?? candidate.name, institution: candidate.institution ?? candidate.organization, authorRole: candidate.role, methods: candidate.methods.length ? candidate.methods : candidate.tools, ...shared, ...dates });
-    case "awards":
-      return ResumeItemV2Schema.parse({ ...base, sectionType: "awards", name: candidate.name ?? candidate.title ?? "待确认奖项", issuer: candidate.organization ?? candidate.institution, description: candidate.description, awardedAt: dates.awardedAt });
-    case "skills":
-      return ResumeItemV2Schema.parse({ ...base, sectionType: "skills", name: candidate.name ?? candidate.title ?? "待确认技能", description: candidate.description });
-    case "certificates":
-      return ResumeItemV2Schema.parse({ ...base, sectionType: "certificates", name: candidate.name ?? candidate.title ?? "待确认证书", issuer: candidate.organization ?? candidate.institution, issuedAt: dates.awardedAt ?? dates.startDate, description: candidate.description });
-    case "languages":
-      return ResumeItemV2Schema.parse({ ...base, sectionType: "languages", language: candidate.name ?? candidate.title ?? "待确认语言", level: candidate.role, description: candidate.description });
-    case "publications":
-      return ResumeItemV2Schema.parse({ ...base, sectionType: "publications", title: groundedTitle ?? candidate.name, authors: [], publisher: candidate.organization ?? candidate.institution, description: candidate.description });
-    case "patents":
-      return ResumeItemV2Schema.parse({ ...base, sectionType: "patents", title: groundedTitle ?? candidate.name, inventors: [], office: candidate.organization, description: candidate.description });
-    case "portfolio":
-      return ResumeItemV2Schema.parse({ ...base, sectionType: "portfolio", title: groundedTitle ?? candidate.name, role: candidate.role, tools: candidate.tools, ...shared });
-    case "custom":
-      return ResumeItemV2Schema.parse({ ...base, sectionType: "custom", title: groundedTitle ?? candidate.name, ...shared });
+    case "awards": {
+      const name = candidate.name ?? groundedTitle;
+      return name ? ResumeItemV2Schema.parse({ ...base, sectionType: "awards", name, issuer: candidate.organization ?? candidate.institution, description: candidate.description, awardedAt: dates.awardedAt }) : undefined;
+    }
+    case "skills": {
+      const name = candidate.name ?? groundedTitle;
+      return name ? ResumeItemV2Schema.parse({ ...base, sectionType: "skills", name, description: candidate.description }) : undefined;
+    }
+    case "certificates": {
+      const name = candidate.name ?? groundedTitle;
+      return name ? ResumeItemV2Schema.parse({ ...base, sectionType: "certificates", name, issuer: candidate.organization ?? candidate.institution, issuedAt: dates.awardedAt ?? dates.startDate, description: candidate.description }) : undefined;
+    }
+    case "languages": {
+      const language = candidate.name ?? groundedTitle;
+      return language ? ResumeItemV2Schema.parse({ ...base, sectionType: "languages", language, level: candidate.role, description: candidate.description }) : undefined;
+    }
+    case "publications": {
+      const title = groundedTitle ?? candidate.name;
+      return title ? ResumeItemV2Schema.parse({ ...base, sectionType: "publications", title, authors: [], publisher: candidate.organization ?? candidate.institution, description: candidate.description }) : undefined;
+    }
+    case "patents": {
+      const title = groundedTitle ?? candidate.name;
+      return title ? ResumeItemV2Schema.parse({ ...base, sectionType: "patents", title, inventors: [], office: candidate.organization, description: candidate.description }) : undefined;
+    }
+    case "portfolio": {
+      const title = groundedTitle ?? candidate.name;
+      return title ? ResumeItemV2Schema.parse({ ...base, sectionType: "portfolio", title, role: candidate.role, tools: candidate.tools, ...shared }) : undefined;
+    }
+    case "custom": {
+      const title = groundedTitle ?? candidate.name;
+      return title ? ResumeItemV2Schema.parse({ ...base, sectionType: "custom", title, ...shared }) : undefined;
+    }
     default:
       return ResumeItemV2Schema.parse({ ...base, sectionType: "other", title: groundedTitle ?? candidate.name, description: candidate.description ?? candidate.sourceQuote, highlights: candidate.highlights });
   }
@@ -351,7 +378,8 @@ function deterministicFallback(
   providerStatus: "failed" | "invalid" = "failed"
 ): ProfileIntakeSemanticResult {
   const normalization = new ProfileIntakeNormalizer().fallback(rawNarrative);
-  const id = normalization.structuredItem.id;
+  const id = normalization.structuredItem?.id
+    ?? `intake-fallback-${stableHashText(rawNarrative).slice(0, 16)}`;
   return {
     mode: "deterministic",
     providerStatus,
@@ -378,7 +406,8 @@ function draftContext(draft?: ImportedResumeDraft) {
   )) ?? [];
 }
 
-function displayLabel(item: ResumeItemV2) {
+function displayLabel(item?: ResumeItemV2) {
+  if (!item) return "待核对经历";
   if (item.sectionType === "education") return [item.school, item.major].filter(Boolean).join(" / ") || "教育经历";
   if (item.sectionType === "skills") return item.name;
   if (item.sectionType === "languages") return item.language;
@@ -398,4 +427,49 @@ function profileText(item: ResumeItemV2) {
     "outcomes" in item ? item.outcomes : []
   ].flat().filter((value): value is string => Boolean(value));
   return values.join("\n") || displayLabel(item);
+}
+
+function applyCandidateSourceSpanSanity(
+  candidates: VerifiedProfileIntakeCandidate[]
+): VerifiedProfileIntakeCandidate[] {
+  if (candidates.length < 2) return candidates;
+  const quotes = candidates.map((candidate) => normalizeSpan(candidate.sourceQuote));
+  const allHighlyOverlapping = quotes.every((left, index) =>
+    quotes.every((right, otherIndex) =>
+      index === otherIndex || sourceSpanOverlap(left, right) >= 0.85
+    )
+  );
+  if (!allHighlyOverlapping) return candidates;
+  return candidates.map((candidate) => ({
+    ...candidate,
+    normalization: {
+      ...candidate.normalization,
+      needsConfirmation: true,
+      fieldEvidence: candidate.normalization.fieldEvidence.map((evidence) => ({
+        ...evidence,
+        needsConfirmation: true
+      }))
+    }
+  }));
+}
+
+function normalizeSpan(value: string) {
+  return value.toLocaleLowerCase().replace(/\s+/gu, "");
+}
+
+function sourceSpanOverlap(left: string, right: string) {
+  if (!left.length || !right.length) return 0;
+  if (left === right) return 1;
+  const shorter = left.length <= right.length ? left : right;
+  const longer = left.length <= right.length ? right : left;
+  if (longer.includes(shorter)) return shorter.length / longer.length;
+  const leftPairs = characterPairs(left);
+  const rightPairs = characterPairs(right);
+  const shared = [...leftPairs].filter((pair) => rightPairs.has(pair)).length;
+  return shared / Math.max(1, Math.min(leftPairs.size, rightPairs.size));
+}
+
+function characterPairs(value: string) {
+  if (value.length < 2) return new Set([value]);
+  return new Set(Array.from({ length: value.length - 1 }, (_, index) => value.slice(index, index + 2)));
 }
