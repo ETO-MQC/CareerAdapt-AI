@@ -108,7 +108,8 @@ const ProfileIntakeReviewInputSchema = z.object({
     description: z.string().trim().min(1).max(4_000).optional(),
     highlights: z.array(z.string().trim().min(1).max(2_000)).max(30).optional(),
     tools: z.array(z.string().trim().min(1).max(2_000)).max(30).optional(),
-    methods: z.array(z.string().trim().min(1).max(2_000)).max(30).optional()
+    methods: z.array(z.string().trim().min(1).max(2_000)).max(30).optional(),
+    outcomes: z.array(z.string().trim().min(1).max(2_000)).max(30).optional()
   }).strict().optional(),
   evidence: z.object({
     sessionId: z.string().min(1),

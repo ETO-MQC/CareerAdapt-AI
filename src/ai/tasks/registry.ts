@@ -179,7 +179,9 @@ export const aiTaskRegistry = {
       for (const candidate of output.candidates) {
         if (!input.rawNarrative.includes(candidate.sourceQuote)) throw new Error("profile_intake_candidate_source_missing");
         for (const evidence of candidate.fieldEvidence) {
-          if (!input.rawNarrative.includes(evidence.sourceQuote)) throw new Error("profile_intake_field_source_missing");
+          if (!candidate.sourceQuote.includes(evidence.sourceQuote)) {
+            throw new Error("profile_intake_field_source_outside_candidate");
+          }
         }
       }
     }

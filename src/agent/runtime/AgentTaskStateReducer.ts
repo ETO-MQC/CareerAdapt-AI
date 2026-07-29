@@ -349,29 +349,11 @@ export class AgentTaskStateReducer {
         state.completionStatus = "completed";
       } else if (event.toolName === "capture_profile_intake") {
         const value = objectValue(event.observation);
-        const previousArtifact = objectValue(state.knownSlots.intakeArtifact);
         const nextArtifact = objectValue(value.artifactPayload);
-        const previousRich = Array.isArray(previousArtifact.candidates)
-          ? previousArtifact.candidates.map(objectValue)
-          : [];
-        const nextRich = Array.isArray(nextArtifact.candidates)
-          ? nextArtifact.candidates.map(objectValue)
-          : [];
         state.knownSlots.intakeImportId = value.importId;
         state.knownSlots.expectedIntakeDraftRevision = value.expectedDraftRevision;
         state.knownSlots.intakeCandidates = value.candidates;
-        state.knownSlots.intakeArtifact = {
-          ...previousArtifact,
-          ...nextArtifact,
-          candidates: [
-            ...previousRich.filter((candidate) => !nextRich.some((item) => item.id === candidate.id)),
-            ...nextRich
-          ],
-          sources: [
-            ...(Array.isArray(previousArtifact.sources) ? previousArtifact.sources : []),
-            ...(Array.isArray(nextArtifact.sources) ? nextArtifact.sources : [])
-          ]
-        };
+        state.knownSlots.intakeArtifact = nextArtifact;
         const needsConfirmation = typeof value.needsConfirmationCount === "number"
           ? value.needsConfirmationCount
           : 0;

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { runRuleFactGuard } from "@/domain/adaptation/factGuard";
 import { ResumeItemV2Schema, ResumeSectionTypeV2Schema, type ResumeItemV2 } from "@/domain/schemas";
 
 const OptionalPatchTextSchema = z.string().trim().min(1).max(4_000).optional();
@@ -17,7 +18,8 @@ export const ProfileIntakeStructuredPatchSchema = z.object({
   description: OptionalPatchTextSchema,
   highlights: PatchStringListSchema,
   tools: PatchStringListSchema,
-  methods: PatchStringListSchema
+  methods: PatchStringListSchema,
+  outcomes: PatchStringListSchema
 }).strict().superRefine((patch, context) => {
   if (patch.current === true && patch.endDate) {
     context.addIssue({
@@ -43,12 +45,22 @@ export const ProfileIntakeNormalizationResultSchema = z.object({
   confidence: z.number().min(0).max(1),
   needsConfirmation: z.boolean(),
   needsNormalization: z.boolean(),
+  deterministicDatePatch: z.object({
+    startDate: OptionalPatchTextSchema,
+    endDate: OptionalPatchTextSchema,
+    current: z.boolean().optional(),
+    awardedAt: OptionalPatchTextSchema
+  }).strict().optional(),
   fieldEvidence: z.array(ProfileIntakeFieldEvidenceSchema)
 }).strict();
 
 export type ProfileIntakeStructuredPatch = z.infer<typeof ProfileIntakeStructuredPatchSchema>;
 export type ProfileIntakeFieldEvidence = z.infer<typeof ProfileIntakeFieldEvidenceSchema>;
 export type ProfileIntakeNormalizationResult = z.infer<typeof ProfileIntakeNormalizationResultSchema>;
+export type ProfileIntakePatchEvidenceSource = {
+  sourceQuote: string;
+  supportedFields?: string[];
+};
 
 type NormalizationCandidate = {
   id: string;
@@ -94,19 +106,20 @@ export class ProfileIntakeNormalizer {
     const structuredItem = ResumeItemV2Schema.parse({
       id,
       sectionType: "other",
-      description: sourceQuote,
+      description: "原始回答已保留，等待职业化整理。",
       highlights: [],
       customFields: []
     });
     return ProfileIntakeNormalizationResultSchema.parse({
       sectionType: "other",
-      normalizedText: sourceQuote,
+      normalizedText: "原始回答已保留，等待职业化整理。",
       structuredItem,
       confidence: dates.fields.length ? 0.45 : 0.2,
       needsConfirmation: true,
       needsNormalization: true,
+      deterministicDatePatch: dates.patch,
       fieldEvidence: [
-        evidence("description", sourceQuote, "explicit", 1, true),
+        evidence("rawNarrative", sourceQuote, "explicit", 1, true),
         ...dates.fields.map((field) => evidence(field, sourceQuote, "explicit", 0.99, true))
       ]
     });
@@ -129,6 +142,53 @@ export function applyProfileIntakeStructuredPatch(
     ...(canonicalPatch.current === true ? { endDate: undefined } : {})
   };
   return ResumeItemV2Schema.parse(next);
+}
+
+export function validateProfileIntakeStructuredPatch(input: {
+  item: ResumeItemV2;
+  rawPatch: ProfileIntakeStructuredPatch;
+  evidenceSources: ProfileIntakePatchEvidenceSource[];
+}): {
+  patch: ProfileIntakeStructuredPatch;
+  fieldEvidence: ProfileIntakeFieldEvidence[];
+} {
+  const patch = ProfileIntakeStructuredPatchSchema.parse(input.rawPatch);
+  const canonicalPatch = canonicalizePatchDates(input.item.sectionType, patch);
+  const sources = input.evidenceSources
+    .filter((source) => source.sourceQuote.trim())
+    .map((source) => ({ ...source, sourceQuote: source.sourceQuote.trim() }));
+  if (!sources.length) throw new Error("profile_intake_patch_evidence_missing");
+
+  const fieldEvidence: ProfileIntakeFieldEvidence[] = [];
+  for (const [field, value] of Object.entries(canonicalPatch)) {
+    const supporting = sources.find((source) =>
+      (!source.supportedFields || source.supportedFields.includes(field))
+      && patchValueGrounded(field, value, source.sourceQuote)
+    );
+    if (isHardPatchField(field)) {
+      if (!supporting) throw new Error(`profile_intake_patch_field_unsupported:${field}`);
+      fieldEvidence.push(evidence(field, supporting.sourceQuote, "explicit", 1, false));
+      continue;
+    }
+    const allowedText = sources.map((source) => source.sourceQuote).join("\n");
+    const checkedText = patchValueText(value);
+    const guard = runRuleFactGuard({
+      originalText: canonicalFactWording(allowedText),
+      checkedText,
+      usedEvidenceRefs: []
+    });
+    if (guard.status === "blocked_high_risk" || guard.status === "needs_edit") {
+      throw new Error(`profile_intake_patch_fact_guard:${field}:${guard.ruleFindings.map((finding) => finding.type).join(",")}`);
+    }
+    fieldEvidence.push(evidence(
+      field,
+      supporting?.sourceQuote ?? allowedText,
+      supporting ? "explicit" : "derived",
+      supporting ? 1 : 0.86,
+      false
+    ));
+  }
+  return { patch: canonicalPatch, fieldEvidence };
 }
 
 export function normalizeCareerMonth(value: string) {
@@ -155,7 +215,7 @@ function canonicalizePatchDates(sectionType: ResumeItemV2["sectionType"], patch:
   }).filter(([, value]) => value !== undefined)) as ProfileIntakeStructuredPatch;
 }
 
-function extractCareerDates(text: string): {
+export function extractCareerDates(text: string): {
   patch: ProfileIntakeStructuredPatch;
   fields: string[];
 } {
@@ -165,8 +225,8 @@ function extractCareerDates(text: string): {
   if (educationStart && educationEnd) {
     return {
       patch: {
-        startDate: `${educationStart[1]}-${educationStart[2]}`,
-        endDate: `${educationEnd[1]}-${educationEnd[2]}`,
+        startDate: careerMonth(educationStart[1], educationStart[2]),
+        endDate: careerMonth(educationEnd[1], educationEnd[2]),
         current: false
       },
       fields: ["startDate", "endDate", "current"]
@@ -176,8 +236,8 @@ function extractCareerDates(text: string): {
   if (explicitRange) {
     return {
       patch: {
-        startDate: `${explicitRange[1]}-${explicitRange[2]}`,
-        endDate: `${explicitRange[3]}-${explicitRange[4]}`,
+        startDate: careerMonth(explicitRange[1], explicitRange[2]),
+        endDate: careerMonth(explicitRange[3], explicitRange[4]),
         current: false
       },
       fields: ["startDate", "endDate", "current"]
@@ -186,7 +246,7 @@ function extractCareerDates(text: string): {
   const ongoing = new RegExp(`${month}\\s*(?:到|至|—|–|~|～|-)?\\s*(?:至今|现在|目前)`, "u").exec(text);
   if (ongoing) {
     return {
-      patch: { startDate: `${ongoing[1]}-${ongoing[2]}`, current: true },
+      patch: { startDate: careerMonth(ongoing[1], ongoing[2]), current: true },
       fields: ["startDate", "current"]
     };
   }
@@ -194,8 +254,8 @@ function extractCareerDates(text: string): {
   if (sameYearRange) {
     return {
       patch: {
-        startDate: `${sameYearRange[1]}-${sameYearRange[2]}`,
-        endDate: `${sameYearRange[1]}-${sameYearRange[3]}`,
+        startDate: careerMonth(sameYearRange[1], sameYearRange[2]),
+        endDate: careerMonth(sameYearRange[1], sameYearRange[3]),
         current: false
       },
       fields: ["startDate", "endDate", "current"]
@@ -203,8 +263,53 @@ function extractCareerDates(text: string): {
   }
   const single = new RegExp(month, "u").exec(text);
   return single
-    ? { patch: { startDate: `${single[1]}-${single[2]}` }, fields: ["startDate"] }
+    ? { patch: { startDate: careerMonth(single[1], single[2]) }, fields: ["startDate"] }
     : { patch: {}, fields: [] };
+}
+
+function careerMonth(year: string, month: string) {
+  return `${year}-${month.padStart(2, "0")}`;
+}
+
+function isHardPatchField(field: string) {
+  return [
+    "title", "name", "organization", "institution", "role", "startDate", "endDate",
+    "current", "awardedAt", "tools", "methods"
+  ].includes(field);
+}
+
+function patchValueGrounded(field: string, value: unknown, source: string) {
+  if (field === "current") {
+    return value === true
+      ? /(?:至今|现在|目前|ongoing|present|current)/iu.test(source)
+      : /(?:结束|离开|完成|不再|已毕业|ended|finished|left)/iu.test(source);
+  }
+  if (["startDate", "endDate", "awardedAt"].includes(field) && typeof value === "string") {
+    const [year, month] = value.split("-");
+    return source.includes(year)
+      && new RegExp(`(?:^|\\D)0?${Number(month)}(?:\\D|$)`, "u").test(source);
+  }
+  if (Array.isArray(value)) {
+    return value.every((entry) => typeof entry === "string" && includesLoose(source, entry));
+  }
+  return typeof value === "string" && includesLoose(source, value);
+}
+
+function patchValueText(value: unknown) {
+  return Array.isArray(value) ? value.join("\n") : typeof value === "string" ? value : String(value);
+}
+
+function includesLoose(text: string, value: string) {
+  return text.toLocaleLowerCase().replace(/\s+/gu, "").includes(
+    value.toLocaleLowerCase().replace(/\s+/gu, "")
+  );
+}
+
+function canonicalFactWording(value: string) {
+  return value
+    .replace(/(?:交了|提交了|做出(?:了)?)/gu, "交付")
+    .replace(/(?:拿到|取得(?:了)?)/gu, "获得")
+    .replace(/我负责/gu, "本人负责");
 }
 
 function buildStructuredItem(

@@ -52,10 +52,10 @@ const fixtures: Fixture[] = [
     })
   ], ["project"], ["山岚咖啡门店分析"]),
   fixture("竞赛", "2024年11月参加启明杯市场调研赛，我们团队拿到华东赛区二等奖，我负责问卷清洗。", [
-    proposal("award-1", "awards", "启明杯华东赛区二等奖", "2024年11月参加启明杯市场调研赛，我们团队拿到华东赛区二等奖，我负责问卷清洗。", {
-      name: "启明杯华东赛区二等奖", awardedAt: "2024-11", description: "团队获得华东赛区二等奖；本人负责问卷清洗。"
+    proposal("award-1", "awards", "华东赛区二等奖", "2024年11月参加启明杯市场调研赛，我们团队拿到华东赛区二等奖，我负责问卷清洗。", {
+      name: "华东赛区二等奖", awardedAt: "2024-11", description: "团队获得华东赛区二等奖；本人负责问卷清洗。"
     })
-  ], ["awards"], ["启明杯华东赛区二等奖"]),
+  ], ["awards"], ["华东赛区二等奖"]),
   fixture("证书技能", "我有星云云计算基础证书，2025年3月拿到；平时会用 Power BI 做基础报表，但谈不上熟练。", [
     proposal("certificate-1", "certificates", "星云云计算基础证书", "我有星云云计算基础证书，2025年3月拿到", {
       name: "星云云计算基础证书", awardedAt: "2025-03"
@@ -141,6 +141,52 @@ describe("P4.2a.4b general semantic career intake", () => {
       expect(result.followUpQuestion).not.toContain("？；");
     });
   });
+
+  it.each([
+    ["date", { startDate: "2023-03" }, "startDate"],
+    ["company", { organization: "乙公司" }, "organization"],
+    ["role", { role: "研究员" }, "role"]
+  ])("rejects cross-candidate %s evidence in a four-experience narrative", async (_, unsafeValues, field) => {
+    const sources = [
+      "2024年1月，我在甲公司担任助理，使用 Excel 整理台账，交付月报。",
+      "2023年3月，我在乙公司担任工程师，使用 Python 开发接口，降低错误率。",
+      "2022年5月，我在丙实验室担任研究员，使用 SPSS 分析样本，完成论文。",
+      "2021年7月，我在丁协会担任志愿者，使用问卷开展调研，服务 40 人。"
+    ];
+    const candidate = proposal("cross-candidate", "work", "甲公司助理", sources[0], {
+      organization: "甲公司",
+      role: "助理",
+      description: "使用 Excel 整理台账并交付月报。",
+      tools: ["Excel"],
+      ...unsafeValues
+    });
+    candidate.fieldEvidence = candidate.fieldEvidence.map((evidence) =>
+      evidence.field === field ? { ...evidence, sourceQuote: sources[field === "role" ? 2 : 1] } : evidence
+    );
+
+    const result = await serviceReturning({ candidates: [candidate] }).normalize({
+      rawNarrative: sources.join("\n")
+    });
+
+    expect(result.mode).toBe("deterministic");
+    expect(result.warning).toContain("ungrounded");
+  });
+
+  it("asks section-appropriate questions for skills, languages, and certificates", () => {
+    const skill = assessCareerAssetCompleteness({
+      id: "skill", sectionType: "skills", name: "SQL", customFields: []
+    });
+    const language = assessCareerAssetCompleteness({
+      id: "language", sectionType: "languages", language: "英语", customFields: []
+    });
+    const certificate = assessCareerAssetCompleteness({
+      id: "certificate", sectionType: "certificates", name: "PMP", customFields: []
+    });
+
+    expect(skill.nextQuestion).toContain("熟练程度");
+    expect(language.nextQuestion).toContain("语言水平");
+    expect(certificate.nextQuestion).toContain("颁发");
+  });
 });
 
 function fixture(
@@ -181,6 +227,9 @@ function proposal(
     candidateKey,
     sectionType,
     title,
+    titleKind: title && sourceQuote.toLocaleLowerCase().includes(title.toLocaleLowerCase())
+      ? "explicit"
+      : title ? "derived_display" : undefined,
     name,
     organization: values.organization,
     institution: values.institution,
@@ -200,7 +249,10 @@ function proposal(
     fieldEvidence: evidenceFields.map((field) => ({
       field,
       sourceQuote,
-      support: ["description", "highlights", "outcomes"].includes(field) ? "derived" : "explicit",
+      support: ["description", "highlights", "outcomes"].includes(field)
+        || (field === "title" && title && !sourceQuote.toLocaleLowerCase().includes(title.toLocaleLowerCase()))
+        ? "derived"
+        : "explicit",
       confidence: 0.9,
       needsConfirmation: values.needsConfirmation ?? false
     }))

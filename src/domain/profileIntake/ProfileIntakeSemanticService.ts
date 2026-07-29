@@ -7,6 +7,7 @@ import {
   type ResumeItemV2
 } from "@/domain/schemas";
 import { stableHashText } from "@/services/security/text";
+import { runRuleFactGuard } from "@/domain/adaptation/factGuard";
 import {
   ProfileIntakeFieldEvidenceSchema,
   ProfileIntakeNormalizer,
@@ -21,6 +22,7 @@ export const ProfileIntakeSemanticCandidateSchema = z.object({
   candidateKey: z.string().trim().min(1).max(120),
   sectionType: ResumeSectionTypeV2Schema.exclude(["basics", "summary"]),
   title: OptionalText,
+  titleKind: z.enum(["explicit", "derived_display"]).optional(),
   name: OptionalText,
   organization: OptionalText,
   institution: OptionalText,
@@ -163,32 +165,64 @@ function verifyProposal(
 ): VerifiedProfileIntakeCandidate {
   if (!rawNarrative.includes(proposal.sourceQuote)) throw new Error("profile_intake_source_quote_missing");
   for (const evidence of proposal.fieldEvidence) {
-    if (!rawNarrative.includes(evidence.sourceQuote)) throw new Error("profile_intake_field_evidence_missing");
+    if (!proposal.sourceQuote.includes(evidence.sourceQuote)) {
+      throw new Error("profile_intake_field_evidence_outside_candidate");
+    }
   }
   for (const field of populatedProposalFields(proposal)) {
     if (!proposal.fieldEvidence.some((evidence) => evidence.field === field)) {
       throw new Error(`profile_intake_field_evidence_missing:${field}`);
     }
   }
-  for (const field of ["organization", "institution", "role"] as const) {
+  for (const field of ["name", "organization", "institution", "role"] as const) {
     const value = proposal[field];
-    if (value && !rawNarrative.includes(value)) {
+    const fieldSource = evidenceTextForField(proposal, field);
+    if (value && !includesLoose(fieldSource, value)) {
       throw new Error(`profile_intake_hard_field_not_grounded:${field}`);
     }
   }
+  if (proposal.title && proposal.titleKind === "explicit"
+    && !includesLoose(evidenceTextForField(proposal, "title"), proposal.title)) {
+    throw new Error("profile_intake_hard_field_not_grounded:title");
+  }
+  if (proposal.title && proposal.titleKind === "derived_display"
+    && !proposal.fieldEvidence.some((entry) => entry.field === "title" && entry.support === "derived")) {
+    throw new Error("profile_intake_derived_title_not_marked");
+  }
   for (const value of [...proposal.tools, ...proposal.methods]) {
-    if (!rawNarrative.toLocaleLowerCase().includes(value.toLocaleLowerCase())) {
+    const field = proposal.tools.includes(value) ? "tools" : "methods";
+    if (!includesLoose(evidenceTextForField(proposal, field), value)) {
       throw new Error("profile_intake_tool_not_grounded");
     }
   }
-  for (const value of [proposal.startDate, proposal.endDate, proposal.awardedAt].filter((date): date is string => Boolean(date))) {
+  for (const [field, value] of ([
+    ["startDate", proposal.startDate],
+    ["endDate", proposal.endDate],
+    ["awardedAt", proposal.awardedAt]
+  ] as const).filter((entry): entry is [typeof entry[0], string] => Boolean(entry[1]))) {
     const [year, month] = value.split("-");
-    if (!rawNarrative.includes(year) || !new RegExp(`(?:^|\\D)0?${Number(month)}(?:\\D|$)`, "u").test(rawNarrative)) {
+    const fieldSource = evidenceTextForField(proposal, field);
+    if (!fieldSource.includes(year) || !new RegExp(`(?:^|\\D)0?${Number(month)}(?:\\D|$)`, "u").test(fieldSource)) {
       throw new Error("profile_intake_date_not_grounded");
     }
   }
-  if (proposal.current && !/(?:至今|现在|目前|ongoing|present|current)/iu.test(rawNarrative)) {
+  if (proposal.current && !/(?:至今|现在|目前|ongoing|present|current)/iu.test(
+    evidenceTextForField(proposal, "current")
+  )) {
     throw new Error("profile_intake_current_not_grounded");
+  }
+  for (const field of ["description", "highlights", "outcomes"] as const) {
+    const value = proposal[field];
+    const checkedText = Array.isArray(value) ? value.join("\n") : value;
+    if (!checkedText) continue;
+    const guard = runRuleFactGuard({
+      originalText: canonicalFactWording(proposal.sourceQuote),
+      checkedText,
+      usedEvidenceRefs: []
+    });
+    if (guard.status === "blocked_high_risk" || guard.status === "needs_edit") {
+      throw new Error(`profile_intake_fact_guard:${field}:${guard.ruleFindings.map((finding) => finding.type).join(",")}`);
+    }
   }
   const id = `intake-${stableHashText(`${proposal.candidateKey}:${proposal.sourceQuote}`).slice(0, 16)}-${index}`;
   const item = buildResumeItem(id, proposal);
@@ -232,6 +266,11 @@ function buildResumeItem(id: string, candidate: ProfileIntakeSemanticCandidate):
     description: candidate.description,
     highlights: candidate.highlights
   };
+  const groundedTitle = candidate.title && (
+    candidate.titleKind === "explicit"
+    || (candidate.titleKind === undefined
+      && includesLoose(evidenceTextForField(candidate, "title"), candidate.title))
+  ) ? candidate.title : undefined;
   switch (candidate.sectionType) {
     case "education":
       return ResumeItemV2Schema.parse({ ...base, sectionType: "education", school: candidate.institution ?? candidate.organization ?? candidate.name ?? candidate.title, major: candidate.role, courses: [], honors: [], ...shared, ...dates });
@@ -239,11 +278,11 @@ function buildResumeItem(id: string, candidate: ProfileIntakeSemanticCandidate):
     case "internship":
     case "campus":
     case "volunteer":
-      return ResumeItemV2Schema.parse({ ...base, sectionType: candidate.sectionType, organization: candidate.organization ?? candidate.institution, role: candidate.role ?? candidate.title, ...shared, ...dates });
+      return ResumeItemV2Schema.parse({ ...base, sectionType: candidate.sectionType, organization: candidate.organization ?? candidate.institution, role: candidate.role, ...shared, ...dates });
     case "project":
-      return ResumeItemV2Schema.parse({ ...base, sectionType: "project", title: candidate.title ?? candidate.name, organization: candidate.organization, role: candidate.role, tools: candidate.tools, outcomes: candidate.outcomes, ...shared, ...dates });
+      return ResumeItemV2Schema.parse({ ...base, sectionType: "project", title: groundedTitle ?? candidate.name, organization: candidate.organization, role: candidate.role, tools: candidate.tools, outcomes: candidate.outcomes, ...shared, ...dates });
     case "research":
-      return ResumeItemV2Schema.parse({ ...base, sectionType: "research", title: candidate.title ?? candidate.name, institution: candidate.institution ?? candidate.organization, authorRole: candidate.role, methods: candidate.methods.length ? candidate.methods : candidate.tools, ...shared, ...dates });
+      return ResumeItemV2Schema.parse({ ...base, sectionType: "research", title: groundedTitle ?? candidate.name, institution: candidate.institution ?? candidate.organization, authorRole: candidate.role, methods: candidate.methods.length ? candidate.methods : candidate.tools, ...shared, ...dates });
     case "awards":
       return ResumeItemV2Schema.parse({ ...base, sectionType: "awards", name: candidate.name ?? candidate.title ?? "待确认奖项", issuer: candidate.organization ?? candidate.institution, description: candidate.description, awardedAt: dates.awardedAt });
     case "skills":
@@ -253,16 +292,36 @@ function buildResumeItem(id: string, candidate: ProfileIntakeSemanticCandidate):
     case "languages":
       return ResumeItemV2Schema.parse({ ...base, sectionType: "languages", language: candidate.name ?? candidate.title ?? "待确认语言", level: candidate.role, description: candidate.description });
     case "publications":
-      return ResumeItemV2Schema.parse({ ...base, sectionType: "publications", title: candidate.title ?? candidate.name ?? "待确认出版物", authors: [], publisher: candidate.organization ?? candidate.institution, description: candidate.description });
+      return ResumeItemV2Schema.parse({ ...base, sectionType: "publications", title: groundedTitle ?? candidate.name, authors: [], publisher: candidate.organization ?? candidate.institution, description: candidate.description });
     case "patents":
-      return ResumeItemV2Schema.parse({ ...base, sectionType: "patents", title: candidate.title ?? candidate.name ?? "待确认专利", inventors: [], office: candidate.organization, description: candidate.description });
+      return ResumeItemV2Schema.parse({ ...base, sectionType: "patents", title: groundedTitle ?? candidate.name, inventors: [], office: candidate.organization, description: candidate.description });
     case "portfolio":
-      return ResumeItemV2Schema.parse({ ...base, sectionType: "portfolio", title: candidate.title ?? candidate.name ?? "待确认作品", role: candidate.role, tools: candidate.tools, ...shared });
+      return ResumeItemV2Schema.parse({ ...base, sectionType: "portfolio", title: groundedTitle ?? candidate.name, role: candidate.role, tools: candidate.tools, ...shared });
     case "custom":
-      return ResumeItemV2Schema.parse({ ...base, sectionType: "custom", title: candidate.title ?? candidate.name, ...shared });
+      return ResumeItemV2Schema.parse({ ...base, sectionType: "custom", title: groundedTitle ?? candidate.name, ...shared });
     default:
-      return ResumeItemV2Schema.parse({ ...base, sectionType: "other", title: candidate.title ?? candidate.name, description: candidate.description ?? candidate.sourceQuote, highlights: candidate.highlights });
+      return ResumeItemV2Schema.parse({ ...base, sectionType: "other", title: groundedTitle ?? candidate.name, description: candidate.description ?? candidate.sourceQuote, highlights: candidate.highlights });
   }
+}
+
+function canonicalFactWording(value: string) {
+  return value
+    .replace(/(?:交了|提交了|做出(?:了)?)/gu, "交付")
+    .replace(/(?:拿到|取得(?:了)?)/gu, "获得")
+    .replace(/我负责/gu, "本人负责");
+}
+
+function evidenceTextForField(proposal: ProfileIntakeSemanticCandidate, field: string) {
+  return proposal.fieldEvidence
+    .filter((entry) => entry.field === field)
+    .map((entry) => entry.sourceQuote)
+    .join("\n");
+}
+
+function includesLoose(text: string, value: string) {
+  return text.toLocaleLowerCase().replace(/\s+/gu, "").includes(
+    value.toLocaleLowerCase().replace(/\s+/gu, "")
+  );
 }
 
 function assertFactPreserving(item: ResumeItemV2, source: string) {

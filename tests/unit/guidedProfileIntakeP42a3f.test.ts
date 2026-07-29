@@ -409,10 +409,17 @@ describe("P4.2a.3f guided profile intake intent authority", () => {
       text: "实验室课题组是大一下学期的寒假，大概是2025.02月，做了一星期左右，在除夕前做好了，然后团支书是从大一一直到现在",
       capturedAt: "2026-07-28T08:50:00.000Z"
     });
-    const fallback = captured.draft.sections[0]?.items[0]?.structuredItem;
+    const fallbackItem = captured.draft.sections[0]?.items[0];
+    const fallback = fallbackItem?.structuredItem;
     expect(fallback).toMatchObject({ sectionType: "other" });
     expect(fallback).not.toHaveProperty("organization");
     expect(fallback).not.toHaveProperty("role");
+    expect(fallbackItem?.rawText).toContain("2025.02月");
+    expect(fallbackItem?.normalizedText).toBe("原始回答已保留，等待职业化整理。");
+    expect(fallbackItem?.careerNormalization).toMatchObject({
+      needsNormalization: true,
+      deterministicDatePatch: { startDate: "2025-02" }
+    });
   });
 
   it("preserves a successful profile commit if a later model-only step fails", () => {

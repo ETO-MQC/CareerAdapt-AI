@@ -133,6 +133,7 @@ export function adaptConversationMessageToIntakeDraft(input: {
         version: "profile-intake-normalization-v1" as const,
         mode: semanticResult.mode,
         needsNormalization: normalized.needsNormalization,
+        deterministicDatePatch: normalized.deterministicDatePatch,
         fieldEvidence: normalized.fieldEvidence
       }
     }]
@@ -186,30 +187,100 @@ export function adaptConversationMessageToIntakeDraft(input: {
     createdAt: input.capturedAt,
     updatedAt: input.capturedAt
   });
-  const recognized = candidates.filter((candidate) => !candidate.needsConfirmation);
   return {
     draft,
     candidates,
-    artifact: {
-      title: "经历核对",
-      followUpQuestion: semanticResult.followUpQuestion,
-      candidates: candidates.map((candidate, index) => artifactCandidate(
-        candidate,
-        semanticResult.candidates[index].normalization
-      )),
-      recognized: recognized.map(({ id, label }) => ({ id, label })),
-      needsConfirmation: candidates
-        .filter((candidate) => candidate.needsConfirmation)
-        .map(({ id, label, reason }) => ({ id, label, reason: reason ?? "名称或表述可能来自语音转写，请确认" })),
-      duplicates: [],
-      additions: recognized.map(({ id, label }) => ({ id, label })),
-      sources: [{
-        sessionId: input.sessionId,
-        messageId: input.messageId,
-        turnId: input.turnId,
-        capturedAt: input.capturedAt
-      }]
+    artifact: buildConversationIntakeArtifact(draft, semanticResult.followUpQuestion)
+  };
+}
+
+export function buildConversationIntakeArtifact(
+  draft: ImportedResumeDraft,
+  followUpQuestion?: string
+): ConversationIntakeArtifact {
+  const entries = draft.sections.flatMap((section) => section.items.map((item) => {
+    const structuredItem = item.structuredItem;
+    const needsNormalization = item.careerNormalization?.needsNormalization === true;
+    const status = needsNormalization
+      ? "insufficient" as const
+      : item.sourceStatus === "ambiguous"
+        ? "ai_review" as const
+        : item.included ? "confirmed" as const : "ai_review" as const;
+    const label = item.itemLabel ?? section.detectedTitle;
+    const candidate: ConversationIntakeArtifact["candidates"][number] = structuredItem
+      ? artifactCandidate({
+          id: item.id,
+          sectionType: structuredItem.sectionType,
+          kind: candidateKind(structuredItem.sectionType),
+          label,
+          sourceQuote: item.sourceQuote ?? item.rawText,
+          needsConfirmation: status !== "confirmed",
+          reason: needsNormalization
+            ? "AI 语义整理暂不可用，原始回答已保留，请重试或手动核对"
+            : status === "ai_review" ? "AI 已整理，但有信息需要确认" : undefined,
+          status,
+          professionalDescription: item.normalizedText
+        }, {
+          sectionType: structuredItem.sectionType,
+          normalizedText: item.normalizedText,
+          structuredItem,
+          confidence: section.confidence === "high" ? 0.9 : 0.68,
+          needsConfirmation: status !== "confirmed",
+          needsNormalization,
+          deterministicDatePatch: item.careerNormalization?.deterministicDatePatch,
+          fieldEvidence: item.careerNormalization?.fieldEvidence ?? []
+        })
+      : {
+          id: item.id,
+          sectionType: "other",
+          label,
+          professionalDescription: item.normalizedText,
+          highlights: [],
+          toolsOrMethods: [],
+          outcomes: [],
+          sources: [item.sourceQuote ?? item.rawText],
+          status,
+          confidence: 0.5
+        };
+    const fallbackDates = item.careerNormalization?.deterministicDatePatch;
+    if (!candidate.time && fallbackDates) {
+      candidate.time = fallbackDates.awardedAt ?? (
+        [fallbackDates.startDate, fallbackDates.current ? "至今" : fallbackDates.endDate]
+          .filter(Boolean)
+          .join(" — ") || undefined
+      );
     }
+    return { item, candidate };
+  }));
+  const candidates = entries.map((entry) => entry.candidate);
+  const recognized = candidates
+    .filter((candidate) => candidate.status === "confirmed")
+    .map(({ id, label }) => ({ id, label }));
+  const needsConfirmation = candidates
+    .filter((candidate) => candidate.status === "ai_review" || candidate.status === "insufficient")
+    .map(({ id, label, reason }) => ({
+      id,
+      label,
+      reason: reason ?? "名称或表述需要确认"
+    }));
+  const sources = entries.flatMap(({ item }) => item.conversationEvidence ?? [])
+    .map(({ sessionId, messageId, turnId, capturedAt }) => ({ sessionId, messageId, turnId, capturedAt }))
+    .filter((source, index, all) =>
+      all.findIndex((candidate) =>
+        candidate.sessionId === source.sessionId
+        && candidate.messageId === source.messageId
+        && candidate.turnId === source.turnId
+      ) === index
+    );
+  return {
+    title: "经历核对",
+    followUpQuestion,
+    candidates,
+    recognized,
+    needsConfirmation,
+    duplicates: [],
+    additions: candidates.map(({ id, label }) => ({ id, label })),
+    sources
   };
 }
 

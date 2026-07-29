@@ -398,6 +398,79 @@ describe("P4.2a.3f profile commit and General Resume bootstrap", () => {
     expect(reloaded?.sections.flatMap((section) => section.items).flatMap((item) => item.conversationEvidence ?? [])
       .map((evidence) => evidence.messageId)).toEqual(["message-project", "message-volunteer"]);
   });
+
+  it("keeps canonical Rich Review totals and cards aligned across 3 → 4 → 5 incremental candidates", async () => {
+    const repository = createRepository();
+    const profile = emptyProfile("profile-rich-incremental", "林澄");
+    await repository.saveProfile(profile);
+    const semantic = new ProfileIntakeSemanticService(async (input) => ({
+      ok: true as const,
+      data: {
+        candidates: input.rawNarrative.split("|").map((sourceQuote, index) => ({
+          candidateKey: `${input.rawNarrative}-${index}`,
+          sectionType: "project" as const,
+          title: sourceQuote,
+          titleKind: "explicit" as const,
+          current: false,
+          description: `完成${sourceQuote}。`,
+          highlights: [],
+          tools: [],
+          methods: [],
+          outcomes: [],
+          sourceQuote,
+          confidence: 0.9,
+          needsConfirmation: false,
+          fieldEvidence: [
+            { field: "title", sourceQuote, support: "explicit" as const, confidence: 1, needsConfirmation: false },
+            { field: "description", sourceQuote, support: "derived" as const, confidence: 0.9, needsConfirmation: false }
+          ]
+        }))
+      }
+    }));
+    const service = new BrowserAgentToolService(repository, semantic);
+    const first = await service.captureProfileIntake({
+      sessionId: "session-rich",
+      messageId: "message-rich-1",
+      turnId: "turn-rich-1",
+      text: "项目A|项目B|项目C",
+      capturedAt: "2026-07-29T09:00:00.000Z",
+      targetProfileId: profile.id,
+      expectedProfileVersion: profile.version
+    });
+    const second = await service.captureProfileIntake({
+      sessionId: "session-rich",
+      messageId: "message-rich-2",
+      turnId: "turn-rich-2",
+      text: "项目D",
+      capturedAt: "2026-07-29T09:01:00.000Z",
+      targetProfileId: profile.id,
+      expectedProfileVersion: profile.version,
+      importId: first.importId,
+      expectedDraftRevision: first.expectedDraftRevision
+    });
+    const third = await service.captureProfileIntake({
+      sessionId: "session-rich",
+      messageId: "message-rich-3",
+      turnId: "turn-rich-3",
+      text: "项目E",
+      capturedAt: "2026-07-29T09:02:00.000Z",
+      targetProfileId: profile.id,
+      expectedProfileVersion: profile.version,
+      importId: second.importId,
+      expectedDraftRevision: second.expectedDraftRevision
+    });
+    const draft = await repository.getImportedResumeDraft(first.importId);
+    const artifact = third.artifactPayload;
+
+    expect([first.candidateCount, second.candidateCount, third.candidateCount]).toEqual([3, 4, 5]);
+    expect(draft?.sections.flatMap((section) => section.items)).toHaveLength(5);
+    expect(artifact.candidates).toHaveLength(5);
+    expect(artifact.recognized).toHaveLength(5);
+    expect(artifact.needsConfirmation).toHaveLength(0);
+    expect(artifact.additions).toHaveLength(5);
+    expect(artifact.duplicates).toHaveLength(0);
+    expect(artifact.sources).toHaveLength(3);
+  });
 });
 
 function createRepository() {

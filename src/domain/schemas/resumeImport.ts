@@ -315,6 +315,12 @@ export const ImportedResumeItemSchema = z.object({
     version: z.literal("profile-intake-normalization-v1"),
     mode: z.enum(["deterministic", "ai"]),
     needsNormalization: z.boolean(),
+    deterministicDatePatch: z.object({
+      startDate: z.string().min(1).optional(),
+      endDate: z.string().min(1).optional(),
+      current: z.boolean().optional(),
+      awardedAt: z.string().min(1).optional()
+    }).strict().optional(),
     fieldEvidence: z.array(CareerNormalizationEvidenceSchema).default([])
   }).strict().optional(),
   mapping: ImportedResumeMappingTraceSchema.optional()

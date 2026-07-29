@@ -11,7 +11,8 @@ export const profileIntakeSemanticPrompt = {
     "Never upgrade responsibility, ability, ownership, scope, or outcomes.",
     "Never invent numbers, tools, organizations, dates, results, or technical specificity.",
     "Keep month-only dates as YYYY-MM. current=true must have no endDate. Awards use awardedAt.",
-    "Every field must cite an exact sourceQuote substring from rawNarrative in fieldEvidence.",
+    "Every field must cite an exact sourceQuote substring inside that candidate's sourceQuote; never borrow evidence from another experience in the same narrative.",
+    "Set titleKind=explicit only when the user states that exact formal title. Use titleKind=derived_display for a generated review label and mark title evidence support=derived.",
     "Mark inferred, corrected, ambiguous, or low-confidence details needsConfirmation.",
     "Ask at most one follow-up question: only the missing detail with the highest expected resume value."
   ].join("\n")

@@ -173,7 +173,8 @@ function detectNewOutcomes(originalText: string, checkedText: string, evidenceTe
 
 function detectResponsibilityUpgrades(originalText: string, checkedText: string, evidenceText: string): FactGuardFinding[] {
   const findings: FactGuardFinding[] = [];
-  if (hasAny(originalText, PARTICIPATION_WORDS) && hasAny(checkedText, OWNER_WORDS) && !hasAny(evidenceText, OWNER_WORDS)) {
+  if (hasAny(originalText, PARTICIPATION_WORDS) && !hasAny(originalText, OWNER_WORDS)
+    && hasAny(checkedText, OWNER_WORDS) && !hasAny(evidenceText, OWNER_WORDS)) {
     findings.push(buildFinding({
       type: "participation_to_owner",
       text: "参与/协助 -> 负责/主导",
@@ -182,7 +183,8 @@ function detectResponsibilityUpgrades(originalText: string, checkedText: string,
       message: "不能把参与或协助升级为负责、主导或统筹。"
     }));
   }
-  if (hasAny(originalText, ASSIST_WORDS) && hasAny(checkedText, INDEPENDENT_WORDS) && !hasAny(evidenceText, INDEPENDENT_WORDS)) {
+  if (hasAny(originalText, ASSIST_WORDS) && !hasAny(originalText, INDEPENDENT_WORDS)
+    && hasAny(checkedText, INDEPENDENT_WORDS) && !hasAny(evidenceText, INDEPENDENT_WORDS)) {
     findings.push(buildFinding({
       type: "assist_to_independent",
       text: "协助 -> 独立完成",
@@ -191,7 +193,8 @@ function detectResponsibilityUpgrades(originalText: string, checkedText: string,
       message: "不能把协助升级为独立完成。"
     }));
   }
-  if (hasAny(originalText, BASIC_WORDS) && hasAny(checkedText, PROFICIENT_WORDS) && !hasAny(evidenceText, PROFICIENT_WORDS)) {
+  if (hasAny(originalText, BASIC_WORDS) && !hasAny(originalText, PROFICIENT_WORDS)
+    && hasAny(checkedText, PROFICIENT_WORDS) && !hasAny(evidenceText, PROFICIENT_WORDS)) {
     findings.push(buildFinding({
       type: "know_to_proficient",
       text: "了解/基础 -> 熟练/精通",
@@ -200,7 +203,8 @@ function detectResponsibilityUpgrades(originalText: string, checkedText: string,
       message: "不能把了解、接触或基础升级为熟练、精通。"
     }));
   }
-  if (hasAny(originalText, TEAM_WORDS) && hasAny(checkedText, PERSONAL_WORDS) && !hasAny(evidenceText, PERSONAL_WORDS)) {
+  if (hasAny(originalText, TEAM_WORDS) && !hasAny(originalText, PERSONAL_WORDS)
+    && hasAny(checkedText, PERSONAL_WORDS) && !hasAny(evidenceText, PERSONAL_WORDS)) {
     findings.push(buildFinding({
       type: "team_to_individual",
       text: "团队成果 -> 个人成果",

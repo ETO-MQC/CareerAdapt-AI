@@ -39,12 +39,14 @@ import {
 import { agentImportProgressBus } from "@/services/agent/AgentImportProgressBus";
 import {
   adaptConversationMessageToIntakeDraft,
+  buildConversationIntakeArtifact,
   mergeConversationIntakeDraft
 } from "@/domain/profileIntake/ConversationIntakeAdapter";
 import { ProfileIntakeSemanticService } from "@/domain/profileIntake/ProfileIntakeSemanticService";
 import {
   applyProfileIntakeStructuredPatch,
   profileIntakeCareerReadyText,
+  validateProfileIntakeStructuredPatch,
   type ProfileIntakeStructuredPatch
 } from "@/domain/profileIntake/ProfileIntakeNormalizer";
 
@@ -199,7 +201,7 @@ export class BrowserAgentToolService implements AgentToolServices {
       candidateCount: allCandidates.length,
       needsConfirmationCount: allCandidates.filter((candidate) => candidate.needsConfirmation).length,
       candidates: allCandidates,
-      artifactPayload: adapted.artifact
+      artifactPayload: buildConversationIntakeArtifact(saved, semanticResult.followUpQuestion)
     };
   }
 
@@ -236,10 +238,23 @@ export class BrowserAgentToolService implements AgentToolServices {
         const renamed = editedLabel
           ? renameStructuredItem(item.structuredItem, editedLabel)
           : item.structuredItem;
-        const structuredItem = input.structuredPatch && renamed
-          ? applyProfileIntakeStructuredPatch(renamed, input.structuredPatch)
+        const patchValidation = input.structuredPatch && renamed
+          ? validateProfileIntakeStructuredPatch({
+              item: renamed,
+              rawPatch: input.structuredPatch,
+              evidenceSources: [
+                ...(item.careerNormalization?.fieldEvidence.map((entry) => ({
+                  sourceQuote: entry.sourceQuote,
+                  supportedFields: [entry.field]
+                })) ?? []),
+                ...(input.evidence ? [{ sourceQuote: input.evidence.sourceQuote }] : [])
+              ]
+            })
+          : undefined;
+        const structuredItem = patchValidation && renamed
+          ? applyProfileIntakeStructuredPatch(renamed, patchValidation.patch)
           : renamed;
-        const patchedFields = input.structuredPatch ? Object.keys(input.structuredPatch) : [];
+        const patchedFields = patchValidation ? Object.keys(patchValidation.patch) : [];
         const followUpEvidence = input.evidence
           ? {
               ...input.evidence,
@@ -267,13 +282,7 @@ export class BrowserAgentToolService implements AgentToolServices {
                 ...item.careerNormalization,
                 fieldEvidence: [
                   ...item.careerNormalization.fieldEvidence,
-                  ...patchedFields.map((field) => ({
-                    field,
-                    sourceQuote: followUpEvidence?.sourceQuote ?? item.sourceQuote ?? item.rawText,
-                    support: "explicit" as const,
-                    confidence: 1,
-                    needsConfirmation: false
-                  }))
+                  ...(patchValidation?.fieldEvidence ?? [])
                 ]
               }
             : item.careerNormalization
