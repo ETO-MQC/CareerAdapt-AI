@@ -701,12 +701,23 @@ function bindAuthoritativeTaskInput(
     };
   }
   if (call.name === "review_profile_intake") {
+    const clarification = objectValue(slots.latestIntakeClarification);
+    const hasStructuredPatch = Object.keys(objectValue(call.arguments.structuredPatch)).length > 0;
     return {
       ...call,
       arguments: {
         ...call.arguments,
         importId: slots.intakeImportId,
-        expectedDraftRevision: slots.expectedIntakeDraftRevision
+        expectedDraftRevision: slots.expectedIntakeDraftRevision,
+        ...(hasStructuredPatch ? {
+          evidence: {
+            sessionId: clarification.sessionId,
+            messageId: clarification.messageId,
+            turnId: clarification.turnId,
+            capturedAt: clarification.capturedAt,
+            sourceQuote: clarification.exactSourceQuote
+          }
+        } : {})
       }
     };
   }

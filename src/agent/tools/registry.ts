@@ -92,8 +92,38 @@ const ProfileIntakeReviewInputSchema = z.object({
   expectedDraftRevision: z.number().int().min(0),
   candidateId: z.string().min(1),
   decision: z.enum(["accept", "reject"]),
-  editedLabel: z.string().trim().min(1).max(240).optional()
-}).strict();
+  editedLabel: z.string().trim().min(1).max(240).optional(),
+  structuredPatch: z.object({
+    title: z.string().trim().min(1).max(4_000).optional(),
+    name: z.string().trim().min(1).max(4_000).optional(),
+    organization: z.string().trim().min(1).max(4_000).optional(),
+    institution: z.string().trim().min(1).max(4_000).optional(),
+    role: z.string().trim().min(1).max(4_000).optional(),
+    startDate: z.string().trim().min(1).max(32).optional(),
+    endDate: z.string().trim().min(1).max(32).optional(),
+    current: z.boolean().optional(),
+    awardedAt: z.string().trim().min(1).max(32).optional(),
+    description: z.string().trim().min(1).max(4_000).optional(),
+    highlights: z.array(z.string().trim().min(1).max(2_000)).max(30).optional(),
+    tools: z.array(z.string().trim().min(1).max(2_000)).max(30).optional(),
+    methods: z.array(z.string().trim().min(1).max(2_000)).max(30).optional()
+  }).strict().optional(),
+  evidence: z.object({
+    sessionId: z.string().min(1),
+    messageId: z.string().min(1),
+    turnId: z.string().min(1),
+    capturedAt: z.string().datetime({ offset: true }),
+    sourceQuote: z.string().min(1).max(24_000)
+  }).strict().optional()
+}).strict().superRefine((input, context) => {
+  if (input.structuredPatch && !input.evidence) {
+    context.addIssue({
+      code: "custom",
+      path: ["evidence"],
+      message: "structuredPatch requires follow-up source evidence"
+    });
+  }
+});
 
 const ProfileIntakeReconcileInputSchema = z.object({
   importId: z.string().min(1),
@@ -235,7 +265,7 @@ export function createAgentToolRegistry(services: AgentToolServices) {
     define(services, meta("reconcile_resume_import", "使用确定性 Profile Reconciliation Engine 比对导入草稿与指定已有资料库；只生成计划，不写入 Profile。", "read", false, true, false, ResumeImportReconcileInputSchema, "resume", "import_draft"), (input, _, signal) => services.reconcileResumeImport ? services.reconcileResumeImport(input, signal) : unavailableTool("reconcile_resume_import")),
     define(services, meta("resolve_resume_reconciliation", "记录用户对一个近似重复或真实字段冲突的明确决定；不会直接写入 Profile。", "user_declared", false, true, true, ResumeImportReconciliationResolutionInputSchema, "resume", "import_draft"), (input, _, signal) => services.resolveResumeReconciliation ? services.resolveResumeReconciliation(input, signal) : unavailableTool("resolve_resume_reconciliation")),
     define(services, meta("capture_profile_intake", "将当前访谈回答结构化为可恢复的经历核对草稿；保留 session、message、turn 和原文来源，不写入 CareerProfile。", "write", false, true, true, ProfileIntakeCaptureInputSchema, "profile", "conversation_intake", true), (input, _, signal) => services.captureProfileIntake ? services.captureProfileIntake(input, signal) : unavailableTool("capture_profile_intake")),
-    define(services, meta("review_profile_intake", "记录用户对一个有歧义访谈候选的采用或忽略决定。", "user_declared", false, true, true, ProfileIntakeReviewInputSchema, "profile", "conversation_intake"), (input, _, signal) => services.reviewProfileIntake ? services.reviewProfileIntake(input, signal) : unavailableTool("review_profile_intake")),
+    define(services, meta("review_profile_intake", "核对同一个访谈候选，并可用用户明确补充的日期、职责和职业化表达安全更新同一草稿 revision；structuredPatch 必须附补充消息来源。", "user_declared", false, true, true, ProfileIntakeReviewInputSchema, "profile", "conversation_intake"), (input, _, signal) => services.reviewProfileIntake ? services.reviewProfileIntake(input, signal) : unavailableTool("review_profile_intake")),
     define(services, meta("reconcile_profile_intake", "复用 ProfileReconciliationEngine 将访谈草稿与目标资料库对账；只生成计划。", "read", false, true, true, ProfileIntakeReconcileInputSchema, "profile", "profile_reconciliation", true), (input, _, signal) => services.reconcileProfileIntake ? services.reconcileProfileIntake(input, signal) : unavailableTool("reconcile_profile_intake")),
     define(services, meta("resolve_profile_intake_conflict", "记录用户对访谈资料与现有资料冲突的明确决定。", "user_declared", false, true, true, ProfileIntakeConflictInputSchema, "profile", "profile_reconciliation"), (input, _, signal) => services.resolveProfileIntakeConflict ? services.resolveProfileIntakeConflict(input, signal) : unavailableTool("resolve_profile_intake_conflict")),
     define(services, meta("commit_profile_intake", "将已核对、已对账的访谈事实写入绑定的 CareerProfile；不生成简历。", "write", true, true, true, ProfileIntakeCommitInputSchema, "profile", "career_profile", true), (input, operationId, signal) => services.commitProfileIntake ? services.commitProfileIntake(input, operationId, signal) : unavailableTool("commit_profile_intake")),

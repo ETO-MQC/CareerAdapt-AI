@@ -1,5 +1,6 @@
-import { ImportedResumeDraftSchema, ResumeItemV2Schema, type ImportedResumeDraft, type ResumeItemV2 } from "@/domain/schemas";
+import { ImportedResumeDraftSchema, type ImportedResumeDraft } from "@/domain/schemas";
 import { stableHashText } from "@/services/security/text";
+import { ProfileIntakeNormalizer } from "./ProfileIntakeNormalizer";
 
 export type ConversationIntakeCandidate = {
   id: string;
@@ -41,8 +42,20 @@ export function adaptConversationMessageToIntakeDraft(input: {
   const shortHash = stableHashText(`${input.sessionId}:${input.messageId}:${text}`);
   const hash = `${shortHash}${stableHashText(`${text}:${input.turnId}`)}`;
   const importId = input.importId ?? `conversation-intake-${hash.slice(0, 20)}`;
-  const candidates = extractCandidates(text, hash.slice(0, 8));
-  const sections = candidates.map((candidate, order) => ({
+  const normalizer = new ProfileIntakeNormalizer();
+  const candidates = extractCandidates(text, hash.slice(0, 8)).map((candidate) => {
+    const normalized = normalizer.normalize(candidate);
+    return normalized.needsConfirmation && !candidate.needsConfirmation
+      ? {
+          ...candidate,
+          needsConfirmation: true,
+          reason: "来源包含可能影响职业事实准确性的表述，请确认"
+        }
+      : candidate;
+  });
+  const sections = candidates.map((candidate, order) => {
+    const normalized = normalizer.normalize(candidate);
+    return {
     id: `section-${candidate.id}`,
     sectionType: candidateSectionType(candidate.kind),
     category: candidateCategory(candidate.kind),
@@ -53,7 +66,7 @@ export function adaptConversationMessageToIntakeDraft(input: {
     items: [{
       id: candidate.id,
       rawText: candidate.sourceQuote,
-      normalizedText: candidate.sourceQuote,
+      normalizedText: normalized.normalizedText,
       included: !candidate.needsConfirmation,
       order: 0,
       pageRefs: [{ pageNumber: 1, quote: candidate.sourceQuote }],
@@ -62,11 +75,26 @@ export function adaptConversationMessageToIntakeDraft(input: {
       userEdited: false,
       sourceBlockIds: [],
       itemLabel: candidate.label,
-      structuredItem: structuredItem(candidate),
+      structuredItem: normalized.structuredItem,
       structuredMappingTrace: [],
-      sourceQuote: candidate.sourceQuote
+      sourceQuote: candidate.sourceQuote,
+      conversationEvidence: [{
+        sessionId: input.sessionId,
+        messageId: input.messageId,
+        turnId: input.turnId,
+        capturedAt: input.capturedAt,
+        sourceQuote: candidate.sourceQuote,
+        supportedFields: normalized.fieldEvidence.map((item) => item.field)
+      }],
+      careerNormalization: {
+        version: "profile-intake-normalization-v1" as const,
+        mode: "deterministic" as const,
+        needsNormalization: normalized.needsNormalization,
+        fieldEvidence: normalized.fieldEvidence
+      }
     }]
-  }));
+  };
+  });
   const draft = ImportedResumeDraftSchema.parse({
     id: importId,
     schemaVersion: "resume-import-v1",
@@ -152,7 +180,7 @@ function extractCandidates(text: string, seed: string): ConversationIntakeCandid
     });
   };
 
-  add("education", "education", "示例大学 / 计算机相关专业", /示例大学|计算机相关专业/);
+  add("education", "education", educationLabel(text), /示例大学|计算机相关专业/);
   add("project", "esp32", "ESP32 穿戴设备课程项目", /ESP\s*32|心跳.*摔倒|摔倒.*心跳/i);
   add("award", "lanqiao", "示例编程竞赛某省省级三等奖", /示例编程竞赛|南郊杯|蓝郊杯/, {
     ambiguous: /南郊杯|蓝郊杯|示例编程竞赛.*南郊杯/,
@@ -179,7 +207,7 @@ function extractCandidates(text: string, seed: string): ConversationIntakeCandid
 
 function sourceSentence(text: string, pattern: RegExp) {
   const clauses = text
-    .split(/[。！？；\n]+|(?:然后|还有|下一个|第二个|第三个|第四个)/u)
+    .split(/[。！？；\n]+|(?:然后)?(?=社团学生组织)|(?:下一个|第二个|第三个|第四个)/u)
     .map((clause) => clause.trim())
     .filter(Boolean);
   const clause = clauses.find((value) => {
@@ -194,6 +222,14 @@ function projectLabel(text: string, pattern: RegExp, fallback: string) {
   return pattern.exec(text)?.[0]?.trim() || fallback;
 }
 
+function educationLabel(text: string) {
+  const values = [
+    /示例大学/u.test(text) ? "示例大学" : undefined,
+    /计算机相关专业/u.test(text) ? "计算机相关专业" : undefined
+  ].filter(Boolean);
+  return values.join(" / ");
+}
+
 function candidateSectionType(kind: ConversationIntakeCandidate["kind"]) {
   if (kind === "award") return "awards" as const;
   return kind;
@@ -203,62 +239,4 @@ function candidateCategory(kind: ConversationIntakeCandidate["kind"]) {
   if (kind === "award") return "award" as const;
   if (kind === "research") return "custom" as const;
   return kind;
-}
-
-function structuredItem(candidate: ConversationIntakeCandidate): ResumeItemV2 {
-  const base = { id: candidate.id, customFields: [] };
-  if (candidate.kind === "education") {
-    return ResumeItemV2Schema.parse({
-      ...base,
-      sectionType: "education",
-      school: "示例大学",
-      major: "计算机相关专业",
-      current: false,
-      courses: [],
-      honors: [],
-      highlights: [candidate.sourceQuote]
-    });
-  }
-  if (candidate.kind === "award") {
-    return ResumeItemV2Schema.parse({
-      ...base,
-      sectionType: "awards",
-      name: candidate.label,
-      description: candidate.sourceQuote
-    });
-  }
-  if (candidate.kind === "research") {
-    return ResumeItemV2Schema.parse({
-      ...base,
-      sectionType: "research",
-      title: candidate.label,
-      methods: [],
-      current: false,
-      description: candidate.sourceQuote,
-      highlights: []
-    });
-  }
-  if (candidate.kind === "campus") {
-    const activityDescription = /团日活动|组织|负责|解答|传达|社会实践/u.test(candidate.sourceQuote)
-      ? candidate.sourceQuote
-      : undefined;
-    return ResumeItemV2Schema.parse({
-      ...base,
-      sectionType: "campus",
-      role: "团支书",
-      current: false,
-      description: activityDescription,
-      highlights: []
-    });
-  }
-  return ResumeItemV2Schema.parse({
-    ...base,
-    sectionType: "project",
-    title: candidate.label,
-    current: false,
-    tools: candidate.label.includes("ESP32") ? ["ESP32"] : [],
-    description: candidate.sourceQuote,
-    highlights: [],
-    outcomes: []
-  });
 }

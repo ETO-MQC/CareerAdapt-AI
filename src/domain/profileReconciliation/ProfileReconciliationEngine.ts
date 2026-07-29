@@ -182,7 +182,7 @@ function collectIncomingCandidates(draft: ImportedResumeDraft, now: string) {
             normalizedFields,
             factStatements: [name],
             sourceBlockIds: item.sourceBlockIds,
-            sourceProvenance: [provenanceForItem(draft, item, now)]
+            sourceProvenance: provenanceForItem(draft, item, now)
           });
         }
         continue;
@@ -204,7 +204,7 @@ function collectIncomingCandidates(draft: ImportedResumeDraft, now: string) {
           ? itemFactStatements(item.structuredItem)
           : [item.normalizedText],
         sourceBlockIds: item.sourceBlockIds,
-        sourceProvenance: [provenanceForItem(draft, item, now)]
+        sourceProvenance: provenanceForItem(draft, item, now)
       });
     }
   }
@@ -635,9 +635,25 @@ function provenanceForField(draft: ImportedResumeDraft, field: ImportedResumeFie
   return provenance(draft, field.value, field.pageRefs[0]?.quote ?? field.value, field.pageRefs[0]?.pageNumber ?? 1, now);
 }
 
-function provenanceForItem(draft: ImportedResumeDraft, item: ImportedResumeItem, now: string): FactProvenance {
+function provenanceForItem(draft: ImportedResumeDraft, item: ImportedResumeItem, now: string): FactProvenance[] {
+  if (draft.sourceKind === "conversation" && item.conversationEvidence?.length) {
+    return item.conversationEvidence.map((evidence) => ({
+      ...provenance(draft, evidence.sourceQuote, evidence.sourceQuote, 1, now),
+      sourceSessionId: evidence.sessionId,
+      sourceMessageId: evidence.messageId,
+      sourceTurnId: evidence.turnId,
+      capturedAt: evidence.capturedAt
+    }));
+  }
   const page = item.pageRefs[0];
-  return provenance(draft, item.normalizedText, page?.quote ?? item.rawText, page?.pageNumber ?? 1, now);
+  const sourceQuote = page?.quote ?? item.rawText;
+  return [provenance(
+    draft,
+    draft.sourceKind === "conversation" ? sourceQuote : item.normalizedText,
+    sourceQuote,
+    page?.pageNumber ?? 1,
+    now
+  )];
 }
 
 function provenance(

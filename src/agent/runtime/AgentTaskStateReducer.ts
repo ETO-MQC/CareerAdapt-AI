@@ -142,6 +142,20 @@ export class AgentTaskStateReducer {
           };
           state.stage = "structure_facts";
         }
+        if (
+          state.stage === "review_facts"
+          && event.message.trim()
+          && isProfileIntakeAnswerTurn(event.turnIntent)
+          && hasIntakeEvidence
+        ) {
+          state.knownSlots.latestIntakeClarification = {
+            sessionId: event.sessionId,
+            messageId: event.messageId,
+            turnId: event.turnId,
+            exactSourceQuote: event.message,
+            capturedAt: event.capturedAt ?? state.updatedAt
+          };
+        }
         if (state.stage === "profile_complete") {
           if (/仅保存(?:资料库)?|不(?:需要|用)生成(?:通用)?简历/.test(event.message)) {
             state.pendingDecision = undefined;

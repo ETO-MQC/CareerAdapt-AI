@@ -265,6 +265,23 @@ export const ImportedResumePageRefSchema = z.object({
   quote: z.string().min(1)
 });
 
+export const ConversationIntakeEvidenceSchema = z.object({
+  sessionId: z.string().min(1),
+  messageId: z.string().min(1),
+  turnId: z.string().min(1),
+  capturedAt: IsoDateStringSchema,
+  sourceQuote: z.string().min(1),
+  supportedFields: z.array(z.string().min(1)).default([])
+}).strict();
+
+export const CareerNormalizationEvidenceSchema = z.object({
+  field: z.string().min(1),
+  sourceQuote: z.string().min(1),
+  support: z.enum(["explicit", "derived", "uncertain"]),
+  confidence: z.number().min(0).max(1),
+  needsConfirmation: z.boolean()
+}).strict();
+
 export const ImportedResumeFieldSchema = z.object({
   value: z.string().min(1),
   pageRefs: z.array(ImportedResumePageRefSchema).default([]),
@@ -293,6 +310,13 @@ export const ImportedResumeItemSchema = z.object({
   structuredItem: ResumeItemV2Schema.optional(),
   structuredMappingTrace: z.array(ResumeJsonV2MappingTraceSchema).default([]),
   sourceQuote: z.string().min(1).optional(),
+  conversationEvidence: z.array(ConversationIntakeEvidenceSchema).optional(),
+  careerNormalization: z.object({
+    version: z.literal("profile-intake-normalization-v1"),
+    mode: z.enum(["deterministic", "ai"]),
+    needsNormalization: z.boolean(),
+    fieldEvidence: z.array(CareerNormalizationEvidenceSchema).default([])
+  }).strict().optional(),
   mapping: ImportedResumeMappingTraceSchema.optional()
 });
 
@@ -590,6 +614,7 @@ export type ImportedResumeWarning = z.infer<typeof ImportedResumeWarningSchema>;
 export type ImportedResumePageRef = z.infer<typeof ImportedResumePageRefSchema>;
 export type ImportedResumeField = z.infer<typeof ImportedResumeFieldSchema>;
 export type ImportedResumeItem = z.infer<typeof ImportedResumeItemSchema>;
+export type ConversationIntakeEvidence = z.infer<typeof ConversationIntakeEvidenceSchema>;
 export type ImportedResumeSection = z.infer<typeof ImportedResumeSectionSchema>;
 export type ImportedResumePage = z.infer<typeof ImportedResumePageSchema>;
 export type ImportedResumeSource = z.infer<typeof ImportedResumeSourceSchema>;

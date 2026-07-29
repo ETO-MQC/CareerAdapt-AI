@@ -196,6 +196,103 @@ describe("P4.2a.3f profile commit and General Resume bootstrap", () => {
       targetProfileId: profileA.id
     });
   });
+
+  it("patches the same draft candidate with follow-up dates, survives reload, and commits source-separated wording", async () => {
+    const repository = createRepository();
+    const profile = emptyProfile("profile-follow-up-patch", "小明");
+    await repository.saveProfile(profile);
+    const service = new BrowserAgentToolService(repository);
+    const raw = "Smart Focus - Task AI 是我全栈开发的，反正就是个桌面任务学习规划系统。";
+    const captured = await service.captureProfileIntake({
+      sessionId: "session-follow-up",
+      messageId: "message-initial",
+      turnId: "turn-initial",
+      text: raw,
+      capturedAt: "2026-07-28T10:00:00.000Z",
+      targetProfileId: profile.id,
+      expectedProfileVersion: profile.version
+    });
+    const candidateId = captured.candidates[0]?.id;
+    expect(candidateId).toBeTruthy();
+
+    const reviewed = await service.reviewProfileIntake({
+      importId: captured.importId,
+      expectedDraftRevision: captured.expectedDraftRevision,
+      candidateId,
+      decision: "accept",
+      structuredPatch: {
+        startDate: "2026.02",
+        endDate: "2026.04",
+        current: false
+      },
+      evidence: {
+        sessionId: "session-follow-up",
+        messageId: "message-date-answer",
+        turnId: "turn-date-answer",
+        capturedAt: "2026-07-28T10:02:00.000Z",
+        sourceQuote: "2026年2月开始，4月完成 MVP；确认 startDate=2026.02、endDate=2026.04。"
+      }
+    });
+
+    const reloaded = await repository.getImportedResumeDraft(captured.importId);
+    const item = reloaded?.sections.flatMap((section) => section.items)
+      .find((value) => value.id === candidateId);
+    expect(reloaded?.revision).toBe(reviewed.expectedDraftRevision);
+    expect(item?.structuredItem).toMatchObject({
+      sectionType: "project",
+      startDate: "2026-02",
+      endDate: "2026-04",
+      current: false
+    });
+    expect(item?.sourceQuote).toContain("反正");
+    expect(item?.normalizedText).not.toContain("反正");
+    expect(item?.conversationEvidence).toEqual(expect.arrayContaining([
+      expect.objectContaining({ messageId: "message-initial" }),
+      expect.objectContaining({
+        messageId: "message-date-answer",
+        supportedFields: ["startDate", "endDate", "current"]
+      })
+    ]));
+
+    const plan = await repository.reconcileImportedResume({
+      importId: captured.importId,
+      expectedDraftRevision: reviewed.expectedDraftRevision,
+      profileId: profile.id
+    });
+    await repository.confirmProfileIntake({
+      importId: captured.importId,
+      expectedDraftRevision: reviewed.expectedDraftRevision,
+      expectedReconciliationRevision: plan.revision,
+      targetProfileId: profile.id,
+      expectedProfileVersion: profile.version,
+      operationId: "profile-intake-follow-up-commit"
+    });
+
+    const committed = await repository.getProfile(profile.id);
+    const structured = committed?.structuredFacts.find((entry) =>
+      entry.data.sectionType === "project" && entry.data.title?.startsWith("Smart Focus")
+    );
+    expect(structured?.data).toMatchObject({
+      startDate: "2026-02",
+      endDate: "2026-04",
+      current: false,
+      description: "全栈开发 AI 驱动的桌面任务学习规划系统。"
+    });
+    const facts = committed?.experiences.flatMap((experience) => experience.facts) ?? [];
+    const committedFact = facts.find((fact) => structured?.factIds.includes(fact.id));
+    expect(committedFact?.statement).not.toContain("反正");
+    expect(committedFact?.provenance).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        sourceMessageId: "message-initial",
+        sourceText: expect.stringContaining("反正"),
+        sourceQuote: expect.stringContaining("反正")
+      }),
+      expect.objectContaining({
+        sourceMessageId: "message-date-answer",
+        sourceQuote: expect.stringContaining("startDate=2026.02")
+      })
+    ]));
+  });
 });
 
 function createRepository() {

@@ -38,6 +38,11 @@ import {
 } from "@/domain/resumeImport/reviewDecisions";
 import { agentImportProgressBus } from "@/services/agent/AgentImportProgressBus";
 import { adaptConversationMessageToIntakeDraft } from "@/domain/profileIntake/ConversationIntakeAdapter";
+import {
+  applyProfileIntakeStructuredPatch,
+  profileIntakeCareerReadyText,
+  type ProfileIntakeStructuredPatch
+} from "@/domain/profileIntake/ProfileIntakeNormalizer";
 
 export class BrowserAgentToolService implements AgentToolServices {
   constructor(private readonly repository = new WorkspaceRepository()) {}
@@ -161,6 +166,14 @@ export class BrowserAgentToolService implements AgentToolServices {
       candidateId: string;
       decision: "accept" | "reject";
       editedLabel?: string;
+      structuredPatch?: ProfileIntakeStructuredPatch;
+      evidence?: {
+        sessionId: string;
+        messageId: string;
+        turnId: string;
+        capturedAt: string;
+        sourceQuote: string;
+      };
     };
     const draft = await this.repository.getImportedResumeDraft(input.importId);
     if (!draft || draft.sourceKind !== "conversation") {
@@ -175,15 +188,50 @@ export class BrowserAgentToolService implements AgentToolServices {
         if (item.id !== input.candidateId) return item;
         found = true;
         const editedLabel = input.editedLabel?.trim();
+        const renamed = editedLabel
+          ? renameStructuredItem(item.structuredItem, editedLabel)
+          : item.structuredItem;
+        const structuredItem = input.structuredPatch && renamed
+          ? applyProfileIntakeStructuredPatch(renamed, input.structuredPatch)
+          : renamed;
+        const patchedFields = input.structuredPatch ? Object.keys(input.structuredPatch) : [];
+        const followUpEvidence = input.evidence
+          ? {
+              ...input.evidence,
+              supportedFields: patchedFields
+            }
+          : undefined;
         return {
           ...item,
           itemLabel: editedLabel ?? item.itemLabel,
-          structuredItem: editedLabel
-            ? renameStructuredItem(item.structuredItem, editedLabel)
-            : item.structuredItem,
+          normalizedText: structuredItem
+            ? profileIntakeCareerReadyText(structuredItem)
+            : item.normalizedText,
+          structuredItem,
           included: input.decision === "accept",
           sourceStatus: "user_confirmed_modified" as const,
-          userEdited: true
+          userEdited: true,
+          pageRefs: followUpEvidence
+            ? [...item.pageRefs, { pageNumber: 1, quote: followUpEvidence.sourceQuote }]
+            : item.pageRefs,
+          conversationEvidence: followUpEvidence
+            ? [...(item.conversationEvidence ?? []), followUpEvidence]
+            : item.conversationEvidence,
+          careerNormalization: item.careerNormalization
+            ? {
+                ...item.careerNormalization,
+                fieldEvidence: [
+                  ...item.careerNormalization.fieldEvidence,
+                  ...patchedFields.map((field) => ({
+                    field,
+                    sourceQuote: followUpEvidence?.sourceQuote ?? item.sourceQuote ?? item.rawText,
+                    support: "explicit" as const,
+                    confidence: 1,
+                    needsConfirmation: false
+                  }))
+                ]
+              }
+            : item.careerNormalization
         };
       });
       return {
@@ -205,6 +253,7 @@ export class BrowserAgentToolService implements AgentToolServices {
       candidateId: input.candidateId,
       decision: input.decision,
       editedLabel: input.editedLabel?.trim(),
+      patchedFields: input.structuredPatch ? Object.keys(input.structuredPatch) : [],
       unresolvedCount: unresolved
     };
   }

@@ -1003,7 +1003,7 @@ function createImportedFact(input: {
     pageNumber: 1,
     quote: input.item.rawText || input.item.normalizedText
   };
-  const sourceType = input.draft.sourceKind === "conversation" || input.item.sourceStatus === "user_confirmed_modified"
+  const sourceType: FactProvenance["sourceType"] = input.draft.sourceKind === "conversation" || input.item.sourceStatus === "user_confirmed_modified"
     ? "user_input"
     : input.draft.source.mimeType === "application/pdf" ? "pdf_import" : "imported_text";
   const pageSources = input.draft.pages.map((page) => ({
@@ -1017,33 +1017,47 @@ function createImportedFact(input: {
     throw new Error("resume_import_source_quote_unlocated");
   }
   const locatedLocation = location?.status === "located" ? location : undefined;
-  const provenance: FactProvenance = {
+  const provenanceBase = {
     sourceType,
     sourceId: input.draft.source.fileHash,
-    sourceText: sourceType === "pdf_import" ? pageRef.quote : input.item.normalizedText,
     confidence: input.item.confidence === "high" ? 0.9 : input.item.confidence === "medium" ? 0.72 : 0.55,
     confirmedByUser: true,
-    riskLevel: sourceType === "pdf_import" ? "low" : "medium",
+    riskLevel: sourceType === "pdf_import" ? "low" as const : "medium" as const,
     createdAt: input.now,
-    sourceSessionId: input.draft.source.sourceSessionId,
-    sourceMessageId: input.draft.source.sourceMessageId,
-    sourceTurnId: input.draft.source.sourceTurnId,
-    capturedAt: input.draft.source.capturedAt,
-    fileName: input.draft.source.fileName,
-    pageNumber: sourceType === "pdf_import" ? locatedLocation?.locator.pageNumber : undefined,
-    pageRange: sourceType === "pdf_import" && locatedLocation ? { startPage: locatedLocation.locator.pageNumber, endPage: locatedLocation.locator.pageNumber } : undefined,
-    sourceQuote: pageRef.quote,
-    sourceLocatorStatus: sourceType === "pdf_import" ? "located" : undefined,
-    sourceLocator: sourceType === "pdf_import" ? locatedLocation?.locator : undefined
+    fileName: input.draft.source.fileName
   };
+  const provenance: FactProvenance[] = input.draft.sourceKind === "conversation" && input.item.conversationEvidence?.length
+    ? input.item.conversationEvidence.map((evidence) => ({
+        ...provenanceBase,
+        sourceText: evidence.sourceQuote,
+        sourceSessionId: evidence.sessionId,
+        sourceMessageId: evidence.messageId,
+        sourceTurnId: evidence.turnId,
+        capturedAt: evidence.capturedAt,
+        sourceQuote: evidence.sourceQuote
+      }))
+    : [{
+        ...provenanceBase,
+        sourceText: sourceType === "pdf_import" ? pageRef.quote : input.item.normalizedText,
+        sourceSessionId: input.draft.source.sourceSessionId,
+        sourceMessageId: input.draft.source.sourceMessageId,
+        sourceTurnId: input.draft.source.sourceTurnId,
+        capturedAt: input.draft.source.capturedAt,
+        pageNumber: sourceType === "pdf_import" ? locatedLocation?.locator.pageNumber : undefined,
+        pageRange: sourceType === "pdf_import" && locatedLocation ? { startPage: locatedLocation.locator.pageNumber, endPage: locatedLocation.locator.pageNumber } : undefined,
+        sourceQuote: pageRef.quote,
+        sourceLocatorStatus: sourceType === "pdf_import" ? "located" as const : undefined,
+        sourceLocator: sourceType === "pdf_import" ? locatedLocation?.locator : undefined
+      }];
 
   return {
     id: `fact-import-${nanoid(10)}`,
     statement: input.statement,
     category: input.category,
-    provenance: [provenance],
+    provenance,
     confirmedByUser: true,
-    riskLevel: provenance.riskLevel,
+    riskLevel: provenance.some((item) => item.riskLevel === "high") ? "high"
+      : provenance.some((item) => item.riskLevel === "medium") ? "medium" : "low",
     createdAt: input.now,
     updatedAt: input.now
   };

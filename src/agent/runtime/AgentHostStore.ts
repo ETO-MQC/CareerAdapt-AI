@@ -371,7 +371,8 @@ export class AgentHostStore {
       const intakeRecoverySource = findRecoverableProfileIntakeSource(
         input.session,
         taskState,
-        input.userMessage
+        input.userMessage,
+        true
       );
       if (intakeRecoverySource && taskState.stage !== "collect_experience") {
         taskState = reducer.reduce(taskState, { type: "restart_profile_intake" });
@@ -1313,7 +1314,8 @@ function errorCode(value: unknown) {
 export function findRecoverableProfileIntakeSource(
   session: AgentSession,
   taskState: AgentTaskState,
-  currentMessage: string
+  currentMessage: string,
+  allowEmptyCollectionCommitRecovery = false
 ) {
   const atEmptyCollectionBoundary = (
     taskState.stage === "collect_experience"
@@ -1333,7 +1335,13 @@ export function findRecoverableProfileIntakeSource(
   if (
     taskState.workflowId !== "guided_profile_intake"
     || (!atEmptyCollectionBoundary && !recoveringCompletedIntake)
-    || (!retryCommand && !(recoveringCompletedIntake && explicitCommitCommand))
+    || (
+      !retryCommand
+      && !(
+        explicitCommitCommand
+        && (recoveringCompletedIntake || (atEmptyCollectionBoundary && allowEmptyCollectionCommitRecovery))
+      )
+    )
   ) {
     return undefined;
   }
