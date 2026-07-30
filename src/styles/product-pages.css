@@ -57,8 +57,8 @@
 
 .ai-asset-content .profile-person-toolbar {
   margin: 0;
-  min-height: 52px;
-  padding: var(--product-space-2) var(--ai-card-padding);
+  min-height: 100px;
+  padding: 10px var(--ai-card-padding);
 }
 
 .ai-asset-content .profile-person-toolbar > div span {

@@ -9600,6 +9600,7 @@ html[data-theme="dark"] .section-action-button-danger:hover:not(:disabled) {
   justify-content: space-between;
   margin-bottom: 16px;
   margin-top: 16px;
+  min-height: 80px;
   overflow: hidden;
   padding: 18px;
 }
