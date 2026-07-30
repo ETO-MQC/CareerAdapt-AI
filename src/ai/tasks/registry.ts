@@ -38,7 +38,11 @@ import {
   type ResumeTailorPlannerInput,
   type ResumeTailorPlannerOutput
 } from "@/domain/schemas";
-import { locateSourceQuote, redactSensitiveTextForModel } from "@/services/security/text";
+import {
+  createSensitiveTextTokenizer,
+  locateSourceQuote,
+  redactSensitiveTextForModel
+} from "@/services/security/text";
 import { evidenceMatcherPrompt } from "@/ai/prompts/evidenceMatcher";
 import { factGuardPrompt } from "@/ai/prompts/factGuard";
 import { jdAnalyzerPrompt } from "@/ai/prompts/jdAnalyzer";
@@ -323,9 +327,9 @@ export const aiTaskRegistry = {
     outputSchema: ResumeJsonMapperOutputSchema,
     maxOutputChars: 24_000,
     buildUserPrompt(input: ResumeDocumentMapperTaskInput) {
-      const redacted = redactSensitiveTextForModel(input.rawText);
+      const blocks = parseAndRedactDocumentMapperBlocks(input.rawText);
       return JSON.stringify({
-        normalizedSourceBlocks: redacted.text,
+        normalizedSourceBlocks: blocks,
         schemaVersion: "resume-import-v2",
         catalogVersion: RESUME_CATALOG_VERSION,
         canonicalFields: resumeFieldCatalog.filter((field) => field.aiMappable).map((field) => ({
@@ -335,11 +339,13 @@ export const aiTaskRegistry = {
           aliases: field.aliases
         })),
         allowedSections: ["summary", "education", "work", "internship", "project", "research", "campus", "volunteer", "awards", "skills", "certificates", "languages", "publications", "patents", "portfolio", "other", "custom"],
-        instructions: "Map without changing facts or numeric values. Cite exact block ids and quotes, preserve source date precision, and preserve every unused block."
+        instructions: "Map without changing facts or numeric values. Cite authoritative original block ids and exact quotes. Uncited source blocks are preserved locally and need not be repeated."
       }, null, 2);
     },
     coerceRawOutput(rawOutput: unknown) { return rawOutput; },
-    normalizeOutput(output: ResumeJsonMapperOutput) { return ResumeJsonMapperOutputSchema.parse(output); },
+    normalizeOutput(output: ResumeJsonMapperOutput) {
+      return repairDocumentMapperSafetyMetadata(ResumeJsonMapperOutputSchema.parse(output));
+    },
     validateOutput(output: ResumeJsonMapperOutput, input: ResumeDocumentMapperTaskInput) {
       validateDocumentMapperSources(output, input.rawText);
     }
@@ -1152,52 +1158,97 @@ function validateJsonMapperSources(output: ResumeJsonMapperOutput, rawText: stri
 }
 
 function validateDocumentMapperSources(output: ResumeJsonMapperOutput, rawText: string) {
-  const redactedText = redactSensitiveTextForModel(rawText).text;
-  let blocks: unknown;
-  try { blocks = JSON.parse(redactedText); } catch { throw new Error("resume_document_mapper_input_invalid"); }
-  if (!Array.isArray(blocks)) throw new Error("resume_document_mapper_blocks_invalid");
-  const byId = new Map(blocks.flatMap((block) => {
-    if (!block || typeof block !== "object") return [];
-    const record = block as Record<string, unknown>;
-    return typeof record.id === "string" ? [[record.id, record] as const] : [];
-  }));
+  const blocks = parseAndRedactDocumentMapperBlocks(rawText);
+  const sourceTextsById = new Map<string, string[]>();
+  for (const block of blocks) {
+    const blockId = typeof block.originalBlockId === "string" ? block.originalBlockId : block.id;
+    if (typeof blockId !== "string" || typeof block.text !== "string") continue;
+    const sourceTexts = sourceTextsById.get(blockId) ?? [];
+    sourceTexts.push(block.text);
+    sourceTextsById.set(blockId, sourceTexts);
+  }
   for (const mapping of collectMappingObjects(output)) {
     if (mapping.sourcePaths.length !== mapping.sourceValues.length) throw new Error("resume_document_mapper_source_count_mismatch");
     mapping.sourcePaths.forEach((blockId, index) => {
-      const block = byId.get(blockId);
-      const sourceText = typeof block?.normalizedText === "string" ? block.normalizedText : block?.text;
       const cited = mapping.sourceValues[index];
-      if (typeof sourceText !== "string" || typeof cited !== "string" || !normalizeMappedText(sourceText).includes(normalizeMappedText(cited))) {
+      const sourceTexts = sourceTextsById.get(blockId) ?? [];
+      if (
+        typeof cited !== "string"
+        || !sourceTexts.some((sourceText) => normalizeMappedText(sourceText).includes(normalizeMappedText(cited)))
+      ) {
         throw new Error("resume_document_mapper_source_mismatch");
       }
     });
   }
-  const decisionUseCount = new Map<string, number>();
   for (const decision of output.mappingDecisions ?? []) {
     for (const blockId of decision.sourceBlockIds) {
-      const block = byId.get(blockId);
-      const sourceText = typeof block?.normalizedText === "string" ? block.normalizedText : block?.text;
-      if (typeof sourceText !== "string") throw new Error("resume_document_mapper_decision_source_missing");
-      if (!normalizeMappedText(sourceText).includes(normalizeMappedText(decision.sourceQuote))) {
+      const sourceTexts = sourceTextsById.get(blockId);
+      if (!sourceTexts) throw new Error("resume_document_mapper_decision_source_missing");
+      if (!sourceTexts.some((sourceText) => normalizeMappedText(sourceText).includes(normalizeMappedText(decision.sourceQuote)))) {
         throw new Error("resume_document_mapper_decision_quote_mismatch");
       }
-      decisionUseCount.set(blockId, (decisionUseCount.get(blockId) ?? 0) + 1);
     }
-  }
-  for (const decision of output.mappingDecisions ?? []) {
-    if ("needsConfirmation" in decision && !decision.needsConfirmation && decision.sourceBlockIds.some((blockId) => (decisionUseCount.get(blockId) ?? 0) > 1)) {
-      throw new Error("resume_document_mapper_shared_source_requires_confirmation");
-    }
-  }
-  const citedIds = new Set([
-    ...collectMappingObjects(output).flatMap((mapping) => mapping.sourcePaths),
-    ...(output.mappingDecisions ?? []).flatMap((decision) => decision.sourceBlockIds),
-    ...output.unclassifiedBlocks.map((block) => block.sourcePath)
-  ]);
-  for (const blockId of byId.keys()) {
-    if (!citedIds.has(blockId)) throw new Error("resume_document_mapper_source_block_dropped");
   }
   validateMappedContent(output);
+}
+
+export function parseAndRedactDocumentMapperBlocks(rawText: string): Array<Record<string, unknown>> {
+  let blocks: unknown;
+  try {
+    blocks = JSON.parse(rawText);
+  } catch {
+    throw new Error("resume_document_mapper_input_invalid");
+  }
+  if (!Array.isArray(blocks)) throw new Error("resume_document_mapper_blocks_invalid");
+  const tokenizer = createSensitiveTextTokenizer();
+  return blocks.map((block) => {
+    if (!block || typeof block !== "object" || Array.isArray(block)) {
+      throw new Error("resume_document_mapper_blocks_invalid");
+    }
+    const record = block as Record<string, unknown>;
+    return {
+      ...record,
+      ...(typeof record.text === "string" ? { text: tokenizer.tokenize(record.text).text } : {})
+    };
+  });
+}
+
+function repairDocumentMapperSafetyMetadata(output: ResumeJsonMapperOutput): ResumeJsonMapperOutput {
+  const useCount = new Map<string, number>();
+  for (const decision of output.mappingDecisions ?? []) {
+    for (const blockId of decision.sourceBlockIds) {
+      useCount.set(blockId, (useCount.get(blockId) ?? 0) + 1);
+    }
+  }
+  const mappingDecisions = output.mappingDecisions?.map((decision) => {
+    if (!("needsConfirmation" in decision)) return decision;
+    const sharedSource = decision.sourceBlockIds.some((blockId) => (useCount.get(blockId) ?? 0) > 1);
+    return {
+      ...decision,
+      needsConfirmation: decision.needsConfirmation || decision.confidence < 0.85 || sharedSource,
+      confidence: sharedSource ? Math.min(decision.confidence, 0.84) : decision.confidence
+    };
+  });
+  const visit = (value: unknown): unknown => {
+    if (Array.isArray(value)) return value.map(visit);
+    if (!value || typeof value !== "object") return value;
+    const record = Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([key, item]) => [key, visit(item)])
+    );
+    const mapping = record.mapping;
+    if (mapping && typeof mapping === "object" && !Array.isArray(mapping)) {
+      const trace = mapping as Record<string, unknown>;
+      if (trace.confidenceLevel !== "high") {
+        record.mapping = { ...trace, needsConfirmation: true };
+      }
+    }
+    return record;
+  };
+  return ResumeJsonMapperOutputSchema.parse({
+    ...output,
+    structuredDraft: visit(output.structuredDraft),
+    mappingDecisions
+  });
 }
 
 function validateMappedContent(value: unknown): void {

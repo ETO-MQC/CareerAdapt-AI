@@ -32,7 +32,8 @@ test.describe("P3.7 document recognition settings and routing", () => {
   test("shows PDF.js route for a digital PDF", async ({ page }) => {
     await setDocumentPreferences(page, { parsingMode: "auto" });
     await page.goto("/resume");
-    await page.getByTestId("resume-entry-import-primary").click();
+    await page.getByRole("button", { name: "导入", exact: true }).click();
+    await page.getByRole("button", { name: "仅本地", exact: true }).click();
     await page.getByLabel("选择要导入的简历文件").setInputFiles(digitalPdf);
     await expect(page.locator(".import-routing-panel")).toContainText("PDF.js 文本层");
     await expect(page.locator(".import-routing-panel")).toContainText("坐标");
@@ -42,7 +43,8 @@ test.describe("P3.7 document recognition settings and routing", () => {
     await setDocumentPreferences(page, { parsingMode: "auto", localOcrEnabled: true });
     await mockOcr(page, true);
     await page.goto("/resume");
-    await page.getByTestId("resume-entry-import-primary").click();
+    await page.getByRole("button", { name: "导入", exact: true }).click();
+    await page.getByRole("button", { name: "仅本地", exact: true }).click();
     await page.getByLabel("选择要导入的简历文件").setInputFiles(scannedPdf);
     await expect(page.locator(".import-routing-panel")).toContainText("本地 OCR");
     await expect(page.locator(".import-source-text")).toContainText("OCR Candidate");
@@ -52,7 +54,8 @@ test.describe("P3.7 document recognition settings and routing", () => {
     await setDocumentPreferences(page, { parsingMode: "local_ocr", localOcrEnabled: true });
     await mockOcr(page, false);
     await page.goto("/resume");
-    await page.getByTestId("resume-entry-import-primary").click();
+    await page.getByRole("button", { name: "导入", exact: true }).click();
+    await page.getByRole("button", { name: "仅本地", exact: true }).click();
     await page.getByLabel("选择要导入的简历文件").setInputFiles(digitalPdf);
     await expect(page.locator(".import-routing-panel")).toContainText("PDF.js 文本层");
     await expect(page.locator(".import-routing-panel")).toContainText("回退");

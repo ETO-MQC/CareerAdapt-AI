@@ -4,7 +4,7 @@ import { demoCareerProfile } from "@/data/demoProfile";
 import type { AiInvokeRequest, AiProvider } from "../provider";
 import { mapExternalResumeJson } from "@/domain/resumeImport/jsonMapper";
 import { redactSensitiveTextForModel } from "@/services/security/text";
-import { mapNormalizedBlocksToReviewDraft } from "@/domain/resumeImport/normalizer";
+import { parseAndRedactDocumentMapperBlocks } from "@/ai/tasks/registry";
 
 type MockProviderOptions = {
   outputs?: Partial<Record<AiTask, unknown>>;
@@ -52,7 +52,17 @@ export class MockAiProvider implements AiProvider {
 
     if (task === "resume-document-mapper") {
       const rawText = typeof input === "object" && input && "rawText" in input ? String(input.rawText) : "[]";
-      return mapNormalizedBlocksToReviewDraft(JSON.parse(redactSensitiveTextForModel(rawText).text));
+      const blocks = parseAndRedactDocumentMapperBlocks(rawText);
+      return {
+        structuredDraft: { schemaVersion: "structured-resume-draft-v1", basics: {}, sections: [] },
+        mappingDecisions: [],
+        unclassifiedBlocks: blocks.flatMap((block) => {
+          const sourcePath = typeof block.originalBlockId === "string" ? block.originalBlockId : block.id;
+          return typeof sourcePath === "string"
+            ? [{ sourcePath, sourceValue: block.text, reason: "Mock provider preserved the source block." }]
+            : [];
+        })
+      };
     }
 
     if (task === "jd-analyzer") {

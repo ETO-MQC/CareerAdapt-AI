@@ -11,6 +11,7 @@ export const resumeDocumentMapperPrompt = {
     "Do not merge distinct experiences or split one experience because it crosses a page. Preserve bullets with their complete item.",
     "A source block used for multiple fields, any confidence below 0.85, and every ambiguous reading-order case must set needsConfirmation=true.",
     "Use low confidence and needsConfirmation=true whenever classification or reading order is ambiguous.",
-    "Return every unused block in unclassifiedBlocks. Return JSON only."
+    "You may mark ambiguous content in unclassifiedBlocks, but do not reproduce every unused block; local code preserves all uncited source blocks deterministically.",
+    "When a block has originalBlockId, cite that authoritative original block id rather than its fragment id. Return JSON only."
   ].join("\n")
 } as const;

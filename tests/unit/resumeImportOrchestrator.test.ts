@@ -72,9 +72,9 @@ describe("ResumeImportOrchestrator", () => {
       providerInput = body.input.rawText;
       const blocks = JSON.parse(providerInput) as Array<{
         id: string;
-        normalizedText: string;
+        text: string;
       }>;
-      const nameBlock = blocks.find((block) => block.normalizedText.includes("[NAME_1]"));
+      const nameBlock = blocks.find((block) => block.text.includes("[NAME_1]"));
       if (!nameBlock) throw new Error("expected high-confidence name tokenization");
       return new Response(JSON.stringify({
         ok: true,
@@ -99,7 +99,7 @@ describe("ResumeImportOrchestrator", () => {
             .filter((block) => block.id !== nameBlock.id)
             .map((block) => ({
               sourcePath: block.id,
-              sourceValue: block.normalizedText,
+              sourceValue: block.text,
               reason: "not mapped in focused test"
             }))
         },

@@ -27,6 +27,7 @@ export type OpenAiCompatibleResponse = {
   provider: string;
   model: string;
   outputLength: number;
+  finishReason?: string;
 };
 
 export type OpenAiCompatibleTextChunk =
@@ -83,8 +84,21 @@ export class OpenAiCompatibleProvider {
       throw createAiProviderError(`provider_http_${response.status}`, `Provider returned HTTP ${response.status}.`);
     }
 
-    const payload = await response.json();
-    const content = payload?.choices?.[0]?.message?.content;
+    const responseText = await response.text();
+    let payload: Record<string, unknown>;
+    try {
+      payload = JSON.parse(responseText) as Record<string, unknown>;
+    } catch {
+      throw createAiProviderError("provider_invalid_json", "Provider returned a malformed endpoint response.");
+    }
+    const choice = Array.isArray(payload.choices) ? payload.choices[0] as Record<string, unknown> | undefined : undefined;
+    const message = choice?.message as Record<string, unknown> | undefined;
+    const content = message?.content;
+    const finishReason = typeof choice?.finish_reason === "string" ? choice.finish_reason : undefined;
+
+    if (finishReason === "length") {
+      throw createAiProviderError("model_output_truncated", "Provider stopped because the output length limit was reached.");
+    }
 
     if (typeof content !== "string" || content.trim().length === 0) {
       throw createAiProviderError("empty_model_output", "Provider returned empty content.");
@@ -98,7 +112,8 @@ export class OpenAiCompatibleProvider {
       output: parseJsonContent(content),
       provider: this.provider,
       model: this.model,
-      outputLength: content.length
+      outputLength: content.length,
+      finishReason
     };
   }
 
@@ -352,7 +367,7 @@ function parseJsonContent(content: string) {
     if (arrayMatch) {
       try { return JSON.parse(arrayMatch[0]); } catch { /* fall through */ }
     }
-    throw createAiProviderError("invalid_json", "Provider returned content that is not valid JSON.");
+    throw createAiProviderError("model_invalid_json", "Provider returned content that is not valid JSON.");
   }
 }
 

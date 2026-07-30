@@ -54,25 +54,65 @@ export async function invokeStructuredAi<TOutput>(input: {
     method: "POST", headers, signal: input.signal,
     body: JSON.stringify({ task: input.task, input: input.businessInput })
   };
-  let response = await fetch("/api/ai/structured", requestInit);
-  if ([429, 502, 503].includes(response.status) && !input.signal?.aborted) {
-    await abortableDelay(response.status === 429 ? 500 : 250, input.signal);
+  let response: Response;
+  try {
     response = await fetch("/api/ai/structured", requestInit);
-  }
-
-  const payload = (await response.json()) as StructuredAiResponse<unknown>;
-
-  if (!response.ok || !payload.ok) {
+    if (
+      input.task !== "resume-document-mapper"
+      && [429, 502, 503].includes(response.status)
+      && !input.signal?.aborted
+    ) {
+      await abortableDelay(response.status === 429 ? 500 : 250, input.signal);
+      response = await fetch("/api/ai/structured", requestInit);
+    }
+  } catch {
+    const errorCode = input.signal?.aborted ? "request_cancelled" : "provider_unavailable";
     return {
       ok: false as const,
-      errorCode: payload.ok ? "unknown_error" : payload.error.code,
+      errorCode,
       log: createAiLog({
         task: input.task,
         status: "provider_failed",
         promptVersion: "server-registered",
         input: input.businessInput,
-        meta: payload.ok ? undefined : payload.meta,
-        errorCode: payload.ok ? "unknown_error" : payload.error.code
+        errorCode
+      })
+    };
+  }
+
+  const responseText = await response.text();
+  let payload: StructuredAiResponse<unknown>;
+  try {
+    payload = JSON.parse(responseText) as StructuredAiResponse<unknown>;
+  } catch {
+    return {
+      ok: false as const,
+      errorCode: "structured_endpoint_invalid_json",
+      log: createAiLog({
+        task: input.task,
+        status: "provider_failed",
+        promptVersion: "server-registered",
+        input: input.businessInput,
+        meta: { outputLength: responseText.length },
+        errorCode: "structured_endpoint_invalid_json"
+      })
+    };
+  }
+
+  if (!response.ok || !payload || typeof payload !== "object" || !("ok" in payload) || !payload.ok) {
+    const errorCode = payload && typeof payload === "object" && "ok" in payload && !payload.ok
+      ? payload.error.code
+      : `provider_http_${response.status}`;
+    return {
+      ok: false as const,
+      errorCode,
+      log: createAiLog({
+        task: input.task,
+        status: "provider_failed",
+        promptVersion: "server-registered",
+        input: input.businessInput,
+        meta: payload && typeof payload === "object" && "ok" in payload && !payload.ok ? payload.meta : undefined,
+        errorCode
       })
     };
   }

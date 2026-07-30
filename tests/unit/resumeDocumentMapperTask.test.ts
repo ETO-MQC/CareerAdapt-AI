@@ -4,13 +4,13 @@ import type { ResumeJsonMapperOutput } from "@/domain/schemas";
 
 const definition = aiTaskRegistry["resume-document-mapper"];
 const rawText = JSON.stringify([
-  { id: "b1", normalizedText: "GPA：3.95/5.0，排名：1/42" },
-  { id: "b2", normalizedText: "未分类来源" }
+  { id: "b1", text: "GPA：3.95/5.0，排名：1/42" },
+  { id: "b2", text: "未分类来源" }
 ]);
 const input = { rawText, inputHash: "document-mapper-input" };
 
 describe("resume-document-mapper v2 boundary", () => {
-  it("includes catalog metadata and requires complete source-block disposition", () => {
+  it("includes catalog metadata and allows deterministic local preservation of uncited blocks", () => {
     const prompt = JSON.parse(definition.buildUserPrompt(input)) as Record<string, unknown>;
     expect(prompt).toMatchObject({ schemaVersion: "resume-import-v2" });
     expect(prompt.catalogVersion).toBeTypeOf("string");
@@ -19,18 +19,24 @@ describe("resume-document-mapper v2 boundary", () => {
 
     const dropped = validOutput();
     dropped.unclassifiedBlocks = [];
-    expect(() => definition.validateOutput(dropped, input)).toThrow("resume_document_mapper_source_block_dropped");
+    expect(() => definition.validateOutput(dropped, input)).not.toThrow();
     expect(definition.systemPrompt).toContain("untrusted DATA");
     expect(definition.systemPrompt).toContain("define structure only, never facts");
+    expect(definition.systemPrompt).toContain("local code preserves all uncited source blocks");
   });
 
-  it("rejects a silent one-source-to-many-field decision", () => {
+  it("repairs safety metadata for a one-source-to-many-field decision", () => {
     const output = validOutput();
     output.mappingDecisions = [
       canonicalDecision("education.gpa", "3.95", false),
       canonicalDecision("education.gpaScale", "5.0", false)
     ];
-    expect(() => definition.validateOutput(output, input)).toThrow("resume_document_mapper_shared_source_requires_confirmation");
+    const repaired = definition.normalizeOutput(output);
+    expect(repaired.mappingDecisions).toEqual([
+      expect.objectContaining({ needsConfirmation: true, confidence: 0.84 }),
+      expect.objectContaining({ needsConfirmation: true, confidence: 0.84 })
+    ]);
+    expect(() => definition.validateOutput(repaired, input)).not.toThrow();
   });
 
   it("rejects decision quotes that cannot be located in the cited block", () => {
@@ -48,7 +54,7 @@ describe("resume-document-mapper v2 boundary", () => {
 
   it("grounds sensitive placeholders against the redacted authoritative source", () => {
     const sensitiveRawText = JSON.stringify([
-      { id: "contact", normalizedText: "电话：13800000000" }
+      { id: "contact", text: "电话：13800000000" }
     ]);
     const output: ResumeJsonMapperOutput = {
       structuredDraft: {

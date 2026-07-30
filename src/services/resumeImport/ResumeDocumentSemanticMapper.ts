@@ -4,12 +4,12 @@ import { invokeStructuredAi } from "@/ai/client";
 import { createImportedResumeDraftFromStructuredJson } from "@/domain/resumeImport/parser";
 import {
   buildSemanticMappingBatches,
-  sourceDocumentFromDraft
+  sourceDocumentFromDraft,
+  tokenizeResumeSourceDocument
 } from "@/domain/resumeImport/sourceDocument";
 import {
   ImportedResumeDraftSchema,
   ResumeJsonMapperOutputSchema,
-  ResumeSourceDocumentV2Schema,
   type ImportedResumeDraft,
   type ImportedResumeDraftV2,
   type ResumeJsonMapperOutput,
@@ -25,7 +25,17 @@ import type { WorkspaceRepository } from "@/services/storage/repositories";
 
 export class ResumeDocumentSemanticMapperError extends Error {
   constructor(
-    readonly code: "batch_too_large" | "ai_unavailable" | "unresolved_sensitive_placeholder",
+    readonly code:
+      | "provider_unavailable"
+      | "provider_timeout"
+      | "provider_http_error"
+      | "model_output_truncated"
+      | "model_invalid_json"
+      | "model_schema_invalid"
+      | "grounding_validation_failed"
+      | "semantic_validation_failed"
+      | "request_cancelled"
+      | "unresolved_sensitive_placeholder",
     message: string
   ) {
     super(message);
@@ -50,18 +60,8 @@ export class ResumeDocumentSemanticMapper {
       highConfidenceNames: highConfidenceName ? [highConfidenceName] : []
     });
     const sourceDocument = sourceDocumentFromDraft(sourceDraft);
-    const redactedDocument = ResumeSourceDocumentV2Schema.parse(
-      JSON.parse(tokenizer.tokenize(JSON.stringify(sourceDocument)).text)
-    );
-    let batches: ResumeSourceBlockV2[][];
-    try {
-      batches = buildSemanticMappingBatches(redactedDocument);
-    } catch {
-      throw new ResumeDocumentSemanticMapperError(
-        "batch_too_large",
-        "单个完整经历过长，未将其强行拆分。"
-      );
-    }
+    const redactedDocument = tokenizeResumeSourceDocument(sourceDocument, tokenizer);
+    const batches = buildSemanticMappingBatches(redactedDocument);
 
     const outputs: ResumeJsonMapperOutput[] = [];
     const logs = [];
@@ -82,11 +82,26 @@ export class ResumeDocumentSemanticMapper {
         signal: input.signal
       });
       logs.push(result.log);
+      if (process.env.NODE_ENV === "development") {
+        console.info("[resume-document-mapper:batch]", {
+          task: "resume-document-mapper",
+          provider: result.log.provider,
+          model: result.log.model,
+          attempt: 1,
+          safeErrorCode: result.ok ? undefined : result.errorCode,
+          latencyMs: result.log.latencyMs,
+          inputChars: rawText.length,
+          outputChars: result.log.outputLength,
+          batchIndex: index + 1,
+          batchCount: batches.length
+        });
+      }
       if (!result.ok) {
         await this.repository.saveAiLogs(logs);
+        const classified = classifyMapperError(result.errorCode);
         throw new ResumeDocumentSemanticMapperError(
-          "ai_unavailable",
-          "AI 简历语义识别暂时不可用。"
+          classified.code,
+          classified.message
         );
       }
       outputs.push(result.data);
@@ -117,6 +132,40 @@ export class ResumeDocumentSemanticMapper {
     }
     return mappedDraft;
   }
+}
+
+function classifyMapperError(errorCode: string): {
+  code: ResumeDocumentSemanticMapperError["code"];
+  message: string;
+} {
+  if (errorCode === "request_cancelled") {
+    return { code: "request_cancelled", message: "AI 识别已取消。" };
+  }
+  if (errorCode === "provider_timeout") {
+    return { code: "provider_timeout", message: "AI 服务超时，可重试或使用本地解析。" };
+  }
+  if (errorCode === "model_output_truncated") {
+    return { code: "model_output_truncated", message: "AI 输出被截断，请重试或使用本地解析。" };
+  }
+  if (errorCode === "model_invalid_json" || errorCode === "structured_endpoint_invalid_json") {
+    return { code: "model_invalid_json", message: "模型返回的结构无法读取，可重试。" };
+  }
+  if (errorCode === "model_schema_invalid" || errorCode === "client_schema_validation_failed") {
+    return { code: "model_schema_invalid", message: "模型返回的结构未通过校验，可重试。" };
+  }
+  if (errorCode.startsWith("grounding_validation_failed")) {
+    return { code: "grounding_validation_failed", message: "模型返回的内容无法与原文对应，请重试或使用本地解析。" };
+  }
+  if (errorCode.startsWith("semantic_validation_failed")) {
+    return { code: "semantic_validation_failed", message: "模型返回的结构未通过语义校验，可重试。" };
+  }
+  if (errorCode.startsWith("provider_http_") || errorCode === "provider_http_error") {
+    return { code: "provider_http_error", message: "AI 服务返回错误，可重试或使用本地解析。" };
+  }
+  if (errorCode === "provider_invalid_json") {
+    return { code: "provider_http_error", message: "AI 服务响应无法读取，可重试或使用本地解析。" };
+  }
+  return { code: "provider_unavailable", message: "AI 服务暂时不可用，可重试或使用本地解析。" };
 }
 
 function createMappedDraft(

@@ -1,6 +1,38 @@
 import { expect, test, type Page } from "@playwright/test";
 
 test.describe("V2-G7b.2 Resume Studio and import IA", () => {
+  test("keeps recognition choices, privacy, advanced routes, and dropzone compact at 1024x768", async ({ page }) => {
+    await page.setViewportSize({ width: 1024, height: 768 });
+    await page.goto("/resume");
+    await page.getByRole("button", { name: "导入", exact: true }).click();
+    const dialog = page.getByRole("dialog", { name: "导入简历" });
+    const recognition = dialog.locator(".import-recognition-panel");
+
+    await expect(recognition).toContainText("识别方式");
+    await expect(page.getByRole("button", { name: "使用 AI 智能识别", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "仅本地", exact: true })).toBeVisible();
+    await recognition.getByText("隐私说明", { exact: true }).click();
+    await expect(recognition).toContainText("仅发送脱敏后的文本与必要布局信息");
+    const advanced = recognition.locator(".import-recognition-advanced");
+    await expect(advanced).not.toHaveAttribute("open", "");
+    await expect(dialog.locator(".import-dropzone")).toBeVisible();
+
+    const layout = await dialog.evaluate((node) => {
+      const dropzone = node.querySelector<HTMLElement>(".import-dropzone");
+      const recognitionPanel = node.querySelector<HTMLElement>(".import-recognition-panel");
+      if (!dropzone || !recognitionPanel) return undefined;
+      const dialogRect = node.getBoundingClientRect();
+      const dropzoneRect = dropzone.getBoundingClientRect();
+      return {
+        recognitionHeight: recognitionPanel.getBoundingClientRect().height,
+        dropzoneBottom: dropzoneRect.bottom,
+        dialogBottom: dialogRect.bottom
+      };
+    });
+    expect(layout?.recognitionHeight).toBeLessThan(150);
+    expect(layout?.dropzoneBottom).toBeLessThanOrEqual(layout?.dialogBottom ?? 0);
+  });
+
   test("separates manual editing tools from AI optimization tools", async ({ page }) => {
     await createBranchFromJsonImport(page, `G7b2 mode split ${Date.now()}`);
 
@@ -241,7 +273,7 @@ test.describe("V2-G7b.2 Resume Studio and import IA", () => {
 
     await expect(page.locator(".app-notification-error")).toContainText("导入失败");
     await expect(page.getByRole("button", { name: "重试 AI", exact: true })).toBeEnabled();
-    await expect(page.getByRole("button", { name: "使用仅本地解析结果", exact: true })).toBeEnabled();
+    await expect(page.getByRole("button", { name: "使用本地结果", exact: true })).toBeEnabled();
     await expect(page.locator(".import-json-details textarea")).toHaveValue(rawText);
   });
 

@@ -6237,6 +6237,198 @@ html[data-theme="dark"] .property-panel-heading p {
   padding: 8px 10px;
 }
 
+.import-recognition-panel {
+  align-items: start;
+  display: grid;
+  gap: 6px;
+  padding: 8px 10px;
+}
+
+.import-recognition-main {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  width: 100%;
+}
+
+.import-recognition-main > strong {
+  font-size: 13px;
+}
+
+.import-recognition-modes {
+  display: flex;
+  gap: 6px;
+}
+
+.import-recognition-modes button {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--ink);
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 650;
+  gap: 4px;
+  min-height: 32px;
+  padding: 0 10px;
+}
+
+.resume-import-wizard-agent .import-recognition-modes button {
+  min-height: 28px;
+}
+
+.import-recognition-modes button:hover,
+.import-recognition-modes button:focus-visible {
+  border-color: var(--accent);
+}
+
+.import-recognition-modes button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.import-recognition-modes button.active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-strong);
+}
+
+.import-recognition-privacy {
+  align-items: baseline;
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 11px;
+  gap: 4px 8px;
+}
+
+.import-recognition-privacy details {
+  position: relative;
+}
+
+.import-recognition-privacy summary,
+.import-recognition-advanced > summary,
+.import-recognition-recovery summary {
+  color: var(--accent-strong);
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.import-recognition-privacy p {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow-soft);
+  color: var(--ink);
+  margin: 4px 0 0;
+  max-width: 420px;
+  padding: 8px 10px;
+  position: absolute;
+  right: 0;
+  width: max-content;
+  z-index: 6;
+}
+
+.import-recognition-advanced {
+  width: 100%;
+}
+
+.import-recognition-advanced > div {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-top: 6px;
+}
+
+.import-recognition-advanced button,
+.import-recognition-advanced span {
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--muted);
+  font: inherit;
+  font-size: 11px;
+  min-height: 28px;
+  padding: 5px 8px;
+}
+
+.import-recognition-advanced button {
+  cursor: pointer;
+}
+
+.import-recognition-advanced button:hover,
+.import-recognition-advanced button:focus-visible,
+.import-recognition-advanced span.active {
+  border-color: var(--accent);
+  color: var(--accent-strong);
+}
+
+.import-recognition-note {
+  color: var(--accent-strong);
+  font-size: 11px;
+  margin: 0;
+}
+
+.import-recognition-recovery {
+  align-items: center;
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 6px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding-top: 6px;
+  width: 100%;
+}
+
+.import-recognition-recovery > span {
+  color: var(--danger);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.import-recognition-recovery > div {
+  display: flex;
+  gap: 6px;
+}
+
+.import-recognition-recovery > details {
+  grid-column: 1 / -1;
+}
+
+.import-recognition-recovery code {
+  color: var(--muted);
+  display: block;
+  font-size: 11px;
+  margin-top: 4px;
+  overflow-wrap: anywhere;
+}
+
+.import-recognition-panel.import-routing-panel-compact {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.import-recognition-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-right: auto;
+}
+
+.import-recognition-status span {
+  background: var(--surface-subtle);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 22px;
+  padding: 0 8px;
+}
+
 .import-source-panel > .ai-mapping-consent {
   bottom: 0;
   flex-wrap: wrap;
@@ -8504,9 +8696,17 @@ html[data-theme="dark"] .property-panel-heading p {
   }
 
   .settings-group-heading,
-  .import-routing-panel {
+  .import-routing-panel:not(.import-recognition-panel) {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .import-recognition-recovery {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .import-recognition-recovery > details {
+    grid-column: 1;
   }
 
   .settings-save-state {

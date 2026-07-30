@@ -128,6 +128,7 @@ export function ResumeImportWizard(props: {
     draft: ImportedResumeDraft;
     pages: PdfPageText[];
     routingDecision: DocumentImportRoutingDecision;
+    errorCode?: string;
   }>();
   const [targetMode, setTargetMode] = useState<"existing" | "new">(props.initialTargetMode ?? (props.profile ? "existing" : "new"));
   const [targetProfileId, setTargetProfileId] = useState(props.profile?.id ?? "");
@@ -171,7 +172,8 @@ export function ResumeImportWizard(props: {
         setAiFailureRecovery({
           draft: latest,
           pages: restoredPages,
-          routingDecision: restoredRouting
+          routingDecision: restoredRouting,
+          errorCode: "resume_import_previous_ai_failure"
         });
         setStatus("failed");
         setMessage("已恢复上次失败的来源文档，可重试 AI 或使用仅本地解析结果。");
@@ -371,6 +373,12 @@ export function ResumeImportWizard(props: {
     }
     try {
       await prepareWithOrchestrator(file, effectivePreferences);
+      if (options.routeReasonPrefix) {
+        setRoutingDecision((current) => ({
+          ...current,
+          reason: `${options.routeReasonPrefix} ${current.reason}`
+        }));
+      }
     } catch (error) {
       if (
         error instanceof ResumeImportOrchestratorError
@@ -498,7 +506,8 @@ export function ResumeImportWizard(props: {
       setAiFailureRecovery({
         draft: error.fallbackResult.draft,
         pages: error.fallbackResult.pages,
-        routingDecision: error.fallbackResult.routingDecision
+        routingDecision: error.fallbackResult.routingDecision,
+        errorCode: error.code
       });
     }
     fail(error instanceof Error ? error.message : fallbackMessage);
@@ -595,7 +604,7 @@ export function ResumeImportWizard(props: {
           { ...finalDraft, status: "failed" },
           0
         );
-        setAiFailureRecovery({ draft: failed, pages: pageRecords, routingDecision });
+        setAiFailureRecovery({ draft: failed, pages: pageRecords, routingDecision, errorCode: error.code });
         fail(`${error.message} OCR 来源文档和本地解析结果已保留，可重试 AI 或改用仅本地解析。`);
         return;
       }
@@ -628,6 +637,9 @@ export function ResumeImportWizard(props: {
       showRecoveredDraft(saved, recovery.pages, recovery.routingDecision);
       setMessage("AI 识别与字段来源校验已完成，现进入核对。");
     } catch (error) {
+      if (error instanceof ResumeDocumentSemanticMapperError) {
+        setAiFailureRecovery((current) => current ? { ...current, errorCode: error.code } : current);
+      }
       fail(error instanceof Error ? error.message : "AI 简历语义识别暂时不可用。");
     }
   }
@@ -1168,58 +1180,88 @@ export function ResumeImportWizard(props: {
         )}
         {nameMismatch ? <p className="import-target-warning" role="alert">导入姓名与当前人物不一致，请重新选择“导入到已有资料”以保留当前姓名，或选择“创建新人物”。</p> : null}
       </fieldset>
-      <section className={`import-routing-panel ${draft ? "import-routing-panel-compact" : ""}`} aria-label="文档解析路线">
-        <div>
-          <span>解析方式：</span>
-          <strong>{documentImportRouteLabel(routingDecision.route)}</strong>
-          {!draft ? <><p>{routingDecision.reason}</p><small>{routingDecision.ocrExpectedSlow ? "本地 OCR 预计较慢。 " : ""}{routingDecision.fallbackRoute ? `失败后降级：${documentImportRouteLabel(routingDecision.fallbackRoute)}。` : "完成后进入人工核对。"}</small></> : null}
-        </div>
-        {documentPreferences.allowManualRouteSelection ? (
-          <details className="import-route-actions">
-            <summary className="secondary-button compact">{draft ? "查看路线详情" : "更改路线"}</summary>
-            <div>
-              {draft ? <p>{routingDecision.reason}</p> : null}
-              <button type="button" onClick={() => { void chooseImportRoute("text_layer"); }}>继续文本解析</button>
-              <button type="button" disabled={!documentPreferences.localOcrEnabled} onClick={() => { void chooseImportRoute("local_ocr"); }}>改用本地 OCR</button>
-              <button type="button" onClick={() => { void chooseImportRoute("manual_review"); }}>仅人工核对</button>
+      <section
+        className={`import-routing-panel import-recognition-panel ai-mapping-consent ${draft ? "import-routing-panel-compact" : ""}`}
+        aria-labelledby="resume-recognition-title"
+      >
+        {draft ? (
+          <>
+            <strong id="resume-recognition-title">识别方式</strong>
+            <div className="import-recognition-status" aria-label="已使用的识别方式">
+              <span>{documentImportRouteLabel(routingDecision.route)}</span>
+              <span>{semanticModeRef.current === "ai" ? "AI 智能识别" : "仅本地"}</span>
             </div>
-          </details>
-        ) : null}
+            {documentPreferences.allowManualRouteSelection ? (
+              <details className="import-route-actions">
+                <summary className="secondary-button compact">路线详情</summary>
+                <div>
+                  <p>{routingDecision.reason}</p>
+                  <button type="button" onClick={() => { void chooseImportRoute("text_layer"); }}>PDF.js 文本层</button>
+                  <button type="button" disabled={!documentPreferences.localOcrEnabled} onClick={() => { void chooseImportRoute("local_ocr"); }}>本地 OCR</button>
+                  <button type="button" onClick={() => { void chooseImportRoute("manual_review"); }}>人工核对</button>
+                </div>
+              </details>
+            ) : null}
+          </>
+        ) : (
+          <>
+            <div className="import-recognition-main">
+              <strong id="resume-recognition-title">识别方式</strong>
+              <div className="import-recognition-modes" role="group" aria-label="简历识别方式">
+                <button
+                  className={semanticPreference === "ai" ? "active" : ""}
+                  type="button"
+                  aria-label="使用 AI 智能识别"
+                  aria-pressed={semanticPreference === "ai"}
+                  onClick={() => { void confirmSemanticPreference("ai"); }}
+                >
+                  <span aria-hidden="true">✦</span> AI 智能识别 · 推荐
+                </button>
+                <button
+                  className={semanticPreference === "local" ? "active" : ""}
+                  type="button"
+                  aria-pressed={semanticPreference === "local"}
+                  onClick={() => { void confirmSemanticPreference("local"); }}
+                >
+                  仅本地
+                </button>
+              </div>
+              <div className="import-recognition-privacy">
+                <span>本地提取并脱敏后由 AI 整理结构 · 原始文件不发送</span>
+                <details>
+                  <summary>隐私说明</summary>
+                  <p>仅发送脱敏后的文本与必要布局信息；电话、邮箱、身份证号、详细地址及高置信姓名优先在本地替换。</p>
+                </details>
+              </div>
+            </div>
+            <details className="import-recognition-advanced">
+              <summary>高级设置</summary>
+              <div>
+                <span className={!routeOverride ? "active" : ""}>自动提取</span>
+                <button type="button" onClick={() => { void chooseImportRoute("text_layer"); }}>PDF.js 文本层</button>
+                <button type="button" disabled={!documentPreferences.localOcrEnabled} onClick={() => { void chooseImportRoute("local_ocr"); }}>本地 OCR</button>
+                <button type="button" onClick={() => { void chooseImportRoute("manual_review"); }}>人工核对</button>
+              </div>
+            </details>
+            {pendingConsentImport ? <p className="import-recognition-note" role="status">已读取文件，请选择识别方式继续。</p> : null}
+            {aiFailureRecovery ? (
+              <div className="import-recognition-recovery" role="alert">
+                <span>AI 识别未完成 · {message}</span>
+                <div>
+                  <button className="primary-button compact" type="button" onClick={() => { void retryAiMapping(); }}>重试 AI</button>
+                  <button className="secondary-button compact" type="button" onClick={() => { void acceptLocalFallback(); }}>使用本地结果</button>
+                </div>
+                {aiFailureRecovery.errorCode ? (
+                  <details>
+                    <summary>查看技术详情</summary>
+                    <code translate="no">{aiFailureRecovery.errorCode}</code>
+                  </details>
+                ) : null}
+              </div>
+            ) : null}
+          </>
+        )}
       </section>
-      {!draft && pendingConsentImport ? (
-        <section className="ai-mapping-consent" aria-labelledby="resume-ai-consent-title">
-          <div>
-            <strong id="resume-ai-consent-title">选择简历识别方式</strong>
-            <p>
-              AI 智能识别会将本地提取并脱敏后的简历内容发送给当前配置的 AI 服务。
-              原始 PDF/DOCX 文件不会发送。电话、邮箱、身份证号、可识别的详细地址，
-              以及高置信姓名会优先在本地替换为占位符。
-            </p>
-          </div>
-          <div className="action-row">
-            <button className="primary-button compact" type="button" onClick={() => { void confirmSemanticPreference("ai"); }}>
-              使用 AI 智能识别
-            </button>
-            <button className="secondary-button compact" type="button" onClick={() => { void confirmSemanticPreference("local"); }}>
-              仅本地解析
-            </button>
-          </div>
-          <small>该选择会保存；AI 服务提供方、地址或模型变化后会再次询问。</small>
-        </section>
-      ) : null}
-      {!draft && aiFailureRecovery ? (
-        <section className="ai-mapping-consent" aria-label="AI 识别失败恢复">
-          <p>{message}</p>
-          <div className="action-row">
-            <button className="primary-button compact" type="button" onClick={() => { void retryAiMapping(); }}>
-              重试 AI
-            </button>
-            <button className="secondary-button compact" type="button" onClick={() => { void acceptLocalFallback(); }}>
-              使用仅本地解析结果
-            </button>
-          </div>
-        </section>
-      ) : null}
       {!draft && sourceMode === "file" ? (
         <div
           className="import-dropzone"

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { OpenAiCompatibleProvider, type AiProviderError } from "@/ai/providers/openAiCompatibleProvider";
 import {
   getAiTaskDefinition,
+  parseAndRedactDocumentMapperBlocks,
   type EvidenceMatcherTaskInput,
   type FactGuardTaskInput,
   type JdAnalyzerTaskInput,
@@ -12,7 +13,6 @@ import {
 } from "@/ai/tasks/registry";
 import type { AiTask, ResumeTailorBatchInput, ResumeTailoringDiffTaskInput } from "@/domain/schemas";
 import { redactSensitiveTextForModel } from "@/services/security/text";
-import { mapNormalizedBlocksToReviewDraft } from "@/domain/resumeImport/normalizer";
 import { mapExternalResumeJson } from "@/domain/resumeImport/jsonMapper";
 import { decodeAiSettingsFromHeader, type AiSettings } from "@/services/storage/aiSettings";
 import { buildRetryPrompt } from "@/ai/retryPrompt";
@@ -79,14 +79,32 @@ export async function POST(request: NextRequest) {
     const provider = new OpenAiCompatibleProvider(customSettings);
     const baseUserPrompt = taskDefinition.buildUserPrompt(input.data);
     let lastValidationFailure: string | undefined;
+    const totalBudgetMs = taskDefinition.task === "resume-document-mapper" ? 180_000 : 60_000;
+    const deadline = startedAt + totalBudgetMs;
 
     for (let attempt = 0; attempt < 2; attempt += 1) {
-      const response = await provider.invoke({
-        systemPrompt: taskDefinition.systemPrompt,
-        userPrompt: attempt === 0 ? baseUserPrompt : buildRetryPrompt({ task: taskDefinition.task, baseUserPrompt, failure: lastValidationFailure, input: input.data }),
-        maxOutputChars: taskDefinition.maxOutputChars,
-        signal: AbortSignal.timeout(60_000)
-      });
+      const remainingMs = deadline - Date.now();
+      if (remainingMs <= 0) {
+        return aiError("provider_timeout", "AI request exceeded its total time budget.", 504, startedAt, {
+          inputLength: baseUserPrompt.length
+        });
+      }
+      let response;
+      try {
+        response = await provider.invoke({
+          systemPrompt: taskDefinition.systemPrompt,
+          userPrompt: attempt === 0 ? baseUserPrompt : buildRetryPrompt({ task: taskDefinition.task, baseUserPrompt, failure: lastValidationFailure, input: input.data }),
+          maxOutputChars: taskDefinition.maxOutputChars,
+          signal: AbortSignal.any([request.signal, AbortSignal.timeout(remainingMs)])
+        });
+      } catch (error) {
+        const providerCode = providerErrorCode(error, request.signal, deadline);
+        if (attempt === 0 && providerCode === "model_invalid_json" && deadline - Date.now() > 1_000) {
+          lastValidationFailure = "model_invalid_json";
+          continue;
+        }
+        throw error;
+      }
 
       console.info("[ai:attempt]", {
         task: taskDefinition.task,
@@ -95,7 +113,9 @@ export async function POST(request: NextRequest) {
         provider: response.provider,
         model: response.model,
         latency: Date.now() - startedAt,
-        outputLength: response.outputLength
+        inputChars: baseUserPrompt.length,
+        outputChars: response.outputLength,
+        finishReason: response.finishReason
       });
 
       let normalized: unknown;
@@ -103,7 +123,6 @@ export async function POST(request: NextRequest) {
         const coerced = taskDefinition.coerceRawOutput(response.output, input.data);
         normalized = taskDefinition.normalizeOutput(coerced, input.data);
       } catch (error) {
-        const reason = error instanceof Error ? error.message : "resume_tailor_model_shape_invalid";
         const issues = (error as { issues?: Array<{ path: PropertyKey[]; code: string }> }).issues ?? [];
         if (process.env.NODE_ENV === "development" && body.data.task.startsWith("resume-tailor")) {
           console.warn("[resume-tailor:normalization-failed]", issues.map((issue, suggestionIndex) => ({
@@ -112,9 +131,9 @@ export async function POST(request: NextRequest) {
             codes: [issue.code]
           })));
         }
-        lastValidationFailure = reason;
+        lastValidationFailure = "model_schema_invalid";
         if (attempt === 0) continue;
-        return aiError(reason, "Model returned content, but its shape did not pass validation.", 422, startedAt, {
+        return aiError("model_schema_invalid", "Model returned content, but its shape did not pass validation.", 422, startedAt, {
           provider: response.provider, model: response.model, inputLength: baseUserPrompt.length, outputLength: response.outputLength
         });
       }
@@ -125,12 +144,12 @@ export async function POST(request: NextRequest) {
           const issues = (parsedOutput as { error?: { issues?: Array<{ path: PropertyKey[]; code: string }> } }).error?.issues ?? [];
           console.error("[ai:validation_failed]", issues.map((issue) => ({ path: issue.path, code: issue.code })));
         }
-        lastValidationFailure = "validation_failed";
+        lastValidationFailure = "model_schema_invalid";
         if (attempt === 0) {
           continue;
         }
 
-        return aiError("validation_failed", "Model output failed server schema validation.", 422, startedAt, {
+        return aiError("model_schema_invalid", "Model output failed server schema validation.", 422, startedAt, {
           provider: response.provider,
           model: response.model,
           inputLength: baseUserPrompt.length,
@@ -170,12 +189,13 @@ export async function POST(request: NextRequest) {
         if (process.env.NODE_ENV === "development") {
           console.warn(`[ai:semantic_validation] task=${body.data.task} attempt=${attempt} reason=${reason}`);
         }
-        lastValidationFailure = reason;
-        if (attempt === 0) {
+        const classified = classifySemanticValidationFailure(reason);
+        lastValidationFailure = classified.code;
+        if (attempt === 0 && classified.retryable) {
           continue;
         }
 
-        return aiError(`semantic_validation_failed:${reason}`, `Semantic validation failed: ${reason}`, 422, startedAt, {
+        return aiError(classified.code, "Model output failed safe semantic validation.", 422, startedAt, {
           provider: response.provider,
           model: response.model,
           inputLength: baseUserPrompt.length,
@@ -196,8 +216,9 @@ export async function POST(request: NextRequest) {
       inputLength: estimateInputLength(input.data)
     });
   } catch (error) {
-    const code = typeof (error as AiProviderError).code === "string" ? (error as AiProviderError).code : "provider_failed";
-    return aiError(code, "AI request failed.", code === "missing_ai_config" ? 503 : 502, startedAt);
+    const code = providerErrorCode(error, request.signal, startedAt + 60_000);
+    const status = code === "request_cancelled" ? 499 : code === "provider_timeout" ? 504 : code === "missing_ai_config" ? 503 : 502;
+    return aiError(code, "AI request failed.", status, startedAt);
   }
 }
 
@@ -289,7 +310,17 @@ function createMockOutput(task: AiTask, input: unknown) {
   }
   if (task === "resume-document-mapper") {
     const rawText = typeof input === "object" && input && "rawText" in input ? String(input.rawText) : "[]";
-    return mapNormalizedBlocksToReviewDraft(JSON.parse(redactSensitiveTextForModel(rawText).text));
+    const blocks = parseAndRedactDocumentMapperBlocks(rawText);
+    return {
+      structuredDraft: { schemaVersion: "structured-resume-draft-v1", basics: {}, sections: [] },
+      mappingDecisions: [],
+      unclassifiedBlocks: blocks.flatMap((block) => {
+        const sourcePath = typeof block.originalBlockId === "string" ? block.originalBlockId : block.id;
+        return typeof sourcePath === "string"
+          ? [{ sourcePath, sourceValue: block.text, reason: "Mock provider preserved the source block." }]
+          : [];
+      })
+    };
   }
   if (task === "resume-json-mapper") {
     const mapperInput = input as ResumeJsonMapperTaskInput;
@@ -544,4 +575,23 @@ function createMockOutput(task: AiTask, input: unknown) {
     ],
     riskNotes: []
   };
+}
+
+function classifySemanticValidationFailure(reason: string) {
+  const groundingFailure = /(?:source_|invented|unknown_block|quote_mismatch|current_status)/.test(reason);
+  if (groundingFailure) {
+    return { code: `grounding_validation_failed:${reason}`, retryable: false };
+  }
+  const repairable = /(?:format|precision|confirmation|confidence)/.test(reason);
+  return { code: `semantic_validation_failed:${reason}`, retryable: repairable };
+}
+
+function providerErrorCode(error: unknown, requestSignal: AbortSignal, deadline: number) {
+  if (requestSignal.aborted) return "request_cancelled";
+  if (Date.now() >= deadline || (error instanceof Error && error.name === "TimeoutError")) return "provider_timeout";
+  const code = typeof (error as AiProviderError)?.code === "string"
+    ? (error as AiProviderError).code
+    : "provider_unavailable";
+  if (code.startsWith("provider_http_")) return code;
+  return code;
 }

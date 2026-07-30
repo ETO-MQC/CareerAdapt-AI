@@ -5,7 +5,8 @@ import {
 } from "@/domain/resumeImport/textDocument";
 import {
   buildSemanticMappingBatches,
-  groupSourceDocument
+  groupSourceDocument,
+  toAiResumeSourceBlock
 } from "@/domain/resumeImport/sourceDocument";
 import {
   ImportQualityReportV2Schema,
@@ -41,7 +42,7 @@ describe("P4.3c text source documents", () => {
     expect(blocks.every((block) => block.blockType === "paragraph")).toBe(true);
   });
 
-  it("batches complete heading groups and refuses to split an oversized semantic item", () => {
+  it("prefers heading groups and safely splits oversized content at block boundaries", () => {
     const normalized = extractMarkdownSourceBlocks("# 工作经历\n\n- 第一条\n- 第二条\n\n# 技能\n\nTypeScript").map((block) => ({
       ...block,
       normalizedText: block.text,
@@ -86,8 +87,13 @@ describe("P4.3c text source documents", () => {
       normalized.slice(0, 3).map((block) => block.id),
       normalized.slice(3).map((block) => block.id)
     ]);
-    const limitBetweenGroups = JSON.stringify(groups[0].blocks).length + 2;
+    const limitBetweenGroups = JSON.stringify(groups[0].blocks.map(toAiResumeSourceBlock)).length + 2;
     expect(buildSemanticMappingBatches(document, limitBetweenGroups)).toHaveLength(2);
-    expect(() => buildSemanticMappingBatches(document, 20)).toThrow("resume_semantic_group_too_large");
+    const tinyBatches = buildSemanticMappingBatches(document, 180);
+    expect(tinyBatches.length).toBeGreaterThan(1);
+    expect(tinyBatches.flat().every((block) => "text" in block && !("rawText" in block) && !("normalizedText" in block))).toBe(true);
+    expect(new Set(tinyBatches.flat().map((block) => block.originalBlockId ?? block.id))).toEqual(
+      new Set(normalized.map((block) => block.id))
+    );
   });
 });
