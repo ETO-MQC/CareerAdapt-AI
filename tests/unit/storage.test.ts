@@ -220,6 +220,52 @@ describe("WorkspaceRepository", () => {
     expect(await repository.getJobDescription(job.id)).toBeUndefined();
   });
 
+  it("restores structured profile items from the recycle bin without losing fields or evidence", async () => {
+    db = new CareerAdaptDb(`CareerAdaptStructuredRecycleDb-${crypto.randomUUID()}`);
+    const repository = new WorkspaceRepository(db);
+    const structuredFact = {
+      data: {
+        id: "publication-recycle",
+        sectionType: "publications" as const,
+        title: "面向职业适配的研究",
+        authors: ["陈同学"],
+        authorRole: "第一作者",
+        publisher: "示例期刊",
+        publishedAt: "2025-06",
+        status: "已发表",
+        doi: "10.0000/careeradapt",
+        url: "https://example.com/publication",
+        description: "结构化论文条目",
+        customFields: []
+      },
+      factIds: ["fact-publication"],
+      sourceBlockIds: ["block-publication"],
+      sourceRanges: [{ blockId: "block-publication", start: 0, end: 8 }],
+      sourceExcerpt: "面向职业适配的研究",
+      mappingTrace: []
+    };
+    await repository.saveProfile({
+      ...demoCareerProfile,
+      structuredFacts: [],
+      version: demoCareerProfile.version + 1,
+      updatedAt: TEST_TIME
+    });
+    await repository.addProfileRecycleItem({
+      id: structuredFact.data.id,
+      profileId: demoCareerProfile.id,
+      kind: "canonical",
+      category: "publication",
+      title: structuredFact.data.title,
+      deletedAt: TEST_TIME,
+      value: structuredFact
+    });
+
+    const restored = await repository.restoreProfileRecycleItem("canonical", structuredFact.data.id);
+
+    expect(restored.profile.structuredFacts).toContainEqual(structuredFact);
+    expect(restored.state.profileItems).toHaveLength(0);
+  });
+
   it("writes, reads, updates, and exports the demo workspace", async () => {
     db = new CareerAdaptDb(`CareerAdaptTestDb-${crypto.randomUUID()}`);
     const repository = new WorkspaceRepository(db);

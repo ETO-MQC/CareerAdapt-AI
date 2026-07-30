@@ -5032,7 +5032,14 @@ export class WorkspaceRepository {
           ? { ...profile, certificates: [...profile.certificates.filter((entry) => entry.id !== item.id), { ...item.value, updatedAt: now }], version: profile.version + 1, updatedAt: now }
           : item.kind === "skill"
             ? { ...profile, skills: [...profile.skills.filter((entry) => entry.id !== item.id), { ...item.value, updatedAt: now }], version: profile.version + 1, updatedAt: now }
-            : { ...profile, unclassifiedBlocks: [...profile.unclassifiedBlocks, item.value], version: profile.version + 1, updatedAt: now });
+            : item.kind === "canonical"
+              ? {
+                  ...profile,
+                  structuredFacts: [...(profile.structuredFacts ?? []).filter((entry) => entry.data.id !== item.id), item.value],
+                  version: profile.version + 1,
+                  updatedAt: now
+                }
+              : { ...profile, unclassifiedBlocks: [...profile.unclassifiedBlocks, item.value], version: profile.version + 1, updatedAt: now });
       const nextState = RecycleBinStateSchema.parse({
         ...current,
         profileItems: current.profileItems.filter((entry) => !(entry.kind === kind && entry.id === itemId))

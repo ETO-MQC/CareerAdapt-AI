@@ -21,6 +21,19 @@ export function AgentArtifactContent({
   const questions = Array.isArray(plan.clarificationQuestions) ? plan.clarificationQuestions : [];
   const importArtifact = asRecord(taskState?.knownSlots.importArtifact);
   const importReview = asRecord(taskState?.knownSlots.importReviewSummary);
+  const importTarget = asRecord(taskState?.knownSlots.importTarget);
+  const importId = typeof taskState?.knownSlots.importId === "string"
+    ? taskState.knownSlots.importId
+    : typeof importArtifact.importId === "string"
+      ? importArtifact.importId
+      : undefined;
+  const importReviewHref = importId
+    ? `/resume?importId=${encodeURIComponent(importId)}&importTarget=${
+        importTarget.mode === "new" || taskState?.knownSlots.importTargetIntent === "new"
+          ? "new"
+          : "existing"
+      }`
+    : "/resume";
   const importReconciliation = asRecord(taskState?.knownSlots.importReconciliation);
   const reconciliationSummary = asRecord(importReconciliation.summary);
   const unresolvedReconciliation = Array.isArray(importReconciliation.unresolved)
@@ -218,17 +231,22 @@ export function AgentArtifactContent({
             <p>来源与结构检查未发现阻断项。</p>
           )}
           <div className="agent-import-review-actions">
-            <button type="button" onClick={() => onImportAction?.("查看这份导入草稿的来源证据")}>查看来源</button>
-            <button type="button" onClick={() => onImportAction?.("打开导入草稿进行编辑")}>编辑</button>
-            <button type="button" onClick={() => onArtifactAction?.({
-              type: "resume_import_review_decision",
-              decision: "accept_all"
-            })}>采用</button>
-            <button type="button" onClick={() => onArtifactAction?.({
-              type: "resume_import_review_decision",
-              decision: "ignore_uncertain"
-            })}>忽略</button>
-            <button className="is-primary" type="button" onClick={() => onImportAction?.("核对完成，确认导入")}>确认导入</button>
+            <Link href={importReviewHref}>查看来源与逐项核对</Link>
+            <Link href={importReviewHref}>编辑导入内容</Link>
+            {taskState.knownSlots.reviewStatus !== "reviewed" ? (
+              <>
+                <button type="button" onClick={() => onArtifactAction?.({
+                  type: "resume_import_review_decision",
+                  decision: "accept_all"
+                })}>采用全部来源明确内容</button>
+                <button type="button" onClick={() => onArtifactAction?.({
+                  type: "resume_import_review_decision",
+                  decision: "ignore_uncertain"
+                })}>忽略待确认项</button>
+              </>
+            ) : (
+              <span role="status">核对决定已记录，请在对话区确认最终写入。</span>
+            )}
           </div>
         </section>
       ) : null}

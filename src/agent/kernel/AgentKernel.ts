@@ -208,6 +208,21 @@ export class AgentKernel {
             taskState
           };
         }
+        const workflowPause = deterministicWorkflowPause(taskState);
+        if (workflowPause) {
+          await publishFinalStream(workflowPause, input, { turnId, iterationId });
+          trajectory.finish("waiting_for_user");
+          return {
+            text: workflowPause,
+            trajectory: trajectory.value(),
+            conversationSummary: contextWindow.conversationSummary,
+            taskState: {
+              ...taskState,
+              completionStatus: "waiting_for_user",
+              updatedAt: new Date().toISOString()
+            }
+          };
+        }
         const nativeStreaming = this.dependencies.model.capabilities?.nativeToolStreaming === true
           && Boolean(this.dependencies.model.streamTurn);
         const boundaryTool = deterministicBoundaryTool(taskState, allowedTools);
@@ -781,6 +796,17 @@ function bindAuthoritativeTaskInput(
       }
     };
   }
+  if (call.name === "review_resume_import") {
+    return {
+      ...call,
+      arguments: {
+        ...call.arguments,
+        importId: slots.importId,
+        expectedDraftRevision: slots.expectedDraftRevision,
+        decision: slots.reviewDecision
+      }
+    };
+  }
   if (call.name === "commit_job") {
     return {
       ...call,
@@ -1196,7 +1222,11 @@ function deterministicBoundaryTool(
   ) {
     return undefined;
   }
-  const toolName = taskState.workflowId === "guided_profile_intake" && taskState.stage === "confirm_commit"
+  const toolName = taskState.workflowId === "resume_import"
+    && taskState.stage === "import_review"
+    && ["accept_all", "ignore_uncertain"].includes(String(taskState.knownSlots.reviewDecision))
+    ? "review_resume_import"
+    : taskState.workflowId === "guided_profile_intake" && taskState.stage === "confirm_commit"
     ? "commit_profile_intake"
     : taskState.workflowId === "job_ingestion" && taskState.stage === "confirm_commit"
       ? "commit_job"
@@ -1208,6 +1238,26 @@ function deterministicBoundaryTool(
   return toolName && allowedTools.some((tool) => tool.name === toolName)
     ? toolName
     : undefined;
+}
+
+function deterministicWorkflowPause(
+  taskState: NonNullable<AgentSession["taskState"]>
+) {
+  if (
+    taskState.workflowId !== "resume_import"
+    || taskState.stage !== "import_review"
+    || taskState.knownSlots.reviewStatus === "reviewed"
+    || taskState.knownSlots.reviewDecision
+  ) {
+    return undefined;
+  }
+  const target = objectValue(taskState.knownSlots.importTarget);
+  const targetLabel = target.mode === "new" && typeof target.profileName === "string"
+    ? `导入目标已记录为新建“${target.profileName}”职业资料库。`
+    : taskState.knownSlots.importTargetIntent === "new"
+      ? "导入目标已记录为新建职业资料库；完成核对后我会再确认资料库名称。"
+      : "";
+  return `${targetLabel}请在导入核对卡中审核待确认资料；只有你明确作出采用或忽略决定后，流程才会继续，当前不会写入资料库。`;
 }
 
 async function emit(

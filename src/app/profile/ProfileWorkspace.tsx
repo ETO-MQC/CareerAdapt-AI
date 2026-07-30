@@ -901,7 +901,7 @@ export function ProfileWorkspace() {
       const factEntry = (profile.structuredFacts ?? []).find((entry) => entry.data.id === item.id);
       if (!factEntry) return;
       nextProfile = { ...profile, structuredFacts: (profile.structuredFacts ?? []).filter((entry) => entry.data.id !== item.id), version: profile.version + 1, updatedAt: now };
-      recycleItem = { id: item.id, profileId: profile.id, kind: "custom", category: item.category, title: item.title, deletedAt: now, value: item.body };
+      recycleItem = { id: item.id, profileId: profile.id, kind: "canonical", category: item.category, title: item.title, deletedAt: now, value: factEntry };
     } else {
       const activeIndex = Number(item.id.replace("custom:", ""));
       const archived = profileArchive.customBlocks.find((entry) => entry.id === item.id);
@@ -952,7 +952,7 @@ export function ProfileWorkspace() {
       const factEntry = (profile.structuredFacts ?? []).find((entry) => entry.data.id === item.id);
       if (!factEntry) return;
       nextProfile = { ...profile, structuredFacts: (profile.structuredFacts ?? []).filter((entry) => entry.data.id !== item.id), version: profile.version + 1, updatedAt: now };
-      recycleItem = { id: item.id, profileId: profile.id, kind: "custom", category: item.category, title: item.title, deletedAt: now, value: item.body };
+      recycleItem = { id: item.id, profileId: profile.id, kind: "canonical", category: item.category, title: item.title, deletedAt: now, value: factEntry };
     } else {
       const activeIndex = Number(item.id.replace("custom:", ""));
       const archived = profileArchive.customBlocks.find((entry) => entry.id === item.id);
@@ -1036,7 +1036,7 @@ export function ProfileWorkspace() {
         const factEntry = (nextProfile.structuredFacts ?? []).find((entry) => entry.data.id === item.id);
         if (!factEntry) continue;
         nextProfile = { ...nextProfile, structuredFacts: (nextProfile.structuredFacts ?? []).filter((entry) => entry.data.id !== item.id), version: nextProfile.version + 1, updatedAt: now };
-        recycleItems.push({ id: item.id, profileId: profile.id, kind: "custom", category: item.category, title: item.title, deletedAt: now, value: item.body });
+        recycleItems.push({ id: item.id, profileId: profile.id, kind: "canonical", category: item.category, title: item.title, deletedAt: now, value: factEntry });
       } else {
         const activeIndex = Number(item.id.replace("custom:", ""));
         const archived = nextArchive.customBlocks.find((entry) => entry.id === item.id);

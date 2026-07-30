@@ -1259,8 +1259,10 @@ function captureImportTargetIntent(state: AgentTaskState, message: string) {
   } else if (/视为不同(经历|项目|内容)/.test(message)) {
     state.knownSlots.reconciliationDecision = "keep_both_as_distinct";
   }
-  if (/新建|新资料库|新人物/.test(message)) {
-    const name = message.match(/(?:叫|名称为|名为)\s*([^，。,]{1,40})/)?.[1]?.trim();
+  if (
+    /新建|新资料库|新人物|(?:创建|建立)(?:一个|新的?)?(?:职业)?(?:档案|资料库)/.test(message)
+  ) {
+    const name = extractNewImportProfileName(message);
     state.knownSlots.importTargetIntent = "new";
     state.knownSlots.importTarget = name
       ? { mode: "new", profileName: name, createGeneralResume: true }
@@ -1281,6 +1283,13 @@ function captureImportTargetIntent(state: AgentTaskState, message: string) {
   } else if (/确认无误|核对完成|全部采用|确认这些信息|采用.*来源明确/.test(message)) {
     state.knownSlots.reviewDecision = "accept_all";
   }
+}
+
+function extractNewImportProfileName(message: string) {
+  return (
+    message.match(/(?:叫|名称为|名为)\s*([^，。,]{1,40})/)?.[1]
+    ?? message.match(/(?:这个|该)\s*([^，。,\s]{1,20}?)(?:的)?资料库/)?.[1]
+  )?.trim();
 }
 
 function selectResumeReference(

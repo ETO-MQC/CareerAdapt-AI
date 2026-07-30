@@ -285,6 +285,39 @@ describe("Agent local attachment and import task state", () => {
     expect(state.knownSlots.importTargetProfileName).toBe("测试用户");
   });
 
+  it("recognizes creating a named career profile without mistaking it for an existing profile", () => {
+    const session = AgentRuntime.create("resume_import", "import_review", "导入简历");
+    const reducer = new AgentTaskStateReducer();
+    let state = reducer.create(session, "import_resume");
+    state.attachment = {
+      id: "agent-attachment-new-profile",
+      fileName: "示例用户.docx",
+      mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      size: 100,
+      createdAt: "2026-07-29T00:00:00.000Z"
+    };
+    state.knownSlots = {
+      importId: "import-new-profile",
+      expectedDraftRevision: 1,
+      reviewStatus: "needs_review"
+    };
+    state.stage = "import_review";
+
+    state = reducer.reduce(state, {
+      type: "user_message",
+      message: "创建新职业档案，就是现在这个启辰的资料库。然后审核那3项需要确认的资料"
+    });
+
+    expect(state.knownSlots.importTargetIntent).toBe("new");
+    expect(state.knownSlots.importTarget).toEqual({
+      mode: "new",
+      profileName: "启辰",
+      createGeneralResume: true
+    });
+    expect(state.knownSlots.reviewDecision).toBeUndefined();
+    expect(state.stage).toBe("import_review");
+  });
+
   it("routes an existing target through shared reconciliation and only pauses for unresolved units", () => {
     const session = AgentRuntime.create("resume_import", "reconcile_profile", "导入到现有资料库");
     const reducer = new AgentTaskStateReducer();

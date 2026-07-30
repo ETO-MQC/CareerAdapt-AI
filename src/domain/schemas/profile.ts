@@ -90,6 +90,15 @@ export const CertificateSchema = EntityBaseSchema.extend({
   fact: FactStatementSchema.optional()
 });
 
+export const ProfileStructuredFactSchema = z.object({
+  data: ResumeItemV2Schema,
+  factIds: z.array(z.string().min(1)).default([]),
+  sourceBlockIds: z.array(z.string().min(1)).default([]),
+  sourceRanges: z.array(PersistedResumeSourceRangeSchema).default([]),
+  sourceExcerpt: z.string().min(1).optional(),
+  mappingTrace: z.array(ResumeJsonV2MappingTraceSchema).default([])
+}).strict();
+
 export const CareerProfileSchema = EntityBaseSchema.extend({
   schemaVersion: z.literal("career-profile-v2").optional(),
   name: z.string().min(1),
@@ -101,14 +110,7 @@ export const CareerProfileSchema = EntityBaseSchema.extend({
   certificates: z.array(CertificateSchema).default([]),
   evidences: z.array(EvidenceSchema).default([]),
   unclassifiedBlocks: z.array(z.string()).default([]),
-  structuredFacts: z.array(z.object({
-    data: ResumeItemV2Schema,
-    factIds: z.array(z.string().min(1)).default([]),
-    sourceBlockIds: z.array(z.string().min(1)).default([]),
-    sourceRanges: z.array(PersistedResumeSourceRangeSchema).default([]),
-    sourceExcerpt: z.string().min(1).optional(),
-    mappingTrace: z.array(ResumeJsonV2MappingTraceSchema).default([])
-  }).strict()).optional(),
+  structuredFacts: z.array(ProfileStructuredFactSchema).optional(),
   structuredBasics: ResumeBasicsV2Schema.optional()
 });
 
@@ -127,6 +129,7 @@ export type Experience = z.infer<typeof ExperienceSchema>;
 export type Evidence = z.infer<typeof EvidenceSchema>;
 export type Skill = z.infer<typeof SkillSchema>;
 export type Certificate = z.infer<typeof CertificateSchema>;
+export type ProfileStructuredFact = z.infer<typeof ProfileStructuredFactSchema>;
 export type CareerProfile = z.infer<typeof CareerProfileSchema>;
 export type CareerProfileV1 = Omit<CareerProfile, "schemaVersion" | "structuredFacts" | "structuredBasics"> & { schemaVersion?: undefined };
 export type CareerProfileV2 = CareerProfile & { schemaVersion: "career-profile-v2"; structuredFacts: NonNullable<CareerProfile["structuredFacts"]>; structuredBasics: NonNullable<CareerProfile["structuredBasics"]> };

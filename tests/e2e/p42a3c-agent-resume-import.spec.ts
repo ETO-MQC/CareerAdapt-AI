@@ -54,7 +54,12 @@ test.describe("P4.2a.3c autonomous resume import", () => {
     expect(prepared).toMatchObject({ sourceKind: "docx", status: "ready_for_review" });
     expect((prepared.reviewSummary as Record<string, unknown>).itemCount).toBeGreaterThan(0);
     await page.getByRole("button", { name: "产物 1" }).click();
-    await expect(page.getByRole("region", { name: "简历导入核对" })).toContainText("DOCX");
+    const artifact = page.getByRole("region", { name: "简历导入核对" });
+    await expect(artifact).toContainText("DOCX");
+    await artifact.getByRole("link", { name: "查看来源与逐项核对" }).click();
+    await expect(page).toHaveURL(/\/resume\?importId=/);
+    await expect(page.getByRole("dialog", { name: "导入简历" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "字段来源" })).toBeVisible();
   });
 
   test("C/F/H — JSON v2 reviews, confirms a new profile commit, and survives reload", async ({ page }) => {

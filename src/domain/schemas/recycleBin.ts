@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { CertificateSchema, ExperienceSchema, SkillSchema } from "./profile";
+import { CertificateSchema, ExperienceSchema, ProfileStructuredFactSchema, SkillSchema } from "./profile";
 
 const RecycleBaseSchema = z.object({
   id: z.string().min(1),
@@ -13,6 +13,7 @@ export const ProfileRecycleItemSchema = z.discriminatedUnion("kind", [
   RecycleBaseSchema.extend({ kind: z.literal("experience"), value: ExperienceSchema }),
   RecycleBaseSchema.extend({ kind: z.literal("certificate"), value: CertificateSchema }),
   RecycleBaseSchema.extend({ kind: z.literal("skill"), value: SkillSchema }),
+  RecycleBaseSchema.extend({ kind: z.literal("canonical"), value: ProfileStructuredFactSchema }),
   RecycleBaseSchema.extend({ kind: z.literal("custom"), value: z.string().min(1) })
 ]);
 

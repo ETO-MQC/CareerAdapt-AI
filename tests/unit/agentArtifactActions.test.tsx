@@ -136,4 +136,54 @@ describe("Agent artifact decisions", () => {
     expect(screen.getByRole("button", { name: "补充细节" })).toBeVisible();
     expect(screen.getByRole("button", { name: "忽略" })).toBeVisible();
   });
+
+  it("opens the persisted resume draft for source review instead of sending button labels to AI", () => {
+    const onArtifactAction = vi.fn();
+    const onImportAction = vi.fn();
+    render(
+      <AgentArtifactContent
+        state={{ step: "select_resume", busy: false, diffs: [], confirmedRequirementIds: [] }}
+        taskState={{
+          rootGoal: "import_resume",
+          stage: "import_review",
+          knownSlots: {
+            importId: "import-示例用户",
+            expectedDraftRevision: 1,
+            reviewStatus: "needs_review",
+            importTargetIntent: "new",
+            importTarget: { mode: "new", profileName: "启辰", createGeneralResume: true },
+            importReviewSummary: {
+              itemCount: 20,
+              highConfidenceCount: 20,
+              needsReviewCount: 3,
+              unclassifiedCount: 3
+            },
+            importArtifact: {
+              importId: "import-示例用户",
+              sourceFile: "示例用户.docx",
+              sourceType: "docx"
+            }
+          }
+        } as unknown as AgentTaskState}
+        onArtifactAction={onArtifactAction}
+        onImportAction={onImportAction}
+      />
+    );
+
+    expect(screen.getByRole("link", { name: "查看来源与逐项核对" })).toHaveAttribute(
+      "href",
+      "/resume?importId=import-%E6%98%8E%E5%90%AF%E8%BE%B0&importTarget=new"
+    );
+    expect(screen.getByRole("link", { name: "编辑导入内容" })).toHaveAttribute(
+      "href",
+      "/resume?importId=import-%E6%98%8E%E5%90%AF%E8%BE%B0&importTarget=new"
+    );
+    fireEvent.click(screen.getByRole("button", { name: "采用全部来源明确内容" }));
+    expect(onArtifactAction).toHaveBeenCalledWith({
+      type: "resume_import_review_decision",
+      decision: "accept_all"
+    });
+    expect(onImportAction).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: "确认导入" })).not.toBeInTheDocument();
+  });
 });

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   User,
   FileText,
@@ -184,11 +184,15 @@ const CONTENT_AUTO_SAVE_LABELS: Record<ContentAutoSaveState, string> = {
 
 export function ResumeWorkspace() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const requestedImportId = searchParams.get("importId") ?? undefined;
+  const requestedImportTarget = searchParams.get("importTarget");
   const workspace = useWorkspace(repository);
   const pageRef = useRef<HTMLElement | null>(null);
   const previewStageRef = useRef<HTMLDivElement | null>(null);
   const importDialogRef = useRef<HTMLElement | null>(null);
   const importTriggerRef = useRef<HTMLElement | null>(null);
+  const handledImportRequestRef = useRef<string | undefined>(undefined);
   const pendingImportedBranchIdRef = useRef<string | undefined>(undefined);
   const profileCreateDialogRef = useRef<HTMLElement | null>(null);
   const branchesRef = useRef<ResumeBranch[]>([]);
@@ -672,6 +676,12 @@ export function ResumeWorkspace() {
     setImportCreatesNewProfile(createNewProfile);
     setIsImportPanelOpen(true);
   }, []);
+
+  useEffect(() => {
+    if (!requestedImportId || handledImportRequestRef.current === requestedImportId) return;
+    handledImportRequestRef.current = requestedImportId;
+    openImportDialog("file", undefined, requestedImportTarget === "new");
+  }, [openImportDialog, requestedImportId, requestedImportTarget]);
 
   const closeImportDialog = useCallback(() => {
     setIsImportPanelOpen(false);
@@ -3916,6 +3926,7 @@ export function ResumeWorkspace() {
                 repository={repository}
                 profile={profile}
                 profiles={workspace.status === "ready" ? workspace.profiles : profile ? [profile] : []}
+                initialImportId={requestedImportId}
                 initialTargetMode={importCreatesNewProfile ? "new" : "existing"}
                 initialMode={importEntryMode}
                 onImported={handleImportedResumeReady}

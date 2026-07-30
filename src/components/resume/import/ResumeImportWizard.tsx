@@ -86,6 +86,7 @@ export function ResumeImportWizard(props: {
   repository: WorkspaceRepository;
   profile?: CareerProfile;
   profiles?: CareerProfile[];
+  initialImportId?: string;
   initialMode?: "file" | "json";
   initialTargetMode?: "existing" | "new";
   onImported: (result: { profileId: string; branchId?: string }) => Promise<void>;
@@ -131,7 +132,9 @@ export function ResumeImportWizard(props: {
   useEffect(() => {
     let active = true;
     async function restoreDraft() {
-      const latest = await props.repository.getLatestImportedResumeDraft();
+      const latest = props.initialImportId
+        ? await props.repository.getImportedResumeDraft(props.initialImportId)
+        : await props.repository.getLatestImportedResumeDraft();
       if (!active || !latest || (latest.status !== "reviewing" && latest.status !== "failed")) {
         return;
       }
@@ -142,7 +145,7 @@ export function ResumeImportWizard(props: {
       if (latest.source.sourceSessionId) {
         setPages(await props.repository.listPdfPageTexts(latest.source.sourceSessionId));
       }
-      setMessage("已恢复上次未确认的 PDF 简历导入草稿。");
+      setMessage("已恢复未确认的简历导入草稿。");
       setRoutingDecision(selectDocumentImportRoute({
         sourceKind: latest.sourceKind,
         preferences: documentPreferences,
@@ -154,7 +157,7 @@ export function ResumeImportWizard(props: {
       active = false;
       abortRef.current?.abort();
     };
-  }, [documentPreferences, props.repository]);
+  }, [documentPreferences, props.initialImportId, props.repository]);
 
   const selectedPage = useMemo(() => {
     return draft?.pages.find((page) => page.pageNumber === selectedPageNumber);

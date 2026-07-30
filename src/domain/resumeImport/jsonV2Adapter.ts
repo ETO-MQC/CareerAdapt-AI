@@ -272,9 +272,31 @@ function inferV1SectionType(
   return "other";
 }
 
+/** 递归清洗：移除 null、空字符串、纯空格字符串，trim 非空字符串 */
+function sanitizeNullishValues(value: unknown): unknown {
+  if (value === null || value === undefined) return undefined;
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : undefined;
+  }
+  if (Array.isArray(value)) {
+    const cleaned = value.map(sanitizeNullishValues).filter((item) => item !== undefined);
+    return cleaned;
+  }
+  if (typeof value === "object") {
+    const result: Record<string, unknown> = {};
+    for (const [key, val] of Object.entries(value as Record<string, unknown>)) {
+      const cleaned = sanitizeNullishValues(val);
+      if (cleaned !== undefined) result[key] = cleaned;
+    }
+    return result;
+  }
+  return value;
+}
+
 function normalizeV2TemplateDialect(value: unknown): unknown {
   if (!value || typeof value !== "object" || Array.isArray(value)) return value;
-  const root = value as Record<string, unknown>;
+  const root = sanitizeNullishValues(value) as Record<string, unknown>;
   const basicsInput = asRecord(root.basics) ?? {};
   const basics = { ...basicsInput };
   if (Array.isArray(basics.links)) {

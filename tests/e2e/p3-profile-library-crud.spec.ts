@@ -83,6 +83,39 @@ test("profile items edit in place and support archive, delete, and batch delete"
   await expect(rows).toHaveCount(remainingCount - 1);
 });
 
+test("structured profile categories delete to recycle bin and restore without field loss", async ({ page }) => {
+  await page.goto("/profile");
+  await expect(page.getByLabel("选择人物")).toBeVisible();
+  await expect(page.getByLabel("选择人物").locator("option")).not.toHaveCount(0);
+  const seeded = await seedCanonicalProfileFacts(page);
+  await page.reload();
+
+  await page.locator('[data-profile-category="publications"]').click();
+  const publication = page.getByTestId("profile-managed-list").locator(".profile-managed-row").filter({ hasText: "Canonical Publication" });
+  await publication.getByRole("button", { name: "删除 Canonical Publication" }).click();
+  await expect(publication).toHaveCount(0);
+
+  await page.goto("/recycle");
+  const recycled = page.locator(".recycle-row").filter({ hasText: "Canonical Publication" });
+  await expect(recycled).toBeVisible();
+  await recycled.getByRole("button", { name: "恢复", exact: true }).click();
+  await expect(recycled).toHaveCount(0);
+
+  await page.goto("/profile");
+  await page.locator('[data-profile-category="publications"]').click();
+  await expect(page.getByTestId("profile-managed-list")).toContainText("Canonical Publication");
+  const restored = await readProfileRecord(page, seeded.profileId);
+  expect(restored.structuredFacts.find((item) => item.data.id === "canonical-publication")).toMatchObject({
+    data: {
+      sectionType: "publications",
+      doi: "10.0000/canonical",
+      publisher: "Canonical Journal"
+    },
+    factIds: ["fact-canonical-publication"],
+    sourceBlockIds: ["block-canonical-publication"]
+  });
+});
+
 test("exports only the selected person's complete profile library as JSON", async ({ page }) => {
   await page.goto("/profile");
   const selectedProfileId = await page.getByLabel("选择人物").inputValue();
@@ -126,6 +159,7 @@ type StoredProfile = {
   structuredFacts: Array<{
     data: Record<string, unknown> & { id: string; sectionType: string };
     factIds: string[];
+    sourceBlockIds: string[];
     mappingTrace: unknown[];
   }>;
 };
@@ -160,7 +194,8 @@ async function seedCanonicalProfileFacts(page: import("@playwright/test").Page) 
       entry({ ...common, id: "canonical-award", sectionType: "awards", name: "Canonical Award", issuer: "RC Committee", awardedAt: "2025-05", description: "Award description" }),
       entry({ ...common, id: "canonical-skill", sectionType: "skills", name: "Canonical Skill", category: "Engineering", description: "Skill description" }),
       entry({ ...common, id: "canonical-certificate", sectionType: "certificates", name: "Canonical Certificate", issuer: "RC Institute", issuedAt: "2025-04", description: "Certificate description" }),
-      entry({ ...common, id: "canonical-language", sectionType: "languages", language: "Canonical Language", level: "Professional", description: "Language description" })
+      entry({ ...common, id: "canonical-language", sectionType: "languages", language: "Canonical Language", level: "Professional", description: "Language description" }),
+      entry({ ...common, id: "canonical-publication", sectionType: "publications", title: "Canonical Publication", authors: ["陈同学"], publisher: "Canonical Journal", doi: "10.0000/canonical", description: "Publication description" })
     ];
     store.put({
       ...profile,

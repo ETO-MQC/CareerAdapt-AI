@@ -169,6 +169,86 @@ describe("AgentKernel", () => {
     }));
   });
 
+  it("keeps resume review at the artifact boundary without asking the model for a tool call", async () => {
+    const session = AgentRuntime.create("resume_import", "import_review", "导入简历");
+    const reducer = new AgentTaskStateReducer();
+    const state = reducer.create(session, "import_resume");
+    state.attachment = {
+      id: "agent-attachment-review-boundary",
+      fileName: "示例用户.docx",
+      mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      size: 100,
+      createdAt: "2026-07-29T00:00:00.000Z"
+    };
+    state.knownSlots = {
+      importId: "import-review-boundary",
+      expectedDraftRevision: 1,
+      reviewStatus: "needs_review",
+      importTargetIntent: "new",
+      importTarget: { mode: "new", profileName: "启辰", createGeneralResume: true }
+    };
+    state.stage = "import_review";
+    state.completionStatus = "waiting_for_user";
+    session.taskState = state;
+    const model = scriptedModel({ stopReason: "final", text: "不应调用模型" });
+    const { kernel } = harness(model);
+
+    const result = await kernel.runTurn({
+      session,
+      pageContext: { pathname: "/ai-workspace", query: {} },
+      userMessage: "审核那3项需要确认的资料"
+    });
+
+    expect(model.completeWithTools).not.toHaveBeenCalled();
+    expect(result.trajectory.outcome).toBe("waiting_for_user");
+    expect(result.text).toContain("导入核对卡");
+    expect(result.text).toContain("当前不会写入资料库");
+  });
+
+  it("uses authoritative import state for an explicit conversational review decision", async () => {
+    const session = AgentRuntime.create("resume_import", "import_review", "导入简历");
+    const reducer = new AgentTaskStateReducer();
+    const state = reducer.create(session, "import_resume");
+    state.attachment = {
+      id: "agent-attachment-review-decision",
+      fileName: "示例用户.docx",
+      mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      size: 100,
+      createdAt: "2026-07-29T00:00:00.000Z"
+    };
+    state.knownSlots = {
+      importId: "import-review-decision",
+      expectedDraftRevision: 3,
+      reviewStatus: "needs_review",
+      importTarget: { mode: "new", profileName: "启辰", createGeneralResume: true }
+    };
+    state.stage = "import_review";
+    state.completionStatus = "waiting_for_user";
+    session.taskState = state;
+    const model = scriptedModel({ stopReason: "final", text: "不应调用模型" });
+    const reviewResumeImport = vi.fn(async () => ({
+      importId: "import-review-decision",
+      expectedDraftRevision: 4
+    }));
+    const { kernel } = harness(model, { reviewResumeImport });
+
+    const result = await kernel.runTurn({
+      session,
+      pageContext: { pathname: "/ai-workspace", query: {} },
+      userMessage: "确认这些信息，全部采用"
+    });
+
+    expect(model.completeWithTools).not.toHaveBeenCalled();
+    expect(reviewResumeImport).toHaveBeenCalledWith({
+      importId: "import-review-decision",
+      expectedDraftRevision: 3,
+      decision: "accept_all"
+    }, undefined);
+    expect(result.pendingConfirmation).toMatchObject({
+      toolName: "commit_resume_import"
+    });
+  });
+
   it("returns a recoverable observation for equivalent repeated calls", async () => {
     const repeated = { stopReason: "tool_calls", toolCalls: [{ id: "repeat-call-id", name: "get_active_profile", arguments: {} }] } satisfies AgentModelResult;
     const { kernel } = harness(scriptedModel(repeated, repeated, { stopReason: "final", text: "已复用现有结果。" }));
