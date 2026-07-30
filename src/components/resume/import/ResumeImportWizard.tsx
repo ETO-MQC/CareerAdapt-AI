@@ -54,7 +54,8 @@ import {
 } from "@/services/resumeImport/ResumeImportOrchestrator";
 import {
   ResumeDocumentSemanticMapper,
-  ResumeDocumentSemanticMapperError
+  ResumeDocumentSemanticMapperError,
+  type ResumeMapperSafeDiagnostics
 } from "@/services/resumeImport/ResumeDocumentSemanticMapper";
 
 type ImportStatus =
@@ -129,6 +130,7 @@ export function ResumeImportWizard(props: {
     pages: PdfPageText[];
     routingDecision: DocumentImportRoutingDecision;
     errorCode?: string;
+    diagnostics?: ResumeMapperSafeDiagnostics;
   }>();
   const [targetMode, setTargetMode] = useState<"existing" | "new">(props.initialTargetMode ?? (props.profile ? "existing" : "new"));
   const [targetProfileId, setTargetProfileId] = useState(props.profile?.id ?? "");
@@ -506,8 +508,9 @@ export function ResumeImportWizard(props: {
       setAiFailureRecovery({
         draft: error.fallbackResult.draft,
         pages: error.fallbackResult.pages,
-        routingDecision: error.fallbackResult.routingDecision,
-        errorCode: error.code
+          routingDecision: error.fallbackResult.routingDecision,
+          errorCode: error.code,
+          diagnostics: error.diagnostics
       });
     }
     fail(error instanceof Error ? error.message : fallbackMessage);
@@ -604,7 +607,13 @@ export function ResumeImportWizard(props: {
           { ...finalDraft, status: "failed" },
           0
         );
-        setAiFailureRecovery({ draft: failed, pages: pageRecords, routingDecision, errorCode: error.code });
+        setAiFailureRecovery({
+          draft: failed,
+          pages: pageRecords,
+          routingDecision,
+          errorCode: error.code,
+          diagnostics: error.diagnostics
+        });
         fail(`${error.message} OCR 来源文档和本地解析结果已保留，可重试 AI 或改用仅本地解析。`);
         return;
       }
@@ -638,7 +647,11 @@ export function ResumeImportWizard(props: {
       setMessage("AI 识别与字段来源校验已完成，现进入核对。");
     } catch (error) {
       if (error instanceof ResumeDocumentSemanticMapperError) {
-        setAiFailureRecovery((current) => current ? { ...current, errorCode: error.code } : current);
+        setAiFailureRecovery((current) => current ? {
+          ...current,
+          errorCode: error.code,
+          diagnostics: error.diagnostics
+        } : current);
       }
       fail(error instanceof Error ? error.message : "AI 简历语义识别暂时不可用。");
     }
@@ -1155,7 +1168,7 @@ export function ResumeImportWizard(props: {
       <p className="visually-hidden" role="status" aria-live="polite">{importStatusLabel(status)}。{message}</p>
       <input ref={fileInputRef} className="visually-hidden" type="file" name="resume-file" aria-label="选择要导入的简历文件" accept={RESUME_IMPORT_ACCEPT} onChange={handleFileChange} />
       <fieldset className="import-target-picker">
-        <legend>1. 选择导入目标</legend>
+        <legend>导入目标</legend>
         <div className="import-target-options">
           <label className={targetMode === "existing" ? "import-target-option active" : "import-target-option"}>
             <input type="radio" name="import-target" checked={targetMode === "existing"} disabled={(props.profiles ?? []).length === 0 && !props.profile} onChange={() => { setTargetMode("existing"); setBasicMergeActions((current) => ({ ...current, name: "keep_existing" })); }} />
@@ -1246,15 +1259,29 @@ export function ResumeImportWizard(props: {
             {pendingConsentImport ? <p className="import-recognition-note" role="status">已读取文件，请选择识别方式继续。</p> : null}
             {aiFailureRecovery ? (
               <div className="import-recognition-recovery" role="alert">
-                <span>AI 识别未完成 · {message}</span>
+                <span>
+                  <strong>{aiFailureRecovery.diagnostics?.safeErrorCode === "model_schema_invalid" ? "● 结构校验未通过" : "● AI 识别未完成"}</strong>
+                  {aiFailureRecovery.diagnostics?.safeErrorCode === "model_schema_invalid" ? "模型输出格式需要修正" : message}
+                </span>
                 <div>
-                  <button className="primary-button compact" type="button" onClick={() => { void retryAiMapping(); }}>重试 AI</button>
+                  <button className="primary-button compact" type="button" onClick={() => { void retryAiMapping(); }}>重试</button>
                   <button className="secondary-button compact" type="button" onClick={() => { void acceptLocalFallback(); }}>使用本地结果</button>
                 </div>
                 {aiFailureRecovery.errorCode ? (
                   <details>
                     <summary>查看技术详情</summary>
-                    <code translate="no">{aiFailureRecovery.errorCode}</code>
+                    <dl className="import-recognition-diagnostics" translate="no">
+                      <div><dt>safeErrorCode</dt><dd>{aiFailureRecovery.diagnostics?.safeErrorCode ?? aiFailureRecovery.errorCode}</dd></div>
+                      {aiFailureRecovery.diagnostics?.provider ? <div><dt>provider/model</dt><dd>{aiFailureRecovery.diagnostics.provider} / {aiFailureRecovery.diagnostics.model ?? "unknown"}</dd></div> : null}
+                      {aiFailureRecovery.diagnostics?.attempt ? <div><dt>attempt</dt><dd>{aiFailureRecovery.diagnostics.attempt}</dd></div> : null}
+                      {aiFailureRecovery.diagnostics?.latencyMs !== undefined ? <div><dt>latency</dt><dd>{aiFailureRecovery.diagnostics.latencyMs}ms</dd></div> : null}
+                      {aiFailureRecovery.diagnostics?.failedIssues.map((issue, index) => (
+                        <div key={`${issue.path}-${issue.code}-${index}`}>
+                          <dt>{issue.path || "&lt;root&gt;"}</dt>
+                          <dd>{issue.code}{issue.unrecognizedKeys?.length ? ` (${issue.unrecognizedKeys.join(", ")})` : ""}</dd>
+                        </div>
+                      ))}
+                    </dl>
                   </details>
                 ) : null}
               </div>
@@ -1283,58 +1310,51 @@ export function ResumeImportWizard(props: {
         >
           <span className="import-dropzone-icon" aria-hidden="true">↑</span>
           <strong>拖放简历到这里</strong>
-          <span>或点击选择 PDF、DOCX、JSON、Markdown、TXT 文件</span>
-          <small>{importStatusLabel(status)} · {message}</small>
+          <span>PDF · DOCX · MD · TXT · JSON</span>
+          {!aiFailureRecovery && status !== "idle" ? <small>{importStatusLabel(status)} · {message}</small> : null}
         </div>
       ) : null}
 
-      {!draft ? <details
-        className="import-json-details"
-        open={sourceMode === "json"}
-        onToggle={(event) => setSourceMode(event.currentTarget.open ? "json" : "file")}
-      >
-        <summary>粘贴结构化 JSON</summary>
-        <textarea
-          className="textarea compact-textarea"
-          aria-label="JSON 内容"
-          name="resume-json"
-          autoComplete="off"
-          spellCheck={false}
-          value={jsonText}
-          onChange={(event) => setJsonText(event.target.value)}
-          placeholder={JSON.stringify(sampleResumeJsonV2(), null, 2)}
-        />
-        <p className={status === "failed" ? "import-json-feedback import-json-feedback-error" : "import-json-feedback"} role={status === "failed" ? "alert" : "status"}>
-          {!jsonText.trim() ? "请先粘贴 JSON 内容。" : jsonText.length > RESUME_JSON_MAX_CHARS ? `JSON 内容超过 ${RESUME_JSON_MAX_CHARS.toLocaleString("zh-CN")} 个字符，请拆分后重试。` : message} 当前 {jsonText.length.toLocaleString("zh-CN")} / {RESUME_JSON_MAX_CHARS.toLocaleString("zh-CN")} 字符。
-        </p>
-        <div className="action-row">
-          <button type="button" className="primary-button compact" disabled={!jsonText.trim() || jsonText.length > RESUME_JSON_MAX_CHARS || status === "importing_json"} onClick={() => {
-            void beginSelectedImport(
-              new File([jsonText], "pasted-structured-resume.json", { type: "application/json" }),
-              "json"
-            );
-          }}>
-            导入JSON
-          </button>
-          <button type="button" className="secondary-button compact" onClick={() => setJsonText(JSON.stringify(sampleResumeJsonV2(), null, 2))}>
-            填入示例
-          </button>
-        </div>
-      </details> : null}
-
-      {!draft ? <div className="import-source-actions" aria-label="辅助导入工具">
-        {sourceMode === "json" ? (
-          <button className="secondary-button compact" type="button" onClick={downloadSampleJson}>
-            下载 JSON 示例
-          </button>
-        ) : (
+      {!draft ? <div className="import-entry-secondary-actions" aria-label="辅助导入工具">
+        <details
+          className="import-json-details"
+          open={sourceMode === "json"}
+          onToggle={(event) => setSourceMode(event.currentTarget.open ? "json" : "file")}
+        >
+          <summary>粘贴 JSON</summary>
+          <textarea
+            className="textarea compact-textarea"
+            aria-label="JSON 内容"
+            name="resume-json"
+            autoComplete="off"
+            spellCheck={false}
+            value={jsonText}
+            onChange={(event) => setJsonText(event.target.value)}
+            placeholder={JSON.stringify(sampleResumeJsonV2(), null, 2)}
+          />
+          <p className={status === "failed" ? "import-json-feedback import-json-feedback-error" : "import-json-feedback"} role={status === "failed" ? "alert" : "status"}>
+            {!jsonText.trim() ? "请先粘贴 JSON 内容。" : jsonText.length > RESUME_JSON_MAX_CHARS ? `JSON 内容超过 ${RESUME_JSON_MAX_CHARS.toLocaleString("zh-CN")} 个字符，请拆分后重试。` : message} 当前 {jsonText.length.toLocaleString("zh-CN")} / {RESUME_JSON_MAX_CHARS.toLocaleString("zh-CN")} 字符。
+          </p>
+          <div className="action-row">
+            <button type="button" className="primary-button compact" disabled={!jsonText.trim() || jsonText.length > RESUME_JSON_MAX_CHARS || status === "importing_json"} onClick={() => {
+              void beginSelectedImport(
+                new File([jsonText], "pasted-structured-resume.json", { type: "application/json" }),
+                "json"
+              );
+            }}>导入 JSON</button>
+            <button type="button" className="secondary-button compact" onClick={() => setJsonText(JSON.stringify(sampleResumeJsonV2(), null, 2))}>填入示例</button>
+            <button className="secondary-button compact" type="button" onClick={downloadSampleJson}>下载示例</button>
+          </div>
+        </details>
+        {sourceMode !== "json" ? (
           <button className="secondary-button compact" type="button" onClick={() => {
             fileIntentRef.current = "ocr";
             fileInputRef.current?.click();
           }} disabled={!documentPreferences.localOcrEnabled || status === "extracting_ocr" || status === "confirming"}>
-            导入扫描件（实验）
+            扫描件导入
           </button>
-        )}
+        ) : null}
+        <a className="secondary-button compact" href="/settings">导入设置</a>
         {draft || ["extracting_pdf", "extracting_docx", "extracting_text", "extracting_ocr", "importing_json"].includes(status) ? (
           <button className="secondary-button compact" type="button" onClick={cancelImport} disabled={status === "confirming"}>
             取消当前导入

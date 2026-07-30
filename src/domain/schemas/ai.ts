@@ -138,6 +138,7 @@ export const AiLogSchema = EntityBaseSchema.extend({
   inputLength: z.number().int().min(0).optional(),
   outputLength: z.number().int().min(0).optional(),
   latencyMs: z.number().int().min(0).optional(),
+  attemptCount: z.number().int().min(1).optional(),
   inputSummary: z.string().optional(),
   outputSummary: z.string().optional(),
   status: AiLogStatusSchema,

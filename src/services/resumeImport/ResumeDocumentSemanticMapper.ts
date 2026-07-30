@@ -22,6 +22,16 @@ import {
   restoreSensitivePlaceholders
 } from "@/services/security/text";
 import type { WorkspaceRepository } from "@/services/storage/repositories";
+import type { SafeSchemaIssue } from "@/ai/resumeDocumentMapperDiagnostics";
+
+export type ResumeMapperSafeDiagnostics = {
+  safeErrorCode: string;
+  failedIssues: SafeSchemaIssue[];
+  provider?: string;
+  model?: string;
+  attempt?: number;
+  latencyMs?: number;
+};
 
 export class ResumeDocumentSemanticMapperError extends Error {
   constructor(
@@ -36,7 +46,8 @@ export class ResumeDocumentSemanticMapperError extends Error {
       | "semantic_validation_failed"
       | "request_cancelled"
       | "unresolved_sensitive_placeholder",
-    message: string
+    message: string,
+    readonly diagnostics?: ResumeMapperSafeDiagnostics
   ) {
     super(message);
   }
@@ -73,7 +84,7 @@ export class ResumeDocumentSemanticMapper {
       );
       const rawText = JSON.stringify(batches[index]);
       const inputHash = await hashText(
-        `${rawText}|${sourceDraft.parserVersion}|resume-document-mapper.v2`
+        `${rawText}|${sourceDraft.parserVersion}|resume-document-mapper.v3`
       );
       const result = await invokeStructuredAi({
         task: "resume-document-mapper",
@@ -87,7 +98,7 @@ export class ResumeDocumentSemanticMapper {
           task: "resume-document-mapper",
           provider: result.log.provider,
           model: result.log.model,
-          attempt: 1,
+          attempt: result.log.attemptCount ?? 1,
           safeErrorCode: result.ok ? undefined : result.errorCode,
           latencyMs: result.log.latencyMs,
           inputChars: rawText.length,
@@ -101,7 +112,8 @@ export class ResumeDocumentSemanticMapper {
         const classified = classifyMapperError(result.errorCode);
         throw new ResumeDocumentSemanticMapperError(
           classified.code,
-          classified.message
+          classified.message,
+          result.diagnostics
         );
       }
       outputs.push(result.data);
@@ -189,7 +201,7 @@ function createMappedDraft(
     sourceKind: sourceDraft.sourceKind,
     source: sourceDraft.source,
     pages: sourceDraft.pages,
-    parserVersion: `${sourceDraft.parserVersion}+resume-document-mapper.v2`,
+    parserVersion: `${sourceDraft.parserVersion}+resume-document-mapper.v3`,
     createdAt: sourceDraft.createdAt
   });
 }

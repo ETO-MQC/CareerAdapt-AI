@@ -44,7 +44,8 @@ import { hashBytes, hashText } from "@/services/security/text";
 import type { WorkspaceRepository } from "@/services/storage/repositories";
 import {
   ResumeDocumentSemanticMapper,
-  ResumeDocumentSemanticMapperError
+  ResumeDocumentSemanticMapperError,
+  type ResumeMapperSafeDiagnostics
 } from "@/services/resumeImport/ResumeDocumentSemanticMapper";
 import {
   DEFAULT_DOCUMENT_RECOGNITION_PREFERENCES
@@ -121,7 +122,8 @@ export class ResumeImportOrchestratorError extends Error {
     readonly code: string,
     message: string,
     readonly recovery?: "reselect_file" | "manual_ocr" | "manual_review" | "retry_ai",
-    readonly fallbackResult?: ResumeImportPrepareResult
+    readonly fallbackResult?: ResumeImportPrepareResult,
+    readonly diagnostics?: ResumeMapperSafeDiagnostics
   ) {
     super(message);
   }
@@ -171,9 +173,10 @@ export class ResumeImportOrchestrator {
           throw new ResumeImportOrchestratorError(
             `resume_import_${error.code}`,
             `${error.message} 来源文档和本地解析结果已保留，可重试 AI 或改用仅本地解析。`,
-            "retry_ai",
-            fallback
-          );
+             "retry_ai",
+             fallback,
+             error.diagnostics
+           );
         }
       }
       return await this.persistAndResult(

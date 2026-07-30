@@ -1,6 +1,19 @@
 import type { AiTask } from "@/domain/schemas";
+import type { SafeSchemaIssue } from "@/ai/resumeDocumentMapperDiagnostics";
 
-export function buildRetryPrompt({ task, baseUserPrompt, failure, input }: { task: AiTask; baseUserPrompt: string; failure?: string; input?: unknown }) {
+export function buildRetryPrompt({
+  task,
+  baseUserPrompt,
+  failure,
+  input,
+  issues
+}: {
+  task: AiTask;
+  baseUserPrompt: string;
+  failure?: string;
+  input?: unknown;
+  issues?: SafeSchemaIssue[];
+}) {
   if (task === "jd-analyzer") {
     const sourceUnitIds = typeof input === "object" && input && "sourceUnits" in input && Array.isArray(input.sourceUnits)
       ? input.sourceUnits.flatMap((unit) => typeof unit === "object" && unit && "id" in unit && typeof unit.id === "string" ? [unit.id] : []) : [];
@@ -28,6 +41,26 @@ export function buildRetryPrompt({ task, baseUserPrompt, failure, input }: { tas
       "If a field needs evidence outside that substring, split it into another candidate or omit the unsupported field. Never combine evidence from separate experiences.",
       "Do not normalize punctuation, dates, spacing, or wording in sourceQuote.",
       "Return only the corrected compact JSON object. Do not add a wrapper or explanation."
+    ].join("\n");
+  }
+  if (task === "resume-document-mapper") {
+    const safeIssues = (issues ?? []).slice(0, 12).map((issue) => {
+      const keys = issue.unrecognizedKeys?.length
+        ? ` (${issue.unrecognizedKeys.join(", ")})`
+        : "";
+      return `- ${issue.path || "<root>"}: ${issue.code}${keys}`;
+    });
+    return [
+      baseUserPrompt,
+      "",
+      "Previous output failed schema validation.",
+      ...(safeIssues.length ? ["Issues:", ...safeIssues] : [`Issue code: ${failure ?? "model_schema_invalid"}`]),
+      "Return only {\"structuredDraft\":{\"schemaVersion\":\"structured-resume-draft-v1\",\"basics\":{},\"sections\":[]}}.",
+      "Do not return mappingDecisions or another wrapper.",
+      "Allowed item keys only: text, organization, role, location, startDate, endDate, current, highlights, included, mapping.",
+      "Use organization instead of company/institution/school; role instead of position/jobTitle; text instead of description/content; highlights instead of bullets/responsibilities/achievements.",
+      "Every mapping uses sourcePaths, sourceValues, confidenceLevel, confidenceReason, needsConfirmation. confidenceLevel is high, medium, or low; medium/low require needsConfirmation=true.",
+      "Return compact JSON only."
     ].join("\n");
   }
   if (!task.startsWith("resume-tailor")) return [baseUserPrompt, "", `Previous ${task} response failed (${failure ?? "schema validation failed"}).`, "Return only compact JSON matching this task's requested schema; do not use another task's example."].join("\n");

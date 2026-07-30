@@ -16,6 +16,12 @@ import { redactSensitiveTextForModel } from "@/services/security/text";
 import { mapExternalResumeJson } from "@/domain/resumeImport/jsonMapper";
 import { decodeAiSettingsFromHeader, type AiSettings } from "@/services/storage/aiSettings";
 import { buildRetryPrompt } from "@/ai/retryPrompt";
+import {
+  debugRedactedResumeMapperRaw,
+  describeResumeMapperOutputShape,
+  summarizeSchemaIssues,
+  type SafeSchemaIssue
+} from "@/ai/resumeDocumentMapperDiagnostics";
 
 const StructuredAiRequestSchema = z
   .object({
@@ -79,6 +85,7 @@ export async function POST(request: NextRequest) {
     const provider = new OpenAiCompatibleProvider(customSettings);
     const baseUserPrompt = taskDefinition.buildUserPrompt(input.data);
     let lastValidationFailure: string | undefined;
+    let lastSchemaIssues: SafeSchemaIssue[] | undefined;
     const totalBudgetMs = taskDefinition.task === "resume-document-mapper" ? 180_000 : 60_000;
     const deadline = startedAt + totalBudgetMs;
 
@@ -93,7 +100,13 @@ export async function POST(request: NextRequest) {
       try {
         response = await provider.invoke({
           systemPrompt: taskDefinition.systemPrompt,
-          userPrompt: attempt === 0 ? baseUserPrompt : buildRetryPrompt({ task: taskDefinition.task, baseUserPrompt, failure: lastValidationFailure, input: input.data }),
+          userPrompt: attempt === 0 ? baseUserPrompt : buildRetryPrompt({
+            task: taskDefinition.task,
+            baseUserPrompt,
+            failure: lastValidationFailure,
+            input: input.data,
+            issues: lastSchemaIssues
+          }),
           maxOutputChars: taskDefinition.maxOutputChars,
           signal: AbortSignal.any([request.signal, AbortSignal.timeout(remainingMs)])
         });
@@ -117,34 +130,74 @@ export async function POST(request: NextRequest) {
         outputChars: response.outputLength,
         finishReason: response.finishReason
       });
+      if (taskDefinition.task === "resume-document-mapper") {
+        debugRedactedResumeMapperRaw(response.output);
+      }
 
       let normalized: unknown;
       try {
         const coerced = taskDefinition.coerceRawOutput(response.output, input.data);
         normalized = taskDefinition.normalizeOutput(coerced, input.data);
       } catch (error) {
-        const issues = (error as { issues?: Array<{ path: PropertyKey[]; code: string }> }).issues ?? [];
+        const issues = summarizeSchemaIssues(error);
         if (process.env.NODE_ENV === "development" && body.data.task.startsWith("resume-tailor")) {
           console.warn("[resume-tailor:normalization-failed]", issues.map((issue, suggestionIndex) => ({
             suggestionIndex,
-            paths: [issue.path.join(".")],
+            paths: [issue.path],
             codes: [issue.code]
           })));
         }
+        if (process.env.NODE_ENV === "development" && taskDefinition.task === "resume-document-mapper") {
+          console.warn("[resume-document-mapper:normalization-failed]", {
+            task: taskDefinition.task,
+            provider: response.provider,
+            model: response.model,
+            attempt: attempt + 1,
+            finishReason: response.finishReason,
+            latencyMs: Date.now() - startedAt,
+            inputChars: baseUserPrompt.length,
+            outputChars: response.outputLength,
+            ...describeResumeMapperOutputShape(response.output),
+            issues
+          });
+        }
         lastValidationFailure = "model_schema_invalid";
+        lastSchemaIssues = issues;
         if (attempt === 0) continue;
         return aiError("model_schema_invalid", "Model returned content, but its shape did not pass validation.", 422, startedAt, {
-          provider: response.provider, model: response.model, inputLength: baseUserPrompt.length, outputLength: response.outputLength
+          provider: response.provider,
+          model: response.model,
+          inputLength: baseUserPrompt.length,
+          outputLength: response.outputLength,
+          safeErrorCode: "model_schema_invalid",
+          failedIssues: issues,
+          attempt: attempt + 1
         });
       }
       const parsedOutput = taskDefinition.outputSchema.safeParse(normalized);
 
       if (!parsedOutput.success) {
+        const issues = summarizeSchemaIssues(parsedOutput);
         if (process.env.NODE_ENV === "development") {
-          const issues = (parsedOutput as { error?: { issues?: Array<{ path: PropertyKey[]; code: string }> } }).error?.issues ?? [];
-          console.error("[ai:validation_failed]", issues.map((issue) => ({ path: issue.path, code: issue.code })));
+          if (taskDefinition.task === "resume-document-mapper") {
+            console.warn("[resume-document-mapper:schema-failed]", {
+              task: taskDefinition.task,
+              provider: response.provider,
+              model: response.model,
+              attempt: attempt + 1,
+              finishReason: response.finishReason,
+              latencyMs: Date.now() - startedAt,
+              inputChars: baseUserPrompt.length,
+              outputChars: response.outputLength,
+              ...describeResumeMapperOutputShape(response.output),
+              issues
+            });
+          } else {
+            console.error("[ai:validation_failed]", issues);
+          }
         }
         lastValidationFailure = "model_schema_invalid";
+        lastSchemaIssues = issues;
         if (attempt === 0) {
           continue;
         }
@@ -153,7 +206,10 @@ export async function POST(request: NextRequest) {
           provider: response.provider,
           model: response.model,
           inputLength: baseUserPrompt.length,
-          outputLength: response.outputLength
+          outputLength: response.outputLength,
+          safeErrorCode: "model_schema_invalid",
+          failedIssues: issues,
+          attempt: attempt + 1
         });
       }
 
@@ -208,7 +264,8 @@ export async function POST(request: NextRequest) {
         model: response.model,
         inputLength: baseUserPrompt.length,
         outputLength: response.outputLength,
-        latencyMs: Date.now() - startedAt
+        latencyMs: Date.now() - startedAt,
+        attemptCount: attempt + 1
       });
     }
 
@@ -232,6 +289,7 @@ function aiSuccess(
     inputLength: number;
     outputLength: number;
     latencyMs: number;
+    attemptCount?: number;
   }
 ) {
   return NextResponse.json({
@@ -253,6 +311,9 @@ function aiError(
     model: string;
     inputLength: number;
     outputLength: number;
+    safeErrorCode: string;
+    failedIssues: SafeSchemaIssue[];
+    attempt: number;
   }> = {}
 ) {
   return NextResponse.json(

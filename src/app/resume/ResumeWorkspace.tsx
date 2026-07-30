@@ -3851,7 +3851,7 @@ export function ResumeWorkspace() {
         <ImportReviewDialog
           open
           title={selectedBranch ? "导入另一份简历" : "导入简历"}
-          description="PDF、DOCX 或 JSON；解析后先核对，不会覆盖当前简历。"
+          description="PDF · DOCX · Markdown · TXT · JSON"
           onClose={closeImportDialog}
         >
           <ResumeImportWizard

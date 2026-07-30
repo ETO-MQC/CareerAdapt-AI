@@ -3,6 +3,7 @@ import type { z } from "zod";
 import { AiLogSchema, type AiLog, type AiTask } from "@/domain/schemas";
 import { stableHashText } from "@/services/security/text";
 import { readAiSettings, encodeAiSettingsForHeader } from "@/services/storage/aiSettings";
+import type { SafeSchemaIssue } from "@/ai/resumeDocumentMapperDiagnostics";
 
 type StructuredAiResponse<TOutput> =
   | {
@@ -16,6 +17,7 @@ type StructuredAiResponse<TOutput> =
         inputLength: number;
         outputLength: number;
         latencyMs: number;
+        attemptCount?: number;
       };
     }
   | {
@@ -30,6 +32,9 @@ type StructuredAiResponse<TOutput> =
         inputLength?: number;
         outputLength?: number;
         latencyMs?: number;
+        safeErrorCode?: string;
+        failedIssues?: SafeSchemaIssue[];
+        attempt?: number;
       };
     };
 
@@ -106,6 +111,16 @@ export async function invokeStructuredAi<TOutput>(input: {
     return {
       ok: false as const,
       errorCode,
+      diagnostics: payload && typeof payload === "object" && "ok" in payload && !payload.ok
+        ? {
+            safeErrorCode: payload.meta?.safeErrorCode ?? errorCode,
+            failedIssues: payload.meta?.failedIssues ?? [],
+            provider: payload.meta?.provider,
+            model: payload.meta?.model,
+            attempt: payload.meta?.attempt,
+            latencyMs: payload.meta?.latencyMs
+          }
+        : undefined,
       log: createAiLog({
         task: input.task,
         status: "provider_failed",
@@ -178,6 +193,7 @@ function createAiLog(input: {
     inputLength?: number;
     outputLength?: number;
     latencyMs?: number;
+    attemptCount?: number;
   };
   errorCode?: string;
 }) {
@@ -195,6 +211,7 @@ function createAiLog(input: {
     inputLength: input.meta?.inputLength ?? inputText.length,
     outputLength: input.meta?.outputLength ?? (outputText.length || undefined),
     latencyMs: input.meta?.latencyMs,
+    attemptCount: input.meta?.attemptCount,
     status: input.status,
     errorCode: input.errorCode,
     createdAt: now,

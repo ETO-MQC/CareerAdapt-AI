@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { aiTaskRegistry } from "@/ai/tasks/registry";
 import type { ResumeJsonMapperOutput } from "@/domain/schemas";
+import { coerceResumeDocumentMapperOutput } from "@/ai/tasks/resumeDocumentMapperOutput";
+import { summarizeSchemaIssues } from "@/ai/resumeDocumentMapperDiagnostics";
 
 const definition = aiTaskRegistry["resume-document-mapper"];
 const rawText = JSON.stringify([
@@ -9,7 +11,7 @@ const rawText = JSON.stringify([
 ]);
 const input = { rawText, inputHash: "document-mapper-input" };
 
-describe("resume-document-mapper v2 boundary", () => {
+describe("resume-document-mapper v3 boundary", () => {
   it("includes catalog metadata and allows deterministic local preservation of uncited blocks", () => {
     const prompt = JSON.parse(definition.buildUserPrompt(input)) as Record<string, unknown>;
     expect(prompt).toMatchObject({ schemaVersion: "resume-import-v2" });
@@ -23,6 +25,99 @@ describe("resume-document-mapper v2 boundary", () => {
     expect(definition.systemPrompt).toContain("untrusted DATA");
     expect(definition.systemPrompt).toContain("define structure only, never facts");
     expect(definition.systemPrompt).toContain("local code preserves all uncited source blocks");
+    expect(definition.systemPrompt).toContain("Do not output mappingDecisions");
+    expect(definition.systemPrompt).toContain("An item may contain only");
+    expect(prompt.outputContract).toBeDefined();
+  });
+
+  it("coerces a direct StructuredResumeDraft and unambiguous wrappers", () => {
+    const direct = { schemaVersion: "structured-resume-draft-v1", basics: {}, sections: [] };
+    expect(coerceResumeDocumentMapperOutput(direct)).toEqual({ structuredDraft: direct });
+    expect(coerceResumeDocumentMapperOutput({ draft: direct })).toEqual({ structuredDraft: direct });
+    expect(coerceResumeDocumentMapperOutput({ result: { structuredDraft: direct } })).toEqual({
+      structuredDraft: direct
+    });
+  });
+
+  it("coerces supported item aliases without changing factual values", () => {
+    const output = coerceResumeDocumentMapperOutput({
+      structuredDraft: {
+        basics: {},
+        sections: [{
+          sectionName: "项目经历",
+          type: "project",
+          items: [{
+            company: "示例公司",
+            position: "开发",
+            bullets: ["保留原句"]
+          }]
+        }]
+      }
+    }) as ResumeJsonMapperOutput;
+    const section = output.structuredDraft.sections[0];
+    const item = section.items[0];
+    expect(section).toMatchObject({ title: "项目经历", sectionType: "project" });
+    expect(item).toEqual({
+      organization: "示例公司",
+      role: "开发",
+      highlights: ["保留原句"]
+    });
+  });
+
+  it("omits null optional values and normalizes numeric confidence", () => {
+    const output = coerceResumeDocumentMapperOutput({
+      structuredDraft: {
+        basics: {},
+        sections: [{
+          title: "项目经历",
+          sectionType: "project",
+          items: [{
+            text: "保留原句",
+            location: null,
+            mapping: {
+              sourcePaths: ["b1"],
+              sourceValues: ["保留原句"],
+              confidence: 0.7,
+              confidenceReason: "显式来源",
+              needsConfirmation: false
+            }
+          }]
+        }]
+      }
+    }) as ResumeJsonMapperOutput;
+    const item = output.structuredDraft.sections[0].items[0];
+    expect(item).toMatchObject({
+      text: "保留原句",
+      mapping: { confidenceLevel: "medium", needsConfirmation: true }
+    });
+    expect(item).not.toHaveProperty("location");
+  });
+
+  it("never silently discards an unknown factual item field", () => {
+    expect(() => coerceResumeDocumentMapperOutput({
+      structuredDraft: {
+        basics: {},
+        sections: [{
+          title: "教育经历",
+          sectionType: "education",
+          items: [{ school: "示例大学", degree: "本科" }]
+        }]
+      }
+    })).toThrow("resume_document_mapper_output_cannot_be_safely_coerced");
+    try {
+      coerceResumeDocumentMapperOutput({
+        structuredDraft: {
+          basics: {},
+          sections: [{ title: "教育经历", items: [{ degree: "本科" }] }]
+        }
+      });
+    } catch (error) {
+      expect(summarizeSchemaIssues(error)).toEqual([{
+        path: "structuredDraft.sections[0].items[0]",
+        code: "unrecognized_keys",
+        unrecognizedKeys: ["degree"]
+      }]);
+    }
   });
 
   it("repairs safety metadata for a one-source-to-many-field decision", () => {

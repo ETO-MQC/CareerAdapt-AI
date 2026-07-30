@@ -53,6 +53,7 @@ import { resumeTailoringDiffPrompt } from "@/ai/prompts/resumeTailoringDiff";
 import { resumeJsonMapperPrompt } from "@/ai/prompts/resumeJsonMapper";
 import { resumeDocumentMapperPrompt } from "@/ai/prompts/resumeDocumentMapper";
 import { resumeTailorPlannerPrompt } from "@/ai/prompts/resumeTailorPlanner";
+import { coerceResumeDocumentMapperOutput } from "@/ai/tasks/resumeDocumentMapperOutput";
 import { RESUME_CATALOG_VERSION, resumeFieldCatalog } from "@/domain/resumeFields";
 import {
   ProfileIntakeSemanticInputSchema,
@@ -339,10 +340,35 @@ export const aiTaskRegistry = {
           aliases: field.aliases
         })),
         allowedSections: ["summary", "education", "work", "internship", "project", "research", "campus", "volunteer", "awards", "skills", "certificates", "languages", "publications", "patents", "portfolio", "other", "custom"],
-        instructions: "Map without changing facts or numeric values. Cite authoritative original block ids and exact quotes. Uncited source blocks are preserved locally and need not be repeated."
+        outputContract: {
+          structuredDraft: {
+            schemaVersion: "structured-resume-draft-v1",
+            basics: {
+              supportedKeys: ["name", "email", "phone", "location", "summary", "links"],
+              mappedValue: {
+                value: "exact source-supported value",
+                mapping: {
+                  sourcePaths: ["authoritative-block-id"],
+                  sourceValues: ["exact source quote"],
+                  confidenceLevel: "high | medium | low",
+                  confidenceReason: "brief safe reason",
+                  needsConfirmation: false
+                }
+              }
+            },
+            sections: [{
+              allowedKeys: ["title", "sectionType", "category", "included", "items", "mapping"],
+              itemAllowedKeys: [
+                "text", "organization", "role", "location", "startDate", "endDate",
+                "current", "highlights", "included", "mapping"
+              ]
+            }]
+          }
+        },
+        instructions: "Return only {structuredDraft:{schemaVersion,basics,sections}}. Do not return mappingDecisions. Map without changing facts or numeric values. Cite authoritative original block ids and exact quotes. Use only high/medium/low confidence; medium/low require confirmation. Uncited source blocks are preserved locally and need not be repeated."
       }, null, 2);
     },
-    coerceRawOutput(rawOutput: unknown) { return rawOutput; },
+    coerceRawOutput(rawOutput: unknown) { return coerceResumeDocumentMapperOutput(rawOutput); },
     normalizeOutput(output: ResumeJsonMapperOutput) {
       return repairDocumentMapperSafetyMetadata(ResumeJsonMapperOutputSchema.parse(output));
     },

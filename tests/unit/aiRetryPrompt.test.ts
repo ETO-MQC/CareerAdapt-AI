@@ -26,4 +26,21 @@ describe("structured AI retry prompts", () => {
     expect(prompt).toContain("Never output null");
     expect(prompt).not.toContain('"suggestions"');
   });
+
+  it("gives resume document mapper a safe path-specific repair contract", () => {
+    const prompt = buildRetryPrompt({
+      task: "resume-document-mapper",
+      baseUserPrompt: "redacted source prompt",
+      failure: "model_schema_invalid",
+      issues: [{
+        path: "structuredDraft.sections[0].items[0]",
+        code: "unrecognized_keys",
+        unrecognizedKeys: ["institution", "degree"]
+      }]
+    });
+    expect(prompt).toContain("structuredDraft.sections[0].items[0]");
+    expect(prompt).toContain("institution, degree");
+    expect(prompt).toContain("Allowed item keys only");
+    expect(prompt).not.toContain("本科");
+  });
 });

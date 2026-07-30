@@ -4029,6 +4029,11 @@ small,
   width: min(82vw, 1480px);
 }
 
+.resume-import-modal:has(.resume-import-wizard:not(.resume-import-wizard-review)) {
+  grid-template-rows: auto auto;
+  height: auto;
+}
+
 .resume-import-modal:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
@@ -5851,12 +5856,13 @@ html[data-theme="dark"] .property-panel-heading p {
   border: 1px dashed color-mix(in srgb, var(--accent) 42%, var(--line));
   border-radius: 10px;
   background: color-mix(in srgb, var(--accent) 3%, var(--surface));
+  box-sizing: border-box;
   cursor: pointer;
   display: grid;
   gap: 5px;
   justify-items: center;
-  min-height: 196px;
-  padding: 26px;
+  min-height: 148px;
+  padding: 16px;
   text-align: center;
 }
 
@@ -5898,6 +5904,16 @@ html[data-theme="dark"] .property-panel-heading p {
 .resume-import-wizard {
   display: grid;
   gap: 14px;
+}
+
+.resume-import-wizard:not(.resume-import-wizard-review) {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.resume-import-wizard:not(.resume-import-wizard-review) > .visually-hidden,
+.resume-import-wizard:not(.resume-import-wizard-review) > .import-dropzone,
+.resume-import-wizard:not(.resume-import-wizard-review) > .import-entry-secondary-actions {
+  grid-column: 1 / -1;
 }
 
 .resume-import-modal-body:has(.resume-import-wizard-review) {
@@ -6241,7 +6257,8 @@ html[data-theme="dark"] .property-panel-heading p {
   align-items: start;
   display: grid;
   gap: 6px;
-  padding: 8px 10px;
+  min-height: 154px;
+  padding: 14px 16px;
 }
 
 .import-recognition-main {
@@ -6385,8 +6402,14 @@ html[data-theme="dark"] .property-panel-heading p {
 
 .import-recognition-recovery > span {
   color: var(--danger);
+  display: grid;
   font-size: 11px;
+  gap: 2px;
   overflow-wrap: anywhere;
+}
+
+.import-recognition-recovery > span strong {
+  font-size: 12px;
 }
 
 .import-recognition-recovery > div {
@@ -6398,12 +6421,24 @@ html[data-theme="dark"] .property-panel-heading p {
   grid-column: 1 / -1;
 }
 
-.import-recognition-recovery code {
+.import-recognition-diagnostics {
   color: var(--muted);
-  display: block;
+  display: grid;
   font-size: 11px;
+  gap: 3px;
   margin-top: 4px;
   overflow-wrap: anywhere;
+}
+
+.import-recognition-diagnostics > div {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(100px, auto) minmax(0, 1fr);
+}
+
+.import-recognition-diagnostics dt,
+.import-recognition-diagnostics dd {
+  margin: 0;
 }
 
 .import-recognition-panel.import-routing-panel-compact {
@@ -6440,6 +6475,33 @@ html[data-theme="dark"] .property-panel-heading p {
   border: 1px solid var(--line);
   border-radius: 9px;
   overflow: hidden;
+}
+
+.import-entry-secondary-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+.import-entry-secondary-actions > .import-json-details:not([open]) {
+  border: 0;
+  overflow: visible;
+}
+
+.import-entry-secondary-actions > .import-json-details:not([open]) > summary {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 650;
+  min-height: 32px;
+  padding: 7px 10px;
+}
+
+.import-entry-secondary-actions > .import-json-details[open] {
+  flex: 1 0 100%;
 }
 
 .import-json-details > summary {
@@ -6484,6 +6546,23 @@ html[data-theme="dark"] .property-panel-heading p {
   margin: 0;
   min-width: 0;
   padding: 10px 12px;
+}
+
+.resume-import-wizard:not(.resume-import-wizard-review) .import-target-picker {
+  align-content: start;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr);
+  min-height: 154px;
+  padding: 14px 16px;
+}
+
+.resume-import-wizard:not(.resume-import-wizard-review) .import-target-picker legend {
+  font-size: 13px;
+}
+
+.resume-import-wizard:not(.resume-import-wizard-review) .import-target-field select,
+.resume-import-wizard:not(.resume-import-wizard-review) .import-target-field input {
+  width: 100%;
 }
 
 .import-target-picker legend {
@@ -8293,7 +8372,7 @@ html[data-theme="dark"] .property-panel-heading p {
     padding-inline: 3vw;
   }
 
-  .import-target-picker {
+  .resume-import-wizard-review .import-target-picker {
     grid-template-columns: minmax(0, 1fr) minmax(220px, 0.7fr);
   }
 

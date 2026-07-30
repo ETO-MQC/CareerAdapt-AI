@@ -258,7 +258,7 @@ export const ImportedResumeMappingTraceSchema = z.object({
   confidenceLevel: ImportedResumeConfidenceSchema,
   confidenceReason: z.string().min(1),
   needsConfirmation: z.boolean()
-});
+}).strict();
 
 export const ImportedResumeSourceStatusSchema = z.enum([
   "located",
@@ -416,7 +416,7 @@ export const StructuredResumeValueSchema = z.union([
   z.object({
     value: z.string().min(1),
     mapping: ImportedResumeMappingTraceSchema
-  })
+  }).strict()
 ]);
 
 export const StructuredResumeDraftItemSchema = z.union([
@@ -432,7 +432,7 @@ export const StructuredResumeDraftItemSchema = z.union([
     highlights: z.array(z.string().min(1)).optional(),
     included: z.boolean().optional(),
     mapping: ImportedResumeMappingTraceSchema.optional()
-  }).refine((item) => Boolean(item.text || item.organization || item.role || item.highlights?.length), {
+  }).strict().refine((item) => Boolean(item.text || item.organization || item.role || item.highlights?.length), {
     message: "structured resume item requires text or structured content"
   })
 ]);
@@ -454,7 +454,7 @@ export const StructuredResumeDraftSchema = z.object({
     included: z.boolean().optional(),
     items: z.array(StructuredResumeDraftItemSchema).default([]),
     mapping: ImportedResumeMappingTraceSchema.optional()
-  })).default([])
+  }).strict()).default([])
 }).strict();
 
 const ImportedResumeUnclassifiedBlockSchema = z.union([
@@ -608,7 +608,7 @@ export const ResumeJsonMapperOutputSchema = z.object({
     reason: z.string().min(1)
   })).default([]),
   mappingDecisions: z.array(MappingDecisionSchema).optional()
-});
+}).strict();
 
 export type ImportedResumeDraftStatus = z.infer<typeof ImportedResumeDraftStatusSchema>;
 export type ResumeSourceKind = z.infer<typeof ResumeSourceKindSchema>;
