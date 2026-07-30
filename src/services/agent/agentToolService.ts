@@ -50,6 +50,8 @@ import {
   validateProfileIntakeStructuredPatch,
   type ProfileIntakeStructuredPatch
 } from "@/domain/profileIntake/ProfileIntakeNormalizer";
+import { readResumeImportSemanticPreference } from "@/services/preferences/resumeImportAi";
+import { adaptResumeJsonToV2 } from "@/domain/resumeImport/jsonV2Adapter";
 
 export class BrowserAgentToolService implements AgentToolServices {
   constructor(
@@ -59,8 +61,14 @@ export class BrowserAgentToolService implements AgentToolServices {
 
   async prepareResumeImport(rawInput: unknown, signal?: AbortSignal) {
     assertNotAborted(signal);
+    const semanticPreference = readResumeImportSemanticPreference();
     const input = rawInput as { attachmentId: string };
     const { ref, file } = agentAttachmentStore.resolve(input.attachmentId);
+    const canonicalJson = ref.mimeType === "application/json"
+      && await isCanonicalCareerAdaptJsonFile(file);
+    if (semanticPreference === "unset" && !canonicalJson) {
+      throw new Error("resume_import_ai_privacy_consent_required");
+    }
     const prepared = await new ResumeImportOrchestrator(this.repository).prepare({
       fileName: ref.fileName,
       mimeType: ref.mimeType,
@@ -68,6 +76,7 @@ export class BrowserAgentToolService implements AgentToolServices {
       file
     }, {
       signal,
+      semanticMode: semanticPreference === "ai" && !canonicalJson ? "ai" : "local",
       onProgress: (progress) => agentImportProgressBus.emit(progress)
     });
     return {
@@ -1191,6 +1200,15 @@ function renameStructuredItem<T extends { sectionType: string } | undefined>(
 
 function assertNotAborted(signal?: AbortSignal) {
   if (signal?.aborted) throw toolError("operation_cancelled", "Operation was cancelled.");
+}
+
+async function isCanonicalCareerAdaptJsonFile(file: File) {
+  try {
+    const adapted = adaptResumeJsonToV2(JSON.parse(await file.text()));
+    return adapted.ok && adapted.sourceKind === "v2";
+  } catch {
+    return false;
+  }
 }
 
 function toolError(code: string, message: string) {

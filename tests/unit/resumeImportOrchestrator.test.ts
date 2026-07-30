@@ -58,11 +58,100 @@ describe("ResumeImportOrchestrator", () => {
     expect(progress).toEqual(expect.arrayContaining(["validating", "extracting", "normalizing", "mapping", "building_draft", "ready_for_review"]));
   });
 
-  it("preserves canonical JSON v2 without flattening it into generic experience", async () => {
+  it("runs redacted AI semantic mapping before persisting the first review draft", async () => {
+    const repository = createRepository();
+    const file = new File([
+      "张三\n电话：13800000000\n邮箱：zhangsan@example.com\n\n技能\nTypeScript"
+    ], "resume.txt", { type: "text/plain" });
+    let providerInput = "";
+    const previousFetch = globalThis.fetch;
+    vi.stubGlobal("fetch", vi.fn(async (_url: string, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body)) as {
+        input: { rawText: string };
+      };
+      providerInput = body.input.rawText;
+      const blocks = JSON.parse(providerInput) as Array<{
+        id: string;
+        normalizedText: string;
+      }>;
+      const nameBlock = blocks.find((block) => block.normalizedText.includes("[NAME_1]"));
+      if (!nameBlock) throw new Error("expected high-confidence name tokenization");
+      return new Response(JSON.stringify({
+        ok: true,
+        task: "resume-document-mapper",
+        promptVersion: "resume-document-mapper.v2",
+        output: {
+          structuredDraft: {
+            schemaVersion: "structured-resume-draft-v1",
+            basics: { name: "[NAME_1]" },
+            sections: []
+          },
+          mappingDecisions: [{
+            kind: "canonical_field",
+            targetFieldId: "basics.name",
+            sourceBlockIds: [nameBlock.id],
+            sourceQuote: "[NAME_1]",
+            confidence: 0.99,
+            needsConfirmation: false,
+            mappingReason: "exact source"
+          }],
+          unclassifiedBlocks: blocks
+            .filter((block) => block.id !== nameBlock.id)
+            .map((block) => ({
+              sourcePath: block.id,
+              sourceValue: block.normalizedText,
+              reason: "not mapped in focused test"
+            }))
+        },
+        meta: {
+          provider: "test",
+          model: "semantic-mapper-test",
+          inputLength: providerInput.length,
+          outputLength: 100,
+          latencyMs: 1
+        }
+      }), { status: 200, headers: { "Content-Type": "application/json" } });
+    }));
+    try {
+      const result = await new ResumeImportOrchestrator(repository).prepare({
+        file,
+        fileName: file.name,
+        mimeType: file.type,
+        size: file.size
+      }, { semanticMode: "ai" });
+
+      expect(providerInput).toContain("[NAME_1]");
+      expect(providerInput).toContain("[PHONE_1]");
+      expect(providerInput).toContain("[EMAIL_1]");
+      expect(providerInput).not.toContain("13800000000");
+      expect(providerInput).not.toContain("zhangsan@example.com");
+      expect(result.draft.basics.name?.value).toBe("张三");
+      expect(result.draft.parserVersion).toContain("resume-document-mapper.v2");
+      expect(result.draft.schemaVersion).toBe("resume-import-v2");
+      const mappedDraft = result.draft.schemaVersion === "resume-import-v2"
+        ? result.draft
+        : undefined;
+      expect(mappedDraft?.mappingDecisions).toEqual(expect.arrayContaining([
+        expect.objectContaining({ targetFieldId: "basics.name", sourceQuote: "张三" })
+      ]));
+      const mappedNameBlockId = mappedDraft?.mappingDecisions.find(
+        (decision) => decision.kind === "canonical_field" && decision.targetFieldId === "basics.name"
+      )?.sourceBlockIds[0];
+      expect(mappedDraft?.unclassifiedBlocks.some((block) =>
+        "sourcePath" in block && block.sourcePath === mappedNameBlockId
+      )).toBe(false);
+      expect((await repository.getImportedResumeDraft(result.importId))?.parserVersion)
+        .toContain("resume-document-mapper.v2");
+    } finally {
+      vi.stubGlobal("fetch", previousFetch);
+    }
+  });
+
+  it("preserves canonical CareerAdapt JSON v2 without sending it through AI", async () => {
     const repository = createRepository();
     const file = await fixtureFile(
-      "tests/fixtures/resume-import/structured-standard.json",
-      "structured-standard.json",
+      "tests/fixtures/resume-import/reconciliation-v2.json",
+      "reconciliation-v2.json",
       "application/json"
     );
     const result = await new ResumeImportOrchestrator(repository).prepare({
@@ -78,7 +167,38 @@ describe("ResumeImportOrchestrator", () => {
     expect(result.artifactPayload.sourceType).toBe("standard_json");
   });
 
-  it("keeps the deterministic external JSON adapter path", async () => {
+  it("refuses to commit a draft containing an unresolved sensitive placeholder", async () => {
+    const repository = createRepository();
+    const file = await fixtureFile(
+      "tests/fixtures/resume-import/reconciliation-v2.json",
+      "reconciliation-v2.json",
+      "application/json"
+    );
+    const prepared = await new ResumeImportOrchestrator(repository).prepare({
+      file,
+      fileName: file.name,
+      mimeType: file.type,
+      size: file.size
+    });
+    const reviewed = await repository.saveImportedResumeDraft({
+      ...applyResumeImportReviewDecision(prepared.draft, "accept_all"),
+      basics: {
+        ...prepared.draft.basics,
+        name: prepared.draft.basics.name
+          ? { ...prepared.draft.basics.name, value: "[NAME_1]" }
+          : undefined
+      }
+    }, prepared.draftRevision);
+
+    await expect(repository.confirmImportedResume({
+      importId: reviewed.importId,
+      expectedDraftRevision: reviewed.revision,
+      operationId: "reject-unresolved-placeholder",
+      target: { mode: "new", profileName: "测试用户", createGeneralResume: true }
+    })).rejects.toThrow("resume_import_unresolved_sensitive_placeholder");
+  });
+
+  it("keeps the deterministic external JSON adapter as an explicit local fallback", async () => {
     const repository = createRepository();
     const file = await fixtureFile(
       "tests/fixtures/resume-import/external-aliases.json",

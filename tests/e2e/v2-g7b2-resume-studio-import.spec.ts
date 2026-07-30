@@ -105,7 +105,7 @@ test.describe("V2-G7b.2 Resume Studio and import IA", () => {
     await expect(textarea).toHaveValue(malformed);
   });
 
-  test("maps external JSON deterministically and preserves trace and unclassified fields", async ({ page }) => {
+  test("maps external JSON through AI by default and preserves trace and unclassified fields", async ({ page }) => {
     await page.route("**/api/ai/structured", async (route) => {
       await route.fulfill({
         status: 200,
@@ -146,12 +146,11 @@ test.describe("V2-G7b.2 Resume Studio and import IA", () => {
     }));
     await page.locator(".import-json-details button.primary-button").click();
 
+    await expect(page.locator(".ai-mapping-consent")).toContainText("本地提取并脱敏");
+    await page.getByRole("button", { name: "使用 AI 智能识别", exact: true }).click();
     await expect(page.locator(".mapping-trace").first()).toContainText("来源：");
     await expect(page.getByText(/未识别内容（\d+）/)).toBeVisible();
-    await expect(page.locator(".ai-mapping-consent")).toContainText("脱敏");
-    await page.locator(".ai-mapping-consent input").check();
-    await page.getByRole("button", { name: "使用 AI 智能映射", exact: true }).click();
-    await expect(page.locator(".import-review-footer")).toContainText("AI 映射结果已通过 Schema 校验");
+    await expect(page.locator(".import-review-footer")).toContainText("已进入核对");
     await expect(page.locator(".mapping-trace").first()).toContainText("需要确认");
   });
 
@@ -238,13 +237,12 @@ test.describe("V2-G7b.2 Resume Studio and import IA", () => {
     const rawText = JSON.stringify({ fullName: "Retry Candidate", workExperience: ["Kept source content"] });
     await page.locator(".import-json-details textarea").fill(rawText);
     await page.locator(".import-json-details button.primary-button").click();
-    await page.locator(".ai-mapping-consent input").check();
-    await page.getByRole("button", { name: "使用 AI 智能映射", exact: true }).click();
+    await page.getByRole("button", { name: "使用 AI 智能识别", exact: true }).click();
 
-    await expect(page.locator(".app-notification-error")).toContainText("AI 映射失败");
-    await page.getByText("查看原始 JSON", { exact: true }).click();
-    await expect(page.locator(".import-source-footer pre")).toContainText(rawText);
-    await expect(page.getByRole("button", { name: "使用 AI 智能映射", exact: true })).toBeEnabled();
+    await expect(page.locator(".app-notification-error")).toContainText("导入失败");
+    await expect(page.getByRole("button", { name: "重试 AI", exact: true })).toBeEnabled();
+    await expect(page.getByRole("button", { name: "使用仅本地解析结果", exact: true })).toBeEnabled();
+    await expect(page.locator(".import-json-details textarea")).toHaveValue(rawText);
   });
 
   test("exports the active resume as structured JSON", async ({ page }) => {
@@ -276,8 +274,9 @@ test.describe("V2-G7b.2 Resume Studio and import IA", () => {
 
 async function openJsonImport(page: Page) {
   await page.goto("/resume");
-  await page.getByRole("button", { name: "粘贴 JSON", exact: true }).click();
+  await page.getByRole("button", { name: "导入", exact: true }).first().click();
   await expect(page.getByRole("dialog", { name: "导入简历" })).toBeVisible();
+  await page.getByText("粘贴结构化 JSON", { exact: true }).click();
 }
 
 async function createBranchFromJsonImport(page: Page, candidateName: string) {

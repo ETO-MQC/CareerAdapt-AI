@@ -3,7 +3,7 @@ import type { SourceSpan } from "@/domain/schemas";
 export type RedactionResult = {
   text: string;
   redactions: {
-    type: "phone" | "email" | "id_card" | "address";
+    type: "name" | "phone" | "email" | "id_card" | "address";
     count: number;
   }[];
   restorationMap: Record<string, string>;
@@ -31,10 +31,15 @@ const redactionPatterns: Array<{
   },
   {
     type: "address",
-    pattern: /[\u4e00-\u9fa5A-Za-z0-9]{2,}(?:省|市|区|县|镇|街道|路|号楼|单元|室)/g,
+    pattern: /(?:(?:[\u4e00-\u9fa5]{2,}(?:省|自治区))?(?:[\u4e00-\u9fa5]{2,}(?:市|自治州))?[\u4e00-\u9fa5]{2,}(?:区|县)[\u4e00-\u9fa5A-Za-z0-9]{1,}(?:路|街|道|巷|弄)[\u4e00-\u9fa5A-Za-z0-9号楼栋单元室-]{0,30}|[\u4e00-\u9fa5A-Za-z0-9]{2,}(?:路|街|道|巷|弄)(?:\d+|某)号(?:\d+(?:号楼|栋|单元|室))?)/g,
     placeholderPrefix: "ADDRESS"
   }
 ];
+
+export type SensitiveTextTokenizer = {
+  tokenize(text: string): RedactionResult;
+  readonly restorationMap: Record<string, string>;
+};
 
 export async function hashText(text: string) {
   if (globalThis.crypto?.subtle) {
@@ -80,30 +85,53 @@ export function stableHashText(text: string) {
   return `fnv-${(hash >>> 0).toString(16).padStart(8, "0")}-${text.length}`;
 }
 
-export function redactSensitiveTextForModel(text: string): RedactionResult {
-  let redacted = text;
-  const redactions: RedactionResult["redactions"] = [];
+export function createSensitiveTextTokenizer(input: {
+  highConfidenceNames?: string[];
+} = {}): SensitiveTextTokenizer {
   const restorationMap: Record<string, string> = {};
+  const placeholdersByType = new Map<string, Map<string, string>>();
+  const namePatterns = Array.from(new Set(
+    (input.highConfidenceNames ?? []).map((name) => name.trim()).filter(Boolean)
+  )).map((name) => ({
+    type: "name" as const,
+    pattern: new RegExp(escapeRegExp(name), "g"),
+    placeholderPrefix: "NAME"
+  }));
+  const patterns = [...namePatterns, ...redactionPatterns];
 
-  for (const item of redactionPatterns) {
-    let count = 0;
-    const placeholders = new Map<string, string>();
-    redacted = redacted.replace(item.pattern, (matched) => {
-      count += 1;
-      const existing = placeholders.get(matched);
-      if (existing) return existing;
-      const placeholder = `[${item.placeholderPrefix}_${placeholders.size + 1}]`;
-      placeholders.set(matched, placeholder);
-      restorationMap[placeholder] = matched;
-      return placeholder;
-    });
+  return {
+    restorationMap,
+    tokenize(text: string) {
+      let redacted = text;
+      const redactions: RedactionResult["redactions"] = [];
+      for (const item of patterns) {
+        let count = 0;
+        const placeholders = placeholdersByType.get(item.placeholderPrefix) ?? new Map<string, string>();
+        placeholdersByType.set(item.placeholderPrefix, placeholders);
+        redacted = redacted.replace(item.pattern, (matched) => {
+          count += 1;
+          const existing = placeholders.get(matched);
+          if (existing) return existing;
+          const placeholder = `[${item.placeholderPrefix}_${placeholders.size + 1}]`;
+          placeholders.set(matched, placeholder);
+          restorationMap[placeholder] = matched;
+          return placeholder;
+        });
 
-    if (count > 0) {
-      redactions.push({ type: item.type, count });
+        if (count > 0) {
+          redactions.push({ type: item.type, count });
+        }
+      }
+      return { text: redacted, redactions, restorationMap };
     }
-  }
+  };
+}
 
-  return { text: redacted, redactions, restorationMap };
+export function redactSensitiveTextForModel(
+  text: string,
+  input: { highConfidenceNames?: string[] } = {}
+): RedactionResult {
+  return createSensitiveTextTokenizer(input).tokenize(text);
 }
 
 export function restoreSensitivePlaceholders<T>(value: T, restorationMap: Record<string, string>): T {
@@ -118,6 +146,19 @@ export function restoreSensitivePlaceholders<T>(value: T, restorationMap: Record
     return current;
   };
   return visit(value) as T;
+}
+
+export const unresolvedSensitivePlaceholderPattern =
+  /\[(?:NAME|PHONE|EMAIL|ADDRESS|ID_NUMBER)_\d+\]/;
+
+export function containsUnresolvedSensitivePlaceholder(value: unknown): boolean {
+  return unresolvedSensitivePlaceholderPattern.test(
+    typeof value === "string" ? value : JSON.stringify(value)
+  );
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 export function locateSourceQuote(rawText: string, sourceQuote: string): SourceSpan | undefined {

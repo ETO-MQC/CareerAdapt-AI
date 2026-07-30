@@ -137,7 +137,10 @@ import {
   validateRequirementMatchReferences,
   withResolvedEffectiveMatch
 } from "@/domain/match/matcher";
-import { stableHashText } from "@/services/security/text";
+import {
+  containsUnresolvedSensitivePlaceholder,
+  stableHashText
+} from "@/services/security/text";
 import { CareerAdaptDb, careerAdaptDb, type AppMeta } from "./db";
 
 const RECYCLE_BIN_META_KEY = "workspaceRecycleBin:v1";
@@ -990,6 +993,7 @@ export class WorkspaceRepository {
         reconciliationPlan: plan,
         now
       }));
+      assertNoUnresolvedSensitivePlaceholders(committedProfile);
       const committedPlan = ProfileReconciliationPlanSchema.parse({
         ...plan,
         status: "committed",
@@ -1098,6 +1102,7 @@ export class WorkspaceRepository {
         if (draft.status !== "reviewing") {
           throw new Error("resume_import_draft_not_reviewing");
         }
+        assertNoUnresolvedSensitivePlaceholders(draft);
 
         const profiles = await this.db.profiles.toArray();
         const existingProfile = input.target?.mode === "existing"
@@ -1218,6 +1223,8 @@ export class WorkspaceRepository {
         }) : undefined;
         const runtimeProfile = migrateCareerProfileToV2(committedProfile);
         const runtimeBranch = built ? migrateResumeBranchToV2(built.branch) : undefined;
+        assertNoUnresolvedSensitivePlaceholders(runtimeProfile);
+        if (runtimeBranch) assertNoUnresolvedSensitivePlaceholders(runtimeBranch);
 
         await this.db.profiles.put(runtimeProfile);
         if (built && runtimeBranch && operation && presentationConfig) {
@@ -6044,4 +6051,10 @@ function applySuggestionToSections(
       ? { ...section, text: nextText, updatedAt: now }
       : section
   );
+}
+
+function assertNoUnresolvedSensitivePlaceholders(value: unknown) {
+  if (containsUnresolvedSensitivePlaceholder(value)) {
+    throw new Error("resume_import_unresolved_sensitive_placeholder");
+  }
 }

@@ -22,6 +22,11 @@ import { ImportReviewDialog } from "@/components/resume/import/ImportReviewDialo
 import { ResumeImportWizard } from "@/components/resume/import/ResumeImportWizard";
 import { WorkspaceRepository } from "@/services/storage/repositories";
 import type { CareerProfile } from "@/domain/schemas";
+import {
+  readResumeImportSemanticPreference,
+  writeResumeImportSemanticPreference
+} from "@/services/preferences/resumeImportAi";
+import { adaptResumeJsonToV2 } from "@/domain/resumeImport/jsonV2Adapter";
 
 type ResumeSummary = { id: string; profileId: string; name: string; purpose: string; revision: number };
 type SessionComposerDrafts = Record<string, string>;
@@ -45,6 +50,7 @@ export function AgentWorkspace() {
   const [draftReferencesBySession, setDraftReferencesBySession] = useState<Record<string, AgentMessageReference | undefined>>({});
   const [lastUserMessage, setLastUserMessage] = useState("");
   const [floatingAction, setFloatingAction] = useState<AgentUiAction>();
+  const [pendingResumeImportFile, setPendingResumeImportFile] = useState<File>();
   const initialSessionRef = useRef(session);
   const running = snapshot.turnStatus === "running";
   const paused = snapshot.turnStatus === "paused";
@@ -335,6 +341,13 @@ export function AgentWorkspace() {
             onSend={dispatchMessage}
             onUiAction={dispatchUi}
             onUpload={async (file) => {
+              if (
+                readResumeImportSemanticPreference() === "unset"
+                && !(await isCanonicalCareerAdaptJsonFile(file))
+              ) {
+                setPendingResumeImportFile(file);
+                return "ready" as const;
+              }
               await host.state.dispatch({ type: "file", file }, { session, pageContext: pageContext() });
               return "ready" as const;
             }}
@@ -352,6 +365,34 @@ export function AgentWorkspace() {
           onStateChange={setDrawerState}
         />
       </div>
+      <ImportReviewDialog
+        open={Boolean(pendingResumeImportFile)}
+        title="选择简历识别方式"
+        description="此选择会保存；AI 服务配置变化后会再次询问。"
+        variant="agent"
+        testId="agent-import-ai-consent"
+        onClose={() => setPendingResumeImportFile(undefined)}
+      >
+        <section className="ai-mapping-consent">
+          <p>
+            AI 智能识别会将本地提取并脱敏后的简历内容发送给当前配置的 AI 服务。
+            原始 PDF/DOCX 文件不会发送。电话、邮箱、身份证号、可识别的详细地址，
+            以及高置信姓名会优先在本地替换为占位符。
+          </p>
+          <div className="action-row">
+            <button className="primary-button compact" type="button" onClick={() => {
+              void continuePendingResumeImport("ai");
+            }}>
+              使用 AI 智能识别
+            </button>
+            <button className="secondary-button compact" type="button" onClick={() => {
+              void continuePendingResumeImport("local");
+            }}>
+              仅本地解析
+            </button>
+          </div>
+        </section>
+      </ImportReviewDialog>
       <AgentHistoryDialog
         open={historyOpen}
         sessions={sessions}
@@ -405,6 +446,29 @@ export function AgentWorkspace() {
       </ImportReviewDialog>
     </AgentWorkspaceLayout>
   );
+
+  async function continuePendingResumeImport(mode: "ai" | "local") {
+    const file = pendingResumeImportFile;
+    if (!file) return;
+    writeResumeImportSemanticPreference(mode);
+    setPendingResumeImportFile(undefined);
+    await host.state.dispatch(
+      { type: "file", file },
+      { session: host.state.getSnapshot().activeSession ?? session, pageContext: pageContext() }
+    );
+  }
+}
+
+async function isCanonicalCareerAdaptJsonFile(file: File) {
+  if (file.type !== "application/json" && !file.name.toLowerCase().endsWith(".json")) {
+    return false;
+  }
+  try {
+    const adapted = adaptResumeJsonToV2(JSON.parse(await file.text()));
+    return adapted.ok && adapted.sourceKind === "v2";
+  } catch {
+    return false;
+  }
 }
 
 export function readSessionComposerDrafts(): SessionComposerDrafts {

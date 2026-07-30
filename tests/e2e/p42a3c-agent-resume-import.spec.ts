@@ -120,7 +120,7 @@ test.describe("P4.2a.3c autonomous resume import", () => {
       await fulfillAsk(route, summaryMessage(prepareObservation));
     });
 
-    await upload(page, "tests/fixtures/resume-import/structured-standard.json");
+    await upload(page, "tests/fixtures/resume-import/reconciliation-v2.json");
     await expect(page.getByText(/已识别 \d+ 项信息/).last()).toBeVisible();
     await expect.poll(() => prepareObservation?.sourceKind).toBe("standard_json");
     await page.getByLabel("描述你的求职任务").fill("确认这些信息，新建资料库，名称为 测试导入用户");
@@ -138,7 +138,7 @@ test.describe("P4.2a.3c autonomous resume import", () => {
     await expect(page.getByRole("region", { name: "简历导入核对" })).toBeVisible();
   });
 
-  test("D — external JSON stays on the deterministic adapter path", async ({ page }) => {
+  test("D — external JSON can use the explicit deterministic local fallback", async ({ page }) => {
     const prepared = await prepareToReview(page, "tests/fixtures/resume-import/external-aliases.json");
     expect(prepared).toMatchObject({ sourceKind: "external_json", status: "ready_for_review" });
     expect((prepared.artifactPayload as Record<string, unknown>).sourceType).toBe("external_json");
@@ -385,7 +385,7 @@ test.describe("P4.2a.3c autonomous resume import", () => {
   for (const manualCase of [
     { label: "PDF", fixture: "tests/fixtures/pdf/two-column-reportlab.pdf", sourceKind: "complex_digital_pdf" },
     { label: "DOCX", fixture: "tests/fixtures/resume-import/ordinary.docx", sourceKind: "docx" },
-    { label: "JSON", fixture: "tests/fixtures/resume-import/structured-standard.json", sourceKind: "standard_json" },
+    { label: "JSON", fixture: "tests/fixtures/resume-import/structured-standard.json", sourceKind: "external_json" },
     { label: "Markdown", fixture: "tests/fixtures/resume-import/semantic-single-column.md", sourceKind: "markdown" },
     { label: "TXT", fixture: "tests/fixtures/resume-import/semantic-skills-heavy.txt", sourceKind: "text" }
   ]) {
@@ -454,6 +454,10 @@ async function prepareToReview(page: Page, fixture: string) {
 async function upload(page: Page, fixture: string) {
   await page.goto("/ai-workspace");
   await page.locator('.agent-composer input[type="file"]').setInputFiles(resolve(process.cwd(), fixture));
+  const consent = page.getByTestId("agent-import-ai-consent");
+  if (await consent.isVisible({ timeout: 1_000 }).catch(() => false)) {
+    await consent.getByRole("button", { name: "仅本地解析", exact: true }).click();
+  }
 }
 
 function readAttachmentId(systemPrompt = "") {

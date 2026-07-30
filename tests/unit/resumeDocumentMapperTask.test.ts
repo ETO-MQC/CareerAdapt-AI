@@ -45,6 +45,33 @@ describe("resume-document-mapper v2 boundary", () => {
     if (typeof item !== "string") item.current = true;
     expect(() => definition.validateOutput(output, input)).toThrow("resume_json_mapper_invented_current_status");
   });
+
+  it("grounds sensitive placeholders against the redacted authoritative source", () => {
+    const sensitiveRawText = JSON.stringify([
+      { id: "contact", normalizedText: "电话：13800000000" }
+    ]);
+    const output: ResumeJsonMapperOutput = {
+      structuredDraft: {
+        basics: { phone: "[PHONE_1]" },
+        sections: []
+      },
+      mappingDecisions: [{
+        kind: "canonical_field",
+        targetFieldId: "basics.phone",
+        sourceBlockIds: ["contact"],
+        sourceQuote: "[PHONE_1]",
+        confidence: 0.99,
+        needsConfirmation: false,
+        mappingReason: "exact redacted source"
+      }],
+      unclassifiedBlocks: []
+    };
+
+    expect(() => definition.validateOutput(output, {
+      rawText: sensitiveRawText,
+      inputHash: "sensitive-document-mapper-input"
+    })).not.toThrow();
+  });
 });
 
 function validOutput(): ResumeJsonMapperOutput {

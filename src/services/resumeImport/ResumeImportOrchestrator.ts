@@ -35,11 +35,17 @@ import type {
   PdfImportSession,
   PdfPageText,
   ResumeJsonMapperOutput,
+  ResumeSourceDocumentV2,
   ResumeSourceKind
 } from "@/domain/schemas";
+import { sourceDocumentFromDraft } from "@/domain/resumeImport/sourceDocument";
 import { extractTextFromPdfBuffer } from "@/services/pdf/extractText";
 import { hashBytes, hashText } from "@/services/security/text";
 import type { WorkspaceRepository } from "@/services/storage/repositories";
+import {
+  ResumeDocumentSemanticMapper,
+  ResumeDocumentSemanticMapperError
+} from "@/services/resumeImport/ResumeDocumentSemanticMapper";
 import {
   DEFAULT_DOCUMENT_RECOGNITION_PREFERENCES
 } from "@/services/preferences/documentRecognition";
@@ -106,6 +112,7 @@ export type ResumeImportPrepareResult = {
 export type ResumeImportPrepareContext = {
   signal?: AbortSignal;
   preferences?: DocumentRecognitionPreferences;
+  semanticMode?: "ai" | "local";
   onProgress?: (progress: ResumeImportProgress) => void;
 };
 
@@ -113,11 +120,24 @@ export class ResumeImportOrchestratorError extends Error {
   constructor(
     readonly code: string,
     message: string,
-    readonly recovery?: "reselect_file" | "manual_ocr" | "manual_review"
+    readonly recovery?: "reselect_file" | "manual_ocr" | "manual_review" | "retry_ai",
+    readonly fallbackResult?: ResumeImportPrepareResult
   ) {
     super(message);
   }
 }
+
+type InternalPrepareContext = ResumeImportPrepareContext & {
+  deferPersistence?: boolean;
+  suppressReadyProgress?: boolean;
+};
+
+export type ResumeImportExtractionResult = {
+  sourceDocument: ResumeSourceDocumentV2;
+  fallbackDraft: ImportedResumeDraft;
+  pages: PdfPageText[];
+  routingDecision: DocumentImportRoutingDecision;
+};
 
 export class ResumeImportOrchestrator {
   constructor(private readonly repository: WorkspaceRepository) {}
@@ -127,29 +147,94 @@ export class ResumeImportOrchestrator {
     context: ResumeImportPrepareContext = {}
   ): Promise<ResumeImportPrepareResult> {
     try {
-      assertNotAborted(context.signal);
-      const format = detectFormat(source);
-      if (!format) {
-        throw new ResumeImportOrchestratorError(
-          "resume_import_unsupported_file",
-          "当前仅支持 PDF、DOCX、JSON、Markdown 和 TXT 简历文件。"
-        );
+      const extracted = await this.extractSourceDocument(source, context);
+      let draft = extracted.fallbackDraft;
+      if (
+        context.semanticMode === "ai"
+        && draft.schemaVersion === "resume-import-v2"
+        && draft.sourceKind !== "standard_json"
+      ) {
+        emit(context, "mapping", "AI 正在识别简历内容…");
+        try {
+          draft = await new ResumeDocumentSemanticMapper(this.repository).map(draft, {
+            signal: context.signal,
+            onProgress: (message) => emit(context, "mapping", message)
+          });
+        } catch (error) {
+          if (!(error instanceof ResumeDocumentSemanticMapperError)) throw error;
+          const fallback = await this.persistAndResult(
+            { ...extracted.fallbackDraft, status: "failed" },
+            extracted.pages,
+            extracted.routingDecision,
+            { ...context, suppressReadyProgress: true }
+          );
+          throw new ResumeImportOrchestratorError(
+            `resume_import_${error.code}`,
+            `${error.message} 来源文档和本地解析结果已保留，可重试 AI 或改用仅本地解析。`,
+            "retry_ai",
+            fallback
+          );
+        }
       }
-      if (format === "pdf") return await this.preparePdf(source, context);
-      if (format === "docx") return await this.prepareDocx(source, context);
-      if (format === "markdown" || format === "text") return await this.prepareTextDocument(source, format, context);
-      return await this.prepareJson(source, context);
+      return await this.persistAndResult(
+        draft,
+        extracted.pages,
+        extracted.routingDecision,
+        context
+      );
     } catch (error) {
       emit(context, "failed", error instanceof Error ? error.message : "简历导入失败。");
       throw error;
     }
   }
 
+  async extractSourceDocument(
+    source: ResumeImportLocalSource,
+    context: ResumeImportPrepareContext = {}
+  ): Promise<ResumeImportExtractionResult> {
+    const prepared = await this.prepareLocalExtraction(source, {
+      ...context,
+      deferPersistence: true
+    });
+    if (prepared.draft.schemaVersion !== "resume-import-v2") {
+      throw new ResumeImportOrchestratorError(
+        "resume_import_source_document_v2_required",
+        "来源文档未能转换为 Resume SourceDocument v2。"
+      );
+    }
+    return {
+      sourceDocument: sourceDocumentFromDraft(prepared.draft),
+      fallbackDraft: prepared.draft,
+      pages: prepared.pages,
+      routingDecision: prepared.routingDecision
+    };
+  }
+
+  private async prepareLocalExtraction(
+    source: ResumeImportLocalSource,
+    context: InternalPrepareContext
+  ): Promise<ResumeImportPrepareResult> {
+    assertNotAborted(context.signal);
+    const format = detectFormat(source);
+    if (!format) {
+      throw new ResumeImportOrchestratorError(
+        "resume_import_unsupported_file",
+        "当前仅支持 PDF、DOCX、JSON、Markdown 和 TXT 简历文件。"
+      );
+    }
+    if (format === "pdf") return this.preparePdf(source, context);
+    if (format === "docx") return this.prepareDocx(source, context);
+    if (format === "markdown" || format === "text") {
+      return this.prepareTextDocument(source, format, context);
+    }
+    return this.prepareJson(source, context);
+  }
+
   private async preparePdf(
     source: ResumeImportLocalSource,
-    context: ResumeImportPrepareContext
+    context: InternalPrepareContext
   ): Promise<ResumeImportPrepareResult> {
-    emit(context, "validating", "正在校验 PDF 文件。");
+    emit(context, "validating", "正在读取文档…");
     const descriptor = validatePdfFileDescriptor(source.file);
     if (!descriptor.ok) throw new ResumeImportOrchestratorError("invalid_pdf_descriptor", descriptor.message);
     const buffer = await source.file.arrayBuffer();
@@ -339,9 +424,9 @@ export class ResumeImportOrchestrator {
 
   private async prepareDocx(
     source: ResumeImportLocalSource,
-    context: ResumeImportPrepareContext
+    context: InternalPrepareContext
   ) {
-    emit(context, "validating", "正在校验 DOCX 文件。");
+    emit(context, "validating", "正在读取文档…");
     const buffer = await source.file.arrayBuffer();
     assertNotAborted(context.signal);
     const fileHash = await hashBytes(new Uint8Array(buffer));
@@ -369,9 +454,9 @@ export class ResumeImportOrchestrator {
 
   private async prepareJson(
     source: ResumeImportLocalSource,
-    context: ResumeImportPrepareContext
+    context: InternalPrepareContext
   ) {
-    emit(context, "validating", "正在校验结构化 JSON。");
+    emit(context, "validating", "正在读取文档…");
     const rawText = await source.file.text();
     const risk = validateJsonText(rawText);
     if (risk) throw new ResumeImportOrchestratorError("invalid_json_source", risk);
@@ -386,7 +471,7 @@ export class ResumeImportOrchestrator {
       ...jsonV2ToLegacyMapperOutput(adapted.value),
       mappingDecisions: []
     };
-    const sourceKind = adapted.sourceKind === "external" ? "external_json" : "standard_json";
+    const sourceKind = adapted.sourceKind === "v2" ? "standard_json" : "external_json";
     const fileHash = await hashText(rawText);
     const blocks = normalizeExtractedSourceBlocks(createJsonSourceBlocks(parsed.value));
     const quality = analyzeImportQuality({ sourceType: sourceKind, blocks });
@@ -419,9 +504,9 @@ export class ResumeImportOrchestrator {
   private async prepareTextDocument(
     source: ResumeImportLocalSource,
     format: "markdown" | "text",
-    context: ResumeImportPrepareContext
+    context: InternalPrepareContext
   ) {
-    emit(context, "validating", format === "markdown" ? "正在校验 Markdown 文件。" : "正在校验文本文件。");
+    emit(context, "validating", "正在读取文档…");
     const text = await source.file.text();
     if (!text.trim()) throw new ResumeImportOrchestratorError("empty_import_text", "文件中没有可导入文本。");
     if (text.length > 200_000) throw new ResumeImportOrchestratorError("text_import_too_large", "文本文件超过 200000 字符限制。");
@@ -455,7 +540,7 @@ export class ResumeImportOrchestrator {
       routingDecision: DocumentImportRoutingDecision;
       extraWarnings?: string[];
     },
-    context: ResumeImportPrepareContext
+    context: InternalPrepareContext
   ) {
     emit(context, "normalizing", "正在规范化来源块。");
     const blocks = normalizeExtractedSourceBlocks(input.sourceBlocks);
@@ -513,14 +598,31 @@ export class ResumeImportOrchestrator {
     draft: ImportedResumeDraft,
     pages: PdfPageText[],
     routingDecision: DocumentImportRoutingDecision,
-    context: ResumeImportPrepareContext
+    context: InternalPrepareContext
   ): Promise<ResumeImportPrepareResult> {
     assertNotAborted(context.signal);
-    emit(context, "building_draft", "正在保存可恢复的导入核对草稿。");
-    const saved = await this.repository.saveImportedResumeDraft({
+    const preparedDraft = {
       ...draft,
       parserVersion: `${draft.parserVersion}+${RESUME_IMPORT_CLEANER_VERSION}`
-    }, 0);
+    };
+    if (context.deferPersistence) {
+      return buildPrepareResult(preparedDraft, pages, routingDecision);
+    }
+    emit(context, "building_draft", "正在保存可恢复的导入核对草稿。");
+    const saved = await this.repository.saveImportedResumeDraft(preparedDraft, 0);
+    const result = buildPrepareResult(saved, pages, routingDecision);
+    if (!context.suppressReadyProgress) {
+      emit(context, "ready_for_review", `已识别 ${result.reviewSummary.itemCount} 项信息，其中 ${result.reviewSummary.needsReviewCount} 项需要确认。`);
+    }
+    return result;
+  }
+}
+
+function buildPrepareResult(
+  saved: ImportedResumeDraft,
+  pages: PdfPageText[],
+  routingDecision: DocumentImportRoutingDecision
+): ResumeImportPrepareResult {
     const reviewSummary = summarizeDraft(saved);
     const warnings = [
       ...(saved.qualityReport?.warnings ?? []),
@@ -536,7 +638,6 @@ export class ResumeImportOrchestrator {
       target: { status: "unresolved" },
       reviewState: "ready_for_review"
     };
-    emit(context, "ready_for_review", `已识别 ${reviewSummary.itemCount} 项信息，其中 ${reviewSummary.needsReviewCount} 项需要确认。`);
     return {
       importId: saved.importId,
       draftRevision: saved.revision,
@@ -552,7 +653,6 @@ export class ResumeImportOrchestrator {
       pages,
       routingDecision
     };
-  }
 }
 
 function detectFormat(source: ResumeImportLocalSource) {
