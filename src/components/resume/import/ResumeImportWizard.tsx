@@ -89,6 +89,7 @@ export function ResumeImportWizard(props: {
   initialImportId?: string;
   initialMode?: "file" | "json";
   initialTargetMode?: "existing" | "new";
+  variant?: "resume" | "agent";
   onImported: (result: { profileId: string; branchId?: string }) => Promise<void>;
 }) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -1106,7 +1107,7 @@ export function ResumeImportWizard(props: {
 
   return (
     <section
-      className={`resume-import-wizard no-print ${draft ? "resume-import-wizard-review" : ""}`}
+      className={`resume-import-wizard no-print ${draft ? "resume-import-wizard-review" : ""} ${props.variant === "agent" ? "resume-import-wizard-agent" : ""}`}
       aria-busy={["validating_file", "extracting_pdf", "extracting_docx", "extracting_ocr", "importing_json", "classifying_sections", "confirming"].includes(status)}
     >
       <p className="visually-hidden" role="status" aria-live="polite">{importStatusLabel(status)}。{message}</p>

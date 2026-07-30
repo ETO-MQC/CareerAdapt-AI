@@ -30,7 +30,7 @@ test("canonical fixture stays editable while Preview and PDF use formal presenta
   const previewOutput = previewStage.getByTestId("resume-pagination-measurement-page");
   const previewText = await previewOutput.textContent() ?? "";
   for (const label of DEBUG_LABELS) expect(previewText).not.toContain(label);
-  for (const value of ["示例大学", "本科 · 计算机科学", "示例城市", "2024.09–2028.06", "中文母语，英语四级备考中"]) {
+  for (const value of ["示例大学", "本科 · 计算机科学", "示例城市", "2024.09–2028.06", "技能1（熟练）", "使用 Kotlin 完成 Android 开发。", "中文母语，英语四级备考中"]) {
     expect(previewText).toContain(value);
   }
   await expect(previewOutput.locator('[data-presentation-item="work"]')).toHaveCount(2);
@@ -90,7 +90,7 @@ test("canonical fixture stays editable while Preview and PDF use formal presenta
   expect(capturedRequest?.snapshot?.renderModel.schemaVersion).toBe("resume-render-v2");
 
   for (const label of DEBUG_LABELS) expect(pdfText).not.toContain(label);
-  for (const value of ["示例大学", "本科", "计算机科学", "示例城市", "2024.09–2028.06", "工作条目一", "工作条目二", "项目一", "项目二", "项目三", "项目四", "奖项一", "奖项二", "中文母语，英语四级备考中"]) {
+  for (const value of ["示例大学", "本科", "计算机科学", "示例城市", "2024.09–2028.06", "工作条目一", "工作条目二", "项目一", "项目二", "项目三", "项目四", "奖项一", "奖项二", "技能1（熟练）", "使用 Kotlin 完成 Android 开发。", "中文母语，英语四级备考中"]) {
     expect(normalizeText(pdfText)).toContain(normalizeText(value));
     expect(normalizeText(previewText)).toContain(normalizeText(value));
   }
@@ -131,7 +131,8 @@ test("one-page and relaxed two-page presets preserve natural order and all conte
 
 async function importCanonicalFixture(page: Page) {
   await page.goto("/resume");
-  await page.getByRole("button", { name: "粘贴 JSON", exact: true }).click();
+  await page.getByRole("button", { name: "导入", exact: true }).click();
+  await page.getByText("粘贴结构化 JSON", { exact: true }).click();
   await page.locator(".import-json-details textarea").fill(JSON.stringify(canonicalFixture()));
   await page.locator(".import-json-details button.primary-button").click();
   await page.getByLabel("创建新人物").check();
@@ -171,7 +172,7 @@ function canonicalFixture() {
     { id: "work", sectionType: "work", title: "工作经历", order: 2, visible: true, items: ["一", "二"].map((suffix, index) => ({ ...common, id: `work-${index + 1}`, sectionType: "work", organization: `工作条目${suffix}`, role: "工程师", location: "示例城市", startDate: `202${index + 3}-01`, current: true, highlights: [`工作亮点${suffix}`] })) },
     { id: "project", sectionType: "project", title: "项目经历", order: 3, visible: true, items: ["一", "二", "三", "四"].map((suffix, index) => ({ ...common, id: `project-${index + 1}`, sectionType: "project", title: `项目${suffix}/版本—${index + 1}`, role: "项目角色", organization: "示例团队", location: "示例城市", startDate: `2025-0${index + 1}`, current: true, url: `https://example.com/project-${index + 1}`, tools: ["React", "TypeScript"], highlights: [`项目亮点${suffix}`, `项目成果${suffix}`], outcomes: [] })) },
     { id: "awards", sectionType: "awards", title: "奖项荣誉", order: 4, visible: true, items: ["一", "二"].map((suffix, index) => ({ ...common, id: `award-${index + 1}`, sectionType: "awards", name: `奖项${suffix}`, issuer: "示例机构", awardedAt: `2025-0${index + 3}` })) },
-    { id: "skills", sectionType: "skills", title: "专业技能", order: 5, visible: true, items: ["AI 与模型", "工程开发", "测试工具", "数据分析", "产品设计", "协作工具"].map((category, index) => ({ ...common, id: `skill-${index + 1}`, sectionType: "skills", name: `技能${index + 1}`, category })) },
+    { id: "skills", sectionType: "skills", title: "专业技能", order: 5, visible: true, items: ["AI 与模型", "工程开发", "测试工具", "数据分析", "产品设计", "协作工具"].map((category, index) => ({ ...common, id: `skill-${index + 1}`, sectionType: "skills", name: `技能${index + 1}`, category, ...(index === 0 ? { level: "熟练", description: "使用 Kotlin 完成 Android 开发。" } : {}) })) },
     { id: "languages", sectionType: "languages", title: "语言能力", order: 6, visible: true, items: [{ ...common, id: "language-1", sectionType: "languages", language: "中文母语，英语四级备考中" }] }
   ] };
 }

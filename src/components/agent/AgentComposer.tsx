@@ -26,6 +26,7 @@ type Attachment = {
 export function AgentComposer(props: {
   disabled?: boolean;
   running?: boolean;
+  queuedCount?: number;
   aiStatus?: string;
   draft?: string;
   reference?: AgentMessageReference;
@@ -89,7 +90,7 @@ export function AgentComposer(props: {
       onSubmit={async (event) => {
         event.preventDefault();
         const content = message.trim();
-        if (!content || props.disabled || props.running) return;
+        if (!content || props.disabled) return;
         setMessage("");
         await props.onSend(content);
       }}
@@ -183,11 +184,18 @@ export function AgentComposer(props: {
           </button>
         </div>
         <div className="agent-composer-submit">
-          <span>{props.aiStatus ?? (props.running ? "AI 正在处理..." : "AI 就绪")}</span>
+          <span>{props.aiStatus ?? (props.queuedCount
+            ? `已排队 ${props.queuedCount} 条`
+            : props.running ? "AI 正在处理，可继续发送排队" : "AI 就绪")}</span>
           {props.running ? (
-            <button className="agent-stop-button" type="button" aria-label="停止运行" onClick={props.onStop}>
-              <Square aria-hidden="true" />
-            </button>
+            <>
+              <button className="agent-send-button" type="submit" disabled={props.disabled || !message.trim()} aria-label="排队发送消息">
+                <Send aria-hidden="true" />
+              </button>
+              <button className="agent-stop-button" type="button" aria-label="停止运行" onClick={props.onStop}>
+                <Square aria-hidden="true" />
+              </button>
+            </>
           ) : (
             <button className="agent-send-button" type="submit" disabled={props.disabled || !message.trim()} aria-label="发送消息">
               <Send aria-hidden="true" />

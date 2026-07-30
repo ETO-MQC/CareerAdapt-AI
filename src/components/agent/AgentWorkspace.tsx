@@ -18,11 +18,16 @@ import { AgentConversationTimeline, normalizeAgentMessageText } from "./AgentCon
 import { AgentHistoryDialog } from "./AgentHistoryDialog";
 import { AgentZeroState } from "./workspace/AgentZeroState";
 import { AgentWorkspaceLayout } from "./workspace/AgentWorkspaceLayout";
+import { ImportReviewDialog } from "@/components/resume/import/ImportReviewDialog";
+import { ResumeImportWizard } from "@/components/resume/import/ResumeImportWizard";
+import { WorkspaceRepository } from "@/services/storage/repositories";
+import type { CareerProfile } from "@/domain/schemas";
 
 type ResumeSummary = { id: string; profileId: string; name: string; purpose: string; revision: number };
 type SessionComposerDrafts = Record<string, string>;
 
 const AGENT_COMPOSER_DRAFTS_KEY = "careerad-agent-composer-drafts:v1";
+const agentImportRepository = new WorkspaceRepository();
 
 export function AgentWorkspace() {
   const host = useAgentHost();
@@ -32,6 +37,7 @@ export function AgentWorkspace() {
   );
   const [sessions, setSessions] = useState<AgentSession[]>([]);
   const [resumes, setResumes] = useState<ResumeSummary[]>([]);
+  const [profiles, setProfiles] = useState<CareerProfile[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [drawerState, setDrawerState] = useState<AgentArtifactDrawerState>("closed");
   const [draftsBySession, setDraftsBySession] = useState<SessionComposerDrafts>(readSessionComposerDrafts);
@@ -98,11 +104,13 @@ export function AgentWorkspace() {
         toolInput: {},
         operationId: `list-resumes-${crypto.randomUUID()}`
       }),
-      host.store.list()
-    ]).then(([resumeResult, storedSessions]) => {
+      host.store.list(),
+      agentImportRepository.listProfiles()
+    ]).then(([resumeResult, storedSessions, storedProfiles]) => {
       if (!active) return;
       setResumes(readArray(resumeResult.data, "resumes") as ResumeSummary[]);
       setSessions(storedSessions);
+      setProfiles(storedProfiles);
       const live = host.state.getSnapshot();
       if (live.activeSession && live.turnStatus === "running") {
         setSession(live.activeSession);
@@ -319,6 +327,7 @@ export function AgentWorkspace() {
           <AgentComposer
             disabled={paused}
             running={running}
+            queuedCount={snapshot.pendingInputCount}
             draft={draft}
             reference={draftReference}
             onRemoveReference={() => setSessionDraftReference(undefined)}
@@ -339,6 +348,7 @@ export function AgentWorkspace() {
           taskState={session.taskState}
           onImportAction={(message) => void dispatchMessage(message)}
           onArtifactAction={dispatchArtifactAction}
+          onUiAction={dispatchUi}
           onStateChange={setDrawerState}
         />
       </div>
@@ -349,7 +359,7 @@ export function AgentWorkspace() {
         onSelect={restoreSession}
       />
       <AgentFloatingAction
-        action={floatingAction}
+        action={floatingAction?.type === "open_import_review" ? undefined : floatingAction}
         resumes={resumes}
         onClose={() => setFloatingAction(undefined)}
         onSend={(message) => {
@@ -357,6 +367,42 @@ export function AgentWorkspace() {
           void dispatchMessage(message);
         }}
       />
+      <ImportReviewDialog
+        open={floatingAction?.type === "open_import_review"}
+        title="核对并编辑导入内容"
+        description="核对来源、结构与目标；关闭后会回到当前 AI 对话。"
+        variant="agent"
+        testId="agent-import-review-dialog"
+        onClose={() => setFloatingAction(undefined)}
+      >
+        {floatingAction?.type === "open_import_review" ? (
+          <ResumeImportWizard
+            key={floatingAction.importId}
+            repository={agentImportRepository}
+            profile={profiles.find((item) => item.id === session.activeProfileId)}
+            profiles={profiles}
+            initialImportId={floatingAction.importId}
+            initialTargetMode={floatingAction.targetMode}
+            variant="agent"
+            onImported={async (result) => {
+              const action = floatingAction;
+              setFloatingAction(undefined);
+              setProfiles(await agentImportRepository.listProfiles());
+              const updated = await host.state.dispatch({
+                type: "external_event",
+                toolName: "confirm_resume_import",
+                observation: {
+                  importId: action.importId,
+                  profileId: result.profileId,
+                  branchId: result.branchId,
+                  status: "completed"
+                }
+              }, { session: host.state.getSnapshot().activeSession ?? session, pageContext: pageContext() });
+              if (updated) setSession(updated);
+            }}
+          />
+        ) : null}
+      </ImportReviewDialog>
     </AgentWorkspaceLayout>
   );
 }

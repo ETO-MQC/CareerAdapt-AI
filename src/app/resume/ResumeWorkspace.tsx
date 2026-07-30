@@ -43,6 +43,7 @@ import { A4ResumePreview } from "@/components/resume/A4ResumePreview";
 import { TemplateCenter } from "@/components/resume/TemplateCenter";
 import { ResumeDiagnosticsPanel } from "@/components/resume/diagnostics/ResumeDiagnosticsPanel";
 import { ResumeImportWizard } from "@/components/resume/import/ResumeImportWizard";
+import { ImportReviewDialog } from "@/components/resume/import/ImportReviewDialog";
 import { JobOptimizationPanel } from "@/components/resume/optimization/JobOptimizationPanel";
 import { FloatingWindow } from "@/components/ui/FloatingWindow";
 import {
@@ -190,7 +191,6 @@ export function ResumeWorkspace() {
   const workspace = useWorkspace(repository);
   const pageRef = useRef<HTMLElement | null>(null);
   const previewStageRef = useRef<HTMLDivElement | null>(null);
-  const importDialogRef = useRef<HTMLElement | null>(null);
   const importTriggerRef = useRef<HTMLElement | null>(null);
   const handledImportRequestRef = useRef<string | undefined>(undefined);
   const pendingImportedBranchIdRef = useRef<string | undefined>(undefined);
@@ -688,38 +688,6 @@ export function ResumeWorkspace() {
     window.requestAnimationFrame(() => importTriggerRef.current?.focus());
   }, []);
 
-  function handleImportDialogKeyDown(event: ReactKeyboardEvent<HTMLElement>) {
-    if (event.key === "Escape") {
-      event.preventDefault();
-      closeImportDialog();
-      return;
-    }
-    if (event.key !== "Tab") {
-      return;
-    }
-    const dialog = importDialogRef.current;
-    if (!dialog) {
-      return;
-    }
-    const focusable = Array.from(dialog.querySelectorAll<HTMLElement>(
-      'button:not([disabled]), [href], input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
-    )).filter((element) => !element.hasAttribute("hidden"));
-    if (focusable.length === 0) {
-      event.preventDefault();
-      dialog.focus();
-      return;
-    }
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
-    if (event.shiftKey && document.activeElement === first) {
-      event.preventDefault();
-      last.focus();
-    } else if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault();
-      first.focus();
-    }
-  }
-
   const closeProfileCreateDialog = useCallback(() => {
     setIsProfileCreateMenuOpen(false);
     setQuickProfileName("");
@@ -756,19 +724,6 @@ export function ResumeWorkspace() {
       first.focus();
     }
   }
-
-  useEffect(() => {
-    if (!isImportPanelOpen) {
-      return;
-    }
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    const frame = window.requestAnimationFrame(() => importDialogRef.current?.focus());
-    return () => {
-      window.cancelAnimationFrame(frame);
-      document.body.style.overflow = previousOverflow;
-    };
-  }, [isImportPanelOpen]);
 
   useEffect(() => {
     if (!isProfileCreateMenuOpen) {
@@ -3893,47 +3848,23 @@ export function ResumeWorkspace() {
       ) : null}
 
       {isImportPanelOpen ? (
-        <div
-          className="resume-import-modal-backdrop no-print"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) {
-              closeImportDialog();
-            }
-          }}
+        <ImportReviewDialog
+          open
+          title={selectedBranch ? "导入另一份简历" : "导入简历"}
+          description="PDF、DOCX 或 JSON；解析后先核对，不会覆盖当前简历。"
+          onClose={closeImportDialog}
         >
-          <section
-            ref={importDialogRef}
-            className="resume-import-modal"
-            data-testid="resume-import-dock"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="resume-import-modal-title"
-            tabIndex={-1}
-            onKeyDown={handleImportDialogKeyDown}
-          >
-            <header className="resume-import-modal-header">
-              <div>
-                <h2 id="resume-import-modal-title">{selectedBranch ? "导入另一份简历" : "导入简历"}</h2>
-                <p>PDF、DOCX 或 JSON；解析后先核对，不会覆盖当前简历。</p>
-              </div>
-              <button className="resume-import-modal-close" type="button" aria-label="关闭导入窗口" onClick={closeImportDialog}>
-                ×
-              </button>
-            </header>
-            <div className="resume-import-modal-body">
-              <ResumeImportWizard
-                key={importEntryMode}
-                repository={repository}
-                profile={profile}
-                profiles={workspace.status === "ready" ? workspace.profiles : profile ? [profile] : []}
-                initialImportId={requestedImportId}
-                initialTargetMode={importCreatesNewProfile ? "new" : "existing"}
-                initialMode={importEntryMode}
-                onImported={handleImportedResumeReady}
-              />
-            </div>
-          </section>
-        </div>
+          <ResumeImportWizard
+            key={importEntryMode}
+            repository={repository}
+            profile={profile}
+            profiles={workspace.status === "ready" ? workspace.profiles : profile ? [profile] : []}
+            initialImportId={requestedImportId}
+            initialTargetMode={importCreatesNewProfile ? "new" : "existing"}
+            initialMode={importEntryMode}
+            onImported={handleImportedResumeReady}
+          />
+        </ImportReviewDialog>
       ) : null}
 
       {selectedBranch ? (

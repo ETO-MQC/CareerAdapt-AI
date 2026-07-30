@@ -45,7 +45,10 @@ export function resolveContinuationIntent(state: AgentTaskState, message: string
       return {
         consumed: true,
         goal: "create_tailored_resume",
-        intent: "continue"
+        intent: "continue",
+        slotUpdates: /(?:然后|并且|再).*(?:导出|下载).*(?:PDF|简历)/i.test(text)
+          ? { orderedContinuation: ["apply_tailoring_changes", "export_resume"] }
+          : undefined
       };
     }
     return { consumed: false };

@@ -291,6 +291,9 @@ function AgentMessageRow({
           ) : (
             <AgentMessageBubble message={message} />
           )}
+          {isUser && message.metadata?.executionState === "queued" ? (
+            <small className="agent-message-queue-state" role="status">已排队</small>
+          ) : null}
           {isUser && historyOpen ? (
             <AgentMessageVersionHistory
               message={message}

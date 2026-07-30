@@ -82,5 +82,11 @@ describe.each(resumeTemplates)("$id formal presentation", (template) => {
     const skillItems = host.querySelectorAll(".resume-skill-item");
     expect(skillItems.length).toBeGreaterThan(0);
     expect([...skillItems].every((item) => item.querySelector(".resume-skill-name"))).toBe(true);
+    expect([...skillItems].every((item) => {
+      const heading = item.querySelector(".resume-skill-heading");
+      return heading?.querySelector(".resume-skill-name")
+        && heading.querySelector(".resume-skill-level")
+        && item.querySelector(".resume-skill-description");
+    })).toBe(true);
   });
 });

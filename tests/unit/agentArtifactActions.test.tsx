@@ -140,6 +140,7 @@ describe("Agent artifact decisions", () => {
   it("opens the persisted resume draft for source review instead of sending button labels to AI", () => {
     const onArtifactAction = vi.fn();
     const onImportAction = vi.fn();
+    const onUiAction = vi.fn();
     render(
       <AgentArtifactContent
         state={{ step: "select_resume", busy: false, diffs: [], confirmedRequirementIds: [] }}
@@ -167,17 +168,22 @@ describe("Agent artifact decisions", () => {
         } as unknown as AgentTaskState}
         onArtifactAction={onArtifactAction}
         onImportAction={onImportAction}
+        onUiAction={onUiAction}
       />
     );
 
-    expect(screen.getByRole("link", { name: "查看来源与逐项核对" })).toHaveAttribute(
-      "href",
-      "/resume?importId=import-%E6%98%8E%E5%90%AF%E8%BE%B0&importTarget=new"
-    );
-    expect(screen.getByRole("link", { name: "编辑导入内容" })).toHaveAttribute(
-      "href",
-      "/resume?importId=import-%E6%98%8E%E5%90%AF%E8%BE%B0&importTarget=new"
-    );
+    fireEvent.click(screen.getByRole("button", { name: "查看来源与逐项核对" }));
+    fireEvent.click(screen.getByRole("button", { name: "编辑导入内容" }));
+    expect(onUiAction).toHaveBeenNthCalledWith(1, {
+      type: "open_import_review",
+      importId: "import-示例用户",
+      targetMode: "new"
+    });
+    expect(onUiAction).toHaveBeenNthCalledWith(2, {
+      type: "open_import_review",
+      importId: "import-示例用户",
+      targetMode: "new"
+    });
     fireEvent.click(screen.getByRole("button", { name: "采用全部来源明确内容" }));
     expect(onArtifactAction).toHaveBeenCalledWith({
       type: "resume_import_review_decision",

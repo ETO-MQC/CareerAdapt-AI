@@ -14,6 +14,11 @@ export const AgentUiActionSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("open_job_import_dialog") }).strict(),
   z.object({ type: z.literal("open_profile_browser") }).strict(),
   z.object({ type: z.literal("open_tool_palette") }).strict(),
+  z.object({
+    type: z.literal("open_import_review"),
+    importId: z.string().min(1),
+    targetMode: z.enum(["existing", "new"])
+  }).strict(),
   z.object({ type: z.literal("open_artifact"), artifactId: z.string().min(1) }).strict()
 ]);
 

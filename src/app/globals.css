@@ -4082,6 +4082,57 @@ small,
   padding: 16px;
 }
 
+.import-review-dialog-agent {
+  padding: 12px;
+}
+
+.import-review-dialog-agent .resume-import-modal {
+  height: min(94dvh, 960px);
+  max-height: min(94dvh, 960px);
+  width: min(96vw, 1480px);
+}
+
+.import-review-dialog-agent .resume-import-modal-header {
+  padding: 8px 12px;
+}
+
+.import-review-dialog-agent .resume-import-modal-body {
+  padding: 12px;
+}
+
+.resume-import-wizard-agent {
+  gap: 8px;
+}
+
+.resume-import-wizard-agent button,
+.resume-import-wizard-agent input,
+.resume-import-wizard-agent select,
+.resume-import-wizard-agent summary.secondary-button {
+  min-height: 32px;
+}
+
+.resume-import-wizard-agent .import-review-grid {
+  gap: 8px;
+}
+
+.resume-import-wizard-agent .import-review-footer {
+  height: 44px;
+  margin: 0 -12px -12px;
+  padding: 6px 12px;
+  position: sticky;
+  bottom: 0;
+  z-index: 4;
+  background: var(--surface);
+}
+
+.agent-message-queue-state {
+  color: var(--muted);
+  display: block;
+  font-size: 11px;
+  margin-top: 4px;
+  text-align: right;
+}
+
 .resume-import-strip {
   align-items: center;
   background: var(--surface);
@@ -5419,8 +5470,16 @@ html[data-theme="dark"] .property-panel-heading p {
 }
 
 .resume-skill-item {
+  break-inside: avoid;
   display: grid;
   gap: 0.5mm;
+}
+
+.resume-skill-heading {
+  align-items: baseline;
+  display: inline-flex;
+  flex-wrap: wrap;
+  break-after: avoid;
 }
 
 .resume-skill-name {
@@ -5430,6 +5489,8 @@ html[data-theme="dark"] .property-panel-heading p {
 
 .resume-skill-level {
   color: #4d5650;
+  font-size: calc(var(--resume-body-font-size, 9.3pt) * 0.9);
+  font-weight: 500;
 }
 
 .resume-skill-description {

@@ -1,18 +1,20 @@
 import Link from "next/link";
 import type { TailorWorkflowViewState } from "@/agent/workflows/tailorExistingResumeWorkflow";
 import type { AgentTaskState } from "@/agent/contracts/agentSession";
-import type { AgentArtifactAction } from "@/agent/contracts/agentActions";
+import type { AgentArtifactAction, AgentUiAction } from "@/agent/contracts/agentActions";
 
 export function AgentArtifactContent({
   state,
   taskState,
   onImportAction,
-  onArtifactAction
+  onArtifactAction,
+  onUiAction
 }: {
   state: TailorWorkflowViewState;
   taskState?: AgentTaskState;
   onImportAction?(message: string): void;
   onArtifactAction?(action: AgentArtifactAction): void;
+  onUiAction?(action: AgentUiAction): void;
 }) {
   const graph = asRecord(state.jobGraph);
   const requirements = Array.isArray(graph.requirements) ? graph.requirements : [];
@@ -27,11 +29,12 @@ export function AgentArtifactContent({
     : typeof importArtifact.importId === "string"
       ? importArtifact.importId
       : undefined;
+  const targetMode = importTarget.mode === "new" || taskState?.knownSlots.importTargetIntent === "new"
+    ? "new"
+    : "existing";
   const importReviewHref = importId
     ? `/resume?importId=${encodeURIComponent(importId)}&importTarget=${
-        importTarget.mode === "new" || taskState?.knownSlots.importTargetIntent === "new"
-          ? "new"
-          : "existing"
+        targetMode
       }`
     : "/resume";
   const importReconciliation = asRecord(taskState?.knownSlots.importReconciliation);
@@ -231,8 +234,14 @@ export function AgentArtifactContent({
             <p>来源与结构检查未发现阻断项。</p>
           )}
           <div className="agent-import-review-actions">
-            <Link href={importReviewHref}>查看来源与逐项核对</Link>
-            <Link href={importReviewHref}>编辑导入内容</Link>
+            {importId ? (
+              <>
+                <button type="button" onClick={() => onUiAction?.({ type: "open_import_review", importId, targetMode })}>查看来源与逐项核对</button>
+                <button type="button" onClick={() => onUiAction?.({ type: "open_import_review", importId, targetMode })}>编辑导入内容</button>
+              </>
+            ) : (
+              <Link href={importReviewHref}>在简历工作台恢复核对</Link>
+            )}
             {taskState.knownSlots.reviewStatus !== "reviewed" ? (
               <>
                 <button type="button" onClick={() => onArtifactAction?.({

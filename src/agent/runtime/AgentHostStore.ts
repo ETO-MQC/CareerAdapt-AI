@@ -24,6 +24,11 @@ import { agentAttachmentStore, type AgentAttachmentRef } from "@/services/agent/
 import { agentImportProgressBus } from "@/services/agent/AgentImportProgressBus";
 import { classifyTurnIntent, type TurnIntentDecision } from "./AgentTurnIntent";
 import type { AgentQuickActionId, QuickActionIntent } from "@/agent/contracts/agentQuickAction";
+import {
+  resolveCompoundAnswer,
+  unresolvedTailoringQuestions,
+  type CompoundAnswerResolution
+} from "./CompoundAnswerResolver";
 
 export type AgentHostInput =
   | { type: "message"; text: string; references?: AgentMessageReference[] }
@@ -51,6 +56,15 @@ export type AgentHostSnapshot = {
   artifacts: AgentArtifactRef[];
   currentObservation?: unknown;
   uiAction?: AgentUiAction;
+  pendingInputCount: number;
+};
+
+type PendingUserInput = {
+  sessionId: string;
+  userMessage: string;
+  userMessageId: string;
+  pageContext: AgentPageContext;
+  references?: AgentMessageReference[];
 };
 
 export class AgentHostStore {
@@ -58,14 +72,17 @@ export class AgentHostStore {
     turnStatus: "idle",
     streamEvents: [],
     artifacts: [],
-    stalled: false
+    stalled: false,
+    pendingInputCount: 0
   };
   private readonly listeners = new Set<() => void>();
   private activeController?: AbortController;
+  private activeExecution?: Promise<AgentSession | undefined>;
   private stallTimer?: ReturnType<typeof setTimeout>;
   private runGeneration = 0;
   private readonly confirmationExecutions = new Map<string, Promise<AgentSession | undefined>>();
   private readonly artifactActionExecutions = new Map<string, Promise<AgentSession | undefined>>();
+  private readonly pendingInputs = new Map<string, PendingUserInput[]>();
 
   constructor(private readonly dependencies: {
     kernel: AgentKernel;
@@ -117,7 +134,7 @@ export class AgentHostStore {
   getSnapshot = () => this.snapshot;
 
   adopt(session: AgentSession) {
-    if (this.snapshot.activeSessionId === session.id && this.snapshot.turnStatus === "running") return;
+    if (this.snapshot.turnStatus === "running") return;
     const recoverable = enforceExactlyOneFinal(recoverOrphanedThinking(session));
     if (recoverable !== session) void this.dependencies.persistence.save(recoverable);
     this.patch({
@@ -178,7 +195,8 @@ export class AgentHostStore {
         userMessageId: input.messageId,
         assistantMessageId,
         appendUserMessage: false,
-        pageContext: context.pageContext
+        pageContext: context.pageContext,
+        supersede: true
       });
     }
     if (input.type === "regenerate_message") {
@@ -193,7 +211,8 @@ export class AgentHostStore {
         userMessageId: prepared.userMessageId,
         assistantMessageId: input.messageId,
         appendUserMessage: false,
-        pageContext: context.pageContext
+        pageContext: context.pageContext,
+        supersede: true
       });
     }
     if (input.type === "external_event") {
@@ -238,7 +257,8 @@ export class AgentHostStore {
         session,
         userMessage: input.text,
         pageContext: context.pageContext,
-        typedTask: input.task
+        typedTask: input.task,
+        supersede: true
       });
     }
     if (session.pendingConfirmation && /^(?:确认|确定|同意|继续|确认并继续)[。！!]?$/u.test(input.text.trim())) {
@@ -279,21 +299,31 @@ export class AgentHostStore {
     attachment?: AgentAttachmentRef;
     references?: AgentMessageReference[];
     typedTask?: QuickActionIntent["task"];
+    supersede?: boolean;
   }) {
     if (input.session.pendingConfirmation && input.session.pendingToolCall) {
       input.session = invalidatePendingConfirmationForCorrection(input.session);
     }
-    const previousGeneration = this.runGeneration;
     if (this.activeController) {
+      if (!input.supersede) {
+        return this.enqueueUserInput(input);
+      }
+      const previousGeneration = this.runGeneration;
+      input.session = this.clearQueuedInputs(input.session);
+      input.session = await this.dependencies.persistence.save(input.session);
+      this.patchSession(input.session);
       this.activeController.abort();
+      await this.activeExecution;
       const interrupted = completeTurn(this.snapshot.activeSession ?? input.session, "aborted");
       input.session = appendAgentMessage(interrupted, "system", "上一轮已中断；已完成的步骤会保留，并按你的新意图重新规划。", {
         kind: "system_notice",
         type: "system_notice",
         status: "complete"
       });
+      this.runGeneration = previousGeneration + 1;
+    } else {
+      this.runGeneration += 1;
     }
-    this.runGeneration = previousGeneration + 1;
     const generation = this.runGeneration;
     const controller = new AbortController();
     this.activeController = controller;
@@ -324,7 +354,13 @@ export class AgentHostStore {
           ...input.session,
           messages: input.session.messages.map((message) =>
             message.id === userMessageId
-              ? { ...message, turnId, updatedAt: now }
+              ? {
+                  ...message,
+                  turnId,
+                  status: "complete" as const,
+                  metadata: { ...message.metadata, executionState: "running" },
+                  updatedAt: now
+                }
               : message
           ),
           updatedAt: now
@@ -347,6 +383,7 @@ export class AgentHostStore {
           parentMessageId: userMessageId
         });
     const reducer = new AgentTaskStateReducer();
+    let kernelUserMessage = input.userMessage;
     let taskState = current.taskState ?? reducer.create(current);
     if (turnDecision.taskMutation !== "preserve") {
       if (turnDecision.taskMutation === "replace" && turnDecision.newTask) {
@@ -393,6 +430,51 @@ export class AgentHostStore {
         attachment: input.attachment
       });
     }
+    const compound = resolveCompoundAnswer(
+      input.userMessage,
+      unresolvedTailoringQuestions(taskState)
+    );
+    if (compound.answers.length) {
+      const applied: CompoundAnswerResolution["answers"] = [];
+      for (const mapping of compound.answers) {
+        const unresolved = unresolvedTailoringQuestions(taskState);
+        if (!unresolved.some((question) => question.id === mapping.questionId)) continue;
+        const tailoringSession = taskState.knownSlots.tailoringSession;
+        const operationId = `compound-answer-${turnId}-${mapping.questionId}`.slice(0, 160);
+        const result = await this.dependencies.executor.execute({
+          toolName: "answer_tailoring_question",
+          toolInput: {
+            session: tailoringSession,
+            questionId: mapping.questionId,
+            answer: mapping.answer,
+            proficiency: mapping.proficiency
+          },
+          operationId,
+          signal: controller.signal
+        });
+        if (!result.ok) break;
+        taskState = reducer.reduce(taskState, {
+          type: "tool_observation",
+          toolName: result.toolName,
+          observation: result.data,
+          artifactIds: result.artifactIds
+        });
+        applied.push(mapping);
+      }
+      taskState = {
+        ...taskState,
+        knownSlots: {
+          ...taskState.knownSlots,
+          compoundAnswerResolution: {
+            answers: applied,
+            unmatchedText: compound.unmatchedText
+          }
+        },
+        updatedAt: new Date().toISOString()
+      };
+      kernelUserMessage = compound.unmatchedText
+        ?? "已按顺序记录这条消息中的澄清回答，请继续当前流程。";
+    }
     current = {
       ...projectTaskStateIntoSession(current, taskState),
       activeTurn: {
@@ -413,16 +495,20 @@ export class AgentHostStore {
       streamEvents: [],
       currentObservation: undefined
     });
-    return this.consume({
+    const execution = this.consume({
       generation,
       controller,
       current,
       thinkingMessageId,
       turnId,
       pageContext: input.pageContext,
-      userMessage: input.userMessage,
+      userMessage: kernelUserMessage,
       references: input.references,
       turnDecision
+    });
+    this.activeExecution = execution;
+    return execution.finally(() => {
+      if (this.activeExecution === execution) this.activeExecution = undefined;
     });
   }
 
@@ -717,6 +803,7 @@ export class AgentHostStore {
     const execution = artifactActionExecution(session.taskState, action);
     if (!execution || revision === undefined) return session;
     this.activeController?.abort();
+    await this.activeExecution;
     const turnId = `agent-turn-${crypto.randomUUID()}`;
     const operationId = [
       "artifact-action",
@@ -774,6 +861,7 @@ export class AgentHostStore {
     turnId: string
   ) {
     this.activeController?.abort();
+    await this.activeExecution;
     const controller = new AbortController();
     this.activeController = controller;
     const generation = ++this.runGeneration;
@@ -802,7 +890,7 @@ export class AgentHostStore {
       activeTurnId: turnId,
       currentObservation: internal.observation
     });
-    return this.consume({
+    const execution = this.consume({
       generation,
       controller,
       current,
@@ -810,6 +898,10 @@ export class AgentHostStore {
       turnId,
       pageContext,
       resume: internal
+    });
+    this.activeExecution = execution;
+    return execution.finally(() => {
+      if (this.activeExecution === execution) this.activeExecution = undefined;
     });
   }
 
@@ -1168,8 +1260,79 @@ export class AgentHostStore {
         } else {
           this.patch({ stalled: false });
         }
+        void this.drainPendingInput(input.current.id);
       }
     }
+  }
+
+  private async enqueueUserInput(input: {
+    session: AgentSession;
+    userMessage: string;
+    pageContext: AgentPageContext;
+    references?: AgentMessageReference[];
+  }) {
+    const session = this.snapshot.activeSession?.id === input.session.id
+      ? this.snapshot.activeSession
+      : input.session;
+    const userMessageId = `agent-user-${crypto.randomUUID()}`;
+    const queued = appendAgentMessage(session, "user", input.userMessage.trim(), {
+      id: userMessageId,
+      status: "pending",
+      references: input.references?.length ? input.references : undefined,
+      metadata: { executionState: "queued" }
+    });
+    const saved = await this.dependencies.persistence.save(queued);
+    const queue = this.pendingInputs.get(session.id) ?? [];
+    queue.push({
+      sessionId: session.id,
+      userMessage: input.userMessage,
+      userMessageId,
+      pageContext: input.pageContext,
+      references: input.references
+    });
+    this.pendingInputs.set(session.id, queue);
+    this.patchSession(saved, { pendingInputCount: queue.length });
+    return saved;
+  }
+
+  private async drainPendingInput(sessionId: string) {
+    if (this.activeController) return;
+    const queue = this.pendingInputs.get(sessionId);
+    const next = queue?.shift();
+    if (!next) {
+      this.pendingInputs.delete(sessionId);
+      this.patch({ pendingInputCount: 0 });
+      return;
+    }
+    if (!queue?.length) this.pendingInputs.delete(sessionId);
+    const session = this.snapshot.activeSession;
+    if (!session || session.id !== sessionId) return;
+    this.patch({ pendingInputCount: queue?.length ?? 0 });
+    await this.startTurn({
+      session,
+      userMessage: next.userMessage,
+      userMessageId: next.userMessageId,
+      appendUserMessage: false,
+      pageContext: next.pageContext,
+      references: next.references
+    });
+  }
+
+  private clearQueuedInputs(session: AgentSession) {
+    const queuedIds = new Set((this.pendingInputs.get(session.id) ?? []).map((input) => input.userMessageId));
+    if (!queuedIds.size) return session;
+    this.pendingInputs.delete(session.id);
+    this.patch({ pendingInputCount: 0 });
+    return {
+      ...session,
+      messages: session.messages.map((message) => queuedIds.has(message.id)
+        ? {
+            ...message,
+            status: "complete" as const,
+            metadata: { ...message.metadata, executionState: "superseded" }
+          }
+        : message)
+    };
   }
 
   private patchSession(session: AgentSession, patch: Partial<AgentHostSnapshot> = {}) {
@@ -1291,6 +1454,7 @@ function isUiAction(action: AgentUiAction | AgentWorkflowControl): action is Age
     "open_job_import_dialog",
     "open_profile_browser",
     "open_tool_palette",
+    "open_import_review",
     "open_artifact"
   ].includes(action.type);
 }

@@ -50,16 +50,28 @@ test.describe("P4.2a.3c autonomous resume import", () => {
   });
 
   test("B — DOCX attachment uses real DOCX extraction and produces a canonical draft", async ({ page }) => {
+    await page.setViewportSize({ width: 1024, height: 768 });
     const prepared = await prepareToReview(page, "tests/fixtures/resume-import/ordinary.docx");
     expect(prepared).toMatchObject({ sourceKind: "docx", status: "ready_for_review" });
     expect((prepared.reviewSummary as Record<string, unknown>).itemCount).toBeGreaterThan(0);
     await page.getByRole("button", { name: "产物 1" }).click();
     const artifact = page.getByRole("region", { name: "简历导入核对" });
     await expect(artifact).toContainText("DOCX");
-    await artifact.getByRole("link", { name: "查看来源与逐项核对" }).click();
-    await expect(page).toHaveURL(/\/resume\?importId=/);
-    await expect(page.getByRole("dialog", { name: "导入简历" })).toBeVisible();
+    const activeSessionId = await page.evaluate(() => window.localStorage.getItem("careerad-agent-active-session"));
+    await artifact.getByRole("button", { name: "查看来源与逐项核对" }).click();
+    await expect(page).toHaveURL(/\/ai-workspace$/);
+    await expect(page.getByTestId("agent-import-review-dialog")).toBeVisible();
+    await expect(page.getByRole("dialog", { name: "核对并编辑导入内容" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "字段来源" })).toBeVisible();
+    await expect(page.getByTestId("agent-import-review-dialog")).toHaveAttribute("data-import-review-variant", "agent");
+    await page.getByRole("button", { name: "关闭导入窗口" }).click();
+    await expect(page.getByTestId("agent-import-review-dialog")).toHaveCount(0);
+    await expect(page).toHaveURL(/\/ai-workspace$/);
+    expect(await page.evaluate(() => window.localStorage.getItem("careerad-agent-active-session"))).toBe(activeSessionId);
+    await expect(page.getByText(/已识别 \d+ 项信息/)).toBeVisible();
+    await artifact.getByRole("button", { name: "编辑导入内容" }).click();
+    await expect(page.getByRole("heading", { name: "字段来源" })).toBeVisible();
+    expect((await latestImportDraft(page)).importId).toBe(prepared.importId);
   });
 
   test("C/F/H — JSON v2 reviews, confirms a new profile commit, and survives reload", async ({ page }) => {
@@ -520,6 +532,7 @@ async function latestImportDraft(page: Page) {
     return rows
       .filter((row) => row.key.startsWith("importedResumeDraft:"))
       .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0]!.value as {
+        importId: string;
         sourceBlocks: Array<{ sourceEngine: string }>;
       };
   });
