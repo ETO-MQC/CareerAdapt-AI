@@ -15,6 +15,10 @@ import {
 } from "@/domain/resumeImport/normalizer";
 import { runOpenDataLoaderAdapter } from "@/domain/resumeImport/openDataLoaderAdapter";
 import {
+  extractMarkdownSourceBlocks,
+  extractPlainTextSourceBlocks
+} from "@/domain/resumeImport/textDocument";
+import {
   createImportedResumeDraftFromPdf,
   createImportedResumeDraftFromStructuredJson,
   createImportedResumeDraftFromText
@@ -128,11 +132,12 @@ export class ResumeImportOrchestrator {
       if (!format) {
         throw new ResumeImportOrchestratorError(
           "resume_import_unsupported_file",
-          "当前仅支持 PDF、DOCX 和 JSON 简历文件。"
+          "当前仅支持 PDF、DOCX、JSON、Markdown 和 TXT 简历文件。"
         );
       }
       if (format === "pdf") return await this.preparePdf(source, context);
       if (format === "docx") return await this.prepareDocx(source, context);
+      if (format === "markdown" || format === "text") return await this.prepareTextDocument(source, format, context);
       return await this.prepareJson(source, context);
     } catch (error) {
       emit(context, "failed", error instanceof Error ? error.message : "简历导入失败。");
@@ -411,12 +416,39 @@ export class ResumeImportOrchestrator {
     return this.persistAndResult(draft, [], decision, context);
   }
 
+  private async prepareTextDocument(
+    source: ResumeImportLocalSource,
+    format: "markdown" | "text",
+    context: ResumeImportPrepareContext
+  ) {
+    emit(context, "validating", format === "markdown" ? "正在校验 Markdown 文件。" : "正在校验文本文件。");
+    const text = await source.file.text();
+    if (!text.trim()) throw new ResumeImportOrchestratorError("empty_import_text", "文件中没有可导入文本。");
+    if (text.length > 200_000) throw new ResumeImportOrchestratorError("text_import_too_large", "文本文件超过 200000 字符限制。");
+    const blocks = format === "markdown"
+      ? extractMarkdownSourceBlocks(text)
+      : extractPlainTextSourceBlocks(text);
+    const fileHash = await hashText(text);
+    const decision = selectDocumentImportRoute({
+      sourceKind: format,
+      preferences: context.preferences ?? DEFAULT_DOCUMENT_RECOGNITION_PREFERENCES
+    });
+    return this.persistTextDraft({
+      source,
+      fileHash,
+      sourceKind: format,
+      text,
+      sourceBlocks: blocks,
+      routingDecision: decision
+    }, context);
+  }
+
   private async persistTextDraft(
     input: {
       source: ResumeImportLocalSource;
       fileHash: string;
       sourceSessionId?: string;
-      sourceKind: "docx" | "text_pdf";
+      sourceKind: "docx" | "markdown" | "text" | "text_pdf";
       text: string;
       sourceBlocks: ExtractedSourceBlock[];
       pageCount?: number;
@@ -531,6 +563,8 @@ function detectFormat(source: ResumeImportLocalSource) {
     || lower.endsWith(".docx")
   ) return "docx";
   if (source.mimeType === "application/json" || lower.endsWith(".json")) return "json";
+  if (source.mimeType === "text/markdown" || lower.endsWith(".md") || lower.endsWith(".markdown")) return "markdown";
+  if (source.mimeType === "text/plain" || lower.endsWith(".txt")) return "text";
   return undefined;
 }
 

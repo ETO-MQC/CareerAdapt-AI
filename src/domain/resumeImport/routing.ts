@@ -7,6 +7,7 @@ import type {
 export type DocumentImportRoute =
   | "pdfjs"
   | "docx"
+  | "text"
   | "local_ocr"
   | "manual_review"
   | "opendataloader";
@@ -30,6 +31,11 @@ export function selectDocumentImportRoute(input: {
   const { preferences } = input;
   if (input.sourceKind === "docx") {
     return decision("docx", "DOCX 使用结构化段落、列表和表格解析。", {
+      canUseOcr: false
+    });
+  }
+  if (input.sourceKind === "markdown" || input.sourceKind === "text") {
+    return decision("text", "已保留文本段落、标题和列表顺序，随后进入语义识别。", {
       canUseOcr: false
     });
   }

@@ -106,6 +106,7 @@ function pipelineRoute(classification: ResumeImportSourceClassification, hasUsab
   if (classification === "standard_json") return "standard_json";
   if (classification === "external_json") return "deterministic_json";
   if (classification === "docx") return "docx_structure";
+  if (classification === "markdown" || classification === "text") return "text_structure";
   if (classification === "scanned_pdf" || classification === "image") return ocrCompleted ? "manual_review" : "ocr_local";
   return hasUsableTextLayer ? "digital_pdf_layout" : "ocr_local";
 }
@@ -113,6 +114,8 @@ function pipelineRoute(classification: ResumeImportSourceClassification, hasUsab
 function defaultEngine(classification: ResumeImportSourceClassification): ResumeSourceEngine {
   if (classification === "standard_json" || classification === "external_json") return "json_mapper";
   if (classification === "docx") return "docx_xml";
+  if (classification === "markdown") return "markdown_parser";
+  if (classification === "text") return "plain_text";
   if (classification === "scanned_pdf" || classification === "image") return "paddleocr_vl";
   return "pdfjs";
 }

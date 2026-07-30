@@ -1218,6 +1218,15 @@ function validateMappedContent(value: unknown): void {
         if (typeof factualValue === "string" && factualValue.trim() && !sourceText.includes(normalizeMappedText(factualValue))) {
           throw new Error("resume_json_mapper_invented_content");
         }
+        if (typeof factualValue === "number" && !sourceText.includes(normalizeMappedText(String(factualValue)))) {
+          throw new Error("resume_json_mapper_invented_number");
+        }
+      }
+      if (
+        record.current === true
+        && !/(?:至今|现在|目前|current|present|ongoing|now)/i.test(sourceText)
+      ) {
+        throw new Error("resume_json_mapper_invented_current_status");
       }
     }
   }

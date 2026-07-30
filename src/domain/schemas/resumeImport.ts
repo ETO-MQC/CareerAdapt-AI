@@ -21,6 +21,8 @@ export const ResumeSourceKindSchema = z.enum([
   "standard_json",
   "external_json",
   "docx",
+  "markdown",
+  "text",
   "digital_pdf",
   "complex_digital_pdf",
   "text_pdf",
@@ -32,6 +34,8 @@ export const ResumeImportSourceClassificationSchema = z.enum([
   "standard_json",
   "external_json",
   "docx",
+  "markdown",
+  "text",
   "digital_pdf",
   "complex_digital_pdf",
   "scanned_pdf",
@@ -42,6 +46,7 @@ export const ResumeImportPipelineRouteSchema = z.enum([
   "standard_json",
   "deterministic_json",
   "docx_structure",
+  "text_structure",
   "digital_pdf_layout",
   "ocr_local",
   "manual_review"
@@ -53,6 +58,7 @@ export const ResumeSourceEngineSchema = z.enum([
   "pdfjs",
   "opendataloader",
   "paddleocr_vl",
+  "markdown_parser",
   "plain_text"
 ]);
 
@@ -141,6 +147,17 @@ export const ImportQualityReportV2Schema = ImportQualityReportSchema.extend({
     maximumReplacementCharacterRatio: z.number().min(0).max(1),
     maximumLineFragmentationScore: z.number().min(0).max(1)
   }).strict()
+}).strict();
+
+export const ResumeSourceDocumentV2Schema = z.object({
+  schemaVersion: z.literal("resume-source-document-v2"),
+  sourceId: z.string().min(1),
+  sourceKind: ResumeSourceKindSchema,
+  fileName: z.string().min(1),
+  fileHash: z.string().min(16),
+  pageCount: z.number().int().min(1),
+  blocks: z.array(ResumeSourceBlockV2Schema),
+  quality: ImportQualityReportV2Schema
 }).strict();
 
 export const ImportedResumeDatePrecisionSchema = z.enum(["year", "month", "day"]);
@@ -372,6 +389,7 @@ export const ImportedResumeSourceSchema = z.object({
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     "image/jpeg",
     "image/png",
+    "text/markdown",
     "text/plain",
     "application/x-careeradapt-conversation"
   ]),
@@ -600,6 +618,7 @@ export type ResumeSourceEngine = z.infer<typeof ResumeSourceEngineSchema>;
 export type ExtractedSourceBlock = z.infer<typeof ExtractedSourceBlockSchema>;
 export type NormalizedSourceBlock = z.infer<typeof NormalizedSourceBlockSchema>;
 export type ResumeSourceBlockV2 = z.infer<typeof ResumeSourceBlockV2Schema>;
+export type ResumeSourceDocumentV2 = z.infer<typeof ResumeSourceDocumentV2Schema>;
 export type ResumeSourceRange = z.infer<typeof ResumeSourceRangeSchema>;
 export type ImportQualityReport = z.infer<typeof ImportQualityReportSchema>;
 export type ImportQualityReportV2 = z.infer<typeof ImportQualityReportV2Schema>;

@@ -7,6 +7,8 @@ export const RESUME_IMPORT_FORMATS = [
     extensions: [".docx"]
   },
   { id: "json", label: "JSON", mimeTypes: ["application/json"], extensions: [".json"] },
+  { id: "markdown", label: "Markdown", mimeTypes: ["text/markdown"], extensions: [".md", ".markdown"] },
+  { id: "text", label: "TXT", mimeTypes: ["text/plain"], extensions: [".txt"] },
   { id: "png", label: "PNG", mimeTypes: ["image/png"], extensions: [".png"] },
   { id: "jpeg", label: "JPG/JPEG", mimeTypes: ["image/jpeg"], extensions: [".jpg", ".jpeg"] }
 ] as const;

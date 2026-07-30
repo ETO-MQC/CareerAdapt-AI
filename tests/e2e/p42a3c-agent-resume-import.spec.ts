@@ -385,7 +385,9 @@ test.describe("P4.2a.3c autonomous resume import", () => {
   for (const manualCase of [
     { label: "PDF", fixture: "tests/fixtures/pdf/two-column-reportlab.pdf", sourceKind: "complex_digital_pdf" },
     { label: "DOCX", fixture: "tests/fixtures/resume-import/ordinary.docx", sourceKind: "docx" },
-    { label: "JSON", fixture: "tests/fixtures/resume-import/structured-standard.json", sourceKind: "standard_json" }
+    { label: "JSON", fixture: "tests/fixtures/resume-import/structured-standard.json", sourceKind: "standard_json" },
+    { label: "Markdown", fixture: "tests/fixtures/resume-import/semantic-single-column.md", sourceKind: "markdown" },
+    { label: "TXT", fixture: "tests/fixtures/resume-import/semantic-skills-heavy.txt", sourceKind: "text" }
   ]) {
     test(`manual Wizard remains a client of the shared orchestrator for ${manualCase.label}`, async ({ page }) => {
       await page.goto("/resume");

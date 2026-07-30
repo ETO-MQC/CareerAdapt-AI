@@ -135,7 +135,9 @@ export class AgentHostStore {
 
   adopt(session: AgentSession) {
     if (this.snapshot.turnStatus === "running") return;
-    const recoverable = enforceExactlyOneFinal(recoverOrphanedThinking(session));
+    const recoveredThinking = enforceExactlyOneFinal(recoverOrphanedThinking(session));
+    const { session: recoverable, pendingInputs } = recoverPersistedQueuedInputs(recoveredThinking);
+    if (pendingInputs.length) this.pendingInputs.set(recoverable.id, pendingInputs);
     if (recoverable !== session) void this.dependencies.persistence.save(recoverable);
     this.patch({
       activeSessionId: recoverable.id,
@@ -144,8 +146,10 @@ export class AgentHostStore {
       pendingConfirmation: recoverable.pendingConfirmation,
       artifacts: recoverable.artifactRefs,
       turnStatus: recoverable.pendingConfirmation ? "waiting_for_confirmation" : "idle",
-      stalled: false
+      stalled: false,
+      pendingInputCount: pendingInputs.length
     });
+    if (pendingInputs.length && !recoverable.pendingConfirmation) void this.drainPendingInput(recoverable.id);
   }
 
   setPaused(paused: boolean) {
@@ -1279,7 +1283,10 @@ export class AgentHostStore {
       id: userMessageId,
       status: "pending",
       references: input.references?.length ? input.references : undefined,
-      metadata: { executionState: "queued" }
+      metadata: {
+        executionState: "queued",
+        queuedPageContext: input.pageContext
+      }
     });
     const saved = await this.dependencies.persistence.save(queued);
     const queue = this.pendingInputs.get(session.id) ?? [];
@@ -1782,6 +1789,65 @@ function recoverOrphanedThinking(session: AgentSession) {
       completedAt: new Date().toISOString()
     }
   };
+}
+
+function recoverPersistedQueuedInputs(session: AgentSession): {
+  session: AgentSession;
+  pendingInputs: PendingUserInput[];
+} {
+  const pendingInputs: PendingUserInput[] = [];
+  let changed = false;
+  const messages = session.messages.map((message) => {
+    if (message.role !== "user" || message.metadata?.executionState !== "queued") return message;
+    const queuedPageContext = parseQueuedPageContext(message.metadata.queuedPageContext);
+    if (queuedPageContext) {
+      pendingInputs.push({
+        sessionId: session.id,
+        userMessage: message.content,
+        userMessageId: message.id,
+        pageContext: queuedPageContext,
+        references: message.references
+      });
+      return message;
+    }
+    changed = true;
+    return {
+      ...message,
+      status: "recovered" as const,
+      metadata: {
+        ...message.metadata,
+        executionState: "recoverable",
+        recoveryReason: "queued_execution_context_unavailable"
+      }
+    };
+  });
+  if (!changed) return { session, pendingInputs };
+  const now = new Date().toISOString();
+  return {
+    pendingInputs,
+    session: appendAgentMessage({
+      ...session,
+      messages,
+      updatedAt: now
+    }, "assistant", "检测到刷新前尚未执行的排队消息。由于无法安全恢复当时页面上下文，消息已保留；请点击或重新发送以继续。", {
+      kind: "system_notice",
+      type: "system_notice",
+      status: "recovered"
+    })
+  };
+}
+
+function parseQueuedPageContext(value: unknown): AgentPageContext | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const record = value as Record<string, unknown>;
+  if (typeof record.pathname !== "string" || !record.pathname.startsWith("/")) return undefined;
+  if (!record.query || typeof record.query !== "object" || Array.isArray(record.query)) return undefined;
+  const query = record.query as Record<string, unknown>;
+  if (Object.values(query).some((entry) =>
+    typeof entry !== "string"
+    && !(Array.isArray(entry) && entry.every((item) => typeof item === "string"))
+  )) return undefined;
+  return { pathname: record.pathname, query: query as AgentPageContext["query"] };
 }
 
 function enforceExactlyOneFinal(session: AgentSession) {

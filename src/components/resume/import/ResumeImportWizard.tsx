@@ -51,12 +51,17 @@ import {
   ResumeImportOrchestratorError,
   type ResumeImportProgressStage
 } from "@/services/resumeImport/ResumeImportOrchestrator";
+import {
+  buildSemanticMappingBatches,
+  sourceDocumentFromDraft
+} from "@/domain/resumeImport/sourceDocument";
 
 type ImportStatus =
   | "idle"
   | "validating_file"
   | "extracting_pdf"
   | "extracting_docx"
+  | "extracting_text"
   | "extracting_ocr"
   | "importing_json"
   | "classifying_sections"
@@ -467,6 +472,13 @@ export function ResumeImportWizard(props: {
     setRoutingDecision(prepared.routingDecision);
     setStatus("reviewing");
     setMessage(`已识别 ${prepared.reviewSummary.itemCount} 项信息，其中 ${prepared.reviewSummary.needsReviewCount} 项需要核对。`);
+    if (
+      aiPrivacyConfirmed
+      && prepared.draft.schemaVersion === "resume-import-v2"
+      && prepared.sourceKind !== "standard_json"
+    ) {
+      await runAiDocumentMapping(prepared.draft);
+    }
   }
 
   async function persistJsonDraft(
@@ -530,16 +542,24 @@ export function ResumeImportWizard(props: {
     await persistJsonDraft(restored, "pasted-ai-mapped-resume.json", jsonText, "external_json", "AI 映射结果已通过 Schema 校验；所有映射字段仍需用户确认。请逐项核对来源路径。 ");
   }
 
-  async function runAiDocumentMapping() {
-    if (!draft || !aiPrivacyConfirmed || unsafeTextLayerBlocked) return;
+  async function runAiDocumentMapping(draftOverride?: ImportedResumeDraft) {
+    const sourceDraft = draftOverride ?? draft;
+    if (!sourceDraft || sourceDraft.schemaVersion !== "resume-import-v2" || !aiPrivacyConfirmed || unsafeTextLayerBlocked) return;
     setStatus("classifying_sections");
-    setMessage("正在对脱敏后的来源块进行字段映射；模型只能分类，不能润色或补写事实。");
-    const chunks = chunkSourceBlocks(draft.sourceBlocks);
+    setMessage("AI 正在识别简历结构；模型只能分组和映射，不能润色或补写事实。");
+    let chunks: ReturnType<typeof buildSemanticMappingBatches>;
+    try {
+      chunks = buildSemanticMappingBatches(sourceDocumentFromDraft(sourceDraft));
+    } catch {
+      setStatus("reviewing");
+      setMessage("单个完整经历过长，未将其强行拆分。来源内容已保留，可继续人工核对。");
+      return;
+    }
     const outputs: ResumeJsonMapperOutput[] = [];
     const logs = [];
     for (const chunk of chunks) {
       const rawText = JSON.stringify(chunk);
-      const inputHash = await hashText(`${rawText}|${draft.parserVersion}|resume-document-mapper.v1`);
+      const inputHash = await hashText(`${rawText}|${sourceDraft.parserVersion}|resume-document-mapper.v2`);
       const result = await invokeStructuredAi({ task: "resume-document-mapper", businessInput: { rawText, inputHash }, outputSchema: ResumeJsonMapperOutputSchema });
       logs.push(result.log);
       if (!result.ok) {
@@ -551,26 +571,28 @@ export function ResumeImportWizard(props: {
       outputs.push(restoreSensitivePlaceholders(result.data, redactSensitiveTextForModel(rawText).restorationMap));
     }
     await props.repository.saveAiLogs(logs);
-    const merged = mergeDocumentMapperOutputs(outputs, draft.sourceBlocks);
+    const merged = mergeDocumentMapperOutputs(outputs, sourceDraft.sourceBlocks);
     const mappedDraft = createImportedResumeDraftFromStructuredJson({
-      importId: draft.importId,
-      source: { ...draft.source },
+      importId: sourceDraft.importId,
+      source: { ...sourceDraft.source },
       structuredDraft: merged.structuredDraft,
       unclassifiedBlocks: merged.unclassifiedBlocks,
-      sourceKind: draft.sourceKind === "scanned_pdf" ? "external_json" : draft.sourceKind === "standard_json" || draft.sourceKind === "external_json" ? draft.sourceKind : "external_json",
-      sourceBlocks: draft.sourceBlocks,
-      qualityReport: draft.qualityReport,
+      sourceKind: sourceDraft.sourceKind === "standard_json" || sourceDraft.sourceKind === "external_json"
+        ? sourceDraft.sourceKind
+        : "external_json",
+      sourceBlocks: sourceDraft.sourceBlocks,
+      qualityReport: sourceDraft.qualityReport,
       mappingDecisions: merged.mappingDecisions,
-      now: draft.createdAt
+      now: sourceDraft.createdAt
     });
     const saved = await props.repository.saveImportedResumeDraft({
       ...mappedDraft,
-      sourceKind: draft.sourceKind,
-      source: draft.source,
-      pages: draft.pages,
-      parserVersion: `${draft.parserVersion}+resume-document-mapper.v1`,
-      createdAt: draft.createdAt
-    }, draft.revision);
+      sourceKind: sourceDraft.sourceKind,
+      source: sourceDraft.source,
+      pages: sourceDraft.pages,
+      parserVersion: `${sourceDraft.parserVersion}+resume-document-mapper.v2`,
+      createdAt: sourceDraft.createdAt
+    }, sourceDraft.revision);
     selectionBaselineRef.current = saved;
     setDraft(saved);
     prefillImportedProfileName(saved);
@@ -626,6 +648,9 @@ export function ResumeImportWizard(props: {
     setSelectedPageNumber(pageRecords[0]?.pageNumber ?? 1);
     setStatus("reviewing");
     setMessage(input.successMessage);
+    if (aiPrivacyConfirmed && saved.schemaVersion === "resume-import-v2") {
+      await runAiDocumentMapping(saved);
+    }
   }
 
   async function patchDraft(updater: (current: ImportedResumeDraft) => ImportedResumeDraft) {
@@ -1108,7 +1133,7 @@ export function ResumeImportWizard(props: {
   return (
     <section
       className={`resume-import-wizard no-print ${draft ? "resume-import-wizard-review" : ""} ${props.variant === "agent" ? "resume-import-wizard-agent" : ""}`}
-      aria-busy={["validating_file", "extracting_pdf", "extracting_docx", "extracting_ocr", "importing_json", "classifying_sections", "confirming"].includes(status)}
+      aria-busy={["validating_file", "extracting_pdf", "extracting_docx", "extracting_text", "extracting_ocr", "importing_json", "classifying_sections", "confirming"].includes(status)}
     >
       <p className="visually-hidden" role="status" aria-live="polite">{importStatusLabel(status)}。{message}</p>
       <input ref={fileInputRef} className="visually-hidden" type="file" name="resume-file" aria-label="选择要导入的简历文件" accept={RESUME_IMPORT_ACCEPT} onChange={handleFileChange} />
@@ -1177,7 +1202,7 @@ export function ResumeImportWizard(props: {
         >
           <span className="import-dropzone-icon" aria-hidden="true">↑</span>
           <strong>拖放简历到这里</strong>
-          <span>或点击选择 PDF、DOCX、JSON 文件</span>
+          <span>或点击选择 PDF、DOCX、JSON、Markdown、TXT 文件</span>
           <small>{importStatusLabel(status)} · {message}</small>
         </div>
       ) : null}
@@ -1224,7 +1249,7 @@ export function ResumeImportWizard(props: {
             导入扫描件（实验）
           </button>
         )}
-        {draft || ["extracting_pdf", "extracting_docx", "extracting_ocr", "importing_json"].includes(status) ? (
+        {draft || ["extracting_pdf", "extracting_docx", "extracting_text", "extracting_ocr", "importing_json"].includes(status) ? (
           <button className="secondary-button compact" type="button" onClick={cancelImport} disabled={status === "confirming"}>
             取消当前导入
           </button>
@@ -1338,7 +1363,7 @@ export function ResumeImportWizard(props: {
               <p>{draft.source.mimeType === "application/json" ? "原始 JSON 保留在当前导入窗口，正式提交前不会写入简历。" : `${pages.length} 页来源文本已保存；原始文件未长期保存。`}</p>
               {draft.source.mimeType === "application/json" && jsonText ? <details><summary>查看原始 JSON</summary><pre>{jsonText}</pre></details> : null}
             </div>
-            {(pendingJsonMapping && jsonText) || (["docx", "digital_pdf", "complex_digital_pdf", "scanned_pdf", "image", "text_pdf"].includes(draft.sourceKind) && draft.qualityReport?.recommendedRoute === "ai_text") ? (
+            {(pendingJsonMapping && jsonText) || ["docx", "markdown", "text", "digital_pdf", "complex_digital_pdf", "scanned_pdf", "image", "text_pdf"].includes(draft.sourceKind) ? (
               <div className="ai-mapping-consent">
                 <label className="inline-toggle"><input name="import-ai-privacy-confirmed" type="checkbox" checked={aiPrivacyConfirmed} onChange={(event) => setAiPrivacyConfirmed(event.target.checked)} />同意发送脱敏来源块</label>
                 <button className="secondary-button compact" type="button" disabled={!aiPrivacyConfirmed || status === "importing_json" || status === "classifying_sections"} onClick={() => { void (pendingJsonMapping && jsonText ? runAiJsonMapping() : runAiDocumentMapping()); }}>使用 AI 智能映射</button>
@@ -1576,6 +1601,12 @@ function isJsonFile(file: File) {
   return file.name.toLowerCase().endsWith(".json") || file.type === "application/json";
 }
 
+function isTextResumeFile(file: File) {
+  const name = file.name.toLowerCase();
+  return name.endsWith(".md") || name.endsWith(".markdown") || name.endsWith(".txt")
+    || file.type === "text/markdown" || file.type === "text/plain";
+}
+
 export function sampleStructuredResumeJson() {
   return {
     schemaVersion: "structured-resume-draft-v1",
@@ -1795,24 +1826,6 @@ function normalizeName(value: string) {
   return value.normalize("NFKC").replace(/\s+/g, "").toLocaleLowerCase();
 }
 
-function chunkSourceBlocks(blocks: readonly NormalizedSourceBlock[], maxChars = 18_000) {
-  const chunks: NormalizedSourceBlock[][] = [];
-  let current: NormalizedSourceBlock[] = [];
-  let size = 2;
-  for (const block of blocks) {
-    const blockSize = JSON.stringify(block).length + 1;
-    if (current.length && size + blockSize > maxChars) {
-      chunks.push(current);
-      current = [];
-      size = 2;
-    }
-    current.push(block);
-    size += blockSize;
-  }
-  if (current.length) chunks.push(current);
-  return chunks.length ? chunks : [[]];
-}
-
 function mergeDocumentMapperOutputs(outputs: ResumeJsonMapperOutput[], sourceBlocks: readonly NormalizedSourceBlock[]): ResumeJsonMapperOutput {
   const structuredDraft = {
     schemaVersion: "structured-resume-draft-v1" as const,
@@ -1846,6 +1859,7 @@ function importStatusLabel(status: ImportStatus) {
     validating_file: "校验文件",
     extracting_pdf: "提取文本",
     extracting_docx: "读取DOCX",
+    extracting_text: "读取文本",
     extracting_ocr: "OCR识别",
     importing_json: "校验JSON",
     classifying_sections: "识别栏目",
@@ -2045,6 +2059,8 @@ function sourceKindLabel(sourceKind: ImportedResumeDraft["sourceKind"]) {
     standard_json: "标准 JSON",
     external_json: "外部 JSON",
     docx: "DOCX 结构",
+    markdown: "Markdown 文本",
+    text: "纯文本",
     digital_pdf: "数字 PDF",
     complex_digital_pdf: "复杂 PDF",
     text_pdf: "PDF 文本",
@@ -2061,6 +2077,7 @@ function pipelineRouteLabel(draft: ImportedResumeDraft) {
     standard_json: "标准结构校验",
     deterministic_json: "确定性字段映射",
     docx_structure: "文档结构提取",
+    text_structure: "文本结构提取",
     digital_pdf_layout: "坐标阅读顺序",
     ocr_local: "需要本地识别",
     manual_review: "本地识别后核对"
@@ -2071,6 +2088,7 @@ function documentImportRouteLabel(route: DocumentImportRoutingDecision["route"])
   return {
     pdfjs: "PDF.js 文本层",
     docx: "DOCX 结构解析",
+    text: "文本结构解析",
     local_ocr: "本地 OCR",
     manual_review: "仅人工核对",
     opendataloader: "OpenDataLoader（实验）"
@@ -2080,12 +2098,12 @@ function documentImportRouteLabel(route: DocumentImportRoutingDecision["route"])
 function importStatusFromProgress(stage: ResumeImportProgressStage, file: File): ImportStatus {
   if (stage === "validating") return "validating_file";
   if (stage === "extracting") {
-    return isDocxFile(file) ? "extracting_docx" : isJsonFile(file) ? "importing_json" : "extracting_pdf";
+    return isDocxFile(file) ? "extracting_docx" : isJsonFile(file) ? "importing_json" : isTextResumeFile(file) ? "extracting_text" : "extracting_pdf";
   }
   if (stage === "normalizing" || stage === "mapping" || stage === "building_draft") {
     return "classifying_sections";
   }
   if (stage === "ready_for_review") return "reviewing";
   if (stage === "failed") return "failed";
-  return isJsonFile(file) ? "importing_json" : "extracting_pdf";
+  return isJsonFile(file) ? "importing_json" : isTextResumeFile(file) ? "extracting_text" : "extracting_pdf";
 }

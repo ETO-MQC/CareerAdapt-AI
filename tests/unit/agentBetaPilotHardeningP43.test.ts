@@ -119,6 +119,70 @@ describe("P4.3b per-session input serialization", () => {
     releaseSecond?.();
     await correction;
   });
+
+  it("reconstructs persisted queued inputs FIFO on session re-adopt without duplicate execution", async () => {
+    const base = session();
+    const now = new Date().toISOString();
+    const persisted = {
+      ...base,
+      messages: [
+        ...base.messages,
+        ...["B", "C"].map((content, index) => ({
+          id: `queued-${index + 1}`,
+          role: "user" as const,
+          content,
+          status: "pending" as const,
+          metadata: { executionState: "queued", queuedPageContext: PAGE_CONTEXT },
+          createdAt: now
+        }))
+      ]
+    };
+    const runTurn = vi.fn(async (input: { userMessage: string }) => {
+      void input;
+      return completedResult(base.taskState!);
+    });
+    const host = new AgentHostStore({
+      kernel: { runTurn } as never,
+      executor: { execute: vi.fn() } as never,
+      persistence: { save: async (value: AgentSession) => value } as never
+    });
+
+    host.adopt(persisted);
+
+    await vi.waitFor(() => expect(runTurn).toHaveBeenCalledTimes(2));
+    await vi.waitFor(() => expect(host.getSnapshot().pendingInputCount).toBe(0));
+    expect(runTurn.mock.calls.map((call) => call[0].userMessage)).toEqual(["B", "C"]);
+  });
+
+  it("marks legacy queued input recoverable when exact page context is unavailable", async () => {
+    const base = session();
+    const persisted = {
+      ...base,
+      messages: [{
+        id: "legacy-queued",
+        role: "user" as const,
+        content: "稍后继续",
+        status: "pending" as const,
+        metadata: { executionState: "queued" },
+        createdAt: new Date().toISOString()
+      }]
+    };
+    const runTurn = vi.fn();
+    const host = new AgentHostStore({
+      kernel: { runTurn } as never,
+      executor: { execute: vi.fn() } as never,
+      persistence: { save: async (value: AgentSession) => value } as never
+    });
+
+    host.adopt(persisted);
+
+    expect(runTurn).not.toHaveBeenCalled();
+    expect(host.getSnapshot().activeSession?.messages.find((message) => message.id === "legacy-queued")).toMatchObject({
+      status: "recovered",
+      metadata: { executionState: "recoverable" }
+    });
+    expect(host.getSnapshot().activeSession?.messages.at(-1)?.content).toContain("请点击或重新发送以继续");
+  });
 });
 
 describe("P4.3b authoritative answer writes", () => {

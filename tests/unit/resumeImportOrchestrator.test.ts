@@ -13,6 +13,10 @@ import {
   AgentAttachmentStore
 } from "@/services/agent/AgentAttachmentStore";
 import { applyResumeImportReviewDecision } from "@/domain/resumeImport/reviewDecisions";
+import {
+  AGENT_RESUME_IMPORT_ACCEPT,
+  AgentProductCapabilityManifest
+} from "@/agent/capabilities/AgentProductCapabilityManifest";
 
 let db: CareerAdaptDb | undefined;
 const BrowserBlob = globalThis.Blob;
@@ -173,6 +177,17 @@ describe("ResumeImportOrchestrator", () => {
 });
 
 describe("Agent local attachment and import task state", () => {
+  it("truthfully exposes Markdown/TXT while keeping Agent OCR unavailable", async () => {
+    expect(AGENT_RESUME_IMPORT_ACCEPT).toContain(".md");
+    expect(AGENT_RESUME_IMPORT_ACCEPT).toContain(".txt");
+    expect(AgentProductCapabilityManifest.ocr.entrypoints.agent).toBe("unavailable");
+    const store = new AgentAttachmentStore();
+    const markdown = await store.register(new File(["# Resume"], "resume.md"));
+    const text = await store.register(new File(["Resume"], "resume.txt"));
+    expect(markdown.mimeType).toBe("text/markdown");
+    expect(text.mimeType).toBe("text/plain");
+  });
+
   it("keeps only metadata durable and explicitly reports source loss", async () => {
     const store = new AgentAttachmentStore();
     const file = new File(["{}"], "resume.json", { type: "application/json" });
@@ -283,6 +298,30 @@ describe("Agent local attachment and import task state", () => {
     expect(state.knownSlots.reviewDecision).toBe("accept_all");
     expect(state.knownSlots.importTargetIntent).toBe("existing");
     expect(state.knownSlots.importTargetProfileName).toBe("测试用户");
+  });
+
+  it.each([
+    ["Markdown", "resume.md", "text/markdown", "# 匿名候选人\n\n## 项目与研究\n- 保留多行项目要点", "markdown"],
+    ["TXT", "resume.txt", "text/plain", "匿名候选人\n\n技术能力\nTypeScript", "text"]
+  ])("prepares %s through the shared source-document pipeline", async (_, name, type, content, sourceKind) => {
+    const repository = createRepository();
+    const file = new File([content], name, { type });
+    const result = await new ResumeImportOrchestrator(repository).prepare({
+      file,
+      fileName: file.name,
+      mimeType: file.type,
+      size: file.size
+    });
+
+    expect(result.sourceKind).toBe(sourceKind);
+    expect(result.draft.schemaVersion).toBe("resume-import-v2");
+    expect(result.draft.sourceBlocks.map((block) => block.sourceEngine)).toContain(
+      sourceKind === "markdown" ? "markdown_parser" : "plain_text"
+    );
+    expect(result.draft.schemaVersion === "resume-import-v2"
+      ? result.draft.qualityReport.recommendedPipeline
+      : undefined).toBe("text_structure");
+    expect((await repository.getImportedResumeDraft(result.importId))?.source.fileName).toBe(name);
   });
 
   it("recognizes creating a named career profile without mistaking it for an existing profile", () => {

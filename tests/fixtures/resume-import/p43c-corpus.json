@@ -1,0 +1,60 @@
+{
+  "schemaVersion": "p43c-semantic-corpus-v1",
+  "fixtures": [
+    {
+      "id": "canonical-json",
+      "file": "structured-standard.json",
+      "expected": { "identity": true, "education": 1, "work": 1, "project": 1, "skillsMinimum": 1 }
+    },
+    {
+      "id": "single-column-docx",
+      "file": "ordinary.docx",
+      "expected": { "identity": true, "educationMinimum": 1, "workMinimum": 1, "projectMinimum": 1 }
+    },
+    {
+      "id": "single-column-pdf",
+      "file": "../pdf/chinese-resume-reportlab.pdf",
+      "expected": { "identity": true, "majorSectionsMinimum": 3 }
+    },
+    {
+      "id": "two-column-pdf",
+      "file": "../pdf/two-column-reportlab.pdf",
+      "expected": { "majorSectionsMinimum": 2, "silentBlockLoss": false }
+    },
+    {
+      "id": "skills-heavy",
+      "file": "semantic-skills-heavy.txt",
+      "expected": { "identity": true, "education": 1, "skillsMinimum": 4 }
+    },
+    {
+      "id": "project-heavy",
+      "file": "semantic-project-heavy.md",
+      "expected": { "project": 2, "projectBulletsMinimum": 5 }
+    },
+    {
+      "id": "heading-aliases",
+      "file": "semantic-aliases.txt",
+      "expected": { "summary": true, "project": 1, "skillsMinimum": 2, "currentExplicit": true }
+    },
+    {
+      "id": "markdown",
+      "file": "semantic-single-column.md",
+      "expected": { "identity": true, "education": 1, "work": 1, "project": 1, "skillsMinimum": 2 }
+    },
+    {
+      "id": "plain-text",
+      "file": "semantic-skills-heavy.txt",
+      "expected": { "identity": true, "education": 1, "skillsMinimum": 4 }
+    }
+  ],
+  "ocrFixture": {
+    "status": "optional",
+    "reason": "Run only when the local PaddleOCR-VL sidecar is available; no real identity document is committed."
+  },
+  "thresholds": {
+    "criticalIdentityRecall": 1,
+    "experienceProjectEntityRecall": 0.95,
+    "unsupportedInsertions": 0,
+    "silentSourceBlockLoss": 0
+  }
+}
