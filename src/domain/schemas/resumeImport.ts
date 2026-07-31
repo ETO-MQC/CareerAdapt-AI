@@ -607,7 +607,19 @@ export const ResumeJsonMapperOutputSchema = z.object({
     sourceValue: z.unknown(),
     reason: z.string().min(1)
   })).default([]),
-  mappingDecisions: z.array(MappingDecisionSchema).optional()
+  mappingDecisions: z.array(MappingDecisionSchema).optional(),
+  mapperDiagnostics: z.object({
+    shapeRepairs: z.array(z.string().min(1)).default([]),
+    evidenceRepairs: z.array(z.string().min(1)).default([]),
+    rejectedFields: z.array(z.object({
+      path: z.string().min(1),
+      reason: z.string().min(1)
+    }).strict()).default([]),
+    localNormalizationMs: z.number().int().min(0),
+    groundedFieldCount: z.number().int().min(0),
+    repairedFieldCount: z.number().int().min(0),
+    rejectedFieldCount: z.number().int().min(0)
+  }).strict().optional()
 }).strict();
 
 export type ImportedResumeDraftStatus = z.infer<typeof ImportedResumeDraftStatusSchema>;

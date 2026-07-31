@@ -34,7 +34,7 @@ for (const realCase of cases) {
 
     const result = await latestImportGateResult(page);
     expect(result.draft.sourceKind).toBe(realCase.sourceKind);
-    expect(result.draft.parserVersion).toContain("resume-document-mapper.v3");
+    expect(result.draft.parserVersion).toContain("resume-document-mapper.v4-boundary");
     expect(result.logs.length).toBeGreaterThan(0);
     expect(result.logs.every((log) => log.status === "success")).toBe(true);
     if (realCase.format === "PDF") {

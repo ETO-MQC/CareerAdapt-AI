@@ -139,6 +139,27 @@ export async function POST(request: NextRequest) {
         const coerced = taskDefinition.coerceRawOutput(response.output, input.data);
         normalized = taskDefinition.normalizeOutput(coerced, input.data);
       } catch (error) {
+        if (
+          taskDefinition.task === "resume-document-mapper"
+          && error instanceof Error
+          && error.message === "resume_document_mapper_systematic_grounding_failure"
+        ) {
+          return aiError(
+            "grounding_validation_failed",
+            "Model output failed systematic field grounding.",
+            422,
+            startedAt,
+            {
+              provider: response.provider,
+              model: response.model,
+              inputLength: baseUserPrompt.length,
+              outputLength: response.outputLength,
+              safeErrorCode: "grounding_validation_failed",
+              failedIssues: [],
+              attempt: attempt + 1
+            }
+          );
+        }
         const issues = summarizeSchemaIssues(error);
         if (process.env.NODE_ENV === "development" && body.data.task.startsWith("resume-tailor")) {
           console.warn("[resume-tailor:normalization-failed]", issues.map((issue, suggestionIndex) => ({
@@ -148,7 +169,7 @@ export async function POST(request: NextRequest) {
           })));
         }
         if (process.env.NODE_ENV === "development" && taskDefinition.task === "resume-document-mapper") {
-          console.warn("[resume-document-mapper:normalization-failed]", {
+          console.warn("[resume-document-mapper:normalization-failed]", JSON.stringify({
             task: taskDefinition.task,
             provider: response.provider,
             model: response.model,
@@ -159,7 +180,7 @@ export async function POST(request: NextRequest) {
             outputChars: response.outputLength,
             ...describeResumeMapperOutputShape(response.output),
             issues
-          });
+          }));
         }
         lastValidationFailure = "model_schema_invalid";
         lastSchemaIssues = issues;
@@ -180,7 +201,7 @@ export async function POST(request: NextRequest) {
         const issues = summarizeSchemaIssues(parsedOutput);
         if (process.env.NODE_ENV === "development") {
           if (taskDefinition.task === "resume-document-mapper") {
-            console.warn("[resume-document-mapper:schema-failed]", {
+            console.warn("[resume-document-mapper:schema-failed]", JSON.stringify({
               task: taskDefinition.task,
               provider: response.provider,
               model: response.model,
@@ -191,7 +212,7 @@ export async function POST(request: NextRequest) {
               outputChars: response.outputLength,
               ...describeResumeMapperOutputShape(response.output),
               issues
-            });
+            }));
           } else {
             console.error("[ai:validation_failed]", issues);
           }

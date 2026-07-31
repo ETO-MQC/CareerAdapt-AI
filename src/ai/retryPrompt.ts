@@ -57,7 +57,8 @@ export function buildRetryPrompt({
       ...(safeIssues.length ? ["Issues:", ...safeIssues] : [`Issue code: ${failure ?? "model_schema_invalid"}`]),
       "Return only {\"structuredDraft\":{\"schemaVersion\":\"structured-resume-draft-v1\",\"basics\":{},\"sections\":[]}}.",
       "Do not return mappingDecisions or another wrapper.",
-      "Allowed item keys only: text, organization, role, location, startDate, endDate, current, highlights, included, mapping.",
+      "Do not return category or included; local code derives internal metadata.",
+      "Allowed item keys only: text, organization, role, location, startDate, endDate, current, highlights, mapping.",
       "Use organization instead of company/institution/school; role instead of position/jobTitle; text instead of description/content; highlights instead of bullets/responsibilities/achievements.",
       "Every mapping uses sourcePaths, sourceValues, confidenceLevel, confidenceReason, needsConfirmation. confidenceLevel is high, medium, or low; medium/low require needsConfirmation=true.",
       "Return compact JSON only."

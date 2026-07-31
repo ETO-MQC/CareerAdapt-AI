@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { aiTaskRegistry } from "@/ai/tasks/registry";
 import type { ResumeJsonMapperOutput } from "@/domain/schemas";
-import { coerceResumeDocumentMapperOutput } from "@/ai/tasks/resumeDocumentMapperOutput";
-import { summarizeSchemaIssues } from "@/ai/resumeDocumentMapperDiagnostics";
+import {
+  coerceResumeDocumentMapperOutput,
+  normalizeResumeMapperBoundaryOutput
+} from "@/ai/tasks/resumeDocumentMapperOutput";
 
 const definition = aiTaskRegistry["resume-document-mapper"];
 const rawText = JSON.stringify([
@@ -11,7 +13,7 @@ const rawText = JSON.stringify([
 ]);
 const input = { rawText, inputHash: "document-mapper-input" };
 
-describe("resume-document-mapper v3 boundary", () => {
+describe("resume-document-mapper shared boundary", () => {
   it("includes catalog metadata and allows deterministic local preservation of uncited blocks", () => {
     const prompt = JSON.parse(definition.buildUserPrompt(input)) as Record<string, unknown>;
     expect(prompt).toMatchObject({ schemaVersion: "resume-import-v2" });
@@ -27,6 +29,8 @@ describe("resume-document-mapper v3 boundary", () => {
     expect(definition.systemPrompt).toContain("local code preserves all uncited source blocks");
     expect(definition.systemPrompt).toContain("Do not output mappingDecisions");
     expect(definition.systemPrompt).toContain("An item may contain only");
+    expect(definition.systemPrompt).toContain("Do not output category or included");
+    expect(definition.systemPrompt).toContain("cover every factual item property");
     expect(prompt.outputContract).toBeDefined();
   });
 
@@ -64,6 +68,27 @@ describe("resume-document-mapper v3 boundary", () => {
     });
   });
 
+  it("keeps a distinct item name as grounded content when text already exists", () => {
+    const output = normalizeResumeMapperBoundaryOutput({
+      structuredDraft: {
+        basics: {},
+        sections: [{
+          title: "技能",
+          sectionType: "skills",
+          items: [{
+            name: "工具与平台",
+            text: "Git/GitHub",
+            mapping: mapping(["b1"], ["工具与平台 Git/GitHub"])
+          }]
+        }]
+      }
+    }, [{ id: "b1", text: "工具与平台 Git/GitHub" }]) as ResumeJsonMapperOutput;
+    expect(output.structuredDraft.sections[0].items[0]).toMatchObject({
+      text: "Git/GitHub",
+      highlights: ["工具与平台"]
+    });
+  });
+
   it("omits null optional values and normalizes numeric confidence", () => {
     const output = coerceResumeDocumentMapperOutput({
       structuredDraft: {
@@ -93,31 +118,196 @@ describe("resume-document-mapper v3 boundary", () => {
     expect(item).not.toHaveProperty("location");
   });
 
-  it("never silently discards an unknown factual item field", () => {
-    expect(() => coerceResumeDocumentMapperOutput({
+  it("normalizes links strings, mapped objects, blanks, and arrays without splitting facts", () => {
+    expect(coerceResumeDocumentMapperOutput({
+      structuredDraft: { basics: { links: "https://example.test/me" }, sections: [] }
+    })).toMatchObject({
+      structuredDraft: { basics: { links: ["https://example.test/me"] } }
+    });
+    const mappedLink = {
+      value: "https://example.test/work",
+      mapping: mapping(["b1"], ["https://example.test/work"])
+    };
+    expect(coerceResumeDocumentMapperOutput({
+      structuredDraft: { basics: { links: mappedLink }, sections: [] }
+    })).toMatchObject({
+      structuredDraft: { basics: { links: [mappedLink] } }
+    });
+    expect(coerceResumeDocumentMapperOutput({
+      structuredDraft: {
+        basics: { links: [null, "", "   ", "https://example.test/kept"] },
+        sections: []
+      }
+    })).toMatchObject({
+      structuredDraft: { basics: { links: ["https://example.test/kept"] } }
+    });
+  });
+
+  it("derives category locally and omits blank optional item values before Zod", () => {
+    const output = normalizeResumeMapperBoundaryOutput({
+      structuredDraft: {
+        basics: {},
+        sections: [{
+          title: "技能",
+          sectionType: "skills",
+          category: "skills",
+          items: [{
+            text: "TypeScript",
+            endDate: "",
+            location: "   "
+          }]
+        }]
+      }
+    }) as ResumeJsonMapperOutput;
+    expect(output.structuredDraft.sections[0]).toMatchObject({
+      sectionType: "skills",
+      category: "skill"
+    });
+    expect(output.structuredDraft.sections[0].items[0]).not.toHaveProperty("endDate");
+    expect(output.structuredDraft.sections[0].items[0]).not.toHaveProperty("location");
+    expect(output.mapperDiagnostics?.shapeRepairs).toEqual(expect.arrayContaining([
+      "category_derived",
+      "blank_end_date_omitted",
+      "blank_location_omitted"
+    ]));
+    expect(() => definition.outputSchema.parse(output)).not.toThrow();
+  });
+
+  it("completes exact item evidence only from already-authorized source paths", () => {
+    const output = normalizeResumeMapperBoundaryOutput({
+      structuredDraft: {
+        basics: {},
+        sections: [{
+          title: "工作经历",
+          sectionType: "work",
+          items: [{
+            organization: "腾讯科技",
+            role: "产品实习生",
+            mapping: mapping(["b21", "b22"], ["腾讯科技"])
+          }]
+        }]
+      }
+    }, [
+      { id: "b21", text: "腾讯科技" },
+      { id: "b22", text: "产品实习生" }
+    ]) as ResumeJsonMapperOutput;
+    const item = output.structuredDraft.sections[0].items[0];
+    expect(item).toMatchObject({
+      organization: "腾讯科技",
+      role: "产品实习生",
+      mapping: {
+        sourceValues: ["腾讯科技", "产品实习生"],
+        needsConfirmation: true
+      }
+    });
+    expect(output.mapperDiagnostics).toMatchObject({
+      evidenceRepairs: ["evidence_quote_completed"],
+      rejectedFieldCount: 0,
+      groundedFieldCount: 2
+    });
+    expect(() => definition.validateOutput(output, {
+      rawText: JSON.stringify([
+        { id: "b21", text: "腾讯科技" },
+        { id: "b22", text: "产品实习生" }
+      ]),
+      inputHash: "evidence-completion"
+    })).not.toThrow();
+  });
+
+  it("quarantines one unsupported field while preserving the grounded resume", () => {
+    const output = normalizeResumeMapperBoundaryOutput({
+      structuredDraft: {
+        basics: {},
+        sections: [{
+          title: "工作经历",
+          sectionType: "work",
+          items: [{
+            organization: "示例公司",
+            role: "虚构职位",
+            mapping: mapping(["b1"], ["示例公司"])
+          }]
+        }]
+      }
+    }, [{ id: "b1", text: "示例公司" }]) as ResumeJsonMapperOutput;
+    expect(output.structuredDraft.sections[0].items[0]).toMatchObject({
+      organization: "示例公司"
+    });
+    expect(output.structuredDraft.sections[0].items[0]).not.toHaveProperty("role");
+    expect(output.mapperDiagnostics?.rejectedFields).toEqual([{
+      path: "structuredDraft.sections[0].items[0].role",
+      reason: "ai_field_not_grounded"
+    }]);
+    expect(output.unclassifiedBlocks).toEqual([
+      expect.objectContaining({
+        sourcePath: "b1",
+        reason: "ai_field_not_grounded:structuredDraft.sections[0].items[0].role"
+      })
+    ]);
+  });
+
+  it("rejects systematically unsupported facts and fabricated source ids", () => {
+    expect(() => normalizeResumeMapperBoundaryOutput({
+      structuredDraft: {
+        basics: {},
+        sections: [{
+          title: "工作经历",
+          sectionType: "work",
+          items: [{
+            organization: "虚构公司",
+            role: "虚构职位",
+            text: "虚构职责",
+            mapping: mapping(["fake-1", "fake-2", "fake-3"], ["虚构公司"])
+          }]
+        }]
+      }
+    }, [{ id: "b1", text: "真实来源" }])).toThrow(
+      "resume_document_mapper_systematic_grounding_failure"
+    );
+  });
+
+  it("rejects an actual paraphrase instead of accepting it as grounded", () => {
+    const output = normalizeResumeMapperBoundaryOutput({
+      structuredDraft: {
+        basics: {},
+        sections: [{
+          title: "项目经历",
+          sectionType: "project",
+          items: [{
+            organization: "课程项目",
+            role: "主导产品需求战略",
+            text: "负责需求分析",
+            mapping: mapping(["b1"], ["课程项目", "负责需求分析"])
+          }]
+        }]
+      }
+    }, [{ id: "b1", text: "课程项目 负责需求分析" }]) as ResumeJsonMapperOutput;
+    const item = output.structuredDraft.sections[0].items[0];
+    expect(item).not.toHaveProperty("role");
+    expect(item).toMatchObject({ organization: "课程项目", text: "负责需求分析" });
+  });
+
+  it("quarantines an unknown factual item field with a safe path", () => {
+    const normalized = normalizeResumeMapperBoundaryOutput({
       structuredDraft: {
         basics: {},
         sections: [{
           title: "教育经历",
           sectionType: "education",
-          items: [{ school: "示例大学", degree: "本科" }]
+          items: [{
+            school: "示例大学",
+            salaryExpectation: "保留但不接受",
+            mapping: mapping(["b1"], ["示例大学", "保留但不接受"])
+          }]
         }]
       }
-    })).toThrow("resume_document_mapper_output_cannot_be_safely_coerced");
-    try {
-      coerceResumeDocumentMapperOutput({
-        structuredDraft: {
-          basics: {},
-          sections: [{ title: "教育经历", items: [{ degree: "本科" }] }]
-        }
-      });
-    } catch (error) {
-      expect(summarizeSchemaIssues(error)).toEqual([{
-        path: "structuredDraft.sections[0].items[0]",
-        code: "unrecognized_keys",
-        unrecognizedKeys: ["degree"]
-      }]);
-    }
+    }, [{ id: "b1", text: "示例大学 保留但不接受" }]) as ResumeJsonMapperOutput;
+    expect(normalized.structuredDraft.sections[0].items[0]).not.toHaveProperty(
+      "salaryExpectation"
+    );
+    expect(normalized.mapperDiagnostics?.rejectedFields).toContainEqual({
+      path: "structuredDraft.sections[0].items[0].salaryExpectation",
+      reason: "ai_field_not_grounded"
+    });
   });
 
   it("repairs safety metadata for a one-source-to-many-field decision", () => {
@@ -140,11 +330,19 @@ describe("resume-document-mapper v3 boundary", () => {
     expect(() => definition.validateOutput(output, input)).toThrow("resume_document_mapper_decision_quote_mismatch");
   });
 
-  it("rejects a current flag when the cited source never says current", () => {
+  it("quarantines a current flag when the cited source never says current", () => {
     const output = validOutput();
     const item = output.structuredDraft.sections[0].items[0];
     if (typeof item !== "string") item.current = true;
-    expect(() => definition.validateOutput(output, input)).toThrow("resume_json_mapper_invented_current_status");
+    const normalized = normalizeResumeMapperBoundaryOutput(
+      output,
+      [{ id: "b1", text: "GPA：3.95/5.0，排名：1/42" }]
+    ) as ResumeJsonMapperOutput;
+    expect(normalized.structuredDraft.sections[0].items[0]).not.toHaveProperty("current");
+    expect(normalized.mapperDiagnostics?.rejectedFields).toContainEqual({
+      path: "structuredDraft.sections[0].items[0].current",
+      reason: "ai_field_not_grounded"
+    });
   });
 
   it("grounds sensitive placeholders against the redacted authoritative source", () => {
@@ -211,5 +409,15 @@ function canonicalDecision(targetFieldId: "education.gpa" | "education.gpaScale"
     confidence: 0.9,
     needsConfirmation,
     mappingReason: "exact source"
+  };
+}
+
+function mapping(sourcePaths: string[], sourceValues: string[]) {
+  return {
+    sourcePaths,
+    sourceValues,
+    confidenceLevel: "high" as const,
+    confidenceReason: "exact source",
+    needsConfirmation: false
   };
 }

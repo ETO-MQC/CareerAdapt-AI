@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { aiTaskRegistry } from "@/ai/tasks/registry";
+import { normalizeResumeMapperBoundaryOutput } from "@/ai/tasks/resumeDocumentMapperOutput";
 import {
   buildSemanticMappingBatches,
   tokenizeResumeSourceDocument
@@ -137,7 +138,7 @@ describe("P4.3c.2 resume import reliability", () => {
     ]));
   });
 
-  it("still hard rejects invented numbers and invalid source block ids", () => {
+  it("quarantines isolated invented numbers and invalid source block ids", () => {
     const definition = aiTaskRegistry["resume-document-mapper"];
     const rawText = JSON.stringify([{ id: "known", text: "完成项目 12 个" }]);
     const invented: ResumeJsonMapperOutput = {
@@ -162,12 +163,30 @@ describe("P4.3c.2 resume import reliability", () => {
       mappingDecisions: [],
       unclassifiedBlocks: []
     };
-    expect(() => definition.validateOutput(invented, { rawText, inputHash: "invented-number" }))
-      .toThrow("resume_json_mapper_invented_content");
+    const normalizedInvented = normalizeResumeMapperBoundaryOutput(
+      invented,
+      [{ id: "known", text: "完成项目 12 个" }]
+    ) as ResumeJsonMapperOutput;
+    expect(normalizedInvented.structuredDraft.sections[0].items).toEqual([]);
+    expect(normalizedInvented.mapperDiagnostics?.rejectedFields).toContainEqual({
+      path: "structuredDraft.sections[0].items[0].text",
+      reason: "ai_field_not_grounded"
+    });
+    expect(() => definition.validateOutput(
+      normalizedInvented,
+      { rawText, inputHash: "invented-number" }
+    )).not.toThrow();
 
     const invalidId = structuredOutputFor("missing", "完成项目 12 个");
-    expect(() => definition.validateOutput(invalidId, { rawText, inputHash: "invalid-block" }))
-      .toThrow("resume_document_mapper_source_mismatch");
+    const normalizedInvalidId = normalizeResumeMapperBoundaryOutput(
+      invalidId,
+      [{ id: "known", text: "完成项目 12 个" }]
+    ) as ResumeJsonMapperOutput;
+    expect(normalizedInvalidId.structuredDraft.sections[0].items).toEqual([]);
+    expect(normalizedInvalidId.mapperDiagnostics?.rejectedFields).toContainEqual({
+      path: "structuredDraft.sections[0].items[0].text",
+      reason: "ai_field_not_grounded"
+    });
   });
 });
 

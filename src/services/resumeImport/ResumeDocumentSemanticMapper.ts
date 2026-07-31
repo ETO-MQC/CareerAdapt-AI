@@ -92,7 +92,16 @@ export class ResumeDocumentSemanticMapper {
         outputSchema: ResumeJsonMapperOutputSchema,
         signal: input.signal
       });
-      logs.push(result.log);
+      logs.push(result.ok && result.data.mapperDiagnostics ? {
+        ...result.log,
+        localNormalizationMs: result.data.mapperDiagnostics.localNormalizationMs,
+        groundedFieldCount: result.data.mapperDiagnostics.groundedFieldCount,
+        repairedFieldCount: result.data.mapperDiagnostics.repairedFieldCount,
+        rejectedFieldCount: result.data.mapperDiagnostics.rejectedFieldCount,
+        shapeRepairs: result.data.mapperDiagnostics.shapeRepairs,
+        evidenceRepairs: result.data.mapperDiagnostics.evidenceRepairs,
+        rejectedFields: result.data.mapperDiagnostics.rejectedFields
+      } : result.log);
       if (process.env.NODE_ENV === "development") {
         console.info("[resume-document-mapper:batch]", {
           task: "resume-document-mapper",
@@ -104,7 +113,19 @@ export class ResumeDocumentSemanticMapper {
           inputChars: rawText.length,
           outputChars: result.log.outputLength,
           batchIndex: index + 1,
-          batchCount: batches.length
+          batchCount: batches.length,
+          localNormalizationMs: result.ok
+            ? result.data.mapperDiagnostics?.localNormalizationMs
+            : undefined,
+          groundedFieldCount: result.ok
+            ? result.data.mapperDiagnostics?.groundedFieldCount
+            : undefined,
+          repairedFieldCount: result.ok
+            ? result.data.mapperDiagnostics?.repairedFieldCount
+            : undefined,
+          rejectedFieldCount: result.ok
+            ? result.data.mapperDiagnostics?.rejectedFieldCount
+            : undefined
         });
       }
       if (!result.ok) {
@@ -201,7 +222,14 @@ function createMappedDraft(
     sourceKind: sourceDraft.sourceKind,
     source: sourceDraft.source,
     pages: sourceDraft.pages,
-    parserVersion: `${sourceDraft.parserVersion}+resume-document-mapper.v3`,
+    parserVersion: `${sourceDraft.parserVersion}+resume-document-mapper.v4-boundary`,
+    warnings: [
+      ...mapped.warnings,
+      ...(output.mapperDiagnostics?.rejectedFields ?? []).map((field) => ({
+        code: "ai_field_not_grounded",
+        message: `AI 字段未通过来源核验，已隔离待核对：${field.path}`
+      }))
+    ],
     createdAt: sourceDraft.createdAt
   });
 }
@@ -216,6 +244,33 @@ export function mergeDocumentMapperOutputs(
     sections: outputs.flatMap((output) => output.structuredDraft.sections)
   };
   const mappingDecisions = outputs.flatMap((output) => output.mappingDecisions ?? []);
+  const mapperDiagnostics = {
+    shapeRepairs: Array.from(new Set(outputs.flatMap(
+      (output) => output.mapperDiagnostics?.shapeRepairs ?? []
+    ))),
+    evidenceRepairs: Array.from(new Set(outputs.flatMap(
+      (output) => output.mapperDiagnostics?.evidenceRepairs ?? []
+    ))),
+    rejectedFields: outputs.flatMap(
+      (output) => output.mapperDiagnostics?.rejectedFields ?? []
+    ),
+    localNormalizationMs: outputs.reduce(
+      (sum, output) => sum + (output.mapperDiagnostics?.localNormalizationMs ?? 0),
+      0
+    ),
+    groundedFieldCount: outputs.reduce(
+      (sum, output) => sum + (output.mapperDiagnostics?.groundedFieldCount ?? 0),
+      0
+    ),
+    repairedFieldCount: outputs.reduce(
+      (sum, output) => sum + (output.mapperDiagnostics?.repairedFieldCount ?? 0),
+      0
+    ),
+    rejectedFieldCount: outputs.reduce(
+      (sum, output) => sum + (output.mapperDiagnostics?.rejectedFieldCount ?? 0),
+      0
+    )
+  };
   const cited = new Set([
     ...collectSourcePaths(structuredDraft),
     ...mappingDecisions.flatMap((decision) => decision.sourceBlockIds)
@@ -236,6 +291,7 @@ export function mergeDocumentMapperOutputs(
   return ResumeJsonMapperOutputSchema.parse({
     structuredDraft,
     mappingDecisions,
+    mapperDiagnostics,
     unclassifiedBlocks: Array.from(
       new Map(unclassifiedBlocks.map((item) => [item.sourcePath, item])).values()
     )

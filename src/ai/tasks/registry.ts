@@ -53,7 +53,7 @@ import { resumeTailoringDiffPrompt } from "@/ai/prompts/resumeTailoringDiff";
 import { resumeJsonMapperPrompt } from "@/ai/prompts/resumeJsonMapper";
 import { resumeDocumentMapperPrompt } from "@/ai/prompts/resumeDocumentMapper";
 import { resumeTailorPlannerPrompt } from "@/ai/prompts/resumeTailorPlanner";
-import { coerceResumeDocumentMapperOutput } from "@/ai/tasks/resumeDocumentMapperOutput";
+import { normalizeResumeMapperBoundaryOutput } from "@/ai/tasks/resumeDocumentMapperOutput";
 import { RESUME_CATALOG_VERSION, resumeFieldCatalog } from "@/domain/resumeFields";
 import {
   ProfileIntakeSemanticInputSchema,
@@ -357,18 +357,21 @@ export const aiTaskRegistry = {
               }
             },
             sections: [{
-              allowedKeys: ["title", "sectionType", "category", "included", "items", "mapping"],
+              allowedKeys: ["title", "sectionType", "items", "mapping"],
               itemAllowedKeys: [
                 "text", "organization", "role", "location", "startDate", "endDate",
-                "current", "highlights", "included", "mapping"
+                "current", "highlights", "mapping"
               ]
             }]
           }
         },
-        instructions: "Return only {structuredDraft:{schemaVersion,basics,sections}}. Do not return mappingDecisions. Map without changing facts or numeric values. Cite authoritative original block ids and exact quotes. Use only high/medium/low confidence; medium/low require confirmation. Uncited source blocks are preserved locally and need not be repeated."
+        instructions: "Return only {structuredDraft:{schemaVersion,basics,sections}}. Do not return category, included, mappingDecisions, internal IDs, parser metadata, or review metadata. Map without changing facts or numeric values. Every item mapping must cite authoritative original block ids and exact quotes covering organization, role, location, startDate, endDate, text, and every highlight. Use only high/medium/low confidence. Uncited source blocks are preserved locally and need not be repeated."
       }, null, 2);
     },
-    coerceRawOutput(rawOutput: unknown) { return coerceResumeDocumentMapperOutput(rawOutput); },
+    coerceRawOutput(rawOutput: unknown, input?: ResumeDocumentMapperTaskInput) {
+      const blocks = input ? parseAndRedactDocumentMapperBlocks(input.rawText) : [];
+      return normalizeResumeMapperBoundaryOutput(rawOutput, blocks);
+    },
     normalizeOutput(output: ResumeJsonMapperOutput) {
       return repairDocumentMapperSafetyMetadata(ResumeJsonMapperOutputSchema.parse(output));
     },
@@ -1194,13 +1197,15 @@ function validateDocumentMapperSources(output: ResumeJsonMapperOutput, rawText: 
     sourceTextsById.set(blockId, sourceTexts);
   }
   for (const mapping of collectMappingObjects(output)) {
-    if (mapping.sourcePaths.length !== mapping.sourceValues.length) throw new Error("resume_document_mapper_source_count_mismatch");
-    mapping.sourcePaths.forEach((blockId, index) => {
-      const cited = mapping.sourceValues[index];
-      const sourceTexts = sourceTextsById.get(blockId) ?? [];
+    const sourceTexts = mapping.sourcePaths.flatMap((blockId) => sourceTextsById.get(blockId) ?? []);
+    if (sourceTexts.length === 0) throw new Error("resume_document_mapper_source_mismatch");
+    const evidenceTexts = [...sourceTexts, sourceTexts.join(""), sourceTexts.join(" ")];
+    mapping.sourceValues.forEach((cited) => {
       if (
         typeof cited !== "string"
-        || !sourceTexts.some((sourceText) => normalizeMappedText(sourceText).includes(normalizeMappedText(cited)))
+        || !evidenceTexts.some(
+          (sourceText) => normalizeMappedText(sourceText).includes(normalizeMappedText(cited))
+        )
       ) {
         throw new Error("resume_document_mapper_source_mismatch");
       }
@@ -1215,7 +1220,9 @@ function validateDocumentMapperSources(output: ResumeJsonMapperOutput, rawText: 
       }
     }
   }
-  validateMappedContent(output);
+  // The document mapper boundary already grounds and quarantines every factual
+  // field independently. Re-running the legacy object-level check here would
+  // turn one repaired PDF line fragment back into a whole-document failure.
 }
 
 export function parseAndRedactDocumentMapperBlocks(rawText: string): Array<Record<string, unknown>> {

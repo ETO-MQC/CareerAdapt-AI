@@ -126,7 +126,7 @@ describe("ResumeImportOrchestrator", () => {
       expect(providerInput).not.toContain("13800000000");
       expect(providerInput).not.toContain("zhangsan@example.com");
       expect(result.draft.basics.name?.value).toBe("张三");
-      expect(result.draft.parserVersion).toContain("resume-document-mapper.v3");
+      expect(result.draft.parserVersion).toContain("resume-document-mapper.v4-boundary");
       expect(result.draft.schemaVersion).toBe("resume-import-v2");
       const mappedDraft = result.draft.schemaVersion === "resume-import-v2"
         ? result.draft
@@ -141,7 +141,7 @@ describe("ResumeImportOrchestrator", () => {
         "sourcePath" in block && block.sourcePath === mappedNameBlockId
       )).toBe(false);
       expect((await repository.getImportedResumeDraft(result.importId))?.parserVersion)
-        .toContain("resume-document-mapper.v3");
+        .toContain("resume-document-mapper.v4-boundary");
     } finally {
       vi.stubGlobal("fetch", previousFetch);
     }

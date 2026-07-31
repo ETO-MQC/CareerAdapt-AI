@@ -139,6 +139,16 @@ export const AiLogSchema = EntityBaseSchema.extend({
   outputLength: z.number().int().min(0).optional(),
   latencyMs: z.number().int().min(0).optional(),
   attemptCount: z.number().int().min(1).optional(),
+  localNormalizationMs: z.number().int().min(0).optional(),
+  groundedFieldCount: z.number().int().min(0).optional(),
+  repairedFieldCount: z.number().int().min(0).optional(),
+  rejectedFieldCount: z.number().int().min(0).optional(),
+  shapeRepairs: z.array(z.string().min(1)).optional(),
+  evidenceRepairs: z.array(z.string().min(1)).optional(),
+  rejectedFields: z.array(z.object({
+    path: z.string().min(1),
+    reason: z.string().min(1)
+  }).strict()).optional(),
   inputSummary: z.string().optional(),
   outputSummary: z.string().optional(),
   status: AiLogStatusSchema,
