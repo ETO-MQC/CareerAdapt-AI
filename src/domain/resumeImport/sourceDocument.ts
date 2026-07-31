@@ -7,6 +7,7 @@ import {
 import type { SensitiveTextTokenizer } from "@/services/security/text";
 
 export const RESUME_SOURCE_DOCUMENT_VERSION = "resume-source-document.v2";
+export const DEFAULT_SEMANTIC_USER_TEXT_BUDGET = 16_000;
 
 export type SemanticSourceGroup = {
   id: string;
@@ -19,6 +20,8 @@ export type AiResumeSourceBlock = {
   text: string;
   blockType: ResumeSourceBlockV2["blockType"];
   order: number;
+  headingLevel?: number;
+  listLevel?: number;
   page?: number;
   parentId?: string;
   rowIndex?: number;
@@ -82,17 +85,23 @@ export function tokenizeResumeSourceDocument(
   });
 }
 
-export function toAiResumeSourceBlock(block: ResumeSourceBlockV2): AiResumeSourceBlock {
+export function toAiResumeSourceBlock(
+  block: ResumeSourceBlockV2,
+  options: { includeLayout?: boolean } | number = {}
+): AiResumeSourceBlock {
+  const includeLayout = typeof options === "object" && options.includeLayout === true;
   return {
     id: block.id,
     text: block.normalizedText,
     blockType: block.blockType,
     order: block.order,
+    ...(block.blockType === "heading" ? { headingLevel: headingLevel(block.rawText) } : {}),
+    ...(block.blockType === "list_item" ? { listLevel: listLevel(block.rawText) } : {}),
     ...(block.page === undefined ? {} : { page: block.page }),
     ...(block.parentId === undefined ? {} : { parentId: block.parentId }),
     ...(block.rowIndex === undefined ? {} : { rowIndex: block.rowIndex }),
     ...(block.columnIndex === undefined ? {} : { columnIndex: block.columnIndex }),
-    ...(block.position ? {
+    ...(includeLayout && block.position ? {
       bbox: {
         x: roundLayout(block.position.x),
         y: roundLayout(block.position.y),
@@ -103,11 +112,45 @@ export function toAiResumeSourceBlock(block: ResumeSourceBlockV2): AiResumeSourc
   };
 }
 
+/**
+ * Human-readable semantic input for the mapper. It keeps authoritative source
+ * IDs and structural meaning while avoiding serialized parser/layout metadata.
+ */
+export function buildSemanticDocument(blocks: readonly AiResumeSourceBlock[]) {
+  return blocks.map((block) => {
+    const metadata = [
+      `id=${block.id}`,
+      `type=${block.blockType}`,
+      `order=${block.order}`,
+      block.originalBlockId ? `sourceBlockId=${block.originalBlockId}` : "",
+      block.page === undefined ? "" : `page=${block.page}`,
+      block.headingLevel === undefined ? "" : `headingLevel=${block.headingLevel}`,
+      block.listLevel === undefined ? "" : `listLevel=${block.listLevel}`,
+      block.rowIndex === undefined ? "" : `row=${block.rowIndex}`,
+      block.columnIndex === undefined ? "" : `column=${block.columnIndex}`
+    ].filter(Boolean).join(" ");
+    const prefix = block.blockType === "heading"
+      ? `${"#".repeat(Math.max(1, block.headingLevel ?? 1))} `
+      : block.blockType === "list_item"
+        ? `${"  ".repeat(Math.max(0, (block.listLevel ?? 1) - 1))}- `
+        : "";
+    return `[${metadata}]\n${prefix}${block.text}`;
+  }).join("\n");
+}
+
 export function buildSemanticMappingBatches(
   document: ResumeSourceDocumentV2,
   maxChars = 20_000
 ): AiResumeSourceBlock[][] {
   const groups = groupSourceDocument(document);
+  const includeLayout = document.quality.layoutComplexity === "multi_column"
+    || document.quality.layoutComplexity === "table"
+    || document.quality.readingOrderConfidence === "low";
+  const allBlocks = document.blocks.map((block) => toAiResumeSourceBlock(block, { includeLayout }));
+  const semanticUserTextChars = allBlocks.reduce((total, block) => total + block.text.length, 0);
+  if (semanticUserTextChars <= DEFAULT_SEMANTIC_USER_TEXT_BUDGET && serializedSize(allBlocks) <= maxChars) {
+    return [allBlocks];
+  }
   const batches: AiResumeSourceBlock[][] = [];
   let current: AiResumeSourceBlock[] = [];
 
@@ -129,7 +172,7 @@ export function buildSemanticMappingBatches(
   };
 
   for (const group of groups) {
-    const compactGroup = group.blocks.map(toAiResumeSourceBlock);
+    const compactGroup = group.blocks.map((block) => toAiResumeSourceBlock(block, { includeLayout }));
     if (
       current.length
       && serializedSize([...current, ...compactGroup]) > maxChars
@@ -185,4 +228,14 @@ function serializedSize(blocks: readonly AiResumeSourceBlock[]) {
 
 function roundLayout(value: number) {
   return Math.round(value * 1000) / 1000;
+}
+
+function headingLevel(rawText: string) {
+  const match = rawText.match(/^\s*(#{1,6})\s+/u);
+  return match ? match[1].length : 1;
+}
+
+function listLevel(rawText: string) {
+  const indentation = rawText.match(/^(\s*)/u)?.[1].replace(/\t/g, "  ").length ?? 0;
+  return Math.max(1, Math.floor(indentation / 2) + 1);
 }

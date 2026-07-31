@@ -35,7 +35,7 @@ for (const realCase of cases) {
     const result = await latestImportGateResult(page);
     const counts = semanticCounts(result.draft);
     expect(result.draft.sourceKind).toBe(realCase.sourceKind);
-    expect(result.draft.parserVersion).toContain("resume-document-mapper.v5-canonical-v2");
+    expect(result.draft.parserVersion).toContain("resume-document-mapper.v6-canonical-v2");
     expect(counts.structuredItemCount).toBe(counts.itemCount);
     expect(result.logs.length).toBeGreaterThan(0);
     expect(result.logs.every((log) => log.status === "success")).toBe(true);

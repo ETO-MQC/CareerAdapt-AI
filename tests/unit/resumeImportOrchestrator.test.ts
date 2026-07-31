@@ -81,7 +81,7 @@ describe("ResumeImportOrchestrator", () => {
       return new Response(JSON.stringify({
         ok: true,
         task: "resume-document-mapper",
-        promptVersion: "resume-document-mapper.v5-canonical-v2",
+        promptVersion: "resume-document-mapper.v6-canonical-v2",
         output: {
           resume: {
             schemaVersion: "careeradapt-resume-v2",
@@ -126,7 +126,7 @@ describe("ResumeImportOrchestrator", () => {
       expect(providerInput).not.toContain("13800000000");
       expect(providerInput).not.toContain("zhangsan@example.com");
       expect(result.draft.basics.name?.value).toBe("张三");
-      expect(result.draft.parserVersion).toContain("resume-document-mapper.v5-canonical-v2");
+      expect(result.draft.parserVersion).toContain("resume-document-mapper.v6-canonical-v2");
       expect(result.draft.schemaVersion).toBe("resume-import-v2");
       const mappedDraft = result.draft.schemaVersion === "resume-import-v2"
         ? result.draft
@@ -142,7 +142,7 @@ describe("ResumeImportOrchestrator", () => {
         "sourcePath" in block && block.sourcePath === mappedNameBlockId
       )).toBe(false);
       expect((await repository.getImportedResumeDraft(result.importId))?.parserVersion)
-        .toContain("resume-document-mapper.v5-canonical-v2");
+        .toContain("resume-document-mapper.v6-canonical-v2");
     } finally {
       vi.stubGlobal("fetch", previousFetch);
     }

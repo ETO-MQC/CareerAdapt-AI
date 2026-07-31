@@ -305,6 +305,7 @@ export const ImportedResumeFieldSchema = z.object({
   confidence: ImportedResumeConfidenceSchema,
   sourceStatus: ImportedResumeSourceStatusSchema,
   userEdited: z.boolean().default(false),
+  userConfirmed: z.boolean().optional(),
   sourceBlockIds: z.array(z.string().min(1)).default([]),
   sourceRanges: z.array(ResumeSourceRangeSchema).optional(),
   sourceQuote: z.string().min(1).optional(),
@@ -321,6 +322,7 @@ export const ImportedResumeItemSchema = z.object({
   confidence: ImportedResumeConfidenceSchema,
   sourceStatus: ImportedResumeSourceStatusSchema,
   userEdited: z.boolean().default(false),
+  userConfirmed: z.boolean().optional(),
   sourceBlockIds: z.array(z.string().min(1)).default([]),
   sourceRanges: z.array(ResumeSourceRangeSchema).optional(),
   itemLabel: z.string().min(1).optional(),
@@ -633,6 +635,10 @@ const AiOptionalBooleanSchema = z.boolean().nullable().optional();
 
 const AiCareerAdaptResumeItemBaseShape = {
   id: AiOptionalStringSchema,
+  // Mapper-only grounding hints. The boundary consumes and strips these
+  // before the canonical Resume Schema v2 is persisted.
+  _mapperItemKey: AiOptionalStringSchema,
+  _sourceBlockIds: z.array(z.string().min(1)).nullable().optional(),
   customFields: z.array(CustomFieldValueSchema).nullable().optional()
 };
 

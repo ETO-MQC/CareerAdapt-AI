@@ -17,6 +17,7 @@ export function applyResumeImportReviewDecision(
     return {
       ...field,
       sourceStatus: "user_confirmed_modified",
+      userConfirmed: true,
       mapping: { ...field.mapping, needsConfirmation: false }
     } as T;
   };
@@ -27,6 +28,7 @@ export function applyResumeImportReviewDecision(
           ...item,
           included: accept,
           sourceStatus: "user_confirmed_modified" as const,
+          userConfirmed: accept,
           mapping: item.mapping ? { ...item.mapping, needsConfirmation: false } : undefined
         }
       : item)

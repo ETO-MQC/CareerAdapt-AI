@@ -714,6 +714,7 @@ export function ResumeImportWizard(props: {
           confidence: current?.confidence ?? "medium",
           sourceStatus: current?.value === value.trim() ? current.sourceStatus : "user_confirmed_modified",
           userEdited: current?.value !== value.trim(),
+          userConfirmed: current?.value === value.trim() ? current?.userConfirmed : false,
           sourceBlockIds: current?.sourceBlockIds ?? [],
           sourceRanges: current?.sourceRanges,
           sourceQuote: current?.sourceQuote ?? current?.value,
@@ -733,7 +734,7 @@ export function ResumeImportWizard(props: {
     await patchDraft((current) => {
       const field = current.basics[key];
       if (!field?.mapping) return current;
-      return { ...current, basics: { ...current.basics, [key]: { ...field, sourceStatus: "user_confirmed_modified", mapping: { ...field.mapping, needsConfirmation: false } } } };
+      return { ...current, basics: { ...current.basics, [key]: { ...field, sourceStatus: "user_confirmed_modified", userConfirmed: true, mapping: { ...field.mapping, needsConfirmation: false } } } };
     });
   }
 
@@ -785,7 +786,7 @@ export function ResumeImportWizard(props: {
                 : item.dateValue
             }
           : item),
-        sections: updateStructuredCandidateValue(current.sections, candidate, value)
+        sections: updateStructuredCandidateValue(current.sections, candidate, value, true)
       };
     });
     setEditingCandidateId(undefined);
@@ -796,6 +797,7 @@ export function ResumeImportWizard(props: {
       included: true,
       sourceStatus: "user_confirmed_modified",
       userEdited: false,
+      userConfirmed: true,
       mapping: draft?.sections.flatMap((section) => section.items).find((item) => item.id === itemId)?.mapping
         ? { ...draft.sections.flatMap((section) => section.items).find((item) => item.id === itemId)!.mapping!, needsConfirmation: false }
         : undefined
@@ -806,7 +808,8 @@ export function ResumeImportWizard(props: {
     await updateItem(sectionId, itemId, {
       included: false,
       sourceStatus: "user_confirmed_modified",
-      userEdited: false
+      userEdited: false,
+      userConfirmed: false
     });
   }
 
@@ -825,6 +828,7 @@ export function ResumeImportWizard(props: {
               included: true,
               sourceStatus: "user_confirmed_modified" as const,
               userEdited: false,
+              userConfirmed: true,
               mapping: item.mapping ? { ...item.mapping, needsConfirmation: false } : undefined
             }
           : item)
@@ -898,6 +902,7 @@ export function ResumeImportWizard(props: {
       structuredItem: item.structuredItem ? updateStructuredItemBody(item.structuredItem, text) : undefined,
       sourceStatus: text === item.rawText.trim() ? item.sourceStatus : "user_confirmed_modified",
       userEdited: text !== item.rawText.trim(),
+      userConfirmed: text === item.rawText.trim() ? item.userConfirmed : false,
       confidence: text === item.rawText.trim() ? item.confidence : "medium"
     });
   }
@@ -944,6 +949,7 @@ export function ResumeImportWizard(props: {
           pageRefs: [...currentItem.pageRefs, ...next.pageRefs],
           sourceStatus: currentItem.sourceStatus === "located" && next.sourceStatus === "located" ? "located" : "user_confirmed_modified",
           userEdited: true,
+          userConfirmed: false,
           confidence: "medium"
         };
         return {
@@ -981,6 +987,7 @@ export function ResumeImportWizard(props: {
           normalizedText: part,
           sourceStatus: "user_confirmed_modified" as const,
           userEdited: true,
+          userConfirmed: false,
           confidence: "medium" as const
         }));
         return {
@@ -1589,15 +1596,11 @@ export function ResumeImportWizard(props: {
                   <div key={item.id} className={`import-item-row ${selectedItemId === item.id ? "import-item-row-active" : ""}`}>
                     <label className="inline-toggle">
                       <input name={`import-item-${item.id}-included`} type="checkbox" checked={item.included} onChange={(event) => { void updateItem(section.id, item.id, { included: event.target.checked }); }} />
-                      {sourceStatusLabel(item.sourceStatus, item.userEdited)} / {confidenceLabel(item.confidence)} / 第 {item.pageRefs.map((ref) => ref.pageNumber).join(",") || "?"} 页
+                      {sourceStatusLabel(item.sourceStatus, item.userEdited, item.userConfirmed, item.mapping?.needsConfirmation, item.confidence)} / 第 {item.pageRefs.map((ref) => ref.pageNumber).join(",") || "?"} 页
                     </label>
                     {item.structuredItem && item.sourceStatus === "ambiguous" ? <div className="action-row">
                       <button className="secondary-button compact" type="button" onClick={() => { void confirmItemMapping(section.id, item.id); }}>采用此条</button>
                       <button className="secondary-button compact" type="button" onClick={() => { void discardStructuredItem(section.id, item.id); }}>舍弃</button>
-                      <button className="secondary-button compact" type="button" onClick={() => {
-                        setSelectedItemId(item.id);
-                        requestAnimationFrame(() => document.getElementById(`import-item-editor-${item.id}`)?.focus());
-                      }}>编辑</button>
                     </div> : item.mapping?.needsConfirmation ? <button className="secondary-button compact" type="button" onClick={() => { void confirmItemMapping(section.id, item.id); }}>确认此映射</button> : null}
                     {item.mapping ? <button
                       type="button"
@@ -1615,22 +1618,23 @@ export function ResumeImportWizard(props: {
                     </button> : null}
                     {item.structuredItem ? <dl className="import-item-structured-fields">
                       {structuredItemFields(item.structuredItem).map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}
-                    </dl> : null}
-                    <strong className="import-item-body-label">{structuredItemBodyLabel(item.structuredItem ?? section.sectionType)}</strong>
-                    <textarea
-                      id={`import-item-editor-${item.id}`}
-                      className="textarea compact-textarea"
-                      name={`import-item-${item.id}`}
-                      aria-label={`${section.detectedTitle}${structuredItemBodyLabel(item.structuredItem ?? section.sectionType)}`}
-                      defaultValue={item.structuredItem ? structuredItemBody(item.structuredItem) : item.normalizedText}
-                      onFocus={() => {
-                        setSelectedItemId(item.id);
-                        setSelectedBasicFieldKey(undefined);
-                        setSelectedCandidateId(undefined);
-                        setSelectedPageNumber(item.pageRefs[0]?.pageNumber ?? selectedPageNumber);
-                      }}
-                      onBlur={(event) => { void editItemText(section.id, item, event.target.value); }}
-                    />
+                    </dl> : <>
+                      <strong className="import-item-body-label">{structuredItemBodyLabel(section.sectionType)}</strong>
+                      <textarea
+                        id={`import-item-editor-${item.id}`}
+                        className="textarea compact-textarea"
+                        name={`import-item-${item.id}`}
+                        aria-label={`${section.detectedTitle}${structuredItemBodyLabel(section.sectionType)}`}
+                        defaultValue={item.normalizedText}
+                        onFocus={() => {
+                          setSelectedItemId(item.id);
+                          setSelectedBasicFieldKey(undefined);
+                          setSelectedCandidateId(undefined);
+                          setSelectedPageNumber(item.pageRefs[0]?.pageNumber ?? selectedPageNumber);
+                        }}
+                        onBlur={(event) => { void editItemText(section.id, item, event.target.value); }}
+                      />
+                    </>}
                     <details className="import-item-source-excerpt">
                       <summary>查看来源原文</summary>
                       <pre>{item.rawText}</pre>
@@ -1964,13 +1968,19 @@ function confidenceLabel(confidence: ImportedResumeItem["confidence"]) {
   }[confidence];
 }
 
-function sourceStatusLabel(status: ImportedResumeItem["sourceStatus"], userEdited = false) {
-  if (status === "user_confirmed_modified") return userEdited ? "用户已编辑" : "用户已确认";
-  return {
-    located: "AI 已识别",
-    ambiguous: "需要核对",
-    unlocated: "未定位"
-  }[status];
+function sourceStatusLabel(
+  status: ImportedResumeItem["sourceStatus"],
+  userEdited = false,
+  userConfirmed = false,
+  needsConfirmation = false,
+  confidence: ImportedResumeItem["confidence"] = "medium"
+) {
+  if (userEdited) return "用户已编辑";
+  if (userConfirmed) return "用户已确认";
+  if (needsConfirmation || status === "ambiguous" || status === "unlocated") {
+    return `AI 已识别 / ${confidenceLabel(confidence)} / 需要核对`;
+  }
+  return "AI 已识别";
 }
 
 function hasCompleteItemSource(item: ImportedResumeItem) {
@@ -2031,7 +2041,7 @@ function candidateContextLabel(candidate: ImportedResumeFieldCandidate, draft: I
 function structuredItemFields(item: ResumeItemV2): Array<[string, string]> {
   const record = item as unknown as Record<string, unknown>;
   const labelsByType: Record<string, Array<[string, string]>> = {
-    summary: [],
+    summary: [["text", "内容"]],
     education: [["school", "学校"], ["degree", "学历"], ["major", "专业"], ["department", "院系"], ["location", "地点"], ["startDate", "开始日期"], ["endDate", "结束日期"], ["current", "在读状态"], ["gpa", "GPA"], ["gpaScale", "GPA 满分"], ["rankPosition", "排名"], ["rankTotal", "总人数"], ["courses", "课程"], ["honors", "荣誉"], ["description", "说明"], ["highlights", "亮点"]],
     work: [["organization", "组织"], ["role", "职位"], ["department", "部门"], ["location", "地点"], ["startDate", "开始日期"], ["endDate", "结束日期"], ["current", "当前状态"], ["description", "说明"], ["highlights", "职责与成果"]],
     internship: [["organization", "组织"], ["role", "职位"], ["department", "部门"], ["location", "地点"], ["startDate", "开始日期"], ["endDate", "结束日期"], ["current", "当前状态"], ["description", "说明"], ["highlights", "职责与成果"]],
@@ -2101,7 +2111,8 @@ function parseEditedCandidateValue(
 function updateStructuredCandidateValue(
   sections: ImportedResumeDraft["sections"],
   candidate: ImportedResumeFieldCandidate,
-  value: ImportedResumeFieldCandidate["value"] | undefined
+  value: ImportedResumeFieldCandidate["value"] | undefined,
+  markEdited = false
 ) {
   if (!candidate.itemId || candidate.itemId === "basics") return sections;
   const key = candidate.targetFieldId.split(".").at(-1);
@@ -2118,16 +2129,18 @@ function updateStructuredCandidateValue(
         record[key] = value;
       }
       const parsed = ResumeItemV2Schema.parse(record);
-      return { ...item, structuredItem: parsed, itemLabel: itemDisplayLabelForReview(parsed) };
+      return {
+        ...item,
+        structuredItem: parsed,
+        itemLabel: itemDisplayLabelForReview(parsed),
+        ...(markEdited ? {
+          sourceStatus: "user_confirmed_modified" as const,
+          userEdited: true,
+          userConfirmed: false
+        } : {})
+      };
     })
   }));
-}
-
-function structuredItemBody(item: ResumeItemV2) {
-  if (item.sectionType === "summary") return item.text;
-  if ("highlights" in item && item.highlights.length > 0) return item.highlights.join("\n");
-  if ("description" in item && item.description) return item.description;
-  return "";
 }
 
 function updateStructuredItemBody(item: ResumeItemV2, text: string): ResumeItemV2 {

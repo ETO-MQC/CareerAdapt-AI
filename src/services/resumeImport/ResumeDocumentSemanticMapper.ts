@@ -7,6 +7,8 @@ import {
   sourceDocumentFromDraft,
   tokenizeResumeSourceDocument
 } from "@/domain/resumeImport/sourceDocument";
+import { matchResumeSectionHeading } from "@/domain/resumeImport/sectionHeading";
+import { auditResumeImportInvariants } from "@/domain/resumeImport/invariants";
 import {
   AiCareerAdaptResumeV2MapperOutputSchema,
   CareerAdaptResumeJsonV2Schema,
@@ -83,7 +85,7 @@ export class ResumeDocumentSemanticMapper {
       );
       const rawText = JSON.stringify(batches[index]);
       const inputHash = await hashText(
-        `${rawText}|${sourceDraft.parserVersion}|resume-document-mapper.v5`
+        `${rawText}|${sourceDraft.parserVersion}|resume-document-mapper.v6`
       );
       const result = await invokeStructuredAi({
         task: "resume-document-mapper",
@@ -143,12 +145,20 @@ export class ResumeDocumentSemanticMapper {
     input.onProgress?.("正在校验字段来源…");
     const redactedMerged = mergeDocumentMapperOutputs(outputs, redactedDocument.blocks);
 
-    // This construction is deliberately performed against the redacted authority
-    // before any local placeholder restoration.
-    createMappedDraft(sourceDraft, redactedMerged, redactedDocument.blocks);
+    // Build once against the redacted authority, then close the source-block
+    // partition from the actual draft bindings rather than model uncited hints.
+    const redactedDraft = createMappedDraft(sourceDraft, redactedMerged, redactedDocument.blocks);
+    const closedRedactedMerged = {
+      ...redactedMerged,
+      unclassifiedRefs: recomputeFinalUnclassifiedRefs(
+        redactedMerged,
+        redactedDraft,
+        redactedDocument.blocks
+      )
+    };
 
     const restoredMerged = restoreSensitivePlaceholders(
-      redactedMerged,
+      closedRedactedMerged,
       tokenizer.restorationMap
     );
     const mappedDraft = createMappedDraft(
@@ -160,6 +170,13 @@ export class ResumeDocumentSemanticMapper {
       throw new ResumeDocumentSemanticMapperError(
         "unresolved_sensitive_placeholder",
         "AI 映射结果仍包含未恢复的敏感信息占位符。"
+      );
+    }
+    const invariantReport = auditResumeImportInvariants(mappedDraft);
+    if (invariantReport.mappedSourceBlockRepeatedInUnclassified > 0) {
+      throw new ResumeDocumentSemanticMapperError(
+        "semantic_validation_failed",
+        "来源块同时进入已映射条目和未分类列表，已停止导入以避免重复。"
       );
     }
     return mappedDraft;
@@ -234,7 +251,7 @@ function createMappedDraft(
     sourceKind: sourceDraft.sourceKind,
     source: sourceDraft.source,
     pages: sourceDraft.pages,
-    parserVersion: `${sourceDraft.parserVersion}+resume-document-mapper.v5-canonical-v2`,
+    parserVersion: `${sourceDraft.parserVersion}+resume-document-mapper.v6-canonical-v2`,
     warnings: [
       ...mapped.warnings,
       ...(output.mapperDiagnostics?.rejectedFields ?? []).map((field) => ({
@@ -244,6 +261,68 @@ function createMappedDraft(
     ],
     createdAt: sourceDraft.createdAt
   });
+}
+
+function recomputeFinalUnclassifiedRefs(
+  output: AiCareerAdaptResumeV2MapperOutput,
+  draft: ImportedResumeDraft,
+  sourceBlocks: readonly ResumeSourceBlockV2[]
+): AiCareerAdaptResumeV2MapperOutput["unclassifiedRefs"] {
+  const blockByAnyId = new Map<string, ResumeSourceBlockV2>();
+  for (const block of sourceBlocks) {
+    blockByAnyId.set(block.id, block);
+    if (block.sourcePath) blockByAnyId.set(block.sourcePath, block);
+  }
+  const coveredBlockIds = new Set<string>();
+  const addCovered = (blockIds: readonly string[]) => {
+    for (const blockId of blockIds) {
+      const block = blockByAnyId.get(blockId);
+      if (block) coveredBlockIds.add(block.id);
+    }
+  };
+
+  for (const field of Object.values(draft.basics)) {
+    if (Array.isArray(field)) {
+      field.forEach((entry) => addCovered(entry.sourceBlockIds));
+    } else if (field) {
+      addCovered(field.sourceBlockIds);
+    }
+  }
+  for (const section of draft.sections) {
+    for (const item of section.items) addCovered(item.sourceBlockIds);
+  }
+
+  for (const ref of output.sourceRefs) {
+    if (isCanonicalSourceRefPath(ref.path)) addCovered(ref.blockIds);
+  }
+
+  const canonicalSectionTypes = new Set(draft.sections.map((section) => section.sectionType));
+  const structuralBlockIds = new Set(
+    sourceBlocks.flatMap((block) => {
+      const match = matchResumeSectionHeading(block.normalizedText);
+      return match?.kind === "canonical_section" && canonicalSectionTypes.has(match.sectionType)
+        ? [block.id]
+        : [];
+    })
+  );
+
+  const refs = output.unclassifiedRefs.flatMap((ref) => {
+    const blockIds = [...new Set(ref.blockIds.flatMap((blockId) => {
+      const block = blockByAnyId.get(blockId);
+      return block && !coveredBlockIds.has(block.id) && !structuralBlockIds.has(block.id) ? [block.id] : [];
+    }))];
+    return blockIds.length ? [{ blockIds, reason: ref.reason }] : [];
+  });
+  for (const block of sourceBlocks) {
+    if (coveredBlockIds.has(block.id) || structuralBlockIds.has(block.id)) continue;
+    refs.push({ blockIds: [block.id], reason: "AI 未引用该来源块，已确定性保留。" });
+  }
+  return dedupeUnclassifiedRefs(refs);
+}
+
+function isCanonicalSourceRefPath(path: string) {
+  return /^\/basics\/[A-Za-z][A-Za-z0-9_-]*$/u.test(path)
+    || /^\/sections\/\d+\/items\/\d+(?:\/[A-Za-z][A-Za-z0-9_-]*(?:\/\d+)*)?$/u.test(path);
 }
 
 export function mergeDocumentMapperOutputs(

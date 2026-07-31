@@ -8,7 +8,7 @@ import {
   type ResumeItemV2,
   type ResumeSectionTypeV2
 } from "@/domain/schemas";
-import { getResumeSectionDefinition } from "@/domain/resumeFields";
+import { getResumeSectionDefinition, RESUME_AI_ITEM_FIELD_CONTRACT, RESUME_SECTION_TYPES_V2 } from "@/domain/resumeFields";
 
 const OUTPUT_KEYS = new Set(["resume", "sourceRefs", "unclassifiedRefs", "mapperDiagnostics"]);
 const RESUME_KEYS = new Set(["schemaVersion", "locale", "basics", "sections", "unclassifiedBlocks"]);
@@ -19,49 +19,17 @@ const BASIC_KEYS = new Set([
 const SECTION_KEYS = new Set(["id", "sectionType", "title", "order", "visible", "items", "customFields"]);
 const SOURCE_REF_KEYS = new Set(["path", "blockIds", "confidenceLevel", "confidenceReason", "needsConfirmation"]);
 const WRAPPER_KEYS = ["resume", "draft", "result"] as const;
-const SECTION_TYPES = new Set<Exclude<ResumeSectionTypeV2, "basics">>([
-  "summary", "education", "work", "internship", "project", "research", "campus",
-  "volunteer", "awards", "skills", "certificates", "languages", "publications",
-  "patents", "portfolio", "other", "custom"
-]);
+const SECTION_TYPES = new Set<Exclude<ResumeSectionTypeV2, "basics">>(
+  RESUME_SECTION_TYPES_V2.filter(
+    (sectionType): sectionType is Exclude<ResumeSectionTypeV2, "basics"> => sectionType !== "basics"
+  )
+);
 
 const BASIC_FIELD_KEYS = [
   "name", "photo", "headline", "summary", "phone", "email", "location", "homepage",
   "linkedin", "github", "portfolioLinks", "otherLinks"
 ] as const;
-const COMMON_EXPERIENCE_FIELDS = [
-  "organization", "role", "department", "location", "startDate", "endDate", "current",
-  "description", "highlights"
-] as const;
-const SECTION_ITEM_FIELDS = {
-  summary: ["text"],
-  education: [
-    "school", "major", "degree", "department", "location", "startDate", "endDate",
-    "current", "gpa", "gpaScale", "rankPosition", "rankTotal", "courses", "honors",
-    "description", "highlights"
-  ],
-  work: COMMON_EXPERIENCE_FIELDS,
-  internship: COMMON_EXPERIENCE_FIELDS,
-  project: [
-    "title", "role", "organization", "location", "startDate", "endDate", "current",
-    "url", "tools", "background", "description", "highlights", "outcomes"
-  ],
-  research: [
-    "title", "authorRole", "institution", "startDate", "endDate", "current", "methods",
-    "samples", "publication", "publicationStatus", "url", "description", "highlights"
-  ],
-  campus: COMMON_EXPERIENCE_FIELDS,
-  volunteer: COMMON_EXPERIENCE_FIELDS,
-  awards: ["name", "issuer", "level", "awardedAt", "rank", "description"],
-  skills: ["name", "category", "level", "description"],
-  certificates: ["name", "issuer", "issuedAt", "expiresAt", "credentialId", "status", "description"],
-  languages: ["language", "level", "testName", "score", "description"],
-  publications: ["title", "authors", "authorRole", "publisher", "publishedAt", "status", "doi", "url", "description"],
-  patents: ["title", "inventors", "patentNumber", "office", "filedAt", "grantedAt", "status", "url", "description"],
-  portfolio: ["title", "type", "role", "url", "createdAt", "tools", "description", "highlights"],
-  other: ["title", "description", "highlights"],
-  custom: ["title", "description", "highlights"]
-} as const satisfies Record<Exclude<ResumeSectionTypeV2, "basics">, readonly string[]>;
+const SECTION_ITEM_FIELDS = RESUME_AI_ITEM_FIELD_CONTRACT;
 
 const ARRAY_FIELDS = new Set([
   "portfolioLinks", "otherLinks", "links", "courses", "honors", "highlights",
@@ -91,6 +59,8 @@ type AuthoritativeSourceBlock = {
   id?: unknown;
   originalBlockId?: unknown;
   text?: unknown;
+  blockType?: unknown;
+  order?: unknown;
 };
 
 export type ResumeMapperBoundaryDiagnostics = {
@@ -171,7 +141,8 @@ export function normalizeResumeMapperBoundaryOutput(
     })
   );
 
-  const sections = mergedSections.map((section, sectionIndex) => ({
+  const normalizedSections = mergedSections.map((section) => inheritSkillCategories(section, authoritativeSourceBlocks));
+  const sections = normalizedSections.map((section, sectionIndex) => ({
     id: section.id ?? `ai-section-${section.sectionType}-${sectionIndex + 1}`,
     sectionType: section.sectionType,
     title: section.title ?? getResumeSectionDefinition(section.sectionType).label,
@@ -194,7 +165,7 @@ export function normalizeResumeMapperBoundaryOutput(
   });
   const finalSourceRefs = [
     ...sourceRefs.filter((ref) => ref.path.startsWith("/basics/") && hasCanonicalBasicPath(canonicalResume, ref.path)),
-    ...mergedSections.flatMap((section, sectionIndex) =>
+    ...normalizedSections.flatMap((section, sectionIndex) =>
       section.items.flatMap(({ ref }, itemIndex) => ref
         ? [{
             ...ref,
@@ -246,8 +217,14 @@ function coerceRawCanonicalOutput(
   const resume = isRecord(output.resume) ? sanitizeRecord(output.resume) : {};
   assertNoUnknownKeys(resume, RESUME_KEYS, ["resume"]);
   coerceBasics(resume, diagnostics);
-  coerceSections(resume, diagnostics);
-  const sourceRefs = coerceSourceRefs(output, diagnostics);
+  const inlineSourceRefs: Array<{
+    path: string;
+    blockIds: string[];
+    confidenceLevel: "high";
+    needsConfirmation: false;
+  }> = [];
+  coerceSections(resume, diagnostics, inlineSourceRefs);
+  const sourceRefs = coerceSourceRefs(output, diagnostics, inlineSourceRefs);
   const unclassifiedRefs = coerceUnclassifiedRefs(output, sourceRefs, diagnostics);
   return { resume, sourceRefs, unclassifiedRefs };
 }
@@ -299,7 +276,16 @@ function coerceBasics(resume: Record<string, unknown>, diagnostics: ResumeMapper
   resume.basics = basics;
 }
 
-function coerceSections(resume: Record<string, unknown>, diagnostics: ResumeMapperBoundaryDiagnostics) {
+function coerceSections(
+  resume: Record<string, unknown>,
+  diagnostics: ResumeMapperBoundaryDiagnostics,
+  inlineSourceRefs: Array<{
+    path: string;
+    blockIds: string[];
+    confidenceLevel: "high";
+    needsConfirmation: false;
+  }>
+) {
   if (!Array.isArray(resume.sections)) {
     resume.sections = [];
     return;
@@ -319,7 +305,13 @@ function coerceSections(resume: Record<string, unknown>, diagnostics: ResumeMapp
     if (!sectionType) return [];
     section.items = Array.isArray(section.items)
       ? section.items.flatMap((item, itemIndex) =>
-          isRecord(item) ? [coerceItem(item, sectionType, diagnostics, ["resume", "sections", sectionIndex, "items", itemIndex])] : []
+          isRecord(item) ? [coerceItem(
+            item,
+            sectionType,
+            diagnostics,
+            ["resume", "sections", sectionIndex, "items", itemIndex],
+            inlineSourceRefs
+          )] : []
         )
       : [];
     return [section];
@@ -330,10 +322,23 @@ function coerceItem(
   value: Record<string, unknown>,
   sectionType: Exclude<ResumeSectionTypeV2, "basics">,
   diagnostics: ResumeMapperBoundaryDiagnostics,
-  path: PropertyKey[]
+  path: PropertyKey[],
+  inlineSourceRefs: Array<{
+    path: string;
+    blockIds: string[];
+    confidenceLevel: "high";
+    needsConfirmation: false;
+  }>
 ) {
+  const mapperItemKey = cleanString(value._mapperItemKey);
+  const sourceBlockIds = Array.isArray(value._sourceBlockIds)
+    ? value._sourceBlockIds.filter((blockId): blockId is string => typeof blockId === "string" && blockId.trim().length > 0)
+    : [];
   const item = sanitizeRecord(value);
   item.sectionType = sectionType;
+  if (!cleanString(item.id) && mapperItemKey) item.id = `ai-item-${mapperItemKey.replace(/[^\p{L}\p{N}_-]+/gu, "-")}`;
+  delete item._mapperItemKey;
+  delete item._sourceBlockIds;
   delete item.mapping;
   delete item.included;
   if (sectionType !== "skills" && sectionType !== "portfolio" && "category" in item) {
@@ -341,7 +346,11 @@ function coerceItem(
     addRepair(diagnostics.shapeRepairs, "generic_item_category_omitted");
   }
   const alias = (from: string, to: string, repair: string) => applyAlias(item, from, to, diagnostics, repair);
-  if (sectionType === "education") {
+  if (sectionType === "summary") {
+    alias("description", "text", "summary_description_to_text");
+    alias("content", "text", "summary_content_to_text");
+    alias("summary", "text", "summary_alias_to_text");
+  } else if (sectionType === "education") {
     alias("institution", "school", "education_institution_to_school");
     alias("university", "school", "education_university_to_school");
     alias("organization", "school", "education_organization_to_school");
@@ -411,14 +420,35 @@ function coerceItem(
   }
   const allowed = new Set(["id", "sectionType", "customFields", ...SECTION_ITEM_FIELDS[sectionType]]);
   assertNoUnknownKeys(item, allowed, path);
+  if (sourceBlockIds.length) {
+    const sectionIndex = path[2];
+    const itemIndex = path[4];
+    if (typeof sectionIndex === "number" && typeof itemIndex === "number") {
+      inlineSourceRefs.push({
+        path: `/sections/${sectionIndex}/items/${itemIndex}`,
+        blockIds: [...new Set(sourceBlockIds)],
+        confidenceLevel: "high",
+        needsConfirmation: false
+      });
+    }
+  }
   return item;
 }
 
 function coerceSourceRefs(
   output: Record<string, unknown>,
-  diagnostics: ResumeMapperBoundaryDiagnostics
+  diagnostics: ResumeMapperBoundaryDiagnostics,
+  inlineSourceRefs: readonly {
+    path: string;
+    blockIds: string[];
+    confidenceLevel: "high";
+    needsConfirmation: false;
+  }[]
 ) {
-  const sourceRefs = Array.isArray(output.sourceRefs) ? output.sourceRefs : [];
+  const sourceRefs = [
+    ...(Array.isArray(output.sourceRefs) ? output.sourceRefs : []),
+    ...inlineSourceRefs
+  ];
   return sourceRefs.flatMap((sourceRef, index) => {
     if (!isRecord(sourceRef)) return [];
     const ref = sanitizeRecord(sourceRef);
@@ -551,12 +581,16 @@ function normalizeItem(input: {
       }
       continue;
     }
-    const value = DATE_FIELDS.has(field) ? normalizeDateValue(raw) : cleanString(raw);
-    if (!value) continue;
-    if (DATE_FIELDS.has(field) && field === "endDate" && CURRENT_WORD_PATTERN.test(cleanString(raw) ?? "")) {
-      item.current = true;
+    const rawString = cleanString(raw) ?? "";
+    if (DATE_FIELDS.has(field) && field === "endDate" && CURRENT_WORD_PATTERN.test(rawString)) {
+      if (groundCurrent(refs, input.refLookup, input.diagnostics, fieldPath, input.rejectedSourceIds)) {
+        item.current = true;
+        keptRefs.push(...refs);
+      }
       continue;
     }
+    const value = DATE_FIELDS.has(field) ? normalizeDateValue(rawString) : rawString;
+    if (!value) continue;
     if (groundFactualValue(value, refs, input.refLookup, input.diagnostics, fieldPath, input.rejectedSourceIds)) {
       item[field] = value;
       keptRefs.push(...refs);
@@ -596,6 +630,91 @@ function mergeSections(sections: SectionWithRefs[]): SectionWithRefs[] {
     existing.visible = existing.visible || section.visible;
   }
   return [...merged.values()].map((section, order) => ({ ...section, order }));
+}
+
+function inheritSkillCategories(
+  section: SectionWithRefs,
+  sourceBlocks: readonly AuthoritativeSourceBlock[]
+): SectionWithRefs {
+  if (section.sectionType !== "skills" || !sourceBlocks.length) return section;
+  const sourceById = new Map<string, AuthoritativeSourceBlock>();
+  const orderedBlocks = sourceBlocks.map((block, index) => ({
+    block,
+    order: typeof block.order === "number" ? block.order : index
+  }));
+  for (const { block } of orderedBlocks) {
+    if (typeof block.id === "string") sourceById.set(block.id, block);
+    if (typeof block.originalBlockId === "string") sourceById.set(block.originalBlockId, block);
+  }
+  const categoryHeadings = orderedBlocks.flatMap(({ block, order }) => {
+    const category = extractSkillCategoryHeading(block);
+    return category ? [{ category, block, order }] : [];
+  });
+  if (!categoryHeadings.length) return section;
+
+  const items: ItemWithRef[] = [];
+  for (const entry of section.items) {
+    const record = entry.item as unknown as Record<string, unknown>;
+    const refBlockIds = entry.ref?.blockIds ?? [];
+    const itemOrder = Math.min(
+      ...refBlockIds.map((blockId) => {
+        const source = sourceById.get(blockId);
+        const match = source ? orderedBlocks.find((candidate) => candidate.block === source) : undefined;
+        return match?.order ?? Number.POSITIVE_INFINITY;
+      })
+    );
+    const referencedHeading = categoryHeadings.find((heading) => refBlockIds.some((blockId) =>
+      sourceById.get(blockId) === heading.block
+    ));
+    const nearestHeading = categoryHeadings
+      .filter((heading) => heading.order <= itemOrder)
+      .at(-1);
+    const heading = referencedHeading ?? nearestHeading;
+    const name = typeof record.name === "string" ? record.name.trim() : "";
+    const category = typeof record.category === "string" ? record.category.trim() : "";
+    const isHeadingItem = Boolean(heading)
+      && name
+      && normalizeSkillComparable(name) === normalizeSkillComparable(heading!.category)
+      && (!record.description || (typeof record.description === "string" && !record.description.trim()))
+      && (!record.level || (typeof record.level === "string" && !record.level.trim()));
+    if (isHeadingItem) continue;
+
+    if (!category && heading) {
+      const inheritedBlockId = typeof heading.block.id === "string" ? heading.block.id : undefined;
+      items.push({
+        item: ResumeItemV2Schema.parse({ ...record, category: heading.category }),
+        ref: inheritedBlockId
+          ? {
+              path: entry.ref?.path ?? "",
+              blockIds: [...new Set([...refBlockIds, inheritedBlockId])],
+              confidenceLevel: entry.ref?.confidenceLevel ?? "high",
+              confidenceReason: entry.ref?.confidenceReason ?? "Skill category inherited from the nearest source heading.",
+              needsConfirmation: entry.ref?.needsConfirmation ?? false
+            }
+          : entry.ref
+      });
+      continue;
+    }
+    items.push(entry);
+  }
+  return { ...section, items };
+}
+
+function extractSkillCategoryHeading(block: AuthoritativeSourceBlock) {
+  if (block.blockType !== "list_item" && block.blockType !== "paragraph") return undefined;
+  const text = typeof block.text === "string" ? block.text.trim() : "";
+  if (!text || text.length > 80) return undefined;
+  const cleaned = text
+    .replace(/^[-+*]\s*/u, "")
+    .replace(/[*_`]/g, "")
+    .trim();
+  if (!/[:：]\s*$/u.test(cleaned)) return undefined;
+  const category = cleaned.replace(/[:：]\s*$/u, "").trim();
+  return category && category.length <= 48 ? category : undefined;
+}
+
+function normalizeSkillComparable(value: string) {
+  return value.normalize("NFKC").replace(/\s+/g, "").trim().toLocaleLowerCase();
 }
 
 function groundFactualValue(

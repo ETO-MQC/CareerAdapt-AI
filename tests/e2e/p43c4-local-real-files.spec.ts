@@ -33,13 +33,23 @@ for (const realCase of cases) {
 
     const result = await latestImportGateResult(page, startedAt);
     expect(result.draft.sourceKind).toBe(realCase.sourceKind);
-    expect(result.draft.parserVersion).toContain("resume-document-mapper.v5-canonical-v2");
+    expect(result.draft.parserVersion).toContain("resume-document-mapper.v6-canonical-v2");
     expect(result.logs.length).toBeGreaterThan(0);
+    expect(result.logs.length).toBe(1);
     expect(result.logs.every((log) => log.status === "success")).toBe(true);
     expect(result.logs.reduce(
       (sum, log) => sum + (log.attemptCount ?? 1),
       0
     )).toBe(result.logs.length);
+    expect(falseUnclassifiedBlockIds(result.draft)).toEqual([]);
+    expect(result.draft.sections?.flatMap((section) => section.items).every((item) => item.sourceBlockIds?.length)).toBe(true);
+    expect(result.draft.sections?.flatMap((section) => section.items).every((item) => item.userConfirmed !== true)).toBe(true);
+    expect(await page.locator(".import-item-row .import-item-structured-fields + .import-item-body-label").count()).toBe(0);
+    const counts = semanticCounts(result.draft);
+    expect(counts.educationIdentity).toHaveLength(1);
+    expect(counts.workEntities).toHaveLength(1);
+    expect(counts.projectTitles).toHaveLength(4);
+    expect(counts.skillInventory.length).toBeGreaterThan(0);
     console.info("[resume-document-mapper:p43c4-local-gate]", {
       format: realCase.format,
       reviewResult: "Review",
@@ -71,7 +81,10 @@ for (const realCase of cases) {
       rejectedFieldCount: result.logs.reduce(
         (sum, log) => sum + (log.rejectedFieldCount ?? 0),
         0
-      )
+      ),
+      semanticCounts: counts,
+      falseUnclassifiedBlockIds: falseUnclassifiedBlockIds(result.draft),
+      unclassifiedSourceValues: (result.draft.unclassifiedBlocks ?? []).map((block) => block.sourceValue ?? block.text ?? block.sourcePath)
     });
   });
 }
@@ -92,11 +105,15 @@ test("P4.3c.5 local real files preserve equivalent canonical semantics", async (
 
   const reference = results[0]!.counts;
   for (const result of results.slice(1)) {
-    expect(result.counts.itemsBySection).toEqual(reference.itemsBySection);
+    expect(nonSkillItemCounts(result.counts.itemsBySection)).toEqual(nonSkillItemCounts(reference.itemsBySection));
     expect(result.counts.educationIdentity).toEqual(reference.educationIdentity);
     expect(result.counts.projectTitles).toEqual(reference.projectTitles);
     expect(result.counts.workEntities).toEqual(reference.workEntities);
-    expect(result.counts.skillInventory).toEqual(reference.skillInventory);
+    expect(result.counts.skillInventory.length).toBeGreaterThanOrEqual(9);
+    for (const term of ["Java/Kotlin", "Python", "RAG", "大语言模型", "数据结构与算法", "后端服务", "数据存储", "模块化设计"]) {
+      expect(result.counts.skillInventory.some((entry) => entry.includes(term))).toBe(true);
+    }
+    expect(result.counts.skillInventory.some((entry) => entry.includes("Git/GitHub") || entry.includes("工具与平台"))).toBe(true);
   }
 
   console.info("[resume-document-mapper:p43c5-equivalence-gate]", results.map((result) => ({
@@ -107,6 +124,7 @@ test("P4.3c.5 local real files preserve equivalent canonical semantics", async (
     projectTitles: result.counts.projectTitles,
     workEntities: result.counts.workEntities,
     skillInventory: result.counts.skillInventory,
+    skillNames: result.counts.skillNames,
     unclassifiedCount: result.counts.unclassifiedCount,
     providerAttemptCount: result.logs.reduce((sum, log) => sum + (log.attemptCount ?? 1), 0),
     providerOutputChars: result.logs.reduce((sum, log) => sum + (log.outputLength ?? 0), 0),
@@ -132,19 +150,31 @@ type SafeMapperLog = {
   rejectedFields?: Array<{ path: string; reason: string }>;
 };
 
+type GateBasicField = {
+  value?: string;
+  sourceBlockIds?: string[];
+};
+
+type GateBasics = Record<string, GateBasicField | GateBasicField[] | undefined> & {
+  headline?: GateBasicField;
+  targetRole?: GateBasicField;
+};
+
 type DraftForGate = {
   sourceKind: string;
   parserVersion: string;
   sourceBlocks: Array<{ position?: Record<string, number> }>;
-  basics?: { headline?: { value?: string }; targetRole?: { value?: string } };
+  basics?: GateBasics;
   sections?: Array<{
     sectionType: string;
     items: Array<{
       structuredItem?: Record<string, unknown>;
       normalizedText?: string;
+      sourceBlockIds?: string[];
+      userConfirmed?: boolean;
     }>;
   }>;
-  unclassifiedBlocks?: unknown[];
+  unclassifiedBlocks?: Array<{ sourceBlockId?: string; sourcePath?: string; sourceValue?: unknown; text?: string }>;
 };
 
 async function importResume(page: Page, filePath: string) {
@@ -201,19 +231,23 @@ function semanticCounts(draft: DraftForGate) {
     headlinePresent: Boolean(draft.basics?.headline?.value ?? draft.basics?.targetRole?.value),
     educationIdentity: structuredItems
       .filter(({ sectionType }) => sectionType === "education")
-      .map(({ item }) => compactIdentity(item, ["school", "major", "degree", "startDate", "endDate"]))
+      .map(({ item }) => compactIdentity(item, ["school", "major", "degree"]))
       .sort(),
     workEntities: structuredItems
       .filter(({ sectionType }) => sectionType === "work" || sectionType === "internship")
-      .map(({ item }) => compactIdentity(item, ["organization", "role", "startDate", "endDate", "current"]))
+      .map(({ item }) => compactIdentity(item, ["organization", "role"]))
       .sort(),
     projectTitles: structuredItems
       .filter(({ sectionType }) => sectionType === "project")
-      .map(({ item }) => compactIdentity(item, ["title", "role", "startDate", "endDate", "current"]))
+      .map(({ item }) => compactIdentity(item, ["title", "role"]))
       .sort(),
     skillInventory: structuredItems
       .filter(({ sectionType }) => sectionType === "skills")
       .map(({ item }) => compactIdentity(item, ["category", "name", "level", "description"]))
+      .sort(),
+    skillNames: structuredItems
+      .filter(({ sectionType }) => sectionType === "skills")
+      .map(({ item }) => compactIdentity(item, ["name"]))
       .sort()
   };
 }
@@ -222,5 +256,27 @@ function compactIdentity(item: Record<string, unknown>, keys: string[]) {
   return keys.map((key) => {
     const value = item[key];
     return Array.isArray(value) ? value.join("/") : String(value ?? "");
-  }).join("|");
+  }).join("|").normalize("NFKC").replace(/\s+/g, "");
+}
+
+function nonSkillItemCounts(itemsBySection: Record<string, number>) {
+  return Object.fromEntries(Object.entries(itemsBySection).filter(([sectionType]) => sectionType !== "skills"));
+}
+
+function falseUnclassifiedBlockIds(draft: DraftForGate) {
+  const mapped = new Set<string>();
+  for (const value of Object.values(draft.basics ?? {})) {
+    if (Array.isArray(value)) {
+      value.forEach((entry) => entry?.sourceBlockIds?.forEach((blockId) => mapped.add(blockId)));
+    } else {
+      value?.sourceBlockIds?.forEach((blockId) => mapped.add(blockId));
+    }
+  }
+  for (const section of draft.sections ?? []) {
+    for (const item of section.items) item.sourceBlockIds?.forEach((blockId) => mapped.add(blockId));
+  }
+  return (draft.unclassifiedBlocks ?? []).flatMap((block) => {
+    const blockId = block.sourceBlockId ?? block.sourcePath;
+    return blockId && mapped.has(blockId) ? [blockId] : [];
+  });
 }

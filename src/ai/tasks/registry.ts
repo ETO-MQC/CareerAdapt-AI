@@ -56,7 +56,8 @@ import { resumeJsonMapperPrompt } from "@/ai/prompts/resumeJsonMapper";
 import { resumeDocumentMapperPrompt } from "@/ai/prompts/resumeDocumentMapper";
 import { resumeTailorPlannerPrompt } from "@/ai/prompts/resumeTailorPlanner";
 import { normalizeResumeMapperBoundaryOutput } from "@/ai/tasks/resumeDocumentMapperOutput";
-import { RESUME_CATALOG_VERSION, resumeFieldCatalog } from "@/domain/resumeFields";
+import { RESUME_AI_ITEM_FIELD_CONTRACT, RESUME_CATALOG_VERSION, resumeFieldCatalog } from "@/domain/resumeFields";
+import { buildSemanticDocument, type AiResumeSourceBlock } from "@/domain/resumeImport/sourceDocument";
 import {
   ProfileIntakeSemanticInputSchema,
   ProfileIntakeSemanticOutputSchema,
@@ -331,44 +332,49 @@ export const aiTaskRegistry = {
     maxOutputChars: 18_000,
     buildUserPrompt(input: ResumeDocumentMapperTaskInput) {
       const blocks = parseAndRedactDocumentMapperBlocks(input.rawText);
+      const semanticBlocks = blocks as AiResumeSourceBlock[];
+      const basicsFields = resumeFieldCatalog
+        .filter((field) => field.sectionType === "basics" && field.aiMappable)
+        .map((field) => field.id.split(".").at(-1));
+      const outputContract = {
+        resume: {
+          schemaVersion: "careeradapt-resume-v2",
+          basics: { supportedKeys: basicsFields },
+          sections: [{
+            allowedKeys: ["sectionType", "title", "items"],
+            itemShapeBySection: RESUME_AI_ITEM_FIELD_CONTRACT
+          }]
+        },
+        sourceRefs: [
+          { path: "/basics/name", blockIds: ["authoritative-block-id"] },
+          { path: "/sections/0/items/0", blockIds: ["authoritative-block-id", "date-or-category-block-id"] }
+        ]
+      };
       return JSON.stringify({
-        normalizedSourceBlocks: blocks,
+        document: {
+          semanticDocument: buildSemanticDocument(semanticBlocks),
+          sourceBlockIds: semanticBlocks.map((block) => block.originalBlockId ?? block.id)
+        },
         schemaVersion: "resume-import-v2",
         catalogVersion: RESUME_CATALOG_VERSION,
-        canonicalFields: resumeFieldCatalog.filter((field) => field.aiMappable).map((field) => ({
-          id: field.id,
-          sectionType: field.sectionType,
-          valueType: field.valueType,
-          aliases: field.aliases
-        })),
-        allowedSections: ["summary", "education", "work", "internship", "project", "research", "campus", "volunteer", "awards", "skills", "certificates", "languages", "publications", "patents", "portfolio", "other", "custom"],
-        outputContract: {
-          resume: {
-            schemaVersion: "careeradapt-resume-v2",
-            basics: {
-              supportedKeys: ["name", "headline", "summary", "phone", "email", "location", "homepage", "linkedin", "github", "portfolioLinks", "otherLinks"]
-            },
-            sections: [{
-              allowedKeys: ["sectionType", "title", "items"],
-              itemShapeBySection: {
-                education: ["school", "degree", "major", "department", "location", "startDate", "endDate", "current", "gpa", "gpaScale", "rankPosition", "rankTotal", "courses", "honors", "description", "highlights"],
-                work: ["organization", "role", "department", "location", "startDate", "endDate", "current", "description", "highlights"],
-                internship: ["organization", "role", "department", "location", "startDate", "endDate", "current", "description", "highlights"],
-                project: ["title", "role", "organization", "location", "startDate", "endDate", "current", "url", "tools", "background", "description", "highlights", "outcomes"],
-                research: ["title", "authorRole", "institution", "startDate", "endDate", "current", "methods", "samples", "publication", "publicationStatus", "url", "description", "highlights"],
-                skills: ["name", "category", "level", "description"],
-                awards: ["name", "issuer", "level", "awardedAt", "rank", "description"],
-                certificates: ["name", "issuer", "issuedAt", "expiresAt", "credentialId", "status", "description"],
-                languages: ["language", "level", "testName", "score", "description"]
-              }
-            }]
+        outputContract,
+        targetSchema: {
+          schemaVersion: "careeradapt-resume-v2",
+          basics: { supportedKeys: basicsFields },
+          sections: {
+            allowedSectionTypes: Object.keys(RESUME_AI_ITEM_FIELD_CONTRACT),
+            itemFieldsBySection: RESUME_AI_ITEM_FIELD_CONTRACT
           },
-          sourceRefs: [
-            { path: "/basics/name", blockIds: ["authoritative-block-id"] },
-            { path: "/sections/0/items/0", blockIds: ["authoritative-block-id", "date-or-category-block-id"] }
-          ]
+          sourceRefs: "Each basic field or item path must cite authoritative blockIds."
         },
-        instructions: "Return only {resume:{schemaVersion:'careeradapt-resume-v2',basics,sections},sourceRefs:[...]}. Do not return structuredDraft, mappingDecisions, sourceValues, category, included, internal IDs, parser metadata, or review metadata. Use typed CareerAdapt v2 fields directly. Keep school/major/degree separate; project title in project.title; skill name/category/level/description separate; explicit 求职意向/Target Role goes to basics.headline. Copy source-supported facts only, preserve item and bullet order, preserve date precision, set current=true only for explicit current/至今 and omit endDate. Every basic field needs a field-level sourceRef; each item needs an item-level sourceRef whose blockIds cover all factual fields on that item. Uncited source blocks are preserved locally and need not be repeated."
+        rules: [
+          "Return one JSON object containing resume, sourceRefs, and optional unclassifiedRefs only.",
+          "Use the typed field names in targetSchema; never flatten a section into generic text, organization, or role.",
+          "Copy only source-supported facts, preserve item/bullet order and source date precision, and use current=true only for explicit current wording.",
+          "Reuse a contact block for distinct grounded contact fields without marking it ambiguous; mark needsConfirmation only for genuine semantic or grounding ambiguity.",
+          "Uncited source blocks are preserved locally; do not fabricate unclassified source references."
+        ],
+        instructions: "Return only the canonical Resume Schema v2 object described by targetSchema. Do not return structuredDraft, mappingDecisions, sourceValues, included, parser metadata, or review metadata. Skills may use the canonical category field. Explicit 求职意向/Target Role goes to basics.headline. Every basic field needs a field-level sourceRef and each item needs an item-level sourceRef covering its factual fields."
       }, null, 2);
     },
     coerceRawOutput(rawOutput: unknown, input?: ResumeDocumentMapperTaskInput) {
@@ -1236,20 +1242,10 @@ export function parseAndRedactDocumentMapperBlocks(rawText: string): Array<Recor
 }
 
 function repairDocumentMapperSafetyMetadata(output: AiCareerAdaptResumeV2MapperOutput): AiCareerAdaptResumeV2MapperOutput {
-  const useCount = new Map<string, number>();
-  for (const ref of output.sourceRefs) {
-    for (const blockId of ref.blockIds) {
-      useCount.set(blockId, (useCount.get(blockId) ?? 0) + 1);
-    }
-  }
-  const sourceRefs = output.sourceRefs.map((ref) => {
-    const sharedSource = ref.blockIds.some((blockId) => (useCount.get(blockId) ?? 0) > 1);
-    return {
-      ...ref,
-      needsConfirmation: ref.needsConfirmation || ref.confidenceLevel !== "high" || sharedSource,
-      confidenceLevel: sharedSource && ref.confidenceLevel === "high" ? "medium" as const : ref.confidenceLevel
-    };
-  });
+  const sourceRefs = output.sourceRefs.map((ref) => ({
+    ...ref,
+    needsConfirmation: ref.needsConfirmation || ref.confidenceLevel !== "high"
+  }));
   return AiCareerAdaptResumeV2MapperOutputSchema.parse({
     ...output,
     sourceRefs

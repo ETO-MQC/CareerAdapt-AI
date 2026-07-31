@@ -1,4 +1,4 @@
-import type { CanonicalFieldId, ResumeFieldDefinition, ResumeFieldUiControl, ResumeFieldValueType, ResumeSectionTypeV2 } from "./types";
+import { RESUME_SECTION_TYPES_V2, type CanonicalFieldId, type ResumeFieldDefinition, type ResumeFieldUiControl, type ResumeFieldValueType, type ResumeSectionTypeV2 } from "./types";
 
 type FieldSeed = readonly [name: string, label: string, valueType?: ResumeFieldValueType, aliases?: readonly string[], uiControl?: ResumeFieldUiControl, sensitive?: boolean];
 
@@ -82,6 +82,28 @@ export const resumeFieldCatalog: readonly ResumeFieldDefinition[] = Object.entri
 );
 
 export const resumeFieldById = new Map(resumeFieldCatalog.map((field) => [field.id, field]));
+
+export type ResumeAiItemFieldContract = Readonly<Record<Exclude<ResumeSectionTypeV2, "basics">, readonly string[]>>;
+
+const RESUME_ITEM_SECTION_TYPES = RESUME_SECTION_TYPES_V2.filter(
+  (sectionType): sectionType is Exclude<ResumeSectionTypeV2, "basics"> => sectionType !== "basics"
+);
+
+/**
+ * The single canonical field contract shared by the AI prompt and boundary.
+ * `custom` has no catalog seed, so it uses the canonical flexible-item shape
+ * defined by Resume Schema v2.
+ */
+export const RESUME_AI_ITEM_FIELD_CONTRACT: ResumeAiItemFieldContract = Object.freeze(
+  Object.fromEntries(RESUME_ITEM_SECTION_TYPES.map((sectionType) => [
+    sectionType,
+    sectionType === "custom"
+      ? ["title", "description", "highlights"]
+      : resumeFieldCatalog
+          .filter((field) => field.sectionType === sectionType && field.aiMappable)
+          .map((field) => field.id.slice(sectionType.length + 1))
+  ]))
+) as unknown as ResumeAiItemFieldContract;
 
 export function getResumeFieldDefinition(id: CanonicalFieldId) {
   return resumeFieldById.get(id);

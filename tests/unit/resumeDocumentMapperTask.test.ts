@@ -25,6 +25,8 @@ describe("resume-document-mapper canonical v2 boundary", () => {
   it("prompts for canonical v2 output with compact sourceRefs", () => {
     const prompt = JSON.parse(definition.buildUserPrompt(input)) as Record<string, unknown>;
     expect(prompt).toMatchObject({ schemaVersion: "resume-import-v2" });
+    expect(prompt.document).toHaveProperty("semanticDocument");
+    expect(prompt).not.toHaveProperty("normalizedSourceBlocks");
     expect(prompt.outputContract).toHaveProperty("resume");
     expect(prompt.outputContract).toHaveProperty("sourceRefs");
     expect(definition.systemPrompt).toContain("CareerAdapt Resume JSON v2");
@@ -69,7 +71,6 @@ describe("resume-document-mapper canonical v2 boundary", () => {
               role: "全栈开发",
               startDate: "2024.03",
               endDate: "至今",
-              current: true,
               highlights: ["实现任务规划、学习路径生成与数据同步。"]
             }]
           },
@@ -122,6 +123,72 @@ describe("resume-document-mapper canonical v2 boundary", () => {
     });
     expect(normalized.sourceRefs.flatMap((ref) => Object.keys(ref))).not.toContain("sourceValues");
     expect(() => definition.validateOutput(normalized, input)).not.toThrow();
+  });
+
+  it("keeps summary text typed and converts mapper-only stable item grounding", () => {
+    const normalized = normalizeResumeMapperBoundaryOutput({
+      resume: {
+        schemaVersion: "careeradapt-resume-v2",
+        basics: {},
+        sections: [{
+          sectionType: "summary",
+          title: "核心竞争力",
+          items: [{
+            _mapperItemKey: "summary-1",
+            _sourceBlockIds: ["summary-block"],
+            sectionType: "summary",
+            description: "具备端到端开发能力。"
+          }]
+        }]
+      },
+      sourceRefs: []
+    }, [{ id: "summary-block", text: "具备端到端开发能力。" }]);
+
+    const item = normalized.resume.sections[0]?.items[0];
+    expect(item).toMatchObject({
+      id: "ai-item-summary-1",
+      sectionType: "summary",
+      text: "具备端到端开发能力。"
+    });
+    expect(item).not.toHaveProperty("description");
+    expect(normalized.sourceRefs).toContainEqual(expect.objectContaining({
+      path: "/sections/0/items/0",
+      blockIds: ["summary-block"]
+    }));
+  });
+
+  it("inherits skill category from the nearest explicit group and removes the group pseudo-item", () => {
+    const normalized = normalizeResumeMapperBoundaryOutput({
+      resume: {
+        schemaVersion: "careeradapt-resume-v2",
+        basics: {},
+        sections: [{
+          sectionType: "skills",
+          title: "专业技能",
+          items: [
+            { sectionType: "skills", name: "编程语言与框架" },
+            { sectionType: "skills", name: "Java/Kotlin", description: "熟悉 Android 开发。" }
+          ]
+        }]
+      },
+      sourceRefs: [
+        { path: "/sections/0/items/0", blockIds: ["skill-heading"] },
+        { path: "/sections/0/items/1", blockIds: ["skill-item"] }
+      ]
+    }, [
+      { id: "skill-heading", text: "**编程语言与框架**:", blockType: "list_item", order: 0 },
+      { id: "skill-item", text: "Java/Kotlin: 熟悉 Android 开发。", blockType: "list_item", order: 1 }
+    ]);
+
+    expect(normalized.resume.sections[0]?.items).toHaveLength(1);
+    expect(normalized.resume.sections[0]?.items[0]).toMatchObject({
+      name: "Java/Kotlin",
+      category: "编程语言与框架"
+    });
+    expect(normalized.sourceRefs).toContainEqual(expect.objectContaining({
+      path: "/sections/0/items/0",
+      blockIds: expect.arrayContaining(["skill-heading", "skill-item"])
+    }));
   });
 
   it("merges repeated same-title same-type sections into independent items", () => {

@@ -20,14 +20,20 @@ export function applyImportBulkSelection(input: {
         items: section.items.map((item) => {
           if (input.mode === "reset") {
             const original = baselineSection?.items.find((candidate) => candidate.id === item.id);
-            return original ? { ...item, included: original.included, sourceStatus: original.sourceStatus, mapping: original.mapping } : item;
+            return original ? {
+              ...item,
+              included: original.included,
+              sourceStatus: original.sourceStatus,
+              userConfirmed: original.userConfirmed,
+              mapping: original.mapping
+            } : item;
           }
           if (input.mode === "keep_existing") return { ...item, included: false };
           const safe = isSafeBulkMapping(item, sourcePathCounts)
             && (input.mode !== "safe_only" || !itemConflictsWithProfile(item, input.profile));
           if (!safe) return { ...item, included: false };
           return input.mode === "use_imported"
-            ? { ...item, included: true, sourceStatus: "user_confirmed_modified" as const }
+            ? { ...item, included: true, sourceStatus: "user_confirmed_modified" as const, userConfirmed: true }
             : { ...item, included: true };
         })
       };

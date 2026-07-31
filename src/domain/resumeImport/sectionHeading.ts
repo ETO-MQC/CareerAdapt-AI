@@ -106,7 +106,7 @@ const SECTION_HEADING_PATTERNS: SectionPatternEntry[] = [
   { sectionType: "volunteer", confidence: "high", pattern: /^(?:志愿经历|volunteer)\s*[:：]?$/i },
 
   // Skills
-  { sectionType: "skills", confidence: "high", pattern: /^(?:技能与证书|技能|专业技能|技能清单|AI能力|工程与表达|skills?|technical skills)$/i },
+  { sectionType: "skills", confidence: "high", pattern: /^(?:核心竞争力|技能与证书|技能|专业技能|技能清单|AI能力|工程与表达|skills?|technical skills)$/i },
 
   // Awards
   { sectionType: "awards", confidence: "high", pattern: /^(?:荣誉(?:奖项)?|奖项|awards?|honou?rs?)\s*[:：]?$/i },
@@ -155,6 +155,7 @@ export function matchResumeSectionHeading(text: string): ResumeHeadingMatch | un
 export function normalizeResumeHeading(text: string) {
   return text.normalize("NFKC")
     .trim()
+    .replace(/^#{1,6}\s*/u, "")
     .replace(/[：:]\s*$/, "")
     .replace(/[／/]/g, "与")
     .replace(/\s*(?:&|及)\s*/gi, "与")
