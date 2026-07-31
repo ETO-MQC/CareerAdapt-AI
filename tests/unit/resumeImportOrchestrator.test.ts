@@ -64,6 +64,7 @@ describe("ResumeImportOrchestrator", () => {
       "张三\n电话：13800000000\n邮箱：zhangsan@example.com\n\n技能\nTypeScript"
     ], "resume.txt", { type: "text/plain" });
     let providerInput = "";
+    let providerNameBlockId = "";
     const previousFetch = globalThis.fetch;
     vi.stubGlobal("fetch", vi.fn(async (_url: string, init?: RequestInit) => {
       const body = JSON.parse(String(init?.body)) as {
@@ -76,30 +77,29 @@ describe("ResumeImportOrchestrator", () => {
       }>;
       const nameBlock = blocks.find((block) => block.text.includes("[NAME_1]"));
       if (!nameBlock) throw new Error("expected high-confidence name tokenization");
+      providerNameBlockId = nameBlock.id;
       return new Response(JSON.stringify({
         ok: true,
         task: "resume-document-mapper",
-        promptVersion: "resume-document-mapper.v2",
+        promptVersion: "resume-document-mapper.v5-canonical-v2",
         output: {
-          structuredDraft: {
-            schemaVersion: "structured-resume-draft-v1",
+          resume: {
+            schemaVersion: "careeradapt-resume-v2",
             basics: { name: "[NAME_1]" },
-            sections: []
+            sections: [],
+            unclassifiedBlocks: []
           },
-          mappingDecisions: [{
-            kind: "canonical_field",
-            targetFieldId: "basics.name",
-            sourceBlockIds: [nameBlock.id],
-            sourceQuote: "[NAME_1]",
-            confidence: 0.99,
+          sourceRefs: [{
+            path: "/basics/name",
+            blockIds: [nameBlock.id],
+            confidenceLevel: "high",
+            confidenceReason: "exact source",
             needsConfirmation: false,
-            mappingReason: "exact source"
           }],
-          unclassifiedBlocks: blocks
+          unclassifiedRefs: blocks
             .filter((block) => block.id !== nameBlock.id)
             .map((block) => ({
-              sourcePath: block.id,
-              sourceValue: block.text,
+              blockIds: [block.id],
               reason: "not mapped in focused test"
             }))
         },
@@ -126,22 +126,23 @@ describe("ResumeImportOrchestrator", () => {
       expect(providerInput).not.toContain("13800000000");
       expect(providerInput).not.toContain("zhangsan@example.com");
       expect(result.draft.basics.name?.value).toBe("张三");
-      expect(result.draft.parserVersion).toContain("resume-document-mapper.v4-boundary");
+      expect(result.draft.parserVersion).toContain("resume-document-mapper.v5-canonical-v2");
       expect(result.draft.schemaVersion).toBe("resume-import-v2");
       const mappedDraft = result.draft.schemaVersion === "resume-import-v2"
         ? result.draft
         : undefined;
-      expect(mappedDraft?.mappingDecisions).toEqual(expect.arrayContaining([
-        expect.objectContaining({ targetFieldId: "basics.name", sourceQuote: "张三" })
-      ]));
-      const mappedNameBlockId = mappedDraft?.mappingDecisions.find(
-        (decision) => decision.kind === "canonical_field" && decision.targetFieldId === "basics.name"
-      )?.sourceBlockIds[0];
+      expect(mappedDraft?.basics.name?.mapping).toMatchObject({
+        sourcePaths: [providerNameBlockId],
+        confidenceLevel: "high",
+        needsConfirmation: false
+      });
+      expect(mappedDraft?.basics.name?.mapping?.sourceValues[0]).toContain("张三");
+      const mappedNameBlockId = mappedDraft?.basics.name?.sourceBlockIds[0];
       expect(mappedDraft?.unclassifiedBlocks.some((block) =>
         "sourcePath" in block && block.sourcePath === mappedNameBlockId
       )).toBe(false);
       expect((await repository.getImportedResumeDraft(result.importId))?.parserVersion)
-        .toContain("resume-document-mapper.v4-boundary");
+        .toContain("resume-document-mapper.v5-canonical-v2");
     } finally {
       vi.stubGlobal("fetch", previousFetch);
     }

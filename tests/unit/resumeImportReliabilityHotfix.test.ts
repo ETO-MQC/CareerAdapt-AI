@@ -8,7 +8,7 @@ import {
 import {
   ImportQualityReportV2Schema,
   ResumeSourceDocumentV2Schema,
-  type ResumeJsonMapperOutput
+  type AiCareerAdaptResumeV2MapperOutput
 } from "@/domain/schemas";
 import {
   createSensitiveTextTokenizer,
@@ -86,6 +86,28 @@ describe("P4.3c.2 resume import reliability", () => {
       .toBe(original.blocks[0].normalizedText);
   });
 
+  it("redacts real DOCX and Markdown heading names but never numeric name candidates", () => {
+    for (const sourceKind of ["docx", "markdown"] as const) {
+      const original = ResumeSourceDocumentV2Schema.parse({
+        ...sourceDocument(["张三", "1", "项目经历"]),
+        sourceKind,
+        blocks: sourceDocument(["张三", "1", "项目经历"]).blocks.map((block, index) => ({
+          ...block,
+          sourceKind,
+          sourceEngine: sourceKind === "markdown" ? "markdown_parser" : "docx_xml",
+          blockType: index === 0 ? "heading" : block.blockType
+        }))
+      });
+      const tokenizer = createSensitiveTextTokenizer({ highConfidenceNames: ["张三", "1"] });
+      const tokenized = tokenizeResumeSourceDocument(original, tokenizer);
+
+      expect(tokenized.blocks[0].normalizedText).toBe("[NAME_1]");
+      expect(tokenized.blocks[1].normalizedText).toBe("1");
+      expect(restoreSensitivePlaceholders(tokenized, tokenizer.restorationMap).blocks[0].normalizedText)
+        .toBe("张三");
+    }
+  });
+
   it("compacts and batches a heading-free DOCX without batch_too_large or source loss", () => {
     const document = sourceDocument(Array.from(
       { length: 60 },
@@ -107,69 +129,81 @@ describe("P4.3c.2 resume import reliability", () => {
     const document = sourceDocument(["# 张三", "## 项目", "完成项目 12 个", "无关页脚"]);
     const compact = buildSemanticMappingBatches(document)[0];
     const rawText = JSON.stringify(compact);
-    const output: ResumeJsonMapperOutput = {
-      structuredDraft: {
+    const output: AiCareerAdaptResumeV2MapperOutput = {
+      resume: {
+        schemaVersion: "careeradapt-resume-v2",
         basics: {},
         sections: [{
+          id: "project",
           title: "项目",
-          sectionType: "experience",
-          category: "project",
+          sectionType: "project",
+          order: 0,
+          visible: true,
           items: [{
-            text: "完成项目 12 个",
-            mapping: {
-              sourcePaths: ["block-2"],
-              sourceValues: ["完成项目 12 个"],
-              confidenceLevel: "high",
-              confidenceReason: "exact",
-              needsConfirmation: false
-            }
+            id: "project-1",
+            sectionType: "project",
+            title: "完成项目 12 个",
+            highlights: [],
+            tools: [],
+            outcomes: [],
+            customFields: []
           }]
-        }]
+        }],
+        unclassifiedBlocks: []
       },
-      mappingDecisions: [],
-      unclassifiedBlocks: []
+      sourceRefs: [{
+        path: "/sections/0/items/0",
+        blockIds: ["block-2"],
+        confidenceLevel: "high",
+        confidenceReason: "exact",
+        needsConfirmation: false
+      }],
+      unclassifiedRefs: []
     };
 
     expect(() => JSON.parse(rawText)).not.toThrow();
     expect(() => definition.validateOutput(output, { rawText, inputHash: "fractional-input" })).not.toThrow();
     const merged = mergeDocumentMapperOutputs([output], document.blocks);
-    expect(merged.unclassifiedBlocks).toEqual(expect.arrayContaining([
-      expect.objectContaining({ sourcePath: "block-3", sourceValue: "无关页脚" })
+    expect(merged.unclassifiedRefs).toEqual(expect.arrayContaining([
+      expect.objectContaining({ blockIds: ["block-3"] })
     ]));
   });
 
   it("quarantines isolated invented numbers and invalid source block ids", () => {
     const definition = aiTaskRegistry["resume-document-mapper"];
     const rawText = JSON.stringify([{ id: "known", text: "完成项目 12 个" }]);
-    const invented: ResumeJsonMapperOutput = {
-      structuredDraft: {
+    const invented: AiCareerAdaptResumeV2MapperOutput = {
+      resume: {
+        schemaVersion: "careeradapt-resume-v2",
         basics: {},
         sections: [{
           title: "项目",
-          sectionType: "experience",
-          category: "project",
+          sectionType: "project",
+          order: 0,
+          visible: true,
           items: [{
-            text: "完成项目 13 个",
-            mapping: {
-              sourcePaths: ["known"],
-              sourceValues: ["完成项目 12 个"],
-              confidenceLevel: "high",
-              confidenceReason: "exact",
-              needsConfirmation: false
-            }
+            sectionType: "project",
+            title: "完成项目 13 个"
           }]
-        }]
+        }],
+        unclassifiedBlocks: []
       },
-      mappingDecisions: [],
-      unclassifiedBlocks: []
+      sourceRefs: [{
+        path: "/sections/0/items/0",
+        blockIds: ["known"],
+        confidenceLevel: "high",
+        confidenceReason: "exact",
+        needsConfirmation: false
+      }],
+      unclassifiedRefs: []
     };
     const normalizedInvented = normalizeResumeMapperBoundaryOutput(
       invented,
       [{ id: "known", text: "完成项目 12 个" }]
-    ) as ResumeJsonMapperOutput;
-    expect(normalizedInvented.structuredDraft.sections[0].items).toEqual([]);
+    ) as AiCareerAdaptResumeV2MapperOutput;
+    expect(normalizedInvented.resume.sections[0].items).toEqual([]);
     expect(normalizedInvented.mapperDiagnostics?.rejectedFields).toContainEqual({
-      path: "structuredDraft.sections[0].items[0].text",
+      path: "/sections/0/items/0/title",
       reason: "ai_field_not_grounded"
     });
     expect(() => definition.validateOutput(
@@ -181,36 +215,39 @@ describe("P4.3c.2 resume import reliability", () => {
     const normalizedInvalidId = normalizeResumeMapperBoundaryOutput(
       invalidId,
       [{ id: "known", text: "完成项目 12 个" }]
-    ) as ResumeJsonMapperOutput;
-    expect(normalizedInvalidId.structuredDraft.sections[0].items).toEqual([]);
+    ) as AiCareerAdaptResumeV2MapperOutput;
+    expect(normalizedInvalidId.resume.sections[0].items).toEqual([]);
     expect(normalizedInvalidId.mapperDiagnostics?.rejectedFields).toContainEqual({
-      path: "structuredDraft.sections[0].items[0].text",
+      path: "/sections/0/items/0/title",
       reason: "ai_field_not_grounded"
     });
   });
 });
 
-function structuredOutputFor(sourcePath: string, text: string): ResumeJsonMapperOutput {
+function structuredOutputFor(sourcePath: string, text: string): AiCareerAdaptResumeV2MapperOutput {
   return {
-    structuredDraft: {
+    resume: {
+      schemaVersion: "careeradapt-resume-v2",
       basics: {},
       sections: [{
         title: "项目",
-        sectionType: "experience",
-        category: "project",
+        sectionType: "project",
+        order: 0,
+        visible: true,
         items: [{
-          text,
-          mapping: {
-            sourcePaths: [sourcePath],
-            sourceValues: [text],
-            confidenceLevel: "high",
-            confidenceReason: "exact",
-            needsConfirmation: false
-          }
+          sectionType: "project",
+          title: text
         }]
-      }]
+      }],
+      unclassifiedBlocks: []
     },
-    mappingDecisions: [],
-    unclassifiedBlocks: []
+    sourceRefs: [{
+      path: "/sections/0/items/0",
+      blockIds: [sourcePath],
+      confidenceLevel: "high",
+      confidenceReason: "exact",
+      needsConfirmation: false
+    }],
+    unclassifiedRefs: []
   };
 }

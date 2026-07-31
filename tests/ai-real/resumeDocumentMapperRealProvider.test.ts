@@ -8,8 +8,8 @@ import {
   type ResumeDocumentMapperTaskInput
 } from "@/ai/tasks/registry";
 import {
-  ResumeJsonMapperOutputSchema,
-  type ResumeJsonMapperOutput
+  AiCareerAdaptResumeV2MapperOutputSchema,
+  type AiCareerAdaptResumeV2MapperOutput
 } from "@/domain/schemas";
 import { extractMarkdownSourceBlocks } from "@/domain/resumeImport/textDocument";
 import { extractTextFromDocxBuffer } from "@/domain/resumeImport/docx";
@@ -41,7 +41,7 @@ describe("resume-document-mapper real provider", () => {
     async () => {
       const definition = aiTaskRegistry["resume-document-mapper"] as AiTaskDefinition<
         ResumeDocumentMapperTaskInput,
-        ResumeJsonMapperOutput
+        AiCareerAdaptResumeV2MapperOutput
       >;
       const blocks = extractMarkdownSourceBlocks(ANONYMIZED_MARKDOWN);
       const result = await runRealMapper(definition, blocks, "markdown");
@@ -54,7 +54,7 @@ describe("resume-document-mapper real provider", () => {
     async () => {
       const definition = aiTaskRegistry["resume-document-mapper"] as AiTaskDefinition<
         ResumeDocumentMapperTaskInput,
-        ResumeJsonMapperOutput
+        AiCareerAdaptResumeV2MapperOutput
       >;
       const bytes = await readFile(resolve("tests/fixtures/resume-import/ordinary.docx"));
       const extracted = await extractTextFromDocxBuffer(toArrayBuffer(bytes));
@@ -68,7 +68,7 @@ describe("resume-document-mapper real provider", () => {
 });
 
 async function runRealMapper(
-  definition: AiTaskDefinition<ResumeDocumentMapperTaskInput, ResumeJsonMapperOutput>,
+  definition: AiTaskDefinition<ResumeDocumentMapperTaskInput, AiCareerAdaptResumeV2MapperOutput>,
   extractedBlocks: ExtractedSourceBlock[],
   source: "markdown" | "docx" | "pdf"
 ) {
@@ -118,10 +118,10 @@ async function runRealMapper(
       model = response.model;
       try {
         const normalizedOutput = definition.normalizeOutput(
-          definition.coerceRawOutput(response.output, input) as ResumeJsonMapperOutput,
+          definition.coerceRawOutput(response.output, input) as AiCareerAdaptResumeV2MapperOutput,
           input
         );
-        const parsed = ResumeJsonMapperOutputSchema.parse(normalizedOutput);
+        const parsed = AiCareerAdaptResumeV2MapperOutputSchema.parse(normalizedOutput);
         definition.validateOutput?.(parsed, input);
         passed = true;
         break;

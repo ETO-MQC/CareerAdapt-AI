@@ -8,17 +8,19 @@ import {
   tokenizeResumeSourceDocument
 } from "@/domain/resumeImport/sourceDocument";
 import {
+  AiCareerAdaptResumeV2MapperOutputSchema,
+  CareerAdaptResumeJsonV2Schema,
   ImportedResumeDraftSchema,
-  ResumeJsonMapperOutputSchema,
   type ImportedResumeDraft,
   type ImportedResumeDraftV2,
-  type ResumeJsonMapperOutput,
+  type AiCareerAdaptResumeV2MapperOutput,
   type ResumeSourceBlockV2
 } from "@/domain/schemas";
 import {
   containsUnresolvedSensitivePlaceholder,
   createSensitiveTextTokenizer,
   hashText,
+  isPlausibleSensitiveNameCandidate,
   restoreSensitivePlaceholders
 } from "@/services/security/text";
 import type { WorkspaceRepository } from "@/services/storage/repositories";
@@ -63,10 +65,7 @@ export class ResumeDocumentSemanticMapper {
       onProgress?: (message: string) => void;
     } = {}
   ): Promise<ImportedResumeDraft> {
-    const highConfidenceName = sourceDraft.basics.name?.confidence === "high"
-      && sourceDraft.basics.name.sourceStatus === "located"
-      ? sourceDraft.basics.name.value
-      : undefined;
+    const highConfidenceName = highConfidenceNameForTokenization(sourceDraft);
     const tokenizer = createSensitiveTextTokenizer({
       highConfidenceNames: highConfidenceName ? [highConfidenceName] : []
     });
@@ -74,7 +73,7 @@ export class ResumeDocumentSemanticMapper {
     const redactedDocument = tokenizeResumeSourceDocument(sourceDocument, tokenizer);
     const batches = buildSemanticMappingBatches(redactedDocument);
 
-    const outputs: ResumeJsonMapperOutput[] = [];
+    const outputs: AiCareerAdaptResumeV2MapperOutput[] = [];
     const logs = [];
     for (let index = 0; index < batches.length; index += 1) {
       input.onProgress?.(
@@ -84,12 +83,12 @@ export class ResumeDocumentSemanticMapper {
       );
       const rawText = JSON.stringify(batches[index]);
       const inputHash = await hashText(
-        `${rawText}|${sourceDraft.parserVersion}|resume-document-mapper.v3`
+        `${rawText}|${sourceDraft.parserVersion}|resume-document-mapper.v5`
       );
       const result = await invokeStructuredAi({
         task: "resume-document-mapper",
         businessInput: { rawText, inputHash },
-        outputSchema: ResumeJsonMapperOutputSchema,
+        outputSchema: AiCareerAdaptResumeV2MapperOutputSchema,
         signal: input.signal
       });
       logs.push(result.ok && result.data.mapperDiagnostics ? {
@@ -167,6 +166,19 @@ export class ResumeDocumentSemanticMapper {
   }
 }
 
+function highConfidenceNameForTokenization(sourceDraft: ImportedResumeDraftV2) {
+  const candidate = sourceDraft.basics.name?.confidence === "high"
+    && sourceDraft.basics.name.sourceStatus === "located"
+    ? sourceDraft.basics.name.value
+    : undefined;
+  if (!isPlausibleSensitiveNameCandidate(candidate)) return undefined;
+  const firstSectionIndex = sourceDraft.sourceBlocks.findIndex((block) => block.blockType === "heading");
+  const topBlocks = sourceDraft.sourceBlocks
+    .slice(0, firstSectionIndex < 0 ? Math.min(12, sourceDraft.sourceBlocks.length) : firstSectionIndex)
+    .map((block) => block.normalizedText);
+  return topBlocks.some((text) => text.includes(candidate)) ? candidate : undefined;
+}
+
 function classifyMapperError(errorCode: string): {
   code: ResumeDocumentSemanticMapperError["code"];
   message: string;
@@ -203,18 +215,18 @@ function classifyMapperError(errorCode: string): {
 
 function createMappedDraft(
   sourceDraft: ImportedResumeDraftV2,
-  output: ResumeJsonMapperOutput,
+  output: AiCareerAdaptResumeV2MapperOutput,
   sourceBlocks: ResumeSourceBlockV2[]
 ) {
   const mapped = createImportedResumeDraftFromStructuredJson({
     importId: sourceDraft.importId,
     source: sourceDraft.source,
-    structuredDraft: output.structuredDraft,
-    unclassifiedBlocks: output.unclassifiedBlocks,
+    canonicalResume: CareerAdaptResumeJsonV2Schema.parse(output.resume),
+    canonicalSourceRefs: output.sourceRefs,
+    unclassifiedBlocks: unclassifiedBlocksFromRefs(output, sourceBlocks),
     sourceKind: "external_json",
     sourceBlocks,
     qualityReport: sourceDraft.qualityReport,
-    mappingDecisions: output.mappingDecisions,
     now: sourceDraft.createdAt
   });
   return ImportedResumeDraftSchema.parse({
@@ -222,7 +234,7 @@ function createMappedDraft(
     sourceKind: sourceDraft.sourceKind,
     source: sourceDraft.source,
     pages: sourceDraft.pages,
-    parserVersion: `${sourceDraft.parserVersion}+resume-document-mapper.v4-boundary`,
+    parserVersion: `${sourceDraft.parserVersion}+resume-document-mapper.v5-canonical-v2`,
     warnings: [
       ...mapped.warnings,
       ...(output.mapperDiagnostics?.rejectedFields ?? []).map((field) => ({
@@ -235,15 +247,27 @@ function createMappedDraft(
 }
 
 export function mergeDocumentMapperOutputs(
-  outputs: ResumeJsonMapperOutput[],
+  outputs: AiCareerAdaptResumeV2MapperOutput[],
   sourceBlocks: readonly ResumeSourceBlockV2[]
-): ResumeJsonMapperOutput {
-  const structuredDraft = {
-    schemaVersion: "structured-resume-draft-v1" as const,
-    basics: Object.assign({}, ...outputs.map((output) => output.structuredDraft.basics)),
-    sections: outputs.flatMap((output) => output.structuredDraft.sections)
-  };
-  const mappingDecisions = outputs.flatMap((output) => output.mappingDecisions ?? []);
+): AiCareerAdaptResumeV2MapperOutput {
+  const originalItemRefs = outputs.flatMap((output, outputIndex) =>
+    output.sourceRefs.flatMap((ref) => {
+      const match = ref.path.match(/^\/sections\/(\d+)\/items\/(\d+)$/u);
+      if (!match) return [];
+      const sectionIndex = Number(match[1]);
+      const itemIndex = Number(match[2]);
+      const itemId = output.resume.sections[sectionIndex]?.items[itemIndex]?.id;
+      return itemId ? [{ outputIndex, originalPath: ref.path, itemId }] : [];
+    })
+  );
+  const sections = mergeCanonicalSections(outputs.flatMap((output) => output.resume.sections));
+  const finalPathByItemId = new Map(sections.flatMap((section, sectionIndex) =>
+    section.items.map((item, itemIndex) => [item.id, `/sections/${sectionIndex}/items/${itemIndex}`] as const)
+  ));
+  const itemRefPathByOriginal = new Map(originalItemRefs.flatMap((entry) => {
+    const path = finalPathByItemId.get(entry.itemId);
+    return path ? [[`${entry.outputIndex}:${entry.originalPath}`, path] as const] : [];
+  }));
   const mapperDiagnostics = {
     shapeRepairs: Array.from(new Set(outputs.flatMap(
       (output) => output.mapperDiagnostics?.shapeRepairs ?? []
@@ -272,38 +296,84 @@ export function mergeDocumentMapperOutputs(
     )
   };
   const cited = new Set([
-    ...collectSourcePaths(structuredDraft),
-    ...mappingDecisions.flatMap((decision) => decision.sourceBlockIds)
+    ...outputs.flatMap((output) => output.sourceRefs.flatMap((ref) => ref.blockIds)),
+    ...outputs.flatMap((output) => output.unclassifiedRefs.flatMap((ref) => ref.blockIds))
   ]);
-  const unclassifiedBlocks = outputs.flatMap((output) => output.unclassifiedBlocks);
+  const unclassifiedRefs = outputs.flatMap((output) => output.unclassifiedRefs);
   for (const block of sourceBlocks) {
     if (
       !cited.has(block.id)
-      && !unclassifiedBlocks.some((item) => item.sourcePath === block.id)
+      && !unclassifiedRefs.some((item) => item.blockIds.includes(block.id))
     ) {
-      unclassifiedBlocks.push({
-        sourcePath: block.id,
-        sourceValue: block.normalizedText,
+      unclassifiedRefs.push({
+        blockIds: [block.id],
         reason: "AI 未引用该来源块，已确定性保留。"
       });
     }
   }
-  return ResumeJsonMapperOutputSchema.parse({
-    structuredDraft,
-    mappingDecisions,
+  return AiCareerAdaptResumeV2MapperOutputSchema.parse({
+    resume: {
+      schemaVersion: "careeradapt-resume-v2",
+      locale: outputs.find((output) => output.resume.locale)?.resume.locale ?? "zh-CN",
+      basics: Object.assign({}, ...outputs.map((output) => output.resume.basics)),
+      sections,
+      unclassifiedBlocks: []
+    },
+    sourceRefs: outputs.flatMap((output, outputIndex) => output.sourceRefs.map((ref) => ({
+      ...ref,
+      path: itemRefPathByOriginal.get(`${outputIndex}:${ref.path}`) ?? ref.path
+    }))),
+    unclassifiedRefs: dedupeUnclassifiedRefs(unclassifiedRefs),
     mapperDiagnostics,
-    unclassifiedBlocks: Array.from(
-      new Map(unclassifiedBlocks.map((item) => [item.sourcePath, item])).values()
-    )
   });
 }
 
-function collectSourcePaths(value: unknown): string[] {
-  if (Array.isArray(value)) return value.flatMap(collectSourcePaths);
-  if (!value || typeof value !== "object") return [];
-  const record = value as Record<string, unknown>;
-  const own = Array.isArray(record.sourcePaths)
-    ? record.sourcePaths.filter((item): item is string => typeof item === "string")
-    : [];
-  return [...own, ...Object.values(record).flatMap(collectSourcePaths)];
+function unclassifiedBlocksFromRefs(
+  output: AiCareerAdaptResumeV2MapperOutput,
+  sourceBlocks: readonly ResumeSourceBlockV2[]
+): ImportedResumeDraft["unclassifiedBlocks"] {
+  const blockById = new Map(sourceBlocks.flatMap((block) => [
+    [block.id, block] as const,
+    ...(block.sourcePath ? [[block.sourcePath, block] as const] : [])
+  ]));
+  return output.unclassifiedRefs.flatMap((ref) =>
+    ref.blockIds.flatMap((blockId) => {
+      const block = blockById.get(blockId);
+      return block ? [{
+        sourcePath: block.id,
+        sourceValue: block.normalizedText,
+        reason: ref.reason
+      }] : [];
+    })
+  );
+}
+
+function mergeCanonicalSections(sections: AiCareerAdaptResumeV2MapperOutput["resume"]["sections"]) {
+  const merged = new Map<string, AiCareerAdaptResumeV2MapperOutput["resume"]["sections"][number]>();
+  for (const section of [...sections].sort((left, right) => (left.order ?? 0) - (right.order ?? 0))) {
+    const title = section.title ?? section.sectionType;
+    const key = `${section.sectionType}:${title.normalize("NFKC").replace(/\s+/g, "").toLocaleLowerCase()}`;
+    const existing = merged.get(key);
+    if (!existing) {
+      merged.set(key, { ...section, title, items: [...section.items] });
+      continue;
+    }
+    existing.items.push(...section.items);
+    existing.visible = existing.visible || section.visible;
+  }
+  return [...merged.values()].map((section, order) => ({
+    ...section,
+    order,
+    items: section.items.map((item, itemIndex) => ({
+      ...item,
+      id: item.id || `ai-${section.sectionType}-${order + 1}-${itemIndex + 1}`
+    }))
+  }));
+}
+
+function dedupeUnclassifiedRefs(refs: AiCareerAdaptResumeV2MapperOutput["unclassifiedRefs"]) {
+  return [...new Map(refs.map((ref) => [
+    `${ref.blockIds.join(",")}\u0000${ref.reason}`,
+    ref
+  ])).values()];
 }

@@ -73,7 +73,9 @@ type ImportStatus =
   | "failed"
   | "cancelled";
 
-type BasicFieldKey = "name" | "email" | "phone" | "location" | "summary";
+type BasicFieldKey = "name" | "email" | "phone" | "location" | "targetRole" | "summary";
+const REVIEW_BASIC_FIELD_KEYS: BasicFieldKey[] = ["name", "email", "phone", "location", "targetRole", "summary"];
+const MERGE_BASIC_FIELD_KEYS: Exclude<BasicFieldKey, "targetRole">[] = ["name", "email", "phone", "location", "summary"];
 
 const SECTION_OPTIONS: Array<{ value: ImportedResumeSectionType; label: string }> = [
   { value: "summary", label: "个人概述" },
@@ -214,7 +216,7 @@ export function ResumeImportWizard(props: {
   }, [draft]);
   const fieldCandidateReviewCount = useMemo(() => {
     if (!draft) return 0;
-    const fields = [draft.basics.name, draft.basics.email, draft.basics.phone, draft.basics.location, draft.basics.summary, ...draft.basics.links];
+    const fields = [draft.basics.name, draft.basics.email, draft.basics.phone, draft.basics.location, draft.basics.targetRole, draft.basics.summary, ...draft.basics.links];
     return fields.filter((field) => field?.mapping?.needsConfirmation).length
       + draft.sections.flatMap((section) => section.items).filter((item) => !item.structuredItem && item.mapping?.needsConfirmation).length
       + (draft.schemaVersion === "resume-import-v2" ? draft.fieldCandidates.filter((candidate) => candidate.reviewStatus === "needs_review").length : 0);
@@ -1108,7 +1110,7 @@ export function ResumeImportWizard(props: {
     if (!draft || targetMode !== "existing" || !targetProfile) {
       return [];
     }
-    return (["name", "email", "phone", "location", "summary"] as BasicFieldKey[])
+    return MERGE_BASIC_FIELD_KEYS
       .flatMap((key) => {
         const imported = draft.basics[key]?.value;
         const existing = targetProfile.basics[key];
@@ -1527,7 +1529,7 @@ export function ResumeImportWizard(props: {
             <div className="review-row">
               <strong>基本信息</strong>
               <div className="form-grid compact-form-grid">
-                {(["name", "email", "phone", "location", "summary"] as BasicFieldKey[]).map((key) => (
+                {REVIEW_BASIC_FIELD_KEYS.map((key) => (
                   <div className="import-basic-field" key={key}>
                     <label>{basicLabel(key)}<input
                       name={`import-basic-${key}`}
@@ -1551,7 +1553,7 @@ export function ResumeImportWizard(props: {
                       <strong>{draft.basics[key]?.mapping?.needsConfirmation ? "需要确认" : "来源已核对"}</strong>
                     </button> : null}
                     {draft.basics[key]?.mapping?.needsConfirmation ? <button className="secondary-button compact" type="button" onClick={() => { void confirmBasicMapping(key); }}>确认字段映射</button> : null}
-                    {targetMode === "existing" && targetProfile?.basics[key] && draft.basics[key]?.value && targetProfile.basics[key] !== draft.basics[key]?.value ? (
+                    {key !== "targetRole" && targetMode === "existing" && targetProfile?.basics[key] && draft.basics[key]?.value && targetProfile.basics[key] !== draft.basics[key]?.value ? (
                       <select
                         name={`import-basic-${key}-merge`}
                         aria-label={`${basicLabel(key)}合并方式`}
@@ -1587,7 +1589,7 @@ export function ResumeImportWizard(props: {
                   <div key={item.id} className={`import-item-row ${selectedItemId === item.id ? "import-item-row-active" : ""}`}>
                     <label className="inline-toggle">
                       <input name={`import-item-${item.id}-included`} type="checkbox" checked={item.included} onChange={(event) => { void updateItem(section.id, item.id, { included: event.target.checked }); }} />
-                      {sourceStatusLabel(item.sourceStatus)} / {confidenceLabel(item.confidence)} / 第 {item.pageRefs.map((ref) => ref.pageNumber).join(",") || "?"} 页
+                      {sourceStatusLabel(item.sourceStatus, item.userEdited)} / {confidenceLabel(item.confidence)} / 第 {item.pageRefs.map((ref) => ref.pageNumber).join(",") || "?"} 页
                     </label>
                     {item.structuredItem && item.sourceStatus === "ambiguous" ? <div className="action-row">
                       <button className="secondary-button compact" type="button" onClick={() => { void confirmItemMapping(section.id, item.id); }}>采用此条</button>
@@ -1614,12 +1616,12 @@ export function ResumeImportWizard(props: {
                     {item.structuredItem ? <dl className="import-item-structured-fields">
                       {structuredItemFields(item.structuredItem).map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}
                     </dl> : null}
-                    <strong className="import-item-body-label">职责与成果</strong>
+                    <strong className="import-item-body-label">{structuredItemBodyLabel(item.structuredItem ?? section.sectionType)}</strong>
                     <textarea
                       id={`import-item-editor-${item.id}`}
                       className="textarea compact-textarea"
                       name={`import-item-${item.id}`}
-                      aria-label={`${section.detectedTitle}职责与成果`}
+                      aria-label={`${section.detectedTitle}${structuredItemBodyLabel(item.structuredItem ?? section.sectionType)}`}
                       defaultValue={item.structuredItem ? structuredItemBody(item.structuredItem) : item.normalizedText}
                       onFocus={() => {
                         setSelectedItemId(item.id);
@@ -1914,6 +1916,7 @@ function basicLabel(key: BasicFieldKey) {
     email: "邮箱",
     phone: "电话",
     location: "地点",
+    targetRole: "求职意向",
     summary: "概述"
   }[key];
 }
@@ -1961,12 +1964,12 @@ function confidenceLabel(confidence: ImportedResumeItem["confidence"]) {
   }[confidence];
 }
 
-function sourceStatusLabel(status: ImportedResumeItem["sourceStatus"]) {
+function sourceStatusLabel(status: ImportedResumeItem["sourceStatus"], userEdited = false) {
+  if (status === "user_confirmed_modified") return userEdited ? "用户已编辑" : "用户已确认";
   return {
-    located: "已定位",
-    ambiguous: "需核对",
-    unlocated: "未定位",
-    user_confirmed_modified: "用户已修正"
+    located: "AI 已识别",
+    ambiguous: "需要核对",
+    unlocated: "未定位"
   }[status];
 }
 
@@ -2027,26 +2030,42 @@ function candidateContextLabel(candidate: ImportedResumeFieldCandidate, draft: I
 
 function structuredItemFields(item: ResumeItemV2): Array<[string, string]> {
   const record = item as unknown as Record<string, unknown>;
-  const labels: Record<string, string> = {
-    school: "学校",
-    degree: "学历",
-    major: "专业",
-    organization: "组织 / 标题",
-    title: "标题",
-    role: "角色",
-    location: "地点",
-    startDate: "开始日期",
-    endDate: "结束日期",
-    current: "结束状态",
-    awardedAt: "获奖时间",
-    name: "名称",
-    language: "语言"
+  const labelsByType: Record<string, Array<[string, string]>> = {
+    summary: [],
+    education: [["school", "学校"], ["degree", "学历"], ["major", "专业"], ["department", "院系"], ["location", "地点"], ["startDate", "开始日期"], ["endDate", "结束日期"], ["current", "在读状态"], ["gpa", "GPA"], ["gpaScale", "GPA 满分"], ["rankPosition", "排名"], ["rankTotal", "总人数"], ["courses", "课程"], ["honors", "荣誉"], ["description", "说明"], ["highlights", "亮点"]],
+    work: [["organization", "组织"], ["role", "职位"], ["department", "部门"], ["location", "地点"], ["startDate", "开始日期"], ["endDate", "结束日期"], ["current", "当前状态"], ["description", "说明"], ["highlights", "职责与成果"]],
+    internship: [["organization", "组织"], ["role", "职位"], ["department", "部门"], ["location", "地点"], ["startDate", "开始日期"], ["endDate", "结束日期"], ["current", "当前状态"], ["description", "说明"], ["highlights", "职责与成果"]],
+    campus: [["organization", "组织"], ["role", "角色"], ["department", "部门"], ["location", "地点"], ["startDate", "开始日期"], ["endDate", "结束日期"], ["current", "当前状态"], ["description", "说明"], ["highlights", "职责与成果"]],
+    volunteer: [["organization", "组织"], ["role", "角色"], ["department", "部门"], ["location", "地点"], ["startDate", "开始日期"], ["endDate", "结束日期"], ["current", "当前状态"], ["description", "说明"], ["highlights", "职责与成果"]],
+    project: [["title", "项目名称"], ["role", "角色"], ["organization", "组织"], ["location", "地点"], ["startDate", "开始日期"], ["endDate", "结束日期"], ["current", "当前状态"], ["url", "链接"], ["tools", "工具"], ["background", "背景"], ["description", "说明"], ["highlights", "亮点"], ["outcomes", "成果"]],
+    research: [["title", "研究题目"], ["authorRole", "作者身份"], ["institution", "机构"], ["startDate", "开始日期"], ["endDate", "结束日期"], ["current", "当前状态"], ["methods", "方法"], ["samples", "样本"], ["publication", "关联论文"], ["publicationStatus", "发表状态"], ["url", "链接"], ["description", "说明"], ["highlights", "亮点"]],
+    skills: [["category", "类别"], ["name", "技能"], ["level", "熟练度"], ["description", "说明"]],
+    awards: [["name", "奖项"], ["issuer", "颁发方"], ["level", "级别"], ["awardedAt", "获奖时间"], ["rank", "名次"], ["description", "说明"]],
+    certificates: [["name", "证书"], ["issuer", "颁发方"], ["issuedAt", "颁发日期"], ["expiresAt", "到期日期"], ["credentialId", "证书编号"], ["status", "状态"], ["description", "说明"]],
+    languages: [["language", "语言"], ["level", "水平"], ["testName", "考试"], ["score", "成绩"], ["description", "说明"]],
+    publications: [["title", "标题"], ["authors", "作者"], ["authorRole", "作者身份"], ["publisher", "出版方"], ["publishedAt", "发表日期"], ["status", "状态"], ["doi", "DOI"], ["url", "链接"], ["description", "说明"]],
+    patents: [["title", "专利"], ["inventors", "发明人"], ["patentNumber", "专利号"], ["office", "受理机构"], ["filedAt", "申请日期"], ["grantedAt", "授权日期"], ["status", "状态"], ["url", "链接"], ["description", "说明"]],
+    portfolio: [["title", "作品"], ["type", "类型"], ["role", "角色"], ["url", "链接"], ["createdAt", "创作日期"], ["tools", "工具"], ["description", "说明"], ["highlights", "亮点"]],
+    other: [["title", "标题"], ["description", "内容"], ["highlights", "要点"]],
+    custom: [["title", "标题"], ["description", "内容"], ["highlights", "要点"]]
   };
-  return Object.entries(labels).flatMap(([key, label]) => {
+  return (labelsByType[item.sectionType] ?? []).flatMap(([key, label]) => {
     const value = record[key];
     if (key === "current") return value === true ? [[label, "至今"]] : [];
+    if (Array.isArray(value) && value.length > 0) return [[label, value.join("、")]];
+    if (typeof value === "number" && Number.isFinite(value)) return [[label, String(value)]];
     return typeof value === "string" && value.trim() ? [[label, value]] : [];
   });
+}
+
+function structuredItemBodyLabel(item: ResumeItemV2 | ImportedResumeSectionType) {
+  const sectionType = typeof item === "string" ? item : item.sectionType;
+  if (sectionType === "summary") return "内容";
+  if (sectionType === "education") return "说明与亮点";
+  if (sectionType === "project") return "项目说明与成果";
+  if (sectionType === "skills") return "技能说明";
+  if (sectionType === "awards" || sectionType === "certificates" || sectionType === "languages") return "说明";
+  return "职责与成果";
 }
 
 function formatCandidateValue(value: string | number | boolean | string[]) {

@@ -8,6 +8,7 @@ export type ResumeImportInvariantReport = {
   orphanDateCandidateCount: number;
   sameSourceRangeConflictCount: number;
   mappedContentRepeatedInUnclassified: number;
+  mappedSourceBlockRepeatedInUnclassified: number;
   presentationHeadingLeakedIntoContent: number;
   semanticStructureReviewCount: number;
 };
@@ -30,6 +31,13 @@ export function auditResumeImportInvariants(draft: ImportedResumeDraft): ResumeI
   const unclassifiedText = draft.unclassifiedBlocks.map((block) => normalizeComparableText(
     "sourceValue" in block ? JSON.stringify(block.sourceValue) : block.text
   ));
+  const mappedStructuredBlockIds = new Set(draft.sections.flatMap((section) =>
+    section.items.flatMap((item) => item.structuredItem ? item.sourceBlockIds : [])
+  ));
+  const unclassifiedBlockIds = draft.unclassifiedBlocks.flatMap((block) => {
+    if (/字段未通过来源|ai_field_not_grounded/i.test(block.reason)) return [];
+    return "sourcePath" in block ? [block.sourcePath] : [block.sourceBlockId];
+  });
   return {
     genericExperienceCount: draft.sections.filter((section) => section.sectionType === "experience").length,
     duplicateSectionIdCount: duplicateCount(sectionIds),
@@ -40,6 +48,7 @@ export function auditResumeImportInvariants(draft: ImportedResumeDraft): ResumeI
     ).length,
     sameSourceRangeConflictCount: [...rangeTargets.values()].filter((targets) => targets.size > 1).length,
     mappedContentRepeatedInUnclassified: unclassifiedText.filter((text) => text && mappedTexts.has(text)).length,
+    mappedSourceBlockRepeatedInUnclassified: unclassifiedBlockIds.filter((blockId) => mappedStructuredBlockIds.has(blockId)).length,
     presentationHeadingLeakedIntoContent: draft.sections.flatMap((section) => section.items).filter((item) =>
       /^(?:经历|奖项[、,]技能与语言)$/i.test(item.normalizedText.normalize("NFKC").trim())
     ).length,

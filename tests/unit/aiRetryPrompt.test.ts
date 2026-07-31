@@ -40,7 +40,7 @@ describe("structured AI retry prompts", () => {
     });
     expect(prompt).toContain("structuredDraft.sections[0].items[0]");
     expect(prompt).toContain("institution, degree");
-    expect(prompt).toContain("Allowed item keys only");
+    expect(prompt).toContain("Use typed CareerAdapt v2 item fields directly");
     expect(prompt).not.toContain("本科");
   });
 });

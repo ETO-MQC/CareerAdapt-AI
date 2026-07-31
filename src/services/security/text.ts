@@ -91,7 +91,7 @@ export function createSensitiveTextTokenizer(input: {
   const restorationMap: Record<string, string> = {};
   const placeholdersByType = new Map<string, Map<string, string>>();
   const namePatterns = Array.from(new Set(
-    (input.highConfidenceNames ?? []).map((name) => name.trim()).filter(Boolean)
+    (input.highConfidenceNames ?? []).map((name) => name.trim()).filter(isPlausibleSensitiveNameCandidate)
   )).map((name) => ({
     type: "name" as const,
     pattern: new RegExp(escapeRegExp(name), "g"),
@@ -125,6 +125,20 @@ export function createSensitiveTextTokenizer(input: {
       return { text: redacted, redactions, restorationMap };
     }
   };
+}
+
+export function isPlausibleSensitiveNameCandidate(value: string | undefined): value is string {
+  const candidate = value?.trim();
+  if (!candidate) return false;
+  const normalized = candidate.normalize("NFKC");
+  if (/^\d+$/u.test(normalized)) return false;
+  if (/^[#>*•·\-–—]+$/u.test(normalized)) return false;
+  if (/^(?:page|p|第?\d+页|heading|title|section)$/iu.test(normalized)) return false;
+  if (/^(?:\d+[.)、]?|[A-Za-z][.)、])$/u.test(normalized)) return false;
+  if (normalized.length < 2 || normalized.length > 48) return false;
+  if (!/[\p{L}]/u.test(normalized)) return false;
+  if (/(?:简历|项目|经历|教育|技能|电话|邮箱|求职|个人信息|resume|education|project|skill)/iu.test(normalized)) return false;
+  return true;
 }
 
 export function redactSensitiveTextForModel(

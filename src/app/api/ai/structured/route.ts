@@ -394,12 +394,12 @@ function createMockOutput(task: AiTask, input: unknown) {
     const rawText = typeof input === "object" && input && "rawText" in input ? String(input.rawText) : "[]";
     const blocks = parseAndRedactDocumentMapperBlocks(rawText);
     return {
-      structuredDraft: { schemaVersion: "structured-resume-draft-v1", basics: {}, sections: [] },
-      mappingDecisions: [],
-      unclassifiedBlocks: blocks.flatMap((block) => {
-        const sourcePath = typeof block.originalBlockId === "string" ? block.originalBlockId : block.id;
-        return typeof sourcePath === "string"
-          ? [{ sourcePath, sourceValue: block.text, reason: "Mock provider preserved the source block." }]
+      resume: { schemaVersion: "careeradapt-resume-v2", basics: {}, sections: [], unclassifiedBlocks: [] },
+      sourceRefs: [],
+      unclassifiedRefs: blocks.flatMap((block) => {
+        const blockId = typeof block.originalBlockId === "string" ? block.originalBlockId : block.id;
+        return typeof blockId === "string"
+          ? [{ blockIds: [blockId], reason: "Mock provider preserved the source block." }]
           : [];
       })
     };

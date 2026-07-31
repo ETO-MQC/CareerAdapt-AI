@@ -622,6 +622,249 @@ export const ResumeJsonMapperOutputSchema = z.object({
   }).strict().optional()
 }).strict();
 
+const AiOptionalStringSchema = z.string().nullable().optional();
+const AiOptionalUrlSchema = z.string().nullable().optional();
+const AiStringListSchema = z.union([
+  z.array(z.string().nullable()),
+  z.string()
+]).nullable().optional();
+const AiOptionalNumberSchema = z.number().nullable().optional();
+const AiOptionalBooleanSchema = z.boolean().nullable().optional();
+
+const AiCareerAdaptResumeItemBaseShape = {
+  id: AiOptionalStringSchema,
+  customFields: z.array(CustomFieldValueSchema).nullable().optional()
+};
+
+const AiExperienceItemShape = {
+  organization: AiOptionalStringSchema,
+  role: AiOptionalStringSchema,
+  department: AiOptionalStringSchema,
+  location: AiOptionalStringSchema,
+  startDate: AiOptionalStringSchema,
+  endDate: AiOptionalStringSchema,
+  current: AiOptionalBooleanSchema,
+  description: AiOptionalStringSchema,
+  highlights: AiStringListSchema
+};
+
+export const AiCareerAdaptResumeItemV2DraftSchema = z.discriminatedUnion("sectionType", [
+  z.object({ ...AiCareerAdaptResumeItemBaseShape, sectionType: z.literal("summary"), text: AiOptionalStringSchema }).strict(),
+  z.object({
+    ...AiCareerAdaptResumeItemBaseShape,
+    sectionType: z.literal("education"),
+    school: AiOptionalStringSchema,
+    major: AiOptionalStringSchema,
+    degree: AiOptionalStringSchema,
+    department: AiOptionalStringSchema,
+    location: AiOptionalStringSchema,
+    startDate: AiOptionalStringSchema,
+    endDate: AiOptionalStringSchema,
+    current: AiOptionalBooleanSchema,
+    gpa: AiOptionalNumberSchema,
+    gpaScale: AiOptionalNumberSchema,
+    rankPosition: AiOptionalNumberSchema,
+    rankTotal: AiOptionalNumberSchema,
+    courses: AiStringListSchema,
+    honors: AiStringListSchema,
+    description: AiOptionalStringSchema,
+    highlights: AiStringListSchema
+  }).strict(),
+  z.object({ ...AiCareerAdaptResumeItemBaseShape, sectionType: z.literal("work"), ...AiExperienceItemShape }).strict(),
+  z.object({ ...AiCareerAdaptResumeItemBaseShape, sectionType: z.literal("internship"), ...AiExperienceItemShape }).strict(),
+  z.object({
+    ...AiCareerAdaptResumeItemBaseShape,
+    sectionType: z.literal("project"),
+    title: AiOptionalStringSchema,
+    role: AiOptionalStringSchema,
+    organization: AiOptionalStringSchema,
+    location: AiOptionalStringSchema,
+    startDate: AiOptionalStringSchema,
+    endDate: AiOptionalStringSchema,
+    current: AiOptionalBooleanSchema,
+    url: AiOptionalUrlSchema,
+    tools: AiStringListSchema,
+    background: AiOptionalStringSchema,
+    description: AiOptionalStringSchema,
+    highlights: AiStringListSchema,
+    outcomes: AiStringListSchema
+  }).strict(),
+  z.object({
+    ...AiCareerAdaptResumeItemBaseShape,
+    sectionType: z.literal("research"),
+    title: AiOptionalStringSchema,
+    authorRole: AiOptionalStringSchema,
+    institution: AiOptionalStringSchema,
+    startDate: AiOptionalStringSchema,
+    endDate: AiOptionalStringSchema,
+    current: AiOptionalBooleanSchema,
+    methods: AiStringListSchema,
+    samples: AiOptionalStringSchema,
+    publication: AiOptionalStringSchema,
+    publicationStatus: AiOptionalStringSchema,
+    url: AiOptionalUrlSchema,
+    description: AiOptionalStringSchema,
+    highlights: AiStringListSchema
+  }).strict(),
+  z.object({ ...AiCareerAdaptResumeItemBaseShape, sectionType: z.literal("campus"), ...AiExperienceItemShape }).strict(),
+  z.object({ ...AiCareerAdaptResumeItemBaseShape, sectionType: z.literal("volunteer"), ...AiExperienceItemShape }).strict(),
+  z.object({
+    ...AiCareerAdaptResumeItemBaseShape,
+    sectionType: z.literal("awards"),
+    name: AiOptionalStringSchema,
+    issuer: AiOptionalStringSchema,
+    level: AiOptionalStringSchema,
+    awardedAt: AiOptionalStringSchema,
+    rank: AiOptionalStringSchema,
+    description: AiOptionalStringSchema
+  }).strict(),
+  z.object({
+    ...AiCareerAdaptResumeItemBaseShape,
+    sectionType: z.literal("skills"),
+    name: AiOptionalStringSchema,
+    category: AiOptionalStringSchema,
+    level: AiOptionalStringSchema,
+    description: AiOptionalStringSchema
+  }).strict(),
+  z.object({
+    ...AiCareerAdaptResumeItemBaseShape,
+    sectionType: z.literal("certificates"),
+    name: AiOptionalStringSchema,
+    issuer: AiOptionalStringSchema,
+    issuedAt: AiOptionalStringSchema,
+    expiresAt: AiOptionalStringSchema,
+    credentialId: AiOptionalStringSchema,
+    status: AiOptionalStringSchema,
+    description: AiOptionalStringSchema
+  }).strict(),
+  z.object({
+    ...AiCareerAdaptResumeItemBaseShape,
+    sectionType: z.literal("languages"),
+    language: AiOptionalStringSchema,
+    level: AiOptionalStringSchema,
+    testName: AiOptionalStringSchema,
+    score: AiOptionalStringSchema,
+    description: AiOptionalStringSchema
+  }).strict(),
+  z.object({
+    ...AiCareerAdaptResumeItemBaseShape,
+    sectionType: z.literal("publications"),
+    title: AiOptionalStringSchema,
+    authors: AiStringListSchema,
+    authorRole: AiOptionalStringSchema,
+    publisher: AiOptionalStringSchema,
+    publishedAt: AiOptionalStringSchema,
+    status: AiOptionalStringSchema,
+    doi: AiOptionalStringSchema,
+    url: AiOptionalUrlSchema,
+    description: AiOptionalStringSchema
+  }).strict(),
+  z.object({
+    ...AiCareerAdaptResumeItemBaseShape,
+    sectionType: z.literal("patents"),
+    title: AiOptionalStringSchema,
+    inventors: AiStringListSchema,
+    patentNumber: AiOptionalStringSchema,
+    office: AiOptionalStringSchema,
+    filedAt: AiOptionalStringSchema,
+    grantedAt: AiOptionalStringSchema,
+    status: AiOptionalStringSchema,
+    url: AiOptionalUrlSchema,
+    description: AiOptionalStringSchema
+  }).strict(),
+  z.object({
+    ...AiCareerAdaptResumeItemBaseShape,
+    sectionType: z.literal("portfolio"),
+    title: AiOptionalStringSchema,
+    type: AiOptionalStringSchema,
+    role: AiOptionalStringSchema,
+    url: AiOptionalUrlSchema,
+    createdAt: AiOptionalStringSchema,
+    tools: AiStringListSchema,
+    description: AiOptionalStringSchema,
+    highlights: AiStringListSchema
+  }).strict(),
+  z.object({
+    ...AiCareerAdaptResumeItemBaseShape,
+    sectionType: z.literal("other"),
+    title: AiOptionalStringSchema,
+    description: AiOptionalStringSchema,
+    highlights: AiStringListSchema
+  }).strict(),
+  z.object({
+    ...AiCareerAdaptResumeItemBaseShape,
+    sectionType: z.literal("custom"),
+    title: AiOptionalStringSchema,
+    description: AiOptionalStringSchema,
+    highlights: AiStringListSchema
+  }).strict()
+]);
+
+export const AiCareerAdaptResumeV2DraftSchema = z.object({
+  schemaVersion: z.literal("careeradapt-resume-v2").optional(),
+  locale: z.string().nullable().optional(),
+  basics: z.object({
+    name: AiOptionalStringSchema,
+    photo: AiOptionalUrlSchema,
+    headline: AiOptionalStringSchema,
+    targetRole: AiOptionalStringSchema,
+    summary: AiOptionalStringSchema,
+    phone: AiOptionalStringSchema,
+    email: AiOptionalStringSchema,
+    location: AiOptionalStringSchema,
+    homepage: AiOptionalUrlSchema,
+    linkedin: AiOptionalUrlSchema,
+    github: AiOptionalUrlSchema,
+    portfolioLinks: AiStringListSchema,
+    otherLinks: AiStringListSchema,
+    links: AiStringListSchema,
+    customFields: z.array(CustomFieldValueSchema).nullable().optional()
+  }).strict().default({}),
+  sections: z.array(z.object({
+    id: AiOptionalStringSchema,
+    sectionType: ResumeSectionTypeV2Schema.exclude(["basics"]),
+    title: AiOptionalStringSchema,
+    order: z.number().int().min(0).nullable().optional(),
+    visible: z.boolean().nullable().optional(),
+    items: z.array(AiCareerAdaptResumeItemV2DraftSchema).default([]),
+    customFields: z.array(CustomFieldValueSchema).nullable().optional()
+  }).strict()).default([]),
+  unclassifiedBlocks: z.array(z.object({
+    sourcePath: z.string().min(1),
+    sourceValue: z.unknown().optional(),
+    reason: z.string().min(1)
+  }).strict()).optional()
+}).strict();
+
+export const AiResumeSourceRefSchema = z.object({
+  path: z.string().min(1),
+  blockIds: z.array(z.string().min(1)).min(1),
+  confidenceLevel: ImportedResumeConfidenceSchema.default("high"),
+  confidenceReason: z.string().min(1).optional(),
+  needsConfirmation: z.boolean().default(false)
+}).strict();
+
+export const AiCareerAdaptResumeV2MapperOutputSchema = z.object({
+  resume: AiCareerAdaptResumeV2DraftSchema,
+  sourceRefs: z.array(AiResumeSourceRefSchema).default([]),
+  unclassifiedRefs: z.array(z.object({
+    blockIds: z.array(z.string().min(1)).min(1),
+    reason: z.string().min(1)
+  }).strict()).default([]),
+  mapperDiagnostics: z.object({
+    shapeRepairs: z.array(z.string().min(1)).default([]),
+    evidenceRepairs: z.array(z.string().min(1)).default([]),
+    rejectedFields: z.array(z.object({
+      path: z.string().min(1),
+      reason: z.literal("ai_field_not_grounded")
+    }).strict()).default([]),
+    localNormalizationMs: z.number().int().min(0),
+    groundedFieldCount: z.number().int().min(0),
+    repairedFieldCount: z.number().int().min(0),
+    rejectedFieldCount: z.number().int().min(0)
+  }).strict().optional()
+}).strict();
+
 export type ImportedResumeDraftStatus = z.infer<typeof ImportedResumeDraftStatusSchema>;
 export type ResumeSourceKind = z.infer<typeof ResumeSourceKindSchema>;
 export type ResumeImportSourceClassification = z.infer<typeof ResumeImportSourceClassificationSchema>;
@@ -660,6 +903,10 @@ export type ImportedResumeDraft = z.infer<typeof ImportedResumeDraftSchema>;
 export type ImportedResumeDraftV2 = z.infer<typeof ImportedResumeDraftV2Schema>;
 export type MappingDecision = z.infer<typeof MappingDecisionSchema>;
 export type StructuredResumeDraft = z.infer<typeof StructuredResumeDraftSchema>;
+export type AiCareerAdaptResumeItemV2Draft = z.infer<typeof AiCareerAdaptResumeItemV2DraftSchema>;
+export type AiCareerAdaptResumeV2Draft = z.infer<typeof AiCareerAdaptResumeV2DraftSchema>;
+export type AiResumeSourceRef = z.infer<typeof AiResumeSourceRefSchema>;
+export type AiCareerAdaptResumeV2MapperOutput = z.infer<typeof AiCareerAdaptResumeV2MapperOutputSchema>;
 export type ImportMergeDecision = z.infer<typeof ImportMergeDecisionSchema>;
 export type ImportedResumeConfirmResult = z.infer<typeof ImportedResumeConfirmResultSchema>;
 export type ImportedResumeBranchConfirmResult = z.infer<typeof ImportedResumeBranchConfirmResultSchema>;

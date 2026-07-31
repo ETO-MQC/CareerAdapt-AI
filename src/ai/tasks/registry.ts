@@ -11,6 +11,7 @@ import {
   RequirementGroupSchema,
   MatchEvidenceRefSchema,
   ProfileBuilderOutputSchema,
+  AiCareerAdaptResumeV2MapperOutputSchema,
   ResumeJsonMapperOutputSchema,
   ResumeTailorTaskInputV2Schema,
   ResumeTailorModelOutputSchema,
@@ -29,6 +30,7 @@ import {
   type JdUnitAssignment,
   type MatchRisk,
   type ProfileBuilderOutput,
+  type AiCareerAdaptResumeV2MapperOutput,
   type ResumeJsonMapperOutput,
   type ResumeTailorOutput,
   type ResumeTailorBatchInput,
@@ -325,8 +327,8 @@ export const aiTaskRegistry = {
     promptVersion: resumeDocumentMapperPrompt.version,
     systemPrompt: resumeDocumentMapperPrompt.system,
     inputSchema: ResumeDocumentMapperTaskInputSchema,
-    outputSchema: ResumeJsonMapperOutputSchema,
-    maxOutputChars: 24_000,
+    outputSchema: AiCareerAdaptResumeV2MapperOutputSchema,
+    maxOutputChars: 18_000,
     buildUserPrompt(input: ResumeDocumentMapperTaskInput) {
       const blocks = parseAndRedactDocumentMapperBlocks(input.rawText);
       return JSON.stringify({
@@ -341,44 +343,45 @@ export const aiTaskRegistry = {
         })),
         allowedSections: ["summary", "education", "work", "internship", "project", "research", "campus", "volunteer", "awards", "skills", "certificates", "languages", "publications", "patents", "portfolio", "other", "custom"],
         outputContract: {
-          structuredDraft: {
-            schemaVersion: "structured-resume-draft-v1",
+          resume: {
+            schemaVersion: "careeradapt-resume-v2",
             basics: {
-              supportedKeys: ["name", "email", "phone", "location", "summary", "links"],
-              mappedValue: {
-                value: "exact source-supported value",
-                mapping: {
-                  sourcePaths: ["authoritative-block-id"],
-                  sourceValues: ["exact source quote"],
-                  confidenceLevel: "high | medium | low",
-                  confidenceReason: "brief safe reason",
-                  needsConfirmation: false
-                }
-              }
+              supportedKeys: ["name", "headline", "summary", "phone", "email", "location", "homepage", "linkedin", "github", "portfolioLinks", "otherLinks"]
             },
             sections: [{
-              allowedKeys: ["title", "sectionType", "items", "mapping"],
-              itemAllowedKeys: [
-                "text", "organization", "role", "location", "startDate", "endDate",
-                "current", "highlights", "mapping"
-              ]
+              allowedKeys: ["sectionType", "title", "items"],
+              itemShapeBySection: {
+                education: ["school", "degree", "major", "department", "location", "startDate", "endDate", "current", "gpa", "gpaScale", "rankPosition", "rankTotal", "courses", "honors", "description", "highlights"],
+                work: ["organization", "role", "department", "location", "startDate", "endDate", "current", "description", "highlights"],
+                internship: ["organization", "role", "department", "location", "startDate", "endDate", "current", "description", "highlights"],
+                project: ["title", "role", "organization", "location", "startDate", "endDate", "current", "url", "tools", "background", "description", "highlights", "outcomes"],
+                research: ["title", "authorRole", "institution", "startDate", "endDate", "current", "methods", "samples", "publication", "publicationStatus", "url", "description", "highlights"],
+                skills: ["name", "category", "level", "description"],
+                awards: ["name", "issuer", "level", "awardedAt", "rank", "description"],
+                certificates: ["name", "issuer", "issuedAt", "expiresAt", "credentialId", "status", "description"],
+                languages: ["language", "level", "testName", "score", "description"]
+              }
             }]
-          }
+          },
+          sourceRefs: [
+            { path: "/basics/name", blockIds: ["authoritative-block-id"] },
+            { path: "/sections/0/items/0", blockIds: ["authoritative-block-id", "date-or-category-block-id"] }
+          ]
         },
-        instructions: "Return only {structuredDraft:{schemaVersion,basics,sections}}. Do not return category, included, mappingDecisions, internal IDs, parser metadata, or review metadata. Map without changing facts or numeric values. Every item mapping must cite authoritative original block ids and exact quotes covering organization, role, location, startDate, endDate, text, and every highlight. Use only high/medium/low confidence. Uncited source blocks are preserved locally and need not be repeated."
+        instructions: "Return only {resume:{schemaVersion:'careeradapt-resume-v2',basics,sections},sourceRefs:[...]}. Do not return structuredDraft, mappingDecisions, sourceValues, category, included, internal IDs, parser metadata, or review metadata. Use typed CareerAdapt v2 fields directly. Keep school/major/degree separate; project title in project.title; skill name/category/level/description separate; explicit 求职意向/Target Role goes to basics.headline. Copy source-supported facts only, preserve item and bullet order, preserve date precision, set current=true only for explicit current/至今 and omit endDate. Every basic field needs a field-level sourceRef; each item needs an item-level sourceRef whose blockIds cover all factual fields on that item. Uncited source blocks are preserved locally and need not be repeated."
       }, null, 2);
     },
     coerceRawOutput(rawOutput: unknown, input?: ResumeDocumentMapperTaskInput) {
       const blocks = input ? parseAndRedactDocumentMapperBlocks(input.rawText) : [];
       return normalizeResumeMapperBoundaryOutput(rawOutput, blocks);
     },
-    normalizeOutput(output: ResumeJsonMapperOutput) {
-      return repairDocumentMapperSafetyMetadata(ResumeJsonMapperOutputSchema.parse(output));
+    normalizeOutput(output: AiCareerAdaptResumeV2MapperOutput) {
+      return repairDocumentMapperSafetyMetadata(AiCareerAdaptResumeV2MapperOutputSchema.parse(output));
     },
-    validateOutput(output: ResumeJsonMapperOutput, input: ResumeDocumentMapperTaskInput) {
+    validateOutput(output: AiCareerAdaptResumeV2MapperOutput, input: ResumeDocumentMapperTaskInput) {
       validateDocumentMapperSources(output, input.rawText);
     }
-  } satisfies AiTaskDefinition<ResumeDocumentMapperTaskInput, ResumeJsonMapperOutput>,
+  } satisfies AiTaskDefinition<ResumeDocumentMapperTaskInput, AiCareerAdaptResumeV2MapperOutput>,
   "resume-json-mapper": {
     task: "resume-json-mapper",
     promptVersion: resumeJsonMapperPrompt.version,
@@ -1186,7 +1189,7 @@ function validateJsonMapperSources(output: ResumeJsonMapperOutput, rawText: stri
   validateMappedContent(output);
 }
 
-function validateDocumentMapperSources(output: ResumeJsonMapperOutput, rawText: string) {
+function validateDocumentMapperSources(output: AiCareerAdaptResumeV2MapperOutput, rawText: string) {
   const blocks = parseAndRedactDocumentMapperBlocks(rawText);
   const sourceTextsById = new Map<string, string[]>();
   for (const block of blocks) {
@@ -1196,28 +1199,14 @@ function validateDocumentMapperSources(output: ResumeJsonMapperOutput, rawText: 
     sourceTexts.push(block.text);
     sourceTextsById.set(blockId, sourceTexts);
   }
-  for (const mapping of collectMappingObjects(output)) {
-    const sourceTexts = mapping.sourcePaths.flatMap((blockId) => sourceTextsById.get(blockId) ?? []);
-    if (sourceTexts.length === 0) throw new Error("resume_document_mapper_source_mismatch");
-    const evidenceTexts = [...sourceTexts, sourceTexts.join(""), sourceTexts.join(" ")];
-    mapping.sourceValues.forEach((cited) => {
-      if (
-        typeof cited !== "string"
-        || !evidenceTexts.some(
-          (sourceText) => normalizeMappedText(sourceText).includes(normalizeMappedText(cited))
-        )
-      ) {
-        throw new Error("resume_document_mapper_source_mismatch");
-      }
-    });
+  for (const ref of output.sourceRefs) {
+    for (const blockId of ref.blockIds) {
+      if (!sourceTextsById.has(blockId)) throw new Error("resume_document_mapper_source_ref_missing");
+    }
   }
-  for (const decision of output.mappingDecisions ?? []) {
-    for (const blockId of decision.sourceBlockIds) {
-      const sourceTexts = sourceTextsById.get(blockId);
-      if (!sourceTexts) throw new Error("resume_document_mapper_decision_source_missing");
-      if (!sourceTexts.some((sourceText) => normalizeMappedText(sourceText).includes(normalizeMappedText(decision.sourceQuote)))) {
-        throw new Error("resume_document_mapper_decision_quote_mismatch");
-      }
+  for (const ref of output.unclassifiedRefs) {
+    for (const blockId of ref.blockIds) {
+      if (!sourceTextsById.has(blockId)) throw new Error("resume_document_mapper_unclassified_ref_missing");
     }
   }
   // The document mapper boundary already grounds and quarantines every factual
@@ -1246,41 +1235,24 @@ export function parseAndRedactDocumentMapperBlocks(rawText: string): Array<Recor
   });
 }
 
-function repairDocumentMapperSafetyMetadata(output: ResumeJsonMapperOutput): ResumeJsonMapperOutput {
+function repairDocumentMapperSafetyMetadata(output: AiCareerAdaptResumeV2MapperOutput): AiCareerAdaptResumeV2MapperOutput {
   const useCount = new Map<string, number>();
-  for (const decision of output.mappingDecisions ?? []) {
-    for (const blockId of decision.sourceBlockIds) {
+  for (const ref of output.sourceRefs) {
+    for (const blockId of ref.blockIds) {
       useCount.set(blockId, (useCount.get(blockId) ?? 0) + 1);
     }
   }
-  const mappingDecisions = output.mappingDecisions?.map((decision) => {
-    if (!("needsConfirmation" in decision)) return decision;
-    const sharedSource = decision.sourceBlockIds.some((blockId) => (useCount.get(blockId) ?? 0) > 1);
+  const sourceRefs = output.sourceRefs.map((ref) => {
+    const sharedSource = ref.blockIds.some((blockId) => (useCount.get(blockId) ?? 0) > 1);
     return {
-      ...decision,
-      needsConfirmation: decision.needsConfirmation || decision.confidence < 0.85 || sharedSource,
-      confidence: sharedSource ? Math.min(decision.confidence, 0.84) : decision.confidence
+      ...ref,
+      needsConfirmation: ref.needsConfirmation || ref.confidenceLevel !== "high" || sharedSource,
+      confidenceLevel: sharedSource && ref.confidenceLevel === "high" ? "medium" as const : ref.confidenceLevel
     };
   });
-  const visit = (value: unknown): unknown => {
-    if (Array.isArray(value)) return value.map(visit);
-    if (!value || typeof value !== "object") return value;
-    const record = Object.fromEntries(
-      Object.entries(value as Record<string, unknown>).map(([key, item]) => [key, visit(item)])
-    );
-    const mapping = record.mapping;
-    if (mapping && typeof mapping === "object" && !Array.isArray(mapping)) {
-      const trace = mapping as Record<string, unknown>;
-      if (trace.confidenceLevel !== "high") {
-        record.mapping = { ...trace, needsConfirmation: true };
-      }
-    }
-    return record;
-  };
-  return ResumeJsonMapperOutputSchema.parse({
+  return AiCareerAdaptResumeV2MapperOutputSchema.parse({
     ...output,
-    structuredDraft: visit(output.structuredDraft),
-    mappingDecisions
+    sourceRefs
   });
 }
 

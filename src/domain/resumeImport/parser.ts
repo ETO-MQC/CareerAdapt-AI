@@ -11,6 +11,7 @@ import {
   type ImportQualityReport,
   type MappingDecision,
   type NormalizedSourceBlock,
+  type AiResumeSourceRef,
   type ResumeSourceKind,
   StructuredResumeDraftSchema,
   type ImportedResumeSource,
@@ -218,7 +219,7 @@ export function createImportedResumeDraftFromText(input: {
 export function createImportedResumeDraftFromStructuredJson(input: {
   importId?: string;
   source: SourceInput & { mimeType: ImportedResumeSource["mimeType"] };
-  structuredDraft: StructuredResumeDraft;
+  structuredDraft?: StructuredResumeDraft;
   unclassifiedBlocks?: ImportedResumeDraft["unclassifiedBlocks"];
   sourceKind?: "standard_json" | "external_json";
   sourceBlocks?: NormalizedSourceBlock[];
@@ -226,12 +227,17 @@ export function createImportedResumeDraftFromStructuredJson(input: {
   mappingDecisions?: MappingDecision[];
   fieldCandidates?: ImportedResumeFieldCandidate[];
   canonicalResume?: CareerAdaptResumeJsonV2;
+  canonicalSourceRefs?: AiResumeSourceRef[];
   now?: string;
 }): ImportedResumeDraft {
   const now = input.now ?? new Date().toISOString();
   const importId = input.importId ?? `resume-import-${nanoid(10)}`;
-  const structuredDraft = StructuredResumeDraftSchema.parse(input.structuredDraft);
-  const pageText = structuredJsonToReviewText(structuredDraft);
+  const structuredDraft = input.structuredDraft
+    ? StructuredResumeDraftSchema.parse(input.structuredDraft)
+    : StructuredResumeDraftSchema.parse({ schemaVersion: "structured-resume-draft-v1", basics: {}, sections: [] });
+  const pageText = input.canonicalResume
+    ? canonicalResumeToReviewText(input.canonicalResume)
+    : structuredJsonToReviewText(structuredDraft);
   const normalizedSourceBlocks = input.sourceBlocks?.length
     ? input.sourceBlocks
     : createFallbackSourceBlocks([{ pageNumber: 1, rawText: pageText, normalizedText: pageText }], input.source.mimeType);
@@ -253,42 +259,78 @@ export function createImportedResumeDraftFromStructuredJson(input: {
     charStart: 0,
     charEnd: pageText.length
   }];
+  const canonicalSourceRefByPath = new Map((input.canonicalSourceRefs ?? []).map((ref) => [normalizeSourceRefPath(ref.path), ref]));
+  const sourceBlockById = new Map(sourceBlocksV2.flatMap((block) => [
+    [block.id, block] as const,
+    ...(block.sourcePath ? [[block.sourcePath, block] as const] : [])
+  ]));
+  const sourceBlocksForCanonicalPath = (...paths: string[]) => {
+    const refs = paths.flatMap((path) => {
+      const normalized = normalizeSourceRefPath(path);
+      return [
+        canonicalSourceRefByPath.get(normalized),
+        canonicalSourceRefByPath.get(normalized.replace(/\/\d+$/u, ""))
+      ].filter((ref): ref is AiResumeSourceRef => Boolean(ref));
+    });
+    return [...new Map(refs.flatMap((ref) => ref.blockIds)
+      .flatMap((blockId) => sourceBlockById.get(blockId) ? [[blockId, sourceBlockById.get(blockId)!] as const] : [])).values()];
+  };
+  const mappingForCanonicalPath = (path: string, blocks: NormalizedSourceBlock[]) => {
+    const ref = canonicalSourceRefByPath.get(normalizeSourceRefPath(path));
+    if (!ref || blocks.length === 0) return undefined;
+    return {
+      sourcePaths: ref.blockIds,
+      sourceValues: ref.blockIds.map((blockId) => sourceBlockById.get(blockId)?.normalizedText ?? ""),
+      confidenceLevel: ref.confidenceLevel,
+      confidenceReason: ref.confidenceReason ?? "AI 已识别并经本地来源核验",
+      needsConfirmation: ref.needsConfirmation
+    };
+  };
   const structuredField = (value: NonNullable<StructuredResumeDraft["basics"]["name"]>, confidence: "high" | "medium" | "low") => {
     const field = makeStructuredField(value, pageSources, confidence);
     const mappingPaths = typeof value === "string" ? [] : value.mapping.sourcePaths;
     const matches = sourceBlocksV2.filter((block) => mappingPaths.includes(block.sourcePath ?? "") || block.normalizedText.includes(field.value));
     return { ...field, sourceBlockIds: matches.map((block) => block.id), sourceQuote: field.value };
   };
-  const canonicalJsonField = (value: string, needsConfirmation = false) => {
-    const matches = sourceBlocksV2.filter((block) => block.normalizedText.includes(value) || value.includes(block.normalizedText));
+  const canonicalJsonField = (path: string, value: string, needsConfirmation = false) => {
+    const refBlocks = sourceBlocksForCanonicalPath(path);
+    const matches = refBlocks.length
+      ? refBlocks
+      : sourceBlocksV2.filter((block) => block.normalizedText.includes(value) || value.includes(block.normalizedText));
+    const mapping = mappingForCanonicalPath(path, matches);
     return {
-      ...makeField(value, pageSources, needsConfirmation ? "low" as const : "high" as const),
-      sourceStatus: needsConfirmation ? "ambiguous" as const : "located" as const,
+      ...makeField(value, pageSources, needsConfirmation || mapping?.needsConfirmation ? "low" as const : "high" as const),
+      confidence: mapping?.confidenceLevel ?? (needsConfirmation ? "low" as const : "high" as const),
+      sourceStatus: needsConfirmation || mapping?.needsConfirmation || matches.length === 0 ? "ambiguous" as const : "located" as const,
       userEdited: false,
       sourceBlockIds: matches.map((block) => block.id),
       sourceRanges: matches.flatMap((block) => block.normalizedText ? [{ blockId: block.id, start: 0, end: block.normalizedText.length }] : []),
-      sourceQuote: value
+      sourceQuote: value,
+      mapping
     };
   };
   const canonicalBasics = input.canonicalResume?.basics;
   const abnormalCanonicalPhone = Boolean(canonicalBasics?.phone && !/^1[3-9]\d{9}$/.test(canonicalBasics.phone.replace(/\D/g, "")));
+  const canonicalLinks: Array<readonly [string, string]> = canonicalBasics ? ([
+    ["/basics/homepage", canonicalBasics.homepage],
+    ["/basics/linkedin", canonicalBasics.linkedin],
+    ["/basics/github", canonicalBasics.github],
+    ...canonicalBasics.portfolioLinks.map((value, index) => [`/basics/portfolioLinks/${index}`, value] as const),
+    ...canonicalBasics.otherLinks.map((value, index) => [`/basics/otherLinks/${index}`, value] as const)
+  ] as Array<readonly [string, string | undefined]>).flatMap(([path, value]) => value ? [[path, value] as const] : []) : [];
   const basics = {
-    name: canonicalBasics?.name ? canonicalJsonField(canonicalBasics.name) : structuredDraft.basics.name ? structuredField(structuredDraft.basics.name, "high") : undefined,
-    email: canonicalBasics?.email ? canonicalJsonField(canonicalBasics.email) : structuredDraft.basics.email ? structuredField(structuredDraft.basics.email, "high") : undefined,
-    phone: canonicalBasics?.phone ? canonicalJsonField(canonicalBasics.phone, abnormalCanonicalPhone) : structuredDraft.basics.phone ? structuredField(structuredDraft.basics.phone, "medium") : undefined,
-    location: canonicalBasics?.location ? canonicalJsonField(canonicalBasics.location) : structuredDraft.basics.location ? structuredField(structuredDraft.basics.location, "medium") : undefined,
+    name: canonicalBasics?.name ? canonicalJsonField("/basics/name", canonicalBasics.name) : structuredDraft.basics.name ? structuredField(structuredDraft.basics.name, "high") : undefined,
+    email: canonicalBasics?.email ? canonicalJsonField("/basics/email", canonicalBasics.email) : structuredDraft.basics.email ? structuredField(structuredDraft.basics.email, "high") : undefined,
+    phone: canonicalBasics?.phone ? canonicalJsonField("/basics/phone", canonicalBasics.phone, abnormalCanonicalPhone) : structuredDraft.basics.phone ? structuredField(structuredDraft.basics.phone, "medium") : undefined,
+    location: canonicalBasics?.location ? canonicalJsonField("/basics/location", canonicalBasics.location) : structuredDraft.basics.location ? structuredField(structuredDraft.basics.location, "medium") : undefined,
     links: canonicalBasics
-      ? [
-          canonicalBasics.homepage,
-          canonicalBasics.linkedin,
-          canonicalBasics.github,
-          ...canonicalBasics.portfolioLinks,
-          ...canonicalBasics.otherLinks
-        ].filter((value): value is string => Boolean(value)).map((value) => canonicalJsonField(value))
+      ? canonicalLinks.map(([path, value]) => canonicalJsonField(path, value))
       : (structuredDraft.basics.links ?? []).map((link) => structuredField(link, "medium")),
-    targetRole: canonicalBasics?.targetRole ? canonicalJsonField(canonicalBasics.targetRole) : undefined,
+    targetRole: canonicalBasics?.headline
+      ? canonicalJsonField("/basics/headline", canonicalBasics.headline)
+      : canonicalBasics?.targetRole ? canonicalJsonField("/basics/targetRole", canonicalBasics.targetRole) : undefined,
     summary: input.canonicalResume
-      ? canonicalBasics?.summary ? canonicalJsonField(canonicalBasics.summary) : undefined
+      ? canonicalBasics?.summary ? canonicalJsonField("/basics/summary", canonicalBasics.summary) : undefined
       : structuredDraft.basics.summary ? structuredField(structuredDraft.basics.summary, "medium") : undefined
   };
   const sections: ImportedResumeSection[] = input.canonicalResume ? input.canonicalResume.sections.map((section, sectionIndex) => ({
@@ -300,33 +342,39 @@ export function createImportedResumeDraftFromStructuredJson(input: {
     order: section.order,
     confidence: "high",
     items: section.items.map((structuredItem, itemIndex) => {
+      const canonicalItemPath = `/sections/${sectionIndex}/items/${itemIndex}`;
+      const refBlocks = sourceBlocksForCanonicalPath(canonicalItemPath);
+      const canonicalMapping = mappingForCanonicalPath(canonicalItemPath, refBlocks);
       const traceBlockIds = new Set((section.mappingTrace ?? []).flatMap((trace) => trace.sourceBlockIds));
       const evidenceValues = structuredItemEvidenceValues(structuredItem);
-      const sourceBlocks = sourceBlocksV2.filter((block) => traceBlockIds.has(block.id)
-        || Boolean(block.sourcePath && traceBlockIds.has(block.sourcePath))
-        || block.sourcePath?.includes(`sections.${sectionIndex}.items.${itemIndex}`)
-        || block.sourcePath?.includes(`sections[${sectionIndex}].items[${itemIndex}]`)
-        || evidenceValues.some((value) =>
-          block.normalizedText === value
-          || block.normalizedText.includes(value)
-          || value.includes(block.normalizedText)
-        ));
       const text = projectResumeItemV2(structuredItem);
+      const sourceBlocks = refBlocks.length ? refBlocks : sourceBlocksV2.filter((block) => traceBlockIds.has(block.id)
+          || Boolean(block.sourcePath && traceBlockIds.has(block.sourcePath))
+          || block.sourcePath?.includes(`sections.${sectionIndex}.items.${itemIndex}`)
+          || block.sourcePath?.includes(`sections[${sectionIndex}].items[${itemIndex}]`)
+          || block.normalizedText === text
+          || block.normalizedText.includes(text)
+          || evidenceValues.some((value) =>
+            block.normalizedText === value
+            || block.normalizedText.includes(value)
+            || value.includes(block.normalizedText)
+          ));
       return {
         id: structuredItem.id,
-        rawText: text,
+        rawText: sourceBlocks.map((block) => block.normalizedText).join("\n") || text,
         normalizedText: text,
         included: section.visible,
         order: itemIndex,
-        pageRefs: [{ pageNumber: 1, quote: text.slice(0, 240) }],
-        confidence: "high" as const,
-        sourceStatus: sourceBlocks.length ? "located" as const : "ambiguous" as const,
+        pageRefs: pageRefsFromBlocks(sourceBlocks).length ? pageRefsFromBlocks(sourceBlocks) : [{ pageNumber: 1, quote: text.slice(0, 240) }],
+        confidence: canonicalMapping?.confidenceLevel ?? "high" as const,
+        sourceStatus: sourceBlocks.length && !canonicalMapping?.needsConfirmation ? "located" as const : "ambiguous" as const,
         userEdited: false,
         sourceBlockIds: sourceBlocks.map((block) => block.id),
         sourceQuote: text,
         itemLabel: itemDisplayLabel(structuredItem),
         structuredItem,
-        structuredMappingTrace: section.mappingTrace ?? []
+        structuredMappingTrace: section.mappingTrace ?? [],
+        mapping: canonicalMapping
       };
     })
   })) : structuredDraft.sections.map((section, sectionIndex) => ({
@@ -472,6 +520,38 @@ function structuredJsonToReviewText(draft: StructuredResumeDraft) {
   return lines.join("\n");
 }
 
+function canonicalResumeToReviewText(resume: CareerAdaptResumeJsonV2) {
+  const lines = [
+    resume.basics.name,
+    resume.basics.headline,
+    resume.basics.summary,
+    resume.basics.email,
+    resume.basics.phone,
+    resume.basics.location,
+    resume.basics.homepage,
+    resume.basics.linkedin,
+    resume.basics.github,
+    ...resume.basics.portfolioLinks,
+    ...resume.basics.otherLinks
+  ].filter((value): value is string => Boolean(value));
+  for (const section of resume.sections) {
+    lines.push(section.title);
+    for (const item of section.items) {
+      lines.push(projectResumeItemV2(item));
+    }
+  }
+  return lines.join("\n");
+}
+
+function normalizeSourceRefPath(path: string) {
+  const trimmed = path.trim();
+  if (!trimmed) return trimmed;
+  return (trimmed.startsWith("/") ? trimmed : `/${trimmed}`)
+    .replace(/\[(\d+)\]/g, "/$1")
+    .replace(/\/+/g, "/")
+    .replace(/\/$/g, "");
+}
+
 function structuredValueText(value: StructuredResumeDraft["basics"]["name"] extends infer T ? NonNullable<T> : never) {
   return typeof value === "string" ? value : value.value;
 }
@@ -486,7 +566,7 @@ function makeStructuredField(
   return typeof value === "string" ? field : {
     ...field,
     confidence: value.mapping.confidenceLevel,
-    sourceStatus: value.mapping.needsConfirmation ? "ambiguous" as const : "user_confirmed_modified" as const,
+    sourceStatus: value.mapping.needsConfirmation ? "ambiguous" as const : "located" as const,
     mapping: value.mapping
   };
 }

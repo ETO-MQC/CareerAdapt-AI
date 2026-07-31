@@ -33,8 +33,10 @@ for (const realCase of cases) {
     await expect(dialog.locator(".import-recognition-recovery")).toHaveCount(0);
 
     const result = await latestImportGateResult(page);
+    const counts = semanticCounts(result.draft);
     expect(result.draft.sourceKind).toBe(realCase.sourceKind);
-    expect(result.draft.parserVersion).toContain("resume-document-mapper.v4-boundary");
+    expect(result.draft.parserVersion).toContain("resume-document-mapper.v5-canonical-v2");
+    expect(counts.structuredItemCount).toBe(counts.itemCount);
     expect(result.logs.length).toBeGreaterThan(0);
     expect(result.logs.every((log) => log.status === "success")).toBe(true);
     if (realCase.format === "PDF") {
@@ -50,10 +52,24 @@ for (const realCase of cases) {
       model: result.logs[0]?.model,
       latencyMs: result.logs.reduce((sum, log) => sum + (log.latencyMs ?? 0), 0),
       attemptCount: result.logs.reduce((sum, log) => sum + (log.attemptCount ?? 1), 0),
-      batchCount: result.logs.length
+      batchCount: result.logs.length,
+      counts
     });
   });
 }
+
+type DraftForGate = {
+  sourceKind: string;
+  parserVersion: string;
+  sourceBlocks: Array<{ position?: Record<string, number> }>;
+  sections?: Array<{
+    sectionType: string;
+    items: Array<{
+      structuredItem?: Record<string, unknown>;
+    }>;
+  }>;
+  unclassifiedBlocks?: unknown[];
+};
 
 async function latestImportGateResult(page: Page) {
   return page.evaluate(async () => {
@@ -68,11 +84,7 @@ async function latestImportGateResult(page: Page) {
       request.onsuccess = () => resolveRows(request.result);
       request.onerror = () => reject(request.error);
     });
-    const rows = await readAll<{ key: string; value: {
-      sourceKind: string;
-      parserVersion: string;
-      sourceBlocks: Array<{ position?: Record<string, number> }>;
-    }; updatedAt: string }>("appMeta");
+    const rows = await readAll<{ key: string; value: DraftForGate; updatedAt: string }>("appMeta");
     const draft = rows
       .filter((row) => row.key.startsWith("importedResumeDraft:"))
       .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0]!.value;
@@ -90,4 +102,22 @@ async function latestImportGateResult(page: Page) {
     database.close();
     return { draft, logs };
   });
+}
+
+function semanticCounts(draft: DraftForGate) {
+  const sections = draft.sections ?? [];
+  const itemCount = sections.reduce((sum, section) => sum + section.items.length, 0);
+  return {
+    sectionCount: sections.length,
+    itemCount,
+    structuredItemCount: sections.reduce(
+      (sum, section) => sum + section.items.filter((item) => item.structuredItem).length,
+      0
+    ),
+    itemsBySection: Object.fromEntries(sections.map((section): [string, number] => [
+      section.sectionType,
+      section.items.length
+    ]).sort(([left], [right]) => left.localeCompare(right))),
+    unclassifiedCount: draft.unclassifiedBlocks?.length ?? 0
+  };
 }
