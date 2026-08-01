@@ -34,6 +34,7 @@ import { projectResumeItemV2 } from "@/domain/migrations/resumeV2";
 import type { LayoutDocument } from "./layoutDocument";
 import type { LayoutGraph } from "./layoutGraph";
 import { mapSemanticItemToResumeItem, type ResumeSemanticTree } from "./resumeSemanticTree";
+import { isSensitiveTransportToken } from "@/services/security/text";
 
 export const RESUME_IMPORT_PARSER_VERSION = "resume-import.local-rules.v2";
 
@@ -310,7 +311,11 @@ export function createImportedResumeDraftFromStructuredJson(input: {
     };
   };
   const canonicalBasics = input.canonicalResume?.basics;
-  const abnormalCanonicalPhone = Boolean(canonicalBasics?.phone && !/^1[3-9]\d{9}$/.test(canonicalBasics.phone.replace(/\D/g, "")));
+  const abnormalCanonicalPhone = Boolean(
+    canonicalBasics?.phone
+    && !isSensitiveTransportToken(canonicalBasics.phone)
+    && !/^1[3-9]\d{9}$/.test(canonicalBasics.phone.replace(/\D/g, ""))
+  );
   const canonicalLinks: Array<readonly [string, string]> = canonicalBasics ? ([
     ["/basics/homepage", canonicalBasics.homepage],
     ["/basics/linkedin", canonicalBasics.linkedin],

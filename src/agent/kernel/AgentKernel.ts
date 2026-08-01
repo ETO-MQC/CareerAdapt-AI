@@ -133,6 +133,7 @@ export class AgentKernel {
       userMessage: input.userMessage
     });
     allowedTools = toolsForTurnScope(this.dependencies.toolResolver, allowedTools, input.toolScope);
+    allowedTools = limitTailoringContextTools(taskState, allowedTools);
     let modelTools = this.dependencies.toolResolver.modelManifest(allowedTools);
     const contextWindow = (this.dependencies.contextWindow ?? new AgentContextWindow()).build(
       input.session,
@@ -384,6 +385,7 @@ export class AgentKernel {
                 userMessage: input.userMessage
               });
               allowedTools = toolsForTurnScope(this.dependencies.toolResolver, allowedTools, input.toolScope);
+              allowedTools = limitTailoringContextTools(taskState, allowedTools);
               allowedTools = allowedTools.filter((tool) =>
                 !unavailableToolNames.has(tool.name)
                 && !exhaustedEmptyReads.has(tool.name)
@@ -460,7 +462,7 @@ export class AgentKernel {
               const exhaustedTool = exhaustedEmptyReads.values().next().value as string | undefined;
               const recovery = exhaustedTool
                 ? emptyReadRecovery(exhaustedTool, taskState)
-                : noProgressRecovery(completion.nextAction);
+                : noProgressRecovery(completion.nextAction, taskState);
               await publishFinalStream(recovery, input, { turnId, iterationId });
               trajectory.finish("waiting_for_user");
               return {
@@ -698,6 +700,19 @@ function bindAuthoritativeTaskInput(
   taskState: NonNullable<AgentSession["taskState"]>
 ): AgentModelToolCall {
   const slots = taskState.knownSlots;
+  if (
+    taskState.workflowId === "tailor_existing_resume"
+    && ["get_profile", "get_resume", "get_resume_revision", "get_job", "analyze_job_fit", "create_tailoring_session"].includes(call.name)
+  ) {
+    const argumentsValue = { ...call.arguments };
+    if (taskState.selectedEntities.profileId) argumentsValue.profileId = taskState.selectedEntities.profileId;
+    if (taskState.selectedEntities.resumeId) argumentsValue.resumeId = taskState.selectedEntities.resumeId;
+    if (taskState.selectedEntities.resumeRevisionId && call.name === "get_resume_revision") {
+      argumentsValue.revisionId = taskState.selectedEntities.resumeRevisionId;
+    }
+    if (taskState.selectedEntities.jobId) argumentsValue.jobId = taskState.selectedEntities.jobId;
+    return { ...call, arguments: argumentsValue };
+  }
   if (call.name === "capture_profile_intake") {
     const source = objectValue(slots.latestIntakeSource);
     return {
@@ -1069,6 +1084,20 @@ function toolsForTurnScope<T extends { name: string }>(
   return resolver.narrowReadTools(["get_active_profile", "get_profile", "search_profile_facts"]);
 }
 
+function limitTailoringContextTools<T extends { name: string }>(
+  taskState: NonNullable<AgentSession["taskState"]>,
+  tools: T[]
+) {
+  if (
+    taskState.workflowId !== "tailor_existing_resume"
+    || !["choose_resume_source", "choose_job"].includes(taskState.stage)
+  ) {
+    return tools;
+  }
+  const cheapContextReads = new Set(["get_active_profile", "list_resumes", "list_jobs"]);
+  return tools.filter((tool) => cheapContextReads.has(tool.name));
+}
+
 function resolveReferences(session: AgentSession, references?: AgentMessageReference[]) {
   if (!references?.length) return [];
   const byId = new Map(session.messages.map((message) => [message.id, message]));
@@ -1170,18 +1199,38 @@ function noProgressRecovery(nextAction: {
   stage?: string;
   missingSlots: string[];
   requiredNextStage: string;
-}) {
+}, taskState?: NonNullable<AgentSession["taskState"]>) {
   const withExitPaths = (instruction: string) =>
     `${instruction}\n\n如果这一步仍然没有推进：回复“重试刚才”重新执行当前步骤；回复“结束任务”退出；也可以直接告诉我你想改做什么。`;
+  const tailoringGoal = ["create_tailored_resume", "apply_to_job", "analyze_job_fit"].includes(nextAction.goal ?? "");
+  const missingSlots = taskState && tailoringGoal
+    ? (["profileId", "resumeId", "jobId"] as const).filter((slot) => !taskState.selectedEntities[slot])
+    : nextAction.missingSlots;
+  if (taskState && tailoringGoal && missingSlots.length === 1 && missingSlots[0] === "jobId") {
+    const resumeName = typeof taskState.knownSlots.selectedResumeName === "string"
+      ? taskState.knownSlots.selectedResumeName
+      : "通用简历";
+    const candidates = Array.isArray(taskState.knownSlots.jobCandidates)
+      ? taskState.knownSlots.jobCandidates.map(objectValue)
+      : [];
+    const options = candidates.flatMap((candidate, index) => {
+      const title = typeof candidate.title === "string" ? candidate.title : "未命名岗位";
+      const company = typeof candidate.company === "string" && candidate.company ? ` · ${candidate.company}` : "";
+      return [`${index + 1}. ${title}${company}`];
+    });
+    return withExitPaths(`我会使用当前资料库和《${resumeName}》。\n要针对哪个岗位定制？${options.length ? `\n${options.join("\n")}` : ""}`);
+  }
   if (nextAction.goal === "analyze_job_fit") {
-    return withExitPaths("我可以帮你分析岗位匹配度。请告诉我要比较哪一份简历、哪一个目标岗位：已保存的直接说名称即可；如果是新岗位，也可以直接把岗位描述粘贴给我。");
+    return withExitPaths(missingSlots.length === 1 && missingSlots[0] === "jobId"
+      ? "请告诉我想针对哪个已保存岗位；直接说岗位名称、公司或序号即可。"
+      : "我可以帮你分析岗位匹配度。请告诉我要比较哪一份简历、哪一个目标岗位：已保存的直接说名称即可；如果是新岗位，也可以直接把岗位描述粘贴给我。");
   }
   if (nextAction.goal === "ingest_job") {
     return withExitPaths("请提供目标岗位信息：可以直接粘贴招聘描述原文，或告诉我岗位名称和公司。");
   }
-  if (nextAction.missingSlots.length) {
+  if (missingSlots.length) {
     const labels = [...new Set(
-      nextAction.missingSlots
+      missingSlots
         .map((slot) => RECOVERY_SLOT_LABELS[slot])
         .filter((label): label is string => Boolean(label))
     )];
@@ -1243,6 +1292,56 @@ function deterministicBoundaryTool(
 function deterministicWorkflowPause(
   taskState: NonNullable<AgentSession["taskState"]>
 ) {
+  if (
+    taskState.workflowId === "tailor_existing_resume"
+    && taskState.stage === "choose_resume_source"
+    && taskState.selectedEntities.profileId
+    && !taskState.selectedEntities.resumeId
+    && taskState.knownSlots.resumeSelectionRequired
+  ) {
+    const candidates = Array.isArray(taskState.knownSlots.resumeCandidates)
+      ? taskState.knownSlots.resumeCandidates.map(objectValue)
+      : [];
+    const options = candidates.flatMap((candidate, index) => {
+      const name = typeof candidate.name === "string" ? candidate.name : "未命名简历";
+      return [`${index + 1}. ${name}`];
+    });
+    const prefix = taskState.knownSlots.resumeSelectionError === "not_found"
+      ? "我没有找到这份简历。有效选项如下：\n"
+      : taskState.knownSlots.resumeSelectionError === "ambiguous"
+        ? "有多份简历符合这句话，请选择其中一份：\n"
+        : "";
+    return `${prefix}当前资料库已确定。请先选择要使用的简历：${options.length ? `\n${options.join("\n")}` : ""}`;
+  }
+  if (
+    taskState.workflowId === "tailor_existing_resume"
+    && taskState.stage === "choose_job"
+    && taskState.selectedEntities.profileId
+    && taskState.selectedEntities.resumeId
+    && !taskState.selectedEntities.jobId
+  ) {
+    const resumeName = typeof taskState.knownSlots.selectedResumeName === "string"
+      && taskState.knownSlots.selectedResumeName.trim()
+      ? taskState.knownSlots.selectedResumeName
+      : "通用简历";
+    const ambiguity = Array.isArray(taskState.knownSlots.jobSelectionAmbiguity)
+      ? taskState.knownSlots.jobSelectionAmbiguity
+      : undefined;
+    const candidates = (ambiguity?.length ? ambiguity : taskState.knownSlots.jobCandidates);
+    const options = Array.isArray(candidates)
+      ? candidates.map(objectValue).flatMap((candidate, index) => {
+          const title = typeof candidate.title === "string" ? candidate.title : "未命名岗位";
+          const company = typeof candidate.company === "string" && candidate.company ? ` · ${candidate.company}` : "";
+          return [`${index + 1}. ${title}${company}`];
+        })
+      : [];
+    const prefix = taskState.knownSlots.jobSelectionError === "not_found"
+      ? "我没有在当前已保存岗位中找到这个名称。有效选项如下：\n"
+      : taskState.knownSlots.jobSelectionError === "ambiguous"
+        ? "有多个岗位符合这句话，请选择其中一个：\n"
+        : "";
+    return `${prefix}我会使用当前资料库和《${resumeName}》。\n要针对哪个岗位定制？${options.length ? `\n${options.join("\n")}` : ""}`;
+  }
   if (
     taskState.workflowId !== "resume_import"
     || taskState.stage !== "import_review"

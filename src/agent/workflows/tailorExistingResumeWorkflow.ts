@@ -5,6 +5,7 @@ import { AgentExecutor } from "../runtime/agentExecutor";
 
 export const TailorExistingResumeStepSchema = z.enum([
   "select_resume",
+  "choose_job",
   "collect_job",
   "analyze_job",
   "review_job",
@@ -19,7 +20,8 @@ export const TailorExistingResumeStepSchema = z.enum([
 export type TailorExistingResumeStep = z.infer<typeof TailorExistingResumeStepSchema>;
 
 export const tailorExistingResumeTransitions: Record<TailorExistingResumeStep, TailorExistingResumeStep[]> = {
-  select_resume: ["collect_job"],
+  select_resume: ["choose_job", "collect_job"],
+  choose_job: ["collect_job", "analyze_fit"],
   collect_job: ["analyze_job"],
   analyze_job: ["review_job"],
   review_job: ["analyze_fit", "collect_job"],
@@ -63,6 +65,8 @@ export const tailorExistingResumeWorkflow = {
     switch (step) {
       case "select_resume":
         return { type: "ask_user", message: "先选择一份已有简历。", field: "resumeId" };
+      case "choose_job":
+        return { type: "ask_user", message: "请选择要针对的岗位。", field: "jobId" };
       case "collect_job":
         return { type: "ask_user", message: "粘贴目标岗位描述，并补充岗位名称和公司。", field: "jobDescription" };
       case "review_job":

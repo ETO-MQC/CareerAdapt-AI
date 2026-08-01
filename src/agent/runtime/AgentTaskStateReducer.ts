@@ -6,6 +6,10 @@ import {
   TaskContinuationResolver
 } from "./TaskContinuationResolver";
 import type { AgentAttachmentRef } from "@/services/agent/AgentAttachmentStore";
+import {
+  resolveTailoringEntityReference,
+  type TailoringContextCandidate
+} from "./tailoringContextResolver";
 
 export type AgentTaskEvent =
   | {
@@ -192,6 +196,9 @@ export class AgentTaskStateReducer {
       }
       if (state.completionStatus !== "waiting_for_confirmation") state.completionStatus = "active";
       captureEntityReferences(state, event.message);
+      if (isTailoringGoal(state.rootGoal)) {
+        resolvePendingTailoringSelection(state, event.message);
+      }
       if (state.workflowId === "job_ingestion" && looksLikeJd(event.message)) {
         state.stage = "parse_job";
         state.knownSlots.rawText = event.message.trim();
@@ -668,6 +675,27 @@ function normalize(state: AgentTaskState): AgentTaskState {
     if (state.stage === "select_resume") state.stage = "choose_resume_source";
     if (state.stage === "answer_questions") state.stage = "clarify_unsupported_facts";
     if (state.stage === "completed") state.stage = "quality_result";
+    if (
+      ["choose_resume_source", "choose_job"].includes(state.stage)
+      && state.selectedEntities.profileId
+      && state.selectedEntities.resumeId
+      && state.selectedEntities.jobId
+    ) {
+      state.activeGoal = "analyze_job_fit";
+      state.stage = "analyze_fit";
+      state.completionStatus = "active";
+    } else if (
+      ["choose_resume_source", "choose_job"].includes(state.stage)
+      && state.selectedEntities.profileId
+      && state.selectedEntities.resumeId
+      && !state.selectedEntities.jobId
+      && Array.isArray(state.knownSlots.jobCandidates)
+      && state.knownSlots.jobCandidates.length > 0
+    ) {
+      state.activeGoal = "resolve_resume_source";
+      state.stage = "choose_job";
+      state.completionStatus = "waiting_for_user";
+    }
   }
   if (state.workflowId === "resume_import") {
     if (!state.attachment && !hasValue(state.knownSlots.importId)) {
@@ -791,24 +819,52 @@ function mergeObservationSlots(state: AgentTaskState, toolName: string, observat
   const value = objectValue(observation);
   if (toolName === "list_resumes") {
     const resumes = Array.isArray(value.resumes) ? value.resumes.map(objectValue) : [];
-    const targetProfileId = stringValue(state.knownSlots.targetProfileId);
+    const targetProfileId = state.selectedEntities.profileId ?? stringValue(state.knownSlots.targetProfileId);
     const ownedResumes = targetProfileId
       ? resumes.filter((resume) => resume.profileId === targetProfileId)
       : resumes;
-    const selected = selectResumeReference(ownedResumes, state.knownSlots.resumeReference);
+    const resumeCandidates: Record<string, unknown>[] = ownedResumes.map((resume, index) => ({
+      ...resume,
+      order: typeof resume.order === "number" ? resume.order : index + 1
+    }));
+    state.knownSlots.resumeCandidates = resumeCandidates.map(compactEntityCandidate);
+    const reference = state.knownSlots.resumeReference ?? state.knownSlots.resumeSelectionPreference;
+    const selected: Record<string, unknown> | undefined = reference
+      ? selectResumeReference(resumeCandidates, reference)
+      : isTailoringGoal(state.rootGoal) && !targetProfileId
+        ? undefined
+        : resumeCandidates.length === 1 ? resumeCandidates[0] : undefined;
     const id = stringValue(selected?.id);
     if (id) {
       updateAuthoritativeEntity(state, {
         type: "entity_revision",
         entityType: "resume",
         entityId: id,
+        revisionId: stringValue(selected?.currentRevisionId),
         version: scalarValue(selected?.revision)
       });
+      state.knownSlots.selectedResumeName = stringValue(selected?.name);
+      delete state.knownSlots.resumeSelectionRequired;
+    } else if (isTailoringGoal(state.rootGoal) && resumeCandidates.length > 1) {
+      state.knownSlots.resumeSelectionRequired = true;
+      state.stage = "choose_resume_source";
+      state.completionStatus = "waiting_for_user";
     }
   }
   if (toolName === "list_jobs") {
     const jobs = Array.isArray(value.jobs) ? value.jobs.map(objectValue) : [];
-    const selected = selectJobReference(jobs, state.knownSlots.jobReference);
+    const jobCandidates: Record<string, unknown>[] = jobs.map((job, index) => ({
+      ...job,
+      order: typeof job.order === "number" ? job.order : index + 1
+    }));
+    state.knownSlots.jobCandidates = jobCandidates.map(compactJobCandidate);
+    const jobReference = stringValue(state.knownSlots.jobReference);
+    const resolution = jobReference
+      ? resolveTailoringEntityReference(jobReference, jobCandidates as TailoringContextCandidate[])
+      : undefined;
+    const selected: Record<string, unknown> | undefined = resolution?.status === "resolved"
+      ? resolution.candidate
+      : !jobReference && jobCandidates.length === 1 ? jobCandidates[0] : undefined;
     const id = stringValue(selected?.id);
     if (id) {
       updateAuthoritativeEntity(state, {
@@ -817,6 +873,21 @@ function mergeObservationSlots(state: AgentTaskState, toolName: string, observat
         entityId: id,
         version: scalarValue(selected?.revision ?? selected?.updatedAt)
       });
+      state.knownSlots.selectedJobTitle = stringValue(selected?.title);
+      state.knownSlots.selectedJobCompany = stringValue(selected?.company);
+      delete state.knownSlots.jobSelectionError;
+    } else if (isTailoringGoal(state.rootGoal) && (jobCandidates.length > 1 || Boolean(jobReference))) {
+      if (state.selectedEntities.profileId && state.selectedEntities.resumeId) {
+        state.stage = "choose_job";
+        state.completionStatus = "waiting_for_user";
+      }
+      if (resolution?.status === "ambiguous") {
+        state.knownSlots.jobSelectionError = "ambiguous";
+        state.knownSlots.jobSelectionAmbiguity = resolution.candidates.map(compactJobCandidate);
+      } else if (jobReference) {
+        state.knownSlots.jobSelectionError = "not_found";
+        delete state.knownSlots.jobSelectionAmbiguity;
+      }
     }
   }
   if (toolName === "get_active_profile") {
@@ -835,6 +906,7 @@ function mergeObservationSlots(state: AgentTaskState, toolName: string, observat
           entityId: id,
           version: scalarValue(value.version)
         });
+        bindAutoSelectedResumeFromCandidates(state);
       }
     }
   }
@@ -1048,7 +1120,7 @@ function clearResumeSelection(state: AgentTaskState) {
   state.selectedEntities.resumeRevisionId = undefined;
   state.selectedEntities.resumeHash = undefined;
   state.selectedEntities.revisionId = undefined;
-  for (const key of ["resumeId", "resumeRevisionId", "resumeHash", "recommendedResumeId"]) {
+  for (const key of ["resumeId", "resumeRevisionId", "resumeHash", "recommendedResumeId", "selectedResumeName", "resumeCandidates", "resumeSelectionRequired"]) {
     delete state.knownSlots[key];
   }
   state.dependencySnapshots = {};
@@ -1134,18 +1206,27 @@ function updateAuthoritativeEntity(
   );
   if (changed) invalidateDerivedState(state);
   state.selectedEntities[idKey] = event.entityId;
+  state.knownSlots[idKey] = event.entityId;
   if (event.entityType === "profile" && event.version !== undefined) {
     state.selectedEntities.profileVersion = event.version;
+    state.knownSlots.profileVersion = event.version;
   }
   if (event.entityType === "resume") {
-    if (event.revisionId) state.selectedEntities.resumeRevisionId = event.revisionId;
+    if (event.revisionId) {
+      state.selectedEntities.resumeRevisionId = event.revisionId;
+      state.knownSlots.resumeRevisionId = event.revisionId;
+    }
     if (event.hash) state.selectedEntities.resumeHash = event.hash;
+    if (event.hash) state.knownSlots.resumeHash = event.hash;
   }
   if (event.entityType === "job") {
-    if (event.version !== undefined) state.selectedEntities.jobRevision = event.version;
+    if (event.version !== undefined) {
+      state.selectedEntities.jobRevision = event.version;
+      state.knownSlots.jobRevision = event.version;
+    }
     if (event.hash) state.selectedEntities.jobGraphHash = event.hash;
+    if (event.hash) state.knownSlots.jobGraphHash = event.hash;
   }
-  if (event.revisionId) state.selectedEntities.revisionId = event.revisionId;
 }
 
 function invalidateDerivedState(state: AgentTaskState) {
@@ -1238,17 +1319,87 @@ function unique(values: string[]) {
   return [...new Set(values)];
 }
 
+function isTailoringGoal(goal: string) {
+  return ["create_tailored_resume", "apply_to_job", "analyze_job_fit"].includes(goal);
+}
+
 function captureEntityReferences(state: AgentTaskState, message: string) {
-  if (/最新的?通用简历/.test(message)) {
+  if (/通用简历/.test(message)) {
     state.knownSlots.resumeReference = "latest_general";
-  } else if (/第二份简历/.test(message)) {
+  } else if (/第二(?:份|个)(?:简历)?/.test(message)) {
     state.knownSlots.resumeReference = "second";
   }
-  const jobMatch = message.match(/针对\s*([^，。,]{2,40}?)(?:做|创建|定制|$)/);
-  if (jobMatch?.[1]) state.knownSlots.jobReference = jobMatch[1].trim();
+  const jobMatch = message.match(/(?:针对|优化|适配)\s*(?:岗位)?\s*([^，。！？!]+?)(?:\s*(?:做|创建|生成|定制)(?:岗位简历|版本|简历)?)?$/u);
+  const jobReference = jobMatch?.[1]?.trim();
+  if (jobReference && !/^(?:简历|版本|岗位定制版本)$/u.test(jobReference)) {
+    state.knownSlots.jobReference = jobReference;
+  }
   if (/刚才那个岗位|还是上一份/.test(message)) {
     state.knownSlots.reuseSelectedJob = true;
   }
+}
+
+function resolvePendingTailoringSelection(state: AgentTaskState, message: string) {
+  if (state.stage === "choose_resume_source" && state.knownSlots.resumeSelectionRequired) {
+    const resumeCandidates = Array.isArray(state.knownSlots.resumeCandidates)
+      ? state.knownSlots.resumeCandidates.map(objectValue) as TailoringContextCandidate[]
+      : [];
+    const reference = message.trim() || stringValue(state.knownSlots.resumeReference);
+    if (resumeCandidates.length > 0 && reference) {
+      const resolution = resolveTailoringEntityReference(reference, resumeCandidates);
+      if (resolution.status === "resolved") {
+        const candidate = resolution.candidate;
+        updateAuthoritativeEntity(state, {
+          type: "entity_revision",
+          entityType: "resume",
+          entityId: candidate.id,
+          revisionId: stringValue(candidate.currentRevisionId),
+          version: scalarValue(candidate.revision)
+        });
+        state.knownSlots.selectedResumeName = stringValue(candidate.name);
+        delete state.knownSlots.resumeSelectionRequired;
+        state.completionStatus = "active";
+      } else {
+        state.knownSlots.resumeSelectionError = resolution.status === "ambiguous" ? "ambiguous" : "not_found";
+        state.completionStatus = "waiting_for_user";
+      }
+    }
+    return;
+  }
+  const candidates = Array.isArray(state.knownSlots.jobCandidates)
+    ? state.knownSlots.jobCandidates.map(objectValue) as TailoringContextCandidate[]
+    : [];
+  const explicitReference = stringValue(state.knownSlots.jobReference);
+  const waitingForJob = state.stage === "choose_job" || candidates.length > 0 && !state.selectedEntities.jobId;
+  if (!waitingForJob || candidates.length === 0) return;
+
+  const reference = message.trim() || explicitReference;
+  if (!reference || /^(?:我想|我要|请|帮我|用现有简历|用通用简历)/u.test(reference)) return;
+  const resolution = resolveTailoringEntityReference(reference, candidates);
+  if (resolution.status === "resolved") {
+    const candidate = resolution.candidate;
+    updateAuthoritativeEntity(state, {
+      type: "entity_revision",
+      entityType: "job",
+      entityId: candidate.id,
+      version: scalarValue(candidate.revision ?? candidate.updatedAt)
+    });
+    state.knownSlots.selectedJobTitle = stringValue(candidate.title);
+    state.knownSlots.selectedJobCompany = stringValue(candidate.company);
+    state.knownSlots.jobReference = reference;
+    delete state.knownSlots.jobSelectionError;
+    delete state.knownSlots.jobSelectionAmbiguity;
+    state.stage = state.selectedEntities.profileId && state.selectedEntities.resumeId ? "analyze_fit" : "choose_resume_source";
+    state.activeGoal = state.stage === "analyze_fit" ? "analyze_job_fit" : "resolve_resume_source";
+    state.completionStatus = "active";
+    return;
+  }
+  state.stage = "choose_job";
+  state.completionStatus = "waiting_for_user";
+  state.knownSlots.jobSelectionError = resolution.status === "ambiguous" ? "ambiguous" : "not_found";
+  state.knownSlots.jobSelectionAmbiguity = resolution.status === "ambiguous"
+    ? resolution.candidates.map(compactJobCandidate)
+    : undefined;
 }
 
 function captureImportTargetIntent(state: AgentTaskState, message: string) {
@@ -1303,20 +1454,55 @@ function selectResumeReference(
       .sort(byLatest)[0];
   }
   if (typeof reference === "string") {
-    return resumes.find((resume) => resume.id === reference || resume.name === reference);
+    const resolution = resolveTailoringEntityReference(reference, resumes as TailoringContextCandidate[]);
+    return resolution.status === "resolved" ? resolution.candidate : undefined;
   }
   return undefined;
 }
 
-function selectJobReference(jobs: Record<string, unknown>[], reference: unknown) {
-  if (typeof reference !== "string") return undefined;
-  return jobs
-    .filter((job) =>
-      job.id === reference
-      || job.title === reference
-      || `${job.title ?? ""}${job.company ?? ""}`.includes(reference)
-    )
-    .sort(byLatest)[0];
+function compactEntityCandidate(value: Record<string, unknown>) {
+  return {
+    id: stringValue(value.id),
+    title: stringValue(value.title),
+    company: stringValue(value.company),
+    name: stringValue(value.name),
+    purpose: stringValue(value.purpose),
+    profileId: stringValue(value.profileId),
+    revision: scalarValue(value.revision),
+    currentRevisionId: stringValue(value.currentRevisionId),
+    updatedAt: stringValue(value.updatedAt),
+    order: typeof value.order === "number" ? value.order : undefined
+  };
+}
+
+function compactJobCandidate(value: Record<string, unknown>) {
+  return {
+    id: stringValue(value.id),
+    title: stringValue(value.title),
+    company: stringValue(value.company),
+    order: typeof value.order === "number" ? value.order : undefined
+  };
+}
+
+function bindAutoSelectedResumeFromCandidates(state: AgentTaskState) {
+  if (!isTailoringGoal(state.rootGoal) || state.selectedEntities.resumeId) return;
+  const profileId = state.selectedEntities.profileId;
+  const candidates = Array.isArray(state.knownSlots.resumeCandidates)
+    ? state.knownSlots.resumeCandidates.map(objectValue).filter((candidate) => !profileId || candidate.profileId === profileId)
+    : [];
+  if (candidates.length !== 1) return;
+  const selected = candidates[0];
+  const id = stringValue(selected.id);
+  if (!id) return;
+  updateAuthoritativeEntity(state, {
+    type: "entity_revision",
+    entityType: "resume",
+    entityId: id,
+    revisionId: stringValue(selected.currentRevisionId),
+    version: scalarValue(selected.revision)
+  });
+  state.knownSlots.selectedResumeName = stringValue(selected.name);
+  delete state.knownSlots.resumeSelectionRequired;
 }
 
 function byLatest(left: Record<string, unknown>, right: Record<string, unknown>) {

@@ -80,6 +80,21 @@ describe("operation-aware resume diff validation", () => {
     expect(result.appliedDiffs).toHaveLength(1);
   });
 
+  it("rejects presentation-affecting diffs in submission-safe mode", () => {
+    const result = validateEachTailoringDiffLocally({
+      branch: branchFixture(),
+      submissionSafe: true,
+      diffs: [diff({
+        target: { sectionId: "project", itemId: "project-1", fieldPath: "visible" },
+        operation: "hide",
+        original: true,
+        value: false
+      })]
+    });
+    expect(result.appliedDiffs).toHaveLength(0);
+    expect(result.rejectedDiffs[0]?.reasonCode).toBe("path_not_allowed");
+  });
+
   it("rejects stale originals and identity paths without rejecting valid sibling diffs", () => {
     const result = validateEachTailoringDiffLocally({
       branch: branchFixture(),

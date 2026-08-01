@@ -148,9 +148,28 @@ export function redactSensitiveTextForModel(
   return createSensitiveTextTokenizer(input).tokenize(text);
 }
 
-export function restoreSensitivePlaceholders<T>(value: T, restorationMap: Record<string, string>): T {
+/**
+ * Restore the placeholders created for this import, including the bare-token
+ * spelling some providers produce while normalizing punctuation.
+ *
+ * The aliases are derived only from the current import map. This is
+ * deliberately narrower than replacing every string that happens to look
+ * like a token in arbitrary application data.
+ */
+export function restoreKnownSensitiveTokens<T>(value: T, restorationMap: Record<string, string>): T {
   const restoreText = (text: string) => Object.entries(restorationMap)
-    .reduce((current, [placeholder, original]) => current.split(placeholder).join(original), text);
+    .flatMap(([placeholder, original]) => {
+      const bareAlias = bareSensitiveTokenAlias(placeholder);
+      return bareAlias ? [{ placeholder, original, bareAlias }] : [];
+    })
+    .sort((left, right) => right.bareAlias.length - left.bareAlias.length)
+    .reduce((current, { placeholder, original, bareAlias }) => {
+      const restoredBracketed = current.split(placeholder).join(original);
+      return restoredBracketed.replace(
+        safeSensitiveTokenPattern(bareAlias),
+        () => original
+      );
+    }, text);
   const visit = (current: unknown): unknown => {
     if (typeof current === "string") return restoreText(current);
     if (Array.isArray(current)) return current.map(visit);
@@ -162,13 +181,48 @@ export function restoreSensitivePlaceholders<T>(value: T, restorationMap: Record
   return visit(value) as T;
 }
 
-export const unresolvedSensitivePlaceholderPattern =
-  /\[(?:NAME|PHONE|EMAIL|ADDRESS|ID_NUMBER)_\d+\]/;
+export function restoreSensitivePlaceholders<T>(value: T, restorationMap: Record<string, string>): T {
+  return restoreKnownSensitiveTokens(value, restorationMap);
+}
 
-export function containsUnresolvedSensitivePlaceholder(value: unknown): boolean {
-  return unresolvedSensitivePlaceholderPattern.test(
-    typeof value === "string" ? value : JSON.stringify(value)
-  );
+export const unresolvedSensitivePlaceholderPattern =
+  /(?:\[(?:NAME|PHONE|EMAIL|ADDRESS|ID_NUMBER)_\d+\]|(?<![\p{L}\p{N}_])(?:NAME|PHONE|EMAIL|ADDRESS|ID_NUMBER)_\d+(?![\p{L}\p{N}_]))/u;
+
+const exactSensitiveTransportTokenPattern = /^(?:\[(?:NAME|PHONE|EMAIL|ADDRESS|ID_NUMBER)_\d+\]|(?:NAME|PHONE|EMAIL|ADDRESS|ID_NUMBER)_\d+)$/u;
+
+export function isSensitiveTransportToken(value: unknown): boolean {
+  return typeof value === "string" && exactSensitiveTransportTokenPattern.test(value.trim());
+}
+
+export function containsUnresolvedSensitivePlaceholder(
+  value: unknown,
+  restorationMap?: Record<string, string>
+): boolean {
+  const serialized = typeof value === "string" ? value : JSON.stringify(value);
+  if (!serialized) return false;
+  if (!restorationMap) return unresolvedSensitivePlaceholderPattern.test(serialized);
+
+  return Object.keys(restorationMap)
+    .map(bareSensitiveTokenAlias)
+    .filter((alias): alias is string => Boolean(alias))
+    .some((alias) => serialized.includes(`[${alias}]`) || safeSensitiveTokenPattern(alias).test(serialized));
+}
+
+/** Returns only transport-token shapes, never the values they represent. */
+export function sensitiveTransportTokenShapes(value: unknown): string[] {
+  const serialized = typeof value === "string" ? value : JSON.stringify(value);
+  if (!serialized) return [];
+  const matches = serialized.match(/\[?(?:NAME|PHONE|EMAIL|ADDRESS|ID_NUMBER)_\d+\]?/gu) ?? [];
+  return [...new Set(matches)];
+}
+
+function bareSensitiveTokenAlias(placeholder: string) {
+  const match = placeholder.match(/^\[((?:NAME|PHONE|EMAIL|ADDRESS|ID_NUMBER)_\d+)\]$/u);
+  return match?.[1];
+}
+
+function safeSensitiveTokenPattern(alias: string) {
+  return new RegExp(`(?<![\\p{L}\\p{N}_])${escapeRegExp(alias)}(?![\\p{L}\\p{N}_])`, "gu");
 }
 
 function escapeRegExp(value: string) {

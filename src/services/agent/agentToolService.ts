@@ -425,13 +425,15 @@ export class BrowserAgentToolService implements AgentToolServices {
     return {
       resumes: branches
         .filter((branch) => branch.lifecycleStatus === "active" && branch.migrationStatus === "verified")
-        .map((branch) => ({
+        .map((branch, index) => ({
+          order: index + 1,
           id: branch.id,
           profileId: branch.profileId,
           jobId: branch.jobId,
           name: branch.name,
           purpose: branch.branchPurpose,
           revision: branch.revision,
+          currentRevisionId: branch.currentRevisionId,
           updatedAt: branch.updatedAt
         }))
     };
@@ -465,7 +467,8 @@ export class BrowserAgentToolService implements AgentToolServices {
     assertNotAborted(signal);
     const jobs = await this.repository.listJobDescriptions();
     return {
-      jobs: jobs.map((job) => ({
+      jobs: jobs.map((job, index) => ({
+        order: index + 1,
         id: job.id,
         title: job.title,
         company: job.company,

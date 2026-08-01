@@ -45,6 +45,27 @@ for (const realCase of cases) {
     expect(result.draft.sections?.flatMap((section) => section.items).every((item) => item.sourceBlockIds?.length)).toBe(true);
     expect(result.draft.sections?.flatMap((section) => section.items).every((item) => item.userConfirmed !== true)).toBe(true);
     expect(await page.locator(".import-item-row .import-item-structured-fields + .import-item-body-label").count()).toBe(0);
+    if (realCase.format === "DOCX") {
+      const serializedDraft = JSON.stringify(result.draft);
+      const transportTokens = serializedDraft.match(/(?:\[?(?:NAME|PHONE|EMAIL|ADDRESS|ID_NUMBER)_\d+\]?)/gu) ?? [];
+      const candidates = result.draft.fieldCandidates ?? [];
+      const phoneCandidates = candidates.filter((candidate) => candidate.targetFieldId === "basics.phone");
+      const abnormalPhoneCandidates = phoneCandidates.filter((candidate) => candidate.confidence === 0.45);
+      expect(result.draft.status).toBe("reviewing");
+      expect(result.draft.basics?.name?.value).toBeTruthy();
+      expect(result.draft.basics?.email?.value).toBeTruthy();
+      expect(result.draft.basics?.phone?.value).toBeTruthy();
+      expect(transportTokens).toHaveLength(0);
+      expect(abnormalPhoneCandidates).toHaveLength(0);
+      expect(result.draft.warnings?.some((warning) => warning.code === "abnormal_phone_format")).toBe(false);
+      console.info("[resume-document-mapper:p43c5b-privacy-gate]", {
+        format: realCase.format,
+        reviewTransportTokenCount: transportTokens.length,
+        phoneCandidateCount: phoneCandidates.length,
+        abnormalPhoneCandidateCount: abnormalPhoneCandidates.length,
+        restoredBasicFields: ["name", "email", "phone"]
+      });
+    }
     const counts = semanticCounts(result.draft);
     expect(counts.educationIdentity).toHaveLength(1);
     expect(counts.workEntities).toHaveLength(1);
@@ -132,6 +153,63 @@ test("P4.3c.5 local real files preserve equivalent canonical semantics", async (
   })));
 });
 
+test("P4.3c.5b local DOCX confirms, persists real basics, and survives reload", async ({ page }) => {
+  test.skip(!process.env.P43C4_DOCX_PATH, "Set P43C4_DOCX_PATH to the current local DOCX.");
+  test.setTimeout(240_000);
+  const startedAt = new Date().toISOString();
+  await importResume(page, process.env.P43C4_DOCX_PATH!);
+
+  const result = await latestImportGateResult(page, startedAt);
+  expect(result.draft.sourceKind).toBe("docx");
+  const serializedDraft = JSON.stringify(result.draft);
+  const transportTokens = serializedDraft.match(/(?:\[?(?:NAME|PHONE|EMAIL|ADDRESS|ID_NUMBER)_\d+\]?)/gu) ?? [];
+  expect(result.draft.status).toBe("reviewing");
+  expect(transportTokens).toHaveLength(0);
+
+  const dialog = page.getByRole("dialog", { name: "导入简历" });
+  const acceptButtons = dialog.getByRole("button", { name: "采用", exact: true });
+  while (await acceptButtons.count() > 0) await acceptButtons.first().click();
+  const confirmMappingButtons = dialog.getByRole("button", { name: /确认字段映射|确认此映射|采用此条/ });
+  while (await confirmMappingButtons.count() > 0) await confirmMappingButtons.first().click();
+
+  const createNewProfile = dialog.getByLabel("创建新人物");
+  if (await createNewProfile.count() > 0) {
+    await createNewProfile.check();
+    await dialog.locator("input[name='new-profile-name']").fill("P43c5b DOCX import");
+  }
+
+  const confirm = dialog.getByRole("button", { name: "确认导入", exact: true });
+  await expect(confirm).toBeEnabled({ timeout: 15_000 });
+  await confirm.click();
+  await expect(page.getByTestId("resume-studio-shell")).toBeVisible({ timeout: 30_000 });
+
+  const persisted = await readImportedResumePersistence(page, result.draft.importId);
+  expect(persisted.profile).toBeDefined();
+  expect(persisted.profile?.basics?.name).toBeTruthy();
+  expect(persisted.profile?.basics?.email).toBeTruthy();
+  expect(persisted.profile?.basics?.phone).toBeTruthy();
+  expect(persisted.generalBranches).toHaveLength(1);
+  expect(persisted.revisions).toHaveLength(1);
+  expect(persisted.transportTokenCount).toBe(0);
+  console.info("[resume-import:p43c5b-confirm-gate]", {
+    importStatus: "confirmed",
+    persistedBasicFieldCount: ["name", "email", "phone"].filter((key) => Boolean(persisted.profile?.basics?.[key])).length,
+    generalBranchCount: persisted.generalBranches.length,
+    revisionCount: persisted.revisions.length,
+    persistedTransportTokenCount: persisted.transportTokenCount
+  });
+
+  await page.reload();
+  await expect(page.getByTestId("resume-studio-shell")).toBeVisible();
+  const reloaded = await readImportedResumePersistence(page, result.draft.importId);
+  expect(reloaded.profile?.basics?.name).toBeTruthy();
+  expect(reloaded.profile?.basics?.email).toBeTruthy();
+  expect(reloaded.profile?.basics?.phone).toBeTruthy();
+  expect(reloaded.generalBranches).toHaveLength(1);
+  expect(reloaded.revisions).toHaveLength(1);
+  expect(reloaded.transportTokenCount).toBe(0);
+});
+
 type SafeMapperLog = {
   task: string;
   provider: string;
@@ -156,11 +234,18 @@ type GateBasicField = {
 };
 
 type GateBasics = Record<string, GateBasicField | GateBasicField[] | undefined> & {
+  name?: GateBasicField;
+  email?: GateBasicField;
+  phone?: GateBasicField;
+  location?: GateBasicField;
+  summary?: GateBasicField;
   headline?: GateBasicField;
   targetRole?: GateBasicField;
 };
 
 type DraftForGate = {
+  importId: string;
+  status?: string;
   sourceKind: string;
   parserVersion: string;
   sourceBlocks: Array<{ position?: Record<string, number> }>;
@@ -175,6 +260,8 @@ type DraftForGate = {
     }>;
   }>;
   unclassifiedBlocks?: Array<{ sourceBlockId?: string; sourcePath?: string; sourceValue?: unknown; text?: string }>;
+  warnings?: Array<{ code: string }>;
+  fieldCandidates?: Array<{ targetFieldId: string; value: unknown; sourceQuote?: string; confidence: number }>;
 };
 
 async function importResume(page: Page, filePath: string) {
@@ -210,6 +297,39 @@ async function latestImportGateResult(page: Page, startedAt: string) {
     database.close();
     return { draft, logs };
   }, { cutoff: startedAt });
+}
+
+async function readImportedResumePersistence(page: Page, importId: string) {
+  return page.evaluate(async (sourceImportId) => {
+    const database = await new Promise<IDBDatabase>((resolveDb, reject) => {
+      const request = indexedDB.open("CareerAdaptDb");
+      request.onsuccess = () => resolveDb(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const readAll = <T>(storeName: string) => new Promise<T[]>((resolveRows, reject) => {
+      const transaction = database.transaction(storeName, "readonly");
+      const request = transaction.objectStore(storeName).getAll();
+      request.onsuccess = () => resolveRows(request.result as T[]);
+      request.onerror = () => reject(request.error);
+    });
+    const profiles = await readAll<{
+      id: string;
+      basics?: Record<string, unknown>;
+    }>("profiles");
+    const profile = profiles.find((entry) => entry.basics?.name && entry.basics?.email && entry.basics?.phone);
+    const branches = await readAll<{
+      id: string;
+      profileId: string;
+      branchPurpose?: string;
+      sourceImportId?: string;
+    }>("resumeBranches");
+    const generalBranches = branches.filter((entry) => entry.profileId === profile?.id && entry.branchPurpose === "general" && entry.sourceImportId === sourceImportId);
+    const revisions = (await readAll<{ branchId: string }>("resumeRevisions")).filter((entry) => generalBranches.some((branch) => branch.id === entry.branchId));
+    const allPersisted = JSON.stringify({ profile, generalBranches, revisions });
+    const tokenMatches = allPersisted.match(/(?:\[?(?:NAME|PHONE|EMAIL|ADDRESS|ID_NUMBER)_\d+\]?)/gu) ?? [];
+    database.close();
+    return { profile, generalBranches, revisions, transportTokenCount: tokenMatches.length };
+  }, importId);
 }
 
 function semanticCounts(draft: DraftForGate) {

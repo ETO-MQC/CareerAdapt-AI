@@ -93,7 +93,7 @@ import {
   type AgentMessageRecord,
   type AgentSession
 } from "@/agent/contracts/agentSession";
-import { validateEachTailoringDiffLocally } from "@/domain/jobOptimization/tailoringDiff";
+import { isSubmissionSafeTailoringPath, validateEachTailoringDiffLocally } from "@/domain/jobOptimization/tailoringDiff";
 import { assertApplicationStatusTransition, computeApplicationReadiness } from "@/domain/application";
 import {
   buildApplicationPreparationContext,
@@ -131,6 +131,7 @@ import {
 } from "@/domain/adaptation/draft";
 import { computeRequirementsHash, validateTailoringClaimClosure } from "@/domain/jobOptimization";
 import { isTextSuggestionType, staleReasonForSuggestion } from "@/domain/jobOptimization/suggestions";
+import { presentationSnapshotFromConfig, stableStringify } from "@/services/export/snapshot";
 import {
   matchesResumeSource,
   resolveEffectiveMatch,
@@ -777,15 +778,21 @@ export class WorkspaceRepository {
   }
 
   async saveImportedResumeDraft(draft: ImportedResumeDraft, expectedRevision?: number) {
+    // A draft containing a transport token can never be persisted as a
+    // user-facing Review. Keep it recoverable as a failed draft so callers
+    // can surface a safe diagnostic without rendering the leaked value.
+    const draftToStore = draft.status === "reviewing" && containsUnresolvedSensitivePlaceholder(draft)
+      ? { ...draft, status: "failed" as const }
+      : draft;
     return this.db.transaction("rw", this.db.appMeta, async () => {
-      const stored = await this.db.appMeta.get(importedResumeDraftKey(draft.importId));
+      const stored = await this.db.appMeta.get(importedResumeDraftKey(draftToStore.importId));
       if (stored) {
         const existing = ImportedResumeDraftSchema.parse(stored.value);
         if (expectedRevision !== undefined && existing.revision !== expectedRevision) {
           throw new RevisionConflictError();
         }
         const parsed = ImportedResumeDraftSchema.parse({
-          ...draft,
+          ...draftToStore,
           revision: existing.revision + 1,
           updatedAt: new Date().toISOString()
         });
@@ -801,7 +808,7 @@ export class WorkspaceRepository {
         throw new RevisionConflictError();
       }
       const parsed = ImportedResumeDraftSchema.parse({
-        ...draft,
+        ...draftToStore,
         revision: 0,
         updatedAt: new Date().toISOString()
       });
@@ -1100,6 +1107,9 @@ export class WorkspaceRepository {
           throw new RevisionConflictError();
         }
         if (draft.status !== "reviewing") {
+          if (containsUnresolvedSensitivePlaceholder(draft)) {
+            throw new Error("resume_import_unresolved_sensitive_placeholder");
+          }
           throw new Error("resume_import_draft_not_reviewing");
         }
         assertNoUnresolvedSensitivePlaceholders(draft);
@@ -1583,12 +1593,22 @@ export class WorkspaceRepository {
     expectedBranchRevision: number;
     expectedRevisionId: string;
   }) {
-    return this.db.transaction("rw", [this.db.resumeBranches, this.db.resumeRevisions, this.db.resumeBranchOperations], async () => {
+    return this.db.transaction("rw", [this.db.resumeBranches, this.db.resumeRevisions, this.db.resumeBranchOperations, this.db.appMeta], async () => {
       const existing = await this.db.resumeBranchOperations.where("operationId").equals(input.operationId).first();
       if (existing?.revisionId) {
         const branch = await this.db.resumeBranches.get(input.plan.branchId);
         if (!branch) throw new Error("tailoring_branch_missing");
-        return { branch: ResumeBranchSchema.parse(branch), revision: await this.getResumeRevisionInTransaction(existing.revisionId), idempotent: true };
+        const parsedBranch = ResumeBranchSchema.parse(branch);
+        const presentationBefore = presentationSnapshotFromConfig(await this.getResumePresentationConfig(parsedBranch.id));
+        const presentationAfter = presentationSnapshotFromConfig(await this.getResumePresentationConfig(parsedBranch.id));
+        const presentationInvariant = assertTailoringPresentationInvariant(presentationBefore, presentationAfter);
+        assertTailoringSourceBranchUnchanged(await this.db.resumeBranches.get(parsedBranch.sourceBranchId ?? ""), await this.db.resumeBranches.get(parsedBranch.sourceBranchId ?? ""));
+        return {
+          branch: parsedBranch,
+          revision: await this.getResumeRevisionInTransaction(existing.revisionId),
+          idempotent: true,
+          ...presentationInvariant
+        };
       }
       const branch = await this.requireEditableResumeBranch(input.plan.branchId);
       if (branch.branchPurpose !== "job_specific" || branch.jobId !== input.plan.jobId) throw new Error("tailoring_plan_target_invalid");
@@ -1597,9 +1617,24 @@ export class WorkspaceRepository {
       if (input.plan.claims.some((claim) => claim.decision === "blocked" && claim.syncScope !== "rejected")) throw new Error("unsupported_hard_fact_blocked");
       if (input.plan.claims.some((claim) => claim.decision === "requires_confirmation" && !claim.confirmed && claim.syncScope !== "rejected")) throw new Error("tailoring_claim_confirmation_required");
       if (!applicable.length) throw new Error("tailoring_no_selected_changes");
+      if (applicable.some((claim) => claim.targetPatches?.some((patch) =>
+        !isSubmissionSafeTailoringPath(patch.sectionId, patch.fieldPath as ResumeTailoringDiff["target"]["fieldPath"])
+      ))) throw new Error("path_not_allowed");
       if (input.plan.basedOnRevisionId && input.plan.basedOnRevisionId !== branch.currentRevisionId) throw new RevisionConflictError();
       const closureIssues = validateTailoringClaimClosure({ claims: applicable, branch });
       if (closureIssues.length) throw new Error(closureIssues[0].code);
+      const presentationBaseline = await this.getResumePresentationConfig(branch.id);
+      const presentationBefore = presentationSnapshotFromConfig(presentationBaseline);
+      // Materialize the pre-tailoring fallback once. Without this, a newly
+      // added content item could make the default order generator appear to
+      // have changed the presentation snapshot even though tailoring never
+      // touched presentation settings.
+      await this.db.appMeta.put({
+        key: resumePresentationConfigKey(branch.id),
+        value: presentationBaseline,
+        updatedAt: presentationBaseline.updatedAt
+      });
+      const sourceBranchBefore = branch.sourceBranchId ? await this.db.resumeBranches.get(branch.sourceBranchId) : undefined;
       const now = new Date().toISOString();
       const patched = applyTailoringClaimsToBranch(branch, applicable, now);
       const contentItems = patched.contentItems;
@@ -1620,7 +1655,10 @@ export class WorkspaceRepository {
       await this.db.resumeBranches.put(nextBranch);
       await this.db.resumeRevisions.put(revision);
       await this.db.resumeBranchOperations.put(operation);
-      return { branch: nextBranch, revision, idempotent: false };
+      const presentationAfter = presentationSnapshotFromConfig(await this.getResumePresentationConfig(nextBranch.id));
+      const presentationInvariant = assertTailoringPresentationInvariant(presentationBefore, presentationAfter);
+      assertTailoringSourceBranchUnchanged(sourceBranchBefore, branch.sourceBranchId ? await this.db.resumeBranches.get(branch.sourceBranchId) : undefined);
+      return { branch: nextBranch, revision, idempotent: false, ...presentationInvariant };
     });
   }
 
@@ -1633,38 +1671,56 @@ export class WorkspaceRepository {
     expectedBranchRevision: number;
     expectedRevisionId: string;
   }) {
-    return this.db.transaction("rw", [this.db.resumeBranches, this.db.resumeRevisions, this.db.resumeBranchOperations], async () => {
+    return this.db.transaction("rw", [this.db.resumeBranches, this.db.resumeRevisions, this.db.resumeBranchOperations, this.db.appMeta], async () => {
       const existing = await this.db.resumeBranchOperations.where("operationId").equals(input.operationId).first();
       if (existing?.revisionId) {
         const branch = await this.db.resumeBranches.get(input.branchId);
         if (!branch) throw new Error("tailoring_branch_missing");
+        const parsedBranch = ResumeBranchSchema.parse(branch);
+        const presentationBefore = presentationSnapshotFromConfig(await this.getResumePresentationConfig(parsedBranch.id));
+        const presentationAfter = presentationSnapshotFromConfig(await this.getResumePresentationConfig(parsedBranch.id));
+        const presentationInvariant = assertTailoringPresentationInvariant(presentationBefore, presentationAfter);
+        assertTailoringSourceBranchUnchanged(await this.db.resumeBranches.get(parsedBranch.sourceBranchId ?? ""), await this.db.resumeBranches.get(parsedBranch.sourceBranchId ?? ""));
         return {
-          branch: ResumeBranchSchema.parse(branch),
+          branch: parsedBranch,
           revision: await this.getResumeRevisionInTransaction(existing.revisionId),
           appliedDiffs: input.diffs,
           rejectedDiffs: [],
           warnings: [],
-          idempotent: true
+          idempotent: true,
+          ...presentationInvariant
         };
       }
       const branch = await this.requireEditableResumeBranch(input.branchId);
       if (branch.branchPurpose !== "job_specific" || branch.jobId !== input.jobId) throw new Error("tailoring_plan_target_invalid");
       if (branch.revision !== input.expectedBranchRevision || branch.currentRevisionId !== input.expectedRevisionId) throw new RevisionConflictError();
+      const presentationBaseline = await this.getResumePresentationConfig(branch.id);
+      const presentationBefore = presentationSnapshotFromConfig(presentationBaseline);
+      await this.db.appMeta.put({
+        key: resumePresentationConfigKey(branch.id),
+        value: presentationBaseline,
+        updatedAt: presentationBaseline.updatedAt
+      });
+      const sourceBranchBefore = branch.sourceBranchId ? await this.db.resumeBranches.get(branch.sourceBranchId) : undefined;
 
       const validation = validateEachTailoringDiffLocally({
         branch,
         diffs: input.diffs,
         confirmedRequirementIds: input.confirmedRequirementIds,
-        allowUnconfirmed: false
+        allowUnconfirmed: false,
+        submissionSafe: true
       });
       if (!validation.patches.length) {
+        const presentationAfter = presentationSnapshotFromConfig(await this.getResumePresentationConfig(branch.id));
+        const presentationInvariant = assertTailoringPresentationInvariant(presentationBefore, presentationAfter);
         return {
           branch,
           revision: undefined,
           appliedDiffs: validation.appliedDiffs,
           rejectedDiffs: validation.rejectedDiffs,
           warnings: [...validation.warnings, "No valid selected diff was written; no revision was created."],
-          idempotent: false
+          idempotent: false,
+          ...presentationInvariant
         };
       }
 
@@ -1712,13 +1768,17 @@ export class WorkspaceRepository {
       await this.db.resumeBranches.put(nextBranch);
       await this.db.resumeRevisions.put(revision);
       await this.db.resumeBranchOperations.put(operation);
+      const presentationAfter = presentationSnapshotFromConfig(await this.getResumePresentationConfig(nextBranch.id));
+      const presentationInvariant = assertTailoringPresentationInvariant(presentationBefore, presentationAfter);
+      assertTailoringSourceBranchUnchanged(sourceBranchBefore, branch.sourceBranchId ? await this.db.resumeBranches.get(branch.sourceBranchId) : undefined);
       return {
         branch: nextBranch,
         revision,
         appliedDiffs: validation.appliedDiffs,
         rejectedDiffs: validation.rejectedDiffs,
         warnings: validation.warnings,
-        idempotent: false
+        idempotent: false,
+        ...presentationInvariant
       };
     });
   }
@@ -5791,7 +5851,11 @@ function sanitizePresentationConfigForBranch(config: ResumePresentationConfig, b
       currentRevisionId: branch.currentRevisionId
     },
     sectionOrder: sanitizeSectionOrder(config.sectionOrder),
-    itemOrderBySection: sanitizeItemOrderBySection(config.itemOrderBySection, branch),
+    // Keep the persisted order snapshot stable when content revisions add an
+    // item. The renderer already appends content items missing from the
+    // presentation order, so tailoring must not mutate presentation metadata
+    // just to make a new item visible.
+    itemOrderBySection: sanitizeItemOrderBySection(config.itemOrderBySection, branch, false),
     hiddenItemIds,
     pagination: {
       ...config.pagination,
@@ -5818,12 +5882,13 @@ function sanitizeSectionOrder(sectionOrder: ResumeRenderSectionType[]) {
 }
 
 function defaultItemOrderBySection(branch: ResumeBranch): ResumePresentationConfig["itemOrderBySection"] {
-  return sanitizeItemOrderBySection({}, branch);
+  return sanitizeItemOrderBySection({}, branch, true);
 }
 
 function sanitizeItemOrderBySection(
   itemOrderBySection: ResumePresentationConfig["itemOrderBySection"],
-  branch: ResumeBranch
+  branch: ResumeBranch,
+  appendMissing = false
 ): ResumePresentationConfig["itemOrderBySection"] {
   const result: ResumePresentationConfig["itemOrderBySection"] = {};
   for (const section of defaultResumeSectionOrder()) {
@@ -5832,7 +5897,9 @@ function sanitizeItemOrderBySection(
       .sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
     const sectionItemIds = new Set(sectionItems.map((item) => item.id));
     const configured = uniqueStrings(itemOrderBySection[section] ?? []).filter((itemId) => sectionItemIds.has(itemId));
-    const missing = sectionItems.map((item) => item.id).filter((itemId) => !configured.includes(itemId));
+    const missing = appendMissing
+      ? sectionItems.map((item) => item.id).filter((itemId) => !configured.includes(itemId))
+      : [];
     result[section] = [...configured, ...missing];
   }
   return result;
@@ -6056,5 +6123,42 @@ function applySuggestionToSections(
 function assertNoUnresolvedSensitivePlaceholders(value: unknown) {
   if (containsUnresolvedSensitivePlaceholder(value)) {
     throw new Error("resume_import_unresolved_sensitive_placeholder");
+  }
+}
+
+type TailoringPresentationSnapshot = ReturnType<typeof presentationSnapshotFromConfig>;
+
+function assertTailoringPresentationInvariant(
+  before: TailoringPresentationSnapshot,
+  after: TailoringPresentationSnapshot
+) {
+  const changedFields = collectChangedPresentationFields(before, after);
+  if (changedFields.length > 0) {
+    throw new Error("tailoring_presentation_mutated");
+  }
+  return {
+    presentationBefore: before,
+    presentationAfter: after,
+    presentationChangedFields: changedFields
+  };
+}
+
+function collectChangedPresentationFields(
+  before: unknown,
+  after: unknown,
+  path = "presentation"
+): string[] {
+  if (stableStringify(before) === stableStringify(after)) return [];
+  if (!before || !after || typeof before !== "object" || typeof after !== "object") return [path];
+  if (Array.isArray(before) || Array.isArray(after)) return [path];
+  const beforeRecord = before as Record<string, unknown>;
+  const afterRecord = after as Record<string, unknown>;
+  const keys = new Set([...Object.keys(beforeRecord), ...Object.keys(afterRecord)]);
+  return [...keys].flatMap((key) => collectChangedPresentationFields(beforeRecord[key], afterRecord[key], `${path}.${key}`));
+}
+
+function assertTailoringSourceBranchUnchanged(before: unknown, after: unknown) {
+  if (stableStringify(before) !== stableStringify(after)) {
+    throw new Error("tailoring_source_branch_mutated");
   }
 }

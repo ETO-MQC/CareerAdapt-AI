@@ -2,6 +2,7 @@ import type { TailorExistingResumeStep } from "@/agent/workflows/tailorExistingR
 
 const milestones: Array<{ step: TailorExistingResumeStep; label: string }> = [
   { step: "select_resume", label: "选择简历" },
+  { step: "choose_job", label: "选择岗位" },
   { step: "collect_job", label: "收集岗位" },
   { step: "review_job", label: "核对岗位" },
   { step: "analyze_fit", label: "匹配分析" },

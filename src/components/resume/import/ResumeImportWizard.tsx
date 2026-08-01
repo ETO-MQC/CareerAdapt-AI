@@ -17,7 +17,12 @@ import {
 import { auditResumeImportInvariants, resumeImportInvariantIssueCount } from "@/domain/resumeImport/invariants";
 import { analyzeImportQuality, normalizeExtractedSourceBlocks, normalizedBlocksToText, RESUME_IMPORT_CLEANER_VERSION } from "@/domain/resumeImport/normalizer";
 import { applyImportBulkSelection, type ImportBulkSelectionMode } from "@/domain/resumeImport/reviewSelections";
-import { applyResumeImportReviewDecision } from "@/domain/resumeImport/reviewDecisions";
+import {
+  applyFieldCandidateToDraft,
+  applyResumeImportReviewDecision,
+  assertNoPlaceholderFieldCandidates,
+  FieldCandidateApplyError
+} from "@/domain/resumeImport/reviewDecisions";
 import {
   ImportedResumeDraftSchema,
   ResumeItemV2Schema,
@@ -35,7 +40,7 @@ import {
   type ProfileReconciliationResolution,
   type PdfPageText
 } from "@/domain/schemas";
-import { hashBytes, hashText } from "@/services/security/text";
+import { containsUnresolvedSensitivePlaceholder, hashBytes, hashText } from "@/services/security/text";
 import { RevisionConflictError, type WorkspaceRepository } from "@/services/storage/repositories";
 import { notificationStore, notify } from "@/services/notifications/store";
 import { getResumeFieldDefinition, type CanonicalFieldId } from "@/domain/resumeFields";
@@ -183,6 +188,15 @@ export function ResumeImportWizard(props: {
         setMessage("已恢复上次失败的来源文档，可重试 AI 或使用仅本地解析结果。");
         return;
       }
+      if (containsUnresolvedSensitivePlaceholder(latest)) {
+        // A malformed or legacy local record must never enter the Review
+        // projection. Keep the value out of React state and require a safe
+        // re-import instead.
+        setDraft(undefined);
+        setStatus("failed");
+        setMessage("导入草稿中的敏感信息尚未恢复，已阻止进入核对页面，请重新导入。");
+        return;
+      }
       setDraft(latest);
       selectionBaselineRef.current = latest;
       setStatus("reviewing");
@@ -207,7 +221,12 @@ export function ResumeImportWizard(props: {
     return draft?.sections.flatMap((section) => section.items).find((item) => item.id === selectedItemId);
   }, [draft, selectedItemId]);
   const selectedBasicMapping = selectedBasicFieldKey ? draft?.basics[selectedBasicFieldKey]?.mapping : undefined;
-  const fieldCandidates = draft?.schemaVersion === "resume-import-v2" ? draft.fieldCandidates : [];
+  const fieldCandidates = draft?.schemaVersion === "resume-import-v2"
+    ? draft.fieldCandidates.filter((candidate) =>
+        !containsUnresolvedSensitivePlaceholder(candidate.value)
+        && !containsUnresolvedSensitivePlaceholder(candidate.sourceQuote)
+      )
+    : [];
   const selectedCandidate = fieldCandidates.find((candidate) => candidate.id === selectedCandidateId);
   const importableItemCount = useMemo(() => {
     return draft?.sections.flatMap((section) => section.items).filter((item) =>
@@ -691,6 +710,11 @@ export function ResumeImportWizard(props: {
     }
     const previous = draft;
     const next = ImportedResumeDraftSchema.parse(updater(draft));
+    if (containsUnresolvedSensitivePlaceholder(next)) {
+      setMessage("敏感信息恢复未完成，已阻止保存该核对状态。");
+      throw new Error("resume_import_unresolved_sensitive_placeholder");
+    }
+    assertNoPlaceholderFieldCandidates(next);
     setDraft(next);
     try {
       const saved = await props.repository.saveImportedResumeDraft(next, previous.revision);
@@ -741,12 +765,8 @@ export function ResumeImportWizard(props: {
   async function confirmFieldCandidate(candidateId: string) {
     await patchDraft((current) => {
       if (current.schemaVersion !== "resume-import-v2") return current;
-      return {
-        ...current,
-        fieldCandidates: current.fieldCandidates.map((candidate) => candidate.id === candidateId
-          ? { ...candidate, needsConfirmation: false, userConfirmed: true, reviewStatus: "accepted" as const }
-          : candidate)
-      };
+      const candidate = current.fieldCandidates.find((item) => item.id === candidateId);
+      return candidate ? applyFieldCandidateToDraft(current, candidate, "accept") : current;
     });
   }
 
@@ -755,13 +775,7 @@ export function ResumeImportWizard(props: {
       if (current.schemaVersion !== "resume-import-v2") return current;
       const candidate = current.fieldCandidates.find((item) => item.id === candidateId);
       if (!candidate) return current;
-      return {
-        ...current,
-        fieldCandidates: current.fieldCandidates.map((item) => item.id === candidateId
-          ? { ...item, needsConfirmation: false, userConfirmed: false, reviewStatus: "rejected" as const }
-          : item),
-        sections: updateStructuredCandidateValue(current.sections, candidate, undefined)
-      };
+      return applyFieldCandidateToDraft(current, candidate, "reject");
     });
     setEditingCandidateId(undefined);
   }
@@ -772,22 +786,7 @@ export function ResumeImportWizard(props: {
       const candidate = current.fieldCandidates.find((item) => item.id === candidateId);
       if (!candidate) return current;
       const value = parseEditedCandidateValue(candidate.value, rawValue);
-      return {
-        ...current,
-        fieldCandidates: current.fieldCandidates.map((item) => item.id === candidateId
-          ? {
-              ...item,
-              value,
-              needsConfirmation: false,
-              userConfirmed: true,
-              reviewStatus: "edited" as const,
-              dateValue: item.dateValue && typeof value === "string"
-                ? { ...item.dateValue, value, current: false }
-                : item.dateValue
-            }
-          : item),
-        sections: updateStructuredCandidateValue(current.sections, candidate, value, true)
-      };
+      return applyFieldCandidateToDraft(current, candidate, { type: "edit", value });
     });
     setEditingCandidateId(undefined);
   }
@@ -1056,7 +1055,18 @@ export function ResumeImportWizard(props: {
       await props.onImported({ profileId: result.profileId, branchId: result.branchId });
     } catch (error) {
       setStatus("reviewing");
-      setMessage(error instanceof RevisionConflictError ? "确认失败：草稿已变化，请刷新后重试。" : "确认失败：请检查未定位条目、重复确认或本地数据状态。");
+      const diagnostic = classifyImportConfirmError(error);
+      if (process.env.NODE_ENV === "development") {
+        console.error("[resume-import-confirm]", {
+          code: diagnostic.code,
+          importId: draft.importId,
+          revision: draft.revision,
+          candidateId: error instanceof FieldCandidateApplyError ? error.candidateId : undefined,
+          targetFieldId: error instanceof FieldCandidateApplyError ? error.targetFieldId : undefined,
+          invariant: diagnostic.invariant
+        });
+      }
+      setMessage(diagnostic.message);
     }
   }
 
@@ -2108,41 +2118,6 @@ function parseEditedCandidateValue(
   return value || current;
 }
 
-function updateStructuredCandidateValue(
-  sections: ImportedResumeDraft["sections"],
-  candidate: ImportedResumeFieldCandidate,
-  value: ImportedResumeFieldCandidate["value"] | undefined,
-  markEdited = false
-) {
-  if (!candidate.itemId || candidate.itemId === "basics") return sections;
-  const key = candidate.targetFieldId.split(".").at(-1);
-  if (!key) return sections;
-  return sections.map((section) => ({
-    ...section,
-    items: section.items.map((item) => {
-      if (item.id !== candidate.itemId || !item.structuredItem) return item;
-      const record = { ...item.structuredItem } as unknown as Record<string, unknown>;
-      if (value === undefined) {
-        if (key === "current") record.current = false;
-        else delete record[key];
-      } else {
-        record[key] = value;
-      }
-      const parsed = ResumeItemV2Schema.parse(record);
-      return {
-        ...item,
-        structuredItem: parsed,
-        itemLabel: itemDisplayLabelForReview(parsed),
-        ...(markEdited ? {
-          sourceStatus: "user_confirmed_modified" as const,
-          userEdited: true,
-          userConfirmed: false
-        } : {})
-      };
-    })
-  }));
-}
-
 function updateStructuredItemBody(item: ResumeItemV2, text: string): ResumeItemV2 {
   if (item.sectionType === "summary") return ResumeItemV2Schema.parse({ ...item, text });
   const highlights = text.split(/\n+/).map((line) => line.trim()).filter(Boolean);
@@ -2151,15 +2126,6 @@ function updateStructuredItemBody(item: ResumeItemV2, text: string): ResumeItemV
   }
   if ("description" in item) return ResumeItemV2Schema.parse({ ...item, description: text });
   return item;
-}
-
-function itemDisplayLabelForReview(item: ResumeItemV2) {
-  if (item.sectionType === "education") return item.school ?? "教育经历";
-  if (item.sectionType === "project") return item.title ?? "项目";
-  if ("organization" in item) return item.organization ?? ("role" in item ? item.role : undefined) ?? "经历条目";
-  if (item.sectionType === "awards" || item.sectionType === "certificates" || item.sectionType === "skills") return item.name;
-  if (item.sectionType === "languages") return item.language;
-  return "条目";
 }
 
 function datePrecisionLabel(precision: "year" | "month" | "day" | undefined, current: boolean) {
@@ -2220,4 +2186,46 @@ function importStatusFromProgress(stage: ResumeImportProgressStage, file: File):
   if (stage === "ready_for_review") return "reviewing";
   if (stage === "failed") return "failed";
   return isJsonFile(file) ? "importing_json" : isTextResumeFile(file) ? "extracting_text" : "extracting_pdf";
+}
+
+type ImportConfirmDiagnosticCode =
+  | "revision_conflict"
+  | "pending_review"
+  | "placeholder_unresolved"
+  | "candidate_target_unresolved"
+  | "candidate_duplicate_target"
+  | "source_not_located"
+  | "reconciliation_not_ready"
+  | "repository_invariant_failed";
+
+function classifyImportConfirmError(error: unknown): {
+  code: ImportConfirmDiagnosticCode;
+  message: string;
+  invariant?: string;
+} {
+  const raw = error instanceof Error ? error.message : "";
+  const normalized = raw.toLocaleLowerCase();
+  const invariant = raw.match(/(?:resume_import|profile_reconciliation)_[a-z0-9_]+/i)?.[0];
+  if (error instanceof RevisionConflictError || /revision_conflict|revision mismatch|revision/i.test(normalized)) {
+    return { code: "revision_conflict", message: "确认失败：草稿或资料库已变化，请刷新后重试。", invariant };
+  }
+  if (/placeholder|sensitive/i.test(normalized)) {
+    return { code: "placeholder_unresolved", message: "确认失败：敏感信息恢复未完成，已阻止提交，请重新导入。", invariant };
+  }
+  if (/candidate_duplicate_target|duplicate_target/i.test(normalized)) {
+    return { code: "candidate_duplicate_target", message: "确认失败：同一字段存在重复候选，请刷新后重新核对。", invariant };
+  }
+  if (/candidate_target_unresolved|target_invalid|field_candidate_invalid/i.test(normalized)) {
+    return { code: "candidate_target_unresolved", message: "确认失败：字段候选未能定位到目标，请刷新或重新导入。", invariant };
+  }
+  if (/source_missing|source_not|not_located|unlocated/i.test(normalized)) {
+    return { code: "source_not_located", message: "确认失败：部分内容的原文来源已失效，请重新导入。", invariant };
+  }
+  if (/reconciliation|profile_reconciliation/i.test(normalized)) {
+    return { code: "reconciliation_not_ready", message: "确认失败：资料库冲突尚未完成确认，请先处理核对项。", invariant };
+  }
+  if (/pending|unconfirmed|not_reviewing|needs_review/i.test(normalized)) {
+    return { code: "pending_review", message: "确认失败：仍有待核对条目，请完成核对后再试。", invariant };
+  }
+  return { code: "repository_invariant_failed", message: "确认失败：本地数据状态异常，请重试。", invariant };
 }

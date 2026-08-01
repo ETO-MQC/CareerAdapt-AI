@@ -99,9 +99,10 @@ export const agentWorkflowRegistry: Record<string, AgentWorkflowDefinition> = {
     select_facts: ["open_profile_browser"],
     review_resume_plan: ["open_artifact"]
   }, ["profileId", "selectedFactIds"]),
-  tailor_existing_resume: workflow("tailor_existing_resume", "choose_resume_source", ["select_resume", "choose_resume_source", "collect_job", "analyze_job", "review_job", "analyze_fit", "generate_plan", "answer_questions", "clarify_unsupported_facts", "preview_changes", "confirm_apply", "quality_result", "completed"], {
+  tailor_existing_resume: workflow("tailor_existing_resume", "choose_resume_source", ["select_resume", "choose_resume_source", "choose_job", "collect_job", "analyze_job", "review_job", "analyze_fit", "generate_plan", "answer_questions", "clarify_unsupported_facts", "preview_changes", "confirm_apply", "quality_result", "completed"], {
     select_resume: [...profileReadTools, ...resumeReadTools, ...jobReadTools],
     choose_resume_source: [...profileReadTools, ...resumeReadTools, ...jobReadTools, "recommend_resume_source"],
+    choose_job: ["list_jobs"],
     collect_job: [...profileReadTools, ...resumeReadTools, ...jobReadTools],
     analyze_job: [...profileReadTools, ...resumeReadTools, ...jobReadTools, "parse_job_description"],
     review_job: [...jobReadTools, "commit_job"],

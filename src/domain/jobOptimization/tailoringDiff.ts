@@ -35,6 +35,7 @@ export function validateEachTailoringDiffLocally(input: {
   diffs: ResumeTailoringDiff[];
   confirmedRequirementIds?: string[];
   allowUnconfirmed?: boolean;
+  submissionSafe?: boolean;
 }): TailoringDiffValidationResult {
   const appliedDiffs: ResumeTailoringDiff[] = [];
   const rejectedDiffs: TailoringDiffRejection[] = [];
@@ -54,7 +55,7 @@ export function validateEachTailoringDiffLocally(input: {
       rejectedDiffs.push({ diff, reasonCode: "target_not_found" });
       continue;
     }
-    if (!isAllowedPath(target.sectionType, diff.target.fieldPath)) {
+    if (!isAllowedPath(target.sectionType, diff.target.fieldPath, input.submissionSafe ?? false)) {
       rejectedDiffs.push({ diff, reasonCode: diff.target.fieldPath === "name" ? "blocked_identity_path" : "path_not_allowed" });
       continue;
     }
@@ -144,12 +145,25 @@ function resolveTarget(branch: ResumeBranch, diff: ResumeTailoringDiff) {
   return { sectionType: item.data.sectionType, current };
 }
 
-function isAllowedPath(sectionType: string, fieldPath: ResumeTailoringDiff["target"]["fieldPath"]) {
-  if (fieldPath === "visible" || fieldPath === "order") return ["summary", "skills", "project", "work", "internship"].includes(sectionType);
+function isAllowedPath(
+  sectionType: string,
+  fieldPath: ResumeTailoringDiff["target"]["fieldPath"],
+  submissionSafe: boolean
+) {
+  if (fieldPath === "visible" || fieldPath === "order") {
+    return !submissionSafe && ["summary", "skills", "project", "work", "internship"].includes(sectionType);
+  }
   if (sectionType === "summary") return fieldPath === "text";
   if (sectionType === "skills") return fieldPath === "name" || fieldPath === "description";
   if (["project", "work", "internship"].includes(sectionType)) return fieldPath === "description" || fieldPath === "highlights";
   return false;
+}
+
+export function isSubmissionSafeTailoringPath(
+  sectionType: string,
+  fieldPath: ResumeTailoringDiff["target"]["fieldPath"]
+) {
+  return isAllowedPath(sectionType, fieldPath, true);
 }
 
 function validateOperation(

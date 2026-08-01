@@ -28,6 +28,7 @@ import { locatePdfSourceQuote } from "@/domain/pdfImport/sourceMapping";
 import { categorySourceSectionId, resumeCategoryRank } from "@/domain/resumeFields/catalog";
 import { validateFieldCandidates } from "./fieldCandidates";
 import { validateMappingDecisions } from "./mappingValidation";
+import { containsUnresolvedSensitivePlaceholder } from "@/services/security/text";
 
 export type ResumeImportConfirmationBuildResult = {
   profile: CareerProfile;
@@ -168,6 +169,9 @@ export function buildResumeImportReconciledProfileOnly(input: {
 }
 
 function validateImportedResumeSources(draft: ImportedResumeDraft) {
+  if (containsUnresolvedSensitivePlaceholder(draft)) {
+    throw new Error("resume_import_unresolved_sensitive_placeholder");
+  }
   const invariantReport = auditResumeImportInvariants(draft);
   if (resumeImportInvariantIssueCount(invariantReport) > 0) {
     throw new Error(`resume_import_invariant_failed:${JSON.stringify(invariantReport)}`);

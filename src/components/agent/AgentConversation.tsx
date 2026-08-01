@@ -197,6 +197,8 @@ export function AgentConversation({
 function AgentActivityGroup({ messages }: { messages: AgentMessage[] }) {
   const running = messages.some((message) => message.metadata?.activityState === "running" || message.status === "pending");
   const failed = messages.some((message) => message.metadata?.activityState === "failed" || message.status === "failed");
+  const cheapContextDiscovery = messages.length > 0
+    && messages.every((message) => ["get_active_profile", "list_resumes", "list_jobs"].includes(message.toolName ?? ""));
   return (
     <details className={`agent-tool-status-row is-${running ? "running" : failed ? "failed" : "complete"}`} open={failed || undefined}>
       <summary role="status">
@@ -205,7 +207,11 @@ function AgentActivityGroup({ messages }: { messages: AgentMessage[] }) {
           <AlertCircle className={`is-failed${failed ? " is-visible" : ""}`} />
           <CheckCircle2 className={`is-complete${!running && !failed ? " is-visible" : ""}`} />
         </span>
-        <strong>{running ? "正在执行任务步骤" : failed ? "部分任务步骤需要处理" : `已完成 ${messages.length} 个任务步骤`}</strong>
+        <strong>{running
+          ? cheapContextDiscovery ? "正在加载简历和岗位信息" : "正在执行任务步骤"
+          : failed
+            ? "部分任务步骤需要处理"
+            : cheapContextDiscovery ? "已加载简历和岗位信息" : `已完成 ${messages.length} 个任务步骤`}</strong>
       </summary>
       <ul className="agent-tool-activity-list">
         {messages.map((message) => {

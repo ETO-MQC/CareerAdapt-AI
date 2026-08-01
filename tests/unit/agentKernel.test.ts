@@ -59,6 +59,55 @@ function harness(model: AgentModel, overrides: Partial<AgentToolServices> = {}, 
 }
 
 describe("AgentKernel", () => {
+  it("resolves cheap tailoring context before showing only the unresolved job question", async () => {
+    const getActiveProfile = vi.fn(async () => ({ selected: true, profileId: "profile-1", name: "当前资料库", version: 4 }));
+    const listResumes = vi.fn(async () => ({ resumes: [{
+      id: "resume-general",
+      profileId: "profile-1",
+      name: "通用简历",
+      purpose: "general",
+      revision: 2,
+      currentRevisionId: "revision-general"
+    }] }));
+    const listJobs = vi.fn(async () => ({ jobs: [
+      { id: "job-1", title: "Android研发实习生", company: "智乐活", order: 1 },
+      { id: "job-2", title: "前端研发实习生", company: "云启", order: 2 },
+      { id: "job-3", title: "AI产品实习生", company: "星河", order: 3 }
+    ] }));
+    const session = AgentRuntime.create("tailor_existing_resume", "choose_resume_source");
+    session.taskState = new AgentTaskStateReducer().create(session, "create_tailored_resume");
+    const model = scriptedModel({
+      stopReason: "tool_calls",
+      toolCalls: [
+        { id: "tailor-active-profile", name: "get_active_profile", arguments: {} },
+        { id: "tailor-list-resumes", name: "list_resumes", arguments: {} },
+        { id: "tailor-list-jobs", name: "list_jobs", arguments: {} }
+      ]
+    });
+    const { kernel } = harness(model, { getActiveProfile, listResumes, listJobs });
+
+    const result = await kernel.runTurn({
+      session,
+      pageContext: { pathname: "/ai-workspace", query: {} },
+      userMessage: "我想用现有简历生成岗位定制版本"
+    });
+
+    expect(result.text).toContain("我会使用当前资料库和《通用简历》。");
+    expect(result.text).toContain("要针对哪个岗位定制？");
+    expect(result.text).toContain("Android研发实习生");
+    expect(result.text).toContain("前端研发实习生");
+    expect(result.text).toContain("AI产品实习生");
+    expect(result.text).not.toContain("个人资料库、要比较的简历、目标岗位");
+    expect(getActiveProfile).toHaveBeenCalledTimes(1);
+    expect(listResumes).toHaveBeenCalledTimes(1);
+    expect(listJobs).toHaveBeenCalledTimes(1);
+    expect(result.trajectory.toolCalls.map((call) => call.toolName)).toEqual([
+      "get_active_profile",
+      "list_resumes",
+      "list_jobs"
+    ]);
+  });
+
   it("runs an autonomous profile-aware multi-tool loop", async () => {
     const getActiveProfile = vi.fn(async () => ({ selected: true, profileId: "profile-1", name: "MQC" }));
     const getProfile = vi.fn(async () => ({ profile: { id: "profile-1", name: "MQC", sectionCounts: { projects: 3, work: 2 } } }));

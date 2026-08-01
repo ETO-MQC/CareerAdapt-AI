@@ -23,7 +23,8 @@ import {
   createSensitiveTextTokenizer,
   hashText,
   isPlausibleSensitiveNameCandidate,
-  restoreSensitivePlaceholders
+  restoreKnownSensitiveTokens,
+  sensitiveTransportTokenShapes
 } from "@/services/security/text";
 import type { WorkspaceRepository } from "@/services/storage/repositories";
 import type { SafeSchemaIssue } from "@/ai/resumeDocumentMapperDiagnostics";
@@ -157,7 +158,17 @@ export class ResumeDocumentSemanticMapper {
       )
     };
 
-    const restoredMerged = restoreSensitivePlaceholders(
+    if (process.env.NODE_ENV === "development") {
+      const transportTokenShapes = sensitiveTransportTokenShapes(closedRedactedMerged);
+      if (transportTokenShapes.length > 0) {
+        console.info("[resume-document-mapper:transport-token-shape]", {
+          shapes: transportTokenShapes,
+          restorationKeyCount: Object.keys(tokenizer.restorationMap).length
+        });
+      }
+    }
+
+    const restoredMerged = restoreKnownSensitiveTokens(
       closedRedactedMerged,
       tokenizer.restorationMap
     );
@@ -166,7 +177,10 @@ export class ResumeDocumentSemanticMapper {
       restoredMerged,
       sourceDraft.sourceBlocks
     );
-    if (containsUnresolvedSensitivePlaceholder(mappedDraft)) {
+    if (
+      containsUnresolvedSensitivePlaceholder(mappedDraft, tokenizer.restorationMap)
+      || containsUnresolvedSensitivePlaceholder(mappedDraft)
+    ) {
       throw new ResumeDocumentSemanticMapperError(
         "unresolved_sensitive_placeholder",
         "AI 映射结果仍包含未恢复的敏感信息占位符。"
