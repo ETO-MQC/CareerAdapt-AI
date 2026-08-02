@@ -1,6 +1,6 @@
 # 林同学
 
-lin@example.invalid · 13000000000 · 杭州
+demo.user@example.com · 13800138000 · 某地
 
 ## 教育经历
 

@@ -138,7 +138,7 @@ describe("LayoutDocument, Layout Graph and semantic tree", () => {
   it("carries abnormal PDF phone and semantic review through the production draft path", () => {
     const document = createLayoutDocument({ pageCount: 1, fragments: [
       fragment("prod-name", "示例用户", 20, 820, 80, 18, 700),
-      fragment("prod-phone", "138001380000", 420, 820, 100, 11),
+      fragment("prod-phone", "13800138000", 420, 820, 100, 11),
       fragment("prod-heading", "项目经历", 20, 780, 100, 16, 700),
       fragment("prod-title", "示例任务系统", 20, 755, 120, 12, 700),
       fragment("prod-role", "全栈开发", 220, 755, 80, 12),
@@ -162,8 +162,8 @@ describe("LayoutDocument, Layout Graph and semantic tree", () => {
 
     expect(draft.schemaVersion).toBe("resume-import-v2");
     if (draft.schemaVersion !== "resume-import-v2") throw new Error("expected resume-import-v2 draft");
-    expect(draft.basics.phone).toMatchObject({ value: "138001380000", confidence: "low", sourceStatus: "ambiguous" });
-    expect(draft.fieldCandidates).toEqual(expect.arrayContaining([expect.objectContaining({ value: "138001380000", reviewStatus: "needs_review" })]));
+    expect(draft.basics.phone).toMatchObject({ value: "13800138000", confidence: "low", sourceStatus: "ambiguous" });
+    expect(draft.fieldCandidates).toEqual(expect.arrayContaining([expect.objectContaining({ value: "13800138000", reviewStatus: "needs_review" })]));
     expect(auditResumeImportInvariants(draft).semanticStructureReviewCount).toBe(0);
     const project = draft.sections.find((section) => section.sectionType === "project")?.items[0]?.structuredItem;
     expect(project && "highlights" in project ? project.highlights : []).toEqual(["协助部署示例自动化框架自动化框架"]);

@@ -24,9 +24,9 @@ test.describe("P3.6g1 paired resume understanding", () => {
       buffer: Buffer.from(jsonPayload)
     });
     await expect(dialog.locator(".import-review-grid")).toBeVisible({ timeout: 60_000 });
-    await expect(dialog.locator('input[name="import-basic-phone"]')).toHaveValue("138001380000");
+    await expect(dialog.locator('input[name="import-basic-phone"]')).toHaveValue("13800138000");
     await expectCounts(dialog, { summary: 1, education: 1, internship: 2, project: 3, skills: 4, certificates: 0, experience: 0 });
-    await expect(dialog.locator(".import-field-candidate-list")).toContainText("138001380000");
+    await expect(dialog.locator(".import-field-candidate-list")).toContainText("13800138000");
     await expect(dialog.locator(".import-field-candidate-list")).toContainText("待确认");
     await expect(dialog.locator(".import-structure-panel")).toContainText("示例大学");
     await expect(dialog.locator(".import-structure-panel")).toContainText("计算机相关专业");

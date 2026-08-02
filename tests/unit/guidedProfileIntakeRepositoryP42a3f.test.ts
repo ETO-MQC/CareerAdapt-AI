@@ -84,7 +84,7 @@ describe("P4.2a.3f profile commit and General Resume bootstrap", () => {
       includeProfileFacts: false,
       includeProfileBasics: false
     });
-    const raw = "开发示例内容分析系统，支持多格式报告导出。开发 CareerAdapt AI 简历制作平台。";
+    const raw = "开发示例内容采集与 AI 可信度分析系统，支持多格式报告导出。开发 CareerAdapt AI 简历制作平台。";
     const prepared = adaptConversationMessageToIntakeDraft({
       sessionId: "session-blank",
       messageId: "message-blank",

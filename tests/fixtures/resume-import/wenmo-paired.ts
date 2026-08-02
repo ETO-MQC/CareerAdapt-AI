@@ -6,7 +6,7 @@ export const wenmoPairedJsonFixture = {
     phone: { value: "138001380000", visible: true },
     email: { value: "demo.user@example.com", visible: true },
     address: { value: "", visible: false },
-    github: { value: "https://github.com/ETO-MQC", visible: true },
+    github: { value: "https://github.com/example-user", visible: true },
     website: { value: "", visible: false },
     linkedin: { value: "", visible: false },
     objective: { value: "开发工程师", visible: true },

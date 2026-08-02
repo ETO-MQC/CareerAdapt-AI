@@ -35,7 +35,7 @@ function createGoldenPageTexts(): PdfPageText[] {
     "某地（远程）",
     "13800138000",
     "demo.user@example.com",
-    "https://github.com/ETO-MQC",
+    "https://github.com/example-user",
     "",
     "教育经历",
     "示例大学 计算机相关专业 2024-09 - 2028-06",
@@ -171,7 +171,7 @@ describe("P3.6 import blocker verification", () => {
     expect(draft.basics.email?.value).toBe("demo.user@example.com");
     expect(draft.basics.phone?.value).toBe("13800138000");
     expect(draft.basics.location?.value).toContain("某地");
-    expect(draft.basics.links.some((l) => l.value.includes("github.com/ETO-MQC"))).toBe(true);
+    expect(draft.basics.links.some((l) => l.value.includes("github.com/example-user"))).toBe(true);
     expect(draft.basics.name?.value).toBe("M");
 
     // Verify sections exist with correct categories
