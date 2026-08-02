@@ -192,4 +192,60 @@ describe("Agent artifact decisions", () => {
     expect(onImportAction).not.toHaveBeenCalled();
     expect(screen.queryByRole("button", { name: "确认导入" })).not.toBeInTheDocument();
   });
+
+  it("projects the same active question and dispatches typed answer and diff edits", () => {
+    const onArtifactAction = vi.fn();
+    const question = {
+      id: "q-1",
+      question: "你评估 AI 回答时会检查什么？",
+      shortLabel: "AI 回答评估维度",
+      answer: ["事实准确", "要求覆盖"]
+    };
+    const diff = {
+      target: { sectionId: "summary", itemId: "summary-1", fieldPath: "text" },
+      original: "原个人评价",
+      value: "更聚焦岗位的个人评价",
+      reason: "突出已有的评估经验"
+    };
+    const tailoringSession = {
+      revision: 3,
+      plan: {
+        clarificationQuestions: [question, { id: "q-2", question: "请补充一个真实案例", shortLabel: "真实案例" }],
+        questionPlan: {
+          questionIds: ["q-1", "q-2"],
+          activeQuestionId: "q-2",
+          answeredQuestionIds: ["q-1"],
+          skippedQuestionIds: []
+        },
+        diffs: [diff],
+        diffReviews: [{ diffId: "diff-1", status: "suggested" }]
+      }
+    };
+    render(
+      <AgentArtifactContent
+        state={{ step: "preview_changes", busy: false, tailoringSession, diffs: [diff], confirmedRequirementIds: [] }}
+        taskState={{ rootGoal: "create_tailored_resume", knownSlots: { tailoringSession } } as unknown as AgentTaskState}
+        onArtifactAction={onArtifactAction}
+      />
+    );
+
+    expect(screen.getByRole("region", { name: "岗位定制问答记录" })).toHaveTextContent("1 / 2");
+    expect(screen.getByRole("region", { name: "岗位定制问答记录" })).toHaveTextContent("请补充一个真实案例");
+    fireEvent.click(screen.getByRole("button", { name: /^编辑$/ }));
+    fireEvent.change(screen.getByRole("textbox", { name: "编辑AI 回答评估维度的回答" }), { target: { value: "事实准确、逻辑完整" } });
+    fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    expect(onArtifactAction).toHaveBeenCalledWith({
+      type: "tailoring_answer_edit",
+      questionId: "q-1",
+      answer: "事实准确、逻辑完整"
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /^采用$/ }));
+    expect(onArtifactAction).toHaveBeenCalledWith({
+      type: "tailoring_diff_decision",
+      diffId: "diff-1",
+      decision: "accept",
+      editedValue: undefined
+    });
+  });
 });

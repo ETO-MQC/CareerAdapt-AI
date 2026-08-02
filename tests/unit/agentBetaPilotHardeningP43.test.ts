@@ -10,24 +10,22 @@ import type { AgentSession } from "@/agent/contracts/agentSession";
 
 const PAGE_CONTEXT = { pathname: "/ai-workspace", query: {} };
 
-describe("P4.3b compound answers", () => {
+describe("P4.3d one active question per turn", () => {
   const questions = [
     { id: "q-kotlin", question: "是否实际使用 Kotlin，熟练度如何？", answerType: "proficiency" as const },
     { id: "q-db", question: "情侣日记项目使用什么数据库？", answerType: "text" as const },
     { id: "q-live", question: "项目是否正式上线？", answerType: "boolean" as const }
   ];
 
-  it("maps one message to authoritative IDs and exact evidence quotes", () => {
+  it("maps one message only to the currently exposed question", () => {
     expect(resolveCompoundAnswer(
       "Kotlin比较熟练，情侣日记项目用的是SQLite，不过没有正式上线。",
       questions
     )).toEqual({
       answers: [
-        { questionId: "q-kotlin", answer: "熟练", proficiency: "proficient", evidenceQuote: "Kotlin比较熟练" },
-        { questionId: "q-db", answer: "SQLite", evidenceQuote: "情侣日记项目用的是SQLite" },
-        { questionId: "q-live", answer: false, evidenceQuote: "不过没有正式上线" }
+        { questionId: "q-kotlin", answer: "熟练", proficiency: "proficient", evidenceQuote: "Kotlin比较熟练" }
       ],
-      unmatchedText: undefined
+      unmatchedText: "情侣日记项目用的是SQLite。不过没有正式上线"
     });
   });
 
@@ -36,8 +34,8 @@ describe("P4.3b compound answers", () => {
       "Kotlin熟练，没有正式上线。顺便帮我把自我评价写得更偏Android一点。",
       questions
     );
-    expect(resolution.answers.map((answer) => answer.questionId)).toEqual(["q-kotlin", "q-live"]);
-    expect(resolution.unmatchedText).toBe("顺便帮我把自我评价写得更偏Android一点");
+    expect(resolution.answers.map((answer) => answer.questionId)).toEqual(["q-kotlin"]);
+    expect(resolution.unmatchedText).toBe("没有正式上线。顺便帮我把自我评价写得更偏Android一点");
   });
 
   it("derives IDs only from the current unresolved set", () => {
@@ -45,13 +43,14 @@ describe("P4.3b compound answers", () => {
       knownSlots: {
         tailoringSession: {
           plan: {
+            questionPlan: { activeQuestionId: "q-kotlin" },
             clarificationQuestions: questions,
             clarificationAnswers: [{ questionId: "q-db", answer: "SQLite" }]
           }
         }
       }
     });
-    expect(pending.map((question) => question.id)).toEqual(["q-kotlin", "q-live"]);
+    expect(pending.map((question) => question.id)).toEqual(["q-kotlin"]);
     expect(resolveCompoundAnswer("数据库是MySQL", pending).answers).toEqual([]);
   });
 });
@@ -185,8 +184,8 @@ describe("P4.3b per-session input serialization", () => {
   });
 });
 
-describe("P4.3b authoritative answer writes", () => {
-  it("executes mapped answers sequentially, exactly once, and retains unmatched text", async () => {
+describe("P4.3d authoritative answer writes", () => {
+  it("executes at most one answer for one user turn and retains unmatched text", async () => {
     const base = session();
     const questions = [
       { id: "q-kotlin", question: "是否实际使用 Kotlin，熟练度如何？", answerType: "proficiency" },
@@ -199,8 +198,14 @@ describe("P4.3b authoritative answer writes", () => {
       knownSlots: {
         tailoringSession: {
           id: "tailoring-1",
-          plan: { clarificationQuestions: questions, clarificationAnswers: [] }
-        }
+          revision: 1,
+          plan: {
+            questionPlan: { activeQuestionId: "q-kotlin" },
+            clarificationQuestions: questions,
+            clarificationAnswers: []
+          }
+        },
+        activeQuestionId: "q-kotlin"
       }
     };
     let concurrentWrites = 0;
@@ -252,17 +257,15 @@ describe("P4.3b authoritative answer writes", () => {
       pageContext: PAGE_CONTEXT
     });
 
-    expect(executedIds).toEqual(["q-kotlin", "q-db", "q-live"]);
-    expect(new Set(executedIds).size).toBe(3);
+    expect(executedIds).toEqual(["q-kotlin"]);
+    expect(new Set(executedIds).size).toBe(1);
     expect(maximumConcurrentWrites).toBe(1);
-    expect(runTurn).toHaveBeenCalledWith(expect.objectContaining({ userMessage: "顺便导出PDF" }));
+    expect(runTurn).toHaveBeenCalledWith(expect.objectContaining({ userMessage: "项目用的是SQLite。不过没有正式上线。顺便导出PDF" }));
     expect(result?.taskState?.knownSlots.compoundAnswerResolution).toMatchObject({
       answers: [
-        { questionId: "q-kotlin", evidenceQuote: "Kotlin比较熟练" },
-        { questionId: "q-db", evidenceQuote: "项目用的是SQLite" },
-        { questionId: "q-live", evidenceQuote: "不过没有正式上线" }
+        { questionId: "q-kotlin", evidenceQuote: "Kotlin比较熟练" }
       ],
-      unmatchedText: "顺便导出PDF"
+      unmatchedText: "项目用的是SQLite。不过没有正式上线。顺便导出PDF"
     });
   });
 });

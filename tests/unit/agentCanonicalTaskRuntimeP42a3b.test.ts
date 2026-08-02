@@ -481,7 +481,7 @@ describe("P4.2a.3b canonical task runtime", () => {
     ["analyze_fit", ["list_resumes", "list_profiles", "list_jobs", "get_active_profile", "get_profile", "search_profile_facts", "get_resume", "get_resume_revision", "get_job", "analyze_job_fit"]],
     ["generate_plan", ["list_resumes", "list_profiles", "list_jobs", "get_active_profile", "get_profile", "search_profile_facts", "get_resume", "get_resume_revision", "get_job", "create_tailoring_session"]],
     ["clarify_unsupported_facts", ["answer_tailoring_question"]],
-    ["preview_changes", ["list_resumes", "list_profiles", "list_jobs", "get_active_profile", "get_profile", "search_profile_facts", "get_resume", "get_resume_revision", "get_job", "preview_tailoring_changes"]],
+    ["preview_changes", ["list_resumes", "list_profiles", "list_jobs", "get_active_profile", "get_profile", "search_profile_facts", "get_resume", "get_resume_revision", "get_job", "review_tailoring_diff", "preview_tailoring_changes"]],
     ["confirm_apply", ["apply_tailoring_changes"]],
     ["quality_result", ["list_resumes", "get_resume", "get_resume_revision"]]
   ])("exposes the exact Route B tools at %s", (stage, expected) => {
@@ -1196,7 +1196,9 @@ function tailoringState(stage: string) {
     },
     knownSlots: {
       tailoringSession: { plan: { clarificationQuestions: [], clarificationAnswers: [] } },
-      selectedDiffs: []
+      selectedDiffs: [],
+      activeQuestionId: stage === "clarify_unsupported_facts" ? "question-1" : undefined,
+      remainingDiffCount: stage === "preview_changes" ? 0 : undefined
     },
     completionStatus: "active" as const
   };

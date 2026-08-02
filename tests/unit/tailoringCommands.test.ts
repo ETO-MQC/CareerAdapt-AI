@@ -7,7 +7,9 @@ import { ResumeTailorTaskInputV2Schema, type ResumeTailoringDiffTaskInput } from
 import {
   analyzeJobCommand,
   createTailoringSessionCommand,
-  generateTailoringDiffsCommand
+  generateTailoringDiffsCommand,
+  reviewTailoringDiffCommand,
+  tailoringDiffId
 } from "@/services/jobs/tailoringCommands";
 import { AI_TRAINER_JD_V4 } from "../fixtures/aiTrainerJdV4";
 
@@ -123,5 +125,45 @@ describe("headless tailoring commands", () => {
     expect(generate).toHaveBeenCalledTimes(2);
     expect(result.appliedDiffs).toHaveLength(1);
     expect(result.rejectedDiffs).toHaveLength(0);
+    const diffId = tailoringDiffId(result.appliedDiffs[0]);
+    const accepted = reviewTailoringDiffCommand({
+      operationId: "review-diff-command-1",
+      session: result.session,
+      diffId,
+      decision: "accept"
+    });
+    expect(accepted.selectedDiffIds).toEqual([diffId]);
+    expect(accepted.selectedDiffs).toEqual(result.appliedDiffs);
+    expect(accepted.remainingDiffCount).toBe(0);
+
+    const consolidated = vi.fn(async (requests: ResumeTailoringDiffTaskInput[]) => ({
+      diffs: requests.map((request) => ({
+        target: {
+          sectionId: request.target.sectionId,
+          itemId: request.target.itemId!,
+          fieldPath: request.target.fieldPath as "text" | "description" | "highlights" | "name" | "visible" | "order"
+        },
+        operation: "replace" as const,
+        original: request.currentContent.fieldValue,
+        value: Array.isArray(request.currentContent.fieldValue)
+          ? request.currentContent.fieldValue.map((item, index) => index === 0 ? `${item}。` : item)
+          : `${request.currentContent.fieldValue.replace(/[。；;]$/, "")}；突出岗位相关交付。`,
+        reason: "一次总体优化中生成的岗位相关表达",
+        requirementIds: request.relevantRequirements.map((item) => item.requirementId),
+        targetKeywords: request.relevantRequirements.flatMap((item) => item.keywords).slice(0, 3),
+        evidenceRefs: [],
+        supportLevel: "reasonable_inference" as const
+      }))
+    }));
+    const fallback = vi.fn();
+    const consolidatedResult = await generateTailoringDiffsCommand({
+      operationId: "generate-command-consolidated",
+      session,
+      generate: fallback,
+      generateConsolidated: consolidated
+    });
+    expect(consolidated).toHaveBeenCalledTimes(1);
+    expect(fallback).not.toHaveBeenCalled();
+    expect(consolidatedResult.appliedDiffs).toHaveLength(1);
   });
 });

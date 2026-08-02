@@ -802,7 +802,7 @@ describe("AgentKernel", () => {
     expect(result.trajectory.errors[0]?.code).toBe("agent_tool_not_allowed");
   });
 
-  it("never executes user-declared facts before explicit confirmation", async () => {
+  it("records the one active tailoring answer without a second confirmation", async () => {
     const answerTailoringQuestion = vi.fn(async () => ({ session: { status: "updated" } }));
     const { kernel } = harness(scriptedModel({
       stopReason: "tool_calls",
@@ -812,13 +812,29 @@ describe("AgentKernel", () => {
         arguments: { session: {}, questionId: "q-ai", answer: "熟悉模型训练", proficiency: "familiar" }
       }]
     }), { answerTailoringQuestion });
+    const base = AgentRuntime.create("tailor_existing_resume", "answer_questions");
+    const state = new AgentTaskStateReducer().create(base, "create_tailored_resume");
     const result = await kernel.runTurn({
-      session: AgentRuntime.create("tailor_existing_resume", "answer_questions"),
+      session: {
+        ...base,
+        taskState: {
+          ...state,
+          stage: "clarify_unsupported_facts",
+          completionStatus: "active",
+          knownSlots: {
+            ...state.knownSlots,
+            activeQuestionId: "q-ai",
+            currentClarification: { id: "q-ai", question: "你是否有模型训练经验？" },
+            questionPlan: { questionIds: ["q-ai"], activeQuestionId: "q-ai" },
+            tailoringSession: {}
+          }
+        }
+      },
       pageContext: { pathname: "/ai-workspace", query: {} },
       userMessage: "我补充一条 AI 能力"
     });
-    expect(answerTailoringQuestion).not.toHaveBeenCalled();
-    expect(result.pendingConfirmation?.toolName).toBe("answer_tailoring_question");
+    expect(answerTailoringQuestion).toHaveBeenCalledTimes(1);
+    expect(result.pendingConfirmation).toBeUndefined();
   });
 
   it("honors an already-aborted turn", async () => {
