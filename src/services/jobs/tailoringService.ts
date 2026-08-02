@@ -33,10 +33,11 @@ import type {
   TailoringClaim,
   TailoringAction,
   TailoringClarificationQuestion,
+  TailoringQuestionPlan,
   TailoringIntensity,
   TailoringSuggestion
 } from "@/domain/schemas";
-import { ClarificationAnswerRecordSchema, ResumeTailoringPlanSchema, TailoringSuggestionSchema } from "@/domain/schemas";
+import { ClarificationAnswerRecordSchema, ResumeTailoringPlanSchema, TailoringQuestionPlanSchema, TailoringSuggestionSchema } from "@/domain/schemas";
 import { resolveBranchFactRefs } from "@/domain/branch/validation";
 import { stableHashText } from "@/services/security/text";
 import type { WorkspaceRepository } from "@/services/storage/repositories";
@@ -238,7 +239,12 @@ export function withPlannerActions(input: { plan: ResumeTailoringPlan; assessmen
     }));
 
   // 合并现有的澄清问题和 planner 创建的澄清问题
-  const allQuestions = dedupeClarificationQuestions([...questions, ...plannerQuestions], input.plan.jobId);
+  const allQuestions = input.plan.questionPlan?.frozenAt
+    ? questions
+    : selectHighValueClarificationQuestions(
+        dedupeClarificationQuestions([...questions, ...plannerQuestions], input.plan.jobId),
+        3
+      );
 
   return ResumeTailoringPlanSchema.parse({
     ...input.plan,
@@ -265,26 +271,51 @@ function clarificationAnswerTypeFromAssessment(questionText: string): string {
   return "boolean";
 }
 
-export function answerTailoringClarification(input: { plan: ResumeTailoringPlan; question: TailoringClarificationQuestion; answer: string | string[] | boolean; proficiency?: ClaimConfirmation["proficiency"]; branch?: ResumeBranch }) {
+export function answerTailoringClarification(input: { plan: ResumeTailoringPlan; question: TailoringClarificationQuestion; answer: string | string[] | boolean; proficiency?: ClaimConfirmation["proficiency"]; branch?: ResumeBranch; operationId?: string; now?: string }) {
   const normalizedAnswer = typeof input.answer === "string" ? input.answer.trim() : input.answer;
+  const skipped = typeof normalizedAnswer === "string" && /^(?:跳过|不确定|继续)$/.test(normalizedAnswer);
   const rejected = normalizedAnswer === false
     || (typeof normalizedAnswer === "string" && /^(?:没有|没有使用|不具备|不添加|否|无)$/.test(normalizedAnswer))
     || (Array.isArray(normalizedAnswer) && normalizedAnswer.length === 0);
+  const previous = input.plan.clarificationAnswers?.find((record) => record.questionId === input.question.id);
+  if (previous?.operationId && input.operationId && previous.operationId === input.operationId) return input.plan;
+  const resolvedAt = input.now ?? new Date().toISOString();
   const answerRecord = ClarificationAnswerRecordSchema.parse({
     questionId: input.question.id,
-    status: rejected ? "rejected" : "accepted",
-    answer: input.answer,
+    status: skipped ? "skipped" : rejected ? "rejected" : "accepted",
+    answer: skipped ? undefined : input.answer,
     proficiency: input.proficiency,
-    resolvedAt: new Date().toISOString()
+    evidenceQuote: typeof normalizedAnswer === "string" ? normalizedAnswer : undefined,
+    answerRevision: (previous?.answerRevision ?? 0) + 1,
+    operationId: input.operationId,
+    resolvedAt
   });
-  const withAnswerRecord = (plan: ResumeTailoringPlan) => ResumeTailoringPlanSchema.parse({
-    ...plan,
-    clarificationAnswers: [
-      ...(plan.clarificationAnswers ?? []).filter((record) => record.questionId !== input.question.id),
-      answerRecord
-    ]
-  });
-  if (rejected) return withAnswerRecord(input.plan);
+  const withAnswerRecord = (plan: ResumeTailoringPlan) => {
+    const questionPlan = advanceTailoringQuestionPlan(plan.questionPlan, input.question.id, skipped, resolvedAt);
+    return ResumeTailoringPlanSchema.parse({
+      ...plan,
+      diffs: previous ? [] : plan.diffs,
+      clarificationAnswers: [
+        ...(plan.clarificationAnswers ?? []).filter((record) => record.questionId !== input.question.id),
+        answerRecord
+      ],
+      clarificationQuestions: (plan.clarificationQuestions ?? []).map((question) => question.id === input.question.id
+        ? {
+            ...question,
+            status: skipped ? "skipped" : "answered",
+            answer: skipped ? undefined : input.answer,
+            proficiency: input.proficiency,
+            evidenceQuote: typeof normalizedAnswer === "string" ? normalizedAnswer : undefined,
+            answeredAt: resolvedAt,
+            updatedAt: resolvedAt
+          }
+        : question.id === questionPlan?.activeQuestionId
+          ? { ...question, status: "active", updatedAt: resolvedAt }
+          : question),
+      questionPlan
+    });
+  };
+  if (rejected || skipped) return withAnswerRecord(input.plan);
   if (input.question.targetPolicy === "material_only") return withAnswerRecord(input.plan);
   const answerText = Array.isArray(input.answer) ? input.answer.join("、") : String(input.answer);
   const answerCapabilities = resolveCapabilityEntities({ userAnswers: Array.isArray(input.answer) ? input.answer : [answerText] });
@@ -553,7 +584,17 @@ export function buildClarificationQuestions(input: { job: JobDescription; taskIn
       emittedAnyOfGroups.add(group.id);
     }
     const directlyRelated = input.taskInputs.filter((item) => item.relevantRequirements.some((related) => related.requirementId === requirement.id));
-    const hasEvidence = directlyRelated.some((item) => item.allowedEvidenceRefs.length > 0);
+    const normalizedKeywords = requirement.exactKeywords
+      .map((keyword) => keyword.toLocaleLowerCase().replace(/\s+/g, ""))
+      .filter((keyword) => keyword.length >= 2);
+    const hasEvidence = normalizedKeywords.length > 0 && directlyRelated.some((item) => {
+      const evidenceText = item.allowedFacts
+        .map((fact) => fact.value)
+        .join(" ")
+        .toLocaleLowerCase()
+        .replace(/\s+/g, "");
+      return normalizedKeywords.some((keyword) => evidenceText.includes(keyword));
+    });
     if (hasEvidence) return [];
     const related = (directlyRelated.length ? directlyRelated : fallbackTargets).slice(0, 4);
     const sourceItemIds = [...new Set(related.map((item) => item.target.itemId ?? item.target.sectionId))];
@@ -577,9 +618,18 @@ export function buildClarificationQuestions(input: { job: JobDescription; taskIn
             ? "specific_item" as const
             : capabilityAllowsProficiency(capability) ? "skill_once" as const : "summary_once" as const;
     const inferredAnswerType = clarificationAnswerType(requirement.statement);
+    const expectedImpact = related.some((item) => item.target.sectionType === "summary")
+      ? "summary" as const
+      : related.some((item) => item.target.sectionType === "skills")
+        ? "skills" as const
+        : related.some((item) => item.target.sectionType === "project")
+          ? "project" as const
+          : "multiple" as const;
+    const capabilityCluster = inferCapabilityCluster(requirement.statement, capability?.normalizedLabel);
     return [{
       id: `clarification-${requirement.id}-${index + 1}`,
       question: group?.relation === "any_of" ? `以下 ${group.requirementIds.length} 项满足任一项即可；你具备其中哪一项真实经历或可核验材料？` : `你是否具备"${requirement.statement}"相关的真实经历或可核验材料？`,
+      shortLabel: shortQuestionLabel(requirement.statement),
       requirementIds: group?.relation === "any_of" ? group.requirementIds : [requirement.id],
       groupId: requirement.parentGroupId,
       sourceItemIds,
@@ -587,11 +637,17 @@ export function buildClarificationQuestions(input: { job: JobDescription; taskIn
       candidateClaim: requirement.statement,
       targetFieldPaths,
       capability,
+      capabilityCluster,
       targetPolicy,
-      answerType: inferredAnswerType === "proficiency" && !capabilityAllowsProficiency(capability) ? "text" as const : inferredAnswerType
+      answerType: inferredAnswerType === "proficiency" && !capabilityAllowsProficiency(capability) ? "text" as const : inferredAnswerType,
+      options: defaultQuestionOptions(inferredAnswerType),
+      expectedImpact,
+      priorityScore: (requirement.priority === "must" ? 50 : 35) + requirement.exactKeywords.length + (expectedImpact === "summary" ? 20 : expectedImpact === "skills" ? 16 : 8),
+      status: "pending" as const,
+      updatedAt: new Date().toISOString()
     }];
   });
-  return dedupeClarificationQuestions(questions, input.job.id);
+  return selectHighValueClarificationQuestions(dedupeClarificationQuestions(questions, input.job.id), 3);
 }
 
 function clarificationAnswerType(statement: string): "boolean" | "proficiency" | "text" | "url" | "multi_select" {
@@ -604,10 +660,11 @@ function clarificationAnswerType(statement: string): "boolean" | "proficiency" |
 export function dedupeClarificationQuestions(questions: TailoringClarificationQuestion[], jobId: string) {
   const merged = new Map<string, TailoringClarificationQuestion>();
   for (const question of questions) {
-    const capability = question.capability?.normalizedLabel ?? "none";
-    const targetItemId = question.targetPolicy === "specific_item" ? question.sourceItemIds[0] : question.targetPolicy;
-    const targetFieldPath = question.targetPolicy === "specific_item" ? question.targetFieldPaths[0] : question.targetPolicy;
-    const key = [jobId, capability, question.targetPolicy, targetItemId, targetFieldPath].join("|");
+    const cluster = question.capabilityCluster ?? inferCapabilityCluster(
+      `${question.question} ${question.candidateClaim}`,
+      question.capability?.normalizedLabel
+    );
+    const key = [jobId, cluster].join("|");
     const existing = merged.get(key);
     if (!existing) {
       merged.set(key, question);
@@ -615,6 +672,7 @@ export function dedupeClarificationQuestions(questions: TailoringClarificationQu
     }
     merged.set(key, {
       ...existing,
+      capabilityCluster: cluster,
       requirementIds: [...new Set([...existing.requirementIds, ...question.requirementIds])],
       sourceItemIds: [...new Set([...existing.sourceItemIds, ...question.sourceItemIds])],
       relatedItemIds: [...new Set([...existing.relatedItemIds, ...question.relatedItemIds])],
@@ -622,6 +680,128 @@ export function dedupeClarificationQuestions(questions: TailoringClarificationQu
     });
   }
   return [...merged.values()];
+}
+
+export function selectHighValueClarificationQuestions(
+  questions: TailoringClarificationQuestion[],
+  budget = 3
+) {
+  const maximum = Math.max(0, Math.min(5, budget));
+  const byCluster = new Map<string, TailoringClarificationQuestion>();
+  for (const question of questions) {
+    const cluster = question.capabilityCluster ?? inferCapabilityCluster(
+      `${question.question} ${question.candidateClaim}`,
+      question.capability?.normalizedLabel
+    );
+    const candidate = { ...question, capabilityCluster: cluster };
+    const existing = byCluster.get(cluster);
+    if (!existing || (candidate.priorityScore ?? 0) > (existing.priorityScore ?? 0)) byCluster.set(cluster, candidate);
+  }
+  return [...byCluster.values()]
+    .sort((left, right) => (right.priorityScore ?? 0) - (left.priorityScore ?? 0) || left.id.localeCompare(right.id))
+    .slice(0, maximum);
+}
+
+export function createTailoringQuestionPlan(input: {
+  sessionId: string;
+  questions: TailoringClarificationQuestion[];
+  now?: string;
+  defaultBudget?: number;
+  maximumBudget?: number;
+}): TailoringQuestionPlan {
+  const now = input.now ?? new Date().toISOString();
+  const maximumBudget = Math.max(0, Math.min(5, input.maximumBudget ?? 5));
+  const defaultBudget = Math.max(0, Math.min(maximumBudget, input.defaultBudget ?? 3));
+  const selected = selectHighValueClarificationQuestions(input.questions, defaultBudget);
+  const questionIds = selected.map((question) => question.id);
+  return TailoringQuestionPlanSchema.parse({
+    id: `tailoring-question-plan-${stableHashText(input.sessionId)}`,
+    sessionId: input.sessionId,
+    revision: 1,
+    status: questionIds.length ? "asking" : "ready_for_generation",
+    defaultBudget,
+    maximumBudget,
+    questionIds,
+    activeQuestionId: questionIds[0],
+    answeredQuestionIds: [],
+    skippedQuestionIds: [],
+    createdAt: now,
+    frozenAt: now,
+    completedAt: questionIds.length ? undefined : now
+  });
+}
+
+export function getActiveTailoringQuestion(plan: Pick<ResumeTailoringPlan, "questionPlan" | "clarificationQuestions">) {
+  const activeId = plan.questionPlan?.activeQuestionId;
+  return activeId ? plan.clarificationQuestions?.find((question) => question.id === activeId) : undefined;
+}
+
+function advanceTailoringQuestionPlan(
+  questionPlan: TailoringQuestionPlan | undefined,
+  questionId: string,
+  skipped: boolean,
+  now: string
+) {
+  if (!questionPlan) return undefined;
+  const editingResolved = questionPlan.answeredQuestionIds.includes(questionId) || questionPlan.skippedQuestionIds.includes(questionId);
+  if (questionPlan.activeQuestionId !== questionId && !editingResolved) throw new Error("tailoring_question_not_active");
+  const answeredQuestionIds = skipped
+    ? questionPlan.answeredQuestionIds.filter((id) => id !== questionId)
+    : [...new Set([...questionPlan.answeredQuestionIds.filter((id) => id !== questionId), questionId])];
+  const skippedQuestionIds = skipped
+    ? [...new Set([...questionPlan.skippedQuestionIds.filter((id) => id !== questionId), questionId])]
+    : questionPlan.skippedQuestionIds.filter((id) => id !== questionId);
+  const resolved = new Set([...answeredQuestionIds, ...skippedQuestionIds]);
+  const activeQuestionId = editingResolved
+    ? questionPlan.activeQuestionId
+    : questionPlan.questionIds.find((id) => !resolved.has(id));
+  return TailoringQuestionPlanSchema.parse({
+    ...questionPlan,
+    revision: questionPlan.revision + 1,
+    status: activeQuestionId ? "asking" : "ready_for_generation",
+    activeQuestionId,
+    answeredQuestionIds,
+    skippedQuestionIds,
+    completedAt: activeQuestionId ? undefined : now
+  });
+}
+
+function inferCapabilityCluster(text: string, capability?: string) {
+  const normalized = `${text} ${capability ?? ""}`.toLocaleLowerCase().replace(/\s+/g, "");
+  if (/(ai|llm|大模型).*(回答|输出|回复).*(评估|质量|纠错)|((评估|检查|纠错).*(ai|llm|大模型).*(回答|输出|回复))/.test(normalized)) return "ai_answer_evaluation";
+  if (/(复杂|多约束|高难度).*(任务|指令|题目)|(任务|指令).*(设计|拆解)/.test(normalized)) return "complex_task_design";
+  if (/rag|检索增强|grounding|知识库/.test(normalized)) return "rag_grounding";
+  if (/反馈|修正|badcase|错误案例|纠错/.test(normalized)) return "feedback_and_correction";
+  if (/量化|百分比|提升|结果|成效/.test(normalized)) return "measurable_result";
+  if (/cursor|claudecode|codex|windsurf|ai编程|codingagent/.test(normalized)) return "llm_tool_usage";
+  return capability ? `capability:${capability}` : `requirement:${stableHashText(normalized).slice(0, 12)}`;
+}
+
+function shortQuestionLabel(statement: string) {
+  return statement.replace(/[。；;，,].*$/u, "").trim().slice(0, 28) || "岗位相关经验";
+}
+
+function defaultQuestionOptions(answerType: ReturnType<typeof clarificationAnswerType>) {
+  if (answerType === "boolean") return [
+    { id: "yes", label: "有", value: "有" },
+    { id: "no", label: "没有", value: "没有" },
+    { id: "uncertain", label: "不确定", value: "不确定" },
+    { id: "skip", label: "跳过", value: "跳过" }
+  ];
+  if (answerType === "proficiency") return [
+    { id: "proficient", label: "熟练", value: "熟练" },
+    { id: "familiar", label: "熟悉", value: "熟悉" },
+    { id: "aware", label: "了解", value: "了解" },
+    { id: "learning", label: "正在学习", value: "正在学习" },
+    { id: "none", label: "没有", value: "没有" },
+    { id: "uncertain", label: "不确定", value: "不确定" },
+    { id: "skip", label: "跳过", value: "跳过" }
+  ];
+  return [
+    { id: "none", label: "没有", value: "没有" },
+    { id: "uncertain", label: "不确定", value: "不确定" },
+    { id: "skip", label: "跳过", value: "跳过" }
+  ];
 }
 
 function resolveConfirmedClaimText(claim: TailoringClaim, confirmation: ClaimConfirmation) {

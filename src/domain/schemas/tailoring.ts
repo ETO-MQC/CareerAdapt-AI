@@ -129,7 +129,17 @@ export const ClarificationAnswerRecordSchema = z.object({
   status: z.enum(["accepted", "rejected", "skipped"]),
   answer: z.union([z.string(), z.array(z.string()), z.boolean()]).optional(),
   proficiency: SkillProficiencySchema.optional(),
+  evidenceQuote: z.string().min(1).optional(),
+  answerRevision: z.number().int().min(1).default(1),
+  operationId: z.string().min(8).max(160).optional(),
   resolvedAt: z.string().datetime({ offset: true })
+}).strict();
+
+export const TailoringDiffReviewSchema = z.object({
+  diffId: z.string().min(1),
+  status: z.enum(["suggested", "accepted", "edited", "rejected"]),
+  editedValue: ResumeFieldPatchValueSchema.optional(),
+  updatedAt: z.string().datetime({ offset: true })
 }).strict();
 
 export const ConfirmableClaimSchema = z.object({
@@ -316,6 +326,7 @@ export const TailoringClaimSchema = z.object({
 export const TailoringClarificationQuestionSchema = z.object({
   id: z.string().min(1),
   question: z.string().min(1),
+  shortLabel: z.string().min(1).optional(),
   requirementIds: z.array(z.string().min(1)).min(1),
   groupId: z.string().min(1).optional(),
   sourceItemIds: z.array(z.string().min(1)).min(1),
@@ -324,7 +335,21 @@ export const TailoringClarificationQuestionSchema = z.object({
   targetFieldPaths: z.array(z.string().min(1)).min(1),
   capability: CapabilityEntitySchema.optional(),
   targetPolicy: TailoringTargetPolicySchema.optional(),
-  answerType: z.enum(["boolean", "proficiency", "text", "url", "multi_select"])
+  answerType: z.enum(["boolean", "single_select", "proficiency", "text", "url", "multi_select"]),
+  options: z.array(z.object({
+    id: z.string().min(1),
+    label: z.string().min(1),
+    value: z.string().min(1)
+  }).strict()).max(12).optional(),
+  capabilityCluster: z.string().min(1).optional(),
+  expectedImpact: z.enum(["summary", "skills", "project", "work", "internship", "multiple"]).optional(),
+  priorityScore: z.number().optional(),
+  status: z.enum(["pending", "active", "answered", "skipped"]).optional(),
+  answer: z.union([z.string(), z.array(z.string()), z.boolean()]).optional(),
+  proficiency: SkillProficiencySchema.optional(),
+  evidenceQuote: z.string().min(1).optional(),
+  answeredAt: z.string().datetime({ offset: true }).optional(),
+  updatedAt: z.string().datetime({ offset: true }).optional()
 }).strict().transform((question) => ({
   ...question,
   answerType: question.answerType === "proficiency"
@@ -332,6 +357,29 @@ export const TailoringClarificationQuestionSchema = z.object({
       ? "text" as const
       : question.answerType
 }));
+
+export const TailoringQuestionPlanSchema = z.object({
+  id: z.string().min(1),
+  sessionId: z.string().min(1),
+  revision: z.number().int().min(1),
+  status: z.enum(["planning", "asking", "ready_for_generation", "completed"]),
+  defaultBudget: z.number().int().min(0).max(5).default(3),
+  maximumBudget: z.number().int().min(0).max(5).default(5),
+  questionIds: z.array(z.string().min(1)).max(5),
+  activeQuestionId: z.string().min(1).optional(),
+  answeredQuestionIds: z.array(z.string().min(1)).max(5).default([]),
+  skippedQuestionIds: z.array(z.string().min(1)).max(5).default([]),
+  createdAt: z.string().datetime({ offset: true }),
+  frozenAt: z.string().datetime({ offset: true }).optional(),
+  completedAt: z.string().datetime({ offset: true }).optional()
+}).strict().superRefine((plan, context) => {
+  if (plan.questionIds.length > plan.maximumBudget) {
+    context.addIssue({ code: "custom", path: ["questionIds"], message: "tailoring question budget exceeded" });
+  }
+  if (plan.activeQuestionId && !plan.questionIds.includes(plan.activeQuestionId)) {
+    context.addIssue({ code: "custom", path: ["activeQuestionId"], message: "active question must belong to the frozen plan" });
+  }
+});
 
 export const ResumeTailoringPlanSchema = z.object({
   id: z.string().min(1),
@@ -350,8 +398,10 @@ export const ResumeTailoringPlanSchema = z.object({
   }).strict()).optional(),
   clarificationQuestions: z.array(TailoringClarificationQuestionSchema).optional(),
   clarificationAnswers: z.array(ClarificationAnswerRecordSchema).optional(),
+  questionPlan: TailoringQuestionPlanSchema.optional(),
   gaps: z.array(TailoringGapSchema).optional(),
   diffs: z.array(ResumeTailoringDiffSchema).optional(),
+  diffReviews: z.array(TailoringDiffReviewSchema).optional(),
   materialSuggestions: z.array(z.string().min(1)).optional(),
   materialTasks: z.array(z.object({ id: z.string().min(1), label: z.string().min(1), requirementIds: z.array(z.string()).default([]) }).strict()).optional(),
   suggestions: z.array(TailoringSuggestionSchema).optional(),
@@ -394,9 +444,11 @@ export type TailoringTargetPolicy = z.infer<typeof TailoringTargetPolicySchema>;
 export type TailoringClaimClass = z.infer<typeof TailoringClaimClassSchema>;
 export type ResumeFieldPatch = z.infer<typeof ResumeFieldPatchSchema>;
 export type ResumeTailoringDiff = z.infer<typeof ResumeTailoringDiffSchema>;
+export type TailoringDiffReview = z.infer<typeof TailoringDiffReviewSchema>;
 export type TailoringDiffRejectionReason = z.infer<typeof TailoringDiffRejectionReasonSchema>;
 export type TailoringGap = z.infer<typeof TailoringGapSchema>;
 export type ClarificationAnswerRecord = z.infer<typeof ClarificationAnswerRecordSchema>;
+export type TailoringQuestionPlan = z.infer<typeof TailoringQuestionPlanSchema>;
 export type ConfirmableClaim = z.infer<typeof ConfirmableClaimSchema>;
 export type TailoringClaim = z.infer<typeof TailoringClaimSchema>;
 export type TailoringClarificationQuestion = z.infer<typeof TailoringClarificationQuestionSchema>;
