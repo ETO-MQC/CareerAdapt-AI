@@ -200,17 +200,13 @@ stateDiagram-v2
 
 所见即所得的编辑体验，左侧结构化编辑，右侧实时渲染 PDF 效果。
 
-<div align="center">
-<img src="运行图片/2.png" alt="简历编辑器" width="900"/>
-</div>
+
 
 ### 个人资料库 —— 可复用的事实来源
 
 按类别管理可复用事实，支持按分类浏览、搜索和详情查看。
 
-<div align="center">
-<img src="运行图片/3.png" alt="个人资料库" width="900"/>
-</div>
+
 
 ### 岗位管理 —— 粘贴 JD，系统保留原文和来源
 
