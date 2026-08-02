@@ -29,7 +29,7 @@
 }
 
 .product-topbar-heading {
-  align-items: baseline;
+  align-items: center;
   display: flex;
   gap: var(--product-space-2);
   min-width: 0;

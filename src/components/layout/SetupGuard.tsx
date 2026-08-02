@@ -7,11 +7,9 @@ import { hasCustomAiSettings } from "@/services/storage/aiSettings";
 export function SetupGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const [ready, setReady] = useState(() => {
-    // 初始化时检查，避免 effect 中同步 setState
-    if (typeof window === "undefined") return false;
-    return hasCustomAiSettings();
-  });
+  // Keep the first render identical on the server and client. The settings
+  // check belongs in the effect because it reads browser-only localStorage.
+  const [ready, setReady] = useState(false);
   const checkedRef = useRef(false);
 
   useEffect(() => {

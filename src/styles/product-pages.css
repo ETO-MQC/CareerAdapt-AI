@@ -35,11 +35,31 @@
 }
 
 .ai-asset-content .product-topbar {
+  align-items: center;
+  border-bottom: 2px solid var(--product-border);
   height: 52px;
+  justify-content: center;
   margin-inline: calc(var(--product-space-6) * -1);
   position: sticky;
   top: 0;
   z-index: 20;
+}
+
+.ai-asset-content .product-topbar-heading {
+  align-items: center;
+  text-align: center;
+}
+
+.settings-workspace .product-topbar {
+  align-items: center;
+  border-bottom: 2px solid var(--product-border);
+  height: 52px;
+  justify-content: center;
+}
+
+.settings-workspace .product-topbar-heading {
+  align-items: center;
+  text-align: center;
 }
 
 .ai-asset-content .panel,
@@ -152,7 +172,7 @@
 }
 
 .ai-asset-content .jobs-overview-grid {
-  grid-template-columns: minmax(340px, 42%) minmax(420px, 58%);
+  grid-template-columns: minmax(340px, 50%) minmax(420px, 50%);
 }
 
 .ai-asset-content .application-workarea:has(.product-empty-state) {
@@ -325,7 +345,7 @@
   }
 
   .ai-asset-content .jobs-overview-grid {
-    grid-template-columns: minmax(300px, 42%) minmax(360px, 58%);
+    grid-template-columns: minmax(300px, 50%) minmax(360px, 50%);
   }
 }
 
@@ -334,6 +354,12 @@
   --workspace-padding: var(--ai-page-padding);
   --workspace-gap: var(--ai-section-gap);
   --control-height: var(--ai-control-height);
+}
+
+:root[data-density="comfortable"] .ai-asset-content {
+  --ai-page-padding: 32px;
+  --ai-section-gap: 20px;
+  --ai-control-height: 40px;
 }
 
 .ai-asset-content > .page-shell {
@@ -376,7 +402,7 @@
 }
 
 .ai-asset-content .resume-create-panel {
-  max-width: 980px;
+  max-width: none;
 }
 
 .ai-asset-content .resume-create-card-grid {
@@ -433,7 +459,7 @@
 }
 
 .ai-asset-content .jobs-overview-grid {
-  grid-template-columns: minmax(340px, 42%) minmax(420px, 58%);
+  grid-template-columns: minmax(340px, 50%) minmax(420px, 50%);
   min-height: 0;
 }
 
@@ -445,9 +471,7 @@
 }
 
 .ai-asset-content .jobs-workspace-v2 > .selected-job-workspace {
-  flex: 0 0 520px;
-  height: 520px;
-  min-height: 520px;
+  flex: 0 0 auto;
 }
 
 .ai-asset-content .selected-job-workspace {
@@ -459,7 +483,7 @@
 .ai-asset-content .recycle-section-list {
   max-height: none;
   min-height: 0;
-  overflow: auto;
+  overflow: visible;
 }
 
 .ai-asset-content .jobs-list-panel {
@@ -519,6 +543,20 @@
 .ai-asset-content input,
 .ai-asset-content select {
   min-height: var(--ai-control-height);
+}
+
+.ai-asset-content .job-entry-fields input,
+.ai-asset-content .job-entry-fields textarea,
+.ai-asset-content .job-entry-fields select {
+  border-radius: var(--radius);
+}
+
+.ai-asset-content .job-entry-fields input:focus-visible,
+.ai-asset-content .job-entry-fields textarea:focus-visible,
+.ai-asset-content .job-entry-fields select:focus-visible {
+  border-radius: var(--radius);
+  box-shadow: 0 0 0 3px rgba(135, 239, 147, 0.08);
+  outline: 2px solid var(--accent);
 }
 
 /* P4.1d surface tune-up for asset workspaces. */

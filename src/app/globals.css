@@ -802,9 +802,6 @@ html[data-theme="dark"] .panel {
 .jobs-detail-panel {
   display: grid;
   gap: 12px;
-  max-height: min(68dvh, 720px);
-  min-height: 420px;
-  overflow: hidden;
 }
 
 .jobs-tab-content,
@@ -1014,9 +1011,7 @@ html[data-theme="dark"] .panel {
 }
 
 .jobs-workspace-v2 > .selected-job-workspace {
-  flex: 0 0 520px;
-  height: 520px;
-  min-height: 520px;
+  flex: 0 0 auto;
 }
 
 .jobs-workspace-v2 > .jobs-page-title {
@@ -1040,16 +1035,13 @@ html[data-theme="dark"] .panel {
 
 .jobs-overview-grid {
   display: grid;
-  flex-basis: clamp(360px, 42vh, 520px);
   gap: 16px;
-  grid-template-columns: minmax(340px, 42%) minmax(420px, 58%);
-  min-height: 360px;
-  overflow: hidden;
+  grid-template-columns: minmax(340px, 50%) minmax(420px, 50%);
 }
 
 .jobs-overview-grid > .panel {
   min-height: 0;
-  overflow: hidden;
+  overflow: visible;
   padding: 16px;
 }
 
@@ -1120,6 +1112,7 @@ html[data-theme="dark"] .panel {
 .source-mode-body select {
   height: 38px;
   min-width: 0;
+  padding: 0 12px;
 }
 
 .job-entry-fields .job-jd-field {
@@ -1129,6 +1122,7 @@ html[data-theme="dark"] .panel {
 
 .job-entry-fields textarea {
   min-height: 72px;
+  padding: 8px 12px;
   resize: none;
 }
 
@@ -1526,7 +1520,7 @@ html[data-theme="dark"] .panel {
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr);
   min-height: 0;
-  overflow: hidden;
+  overflow: visible;
   padding: 0;
   margin-bottom: 20px;
 }
@@ -1664,8 +1658,7 @@ html[data-theme="dark"] .panel {
 
 .selected-job-content {
   min-height: 0;
-  overflow: auto;
-  overscroll-behavior: contain;
+  overflow: visible;
   padding: 0 16px 16px;
 }
 
@@ -8057,7 +8050,7 @@ html[data-theme="dark"] .property-panel-heading p {
   align-items: center;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
   max-width: none;
   min-height: calc(100dvh - var(--workspace-padding) * 2);
 }
@@ -8081,6 +8074,12 @@ html[data-theme="dark"] .property-panel-heading p {
   overflow-y: scroll;
   overscroll-behavior-y: contain;
   scrollbar-gutter: stable both-edges;
+}
+
+.settings-nav {
+  position: sticky;
+  top: 0;
+  align-self: start;
 }
 
 .settings-nav,

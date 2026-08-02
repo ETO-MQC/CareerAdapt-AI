@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useSyncExternalStore } from "react";
 import { NotificationProvider } from "@/components/notifications/NotificationProvider";
 import { useWorkspaceMode } from "@/components/layout/WorkspaceModeProvider";
 import { WORKSPACE_MODE_OPTIONS } from "@/services/preferences/workspaceMode";
@@ -52,43 +52,28 @@ const pageTitles: Record<string, string> = {
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() || "/";
   const { mode, setMode } = useWorkspaceMode();
-  const [theme, setTheme] = useState<ThemePreference>(() => readInitialTheme());
-  const [density, setDensity] = useState<DensityPreference>(() => readInitialDensity());
-  const [hasSidebarPreference, setHasSidebarPreference] = useState(() => readHasSidebarPreference());
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => readInitialSidebarCollapsed());
+  const theme = useSyncExternalStore(subscribeToAppearancePreferences, readInitialTheme, () => "system");
+  const density = useSyncExternalStore(subscribeToAppearancePreferences, readInitialDensity, () => "compact");
+  const sidebarPreference = useSyncExternalStore(
+    subscribeToSidebarPreference,
+    readSidebarPreference,
+    () => null
+  );
+  const hasSidebarPreference = sidebarPreference !== null;
+  const sidebarCollapsed = sidebarPreference === "true";
   const isCompactResumeViewport = useMediaQuery("(max-width: 1400px)");
   const sidebarVisuallyCollapsed = sidebarCollapsed
     || (!hasSidebarPreference && pathname.startsWith("/resume") && isCompactResumeViewport);
 
   useEffect(() => {
     const apply = () => {
-      applyRootPreferences(theme, density);
-      window.localStorage.setItem(themeStorageKey, theme);
-      window.localStorage.setItem(densityStorageKey, density);
+      applyRootPreferences(readInitialTheme(), readInitialDensity());
     };
     apply();
     const media = window.matchMedia("(prefers-color-scheme: dark)");
     media.addEventListener("change", apply);
     return () => media.removeEventListener("change", apply);
   }, [density, theme]);
-
-  useEffect(() => {
-    const handlePreferenceChange = () => {
-      const nextTheme = readInitialTheme();
-      const nextDensity = readInitialDensity();
-      applyRootPreferences(nextTheme, nextDensity);
-      setTheme(nextTheme);
-      setDensity(nextDensity);
-    };
-    window.addEventListener("careeradapt-preferences-change", handlePreferenceChange);
-    return () => window.removeEventListener("careeradapt-preferences-change", handlePreferenceChange);
-  }, []);
-
-  useEffect(() => {
-    if (hasSidebarPreference) {
-      window.localStorage.setItem(sidebarCollapsedStorageKey, sidebarCollapsed ? "true" : "false");
-    }
-  }, [hasSidebarPreference, sidebarCollapsed]);
 
   const currentTitle = useMemo(() => {
     const exact = pageTitles[pathname];
@@ -116,8 +101,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             aria-label={sidebarVisuallyCollapsed ? "展开主导航" : "收起主导航"}
             title={sidebarVisuallyCollapsed ? "展开主导航" : "收起主导航"}
             onClick={() => {
-              setHasSidebarPreference(true);
-              setSidebarCollapsed(!sidebarVisuallyCollapsed);
+              persistSidebarPreference(!sidebarVisuallyCollapsed);
             }}
           >
             <ShellIcon name={sidebarVisuallyCollapsed ? "expand" : "collapse"} />
@@ -170,7 +154,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       key={option.value}
                       type="button"
                       className={theme === option.value ? "appearance-option appearance-option-active" : "appearance-option"}
-                      onClick={() => setTheme(option.value)}
+                      onClick={() => persistThemePreference(option.value)}
                     >
                       {option.label}
                     </button>
@@ -183,7 +167,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       key={option.value}
                       type="button"
                       className={density === option.value ? "appearance-option appearance-option-active" : "appearance-option"}
-                      onClick={() => setDensity(option.value)}
+                      onClick={() => persistDensityPreference(option.value)}
                     >
                       {option.label}
                     </button>
@@ -217,23 +201,48 @@ function readInitialDensity(): DensityPreference {
   return savedDensity === "compact" || savedDensity === "comfortable" ? savedDensity : "compact";
 }
 
-function readInitialSidebarCollapsed() {
-  if (typeof window === "undefined") {
-    return false;
-  }
-  const saved = window.localStorage.getItem(sidebarCollapsedStorageKey);
-  if (saved === "true" || saved === "false") {
-    return saved === "true";
-  }
-  return false;
+function subscribeToAppearancePreferences(onChange: () => void) {
+  const handleStorage = (event: StorageEvent) => {
+    if (event.key === themeStorageKey || event.key === densityStorageKey) onChange();
+  };
+  window.addEventListener("storage", handleStorage);
+  window.addEventListener("careeradapt-preferences-change", onChange);
+  return () => {
+    window.removeEventListener("storage", handleStorage);
+    window.removeEventListener("careeradapt-preferences-change", onChange);
+  };
 }
 
-function readHasSidebarPreference() {
-  if (typeof window === "undefined") {
-    return false;
-  }
+function persistThemePreference(theme: ThemePreference) {
+  window.localStorage.setItem(themeStorageKey, theme);
+  window.dispatchEvent(new CustomEvent("careeradapt-preferences-change"));
+}
+
+function persistDensityPreference(density: DensityPreference) {
+  window.localStorage.setItem(densityStorageKey, density);
+  window.dispatchEvent(new CustomEvent("careeradapt-preferences-change"));
+}
+
+function subscribeToSidebarPreference(onChange: () => void) {
+  const handleStorage = (event: StorageEvent) => {
+    if (event.key === sidebarCollapsedStorageKey) onChange();
+  };
+  window.addEventListener("storage", handleStorage);
+  window.addEventListener("careeradapt-sidebar-preference-change", onChange);
+  return () => {
+    window.removeEventListener("storage", handleStorage);
+    window.removeEventListener("careeradapt-sidebar-preference-change", onChange);
+  };
+}
+
+function readSidebarPreference(): "true" | "false" | null {
   const saved = window.localStorage.getItem(sidebarCollapsedStorageKey);
-  return saved === "true" || saved === "false";
+  return saved === "true" || saved === "false" ? saved : null;
+}
+
+function persistSidebarPreference(collapsed: boolean) {
+  window.localStorage.setItem(sidebarCollapsedStorageKey, String(collapsed));
+  window.dispatchEvent(new CustomEvent("careeradapt-sidebar-preference-change"));
 }
 
 function useMediaQuery(query: string) {

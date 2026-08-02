@@ -6,10 +6,9 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useState
+  useSyncExternalStore
 } from "react";
 import {
-  parseWorkspaceMode,
   persistWorkspaceMode,
   readWorkspaceMode,
   WORKSPACE_MODE_STORAGE_KEY,
@@ -30,19 +29,13 @@ export function WorkspaceModeProvider({
   children: React.ReactNode;
   initialMode: WorkspaceMode;
 }) {
-  const [mode, setModeState] = useState<WorkspaceMode>(() =>
-    typeof window === "undefined" ? initialMode : readWorkspaceMode(window.localStorage, initialMode)
+  // The server already resolved the cookie-backed mode. Read localStorage
+  // after hydration so the initial provider tree is stable in both runtimes.
+  const mode = useSyncExternalStore(
+    subscribeToWorkspaceMode,
+    useCallback(() => readWorkspaceMode(window.localStorage, initialMode), [initialMode]),
+    useCallback(() => initialMode, [initialMode])
   );
-
-  useEffect(() => {
-    const handleStorage = (event: StorageEvent) => {
-      if (event.key !== WORKSPACE_MODE_STORAGE_KEY) return;
-      const next = parseWorkspaceMode(event.newValue);
-      if (next) setModeState(next);
-    };
-    window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
-  }, []);
 
   useEffect(() => {
     applyInitialAppearance(mode);
@@ -52,8 +45,8 @@ export function WorkspaceModeProvider({
   }, [mode]);
 
   const setMode = useCallback((nextMode: WorkspaceMode) => {
-    setModeState(nextMode);
     persistWorkspaceMode(nextMode, window.localStorage, document);
+    window.dispatchEvent(new CustomEvent("careeradapt-workspace-mode-change"));
   }, []);
 
   const value = useMemo(() => ({ mode, setMode }), [mode, setMode]);
@@ -82,4 +75,16 @@ function applyInitialAppearance(mode: WorkspaceMode, force = false) {
     ? "comfortable"
     : "compact";
   document.documentElement.style.colorScheme = resolved;
+}
+
+function subscribeToWorkspaceMode(onChange: () => void) {
+  const handleStorage = (event: StorageEvent) => {
+    if (event.key === WORKSPACE_MODE_STORAGE_KEY) onChange();
+  };
+  window.addEventListener("storage", handleStorage);
+  window.addEventListener("careeradapt-workspace-mode-change", onChange);
+  return () => {
+    window.removeEventListener("storage", handleStorage);
+    window.removeEventListener("careeradapt-workspace-mode-change", onChange);
+  };
 }

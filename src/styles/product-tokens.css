@@ -67,4 +67,7 @@
 :root[data-density="comfortable"] {
   --product-control-normal: 40px;
   --product-control-prominent: 44px;
+  --product-space-4: 20px;
+  --product-space-5: 24px;
+  --product-space-6: 28px;
 }

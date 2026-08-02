@@ -20,7 +20,7 @@ import {
   UserRound,
   X
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { getAgentSessionDisplayTitle, type AgentSession } from "@/agent/contracts/agentSession";
 import { AgentSessionStore } from "@/services/agent/agentSessionStore";
 import { WORKSPACE_MODE_OPTIONS } from "@/services/preferences/workspaceMode";
@@ -43,8 +43,10 @@ export function AgentSidebar() {
   const pathname = usePathname() || "/";
   const router = useRouter();
   const { mode, setMode } = useWorkspaceMode();
-  const [collapsed, setCollapsed] = useState(() =>
-    typeof window !== "undefined" && window.localStorage.getItem(COLLAPSED_KEY) === "true"
+  const collapsed = useSyncExternalStore(
+    subscribeToSidebarPreference,
+    readSidebarCollapsed,
+    () => false
   );
   const [sessions, setSessions] = useState<AgentSession[]>([]);
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -93,8 +95,8 @@ export function AgentSidebar() {
   };
 
   const setSidebarCollapsed = (next: boolean) => {
-    setCollapsed(next);
     window.localStorage.setItem(COLLAPSED_KEY, String(next));
+    window.dispatchEvent(new CustomEvent("careeradapt-agent-sidebar-preference-change"));
   };
 
   const startNewTask = () => {
@@ -232,4 +234,20 @@ export function AgentSidebar() {
       </div>
     </aside>
   );
+}
+
+function subscribeToSidebarPreference(onChange: () => void) {
+  const handleStorage = (event: StorageEvent) => {
+    if (event.key === COLLAPSED_KEY) onChange();
+  };
+  window.addEventListener("storage", handleStorage);
+  window.addEventListener("careeradapt-agent-sidebar-preference-change", onChange);
+  return () => {
+    window.removeEventListener("storage", handleStorage);
+    window.removeEventListener("careeradapt-agent-sidebar-preference-change", onChange);
+  };
+}
+
+function readSidebarCollapsed() {
+  return window.localStorage.getItem(COLLAPSED_KEY) === "true";
 }
