@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useState } from "react";
 import type { TailorWorkflowViewState } from "@/agent/workflows/tailorExistingResumeWorkflow";
 import type { AgentTaskState } from "@/agent/contracts/agentSession";
 import type { AgentArtifactAction, AgentUiAction } from "@/agent/contracts/agentActions";
@@ -21,6 +24,14 @@ export function AgentArtifactContent({
   const analysis = asRecord(state.fitAnalysis);
   const plan = asRecord(asRecord(state.tailoringSession).plan);
   const questions = Array.isArray(plan.clarificationQuestions) ? plan.clarificationQuestions : [];
+  const questionPlan = asRecord(plan.questionPlan);
+  const questionIds = stringArray(questionPlan.questionIds);
+  const answeredQuestionIds = new Set(stringArray(questionPlan.answeredQuestionIds));
+  const skippedQuestionIds = new Set(stringArray(questionPlan.skippedQuestionIds));
+  const activeQuestionId = typeof questionPlan.activeQuestionId === "string" ? questionPlan.activeQuestionId : undefined;
+  const answeredQuestions = questions.map(asRecord).filter((question) => answeredQuestionIds.has(String(question.id)) || skippedQuestionIds.has(String(question.id)));
+  const activeQuestion = questions.map(asRecord).find((question) => question.id === activeQuestionId);
+  const diffReviews = arrayOfRecords(plan.diffReviews);
   const importArtifact = asRecord(taskState?.knownSlots.importArtifact);
   const importReview = asRecord(taskState?.knownSlots.importReviewSummary);
   const importTarget = asRecord(taskState?.knownSlots.importTarget);
@@ -259,7 +270,7 @@ export function AgentArtifactContent({
           </div>
         </section>
       ) : null}
-      {state.jobGraph ? (
+      {state.jobGraph && !state.tailoringSession ? (
         <details className="agent-artifact" open>
           <summary>岗位语义核对 <span>{requirements.length} 项要求</span></summary>
           <ul>
@@ -278,24 +289,62 @@ export function AgentArtifactContent({
           <Link href={state.jobId ? `/jobs?jobId=${encodeURIComponent(state.jobId)}` : "/jobs"}>打开原功能页</Link>
         </details>
       ) : null}
-      {questions.length ? (
-        <details className="agent-artifact">
-          <summary>澄清问题 <span>{questions.length} 项</span></summary>
-          <ul>{questions.map((item, index) => <li key={String(asRecord(item).id ?? index)}>{String(asRecord(item).question ?? "")}</li>)}</ul>
-        </details>
+      {questionIds.length ? (
+        <section className="agent-artifact agent-tailoring-questions" aria-label="岗位定制问答记录">
+          <header>
+            <strong>问答记录</strong>
+            <span>{answeredQuestions.length} / {questionIds.length}</span>
+          </header>
+          {answeredQuestions.length ? (
+            <div className="agent-tailoring-answer-list">
+              {answeredQuestions.map((question) => (
+                <TailoringAnswerRecord
+                  key={String(question.id)}
+                  question={question}
+                  skipped={skippedQuestionIds.has(String(question.id))}
+                  onSave={(answer) => onArtifactAction?.({
+                    type: "tailoring_answer_edit",
+                    questionId: String(question.id),
+                    answer
+                  })}
+                />
+              ))}
+            </div>
+          ) : <p>回答会在这里同步记录，不会写回个人资料库。</p>}
+          {activeQuestion ? (
+            <div className="agent-tailoring-current-question">
+              <small>当前问题</small>
+              <strong>{String(activeQuestion.shortLabel ?? activeQuestion.question)}</strong>
+              <p>{String(activeQuestion.question)}</p>
+            </div>
+          ) : null}
+          {questionIds.length - answeredQuestions.length - (activeQuestion ? 1 : 0) > 0 ? (
+            <p className="agent-tailoring-remaining">剩余 {questionIds.length - answeredQuestions.length - 1} 项将在对话中逐个显示</p>
+          ) : null}
+        </section>
       ) : null}
       {state.diffs.length ? (
         <details className="agent-artifact" open>
-          <summary>定制修改 <span>{state.diffs.length} 项</span></summary>
+          <summary>修改预览 <span>{state.diffs.length} 项</span></summary>
           <div className="agent-diff-list">
             {state.diffs.slice(0, 8).map((item, index) => {
               const diff = asRecord(item);
+              const review = diffReviews[index] ?? {};
               return (
-                <article key={index}>
-                  <small>{String(asRecord(diff.target).fieldPath ?? "字段")}</small>
-                  <p><del>{renderValue(diff.original)}</del></p>
-                  <p><ins>{renderValue(diff.value)}</ins></p>
-                </article>
+                <TailoringDiffRecord
+                  key={String(review.diffId ?? index)}
+                  diff={diff}
+                  review={review}
+                  onDecision={(decision, editedValue) => {
+                    if (typeof review.diffId !== "string") return;
+                    onArtifactAction?.({
+                      type: "tailoring_diff_decision",
+                      diffId: review.diffId,
+                      decision,
+                      editedValue
+                    });
+                  }}
+                />
               );
             })}
           </div>
@@ -357,6 +406,95 @@ function fitSummary(analysis: Record<string, unknown>) {
 
 function renderValue(value: unknown) {
   return Array.isArray(value) ? value.join("；") : String(value ?? "");
+}
+
+function TailoringAnswerRecord({
+  question,
+  skipped,
+  onSave
+}: {
+  question: Record<string, unknown>;
+  skipped: boolean;
+  onSave(answer: string): void;
+}) {
+  const initial = skipped ? "跳过" : renderValue(question.answer);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(initial);
+  return (
+    <article>
+      <div>
+        <strong>{String(question.shortLabel ?? question.question ?? "已回答问题")}</strong>
+        <span>{skipped ? "已跳过" : "已回答"}</span>
+      </div>
+      {editing ? (
+        <form onSubmit={(event) => {
+          event.preventDefault();
+          const answer = draft.trim();
+          if (!answer) return;
+          onSave(answer);
+          setEditing(false);
+        }}>
+          <input aria-label={`编辑${String(question.shortLabel ?? "问题")}的回答`} value={draft} onChange={(event) => setDraft(event.target.value)} />
+          <button type="submit">保存</button>
+          <button type="button" onClick={() => { setDraft(initial); setEditing(false); }}>取消</button>
+        </form>
+      ) : (
+        <>
+          <p>{initial || "已记录"}</p>
+          <button type="button" onClick={() => setEditing(true)}>编辑</button>
+        </>
+      )}
+    </article>
+  );
+}
+
+function TailoringDiffRecord({
+  diff,
+  review,
+  onDecision
+}: {
+  diff: Record<string, unknown>;
+  review: Record<string, unknown>;
+  onDecision(decision: "accept" | "edit" | "reject", editedValue?: string): void;
+}) {
+  const proposed = renderValue(diff.value);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(renderValue(review.editedValue) || proposed);
+  const status = String(review.status ?? "suggested");
+  return (
+    <article>
+      <small>{tailoringTargetLabel(asRecord(diff.target).fieldPath)}</small>
+      <p><del>{renderValue(diff.original)}</del></p>
+      <p><ins>{status === "edited" ? renderValue(review.editedValue) : proposed}</ins></p>
+      {typeof diff.reason === "string" ? <p className="agent-diff-rationale">{diff.reason}</p> : null}
+      {editing ? (
+        <form onSubmit={(event) => {
+          event.preventDefault();
+          if (!draft.trim()) return;
+          onDecision("edit", draft.trim());
+          setEditing(false);
+        }}>
+          <textarea aria-label="编辑建议内容" value={draft} onChange={(event) => setDraft(event.target.value)} />
+          <button type="submit">采用编辑</button>
+          <button type="button" onClick={() => setEditing(false)}>取消</button>
+        </form>
+      ) : (
+        <div className="agent-diff-actions">
+          <button type="button" aria-pressed={status === "accepted"} onClick={() => onDecision("accept")}>采用</button>
+          <button type="button" aria-pressed={status === "edited"} onClick={() => setEditing(true)}>编辑后采用</button>
+          <button type="button" aria-pressed={status === "rejected"} onClick={() => onDecision("reject")}>忽略</button>
+        </div>
+      )}
+    </article>
+  );
+}
+
+function tailoringTargetLabel(value: unknown) {
+  const path = String(value ?? "");
+  if (path === "text") return "个人评价";
+  if (path === "name" || path === "description") return "技能或经历描述";
+  if (path === "highlights") return "经历要点";
+  return "简历内容";
 }
 
 function DetailList({ title, values }: { title: string; values: string[] }) {

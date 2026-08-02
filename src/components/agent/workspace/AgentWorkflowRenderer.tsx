@@ -174,7 +174,6 @@ function confirmationCopy(
 ) {
   const copy = {
     commit_job: { title: "保存这个岗位？", description: "确认后会把核对结果写入岗位库。你仍可在岗位页继续编辑。" },
-    answer_tailoring_question: { title: "使用这项补充信息？", description: "这属于你主动声明的能力信息。确认后只用于当前岗位定制，不会隐式写回个人资料库。" },
     apply_tailoring_changes: { title: "应用这些简历修改？", description: "确认后会创建一个新的 ResumeRevision；来源简历和个人资料库不会被覆盖。" }
   };
   return copy[name];

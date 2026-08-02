@@ -36,6 +36,18 @@ export const AgentArtifactActionSchema = z.discriminatedUnion("type", [
     type: z.literal("resume_import_reconciliation_decision"),
     incomingItemId: z.string().min(1),
     resolution: z.enum(["keep_existing", "use_imported", "keep_both_as_distinct"])
+  }).strict(),
+  z.object({
+    type: z.literal("tailoring_answer_edit"),
+    questionId: z.string().min(1),
+    answer: z.union([z.string().min(1), z.array(z.string().min(1)), z.boolean()]),
+    proficiency: z.enum(["proficient", "familiar", "aware", "learning"]).optional()
+  }).strict(),
+  z.object({
+    type: z.literal("tailoring_diff_decision"),
+    diffId: z.string().min(1),
+    decision: z.enum(["accept", "edit", "reject"]),
+    editedValue: z.union([z.string().min(1), z.array(z.string().min(1))]).optional()
   }).strict()
 ]);
 
