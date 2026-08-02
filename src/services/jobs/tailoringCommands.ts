@@ -6,6 +6,7 @@ import {
   JobRequirementGraphV4Schema,
   ResumeBranchSchema,
   ResumeTailorTaskInputV2Schema,
+  ResumeTailoringDiffSchema,
   ResumeTailoringDiffModelOutputSchema,
   ResumeTailoringDiffTaskInputSchema,
   ResumeTailoringPlanSchema,
@@ -22,7 +23,7 @@ import {
 } from "@/domain/jobOptimization";
 import { stableHashText } from "@/services/security/text";
 import type { WorkspaceRepository } from "@/services/storage/repositories";
-import { answerTailoringClarification, createTailoringPlan } from "./tailoringService";
+import { answerTailoringClarification, createTailoringPlan, createTailoringQuestionPlan } from "./tailoringService";
 
 const OperationIdSchema = z.string().min(8).max(160);
 
@@ -35,6 +36,8 @@ export const TailoringSessionSchema = z.object({
   plan: ResumeTailoringPlanSchema,
   taskInputs: z.array(ResumeTailorTaskInputV2Schema),
   gaps: z.array(TailoringGapSchema),
+  revision: z.number().int().min(1).default(1),
+  generatedDiffRevision: z.number().int().min(0).default(0),
   createdAt: z.string().datetime({ offset: true })
 }).strict();
 
@@ -76,6 +79,14 @@ export const AnswerTailoringQuestionCommandInputSchema = z.object({
   proficiency: z.enum(["proficient", "familiar", "aware", "learning"]).optional()
 }).strict();
 
+export const ReviewTailoringDiffCommandInputSchema = z.object({
+  operationId: OperationIdSchema,
+  session: TailoringSessionSchema,
+  diffId: z.string().min(1),
+  decision: z.enum(["accept", "edit", "reject"]),
+  editedValue: z.union([z.string().min(1), z.array(z.string().min(1))]).optional()
+}).strict();
+
 export const PreviewTailoringChangesCommandInputSchema = z.object({
   operationId: OperationIdSchema,
   session: TailoringSessionSchema,
@@ -115,9 +126,28 @@ export function createTailoringSessionCommand(input: z.input<typeof CreateTailor
     branch: parsed.branch,
     clarificationQuestions: planned.plan.clarificationQuestions
   });
-  const plan = ResumeTailoringPlanSchema.parse({ ...planned.plan, gaps });
+  const sessionId = `tailoring-session-${stableHashText(parsed.operationId)}`;
+  const selectedQuestions = planned.plan.clarificationQuestions ?? [];
+  const questionPlan = createTailoringQuestionPlan({
+    sessionId,
+    questions: selectedQuestions,
+    now: planned.plan.createdAt
+  });
+  const selectedIds = new Set(questionPlan.questionIds);
+  const plan = ResumeTailoringPlanSchema.parse({
+    ...planned.plan,
+    gaps,
+    clarificationQuestions: selectedQuestions
+      .filter((question) => selectedIds.has(question.id))
+      .map((question) => ({
+        ...question,
+        status: question.id === questionPlan.activeQuestionId ? "active" : "pending"
+      })),
+    questionPlan,
+    diffs: []
+  });
   const session = TailoringSessionSchema.parse({
-    id: `tailoring-session-${stableHashText(parsed.operationId)}`,
+    id: sessionId,
     operationId: parsed.operationId,
     profile: parsed.profile,
     branch: parsed.branch,
@@ -125,6 +155,8 @@ export function createTailoringSessionCommand(input: z.input<typeof CreateTailor
     plan,
     taskInputs: planned.taskInputs,
     gaps,
+    revision: 1,
+    generatedDiffRevision: 0,
     createdAt: new Date().toISOString()
   });
   return CreateTailoringSessionCommandOutputSchema.parse({ operationId: parsed.operationId, session });
@@ -134,18 +166,21 @@ export async function generateTailoringDiffsCommand(input: {
   operationId: string;
   session: TailoringSession;
   generate: (request: ResumeTailoringDiffTaskInput, signal?: AbortSignal) => Promise<ResumeTailoringDiffModelOutput>;
+  generateConsolidated?: (requests: ResumeTailoringDiffTaskInput[], signal?: AbortSignal) => Promise<{ diffs: ResumeTailoringDiff[] }>;
   signal?: AbortSignal;
 }) {
   const parsed = GenerateTailoringDiffsCommandInputSchema.parse({ operationId: input.operationId, session: input.session });
   const accepted: ResumeTailoringDiff[] = [];
   const rejected: Array<{ diff: ResumeTailoringDiff; reasonCode: string }> = [];
   const warnings: string[] = [];
+  if (parsed.session.plan.questionPlan?.status === "asking") {
+    throw commandError("tailoring_questions_incomplete");
+  }
   const clarifications = [...(parsed.session.plan.clarificationQuestions ?? [])];
 
-  for (const taskInput of parsed.session.taskInputs) {
-    assertNotCancelled(input.signal);
-    if (!taskInput.target.itemId) continue;
-    const request = ResumeTailoringDiffTaskInputSchema.parse({
+  const requests = prioritizeTailoringTargets(parsed.session.taskInputs).flatMap((taskInput) => {
+    if (!taskInput.target.itemId) return [];
+    return [ResumeTailoringDiffTaskInputSchema.parse({
       ...taskInput,
       target: {
         ...taskInput.target,
@@ -153,17 +188,33 @@ export async function generateTailoringDiffsCommand(input: {
       },
       allowedOperation: "replace",
       requirementDetails: {}
-    });
+    })];
+  });
+
+  if (input.generateConsolidated && requests.length) {
+    let output: { diffs: ResumeTailoringDiff[] } | undefined;
+    try {
+      const generated = await input.generateConsolidated(requests, input.signal);
+      output = { diffs: generated.diffs.map((diff) => ResumeTailoringDiffSchema.parse(diff)) };
+    } catch (error) {
+      const detail = error instanceof Error ? error.message.replace(/\s+/g, " ").slice(0, 160) : "unknown";
+      warnings.push(`invalid_consolidated_ai_output:${detail}`);
+    }
+    const validation = validateEachTailoringDiffLocally({ branch: parsed.session.branch, diffs: output?.diffs ?? [] });
+    accepted.push(...validation.appliedDiffs);
+    rejected.push(...validation.rejectedDiffs);
+    warnings.push(...validation.warnings);
+  } else for (const request of requests) {
+    assertNotCancelled(input.signal);
     let first: ResumeTailoringDiffModelOutput | undefined;
     try {
       first = ResumeTailoringDiffModelOutputSchema.parse(await input.generate(request, input.signal));
     } catch {
-      warnings.push(`invalid_ai_output:${taskInput.target.itemId}`);
+      warnings.push(`invalid_ai_output:${request.target.itemId}`);
     }
     const firstValidation = validateEachTailoringDiffLocally({ branch: parsed.session.branch, diffs: first?.diffs ?? [] });
     accepted.push(...firstValidation.appliedDiffs);
     warnings.push(...firstValidation.warnings);
-    if (first) appendClarifications(clarifications, request, first, parsed.operationId);
 
     if (!first || firstValidation.rejectedDiffs.length || (!first.diffs.length && !first.clarifications.length)) {
       const retryRequest = ResumeTailoringDiffTaskInputSchema.parse({ ...request, retryContext: { previousWasNoOp: true } });
@@ -171,7 +222,7 @@ export async function generateTailoringDiffsCommand(input: {
       try {
         retried = ResumeTailoringDiffModelOutputSchema.parse(await input.generate(retryRequest, input.signal));
       } catch {
-        warnings.push(`invalid_ai_output_after_retry:${taskInput.target.itemId}`);
+        warnings.push(`invalid_ai_output_after_retry:${request.target.itemId}`);
       }
       if (!retried) {
         rejected.push(...firstValidation.rejectedDiffs);
@@ -181,7 +232,6 @@ export async function generateTailoringDiffsCommand(input: {
       accepted.push(...retryValidation.appliedDiffs);
       rejected.push(...retryValidation.rejectedDiffs);
       warnings.push(...retryValidation.warnings);
-      appendClarifications(clarifications, retryRequest, retried, parsed.operationId);
     }
   }
 
@@ -189,11 +239,24 @@ export async function generateTailoringDiffsCommand(input: {
   const plan = ResumeTailoringPlanSchema.parse({
     ...parsed.session.plan,
     diffs: dedupedDiffs,
-    clarificationQuestions: clarifications
+    diffReviews: dedupedDiffs.map((diff) => ({
+      diffId: tailoringDiffId(diff),
+      status: "suggested",
+      updatedAt: new Date().toISOString()
+    })),
+    clarificationQuestions: clarifications,
+    questionPlan: parsed.session.plan.questionPlan
+      ? { ...parsed.session.plan.questionPlan, status: "completed" }
+      : undefined
   });
   return {
     operationId: parsed.operationId,
-    session: TailoringSessionSchema.parse({ ...parsed.session, plan }),
+    session: TailoringSessionSchema.parse({
+      ...parsed.session,
+      plan,
+      revision: parsed.session.revision + 1,
+      generatedDiffRevision: parsed.session.generatedDiffRevision + 1
+    }),
     appliedDiffs: dedupedDiffs,
     rejectedDiffs: rejected,
     warnings: [...new Set(warnings)]
@@ -205,14 +268,76 @@ export function answerTailoringQuestionCommand(input: z.input<typeof AnswerTailo
   const parsed = AnswerTailoringQuestionCommandInputSchema.parse(input);
   const question = parsed.session.plan.clarificationQuestions?.find((item) => item.id === parsed.questionId);
   if (!question) throw commandError("tailoring_question_not_found");
+  const previouslyAnswered = parsed.session.plan.clarificationAnswers?.some((record) => record.questionId === question.id);
+  if (parsed.session.plan.questionPlan?.activeQuestionId !== question.id && !previouslyAnswered) {
+    throw commandError("tailoring_question_not_active");
+  }
   const plan = answerTailoringClarification({
     plan: parsed.session.plan,
     question,
     answer: parsed.answer,
     proficiency: parsed.proficiency,
-    branch: parsed.session.branch
+    branch: parsed.session.branch,
+    operationId: parsed.operationId
   });
-  return { operationId: parsed.operationId, session: TailoringSessionSchema.parse({ ...parsed.session, plan }) };
+  return {
+    operationId: parsed.operationId,
+    session: TailoringSessionSchema.parse({
+      ...parsed.session,
+      plan,
+      revision: plan === parsed.session.plan ? parsed.session.revision : parsed.session.revision + 1
+    })
+  };
+}
+
+function prioritizeTailoringTargets(taskInputs: TailoringSession["taskInputs"]) {
+  const sectionPriority: Record<string, number> = {
+    summary: 0,
+    skills: 1,
+    project: 2,
+    work: 3,
+    internship: 4,
+    ordering: 5
+  };
+  return [...taskInputs]
+    .sort((left, right) => {
+      const sectionDelta = (sectionPriority[left.target.sectionType] ?? 9) - (sectionPriority[right.target.sectionType] ?? 9);
+      if (sectionDelta) return sectionDelta;
+      const relevanceDelta = Math.max(...right.relevantRequirements.map((item) => item.relevanceScore))
+        - Math.max(...left.relevantRequirements.map((item) => item.relevanceScore));
+      return relevanceDelta || String(left.target.itemId).localeCompare(String(right.target.itemId));
+    })
+    .slice(0, 6);
+}
+
+export function reviewTailoringDiffCommand(input: z.input<typeof ReviewTailoringDiffCommandInputSchema>, signal?: AbortSignal) {
+  assertNotCancelled(signal);
+  const parsed = ReviewTailoringDiffCommandInputSchema.parse(input);
+  const diff = parsed.session.plan.diffs?.find((item) => tailoringDiffId(item) === parsed.diffId);
+  if (!diff) throw commandError("tailoring_diff_not_found");
+  if (parsed.decision === "edit" && parsed.editedValue === undefined) throw commandError("tailoring_diff_edit_missing");
+  const before = parsed.session.plan.diffReviews ?? [];
+  const review = {
+    diffId: parsed.diffId,
+    status: parsed.decision === "accept" ? "accepted" as const : parsed.decision === "edit" ? "edited" as const : "rejected" as const,
+    editedValue: parsed.decision === "edit" ? parsed.editedValue : undefined,
+    updatedAt: new Date().toISOString()
+  };
+  const diffReviews = [...before.filter((item) => item.diffId !== parsed.diffId), review];
+  const selectedDiffs = (parsed.session.plan.diffs ?? []).flatMap((item) => {
+    const resolved = diffReviews.find((candidate) => candidate.diffId === tailoringDiffId(item));
+    if (!resolved || resolved.status === "suggested" || resolved.status === "rejected") return [];
+    return [{ ...item, value: resolved.status === "edited" ? resolved.editedValue! : item.value }];
+  });
+  const plan = ResumeTailoringPlanSchema.parse({ ...parsed.session.plan, diffReviews });
+  return {
+    operationId: parsed.operationId,
+    session: TailoringSessionSchema.parse({ ...parsed.session, plan, revision: parsed.session.revision + 1 }),
+    selectedDiffs,
+    selectedDiffIds: diffReviews.filter((item) => item.status === "accepted" || item.status === "edited").map((item) => item.diffId),
+    rejectedDiffIds: diffReviews.filter((item) => item.status === "rejected").map((item) => item.diffId),
+    remainingDiffCount: diffReviews.filter((item) => item.status === "suggested").length
+  };
 }
 
 export function previewTailoringChangesCommand(input: z.input<typeof PreviewTailoringChangesCommandInputSchema>, signal?: AbortSignal) {
@@ -257,30 +382,6 @@ export async function applyTailoringSessionCommand(input: {
   return { operationId: parsed.operationId, ...result };
 }
 
-function appendClarifications(
-  target: NonNullable<TailoringSession["plan"]["clarificationQuestions"]>,
-  request: ResumeTailoringDiffTaskInput,
-  output: ResumeTailoringDiffModelOutput,
-  operationId: string
-) {
-  for (const [index, clarification] of output.clarifications.entries()) {
-    const itemId = request.target.itemId;
-    if (!itemId) continue;
-    const id = `tailoring-question-${stableHashText(`${operationId}:${itemId}:${index}:${clarification.question}`)}`;
-    if (target.some((item) => item.id === id)) continue;
-    target.push({
-      id,
-      question: clarification.question,
-      requirementIds: clarification.requirementIds,
-      sourceItemIds: [itemId],
-      relatedItemIds: [itemId],
-      candidateClaim: clarification.question,
-      targetFieldPaths: [request.target.fieldPath],
-      answerType: clarification.answerType
-    });
-  }
-}
-
 function dedupeDiffs(diffs: ResumeTailoringDiff[]) {
   const seen = new Set<string>();
   return diffs.filter((diff) => {
@@ -289,6 +390,15 @@ function dedupeDiffs(diffs: ResumeTailoringDiff[]) {
     seen.add(key);
     return true;
   });
+}
+
+export function tailoringDiffId(diff: ResumeTailoringDiff) {
+  return `tailoring-diff-${stableHashText(JSON.stringify({
+    target: diff.target,
+    operation: diff.operation,
+    original: diff.original,
+    value: diff.value
+  }))}`;
 }
 
 function assertNotCancelled(signal?: AbortSignal) {

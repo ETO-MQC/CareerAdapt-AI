@@ -39,6 +39,8 @@ export type AgentToolServices = {
   analyzeJobFit(input: unknown, operationId: string, signal?: AbortSignal): Promise<unknown>;
   createTailoringSession(input: unknown, operationId: string, signal?: AbortSignal): Promise<unknown>;
   answerTailoringQuestion(input: unknown, operationId: string, signal?: AbortSignal): Promise<unknown>;
+  generateTailoringChanges?(input: unknown, operationId: string, signal?: AbortSignal): Promise<unknown>;
+  reviewTailoringDiff?(input: unknown, operationId: string, signal?: AbortSignal): Promise<unknown>;
   previewTailoringChanges(input: unknown, operationId: string, signal?: AbortSignal): Promise<unknown>;
   applyTailoringChanges(input: unknown, operationId: string, signal?: AbortSignal): Promise<unknown>;
   archiveResume?(input: unknown, operationId: string, signal?: AbortSignal): Promise<unknown>;
@@ -199,6 +201,17 @@ const TailoringQuestionInputSchema = z.object({
   proficiency: z.enum(["proficient", "familiar", "aware", "learning"]).optional()
 }).strict();
 
+const GenerateTailoringChangesInputSchema = z.object({
+  session: z.unknown()
+}).strict();
+
+const ReviewTailoringDiffInputSchema = z.object({
+  session: z.unknown(),
+  diffId: z.string().min(1),
+  decision: z.enum(["accept", "edit", "reject"]),
+  editedValue: z.union([z.string().min(1), z.array(z.string().min(1))]).optional()
+}).strict();
+
 const TailoringChangesInputSchema = z.object({
   session: z.unknown(),
   selectedDiffs: z.array(z.unknown()),
@@ -281,7 +294,9 @@ export function createAgentToolRegistry(services: AgentToolServices) {
     define(services, meta("commit_job", "确认并保存岗位。", "write", true, true, true, JobCommitInputSchema, "job", "job_detail", true), (input, operationId, signal) => services.commitJob(input, operationId, signal)),
     define(services, meta("analyze_job_fit", "分析简历与岗位的匹配情况。", "read", false, true, true, EntitySelectionSchema, "analysis", "career_assets", true), (input, operationId, signal) => services.analyzeJobFit(input, operationId, signal)),
     define(services, meta("create_tailoring_session", "基于现有简历和岗位创建改写计划。", "read", false, true, true, TailoringSessionInputSchema, "tailoring", "career_assets", true), (input, operationId, signal) => services.createTailoringSession(input, operationId, signal)),
-    define(services, meta("answer_tailoring_question", "记录用户对改写澄清问题的回答。", "user_declared", true, true, true, TailoringQuestionInputSchema, "tailoring", "user_declared_fact"), (input, operationId, signal) => services.answerTailoringQuestion(input, operationId, signal)),
+    define(services, meta("answer_tailoring_question", "记录用户对当前改写澄清问题的回答；只修改当前定制会话。", "user_declared", false, true, true, TailoringQuestionInputSchema, "tailoring", "tailoring_session"), (input, operationId, signal) => services.answerTailoringQuestion(input, operationId, signal)),
+    define(services, meta("generate_tailoring_changes", "汇总已冻结的岗位上下文与全部回答，一次生成最终修改建议。", "read", false, true, true, GenerateTailoringChangesInputSchema, "tailoring", "career_assets", true), (input, operationId, signal) => services.generateTailoringChanges ? services.generateTailoringChanges(input, operationId, signal) : unavailableTool("generate_tailoring_changes")),
+    define(services, meta("review_tailoring_diff", "记录一项定制修改的采用、编辑或忽略决定。", "user_declared", false, true, true, ReviewTailoringDiffInputSchema, "tailoring", "tailoring_session"), (input, operationId, signal) => services.reviewTailoringDiff ? services.reviewTailoringDiff(input, operationId, signal) : unavailableTool("review_tailoring_diff")),
     define(services, meta("preview_tailoring_changes", "校验并预览将要应用的改写差异。", "read", false, true, true, TailoringChangesInputSchema, "tailoring", "resume_preview", true), (input, operationId, signal) => services.previewTailoringChanges(input, operationId, signal)),
     define(services, meta("apply_tailoring_changes", "应用已确认的改写并创建新版本。", "write", true, true, true, TailoringChangesInputSchema, "tailoring", "resume_revision", true), (input, operationId, signal) => services.applyTailoringChanges(input, operationId, signal)),
     define(services, meta("archive_resume", "归档一份当前处于 active 状态的精确简历；不会删除内容。", "write", true, true, true, ResumeLifecycleInputSchema, "resume", "resume_lifecycle"), (input, operationId, signal) => services.archiveResume ? services.archiveResume(input, operationId, signal) : unavailableTool("archive_resume")),
@@ -401,6 +416,6 @@ export const agentToolNames = [
   "capture_profile_intake", "review_profile_intake", "reconcile_profile_intake",
   "resolve_profile_intake_conflict", "commit_profile_intake", "ensure_general_resume_from_profile",
   "commit_resume_import", "parse_job_description", "commit_job", "create_job_resume_from_profile", "analyze_job_fit",
-  "create_tailoring_session", "answer_tailoring_question", "preview_tailoring_changes",
+  "create_tailoring_session", "answer_tailoring_question", "generate_tailoring_changes", "review_tailoring_diff", "preview_tailoring_changes",
   "apply_tailoring_changes", "archive_resume", "restore_resume", "export_resume"
 ] as const;
