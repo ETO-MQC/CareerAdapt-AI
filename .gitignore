@@ -5,6 +5,11 @@ test-results/
 playwright-report/
 dist/
 out/
+release/
+.electron-build/
+.tmp/
+electron/node_modules/
+electron/pnpm-lock.yaml
 *.local
 .env
 .env.example

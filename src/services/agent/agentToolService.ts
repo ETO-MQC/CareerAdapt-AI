@@ -27,6 +27,7 @@ import { analyzeJobFit } from "@/services/jobs/tailoringService";
 import { hashText, stableHashText } from "@/services/security/text";
 import { WorkspaceRepository } from "@/services/storage/repositories";
 import type { AgentToolServices } from "@/agent/tools/registry";
+import { getAgentSessionDisplayTitle } from "@/agent/contracts/agentSession";
 import { canonicalProfileLibraryItems, canonicalProfileSectionCounts } from "@/domain/profile/canonicalLibrary";
 import { agentSkillRegistry } from "@/agent/kernel/AgentSkillRegistry";
 import { recommendSourceRoute } from "@/agent/orchestration/sourceRouteRecommendation";
@@ -698,7 +699,7 @@ export class BrowserAgentToolService implements AgentToolServices {
     if (!session) throw toolError("agent_session_not_found", "Agent session no longer exists.");
     return {
       sessionId: session.id,
-      title: session.title,
+      title: getAgentSessionDisplayTitle(session),
       workflowState: session.workflowState,
       activeProfileId: session.activeProfileId,
       activeResumeId: session.activeResumeId,
@@ -721,7 +722,7 @@ export class BrowserAgentToolService implements AgentToolServices {
         .slice(0, input.limit ?? 8)
         .map((session) => ({
           id: session.id,
-          title: session.title,
+          title: getAgentSessionDisplayTitle(session),
           workflowId: session.workflowState.workflowId,
           step: session.workflowState.step,
           status: session.workflowState.status,

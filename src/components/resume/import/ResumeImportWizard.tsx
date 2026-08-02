@@ -158,6 +158,8 @@ export function ResumeImportWizard(props: {
   );
   const selectionBaselineRef = useRef<ImportedResumeDraft | undefined>(undefined);
   const jsonErrorNotificationIdRef = useRef<string | undefined>(undefined);
+  const activeRouteSelection = routeOverride ?? "auto";
+  const importBusy = ["validating_file", "extracting_pdf", "extracting_docx", "extracting_text", "extracting_ocr", "importing_json", "classifying_sections", "confirming"].includes(status);
 
   useEffect(() => {
     let active = true;
@@ -1160,10 +1162,10 @@ export function ResumeImportWizard(props: {
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
-  async function chooseImportRoute(mode: "text_layer" | "local_ocr" | "manual_review") {
-    setRouteOverride(mode);
+  async function chooseImportRoute(mode: "auto" | "text_layer" | "local_ocr" | "manual_review") {
+    setRouteOverride(mode === "auto" ? undefined : mode);
     const file = lastSelectedFileRef.current;
-    const preferences = { ...documentPreferences, parsingMode: mode };
+    const preferences = { ...documentPreferences, parsingMode: mode === "auto" ? documentPreferences.parsingMode : mode };
     setRoutingDecision(selectDocumentImportRoute({
       sourceKind: file && isDocxFile(file) ? "docx" : "pdf",
       preferences
@@ -1172,8 +1174,17 @@ export function ResumeImportWizard(props: {
       setMessage("路线已选择；请选择文件继续。");
       return;
     }
+    if (mode === "auto") {
+      await beginSelectedImport(file, "auto");
+      return;
+    }
     if (mode === "local_ocr") {
       await startOcrImport(file, { fallbackToText: true });
+      return;
+    }
+    if (semanticPreference === "unset") {
+      setPendingConsentImport({ file, intent: "auto" });
+      setMessage("已选择本地提取路线；请先确认是否允许 AI 整理结构。");
       return;
     }
     await startFileImport(file, { modeOverride: mode });
@@ -1182,7 +1193,7 @@ export function ResumeImportWizard(props: {
   return (
     <section
       className={`resume-import-wizard no-print ${draft ? "resume-import-wizard-review" : ""} ${props.variant === "agent" ? "resume-import-wizard-agent" : ""}`}
-      aria-busy={["validating_file", "extracting_pdf", "extracting_docx", "extracting_text", "extracting_ocr", "importing_json", "classifying_sections", "confirming"].includes(status)}
+      aria-busy={importBusy}
     >
       <p className="visually-hidden" role="status" aria-live="polite">{importStatusLabel(status)}。{message}</p>
       <input ref={fileInputRef} className="visually-hidden" type="file" name="resume-file" aria-label="选择要导入的简历文件" accept={RESUME_IMPORT_ACCEPT} onChange={handleFileChange} />
@@ -1228,9 +1239,9 @@ export function ResumeImportWizard(props: {
                 <summary className="secondary-button compact">路线详情</summary>
                 <div>
                   <p>{routingDecision.reason}</p>
-                  <button type="button" onClick={() => { void chooseImportRoute("text_layer"); }}>PDF.js 文本层</button>
-                  <button type="button" disabled={!documentPreferences.localOcrEnabled} onClick={() => { void chooseImportRoute("local_ocr"); }}>本地 OCR</button>
-                  <button type="button" onClick={() => { void chooseImportRoute("manual_review"); }}>人工核对</button>
+                  <button className={routingDecision.route === "pdfjs" ? "active" : ""} type="button" disabled={importBusy} aria-pressed={routingDecision.route === "pdfjs"} onClick={() => { void chooseImportRoute("text_layer"); }}>PDF.js 文本层</button>
+                  <button className={routingDecision.route === "local_ocr" ? "active" : ""} type="button" disabled={importBusy || !documentPreferences.localOcrEnabled} aria-pressed={routingDecision.route === "local_ocr"} onClick={() => { void chooseImportRoute("local_ocr"); }}>本地 OCR</button>
+                  <button className={routingDecision.route === "manual_review" ? "active" : ""} type="button" disabled={importBusy} aria-pressed={routingDecision.route === "manual_review"} onClick={() => { void chooseImportRoute("manual_review"); }}>人工核对</button>
                 </div>
               </details>
             ) : null}
@@ -1268,11 +1279,11 @@ export function ResumeImportWizard(props: {
             </div>
             <details className="import-recognition-advanced">
               <summary>高级设置</summary>
-              <div>
-                <span className={!routeOverride ? "active" : ""}>自动提取</span>
-                <button type="button" onClick={() => { void chooseImportRoute("text_layer"); }}>PDF.js 文本层</button>
-                <button type="button" disabled={!documentPreferences.localOcrEnabled} onClick={() => { void chooseImportRoute("local_ocr"); }}>本地 OCR</button>
-                <button type="button" onClick={() => { void chooseImportRoute("manual_review"); }}>人工核对</button>
+              <div role="group" aria-label="高级识别路线">
+                <button type="button" className={`route-auto ${activeRouteSelection === "auto" ? "active" : ""}`} aria-pressed={activeRouteSelection === "auto"} disabled={importBusy} onClick={() => { void chooseImportRoute("auto"); }}>自动提取</button>
+                <button type="button" className={`route-text-layer ${activeRouteSelection === "text_layer" ? "active" : ""}`} aria-pressed={activeRouteSelection === "text_layer"} disabled={importBusy} onClick={() => { void chooseImportRoute("text_layer"); }}>PDF.js 文本层</button>
+                <button type="button" className={`route-local-ocr ${activeRouteSelection === "local_ocr" ? "active" : ""}`} aria-pressed={activeRouteSelection === "local_ocr"} disabled={importBusy || !documentPreferences.localOcrEnabled} onClick={() => { void chooseImportRoute("local_ocr"); }}>本地 OCR</button>
+                <button type="button" className={`route-manual-review ${activeRouteSelection === "manual_review" ? "active" : ""}`} aria-pressed={activeRouteSelection === "manual_review"} disabled={importBusy} onClick={() => { void chooseImportRoute("manual_review"); }}>人工核对</button>
               </div>
             </details>
             {pendingConsentImport ? <p className="import-recognition-note" role="status">已读取文件，请选择识别方式继续。</p> : null}

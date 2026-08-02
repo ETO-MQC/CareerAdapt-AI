@@ -21,7 +21,7 @@ import {
   X
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { AgentSession } from "@/agent/contracts/agentSession";
+import { getAgentSessionDisplayTitle, type AgentSession } from "@/agent/contracts/agentSession";
 import { AgentSessionStore } from "@/services/agent/agentSessionStore";
 import { WORKSPACE_MODE_OPTIONS } from "@/services/preferences/workspaceMode";
 import { useWorkspaceMode } from "@/components/layout/WorkspaceModeProvider";
@@ -76,7 +76,7 @@ export function AgentSidebar() {
 
   const startRename = (session: AgentSession) => {
     setRenamingId(session.id);
-    setRenameValue(session.title);
+    setRenameValue(getAgentSessionDisplayTitle(session));
     requestAnimationFrame(() => renameInputRef.current?.select());
   };
 
@@ -189,11 +189,11 @@ export function AgentSidebar() {
                 <button
                   className="agent-recent-session"
                   type="button"
-                  title={session.title}
+                  title={getAgentSessionDisplayTitle(session)}
                   onClick={() => openSession(session.id)}
                 >
                   <span className={`agent-session-dot is-${session.workflowState.status}`} aria-hidden="true" />
-                  <span className="agent-sidebar-label">{session.title}</span>
+                  <span className="agent-sidebar-label">{getAgentSessionDisplayTitle(session)}</span>
                 </button>
                 <div className="agent-session-actions">
                   <button className="agent-session-action-btn" type="button" aria-label="重命名" onClick={(e) => { e.stopPropagation(); startRename(session); }}><Pencil aria-hidden="true" /></button>

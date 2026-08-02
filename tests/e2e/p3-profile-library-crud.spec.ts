@@ -1,6 +1,17 @@
 import { expect, test } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("careeradapt-ai-settings", JSON.stringify({
+      baseUrl: "",
+      apiKey: "mock-key",
+      model: "",
+      provider: "mock"
+    }));
+  });
+});
+
 test("canonical profile categories preserve structured fields, identities, and section types after reload", async ({ page }) => {
   await page.goto("/profile");
   await expect(page.getByLabel("选择人物")).toBeVisible();
@@ -151,6 +162,23 @@ test("exports only the selected person's complete profile library as JSON", asyn
   expect(payload).not.toHaveProperty("resumes");
   expect(payload).not.toHaveProperty("agentSessions");
   await expect(page.getByText(`已导出 ${selectedProfileName} 的完整资料库 JSON。`)).toBeVisible();
+});
+
+test("deletes the current profile from the top bar through the guarded delete flow", async ({ page }) => {
+  await page.goto("/profile");
+  await expect(page.getByLabel("选择人物").locator("option:checked")).toHaveText("同学");
+
+  const deleteButton = page.getByTestId("profile-delete-topbar");
+  await expect(deleteButton).toBeEnabled();
+  await deleteButton.click();
+
+  const dialog = page.getByRole("dialog", { name: "删除当前个人资料？" });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("button", { name: "确认删除" }).click();
+
+  await expect(page.getByText("资料已删除")).toBeVisible();
+  await expect(deleteButton).toBeDisabled();
+  await expect(page.getByRole("heading", { name: "还没有个人资料" })).toBeVisible();
 });
 
 type StoredProfile = {

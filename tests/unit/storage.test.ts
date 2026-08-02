@@ -14,6 +14,7 @@ import type {
 } from "@/domain/schemas";
 import { mapProfileDraftToCareerProfile } from "@/domain/mappers/profileDraftMapper";
 import { mapJobDraftToJobDescription } from "@/domain/mappers/jobDraftMapper";
+import { migrateCareerProfileToV2 } from "@/domain/migrations/resumeV2";
 import { CareerAdaptDb } from "@/services/storage/db";
 import { RevisionConflictError, WorkspaceRepository } from "@/services/storage/repositories";
 import { runRuleFactGuard } from "@/domain/adaptation/factGuard";
@@ -185,6 +186,33 @@ describe("WorkspaceRepository", () => {
     expect(await repository.getProfile(demoCareerProfile.id)).toBeDefined();
   });
 
+  it("renames an untouched legacy demo profile without overwriting a user rename", async () => {
+    db = new CareerAdaptDb(`CareerAdaptDemoProfileMigrationDb-${crypto.randomUUID()}`);
+    const repository = new WorkspaceRepository(db);
+    const baseProfile = migrateCareerProfileToV2(demoCareerProfile);
+    const legacyProfile = {
+      ...baseProfile,
+      name: "陈同学",
+      basics: { ...baseProfile.basics, name: "陈同学" },
+      structuredBasics: { ...baseProfile.structuredBasics, name: "陈同学" }
+    };
+    await repository.saveProfile(legacyProfile);
+    await repository.setMeta("demoSeededAt", TEST_TIME);
+
+    expect(await repository.ensureDemoWorkspace()).toBe(false);
+    expect((await repository.getProfile(demoCareerProfile.id))?.name).toBe("同学");
+
+    const userRenamedProfile = {
+      ...legacyProfile,
+      name: "我的资料",
+      basics: { ...legacyProfile.basics, name: "我的资料" },
+      structuredBasics: { ...legacyProfile.structuredBasics, name: "我的资料" }
+    };
+    await repository.saveProfile(userRenamedProfile);
+    expect(await repository.ensureDemoWorkspace()).toBe(false);
+    expect((await repository.getProfile(demoCareerProfile.id))?.name).toBe("我的资料");
+  });
+
   it("restores profile items and jobs from the unified recycle bin", async () => {
     db = new CareerAdaptDb(`CareerAdaptRecycleDb-${crypto.randomUUID()}`);
     const repository = new WorkspaceRepository(db);
@@ -275,7 +303,7 @@ describe("WorkspaceRepository", () => {
     const profile = await repository.getProfile(demoCareerProfile.id);
     const jobs = await repository.listJobDescriptions();
 
-    expect(profile?.name).toBe("陈同学");
+    expect(profile?.name).toBe("同学");
     expect(jobs).toHaveLength(demoJobDescriptions.length);
 
     await repository.saveProfile({

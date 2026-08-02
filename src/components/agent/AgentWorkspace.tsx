@@ -2,7 +2,12 @@
 
 import { History, Pause, Play, WifiOff } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import type { AgentMessage, AgentMessageReference, AgentSession } from "@/agent/contracts/agentSession";
+import {
+  getAgentSessionDisplayTitle,
+  type AgentMessage,
+  type AgentMessageReference,
+  type AgentSession
+} from "@/agent/contracts/agentSession";
 import type { AgentArtifactAction, AgentUiAction } from "@/agent/contracts/agentActions";
 import { createQuickActionIntent, type AgentQuickActionId } from "@/agent/contracts/agentQuickAction";
 import { AgentRuntime } from "@/agent/runtime/agentRuntime";
@@ -223,7 +228,7 @@ export function AgentWorkspace() {
 
   return (
     <AgentWorkspaceLayout
-      sessionTitle={session.title}
+      sessionTitle={getAgentSessionDisplayTitle(session)}
       status={statusLabel(snapshot.turnStatus)}
       artifactCount={artifacts.length}
       onOpenArtifacts={() => setDrawerState("open")}
@@ -394,6 +399,7 @@ export function AgentWorkspace() {
         </section>
       </ImportReviewDialog>
       <AgentHistoryDialog
+        key={historyOpen ? "open" : "closed"}
         open={historyOpen}
         sessions={sessions}
         onClose={() => setHistoryOpen(false)}

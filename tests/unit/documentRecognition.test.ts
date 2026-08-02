@@ -5,6 +5,10 @@ import {
   migrateDocumentRecognitionPreferences
 } from "@/services/preferences/documentRecognition";
 import { buildDefaultModelDirectoryCandidates } from "@/services/documentRecognition/serverHealth";
+import {
+  DEFAULT_DOCUMENT_RECOGNITION_MODEL_ID,
+  DOCUMENT_RECOGNITION_MODEL_OPTIONS
+} from "@/domain/documentRecognition/modelCatalog";
 
 const damagedQuality = {
   sourceType: "text_pdf" as const,
@@ -86,6 +90,22 @@ describe("document recognition routing", () => {
 });
 
 describe("document recognition settings", () => {
+  it("defaults to the official PaddleOCR model and exposes separate runtime routes", () => {
+    expect(DEFAULT_DOCUMENT_RECOGNITION_MODEL_ID).toBe("official_paddle_bf16");
+    expect(DOCUMENT_RECOGNITION_MODEL_OPTIONS.map((option) => option.id)).toEqual(expect.arrayContaining([
+      "official_paddle_bf16",
+      "hf_int8_safetensors",
+      "hf_int4_openvino",
+      "official_gguf_bf16",
+      "gguf_q4_k_m",
+      "gguf_q5_k_m",
+      "gguf_q6_k",
+      "gguf_q8_0"
+    ]));
+    expect(DOCUMENT_RECOGNITION_MODEL_OPTIONS.find((option) => option.id === "official_paddle_bf16")?.supportsCurrentPaddleSidecar).toBe(true);
+    expect(DOCUMENT_RECOGNITION_MODEL_OPTIONS.find((option) => option.id === "gguf_q4_k_m")?.runtimeLabel).toContain("llama.cpp");
+  });
+
   it("migrates the legacy text_first mode and fills defaults", () => {
     expect(migrateDocumentRecognitionPreferences({
       parsingMode: "text_first",

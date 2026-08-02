@@ -2,7 +2,12 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { AgentRuntime } from "@/agent/runtime/agentRuntime";
-import { AgentSessionSchema, serializeAgentSession } from "@/agent/contracts/agentSession";
+import {
+  AgentSessionSchema,
+  deriveAgentSessionTitle,
+  getAgentSessionDisplayTitle,
+  serializeAgentSession
+} from "@/agent/contracts/agentSession";
 import { AgentPageContextSchema, serializeAgentPageContext } from "@/agent/contracts/agentContext";
 
 describe("agent contracts", () => {
@@ -20,6 +25,19 @@ describe("agent contracts", () => {
       ...session,
       workflowState: { ...session.workflowState, data: { branch: { rawText: "forbidden copy" } } }
     })).toThrow();
+  });
+
+  it("derives a compact title from the first user message while keeping explicit names", () => {
+    const session = AgentRuntime.create("agent_quick_action", "collecting_intent");
+    const firstMessage = {
+      id: "user-1",
+      role: "user" as const,
+      content: "帮我把数据产品经理岗位的简历改得更有针对性一些",
+      createdAt: new Date().toISOString()
+    };
+    expect(deriveAgentSessionTitle(firstMessage.content)).toBe("帮我把数据产品经理岗位的简历改得更有针对性一些");
+    expect(getAgentSessionDisplayTitle({ ...session, messages: [firstMessage] })).toBe(firstMessage.content);
+    expect(getAgentSessionDisplayTitle({ ...session, title: "手动命名", messages: [firstMessage] })).toBe("手动命名");
   });
 
   it("serializes page context without DOM or entity copies", () => {

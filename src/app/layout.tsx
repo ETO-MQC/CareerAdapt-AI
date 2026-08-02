@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { ModeAwareAppShell } from "@/components/layout/ModeAwareAppShell";
 import { WorkspaceModeProvider } from "@/components/layout/WorkspaceModeProvider";
 import { AgentRuntimeProvider } from "@/components/agent/runtime/AgentRuntimeProvider";
+import { SetupGuard } from "@/components/layout/SetupGuard";
 import {
   parseWorkspaceMode,
   WORKSPACE_MODE_COOKIE_KEY
@@ -56,11 +57,13 @@ try {
         <script dangerouslySetInnerHTML={{ __html: themeBootstrap }} />
       </head>
       <body>
-        <WorkspaceModeProvider initialMode={initialMode}>
-          <AgentRuntimeProvider>
-            <ModeAwareAppShell>{children}</ModeAwareAppShell>
-          </AgentRuntimeProvider>
-        </WorkspaceModeProvider>
+        <SetupGuard>
+          <WorkspaceModeProvider initialMode={initialMode}>
+            <AgentRuntimeProvider>
+              <ModeAwareAppShell>{children}</ModeAwareAppShell>
+            </AgentRuntimeProvider>
+          </WorkspaceModeProvider>
+        </SetupGuard>
       </body>
     </html>
   );

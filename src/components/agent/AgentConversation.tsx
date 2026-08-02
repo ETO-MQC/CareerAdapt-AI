@@ -798,6 +798,24 @@ export function normalizeAgentMessageText(input: string) {
   ];
   let text = input.replace(/\r\n/g, "\n");
   for (const pattern of fallbackPatterns) text = text.replace(pattern, "");
+  if (looksLikeInternalAgentPayload(text)) {
+    return "我已完成必要的内部核对，但不会展示内部工具或 JSON。请直接告诉我想处理的求职任务。";
+  }
   text = text.replace(/\n{3,}/g, "\n\n").trim();
   return text || "我已经收到。请继续补充你的真实情况，我会按步骤和你核对。";
+}
+
+function looksLikeInternalAgentPayload(text: string) {
+  const candidate = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+  try {
+    const parsed = JSON.parse(candidate) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return false;
+    const record = parsed as Record<string, unknown>;
+    return typeof record.tool === "string"
+      || typeof record.toolName === "string"
+      || typeof record.tool_name === "string"
+      || (typeof record.input === "object" && record.input !== null && ("tool" in record || "name" in record));
+  } catch {
+    return /(?:^|\n)\s*[\[{]\s*["'](?:tool|toolName|tool_name|function)["']\s*:/i.test(text);
+  }
 }

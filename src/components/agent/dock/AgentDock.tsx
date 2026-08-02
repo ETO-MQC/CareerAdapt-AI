@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Bot, ChevronRight, PanelRightClose, PanelRightOpen } from "lucide-react";
 import { useEffect, useState } from "react";
-import type { AgentSession } from "@/agent/contracts/agentSession";
+import { getAgentSessionDisplayTitle, type AgentSession } from "@/agent/contracts/agentSession";
 import { useAgentPageContext } from "@/components/agent/context/AgentPageContextProvider";
 import { AgentSessionStore } from "@/services/agent/agentSessionStore";
 
@@ -46,7 +46,7 @@ export function AgentDock() {
           {session ? (
             <div className="agent-dock-session">
               <small>当前任务</small>
-              <strong>{session.title}</strong>
+              <strong>{getAgentSessionDisplayTitle(session)}</strong>
               <p>{session.messages.at(-1)?.content ?? "返回 AI 助手继续这项任务。"}</p>
             </div>
           ) : (

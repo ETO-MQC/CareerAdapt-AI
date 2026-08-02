@@ -999,15 +999,24 @@ html[data-theme="dark"] .panel {
   flex-direction: column;
   gap: 12px;
   height: calc(100dvh - var(--header-height));
+  max-height: calc(100dvh - var(--header-height));
   min-height: 0;
-  overflow-y: auto;
+  overflow-x: hidden;
+  overflow-y: scroll;
+  overscroll-behavior-y: contain;
   padding-bottom: 16px;
-  scrollbar-gutter: stable;
+  scrollbar-gutter: stable both-edges;
 }
 
 .jobs-workspace-v2 > * {
   flex: 0 0 auto;
   min-width: 0;
+}
+
+.jobs-workspace-v2 > .selected-job-workspace {
+  flex: 0 0 520px;
+  height: 520px;
+  min-height: 520px;
 }
 
 .jobs-workspace-v2 > .jobs-page-title {
@@ -1515,8 +1524,9 @@ html[data-theme="dark"] .panel {
 
 .selected-job-workspace {
   display: grid;
-  grid-template-rows: auto auto auto;
-  overflow: visible;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  min-height: 0;
+  overflow: hidden;
   padding: 0;
   margin-bottom: 20px;
 }
@@ -1653,6 +1663,8 @@ html[data-theme="dark"] .panel {
 }
 
 .selected-job-content {
+  min-height: 0;
+  overflow: auto;
   overscroll-behavior: contain;
   padding: 0 16px 16px;
 }
@@ -1946,8 +1958,9 @@ html[data-theme="dark"] .panel {
 
 @container (max-width: 640px) {
   .jobs-workspace-v2 {
-    height: auto;
-    overflow: visible;
+    height: calc(100dvh - var(--header-height));
+    max-height: calc(100dvh - var(--header-height));
+    overflow-y: scroll;
   }
 
   .jobs-workspace-v2 > .jobs-page-title,
@@ -6208,6 +6221,12 @@ html[data-theme="dark"] .property-panel-heading p {
   background: var(--surface-subtle);
 }
 
+.import-route-actions > div button.active {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-weight: 700;
+}
+
 .import-route-actions > div button:disabled {
   cursor: not-allowed;
   opacity: 0.55;
@@ -6382,6 +6401,30 @@ html[data-theme="dark"] .property-panel-heading p {
 .import-recognition-advanced span.active {
   border-color: var(--accent);
   color: var(--accent-strong);
+}
+
+.import-recognition-advanced button.route-auto.active {
+  background: color-mix(in srgb, #2563eb 14%, var(--surface));
+  border-color: #2563eb;
+  color: #1d4ed8;
+}
+
+.import-recognition-advanced button.route-text-layer.active {
+  background: color-mix(in srgb, #0f766e 14%, var(--surface));
+  border-color: #0f766e;
+  color: #0f766e;
+}
+
+.import-recognition-advanced button.route-local-ocr.active {
+  background: color-mix(in srgb, #7c3aed 14%, var(--surface));
+  border-color: #7c3aed;
+  color: #6d28d9;
+}
+
+.import-recognition-advanced button.route-manual-review.active {
+  background: color-mix(in srgb, #b45309 14%, var(--surface));
+  border-color: #b45309;
+  color: #92400e;
 }
 
 .import-recognition-note {
@@ -8030,9 +8073,14 @@ html[data-theme="dark"] .property-panel-heading p {
 }
 
 .settings-panel {
+  align-self: stretch;
   width: 100%;
   max-width: 820px;
+  max-height: calc(100dvh - var(--header-height) - 32px);
   min-width: 0;
+  overflow-y: scroll;
+  overscroll-behavior-y: contain;
+  scrollbar-gutter: stable both-edges;
 }
 
 .settings-nav,
@@ -8051,6 +8099,18 @@ html[data-theme="dark"] .property-panel-heading p {
   min-height: 42px;
   padding: 0 12px;
   width: 100%;
+}
+
+.settings-panel .field-help,
+.settings-panel .settings-inline-link {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.settings-panel .settings-inline-link {
+  color: var(--accent-strong);
+  overflow-wrap: anywhere;
 }
 
 .settings-toggle-row {
@@ -8778,6 +8838,11 @@ html[data-theme="dark"] .property-panel-heading p {
   .import-routing-panel:not(.import-recognition-panel) {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .settings-panel {
+    max-height: none;
+    overflow: visible;
   }
 
   .import-recognition-recovery {
@@ -11151,6 +11216,46 @@ html[data-theme="dark"] .inspector-tab-active {
   display: flex;
   justify-content: space-between;
   padding: 14px 16px;
+}
+
+.agent-history-search {
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  display: flex;
+  gap: 8px;
+  padding: 10px 16px;
+}
+
+.agent-history-search svg {
+  flex: 0 0 16px;
+  height: 16px;
+  width: 16px;
+}
+
+.agent-history-search input {
+  background: transparent;
+  border: 0;
+  color: var(--ink);
+  flex: 1 1 auto;
+  font: inherit;
+  min-width: 0;
+  outline: 0;
+  padding: 4px 0;
+}
+
+.agent-history-search input:focus-visible {
+  border-radius: 4px;
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.agent-history-search:focus-within {
+  color: var(--accent);
+}
+
+.agent-history-search input::placeholder {
+  color: var(--muted);
 }
 
 .agent-history-list {

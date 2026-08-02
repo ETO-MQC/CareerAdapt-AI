@@ -35,6 +35,7 @@
 }
 
 .ai-asset-content .product-topbar {
+  height: 52px;
   margin-inline: calc(var(--product-space-6) * -1);
   position: sticky;
   top: 0;
@@ -181,11 +182,50 @@
 }
 
 .product-settings-layout {
+  align-items: flex-start;
   display: grid;
   gap: var(--product-space-6);
   grid-template-columns: 220px minmax(0, 840px);
   margin-inline: auto;
   max-width: 1080px;
+}
+
+.settings-layout.product-settings-layout > .settings-panel,
+.ai-asset-content .settings-panel {
+  align-content: flex-start;
+  align-items: flex-start;
+  align-self: flex-start;
+  display: flex;
+  flex-direction: column;
+  height: fit-content;
+}
+
+.settings-layout.product-settings-layout .settings-section,
+.settings-layout.product-settings-layout .settings-group,
+.ai-asset-content .settings-section,
+.ai-asset-content .settings-group {
+  align-content: flex-start;
+  align-items: flex-start;
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  width: 100%;
+}
+
+.settings-layout.product-settings-layout .settings-section > *,
+.settings-layout.product-settings-layout .settings-group > *,
+.ai-asset-content .settings-section > *,
+.ai-asset-content .settings-group > * {
+  width: 100%;
+}
+
+.settings-layout.product-settings-layout .product-field,
+.ai-asset-content .product-field {
+  align-items: flex-start;
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  width: 100%;
 }
 
 .product-settings-nav {
@@ -257,6 +297,10 @@
 @media (max-width: 760px) {
   .product-settings-layout { grid-template-columns: 1fr; }
   .product-settings-nav { position: static; }
+  .ai-asset-content .settings-panel {
+    max-height: none;
+    overflow: visible;
+  }
 }
 
 @media (max-width: 1100px) {
@@ -381,7 +425,11 @@
 
 .ai-asset-content .jobs-workspace-v2 {
   height: calc(100dvh - 44px - var(--ai-page-padding) * 2);
-  overflow: hidden;
+  max-height: calc(100dvh - 44px - var(--ai-page-padding) * 2);
+  overflow-x: hidden;
+  overflow-y: scroll;
+  overscroll-behavior-y: contain;
+  scrollbar-gutter: stable both-edges;
 }
 
 .ai-asset-content .jobs-overview-grid {
@@ -389,10 +437,27 @@
   min-height: 0;
 }
 
+.ai-asset-content .settings-panel {
+  max-height: calc(100dvh - 44px - var(--ai-page-padding) * 2);
+  overflow-y: scroll;
+  overscroll-behavior-y: contain;
+  scrollbar-gutter: stable both-edges;
+}
+
+.ai-asset-content .jobs-workspace-v2 > .selected-job-workspace {
+  flex: 0 0 520px;
+  height: 520px;
+  min-height: 520px;
+}
+
+.ai-asset-content .selected-job-workspace {
+  grid-template-rows: auto auto minmax(0, 1fr);
+}
+
 .ai-asset-content .job-card-list,
 .ai-asset-content .selected-job-content,
 .ai-asset-content .recycle-section-list {
-  max-height: 100%;
+  max-height: none;
   min-height: 0;
   overflow: auto;
 }

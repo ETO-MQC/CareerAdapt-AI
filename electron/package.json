@@ -1,0 +1,8 @@
+{
+  "name": "careeradapt-ai-electron-shell",
+  "version": "0.9.3-rc.2",
+  "description": "本地优先的智能简历工作台",
+  "author": "CareerAdapt AI",
+  "private": true,
+  "main": "main.js"
+}

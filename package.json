@@ -2,6 +2,7 @@
   "name": "careeradapt-ai",
   "version": "0.9.3-rc.2",
   "private": true,
+  "main": "electron/main.js",
   "packageManager": "pnpm@10.29.2",
   "engines": {
     "node": ">=20.9.0"
@@ -17,7 +18,13 @@
     "test:c1:eval": "vitest run --config vitest.c1-eval.config.ts",
     "test:c2:eval": "vitest run --config vitest.c2-eval.config.ts",
     "test:e2e": "playwright test",
-    "verify": "pnpm typecheck && pnpm lint && pnpm test && pnpm build"
+    "verify": "pnpm typecheck && pnpm lint && pnpm test && pnpm build",
+    "electron:dev": "electron .",
+    "electron:build": "next build && node scripts/prepare-electron-standalone.mjs && electron-builder --projectDir electron --config ../electron-builder.yml --win",
+    "electron:build:dir": "next build && node scripts/prepare-electron-standalone.mjs && electron-builder --projectDir electron --config ../electron-builder.yml --win --dir",
+    "electron:build:mac": "next build && node scripts/prepare-electron-standalone.mjs && electron-builder --projectDir electron --config ../electron-builder.yml --mac",
+    "electron:build:linux": "next build && node scripts/prepare-electron-standalone.mjs && electron-builder --projectDir electron --config ../electron-builder.yml --linux",
+    "electron:build:all": "next build && node scripts/prepare-electron-standalone.mjs && electron-builder --projectDir electron --config ../electron-builder.yml --win --mac --linux"
   },
   "dependencies": {
     "@tiptap/extension-placeholder": "^3.27.3",
@@ -42,6 +49,8 @@
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "autoprefixer": "^10.5.2",
+    "electron": "^43.2.0",
+    "electron-builder": "^26.15.3",
     "eslint": "^9.39.4",
     "eslint-config-next": "^16.2.9",
     "fake-indexeddb": "^6.2.5",

@@ -233,6 +233,32 @@ export type AgentConfirmation = z.infer<typeof AgentConfirmationSchema>;
 export type AgentTurn = z.infer<typeof AgentTurnSchema>;
 export type AgentTaskState = z.infer<typeof AgentTaskStateSchema>;
 
+const AUTO_SESSION_TITLES = new Set(["新的 AI 任务", "AI 求职任务"]);
+
+export function deriveAgentSessionTitle(message: string) {
+  const firstLine = message
+    .replace(/\r\n/g, "\n")
+    .split("\n")[0]
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/^[，。！？!?、；;：:]+|[，。！？!?、；;：:]+$/g, "");
+  if (!firstLine) return "新的 AI 任务";
+  const characters = Array.from(firstLine);
+  return characters.length > 32
+    ? `${characters.slice(0, 32).join("")}…`
+    : firstLine;
+}
+
+export function shouldAutoNameAgentSession(session: Pick<AgentSession, "title">) {
+  return AUTO_SESSION_TITLES.has(session.title);
+}
+
+export function getAgentSessionDisplayTitle(session: Pick<AgentSession, "title" | "messages">) {
+  if (!shouldAutoNameAgentSession(session)) return session.title;
+  const firstUserMessage = session.messages.find((message) => message.role === "user" && message.content.trim());
+  return firstUserMessage ? deriveAgentSessionTitle(firstUserMessage.content) : session.title;
+}
+
 export function serializeAgentSession(value: AgentSession) {
   return AgentSessionSchema.parse(value);
 }

@@ -173,7 +173,7 @@ export class AgentKernel {
 
     try {
       const capabilityAnswer = deterministicCapabilityAnswer(input.userMessage);
-      if (capabilityAnswer && (input.turnIntent === "casual_side_turn" || input.toolScope === "none")) {
+      if (capabilityAnswer && (input.turnIntent === "casual_side_turn" || input.toolScope === "none" || isDirectIdentityQuestion(input.userMessage))) {
         const iterationId = `${turnId}:iteration:1`;
         await publishFinalStream(capabilityAnswer, input, { turnId, iterationId });
         trajectory.finish("completed");
@@ -584,11 +584,12 @@ async function publishFinalStream(
   input: { emit?(event: AgentStreamEvent): void | Promise<void> },
   identity: { turnId: string; iterationId: string }
 ) {
+  const visible = sanitizeVisibleAgentText(text);
   const streamId = `${identity.turnId}:final`;
   await emit(input, { type: "assistant_start", ...identity, streamId });
-  await emit(input, { type: "assistant_delta", delta: text, ...identity, streamId });
-  await emit(input, { type: "done", message: text, ...identity, streamId });
-  return text;
+  await emit(input, { type: "assistant_delta", delta: visible, ...identity, streamId });
+  await emit(input, { type: "done", message: visible, ...identity, streamId });
+  return visible;
 }
 
 async function streamFinal(
@@ -601,18 +602,43 @@ async function streamFinal(
   const streamId = `${identity.turnId}:final`;
   await emit(input, { type: "assistant_start", ...identity, streamId });
   if (!model.streamFinalText) {
-    await emit(input, { type: "assistant_delta", delta: draft, ...identity, streamId });
-    await emit(input, { type: "done", message: draft, ...identity, streamId });
-    return draft;
+    const visibleDraft = sanitizeVisibleAgentText(draft);
+    await emit(input, { type: "assistant_delta", delta: visibleDraft, ...identity, streamId });
+    await emit(input, { type: "done", message: visibleDraft, ...identity, streamId });
+    return visibleDraft;
   }
-  let visible = "";
+  let streamed = "";
   for await (const delta of model.streamFinalText({ ...request, draft, signal: input.signal })) {
-    visible += delta;
-    await emit(input, { type: "assistant_delta", delta, ...identity, streamId });
+    streamed += delta;
   }
-  const final = visible.trim() || draft;
+  const final = sanitizeVisibleAgentText(streamed.trim() || draft);
+  await emit(input, { type: "assistant_delta", delta: final, ...identity, streamId });
   await emit(input, { type: "done", message: final, ...identity, streamId });
   return final;
+}
+
+function sanitizeVisibleAgentText(text: string) {
+  const normalized = text.trim();
+  if (!normalized) return "我已经收到。请继续补充你的真实情况，我会按步骤和你核对。";
+  if (looksLikeInternalAgentPayload(normalized)) {
+    return "我已完成必要的内部核对，但不会展示内部工具或 JSON。请直接告诉我想处理的求职任务。";
+  }
+  return normalized;
+}
+
+function looksLikeInternalAgentPayload(text: string) {
+  const candidate = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+  try {
+    const parsed = JSON.parse(candidate) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return false;
+    const record = parsed as Record<string, unknown>;
+    return typeof record.tool === "string"
+      || typeof record.toolName === "string"
+      || typeof record.tool_name === "string"
+      || (typeof record.input === "object" && record.input !== null && ("tool" in record || "name" in record));
+  } catch {
+    return /(?:^|\n)\s*[\[{]\s*["'](?:tool|toolName|tool_name|function)["']\s*:/i.test(text);
+  }
 }
 
 function toolObservation(call: AgentModelToolCall, result: AgentToolResult): AgentModelMessage {
@@ -1114,6 +1140,9 @@ function resolveReferences(session: AgentSession, references?: AgentMessageRefer
 function deterministicCapabilityAnswer(userMessage: string) {
   const compact = userMessage.trim().replace(/\s+/g, "");
   const manifest = capabilityManifestForPrompt();
+  if (/^(你是谁|你是什么|介绍一下你自己|你是做什么的)[？?!。.]?$/i.test(compact)) {
+    return "我是职适AI里的本地求职助手，不是求职者本人。我可以帮你整理个人资料、分析岗位、匹配和定制简历、管理求职进度；需要读取资料时，我会在内部完成，不会把工具调用或 JSON 展示出来。";
+  }
   if (/^(你好|您好|嗨|hi|hello|hey)[！!。.]?$/i.test(compact)) {
     return "你好！今天想处理哪项求职任务？";
   }
@@ -1129,6 +1158,10 @@ function deterministicCapabilityAnswer(userMessage: string) {
     return "我可以基于当前工作区处理职业资料、简历分析、岗位匹配、岗位简历定制、简历归档恢复与导出。需要资料事实时，我会先读取权威资料；涉及写入或应用变更时，会在确认边界停下来让你核对。";
   }
   return undefined;
+}
+
+function isDirectIdentityQuestion(userMessage: string) {
+  return /^(你是谁|你是什么|介绍一下你自己|你是做什么的)[？?!。.]?$/i.test(userMessage.trim().replace(/\s+/g, ""));
 }
 
 function noProgressFingerprint(input: {

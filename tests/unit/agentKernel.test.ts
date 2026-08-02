@@ -59,6 +59,25 @@ function harness(model: AgentModel, overrides: Partial<AgentToolServices> = {}, 
 }
 
 describe("AgentKernel", () => {
+  it("answers direct identity questions without reading the user's profile or exposing tool protocol", async () => {
+    const model = scriptedModel({ stopReason: "final", text: '{\n  "tool": "get_active_profile",\n  "input": {}\n}' });
+    const getActiveProfile = vi.fn(async () => ({ selected: true, profileId: "profile-1", name: "不应被读取" }));
+    const { kernel } = harness(model, { getActiveProfile });
+    const events: Array<{ type: string; message?: string; delta?: string }> = [];
+
+    const result = await kernel.runTurn({
+      session: AgentRuntime.create("agent_quick_action", "collecting_intent"),
+      pageContext: { pathname: "/ai-workspace", query: {} },
+      userMessage: "你是谁",
+      emit: (event) => { events.push(event); }
+    });
+
+    expect(getActiveProfile).not.toHaveBeenCalled();
+    expect(result.text).toContain("职适AI里的本地求职助手");
+    expect(result.text).not.toContain("get_active_profile");
+    expect(JSON.stringify(events)).not.toContain('"tool"');
+  });
+
   it("resolves cheap tailoring context before showing only the unresolved job question", async () => {
     const getActiveProfile = vi.fn(async () => ({ selected: true, profileId: "profile-1", name: "当前资料库", version: 4 }));
     const listResumes = vi.fn(async () => ({ resumes: [{

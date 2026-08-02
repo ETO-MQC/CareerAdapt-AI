@@ -8,6 +8,7 @@ import type {
   DocumentEngineHealthReport,
   DocumentRecognitionPreferences
 } from "@/domain/schemas";
+import { DOCUMENT_RECOGNITION_MODEL_OPTIONS } from "@/domain/documentRecognition/modelCatalog";
 import { runResumeOcrAdapter } from "@/domain/resumeImport/ocrAdapter";
 import { readDeveloperMode, writeDeveloperMode } from "@/services/preferences/developerMode";
 import {
@@ -55,6 +56,8 @@ export default function SettingsPage() {
   );
   const [engineHealth, setEngineHealth] = useState<DocumentEngineHealthReport>();
   const [healthChecking, setHealthChecking] = useState(false);
+  const [modelDownloading, setModelDownloading] = useState(false);
+  const downloadAbortRef = useRef<AbortController | null>(null);
   const [documentFeedback, setDocumentFeedback] = useState("设置会保存在本机浏览器，不保存简历正文、OCR 输出或模型日志。");
   const repositoryRef = useRef(new WorkspaceRepository());
   const [orphanedCounts, setOrphanedCounts] = useState<{ drafts: number; rawInputs: number; pdfSessions: number; orphanedDraftIds: string[]; orphanedRawInputIds: string[]; orphanedPdfSessionIds: string[] } | null>(null);
@@ -151,6 +154,53 @@ export default function SettingsPage() {
     setDocumentFeedback(result.ok
       ? `测试完成：识别 ${result.pageCount} 页。结果仅用于本次测试，未保存。`
       : `${result.message} 未保存 OCR 输出。`);
+  }
+
+  async function downloadLocalOcrModel() {
+    if (modelDownloading) return;
+    const selectedModel = DOCUMENT_RECOGNITION_MODEL_OPTIONS.find((option) => option.id === documentPreferences.modelId) ?? DOCUMENT_RECOGNITION_MODEL_OPTIONS[0];
+    const controller = new AbortController();
+    downloadAbortRef.current = controller;
+    setModelDownloading(true);
+    setDocumentFeedback(`正在从 ${selectedModel.sourceLabel} 下载 ${selectedModel.label}（${selectedModel.sizeLabel}）；可以随时取消…`);
+    try {
+      const response = await fetch("/api/document-engines/download", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ modelId: selectedModel.id }),
+        signal: controller.signal
+      });
+      const payload = await response.json().catch(() => undefined) as {
+        ok?: boolean;
+        modelDirectory?: string;
+        message?: string;
+      } | undefined;
+      if (!response.ok || !payload?.ok || !payload.modelDirectory) {
+        throw new Error(payload?.message || "模型下载未完成。");
+      }
+      if (selectedModel.supportsCurrentPaddleSidecar) {
+        updateDocumentPreferences({ modelDirectory: payload.modelDirectory });
+        setEngineHealth(undefined);
+        setDocumentFeedback(`${payload.message || "模型已准备好。"} 接下来请检测本地 PaddleOCR 环境。`);
+      } else {
+        setDocumentFeedback(`${payload.message || "模型已准备好。"} 当前下载目录已隔离保存；使用前请配置 ${selectedModel.runtimeLabel}，它不会替换当前 PaddleOCR sidecar。`);
+      }
+    } catch (error) {
+      if (controller.signal.aborted) {
+        setDocumentFeedback("模型下载已取消；已完成文件会保留，未完成文件将在下次重试时覆盖。");
+      } else {
+        setDocumentFeedback(error instanceof Error ? error.message : "模型下载未完成，请稍后重试。");
+      }
+    } finally {
+      if (downloadAbortRef.current === controller) downloadAbortRef.current = null;
+      setModelDownloading(false);
+    }
+  }
+
+  function cancelLocalOcrModelDownload() {
+    if (!downloadAbortRef.current) return;
+    setDocumentFeedback("正在取消模型下载…");
+    downloadAbortRef.current.abort();
   }
 
   return (
@@ -262,6 +312,24 @@ export default function SettingsPage() {
                     onChange={(event) => updateDocumentPreferences({ localOcrEnabled: event.target.checked })}
                   />
                 </label>
+                <label className="field-label">
+                  模型下载来源
+                  <select
+                    name="document-recognition-model"
+                    value={documentPreferences.modelId}
+                    disabled={modelDownloading}
+                    onChange={(event) => updateDocumentPreferences({ modelId: event.target.value as DocumentRecognitionPreferences["modelId"] })}
+                  >
+                    {DOCUMENT_RECOGNITION_MODEL_OPTIONS.map((option) => (
+                      <option key={option.id} value={option.id}>{option.label} · {option.sizeLabel}</option>
+                    ))}
+                  </select>
+                  <small className="field-help">{DOCUMENT_RECOGNITION_MODEL_OPTIONS.find((option) => option.id === documentPreferences.modelId)?.description}</small>
+                  {(() => {
+                    const selectedModel = DOCUMENT_RECOGNITION_MODEL_OPTIONS.find((option) => option.id === documentPreferences.modelId) ?? DOCUMENT_RECOGNITION_MODEL_OPTIONS[0];
+                    return <a className="settings-inline-link" href={selectedModel.sourceUrl} target="_blank" rel="noreferrer">查看模型仓库：{selectedModel.repository}</a>;
+                  })()}
+                </label>
                 <dl className="document-engine-facts">
                   <div><dt>引擎</dt><dd>PaddleOCR-VL-1.6</dd></div>
                   <div><dt>Python 环境</dt><dd><HealthText health={engineHealth?.python} /></dd></div>
@@ -297,6 +365,15 @@ export default function SettingsPage() {
                   <button className="button button-primary" type="button" disabled={healthChecking} onClick={() => { void checkDocumentEngines(); }}>
                     {healthChecking ? "检测中…" : "检测模型"}
                   </button>
+                  {modelDownloading ? (
+                    <button className="button button-secondary" type="button" onClick={cancelLocalOcrModelDownload}>
+                      取消下载
+                    </button>
+                  ) : (
+                    <button className="button button-secondary" type="button" onClick={() => { void downloadLocalOcrModel(); }}>
+                      下载 OCR 模型
+                    </button>
+                  )}
                   <button className="button button-secondary" type="button" onClick={() => ocrTestInputRef.current?.click()}>
                     测试识别
                   </button>
@@ -314,7 +391,7 @@ export default function SettingsPage() {
                 />
                 <details className="settings-help-details">
                   <summary>打开配置说明</summary>
-                  <p>在仓库外准备 Python 3、PaddleOCR/PaddlePaddle 与 PaddleOCR-VL-1.6 模型目录；通过本机环境变量启动 sidecar，并让 Next.js 仅连接 localhost endpoint。不要提交模型、真实路径或 token。</p>
+                  <p>“下载 OCR 模型”会把选中的 Hugging Face 权重保存到本机用户数据目录，不会写入项目或安装目录。官方 BF16 模型可接入当前 PaddleOCR/PaddlePaddle localhost sidecar；OpenVINO INT4、Transformers INT8 和 GGUF 是独立运行时路线，其中 GGUF 使用 llama.cpp，可在 CPU 运行并按需 GPU offload。Python、PaddlePaddle、OpenVINO、llama.cpp 及 GPU/CUDA 驱动不能由应用安全地替用户自动安装，缺失时应先使用匹配设备的官方运行时安装方式。不要提交模型、真实路径或 token。</p>
                 </details>
               </section>
 

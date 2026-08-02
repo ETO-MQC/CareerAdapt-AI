@@ -1,7 +1,13 @@
 "use client";
 
 import type { AgentArtifactRef } from "@/agent/contracts/agentArtifact";
-import type { AgentMessageReference, AgentSession, AgentTaskState } from "@/agent/contracts/agentSession";
+import {
+  deriveAgentSessionTitle,
+  shouldAutoNameAgentSession,
+  type AgentMessageReference,
+  type AgentSession,
+  type AgentTaskState
+} from "@/agent/contracts/agentSession";
 import type { AgentPageContext } from "@/agent/contracts/agentContext";
 import type { AgentStreamEvent } from "@/agent/runtime/agentSse";
 import type { AgentKernel } from "@/agent/kernel/AgentKernel";
@@ -375,6 +381,15 @@ export class AgentHostStore {
           status: "complete",
           references: input.references?.length ? input.references : undefined
         });
+    if (shouldAutoNameAgentSession(current)) {
+      const firstUserMessage = current.messages.find((message) => message.role === "user" && message.content.trim());
+      if (firstUserMessage) {
+        current = {
+          ...current,
+          title: deriveAgentSessionTitle(firstUserMessage.content)
+        };
+      }
+    }
     current = input.assistantMessageId
       ? replaceMessageWithThinking(current, input.assistantMessageId, userMessageId, turnId, now)
       : appendAgentMessage(current, "assistant", "正在规划下一步", {

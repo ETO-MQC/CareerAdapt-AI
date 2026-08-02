@@ -1672,6 +1672,14 @@ export function ProfileWorkspace() {
             >
               {importWorkspaceOpen ? "返回资料库" : "导入资料"}
             </ProductButton>
+            <ProductButton
+              variant="danger"
+              data-testid="profile-delete-topbar"
+              disabled={!profile || profileDeleting}
+              onClick={() => { void requestCurrentProfileDelete(); }}
+            >
+              删除个人资料
+            </ProductButton>
           </>
         )}
       />

@@ -245,6 +245,18 @@ pnpm dev
 
 打开 `http://localhost:3000` 即可使用。
 
+### 打包 Windows EXE
+
+```bash
+# 生成 Windows x64 安装包
+pnpm electron:build
+
+# 仅生成免安装目录，用于本地验收
+pnpm electron:build:dir
+```
+
+安装包和免安装目录会输出到 `release/`。正式分发建议使用固定 `appId` 的 NSIS 安装包；以后用新版本安装包覆盖安装即可更新程序，用户资料保留在 Electron 用户数据目录中。开发时可用 `pnpm electron:dev` 启动桌面窗口；桌面版会在本机 `127.0.0.1:3000` 启动 Next 服务，因此请确保该端口未被其他程序占用。EXE 不会携带 `.env.local`，AI 配置仍应在应用设置中填写，或按项目安全规范单独配置。
+
 ### 配置 AI Provider
 
 在项目根目录创建 `.env.local` 文件：
@@ -264,6 +276,8 @@ PADDLEOCR_VL_DEVICE=gpu
 ```
 
 > ⚠️ 不要把 API Key 写入前端代码或提交到仓库。AI Provider 不可用时，系统会保留原始证据并降级为人工核对。
+
+设置 → 文档识别中可点击“下载 OCR 模型”，模型会保存到本机用户数据目录；随后“检测模型”会分别检查模型、Python 和 localhost sidecar。Electron 桌面版在检测到默认模型目录和本地 Python 运行时后会自动启动 sidecar。PaddlePaddle/CUDA 驱动属于设备运行环境，仍需按本机 CPU/GPU 组合安装，应用不会静默替换驱动。
 
 ---
 

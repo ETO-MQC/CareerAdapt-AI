@@ -2,6 +2,7 @@ import {
   DocumentRecognitionPreferencesSchema,
   type DocumentRecognitionPreferences
 } from "@/domain/schemas";
+import { DEFAULT_DOCUMENT_RECOGNITION_MODEL_ID } from "@/domain/documentRecognition/modelCatalog";
 
 export const documentRecognitionStorageKey = "careeradapt.documentRecognition";
 
@@ -10,6 +11,7 @@ export const DEFAULT_DOCUMENT_RECOGNITION_PREFERENCES: DocumentRecognitionPrefer
   parsingMode: "auto",
   localOcrEnabled: true,
   modelDirectory: "",
+  modelId: DEFAULT_DOCUMENT_RECOGNITION_MODEL_ID,
   openDataLoaderExperimental: false,
   allowManualRouteSelection: true
 };
@@ -51,6 +53,18 @@ export function migrateDocumentRecognitionPreferences(value: unknown): DocumentR
       ? legacy.localOcrEnabled
       : DEFAULT_DOCUMENT_RECOGNITION_PREFERENCES.localOcrEnabled,
     modelDirectory: typeof legacy.modelDirectory === "string" ? legacy.modelDirectory : "",
+    modelId: typeof legacy.modelId === "string" && [
+      "official_paddle_bf16",
+      "hf_int8_safetensors",
+      "hf_int4_openvino",
+      "official_gguf_bf16",
+      "gguf_q4_k_m",
+      "gguf_q5_k_m",
+      "gguf_q6_k",
+      "gguf_q8_0"
+    ].includes(legacy.modelId)
+      ? legacy.modelId
+      : DEFAULT_DOCUMENT_RECOGNITION_MODEL_ID,
     openDataLoaderExperimental: legacy.openDataLoaderExperimental === true,
     allowManualRouteSelection: typeof legacy.allowManualRouteSelection === "boolean"
       ? legacy.allowManualRouteSelection

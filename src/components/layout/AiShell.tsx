@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ArrowLeft, CircleDot } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import type { AgentSession } from "@/agent/contracts/agentSession";
+import { getAgentSessionDisplayTitle, type AgentSession } from "@/agent/contracts/agentSession";
 import { useAgentPageContext } from "@/components/agent/context/AgentPageContextProvider";
 import { AgentSidebar } from "@/components/agent/shell/AgentSidebar";
 import { AgentSessionStore } from "@/services/agent/agentSessionStore";
@@ -62,7 +62,7 @@ export function AiShell({ children }: { children: React.ReactNode }) {
           <div className="ai-context-bar" role="status">
             <div>
               <span>正在处理</span>
-              <strong>{session?.title ?? "浏览求职资产"}</strong>
+              <strong>{session ? getAgentSessionDisplayTitle(session) : "浏览求职资产"}</strong>
             </div>
             <span className="ai-context-status"><CircleDot aria-hidden="true" /> {statusLabel(session?.workflowState.status)}</span>
             <Link

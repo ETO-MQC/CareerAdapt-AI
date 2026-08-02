@@ -38,9 +38,9 @@ function demoFact(
 
 export const demoCareerProfile: CareerProfile = CareerProfileSchema.parse({
   id: "profile-demo-student",
-  name: "陈同学",
+  name: "同学",
   basics: {
-    name: "陈同学",
+    name: "同学",
     phone: "138****0000",
     email: "demo.student@example.com",
     location: "杭州",

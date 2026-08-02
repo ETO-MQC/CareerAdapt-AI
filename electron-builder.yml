@@ -1,0 +1,74 @@
+appId: com.careeradapt.ai
+productName: 职适AI
+artifactName: CareerAdaptAI-Setup-${version}.${ext}
+electronVersion: 43.2.0
+directories:
+  output: ../release
+  buildResources: ../build
+
+files:
+  - "**/*"
+
+extraResources:
+  - from: "../.electron-build/standalone"
+    to: "next-standalone"
+    filter:
+      - "**/*"
+      - "!node_modules/**"
+      - "!**/cache/**"
+      - "!**/*.map"
+  # electron-builder applies its default exclusions to a directory named
+  # node_modules. Add the standalone runtime dependencies as a separate
+  # resource set so server.js can resolve Next after installation.
+  - from: "../.electron-build/standalone/node_modules"
+    to: "next-standalone/node_modules"
+    filter:
+      - "**/*"
+      - "!**/cache/**"
+      - "!**/*.map"
+  - from: "../.next/static"
+    to: "next-standalone/.next/static"
+    filter:
+      - "**/*"
+      - "!**/*.map"
+  - from: "../public"
+    to: "next-standalone/public"
+    filter:
+      - "**/*"
+      - "!**/*.map"
+  - from: "../scripts/paddleocr_vl_sidecar.py"
+    to: "scripts/paddleocr_vl_sidecar.py"
+
+asar: true
+asarUnpack:
+  - "**/*.node"
+
+win:
+  signAndEditExecutable: false
+  signExecutable: false
+  target:
+    - target: nsis
+      arch:
+        - x64
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  deleteAppDataOnUninstall: false
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: 职适AI
+
+mac:
+  target:
+    - target: dmg
+      arch:
+        - x64
+        - arm64
+
+linux:
+  target:
+    - target: AppImage
+      arch:
+        - x64

@@ -146,6 +146,7 @@ import { CareerAdaptDb, careerAdaptDb, type AppMeta } from "./db";
 
 const RECYCLE_BIN_META_KEY = "workspaceRecycleBin:v1";
 const ACTIVE_PROFILE_META_KEY = "activeProfileContext:v1";
+const LEGACY_DEMO_PROFILE_NAME = "陈同学";
 const PROFILE_RECONCILIATION_META_KEY_PREFIX = "profileReconciliation:v1:";
 const PROFILE_INTAKE_OPERATION_META_KEY_PREFIX = "profileIntakeOperation:v1:";
 const EMPTY_RECYCLE_BIN: RecycleBinState = { version: 1, jobIds: [], profileItems: [] };
@@ -585,6 +586,21 @@ export class WorkspaceRepository {
     if (!seededAt) {
       await this.seedDemoWorkspace();
       return true;
+    }
+
+    // Upgrade only the untouched demo identity. A user-renamed profile must
+    // remain exactly as the user saved it.
+    const demoProfile = await this.getProfile(demoCareerProfile.id);
+    if (demoProfile?.name === LEGACY_DEMO_PROFILE_NAME && demoProfile.basics.name === LEGACY_DEMO_PROFILE_NAME) {
+      const now = new Date().toISOString();
+      await this.saveProfile({
+        ...demoProfile,
+        name: demoCareerProfile.name,
+        basics: { ...demoProfile.basics, name: demoCareerProfile.name },
+        structuredBasics: { ...demoProfile.structuredBasics, name: demoCareerProfile.name },
+        version: demoProfile.version + 1,
+        updatedAt: now
+      });
     }
 
     return false;

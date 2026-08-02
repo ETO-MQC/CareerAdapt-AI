@@ -5,6 +5,17 @@ const digitalPdf = path.resolve("tests/fixtures/pdf/single-page-en.pdf");
 const scannedPdf = path.resolve("tests/fixtures/pdf/empty-page.pdf");
 
 test.describe("P3.7 document recognition settings and routing", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem("careeradapt-ai-settings", JSON.stringify({
+        baseUrl: "http://mock.local/v1",
+        apiKey: "test-key",
+        model: "mock-model",
+        provider: "openai-compatible"
+      }));
+    });
+  });
+
   test("changes parsing mode, checks engines, and keeps settings after reload", async ({ page }) => {
     await page.route("**/api/document-engines/health", async (route) => {
       await route.fulfill({
@@ -27,6 +38,44 @@ test.describe("P3.7 document recognition settings and routing", () => {
     await page.getByRole("button", { name: /文档识别/ }).click();
     await expect(page.getByLabel("默认路线")).toHaveValue("local_ocr");
     await expect(page.getByLabel("模型目录")).toHaveValue("D:\\Models\\PaddleOCR-VL-1.6");
+  });
+
+  test("keeps the selected advanced recognition route", async ({ page }) => {
+    await setDocumentPreferences(page, { parsingMode: "auto", allowManualRouteSelection: true });
+    await page.goto("/resume");
+    await page.getByRole("button", { name: "导入", exact: true }).click();
+    const advanced = page.locator("details.import-recognition-advanced");
+    await advanced.locator("summary").click();
+    const manual = advanced.getByRole("button", { name: "人工核对" });
+    const automatic = advanced.getByRole("button", { name: "自动提取" });
+    await expect(automatic).toHaveAttribute("aria-pressed", "true");
+    await manual.click();
+    await expect(manual).toHaveAttribute("aria-pressed", "true");
+    await expect(manual).toHaveClass(/active/);
+    await expect(automatic).toHaveAttribute("aria-pressed", "false");
+    await automatic.click();
+    await expect(automatic).toHaveAttribute("aria-pressed", "true");
+  });
+
+  test("saves the downloaded OCR model directory", async ({ page }) => {
+    await page.route("**/api/document-engines/download", async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          ok: true,
+          modelDirectory: "C:\\Users\\Example\\AppData\\Roaming\\CareerAdapt AI\\ocr\\PaddleOCR-VL-1.6",
+          downloadedFiles: 16,
+          skippedFiles: 0,
+          totalBytes: 1_917_255_968,
+          message: "模型已下载。"
+        })
+      });
+    });
+    await page.goto("/settings");
+    await page.getByRole("button", { name: /文档识别/ }).click();
+    await page.getByRole("button", { name: "下载 OCR 模型" }).click();
+    await expect(page.getByText("模型已下载。 接下来请检测本地环境。")).toBeVisible();
+    await expect(page.getByLabel("模型目录")).toHaveValue(/PaddleOCR-VL-1\.6/);
   });
 
   test("shows PDF.js route for a digital PDF", async ({ page }) => {
