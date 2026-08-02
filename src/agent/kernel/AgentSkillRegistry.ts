@@ -34,7 +34,7 @@ const skills: AgentSkill[] = [
   skill("resume-from-profile", "从资料库生成简历", "从 CareerProfile 选择真实事实并生成岗位或通用简历计划。", ["生成简历", "组装简历", "资料库"], ["build_resume_from_profile"], ["get_active_profile", "get_profile", "search_profile_facts", "get_job", "list_resumes"], [
     "读取目标资料与用途。", "筛选有证据的相关事实。", "形成章节与叙事计划。", "预览并确认后才创建版本。"
   ]),
-  skill("resume-tailoring", "岗位简历定制", "在分支隔离和 Fact Guard 下定制现有简历。", ["定制", "改简历", "岗位简历"], ["tailor_existing_resume"], ["get_resume", "get_job", "analyze_job_fit", "create_tailoring_session", "answer_tailoring_question", "preview_tailoring_changes", "apply_tailoring_changes"], [
+  skill("resume-tailoring", "岗位简历定制", "在分支隔离和 Fact Guard 下定制现有简历。", ["定制", "改简历", "岗位简历"], ["tailor_existing_resume"], ["get_resume", "get_job", "analyze_job_fit", "create_tailoring_session", "answer_tailoring_question", "generate_tailoring_changes", "review_tailoring_diff", "preview_tailoring_changes", "apply_tailoring_changes"], [
     "读取所选简历。", "读取目标岗位。", "分析匹配。", "识别有支持的证据。", "询问缺失且可由用户确认的信息。", "创建改写计划。", "预览差异。", "请求用户确认。", "应用新 Revision。", "运行质量检查。"
   ], {
     "quality-checklist.md": "核对事实证据、岗位相关性、未确认声明、Revision 目标、分支隔离和导出前阻塞项。"

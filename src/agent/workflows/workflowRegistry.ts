@@ -99,7 +99,7 @@ export const agentWorkflowRegistry: Record<string, AgentWorkflowDefinition> = {
     select_facts: ["open_profile_browser"],
     review_resume_plan: ["open_artifact"]
   }, ["profileId", "selectedFactIds"]),
-  tailor_existing_resume: workflow("tailor_existing_resume", "choose_resume_source", ["select_resume", "choose_resume_source", "choose_job", "collect_job", "analyze_job", "review_job", "analyze_fit", "generate_plan", "answer_questions", "clarify_unsupported_facts", "preview_changes", "confirm_apply", "quality_result", "completed"], {
+  tailor_existing_resume: workflow("tailor_existing_resume", "choose_resume_source", ["select_resume", "choose_resume_source", "choose_job", "collect_job", "analyze_job", "review_job", "analyze_fit", "generate_plan", "answer_questions", "clarify_unsupported_facts", "generate_changes", "preview_changes", "confirm_apply", "quality_result", "completed"], {
     select_resume: [...profileReadTools, ...resumeReadTools, ...jobReadTools],
     choose_resume_source: [...profileReadTools, ...resumeReadTools, ...jobReadTools, "recommend_resume_source"],
     choose_job: ["list_jobs"],
@@ -110,7 +110,8 @@ export const agentWorkflowRegistry: Record<string, AgentWorkflowDefinition> = {
     generate_plan: [...profileReadTools, ...resumeReadTools, ...jobReadTools, "create_tailoring_session"],
     answer_questions: ["answer_tailoring_question"],
     clarify_unsupported_facts: ["answer_tailoring_question"],
-    preview_changes: [...profileReadTools, ...resumeReadTools, ...jobReadTools, "preview_tailoring_changes"],
+    generate_changes: ["generate_tailoring_changes"],
+    preview_changes: [...profileReadTools, ...resumeReadTools, ...jobReadTools, "review_tailoring_diff", "preview_tailoring_changes"],
     confirm_apply: ["apply_tailoring_changes"],
     quality_result: [...resumeReadTools]
   }, {

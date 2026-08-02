@@ -65,7 +65,9 @@ function confirmationTitle(toolName: string) {
     commit_resume_import: "确认写入简历与资料库",
     commit_profile_intake: "确认写入个人资料库",
     commit_job: "确认保存岗位",
-    answer_tailoring_question: "确认使用你补充的能力信息",
+    answer_tailoring_question: "记录当前问题的回答",
+    generate_tailoring_changes: "生成总体优化方案",
+    review_tailoring_diff: "记录修改核对结果",
     apply_tailoring_changes: "确认应用简历修改",
     archive_resume: "确认归档简历",
     restore_resume: "确认恢复简历"

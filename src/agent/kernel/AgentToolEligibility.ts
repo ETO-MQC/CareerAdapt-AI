@@ -74,9 +74,15 @@ function safeAutonomousJump(toolName: string, state: AgentTaskState) {
       && state.stage === "create_profile_resume";
   }
   if (toolName === "answer_tailoring_question") {
-    return state.stage === "clarify_unsupported_facts" && Boolean(state.knownSlots.tailoringSession);
+    return state.stage === "clarify_unsupported_facts"
+      && Boolean(state.knownSlots.tailoringSession)
+      && Boolean(state.knownSlots.activeQuestionId);
+  }
+  if (toolName === "generate_tailoring_changes") {
+    return state.stage === "generate_changes" && Boolean(state.knownSlots.tailoringSession);
   }
   if (toolName === "preview_tailoring_changes") return state.stage === "preview_changes";
+  if (toolName === "review_tailoring_diff") return state.stage === "preview_changes";
   if (toolName === "apply_tailoring_changes") return state.stage === "confirm_apply";
   return false;
 }
@@ -131,7 +137,19 @@ function preconditions(toolName: string, state: AgentTaskState) {
   if (toolName === "preview_tailoring_changes") {
     return state.stage === "preview_changes"
       && Boolean(state.knownSlots.tailoringSession)
-      && Array.isArray(state.knownSlots.selectedDiffs);
+      && Array.isArray(state.knownSlots.selectedDiffs)
+      && state.knownSlots.remainingDiffCount === 0;
+  }
+  if (toolName === "review_tailoring_diff") {
+    return state.stage === "preview_changes" && Boolean(state.knownSlots.tailoringSession);
+  }
+  if (toolName === "generate_tailoring_changes") {
+    return state.stage === "generate_changes" && Boolean(state.knownSlots.tailoringSession);
+  }
+  if (toolName === "answer_tailoring_question") {
+    return state.stage === "clarify_unsupported_facts"
+      && Boolean(state.knownSlots.tailoringSession)
+      && Boolean(state.knownSlots.activeQuestionId);
   }
   if (["archive_resume", "restore_resume"].includes(toolName)) {
     return Boolean(state.selectedEntities.resumeId);

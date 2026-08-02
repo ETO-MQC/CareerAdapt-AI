@@ -38,7 +38,7 @@ const CAPABILITIES: Record<AgentIntentClass, string[]> = {
   tailoring: [
     "list_resumes", "get_resume", "get_resume_revision", "list_jobs", "get_job", "list_profiles", "get_active_profile",
     "get_profile", "search_profile_facts", "recommend_resume_source", "create_job_resume_from_profile", "analyze_job_fit", "create_tailoring_session",
-    "answer_tailoring_question", "preview_tailoring_changes", "apply_tailoring_changes"
+    "answer_tailoring_question", "generate_tailoring_changes", "review_tailoring_diff", "preview_tailoring_changes", "apply_tailoring_changes"
   ],
   export: ["get_resume", "get_resume_revision", "export_resume"],
   session_memory: ["get_agent_task_context", "search_agent_sessions"],
@@ -93,7 +93,7 @@ export class AgentCapabilityBroker {
     userMessage: string;
     workflowToolNames: string[];
   }) {
-    if (["choose_resume_source", "create_profile_resume", "analyze_fit", "generate_plan", "clarify_unsupported_facts", "preview_changes", "confirm_apply", "quality_result"].includes(input.session.taskState?.stage ?? "")) {
+    if (["choose_resume_source", "create_profile_resume", "analyze_fit", "generate_plan", "clarify_unsupported_facts", "generate_changes", "preview_changes", "confirm_apply", "quality_result"].includes(input.session.taskState?.stage ?? "")) {
       return CAPABILITIES.tailoring;
     }
     const intent = this.route(

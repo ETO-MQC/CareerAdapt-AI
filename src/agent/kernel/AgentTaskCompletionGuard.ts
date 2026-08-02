@@ -175,7 +175,8 @@ function legalToolsFor(stage: string) {
     analyze_fit: ["analyze_job_fit"],
     generate_plan: ["create_tailoring_session"],
     clarify_unsupported_facts: ["answer_tailoring_question"],
-    preview_changes: ["preview_tailoring_changes"],
+    generate_changes: ["generate_tailoring_changes"],
+    preview_changes: ["review_tailoring_diff", "preview_tailoring_changes"],
     confirm_apply: ["apply_tailoring_changes"],
     apply: ["apply_tailoring_changes"]
   };

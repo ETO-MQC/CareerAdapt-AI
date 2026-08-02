@@ -2046,7 +2046,7 @@ function artifactDescriptor(toolName: string): {
   if (toolName === "analyze_job_fit") {
     return { kind: "job_fit_overview", title: "岗位匹配分析", entityType: "job" };
   }
-  if (toolName === "create_tailoring_session" || toolName === "preview_tailoring_changes") {
+  if (toolName === "create_tailoring_session" || toolName === "generate_tailoring_changes" || toolName === "preview_tailoring_changes") {
     return { kind: "tailoring_diff", title: "简历定制修改预览", entityType: "tailoring_session" };
   }
   if (toolName === "apply_tailoring_changes") {
@@ -2064,13 +2064,19 @@ function artifactActionRevision(
     ? state.knownSlots.expectedIntakeDraftRevision
     : action.type === "resume_import_review_decision"
       ? state.knownSlots.expectedDraftRevision
-      : state.knownSlots.expectedReconciliationRevision;
+      : action.type === "tailoring_answer_edit"
+        ? objectValue(state.knownSlots.tailoringSession).revision
+        : action.type === "tailoring_diff_decision"
+          ? objectValue(state.knownSlots.tailoringSession).revision
+        : state.knownSlots.expectedReconciliationRevision;
   return typeof value === "number" ? value : undefined;
 }
 
 function artifactActionEntityId(action: AgentArtifactAction) {
   if (action.type === "profile_intake_candidate_decision") return action.candidateId;
   if (action.type === "resume_import_reconciliation_decision") return action.incomingItemId;
+  if (action.type === "tailoring_answer_edit") return action.questionId;
+  if (action.type === "tailoring_diff_decision") return action.diffId;
   return "review";
 }
 
@@ -2079,6 +2085,38 @@ function artifactActionExecution(
   action: AgentArtifactAction
 ): { toolName: string; toolInput: Record<string, unknown>; decision: string } | undefined {
   if (!state) return undefined;
+  if (action.type === "tailoring_diff_decision") {
+    const session = objectValue(state.knownSlots.tailoringSession);
+    const plan = objectValue(session.plan);
+    const reviews = Array.isArray(plan.diffReviews) ? plan.diffReviews.map(objectValue) : [];
+    if (!reviews.some((review) => review.diffId === action.diffId)) return undefined;
+    return {
+      toolName: "review_tailoring_diff",
+      decision: action.decision,
+      toolInput: {
+        session: state.knownSlots.tailoringSession,
+        diffId: action.diffId,
+        decision: action.decision,
+        editedValue: action.editedValue
+      }
+    };
+  }
+  if (action.type === "tailoring_answer_edit") {
+    const session = objectValue(state.knownSlots.tailoringSession);
+    const plan = objectValue(session.plan);
+    const answers = Array.isArray(plan.clarificationAnswers) ? plan.clarificationAnswers.map(objectValue) : [];
+    if (!answers.some((answer) => answer.questionId === action.questionId)) return undefined;
+    return {
+      toolName: "answer_tailoring_question",
+      decision: "edit",
+      toolInput: {
+        session: state.knownSlots.tailoringSession,
+        questionId: action.questionId,
+        answer: action.answer,
+        proficiency: action.proficiency
+      }
+    };
+  }
   if (action.type === "profile_intake_candidate_decision") {
     const candidates = Array.isArray(state.knownSlots.intakeCandidates)
       ? state.knownSlots.intakeCandidates.map(objectValue)
@@ -2151,6 +2189,10 @@ function artifactActionExecution(
 }
 
 function artifactActionCompletedLabel(action: AgentArtifactAction) {
+  if (action.type === "tailoring_diff_decision") {
+    return action.decision === "accept" ? "已采用这项修改。" : action.decision === "edit" ? "已采用编辑后的修改。" : "已忽略这项修改。";
+  }
+  if (action.type === "tailoring_answer_edit") return "已更新这项回答；原修改建议已标记为需要重新生成。";
   if (action.type === "profile_intake_candidate_decision") {
     return action.decision === "accept" ? "已采用这项经历候选。" : "已忽略这项经历候选。";
   }

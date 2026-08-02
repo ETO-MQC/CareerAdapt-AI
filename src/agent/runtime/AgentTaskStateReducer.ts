@@ -128,6 +128,7 @@ export class AgentTaskStateReducer {
       return normalize(state);
     }
     if (event.type === "user_message") {
+      delete state.knownSlots.compoundAnswerResolution;
       if (state.workflowId === "guided_profile_intake") {
         const hasIntakeEvidence = isProfileIntakeEvidence(event.message);
         if (
@@ -336,6 +337,29 @@ export class AgentTaskStateReducer {
       } else if (event.toolName === "answer_tailoring_question") {
         captureTailoringTruth(state, event.observation);
         state.dependencySnapshots.clarificationAnswers = dependencySnapshot(state, event.observation);
+      } else if (event.toolName === "generate_tailoring_changes") {
+        captureTailoringTruth(state, event.observation);
+        const generated = objectValue(event.observation);
+        const generatedSession = objectValue(generated.session);
+        const generatedPlan = objectValue(generatedSession.plan);
+        const diffReviews = Array.isArray(generatedPlan.diffReviews) ? generatedPlan.diffReviews : [];
+        state.knownSlots.selectedDiffs = [];
+        state.knownSlots.selectedDiffIds = [];
+        state.knownSlots.rejectedDiffIds = [];
+        state.knownSlots.remainingDiffCount = diffReviews.length;
+        state.stage = "preview_changes";
+        state.activeGoal = "review_tailoring_changes";
+        state.completionStatus = diffReviews.length ? "waiting_for_user" : "active";
+      } else if (event.toolName === "review_tailoring_diff") {
+        captureTailoringTruth(state, event.observation);
+        const reviewed = objectValue(event.observation);
+        state.knownSlots.selectedDiffs = Array.isArray(reviewed.selectedDiffs) ? reviewed.selectedDiffs : [];
+        state.knownSlots.selectedDiffIds = Array.isArray(reviewed.selectedDiffIds) ? reviewed.selectedDiffIds : [];
+        state.knownSlots.rejectedDiffIds = Array.isArray(reviewed.rejectedDiffIds) ? reviewed.rejectedDiffIds : [];
+        state.knownSlots.remainingDiffCount = typeof reviewed.remainingDiffCount === "number" ? reviewed.remainingDiffCount : 0;
+        state.stage = "preview_changes";
+        state.activeGoal = "review_tailoring_changes";
+        state.completionStatus = state.knownSlots.remainingDiffCount === 0 ? "active" : "waiting_for_user";
       } else if (event.toolName === "preview_tailoring_changes") {
         state.knownSlots.previewComplete = true;
         state.dependencySnapshots.preview = dependencySnapshot(state, event.observation);
@@ -1132,14 +1156,14 @@ function captureTailoringTruth(state: AgentTaskState, observation: unknown) {
   const plan = objectValue(session.plan);
   const questions = Array.isArray(plan.clarificationQuestions) ? plan.clarificationQuestions : [];
   const answers = Array.isArray(plan.clarificationAnswers) ? plan.clarificationAnswers : [];
+  const questionPlan = objectValue(plan.questionPlan);
   const tailoringSessionId = stringValue(session.id);
   if (tailoringSessionId) state.selectedEntities.tailoringSessionId = tailoringSessionId;
-  const answeredIds = new Set(answers.map((answer) => stringValue(objectValue(answer).questionId)).filter(Boolean));
-  const missing = questions.filter((question) => {
-    const id = stringValue(objectValue(question).id);
-    return id && !answeredIds.has(id);
-  });
   state.knownSlots.tailoringSession = value.session;
+  state.knownSlots.questionPlan = plan.questionPlan;
+  state.knownSlots.activeQuestionId = questionPlan.activeQuestionId;
+  state.knownSlots.answeredQuestionIds = Array.isArray(questionPlan.answeredQuestionIds) ? questionPlan.answeredQuestionIds : [];
+  state.knownSlots.skippedQuestionIds = Array.isArray(questionPlan.skippedQuestionIds) ? questionPlan.skippedQuestionIds : [];
   state.knownSlots.selectedDiffs = Array.isArray(value.appliedDiffs)
     ? value.appliedDiffs
     : Array.isArray(plan.diffs)
@@ -1149,9 +1173,13 @@ function captureTailoringTruth(state: AgentTaskState, observation: unknown) {
     const ids = objectValue(answer).requirementIds;
     return Array.isArray(ids) ? ids.filter((id): id is string => typeof id === "string") : [];
   });
-  state.knownSlots.currentClarification = missing[0];
-  state.stage = missing.length ? "clarify_unsupported_facts" : "preview_changes";
-  state.completionStatus = missing.length ? "waiting_for_user" : "active";
+  const activeQuestionId = stringValue(questionPlan.activeQuestionId);
+  state.knownSlots.currentClarification = activeQuestionId
+    ? questions.find((question) => stringValue(objectValue(question).id) === activeQuestionId)
+    : undefined;
+  state.stage = activeQuestionId ? "clarify_unsupported_facts" : "generate_changes";
+  state.activeGoal = activeQuestionId ? "clarify_tailoring" : "generate_tailoring_changes";
+  state.completionStatus = activeQuestionId ? "waiting_for_user" : "active";
 }
 
 function selectResumeSourceRoute(

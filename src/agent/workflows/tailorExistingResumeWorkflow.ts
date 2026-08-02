@@ -12,6 +12,7 @@ export const TailorExistingResumeStepSchema = z.enum([
   "analyze_fit",
   "generate_plan",
   "answer_questions",
+  "generate_changes",
   "preview_changes",
   "confirm_apply",
   "completed"
@@ -26,8 +27,9 @@ export const tailorExistingResumeTransitions: Record<TailorExistingResumeStep, T
   analyze_job: ["review_job"],
   review_job: ["analyze_fit", "collect_job"],
   analyze_fit: ["generate_plan"],
-  generate_plan: ["answer_questions", "preview_changes"],
-  answer_questions: ["preview_changes", "generate_plan"],
+  generate_plan: ["answer_questions", "generate_changes"],
+  answer_questions: ["answer_questions", "generate_changes"],
+  generate_changes: ["preview_changes"],
   preview_changes: ["confirm_apply", "generate_plan"],
   confirm_apply: ["completed", "preview_changes"],
   completed: []
@@ -58,6 +60,7 @@ export const tailorExistingResumeWorkflow = {
     "analyze_job_fit",
     "create_tailoring_session",
     "answer_tailoring_question",
+    "generate_tailoring_changes",
     "preview_tailoring_changes",
     "apply_tailoring_changes"
   ] as const,
@@ -95,7 +98,7 @@ export type TailorWorkflowViewState = {
   tailoringSession?: unknown;
   diffs: unknown[];
   confirmedRequirementIds: string[];
-  pendingConfirmation?: "commit_job" | "answer_tailoring_question" | "apply_tailoring_changes";
+  pendingConfirmation?: "commit_job" | "apply_tailoring_changes";
   appliedRevisionId?: string;
 };
 
@@ -160,16 +163,6 @@ export class TailorExistingResumeWorkflowController {
     }
     await this.run(pending.toolName, pending.input, pending.next, (data) => {
       if (pending.toolName === "commit_job") return { jobId: String(record(record(data).jobDescription).id) };
-      if (pending.toolName === "answer_tailoring_question") {
-        const session = record(data).session;
-        const diffs = readDiffs(session);
-        return {
-          tailoringSession: session,
-          diffs,
-          error: diffs.length ? undefined : rejectionSummary(data),
-          confirmedRequirementIds: [...new Set([...this.state.confirmedRequirementIds, ...this.pendingRequirementIds])]
-        };
-      }
       if (pending.toolName === "apply_tailoring_changes") {
         return {
           appliedRevisionId: String(record(record(data).revision).id ?? ""),
@@ -192,24 +185,40 @@ export class TailorExistingResumeWorkflowController {
       return {
         tailoringSession: session,
         diffs,
-        step: readQuestions(session).length ? "answer_questions" as const : diffs.length ? "preview_changes" as const : "answer_questions" as const
+        step: readQuestions(session).length ? "answer_questions" as const : "generate_changes" as const
       };
     });
   }
 
-  requestAnswer(questionId: string, answer: string, proficiency?: "proficient" | "familiar" | "aware" | "learning") {
+  async requestAnswer(questionId: string, answer: string, proficiency?: "proficient" | "familiar" | "aware" | "learning") {
     if (!this.state.tailoringSession) throw new Error("tailoring_session_missing");
     const question = readQuestions(this.state.tailoringSession).map(record).find((item) => item.id === questionId);
     this.pendingRequirementIds = Array.isArray(question?.requirementIds)
       ? question.requirementIds.filter((id): id is string => typeof id === "string")
       : [];
-    this.pending = {
-      toolName: "answer_tailoring_question",
-      input: { session: this.state.tailoringSession, questionId, answer, proficiency },
-      operationId: operationId("answer-question"),
-      next: "preview_changes"
-    };
-    this.patch({ pendingConfirmation: "answer_tailoring_question" });
+    await this.run("answer_tailoring_question", {
+      session: this.state.tailoringSession,
+      questionId,
+      answer,
+      proficiency
+    }, "answer_questions", (data) => {
+      const session = record(data).session;
+      const hasQuestions = readQuestions(session).some((item) => record(item).status === "active");
+      return {
+        tailoringSession: session,
+        step: hasQuestions ? "answer_questions" as const : "generate_changes" as const,
+        confirmedRequirementIds: [...new Set([...this.state.confirmedRequirementIds, ...this.pendingRequirementIds])]
+      };
+    });
+    this.pendingRequirementIds = [];
+  }
+
+  async generateChanges() {
+    if (!this.state.tailoringSession) throw new Error("tailoring_session_missing");
+    await this.run("generate_tailoring_changes", { session: this.state.tailoringSession }, "preview_changes", (data) => {
+      const session = record(data).session;
+      return { tailoringSession: session, diffs: readDiffs(session), error: rejectionSummary(data) };
+    });
   }
 
   async preview() {

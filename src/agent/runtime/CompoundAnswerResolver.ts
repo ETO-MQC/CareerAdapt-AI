@@ -13,7 +13,8 @@ export type CompoundAnswerResolution = {
 export type PendingCompoundQuestion = {
   id: string;
   question: string;
-  answerType: "boolean" | "proficiency" | "multi_select" | "text" | "url";
+  answerType: "boolean" | "single_select" | "proficiency" | "multi_select" | "text" | "url";
+  options?: Array<{ id: string; label: string; value: string }>;
 };
 
 const DIMENSIONS = [
@@ -29,18 +30,29 @@ export function resolveCompoundAnswer(
   message: string,
   unresolvedQuestions: readonly PendingCompoundQuestion[]
 ): CompoundAnswerResolution {
-  const authoritative = new Map(unresolvedQuestions.map((question) => [question.id, question]));
+  // Conversational tailoring exposes one authoritative question at a time.
+  // Multi-question matching is intentionally unavailable in the default flow.
+  const visibleQuestions = unresolvedQuestions.slice(0, 1);
+  const authoritative = new Map(visibleQuestions.map((question) => [question.id, question]));
   const remaining = new Set(authoritative.keys());
   const answers: CompoundAnswerResolution["answers"] = [];
   const unmatched: string[] = [];
+  const clauses = splitClauses(message);
 
-  for (const clause of splitClauses(message)) {
+  if (clauses.length === 1 && visibleQuestions[0]) {
+    const evidenceQuote = message.trim();
+    const parsed = parseAnswer(visibleQuestions[0], evidenceQuote);
+    if (parsed) {
+      return { answers: [{ questionId: visibleQuestions[0].id, evidenceQuote, ...parsed }] };
+    }
+  }
+
+  for (const clause of clauses) {
     const candidates = [...remaining]
       .map((id) => authoritative.get(id)!)
       .map((question) => ({ question, score: matchScore(question, clause) }))
-      .filter((candidate) => candidate.score > 0)
       .sort((left, right) => right.score - left.score);
-    if (!candidates.length || candidates[0].score === candidates[1]?.score) {
+    if (!candidates.length) {
       unmatched.push(clause);
       continue;
     }
@@ -65,6 +77,9 @@ export function unresolvedTailoringQuestions(taskState: {
 }): PendingCompoundQuestion[] {
   const session = objectValue(taskState.knownSlots.tailoringSession);
   const plan = objectValue(session.plan);
+  const questionPlan = objectValue(plan.questionPlan);
+  const activeQuestionId = stringValue(questionPlan.activeQuestionId)
+    ?? stringValue(taskState.knownSlots.activeQuestionId);
   const questions = Array.isArray(plan.clarificationQuestions) ? plan.clarificationQuestions : [];
   const answers = Array.isArray(plan.clarificationAnswers) ? plan.clarificationAnswers : [];
   const answered = new Set(answers.map((answer) => stringValue(objectValue(answer).questionId)).filter(Boolean));
@@ -74,10 +89,18 @@ export function unresolvedTailoringQuestions(taskState: {
     const text = stringValue(question.question);
     const answerType = question.answerType;
     if (
-      !id || !text || answered.has(id)
-      || !["boolean", "proficiency", "multi_select", "text", "url"].includes(String(answerType))
+      !id || !text || answered.has(id) || id !== activeQuestionId
+      || !["boolean", "single_select", "proficiency", "multi_select", "text", "url"].includes(String(answerType))
     ) return [];
-    return [{ id, question: text, answerType: answerType as PendingCompoundQuestion["answerType"] }];
+    const options = Array.isArray(question.options)
+      ? question.options.map(objectValue).flatMap((option) => {
+          const optionId = stringValue(option.id);
+          const label = stringValue(option.label);
+          const value = stringValue(option.value);
+          return optionId && label && value ? [{ id: optionId, label, value }] : [];
+        })
+      : undefined;
+    return [{ id, question: text, answerType: answerType as PendingCompoundQuestion["answerType"], options }];
   });
 }
 
@@ -101,9 +124,17 @@ function matchScore(question: PendingCompoundQuestion, clause: string) {
 }
 
 function parseAnswer(question: PendingCompoundQuestion, evidenceQuote: string) {
+  if (/^(?:跳过|不确定|继续)$/u.test(evidenceQuote.trim())) return { answer: "跳过" };
+  if (/^(?:第一个|第1个|1)$/u.test(evidenceQuote.trim())) {
+    const first = question.options?.[0];
+    return first ? { answer: first.value } : undefined;
+  }
   if (question.answerType === "boolean") {
     if (/没有|未曾|未正式|没(?:有)?|不曾|否/u.test(evidenceQuote)) return { answer: false };
-    if (/有|是|已|正式|上线|发布|部署/u.test(evidenceQuote)) return { answer: true };
+    if (/有|是|已|正式|上线|发布|部署/u.test(evidenceQuote)) {
+      return { answer: evidenceQuote.length > 3 ? evidenceQuote : true };
+    }
+    if (evidenceQuote.length >= 4 && evidenceQuote.length <= 160) return { answer: evidenceQuote };
     return undefined;
   }
   if (question.answerType === "proficiency") {

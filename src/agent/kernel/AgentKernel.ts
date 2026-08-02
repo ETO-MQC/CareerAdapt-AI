@@ -209,7 +209,10 @@ export class AgentKernel {
             taskState
           };
         }
-        const workflowPause = deterministicWorkflowPause(taskState);
+        const workflowPause = deterministicWorkflowPause(
+          taskState,
+          toolCallCount > 0 || !input.userMessage || Boolean(taskState.knownSlots.compoundAnswerResolution)
+        );
         if (workflowPause) {
           await publishFinalStream(workflowPause, input, { turnId, iterationId });
           trajectory.finish("waiting_for_user");
@@ -882,6 +885,8 @@ function bindAuthoritativeTaskInput(
   }
   if (![
     "answer_tailoring_question",
+    "generate_tailoring_changes",
+    "review_tailoring_diff",
     "preview_tailoring_changes",
     "apply_tailoring_changes"
   ].includes(call.name)) {
@@ -890,13 +895,23 @@ function bindAuthoritativeTaskInput(
   const session = taskState.knownSlots.tailoringSession;
   if (!session) return call;
   if (call.name === "answer_tailoring_question") {
+    const activeQuestionId = typeof taskState.knownSlots.activeQuestionId === "string"
+      ? taskState.knownSlots.activeQuestionId
+      : undefined;
     return {
       ...call,
       arguments: {
         ...call.arguments,
-        session
+        session,
+        questionId: activeQuestionId
       }
     };
+  }
+  if (call.name === "generate_tailoring_changes") {
+    return { ...call, arguments: { session } };
+  }
+  if (call.name === "review_tailoring_diff") {
+    return { ...call, arguments: { ...call.arguments, session } };
   }
   return {
     ...call,
@@ -1206,7 +1221,8 @@ const RECOVERY_SLOT_LABELS: Record<string, string> = {
 const RECOVERY_STAGE_LABELS: Record<string, string> = {
   choose_resume_source: "请选择要使用的简历来源。",
   choose_job: "请选择要匹配的岗位。",
-  clarify_unsupported_facts: "请回答当前待确认的事实问题。",
+  clarify_unsupported_facts: "请回答当前问题，或回复“跳过”。",
+  generate_changes: "正在综合全部资料生成总体优化方案。",
   import_review: "请先核对导入内容。",
   resolve_target: "请选择导入目标。",
   resolve_conflicts: "请处理仍有冲突的导入内容。",
@@ -1314,6 +1330,8 @@ function deterministicBoundaryTool(
       ? "commit_job"
       : taskState.stage === "confirm_import"
         ? "commit_resume_import"
+        : taskState.stage === "generate_changes"
+          ? "generate_tailoring_changes"
         : taskState.stage === "confirm_apply"
           ? "apply_tailoring_changes"
           : undefined;
@@ -1323,8 +1341,44 @@ function deterministicBoundaryTool(
 }
 
 function deterministicWorkflowPause(
-  taskState: NonNullable<AgentSession["taskState"]>
+  taskState: NonNullable<AgentSession["taskState"]>,
+  afterToolOrResume = true
 ) {
+  if (
+    afterToolOrResume
+    &&
+    taskState.workflowId === "tailor_existing_resume"
+    && taskState.stage === "clarify_unsupported_facts"
+  ) {
+    const question = objectValue(taskState.knownSlots.currentClarification);
+    const questionId = typeof taskState.knownSlots.activeQuestionId === "string"
+      ? taskState.knownSlots.activeQuestionId
+      : undefined;
+    if (questionId && question.id === questionId && typeof question.question === "string") {
+      const questionPlan = objectValue(taskState.knownSlots.questionPlan);
+      const questionIds = Array.isArray(questionPlan.questionIds) ? questionPlan.questionIds : [];
+      const position = Math.max(0, questionIds.indexOf(questionId));
+      const options = Array.isArray(question.options)
+        ? question.options.map(objectValue).flatMap((option, index) => typeof option.label === "string" ? [`${index + 1}. ${option.label}`] : [])
+        : [];
+      return [
+        position === 0 ? `为了更准确地优化简历，我还需要确认 ${questionIds.length} 个细节。` : "已记录。",
+        `问题 ${position + 1}/${questionIds.length}：`,
+        question.question,
+        options.length ? options.join("\n") : "",
+        "你可以直接补充说明，或回复“跳过”。"
+      ].filter(Boolean).join("\n\n");
+    }
+  }
+  if (
+    afterToolOrResume
+    && taskState.workflowId === "tailor_existing_resume"
+    && taskState.stage === "preview_changes"
+    && typeof taskState.knownSlots.remainingDiffCount === "number"
+    && taskState.knownSlots.remainingDiffCount > 0
+  ) {
+    return `总体优化方案已生成。请在右侧逐项采用、编辑或忽略；还剩 ${taskState.knownSlots.remainingDiffCount} 项需要核对。`;
+  }
   if (
     taskState.workflowId === "tailor_existing_resume"
     && taskState.stage === "choose_resume_source"
