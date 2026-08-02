@@ -56,3 +56,42 @@ artifacts/
 # Claude settings (contains API keys and local config)
 .claude/settings.local.json
 .qoder
+
+# Local-only project context and agent tooling. These files stay on the
+# developer machine and are intentionally excluded from the public repository.
+AGENTS.md
+Claude.md
+CLAUDE.md
+Plan*.md
+plan*.md
+history*.md
+开发对话.json
+比赛简介.md
+职适AI_产品需求文档_PRD_v1.0.md
+review_diff.txt
+release.json
+.agents/
+.claude/
+.codex/
+skills/
+skills-lock.json
+artifacts/
+模板/
+
+# Internal handoff, release, planning, and migration notes.
+docs/MVP_V1_HANDOFF.md
+docs/V2_START_HERE.md
+docs/TEST_INVENTORY.md
+docs/RC_CLOSURE_*.md
+docs/v2/*_PLAN.md
+docs/v2/FIRST_GOAL.md
+docs/v2/G7B*.md
+docs/v2/G7B_OVERNIGHT_EXECUTION.md
+docs/v2/ROADMAP_AND_BACKLOG.md
+docs/v2/V1_TO_V2_MIGRATION.md
+
+# Local audit scripts that are not part of the application runtime.
+scripts/plan3-*.mjs
+scripts/g7b5-ui-audit.mjs
+scripts/p36-universal-import-audit.mjs
+scripts/p36-parser-benchmark.ts
