@@ -10,6 +10,8 @@ import { AgentArtifactContent } from "./AgentArtifactContent";
 
 export type AgentArtifactDrawerState = "closed" | "open" | "pinned" | "collapsed";
 
+const ARTIFACT_WIDTH_KEY = "careerad-agent-artifact-width:v1";
+
 export function AgentArtifactDrawer({
   artifacts,
   state,
@@ -29,12 +31,20 @@ export function AgentArtifactDrawer({
   onUiAction?(action: AgentUiAction): void;
   onStateChange(state: AgentArtifactDrawerState): void;
 }) {
-  const [width, setWidth] = useState(432);
+  const [width, setWidth] = useState(() => {
+    if (typeof window === "undefined") return 520;
+    const stored = Number(window.localStorage.getItem(ARTIFACT_WIDTH_KEY));
+    return Number.isFinite(stored) && stored >= 360 ? clampArtifactWidth(stored) : 520;
+  });
   const [selectedArtifactId, setSelectedArtifactId] = useState(() => artifacts[0]?.id);
   const drawerRef = useRef<HTMLElement>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
   const open = state !== "closed" && state !== "collapsed" && artifacts.length > 0;
   const selectedArtifact = artifacts.find((artifact) => artifact.id === selectedArtifactId) ?? artifacts[0];
+
+  useEffect(() => {
+    window.localStorage.setItem(ARTIFACT_WIDTH_KEY, String(width));
+  }, [width]);
 
   useEffect(() => {
     if (!open) return;
@@ -105,15 +115,15 @@ export function AgentArtifactDrawer({
           aria-orientation="vertical"
           tabIndex={0}
           onKeyDown={(event) => {
-            if (event.key === "ArrowLeft") setWidth((value) => Math.min(480, value + 16));
-            if (event.key === "ArrowRight") setWidth((value) => Math.max(400, value - 16));
+            if (event.key === "ArrowLeft") setWidth((value) => clampArtifactWidth(value + 16));
+            if (event.key === "ArrowRight") setWidth((value) => clampArtifactWidth(value - 16));
           }}
           onPointerDown={(event) => {
             const startX = event.clientX;
             const startWidth = width;
             event.currentTarget.setPointerCapture(event.pointerId);
             const handleMove = (moveEvent: PointerEvent) => {
-              setWidth(Math.max(400, Math.min(480, startWidth + startX - moveEvent.clientX)));
+              setWidth(clampArtifactWidth(startWidth + startX - moveEvent.clientX));
             };
             const handleUp = () => {
               window.removeEventListener("pointermove", handleMove);
@@ -169,4 +179,9 @@ export function AgentArtifactDrawer({
       </aside>
     </>
   );
+}
+
+function clampArtifactWidth(value: number) {
+  const viewportMaximum = typeof window === "undefined" ? 720 : Math.floor(window.innerWidth * 0.55);
+  return Math.max(360, Math.min(720, viewportMaximum, Math.round(value)));
 }

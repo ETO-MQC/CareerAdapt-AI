@@ -37,6 +37,7 @@ type ResumeSummary = { id: string; profileId: string; name: string; purpose: str
 type SessionComposerDrafts = Record<string, string>;
 
 const AGENT_COMPOSER_DRAFTS_KEY = "careerad-agent-composer-drafts:v1";
+const AGENT_ARTIFACT_STATE_KEY = "careerad-agent-artifact-state:v1";
 const agentImportRepository = new WorkspaceRepository();
 
 export function AgentWorkspace() {
@@ -49,7 +50,13 @@ export function AgentWorkspace() {
   const [resumes, setResumes] = useState<ResumeSummary[]>([]);
   const [profiles, setProfiles] = useState<CareerProfile[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [drawerState, setDrawerState] = useState<AgentArtifactDrawerState>("closed");
+  const [drawerState, setDrawerState] = useState<AgentArtifactDrawerState>(() => {
+    if (typeof window === "undefined") return "pinned";
+    const stored = window.localStorage.getItem(AGENT_ARTIFACT_STATE_KEY);
+    return stored === "closed" || stored === "open" || stored === "pinned" || stored === "collapsed"
+      ? stored
+      : "pinned";
+  });
   const [draftsBySession, setDraftsBySession] = useState<SessionComposerDrafts>(readSessionComposerDrafts);
   const draftsBySessionRef = useRef(draftsBySession);
   const [draftReferencesBySession, setDraftReferencesBySession] = useState<Record<string, AgentMessageReference | undefined>>({});
@@ -61,6 +68,11 @@ export function AgentWorkspace() {
   const paused = snapshot.turnStatus === "paused";
   const draft = draftsBySession[session.id] ?? "";
   const draftReference = draftReferencesBySession[session.id];
+
+  const updateDrawerState = useCallback((next: AgentArtifactDrawerState) => {
+    setDrawerState(next);
+    window.localStorage.setItem(AGENT_ARTIFACT_STATE_KEY, next);
+  }, []);
 
   const setSessionDraft = useCallback((value: string) => {
     const next = { ...draftsBySessionRef.current };
@@ -231,7 +243,7 @@ export function AgentWorkspace() {
       sessionTitle={getAgentSessionDisplayTitle(session)}
       status={statusLabel(snapshot.turnStatus)}
       artifactCount={artifacts.length}
-      onOpenArtifacts={() => setDrawerState("open")}
+      onOpenArtifacts={() => updateDrawerState(window.matchMedia("(max-width: 860px)").matches ? "open" : "pinned")}
       onOpenHistory={() => setHistoryOpen(true)}
     >
       <div className={`agent-workspace-body is-drawer-${drawerState}`}>
@@ -367,7 +379,7 @@ export function AgentWorkspace() {
           onImportAction={(message) => void dispatchMessage(message)}
           onArtifactAction={dispatchArtifactAction}
           onUiAction={dispatchUi}
-          onStateChange={setDrawerState}
+          onStateChange={updateDrawerState}
         />
       </div>
       <ImportReviewDialog
@@ -570,9 +582,10 @@ function AgentFloatingAction(props: {
 function taskToWorkflowView(session: AgentSession): TailorWorkflowViewState {
   const task = session.taskState;
   const slots = task?.knownSlots ?? {};
+  const tailoringPlan = readRecord(readRecord(slots.tailoringSession).plan);
   const allowedSteps = new Set([
     "select_resume", "collect_job", "analyze_job", "review_job", "analyze_fit",
-    "generate_plan", "answer_questions", "preview_changes", "confirm_apply", "completed"
+    "generate_plan", "answer_questions", "generate_changes", "preview_changes", "confirm_apply", "completed"
   ]);
   const stage = task?.stage === "clarify_unsupported_facts"
     ? "answer_questions"
@@ -588,13 +601,19 @@ function taskToWorkflowView(session: AgentSession): TailorWorkflowViewState {
     jobGraph: slots.graph,
     fitAnalysis: slots.fitAnalysis,
     tailoringSession: slots.tailoringSession,
-    diffs: Array.isArray(slots.selectedDiffs) ? slots.selectedDiffs : [],
+    diffs: Array.isArray(tailoringPlan.diffs)
+      ? tailoringPlan.diffs
+      : Array.isArray(slots.selectedDiffs) ? slots.selectedDiffs : [],
     confirmedRequirementIds: Array.isArray(slots.confirmedRequirementIds)
       ? slots.confirmedRequirementIds.filter((id): id is string => typeof id === "string")
       : [],
     pendingConfirmation: session.pendingToolCall?.toolName as TailorWorkflowViewState["pendingConfirmation"],
     appliedRevisionId: task?.selectedEntities.revisionId
   };
+}
+
+function readRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
 }
 
 function readArray(value: unknown, key: string) {
