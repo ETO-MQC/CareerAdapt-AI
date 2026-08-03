@@ -101,6 +101,13 @@ type NormalizationCandidate = {
   needsConfirmation: boolean;
 };
 
+export type ExtractedEducationFacts = {
+  school?: string;
+  degree?: string;
+  major?: string;
+  datePatch: Pick<ProfileIntakeStructuredPatch, "startDate" | "endDate" | "current">;
+};
+
 export class ProfileIntakeNormalizer {
   /**
    * Deterministic normalization is deliberately narrow. It canonicalizes
@@ -248,6 +255,39 @@ export function normalizeCareerMonth(value: string) {
   return `${match[1]}-${match[2].padStart(2, "0")}`;
 }
 
+/**
+ * Extract only education-specific identity and date dimensions from the
+ * user's source sentence. These values repair model mappings; they are not
+ * a general-purpose entity recognizer.
+ */
+export function extractEducationFacts(text: string): ExtractedEducationFacts {
+  const datePatch = extractCareerDates(text).patch;
+  return {
+    school: extractSchoolName(text),
+    degree: text.match(/博士研究生|硕士研究生|本科|硕士|博士|专科|大专/u)?.[0],
+    major: extractMajorName(text),
+    datePatch: {
+      ...(datePatch.startDate ? { startDate: datePatch.startDate } : {}),
+      ...(datePatch.endDate ? { endDate: datePatch.endDate } : {}),
+      ...(datePatch.current !== undefined ? { current: datePatch.current } : {})
+    }
+  };
+}
+
+export function canonicalizeEducationItemFromSource(
+  item: EducationItemV2,
+  sourceQuote: string
+): EducationItemV2 {
+  const facts = extractEducationFacts(sourceQuote);
+  return ResumeItemV2Schema.parse({
+    ...item,
+    ...(facts.school ? { school: facts.school } : {}),
+    ...(facts.degree ? { degree: facts.degree } : {}),
+    ...(facts.major ? { major: facts.major } : {}),
+    ...facts.datePatch
+  }) as EducationItemV2;
+}
+
 function canonicalizePatchDates(sectionType: ResumeItemV2["sectionType"], patch: ProfileIntakeStructuredPatch) {
   const startDate = patch.startDate ? normalizeCareerMonth(patch.startDate) : undefined;
   const endDate = patch.endDate ? normalizeCareerMonth(patch.endDate) : undefined;
@@ -284,7 +324,7 @@ export function extractCareerDates(text: string): {
 } {
   const month = "(20\\d{2})\\s*(?:年|[./-])\\s*(1[0-2]|0?[1-9])\\s*月?";
   const educationStart = new RegExp(`${month}.{0,8}(?:入学|开始)|(?:入学|开始).{0,8}${month}`, "u").exec(text);
-  const educationEnd = new RegExp(`${month}.{0,8}(?:毕业|结束)|(?:预计)?毕业(?:时间|于)?.{0,8}${month}`, "u").exec(text);
+  const educationEnd = new RegExp(`(?:预计)?毕业(?:时间|于)?.{0,8}${month}|${month}.{0,2}(?:毕业|结束)`, "u").exec(text);
   if (educationStart && educationEnd) {
     const startYear = educationStart[1] ?? educationStart[3];
     const startMonth = educationStart[2] ?? educationStart[4];
@@ -389,15 +429,19 @@ function buildStructuredItem(
 ): ResumeItemV2 {
   const base = { id: candidate.id, customFields: [] };
   if (candidate.kind === "education") {
+    const education = extractEducationFacts(candidate.sourceQuote);
     return ResumeItemV2Schema.parse({
       ...base,
       sectionType: "education",
-      school: candidate.label,
+      ...(education.school ? { school: education.school } : {}),
+      ...(education.degree ? { degree: education.degree } : {}),
+      ...(education.major ? { major: education.major } : {}),
       current: false,
       courses: [],
       honors: [],
       highlights: [],
-      ...datePatch
+      ...datePatch,
+      ...education.datePatch
     });
   }
   if (candidate.kind === "award") {
@@ -455,9 +499,10 @@ function buildStructuredItem(
 }
 
 function buildEducationFallback(id: string, sourceQuote: string, datePatch: ProfileIntakeStructuredPatch): EducationItemV2 | undefined {
-  const school = sourceQuote.match(/[\p{L}\p{N}·&（）()\-]{2,80}(?:大学|学院|学校)/u)?.[0];
-  const degree = sourceQuote.match(/(?:博士研究生|硕士研究生|本科|硕士|博士|专科|大专)/u)?.[0];
-  const major = sourceQuote.match(/([\p{L}\p{N}·&（）()\-]{2,60})专业/u)?.[1];
+  const facts = extractEducationFacts(sourceQuote);
+  const school = facts.school;
+  const degree = facts.degree;
+  const major = facts.major;
   if (!school && !degree && !major) return undefined;
   return ResumeItemV2Schema.parse({
     id,
@@ -470,8 +515,27 @@ function buildEducationFallback(id: string, sourceQuote: string, datePatch: Prof
     honors: [],
     highlights: [],
     customFields: [],
-    ...datePatch
+    ...datePatch,
+    ...facts.datePatch
   }) as EducationItemV2;
+}
+
+const SCHOOL_TOKEN = "[\\p{L}\\p{N}·&（）()\\-]{2,80}(?:大学|学院|学校)";
+const SCHOOL_CONTEXT = new RegExp(
+  `(?:我(?:现在|目前)?是|我(?:现在|目前)?在|(?:就读|毕业)(?:于)?|来自|学校(?:是|为)|在)\\s*(${SCHOOL_TOKEN})`,
+  "u"
+);
+const STANDALONE_SCHOOL = new RegExp(`(?:^|[，,。；;\\s])(${SCHOOL_TOKEN})(?=$|本科|硕士|博士|专科|大专|[^\\p{L}\\p{N}])`, "u");
+
+function extractSchoolName(text: string) {
+  return SCHOOL_CONTEXT.exec(text)?.[1] ?? STANDALONE_SCHOOL.exec(text)?.[1];
+}
+
+function extractMajorName(text: string) {
+  return text.match(/专业(?:是|为|：|:)\s*([\p{L}\p{N}·&（）()\-]{2,80})/u)?.[1]
+    ?? text.match(/(?:主修|就读|学习|攻读)(?:的是|为|：|:)?\s*([\p{L}\p{N}·&（）()\-]{2,80})专业/u)?.[1]
+    ?? text.match(/(?:^|[，,、；;])\s*([\p{L}\p{N}·&（）()\-]{2,80})专业/u)?.[1]
+    ?? text.match(/([\p{L}\p{N}·&（）()\-]{2,80})专业/u)?.[1];
 }
 
 function cleanColloquial(value: string) {
@@ -503,9 +567,13 @@ function displayLabel(item: ResumeItemV2) {
 }
 
 function identityEvidence(candidate: NormalizationCandidate, item: ResumeItemV2): ProfileIntakeFieldEvidence[] {
+  if (item.sectionType === "education") {
+    return (["school", "degree", "major"] as const).flatMap((field) =>
+      item[field] ? [evidence(field, candidate.sourceQuote, "explicit", 0.95, candidate.needsConfirmation)] : []
+    );
+  }
   const field = item.sectionType === "awards" ? "name"
-    : item.sectionType === "education" ? "school"
-      : ["work", "internship", "campus", "volunteer"].includes(item.sectionType) ? "role" : "title";
+    : ["work", "internship", "campus", "volunteer"].includes(item.sectionType) ? "role" : "title";
   return [evidence(field, candidate.sourceQuote, "explicit", 0.95, candidate.needsConfirmation)];
 }
 

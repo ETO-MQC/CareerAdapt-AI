@@ -10,6 +10,8 @@ import { stableHashText } from "@/services/security/text";
 import { runRuleFactGuard } from "@/domain/adaptation/factGuard";
 import {
   ProfileIntakeFieldEvidenceSchema,
+  canonicalizeEducationItemFromSource,
+  extractEducationFacts,
   ProfileIntakeNormalizer,
   type ProfileIntakeNormalizationResult
 } from "./ProfileIntakeNormalizer";
@@ -175,6 +177,9 @@ function verifyProposal(
   index: number
 ): VerifiedProfileIntakeCandidate {
   validateProfileIntakeProposalGrounding(proposal, rawNarrative);
+  if (proposal.structuredItem && proposal.structuredItem.sectionType !== proposal.sectionType) {
+    throw new Error("profile_intake_section_type_mismatch");
+  }
   for (const field of ["description", "highlights", "outcomes"] as const) {
     const value = proposal[field];
     const checkedText = Array.isArray(value) ? value.join("\n") : value;
@@ -192,19 +197,24 @@ function verifyProposal(
   const item = proposal.structuredItem
     ? ResumeItemV2Schema.parse({ ...proposal.structuredItem, id })
     : buildResumeItem(id, proposal);
-  if (item) assertFactPreserving(item, proposal.sourceQuote);
-  const missingIdentity = !item;
-  const normalizedText = item
-    ? profileText(item)
+  const canonicalItem = item?.sectionType === "education"
+    ? canonicalizeEducationItemFromSource(item, proposal.sourceQuote)
+    : item;
+  if (canonicalItem) assertFactPreserving(canonicalItem, proposal.sourceQuote);
+  const missingIdentity = !canonicalItem;
+  const normalizedText = canonicalItem
+    ? profileText(canonicalItem)
     : proposal.description ?? "需要补充正式名称后才能写入资料库。";
   return {
     id,
-    label: proposal.title ?? proposal.name ?? displayLabel(item),
+    label: canonicalItem?.sectionType === "education"
+      ? displayLabel(canonicalItem)
+      : proposal.title ?? proposal.name ?? displayLabel(canonicalItem),
     sourceQuote: proposal.sourceQuote,
     normalization: {
       sectionType: proposal.sectionType,
       normalizedText,
-      structuredItem: item,
+      structuredItem: canonicalItem,
       confidence: proposal.confidence,
       needsConfirmation: missingIdentity
         || proposal.needsConfirmation
@@ -339,9 +349,24 @@ function buildResumeItem(id: string, candidate: ProfileIntakeSemanticCandidate):
   ) ? candidate.title : undefined;
   switch (candidate.sectionType) {
     case "education": {
-      const school = candidate.institution ?? candidate.organization ?? candidate.name ?? groundedTitle;
+      const education = extractEducationFacts(candidate.sourceQuote);
+      const legacySchool = candidate.institution
+        ? extractEducationFacts(candidate.institution).school
+        : undefined;
+      const school = education.school ?? legacySchool;
       if (!school) return undefined;
-      return ResumeItemV2Schema.parse({ ...base, sectionType: "education", school, major: candidate.role, courses: [], honors: [], ...shared, ...dates });
+      return ResumeItemV2Schema.parse({
+        ...base,
+        sectionType: "education",
+        school,
+        ...(education.degree ? { degree: education.degree } : {}),
+        ...(education.major ? { major: education.major } : {}),
+        courses: [],
+        honors: [],
+        ...shared,
+        ...dates,
+        ...education.datePatch
+      });
     }
     case "work":
     case "internship":

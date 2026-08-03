@@ -305,6 +305,12 @@ export const aiTaskRegistry = {
     validateOutput(output: ProfileIntakeSemanticOutput, input: ProfileIntakeSemanticInput) {
       for (const candidate of output.candidates) {
         if (!input.rawNarrative.includes(candidate.sourceQuote)) throw new Error("profile_intake_candidate_source_missing");
+        if (candidate.sectionType === "education" && !candidate.structuredItem) {
+          throw new Error("profile_intake_structured_item_required:education");
+        }
+        if (candidate.structuredItem && candidate.structuredItem.sectionType !== candidate.sectionType) {
+          throw new Error("profile_intake_section_type_mismatch");
+        }
         for (const evidence of candidate.fieldEvidence) {
           if (!candidate.sourceQuote.includes(evidence.sourceQuote)) {
             throw new Error("profile_intake_field_source_outside_candidate");

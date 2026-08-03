@@ -112,4 +112,37 @@ describe("profile intake semantic task normalization", () => {
     expect(() => aiTaskRegistry["profile-intake-semantic"].validateOutput(output, input))
       .toThrow("profile_intake_field_evidence_missing:description");
   });
+
+  it("requires typed structured education from a new semantic AI response", () => {
+    const input = {
+      rawNarrative: "我在郑州大学读本科，计算机科学与技术专业。",
+      existingDraftContext: [],
+      canonicalSections: ["education" as const]
+    };
+    const output = {
+      candidates: [{
+        candidateKey: "education-1",
+        sectionType: "education" as const,
+        title: "郑州大学",
+        current: false,
+        highlights: [],
+        tools: [],
+        methods: [],
+        outcomes: [],
+        sourceQuote: input.rawNarrative,
+        confidence: 0.9,
+        needsConfirmation: false,
+        fieldEvidence: [{
+          field: "title",
+          sourceQuote: input.rawNarrative,
+          support: "explicit" as const,
+          confidence: 0.9,
+          needsConfirmation: false
+        }]
+      }]
+    };
+
+    expect(() => aiTaskRegistry["profile-intake-semantic"].validateOutput(output, input))
+      .toThrow("profile_intake_structured_item_required:education");
+  });
 });

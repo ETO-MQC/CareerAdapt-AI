@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { ResumeItemV2Schema } from "@/domain/schemas";
+import { ResumeItemV2Schema, type EducationItemV2 } from "@/domain/schemas";
 import {
   applyProfileIntakeStructuredPatch,
+  canonicalizeEducationItemFromSource,
+  extractEducationFacts,
   normalizeCareerMonth,
   ProfileIntakeNormalizer,
   profileIntakeCareerReadyText,
@@ -9,6 +11,41 @@ import {
 } from "@/domain/profileIntake/ProfileIntakeNormalizer";
 
 describe("P4.2a.4a deterministic profile intake normalization layer", () => {
+  it("maps the full Chinese education sentence to independent canonical fields", () => {
+    const source = "我现在是郑州大学本科学生，计算机科学与技术专业，2024年9月入学，预计毕业时间2028年6月。";
+
+    expect(extractEducationFacts(source)).toEqual({
+      school: "郑州大学",
+      degree: "本科",
+      major: "计算机科学与技术",
+      datePatch: { startDate: "2024-09", endDate: "2028-06", current: false }
+    });
+
+    const repaired = canonicalizeEducationItemFromSource(ResumeItemV2Schema.parse({
+      id: "education-mapping",
+      sectionType: "education",
+      school: "我现在是郑州大学",
+      degree: "本科",
+      major: "计算机科学与技术",
+      startDate: "2024-09",
+      endDate: "2024-09",
+      current: false,
+      courses: [],
+      honors: [],
+      highlights: [],
+      customFields: []
+    }) as EducationItemV2, source);
+
+    expect(repaired).toMatchObject({
+      school: "郑州大学",
+      degree: "本科",
+      major: "计算机科学与技术",
+      startDate: "2024-09",
+      endDate: "2028-06",
+      current: false
+    });
+  });
+
   it.each([
     ["2026年2月", "2026-02"],
     ["2026.2", "2026-02"],

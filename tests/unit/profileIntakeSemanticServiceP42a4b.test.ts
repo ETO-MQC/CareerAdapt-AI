@@ -5,6 +5,7 @@ import {
   type ProfileIntakeSemanticOutput
 } from "@/domain/profileIntake/ProfileIntakeSemanticService";
 import { assessCareerAssetCompleteness } from "@/domain/profileIntake/ProfileIntakeCompleteness";
+import { ResumeItemV2Schema } from "@/domain/schemas";
 
 type Fixture = {
   name: string;
@@ -82,6 +83,45 @@ const fixtures: Fixture[] = [
 ];
 
 describe("P4.2a.4b general semantic career intake", () => {
+  it("repairs typed education mapping from the exact user sentence before creating the draft", async () => {
+    const narrative = "我现在是郑州大学本科学生，计算机科学与技术专业，2024年9月入学，预计毕业时间2028年6月。";
+    const candidate = proposal("education-typed", "education", "我现在是郑州大学", narrative, {});
+    candidate.structuredItem = ResumeItemV2Schema.parse({
+      id: "education-model-id",
+      sectionType: "education",
+      school: "我现在是郑州大学",
+      degree: "本科",
+      major: "计算机科学与技术",
+      startDate: "2024-09",
+      endDate: "2024-09",
+      current: false,
+      courses: [],
+      honors: [],
+      highlights: [],
+      customFields: []
+    });
+    candidate.fieldEvidence.push(...["school", "degree", "major", "startDate", "endDate"].map((field) => ({
+      field,
+      sourceQuote: narrative,
+      support: "explicit" as const,
+      confidence: 0.9,
+      needsConfirmation: false
+    })));
+
+    const result = await serviceReturning({ candidates: [candidate] }).normalize({ rawNarrative: narrative });
+    const item = result.candidates[0]?.normalization.structuredItem;
+
+    expect(item).toMatchObject({
+      sectionType: "education",
+      school: "郑州大学",
+      degree: "本科",
+      major: "计算机科学与技术",
+      startDate: "2024-09",
+      endDate: "2028-06"
+    });
+    expect(result.candidates[0]?.label).toBe("郑州大学 / 本科 / 计算机科学与技术");
+  });
+
   it.each(fixtures)("$name recognizes entirely new identities without production name rules", async (fixture) => {
     const service = serviceReturning({ candidates: fixture.proposals });
     const result = await service.normalize({ rawNarrative: fixture.narrative });
