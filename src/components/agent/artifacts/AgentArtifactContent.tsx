@@ -359,7 +359,14 @@ export function AgentArtifactContent({
           {state.resumeId ? <Link href={`/resume?branchId=${encodeURIComponent(state.resumeId)}`}>打开简历编辑器</Link> : null}
         </details>
       ) : null}
-      {state.appliedRevisionId && state.resumeId ? (
+      {taskState?.rootGoal === "create_resume_from_profile" && taskState.knownSlots.resumeFromProfileResult && state.resumeId ? (
+        <div className="agent-artifact agent-artifact-success">
+          <strong>独立通用简历已创建</strong>
+          {state.appliedRevisionId ? <p>版本：{state.appliedRevisionId}</p> : null}
+          <Link href={`/resume?branchId=${encodeURIComponent(state.resumeId)}`}>打开简历编辑器</Link>
+        </div>
+      ) : null}
+      {taskState?.rootGoal !== "create_resume_from_profile" && state.appliedRevisionId && state.resumeId ? (
         <div className="agent-artifact agent-artifact-success">
           <strong>新版本已创建</strong>
           <p>版本：{state.appliedRevisionId}</p>

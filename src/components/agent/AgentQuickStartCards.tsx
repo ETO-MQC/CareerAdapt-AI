@@ -46,7 +46,7 @@ const items: ReadonlyArray<{
   },
   {
     id: "repair_and_export_resume",
-    title: "修复和导出简历",
+    title: "检查并导出简历",
     description: "检查结构、排版与事实风险，准备导出。",
     icon: FileCheck2
   }

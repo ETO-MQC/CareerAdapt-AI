@@ -17,6 +17,7 @@ export type AgentToolServices = {
   getJob?(input: unknown, signal?: AbortSignal): Promise<unknown>;
   recommendResumeSource?(input: unknown, signal?: AbortSignal): Promise<unknown>;
   createJobResumeFromProfile?(input: unknown, operationId: string, signal?: AbortSignal): Promise<unknown>;
+  createResumeFromProfile?(input: unknown, operationId: string, signal?: AbortSignal): Promise<unknown>;
   getAgentTaskContext?(input: unknown, signal?: AbortSignal): Promise<unknown>;
   searchAgentSessions?(input: unknown, signal?: AbortSignal): Promise<unknown>;
   skillsList?(signal?: AbortSignal): Promise<unknown>;
@@ -201,6 +202,14 @@ const TailoringQuestionInputSchema = z.object({
   proficiency: z.enum(["proficient", "familiar", "aware", "learning"]).optional()
 }).strict();
 
+const CreateResumeFromProfileInputSchema = z.object({
+  targetProfileId: z.string().min(1),
+  expectedProfileVersion: z.number().int().min(1),
+  selectedFactIds: z.array(z.string().trim().min(1)).min(1).max(60),
+  acknowledgedActiveProfileId: z.string().min(1).optional(),
+  name: z.string().trim().min(1).max(120).optional()
+}).strict();
+
 const GenerateTailoringChangesInputSchema = z.object({
   session: z.unknown()
 }).strict();
@@ -272,6 +281,7 @@ export function createAgentToolRegistry(services: AgentToolServices) {
     define(services, meta("get_job", "按 jobId 读取已保存岗位的权威要求详情。", "read", false, true, true, JobIdInputSchema, "job", "job_detail"), (input, _, signal) => services.getJob ? services.getJob(input, signal) : unavailableTool("get_job")),
     define(services, meta("recommend_resume_source", "根据资料证据丰富度、简历成熟度、岗位覆盖、来源、时效和缺失项推荐资料来源；用户可覆盖。", "read", false, true, true, SourceRouteInputSchema, "tailoring", "career_assets"), (input, _, signal) => services.recommendResumeSource ? services.recommendResumeSource(input, signal) : unavailableTool("recommend_resume_source")),
     define(services, meta("create_job_resume_from_profile", "从资料库中按岗位相关性选择已确认内容并创建独立岗位简历。", "write", true, true, true, ProfileJobResumeInputSchema, "tailoring", "resume_revision", true), (input, operationId, signal) => services.createJobResumeFromProfile ? services.createJobResumeFromProfile(input, operationId, signal) : unavailableTool("create_job_resume_from_profile")),
+    define(services, meta("create_resume_from_profile", "按用户确认的事实范围创建独立通用简历；不会覆盖资料库或已有简历。", "write", true, true, true, CreateResumeFromProfileInputSchema, "resume", "resume_revision", true), (input, operationId, signal) => services.createResumeFromProfile ? services.createResumeFromProfile(input, operationId, signal) : unavailableTool("create_resume_from_profile")),
     define(services, meta("get_agent_task_context", "读取一个 Agent Session 的工作流、步骤和已选实体指针。", "read", false, true, true, TaskContextInputSchema, "agent", "task_context"), (input, _, signal) => services.getAgentTaskContext ? services.getAgentTaskContext(input, signal) : unavailableTool("get_agent_task_context")),
     define(services, meta("search_agent_sessions", "按标题、摘要和用户修正检索历史 Agent Session。", "read", false, true, true, SessionSearchInputSchema, "agent", "episodic_memory"), (input, _, signal) => services.searchAgentSessions ? services.searchAgentSessions(input, signal) : unavailableTool("search_agent_sessions")),
     define(services, meta("skills_list", "列出可按需加载的 CareerAdapt 程序性 Skills 元数据。", "read", false, true, true, EmptyInputSchema, "skill", "procedural_memory"), (_, __, signal) => services.skillsList ? services.skillsList(signal) : unavailableTool("skills_list")),
@@ -415,7 +425,7 @@ export const agentToolNames = [
   "resolve_resume_reconciliation", "parse_resume_file", "create_resume_import_draft",
   "capture_profile_intake", "review_profile_intake", "reconcile_profile_intake",
   "resolve_profile_intake_conflict", "commit_profile_intake", "ensure_general_resume_from_profile",
-  "commit_resume_import", "parse_job_description", "commit_job", "create_job_resume_from_profile", "analyze_job_fit",
+  "commit_resume_import", "parse_job_description", "commit_job", "create_job_resume_from_profile", "create_resume_from_profile", "analyze_job_fit",
   "create_tailoring_session", "answer_tailoring_question", "generate_tailoring_changes", "review_tailoring_diff", "preview_tailoring_changes",
   "apply_tailoring_changes", "archive_resume", "restore_resume", "export_resume"
 ] as const;

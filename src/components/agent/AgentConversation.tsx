@@ -732,6 +732,7 @@ function toolStatus(message: AgentMessage) {
     analyze_job_fit: "岗位匹配分析已完成",
     create_tailoring_session: "定制方案已生成",
     apply_tailoring_changes: "新版本已创建",
+    create_resume_from_profile: "独立通用简历已创建",
     export_resume: "PDF 预览已准备"
   };
   return message.toolName ? labels[message.toolName] ?? "工具步骤已完成" : "工具步骤已完成";

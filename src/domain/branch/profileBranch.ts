@@ -10,9 +10,21 @@ export function resumeBasicsFromProfile(profile: CareerProfile): ResumeBranchBas
   return { name: profile.basics.name, targetRole: profile.structuredBasics?.targetRole ?? profile.structuredBasics?.headline ?? "", email: profile.basics.email ?? "", phone: profile.basics.phone ?? "", location: profile.basics.location ?? "", summary: profile.basics.summary ?? "", links: profile.basics.links };
 }
 
-export function buildGeneralBranchFromProfile(input: { profile: CareerProfile; operationId: string; name: string; includeProfileFacts: boolean; includeProfileBasics: boolean; now?: string }): ProfileBranchBuildResult {
+export function buildGeneralBranchFromProfile(input: {
+  profile: CareerProfile;
+  operationId: string;
+  name: string;
+  includeProfileFacts: boolean;
+  includeProfileBasics: boolean;
+  selectedCanonicalItemIds?: string[];
+  now?: string;
+}): ProfileBranchBuildResult {
   const now = input.now ?? new Date().toISOString();
-  const pairs = input.includeProfileFacts ? profileContentItems(input.profile, now) : [];
+  const allPairs = input.includeProfileFacts ? profileContentItems(input.profile, now) : [];
+  const selectedIds = input.selectedCanonicalItemIds ? new Set(input.selectedCanonicalItemIds) : undefined;
+  const pairs = selectedIds
+    ? allPairs.filter((pair) => selectedIds.has(pair.structured.data.id) || pair.structured.factRefs.some((ref) => "factId" in ref && selectedIds.has(ref.factId)))
+    : allPairs;
   const contentItems = pairs.length ? pairs.map((pair) => pair.legacy) : [structuralPlaceholder(now)];
   const sourceProfileSnapshotId = `profile-snapshot-${input.profile.id}-${input.profile.version}-${nanoid(6)}`;
   const branchBase = ResumeBranchSchema.parse({

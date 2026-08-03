@@ -423,6 +423,43 @@ export class BrowserAgentToolService implements AgentToolServices {
     };
   }
 
+  async createResumeFromProfile(rawInput: unknown, operationId: string, signal?: AbortSignal) {
+    assertNotAborted(signal);
+    const input = rawInput as {
+      targetProfileId: string;
+      expectedProfileVersion: number;
+      selectedFactIds: string[];
+      acknowledgedActiveProfileId?: string;
+      name?: string;
+    };
+    await assertActiveProfileBinding(this.repository, input);
+    const profile = await this.repository.getProfile(input.targetProfileId);
+    if (!profile || profile.version !== input.expectedProfileVersion) {
+      throw toolError("profile_from_profile_stale", "资料库已变化，请先读取最新版本后再创建简历。");
+    }
+    const selectedFactIds = [...new Set(input.selectedFactIds.map((id) => id.trim()).filter(Boolean))];
+    if (!selectedFactIds.length) {
+      throw toolError("profile_library_selection_empty", "请至少选择一项已确认经历后再创建简历。");
+    }
+    const created = await this.repository.createGeneralResumeBranch({
+      profileId: input.targetProfileId,
+      operationId,
+      name: input.name?.trim() || `${profile.name} · 通用简历`,
+      includeProfileFacts: true,
+      includeProfileBasics: true,
+      selectedCanonicalItemIds: selectedFactIds
+    });
+    return {
+      profileId: input.targetProfileId,
+      profileVersion: profile.version,
+      resumeId: created.branch.id,
+      revisionId: created.revision?.id ?? created.branch.currentRevisionId,
+      revision: created.branch.revision,
+      selectedFactIds,
+      idempotent: created.idempotent
+    };
+  }
+
   async listResumes(signal?: AbortSignal) {
     assertNotAborted(signal);
     const branches = await this.repository.listResumeBranches();

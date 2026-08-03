@@ -92,8 +92,8 @@ export const agentWorkflowRegistry: Record<string, AgentWorkflowDefinition> = {
   build_resume_from_profile: workflow("build_resume_from_profile", "select_profile_scope", ["select_profile_scope", "select_facts", "review_resume_plan", "confirm_create", "completed"], {
     select_profile_scope: [...profileReadTools, ...jobReadTools],
     select_facts: [...profileReadTools, ...jobReadTools],
-    review_resume_plan: [...profileReadTools, ...jobReadTools],
-    confirm_create: []
+    review_resume_plan: [...profileReadTools, ...jobReadTools, "create_resume_from_profile"],
+    confirm_create: ["create_resume_from_profile"]
   }, {
     select_profile_scope: ["open_profile_browser"],
     select_facts: ["open_profile_browser"],
