@@ -66,6 +66,14 @@ export const AgentOptionActionSchema = z.union([
       "generate_general_resume"
     ])
   }).strict(),
+  z.object({
+    type: z.literal("select_entity"),
+    entityType: z.enum(["job", "resume"]),
+    entityId: z.string().min(1),
+    candidateSetRevision: z.string().min(1)
+  }).strict(),
+  z.object({ type: z.literal("retry_current_step") }).strict(),
+  z.object({ type: z.literal("new_tailoring_task") }).strict(),
   z.object({ type: z.literal("answer"), field: z.string().min(1), value: z.unknown() }).strict()
 ]);
 

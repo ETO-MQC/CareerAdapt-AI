@@ -66,7 +66,16 @@ export function resolveTailoringEntityReference<T extends TailoringContextCandid
 }
 
 function candidateTextValues(candidate: TailoringContextCandidate) {
-  return [candidate.name, candidate.title, candidate.company]
+  const title = candidate.title?.trim();
+  const company = candidate.company?.trim();
+  return [
+    candidate.name,
+    title,
+    company,
+    title && company ? `${title} · ${company}` : undefined,
+    title && company ? `${company} · ${title}` : undefined,
+    title && company ? `${title} - ${company}` : undefined
+  ]
     .filter((value): value is string => typeof value === "string" && value.trim().length > 0);
 }
 
@@ -93,6 +102,8 @@ function normalize(value: string) {
     .toLocaleLowerCase()
     .replace(/安卓/gu, "android")
     .replace(/[“”「」『』《》【】()[\]{}<>]/gu, "")
+    .replace(/[·•|｜—–\-&＆]/gu, "")
+    .replace(/[，,。．:：；;！!？?]/gu, "")
     .replace(/\s+/gu, "")
     .trim();
 }

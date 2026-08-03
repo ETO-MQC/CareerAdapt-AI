@@ -21,13 +21,17 @@ import {
   analyzeKeywordAndCapabilityGaps,
   validateEachTailoringDiffLocally
 } from "@/domain/jobOptimization";
-import { stableHashText } from "@/services/security/text";
 import type { WorkspaceRepository } from "@/services/storage/repositories";
+import { stableHashText } from "@/services/security/text";
 import { answerTailoringClarification, createTailoringPlan, createTailoringQuestionPlan } from "./tailoringService";
+import { tailoringDiffId } from "./tailoringDiffId";
+
+export { tailoringDiffId } from "./tailoringDiffId";
 
 const OperationIdSchema = z.string().min(8).max(160);
 
 export const TailoringSessionSchema = z.object({
+  tailoringRuntimeVersion: z.number().int().min(1).default(2),
   id: z.string().min(1),
   operationId: OperationIdSchema,
   profile: CareerProfileSchema,
@@ -317,26 +321,46 @@ export function reviewTailoringDiffCommand(input: z.input<typeof ReviewTailoring
   if (!diff) throw commandError("tailoring_diff_not_found");
   if (parsed.decision === "edit" && parsed.editedValue === undefined) throw commandError("tailoring_diff_edit_missing");
   const before = parsed.session.plan.diffReviews ?? [];
+  const existing = before.find((item) => item.diffId === parsed.diffId);
+  const nextStatus = parsed.decision === "accept" ? "accepted" as const : parsed.decision === "edit" ? "edited" as const : "rejected" as const;
+  if (existing?.status === nextStatus && JSON.stringify(existing.editedValue) === JSON.stringify(parsed.decision === "edit" ? parsed.editedValue : undefined)) {
+    return reviewTailoringDiffResult(parsed.operationId, parsed.session, true);
+  }
   const review = {
     diffId: parsed.diffId,
-    status: parsed.decision === "accept" ? "accepted" as const : parsed.decision === "edit" ? "edited" as const : "rejected" as const,
+    status: nextStatus,
     editedValue: parsed.decision === "edit" ? parsed.editedValue : undefined,
     updatedAt: new Date().toISOString()
   };
-  const diffReviews = [...before.filter((item) => item.diffId !== parsed.diffId), review];
-  const selectedDiffs = (parsed.session.plan.diffs ?? []).flatMap((item) => {
-    const resolved = diffReviews.find((candidate) => candidate.diffId === tailoringDiffId(item));
+  const known = new Map(before.map((item) => [item.diffId, item]));
+  known.set(parsed.diffId, review);
+  const diffReviews = (parsed.session.plan.diffs ?? []).map((item) =>
+    known.get(tailoringDiffId(item)) ?? {
+      diffId: tailoringDiffId(item),
+      status: "suggested" as const,
+      updatedAt: review.updatedAt
+    }
+  );
+  const plan = ResumeTailoringPlanSchema.parse({ ...parsed.session.plan, diffReviews });
+  return reviewTailoringDiffResult(parsed.operationId, TailoringSessionSchema.parse({ ...parsed.session, plan, revision: parsed.session.revision + 1 }), false);
+}
+
+function reviewTailoringDiffResult(operationId: string, session: TailoringSession, idempotent: boolean) {
+  const reviews = session.plan.diffReviews ?? [];
+  const byId = new Map(reviews.map((review) => [review.diffId, review]));
+  const selectedDiffs = (session.plan.diffs ?? []).flatMap((item) => {
+    const resolved = byId.get(tailoringDiffId(item));
     if (!resolved || resolved.status === "suggested" || resolved.status === "rejected") return [];
     return [{ ...item, value: resolved.status === "edited" ? resolved.editedValue! : item.value }];
   });
-  const plan = ResumeTailoringPlanSchema.parse({ ...parsed.session.plan, diffReviews });
   return {
-    operationId: parsed.operationId,
-    session: TailoringSessionSchema.parse({ ...parsed.session, plan, revision: parsed.session.revision + 1 }),
+    operationId,
+    session,
     selectedDiffs,
-    selectedDiffIds: diffReviews.filter((item) => item.status === "accepted" || item.status === "edited").map((item) => item.diffId),
-    rejectedDiffIds: diffReviews.filter((item) => item.status === "rejected").map((item) => item.diffId),
-    remainingDiffCount: diffReviews.filter((item) => item.status === "suggested").length
+    selectedDiffIds: reviews.filter((item) => item.status === "accepted" || item.status === "edited").map((item) => item.diffId),
+    rejectedDiffIds: reviews.filter((item) => item.status === "rejected").map((item) => item.diffId),
+    remainingDiffCount: reviews.filter((item) => item.status === "suggested").length,
+    idempotent
   };
 }
 
@@ -390,15 +414,6 @@ function dedupeDiffs(diffs: ResumeTailoringDiff[]) {
     seen.add(key);
     return true;
   });
-}
-
-export function tailoringDiffId(diff: ResumeTailoringDiff) {
-  return `tailoring-diff-${stableHashText(JSON.stringify({
-    target: diff.target,
-    operation: diff.operation,
-    original: diff.original,
-    value: diff.value
-  }))}`;
 }
 
 function assertNotCancelled(signal?: AbortSignal) {

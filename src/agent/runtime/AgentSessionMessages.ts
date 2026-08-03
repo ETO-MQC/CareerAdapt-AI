@@ -50,7 +50,7 @@ export function replaceAgentThinking(
 ) {
   const now = new Date().toISOString();
   const existing = session.messages.find((item) => item.id === messageId);
-  const message: AgentMessage = {
+  const message = normalizeMessageForFinalAssistant({
     ...existing,
     id: messageId,
     turnId,
@@ -64,7 +64,7 @@ export function replaceAgentThinking(
     metadata: { ...existing?.metadata, retracted: false },
     createdAt: existing?.createdAt ?? now,
     updatedAt: now
-  };
+  } as AgentMessage);
   return {
     ...session,
     messages: session.messages.some((item) => item.id === messageId)
@@ -72,6 +72,26 @@ export function replaceAgentThinking(
       : [...session.messages, message],
     updatedAt: now
   };
+}
+
+export function normalizeMessageForFinalAssistant(message: AgentMessage): AgentMessage {
+  const rest = { ...message } as Record<string, unknown>;
+  for (const key of ["errorCode", "userMessageId", "confirmationResolution", "confirmationResolvedAt", "confirmationToolName"]) delete rest[key];
+  const metadata = { ...(message.metadata ?? {}) };
+  for (const key of [
+    "retry", "retryCount", "retryMetadata", "confirmationResolution",
+    "confirmationResolvedAt", "confirmationToolName", "activityState",
+    "staleActivity", "errorType", "streamId", "iterationId"
+  ]) delete metadata[key];
+  return {
+    ...rest,
+    role: "assistant",
+    kind: "text",
+    type: "text",
+    status: "complete",
+    streaming: false,
+    metadata: Object.keys(metadata).length ? metadata : undefined
+  } as AgentMessage;
 }
 
 export function detectLanguage(value: string): AgentMessage["language"] {

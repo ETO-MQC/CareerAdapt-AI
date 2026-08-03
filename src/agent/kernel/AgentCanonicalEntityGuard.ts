@@ -21,6 +21,7 @@ export class AgentCanonicalEntityGuard {
           value
         );
       }
+      result = result.replace(/^((?:你好|您好)[，, ]?)[\p{Script=Han}]{2,8}([！!。.]?)$/u, `$1${value}$2`);
     }
     return result;
   }

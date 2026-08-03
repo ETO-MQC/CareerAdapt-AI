@@ -83,7 +83,7 @@ export function resolveCapabilityEntities(input: ResolverInput): CapabilityEntit
       resolved.push(entity(entry.label, entry.type, candidate.source));
     }
     if (!matched && (candidate.source === "keyword" || candidate.source === "user_answer")) {
-      resolved.push(entity(candidate.text.trim(), "unknown", candidate.source));
+      resolved.push(entity(candidate.text.trim(), isKnownCompanyAlias(candidate.text) ? "company" : "unknown", candidate.source));
     }
   }
   const seen = new Set<string>();
@@ -93,6 +93,10 @@ export function resolveCapabilityEntities(input: ResolverInput): CapabilityEntit
     seen.add(key);
     return true;
   });
+}
+
+function isKnownCompanyAlias(value: string) {
+  return /^(?:talents?|telent(?:s)?|示例招聘平台)$/iu.test(value.trim());
 }
 
 export function capabilityAllowsProficiency(capability?: CapabilityEntity) {

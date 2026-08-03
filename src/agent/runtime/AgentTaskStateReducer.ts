@@ -6,6 +6,7 @@ import {
   TaskContinuationResolver
 } from "./TaskContinuationResolver";
 import type { AgentAttachmentRef } from "@/services/agent/AgentAttachmentStore";
+import { stableHashText } from "@/services/security/text";
 import {
   resolveTailoringEntityReference,
   type TailoringContextCandidate
@@ -852,6 +853,7 @@ function mergeObservationSlots(state: AgentTaskState, toolName: string, observat
       order: typeof resume.order === "number" ? resume.order : index + 1
     }));
     state.knownSlots.resumeCandidates = resumeCandidates.map(compactEntityCandidate);
+    state.knownSlots.resumeCandidateSetRevision = stableHashText(JSON.stringify(state.knownSlots.resumeCandidates));
     const reference = state.knownSlots.resumeReference ?? state.knownSlots.resumeSelectionPreference;
     const selected: Record<string, unknown> | undefined = reference
       ? selectResumeReference(resumeCandidates, reference)
@@ -877,11 +879,12 @@ function mergeObservationSlots(state: AgentTaskState, toolName: string, observat
   }
   if (toolName === "list_jobs") {
     const jobs = Array.isArray(value.jobs) ? value.jobs.map(objectValue) : [];
-    const jobCandidates: Record<string, unknown>[] = jobs.map((job, index) => ({
+    const jobCandidates: Record<string, unknown>[] = [...new Map(jobs.map((job, index) => [String(job.id), {
       ...job,
       order: typeof job.order === "number" ? job.order : index + 1
-    }));
+    }])).values()];
     state.knownSlots.jobCandidates = jobCandidates.map(compactJobCandidate);
+    state.knownSlots.jobCandidateSetRevision = stableHashText(JSON.stringify(state.knownSlots.jobCandidates));
     const jobReference = stringValue(state.knownSlots.jobReference);
     const resolution = jobReference
       ? resolveTailoringEntityReference(jobReference, jobCandidates as TailoringContextCandidate[])
@@ -1508,6 +1511,10 @@ function compactJobCandidate(value: Record<string, unknown>) {
     id: stringValue(value.id),
     title: stringValue(value.title),
     company: stringValue(value.company),
+    revision: scalarValue(value.revision),
+    updatedAt: stringValue(value.updatedAt),
+    source: stringValue(value.source ?? value.sourceType),
+    graphHash: stringValue(value.graphHash ?? value.jobGraphHash ?? value.sourceHash),
     order: typeof value.order === "number" ? value.order : undefined
   };
 }

@@ -359,6 +359,7 @@ export const TailoringClarificationQuestionSchema = z.object({
 }));
 
 export const TailoringQuestionPlanSchema = z.object({
+  questionPlanVersion: z.number().int().min(1).default(2),
   id: z.string().min(1),
   sessionId: z.string().min(1),
   revision: z.number().int().min(1),

@@ -94,7 +94,7 @@ describe("AI-first workspace foundations", () => {
     render(
       <AgentArtifactDrawer
         artifacts={artifacts}
-        state="open"
+        state="overlay"
         workflowState={{ step: "select_resume", busy: false, diffs: [], confirmedRequirementIds: [] }}
         onStateChange={onStateChange}
       />
@@ -103,5 +103,30 @@ describe("AI-first workspace foundations", () => {
     fireEvent.click(screen.getAllByRole("button", { name: "关闭任务产物" }).at(-1)!);
     expect(onStateChange).toHaveBeenCalledWith("closed");
     expect(artifacts).toHaveLength(1);
+  });
+
+  it("expands a collapsed desktop artifact rail back to split and renders no backdrop", () => {
+    const onStateChange = vi.fn();
+    const artifacts = [{
+      id: "artifact-split-1", kind: "tailoring_diff" as const, title: "修改预览",
+      entityType: "tailoring_session" as const, entityId: "tailoring-1", status: "active" as const,
+      summary: "待核对", createdAt: "2026-08-02T10:00:00.000Z", updatedAt: "2026-08-02T10:00:00.000Z"
+    }];
+    const { rerender } = render(<AgentArtifactDrawer
+      artifacts={artifacts}
+      state="collapsed"
+      workflowState={{ step: "preview_changes", busy: false, diffs: [], confirmedRequirementIds: [] }}
+      onStateChange={onStateChange}
+    />);
+    fireEvent.click(screen.getByRole("button", { name: /展开任务产物/ }));
+    expect(onStateChange).toHaveBeenCalledWith("split");
+    rerender(<AgentArtifactDrawer
+      artifacts={artifacts}
+      state="split"
+      workflowState={{ step: "preview_changes", busy: false, diffs: [], confirmedRequirementIds: [] }}
+      onStateChange={onStateChange}
+    />);
+    expect(document.querySelector(".agent-artifact-drawer.is-split")).toBeInTheDocument();
+    expect(document.querySelector(".agent-artifact-backdrop")).not.toBeInTheDocument();
   });
 });

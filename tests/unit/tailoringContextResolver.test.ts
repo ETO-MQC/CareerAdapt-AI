@@ -34,6 +34,9 @@ describe("tailoring context entity resolver", () => {
       status: "resolved",
       candidate: { id: "job-a" }
     });
+    expect(resolveTailoringEntityReference("Android研发实习生 · 智乐活", jobs)).toMatchObject({ status: "resolved", candidate: { id: "job-a" }, reason: "exact" });
+    expect(resolveTailoringEntityReference("智乐活｜Android研发实习生", jobs)).toMatchObject({ status: "resolved", candidate: { id: "job-a" }, reason: "exact" });
+    expect(resolveTailoringEntityReference("Android研发实习生 — 智乐活", jobs)).toMatchObject({ status: "resolved", candidate: { id: "job-a" }, reason: "exact" });
   });
 
   it("returns ambiguity and the current candidate set", () => {

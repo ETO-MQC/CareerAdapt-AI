@@ -5,6 +5,8 @@ import { useState } from "react";
 import type { TailorWorkflowViewState } from "@/agent/workflows/tailorExistingResumeWorkflow";
 import type { AgentTaskState } from "@/agent/contracts/agentSession";
 import type { AgentArtifactAction, AgentUiAction } from "@/agent/contracts/agentActions";
+import { ResumeTailoringDiffSchema } from "@/domain/schemas";
+import { tailoringDiffId } from "@/services/jobs/tailoringDiffId";
 
 export function AgentArtifactContent({
   state,
@@ -16,7 +18,7 @@ export function AgentArtifactContent({
   state: TailorWorkflowViewState;
   taskState?: AgentTaskState;
   onImportAction?(message: string): void;
-  onArtifactAction?(action: AgentArtifactAction): void;
+  onArtifactAction?(action: AgentArtifactAction): Promise<unknown> | void;
   onUiAction?(action: AgentUiAction): void;
 }) {
   const graph = asRecord(state.jobGraph);
@@ -32,6 +34,8 @@ export function AgentArtifactContent({
   const answeredQuestions = questions.map(asRecord).filter((question) => answeredQuestionIds.has(String(question.id)) || skippedQuestionIds.has(String(question.id)));
   const activeQuestion = questions.map(asRecord).find((question) => question.id === activeQuestionId);
   const diffReviews = arrayOfRecords(plan.diffReviews);
+  const reviewsById = new Map(diffReviews.flatMap((review) => typeof review.diffId === "string" ? [[review.diffId, review]] : []));
+  const artifactActionFeedback = asRecord(taskState?.knownSlots.artifactActionFeedback);
   const importArtifact = asRecord(taskState?.knownSlots.importArtifact);
   const importReview = asRecord(taskState?.knownSlots.importReviewSummary);
   const importTarget = asRecord(taskState?.knownSlots.importTarget);
@@ -328,18 +332,22 @@ export function AgentArtifactContent({
           <summary>修改预览 <span>{state.diffs.length} 项</span></summary>
           <div className="agent-diff-list">
             {state.diffs.slice(0, 8).map((item, index) => {
+              const parsedDiff = ResumeTailoringDiffSchema.safeParse(item);
               const diff = asRecord(item);
-              const review = diffReviews[index] ?? {};
+              const diffId = parsedDiff.success ? tailoringDiffId(parsedDiff.data) : undefined;
+              const review = diffId ? reviewsById.get(diffId) ?? {} : {};
               return (
                 <TailoringDiffRecord
-                  key={String(review.diffId ?? index)}
+                  key={diffId ?? `invalid-diff-${index}`}
                   diff={diff}
                   review={review}
-                  onDecision={(decision, editedValue) => {
-                    if (typeof review.diffId !== "string") return;
-                    onArtifactAction?.({
+                  diffId={diffId}
+                  feedback={artifactActionFeedback.entityId === diffId ? artifactActionFeedback : undefined}
+                  onDecision={async (decision, editedValue) => {
+                    if (!diffId) return;
+                    await onArtifactAction?.({
                       type: "tailoring_diff_decision",
-                      diffId: review.diffId,
+                      diffId,
                       decision,
                       editedValue
                     });
@@ -451,16 +459,26 @@ function TailoringAnswerRecord({
 function TailoringDiffRecord({
   diff,
   review,
+  diffId,
+  feedback,
   onDecision
 }: {
   diff: Record<string, unknown>;
   review: Record<string, unknown>;
-  onDecision(decision: "accept" | "edit" | "reject", editedValue?: string): void;
+  diffId?: string;
+  feedback?: Record<string, unknown>;
+  onDecision(decision: "accept" | "edit" | "reject", editedValue?: string): Promise<void> | void;
 }) {
   const proposed = renderValue(diff.value);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(renderValue(review.editedValue) || proposed);
+  const [submitting, setSubmitting] = useState(false);
   const status = String(review.status ?? "suggested");
+  const decide = async (decision: "accept" | "edit" | "reject", editedValue?: string) => {
+    if (!diffId || submitting) return;
+    setSubmitting(true);
+    try { await onDecision(decision, editedValue); } finally { setSubmitting(false); }
+  };
   return (
     <article>
       <small>{tailoringTargetLabel(asRecord(diff.target).fieldPath)}</small>
@@ -471,20 +489,25 @@ function TailoringDiffRecord({
         <form onSubmit={(event) => {
           event.preventDefault();
           if (!draft.trim()) return;
-          onDecision("edit", draft.trim());
+          void decide("edit", draft.trim());
           setEditing(false);
         }}>
           <textarea aria-label="编辑建议内容" value={draft} onChange={(event) => setDraft(event.target.value)} />
-          <button type="submit">采用编辑</button>
+          <button type="submit" disabled={submitting || !diffId}>采用编辑</button>
           <button type="button" onClick={() => setEditing(false)}>取消</button>
         </form>
       ) : (
         <div className="agent-diff-actions">
-          <button type="button" aria-pressed={status === "accepted"} onClick={() => onDecision("accept")}>采用</button>
-          <button type="button" aria-pressed={status === "edited"} onClick={() => setEditing(true)}>编辑后采用</button>
-          <button type="button" aria-pressed={status === "rejected"} onClick={() => onDecision("reject")}>忽略</button>
+          <button type="button" disabled={submitting || !diffId} aria-pressed={status === "accepted"} onClick={() => void decide("accept")}>{status === "accepted" ? "已采用" : "采用"}</button>
+          <button type="button" disabled={submitting || !diffId} aria-pressed={status === "edited"} onClick={() => setEditing(true)}>{status === "edited" ? "已编辑" : "编辑后采用"}</button>
+          <button type="button" disabled={submitting || !diffId} aria-pressed={status === "rejected"} onClick={() => void decide("reject")}>{status === "rejected" ? "已忽略" : "忽略"}</button>
         </div>
       )}
+      {submitting || feedback?.running === true ? <span className="agent-diff-feedback" role="status">正在保存这项核对…</span> : null}
+      {!submitting && typeof feedback?.message === "string" ? (
+        <span className={feedback.result === "rejected" ? "agent-diff-feedback is-error" : "agent-diff-feedback"} role="status">{feedback.message}</span>
+      ) : null}
+      {!diffId ? <span className="agent-diff-feedback is-error" role="status">这项修改缺少稳定标识，请刷新后重试。</span> : null}
     </article>
   );
 }

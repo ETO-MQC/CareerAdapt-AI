@@ -51,11 +51,14 @@ export function AgentWorkspace() {
   const [profiles, setProfiles] = useState<CareerProfile[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [drawerState, setDrawerState] = useState<AgentArtifactDrawerState>(() => {
-    if (typeof window === "undefined") return "pinned";
+    if (typeof window === "undefined") return "split";
     const stored = window.localStorage.getItem(AGENT_ARTIFACT_STATE_KEY);
-    return stored === "closed" || stored === "open" || stored === "pinned" || stored === "collapsed"
+    const compact = window.matchMedia("(max-width: 860px)").matches;
+    if (stored === "pinned") return "split";
+    if (stored === "open") return compact ? "overlay" : "split";
+    return stored === "closed" || stored === "split" || stored === "overlay" || stored === "collapsed"
       ? stored
-      : "pinned";
+      : compact ? "overlay" : "split";
   });
   const [draftsBySession, setDraftsBySession] = useState<SessionComposerDrafts>(readSessionComposerDrafts);
   const draftsBySessionRef = useRef(draftsBySession);
@@ -72,6 +75,17 @@ export function AgentWorkspace() {
   const updateDrawerState = useCallback((next: AgentArtifactDrawerState) => {
     setDrawerState(next);
     window.localStorage.setItem(AGENT_ARTIFACT_STATE_KEY, next);
+  }, []);
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 860px)");
+    const normalize = () => setDrawerState((current) => {
+      if (current === "split" && media.matches) return "overlay";
+      if (current === "overlay" && !media.matches) return "split";
+      return current;
+    });
+    media.addEventListener("change", normalize);
+    return () => media.removeEventListener("change", normalize);
   }, []);
 
   const setSessionDraft = useCallback((value: string) => {
@@ -106,11 +120,11 @@ export function AgentWorkspace() {
     const current = host.state.getSnapshot();
     if (current.activeSession) setSession(current.activeSession);
     if (current.uiAction) {
-      if (current.uiAction.type === "open_artifact") setDrawerState("open");
+      if (current.uiAction.type === "open_artifact") updateDrawerState(window.matchMedia("(max-width: 860px)").matches ? "overlay" : "split");
       else setFloatingAction(current.uiAction);
       host.state.clearUiAction();
     }
-  }), [host.state]);
+  }), [host.state, updateDrawerState]);
 
   const restoreSession = useCallback((selected: AgentSession) => {
     host.state.adopt(selected);
@@ -204,7 +218,7 @@ export function AgentWorkspace() {
   }
 
   function dispatchArtifactAction(action: AgentArtifactAction) {
-    void host.state.dispatch(
+    return host.state.dispatch(
       { type: "artifact_action", action },
       { session, pageContext: pageContext() }
     ).then((result) => {
@@ -212,6 +226,7 @@ export function AgentWorkspace() {
       setSession(result);
       window.localStorage.setItem(ACTIVE_SESSION_KEY, result.id);
       window.dispatchEvent(new CustomEvent("careeradapt-agent-sessions-change"));
+      return result;
     });
   }
 
@@ -243,7 +258,7 @@ export function AgentWorkspace() {
       sessionTitle={getAgentSessionDisplayTitle(session)}
       status={statusLabel(snapshot.turnStatus)}
       artifactCount={artifacts.length}
-      onOpenArtifacts={() => updateDrawerState(window.matchMedia("(max-width: 860px)").matches ? "open" : "pinned")}
+      onOpenArtifacts={() => updateDrawerState(window.matchMedia("(max-width: 860px)").matches ? "overlay" : "split")}
       onOpenHistory={() => setHistoryOpen(true)}
     >
       <div className={`agent-workspace-body is-drawer-${drawerState}`}>

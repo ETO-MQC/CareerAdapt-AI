@@ -1,6 +1,6 @@
 "use client";
 
-import { PanelRightOpen, Pin, PinOff, X } from "lucide-react";
+import { PanelRightOpen, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { AgentArtifactRef } from "@/agent/contracts/agentArtifact";
 import type { TailorWorkflowViewState } from "@/agent/workflows/tailorExistingResumeWorkflow";
@@ -8,7 +8,7 @@ import type { AgentTaskState } from "@/agent/contracts/agentSession";
 import type { AgentArtifactAction, AgentUiAction } from "@/agent/contracts/agentActions";
 import { AgentArtifactContent } from "./AgentArtifactContent";
 
-export type AgentArtifactDrawerState = "closed" | "open" | "pinned" | "collapsed";
+export type AgentArtifactDrawerState = "closed" | "split" | "collapsed" | "overlay";
 
 const ARTIFACT_WIDTH_KEY = "careerad-agent-artifact-width:v1";
 
@@ -27,7 +27,7 @@ export function AgentArtifactDrawer({
   workflowState: TailorWorkflowViewState;
   taskState?: AgentTaskState;
   onImportAction?(message: string): void;
-  onArtifactAction?(action: AgentArtifactAction): void;
+  onArtifactAction?(action: AgentArtifactAction): Promise<unknown> | void;
   onUiAction?(action: AgentUiAction): void;
   onStateChange(state: AgentArtifactDrawerState): void;
 }) {
@@ -83,7 +83,7 @@ export function AgentArtifactDrawer({
   if (state === "collapsed") {
     return (
       <aside className="agent-artifact-drawer is-collapsed" aria-label="已收起的任务产物">
-        <button type="button" aria-label={`展开任务产物，共 ${artifacts.length} 项`} onClick={() => onStateChange("open")}>
+        <button type="button" aria-label={`展开任务产物，共 ${artifacts.length} 项`} onClick={() => onStateChange(isCompactViewport() ? "overlay" : "split")}>
           <PanelRightOpen aria-hidden="true" />
           <span>{artifacts.length}</span>
         </button>
@@ -96,15 +96,15 @@ export function AgentArtifactDrawer({
 
   return (
     <>
-      <button
-        className="agent-artifact-backdrop"
-        type="button"
-        aria-label="关闭任务产物"
-        onClick={() => onStateChange("closed")}
-      />
+      {state === "overlay" ? <button
+          className="agent-artifact-backdrop"
+          type="button"
+          aria-label="关闭任务产物"
+          onClick={() => onStateChange("closed")}
+        /> : null}
       <aside
         ref={drawerRef}
-        className={state === "pinned" ? "agent-artifact-drawer is-pinned" : "agent-artifact-drawer"}
+        className={`agent-artifact-drawer is-${state}`}
         aria-label="任务产物"
         style={{ "--agent-artifact-width": `${width}px` } as React.CSSProperties}
       >
@@ -138,13 +138,6 @@ export function AgentArtifactDrawer({
             <span>任务产物</span>
             <strong>{selectedArtifact?.title ?? "核对与预览"}</strong>
           </div>
-          <button
-            type="button"
-            aria-label={state === "pinned" ? "取消固定产物面板" : "固定产物面板"}
-            onClick={() => onStateChange(state === "pinned" ? "open" : "pinned")}
-          >
-            {state === "pinned" ? <PinOff aria-hidden="true" /> : <Pin aria-hidden="true" />}
-          </button>
           <button type="button" aria-label="收起任务产物" onClick={() => onStateChange("collapsed")}>
             <PanelRightOpen aria-hidden="true" />
           </button>
@@ -184,4 +177,9 @@ export function AgentArtifactDrawer({
 function clampArtifactWidth(value: number) {
   const viewportMaximum = typeof window === "undefined" ? 720 : Math.floor(window.innerWidth * 0.55);
   return Math.max(360, Math.min(720, viewportMaximum, Math.round(value)));
+}
+
+function isCompactViewport() {
+  return typeof window !== "undefined" && typeof window.matchMedia === "function"
+    && window.matchMedia("(max-width: 860px)").matches;
 }

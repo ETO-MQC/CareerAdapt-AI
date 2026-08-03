@@ -25,7 +25,7 @@
   z-index: 30;
 }
 
-.agent-artifact-drawer.is-pinned {
+.agent-artifact-drawer.is-split {
   box-shadow: none;
   flex: 0 0 var(--agent-artifact-width, 520px);
   position: relative;
@@ -578,6 +578,17 @@
   resize: vertical;
 }
 
+.agent-diff-feedback {
+  color: var(--ai-muted);
+  display: block;
+  font-size: 11px;
+  margin-top: 8px;
+}
+
+.agent-diff-feedback.is-error {
+  color: var(--ai-danger, #b42318);
+}
+
 .agent-import-review-actions button:hover,
 .agent-import-review-actions button:focus-visible,
 .agent-import-review-actions a:hover,
@@ -602,7 +613,8 @@
   }
 
   .agent-artifact-drawer,
-  .agent-artifact-drawer.is-pinned {
+  .agent-artifact-drawer.is-overlay,
+  .agent-artifact-drawer.is-split {
     bottom: 0;
     left: auto;
     max-width: calc(100vw - 24px);

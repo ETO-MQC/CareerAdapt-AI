@@ -43,7 +43,7 @@ describe("P4.3d one active question per turn", () => {
       knownSlots: {
         tailoringSession: {
           plan: {
-            questionPlan: { activeQuestionId: "q-kotlin" },
+            questionPlan: { id: "question-plan-1", revision: 1, questionIds: ["q-kotlin", "q-db", "q-live"], activeQuestionId: "q-kotlin" },
             clarificationQuestions: questions,
             clarificationAnswers: [{ questionId: "q-db", answer: "SQLite" }]
           }
@@ -200,7 +200,7 @@ describe("P4.3d authoritative answer writes", () => {
           id: "tailoring-1",
           revision: 1,
           plan: {
-            questionPlan: { activeQuestionId: "q-kotlin" },
+            questionPlan: { id: "question-plan-1", revision: 1, questionIds: ["q-kotlin", "q-db", "q-live"], activeQuestionId: "q-kotlin" },
             clarificationQuestions: questions,
             clarificationAnswers: []
           }
@@ -252,7 +252,20 @@ describe("P4.3d authoritative answer writes", () => {
     hostRef.current = host;
 
     const result = await host.startTurn({
-      session: { ...base, taskState },
+      session: {
+        ...base,
+        taskState,
+        messages: [{
+          id: "assistant-question-kotlin",
+          role: "assistant",
+          content: "是否实际使用 Kotlin，熟练度如何？",
+          kind: "text",
+          type: "text",
+          status: "complete",
+          metadata: { tailoringQuestionId: "q-kotlin", questionPlanId: "question-plan-1", questionPlanRevision: 1 },
+          createdAt: "2026-08-02T12:00:00.000Z"
+        }]
+      },
       userMessage: "Kotlin比较熟练，项目用的是SQLite，不过没有正式上线。顺便导出PDF。",
       pageContext: PAGE_CONTEXT
     });

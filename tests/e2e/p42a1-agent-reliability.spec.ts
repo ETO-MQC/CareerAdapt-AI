@@ -675,6 +675,15 @@ test.describe("P4.2a.1 Agent reliability", () => {
     expect(desktopDrawerBox?.width).toBeLessThanOrEqual(720);
     expect((desktopConversationBox?.x ?? 0) + (desktopConversationBox?.width ?? 0)).toBeLessThanOrEqual((desktopDrawerBox?.x ?? 0) + 1);
     await expect(composer).toBeVisible();
+    await drawer.getByRole("button", { name: "收起任务产物" }).click();
+    const collapsedDrawer = page.getByRole("complementary", { name: "已收起的任务产物" });
+    await expect(collapsedDrawer).toBeVisible();
+    expect((await collapsedDrawer.boundingBox())?.width).toBeLessThanOrEqual(48);
+    await expect(page.locator(".agent-artifact-backdrop")).toHaveCount(0);
+    await collapsedDrawer.getByRole("button", { name: "展开任务产物" }).click();
+    await expect(drawer).toBeVisible();
+    await expect(drawer).toHaveClass(/is-split/);
+    expect(await drawer.evaluate((element) => getComputedStyle(element).position)).not.toBe("absolute");
     const resizer = page.getByRole("separator", { name: "调整产物面板宽度" });
     await resizer.focus();
     await resizer.press("ArrowLeft");
@@ -687,6 +696,14 @@ test.describe("P4.2a.1 Agent reliability", () => {
     await expect(page.getByText(/问题 1\//)).toBeVisible({ timeout: 20_000 });
     expect((await drawer.boundingBox())?.width).toBe(resizedDrawerWidth);
     await page.screenshot({ path: "artifacts/p43d-tailoring-split-1600x900.png", fullPage: true });
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await expect(drawer).toBeVisible();
+    await expect(composer).toBeVisible();
+    await page.screenshot({ path: "artifacts/p43d-tailoring-split-1440x900.png", fullPage: true });
+    await page.setViewportSize({ width: 1366, height: 768 });
+    await expect(drawer).toBeVisible();
+    await expect(composer).toBeVisible();
+    await page.screenshot({ path: "artifacts/p43d-tailoring-split-1366x768.png", fullPage: true });
     await page.setViewportSize({ width: 1024, height: 768 });
     const compactDrawerBox = await drawer.boundingBox();
     const compactConversationBox = await conversationPanel.boundingBox();
@@ -729,12 +746,12 @@ test.describe("P4.2a.1 Agent reliability", () => {
     }
     if (!(await drawer.isVisible())) await page.getByRole("button", { name: /产物/ }).click();
     await page.getByRole("tab", { name: "简历定制修改预览" }).click();
-    const suggestedDiffs = page.locator('.agent-diff-list button[aria-pressed="false"]').filter({ hasText: "采用" });
+    const suggestedDiffs = page.locator(".agent-diff-list").getByRole("button", { name: "采用", exact: true });
     const suggestedCount = await suggestedDiffs.count();
     expect(suggestedCount).toBeGreaterThan(0);
     let remainingDiffs = Number(((await readLatestAgentTask(page))?.knownSlots as Record<string, unknown> | undefined)?.remainingDiffCount ?? suggestedCount);
     while (remainingDiffs > 0) {
-      await page.locator('.agent-diff-list button[aria-pressed="false"]').filter({ hasText: "采用" }).first().click();
+      await page.locator(".agent-diff-list").getByRole("button", { name: "采用", exact: true }).first().click();
       const previousRemaining = remainingDiffs;
       await expect.poll(async () => Number(((await readLatestAgentTask(page))?.knownSlots as Record<string, unknown> | undefined)?.remainingDiffCount ?? previousRemaining))
         .toBeLessThan(previousRemaining);

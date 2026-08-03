@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { AgentArtifactContent } from "@/components/agent/artifacts/AgentArtifactContent";
 import type { AgentTaskState } from "@/agent/contracts/agentSession";
+import { tailoringDiffId } from "@/services/jobs/tailoringDiffId";
 
 describe("Agent artifact decisions", () => {
   it("dispatches profile candidate rejection as a typed action", () => {
@@ -202,10 +203,15 @@ describe("Agent artifact decisions", () => {
       answer: ["事实准确", "要求覆盖"]
     };
     const diff = {
-      target: { sectionId: "summary", itemId: "summary-1", fieldPath: "text" },
+      target: { sectionId: "summary", itemId: "summary-1", fieldPath: "text" as const },
+      operation: "replace" as const,
       original: "原个人评价",
       value: "更聚焦岗位的个人评价",
-      reason: "突出已有的评估经验"
+      reason: "突出已有的评估经验",
+      requirementIds: [],
+      targetKeywords: [],
+      evidenceRefs: [],
+      supportLevel: "verified" as const
     };
     const tailoringSession = {
       revision: 3,
@@ -218,7 +224,7 @@ describe("Agent artifact decisions", () => {
           skippedQuestionIds: []
         },
         diffs: [diff],
-        diffReviews: [{ diffId: "diff-1", status: "suggested" }]
+        diffReviews: [{ diffId: tailoringDiffId(diff), status: "suggested" }]
       }
     };
     render(
@@ -243,7 +249,7 @@ describe("Agent artifact decisions", () => {
     fireEvent.click(screen.getByRole("button", { name: /^采用$/ }));
     expect(onArtifactAction).toHaveBeenCalledWith({
       type: "tailoring_diff_decision",
-      diffId: "diff-1",
+      diffId: tailoringDiffId(diff),
       decision: "accept",
       editedValue: undefined
     });

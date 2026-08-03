@@ -93,6 +93,7 @@ import {
   type AgentMessageRecord,
   type AgentSession
 } from "@/agent/contracts/agentSession";
+import { migrateAgentSessionToCurrentSchema } from "@/agent/runtime/AgentSessionMigration";
 import { isSubmissionSafeTailoringPath, validateEachTailoringDiffLocally } from "@/domain/jobOptimization/tailoringDiff";
 import { assertApplicationStatusTransition, computeApplicationReadiness } from "@/domain/application";
 import {
@@ -424,32 +425,6 @@ export type ApplicationContext = {
   preparationPackCorrupted?: boolean;
 };
 
-function migrateLegacyAgentOptions(option: Record<string, unknown>) {
-  if ("id" in option && "action" in option && "label" in option && !("value" in option)) return option;
-  const { value: _legacyValue, description: _desc, field: _field, ...rest } = option;
-  const label = typeof option.label === "string" ? option.label
-    : typeof _legacyValue === "string" ? _legacyValue
-    : typeof _desc === "string" ? _desc
-    : undefined;
-  if (!label) return option;
-  const id = typeof option.id === "string" ? option.id : `option-${label.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-|-$/g, "").slice(0, 40) || "choice"}`;
-  const action = typeof option.action === "object" && option.action !== null
-    ? option.action
-    : { type: "answer", field: typeof _field === "string" ? _field : "choice", value: typeof _legacyValue === "string" ? _legacyValue : label };
-  return { ...rest, id, label, action };
-}
-
-function migrateLegacyAgentSession(raw: Record<string, unknown>) {
-  if (!Array.isArray(raw.messages)) return raw;
-  return {
-    ...raw,
-    messages: raw.messages.map((msg: Record<string, unknown>) => {
-      if (!Array.isArray(msg.options)) return msg;
-      return { ...msg, options: msg.options.map((opt: unknown) => typeof opt === "object" && opt !== null ? migrateLegacyAgentOptions(opt as Record<string, unknown>) : opt) };
-    })
-  };
-}
-
 export class WorkspaceRepository {
   constructor(private readonly db: CareerAdaptDb = careerAdaptDb) {}
 
@@ -458,7 +433,7 @@ export class WorkspaceRepository {
     return this.db.transaction("rw", this.db.agentSessions, this.db.agentMessages, async () => {
       const storedRaw = await this.db.agentSessions.get(incoming.id);
       const stored = storedRaw
-        ? AgentSessionSchema.parse(migrateLegacyAgentSession(storedRaw as unknown as Record<string, unknown>))
+        ? migrateAgentSessionToCurrentSchema(storedRaw as unknown as Record<string, unknown>)
         : undefined;
       const existingRecords = await this.db.agentMessages.where("sessionId").equals(incoming.id).toArray();
       const incomingMessageIds = new Set(incoming.messages.map((message) => message.id));
@@ -506,7 +481,7 @@ export class WorkspaceRepository {
     const session = await this.db.agentSessions.get(id);
     if (!session) return;
     const now = new Date().toISOString();
-    const migrated = migrateLegacyAgentSession(session as unknown as Record<string, unknown>);
+    const migrated = migrateAgentSessionToCurrentSchema(session as unknown as Record<string, unknown>);
     await this.appendAgentMessages(id, AgentSessionSchema.parse(migrated).messages);
     const updated = AgentSessionSchema.parse({ ...migrated, messages: [], archived: true, archivedAt: now, updatedAt: now, sessionRevision: Number(migrated.sessionRevision ?? 0) + 1 });
     await this.db.agentSessions.put(updated);
@@ -517,7 +492,7 @@ export class WorkspaceRepository {
     const session = await this.db.agentSessions.get(id);
     if (!session) return;
     const now = new Date().toISOString();
-    const migrated = migrateLegacyAgentSession(session as unknown as Record<string, unknown>);
+    const migrated = migrateAgentSessionToCurrentSchema(session as unknown as Record<string, unknown>);
     await this.appendAgentMessages(id, AgentSessionSchema.parse(migrated).messages);
     const updated = AgentSessionSchema.parse({ ...migrated, messages: [], archived: false, archivedAt: undefined, updatedAt: now, sessionRevision: Number(migrated.sessionRevision ?? 0) + 1 });
     await this.db.agentSessions.put(updated);
@@ -528,7 +503,7 @@ export class WorkspaceRepository {
     const session = await this.db.agentSessions.get(id);
     if (!session) return;
     const now = new Date().toISOString();
-    const migrated = migrateLegacyAgentSession(session as unknown as Record<string, unknown>);
+    const migrated = migrateAgentSessionToCurrentSchema(session as unknown as Record<string, unknown>);
     await this.appendAgentMessages(id, AgentSessionSchema.parse(migrated).messages);
     const updated = AgentSessionSchema.parse({ ...migrated, messages: [], title, updatedAt: now, sessionRevision: Number(migrated.sessionRevision ?? 0) + 1 });
     await this.db.agentSessions.put(updated);
@@ -560,7 +535,7 @@ export class WorkspaceRepository {
   }
 
   private async hydrateAgentSession(raw: AgentSession) {
-    const migrated = AgentSessionSchema.parse(migrateLegacyAgentSession(raw as unknown as Record<string, unknown>));
+    const migrated = migrateAgentSessionToCurrentSchema(raw as unknown as Record<string, unknown>);
     const records = await this.db.agentMessages
       .where("sessionId")
       .equals(migrated.id)
@@ -570,7 +545,7 @@ export class WorkspaceRepository {
       void sequence;
       return message;
     });
-    return AgentSessionSchema.parse({ ...migrated, messages });
+    return migrateAgentSessionToCurrentSchema({ ...migrated, messages });
   }
 
   async seedDemoWorkspace() {

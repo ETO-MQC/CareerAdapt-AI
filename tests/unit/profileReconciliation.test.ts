@@ -102,7 +102,7 @@ describe("ProfileReconciliationEngine deterministic matching", () => {
       project("project-a", { title: "示例任务系统" })
     ]));
     const plan = reconcile(draft("project-format-b", "resume-b.json", [
-      project("project-b", { title: "Smart Focus" })
+      project("project-b", { title: "示例任务 系统" })
     ]), profile);
 
     expect(plan.decisions[0].state).toBe("evidence_extension");
@@ -224,7 +224,7 @@ describe("ProfileReconciliationEngine deterministic matching", () => {
     ]));
     const plan = reconcile(draft("structured-b", "resume-b.json", [
       project("project-b", {
-        title: "Smart Focus",
+        title: "示例任务 系统",
         highlights: ["React 19", "Tauri 2", "implemented AI Command Stream"]
       })
     ]), profile);

@@ -70,7 +70,7 @@ describe("capability entity resolver", () => {
       requirements: ["通过 Talents AI 平台提交 billing history"]
     });
     expect(entities).toEqual(expect.arrayContaining([
-      expect.objectContaining({ normalizedLabel: "talents", type: "company", source: "job_company" }),
+      expect.objectContaining({ normalizedLabel: "示例招聘平台", type: "company", source: "job_company" }),
       expect.objectContaining({ normalizedLabel: "talents", type: "platform" }),
       expect.objectContaining({ label: "Cursor", type: "tool" }),
       expect.objectContaining({ label: "ChatGPT", type: "model" }),

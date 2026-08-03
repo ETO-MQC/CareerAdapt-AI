@@ -19,8 +19,9 @@ import type {
   AgentUiAction,
   AgentWorkflowControl
 } from "@/agent/contracts/agentActions";
-import { AgentTaskStateReducer } from "./AgentTaskStateReducer";
+import { AgentTaskStateReducer, dependencySnapshot } from "./AgentTaskStateReducer";
 import { appendAgentMessage, replaceAgentThinking, upsertAgentActivity } from "./AgentSessionMessages";
+import { migrateAgentSessionToCurrentSchema } from "./AgentSessionMigration";
 import { routeAgentIntent } from "./agentIntentRouter";
 import {
   projectTaskStateIntoSession,
@@ -29,6 +30,7 @@ import {
 import { agentAttachmentStore, type AgentAttachmentRef } from "@/services/agent/AgentAttachmentStore";
 import { agentImportProgressBus } from "@/services/agent/AgentImportProgressBus";
 import { classifyTurnIntent, type TurnIntentDecision } from "./AgentTurnIntent";
+import { stableHashText } from "@/services/security/text";
 import type { AgentQuickActionId, QuickActionIntent } from "@/agent/contracts/agentQuickAction";
 import {
   resolveCompoundAnswer,
@@ -141,10 +143,11 @@ export class AgentHostStore {
 
   adopt(session: AgentSession) {
     if (this.snapshot.turnStatus === "running") return;
-    const recoveredThinking = enforceExactlyOneFinal(recoverOrphanedThinking(session));
+    const migrated = migrateAgentSessionToCurrentSchema(session);
+    const recoveredThinking = enforceExactlyOneFinal(recoverOrphanedThinking(migrated));
     const { session: recoverable, pendingInputs } = recoverPersistedQueuedInputs(recoveredThinking);
     if (pendingInputs.length) this.pendingInputs.set(recoverable.id, pendingInputs);
-    if (recoverable !== session) void this.dependencies.persistence.save(recoverable);
+    if (JSON.stringify(recoverable) !== JSON.stringify(session)) void this.dependencies.persistence.save(recoverable);
     this.patch({
       activeSessionId: recoverable.id,
       activeSession: recoverable,
@@ -215,6 +218,11 @@ export class AgentHostStore {
         : session;
       const prepared = prepareSessionForAssistantRegeneration(regenerationBase, input.messageId);
       if (!prepared) return session;
+      if (prepared.blocked) {
+        const saved = await this.dependencies.persistence.save(prepared.session);
+        this.patchSession(saved);
+        return saved;
+      }
       return this.startTurn({
         session: prepared.session,
         userMessage: prepared.userMessage,
@@ -247,10 +255,37 @@ export class AgentHostStore {
         return this.resolveTaskDecision(session, input.action, context.pageContext);
       }
       if (input.action.type === "answer") {
+        const answerValue = input.action.value;
+        if (input.action.field.startsWith("tailoring-question:")) {
+          const questionId = input.action.field.slice("tailoring-question:".length);
+          if (presentedActiveTailoringQuestion(session) !== questionId) return session;
+          const tailoring = objectValue(session.taskState?.knownSlots.tailoringSession);
+          const plan = objectValue(tailoring.plan);
+          const question = (Array.isArray(plan.clarificationQuestions) ? plan.clarificationQuestions.map(objectValue) : [])
+            .find((item) => item.id === questionId);
+          const valid = Array.isArray(question?.options)
+            && question.options.map(objectValue).some((option) => option.value === answerValue);
+          if (!valid) return session;
+        }
         return this.startTurn({
           session,
-          userMessage: String(input.action.value ?? ""),
+          userMessage: String(answerValue ?? ""),
           pageContext: context.pageContext
+        });
+      }
+      if (input.action.type === "select_entity") {
+        return this.resolveTypedEntitySelection(session, input.action, context.pageContext);
+      }
+      if (input.action.type === "retry_current_step") {
+        return this.startTurn({ session, userMessage: "重试当前步骤", pageContext: context.pageContext });
+      }
+      if (input.action.type === "new_tailoring_task") {
+        return this.startTurn({
+          session,
+          userMessage: "新建岗位定制任务",
+          pageContext: context.pageContext,
+          typedTask: { rootGoal: "create_tailored_resume", workflowId: "tailor_existing_resume", stage: "select_resume" },
+          supersede: true
         });
       }
       return this.dispatch({ type: "ui_control", action: input.action }, context);
@@ -359,10 +394,13 @@ export class AgentHostStore {
           }
         }
       : classifiedTurn;
+    const checkpointedSession = turnDecision.toolScope === "domain" || turnDecision.taskMutation !== "preserve"
+      ? withTurnCheckpoint(input.session, turnId, userMessageId, now)
+      : input.session;
     let current = input.appendUserMessage === false
       ? {
-          ...input.session,
-          messages: input.session.messages.map((message) =>
+          ...checkpointedSession,
+          messages: checkpointedSession.messages.map((message) =>
             message.id === userMessageId
               ? {
                   ...message,
@@ -375,11 +413,12 @@ export class AgentHostStore {
           ),
           updatedAt: now
         }
-      : appendAgentMessage(input.session, "user", input.userMessage.trim(), {
+      : appendAgentMessage(checkpointedSession, "user", input.userMessage.trim(), {
           id: userMessageId,
           turnId,
           status: "complete",
-          references: input.references?.length ? input.references : undefined
+          references: input.references?.length ? input.references : undefined,
+          metadata: { executionState: "running" }
         });
     if (shouldAutoNameAgentSession(current)) {
       const firstUserMessage = current.messages.find((message) => message.role === "user" && message.content.trim());
@@ -403,6 +442,8 @@ export class AgentHostStore {
         });
     const reducer = new AgentTaskStateReducer();
     let kernelUserMessage = input.userMessage;
+    const presentedQuestion = presentedActiveTailoringQuestion(input.session);
+    let deterministicTailoringAnswer = false;
     let taskState = current.taskState ?? reducer.create(current);
     if (turnDecision.taskMutation !== "preserve") {
       if (turnDecision.taskMutation === "replace" && turnDecision.newTask) {
@@ -449,10 +490,9 @@ export class AgentHostStore {
         attachment: input.attachment
       });
     }
-    const compound = resolveCompoundAnswer(
-      input.userMessage,
-      unresolvedTailoringQuestions(taskState)
-    );
+    const compound = presentedQuestion
+      ? resolveCompoundAnswer(input.userMessage, unresolvedTailoringQuestions(taskState))
+      : { answers: [] };
     if (compound.answers.length) {
       const applied: CompoundAnswerResolution["answers"] = [];
       for (const mapping of compound.answers) {
@@ -480,6 +520,7 @@ export class AgentHostStore {
         });
         applied.push(mapping);
       }
+      deterministicTailoringAnswer = applied.length > 0;
       taskState = {
         ...taskState,
         knownSlots: {
@@ -493,6 +534,58 @@ export class AgentHostStore {
       };
       kernelUserMessage = compound.unmatchedText
         ?? "已按顺序记录这条消息中的澄清回答，请继续当前流程。";
+    }
+    if (deterministicTailoringAnswer && !compound.unmatchedText) {
+      current = projectTaskStateIntoSession(current, taskState);
+      if (taskState.stage === "clarify_unsupported_facts") {
+        current = replaceAgentThinking(current, thinkingMessageId, formatCurrentTailoringQuestion(taskState), turnId);
+        current = attachTaskStateOptions(current, taskState);
+      } else {
+        const operationId = `generate-after-answer-${turnId}`.slice(0, 160);
+        const generated = await this.dependencies.executor.execute({
+          toolName: "generate_tailoring_changes",
+          toolInput: { session: taskState.knownSlots.tailoringSession },
+          operationId,
+          signal: controller.signal
+        });
+        if (generated.ok) {
+          taskState = reducer.reduce(taskState, {
+            type: "tool_observation",
+            toolName: generated.toolName,
+            observation: generated.data,
+            artifactIds: generated.artifactIds
+          });
+          current = projectTaskStateIntoSession(current, taskState);
+          current = upsertAgentActivity(current, {
+            id: `agent-tool-${operationId}`,
+            turnId,
+            content: "已生成定制修改，等待逐项核对。",
+            toolName: generated.toolName,
+            operationId,
+            status: "complete",
+            metadata: { activityState: "complete", artifactIds: generated.artifactIds }
+          });
+          current = replaceAgentThinking(current, thinkingMessageId, "已根据全部回答生成修改建议。请在任务产物中逐项采用、编辑或忽略。", turnId);
+        } else {
+          current = replaceAgentThinking(current, thinkingMessageId, generated.error?.message ?? "生成修改时遇到问题，请重试当前步骤。", turnId);
+        }
+      }
+      current = settleUserExecutionState(current, turnId, "complete");
+      current = {
+        ...current,
+        activeTurn: {
+          id: turnId,
+          sessionId: current.id,
+          userMessageId,
+          status: taskState.completionStatus === "waiting_for_user" ? "waiting_for_user" : "completed",
+          startedAt: now,
+          completedAt: new Date().toISOString()
+        }
+      };
+      current = await this.dependencies.persistence.save(current);
+      this.activeController = undefined;
+      this.patchSession(current, { turnStatus: "completed", activeTurnId: turnId });
+      return current;
     }
     current = {
       ...projectTaskStateIntoSession(current, taskState),
@@ -804,7 +897,7 @@ export class AgentHostStore {
     pageContext: AgentPageContext
   ) {
     const revision = artifactActionRevision(session.taskState, action);
-    const executionKey = `${session.id}:${action.type}:${revision}:${artifactActionEntityId(action)}`;
+    const executionKey = artifactActionOperationId(session, action, revision);
     const running = this.artifactActionExecutions.get(executionKey);
     if (running) return running;
     const execution = this.resolveArtifactActionOnce(session, action, pageContext, revision)
@@ -820,52 +913,183 @@ export class AgentHostStore {
     revision: number | undefined
   ) {
     const execution = artifactActionExecution(session.taskState, action);
-    if (!execution || revision === undefined) return session;
+    if (!execution || revision === undefined) {
+      const rejected = withArtifactActionFeedback(session, action, {
+        result: revision === undefined ? "missing_revision" : "invalid_target",
+        message: revision === undefined ? "当前产物版本不可用，请刷新后重试。" : "这项修改已失效，请刷新产物后重试。",
+        retryable: true
+      });
+      const saved = await this.dependencies.persistence.save(rejected);
+      this.patchSession(saved);
+      return saved;
+    }
     this.activeController?.abort();
     await this.activeExecution;
     const turnId = `agent-turn-${crypto.randomUUID()}`;
-    const operationId = [
-      "artifact-action",
-      action.type,
-      artifactActionEntityId(action),
-      String(revision),
-      execution.decision
-    ].join("-").replace(/[^\w-]/g, "-").slice(0, 160);
+    const operationId = artifactActionOperationId(session, action, revision);
+    const runningSession = withArtifactActionFeedback(session, action, {
+      result: "handled",
+      message: "正在保存这项核对…",
+      running: true,
+      retryable: false
+    });
+    this.patchSession(runningSession);
     const result = await this.dependencies.executor.execute({
       toolName: execution.toolName,
       toolInput: execution.toolInput,
       operationId
     });
     if (!result.ok) {
-      const failed = appendAgentMessage(session, "assistant", result.error?.message ?? "这项核对操作没有成功，请刷新后重试。", {
-        turnId,
-        kind: "error_status",
-        type: "error",
-        status: "failed",
-        errorCode: result.error?.code ?? "artifact_action_failed"
+      const failed = withArtifactActionFeedback(session, action, {
+        result: "rejected",
+        message: result.error?.message ?? "这项核对没有保存成功，请重试。",
+        retryable: true
       });
       const saved = await this.dependencies.persistence.save(failed);
-      this.patchSession(saved, { turnStatus: "failed" });
+      this.patchSession(saved);
       return saved;
     }
-    let current = upsertAgentActivity(session, {
-      id: `agent-tool-${operationId}`,
-      turnId,
-      content: artifactActionCompletedLabel(action),
+    const reducer = new AgentTaskStateReducer();
+    let taskState = reducer.reduce(session.taskState!, {
+      type: "tool_observation",
       toolName: result.toolName,
-      operationId,
-      status: "complete",
-      metadata: {
-        activityState: "complete",
-        artifactActionType: action.type,
-        artifactIds: result.artifactIds
+      observation: result.data,
+      artifactIds: result.artifactIds
+    });
+    let current = projectTaskStateIntoSession(session, taskState);
+    const observation = objectValue(result.data);
+    if (observation.idempotent !== true) {
+      current = upsertAgentActivity(current, {
+        id: `agent-tool-${operationId}`,
+        turnId,
+        content: artifactActionCompletedLabel(action),
+        toolName: result.toolName,
+        operationId,
+        status: "complete",
+        metadata: { activityState: "complete", artifactActionType: action.type, artifactIds: result.artifactIds }
+      });
+    }
+    if (action.type === "tailoring_diff_decision" && observation.remainingDiffCount === 0) {
+      const previewOperationId = `${operationId}-preview`.slice(0, 160);
+      const preview = await this.dependencies.executor.execute({
+        toolName: "preview_tailoring_changes",
+        toolInput: {
+          session: observation.session,
+          selectedDiffs: observation.selectedDiffs ?? [],
+          confirmedRequirementIds: taskState.knownSlots.confirmedRequirementIds ?? []
+        },
+        operationId: previewOperationId
+      });
+      if (preview.ok) {
+        taskState = reducer.reduce(taskState, {
+          type: "tool_observation",
+          toolName: preview.toolName,
+          observation: preview.data,
+          artifactIds: preview.artifactIds
+        });
+        const applyOperationId = `${operationId}-apply`.slice(0, 160);
+        const applyInput = {
+          session: observation.session,
+          selectedDiffs: observation.selectedDiffs ?? [],
+          confirmedRequirementIds: taskState.knownSlots.confirmedRequirementIds ?? []
+        };
+        taskState = reducer.reduce(taskState, {
+          type: "confirmation_requested",
+          toolName: "apply_tailoring_changes",
+          operationId: applyOperationId
+        });
+        current = projectTaskStateIntoSession(current, taskState);
+        const requestedAt = new Date().toISOString();
+        current = {
+          ...current,
+          pendingConfirmation: {
+            id: `confirmation-${applyOperationId}`,
+            turnId,
+            operationId: applyOperationId,
+            toolName: "apply_tailoring_changes",
+            title: "应用这些简历修改？",
+            description: "确认后会创建岗位专属简历版本；来源简历和个人资料库不会被覆盖。",
+            destructive: false,
+            validatedInput: applyInput,
+            dependencyExpectation: dependencySnapshot(taskState),
+            status: "pending",
+            requestedAt
+          },
+          pendingToolCall: {
+            turnId,
+            toolName: "apply_tailoring_changes",
+            operationId: applyOperationId,
+            input: applyInput
+          }
+        };
       }
+    }
+    current = withArtifactActionFeedback(current, action, {
+      result: "handled",
+      message: artifactActionCompletedLabel(action).replace(/[。.]$/u, ""),
+      retryable: false
     });
     current = await this.dependencies.persistence.save(current);
+    this.patchSession(current, { turnStatus: current.pendingConfirmation ? "waiting_for_confirmation" : "completed" });
+    void pageContext;
+    return current;
+  }
+
+  private async resolveTypedEntitySelection(
+    session: AgentSession,
+    action: Extract<AgentOption["action"], { type: "select_entity" }>,
+    pageContext: AgentPageContext
+  ) {
+    if (!session.taskState) return session;
+    const candidatesKey = action.entityType === "job" ? "jobCandidates" : "resumeCandidates";
+    const revisionKey = action.entityType === "job" ? "jobCandidateSetRevision" : "resumeCandidateSetRevision";
+    const candidates = Array.isArray(session.taskState.knownSlots[candidatesKey])
+      ? (session.taskState.knownSlots[candidatesKey] as unknown[]).map(objectValue)
+      : [];
+    const candidate = candidates.find((item) => item.id === action.entityId);
+    if (!candidate || session.taskState.knownSlots[revisionKey] !== action.candidateSetRevision) {
+      const stale = withArtifactActionFeedback(session, { type: "resume_import_review_decision", decision: "ignore_uncertain" }, {
+        result: "stale",
+        message: "候选列表已更新，请重新选择。",
+        retryable: true
+      });
+      const saved = await this.dependencies.persistence.save(stale);
+      this.patchSession(saved);
+      return saved;
+    }
+    const reducer = new AgentTaskStateReducer();
+    let taskState = reducer.reduce(session.taskState, {
+      type: "entity_revision",
+      entityType: action.entityType,
+      entityId: action.entityId,
+      revisionId: action.entityType === "resume" ? stringValue(candidate.currentRevisionId) : undefined,
+      version: typeof candidate.revision === "number" || typeof candidate.revision === "string" ? candidate.revision : stringValue(candidate.updatedAt)
+    });
+    taskState = {
+      ...taskState,
+      stage: action.entityType === "job" && taskState.selectedEntities.profileId && taskState.selectedEntities.resumeId
+        ? "analyze_fit"
+        : action.entityType === "resume" && taskState.selectedEntities.jobId
+          ? "analyze_fit"
+          : action.entityType === "resume" ? "choose_job" : taskState.stage,
+      completionStatus: "active",
+      updatedAt: new Date().toISOString()
+    };
+    const turnId = `agent-turn-${crypto.randomUUID()}`;
+    const label = action.entityType === "job"
+      ? `${String(candidate.title ?? "岗位")}${candidate.company ? ` · ${String(candidate.company)}` : ""}`
+      : String(candidate.name ?? "简历");
+    let current = appendAgentMessage(session, "user", label, {
+      turnId,
+      status: "complete",
+      metadata: { executionState: "complete", selectedEntityType: action.entityType, selectedEntityId: action.entityId }
+    });
+    current = projectTaskStateIntoSession(current, taskState);
+    current = await this.dependencies.persistence.save(current);
+    this.patchSession(current);
     return this.resume(current, {
-      reason: "tool_observation",
-      toolName: result.toolName,
-      observation: result.data
+      reason: "external_event",
+      observation: { type: "entity_selected", entityType: action.entityType, entityId: action.entityId }
     }, pageContext, turnId);
   }
 
@@ -1248,7 +1472,9 @@ export class AgentHostStore {
       if (result.taskState?.pendingDecision) {
         current = attachPendingDecisionOptions(current, result.taskState.pendingDecision);
       }
+      if (result.taskState) current = attachTaskStateOptions(current, result.taskState);
       current = settleThinkingMessages(current, input.turnId);
+      current = settleUserExecutionState(current, input.turnId, outcome === "failed" ? "failed" : outcome === "aborted" ? "aborted" : "complete");
       current = await this.dependencies.persistence.save(current);
       this.patchSession(current, {
         turnStatus: outcome === "waiting_for_confirmation" ? "waiting_for_confirmation" : outcome === "failed" ? "failed" : "completed",
@@ -1258,6 +1484,7 @@ export class AgentHostStore {
     } catch (error) {
       if (input.controller.signal.aborted) return this.snapshot.activeSession;
       current = completeTurn(current, "failed");
+      current = settleUserExecutionState(current, input.turnId, "failed");
       current = appendAgentMessage(current, "assistant", "AI 任务暂时中断，当前进度和输入已保留。", {
         turnId: input.turnId,
         kind: "error_status",
@@ -1670,6 +1897,80 @@ function attachPendingDecisionOptions(
   };
 }
 
+function attachTaskStateOptions(session: AgentSession, state: AgentTaskState) {
+  const assistantIndex = session.messages.findLastIndex((message) =>
+    message.role === "assistant" && message.status === "complete" && message.metadata?.retracted !== true
+  );
+  if (assistantIndex < 0) return session;
+  let options: AgentOption[] | undefined;
+  let metadata: Record<string, unknown> | undefined;
+  if (state.stage === "choose_job") {
+    options = entityOptions(state, "job");
+  } else if (state.stage === "choose_resume_source" && state.knownSlots.resumeSelectionRequired) {
+    options = entityOptions(state, "resume");
+  } else if (state.stage === "clarify_unsupported_facts") {
+    const sessionValue = objectValue(state.knownSlots.tailoringSession);
+    const plan = objectValue(sessionValue.plan);
+    const questionPlan = objectValue(plan.questionPlan);
+    const questionId = stringValue(questionPlan.activeQuestionId);
+    const questionIds = Array.isArray(questionPlan.questionIds) ? questionPlan.questionIds.filter((id): id is string => typeof id === "string") : [];
+    const questions = Array.isArray(plan.clarificationQuestions) ? plan.clarificationQuestions.map(objectValue) : [];
+    const question = questions.find((item) => item.id === questionId);
+    if (questionId && question) {
+      metadata = {
+        tailoringQuestionId: questionId,
+        questionPlanId: questionPlan.id,
+        questionPlanRevision: questionPlan.revision,
+        questionPosition: Math.max(0, questionIds.indexOf(questionId)) + 1,
+        questionCount: questionIds.length
+      };
+      options = Array.isArray(question.options)
+        ? question.options.map(objectValue).flatMap((option, index) => typeof option.value === "string" && typeof option.label === "string" ? [{
+            id: `tailoring-question-${questionId}-${String(option.id ?? index)}`,
+            label: option.label,
+            action: { type: "answer" as const, field: `tailoring-question:${questionId}`, value: option.value }
+          }] : [])
+        : undefined;
+    }
+  }
+  if (!options?.length && !metadata) return session;
+  return {
+    ...session,
+    messages: session.messages.map((message, index) => index === assistantIndex ? {
+      ...message,
+      options: options?.length ? options : message.options,
+      metadata: { ...message.metadata, ...metadata }
+    } : message)
+  };
+}
+
+function entityOptions(state: AgentTaskState, entityType: "job" | "resume"): AgentOption[] | undefined {
+  const candidatesKey = entityType === "job" ? "jobCandidates" : "resumeCandidates";
+  const revisionKey = entityType === "job" ? "jobCandidateSetRevision" : "resumeCandidateSetRevision";
+  const revision = stringValue(state.knownSlots[revisionKey]);
+  const candidates = Array.isArray(state.knownSlots[candidatesKey]) ? state.knownSlots[candidatesKey].map(objectValue) : [];
+  if (!revision) return undefined;
+  const baseLabels = candidates.map((candidate) => entityType === "job"
+    ? `${String(candidate.title ?? "未命名岗位")}${candidate.company ? ` · ${String(candidate.company)}` : ""}`
+    : String(candidate.name ?? "未命名简历"));
+  const counts = new Map(baseLabels.map((label) => [label, baseLabels.filter((item) => item === label).length]));
+  return candidates.flatMap((candidate, index) => {
+    const id = stringValue(candidate.id);
+    if (!id) return [];
+    const base = baseLabels[index];
+    const detail = typeof candidate.source === "string" && candidate.source
+      ? candidate.source
+      : typeof candidate.updatedAt === "string"
+        ? new Intl.DateTimeFormat("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(candidate.updatedAt))
+        : id.slice(-6);
+    return [{
+      id: `select-${entityType}-${id}`,
+      label: (counts.get(base) ?? 0) > 1 ? `${base} · ${detail}` : base,
+      action: { type: "select_entity" as const, entityType, entityId: id, candidateSetRevision: revision }
+    }];
+  });
+}
+
 type ConfirmationResolution = "confirmed" | "rejected" | "superseded";
 
 function markConfirmationResolution(
@@ -1779,6 +2080,58 @@ function settleThinkingMessages(session: AgentSession, turnId: string) {
     return message;
   });
   return changed ? { ...session, messages } : session;
+}
+
+function settleUserExecutionState(
+  session: AgentSession,
+  turnId: string,
+  executionState: "complete" | "aborted" | "failed" | "recoverable" | "queued"
+) {
+  return {
+    ...session,
+    messages: session.messages.map((message) => message.role === "user" && message.turnId === turnId
+      ? { ...message, metadata: { ...message.metadata, executionState }, updatedAt: new Date().toISOString() }
+      : message)
+  };
+}
+
+function presentedActiveTailoringQuestion(session: AgentSession) {
+  const state = session.taskState;
+  if (!state || state.stage !== "clarify_unsupported_facts") return undefined;
+  const tailoring = objectValue(state.knownSlots.tailoringSession);
+  const plan = objectValue(tailoring.plan);
+  const questionPlan = objectValue(plan.questionPlan);
+  const activeQuestionId = stringValue(questionPlan.activeQuestionId);
+  if (!activeQuestionId) return undefined;
+  const assistant = session.messages.findLast((message) =>
+    message.role === "assistant" && message.metadata?.retracted !== true && message.status === "complete"
+  );
+  return assistant?.metadata?.tailoringQuestionId === activeQuestionId
+    && assistant.metadata.questionPlanId === questionPlan.id
+    && assistant.metadata.questionPlanRevision === questionPlan.revision
+      ? activeQuestionId
+      : undefined;
+}
+
+function formatCurrentTailoringQuestion(state: AgentTaskState) {
+  const tailoring = objectValue(state.knownSlots.tailoringSession);
+  const plan = objectValue(tailoring.plan);
+  const questionPlan = objectValue(plan.questionPlan);
+  const questionId = stringValue(questionPlan.activeQuestionId);
+  const questionIds = Array.isArray(questionPlan.questionIds) ? questionPlan.questionIds : [];
+  const questions = Array.isArray(plan.clarificationQuestions) ? plan.clarificationQuestions.map(objectValue) : [];
+  const question = questions.find((item) => item.id === questionId);
+  const position = Math.max(0, questionIds.indexOf(questionId)) + 1;
+  const options = Array.isArray(question?.options)
+    ? question.options.map(objectValue).flatMap((option, index) => typeof option.label === "string" ? [`${index + 1}. ${option.label}`] : [])
+    : [];
+  return [
+    "已记录。",
+    `问题 ${position}/${questionIds.length}：`,
+    String(question?.question ?? "请补充当前问题。"),
+    options.length ? options.join("\n") : "",
+    "你可以直接补充说明，或回复“跳过”。"
+  ].filter(Boolean).join("\n\n");
 }
 
 function recoverOrphanedThinking(session: AgentSession) {
@@ -1893,6 +2246,25 @@ function enforceExactlyOneFinal(session: AgentSession) {
   };
 }
 
+function withTurnCheckpoint(session: AgentSession, turnId: string, userMessageId: string, createdAt: string) {
+  const taskState = session.taskState ?? new AgentTaskStateReducer().create(session);
+  const checkpoint = {
+    turnId,
+    userMessageId,
+    taskStateBefore: structuredClone(taskState),
+    workflowStateBefore: structuredClone(session.workflowState),
+    selectedEntitiesBefore: structuredClone(taskState.selectedEntities),
+    artifactRefsBefore: structuredClone(session.artifactRefs),
+    pendingConfirmationBefore: session.pendingConfirmation ? structuredClone(session.pendingConfirmation) : undefined,
+    pendingToolCallBefore: session.pendingToolCall ? structuredClone(session.pendingToolCall) : undefined,
+    createdAt
+  };
+  return {
+    ...session,
+    turnCheckpoints: [...session.turnCheckpoints.filter((item) => item.userMessageId !== userMessageId), checkpoint].slice(-100)
+  };
+}
+
 export function branchSessionFromEditedUserMessage(
   session: AgentSession,
   messageId: string,
@@ -1904,6 +2276,7 @@ export function branchSessionFromEditedUserMessage(
   );
   if (targetIndex < 0 || !content) return undefined;
   const target = session.messages[targetIndex];
+  const checkpoint = session.turnCheckpoints.findLast((item) => item.userMessageId === messageId);
   const now = new Date().toISOString();
   const contentChanged = target.content !== content;
   const revisions = contentChanged
@@ -1918,6 +2291,16 @@ export function branchSessionFromEditedUserMessage(
     : target.revisions;
   return {
     ...session,
+    ...(checkpoint ? {
+      taskState: checkpoint.taskStateBefore,
+      workflowState: checkpoint.workflowStateBefore,
+      artifactRefs: checkpoint.artifactRefsBefore,
+      activeProfileId: checkpoint.selectedEntitiesBefore.profileId,
+      activeResumeId: checkpoint.selectedEntitiesBefore.resumeId,
+      activeJobId: checkpoint.selectedEntitiesBefore.jobId,
+      pendingConfirmation: checkpoint.pendingConfirmationBefore,
+      pendingToolCall: checkpoint.pendingToolCallBefore
+    } : {}),
     messages: session.messages.map((message, index) => {
       if (index === targetIndex) {
         return {
@@ -1943,8 +2326,8 @@ export function branchSessionFromEditedUserMessage(
       return message;
     }),
     conversationSummary: "",
-    pendingConfirmation: undefined,
-    pendingToolCall: undefined,
+    pendingConfirmation: checkpoint?.pendingConfirmationBefore,
+    pendingToolCall: checkpoint?.pendingToolCallBefore,
     activeTurn: undefined,
     updatedAt: now
   };
@@ -1964,9 +2347,33 @@ export function prepareSessionForAssistantRegeneration(
   const userMessage = userIndex >= 0 ? session.messages[userIndex] : undefined;
   if (!userMessage?.content.trim()) return undefined;
   const now = new Date().toISOString();
+  const checkpoint = session.turnCheckpoints.findLast((item) => item.userMessageId === userMessage.id);
+  if (!checkpoint && isUnsafeLegacyDomainRegeneration(session, targetIndex)) {
+    const notice = appendAgentMessage(session, "assistant", "该历史步骤发生在旧版任务状态中，无法安全重生成。可以从当前步骤重试，或新建一个岗位定制任务。", {
+      kind: "system_notice",
+      type: "system_notice",
+      status: "complete",
+      options: [
+        { id: "retry-current-tailoring-step", label: "从当前步骤重试", action: { type: "retry_current_step" } },
+        { id: "new-tailoring-task", label: "新建岗位定制任务", action: { type: "new_tailoring_task" } }
+      ],
+      metadata: { regenerationBlocked: "legacy_domain_checkpoint_missing", sourceMessageId: messageId }
+    });
+    return { session: notice, userMessageId: userMessage.id, userMessage: userMessage.content, blocked: true as const };
+  }
   return {
     session: {
       ...session,
+      ...(checkpoint ? {
+        taskState: checkpoint.taskStateBefore,
+        workflowState: checkpoint.workflowStateBefore,
+        artifactRefs: checkpoint.artifactRefsBefore,
+        activeProfileId: checkpoint.selectedEntitiesBefore.profileId,
+        activeResumeId: checkpoint.selectedEntitiesBefore.resumeId,
+        activeJobId: checkpoint.selectedEntitiesBefore.jobId,
+        pendingConfirmation: checkpoint.pendingConfirmationBefore,
+        pendingToolCall: checkpoint.pendingToolCallBefore
+      } : {}),
       messages: session.messages.map((message, index) =>
         index > userIndex && index !== targetIndex
           ? {
@@ -1977,14 +2384,21 @@ export function prepareSessionForAssistantRegeneration(
           : message
       ),
       conversationSummary: "",
-      pendingConfirmation: undefined,
-      pendingToolCall: undefined,
+      pendingConfirmation: checkpoint?.pendingConfirmationBefore,
+      pendingToolCall: checkpoint?.pendingToolCallBefore,
       activeTurn: undefined,
       updatedAt: now
     },
     userMessageId: userMessage.id,
     userMessage: userMessage.content
   };
+}
+
+function isUnsafeLegacyDomainRegeneration(session: AgentSession, targetIndex: number) {
+  const state = session.taskState;
+  if (!state || !["create_tailored_resume", "apply_to_job", "analyze_job_fit"].includes(state.rootGoal)) return false;
+  const laterVisibleMessages = session.messages.slice(targetIndex + 1).some((message) => message.metadata?.retracted !== true);
+  return laterVisibleMessages && !["select_resume", "choose_resume_source", "choose_job"].includes(state.stage);
 }
 
 function findBranchAssistantMessageId(session: AgentSession, userMessageId: string) {
@@ -2078,6 +2492,48 @@ function artifactActionEntityId(action: AgentArtifactAction) {
   if (action.type === "tailoring_answer_edit") return action.questionId;
   if (action.type === "tailoring_diff_decision") return action.diffId;
   return "review";
+}
+
+function artifactActionOperationId(session: AgentSession, action: AgentArtifactAction, revision: number | undefined) {
+  const tailoringSessionId = stringValue(objectValue(session.taskState?.knownSlots.tailoringSession).id) ?? "none";
+  const decision = action.type === "tailoring_diff_decision"
+    ? action.decision
+    : action.type === "tailoring_answer_edit"
+      ? "edit"
+      : action.type === "profile_intake_candidate_decision" || action.type === "resume_import_review_decision"
+        ? action.decision
+        : action.resolution;
+  const editedValueHash = action.type === "tailoring_diff_decision" && action.editedValue !== undefined
+    ? stableHashText(JSON.stringify(action.editedValue))
+    : "none";
+  return ["artifact-action", session.id, tailoringSessionId, String(revision ?? "missing"), artifactActionEntityId(action), decision, editedValueHash]
+    .join("-").replace(/[^\w-]/g, "-").slice(0, 160);
+}
+
+function withArtifactActionFeedback(
+  session: AgentSession,
+  action: AgentArtifactAction,
+  feedback: {
+    result: "handled" | "rejected" | "stale" | "invalid_target" | "missing_revision" | "missing_diff_review";
+    message: string;
+    running?: boolean;
+    retryable: boolean;
+  }
+) {
+  if (!session.taskState) return session;
+  return projectTaskStateIntoSession(session, {
+    ...session.taskState,
+    knownSlots: {
+      ...session.taskState.knownSlots,
+      artifactActionFeedback: {
+        ...feedback,
+        actionType: action.type,
+        entityId: artifactActionEntityId(action),
+        updatedAt: new Date().toISOString()
+      }
+    },
+    updatedAt: new Date().toISOString()
+  });
 }
 
 function artifactActionExecution(

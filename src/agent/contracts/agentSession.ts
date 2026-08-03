@@ -196,7 +196,20 @@ export const AgentTaskStateSchema = z.preprocess((value) => {
   };
 }, AgentTaskStateObjectSchema);
 
+export const AgentTurnCheckpointSchema = z.object({
+  turnId: z.string().min(1),
+  userMessageId: z.string().min(1),
+  taskStateBefore: AgentTaskStateSchema,
+  workflowStateBefore: AgentWorkflowStateSchema,
+  selectedEntitiesBefore: AgentTaskStateObjectSchema.shape.selectedEntities,
+  artifactRefsBefore: z.array(AgentArtifactRefSchema).max(64),
+  pendingConfirmationBefore: AgentConfirmationSchema.optional(),
+  pendingToolCallBefore: AgentPendingToolCallSchema.optional(),
+  createdAt: z.string().datetime({ offset: true })
+}).strict();
+
 export const AgentSessionSchema = z.object({
+  agentSessionSchemaVersion: z.number().int().min(1).default(2),
   id: z.string().min(1),
   title: z.string().min(1).max(160),
   // Hydrated by WorkspaceRepository from the append-only AgentMessageRecord store.
@@ -217,6 +230,7 @@ export const AgentSessionSchema = z.object({
   pendingToolCall: AgentPendingToolCallSchema.optional(),
   activeTurn: AgentTurnSchema.optional(),
   taskState: AgentTaskStateSchema.optional(),
+  turnCheckpoints: z.array(AgentTurnCheckpointSchema).max(100).default([]),
   archived: z.boolean().default(false),
   archivedAt: z.string().datetime({ offset: true }).optional(),
   createdAt: z.string().datetime({ offset: true }),

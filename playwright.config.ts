@@ -23,7 +23,7 @@ export default defineConfig({
       name: "chromium",
       use: {
         ...devices["Desktop Chrome"],
-        channel: "msedge"
+        channel: process.env.PLAYWRIGHT_BROWSER_CHANNEL === "bundled" ? undefined : "msedge"
       }
     }
   ]

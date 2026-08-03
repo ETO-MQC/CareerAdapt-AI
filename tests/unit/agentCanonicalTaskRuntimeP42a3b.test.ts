@@ -952,14 +952,7 @@ describe("P4.2a.3b canonical task runtime", () => {
         decision: "reject"
       }
     }));
-    expect(resumeTurn).toHaveBeenCalledWith(expect.objectContaining({
-      reason: "tool_observation",
-      toolName: "review_profile_intake",
-      observation: expect.objectContaining({
-        candidateId: "candidate-deep-tutor",
-        decision: "reject"
-      })
-    }));
+    expect(resumeTurn).not.toHaveBeenCalled();
     expect(result?.messages.filter((message) => message.role === "user")).toHaveLength(0);
   });
 
