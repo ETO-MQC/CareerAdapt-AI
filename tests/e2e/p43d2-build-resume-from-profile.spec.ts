@@ -1,5 +1,8 @@
+import { execFileSync } from "node:child_process";
+import { existsSync, statSync } from "node:fs";
 import { expect, test, type Page, type Route } from "@playwright/test";
 import type { AgentTaskState } from "@/agent/contracts/agentSession";
+import { openManualPageTab } from "./support/g7b2Ui";
 
 const profileFact = {
   id: "p43d2-project-a",
@@ -15,7 +18,7 @@ const profileFact = {
   customFields: []
 };
 
-test("build_resume_from_profile creates an independent ResumeBranch and opens its editor", async ({ page }) => {
+test("build_resume_from_profile creates an independent ResumeBranch and exports its PDF", async ({ page }, testInfo) => {
   await page.goto("/profile");
   const setupHeading = page.getByRole("heading", { name: "欢迎使用职适AI" });
   const profileSelector = page.getByLabel("选择人物");
@@ -114,6 +117,23 @@ test("build_resume_from_profile creates an independent ResumeBranch and opens it
   await page.getByRole("link", { name: "打开简历编辑器" }).click();
   await expect(page).toHaveURL(new RegExp(`/resume\\?branchId=${result.branches[0]?.id}`));
   await expect(page.getByTestId("resume-studio-shell")).toBeVisible();
+  await openManualPageTab(page);
+  const responsePromise = page.waitForResponse(
+    (response) => response.url().includes("/api/resume-export/pdf") && response.request().method() === "POST",
+    { timeout: 30_000 }
+  );
+  const downloadPromise = page.waitForEvent("download", { timeout: 30_000 });
+  await page.getByRole("button", { name: "下载 PDF" }).click();
+  const [response, download] = await Promise.all([responsePromise, downloadPromise]);
+  expect(response.status()).toBe(200);
+  expect(download.suggestedFilename()).toMatch(/\.pdf$/i);
+  const pdfPath = testInfo.outputPath("profile-built.pdf");
+  await download.saveAs(pdfPath);
+  expect(existsSync(pdfPath)).toBe(true);
+  expect(statSync(pdfPath).size).toBeGreaterThan(0);
+  const pdfText = execFileSync(resolvePopplerBinary(), [pdfPath, "-"], { encoding: "utf8" });
+  expect(pdfText).toMatch(/[\u4e00-\u9fff]/u);
+  expect(pdfText).not.toContain("{{");
 });
 
 type ModelBody = {
@@ -340,4 +360,11 @@ async function fulfillAsk(route: Route, message: string) {
 
 async function fulfillFinal(route: Route, message: string) {
   await route.fulfill({ contentType: "text/event-stream", body: nativeFinal(message) });
+}
+
+function resolvePopplerBinary() {
+  return [
+    "E:/Pycharm/Lib/poppler/Library/bin/pdftotext.exe",
+    "C:/Users/mqcin/AppData/Local/Programs/MiKTeX/miktex/bin/x64/pdftotext.exe"
+  ].find((candidate) => existsSync(candidate)) ?? "pdftotext";
 }
