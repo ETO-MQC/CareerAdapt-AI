@@ -5,6 +5,7 @@ export const AgentArtifactKindSchema = z.enum([
   "resume_import_review",
   "job_semantic_review",
   "job_fit_overview",
+  "tailoring_workspace",
   "clarification_questions",
   "tailoring_diff",
   "quality_result",

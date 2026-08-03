@@ -427,6 +427,83 @@
   white-space: pre-line;
 }
 
+.agent-career-asset-typed-fields {
+  border-top: 1px solid var(--ai-border);
+  display: grid;
+  gap: 5px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+  padding-top: 8px;
+}
+
+.agent-career-asset-typed-fields > div { min-width: 0; }
+.agent-career-asset-typed-fields dt { color: var(--ai-muted); font-size: 11px; }
+.agent-career-asset-typed-fields dd { margin: 2px 0 0; overflow-wrap: anywhere; }
+
+.agent-career-asset-editor {
+  background: var(--ai-surface-raised);
+  border-radius: 8px;
+  display: grid;
+  gap: 7px;
+  padding: 9px;
+}
+
+.agent-career-asset-editor label {
+  color: var(--ai-muted);
+  display: grid;
+  font-size: 11px;
+  gap: 3px;
+}
+
+.agent-career-asset-editor input {
+  background: var(--ai-surface);
+  border: 1px solid var(--ai-border);
+  border-radius: 6px;
+  color: var(--ai-text);
+  min-height: 30px;
+  padding: 0 7px;
+}
+
+.agent-career-asset-editor button,
+.agent-tailoring-question-navigator button {
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+}
+
+.agent-career-asset-editor button {
+  background: transparent;
+  border: 0;
+  color: var(--ai-accent);
+  min-height: 28px;
+  padding: 0 7px;
+}
+
+.agent-tailoring-question-navigator {
+  display: grid;
+  gap: 5px;
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+  margin-top: 10px;
+}
+
+.agent-tailoring-question-navigator button {
+  background: var(--ai-surface);
+  border: 1px solid var(--ai-border);
+  border-radius: 7px;
+  color: var(--ai-muted);
+  min-width: 0;
+  overflow: hidden;
+  padding: 7px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-tailoring-question-navigator button.is-selected,
+.agent-tailoring-question-navigator button[aria-current="step"] {
+  border-color: var(--ai-accent);
+  color: var(--ai-text);
+}
+
 .agent-career-asset details {
   border-top: 1px solid var(--ai-border);
   padding-top: 8px;
@@ -559,6 +636,32 @@
 .agent-diff-actions button[aria-pressed="true"] {
   background: var(--ai-surface-raised);
   border-color: var(--ai-border);
+  color: var(--ai-text);
+}
+
+.agent-tailoring-workspace-tabs {
+  border-bottom: 1px solid var(--ai-border);
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 2px;
+  margin: -4px 0 12px;
+  padding-bottom: 2px;
+}
+
+.agent-tailoring-workspace-tabs button {
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  color: var(--ai-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  min-height: 36px;
+  padding: 0 6px;
+}
+
+.agent-tailoring-workspace-tabs button[aria-selected="true"] {
+  border-bottom-color: var(--ai-accent);
   color: var(--ai-text);
 }
 

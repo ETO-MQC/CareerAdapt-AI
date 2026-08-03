@@ -36,6 +36,7 @@ export const ProfileIntakeSemanticCandidateSchema = z.object({
   tools: TextList,
   methods: TextList,
   outcomes: TextList,
+  structuredItem: ResumeItemV2Schema.optional(),
   sourceQuote: z.string().trim().min(1).max(12_000),
   confidence: z.number().min(0).max(1),
   needsConfirmation: z.boolean(),
@@ -188,7 +189,9 @@ function verifyProposal(
     }
   }
   const id = `intake-${stableHashText(`${proposal.candidateKey}:${proposal.sourceQuote}`).slice(0, 16)}-${index}`;
-  const item = buildResumeItem(id, proposal);
+  const item = proposal.structuredItem
+    ? ResumeItemV2Schema.parse({ ...proposal.structuredItem, id })
+    : buildResumeItem(id, proposal);
   if (item) assertFactPreserving(item, proposal.sourceQuote);
   const missingIdentity = !item;
   const normalizedText = item
@@ -264,6 +267,38 @@ export function validateProfileIntakeProposalGrounding(
   )) {
     throw new Error("profile_intake_current_not_grounded");
   }
+  if (proposal.structuredItem) {
+    for (const field of populatedStructuredItemFields(proposal.structuredItem)) {
+      if (!proposal.fieldEvidence.some((evidence) => evidence.field === field)) {
+        throw new Error(`profile_intake_structured_field_evidence_missing:${field}`);
+      }
+      const value = proposal.structuredItem[field as keyof ResumeItemV2];
+      const fieldSource = evidenceTextForField(proposal, field);
+      if (typeof value === "string" && field !== "startDate" && field !== "endDate" && field !== "awardedAt"
+        && !includesLoose(fieldSource, value)) {
+        throw new Error(`profile_intake_structured_field_not_grounded:${field}`);
+      }
+      if (Array.isArray(value) && value.some((entry) => typeof entry === "string" && !includesLoose(fieldSource, entry))) {
+        throw new Error(`profile_intake_structured_field_not_grounded:${field}`);
+      }
+      if (typeof value === "number" && !fieldSource.includes(String(value))) {
+        throw new Error(`profile_intake_structured_number_not_grounded:${field}`);
+      }
+      if (["startDate", "endDate", "awardedAt", "issuedAt", "expiresAt", "filedAt", "grantedAt"].includes(field)
+        && typeof value === "string") {
+        const [year, month] = value.split("-");
+        if (!fieldSource.includes(year) || !new RegExp(`(?:^|\\D)0?${Number(month)}(?:\\D|$)`, "u").test(fieldSource)) {
+          throw new Error("profile_intake_structured_date_not_grounded");
+        }
+      }
+    }
+    if ("current" in proposal.structuredItem && proposal.structuredItem.current === true && !/(?:至今|现在|目前|ongoing|present|current)/iu.test(
+      evidenceTextForField(proposal, "current")
+    )) {
+      throw new Error("profile_intake_structured_current_not_grounded");
+    }
+    return;
+  }
 }
 
 function populatedProposalFields(proposal: ProfileIntakeSemanticCandidate) {
@@ -274,6 +309,15 @@ function populatedProposalFields(proposal: ProfileIntakeSemanticCandidate) {
     const value = proposal[field];
     return Array.isArray(value) ? value.length > 0 : typeof value === "string" && value.length > 0;
   });
+}
+
+function populatedStructuredItemFields(item: ResumeItemV2) {
+  return Object.entries(item)
+    .filter(([field, value]) => field !== "id" && field !== "sectionType" && field !== "customFields"
+      && field !== "current" && value !== undefined
+      && (!Array.isArray(value) || value.length > 0)
+      && (typeof value === "string" || typeof value === "number" || value === true || Array.isArray(value)))
+    .map(([field]) => field);
 }
 
 function buildResumeItem(id: string, candidate: ProfileIntakeSemanticCandidate): ResumeItemV2 | undefined {
@@ -422,7 +466,7 @@ function draftContext(draft?: ImportedResumeDraft) {
 
 function displayLabel(item?: ResumeItemV2) {
   if (!item) return "待核对经历";
-  if (item.sectionType === "education") return [item.school, item.major].filter(Boolean).join(" / ") || "教育经历";
+  if (item.sectionType === "education") return [item.school, item.degree, item.major].filter(Boolean).join(" / ") || "教育经历";
   if (item.sectionType === "skills") return item.name;
   if (item.sectionType === "languages") return item.language;
   if ("title" in item && item.title) return item.title;

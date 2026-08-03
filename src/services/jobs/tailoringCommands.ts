@@ -23,7 +23,7 @@ import {
 } from "@/domain/jobOptimization";
 import type { WorkspaceRepository } from "@/services/storage/repositories";
 import { stableHashText } from "@/services/security/text";
-import { answerTailoringClarification, createTailoringPlan, createTailoringQuestionPlan } from "./tailoringService";
+import { answerTailoringClarification, createTailoringPlan, createTailoringQuestionPlan, tailoringAnswerRevisionHash } from "./tailoringService";
 import { tailoringDiffId } from "./tailoringDiffId";
 
 export { tailoringDiffId } from "./tailoringDiffId";
@@ -240,9 +240,15 @@ export async function generateTailoringDiffsCommand(input: {
   }
 
   const dedupedDiffs = dedupeDiffs(accepted);
+  const generatedAnswerRevisionHash = tailoringAnswerRevisionHash(parsed.session.plan);
+  const generatedQuestionPlanRevision = parsed.session.plan.questionPlan?.revision;
   const plan = ResumeTailoringPlanSchema.parse({
     ...parsed.session.plan,
     diffs: dedupedDiffs,
+    generationStatus: "completed",
+    answerRevisionHash: generatedAnswerRevisionHash,
+    generatedDiffsBasedOnQuestionPlanRevision: generatedQuestionPlanRevision,
+    generatedDiffsBasedOnAnswerRevisionHash: generatedAnswerRevisionHash,
     diffReviews: dedupedDiffs.map((diff) => ({
       diffId: tailoringDiffId(diff),
       status: "suggested",

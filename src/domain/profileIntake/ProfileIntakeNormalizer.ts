@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { runRuleFactGuard } from "@/domain/adaptation/factGuard";
-import { ResumeItemV2Schema, ResumeSectionTypeV2Schema, type ResumeItemV2 } from "@/domain/schemas";
+import { ResumeItemV2Schema, ResumeSectionTypeV2Schema, type EducationItemV2, type ResumeItemV2 } from "@/domain/schemas";
 
 const OptionalPatchTextSchema = z.string().trim().min(1).max(4_000).optional();
 const PatchStringListSchema = z.array(z.string().trim().min(1).max(2_000)).max(30).optional();
@@ -11,10 +11,41 @@ export const ProfileIntakeStructuredPatchSchema = z.object({
   organization: OptionalPatchTextSchema,
   institution: OptionalPatchTextSchema,
   role: OptionalPatchTextSchema,
+  school: OptionalPatchTextSchema,
+  degree: OptionalPatchTextSchema,
+  major: OptionalPatchTextSchema,
+  department: OptionalPatchTextSchema,
+  location: OptionalPatchTextSchema,
   startDate: OptionalPatchTextSchema,
   endDate: OptionalPatchTextSchema,
   current: z.boolean().optional(),
+  gpa: z.number().min(0).optional(),
+  gpaScale: z.number().positive().optional(),
+  rankPosition: z.number().int().positive().optional(),
+  rankTotal: z.number().int().positive().optional(),
+  courses: PatchStringListSchema,
+  honors: PatchStringListSchema,
   awardedAt: OptionalPatchTextSchema,
+  level: OptionalPatchTextSchema,
+  category: OptionalPatchTextSchema,
+  language: OptionalPatchTextSchema,
+  testName: OptionalPatchTextSchema,
+  score: OptionalPatchTextSchema,
+  issuer: OptionalPatchTextSchema,
+  issuedAt: OptionalPatchTextSchema,
+  expiresAt: OptionalPatchTextSchema,
+  credentialId: OptionalPatchTextSchema,
+  status: OptionalPatchTextSchema,
+  rank: OptionalPatchTextSchema,
+  authorRole: OptionalPatchTextSchema,
+  publisher: OptionalPatchTextSchema,
+  publishedAt: OptionalPatchTextSchema,
+  patentNumber: OptionalPatchTextSchema,
+  office: OptionalPatchTextSchema,
+  filedAt: OptionalPatchTextSchema,
+  grantedAt: OptionalPatchTextSchema,
+  url: OptionalPatchTextSchema,
+  background: OptionalPatchTextSchema,
   description: OptionalPatchTextSchema,
   highlights: PatchStringListSchema,
   tools: PatchStringListSchema,
@@ -103,6 +134,26 @@ export class ProfileIntakeNormalizer {
     const sourceQuote = rawNarrative.trim();
     const id = `intake-fallback-${simpleHash(sourceQuote)}`;
     const dates = extractCareerDates(sourceQuote);
+    const education = sourceQuote.length <= 180
+      ? buildEducationFallback(id, sourceQuote, dates.patch)
+      : undefined;
+    if (education) {
+      const fieldEvidence = [
+        ...(["school", "degree", "major"] as const).flatMap((field) => field in education && education[field]
+          ? [evidence(field, sourceQuote, "explicit", 0.95, true)] : []),
+        ...dates.fields.map((field) => evidence(field, sourceQuote, "explicit", 0.99, true))
+      ];
+      return ProfileIntakeNormalizationResultSchema.parse({
+        sectionType: "education",
+        normalizedText: profileIntakeCareerReadyText(education),
+        structuredItem: education,
+        confidence: 0.68,
+        needsConfirmation: true,
+        needsNormalization: false,
+        deterministicDatePatch: dates.patch,
+        fieldEvidence
+      });
+    }
     const structuredItem = ResumeItemV2Schema.parse({
       id,
       sectionType: "other",
@@ -201,9 +252,17 @@ function canonicalizePatchDates(sectionType: ResumeItemV2["sectionType"], patch:
   const startDate = patch.startDate ? normalizeCareerMonth(patch.startDate) : undefined;
   const endDate = patch.endDate ? normalizeCareerMonth(patch.endDate) : undefined;
   const awardedAt = patch.awardedAt ? normalizeCareerMonth(patch.awardedAt) : undefined;
+  const issuedAt = patch.issuedAt ? normalizeCareerMonth(patch.issuedAt) : undefined;
+  const expiresAt = patch.expiresAt ? normalizeCareerMonth(patch.expiresAt) : undefined;
+  const filedAt = patch.filedAt ? normalizeCareerMonth(patch.filedAt) : undefined;
+  const grantedAt = patch.grantedAt ? normalizeCareerMonth(patch.grantedAt) : undefined;
   if (patch.startDate && !startDate) throw new Error("profile_intake_invalid_start_date");
   if (patch.endDate && !endDate) throw new Error("profile_intake_invalid_end_date");
   if (patch.awardedAt && !awardedAt) throw new Error("profile_intake_invalid_award_date");
+  if (patch.issuedAt && !issuedAt) throw new Error("profile_intake_invalid_issued_date");
+  if (patch.expiresAt && !expiresAt) throw new Error("profile_intake_invalid_expiry_date");
+  if (patch.filedAt && !filedAt) throw new Error("profile_intake_invalid_filed_date");
+  if (patch.grantedAt && !grantedAt) throw new Error("profile_intake_invalid_granted_date");
   if (sectionType === "awards" && (startDate || endDate)) {
     throw new Error("profile_intake_award_requires_awarded_at");
   }
@@ -211,7 +270,11 @@ function canonicalizePatchDates(sectionType: ResumeItemV2["sectionType"], patch:
     ...patch,
     ...(startDate ? { startDate } : {}),
     ...(endDate ? { endDate } : {}),
-    ...(awardedAt ? { awardedAt } : {})
+    ...(awardedAt ? { awardedAt } : {}),
+    ...(issuedAt ? { issuedAt } : {}),
+    ...(expiresAt ? { expiresAt } : {}),
+    ...(filedAt ? { filedAt } : {}),
+    ...(grantedAt ? { grantedAt } : {})
   }).filter(([, value]) => value !== undefined)) as ProfileIntakeStructuredPatch;
 }
 
@@ -220,13 +283,17 @@ export function extractCareerDates(text: string): {
   fields: string[];
 } {
   const month = "(20\\d{2})\\s*(?:年|[./-])\\s*(1[0-2]|0?[1-9])\\s*月?";
-  const educationStart = new RegExp(`${month}.{0,8}(?:入学|开始)`, "u").exec(text);
-  const educationEnd = new RegExp(`${month}.{0,8}(?:毕业|结束)`, "u").exec(text);
+  const educationStart = new RegExp(`${month}.{0,8}(?:入学|开始)|(?:入学|开始).{0,8}${month}`, "u").exec(text);
+  const educationEnd = new RegExp(`${month}.{0,8}(?:毕业|结束)|(?:预计)?毕业(?:时间|于)?.{0,8}${month}`, "u").exec(text);
   if (educationStart && educationEnd) {
+    const startYear = educationStart[1] ?? educationStart[3];
+    const startMonth = educationStart[2] ?? educationStart[4];
+    const endYear = educationEnd[1] ?? educationEnd[3];
+    const endMonth = educationEnd[2] ?? educationEnd[4];
     return {
       patch: {
-        startDate: careerMonth(educationStart[1], educationStart[2]),
-        endDate: careerMonth(educationEnd[1], educationEnd[2]),
+        startDate: careerMonth(startYear, startMonth),
+        endDate: careerMonth(endYear, endMonth),
         current: false
       },
       fields: ["startDate", "endDate", "current"]
@@ -273,8 +340,12 @@ function careerMonth(year: string, month: string) {
 
 function isHardPatchField(field: string) {
   return [
-    "title", "name", "organization", "institution", "role", "startDate", "endDate",
-    "current", "awardedAt", "tools", "methods"
+    "title", "name", "organization", "institution", "role", "school", "degree", "major",
+    "department", "location", "startDate", "endDate", "current", "gpa", "gpaScale",
+    "rankPosition", "rankTotal", "courses", "honors", "awardedAt", "level", "category",
+    "language", "testName", "score", "issuer", "issuedAt", "expiresAt", "credentialId",
+    "status", "rank", "authorRole", "publisher", "publishedAt", "patentNumber", "office",
+    "filedAt", "grantedAt", "url", "tools", "methods"
   ].includes(field);
 }
 
@@ -284,7 +355,7 @@ function patchValueGrounded(field: string, value: unknown, source: string) {
       ? /(?:至今|现在|目前|ongoing|present|current)/iu.test(source)
       : /(?:结束|离开|完成|不再|已毕业|ended|finished|left)/iu.test(source);
   }
-  if (["startDate", "endDate", "awardedAt"].includes(field) && typeof value === "string") {
+  if (["startDate", "endDate", "awardedAt", "issuedAt", "expiresAt", "filedAt", "grantedAt"].includes(field) && typeof value === "string") {
     const [year, month] = value.split("-");
     return source.includes(year)
       && new RegExp(`(?:^|\\D)0?${Number(month)}(?:\\D|$)`, "u").test(source);
@@ -383,6 +454,26 @@ function buildStructuredItem(
   });
 }
 
+function buildEducationFallback(id: string, sourceQuote: string, datePatch: ProfileIntakeStructuredPatch): EducationItemV2 | undefined {
+  const school = sourceQuote.match(/[\p{L}\p{N}·&（）()\-]{2,80}(?:大学|学院|学校)/u)?.[0];
+  const degree = sourceQuote.match(/(?:博士研究生|硕士研究生|本科|硕士|博士|专科|大专)/u)?.[0];
+  const major = sourceQuote.match(/([\p{L}\p{N}·&（）()\-]{2,60})专业/u)?.[1];
+  if (!school && !degree && !major) return undefined;
+  return ResumeItemV2Schema.parse({
+    id,
+    sectionType: "education",
+    school,
+    degree,
+    major,
+    current: false,
+    courses: [],
+    honors: [],
+    highlights: [],
+    customFields: [],
+    ...datePatch
+  }) as EducationItemV2;
+}
+
 function cleanColloquial(value: string) {
   return value
     .replace(/(?:然后然后|然后|那个|反正|就是个|就是|当然我知道|当然|相当于)/gu, "")
@@ -404,7 +495,7 @@ export function profileIntakeCareerReadyText(item: ResumeItemV2) {
 }
 
 function displayLabel(item: ResumeItemV2) {
-  if (item.sectionType === "education") return [item.school, item.major].filter(Boolean).join(" / ");
+  if (item.sectionType === "education") return [item.school, item.degree, item.major].filter(Boolean).join(" / ");
   if ("title" in item && item.title) return item.title;
   if ("name" in item && item.name) return item.name;
   if ("role" in item && item.role) return item.role;

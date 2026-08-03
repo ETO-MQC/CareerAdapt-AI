@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ProfileIntakeStructuredPatchSchema } from "@/domain/profileIntake/ProfileIntakeNormalizer";
 import type { AgentToolDefinition, AgentToolResult } from "../contracts/agentTool";
 import type { ExternalToolProvider } from "./externalToolProvider";
 
@@ -98,22 +99,7 @@ const ProfileIntakeReviewInputSchema = z.object({
   candidateId: z.string().min(1),
   decision: z.enum(["accept", "reject"]),
   editedLabel: z.string().trim().min(1).max(240).optional(),
-  structuredPatch: z.object({
-    title: z.string().trim().min(1).max(4_000).optional(),
-    name: z.string().trim().min(1).max(4_000).optional(),
-    organization: z.string().trim().min(1).max(4_000).optional(),
-    institution: z.string().trim().min(1).max(4_000).optional(),
-    role: z.string().trim().min(1).max(4_000).optional(),
-    startDate: z.string().trim().min(1).max(32).optional(),
-    endDate: z.string().trim().min(1).max(32).optional(),
-    current: z.boolean().optional(),
-    awardedAt: z.string().trim().min(1).max(32).optional(),
-    description: z.string().trim().min(1).max(4_000).optional(),
-    highlights: z.array(z.string().trim().min(1).max(2_000)).max(30).optional(),
-    tools: z.array(z.string().trim().min(1).max(2_000)).max(30).optional(),
-    methods: z.array(z.string().trim().min(1).max(2_000)).max(30).optional(),
-    outcomes: z.array(z.string().trim().min(1).max(2_000)).max(30).optional()
-  }).strict().optional(),
+  structuredPatch: ProfileIntakeStructuredPatchSchema.optional(),
   evidence: z.object({
     sessionId: z.string().min(1),
     messageId: z.string().min(1),

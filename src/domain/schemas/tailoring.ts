@@ -382,6 +382,13 @@ export const TailoringQuestionPlanSchema = z.object({
   }
 });
 
+export const TailoringGenerationStatusSchema = z.enum([
+  "not_started",
+  "ready_for_regeneration",
+  "generating",
+  "completed"
+]);
+
 export const ResumeTailoringPlanSchema = z.object({
   id: z.string().min(1),
   branchId: z.string().min(1),
@@ -400,6 +407,10 @@ export const ResumeTailoringPlanSchema = z.object({
   clarificationQuestions: z.array(TailoringClarificationQuestionSchema).optional(),
   clarificationAnswers: z.array(ClarificationAnswerRecordSchema).optional(),
   questionPlan: TailoringQuestionPlanSchema.optional(),
+  generationStatus: TailoringGenerationStatusSchema.optional(),
+  answerRevisionHash: z.string().min(1).optional(),
+  generatedDiffsBasedOnQuestionPlanRevision: z.number().int().min(1).optional(),
+  generatedDiffsBasedOnAnswerRevisionHash: z.string().min(1).optional(),
   gaps: z.array(TailoringGapSchema).optional(),
   diffs: z.array(ResumeTailoringDiffSchema).optional(),
   diffReviews: z.array(TailoringDiffReviewSchema).optional(),
@@ -450,10 +461,22 @@ export type TailoringDiffRejectionReason = z.infer<typeof TailoringDiffRejection
 export type TailoringGap = z.infer<typeof TailoringGapSchema>;
 export type ClarificationAnswerRecord = z.infer<typeof ClarificationAnswerRecordSchema>;
 export type TailoringQuestionPlan = z.infer<typeof TailoringQuestionPlanSchema>;
+export type TailoringGenerationStatus = z.infer<typeof TailoringGenerationStatusSchema>;
 export type ConfirmableClaim = z.infer<typeof ConfirmableClaimSchema>;
 export type TailoringClaim = z.infer<typeof TailoringClaimSchema>;
 export type TailoringClarificationQuestion = z.infer<typeof TailoringClarificationQuestionSchema>;
-export type ResumeTailoringPlan = z.infer<typeof ResumeTailoringPlanSchema>;
+type ParsedResumeTailoringPlan = z.infer<typeof ResumeTailoringPlanSchema>;
+export type ResumeTailoringPlan = Omit<ParsedResumeTailoringPlan,
+  | "generationStatus"
+  | "answerRevisionHash"
+  | "generatedDiffsBasedOnQuestionPlanRevision"
+  | "generatedDiffsBasedOnAnswerRevisionHash"
+> & {
+  generationStatus?: TailoringGenerationStatus;
+  answerRevisionHash?: string;
+  generatedDiffsBasedOnQuestionPlanRevision?: number;
+  generatedDiffsBasedOnAnswerRevisionHash?: string;
+};
 export type ClaimConfirmation = z.infer<typeof ClaimConfirmationSchema>;
 
 // --- Phase 1: Planner schemas ---

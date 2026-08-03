@@ -227,7 +227,7 @@ function coerceProfileIntakeSemanticOutput(rawOutput: unknown) {
             : [];
         }).join("\n")
       : "";
-    for (const field of profileIntakeEvidenceFields) {
+      for (const field of profileIntakeEvidenceFields) {
       const value = normalized[field];
       const populated = Array.isArray(value)
         ? value.length > 0
@@ -316,10 +316,20 @@ export const aiTaskRegistry = {
             ? value.length > 0
             : typeof value === "string" && value.length > 0;
           if (populated && !candidate.fieldEvidence.some((evidence) => evidence.field === field)) {
-            throw new Error(`profile_intake_field_evidence_missing:${field}`);
+          throw new Error(`profile_intake_field_evidence_missing:${field}`);
+        }
+      }
+      if (candidate.structuredItem) {
+        for (const [field, value] of Object.entries(candidate.structuredItem)) {
+          const populated = field !== "id" && field !== "sectionType" && field !== "customFields"
+            && value !== undefined && value !== false
+            && (!Array.isArray(value) || value.length > 0);
+          if (populated && !candidate.fieldEvidence.some((evidence) => evidence.field === field)) {
+            throw new Error(`profile_intake_structured_field_evidence_missing:${field}`);
           }
         }
-        validateProfileIntakeProposalGrounding(candidate, input.rawNarrative);
+      }
+      validateProfileIntakeProposalGrounding(candidate, input.rawNarrative);
       }
     }
   } satisfies AiTaskDefinition<ProfileIntakeSemanticTaskInput, ProfileIntakeSemanticOutput>,

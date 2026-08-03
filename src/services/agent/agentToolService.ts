@@ -26,7 +26,7 @@ import {
 import { invokeStructuredAi } from "@/ai/client";
 import { ResumeTailoringDiffModelOutputSchema, type ResumeTailoringDiffTaskInput } from "@/domain/schemas";
 import { commitParsedJob } from "@/services/jobs/jobWorkflow";
-import { analyzeJobFit } from "@/services/jobs/tailoringService";
+import { analyzeJobFit, tailoringAnswerRevisionHash } from "@/services/jobs/tailoringService";
 import { hashText, stableHashText } from "@/services/security/text";
 import { WorkspaceRepository } from "@/services/storage/repositories";
 import type { AgentToolServices } from "@/agent/tools/registry";
@@ -56,6 +56,7 @@ import {
 } from "@/domain/profileIntake/ProfileIntakeNormalizer";
 import { readResumeImportSemanticPreference } from "@/services/preferences/resumeImportAi";
 import { adaptResumeJsonToV2 } from "@/domain/resumeImport/jsonV2Adapter";
+import { createProfileIntakeInterviewPlan } from "@/domain/profileIntake/ProfileIntakeCompleteness";
 
 export class BrowserAgentToolService implements AgentToolServices {
   constructor(
@@ -202,11 +203,19 @@ export class BrowserAgentToolService implements AgentToolServices {
         sectionType: item.structuredItem?.sectionType ?? section.sectionType,
         label: item.itemLabel ?? section.detectedTitle,
         sourceQuote: item.sourceQuote ?? item.rawText,
+        structuredItem: item.structuredItem,
+        fieldEvidence: item.careerNormalization?.fieldEvidence ?? [],
+        needsNormalization: item.careerNormalization?.needsNormalization === true,
+        canAccept: Boolean(item.structuredItem) && item.careerNormalization?.needsNormalization !== true,
         needsConfirmation: item.sourceStatus === "ambiguous",
         reason: item.careerNormalization?.needsNormalization
           ? "AI 语义整理暂不可用，原始回答已保留，请重试或手动核对"
           : undefined
       })));
+    const structuredItems = saved.sections.flatMap((section) => section.items.flatMap((item) => item.structuredItem ? [item.structuredItem] : []));
+    const interviewPlan = createProfileIntakeInterviewPlan(structuredItems, saved.revision);
+    const followUpQuestion = interviewPlan.questions.find((question) => question.status === "pending")?.question
+      ?? semanticResult.followUpQuestion;
     return {
       importId: saved.importId,
       expectedDraftRevision: saved.revision,
@@ -215,7 +224,9 @@ export class BrowserAgentToolService implements AgentToolServices {
       candidateCount: allCandidates.length,
       needsConfirmationCount: allCandidates.filter((candidate) => candidate.needsConfirmation).length,
       candidates: allCandidates,
-      artifactPayload: buildConversationIntakeArtifact(saved, semanticResult.followUpQuestion)
+      followUpQuestion,
+      interviewPlan,
+      artifactPayload: buildConversationIntakeArtifact(saved, followUpQuestion, interviewPlan)
     };
   }
 
@@ -338,6 +349,8 @@ export class BrowserAgentToolService implements AgentToolServices {
     );
     const unresolved = saved.sections.flatMap((section) => section.items)
       .filter((item) => item.sourceStatus === "ambiguous").length;
+    const structuredItems = saved.sections.flatMap((section) => section.items.flatMap((item) => item.structuredItem ? [item.structuredItem] : []));
+    const interviewPlan = createProfileIntakeInterviewPlan(structuredItems, saved.revision);
     return {
       importId: saved.importId,
       expectedDraftRevision: saved.revision,
@@ -345,7 +358,9 @@ export class BrowserAgentToolService implements AgentToolServices {
       decision: input.decision,
       editedLabel: input.editedLabel?.trim(),
       patchedFields: input.structuredPatch ? Object.keys(input.structuredPatch) : [],
-      unresolvedCount: unresolved
+      unresolvedCount: unresolved,
+      followUpQuestion: interviewPlan.questions.find((question) => question.status === "pending")?.question,
+      interviewPlan
     };
   }
 
@@ -956,7 +971,11 @@ export class BrowserAgentToolService implements AgentToolServices {
   async generateTailoringChanges(rawInput: unknown, operationId: string, signal?: AbortSignal) {
     const input = rawInput as { session: unknown };
     const session = TailoringSessionSchema.parse(input.session);
-    if (session.generatedDiffRevision > 0 && (session.plan.diffs?.length ?? 0) > 0) {
+    const answerRevisionHash = tailoringAnswerRevisionHash(session.plan);
+    const generationIsCurrent = session.plan.generationStatus === "completed"
+      && session.plan.generatedDiffsBasedOnQuestionPlanRevision === session.plan.questionPlan?.revision
+      && session.plan.generatedDiffsBasedOnAnswerRevisionHash === answerRevisionHash;
+    if (generationIsCurrent) {
       return {
         operationId,
         session,

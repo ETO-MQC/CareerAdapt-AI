@@ -291,6 +291,21 @@ export class AgentHostStore {
       return this.dispatch({ type: "ui_control", action: input.action }, context);
     }
     if (input.type === "ui_control") {
+      if (input.action.type === "select_tailoring_question" && session.taskState) {
+        const selectedQuestionId = input.action.questionId;
+        const plan = objectValue(objectValue(session.taskState.knownSlots.tailoringSession).plan);
+        const questions = Array.isArray(plan.clarificationQuestions) ? plan.clarificationQuestions.map(objectValue) : [];
+        if (questions.some((question) => question.id === selectedQuestionId)) {
+          const updated = projectTaskStateIntoSession(session, {
+            ...session.taskState,
+            knownSlots: { ...session.taskState.knownSlots, selectedQuestionId },
+            updatedAt: new Date().toISOString()
+          });
+          const saved = await this.dependencies.persistence.save(updated);
+          this.patchSession(saved);
+          return saved;
+        }
+      }
       if (isUiAction(input.action)) {
         this.patch({ uiAction: input.action });
         return session;
@@ -490,7 +505,7 @@ export class AgentHostStore {
         attachment: input.attachment
       });
     }
-    const compound = presentedQuestion
+    const compound = presentedQuestion && !/^(?:继续|生成吧|按这些生成)$/u.test(input.userMessage.trim())
       ? resolveCompoundAnswer(input.userMessage, unresolvedTailoringQuestions(taskState))
       : { answers: [] };
     if (compound.answers.length) {
@@ -865,20 +880,17 @@ export class AgentHostStore {
       save_profile_only: "仅保存资料库",
       generate_general_resume: "生成一份通用简历"
     };
-    const label = decisionLabels[action.option];
     const reducer = new AgentTaskStateReducer();
     const taskState = reducer.reduce(session.taskState, {
       type: "decision_selected",
       decisionType: action.decisionType,
       option: action.option
     });
-    let current = appendAgentMessage(session, "user", label, {
+    let current = markTypedTaskDecisionResolution(session, {
       turnId,
-      status: "complete",
-      metadata: {
-        decisionType: action.decisionType,
-        decisionOption: action.option
-      }
+      decisionType: action.decisionType,
+      decisionOption: action.option,
+      label: decisionLabels[action.option]
     });
     current = projectTaskStateIntoSession(current, taskState);
     current = await this.dependencies.persistence.save(current);
@@ -1292,15 +1304,18 @@ export class AgentHostStore {
             ]
           };
         }
-        if (event.ok && ["analyze_job_fit", "create_tailoring_session", "preview_tailoring_changes", "apply_tailoring_changes", "create_resume_from_profile", "export_resume"].includes(event.toolName)) {
+        if (event.ok && ["analyze_job_fit", "create_tailoring_session", "answer_tailoring_question", "generate_tailoring_changes", "review_tailoring_diff", "preview_tailoring_changes", "apply_tailoring_changes", "create_resume_from_profile", "export_resume"].includes(event.toolName)) {
           const now = new Date().toISOString();
-          const artifactId = event.artifactIds?.[0] ?? `agent-artifact-${event.toolName}-${event.operationId}`;
-          const descriptor = artifactDescriptor(event.toolName);
-          if (descriptor) {
+            const descriptor = artifactDescriptor(event.toolName);
+            if (descriptor) {
             const lastObservation = objectRecordValue(current.taskState?.lastObservation);
             const observation = objectRecordValue(lastObservation.value);
             const observationResume = objectRecordValue(observation.resume);
-            const entityId = descriptor.entityType === "job"
+            const entityId = descriptor.kind === "tailoring_workspace"
+              ? stringRecordValue(objectRecordValue(observation.session).id)
+                ?? stringRecordValue(objectRecordValue(current.taskState?.knownSlots.tailoringSession).id)
+                ?? `pending:${current.taskState?.selectedEntities.jobId ?? event.operationId}`
+              : descriptor.entityType === "job"
               ? stringRecordValue(observation.jobId)
                 ?? current.taskState?.selectedEntities.jobId
                 ?? stringRecordValue(observation.resumeId)
@@ -1311,13 +1326,18 @@ export class AgentHostStore {
                 ?? current.taskState?.selectedEntities.resumeId
                 ?? current.taskState?.selectedEntities.jobId
                 ?? `pending-${event.operationId}`;
+            const artifactId = descriptor.kind === "tailoring_workspace"
+              ? `tailoring-workspace:${entityId}`
+              : event.artifactIds?.[0] ?? `agent-artifact-${event.toolName}-${event.operationId}`;
             const route = event.toolName === "export_resume" && typeof observation.route === "string"
               ? observation.route
               : descriptor.route;
             current = {
               ...current,
               artifactRefs: [
-                ...current.artifactRefs.filter((artifact) => artifact.id !== artifactId),
+                ...current.artifactRefs.filter((artifact) => descriptor.kind === "tailoring_workspace"
+                  ? !["tailoring_workspace", "job_fit_overview", "tailoring_diff"].includes(artifact.kind)
+                  : artifact.id !== artifactId),
                 {
                   id: artifactId,
                   kind: descriptor.kind,
@@ -1729,7 +1749,8 @@ function isUiAction(action: AgentUiAction | AgentWorkflowControl): action is Age
     "open_profile_browser",
     "open_tool_palette",
     "open_import_review",
-    "open_artifact"
+    "open_artifact",
+    "select_tailoring_question"
   ].includes(action.type);
 }
 
@@ -2482,15 +2503,10 @@ function artifactDescriptor(toolName: string): {
   entityType: AgentArtifactRef["entityType"];
   route?: string;
 } | undefined {
-  if (toolName === "analyze_job_fit") {
-    return { kind: "job_fit_overview", title: "岗位匹配分析", entityType: "job" };
+  if (["analyze_job_fit", "create_tailoring_session", "answer_tailoring_question", "generate_tailoring_changes", "review_tailoring_diff", "preview_tailoring_changes", "apply_tailoring_changes"].includes(toolName)) {
+    return { kind: "tailoring_workspace", title: "岗位定制工作区", entityType: "tailoring_session" };
   }
-  if (toolName === "create_tailoring_session" || toolName === "generate_tailoring_changes" || toolName === "preview_tailoring_changes") {
-    return { kind: "tailoring_diff", title: "简历定制修改预览", entityType: "tailoring_session" };
-  }
-  if (toolName === "apply_tailoring_changes") {
-    return { kind: "quality_result", title: "定制简历质量结果", entityType: "resume_branch", route: "/resume" };
-  }
+
   if (toolName === "create_resume_from_profile") {
     return { kind: "quality_result", title: "通用简历创建结果", entityType: "resume_branch", route: "/resume" };
   }
@@ -2500,13 +2516,40 @@ function artifactDescriptor(toolName: string): {
   return undefined;
 }
 
+function markTypedTaskDecisionResolution(
+  session: AgentSession,
+  resolution: {
+    turnId: string;
+    decisionType: string;
+    decisionOption: string;
+    label: string;
+  }
+) {
+  let marked = false;
+  const messages = [...session.messages].reverse().map((message) => {
+    if (marked || message.role !== "assistant" || message.kind === "assistant_thinking") return message;
+    marked = true;
+    return {
+      ...message,
+      metadata: {
+        ...message.metadata,
+        typedActionResolution: {
+          turnId: resolution.turnId,
+          decisionType: resolution.decisionType,
+          decisionOption: resolution.decisionOption,
+          label: resolution.label
+        }
+      }
+    };
+  }).reverse();
+  return { ...session, messages };
+}
+
 function reconcileTaskArtifacts(session: AgentSession, taskState: AgentTaskState) {
   const exportResult = objectRecordValue(taskState.knownSlots.exportResult);
   const jobId = taskState.selectedEntities.jobId;
   const resumeId = taskState.selectedEntities.resumeId;
-  return {
-    ...session,
-    artifactRefs: session.artifactRefs.map((artifact) => {
+  const artifactRefs = session.artifactRefs.map((artifact) => {
       if (artifact.kind === "pdf_preview") {
         return {
           ...artifact,
@@ -2523,7 +2566,28 @@ function reconcileTaskArtifacts(session: AgentSession, taskState: AgentTaskState
         };
       }
       return artifact;
-    })
+    });
+  const tailoringSessionId = stringRecordValue(objectRecordValue(taskState.knownSlots.tailoringSession).id);
+  if (!tailoringSessionId) return { ...session, artifactRefs };
+  const existingWorkspace = artifactRefs.find((artifact) => artifact.kind === "tailoring_workspace")
+    ?? artifactRefs.find((artifact) => artifact.kind === "tailoring_diff" || artifact.kind === "job_fit_overview");
+  const now = new Date().toISOString();
+  return {
+    ...session,
+    artifactRefs: [
+      ...artifactRefs.filter((artifact) => !["tailoring_workspace", "tailoring_diff", "job_fit_overview"].includes(artifact.kind)),
+      {
+        id: `tailoring-workspace:${tailoringSessionId}`,
+        kind: "tailoring_workspace" as const,
+        title: "岗位定制工作区",
+        entityType: "tailoring_session" as const,
+        entityId: tailoringSessionId,
+        status: "active" as const,
+        summary: existingWorkspace?.summary,
+        createdAt: existingWorkspace?.createdAt ?? now,
+        updatedAt: now
+      }
+    ]
   };
 }
 
@@ -2537,7 +2601,11 @@ function attachConfirmedToolArtifact(
   if (!result.ok || !descriptor) return session;
   const value = objectRecordValue(result.data);
   const observationResume = objectRecordValue(value.resume);
-  const entityId = descriptor.entityType === "job"
+  const entityId = descriptor.kind === "tailoring_workspace"
+    ? stringRecordValue(objectRecordValue(value.session).id)
+      ?? stringRecordValue(objectRecordValue(session.taskState?.knownSlots.tailoringSession).id)
+      ?? `pending:${session.taskState?.selectedEntities.jobId ?? toolName}`
+    : descriptor.entityType === "job"
     ? stringRecordValue(value.jobId)
       ?? session.taskState?.selectedEntities.jobId
       ?? stringRecordValue(value.resumeId)
@@ -2549,14 +2617,18 @@ function attachConfirmedToolArtifact(
       ?? session.taskState?.selectedEntities.jobId
       ?? `pending-${toolName}`;
   const now = new Date().toISOString();
-  const artifactId = result.artifactIds?.[0] ?? `agent-artifact-${toolName}-${operationId}`;
+  const artifactId = descriptor.kind === "tailoring_workspace"
+    ? `tailoring-workspace:${entityId}`
+    : result.artifactIds?.[0] ?? `agent-artifact-${toolName}-${operationId}`;
   const route = toolName === "export_resume" && typeof value.route === "string"
     ? value.route
     : descriptor.route;
   return {
     ...session,
     artifactRefs: [
-      ...session.artifactRefs.filter((artifact) => artifact.id !== artifactId),
+      ...session.artifactRefs.filter((artifact) => descriptor.kind === "tailoring_workspace"
+        ? !["tailoring_workspace", "job_fit_overview", "tailoring_diff"].includes(artifact.kind)
+        : artifact.id !== artifactId),
       {
         id: artifactId,
         kind: descriptor.kind,
@@ -2580,35 +2652,61 @@ function artifactActionRevision(
   if (!state) return undefined;
   const value = action.type === "profile_intake_candidate_decision"
     ? state.knownSlots.expectedIntakeDraftRevision
-    : action.type === "resume_import_review_decision"
-      ? state.knownSlots.expectedDraftRevision
-      : action.type === "tailoring_answer_edit"
-        ? objectValue(state.knownSlots.tailoringSession).revision
-        : action.type === "tailoring_diff_decision"
+    : action.type === "profile_intake_candidate_edit"
+      ? state.knownSlots.expectedIntakeDraftRevision
+      : action.type === "resume_import_review_decision"
+        ? state.knownSlots.expectedDraftRevision
+        : action.type === "tailoring_answer_edit" || action.type === "tailoring_regenerate" || action.type === "tailoring_diff_decision"
           ? objectValue(state.knownSlots.tailoringSession).revision
-        : state.knownSlots.expectedReconciliationRevision;
+          : state.knownSlots.expectedReconciliationRevision;
   return typeof value === "number" ? value : undefined;
 }
 
 function artifactActionEntityId(action: AgentArtifactAction) {
   if (action.type === "profile_intake_candidate_decision") return action.candidateId;
+  if (action.type === "profile_intake_candidate_edit") return action.candidateId;
   if (action.type === "resume_import_reconciliation_decision") return action.incomingItemId;
   if (action.type === "tailoring_answer_edit") return action.questionId;
+  if (action.type === "tailoring_regenerate") return "regenerate";
   if (action.type === "tailoring_diff_decision") return action.diffId;
   return "review";
 }
 
 function artifactActionOperationId(session: AgentSession, action: AgentArtifactAction, revision: number | undefined) {
   const tailoringSessionId = stringValue(objectValue(session.taskState?.knownSlots.tailoringSession).id) ?? "none";
+  if (action.type === "tailoring_answer_edit") {
+    const tailoringSession = objectValue(session.taskState?.knownSlots.tailoringSession);
+    const plan = objectValue(tailoringSession.plan);
+    const questionPlan = objectValue(plan.questionPlan);
+    const previous = Array.isArray(plan.clarificationAnswers)
+      ? plan.clarificationAnswers.map(objectValue).find((answer) => answer.questionId === action.questionId)
+      : undefined;
+    const sameAnswer = previous
+      && JSON.stringify(previous.answer) === JSON.stringify(action.answer)
+      && previous.proficiency === action.proficiency;
+    const answerRevision = sameAnswer
+      ? previous.answerRevision
+      : (typeof previous?.answerRevision === "number" ? previous.answerRevision : 0) + 1;
+    const answerHash = stableHashText(JSON.stringify(action.answer));
+    return [
+      "artifact-answer-edit", session.id, tailoringSessionId,
+      String(revision ?? "missing"), String(questionPlan.revision ?? "missing"),
+      action.questionId, String(answerRevision), answerHash, action.proficiency ?? "none"
+    ].join("-").replace(/[^\w-]/g, "-").slice(0, 160);
+  }
   const decision = action.type === "tailoring_diff_decision"
     ? action.decision
-    : action.type === "tailoring_answer_edit"
-      ? "edit"
+    : action.type === "tailoring_regenerate"
+      ? "regenerate"
+      : action.type === "profile_intake_candidate_edit"
+        ? "edit"
       : action.type === "profile_intake_candidate_decision" || action.type === "resume_import_review_decision"
         ? action.decision
         : action.resolution;
   const editedValueHash = action.type === "tailoring_diff_decision" && action.editedValue !== undefined
     ? stableHashText(JSON.stringify(action.editedValue))
+    : action.type === "profile_intake_candidate_edit"
+      ? stableHashText(JSON.stringify(action.fieldPatch))
     : "none";
   return ["artifact-action", session.id, tailoringSessionId, String(revision ?? "missing"), artifactActionEntityId(action), decision, editedValueHash]
     .join("-").replace(/[^\w-]/g, "-").slice(0, 160);
@@ -2677,6 +2775,27 @@ function artifactActionExecution(
       }
     };
   }
+  if (action.type === "tailoring_regenerate") {
+    const session = objectValue(state.knownSlots.tailoringSession);
+    const plan = objectValue(session.plan);
+    const questionPlan = objectValue(plan.questionPlan);
+    const answers = Array.isArray(plan.clarificationAnswers) ? plan.clarificationAnswers : [];
+    const activeQuestionId = questionPlan.activeQuestionId;
+    const answeredIds = new Set(answers.map((answer) => objectValue(answer).questionId).filter((id): id is string => typeof id === "string"));
+    const questionIds = Array.isArray(questionPlan.questionIds) ? questionPlan.questionIds.filter((id): id is string => typeof id === "string") : [];
+    if (activeQuestionId || questionIds.some((id) => !answeredIds.has(id))) return undefined;
+    const generationStatus = plan.generationStatus;
+    const generationReady = generationStatus === "ready_for_regeneration" || generationStatus === "not_started" || generationStatus === undefined;
+    const markerMatches = plan.generationStatus === "completed"
+      && plan.generatedDiffsBasedOnQuestionPlanRevision === questionPlan.revision
+      && plan.generatedDiffsBasedOnAnswerRevisionHash === plan.answerRevisionHash;
+    if (!generationReady && markerMatches) return undefined;
+    return {
+      toolName: "generate_tailoring_changes",
+      decision: "regenerate",
+      toolInput: { session: state.knownSlots.tailoringSession }
+    };
+  }
   if (action.type === "profile_intake_candidate_decision") {
     const candidates = Array.isArray(state.knownSlots.intakeCandidates)
       ? state.knownSlots.intakeCandidates.map(objectValue)
@@ -2703,6 +2822,39 @@ function artifactActionExecution(
         expectedDraftRevision: state.knownSlots.expectedIntakeDraftRevision,
         candidateId: action.candidateId,
         decision: action.decision
+      }
+    };
+  }
+  if (action.type === "profile_intake_candidate_edit") {
+    const candidates = Array.isArray(state.knownSlots.intakeCandidates)
+      ? state.knownSlots.intakeCandidates.map(objectValue)
+      : [];
+    const candidate = candidates.find((item) => item.id === action.candidateId);
+    if (
+      state.stage !== "review_facts"
+      || !candidate
+      || state.knownSlots.intakeImportId !== action.importId
+      || state.knownSlots.expectedIntakeDraftRevision !== action.expectedDraftRevision
+    ) return undefined;
+    const sourceQuote = typeof candidate.sourceQuote === "string" ? candidate.sourceQuote : undefined;
+    const source = objectValue(state.knownSlots.latestIntakeSource ?? state.knownSlots.latestIntakeClarification);
+    if (!sourceQuote || typeof source.sessionId !== "string" || typeof source.messageId !== "string" || typeof source.turnId !== "string" || typeof source.capturedAt !== "string") return undefined;
+    return {
+      toolName: "review_profile_intake",
+      decision: "accept",
+      toolInput: {
+        importId: action.importId,
+        expectedDraftRevision: action.expectedDraftRevision,
+        candidateId: action.candidateId,
+        decision: "accept",
+        structuredPatch: action.fieldPatch,
+        evidence: {
+          sessionId: source.sessionId,
+          messageId: source.messageId,
+          turnId: source.turnId,
+          capturedAt: source.capturedAt,
+          sourceQuote
+        }
       }
     };
   }
@@ -2753,6 +2905,8 @@ function artifactActionCompletedLabel(action: AgentArtifactAction) {
     return action.decision === "accept" ? "已采用这项修改。" : action.decision === "edit" ? "已采用编辑后的修改。" : "已忽略这项修改。";
   }
   if (action.type === "tailoring_answer_edit") return "已更新这项回答；原修改建议已标记为需要重新生成。";
+  if (action.type === "tailoring_regenerate") return "已重新生成修改建议。";
+  if (action.type === "profile_intake_candidate_edit") return "已保存这项类型化字段编辑，并保留原始来源证据。";
   if (action.type === "profile_intake_candidate_decision") {
     return action.decision === "accept" ? "已采用这项经历候选。" : "已忽略这项经历候选。";
   }

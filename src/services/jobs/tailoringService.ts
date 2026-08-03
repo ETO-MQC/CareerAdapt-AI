@@ -273,7 +273,7 @@ function clarificationAnswerTypeFromAssessment(questionText: string): string {
 
 export function answerTailoringClarification(input: { plan: ResumeTailoringPlan; question: TailoringClarificationQuestion; answer: string | string[] | boolean; proficiency?: ClaimConfirmation["proficiency"]; branch?: ResumeBranch; operationId?: string; now?: string }) {
   const normalizedAnswer = typeof input.answer === "string" ? input.answer.trim() : input.answer;
-  const skipped = typeof normalizedAnswer === "string" && /^(?:跳过|不确定|继续)$/.test(normalizedAnswer);
+  const skipped = typeof normalizedAnswer === "string" && /^(?:跳过|不确定)$/.test(normalizedAnswer);
   const rejected = normalizedAnswer === false
     || (typeof normalizedAnswer === "string" && /^(?:没有|没有使用|不具备|不添加|否|无)$/.test(normalizedAnswer))
     || (Array.isArray(normalizedAnswer) && normalizedAnswer.length === 0);
@@ -292,13 +292,21 @@ export function answerTailoringClarification(input: { plan: ResumeTailoringPlan;
   });
   const withAnswerRecord = (plan: ResumeTailoringPlan) => {
     const questionPlan = advanceTailoringQuestionPlan(plan.questionPlan, input.question.id, skipped, resolvedAt);
+    const clarificationAnswers = [
+      ...(plan.clarificationAnswers ?? []).filter((record) => record.questionId !== input.question.id),
+      answerRecord
+    ];
+    const answerRevisionHash = tailoringAnswerRevisionHash({ clarificationAnswers });
     return ResumeTailoringPlanSchema.parse({
       ...plan,
       diffs: previous ? [] : plan.diffs,
-      clarificationAnswers: [
-        ...(plan.clarificationAnswers ?? []).filter((record) => record.questionId !== input.question.id),
-        answerRecord
-      ],
+      clarificationAnswers,
+      generationStatus: previous ? "ready_for_regeneration" : plan.generationStatus,
+      answerRevisionHash,
+      ...(previous ? {
+        generatedDiffsBasedOnQuestionPlanRevision: undefined,
+        generatedDiffsBasedOnAnswerRevisionHash: undefined
+      } : {}),
       clarificationQuestions: (plan.clarificationQuestions ?? []).map((question) => question.id === input.question.id
         ? {
             ...question,
@@ -379,6 +387,21 @@ export function answerTailoringClarification(input: { plan: ResumeTailoringPlan;
   }, input.plan.basedOnRevisionId);
   const claims = dedupeTailoringClaims({ claims: [...input.plan.claims, claim], jobId: input.plan.jobId });
   return withAnswerRecord(ResumeTailoringPlanSchema.parse({ ...input.plan, claims }));
+}
+
+/** Stable input marker for generated diffs. It includes answer revisions so an edit
+ * cannot accidentally reuse a preview generated from an earlier answer. */
+export function tailoringAnswerRevisionHash(plan: Pick<ResumeTailoringPlan, "clarificationAnswers">) {
+  const answers = [...(plan.clarificationAnswers ?? [])]
+    .sort((left, right) => left.questionId.localeCompare(right.questionId))
+    .map((answer) => ({
+      questionId: answer.questionId,
+      status: answer.status,
+      answer: answer.answer,
+      proficiency: answer.proficiency,
+      answerRevision: answer.answerRevision
+    }));
+  return stableHashText(JSON.stringify(answers));
 }
 
 function clarificationFallbackClaim(branch: ResumeBranch, question: TailoringClarificationQuestion): TailoringClaim | undefined {

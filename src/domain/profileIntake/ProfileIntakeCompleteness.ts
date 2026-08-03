@@ -1,4 +1,5 @@
-import type { ResumeItemV2 } from "@/domain/schemas";
+import type { ResumeItemV2, ResumeSectionTypeV2 } from "@/domain/schemas";
+import { stableHashText } from "@/services/security/text";
 
 export type CareerAssetDimension =
   | "identity"
@@ -33,6 +34,28 @@ export type CareerAssetCompleteness = {
   missing: CareerAssetDimension[];
   nextQuestion?: string;
   utility: number;
+};
+
+export type ProfileIntakeInterviewQuestion = {
+  questionId: string;
+  candidateId: string;
+  sectionType: ResumeSectionTypeV2;
+  dimension: CareerAssetDimension | "section_progression";
+  question: string;
+  status: "pending" | "answered" | "skipped";
+  sourceRevision: number;
+};
+
+export type ProfileIntakeInterviewPlan = {
+  planVersion: 1;
+  status: "awaiting_follow_up" | "ready_to_finish";
+  sourceRevision: number;
+  coveredSections: ResumeSectionTypeV2[];
+  suggestedNextSection?: ResumeSectionTypeV2;
+  activeQuestionId?: string;
+  answeredQuestionIds: string[];
+  skippedQuestionIds: string[];
+  questions: ProfileIntakeInterviewQuestion[];
 };
 
 /**
@@ -172,6 +195,74 @@ export function highestValueFollowUp(items: ResumeItemV2[]) {
     .filter(({ assessment }) => assessment.nextQuestion)
     .sort((left, right) => left.assessment.utility - right.assessment.utility)[0]
     ?.assessment.nextQuestion;
+}
+
+export function createProfileIntakeInterviewPlan(items: ResumeItemV2[], sourceRevision: number): ProfileIntakeInterviewPlan {
+  const coveredSections = [...new Set(items.map((item) => item.sectionType))];
+  const nextSection = (["education", "internship", "work", "project", "research", "skills", "awards", "certificates", "languages"] as const)
+    .find((section) => !coveredSections.includes(section));
+  const candidate = items[0];
+  if (!candidate) {
+    return {
+      planVersion: 1,
+      status: "ready_to_finish",
+      sourceRevision,
+      coveredSections,
+      answeredQuestionIds: [],
+      skippedQuestionIds: [],
+      questions: []
+    };
+  }
+  const question = nextSection
+    ? {
+        questionId: `profile-intake-section-${stableHashText(`${candidate.id}:${nextSection}`).slice(0, 12)}`,
+        candidateId: candidate.id,
+        sectionType: candidate.sectionType,
+        dimension: "section_progression" as const,
+        question: `“${displayIdentity(candidate)}”已经整理好。接下来你想先补充哪一类经历？`,
+        status: "pending" as const,
+        sourceRevision
+      }
+    : (() => {
+        const detail = highestValueFollowUpDetail(items);
+        return detail ? {
+          questionId: `profile-intake-detail-${stableHashText(`${detail.item.id}:${detail.dimension}`).slice(0, 12)}`,
+          candidateId: detail.item.id,
+          sectionType: detail.item.sectionType,
+          dimension: detail.dimension,
+          question: detail.question,
+          status: "pending" as const,
+          sourceRevision
+        } : undefined;
+      })();
+  return {
+    planVersion: 1,
+    status: question ? "awaiting_follow_up" : "ready_to_finish",
+    sourceRevision,
+    coveredSections,
+    suggestedNextSection: nextSection,
+    activeQuestionId: question?.questionId,
+    answeredQuestionIds: [],
+    skippedQuestionIds: [],
+    questions: question ? [question] : []
+  };
+}
+
+function highestValueFollowUpDetail(items: ResumeItemV2[]) {
+  return items
+    .map((item) => ({ item, assessment: assessCareerAssetCompleteness(item) }))
+    .filter(({ assessment }) => assessment.nextQuestion)
+    .sort((left, right) => right.assessment.utility - left.assessment.utility)[0]
+    ? (() => {
+        const selected = items
+          .map((item) => ({ item, assessment: assessCareerAssetCompleteness(item) }))
+          .filter(({ assessment }) => assessment.nextQuestion)
+          .sort((left, right) => right.assessment.utility - left.assessment.utility)[0];
+        return selected?.assessment.nextQuestion
+          ? { item: selected.item, dimension: selected.assessment.missing[0] ?? "evidence", question: selected.assessment.nextQuestion }
+          : undefined;
+      })()
+    : undefined;
 }
 
 function itemText(item: ResumeItemV2) {

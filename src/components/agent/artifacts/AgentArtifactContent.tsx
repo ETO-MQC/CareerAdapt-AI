@@ -2,19 +2,23 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import type { AgentArtifactRef } from "@/agent/contracts/agentArtifact";
 import type { TailorWorkflowViewState } from "@/agent/workflows/tailorExistingResumeWorkflow";
 import type { AgentTaskState } from "@/agent/contracts/agentSession";
 import type { AgentArtifactAction, AgentUiAction } from "@/agent/contracts/agentActions";
+import type { ProfileIntakeStructuredPatch } from "@/domain/profileIntake/ProfileIntakeNormalizer";
 import { ResumeTailoringDiffSchema } from "@/domain/schemas";
 import { tailoringDiffId } from "@/services/jobs/tailoringDiffId";
 
 export function AgentArtifactContent({
+  artifact,
   state,
   taskState,
   onImportAction,
   onArtifactAction,
   onUiAction
 }: {
+  artifact?: AgentArtifactRef;
   state: TailorWorkflowViewState;
   taskState?: AgentTaskState;
   onImportAction?(message: string): void;
@@ -25,15 +29,38 @@ export function AgentArtifactContent({
   const requirements = Array.isArray(graph.requirements) ? graph.requirements : [];
   const analysis = asRecord(state.fitAnalysis);
   const plan = asRecord(asRecord(state.tailoringSession).plan);
+  const isTailoringWorkspace = artifact?.kind === "tailoring_workspace";
+  const initialWorkspaceView = taskState?.knownSlots.tailoringWorkspaceView === "questions"
+    || (taskState?.knownSlots.activeQuestionId && !state.diffs.length) ? "questions"
+    : taskState?.knownSlots.tailoringWorkspaceView === "diffs" || state.diffs.length ? "diffs" : "fit";
+  const [workspaceView, setWorkspaceView] = useState<"fit" | "questions" | "diffs">(initialWorkspaceView);
+  const externalWorkspaceView = taskState?.knownSlots.tailoringWorkspaceView === "fit"
+    || taskState?.knownSlots.tailoringWorkspaceView === "questions"
+    || taskState?.knownSlots.tailoringWorkspaceView === "diffs"
+    ? taskState.knownSlots.tailoringWorkspaceView
+    : undefined;
+  const activeWorkspaceView = externalWorkspaceView ?? workspaceView;
   const questions = Array.isArray(plan.clarificationQuestions) ? plan.clarificationQuestions : [];
   const questionPlan = asRecord(plan.questionPlan);
   const questionIds = stringArray(questionPlan.questionIds);
   const answeredQuestionIds = new Set(stringArray(questionPlan.answeredQuestionIds));
   const skippedQuestionIds = new Set(stringArray(questionPlan.skippedQuestionIds));
   const activeQuestionId = typeof questionPlan.activeQuestionId === "string" ? questionPlan.activeQuestionId : undefined;
+  const [selectedQuestionId, setSelectedQuestionId] = useState(
+    typeof taskState?.knownSlots.selectedQuestionId === "string"
+      ? taskState.knownSlots.selectedQuestionId
+      : activeQuestionId
+  );
   const answeredQuestions = questions.map(asRecord).filter((question) => answeredQuestionIds.has(String(question.id)) || skippedQuestionIds.has(String(question.id)));
   const activeQuestion = questions.map(asRecord).find((question) => question.id === activeQuestionId);
+  const activeSelectedQuestionId = typeof taskState?.knownSlots.selectedQuestionId === "string"
+    ? taskState.knownSlots.selectedQuestionId
+    : selectedQuestionId;
+  const selectedQuestion = questions.map(asRecord).find((question) => question.id === activeSelectedQuestionId) ?? activeQuestion;
   const diffReviews = arrayOfRecords(plan.diffReviews);
+  const generationStale = plan.generationStatus !== "completed"
+    || plan.generatedDiffsBasedOnQuestionPlanRevision !== questionPlan.revision
+    || plan.generatedDiffsBasedOnAnswerRevisionHash !== plan.answerRevisionHash;
   const reviewsById = new Map(diffReviews.flatMap((review) => typeof review.diffId === "string" ? [[review.diffId, review]] : []));
   const artifactActionFeedback = asRecord(taskState?.knownSlots.artifactActionFeedback);
   const importArtifact = asRecord(taskState?.knownSlots.importArtifact);
@@ -67,6 +94,23 @@ export function AgentArtifactContent({
 
   return (
     <div className="agent-artifact-content">
+      {isTailoringWorkspace ? (
+        <nav className="agent-tailoring-workspace-tabs" role="tablist" aria-label="岗位定制工作区视图">
+          {([
+            ["fit", "匹配概览"],
+            ["questions", `问答记录${questionIds.length ? ` · ${answeredQuestions.length}/${questionIds.length}` : ""}`],
+            ["diffs", `修改预览${state.diffs.length ? ` · ${state.diffs.length}` : ""}`]
+          ] as const).map(([view, label]) => (
+            <button
+              key={view}
+              type="button"
+              role="tab"
+              aria-selected={activeWorkspaceView === view}
+              onClick={() => setWorkspaceView(view)}
+            >{label}</button>
+          ))}
+        </nav>
+      ) : null}
       {taskState?.rootGoal === "profile_intake" && Object.keys(intakeArtifact).length ? (
         <section className="agent-artifact agent-import-review-artifact" aria-label="经历核对">
           <header>
@@ -96,6 +140,7 @@ export function AgentArtifactContent({
                 const tools = stringArray(item.toolsOrMethods);
                 const outcomes = stringArray(item.outcomes);
                 const sources = stringArray(item.sources);
+                const structuredItem = asRecord(item.structuredItem);
                 const status = intakeStatusLabel(item.status);
                 const needsNormalization = item.needsNormalization === true;
                 const canAccept = item.canAccept !== false && !needsNormalization;
@@ -111,6 +156,13 @@ export function AgentArtifactContent({
                     <p className="agent-career-asset-meta">
                       {[item.time, item.organization, item.role].filter(Boolean).map(String).join(" · ") || "时间 / 组织 / 角色待补充"}
                     </p>
+                    {typedResumeFields(structuredItem).length ? (
+                      <dl className="agent-career-asset-typed-fields">
+                        {typedResumeFields(structuredItem).map(([field, value]) => (
+                          <div key={field}><dt>{field}</dt><dd>{value}</dd></div>
+                        ))}
+                      </dl>
+                    ) : null}
                     <p className="agent-career-asset-description">{String(item.professionalDescription ?? "职业化表达待整理")}</p>
                     <details>
                       <summary>查看细节与来源</summary>
@@ -129,7 +181,22 @@ export function AgentArtifactContent({
                           decision: "accept"
                         })}>采用</button>
                       ) : null}
-                      <button type="button" onClick={() => onImportAction?.(`编辑“${String(item.label ?? "这项经历")}”后采用`)}>编辑后采用</button>
+                      {taskState?.knownSlots.intakeImportId && typeof taskState.knownSlots.expectedIntakeDraftRevision === "number" ? (
+                        <IntakeCandidateEditor
+                          item={structuredItem}
+                          label={String(item.label ?? "这项经历")}
+                          onSave={(fieldPatch) => onArtifactAction?.({
+                            type: "profile_intake_candidate_edit",
+                            importId: String(taskState.knownSlots.intakeImportId),
+                            expectedDraftRevision: taskState.knownSlots.expectedIntakeDraftRevision as number,
+                            candidateId: String(item.id),
+                            fieldPatch,
+                            decision: "accept"
+                          })}
+                        />
+                      ) : (
+                        <button type="button" onClick={() => onImportAction?.(`编辑“${String(item.label ?? "这项经历")}”后采用`)}>编辑后采用</button>
+                      )}
                       <button type="button" onClick={() => onImportAction?.(`补充“${String(item.label ?? "这项经历")}”最有价值的细节`)}>补充细节</button>
                       <button type="button" onClick={() => onArtifactAction?.({
                         type: "profile_intake_candidate_decision",
@@ -274,7 +341,7 @@ export function AgentArtifactContent({
           </div>
         </section>
       ) : null}
-      {state.jobGraph && !state.tailoringSession ? (
+      {state.jobGraph && (!isTailoringWorkspace || activeWorkspaceView === "fit") ? (
         <details className="agent-artifact" open>
           <summary>岗位语义核对 <span>{requirements.length} 项要求</span></summary>
           <ul>
@@ -286,19 +353,38 @@ export function AgentArtifactContent({
           <Link href={state.jobId ? `/jobs?jobId=${encodeURIComponent(state.jobId)}` : "/jobs"}>打开岗位页</Link>
         </details>
       ) : null}
-      {state.fitAnalysis ? (
+      {state.fitAnalysis && (!isTailoringWorkspace || activeWorkspaceView === "fit") ? (
         <details className="agent-artifact" open>
           <summary>匹配概览</summary>
           <p>{fitSummary(analysis)}</p>
           <Link href={state.jobId ? `/jobs?jobId=${encodeURIComponent(state.jobId)}` : "/jobs"}>打开原功能页</Link>
         </details>
       ) : null}
-      {questionIds.length ? (
+      {questionIds.length && (!isTailoringWorkspace || activeWorkspaceView === "questions") ? (
         <section className="agent-artifact agent-tailoring-questions" aria-label="岗位定制问答记录">
           <header>
             <strong>问答记录</strong>
             <span>{answeredQuestions.length} / {questionIds.length}</span>
           </header>
+          <div className="agent-tailoring-question-navigator" role="list" aria-label="问题导航">
+            {questions.map((question) => {
+              const id = String(question.id);
+              const resolved = answeredQuestionIds.has(id) || skippedQuestionIds.has(id);
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  role="listitem"
+                  className={id === activeSelectedQuestionId ? "is-selected" : undefined}
+                  aria-current={id === activeQuestionId ? "step" : undefined}
+                  onClick={() => {
+                    setSelectedQuestionId(id);
+                    onUiAction?.({ type: "select_tailoring_question", questionId: id });
+                  }}
+                >{resolved ? "✓" : id === activeQuestionId ? "当前" : "待问"} {String(question.shortLabel ?? question.question ?? id)}</button>
+              );
+            })}
+          </div>
           {answeredQuestions.length ? (
             <div className="agent-tailoring-answer-list">
               {answeredQuestions.map((question) => (
@@ -315,11 +401,11 @@ export function AgentArtifactContent({
               ))}
             </div>
           ) : <p>回答会在这里同步记录，不会写回个人资料库。</p>}
-          {activeQuestion ? (
+          {selectedQuestion ? (
             <div className="agent-tailoring-current-question">
-              <small>当前问题</small>
-              <strong>{String(activeQuestion.shortLabel ?? activeQuestion.question)}</strong>
-              <p>{String(activeQuestion.question)}</p>
+              <small>{selectedQuestion.id === activeQuestionId ? "当前问题" : "已选问题"}</small>
+              <strong>{String(selectedQuestion.shortLabel ?? selectedQuestion.question)}</strong>
+              <p>{String(selectedQuestion.question)}</p>
             </div>
           ) : null}
           {questionIds.length - answeredQuestions.length - (activeQuestion ? 1 : 0) > 0 ? (
@@ -327,9 +413,15 @@ export function AgentArtifactContent({
           ) : null}
         </section>
       ) : null}
-      {state.diffs.length ? (
+      {(state.diffs.length || (isTailoringWorkspace && activeWorkspaceView === "diffs" && generationStale)) && (!isTailoringWorkspace || activeWorkspaceView === "diffs") ? (
         <details className="agent-artifact" open>
-          <summary>修改预览 <span>{state.diffs.length} 项</span></summary>
+          <summary>修改预览 <span>{state.diffs.length ? `${state.diffs.length} 项` : "待重新生成"}</span></summary>
+          {isTailoringWorkspace && generationStale ? (
+            <div className="agent-import-review-actions">
+              <p>回答或问题计划已变化，当前修改建议已失效。</p>
+              <button type="button" onClick={() => onArtifactAction?.({ type: "tailoring_regenerate" })}>重新生成修改建议</button>
+            </div>
+          ) : null}
           <div className="agent-diff-list">
             {state.diffs.slice(0, 8).map((item, index) => {
               const parsedDiff = ResumeTailoringDiffSchema.safeParse(item);
@@ -534,6 +626,56 @@ function DetailList({ title, values }: { title: string; values: string[] }) {
       <ul>{values.map((value, index) => <li key={`${index}-${value}`}>{value}</li>)}</ul>
     </div>
   );
+}
+
+function typedResumeFields(item: Record<string, unknown>) {
+  const labels: Record<string, string> = {
+    school: "学校", degree: "学位", major: "专业", department: "院系", startDate: "开始时间", endDate: "结束时间",
+    organization: "组织", role: "角色", title: "名称", name: "名称", category: "分类", level: "熟练度"
+  };
+  return ["school", "degree", "major", "department", "startDate", "endDate", "organization", "role", "title", "name", "category", "level"]
+    .flatMap((field) => typeof item[field] === "string" && item[field] ? [[labels[field] ?? field, item[field] as string] as [string, string]] : []);
+}
+
+function IntakeCandidateEditor({
+  item,
+  label,
+  onSave
+}: {
+  item: Record<string, unknown>;
+  label: string;
+  onSave(patch: ProfileIntakeStructuredPatch): Promise<unknown> | void;
+}) {
+  const education = item.sectionType === "education";
+  const fields = education
+    ? ["school", "degree", "major", "startDate", "endDate"]
+    : ["title", "name", "organization", "role", "startDate", "endDate"];
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState<Record<string, string>>(() => Object.fromEntries(fields.map((field) => [field, String(item[field] ?? "")] )));
+  if (!editing) {
+    return <button type="button" onClick={() => setEditing(true)}>编辑字段</button>;
+  }
+  return (
+    <form className="agent-career-asset-editor" onSubmit={(event) => {
+      event.preventDefault();
+      const patch = Object.fromEntries(Object.entries(draft).filter(([, value]) => value.trim())) as ProfileIntakeStructuredPatch;
+      if (!Object.keys(patch).length) return;
+      void onSave(patch);
+      setEditing(false);
+    }}>
+      <strong>编辑 {label}</strong>
+      {fields.map((field) => (
+        <label key={field}>{fieldLabel(field)}
+          <input value={draft[field] ?? ""} onChange={(event) => setDraft((current) => ({ ...current, [field]: event.target.value }))} />
+        </label>
+      ))}
+      <div><button type="submit">保存字段</button><button type="button" onClick={() => setEditing(false)}>取消</button></div>
+    </form>
+  );
+}
+
+function fieldLabel(field: string) {
+  return ({ school: "学校", degree: "学位", major: "专业", title: "标题", name: "名称", organization: "组织", role: "角色", startDate: "开始时间", endDate: "结束时间" } as Record<string, string>)[field] ?? field;
 }
 
 function stringArray(value: unknown) {

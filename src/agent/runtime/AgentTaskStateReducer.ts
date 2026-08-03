@@ -154,6 +154,8 @@ export class AgentTaskStateReducer {
             capturedAt: event.capturedAt ?? state.updatedAt
           };
           state.stage = "structure_facts";
+          state.pendingDecision = undefined;
+          delete state.knownSlots.profileIntakeFinishDecision;
         }
         if (
           state.stage === "review_facts"
@@ -274,11 +276,17 @@ export class AgentTaskStateReducer {
           resolveProfileIntakeTargetDecision(state, event.option);
         } else if (event.decisionType === "profile_intake_resume") {
           state.pendingDecision = undefined;
-          if (event.option === "save_profile_only") {
-            state.stage = "profile_complete";
-            state.completionStatus = "completed";
-          } else if (event.option === "generate_general_resume") {
-            state.stage = "optional_resume_decision";
+          state.knownSlots.profileIntakeFinishDecision = event.option;
+          if (state.knownSlots.profileCommitResult) {
+            if (event.option === "save_profile_only") {
+              state.stage = "profile_complete";
+              state.completionStatus = "completed";
+            } else {
+              state.stage = "optional_resume_decision";
+              state.completionStatus = "active";
+            }
+          } else {
+            state.stage = "reconcile_profile";
             state.completionStatus = "active";
           }
         }
@@ -410,14 +418,18 @@ export class AgentTaskStateReducer {
         state.knownSlots.expectedIntakeDraftRevision = value.expectedDraftRevision;
         state.knownSlots.intakeCandidates = value.candidates;
         state.knownSlots.intakeArtifact = nextArtifact;
-        const needsConfirmation = typeof value.needsConfirmationCount === "number"
-          ? value.needsConfirmationCount
-          : 0;
-        state.stage = needsConfirmation > 0 ? "review_facts" : "reconcile_profile";
-        state.completionStatus = needsConfirmation > 0 ? "waiting_for_user" : "active";
+        state.knownSlots.intakeInterviewPlan = value.interviewPlan;
+        state.knownSlots.intakeFollowUpQuestion = value.followUpQuestion;
+        state.pendingDecision = undefined;
+        state.stage = Array.isArray(value.candidates) && value.candidates.length > 0
+          ? "review_facts"
+          : "collect_experience";
+        state.completionStatus = "waiting_for_user";
       } else if (event.toolName === "review_profile_intake") {
         const value = objectValue(event.observation);
         state.knownSlots.expectedIntakeDraftRevision = value.expectedDraftRevision;
+        if (value.interviewPlan) state.knownSlots.intakeInterviewPlan = value.interviewPlan;
+        if (value.followUpQuestion) state.knownSlots.intakeFollowUpQuestion = value.followUpQuestion;
         const candidateId = stringValue(value.candidateId);
         const decision = value.decision === "accept" || value.decision === "reject"
           ? value.decision
@@ -465,8 +477,12 @@ export class AgentTaskStateReducer {
           };
         }
         const unresolved = typeof value.unresolvedCount === "number" ? value.unresolvedCount : 0;
-        state.stage = unresolved > 0 ? "review_facts" : "reconcile_profile";
-        state.completionStatus = unresolved > 0 ? "waiting_for_user" : "active";
+        const hasInterviewPlan = Boolean(state.knownSlots.intakeInterviewPlan);
+        state.stage = unresolved > 0 ? "review_facts" : hasInterviewPlan ? "collect_experience" : "reconcile_profile";
+        state.pendingDecision = unresolved > 0 || hasInterviewPlan
+          ? unresolved > 0 ? undefined : { type: "profile_intake_resume", options: ["save_profile_only", "generate_general_resume"] }
+          : undefined;
+        state.completionStatus = unresolved > 0 || hasInterviewPlan ? "waiting_for_user" : "active";
       } else if (event.toolName === "reconcile_profile_intake") {
         const value = objectValue(event.observation);
         const summary = objectValue(value.summary);
@@ -515,13 +531,25 @@ export class AgentTaskStateReducer {
         state.knownSlots.targetProfileId = profileId;
         state.knownSlots.expectedProfileVersion = profileVersion;
         state.knownSlots.profileCommitResult = event.observation;
-        state.pendingDecision = {
-          type: "profile_intake_resume",
-          options: ["save_profile_only", "generate_general_resume"]
-        };
-        state.stage = "profile_complete";
-        state.completionStatus = "waiting_for_user";
-        state.completionStatus = "waiting_for_user";
+        const finishDecision = state.knownSlots.profileIntakeFinishDecision;
+        if (finishDecision === "save_profile_only") {
+          state.stage = "profile_complete";
+          state.completionStatus = "completed";
+          state.pendingDecision = undefined;
+        } else if (finishDecision === "generate_general_resume") {
+          state.stage = "optional_resume_decision";
+          state.completionStatus = "active";
+          state.pendingDecision = undefined;
+        } else {
+          state.pendingDecision = {
+            type: "profile_intake_resume",
+            options: ["save_profile_only", "generate_general_resume"]
+          };
+          state.pendingDecision = undefined;
+          delete state.knownSlots.profileIntakeFinishDecision;
+          state.stage = "profile_complete";
+          state.completionStatus = "waiting_for_user";
+        }
       } else if (event.toolName === "ensure_general_resume_from_profile") {
         const value = objectValue(event.observation);
         const resumeId = stringValue(value.resumeId);
@@ -705,6 +733,9 @@ function resetProfileIntakeDraft(state: AgentTaskState) {
     "expectedIntakeDraftRevision",
     "intakeCandidates",
     "intakeArtifact",
+    "intakeInterviewPlan",
+    "intakeFollowUpQuestion",
+    "profileIntakeFinishDecision",
     "intakeReconciliation",
     "expectedIntakeReconciliationRevision",
     "profileCommitResult",
@@ -1210,6 +1241,7 @@ function captureTailoringTruth(state: AgentTaskState, observation: unknown) {
   state.knownSlots.tailoringSession = value.session;
   state.knownSlots.questionPlan = plan.questionPlan;
   state.knownSlots.activeQuestionId = questionPlan.activeQuestionId;
+  state.knownSlots.selectedQuestionId = state.knownSlots.selectedQuestionId ?? questionPlan.activeQuestionId;
   state.knownSlots.answeredQuestionIds = Array.isArray(questionPlan.answeredQuestionIds) ? questionPlan.answeredQuestionIds : [];
   state.knownSlots.skippedQuestionIds = Array.isArray(questionPlan.skippedQuestionIds) ? questionPlan.skippedQuestionIds : [];
   state.knownSlots.selectedDiffs = Array.isArray(value.appliedDiffs)
@@ -1225,9 +1257,17 @@ function captureTailoringTruth(state: AgentTaskState, observation: unknown) {
   state.knownSlots.currentClarification = activeQuestionId
     ? questions.find((question) => stringValue(objectValue(question).id) === activeQuestionId)
     : undefined;
-  state.stage = activeQuestionId ? "clarify_unsupported_facts" : "generate_changes";
-  state.activeGoal = activeQuestionId ? "clarify_tailoring" : "generate_tailoring_changes";
-  state.completionStatus = activeQuestionId ? "waiting_for_user" : "active";
+  const generationStatus = stringValue(plan.generationStatus);
+  state.knownSlots.tailoringGenerationStatus = generationStatus ?? "not_started";
+  state.knownSlots.generatedDiffsBasedOnQuestionPlanRevision = plan.generatedDiffsBasedOnQuestionPlanRevision;
+  state.knownSlots.generatedDiffsBasedOnAnswerRevisionHash = plan.generatedDiffsBasedOnAnswerRevisionHash;
+  state.knownSlots.answerRevisionHash = plan.answerRevisionHash;
+  const generationReady = generationStatus === "completed"
+    && plan.generatedDiffsBasedOnQuestionPlanRevision === questionPlan.revision
+    && plan.generatedDiffsBasedOnAnswerRevisionHash === plan.answerRevisionHash;
+  state.stage = activeQuestionId ? "clarify_unsupported_facts" : generationReady ? "preview_changes" : "generate_changes";
+  state.activeGoal = activeQuestionId ? "clarify_tailoring" : generationReady ? "review_tailoring_changes" : "generate_tailoring_changes";
+  state.completionStatus = activeQuestionId || generationReady ? "waiting_for_user" : "active";
 }
 
 function selectResumeSourceRoute(

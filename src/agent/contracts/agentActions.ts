@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ProfileIntakeStructuredPatchSchema } from "@/domain/profileIntake/ProfileIntakeNormalizer";
 
 export const AgentWorkflowControlSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("start_workflow"), workflowId: z.string().min(1) }).strict(),
@@ -19,7 +20,8 @@ export const AgentUiActionSchema = z.discriminatedUnion("type", [
     importId: z.string().min(1),
     targetMode: z.enum(["existing", "new"])
   }).strict(),
-  z.object({ type: z.literal("open_artifact"), artifactId: z.string().min(1) }).strict()
+  z.object({ type: z.literal("open_artifact"), artifactId: z.string().min(1) }).strict(),
+  z.object({ type: z.literal("select_tailoring_question"), questionId: z.string().min(1) }).strict()
 ]);
 
 export const AgentArtifactActionSchema = z.discriminatedUnion("type", [
@@ -44,10 +46,23 @@ export const AgentArtifactActionSchema = z.discriminatedUnion("type", [
     proficiency: z.enum(["proficient", "familiar", "aware", "learning"]).optional()
   }).strict(),
   z.object({
+    type: z.literal("tailoring_regenerate")
+  }).strict(),
+  z.object({
     type: z.literal("tailoring_diff_decision"),
     diffId: z.string().min(1),
     decision: z.enum(["accept", "edit", "reject"]),
     editedValue: z.union([z.string().min(1), z.array(z.string().min(1))]).optional()
+  }).strict()
+  ,z.object({
+    type: z.literal("profile_intake_candidate_edit"),
+    importId: z.string().min(1),
+    expectedDraftRevision: z.number().int().min(0),
+    candidateId: z.string().min(1),
+    fieldPatch: ProfileIntakeStructuredPatchSchema.refine((patch) => Object.keys(patch).length > 0, {
+      message: "profile intake candidate edit requires at least one field"
+    }),
+    decision: z.literal("accept")
   }).strict()
 ]);
 

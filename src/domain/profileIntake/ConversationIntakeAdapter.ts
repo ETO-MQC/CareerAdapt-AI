@@ -1,6 +1,7 @@
 import { ImportedResumeDraftSchema, type ImportedResumeDraft } from "@/domain/schemas";
 import { stableHashText } from "@/services/security/text";
 import { ProfileIntakeNormalizer } from "./ProfileIntakeNormalizer";
+import type { ProfileIntakeInterviewPlan } from "./ProfileIntakeCompleteness";
 import type {
   ProfileIntakeSemanticResult,
   VerifiedProfileIntakeCandidate
@@ -21,6 +22,7 @@ export type ConversationIntakeCandidate = {
 export type ConversationIntakeArtifact = {
   title: "经历核对";
   followUpQuestion?: string;
+  interviewPlan?: ProfileIntakeInterviewPlan;
   candidates: Array<{
     id: string;
     sectionType: ConversationIntakeCandidate["sectionType"];
@@ -38,6 +40,8 @@ export type ConversationIntakeArtifact = {
     reason?: string;
     needsNormalization: boolean;
     canAccept: boolean;
+    structuredItem?: unknown;
+    fieldEvidence?: Array<{ field: string; sourceQuote: string; support: string; confidence: number; needsConfirmation: boolean }>;
   }>;
   recognized: Array<{ id: string; label: string }>;
   needsConfirmation: Array<{ id: string; label: string; reason: string }>;
@@ -198,7 +202,8 @@ export function adaptConversationMessageToIntakeDraft(input: {
 
 export function buildConversationIntakeArtifact(
   draft: ImportedResumeDraft,
-  followUpQuestion?: string
+  followUpQuestion?: string,
+  interviewPlan?: ProfileIntakeInterviewPlan
 ): ConversationIntakeArtifact {
   const entries = draft.sections.flatMap((section) => section.items.map((item) => {
     const structuredItem = item.structuredItem;
@@ -279,6 +284,7 @@ export function buildConversationIntakeArtifact(
   return {
     title: "经历核对",
     followUpQuestion,
+    interviewPlan,
     candidates,
     recognized,
     needsConfirmation,
@@ -384,7 +390,9 @@ function artifactCandidate(
     confidence: normalized.confidence,
     reason: candidate.reason,
     needsNormalization: normalized.needsNormalization,
-    canAccept: Boolean(normalized.structuredItem) && !normalized.needsNormalization
+    canAccept: Boolean(normalized.structuredItem) && !normalized.needsNormalization,
+    structuredItem: item,
+    fieldEvidence: normalized.fieldEvidence
   };
 }
 

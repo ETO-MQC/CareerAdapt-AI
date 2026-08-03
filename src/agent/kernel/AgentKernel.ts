@@ -195,13 +195,13 @@ export class AgentKernel {
         if (
           taskState.workflowId === "guided_profile_intake"
           && taskState.stage === "profile_complete"
-          && taskState.completionStatus === "waiting_for_user"
-          && taskState.pendingDecision?.type === "profile_intake_resume"
           && taskState.knownSlots.profileCommitResult
         ) {
-          const text = "资料已成功保存到个人资料库。你可以选择仅保存资料库，或继续生成一份通用简历。";
+          const text = taskState.completionStatus === "waiting_for_user"
+            ? "资料已成功保存到个人资料库。你可以选择仅保存资料库，或继续生成一份通用简历。"
+            : "资料已成功保存到个人资料库。个人资料库已更新，未自动创建其他简历。";
           await publishFinalStream(text, input, { turnId, iterationId });
-          trajectory.finish("waiting_for_user");
+          trajectory.finish(taskState.completionStatus === "completed" ? "completed" : "waiting_for_user");
           return {
             text,
             trajectory: trajectory.value(),
@@ -751,7 +751,7 @@ function bindAuthoritativeTaskInput(
     return { ...call, arguments: argumentsValue };
   }
   if (call.name === "capture_profile_intake") {
-    const source = objectValue(slots.latestIntakeSource);
+    const source = objectValue(slots.latestIntakeSource ?? slots.latestIntakeClarification);
     return {
       ...call,
       arguments: {
@@ -1332,6 +1332,14 @@ function deterministicBoundaryTool(
   }
   if (
     taskState.workflowId === "guided_profile_intake"
+    && taskState.stage === "review_facts"
+    && taskState.knownSlots.latestIntakeClarification
+    && allowedTools.some((tool) => tool.name === "capture_profile_intake")
+  ) {
+    return "capture_profile_intake";
+  }
+  if (
+    taskState.workflowId === "guided_profile_intake"
     && taskState.stage === "reconcile_profile"
     && taskState.completionStatus === "active"
     && taskState.knownSlots.intakeImportId
@@ -1351,6 +1359,8 @@ function deterministicBoundaryTool(
     ? "review_resume_import"
     : taskState.workflowId === "guided_profile_intake" && taskState.stage === "confirm_commit"
     ? "commit_profile_intake"
+    : taskState.workflowId === "guided_profile_intake" && taskState.stage === "optional_resume_decision"
+      ? "ensure_general_resume_from_profile"
     : taskState.workflowId === "job_ingestion" && taskState.stage === "confirm_commit"
       ? "commit_job"
       : taskState.stage === "confirm_import"
@@ -1369,6 +1379,26 @@ function deterministicWorkflowPause(
   taskState: NonNullable<AgentSession["taskState"]>,
   afterToolOrResume = true
 ) {
+  if (
+    taskState.workflowId === "guided_profile_intake"
+    && taskState.stage === "review_facts"
+    && taskState.knownSlots.intakeInterviewPlan
+    && Array.isArray(taskState.knownSlots.intakeCandidates)
+  ) {
+    return "我已把这段内容整理为类型化经历候选。请先在右侧核对学校、学位、专业和时间等字段；只有明确采用或忽略后，才会进入资料库。";
+  }
+  if (
+    taskState.workflowId === "guided_profile_intake"
+    && taskState.stage === "collect_experience"
+    && taskState.pendingDecision?.type === "profile_intake_resume"
+  ) {
+    const interviewPlan = objectValue(taskState.knownSlots.intakeInterviewPlan);
+    const question = Array.isArray(interviewPlan.questions)
+      ? objectValue(interviewPlan.questions.find((item) => objectValue(item).status === "pending"))
+      : {};
+    const followUp = typeof question.question === "string" ? question.question : "资料已经整理好。";
+    return `${followUp}\n\n你可以继续补充其他经历，也可以选择“仅保存资料库”或“生成一份通用简历”。`;
+  }
   if (
     afterToolOrResume
     &&

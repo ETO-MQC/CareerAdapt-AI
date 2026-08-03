@@ -1,12 +1,13 @@
 import { AgentSessionSchema, type AgentMessage, type AgentSession } from "@/agent/contracts/agentSession";
 import { ResumeTailoringDiffSchema } from "@/domain/schemas";
 import { tailoringDiffId } from "@/services/jobs/tailoringDiffId";
+import { stableHashText } from "@/services/security/text";
 import { normalizeMessageForFinalAssistant } from "./AgentSessionMessages";
 
 export const CURRENT_AGENT_SESSION_SCHEMA_VERSION = 2;
-export const CURRENT_TAILORING_RUNTIME_VERSION = 2;
+export const CURRENT_TAILORING_RUNTIME_VERSION = 3;
 export const CURRENT_QUESTION_PLAN_VERSION = 2;
-const UPGRADE_NOTICE_ID = "agent-system-tailoring-runtime-v2-upgrade";
+const UPGRADE_NOTICE_ID = "agent-system-tailoring-runtime-v3-upgrade";
 const RETIRED_TAILORING_MUTATIONS = new Set(["answer_tailoring_question", "review_tailoring_diff"]);
 
 export function migrateAgentSessionToCurrentSchema(value: AgentSession | Record<string, unknown>, migrationTime = new Date().toISOString()): AgentSession {
@@ -43,11 +44,25 @@ export function migrateAgentSessionToCurrentSchema(value: AgentSession | Record<
         const diffId = tailoringDiffId(parsed.data);
         return [byId.get(diffId) ?? { diffId, status: "suggested", updatedAt: migrationTime }];
       });
-      if (invalidDiff) {
+      const answerRevisionHash = hashTailoringAnswers(plan.clarificationAnswers);
+      const legacyGenerated = diffs.length > 0 && plan.generationStatus === undefined;
+      const generationMatches = legacyGenerated || plan.generationStatus === "completed"
+        && plan.generatedDiffsBasedOnQuestionPlanRevision === questionPlan.revision
+        && plan.generatedDiffsBasedOnAnswerRevisionHash === answerRevisionHash;
+      const generationStatus = generationMatches ? "completed" : plan.generationStatus === "completed" ? "ready_for_regeneration" : plan.generationStatus ?? "not_started";
+      if (invalidDiff || (diffs.length > 0 && plan.generationStatus === "completed" && !generationMatches)) {
         knownSlots.tailoringSession = {
           ...tailoring,
           tailoringRuntimeVersion: CURRENT_TAILORING_RUNTIME_VERSION,
-          plan: { ...plan, diffs: [], diffReviews: [] },
+          plan: {
+            ...plan,
+            answerRevisionHash,
+            generationStatus: "ready_for_regeneration",
+            generatedDiffsBasedOnQuestionPlanRevision: undefined,
+            generatedDiffsBasedOnAnswerRevisionHash: undefined,
+            diffs: [],
+            diffReviews: []
+          },
           generatedDiffRevision: 0
         };
         nextTaskState = { ...nextTaskState, stage: "generate_changes", completionStatus: "active" };
@@ -57,6 +72,12 @@ export function migrateAgentSessionToCurrentSchema(value: AgentSession | Record<
           tailoringRuntimeVersion: CURRENT_TAILORING_RUNTIME_VERSION,
           plan: {
             ...plan,
+            answerRevisionHash,
+            generationStatus,
+            ...(legacyGenerated ? {
+              generatedDiffsBasedOnQuestionPlanRevision: questionPlan.revision,
+              generatedDiffsBasedOnAnswerRevisionHash: answerRevisionHash
+            } : {}),
             questionPlan: { ...questionPlan, questionPlanVersion: CURRENT_QUESTION_PLAN_VERSION },
             diffReviews: migratedReviews
           }
@@ -119,7 +140,7 @@ export function migrateAgentSessionToCurrentSchema(value: AgentSession | Record<
       status: "complete",
       createdAt: migrationTime,
       updatedAt: migrationTime,
-      metadata: { migration: "tailoring-runtime-v2" }
+      metadata: { migration: "tailoring-runtime-v3" }
     });
   }
 
@@ -127,11 +148,51 @@ export function migrateAgentSessionToCurrentSchema(value: AgentSession | Record<
     ...raw,
     agentSessionSchemaVersion: CURRENT_AGENT_SESSION_SCHEMA_VERSION,
     messages,
+    artifactRefs: consolidateTailoringArtifacts(raw.artifactRefs, tailoring, migrationTime),
     taskState: nextTaskState,
     pendingConfirmation: retiresConfirmation ? undefined : raw.pendingConfirmation,
     pendingToolCall: retiresConfirmation || retiresCall ? undefined : raw.pendingToolCall,
     turnCheckpoints: Array.isArray(raw.turnCheckpoints) ? raw.turnCheckpoints : []
   });
+}
+
+function hashTailoringAnswers(value: unknown) {
+  const answers = Array.isArray(value) ? value.map(record)
+    .sort((left, right) => String(left.questionId ?? "").localeCompare(String(right.questionId ?? "")))
+    .map((answer) => ({
+      questionId: answer.questionId,
+      status: answer.status,
+      answer: answer.answer,
+      proficiency: answer.proficiency,
+      answerRevision: answer.answerRevision
+    })) : [];
+  return stableHashText(JSON.stringify(answers));
+}
+
+function consolidateTailoringArtifacts(value: unknown, tailoring: Record<string, unknown>, migrationTime: string) {
+  const artifacts = Array.isArray(value) ? value.map(record) : [];
+  const legacy = artifacts.filter((artifact) => artifact.kind === "job_fit_overview" || artifact.kind === "tailoring_diff" || artifact.kind === "tailoring_workspace");
+  if (!legacy.length && !tailoring.id) return value;
+  const tailoringSessionId = typeof tailoring.id === "string" && tailoring.id
+    ? tailoring.id
+    : String(legacy[0]?.entityId ?? "legacy-tailoring-session");
+  const existing = legacy[0] ?? {};
+  const createdAt = legacy.map((artifact) => artifact.createdAt).filter((date): date is string => typeof date === "string").sort()[0] ?? migrationTime;
+  const workspace = {
+    ...existing,
+    id: `tailoring-workspace:${tailoringSessionId}`,
+    kind: "tailoring_workspace",
+    title: "岗位定制工作区",
+    entityType: "tailoring_session",
+    entityId: tailoringSessionId,
+    status: "active",
+    createdAt,
+    updatedAt: migrationTime
+  };
+  return [
+    ...artifacts.filter((artifact) => !["job_fit_overview", "tailoring_diff", "tailoring_workspace"].includes(String(artifact.kind))),
+    workspace
+  ];
 }
 
 function isValidCurrentQuestionPlan(value: Record<string, unknown>) {

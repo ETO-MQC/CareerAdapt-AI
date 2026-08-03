@@ -47,6 +47,32 @@ export function resolveContinuationIntent(state: AgentTaskState, message: string
         slotUpdates: { resumeSelectionPreference: "second", resumeSelectionRequested: true }
       };
     }
+    if (/^(?:继续|生成吧|按这些生成)$/u.test(text) && state.knownSlots.tailoringSession) {
+      const plan = objectValue(objectValue(state.knownSlots.tailoringSession).plan);
+      const questionPlan = objectValue(plan.questionPlan);
+      const activeQuestionId = stringValue(questionPlan.activeQuestionId) ?? stringValue(state.knownSlots.activeQuestionId);
+      if (activeQuestionId) {
+        return {
+          consumed: true,
+          intent: "continue",
+          slotUpdates: { tailoringContinuation: "answer_current_question" }
+        };
+      }
+      if (tailoringGenerationIsStale(plan, questionPlan, state)) {
+        return {
+          consumed: true,
+          intent: "continue",
+          slotUpdates: { tailoringContinuation: "generate_changes", tailoringWorkspaceView: "fit" }
+        };
+      }
+      if (typeof state.knownSlots.remainingDiffCount === "number" && state.knownSlots.remainingDiffCount > 0) {
+        return {
+          consumed: true,
+          intent: "continue",
+          slotUpdates: { tailoringContinuation: "review_changes", tailoringWorkspaceView: "diffs" }
+        };
+      }
+    }
     if (/还是.*(刚才|之前).*(岗位|职位)|刚才那个岗位/.test(text)) {
       return {
         consumed: true,
@@ -88,8 +114,13 @@ export function deriveNextLegalStage(state: AgentTaskState) {
   }
   if (state.stage === "quality_result") return "quality_result";
   if (state.knownSlots.tailoringSession) {
+    const plan = objectValue(objectValue(state.knownSlots.tailoringSession).plan);
+    const questionPlan = objectValue(plan.questionPlan);
+    if (stringValue(questionPlan.activeQuestionId) ?? stringValue(state.knownSlots.activeQuestionId)) return "clarify_unsupported_facts";
     if (hasUnresolvedClarifications(state)) return "clarify_unsupported_facts";
+    if (tailoringGenerationIsStale(plan, questionPlan, state)) return "generate_changes";
     if (state.stage === "confirm_apply") return "confirm_apply";
+    if (typeof state.knownSlots.remainingDiffCount === "number" && state.knownSlots.remainingDiffCount > 0) return "preview_changes";
     return "preview_changes";
   }
   if (state.stage === "confirm_apply") return "confirm_apply";
@@ -115,6 +146,10 @@ function hasValue(value: unknown) {
 export function hasUnresolvedClarifications(state: AgentTaskState) {
   const session = objectValue(state.knownSlots.tailoringSession);
   const plan = objectValue(session.plan);
+  const questionPlan = objectValue(plan.questionPlan);
+  const plannedIds = Array.isArray(questionPlan.questionIds)
+    ? questionPlan.questionIds.filter((id): id is string => typeof id === "string")
+    : [];
   const questions = Array.isArray(plan.clarificationQuestions) ? plan.clarificationQuestions : [];
   const answers = Array.isArray(plan.clarificationAnswers) ? plan.clarificationAnswers : [];
   const answeredIds = new Set(
@@ -122,10 +157,22 @@ export function hasUnresolvedClarifications(state: AgentTaskState) {
       .map((answer) => stringValue(objectValue(answer).questionId))
       .filter((id): id is string => Boolean(id))
   );
-  return questions.some((question) => {
+  const unresolved = questions.some((question) => {
     const id = stringValue(objectValue(question).id);
     return Boolean(id && !answeredIds.has(id));
   });
+  return unresolved || plannedIds.some((id) => !answeredIds.has(id));
+}
+
+function tailoringGenerationIsStale(plan: Record<string, unknown>, questionPlan: Record<string, unknown>, state?: AgentTaskState) {
+  const generationStatus = plan.generationStatus ?? state?.knownSlots.tailoringGenerationStatus;
+  if (!generationStatus && plan.generatedDiffsBasedOnQuestionPlanRevision === undefined && plan.generatedDiffsBasedOnAnswerRevisionHash === undefined) return false;
+  if (generationStatus !== "completed") return true;
+  if (typeof plan.generatedDiffsBasedOnQuestionPlanRevision !== "number"
+    || plan.generatedDiffsBasedOnQuestionPlanRevision !== questionPlan.revision) return true;
+  return typeof plan.answerRevisionHash !== "string"
+    || typeof plan.generatedDiffsBasedOnAnswerRevisionHash !== "string"
+    || plan.answerRevisionHash !== plan.generatedDiffsBasedOnAnswerRevisionHash;
 }
 
 function objectValue(value: unknown): Record<string, unknown> {
