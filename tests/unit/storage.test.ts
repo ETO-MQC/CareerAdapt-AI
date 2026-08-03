@@ -19,6 +19,7 @@ import { CareerAdaptDb } from "@/services/storage/db";
 import { RevisionConflictError, WorkspaceRepository } from "@/services/storage/repositories";
 import { runRuleFactGuard } from "@/domain/adaptation/factGuard";
 import { createRuleRequirementMatches, resolveEffectiveMatch } from "@/domain/match/matcher";
+import { AgentRuntime } from "@/agent/runtime/agentRuntime";
 
 const TEST_TIME = "2026-07-01T10:00:00.000Z";
 
@@ -83,6 +84,20 @@ afterEach(async () => {
 });
 
 describe("WorkspaceRepository", () => {
+  it("persists the current Agent Session projection when listing a legacy record", async () => {
+    db = new CareerAdaptDb(`CareerAdaptAgentSessionReadMigrationDb-${crypto.randomUUID()}`);
+    const repository = new WorkspaceRepository(db);
+    const base = AgentRuntime.create("tailor_existing_resume", "clarify_unsupported_facts", "Legacy session");
+    const raw = { ...base, agentSessionSchemaVersion: undefined };
+    await db.agentSessions.put(raw as never);
+
+    const sessions = await repository.listAgentSessions();
+    expect(sessions[0]?.agentSessionSchemaVersion).toBe(2);
+    const persisted = await db.agentSessions.get(base.id);
+    expect(persisted?.agentSessionSchemaVersion).toBe(2);
+    expect(persisted?.messages).toEqual([]);
+  });
+
   it("migrates legacy agent message options before archive and rename writes", async () => {
     db = new CareerAdaptDb(`CareerAdaptAgentSessionMigrationDb-${crypto.randomUUID()}`);
     const repository = new WorkspaceRepository(db);

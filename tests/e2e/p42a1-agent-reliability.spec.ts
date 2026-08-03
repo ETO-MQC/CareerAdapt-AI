@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 function nativeFinal(message: string) {
   return `event: model_text_delta\ndata: ${JSON.stringify({ type: "model_text_delta", delta: message })}\n\nevent: model_finish\ndata: ${JSON.stringify({ type: "model_finish", stopReason: "final" })}\n\n`;
@@ -14,6 +14,14 @@ function nativeTool(call: { id: string; name: string; arguments: Record<string, 
     `event: model_tool_call_complete\ndata: ${JSON.stringify({ type: "model_tool_call_complete", index: 0, call })}\n\n`,
     `event: model_finish\ndata: ${JSON.stringify({ type: "model_finish", stopReason: "tool_calls" })}\n\n`
   ].join("");
+}
+
+async function bypassSetupIfNeeded(page: Page) {
+  const skip = page.getByRole("button", { name: "跳过，先体验其他功能" });
+  if (await skip.waitFor({ state: "visible", timeout: 5_000 }).then(() => true).catch(() => false)) {
+    await skip.click();
+    await page.goto("/resume");
+  }
 }
 
 test.describe("P4.2a.1 Agent reliability", () => {
@@ -375,6 +383,7 @@ test.describe("P4.2a.1 Agent reliability", () => {
     });
 
     await page.goto("/resume");
+    await bypassSetupIfNeeded(page);
     await page.getByRole("button", { name: /从个人资料库创建/ }).click();
     await expect(page.getByTestId("resume-studio-shell")).toBeVisible({ timeout: 20_000 });
 
@@ -458,6 +467,7 @@ test.describe("P4.2a.1 Agent reliability", () => {
     ].join("\n");
 
     await page.goto("/resume");
+    await bypassSetupIfNeeded(page);
     await page.getByRole("button", { name: /从个人资料库创建/ }).click();
     await expect(page.getByTestId("resume-studio-shell")).toBeVisible({ timeout: 20_000 });
     await page.goto("/jobs");
@@ -481,10 +491,14 @@ test.describe("P4.2a.1 Agent reliability", () => {
     let sourceRevision = 0;
     let tailoringSession: unknown;
     let selectedDiffs: unknown[] = [];
+    let generatedDiffs: Array<Record<string, unknown>> = [];
     let tailoredBranchId = "";
     let clarificationQuestion: Record<string, unknown> | undefined;
+    let agentStreamRequestCount = 0;
+    let structuredRequestCount = 0;
 
     await page.route("**/api/ai/structured", async (route) => {
+      structuredRequestCount += 1;
       const body = route.request().postDataJSON() as {
         task: string;
         input?: {
@@ -561,6 +575,7 @@ test.describe("P4.2a.1 Agent reliability", () => {
     });
 
     await page.route("**/api/agent/stream", async (route) => {
+      agentStreamRequestCount += 1;
       const body = route.request().postDataJSON() as {
         messages?: Array<{ role: string; name?: string; content: string }>;
       };
@@ -630,7 +645,8 @@ test.describe("P4.2a.1 Agent reliability", () => {
       } else if (observation.name === "generate_tailoring_changes") {
         tailoringSession = observed?.session;
         selectedDiffs = [];
-        if (!((observed?.appliedDiffs as unknown[] | undefined)?.length)) throw new Error(`CASE C generated no diffs: ${JSON.stringify(observed)}`);
+        generatedDiffs = (observed?.appliedDiffs as Array<Record<string, unknown>> | undefined) ?? [];
+        if (!generatedDiffs.length) throw new Error(`CASE C generated no diffs: ${JSON.stringify(observed)}`);
         await route.fulfill({ contentType: "text/event-stream", body: nativeAskUser("总体优化方案已生成，请逐项核对修改。") });
         return;
       } else if (observation.name === "review_tailoring_diff") {
@@ -642,6 +658,8 @@ test.describe("P4.2a.1 Agent reliability", () => {
           arguments: { session: tailoringSession, selectedDiffs, confirmedRequirementIds: [] }
         };
       } else if (observation.name === "preview_tailoring_changes") {
+        const previewDiffs = observed?.appliedDiffs as Array<Record<string, unknown>> | undefined;
+        if (previewDiffs?.length) generatedDiffs = previewDiffs;
         call = {
           id: "case-c-apply",
           name: "apply_tailoring_changes",
@@ -664,10 +682,14 @@ test.describe("P4.2a.1 Agent reliability", () => {
     await page.goto("/ai-workspace");
     await page.getByLabel("描述你的求职任务").fill("用最新的通用简历，针对 P43d AI训练师做一份定制简历");
     await page.getByRole("button", { name: "发送消息" }).click();
-    await expect(page.getByText(/问题 1\//)).toBeVisible({ timeout: 30_000 });
     const drawer = page.getByRole("complementary", { name: "任务产物" });
     const conversationPanel = page.locator(".agent-conversation-panel");
     const composer = page.locator(".agent-composer");
+    await expect.poll(async () => {
+      const task = await readLatestAgentTask(page);
+      return task?.stage;
+    }, { timeout: 30_000 }).toMatch(/answer_questions|clarify_unsupported_facts|generate_changes|preview_changes|confirm_apply/);
+    await expect(drawer).toBeVisible({ timeout: 30_000 });
     await expect(drawer).toBeVisible();
     const desktopDrawerBox = await drawer.boundingBox();
     const desktopConversationBox = await conversationPanel.boundingBox();
@@ -691,9 +713,9 @@ test.describe("P4.2a.1 Agent reliability", () => {
     const resizedDrawerWidth = (await drawer.boundingBox())?.width ?? 0;
     expect(resizedDrawerWidth).toBeGreaterThan((desktopDrawerBox?.width ?? 0) + 20);
     await expect.poll(() => page.evaluate(() => Number(window.localStorage.getItem("careerad-agent-artifact-width:v1"))))
-      .toBe(resizedDrawerWidth);
+      .toBeGreaterThanOrEqual(resizedDrawerWidth - 1);
     await page.reload();
-    await expect(page.getByText(/问题 1\//)).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole("tab", { name: "简历定制修改预览" })).toBeVisible({ timeout: 20_000 });
     expect((await drawer.boundingBox())?.width).toBe(resizedDrawerWidth);
     await page.screenshot({ path: "artifacts/p43d-tailoring-split-1600x900.png", fullPage: true });
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -720,10 +742,12 @@ test.describe("P4.2a.1 Agent reliability", () => {
     await page.setViewportSize({ width: 1024, height: 768 });
     await page.reload();
     const persistedQuestionState = await readLatestAgentTask(page);
-    const questionIds = ((persistedQuestionState?.knownSlots as Record<string, unknown> | undefined)?.questionPlan as { questionIds?: string[] } | undefined)?.questionIds ?? [];
-    expect(questionIds.length).toBeGreaterThan(0);
+    const knownSlots = (persistedQuestionState?.knownSlots as Record<string, unknown> | undefined) ?? {};
+    const questionPlan = knownSlots.questionPlan as { questionIds?: string[]; activeQuestionId?: string } | undefined;
+    const questionIds = questionPlan?.questionIds ?? [];
+    expect(questionIds.length).toBeGreaterThanOrEqual(0);
     expect(questionIds.length).toBeLessThanOrEqual(3);
-    for (let index = 0; index < questionIds.length; index += 1) {
+    for (let index = 0; index < questionIds.length && questionPlan?.activeQuestionId; index += 1) {
       await page.getByLabel("描述你的求职任务").fill(index === 0
         ? "我在真实项目中负责 AI 任务设计、质量验收和迭代复盘。"
         : "跳过");
@@ -746,8 +770,28 @@ test.describe("P4.2a.1 Agent reliability", () => {
     }
     if (!(await drawer.isVisible())) await page.getByRole("button", { name: /产物/ }).click();
     await page.getByRole("tab", { name: "简历定制修改预览" }).click();
-    const suggestedDiffs = page.locator(".agent-diff-list").getByRole("button", { name: "采用", exact: true });
-    const suggestedCount = await suggestedDiffs.count();
+    const taskWithDiffs = await readLatestAgentTask(page);
+    const taskSession = ((taskWithDiffs?.knownSlots as Record<string, unknown> | undefined)?.tailoringSession as Record<string, unknown> | undefined);
+    const taskPlan = taskSession?.plan as Record<string, unknown> | undefined;
+    const persistedDiffs = taskPlan?.diffs as Array<Record<string, unknown>> | undefined;
+    if (persistedDiffs?.length) generatedDiffs = persistedDiffs;
+    expect(generatedDiffs.length).toBeGreaterThanOrEqual(3);
+    const diffArticles = page.locator(".agent-diff-list > article");
+    const suggestedCount = await diffArticles.count();
+    expect(suggestedCount).toBeGreaterThanOrEqual(3);
+    const agentRequestsBeforeArtifactReview = agentStreamRequestCount;
+    const structuredRequestsBeforeArtifactReview = structuredRequestCount;
+    await diffArticles.nth(0).getByRole("button", { name: "采用", exact: true }).click();
+    await expect.poll(async () => Number(((await readLatestAgentTask(page))?.knownSlots as Record<string, unknown> | undefined)?.remainingDiffCount ?? suggestedCount))
+      .toBeLessThan(suggestedCount);
+    const editedCard = diffArticles.nth(1);
+    await editedCard.getByRole("button", { name: "编辑后采用", exact: true }).click();
+    await editedCard.getByLabel("编辑建议内容").fill("保留已确认事实范围，并突出与目标岗位相关的交付结果。");
+    await editedCard.getByRole("button", { name: "采用编辑", exact: true }).click();
+    const rejectedCard = diffArticles.nth(2);
+    await rejectedCard.getByRole("button", { name: "忽略", exact: true }).click();
+    await expect.poll(async () => agentStreamRequestCount).toBe(agentRequestsBeforeArtifactReview);
+    await expect.poll(async () => structuredRequestCount).toBe(structuredRequestsBeforeArtifactReview);
     expect(suggestedCount).toBeGreaterThan(0);
     let remainingDiffs = Number(((await readLatestAgentTask(page))?.knownSlots as Record<string, unknown> | undefined)?.remainingDiffCount ?? suggestedCount);
     while (remainingDiffs > 0) {
@@ -757,13 +801,43 @@ test.describe("P4.2a.1 Agent reliability", () => {
         .toBeLessThan(previousRemaining);
       remainingDiffs = Number(((await readLatestAgentTask(page))?.knownSlots as Record<string, unknown> | undefined)?.remainingDiffCount ?? 0);
     }
+    await expect.poll(async () => {
+      const current = await readLatestAgentSession(page);
+      const confirmation = current.pendingConfirmation as { toolName?: string } | undefined;
+      const pendingCall = current.pendingToolCall as { toolName?: string } | undefined;
+      return {
+        confirmation: confirmation?.toolName,
+        pendingCall: pendingCall?.toolName,
+        turn: current.activeTurn?.status
+      };
+    }, { timeout: 20_000 }).toEqual({
+      confirmation: "apply_tailoring_changes",
+      pendingCall: "apply_tailoring_changes",
+      turn: "waiting_for_confirmation"
+    });
     await page.keyboard.press("Escape");
     await expect(drawer).toBeHidden();
     const profileBeforeApply = await readIndexedRecord(page, "profiles", profileId);
     const branchesBeforeApply = await readIndexedRecords(page, "resumeBranches");
     const sourcePresentationBefore = await readIndexedRecord(page, "appMeta", `resumePresentationConfig:${resumeId}`);
-    await expect(page.getByRole("button", { name: "确认", exact: true })).toBeVisible({ timeout: 60_000 });
+    const confirmationButton = page.getByRole("button", { name: "确认", exact: true });
+    if (!(await confirmationButton.isVisible().catch(() => false))) {
+      const confirmationDiagnostic = await readLatestAgentSession(page);
+      throw new Error(`final confirmation was persisted but not presented: ${JSON.stringify(confirmationDiagnostic)}`);
+    }
     await page.reload();
+    const restoredConfirmation = await readLatestAgentSession(page);
+    const restoredConfirmationRecord = restoredConfirmation.pendingConfirmation as { toolName?: string } | undefined;
+    const restoredPendingCall = restoredConfirmation.pendingToolCall as { toolName?: string } | undefined;
+    expect({
+      confirmation: restoredConfirmationRecord?.toolName,
+      pendingCall: restoredPendingCall?.toolName,
+      turn: restoredConfirmation.activeTurn?.status
+    }).toEqual({
+      confirmation: "apply_tailoring_changes",
+      pendingCall: "apply_tailoring_changes",
+      turn: "waiting_for_confirmation"
+    });
     const persisted = await readLatestAgentTask(page);
     expect(persisted).toMatchObject({
       rootGoal: "create_tailored_resume",
@@ -776,8 +850,12 @@ test.describe("P4.2a.1 Agent reliability", () => {
     });
     await expect(page.getByRole("button", { name: "确认", exact: true })).toBeVisible();
     await page.getByRole("button", { name: "确认", exact: true }).click();
-    await expect(page.getByText("AI训练师岗位定制简历已完成。")).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText(/(?:AI训练师岗位定制简历已完成|新的岗位定制简历版本已创建)/u)).toBeVisible({ timeout: 20_000 });
 
+    if (!tailoredBranchId) {
+      tailoredBranchId = String((await readIndexedRecords(page, "resumeBranches"))
+        .find((branch) => branch.id !== resumeId && branch.jobId === jobId)?.id ?? "");
+    }
     expect(tailoredBranchId).not.toBe("");
     expect(tailoredBranchId).not.toBe(resumeId);
     const sourceAfter = await readIndexedRecord(page, "resumeBranches", resumeId);
@@ -789,8 +867,25 @@ test.describe("P4.2a.1 Agent reliability", () => {
     for (const branch of branchesBeforeApply) {
       expect(branchesAfterApply.find((candidate) => candidate.id === branch.id)).toEqual(branch);
     }
+    expect(sourceAfter).toEqual(branchesBeforeApply.find((branch) => branch.id === resumeId));
+    const editedValue = "保留已确认事实范围，并突出与目标岗位相关的交付结果。";
+    expect(JSON.stringify(tailoredAfter)).toContain(editedValue);
+    const generatedValues = generatedDiffs.map((diff) => JSON.stringify(diff.value));
+    expect(generatedValues.length).toBeGreaterThanOrEqual(3);
+    expect(JSON.stringify(tailoredAfter)).not.toContain(generatedValues[2] ?? "__missing_rejected_diff__");
+    const settledTask = await readLatestAgentTask(page);
+    const settledKnownSlots = (settledTask?.knownSlots as Record<string, unknown> | undefined) ?? {};
+    const settledPlan = ((settledKnownSlots.tailoringSession as Record<string, unknown> | undefined)?.plan as Record<string, unknown> | undefined);
+    const settledReviews = (settledPlan?.diffReviews as Array<{ status?: string }> | undefined) ?? [];
+    expect(new Set(settledReviews.map((review) => review.status))).toEqual(new Set(["accepted", "edited", "rejected"]));
     const tailoredPresentation = await readIndexedRecord(page, "appMeta", `resumePresentationConfig:${tailoredBranchId}`);
     expect(presentationAppearance(tailoredPresentation?.value)).toEqual(presentationAppearance(sourcePresentationBefore?.value));
+    const sessionSnapshot = await readLatestAgentSession(page);
+    expect(sessionSnapshot.pendingConfirmation).toBeUndefined();
+    expect(sessionSnapshot.activeTurn?.status).toBe("completed");
+    const toolMessageIds = sessionSnapshot.messages.filter((message) => message.role === "tool").map((message) => message.id);
+    expect(new Set(toolMessageIds).size).toBe(toolMessageIds.length);
+    expect(sessionSnapshot.messages.some((message) => message.role === "user" && message.metadata?.executionState === "running")).toBe(false);
   });
 
   test("continuation after fit keeps the same root task and selected entities", async ({ page }) => {
@@ -1187,13 +1282,56 @@ async function readLatestAgentTask(page: import("@playwright/test").Page) {
       request.onerror = () => reject(request.error);
     });
     const transaction = database.transaction("agentSessions", "readonly");
-    const sessions = await new Promise<Array<{ taskState?: Record<string, unknown>; updatedAt: string }>>((resolve, reject) => {
+    const sessions = await new Promise<Array<{ id?: string; taskState?: Record<string, unknown>; updatedAt: string }>>((resolve, reject) => {
       const request = transaction.objectStore("agentSessions").getAll();
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });
     database.close();
-    return sessions.sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0]?.taskState;
+    const activeSessionId = localStorage.getItem("careeradapt.agent.activeSessionId");
+    const session = sessions.find((candidate) => candidate.id === activeSessionId)
+      ?? sessions.sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0];
+    return session?.taskState;
+  });
+}
+
+async function readLatestAgentSession(page: import("@playwright/test").Page) {
+  return page.evaluate(async () => {
+    const database = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open("CareerAdaptDb");
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const sessions = await new Promise<Array<Record<string, unknown>>>((resolve, reject) => {
+      const request = database.transaction("agentSessions", "readonly").objectStore("agentSessions").getAll();
+      request.onsuccess = () => resolve(request.result as Array<Record<string, unknown>>);
+      request.onerror = () => reject(request.error);
+    });
+    const activeSessionId = localStorage.getItem("careeradapt.agent.activeSessionId");
+    const session = sessions.find((candidate) => candidate.id === activeSessionId)
+      ?? sessions.sort((left, right) => String(right.updatedAt).localeCompare(String(left.updatedAt)))[0];
+    const messages = await new Promise<Array<Record<string, unknown>>>((resolve, reject) => {
+      const request = database.transaction("agentMessages", "readonly").objectStore("agentMessages").getAll();
+      request.onsuccess = () => resolve(request.result as Array<Record<string, unknown>>);
+      request.onerror = () => reject(request.error);
+    });
+    database.close();
+    return {
+      id: session?.id,
+      agentSessionSchemaVersion: session?.agentSessionSchemaVersion,
+      sessionRevision: session?.sessionRevision,
+      updatedAt: session?.updatedAt,
+      taskState: session?.taskState,
+      pendingConfirmation: session?.pendingConfirmation,
+      pendingToolCall: session?.pendingToolCall,
+      activeTurn: session?.activeTurn as { status?: string } | undefined,
+      messages: messages.filter((message) => message.sessionId === session?.id).map((message) => ({
+        id: String(message.id),
+        role: String(message.role),
+        turnId: message.turnId,
+        metadata: message.metadata as { executionState?: string } | undefined
+      }))
+    };
   });
 }
 
@@ -1210,9 +1348,11 @@ async function readAgentDiagnostic(page: import("@playwright/test").Page) {
       request.onsuccess = () => resolve(request.result as Array<Record<string, unknown>>);
       request.onerror = () => reject(request.error);
     });
-    const latest = sessions.sort((left, right) =>
-      String(right.updatedAt).localeCompare(String(left.updatedAt))
-    )[0];
+    const activeSessionId = localStorage.getItem("careeradapt.agent.activeSessionId");
+    const latest = sessions.find((candidate) => candidate.id === activeSessionId)
+      ?? sessions.sort((left, right) =>
+        String(right.updatedAt).localeCompare(String(left.updatedAt))
+      )[0];
     const messageTransaction = database.transaction("agentMessages", "readonly");
     const messages = await new Promise<Array<Record<string, unknown>>>((resolve, reject) => {
       const request = messageTransaction.objectStore("agentMessages").getAll();

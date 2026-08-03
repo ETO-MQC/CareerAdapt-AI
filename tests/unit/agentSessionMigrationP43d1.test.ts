@@ -99,7 +99,8 @@ describe("P4.3d.1 agent session migration", () => {
     expect(migrated.pendingToolCall).toBeUndefined();
     expect(migrated.taskState?.knownSlots).not.toHaveProperty("pendingConfirmation");
     expect(migrated.taskState?.knownSlots).not.toHaveProperty("tailoringSession");
-    expect(migrated.taskState?.stage).toBe("generate_plan");
+    expect(migrated.taskState?.stage).toBe("analyze_fit");
+    expect(migrated.taskState?.activeGoal).toBe("analyze_job_fit");
     expect(migrated.taskState?.selectedEntities).toMatchObject({ profileId: "profile-1", resumeId: "resume-1", jobId: "job-1" });
     expect(migrated.messages.find((message) => message.id === "tool-old")).toMatchObject({ status: "recovered", metadata: { activityState: "recovered" } });
     expect(migrated.messages.find((message) => message.id === "user-old")?.metadata?.executionState).toBe("complete");

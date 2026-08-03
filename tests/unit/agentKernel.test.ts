@@ -549,6 +549,50 @@ describe("AgentKernel", () => {
     expect(result.taskState?.completionStatus).toBe("waiting_for_user");
   });
 
+  it("settles tailoring after apply without a second provider request", async () => {
+    const model = scriptedModel({ stopReason: "final", text: "不应再次请求 provider。" });
+    const { kernel } = harness(model);
+    const reducer = new AgentTaskStateReducer();
+    const base = AgentRuntime.create("tailor_existing_resume", "confirm_apply");
+    const taskState = {
+      ...reducer.create(base, "create_tailored_resume"),
+      workflowId: "tailor_existing_resume",
+      rootGoal: "create_tailored_resume",
+      activeGoal: "confirm_apply",
+      goal: "create_tailored_resume",
+      stage: "confirm_apply" as const,
+      completionStatus: "active" as const,
+      selectedEntities: {
+        profileId: "profile-1",
+        resumeId: "resume-general",
+        jobId: "job-1"
+      },
+      knownSlots: {
+        fitAnalysis: { fitScore: 0.8 },
+        tailoringSession: { id: "tailoring-1" },
+        previewComplete: true,
+        confirmationAccepted: true
+      }
+    };
+
+    const result = await kernel.resumeTurn({
+      session: { ...base, taskState },
+      pageContext: { pathname: "/ai-workspace", query: {} },
+      reason: "tool_observation",
+      toolName: "apply_tailoring_changes",
+      observation: {
+        branchId: "resume-job-1",
+        revisionId: "revision-job-1",
+        qualityResult: { status: "passed", factGuard: "passed" }
+      }
+    });
+
+    expect(model.completeWithTools).not.toHaveBeenCalled();
+    expect(result.text).toContain("新的岗位定制简历版本已创建");
+    expect(result.trajectory.outcome).toBe("completed");
+    expect(result.taskState).toMatchObject({ stage: "quality_result", completionStatus: "completed" });
+  });
+
   it("continues a profile interview without treating the command as stalled work", async () => {
     const model = scriptedModel({
       stopReason: "final",

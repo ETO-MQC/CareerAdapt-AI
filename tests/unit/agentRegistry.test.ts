@@ -31,7 +31,7 @@ describe("agent tool registry", () => {
   it("rejects unknown tools and exposes the required policy metadata", () => {
     const registry = createAgentToolRegistry(services());
     expect(() => registry.require("drop_database")).toThrow("Unknown agent tool");
-    expect(registry.list()).toHaveLength(40);
+    expect(registry.list()).toHaveLength(41);
     expect(registry.require("list_resumes")).toMatchObject({ risk: "read", requiresConfirmation: false });
     expect(registry.require("prepare_resume_import")).toMatchObject({ risk: "write", requiresConfirmation: false, resumable: true });
     expect(registry.require("review_resume_import")).toMatchObject({ risk: "user_declared", requiresConfirmation: false });
@@ -41,6 +41,7 @@ describe("agent tool registry", () => {
     expect(registry.require("reconcile_profile_intake")).toMatchObject({ risk: "read", requiresConfirmation: false, idempotent: true });
     expect(registry.require("commit_profile_intake")).toMatchObject({ risk: "write", requiresConfirmation: true, idempotent: true });
     expect(registry.require("ensure_general_resume_from_profile")).toMatchObject({ risk: "write", requiresConfirmation: true, idempotent: true });
+    expect(registry.require("create_resume_from_profile")).toMatchObject({ risk: "write", requiresConfirmation: true, idempotent: true, resumable: true });
     expect(registry.require("commit_job")).toMatchObject({ risk: "write", requiresConfirmation: true });
     expect(registry.require("answer_tailoring_question")).toMatchObject({ risk: "user_declared", requiresConfirmation: false, dataScope: "tailoring_session" });
     expect(registry.require("generate_tailoring_changes")).toMatchObject({ risk: "read", requiresConfirmation: false, idempotent: true });

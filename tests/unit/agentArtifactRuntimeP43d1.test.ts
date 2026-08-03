@@ -63,7 +63,16 @@ describe("P4.3d.1 artifact action runtime", () => {
       toolName: "generate_tailoring_changes",
       observation: { session: tailoringSession, appliedDiffs: [diffA, diffB] }
     });
-    const initialSession: AgentSession = { ...base, taskState };
+    const initialSession: AgentSession = {
+      ...base,
+      taskState,
+      activeTurn: {
+        id: "artifact-turn",
+        sessionId: base.id,
+        status: "waiting_for_user",
+        startedAt: now
+      }
+    };
     let persisted = initialSession;
     const save = vi.fn(async (value: AgentSession) => { persisted = value; return value; });
     const execute = vi.fn(async (input: { toolName: string; toolInput: Record<string, unknown>; operationId: string }) => {
@@ -120,6 +129,8 @@ describe("P4.3d.1 artifact action runtime", () => {
       status: "pending"
     });
     expect(completed?.pendingToolCall).toMatchObject({ toolName: "apply_tailoring_changes" });
+    expect(completed?.activeTurn?.status).toBe("waiting_for_confirmation");
+    expect(completed?.pendingConfirmation?.turnId).toBe("artifact-turn");
     expect(runTurn).not.toHaveBeenCalled();
     expect(resumeTurn).not.toHaveBeenCalled();
 
