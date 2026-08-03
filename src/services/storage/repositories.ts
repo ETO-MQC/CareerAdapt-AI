@@ -152,6 +152,12 @@ const PROFILE_RECONCILIATION_META_KEY_PREFIX = "profileReconciliation:v1:";
 const PROFILE_INTAKE_OPERATION_META_KEY_PREFIX = "profileIntakeOperation:v1:";
 const EMPTY_RECYCLE_BIN: RecycleBinState = { version: 1, jobIds: [], profileItems: [] };
 
+function agentSessionMetadataFingerprint(value: AgentSession) {
+  return JSON.stringify(Object.fromEntries(
+    Object.entries(value).filter(([key]) => key !== "messages")
+  ));
+}
+
 function syncStructuredContentItems(
   branch: ResumeBranch,
   contentItems: ResumeBranch["contentItems"]
@@ -536,16 +542,39 @@ export class WorkspaceRepository {
 
   private async hydrateAgentSession(raw: AgentSession) {
     const migrated = migrateAgentSessionToCurrentSchema(raw as unknown as Record<string, unknown>);
+    const persistedMigration = AgentSessionSchema.parse({ ...migrated, messages: [] });
+    const metadataChanged = agentSessionMetadataFingerprint(raw) !== agentSessionMetadataFingerprint(persistedMigration);
     const records = await this.db.agentMessages
       .where("sessionId")
       .equals(migrated.id)
       .sortBy("sequence");
-    const messages = records.map(({ sessionId, sequence, ...message }) => {
+    const storedMessages = records.map(({ sessionId, sequence, ...message }) => {
       void sessionId;
       void sequence;
       return message;
     });
-    return migrateAgentSessionToCurrentSchema({ ...migrated, messages });
+    const migratedMessagesById = new Map(migrated.messages.map((message) => [message.id, message]));
+    const messages = storedMessages.map((message) => migratedMessagesById.get(message.id) ?? message);
+    for (const message of migrated.messages) {
+      if (!messages.some((candidate) => candidate.id === message.id)) messages.push(message);
+    }
+    const hydrated = migrateAgentSessionToCurrentSchema({ ...migrated, messages });
+    if (metadataChanged) {
+      // Migration may settle legacy records stored in the append-only message
+      // table as well as the session projection. Preserve those repairs before
+      // the metadata CAS below so a refresh cannot resurrect stale activity.
+      await this.appendAgentMessages(migrated.id, hydrated.messages);
+      const latestRaw = await this.db.agentSessions.get(migrated.id);
+      const latestRevision = Number((latestRaw as AgentSession | undefined)?.sessionRevision ?? 0);
+      const rawRevision = Number(raw.sessionRevision ?? 0);
+      if (!latestRaw || latestRevision <= rawRevision) {
+        await this.db.agentSessions.put({
+          ...persistedMigration,
+          sessionRevision: rawRevision + 1
+        });
+      }
+    }
+    return hydrated;
   }
 
   async seedDemoWorkspace() {
@@ -1780,6 +1809,7 @@ export class WorkspaceRepository {
     name: string;
     includeProfileFacts: boolean;
     includeProfileBasics: boolean;
+    selectedCanonicalItemIds?: string[];
   }) {
     return this.db.transaction(
       "rw",
@@ -1804,6 +1834,9 @@ export class WorkspaceRepository {
         const profile = CareerProfileSchema.parse(storedProfile);
         const now = new Date().toISOString();
         const built = buildGeneralBranchFromProfile({ ...input, profile, now });
+        if (input.selectedCanonicalItemIds && !built.branch.contentItems.some((item) => item.visible && item.factRefs.length > 0)) {
+          throw new Error("profile_library_selection_empty");
+        }
         const operation = ResumeBranchOperationSchema.parse({
           id: `resume-branch-op-${input.operationId}`,
           operationId: input.operationId,

@@ -63,7 +63,11 @@ function safeAutonomousJump(toolName: string, state: AgentTaskState) {
   if (["archive_resume", "restore_resume"].includes(toolName)) {
     return Boolean(state.selectedEntities.resumeId);
   }
-  if (toolName === "analyze_job_fit" || toolName === "create_tailoring_session") {
+  if (toolName === "analyze_job_fit") {
+    return Boolean(state.selectedEntities.profileId && state.selectedEntities.resumeId && state.selectedEntities.jobId)
+      && !has(state, "fitAnalysis");
+  }
+  if (toolName === "create_tailoring_session") {
     return Boolean(state.selectedEntities.profileId && state.selectedEntities.resumeId && state.selectedEntities.jobId);
   }
   if (toolName === "recommend_resume_source") {
@@ -72,6 +76,11 @@ function safeAutonomousJump(toolName: string, state: AgentTaskState) {
   if (toolName === "create_job_resume_from_profile") {
     return Boolean(state.selectedEntities.profileId && state.selectedEntities.jobId)
       && state.stage === "create_profile_resume";
+  }
+  if (toolName === "create_resume_from_profile") {
+    return state.rootGoal === "create_resume_from_profile"
+      && Boolean(state.selectedEntities.profileId)
+      && ["review_resume_plan", "confirm_create"].includes(state.stage);
   }
   if (toolName === "answer_tailoring_question") {
     return state.stage === "clarify_unsupported_facts"
@@ -121,12 +130,21 @@ function preconditions(toolName: string, state: AgentTaskState) {
     return ["title", "company", "rawText", "graph"].every((slot) => has(state, slot))
       && state.completionStatus === "active";
   }
-  if (toolName === "analyze_job_fit" || toolName === "create_tailoring_session") {
+  if (toolName === "analyze_job_fit") {
+    return Boolean(state.selectedEntities.profileId && state.selectedEntities.resumeId && state.selectedEntities.jobId)
+      && !has(state, "fitAnalysis");
+  }
+  if (toolName === "create_tailoring_session") {
     return Boolean(state.selectedEntities.profileId && state.selectedEntities.resumeId && state.selectedEntities.jobId);
   }
   if (toolName === "create_job_resume_from_profile") {
     return Boolean(state.selectedEntities.profileId && state.selectedEntities.jobId)
       && state.knownSlots.sourceRoute === "profile_to_job_resume";
+  }
+  if (toolName === "create_resume_from_profile") {
+    return state.rootGoal === "create_resume_from_profile"
+      && Boolean(state.selectedEntities.profileId)
+      && ["review_resume_plan", "confirm_create"].includes(state.stage);
   }
   if (toolName === "apply_tailoring_changes") {
     return state.stage === "confirm_apply"

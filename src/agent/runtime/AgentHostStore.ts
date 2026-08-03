@@ -744,6 +744,7 @@ export class AgentHostStore {
         diagnostic: confirmedToolDiagnostic(call.toolName, result)
       }
     });
+    if (result.ok) current = attachConfirmedToolArtifact(current, call.toolName, call.operationId, result);
     if (!result.ok && current.taskState) {
       current = projectTaskStateIntoSession(current, {
         ...current.taskState,
@@ -970,6 +971,7 @@ export class AgentHostStore {
       });
     }
     if (action.type === "tailoring_diff_decision" && observation.remainingDiffCount === 0) {
+      const confirmationTurnId = session.activeTurn?.id ?? turnId;
       const previewOperationId = `${operationId}-preview`.slice(0, 160);
       const preview = await this.dependencies.executor.execute({
         toolName: "preview_tailoring_changes",
@@ -1004,7 +1006,7 @@ export class AgentHostStore {
           ...current,
           pendingConfirmation: {
             id: `confirmation-${applyOperationId}`,
-            turnId,
+            turnId: confirmationTurnId,
             operationId: applyOperationId,
             toolName: "apply_tailoring_changes",
             title: "应用这些简历修改？",
@@ -1016,11 +1018,18 @@ export class AgentHostStore {
             requestedAt
           },
           pendingToolCall: {
-            turnId,
+            turnId: confirmationTurnId,
             toolName: "apply_tailoring_changes",
             operationId: applyOperationId,
             input: applyInput
-          }
+          },
+          activeTurn: current.activeTurn
+            ? {
+                ...current.activeTurn,
+                status: "waiting_for_confirmation",
+                completedAt: undefined
+              }
+            : current.activeTurn
         };
       }
     }
@@ -1283,11 +1292,28 @@ export class AgentHostStore {
             ]
           };
         }
-        if (event.ok && ["analyze_job_fit", "create_tailoring_session", "preview_tailoring_changes", "apply_tailoring_changes"].includes(event.toolName)) {
+        if (event.ok && ["analyze_job_fit", "create_tailoring_session", "preview_tailoring_changes", "apply_tailoring_changes", "create_resume_from_profile", "export_resume"].includes(event.toolName)) {
           const now = new Date().toISOString();
           const artifactId = event.artifactIds?.[0] ?? `agent-artifact-${event.toolName}-${event.operationId}`;
           const descriptor = artifactDescriptor(event.toolName);
           if (descriptor) {
+            const lastObservation = objectRecordValue(current.taskState?.lastObservation);
+            const observation = objectRecordValue(lastObservation.value);
+            const observationResume = objectRecordValue(observation.resume);
+            const entityId = descriptor.entityType === "job"
+              ? stringRecordValue(observation.jobId)
+                ?? current.taskState?.selectedEntities.jobId
+                ?? stringRecordValue(observation.resumeId)
+                ?? `pending-${event.operationId}`
+              : stringRecordValue(observation.resumeId)
+                ?? stringRecordValue(observation.branchId)
+                ?? stringRecordValue(observationResume.id)
+                ?? current.taskState?.selectedEntities.resumeId
+                ?? current.taskState?.selectedEntities.jobId
+                ?? `pending-${event.operationId}`;
+            const route = event.toolName === "export_resume" && typeof observation.route === "string"
+              ? observation.route
+              : descriptor.route;
             current = {
               ...current,
               artifactRefs: [
@@ -1297,10 +1323,8 @@ export class AgentHostStore {
                   kind: descriptor.kind,
                   title: descriptor.title,
                   entityType: descriptor.entityType,
-                  entityId: current.taskState?.selectedEntities.resumeId
-                    ?? current.taskState?.selectedEntities.jobId
-                    ?? `pending-${event.operationId}`,
-                  route: descriptor.route,
+                  entityId,
+                  route,
                   status: "active",
                   summary: event.summary,
                   createdAt: now,
@@ -1469,6 +1493,7 @@ export class AgentHostStore {
           )
         };
       }
+      if (result.taskState) current = reconcileTaskArtifacts(current, result.taskState);
       if (result.taskState?.pendingDecision) {
         current = attachPendingDecisionOptions(current, result.taskState.pendingDecision);
       }
@@ -2466,7 +2491,86 @@ function artifactDescriptor(toolName: string): {
   if (toolName === "apply_tailoring_changes") {
     return { kind: "quality_result", title: "定制简历质量结果", entityType: "resume_branch", route: "/resume" };
   }
+  if (toolName === "create_resume_from_profile") {
+    return { kind: "quality_result", title: "通用简历创建结果", entityType: "resume_branch", route: "/resume" };
+  }
+  if (toolName === "export_resume") {
+    return { kind: "pdf_preview", title: "PDF 导出预览", entityType: "export", route: "/resume" };
+  }
   return undefined;
+}
+
+function reconcileTaskArtifacts(session: AgentSession, taskState: AgentTaskState) {
+  const exportResult = objectRecordValue(taskState.knownSlots.exportResult);
+  const jobId = taskState.selectedEntities.jobId;
+  const resumeId = taskState.selectedEntities.resumeId;
+  return {
+    ...session,
+    artifactRefs: session.artifactRefs.map((artifact) => {
+      if (artifact.kind === "pdf_preview") {
+        return {
+          ...artifact,
+          entityId: stringRecordValue(exportResult.branchId) ?? resumeId ?? artifact.entityId,
+          route: typeof exportResult.route === "string" ? exportResult.route : artifact.route,
+          updatedAt: new Date().toISOString()
+        };
+      }
+      if (artifact.kind === "job_fit_overview") {
+        return {
+          ...artifact,
+          entityId: jobId ?? artifact.entityId,
+          updatedAt: new Date().toISOString()
+        };
+      }
+      return artifact;
+    })
+  };
+}
+
+function attachConfirmedToolArtifact(
+  session: AgentSession,
+  toolName: string,
+  operationId: string,
+  result: { ok: boolean; data?: unknown; artifactIds?: string[] }
+) {
+  const descriptor = artifactDescriptor(toolName);
+  if (!result.ok || !descriptor) return session;
+  const value = objectRecordValue(result.data);
+  const observationResume = objectRecordValue(value.resume);
+  const entityId = descriptor.entityType === "job"
+    ? stringRecordValue(value.jobId)
+      ?? session.taskState?.selectedEntities.jobId
+      ?? stringRecordValue(value.resumeId)
+      ?? `pending-${toolName}`
+    : stringRecordValue(value.resumeId)
+      ?? stringRecordValue(value.branchId)
+      ?? stringRecordValue(observationResume.id)
+      ?? session.taskState?.selectedEntities.resumeId
+      ?? session.taskState?.selectedEntities.jobId
+      ?? `pending-${toolName}`;
+  const now = new Date().toISOString();
+  const artifactId = result.artifactIds?.[0] ?? `agent-artifact-${toolName}-${operationId}`;
+  const route = toolName === "export_resume" && typeof value.route === "string"
+    ? value.route
+    : descriptor.route;
+  return {
+    ...session,
+    artifactRefs: [
+      ...session.artifactRefs.filter((artifact) => artifact.id !== artifactId),
+      {
+        id: artifactId,
+        kind: descriptor.kind,
+        title: descriptor.title,
+        entityType: descriptor.entityType,
+        entityId,
+        route,
+        status: "active" as const,
+        summary: typeof value.message === "string" ? value.message : undefined,
+        createdAt: now,
+        updatedAt: now
+      }
+    ]
+  };
 }
 
 function artifactActionRevision(

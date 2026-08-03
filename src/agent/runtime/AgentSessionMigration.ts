@@ -66,7 +66,8 @@ export function migrateAgentSessionToCurrentSchema(value: AgentSession | Record<
       tailoringRecovered = true;
       delete knownSlots.tailoringSession;
       for (const key of ["questionPlan", "activeQuestionId", "answeredQuestionIds", "skippedQuestionIds", "currentClarification", "selectedDiffs", "selectedDiffIds", "rejectedDiffIds", "remainingDiffCount"]) delete knownSlots[key];
-      const fitFresh = dependencyMatches(record(record(taskState.dependencySnapshots).fitResult), selectedEntities);
+      const fitFresh = Boolean(knownSlots.fitAnalysis)
+        && dependencyMatches(record(record(taskState.dependencySnapshots).fitResult), selectedEntities);
       nextTaskState = {
         ...nextTaskState,
         knownSlots,

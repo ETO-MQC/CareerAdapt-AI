@@ -30,7 +30,7 @@ const CAPABILITIES: Record<AgentIntentClass, string[]> = {
   resume: [
     "list_resumes", "get_resume", "get_resume_revision", "archive_resume", "restore_resume",
     "prepare_resume_import", "review_resume_import", "list_profiles", "reconcile_resume_import",
-    "resolve_resume_reconciliation", "commit_resume_import"
+    "resolve_resume_reconciliation", "commit_resume_import", "create_resume_from_profile"
   ],
   application_intent: ["list_jobs"],
   job_ingestion: ["parse_job_description", "commit_job"],

@@ -27,6 +27,20 @@ export function resolveContinuationIntent(state: AgentTaskState, message: string
     const text = message.trim();
     if (!text || !isContinuable(state)) return { consumed: false };
 
+    if (state.rootGoal === "create_resume_from_profile") {
+      const candidates = Array.isArray(state.knownSlots.profileItemCandidates)
+        ? state.knownSlots.profileItemCandidates.map(objectValue).filter((item) => Array.isArray(item.factIds) && item.factIds.length > 0)
+        : [];
+      const selected = selectProfileFactIds(text, candidates);
+      if (selected.length) {
+        return {
+          consumed: true,
+          intent: "continue",
+          slotUpdates: { selectedFactIds: selected }
+        };
+      }
+    }
+
     if (/换.*(第二|2).*(简历)?|第二份简历/.test(text)) {
       return {
         consumed: true,
@@ -61,11 +75,17 @@ function isContinuable(state: AgentTaskState) {
       state.workflowId === "tailor_existing_resume"
       || state.rootGoal === "create_tailored_resume"
       || state.rootGoal === "apply_to_job"
+      || state.rootGoal === "create_resume_from_profile"
       || ACTIVE_TAILORING_STAGES.has(state.stage)
-    );
+  );
 }
 
 export function deriveNextLegalStage(state: AgentTaskState) {
+  if (state.rootGoal === "create_resume_from_profile") {
+    if (!state.selectedEntities.profileId) return "select_profile_scope";
+    if (!hasValue(state.knownSlots.selectedFactIds)) return "select_facts";
+    return "review_resume_plan";
+  }
   if (state.stage === "quality_result") return "quality_result";
   if (state.knownSlots.tailoringSession) {
     if (hasUnresolvedClarifications(state)) return "clarify_unsupported_facts";
@@ -78,6 +98,18 @@ export function deriveNextLegalStage(state: AgentTaskState) {
     return "generate_plan";
   }
   return state.stage;
+}
+
+function selectProfileFactIds(text: string, candidates: Array<Record<string, unknown>>) {
+  if (!candidates.length) return [];
+  if (/全部|所有|都用|完整资料|全量/.test(text)) return candidates.map((candidate) => String(candidate.id));
+  const requested = [...text.matchAll(/(?:第|#)\s*(\d+)/g)].map((match) => Number(match[1]) - 1);
+  if (!requested.length) return [];
+  return [...new Set(requested.filter((index) => index >= 0 && index < candidates.length).map((index) => String(candidates[index].id)))];
+}
+
+function hasValue(value: unknown) {
+  return value !== undefined && value !== null && value !== "" && (!Array.isArray(value) || value.length > 0);
 }
 
 export function hasUnresolvedClarifications(state: AgentTaskState) {

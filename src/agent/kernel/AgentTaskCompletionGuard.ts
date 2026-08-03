@@ -74,6 +74,9 @@ export class AgentTaskCompletionGuard {
     if (["create_tailored_resume", "apply_to_job"].includes(state.rootGoal) && !tailoringContractComplete(state)) {
       return incomplete(state, requiredNextStage(state));
     }
+    if (state.rootGoal === "create_resume_from_profile" && !resumeFromProfileContractComplete(state)) {
+      return incomplete(state, requiredNextStage(state));
+    }
     if (state.rootGoal === "import_resume" && !importContractComplete(state)) {
       return incomplete(state, requiredNextStage(state));
     }
@@ -110,6 +113,12 @@ function requiredNextStage(state: AgentTaskState) {
     return "confirm_import";
   }
   if (state.rootGoal === "export_resume") return "export_ready";
+  if (state.rootGoal === "create_resume_from_profile") {
+    if (!state.selectedEntities.profileId) return "select_profile_scope";
+    if (!hasValue(state.knownSlots.selectedFactIds)) return "select_facts";
+    if (!state.knownSlots.resumeFromProfileResult) return "confirm_create";
+    return "completed";
+  }
   if (state.rootGoal === "profile_intake" && state.stage === "confirm_commit") return "confirm_commit";
   return state.stage;
 }
@@ -162,6 +171,19 @@ function importContractComplete(state: AgentTaskState) {
   );
 }
 
+function resumeFromProfileContractComplete(state: AgentTaskState) {
+  return Boolean(
+    state.selectedEntities.profileId
+    && Array.isArray(state.knownSlots.selectedFactIds)
+    && state.knownSlots.selectedFactIds.length > 0
+    && state.selectedEntities.resumeId
+    && state.selectedEntities.revisionId
+    && state.knownSlots.resumeFromProfileResult
+    && state.stage === "completed"
+    && state.completionStatus === "completed"
+  );
+}
+
 function legalToolsFor(stage: string) {
   const tools: Record<string, string[]> = {
     prepare_import: ["prepare_resume_import"],
@@ -178,11 +200,17 @@ function legalToolsFor(stage: string) {
     generate_changes: ["generate_tailoring_changes"],
     preview_changes: ["review_tailoring_diff", "preview_tailoring_changes"],
     confirm_apply: ["apply_tailoring_changes"],
-    apply: ["apply_tailoring_changes"]
+    apply: ["apply_tailoring_changes"],
+    review_resume_plan: ["create_resume_from_profile"],
+    confirm_create: ["create_resume_from_profile"]
   };
   return tools[stage] ?? [];
 }
 
 function objectValue(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" ? value as Record<string, unknown> : {};
+}
+
+function hasValue(value: unknown) {
+  return value !== undefined && value !== null && value !== "" && (!Array.isArray(value) || value.length > 0);
 }

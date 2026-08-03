@@ -319,6 +319,23 @@ export class AgentTaskStateReducer {
         state.activeGoal = "analyze_job_fit";
         state.stage = "analyze_fit";
         state.completionStatus = "active";
+      } else if (event.toolName === "create_resume_from_profile") {
+        const value = objectValue(event.observation);
+        const profileId = stringValue(value.profileId);
+        const resumeId = stringValue(value.resumeId);
+        const revisionId = stringValue(value.revisionId);
+        if (profileId) state.selectedEntities.profileId = profileId;
+        if (typeof value.profileVersion === "number") state.selectedEntities.profileVersion = value.profileVersion;
+        if (resumeId) state.selectedEntities.resumeId = resumeId;
+        if (revisionId) {
+          state.selectedEntities.revisionId = revisionId;
+          state.selectedEntities.resumeRevisionId = revisionId;
+        }
+        state.knownSlots.selectedFactIds = Array.isArray(value.selectedFactIds) ? value.selectedFactIds : state.knownSlots.selectedFactIds;
+        state.knownSlots.resumeFromProfileResult = event.observation;
+        state.activeGoal = "create_resume_from_profile";
+        state.stage = "completed";
+        state.completionStatus = "completed";
       } else if (event.toolName === "analyze_job_fit") {
         state.knownSlots.fitAnalysis = objectValue(event.observation).analysis ?? event.observation;
         state.dependencySnapshots.fitResult = dependencySnapshot(state, event.observation);
@@ -603,6 +620,9 @@ export class AgentTaskStateReducer {
       if (event.toolName === "commit_profile_intake") {
         state.stage = "confirm_commit";
       }
+      if (event.toolName === "create_resume_from_profile") {
+        state.stage = "confirm_create";
+      }
     }
     if (event.type === "confirmation_accepted") {
       state.completionStatus = "active";
@@ -627,6 +647,9 @@ export class AgentTaskStateReducer {
           delete state.knownSlots[slot];
         }
         state.stage = "collect_experience";
+      }
+      if (event.toolName === "create_resume_from_profile") {
+        state.stage = "confirm_create";
       }
     }
     if (event.type === "confirmation_superseded") {
@@ -696,6 +719,18 @@ function resetProfileIntakeDraft(state: AgentTaskState) {
 
 function normalize(state: AgentTaskState): AgentTaskState {
   state.goal = state.rootGoal;
+  if (state.rootGoal === "create_resume_from_profile" && state.workflowId === "build_resume_from_profile") {
+    if (state.stage !== "completed" && state.stage !== "confirm_create") {
+      if (!state.selectedEntities.profileId) {
+        state.stage = "select_profile_scope";
+      } else if (!hasValue(state.knownSlots.selectedFactIds)) {
+        state.stage = state.stage === "select_profile_scope" ? "select_facts" : state.stage;
+      } else {
+        state.stage = "review_resume_plan";
+      }
+    }
+    if (state.stage === "completed") state.completionStatus = "completed";
+  }
   if (state.workflowId === "tailor_existing_resume") {
     if (state.stage === "select_resume") state.stage = "choose_resume_source";
     if (state.stage === "answer_questions") state.stage = "clarify_unsupported_facts";
@@ -966,7 +1001,17 @@ function mergeObservationSlots(state: AgentTaskState, toolName: string, observat
           version: scalarValue(profile.version ?? value.profileVersion)
         });
       }
+      if (state.rootGoal === "create_resume_from_profile") {
+        const items = Array.isArray(profile.items) ? profile.items.map(objectValue) : [];
+        state.knownSlots.profileItemCandidates = items;
+        if (state.stage === "select_profile_scope") state.stage = "select_facts";
+      }
     }
+  }
+  if (toolName === "search_profile_facts" && state.rootGoal === "create_resume_from_profile") {
+    const results = Array.isArray(value.results) ? value.results.map(objectValue) : [];
+    state.knownSlots.profileItemCandidates = results;
+    if (results.length && state.stage === "select_facts") state.stage = "review_resume_plan";
   }
   if (toolName === "get_resume") {
     const resume = objectValue(value.resume);

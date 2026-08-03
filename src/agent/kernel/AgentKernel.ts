@@ -211,20 +211,28 @@ export class AgentKernel {
         }
         const workflowPause = deterministicWorkflowPause(
           taskState,
-          toolCallCount > 0 || !input.userMessage || Boolean(taskState.knownSlots.compoundAnswerResolution)
+          toolCallCount > 0
+            || !input.userMessage
+            || Boolean(taskState.knownSlots.compoundAnswerResolution)
+            || input.internalObservation?.reason === "tool_observation"
         );
         if (workflowPause) {
           await publishFinalStream(workflowPause, input, { turnId, iterationId });
-          trajectory.finish("waiting_for_user");
+          const terminal = taskState.workflowId === "tailor_existing_resume"
+            && taskState.stage === "quality_result"
+            && taskState.completionStatus === "completed";
+          trajectory.finish(terminal ? "completed" : "waiting_for_user");
           return {
             text: workflowPause,
             trajectory: trajectory.value(),
             conversationSummary: contextWindow.conversationSummary,
-            taskState: {
-              ...taskState,
-              completionStatus: "waiting_for_user",
-              updatedAt: new Date().toISOString()
-            }
+            taskState: terminal
+              ? taskState
+              : {
+                  ...taskState,
+                  completionStatus: "waiting_for_user",
+                  updatedAt: new Date().toISOString()
+                }
           };
         }
         const nativeStreaming = this.dependencies.model.capabilities?.nativeToolStreaming === true
@@ -907,6 +915,21 @@ function bindAuthoritativeTaskInput(
       }
     };
   }
+  if (call.name === "create_resume_from_profile") {
+    const profileVersion = taskState.selectedEntities.profileVersion ?? slots.expectedProfileVersion;
+    return {
+      ...call,
+      arguments: {
+        ...call.arguments,
+        targetProfileId: slots.targetProfileId ?? taskState.selectedEntities.profileId,
+        ...(typeof profileVersion === "number" ? { expectedProfileVersion: profileVersion } : {}),
+        ...(Array.isArray(slots.selectedFactIds) && slots.selectedFactIds.length > 0
+          ? { selectedFactIds: slots.selectedFactIds }
+          : {}),
+        ...(slots.acknowledgedActiveProfileId ? { acknowledgedActiveProfileId: slots.acknowledgedActiveProfileId } : {})
+      }
+    };
+  }
   if (call.name === "generate_tailoring_changes") {
     return { ...call, arguments: { session } };
   }
@@ -976,6 +999,7 @@ function summarizeToolResult(result: AgentToolResult) {
     preview_tailoring_changes: "已准备修改预览。",
     recommend_resume_source: "已完成简历来源路线评估。",
     create_job_resume_from_profile: "已从资料库创建独立岗位简历。",
+    create_resume_from_profile: "已从确认资料创建独立通用简历。",
     capture_profile_intake: "已整理访谈中的经历候选。",
     review_profile_intake: "已记录这项经历的核对决定。",
     reconcile_profile_intake: "已完成经历与资料库的对账。",
@@ -1003,6 +1027,7 @@ function toolActivityLabel(toolName: string) {
     preview_tailoring_changes: "正在核对改写内容",
     recommend_resume_source: "正在比较资料库与现有简历",
     create_job_resume_from_profile: "正在从资料库准备岗位简历",
+    create_resume_from_profile: "正在从确认资料创建独立通用简历",
     apply_tailoring_changes: "正在创建新的简历版本",
     export_resume: "正在准备简历导出",
     capture_profile_intake: "正在整理刚才的经历",
@@ -1378,6 +1403,15 @@ function deterministicWorkflowPause(
     && taskState.knownSlots.remainingDiffCount > 0
   ) {
     return `总体优化方案已生成。请在右侧逐项采用、编辑或忽略；还剩 ${taskState.knownSlots.remainingDiffCount} 项需要核对。`;
+  }
+  if (
+    afterToolOrResume
+    && taskState.workflowId === "tailor_existing_resume"
+    && taskState.stage === "quality_result"
+    && taskState.completionStatus === "completed"
+    && taskState.knownSlots.qualityResult
+  ) {
+    return "新的岗位定制简历版本已创建，原简历和个人资料库保持不变。";
   }
   if (
     taskState.workflowId === "tailor_existing_resume"

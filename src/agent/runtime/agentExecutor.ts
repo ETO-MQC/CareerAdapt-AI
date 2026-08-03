@@ -69,6 +69,7 @@ function confirmationTitle(toolName: string) {
     generate_tailoring_changes: "生成总体优化方案",
     review_tailoring_diff: "记录修改核对结果",
     apply_tailoring_changes: "确认应用简历修改",
+    create_resume_from_profile: "确认创建独立通用简历",
     archive_resume: "确认归档简历",
     restore_resume: "确认恢复简历"
   };
