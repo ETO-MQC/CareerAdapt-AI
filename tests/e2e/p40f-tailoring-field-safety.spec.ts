@@ -303,10 +303,10 @@ async function importFinalFixture(page: Page) {
   await bypassSetupIfNeeded(page);
   await page.getByRole("button", { name: "导入", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "导入简历" });
-  await dialog.getByText("粘贴结构化 JSON", { exact: true }).click();
+  await dialog.getByText("粘贴 JSON", { exact: true }).click();
   await dialog.getByLabel("JSON 内容").fill(JSON.stringify(finalFixture()));
-  await dialog.getByRole("button", { name: "导入JSON", exact: true }).click();
-  await page.getByLabel("创建新人物").check();
+  await dialog.getByRole("button", { name: "导入 JSON", exact: true }).click();
+  await page.getByRole("dialog", { name: "导入简历" }).locator("label.import-target-option").filter({ hasText: "创建新人物" }).click();
   while (await page.getByRole("button", { name: "确认此字段", exact: true }).count()) await page.getByRole("button", { name: "确认此字段", exact: true }).first().click();
   while (await page.getByRole("button", { name: "核对并保留来源", exact: true }).count()) await page.getByRole("button", { name: "核对并保留来源", exact: true }).first().click();
   await page.locator(".import-review-footer button.primary-button").click();
