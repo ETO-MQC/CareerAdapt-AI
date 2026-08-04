@@ -87,10 +87,10 @@ test.describe("P4.2a.3f guided profile intake closure", () => {
     await expect.poll(() => readLatestAgentTask(page)).toMatchObject({
       rootGoal: "profile_intake",
       workflowId: "guided_profile_intake",
-      stage: "confirm_commit",
-      completionStatus: "waiting_for_confirmation"
+      stage: "review_facts",
+      completionStatus: "waiting_for_user"
     });
-    await expect(page.getByRole("button", { name: "确认", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "确认", exact: true })).toHaveCount(0);
 
     const task = await readLatestAgentTask(page);
     expect(task).toMatchObject({
@@ -107,23 +107,22 @@ test.describe("P4.2a.3f guided profile intake closure", () => {
     await expect(page.getByText(/agent_no_progress|agent_iteration_budget_exceeded|export_complete/)).toHaveCount(0);
   });
 
-  test("A2 — a single concise interview answer reaches profile fact capture", async ({ page }) => {
+  test("A2 — a concise education answer stays reviewable and continues the interview", async ({ page }) => {
     const answer = "我现在是示例大学本科学生，计算机相关专业专业，2024年9月入学，预计2028年6月毕业";
     await page.route("**/api/agent/stream", async (route) => {
       const body = route.request().postDataJSON() as ModelBody;
       const observations = toolObservations(body);
       const tools = new Set((body.tools ?? []).map((tool) => tool.name));
-      const latestUser = latestUserMessage(body);
       if (tools.has("get_active_profile") && !observations.some((item) => item.name === "get_active_profile")) {
         await fulfillTool(route, "profile-target-short", "get_active_profile", {});
         return;
       }
-      if (latestUser === answer && !tools.has("capture_profile_intake")) {
-        await fulfillAsk(route, "已整理这段教育经历，请继续补充下一段真实经历。");
+      if (tools.has("capture_profile_intake") && !observations.some((item) => item.name === "capture_profile_intake")) {
+        await fulfillTool(route, "capture-short-education", "capture_profile_intake", {});
         return;
       }
-      if (latestUser === answer) {
-        await fulfillFinal(route, "经历解析步骤不应再交给模型选择。");
+      if (observations.some((item) => item.name === "capture_profile_intake")) {
+        await fulfillAsk(route, "教育背景已整理为候选，请先核对并采用；之后可以继续补充其他经历。");
         return;
       }
       await fulfillAsk(route, "请先介绍你的教育背景。");
@@ -132,12 +131,14 @@ test.describe("P4.2a.3f guided profile intake closure", () => {
     await startProfileIntake(page);
     await expect(page.getByText("请先介绍你的教育背景。")).toBeVisible();
     await send(page, answer);
-    await expect(page.getByRole("button", { name: "确认", exact: true })).toBeVisible();
-    expect(await readLatestAgentTask(page)).toMatchObject({
+    await expect.poll(() => readLatestAgentTask(page)).toMatchObject({
       rootGoal: "profile_intake",
-      stage: "confirm_commit",
-      completionStatus: "waiting_for_confirmation"
+      stage: "review_facts",
+      completionStatus: "waiting_for_user"
     });
+    await expect(page.getByRole("button", { name: "仅保存资料库", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "生成一份通用简历", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "采用", exact: true })).toBeVisible();
     await expect(page.getByText(/这项任务暂时没有新进展|agent_no_progress|agent_iteration_budget_exceeded/)).toHaveCount(0);
   });
 
@@ -786,6 +787,12 @@ async function routeCompletedIntake(page: Page) {
 
 async function startProfileIntake(page: Page) {
   await page.goto("/profile");
+  await page.waitForTimeout(750);
+  const skipSetup = page.getByRole("button", { name: "跳过，先体验其他功能", exact: true });
+  if (await skipSetup.isVisible().catch(() => false)) {
+    await skipSetup.click();
+    await page.goto("/profile");
+  }
   await expect(page.locator(".ai-asset-content")).toBeVisible();
   await expect(page.getByLabel("选择人物")).toBeVisible();
   await page.goto("/ai-workspace");

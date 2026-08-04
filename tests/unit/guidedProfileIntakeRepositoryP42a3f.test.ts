@@ -34,16 +34,17 @@ describe("P4.2a.3f profile commit and General Resume bootstrap", () => {
       capturedAt: "2026-07-27T10:09:56.725Z"
     });
     const saved = await repository.saveImportedResumeDraft(prepared.draft, 0);
+    const reviewed = await acceptAllCandidates(repository, saved);
     const plan = await repository.reconcileImportedResume({
-      importId: saved.importId,
-      expectedDraftRevision: saved.revision,
+      importId: reviewed.importId,
+      expectedDraftRevision: reviewed.revision,
       profileId: profile.id
     });
     expect(plan.status).toBe("ready");
 
     const committed = await repository.confirmProfileIntake({
-      importId: saved.importId,
-      expectedDraftRevision: saved.revision,
+      importId: reviewed.importId,
+      expectedDraftRevision: reviewed.revision,
       expectedReconciliationRevision: plan.revision,
       targetProfileId: profile.id,
       expectedProfileVersion: profile.version,
@@ -94,14 +95,15 @@ describe("P4.2a.3f profile commit and General Resume bootstrap", () => {
       capturedAt: "2026-07-27T10:09:56.725Z"
     });
     const saved = await repository.saveImportedResumeDraft(prepared.draft, 0);
+    const reviewed = await acceptAllCandidates(repository, saved);
     const plan = await repository.reconcileImportedResume({
-      importId: saved.importId,
-      expectedDraftRevision: saved.revision,
+      importId: reviewed.importId,
+      expectedDraftRevision: reviewed.revision,
       profileId: profile.id
     });
     await repository.confirmProfileIntake({
-      importId: saved.importId,
-      expectedDraftRevision: saved.revision,
+      importId: reviewed.importId,
+      expectedDraftRevision: reviewed.revision,
       expectedReconciliationRevision: plan.revision,
       targetProfileId: profile.id,
       expectedProfileVersion: profile.version,
@@ -378,6 +380,7 @@ describe("P4.2a.3f profile commit and General Resume bootstrap", () => {
       targetProfileId: profile.id,
       expectedProfileVersion: profile.version
     });
+    const firstReviewed = await acceptAllCandidates(repository, await repository.getImportedResumeDraft(first.importId));
     const second = await service.captureProfileIntake({
       sessionId: "session-additive",
       messageId: "message-volunteer",
@@ -387,12 +390,12 @@ describe("P4.2a.3f profile commit and General Resume bootstrap", () => {
       targetProfileId: profile.id,
       expectedProfileVersion: profile.version,
       importId: first.importId,
-      expectedDraftRevision: first.expectedDraftRevision
+      expectedDraftRevision: firstReviewed.revision
     });
     const reloaded = await repository.getImportedResumeDraft(first.importId);
 
     expect(second.importId).toBe(first.importId);
-    expect(second.expectedDraftRevision).toBe(first.expectedDraftRevision + 1);
+    expect(second.expectedDraftRevision).toBe(firstReviewed.revision + 1);
     expect(reloaded?.sections.flatMap((section) => section.items).map((item) => item.structuredItem?.sectionType))
       .toEqual(["project", "volunteer"]);
     expect(reloaded?.sections.flatMap((section) => section.items).flatMap((item) => item.conversationEvidence ?? [])
@@ -437,6 +440,7 @@ describe("P4.2a.3f profile commit and General Resume bootstrap", () => {
       targetProfileId: profile.id,
       expectedProfileVersion: profile.version
     });
+    const firstReviewed = await acceptAllCandidates(repository, await repository.getImportedResumeDraft(first.importId));
     const second = await service.captureProfileIntake({
       sessionId: "session-rich",
       messageId: "message-rich-2",
@@ -446,8 +450,9 @@ describe("P4.2a.3f profile commit and General Resume bootstrap", () => {
       targetProfileId: profile.id,
       expectedProfileVersion: profile.version,
       importId: first.importId,
-      expectedDraftRevision: first.expectedDraftRevision
+      expectedDraftRevision: firstReviewed.revision
     });
+    const secondReviewed = await acceptAllCandidates(repository, await repository.getImportedResumeDraft(second.importId));
     const third = await service.captureProfileIntake({
       sessionId: "session-rich",
       messageId: "message-rich-3",
@@ -457,10 +462,11 @@ describe("P4.2a.3f profile commit and General Resume bootstrap", () => {
       targetProfileId: profile.id,
       expectedProfileVersion: profile.version,
       importId: second.importId,
-      expectedDraftRevision: second.expectedDraftRevision
+      expectedDraftRevision: secondReviewed.revision
     });
+    const thirdReviewed = await acceptAllCandidates(repository, await repository.getImportedResumeDraft(third.importId));
     const draft = await repository.getImportedResumeDraft(first.importId);
-    const artifact = third.artifactPayload;
+    const artifact = thirdReviewed.artifactPayload;
 
     expect([first.candidateCount, second.candidateCount, third.candidateCount]).toEqual([3, 4, 5]);
     expect(draft?.sections.flatMap((section) => section.items)).toHaveLength(5);
@@ -532,6 +538,36 @@ describe("P4.2a.3f profile commit and General Resume bootstrap", () => {
     expect(unchanged?.structuredFacts).toHaveLength(0);
   });
 });
+
+async function acceptAllCandidates(
+  repository: WorkspaceRepository,
+  draft: Awaited<ReturnType<WorkspaceRepository["getImportedResumeDraft"]>>
+) {
+  if (!draft) throw new Error("test_intake_draft_missing");
+  const service = new BrowserAgentToolService(
+    repository,
+    new ProfileIntakeSemanticService(async () => ({
+      ok: false as const,
+      errorCode: "provider_unavailable"
+    }))
+  );
+  const candidateIds = draft.sections.flatMap((section) => section.items.map((item) => item.id));
+  let current = draft;
+  let lastReview: Awaited<ReturnType<BrowserAgentToolService["reviewProfileIntake"]>> | undefined;
+  for (const candidateId of candidateIds) {
+    lastReview = await service.reviewProfileIntake({
+      importId: current.importId,
+      expectedDraftRevision: current.revision,
+      candidateId,
+      decision: "accept"
+    });
+    const next = await repository.getImportedResumeDraft(current.importId);
+    if (!next) throw new Error("test_intake_draft_missing_after_review");
+    current = next;
+  }
+  if (!lastReview) throw new Error("test_intake_candidate_missing");
+  return { ...current, artifactPayload: lastReview.artifactPayload };
+}
 
 function createRepository() {
   db = new CareerAdaptDb(`GuidedProfileIntake-${crypto.randomUUID()}`);

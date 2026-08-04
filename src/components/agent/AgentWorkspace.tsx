@@ -71,6 +71,17 @@ export function AgentWorkspace() {
   const paused = snapshot.turnStatus === "paused";
   const draft = draftsBySession[session.id] ?? "";
   const draftReference = draftReferencesBySession[session.id];
+  const intakeCandidates = Array.isArray(session.taskState?.knownSlots.intakeCandidates)
+    ? session.taskState.knownSlots.intakeCandidates
+    : [];
+  const canFinishIntake = session.taskState?.workflowId === "guided_profile_intake"
+    && session.taskState.stage === "collect_experience"
+    && intakeCandidates.some((candidate) => {
+      const item = candidate && typeof candidate === "object" && !Array.isArray(candidate)
+        ? candidate as Record<string, unknown>
+        : {};
+      return item.decision === "accept" || item.included === true;
+    });
 
   const updateDrawerState = useCallback((next: AgentArtifactDrawerState) => {
     setDrawerState(next);
@@ -128,7 +139,7 @@ export function AgentWorkspace() {
 
   const restoreSession = useCallback((selected: AgentSession) => {
     host.state.adopt(selected);
-    setSession(selected);
+    setSession(host.state.getSnapshot().activeSession ?? selected);
     setHistoryOpen(false);
     window.localStorage.setItem(ACTIVE_SESSION_KEY, selected.id);
   }, [host.state]);
@@ -371,6 +382,8 @@ export function AgentWorkspace() {
             onRemoveReference={() => setSessionDraftReference(undefined)}
             onDraftChange={setSessionDraft}
             onSend={dispatchMessage}
+            canFinish={canFinishIntake}
+            onFinish={() => dispatchMessage("完成整理")}
             onUiAction={dispatchUi}
             onUpload={async (file) => {
               if (

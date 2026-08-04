@@ -112,6 +112,15 @@ function preconditions(toolName: string, state: AgentTaskState) {
       && source.targetProfileId === state.knownSlots.targetProfileId
       && source.expectedProfileVersion === state.knownSlots.expectedProfileVersion;
   }
+  if (toolName === "commit_profile_intake") {
+    return state.workflowId === "guided_profile_intake"
+      && state.stage === "confirm_commit"
+      && state.completionStatus === "active"
+      && state.knownSlots.profileIntakeExplicitCommit === true
+      && has(state, "intakeImportId")
+      && has(state, "expectedIntakeDraftRevision")
+      && has(state, "expectedIntakeReconciliationRevision");
+  }
   if (toolName === "prepare_resume_import") {
     return state.stage === "prepare_import" && Boolean(state.attachment?.id);
   }

@@ -90,14 +90,15 @@ const ProfileIntakeCaptureInputSchema = z.object({
   expectedProfileVersion: z.number().int().min(1),
   acknowledgedActiveProfileId: z.string().min(1).optional(),
   importId: z.string().min(1).optional(),
-  expectedDraftRevision: z.number().int().min(0).optional()
+  expectedDraftRevision: z.number().int().min(0).optional(),
+  sourceContentHash: z.string().min(8).optional()
 }).strict();
 
 const ProfileIntakeReviewInputSchema = z.object({
   importId: z.string().min(1),
   expectedDraftRevision: z.number().int().min(0),
   candidateId: z.string().min(1),
-  decision: z.enum(["accept", "reject"]),
+  decision: z.enum(["accept", "reject", "reopen"]),
   editedLabel: z.string().trim().min(1).max(240).optional(),
   structuredPatch: ProfileIntakeStructuredPatchSchema.optional(),
   evidence: z.object({
@@ -105,7 +106,8 @@ const ProfileIntakeReviewInputSchema = z.object({
     messageId: z.string().min(1),
     turnId: z.string().min(1),
     capturedAt: z.string().datetime({ offset: true }),
-    sourceQuote: z.string().min(1).max(24_000)
+    sourceQuote: z.string().min(1).max(24_000),
+    sourceContentHash: z.string().min(8).optional()
   }).strict().optional()
 }).strict().superRefine((input, context) => {
   if (input.structuredPatch && !input.evidence) {

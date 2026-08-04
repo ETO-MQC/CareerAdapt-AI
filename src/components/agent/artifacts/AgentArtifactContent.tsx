@@ -149,7 +149,8 @@ export function AgentArtifactContent({
                 const outcomes = stringArray(item.outcomes);
                 const sources = stringArray(item.sources);
                 const structuredItem = asRecord(item.structuredItem);
-                const status = intakeStatusLabel(item.status);
+                const accepted = item.decision === "accept" || item.status === "confirmed";
+                const status = intakeStatusLabel(item.status, item.decision);
                 const needsNormalization = item.needsNormalization === true;
                 const canAccept = item.canAccept !== false && !needsNormalization;
                 return (
@@ -180,37 +181,63 @@ export function AgentArtifactContent({
                       <DetailList title="来源" values={sources.length ? sources : ["原始对话已保留"]} />
                     </details>
                     <div className="agent-import-review-actions" aria-label={`${String(item.label ?? "经历")}操作`}>
-                      {needsNormalization ? (
-                        <button type="button" onClick={() => onImportAction?.(`重试整理“${String(item.label ?? "这项经历")}”`)}>重试整理</button>
-                      ) : canAccept ? (
-                        <button type="button" onClick={() => onArtifactAction?.({
-                          type: "profile_intake_candidate_decision",
-                          candidateId: String(item.id),
-                          decision: "accept"
-                        })}>采用</button>
-                      ) : null}
                       {taskState?.knownSlots.intakeImportId && typeof taskState.knownSlots.expectedIntakeDraftRevision === "number" ? (
-                        <IntakeCandidateEditor
-                          item={structuredItem}
-                          label={String(item.label ?? "这项经历")}
-                          onSave={(fieldPatch) => onArtifactAction?.({
-                            type: "profile_intake_candidate_edit",
-                            importId: String(taskState.knownSlots.intakeImportId),
-                            expectedDraftRevision: taskState.knownSlots.expectedIntakeDraftRevision as number,
-                            candidateId: String(item.id),
-                            fieldPatch,
-                            decision: "accept"
-                          })}
-                        />
-                      ) : (
-                        <button type="button" onClick={() => onImportAction?.(`编辑“${String(item.label ?? "这项经历")}”后采用`)}>编辑后采用</button>
-                      )}
-                      <button type="button" onClick={() => onImportAction?.(`补充“${String(item.label ?? "这项经历")}”最有价值的细节`)}>补充细节</button>
-                      <button type="button" onClick={() => onArtifactAction?.({
-                        type: "profile_intake_candidate_decision",
-                        candidateId: String(item.id),
-                        decision: "reject"
-                      })}>忽略</button>
+                        accepted ? (
+                          <>
+                            <IntakeCandidateEditor
+                              key={`${String(item.id)}-${JSON.stringify(structuredItem)}`}
+                              item={structuredItem}
+                              label={String(item.label ?? "这项经历")}
+                              buttonLabel="重新编辑"
+                              onSave={(fieldPatch) => onArtifactAction?.({
+                                type: "profile_intake_candidate_edit",
+                                importId: String(taskState.knownSlots.intakeImportId),
+                                expectedDraftRevision: taskState.knownSlots.expectedIntakeDraftRevision as number,
+                                candidateId: String(item.id),
+                                fieldPatch,
+                                decision: "accept"
+                              })}
+                            />
+                            <button type="button" onClick={() => onArtifactAction?.({
+                              type: "profile_intake_candidate_decision",
+                              candidateId: String(item.id),
+                              decision: "reopen"
+                            })}>撤销采用</button>
+                          </>
+                        ) : (
+                          <>
+                            {needsNormalization ? (
+                              <button type="button" onClick={() => onImportAction?.(`重试整理“${String(item.label ?? "这项经历")}”`)}>重试整理</button>
+                            ) : canAccept ? (
+                              <button type="button" onClick={() => onArtifactAction?.({
+                                type: "profile_intake_candidate_decision",
+                                candidateId: String(item.id),
+                                decision: "accept"
+                              })}>采用</button>
+                            ) : null}
+                            <IntakeCandidateEditor
+                              key={`${String(item.id)}-${JSON.stringify(structuredItem)}`}
+                              item={structuredItem}
+                              label={String(item.label ?? "这项经历")}
+                              buttonLabel="编辑后采用"
+                              onSave={(fieldPatch) => onArtifactAction?.({
+                                type: "profile_intake_candidate_edit",
+                                importId: String(taskState.knownSlots.intakeImportId),
+                                expectedDraftRevision: taskState.knownSlots.expectedIntakeDraftRevision as number,
+                                candidateId: String(item.id),
+                                fieldPatch,
+                                decision: "accept"
+                              })}
+                            />
+                            <button type="button" onClick={() => onImportAction?.(`补充“${String(item.label ?? "这项经历")}”最有价值的细节`)}>补充细节</button>
+                            <button type="button" onClick={() => onArtifactAction?.({
+                              type: "profile_intake_candidate_decision",
+                              candidateId: String(item.id),
+                              decision: "reject"
+                            })}>忽略</button>
+                          </>
+                        )
+                      ) : null}
                     </div>
                   </article>
                 );
@@ -254,6 +281,13 @@ export function AgentArtifactContent({
               ))}
             </ul>
           </details>
+          {taskState?.stage && ["final_review", "resolve_conflicts", "confirm_commit"].includes(taskState.stage) ? (
+            <ProfileIntakeFinalReview
+              taskState={taskState}
+              onImportAction={onImportAction}
+              onArtifactAction={onArtifactAction}
+            />
+          ) : null}
         </section>
       ) : null}
       {taskState?.rootGoal === "import_resume" && Object.keys(importArtifact).length ? (
@@ -523,6 +557,85 @@ function renderValue(value: unknown) {
   return Array.isArray(value) ? value.join("；") : String(value ?? "");
 }
 
+function ProfileIntakeFinalReview({
+  taskState,
+  onImportAction,
+  onArtifactAction
+}: {
+  taskState: AgentTaskState;
+  onImportAction?(message: string): void;
+  onArtifactAction?(action: AgentArtifactAction): Promise<unknown> | void;
+}) {
+  const candidates = arrayOfRecords(taskState.knownSlots.intakeCandidates);
+  const accepted = candidates.filter((item) => item.decision === "accept" || item.included === true);
+  const rejected = candidates.filter((item) => item.decision === "reject").length;
+  const counts = accepted.reduce<Record<string, number>>((result, item) => {
+    const section = String(item.sectionType ?? "other");
+    result[section] = (result[section] ?? 0) + 1;
+    return result;
+  }, {});
+  const reconciliation = asRecord(taskState.knownSlots.intakeReconciliation);
+  const summary = asRecord(reconciliation.summary);
+  const unresolved = Array.isArray(reconciliation.unresolved)
+    ? reconciliation.unresolved.map(asRecord)
+    : [];
+  const profileName = typeof taskState.knownSlots.targetProfileName === "string"
+    ? taskState.knownSlots.targetProfileName
+    : "当前目标资料库";
+
+  return (
+    <section className="agent-final-review" aria-label="最终批量审核">
+      <header>
+        <div>
+          <strong>最终批量审核</strong>
+          <span>本次整理草稿</span>
+        </div>
+        <span className="agent-import-review-state">尚未写入资料库</span>
+      </header>
+      <dl>
+        {Object.entries(counts).map(([section, count]) => (
+          <div key={section}><dt>{sectionTypeLabel(section)}</dt><dd>{count} 项</dd></div>
+        ))}
+        <div><dt>已采用</dt><dd>{accepted.length} 项</dd></div>
+        <div><dt>已忽略</dt><dd>{rejected} 项</dd></div>
+        <div><dt>可能重复</dt><dd>{numberValue(summary.existing ?? summary.duplicates)} 项</dd></div>
+        <div><dt>可能冲突</dt><dd>{numberValue(summary.requiresReview ?? summary.conflicts)} 项</dd></div>
+      </dl>
+      <p>目标资料库：{profileName}</p>
+      <p>将新增或合并的事实：{accepted.length} 项已确认经历；写入前仍会执行一次对账。</p>
+      {unresolved.length ? (
+        <div className="agent-reconciliation-list">
+          {unresolved.map((item) => (
+            <article key={String(item.incomingItemId)}>
+              <div><strong>{String(item.label ?? "待核对内容")}</strong><span>{item.state === "conflict" ? "字段冲突" : "可能重复"}</span></div>
+              <div className="agent-import-review-actions">
+                <button type="button" onClick={() => onArtifactAction?.({
+                  type: "profile_intake_reconciliation_decision",
+                  incomingItemId: String(item.incomingItemId),
+                  resolution: "keep_existing"
+                })}>保留原数据</button>
+                <button type="button" onClick={() => onArtifactAction?.({
+                  type: "profile_intake_reconciliation_decision",
+                  incomingItemId: String(item.incomingItemId),
+                  resolution: "use_imported"
+                })}>采用本次</button>
+                <button type="button" onClick={() => onArtifactAction?.({
+                  type: "profile_intake_reconciliation_decision",
+                  incomingItemId: String(item.incomingItemId),
+                  resolution: "keep_both_as_distinct"
+                })}>视为不同经历</button>
+              </div>
+            </article>
+          ))}
+        </div>
+      ) : null}
+      {taskState.stage === "final_review" ? (
+        <button className="primary-button" type="button" onClick={() => onImportAction?.("完成整理并保存到资料库")}>完成整理并保存到资料库</button>
+      ) : null}
+    </section>
+  );
+}
+
 function TailoringAnswerRecord({
   question,
   skipped,
@@ -648,10 +761,12 @@ function typedResumeFields(item: Record<string, unknown>) {
 function IntakeCandidateEditor({
   item,
   label,
+  buttonLabel = "编辑字段",
   onSave
 }: {
   item: Record<string, unknown>;
   label: string;
+  buttonLabel?: string;
   onSave(patch: ProfileIntakeStructuredPatch): Promise<unknown> | void;
 }) {
   const education = item.sectionType === "education";
@@ -659,27 +774,56 @@ function IntakeCandidateEditor({
     ? ["school", "degree", "major", "startDate", "endDate"]
     : ["title", "name", "organization", "role", "startDate", "endDate"];
   const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string>();
   const [draft, setDraft] = useState<Record<string, string>>(() => Object.fromEntries(fields.map((field) => [field, String(item[field] ?? "")] )));
   if (!editing) {
-    return <button type="button" onClick={() => setEditing(true)}>编辑字段</button>;
+    return <button type="button" onClick={() => { setError(undefined); setEditing(true); }}>{buttonLabel}</button>;
   }
   return (
     <form className="agent-career-asset-editor" onSubmit={(event) => {
       event.preventDefault();
       const patch = Object.fromEntries(Object.entries(draft).filter(([, value]) => value.trim())) as ProfileIntakeStructuredPatch;
       if (!Object.keys(patch).length) return;
-      void onSave(patch);
-      setEditing(false);
+      if (saving) return;
+      setError(undefined);
+      setSaving(true);
+      Promise.resolve(onSave(patch)).then((result) => {
+        if (artifactActionFailed(result)) {
+          setError(artifactActionFeedbackMessage(result) ?? "保存失败，请检查来源证据后重试。");
+          return;
+        }
+        setEditing(false);
+      }).catch(() => setError("保存失败，请重试。"))
+        .finally(() => setSaving(false));
     }}>
       <strong>编辑 {label}</strong>
       {fields.map((field) => (
         <label key={field}>{fieldLabel(field)}
-          <input value={draft[field] ?? ""} onChange={(event) => setDraft((current) => ({ ...current, [field]: event.target.value }))} />
+          <input disabled={saving} value={draft[field] ?? ""} onChange={(event) => setDraft((current) => ({ ...current, [field]: event.target.value }))} />
         </label>
       ))}
-      <div><button type="submit">保存字段</button><button type="button" onClick={() => setEditing(false)}>取消</button></div>
+      <div>
+        <button type="submit" disabled={saving}>{saving ? "正在保存…" : "保存并采用"}</button>
+        <button type="button" disabled={saving} onClick={() => setEditing(false)}>取消</button>
+      </div>
+      {error ? <span className="agent-diff-feedback is-error" role="status">{error}</span> : null}
     </form>
   );
+}
+
+function artifactActionFailed(result: unknown) {
+  const session = asRecord(result);
+  const taskState = asRecord(session.taskState);
+  const feedback = asRecord(taskState.knownSlots && asRecord(taskState.knownSlots).artifactActionFeedback);
+  return ["rejected", "failed", "invalid_target"].includes(String(feedback.result));
+}
+
+function artifactActionFeedbackMessage(result: unknown) {
+  const session = asRecord(result);
+  const taskState = asRecord(session.taskState);
+  const feedback = asRecord(asRecord(taskState.knownSlots).artifactActionFeedback);
+  return typeof feedback.message === "string" ? feedback.message : undefined;
 }
 
 function fieldLabel(field: string) {
@@ -690,7 +834,9 @@ function stringArray(value: unknown) {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string" && Boolean(item.trim())) : [];
 }
 
-function intakeStatusLabel(value: unknown) {
+function intakeStatusLabel(value: unknown, decision?: unknown) {
+  if (decision === "accept") return "已采用";
+  if (decision === "reject") return "已忽略";
   const labels: Record<string, string> = {
     confirmed: "已确认",
     ai_review: "AI 整理待确认",

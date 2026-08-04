@@ -67,7 +67,8 @@ export function classifyTurnIntent(input: {
       : decision("casual_side_turn", "preserve", "none", profileIntakeTurnKind);
   }
   if (profileIntakeTurnKind === "interview_control") {
-    return decision("task_control", "preserve", "none", profileIntakeTurnKind);
+    const toolScope = /^完成整理并保存到资料库[。！!]?$/u.test(text) ? "domain" : "none";
+    return decision("task_control", "preserve", toolScope, profileIntakeTurnKind);
   }
   if (
     profileIntakeTurnKind === "career_narrative"
@@ -141,7 +142,7 @@ export function classifyProfileIntakeTurn(input: {
   ) {
     return "profile_state_question";
   }
-  if (/^(?:继续|完成整理|先不保存|仅保存|不保存|结束访谈|跳过|下一步|继续补充|继续添加|先看看)$/i.test(text.replace(/[。！!？?\s]+$/g, ""))) {
+  if (/^(?:继续|完成整理|完成整理并保存到资料库|先到这里|没有其他经历了|先不保存|仅保存|不保存|结束访谈|跳过|下一步|继续补充|继续添加|先看看|实习经历|项目经历|校园经历|技能或证书)$/i.test(text.replace(/[。！!？?\s]+$/g, ""))) {
     return "interview_control";
   }
   if (/^(?:不是|不对|并非|这条经历不属于我|这不是我的|应为|更正|纠正)/i.test(text) || /不是.+(是|应为)|不属于我/i.test(text)) {
@@ -184,7 +185,8 @@ function expectedProfileIntakeAnswerDimension(taskState: AgentTaskState) {
   const questions = Array.isArray(plan.questions) ? plan.questions : [];
   const activeQuestionId = stringValue(taskState.knownSlots.activeQuestionId);
   const question = questions.map(objectValue).find((item) => item.id === activeQuestionId);
-  return stringValue(question?.expectedAnswerDimension ?? question?.answerType ?? question?.dimension);
+  const activeQuestion = objectValue(plan.activeQuestion);
+  return stringValue(activeQuestion.dimension ?? question?.expectedAnswerDimension ?? question?.answerType ?? question?.dimension);
 }
 
 function newDomainTask(text: string): NonNullable<TurnIntentDecision["newTask"]> {

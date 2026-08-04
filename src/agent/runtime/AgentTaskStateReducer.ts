@@ -35,8 +35,8 @@ export type AgentTaskEvent =
   | { type: "slot_answer"; slot: string; value: unknown }
   | {
       type: "decision_selected";
-      decisionType: "resume_source_route" | "profile_intake_target" | "profile_intake_resume";
-      option: "profile" | "existing_resume" | "switch_to_active" | "keep_original" | "save_profile_only" | "generate_general_resume";
+      decisionType: "resume_source_route" | "profile_intake_target" | "profile_intake_resume" | "profile_intake_post_save";
+      option: "profile" | "existing_resume" | "switch_to_active" | "keep_original" | "save_profile_only" | "generate_general_resume" | "finish";
     }
   | { type: "tool_observation"; toolName: string; observation: unknown; artifactIds?: string[] }
   | { type: "confirmation_requested"; toolName: string; operationId: string }
@@ -166,12 +166,31 @@ export class AgentTaskStateReducer {
           && isProfileIntakeAnswerTurn(acceptedEvidenceKind)
           && hasIntakeEvidence
         );
+        const command = event.message.trim().replace(/[。！!？?\s]+$/g, "");
+        const acceptedCandidateCount = acceptedIntakeCandidateCount(state);
+        if (acceptedCandidateCount > 0 && isProfileIntakeFinishCommand(command)) {
+          state.pendingDecision = undefined;
+          delete state.knownSlots.intakeFollowUpQuestion;
+          if (command === "完成整理并保存到资料库") {
+            state.knownSlots.profileIntakeExplicitCommit = true;
+            state.knownSlots.profileIntakeFinishRequested = true;
+            state.stage = "reconcile_profile";
+            state.completionStatus = "active";
+          } else {
+            state.knownSlots.profileIntakeExplicitCommit = false;
+            state.knownSlots.profileIntakeFinishRequested = false;
+            state.stage = "final_review";
+            state.completionStatus = "waiting_for_user";
+          }
+        }
         if (isIntakeAnswer) {
+          delete state.knownSlots.intakeRequestedSection;
           state.knownSlots.latestIntakeSource = {
             sourceKind: acceptedEvidenceKind,
             sessionId: event.sessionId,
             messageId: event.messageId,
             turnId: event.turnId,
+            sourceContentHash: stableHashText(event.message.trim()),
             exactSourceQuote: event.message,
             capturedAt: event.capturedAt ?? state.updatedAt,
             classifiedAsEvidence: true,
@@ -195,6 +214,7 @@ export class AgentTaskStateReducer {
             sessionId: event.sessionId,
             messageId: event.messageId,
             turnId: event.turnId,
+            sourceContentHash: stableHashText(event.message.trim()),
             exactSourceQuote: event.message,
             capturedAt: event.capturedAt ?? state.updatedAt,
             classifiedAsEvidence: true,
@@ -202,14 +222,14 @@ export class AgentTaskStateReducer {
             intakeQuestionId: stringValue(state.knownSlots.activeQuestionId)
           };
         }
-        if (state.stage === "profile_complete") {
-          if (/仅保存(?:资料库)?|不(?:需要|用)生成(?:通用)?简历/.test(event.message)) {
-            state.pendingDecision = undefined;
-            state.completionStatus = "completed";
-          } else if (/生成(?:一份)?(?:通用)?简历|创建(?:一份)?(?:通用)?简历/.test(event.message)) {
+        if (state.stage === "profile_complete" && state.pendingDecision?.type === "profile_intake_post_save") {
+          if (/生成(?:一份)?(?:通用)?简历|创建(?:一份)?(?:通用)?简历/.test(event.message)) {
             state.pendingDecision = undefined;
             state.stage = "optional_resume_decision";
             state.completionStatus = "active";
+          } else if (/暂时完成|先到这里|完成/.test(event.message)) {
+            state.pendingDecision = undefined;
+            state.completionStatus = "completed";
           }
         }
       }
@@ -268,6 +288,10 @@ export class AgentTaskStateReducer {
         // Commands such as "继续添加经历" ask the interview to continue; they
         // are neither source evidence nor a reason to leave the user-input boundary.
         state.completionStatus = "waiting_for_user";
+      }
+      if (state.workflowId === "guided_profile_intake" && state.stage === "collect_experience") {
+        const requestedSection = intakeSectionFromCommand(event.message.trim().replace(/[。！!？?\s]+$/g, ""));
+        if (requestedSection) state.knownSlots.intakeRequestedSection = requestedSection;
       }
     }
     if (event.type === "attachment_selected") {
@@ -328,6 +352,15 @@ export class AgentTaskStateReducer {
           } else {
             state.stage = "reconcile_profile";
             state.completionStatus = "active";
+          }
+        } else if (event.decisionType === "profile_intake_post_save") {
+          state.pendingDecision = undefined;
+          if (event.option === "generate_general_resume") {
+            state.stage = "optional_resume_decision";
+            state.completionStatus = "active";
+          } else if (event.option === "finish") {
+            state.stage = "profile_complete";
+            state.completionStatus = "completed";
           }
         }
       }
@@ -460,6 +493,7 @@ export class AgentTaskStateReducer {
         state.knownSlots.intakeArtifact = nextArtifact;
         state.knownSlots.intakeInterviewPlan = value.interviewPlan;
         state.knownSlots.intakeFollowUpQuestion = value.followUpQuestion;
+        state.knownSlots.intakeActiveQuestion = objectValue(value.interviewPlan).activeQuestion;
         state.pendingDecision = undefined;
         state.stage = Array.isArray(value.candidates) && value.candidates.length > 0
           ? "review_facts"
@@ -470,59 +504,70 @@ export class AgentTaskStateReducer {
         state.knownSlots.expectedIntakeDraftRevision = value.expectedDraftRevision;
         if (value.interviewPlan) state.knownSlots.intakeInterviewPlan = value.interviewPlan;
         if (value.followUpQuestion) state.knownSlots.intakeFollowUpQuestion = value.followUpQuestion;
+        state.knownSlots.intakeActiveQuestion = objectValue(value.interviewPlan).activeQuestion;
         const candidateId = stringValue(value.candidateId);
-        const decision = value.decision === "accept" || value.decision === "reject"
+        const decision = value.decision === "accept" || value.decision === "reject" || value.decision === "reopen"
           ? value.decision
           : undefined;
         if (candidateId && decision) {
-          const editedLabel = stringValue(value.editedLabel);
           const candidates = Array.isArray(state.knownSlots.intakeCandidates)
             ? state.knownSlots.intakeCandidates.map(objectValue)
             : [];
           const reviewed = candidates.find((candidate) => candidate.id === candidateId);
+          const authoritative = objectValue(value.candidate);
+          const structuredItem = value.structuredItem ?? authoritative.structuredItem ?? reviewed?.structuredItem;
+          const fieldEvidence = Array.isArray(value.fieldEvidence)
+            ? value.fieldEvidence
+            : authoritative.fieldEvidence ?? reviewed?.fieldEvidence;
+          const projected = {
+            ...reviewed,
+            ...authoritative,
+            ...(structuredItem !== undefined ? { structuredItem } : {}),
+            ...(fieldEvidence !== undefined ? { fieldEvidence } : {}),
+            ...(value.editedLabel ? { label: value.editedLabel } : {}),
+            needsConfirmation: decision !== "accept",
+            canAccept: decision !== "accept",
+            decision,
+            included: decision === "accept",
+            status: decision === "accept" ? "confirmed" : "ai_review"
+          };
           state.knownSlots.intakeCandidates = candidates.map((candidate) =>
-            candidate.id === candidateId
-              ? {
-                  ...candidate,
-                  label: editedLabel ?? candidate.label,
-                  needsConfirmation: false,
-                  decision
-                }
-              : candidate
+            candidate.id === candidateId ? projected : candidate
           );
           const artifact = objectValue(state.knownSlots.intakeArtifact);
           const recognized = Array.isArray(artifact.recognized)
             ? artifact.recognized.map(objectValue)
             : [];
+          const artifactCandidates = Array.isArray(artifact.candidates)
+            ? artifact.candidates.map(objectValue)
+            : [];
           state.knownSlots.intakeArtifact = {
             ...artifact,
-            candidates: Array.isArray(artifact.candidates)
-              ? artifact.candidates.map(objectValue)
-                  .filter((item) => decision !== "reject" || item.id !== candidateId)
-                  .map((item) => item.id === candidateId
-                    ? { ...item, label: editedLabel ?? item.label, status: "confirmed" }
-                    : item)
-              : [],
-            recognized: decision === "accept" && reviewed
-              ? [...recognized.filter((item) => item.id !== candidateId), {
-                  id: candidateId,
-                  label: editedLabel ?? reviewed.label
-                }]
+            candidates: artifactCandidates.map((item) => item.id === candidateId ? {
+              ...item,
+              ...projected,
+              structuredItem,
+              fieldEvidence,
+              status: decision === "accept" ? "confirmed" : "ai_review"
+            } : item),
+            recognized: decision === "accept" && projected
+              ? [...recognized.filter((item) => item.id !== candidateId), { id: candidateId, label: projected.label }]
               : recognized.filter((item) => item.id !== candidateId),
             needsConfirmation: Array.isArray(artifact.needsConfirmation)
               ? artifact.needsConfirmation
                   .map(objectValue)
                   .filter((item) => item.id !== candidateId)
+                  .concat(decision === "accept" ? [] : [{
+                    id: candidateId,
+                    label: String(projected.label ?? "待核对经历"),
+                    reason: decision === "reopen" ? "已撤销采用，请重新核对" : "已忽略这项候选"
+                  }])
               : []
           };
         }
-        const unresolved = typeof value.unresolvedCount === "number" ? value.unresolvedCount : 0;
-        const hasInterviewPlan = Boolean(state.knownSlots.intakeInterviewPlan);
-        state.stage = unresolved > 0 ? "review_facts" : hasInterviewPlan ? "collect_experience" : "reconcile_profile";
-        state.pendingDecision = unresolved > 0 || hasInterviewPlan
-          ? unresolved > 0 ? undefined : { type: "profile_intake_resume", options: ["save_profile_only", "generate_general_resume"] }
-          : undefined;
-        state.completionStatus = unresolved > 0 || hasInterviewPlan ? "waiting_for_user" : "active";
+        state.pendingDecision = undefined;
+        state.stage = "collect_experience";
+        state.completionStatus = "waiting_for_user";
       } else if (event.toolName === "reconcile_profile_intake") {
         const value = objectValue(event.observation);
         const summary = objectValue(value.summary);
@@ -571,25 +616,14 @@ export class AgentTaskStateReducer {
         state.knownSlots.targetProfileId = profileId;
         state.knownSlots.expectedProfileVersion = profileVersion;
         state.knownSlots.profileCommitResult = event.observation;
-        const finishDecision = state.knownSlots.profileIntakeFinishDecision;
-        if (finishDecision === "save_profile_only") {
-          state.stage = "profile_complete";
-          state.completionStatus = "completed";
-          state.pendingDecision = undefined;
-        } else if (finishDecision === "generate_general_resume") {
-          state.stage = "optional_resume_decision";
-          state.completionStatus = "active";
-          state.pendingDecision = undefined;
-        } else {
-          state.pendingDecision = {
-            type: "profile_intake_resume",
-            options: ["save_profile_only", "generate_general_resume"]
-          };
-          state.pendingDecision = undefined;
-          delete state.knownSlots.profileIntakeFinishDecision;
-          state.stage = "profile_complete";
-          state.completionStatus = "waiting_for_user";
-        }
+        delete state.knownSlots.profileIntakeExplicitCommit;
+        delete state.knownSlots.profileIntakeFinishRequested;
+        state.pendingDecision = {
+          type: "profile_intake_post_save",
+          options: ["generate_general_resume", "finish"]
+        };
+        state.stage = "profile_complete";
+        state.completionStatus = "waiting_for_user";
       } else if (event.toolName === "ensure_general_resume_from_profile") {
         const value = objectValue(event.observation);
         const resumeId = stringValue(value.resumeId);
@@ -746,6 +780,27 @@ function isProfileIntakeAnswerTurn(kind: ProfileIntakeTurnKind) {
   return kind === "career_narrative" || kind === "follow_up_answer";
 }
 
+function isProfileIntakeFinishCommand(command: string) {
+  return ["完成整理", "先到这里", "没有其他经历了", "结束访谈", "完成整理并保存到资料库"].includes(command);
+}
+
+function intakeSectionFromCommand(command: string) {
+  if (/实习经历/u.test(command)) return "internship";
+  if (/项目经历/u.test(command)) return "project";
+  if (/校园经历/u.test(command)) return "campus";
+  if (/技能(?:或证书)?|证书/u.test(command)) return "skills";
+  if (/奖项经历/u.test(command)) return "awards";
+  if (/证书经历/u.test(command)) return "certificates";
+  return undefined;
+}
+
+function acceptedIntakeCandidateCount(state: AgentTaskState) {
+  const candidates = Array.isArray(state.knownSlots.intakeCandidates)
+    ? state.knownSlots.intakeCandidates.map(objectValue)
+    : [];
+  return candidates.filter((candidate) => candidate.decision === "accept" || candidate.included === true).length;
+}
+
 function effectiveProfileIntakeEvidenceKind(kind: ProfileIntakeTurnKind, message: string): ProfileIntakeTurnKind {
   return kind === "correction" && hasExplicitCorrectionReplacement(message) ? "follow_up_answer" : kind;
 }
@@ -791,7 +846,10 @@ function resetProfileIntakeDraft(state: AgentTaskState) {
     "intakeCandidates",
     "intakeArtifact",
     "intakeInterviewPlan",
+    "intakeActiveQuestion",
     "intakeFollowUpQuestion",
+    "profileIntakeExplicitCommit",
+    "profileIntakeFinishRequested",
     "profileIntakeFinishDecision",
     "intakeReconciliation",
     "expectedIntakeReconciliationRevision",
@@ -1247,7 +1305,7 @@ function observeProfileIntakeTarget(state: AgentTaskState, authority: {
 
 function resolveProfileIntakeTargetDecision(
   state: AgentTaskState,
-  option: "profile" | "existing_resume" | "switch_to_active" | "keep_original" | "save_profile_only" | "generate_general_resume"
+  option: "profile" | "existing_resume" | "switch_to_active" | "keep_original" | "save_profile_only" | "generate_general_resume" | "finish"
 ) {
   const pending = objectValue(state.knownSlots.pendingProfileTarget);
   const target = option === "switch_to_active"

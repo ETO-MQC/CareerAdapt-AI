@@ -354,6 +354,7 @@ describe("P4.2a.3f guided profile intake intent authority", () => {
       sessionId: "session-real-regression",
       messageId: "message-long-answer",
       turnId: "turn-long-answer",
+      sourceContentHash: expect.any(String),
       capturedAt: "2026-07-27T10:09:56.725Z"
     }]);
 
@@ -497,12 +498,12 @@ describe("P4.2a.3f guided profile intake intent authority", () => {
     });
 
     expect(reviewed).toMatchObject({
-      stage: "reconcile_profile",
-      completionStatus: "active",
+      stage: "collect_experience",
+      completionStatus: "waiting_for_user",
       knownSlots: {
         intakeArtifact: {
           recognized: [],
-          needsConfirmation: []
+        needsConfirmation: [expect.objectContaining({ id: "candidate-deep-tutor" })]
         }
       }
     });
@@ -686,8 +687,8 @@ describe("P4.2a.3f guided profile intake intent authority", () => {
       stage: "profile_complete",
       completionStatus: "waiting_for_user",
       pendingDecision: {
-        type: "profile_intake_resume",
-        options: ["save_profile_only", "generate_general_resume"]
+        type: "profile_intake_post_save",
+        options: ["generate_general_resume", "finish"]
       }
     }, {
       type: "user_message",

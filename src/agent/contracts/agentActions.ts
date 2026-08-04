@@ -28,7 +28,7 @@ export const AgentArtifactActionSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("profile_intake_candidate_decision"),
     candidateId: z.string().min(1),
-    decision: z.enum(["accept", "reject"])
+    decision: z.enum(["accept", "reject", "reopen"])
   }).strict(),
   z.object({
     type: z.literal("resume_import_review_decision"),
@@ -63,6 +63,11 @@ export const AgentArtifactActionSchema = z.discriminatedUnion("type", [
       message: "profile intake candidate edit requires at least one field"
     }),
     decision: z.literal("accept")
+  }).strict(),
+  z.object({
+    type: z.literal("profile_intake_reconciliation_decision"),
+    incomingItemId: z.string().min(1),
+    resolution: z.enum(["keep_existing", "use_imported", "keep_both_as_distinct"])
   }).strict()
 ]);
 
@@ -71,14 +76,15 @@ export const AgentOptionActionSchema = z.union([
   AgentUiActionSchema,
   z.object({
     type: z.literal("task_decision"),
-    decisionType: z.enum(["resume_source_route", "profile_intake_target", "profile_intake_resume"]),
+    decisionType: z.enum(["resume_source_route", "profile_intake_target", "profile_intake_resume", "profile_intake_post_save"]),
     option: z.enum([
       "profile",
       "existing_resume",
       "switch_to_active",
       "keep_original",
       "save_profile_only",
-      "generate_general_resume"
+      "generate_general_resume",
+      "finish"
     ])
   }).strict(),
   z.object({

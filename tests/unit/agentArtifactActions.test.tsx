@@ -19,6 +19,8 @@ describe("Agent artifact decisions", () => {
         taskState={{
           rootGoal: "profile_intake",
           knownSlots: {
+            intakeImportId: "import-tidenote",
+            expectedIntakeDraftRevision: 1,
             intakeArtifact: {
               recognized: [],
               needsConfirmation: [{
@@ -56,6 +58,8 @@ describe("Agent artifact decisions", () => {
         taskState={{
           rootGoal: "profile_intake",
           knownSlots: {
+            intakeImportId: "import-raw",
+            expectedIntakeDraftRevision: 1,
             intakeArtifact: {
               candidates: [{
                 id: "candidate-tidenote",
@@ -103,6 +107,8 @@ describe("Agent artifact decisions", () => {
         taskState={{
           rootGoal: "profile_intake",
           knownSlots: {
+            intakeImportId: "import-raw",
+            expectedIntakeDraftRevision: 1,
             intakeArtifact: {
               candidates: [{
                 id: "candidate-raw",

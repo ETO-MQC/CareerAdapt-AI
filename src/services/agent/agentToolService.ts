@@ -50,7 +50,6 @@ import {
 import { ProfileIntakeSemanticService } from "@/domain/profileIntake/ProfileIntakeSemanticService";
 import {
   applyProfileIntakeStructuredPatch,
-  profileIntakeDisplayLabel,
   profileIntakeCareerReadyText,
   validateProfileIntakeStructuredPatch,
   type ProfileIntakeStructuredPatch
@@ -163,6 +162,7 @@ export class BrowserAgentToolService implements AgentToolServices {
       acknowledgedActiveProfileId?: string;
       importId?: string;
       expectedDraftRevision?: number;
+      sourceContentHash?: string;
     };
     await assertActiveProfileBinding(this.repository, input);
     const profile = await this.repository.getProfile(input.targetProfileId);
@@ -170,6 +170,7 @@ export class BrowserAgentToolService implements AgentToolServices {
     if (profile.version !== input.expectedProfileVersion) {
       throw toolError("profile_intake_stale_profile", "资料库已更新，请先基于最新版本重新对账。");
     }
+    const sourceContentHash = input.sourceContentHash ?? stableHashText(input.text.trim());
     const existing = input.importId
       ? await this.repository.getImportedResumeDraft(input.importId)
       : undefined;
@@ -179,6 +180,34 @@ export class BrowserAgentToolService implements AgentToolServices {
     if (existing && existing.revision !== input.expectedDraftRevision) {
       throw toolError("profile_intake_stale_revision", "访谈草稿已更新，请刷新后继续补充。");
     }
+    const identityMatch = (draft: ImportedResumeDraft | undefined) => {
+      if (!draft || draft.sourceKind !== "conversation") return false;
+      if (
+        draft.source.sourceSessionId === input.sessionId
+        && draft.source.sourceMessageId === input.messageId
+        && draft.source.sourceTurnId === input.turnId
+        && draft.source.sourceContentHash === sourceContentHash
+      ) return true;
+      return draft.sections.some((section) => section.items.some((item) =>
+        item.conversationEvidence?.some((evidence) =>
+          evidence.sessionId === input.sessionId
+          && evidence.messageId === input.messageId
+          && evidence.turnId === input.turnId
+          && evidence.sourceContentHash === sourceContentHash
+        )
+      ));
+    };
+    const existingByIdentity = existing
+      ? existing
+      : await this.repository.findConversationIntakeBySourceIdentity({
+          sessionId: input.sessionId,
+          messageId: input.messageId,
+          turnId: input.turnId,
+          sourceContentHash
+        });
+    if (identityMatch(existingByIdentity)) {
+      return captureProfileIntakeObservation(existingByIdentity!, profile, true);
+    }
     const semanticResult = await this.profileIntakeSemantic.normalize({
       rawNarrative: input.text,
       existingDraft: existing,
@@ -186,51 +215,18 @@ export class BrowserAgentToolService implements AgentToolServices {
     });
     const adapted = adaptConversationMessageToIntakeDraft({
       ...input,
+      sourceContentHash,
       importId: existing?.importId,
       semanticResult
     });
-    const sameSourceExisting = existing
-      ? undefined
-      : await this.repository.getImportedResumeDraft(adapted.draft.importId);
     const nextDraft = existing
       ? mergeConversationIntakeDraft(existing, adapted.draft)
       : adapted.draft;
-    const saved = sameSourceExisting ?? await this.repository.saveImportedResumeDraft(
+    const saved = await this.repository.saveImportedResumeDraft(
       nextDraft,
       existing?.revision ?? 0
     );
-    const allCandidates = saved.sections.flatMap((section) => section.items.map((item) => ({
-        id: item.id,
-        sectionType: item.structuredItem?.sectionType ?? section.sectionType,
-        label: item.structuredItem
-          ? profileIntakeDisplayLabel(item.structuredItem, item.itemLabel ?? section.detectedTitle)
-          : item.itemLabel ?? section.detectedTitle,
-        sourceQuote: item.sourceQuote ?? item.rawText,
-        structuredItem: item.structuredItem,
-        fieldEvidence: item.careerNormalization?.fieldEvidence ?? [],
-        needsNormalization: item.careerNormalization?.needsNormalization === true,
-        canAccept: Boolean(item.structuredItem) && item.careerNormalization?.needsNormalization !== true,
-        needsConfirmation: item.sourceStatus === "ambiguous",
-        reason: item.careerNormalization?.needsNormalization
-          ? "AI 语义整理暂不可用，原始回答已保留，请重试或手动核对"
-          : undefined
-      })));
-    const structuredItems = saved.sections.flatMap((section) => section.items.flatMap((item) => item.structuredItem ? [item.structuredItem] : []));
-    const interviewPlan = createProfileIntakeInterviewPlan(structuredItems, saved.revision);
-    const followUpQuestion = interviewPlan.questions.find((question) => question.status === "pending")?.question
-      ?? semanticResult.followUpQuestion;
-    return {
-      importId: saved.importId,
-      expectedDraftRevision: saved.revision,
-      targetProfileId: profile.id,
-      expectedProfileVersion: profile.version,
-      candidateCount: allCandidates.length,
-      needsConfirmationCount: allCandidates.filter((candidate) => candidate.needsConfirmation).length,
-      candidates: allCandidates,
-      followUpQuestion,
-      interviewPlan,
-      artifactPayload: buildConversationIntakeArtifact(saved, followUpQuestion, interviewPlan)
-    };
+    return captureProfileIntakeObservation(saved, profile, false, semanticResult.followUpQuestion);
   }
 
   async reviewProfileIntake(rawInput: unknown, signal?: AbortSignal) {
@@ -239,7 +235,7 @@ export class BrowserAgentToolService implements AgentToolServices {
       importId: string;
       expectedDraftRevision: number;
       candidateId: string;
-      decision: "accept" | "reject";
+      decision: "accept" | "reject" | "reopen";
       editedLabel?: string;
       structuredPatch?: ProfileIntakeStructuredPatch;
       evidence?: {
@@ -248,6 +244,7 @@ export class BrowserAgentToolService implements AgentToolServices {
         turnId: string;
         capturedAt: string;
         sourceQuote: string;
+        sourceContentHash?: string;
       };
     };
     const draft = await this.repository.getImportedResumeDraft(input.importId);
@@ -317,8 +314,15 @@ export class BrowserAgentToolService implements AgentToolServices {
             : item.normalizedText,
           structuredItem,
           included: input.decision === "accept",
-          sourceStatus: "user_confirmed_modified" as const,
-          userEdited: true,
+          userConfirmed: input.decision === "accept"
+            ? true
+            : input.decision === "reject"
+              ? false
+              : undefined,
+          sourceStatus: input.decision === "reject"
+            ? "ambiguous" as const
+            : "user_confirmed_modified" as const,
+          userEdited: Boolean(editedLabel || input.structuredPatch),
           pageRefs: followUpEvidence
             ? [...item.pageRefs, { pageNumber: 1, quote: followUpEvidence.sourceQuote }]
             : item.pageRefs,
@@ -352,18 +356,33 @@ export class BrowserAgentToolService implements AgentToolServices {
     );
     const unresolved = saved.sections.flatMap((section) => section.items)
       .filter((item) => item.sourceStatus === "ambiguous").length;
-    const structuredItems = saved.sections.flatMap((section) => section.items.flatMap((item) => item.structuredItem ? [item.structuredItem] : []));
+    const savedItem = saved.sections
+      .flatMap((section) => section.items)
+      .find((item) => item.id === input.candidateId);
+    const structuredItems = saved.sections.flatMap((section) => section.items.flatMap((item) =>
+      item.userConfirmed === true && item.structuredItem ? [item.structuredItem] : []
+    ));
     const interviewPlan = createProfileIntakeInterviewPlan(structuredItems, saved.revision);
+    const artifact = buildConversationIntakeArtifact(
+      saved,
+      interviewPlan.activeQuestion?.question,
+      interviewPlan
+    );
+    const authoritativeCandidate = artifact.candidates.find((candidate) => candidate.id === input.candidateId);
     return {
       importId: saved.importId,
       expectedDraftRevision: saved.revision,
       candidateId: input.candidateId,
       decision: input.decision,
+      structuredItem: savedItem?.structuredItem,
+      fieldEvidence: savedItem?.careerNormalization?.fieldEvidence ?? [],
+      candidate: authoritativeCandidate,
       editedLabel: input.editedLabel?.trim(),
       patchedFields: input.structuredPatch ? Object.keys(input.structuredPatch) : [],
       unresolvedCount: unresolved,
-      followUpQuestion: interviewPlan.questions.find((question) => question.status === "pending")?.question,
-      interviewPlan
+      followUpQuestion: interviewPlan.activeQuestion?.question,
+      interviewPlan,
+      artifactPayload: artifact
     };
   }
 
@@ -1299,6 +1318,33 @@ function profileSummaryCounts(profile: Parameters<typeof canonicalProfileLibrary
     experienceCount: items.filter((item) => experienceSections.has(item.sectionType)).length,
     skillCount: items.filter((item) => item.sectionType === "skills" || item.sectionType === "languages").length,
     certificateCount: items.filter((item) => item.sectionType === "certificates").length
+  };
+}
+
+function captureProfileIntakeObservation(
+  draft: ImportedResumeDraft,
+  profile: { id: string; version: number },
+  idempotent: boolean,
+  fallbackFollowUpQuestion?: string
+) {
+  const acceptedStructuredItems = draft.sections.flatMap((section) => section.items.flatMap((item) =>
+    item.userConfirmed === true && item.structuredItem ? [item.structuredItem] : []
+  ));
+  const interviewPlan = createProfileIntakeInterviewPlan(acceptedStructuredItems, draft.revision);
+  const followUpQuestion = interviewPlan.activeQuestion?.question ?? fallbackFollowUpQuestion;
+  const artifactPayload = buildConversationIntakeArtifact(draft, followUpQuestion, interviewPlan);
+  return {
+    importId: draft.importId,
+    expectedDraftRevision: draft.revision,
+    targetProfileId: profile.id,
+    expectedProfileVersion: profile.version,
+    candidateCount: artifactPayload.candidates.length,
+    needsConfirmationCount: artifactPayload.needsConfirmation.length,
+    candidates: artifactPayload.candidates,
+    followUpQuestion,
+    interviewPlan,
+    artifactPayload,
+    idempotent
   };
 }
 

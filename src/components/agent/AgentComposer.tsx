@@ -33,6 +33,8 @@ export function AgentComposer(props: {
   onRemoveReference?(): void;
   onDraftChange?(value: string): void;
   onSend(message: string): Promise<void> | void;
+  canFinish?: boolean;
+  onFinish?(): Promise<void> | void;
   onUiAction?(action: AgentUiAction): void;
   onUpload(file: File): Promise<"ready" | "partial" | void> | "ready" | "partial" | void;
   onStop?(): void;
@@ -182,6 +184,11 @@ export function AgentComposer(props: {
           <button type="button" onClick={() => props.onUiAction?.({ type: "open_tool_palette" })}>
             <Wrench aria-hidden="true" /><span>工具</span>
           </button>
+          {props.canFinish ? (
+            <button type="button" disabled={props.disabled} onClick={() => void props.onFinish?.()}>
+              <span>完成整理</span>
+            </button>
+          ) : null}
         </div>
         <div className="agent-composer-submit">
           <span>{props.aiStatus ?? (props.queuedCount

@@ -200,7 +200,7 @@ export class AgentKernel {
           && taskState.knownSlots.profileCommitResult
         ) {
           const text = taskState.completionStatus === "waiting_for_user"
-            ? "资料已成功保存到个人资料库。你可以选择仅保存资料库，或继续生成一份通用简历。"
+            ? "资料已保存到个人资料库。你可以生成一份通用简历，也可以暂时完成。"
             : "资料已成功保存到个人资料库。个人资料库已更新，未自动创建其他简历。";
           await publishFinalStream(text, input, { turnId, iterationId });
           trajectory.finish(taskState.completionStatus === "completed" ? "completed" : "waiting_for_user");
@@ -332,6 +332,8 @@ export class AgentKernel {
                   toolName: validated.tool.name,
                   toolInput: validated.input,
                   operationId,
+                  confirmed: validated.tool.name === "commit_profile_intake"
+                    && taskState.knownSlots.profileIntakeExplicitCommit === true,
                   signal: input.signal
                 });
               if (!cached) this.observationCache.set(validated.tool.name, validated.input, result);
@@ -785,6 +787,7 @@ function bindAuthoritativeTaskInput(
         turnId: source.turnId,
         text: source.exactSourceQuote,
         capturedAt: source.capturedAt,
+        sourceContentHash: source.sourceContentHash,
         targetProfileId: slots.targetProfileId,
         expectedProfileVersion: slots.expectedProfileVersion,
         acknowledgedActiveProfileId: slots.acknowledgedActiveProfileId,
@@ -814,7 +817,8 @@ function bindAuthoritativeTaskInput(
             messageId: clarification.messageId,
             turnId: clarification.turnId,
             capturedAt: clarification.capturedAt,
-            sourceQuote: clarification.exactSourceQuote
+            sourceQuote: clarification.exactSourceQuote,
+            sourceContentHash: clarification.sourceContentHash
           }
         } : {})
       }
@@ -1360,6 +1364,7 @@ function deterministicBoundaryTool(
     taskState.workflowId === "guided_profile_intake"
     && taskState.stage === "reconcile_profile"
     && taskState.completionStatus === "active"
+    && taskState.knownSlots.profileIntakeFinishRequested === true
     && taskState.knownSlots.intakeImportId
     && allowedTools.some((tool) => tool.name === "reconcile_profile_intake")
   ) {
@@ -1376,6 +1381,7 @@ function deterministicBoundaryTool(
     && ["accept_all", "ignore_uncertain"].includes(String(taskState.knownSlots.reviewDecision))
     ? "review_resume_import"
     : taskState.workflowId === "guided_profile_intake" && taskState.stage === "confirm_commit"
+      && taskState.knownSlots.profileIntakeExplicitCommit === true
     ? "commit_profile_intake"
     : taskState.workflowId === "guided_profile_intake" && taskState.stage === "optional_resume_decision"
       ? "ensure_general_resume_from_profile"
@@ -1435,15 +1441,32 @@ function deterministicWorkflowPause(
   }
   if (
     taskState.workflowId === "guided_profile_intake"
+    && taskState.stage === "final_review"
+  ) {
+    return "本次整理已进入最终批量审核。请在右侧确认将要合并的事实；确认无误后点击“完成整理并保存到资料库”。";
+  }
+  if (
+    taskState.workflowId === "guided_profile_intake"
     && taskState.stage === "collect_experience"
-    && taskState.pendingDecision?.type === "profile_intake_resume"
+    && Array.isArray(taskState.knownSlots.intakeCandidates)
   ) {
     const interviewPlan = objectValue(taskState.knownSlots.intakeInterviewPlan);
-    const question = Array.isArray(interviewPlan.questions)
-      ? objectValue(interviewPlan.questions.find((item) => objectValue(item).status === "pending"))
-      : {};
-    const followUp = typeof question.question === "string" ? question.question : "资料已经整理好。";
-    return `${followUp}\n\n你可以继续补充其他经历，也可以选择“仅保存资料库”或“生成一份通用简历”。`;
+    const requestedSection = typeof taskState.knownSlots.intakeRequestedSection === "string"
+      ? taskState.knownSlots.intakeRequestedSection
+      : undefined;
+    if (requestedSection) {
+      return `好的，我们继续补充${profileIntakeSectionLabel(requestedSection)}。请告诉我这段经历的名称、你承担的角色、主要工作和结果。`;
+    }
+    const activeQuestion = objectValue(interviewPlan.activeQuestion);
+    const question = typeof activeQuestion.question === "string"
+      ? activeQuestion.question
+      : Array.isArray(interviewPlan.questions)
+        ? objectValue(interviewPlan.questions.find((item) => objectValue(item).status === "pending")).question
+        : undefined;
+    if (typeof question === "string" && question) {
+      return `这项经历已记录到本次整理草稿中。为了让它更适合真实复用，我先问一个高价值细节：\n\n${question}`;
+    }
+    return "教育背景已记录到本次整理草稿中。\n\n接下来你想补充：实习经历、项目经历、校园经历、技能或证书，还是完成整理？";
   }
   if (
     afterToolOrResume
@@ -1554,6 +1577,17 @@ function deterministicWorkflowPause(
       ? "导入目标已记录为新建职业资料库；完成核对后我会再确认资料库名称。"
       : "";
   return `${targetLabel}请在导入核对卡中审核待确认资料；只有你明确作出采用或忽略决定后，流程才会继续，当前不会写入资料库。`;
+}
+
+function profileIntakeSectionLabel(section: string) {
+  return ({
+    internship: "实习经历",
+    project: "项目经历",
+    campus: "校园经历",
+    skills: "技能或证书",
+    awards: "奖项经历",
+    certificates: "证书经历"
+  } as Record<string, string>)[section] ?? "下一段经历";
 }
 
 async function emit(

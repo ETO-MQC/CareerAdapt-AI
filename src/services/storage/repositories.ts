@@ -846,6 +846,41 @@ export class WorkspaceRepository {
     return stored ? ImportedResumeDraftSchema.parse(stored.value) : undefined;
   }
 
+  async findConversationIntakeBySourceIdentity(input: {
+    sessionId: string;
+    messageId: string;
+    turnId: string;
+    sourceContentHash: string;
+  }) {
+    const rows = await this.db.appMeta
+      .where("key")
+      .startsWith(IMPORTED_RESUME_DRAFT_KEY_PREFIX)
+      .toArray();
+    const drafts = rows
+      .map((row) => ImportedResumeDraftSchema.safeParse(row.value))
+      .filter((result): result is { success: true; data: ImportedResumeDraft } => result.success)
+      .map((result) => result.data)
+      .filter((draft) => draft.sourceKind === "conversation")
+      .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+    return drafts.find((draft) => {
+      const source = draft.source;
+      if (
+        source.sourceSessionId === input.sessionId
+        && source.sourceMessageId === input.messageId
+        && source.sourceTurnId === input.turnId
+        && source.sourceContentHash === input.sourceContentHash
+      ) return true;
+      return draft.sections.some((section) => section.items.some((item) =>
+        item.conversationEvidence?.some((evidence) =>
+          evidence.sessionId === input.sessionId
+          && evidence.messageId === input.messageId
+          && evidence.turnId === input.turnId
+          && evidence.sourceContentHash === input.sourceContentHash
+        )
+      ));
+    });
+  }
+
   async getLatestImportedResumeDraft() {
     const rows = await this.db.appMeta
       .where("key")

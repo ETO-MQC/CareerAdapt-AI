@@ -18,11 +18,12 @@ const jobReadTools = ["list_jobs", "get_job"];
 const readTools = [...profileReadTools, ...resumeReadTools, ...jobReadTools];
 
 export const agentWorkflowRegistry: Record<string, AgentWorkflowDefinition> = {
-  guided_profile_intake: workflow("guided_profile_intake", "resolve_profile_target", ["resolve_profile_target", "collect_experience", "structure_facts", "review_facts", "reconcile_profile", "resolve_conflicts", "confirm_commit", "profile_complete", "optional_resume_decision", "resume_ready"], {
+  guided_profile_intake: workflow("guided_profile_intake", "resolve_profile_target", ["resolve_profile_target", "collect_experience", "structure_facts", "review_facts", "final_review", "reconcile_profile", "resolve_conflicts", "confirm_commit", "profile_complete", "optional_resume_decision", "resume_ready"], {
     resolve_profile_target: profileReadTools,
     collect_experience: profileReadTools,
     structure_facts: [...profileReadTools, "capture_profile_intake"],
     review_facts: [...profileReadTools, "review_profile_intake"],
+    final_review: [],
     reconcile_profile: ["reconcile_profile_intake"],
     resolve_conflicts: ["resolve_profile_intake_conflict"],
     confirm_commit: ["commit_profile_intake"],
@@ -33,6 +34,9 @@ export const agentWorkflowRegistry: Record<string, AgentWorkflowDefinition> = {
     resolve_profile_target: ["open_profile_browser"],
     collect_experience: ["open_profile_browser"],
     review_facts: ["open_profile_browser"],
+    final_review: ["open_artifact"],
+    reconcile_profile: ["open_artifact"],
+    resolve_conflicts: ["open_artifact"],
     confirm_commit: ["open_profile_browser"],
     optional_resume_decision: ["open_artifact"]
   }, []),

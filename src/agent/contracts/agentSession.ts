@@ -105,14 +105,15 @@ export const AgentDependencySnapshotSchema = z.object({
 }).strict();
 
 export const AgentPendingDecisionSchema = z.object({
-  type: z.enum(["resume_source_route", "profile_intake_target", "profile_intake_resume"]),
+  type: z.enum(["resume_source_route", "profile_intake_target", "profile_intake_resume", "profile_intake_post_save"]),
   options: z.array(z.enum([
     "profile",
     "existing_resume",
     "switch_to_active",
     "keep_original",
     "save_profile_only",
-    "generate_general_resume"
+    "generate_general_resume",
+    "finish"
   ])).min(2).max(2)
 }).strict();
 

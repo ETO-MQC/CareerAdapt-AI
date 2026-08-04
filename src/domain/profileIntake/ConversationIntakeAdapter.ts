@@ -16,6 +16,7 @@ export type ConversationIntakeCandidate = {
   needsConfirmation: boolean;
   reason?: string;
   status: "confirmed" | "ai_review" | "insufficient";
+  decision?: "accept" | "reject";
   professionalDescription: string;
 };
 
@@ -27,6 +28,7 @@ export type ConversationIntakeArtifact = {
     id: string;
     sectionType: ConversationIntakeCandidate["sectionType"];
     label: string;
+    sourceQuote: string;
     time?: string;
     organization?: string;
     role?: string;
@@ -41,6 +43,7 @@ export type ConversationIntakeArtifact = {
     needsNormalization: boolean;
     canAccept: boolean;
     structuredItem?: unknown;
+    decision?: "accept" | "reject";
     fieldEvidence?: Array<{ field: string; sourceQuote: string; support: string; confidence: number; needsConfirmation: boolean }>;
   }>;
   recognized: Array<{ id: string; label: string }>;
@@ -51,6 +54,7 @@ export type ConversationIntakeArtifact = {
     sessionId: string;
     messageId: string;
     turnId: string;
+    sourceContentHash: string;
     capturedAt: string;
   }>;
 };
@@ -61,6 +65,7 @@ export function adaptConversationMessageToIntakeDraft(input: {
   turnId: string;
   text: string;
   capturedAt: string;
+  sourceContentHash?: string;
   importId?: string;
   semanticResult?: ProfileIntakeSemanticResult;
 }): {
@@ -70,6 +75,7 @@ export function adaptConversationMessageToIntakeDraft(input: {
 } {
   const text = input.text.trim();
   if (!text) throw new Error("profile_intake_source_empty");
+  const sourceContentHash = input.sourceContentHash ?? stableHashText(text);
   const shortHash = stableHashText(`${input.sessionId}:${input.messageId}:${text}`);
   const hash = `${shortHash}${stableHashText(`${text}:${input.turnId}`)}`;
   const importId = input.importId ?? `conversation-intake-${hash.slice(0, 20)}`;
@@ -86,8 +92,10 @@ export function adaptConversationMessageToIntakeDraft(input: {
     }]
   };
   const candidates: ConversationIntakeCandidate[] = semanticResult.candidates.map((candidate) => {
-    const label = candidate.normalization.structuredItem
-      ? profileIntakeDisplayLabel(candidate.normalization.structuredItem, candidate.label)
+    const label = candidate.normalization.needsNormalization
+      ? candidate.label
+      : candidate.normalization.structuredItem
+        ? profileIntakeDisplayLabel(candidate.normalization.structuredItem, candidate.label)
       : candidate.label;
     return {
       id: candidate.id,
@@ -104,6 +112,7 @@ export function adaptConversationMessageToIntakeDraft(input: {
       status: candidate.normalization.needsNormalization
         ? "insufficient"
         : candidate.normalization.needsConfirmation ? "ai_review" : "confirmed",
+      decision: undefined,
       professionalDescription: candidate.normalization.normalizedText
     };
   });
@@ -114,14 +123,15 @@ export function adaptConversationMessageToIntakeDraft(input: {
     sectionType: candidate.sectionType,
     category: candidateCategory(candidate.sectionType),
     detectedTitle: candidate.label,
-    included: !candidate.needsConfirmation,
+    // Candidate review is deliberately separate from Profile persistence.
+    included: false,
     order,
     confidence: candidate.needsConfirmation ? "low" as const : "high" as const,
     items: [{
       id: candidate.id,
       rawText: candidate.sourceQuote,
       normalizedText: normalized.normalizedText,
-      included: !candidate.needsConfirmation,
+      included: false,
       order: 0,
       pageRefs: [{ pageNumber: 1, quote: candidate.sourceQuote }],
       confidence: candidate.needsConfirmation ? "low" as const : "high" as const,
@@ -136,6 +146,7 @@ export function adaptConversationMessageToIntakeDraft(input: {
         sessionId: input.sessionId,
         messageId: input.messageId,
         turnId: input.turnId,
+        sourceContentHash,
         capturedAt: input.capturedAt,
         sourceQuote: candidate.sourceQuote,
         supportedFields: normalized.fieldEvidence.map((item) => item.field)
@@ -164,6 +175,7 @@ export function adaptConversationMessageToIntakeDraft(input: {
       fileName: `conversation-${input.messageId}.txt`,
       mimeType: "application/x-careeradapt-conversation",
       fileHash: hash,
+      sourceContentHash,
       normalizedTextHash: stableHashText(text),
       pageCount: 1,
       extractedAt: input.capturedAt
@@ -218,8 +230,10 @@ export function buildConversationIntakeArtifact(
       : item.sourceStatus === "ambiguous"
         ? "ai_review" as const
         : item.included ? "confirmed" as const : "ai_review" as const;
-    const label = structuredItem
-      ? profileIntakeDisplayLabel(structuredItem, item.itemLabel ?? section.detectedTitle)
+    const label = item.careerNormalization?.needsNormalization
+      ? item.itemLabel ?? section.detectedTitle
+      : structuredItem
+        ? profileIntakeDisplayLabel(structuredItem, item.itemLabel ?? section.detectedTitle)
       : item.itemLabel ?? section.detectedTitle;
     const candidate: ConversationIntakeArtifact["candidates"][number] = structuredItem
       ? artifactCandidate({
@@ -233,6 +247,7 @@ export function buildConversationIntakeArtifact(
             ? "AI 语义整理暂不可用，原始回答已保留，请重试或手动核对"
             : status === "ai_review" ? "AI 已整理，但有信息需要确认" : undefined,
           status,
+          decision: item.userConfirmed === true ? "accept" : item.userConfirmed === false ? "reject" : undefined,
           professionalDescription: item.normalizedText
         }, {
           sectionType: structuredItem.sectionType,
@@ -248,6 +263,7 @@ export function buildConversationIntakeArtifact(
           id: item.id,
           sectionType: conversationSectionType(section.sectionType),
           label,
+          sourceQuote: item.sourceQuote ?? item.rawText,
           professionalDescription: item.normalizedText,
           highlights: [],
           toolsOrMethods: [],
@@ -256,6 +272,7 @@ export function buildConversationIntakeArtifact(
           status,
           confidence: 0.5,
           needsNormalization,
+          decision: item.userConfirmed === true ? "accept" : item.userConfirmed === false ? "reject" : undefined,
           canAccept: false
         };
     const fallbackDates = item.careerNormalization?.deterministicDatePatch;
@@ -280,7 +297,13 @@ export function buildConversationIntakeArtifact(
       reason: reason ?? "名称或表述需要确认"
     }));
   const sources = entries.flatMap(({ item }) => item.conversationEvidence ?? [])
-    .map(({ sessionId, messageId, turnId, capturedAt }) => ({ sessionId, messageId, turnId, capturedAt }))
+    .map(({ sessionId, messageId, turnId, sourceContentHash, capturedAt }) => ({
+      sessionId,
+      messageId,
+      turnId,
+      sourceContentHash: sourceContentHash ?? stableHashText(`${sessionId}:${messageId}:${turnId}`),
+      capturedAt
+    }))
     .filter((source, index, all) =>
       all.findIndex((candidate) =>
         candidate.sessionId === source.sessionId
@@ -384,7 +407,8 @@ function artifactCandidate(
   return {
     id: candidate.id,
     sectionType: candidate.sectionType,
-    label: profileIntakeDisplayLabel(item, candidate.label),
+    label: normalized.needsNormalization ? candidate.label : profileIntakeDisplayLabel(item, candidate.label),
+    sourceQuote: candidate.sourceQuote,
     time: date,
     organization,
     role,
@@ -399,6 +423,7 @@ function artifactCandidate(
     needsNormalization: normalized.needsNormalization,
     canAccept: Boolean(normalized.structuredItem) && !normalized.needsNormalization,
     structuredItem: item,
+    decision: candidate.decision,
     fieldEvidence: normalized.fieldEvidence
   };
 }

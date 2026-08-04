@@ -47,10 +47,18 @@ export type ProfileIntakeInterviewQuestion = {
 };
 
 export type ProfileIntakeInterviewPlan = {
-  planVersion: 1;
+  planVersion: 2;
   status: "awaiting_follow_up" | "ready_to_finish";
   sourceRevision: number;
   coveredSections: ResumeSectionTypeV2[];
+  activeQuestion?: {
+    candidateId: string;
+    dimension: CareerAssetDimension;
+    question: string;
+    status: "pending" | "answered" | "skipped";
+  };
+  suggestedNextSections: Array<ResumeSectionTypeV2 | "finish">;
+  // Kept as compatibility projections for persisted sessions and older UI.
   suggestedNextSection?: ResumeSectionTypeV2;
   activeQuestionId?: string;
   answeredQuestionIds: string[];
@@ -192,54 +200,51 @@ function sectionPriority(
 export function highestValueFollowUp(items: ResumeItemV2[]) {
   return items
     .map((item) => ({ item, assessment: assessCareerAssetCompleteness(item) }))
-    .filter(({ assessment }) => assessment.nextQuestion)
+    .filter(({ assessment }) => assessment.nextQuestion && isHighValueFollowUp(assessment.missing[0]))
     .sort((left, right) => left.assessment.utility - right.assessment.utility)[0]
     ?.assessment.nextQuestion;
 }
 
 export function createProfileIntakeInterviewPlan(items: ResumeItemV2[], sourceRevision: number): ProfileIntakeInterviewPlan {
   const coveredSections = [...new Set(items.map((item) => item.sectionType))];
-  const nextSection = (["education", "internship", "work", "project", "research", "skills", "awards", "certificates", "languages"] as const)
-    .find((section) => !coveredSections.includes(section));
+  const nextSections = (["internship", "project", "campus", "skills", "awards", "certificates"] as const)
+    .filter((section) => !coveredSections.includes(section));
+  const nextSection = nextSections[0];
   const candidate = items[0];
   if (!candidate) {
     return {
-      planVersion: 1,
+      planVersion: 2,
       status: "ready_to_finish",
       sourceRevision,
       coveredSections,
+      suggestedNextSections: ["finish"],
       answeredQuestionIds: [],
       skippedQuestionIds: [],
       questions: []
     };
   }
-  const question = nextSection
-    ? {
-        questionId: `profile-intake-section-${stableHashText(`${candidate.id}:${nextSection}`).slice(0, 12)}`,
-        candidateId: candidate.id,
-        sectionType: candidate.sectionType,
-        dimension: "section_progression" as const,
-        question: `“${displayIdentity(candidate)}”已经整理好。接下来你想先补充哪一类经历？`,
-        status: "pending" as const,
-        sourceRevision
-      }
-    : (() => {
-        const detail = highestValueFollowUpDetail(items);
-        return detail ? {
-          questionId: `profile-intake-detail-${stableHashText(`${detail.item.id}:${detail.dimension}`).slice(0, 12)}`,
-          candidateId: detail.item.id,
-          sectionType: detail.item.sectionType,
-          dimension: detail.dimension,
-          question: detail.question,
-          status: "pending" as const,
-          sourceRevision
-        } : undefined;
-      })();
+  const detail = highestValueFollowUpDetail(items);
+  const question = detail ? {
+    questionId: `profile-intake-detail-${stableHashText(`${detail.item.id}:${detail.dimension}`).slice(0, 12)}`,
+    candidateId: detail.item.id,
+    sectionType: detail.item.sectionType,
+    dimension: detail.dimension,
+    question: detail.question,
+    status: "pending" as const,
+    sourceRevision
+  } : undefined;
   return {
-    planVersion: 1,
+    planVersion: 2,
     status: question ? "awaiting_follow_up" : "ready_to_finish",
     sourceRevision,
     coveredSections,
+    activeQuestion: question ? {
+      candidateId: question.candidateId,
+      dimension: question.dimension as CareerAssetDimension,
+      question: question.question,
+      status: question.status
+    } : undefined,
+    suggestedNextSections: [...nextSections, "finish"],
     suggestedNextSection: nextSection,
     activeQuestionId: question?.questionId,
     answeredQuestionIds: [],
@@ -251,7 +256,7 @@ export function createProfileIntakeInterviewPlan(items: ResumeItemV2[], sourceRe
 function highestValueFollowUpDetail(items: ResumeItemV2[]) {
   return items
     .map((item) => ({ item, assessment: assessCareerAssetCompleteness(item) }))
-    .filter(({ assessment }) => assessment.nextQuestion)
+    .filter(({ assessment }) => assessment.nextQuestion && isHighValueFollowUp(assessment.missing[0]))
     .sort((left, right) => right.assessment.utility - left.assessment.utility)[0]
     ? (() => {
         const selected = items
@@ -263,6 +268,17 @@ function highestValueFollowUpDetail(items: ResumeItemV2[]) {
           : undefined;
       })()
     : undefined;
+}
+
+function isHighValueFollowUp(dimension: CareerAssetDimension | undefined) {
+  return Boolean(dimension && ![
+    "coursework_honors",
+    "scope",
+    "collaboration",
+    "publication",
+    "credential_status",
+    "test_score"
+  ].includes(dimension));
 }
 
 function itemText(item: ResumeItemV2) {

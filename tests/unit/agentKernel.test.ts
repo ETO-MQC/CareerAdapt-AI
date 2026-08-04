@@ -349,7 +349,7 @@ describe("AgentKernel", () => {
     const base = AgentRuntime.create("guided_profile_intake", "collect_experience");
     const taskState = {
       ...reducer.create(base, "profile_intake"),
-      stage: "collect_experience",
+      stage: "review_facts",
       completionStatus: "active" as const,
       selectedEntities: { profileId: "profile-1" }
     };
@@ -462,7 +462,7 @@ describe("AgentKernel", () => {
     expect(result.trajectory.outcome).toBe("waiting_for_confirmation");
   });
 
-  it("creates the profile intake confirmation deterministically at the confirmation boundary", async () => {
+  it("does not turn a confirmation boundary into a commit without the explicit final action", async () => {
     const model = scriptedModel({ stopReason: "final", text: "不应由模型只输出一句请确认。" });
     const { kernel } = harness(model);
     const reducer = new AgentTaskStateReducer();
@@ -496,18 +496,9 @@ describe("AgentKernel", () => {
       taskEventAlreadyReduced: true
     });
 
-    expect(model.completeWithTools).not.toHaveBeenCalled();
-    expect(result.pendingConfirmation).toMatchObject({
-      toolName: "commit_profile_intake",
-      title: "确认写入个人资料库"
-    });
-    expect(result.pendingCall?.input).toMatchObject({
-      importId: "intake-1",
-      expectedDraftRevision: 1,
-      expectedReconciliationRevision: 1,
-      targetProfileId: "profile-1",
-      expectedProfileVersion: 1
-    });
+    expect(result.pendingConfirmation).toBeUndefined();
+    expect(result.taskState?.stage).toBe("confirm_commit");
+    expect(model.completeWithTools).toHaveBeenCalled();
   });
 
   it("finishes profile commit messaging without another model request", async () => {
@@ -544,7 +535,7 @@ describe("AgentKernel", () => {
     });
 
     expect(model.completeWithTools).not.toHaveBeenCalled();
-    expect(result.text).toContain("资料已成功保存");
+    expect(result.text).toContain("资料已保存到个人资料库");
     expect(result.trajectory.outcome).toBe("waiting_for_user");
     expect(result.taskState?.completionStatus).toBe("waiting_for_user");
   });
@@ -757,7 +748,7 @@ describe("AgentKernel", () => {
       editedLabel: "Smart Focus AI"
     }, undefined);
     expect(result.taskState).toMatchObject({
-      stage: "review_facts",
+      stage: "collect_experience",
       knownSlots: {
         expectedIntakeDraftRevision: 2,
         intakeArtifact: {

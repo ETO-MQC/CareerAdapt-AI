@@ -286,6 +286,7 @@ export const ConversationIntakeEvidenceSchema = z.object({
   sessionId: z.string().min(1),
   messageId: z.string().min(1),
   turnId: z.string().min(1),
+  sourceContentHash: z.string().min(8).optional(),
   capturedAt: IsoDateStringSchema,
   sourceQuote: z.string().min(1),
   supportedFields: z.array(z.string().min(1)).default([])
@@ -396,6 +397,7 @@ export const ImportedResumeSourceSchema = z.object({
     "application/x-careeradapt-conversation"
   ]),
   fileHash: z.string().min(16),
+  sourceContentHash: z.string().min(8).optional(),
   normalizedTextHash: z.string().min(8).optional(),
   pageCount: z.number().int().min(1),
   extractedAt: IsoDateStringSchema

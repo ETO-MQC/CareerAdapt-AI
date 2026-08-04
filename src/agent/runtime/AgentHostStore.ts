@@ -147,18 +147,21 @@ export class AgentHostStore {
     const recoveredThinking = enforceExactlyOneFinal(recoverOrphanedThinking(migrated));
     const { session: recoverable, pendingInputs } = recoverPersistedQueuedInputs(recoveredThinking);
     if (pendingInputs.length) this.pendingInputs.set(recoverable.id, pendingInputs);
-    if (JSON.stringify(recoverable) !== JSON.stringify(session)) void this.dependencies.persistence.save(recoverable);
+    const restorable = recoverable.taskState
+      ? attachTaskStateOptions(recoverable, recoverable.taskState)
+      : recoverable;
+    if (JSON.stringify(restorable) !== JSON.stringify(session)) void this.dependencies.persistence.save(restorable);
     this.patch({
-      activeSessionId: recoverable.id,
-      activeSession: recoverable,
-      activeTask: recoverable.taskState,
-      pendingConfirmation: recoverable.pendingConfirmation,
-      artifacts: recoverable.artifactRefs,
-      turnStatus: recoverable.pendingConfirmation ? "waiting_for_confirmation" : "idle",
+      activeSessionId: restorable.id,
+      activeSession: restorable,
+      activeTask: restorable.taskState,
+      pendingConfirmation: restorable.pendingConfirmation,
+      artifacts: restorable.artifactRefs,
+      turnStatus: restorable.pendingConfirmation ? "waiting_for_confirmation" : "idle",
       stalled: false,
       pendingInputCount: pendingInputs.length
     });
-    if (pendingInputs.length && !recoverable.pendingConfirmation) void this.drainPendingInput(recoverable.id);
+    if (pendingInputs.length && !restorable.pendingConfirmation) void this.drainPendingInput(restorable.id);
   }
 
   setPaused(paused: boolean) {
@@ -229,6 +232,7 @@ export class AgentHostStore {
         userMessageId: prepared.userMessageId,
         assistantMessageId: input.messageId,
         appendUserMessage: false,
+        regenerateNarrationOnly: prepared.regenerateNarrationOnly,
         pageContext: context.pageContext,
         supersede: true
       });
@@ -360,6 +364,7 @@ export class AgentHostStore {
     references?: AgentMessageReference[];
     typedTask?: QuickActionIntent["task"];
     supersede?: boolean;
+    regenerateNarrationOnly?: boolean;
   }) {
     if (input.session.pendingConfirmation && input.session.pendingToolCall) {
       input.session = invalidatePendingConfirmationForCorrection(input.session);
@@ -409,7 +414,8 @@ export class AgentHostStore {
           }
         }
       : classifiedTurn;
-    const checkpointedSession = turnDecision.toolScope === "domain" || turnDecision.taskMutation !== "preserve"
+    const checkpointedSession = !input.regenerateNarrationOnly
+      && (turnDecision.toolScope === "domain" || turnDecision.taskMutation !== "preserve")
       ? withTurnCheckpoint(input.session, turnId, userMessageId, now)
       : input.session;
     let current = input.appendUserMessage === false
@@ -460,7 +466,9 @@ export class AgentHostStore {
     const presentedQuestion = presentedActiveTailoringQuestion(input.session);
     let deterministicTailoringAnswer = false;
     let taskState = current.taskState ?? reducer.create(current);
-    if (turnDecision.taskMutation !== "preserve") {
+    const shouldReduceProfileIntakeControl = input.session.taskState?.workflowId === "guided_profile_intake"
+      && turnDecision.profileIntakeTurnKind === "interview_control";
+    if ((turnDecision.taskMutation !== "preserve" || shouldReduceProfileIntakeControl) && !input.regenerateNarrationOnly) {
       if (turnDecision.taskMutation === "replace" && turnDecision.newTask) {
         taskState = reducer.reduce(taskState, {
           type: "new_root_task",
@@ -879,7 +887,8 @@ export class AgentHostStore {
       switch_to_active: "写入当前活动资料库",
       keep_original: "继续写入原资料库",
       save_profile_only: "仅保存资料库",
-      generate_general_resume: "生成一份通用简历"
+      generate_general_resume: "生成一份通用简历",
+      finish: "暂时完成"
     };
     const reducer = new AgentTaskStateReducer();
     const taskState = reducer.reduce(session.taskState, {
@@ -971,6 +980,7 @@ export class AgentHostStore {
       artifactIds: result.artifactIds
     });
     let current = projectTaskStateIntoSession(session, taskState);
+    current = attachTaskStateOptions(current, taskState);
     const observation = objectValue(result.data);
     if (observation.idempotent !== true) {
       current = upsertAgentActivity(current, {
@@ -1051,6 +1061,17 @@ export class AgentHostStore {
       message: artifactActionCompletedLabel(action).replace(/[。.]$/u, ""),
       retryable: false
     });
+    if (shouldNarrateProfileIntakeContinuation(session.taskState, action, taskState)) {
+      current = appendAgentMessage(current, "assistant", profileIntakeContinuationNarration(), {
+        id: `agent-profile-intake-continuation-${operationId}`,
+        turnId,
+        kind: "text",
+        type: "text",
+        status: "complete",
+        language: "zh",
+        metadata: { profileIntakeContinuation: true }
+      });
+    }
     // Artifact decisions can create a typed task decision without another
     // model turn (for example, accepting the last intake candidate). Keep
     // that decision visible immediately instead of leaving the user with an
@@ -1931,7 +1952,8 @@ function attachPendingDecisionOptions(
       switch_to_active: "写入当前资料库",
       keep_original: "继续写入原资料库",
       save_profile_only: "仅保存资料库",
-      generate_general_resume: "生成一份通用简历"
+      generate_general_resume: "生成一份通用简历",
+      finish: "暂时完成"
     }[option],
     action: {
       type: "task_decision",
@@ -1953,7 +1975,10 @@ function attachPendingDecisionOptions(
 
 function attachTaskStateOptions(session: AgentSession, state: AgentTaskState) {
   const assistantIndex = session.messages.findLastIndex((message) =>
-    message.role === "assistant" && message.status === "complete" && message.metadata?.retracted !== true
+    message.role === "assistant"
+      && message.kind !== "assistant_thinking"
+      && message.status === "complete"
+      && message.metadata?.retracted !== true
   );
   if (assistantIndex < 0) return session;
   let options: AgentOption[] | undefined;
@@ -1986,15 +2011,43 @@ function attachTaskStateOptions(session: AgentSession, state: AgentTaskState) {
           }] : [])
         : undefined;
     }
+  } else if (state.workflowId === "guided_profile_intake" && state.stage === "collect_experience") {
+    const plan = objectValue(state.knownSlots.intakeInterviewPlan);
+    const suggested = Array.isArray(plan.suggestedNextSections)
+      ? plan.suggestedNextSections.filter((section): section is string => typeof section === "string")
+      : [];
+    const sectionLabels: Record<string, string> = {
+      internship: "实习经历",
+      project: "项目经历",
+      campus: "校园经历",
+      skills: "技能或证书",
+      awards: "奖项经历",
+      certificates: "证书经历",
+      finish: "完成整理"
+    };
+    options = suggested.flatMap((section) => sectionLabels[section]
+      ? [{
+          id: `profile-intake-section-${section}`,
+          label: sectionLabels[section],
+          action: { type: "answer" as const, field: "profile-intake-section", value: sectionLabels[section] }
+        }]
+      : []);
   }
   if (!options?.length && !metadata) return session;
   return {
     ...session,
-    messages: session.messages.map((message, index) => index === assistantIndex ? {
-      ...message,
-      options: options?.length ? options : message.options,
-      metadata: { ...message.metadata, ...metadata }
-    } : message)
+    messages: session.messages.map((message, index) => {
+      if (index === assistantIndex) {
+        return {
+          ...message,
+          options: options?.length ? options : message.options,
+          metadata: { ...message.metadata, ...metadata }
+        };
+      }
+      return message.role === "assistant" && message.options
+        ? { ...message, options: undefined }
+        : message;
+    })
   };
 }
 
@@ -2400,6 +2453,7 @@ export function prepareSessionForAssistantRegeneration(
     .findLastIndex((message) => message.role === "user");
   const userMessage = userIndex >= 0 ? session.messages[userIndex] : undefined;
   if (!userMessage?.content.trim()) return undefined;
+  const profileIntakeNarrationOnly = session.taskState?.rootGoal === "profile_intake";
   const now = new Date().toISOString();
   const checkpoint = session.turnCheckpoints.findLast((item) => item.userMessageId === userMessage.id);
   if (!checkpoint && isUnsafeLegacyDomainRegeneration(session, targetIndex)) {
@@ -2418,7 +2472,7 @@ export function prepareSessionForAssistantRegeneration(
   return {
     session: {
       ...session,
-      ...(checkpoint ? {
+      ...(checkpoint && !profileIntakeNarrationOnly ? {
         taskState: checkpoint.taskStateBefore,
         workflowState: checkpoint.workflowStateBefore,
         artifactRefs: checkpoint.artifactRefsBefore,
@@ -2438,14 +2492,29 @@ export function prepareSessionForAssistantRegeneration(
           : message
       ),
       conversationSummary: "",
-      pendingConfirmation: checkpoint?.pendingConfirmationBefore,
-      pendingToolCall: checkpoint?.pendingToolCallBefore,
+      pendingConfirmation: profileIntakeNarrationOnly ? session.pendingConfirmation : checkpoint?.pendingConfirmationBefore,
+      pendingToolCall: profileIntakeNarrationOnly ? session.pendingToolCall : checkpoint?.pendingToolCallBefore,
       activeTurn: undefined,
       updatedAt: now
     },
     userMessageId: userMessage.id,
-    userMessage: userMessage.content
+    userMessage: userMessage.content,
+    regenerateNarrationOnly: profileIntakeNarrationOnly
   };
+}
+
+function shouldNarrateProfileIntakeContinuation(
+  previousState: AgentTaskState | undefined,
+  action: AgentArtifactAction,
+  nextState: AgentTaskState
+) {
+  if (nextState.workflowId !== "guided_profile_intake" || nextState.stage !== "collect_experience") return false;
+  if (action.type === "profile_intake_candidate_decision") return action.decision === "accept";
+  return action.type === "profile_intake_candidate_edit" && previousState?.stage === "review_facts";
+}
+
+function profileIntakeContinuationNarration() {
+  return "教育背景已记录到本次整理草稿中。\n\n接下来你想补充：实习经历、项目经历、校园经历、技能或证书，还是完成整理？";
 }
 
 function isUnsafeLegacyDomainRegeneration(session: AgentSession, targetIndex: number) {
@@ -2666,13 +2735,16 @@ function artifactActionRevision(
         ? state.knownSlots.expectedDraftRevision
         : action.type === "tailoring_answer_edit" || action.type === "tailoring_regenerate" || action.type === "tailoring_diff_decision"
           ? objectValue(state.knownSlots.tailoringSession).revision
-          : state.knownSlots.expectedReconciliationRevision;
+          : action.type === "profile_intake_reconciliation_decision"
+            ? state.knownSlots.expectedIntakeReconciliationRevision
+            : state.knownSlots.expectedReconciliationRevision;
   return typeof value === "number" ? value : undefined;
 }
 
 function artifactActionEntityId(action: AgentArtifactAction) {
   if (action.type === "profile_intake_candidate_decision") return action.candidateId;
   if (action.type === "profile_intake_candidate_edit") return action.candidateId;
+  if (action.type === "profile_intake_reconciliation_decision") return action.incomingItemId;
   if (action.type === "resume_import_reconciliation_decision") return action.incomingItemId;
   if (action.type === "tailoring_answer_edit") return action.questionId;
   if (action.type === "tailoring_regenerate") return "regenerate";
@@ -2710,6 +2782,8 @@ function artifactActionOperationId(session: AgentSession, action: AgentArtifactA
         ? "edit"
       : action.type === "profile_intake_candidate_decision" || action.type === "resume_import_review_decision"
         ? action.decision
+        : action.type === "profile_intake_reconciliation_decision"
+          ? action.resolution
         : action.resolution;
   const editedValueHash = action.type === "tailoring_diff_decision" && action.editedValue !== undefined
     ? stableHashText(JSON.stringify(action.editedValue))
@@ -2808,15 +2882,14 @@ function artifactActionExecution(
     const candidates = Array.isArray(state.knownSlots.intakeCandidates)
       ? state.knownSlots.intakeCandidates.map(objectValue)
       : [];
+    const candidate = candidates.find((item) => item.id === action.candidateId);
+    const accepted = candidate?.decision === "accept" || candidate?.included === true;
     if (
-      state.stage !== "review_facts"
-      || !candidates.some((candidate) =>
-        candidate.id === action.candidateId
-        && (
-          action.decision === "reject"
-          || (candidate.needsNormalization !== true && candidate.canAccept !== false)
-        )
-      )
+      state.stage !== "review_facts" && !(state.stage === "collect_experience" && action.decision === "reopen")
+      || !candidate
+      || action.decision === "accept" && (accepted || candidate.needsNormalization === true || candidate.canAccept === false)
+      || action.decision === "reject" && !accepted && candidate.decision === "reject"
+      || action.decision === "reopen" && !accepted
       || typeof state.knownSlots.intakeImportId !== "string"
       || typeof state.knownSlots.expectedIntakeDraftRevision !== "number"
     ) {
@@ -2838,8 +2911,9 @@ function artifactActionExecution(
       ? state.knownSlots.intakeCandidates.map(objectValue)
       : [];
     const candidate = candidates.find((item) => item.id === action.candidateId);
+    const candidateAccepted = candidate?.decision === "accept" || candidate?.included === true;
     if (
-      state.stage !== "review_facts"
+      (state.stage !== "review_facts" && !(state.stage === "collect_experience" && candidateAccepted))
       || !candidate
       || state.knownSlots.intakeImportId !== action.importId
       || state.knownSlots.expectedIntakeDraftRevision !== action.expectedDraftRevision
@@ -2861,8 +2935,32 @@ function artifactActionExecution(
           messageId: source.messageId,
           turnId: source.turnId,
           capturedAt: source.capturedAt,
-          sourceQuote
+          sourceQuote,
+          sourceContentHash: typeof source.sourceContentHash === "string" ? source.sourceContentHash : undefined
         }
+      }
+    };
+  }
+  if (action.type === "profile_intake_reconciliation_decision") {
+    if (
+      state.stage !== "resolve_conflicts"
+      || typeof state.knownSlots.intakeImportId !== "string"
+      || typeof state.knownSlots.expectedIntakeReconciliationRevision !== "number"
+    ) return undefined;
+    const reconciliation = objectValue(state.knownSlots.intakeReconciliation);
+    const unresolved = Array.isArray(reconciliation.unresolved)
+      ? reconciliation.unresolved.map(objectValue)
+      : [];
+    if (!unresolved.some((item) => item.incomingItemId === action.incomingItemId)) return undefined;
+    return {
+      toolName: "resolve_profile_intake_conflict",
+      decision: action.resolution,
+      toolInput: {
+        importId: state.knownSlots.intakeImportId,
+        expectedPlanRevision: state.knownSlots.expectedIntakeReconciliationRevision,
+        incomingItemId: action.incomingItemId,
+        resolution: action.resolution,
+        targetProfileId: state.knownSlots.targetProfileId
       }
     };
   }
@@ -2916,8 +3014,13 @@ function artifactActionCompletedLabel(action: AgentArtifactAction) {
   if (action.type === "tailoring_regenerate") return "已重新生成修改建议。";
   if (action.type === "profile_intake_candidate_edit") return "已保存这项类型化字段编辑，并保留原始来源证据。";
   if (action.type === "profile_intake_candidate_decision") {
-    return action.decision === "accept" ? "已采用这项经历候选。" : "已忽略这项经历候选。";
+    return action.decision === "accept"
+      ? "已采用这项经历候选。"
+      : action.decision === "reopen"
+        ? "已撤销采用，可以重新核对这项经历。"
+        : "已忽略这项经历候选。";
   }
+  if (action.type === "profile_intake_reconciliation_decision") return "已记录这项资料冲突的处理决定。";
   if (action.type === "resume_import_review_decision") {
     return action.decision === "accept_all" ? "已采用来源明确的导入内容。" : "已忽略不确定的导入内容。";
   }
