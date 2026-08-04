@@ -319,7 +319,11 @@ function AgentMessageRow({
               onConfirm={() => onConfirmation?.(true)}
             />
           ) : null}
-          {message.options?.length && !message.metadata?.typedActionResolution ? (
+          {message.options?.length
+            && message.optionSet?.state !== "resolved"
+            && message.optionSet?.state !== "superseded"
+            && message.optionSet?.state !== "stale"
+            && !message.metadata?.typedActionResolution ? (
             <div className="agent-message-options" aria-label="可选回答">
               {message.options.map((option) => (
                 <button key={option.id} type="button" onClick={() => onOption?.(option)}>
@@ -369,7 +373,7 @@ function AgentTypedActionResolution({ message }: { message: AgentMessage }) {
   if (!resolution || typeof resolution !== "object") return null;
   const record = resolution as Record<string, unknown>;
   const label = typeof record.label === "string" ? record.label : "已记录选择";
-  return <div className="agent-typed-action-resolution" role="status">✓ {label}</div>;
+  return <div className="agent-typed-action-resolution" role="status">{record.actionType === "profile_intake_section_select" ? label : `✓ ${label}`}</div>;
 }
 
 function AgentAvatar({ role }: { role: "assistant" | "user" }) {

@@ -1,6 +1,18 @@
 import { z } from "zod";
 import { ProfileIntakeStructuredPatchSchema } from "@/domain/profileIntake/ProfileIntakeNormalizer";
 
+export const ProfileIntakeSectionSchema = z.enum([
+  "internship",
+  "project",
+  "campus",
+  "skills",
+  "awards",
+  "certificates",
+  "finish"
+]);
+
+export type ProfileIntakeSection = z.infer<typeof ProfileIntakeSectionSchema>;
+
 export const AgentWorkflowControlSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("start_workflow"), workflowId: z.string().min(1) }).strict(),
   z.object({ type: z.literal("switch_workflow"), workflowId: z.string().min(1), preserveCurrent: z.boolean() }).strict(),
@@ -92,6 +104,12 @@ export const AgentOptionActionSchema = z.union([
     entityType: z.enum(["job", "resume"]),
     entityId: z.string().min(1),
     candidateSetRevision: z.string().min(1)
+  }).strict(),
+  z.object({
+    type: z.literal("profile_intake_section_select"),
+    section: ProfileIntakeSectionSchema,
+    sourceMessageId: z.string().min(1),
+    optionSetRevision: z.number().int().min(0)
   }).strict(),
   z.object({ type: z.literal("retry_current_step") }).strict(),
   z.object({ type: z.literal("new_tailoring_task") }).strict(),

@@ -1,0 +1,28 @@
+{
+  "source": "P4.3e.3 synthetic conversation branch regression fixture",
+  "profileIntakeSectionOptions": [
+    "internship",
+    "project",
+    "campus",
+    "skills",
+    "awards",
+    "certificates",
+    "finish"
+  ],
+  "workflowMatrix": [
+    "profile-intake-section-click",
+    "profile-intake-project-capture",
+    "retry-current-step",
+    "user-edit-new-branch",
+    "assistant-regenerate-narration-only",
+    "stale-option-after-boundary"
+  ],
+  "branchAssertions": {
+    "oldDescendantsExcluded": true,
+    "oldBranchPreserved": true,
+    "newUserIdOnEdit": true,
+    "regenerationUsesExactlyOneProviderRequest": true,
+    "regenerationUsesNoTools": true,
+    "retractedOnlyContextForbidden": true
+  }
+}

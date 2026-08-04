@@ -6,7 +6,8 @@ import {
   shouldAutoNameAgentSession,
   type AgentMessageReference,
   type AgentSession,
-  type AgentTaskState
+  type AgentTaskState,
+  type AgentOptionSet
 } from "@/agent/contracts/agentSession";
 import type { AgentPageContext } from "@/agent/contracts/agentContext";
 import type { AgentStreamEvent } from "@/agent/runtime/agentSse";
@@ -17,7 +18,8 @@ import type {
   AgentArtifactAction,
   AgentOption,
   AgentUiAction,
-  AgentWorkflowControl
+  AgentWorkflowControl,
+  ProfileIntakeSection
 } from "@/agent/contracts/agentActions";
 import { AgentTaskStateReducer, dependencySnapshot } from "./AgentTaskStateReducer";
 import { appendAgentMessage, replaceAgentThinking, upsertAgentActivity } from "./AgentSessionMessages";
@@ -31,6 +33,7 @@ import { agentAttachmentStore, type AgentAttachmentRef } from "@/services/agent/
 import { agentImportProgressBus } from "@/services/agent/AgentImportProgressBus";
 import { classifyProfileIntakeTurn, classifyTurnIntent, type TurnIntentDecision } from "./AgentTurnIntent";
 import { stableHashText } from "@/services/security/text";
+import { forkConversationBranch } from "./activeBranchContext";
 import type { AgentQuickActionId, QuickActionIntent } from "@/agent/contracts/agentQuickAction";
 import {
   resolveCompoundAnswer,
@@ -205,12 +208,23 @@ export class AgentHostStore {
         : session;
       const edited = branchSessionFromEditedUserMessage(correctionBase, input.messageId, input.text);
       if (!edited) return session;
+      const {
+        userMessageId: editedUserMessageId,
+        assistantMessageId: editedAssistantMessageId,
+        appendUserMessage,
+        updateExistingUserMessage,
+        ...editedSession
+      } = edited;
+      const resolvedAssistantMessageId = appendUserMessage
+        ? editedAssistantMessageId
+        : editedAssistantMessageId ?? assistantMessageId;
       return this.startTurn({
-        session: edited,
+        session: editedSession,
         userMessage: input.text.trim(),
-        userMessageId: input.messageId,
-        assistantMessageId,
-        appendUserMessage: false,
+        userMessageId: editedUserMessageId ?? input.messageId,
+        assistantMessageId: resolvedAssistantMessageId,
+        appendUserMessage,
+        updateExistingUserMessage,
         pageContext: context.pageContext,
         supersede: true
       });
@@ -230,9 +244,12 @@ export class AgentHostStore {
         session: prepared.session,
         userMessage: prepared.userMessage,
         userMessageId: prepared.userMessageId,
-        assistantMessageId: input.messageId,
+        assistantMessageId: prepared.assistantMessageId,
         appendUserMessage: false,
+        updateExistingUserMessage: prepared.updateExistingUserMessage,
         regenerateNarrationOnly: prepared.regenerateNarrationOnly,
+        sourceTurnId: prepared.sourceTurnId,
+        regeneratedFromMessageId: prepared.regeneratedFromMessageId,
         pageContext: context.pageContext,
         supersede: true
       });
@@ -259,6 +276,7 @@ export class AgentHostStore {
         return this.resolveTaskDecision(session, input.action, context.pageContext);
       }
       if (input.action.type === "answer") {
+        if (input.action.field === "profile-intake-section") return session;
         const answerValue = input.action.value;
         if (input.action.field.startsWith("tailoring-question:")) {
           const questionId = input.action.field.slice("tailoring-question:".length);
@@ -276,6 +294,9 @@ export class AgentHostStore {
           userMessage: String(answerValue ?? ""),
           pageContext: context.pageContext
         });
+      }
+      if (input.action.type === "profile_intake_section_select") {
+        return this.resolveProfileIntakeSectionSelection(session, input.action);
       }
       if (input.action.type === "select_entity") {
         return this.resolveTypedEntitySelection(session, input.action, context.pageContext);
@@ -349,6 +370,90 @@ export class AgentHostStore {
     });
   }
 
+  private async resolveProfileIntakeSectionSelection(
+    session: AgentSession,
+    action: {
+      type: "profile_intake_section_select";
+      section: ProfileIntakeSection;
+      sourceMessageId: string;
+      optionSetRevision: number;
+    }
+  ) {
+    const state = session.taskState;
+    const source = session.messages.find((message) => message.id === action.sourceMessageId);
+    const plan = objectValue(state?.knownSlots.intakeInterviewPlan);
+    const suggested = Array.isArray(plan.suggestedNextSections)
+      ? plan.suggestedNextSections.filter((section): section is string => typeof section === "string")
+      : [];
+    if (
+      !state
+      || state.workflowId !== "guided_profile_intake"
+      || state.stage !== "collect_experience"
+      || state.knownSlots.intakeRequestedSection
+      || state.knownSlots.intakeActiveQuestion
+      || !source
+      || source.role !== "assistant"
+      || (source.branchId ?? session.activeBranchId) !== session.activeBranchId
+      || source.optionSet?.state !== "active"
+      || source.optionSet.sourceMessageId !== source.id
+      || source.optionSet.optionSetRevision !== action.optionSetRevision
+      || !source.options?.some((option) => option.action.type === "profile_intake_section_select" && option.action.section === action.section)
+      || !suggested.includes(action.section)
+    ) {
+      return session;
+    }
+    const now = new Date().toISOString();
+    const nextKnownSlots = { ...state.knownSlots };
+    delete nextKnownSlots.intakeActiveQuestion;
+    const nextTaskState: AgentTaskState = {
+      ...state,
+      knownSlots: {
+        ...nextKnownSlots,
+        intakeRequestedSection: action.section
+      },
+      completionStatus: "waiting_for_user",
+      updatedAt: now
+    };
+    const label = profileIntakeSectionLabel(action.section);
+    let current = projectTaskStateIntoSession(session, nextTaskState);
+    current = {
+      ...current,
+      messages: current.messages.map((message) => message.id === source.id
+        ? {
+            ...message,
+            options: undefined,
+            optionSet: {
+              ...message.optionSet!,
+              state: "resolved" as const,
+              resolvedOptionId: `profile-intake-section-${action.section}`,
+              resolvedValue: label,
+              resolvedAt: now
+            },
+            metadata: {
+              ...message.metadata,
+              typedActionResolution: {
+                actionType: "profile_intake_section_select",
+                section: action.section,
+                label: `已选择：${label}`,
+                resolvedAt: now
+              }
+            },
+            updatedAt: now
+          }
+        : message)
+    };
+    current = appendAgentMessage(current, "assistant", profileIntakeSectionPrompt(action.section), {
+      kind: "text",
+      type: "text",
+      status: "complete",
+      metadata: { deterministicBoundary: "profile_intake_section_select", requestedSection: action.section },
+      parentMessageId: source.id
+    });
+    const saved = await this.dependencies.persistence.save(current);
+    this.patchSession(saved, { turnStatus: "idle" });
+    return saved;
+  }
+
   clearUiAction() {
     this.patch({ uiAction: undefined });
   }
@@ -365,6 +470,9 @@ export class AgentHostStore {
     typedTask?: QuickActionIntent["task"];
     supersede?: boolean;
     regenerateNarrationOnly?: boolean;
+    updateExistingUserMessage?: boolean;
+    sourceTurnId?: string;
+    regeneratedFromMessageId?: string;
   }) {
     if (input.session.pendingConfirmation && input.session.pendingToolCall) {
       input.session = invalidatePendingConfirmationForCorrection(input.session);
@@ -421,17 +529,19 @@ export class AgentHostStore {
     let current = input.appendUserMessage === false
       ? {
           ...checkpointedSession,
-          messages: checkpointedSession.messages.map((message) =>
-            message.id === userMessageId
-              ? {
-                  ...message,
-                  turnId,
-                  status: "complete" as const,
-                  metadata: { ...message.metadata, executionState: "running" },
-                  updatedAt: now
-                }
-              : message
-          ),
+          messages: input.updateExistingUserMessage === false
+            ? checkpointedSession.messages
+            : checkpointedSession.messages.map((message) =>
+                message.id === userMessageId
+                  ? {
+                      ...message,
+                      turnId,
+                      status: "complete" as const,
+                      metadata: { ...message.metadata, executionState: "running" },
+                      updatedAt: now
+                    }
+                  : message
+              ),
           updatedAt: now
         }
       : appendAgentMessage(checkpointedSession, "user", input.userMessage.trim(), {
@@ -459,7 +569,11 @@ export class AgentHostStore {
           type: "assistant_thinking",
           status: "thinking",
           streaming: true,
-          parentMessageId: userMessageId
+          parentMessageId: userMessageId,
+          metadata: {
+            sourceTurnId: input.sourceTurnId,
+            regeneratedFromMessageId: input.regeneratedFromMessageId
+          }
         });
     const reducer = new AgentTaskStateReducer();
     let kernelUserMessage = input.userMessage;
@@ -606,6 +720,7 @@ export class AgentHostStore {
           completedAt: new Date().toISOString()
         }
       };
+      current = completeTurnCheckpoint(current, turnId, new Date().toISOString());
       current = await this.dependencies.persistence.save(current);
       this.activeController = undefined;
       this.patchSession(current, { turnStatus: "completed", activeTurnId: turnId });
@@ -640,7 +755,8 @@ export class AgentHostStore {
       pageContext: input.pageContext,
       userMessage: kernelUserMessage,
       references: input.references,
-      turnDecision
+      turnDecision,
+      narrationOnly: input.regenerateNarrationOnly
     });
     this.activeExecution = execution;
     return execution.finally(() => {
@@ -1079,6 +1195,7 @@ export class AgentHostStore {
     if (taskState.pendingDecision) {
       current = attachPendingDecisionOptions(current, taskState.pendingDecision);
     }
+    current = attachTaskStateOptions(current, taskState);
     current = await this.dependencies.persistence.save(current);
     this.patchSession(current, { turnStatus: current.pendingConfirmation ? "waiting_for_confirmation" : "completed" });
     void pageContext;
@@ -1208,6 +1325,7 @@ export class AgentHostStore {
     userMessage?: string;
     references?: AgentMessageReference[];
     turnDecision?: TurnIntentDecision;
+    narrationOnly?: boolean;
     resume?: {
       reason: "tool_observation" | "confirmation_rejected" | "external_event";
       toolName?: string;
@@ -1480,6 +1598,7 @@ export class AgentHostStore {
             turnIntent: input.turnDecision?.intent,
             profileIntakeTurnKind: input.turnDecision?.profileIntakeTurnKind,
             toolScope: input.turnDecision?.toolScope,
+            narrationOnly: input.narrationOnly,
             taskEventAlreadyReduced: true,
             signal: input.controller.signal,
             emit: onEvent
@@ -1509,6 +1628,7 @@ export class AgentHostStore {
         trajectory: result.trajectory,
         reflection: result.reflection,
         conversationSummary: result.conversationSummary ?? current.conversationSummary,
+        conversationSummaryBranchId: current.activeBranchId,
         taskState: result.taskState ?? current.taskState,
         pendingConfirmation: isolatedConversationalTurn
           ? current.pendingConfirmation
@@ -1550,6 +1670,7 @@ export class AgentHostStore {
       if (result.taskState) current = attachTaskStateOptions(current, result.taskState);
       current = settleThinkingMessages(current, input.turnId);
       current = settleUserExecutionState(current, input.turnId, outcome === "failed" ? "failed" : outcome === "aborted" ? "aborted" : "complete");
+      current = completeTurnCheckpoint(current, input.turnId, new Date().toISOString());
       current = await this.dependencies.persistence.save(current);
       this.patchSession(current, {
         turnStatus: outcome === "waiting_for_confirmation" ? "waiting_for_confirmation" : outcome === "failed" ? "failed" : "completed",
@@ -1973,7 +2094,7 @@ function attachPendingDecisionOptions(
   };
 }
 
-function attachTaskStateOptions(session: AgentSession, state: AgentTaskState) {
+export function attachTaskStateOptions(session: AgentSession, state: AgentTaskState) {
   const assistantIndex = session.messages.findLastIndex((message) =>
     message.role === "assistant"
       && message.kind !== "assistant_thinking"
@@ -1982,6 +2103,7 @@ function attachTaskStateOptions(session: AgentSession, state: AgentTaskState) {
   );
   if (assistantIndex < 0) return session;
   let options: AgentOption[] | undefined;
+  let optionSet: AgentOptionSet | undefined;
   let metadata: Record<string, unknown> | undefined;
   if (state.stage === "choose_job") {
     options = entityOptions(state, "job");
@@ -2011,7 +2133,12 @@ function attachTaskStateOptions(session: AgentSession, state: AgentTaskState) {
           }] : [])
         : undefined;
     }
-  } else if (state.workflowId === "guided_profile_intake" && state.stage === "collect_experience") {
+  } else if (
+    state.workflowId === "guided_profile_intake"
+    && state.stage === "collect_experience"
+    && !state.knownSlots.intakeRequestedSection
+    && !state.knownSlots.intakeActiveQuestion
+  ) {
     const plan = objectValue(state.knownSlots.intakeInterviewPlan);
     const suggested = Array.isArray(plan.suggestedNextSections)
       ? plan.suggestedNextSections.filter((section): section is string => typeof section === "string")
@@ -2025,15 +2152,40 @@ function attachTaskStateOptions(session: AgentSession, state: AgentTaskState) {
       certificates: "证书经历",
       finish: "完成整理"
     };
+    const existingOptionSet = session.messages[assistantIndex].optionSet;
+    const optionSetRevision = existingOptionSet?.state === "active"
+      && existingOptionSet.sourceMessageId === session.messages[assistantIndex].id
+      ? existingOptionSet.optionSetRevision
+      : Math.max(-1, ...session.messages.map((message) => message.optionSet?.optionSetRevision ?? -1)) + 1;
+    const optionSetId = existingOptionSet?.state === "active"
+      && existingOptionSet.sourceMessageId === session.messages[assistantIndex].id
+      ? existingOptionSet.optionSetId
+      : `profile-intake-sections-${session.messages[assistantIndex].id}-${optionSetRevision}`;
     options = suggested.flatMap((section) => sectionLabels[section]
       ? [{
           id: `profile-intake-section-${section}`,
           label: sectionLabels[section],
-          action: { type: "answer" as const, field: "profile-intake-section", value: sectionLabels[section] }
+          action: {
+            type: "profile_intake_section_select" as const,
+            section: section as ProfileIntakeSection,
+            sourceMessageId: session.messages[assistantIndex].id,
+            optionSetRevision
+          }
         }]
       : []);
+    if (options.length) {
+      optionSet = {
+        optionSetId,
+        optionSetRevision,
+        sourceMessageId: session.messages[assistantIndex].id,
+        state: "active"
+      };
+      metadata = { profileIntakeSectionOptions: true };
+    }
   }
-  if (!options?.length && !metadata) return session;
+  const shouldClearResolvedProfileOptions = state.workflowId === "guided_profile_intake"
+    && (state.stage !== "collect_experience" || Boolean(state.knownSlots.intakeRequestedSection) || Boolean(state.knownSlots.intakeActiveQuestion));
+  if (!options?.length && !metadata && !shouldClearResolvedProfileOptions) return session;
   return {
     ...session,
     messages: session.messages.map((message, index) => {
@@ -2041,12 +2193,20 @@ function attachTaskStateOptions(session: AgentSession, state: AgentTaskState) {
         return {
           ...message,
           options: options?.length ? options : message.options,
+          optionSet: optionSet ?? message.optionSet,
           metadata: { ...message.metadata, ...metadata }
         };
       }
-      return message.role === "assistant" && message.options
-        ? { ...message, options: undefined }
-        : message;
+      if (message.role !== "assistant" || !isProfileSectionOptionSet(message)) return message;
+      return {
+        ...message,
+        options: undefined,
+        optionSet: message.optionSet?.state === "resolved"
+          ? message.optionSet
+          : message.optionSet
+            ? { ...message.optionSet, state: "superseded" as const }
+            : undefined
+      };
     })
   };
 }
@@ -2358,12 +2518,14 @@ function withTurnCheckpoint(session: AgentSession, turnId: string, userMessageId
   const checkpoint = {
     turnId,
     userMessageId,
+    branchId: session.activeBranchId,
     taskStateBefore: structuredClone(taskState),
     workflowStateBefore: structuredClone(session.workflowState),
     selectedEntitiesBefore: structuredClone(taskState.selectedEntities),
     artifactRefsBefore: structuredClone(session.artifactRefs),
     pendingConfirmationBefore: session.pendingConfirmation ? structuredClone(session.pendingConfirmation) : undefined,
     pendingToolCallBefore: session.pendingToolCall ? structuredClone(session.pendingToolCall) : undefined,
+    toolReceipts: [],
     createdAt
   };
   return {
@@ -2383,7 +2545,48 @@ export function branchSessionFromEditedUserMessage(
   );
   if (targetIndex < 0 || !content) return undefined;
   const target = session.messages[targetIndex];
+  const assistantMessageId = session.messages
+    .slice(targetIndex + 1)
+    .find((message) => message.role === "assistant")?.id;
   const checkpoint = session.turnCheckpoints.findLast((item) => item.userMessageId === messageId);
+  if (session.conversationBranches.length) {
+    const branch = forkConversationBranch(session, {
+      forkedFromMessageId: target.parentMessageId,
+      headMessageId: target.parentMessageId
+    });
+    const branchId = branch.activeBranchId;
+    const now = new Date().toISOString();
+    const nextTaskState = checkpoint?.taskStateBefore
+      ? {
+          ...checkpoint.taskStateBefore,
+          knownSlots: checkpoint.taskStateBefore.workflowId === "guided_profile_intake"
+            ? { ...checkpoint.taskStateBefore.knownSlots, intakeDraftBranchId: branchId }
+            : checkpoint.taskStateBefore.knownSlots,
+          updatedAt: now
+        }
+      : session.taskState;
+    return {
+      ...branch,
+      ...(checkpoint ? {
+        taskState: nextTaskState,
+        workflowState: checkpoint.workflowStateBefore,
+        artifactRefs: checkpoint.artifactRefsBefore,
+        activeProfileId: checkpoint.selectedEntitiesBefore.profileId,
+        activeResumeId: checkpoint.selectedEntitiesBefore.resumeId,
+        activeJobId: checkpoint.selectedEntitiesBefore.jobId,
+        pendingConfirmation: checkpoint.pendingConfirmationBefore,
+        pendingToolCall: checkpoint.pendingToolCallBefore
+      } : {}),
+      conversationSummary: "",
+      conversationSummaryBranchId: branchId,
+      activeTurn: undefined,
+      updatedAt: now,
+      userMessageId: `agent-user-${crypto.randomUUID()}`,
+      appendUserMessage: true,
+      updateExistingUserMessage: false,
+      assistantMessageId: undefined
+    };
+  }
   const now = new Date().toISOString();
   const contentChanged = target.content !== content;
   const revisions = contentChanged
@@ -2436,7 +2639,11 @@ export function branchSessionFromEditedUserMessage(
     pendingConfirmation: checkpoint?.pendingConfirmationBefore,
     pendingToolCall: checkpoint?.pendingToolCallBefore,
     activeTurn: undefined,
-    updatedAt: now
+    updatedAt: now,
+    userMessageId: messageId,
+    appendUserMessage: false,
+    updateExistingUserMessage: true,
+    assistantMessageId
   };
 }
 
@@ -2448,14 +2655,46 @@ export function prepareSessionForAssistantRegeneration(
     message.id === messageId && message.role === "assistant"
   );
   if (targetIndex < 0) return undefined;
+  const target = session.messages[targetIndex];
   const userIndex = session.messages
     .slice(0, targetIndex)
     .findLastIndex((message) => message.role === "user");
   const userMessage = userIndex >= 0 ? session.messages[userIndex] : undefined;
   if (!userMessage?.content.trim()) return undefined;
-  const profileIntakeNarrationOnly = session.taskState?.rootGoal === "profile_intake";
   const now = new Date().toISOString();
   const checkpoint = session.turnCheckpoints.findLast((item) => item.userMessageId === userMessage.id);
+  if (session.conversationBranches.length) {
+    const forked = forkConversationBranch(session, {
+      forkedFromMessageId: userMessage.id,
+      headMessageId: userMessage.id
+    });
+    const restoredTaskState = checkpoint?.taskStateAfter ?? checkpoint?.taskStateBefore ?? session.taskState;
+    const restored = {
+      ...forked,
+      ...(restoredTaskState ? { taskState: restoredTaskState } : {}),
+      workflowState: checkpoint?.workflowStateAfter ?? checkpoint?.workflowStateBefore ?? forked.workflowState,
+      artifactRefs: checkpoint?.artifactRefsAfter ?? checkpoint?.artifactRefsBefore ?? forked.artifactRefs,
+      activeProfileId: restoredTaskState?.selectedEntities.profileId,
+      activeResumeId: restoredTaskState?.selectedEntities.resumeId,
+      activeJobId: restoredTaskState?.selectedEntities.jobId,
+      pendingConfirmation: undefined,
+      pendingToolCall: undefined,
+      activeTurn: undefined,
+      conversationSummary: "",
+      conversationSummaryBranchId: forked.activeBranchId,
+      updatedAt: now
+    };
+    return {
+      session: restored,
+      userMessageId: userMessage.id,
+      userMessage: userMessage.content,
+      assistantMessageId: undefined,
+      updateExistingUserMessage: false,
+      regenerateNarrationOnly: true,
+      sourceTurnId: target.turnId,
+      regeneratedFromMessageId: target.id
+    };
+  }
   if (!checkpoint && isUnsafeLegacyDomainRegeneration(session, targetIndex)) {
     const notice = appendAgentMessage(session, "assistant", "该历史步骤发生在旧版任务状态中，无法安全重生成。可以从当前步骤重试，或新建一个岗位定制任务。", {
       kind: "system_notice",
@@ -2467,12 +2706,22 @@ export function prepareSessionForAssistantRegeneration(
       ],
       metadata: { regenerationBlocked: "legacy_domain_checkpoint_missing", sourceMessageId: messageId }
     });
-    return { session: notice, userMessageId: userMessage.id, userMessage: userMessage.content, blocked: true as const };
+    return {
+      session: notice,
+      userMessageId: userMessage.id,
+      userMessage: userMessage.content,
+      blocked: true as const,
+      assistantMessageId: undefined,
+      updateExistingUserMessage: false,
+      regenerateNarrationOnly: false,
+      sourceTurnId: undefined,
+      regeneratedFromMessageId: undefined
+    };
   }
   return {
     session: {
       ...session,
-      ...(checkpoint && !profileIntakeNarrationOnly ? {
+      ...(checkpoint ? {
         taskState: checkpoint.taskStateBefore,
         workflowState: checkpoint.workflowStateBefore,
         artifactRefs: checkpoint.artifactRefsBefore,
@@ -2492,15 +2741,25 @@ export function prepareSessionForAssistantRegeneration(
           : message
       ),
       conversationSummary: "",
-      pendingConfirmation: profileIntakeNarrationOnly ? session.pendingConfirmation : checkpoint?.pendingConfirmationBefore,
-      pendingToolCall: profileIntakeNarrationOnly ? session.pendingToolCall : checkpoint?.pendingToolCallBefore,
+      pendingConfirmation: checkpoint?.pendingConfirmationBefore,
+      pendingToolCall: checkpoint?.pendingToolCallBefore,
       activeTurn: undefined,
       updatedAt: now
     },
     userMessageId: userMessage.id,
     userMessage: userMessage.content,
-    regenerateNarrationOnly: profileIntakeNarrationOnly
+    regenerateNarrationOnly: true,
+    assistantMessageId: messageId,
+    updateExistingUserMessage: true,
+    sourceTurnId: undefined,
+    regeneratedFromMessageId: undefined
   };
+}
+
+function isProfileSectionOptionSet(message: AgentSession["messages"][number]) {
+  return message.options?.some((option) => option.action.type === "profile_intake_section_select")
+    || message.metadata?.profileIntakeSectionOptions === true
+    || message.optionSet?.optionSetId.startsWith("profile-intake-sections-");
 }
 
 function shouldNarrateProfileIntakeContinuation(
@@ -2515,6 +2774,26 @@ function shouldNarrateProfileIntakeContinuation(
 
 function profileIntakeContinuationNarration() {
   return "教育背景已记录到本次整理草稿中。\n\n接下来你想补充：实习经历、项目经历、校园经历、技能或证书，还是完成整理？";
+}
+
+function profileIntakeSectionLabel(section: ProfileIntakeSection) {
+  return {
+    internship: "实习经历",
+    project: "项目经历",
+    campus: "校园经历",
+    skills: "技能或证书",
+    awards: "奖项经历",
+    certificates: "证书经历",
+    finish: "完成整理"
+  }[section];
+}
+
+function profileIntakeSectionPrompt(section: ProfileIntakeSection) {
+  if (section === "finish") return "好的，我们先完成本次经历整理。请在右侧核对当前草稿，确认后即可保存。";
+  const subject = section === "project"
+    ? "项目名称、你承担的角色、主要工作和结果"
+    : "这段经历的名称、你承担的角色、主要工作和结果";
+  return `好的，我们继续补充${profileIntakeSectionLabel(section)}。\n请告诉我${subject}。`;
 }
 
 function isUnsafeLegacyDomainRegeneration(session: AgentSession, targetIndex: number) {
@@ -2665,6 +2944,33 @@ function reconcileTaskArtifacts(session: AgentSession, taskState: AgentTaskState
         updatedAt: now
       }
     ]
+  };
+}
+
+function completeTurnCheckpoint(session: AgentSession, turnId: string, completedAt: string) {
+  const checkpointIndex = session.turnCheckpoints.findLastIndex((checkpoint) => checkpoint.turnId === turnId);
+  if (checkpointIndex < 0 || !session.taskState) return session;
+  const checkpoint = session.turnCheckpoints[checkpointIndex];
+  const toolReceipts = session.messages
+    .filter((message) => message.turnId === turnId && message.role === "tool" && message.toolName && message.operationId)
+    .map((message) => ({
+      toolName: message.toolName!,
+      operationId: message.operationId!,
+      status: message.status === "failed" ? "failed" as const : message.status === "recovered" ? "recovered" as const : "complete" as const
+    }));
+  const updated = {
+    ...checkpoint,
+    taskStateAfter: structuredClone(session.taskState),
+    workflowStateAfter: structuredClone(session.workflowState),
+    artifactRefsAfter: structuredClone(session.artifactRefs),
+    pendingConfirmationAfter: session.pendingConfirmation ? structuredClone(session.pendingConfirmation) : undefined,
+    pendingToolCallAfter: session.pendingToolCall ? structuredClone(session.pendingToolCall) : undefined,
+    toolReceipts,
+    completedAt
+  };
+  return {
+    ...session,
+    turnCheckpoints: session.turnCheckpoints.map((item, index) => index === checkpointIndex ? updated : item)
   };
 }
 

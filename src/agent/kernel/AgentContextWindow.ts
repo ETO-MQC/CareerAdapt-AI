@@ -1,5 +1,6 @@
 import type { AgentMessage, AgentSession } from "@/agent/contracts/agentSession";
 import type { AgentModelMessage } from "@/agent/model/agentModel";
+import { buildActiveBranchContext } from "@/agent/runtime/activeBranchContext";
 
 const RECENT_MEANINGFUL_MESSAGES = 16;
 const SUMMARY_TRIGGER_MESSAGES = 32;
@@ -9,11 +10,18 @@ export type AgentContextWindowResult = {
   messages: AgentModelMessage[];
   conversationSummary: string;
   summaryChanged: boolean;
+  diagnostics: ReturnType<typeof buildActiveBranchContext>["diagnostics"];
 };
 
 export class AgentContextWindow {
   build(session: AgentSession, userMessage: string): AgentContextWindowResult {
-    const meaningful = session.messages.filter(isMeaningful);
+    const branchContext = buildActiveBranchContext(session);
+    const branchSession = {
+      ...session,
+      messages: branchContext.messages,
+      conversationSummary: branchContext.conversationSummary
+    };
+    const meaningful = branchContext.messages.filter(isMeaningful);
     const recent = meaningful.slice(-RECENT_MEANINGFUL_MESSAGES);
     const older = meaningful.slice(0, -RECENT_MEANINGFUL_MESSAGES);
     const retrieved = retrieveRelevantOlderTurns(older, userMessage, 4, recent.at(-1)?.turnId);
@@ -21,17 +29,18 @@ export class AgentContextWindow {
     if (!messages.length || messages.at(-1)?.role !== "user" || messages.at(-1)?.content !== userMessage) {
       messages.push({ role: "user", content: userMessage });
     }
-    const nextSummary = updateSummary(session, meaningful);
+    const nextSummary = updateSummary(branchSession, meaningful);
     return {
       messages,
       conversationSummary: nextSummary,
-      summaryChanged: nextSummary !== session.conversationSummary
+      summaryChanged: nextSummary !== branchContext.conversationSummary,
+      diagnostics: branchContext.diagnostics
     };
   }
 }
 
 function isMeaningful(message: AgentMessage) {
-  return (message.role === "user" || message.role === "assistant")
+  return (message.role === "user" || message.role === "assistant" || message.role === "tool")
     && message.metadata?.retracted !== true
     && message.kind !== "assistant_thinking"
     && message.kind !== "assistant_streaming"
@@ -67,7 +76,12 @@ function dedupeMessages(messages: AgentMessage[]) {
 }
 
 function toModelMessage(message: AgentMessage): AgentModelMessage {
-  return { role: message.role as "user" | "assistant", content: message.content };
+  return {
+    role: message.role as "user" | "assistant" | "tool",
+    content: message.content,
+    name: message.toolName,
+    toolCallId: message.operationId
+  };
 }
 
 function updateSummary(session: AgentSession, messages: AgentMessage[]) {

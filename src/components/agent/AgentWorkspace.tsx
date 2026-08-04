@@ -20,6 +20,7 @@ import {
 import { AgentArtifactDrawer, type AgentArtifactDrawerState } from "./artifacts/AgentArtifactDrawer";
 import { AgentComposer } from "./AgentComposer";
 import { AgentConversationTimeline, normalizeAgentMessageText } from "./AgentConversation";
+import { activeBranchMessages } from "@/agent/runtime/activeBranchContext";
 import { AgentHistoryDialog } from "./AgentHistoryDialog";
 import { AgentZeroState } from "./workspace/AgentZeroState";
 import { AgentWorkspaceLayout } from "./workspace/AgentWorkspaceLayout";
@@ -328,7 +329,7 @@ export function AgentWorkspace() {
               ) : null}
               <AgentConversationTimeline
                 key={session.id}
-                messages={session.messages}
+                messages={activeBranchMessages(session)}
                 onRegenerate={async (message) => {
                   const result = await host.state.dispatch(
                     { type: "regenerate_message", messageId: message.id },

@@ -92,9 +92,9 @@ describe("WorkspaceRepository", () => {
     await db.agentSessions.put(raw as never);
 
     const sessions = await repository.listAgentSessions();
-    expect(sessions[0]?.agentSessionSchemaVersion).toBe(2);
+    expect(sessions[0]?.agentSessionSchemaVersion).toBe(3);
     const persisted = await db.agentSessions.get(base.id);
-    expect(persisted?.agentSessionSchemaVersion).toBe(2);
+    expect(persisted?.agentSessionSchemaVersion).toBe(3);
     expect(persisted?.messages).toEqual([]);
   });
 

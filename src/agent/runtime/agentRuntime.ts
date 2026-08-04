@@ -14,6 +14,7 @@ import { workflowReducer } from "./workflowReducer";
 import { encodeAiSettingsForHeader, readAiSettings } from "@/services/storage/aiSettings";
 import { allowedToolManifestForStep } from "@/agent/workflows/workflowRegistry";
 import { recoverUnknownToolCall } from "./normalizeAgentPlannerAction";
+import { ProfileIntakeSectionSchema } from "../contracts/agentActions";
 
 const ToolCallSchema = z.object({
   toolName: z.string().min(1),
@@ -48,6 +49,12 @@ export const AgentPlannerActionSchema = z.discriminatedUnion("type", [
           type: z.literal("task_decision"),
           decisionType: z.literal("resume_source_route"),
           option: z.enum(["profile", "existing_resume"])
+        }).strict(),
+        z.object({
+          type: z.literal("profile_intake_section_select"),
+          section: ProfileIntakeSectionSchema,
+          sourceMessageId: z.string().min(1),
+          optionSetRevision: z.number().int().min(0)
         }).strict()
       ])
     }).strict()).min(1).max(12).optional()
@@ -331,17 +338,23 @@ export class AgentRuntime {
   ) {
     const message: AgentMessage = {
       id: `agent-message-${nanoid(12)}`,
+      branchId: this.session.activeBranchId ?? "legacy-branch",
       role,
       content,
       toolName,
       operationId,
       options,
+      parentMessageId: this.session.activeHeadMessageId,
       createdAt: new Date().toISOString()
     };
     const messages = [...this.session.messages, message];
     this.session = {
       ...this.session,
-      messages
+      messages,
+      activeHeadMessageId: message.id,
+      conversationBranches: this.session.conversationBranches.map((branch) =>
+        branch.id === (this.session.activeBranchId ?? "legacy-branch") ? { ...branch, headMessageId: message.id } : branch
+      )
     };
   }
 

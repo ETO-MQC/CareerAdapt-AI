@@ -27,6 +27,7 @@ import {
 import type { ProfileIntakeTurnKind, TurnIntent, TurnToolScope } from "@/agent/runtime/AgentTurnIntent";
 import { capabilityManifestForPrompt } from "@/agent/capabilities/AgentProductCapabilityManifest";
 import { groundMutationClaims, type AuthoritativeTurnObservation } from "./AgentMutationClaimGuard";
+import { buildActiveBranchContext } from "@/agent/runtime/activeBranchContext";
 
 export type AgentKernelResult = {
   text?: string;
@@ -36,6 +37,7 @@ export type AgentKernelResult = {
   reflection?: AgentReflectionResult;
   conversationSummary?: string;
   taskState?: AgentSession["taskState"];
+  contextDiagnostics?: ReturnType<typeof buildActiveBranchContext>["diagnostics"];
 };
 
 export class AgentKernel {
@@ -70,6 +72,7 @@ export class AgentKernel {
     turnIntent?: TurnIntent;
     profileIntakeTurnKind?: ProfileIntakeTurnKind;
     toolScope?: TurnToolScope;
+    narrationOnly?: boolean;
     signal?: AbortSignal;
     emit?(event: AgentStreamEvent): void | Promise<void>;
     internalObservation?: {
@@ -85,7 +88,7 @@ export class AgentKernel {
     const canonicalEntities = new AgentCanonicalEntityGuard();
     const taskReducer = new AgentTaskStateReducer();
     let taskState = input.session.taskState ?? taskReducer.create(input.session);
-    if (!input.taskEventAlreadyReduced && input.turnIntent !== "casual_side_turn" && input.turnIntent !== "reference_followup") {
+    if (!input.narrationOnly && !input.taskEventAlreadyReduced && input.turnIntent !== "casual_side_turn" && input.turnIntent !== "reference_followup") {
       taskState = taskReducer.reduce(taskState, {
         type: "user_message",
         message: input.userMessage,
@@ -108,6 +111,12 @@ export class AgentKernel {
     }
     const trajectory = new AgentTrajectory(`agent-task-${nanoid(12)}`, taskState.workflowId);
     const authoritativeSession = projectTaskStateIntoSession(input.session, taskState);
+    const activeBranchContext = buildActiveBranchContext(authoritativeSession);
+    const contextualSession = {
+      ...authoritativeSession,
+      messages: activeBranchContext.messages,
+      conversationSummary: activeBranchContext.conversationSummary
+    };
     const skillRegistry = this.dependencies.skillRegistry ?? agentSkillRegistry;
     let skills = skillRegistry.discover({
       workflowId: taskState.workflowId,
@@ -117,28 +126,31 @@ export class AgentKernel {
     });
     const memoryManager = this.dependencies.memoryManager ?? new AgentMemoryManager();
     const contextAssembler = this.dependencies.contextAssembler ?? new AgentContextAssembler();
-    const memory = memoryManager.retrieve(authoritativeSession);
+    const memory = memoryManager.retrieve(contextualSession);
     let systemPrompt = contextAssembler.assemble({
-      session: authoritativeSession,
+      session: contextualSession,
       pageContext: input.pageContext,
       userMessage: input.userMessage,
       memory,
       activeSkills: skills,
-      references: resolveReferences(authoritativeSession, input.references),
+      references: resolveReferences(contextualSession, input.references),
       turnIntent: input.turnIntent
     });
+    if (input.narrationOnly) {
+      systemPrompt += "\n\n本轮是历史回答重生成的叙述修订：只根据当前分支已记录的消息、工具回执和任务快照重新组织文字；不要调用工具，不要新增事实，不要改变任务状态或实体。";
+    }
     let allowedTools = this.dependencies.toolResolver.allowedTools({
       workflowId: taskState.workflowId,
       step: taskState.stage,
       skills,
-      session: authoritativeSession,
+      session: contextualSession,
       userMessage: input.userMessage
     });
-    allowedTools = toolsForTurnScope(this.dependencies.toolResolver, allowedTools, input.toolScope);
+    allowedTools = toolsForTurnScope(this.dependencies.toolResolver, allowedTools, input.narrationOnly ? "none" : input.toolScope);
     allowedTools = limitTailoringContextTools(taskState, allowedTools);
     let modelTools = this.dependencies.toolResolver.modelManifest(allowedTools);
     const contextWindow = (this.dependencies.contextWindow ?? new AgentContextWindow()).build(
-      input.session,
+      contextualSession,
       input.userMessage
     );
     const messages = contextWindow.messages;
@@ -174,7 +186,7 @@ export class AgentKernel {
     }
 
     try {
-      const capabilityAnswer = deterministicCapabilityAnswer(input.userMessage);
+      const capabilityAnswer = input.narrationOnly ? undefined : deterministicCapabilityAnswer(input.userMessage);
       if (capabilityAnswer && (input.turnIntent === "casual_side_turn" || input.toolScope === "none" || isDirectIdentityQuestion(input.userMessage))) {
         const iterationId = `${turnId}:iteration:1`;
         await publishFinalStream(capabilityAnswer, input, { turnId, iterationId });
@@ -183,7 +195,8 @@ export class AgentKernel {
           text: capabilityAnswer,
           trajectory: trajectory.value(),
           conversationSummary: contextWindow.conversationSummary,
-          taskState
+          taskState,
+          contextDiagnostics: contextWindow.diagnostics
         };
       }
       for (let iteration = 0; iteration < maxIterations; iteration += 1) {
@@ -208,10 +221,11 @@ export class AgentKernel {
             text,
             trajectory: trajectory.value(),
             conversationSummary: contextWindow.conversationSummary,
+            contextDiagnostics: contextWindow.diagnostics,
             taskState
           };
         }
-        const workflowPause = deterministicWorkflowPause(
+        const workflowPause = input.narrationOnly ? undefined : deterministicWorkflowPause(
           taskState,
           toolCallCount > 0
             || !input.userMessage
@@ -228,6 +242,7 @@ export class AgentKernel {
             text: workflowPause,
             trajectory: trajectory.value(),
             conversationSummary: contextWindow.conversationSummary,
+            contextDiagnostics: contextWindow.diagnostics,
             taskState: terminal
               ? taskState
               : {
@@ -239,7 +254,7 @@ export class AgentKernel {
         }
         const nativeStreaming = this.dependencies.model.capabilities?.nativeToolStreaming === true
           && Boolean(this.dependencies.model.streamTurn);
-        const boundaryTool = deterministicBoundaryTool(taskState, allowedTools, turnId);
+        const boundaryTool = input.narrationOnly ? undefined : deterministicBoundaryTool(taskState, allowedTools, turnId);
         const rawResponse: AgentModelResult = boundaryTool
           ? {
               stopReason: "tool_calls",
@@ -264,6 +279,19 @@ export class AgentKernel {
               });
         const response = normalizeTextualToolProtocol(rawResponse, modelTools);
 
+        if (input.narrationOnly && response.toolCalls?.length) {
+          const text = response.text?.trim() || "我已根据这一轮已记录的结果重新整理了回答。";
+          await publishFinalStream(text, input, { turnId, iterationId });
+          trajectory.finish("completed");
+          return {
+            text,
+            trajectory: trajectory.value(),
+            conversationSummary: contextWindow.conversationSummary,
+            taskState,
+            contextDiagnostics: contextWindow.diagnostics
+          };
+        }
+
         if (response.toolCalls?.length) {
           messages.push({ role: "assistant", content: response.text ?? "", toolCalls: response.toolCalls });
           if (response.toolCalls.length > 1) {
@@ -282,6 +310,7 @@ export class AgentKernel {
                 text: recovery,
                 trajectory: trajectory.value(),
                 conversationSummary: contextWindow.conversationSummary,
+                contextDiagnostics: contextWindow.diagnostics,
                 taskState: {
                   ...taskState,
                   completionStatus: "waiting_for_user",
@@ -376,6 +405,7 @@ export class AgentKernel {
                     text,
                     trajectory: trajectory.value(),
                     conversationSummary: contextWindow.conversationSummary,
+                    contextDiagnostics: contextWindow.diagnostics,
                     taskState
                   };
                 }
@@ -434,6 +464,7 @@ export class AgentKernel {
                   pendingCall: { toolName: validated.tool.name, operationId, input: validated.input as Record<string, unknown> },
                   trajectory: trajectory.value(),
                   conversationSummary: contextWindow.conversationSummary,
+                  contextDiagnostics: contextWindow.diagnostics,
                   taskState: taskReducer.reduce(taskState, {
                     type: "confirmation_requested",
                     toolName: validated.tool.name,
@@ -456,7 +487,7 @@ export class AgentKernel {
           if (nativeStreaming) await publishFinalStream(text, input, { turnId, iterationId });
           else await streamFinal(this.dependencies.model, { systemPrompt, messages, tools: modelTools }, text, input, { turnId, iterationId });
           trajectory.finish("waiting_for_user");
-          return { text, trajectory: trajectory.value(), conversationSummary: contextWindow.conversationSummary, taskState };
+          return { text, trajectory: trajectory.value(), conversationSummary: contextWindow.conversationSummary, contextDiagnostics: contextWindow.diagnostics, taskState };
         }
 
         const text = response.text?.trim()
@@ -476,6 +507,7 @@ export class AgentKernel {
               text: visible,
               trajectory: trajectory.value(),
               conversationSummary: contextWindow.conversationSummary,
+              contextDiagnostics: contextWindow.diagnostics,
               taskState
             };
           }
@@ -498,6 +530,7 @@ export class AgentKernel {
                 text: recovery,
                 trajectory: trajectory.value(),
                 conversationSummary: contextWindow.conversationSummary,
+                contextDiagnostics: contextWindow.diagnostics,
                 taskState: { ...taskState, completionStatus: "waiting_for_user", updatedAt: new Date().toISOString() }
               };
             }
@@ -530,6 +563,7 @@ export class AgentKernel {
               goal: taskState.rootGoal
             }),
             conversationSummary: contextWindow.conversationSummary,
+            contextDiagnostics: contextWindow.diagnostics,
             taskState
           };
         }

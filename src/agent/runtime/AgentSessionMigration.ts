@@ -1,10 +1,11 @@
 import { AgentSessionSchema, type AgentMessage, type AgentSession } from "@/agent/contracts/agentSession";
+import { ensureConversationBranches } from "./activeBranchContext";
 import { ResumeTailoringDiffSchema } from "@/domain/schemas";
 import { tailoringDiffId } from "@/services/jobs/tailoringDiffId";
 import { stableHashText } from "@/services/security/text";
 import { normalizeMessageForFinalAssistant } from "./AgentSessionMessages";
 
-export const CURRENT_AGENT_SESSION_SCHEMA_VERSION = 2;
+export const CURRENT_AGENT_SESSION_SCHEMA_VERSION = 3;
 export const CURRENT_TAILORING_RUNTIME_VERSION = 3;
 export const CURRENT_QUESTION_PLAN_VERSION = 2;
 const UPGRADE_NOTICE_ID = "agent-system-tailoring-runtime-v3-upgrade";
@@ -106,8 +107,15 @@ export function migrateAgentSessionToCurrentSchema(value: AgentSession | Record<
   }
 
   const activeTurn = record(raw.activeTurn);
-  const messages = (Array.isArray(raw.messages) ? raw.messages : []).map((input) => {
+  const rawMessages = Array.isArray(raw.messages) ? raw.messages : [];
+  const legacyBranchId = typeof raw.activeBranchId === "string" ? raw.activeBranchId : "legacy-branch";
+  const messages = rawMessages.map((input, index) => {
     let message = migrateLegacyMessage(record(input)) as AgentMessage;
+    message = {
+      ...message,
+      branchId: message.branchId || legacyBranchId,
+      parentMessageId: message.parentMessageId ?? (index > 0 ? (rawMessages[index - 1] as Record<string, unknown>)?.id as string | undefined : undefined)
+    };
     const isNormalAssistant = message.role === "assistant"
       && message.status === "complete"
       && (message.kind === undefined || message.kind === "text")
@@ -144,7 +152,7 @@ export function migrateAgentSessionToCurrentSchema(value: AgentSession | Record<
     });
   }
 
-  return AgentSessionSchema.parse({
+  const migrated = AgentSessionSchema.parse({
     ...raw,
     agentSessionSchemaVersion: CURRENT_AGENT_SESSION_SCHEMA_VERSION,
     messages,
@@ -152,8 +160,30 @@ export function migrateAgentSessionToCurrentSchema(value: AgentSession | Record<
     taskState: nextTaskState,
     pendingConfirmation: retiresConfirmation ? undefined : raw.pendingConfirmation,
     pendingToolCall: retiresConfirmation || retiresCall ? undefined : raw.pendingToolCall,
-    turnCheckpoints: Array.isArray(raw.turnCheckpoints) ? raw.turnCheckpoints : []
+    turnCheckpoints: Array.isArray(raw.turnCheckpoints)
+      ? raw.turnCheckpoints.map((checkpoint) => {
+          const value = record(checkpoint);
+          return {
+            ...value,
+            branchId: typeof value.branchId === "string" ? value.branchId : legacyBranchId,
+            toolReceipts: Array.isArray(value.toolReceipts) ? value.toolReceipts : []
+          };
+        })
+      : [],
+    activeBranchId: legacyBranchId,
+    activeHeadMessageId: typeof raw.activeHeadMessageId === "string"
+      ? raw.activeHeadMessageId
+      : messages.at(-1)?.id,
+    conversationBranches: Array.isArray(raw.conversationBranches) && raw.conversationBranches.length
+      ? raw.conversationBranches
+      : [{
+          id: legacyBranchId,
+          headMessageId: messages.at(-1)?.id,
+          status: "active",
+          createdAt: typeof raw.createdAt === "string" ? raw.createdAt : migrationTime
+        }]
   });
+  return ensureConversationBranches(migrated);
 }
 
 function hashTailoringAnswers(value: unknown) {
@@ -211,8 +241,20 @@ function dependencyMatches(snapshot: Record<string, unknown>, selected: Record<s
 }
 
 function migrateLegacyMessage(message: Record<string, unknown>) {
-  if (!Array.isArray(message.options)) return message;
-  return { ...message, options: message.options.map((option) => migrateLegacyOption(record(option))) };
+  const options = Array.isArray(message.options)
+    ? message.options.map((option) => migrateLegacyOption(record(option)))
+    : undefined;
+  if (!options) return message;
+  return {
+    ...message,
+    options,
+    optionSet: message.optionSet ?? {
+      optionSetId: `legacy-option-set-${String(message.id ?? "message")}`,
+      optionSetRevision: 0,
+      sourceMessageId: String(message.id ?? "legacy-message"),
+      state: "active"
+    }
+  };
 }
 
 function migrateLegacyOption(option: Record<string, unknown>) {

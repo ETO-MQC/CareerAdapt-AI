@@ -1,4 +1,5 @@
 import type { AgentMessage, AgentSession } from "@/agent/contracts/agentSession";
+import { withActiveBranchHead } from "./activeBranchContext";
 
 export function appendAgentMessage(
   session: AgentSession,
@@ -9,13 +10,15 @@ export function appendAgentMessage(
   const now = new Date().toISOString();
   const message: AgentMessage = {
     id: options.id ?? `agent-message-${crypto.randomUUID()}`,
+    branchId: options.branchId ?? session.activeBranchId ?? "legacy-branch",
     role,
     content,
+    parentMessageId: options.parentMessageId ?? session.activeHeadMessageId,
     createdAt: options.createdAt ?? now,
     ...options,
     updatedAt: options.updatedAt ?? now
   };
-  return { ...session, messages: [...session.messages, message], updatedAt: now };
+  return withActiveBranchHead({ ...session, messages: [...session.messages, message], updatedAt: now }, message.id);
 }
 
 export function upsertAgentActivity(
@@ -33,13 +36,13 @@ export function upsertAgentActivity(
       updatedAt: now
     });
   }
-  return {
+  return withActiveBranchHead({
     ...session,
     messages: session.messages.map((message) => message.id === activity.id
       ? { ...message, ...activity, kind: "tool_status" as const, type: "tool_status" as const, updatedAt: now }
       : message),
     updatedAt: now
-  };
+  }, activity.id);
 }
 
 export function replaceAgentThinking(
@@ -53,6 +56,7 @@ export function replaceAgentThinking(
   const message = normalizeMessageForFinalAssistant({
     ...existing,
     id: messageId,
+    branchId: existing?.branchId ?? session.activeBranchId ?? "legacy-branch",
     turnId,
     role: "assistant",
     content,
@@ -65,13 +69,13 @@ export function replaceAgentThinking(
     createdAt: existing?.createdAt ?? now,
     updatedAt: now
   } as AgentMessage);
-  return {
+  return withActiveBranchHead({
     ...session,
     messages: session.messages.some((item) => item.id === messageId)
       ? session.messages.map((item) => item.id === messageId ? message : item)
       : [...session.messages, message],
     updatedAt: now
-  };
+  }, message.id);
 }
 
 export function normalizeMessageForFinalAssistant(message: AgentMessage): AgentMessage {

@@ -6,6 +6,27 @@ import { AgentTrajectorySchema } from "../kernel/AgentTrajectory";
 import { AgentReflectionSchema } from "../kernel/AgentReflection";
 import { AgentAttachmentRefSchema } from "@/services/agent/AgentAttachmentStore";
 
+export const AgentOptionSetStateSchema = z.enum(["active", "resolved", "superseded", "stale"]);
+
+export const AgentOptionSetSchema = z.object({
+  optionSetId: z.string().min(1),
+  optionSetRevision: z.number().int().min(0),
+  sourceMessageId: z.string().min(1),
+  state: AgentOptionSetStateSchema,
+  resolvedOptionId: z.string().min(1).optional(),
+  resolvedValue: z.string().min(1).optional(),
+  resolvedAt: z.string().datetime({ offset: true }).optional()
+}).strict();
+
+export const ConversationBranchSchema = z.object({
+  id: z.string().min(1),
+  parentBranchId: z.string().min(1).optional(),
+  forkedFromMessageId: z.string().min(1).optional(),
+  headMessageId: z.string().min(1).optional(),
+  status: z.enum(["active", "superseded", "archived"]),
+  createdAt: z.string().datetime({ offset: true })
+}).strict();
+
 export const AgentMessageReferenceSchema = z.object({
   messageId: z.string().min(1),
   role: z.enum(["user", "assistant", "tool", "system"]),
@@ -21,6 +42,7 @@ export const AgentMessageRevisionSchema = z.object({
 
 export const AgentMessageSchema = z.object({
   id: z.string().min(1),
+  branchId: z.string().min(1).optional(),
   turnId: z.string().min(1).optional(),
   role: z.enum(["user", "assistant", "tool", "system"]),
   content: z.string().max(8000),
@@ -46,6 +68,7 @@ export const AgentMessageSchema = z.object({
   errorCode: z.string().min(1).optional(),
   userMessageId: z.string().min(1).optional(),
   options: z.array(AgentOptionSchema).min(1).max(12).optional(),
+  optionSet: AgentOptionSetSchema.optional(),
   toolName: z.string().min(1).optional(),
   operationId: z.string().min(8).max(160).optional(),
   parentMessageId: z.string().min(1).optional(),
@@ -200,17 +223,30 @@ export const AgentTaskStateSchema = z.preprocess((value) => {
 export const AgentTurnCheckpointSchema = z.object({
   turnId: z.string().min(1),
   userMessageId: z.string().min(1),
+  branchId: z.string().min(1).optional(),
   taskStateBefore: AgentTaskStateSchema,
+  taskStateAfter: AgentTaskStateSchema.optional(),
   workflowStateBefore: AgentWorkflowStateSchema,
+  workflowStateAfter: AgentWorkflowStateSchema.optional(),
   selectedEntitiesBefore: AgentTaskStateObjectSchema.shape.selectedEntities,
   artifactRefsBefore: z.array(AgentArtifactRefSchema).max(64),
+  artifactRefsAfter: z.array(AgentArtifactRefSchema).max(64).optional(),
   pendingConfirmationBefore: AgentConfirmationSchema.optional(),
+  pendingConfirmationAfter: AgentConfirmationSchema.optional(),
   pendingToolCallBefore: AgentPendingToolCallSchema.optional(),
-  createdAt: z.string().datetime({ offset: true })
+  pendingToolCallAfter: AgentPendingToolCallSchema.optional(),
+  toolReceipts: z.array(z.object({
+    toolName: z.string().min(1),
+    operationId: z.string().min(1),
+    status: z.enum(["complete", "failed", "recovered"]),
+    observation: z.unknown().optional()
+  }).strict()).max(32).optional(),
+  createdAt: z.string().datetime({ offset: true }),
+  completedAt: z.string().datetime({ offset: true }).optional()
 }).strict();
 
 export const AgentSessionSchema = z.object({
-  agentSessionSchemaVersion: z.number().int().min(1).default(2),
+  agentSessionSchemaVersion: z.number().int().min(1).default(3),
   id: z.string().min(1),
   title: z.string().min(1).max(160),
   // Hydrated by WorkspaceRepository from the append-only AgentMessageRecord store.
@@ -231,6 +267,10 @@ export const AgentSessionSchema = z.object({
   pendingToolCall: AgentPendingToolCallSchema.optional(),
   activeTurn: AgentTurnSchema.optional(),
   taskState: AgentTaskStateSchema.optional(),
+  conversationBranches: z.array(ConversationBranchSchema).max(100).default([]),
+  activeBranchId: z.string().min(1).default("legacy-branch"),
+  activeHeadMessageId: z.string().min(1).optional(),
+  conversationSummaryBranchId: z.string().min(1).optional(),
   turnCheckpoints: z.array(AgentTurnCheckpointSchema).max(100).default([]),
   archived: z.boolean().default(false),
   archivedAt: z.string().datetime({ offset: true }).optional(),
@@ -247,6 +287,9 @@ export type AgentWorkflowState = z.infer<typeof AgentWorkflowStateSchema>;
 export type AgentConfirmation = z.infer<typeof AgentConfirmationSchema>;
 export type AgentTurn = z.infer<typeof AgentTurnSchema>;
 export type AgentTaskState = z.infer<typeof AgentTaskStateSchema>;
+export type AgentOptionSetState = z.infer<typeof AgentOptionSetStateSchema>;
+export type AgentOptionSet = z.infer<typeof AgentOptionSetSchema>;
+export type ConversationBranch = z.infer<typeof ConversationBranchSchema>;
 
 const AUTO_SESSION_TITLES = new Set(["新的 AI 任务", "AI 求职任务"]);
 

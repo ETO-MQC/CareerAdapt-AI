@@ -178,11 +178,11 @@ test("P4.3d.2 migrates a legacy tailoring session and completes the current jour
   await page.goto("/ai-workspace");
   await page.waitForTimeout(1_000);
   const initialProjection = await readSessionProjection(page);
-  if (initialProjection.agentSessionSchemaVersion !== 2 || initialProjection.migrationNoticeCount !== 1 || initialProjection.staleActivityState !== "recovered") {
+  if (initialProjection.agentSessionSchemaVersion !== 3 || initialProjection.migrationNoticeCount !== 1 || initialProjection.staleActivityState !== "recovered") {
     throw new Error(`legacy session did not persist migration: ${JSON.stringify(initialProjection)}`);
   }
   expect(initialProjection).toMatchObject({
-    agentSessionSchemaVersion: 2,
+    agentSessionSchemaVersion: 3,
     selectedProfileId: entities.profileId,
     selectedResumeId: entities.resumeId,
     selectedJobId: entities.jobId,
