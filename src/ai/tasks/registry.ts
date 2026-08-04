@@ -56,14 +56,15 @@ import { resumeJsonMapperPrompt } from "@/ai/prompts/resumeJsonMapper";
 import { resumeDocumentMapperPrompt } from "@/ai/prompts/resumeDocumentMapper";
 import { resumeTailorPlannerPrompt } from "@/ai/prompts/resumeTailorPlanner";
 import { normalizeResumeMapperBoundaryOutput } from "@/ai/tasks/resumeDocumentMapperOutput";
-import { RESUME_AI_ITEM_FIELD_CONTRACT, RESUME_CATALOG_VERSION, resumeFieldCatalog } from "@/domain/resumeFields";
+import { RESUME_AI_ITEM_FIELD_CONTRACT, RESUME_CATALOG_VERSION, RESUME_SECTION_TYPES_V2, resumeFieldCatalog } from "@/domain/resumeFields";
 import { buildSemanticDocument, type AiResumeSourceBlock } from "@/domain/resumeImport/sourceDocument";
 import {
   ProfileIntakeSemanticInputSchema,
   ProfileIntakeSemanticOutputSchema,
   validateProfileIntakeProposalGrounding,
   type ProfileIntakeSemanticInput,
-  type ProfileIntakeSemanticOutput
+  type ProfileIntakeSemanticOutput,
+  type ProfileIntakeSemanticCandidate
 } from "@/domain/profileIntake/ProfileIntakeSemanticService";
 
 export const stageBAiTaskSchema = z.enum(["profile-builder", "jd-analyzer"]);
@@ -164,122 +165,104 @@ export type StageBTaskDefinition<TInput, TOutput> = AiTaskDefinition<TInput, TOu
   task: StageBAiTask;
 };
 
-const profileIntakeOptionalFields = [
-  "title",
-  "titleKind",
-  "name",
-  "organization",
-  "institution",
-  "role",
-  "startDate",
-  "endDate",
-  "awardedAt",
-  "description"
+function coerceProfileIntakeSemanticOutput(rawOutput: unknown, input?: ProfileIntakeSemanticTaskInput) {
+  if (!input) return coerceLegacyProfileIntakeSemanticOutput(rawOutput);
+  const raw = rawOutput && typeof rawOutput === "object" && !Array.isArray(rawOutput)
+    ? rawOutput as Record<string, unknown>
+    : {};
+  const narrative = input?.rawNarrative ?? "";
+  const rawCandidates = Array.isArray(raw.candidates) ? raw.candidates : [];
+  const candidates = rawCandidates.map((candidate, index) => coerceProfileIntakeCandidate(candidate, index, narrative));
+  const followUpQuestions = Array.isArray(raw.followUpQuestions)
+    ? raw.followUpQuestions.filter((value): value is string => typeof value === "string" && Boolean(value.trim())).slice(0, 3)
+    : typeof raw.followUpQuestion === "string" && raw.followUpQuestion.trim()
+      ? [raw.followUpQuestion.trim()]
+      : [];
+  return { candidates, followUpQuestions };
+}
+
+const legacyProfileIntakeOptionalFields = [
+  "title", "titleKind", "name", "organization", "institution", "role", "startDate", "endDate", "awardedAt", "description"
+] as const;
+const legacyProfileIntakeEvidenceFields = [
+  "title", "name", "organization", "institution", "role", "startDate", "endDate", "awardedAt", "description",
+  "highlights", "tools", "methods", "outcomes"
 ] as const;
 
-const profileIntakeEvidenceFields = [
-  "title",
-  "name",
-  "organization",
-  "institution",
-  "role",
-  "startDate",
-  "endDate",
-  "awardedAt",
-  "description",
-  "highlights",
-  "tools",
-  "methods",
-  "outcomes"
-] as const;
-
-function coerceProfileIntakeSemanticOutput(rawOutput: unknown) {
+function coerceLegacyProfileIntakeSemanticOutput(rawOutput: unknown) {
   if (!rawOutput || typeof rawOutput !== "object" || Array.isArray(rawOutput)) return rawOutput;
   const output = { ...(rawOutput as Record<string, unknown>) };
   if (output.followUpQuestion === null) delete output.followUpQuestion;
   if (!Array.isArray(output.candidates)) return output;
-  output.candidates = output.candidates.map((candidate) => {
-    if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) return candidate;
-    const normalized = { ...(candidate as Record<string, unknown>) };
-    for (const field of profileIntakeOptionalFields) {
-      if (normalized[field] === null) delete normalized[field];
-    }
-    const sourceQuote = typeof normalized.sourceQuote === "string" ? normalized.sourceQuote : "";
-    const evidence = Array.isArray(normalized.fieldEvidence)
-      ? normalized.fieldEvidence.filter((entry) => {
-          if (!entry || typeof entry !== "object" || Array.isArray(entry)) return true;
-          const quote = (entry as Record<string, unknown>).sourceQuote;
-          return typeof quote !== "string" || !sourceQuote || sourceQuote.includes(quote);
-        })
-      : normalized.fieldEvidence;
-    normalized.fieldEvidence = evidence;
-    const hasEvidence = (field: string) => Array.isArray(evidence)
-      && evidence.some((entry) =>
-        entry && typeof entry === "object" && !Array.isArray(entry)
-        && (entry as Record<string, unknown>).field === field
-      );
-    const evidenceText = (field: string) => Array.isArray(evidence)
-      ? evidence.flatMap((entry) => {
-          if (!entry || typeof entry !== "object" || Array.isArray(entry)) return [];
-          const record = entry as Record<string, unknown>;
-          return record.field === field && typeof record.sourceQuote === "string"
-            ? [record.sourceQuote]
-            : [];
-        }).join("\n")
-      : "";
-      for (const field of profileIntakeEvidenceFields) {
-      const value = normalized[field];
-      const populated = Array.isArray(value)
-        ? value.length > 0
-        : typeof value === "string" && value.length > 0;
-      if (!populated || hasEvidence(field)) continue;
-      if (Array.isArray(value)) normalized[field] = [];
-      else delete normalized[field];
-    }
+  output.candidates = output.candidates.map((rawCandidate) => {
+    if (!rawCandidate || typeof rawCandidate !== "object" || Array.isArray(rawCandidate)) return rawCandidate;
+    const candidate = { ...(rawCandidate as Record<string, unknown>) };
+    for (const field of legacyProfileIntakeOptionalFields) if (candidate[field] === null) delete candidate[field];
+    const evidence = Array.isArray(candidate.fieldEvidence) ? candidate.fieldEvidence : [];
+    const evidenceText = (field: string) => evidence.map((entry) => {
+      const record = entry && typeof entry === "object" && !Array.isArray(entry) ? entry as Record<string, unknown> : {};
+      return record.field === field && typeof record.sourceQuote === "string" ? record.sourceQuote : "";
+    }).filter(Boolean).join("\n");
     for (const field of ["name", "organization", "institution", "role"] as const) {
-      const value = normalized[field];
-      if (typeof value === "string" && !includesLooseGrounding(evidenceText(field), value)) {
-        delete normalized[field];
-      }
-    }
-    if (
-      normalized.titleKind === "explicit"
-      && typeof normalized.title === "string"
-      && !includesLooseGrounding(evidenceText("title"), normalized.title)
-    ) {
-      delete normalized.title;
-      delete normalized.titleKind;
+      if (typeof candidate[field] === "string" && !includesLooseGrounding(evidenceText(field), candidate[field] as string)) delete candidate[field];
     }
     for (const field of ["tools", "methods"] as const) {
-      const values = normalized[field];
-      if (Array.isArray(values)) {
-        const grounding = evidenceText(field);
-        normalized[field] = values.filter((value) =>
-          typeof value === "string" && includesLooseGrounding(grounding, value)
-        );
+      if (Array.isArray(candidate[field])) {
+        candidate[field] = candidate[field].filter((value): value is string => typeof value === "string" && includesLooseGrounding(evidenceText(field), value));
       }
     }
-    for (const field of ["startDate", "endDate", "awardedAt"] as const) {
-      const value = normalized[field];
-      if (typeof value !== "string") continue;
-      const grounding = evidenceText(field);
-      const [year, month] = value.split("-");
-      if (!grounding.includes(year) || !new RegExp(`(?:^|\\D)0?${Number(month)}(?:\\D|$)`, "u").test(grounding)) {
-        delete normalized[field];
-      }
-    }
-    if (normalized.current === true && !/(?:至今|现在|目前|ongoing|present|current)/iu.test(evidenceText("current"))) {
-      normalized.current = false;
-    }
-    return normalized;
+    if (candidate.current === true && !/(?:至今|现在|目前|ongoing|present|current)/iu.test(evidenceText("current"))) candidate.current = false;
+    return candidate;
   });
   return output;
 }
 
 function includesLooseGrounding(text: string, value: string) {
-  return text.toLocaleLowerCase().replace(/\s+/gu, "").includes(
-    value.toLocaleLowerCase().replace(/\s+/gu, "")
-  );
+  return text.toLocaleLowerCase().replace(/\s+/gu, "").includes(value.toLocaleLowerCase().replace(/\s+/gu, ""));
+}
+
+function coerceProfileIntakeCandidate(rawCandidate: unknown, index: number, narrative: string) {
+  const candidate = rawCandidate && typeof rawCandidate === "object" && !Array.isArray(rawCandidate)
+    ? rawCandidate as Record<string, unknown>
+    : {};
+  const sourceQuote = typeof candidate.sourceQuote === "string" ? candidate.sourceQuote : "";
+  const sourceStart = typeof candidate.sourceSpan === "object" && candidate.sourceSpan !== null
+    ? Number((candidate.sourceSpan as Record<string, unknown>).start)
+    : sourceQuote ? narrative.indexOf(sourceQuote) : -1;
+  const start = Number.isInteger(sourceStart) && sourceStart >= 0 ? sourceStart : 0;
+  const sourceEnd = typeof candidate.sourceSpan === "object" && candidate.sourceSpan !== null
+    ? Number((candidate.sourceSpan as Record<string, unknown>).end)
+    : sourceQuote ? start + sourceQuote.length : 0;
+  const end = Number.isInteger(sourceEnd) && sourceEnd >= start ? sourceEnd : start;
+  const sectionType = typeof candidate.sectionType === "string"
+    && RESUME_SECTION_TYPES_V2.includes(candidate.sectionType as typeof RESUME_SECTION_TYPES_V2[number])
+    && candidate.sectionType !== "basics"
+    && candidate.sectionType !== "summary"
+    ? candidate.sectionType
+    : "other";
+  const structuredItem = candidate.structuredItem && typeof candidate.structuredItem === "object" && !Array.isArray(candidate.structuredItem)
+    ? stripModelItemMetadata(candidate.structuredItem as Record<string, unknown>)
+    : undefined;
+  return {
+    candidateKey: typeof candidate.candidateKey === "string" && candidate.candidateKey.trim()
+      ? candidate.candidateKey.trim()
+      : `candidate-${index + 1}`,
+    sectionType,
+    sourceSpan: { start, end },
+    ...(structuredItem ? { structuredItem } : {}),
+    ...(typeof candidate.professionalText === "string" && candidate.professionalText.trim()
+      ? { professionalText: candidate.professionalText.trim() }
+      : typeof candidate.description === "string" && candidate.description.trim()
+        ? { professionalText: candidate.description.trim() }
+        : {}),
+    uncertainFields: Array.isArray(candidate.uncertainFields)
+      ? candidate.uncertainFields.filter((value): value is string => typeof value === "string" && Boolean(value.trim())).slice(0, 80)
+      : []
+  };
+}
+
+function stripModelItemMetadata(item: Record<string, unknown>) {
+  return Object.fromEntries(Object.entries(item).filter(([field]) => field !== "id" && field !== "customFields"));
 }
 
 export const aiTaskRegistry = {
@@ -295,47 +278,34 @@ export const aiTaskRegistry = {
         rawNarrative: input.rawNarrative,
         existingDraftContext: input.existingDraftContext,
         canonicalSections: input.canonicalSections,
-        instructions: "Extract grounded general career assets. Preserve ownership and uncertainty. Return one highest-value follow-up question at most."
+        instructions: "Extract every distinct supported asset. Preserve ownership and uncertainty. Return at most three high-value follow-up questions; the application selects at most one after review."
       }, null, 2);
     },
-    coerceRawOutput(rawOutput: unknown) { return coerceProfileIntakeSemanticOutput(rawOutput); },
+    coerceRawOutput(rawOutput: unknown, input?: ProfileIntakeSemanticTaskInput) {
+      return coerceProfileIntakeSemanticOutput(rawOutput, input);
+    },
     normalizeOutput(output: ProfileIntakeSemanticOutput) {
       return ProfileIntakeSemanticOutputSchema.parse(output);
     },
     validateOutput(output: ProfileIntakeSemanticOutput, input: ProfileIntakeSemanticInput) {
-      for (const candidate of output.candidates) {
-        if (!input.rawNarrative.includes(candidate.sourceQuote)) throw new Error("profile_intake_candidate_source_missing");
-        if (!candidate.structuredItem) {
-          throw new Error(`profile_intake_structured_item_required:${candidate.sectionType}`);
-        }
-        if (candidate.structuredItem && candidate.structuredItem.sectionType !== candidate.sectionType) {
-          throw new Error("profile_intake_section_type_mismatch");
-        }
-        for (const evidence of candidate.fieldEvidence) {
-          if (!candidate.sourceQuote.includes(evidence.sourceQuote)) {
-            throw new Error("profile_intake_field_source_outside_candidate");
-          }
-        }
-        for (const field of profileIntakeEvidenceFields) {
-          const value = candidate[field];
-          const populated = Array.isArray(value)
-            ? value.length > 0
-            : typeof value === "string" && value.length > 0;
-          if (populated && !candidate.fieldEvidence.some((evidence) => evidence.field === field)) {
-          throw new Error(`profile_intake_field_evidence_missing:${field}`);
-        }
+      // Candidate grounding, canonical item parsing, fact guard, and source
+      // span checks happen independently in ProfileIntakeSemanticService so a
+      // single malformed candidate cannot invalidate its siblings.
+      if ("followUpQuestions" in output && output.followUpQuestions.length > 3) {
+        throw new Error("profile_intake_follow_up_limit");
       }
-      if (candidate.structuredItem) {
-        for (const [field, value] of Object.entries(candidate.structuredItem)) {
-          const populated = field !== "id" && field !== "sectionType" && field !== "customFields"
-            && value !== undefined && value !== false
-            && (!Array.isArray(value) || value.length > 0);
-          if (populated && !candidate.fieldEvidence.some((evidence) => evidence.field === field)) {
-            throw new Error(`profile_intake_structured_field_evidence_missing:${field}`);
+      if (!("followUpQuestions" in output)) {
+        for (const candidate of output.candidates as ProfileIntakeSemanticCandidate[]) {
+          if (!candidate.structuredItem) throw new Error(`profile_intake_structured_item_required:${candidate.sectionType}`);
+          for (const field of legacyProfileIntakeEvidenceFields) {
+            const value = candidate[field];
+            const populated = Array.isArray(value) ? value.length > 0 : typeof value === "string" && value.length > 0;
+            if (populated && !candidate.fieldEvidence.some((evidence) => evidence.field === field)) {
+              throw new Error(`profile_intake_field_evidence_missing:${field}`);
+            }
           }
+          validateProfileIntakeProposalGrounding(candidate, input.rawNarrative);
         }
-      }
-      validateProfileIntakeProposalGrounding(candidate, input.rawNarrative);
       }
     }
   } satisfies AiTaskDefinition<ProfileIntakeSemanticTaskInput, ProfileIntakeSemanticOutput>,

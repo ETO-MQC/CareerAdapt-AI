@@ -2,6 +2,8 @@
 
 import type { AgentConfirmation, AgentMessage } from "@/agent/contracts/agentSession";
 import type { AgentOption } from "@/agent/contracts/agentActions";
+import type { AgentArtifactAction } from "@/agent/contracts/agentActions";
+import type { ProfileIntakeReviewProjection } from "@/domain/profileIntake/ProfileIntakeReviewProjection";
 import {
   AlertCircle,
   Bot,
@@ -23,6 +25,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AgentConfirmationCard } from "./AgentConfirmationCard";
 import { AgentMarkdown } from "./AgentMarkdown";
+import { ProfileIntakeCandidateCards } from "./ProfileIntakeCandidateCards";
 
 export function AgentConversation({
   messages,
@@ -35,6 +38,8 @@ export function AgentConversation({
   confirmation,
   confirmationBusy,
   onConfirmation,
+  profileIntakeProjection,
+  onArtifactAction,
   children
 }: {
   messages: AgentMessage[];
@@ -47,6 +52,8 @@ export function AgentConversation({
   confirmation?: AgentConfirmation;
   confirmationBusy?: boolean;
   onConfirmation?(confirmed: boolean): void;
+  profileIntakeProjection?: ProfileIntakeReviewProjection;
+  onArtifactAction?(action: AgentArtifactAction): Promise<unknown> | void;
   children?: React.ReactNode;
 }) {
   const visibleMessages = messages.filter((message) =>
@@ -173,6 +180,10 @@ export function AgentConversation({
             />
           );
         })}
+        <ProfileIntakeCandidateCards
+          projection={profileIntakeProjection}
+          onAction={onArtifactAction}
+        />
         {children}
         {visibleMessages.length ? (
           <div className="agent-conversation-actions" aria-label="会话操作">

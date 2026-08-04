@@ -13,9 +13,11 @@ import {
   canonicalizeEducationItemFromSource,
   extractEducationFacts,
   ProfileIntakeNormalizer,
+  normalizeCareerMonth,
   type ProfileIntakeNormalizationResult
 } from "./ProfileIntakeNormalizer";
 import { highestValueFollowUp } from "./ProfileIntakeCompleteness";
+import { RESUME_AI_ITEM_FIELD_CONTRACT } from "@/domain/resumeFields";
 
 const OptionalText = z.string().trim().min(1).max(4_000).optional();
 const TextList = z.array(z.string().trim().min(1).max(2_000)).max(30).default([]);
@@ -53,6 +55,28 @@ export const ProfileIntakeSemanticCandidateSchema = z.object({
 });
 
 export const ProfileIntakeSemanticOutputSchema = z.object({
+  candidates: z.array(z.object({
+    candidateKey: z.string().trim().min(1).max(120),
+    sectionType: ResumeSectionTypeV2Schema.exclude(["basics", "summary"]),
+    sourceSpan: z.object({
+      start: z.number().int().min(0),
+      end: z.number().int().min(0)
+    }).strict(),
+    // Keep this boundary tolerant. Candidate-level validation below is what
+    // quarantines one malformed item without discarding the whole response.
+    structuredItem: z.unknown().optional(),
+    professionalText: z.string().trim().min(1).max(4_000).optional(),
+    uncertainFields: z.array(z.string().trim().min(1).max(120)).max(80).default([])
+  }).strict()).max(40),
+  followUpQuestions: z.array(z.string().trim().min(1).max(500)).max(3).default([])
+}).strict();
+
+/**
+ * The pre-P4.3f shape remains exported for old in-process callers and stored
+ * test fixtures. Provider output and the network boundary use the V2 shape
+ * above; normalize() accepts both during the transition.
+ */
+export const ProfileIntakeSemanticLegacyOutputSchema = z.object({
   candidates: z.array(ProfileIntakeSemanticCandidateSchema).max(40),
   followUpQuestion: z.string().trim().min(1).max(500).optional()
 }).strict();
@@ -69,13 +93,20 @@ export const ProfileIntakeSemanticInputSchema = z.object({
 }).strict();
 
 export type ProfileIntakeSemanticCandidate = z.infer<typeof ProfileIntakeSemanticCandidateSchema>;
-export type ProfileIntakeSemanticOutput = z.infer<typeof ProfileIntakeSemanticOutputSchema>;
+export type ProfileIntakeSemanticV2Candidate = z.infer<typeof ProfileIntakeSemanticOutputSchema>["candidates"][number];
+export type ProfileIntakeSemanticV2Output = z.infer<typeof ProfileIntakeSemanticOutputSchema>;
+export type ProfileIntakeSemanticLegacyOutput = z.infer<typeof ProfileIntakeSemanticLegacyOutputSchema>;
+export type ProfileIntakeSemanticOutput = ProfileIntakeSemanticV2Output | ProfileIntakeSemanticLegacyOutput;
 export type ProfileIntakeSemanticInput = z.infer<typeof ProfileIntakeSemanticInputSchema>;
 
 export type VerifiedProfileIntakeCandidate = {
   id: string;
   label: string;
   sourceQuote: string;
+  candidateKey?: string;
+  sourceSpan?: { start: number; end: number };
+  professionalText?: string;
+  uncertainFields?: string[];
   normalization: ProfileIntakeNormalizationResult;
 };
 
@@ -83,6 +114,7 @@ export type ProfileIntakeSemanticResult = {
   mode: "ai" | "deterministic";
   providerStatus: "available" | "failed" | "invalid";
   candidates: VerifiedProfileIntakeCandidate[];
+  followUpQuestions?: string[];
   followUpQuestion?: string;
   warning?: string;
 };
@@ -118,6 +150,10 @@ export class ProfileIntakeSemanticService {
     }
     if (!response.ok) return deterministicFallback(input.rawNarrative, response.errorCode);
 
+    if (isV2SemanticOutput(response.data)) {
+      return this.normalizeV2Output(response.data, input.rawNarrative);
+    }
+
     const verified: VerifiedProfileIntakeCandidate[] = [];
     const verificationErrors: string[] = [];
     for (const [index, proposal] of response.data.candidates.entries()) {
@@ -147,10 +183,54 @@ export class ProfileIntakeSemanticService {
       mode: "ai",
       providerStatus: "available",
       candidates: localized,
+      followUpQuestions: [],
       followUpQuestion: highestValueFollowUp(
         localized.flatMap((candidate) =>
           candidate.normalization.structuredItem ? [candidate.normalization.structuredItem] : []
         )
+      )
+    };
+  }
+
+  private normalizeV2Output(
+    output: ProfileIntakeSemanticV2Output,
+    rawNarrative: string
+  ): ProfileIntakeSemanticResult {
+    const verified: VerifiedProfileIntakeCandidate[] = [];
+    const verificationErrors: string[] = [];
+    for (const [index, candidate] of output.candidates.entries()) {
+      try {
+        verified.push(verifyV2Proposal(candidate, rawNarrative, index));
+      } catch (error) {
+        verificationErrors.push(error instanceof Error ? error.message : "profile_intake_candidate_invalid");
+      }
+    }
+    if (verificationErrors.length) {
+      console.warn("[profile-intake:candidate-salvage]", {
+        candidateCount: output.candidates.length,
+        acceptedCount: verified.length,
+        quarantinedCount: verificationErrors.length,
+        errorCodes: verificationErrors
+      });
+    }
+    if (!verified.length) {
+      return deterministicFallback(
+        rawNarrative,
+        output.candidates.length ? `semantic_candidates_invalid:${verificationErrors.join(",")}` : "semantic_candidates_empty",
+        "invalid"
+      );
+    }
+    const localized = applyCandidateSourceSpanSanity(verified);
+    const followUpQuestions = output.followUpQuestions.slice(0, 3);
+    return {
+      mode: "ai",
+      providerStatus: "available",
+      candidates: localized,
+      followUpQuestions,
+      followUpQuestion: followUpQuestions[0] ?? highestValueFollowUp(
+        localized.flatMap((candidate) => candidate.normalization.structuredItem
+          ? [candidate.normalization.structuredItem]
+          : [])
       )
     };
   }
@@ -169,6 +249,133 @@ async function defaultInvoker(input: ProfileIntakeSemanticInput, signal?: AbortS
   return result.ok
     ? { ok: true as const, data: result.data }
     : { ok: false as const, errorCode: result.errorCode };
+}
+
+function isV2SemanticOutput(output: ProfileIntakeSemanticOutput): output is ProfileIntakeSemanticV2Output {
+  return "followUpQuestions" in output;
+}
+
+function verifyV2Proposal(
+  proposal: ProfileIntakeSemanticV2Candidate,
+  rawNarrative: string,
+  index: number
+): VerifiedProfileIntakeCandidate {
+  const sourceSpan = proposal.sourceSpan;
+  if (sourceSpan.start < 0 || sourceSpan.end <= sourceSpan.start || sourceSpan.end > rawNarrative.length) {
+    throw new Error("profile_intake_source_span_invalid");
+  }
+  const sourceQuote = rawNarrative.slice(sourceSpan.start, sourceSpan.end);
+  if (!sourceQuote.trim()) throw new Error("profile_intake_source_span_empty");
+  const id = `intake-${stableHashText(`${proposal.candidateKey}:${sourceQuote}`).slice(0, 16)}-${index}`;
+  const uncertainFields = [...new Set(proposal.uncertainFields)];
+  const item = normalizeV2StructuredItem(proposal.structuredItem, proposal.sectionType, id, uncertainFields);
+  if (!item) throw new Error(`profile_intake_structured_item_invalid:${proposal.sectionType}`);
+  assertFactPreserving(item, sourceQuote);
+  const fieldEvidence = derivedV2FieldEvidence(item, sourceQuote, uncertainFields);
+  const professionalText = safeProfessionalText(proposal.professionalText, item, sourceQuote, uncertainFields);
+  const needsConfirmation = uncertainFields.length > 0 || fieldEvidence.some((entry) => entry.needsConfirmation);
+  return {
+    id,
+    label: displayLabel(item),
+    sourceQuote,
+    candidateKey: proposal.candidateKey,
+    sourceSpan,
+    professionalText,
+    uncertainFields,
+    normalization: {
+      sectionType: proposal.sectionType,
+      normalizedText: professionalText,
+      structuredItem: item,
+      confidence: needsConfirmation ? 0.68 : 0.9,
+      needsConfirmation,
+      needsNormalization: false,
+      fieldEvidence
+    }
+  };
+}
+
+function normalizeV2StructuredItem(
+  rawItem: unknown,
+  sectionType: ProfileIntakeSemanticV2Candidate["sectionType"],
+  id: string,
+  uncertainFields: string[]
+): ResumeItemV2 | undefined {
+  if (!rawItem || typeof rawItem !== "object" || Array.isArray(rawItem)) return undefined;
+  const raw = rawItem as Record<string, unknown>;
+  const allowed = new Set([
+    "sectionType",
+    "customFields",
+    ...(RESUME_AI_ITEM_FIELD_CONTRACT[sectionType] ?? [])
+  ]);
+  const cleaned: Record<string, unknown> = { id, customFields: [], sectionType };
+  for (const [field, value] of Object.entries(raw)) {
+    if (field === "id" || field === "candidateKey" || field === "sourceQuote" || field === "fieldEvidence") continue;
+    if (!allowed.has(field) || value === null) {
+      if (value !== undefined && field !== "customFields") uncertainFields.push(field);
+      continue;
+    }
+    if (field === "customFields") continue;
+    if (isDateField(field) && typeof value === "string") {
+      const normalized = normalizeCareerMonth(value);
+      if (!normalized) {
+        uncertainFields.push(field);
+        continue;
+      }
+      cleaned[field] = normalized;
+      continue;
+    }
+    cleaned[field] = value;
+  }
+  if (cleaned.current === true && cleaned.endDate !== undefined) {
+    delete cleaned.endDate;
+    uncertainFields.push("endDate");
+  }
+  const parsed = ResumeItemV2Schema.safeParse(cleaned);
+  return parsed.success ? parsed.data : undefined;
+}
+
+function isDateField(field: string) {
+  return ["startDate", "endDate", "awardedAt", "issuedAt", "expiresAt", "filedAt", "grantedAt", "publishedAt", "createdAt"].includes(field);
+}
+
+function derivedV2FieldEvidence(item: ResumeItemV2, sourceQuote: string, uncertainFields: string[]) {
+  return Object.entries(item)
+    .filter(([field, value]) => field !== "id" && field !== "sectionType" && field !== "customFields"
+      && value !== undefined && value !== false && (!Array.isArray(value) || value.length > 0))
+    .flatMap(([field, value]) => {
+      const text = Array.isArray(value) ? value.join(" ") : typeof value === "string" || typeof value === "number" ? String(value) : "";
+      if (!text) return [];
+      const explicit = isDateField(field)
+        ? sourceQuote.includes(text.slice(0, 4))
+        : includesLoose(sourceQuote, text);
+      return [{
+        field,
+        sourceQuote,
+        support: explicit ? "explicit" as const : "uncertain" as const,
+        confidence: explicit ? 0.96 : 0.58,
+        needsConfirmation: uncertainFields.includes(field) || !explicit
+      }];
+    });
+}
+
+function safeProfessionalText(
+  proposed: string | undefined,
+  item: ResumeItemV2,
+  sourceQuote: string,
+  uncertainFields: string[]
+) {
+  const candidate = proposed?.trim();
+  if (!candidate) return profileText(item);
+  const guard = runRuleFactGuard({
+    originalText: canonicalFactWording(sourceQuote),
+    checkedText: candidate,
+    usedEvidenceRefs: []
+  });
+  if (guard.status === "blocked_high_risk" || guard.status === "needs_edit") {
+    uncertainFields.push("professionalText");
+    return profileText(item);
+  }
+  return candidate;
 }
 
 function verifyProposal(
@@ -467,6 +674,7 @@ function deterministicFallback(
     mode: "deterministic",
     providerStatus,
     warning: `AI 语义整理暂不可用（${errorCode}）；已保留原始回答，基础信息需要核对。`,
+    followUpQuestions: [],
     candidates: [{
       id,
       label: displayLabel(normalization.structuredItem),

@@ -44,6 +44,7 @@ import {
 import { agentImportProgressBus } from "@/services/agent/AgentImportProgressBus";
 import {
   adaptConversationMessageToIntakeDraft,
+  buildConversationIntakeReviewProjectionFromDraft,
   buildConversationIntakeArtifact,
   mergeConversationIntakeDraft
 } from "@/domain/profileIntake/ConversationIntakeAdapter";
@@ -163,6 +164,7 @@ export class BrowserAgentToolService implements AgentToolServices {
       importId?: string;
       expectedDraftRevision?: number;
       sourceContentHash?: string;
+      retry?: boolean;
     };
     await assertActiveProfileBinding(this.repository, input);
     const profile = await this.repository.getProfile(input.targetProfileId);
@@ -205,7 +207,7 @@ export class BrowserAgentToolService implements AgentToolServices {
           turnId: input.turnId,
           sourceContentHash
         });
-    if (identityMatch(existingByIdentity)) {
+    if (identityMatch(existingByIdentity) && input.retry !== true) {
       return captureProfileIntakeObservation(existingByIdentity!, profile, true);
     }
     const semanticResult = await this.profileIntakeSemantic.normalize({
@@ -220,13 +222,19 @@ export class BrowserAgentToolService implements AgentToolServices {
       semanticResult
     });
     const nextDraft = existing
-      ? mergeConversationIntakeDraft(existing, adapted.draft)
+      ? mergeConversationIntakeDraft(input.retry ? removeFailedIntakeFallback(existing, { ...input, sourceContentHash }) : existing, adapted.draft)
       : adapted.draft;
     const saved = await this.repository.saveImportedResumeDraft(
       nextDraft,
       existing?.revision ?? 0
     );
-    return captureProfileIntakeObservation(saved, profile, false, semanticResult.followUpQuestion);
+    return captureProfileIntakeObservation(
+      saved,
+      profile,
+      false,
+      semanticResult.followUpQuestion,
+      semanticResult.followUpQuestions
+    );
   }
 
   async reviewProfileIntake(rawInput: unknown, signal?: AbortSignal) {
@@ -286,7 +294,7 @@ export class BrowserAgentToolService implements AgentToolServices {
         if (input.decision === "accept" && !structuredItem) {
           throw toolError(
             "profile_intake_identity_missing",
-            "这项内容还缺少正式名称，请编辑名称或补充细节后再采用。"
+            "这项内容还缺少正式名称，请编辑名称或手动整理后再采用。"
           );
         }
         if (
@@ -296,7 +304,7 @@ export class BrowserAgentToolService implements AgentToolServices {
         ) {
           throw toolError(
             "profile_intake_normalization_required",
-            "这项原始回答尚未整理完成，请重试整理、编辑后采用、补充细节或忽略。"
+            "这项原始回答尚未整理完成，请重新解析、编辑后采用或忽略。"
           );
         }
         const patchedFields = patchValidation ? Object.keys(patchValidation.patch) : [];
@@ -368,6 +376,10 @@ export class BrowserAgentToolService implements AgentToolServices {
       interviewPlan.activeQuestion?.question,
       interviewPlan
     );
+    const reviewProjection = buildConversationIntakeReviewProjectionFromDraft(
+      saved,
+      interviewPlan.activeQuestion?.question ? [interviewPlan.activeQuestion.question] : []
+    );
     const authoritativeCandidate = artifact.candidates.find((candidate) => candidate.id === input.candidateId);
     return {
       importId: saved.importId,
@@ -382,7 +394,8 @@ export class BrowserAgentToolService implements AgentToolServices {
       unresolvedCount: unresolved,
       followUpQuestion: interviewPlan.activeQuestion?.question,
       interviewPlan,
-      artifactPayload: artifact
+      artifactPayload: artifact,
+      reviewProjection
     };
   }
 
@@ -1245,7 +1258,7 @@ function assertConversationIntakeCommitEligible(draft: ImportedResumeDraft | und
   if (blocked) {
     throw toolError(
       "profile_intake_normalization_required",
-      "仍有内容尚未形成可写入资料库的正式事实，请先重试整理、编辑或补充细节。"
+      "仍有内容尚未形成可写入资料库的正式事实，请先重新解析、编辑或手动整理。"
     );
   }
 }
@@ -1325,7 +1338,8 @@ function captureProfileIntakeObservation(
   draft: ImportedResumeDraft,
   profile: { id: string; version: number },
   idempotent: boolean,
-  fallbackFollowUpQuestion?: string
+  fallbackFollowUpQuestion?: string,
+  fallbackFollowUpQuestions: string[] = []
 ) {
   const acceptedStructuredItems = draft.sections.flatMap((section) => section.items.flatMap((item) =>
     item.userConfirmed === true && item.structuredItem ? [item.structuredItem] : []
@@ -1333,6 +1347,10 @@ function captureProfileIntakeObservation(
   const interviewPlan = createProfileIntakeInterviewPlan(acceptedStructuredItems, draft.revision);
   const followUpQuestion = interviewPlan.activeQuestion?.question ?? fallbackFollowUpQuestion;
   const artifactPayload = buildConversationIntakeArtifact(draft, followUpQuestion, interviewPlan);
+  const reviewProjection = buildConversationIntakeReviewProjectionFromDraft(
+    draft,
+    [...fallbackFollowUpQuestions, ...(followUpQuestion ? [followUpQuestion] : [])]
+  );
   return {
     importId: draft.importId,
     expectedDraftRevision: draft.revision,
@@ -1344,8 +1362,31 @@ function captureProfileIntakeObservation(
     followUpQuestion,
     interviewPlan,
     artifactPayload,
+    reviewProjection,
     idempotent
   };
+}
+
+function removeFailedIntakeFallback(
+  draft: ImportedResumeDraft,
+  input: { sessionId: string; messageId: string; turnId: string; sourceContentHash: string }
+): ImportedResumeDraft {
+  const sections = draft.sections
+    .map((section) => ({
+      ...section,
+      items: section.items.filter((item) => !item.conversationEvidence?.some((evidence) =>
+        evidence.sessionId === input.sessionId
+        && evidence.messageId === input.messageId
+        && evidence.turnId === input.turnId
+        && evidence.sourceContentHash === input.sourceContentHash
+      ))
+    }))
+    .filter((section) => section.items.length);
+  return ImportedResumeDraftSchema.parse({
+    ...draft,
+    sections,
+    warnings: draft.warnings.filter((warning) => warning.code !== "provider_unavailable")
+  });
 }
 
 async function assertActiveProfileBinding(

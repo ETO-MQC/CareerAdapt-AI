@@ -6,6 +6,11 @@ import type {
   ProfileIntakeSemanticResult,
   VerifiedProfileIntakeCandidate
 } from "./ProfileIntakeSemanticService";
+import {
+  ProfileIntakeReviewProjectionSchema,
+  profileIntakeReviewProgress,
+  type ProfileIntakeReviewProjection
+} from "./ProfileIntakeReviewProjection";
 
 export type ConversationIntakeCandidate = {
   id: string;
@@ -72,6 +77,7 @@ export function adaptConversationMessageToIntakeDraft(input: {
   draft: ImportedResumeDraft;
   candidates: ConversationIntakeCandidate[];
   artifact: ConversationIntakeArtifact;
+  reviewProjection: ProfileIntakeReviewProjection;
 } {
   const text = input.text.trim();
   if (!text) throw new Error("profile_intake_source_empty");
@@ -210,11 +216,174 @@ export function adaptConversationMessageToIntakeDraft(input: {
     createdAt: input.capturedAt,
     updatedAt: input.capturedAt
   });
+  const reviewProjection = buildConversationIntakeReviewProjection({
+    importId,
+    draftRevision: 0,
+    sourceMessageId: input.messageId,
+    sourceTurnId: input.turnId,
+    sourceContentHash,
+    text,
+    semanticResult
+  });
   return {
     draft,
     candidates,
-    artifact: buildConversationIntakeArtifact(draft, semanticResult.followUpQuestion)
+    artifact: buildConversationIntakeArtifact(draft, semanticResult.followUpQuestion),
+    reviewProjection
   };
+}
+
+export function buildConversationIntakeReviewProjection(input: {
+  importId: string;
+  draftRevision: number;
+  sourceMessageId: string;
+  sourceTurnId: string;
+  sourceContentHash: string;
+  text: string;
+  semanticResult: ProfileIntakeSemanticResult;
+}): ProfileIntakeReviewProjection {
+  const isFailed = input.semanticResult.providerStatus !== "available";
+  const candidates = isFailed
+    ? [{
+        id: input.semanticResult.candidates[0]?.id ?? `intake-failed-${stableHashText(input.text).slice(0, 16)}`,
+        candidateKey: "failed-extraction",
+        sectionType: "other" as const,
+        sourceSpan: { start: 0, end: input.text.length },
+        sourceQuote: input.text,
+        professionalText: "原始回答已保留，等待重新整理。",
+        uncertainFields: ["structuredItem"],
+        confidence: 0,
+        needsConfirmation: true,
+        status: "failed" as const,
+        canAccept: false,
+        reason: "这段内容没有完成结构化，但原文已经保留。",
+        fieldEvidence: []
+      }]
+    : input.semanticResult.candidates.flatMap((candidate) => {
+        if (!candidate.normalization.structuredItem) return [];
+        const sourceStart = candidate.sourceSpan?.start ?? Math.max(0, input.text.indexOf(candidate.sourceQuote));
+        const sourceSpan = candidate.sourceSpan ?? { start: sourceStart, end: sourceStart + candidate.sourceQuote.length };
+        const status = candidate.normalization.needsConfirmation ? "uncertain" as const : "proposed" as const;
+        return [{
+          id: candidate.id,
+          ...(candidate.candidateKey ? { candidateKey: candidate.candidateKey } : {}),
+          sectionType: candidate.normalization.sectionType,
+          sourceSpan,
+          sourceQuote: candidate.sourceQuote,
+          structuredItem: candidate.normalization.structuredItem,
+          professionalText: candidate.professionalText ?? candidate.normalization.normalizedText,
+          uncertainFields: candidate.uncertainFields ?? [],
+          confidence: candidate.normalization.confidence,
+          needsConfirmation: candidate.normalization.needsConfirmation,
+          status,
+          canAccept: true,
+          ...(candidate.normalization.needsConfirmation ? { reason: "有字段需要你确认" } : {}),
+          fieldEvidence: candidate.normalization.fieldEvidence
+        }];
+      });
+  const followUpQuestions = (input.semanticResult.followUpQuestions?.length
+    ? input.semanticResult.followUpQuestions
+    : input.semanticResult.followUpQuestion
+      ? [input.semanticResult.followUpQuestion]
+      : []).slice(0, 3);
+  const reviewProgress = profileIntakeReviewProgress(candidates);
+  return ProfileIntakeReviewProjectionSchema.parse({
+    importId: input.importId,
+    draftRevision: input.draftRevision,
+    sourceMessageId: input.sourceMessageId,
+    sourceTurnId: input.sourceTurnId,
+    sourceContentHash: input.sourceContentHash,
+    extractionStatus: isFailed ? "failed" : reviewProgress.uncertain > 0 ? "partial" : "structured",
+    candidates,
+    reviewProgress,
+    followUpQuestions,
+    ...(followUpQuestions[0] ? { followUpQuestion: followUpQuestions[0] } : {}),
+    ...(isFailed ? {
+      failedExtraction: {
+        code: input.semanticResult.warning?.match(/（([^）]+)）/u)?.[1] ?? "profile_intake_extraction_failed",
+        message: "这段内容没有完成结构化，但原文已经保留。",
+        actions: ["retry", "manual", "preserve"] as const
+      }
+    } : {})
+  });
+}
+
+export function buildConversationIntakeReviewProjectionFromDraft(
+  draft: ImportedResumeDraft,
+  followUpQuestions: string[] = []
+): ProfileIntakeReviewProjection {
+  const rawText = draft.pages[0]?.rawText ?? "";
+  const failed = draft.warnings.some((warning) => warning.code === "provider_unavailable");
+  const sourceMessageId = draft.source.sourceMessageId ?? `draft-${draft.importId}`;
+  const sourceTurnId = draft.source.sourceTurnId ?? `draft-${draft.importId}`;
+  const sourceContentHash = draft.source.sourceContentHash ?? stableHashText(rawText);
+  const items = draft.sections.flatMap((section) => section.items);
+  const candidates = failed
+    ? [{
+        id: items[0]?.id ?? `intake-failed-${stableHashText(rawText).slice(0, 16)}`,
+        candidateKey: "failed-extraction",
+        sectionType: "other" as const,
+        sourceSpan: { start: 0, end: rawText.length },
+        sourceQuote: rawText,
+        professionalText: "原始回答已保留，等待重新整理。",
+        uncertainFields: ["structuredItem"],
+        confidence: 0,
+        needsConfirmation: true,
+        status: "failed" as const,
+        canAccept: false,
+        reason: "这段内容没有完成结构化，但原文已经保留。",
+        fieldEvidence: []
+      }]
+    : items.flatMap((item) => {
+        if (!item.structuredItem) return [];
+        const sourceQuote = item.sourceQuote ?? item.rawText;
+        const start = Math.max(0, rawText.indexOf(sourceQuote));
+        const normalization = item.careerNormalization;
+        const status = item.userConfirmed === true
+          ? "accepted" as const
+          : item.userConfirmed === false
+            ? "ignored" as const
+            : normalization?.fieldEvidence.some((entry) => entry.needsConfirmation) || item.sourceStatus === "ambiguous"
+              ? "uncertain" as const
+              : "proposed" as const;
+        return [{
+          id: item.id,
+          sectionType: item.structuredItem.sectionType,
+          sourceSpan: { start, end: start + sourceQuote.length },
+          sourceQuote,
+          structuredItem: item.structuredItem,
+          professionalText: item.normalizedText,
+          uncertainFields: normalization?.fieldEvidence.filter((entry) => entry.needsConfirmation).map((entry) => entry.field) ?? [],
+          confidence: item.confidence === "high" ? 0.9 : item.confidence === "medium" ? 0.75 : 0.58,
+          needsConfirmation: status === "uncertain" || status === "proposed",
+          status,
+          ...(item.userConfirmed === true ? { decision: "accept" as const } : item.userConfirmed === false ? { decision: "reject" as const } : {}),
+          canAccept: true,
+          ...(status === "uncertain" ? { reason: "有字段需要你确认" } : {}),
+          fieldEvidence: normalization?.fieldEvidence ?? []
+        }];
+      });
+  const questions = followUpQuestions.slice(0, 3);
+  const reviewProgress = profileIntakeReviewProgress(candidates);
+  return ProfileIntakeReviewProjectionSchema.parse({
+    importId: draft.importId,
+    draftRevision: draft.revision,
+    sourceMessageId,
+    sourceTurnId,
+    sourceContentHash,
+    extractionStatus: failed ? "failed" : reviewProgress.uncertain > 0 ? "partial" : "structured",
+    candidates,
+    reviewProgress,
+    followUpQuestions: questions,
+    ...(questions[0] ? { followUpQuestion: questions[0] } : {}),
+    ...(failed ? {
+      failedExtraction: {
+        code: "profile_intake_extraction_failed",
+        message: "这段内容没有完成结构化，但原文已经保留。",
+        actions: ["retry", "manual", "preserve"] as const
+      }
+    } : {})
+  });
 }
 
 export function buildConversationIntakeArtifact(

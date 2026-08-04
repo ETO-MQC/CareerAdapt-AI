@@ -40,6 +40,7 @@ import {
   unresolvedTailoringQuestions,
   type CompoundAnswerResolution
 } from "./CompoundAnswerResolver";
+import { ProfileIntakeReviewProjectionSchema } from "@/domain/profileIntake/ProfileIntakeReviewProjection";
 
 export type AgentHostInput =
   | { type: "message"; text: string; references?: AgentMessageReference[] }
@@ -1039,10 +1040,88 @@ export class AgentHostStore {
     const executionKey = artifactActionOperationId(session, action, revision);
     const running = this.artifactActionExecutions.get(executionKey);
     if (running) return running;
-    const execution = this.resolveArtifactActionOnce(session, action, pageContext, revision)
-      .finally(() => this.artifactActionExecutions.delete(executionKey));
+    const execution = (
+      action.type === "profile_intake_extraction_recovery"
+        ? this.resolveProfileIntakeExtractionRecovery(session, action, pageContext, revision)
+        : this.resolveArtifactActionOnce(session, action, pageContext, revision)
+    ).finally(() => this.artifactActionExecutions.delete(executionKey));
     this.artifactActionExecutions.set(executionKey, execution);
     return execution;
+  }
+
+  private async resolveProfileIntakeExtractionRecovery(
+    session: AgentSession,
+    action: Extract<AgentArtifactAction, { type: "profile_intake_extraction_recovery" }>,
+    pageContext: AgentPageContext,
+    revision: number | undefined
+  ) {
+    const projection = ProfileIntakeReviewProjectionSchema.safeParse(session.taskState?.knownSlots.profileIntakeReviewProjection);
+    if (
+      !projection.success
+      || revision === undefined
+      || projection.data.importId !== action.importId
+      || projection.data.draftRevision !== action.expectedDraftRevision
+      || projection.data.sourceMessageId !== action.sourceMessageId
+      || projection.data.extractionStatus !== "failed"
+    ) {
+      const rejected = withArtifactActionFeedback(session, action, {
+        result: revision === undefined ? "missing_revision" : "invalid_target",
+        message: "当前失败整理已更新，请刷新后重试。",
+        retryable: true
+      });
+      const saved = await this.dependencies.persistence.save(rejected);
+      this.patchSession(saved, { turnStatus: "idle" });
+      return saved;
+    }
+    const nextStatus = action.decision === "manual_review" ? "manual_review" as const : "preserved" as const;
+    const nextProjection = ProfileIntakeReviewProjectionSchema.parse({
+      ...projection.data,
+      extractionStatus: nextStatus,
+      failedExtraction: {
+        ...projection.data.failedExtraction,
+        code: action.decision === "manual_review" ? "manual_review_requested" : "source_preserved",
+        message: action.decision === "manual_review"
+          ? "原文已保留，可继续在对话中补充结构化字段。"
+          : "原文已保留，本轮不会把未确认内容写入资料库。",
+        actions: ["retry"]
+      }
+    });
+    const reducer = new AgentTaskStateReducer();
+    const taskState = reducer.reduce(session.taskState!, {
+      type: "slot_answer",
+      slot: "profileIntakeReviewProjection",
+      value: nextProjection
+    });
+    let current = projectTaskStateIntoSession(session, {
+      ...taskState,
+      knownSlots: {
+        ...taskState.knownSlots,
+        profileIntakeReviewProjection: nextProjection,
+        intakeCandidates: nextProjection.candidates
+      },
+      stage: action.decision === "manual_review" ? "collect_experience" : "collect_experience",
+      completionStatus: "waiting_for_user",
+      updatedAt: new Date().toISOString()
+    });
+    current = withArtifactActionFeedback(current, action, {
+      result: "handled",
+      message: action.decision === "manual_review" ? "已切换为手动整理，原文仍保留。" : "已保留原文，未确认内容不会进入资料库。",
+      retryable: true
+    });
+    current = appendAgentMessage(current, "assistant", action.decision === "manual_review"
+      ? "原文已经保留。你可以直接补充这段经历的名称、角色、主要工作或结果，我会继续做同一张核对卡。"
+      : "原文已经保留，未确认内容不会进入资料库。之后仍可重新解析。", {
+      id: `agent-profile-intake-recovery-${action.importId}-${action.decision}-${revision}`,
+      kind: "text",
+      type: "text",
+      status: "complete",
+      language: "zh",
+      metadata: { profileIntakeRecovery: action.decision }
+    });
+    const saved = await this.dependencies.persistence.save(current);
+    this.patchSession(saved, { turnStatus: "idle" });
+    void pageContext;
+    return saved;
   }
 
   private async resolveArtifactActionOnce(
@@ -1178,7 +1257,7 @@ export class AgentHostStore {
       retryable: false
     });
     if (shouldNarrateProfileIntakeContinuation(session.taskState, action, taskState)) {
-      current = appendAgentMessage(current, "assistant", profileIntakeContinuationNarration(), {
+      current = appendAgentMessage(current, "assistant", profileIntakeContinuationNarration(taskState), {
         id: `agent-profile-intake-continuation-${operationId}`,
         turnId,
         kind: "text",
@@ -2137,7 +2216,14 @@ export function attachTaskStateOptions(session: AgentSession, state: AgentTaskSt
     state.workflowId === "guided_profile_intake"
     && state.stage === "collect_experience"
     && !state.knownSlots.intakeRequestedSection
-    && !state.knownSlots.intakeActiveQuestion
+    && (
+      !state.knownSlots.intakeActiveQuestion
+      || ProfileIntakeReviewProjectionSchema.safeParse(state.knownSlots.profileIntakeReviewProjection).success
+        && (() => {
+          const projection = ProfileIntakeReviewProjectionSchema.parse(state.knownSlots.profileIntakeReviewProjection);
+          return projection.reviewProgress.proposed === 0 && projection.reviewProgress.uncertain === 0;
+        })()
+    )
   ) {
     const plan = objectValue(state.knownSlots.intakeInterviewPlan);
     const suggested = Array.isArray(plan.suggestedNextSections)
@@ -2161,10 +2247,20 @@ export function attachTaskStateOptions(session: AgentSession, state: AgentTaskSt
       && existingOptionSet.sourceMessageId === session.messages[assistantIndex].id
       ? existingOptionSet.optionSetId
       : `profile-intake-sections-${session.messages[assistantIndex].id}-${optionSetRevision}`;
-    options = suggested.flatMap((section) => sectionLabels[section]
+    const hasAuthoritativeProjection = ProfileIntakeReviewProjectionSchema.safeParse(
+      state.knownSlots.profileIntakeReviewProjection
+    ).success;
+    const nextSection = suggested.find((section) => section !== "finish" && sectionLabels[section]);
+    const optionSections = hasAuthoritativeProjection
+      ? [
+          ...(nextSection ? [{ section: nextSection, label: "继续补充" }] : []),
+          ...(suggested.includes("finish") ? [{ section: "finish", label: "完成整理" }] : [])
+        ]
+      : suggested.map((section) => ({ section, label: sectionLabels[section] }));
+    options = optionSections.flatMap(({ section, label }) => label
       ? [{
           id: `profile-intake-section-${section}`,
-          label: sectionLabels[section],
+          label,
           action: {
             type: "profile_intake_section_select" as const,
             section: section as ProfileIntakeSection,
@@ -2768,12 +2864,22 @@ function shouldNarrateProfileIntakeContinuation(
   nextState: AgentTaskState
 ) {
   if (nextState.workflowId !== "guided_profile_intake" || nextState.stage !== "collect_experience") return false;
-  if (action.type === "profile_intake_candidate_decision") return action.decision === "accept";
-  return action.type === "profile_intake_candidate_edit" && previousState?.stage === "review_facts";
+  const projection = ProfileIntakeReviewProjectionSchema.safeParse(nextState.knownSlots.profileIntakeReviewProjection);
+  if (!projection.success) {
+    if (action.type === "profile_intake_candidate_decision") return action.decision === "accept";
+    return action.type === "profile_intake_candidate_edit" && previousState?.stage === "review_facts";
+  }
+  return (action.type === "profile_intake_candidate_decision" || action.type === "profile_intake_candidate_edit")
+    && projection.data.reviewProgress.proposed === 0
+    && projection.data.reviewProgress.uncertain === 0;
 }
 
-function profileIntakeContinuationNarration() {
-  return "教育背景已记录到本次整理草稿中。\n\n接下来你想补充：实习经历、项目经历、校园经历、技能或证书，还是完成整理？";
+function profileIntakeContinuationNarration(taskState?: AgentTaskState) {
+  const projection = ProfileIntakeReviewProjectionSchema.safeParse(taskState?.knownSlots.profileIntakeReviewProjection);
+  const followUp = projection.success ? projection.data.followUpQuestion : undefined;
+  return followUp
+    ? `当前经历已核对完成。为了让它更适合真实复用，我先问一个高价值细节：\n\n${followUp}\n\n你也可以继续补充其他经历，或完成整理。`
+    : "当前经历已记录到本次整理草稿中。\n\n你可以继续补充其他经历，或完成整理。";
 }
 
 function profileIntakeSectionLabel(section: ProfileIntakeSection) {
@@ -3037,6 +3143,8 @@ function artifactActionRevision(
     ? state.knownSlots.expectedIntakeDraftRevision
     : action.type === "profile_intake_candidate_edit"
       ? state.knownSlots.expectedIntakeDraftRevision
+      : action.type === "profile_intake_retry_extraction" || action.type === "profile_intake_extraction_recovery"
+        ? state.knownSlots.expectedIntakeDraftRevision
       : action.type === "resume_import_review_decision"
         ? state.knownSlots.expectedDraftRevision
         : action.type === "tailoring_answer_edit" || action.type === "tailoring_regenerate" || action.type === "tailoring_diff_decision"
@@ -3050,6 +3158,7 @@ function artifactActionRevision(
 function artifactActionEntityId(action: AgentArtifactAction) {
   if (action.type === "profile_intake_candidate_decision") return action.candidateId;
   if (action.type === "profile_intake_candidate_edit") return action.candidateId;
+  if (action.type === "profile_intake_retry_extraction" || action.type === "profile_intake_extraction_recovery") return action.sourceMessageId;
   if (action.type === "profile_intake_reconciliation_decision") return action.incomingItemId;
   if (action.type === "resume_import_reconciliation_decision") return action.incomingItemId;
   if (action.type === "tailoring_answer_edit") return action.questionId;
@@ -3086,6 +3195,10 @@ function artifactActionOperationId(session: AgentSession, action: AgentArtifactA
       ? "regenerate"
       : action.type === "profile_intake_candidate_edit"
         ? "edit"
+      : action.type === "profile_intake_retry_extraction"
+        ? "retry-extraction"
+      : action.type === "profile_intake_extraction_recovery"
+        ? action.decision
       : action.type === "profile_intake_candidate_decision" || action.type === "resume_import_review_decision"
         ? action.decision
         : action.type === "profile_intake_reconciliation_decision"
@@ -3095,6 +3208,8 @@ function artifactActionOperationId(session: AgentSession, action: AgentArtifactA
     ? stableHashText(JSON.stringify(action.editedValue))
     : action.type === "profile_intake_candidate_edit"
       ? stableHashText(JSON.stringify(action.fieldPatch))
+      : action.type === "profile_intake_extraction_recovery"
+        ? stableHashText(action.decision)
     : "none";
   return ["artifact-action", session.id, tailoringSessionId, String(revision ?? "missing"), artifactActionEntityId(action), decision, editedValueHash]
     .join("-").replace(/[^\w-]/g, "-").slice(0, 160);
@@ -3182,6 +3297,43 @@ function artifactActionExecution(
       toolName: "generate_tailoring_changes",
       decision: "regenerate",
       toolInput: { session: state.knownSlots.tailoringSession }
+    };
+  }
+  if (action.type === "profile_intake_retry_extraction") {
+    const projection = ProfileIntakeReviewProjectionSchema.safeParse(state.knownSlots.profileIntakeReviewProjection);
+    const source = objectValue(state.knownSlots.latestIntakeSource);
+    if (
+      !projection.success
+      || state.stage !== "review_facts"
+      || projection.data.importId !== action.importId
+      || projection.data.draftRevision !== action.expectedDraftRevision
+      || projection.data.sourceMessageId !== action.sourceMessageId
+      || projection.data.extractionStatus !== "failed"
+      || source.messageId !== action.sourceMessageId
+      || typeof source.sessionId !== "string"
+      || typeof source.turnId !== "string"
+      || typeof source.exactSourceQuote !== "string"
+      || typeof source.capturedAt !== "string"
+      || typeof state.knownSlots.targetProfileId !== "string"
+      || typeof state.knownSlots.expectedProfileVersion !== "number"
+    ) return undefined;
+    return {
+      toolName: "capture_profile_intake",
+      decision: "retry",
+      toolInput: {
+        sessionId: source.sessionId,
+        messageId: source.messageId,
+        turnId: source.turnId,
+        text: source.exactSourceQuote,
+        capturedAt: source.capturedAt,
+        sourceContentHash: source.sourceContentHash,
+        targetProfileId: state.knownSlots.targetProfileId,
+        expectedProfileVersion: state.knownSlots.expectedProfileVersion,
+        acknowledgedActiveProfileId: state.knownSlots.acknowledgedActiveProfileId,
+        importId: action.importId,
+        expectedDraftRevision: action.expectedDraftRevision,
+        retry: true
+      }
     };
   }
   if (action.type === "profile_intake_candidate_decision") {
@@ -3288,6 +3440,7 @@ function artifactActionExecution(
       }
     };
   }
+  if (action.type === "profile_intake_extraction_recovery") return undefined;
   if (
     state.stage !== "resolve_conflicts"
     || typeof state.knownSlots.importId !== "string"
@@ -3319,6 +3472,10 @@ function artifactActionCompletedLabel(action: AgentArtifactAction) {
   if (action.type === "tailoring_answer_edit") return "已更新这项回答；原修改建议已标记为需要重新生成。";
   if (action.type === "tailoring_regenerate") return "已重新生成修改建议。";
   if (action.type === "profile_intake_candidate_edit") return "已保存这项类型化字段编辑，并保留原始来源证据。";
+  if (action.type === "profile_intake_retry_extraction") return "已重新整理这段原始回答。";
+  if (action.type === "profile_intake_extraction_recovery") {
+    return action.decision === "manual_review" ? "已切换为手动整理，并保留原始回答。" : "已保留原始回答，未确认内容不会写入资料库。";
+  }
   if (action.type === "profile_intake_candidate_decision") {
     return action.decision === "accept"
       ? "已采用这项经历候选。"

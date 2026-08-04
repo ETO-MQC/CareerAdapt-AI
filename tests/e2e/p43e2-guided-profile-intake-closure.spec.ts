@@ -33,7 +33,7 @@ test.describe("P4.3e.2 guided profile intake closure", () => {
     await expect.poll(() => latestTask(page)).toMatchObject({ stage: "collect_experience" });
     await expect((await openIntakeArtifact(page)).getByText("计算机相关专业", { exact: true }).first()).toBeVisible();
 
-    await page.getByRole("button", { name: "项目经历", exact: true }).click();
+    await page.getByRole("button", { name: "继续补充", exact: true }).click();
     await page.reload();
     await expect.poll(() => latestTask(page)).toMatchObject({ stage: "collect_experience" });
 
@@ -221,19 +221,14 @@ async function installSemanticFixture(page: Page) {
         candidates: [{
           candidateKey: output.id,
           sectionType: output.sectionType,
+          sourceSpan: { start: 0, end: raw.length },
           structuredItem: output,
-          title: education ? "教育经历" : title,
-          sourceQuote: raw,
-          confidence: 0.95,
-          needsConfirmation: false,
-          fieldEvidence: Object.keys(output).flatMap((field) => {
-            const value = output[field as keyof typeof output];
-            return (typeof value === "string" && value)
-              || (Array.isArray(value) && value.length)
-              ? [{ field, sourceQuote: raw, support: "explicit", confidence: 0.95, needsConfirmation: false }]
-              : [];
-          })
-        }]
+          professionalText: education
+            ? "示例大学本科计算机相关专业，2024年9月入学，预计2028年6月毕业。"
+            : output.description,
+          uncertainFields: []
+        }],
+        followUpQuestions: []
       }, meta: { provider: "fixture", model: "p43e2" } })
     });
   });

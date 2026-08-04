@@ -28,6 +28,7 @@ import { ImportReviewDialog } from "@/components/resume/import/ImportReviewDialo
 import { ResumeImportWizard } from "@/components/resume/import/ResumeImportWizard";
 import { WorkspaceRepository } from "@/services/storage/repositories";
 import type { CareerProfile } from "@/domain/schemas";
+import { ProfileIntakeReviewProjectionSchema } from "@/domain/profileIntake/ProfileIntakeReviewProjection";
 import {
   readResumeImportSemanticPreference,
   writeResumeImportSemanticPreference
@@ -72,16 +73,17 @@ export function AgentWorkspace() {
   const paused = snapshot.turnStatus === "paused";
   const draft = draftsBySession[session.id] ?? "";
   const draftReference = draftReferencesBySession[session.id];
-  const intakeCandidates = Array.isArray(session.taskState?.knownSlots.intakeCandidates)
-    ? session.taskState.knownSlots.intakeCandidates
-    : [];
+  const intakeProjectionResult = ProfileIntakeReviewProjectionSchema.safeParse(session.taskState?.knownSlots.profileIntakeReviewProjection);
+  const intakeProjection = intakeProjectionResult.success ? intakeProjectionResult.data : undefined;
+  const intakeCandidates = intakeProjection?.candidates
+    ?? (Array.isArray(session.taskState?.knownSlots.intakeCandidates) ? session.taskState.knownSlots.intakeCandidates : []);
   const canFinishIntake = session.taskState?.workflowId === "guided_profile_intake"
     && session.taskState.stage === "collect_experience"
     && intakeCandidates.some((candidate) => {
       const item = candidate && typeof candidate === "object" && !Array.isArray(candidate)
         ? candidate as Record<string, unknown>
         : {};
-      return item.decision === "accept" || item.included === true;
+      return item.status === "accepted" || item.decision === "accept" || item.included === true;
     });
 
   const updateDrawerState = useCallback((next: AgentArtifactDrawerState) => {
@@ -367,6 +369,8 @@ export function AgentWorkspace() {
                 )}
                 confirmation={session.pendingToolCall ? session.pendingConfirmation : undefined}
                 confirmationBusy={running}
+                profileIntakeProjection={intakeProjection}
+                onArtifactAction={dispatchArtifactAction}
                 onConfirmation={(confirmed) => void host.state.dispatch(
                   { type: "confirmation", confirmed },
                   { session, pageContext: pageContext() }

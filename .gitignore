@@ -23,6 +23,7 @@ pdfjs
 # Local/generated verification cases that should stay out of git.
 tests/local-cases/
 tests/generated-cases/
+tests/fixtures/p43f-real-provider-long-narrative.local.json
 tests/fixtures/pdf/corrupted.pdf
 tests/fixtures/pdf/empty-file.bin
 tests/fixtures/pdf/empty-page.pdf

@@ -77,6 +77,19 @@ export const AgentArtifactActionSchema = z.discriminatedUnion("type", [
     decision: z.literal("accept")
   }).strict(),
   z.object({
+    type: z.literal("profile_intake_retry_extraction"),
+    importId: z.string().min(1),
+    sourceMessageId: z.string().min(1),
+    expectedDraftRevision: z.number().int().min(0)
+  }).strict(),
+  z.object({
+    type: z.literal("profile_intake_extraction_recovery"),
+    importId: z.string().min(1),
+    sourceMessageId: z.string().min(1),
+    expectedDraftRevision: z.number().int().min(0),
+    decision: z.enum(["manual_review", "preserve_source"])
+  }).strict(),
+  z.object({
     type: z.literal("profile_intake_reconciliation_decision"),
     incomingItemId: z.string().min(1),
     resolution: z.enum(["keep_existing", "use_imported", "keep_both_as_distinct"])

@@ -16,6 +16,7 @@ import {
   resolveTailoringEntityReference,
   type TailoringContextCandidate
 } from "./tailoringContextResolver";
+import { ProfileIntakeReviewProjectionSchema, type ProfileIntakeReviewProjection } from "@/domain/profileIntake/ProfileIntakeReviewProjection";
 
 export type AgentTaskEvent =
   | {
@@ -487,15 +488,26 @@ export class AgentTaskStateReducer {
       } else if (event.toolName === "capture_profile_intake") {
         const value = objectValue(event.observation);
         const nextArtifact = objectValue(value.artifactPayload);
+        const projection = ProfileIntakeReviewProjectionSchema.safeParse(value.reviewProjection).success
+          ? value.reviewProjection as ProfileIntakeReviewProjection
+          : undefined;
         state.knownSlots.intakeImportId = value.importId;
         state.knownSlots.expectedIntakeDraftRevision = value.expectedDraftRevision;
-        state.knownSlots.intakeCandidates = value.candidates;
-        state.knownSlots.intakeArtifact = nextArtifact;
+        if (projection) {
+          state.knownSlots.profileIntakeReviewProjection = projection;
+          // Compatibility aliases are derived from the projection and are not
+          // used as an independent source of truth by the new UI.
+          state.knownSlots.intakeCandidates = projection.candidates;
+          state.knownSlots.intakeArtifact = nextArtifact;
+        } else {
+          state.knownSlots.intakeCandidates = value.candidates;
+          state.knownSlots.intakeArtifact = nextArtifact;
+        }
         state.knownSlots.intakeInterviewPlan = value.interviewPlan;
         state.knownSlots.intakeFollowUpQuestion = value.followUpQuestion;
         state.knownSlots.intakeActiveQuestion = objectValue(value.interviewPlan).activeQuestion;
         state.pendingDecision = undefined;
-        state.stage = Array.isArray(value.candidates) && value.candidates.length > 0
+        state.stage = (projection?.candidates.length ?? (Array.isArray(value.candidates) ? value.candidates.length : 0)) > 0
           ? "review_facts"
           : "collect_experience";
         state.completionStatus = "waiting_for_user";
@@ -505,6 +517,22 @@ export class AgentTaskStateReducer {
         if (value.interviewPlan) state.knownSlots.intakeInterviewPlan = value.interviewPlan;
         if (value.followUpQuestion) state.knownSlots.intakeFollowUpQuestion = value.followUpQuestion;
         state.knownSlots.intakeActiveQuestion = objectValue(value.interviewPlan).activeQuestion;
+        const authoritativeProjection = ProfileIntakeReviewProjectionSchema.safeParse(value.reviewProjection).success
+          ? value.reviewProjection as ProfileIntakeReviewProjection
+          : undefined;
+        if (authoritativeProjection) {
+          state.knownSlots.profileIntakeReviewProjection = authoritativeProjection;
+          state.knownSlots.intakeCandidates = authoritativeProjection.candidates;
+          state.knownSlots.intakeArtifact = objectValue(value.artifactPayload);
+          state.pendingDecision = undefined;
+          state.stage = authoritativeProjection.reviewProgress.proposed > 0
+            || authoritativeProjection.reviewProgress.uncertain > 0
+            || authoritativeProjection.extractionStatus === "failed"
+            ? "review_facts"
+            : "collect_experience";
+          state.completionStatus = "waiting_for_user";
+          return normalize(state);
+        }
         const candidateId = stringValue(value.candidateId);
         const decision = value.decision === "accept" || value.decision === "reject" || value.decision === "reopen"
           ? value.decision
@@ -741,6 +769,7 @@ export class AgentTaskStateReducer {
         for (const slot of [
           "intakeImportId",
           "expectedIntakeDraftRevision",
+          "profileIntakeReviewProjection",
           "intakeCandidates",
           "intakeArtifact",
           "intakeReconciliation",
@@ -795,10 +824,13 @@ function intakeSectionFromCommand(command: string) {
 }
 
 function acceptedIntakeCandidateCount(state: AgentTaskState) {
-  const candidates = Array.isArray(state.knownSlots.intakeCandidates)
-    ? state.knownSlots.intakeCandidates.map(objectValue)
+  const projection = ProfileIntakeReviewProjectionSchema.safeParse(state.knownSlots.profileIntakeReviewProjection);
+  const candidates = projection.success
+    ? projection.data.candidates.map(objectValue)
+    : Array.isArray(state.knownSlots.intakeCandidates)
+      ? state.knownSlots.intakeCandidates.map(objectValue)
     : [];
-  return candidates.filter((candidate) => candidate.decision === "accept" || candidate.included === true).length;
+  return candidates.filter((candidate) => candidate.status === "accepted" || candidate.decision === "accept" || candidate.included === true).length;
 }
 
 function effectiveProfileIntakeEvidenceKind(kind: ProfileIntakeTurnKind, message: string): ProfileIntakeTurnKind {
@@ -843,6 +875,7 @@ function resetProfileIntakeDraft(state: AgentTaskState) {
     "latestIntakeSource",
     "intakeImportId",
     "expectedIntakeDraftRevision",
+    "profileIntakeReviewProjection",
     "intakeCandidates",
     "intakeArtifact",
     "intakeInterviewPlan",

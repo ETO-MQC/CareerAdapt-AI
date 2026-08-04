@@ -9,6 +9,7 @@ import type { AgentArtifactAction, AgentUiAction } from "@/agent/contracts/agent
 import type { ProfileIntakeStructuredPatch } from "@/domain/profileIntake/ProfileIntakeNormalizer";
 import { ResumeTailoringDiffSchema } from "@/domain/schemas";
 import { tailoringDiffId } from "@/services/jobs/tailoringDiffId";
+import { ProfileIntakeReviewProjectionSchema, type ProfileIntakeReviewProjection } from "@/domain/profileIntake/ProfileIntakeReviewProjection";
 
 export function AgentArtifactContent({
   artifact,
@@ -92,7 +93,11 @@ export function AgentArtifactContent({
   const unresolvedReconciliation = Array.isArray(importReconciliation.unresolved)
     ? importReconciliation.unresolved.map(asRecord)
     : [];
-  const intakeArtifact = asRecord(taskState?.knownSlots.intakeArtifact);
+  const intakeProjectionResult = ProfileIntakeReviewProjectionSchema.safeParse(taskState?.knownSlots.profileIntakeReviewProjection);
+  const intakeProjection = intakeProjectionResult.success ? intakeProjectionResult.data : undefined;
+  const intakeArtifact = intakeProjection
+    ? projectionArtifact(intakeProjection)
+    : asRecord(taskState?.knownSlots.intakeArtifact);
   const richIntakeCandidates = arrayOfRecords(intakeArtifact.candidates);
   const recognizedIntake = arrayOfRecords(intakeArtifact.recognized);
   const uncertainIntake = arrayOfRecords(intakeArtifact.needsConfirmation);
@@ -154,7 +159,7 @@ export function AgentArtifactContent({
                 const needsNormalization = item.needsNormalization === true;
                 const canAccept = item.canAccept !== false && !needsNormalization;
                 return (
-                  <article key={String(item.id)} className="agent-career-asset">
+                  <article key={String(item.id)} className="agent-career-asset" data-candidate-id={String(item.id)}>
                     <header>
                       <div>
                         <span className="agent-career-asset-type">{sectionTypeLabel(item.sectionType)}</span>
@@ -206,35 +211,90 @@ export function AgentArtifactContent({
                           </>
                         ) : (
                           <>
-                            {needsNormalization ? (
-                              <button type="button" onClick={() => onImportAction?.(`重试整理“${String(item.label ?? "这项经历")}”`)}>重试整理</button>
+                            {needsNormalization && intakeProjection ? (
+                              <>
+                                {intakeProjection?.failedExtraction?.actions.includes("retry") ? (
+                                  <button type="button" onClick={() => onArtifactAction?.({
+                                    type: "profile_intake_retry_extraction",
+                                    importId: intakeProjection.importId,
+                                    sourceMessageId: intakeProjection.sourceMessageId,
+                                    expectedDraftRevision: intakeProjection.draftRevision
+                                  })}>重新解析</button>
+                                ) : null}
+                                {intakeProjection?.failedExtraction?.actions.includes("manual") ? (
+                                  <button type="button" onClick={() => onArtifactAction?.({
+                                    type: "profile_intake_extraction_recovery",
+                                    importId: intakeProjection.importId,
+                                    sourceMessageId: intakeProjection.sourceMessageId,
+                                    expectedDraftRevision: intakeProjection.draftRevision,
+                                    decision: "manual_review"
+                                  })}>手动整理</button>
+                                ) : null}
+                                {intakeProjection?.failedExtraction?.actions.includes("preserve") ? (
+                                  <button type="button" onClick={() => onArtifactAction?.({
+                                    type: "profile_intake_extraction_recovery",
+                                    importId: intakeProjection.importId,
+                                    sourceMessageId: intakeProjection.sourceMessageId,
+                                    expectedDraftRevision: intakeProjection.draftRevision,
+                                    decision: "preserve_source"
+                                  })}>保留为来源</button>
+                                ) : null}
+                              </>
+                            ) : needsNormalization ? (
+                              <>
+                                <button type="button" onClick={() => onImportAction?.(`重试整理“${String(item.label ?? "这项经历")}”`)}>重试整理</button>
+                                <IntakeCandidateEditor
+                                  key={`${String(item.id)}-${JSON.stringify(structuredItem)}`}
+                                  item={structuredItem}
+                                  label={String(item.label ?? "这项经历")}
+                                  buttonLabel="编辑后采用"
+                                  onSave={(fieldPatch) => onArtifactAction?.({
+                                    type: "profile_intake_candidate_edit",
+                                    importId: String(taskState.knownSlots.intakeImportId),
+                                    expectedDraftRevision: taskState.knownSlots.expectedIntakeDraftRevision as number,
+                                    candidateId: String(item.id),
+                                    fieldPatch,
+                                    decision: "accept"
+                                  })}
+                                />
+                                <button type="button" onClick={() => onImportAction?.(`补充“${String(item.label ?? "这项经历")}”最有价值的细节`)}>补充细节</button>
+                                <button type="button" onClick={() => onArtifactAction?.({
+                                  type: "profile_intake_candidate_decision",
+                                  candidateId: String(item.id),
+                                  decision: "reject"
+                                })}>忽略</button>
+                              </>
                             ) : canAccept ? (
-                              <button type="button" onClick={() => onArtifactAction?.({
-                                type: "profile_intake_candidate_decision",
-                                candidateId: String(item.id),
-                                decision: "accept"
-                              })}>采用</button>
+                              <>
+                                <button type="button" onClick={() => onArtifactAction?.({
+                                  type: "profile_intake_candidate_decision",
+                                  candidateId: String(item.id),
+                                  decision: "accept"
+                                })}>采用</button>
+                                <IntakeCandidateEditor
+                                  key={`${String(item.id)}-${JSON.stringify(structuredItem)}`}
+                                  item={structuredItem}
+                                  label={String(item.label ?? "这项经历")}
+                                  buttonLabel="编辑后采用"
+                                  onSave={(fieldPatch) => onArtifactAction?.({
+                                    type: "profile_intake_candidate_edit",
+                                    importId: String(taskState.knownSlots.intakeImportId),
+                                    expectedDraftRevision: taskState.knownSlots.expectedIntakeDraftRevision as number,
+                                    candidateId: String(item.id),
+                                    fieldPatch,
+                                    decision: "accept"
+                                  })}
+                                />
+                                {!intakeProjection ? (
+                                  <button type="button" onClick={() => onImportAction?.(`补充“${String(item.label ?? "这项经历")}”最有价值的细节`)}>补充细节</button>
+                                ) : null}
+                                <button type="button" onClick={() => onArtifactAction?.({
+                                  type: "profile_intake_candidate_decision",
+                                  candidateId: String(item.id),
+                                  decision: "reject"
+                                })}>忽略</button>
+                              </>
                             ) : null}
-                            <IntakeCandidateEditor
-                              key={`${String(item.id)}-${JSON.stringify(structuredItem)}`}
-                              item={structuredItem}
-                              label={String(item.label ?? "这项经历")}
-                              buttonLabel="编辑后采用"
-                              onSave={(fieldPatch) => onArtifactAction?.({
-                                type: "profile_intake_candidate_edit",
-                                importId: String(taskState.knownSlots.intakeImportId),
-                                expectedDraftRevision: taskState.knownSlots.expectedIntakeDraftRevision as number,
-                                candidateId: String(item.id),
-                                fieldPatch,
-                                decision: "accept"
-                              })}
-                            />
-                            <button type="button" onClick={() => onImportAction?.(`补充“${String(item.label ?? "这项经历")}”最有价值的细节`)}>补充细节</button>
-                            <button type="button" onClick={() => onArtifactAction?.({
-                              type: "profile_intake_candidate_decision",
-                              candidateId: String(item.id),
-                              decision: "reject"
-                            })}>忽略</button>
                           </>
                         )
                       ) : null}
@@ -525,6 +585,86 @@ function sourceTypeLabel(value: unknown) {
     external_json: "外部 JSON"
   };
   return labels[String(value)] ?? String(value ?? "待识别");
+}
+
+function projectionArtifact(projection: ProfileIntakeReviewProjection) {
+  const candidates = projection.candidates.map((candidate) => {
+    const item = asRecord(candidate.structuredItem);
+    const date = candidate.sectionType === "awards"
+      ? item.awardedAt
+      : [item.startDate, item.current === true ? "至今" : item.endDate].filter(Boolean).join(" — ") || undefined;
+    const organization = item.organization ?? item.institution ?? item.school ?? item.issuer;
+    const role = item.role ?? item.authorRole ?? (candidate.sectionType === "education" ? item.major : undefined);
+    const status = candidate.status === "accepted"
+      ? "confirmed"
+      : candidate.status === "ignored"
+        ? "ai_review"
+        : candidate.status === "failed"
+          ? "insufficient"
+          : "ai_review";
+    return {
+      id: candidate.id,
+      sectionType: candidate.sectionType,
+      label: candidate.sectionType === "education"
+        ? [item.school, item.degree, item.major].filter(Boolean).join(" / ") || "教育经历"
+        : String(item.title ?? item.name ?? item.organization ?? item.role ?? "待核对经历"),
+      sourceQuote: candidate.sourceQuote,
+      time: typeof date === "string" ? date : undefined,
+      organization: typeof organization === "string" ? organization : undefined,
+      role: typeof role === "string" ? role : undefined,
+      professionalDescription: candidate.professionalText,
+      highlights: arrayStrings(item.highlights),
+      toolsOrMethods: arrayStrings(item.tools ?? item.methods),
+      outcomes: arrayStrings(item.outcomes),
+      sources: [candidate.sourceQuote],
+      status,
+      confidence: candidate.confidence,
+      reason: candidate.reason,
+      needsNormalization: candidate.status === "failed",
+      canAccept: candidate.canAccept,
+      structuredItem: candidate.structuredItem,
+      decision: candidate.decision,
+      fieldEvidence: candidate.fieldEvidence
+    };
+  });
+  const recognized = projection.candidates.filter((candidate) => candidate.status === "accepted").map((candidate) => ({
+    id: candidate.id,
+    label: candidateLabelForProjection(candidate)
+  }));
+  const needsConfirmation = projection.candidates
+    .filter((candidate) => candidate.status === "uncertain" || candidate.status === "failed" || candidate.status === "proposed")
+    .map((candidate) => ({
+      id: candidate.id,
+      label: candidateLabelForProjection(candidate),
+      reason: candidate.reason ?? (candidate.status === "failed" ? projection.failedExtraction?.message ?? "结构化未完成" : "有字段需要确认")
+    }));
+  return {
+    title: "经历核对",
+    followUpQuestion: projection.followUpQuestion,
+    candidates,
+    recognized,
+    needsConfirmation,
+    duplicates: [],
+    additions: projection.candidates.map((candidate) => ({ id: candidate.id, label: candidateLabelForProjection(candidate) })),
+    sources: [{
+      sessionId: "conversation",
+      messageId: projection.sourceMessageId,
+      turnId: projection.sourceTurnId,
+      sourceContentHash: projection.sourceContentHash,
+      capturedAt: ""
+    }]
+  };
+}
+
+function candidateLabelForProjection(candidate: ProfileIntakeReviewProjection["candidates"][number]) {
+  const item = asRecord(candidate.structuredItem);
+  if (candidate.status === "failed") return "这段回答";
+  if (candidate.sectionType === "education") return [item.school, item.degree, item.major].filter(Boolean).join(" / ") || "教育经历";
+  return String(item.title ?? item.name ?? item.organization ?? item.role ?? "待核对经历");
+}
+
+function arrayStrings(value: unknown) {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
 }
 
 function asRecord(value: unknown): Record<string, unknown> {

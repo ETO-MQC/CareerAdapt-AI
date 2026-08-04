@@ -1469,9 +1469,19 @@ function deterministicWorkflowPause(
     taskState.workflowId === "guided_profile_intake"
     && taskState.stage === "review_facts"
     && taskState.knownSlots.intakeInterviewPlan
-    && Array.isArray(taskState.knownSlots.intakeCandidates)
+    && (Array.isArray(taskState.knownSlots.intakeCandidates) || taskState.knownSlots.profileIntakeReviewProjection)
   ) {
-    return "我已把这段内容整理为类型化经历候选。请先在右侧核对学校、学位、专业和时间等字段；只有明确采用或忽略后，才会进入资料库。";
+    const projection = objectValue(taskState.knownSlots.profileIntakeReviewProjection);
+    if (projection.extractionStatus === "failed") {
+      return "这段内容没有完成结构化，但原文已经保留。你可以重新解析、手动整理，或保留为来源。";
+    }
+    const candidates = Array.isArray(projection.candidates)
+      ? projection.candidates
+      : Array.isArray(taskState.knownSlots.intakeCandidates) ? taskState.knownSlots.intakeCandidates : [];
+    const count = candidates.length;
+    return count > 1
+      ? `我从这段描述中整理出 ${count} 项经历。请在下面逐项采用、编辑或忽略；对话和经历核对会保持同一份来源。`
+      : "我整理出 1 项经历。请在下面直接核对、编辑、采用或忽略，这个决定会保留原始来源。";
   }
   if (
     taskState.workflowId === "guided_profile_intake"
@@ -1482,7 +1492,7 @@ function deterministicWorkflowPause(
   if (
     taskState.workflowId === "guided_profile_intake"
     && taskState.stage === "collect_experience"
-    && Array.isArray(taskState.knownSlots.intakeCandidates)
+    && (Array.isArray(taskState.knownSlots.intakeCandidates) || taskState.knownSlots.profileIntakeReviewProjection)
   ) {
     const interviewPlan = objectValue(taskState.knownSlots.intakeInterviewPlan);
     const requestedSection = typeof taskState.knownSlots.intakeRequestedSection === "string"
@@ -1500,7 +1510,11 @@ function deterministicWorkflowPause(
     if (typeof question === "string" && question) {
       return `这项经历已记录到本次整理草稿中。为了让它更适合真实复用，我先问一个高价值细节：\n\n${question}`;
     }
-    return "教育背景已记录到本次整理草稿中。\n\n接下来你想补充：实习经历、项目经历、校园经历、技能或证书，还是完成整理？";
+    const projection = objectValue(taskState.knownSlots.profileIntakeReviewProjection);
+    const followUp = typeof projection.followUpQuestion === "string" ? projection.followUpQuestion : undefined;
+    return followUp
+      ? `当前经历已核对完成。为了让它更适合真实复用，我先问一个高价值细节：\n\n${followUp}\n\n回答后你可以继续补充其他经历，或完成整理。`
+      : "当前经历已记录到本次整理草稿中。你可以继续补充其他经历，或完成整理。";
   }
   if (
     afterToolOrResume

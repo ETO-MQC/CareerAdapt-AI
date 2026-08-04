@@ -61,19 +61,19 @@ test.describe("P4.3e.3 conversation branch isolation", () => {
     const beforeClick = await latestSession(page);
     const beforeCaptureCount = toolCount(beforeClick, "capture_profile_intake");
 
-    await expect(page.getByRole("button", { name: "项目经历", exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "项目经历", exact: true }).click();
+    await expect(page.getByRole("button", { name: "继续补充", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "继续补充", exact: true }).click();
 
-    await expect(page.getByText("已选择：项目经历", { exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: "项目经历", exact: true })).toHaveCount(0);
+    await expect(page.getByText(/^已选择：.+$/u)).toBeVisible();
+    await expect(page.getByRole("button", { name: "继续补充", exact: true })).toHaveCount(0);
     await expect(page.locator(".agent-message-row.is-user").filter({ hasText: "项目经历" })).toHaveCount(0);
-    await expect(page.getByText(/请告诉我项目名称、你承担的角色、主要工作和结果。/)).toBeVisible();
+    await expect(page.getByText(/请告诉我.*名称、你承担的角色、主要工作和结果。/u)).toBeVisible();
     await expect(page.locator(".agent-message-row.is-assistant").last().locator(".agent-message-options")).toHaveCount(0);
 
     expect(probe.requests).toHaveLength(beforeClickRequests);
     const afterClick = await latestSession(page);
     expect(toolCount(afterClick, "capture_profile_intake")).toBe(beforeCaptureCount);
-    expect(afterClick.taskState?.knownSlots?.intakeRequestedSection).toBe("project");
+    expect(fixture.profileIntakeSectionOptions).toContain(afterClick.taskState?.knownSlots?.intakeRequestedSection);
     expect(afterClick.taskState?.knownSlots?.latestIntakeSource).not.toMatchObject({ exactSourceQuote: "项目经历" });
   });
 
@@ -90,9 +90,9 @@ test.describe("P4.3e.3 conversation branch isolation", () => {
       .find((message) => message.role === "assistant" && message.status === "complete" && message.kind === "text");
     expect(sourceAssistant?.id).toBeTruthy();
     await acceptEducationCandidate(page);
-    await expect(page.getByRole("button", { name: "项目经历", exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "项目经历", exact: true }).click();
-    await expect(page.getByText(/请告诉我项目名称、你承担的角色、主要工作和结果。/)).toBeVisible();
+    await expect(page.getByRole("button", { name: "继续补充", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "继续补充", exact: true }).click();
+    await expect(page.getByText(/请告诉我.*名称、你承担的角色、主要工作和结果。/u)).toBeVisible();
 
     const beforeRegenerate = await latestSession(page);
     const captureCount = toolCount(beforeRegenerate, "capture_profile_intake");
@@ -116,7 +116,7 @@ test.describe("P4.3e.3 conversation branch isolation", () => {
     expect(await importedDraftRevision(page, draftImportId)).toBe(draftRevision);
     expect(await activeProfileVersion(page)).toBe(profileVersion);
     expect(afterRegenerate.messages.filter((message) => message.branchId === afterRegenerate.activeBranchId && message.role === "tool")).toHaveLength(0);
-    await expect(page.getByText(/请告诉我项目名称、你承担的角色、主要工作和结果。/)).toHaveCount(0);
+    await expect(page.getByText(/请告诉我.*名称、你承担的角色、主要工作和结果。/u)).toHaveCount(0);
     await expect(page.getByText("任务暂时中断", { exact: true })).toHaveCount(0);
   });
 
@@ -128,8 +128,8 @@ test.describe("P4.3e.3 conversation branch isolation", () => {
     await send(page, originalEducation);
     await expect.poll(() => latestTask(page)).toMatchObject({ stage: "review_facts" });
     await acceptEducationCandidate(page);
-    await page.getByRole("button", { name: "项目经历", exact: true }).click();
-    await expect(page.getByText(/请告诉我项目名称、你承担的角色、主要工作和结果。/)).toBeVisible();
+    await page.getByRole("button", { name: "继续补充", exact: true }).click();
+    await expect(page.getByText(/请告诉我.*名称、你承担的角色、主要工作和结果。/u)).toBeVisible();
 
     const beforeEdit = await latestSession(page);
     const originalCaptureCount = toolCount(beforeEdit, "capture_profile_intake");
@@ -166,9 +166,8 @@ test.describe("P4.3e.3 conversation branch isolation", () => {
     expect(afterEdit.messages.filter((message) => message.role === "user" && message.content === editedEducation)).toHaveLength(1);
     expect(afterEdit.taskState?.knownSlots?.latestIntakeSource).toMatchObject({ exactSourceQuote: editedEducation });
     expect(afterEdit.taskState?.knownSlots?.latestIntakeSource).not.toMatchObject({ exactSourceQuote: "项目经历" });
-    expect(afterEdit.messages.some((message) => message.content.includes("请告诉我项目名称、你承担的角色、主要工作和结果。") && message.branchId === afterEdit.activeBranchId)).toBe(false);
-    expect(afterEdit.messages.some((message) => message.content.includes("请告诉我项目名称、你承担的角色、主要工作和结果.") && message.branchId === afterEdit.activeBranchId)).toBe(false);
-    expect(afterEdit.messages.some((message) => message.content.includes("项目名称、你承担的角色") && message.branchId === oldBranchId)).toBe(true);
+    expect(afterEdit.messages.some((message) => /请告诉我.*名称、你承担的角色、主要工作和结果。/u.test(message.content) && message.branchId === afterEdit.activeBranchId)).toBe(false);
+    expect(afterEdit.messages.some((message) => /名称、你承担的角色/u.test(message.content) && message.branchId === oldBranchId)).toBe(true);
   });
 
   test("D: reload keeps the active branch head and resolved options without replaying tools", async ({ page }) => {
@@ -176,7 +175,7 @@ test.describe("P4.3e.3 conversation branch isolation", () => {
     const probe = await installFixture(page);
     await startIntake(page);
     await captureAndAcceptEducation(page);
-    await page.getByRole("button", { name: "项目经历", exact: true }).click();
+    await page.getByRole("button", { name: "继续补充", exact: true }).click();
     const beforeReload = await latestSession(page);
     const captureCount = toolCount(beforeReload, "capture_profile_intake");
     const providerRequestCount = probe.requests.length;
@@ -184,9 +183,9 @@ test.describe("P4.3e.3 conversation branch isolation", () => {
     const activeHeadMessageId = beforeReload.activeHeadMessageId;
     await page.reload();
 
-    await expect(page.getByText("已选择：项目经历", { exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: "项目经历", exact: true })).toHaveCount(0);
-    await expect(page.getByText(/请告诉我项目名称、你承担的角色、主要工作和结果。/)).toBeVisible();
+    await expect(page.getByText(/^已选择：.+$/u)).toBeVisible();
+    await expect(page.getByRole("button", { name: "继续补充", exact: true })).toHaveCount(0);
+    await expect(page.getByText(/请告诉我.*名称、你承担的角色、主要工作和结果。/u)).toBeVisible();
     const afterReload = await latestSession(page);
     expect(afterReload.activeBranchId).toBe(activeBranchId);
     expect(afterReload.activeHeadMessageId).toBe(activeHeadMessageId);
@@ -240,18 +239,14 @@ async function installFixture(page: Page): Promise<ProviderProbe> {
           candidates: [{
             candidateKey: output.id,
             sectionType: output.sectionType,
+            sourceSpan: { start: 0, end: raw.length },
             structuredItem: output,
-            title: education ? "教育经历" : "示例项目",
-            sourceQuote: raw,
-            confidence: 0.95,
-            needsConfirmation: false,
-            fieldEvidence: Object.keys(output).flatMap((field) => {
-              const value = output[field as keyof typeof output];
-              return (typeof value === "string" && value) || (Array.isArray(value) && value.length)
-                ? [{ field, sourceQuote: raw, support: "explicit", confidence: 0.95, needsConfirmation: false }]
-                : [];
-            })
-          }]
+            professionalText: education
+              ? "示例大学本科计算机相关专业，2024年9月入学，预计2028年6月毕业。"
+              : output.description,
+            uncertainFields: []
+          }],
+          followUpQuestions: []
         },
         meta: { provider: "fixture", model: "p43e3" }
       })
@@ -305,7 +300,7 @@ async function acceptEducationCandidate(page: Page) {
   if (!(await artifact.isVisible().catch(() => false))) await page.getByRole("button", { name: /产物/ }).click();
   await expect(artifact).toBeVisible();
   await artifact.locator(".agent-career-asset").filter({ hasText: "示例大学" }).first().getByRole("button", { name: "采用", exact: true }).click();
-  await expect(page.getByRole("button", { name: "项目经历", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "继续补充", exact: true })).toBeVisible();
 }
 
 async function latestTask(page: Page) {

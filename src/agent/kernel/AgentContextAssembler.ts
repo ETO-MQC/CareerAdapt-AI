@@ -129,6 +129,7 @@ function promptKnownSlots(slots: Record<string, unknown>) {
     ,"reconciliationDecision"
     ,"intakeImportId"
     ,"expectedIntakeDraftRevision"
+    ,"profileIntakeReviewProjection"
     ,"expectedIntakeReconciliationRevision"
   ];
   const compact = Object.fromEntries(
@@ -145,16 +146,31 @@ function promptKnownSlots(slots: Record<string, unknown>) {
         : []
     };
   }
-  const intakeCandidates = Array.isArray(slots.intakeCandidates)
-    ? slots.intakeCandidates.map(objectValue).slice(0, 24)
+  const intakeProjection = objectValue(slots.profileIntakeReviewProjection);
+  const intakeCandidates = Array.isArray(intakeProjection.candidates)
+    ? intakeProjection.candidates.map(objectValue).slice(0, 24)
+    : Array.isArray(slots.intakeCandidates)
+      ? slots.intakeCandidates.map(objectValue).slice(0, 24)
     : [];
   if (intakeCandidates.length) {
     compact.intakeCandidates = intakeCandidates.map((candidate) => ({
       id: candidate.id,
-      label: candidate.label,
+      label: candidate.label ?? candidate.candidateKey,
+      sectionType: candidate.sectionType,
+      status: candidate.status,
       needsConfirmation: candidate.needsConfirmation,
       reason: candidate.reason
     }));
+  }
+  if (Object.keys(intakeProjection).length) {
+    compact.profileIntakeReviewProjection = {
+      importId: intakeProjection.importId,
+      draftRevision: intakeProjection.draftRevision,
+      extractionStatus: intakeProjection.extractionStatus,
+      reviewProgress: intakeProjection.reviewProgress,
+      followUpQuestion: intakeProjection.followUpQuestion,
+      failedExtraction: intakeProjection.failedExtraction
+    };
   }
   const sourceRecommendation = objectValue(slots.sourceRecommendation);
   if (Object.keys(sourceRecommendation).length) {

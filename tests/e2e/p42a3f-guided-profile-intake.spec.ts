@@ -138,7 +138,7 @@ test.describe("P4.2a.3f guided profile intake closure", () => {
     });
     await expect(page.getByRole("button", { name: "仅保存资料库", exact: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "生成一份通用简历", exact: true })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "采用", exact: true })).toBeVisible();
+    await expect(page.getByRole("region", { name: "经历候选核对" }).getByRole("button", { name: "采用", exact: true })).toBeVisible();
     await expect(page.getByText(/这项任务暂时没有新进展|agent_no_progress|agent_iteration_budget_exceeded/)).toHaveCount(0);
   });
 
@@ -953,8 +953,8 @@ async function mockSemanticIntake(page: Page) {
           candidates: [{
             candidateKey: `legacy-${sectionType}`,
             sectionType,
+            sourceSpan: { start: 0, end: raw.length },
             structuredItem: isEducation ? {
-              id: `legacy-${sectionType}`,
               sectionType: "education",
               school: raw.includes("示例大学") ? "示例大学" : undefined,
               degree: raw.includes("本科") ? "本科" : undefined,
@@ -964,49 +964,20 @@ async function mockSemanticIntake(page: Page) {
               current: false,
               courses: [],
               honors: [],
-              highlights: [],
-              customFields: []
+              highlights: []
             } : {
-              id: `legacy-${sectionType}`,
               sectionType: "project",
               title,
               current: false,
               description: "保留用户明确描述的职业经历。",
               highlights: [],
               tools: [],
-              outcomes: [],
-              customFields: []
+              outcomes: []
             },
-            title,
-            institution: isEducation && raw.includes("示例大学") ? "示例大学" : undefined,
-            role: isEducation && raw.includes("计算机相关专业") ? "计算机相关专业" : undefined,
-            current: false,
-            description: isEducation ? "教育背景待核对。" : "保留用户明确描述的职业经历。",
-            highlights: [],
-            tools: [],
-            methods: [],
-            outcomes: [],
-            sourceQuote: raw,
-            confidence: isUncertainProject ? 0.55 : 0.9,
-            needsConfirmation: isUncertainProject,
-            fieldEvidence: [
-              "title",
-              ...(isEducation && raw.includes("示例大学") ? ["institution"] : []),
-              ...(isEducation && raw.includes("计算机相关专业") ? ["role"] : []),
-              "description",
-              ...(isEducation && raw.includes("示例大学") ? ["school"] : []),
-              ...(isEducation && raw.includes("本科") ? ["degree"] : []),
-              ...(isEducation && raw.includes("计算机相关专业") ? ["major"] : []),
-              ...(isEducation && /入学/u.test(raw) ? ["startDate"] : []),
-              ...(isEducation && /毕业/u.test(raw) ? ["endDate"] : [])
-            ].map((field) => ({
-              field,
-              sourceQuote: raw,
-              support: field === "description" ? "derived" : "explicit",
-              confidence: isUncertainProject ? 0.55 : 0.9,
-              needsConfirmation: isUncertainProject
-            }))
-          }]
+            professionalText: isEducation ? "教育背景待核对。" : "保留用户明确描述的职业经历。",
+            uncertainFields: isUncertainProject ? ["title"] : []
+          }],
+          followUpQuestions: []
         },
         meta: { provider: "mock", model: "legacy-semantic-e2e", inputLength: raw.length, outputLength: 400, latencyMs: 1 }
       })

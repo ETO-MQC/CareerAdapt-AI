@@ -369,25 +369,16 @@ function createMockOutput(task: AiTask, input: unknown) {
       candidates: [{
         candidateKey: "mock-safe-fallback",
         sectionType: "other",
-        title: "待核对职业经历",
-        current: false,
-        description: sourceQuote,
-        highlights: [],
-        tools: [],
-        methods: [],
-        outcomes: [],
-        sourceQuote,
-        confidence: 0.35,
-        needsConfirmation: true,
-        fieldEvidence: [{
-          field: "description",
-          sourceQuote,
-          support: "explicit",
-          confidence: 1,
-          needsConfirmation: true
-        }]
+        sourceSpan: { start: 0, end: sourceQuote.length },
+        structuredItem: {
+          sectionType: "other",
+          description: sourceQuote,
+          highlights: []
+        },
+        professionalText: sourceQuote,
+        uncertainFields: ["sectionType", "description"]
       }],
-      followUpQuestion: "这段经历中，你本人完成的最重要的一项工作是什么？"
+      followUpQuestions: ["这段经历中，你本人完成的最重要的一项工作是什么？"]
     };
   }
   if (task === "resume-document-mapper") {
