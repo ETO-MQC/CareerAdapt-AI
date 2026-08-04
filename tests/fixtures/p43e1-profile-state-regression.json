@@ -1,0 +1,26 @@
+{
+  "profile": {
+    "id": "profile-p43e1-disposable",
+    "versionBeforeRecycle": 7,
+    "education": {
+      "id": "education-p43e1-recycled",
+      "school": "示例大学",
+      "degree": "本科",
+      "major": "示例专业",
+      "startDate": "2024-09",
+      "endDate": "2028-06"
+    }
+  },
+  "sequence": [
+    "move education-p43e1-recycled to recycle bin",
+    "我想从零整理自己的真实经历。请先通过简短访谈询问第一步，不要补充我没有确认的事实。",
+    "资料库的教育经历我不是已经放到回收站了吗，你怎么还知道"
+  ],
+  "expected": {
+    "activeProfileItemIdsAfterRecycle": [],
+    "recycleItemIds": ["education-p43e1-recycled"],
+    "captureToolCallsForMetaQuestion": 0,
+    "mutationsForMetaQuestion": 0,
+    "intakeSourceKindForMetaQuestion": null
+  }
+}

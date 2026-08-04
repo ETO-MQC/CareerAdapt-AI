@@ -90,6 +90,17 @@ describe("profile intake semantic task normalization", () => {
       candidates: [{
         candidateKey: "project-1",
         sectionType: "project" as const,
+        structuredItem: {
+          id: "project-1",
+          sectionType: "project" as const,
+          title: "TideNote",
+          current: false,
+          description: "开发离线笔记工具。",
+          tools: [],
+          highlights: [],
+          outcomes: [],
+          customFields: []
+        },
         title: "TideNote",
         description: "开发离线笔记工具。",
         current: false,

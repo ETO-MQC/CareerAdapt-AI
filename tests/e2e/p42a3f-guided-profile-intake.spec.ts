@@ -487,6 +487,18 @@ test.describe("P4.2a.3f guided profile intake closure", () => {
             candidates: [{
               candidateKey: "hailan-internship",
               sectionType: "internship",
+              structuredItem: {
+                id: "hailan-internship",
+                sectionType: "internship",
+                organization: "海岚物流",
+                role: "运营实习生",
+                startDate: "2025-06",
+                endDate: "2025-08",
+                current: false,
+                description: "使用 Excel 整理每日配送异常，并协助客服核对原因。",
+                highlights: [],
+                customFields: []
+              },
               title: "海岚物流运营实习",
               organization: "海岚物流",
               role: "运营实习生",
@@ -507,6 +519,17 @@ test.describe("P4.2a.3f guided profile intake closure", () => {
             }, {
               candidateKey: "tidenote-project",
               sectionType: "project",
+              structuredItem: {
+                id: "tidenote-project",
+                sectionType: "project",
+                title: "TideNote",
+                current: false,
+                description: "开发离线笔记工具，使用 Rust 实现本地索引，并使用 Tauri 构建桌面界面。",
+                highlights: [],
+                tools: ["Rust", "Tauri"],
+                outcomes: [],
+                customFields: []
+              },
               title: "TideNote",
               current: false,
               description: "开发离线笔记工具，使用 Rust 实现本地索引，并使用 Tauri 构建桌面界面。",
@@ -923,6 +946,30 @@ async function mockSemanticIntake(page: Page) {
           candidates: [{
             candidateKey: `legacy-${sectionType}`,
             sectionType,
+            structuredItem: isEducation ? {
+              id: `legacy-${sectionType}`,
+              sectionType: "education",
+              school: raw.includes("示例大学") ? "示例大学" : undefined,
+              degree: raw.includes("本科") ? "本科" : undefined,
+              major: raw.includes("计算机相关专业") ? "计算机相关专业" : undefined,
+              startDate: raw.match(/(20\d{2})年(\d{1,2})月入学/u)?.slice(1).join("-") ?? undefined,
+              endDate: raw.match(/(?:预计|计划)(20\d{2})年(\d{1,2})月毕业/u)?.slice(1).join("-") ?? undefined,
+              current: false,
+              courses: [],
+              honors: [],
+              highlights: [],
+              customFields: []
+            } : {
+              id: `legacy-${sectionType}`,
+              sectionType: "project",
+              title,
+              current: false,
+              description: "保留用户明确描述的职业经历。",
+              highlights: [],
+              tools: [],
+              outcomes: [],
+              customFields: []
+            },
             title,
             institution: isEducation && raw.includes("示例大学") ? "示例大学" : undefined,
             role: isEducation && raw.includes("计算机相关专业") ? "计算机相关专业" : undefined,
@@ -939,7 +986,12 @@ async function mockSemanticIntake(page: Page) {
               "title",
               ...(isEducation && raw.includes("示例大学") ? ["institution"] : []),
               ...(isEducation && raw.includes("计算机相关专业") ? ["role"] : []),
-              "description"
+              "description",
+              ...(isEducation && raw.includes("示例大学") ? ["school"] : []),
+              ...(isEducation && raw.includes("本科") ? ["degree"] : []),
+              ...(isEducation && raw.includes("计算机相关专业") ? ["major"] : []),
+              ...(isEducation && /入学/u.test(raw) ? ["startDate"] : []),
+              ...(isEducation && /毕业/u.test(raw) ? ["endDate"] : [])
             ].map((field) => ({
               field,
               sourceQuote: raw,

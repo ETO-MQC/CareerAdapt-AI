@@ -370,7 +370,29 @@ export class AgentToolRegistry {
 
   async execute(name: string, rawInput: unknown, operationId: string, signal?: AbortSignal): Promise<AgentToolResult> {
     const tool = this.require(name);
-    const input = tool.inputSchema.parse(rawInput);
+    let input: unknown;
+    try {
+      input = tool.inputSchema.parse(rawInput);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return {
+          ok: false,
+          operationId,
+          toolName: name,
+          error: {
+            code: "tool_input_invalid",
+            message: "当前访谈状态不完整，未执行资料整理。现有输入已保留。",
+            retryable: false,
+            details: {
+              fields: error.issues.map((issue) => issue.path.length ? issue.path.join(".") : "$")
+            }
+          },
+          artifactIds: [],
+          completedAt: new Date().toISOString()
+        };
+      }
+      throw error;
+    }
     try {
       const output = tool.outputSchema.parse(await tool.execute(input, { operationId, signal }));
       return {

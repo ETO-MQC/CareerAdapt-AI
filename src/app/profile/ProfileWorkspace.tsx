@@ -12,6 +12,7 @@ import { mapProfileDraftToCareerProfile } from "@/domain/mappers/profileDraftMap
 import { migrateCareerProfileToV2 } from "@/domain/migrations/resumeV2";
 import {
   CareerProfileSchema,
+  ResumeItemV2Schema,
   ProfileBuilderOutputSchema,
   type PdfImportErrorCode,
   type PdfImportSession,
@@ -706,6 +707,17 @@ export function ProfileWorkspace() {
             ? { ...entry, data: updatedData }
             : entry
         ),
+        version: profile.version + 1,
+        updatedAt: now
+      };
+    } else if (profile.schemaVersion === "career-profile-v2" && isNew && isStructuredProfileCategory(activeProfileCategory)) {
+      const canonical = buildCanonicalProfileItemFromDraft(profileItemDraft, activeProfileCategory);
+      nextProfile = {
+        ...profile,
+        structuredFacts: [
+          ...(profile.structuredFacts ?? []),
+          { data: canonical, factIds: [], sourceBlockIds: [], sourceRanges: [], mappingTrace: [] }
+        ],
         version: profile.version + 1,
         updatedAt: now
       };
@@ -2354,6 +2366,7 @@ function buildProfileManagedItems(
 }
 
 function buildCurrentProfileItems(profile: CareerProfile, category: ProfileCategoryId): ProfileManagedItem[] {
+  const isV2 = profile.schemaVersion === "career-profile-v2" && Array.isArray(profile.structuredFacts);
   if (category === "basics") {
     const basics = canonicalProfileBasics(profile);
     return [{
@@ -2390,12 +2403,12 @@ function buildCurrentProfileItems(profile: CareerProfile, category: ProfileCateg
     }];
   }
 
-  if (category === "certificate") {
+  if (!isV2 && category === "certificate") {
     const certificates = profile.certificates.map((certificate) => certificateToManagedItem(certificate, false));
     if (certificates.length > 0) return certificates;
   }
 
-  if (category === "skill" || category === "language") {
+  if (!isV2 && (category === "skill" || category === "language")) {
     const skills = profile.skills
       .filter((skill) => isLanguageSkill(skill) === (category === "language"))
       .map((skill) => skillToManagedItem(skill, category, false));
@@ -2420,7 +2433,7 @@ function buildCurrentProfileItems(profile: CareerProfile, category: ProfileCateg
     if (customBlocks.length > 0) return customBlocks;
   }
 
-  const legacyExperiences = profile.experiences
+  const legacyExperiences = isV2 ? [] : profile.experiences
     .filter((experience) => categoryForExperience(experience) === category)
     .map((experience) => experienceToManagedItem(experience, false));
   if (legacyExperiences.length > 0) return legacyExperiences;
@@ -2739,6 +2752,45 @@ function defaultExperienceTypeForCategory(category: ProfileCategoryId): Experien
   return defaultExperienceType(category as Parameters<typeof defaultExperienceType>[0]);
 }
 
+function isStructuredProfileCategory(category: ProfileCategoryId): category is "education" | "work" | "project" | "campus" {
+  return category === "education" || category === "work" || category === "project" || category === "campus";
+}
+
+function buildCanonicalProfileItemFromDraft(draft: ProfileItemDraft, category: "education" | "work" | "project" | "campus"): ResumeItemV2 {
+  const id = `profile-${category}-${nanoid(10)}`;
+  const shared = {
+    id,
+    customFields: [],
+    startDate: optionalText(draft.startDate),
+    endDate: draft.current ? undefined : optionalText(draft.endDate),
+    current: draft.current,
+    location: optionalText(draft.location),
+    description: optionalText(draft.description),
+    highlights: draft.highlights.map((value) => value.trim()).filter(Boolean)
+  };
+  if (category === "education") {
+    return ResumeItemV2Schema.parse({
+      ...shared,
+      sectionType: "education",
+      school: optionalText(draft.organization),
+      degree: optionalText(draft.degree || draft.role),
+      major: optionalText(draft.major),
+      courses: draft.courses.split(/[、,，;；]/).map((value) => value.trim()).filter(Boolean),
+      honors: []
+    });
+  }
+  if (category === "project") {
+    return ResumeItemV2Schema.parse({ ...shared, sectionType: "project", title: optionalText(draft.organization), role: optionalText(draft.role), tools: [], outcomes: [] });
+  }
+  return ResumeItemV2Schema.parse({
+    ...shared,
+    sectionType: category === "work" && draft.experienceType === "internship" ? "internship" : category === "work" ? "work" : "campus",
+    organization: optionalText(draft.organization),
+    role: optionalText(draft.role),
+    department: undefined
+  });
+}
+
 function factCategoryForProfileCategory(category: ProfileCategoryId): FactCategory {
   if (category === "education") {
     return "education";
@@ -2827,6 +2879,33 @@ function triggerJsonDownload(payload: unknown, fileName: string) {
 }
 
 function synchronizeProfileStructuredFacts(nextProfile: CareerProfile, previousProfile: CareerProfile | undefined): CareerProfile {
+  if (nextProfile.schemaVersion === "career-profile-v2") {
+    const previous = previousProfile?.schemaVersion === "career-profile-v2" ? previousProfile : undefined;
+    const previousFacts = previous?.structuredFacts ?? [];
+    const nextFacts = nextProfile.structuredFacts ?? [];
+    const nextIds = new Set(nextFacts.map((entry) => entry.data.id));
+    const deletedIds = new Set(previousFacts
+      .filter((entry) => !nextIds.has(entry.data.id))
+      .map((entry) => entry.data.id));
+    const deletedFactIds = new Set(previousFacts
+      .filter((entry) => !nextIds.has(entry.data.id))
+      .flatMap((entry) => entry.factIds));
+    const isDeletedMirror = (id: string, factIds: string[]) =>
+      deletedIds.has(id) || factIds.some((factId) => deletedFactIds.has(factId));
+    const experiences = nextProfile.experiences.filter((item) => !isDeletedMirror(item.id, item.facts.map((fact) => fact.id)));
+    const skills = nextProfile.skills.filter((item) => !isDeletedMirror(item.id, item.fact ? [item.fact.id] : []));
+    const certificates = nextProfile.certificates.filter((item) => !isDeletedMirror(item.id, item.fact ? [item.fact.id] : []));
+    const structuredBasics = nextProfile.structuredBasics ?? migrateCareerProfileToV2(nextProfile).structuredBasics;
+    return CareerProfileSchema.parse({
+      ...nextProfile,
+      schemaVersion: "career-profile-v2",
+      experiences,
+      skills,
+      certificates,
+      structuredBasics,
+      structuredFacts: nextFacts
+    });
+  }
   const previous = previousProfile ?? nextProfile;
   const previousLegacyIds = new Set([
     ...previous.experiences.map((item) => item.id),

@@ -1,6 +1,11 @@
 import type { AgentSession, AgentTaskState } from "@/agent/contracts/agentSession";
 import { getWorkflowDefinition } from "@/agent/workflows/workflowRegistry";
-import type { TurnIntent } from "./AgentTurnIntent";
+import {
+  classifyProfileIntakeTurn,
+  hasExplicitCorrectionReplacement,
+  type ProfileIntakeTurnKind,
+  type TurnIntent
+} from "./AgentTurnIntent";
 import {
   deriveNextLegalStage,
   TaskContinuationResolver
@@ -21,6 +26,7 @@ export type AgentTaskEvent =
       turnId?: string;
       capturedAt?: string;
       turnIntent?: TurnIntent;
+      profileIntakeTurnKind?: ProfileIntakeTurnKind;
     }
   | { type: "new_root_task"; goal: string; workflowId: string; stage: string }
   | { type: "new_active_task"; goal: string; workflowId: string; stage: string }
@@ -131,7 +137,22 @@ export class AgentTaskStateReducer {
     if (event.type === "user_message") {
       delete state.knownSlots.compoundAnswerResolution;
       if (state.workflowId === "guided_profile_intake") {
-        const hasIntakeEvidence = isProfileIntakeEvidence(event.message);
+        const profileIntakeTurnKind = event.profileIntakeTurnKind ?? classifyProfileIntakeTurn({
+          text: event.message,
+          stage: state.stage,
+          activeQuestionId: stringValue(state.knownSlots.activeQuestionId),
+          expectedAnswerDimension: expectedProfileIntakeAnswerDimension(state)
+        });
+        const acceptedEvidenceKind = profileIntakeTurnKind === "correction"
+          && hasExplicitCorrectionReplacement(event.message)
+          ? "follow_up_answer" as const
+          : profileIntakeTurnKind;
+        const hasIntakeEvidence = isProfileIntakeEvidence(event.message, {
+          stage: state.stage,
+          activeQuestionId: stringValue(state.knownSlots.activeQuestionId),
+          expectedAnswerDimension: expectedProfileIntakeAnswerDimension(state),
+          turnKind: acceptedEvidenceKind
+        });
         if (
           isSubstantiveProfileIntakeNarrative(event.message)
           && (state.stage === "profile_complete" || state.stage === "resume_ready")
@@ -142,16 +163,22 @@ export class AgentTaskStateReducer {
         const isIntakeAnswer = (
           state.stage === "collect_experience"
           && event.message.trim()
-          && isProfileIntakeAnswerTurn(event.turnIntent)
+          && isProfileIntakeAnswerTurn(acceptedEvidenceKind)
           && hasIntakeEvidence
         );
         if (isIntakeAnswer) {
           state.knownSlots.latestIntakeSource = {
+            sourceKind: acceptedEvidenceKind,
             sessionId: event.sessionId,
             messageId: event.messageId,
             turnId: event.turnId,
             exactSourceQuote: event.message,
-            capturedAt: event.capturedAt ?? state.updatedAt
+            capturedAt: event.capturedAt ?? state.updatedAt,
+            classifiedAsEvidence: true,
+            retracted: false,
+            targetProfileId: state.knownSlots.targetProfileId,
+            expectedProfileVersion: state.knownSlots.expectedProfileVersion,
+            intakeQuestionId: stringValue(state.knownSlots.activeQuestionId)
           };
           state.stage = "structure_facts";
           state.pendingDecision = undefined;
@@ -160,15 +187,19 @@ export class AgentTaskStateReducer {
         if (
           state.stage === "review_facts"
           && event.message.trim()
-          && isProfileIntakeAnswerTurn(event.turnIntent)
+          && (acceptedEvidenceKind === "follow_up_answer" || acceptedEvidenceKind === "career_narrative")
           && hasIntakeEvidence
         ) {
           state.knownSlots.latestIntakeClarification = {
+            sourceKind: acceptedEvidenceKind,
             sessionId: event.sessionId,
             messageId: event.messageId,
             turnId: event.turnId,
             exactSourceQuote: event.message,
-            capturedAt: event.capturedAt ?? state.updatedAt
+            capturedAt: event.capturedAt ?? state.updatedAt,
+            classifiedAsEvidence: true,
+            retracted: false,
+            intakeQuestionId: stringValue(state.knownSlots.activeQuestionId)
           };
         }
         if (state.stage === "profile_complete") {
@@ -221,8 +252,17 @@ export class AgentTaskStateReducer {
         state.workflowId === "guided_profile_intake"
         && state.stage === "collect_experience"
         && (
-          !isProfileIntakeAnswerTurn(event.turnIntent)
-          || !isProfileIntakeEvidence(event.message)
+          !isProfileIntakeAnswerTurn(effectiveProfileIntakeEvidenceKind(
+            event.profileIntakeTurnKind ?? classifyProfileIntakeTurn({ text: event.message, stage: state.stage }),
+            event.message
+          ))
+          || !isProfileIntakeEvidence(event.message, {
+            stage: state.stage,
+            turnKind: effectiveProfileIntakeEvidenceKind(
+              event.profileIntakeTurnKind ?? classifyProfileIntakeTurn({ text: event.message, stage: state.stage }),
+              event.message
+            )
+          })
         )
       ) {
         // Commands such as "继续添加经历" ask the interview to continue; they
@@ -702,28 +742,45 @@ export class AgentTaskStateReducer {
   }
 }
 
-function isProfileIntakeAnswerTurn(intent?: TurnIntent) {
-  // Direct reducer callers predate explicit turn intent. Runtime turns always
-  // provide it, so only actual interview answers or fresh domain narratives
-  // advance into fact capture; side questions and task controls never do.
-  return intent === undefined
-    || intent === "clarification_answer"
-    || intent === "new_domain_task";
+function isProfileIntakeAnswerTurn(kind: ProfileIntakeTurnKind) {
+  return kind === "career_narrative" || kind === "follow_up_answer";
 }
 
-function isProfileIntakeEvidence(message: string) {
+function effectiveProfileIntakeEvidenceKind(kind: ProfileIntakeTurnKind, message: string): ProfileIntakeTurnKind {
+  return kind === "correction" && hasExplicitCorrectionReplacement(message) ? "follow_up_answer" : kind;
+}
+
+export function isProfileIntakeEvidence(message: string, context: {
+  stage?: string;
+  activeQuestionId?: string;
+  expectedAnswerDimension?: string;
+  turnKind?: ProfileIntakeTurnKind;
+} = {}) {
   const text = message.trim();
   if (!text) return false;
-  if (/^(?:是|是的|对|对的|好的?|嗯|确认|没问题|没有问题|全部确认|都正确|导入|写入|保存|开始导入|确认导入)[。！!]?$/u.test(text)) {
-    return false;
-  }
-  return true;
+  if (context.turnKind && !isProfileIntakeAnswerTurn(context.turnKind)) return false;
+  if (/^(?:是|是的|对|对的|好的?|嗯|确认|没问题|没有问题|全部确认|都正确|导入|写入|保存|开始导入|确认导入)[。！!]?$/u.test(text)) return false;
+  if (/为什么|为何|怎么还|不是已经|回收站|删除|归档|你从哪里知道|当前资料库|这条对吗|这条不是/i.test(text)) return false;
+  const grounded = [
+    /大学|学院|学校|本科|硕士|博士|专业|学位|入学|毕业|就读|教育/i,
+    /公司|企业|组织|单位|雇主|实习|任职|担任|负责|岗位|职位|工作|入职|离职/i,
+    /项目|课题|比赛|竞赛|活动|研究|开发|设计|搭建|实现|上线|产出|结果|成果/i,
+    /技能|证书|认证|语言|奖项|获奖|掌握|熟悉|会用|精通/i,
+    /(?:19|20)\d{2}[年/-]|\d{4}年|\d{1,2}月/i
+  ].some((pattern) => pattern.test(text));
+  return grounded || Boolean(context.stage === "collect_experience" && context.activeQuestionId && context.expectedAnswerDimension && text.length >= 2);
+}
+
+function expectedProfileIntakeAnswerDimension(state: AgentTaskState) {
+  const plan = objectValue(state.knownSlots.intakeInterviewPlan);
+  const questions = Array.isArray(plan.questions) ? plan.questions : [];
+  const activeQuestionId = stringValue(state.knownSlots.activeQuestionId);
+  const question = questions.map(objectValue).find((item) => item.id === activeQuestionId);
+  return stringValue(question?.expectedAnswerDimension ?? question?.answerType ?? question?.dimension);
 }
 
 function isSubstantiveProfileIntakeNarrative(message: string) {
-  const text = message.trim();
-  return text.length >= 12
-    && /项目|实习|比赛|竞赛|经历|负责|开发|组织|课题|工作|活动|获奖|学校|专业|教育/u.test(text);
+  return isProfileIntakeEvidence(message, { stage: "collect_experience" });
 }
 
 function resetProfileIntakeDraft(state: AgentTaskState) {

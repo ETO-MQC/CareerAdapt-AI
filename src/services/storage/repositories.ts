@@ -5112,7 +5112,20 @@ export class WorkspaceRepository {
     return this.db.transaction("rw", this.db.profiles, this.db.appMeta, async () => {
       const current = await this.getRecycleBinState();
       const item = current.profileItems.find((entry) => entry.kind === kind && entry.id === itemId);
-      if (!item) throw new Error("profile_recycle_item_missing");
+      if (!item) {
+        const existingProfileRecord = (await this.db.profiles.toArray()).find((candidate) => {
+          const profile = CareerProfileSchema.parse(candidate);
+          if (kind === "canonical") return (profile.structuredFacts ?? []).some((entry) => entry.data.id === itemId);
+          if (kind === "experience") return profile.experiences.some((entry) => entry.id === itemId);
+          if (kind === "certificate") return profile.certificates.some((entry) => entry.id === itemId);
+          if (kind === "skill") return profile.skills.some((entry) => entry.id === itemId);
+          return false;
+        });
+        if (existingProfileRecord) {
+          return { profile: CareerProfileSchema.parse(existingProfileRecord), state: current, idempotent: true };
+        }
+        throw new Error("profile_recycle_item_missing");
+      }
       const storedProfile = await this.db.profiles.get(item.profileId);
       if (!storedProfile) throw new Error("profile_recycle_profile_missing");
       const profile = CareerProfileSchema.parse(storedProfile);
@@ -5126,6 +5139,9 @@ export class WorkspaceRepository {
             : item.kind === "canonical"
               ? {
                   ...profile,
+                  experiences: profile.experiences.filter((entry) => entry.id !== item.id && !entry.facts.some((fact) => item.value.factIds.includes(fact.id))),
+                  skills: profile.skills.filter((entry) => entry.id !== item.id && !(entry.fact && item.value.factIds.includes(entry.fact.id))),
+                  certificates: profile.certificates.filter((entry) => entry.id !== item.id && !(entry.fact && item.value.factIds.includes(entry.fact.id))),
                   structuredFacts: [...(profile.structuredFacts ?? []).filter((entry) => entry.data.id !== item.id), item.value],
                   version: profile.version + 1,
                   updatedAt: now
@@ -5137,7 +5153,7 @@ export class WorkspaceRepository {
       });
       await this.db.profiles.put(nextProfile);
       await this.db.appMeta.put({ key: RECYCLE_BIN_META_KEY, value: nextState, updatedAt: now });
-      return { profile: nextProfile, state: nextState };
+      return { profile: nextProfile, state: nextState, idempotent: false };
     });
   }
 

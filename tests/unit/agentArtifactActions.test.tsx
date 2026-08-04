@@ -237,6 +237,7 @@ describe("Agent artifact decisions", () => {
 
     expect(screen.getByRole("region", { name: "岗位定制问答记录" })).toHaveTextContent("1 / 2");
     expect(screen.getByRole("region", { name: "岗位定制问答记录" })).toHaveTextContent("请补充一个真实案例");
+    fireEvent.click(screen.getByRole("button", { name: "上一个问题" }));
     fireEvent.click(screen.getByRole("button", { name: /^编辑$/ }));
     fireEvent.change(screen.getByRole("textbox", { name: "编辑AI 回答评估维度的回答" }), { target: { value: "事实准确、逻辑完整" } });
     fireEvent.click(screen.getByRole("button", { name: "保存" }));

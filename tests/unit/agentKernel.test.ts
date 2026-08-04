@@ -654,11 +654,16 @@ describe("AgentKernel", () => {
         expectedProfileVersion: 1,
         acknowledgedActiveProfileId: "profile-1",
         latestIntakeSource: {
+          sourceKind: "career_narrative",
           sessionId: base.id,
           messageId: "message-long-answer",
           turnId: "turn-long-answer",
           exactSourceQuote: "我参加课程项目，负责心跳模块、摔倒模块和蓝牙联调。",
-          capturedAt: "2026-07-28T05:00:00.000Z"
+          capturedAt: "2026-07-28T05:00:00.000Z",
+          classifiedAsEvidence: true,
+          retracted: false,
+          targetProfileId: "profile-1",
+          expectedProfileVersion: 1
         }
       },
       selectedEntities: {
@@ -671,6 +676,7 @@ describe("AgentKernel", () => {
       session: { ...base, taskState },
       pageContext: { pathname: "/ai-workspace", query: {} },
       userMessage: "我参加课程项目，负责心跳模块、摔倒模块和蓝牙联调。",
+      turnId: "turn-long-answer",
       taskEventAlreadyReduced: true
     });
 

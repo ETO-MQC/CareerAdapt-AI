@@ -22,7 +22,7 @@ export const agentWorkflowRegistry: Record<string, AgentWorkflowDefinition> = {
     resolve_profile_target: profileReadTools,
     collect_experience: profileReadTools,
     structure_facts: [...profileReadTools, "capture_profile_intake"],
-    review_facts: [...profileReadTools, "review_profile_intake", "capture_profile_intake"],
+    review_facts: [...profileReadTools, "review_profile_intake"],
     reconcile_profile: ["reconcile_profile_intake"],
     resolve_conflicts: ["resolve_profile_intake_conflict"],
     confirm_commit: ["commit_profile_intake"],

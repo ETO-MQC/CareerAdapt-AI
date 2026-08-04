@@ -109,7 +109,7 @@ describe("P4.2 agent reliability regressions", () => {
     const session = { ...AgentRuntime.create("agent_quick_action", "collecting_intent"), activeProfileId: "profile-1" };
     await kernel.runTurn({ session, pageContext: { pathname: "/ai-workspace", query: {} }, userMessage: "我的名字是什么" });
     await kernel.runTurn({ session, pageContext: { pathname: "/profile", query: {} }, userMessage: "我的名字是不是错了" });
-    expect(getProfile).toHaveBeenCalledTimes(1);
+    expect(getProfile).toHaveBeenCalledTimes(2);
   });
 
   it("places canonical entity preservation in the stable policy", () => {

@@ -1,6 +1,6 @@
 import { ImportedResumeDraftSchema, type ImportedResumeDraft } from "@/domain/schemas";
 import { stableHashText } from "@/services/security/text";
-import { ProfileIntakeNormalizer } from "./ProfileIntakeNormalizer";
+import { ProfileIntakeNormalizer, profileIntakeDisplayLabel } from "./ProfileIntakeNormalizer";
 import type { ProfileIntakeInterviewPlan } from "./ProfileIntakeCompleteness";
 import type {
   ProfileIntakeSemanticResult,
@@ -85,23 +85,28 @@ export function adaptConversationMessageToIntakeDraft(input: {
       normalization: normalizer.fallback(text)
     }]
   };
-  const candidates: ConversationIntakeCandidate[] = semanticResult.candidates.map((candidate) => ({
-    id: candidate.id,
-    sectionType: candidate.normalization.sectionType,
-    kind: candidateKind(candidate.normalization.sectionType),
-    label: candidate.label,
-    sourceQuote: candidate.sourceQuote,
-    needsConfirmation: candidate.normalization.needsConfirmation,
-    reason: candidate.normalization.needsNormalization
-      ? "AI 语义整理暂不可用，原始回答已保留，请重试或手动核对"
-      : candidate.normalization.needsConfirmation
-        ? "AI 已整理，但有信息需要确认"
-        : undefined,
-    status: candidate.normalization.needsNormalization
-      ? "insufficient"
-      : candidate.normalization.needsConfirmation ? "ai_review" : "confirmed",
-    professionalDescription: candidate.normalization.normalizedText
-  }));
+  const candidates: ConversationIntakeCandidate[] = semanticResult.candidates.map((candidate) => {
+    const label = candidate.normalization.structuredItem
+      ? profileIntakeDisplayLabel(candidate.normalization.structuredItem, candidate.label)
+      : candidate.label;
+    return {
+      id: candidate.id,
+      sectionType: candidate.normalization.sectionType,
+      kind: candidateKind(candidate.normalization.sectionType),
+      label,
+      sourceQuote: candidate.sourceQuote,
+      needsConfirmation: candidate.normalization.needsConfirmation,
+      reason: candidate.normalization.needsNormalization
+        ? "AI 语义整理暂不可用，原始回答已保留，请重试或手动核对"
+        : candidate.normalization.needsConfirmation
+          ? "AI 已整理，但有信息需要确认"
+          : undefined,
+      status: candidate.normalization.needsNormalization
+        ? "insufficient"
+        : candidate.normalization.needsConfirmation ? "ai_review" : "confirmed",
+      professionalDescription: candidate.normalization.normalizedText
+    };
+  });
   const sections = candidates.map((candidate, order) => {
     const normalized = semanticResult.candidates[order].normalization;
     return {
@@ -213,7 +218,9 @@ export function buildConversationIntakeArtifact(
       : item.sourceStatus === "ambiguous"
         ? "ai_review" as const
         : item.included ? "confirmed" as const : "ai_review" as const;
-    const label = item.itemLabel ?? section.detectedTitle;
+    const label = structuredItem
+      ? profileIntakeDisplayLabel(structuredItem, item.itemLabel ?? section.detectedTitle)
+      : item.itemLabel ?? section.detectedTitle;
     const candidate: ConversationIntakeArtifact["candidates"][number] = structuredItem
       ? artifactCandidate({
           id: item.id,
@@ -377,7 +384,7 @@ function artifactCandidate(
   return {
     id: candidate.id,
     sectionType: candidate.sectionType,
-    label: candidate.label,
+    label: profileIntakeDisplayLabel(item, candidate.label),
     time: date,
     organization,
     role,

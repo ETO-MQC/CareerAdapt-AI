@@ -97,6 +97,21 @@ function safeAutonomousJump(toolName: string, state: AgentTaskState) {
 }
 
 function preconditions(toolName: string, state: AgentTaskState) {
+  if (toolName === "capture_profile_intake") {
+    const source = objectValue(state.knownSlots.latestIntakeSource);
+    return state.workflowId === "guided_profile_intake"
+      && state.stage === "structure_facts"
+      && (source.sourceKind === "career_narrative" || source.sourceKind === "follow_up_answer")
+      && source.classifiedAsEvidence === true
+      && source.retracted !== true
+      && typeof source.sessionId === "string"
+      && typeof source.messageId === "string"
+      && typeof source.turnId === "string"
+      && typeof source.exactSourceQuote === "string"
+      && typeof source.capturedAt === "string"
+      && source.targetProfileId === state.knownSlots.targetProfileId
+      && source.expectedProfileVersion === state.knownSlots.expectedProfileVersion;
+  }
   if (toolName === "prepare_resume_import") {
     return state.stage === "prepare_import" && Boolean(state.attachment?.id);
   }

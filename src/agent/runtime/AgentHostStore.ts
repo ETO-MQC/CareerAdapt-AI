@@ -29,7 +29,7 @@ import {
 } from "./projectTaskStateToWorkflowState";
 import { agentAttachmentStore, type AgentAttachmentRef } from "@/services/agent/AgentAttachmentStore";
 import { agentImportProgressBus } from "@/services/agent/AgentImportProgressBus";
-import { classifyTurnIntent, type TurnIntentDecision } from "./AgentTurnIntent";
+import { classifyProfileIntakeTurn, classifyTurnIntent, type TurnIntentDecision } from "./AgentTurnIntent";
 import { stableHashText } from "@/services/security/text";
 import type { AgentQuickActionId, QuickActionIntent } from "@/agent/contracts/agentQuickAction";
 import {
@@ -496,7 +496,8 @@ export class AgentHostStore {
         messageId: intakeRecoverySource?.messageId ?? userMessageId,
         turnId: intakeRecoverySource?.turnId ?? turnId,
         capturedAt: intakeRecoverySource?.capturedAt ?? now,
-        turnIntent: intakeRecoverySource ? "clarification_answer" : turnDecision.intent
+        turnIntent: intakeRecoverySource ? "clarification_answer" : turnDecision.intent,
+        profileIntakeTurnKind: intakeRecoverySource ? "career_narrative" : turnDecision.profileIntakeTurnKind
       });
     }
     if (input.attachment) {
@@ -1050,6 +1051,13 @@ export class AgentHostStore {
       message: artifactActionCompletedLabel(action).replace(/[。.]$/u, ""),
       retryable: false
     });
+    // Artifact decisions can create a typed task decision without another
+    // model turn (for example, accepting the last intake candidate). Keep
+    // that decision visible immediately instead of leaving the user with an
+    // apparently inert chat after the artifact is closed.
+    if (taskState.pendingDecision) {
+      current = attachPendingDecisionOptions(current, taskState.pendingDecision);
+    }
     current = await this.dependencies.persistence.save(current);
     this.patchSession(current, { turnStatus: current.pendingConfirmation ? "waiting_for_confirmation" : "completed" });
     void pageContext;
@@ -1449,6 +1457,7 @@ export class AgentHostStore {
             references: input.references,
             turnId: input.turnId,
             turnIntent: input.turnDecision?.intent,
+            profileIntakeTurnKind: input.turnDecision?.profileIntakeTurnKind,
             toolScope: input.turnDecision?.toolScope,
             taskEventAlreadyReduced: true,
             signal: input.controller.signal,
@@ -1808,9 +1817,8 @@ export function findRecoverableProfileIntakeSource(
     .filter((message) =>
       message.role === "user"
       && message.metadata?.retracted !== true
-      && message.content.trim().length >= 24
-      && !/从零.*(?:整理|梳理).*(?:经历|资料)/i.test(message.content)
-      && /项目|实习|比赛|竞赛|经历|负责|开发|组织|课题|工作|活动|获奖/i.test(message.content)
+      && message.content.trim().length >= 2
+      && classifyProfileIntakeTurn({ text: message.content, stage: "collect_experience" }) === "career_narrative"
     )
     .sort((left, right) =>
       profileIntakeRecoveryScore(right.content) - profileIntakeRecoveryScore(left.content)
@@ -2837,7 +2845,7 @@ function artifactActionExecution(
       || state.knownSlots.expectedIntakeDraftRevision !== action.expectedDraftRevision
     ) return undefined;
     const sourceQuote = typeof candidate.sourceQuote === "string" ? candidate.sourceQuote : undefined;
-    const source = objectValue(state.knownSlots.latestIntakeSource ?? state.knownSlots.latestIntakeClarification);
+    const source = objectValue(state.knownSlots.latestIntakeSource);
     if (!sourceQuote || typeof source.sessionId !== "string" || typeof source.messageId !== "string" || typeof source.turnId !== "string" || typeof source.capturedAt !== "string") return undefined;
     return {
       toolName: "review_profile_intake",

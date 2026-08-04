@@ -24,7 +24,7 @@ import {
   projectTaskStateIntoSession,
   projectTaskStateToWorkflowState
 } from "@/agent/runtime/projectTaskStateToWorkflowState";
-import type { TurnIntent, TurnToolScope } from "@/agent/runtime/AgentTurnIntent";
+import type { ProfileIntakeTurnKind, TurnIntent, TurnToolScope } from "@/agent/runtime/AgentTurnIntent";
 import { capabilityManifestForPrompt } from "@/agent/capabilities/AgentProductCapabilityManifest";
 import { groundMutationClaims, type AuthoritativeTurnObservation } from "./AgentMutationClaimGuard";
 
@@ -68,6 +68,7 @@ export class AgentKernel {
     references?: AgentMessageReference[];
     turnId?: string;
     turnIntent?: TurnIntent;
+    profileIntakeTurnKind?: ProfileIntakeTurnKind;
     toolScope?: TurnToolScope;
     signal?: AbortSignal;
     emit?(event: AgentStreamEvent): void | Promise<void>;
@@ -88,7 +89,8 @@ export class AgentKernel {
       taskState = taskReducer.reduce(taskState, {
         type: "user_message",
         message: input.userMessage,
-        turnIntent: input.turnIntent
+        turnIntent: input.turnIntent,
+        profileIntakeTurnKind: input.profileIntakeTurnKind
       });
     }
     if (input.internalObservation?.reason === "tool_observation" && input.internalObservation.toolName) {
@@ -237,7 +239,7 @@ export class AgentKernel {
         }
         const nativeStreaming = this.dependencies.model.capabilities?.nativeToolStreaming === true
           && Boolean(this.dependencies.model.streamTurn);
-        const boundaryTool = deterministicBoundaryTool(taskState, allowedTools);
+        const boundaryTool = deterministicBoundaryTool(taskState, allowedTools, turnId);
         const rawResponse: AgentModelResult = boundaryTool
           ? {
               stopReason: "tool_calls",
@@ -361,6 +363,20 @@ export class AgentKernel {
                   observation: result.data,
                   artifactIds: result.artifactIds
                 });
+                if (
+                  input.profileIntakeTurnKind === "profile_state_question"
+                  && result.toolName === "get_profile"
+                ) {
+                  const text = profileStateQuestionAnswer(result.data);
+                  await publishFinalStream(text, input, { turnId, iterationId });
+                  trajectory.finish("completed");
+                  return {
+                    text,
+                    trajectory: trajectory.value(),
+                    conversationSummary: contextWindow.conversationSummary,
+                    taskState
+                  };
+                }
                 const transitionedSession = projectTaskStateIntoSession(input.session, taskState);
                 skills = skillRegistry.discover({
                   workflowId: taskState.workflowId,
@@ -738,6 +754,14 @@ function bindAuthoritativeTaskInput(
 ): AgentModelToolCall {
   const slots = taskState.knownSlots;
   if (
+    taskState.workflowId === "guided_profile_intake"
+    && ["get_profile", "search_profile_facts"].includes(call.name)
+  ) {
+    const argumentsValue = { ...call.arguments };
+    if (typeof slots.targetProfileId === "string") argumentsValue.profileId = slots.targetProfileId;
+    return { ...call, arguments: argumentsValue };
+  }
+  if (
     taskState.workflowId === "tailor_existing_resume"
     && ["get_profile", "get_resume", "get_resume_revision", "get_job", "analyze_job_fit", "create_tailoring_session"].includes(call.name)
   ) {
@@ -751,7 +775,7 @@ function bindAuthoritativeTaskInput(
     return { ...call, arguments: argumentsValue };
   }
   if (call.name === "capture_profile_intake") {
-    const source = objectValue(slots.latestIntakeSource ?? slots.latestIntakeClarification);
+    const source = objectValue(slots.latestIntakeSource);
     return {
       ...call,
       arguments: {
@@ -1052,6 +1076,7 @@ function thinkingLabel(message: string) {
 
 function userErrorMessage(code: string) {
   if (code === "agent_duplicate_tool_call") return "我检测到重复步骤并已停止，现有任务信息仍然保留。";
+  if (code === "tool_input_invalid") return "当前访谈状态不完整，未执行资料整理。现有输入已保留。";
   if (code === "provider_textual_tool_protocol") return "模型返回了不兼容的工具指令，已在写入前拦截；你的原始输入和当前进度仍然保留。请回复“重试刚才”，系统会从当前步骤继续。";
   if (code.includes("budget")) return "自动处理没有完成：连续步骤未能推进。你的原始输入和现有进度已保留，尚未写入资料库。回复“重试刚才”重新执行当前步骤，或回复“结束任务”退出。";
   if (/missing_ai_config|provider_protocol_mismatch|provider_http/i.test(code)) return "AI 服务当前不可用。请检查模型设置后重试，任务进度已保留。";
@@ -1320,20 +1345,13 @@ function noProgressRecovery(nextAction: {
 
 function deterministicBoundaryTool(
   taskState: NonNullable<AgentSession["taskState"]>,
-  allowedTools: Array<{ name: string }>
+  allowedTools: Array<{ name: string }>,
+  turnId: string
 ) {
   if (
     taskState.workflowId === "guided_profile_intake"
     && taskState.stage === "structure_facts"
-    && taskState.knownSlots.latestIntakeSource
-    && allowedTools.some((tool) => tool.name === "capture_profile_intake")
-  ) {
-    return "capture_profile_intake";
-  }
-  if (
-    taskState.workflowId === "guided_profile_intake"
-    && taskState.stage === "review_facts"
-    && taskState.knownSlots.latestIntakeClarification
+    && isAuthorizedIntakeSource(taskState.knownSlots.latestIntakeSource, taskState, turnId)
     && allowedTools.some((tool) => tool.name === "capture_profile_intake")
   ) {
     return "capture_profile_intake";
@@ -1373,6 +1391,34 @@ function deterministicBoundaryTool(
   return toolName && allowedTools.some((tool) => tool.name === toolName)
     ? toolName
     : undefined;
+}
+
+function isAuthorizedIntakeSource(
+  value: unknown,
+  taskState: NonNullable<AgentSession["taskState"]>,
+  turnId: string
+) {
+  const source = objectValue(value);
+  return (source.sourceKind === "career_narrative" || source.sourceKind === "follow_up_answer")
+    && source.classifiedAsEvidence === true
+    && source.retracted !== true
+    && typeof source.sessionId === "string"
+    && typeof source.messageId === "string"
+    && source.turnId === turnId
+    && typeof source.exactSourceQuote === "string"
+    && typeof source.capturedAt === "string"
+    && source.targetProfileId === taskState.knownSlots.targetProfileId
+    && source.expectedProfileVersion === taskState.knownSlots.expectedProfileVersion;
+}
+
+function profileStateQuestionAnswer(value: unknown) {
+  const data = objectValue(value);
+  const profile = objectValue(data.profile);
+  const items = Array.isArray(profile.items) ? profile.items.map(objectValue) : [];
+  const hasEducation = items.some((item) => item.sectionType === "education" || item.category === "education");
+  return hasEducation
+    ? "我刚刚重新读取了当前活动资料库，仍返回了教育经历；我暂不把它用于整理。请先修复资料状态后继续。"
+    : "我刚刚重新读取了当前活动资料库，本次返回的活动条目中没有这条教育经历。我不会把回收站内容用于匹配、简历生成或访谈上下文。我们可以继续从新的经历开始。";
 }
 
 function deterministicWorkflowPause(

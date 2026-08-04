@@ -558,6 +558,11 @@ export function profileIntakeCareerReadyText(item: ResumeItemV2) {
   return values.join("\n") || displayLabel(item);
 }
 
+export function profileIntakeDisplayLabel(item: ResumeItemV2, fallback = "待核对经历") {
+  const label = displayLabel(item);
+  return label || fallback;
+}
+
 function displayLabel(item: ResumeItemV2) {
   if (item.sectionType === "education") return [item.school, item.degree, item.major].filter(Boolean).join(" / ");
   if ("title" in item && item.title) return item.title;

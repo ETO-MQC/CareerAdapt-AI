@@ -53,7 +53,14 @@ describe("agent tool registry", () => {
 
   it("validates tool input and output schemas", async () => {
     const registry = createAgentToolRegistry(services());
-    await expect(registry.execute("parse_job_description", { title: "", company: "A", rawText: "short" }, "operation-valid-1")).rejects.toThrow();
+    const invalidInput = await registry.execute("parse_job_description", { title: "", company: "A", rawText: "short" }, "operation-valid-1");
+    expect(invalidInput).toMatchObject({
+      ok: false,
+      error: {
+        code: "tool_input_invalid",
+        details: { fields: ["title", "rawText"] }
+      }
+    });
 
     const invalidOutput = new AgentToolRegistry([{
       name: "invalid_output",

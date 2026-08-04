@@ -50,6 +50,7 @@ import {
 import { ProfileIntakeSemanticService } from "@/domain/profileIntake/ProfileIntakeSemanticService";
 import {
   applyProfileIntakeStructuredPatch,
+  profileIntakeDisplayLabel,
   profileIntakeCareerReadyText,
   validateProfileIntakeStructuredPatch,
   type ProfileIntakeStructuredPatch
@@ -201,7 +202,9 @@ export class BrowserAgentToolService implements AgentToolServices {
     const allCandidates = saved.sections.flatMap((section) => section.items.map((item) => ({
         id: item.id,
         sectionType: item.structuredItem?.sectionType ?? section.sectionType,
-        label: item.itemLabel ?? section.detectedTitle,
+        label: item.structuredItem
+          ? profileIntakeDisplayLabel(item.structuredItem, item.itemLabel ?? section.detectedTitle)
+          : item.itemLabel ?? section.detectedTitle,
         sourceQuote: item.sourceQuote ?? item.rawText,
         structuredItem: item.structuredItem,
         fieldEvidence: item.careerNormalization?.fieldEvidence ?? [],
@@ -500,11 +503,10 @@ export class BrowserAgentToolService implements AgentToolServices {
     const profiles = await this.repository.listProfiles();
     return {
       profiles: profiles.map((profile) => ({
+        ...profileSummaryCounts(profile),
         id: profile.id,
         name: profile.name,
         version: profile.version,
-        experienceCount: profile.experiences.length,
-        skillCount: profile.skills.length,
         sectionCounts: Object.fromEntries(canonicalProfileSectionCounts(profile)),
         items: canonicalProfileLibraryItems(profile).slice(0, 24).map((item) => ({
           id: item.id,
@@ -559,15 +561,13 @@ export class BrowserAgentToolService implements AgentToolServices {
     const items = canonicalProfileLibraryItems(profile);
     return {
       profile: {
+        ...profileSummaryCounts(profile),
         id: profile.id,
         name: profile.name,
         version: profile.version,
         basics: profile.basics,
         preference: profile.preference,
         sectionCounts: Object.fromEntries(canonicalProfileSectionCounts(profile)),
-        experienceCount: profile.experiences.length,
-        skillCount: profile.skills.length,
-        certificateCount: profile.certificates.length,
         items: items.slice(0, 60).map((item) => ({
           id: item.id,
           sectionType: item.sectionType,
@@ -1290,6 +1290,16 @@ function selectionDependencies(
 
 function childOperationId(operationId: string, suffix: string) {
   return `${operationId.slice(0, 150 - suffix.length)}-${suffix}`;
+}
+
+function profileSummaryCounts(profile: Parameters<typeof canonicalProfileLibraryItems>[0]) {
+  const items = canonicalProfileLibraryItems(profile);
+  const experienceSections = new Set(["education", "work", "internship", "project", "research", "campus", "volunteer"]);
+  return {
+    experienceCount: items.filter((item) => experienceSections.has(item.sectionType)).length,
+    skillCount: items.filter((item) => item.sectionType === "skills" || item.sectionType === "languages").length,
+    certificateCount: items.filter((item) => item.sectionType === "certificates").length
+  };
 }
 
 async function assertActiveProfileBinding(

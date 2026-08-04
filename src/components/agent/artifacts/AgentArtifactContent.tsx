@@ -57,6 +57,14 @@ export function AgentArtifactContent({
     ? taskState.knownSlots.selectedQuestionId
     : selectedQuestionId;
   const selectedQuestion = questions.map(asRecord).find((question) => question.id === activeSelectedQuestionId) ?? activeQuestion;
+  const selectedQuestionIndex = selectedQuestion
+    ? questionIds.indexOf(String(selectedQuestion.id))
+    : activeQuestionId
+      ? questionIds.indexOf(activeQuestionId)
+      : -1;
+  const selectedQuestionResolved = selectedQuestion
+    ? answeredQuestionIds.has(String(selectedQuestion.id)) || skippedQuestionIds.has(String(selectedQuestion.id))
+    : false;
   const diffReviews = arrayOfRecords(plan.diffReviews);
   const generationStale = plan.generationStatus !== "completed"
     || plan.generatedDiffsBasedOnQuestionPlanRevision !== questionPlan.revision
@@ -366,48 +374,48 @@ export function AgentArtifactContent({
             <strong>问答记录</strong>
             <span>{answeredQuestions.length} / {questionIds.length}</span>
           </header>
-          <div className="agent-tailoring-question-navigator" role="list" aria-label="问题导航">
-            {questions.map((question) => {
-              const id = String(question.id);
-              const resolved = answeredQuestionIds.has(id) || skippedQuestionIds.has(id);
-              return (
-                <button
-                  key={id}
-                  type="button"
-                  role="listitem"
-                  className={id === activeSelectedQuestionId ? "is-selected" : undefined}
-                  aria-current={id === activeQuestionId ? "step" : undefined}
-                  onClick={() => {
-                    setSelectedQuestionId(id);
-                    onUiAction?.({ type: "select_tailoring_question", questionId: id });
-                  }}
-                >{resolved ? "✓" : id === activeQuestionId ? "当前" : "待问"} {String(question.shortLabel ?? question.question ?? id)}</button>
-              );
-            })}
+          <div className="agent-tailoring-question-navigator" aria-label="问题导航">
+            <button
+              type="button"
+              aria-label="上一个问题"
+              disabled={selectedQuestionIndex <= 0}
+              onClick={() => {
+                const id = questionIds[selectedQuestionIndex - 1];
+                if (!id) return;
+                setSelectedQuestionId(id);
+                onUiAction?.({ type: "select_tailoring_question", questionId: id });
+              }}
+            >←</button>
+            <span>问题 {selectedQuestionIndex >= 0 ? selectedQuestionIndex + 1 : 0} / {questionIds.length}</span>
+            <button
+              type="button"
+              aria-label="下一个问题"
+              disabled={selectedQuestionIndex < 0 || selectedQuestionIndex >= questionIds.length - 1}
+              onClick={() => {
+                const id = questionIds[selectedQuestionIndex + 1];
+                if (!id) return;
+                setSelectedQuestionId(id);
+                onUiAction?.({ type: "select_tailoring_question", questionId: id });
+              }}
+            >→</button>
           </div>
-          {answeredQuestions.length ? (
-            <div className="agent-tailoring-answer-list">
-              {answeredQuestions.map((question) => (
-                <TailoringAnswerRecord
-                  key={String(question.id)}
-                  question={question}
-                  skipped={skippedQuestionIds.has(String(question.id))}
-                  onSave={(answer) => onArtifactAction?.({
-                    type: "tailoring_answer_edit",
-                    questionId: String(question.id),
-                    answer
-                  })}
-                />
-              ))}
-            </div>
-          ) : <p>回答会在这里同步记录，不会写回个人资料库。</p>}
-          {selectedQuestion ? (
+          {selectedQuestion && selectedQuestionResolved ? (
+            <TailoringAnswerRecord
+              question={selectedQuestion}
+              skipped={skippedQuestionIds.has(String(selectedQuestion.id))}
+              onSave={(answer) => onArtifactAction?.({
+                type: "tailoring_answer_edit",
+                questionId: String(selectedQuestion.id),
+                answer
+              })}
+            />
+          ) : selectedQuestion ? (
             <div className="agent-tailoring-current-question">
               <small>{selectedQuestion.id === activeQuestionId ? "当前问题" : "已选问题"}</small>
               <strong>{String(selectedQuestion.shortLabel ?? selectedQuestion.question)}</strong>
               <p>{String(selectedQuestion.question)}</p>
             </div>
-          ) : null}
+          ) : <p>回答会在这里同步记录，不会写回个人资料库。</p>}
           {questionIds.length - answeredQuestions.length - (activeQuestion ? 1 : 0) > 0 ? (
             <p className="agent-tailoring-remaining">剩余 {questionIds.length - answeredQuestions.length - 1} 项将在对话中逐个显示</p>
           ) : null}

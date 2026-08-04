@@ -14,7 +14,26 @@ import {
 import { resumeFieldCatalog } from "@/domain/resumeFields";
 
 export function migrateCareerProfileToV2(profile: CareerProfile): CareerProfileV2 {
-  if (profile.schemaVersion === "career-profile-v2" && profile.structuredFacts && profile.structuredBasics) return profile as CareerProfileV2;
+  if (profile.schemaVersion === "career-profile-v2") {
+    // A v2 Profile's structured facts are the deletion-aware canonical
+    // authority. Never rebuild them from legacy mirrors during a normal read
+    // or save; doing so resurrects deliberately recycled content.
+    return CareerProfileSchema.parse({
+      ...profile,
+      schemaVersion: "career-profile-v2",
+      structuredBasics: profile.structuredBasics ?? {
+        name: profile.basics.name,
+        headline: profile.basics.headline,
+        summary: profile.basics.summary,
+        phone: profile.basics.phone,
+        email: profile.basics.email,
+        location: profile.basics.location,
+        otherLinks: profile.basics.links,
+        customFields: []
+      },
+      structuredFacts: profile.structuredFacts ?? []
+    }) as CareerProfileV2;
+  }
   const structuredFacts = [
     ...profile.experiences.map((experience) => ({ data: migrateExperience(experience), factIds: experience.facts.map((fact) => fact.id) })),
     ...profile.skills.map((skill) => ({
