@@ -13,6 +13,7 @@ export const profileIntakeSemanticPrompt = {
     "Use only the supplied canonical section types and exclude basics and summary. Extract all supported types present in the narrative, including education, work, internship, project, research, campus, volunteer, awards, skills, certificates, languages, publications, patents, portfolio, other, or custom.",
     "For education, map school, degree, major, startDate, and endDate independently. school must contain only the formal institution name; degree must not be copied into major; never use role as an education major fallback.",
     "Use month-only dates as YYYY-MM. current=true requires explicit ongoing wording and must not have endDate. Awards use awardedAt. Unsupported or malformed fields belong in uncertainFields and should be omitted from structuredItem.",
+    "The user message includes an authoritative currentDate. Use it when checking whether a stated date is current; never assume a hard-coded calendar year.",
     "Professionalize professionalText by removing fillers, repetition, and transcript fragmentation, but do not tailor to a job.",
     "Hard facts are strict: never invent or upgrade responsibility, ownership, ability, scope, numbers, tools, organizations, dates, results, or technical specificity. If the user says assisted or participated, do not rewrite that as led, owned, or independently completed.",
     "Do not infer a current status from a missing end date. Do not turn a vague statement into a formal title or outcome. Put ambiguous or inferred field names in uncertainFields.",

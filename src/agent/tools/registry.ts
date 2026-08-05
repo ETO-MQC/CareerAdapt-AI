@@ -91,7 +91,7 @@ const ProfileIntakeCaptureInputSchema = z.object({
   text: z.string().min(1).max(24_000),
   capturedAt: z.string().datetime({ offset: true }),
   targetProfileId: z.string().min(1),
-  expectedProfileVersion: z.number().int().min(1),
+  expectedProfileVersion: z.number().int().min(0),
   acknowledgedActiveProfileId: z.string().min(1).optional(),
   importId: z.string().min(1).optional(),
   expectedDraftRevision: z.number().int().min(0).optional(),
@@ -128,7 +128,7 @@ const ProfileIntakeReconcileInputSchema = z.object({
   importId: z.string().min(1),
   expectedDraftRevision: z.number().int().min(0),
   targetProfileId: z.string().min(1),
-  expectedProfileVersion: z.number().int().min(1),
+  expectedProfileVersion: z.number().int().min(0),
   acknowledgedActiveProfileId: z.string().min(1).optional()
 }).strict();
 
@@ -141,13 +141,13 @@ const ProfileIntakeCommitInputSchema = z.object({
   expectedDraftRevision: z.number().int().min(0),
   expectedReconciliationRevision: z.number().int().min(0),
   targetProfileId: z.string().min(1),
-  expectedProfileVersion: z.number().int().min(1),
+  expectedProfileVersion: z.number().int().min(0),
   acknowledgedActiveProfileId: z.string().min(1).optional()
 }).strict();
 
 const EnsureGeneralResumeInputSchema = z.object({
   targetProfileId: z.string().min(1),
-  expectedProfileVersion: z.number().int().min(1),
+  expectedProfileVersion: z.number().int().min(0),
   acknowledgedActiveProfileId: z.string().min(1).optional(),
   name: z.string().min(1).max(120).optional()
 }).strict();
@@ -197,7 +197,7 @@ const TailoringQuestionInputSchema = z.object({
 
 const CreateResumeFromProfileInputSchema = z.object({
   targetProfileId: z.string().min(1),
-  expectedProfileVersion: z.number().int().min(1),
+  expectedProfileVersion: z.number().int().min(0),
   selectedFactIds: z.array(z.string().trim().min(1)).min(1).max(60),
   acknowledgedActiveProfileId: z.string().min(1).optional(),
   name: z.string().trim().min(1).max(120).optional()
@@ -412,14 +412,14 @@ export class AgentToolRegistry {
         completedAt: new Date().toISOString()
       };
     } catch (error) {
-      const code = typeof error === "object" && error && "code" in error ? String(error.code) : "tool_execution_failed";
+      const code = safeToolErrorCode(error);
       return {
         ok: false,
         operationId,
         toolName: name,
         error: {
           code,
-          message: error instanceof Error ? error.message : "Tool execution failed.",
+          message: safeToolErrorMessage(code),
           retryable: isRetryableToolError(code)
         },
         artifactIds: [],
@@ -427,6 +427,22 @@ export class AgentToolRegistry {
       };
     }
   }
+}
+
+function safeToolErrorCode(error: unknown) {
+  if (typeof error === "object" && error && "code" in error && typeof error.code === "string") {
+    return error.code;
+  }
+  if (error instanceof Error) {
+    const messageCode = error.message.match(/^(?:profile|resume|tool|agent|revision|version|tailoring|unsupported|unknown|provider|operation|source|invalid|network|timeout)[a-z0-9_]*(?::|$)/i)?.[0];
+    if (messageCode) return messageCode.replace(/:$/, "");
+  }
+  return "tool_execution_failed";
+}
+
+function safeToolErrorMessage(code: string) {
+  if (code === "tool_execution_failed") return "工具执行没有完成。";
+  return `工具执行未完成（${code}）。`;
 }
 
 function isRetryableToolError(code: string) {

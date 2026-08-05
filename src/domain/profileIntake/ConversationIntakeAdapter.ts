@@ -336,8 +336,12 @@ export function buildConversationIntakeReviewProjectionFromDraft(
 ): ProfileIntakeReviewProjection {
   const rawText = draft.pages[0]?.rawText ?? "";
   const providerUnavailable = draft.warnings.some((warning) => warning.code === "provider_unavailable");
-  const sourceMessageId = draft.source.sourceMessageId ?? `draft-${draft.importId}`;
-  const sourceTurnId = draft.source.sourceTurnId ?? `draft-${draft.importId}`;
+  const sourceMessageId = draft.intakeSession?.lastSourceMessageId
+    ?? draft.source.sourceMessageId
+    ?? `draft-${draft.importId}`;
+  const sourceTurnId = draft.intakeSession?.lastSourceTurnId
+    ?? draft.source.sourceTurnId
+    ?? `draft-${draft.importId}`;
   const sourceContentHash = draft.source.sourceContentHash ?? stableHashText(rawText);
   const items = draft.sections.flatMap((section) => section.items);
   const candidatesFromItems = items.flatMap((item) => {
@@ -366,26 +370,52 @@ export function buildConversationIntakeReviewProjectionFromDraft(
           ...(item.userConfirmed === true ? { decision: "accept" as const } : item.userConfirmed === false ? { decision: "reject" as const } : {}),
           canAccept: true,
           ...(status === "uncertain" ? { reason: "有字段需要你确认" } : {}),
-          fieldEvidence: normalization?.fieldEvidence ?? []
-        }];
-      });
-  const failed = candidatesFromItems.length === 0;
+           fieldEvidence: normalization?.fieldEvidence ?? []
+         }];
+       });
+  const failedItems = items.filter((item) =>
+    item.careerNormalization?.needsNormalization
+    && item.conversationEvidence?.some((evidence) => evidence.turnId === sourceTurnId)
+  );
+  const failedCandidates = failedItems.map((item) => {
+    const sourceQuote = item.sourceQuote ?? item.rawText;
+    const start = Math.max(0, rawText.indexOf(sourceQuote));
+    return {
+      id: item.id,
+      candidateKey: "failed-extraction",
+      sectionType: "other" as const,
+      sourceSpan: { start, end: start + sourceQuote.length },
+      sourceQuote,
+      professionalText: "原始回答已保留，等待重新整理。",
+      uncertainFields: ["structuredItem"],
+      confidence: 0,
+      needsConfirmation: true,
+      status: "failed" as const,
+      canAccept: false,
+      reason: "这段内容没有完成安全归属，但原文已经保留。",
+      fieldEvidence: []
+    };
+  });
+  const failed = candidatesFromItems.length === 0 || failedCandidates.length > 0;
   const candidates = failed
-    ? [{
-        id: items[0]?.id ?? `intake-failed-${stableHashText(rawText).slice(0, 16)}`,
-        candidateKey: "failed-extraction",
-        sectionType: "other" as const,
-        sourceSpan: { start: 0, end: rawText.length },
-        sourceQuote: rawText,
-        professionalText: "原始回答已保留，等待重新整理。",
-        uncertainFields: ["structuredItem"],
-        confidence: 0,
-        needsConfirmation: true,
-        status: "failed" as const,
-        canAccept: false,
-        reason: "这段内容没有完成结构化，但原文已经保留。",
-        fieldEvidence: []
-      }]
+    ? [
+        ...candidatesFromItems,
+        ...(failedCandidates.length ? failedCandidates : [{
+          id: `intake-failed-${stableHashText(rawText).slice(0, 16)}`,
+          candidateKey: "failed-extraction",
+          sectionType: "other" as const,
+          sourceSpan: { start: 0, end: rawText.length },
+          sourceQuote: rawText,
+          professionalText: "原始回答已保留，等待重新整理。",
+          uncertainFields: ["structuredItem"],
+          confidence: 0,
+          needsConfirmation: true,
+          status: "failed" as const,
+          canAccept: false,
+          reason: "这段内容没有完成结构化，但原文已经保留。",
+          fieldEvidence: []
+        }])
+      ]
     : candidatesFromItems;
   const questions = followUpQuestions.slice(0, 3);
   const reviewProgress = profileIntakeReviewProgress(candidates);

@@ -24,6 +24,11 @@ export const AgentModelResultSchema = z.object({
   text: z.string().optional(),
   toolCalls: z.array(AgentModelToolCallSchema).max(4).optional(),
   stopReason: z.enum(["final", "tool_calls", "ask_user", "confirmation", "length", "error"]),
+  // Safe provider identity only. Raw prompts and provider payloads never cross
+  // this contract.
+  provider: z.string().min(1).optional(),
+  model: z.string().min(1).optional(),
+  providerResponseShape: z.array(z.string().min(1).max(160)).max(20).optional(),
   usage: z.object({
     inputTokens: z.number().int().min(0).optional(),
     outputTokens: z.number().int().min(0).optional()
@@ -48,13 +53,24 @@ export type AgentModelStreamEvent =
   | { type: "tool_call_arguments_delta"; index: number; id: string; delta: string }
   | { type: "tool_call_complete"; index: number; call: AgentModelToolCall }
   | { type: "usage"; inputTokens?: number; outputTokens?: number }
-  | { type: "finish"; stopReason: AgentModelResult["stopReason"] };
+  | {
+      type: "finish";
+      stopReason: AgentModelResult["stopReason"];
+      provider?: string;
+      model?: string;
+      providerResponseShape?: string[];
+    };
 
 export interface AgentModel {
   readonly capabilities?: {
     nativeToolStreaming: boolean;
+    toolProtocol?: "native_openai" | "structured_json" | "textual_hermes" | "unsupported";
   };
   completeWithTools(request: AgentModelRequest & { signal?: AbortSignal }): Promise<AgentModelResult>;
+  completeWithStructuredActions?(
+    request: AgentModelRequest & { signal?: AbortSignal }
+  ): Promise<AgentModelResult>;
+  negotiateToolProtocol?(): Promise<"native_openai" | "structured_json" | "textual_hermes" | "unsupported">;
   streamTurn?(
     request: AgentModelRequest & { signal?: AbortSignal }
   ): AsyncIterable<AgentModelStreamEvent>;

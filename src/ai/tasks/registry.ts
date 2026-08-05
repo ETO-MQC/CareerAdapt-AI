@@ -278,6 +278,7 @@ export const aiTaskRegistry = {
         rawNarrative: input.rawNarrative,
         existingDraftContext: input.existingDraftContext,
         canonicalSections: input.canonicalSections,
+        currentDate: input.currentDate,
         instructions: "Extract every distinct supported asset. Preserve ownership and uncertainty. Return at most three high-value follow-up questions; the application selects at most one after review."
       }, null, 2);
     },

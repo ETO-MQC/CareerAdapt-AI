@@ -1,5 +1,7 @@
 import { serializeAgentSession, type AgentSession } from "@/agent/contracts/agentSession";
 import { WorkspaceRepository } from "@/services/storage/repositories";
+import type { ProfileIntakeSourceTurn } from "@/domain/profileIntake/ProfileIntakeSourceTurn";
+import type { ImportedResumeDraft } from "@/domain/schemas";
 
 export class AgentSessionStore {
   constructor(private readonly repository = new WorkspaceRepository()) {}
@@ -18,6 +20,37 @@ export class AgentSessionStore {
 
   listArchived(limit?: number) {
     return this.repository.listArchivedAgentSessions(limit);
+  }
+
+  saveProfileIntakeSourceTurn(turn: ProfileIntakeSourceTurn) {
+    return this.repository.saveProfileIntakeSourceTurn(turn);
+  }
+
+  updateProfileIntakeSourceTurn(
+    identity: Pick<ProfileIntakeSourceTurn, "sessionId" | "messageId" | "turnId">,
+    patch: Partial<Omit<ProfileIntakeSourceTurn, "sessionId" | "messageId" | "turnId">>
+  ) {
+    return this.repository.updateProfileIntakeSourceTurn(identity, patch);
+  }
+
+  getProfileIntakeSourceTurn(identity: Pick<ProfileIntakeSourceTurn, "sessionId" | "messageId" | "turnId">) {
+    return this.repository.getProfileIntakeSourceTurn(identity);
+  }
+
+  listProfileIntakeSourceTurns(sessionId?: string) {
+    return this.repository.listProfileIntakeSourceTurns(sessionId);
+  }
+
+  getImportedResumeDraft(importId: string) {
+    return this.repository.getImportedResumeDraft(importId);
+  }
+
+  saveImportedResumeDraft(draft: ImportedResumeDraft, expectedRevision?: number) {
+    return this.repository.saveImportedResumeDraft(draft, expectedRevision);
+  }
+
+  saveAgentProtocolDiagnostic(diagnostic: Record<string, unknown>) {
+    return this.repository.saveAgentProtocolDiagnostic(diagnostic);
   }
 
   archive(id: string) {

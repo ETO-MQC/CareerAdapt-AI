@@ -825,7 +825,8 @@ describe("AgentKernel", () => {
       taskEventAlreadyReduced: true
     });
 
-    expect(result.text).toContain("重试刚才");
+    expect(result.text).not.toContain("重试刚才");
+    expect(result.text).toContain("重新执行当前步骤");
     expect(result.text).toContain("结束任务");
     expect(result.text).toContain("直接告诉我你想改做什么");
     expect(result.text).not.toContain("这项任务暂时没有新进展");

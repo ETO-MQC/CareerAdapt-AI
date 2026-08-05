@@ -21,6 +21,8 @@ export async function POST(request: NextRequest) {
   const raw = await request.json();
   const mode = typeof raw === "object" && raw && "mode" in raw ? String(raw.mode) : undefined;
   if (mode === "decision") return modelDecision(request, raw);
+  if (mode === "structured_actions") return modelStructuredActions(request, raw);
+  if (mode === "protocol_probe") return modelProtocolProbe(request, raw);
   if (mode === "native_turn") return modelNativeTurn(request, raw);
   if (mode === "narration") return modelNarration(request, raw);
 
@@ -138,7 +140,13 @@ async function modelNativeTurn(request: NextRequest, raw: unknown) {
           if (event.type === "tool_call_arguments_delta") send({ type: "model_tool_arguments_delta", index: event.index, id: event.id, delta: event.delta });
           if (event.type === "tool_call_complete") send({ type: "model_tool_call_complete", index: event.index, call: event.call });
           if (event.type === "usage") send({ type: "model_usage", inputTokens: event.inputTokens, outputTokens: event.outputTokens });
-          if (event.type === "finish") send({ type: "model_finish", stopReason: event.stopReason });
+          if (event.type === "finish") send({
+            type: "model_finish",
+            stopReason: event.stopReason,
+            provider: event.provider,
+            model: event.model,
+            providerResponseShape: event.providerResponseShape
+          });
         }
       } catch (cause) {
         const code = typeof cause === "object" && cause && "code" in cause ? String((cause as AiProviderError).code) : "agent_model_failed";
@@ -172,6 +180,39 @@ async function modelDecision(request: NextRequest, raw: unknown) {
   } catch (cause) {
     const code = typeof cause === "object" && cause && "code" in cause ? String((cause as AiProviderError).code) : "agent_model_failed";
     return modelError(code, "Agent model could not decide the next safe action.", 502);
+  }
+}
+
+async function modelStructuredActions(request: NextRequest, raw: unknown) {
+  const parsed = AgentModelRequestSchema.safeParse(stripMode(raw));
+  if (!parsed.success) return modelError("invalid_agent_model_request", "Agent model input failed validation.", 400);
+  try {
+    const settings = settingsFrom(request);
+    const effectiveProvider = settings?.provider || process.env.AI_PROVIDER || "openai-compatible";
+    if (effectiveProvider === "mock") return NextResponse.json(AgentModelResultSchema.parse(mockModelDecision(parsed.data.messages)));
+    const provider = new OpenAiCompatibleProvider(settings);
+    return NextResponse.json(await provider.completeWithStructuredActions({
+      ...parsed.data,
+      signal: AbortSignal.any([request.signal, AbortSignal.timeout(60_000)])
+    }));
+  } catch (cause) {
+    const code = typeof cause === "object" && cause && "code" in cause ? String((cause as AiProviderError).code) : "agent_structured_actions_failed";
+    return modelError(code, "结构化动作请求暂时不可用。", 502);
+  }
+}
+
+async function modelProtocolProbe(request: NextRequest, raw: unknown) {
+  if (!raw || typeof raw !== "object") return modelError("invalid_agent_model_request", "Agent model input failed validation.", 400);
+  try {
+    const settings = settingsFrom(request);
+    const effectiveProvider = settings?.provider || process.env.AI_PROVIDER || "openai-compatible";
+    if (effectiveProvider === "mock") return NextResponse.json({ toolProtocol: "structured_json" });
+    const provider = new OpenAiCompatibleProvider(settings);
+    const toolProtocol = await provider.probeToolProtocol({ signal: AbortSignal.any([request.signal, AbortSignal.timeout(60_000)]) });
+    return NextResponse.json({ toolProtocol, provider: provider.provider, model: provider.model });
+  } catch (cause) {
+    const code = typeof cause === "object" && cause && "code" in cause ? String((cause as AiProviderError).code) : "agent_protocol_probe_failed";
+    return modelError(code, "工具协议探测暂时不可用。", 502);
   }
 }
 

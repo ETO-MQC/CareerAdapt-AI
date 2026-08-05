@@ -137,7 +137,7 @@ export const AgentPendingDecisionSchema = z.object({
     "save_profile_only",
     "generate_general_resume",
     "finish"
-  ])).min(2).max(2)
+  ])).min(2).max(3)
 }).strict();
 
 export const AgentMemoryStateSchema = z.object({

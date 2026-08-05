@@ -57,7 +57,13 @@ export function auditResumeImportInvariants(draft: ImportedResumeDraft): ResumeI
     presentationHeadingLeakedIntoContent: draft.sections.flatMap((section) => section.items).filter((item) =>
       /^(?:经历|奖项[、,]技能与语言)$/i.test(item.normalizedText.normalize("NFKC").trim())
     ).length,
-    semanticStructureReviewCount: draft.sections.flatMap((section) => section.items).filter((item) => item.structuredItem && item.sourceStatus === "ambiguous").length
+    // Unincluded conversation candidates are intentionally quarantined. They
+    // must not block a commit of the independently reviewed facts; only an
+    // item that is both included and still ambiguous violates the commit
+    // invariant.
+    semanticStructureReviewCount: draft.sections.flatMap((section) => section.items)
+      .filter((item) => item.included && item.structuredItem && item.sourceStatus === "ambiguous")
+      .length
   };
 }
 

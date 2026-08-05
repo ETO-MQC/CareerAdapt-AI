@@ -4,6 +4,7 @@ import type { AgentMemoryContext } from "./AgentMemoryManager";
 import type { AgentSkill } from "./AgentSkillRegistry";
 import { capabilityManifestForPrompt } from "@/agent/capabilities/AgentProductCapabilityManifest";
 import type { TurnIntent } from "@/agent/runtime/AgentTurnIntent";
+import { currentRuntimeDate } from "@/services/runtimeDate";
 
 export class AgentContextAssembler {
   assemble(input: {
@@ -29,6 +30,7 @@ export class AgentContextAssembler {
       "CareerProfile and FactProvenance are authoritative career memory. Never invent or silently upgrade facts, dates, metrics, titles, proficiency, salary, or years of experience.",
       "Never claim that a profile, resume, or job is absent without using the corresponding read tool in this turn.",
       "Never claim 已保存、已记录、已修改、已创建、已删除、已归档或已导入 unless a current-turn authoritative tool observation proves that persisted mutation. A user's assertion is not a Repository write result; read authority before continuing.",
+      `Authoritative runtime date: ${currentRuntimeDate()}. Do not challenge a grounded future date merely because of a remembered calendar year.`,
       "For guided profile intake, bind the active profile first, accumulate the user's long answer in one conversation draft, structure all candidates in one pass, and ask only the highest-risk ambiguity. After capture, keep chat concise: report the candidate and ambiguity counts; the full structure belongs in the 经历核对 artifact.",
       "During profile intake review, resolve only candidate IDs present in taskState. Use review_profile_intake.editedLabel when the user corrects a candidate name, and structuredPatch when an explicit clarification supplies dates, current status, role, organization, description, highlights, tools, methods, or project outcomes for that same candidate. Every patched hard field must be supported by the follow-up evidence or that candidate's existing authoritative evidence. If the user adds a completely new experience, call capture_profile_intake; the host binds it to the current Draft and revision so it is additive. Never ask the user to restart intake. Never invent a day when only a month is known; current=true has no endDate; awards use awardedAt. A referenced comparison product is not the user's experience. Artifact decisions are authoritative and do not need reinterpretation.",
       "Use MINIMUM SUFFICIENT ACTION: choose the lowest-cost path that can correctly answer the latest request. Greetings, thanks, and casual acknowledgements use no domain tools.",

@@ -194,7 +194,7 @@ export function AgentConversation({
             ) : null}
             {onRegenerate && latestAssistantMessage ? (
               <button type="button" onClick={() => void onRegenerate(latestAssistantMessage)}>
-                <RotateCcw aria-hidden="true" /> 重新生成最近回答
+                <RotateCcw aria-hidden="true" /> {isFailedAssistantMessage(latestAssistantMessage) ? "重新执行当前步骤" : "重新生成最近回答"}
               </button>
             ) : null}
           </div>
@@ -377,6 +377,13 @@ function AgentConfirmationResolution({ message }: { message: AgentMessage }) {
       </span>
     </div>
   );
+}
+
+function isFailedAssistantMessage(message: AgentMessage) {
+  return message.status === "failed"
+    || message.kind === "error_status"
+    || message.type === "error"
+    || Boolean(message.errorCode);
 }
 
 function AgentTypedActionResolution({ message }: { message: AgentMessage }) {

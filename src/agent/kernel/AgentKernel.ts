@@ -3,6 +3,11 @@ import type { AgentSession, AgentConfirmation, AgentMessageReference, AgentTaskS
 import type { AgentPageContext } from "@/agent/contracts/agentContext";
 import type { AgentToolResult } from "@/agent/contracts/agentTool";
 import type { AgentModel, AgentModelMessage, AgentModelResult, AgentModelToolCall } from "@/agent/model/agentModel";
+import {
+  AgentToolProtocolError,
+  normalizeAgentToolProtocol,
+  type AgentToolProtocolDiagnostics
+} from "@/agent/model/AgentToolProtocolAdapter";
 import type { AgentStreamEvent } from "@/agent/runtime/agentSse";
 import { AgentConfirmationRequiredError, AgentExecutor } from "@/agent/runtime/agentExecutor";
 import { AgentContextAssembler } from "./AgentContextAssembler";
@@ -28,6 +33,7 @@ import type { ProfileIntakeTurnKind, TurnIntent, TurnToolScope } from "@/agent/r
 import { capabilityManifestForPrompt } from "@/agent/capabilities/AgentProductCapabilityManifest";
 import { groundMutationClaims, type AuthoritativeTurnObservation } from "./AgentMutationClaimGuard";
 import { buildActiveBranchContext } from "@/agent/runtime/activeBranchContext";
+import { AuthoritativeConversationAlignmentGuard } from "./AuthoritativeConversationAlignmentGuard";
 
 export type AgentKernelResult = {
   text?: string;
@@ -38,6 +44,7 @@ export type AgentKernelResult = {
   conversationSummary?: string;
   taskState?: AgentSession["taskState"];
   contextDiagnostics?: ReturnType<typeof buildActiveBranchContext>["diagnostics"];
+  protocolDiagnostics?: AgentToolProtocolDiagnostics[];
 };
 
 export class AgentKernel {
@@ -81,10 +88,12 @@ export class AgentKernel {
       observation: unknown;
     };
     taskEventAlreadyReduced?: boolean;
+    profileIntakeSourceTurns?: Array<{ processingStatus: string }>;
   }): Promise<AgentKernelResult> {
     const maxIterations = this.dependencies.maxIterations ?? 8;
     const maxToolCalls = this.dependencies.maxToolCalls ?? 12;
     const guard = new AgentPolicyGuard();
+    const alignmentGuard = new AuthoritativeConversationAlignmentGuard();
     const canonicalEntities = new AgentCanonicalEntityGuard();
     const taskReducer = new AgentTaskStateReducer();
     let taskState = input.session.taskState ?? taskReducer.create(input.session);
@@ -166,6 +175,8 @@ export class AgentKernel {
       });
     }
     let toolCallCount = 0;
+    let protocolRepairUsed = false;
+    const protocolDiagnostics: AgentToolProtocolDiagnostics[] = [];
     const unavailableToolNames = new Set<string>();
     const exhaustedEmptyReads = new Set<string>();
     const turnObservations: AuthoritativeTurnObservation[] =
@@ -174,6 +185,26 @@ export class AgentKernel {
         : [];
     const turnId = input.turnId ?? input.session.activeTurn?.id ?? `agent-turn-${nanoid(12)}`;
     let previousNoProgressFingerprint: string | undefined;
+    const alignAnswer = (candidate: string) => {
+      const alignment = alignmentGuard.validate({
+        text: candidate,
+        taskState,
+        observations: turnObservations,
+        reviewProjection: taskState.knownSlots.profileIntakeReviewProjection,
+        persistenceReceipt: taskState.knownSlots.profileIntakePersistenceReceipt
+          ?? taskState.knownSlots.profilePersistenceReceipt,
+        sourceTurns: input.profileIntakeSourceTurns,
+        narrationOnly: input.narrationOnly
+      });
+      if (alignment.aligned) return candidate;
+      protocolDiagnostics.push({
+        markerKinds: [],
+        allowedToolNames: allowedTools.map((tool) => tool.name),
+        nativeToolCallsPresent: false,
+        safeErrorCode: alignment.safeErrorCode
+      });
+      return deterministicAlignmentRecovery(taskState);
+    };
 
     await emit(input, { type: "turn_ack", sessionId: input.session.id });
     await emit(input, {
@@ -189,15 +220,23 @@ export class AgentKernel {
       const capabilityAnswer = input.narrationOnly ? undefined : deterministicCapabilityAnswer(input.userMessage);
       if (capabilityAnswer && (input.turnIntent === "casual_side_turn" || input.toolScope === "none" || isDirectIdentityQuestion(input.userMessage))) {
         const iterationId = `${turnId}:iteration:1`;
-        await publishFinalStream(capabilityAnswer, input, { turnId, iterationId });
+        const alignedCapabilityAnswer = alignAnswer(capabilityAnswer);
+        await publishFinalStream(alignedCapabilityAnswer, input, { turnId, iterationId });
         trajectory.finish("completed");
         return {
-          text: capabilityAnswer,
+          text: alignedCapabilityAnswer,
           trajectory: trajectory.value(),
           conversationSummary: contextWindow.conversationSummary,
           taskState,
-          contextDiagnostics: contextWindow.diagnostics
+          contextDiagnostics: contextWindow.diagnostics,
+          protocolDiagnostics
         };
+      }
+      if (!input.narrationOnly && this.dependencies.model.negotiateToolProtocol) {
+        // Negotiation is cached by the model adapter. A failed probe is not a
+        // reason to lose the user's turn; the normal adapter/fallback remains
+        // authoritative for this request.
+        try { await this.dependencies.model.negotiateToolProtocol(); } catch { /* best effort */ }
       }
       for (let iteration = 0; iteration < maxIterations; iteration += 1) {
         const iterationId = `${turnId}:iteration:${iteration + 1}`;
@@ -212,18 +251,26 @@ export class AgentKernel {
           taskState.workflowId === "guided_profile_intake"
           && taskState.stage === "profile_complete"
           && taskState.knownSlots.profileCommitResult
+          && (
+            taskState.knownSlots.profileCommitVerification
+            || !taskState.selectedEntities.profileId
+          )
         ) {
           const text = taskState.completionStatus === "waiting_for_user"
             ? "资料已保存到个人资料库。你可以生成一份通用简历，也可以暂时完成。"
             : "资料已成功保存到个人资料库。个人资料库已更新，未自动创建其他简历。";
-          await publishFinalStream(text, input, { turnId, iterationId });
+          const alignedText = !taskState.selectedEntities.profileId && !taskState.knownSlots.targetProfileId
+            ? text
+            : alignAnswer(text);
+          await publishFinalStream(alignedText, input, { turnId, iterationId });
           trajectory.finish(taskState.completionStatus === "completed" ? "completed" : "waiting_for_user");
           return {
-            text,
+            text: alignedText,
             trajectory: trajectory.value(),
             conversationSummary: contextWindow.conversationSummary,
             contextDiagnostics: contextWindow.diagnostics,
-            taskState
+            taskState,
+            protocolDiagnostics
           };
         }
         const workflowPause = input.narrationOnly ? undefined : deterministicWorkflowPause(
@@ -234,13 +281,14 @@ export class AgentKernel {
             || input.internalObservation?.reason === "tool_observation"
         );
         if (workflowPause) {
-          await publishFinalStream(workflowPause, input, { turnId, iterationId });
+          const alignedPause = alignAnswer(workflowPause);
+          await publishFinalStream(alignedPause, input, { turnId, iterationId });
           const terminal = taskState.workflowId === "tailor_existing_resume"
             && taskState.stage === "quality_result"
             && taskState.completionStatus === "completed";
           trajectory.finish(terminal ? "completed" : "waiting_for_user");
           return {
-            text: workflowPause,
+            text: alignedPause,
             trajectory: trajectory.value(),
             conversationSummary: contextWindow.conversationSummary,
             contextDiagnostics: contextWindow.diagnostics,
@@ -250,7 +298,8 @@ export class AgentKernel {
                   ...taskState,
                   completionStatus: "waiting_for_user",
                   updatedAt: new Date().toISOString()
-                }
+                },
+            protocolDiagnostics
           };
         }
         const nativeStreaming = this.dependencies.model.capabilities?.nativeToolStreaming === true
@@ -278,7 +327,31 @@ export class AgentKernel {
                 tools: modelTools,
                 signal: input.signal
               });
-        const response = normalizeTextualToolProtocol(rawResponse, modelTools);
+        let response;
+        try {
+          response = normalizeAgentToolProtocol(rawResponse, modelTools);
+        } catch (error) {
+          if (error instanceof AgentToolProtocolError && !protocolRepairUsed && this.dependencies.model.completeWithStructuredActions) {
+            protocolRepairUsed = true;
+            protocolDiagnostics.push(error.diagnostics);
+            const repairedRaw = await this.dependencies.model.completeWithStructuredActions({
+              systemPrompt,
+              messages,
+              tools: modelTools,
+              signal: input.signal
+            });
+            response = normalizeAgentToolProtocol(repairedRaw, modelTools, { repairApplied: true });
+          } else {
+            throw error;
+          }
+        }
+        if (
+          response.diagnostics.markerKinds.length
+          || response.diagnostics.unknownToolNames?.length
+          || response.diagnostics.providerResponseShape?.length
+        ) {
+          protocolDiagnostics.push(response.diagnostics);
+        }
 
         if (input.narrationOnly && response.toolCalls?.length) {
           const text = response.text?.trim() || "我已根据这一轮已记录的结果重新整理了回答。";
@@ -289,7 +362,8 @@ export class AgentKernel {
             trajectory: trajectory.value(),
             conversationSummary: contextWindow.conversationSummary,
             taskState,
-            contextDiagnostics: contextWindow.diagnostics
+            contextDiagnostics: contextWindow.diagnostics,
+            protocolDiagnostics
           };
         }
 
@@ -316,7 +390,8 @@ export class AgentKernel {
                   ...taskState,
                   completionStatus: "waiting_for_user",
                   updatedAt: new Date().toISOString()
-                }
+                },
+                protocolDiagnostics
               };
             }
             let validated;
@@ -409,7 +484,8 @@ export class AgentKernel {
                     trajectory: trajectory.value(),
                     conversationSummary: contextWindow.conversationSummary,
                     contextDiagnostics: contextWindow.diagnostics,
-                    taskState
+                    taskState,
+                    protocolDiagnostics
                   };
                 }
                 const transitionedSession = projectTaskStateIntoSession(input.session, taskState);
@@ -469,6 +545,7 @@ export class AgentKernel {
                   trajectory: trajectory.value(),
                   conversationSummary: contextWindow.conversationSummary,
                   contextDiagnostics: contextWindow.diagnostics,
+                  protocolDiagnostics,
                   taskState: taskReducer.reduce(taskState, {
                     type: "confirmation_requested",
                     toolName: validated.tool.name,
@@ -483,36 +560,38 @@ export class AgentKernel {
         }
 
         if (response.stopReason === "ask_user") {
-          const text = groundMutationClaims({
+          const text = alignAnswer(groundMutationClaims({
             text: canonicalEntities.preserve(response.text?.trim() || "请补充继续这项任务所需的真实信息。"),
             userMessage: input.userMessage,
             observations: turnObservations
-          });
+          }));
           if (nativeStreaming) await publishFinalStream(text, input, { turnId, iterationId });
           else await streamFinal(this.dependencies.model, { systemPrompt, messages, tools: modelTools }, text, input, { turnId, iterationId });
           trajectory.finish("waiting_for_user");
-          return { text, trajectory: trajectory.value(), conversationSummary: contextWindow.conversationSummary, contextDiagnostics: contextWindow.diagnostics, taskState };
+          return { text, trajectory: trajectory.value(), conversationSummary: contextWindow.conversationSummary, contextDiagnostics: contextWindow.diagnostics, taskState, protocolDiagnostics };
         }
 
-        const text = response.text?.trim()
-          ? groundMutationClaims({
+          const text = response.text?.trim()
+            ? groundMutationClaims({
               text: canonicalEntities.preserve(response.text.trim()),
               userMessage: input.userMessage,
               observations: turnObservations
             })
-          : undefined;
-        if (text) {
+            : undefined;
+        const alignedText = text ? alignAnswer(text) : undefined;
+        if (alignedText) {
           if (input.turnIntent === "casual_side_turn" || input.turnIntent === "reference_followup") {
             const visible = nativeStreaming
-              ? await publishFinalStream(text, input, { turnId, iterationId })
-              : await streamFinal(this.dependencies.model, { systemPrompt, messages, tools: modelTools }, text, input, { turnId, iterationId });
+              ? await publishFinalStream(alignedText, input, { turnId, iterationId })
+              : await streamFinal(this.dependencies.model, { systemPrompt, messages, tools: modelTools }, alignedText, input, { turnId, iterationId });
             trajectory.finish("completed");
             return {
               text: visible,
               trajectory: trajectory.value(),
               conversationSummary: contextWindow.conversationSummary,
               contextDiagnostics: contextWindow.diagnostics,
-              taskState
+              taskState,
+              protocolDiagnostics
             };
           }
           const completion = new AgentTaskCompletionGuard().evaluate(taskState);
@@ -535,11 +614,12 @@ export class AgentKernel {
                 trajectory: trajectory.value(),
                 conversationSummary: contextWindow.conversationSummary,
                 contextDiagnostics: contextWindow.diagnostics,
-                taskState: { ...taskState, completionStatus: "waiting_for_user", updatedAt: new Date().toISOString() }
+                taskState: { ...taskState, completionStatus: "waiting_for_user", updatedAt: new Date().toISOString() },
+                protocolDiagnostics
               };
             }
             previousNoProgressFingerprint = fingerprint;
-            messages.push({ role: "assistant", content: text });
+          messages.push({ role: "assistant", content: alignedText });
             messages.push({
               role: "system",
               content: JSON.stringify({
@@ -555,8 +635,8 @@ export class AgentKernel {
             continue;
           }
           const visible = nativeStreaming
-            ? await publishFinalStream(text, input, { turnId, iterationId })
-            : await streamFinal(this.dependencies.model, { systemPrompt, messages, tools: modelTools }, text, input, { turnId, iterationId });
+            ? await publishFinalStream(alignedText, input, { turnId, iterationId })
+            : await streamFinal(this.dependencies.model, { systemPrompt, messages, tools: modelTools }, alignedText, input, { turnId, iterationId });
           trajectory.finish("completed");
           const snapshot = trajectory.value();
           return {
@@ -568,7 +648,8 @@ export class AgentKernel {
             }),
             conversationSummary: contextWindow.conversationSummary,
             contextDiagnostics: contextWindow.diagnostics,
-            taskState
+            taskState,
+            protocolDiagnostics
           };
         }
       }
@@ -577,7 +658,7 @@ export class AgentKernel {
       const code = errorCode(error);
       if (code === "AbortError" || input.signal?.aborted) {
         trajectory.finish("aborted");
-        return { trajectory: trajectory.value(), taskState };
+        return { trajectory: trajectory.value(), taskState, protocolDiagnostics };
       }
       const localIntakeRecovery = await recoverProfileIntakeAfterProviderFailure({
         executor: this.dependencies.executor,
@@ -625,7 +706,8 @@ export class AgentKernel {
             trajectory: trajectory.value(),
             conversationSummary: contextWindow.conversationSummary,
             contextDiagnostics: contextWindow.diagnostics,
-            taskState
+            taskState,
+            protocolDiagnostics
           };
         }
         trajectory.toolCompleted(operationId, false);
@@ -635,7 +717,8 @@ export class AgentKernel {
       await emit(input, { type: "error", code, message: userErrorMessage(code) });
       return {
         trajectory: trajectory.value(),
-        taskState: taskReducer.reduce(taskState, { type: "failed", errorCode: code })
+        taskState: taskReducer.reduce(taskState, { type: "failed", errorCode: code }),
+        protocolDiagnostics
       };
     }
   }
@@ -648,6 +731,7 @@ export class AgentKernel {
     toolName?: string;
     signal?: AbortSignal;
     emit?(event: AgentStreamEvent): void | Promise<void>;
+    profileIntakeSourceTurns?: Array<{ processingStatus: string }>;
   }) {
     const userMessage = [...input.session.messages].reverse().find((message) => message.role === "user")?.content
       ?? input.session.memory?.currentGoal
@@ -663,7 +747,8 @@ export class AgentKernel {
         toolName: input.toolName,
         observation: input.observation
       },
-      taskEventAlreadyReduced: true
+      taskEventAlreadyReduced: true,
+      profileIntakeSourceTurns: input.profileIntakeSourceTurns
     });
   }
 }
@@ -688,7 +773,7 @@ async function recoverProfileIntakeAfterProviderFailure(input: {
     ?? stringValue(source.targetProfileId);
   const expectedProfileVersion = numberValue(input.taskState.knownSlots.expectedProfileVersion)
     ?? numberValue(source.expectedProfileVersion);
-  if (!messageId || !text || !capturedAt || !targetProfileId || !expectedProfileVersion) return undefined;
+  if (!messageId || !text || !capturedAt || !targetProfileId || expectedProfileVersion === undefined) return undefined;
   try {
     return await input.executor.execute({
       toolName: "capture_profile_intake",
@@ -718,6 +803,9 @@ async function consumeNativeTurn(
 ) {
   let text = "";
   let stopReason: AgentModelResult["stopReason"] = "final";
+  let provider: string | undefined;
+  let providerModel: string | undefined;
+  let providerResponseShape: string[] | undefined;
   const calls = new Map<number, AgentModelToolCall>();
   for await (const event of model.streamTurn!(request)) {
     if (event.type === "assistant_text_delta") {
@@ -731,12 +819,20 @@ async function consumeNativeTurn(
         outputTokens: event.outputTokens
       });
     }
-    if (event.type === "finish") stopReason = event.stopReason;
+    if (event.type === "finish") {
+      stopReason = event.stopReason;
+      provider = event.provider;
+      providerModel = event.model;
+      providerResponseShape = event.providerResponseShape;
+    }
   }
   return {
     text: text.trim() || undefined,
     toolCalls: calls.size ? [...calls.entries()].sort(([left], [right]) => left - right).map(([, call]) => call) : undefined,
-    stopReason
+    stopReason,
+    provider,
+    model: providerModel,
+    providerResponseShape
   };
 }
 
@@ -1294,8 +1390,8 @@ function workflowProgressStage(id: string, label: string, completed = false) {
 function userErrorMessage(code: string) {
   if (code === "agent_duplicate_tool_call") return "我检测到重复步骤并已停止，现有任务信息仍然保留。";
   if (code === "tool_input_invalid") return "当前访谈状态不完整，未执行资料整理。现有输入已保留。";
-  if (code === "provider_textual_tool_protocol") return "模型返回了不兼容的工具指令，已在写入前拦截；你的原始输入和当前进度仍然保留。请回复“重试刚才”，系统会从当前步骤继续。";
-  if (code.includes("budget")) return "自动处理没有完成：连续步骤未能推进。你的原始输入和现有进度已保留，尚未写入资料库。回复“重试刚才”重新执行当前步骤，或回复“结束任务”退出。";
+  if (code === "provider_textual_tool_protocol") return "模型返回的工具指令没有通过安全校验；你的原始输入和当前进度仍然保留，可以重新执行当前步骤。";
+  if (code.includes("budget")) return "自动处理没有完成：连续步骤未能推进。你的原始输入和现有进度已保留，尚未写入资料库，可以重新执行当前步骤或结束任务。";
   if (/missing_ai_config|provider_protocol_mismatch|provider_http/i.test(code)) return "AI 服务当前不可用。请检查模型设置后重试，任务进度已保留。";
   if (/precondition|invalid_tool_arguments|schema/i.test(code)) return "继续任务所需的信息还不完整。我会保留当前进度并只询问缺少的内容。";
   if (/stale|revision/i.test(code)) return "检测到资料版本已更新。我会基于最新版本重新规划，不会覆盖新内容。";
@@ -1303,74 +1399,6 @@ function userErrorMessage(code: string) {
   if (/unsupported|not_allowed|unknown_agent_tool/i.test(code)) return "当前能力无法安全完成这一步。我会尝试可用路径；如确实需要额外信息再向你确认。";
   if (/tool.*unavailable|temporar|timeout/i.test(code)) return "所需步骤暂时不可用。可重试的进度已保留，我不会重复已完成的写入。";
   return "AI 任务暂时中断，当前进度和输入已保留。";
-}
-
-function normalizeTextualToolProtocol(
-  response: AgentModelResult,
-  allowedTools: Array<{ name: string }>
-): AgentModelResult {
-  if (response.toolCalls?.length || !containsTextualToolProtocol(response.text)) return response;
-  const text = response.text ?? "";
-  const allowed = new Set(allowedTools.map((tool) => tool.name));
-  const calls = [...text.matchAll(/<tool_call\b[^>]*>([\s\S]*?)<\/tool_call>/gi)]
-    .flatMap((match, index) => {
-      const body = match[1] ?? "";
-      const functionMatch = body.match(/<function=([A-Za-z_][\w.-]*)\s*>([\s\S]*?)(?:<\/function>|$)/i);
-      if (!functionMatch) return [];
-      const requestedName = functionMatch[1];
-      const name = allowed.has(requestedName)
-        ? requestedName
-        : textualToolAlias(requestedName, allowed);
-      if (!name) return [];
-      const argumentsValue: Record<string, unknown> = {};
-      for (const parameter of functionMatch[2].matchAll(
-        /<parameter=([A-Za-z_][\w.-]*)\s*>([\s\S]*?)(?=<parameter=|<\/function>|<\/tool_call>|$)/gi
-      )) {
-        argumentsValue[parameter[1]] = parseTextualToolParameter(parameter[2]);
-      }
-      return [{
-        id: `textual-tool-call-${index + 1}`,
-        name,
-        arguments: argumentsValue
-      }];
-    });
-  if (!calls.length) {
-    throw Object.assign(new Error("Provider returned a textual tool call that cannot be executed safely."), {
-      code: "provider_textual_tool_protocol"
-    });
-  }
-  const visibleText = text
-    .replace(/<tool_call\b[^>]*>[\s\S]*?<\/tool_call>/gi, "")
-    .trim();
-  return {
-    ...response,
-    text: visibleText || undefined,
-    toolCalls: calls,
-    stopReason: "tool_calls"
-  };
-}
-
-function textualToolAlias(requestedName: string, allowed: Set<string>) {
-  const aliases: Record<string, string> = {
-    read_profile: "get_profile"
-  };
-  const canonical = aliases[requestedName];
-  return canonical && allowed.has(canonical) ? canonical : undefined;
-}
-
-function containsTextualToolProtocol(text?: string) {
-  return typeof text === "string"
-    && /<tool_call\b|<function=|<parameter=/i.test(text);
-}
-
-function parseTextualToolParameter(value: string): unknown {
-  const trimmed = value.replace(/<\/parameter>\s*$/i, "").trim();
-  if (!trimmed) return "";
-  try {
-    return JSON.parse(trimmed);
-  } catch {
-    return trimmed;
-  }
 }
 
 function errorCode(error: unknown) {
@@ -1446,6 +1474,17 @@ function isDirectIdentityQuestion(userMessage: string) {
   return /^(你是谁|你是什么|介绍一下你自己|你是做什么的)[？?!。.]?$/i.test(userMessage.trim().replace(/\s+/g, ""));
 }
 
+function deterministicAlignmentRecovery(taskState: NonNullable<AgentSession["taskState"]>) {
+  if (taskState.workflowId === "guided_profile_intake") {
+    if (taskState.stage === "structure_facts") return "原始回答已经保留，结构化整理尚未完成；我会停留在当前步骤，不会把未确认内容当作进展。";
+    if (taskState.stage === "review_facts" || taskState.stage === "final_review") return "经历核对卡片已经保留，请先确认或忽略其中的候选内容。";
+    if (taskState.stage === "resolve_conflicts") return "资料对账发现需要你确认的冲突，我会停留在冲突核对步骤。";
+    if (taskState.stage === "confirm_commit") return "保存前核验尚未完成，我会停留在保存确认步骤。";
+    if (taskState.stage === "profile_complete") return "资料库写入核验尚未完成，因此我不会宣称档案已经保存。";
+  }
+  return "当前步骤的可见回答与权威任务状态不一致，我会保留现有进度并停留在当前步骤。";
+}
+
 function noProgressFingerprint(input: {
   taskState: NonNullable<AgentSession["taskState"]>;
   allowedToolNames: string[];
@@ -1517,7 +1556,7 @@ function noProgressRecovery(nextAction: {
   requiredNextStage: string;
 }, taskState?: NonNullable<AgentSession["taskState"]>) {
   const withExitPaths = (instruction: string) =>
-    `${instruction}\n\n如果这一步仍然没有推进：回复“重试刚才”重新执行当前步骤；回复“结束任务”退出；也可以直接告诉我你想改做什么。`;
+    `${instruction}\n\n如果这一步仍然没有推进，可以使用“重新执行当前步骤”按钮，或选择“结束任务”；也可以直接告诉我你想改做什么。`;
   const tailoringGoal = ["create_tailored_resume", "apply_to_job", "analyze_job_fit"].includes(nextAction.goal ?? "");
   const missingSlots = taskState && tailoringGoal
     ? (["profileId", "resumeId", "jobId"] as const).filter((slot) => !taskState.selectedEntities[slot])
@@ -1565,6 +1604,16 @@ function deterministicBoundaryTool(
   allowedTools: Array<{ name: string }>,
   turnId: string
 ) {
+  if (
+    taskState.workflowId === "guided_profile_intake"
+    && taskState.stage === "profile_complete"
+    && taskState.knownSlots.profileCommitResult
+    && taskState.selectedEntities.profileId
+    && !taskState.knownSlots.profileCommitVerification
+    && allowedTools.some((tool) => tool.name === "get_profile")
+  ) {
+    return "get_profile";
+  }
   if (
     taskState.workflowId === "guided_profile_intake"
     && taskState.stage === "structure_facts"

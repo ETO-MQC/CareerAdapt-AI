@@ -104,9 +104,11 @@ test.describe("P4.3g headed real-provider workflow journeys", () => {
     for (let index = 0; index < 40; index += 1) {
       const active = cards.first();
       if (!await active.count()) break;
-      await active.locator("details").first().evaluate((details) => {
-        (details as HTMLDetailsElement).open = true;
-      });
+      const details = active.locator("details").first();
+      if (!await details.count()) continue;
+      await details.evaluate((element) => {
+        (element as HTMLDetailsElement).open = true;
+      }, undefined, { timeout: 5_000 }).catch(() => undefined);
       const accept = active.getByRole("button", { name: "采用", exact: true });
       const ignore = active.getByRole("button", { name: "忽略", exact: true });
       if (await accept.count()) await accept.click({ timeout: 5_000 }).catch(() => undefined);
@@ -291,6 +293,8 @@ async function startIntake(page: Page) {
   await expect(page.getByLabel("选择人物")).toBeVisible({ timeout: 30_000 });
   await page.goto("/ai-workspace");
   await page.getByRole("button", { name: /从零整理我的经历/ }).click();
+  await expect(page.locator('[data-agent-workflow-id="guided_profile_intake"][data-agent-task-stage="collect_experience"]'))
+    .toBeVisible({ timeout: 30_000 });
   await expect(page.getByLabel("描述你的求职任务")).toBeVisible({ timeout: 30_000 });
 }
 

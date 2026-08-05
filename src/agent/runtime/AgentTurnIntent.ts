@@ -67,7 +67,9 @@ export function classifyTurnIntent(input: {
       : decision("casual_side_turn", "preserve", "none", profileIntakeTurnKind);
   }
   if (profileIntakeTurnKind === "interview_control") {
-    const toolScope = /^完成整理并保存到资料库[。！!]?$/u.test(text) ? "domain" : "none";
+    const toolScope = /^(?:确认|完成整理并保存(?:到)?(?:个人)?资料库?|导入资料库|保存为经历档案|写入资料库)[。！!]?$/u.test(text)
+      ? "domain"
+      : "none";
     return decision("task_control", "preserve", toolScope, profileIntakeTurnKind);
   }
   if (
@@ -142,7 +144,7 @@ export function classifyProfileIntakeTurn(input: {
   ) {
     return "profile_state_question";
   }
-  if (/^(?:继续|完成整理|完成整理并保存到资料库|先到这里|没有其他经历了|先不保存|仅保存|不保存|结束访谈|跳过|下一步|继续补充|继续添加|先看看|实习经历|项目经历|校园经历|技能或证书)$/i.test(text.replace(/[。！!？?\s]+$/g, ""))) {
+  if (/^(?:继续|完成整理|完成整理并保存|完成整理并保存到资料库|确认|导入资料库|保存为经历档案|写入资料库|先到这里|没有其他经历了|先不保存|仅保存|不保存|结束访谈|跳过|下一步|继续补充|继续添加|先看看|实习经历|项目经历|校园经历|技能或证书)$/i.test(text.replace(/[。！!？?\s]+$/g, ""))) {
     return "interview_control";
   }
   if (/^(?:不是|不对|并非|这条经历不属于我|这不是我的|应为|更正|纠正)/i.test(text) || /不是.+(是|应为)|不属于我/i.test(text)) {
@@ -165,7 +167,7 @@ function hasGroundedCareerSignal(text: string) {
     /公司|企业|组织|单位|雇主|实习|任职|担任|负责|岗位|职位|工作|入职|离职/i,
     /项目|课题|比赛|竞赛|活动|研究|开发|设计|搭建|实现|上线|产出|结果|成果/i,
     /技能|证书|认证|语言|奖项|获奖|掌握|熟悉|会用|精通/i,
-    /\b(?:19|20)\d{2}[年/-]|\d{4}年|\d{1,2}月|本科|硕士|博士/i
+    /\b(?:19|20)\d{2}\s*[年/-]|\d{4}\s*年|\d{1,2}\s*月|本科|硕士|博士/i
   ].some((pattern) => pattern.test(text));
 }
 

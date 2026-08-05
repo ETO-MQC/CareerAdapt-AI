@@ -138,4 +138,32 @@ describe("P4.3d.1 agent session migration", () => {
     expect(tailoring.plan.questionPlan.questionPlanVersion).toBe(CURRENT_QUESTION_PLAN_VERSION);
     expect(tailoring.plan.diffReviews).toEqual([{ diffId: tailoringDiffId(diff), status: "suggested", updatedAt: NOW }]);
   });
+
+  it("keeps standalone analyze_job_fit artifacts separate from tailoring workspaces", () => {
+    const base = AgentRuntime.create("analyze_job_fit", "analyze_fit", "Standalone fit");
+    const initialTask = new AgentTaskStateReducer().create(base, "analyze_job_fit");
+    const raw = {
+      ...base,
+      artifactRefs: [{
+        id: "fit-artifact-1",
+        kind: "job_fit_overview",
+        title: "岗位匹配分析",
+        entityType: "job",
+        entityId: "job-1",
+        status: "active",
+        createdAt: NOW,
+        updatedAt: NOW
+      }],
+      taskState: {
+        ...initialTask,
+        workflowId: "analyze_job_fit",
+        rootGoal: "analyze_job_fit",
+        activeGoal: "analyze_job_fit",
+        stage: "analyze_fit"
+      }
+    };
+
+    const migrated = migrateAgentSessionToCurrentSchema(raw as never, NOW);
+    expect(migrated.artifactRefs).toEqual(raw.artifactRefs);
+  });
 });

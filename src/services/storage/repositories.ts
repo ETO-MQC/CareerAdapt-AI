@@ -93,6 +93,10 @@ import {
   type AgentMessageRecord,
   type AgentSession
 } from "@/agent/contracts/agentSession";
+import {
+  ProfileIntakeSourceTurnSchema,
+  type ProfileIntakeSourceTurn
+} from "@/domain/profileIntake/ProfileIntakeSourceTurn";
 import { migrateAgentSessionToCurrentSchema } from "@/agent/runtime/AgentSessionMigration";
 import { isSubmissionSafeTailoringPath, validateEachTailoringDiffLocally } from "@/domain/jobOptimization/tailoringDiff";
 import { assertApplicationStatusTransition, computeApplicationReadiness } from "@/domain/application";
@@ -150,6 +154,8 @@ const ACTIVE_PROFILE_META_KEY = "activeProfileContext:v1";
 const LEGACY_DEMO_PROFILE_NAME = "陈同学";
 const PROFILE_RECONCILIATION_META_KEY_PREFIX = "profileReconciliation:v1:";
 const PROFILE_INTAKE_OPERATION_META_KEY_PREFIX = "profileIntakeOperation:v1:";
+const PROFILE_INTAKE_SOURCE_TURN_META_KEY_PREFIX = "profileIntakeSourceTurn:v1:";
+const AGENT_PROTOCOL_DIAGNOSTIC_META_KEY_PREFIX = "agentProtocolDiagnostic:v1:";
 const EMPTY_RECYCLE_BIN: RecycleBinState = { version: 1, jobIds: [], profileItems: [] };
 
 function agentSessionMetadataFingerprint(value: AgentSession) {
@@ -844,6 +850,56 @@ export class WorkspaceRepository {
   async getImportedResumeDraft(importId: string) {
     const stored = await this.db.appMeta.get(importedResumeDraftKey(importId));
     return stored ? ImportedResumeDraftSchema.parse(stored.value) : undefined;
+  }
+
+  /** Persist the write-ahead Profile Intake source before semantic work. */
+  async saveProfileIntakeSourceTurn(turn: ProfileIntakeSourceTurn) {
+    const parsed = ProfileIntakeSourceTurnSchema.parse(turn);
+    const key = profileIntakeSourceTurnKey(parsed);
+    await this.db.appMeta.put({ key, value: parsed, updatedAt: parsed.capturedAt });
+    return parsed;
+  }
+
+  async updateProfileIntakeSourceTurn(
+    identity: Pick<ProfileIntakeSourceTurn, "sessionId" | "messageId" | "turnId">,
+    patch: Partial<Omit<ProfileIntakeSourceTurn, "sessionId" | "messageId" | "turnId">>
+  ) {
+    const key = profileIntakeSourceTurnKey(identity);
+    const stored = await this.db.appMeta.get(key);
+    if (!stored) return undefined;
+    const storedValue = stored.value && typeof stored.value === "object" && !Array.isArray(stored.value)
+      ? stored.value
+      : {};
+    const parsed = ProfileIntakeSourceTurnSchema.parse({ ...storedValue, ...patch, ...identity });
+    await this.db.appMeta.put({ key, value: parsed, updatedAt: new Date().toISOString() });
+    return parsed;
+  }
+
+  async getProfileIntakeSourceTurn(identity: Pick<ProfileIntakeSourceTurn, "sessionId" | "messageId" | "turnId">) {
+    const stored = await this.db.appMeta.get(profileIntakeSourceTurnKey(identity));
+    const parsed = ProfileIntakeSourceTurnSchema.safeParse(stored?.value);
+    return parsed.success ? parsed.data : undefined;
+  }
+
+  async listProfileIntakeSourceTurns(sessionId?: string) {
+    const rows = await this.db.appMeta
+      .where("key")
+      .startsWith(PROFILE_INTAKE_SOURCE_TURN_META_KEY_PREFIX)
+      .toArray();
+    return rows
+      .map((row) => ProfileIntakeSourceTurnSchema.safeParse(row.value))
+      .flatMap((result) => result.success ? [result.data] : [])
+      .filter((turn) => !sessionId || turn.sessionId === sessionId)
+      .sort((left, right) => left.capturedAt.localeCompare(right.capturedAt));
+  }
+
+  /** Store only redacted protocol metadata; never store prompt/source values. */
+  async saveAgentProtocolDiagnostic(diagnostic: Record<string, unknown>) {
+    const safe = { ...diagnostic };
+    const identity = `${String(safe.sessionId ?? "session")}:${String(safe.turnId ?? "turn")}:${String(safe.safeErrorCode ?? "diagnostic")}:${Date.now()}`;
+    const key = `${AGENT_PROTOCOL_DIAGNOSTIC_META_KEY_PREFIX}${stableHashText(identity)}`;
+    await this.db.appMeta.put({ key, value: safe, updatedAt: new Date().toISOString() });
+    return safe;
   }
 
   async findConversationIntakeBySourceIdentity(input: {
@@ -5849,6 +5905,12 @@ const IMPORTED_RESUME_DRAFT_KEY_PREFIX = "importedResumeDraft:";
 
 function importedResumeDraftKey(importId: string) {
   return `${IMPORTED_RESUME_DRAFT_KEY_PREFIX}${importId}`;
+}
+
+function profileIntakeSourceTurnKey(
+  identity: Pick<ProfileIntakeSourceTurn, "sessionId" | "messageId" | "turnId">
+) {
+  return `${PROFILE_INTAKE_SOURCE_TURN_META_KEY_PREFIX}${stableHashText(`${identity.sessionId}:${identity.messageId}:${identity.turnId}`)}`;
 }
 
 function profileReconciliationMetaKey(importId: string) {

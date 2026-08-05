@@ -22,6 +22,7 @@ import type {
 } from "./ProfileIntakeReviewProjection";
 import { highestValueFollowUp } from "./ProfileIntakeCompleteness";
 import { RESUME_AI_ITEM_FIELD_CONTRACT } from "@/domain/resumeFields";
+import { currentRuntimeDate } from "@/services/runtimeDate";
 
 const OptionalText = z.string().trim().min(1).max(4_000).optional();
 const TextList = z.array(z.string().trim().min(1).max(2_000)).max(30).default([]);
@@ -93,7 +94,8 @@ export const ProfileIntakeSemanticInputSchema = z.object({
     label: z.string().min(1),
     normalizedText: z.string().min(1)
   }).strict()).max(40).default([]),
-  canonicalSections: z.array(ResumeSectionTypeV2Schema).min(1)
+  canonicalSections: z.array(ResumeSectionTypeV2Schema).min(1),
+  currentDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/u).optional()
 }).strict();
 
 export type ProfileIntakeSemanticCandidate = z.infer<typeof ProfileIntakeSemanticCandidateSchema>;
@@ -142,12 +144,14 @@ export class ProfileIntakeSemanticService {
   async normalize(input: {
     rawNarrative: string;
     existingDraft?: ImportedResumeDraft;
+    currentDate?: string;
     signal?: AbortSignal;
   }): Promise<ProfileIntakeSemanticResult> {
     const semanticInput = ProfileIntakeSemanticInputSchema.parse({
       rawNarrative: input.rawNarrative,
       existingDraftContext: draftContext(input.existingDraft),
-      canonicalSections: CANONICAL_SECTIONS
+      canonicalSections: CANONICAL_SECTIONS,
+      currentDate: input.currentDate ?? currentRuntimeDate()
     });
     let response: Awaited<ReturnType<SemanticInvoker>>;
     try {
@@ -668,8 +672,14 @@ function assertFactPreserving(item: ResumeItemV2, source: string) {
   if (outputNumbers.some((value) => !sourceNumbers.includes(normalizeNumberToken(value)))) {
     throw new Error("profile_intake_new_number");
   }
-  if (/(?:协助|参与|接触)/u.test(source) && /(?:主导|独立负责|精通|熟练掌握)/u.test(claimText)) {
+  if (/(?:协助|参与|接触)/u.test(source) && /(?:主导|独立负责|独立完成|独立开发|精通|熟练掌握)/u.test(claimText)) {
     throw new Error("profile_intake_responsibility_upgrade");
+  }
+  if (/(?:RPA|机器人流程自动化)/iu.test(source) && /合规采集/u.test(claimText) && !/合规采集/u.test(source)) {
+    throw new Error("profile_intake_unsupported_qualification");
+  }
+  if (/(?:竞赛|比赛|大赛)/u.test(source) && item.sectionType === "project") {
+    throw new Error("profile_intake_competition_misclassified");
   }
 }
 

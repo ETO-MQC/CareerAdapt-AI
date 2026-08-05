@@ -4,6 +4,7 @@ import { expect, test, type Page, type Route } from "@playwright/test";
 import { openManualPageTab } from "./support/g7b2Ui";
 
 type ModelBody = {
+  mode?: string;
   messages?: Array<{ role: string; name?: string; content: string }>;
   tools?: Array<{ name: string }>;
 };
@@ -38,6 +39,10 @@ test.describe("P4.3d.2 standalone analysis and export journeys", () => {
 
     await page.route("**/api/agent/stream", async (route) => {
       const body = route.request().postDataJSON() as ModelBody;
+      if (body.mode === "protocol_probe") {
+        await route.fulfill({ contentType: "application/json", body: JSON.stringify({ toolProtocol: "native_openai" }) });
+        return;
+      }
       const observation = toolObservations(body).at(-1);
       if (!observation) {
         if (awaitingJobSelection) {
@@ -154,6 +159,10 @@ test.describe("P4.3d.2 standalone analysis and export journeys", () => {
 
     await page.route("**/api/agent/stream", async (route) => {
       const body = route.request().postDataJSON() as ModelBody;
+      if (body.mode === "protocol_probe") {
+        await route.fulfill({ contentType: "application/json", body: JSON.stringify({ toolProtocol: "native_openai" }) });
+        return;
+      }
       const observation = toolObservations(body).at(-1);
       if (!observation) {
         calls.push("get_resume");

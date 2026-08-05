@@ -28,6 +28,7 @@ export type OpenAiCompatibleResponse = {
   model: string;
   outputLength: number;
   finishReason?: string;
+  responseShape?: string[];
 };
 
 export type OpenAiCompatibleTextChunk =
@@ -113,7 +114,8 @@ export class OpenAiCompatibleProvider {
       provider: this.provider,
       model: this.model,
       outputLength: content.length,
-      finishReason
+      finishReason,
+      responseShape: safeProviderResponseShape(payload)
     };
   }
 
@@ -146,7 +148,7 @@ export class OpenAiCompatibleProvider {
     });
 
     if (!response.ok) {
-      if ([400, 404, 422].includes(response.status)) return this.completeWithStructuredActions(request);
+      if ([400, 404, 405, 422].includes(response.status)) return this.completeWithStructuredActions(request);
       throw createAiProviderError(`provider_http_${response.status}`, `Provider returned HTTP ${response.status}.`);
     }
     const payload = await response.json();
@@ -166,6 +168,9 @@ export class OpenAiCompatibleProvider {
       text: typeof message?.content === "string" && message.content.trim() ? message.content : undefined,
       toolCalls: toolCalls.length ? toolCalls : undefined,
       stopReason: toolCalls.length ? "tool_calls" : choice?.finish_reason === "length" ? "length" : "final",
+      provider: this.provider,
+      model: this.model,
+      providerResponseShape: safeProviderResponseShape(payload),
       usage: payload?.usage ? {
         inputTokens: numberOrUndefined(payload.usage.prompt_tokens),
         outputTokens: numberOrUndefined(payload.usage.completion_tokens)
@@ -209,7 +214,9 @@ export class OpenAiCompatibleProvider {
     const calls = new Map<number, { id: string; name: string; argumentsText: string }>();
     let finishReason: unknown;
     let assistantText = "";
+    const responseShapes = new Set<string>();
     for await (const payload of parseOpenAiJsonSse(response.body)) {
+      for (const shape of safeProviderStreamShape(payload)) responseShapes.add(shape);
       const usage = objectRecord(payload.usage);
       if (usage) {
         yield {
@@ -261,7 +268,10 @@ export class OpenAiCompatibleProvider {
     }
     yield {
       type: "finish",
-      stopReason: calls.size ? "tool_calls" : finishReason === "length" ? "length" : "final"
+      stopReason: calls.size ? "tool_calls" : finishReason === "length" ? "length" : "final",
+      provider: this.provider,
+      model: this.model,
+      providerResponseShape: [...responseShapes].slice(0, 20)
     };
   }
 
@@ -321,7 +331,7 @@ export class OpenAiCompatibleProvider {
     }
   }
 
-  private async completeWithStructuredActions(request: AgentModelRequest & { signal?: AbortSignal }) {
+  async completeWithStructuredActions(request: AgentModelRequest & { signal?: AbortSignal }) {
     const response = await this.invoke({
       systemPrompt: `${request.systemPrompt}
 
@@ -334,7 +344,34 @@ Use only the provided tool names. Do not include reasoning or markdown fences.`,
       maxOutputChars: 16_000,
       signal: request.signal
     });
-    return AgentModelResultSchema.parse(response.output);
+    return AgentModelResultSchema.parse({
+      ...response.output as Record<string, unknown>,
+      provider: this.provider,
+      model: this.model,
+      providerResponseShape: response.responseShape
+    });
+  }
+
+  /**
+   * A read-only synthetic capability probe.  It asks the configured model to
+   * choose a harmless read tool, but the result is never sent to an executor.
+   */
+  async probeToolProtocol(request?: { signal?: AbortSignal }) {
+    const result = await this.completeWithTools({
+      systemPrompt: "Return one harmless read-only tool decision. Do not include user data.",
+      messages: [{ role: "user", content: "Capability probe only." }],
+      tools: [{
+        name: "capability_probe_read",
+        description: "Harmless synthetic read-only capability probe.",
+        inputSchema: { type: "object", properties: {}, additionalProperties: false }
+      }],
+      signal: request?.signal
+    });
+    if (result.toolCalls?.length) return "native_openai" as const;
+    const text = result.text ?? "";
+    if (/\btoolCalls\b|\"stopReason\"/i.test(text)) return "structured_json" as const;
+    if (/<tool_call\b|<function\s*=/i.test(text)) return "textual_hermes" as const;
+    return "unsupported" as const;
   }
 }
 
@@ -392,6 +429,32 @@ function toOpenAiMessage(message: AgentModelMessage) {
     };
   }
   return { role: message.role, content: message.content };
+}
+
+function safeProviderResponseShape(payload: Record<string, unknown>) {
+  const shape = [`root:${Object.keys(payload).sort().join(",")}`];
+  const firstChoice = Array.isArray(payload.choices) ? payload.choices[0] : undefined;
+  if (firstChoice && typeof firstChoice === "object" && !Array.isArray(firstChoice)) {
+    const choice = firstChoice as Record<string, unknown>;
+    shape.push(`choice:${Object.keys(choice).sort().join(",")}`);
+    if (choice.message && typeof choice.message === "object" && !Array.isArray(choice.message)) {
+      shape.push(`message:${Object.keys(choice.message as Record<string, unknown>).sort().join(",")}`);
+    }
+  }
+  return shape.slice(0, 20);
+}
+
+function safeProviderStreamShape(payload: Record<string, unknown>) {
+  const shape = [`root:${Object.keys(payload).sort().join(",")}`];
+  const firstChoice = Array.isArray(payload.choices) ? payload.choices[0] : undefined;
+  if (firstChoice && typeof firstChoice === "object" && !Array.isArray(firstChoice)) {
+    const choice = firstChoice as Record<string, unknown>;
+    shape.push(`choice:${Object.keys(choice).sort().join(",")}`);
+    if (choice.delta && typeof choice.delta === "object" && !Array.isArray(choice.delta)) {
+      shape.push(`delta:${Object.keys(choice.delta as Record<string, unknown>).sort().join(",")}`);
+    }
+  }
+  return shape.slice(0, 20);
 }
 
 function parseToolArguments(value: unknown) {

@@ -58,6 +58,7 @@ import {
 import { readResumeImportSemanticPreference } from "@/services/preferences/resumeImportAi";
 import { adaptResumeJsonToV2 } from "@/domain/resumeImport/jsonV2Adapter";
 import { createProfileIntakeInterviewPlan } from "@/domain/profileIntake/ProfileIntakeCompleteness";
+import { ProfileIntakeReviewProjectionSchema } from "@/domain/profileIntake/ProfileIntakeReviewProjection";
 
 export class BrowserAgentToolService implements AgentToolServices {
   constructor(
@@ -400,6 +401,15 @@ export class BrowserAgentToolService implements AgentToolServices {
       saved,
       interviewPlan.activeQuestion?.question ? [interviewPlan.activeQuestion.question] : []
     );
+    const finalizedProjection = ProfileIntakeReviewProjectionSchema.parse({
+      ...reviewProjection,
+      ...(reviewProjection.reviewProgress.reviewed === reviewProjection.reviewProgress.total
+        && reviewProjection.reviewProgress.proposed === 0
+        && reviewProjection.reviewProgress.uncertain === 0
+        && reviewProjection.extractionStatus !== "failed"
+        ? { finalReviewRevision: saved.revision }
+        : {})
+    });
     const authoritativeCandidate = artifact.candidates.find((candidate) => candidate.id === input.candidateId);
     return {
       importId: saved.importId,
@@ -421,7 +431,7 @@ export class BrowserAgentToolService implements AgentToolServices {
       followUpQuestion: interviewPlan.activeQuestion?.question,
       interviewPlan,
       artifactPayload: artifact,
-      reviewProjection
+      reviewProjection: finalizedProjection
     };
   }
 
@@ -601,9 +611,9 @@ export class BrowserAgentToolService implements AgentToolServices {
     if (!profileId) {
       const profiles = await this.repository.listProfiles();
       return {
-        selected: false,
-        profileId: null,
-        availableProfiles: profiles.map((profile) => ({ id: profile.id, name: profile.name }))
+      selected: false,
+      profileId: null,
+      availableProfiles: profiles.map((profile) => ({ id: profile.id, name: profile.name, version: profile.version }))
       };
     }
     const profile = await this.repository.getProfile(profileId);

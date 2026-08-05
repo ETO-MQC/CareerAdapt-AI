@@ -76,6 +76,7 @@ export const ProfileIntakeFailedExtractionSchema = z.object({
 export const ProfileIntakeReviewProjectionSchema = z.object({
   importId: z.string().min(1),
   draftRevision: z.number().int().min(0),
+  finalReviewRevision: z.number().int().min(0).optional(),
   sourceMessageId: z.string().min(1),
   sourceTurnId: z.string().min(1),
   sourceContentHash: z.string().min(8),
@@ -115,6 +116,10 @@ export function profileIntakeReviewProgress(
     accepted,
     ignored,
     rejected,
-    reviewed: accepted + ignored + rejected
+    // A rejected candidate is represented as status=ignored plus
+    // decision=reject.  Keep rejected as a diagnostic subset, but count each
+    // candidate only once for completion; otherwise a single ignore produces
+    // impossible progress such as 9/8 and blocks deterministic finalization.
+    reviewed: accepted + ignored
   };
 }

@@ -282,7 +282,13 @@ export function AgentWorkspace() {
       onOpenArtifacts={() => updateDrawerState(window.matchMedia("(max-width: 860px)").matches ? "overlay" : "split")}
       onOpenHistory={() => setHistoryOpen(true)}
     >
-      <div className={`agent-workspace-body is-drawer-${drawerState}`}>
+      <div
+        className={`agent-workspace-body is-drawer-${drawerState}`}
+        data-agent-workflow-id={session.taskState?.workflowId ?? session.workflowState.workflowId}
+        data-agent-task-stage={session.taskState?.stage ?? ""}
+        data-agent-completion-status={session.taskState?.completionStatus ?? ""}
+        data-agent-branch-id={session.activeBranchId}
+      >
         <section className="agent-conversation-panel">
           {showZeroState ? (
             <AgentZeroState onSelect={dispatchQuickAction} />

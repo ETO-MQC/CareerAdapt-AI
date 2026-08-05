@@ -28,7 +28,13 @@ export type AgentModelWireEvent =
   | { type: "model_tool_arguments_delta"; index: number; id: string; delta: string }
   | { type: "model_tool_call_complete"; index: number; call: { id: string; name: string; arguments: Record<string, unknown> } }
   | { type: "model_usage"; inputTokens?: number; outputTokens?: number }
-  | { type: "model_finish"; stopReason: "final" | "tool_calls" | "ask_user" | "confirmation" | "length" | "error" };
+  | {
+      type: "model_finish";
+      stopReason: "final" | "tool_calls" | "ask_user" | "confirmation" | "length" | "error";
+      provider?: string;
+      model?: string;
+      providerResponseShape?: string[];
+    };
 
 export async function* parseAgentSseStream(stream: ReadableStream<Uint8Array>): AsyncGenerator<AgentStreamEvent | AgentModelWireEvent> {
   const reader = stream.getReader();

@@ -156,7 +156,7 @@ export function migrateAgentSessionToCurrentSchema(value: AgentSession | Record<
     ...raw,
     agentSessionSchemaVersion: CURRENT_AGENT_SESSION_SCHEMA_VERSION,
     messages,
-    artifactRefs: consolidateTailoringArtifacts(raw.artifactRefs, tailoring, migrationTime),
+    artifactRefs: consolidateTailoringArtifacts(raw.artifactRefs, tailoring, migrationTime, nextTaskState),
     taskState: nextTaskState,
     pendingConfirmation: retiresConfirmation ? undefined : raw.pendingConfirmation,
     pendingToolCall: retiresConfirmation || retiresCall ? undefined : raw.pendingToolCall,
@@ -199,8 +199,25 @@ function hashTailoringAnswers(value: unknown) {
   return stableHashText(JSON.stringify(answers));
 }
 
-function consolidateTailoringArtifacts(value: unknown, tailoring: Record<string, unknown>, migrationTime: string) {
+function consolidateTailoringArtifacts(
+  value: unknown,
+  tailoring: Record<string, unknown>,
+  migrationTime: string,
+  taskState?: Record<string, unknown>
+) {
   const artifacts = Array.isArray(value) ? value.map(record) : [];
+  const standaloneFit = taskState?.workflowId === "analyze_job_fit" || taskState?.rootGoal === "analyze_job_fit";
+  if (standaloneFit) {
+    return artifacts.map((artifact) => artifact.kind === "tailoring_workspace"
+      ? {
+          ...artifact,
+          id: `job-fit:${String(artifact.entityId ?? "pending-job-fit")}`,
+          kind: "job_fit_overview",
+          title: "岗位匹配分析",
+          entityType: "job"
+        }
+      : artifact);
+  }
   const legacy = artifacts.filter((artifact) => artifact.kind === "job_fit_overview" || artifact.kind === "tailoring_diff" || artifact.kind === "tailoring_workspace");
   if (!legacy.length && !tailoring.id) return value;
   const tailoringSessionId = typeof tailoring.id === "string" && tailoring.id

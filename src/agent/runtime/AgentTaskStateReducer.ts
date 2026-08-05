@@ -169,10 +169,11 @@ export class AgentTaskStateReducer {
         );
         const command = event.message.trim().replace(/[。！!？?\s]+$/g, "");
         const acceptedCandidateCount = acceptedIntakeCandidateCount(state);
-        if (acceptedCandidateCount > 0 && isProfileIntakeFinishCommand(command)) {
+        const hasIntakeCandidates = intakeCandidateCount(state) > 0;
+        if ((acceptedCandidateCount > 0 || hasIntakeCandidates) && isProfileIntakeFinishCommand(command)) {
           state.pendingDecision = undefined;
           delete state.knownSlots.intakeFollowUpQuestion;
-          if (command === "完成整理并保存到资料库") {
+          if (isExplicitProfileIntakeSaveIntent(command)) {
             state.knownSlots.profileIntakeExplicitCommit = true;
             state.knownSlots.profileIntakeFinishRequested = true;
             state.stage = "reconcile_profile";
@@ -210,7 +211,7 @@ export class AgentTaskStateReducer {
           && (acceptedEvidenceKind === "follow_up_answer" || acceptedEvidenceKind === "career_narrative")
           && hasIntakeEvidence
         ) {
-          state.knownSlots.latestIntakeClarification = {
+          state.knownSlots.latestIntakeSource = {
             sourceKind: acceptedEvidenceKind,
             sessionId: event.sessionId,
             messageId: event.messageId,
@@ -220,8 +221,13 @@ export class AgentTaskStateReducer {
             capturedAt: event.capturedAt ?? state.updatedAt,
             classifiedAsEvidence: true,
             retracted: false,
+            targetProfileId: state.knownSlots.targetProfileId,
+            expectedProfileVersion: state.knownSlots.expectedProfileVersion,
             intakeQuestionId: stringValue(state.knownSlots.activeQuestionId)
           };
+          state.stage = "structure_facts";
+          state.pendingDecision = undefined;
+          delete state.knownSlots.profileIntakeFinishDecision;
         }
         if (state.stage === "profile_complete" && state.pendingDecision?.type === "profile_intake_post_save") {
           if (/生成(?:一份)?(?:通用)?简历|创建(?:一份)?(?:通用)?简历/.test(event.message)) {
@@ -356,7 +362,11 @@ export class AgentTaskStateReducer {
           }
         } else if (event.decisionType === "profile_intake_post_save") {
           state.pendingDecision = undefined;
-          if (event.option === "generate_general_resume") {
+          if (event.option === "save_profile_only") {
+            resetProfileIntakeDraft(state);
+            state.stage = "collect_experience";
+            state.completionStatus = "waiting_for_user";
+          } else if (event.option === "generate_general_resume") {
             state.stage = "optional_resume_decision";
             state.completionStatus = "active";
           } else if (event.option === "finish") {
@@ -501,6 +511,9 @@ export class AgentTaskStateReducer {
         state.knownSlots.intakeSession = value.intakeSession;
         if (projection) {
           state.knownSlots.profileIntakeReviewProjection = projection;
+          if (projection.finalReviewRevision !== undefined) {
+            state.knownSlots.finalReviewRevision = projection.finalReviewRevision;
+          }
           // Compatibility aliases are derived from the projection and are not
           // used as an independent source of truth by the new UI.
           state.knownSlots.intakeCandidates = projection.candidates;
@@ -538,6 +551,9 @@ export class AgentTaskStateReducer {
           : undefined;
         if (authoritativeProjection) {
           state.knownSlots.profileIntakeReviewProjection = authoritativeProjection;
+          if (authoritativeProjection.finalReviewRevision !== undefined) {
+            state.knownSlots.finalReviewRevision = authoritativeProjection.finalReviewRevision;
+          }
           state.knownSlots.intakeCandidates = authoritativeProjection.candidates;
           state.knownSlots.intakeArtifact = objectValue(value.artifactPayload);
           state.pendingDecision = undefined;
@@ -617,6 +633,10 @@ export class AgentTaskStateReducer {
         const summary = objectValue(value.summary);
         const unresolved = typeof summary.requiresReview === "number" ? summary.requiresReview : 0;
         state.knownSlots.intakeReconciliation = event.observation;
+        const projection = ProfileIntakeReviewProjectionSchema.safeParse(state.knownSlots.profileIntakeReviewProjection);
+        if (projection.success && projection.data.finalReviewRevision !== undefined) {
+          state.knownSlots.finalReviewRevision = projection.data.finalReviewRevision;
+        }
         state.knownSlots.expectedIntakeReconciliationRevision = value.expectedPlanRevision;
         const currentArtifact = objectValue(state.knownSlots.intakeArtifact);
         const unresolvedItems = Array.isArray(value.unresolved) ? value.unresolved.map(objectValue) : [];
@@ -660,11 +680,12 @@ export class AgentTaskStateReducer {
         state.knownSlots.targetProfileId = profileId;
         state.knownSlots.expectedProfileVersion = profileVersion;
         state.knownSlots.profileCommitResult = event.observation;
+        delete state.knownSlots.profileCommitVerification;
         delete state.knownSlots.profileIntakeExplicitCommit;
         delete state.knownSlots.profileIntakeFinishRequested;
         state.pendingDecision = {
           type: "profile_intake_post_save",
-          options: ["generate_general_resume", "finish"]
+          options: ["save_profile_only", "generate_general_resume", "finish"]
         };
         state.stage = "profile_complete";
         state.completionStatus = "waiting_for_user";
@@ -826,7 +847,39 @@ function isProfileIntakeAnswerTurn(kind: ProfileIntakeTurnKind) {
 }
 
 function isProfileIntakeFinishCommand(command: string) {
-  return ["完成整理", "先到这里", "没有其他经历了", "结束访谈", "完成整理并保存到资料库"].includes(command);
+  return [
+    "完成整理",
+    "完成整理并保存",
+    "先到这里",
+    "没有其他经历了",
+    "结束访谈",
+    "完成整理并保存到资料库",
+    "确认",
+    "导入资料库",
+    "保存为经历档案",
+    "写入资料库",
+    "完成整理并保存资料库",
+    "完成整理并保存到个人资料库",
+    "确认导入资料库",
+    "确认保存到资料库"
+  ].includes(command)
+    || /^(?:确认|完成整理)(?:并)?(?:保存|导入|写入)(?:到)?(?:个人)?资料库$/u.test(command);
+}
+
+function isExplicitProfileIntakeSaveIntent(command: string) {
+  return [
+    "完成整理并保存",
+    "完成整理并保存到资料库",
+    "确认",
+    "导入资料库",
+    "保存为经历档案",
+    "写入资料库",
+    "完成整理并保存资料库",
+    "完成整理并保存到个人资料库",
+    "确认导入资料库",
+    "确认保存到资料库"
+  ].includes(command)
+    || /^(?:确认|完成整理)(?:并)?(?:保存|导入|写入)(?:到)?(?:个人)?资料库$/u.test(command);
 }
 
 function intakeSectionFromCommand(command: string) {
@@ -849,6 +902,12 @@ function acceptedIntakeCandidateCount(state: AgentTaskState) {
   return candidates.filter((candidate) => candidate.status === "accepted" || candidate.decision === "accept" || candidate.included === true).length;
 }
 
+function intakeCandidateCount(state: AgentTaskState) {
+  const projection = ProfileIntakeReviewProjectionSchema.safeParse(state.knownSlots.profileIntakeReviewProjection);
+  if (projection.success) return projection.data.candidates.length;
+  return Array.isArray(state.knownSlots.intakeCandidates) ? state.knownSlots.intakeCandidates.length : 0;
+}
+
 function effectiveProfileIntakeEvidenceKind(kind: ProfileIntakeTurnKind, message: string): ProfileIntakeTurnKind {
   return kind === "correction" && hasExplicitCorrectionReplacement(message) ? "follow_up_answer" : kind;
 }
@@ -869,7 +928,7 @@ export function isProfileIntakeEvidence(message: string, context: {
     /公司|企业|组织|单位|雇主|实习|任职|担任|负责|岗位|职位|工作|入职|离职/i,
     /项目|课题|比赛|竞赛|活动|研究|开发|设计|搭建|实现|上线|产出|结果|成果/i,
     /技能|证书|认证|语言|奖项|获奖|掌握|熟悉|会用|精通/i,
-    /(?:19|20)\d{2}[年/-]|\d{4}年|\d{1,2}月/i
+    /(?:19|20)\d{2}\s*[年/-]|\d{4}\s*年|\d{1,2}\s*月/i
   ].some((pattern) => pattern.test(text));
   return grounded || Boolean(context.stage === "collect_experience" && context.activeQuestionId && context.expectedAnswerDimension && text.length >= 2);
 }
@@ -902,6 +961,7 @@ function resetProfileIntakeDraft(state: AgentTaskState) {
     "profileIntakeExtractionStatus",
     "profileIntakePersistenceStatus",
     "profileIntakePersistenceReceipt",
+    "finalReviewRevision",
     "intakeSession",
     "activeQuestionId",
     "profileIntakeExplicitCommit",
@@ -910,6 +970,7 @@ function resetProfileIntakeDraft(state: AgentTaskState) {
     "intakeReconciliation",
     "expectedIntakeReconciliationRevision",
     "profileCommitResult",
+    "profileCommitVerification",
     "pendingConfirmation"
   ]) {
     delete state.knownSlots[key];
@@ -1195,6 +1256,19 @@ function mergeObservationSlots(state: AgentTaskState, toolName: string, observat
           profileName: stringValue(profile.name ?? value.name),
           profileVersion: scalarValue(profile.version ?? value.profileVersion)
         });
+        if (
+          state.stage === "profile_complete"
+          && state.knownSlots.profileCommitResult
+          && id === state.knownSlots.targetProfileId
+          && profile.version === objectValue(state.knownSlots.profileCommitResult).profileVersion
+        ) {
+          state.knownSlots.profileCommitVerification = {
+            profileId: id,
+            profileVersion: scalarValue(profile.version ?? value.profileVersion),
+            verifiedItemCount: Array.isArray(profile.items) ? profile.items.length : undefined,
+            verifiedAt: new Date().toISOString()
+          };
+        }
       } else {
         updateAuthoritativeEntity(state, {
           type: "entity_revision",

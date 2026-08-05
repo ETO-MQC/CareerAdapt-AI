@@ -27,7 +27,7 @@ export const agentWorkflowRegistry: Record<string, AgentWorkflowDefinition> = {
     reconcile_profile: ["reconcile_profile_intake"],
     resolve_conflicts: ["resolve_profile_intake_conflict"],
     confirm_commit: ["commit_profile_intake"],
-    profile_complete: [],
+    profile_complete: ["get_profile"],
     optional_resume_decision: ["ensure_general_resume_from_profile"],
     resume_ready: []
   }, {
