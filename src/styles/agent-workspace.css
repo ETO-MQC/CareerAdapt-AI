@@ -354,6 +354,12 @@
   width: 100%;
 }
 
+.agent-autosave-receipt {
+  color: var(--ai-muted);
+  font-size: 12px;
+  margin-right: auto;
+}
+
 .profile-intake-inline-review {
   border-top: 1px solid var(--ai-border);
   display: grid;
@@ -1421,6 +1427,12 @@
   display: inline-flex;
   font: inherit;
   justify-content: center;
+}
+
+.agent-composer-icon-button.is-highlighted {
+  background: var(--ai-accent-soft, rgba(37, 99, 235, 0.12));
+  color: var(--ai-accent, #2563eb);
+  outline: 2px solid color-mix(in srgb, var(--ai-accent, #2563eb) 28%, transparent);
 }
 
 .agent-composer-icon-button,

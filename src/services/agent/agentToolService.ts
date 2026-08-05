@@ -358,8 +358,28 @@ export class BrowserAgentToolService implements AgentToolServices {
       };
     });
     if (!found) throw toolError("profile_intake_candidate_missing", "待核对经历不存在。");
+    const nextRevision = input.expectedDraftRevision + 1;
+    const structuredItemsBeforeSave = sections.flatMap((section) => section.items.flatMap((item) =>
+      item.userConfirmed === true && item.structuredItem ? [item.structuredItem] : []
+    ));
+    const nextInterviewPlan = createProfileIntakeInterviewPlan(structuredItemsBeforeSave, nextRevision);
+    const reviewTimestamp = new Date().toISOString();
+    const nextIntakeSession = draft.intakeSession
+      ? {
+          ...draft.intakeSession,
+          autosavedAt: reviewTimestamp,
+          lastCompletedSection: savedSectionType(sections, input.candidateId) ?? draft.intakeSession.lastCompletedSection,
+          reviewedCandidateIds: [...new Set([...draft.intakeSession.reviewedCandidateIds, input.candidateId])],
+          activeQuestionId: nextInterviewPlan.activeQuestionId,
+          resumeToken: stableHashText(`${draft.importId}:${nextRevision}:${input.candidateId}`)
+        }
+      : undefined;
     const saved = await this.repository.saveImportedResumeDraft(
-      ImportedResumeDraftSchema.parse({ ...draft, sections }),
+      ImportedResumeDraftSchema.parse({
+        ...draft,
+        sections,
+        ...(nextIntakeSession ? { intakeSession: nextIntakeSession } : {})
+      }),
       input.expectedDraftRevision
     );
     const unresolved = saved.sections.flatMap((section) => section.items)
@@ -392,6 +412,12 @@ export class BrowserAgentToolService implements AgentToolServices {
       editedLabel: input.editedLabel?.trim(),
       patchedFields: input.structuredPatch ? Object.keys(input.structuredPatch) : [],
       unresolvedCount: unresolved,
+      persistenceReceipt: saved.intakeSession
+        ? { autosavedAt: saved.intakeSession.autosavedAt, resumeToken: saved.intakeSession.resumeToken }
+        : undefined,
+      intakeSession: saved.intakeSession,
+      providerStatus: reviewProjection.providerStatus,
+      extractionStatus: captureExtractionStatus(reviewProjection.extractionStatus),
       followUpQuestion: interviewPlan.activeQuestion?.question,
       interviewPlan,
       artifactPayload: artifact,
@@ -1351,20 +1377,60 @@ function captureProfileIntakeObservation(
     draft,
     [...fallbackFollowUpQuestions, ...(followUpQuestion ? [followUpQuestion] : [])]
   );
+  const extractionStatus = captureExtractionStatus(reviewProjection.extractionStatus);
+  const usableCandidateCount = reviewProjection.candidates.filter((candidate) =>
+    candidate.status !== "failed" && Boolean(candidate.structuredItem)
+  ).length;
+  const quarantinedCandidateCount = draft.intakeSession?.quarantinedCandidateCount ?? 0;
   return {
     importId: draft.importId,
     expectedDraftRevision: draft.revision,
     targetProfileId: profile.id,
     expectedProfileVersion: profile.version,
-    candidateCount: artifactPayload.candidates.length,
+    persistenceStatus: idempotent ? "already_saved" as const : "saved" as const,
+    providerStatus: reviewProjection.providerStatus,
+    extractionStatus,
+    candidateCount: reviewProjection.reviewProgress.total,
+    usableCandidateCount,
+    quarantinedCandidateCount,
     needsConfirmationCount: artifactPayload.needsConfirmation.length,
-    candidates: artifactPayload.candidates,
+    candidates: reviewProjection.candidates,
     followUpQuestion,
     interviewPlan,
     artifactPayload,
     reviewProjection,
+    persistenceReceipt: draft.intakeSession
+      ? {
+          autosavedAt: draft.intakeSession.autosavedAt,
+          resumeToken: draft.intakeSession.resumeToken
+        }
+      : undefined,
+    intakeSession: draft.intakeSession,
+    safeDiagnostics: {
+      provider: reviewProjection.providerStatus,
+      quarantinedCandidateCount,
+      ...(quarantinedCandidateCount > 0
+        ? { code: "candidate_quarantined" }
+        : draft.intakeSession?.providerStatus !== "available"
+          ? { code: draft.intakeSession?.providerStatus === "invalid" ? "provider_invalid" : "provider_failed" }
+          : {})
+    },
     idempotent
   };
+}
+
+function captureExtractionStatus(value: string) {
+  if (value === "structured_local") return "structured_local" as const;
+  if (value === "structured_ai" || value === "structured") return "structured_ai" as const;
+  if (value === "partial") return "partial" as const;
+  return "failed" as const;
+}
+
+function savedSectionType(
+  sections: ImportedResumeDraft["sections"],
+  candidateId: string
+) {
+  return sections.find((section) => section.items.some((item) => item.id === candidateId))?.sectionType;
 }
 
 function removeFailedIntakeFallback(

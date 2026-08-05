@@ -41,6 +41,7 @@ export const AgentPlannerActionSchema = z.discriminatedUnion("type", [
         z.object({ type: z.literal("cancel_workflow"), workflowId: z.string().min(1) }).strict(),
         z.object({ type: z.literal("go_back"), workflowId: z.string().min(1) }).strict(),
         z.object({ type: z.literal("open_resume_picker") }).strict(),
+        z.object({ type: z.literal("open_resume_upload") }).strict(),
         z.object({ type: z.literal("open_job_import_dialog") }).strict(),
         z.object({ type: z.literal("open_profile_browser") }).strict(),
         z.object({ type: z.literal("open_tool_palette") }).strict(),

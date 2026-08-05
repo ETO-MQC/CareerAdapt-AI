@@ -423,6 +423,25 @@ export const StructuredResumeValueSchema = z.union([
   }).strict()
 ]);
 
+/**
+ * Conversation intake progress is part of the existing imported-draft
+ * record. It is deliberately not a new persistence table: the formal
+ * profile remains untouched until the user explicitly commits it.
+ */
+export const ProfileIntakeDraftSessionSchema = z.object({
+  sessionId: z.string().min(1),
+  autosavedAt: IsoDateStringSchema,
+  lastCompletedSection: ResumeSectionTypeV2Schema.optional(),
+  reviewedCandidateIds: z.array(z.string().min(1)).max(100).default([]),
+  activeQuestionId: z.string().min(1).optional(),
+  resumeToken: z.string().min(8),
+  lastSourceMessageId: z.string().min(1).optional(),
+  lastSourceTurnId: z.string().min(1).optional(),
+  providerStatus: z.enum(["available", "failed", "invalid"]).default("available"),
+  extractionStatus: z.enum(["structured_ai", "structured_local", "partial", "failed"]).default("failed"),
+  quarantinedCandidateCount: z.number().int().min(0).default(0)
+}).strict();
+
 export const StructuredResumeDraftItemSchema = z.union([
   z.string().min(1),
   z.object({
@@ -501,7 +520,8 @@ const ImportedResumeDraftBaseSchema = EntityBaseSchema.extend({
   confirmedProfileId: z.string().min(1).optional(),
   confirmedBranchId: z.string().min(1).optional(),
   confirmedRevisionId: z.string().min(1).optional(),
-  confirmedAt: IsoDateStringSchema.optional()
+  confirmedAt: IsoDateStringSchema.optional(),
+  intakeSession: ProfileIntakeDraftSessionSchema.optional()
 });
 
 function validateImportedResumeItemIds(draft: { sections: Array<{ items: Array<{ id: string }> }> }, ctx: z.RefinementCtx) {
@@ -909,6 +929,7 @@ export type ImportedResumeSource = z.infer<typeof ImportedResumeSourceSchema>;
 export type ImportedResumeDraftV1 = z.infer<typeof ImportedResumeDraftV1Schema>;
 export type ImportedResumeDraft = z.infer<typeof ImportedResumeDraftSchema>;
 export type ImportedResumeDraftV2 = z.infer<typeof ImportedResumeDraftV2Schema>;
+export type ProfileIntakeDraftSession = z.infer<typeof ProfileIntakeDraftSessionSchema>;
 export type MappingDecision = z.infer<typeof MappingDecisionSchema>;
 export type StructuredResumeDraft = z.infer<typeof StructuredResumeDraftSchema>;
 export type AiCareerAdaptResumeItemV2Draft = z.infer<typeof AiCareerAdaptResumeItemV2DraftSchema>;

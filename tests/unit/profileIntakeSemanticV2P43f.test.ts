@@ -98,6 +98,37 @@ describe("P4.3f V2 conversational extraction", () => {
     expect(adapted.reviewProjection.failedExtraction?.actions).toEqual(["retry", "manual", "preserve"]);
   });
 
+  it("keeps a deterministic education candidate reviewable when the provider fails", async () => {
+    const narrative = "我就读郑州大学，本科，计算机科学与技术专业，2024年9月入学，预计2028年6月毕业。";
+    const result = await new ProfileIntakeSemanticService(async () => {
+      throw new Error("provider_down");
+    }).normalize({ rawNarrative: narrative });
+
+    expect(result.providerStatus).toBe("failed");
+    expect(result.extractionStatus).toBe("structured_local");
+    expect(result.candidates[0]?.normalization.structuredItem).toMatchObject({
+      sectionType: "education",
+      school: "郑州大学",
+      degree: "本科",
+      major: "计算机科学与技术",
+      startDate: "2024-09",
+      endDate: "2028-06"
+    });
+
+    const adapted = adaptConversationMessageToIntakeDraft({
+      sessionId: "session-p43g-local",
+      messageId: "message-p43g-local",
+      turnId: "turn-p43g-local",
+      text: narrative,
+      capturedAt: "2026-08-04T09:00:00.000Z",
+      semanticResult: result
+    });
+    expect(adapted.reviewProjection.providerStatus).toBe("failed");
+    expect(adapted.reviewProjection.extractionStatus).toBe("structured_local");
+    expect(adapted.reviewProjection.candidates[0]?.status).toBe("uncertain");
+    expect(adapted.reviewProjection.candidates[0]?.status).not.toBe("failed");
+  });
+
   it("converts the legacy provider fixture into the V2 boundary before validation", async () => {
     const narrative = "我现在是示例大学本科学生，计算机相关专业专业，2024年9月入学，预计2028年6月毕业";
     const input = { rawNarrative: narrative, existingDraftContext: [], canonicalSections: ["education"] as ("education")[], inputHash: "p43f-test-input-hash" };

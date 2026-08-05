@@ -41,6 +41,13 @@ import {
   type CompoundAnswerResolution
 } from "./CompoundAnswerResolver";
 import { ProfileIntakeReviewProjectionSchema } from "@/domain/profileIntake/ProfileIntakeReviewProjection";
+import {
+  resolveQuickActionPrerequisites,
+  resolveQuickActionWorkflow,
+  type QuickActionPrerequisiteResolution,
+  type QuickActionWorkflowResolution
+} from "@/agent/workflows/QuickActionWorkflowSupervisor";
+import { resolveProfileIntakeInterviewSupervisor } from "@/agent/workflows/ProfileIntakeInterviewSupervisor";
 
 export type AgentHostInput =
   | { type: "message"; text: string; references?: AgentMessageReference[] }
@@ -154,18 +161,19 @@ export class AgentHostStore {
     const restorable = recoverable.taskState
       ? attachTaskStateOptions(recoverable, recoverable.taskState)
       : recoverable;
-    if (JSON.stringify(restorable) !== JSON.stringify(session)) void this.dependencies.persistence.save(restorable);
+    const withRestorePrompt = appendIntakeRestorePrompt(restorable);
+    if (JSON.stringify(withRestorePrompt) !== JSON.stringify(session)) void this.dependencies.persistence.save(withRestorePrompt);
     this.patch({
-      activeSessionId: restorable.id,
-      activeSession: restorable,
-      activeTask: restorable.taskState,
-      pendingConfirmation: restorable.pendingConfirmation,
-      artifacts: restorable.artifactRefs,
-      turnStatus: restorable.pendingConfirmation ? "waiting_for_confirmation" : "idle",
+      activeSessionId: withRestorePrompt.id,
+      activeSession: withRestorePrompt,
+      activeTask: withRestorePrompt.taskState,
+      pendingConfirmation: withRestorePrompt.pendingConfirmation,
+      artifacts: withRestorePrompt.artifactRefs,
+      turnStatus: withRestorePrompt.pendingConfirmation ? "waiting_for_confirmation" : "idle",
       stalled: false,
       pendingInputCount: pendingInputs.length
     });
-    if (pendingInputs.length && !restorable.pendingConfirmation) void this.drainPendingInput(restorable.id);
+    if (pendingInputs.length && !withRestorePrompt.pendingConfirmation) void this.drainPendingInput(withRestorePrompt.id);
   }
 
   setPaused(paused: boolean) {
@@ -339,6 +347,14 @@ export class AgentHostStore {
       return this.applyWorkflowControl(session, input.action);
     }
     if (input.type === "quick_action") {
+      const localQuickAction = resolveQuickActionWorkflow(input.actionId);
+      if (localQuickAction) {
+        return this.resolveQuickActionLocally(session, input, localQuickAction);
+      }
+      const localPrerequisites = await this.resolveQuickActionPrerequisites(input);
+      if (localPrerequisites) {
+        return this.resolveQuickActionLocally(session, input, localPrerequisites);
+      }
       return this.startTurn({
         session,
         userMessage: input.text,
@@ -371,6 +387,111 @@ export class AgentHostStore {
     });
   }
 
+  private async resolveQuickActionLocally(
+    session: AgentSession,
+    input: Extract<AgentHostInput, { type: "quick_action" }>,
+    resolution: (QuickActionWorkflowResolution | QuickActionPrerequisiteResolution) & object
+  ) {
+    const now = new Date().toISOString();
+    const reducer = new AgentTaskStateReducer();
+    let taskState = reducer.create(session);
+    taskState = reducer.reduce(taskState, {
+      type: "new_root_task",
+      goal: input.task.rootGoal,
+      workflowId: input.task.workflowId,
+      stage: input.task.stage
+    });
+    taskState = {
+      ...taskState,
+      completionStatus: "waiting_for_user",
+      updatedAt: now
+    };
+    let current = projectTaskStateIntoSession(session, taskState);
+    const userMessage = appendAgentMessage(current, "user", input.text.trim(), {
+      id: `agent-user-${crypto.randomUUID()}`,
+      status: "complete",
+      metadata: { executionState: "complete", quickActionSupervisor: true }
+    });
+    current = appendAgentMessage(userMessage, "assistant", resolution.assistantText, {
+      kind: "text",
+      type: "text",
+      status: "complete",
+      options: resolution.options ?? (resolution.uiAction ? [{
+        id: "resume-import-upload",
+        label: "上传简历文件",
+        action: resolution.uiAction
+      }] : undefined),
+      metadata: {
+        quickActionSupervisor: true,
+        modelCalls: resolution.modelCalls,
+        profileReads: resolution.profileReads,
+        resumeReads: resolution.resumeReads ?? 0,
+        jobReads: resolution.jobReads
+      }
+    });
+    this.patchSession(current, {
+      turnStatus: "idle",
+      uiAction: resolution.uiAction,
+      currentObservation: {
+        type: "quick_action_fast_path",
+        actionId: input.actionId,
+        modelCalls: resolution.modelCalls,
+        profileReads: resolution.profileReads,
+        resumeReads: resolution.resumeReads ?? 0,
+        jobReads: resolution.jobReads
+      }
+    });
+    const saved = await this.dependencies.persistence.save(current);
+    this.patchSession(saved, {
+      turnStatus: "idle",
+      uiAction: resolution.uiAction,
+      currentObservation: {
+        type: "quick_action_fast_path",
+        actionId: input.actionId,
+        modelCalls: resolution.modelCalls,
+        profileReads: resolution.profileReads,
+        resumeReads: resolution.resumeReads ?? 0,
+        jobReads: resolution.jobReads
+      }
+    });
+    return saved;
+  }
+
+  private async resolveQuickActionPrerequisites(
+    input: Extract<AgentHostInput, { type: "quick_action" }>
+  ): Promise<QuickActionPrerequisiteResolution | undefined> {
+    try {
+      const [profiles, resumes, jobs] = await Promise.all([
+        this.dependencies.executor.execute({
+          toolName: "list_profiles",
+          toolInput: {},
+          operationId: `quick-prerequisite-profiles-${crypto.randomUUID()}`
+        }),
+        this.dependencies.executor.execute({
+          toolName: "list_resumes",
+          toolInput: {},
+          operationId: `quick-prerequisite-resumes-${crypto.randomUUID()}`
+        }),
+        this.dependencies.executor.execute({
+          toolName: "list_jobs",
+          toolInput: {},
+          operationId: `quick-prerequisite-jobs-${crypto.randomUUID()}`
+        })
+      ]);
+      return resolveQuickActionPrerequisites({
+        actionId: input.actionId,
+        workflowId: input.task.workflowId,
+        profiles: readToolArray(profiles, "profiles"),
+        resumes: readToolArray(resumes, "resumes"),
+        jobs: readToolArray(jobs, "jobs")
+      });
+    } catch {
+      // A precondition read must not hide the general workflow if the read tool
+      // itself is unavailable. The next Host turn remains the recovery path.
+      return undefined;
+    }
+  }
+
   private async resolveProfileIntakeSectionSelection(
     session: AgentSession,
     action: {
@@ -391,7 +512,6 @@ export class AgentHostStore {
       || state.workflowId !== "guided_profile_intake"
       || state.stage !== "collect_experience"
       || state.knownSlots.intakeRequestedSection
-      || state.knownSlots.intakeActiveQuestion
       || !source
       || source.role !== "assistant"
       || (source.branchId ?? session.activeBranchId) !== session.activeBranchId
@@ -406,6 +526,7 @@ export class AgentHostStore {
     const now = new Date().toISOString();
     const nextKnownSlots = { ...state.knownSlots };
     delete nextKnownSlots.intakeActiveQuestion;
+    delete nextKnownSlots.activeQuestionId;
     const nextTaskState: AgentTaskState = {
       ...state,
       knownSlots: {
@@ -563,7 +684,7 @@ export class AgentHostStore {
     }
     current = input.assistantMessageId
       ? replaceMessageWithThinking(current, input.assistantMessageId, userMessageId, turnId, now)
-      : appendAgentMessage(current, "assistant", "正在规划下一步", {
+      : appendAgentMessage(current, "assistant", "正在准备当前步骤", {
           id: thinkingMessageId,
           turnId,
           kind: "assistant_thinking",
@@ -1041,12 +1162,112 @@ export class AgentHostStore {
     const running = this.artifactActionExecutions.get(executionKey);
     if (running) return running;
     const execution = (
-      action.type === "profile_intake_extraction_recovery"
+      action.type === "profile_intake_retry_extraction"
+        ? this.resolveProfileIntakeExtractionRetry(session, action, pageContext, revision)
+        : action.type === "profile_intake_extraction_recovery"
         ? this.resolveProfileIntakeExtractionRecovery(session, action, pageContext, revision)
         : this.resolveArtifactActionOnce(session, action, pageContext, revision)
     ).finally(() => this.artifactActionExecutions.delete(executionKey));
     this.artifactActionExecutions.set(executionKey, execution);
     return execution;
+  }
+
+  private async resolveProfileIntakeExtractionRetry(
+    session: AgentSession,
+    action: Extract<AgentArtifactAction, { type: "profile_intake_retry_extraction" }>,
+    pageContext: AgentPageContext,
+    revision: number | undefined
+  ) {
+    const execution = artifactActionExecution(session.taskState, action);
+    if (!execution || revision === undefined) {
+      const rejected = withArtifactActionFeedback(session, action, {
+        result: revision === undefined ? "missing_revision" : "invalid_target",
+        message: "当前失败整理已更新，请刷新后重试。",
+        retryable: true
+      });
+      const saved = await this.dependencies.persistence.save(rejected);
+      this.patchSession(saved, { turnStatus: "idle" });
+      return saved;
+    }
+    this.activeController?.abort();
+    await this.activeExecution;
+    const operationId = artifactActionOperationId(session, action, revision);
+    const runningSession = withArtifactActionFeedback(session, action, {
+      result: "handled",
+      message: "正在重新识别原始回答…",
+      running: true,
+      retryable: false
+    });
+    this.patchSession(runningSession, { turnStatus: "running" });
+    const result = await this.dependencies.executor.execute({
+      toolName: execution.toolName,
+      toolInput: execution.toolInput,
+      operationId
+    });
+    if (!result.ok) {
+      const failed = withArtifactActionFeedback(session, action, {
+        result: "rejected",
+        message: result.error?.message ?? "重新识别没有完成，请稍后重试。",
+        retryable: true
+      });
+      const saved = await this.dependencies.persistence.save(failed);
+      this.patchSession(saved, { turnStatus: "idle" });
+      void pageContext;
+      return saved;
+    }
+    const reducer = new AgentTaskStateReducer();
+    const taskState = reducer.reduce(session.taskState!, {
+      type: "tool_observation",
+      toolName: result.toolName,
+      observation: result.data,
+      artifactIds: result.artifactIds
+    });
+    let current = projectTaskStateIntoSession(session, taskState);
+    const observation = objectValue(result.data);
+    const projection = ProfileIntakeReviewProjectionSchema.safeParse(observation.reviewProjection);
+    const usableCount = typeof observation.usableCandidateCount === "number"
+      ? observation.usableCandidateCount
+      : projection.success ? projection.data.reviewProgress.valid : 0;
+    const section = projection.success ? retrySectionLabel(projection.data) : "相关";
+    const retryMessage = usableCount === 1
+      ? `已重新识别出 1 项${section}经历，请核对。`
+      : `已重新识别出 ${usableCount} 项${section}经历，请核对。`;
+    const retryTurnId = `agent-retry-${stableHashText(operationId).slice(0, 24)}`;
+    current = upsertAgentActivity(current, {
+      id: `agent-tool-${operationId}`,
+      turnId: retryTurnId,
+      content: "已自动保存重新识别结果。",
+      toolName: result.toolName,
+      operationId,
+      status: "complete",
+      metadata: {
+        activityState: "complete",
+        artifactActionType: action.type,
+        retry: true,
+        artifactIds: result.artifactIds
+      }
+    });
+    current = withArtifactActionFeedback(current, action, {
+      result: "handled",
+      message: retryMessage,
+      retryable: false
+    });
+    const retryMessageId = `agent-retry-message-${stableHashText(operationId).slice(0, 32)}`;
+    if (!current.messages.some((message) => message.id === retryMessageId)) {
+      current = appendAgentMessage(current, "assistant", retryMessage, {
+        id: retryMessageId,
+        kind: "text",
+        type: "text",
+        status: "complete",
+        language: "zh",
+        metadata: { profileIntakeRetry: true, retry: true, operationId }
+      });
+    }
+    current = attachTaskStateOptions(current, taskState);
+    current = await this.dependencies.persistence.save(current);
+    this.patchSession(current, { turnStatus: "idle" });
+    void pageContext;
+    return current;
   }
 
   private async resolveProfileIntakeExtractionRecovery(
@@ -1975,6 +2196,7 @@ export class AgentHostStore {
 function isUiAction(action: AgentUiAction | AgentWorkflowControl): action is AgentUiAction {
   return [
     "open_resume_picker",
+    "open_resume_upload",
     "open_job_import_dialog",
     "open_profile_browser",
     "open_tool_palette",
@@ -1998,6 +2220,14 @@ function completeTurn(session: AgentSession, status: "failed" | "aborted") {
 
 function errorCode(value: unknown) {
   return typeof value === "object" && value && "code" in value ? String(value.code) : "agent_runtime_failed";
+}
+
+function readToolArray(value: unknown, key: string): unknown[] {
+  if (!value || typeof value !== "object") return [];
+  const result = value as { ok?: unknown; data?: unknown };
+  if (result.ok === false || !result.data || typeof result.data !== "object") return [];
+  const rows = (result.data as Record<string, unknown>)[key];
+  return Array.isArray(rows) ? rows : [];
 }
 
 export function findRecoverableProfileIntakeSource(
@@ -2217,12 +2447,14 @@ export function attachTaskStateOptions(session: AgentSession, state: AgentTaskSt
     && state.stage === "collect_experience"
     && !state.knownSlots.intakeRequestedSection
     && (
-      !state.knownSlots.intakeActiveQuestion
-      || ProfileIntakeReviewProjectionSchema.safeParse(state.knownSlots.profileIntakeReviewProjection).success
-        && (() => {
-          const projection = ProfileIntakeReviewProjectionSchema.parse(state.knownSlots.profileIntakeReviewProjection);
-          return projection.reviewProgress.proposed === 0 && projection.reviewProgress.uncertain === 0;
-        })()
+          !state.knownSlots.intakeActiveQuestion
+          || ProfileIntakeReviewProjectionSchema.safeParse(state.knownSlots.profileIntakeReviewProjection).success
+            && (() => {
+              const projection = ProfileIntakeReviewProjectionSchema.parse(state.knownSlots.profileIntakeReviewProjection);
+              return projection.candidates.every((candidate) =>
+                candidate.status === "accepted" || candidate.status === "ignored"
+              );
+            })()
     )
   ) {
     const plan = objectValue(state.knownSlots.intakeInterviewPlan);
@@ -2253,7 +2485,7 @@ export function attachTaskStateOptions(session: AgentSession, state: AgentTaskSt
     const nextSection = suggested.find((section) => section !== "finish" && sectionLabels[section]);
     const optionSections = hasAuthoritativeProjection
       ? [
-          ...(nextSection ? [{ section: nextSection, label: "继续补充" }] : []),
+          ...(nextSection ? [{ section: nextSection, label: "换一个方向" }] : []),
           ...(suggested.includes("finish") ? [{ section: "finish", label: "完成整理" }] : [])
         ]
       : suggested.map((section) => ({ section, label: sectionLabels[section] }));
@@ -2280,7 +2512,7 @@ export function attachTaskStateOptions(session: AgentSession, state: AgentTaskSt
     }
   }
   const shouldClearResolvedProfileOptions = state.workflowId === "guided_profile_intake"
-    && (state.stage !== "collect_experience" || Boolean(state.knownSlots.intakeRequestedSection) || Boolean(state.knownSlots.intakeActiveQuestion));
+    && (state.stage !== "collect_experience" || Boolean(state.knownSlots.intakeRequestedSection));
   if (!options?.length && !metadata && !shouldClearResolvedProfileOptions) return session;
   return {
     ...session,
@@ -2305,6 +2537,32 @@ export function attachTaskStateOptions(session: AgentSession, state: AgentTaskSt
       };
     })
   };
+}
+
+function appendIntakeRestorePrompt(session: AgentSession) {
+  const state = session.taskState;
+  if (!state || state.workflowId !== "guided_profile_intake" || state.completionStatus === "completed") return session;
+  const intakeSession = objectValue(state.knownSlots.intakeSession);
+  const resumeToken = stringValue(intakeSession.resumeToken);
+  if (!resumeToken || session.messages.some((message) => message.metadata?.intakeRestoreToken === resumeToken)) return session;
+  const projection = ProfileIntakeReviewProjectionSchema.safeParse(state.knownSlots.profileIntakeReviewProjection);
+  const section = stringValue(intakeSession.lastCompletedSection)
+    ?? (projection.success
+      ? projection.data.candidates.findLast((candidate) => candidate.status === "accepted" || candidate.status === "ignored")?.sectionType
+      : undefined);
+  if (!section) return session;
+  const label = section === "education" ? "教育背景" : profileIntakeNarrativeSectionLabel(section);
+  return appendAgentMessage(session, "assistant", `上次已整理到${label}，要继续吗？`, {
+    kind: "text",
+    type: "text",
+    status: "complete",
+    language: "zh",
+    metadata: {
+      intakeRestorePrompt: true,
+      intakeRestoreToken: resumeToken,
+      autosavedAt: intakeSession.autosavedAt
+    }
+  });
 }
 
 function entityOptions(state: AgentTaskState, entityType: "job" | "resume"): AgentOption[] | undefined {
@@ -2876,10 +3134,70 @@ function shouldNarrateProfileIntakeContinuation(
 
 function profileIntakeContinuationNarration(taskState?: AgentTaskState) {
   const projection = ProfileIntakeReviewProjectionSchema.safeParse(taskState?.knownSlots.profileIntakeReviewProjection);
-  const followUp = projection.success ? projection.data.followUpQuestion : undefined;
-  return followUp
-    ? `当前经历已核对完成。为了让它更适合真实复用，我先问一个高价值细节：\n\n${followUp}\n\n你也可以继续补充其他经历，或完成整理。`
-    : "当前经历已记录到本次整理草稿中。\n\n你可以继续补充其他经历，或完成整理。";
+  const plan = objectValue(taskState?.knownSlots.intakeInterviewPlan);
+  const suggestedNextSections = Array.isArray(plan.suggestedNextSections)
+    ? plan.suggestedNextSections.filter((section): section is string => typeof section === "string")
+    : [];
+  const activeQuestion = objectValue(plan.activeQuestion);
+  const next = resolveProfileIntakeInterviewSupervisor({
+    acceptedItems: projection.success
+      ? projection.data.candidates.flatMap((candidate) =>
+          candidate.status === "accepted" && candidate.structuredItem ? [candidate.structuredItem] : []
+        )
+      : [],
+    activeQuestion: typeof activeQuestion.question === "string"
+      ? { question: activeQuestion.question }
+      : projection.success && projection.data.followUpQuestion
+        ? { question: projection.data.followUpQuestion }
+        : undefined,
+    unresolvedCandidateIds: projection.success
+      ? projection.data.candidates
+          .filter((candidate) => candidate.status === "proposed" || candidate.status === "uncertain" || candidate.status === "failed")
+          .map((candidate) => candidate.id)
+      : [],
+    suggestedNextSections
+  });
+  const completed = projection.success
+    ? projection.data.candidates.findLast((candidate) => candidate.status === "accepted" || candidate.status === "ignored")
+    : undefined;
+  const completedPrefix = completed
+    ? completed.sectionType === "education" ? "教育背景已经记录并自动保存。" : `${profileIntakeNarrativeSectionLabel(completed.sectionType)}已经记录并自动保存。`
+    : "这项经历已经记录并自动保存。";
+  if (next.type === "ask_follow_up") return `${completedPrefix}\n\n${next.question}`;
+  if (next.type === "ask_next_section") return `${completedPrefix}\n\n${next.question}`;
+  if (next.type === "offer_finish") return `${completedPrefix}\n\n${next.question}`;
+  if (next.type === "commit") return `${completedPrefix}\n\n本次整理已准备完成。`;
+  return "先核对上面的经历卡片；确认或忽略后，我再继续整理下一段。";
+}
+
+function retrySectionLabel(projection: ReturnType<typeof ProfileIntakeReviewProjectionSchema.parse>) {
+  const section = projection.candidates.find((candidate) => candidate.status !== "failed")?.sectionType;
+  return section === "education"
+    ? "教育"
+    : section === "project"
+      ? "项目"
+      : section === "internship"
+        ? "实习"
+        : section === "work"
+          ? "工作"
+          : section === "research"
+            ? "研究"
+            : "相关";
+}
+
+function profileIntakeNarrativeSectionLabel(section: string) {
+  return ({
+    work: "工作经历",
+    internship: "实习经历",
+    project: "项目经历",
+    research: "研究经历",
+    campus: "校园经历",
+    volunteer: "志愿经历",
+    awards: "奖项经历",
+    skills: "技能",
+    certificates: "证书",
+    languages: "语言能力"
+  } as Record<string, string>)[section] ?? "这项经历";
 }
 
 function profileIntakeSectionLabel(section: ProfileIntakeSection) {
@@ -2944,7 +3262,7 @@ function replaceMessageWithThinking(
       return {
         ...message,
         turnId,
-        content: "正在规划下一步",
+        content: "正在准备当前步骤",
         kind: "assistant_thinking" as const,
         type: "assistant_thinking" as const,
         status: "thinking" as const,

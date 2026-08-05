@@ -73,6 +73,7 @@ export class ResumeDocumentSemanticMapper {
       highConfidenceNames: highConfidenceName ? [highConfidenceName] : []
     });
     const sourceDocument = sourceDocumentFromDraft(sourceDraft);
+    input.onProgress?.("正在本地脱敏…");
     const redactedDocument = tokenizeResumeSourceDocument(sourceDocument, tokenizer);
     const batches = buildSemanticMappingBatches(redactedDocument);
 

@@ -1,19 +1,26 @@
 export type AgentStreamEvent =
   | { type: "turn_ack"; sessionId?: string }
-  | { type: "thinking"; stage: string; label: string }
+  | { type: "thinking"; stage: string; label: string; workflowStage?: WorkflowProgressStage }
   | { type: "skill_loaded"; skillId: string; label: string }
   | { type: "assistant_start"; messageId?: string; turnId?: string; streamId?: string; iterationId?: string }
   | { type: "assistant_delta"; delta: string; turnId?: string; streamId?: string; iterationId?: string }
   | { type: "usage"; inputTokens?: number; outputTokens?: number }
   | { type: "ui_action"; action: unknown }
-  | { type: "tool_started"; toolName: string; operationId: string; userLabel: string }
-  | { type: "tool_result"; toolName: string; operationId: string; ok: boolean; summary: string; artifactIds?: string[] }
+  | { type: "tool_started"; toolName: string; operationId: string; userLabel: string; workflowStage?: WorkflowProgressStage }
+  | { type: "tool_result"; toolName: string; operationId: string; ok: boolean; summary: string; artifactIds?: string[]; workflowStage?: WorkflowProgressStage }
   | { type: "artifact"; artifactId: string; label?: string }
   | { type: "confirmation_required"; confirmation: unknown }
   | { type: "heartbeat"; stage?: string }
   | { type: "workflow_updated"; workflowState: unknown }
   | { type: "done"; action?: unknown; message?: string; turnId?: string; streamId?: string; iterationId?: string }
   | { type: "error"; code: string; message: string };
+
+export type WorkflowProgressStage = {
+  id: string;
+  label: string;
+  startedAt: string;
+  completedAt?: string;
+};
 
 export type AgentModelWireEvent =
   | { type: "model_text_delta"; delta: string }

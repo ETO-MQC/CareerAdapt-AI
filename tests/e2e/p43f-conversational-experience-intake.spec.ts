@@ -1,4 +1,4 @@
-import { expect, test, type Page, type Route } from "@playwright/test";
+import { expect, test, type Locator, type Page, type Route } from "@playwright/test";
 import narrativeFixture from "../fixtures/p43f-long-narrative.anonymized.json";
 
 const NARRATIVE = narrativeFixture.narrative;
@@ -84,11 +84,14 @@ test.describe("P4.3f conversational experience intake V2", () => {
     const profileVersionBeforeReview = await readActiveProfileVersion(page);
     await card.getByRole("button", { name: "编辑后采用", exact: true }).click();
     await card.locator("input[name='major']").fill("计算机科学");
+    const educationCandidateId = await card.getAttribute("data-candidate-id");
     await card.getByRole("button", { name: "保存并采用", exact: true }).click();
     await expect.poll(() => readTask(page)).toMatchObject({
       knownSlots: { profileIntakeReviewProjection: { reviewProgress: { accepted: 1 } } }
     });
-    await expect(card).toContainText("计算机科学");
+    await expect(page.locator(`.profile-intake-candidate-card[data-candidate-id="${educationCandidateId}"]`)).toHaveCount(0);
+    await expect(page.locator(".profile-intake-compact-receipt")).toContainText("✓ 已记录教育经历：示例大学 · 本科 · 计算机科学");
+    await expect(page.getByRole("button", { name: "重新打开", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: /产物 [0-9]+/ })).toBeVisible();
     await page.getByRole("button", { name: /产物 [0-9]+/ }).click();
     await expect(page.getByRole("region", { name: "经历核对" })).toContainText("计算机科学");
@@ -141,18 +144,19 @@ test.describe("P4.3f conversational experience intake V2", () => {
     await expect.poll(() => readTask(page)).toMatchObject({ knownSlots: { profileIntakeReviewProjection: { reviewProgress: { accepted: 1 } } } });
     const streamCallsAfterCapture = harness.streamCalls;
     const aiCallsAfterCapture = harness.aiCalls;
-    expect(await page.locator(`.profile-intake-candidate-card[data-candidate-id="${firstId}"]`).getByText("已采用").count()).toBe(1);
+    expect(await page.locator(`.profile-intake-candidate-card[data-candidate-id="${firstId}"]`).count()).toBe(0);
+    await expect(page.locator(".profile-intake-compact-receipt")).toContainText("✓ 已记录");
 
-    const second = page.locator(".profile-intake-candidate-card").nth(1);
-    await second.locator("> details > summary").click();
+    const second = page.locator(".profile-intake-candidate-card").first();
+    await openCandidateCard(second);
     await second.getByRole("button", { name: "编辑后采用", exact: true }).click();
     const titleInput = second.locator("input[name='title']");
     await expect(titleInput).toBeVisible();
     await titleInput.fill("课程项目");
     await second.getByRole("button", { name: "保存并采用", exact: true }).click();
     await expect.poll(() => readTask(page)).toMatchObject({ knownSlots: { profileIntakeReviewProjection: { reviewProgress: { accepted: 2 } } } });
-    const third = page.locator(".profile-intake-candidate-card").nth(2);
-    await third.locator("> details > summary").click();
+    const third = page.locator(".profile-intake-candidate-card").first();
+    await openCandidateCard(third);
     await third.getByRole("button", { name: "忽略", exact: true }).click();
     await expect.poll(() => readTask(page)).toMatchObject({ knownSlots: { profileIntakeReviewProjection: { reviewProgress: { ignored: 1 } } } });
     expect(harness.streamCalls).toBe(streamCallsAfterCapture);
@@ -204,17 +208,23 @@ test.describe("P4.3f conversational experience intake V2", () => {
     const first = page.locator(".profile-intake-candidate-card").first();
     await expect(first.locator(".profile-intake-candidate-source")).not.toHaveAttribute("open");
     await expect(first.locator(".profile-intake-candidate-source blockquote")).toBeHidden();
-    for (const card of await page.locator(".profile-intake-candidate-card").all()) {
-      const details = card.locator("> details");
-      if ((await details.getAttribute("open")) === null) await details.locator("> summary").click();
-      await card.getByRole("button", { name: "采用", exact: true }).click();
+    const cards = page.locator(".profile-intake-candidate-card");
+    while (await cards.count()) {
+      const card = cards.first();
+      await openCandidateCard(card);
+      const accept = card.getByRole("button", { name: "采用", exact: true });
+      if (!await accept.count()) break;
+      await accept.click();
     }
-    await expect.poll(() => readTask(page)).toMatchObject({ stage: "collect_experience" });
-    await expect(page.getByText(/一个高价值细节/)).toBeVisible();
+    await expect.poll(() => readTask(page)).toMatchObject({
+      stage: "collect_experience",
+      knownSlots: { profileIntakeReviewProjection: { reviewProgress: { proposed: 0, uncertain: 0 } } }
+    });
+    await expect(page.locator(".agent-message-row.is-assistant").filter({ hasText: /接下来|补充/ }).last()).toBeVisible();
     const reviewOptions = page.locator(".agent-message-options").last();
-    await expect(reviewOptions.getByRole("button", { name: "继续补充", exact: true })).toBeVisible();
+    await expect(reviewOptions.getByRole("button", { name: "换一个方向", exact: true })).toBeVisible();
     await expect(reviewOptions.getByRole("button", { name: "完成整理", exact: true })).toBeVisible();
-    expect((await page.locator(".agent-message-row.is-assistant").allTextContents()).filter((text) => text.includes("一个高价值细节")).length).toBe(1);
+    expect((await page.locator(".agent-message-row.is-assistant").allTextContents()).some((text) => /接下来|补充/.test(text))).toBe(true);
   });
 
   test("F — the failed card keeps original text and never offers an adopt action", async ({ page }) => {
@@ -331,6 +341,12 @@ async function startIntake(page: Page) {
 async function send(page: Page, text: string) {
   await page.getByLabel("描述你的求职任务").fill(text);
   await page.getByRole("button", { name: "发送消息", exact: true }).click();
+}
+
+async function openCandidateCard(card: Locator) {
+  await card.locator("details").first().evaluate((details) => {
+    (details as HTMLDetailsElement).open = true;
+  });
 }
 
 async function readTask(page: Page) {

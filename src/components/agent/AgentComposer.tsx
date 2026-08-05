@@ -36,12 +36,14 @@ export function AgentComposer(props: {
   canFinish?: boolean;
   onFinish?(): Promise<void> | void;
   onUiAction?(action: AgentUiAction): void;
+  uploadFocusSignal?: number;
   onUpload(file: File): Promise<"ready" | "partial" | void> | "ready" | "partial" | void;
   onStop?(): void;
 }) {
   const [localMessage, setLocalMessage] = useState("");
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [dragActive, setDragActive] = useState(false);
+  const [uploadHighlighted, setUploadHighlighted] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const message = props.draft ?? localMessage;
@@ -56,6 +58,18 @@ export function AgentComposer(props: {
     textarea.style.height = "auto";
     textarea.style.height = `${Math.min(textarea.scrollHeight, 176)}px`;
   }, [message]);
+
+  useEffect(() => {
+    if (!props.uploadFocusSignal) return;
+    inputRef.current?.focus();
+    inputRef.current?.click();
+    const highlightTimer = window.setTimeout(() => setUploadHighlighted(true), 0);
+    const clearTimer = window.setTimeout(() => setUploadHighlighted(false), 1800);
+    return () => {
+      window.clearTimeout(highlightTimer);
+      window.clearTimeout(clearTimer);
+    };
+  }, [props.uploadFocusSignal]);
 
   const uploadFile = async (file: File) => {
     const id = crypto.randomUUID();
@@ -150,7 +164,7 @@ export function AgentComposer(props: {
 
       <div className="agent-composer-toolbar">
         <button
-          className="agent-composer-icon-button"
+          className={uploadHighlighted ? "agent-composer-icon-button is-highlighted" : "agent-composer-icon-button"}
           type="button"
           aria-label="上传文件"
           title="上传文件"

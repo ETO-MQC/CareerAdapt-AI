@@ -10949,6 +10949,12 @@ html[data-theme="dark"] .inspector-tab-active {
   color: var(--ink);
 }
 
+.agent-composer-icon-button.is-highlighted {
+  background: color-mix(in srgb, var(--accent, #2563eb) 12%, transparent);
+  color: var(--accent, #2563eb);
+  outline: 2px solid color-mix(in srgb, var(--accent, #2563eb) 28%, transparent);
+}
+
 .agent-composer-submit {
   flex: 0 0 auto;
   gap: 10px;

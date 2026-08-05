@@ -493,6 +493,12 @@ export class AgentTaskStateReducer {
           : undefined;
         state.knownSlots.intakeImportId = value.importId;
         state.knownSlots.expectedIntakeDraftRevision = value.expectedDraftRevision;
+        state.knownSlots.profileIntakeCaptureResult = value;
+        state.knownSlots.profileIntakeProviderStatus = value.providerStatus;
+        state.knownSlots.profileIntakeExtractionStatus = value.extractionStatus;
+        state.knownSlots.profileIntakePersistenceStatus = value.persistenceStatus;
+        state.knownSlots.profileIntakePersistenceReceipt = value.persistenceReceipt;
+        state.knownSlots.intakeSession = value.intakeSession;
         if (projection) {
           state.knownSlots.profileIntakeReviewProjection = projection;
           // Compatibility aliases are derived from the projection and are not
@@ -506,17 +512,27 @@ export class AgentTaskStateReducer {
         state.knownSlots.intakeInterviewPlan = value.interviewPlan;
         state.knownSlots.intakeFollowUpQuestion = value.followUpQuestion;
         state.knownSlots.intakeActiveQuestion = objectValue(value.interviewPlan).activeQuestion;
+        const activeQuestionId = objectValue(value.interviewPlan).activeQuestionId;
+        if (typeof activeQuestionId === "string") state.knownSlots.activeQuestionId = activeQuestionId;
+        else delete state.knownSlots.activeQuestionId;
         state.pendingDecision = undefined;
-        state.stage = (projection?.candidates.length ?? (Array.isArray(value.candidates) ? value.candidates.length : 0)) > 0
+        state.stage = (projection?.candidates.some((candidate) =>
+          candidate.status === "proposed" || candidate.status === "uncertain" || candidate.status === "failed"
+        ) ?? (Array.isArray(value.candidates) && value.candidates.length > 0))
           ? "review_facts"
           : "collect_experience";
         state.completionStatus = "waiting_for_user";
       } else if (event.toolName === "review_profile_intake") {
         const value = objectValue(event.observation);
         state.knownSlots.expectedIntakeDraftRevision = value.expectedDraftRevision;
+        state.knownSlots.profileIntakePersistenceReceipt = value.persistenceReceipt;
+        state.knownSlots.intakeSession = value.intakeSession;
         if (value.interviewPlan) state.knownSlots.intakeInterviewPlan = value.interviewPlan;
         if (value.followUpQuestion) state.knownSlots.intakeFollowUpQuestion = value.followUpQuestion;
         state.knownSlots.intakeActiveQuestion = objectValue(value.interviewPlan).activeQuestion;
+        const activeQuestionId = objectValue(value.interviewPlan).activeQuestionId;
+        if (typeof activeQuestionId === "string") state.knownSlots.activeQuestionId = activeQuestionId;
+        else delete state.knownSlots.activeQuestionId;
         const authoritativeProjection = ProfileIntakeReviewProjectionSchema.safeParse(value.reviewProjection).success
           ? value.reviewProjection as ProfileIntakeReviewProjection
           : undefined;
@@ -881,6 +897,13 @@ function resetProfileIntakeDraft(state: AgentTaskState) {
     "intakeInterviewPlan",
     "intakeActiveQuestion",
     "intakeFollowUpQuestion",
+    "profileIntakeCaptureResult",
+    "profileIntakeProviderStatus",
+    "profileIntakeExtractionStatus",
+    "profileIntakePersistenceStatus",
+    "profileIntakePersistenceReceipt",
+    "intakeSession",
+    "activeQuestionId",
     "profileIntakeExplicitCommit",
     "profileIntakeFinishRequested",
     "profileIntakeFinishDecision",

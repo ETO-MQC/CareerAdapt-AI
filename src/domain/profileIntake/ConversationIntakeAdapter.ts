@@ -89,6 +89,8 @@ export function adaptConversationMessageToIntakeDraft(input: {
   const semanticResult = input.semanticResult ?? {
     mode: "deterministic" as const,
     providerStatus: "failed" as const,
+    extractionStatus: "failed" as const,
+    quarantinedCandidateCount: 0,
     warning: "AI 语义整理尚未执行；已保留原始回答。",
     candidates: [{
       id: `intake-${hash.slice(0, 16)}-fallback`,
@@ -213,6 +215,17 @@ export function adaptConversationMessageToIntakeDraft(input: {
       }))
     ],
     parserVersion: "conversation-intake.v1",
+    intakeSession: {
+      sessionId: input.sessionId,
+      autosavedAt: input.capturedAt,
+      reviewedCandidateIds: [],
+      resumeToken: stableHashText(`${importId}:${input.messageId}:${sourceContentHash}`),
+      lastSourceMessageId: input.messageId,
+      lastSourceTurnId: input.turnId,
+      providerStatus: semanticResult.providerStatus,
+      extractionStatus: extractionStatusForSemanticResult(semanticResult, candidates),
+      quarantinedCandidateCount: semanticResult.quarantinedCandidateCount ?? 0
+    },
     createdAt: input.capturedAt,
     updatedAt: input.capturedAt
   });
@@ -242,25 +255,8 @@ export function buildConversationIntakeReviewProjection(input: {
   text: string;
   semanticResult: ProfileIntakeSemanticResult;
 }): ProfileIntakeReviewProjection {
-  const isFailed = input.semanticResult.providerStatus !== "available";
-  const candidates = isFailed
-    ? [{
-        id: input.semanticResult.candidates[0]?.id ?? `intake-failed-${stableHashText(input.text).slice(0, 16)}`,
-        candidateKey: "failed-extraction",
-        sectionType: "other" as const,
-        sourceSpan: { start: 0, end: input.text.length },
-        sourceQuote: input.text,
-        professionalText: "原始回答已保留，等待重新整理。",
-        uncertainFields: ["structuredItem"],
-        confidence: 0,
-        needsConfirmation: true,
-        status: "failed" as const,
-        canAccept: false,
-        reason: "这段内容没有完成结构化，但原文已经保留。",
-        fieldEvidence: []
-      }]
-    : input.semanticResult.candidates.flatMap((candidate) => {
-        if (!candidate.normalization.structuredItem) return [];
+  const candidates = input.semanticResult.candidates.flatMap((candidate) => {
+        if (!candidate.normalization.structuredItem || candidate.normalization.needsNormalization) return [];
         const sourceStart = candidate.sourceSpan?.start ?? Math.max(0, input.text.indexOf(candidate.sourceQuote));
         const sourceSpan = candidate.sourceSpan ?? { start: sourceStart, end: sourceStart + candidate.sourceQuote.length };
         const status = candidate.normalization.needsConfirmation ? "uncertain" as const : "proposed" as const;
@@ -281,20 +277,46 @@ export function buildConversationIntakeReviewProjection(input: {
           fieldEvidence: candidate.normalization.fieldEvidence
         }];
       });
+  const isFailed = candidates.length === 0;
+  const projectionCandidates = isFailed
+    ? [{
+        id: input.semanticResult.candidates[0]?.id ?? `intake-failed-${stableHashText(input.text).slice(0, 16)}`,
+        candidateKey: "failed-extraction",
+        sectionType: "other" as const,
+        sourceSpan: { start: 0, end: input.text.length },
+        sourceQuote: input.text,
+        professionalText: "原始回答已保留，等待重新整理。",
+        uncertainFields: ["structuredItem"],
+        confidence: 0,
+        needsConfirmation: true,
+        status: "failed" as const,
+        canAccept: false,
+        reason: "这段内容没有完成结构化，但原文已经保留。",
+        fieldEvidence: []
+      }]
+    : candidates;
   const followUpQuestions = (input.semanticResult.followUpQuestions?.length
     ? input.semanticResult.followUpQuestions
     : input.semanticResult.followUpQuestion
       ? [input.semanticResult.followUpQuestion]
       : []).slice(0, 3);
-  const reviewProgress = profileIntakeReviewProgress(candidates);
+  const reviewProgress = profileIntakeReviewProgress(projectionCandidates);
+  const extractionStatus = isFailed
+    ? "failed"
+    : input.semanticResult.providerStatus === "available"
+      ? input.semanticResult.extractionStatus === "partial" || reviewProgress.uncertain > 0
+        ? "partial"
+        : "structured_ai"
+      : "structured_local";
   return ProfileIntakeReviewProjectionSchema.parse({
     importId: input.importId,
     draftRevision: input.draftRevision,
     sourceMessageId: input.sourceMessageId,
     sourceTurnId: input.sourceTurnId,
     sourceContentHash: input.sourceContentHash,
-    extractionStatus: isFailed ? "failed" : reviewProgress.uncertain > 0 ? "partial" : "structured",
-    candidates,
+    providerStatus: input.semanticResult.providerStatus,
+    extractionStatus,
+    candidates: projectionCandidates,
     reviewProgress,
     followUpQuestions,
     ...(followUpQuestions[0] ? { followUpQuestion: followUpQuestions[0] } : {}),
@@ -313,29 +335,13 @@ export function buildConversationIntakeReviewProjectionFromDraft(
   followUpQuestions: string[] = []
 ): ProfileIntakeReviewProjection {
   const rawText = draft.pages[0]?.rawText ?? "";
-  const failed = draft.warnings.some((warning) => warning.code === "provider_unavailable");
+  const providerUnavailable = draft.warnings.some((warning) => warning.code === "provider_unavailable");
   const sourceMessageId = draft.source.sourceMessageId ?? `draft-${draft.importId}`;
   const sourceTurnId = draft.source.sourceTurnId ?? `draft-${draft.importId}`;
   const sourceContentHash = draft.source.sourceContentHash ?? stableHashText(rawText);
   const items = draft.sections.flatMap((section) => section.items);
-  const candidates = failed
-    ? [{
-        id: items[0]?.id ?? `intake-failed-${stableHashText(rawText).slice(0, 16)}`,
-        candidateKey: "failed-extraction",
-        sectionType: "other" as const,
-        sourceSpan: { start: 0, end: rawText.length },
-        sourceQuote: rawText,
-        professionalText: "原始回答已保留，等待重新整理。",
-        uncertainFields: ["structuredItem"],
-        confidence: 0,
-        needsConfirmation: true,
-        status: "failed" as const,
-        canAccept: false,
-        reason: "这段内容没有完成结构化，但原文已经保留。",
-        fieldEvidence: []
-      }]
-    : items.flatMap((item) => {
-        if (!item.structuredItem) return [];
+  const candidatesFromItems = items.flatMap((item) => {
+        if (!item.structuredItem || item.careerNormalization?.needsNormalization) return [];
         const sourceQuote = item.sourceQuote ?? item.rawText;
         const start = Math.max(0, rawText.indexOf(sourceQuote));
         const normalization = item.careerNormalization;
@@ -363,6 +369,24 @@ export function buildConversationIntakeReviewProjectionFromDraft(
           fieldEvidence: normalization?.fieldEvidence ?? []
         }];
       });
+  const failed = candidatesFromItems.length === 0;
+  const candidates = failed
+    ? [{
+        id: items[0]?.id ?? `intake-failed-${stableHashText(rawText).slice(0, 16)}`,
+        candidateKey: "failed-extraction",
+        sectionType: "other" as const,
+        sourceSpan: { start: 0, end: rawText.length },
+        sourceQuote: rawText,
+        professionalText: "原始回答已保留，等待重新整理。",
+        uncertainFields: ["structuredItem"],
+        confidence: 0,
+        needsConfirmation: true,
+        status: "failed" as const,
+        canAccept: false,
+        reason: "这段内容没有完成结构化，但原文已经保留。",
+        fieldEvidence: []
+      }]
+    : candidatesFromItems;
   const questions = followUpQuestions.slice(0, 3);
   const reviewProgress = profileIntakeReviewProgress(candidates);
   return ProfileIntakeReviewProjectionSchema.parse({
@@ -371,7 +395,14 @@ export function buildConversationIntakeReviewProjectionFromDraft(
     sourceMessageId,
     sourceTurnId,
     sourceContentHash,
-    extractionStatus: failed ? "failed" : reviewProgress.uncertain > 0 ? "partial" : "structured",
+    providerStatus: draft.intakeSession?.providerStatus ?? (providerUnavailable ? "failed" : "available"),
+    extractionStatus: failed
+      ? "failed"
+      : draft.intakeSession?.providerStatus !== "available" || providerUnavailable
+        ? "structured_local"
+        : reviewProgress.uncertain > 0 || draft.intakeSession?.extractionStatus === "partial"
+          ? "partial"
+          : "structured_ai",
     candidates,
     reviewProgress,
     followUpQuestions: questions,
@@ -509,6 +540,16 @@ export function mergeConversationIntakeDraft(
     }))
     .filter((section) => section.items.length);
   const rawText = [existing.pages[0]?.rawText, addition.pages[0]?.rawText].filter(Boolean).join("\n");
+  const intakeSession = existing.intakeSession || addition.intakeSession
+    ? {
+        ...(existing.intakeSession ?? addition.intakeSession),
+        ...(addition.intakeSession ?? {}),
+        reviewedCandidateIds: [...new Set([
+          ...(existing.intakeSession?.reviewedCandidateIds ?? []),
+          ...(addition.intakeSession?.reviewedCandidateIds ?? [])
+        ])]
+      }
+    : undefined;
   return ImportedResumeDraftSchema.parse({
     ...existing,
     sections: [...existing.sections, ...additions],
@@ -520,8 +561,21 @@ export function mergeConversationIntakeDraft(
       charEnd: rawText.length
     }],
     warnings: [...existing.warnings, ...addition.warnings],
+    ...(intakeSession ? { intakeSession } : {}),
     updatedAt: addition.updatedAt
   });
+}
+
+function extractionStatusForSemanticResult(
+  semanticResult: ProfileIntakeSemanticResult,
+  candidates: ConversationIntakeCandidate[]
+) {
+  if (!candidates.length || candidates.every((candidate) => candidate.status === "insufficient")) return "failed" as const;
+  if (semanticResult.providerStatus !== "available") return "structured_local" as const;
+  if (semanticResult.extractionStatus === "partial" || candidates.some((candidate) => candidate.needsConfirmation)) {
+    return "partial" as const;
+  }
+  return "structured_ai" as const;
 }
 
 function candidateCategory(sectionType: ConversationIntakeCandidate["sectionType"]) {

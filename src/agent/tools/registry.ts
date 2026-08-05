@@ -1,9 +1,13 @@
 import { z } from "zod";
 import { ProfileIntakeStructuredPatchSchema } from "@/domain/profileIntake/ProfileIntakeNormalizer";
+import { CaptureProfileIntakeResultSchema } from "@/domain/profileIntake/CaptureProfileIntakeResult";
 import type { AgentToolDefinition, AgentToolResult } from "../contracts/agentTool";
 import type { ExternalToolProvider } from "./externalToolProvider";
 
 const OperationOutputSchema = z.object({ operationId: z.string().min(8) }).passthrough();
+const CaptureProfileIntakeToolOutputSchema = CaptureProfileIntakeResultSchema.extend({
+  operationId: z.string().min(8)
+});
 const EmptyInputSchema = z.object({}).strict();
 
 export type AgentToolServices = {
@@ -279,7 +283,7 @@ export function createAgentToolRegistry(services: AgentToolServices) {
     define(services, meta("review_resume_import", "记录用户对导入草稿不确定内容的明确采用或忽略决定，并推进草稿 revision。", "user_declared", false, true, true, ResumeImportReviewInputSchema, "resume", "import_draft"), (input, _, signal) => services.reviewResumeImport ? services.reviewResumeImport(input, signal) : unavailableTool("review_resume_import")),
     define(services, meta("reconcile_resume_import", "使用确定性 Profile Reconciliation Engine 比对导入草稿与指定已有资料库；只生成计划，不写入 Profile。", "read", false, true, false, ResumeImportReconcileInputSchema, "resume", "import_draft"), (input, _, signal) => services.reconcileResumeImport ? services.reconcileResumeImport(input, signal) : unavailableTool("reconcile_resume_import")),
     define(services, meta("resolve_resume_reconciliation", "记录用户对一个近似重复或真实字段冲突的明确决定；不会直接写入 Profile。", "user_declared", false, true, true, ResumeImportReconciliationResolutionInputSchema, "resume", "import_draft"), (input, _, signal) => services.resolveResumeReconciliation ? services.resolveResumeReconciliation(input, signal) : unavailableTool("resolve_resume_reconciliation")),
-    define(services, meta("capture_profile_intake", "将当前访谈回答结构化为可恢复的经历核对草稿；保留 session、message、turn 和原文来源，不写入 CareerProfile。", "write", false, true, true, ProfileIntakeCaptureInputSchema, "profile", "conversation_intake", true), (input, _, signal) => services.captureProfileIntake ? services.captureProfileIntake(input, signal) : unavailableTool("capture_profile_intake")),
+    define(services, meta("capture_profile_intake", "将当前访谈回答结构化为可恢复的经历核对草稿；保留 session、message、turn 和原文来源，不写入 CareerProfile。", "write", false, true, true, ProfileIntakeCaptureInputSchema, "profile", "conversation_intake", true, CaptureProfileIntakeToolOutputSchema), (input, _, signal) => services.captureProfileIntake ? services.captureProfileIntake(input, signal) : unavailableTool("capture_profile_intake")),
     define(services, meta("review_profile_intake", "核对同一个访谈候选，并可用用户明确补充的日期、职责和职业化表达安全更新同一草稿 revision；structuredPatch 必须附补充消息来源。", "user_declared", false, true, true, ProfileIntakeReviewInputSchema, "profile", "conversation_intake"), (input, _, signal) => services.reviewProfileIntake ? services.reviewProfileIntake(input, signal) : unavailableTool("review_profile_intake")),
     define(services, meta("reconcile_profile_intake", "复用 ProfileReconciliationEngine 将访谈草稿与目标资料库对账；只生成计划。", "read", false, true, true, ProfileIntakeReconcileInputSchema, "profile", "profile_reconciliation", true), (input, _, signal) => services.reconcileProfileIntake ? services.reconcileProfileIntake(input, signal) : unavailableTool("reconcile_profile_intake")),
     define(services, meta("resolve_profile_intake_conflict", "记录用户对访谈资料与现有资料冲突的明确决定。", "user_declared", false, true, true, ProfileIntakeConflictInputSchema, "profile", "profile_reconciliation"), (input, _, signal) => services.resolveProfileIntakeConflict ? services.resolveProfileIntakeConflict(input, signal) : unavailableTool("resolve_profile_intake_conflict")),
@@ -316,9 +320,10 @@ function meta<TInput>(
   inputSchema: z.ZodType<TInput>,
   category: string,
   dataScope: string,
-  producesArtifact = false
+  producesArtifact = false,
+  outputSchema: z.ZodType = OperationOutputSchema
 ) {
-  return { name, description, risk, requiresConfirmation, idempotent, resumable, category, dataScope, producesArtifact, external: false, inputSchema, outputSchema: OperationOutputSchema };
+  return { name, description, risk, requiresConfirmation, idempotent, resumable, category, dataScope, producesArtifact, external: false, inputSchema, outputSchema };
 }
 
 function unavailableTool(name: string): Promise<never> {

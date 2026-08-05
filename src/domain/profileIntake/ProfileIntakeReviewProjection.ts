@@ -2,11 +2,19 @@ import { z } from "zod";
 import { ResumeItemV2Schema, ResumeSectionTypeV2Schema } from "@/domain/schemas";
 
 export const ProfileIntakeExtractionStatusSchema = z.enum([
+  "structured_ai",
+  "structured_local",
   "structured",
   "partial",
   "failed",
   "manual_review",
   "preserved"
+]);
+
+export const ProfileIntakeProviderStatusSchema = z.enum([
+  "available",
+  "failed",
+  "invalid"
 ]);
 
 export const ProfileIntakeReviewCandidateStatusSchema = z.enum([
@@ -71,6 +79,7 @@ export const ProfileIntakeReviewProjectionSchema = z.object({
   sourceMessageId: z.string().min(1),
   sourceTurnId: z.string().min(1),
   sourceContentHash: z.string().min(8),
+  providerStatus: ProfileIntakeProviderStatusSchema.default("available"),
   extractionStatus: ProfileIntakeExtractionStatusSchema,
   candidates: z.array(ProfileIntakeReviewCandidateSchema).max(40),
   reviewProgress: ProfileIntakeReviewProgressSchema,
@@ -82,6 +91,8 @@ export const ProfileIntakeReviewProjectionSchema = z.object({
 export type ProfileIntakeReviewCandidate = z.infer<typeof ProfileIntakeReviewCandidateSchema>;
 export type ProfileIntakeReviewProgress = z.infer<typeof ProfileIntakeReviewProgressSchema>;
 export type ProfileIntakeReviewProjection = z.infer<typeof ProfileIntakeReviewProjectionSchema>;
+export type ProfileIntakeExtractionStatus = z.infer<typeof ProfileIntakeExtractionStatusSchema>;
+export type ProfileIntakeProviderStatus = z.infer<typeof ProfileIntakeProviderStatusSchema>;
 
 export function isProfileIntakeReviewProjection(value: unknown): value is ProfileIntakeReviewProjection {
   return ProfileIntakeReviewProjectionSchema.safeParse(value).success;

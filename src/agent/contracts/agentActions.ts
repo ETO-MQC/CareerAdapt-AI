@@ -24,6 +24,7 @@ export const AgentWorkflowControlSchema = z.discriminatedUnion("type", [
 
 export const AgentUiActionSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("open_resume_picker") }).strict(),
+  z.object({ type: z.literal("open_resume_upload") }).strict(),
   z.object({ type: z.literal("open_job_import_dialog") }).strict(),
   z.object({ type: z.literal("open_profile_browser") }).strict(),
   z.object({ type: z.literal("open_tool_palette") }).strict(),

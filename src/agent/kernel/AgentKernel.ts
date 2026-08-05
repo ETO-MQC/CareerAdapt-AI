@@ -1,5 +1,5 @@
 import { nanoid } from "nanoid";
-import type { AgentSession, AgentConfirmation, AgentMessageReference } from "@/agent/contracts/agentSession";
+import type { AgentSession, AgentConfirmation, AgentMessageReference, AgentTaskState } from "@/agent/contracts/agentSession";
 import type { AgentPageContext } from "@/agent/contracts/agentContext";
 import type { AgentToolResult } from "@/agent/contracts/agentTool";
 import type { AgentModel, AgentModelMessage, AgentModelResult, AgentModelToolCall } from "@/agent/model/agentModel";
@@ -205,7 +205,8 @@ export class AgentKernel {
         await emit(input, {
           type: "thinking",
           stage: iteration ? "observing" : "planning",
-          label: iteration ? "正在根据已读取的信息继续分析" : thinkingLabel(input.userMessage)
+          label: iteration ? "正在根据已读取的信息继续处理" : thinkingLabel(input.userMessage),
+          workflowStage: workflowStageForTask(taskState)
         });
         if (
           taskState.workflowId === "guided_profile_intake"
@@ -348,12 +349,14 @@ export class AgentKernel {
             }
             toolCallCount += 1;
             const operationId = stableOperationId(call);
+            const workflowStage = workflowStageForTool(validated.tool.name);
             trajectory.toolStarted(validated.tool.name, operationId);
             await emit(input, {
               type: "tool_started",
               toolName: validated.tool.name,
               operationId,
-              userLabel: toolActivityLabel(validated.tool.name)
+              userLabel: toolActivityLabel(validated.tool.name),
+              workflowStage
             });
             try {
               const cached = this.observationCache.get(validated.tool.name, validated.input);
@@ -433,7 +436,8 @@ export class AgentKernel {
                 operationId,
                 ok: result.ok,
                 summary: summarizeToolResult(result),
-                artifactIds: result.artifactIds
+                artifactIds: result.artifactIds,
+                workflowStage: completeWorkflowStage(workflowStage)
               });
               messages.push(toolObservation(call, result));
               allowedTools = this.dependencies.toolResolver.allowedTools({
@@ -575,6 +579,57 @@ export class AgentKernel {
         trajectory.finish("aborted");
         return { trajectory: trajectory.value(), taskState };
       }
+      const localIntakeRecovery = await recoverProfileIntakeAfterProviderFailure({
+        executor: this.dependencies.executor,
+        taskState,
+        sessionId: input.session.id,
+        turnId,
+        signal: input.signal
+      });
+      if (localIntakeRecovery) {
+        const operationId = `local-intake-fallback-${turnId}`.slice(0, 160);
+        const workflowStage = workflowStageForTool("capture_profile_intake");
+        trajectory.toolStarted("capture_profile_intake", operationId);
+        await emit(input, {
+          type: "tool_started",
+          toolName: "capture_profile_intake",
+          operationId,
+          userLabel: toolActivityLabel("capture_profile_intake"),
+          workflowStage
+        });
+        if (localIntakeRecovery.ok) {
+          taskState = taskReducer.reduce(taskState, {
+            type: "tool_observation",
+            toolName: "capture_profile_intake",
+            observation: localIntakeRecovery.data,
+            artifactIds: localIntakeRecovery.artifactIds
+          });
+          trajectory.toolCompleted(operationId, true, localIntakeRecovery.artifactIds);
+          await emit(input, {
+            type: "tool_result",
+            toolName: "capture_profile_intake",
+            operationId,
+            ok: true,
+            summary: summarizeToolResult(localIntakeRecovery),
+            artifactIds: localIntakeRecovery.artifactIds,
+            workflowStage: completeWorkflowStage(workflowStage)
+          });
+          const text = summarizeToolResult(localIntakeRecovery);
+          await publishFinalStream(text, input, {
+            turnId,
+            iterationId: `${turnId}:local-fallback`
+          });
+          trajectory.finish("waiting_for_user");
+          return {
+            text,
+            trajectory: trajectory.value(),
+            conversationSummary: contextWindow.conversationSummary,
+            contextDiagnostics: contextWindow.diagnostics,
+            taskState
+          };
+        }
+        trajectory.toolCompleted(operationId, false);
+      }
       trajectory.error(code, error instanceof Error ? error.message : "Agent turn failed.");
       trajectory.finish("failed");
       await emit(input, { type: "error", code, message: userErrorMessage(code) });
@@ -610,6 +665,49 @@ export class AgentKernel {
       },
       taskEventAlreadyReduced: true
     });
+  }
+}
+
+async function recoverProfileIntakeAfterProviderFailure(input: {
+  executor: AgentExecutor;
+  taskState: AgentTaskState;
+  sessionId: string;
+  turnId: string;
+  signal?: AbortSignal;
+}) {
+  if (input.taskState.workflowId !== "guided_profile_intake" || input.taskState.stage !== "structure_facts") {
+    return undefined;
+  }
+  const source = objectValue(input.taskState.knownSlots.latestIntakeSource);
+  const sessionId = stringValue(source.sessionId) ?? input.sessionId;
+  const messageId = stringValue(source.messageId);
+  const sourceTurnId = stringValue(source.turnId) ?? input.turnId;
+  const text = stringValue(source.exactSourceQuote);
+  const capturedAt = stringValue(source.capturedAt);
+  const targetProfileId = stringValue(input.taskState.knownSlots.targetProfileId)
+    ?? stringValue(source.targetProfileId);
+  const expectedProfileVersion = numberValue(input.taskState.knownSlots.expectedProfileVersion)
+    ?? numberValue(source.expectedProfileVersion);
+  if (!messageId || !text || !capturedAt || !targetProfileId || !expectedProfileVersion) return undefined;
+  try {
+    return await input.executor.execute({
+      toolName: "capture_profile_intake",
+      toolInput: {
+        sessionId,
+        messageId,
+        turnId: sourceTurnId,
+        text,
+        capturedAt,
+        targetProfileId,
+        expectedProfileVersion,
+        acknowledgedActiveProfileId: stringValue(input.taskState.knownSlots.acknowledgedActiveProfileId),
+        sourceContentHash: stringValue(source.sourceContentHash)
+      },
+      operationId: `local-intake-fallback-${input.turnId}`.slice(0, 160),
+      signal: input.signal
+    });
+  } catch {
+    return undefined;
   }
 }
 
@@ -754,6 +852,14 @@ function objectValue(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
     ? value as Record<string, unknown>
     : {};
+}
+
+function stringValue(value: unknown) {
+  return typeof value === "string" && value.trim() ? value : undefined;
+}
+
+function numberValue(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
 
 function isExhaustedEmptyRead(result: AgentToolResult) {
@@ -1047,6 +1153,21 @@ function summarizeToolResult(result: AgentToolResult) {
     const count = Array.isArray(data?.sessions) ? data.sessions.length : 0;
     return `已检索历史任务，找到 ${count} 条相关记录。`;
   }
+  if (result.toolName === "capture_profile_intake") {
+    const extractionStatus = data?.extractionStatus;
+    const usableCandidateCount = typeof data?.usableCandidateCount === "number" ? data.usableCandidateCount : 0;
+    const candidateCount = typeof data?.candidateCount === "number" ? data.candidateCount : usableCandidateCount;
+    if (extractionStatus === "structured_local") {
+      return `AI 服务暂不可用，已用本地规则整理出 ${usableCandidateCount} 项候选，请核对。`;
+    }
+    if (extractionStatus === "failed" || candidateCount === 0) {
+      return "没有生成可用候选，原始回答已保留，可重新解析。";
+    }
+    if (extractionStatus === "partial") {
+      return `已生成 ${candidateCount} 项候选，其中部分字段需要核对。`;
+    }
+    return `AI 已整理出 ${candidateCount} 项经历候选，请核对来源。`;
+  }
   if (result.toolName === "get_agent_task_context") return "已读取指定任务的当前进度。";
   const labels: Record<string, string> = {
     list_profiles: "已读取资料库列表。",
@@ -1062,7 +1183,7 @@ function summarizeToolResult(result: AgentToolResult) {
     recommend_resume_source: "已完成简历来源路线评估。",
     create_job_resume_from_profile: "已从资料库创建独立岗位简历。",
     create_resume_from_profile: "已从确认资料创建独立通用简历。",
-    capture_profile_intake: "已整理访谈中的经历候选。",
+    capture_profile_intake: "已生成经历核对卡片。",
     review_profile_intake: "已记录这项经历的核对决定。",
     reconcile_profile_intake: "已完成经历与资料库的对账。",
     resolve_profile_intake_conflict: "已记录资料冲突处理决定。",
@@ -1074,8 +1195,8 @@ function summarizeToolResult(result: AgentToolResult) {
 
 function toolActivityLabel(toolName: string) {
   const labels: Record<string, string> = {
-    get_active_profile: "正在确认你当前选择的资料库",
-    get_profile: "正在读取你的资料库",
+    get_active_profile: "正在读取当前资料库",
+    get_profile: "正在读取当前资料库",
     search_profile_facts: "正在匹配真实经历",
     list_profiles: "正在查看你的资料库",
     list_resumes: "正在查看可用简历",
@@ -1092,7 +1213,7 @@ function toolActivityLabel(toolName: string) {
     create_resume_from_profile: "正在从确认资料创建独立通用简历",
     apply_tailoring_changes: "正在创建新的简历版本",
     export_resume: "正在准备简历导出",
-    capture_profile_intake: "正在整理刚才的经历",
+    capture_profile_intake: "正在识别经历结构",
     review_profile_intake: "正在记录经历核对决定",
     reconcile_profile_intake: "正在与资料库对账",
     resolve_profile_intake_conflict: "正在处理资料冲突",
@@ -1108,8 +1229,66 @@ function toolActivityLabel(toolName: string) {
 
 function thinkingLabel(message: string) {
   if (/岗位|JD|职位/i.test(message)) return "正在分析你的求职任务";
-  if (/资料库|经历|我是谁|AI/i.test(message)) return "正在判断需要读取哪些真实资料";
-  return "正在规划下一步";
+  if (/资料库|经历|我是谁|AI/i.test(message)) return "正在读取当前资料库";
+  return "正在准备当前步骤";
+}
+
+function workflowStageForTask(taskState: AgentTaskState) {
+  if (taskState.workflowId === "guided_profile_intake") {
+    if (taskState.stage === "resolve_profile_target" || taskState.stage === "collect_experience") {
+      return workflowProgressStage("read-profile", "正在读取当前资料库");
+    }
+    if (taskState.stage === "structure_facts") return workflowProgressStage("recognize-structure", "正在识别经历结构");
+    if (taskState.stage === "review_facts") return workflowProgressStage("generate-review-cards", "正在生成核对卡片");
+    if (taskState.stage === "reconcile_profile" || taskState.stage === "confirm_commit") {
+      return workflowProgressStage("autosave", "已自动保存");
+    }
+  }
+  if (taskState.workflowId === "resume_import") {
+    if (taskState.stage === "prepare_import") return workflowProgressStage("extract-file", "正在提取文件内容");
+    if (taskState.stage === "import_review") return workflowProgressStage("generate-review-cards", "正在生成核对卡片");
+  }
+  return workflowProgressStage("current-step", "正在处理当前步骤");
+}
+
+function workflowStageForTool(toolName: string) {
+  const stages: Record<string, { id: string; label: string }> = {
+    get_active_profile: { id: "read-profile", label: "正在读取当前资料库" },
+    get_profile: { id: "read-profile", label: "正在读取当前资料库" },
+    prepare_resume_import: { id: "extract-file", label: "正在提取文件内容" },
+    capture_profile_intake: { id: "recognize-structure", label: "正在识别经历结构" },
+    review_profile_intake: { id: "save-review", label: "正在校验字段来源" },
+    reconcile_profile_intake: { id: "save-review", label: "正在校验字段来源" },
+    commit_profile_intake: { id: "autosave", label: "已自动保存" }
+  };
+  const stage = stages[toolName] ?? { id: "current-step", label: toolActivityLabel(toolName) };
+  return workflowProgressStage(stage.id, stage.label);
+}
+
+function completeWorkflowStage(stage: ReturnType<typeof workflowStageForTool>) {
+  const completed = stage.id === "recognize-structure"
+    ? { id: "generate-review-cards", label: "正在生成核对卡片" }
+    : stage.id === "save-review"
+      ? { id: "autosave", label: "已自动保存" }
+      : stage.id === "extract-file"
+        ? { id: "generate-review-cards", label: "正在生成核对卡片" }
+        : { id: stage.id, label: stage.label };
+  return {
+    id: completed.id,
+    label: completed.label,
+    startedAt: stage.startedAt,
+    completedAt: new Date().toISOString()
+  };
+}
+
+function workflowProgressStage(id: string, label: string, completed = false) {
+  const startedAt = new Date().toISOString();
+  return {
+    id,
+    label,
+    startedAt,
+    ...(completed ? { completedAt: new Date().toISOString() } : {})
+  };
 }
 
 function userErrorMessage(code: string) {

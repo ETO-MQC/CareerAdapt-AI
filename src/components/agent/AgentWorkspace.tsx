@@ -67,6 +67,7 @@ export function AgentWorkspace() {
   const [draftReferencesBySession, setDraftReferencesBySession] = useState<Record<string, AgentMessageReference | undefined>>({});
   const [lastUserMessage, setLastUserMessage] = useState("");
   const [floatingAction, setFloatingAction] = useState<AgentUiAction>();
+  const [uploadFocusSignal, setUploadFocusSignal] = useState(0);
   const [pendingResumeImportFile, setPendingResumeImportFile] = useState<File>();
   const initialSessionRef = useRef(session);
   const running = snapshot.turnStatus === "running";
@@ -135,6 +136,7 @@ export function AgentWorkspace() {
     if (current.activeSession) setSession(current.activeSession);
     if (current.uiAction) {
       if (current.uiAction.type === "open_artifact") updateDrawerState(window.matchMedia("(max-width: 860px)").matches ? "overlay" : "split");
+      else if (current.uiAction.type === "open_resume_upload") setUploadFocusSignal((value) => value + 1);
       else setFloatingAction(current.uiAction);
       host.state.clearUiAction();
     }
@@ -266,6 +268,11 @@ export function AgentWorkspace() {
   const workflowView = useMemo(() => taskToWorkflowView(session), [session]);
   const artifacts = snapshot.activeSessionId === session.id ? snapshot.artifacts : session.artifactRefs;
   const showZeroState = session.messages.length === 0 && !running;
+  const intakeSession = session.taskState?.knownSlots.intakeSession;
+  const hasAutosavedIntake = Boolean(
+    intakeSession && typeof intakeSession === "object" && !Array.isArray(intakeSession)
+      && typeof (intakeSession as Record<string, unknown>).autosavedAt === "string"
+  );
 
   return (
     <AgentWorkspaceLayout
@@ -283,6 +290,7 @@ export function AgentWorkspace() {
             <>
               <div className="agent-conversation-toolbar">
                 {snapshot.turnStatus === "failed" ? <span><WifiOff aria-hidden="true" />任务已中断，可重试</span> : null}
+                {hasAutosavedIntake ? <span className="agent-autosave-receipt" aria-live="polite">已自动保存到本地</span> : null}
                 <button
                   type="button"
                   onClick={() => {
@@ -390,6 +398,7 @@ export function AgentWorkspace() {
             canFinish={canFinishIntake}
             onFinish={() => dispatchMessage("完成整理")}
             onUiAction={dispatchUi}
+            uploadFocusSignal={uploadFocusSignal}
             onUpload={async (file) => {
               if (
                 readResumeImportSemanticPreference() === "unset"

@@ -611,11 +611,11 @@ export class ResumeImportOrchestrator {
     if (context.deferPersistence) {
       return buildPrepareResult(preparedDraft, pages, routingDecision);
     }
-    emit(context, "building_draft", "正在保存可恢复的导入核对草稿。");
+    emit(context, "building_draft", "正在生成核对卡片…");
     const saved = await this.repository.saveImportedResumeDraft(preparedDraft, 0);
     const result = buildPrepareResult(saved, pages, routingDecision);
     if (!context.suppressReadyProgress) {
-      emit(context, "ready_for_review", `已识别 ${result.reviewSummary.itemCount} 项信息，其中 ${result.reviewSummary.needsReviewCount} 项需要确认。`);
+      emit(context, "ready_for_review", `已自动保存。已识别 ${result.reviewSummary.itemCount} 项信息，其中 ${result.reviewSummary.needsReviewCount} 项需要确认。`);
     }
     return result;
   }

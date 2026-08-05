@@ -17,9 +17,15 @@ export function ProfileIntakeCandidateCards({
   onAction?(action: AgentArtifactAction): Promise<unknown> | void;
 }) {
   const candidates = projection?.candidates ?? [];
-  const [expanded, setExpanded] = useState<Set<string>>(() => new Set(candidates.slice(0, 1).map((candidate) => candidate.id)));
+  const activeCandidates = candidates.filter((candidate) =>
+    candidate.status === "proposed" || candidate.status === "uncertain" || candidate.status === "failed"
+  );
+  const historyCandidates = candidates.filter((candidate) =>
+    candidate.status === "accepted" || candidate.status === "ignored"
+  );
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set(activeCandidates.slice(0, 1).map((candidate) => candidate.id)));
   const [allExpanded, setAllExpanded] = useState(false);
-  const allIds = candidates.map((candidate) => candidate.id);
+  const allIds = activeCandidates.map((candidate) => candidate.id);
   const candidateSignature = allIds.join("\u0000");
   const previousCandidateSignature = useRef("");
   useEffect(() => {
@@ -28,7 +34,7 @@ export function ProfileIntakeCandidateCards({
     setExpanded(new Set(allIds.slice(0, 1)));
     setAllExpanded(false);
   }, [allIds, candidateSignature]);
-  if (!projection || !candidates.length) return null;
+  if (!projection || (!activeCandidates.length && !historyCandidates.length)) return null;
   const toggleAll = () => {
     setAllExpanded((current) => {
       const next = !current;
@@ -43,8 +49,17 @@ export function ProfileIntakeCandidateCards({
         <div>
           <strong>经历候选</strong>
           <span>{progress.total} 项 · 已核对 {progress.reviewed}/{progress.total}</span>
+          <small className="profile-intake-provider-status">
+            {projection.extractionStatus === "structured_local"
+              ? "本地规则已整理，AI 服务暂不可用，请核对"
+              : projection.extractionStatus === "structured_ai" || projection.extractionStatus === "structured"
+                ? "AI 已整理，请核对来源"
+                : projection.extractionStatus === "failed"
+                  ? "暂未生成可用候选，原文已保留"
+                  : "部分字段需要核对"}
+          </small>
         </div>
-        {candidates.length > 1 ? (
+        {activeCandidates.length > 1 ? (
           <button type="button" onClick={toggleAll}>{allExpanded ? "收起全部" : "展开全部"}</button>
         ) : null}
       </header>
@@ -54,7 +69,7 @@ export function ProfileIntakeCandidateCards({
         </p>
       ) : null}
       <div className="profile-intake-inline-review-list">
-        {candidates.map((candidate) => (
+        {activeCandidates.map((candidate) => (
           <ProfileIntakeCandidateCard
             key={candidate.id}
             candidate={candidate}
@@ -70,6 +85,19 @@ export function ProfileIntakeCandidateCards({
           />
         ))}
       </div>
+      {historyCandidates.length ? (
+        <div className="profile-intake-review-history" aria-label="已处理的经历">
+          {historyCandidates.map((candidate) => (
+            <div className="profile-intake-compact-receipt" key={candidate.id} data-candidate-id={candidate.id}>
+              <span>{candidate.status === "accepted" ? "✓" : "—"} {candidate.status === "accepted" ? acceptedReceipt(candidate) : ignoredReceipt(candidate)}</span>
+              <button
+                type="button"
+                onClick={() => onAction?.({ type: "profile_intake_candidate_decision", candidateId: candidate.id, decision: "reopen" })}
+              >重新打开</button>
+            </div>
+          ))}
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -230,6 +258,22 @@ function candidateLabel(candidate: ProfileIntakeReviewCandidate) {
   if (candidate.status === "failed") return "这段回答";
   if (candidate.sectionType === "education") return [item.school, item.degree, item.major].filter(Boolean).join(" / ") || "教育经历";
   return String(item.title ?? item.name ?? item.organization ?? item.role ?? `${sectionTypeLabel(candidate.sectionType)}候选`);
+}
+
+function acceptedReceipt(candidate: ProfileIntakeReviewCandidate) {
+  return `已记录${sectionTypeLabel(candidate.sectionType)}经历：${receiptLabel(candidate)}`;
+}
+
+function ignoredReceipt(candidate: ProfileIntakeReviewCandidate) {
+  return `已忽略${sectionTypeLabel(candidate.sectionType)}经历：${receiptLabel(candidate)}`;
+}
+
+function receiptLabel(candidate: ProfileIntakeReviewCandidate) {
+  const item = asRecord(candidate.structuredItem);
+  if (candidate.sectionType === "education") {
+    return [item.school, item.degree, item.major].filter((value): value is string => typeof value === "string" && Boolean(value.trim())).join(" · ") || "教育经历";
+  }
+  return candidateLabel(candidate);
 }
 
 function typedFields(item: Record<string, unknown>) {

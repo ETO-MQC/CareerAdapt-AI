@@ -16,6 +16,10 @@ import {
   normalizeCareerMonth,
   type ProfileIntakeNormalizationResult
 } from "./ProfileIntakeNormalizer";
+import type {
+  ProfileIntakeExtractionStatus,
+  ProfileIntakeProviderStatus
+} from "./ProfileIntakeReviewProjection";
 import { highestValueFollowUp } from "./ProfileIntakeCompleteness";
 import { RESUME_AI_ITEM_FIELD_CONTRACT } from "@/domain/resumeFields";
 
@@ -112,8 +116,11 @@ export type VerifiedProfileIntakeCandidate = {
 
 export type ProfileIntakeSemanticResult = {
   mode: "ai" | "deterministic";
-  providerStatus: "available" | "failed" | "invalid";
+  providerStatus: ProfileIntakeProviderStatus;
+  extractionStatus?: ProfileIntakeExtractionStatus;
   candidates: VerifiedProfileIntakeCandidate[];
+  quarantinedCandidateCount?: number;
+  safeDiagnostics?: { code?: string };
   followUpQuestions?: string[];
   followUpQuestion?: string;
   warning?: string;
@@ -182,7 +189,12 @@ export class ProfileIntakeSemanticService {
     return {
       mode: "ai",
       providerStatus: "available",
+      extractionStatus: verificationErrors.length || localized.some((candidate) => candidate.normalization.needsConfirmation)
+        ? "partial"
+        : "structured_ai",
       candidates: localized,
+      quarantinedCandidateCount: verificationErrors.length,
+      safeDiagnostics: verificationErrors.length ? { code: "candidate_quarantined" } : undefined,
       followUpQuestions: [],
       followUpQuestion: highestValueFollowUp(
         localized.flatMap((candidate) =>
@@ -225,7 +237,12 @@ export class ProfileIntakeSemanticService {
     return {
       mode: "ai",
       providerStatus: "available",
+      extractionStatus: verificationErrors.length || localized.some((candidate) => candidate.normalization.needsConfirmation)
+        ? "partial"
+        : "structured_ai",
       candidates: localized,
+      quarantinedCandidateCount: verificationErrors.length,
+      safeDiagnostics: verificationErrors.length ? { code: "candidate_quarantined" } : undefined,
       followUpQuestions,
       followUpQuestion: followUpQuestions[0] ?? highestValueFollowUp(
         localized.flatMap((candidate) => candidate.normalization.structuredItem
@@ -673,6 +690,11 @@ function deterministicFallback(
   return {
     mode: "deterministic",
     providerStatus,
+    extractionStatus: normalization.structuredItem && !normalization.needsNormalization
+      ? "structured_local"
+      : "failed",
+    quarantinedCandidateCount: normalization.structuredItem ? 0 : 1,
+    safeDiagnostics: { code: errorCode },
     warning: `AI 语义整理暂不可用（${errorCode}）；已保留原始回答，基础信息需要核对。`,
     followUpQuestions: [],
     candidates: [{

@@ -627,10 +627,54 @@ describe("AgentKernel", () => {
         expectedDraftRevision: 0,
         targetProfileId: "profile-1",
         expectedProfileVersion: 1,
+        persistenceStatus: "saved",
+        providerStatus: "available",
+        extractionStatus: "structured_ai",
         candidateCount: 4,
+        usableCandidateCount: 4,
+        quarantinedCandidateCount: 0,
         needsConfirmationCount: 2,
-        candidates: [{ id: "candidate-1" }],
-        artifactPayload: { title: "经历核对" }
+        candidates: [{
+          id: "candidate-1",
+          sectionType: "project",
+          sourceSpan: { start: 0, end: 12 },
+          sourceQuote: "课程项目经历",
+          professionalText: "课程项目经历",
+          uncertainFields: [],
+          confidence: 0.9,
+          needsConfirmation: false,
+          status: "proposed",
+          canAccept: true,
+          fieldEvidence: []
+        }],
+        reviewProjection: {
+          importId: "intake-long-answer",
+          draftRevision: 0,
+          sourceMessageId: "message-long-answer",
+          sourceTurnId: "turn-long-answer",
+          sourceContentHash: "capture-source-hash",
+          providerStatus: "available",
+          extractionStatus: "structured_ai",
+          candidates: [{
+            id: "candidate-1",
+            sectionType: "project",
+            sourceSpan: { start: 0, end: 12 },
+            sourceQuote: "课程项目经历",
+            professionalText: "课程项目经历",
+            uncertainFields: [],
+            confidence: 0.9,
+            needsConfirmation: false,
+            status: "proposed",
+            canAccept: true,
+            fieldEvidence: []
+          }],
+          reviewProgress: { total: 1, proposed: 1, valid: 0, uncertain: 0, accepted: 0, ignored: 0, rejected: 0, reviewed: 0 },
+          followUpQuestions: []
+        },
+        safeDiagnostics: { provider: "available", quarantinedCandidateCount: 0 },
+        idempotent: false,
+        artifactPayload: { title: "经历核对" },
+        interviewPlan: { suggestedNextSections: ["project"] }
       };
     });
     const { kernel } = harness(model, { captureProfileIntake });
@@ -672,7 +716,8 @@ describe("AgentKernel", () => {
     });
 
     expect(captureProfileIntake).toHaveBeenCalledTimes(1);
-    expect(model.completeWithTools).toHaveBeenCalledTimes(1);
+    expect(model.completeWithTools).toHaveBeenCalledTimes(0);
+    expect(result.text).toContain("请在下面直接核对");
     expect(result.taskState).toMatchObject({
       stage: "review_facts",
       completionStatus: "waiting_for_user",
