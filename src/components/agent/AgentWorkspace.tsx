@@ -72,6 +72,8 @@ export function AgentWorkspace() {
   const [draftsBySession, setDraftsBySession] = useState<SessionComposerDrafts>(readSessionComposerDrafts);
   const draftsBySessionRef = useRef(draftsBySession);
   const mountedRef = useRef(true);
+  const userInteractedRef = useRef(false);
+  const restoreRequestRef = useRef(0);
   const [draftReferencesBySession, setDraftReferencesBySession] = useState<Record<string, AgentMessageReference | undefined>>({});
   const [lastUserMessage, setLastUserMessage] = useState("");
   const [floatingAction, setFloatingAction] = useState<AgentUiAction>();
@@ -117,6 +119,7 @@ export function AgentWorkspace() {
   }, []);
 
   const setSessionDraft = useCallback((value: string) => {
+    userInteractedRef.current = true;
     const next = { ...draftsBySessionRef.current };
     if (value) next[session.id] = value;
     else delete next[session.id];
@@ -230,12 +233,23 @@ export function AgentWorkspace() {
     };
   }, [host.state, session, session.id, taskHasUsedAssetsOrWrites]);
 
-  const restoreSession = useCallback((selected: AgentSession) => {
-    host.state.adopt(selected);
-    setSession(host.state.getSnapshot().activeSession ?? selected);
-    setHistoryOpen(false);
-    window.localStorage.setItem(ACTIVE_SESSION_KEY, selected.id);
-  }, [host.state]);
+  const restoreSession = useCallback((selected: AgentSession | string, options: { initial?: boolean } = {}) => {
+    if (!options.initial) userInteractedRef.current = true;
+    const requestId = ++restoreRequestRef.current;
+    const selectedId = typeof selected === "string" ? selected : selected.id;
+    const apply = (resolved?: AgentSession) => {
+      if (requestId !== restoreRequestRef.current || !resolved) return;
+      host.state.adopt(resolved);
+      setSession(host.state.getSnapshot().activeSession ?? resolved);
+      setHistoryOpen(false);
+      window.localStorage.setItem(ACTIVE_SESSION_KEY, resolved.id);
+    };
+    if (typeof selected !== "string") {
+      apply(selected);
+      return;
+    }
+    void host.store.get(selectedId).then(apply).catch(() => undefined);
+  }, [host.state, host.store]);
 
   const createSessionWithCurrentContext = useCallback(async (title: string) => {
     const context = await agentImportRepository.getActiveCareerContext();
@@ -262,10 +276,13 @@ export function AgentWorkspace() {
       setResumes(readArray(resumeResult.data, "resumes") as ResumeSummary[]);
       setSessions(storedSessions);
       setProfiles(storedProfiles);
+      if (userInteractedRef.current) return;
       const live = host.state.getSnapshot();
+      const requested = window.localStorage.getItem(ACTIVE_SESSION_KEY);
       if (
         activeContext
         && live.activeSession
+        && (!requested || requested === live.activeSession.id)
         && !live.activeSession.activeProfileId
         && !live.activeSession.messages.length
         && !live.activeSession.artifactRefs.length
@@ -276,12 +293,11 @@ export function AgentWorkspace() {
         window.localStorage.setItem(ACTIVE_SESSION_KEY, rebound.id);
         return;
       }
-      if (live.activeSession && live.turnStatus === "running") {
+      if (live.activeSession && live.turnStatus === "running" && (!requested || requested === live.activeSession.id)) {
         setSession(live.activeSession);
         window.localStorage.setItem(ACTIVE_SESSION_KEY, live.activeSession.id);
         return;
       }
-      const requested = window.localStorage.getItem(ACTIVE_SESSION_KEY);
       if (requested === NEW_TASK_SESSION_VALUE) {
         await createSessionWithCurrentContext("新的 AI 任务");
         return;
@@ -300,7 +316,7 @@ export function AgentWorkspace() {
           setSessions((current) => current.map((item) => item.id === rebound.id ? rebound : item));
           setSession(rebound);
         } else {
-          restoreSession(restored);
+          restoreSession(restored, { initial: true });
         }
       } else await createSessionWithCurrentContext("AI 求职任务");
     });
@@ -310,10 +326,11 @@ export function AgentWorkspace() {
   useEffect(() => {
     const selectSession = (event: Event) => {
       const id = (event as CustomEvent<{ sessionId?: string }>).detail?.sessionId;
-      const selected = sessions.find((item) => item.id === id);
-      if (selected) restoreSession(selected);
+      if (id) void restoreSession(id);
     };
     const newTask = () => {
+      userInteractedRef.current = true;
+      restoreRequestRef.current += 1;
       void createSessionWithCurrentContext("新的 AI 任务");
       setDrawerState("closed");
       window.localStorage.setItem(ACTIVE_SESSION_KEY, NEW_TASK_SESSION_VALUE);
@@ -330,9 +347,11 @@ export function AgentWorkspace() {
       window.removeEventListener("careeradapt-agent-new-task", newTask);
       window.removeEventListener("careeradapt-agent-history-open", openHistory);
     };
-  }, [createSessionWithCurrentContext, host.state, host.store, restoreSession, sessions]);
+  }, [createSessionWithCurrentContext, host.store, restoreSession]);
 
   async function dispatchMessage(text: string) {
+    userInteractedRef.current = true;
+    restoreRequestRef.current += 1;
     setLastUserMessage(text);
     window.localStorage.setItem(ACTIVE_SESSION_KEY, session.id);
     const result = await host.state.dispatch(
@@ -368,6 +387,8 @@ export function AgentWorkspace() {
   }
 
   function dispatchQuickAction(actionId: AgentQuickActionId) {
+    userInteractedRef.current = true;
+    restoreRequestRef.current += 1;
     const intent = createQuickActionIntent(actionId);
     setLastUserMessage(intent.intent);
     void host.state.dispatch(

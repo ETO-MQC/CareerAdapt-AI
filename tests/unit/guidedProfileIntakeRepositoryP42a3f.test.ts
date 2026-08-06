@@ -329,6 +329,64 @@ describe("P4.2a.3f profile commit and General Resume bootstrap", () => {
     ]));
   });
 
+  it("applies a corrected award name without requiring the replacement text in the source quote", async () => {
+    const repository = createRepository();
+    const profile = emptyProfile("profile-award-label-edit", "小明");
+    await repository.saveProfile(profile);
+    const raw = "我获得蓝桥杯河南省Python A组省级三等奖。";
+    const service = new BrowserAgentToolService(repository, new ProfileIntakeSemanticService(async (input) => ({
+      ok: true,
+      data: {
+        candidates: [{
+          candidateKey: "award-label-fixture",
+          sectionType: "awards" as const,
+          name: "蓝桥杯河南省Python A组省级三等奖",
+          current: false,
+          description: "参加竞赛并获得省级三等奖。",
+          highlights: [],
+          tools: [],
+          methods: [],
+          outcomes: [],
+          sourceQuote: input.rawNarrative,
+          confidence: 0.9,
+          needsConfirmation: false,
+          fieldEvidence: [
+            { field: "name", sourceQuote: input.rawNarrative, support: "explicit" as const, confidence: 0.9, needsConfirmation: false },
+            { field: "description", sourceQuote: input.rawNarrative, support: "derived" as const, confidence: 0.9, needsConfirmation: false }
+          ]
+        }]
+      }
+    })));
+    const captured = await service.captureProfileIntake({
+      sessionId: "session-award-label-edit",
+      messageId: "message-award-label-edit",
+      turnId: "turn-award-label-edit",
+      text: raw,
+      capturedAt: "2026-07-30T10:00:00.000Z",
+      targetProfileId: profile.id,
+      expectedProfileVersion: profile.version
+    });
+    const candidateId = captured.candidates[0]?.id;
+    expect(candidateId).toBeTruthy();
+
+    const reviewed = await service.reviewProfileIntake({
+      importId: captured.importId,
+      expectedDraftRevision: captured.expectedDraftRevision,
+      candidateId,
+      decision: "accept",
+      editedLabel: "蓝桥杯竞赛河南省PythonA组省级三等奖"
+    });
+
+    expect(reviewed.editedLabel).toBe("蓝桥杯竞赛河南省PythonA组省级三等奖");
+    expect(reviewed.structuredItem).toMatchObject({
+      sectionType: "awards",
+      name: "蓝桥杯竞赛河南省PythonA组省级三等奖"
+    });
+    const draft = await repository.getImportedResumeDraft(captured.importId);
+    expect(draft?.sections.flatMap((section) => section.items).find((item) => item.id === candidateId)?.structuredItem)
+      .toMatchObject({ name: "蓝桥杯竞赛河南省PythonA组省级三等奖" });
+  });
+
   it("adds a completely new follow-up experience to the same Intake Draft", async () => {
     const repository = createRepository();
     const profile = emptyProfile("profile-additive-follow-up", "林澄");

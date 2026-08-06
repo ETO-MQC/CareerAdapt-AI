@@ -129,7 +129,8 @@
 .ai-asset-content .profile-workspace {
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   padding-bottom: 0;
 }
 
@@ -138,8 +139,8 @@
 }
 
 .ai-asset-content .profile-workspace > .profile-manager-grid {
-  flex: 1 1 auto;
-  height: auto;
+  flex: 0 0 calc(100% - 108px);
+  height: calc(100% - 108px);
   margin-bottom: 0;
 }
 
@@ -440,7 +441,7 @@
 }
 
 .ai-asset-content .profile-detail-panel > .section-heading {
-  background: var(--ai-surface);
+  background: #FBFCFB;
   flex: 0 0 auto;
   margin-top: 0;
   padding-bottom: 8px;
@@ -652,16 +653,16 @@
 }
 
 .profile-workspace .profile-category-button {
-  align-items: start;
+  align-items: center;
   display: grid;
   gap: 4px;
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) auto;
   height: auto;
   min-height: 56px;
 }
 
 .profile-workspace .profile-category-button b {
-  justify-self: start;
+  justify-self: end;
 }
 
 @media (max-width: 1180px) {

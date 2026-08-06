@@ -1001,6 +1001,86 @@ describe("P4.2a.3b canonical task runtime", () => {
     expect(result?.messages.filter((message) => message.role === "user")).toHaveLength(0);
   });
 
+  it("forwards a profile intake label edit without turning it into an evidence patch", async () => {
+    const base = AgentRuntime.create("guided_profile_intake", "review_facts");
+    const reducer = new AgentTaskStateReducer();
+    const taskState = AgentTaskStateSchema.parse({
+      ...reducer.create(base, "profile_intake"),
+      stage: "review_facts",
+      completionStatus: "waiting_for_user",
+      knownSlots: {
+        intakeImportId: "intake-award-edit",
+        expectedIntakeDraftRevision: 2,
+        intakeCandidates: [{
+          id: "candidate-award",
+          sectionType: "awards",
+          sourceQuote: "获得蓝桥杯竞赛河南省 Python A 组省级三等奖。",
+          needsConfirmation: true
+        }],
+        latestIntakeSource: {
+          sessionId: "session-award-edit",
+          messageId: "message-award-edit",
+          turnId: "turn-award-edit",
+          capturedAt: new Date().toISOString()
+        }
+      }
+    });
+    const session: AgentSession = { ...base, taskState };
+    const execute = vi.fn(async (input: { toolInput?: Record<string, unknown> }) => {
+      void input;
+      return {
+        ok: true,
+        operationId: "artifact-action-award-edit",
+        toolName: "review_profile_intake",
+        data: {
+          importId: "intake-award-edit",
+          expectedDraftRevision: 3,
+          candidateId: "candidate-award",
+          decision: "accept",
+          editedLabel: "蓝桥杯竞赛河南省PythonA组省级三等奖",
+          unresolvedCount: 0
+        },
+        artifactIds: [],
+        completedAt: new Date().toISOString()
+      };
+    });
+    const save = vi.fn(async (value: AgentSession) => value);
+    const host = new AgentHostStore({
+      kernel: {} as never,
+      executor: { execute } as never,
+      persistence: { save } as never
+    });
+    host.adopt(session);
+
+    await host.dispatch({
+      type: "artifact_action",
+      action: {
+        type: "profile_intake_candidate_edit",
+        importId: "intake-award-edit",
+        expectedDraftRevision: 2,
+        candidateId: "candidate-award",
+        editedLabel: "蓝桥杯竞赛河南省PythonA组省级三等奖",
+        decision: "accept"
+      }
+    }, {
+      pageContext: { pathname: "/ai-workspace", query: {} }
+    });
+
+    expect(execute).toHaveBeenCalledTimes(1);
+    expect(execute).toHaveBeenCalledWith(expect.objectContaining({
+      toolName: "review_profile_intake",
+      toolInput: expect.objectContaining({
+        importId: "intake-award-edit",
+        expectedDraftRevision: 2,
+        candidateId: "candidate-award",
+        decision: "accept",
+        editedLabel: "蓝桥杯竞赛河南省PythonA组省级三等奖"
+      })
+    }));
+    const toolInput = execute.mock.calls[0]?.[0]?.toolInput;
+    expect(toolInput).not.toHaveProperty("structuredPatch");
+  });
+
   it("updates the current profile intake assistant row after accepting a candidate", async () => {
     const now = new Date().toISOString();
     const base = AgentRuntime.create("guided_profile_intake", "review_facts");

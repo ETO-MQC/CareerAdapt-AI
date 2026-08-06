@@ -1552,12 +1552,16 @@ function renameStructuredItem<T extends { sectionType: string } | undefined>(
   label: string
 ): T {
   if (!item) return item;
-  if (item.sectionType === "project" || item.sectionType === "research") {
+  if (item.sectionType === "education") {
+    return { ...item, school: label } as T;
+  }
+  if (["project", "research", "publications", "patents", "portfolio", "other", "custom"].includes(item.sectionType)) {
     return { ...item, title: label } as T;
   }
-  if (item.sectionType === "awards" || item.sectionType === "certificates") {
+  if (["awards", "certificates", "skills"].includes(item.sectionType)) {
     return { ...item, name: label } as T;
   }
+  if (item.sectionType === "languages") return { ...item, language: label } as T;
   return item;
 }
 

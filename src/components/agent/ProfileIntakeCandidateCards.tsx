@@ -7,7 +7,7 @@ import type { ProfileIntakeReviewCandidate, ProfileIntakeReviewProjection } from
 import type { ProfileIntakeStructuredPatch } from "@/domain/profileIntake/ProfileIntakeNormalizer";
 
 const EDITABLE_FIELDS = [
-  "school", "degree", "major", "title", "name", "organization", "institution", "role", "startDate", "endDate"
+  "school", "degree", "major", "title", "name", "language", "organization", "institution", "role", "startDate", "endDate"
 ] as const;
 
 export function ProfileIntakeCandidateCards({
@@ -140,7 +140,8 @@ export function ProfileIntakeCandidateCard({
 }) {
   const item = asRecord(candidate.structuredItem);
   const [editing, setEditing] = useState(false);
-  const fields = useMemo(() => EDITABLE_FIELDS.filter((field) => field in item || field === (candidate.sectionType === "education" ? "school" : "title")), [candidate.sectionType, item]);
+  const labelField = candidateLabelField(candidate.sectionType);
+  const fields = useMemo(() => EDITABLE_FIELDS.filter((field) => field in item || field === labelField), [item, labelField]);
   const [draft, setDraft] = useState<Record<string, string>>(() =>
     Object.fromEntries(fields.map((field) => [field, String(item[field] ?? "")]))
   );
@@ -153,10 +154,11 @@ export function ProfileIntakeCandidateCard({
 
   const saveEdit = async (event: React.FormEvent) => {
     event.preventDefault();
+    const editedLabel = labelField ? draft[labelField]?.trim() : undefined;
     const fieldPatch = Object.fromEntries(
-      Object.entries(draft).filter(([, value]) => value.trim())
+      Object.entries(draft).filter(([field, value]) => field !== labelField && value.trim())
     ) as ProfileIntakeStructuredPatch;
-    if (!Object.keys(fieldPatch).length || saving) return;
+    if ((!editedLabel && !Object.keys(fieldPatch).length) || saving) return;
     setSaving(true);
     setError(undefined);
     try {
@@ -165,7 +167,8 @@ export function ProfileIntakeCandidateCard({
         importId: projection.importId,
         expectedDraftRevision: projection.draftRevision,
         candidateId: candidate.id,
-        fieldPatch,
+        editedLabel,
+        fieldPatch: Object.keys(fieldPatch).length ? fieldPatch : undefined,
         decision: "accept"
       });
       if (artifactActionFailed(result)) {
@@ -276,10 +279,19 @@ export function ProfileIntakeCandidateCard({
   );
 }
 
+function candidateLabelField(sectionType: string) {
+  if (sectionType === "education") return "school";
+  if (["awards", "certificates", "skills"].includes(sectionType)) return "name";
+  if (sectionType === "languages") return "language";
+  if (["project", "research", "publications", "patents", "portfolio", "other", "custom"].includes(sectionType)) return "title";
+  return undefined;
+}
+
 function candidateLabel(candidate: ProfileIntakeReviewCandidate) {
   const item = asRecord(candidate.structuredItem);
   if (candidate.status === "failed") return "这段回答";
   if (candidate.sectionType === "education") return [item.school, item.degree, item.major].filter(Boolean).join(" / ") || "教育经历";
+  if (candidate.sectionType === "languages") return String(item.language ?? "语言候选");
   return String(item.title ?? item.name ?? item.organization ?? item.role ?? `${sectionTypeLabel(candidate.sectionType)}候选`);
 }
 
@@ -300,7 +312,7 @@ function receiptLabel(candidate: ProfileIntakeReviewCandidate) {
 }
 
 function typedFields(item: Record<string, unknown>) {
-  const fields = ["school", "degree", "major", "organization", "role", "title", "name", "startDate", "endDate", "current", "tools", "methods", "outcomes"];
+  const fields = ["school", "degree", "major", "organization", "role", "title", "name", "language", "startDate", "endDate", "current", "tools", "methods", "outcomes"];
   return fields.flatMap((field) => {
     const value = item[field];
     if (Array.isArray(value) && value.length) return [[fieldLabel(field), value.join("、")] as [string, string]];
@@ -311,7 +323,7 @@ function typedFields(item: Record<string, unknown>) {
 }
 
 function fieldLabel(field: string) {
-  return ({ school: "学校", degree: "学位", major: "专业", title: "标题", name: "名称", organization: "组织", institution: "机构", role: "角色", startDate: "开始时间", endDate: "结束时间", current: "状态", tools: "工具", methods: "方法", outcomes: "成果" } as Record<string, string>)[field] ?? field;
+  return ({ school: "学校", degree: "学位", major: "专业", title: "标题", name: "名称", language: "语言", organization: "组织", institution: "机构", role: "角色", startDate: "开始时间", endDate: "结束时间", current: "状态", tools: "工具", methods: "方法", outcomes: "成果" } as Record<string, string>)[field] ?? field;
 }
 
 function sectionTypeLabel(value: string) {

@@ -109,8 +109,11 @@ export function AgentSidebar() {
 
   const openSession = (sessionId: string) => {
     window.localStorage.setItem(ACTIVE_SESSION_KEY, sessionId);
-    router.push("/ai-workspace");
-    window.dispatchEvent(new CustomEvent("careeradapt-agent-session-select", { detail: { sessionId } }));
+    if (pathname === "/ai-workspace") {
+      window.dispatchEvent(new CustomEvent("careeradapt-agent-session-select", { detail: { sessionId } }));
+    } else {
+      router.push("/ai-workspace");
+    }
   };
 
   return (

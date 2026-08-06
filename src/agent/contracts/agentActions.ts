@@ -72,11 +72,20 @@ export const AgentArtifactActionSchema = z.discriminatedUnion("type", [
     importId: z.string().min(1),
     expectedDraftRevision: z.number().int().min(0),
     candidateId: z.string().min(1),
-    fieldPatch: ProfileIntakeStructuredPatchSchema.refine((patch) => Object.keys(patch).length > 0, {
-      message: "profile intake candidate edit requires at least one field"
-    }),
+    editedLabel: z.string().trim().min(1).max(240).optional(),
+    fieldPatch: ProfileIntakeStructuredPatchSchema.optional(),
     decision: z.literal("accept")
-  }).strict(),
+  }).strict().superRefine((action, context) => {
+    const hasLabel = Boolean(action.editedLabel?.trim());
+    const hasFields = Boolean(action.fieldPatch && Object.keys(action.fieldPatch).length);
+    if (!hasLabel && !hasFields) {
+      context.addIssue({
+        code: "custom",
+        path: ["fieldPatch"],
+        message: "profile intake candidate edit requires a label or at least one field"
+      });
+    }
+  }),
   z.object({
     type: z.literal("profile_intake_retry_extraction"),
     importId: z.string().min(1),

@@ -23,8 +23,29 @@
 .agent-workspace-topbar-heading {
   align-items: center;
   display: flex;
+  flex: 1 1 auto;
   gap: 10px;
   min-width: 0;
+}
+
+.agent-workspace-topbar-heading > .career-context-selector {
+  flex: 0 1 auto;
+  margin-left: auto;
+  padding-left: 16px;
+}
+
+.agent-workspace-topbar .career-context-trigger {
+  font-size: 12px;
+  min-height: 44px;
+  padding: 6px 12px;
+}
+
+.agent-workspace-topbar .career-context-trigger strong {
+  font-size: 12px;
+}
+
+.agent-workspace-topbar .career-context-trigger small {
+  font-size: 10px;
 }
 
 .agent-workspace-topbar-heading > strong {

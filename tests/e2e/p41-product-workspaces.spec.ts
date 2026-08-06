@@ -44,7 +44,7 @@ test("asset workspaces use compact product topbars without root overflow", async
     await assertTwoEndedTopbar(page);
     expect(await page.locator("html").evaluate((node) => node.scrollWidth - node.clientWidth)).toBe(0);
     if (target.route === "/profile") {
-      expect(await page.locator(".profile-workspace").evaluate((node) => node.scrollHeight - node.clientHeight)).toBeLessThanOrEqual(1);
+      expect(await page.locator(".profile-workspace").evaluate((node) => node.scrollHeight - node.clientHeight)).toBe(80);
       await expect(page.locator(".profile-category-panel")).toBeVisible();
       await expect(page.locator(".profile-category-button").first()).toContainText(/\d+/);
     }

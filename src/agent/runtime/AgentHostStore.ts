@@ -236,14 +236,25 @@ export class AgentHostStore {
   adopt(session: AgentSession) {
     const migrated = migrateAgentSessionToCurrentSchema(session);
     const liveExecution = this.executionCoordinator.get(session.id);
-    const recoveredThinking = enforceExactlyOneFinal(liveExecution?.promise ? migrated : recoverOrphanedThinking(migrated));
+    // An execution record is created before async preflight starts. During that
+    // window its promise has not been attached yet, so checking only `promise`
+    // incorrectly treats a live turn as an orphan when the user switches tasks
+    // and comes back. Keep the persisted running shell intact while the
+    // session-scoped execution is still active.
+    const hasLiveExecution = Boolean(liveExecution?.promise) || liveExecution?.status === "running";
+    const recoveredThinking = enforceExactlyOneFinal(hasLiveExecution ? migrated : recoverOrphanedThinking(migrated));
     const { session: recoverable, pendingInputs } = recoverPersistedQueuedInputs(recoveredThinking);
     if (pendingInputs.length) this.pendingInputs.set(recoverable.id, pendingInputs);
     const restorable = recoverable.taskState
       ? attachTaskStateOptions(recoverable, recoverable.taskState)
       : recoverable;
     const withRestorePrompt = appendIntakeRestorePrompt(restorable);
-    if (JSON.stringify(withRestorePrompt) !== JSON.stringify(session)) void this.dependencies.persistence.save(withRestorePrompt);
+    // A live execution owns the latest session state. Do not write a stale
+    // restore/migration projection back over it while the user is switching
+    // tasks; the running turn will persist its authoritative result.
+    if (!hasLiveExecution && JSON.stringify(withRestorePrompt) !== JSON.stringify(session)) {
+      void this.dependencies.persistence.save(withRestorePrompt);
+    }
     const execution = this.executionCoordinator.get(withRestorePrompt.id);
     this.patch({
       activeSessionId: withRestorePrompt.id,
@@ -1989,6 +2000,21 @@ export class AgentHostStore {
     };
     // Publish the local turn shell before any async preflight so the conversation
     // can show the user's message and the assistant's running state immediately.
+    this.patchSession(current, {
+      turnStatus: "running",
+      activeTurnId: turnId,
+      startedAt: now,
+      lastProgressAt: now,
+      stalled: false,
+      streamEvents: [],
+      currentObservation: undefined
+    });
+    // Persist the conversation shell before any async preflight (notably the
+    // guided profile-intake capture). A route/task switch can unmount the
+    // workspace and restore from storage while this turn is still running.
+    // Without this checkpoint, the latest user message and thinking message
+    // exist only in memory and cannot be restored from another task view.
+    current = await this.dependencies.persistence.save(current);
     this.patchSession(current, {
       turnStatus: "running",
       activeTurnId: turnId,
@@ -5231,7 +5257,10 @@ function artifactActionOperationId(session: AgentSession, action: AgentArtifactA
   const editedValueHash = action.type === "tailoring_diff_decision" && action.editedValue !== undefined
     ? stableHashText(JSON.stringify(action.editedValue))
     : action.type === "profile_intake_candidate_edit"
-      ? stableHashText(JSON.stringify(action.fieldPatch))
+      ? stableHashText(JSON.stringify({
+          editedLabel: action.editedLabel ?? null,
+          fieldPatch: action.fieldPatch ?? null
+        }))
       : action.type === "profile_intake_extraction_recovery"
         ? stableHashText(action.decision)
     : "none";
@@ -5411,7 +5440,8 @@ function artifactActionExecution(
         expectedDraftRevision: action.expectedDraftRevision,
         candidateId: action.candidateId,
         decision: "accept",
-        structuredPatch: action.fieldPatch,
+        ...(action.editedLabel ? { editedLabel: action.editedLabel } : {}),
+        ...(action.fieldPatch ? { structuredPatch: action.fieldPatch } : {}),
         evidence: {
           sessionId: source.sessionId,
           messageId: source.messageId,

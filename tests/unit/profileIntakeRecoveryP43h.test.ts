@@ -222,6 +222,52 @@ describe("P4.3h Profile Intake host boundaries", () => {
     }));
   });
 
+  it("persists the running shell and keeps it live when restored before capture resolves", async () => {
+    const { persistence } = persistenceHarness();
+    let resolveCapture!: (value: ReturnType<typeof result>) => void;
+    let signalCaptureStarted!: () => void;
+    let captureInput: Record<string, unknown> | undefined;
+    const captureStarted = new Promise<void>((resolve) => { signalCaptureStarted = resolve; });
+    const captureResult = new Promise<ReturnType<typeof result>>((resolve) => { resolveCapture = resolve; });
+    const execute = vi.fn(async ({ toolName, toolInput }: { toolName: string; toolInput: Record<string, unknown> }) => {
+      if (toolName !== "capture_profile_intake") throw new Error(`unexpected:${toolName}`);
+      captureInput = toolInput;
+      signalCaptureStarted();
+      return captureResult;
+    });
+    const host = new AgentHostStore({
+      kernel: { runTurn: vi.fn() } as never,
+      executor: { execute } as never,
+      persistence: persistence as never
+    });
+
+    const pending = host.startTurn({
+      session: intakeSession(),
+      userMessage: "我协助完成一个项目。",
+      pageContext: { pathname: "/ai-workspace", query: {} }
+    });
+    await captureStarted;
+
+    const persistedShell = [...persistence.save.mock.calls]
+      .map(([session]) => session)
+      .find((session) => session.messages.some((message) => message.content === "我协助完成一个项目。"));
+    expect(persistedShell).toBeDefined();
+    expect(persistedShell?.messages.some((message) => message.kind === "assistant_thinking")).toBe(true);
+
+    host.adopt(persistedShell!);
+    const restored = host.getSnapshot().activeSession;
+    expect(restored?.activeTurn?.status).toBe("running");
+    expect(restored?.messages.some((message) => message.content === "我协助完成一个项目。")).toBe(true);
+    expect(restored?.messages.some((message) => message.kind === "assistant_thinking")).toBe(true);
+
+    resolveCapture(result(
+      "capture_profile_intake",
+      captureData(String(captureInput?.messageId), String(captureInput?.turnId))
+    ));
+    const finished = await pending;
+    expect(finished?.messages.at(-1)?.content).toContain("核对卡片");
+  });
+
   it("re-executes a failed step from its checkpoint without a manual retry phrase or shadow branch", async () => {
     const { persistence, sourceTurns } = persistenceHarness();
     let failed = true;
