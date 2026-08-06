@@ -90,6 +90,7 @@ test.describe("P4.3f conversational experience intake V2", () => {
       knownSlots: { profileIntakeReviewProjection: { reviewProgress: { accepted: 1 } } }
     });
     await expect(page.locator(`.profile-intake-candidate-card[data-candidate-id="${educationCandidateId}"]`)).toHaveCount(0);
+    await page.getByRole("button", { name: /经历候选/ }).click();
     await expect(page.locator(".profile-intake-compact-receipt")).toContainText("✓ 已记录教育经历：示例大学 · 本科 · 计算机科学");
     await expect(page.getByRole("button", { name: "重新打开", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: /产物 [0-9]+/ })).toBeVisible();

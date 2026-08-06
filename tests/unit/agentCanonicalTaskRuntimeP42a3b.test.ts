@@ -624,6 +624,51 @@ describe("P4.2a.3b canonical task runtime", () => {
     });
   });
 
+  it("does not append another profile intake restore prompt when its token changes", () => {
+    const now = new Date().toISOString();
+    const base = AgentRuntime.create("guided_profile_intake", "collect_experience");
+    const reducer = new AgentTaskStateReducer();
+    const taskState = AgentTaskStateSchema.parse({
+      ...reducer.create(base, "profile_intake"),
+      stage: "collect_experience",
+      completionStatus: "waiting_for_user",
+      knownSlots: {
+        intakeSession: {
+          resumeToken: "new-token",
+          lastCompletedSection: "education"
+        }
+      }
+    });
+    const session: AgentSession = {
+      ...base,
+      taskState,
+      messages: [{
+        id: "restore-prompt-existing",
+        role: "assistant",
+        content: "上次已整理到教育背景，要继续吗？",
+        kind: "text",
+        type: "text",
+        status: "complete",
+        metadata: { intakeRestorePrompt: true, intakeRestoreToken: "old-token" },
+        createdAt: now
+      }]
+    };
+    const save = vi.fn(async (value: AgentSession) => value);
+    const host = new AgentHostStore({
+      kernel: {} as never,
+      executor: {} as never,
+      persistence: { save } as never
+    });
+
+    host.adopt(session);
+
+    expect(host.getSnapshot().activeSession?.messages.filter((message) => message.metadata?.intakeRestorePrompt === true))
+      .toHaveLength(1);
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(save.mock.calls[0]?.[0].messages.filter((message) => message.metadata?.intakeRestorePrompt === true))
+      .toHaveLength(1);
+  });
+
   it("executes a persisted confirmation exactly once when confirm is double-clicked", async () => {
     const now = new Date().toISOString();
     const base = AgentRuntime.create("tailor_existing_resume", "confirm_apply");
@@ -953,6 +998,89 @@ describe("P4.2a.3b canonical task runtime", () => {
       }
     }));
     expect(resumeTurn).not.toHaveBeenCalled();
+    expect(result?.messages.filter((message) => message.role === "user")).toHaveLength(0);
+  });
+
+  it("updates the current profile intake assistant row after accepting a candidate", async () => {
+    const now = new Date().toISOString();
+    const base = AgentRuntime.create("guided_profile_intake", "review_facts");
+    const reducer = new AgentTaskStateReducer();
+    const taskState = AgentTaskStateSchema.parse({
+      ...reducer.create(base, "profile_intake"),
+      stage: "review_facts",
+      completionStatus: "waiting_for_user",
+      knownSlots: {
+        intakeImportId: "intake-review-update-row",
+        expectedIntakeDraftRevision: 2,
+        intakeCandidates: [{
+          id: "candidate-education",
+          label: "郑州大学",
+          sectionType: "education",
+          needsConfirmation: true
+        }]
+      }
+    });
+    const session: AgentSession = {
+      ...base,
+      taskState,
+      messages: [{
+        id: "assistant-profile-intake-current",
+        turnId: "turn-profile-intake-current",
+        role: "assistant",
+        content: "我已把这段回答记录并生成经历核对卡片，请先核对卡片中的事实。",
+        kind: "text",
+        type: "text",
+        status: "complete",
+        createdAt: now
+      }],
+      activeTurn: {
+        id: "turn-profile-intake-current",
+        sessionId: base.id,
+        status: "waiting_for_user",
+        startedAt: now
+      }
+    };
+    const execute = vi.fn(async () => ({
+      ok: true,
+      operationId: "artifact-action-profile-update-row",
+      toolName: "review_profile_intake",
+      data: {
+        importId: "intake-review-update-row",
+        expectedDraftRevision: 3,
+        candidateId: "candidate-education",
+        decision: "accept",
+        unresolvedCount: 0
+      },
+      artifactIds: [],
+      completedAt: now
+    }));
+    const save = vi.fn(async (value: AgentSession) => value);
+    const host = new AgentHostStore({
+      kernel: {} as never,
+      executor: { execute } as never,
+      persistence: { save } as never
+    });
+    host.adopt(session);
+
+    const result = await host.dispatch({
+      type: "artifact_action",
+      action: {
+        type: "profile_intake_candidate_decision",
+        candidateId: "candidate-education",
+        decision: "accept"
+      }
+    }, {
+      pageContext: { pathname: "/ai-workspace", query: {} }
+    });
+
+    const assistantMessages = result?.messages.filter((message) => message.role === "assistant") ?? [];
+    expect(assistantMessages).toHaveLength(1);
+    expect(assistantMessages[0]).toMatchObject({
+      id: "assistant-profile-intake-current",
+      turnId: expect.stringMatching(/^agent-turn-/),
+      metadata: { profileIntakeContinuation: true }
+    });
+    expect(assistantMessages[0]?.content).not.toContain("我已把这段回答记录并生成经历核对卡片");
     expect(result?.messages.filter((message) => message.role === "user")).toHaveLength(0);
   });
 

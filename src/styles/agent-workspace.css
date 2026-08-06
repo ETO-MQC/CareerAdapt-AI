@@ -375,12 +375,40 @@
   justify-content: space-between;
 }
 
-.profile-intake-inline-review-header > div {
+.profile-intake-inline-review-toggle {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: var(--ai-text);
+  cursor: pointer;
+  display: flex;
+  flex: 1 1 auto;
+  font: inherit;
+  gap: 7px;
+  min-width: 0;
+  padding: 0;
+  text-align: left;
+  touch-action: manipulation;
+}
+
+.profile-intake-inline-review-toggle:hover,
+.profile-intake-inline-review-toggle:focus-visible {
+  color: var(--ai-accent);
+}
+
+.profile-intake-inline-review-toggle:focus-visible {
+  border-radius: 5px;
+  outline: 2px solid color-mix(in srgb, var(--ai-accent) 45%, transparent);
+  outline-offset: 3px;
+}
+
+.profile-intake-inline-review-toggle-copy {
   align-items: baseline;
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   min-width: 0;
+  flex: 1 1 auto;
 }
 
 .profile-intake-inline-review-header strong {
@@ -388,12 +416,32 @@
   font-size: 13px;
 }
 
-.profile-intake-inline-review-header span {
+.profile-intake-inline-review-count {
   color: var(--ai-muted);
   font-size: 11px;
 }
 
-.profile-intake-inline-review-header button,
+.profile-intake-provider-status {
+  color: var(--ai-warning, #b7791f);
+  font-size: 11px;
+}
+
+.profile-intake-inline-review-chevron {
+  align-self: center;
+  color: var(--ai-muted);
+  display: block;
+  flex: 0 0 auto;
+  height: 14px;
+  margin-left: 1px;
+  transition: transform 160ms ease;
+  width: 14px;
+}
+
+.profile-intake-inline-review-toggle[aria-expanded="true"] .profile-intake-inline-review-chevron {
+  transform: rotate(180deg);
+}
+
+.profile-intake-inline-review-header > button:not(.profile-intake-inline-review-toggle),
 .profile-intake-candidate-actions button {
   background: transparent;
   border: 1px solid var(--ai-border);
@@ -407,8 +455,8 @@
   touch-action: manipulation;
 }
 
-.profile-intake-inline-review-header button:hover,
-.profile-intake-inline-review-header button:focus-visible,
+.profile-intake-inline-review-header > button:not(.profile-intake-inline-review-toggle):hover,
+.profile-intake-inline-review-header > button:not(.profile-intake-inline-review-toggle):focus-visible,
 .profile-intake-candidate-actions button:hover,
 .profile-intake-candidate-actions button:focus-visible {
   border-color: var(--ai-accent);
@@ -418,6 +466,11 @@
 .profile-intake-inline-review-list {
   display: grid;
   gap: 8px;
+}
+
+.profile-intake-inline-review-content {
+  display: grid;
+  gap: 10px;
 }
 
 .profile-intake-candidate-card {
@@ -535,6 +588,54 @@
 }
 
 .profile-intake-candidate-source small { color: var(--ai-muted); font-size: 10px; }
+
+.profile-intake-review-history {
+  border-top: 1px solid var(--ai-border);
+  display: grid;
+  gap: 5px;
+  padding-top: 8px;
+}
+
+.profile-intake-compact-receipt {
+  align-items: baseline;
+  color: var(--ai-text);
+  display: flex;
+  font-size: 12px;
+  gap: 12px;
+  line-height: 1.45;
+  min-width: 0;
+}
+
+.profile-intake-compact-receipt > span {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.profile-intake-compact-receipt button {
+  background: transparent;
+  border: 0;
+  color: var(--ai-muted);
+  cursor: pointer;
+  flex: 0 0 auto;
+  font: inherit;
+  font-size: 11px;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  touch-action: manipulation;
+}
+
+.profile-intake-compact-receipt button:hover,
+.profile-intake-compact-receipt button:focus-visible {
+  color: var(--ai-accent);
+}
+
+.profile-intake-compact-receipt button:focus-visible {
+  border-radius: 3px;
+  outline: 2px solid color-mix(in srgb, var(--ai-accent) 45%, transparent);
+  outline-offset: 2px;
+}
 
 .profile-intake-candidate-actions {
   display: flex;

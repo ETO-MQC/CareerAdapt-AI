@@ -56,9 +56,9 @@ export function AgentConversation({
   onArtifactAction?(action: AgentArtifactAction): Promise<unknown> | void;
   children?: React.ReactNode;
 }) {
-  const visibleMessages = messages.filter((message) =>
+  const visibleMessages = dedupeProfileIntakeMessages(messages.filter((message) =>
     message.role !== "system" && message.metadata?.retracted !== true
-  );
+  ));
   const conversationItems = groupConversationItems(visibleMessages);
   const confirmationMessageId = confirmation
     ? [...visibleMessages].reverse().find((message) =>
@@ -211,7 +211,7 @@ function AgentActivityGroup({ messages }: { messages: AgentMessage[] }) {
   const cheapContextDiscovery = messages.length > 0
     && messages.every((message) => ["get_active_profile", "list_resumes", "list_jobs"].includes(message.toolName ?? ""));
   return (
-    <details className={`agent-tool-status-row is-${running ? "running" : failed ? "failed" : "complete"}`} open={failed || undefined}>
+    <details className={`agent-tool-status-row is-${running ? "running" : failed ? "failed" : "complete"}`} open={running || failed || undefined}>
       <summary role="status">
         <span className="agent-tool-status-icon" aria-hidden="true">
           <LoaderCircle className={`is-running is-spinning${running ? " is-visible" : ""}`} />
@@ -778,6 +778,45 @@ function isStreamingMessage(message: AgentMessage) {
     || message.type === "assistant_streaming"
     || message.status === "thinking"
     || message.status === "streaming"
+  );
+}
+
+function dedupeProfileIntakeMessages(messages: AgentMessage[]) {
+  const latestContinuationByContent = new Map<string, AgentMessage>();
+  let latestRestorePrompt: AgentMessage | undefined;
+
+  for (const message of messages) {
+    if (message.role !== "assistant") continue;
+    if (message.metadata?.profileIntakeContinuation === true) {
+      latestContinuationByContent.set(message.content, message);
+    }
+    if (message.metadata?.intakeRestorePrompt === true) {
+      latestRestorePrompt = message;
+    }
+  }
+
+  const keepIds = new Set([
+    ...latestContinuationByContent.values(),
+    ...(latestRestorePrompt ? [latestRestorePrompt] : [])
+  ].map((message) => message.id));
+  const duplicateIds = new Set(
+    messages
+      .filter((message) =>
+        message.role === "assistant"
+        && (message.metadata?.profileIntakeContinuation === true || message.metadata?.intakeRestorePrompt === true)
+        && !keepIds.has(message.id)
+      )
+      .map((message) => message.id)
+  );
+  const duplicateTurnIds = new Set(
+    messages
+      .filter((message) => duplicateIds.has(message.id) && message.turnId)
+      .map((message) => message.turnId as string)
+  );
+
+  return messages.filter((message) =>
+    !duplicateIds.has(message.id)
+    && !(isActivityMessage(message) && message.turnId && duplicateTurnIds.has(message.turnId))
   );
 }
 

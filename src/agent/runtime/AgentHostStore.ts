@@ -1600,6 +1600,27 @@ export class AgentHostStore {
             regeneratedFromMessageId: input.regeneratedFromMessageId
           }
         });
+    current = {
+      ...current,
+      activeTurn: {
+        id: turnId,
+        sessionId: current.id,
+        userMessageId,
+        status: "running",
+        startedAt: now
+      }
+    };
+    // Publish the local turn shell before any async preflight so the conversation
+    // can show the user's message and the assistant's running state immediately.
+    this.patchSession(current, {
+      turnStatus: "running",
+      activeTurnId: turnId,
+      startedAt: now,
+      lastProgressAt: now,
+      stalled: false,
+      streamEvents: [],
+      currentObservation: undefined
+    });
     const reducer = new AgentTaskStateReducer();
     let kernelUserMessage = input.userMessage;
     const presentedQuestion = presentedActiveTailoringQuestion(input.session);
@@ -2458,15 +2479,12 @@ export class AgentHostStore {
       return finalized;
     }
     if (shouldNarrateProfileIntakeContinuation(session.taskState, action, taskState)) {
-      current = appendAgentMessage(current, "assistant", profileIntakeContinuationNarration(taskState), {
-        id: `agent-profile-intake-continuation-${operationId}`,
+      current = upsertProfileIntakeContinuation(
+        current,
+        profileIntakeContinuationNarration(taskState),
         turnId,
-        kind: "text",
-        type: "text",
-        status: "complete",
-        language: "zh",
-        metadata: { profileIntakeContinuation: true }
-      });
+        operationId,
+      );
     }
     // Artifact decisions can create a typed task decision without another
     // model turn (for example, accepting the last intake candidate). Keep
@@ -3593,7 +3611,12 @@ function appendIntakeRestorePrompt(session: AgentSession) {
   if (!state || state.workflowId !== "guided_profile_intake" || state.completionStatus === "completed") return session;
   const intakeSession = objectValue(state.knownSlots.intakeSession);
   const resumeToken = stringValue(intakeSession.resumeToken);
-  if (!resumeToken || session.messages.some((message) => message.metadata?.intakeRestoreToken === resumeToken)) return session;
+  if (
+    !resumeToken
+    || session.messages.some((message) => message.metadata?.intakeRestorePrompt === true)
+  ) {
+    return session;
+  }
   const projection = ProfileIntakeReviewProjectionSchema.safeParse(state.knownSlots.profileIntakeReviewProjection);
   const section = stringValue(intakeSession.lastCompletedSection)
     ?? (projection.success
@@ -4221,6 +4244,45 @@ function shouldNarrateProfileIntakeContinuation(
   return (action.type === "profile_intake_candidate_decision" || action.type === "profile_intake_candidate_edit")
     && projection.data.reviewProgress.proposed === 0
     && projection.data.reviewProgress.uncertain === 0;
+}
+
+function upsertProfileIntakeContinuation(
+  session: AgentSession,
+  content: string,
+  turnId: string,
+  operationId: string,
+) {
+  const activeTurnAssistant = session.activeTurn?.id
+    ? session.messages.findLast((message) =>
+        message.role === "assistant"
+        && message.turnId === session.activeTurn?.id
+        && message.metadata?.intakeRestorePrompt !== true
+      )
+    : undefined;
+  const existingContinuation = activeTurnAssistant
+    ?? session.messages.findLast((message) =>
+      message.role === "assistant" && message.metadata?.profileIntakeContinuation === true
+    );
+
+  if (!existingContinuation) {
+    return appendAgentMessage(session, "assistant", content, {
+      id: `agent-profile-intake-continuation-${operationId}`,
+      turnId,
+      kind: "text",
+      type: "text",
+      status: "complete",
+      language: "zh",
+      metadata: { profileIntakeContinuation: true }
+    });
+  }
+
+  const replaced = replaceAgentThinking(session, existingContinuation.id, content, turnId);
+  return {
+    ...replaced,
+    messages: replaced.messages.map((message) => message.id === existingContinuation.id
+      ? { ...message, metadata: { ...message.metadata, profileIntakeContinuation: true } }
+      : message)
+  };
 }
 
 function profileIntakeContinuationNarration(taskState?: AgentTaskState) {

@@ -172,10 +172,17 @@ describe("AgentConversationTimeline", () => {
     expect(screen.getAllByText(/除了刚才展示/)).toHaveLength(1);
   });
 
-  it("places task progress above the avatar row and keeps running steps collapsed", () => {
+  it("places the user message above the AI row and expands running task progress", () => {
     render(
       <AgentConversationTimeline
         messages={[
+          {
+            id: "user-running",
+            turnId: "turn-running",
+            role: "user",
+            content: "请读取我的资料",
+            createdAt: "2026-07-24T00:00:00.000Z"
+          },
           {
             id: "tool-running",
             turnId: "turn-running",
@@ -199,11 +206,95 @@ describe("AgentConversationTimeline", () => {
       />
     );
 
+    const userRow = document.querySelector(".agent-message-row.is-user");
     const row = document.querySelector(".agent-message-row.is-assistant");
+    expect(userRow).not.toBeNull();
+    expect(row).not.toBeNull();
+    if (userRow && row) {
+      expect(userRow.compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    }
     expect(row?.firstElementChild).toHaveClass("agent-tool-status-row");
     expect(row?.children[1]).toHaveClass("agent-message-main");
-    expect(row?.querySelector<HTMLDetailsElement>(".agent-tool-status-row")?.open).toBe(false);
+    expect(row?.querySelector<HTMLDetailsElement>(".agent-tool-status-row")?.open).toBe(true);
     expect(row?.querySelector(".agent-tool-status-icon .is-running")).toHaveClass("is-visible");
+  });
+
+  it("does not show repeated profile-intake continuation or restore rows", () => {
+    const continuation = "教育背景已经记录并自动保存。\n\n接下来介绍一段实习经历吧。先说公司、你的角色和主要工作即可。";
+    render(
+      <AgentConversationTimeline
+        messages={[
+          {
+            id: "continuation-old",
+            turnId: "turn-continuation-old",
+            role: "assistant",
+            content: continuation,
+            kind: "text",
+            type: "text",
+            status: "complete",
+            metadata: { profileIntakeContinuation: true },
+            createdAt: "2026-07-24T00:00:01.000Z"
+          },
+          {
+            id: "tool-continuation-old",
+            turnId: "turn-continuation-old",
+            role: "tool",
+            content: "已完成经历核对",
+            kind: "tool_status",
+            type: "tool_status",
+            status: "complete",
+            metadata: { activityState: "complete" },
+            createdAt: "2026-07-24T00:00:01.000Z"
+          },
+          {
+            id: "continuation-new",
+            turnId: "turn-continuation-new",
+            role: "assistant",
+            content: continuation,
+            kind: "text",
+            type: "text",
+            status: "complete",
+            metadata: { profileIntakeContinuation: true },
+            createdAt: "2026-07-24T00:00:02.000Z"
+          },
+          {
+            id: "tool-continuation-new",
+            turnId: "turn-continuation-new",
+            role: "tool",
+            content: "已完成经历核对",
+            kind: "tool_status",
+            type: "tool_status",
+            status: "complete",
+            metadata: { activityState: "complete" },
+            createdAt: "2026-07-24T00:00:02.000Z"
+          },
+          {
+            id: "restore-old",
+            role: "assistant",
+            content: "上次已整理到教育背景，要继续吗？",
+            kind: "text",
+            type: "text",
+            status: "complete",
+            metadata: { intakeRestorePrompt: true, intakeRestoreToken: "old-token" },
+            createdAt: "2026-07-24T00:00:03.000Z"
+          },
+          {
+            id: "restore-new",
+            role: "assistant",
+            content: "上次已整理到教育背景，要继续吗？",
+            kind: "text",
+            type: "text",
+            status: "complete",
+            metadata: { intakeRestorePrompt: true, intakeRestoreToken: "new-token" },
+            createdAt: "2026-07-24T00:00:04.000Z"
+          }
+        ]}
+      />
+    );
+
+    expect(screen.getAllByText(/教育背景已经记录并自动保存/)).toHaveLength(1);
+    expect(screen.getAllByText("上次已整理到教育背景，要继续吗？")).toHaveLength(1);
+    expect(screen.getAllByText("已完成 1 个任务步骤")).toHaveLength(1);
   });
 
   it("shows failed tool details and the final error status together", () => {

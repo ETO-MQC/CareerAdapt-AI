@@ -1,5 +1,6 @@
 "use client";
 
+import { ChevronDown } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { AgentArtifactAction } from "@/agent/contracts/agentActions";
 import type { ProfileIntakeReviewCandidate, ProfileIntakeReviewProjection } from "@/domain/profileIntake/ProfileIntakeReviewProjection";
@@ -23,18 +24,29 @@ export function ProfileIntakeCandidateCards({
   const historyCandidates = candidates.filter((candidate) =>
     candidate.status === "accepted" || candidate.status === "ignored"
   );
+  const progress = projection?.reviewProgress;
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(activeCandidates.slice(0, 1).map((candidate) => candidate.id)));
   const [allExpanded, setAllExpanded] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(() => activeCandidates.length > 0);
   const allIds = activeCandidates.map((candidate) => candidate.id);
   const candidateSignature = allIds.join("\u0000");
+  const reviewSignature = `${candidateSignature}\u0000${progress?.reviewed ?? 0}\u0000${progress?.total ?? 0}`;
   const previousCandidateSignature = useRef("");
+  const previousReviewSignature = useRef("");
   useEffect(() => {
     if (!allIds.length || candidateSignature === previousCandidateSignature.current) return;
     previousCandidateSignature.current = candidateSignature;
     setExpanded(new Set(allIds.slice(0, 1)));
     setAllExpanded(false);
   }, [allIds, candidateSignature]);
+  const reviewNeedsAttention = Boolean(progress && progress.reviewed < progress.total);
+  useEffect(() => {
+    if (!projection || reviewSignature === previousReviewSignature.current) return;
+    previousReviewSignature.current = reviewSignature;
+    setReviewOpen(reviewNeedsAttention);
+  }, [projection, reviewNeedsAttention, reviewSignature]);
   if (!projection || (!activeCandidates.length && !historyCandidates.length)) return null;
+  const reviewProgress = projection.reviewProgress;
   const toggleAll = () => {
     setAllExpanded((current) => {
       const next = !current;
@@ -42,60 +54,71 @@ export function ProfileIntakeCandidateCards({
       return next;
     });
   };
-  const progress = projection.reviewProgress;
+  const reviewStatus = reviewNeedsAttention
+    ? projection.extractionStatus === "structured_local"
+      ? "本地规则已整理，AI 服务暂不可用，请核对"
+      : projection.extractionStatus === "failed"
+        ? "暂未生成可用候选，原文已保留"
+        : "部分字段需要核对"
+    : undefined;
   return (
     <section className="profile-intake-inline-review" aria-label="经历候选核对" aria-live="polite">
       <header className="profile-intake-inline-review-header">
-        <div>
-          <strong>经历候选</strong>
-          <span>{progress.total} 项 · 已核对 {progress.reviewed}/{progress.total}</span>
-          <small className="profile-intake-provider-status">
-            {projection.extractionStatus === "structured_local"
-              ? "本地规则已整理，AI 服务暂不可用，请核对"
-              : projection.extractionStatus === "structured_ai" || projection.extractionStatus === "structured"
-                ? "AI 已整理，请核对来源"
-                : projection.extractionStatus === "failed"
-                  ? "暂未生成可用候选，原文已保留"
-                  : "部分字段需要核对"}
-          </small>
-        </div>
-        {activeCandidates.length > 1 ? (
+        <button
+          type="button"
+          className="profile-intake-inline-review-toggle"
+          aria-expanded={reviewOpen}
+          aria-controls="profile-intake-review-content"
+          onClick={() => setReviewOpen((current) => !current)}
+        >
+          <span className="profile-intake-inline-review-toggle-copy">
+            <strong>经历候选</strong>
+            <span className="profile-intake-inline-review-count">{reviewProgress.total} 项 · 已核对 {reviewProgress.reviewed}/{reviewProgress.total}</span>
+            <ChevronDown className="profile-intake-inline-review-chevron" aria-hidden="true" />
+            {reviewStatus ? <small className="profile-intake-provider-status">{reviewStatus}</small> : null}
+          </span>
+        </button>
+        {reviewOpen && activeCandidates.length > 1 ? (
           <button type="button" onClick={toggleAll}>{allExpanded ? "收起全部" : "展开全部"}</button>
         ) : null}
       </header>
-      {projection.failedExtraction ? (
-        <p className="profile-intake-inline-review-failure" role="status">
-          {projection.failedExtraction.message}
-        </p>
-      ) : null}
-      <div className="profile-intake-inline-review-list">
-        {activeCandidates.map((candidate) => (
-          <ProfileIntakeCandidateCard
-            key={candidate.id}
-            candidate={candidate}
-            projection={projection}
-            open={expanded.has(candidate.id)}
-            onToggle={(open) => setExpanded((current) => {
-              const next = new Set(current);
-              if (open) next.add(candidate.id);
-              else next.delete(candidate.id);
-              return next;
-            })}
-            onAction={onAction}
-          />
-        ))}
-      </div>
-      {historyCandidates.length ? (
-        <div className="profile-intake-review-history" aria-label="已处理的经历">
-          {historyCandidates.map((candidate) => (
-            <div className="profile-intake-compact-receipt" key={candidate.id} data-candidate-id={candidate.id}>
-              <span>{candidate.status === "accepted" ? "✓" : "—"} {candidate.status === "accepted" ? acceptedReceipt(candidate) : ignoredReceipt(candidate)}</span>
-              <button
-                type="button"
-                onClick={() => onAction?.({ type: "profile_intake_candidate_decision", candidateId: candidate.id, decision: "reopen" })}
-              >重新打开</button>
+      {reviewOpen ? (
+        <div id="profile-intake-review-content" className="profile-intake-inline-review-content">
+          {projection.failedExtraction ? (
+            <p className="profile-intake-inline-review-failure" role="status">
+              {projection.failedExtraction.message}
+            </p>
+          ) : null}
+          <div className="profile-intake-inline-review-list">
+            {activeCandidates.map((candidate) => (
+              <ProfileIntakeCandidateCard
+                key={candidate.id}
+                candidate={candidate}
+                projection={projection}
+                open={expanded.has(candidate.id)}
+                onToggle={(open) => setExpanded((current) => {
+                  const next = new Set(current);
+                  if (open) next.add(candidate.id);
+                  else next.delete(candidate.id);
+                  return next;
+                })}
+                onAction={onAction}
+              />
+            ))}
+          </div>
+          {historyCandidates.length ? (
+            <div className="profile-intake-review-history" aria-label="已处理的经历">
+              {historyCandidates.map((candidate) => (
+                <div className="profile-intake-compact-receipt" key={candidate.id} data-candidate-id={candidate.id}>
+                  <span>{candidate.status === "accepted" ? "✓" : "—"} {candidate.status === "accepted" ? acceptedReceipt(candidate) : ignoredReceipt(candidate)}</span>
+                  <button
+                    type="button"
+                    onClick={() => onAction?.({ type: "profile_intake_candidate_decision", candidateId: candidate.id, decision: "reopen" })}
+                  >重新打开</button>
+                </div>
+              ))}
             </div>
-          ))}
+          ) : null}
         </div>
       ) : null}
     </section>

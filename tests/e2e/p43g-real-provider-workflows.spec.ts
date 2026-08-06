@@ -52,6 +52,7 @@ test.describe("P4.3g headed real-provider workflow journeys", () => {
     const candidateId = await card.getAttribute("data-candidate-id");
     await card.getByRole("button", { name: "采用", exact: true }).click();
     await expect(page.locator(`.profile-intake-candidate-card[data-candidate-id="${candidateId}"]`)).toHaveCount(0);
+    await page.getByRole("button", { name: /经历候选/ }).click();
     await expect(page.locator(".profile-intake-compact-receipt")).toContainText("✓ 已记录教育经历：郑州大学 · 本科 · 计算机科学与技术");
     await expect(page.locator(".agent-message-row.is-assistant").filter({ hasText: "教育背景已经记录并自动保存。" }).last()).toBeVisible();
     await expect(page.getByRole("button", { name: "换一个方向", exact: true })).toBeVisible();
@@ -59,6 +60,7 @@ test.describe("P4.3g headed real-provider workflow journeys", () => {
 
     await page.reload({ waitUntil: "networkidle" });
     await expect(page.locator(`.profile-intake-candidate-card[data-candidate-id="${candidateId}"]`)).toHaveCount(0);
+    await page.getByRole("button", { name: /经历候选/ }).click();
     await expect(page.getByRole("button", { name: "重新打开", exact: true })).toBeVisible();
     await recordArtifacts(page, telemetry, testInfo, "A");
   });

@@ -184,6 +184,53 @@ describe("P4.3b per-session input serialization", () => {
   });
 });
 
+describe("streaming turn publication", () => {
+  it("publishes the user and thinking messages before asynchronous turn setup resolves", async () => {
+    const base = session();
+    let releaseFirstSave: (() => void) | undefined;
+    let firstSave = true;
+    const save = vi.fn((value: AgentSession) => {
+      if (firstSave) {
+        return new Promise<AgentSession>((resolve) => {
+          releaseFirstSave = () => {
+            firstSave = false;
+            resolve(value);
+          };
+        });
+      }
+      return Promise.resolve(value);
+    });
+    const host = new AgentHostStore({
+      kernel: { runTurn: vi.fn(async () => completedResult(base.taskState!)) } as never,
+      executor: { execute: vi.fn() } as never,
+      persistence: { save } as never
+    });
+
+    const execution = host.startTurn({
+      session: base,
+      userMessage: "即时显示这条消息",
+      pageContext: PAGE_CONTEXT
+    });
+
+    await vi.waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    expect(host.getSnapshot()).toMatchObject({
+      turnStatus: "running",
+      activeSession: {
+        messages: expect.arrayContaining([
+          expect.objectContaining({ role: "user", content: "即时显示这条消息" }),
+          expect.objectContaining({ role: "assistant", content: "正在准备当前步骤", status: "thinking" })
+        ])
+      }
+    });
+    const messages = host.getSnapshot().activeSession?.messages ?? [];
+    expect(messages.findIndex((message) => message.role === "user" && message.content === "即时显示这条消息"))
+      .toBeLessThan(messages.findIndex((message) => message.role === "assistant" && message.content === "正在准备当前步骤"));
+
+    releaseFirstSave?.();
+    await execution;
+  });
+});
+
 describe("P4.3d authoritative answer writes", () => {
   it("executes at most one answer for one user turn and retains unmatched text", async () => {
     const base = session();
