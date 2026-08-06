@@ -34,9 +34,16 @@ import {
   writeResumeImportSemanticPreference
 } from "@/services/preferences/resumeImportAi";
 import { adaptResumeJsonToV2 } from "@/domain/resumeImport/jsonV2Adapter";
+import type { ActiveCareerContext } from "@/domain/schemas";
+import { CareerContextSelector } from "@/components/career/CareerContextSelector";
+import { notify } from "@/services/notifications/store";
 
 type ResumeSummary = { id: string; profileId: string; name: string; purpose: string; revision: number };
 type SessionComposerDrafts = Record<string, string>;
+type PendingContextRequest = {
+  context: ActiveCareerContext;
+  resolve: (allowed: boolean) => void;
+};
 
 const AGENT_COMPOSER_DRAFTS_KEY = "careerad-agent-composer-drafts:v1";
 const AGENT_ARTIFACT_STATE_KEY = "careerad-agent-artifact-state:v1";
@@ -64,12 +71,13 @@ export function AgentWorkspace() {
   });
   const [draftsBySession, setDraftsBySession] = useState<SessionComposerDrafts>(readSessionComposerDrafts);
   const draftsBySessionRef = useRef(draftsBySession);
+  const mountedRef = useRef(true);
   const [draftReferencesBySession, setDraftReferencesBySession] = useState<Record<string, AgentMessageReference | undefined>>({});
   const [lastUserMessage, setLastUserMessage] = useState("");
   const [floatingAction, setFloatingAction] = useState<AgentUiAction>();
   const [uploadFocusSignal, setUploadFocusSignal] = useState(0);
   const [pendingResumeImportFile, setPendingResumeImportFile] = useState<File>();
-  const initialSessionRef = useRef(session);
+  const [pendingContextRequest, setPendingContextRequest] = useState<PendingContextRequest>();
   const running = snapshot.turnStatus === "running";
   const paused = snapshot.turnStatus === "paused";
   const draft = draftsBySession[session.id] ?? "";
@@ -90,6 +98,11 @@ export function AgentWorkspace() {
   const updateDrawerState = useCallback((next: AgentArtifactDrawerState) => {
     setDrawerState(next);
     window.localStorage.setItem(AGENT_ARTIFACT_STATE_KEY, next);
+  }, []);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
   }, []);
 
   useEffect(() => {
@@ -131,6 +144,43 @@ export function AgentWorkspace() {
     query: {}
   }), [session.activeJobId, session.activeProfileId, session.activeResumeId]);
 
+  const taskHasUsedAssetsOrWrites = Boolean(
+    session.artifactRefs.length
+    || session.taskState?.attachment
+    || session.messages.some((message) => message.role === "tool" || message.metadata?.writeOperationId)
+    || session.activeTurn?.status === "running"
+  );
+
+  const handleBeforeContextSelect = useCallback(async (next: ActiveCareerContext) => {
+    if (!taskHasUsedAssetsOrWrites) {
+      if (session.personId !== next.personId || session.activeProfileId !== next.profileId) {
+        const rebound = await host.state.rebindSessionCareerContext(session.id, next, true);
+        setSession(rebound);
+      }
+      return true;
+    }
+    return new Promise<boolean>((resolve) => {
+      setPendingContextRequest({ context: next, resolve });
+    });
+  }, [host.state, session.activeProfileId, session.id, session.personId, taskHasUsedAssetsOrWrites]);
+
+  const resolvePendingContextRequest = useCallback(async (action: "new_task" | "switch" | "cancel") => {
+    const pending = pendingContextRequest;
+    if (!pending) return;
+    if (action === "new_task") {
+      const created = AgentRuntime.create("agent_quick_action", "collecting_intent", "新的 AI 任务", pending.context);
+      host.state.adopt(created);
+      setSession(created);
+      setDrawerState("closed");
+      window.localStorage.setItem(ACTIVE_SESSION_KEY, NEW_TASK_SESSION_VALUE);
+    } else if (action === "switch") {
+      const rebound = await host.state.rebindSessionCareerContext(session.id, pending.context, true);
+      setSession(rebound);
+    }
+    setPendingContextRequest(undefined);
+    pending.resolve(action !== "cancel");
+  }, [host.state, pendingContextRequest, session.id]);
+
   useEffect(() => host.state.subscribe(() => {
     const current = host.state.getSnapshot();
     if (current.activeSession) setSession(current.activeSession);
@@ -142,11 +192,58 @@ export function AgentWorkspace() {
     }
   }), [host.state, updateDrawerState]);
 
+  useEffect(() => {
+    const handleBackgroundCompletion = (event: Event) => {
+      const detail = (event as CustomEvent<{ sessionId?: string; title?: string; status?: string }>).detail;
+      if (!detail.sessionId || detail.sessionId === session.id) return;
+      notify({
+        type: detail.status === "failed" ? "warning" : "info",
+        title: detail.status === "failed" ? "后台任务需要处理" : "后台任务已完成",
+        message: detail.title ? `“${detail.title}”已更新，可从任务列表打开。` : "后台任务状态已更新，可从任务列表打开。"
+      });
+      void host.store.list().then(setSessions);
+    };
+    window.addEventListener("careeradapt-agent-background-complete", handleBackgroundCompletion);
+    return () => window.removeEventListener("careeradapt-agent-background-complete", handleBackgroundCompletion);
+  }, [host.store, session.id]);
+
+  useEffect(() => {
+    let active = true;
+    const refreshCareerContext = async () => {
+      const [nextProfiles, nextContext] = await Promise.all([
+        agentImportRepository.listProfiles(),
+        agentImportRepository.getActiveCareerContext()
+      ]);
+      if (!active) return;
+      setProfiles(nextProfiles);
+      if (!nextContext || taskHasUsedAssetsOrWrites) return;
+      const current = host.state.getSnapshot().activeSession ?? session;
+      if (current.id !== session.id || (current.personId === nextContext.personId && current.activeProfileId === nextContext.profileId)) return;
+      const rebound = await host.state.rebindSessionCareerContext(current.id, nextContext, true);
+      if (active) setSession(rebound);
+    };
+    const listener = () => { void refreshCareerContext(); };
+    window.addEventListener("careeradapt-career-context-change", listener);
+    return () => {
+      active = false;
+      window.removeEventListener("careeradapt-career-context-change", listener);
+    };
+  }, [host.state, session, session.id, taskHasUsedAssetsOrWrites]);
+
   const restoreSession = useCallback((selected: AgentSession) => {
     host.state.adopt(selected);
     setSession(host.state.getSnapshot().activeSession ?? selected);
     setHistoryOpen(false);
     window.localStorage.setItem(ACTIVE_SESSION_KEY, selected.id);
+  }, [host.state]);
+
+  const createSessionWithCurrentContext = useCallback(async (title: string) => {
+    const context = await agentImportRepository.getActiveCareerContext();
+    if (!mountedRef.current) return undefined;
+    const created = AgentRuntime.create("agent_quick_action", "collecting_intent", title, context);
+    host.state.adopt(created);
+    setSession(created);
+    return created;
   }, [host.state]);
 
   useEffect(() => {
@@ -158,13 +255,27 @@ export function AgentWorkspace() {
         operationId: `list-resumes-${crypto.randomUUID()}`
       }),
       host.store.list(),
-      agentImportRepository.listProfiles()
-    ]).then(([resumeResult, storedSessions, storedProfiles]) => {
+      agentImportRepository.listProfiles(),
+      agentImportRepository.getActiveCareerContext()
+    ]).then(async ([resumeResult, storedSessions, storedProfiles, activeContext]) => {
       if (!active) return;
       setResumes(readArray(resumeResult.data, "resumes") as ResumeSummary[]);
       setSessions(storedSessions);
       setProfiles(storedProfiles);
       const live = host.state.getSnapshot();
+      if (
+        activeContext
+        && live.activeSession
+        && !live.activeSession.activeProfileId
+        && !live.activeSession.messages.length
+        && !live.activeSession.artifactRefs.length
+      ) {
+        const rebound = await host.state.rebindSessionCareerContext(live.activeSession.id, activeContext, true);
+        if (!active) return;
+        setSession(rebound);
+        window.localStorage.setItem(ACTIVE_SESSION_KEY, rebound.id);
+        return;
+      }
       if (live.activeSession && live.turnStatus === "running") {
         setSession(live.activeSession);
         window.localStorage.setItem(ACTIVE_SESSION_KEY, live.activeSession.id);
@@ -172,17 +283,29 @@ export function AgentWorkspace() {
       }
       const requested = window.localStorage.getItem(ACTIVE_SESSION_KEY);
       if (requested === NEW_TASK_SESSION_VALUE) {
-        const created = AgentRuntime.create("agent_quick_action", "collecting_intent", "新的 AI 任务");
-        host.state.adopt(created);
-        setSession(created);
+        await createSessionWithCurrentContext("新的 AI 任务");
         return;
       }
       const restored = storedSessions.find((item) => item.id === requested) ?? storedSessions[0];
-      if (restored) restoreSession(restored);
-      else host.state.adopt(initialSessionRef.current);
+      if (restored) {
+        if (
+          activeContext
+          && !restored.activeProfileId
+          && !restored.messages.length
+          && !restored.artifactRefs.length
+          && restored.activeTurn?.status !== "running"
+        ) {
+          const rebound = await host.state.rebindSessionCareerContext(restored.id, activeContext, true);
+          if (!active) return;
+          setSessions((current) => current.map((item) => item.id === rebound.id ? rebound : item));
+          setSession(rebound);
+        } else {
+          restoreSession(restored);
+        }
+      } else await createSessionWithCurrentContext("AI 求职任务");
     });
     return () => { active = false; };
-  }, [host.executor, host.state, host.store, restoreSession]);
+  }, [createSessionWithCurrentContext, host.executor, host.state, host.store, restoreSession]);
 
   useEffect(() => {
     const selectSession = (event: Event) => {
@@ -191,9 +314,7 @@ export function AgentWorkspace() {
       if (selected) restoreSession(selected);
     };
     const newTask = () => {
-      const created = AgentRuntime.create("agent_quick_action", "collecting_intent", "新的 AI 任务");
-      host.state.adopt(created);
-      setSession(created);
+      void createSessionWithCurrentContext("新的 AI 任务");
       setDrawerState("closed");
       window.localStorage.setItem(ACTIVE_SESSION_KEY, NEW_TASK_SESSION_VALUE);
     };
@@ -209,7 +330,7 @@ export function AgentWorkspace() {
       window.removeEventListener("careeradapt-agent-new-task", newTask);
       window.removeEventListener("careeradapt-agent-history-open", openHistory);
     };
-  }, [host.state, host.store, restoreSession, sessions]);
+  }, [createSessionWithCurrentContext, host.state, host.store, restoreSession, sessions]);
 
   async function dispatchMessage(text: string) {
     setLastUserMessage(text);
@@ -266,6 +387,12 @@ export function AgentWorkspace() {
   }
 
   const workflowView = useMemo(() => taskToWorkflowView(session), [session]);
+  const pinnedProfile = profiles.find((profile) => profile.id === session.activeProfileId);
+  const pinnedContextLabel = pinnedProfile
+    ? `${pinnedProfile.name} · V${pinnedProfile.profileVersionNumber ?? 1}`
+    : session.personId && session.profileVersionNumber
+      ? `人物已固定 · V${session.profileVersionNumber}`
+      : undefined;
   const artifacts = snapshot.activeSessionId === session.id ? snapshot.artifacts : session.artifactRefs;
   const showZeroState = session.messages.length === 0 && !running;
   const intakeSession = session.taskState?.knownSlots.intakeSession;
@@ -278,6 +405,8 @@ export function AgentWorkspace() {
     <AgentWorkspaceLayout
       sessionTitle={getAgentSessionDisplayTitle(session)}
       status={statusLabel(snapshot.turnStatus)}
+      contextSelector={<CareerContextSelector onBeforeSelect={handleBeforeContextSelect} />}
+      pinnedContextLabel={pinnedContextLabel}
       artifactCount={artifacts.length}
       onOpenArtifacts={() => updateDrawerState(window.matchMedia("(max-width: 860px)").matches ? "overlay" : "split")}
       onOpenHistory={() => setHistoryOpen(true)}
@@ -458,6 +587,19 @@ export function AgentWorkspace() {
           </div>
         </section>
       </ImportReviewDialog>
+      {pendingContextRequest ? (
+        <div className="career-context-switch-dialog-backdrop" role="presentation">
+          <section className="career-context-switch-dialog" role="dialog" aria-modal="true" aria-labelledby="career-context-switch-title">
+            <h2 id="career-context-switch-title">当前任务已固定人物与版本</h2>
+            <p>这项任务已经使用了资料或执行过写入，不能静默改变目标。</p>
+            <div className="career-context-switch-actions">
+              <button type="button" className="primary-button compact" onClick={() => void resolvePendingContextRequest("new_task")}>新建任务使用此人物</button>
+              <button type="button" className="secondary-button compact" onClick={() => void resolvePendingContextRequest("switch")}>切换当前任务并重新读取</button>
+              <button type="button" className="section-action-button compact" onClick={() => void resolvePendingContextRequest("cancel")}>取消</button>
+            </div>
+          </section>
+        </div>
+      ) : null}
       <AgentHistoryDialog
         key={historyOpen ? "open" : "closed"}
         open={historyOpen}
@@ -684,6 +826,7 @@ function statusLabel(status: ReturnType<ReturnType<typeof useAgentHost>["state"]
     running: "处理中…",
     paused: "已暂停",
     waiting_for_confirmation: "等待确认",
+    waiting_for_user: "等待输入",
     completed: "已完成",
     failed: "需要处理"
   };

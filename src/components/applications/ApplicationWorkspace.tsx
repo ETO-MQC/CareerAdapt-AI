@@ -23,7 +23,7 @@ import { ApplicationMaterialsPanel } from "@/components/applications/materials/A
 import { hashBytes, stableHashText } from "@/services/security/text";
 import { WorkspaceRepository, type ApplicationContext } from "@/services/storage/repositories";
 import { WorkspaceEmptyState, WorkspaceErrorState, WorkspaceLoadingState } from "@/components/workspace/WorkspaceStates";
-import { ProductEmptyState } from "@/components/ui/product";
+import { ProductEmptyState, ProductTopbar } from "@/components/ui/product";
 
 const repository = new WorkspaceRepository();
 
@@ -74,7 +74,8 @@ export function ApplicationWorkspace() {
     try {
       await repository.ensureDemoWorkspace();
       const profiles = await repository.listProfiles();
-      const profile = profiles[0];
+      const context = await repository.getActiveCareerContext();
+      const profile = context ? profiles.find((item) => item.id === context.profileId) : undefined;
       if (!profile) {
         setLoadState({ status: "ready", profileId: undefined, applications: [] });
         return;
@@ -170,12 +171,7 @@ export function ApplicationWorkspace() {
 
   return (
     <main className="page-shell application-workspace" data-testid="application-workspace">
-      <header className="product-topbar">
-        <div className="product-topbar-heading">
-          <h1>求职进度</h1>
-          <span className="product-topbar-status">{applications.length} 条记录</span>
-        </div>
-      </header>
+      <ProductTopbar title="求职进度" status={`${applications.length} 条记录`} />
 
       {message ? <section className="notice no-print">{message}</section> : null}
 

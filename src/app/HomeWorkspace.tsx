@@ -7,7 +7,9 @@ import { WorkspaceEmptyState, WorkspaceErrorState, WorkspaceLoadingState } from 
 export function HomeWorkspace() {
   const workspace = useWorkspace();
 
-  const profile = workspace.status === "ready" ? workspace.profiles[0] : undefined;
+  const profile = workspace.status === "ready" && workspace.activeContext
+    ? workspace.profiles.find((item) => item.id === workspace.activeContext?.profileId)
+    : undefined;
   const jobs = workspace.status === "ready" ? workspace.jobs : [];
 
   const workspaceItems = [

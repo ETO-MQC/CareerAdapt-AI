@@ -22,10 +22,10 @@
   border-bottom: 1px solid var(--product-border);
   display: flex;
   gap: var(--product-space-4);
-  height: 52px !important;
+  min-height: 56px;
   justify-content: space-between;
   min-width: 0;
-  padding: 4px var(--product-space-6);
+  padding: 8px 28px;
 }
 
 .product-topbar-heading {
@@ -99,11 +99,28 @@
 
 @media (max-width: 760px) {
   .product-topbar {
-    padding-inline: var(--product-space-4);
+    align-items: flex-start;
+    flex-wrap: wrap;
+    min-height: 60px;
+    padding: 8px 16px;
   }
 
   .product-topbar-status {
-    display: none;
+    max-width: 100%;
+  }
+
+  .product-topbar-heading {
+    align-items: flex-start;
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
+  .product-topbar-actions {
+    flex: 1 1 100%;
+    justify-content: flex-start;
+    max-width: 100%;
+    overflow-x: auto;
+    padding-bottom: 2px;
   }
 
   .product-split-pane {

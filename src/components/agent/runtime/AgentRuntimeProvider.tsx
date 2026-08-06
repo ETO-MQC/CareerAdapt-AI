@@ -30,7 +30,7 @@ function createAgentHost() {
     store,
     eventBus: new AgentEventBus(),
     kernel,
-    state: new AgentHostStore({ kernel, executor, persistence: store })
+    state: new AgentHostStore({ kernel, executor, persistence: store, repository: store.getWorkspaceRepository() })
   };
 }
 

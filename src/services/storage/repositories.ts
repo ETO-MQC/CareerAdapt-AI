@@ -5,11 +5,13 @@ import { canonicalProfileLibraryItems } from "@/domain/profile/canonicalLibrary"
 import {
   AiLogSchema,
   AiSuggestionSchema,
+  ActiveCareerContextSchema,
   ActiveProfileContextSchema,
   ApplicationPreparationPackSchema,
   ApplicationRecordSchema,
   BranchContentItemSchema,
   CareerProfileSchema,
+  CareerPersonSchema,
   DraftCommitSchema,
   ExportRecordSchema,
   JobAdaptationDraftSchema,
@@ -41,6 +43,8 @@ import {
   type ApplicationPriority,
   type ApplicationReadiness,
   type ApplicationRecord,
+  type ActiveCareerContext,
+  type CareerPerson,
   type ApplicationSourceChannel,
   type ApplicationStatus,
   type ApplicationTimelineEvent,
@@ -151,12 +155,41 @@ import { CareerAdaptDb, careerAdaptDb, type AppMeta } from "./db";
 
 const RECYCLE_BIN_META_KEY = "workspaceRecycleBin:v1";
 const ACTIVE_PROFILE_META_KEY = "activeProfileContext:v1";
+const ACTIVE_CAREER_CONTEXT_META_KEY = "activeCareerContext:v1";
+const CAREER_PERSON_META_KEY_PREFIX = "careerPerson:v1:";
+const CAREER_PERSON_INDEX_META_KEY = "careerPersons:v1";
 const LEGACY_DEMO_PROFILE_NAME = "陈同学";
 const PROFILE_RECONCILIATION_META_KEY_PREFIX = "profileReconciliation:v1:";
 const PROFILE_INTAKE_OPERATION_META_KEY_PREFIX = "profileIntakeOperation:v1:";
 const PROFILE_INTAKE_SOURCE_TURN_META_KEY_PREFIX = "profileIntakeSourceTurn:v1:";
 const AGENT_PROTOCOL_DIAGNOSTIC_META_KEY_PREFIX = "agentProtocolDiagnostic:v1:";
 const EMPTY_RECYCLE_BIN: RecycleBinState = { version: 1, jobIds: [], profileItems: [] };
+
+function careerPersonMetaKey(personId: string) {
+  return `${CAREER_PERSON_META_KEY_PREFIX}${personId}`;
+}
+
+/**
+ * Browser-local write serialization for a Profile identity. Reads remain
+ * concurrent; only the final Profile write is serialized and still guarded by
+ * the Profile's internal optimistic revision.
+ */
+const profileWriteLocks = new Map<string, Promise<void>>();
+
+export async function withProfileWriteLock<T>(profileId: string, operation: () => Promise<T>): Promise<T> {
+  const previous = profileWriteLocks.get(profileId) ?? Promise.resolve();
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  const queued = previous.then(() => gate);
+  profileWriteLocks.set(profileId, queued);
+  await previous;
+  try {
+    return await operation();
+  } finally {
+    release();
+    if (profileWriteLocks.get(profileId) === queued) profileWriteLocks.delete(profileId);
+  }
+}
 
 function agentSessionMetadataFingerprint(value: AgentSession) {
   return JSON.stringify(Object.fromEntries(
@@ -440,9 +473,52 @@ export type ApplicationContext = {
 export class WorkspaceRepository {
   constructor(private readonly db: CareerAdaptDb = careerAdaptDb) {}
 
+  private async getCareerPersonWithoutMigration(personId: string) {
+    const row = await this.db.appMeta.get(careerPersonMetaKey(personId));
+    const parsed = CareerPersonSchema.safeParse(row?.value);
+    return parsed.success ? parsed.data : undefined;
+  }
+
+  private async ensurePersonForProfileInTransaction(profile: CareerProfile) {
+    const personId = profile.personId ?? `person-${profile.id}`;
+    const existing = await this.getCareerPersonWithoutMigration(personId);
+    if (existing) return existing;
+    const person = CareerPersonSchema.parse({
+      id: personId,
+      displayName: profile.name,
+      currentProfileId: profile.id,
+      createdAt: profile.createdAt,
+      updatedAt: profile.updatedAt
+    });
+    await this.db.appMeta.put({ key: careerPersonMetaKey(person.id), value: person, updatedAt: person.updatedAt });
+    const indexRow = await this.db.appMeta.get(CAREER_PERSON_INDEX_META_KEY);
+    const index = Array.isArray(indexRow?.value) ? indexRow.value.filter((value): value is string => typeof value === "string") : [];
+    if (!index.includes(person.id)) await this.db.appMeta.put({ key: CAREER_PERSON_INDEX_META_KEY, value: [...index, person.id], updatedAt: person.updatedAt });
+    return person;
+  }
+
+  private async markCurrentProfileInTransaction(profile: CareerProfile) {
+    if (!profile.personId) return;
+    const rawProfiles = await this.db.profiles.toArray();
+    for (const raw of rawProfiles) {
+      const candidate = migrateCareerProfileToV2(CareerProfileSchema.parse(raw));
+      if (candidate.personId !== profile.personId || candidate.id === profile.id || !candidate.isCurrent) continue;
+      await this.db.profiles.put(CareerProfileSchema.parse({ ...candidate, isCurrent: false, updatedAt: profile.updatedAt }));
+    }
+    const person = await this.getCareerPersonWithoutMigration(profile.personId);
+    if (person) {
+      await this.db.appMeta.put({
+        key: careerPersonMetaKey(person.id),
+        value: CareerPersonSchema.parse({ ...person, currentProfileId: profile.id, updatedAt: profile.updatedAt }),
+        updatedAt: profile.updatedAt
+      });
+    }
+  }
+
   async saveAgentSession(session: AgentSession) {
     const incoming = AgentSessionSchema.parse(serializeAgentSession(session));
-    return this.db.transaction("rw", this.db.agentSessions, this.db.agentMessages, async () => {
+    let persisted!: AgentSession;
+    await this.db.transaction("rw", this.db.agentSessions, this.db.agentMessages, async () => {
       const storedRaw = await this.db.agentSessions.get(incoming.id);
       const stored = storedRaw
         ? migrateAgentSessionToCurrentSchema(storedRaw as unknown as Record<string, unknown>)
@@ -462,15 +538,15 @@ export class WorkspaceRepository {
           && incoming.updatedAt >= stored.updatedAt
         );
       const metadata = accepted ? incoming : stored;
-      const persisted = AgentSessionSchema.parse({
+      persisted = AgentSessionSchema.parse({
         ...metadata,
         messages: [],
         sessionRevision: (stored?.sessionRevision ?? 0) + 1,
         updatedAt: accepted ? incoming.updatedAt : stored.updatedAt
       });
       await this.db.agentSessions.put(persisted);
-      return this.hydrateAgentSession(persisted);
     });
+    return this.hydrateAgentSession(persisted);
   }
 
   async getAgentSession(sessionId: string) {
@@ -517,7 +593,7 @@ export class WorkspaceRepository {
     const now = new Date().toISOString();
     const migrated = migrateAgentSessionToCurrentSchema(session as unknown as Record<string, unknown>);
     await this.appendAgentMessages(id, AgentSessionSchema.parse(migrated).messages);
-    const updated = AgentSessionSchema.parse({ ...migrated, messages: [], title, updatedAt: now, sessionRevision: Number(migrated.sessionRevision ?? 0) + 1 });
+    const updated = AgentSessionSchema.parse({ ...migrated, messages: [], title, titleOrigin: "user", updatedAt: now, sessionRevision: Number(migrated.sessionRevision ?? 0) + 1 });
     await this.db.agentSessions.put(updated);
     return this.hydrateAgentSession(updated);
   }
@@ -547,7 +623,18 @@ export class WorkspaceRepository {
   }
 
   private async hydrateAgentSession(raw: AgentSession) {
-    const migrated = migrateAgentSessionToCurrentSchema(raw as unknown as Record<string, unknown>);
+    const migratedBase = migrateAgentSessionToCurrentSchema(raw as unknown as Record<string, unknown>);
+    const pinnedProfile = migratedBase.activeProfileId
+      ? await this.getProfile(migratedBase.activeProfileId)
+      : undefined;
+    const migrated = pinnedProfile && !migratedBase.personId
+      ? migrateAgentSessionToCurrentSchema({
+          ...migratedBase,
+          personId: pinnedProfile.personId,
+          profileVersionNumber: pinnedProfile.profileVersionNumber ?? 1,
+          profileRevision: pinnedProfile.version
+        })
+      : migratedBase;
     const persistedMigration = AgentSessionSchema.parse({ ...migrated, messages: [] });
     const metadataChanged = agentSessionMetadataFingerprint(raw) !== agentSessionMetadataFingerprint(persistedMigration);
     const records = await this.db.agentMessages
@@ -584,8 +671,9 @@ export class WorkspaceRepository {
   }
 
   async seedDemoWorkspace() {
+    const existingContext = await this.getActiveCareerContext();
     await this.saveProfile(demoCareerProfile);
-    await this.setActiveProfileId(demoCareerProfile.id);
+    if (!existingContext) await this.setActiveProfileId(demoCareerProfile.id);
     await this.saveJobDescriptions(demoJobDescriptions);
     await this.setMeta("demoSeededAt", new Date().toISOString());
   }
@@ -608,7 +696,10 @@ export class WorkspaceRepository {
         name: demoCareerProfile.name,
         basics: { ...demoProfile.basics, name: demoCareerProfile.name },
         structuredBasics: { ...demoProfile.structuredBasics, name: demoCareerProfile.name },
-        version: demoProfile.version + 1,
+        // This is a compatibility rename of untouched seeded data, not a
+        // user Profile write. Keep the internal optimistic revision stable so
+        // a caller holding the legacy record can still edit it safely.
+        version: demoProfile.version,
         updatedAt: now
       });
     }
@@ -617,9 +708,296 @@ export class WorkspaceRepository {
   }
 
   async saveProfile(profile: CareerProfile) {
-    const parsed = migrateCareerProfileToV2(CareerProfileSchema.parse(profile));
-    await this.db.profiles.put(parsed);
-    return parsed;
+    return withProfileWriteLock(profile.id, async () => {
+      const existingRaw = await this.db.profiles.get(profile.id);
+      const existing = existingRaw ? migrateCareerProfileToV2(CareerProfileSchema.parse(existingRaw)) : undefined;
+      const parsed = CareerProfileSchema.parse({
+        ...migrateCareerProfileToV2(CareerProfileSchema.parse(profile)),
+        personId: profile.personId ?? existing?.personId ?? `person-${profile.id}`,
+        profileVersionNumber: profile.profileVersionNumber ?? existing?.profileVersionNumber ?? 1,
+        isCurrent: profile.isCurrent ?? existing?.isCurrent ?? true,
+        versionCreatedReason: profile.versionCreatedReason ?? existing?.versionCreatedReason ?? "initial"
+      });
+      if (existing && parsed.version < existing.version) throw new RevisionConflictError();
+      const saved = await this.db.transaction("rw", this.db.profiles, this.db.appMeta, async () => {
+        await this.ensurePersonForProfileInTransaction(parsed);
+        if (parsed.isCurrent) await this.markCurrentProfileInTransaction(parsed);
+        await this.db.profiles.put(parsed);
+        return migrateCareerProfileToV2(parsed);
+      });
+      const activeRaw = await this.db.appMeta.get(ACTIVE_CAREER_CONTEXT_META_KEY);
+      const active = ActiveCareerContextSchema.safeParse(activeRaw?.value);
+      if (active.success && active.data.profileId === saved.id && saved.personId) {
+        const updatedContext = ActiveCareerContextSchema.parse({
+          ...active.data,
+          personId: saved.personId,
+          profileVersionNumber: saved.profileVersionNumber ?? active.data.profileVersionNumber,
+          profileRevision: saved.version
+        });
+        await this.db.appMeta.put({
+          key: ACTIVE_CAREER_CONTEXT_META_KEY,
+          value: updatedContext,
+          updatedAt: updatedContext.selectedAt
+        });
+      }
+      return saved;
+    });
+  }
+
+  /**
+   * Upgrade old Profile records without inferring identity from names. Every
+   * legacy Profile receives its own Person container and V1 version marker.
+   */
+  async ensureCareerIdentityMigration() {
+    return this.db.transaction("rw", this.db.profiles, this.db.appMeta, async () => {
+      const rawProfiles = await this.db.profiles.toArray();
+      const profileRecords = rawProfiles.map((raw) => migrateCareerProfileToV2(CareerProfileSchema.parse(raw)));
+      const metaRows = await this.db.appMeta.toArray();
+      const persons = new Map<string, CareerPerson>();
+      for (const row of metaRows.filter((item) => item.key.startsWith(CAREER_PERSON_META_KEY_PREFIX))) {
+        const parsed = CareerPersonSchema.safeParse(row.value);
+        if (parsed.success) persons.set(parsed.data.id, parsed.data);
+      }
+      const normalizedProfiles = profileRecords.map((profile) => CareerProfileSchema.parse({
+        ...profile,
+        personId: profile.personId ?? `person-${profile.id}`,
+        profileVersionNumber: profile.profileVersionNumber ?? 1,
+        isCurrent: profile.isCurrent ?? true,
+        versionCreatedReason: profile.versionCreatedReason ?? "initial"
+      }));
+      const profilesByPerson = new Map<string, CareerProfile[]>();
+      for (const profile of normalizedProfiles) {
+        const personId = profile.personId!;
+        const group = profilesByPerson.get(personId) ?? [];
+        group.push(profile);
+        profilesByPerson.set(personId, group);
+      }
+      const now = new Date().toISOString();
+      for (const [personId, group] of profilesByPerson) {
+        const storedPerson = persons.get(personId);
+        const currentCandidate = group
+          .filter((profile) => profile.isCurrent && !profile.archivedAt)
+          .sort((left, right) => (right.profileVersionNumber ?? 1) - (left.profileVersionNumber ?? 1))[0]
+          ?? group.filter((profile) => !profile.archivedAt)
+            .sort((left, right) => (right.profileVersionNumber ?? 1) - (left.profileVersionNumber ?? 1))[0]
+          ?? group[0];
+        const person = CareerPersonSchema.parse({
+          id: personId,
+          displayName: storedPerson?.displayName ?? currentCandidate.name,
+          currentProfileId: storedPerson && group.some((profile) => profile.id === storedPerson.currentProfileId)
+            ? storedPerson.currentProfileId
+            : currentCandidate.id,
+          createdAt: storedPerson?.createdAt ?? group.map((profile) => profile.createdAt).sort()[0],
+          updatedAt: now,
+          archivedAt: storedPerson?.archivedAt
+        });
+        persons.set(personId, person);
+        await this.db.appMeta.put({ key: careerPersonMetaKey(personId), value: person, updatedAt: now });
+        for (const profile of group) {
+          const normalized = CareerProfileSchema.parse({
+            ...profile,
+            isCurrent: profile.id === person.currentProfileId,
+            personId,
+            profileVersionNumber: profile.profileVersionNumber ?? 1,
+            versionCreatedReason: profile.versionCreatedReason ?? "initial"
+          });
+          if (JSON.stringify(rawProfiles.find((raw) => raw.id === profile.id)) !== JSON.stringify(normalized)) {
+            await this.db.profiles.put(normalized);
+          }
+        }
+      }
+      await this.db.appMeta.put({
+        key: CAREER_PERSON_INDEX_META_KEY,
+        value: [...persons.keys()],
+        updatedAt: now
+      });
+      return [...persons.values()];
+    });
+  }
+
+  async listCareerPersons() {
+    await this.ensureCareerIdentityMigration();
+    const rows = await this.db.appMeta.toArray();
+    return rows
+      .filter((row) => row.key.startsWith(CAREER_PERSON_META_KEY_PREFIX))
+      .map((row) => CareerPersonSchema.safeParse(row.value))
+      .filter((result): result is { success: true; data: CareerPerson } => result.success)
+      .map((result) => result.data)
+      .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+  }
+
+  async getCareerPerson(personId: string) {
+    await this.ensureCareerIdentityMigration();
+    const row = await this.db.appMeta.get(careerPersonMetaKey(personId));
+    const parsed = CareerPersonSchema.safeParse(row?.value);
+    return parsed.success ? parsed.data : undefined;
+  }
+
+  async getProfilesForPerson(personId: string) {
+    await this.ensureCareerIdentityMigration();
+    const profiles = await this.listProfiles();
+    return profiles
+      .filter((profile) => profile.personId === personId)
+      .sort((left, right) => (left.profileVersionNumber ?? 1) - (right.profileVersionNumber ?? 1));
+  }
+
+  async getActiveCareerContext(): Promise<ActiveCareerContext | undefined> {
+    await this.ensureCareerIdentityMigration();
+    const stored = await this.db.appMeta.get(ACTIVE_CAREER_CONTEXT_META_KEY);
+    const parsed = ActiveCareerContextSchema.safeParse(stored?.value);
+    if (parsed.success) {
+      const [person, profile] = await Promise.all([
+        this.getCareerPersonWithoutMigration(parsed.data.personId),
+        this.db.profiles.get(parsed.data.profileId)
+      ]);
+      if (person && profile) {
+        const candidate = migrateCareerProfileToV2(CareerProfileSchema.parse(profile));
+        if (candidate.personId === person.id && !candidate.archivedAt) {
+          return ActiveCareerContextSchema.parse({
+            ...parsed.data,
+            profileVersionNumber: candidate.profileVersionNumber,
+            profileRevision: candidate.version
+          });
+        }
+      }
+    }
+    const legacy = await this.db.appMeta.get(ACTIVE_PROFILE_META_KEY);
+    const legacyParsed = ActiveProfileContextSchema.safeParse(legacy?.value);
+    if (!legacyParsed.success) return undefined;
+    const profile = await this.db.profiles.get(legacyParsed.data.profileId);
+    if (!profile) return undefined;
+    const candidate = migrateCareerProfileToV2(CareerProfileSchema.parse(profile));
+    if (!candidate.personId || candidate.archivedAt) return undefined;
+    const context = ActiveCareerContextSchema.parse({
+      schemaVersion: "active-career-v1",
+      personId: candidate.personId,
+      profileId: candidate.id,
+      profileVersionNumber: candidate.profileVersionNumber ?? 1,
+      profileRevision: candidate.version,
+      selectedAt: new Date().toISOString()
+    });
+    await this.db.appMeta.put({ key: ACTIVE_CAREER_CONTEXT_META_KEY, value: context, updatedAt: context.selectedAt });
+    return context;
+  }
+
+  async setActiveCareerContext(input: Pick<ActiveCareerContext, "personId" | "profileId">) {
+    await this.ensureCareerIdentityMigration();
+    const [person, rawProfile] = await Promise.all([
+      this.getCareerPersonWithoutMigration(input.personId),
+      this.db.profiles.get(input.profileId)
+    ]);
+    if (!person || !rawProfile) throw new Error("career_context_target_missing");
+    const profile = migrateCareerProfileToV2(CareerProfileSchema.parse(rawProfile));
+    if (profile.personId !== person.id || profile.archivedAt) throw new Error("career_context_target_invalid");
+    const selectedAt = new Date().toISOString();
+    const context = ActiveCareerContextSchema.parse({
+      schemaVersion: "active-career-v1",
+      personId: person.id,
+      profileId: profile.id,
+      profileVersionNumber: profile.profileVersionNumber ?? 1,
+      profileRevision: profile.version,
+      selectedAt
+    });
+    await this.db.appMeta.put({ key: ACTIVE_CAREER_CONTEXT_META_KEY, value: context, updatedAt: selectedAt });
+    await this.db.appMeta.put({ key: ACTIVE_PROFILE_META_KEY, value: { schemaVersion: "active-profile-v1", profileId: profile.id }, updatedAt: selectedAt });
+    return context;
+  }
+
+  async clearActiveCareerContext() {
+    await this.db.transaction("rw", this.db.appMeta, async () => {
+      await this.db.appMeta.delete(ACTIVE_CAREER_CONTEXT_META_KEY);
+      await this.db.appMeta.delete(ACTIVE_PROFILE_META_KEY);
+    });
+  }
+
+  async createPerson(displayName: string, reason: "initial" | "resume_import" | "agent_created" = "initial") {
+    const now = new Date().toISOString();
+    const personId = `person-${crypto.randomUUID()}`;
+    const profileId = `profile-${crypto.randomUUID()}`;
+    const name = displayName.trim() || "新人物";
+    const profile = CareerProfileSchema.parse({
+      id: profileId,
+      personId,
+      profileVersionNumber: 1,
+      isCurrent: true,
+      versionCreatedReason: reason,
+      name,
+      basics: { name, links: [] },
+      preference: { targetRoles: [], targetCities: [], industries: [] },
+      version: 1,
+      experiences: [],
+      skills: [],
+      certificates: [],
+      evidences: [],
+      unclassifiedBlocks: [],
+      createdAt: now,
+      updatedAt: now
+    });
+    const person = CareerPersonSchema.parse({ id: personId, displayName: name, currentProfileId: profileId, createdAt: now, updatedAt: now });
+    await this.db.transaction("rw", this.db.profiles, this.db.appMeta, async () => {
+      await this.db.profiles.put(migrateCareerProfileToV2(profile));
+      await this.db.appMeta.put({ key: careerPersonMetaKey(person.id), value: person, updatedAt: now });
+    });
+    await this.setActiveCareerContext({ personId, profileId });
+    return { person, profile: migrateCareerProfileToV2(profile) };
+  }
+
+  async createProfileVersion(input: { profileId: string; reason?: "manual_snapshot" | "resume_import" | "agent_created" | "conflict_fork" }) {
+    await this.ensureCareerIdentityMigration();
+    const source = await this.getProfile(input.profileId);
+    if (!source?.personId) throw new Error("career_profile_source_missing");
+    const siblings = await this.getProfilesForPerson(source.personId);
+    const now = new Date().toISOString();
+    const nextNumber = Math.max(0, ...siblings.map((profile) => profile.profileVersionNumber ?? 1)) + 1;
+    const next = CareerProfileSchema.parse({
+      ...source,
+      id: `profile-${crypto.randomUUID()}`,
+      version: 1,
+      profileVersionNumber: nextNumber,
+      parentProfileId: source.id,
+      versionCreatedReason: input.reason ?? "manual_snapshot",
+      isCurrent: true,
+      archivedAt: undefined,
+      createdAt: now,
+      updatedAt: now
+    });
+    const saved = await this.saveProfile(next);
+    await this.setActiveCareerContext({ personId: source.personId, profileId: saved.id });
+    return saved;
+  }
+
+  async renameProfileVersion(profileId: string, profileVersionLabel: string) {
+    const profile = await this.getProfile(profileId);
+    if (!profile) throw new Error("career_profile_missing");
+    return this.saveProfile({ ...profile, profileVersionLabel: profileVersionLabel.trim() || undefined, version: profile.version + 1, updatedAt: new Date().toISOString() });
+  }
+
+  async setCurrentProfileVersion(profileId: string) {
+    const profile = await this.getProfile(profileId);
+    if (!profile || !profile.personId || profile.archivedAt) throw new Error("career_profile_missing");
+    const saved = await this.saveProfile({
+      ...profile,
+      isCurrent: true,
+      version: profile.version + 1,
+      updatedAt: new Date().toISOString()
+    });
+    await this.setActiveCareerContext({ personId: profile.personId, profileId: saved.id });
+    return saved;
+  }
+
+  async archiveProfileVersion(profileId: string) {
+    const profile = await this.getProfile(profileId);
+    if (!profile) throw new Error("career_profile_missing");
+    const activeContext = await this.getActiveCareerContext();
+    const saved = await this.saveProfile({ ...profile, archivedAt: new Date().toISOString(), isCurrent: false, version: profile.version + 1, updatedAt: new Date().toISOString() });
+    const siblings = saved.personId ? await this.getProfilesForPerson(saved.personId) : [];
+    const fallback = siblings.filter((candidate) => candidate.id !== saved.id && !candidate.archivedAt).sort((left, right) => (right.profileVersionNumber ?? 1) - (left.profileVersionNumber ?? 1))[0];
+    const currentPerson = saved.personId ? await this.getCareerPerson(saved.personId) : undefined;
+    if (currentPerson && (currentPerson.currentProfileId === saved.id || activeContext?.profileId === saved.id) && fallback) {
+      await this.saveProfile({ ...fallback, isCurrent: true, updatedAt: new Date().toISOString() });
+      await this.setActiveCareerContext({ personId: currentPerson.id, profileId: fallback.id });
+    }
+    return saved;
   }
 
   async saveRawInput(rawInput: RawInputDocument) {
@@ -751,11 +1129,14 @@ export class WorkspaceRepository {
     commitId: string;
     profile: CareerProfile;
   }) {
-    return this.db.transaction("rw", this.db.profileImportDrafts, this.db.profiles, this.db.draftCommits, async () => {
+    return this.db.transaction("rw", this.db.profileImportDrafts, this.db.profiles, this.db.appMeta, this.db.draftCommits, async () => {
       const existingCommit = await this.db.draftCommits.get(input.commitId);
 
       if (existingCommit) {
-        const profile = await this.getProfile(existingCommit.entityId);
+        const storedProfile = await this.db.profiles.get(existingCommit.entityId);
+        const profile = storedProfile
+          ? migrateCareerProfileToV2(CareerProfileSchema.parse(storedProfile))
+          : undefined;
         if (!profile) {
           throw new Error("committed_profile_missing");
         }
@@ -774,7 +1155,7 @@ export class WorkspaceRepository {
       }
 
       const now = new Date().toISOString();
-      const profile = CareerProfileSchema.parse(input.profile);
+      const profile = migrateCareerProfileToV2(CareerProfileSchema.parse(input.profile));
       const commit = DraftCommitSchema.parse({
         id: input.commitId,
         commitId: input.commitId,
@@ -786,6 +1167,8 @@ export class WorkspaceRepository {
         updatedAt: now
       });
 
+      await this.ensurePersonForProfileInTransaction(profile);
+      if (profile.isCurrent) await this.markCurrentProfileInTransaction(profile);
       await this.db.profiles.put(profile);
       await this.db.draftCommits.put(commit);
       await this.db.profileImportDrafts.put(
@@ -1053,7 +1436,7 @@ export class WorkspaceRepository {
     committedItemCount: number;
     idempotent: boolean;
   }> {
-    return this.db.transaction("rw", this.db.appMeta, this.db.profiles, async () => {
+    return withProfileWriteLock(input.targetProfileId, () => this.db.transaction("rw", this.db.appMeta, this.db.profiles, async () => {
       const operationKey = `${PROFILE_INTAKE_OPERATION_META_KEY_PREFIX}${input.operationId}`;
       const existingOperation = await this.db.appMeta.get(operationKey);
       if (existingOperation?.value && typeof existingOperation.value === "object") {
@@ -1139,6 +1522,7 @@ export class WorkspaceRepository {
           .length,
         idempotent: false
       };
+      await this.ensurePersonForProfileInTransaction(committedProfile);
       await this.db.profiles.put(committedProfile);
       await this.db.appMeta.bulkPut([
         { key: profileReconciliationMetaKey(input.importId), value: committedPlan, updatedAt: now },
@@ -1146,7 +1530,7 @@ export class WorkspaceRepository {
         { key: operationKey, value: result, updatedAt: now }
       ]);
       return result;
-    });
+    }));
   }
 
   async confirmImportedResume(input: {
@@ -1173,7 +1557,13 @@ export class WorkspaceRepository {
     expectedReconciliationRevision?: number;
     target?: ImportTarget;
   }): Promise<ImportedResumeConfirmResult> {
-    return this.db.transaction(
+    // The target resolver supplies this explicitly in the current UI. Keep a
+    // legacy fallback for direct repository callers and old persisted flows.
+    const legacyActiveContext = input.target ? undefined : await this.getActiveCareerContext();
+    const profileLockId = input.target?.mode === "existing"
+      ? input.target.profileId
+      : `resume-import-target:${input.operationId}`;
+    return withProfileWriteLock(profileLockId, () => this.db.transaction(
       "rw",
       [
         this.db.appMeta,
@@ -1225,12 +1615,13 @@ export class WorkspaceRepository {
         }
         assertNoUnresolvedSensitivePlaceholders(draft);
 
-        const profiles = await this.db.profiles.toArray();
         const existingProfile = input.target?.mode === "existing"
           ? await this.db.profiles.get(input.target.profileId).then((profile) => profile ? CareerProfileSchema.parse(profile) : undefined)
           : input.target?.mode === "new"
             ? undefined
-            : profiles[0] ? CareerProfileSchema.parse(profiles[0]) : undefined;
+            : legacyActiveContext
+              ? await this.db.profiles.get(legacyActiveContext.profileId).then((profile) => profile ? CareerProfileSchema.parse(profile) : undefined)
+              : undefined;
         if (input.target?.mode === "existing" && !existingProfile) {
           throw new Error("resume_import_target_profile_missing");
         }
@@ -1347,6 +1738,8 @@ export class WorkspaceRepository {
         assertNoUnresolvedSensitivePlaceholders(runtimeProfile);
         if (runtimeBranch) assertNoUnresolvedSensitivePlaceholders(runtimeBranch);
 
+        await this.ensurePersonForProfileInTransaction(runtimeProfile);
+        await this.markCurrentProfileInTransaction(runtimeProfile);
         await this.db.profiles.put(runtimeProfile);
         if (built && runtimeBranch && operation && presentationConfig) {
           await this.db.resumeBranches.put(runtimeBranch);
@@ -1361,6 +1754,18 @@ export class WorkspaceRepository {
         await this.db.appMeta.put({
           key: ACTIVE_PROFILE_META_KEY,
           value: ActiveProfileContextSchema.parse({ schemaVersion: "active-profile-v1", profileId: runtimeProfile.id }),
+          updatedAt: now
+        });
+        await this.db.appMeta.put({
+          key: ACTIVE_CAREER_CONTEXT_META_KEY,
+          value: ActiveCareerContextSchema.parse({
+            schemaVersion: "active-career-v1",
+            personId: runtimeProfile.personId,
+            profileId: runtimeProfile.id,
+            profileVersionNumber: runtimeProfile.profileVersionNumber,
+            profileRevision: runtimeProfile.version,
+            selectedAt: now
+          }),
           updatedAt: now
         });
         await this.db.appMeta.put({
@@ -1417,38 +1822,29 @@ export class WorkspaceRepository {
         });
         return result;
       }
-    );
+    ));
   }
 
   async getProfile(id: string) {
+    await this.ensureCareerIdentityMigration();
     const profile = await this.db.profiles.get(id);
     return profile ? migrateCareerProfileToV2(CareerProfileSchema.parse(profile)) : undefined;
   }
 
   async listProfiles() {
+    await this.ensureCareerIdentityMigration();
     const profiles = await this.db.profiles.toArray();
     return profiles.map((profile) => migrateCareerProfileToV2(CareerProfileSchema.parse(profile)));
   }
 
   async getActiveProfileId() {
-    const stored = await this.db.appMeta.get(ACTIVE_PROFILE_META_KEY);
-    const parsed = ActiveProfileContextSchema.safeParse(stored?.value);
-    if (!parsed.success) {
-      return undefined;
-    }
-    return await this.db.profiles.get(parsed.data.profileId) ? parsed.data.profileId : undefined;
+    return (await this.getActiveCareerContext())?.profileId;
   }
 
   async setActiveProfileId(profileId: string) {
-    if (!await this.db.profiles.get(profileId)) {
-      throw new Error("Profile not found.");
-    }
-    const value = ActiveProfileContextSchema.parse({
-      schemaVersion: "active-profile-v1",
-      profileId
-    });
-    await this.setMeta(ACTIVE_PROFILE_META_KEY, value);
-    return value;
+    const profile = await this.getProfile(profileId);
+    if (!profile?.personId) throw new Error("Profile not found.");
+    return this.setActiveCareerContext({ personId: profile.personId, profileId });
   }
 
   async getProfileDeleteBlockers(profileId: string) {

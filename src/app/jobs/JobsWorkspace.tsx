@@ -116,7 +116,9 @@ export function JobsWorkspace() {
     return () => { active = false; };
   }, []);
 
-  const profile = workspace.status === "ready" ? workspace.profiles[0] : undefined;
+  const profile = workspace.status === "ready" && workspace.activeContext
+    ? workspace.profiles.find((item) => item.id === workspace.activeContext?.profileId)
+    : undefined;
   const jobs = useMemo(() => workspace.status === "ready" ? workspace.jobs : [], [workspace]);
   const activeJobs = jobs.filter((job) => !archivedJobIds.includes(job.id) && !trashedJobIds.includes(job.id));
   const archivedJobs = jobs.filter((job) => archivedJobIds.includes(job.id) && !trashedJobIds.includes(job.id));

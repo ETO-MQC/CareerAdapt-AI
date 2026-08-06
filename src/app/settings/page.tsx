@@ -21,7 +21,8 @@ import type { AgentSession } from "@/agent/contracts/agentSession";
 import { RotateCcw, Trash2 } from "lucide-react";
 import {
   ProductField,
-  ProductSelect
+  ProductSelect,
+  ProductTopbar
 } from "@/components/ui/product";
 
 type ThemePreference = "system" | "light" | "dark";
@@ -205,12 +206,7 @@ export default function SettingsPage() {
 
   return (
     <main className="page-shell settings-workspace">
-      <header className="product-topbar">
-        <div className="product-topbar-heading">
-          <h1>设置</h1>
-          <span className="product-topbar-status">偏好仅保存在本机</span>
-        </div>
-      </header>
+      <ProductTopbar title="设置" status="偏好仅保存在本机" />
 
       <section className="settings-layout product-settings-layout">
         <aside className="panel settings-nav">

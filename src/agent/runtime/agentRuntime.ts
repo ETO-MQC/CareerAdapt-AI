@@ -15,6 +15,7 @@ import { encodeAiSettingsForHeader, readAiSettings } from "@/services/storage/ai
 import { allowedToolManifestForStep } from "@/agent/workflows/workflowRegistry";
 import { recoverUnknownToolCall } from "./normalizeAgentPlannerAction";
 import { ProfileIntakeSectionSchema } from "../contracts/agentActions";
+import type { ActiveCareerContext } from "@/domain/schemas";
 
 const ToolCallSchema = z.object({
   toolName: z.string().min(1),
@@ -113,11 +114,12 @@ export class AgentRuntime {
     this.session = AgentSessionSchema.parse(session);
   }
 
-  static create(workflowId: string, initialStep: string, title = "新的 AI 任务") {
+  static create(workflowId: string, initialStep: string, title = "新的 AI 任务", context?: ActiveCareerContext) {
     const now = new Date().toISOString();
     return AgentSessionSchema.parse({
       id: `agent-session-${nanoid(12)}`,
       title,
+      titleOrigin: title === "新的 AI 任务" || title === "AI 求职任务" ? "default" : "user",
       messages: [],
       workflowState: {
         workflowId,
@@ -127,6 +129,10 @@ export class AgentRuntime {
         data: {}
       },
       artifactRefs: [],
+      personId: context?.personId,
+      activeProfileId: context?.profileId,
+      profileVersionNumber: context?.profileVersionNumber,
+      profileRevision: context?.profileRevision,
       conversationSummary: "",
       createdAt: now,
       updatedAt: now

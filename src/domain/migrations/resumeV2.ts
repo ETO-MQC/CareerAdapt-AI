@@ -20,6 +20,10 @@ export function migrateCareerProfileToV2(profile: CareerProfile): CareerProfileV
     // or save; doing so resurrects deliberately recycled content.
     return CareerProfileSchema.parse({
       ...profile,
+      personId: profile.personId ?? `person-${profile.id}`,
+      profileVersionNumber: profile.profileVersionNumber ?? 1,
+      isCurrent: profile.isCurrent ?? true,
+      versionCreatedReason: profile.versionCreatedReason ?? "initial",
       schemaVersion: "career-profile-v2",
       structuredBasics: profile.structuredBasics ?? {
         name: profile.basics.name,
@@ -46,6 +50,10 @@ export function migrateCareerProfileToV2(profile: CareerProfile): CareerProfileV
   ];
   return CareerProfileSchema.parse({
     ...profile,
+    personId: profile.personId ?? `person-${profile.id}`,
+    profileVersionNumber: profile.profileVersionNumber ?? 1,
+    isCurrent: profile.isCurrent ?? true,
+    versionCreatedReason: profile.versionCreatedReason ?? "initial",
     schemaVersion: "career-profile-v2",
     structuredBasics: {
       name: profile.basics.name,

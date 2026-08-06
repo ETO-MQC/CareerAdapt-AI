@@ -36,6 +36,7 @@ import {
   ProductButton,
   ProductTopbar
 } from "@/components/ui/product";
+import { CareerContextSelector } from "@/components/career/CareerContextSelector";
 import { StructuredExperienceForm } from "@/components/editor/StructuredExperienceForm";
 import {
   defaultExperienceType,
@@ -171,6 +172,15 @@ export function ProfileWorkspace() {
   const [loadedDraft, setLoadedDraft] = useState(false);
   const managerRef = useRef<HTMLElement | null>(null);
   const [profileOverride, setProfileOverride] = useState<CareerProfile | null | undefined>();
+  const refetchWorkspace = workspace.refetch;
+  useEffect(() => {
+    const refreshContext = () => {
+      setProfileOverride(undefined);
+      void refetchWorkspace();
+    };
+    window.addEventListener("careeradapt-career-context-change", refreshContext);
+    return () => window.removeEventListener("careeradapt-career-context-change", refreshContext);
+  }, [refetchWorkspace]);
   const [profileDeleteOpen, setProfileDeleteOpen] = useState(false);
   const [profileDeleting, setProfileDeleting] = useState(false);
   const [profileSaving, setProfileSaving] = useState(false);
@@ -280,7 +290,10 @@ export function ProfileWorkspace() {
     });
     return Array.from(byId.values());
   }, [profileOverrides, removedProfileIds, workspace]);
-  const workspaceProfile = availableProfiles[0];
+  const activeCareerContext = workspace.activeContext;
+  const workspaceProfile = activeCareerContext
+    ? availableProfiles.find((item) => item.id === activeCareerContext.profileId)
+    : undefined;
   const profile = profileOverride === undefined ? workspaceProfile : profileOverride ?? undefined;
   const profileDraftKey = profile ? `${profile.id}:${profile.version}` : "";
   const basicDraft = profile && basicDraftState.profileKey !== profileDraftKey
@@ -448,7 +461,8 @@ export function ProfileWorkspace() {
       notify({ type: "error", title: "资料不存在", message: "所选个人资料已不存在，请刷新后重试。" });
       return;
     }
-    await repository.setActiveProfileId(selected.id);
+    if (!selected.personId) return;
+    await repository.setActiveCareerContext({ personId: selected.personId, profileId: selected.id });
     setProfileOverride(selected);
     setProfileItemEditing(false);
     setSelectedProfileItemKey("basic:profile");
@@ -534,7 +548,7 @@ export function ProfileWorkspace() {
       updatedAt: now
     }), "新人物资料已创建。");
     if (!saved) return;
-    await repository.setActiveProfileId(saved.id);
+    if (saved.personId) await repository.setActiveCareerContext({ personId: saved.personId, profileId: saved.id });
     setNewProfileDraft(emptyNewProfileDraft);
     setProfileItemEditing(false);
     setSelectedProfileItemKey(activeProfileCategory === "summary" ? "summary:profile" : "basic:profile");
@@ -600,11 +614,10 @@ export function ProfileWorkspace() {
       await repository.forceDeleteProfile(profile.id);
       const deletedProfileId = profile.id;
       setRemovedProfileIds((current) => [...current, deletedProfileId]);
-      const remainingProfiles = (await repository.listProfiles()).filter((item) => item.id !== deletedProfileId);
-      const nextProfile = remainingProfiles[0];
-      if (nextProfile) await repository.setActiveProfileId(nextProfile.id);
-      setProfileOverride(nextProfile ?? null);
+      await repository.clearActiveCareerContext();
+      setProfileOverride(null);
       setBlockerDialogOpen(false);
+      window.dispatchEvent(new CustomEvent("careeradapt-career-context-change"));
       notify({ type: "success", title: "资料已删除", message: "关联数据已一并清理。" });
     } catch {
       notify({ type: "error", title: "删除失败", message: "个人资料未发生变化。" });
@@ -625,11 +638,10 @@ export function ProfileWorkspace() {
       }
       const deletedProfileId = profile.id;
       setRemovedProfileIds((current) => [...current, deletedProfileId]);
-      const remainingProfiles = (await repository.listProfiles()).filter((item) => item.id !== deletedProfileId);
-      const nextProfile = remainingProfiles[0];
-      if (nextProfile) await repository.setActiveProfileId(nextProfile.id);
-      setProfileOverride(nextProfile ?? null);
+      await repository.clearActiveCareerContext();
+      setProfileOverride(null);
       setProfileDeleteOpen(false);
+      window.dispatchEvent(new CustomEvent("careeradapt-career-context-change"));
       notify({ type: "success", title: "资料已删除", message: "导入草稿和已有文件记录未被级联删除。" });
     } catch {
       notify({ type: "error", title: "删除失败", message: "个人资料未发生变化。" });
@@ -1615,7 +1627,7 @@ export function ProfileWorkspace() {
       });
       setProfileOverride(result.profile);
       setProfileOverrides((current) => ({ ...current, [result.profile.id]: result.profile }));
-      await repository.setActiveProfileId(result.profile.id);
+      if (result.profile.personId) await repository.setActiveCareerContext({ personId: result.profile.personId, profileId: result.profile.id });
       if (rawInput.sourceSessionId) {
         const session = await repository.getPdfImportSession(rawInput.sourceSessionId);
         if (session) {
@@ -1671,6 +1683,7 @@ export function ProfileWorkspace() {
         status={profile ? `${profile.name} · 本地已保存` : "未选择人物"}
         actions={(
           <>
+            <CareerContextSelector />
             <ProductButton
               variant="secondary"
               disabled={!profile || profileExporting}

@@ -1,7 +1,6 @@
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import { resolve } from "node:path";
 import narrativeFixture from "../fixtures/p43f-long-narrative.anonymized.json";
-import { IMPORT_EXISTING_RESUME_RESPONSE } from "../../src/agent/workflows/QuickActionWorkflowSupervisor";
 
 test.use({ trace: "on" });
 
@@ -161,18 +160,23 @@ test.describe("P4.3g headed real-provider workflow journeys", () => {
     test.setTimeout(180_000);
     const telemetry = observeProviderTraffic(page);
     await useServerProvider(page);
+    await page.goto("/profile");
+    await expect(page.getByLabel("选择人物")).toBeVisible({ timeout: 30_000 });
     await page.goto("/ai-workspace");
     const quickAction = page.getByRole("button", { name: /^导入现有简历/ });
     await expect(quickAction).toBeVisible({ timeout: 30_000 });
     const startedAt = Date.now();
     await quickAction.click();
-    await expect(page.locator(".agent-message-row.is-assistant").last()).toContainText("支持 PDF、DOCX、JSON、Markdown 和 TXT。");
+    await expect(page.locator(".agent-message-row.is-assistant").last()).toContainText("准备导入到");
     telemetry.firstResponseLatencyMs = Date.now() - startedAt;
     expect(telemetry.firstResponseLatencyMs).toBeLessThanOrEqual(300);
     expect(telemetry.agentStreamCalls).toBe(0);
     expect(telemetry.structuredTasks).toHaveLength(0);
+    await expect(page.getByRole("button", { name: /合并到当前 V\d+/ })).toBeVisible();
     expect(await page.locator(".agent-composer input[type='file']").count()).toBe(1);
-    expect(await page.locator(".agent-message-row.is-assistant").last().textContent()).toContain(IMPORT_EXISTING_RESUME_RESPONSE.split("\n")[1]);
+    await expect(page.locator(".agent-composer input[type='file']")).toHaveClass(/sr-only/);
+    await page.getByRole("button", { name: /合并到当前 V\d+/ }).click();
+    await expect(page.locator(".agent-message-row.is-assistant").last()).toContainText("已更新导入目标");
 
     await page.locator(".agent-composer input[type='file']").setInputFiles(
       resolve(process.cwd(), "tests/fixtures/resume-import/ordinary.docx")

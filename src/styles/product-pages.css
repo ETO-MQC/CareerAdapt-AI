@@ -621,3 +621,89 @@
   min-height: 30px;
   padding: 0 10px;
 }
+
+/* P4.3i: every product surface keeps its heading group on the left and its
+   actions on the far edge, including the asset-shell overrides above. */
+.ai-asset-content .product-topbar,
+.settings-workspace .product-topbar {
+  align-items: center;
+  height: auto !important;
+  justify-content: space-between;
+  min-height: 56px;
+  padding-inline: 28px;
+}
+
+.ai-asset-content .product-topbar-heading,
+.settings-workspace .product-topbar-heading {
+  align-items: center;
+  justify-content: flex-start;
+  text-align: left;
+}
+
+.ai-asset-content .product-topbar-actions,
+.settings-workspace .product-topbar-actions {
+  justify-content: flex-end;
+  margin-left: auto;
+}
+
+.profile-workspace .profile-category-panel {
+  min-height: 516px;
+  max-height: none;
+}
+
+.profile-workspace .profile-category-button {
+  align-items: start;
+  display: grid;
+  gap: 4px;
+  grid-template-columns: minmax(0, 1fr);
+  height: auto;
+  min-height: 56px;
+}
+
+.profile-workspace .profile-category-button b {
+  justify-self: start;
+}
+
+@media (max-width: 1180px) {
+  .profile-workspace .profile-category-panel {
+    min-height: 516px;
+  }
+
+  .profile-workspace .profile-category-list {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .ai-asset-content .product-topbar,
+  .settings-workspace .product-topbar {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 8px;
+    min-height: 64px;
+    padding-inline: 16px;
+  }
+
+  .ai-asset-content .product-topbar-heading,
+  .settings-workspace .product-topbar-heading {
+    align-items: flex-start;
+    flex: 1 1 100%;
+  }
+
+  .ai-asset-content .product-topbar-status,
+  .settings-workspace .product-topbar-status {
+    display: inline;
+  }
+
+  .ai-asset-content .product-topbar-actions,
+  .settings-workspace .product-topbar-actions {
+    flex: 1 1 100%;
+    justify-content: flex-start;
+    margin-left: 0;
+    overflow-x: auto;
+  }
+
+  .profile-workspace .profile-category-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

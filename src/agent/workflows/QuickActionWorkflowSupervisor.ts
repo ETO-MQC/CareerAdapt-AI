@@ -2,6 +2,7 @@ import type { AgentOption, AgentUiAction } from "@/agent/contracts/agentActions"
 import type { AgentQuickActionId } from "@/agent/contracts/agentQuickAction";
 import { resolveWorkflowPrerequisites, type WorkflowPrerequisiteResolution } from "@/agent/workflows/workflowPrerequisiteResolver";
 
+/** @deprecated Kept for migration/test fixtures; AgentHostStore never emits this fixed response. */
 export const IMPORT_EXISTING_RESUME_RESPONSE =
   "支持 PDF、DOCX、JSON、Markdown 和 TXT。\n上传后会先在本地提取并脱敏，再进行结构识别。\n结果会按基本信息、教育、工作、项目、技能等栏目逐项核对，\n确认后才写入资料库。";
 
@@ -29,16 +30,8 @@ export type QuickActionPrerequisiteResolution = {
 };
 
 export function resolveQuickActionWorkflow(actionId: AgentQuickActionId): QuickActionWorkflowResolution | undefined {
-  if (actionId !== "import_existing_resume") return undefined;
-  return {
-    handledLocally: true,
-    assistantText: IMPORT_EXISTING_RESUME_RESPONSE,
-    uiAction: { type: "open_resume_upload" },
-    modelCalls: 0,
-    profileReads: 0,
-    resumeReads: 0,
-    jobReads: 0
-  };
+  void actionId;
+  return undefined;
 }
 
 export function resolveQuickActionPrerequisites(input: {
@@ -92,7 +85,7 @@ function prerequisiteOptions(resolution: WorkflowPrerequisiteResolution): AgentO
       {
         id: "quick-prerequisite-import-resume",
         label: "导入简历",
-        action: { type: "open_resume_upload" }
+        action: { type: "quick_action_shortcut", actionId: "import_existing_resume" }
       },
       {
         id: "quick-prerequisite-build-profile",
@@ -113,7 +106,7 @@ function prerequisiteOptions(resolution: WorkflowPrerequisiteResolution): AgentO
       {
         id: "quick-prerequisite-upload-resume",
         label: "导入简历",
-        action: { type: "open_resume_upload" }
+        action: { type: "quick_action_shortcut", actionId: "import_existing_resume" }
       },
       {
         id: "quick-prerequisite-select-resume",

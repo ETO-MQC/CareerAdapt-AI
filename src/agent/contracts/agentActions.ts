@@ -114,6 +114,23 @@ export const AgentOptionActionSchema = z.union([
     ])
   }).strict(),
   z.object({
+    type: z.literal("quick_action_decision"),
+    decision: z.enum([
+      "continue_profile_intake",
+      "view_profile",
+      "edit_profile",
+      "archive_profile",
+      "import_current_version",
+      "import_new_version",
+      "import_new_person",
+      "cancel_import"
+    ])
+  }).strict(),
+  z.object({
+    type: z.literal("quick_action_shortcut"),
+    actionId: z.literal("import_existing_resume")
+  }).strict(),
+  z.object({
     type: z.literal("select_entity"),
     entityType: z.enum(["job", "resume"]),
     entityId: z.string().min(1),

@@ -6,27 +6,15 @@ import type { AgentSession } from "@/agent/contracts/agentSession";
 import { createAgentToolRegistry, type AgentToolServices } from "@/agent/tools/registry";
 import { resolveProfileIntakeInterviewSupervisor } from "@/agent/workflows/ProfileIntakeInterviewSupervisor";
 import {
-  IMPORT_EXISTING_RESUME_RESPONSE,
   resolveQuickActionPrerequisites,
   resolveQuickActionWorkflow
 } from "@/agent/workflows/QuickActionWorkflowSupervisor";
 import { resolveWorkflowPrerequisites } from "@/agent/workflows/workflowPrerequisiteResolver";
 
 describe("P4.3g workflow supervisors", () => {
-  it("returns the import explanation and upload action without model or asset reads", () => {
+  it("does not expose a zero-context import fast path", () => {
     const result = resolveQuickActionWorkflow("import_existing_resume");
-
-    expect(result).toMatchObject({
-      handledLocally: true,
-      assistantText: IMPORT_EXISTING_RESUME_RESPONSE,
-      uiAction: { type: "open_resume_upload" },
-      modelCalls: 0,
-      profileReads: 0,
-      jobReads: 0
-    });
-    expect(result?.assistantText).toBe(
-      "支持 PDF、DOCX、JSON、Markdown 和 TXT。\n上传后会先在本地提取并脱敏，再进行结构识别。\n结果会按基本信息、教育、工作、项目、技能等栏目逐项核对，\n确认后才写入资料库。"
-    );
+    expect(result).toBeUndefined();
   });
 
   it("resolves missing workflow assets to a concrete next action", () => {
@@ -60,7 +48,7 @@ describe("P4.3g workflow supervisors", () => {
       resumeReads: 1,
       jobReads: 1,
       options: [
-        { label: "导入简历", action: { type: "open_resume_upload" } },
+        { label: "导入简历", action: { type: "quick_action_shortcut", actionId: "import_existing_resume" } },
         { label: "从零整理经历", action: { type: "start_workflow", workflowId: "guided_profile_intake" } }
       ]
     });
@@ -135,12 +123,12 @@ describe("P4.3g workflow supervisors", () => {
     }, { session: base, pageContext: { pathname: "/ai-workspace", query: {} } });
 
     expect(execute).not.toHaveBeenCalled();
-    expect(result?.messages.at(-1)).toMatchObject({
-      role: "assistant",
-      content: IMPORT_EXISTING_RESUME_RESPONSE,
-      options: [{ action: { type: "open_resume_upload" } }]
-    });
-    expect(host.getSnapshot().uiAction).toEqual({ type: "open_resume_upload" });
+    const assistant = result?.messages.at(-1);
+    expect(assistant?.role).toBe("assistant");
+    expect(assistant?.content).toContain("准备导入到");
+    expect(assistant?.options?.map((option) => option.action.type)).toContain("quick_action_decision");
+    expect(assistant?.options?.some((option) => option.action.type === "quick_action_decision" && option.action.decision === "import_new_person")).toBe(true);
+    expect(host.getSnapshot().uiAction).toBeUndefined();
   });
 
   it("handles missing quick-action assets locally without entering the model stream", async () => {
@@ -175,7 +163,7 @@ describe("P4.3g workflow supervisors", () => {
     expect(result?.messages.at(-1)).toMatchObject({
       role: "assistant",
       options: [
-        { action: { type: "open_resume_upload" } },
+        { action: { type: "quick_action_shortcut", actionId: "import_existing_resume" } },
         { action: { type: "start_workflow", workflowId: "guided_profile_intake" } }
       ],
       metadata: { modelCalls: 0, profileReads: 1, resumeReads: 1, jobReads: 1 }

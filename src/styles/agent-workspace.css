@@ -20,7 +20,14 @@
   padding: 0 16px 0 20px;
 }
 
-.agent-workspace-topbar > strong {
+.agent-workspace-topbar-heading {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  min-width: 0;
+}
+
+.agent-workspace-topbar-heading > strong {
   font-size: 14px;
   font-weight: 650;
   max-width: min(520px, 50vw);
@@ -29,10 +36,39 @@
   white-space: nowrap;
 }
 
+.agent-pinned-context {
+  border-left: 1px solid var(--ai-border);
+  color: var(--ai-muted);
+  font-size: 11px;
+  max-width: 220px;
+  overflow: hidden;
+  padding-left: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .agent-workspace-topbar > div {
   align-items: center;
   display: flex;
   gap: 6px;
+}
+
+@media (max-width: 760px) {
+  .agent-workspace-topbar {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 4px 8px;
+    min-height: var(--ai-topbar-height);
+    padding-block: 6px;
+  }
+
+  .agent-workspace-topbar-heading {
+    flex: 1 1 100%;
+  }
+
+  .agent-workspace-topbar > div:last-child {
+    margin-left: auto;
+  }
 }
 
 .agent-workspace-topbar button,

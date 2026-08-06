@@ -1240,7 +1240,9 @@ function mergeObservationSlots(state: AgentTaskState, toolName: string, observat
     const requestedName = stringValue(state.knownSlots.importTargetProfileName);
     const selected = requestedName
       ? profiles.find((profile) => profile.name === requestedName || String(profile.name ?? "").includes(requestedName))
-      : profiles.length === 1 ? profiles[0] : undefined;
+      : state.knownSlots.targetProfileId
+        ? profiles.find((profile) => profile.id === state.knownSlots.targetProfileId)
+        : undefined;
     const id = stringValue(selected?.id);
     if (id && state.knownSlots.importTargetIntent === "existing") {
       state.knownSlots.importTarget = { mode: "existing", profileId: id };

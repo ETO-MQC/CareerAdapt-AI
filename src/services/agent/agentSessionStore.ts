@@ -6,6 +6,10 @@ import type { ImportedResumeDraft } from "@/domain/schemas";
 export class AgentSessionStore {
   constructor(private readonly repository = new WorkspaceRepository()) {}
 
+  getWorkspaceRepository() {
+    return this.repository;
+  }
+
   save(session: AgentSession) {
     return this.repository.saveAgentSession(session);
   }

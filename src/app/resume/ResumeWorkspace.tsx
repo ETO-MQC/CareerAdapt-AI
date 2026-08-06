@@ -360,7 +360,9 @@ export function ResumeWorkspace() {
     return () => document.removeEventListener("keydown", handleEscape);
   }, [pendingPermanentDeleteBranch, pendingResumeOnlyEdit, profileLibraryOpen, profileSyncDialogOpen, isProfileCreateMenuOpen]);
 
-  const profile = profileOverride ?? (workspace.status === "ready" ? workspace.profiles[0] : undefined);
+  const profile = profileOverride ?? (workspace.status === "ready" && workspace.activeContext
+    ? workspace.profiles.find((item) => item.id === workspace.activeContext?.profileId)
+    : undefined);
   const jobs = useMemo(() => {
     const workspaceJobs = workspace.status === "ready" ? workspace.jobs : [];
     const byId = new Map<string, JobDescription>();

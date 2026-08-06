@@ -235,6 +235,101 @@
 .product-dialog { border-radius: var(--product-radius-4); }
 .product-drawer { height: 100%; overflow: auto; }
 
+.career-context-selector {
+  min-width: 0;
+  position: relative;
+}
+
+.career-context-trigger {
+  align-items: center;
+  background: var(--product-surface-elevated);
+  border: 1px solid var(--product-border);
+  border-radius: var(--product-radius-2);
+  color: var(--product-text);
+  cursor: pointer;
+  display: inline-flex;
+  gap: var(--product-space-2);
+  justify-content: space-between;
+  max-width: 320px;
+  min-height: 38px;
+  padding: 4px 10px;
+  text-align: left;
+}
+
+.career-context-trigger:hover { border-color: var(--product-border-strong); background: var(--product-surface-subtle); }
+.career-context-trigger:focus-visible,
+.career-context-option:focus-visible,
+.career-context-close:focus-visible { outline: 2px solid var(--product-accent); outline-offset: 2px; }
+
+.career-context-trigger-copy,
+.career-context-option span { display: grid; gap: 2px; min-width: 0; }
+.career-context-trigger strong,
+.career-context-option strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.career-context-trigger small,
+.career-context-option small { color: var(--product-text-secondary); font-size: 11px; font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.career-context-dialog-backdrop {
+  align-items: flex-start;
+  background: color-mix(in srgb, #000 32%, transparent);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 10vh 16px 24px;
+  position: fixed;
+  z-index: 80;
+}
+
+.career-context-dialog {
+  background: var(--product-surface-elevated);
+  border: 1px solid var(--product-border);
+  border-radius: var(--product-radius-4);
+  box-shadow: var(--product-shadow-floating);
+  color: var(--product-text);
+  display: grid;
+  gap: var(--product-space-4);
+  max-height: min(80dvh, 680px);
+  max-width: 620px;
+  min-width: min(100%, 420px);
+  overflow: auto;
+  padding: 20px;
+  overscroll-behavior: contain;
+}
+
+.career-context-dialog > header { align-items: flex-start; display: flex; gap: 12px; justify-content: space-between; }
+.career-context-dialog h2,
+.career-context-dialog h3,
+.career-context-dialog p { margin: 0; }
+.career-context-dialog header p { color: var(--product-text-secondary); font-size: 12px; margin-top: 4px; }
+.career-context-close { background: transparent; border: 0; color: var(--product-text-secondary); cursor: pointer; font-size: 22px; line-height: 1; padding: 0 4px; }
+.career-context-list { display: grid; gap: 12px; min-height: 0; overflow: auto; }
+.career-context-person { border-top: 1px solid var(--product-border); display: grid; gap: 6px; padding-top: 10px; }
+.career-context-person h3 { font-size: 13px; }
+.career-context-option { align-items: center; background: var(--product-surface); border: 1px solid var(--product-border); border-radius: var(--product-radius-2); color: var(--product-text); cursor: pointer; display: flex; gap: 10px; justify-content: space-between; min-height: 48px; padding: 7px 10px; text-align: left; }
+.career-context-option:hover,
+.career-context-option.is-selected { background: var(--product-surface-subtle); border-color: var(--product-accent); }
+.career-context-option b { color: var(--product-accent); font-size: 11px; white-space: nowrap; }
+.career-context-empty { color: var(--product-text-secondary); padding: 12px 0; }
+.career-context-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.career-context-create-form { align-items: end; border-top: 1px solid var(--product-border); display: grid; gap: 8px; grid-template-columns: 1fr auto; padding-top: 12px; }
+.career-context-create-form label { grid-column: 1 / -1; font-size: 12px; font-weight: 600; }
+.career-context-create-form input { background: var(--product-surface); border: 1px solid var(--product-border); border-radius: var(--product-radius-2); color: var(--product-text); min-height: 34px; padding: 0 10px; }
+
+.career-context-switch-dialog-backdrop { align-items: flex-start; background: rgb(15 23 42 / 32%); display: flex; inset: 0; justify-content: center; padding: 18vh 16px 24px; position: fixed; z-index: 1000; }
+.career-context-switch-dialog { background: var(--product-surface); border: 1px solid var(--product-border); border-radius: var(--product-radius-3); box-shadow: 0 20px 60px rgb(15 23 42 / 18%); display: grid; gap: 12px; max-width: 480px; padding: 20px; width: 100%; }
+.career-context-switch-dialog h2,
+.career-context-switch-dialog p { margin: 0; }
+.career-context-switch-dialog p { color: var(--product-text-secondary); font-size: 13px; }
+.career-context-switch-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+@media (max-width: 760px) {
+  .career-context-trigger { max-width: min(240px, 100%); }
+  .career-context-dialog { min-width: min(100%, 360px); padding: 16px; }
+  .career-context-dialog-backdrop { padding: 8vh 10px 16px; }
+  .career-context-actions { align-items: stretch; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .career-context-actions button { white-space: normal; }
+  .career-context-create-form { grid-template-columns: 1fr; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .product-button,
   .product-icon-button,

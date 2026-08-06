@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type { CareerProfile, JobDescription } from "@/domain/schemas";
+import type { ActiveCareerContext, CareerProfile, JobDescription } from "@/domain/schemas";
 import { WorkspaceRepository } from "@/services/storage/repositories";
 
 export type WorkspaceLoadState =
@@ -9,18 +9,21 @@ export type WorkspaceLoadState =
       status: "loading";
       profiles: [];
       jobs: [];
+      activeContext?: ActiveCareerContext;
       source: "repository";
     }
   | {
       status: "empty";
       profiles: [];
       jobs: [];
+      activeContext?: ActiveCareerContext;
       source: "repository";
     }
   | {
       status: "error";
       profiles: [];
       jobs: [];
+      activeContext?: ActiveCareerContext;
       source: "repository";
       error: string;
     }
@@ -28,6 +31,7 @@ export type WorkspaceLoadState =
       status: "ready";
       profiles: CareerProfile[];
       jobs: JobDescription[];
+      activeContext?: ActiveCareerContext;
       source: "repository";
     };
 
@@ -43,10 +47,10 @@ const defaultRepository = new WorkspaceRepository();
 async function readWorkspace(repository: WorkspaceRepository): Promise<WorkspaceLoadState> {
   await repository.ensureDemoWorkspace();
 
-  const [profiles, jobs, activeProfileId] = await Promise.all([
+  const [profiles, jobs, activeContext] = await Promise.all([
     repository.listProfiles(),
     repository.listJobDescriptions(),
-    repository.getActiveProfileId()
+    repository.getActiveCareerContext()
   ]);
 
   if (profiles.length === 0 && jobs.length === 0) {
@@ -58,14 +62,15 @@ async function readWorkspace(repository: WorkspaceRepository): Promise<Workspace
     };
   }
 
-  const orderedProfiles = activeProfileId
-    ? [...profiles].sort((left, right) => Number(right.id === activeProfileId) - Number(left.id === activeProfileId))
+  const orderedProfiles = activeContext
+    ? [...profiles].sort((left, right) => Number(right.id === activeContext.profileId) - Number(left.id === activeContext.profileId))
     : profiles;
 
   return {
     status: "ready",
     profiles: orderedProfiles,
     jobs,
+    activeContext,
     source: "repository"
   };
 }

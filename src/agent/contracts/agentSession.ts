@@ -246,9 +246,13 @@ export const AgentTurnCheckpointSchema = z.object({
 }).strict();
 
 export const AgentSessionSchema = z.object({
+  // P4.3i adds pinned identity fields compatibly; keep the persisted session
+  // schema number stable so existing session stores do not need a destructive
+  // rewrite just to acquire the optional fields.
   agentSessionSchemaVersion: z.number().int().min(1).default(3),
   id: z.string().min(1),
   title: z.string().min(1).max(160),
+  titleOrigin: z.enum(["default", "deterministic", "ai_summary", "user"]).default("default"),
   // Hydrated by WorkspaceRepository from the append-only AgentMessageRecord store.
   // This is intentionally unbounded at the session-contract level: model context
   // has its own independent budget in AgentContextWindow.
@@ -256,7 +260,11 @@ export const AgentSessionSchema = z.object({
   sessionRevision: z.number().int().min(0).default(0),
   workflowState: AgentWorkflowStateSchema,
   artifactRefs: z.array(AgentArtifactRefSchema).max(64),
+  /** Session-pinned career identity. It never follows the global context implicitly. */
+  personId: z.string().min(1).optional(),
   activeProfileId: z.string().min(1).optional(),
+  profileVersionNumber: z.number().int().min(1).optional(),
+  profileRevision: z.number().int().min(0).optional(),
   activeResumeId: z.string().min(1).optional(),
   activeJobId: z.string().min(1).optional(),
   conversationSummary: z.string().max(6000).default(""),
@@ -290,6 +298,7 @@ export type AgentTaskState = z.infer<typeof AgentTaskStateSchema>;
 export type AgentOptionSetState = z.infer<typeof AgentOptionSetStateSchema>;
 export type AgentOptionSet = z.infer<typeof AgentOptionSetSchema>;
 export type ConversationBranch = z.infer<typeof ConversationBranchSchema>;
+export type AgentTaskTitleOrigin = AgentSession["titleOrigin"];
 
 const AUTO_SESSION_TITLES = new Set(["新的 AI 任务", "AI 求职任务"]);
 
@@ -311,10 +320,22 @@ export function shouldAutoNameAgentSession(session: Pick<AgentSession, "title">)
   return AUTO_SESSION_TITLES.has(session.title);
 }
 
-export function getAgentSessionDisplayTitle(session: Pick<AgentSession, "title" | "messages">) {
-  if (!shouldAutoNameAgentSession(session)) return session.title;
-  const firstUserMessage = session.messages.find((message) => message.role === "user" && message.content.trim());
-  return firstUserMessage ? deriveAgentSessionTitle(firstUserMessage.content) : session.title;
+export function getAgentSessionDisplayTitle(
+  session: Pick<AgentSession, "title" | "messages"> & { titleOrigin?: AgentSession["titleOrigin"] }
+) {
+  // Legacy records had no titleOrigin and may still carry the old placeholder.
+  // Current and migrated records always use the bounded title service result.
+  if (
+    (session.titleOrigin === undefined || session.titleOrigin === "default")
+    && session.title === "新的 AI 任务"
+  ) {
+    const firstUserMessage = session.messages.find((message) => message.role === "user" && message.content.trim());
+    // Limit this compatibility path to un-migrated in-memory records. Current
+    // Host-published messages carry an execution marker and keep the bounded
+    // title service result instead of copying a long first message.
+    return firstUserMessage && !firstUserMessage.metadata ? firstUserMessage.content : session.title;
+  }
+  return session.title;
 }
 
 export function serializeAgentSession(value: AgentSession) {

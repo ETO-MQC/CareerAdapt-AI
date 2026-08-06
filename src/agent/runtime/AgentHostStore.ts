@@ -2,8 +2,7 @@
 
 import type { AgentArtifactRef } from "@/agent/contracts/agentArtifact";
 import {
-  deriveAgentSessionTitle,
-  shouldAutoNameAgentSession,
+  AgentSessionSchema,
   type AgentMessageReference,
   type AgentSession,
   type AgentTaskState,
@@ -34,7 +33,7 @@ import { agentImportProgressBus } from "@/services/agent/AgentImportProgressBus"
 import { classifyProfileIntakeTurn, classifyTurnIntent, type TurnIntentDecision } from "./AgentTurnIntent";
 import { stableHashText } from "@/services/security/text";
 import { ensureConversationBranches, forkConversationBranch } from "./activeBranchContext";
-import type { AgentQuickActionId, QuickActionIntent } from "@/agent/contracts/agentQuickAction";
+import { createQuickActionIntent, type AgentQuickActionId, type QuickActionIntent } from "@/agent/contracts/agentQuickAction";
 import {
   resolveCompoundAnswer,
   unresolvedTailoringQuestions,
@@ -52,16 +51,20 @@ import {
 import type { ImportedResumeDraft } from "@/domain/schemas";
 import {
   resolveQuickActionPrerequisites,
-  resolveQuickActionWorkflow,
   type QuickActionPrerequisiteResolution,
   type QuickActionWorkflowResolution
 } from "@/agent/workflows/QuickActionWorkflowSupervisor";
+import { buildQuickActionContextSnapshot, quickActionProfileLabel, quickActionSectionCount } from "@/agent/workflows/QuickActionContextSnapshot";
+import { QuickActionContextSnapshotSchema, type QuickActionContextSnapshot } from "@/agent/contracts/quickActionContext";
+import { defaultAgentTaskTitle, refineAgentTaskTitle } from "@/agent/services/AgentTaskTitleService";
+import { WorkspaceRepository } from "@/services/storage/repositories";
 import { resolveProfileIntakeInterviewSupervisor } from "@/agent/workflows/ProfileIntakeInterviewSupervisor";
 import {
   ProfileIntakeFinalizationSupervisor,
   profileIntakePersistenceReceipt
 } from "@/agent/workflows/ProfileIntakeFinalizationSupervisor";
 import { AuthoritativeConversationAlignmentGuard } from "@/agent/kernel/AuthoritativeConversationAlignmentGuard";
+import { AgentExecutionCoordinator, type SessionExecution } from "./AgentExecutionCoordinator";
 
 export type AgentHostInput =
   | { type: "message"; text: string; references?: AgentMessageReference[] }
@@ -79,7 +82,7 @@ export type AgentHostSnapshot = {
   activeSessionId?: string;
   activeSession?: AgentSession;
   activeTask?: AgentTaskState;
-  turnStatus: "idle" | "running" | "paused" | "waiting_for_confirmation" | "completed" | "failed";
+  turnStatus: "idle" | "running" | "paused" | "waiting_for_confirmation" | "waiting_for_user" | "completed" | "failed";
   activeTurnId?: string;
   startedAt?: string;
   lastProgressAt?: string;
@@ -109,10 +112,8 @@ export class AgentHostStore {
     pendingInputCount: 0
   };
   private readonly listeners = new Set<() => void>();
-  private activeController?: AbortController;
-  private activeExecution?: Promise<AgentSession | undefined>;
-  private stallTimer?: ReturnType<typeof setTimeout>;
-  private runGeneration = 0;
+  private readonly executionCoordinator = new AgentExecutionCoordinator();
+  private readonly stallTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private readonly confirmationExecutions = new Map<string, Promise<AgentSession | undefined>>();
   private readonly artifactActionExecutions = new Map<string, Promise<AgentSession | undefined>>();
   private readonly pendingInputs = new Map<string, PendingUserInput[]>();
@@ -121,11 +122,13 @@ export class AgentHostStore {
     kernel: AgentKernel;
     executor: AgentExecutor;
     persistence: AgentSessionStore;
+    repository?: WorkspaceRepository;
     stallThresholdMs?: number;
   }) {
     agentImportProgressBus.subscribe((progress) => {
-      if (this.snapshot.turnStatus !== "running") return;
-      this.markProgress();
+      const sessionId = this.snapshot.activeSessionId;
+      if (!sessionId || !this.executionCoordinator.isRunning(sessionId)) return;
+      this.markProgress(sessionId);
       const activeSession = this.snapshot.activeSession;
       const progressedSession = activeSession
         ? {
@@ -166,10 +169,74 @@ export class AgentHostStore {
 
   getSnapshot = () => this.snapshot;
 
+  getExecution(sessionId: string) {
+    return this.executionCoordinator.get(sessionId);
+  }
+
+  getExecutionRegistry() {
+    return this.executionCoordinator.executions;
+  }
+
+  async rebindSessionCareerContext(sessionId: string, context: { personId: string; profileId: string }, reread = true) {
+    const stored = await this.dependencies.persistence.get(sessionId);
+    const current = this.snapshot.activeSession?.id === sessionId ? this.snapshot.activeSession : stored;
+    if (!current) throw new Error("agent_session_required");
+    const profile = await this.getCareerRepository().getProfile(context.profileId);
+    if (!profile || profile.personId !== context.personId || profile.archivedAt) throw new Error("career_context_target_invalid");
+    const nextTaskState = reread && current.taskState
+      ? {
+          ...current.taskState,
+          knownSlots: {
+            ...current.taskState.knownSlots,
+            targetProfileId: profile.id,
+            targetProfileName: profile.name,
+            expectedProfileVersion: profile.version,
+            acknowledgedActiveProfileId: profile.id
+          },
+          selectedEntities: {
+            ...current.taskState.selectedEntities,
+            profileId: profile.id,
+            profileVersion: profile.version
+          },
+          updatedAt: new Date().toISOString()
+        }
+      : current.taskState;
+    const next = AgentSessionSchema.parse({
+      ...current,
+      personId: context.personId,
+      activeProfileId: profile.id,
+      profileVersionNumber: profile.profileVersionNumber ?? 1,
+      profileRevision: profile.version,
+      taskState: nextTaskState,
+      updatedAt: new Date().toISOString()
+    });
+    const saved = await this.dependencies.persistence.save(next);
+    this.patchSession(saved);
+    return saved;
+  }
+
+  private getCareerRepository() {
+    return this.dependencies.repository
+      ?? (typeof this.dependencies.persistence.getWorkspaceRepository === "function"
+        ? this.dependencies.persistence.getWorkspaceRepository()
+        : new WorkspaceRepository());
+  }
+
+  private hasExplicitCareerRepository() {
+    return Boolean(
+      this.dependencies.repository
+      || typeof this.dependencies.persistence.getWorkspaceRepository === "function"
+    );
+  }
+
+  private async readQuickActionContext(session?: AgentSession) {
+    return buildQuickActionContextSnapshot(this.getCareerRepository(), session);
+  }
+
   adopt(session: AgentSession) {
-    if (this.snapshot.turnStatus === "running") return;
     const migrated = migrateAgentSessionToCurrentSchema(session);
-    const recoveredThinking = enforceExactlyOneFinal(recoverOrphanedThinking(migrated));
+    const liveExecution = this.executionCoordinator.get(session.id);
+    const recoveredThinking = enforceExactlyOneFinal(liveExecution?.promise ? migrated : recoverOrphanedThinking(migrated));
     const { session: recoverable, pendingInputs } = recoverPersistedQueuedInputs(recoveredThinking);
     if (pendingInputs.length) this.pendingInputs.set(recoverable.id, pendingInputs);
     const restorable = recoverable.taskState
@@ -177,17 +244,22 @@ export class AgentHostStore {
       : recoverable;
     const withRestorePrompt = appendIntakeRestorePrompt(restorable);
     if (JSON.stringify(withRestorePrompt) !== JSON.stringify(session)) void this.dependencies.persistence.save(withRestorePrompt);
+    const execution = this.executionCoordinator.get(withRestorePrompt.id);
     this.patch({
       activeSessionId: withRestorePrompt.id,
       activeSession: withRestorePrompt,
       activeTask: withRestorePrompt.taskState,
       pendingConfirmation: withRestorePrompt.pendingConfirmation,
       artifacts: withRestorePrompt.artifactRefs,
-      turnStatus: withRestorePrompt.pendingConfirmation ? "waiting_for_confirmation" : "idle",
-      stalled: false,
+      turnStatus: execution?.status ?? sessionTurnStatus(withRestorePrompt),
+      activeTurnId: execution?.activeTurnId ?? withRestorePrompt.activeTurn?.id,
+      startedAt: execution?.startedAt ?? withRestorePrompt.activeTurn?.startedAt,
+      lastProgressAt: execution?.lastProgressAt,
+      stalled: execution?.stalled ?? false,
+      streamEvents: execution?.streamEvents ?? [],
       pendingInputCount: pendingInputs.length
     });
-    if (pendingInputs.length && !withRestorePrompt.pendingConfirmation) void this.drainPendingInput(withRestorePrompt.id);
+    if (pendingInputs.length && !withRestorePrompt.pendingConfirmation && !execution?.promise) void this.drainPendingInput(withRestorePrompt.id);
   }
 
   setPaused(paused: boolean) {
@@ -198,12 +270,13 @@ export class AgentHostStore {
     this.patch({ turnStatus: busy ? "running" : "idle" });
   }
 
-  interrupt() {
-    this.activeController?.abort();
+  interrupt(sessionId = this.snapshot.activeSessionId) {
+    if (!sessionId) return;
+    this.executionCoordinator.interrupt(sessionId);
   }
 
   continueWaiting() {
-    this.markProgress();
+    if (this.snapshot.activeSessionId) this.markProgress(this.snapshot.activeSessionId);
   }
 
   async dispatch(
@@ -216,7 +289,7 @@ export class AgentHostStore {
       : requestedSession;
     if (!session) throw new Error("agent_session_required");
     if (input.type === "confirmation") {
-      return this.resolveConfirmation(input.confirmed, context.pageContext);
+      return this.resolveConfirmation(input.confirmed, context.pageContext, session);
     }
     if (input.type === "artifact_action") {
       const active = this.snapshot.activeSession?.id === session.id
@@ -293,14 +366,16 @@ export class AgentHostStore {
     }
     if (input.type === "file") {
       const attachment = await agentAttachmentStore.register(input.file);
-      return this.startTurn({
-        session,
-        userMessage: `导入简历文件：${input.file.name}`,
-        pageContext: context.pageContext,
-        attachment
-      });
+      return this.resolveDirectImportAttachment(session, attachment, context.pageContext);
     }
     if (input.type === "option") {
+      if (input.action.type === "quick_action_decision") {
+        return this.resolveQuickActionDecision(session, input.action, context.pageContext);
+      }
+      if (input.action.type === "quick_action_shortcut") {
+        const intent = createQuickActionIntent(input.action.actionId, "quick_tasks");
+        return this.dispatch({ type: "quick_action", actionId: intent.actionId, text: intent.intent, task: intent.task }, context);
+      }
       if (input.action.type === "task_decision") {
         return this.resolveTaskDecision(session, input.action, context.pageContext);
       }
@@ -367,19 +442,20 @@ export class AgentHostStore {
       return this.applyWorkflowControl(session, input.action);
     }
     if (input.type === "quick_action") {
+      const quickContext = await this.readQuickActionContext(session);
+      const preparedSession = await this.prepareQuickActionSession(session, input.actionId, quickContext);
       if (input.actionId === "build_profile_from_scratch") {
-        return this.resolveProfileIntakeQuickAction(session, input);
+        return this.resolveProfileIntakeQuickAction(preparedSession, input, quickContext);
       }
-      const localQuickAction = resolveQuickActionWorkflow(input.actionId);
-      if (localQuickAction) {
-        return this.resolveQuickActionLocally(session, input, localQuickAction);
+      if (input.actionId === "import_existing_resume") {
+        return this.resolveResumeImportQuickAction(preparedSession, input, quickContext);
       }
       const localPrerequisites = await this.resolveQuickActionPrerequisites(input);
       if (localPrerequisites) {
-        return this.resolveQuickActionLocally(session, input, localPrerequisites);
+        return this.resolveQuickActionLocally(preparedSession, input, localPrerequisites, quickContext);
       }
       return this.startTurn({
-        session,
+        session: preparedSession,
         userMessage: input.text,
         pageContext: context.pageContext,
         typedTask: input.task,
@@ -387,10 +463,10 @@ export class AgentHostStore {
       });
     }
     if (session.pendingConfirmation && /^(?:确认|确定|同意|继续|确认并继续)[。！!]?$/u.test(input.text.trim())) {
-      return this.resolveConfirmation(true, context.pageContext);
+      return this.resolveConfirmation(true, context.pageContext, session);
     }
     if (session.pendingConfirmation && /^(?:取消|不同意|拒绝|不确认)[。！!]?$/u.test(input.text.trim())) {
-      return this.resolveConfirmation(false, context.pageContext);
+      return this.resolveConfirmation(false, context.pageContext, session);
     }
     const routed = routeAgentIntent(input.text, {
       activeWorkflowId: session.taskState?.workflowId ?? session.workflowState.workflowId
@@ -413,7 +489,8 @@ export class AgentHostStore {
   private async resolveQuickActionLocally(
     session: AgentSession,
     input: Extract<AgentHostInput, { type: "quick_action" }>,
-    resolution: (QuickActionWorkflowResolution | QuickActionPrerequisiteResolution) & object
+    resolution: (QuickActionWorkflowResolution | QuickActionPrerequisiteResolution) & object,
+    contextSnapshot?: QuickActionContextSnapshot
   ) {
     const now = new Date().toISOString();
     const reducer = new AgentTaskStateReducer();
@@ -430,6 +507,14 @@ export class AgentHostStore {
       updatedAt: now
     };
     let current = projectTaskStateIntoSession(session, taskState);
+    if (contextSnapshot && current.titleOrigin !== "user") {
+      current = {
+        ...current,
+        title: refineAgentTaskTitle(input.actionId, contextSnapshot),
+        titleOrigin: "deterministic",
+        updatedAt: now
+      };
+    }
     current = ensureConversationBranches(current);
     const userMessage = appendAgentMessage(current, "user", input.text.trim(), {
       id: `agent-user-${crypto.randomUUID()}`,
@@ -450,7 +535,8 @@ export class AgentHostStore {
         modelCalls: resolution.modelCalls,
         profileReads: resolution.profileReads,
         resumeReads: resolution.resumeReads ?? 0,
-        jobReads: resolution.jobReads
+        jobReads: resolution.jobReads,
+        quickActionContext: contextSnapshot
       }
     });
     this.patchSession(current, {
@@ -481,6 +567,27 @@ export class AgentHostStore {
     return saved;
   }
 
+  private async prepareQuickActionSession(
+    session: AgentSession,
+    actionId: AgentQuickActionId,
+    snapshot: QuickActionContextSnapshot
+  ) {
+    const patch: Partial<AgentSession> = {};
+    if (session.titleOrigin !== "user") {
+      patch.title = snapshot.activeProfile ? refineAgentTaskTitle(actionId, snapshot) : defaultAgentTaskTitle(actionId);
+      patch.titleOrigin = "deterministic";
+    }
+    if (!session.activeProfileId && snapshot.activePerson && snapshot.activeProfile) {
+      if (!session.personId) patch.personId = snapshot.activePerson.id;
+      patch.activeProfileId = snapshot.activeProfile.id;
+      patch.profileVersionNumber = snapshot.activeProfile.profileVersionNumber;
+      patch.profileRevision = snapshot.activeProfile.profileRevision;
+    }
+    return Object.keys(patch).length
+      ? { ...session, ...patch, updatedAt: new Date().toISOString() }
+      : session;
+  }
+
   /**
    * Profile Intake starts from a local, typed target binding. The model is not
    * involved in choosing a Profile and therefore cannot move this action into
@@ -488,8 +595,53 @@ export class AgentHostStore {
    */
   private async resolveProfileIntakeQuickAction(
     session: AgentSession,
-    input: Extract<AgentHostInput, { type: "quick_action" }>
+    input: Extract<AgentHostInput, { type: "quick_action" }>,
+    snapshot: QuickActionContextSnapshot
   ) {
+    // P4.3h test/migration callers may provide only the legacy deterministic
+    // get_active_profile tool. Production supplies WorkspaceRepository above;
+    // this adapter preserves those callers without reintroducing a planner or
+    // an implicit first-profile choice.
+    if (!snapshot.activeProfile && !this.hasExplicitCareerRepository()) {
+      try {
+        const result = await this.dependencies.executor.execute({
+          toolName: "get_active_profile",
+          toolInput: {},
+          operationId: `quick-profile-context-${crypto.randomUUID()}`
+        });
+        if (result.ok && result.data && typeof result.data === "object") {
+          const value = result.data as Record<string, unknown>;
+          const profileId = typeof value.profileId === "string" ? value.profileId : undefined;
+          if (value.selected === true && profileId) {
+            const displayName = typeof value.name === "string" && value.name.trim() ? value.name : "当前人物";
+            const profileRevision = typeof value.version === "number" ? value.version : 0;
+            const personId = typeof value.personId === "string" ? value.personId : `legacy-person-${profileId}`;
+            snapshot = QuickActionContextSnapshotSchema.parse({
+              activePerson: { id: personId, displayName, currentProfileId: profileId },
+              activeProfile: {
+                id: profileId,
+                personId,
+                displayName,
+                profileVersionNumber: typeof value.profileVersionNumber === "number" ? Math.max(1, value.profileVersionNumber) : 1,
+                profileVersionLabel: typeof value.profileVersionLabel === "string" ? value.profileVersionLabel : undefined,
+                profileRevision,
+                createdAt: new Date().toISOString(),
+                itemCount: 0,
+                profileCountsBySection: emptyQuickActionCounts()
+              },
+              profileVersionNumber: typeof value.profileVersionNumber === "number" ? Math.max(1, value.profileVersionNumber) : 1,
+              profileRevision,
+              profileCountsBySection: emptyQuickActionCounts(),
+              profileItemCount: 0,
+              resumeSummaries: [],
+              jobSummaries: []
+            });
+          }
+        }
+      } catch {
+        // The repository-backed snapshot remains the authoritative fallback.
+      }
+    }
     const now = new Date().toISOString();
     const reducer = new AgentTaskStateReducer();
     let taskState = reducer.create(session);
@@ -499,30 +651,10 @@ export class AgentHostStore {
       workflowId: "guided_profile_intake",
       stage: "resolve_profile_target"
     });
-    let activeResult: Awaited<ReturnType<AgentExecutor["execute"]>> | undefined;
-    try {
-      activeResult = await this.dependencies.executor.execute({
-        toolName: "get_active_profile",
-        toolInput: {},
-        operationId: `quick-profile-target-${session.id}-${stableHashText(input.actionId)}`.slice(0, 160)
-      });
-    } catch {
-      activeResult = undefined;
-    }
-    const active = activeResult?.ok ? objectValue(activeResult.data) : {};
-    const soleProfile = Array.isArray(active.availableProfiles) && active.availableProfiles.length === 1
-      ? objectValue(active.availableProfiles[0])
-      : undefined;
-    const profileId = stringValue(active.profileId) ?? stringValue(soleProfile?.id);
-    const profileVersion = numberValue(active.version) ?? numberValue(soleProfile?.version);
-    const selected = Boolean(profileId && profileVersion !== undefined && (active.selected === true || soleProfile));
+    const activeProfile = snapshot.activeProfile;
+    const activePerson = snapshot.activePerson;
+    const selected = Boolean(activeProfile && activePerson);
     if (selected) {
-      taskState = reducer.reduce(taskState, {
-        type: "tool_observation",
-        toolName: "get_active_profile",
-        observation: activeResult!.data,
-        artifactIds: activeResult!.artifactIds
-      });
       taskState = {
         ...taskState,
         workflowId: "guided_profile_intake",
@@ -530,47 +662,66 @@ export class AgentHostStore {
         completionStatus: "waiting_for_user",
         knownSlots: {
           ...taskState.knownSlots,
-          targetProfileId: profileId,
-          targetProfileName: stringValue(active.name),
-          expectedProfileVersion: profileVersion,
-          acknowledgedActiveProfileId: profileId,
+          targetProfileId: activeProfile!.id,
+          targetProfileName: activePerson!.displayName,
+          expectedProfileVersion: activeProfile!.profileRevision,
+          acknowledgedActiveProfileId: activeProfile!.id,
           profileIntakeQuickActionResolved: true,
           intakeFirstQuestionId: "education-background"
         },
         selectedEntities: {
           ...taskState.selectedEntities,
-          profileId,
-          profileVersion
+          profileId: activeProfile!.id,
+          profileVersion: activeProfile!.profileRevision
         },
         updatedAt: now
       };
     }
     if (!selected) taskState = { ...taskState, completionStatus: "waiting_for_user", updatedAt: now };
     let current = projectTaskStateIntoSession(session, taskState);
-    if (selected) current = { ...current, activeProfileId: profileId };
+    if (selected) {
+      current = {
+        ...current,
+        personId: activePerson!.id,
+        activeProfileId: activeProfile!.id,
+        profileVersionNumber: activeProfile!.profileVersionNumber,
+        profileRevision: activeProfile!.profileRevision
+      };
+    }
     current = appendAgentMessage(current, "user", input.text.trim(), {
       id: `agent-user-${crypto.randomUUID()}`,
       status: "complete",
       metadata: { executionState: "complete", quickActionSupervisor: true, modelCalls: 0 }
     });
+    const profileLabel = quickActionProfileLabel(snapshot);
     const assistantText = selected
-      ? "好的，我们从教育背景开始。请告诉我学校、专业、学历，以及大致的入学和毕业时间；只写你确认过的内容即可。"
+      ? snapshot.profileItemCount > 0
+        ? `当前使用“${profileLabel}”，已有教育 ${quickActionSectionCount(snapshot, "education")} 项、项目 ${quickActionSectionCount(snapshot, "project")} 项、技能 ${quickActionSectionCount(snapshot, "skills")} 项。\n你准备继续补充、查看、修改，还是归档已有内容？`
+        : `当前“${profileLabel}”还没有经历资料，我们先从你的身份或教育背景开始。若先从教育背景开始，请告诉我你的姓名、学校、专业和学历；只写你确认过的内容即可。`
       : "开始整理经历前，需要先选择或创建一个个人资料库。请选择资料库后，我会立即进入第一步访谈。";
     current = appendAgentMessage(current, "assistant", assistantText, {
       kind: "text",
       type: "text",
       status: "complete",
-      options: selected ? undefined : [{
-        id: "profile-intake-select-or-create-profile",
-        label: "选择或创建个人资料库",
-        action: { type: "open_profile_browser" }
-      }],
+      options: selected && snapshot.profileItemCount > 0
+        ? [
+            { id: "profile-intake-continue", label: "继续补充", action: { type: "quick_action_decision", decision: "continue_profile_intake" } },
+            { id: "profile-intake-view", label: "查看资料", action: { type: "quick_action_decision", decision: "view_profile" } },
+            { id: "profile-intake-edit", label: "修改已有", action: { type: "quick_action_decision", decision: "edit_profile" } },
+            { id: "profile-intake-archive", label: "归档资料", action: { type: "quick_action_decision", decision: "archive_profile" } }
+          ]
+        : selected ? undefined : [{
+            id: "profile-intake-select-or-create-profile",
+            label: "选择或创建个人资料库",
+            action: { type: "open_profile_browser" }
+          }],
       metadata: {
         quickActionSupervisor: true,
         deterministicBoundary: "profile_intake_target",
         modelCalls: 0,
         profileReads: 1,
-        authoritativeStage: taskState.stage
+        authoritativeStage: taskState.stage,
+        quickActionContext: snapshot
       }
     });
     const saved = await this.dependencies.persistence.save(current);
@@ -583,10 +734,243 @@ export class AgentHostStore {
         modelCalls: 0,
         profileReads: 1,
         authoritativeStage: taskState.stage,
-        targetProfileId: selected ? profileId : undefined
+        targetProfileId: selected ? activeProfile!.id : undefined,
+        quickActionContext: snapshot
       }
     });
     return saved;
+  }
+
+  private async resolveResumeImportQuickAction(
+    session: AgentSession,
+    input: Extract<AgentHostInput, { type: "quick_action" }>,
+    snapshot: QuickActionContextSnapshot
+  ) {
+    const now = new Date().toISOString();
+    const reducer = new AgentTaskStateReducer();
+    let taskState = reducer.reduce(reducer.create(session), {
+      type: "new_root_task",
+      goal: input.task.rootGoal,
+      workflowId: "resume_import",
+      stage: "resolve_target"
+    });
+    taskState = { ...taskState, completionStatus: "waiting_for_user", updatedAt: now };
+    let current = projectTaskStateIntoSession(session, taskState);
+    if (snapshot.activePerson && snapshot.activeProfile) {
+      current = {
+        ...current,
+        personId: snapshot.activePerson.id,
+        activeProfileId: snapshot.activeProfile.id,
+        profileVersionNumber: snapshot.activeProfile.profileVersionNumber,
+        profileRevision: snapshot.activeProfile.profileRevision
+      };
+    }
+    current = appendAgentMessage(current, "user", input.text.trim(), {
+      id: `agent-user-${crypto.randomUUID()}`,
+      status: "complete",
+      metadata: { executionState: "complete", quickActionSupervisor: true }
+    });
+    current = appendAgentMessage(current, "assistant", importTargetPrompt(snapshot), {
+      kind: "text",
+      type: "text",
+      status: "complete",
+      options: importTargetOptions(snapshot),
+      metadata: {
+        quickActionSupervisor: true,
+        quickActionKind: "resume_import_target",
+        modelCalls: 0,
+        profileReads: 1,
+        resumeReads: 0,
+        jobReads: 0,
+        quickActionContext: snapshot
+      }
+    });
+    const saved = await this.dependencies.persistence.save(current);
+    this.patchSession(saved, {
+      turnStatus: "idle",
+      currentObservation: {
+        type: "quick_action_fast_path",
+        actionId: input.actionId,
+        modelCalls: 0,
+        profileReads: 1,
+        resumeReads: 0,
+        jobReads: 0,
+        quickActionContext: snapshot
+      }
+    });
+    return saved;
+  }
+
+  private async resolveDirectImportAttachment(
+    session: AgentSession,
+    attachment: AgentAttachmentRef,
+    pageContext: AgentPageContext
+  ) {
+    const snapshot = await this.readQuickActionContext(session);
+    const reducer = new AgentTaskStateReducer();
+    let taskState = session.taskState ?? reducer.create(session);
+    if (taskState.workflowId !== "resume_import") {
+      taskState = reducer.reduce(taskState, {
+        type: "new_root_task",
+        goal: "import_resume",
+        workflowId: "resume_import",
+        stage: "resolve_target"
+      });
+    }
+    const targetProfileId = typeof taskState.knownSlots.targetProfileId === "string"
+      ? taskState.knownSlots.targetProfileId
+      : undefined;
+    const targetAlreadyResolved = taskState.knownSlots.quickActionImportTargetRequired === false && Boolean(targetProfileId);
+    taskState = reducer.reduce(taskState, { type: "attachment_selected", attachment });
+    taskState = {
+      ...taskState,
+      stage: targetAlreadyResolved ? "prepare_import" : "resolve_target",
+      completionStatus: targetAlreadyResolved ? "active" : "waiting_for_user",
+      knownSlots: {
+        ...taskState.knownSlots,
+        quickActionImportTargetRequired: !targetAlreadyResolved
+      },
+      updatedAt: new Date().toISOString()
+    };
+    let current = projectTaskStateIntoSession(session, taskState);
+    current = appendAgentMessage(current, "user", `已选择简历文件：${attachment.fileName}`, {
+      id: `agent-user-${crypto.randomUUID()}`,
+      status: "complete",
+      metadata: { executionState: "complete", attachmentId: attachment.id }
+    });
+    if (targetAlreadyResolved && targetProfileId) {
+      const targetProfile = await this.getCareerRepository().getProfile(targetProfileId);
+      if (!targetProfile) return current;
+      const targetLabel = `${targetProfile.name} · V${targetProfile.profileVersionNumber ?? 1}`;
+      const saved = await this.dependencies.persistence.save(current);
+      this.patchSession(saved, {
+        turnStatus: "idle",
+        currentObservation: { type: "import_target_resolved", targetProfileId, quickActionContext: snapshot }
+      });
+      return this.startTurn({
+        session: saved,
+        userMessage: `开始将简历导入到${targetLabel}`,
+        pageContext,
+        supersede: true
+      });
+    }
+    current = appendAgentMessage(current, "assistant", importTargetPrompt(snapshot), {
+      kind: "text",
+      type: "text",
+      status: "complete",
+      options: importTargetOptions(snapshot),
+      metadata: {
+        quickActionSupervisor: true,
+        quickActionKind: "resume_import_target",
+        attachmentId: attachment.id,
+        quickActionContext: snapshot
+      }
+    });
+    const saved = await this.dependencies.persistence.save(current);
+    this.patchSession(saved, {
+      turnStatus: "idle",
+      currentObservation: { type: "import_target_required", attachmentId: attachment.id, quickActionContext: snapshot }
+    });
+    void pageContext;
+    return saved;
+  }
+
+  private async resolveQuickActionDecision(
+    session: AgentSession,
+    action: Extract<AgentOption["action"], { type: "quick_action_decision" }>,
+    pageContext: AgentPageContext
+  ) {
+    if (["continue_profile_intake", "view_profile", "edit_profile", "archive_profile"].includes(action.decision)) {
+      if (action.decision === "view_profile" || action.decision === "edit_profile") {
+        this.patch({ uiAction: { type: "open_profile_browser" } });
+        return session;
+      }
+      const profileId = session.activeProfileId ?? session.taskState?.selectedEntities.profileId;
+      if (!profileId) return session;
+      if (action.decision === "archive_profile") {
+        await this.getCareerRepository().archiveProfileVersion(profileId);
+        const updated = replaceLatestQuickActionAssistant(session, "当前版本已归档。你可以在人物与版本选择器中切换到其他版本。", undefined);
+        const saved = await this.dependencies.persistence.save(updated);
+        this.patchSession(saved, { turnStatus: "idle", uiAction: undefined });
+        return saved;
+      }
+      const next = replaceLatestQuickActionAssistant(session, "好的，我们继续补充已确认的经历。请告诉我下一段教育、工作、项目或技能信息。", undefined);
+      return this.startTurn({
+        session: next,
+        userMessage: "继续补充经历",
+        pageContext,
+        supersede: true
+      });
+    }
+
+    if (action.decision === "cancel_import") {
+      const cancelled = replaceLatestQuickActionAssistant(session, "已取消本次导入，文件仍保留在本地附件记录中，未开始提取。", undefined);
+      const saved = await this.dependencies.persistence.save(cancelled);
+      this.patchSession(saved, { turnStatus: "idle", uiAction: undefined });
+      return saved;
+    }
+
+    const snapshot = await this.readQuickActionContext(session);
+    if (!snapshot.activeProfile || !snapshot.activePerson) return session;
+    let targetProfile = await this.getCareerRepository().getProfile(snapshot.activeProfile.id);
+    if (!targetProfile) return session;
+    if (action.decision === "import_new_version") {
+      targetProfile = await this.getCareerRepository().createProfileVersion({ profileId: targetProfile.id, reason: "resume_import" });
+    } else if (action.decision === "import_new_person") {
+      const created = await this.getCareerRepository().createPerson("新人物", "resume_import");
+      targetProfile = created.profile;
+    }
+    const targetLabel = `${targetProfile.name} · V${targetProfile.profileVersionNumber ?? 1}`;
+    const reducer = new AgentTaskStateReducer();
+    const base = session.taskState ?? reducer.create(session);
+    const nextTaskState = {
+      ...base,
+      workflowId: "resume_import",
+      stage: "prepare_import",
+      knownSlots: {
+        ...base.knownSlots,
+        importTargetIntent: "existing",
+        importTarget: { mode: "existing", profileId: targetProfile.id },
+        targetProfileId: targetProfile.id,
+        targetProfileName: targetProfile.name,
+        expectedProfileVersion: targetProfile.version,
+        quickActionImportTargetRequired: false
+      },
+      selectedEntities: {
+        ...base.selectedEntities,
+        profileId: targetProfile.id,
+        profileVersion: targetProfile.version
+      },
+      completionStatus: base.attachment ? "active" as const : "waiting_for_user" as const,
+      updatedAt: new Date().toISOString()
+    };
+    let current = projectTaskStateIntoSession(session, nextTaskState);
+    current = {
+      ...current,
+      personId: targetProfile.personId,
+      activeProfileId: targetProfile.id,
+      profileVersionNumber: targetProfile.profileVersionNumber,
+      profileRevision: targetProfile.version
+    };
+    const attachmentReady = Boolean(current.taskState?.attachment);
+    current = replaceLatestQuickActionAssistant(
+      current,
+      attachmentReady
+        ? `已更新导入目标为“${targetLabel}”，将先比对已有事实；完全重复项不会重复新增，近似重复和字段冲突会在核对页让你选择，不会静默覆盖。`
+        : `已更新导入目标为“${targetLabel}”。请上传简历文件；导入后会先比对已有事实，不会静默覆盖。`,
+      attachmentReady ? undefined : [{ id: "resume-import-upload", label: "上传简历文件", action: { type: "open_resume_upload" } }]
+    );
+    const saved = await this.dependencies.persistence.save(current);
+    if (!attachmentReady) {
+      this.patchSession(saved, { turnStatus: "idle", uiAction: { type: "open_resume_upload" } });
+      return saved;
+    }
+    return this.startTurn({
+      session: saved,
+      userMessage: `开始将简历导入到${targetLabel}`,
+      pageContext,
+      supersede: true
+    });
   }
 
   private async retryCurrentWorkflowStep(session: AgentSession, pageContext: AgentPageContext) {
@@ -1488,31 +1872,33 @@ export class AgentHostStore {
     if (input.session.pendingConfirmation && input.session.pendingToolCall) {
       input.session = invalidatePendingConfirmationForCorrection(input.session);
     }
-    if (this.activeController) {
+    const existingExecution = this.executionCoordinator.get(input.session.id);
+    if (existingExecution?.promise && existingExecution.status === "running") {
       if (!input.supersede) {
         return this.enqueueUserInput(input);
       }
-      const previousGeneration = this.runGeneration;
       input.session = this.clearQueuedInputs(input.session);
       input.session = await this.dependencies.persistence.save(input.session);
       this.patchSession(input.session);
-      this.activeController.abort();
-      await this.activeExecution;
-      const interrupted = completeTurn(this.snapshot.activeSession ?? input.session, "aborted");
+      existingExecution.controller.abort();
+      await existingExecution.promise;
+      const interrupted = completeTurn(input.session, "aborted");
       input.session = appendAgentMessage(interrupted, "system", "上一轮已中断；已完成的步骤会保留，并按你的新意图重新规划。", {
         kind: "system_notice",
         type: "system_notice",
         status: "complete"
       });
-      this.runGeneration = previousGeneration + 1;
-    } else {
-      this.runGeneration += 1;
     }
-    const generation = this.runGeneration;
-    const controller = new AbortController();
-    this.activeController = controller;
     const now = new Date().toISOString();
     const turnId = `agent-turn-${crypto.randomUUID()}`;
+    const executionRecord = this.executionCoordinator.begin({
+      sessionId: input.session.id,
+      activeTurnId: turnId,
+      startedAt: now,
+      pendingInputCount: this.pendingInputs.get(input.session.id)?.length ?? 0
+    });
+    const generation = executionRecord.generation;
+    const controller = executionRecord.controller;
     const userMessageId = input.userMessageId ?? `agent-user-${crypto.randomUUID()}`;
     const thinkingMessageId = input.assistantMessageId ?? `agent-thinking-${crypto.randomUUID()}`;
     if (input.retryWorkflowStep && input.session.taskState?.workflowId === "guided_profile_intake" && input.sourceTurnId) {
@@ -1576,15 +1962,6 @@ export class AgentHostStore {
           references: input.references?.length ? input.references : undefined,
           metadata: { executionState: "running" }
         });
-    if (shouldAutoNameAgentSession(current)) {
-      const firstUserMessage = current.messages.find((message) => message.role === "user" && message.content.trim());
-      if (firstUserMessage) {
-        current = {
-          ...current,
-          title: deriveAgentSessionTitle(firstUserMessage.content)
-        };
-      }
-    }
     current = input.assistantMessageId
       ? replaceMessageWithThinking(current, input.assistantMessageId, userMessageId, turnId, now)
       : appendAgentMessage(current, "assistant", "正在准备当前步骤", {
@@ -1770,7 +2147,7 @@ export class AgentHostStore {
       };
       current = completeTurnCheckpoint(current, turnId, new Date().toISOString());
       current = await this.dependencies.persistence.save(current);
-      this.activeController = undefined;
+      this.executionCoordinator.finish(current.id, "completed");
       this.patchSession(current, { turnStatus: "completed", activeTurnId: turnId });
       return current;
     }
@@ -1791,7 +2168,7 @@ export class AgentHostStore {
         profileIntakeTurnKind: turnDecision.profileIntakeTurnKind
       });
       if (boundary) {
-        this.activeController = undefined;
+        this.executionCoordinator.finish(boundary.id, boundary.taskState?.completionStatus === "failed" ? "failed" : "completed");
         this.patchSession(boundary, {
           turnStatus: boundary.taskState?.completionStatus === "failed" ? "failed" : "completed",
           activeTurnId: turnId,
@@ -1832,29 +2209,36 @@ export class AgentHostStore {
       turnDecision,
       narrationOnly: input.regenerateNarrationOnly
     });
-    this.activeExecution = execution;
-    return execution.finally(() => {
-      if (this.activeExecution === execution) this.activeExecution = undefined;
+    const trackedExecution = execution.finally(() => {
+      this.executionCoordinator.finish(current.id);
     });
+    this.executionCoordinator.attachPromise(current.id, trackedExecution);
+    return trackedExecution;
   }
 
-  async resolveConfirmation(confirmed: boolean, pageContext: AgentPageContext) {
-    const operationId = this.snapshot.activeSession?.pendingConfirmation?.operationId;
-    if (!operationId) return this.snapshot.activeSession;
-    const running = this.confirmationExecutions.get(operationId);
+  async resolveConfirmation(confirmed: boolean, pageContext: AgentPageContext, requestedSession?: AgentSession) {
+    const session = requestedSession && this.snapshot.activeSession?.id === requestedSession.id
+      ? this.snapshot.activeSession
+      : requestedSession ?? this.snapshot.activeSession;
+    const operationId = session?.pendingConfirmation?.operationId;
+    if (!operationId || !session) return session;
+    const executionKey = `${session.id}:${operationId}`;
+    const running = this.confirmationExecutions.get(executionKey);
     if (running) return running;
-    const execution = this.resolveConfirmationOnce(confirmed, pageContext)
-      .finally(() => this.confirmationExecutions.delete(operationId));
-    this.confirmationExecutions.set(operationId, execution);
+    const execution = this.resolveConfirmationOnce(confirmed, pageContext, session)
+      .finally(() => this.confirmationExecutions.delete(executionKey));
+    this.confirmationExecutions.set(executionKey, execution);
     return execution;
   }
 
-  private async resolveConfirmationOnce(confirmed: boolean, pageContext: AgentPageContext) {
-    const session = this.snapshot.activeSession;
+  private async resolveConfirmationOnce(confirmed: boolean, pageContext: AgentPageContext, requestedSession: AgentSession) {
+    const session = this.snapshot.activeSession?.id === requestedSession.id
+      ? this.snapshot.activeSession
+      : requestedSession;
     const confirmation = session?.pendingConfirmation;
     const call = session?.pendingToolCall;
     if (!session || !confirmation || !call) return session;
-    this.markProgress();
+    this.markProgress(session.id);
     const turnId = call.turnId ?? confirmation.turnId ?? session.activeTurn?.id ?? `agent-turn-${crypto.randomUUID()}`;
     let current: AgentSession = {
       ...markConfirmationResolution(session, confirmed ? "confirmed" : "rejected"),
@@ -2141,8 +2525,8 @@ export class AgentHostStore {
       this.patchSession(saved, { turnStatus: "idle" });
       return saved;
     }
-    this.activeController?.abort();
-    await this.activeExecution;
+    this.executionCoordinator.interrupt(session.id);
+    await this.executionCoordinator.get(session.id)?.promise;
     const operationId = artifactActionOperationId(session, action, revision);
     const runningSession = withArtifactActionFeedback(session, action, {
       result: "handled",
@@ -2329,8 +2713,8 @@ export class AgentHostStore {
       this.patchSession(saved);
       return saved;
     }
-    this.activeController?.abort();
-    await this.activeExecution;
+    this.executionCoordinator.interrupt(session.id);
+    await this.executionCoordinator.get(session.id)?.promise;
     const turnId = `agent-turn-${crypto.randomUUID()}`;
     const operationId = artifactActionOperationId(session, action, revision);
     const runningSession = withArtifactActionFeedback(session, action, {
@@ -2568,11 +2952,15 @@ export class AgentHostStore {
     pageContext: AgentPageContext,
     turnId: string
   ) {
-    this.activeController?.abort();
-    await this.activeExecution;
-    const controller = new AbortController();
-    this.activeController = controller;
-    const generation = ++this.runGeneration;
+    const existing = this.executionCoordinator.get(session.id);
+    if (existing?.promise) {
+      existing.controller.abort();
+      await existing.promise;
+    }
+    const startedAt = new Date().toISOString();
+    const executionRecord = this.executionCoordinator.begin({ sessionId: session.id, activeTurnId: turnId, startedAt });
+    const controller = executionRecord.controller;
+    const generation = executionRecord.generation;
     const thinkingMessageId = `agent-thinking-${crypto.randomUUID()}`;
     let current = appendAgentMessage(session, "assistant", "正在根据确认结果继续…", {
       id: thinkingMessageId,
@@ -2589,7 +2977,7 @@ export class AgentHostStore {
         sessionId: current.id,
         userMessageId: current.activeTurn?.userMessageId,
         status: "running",
-        startedAt: current.activeTurn?.startedAt ?? new Date().toISOString()
+        startedAt: current.activeTurn?.startedAt ?? startedAt
       }
     };
     current = await this.dependencies.persistence.save(current);
@@ -2607,10 +2995,11 @@ export class AgentHostStore {
       pageContext,
       resume: internal
     });
-    this.activeExecution = execution;
-    return execution.finally(() => {
-      if (this.activeExecution === execution) this.activeExecution = undefined;
+    const trackedExecution = execution.finally(() => {
+      this.executionCoordinator.finish(current.id);
     });
+    this.executionCoordinator.attachPromise(current.id, trackedExecution);
+    return trackedExecution;
   }
 
   private async consume(input: {
@@ -2636,10 +3025,13 @@ export class AgentHostStore {
     let activeIterationId: string | undefined;
     let finalDone = false;
     const onEvent = async (event: AgentStreamEvent) => {
-      if (input.generation !== this.runGeneration) return;
+      if (!this.executionCoordinator.isCurrent(input.current.id, input.generation)) return;
       if ("turnId" in event && event.turnId && event.turnId !== input.turnId) return;
-      if (isProgressEvent(event)) this.markProgress();
-      this.patch({ streamEvents: [...this.snapshot.streamEvents, event].slice(-200) });
+      if (isProgressEvent(event)) this.markProgress(input.current.id);
+      const execution = this.executionCoordinator.appendStreamEvent(input.current.id, event);
+      if (this.snapshot.activeSessionId === input.current.id) {
+        this.patch({ streamEvents: execution?.streamEvents ?? [event] });
+      }
       if (event.type === "thinking") {
         current = {
           ...current,
@@ -2803,7 +3195,9 @@ export class AgentHostStore {
             };
           }
         }
-        this.patch({ currentObservation: { toolName: event.toolName, summary: event.summary } });
+        if (this.snapshot.activeSessionId === input.current.id) {
+          this.patch({ currentObservation: { toolName: event.toolName, summary: event.summary } });
+        }
         await this.dependencies.persistence.save(current);
       }
       if (event.type === "assistant_start") {
@@ -2908,7 +3302,7 @@ export class AgentHostStore {
             signal: input.controller.signal,
             emit: onEvent
           });
-      if (input.generation !== this.runGeneration) return this.snapshot.activeSession;
+      if (!this.executionCoordinator.isCurrent(input.current.id, input.generation)) return this.dependencies.persistence.get(input.current.id);
       if (result.protocolDiagnostics?.length) {
         await this.persistProtocolDiagnostics(current, input.turnId, result.protocolDiagnostics);
       }
@@ -2983,10 +3377,21 @@ export class AgentHostStore {
       current = settleUserExecutionState(current, input.turnId, outcome === "failed" ? "failed" : outcome === "aborted" ? "aborted" : "complete");
       current = completeTurnCheckpoint(current, input.turnId, new Date().toISOString());
       current = await this.dependencies.persistence.save(current);
+      this.executionCoordinator.setStatus(
+        current.id,
+        outcome === "waiting_for_confirmation"
+          ? "waiting_for_confirmation"
+          : outcome === "waiting_for_user"
+            ? "waiting_for_user"
+            : outcome === "failed"
+              ? "failed"
+              : "completed"
+      );
       this.patchSession(current, {
         turnStatus: outcome === "waiting_for_confirmation" ? "waiting_for_confirmation" : outcome === "failed" ? "failed" : "completed",
         pendingConfirmation: current.pendingConfirmation
       });
+      this.notifyBackgroundCompletion(current, outcome === "failed" ? "failed" : outcome === "waiting_for_user" ? "waiting_for_user" : outcome === "waiting_for_confirmation" ? "waiting_for_confirmation" : "completed");
       return current;
     } catch (error) {
       if (input.controller.signal.aborted) return this.snapshot.activeSession;
@@ -3001,18 +3406,23 @@ export class AgentHostStore {
         options: [{ id: "retry-current-step", label: "重新执行当前步骤", action: { type: "retry_current_step" } }]
       });
       current = await this.dependencies.persistence.save(current);
+      this.executionCoordinator.setStatus(current.id, "failed");
       this.patchSession(current, { turnStatus: "failed" });
+      this.notifyBackgroundCompletion(current, "failed");
       return current;
     } finally {
-      if (input.generation === this.runGeneration) {
-        this.activeController = undefined;
-        this.clearStallTimer();
-        const settled = settleThinkingMessages(this.snapshot.activeSession ?? current, input.turnId);
-        if (settled !== (this.snapshot.activeSession ?? current)) {
+      if (this.executionCoordinator.isCurrent(input.current.id, input.generation)) {
+        this.executionCoordinator.finish(input.current.id);
+        this.clearStallTimer(input.current.id);
+        const activeForSession = this.snapshot.activeSession?.id === input.current.id
+          ? this.snapshot.activeSession
+          : current;
+        const settled = settleThinkingMessages(activeForSession, input.turnId);
+        if (settled !== activeForSession) {
           void this.dependencies.persistence.save(settled);
           this.patchSession(settled, { stalled: false });
         } else {
-          this.patch({ stalled: false });
+          if (this.snapshot.activeSessionId === input.current.id) this.patch({ stalled: false });
         }
         void this.drainPendingInput(input.current.id);
       }
@@ -3108,18 +3518,24 @@ export class AgentHostStore {
   }
 
   private async drainPendingInput(sessionId: string) {
-    if (this.activeController) return;
+    if (this.executionCoordinator.isRunning(sessionId)) return;
     const queue = this.pendingInputs.get(sessionId);
     const next = queue?.shift();
     if (!next) {
       this.pendingInputs.delete(sessionId);
-      this.patch({ pendingInputCount: 0 });
+      this.executionCoordinator.setPendingInputCount(sessionId, 0);
+      if (this.snapshot.activeSessionId === sessionId) this.patch({ pendingInputCount: 0 });
       return;
     }
     if (!queue?.length) this.pendingInputs.delete(sessionId);
-    const session = this.snapshot.activeSession;
-    if (!session || session.id !== sessionId) return;
-    this.patch({ pendingInputCount: queue?.length ?? 0 });
+    const session = typeof this.dependencies.persistence.get === "function"
+      ? await this.dependencies.persistence.get(sessionId)
+      : this.snapshot.activeSession?.id === sessionId
+        ? this.snapshot.activeSession
+        : undefined;
+    if (!session) return;
+    this.executionCoordinator.setPendingInputCount(sessionId, queue?.length ?? 0);
+    if (this.snapshot.activeSessionId === sessionId) this.patch({ pendingInputCount: queue?.length ?? 0 });
     await this.startTurn({
       session,
       userMessage: next.userMessage,
@@ -3134,7 +3550,8 @@ export class AgentHostStore {
     const queuedIds = new Set((this.pendingInputs.get(session.id) ?? []).map((input) => input.userMessageId));
     if (!queuedIds.size) return session;
     this.pendingInputs.delete(session.id);
-    this.patch({ pendingInputCount: 0 });
+    this.executionCoordinator.setPendingInputCount(session.id, 0);
+    if (this.snapshot.activeSessionId === session.id) this.patch({ pendingInputCount: 0 });
     return {
       ...session,
       messages: session.messages.map((message) => queuedIds.has(message.id)
@@ -3148,6 +3565,7 @@ export class AgentHostStore {
   }
 
   private patchSession(session: AgentSession, patch: Partial<AgentHostSnapshot> = {}) {
+    if (this.snapshot.activeSessionId !== session.id && this.snapshot.activeSessionId !== undefined) return;
     this.patch({
       activeSessionId: session.id,
       activeSession: session,
@@ -3158,9 +3576,17 @@ export class AgentHostStore {
     });
   }
 
+  private notifyBackgroundCompletion(session: AgentSession, status: SessionExecution["status"]) {
+    if (typeof window === "undefined" || this.snapshot.activeSessionId === session.id) return;
+    if (!["completed", "failed", "waiting_for_confirmation", "waiting_for_user"].includes(status)) return;
+    window.dispatchEvent(new CustomEvent("careeradapt-agent-background-complete", {
+      detail: { sessionId: session.id, title: session.title, status }
+    }));
+  }
+
   private async applyWorkflowControl(session: AgentSession, action: AgentWorkflowControl) {
     if (action.type === "cancel_workflow") {
-      this.interrupt();
+      this.interrupt(session.id);
       const current = await this.dependencies.persistence.save({
         ...completeTurn(session, "aborted"),
         workflowState: { ...session.workflowState, status: "completed" },
@@ -3172,7 +3598,7 @@ export class AgentHostStore {
       return current;
     }
     if (action.type === "pause_workflow") {
-      this.interrupt();
+      this.interrupt(session.id);
       const current = await this.dependencies.persistence.save({
         ...session,
         workflowState: { ...session.workflowState, status: "paused" }
@@ -3224,39 +3650,48 @@ export class AgentHostStore {
     for (const listener of this.listeners) listener();
   }
 
-  private markProgress() {
+  private markProgress(sessionId = this.snapshot.activeSessionId) {
+    if (!sessionId) return;
+    const execution = this.executionCoordinator.get(sessionId);
+    if (!execution) return;
     const now = new Date().toISOString();
-    this.patch({ lastProgressAt: now, stalled: false });
-    this.clearStallTimer();
-    if (!this.activeController) return;
-    this.scheduleStallCheck();
+    this.executionCoordinator.markProgress(sessionId, now);
+    if (this.snapshot.activeSessionId === sessionId) this.patch({ lastProgressAt: now, stalled: false });
+    this.clearStallTimer(sessionId);
+    if (!this.executionCoordinator.isRunning(sessionId)) return;
+    this.scheduleStallCheck(sessionId);
   }
 
-  private scheduleStallCheck() {
+  private scheduleStallCheck(sessionId: string) {
     const thresholdMs = this.dependencies.stallThresholdMs ?? 30_000;
-    const lastProgressAt = this.snapshot.lastProgressAt;
+    const execution = this.executionCoordinator.get(sessionId);
+    if (!execution) return;
+    const lastProgressAt = execution.lastProgressAt;
     const elapsedMs = lastProgressAt
       ? Math.max(0, Date.now() - Date.parse(lastProgressAt))
       : thresholdMs;
     const remainingMs = Math.max(0, thresholdMs - elapsedMs);
-    this.stallTimer = setTimeout(() => {
-      if (!this.activeController || this.snapshot.turnStatus !== "running") return;
-      const latestProgressAt = this.snapshot.lastProgressAt;
+    this.stallTimers.set(sessionId, setTimeout(() => {
+      const current = this.executionCoordinator.get(sessionId);
+      if (!current || current.status !== "running") return;
+      const latestProgressAt = current.lastProgressAt;
       const latestElapsedMs = latestProgressAt
         ? Math.max(0, Date.now() - Date.parse(latestProgressAt))
         : thresholdMs;
       if (latestElapsedMs >= thresholdMs) {
-        this.patch({ stalled: true });
+        this.executionCoordinator.markStalled(sessionId, true);
+        if (this.snapshot.activeSessionId === sessionId) this.patch({ stalled: true });
       } else {
-        this.clearStallTimer();
-        this.scheduleStallCheck();
+        this.clearStallTimer(sessionId);
+        this.scheduleStallCheck(sessionId);
       }
-    }, remainingMs);
+    }, remainingMs));
   }
 
-  private clearStallTimer() {
-    if (this.stallTimer) clearTimeout(this.stallTimer);
-    this.stallTimer = undefined;
+  private clearStallTimer(sessionId: string) {
+    const timer = this.stallTimers.get(sessionId);
+    if (timer) clearTimeout(timer);
+    this.stallTimers.delete(sessionId);
   }
 }
 
@@ -3285,6 +3720,16 @@ function completeTurn(session: AgentSession, status: "failed" | "aborted") {
   };
 }
 
+function sessionTurnStatus(session: AgentSession): AgentHostSnapshot["turnStatus"] {
+  if (session.pendingConfirmation) return "waiting_for_confirmation";
+  if (session.workflowState.status === "paused") return "paused";
+  if (session.activeTurn?.status === "running") return "running";
+  if (session.taskState?.completionStatus === "waiting_for_user") return "waiting_for_user";
+  if (session.taskState?.completionStatus === "failed") return "failed";
+  if (session.activeTurn?.status === "completed") return "completed";
+  return "idle";
+}
+
 function errorCode(value: unknown) {
   return typeof value === "object" && value && "code" in value ? String(value.code) : "agent_runtime_failed";
 }
@@ -3295,6 +3740,81 @@ function readToolArray(value: unknown, key: string): unknown[] {
   if (result.ok === false || !result.data || typeof result.data !== "object") return [];
   const rows = (result.data as Record<string, unknown>)[key];
   return Array.isArray(rows) ? rows : [];
+}
+
+function emptyQuickActionCounts() {
+  return {
+    basics: 0,
+    education: 0,
+    work: 0,
+    internship: 0,
+    project: 0,
+    research: 0,
+    campus: 0,
+    volunteer: 0,
+    skills: 0,
+    certificates: 0,
+    awards: 0,
+    languages: 0,
+    publications: 0,
+    patents: 0,
+    other: 0
+  };
+}
+
+function importTargetPrompt(snapshot: QuickActionContextSnapshot) {
+  const label = quickActionProfileLabel(snapshot) ?? "当前人物与版本";
+  return `准备导入到“${label}”。当前资料库已有 ${snapshot.profileItemCount} 项资料。\n导入后会先比对已有事实；完全重复项不会重复新增，近似重复和字段冲突会在核对页让你选择，不会静默覆盖。`;
+}
+
+function importTargetOptions(snapshot: QuickActionContextSnapshot): AgentOption[] {
+  const currentVersion = snapshot.activeProfile?.profileVersionNumber;
+  const nextVersion = currentVersion ? currentVersion + 1 : undefined;
+  return [
+    ...(currentVersion
+      ? [{ id: "resume-import-current", label: `合并到当前 V${currentVersion}`, action: { type: "quick_action_decision" as const, decision: "import_current_version" as const } }]
+      : [{ id: "resume-import-select-context", label: "选择人物与版本", action: { type: "open_profile_browser" as const } }]),
+    ...(nextVersion
+      ? [{ id: "resume-import-new-version", label: `基于当前资料新建 V${nextVersion}`, action: { type: "quick_action_decision" as const, decision: "import_new_version" as const } }]
+      : []),
+    { id: "resume-import-new-person", label: "新建人物", action: { type: "quick_action_decision", decision: "import_new_person" } },
+    { id: "resume-import-cancel", label: "取消", action: { type: "quick_action_decision", decision: "cancel_import" } }
+  ];
+}
+
+function replaceLatestQuickActionAssistant(
+  session: AgentSession,
+  content: string,
+  options?: AgentOption[]
+) {
+  const index = [...session.messages].findLastIndex((message) =>
+    message.role === "assistant" && message.metadata?.quickActionKind === "resume_import_target"
+  );
+  if (index < 0) return appendAgentMessage(session, "assistant", content, {
+    kind: "text",
+    type: "text",
+    status: "complete",
+    options
+  });
+  const now = new Date().toISOString();
+  return {
+    ...session,
+    messages: session.messages.map((message, messageIndex) => messageIndex === index
+      ? {
+          ...message,
+          content,
+          options,
+          optionSet: undefined,
+          metadata: {
+            ...message.metadata,
+            quickActionResolution: "resolved",
+            resolvedAt: now
+          },
+          updatedAt: now
+        }
+      : message),
+    updatedAt: now
+  };
 }
 
 export function findRecoverableProfileIntakeSource(

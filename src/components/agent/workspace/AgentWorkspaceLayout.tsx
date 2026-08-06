@@ -17,6 +17,8 @@ export function AgentWorkspaceLayout({
   children,
   sessionTitle,
   status,
+  contextSelector,
+  pinnedContextLabel,
   artifactCount,
   onOpenArtifacts,
   onOpenHistory
@@ -24,6 +26,8 @@ export function AgentWorkspaceLayout({
   children: React.ReactNode;
   sessionTitle: string;
   status: string;
+  contextSelector?: React.ReactNode;
+  pinnedContextLabel?: string;
   artifactCount: number;
   onOpenArtifacts(): void;
   onOpenHistory(): void;
@@ -47,7 +51,11 @@ export function AgentWorkspaceLayout({
   return (
     <main className="agent-workspace">
       <header className="agent-workspace-topbar">
-        <strong title={sessionTitle}>{sessionTitle}</strong>
+        <div className="agent-workspace-topbar-heading">
+          <strong title={sessionTitle}>{sessionTitle}</strong>
+          {pinnedContextLabel ? <span className="agent-pinned-context">固定：{pinnedContextLabel}</span> : null}
+          {contextSelector}
+        </div>
         <div>
           <span className="agent-workflow-status">{status}</span>
           <AgentArtifactLauncher count={artifactCount} onOpen={onOpenArtifacts} />

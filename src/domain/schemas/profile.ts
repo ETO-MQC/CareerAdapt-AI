@@ -99,6 +99,23 @@ export const ProfileStructuredFactSchema = z.object({
   mappingTrace: z.array(ResumeJsonV2MappingTraceSchema).default([])
 }).strict();
 
+export const VersionCreatedReasonSchema = z.enum([
+  "initial",
+  "manual_snapshot",
+  "resume_import",
+  "agent_created",
+  "conflict_fork"
+]);
+
+export const CareerPersonSchema = z.object({
+  id: z.string().min(1),
+  displayName: z.string().min(1),
+  currentProfileId: z.string().min(1),
+  createdAt: IsoDateStringSchema,
+  updatedAt: IsoDateStringSchema,
+  archivedAt: IsoDateStringSchema.optional()
+}).strict();
+
 export const CareerProfileSchema = EntityBaseSchema.extend({
   schemaVersion: z.literal("career-profile-v2").optional(),
   name: z.string().min(1),
@@ -111,8 +128,25 @@ export const CareerProfileSchema = EntityBaseSchema.extend({
   evidences: z.array(EvidenceSchema).default([]),
   unclassifiedBlocks: z.array(z.string()).default([]),
   structuredFacts: z.array(ProfileStructuredFactSchema).optional(),
-  structuredBasics: ResumeBasicsV2Schema.optional()
+  structuredBasics: ResumeBasicsV2Schema.optional(),
+  /** Stable person identity. `version` remains the internal write revision. */
+  personId: z.string().min(1).optional(),
+  profileVersionNumber: z.number().int().min(1).optional(),
+  profileVersionLabel: z.string().min(1).max(80).optional(),
+  parentProfileId: z.string().min(1).optional(),
+  isCurrent: z.boolean().optional(),
+  versionCreatedReason: VersionCreatedReasonSchema.optional(),
+  archivedAt: IsoDateStringSchema.optional()
 });
+
+export const ActiveCareerContextSchema = z.object({
+  schemaVersion: z.literal("active-career-v1"),
+  personId: z.string().min(1),
+  profileId: z.string().min(1),
+  profileVersionNumber: z.number().int().min(1),
+  profileRevision: z.number().int().min(0),
+  selectedAt: IsoDateStringSchema
+}).strict();
 
 export const ActiveProfileContextSchema = z.object({
   schemaVersion: z.literal("active-profile-v1"),
@@ -122,6 +156,8 @@ export const ActiveProfileContextSchema = z.object({
 export type ExperienceType = z.infer<typeof ExperienceTypeSchema>;
 export type EvidenceType = z.infer<typeof EvidenceTypeSchema>;
 export type PrivacyLevel = z.infer<typeof PrivacyLevelSchema>;
+export type VersionCreatedReason = z.infer<typeof VersionCreatedReasonSchema>;
+export type CareerPerson = z.infer<typeof CareerPersonSchema>;
 export type BasicInfo = z.infer<typeof BasicInfoSchema>;
 export type CareerPreference = z.infer<typeof CareerPreferenceSchema>;
 export type ResumeDraft = z.infer<typeof ResumeDraftSchema>;
@@ -135,3 +171,4 @@ export type CareerProfileV1 = Omit<CareerProfile, "schemaVersion" | "structuredF
 export type CareerProfileV2 = CareerProfile & { schemaVersion: "career-profile-v2"; structuredFacts: NonNullable<CareerProfile["structuredFacts"]>; structuredBasics: NonNullable<CareerProfile["structuredBasics"]> };
 export type StoredCareerProfile = CareerProfileV1 | CareerProfileV2;
 export type ActiveProfileContext = z.infer<typeof ActiveProfileContextSchema>;
+export type ActiveCareerContext = z.infer<typeof ActiveCareerContextSchema>;

@@ -573,6 +573,9 @@ export class BrowserAgentToolService implements AgentToolServices {
       profiles: profiles.map((profile) => ({
         ...profileSummaryCounts(profile),
         id: profile.id,
+        personId: profile.personId,
+        profileVersionNumber: profile.profileVersionNumber,
+        isCurrent: profile.isCurrent,
         name: profile.name,
         version: profile.version,
         sectionCounts: Object.fromEntries(canonicalProfileSectionCounts(profile)),
@@ -607,18 +610,46 @@ export class BrowserAgentToolService implements AgentToolServices {
 
   async getActiveProfile(signal?: AbortSignal) {
     assertNotAborted(signal);
-    const profileId = await this.repository.getActiveProfileId();
-    if (!profileId) {
-      const profiles = await this.repository.listProfiles();
+    const contextReader = this.repository.getActiveCareerContext;
+    if (typeof contextReader !== "function") {
+      const profileId = await this.repository.getActiveProfileId();
+      const profile = profileId ? await this.repository.getProfile(profileId) : undefined;
+      return profile
+        ? {
+            selected: true,
+            profileId: profile.id,
+            name: profile.name,
+            version: profile.version,
+            profileVersionNumber: profile.profileVersionNumber,
+            profileVersionLabel: profile.profileVersionLabel,
+            isCurrent: profile.isCurrent
+          }
+        : { selected: false, profileId: null, availableProfiles: [] };
+    }
+    const context = await contextReader.call(this.repository);
+    if (!context) {
+      const [profiles, persons] = await Promise.all([this.repository.listProfiles(), this.repository.listCareerPersons()]);
       return {
       selected: false,
       profileId: null,
-      availableProfiles: profiles.map((profile) => ({ id: profile.id, name: profile.name, version: profile.version }))
+      availableProfiles: profiles.map((profile) => ({ id: profile.id, personId: profile.personId, name: profile.name, version: profile.version, profileVersionNumber: profile.profileVersionNumber, isCurrent: profile.isCurrent })),
+      availablePersons: persons.map((person) => ({ id: person.id, displayName: person.displayName }))
       };
     }
-    const profile = await this.repository.getProfile(profileId);
+    const profile = await this.repository.getProfile(context.profileId);
     if (!profile) throw toolError("active_profile_not_found", "The selected profile no longer exists.");
-    return { selected: true, profileId: profile.id, name: profile.name, version: profile.version };
+    const person = await this.repository.getCareerPerson(context.personId);
+    return {
+      selected: true,
+      personId: context.personId,
+      personName: person?.displayName,
+      profileId: profile.id,
+      name: profile.name,
+      version: profile.version,
+      profileVersionNumber: profile.profileVersionNumber,
+      profileVersionLabel: profile.profileVersionLabel,
+      isCurrent: profile.isCurrent
+    };
   }
 
   async getProfile(rawInput: unknown, signal?: AbortSignal) {
@@ -631,6 +662,10 @@ export class BrowserAgentToolService implements AgentToolServices {
       profile: {
         ...profileSummaryCounts(profile),
         id: profile.id,
+        personId: profile.personId,
+        profileVersionNumber: profile.profileVersionNumber,
+        profileVersionLabel: profile.profileVersionLabel,
+        isCurrent: profile.isCurrent,
         name: profile.name,
         version: profile.version,
         basics: profile.basics,
@@ -1469,7 +1504,8 @@ async function assertActiveProfileBinding(
   repository: WorkspaceRepository,
   input: { targetProfileId: string; acknowledgedActiveProfileId?: string }
 ) {
-  const activeProfileId = await repository.getActiveProfileId();
+  const context = await repository.getActiveCareerContext();
+  const activeProfileId = context?.profileId;
   if (
     activeProfileId
     && activeProfileId !== input.targetProfileId

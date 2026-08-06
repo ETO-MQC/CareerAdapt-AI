@@ -176,8 +176,16 @@
 }
 
 .agent-recent-session > .agent-sidebar-label {
+  flex: 1 1 auto;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-session-status {
+  color: var(--ai-muted);
+  flex: 0 0 auto;
+  font-size: 11px;
   white-space: nowrap;
 }
 
@@ -255,6 +263,19 @@
 
 .agent-session-dot.is-failed {
   background: var(--ai-danger);
+}
+
+.agent-session-dot.is-completed {
+  background: var(--ai-accent);
+}
+
+.agent-session-dot.is-waiting_for_confirmation,
+.agent-session-dot.is-waiting_for_user {
+  background: var(--ai-warning, #b7791f);
+}
+
+.agent-session-dot.is-paused {
+  background: var(--ai-muted);
 }
 
 .agent-sidebar-empty {

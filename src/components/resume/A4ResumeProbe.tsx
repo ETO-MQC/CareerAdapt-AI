@@ -1,15 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { demoCareerProfile } from "@/data/demoProfile";
 import { useWorkspace } from "@/services/workspace/useWorkspace";
 import { printCurrentPage } from "@/services/export/browserPrint";
 
 export function A4ResumeProbe() {
   const workspace = useWorkspace();
-  const repositoryProfile = workspace.status === "ready" ? workspace.profiles[0] : undefined;
-  const profile = repositoryProfile ?? demoCareerProfile;
-  const sourceLabel = repositoryProfile ? "使用当前资料" : "使用示例资料";
+  const repositoryProfile = workspace.status === "ready" && workspace.activeContext
+    ? workspace.profiles.find((item) => item.id === workspace.activeContext?.profileId)
+    : undefined;
+  const profile = repositoryProfile;
+  const sourceLabel = repositoryProfile ? "使用当前人物与版本" : "未选择人物与版本";
 
   return (
     <main className="probe-shell">
@@ -21,7 +22,7 @@ export function A4ResumeProbe() {
         </button>
       </div>
 
-      <article className="a4-page" data-testid="a4-page" aria-label="A4 简历预览">
+      {profile ? <article className="a4-page" data-testid="a4-page" aria-label="A4 简历预览">
         <header className="resume-header">
           <div>
             <h1>{profile.basics.name}</h1>
@@ -69,7 +70,7 @@ export function A4ResumeProbe() {
             <p>{profile.certificates.map((certificate) => certificate.name).join(" / ")}</p>
           </div>
         </section>
-      </article>
+      </article> : <section className="probe-empty">请先在个人资料库选择人物与版本。</section>}
     </main>
   );
 }
