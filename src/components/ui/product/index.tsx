@@ -16,14 +16,16 @@ export function ProductPage({ children, className = "", ...props }: WithChildren
 export function ProductTopbar({
   title,
   status,
-  actions
+  actions,
+  className = ""
 }: {
   title: string;
   status?: ReactNode;
   actions?: ReactNode;
+  className?: string;
 }) {
   return (
-    <header className="product-topbar">
+    <header className={`product-topbar ${className}`.trim()}>
       <div className="product-topbar-heading">
         <h1>{title}</h1>
         {status ? <span className="product-topbar-status">{status}</span> : null}

@@ -2,6 +2,7 @@
 
 import { nanoid } from "nanoid";
 import { type ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
+import { Award, BadgeCheck, BookOpen, Briefcase, Folder, FlaskConical, GraduationCap, Grid2X2, Heart, Languages, List, MessageCircle, MoreHorizontal, Search, School, ShieldCheck, UserRound, Wrench } from "lucide-react";
 import { invokeStageBAi } from "@/ai/client";
 import { promptVersions } from "@/ai/prompts/versions";
 import { PDF_IMPORT_EXTRACTION_VERSION } from "@/domain/pdfImport/limits";
@@ -124,6 +125,27 @@ const profileCategories = profileSectionCatalog.map((section) => ({
   description: section.repeatable ? "可复用的已确认资料" : "当前人物的基础资料",
   repeatable: section.repeatable
 }));
+
+const profileCategoryIcons: Record<ProfileCategoryId, typeof UserRound> = {
+  basics: UserRound,
+  summary: MessageCircle,
+  education: GraduationCap,
+  work: Briefcase,
+  internship: Briefcase,
+  project: Folder,
+  research: FlaskConical,
+  campus: School,
+  volunteer: Heart,
+  award: Award,
+  skill: Wrench,
+  certificate: BadgeCheck,
+  language: Languages,
+  publications: BookOpen,
+  patents: ShieldCheck,
+  portfolio: Grid2X2,
+  other: MoreHorizontal,
+  custom: List
+};
 
 const emptyProfileItemDraft: ProfileItemDraft = {
   ...emptyStructuredExperienceFields,
@@ -1664,6 +1686,7 @@ export function ProfileWorkspace() {
   return (
     <main className={importWorkspaceOpen ? "page-shell profile-workspace is-import-open" : "page-shell profile-workspace"}>
       <ProductTopbar
+        className="profile-page-topbar"
         title="个人资料库"
         status={profile ? `${profile.name} · ${profileCountSummary(profileCounts!)} · 本地已保存` : "未选择人物"}
       />
@@ -1699,7 +1722,13 @@ export function ProfileWorkspace() {
                   className={activeProfileCategory === category.id ? "profile-category-button profile-category-button-active" : "profile-category-button"}
                   onClick={() => selectProfileCategory(category.id)}
                 >
-                  <span>
+                  <span className="profile-category-icon" aria-hidden="true">
+                    {(() => {
+                      const Icon = profileCategoryIcons[category.id];
+                      return <Icon />;
+                    })()}
+                  </span>
+                  <span className="profile-category-copy">
                     <strong>{category.label}</strong>
                     <small>{category.description}</small>
                   </span>
@@ -1733,8 +1762,9 @@ export function ProfileWorkspace() {
               </div>
             </div>
             <div className="form-grid compact-form-grid">
-              <label className="field-label">
-                搜索
+              <label className="field-label profile-search-field">
+                <span className="visually-hidden">搜索</span>
+                <Search aria-hidden="true" />
                 <input value={profileSearch} onChange={(event) => setProfileSearch(event.target.value)} placeholder="按名称、来源或内容筛选" />
               </label>
               <label className="field-label">
