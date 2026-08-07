@@ -12,8 +12,11 @@ export const ProfileIntakeFinalSynthesisAssetSchema = z.object({
   sourceCandidateIds: z.array(z.string().min(1)).min(1),
   sourceTurnIds: z.array(z.string().min(1)).min(1),
   highlights: z.array(z.string().min(1)).max(4).default([]),
+  careerReadySummary: z.string().min(1).max(1_600).optional(),
+  careerReadyHighlights: z.array(z.string().min(1).max(800)).min(2).max(4).optional(),
   missingDimensions: z.array(z.string().min(1)).max(24).default([]),
   conflictFields: z.array(z.string().min(1)).max(24).default([]),
+  conflicts: z.array(z.string().min(1)).max(24).optional(),
   provenance: z.array(ProfileIntakeProvenanceSchema).default([])
 }).strict();
 
@@ -120,6 +123,7 @@ function buildAsset(group: DraftItemWithSection[]): ProfileIntakeFinalSynthesisA
   const assessment = assessCareerAssetCompleteness(structuredItem);
   const highlights = careerHighlights(ordered, structuredItem);
   const conflictFields = conflictingFields(ordered);
+  const careerReadyHighlights = ensureCareerReadyHighlights(highlights, structuredItem);
   return ProfileIntakeFinalSynthesisAssetSchema.parse({
     candidateId: `synth-${latest.id}`,
     sectionType: structuredItem.sectionType,
@@ -127,8 +131,11 @@ function buildAsset(group: DraftItemWithSection[]): ProfileIntakeFinalSynthesisA
     sourceCandidateIds,
     sourceTurnIds: sourceTurnIds.length ? sourceTurnIds : [latest.conversationEvidence?.at(-1)?.turnId ?? latest.id],
     highlights,
+    careerReadySummary: careerReadyText(structuredItem),
+    ...(careerReadyHighlights.length >= 2 ? { careerReadyHighlights } : {}),
     missingDimensions: assessment.missing.slice(0, 24),
     conflictFields,
+    conflicts: conflictFields,
     provenance: [
       ...group.flatMap((item) => item.provenance ?? []),
       ...group.flatMap((item) => item.conversationEvidence?.map((evidence) => ({
@@ -226,6 +233,14 @@ function careerHighlights(items: DraftItemWithSection[], item: ResumeItemV2) {
     return typeof value.description === "string" ? value.description.split(/[\n。；;]+/u) : [];
   });
   return [...new Set([...direct, ...descriptions].map((value) => value.trim()).filter(Boolean))].slice(0, 4);
+}
+
+function ensureCareerReadyHighlights(highlights: string[], item: ResumeItemV2) {
+  const values = [...new Set([
+    ...highlights,
+    careerReadyText(item)
+  ].map((value) => value.trim()).filter(Boolean))];
+  return values.slice(0, 4);
 }
 
 function conflictingFields(items: DraftItemWithSection[]) {

@@ -97,6 +97,7 @@ const ProfileIntakeCaptureInputSchema = z.object({
   acknowledgedActiveProfileId: z.string().min(1).optional(),
   intakeQuestionId: z.string().min(1).optional(),
   intakeCandidateId: z.string().min(1).optional(),
+  intakeDimension: z.string().min(1).optional(),
   importId: z.string().min(1).optional(),
   expectedDraftRevision: z.number().int().min(0).optional(),
   sourceContentHash: z.string().min(8).optional(),

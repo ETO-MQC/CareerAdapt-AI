@@ -216,7 +216,7 @@ describe("P4.3h Profile Intake host boundaries", () => {
     expect(events.indexOf("journal:journaled")).toBeLessThan(events.indexOf("capture"));
     expect(resultSession?.taskState?.stage).toBe("collect_experience");
     expect(resultSession?.taskState?.knownSlots.profileIntakePhase).toBe("clarifying");
-    expect(resultSession?.messages.at(-1)?.content).toContain("已记录并保存到本地整理草稿。");
+    expect(resultSession?.messages.at(-1)?.content).toMatch(/已保留|已记下/u);
     expect(persistence.saveProfileIntakeSourceTurn).toHaveBeenCalledWith(expect.objectContaining({
       exactSourceText: "我协助完成一个项目，使用 RPA 技术采集数据。",
       processingStatus: "journaled"
@@ -267,7 +267,7 @@ describe("P4.3h Profile Intake host boundaries", () => {
     ));
     const finished = await pending;
     expect(finished?.taskState?.stage).toBe("collect_experience");
-    expect(finished?.messages.at(-1)?.content).toContain("已记录并保存到本地整理草稿。");
+    expect(finished?.messages.at(-1)?.content).toMatch(/已保留|已记下/u);
   });
 
   it("re-executes a failed step from its checkpoint without a manual retry phrase or shadow branch", async () => {

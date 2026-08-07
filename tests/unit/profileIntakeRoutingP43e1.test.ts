@@ -170,6 +170,23 @@ describe("P4.3e.1 Profile Intake routing and recycle isolation", () => {
     expect(next.knownSlots).not.toHaveProperty("latestIntakeSource");
   });
 
+  it("keeps short references out of capture while allowing a new named asset during an active follow-up", () => {
+    expect(classifyProfileIntakeTurn({
+      text: "什么工作？",
+      stage: "collect_experience",
+      activeQuestionId: "q-project",
+      activeQuestionLabel: "Smart Fox",
+      expectedAnswerDimension: "challenge"
+    })).toBe("profile_state_question");
+    expect(classifyProfileIntakeTurn({
+      text: "在 Learn AI 项目中负责数据清洗，交付训练数据集。",
+      stage: "collect_experience",
+      activeQuestionId: "q-project",
+      activeQuestionLabel: "Smart Fox",
+      expectedAnswerDimension: "challenge"
+    })).toBe("career_narrative");
+  });
+
   it("performs a fresh profile read and never calls capture for the side turn", async () => {
     const getProfile = vi.fn(async () => ({ profile: { id: regressionFixture.profile.id, items: [], sectionCounts: {} } }));
     const captureProfileIntake = vi.fn(async () => ({}));

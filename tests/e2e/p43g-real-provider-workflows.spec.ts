@@ -53,7 +53,7 @@ test.describe("P4.3g headed real-provider workflow journeys", () => {
     await expect(page.locator(`.profile-intake-candidate-card[data-candidate-id="${candidateId}"]`)).toHaveCount(0);
     await page.getByRole("button", { name: /经历候选/ }).click();
     await expect(page.locator(".profile-intake-compact-receipt")).toContainText("✓ 已记录教育经历：郑州大学 · 本科 · 计算机科学与技术");
-    await expect(page.locator(".agent-message-row.is-assistant").filter({ hasText: "教育背景已经记录并自动保存。" }).last()).toBeVisible();
+    await expect(page.locator(".agent-message-row.is-assistant").filter({ hasText: "教育背景已更新到本次临时整理。" }).last()).toBeVisible();
     await expect(page.getByRole("button", { name: "换一个方向", exact: true })).toBeVisible();
     await expect(page.getByText("已自动保存到本地", { exact: true })).toBeVisible();
 

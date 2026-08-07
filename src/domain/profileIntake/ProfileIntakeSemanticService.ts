@@ -127,6 +127,17 @@ export const ProfileIntakeSemanticInputSchema = z.object({
   }).strict()).max(40).default([]),
   canonicalSections: z.array(ResumeSectionTypeV2Schema).min(1),
   sourceBlocks: z.array(ProfileIntakeSourceBlockSchema).max(120).optional().default([]),
+  followUpContext: z.object({
+    candidateId: z.string().min(1),
+    candidateLabel: z.string().min(1),
+    sectionType: ResumeSectionTypeV2Schema.exclude(["basics", "summary"]),
+    currentStructuredItem: ResumeItemV2Schema,
+    expectedAnswerDimension: z.string().min(1).optional(),
+    sourceTurns: z.array(z.object({
+      turnId: z.string().min(1),
+      sourceText: z.string().min(1).max(24_000)
+    }).strict()).max(8).default([])
+  }).strict().optional(),
   currentDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/u).optional()
 }).strict();
 
@@ -222,14 +233,18 @@ export class ProfileIntakeSemanticService {
   async normalize(input: {
     rawNarrative: string;
     existingDraft?: ImportedResumeDraft;
+    followUpContext?: z.input<typeof ProfileIntakeSemanticInputSchema>["followUpContext"];
     currentDate?: string;
     signal?: AbortSignal;
   }): Promise<ProfileIntakeSemanticResult> {
     const semanticInput = ProfileIntakeSemanticInputSchema.parse({
       rawNarrative: input.rawNarrative,
-      existingDraftContext: draftContext(input.existingDraft),
+      existingDraftContext: input.followUpContext
+        ? draftContextForFollowUp(input.followUpContext)
+        : draftContext(input.existingDraft),
       canonicalSections: CANONICAL_SECTIONS,
       sourceBlocks: buildProfileIntakeSourceBlocks(input.rawNarrative),
+      ...(input.followUpContext ? { followUpContext: input.followUpContext } : {}),
       currentDate: input.currentDate ?? currentRuntimeDate()
     });
     let response: Awaited<ReturnType<SemanticInvoker>>;
@@ -1088,6 +1103,15 @@ function draftContext(draft?: ImportedResumeDraft) {
         }]
       : []
   )) ?? [];
+}
+
+function draftContextForFollowUp(context: NonNullable<z.input<typeof ProfileIntakeSemanticInputSchema>["followUpContext"]>) {
+  return [{
+    id: context.candidateId,
+    sectionType: context.sectionType,
+    label: context.candidateLabel,
+    normalizedText: profileText(ResumeItemV2Schema.parse(context.currentStructuredItem))
+  }];
 }
 
 function displayLabel(item?: ResumeItemV2) {

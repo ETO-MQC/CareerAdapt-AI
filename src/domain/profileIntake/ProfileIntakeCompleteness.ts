@@ -39,6 +39,7 @@ export type CareerAssetCompleteness = {
 export type ProfileIntakeInterviewQuestion = {
   questionId: string;
   candidateId: string;
+  candidateLabel?: string;
   sectionType: ResumeSectionTypeV2;
   dimension: CareerAssetDimension | "section_progression";
   question: string;
@@ -53,6 +54,8 @@ export type ProfileIntakeInterviewPlan = {
   coveredSections: ResumeSectionTypeV2[];
   activeQuestion?: {
     candidateId: string;
+    candidateLabel?: string;
+    sectionType?: ResumeSectionTypeV2;
     dimension: CareerAssetDimension;
     question: string;
     status: "pending" | "answered" | "skipped";
@@ -243,6 +246,7 @@ export function createProfileIntakeInterviewPlan(
   const question = detail ? {
     questionId: `profile-intake-detail-${stableHashText(`${detail.item.id}:${detail.dimension}`).slice(0, 12)}`,
     candidateId: detail.item.id,
+    candidateLabel: displayIdentity(detail.item) ?? `待补充${detail.item.sectionType}经历`,
     sectionType: detail.item.sectionType,
     dimension: detail.dimension,
     question: detail.question,
@@ -256,6 +260,8 @@ export function createProfileIntakeInterviewPlan(
     coveredSections,
     activeQuestion: question ? {
       candidateId: question.candidateId,
+      candidateLabel: (detail ? displayIdentity(detail.item) : undefined) ?? `待补充${question.sectionType}经历`,
+      sectionType: question.sectionType,
       dimension: question.dimension as CareerAssetDimension,
       question: question.question,
       status: question.status

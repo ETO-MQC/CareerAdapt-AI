@@ -50,6 +50,7 @@ import { factGuardPrompt } from "@/ai/prompts/factGuard";
 import { jdAnalyzerPrompt } from "@/ai/prompts/jdAnalyzer";
 import { profileBuilderPrompt } from "@/ai/prompts/profileBuilder";
 import { profileIntakeSemanticPrompt } from "@/ai/prompts/profileIntakeSemantic";
+import { profileIntakeFinalCareerSynthesisPrompt } from "@/ai/prompts/profileIntakeFinalCareerSynthesis";
 import { resumeTailorPrompt } from "@/ai/prompts/resumeTailor";
 import { resumeTailoringDiffPrompt } from "@/ai/prompts/resumeTailoringDiff";
 import { resumeJsonMapperPrompt } from "@/ai/prompts/resumeJsonMapper";
@@ -66,6 +67,11 @@ import {
   type ProfileIntakeSemanticOutput,
   type ProfileIntakeSemanticCandidate
 } from "@/domain/profileIntake/ProfileIntakeSemanticService";
+import {
+  ProfileIntakeFinalCareerSynthesisInputSchema,
+  ProfileIntakeFinalCareerSynthesisOutputSchema,
+  type ProfileIntakeFinalCareerSynthesisOutput
+} from "@/domain/profileIntake/ProfileIntakeFinalCareerSynthesis";
 
 export const stageBAiTaskSchema = z.enum(["profile-builder", "jd-analyzer"]);
 
@@ -76,6 +82,9 @@ const BaseAiInputSchema = z.object({
 
 export const ProfileBuilderTaskInputSchema = BaseAiInputSchema;
 export const ProfileIntakeSemanticTaskInputSchema = ProfileIntakeSemanticInputSchema.extend({
+  inputHash: z.string().min(8)
+}).strict();
+export const ProfileIntakeFinalCareerSynthesisTaskInputSchema = ProfileIntakeFinalCareerSynthesisInputSchema.extend({
   inputHash: z.string().min(8)
 }).strict();
 export const ResumeJsonMapperTaskInputSchema = BaseAiInputSchema;
@@ -141,6 +150,7 @@ export const FactGuardTaskInputSchema = z.object({
 export type StageBAiTask = z.infer<typeof stageBAiTaskSchema>;
 export type ProfileBuilderTaskInput = z.infer<typeof ProfileBuilderTaskInputSchema>;
 export type ProfileIntakeSemanticTaskInput = z.input<typeof ProfileIntakeSemanticTaskInputSchema>;
+export type ProfileIntakeFinalCareerSynthesisTaskInput = z.infer<typeof ProfileIntakeFinalCareerSynthesisTaskInputSchema>;
 export type ResumeJsonMapperTaskInput = z.infer<typeof ResumeJsonMapperTaskInputSchema>;
 export type ResumeDocumentMapperTaskInput = z.infer<typeof ResumeDocumentMapperTaskInputSchema>;
 export type JdAnalyzerTaskInput = z.infer<typeof JdAnalyzerTaskInputSchema>;
@@ -187,6 +197,36 @@ function coerceProfileIntakeSemanticOutput(rawOutput: unknown, input?: ProfileIn
       ? [raw.followUpQuestion.trim()]
       : [];
   return { candidates, followUpQuestions };
+}
+
+function coerceProfileIntakeFinalCareerSynthesisOutput(rawOutput: unknown) {
+  const raw = rawOutput && typeof rawOutput === "object" && !Array.isArray(rawOutput)
+    ? rawOutput as Record<string, unknown>
+    : {};
+  const assets = Array.isArray(raw.assets) ? raw.assets : [];
+  return {
+    assets: assets.map((value) => {
+      const asset = value && typeof value === "object" && !Array.isArray(value)
+        ? value as Record<string, unknown>
+        : {};
+      return {
+        candidateId: typeof asset.candidateId === "string" ? asset.candidateId : "unknown-candidate",
+        structuredItem: asset.structuredItem ?? { id: "unknown-candidate", sectionType: "other", title: "待核对经历", highlights: [], customFields: [] },
+        careerReadySummary: typeof asset.careerReadySummary === "string" && asset.careerReadySummary.trim()
+          ? asset.careerReadySummary.trim()
+          : "待整理经历",
+        careerReadyHighlights: Array.isArray(asset.careerReadyHighlights)
+          ? asset.careerReadyHighlights.filter((value): value is string => typeof value === "string" && Boolean(value.trim())).slice(0, 4)
+          : [],
+        missingDimensions: Array.isArray(asset.missingDimensions)
+          ? asset.missingDimensions.filter((value): value is string => typeof value === "string" && Boolean(value.trim())).slice(0, 24)
+          : [],
+        conflicts: Array.isArray(asset.conflicts)
+          ? asset.conflicts.filter((value): value is string => typeof value === "string" && Boolean(value.trim())).slice(0, 24)
+          : []
+      };
+    })
+  };
 }
 
 function coerceProfileIntakeV3Candidate(rawCandidate: unknown, index: number) {
@@ -307,6 +347,10 @@ export const aiTaskRegistry = {
         rawNarrative: input.rawNarrative,
         sourceBlocks: input.sourceBlocks ?? [],
         existingDraftContext: input.existingDraftContext,
+        ...(input.followUpContext ? {
+          followUpContext: input.followUpContext,
+          followUpInstructions: "Patch only the named candidate. The current rawNarrative is authoritative; all prior context is reference-only."
+        } : {}),
         canonicalSections: input.canonicalSections,
         currentDate: input.currentDate,
         instructions: "Extract every distinct supported asset. Preserve ownership and uncertainty. Return at most three high-value follow-up questions; the application selects at most one after review."
@@ -343,6 +387,40 @@ export const aiTaskRegistry = {
       }
     }
   } satisfies AiTaskDefinition<ProfileIntakeSemanticTaskInput, ProfileIntakeSemanticOutput>,
+  "profile-intake-final-career-synthesis": {
+    task: "profile-intake-final-career-synthesis",
+    promptVersion: profileIntakeFinalCareerSynthesisPrompt.version,
+    systemPrompt: profileIntakeFinalCareerSynthesisPrompt.system,
+    inputSchema: ProfileIntakeFinalCareerSynthesisTaskInputSchema,
+    outputSchema: ProfileIntakeFinalCareerSynthesisOutputSchema,
+    maxOutputChars: 36_000,
+    buildUserPrompt(input: ProfileIntakeFinalCareerSynthesisTaskInput) {
+      return JSON.stringify({
+        sourceTurns: input.sourceTurns,
+        assets: input.assets,
+        instructions: "Preserve candidateId and structuredItem exactly. Write one concise summary and 2 to 4 grounded highlights per asset. Missing dimensions and conflicts are deterministic display fields; do not add new ones."
+      }, null, 2);
+    },
+    coerceRawOutput(rawOutput: unknown) {
+      return coerceProfileIntakeFinalCareerSynthesisOutput(rawOutput);
+    },
+    normalizeOutput(output: ProfileIntakeFinalCareerSynthesisOutput) {
+      return ProfileIntakeFinalCareerSynthesisOutputSchema.parse(output);
+    },
+    validateOutput(output: ProfileIntakeFinalCareerSynthesisOutput, input: ProfileIntakeFinalCareerSynthesisTaskInput) {
+      const allowed = new Map(input.assets.map((asset) => [asset.candidateId, asset]));
+      for (const asset of output.assets) {
+        const source = allowed.get(asset.candidateId);
+        if (!source) throw new Error("profile_intake_final_career_candidate_out_of_scope");
+        if (JSON.stringify(asset.structuredItem) !== JSON.stringify(source.structuredItem)) {
+          throw new Error("profile_intake_final_career_structured_item_changed");
+        }
+        if (asset.missingDimensions.some((dimension) => !source.missingDimensions.includes(dimension))) {
+          throw new Error("profile_intake_final_career_missing_dimension_changed");
+        }
+      }
+    }
+  } satisfies AiTaskDefinition<ProfileIntakeFinalCareerSynthesisTaskInput, ProfileIntakeFinalCareerSynthesisOutput>,
   "resume-document-mapper": {
     task: "resume-document-mapper",
     promptVersion: resumeDocumentMapperPrompt.version,

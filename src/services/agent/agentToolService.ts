@@ -46,9 +46,10 @@ import {
   adaptConversationMessageToIntakeDraft,
   buildConversationIntakeReviewProjectionFromDraft,
   buildConversationIntakeArtifact,
-  mergeConversationIntakeDraft
+  mergeConversationIntakeDraft,
+  patchConversationIntakeCandidate
 } from "@/domain/profileIntake/ConversationIntakeAdapter";
-import { ProfileIntakeSemanticService } from "@/domain/profileIntake/ProfileIntakeSemanticService";
+import { ProfileIntakeSemanticService, type ProfileIntakeSemanticInput } from "@/domain/profileIntake/ProfileIntakeSemanticService";
 import {
   applyProfileIntakeStructuredPatch,
   migrateProfileIntakeSection,
@@ -61,8 +62,20 @@ import { readResumeImportSemanticPreference } from "@/services/preferences/resum
 import { adaptResumeJsonToV2 } from "@/domain/resumeImport/jsonV2Adapter";
 import { createProfileIntakeInterviewPlan } from "@/domain/profileIntake/ProfileIntakeCompleteness";
 import { ProfileIntakeReviewProjectionSchema } from "@/domain/profileIntake/ProfileIntakeReviewProjection";
+import { profileIntakeDisplayLabel } from "@/domain/profileIntake/ProfileIntakeNormalizer";
 import { synthesizeProfileIntakeDraft } from "@/domain/profileIntake/ProfileIntakeFinalSynthesis";
 import { ProfileIntakeProvenanceSchema } from "@/domain/profileIntake/ProfileIntakeProvenance";
+import {
+  applyProfileIntakeFinalCareerSynthesis,
+  buildProfileIntakeFinalCareerSynthesisInput,
+  ProfileIntakeFinalCareerSynthesisOutputSchema
+} from "@/domain/profileIntake/ProfileIntakeFinalCareerSynthesis";
+import {
+  nextTurnPlanFromSupervisorAction,
+  profileIntakeItemLabel,
+  resolveProfileIntakeInterviewSupervisor,
+  targetQuestion
+} from "@/agent/workflows/ProfileIntakeInterviewSupervisor";
 
 export class BrowserAgentToolService implements AgentToolServices {
   constructor(
@@ -175,6 +188,7 @@ export class BrowserAgentToolService implements AgentToolServices {
       acknowledgedActiveProfileId?: string;
       intakeQuestionId?: string;
       intakeCandidateId?: string;
+      intakeDimension?: string;
       importId?: string;
       expectedDraftRevision?: number;
       sourceContentHash?: string;
@@ -227,9 +241,28 @@ export class BrowserAgentToolService implements AgentToolServices {
     const captureBase = existing && existing.intakeSession?.finalSynthesis
       ? invalidateFinalSynthesis(existing)
       : existing;
+    const followUpTarget = input.intakeCandidateId && captureBase
+      ? captureBase.sections.flatMap((section) => section.items).find((item) => item.id === input.intakeCandidateId)
+      : undefined;
+    if (input.intakeCandidateId && !followUpTarget?.structuredItem) {
+      throw toolError("profile_intake_follow_up_candidate_missing", "刚才要补充的经历已不存在，请先查看当前草稿后继续。" );
+    }
     const semanticResult = await this.profileIntakeSemantic.normalize({
       rawNarrative: input.text,
-      existingDraft: existing,
+      existingDraft: input.intakeCandidateId ? undefined : existing,
+      ...(followUpTarget?.structuredItem ? {
+        followUpContext: {
+          candidateId: followUpTarget.id,
+          candidateLabel: profileIntakeDisplayLabel(followUpTarget.structuredItem, followUpTarget.itemLabel),
+          sectionType: followUpTarget.structuredItem.sectionType as Exclude<NonNullable<ProfileIntakeSemanticInput["followUpContext"]>["sectionType"], "basics" | "summary">,
+          currentStructuredItem: followUpTarget.structuredItem,
+          expectedAnswerDimension: input.intakeDimension,
+          sourceTurns: (followUpTarget.conversationEvidence ?? []).slice(-8).map((evidence) => ({
+            turnId: evidence.turnId,
+            sourceText: evidence.sourceQuote
+          }))
+        }
+      } : {}),
       signal
     });
     const adapted = adaptConversationMessageToIntakeDraft({
@@ -238,9 +271,24 @@ export class BrowserAgentToolService implements AgentToolServices {
       importId: captureBase?.importId,
       semanticResult
     });
-    const nextDraft = captureBase
-      ? mergeConversationIntakeDraft(input.retry ? removeFailedIntakeFallback(captureBase, { ...input, sourceContentHash }) : captureBase, adapted.draft)
-      : adapted.draft;
+    const patchBase = input.retry
+      ? removeFailedIntakeFallback(captureBase ?? adapted.draft, { ...input, sourceContentHash })
+      : captureBase;
+    const nextDraft = input.intakeCandidateId && patchBase
+      ? patchConversationIntakeCandidate({
+          existing: patchBase,
+          candidateId: input.intakeCandidateId,
+          sessionId: input.sessionId,
+          messageId: input.messageId,
+          turnId: input.turnId,
+          text: input.text,
+          capturedAt: input.capturedAt,
+          sourceContentHash,
+          semanticResult
+        })
+      : patchBase
+        ? mergeConversationIntakeDraft(patchBase, adapted.draft)
+        : adapted.draft;
     const previousSession = captureBase?.intakeSession;
     const followUpCounts = { ...(previousSession?.followUpCounts ?? {}) };
     if (input.intakeCandidateId) {
@@ -283,15 +331,36 @@ export class BrowserAgentToolService implements AgentToolServices {
       ? await this.repository.listProfileIntakeSourceTurns(sessionId)
       : [];
     const synthesized = synthesizeProfileIntakeDraft({ draft, sourceTurns });
+    const careerWritingInput = buildProfileIntakeFinalCareerSynthesisInput({
+      draft: synthesized.draft,
+      synthesis: synthesized.synthesis,
+      sourceTurns
+    });
+    const careerWriting = await invokeStructuredAi({
+      task: "profile-intake-final-career-synthesis",
+      businessInput: {
+        ...careerWritingInput,
+        inputHash: stableHashText(JSON.stringify(careerWritingInput))
+      },
+      outputSchema: ProfileIntakeFinalCareerSynthesisOutputSchema,
+      signal
+    });
+    const careerReady = careerWriting.ok
+      ? applyProfileIntakeFinalCareerSynthesis({
+          draft: synthesized.draft,
+          synthesis: synthesized.synthesis,
+          output: careerWriting.data
+        })
+      : synthesized;
     const saved = await this.repository.saveImportedResumeDraft(
-      ImportedResumeDraftSchema.parse(synthesized.draft),
+      ImportedResumeDraftSchema.parse(careerReady.draft),
       input.expectedDraftRevision
     );
     const interviewPlan = createProfileIntakeInterviewPlan([], saved.revision);
     const reviewProjection = ProfileIntakeReviewProjectionSchema.parse({
       ...buildConversationIntakeReviewProjectionFromDraft(saved),
       phase: "ready_for_review",
-      finalSynthesis: synthesized.synthesis,
+      finalSynthesis: careerReady.synthesis,
       finalReviewRevision: saved.revision
     });
     const artifactPayload = buildConversationIntakeArtifact(saved, undefined, interviewPlan);
@@ -300,7 +369,12 @@ export class BrowserAgentToolService implements AgentToolServices {
       expectedDraftRevision: saved.revision,
       phase: "ready_for_review",
       finalReviewCount: saved.intakeSession?.finalReviewCount ?? 1,
-      finalSynthesis: synthesized.synthesis,
+      finalSynthesis: careerReady.synthesis,
+      finalCareerWriting: {
+        status: careerWriting.ok ? "completed" : "fallback_deterministic",
+        provider: careerWriting.ok ? careerWriting.diagnostics?.provider : "deterministic",
+        errorCode: careerWriting.ok ? undefined : careerWriting.errorCode
+      },
       candidates: reviewProjection.candidates,
       reviewProjection,
       artifactPayload,
@@ -1528,6 +1602,37 @@ function captureProfileIntakeObservation(
     candidate.status !== "failed" && Boolean(candidate.structuredItem)
   ).length;
   const quarantinedCandidateCount = draft.intakeSession?.quarantinedCandidateCount ?? 0;
+  const provisionalItems = draft.sections.flatMap((section) => section.items.flatMap((item) =>
+    item.userConfirmed !== false && item.structuredItem ? [item.structuredItem] : []
+  ));
+  const activeQuestion = interviewPlan.activeQuestion;
+  const activeCandidate = activeQuestion
+    ? provisionalItems.find((item) => item.id === activeQuestion.candidateId)
+    : undefined;
+  const supervisorAction = resolveProfileIntakeInterviewSupervisor({
+    provisionalItems,
+    activeQuestion: activeQuestion && activeCandidate ? {
+      candidateId: activeQuestion.candidateId,
+      candidateLabel: activeQuestion.candidateLabel ?? profileIntakeItemLabel(activeCandidate),
+      ...(activeQuestion.sectionType !== "basics"
+        ? { sectionType: activeQuestion.sectionType ?? activeCandidate.sectionType }
+        : { sectionType: activeCandidate.sectionType }),
+      dimension: activeQuestion.dimension,
+      question: targetQuestion(activeQuestion.question, activeQuestion.candidateLabel ?? profileIntakeItemLabel(activeCandidate))
+    } : undefined,
+    suggestedNextSections: interviewPlan.suggestedNextSections,
+    followUpCounts: draft.intakeSession?.followUpCounts,
+    capturedAssetLabels: provisionalItems.map(profileIntakeItemLabel)
+  });
+  const nextTurnPlan = nextTurnPlanFromSupervisorAction({
+    ...supervisorAction,
+    ...(supervisorAction.type === "ask_follow_up" ? {
+      acknowledgement: activeCandidate
+        ? `已补充“${profileIntakeItemLabel(activeCandidate)}”的这条信息。`
+        : undefined,
+      capturedAssetLabels: provisionalItems.map(profileIntakeItemLabel)
+    } : {})
+  });
   return {
     importId: draft.importId,
     expectedDraftRevision: draft.revision,
@@ -1542,6 +1647,7 @@ function captureProfileIntakeObservation(
     needsConfirmationCount: artifactPayload.needsConfirmation.length,
     candidates: reviewProjection.candidates,
     followUpQuestion,
+    nextTurnPlan,
     interviewPlan,
     artifactPayload,
     reviewProjection,

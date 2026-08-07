@@ -1,6 +1,13 @@
 import { ImportedResumeDraftSchema, type ImportedResumeDraft } from "@/domain/schemas";
 import { stableHashText } from "@/services/security/text";
-import { ProfileIntakeNormalizer, profileIntakeDisplayLabel } from "./ProfileIntakeNormalizer";
+import {
+  applyProfileIntakeStructuredPatch,
+  ProfileIntakeNormalizer,
+  profileIntakeCareerReadyText,
+  profileIntakeDisplayLabel,
+  validateProfileIntakeStructuredPatch,
+  type ProfileIntakeStructuredPatch
+} from "./ProfileIntakeNormalizer";
 import type { ProfileIntakeInterviewPlan } from "./ProfileIntakeCompleteness";
 import type {
   ProfileIntakeSemanticResult,
@@ -630,6 +637,130 @@ export function mergeConversationIntakeDraft(
     ...(intakeSession ? { intakeSession } : {}),
     updatedAt: addition.updatedAt
   });
+}
+
+/**
+ * Follow-up answers are scoped to one already-proposed item.  The semantic
+ * pass may return a complete canonical item for convenience, but only changed
+ * fields with evidence in the current answer are allowed to cross this
+ * boundary.  No new section or candidate is created here.
+ */
+export function patchConversationIntakeCandidate(input: {
+  existing: ImportedResumeDraft;
+  candidateId: string;
+  sessionId: string;
+  messageId: string;
+  turnId: string;
+  text: string;
+  capturedAt: string;
+  sourceContentHash?: string;
+  semanticResult: ProfileIntakeSemanticResult;
+}): ImportedResumeDraft {
+  if (input.existing.sourceKind !== "conversation") {
+    throw new Error("profile_intake_patch_requires_conversation_draft");
+  }
+  const semanticCandidate = input.semanticResult.candidates.find((candidate) => candidate.normalization.structuredItem);
+  if (!semanticCandidate?.normalization.structuredItem) {
+    throw new Error("profile_intake_follow_up_patch_unstructured");
+  }
+  let found = false;
+  const sourceContentHash = input.sourceContentHash ?? stableHashText(input.text.trim());
+  const sections = input.existing.sections.map((section) => ({
+    ...section,
+    items: section.items.map((item) => {
+      if (item.id !== input.candidateId) return item;
+      found = true;
+      if (!item.structuredItem) throw new Error("profile_intake_follow_up_target_unstructured");
+      if (item.structuredItem.sectionType !== semanticCandidate.normalization.structuredItem!.sectionType) {
+        throw new Error("profile_intake_follow_up_section_mismatch");
+      }
+      const patch = diffStructuredItems(item.structuredItem, semanticCandidate.normalization.structuredItem!);
+      const supportedFields = semanticCandidate.normalization.fieldEvidence.map((entry) => entry.field);
+      const patchResult = Object.keys(patch).length
+        ? validateProfileIntakeStructuredPatch({
+            item: item.structuredItem,
+            rawPatch: patch,
+            evidenceSources: [{ sourceQuote: input.text, supportedFields }]
+          })
+        : undefined;
+      const structuredItem = patchResult
+        ? applyProfileIntakeStructuredPatch(item.structuredItem, patchResult.patch)
+        : item.structuredItem;
+      const evidence = {
+        sessionId: input.sessionId,
+        messageId: input.messageId,
+        turnId: input.turnId,
+        sourceContentHash,
+        capturedAt: input.capturedAt,
+        sourceQuote: input.text,
+        supportedFields: patchResult?.fieldEvidence.map((entry) => entry.field) ?? supportedFields
+      };
+      const priorNormalization = item.careerNormalization;
+      const nextFieldEvidence = [
+        ...(priorNormalization?.fieldEvidence ?? []),
+        ...(patchResult?.fieldEvidence ?? semanticCandidate.normalization.fieldEvidence)
+      ].filter((entry, index, all) => all.findIndex((candidate) =>
+        candidate.field === entry.field
+        && candidate.sourceQuote === entry.sourceQuote
+      ) === index);
+      return {
+        ...item,
+        rawText: [item.rawText, input.text].filter(Boolean).join("\n"),
+        normalizedText: profileIntakeCareerReadyText(structuredItem),
+        sourceQuote: item.sourceQuote ?? item.rawText,
+        conversationEvidence: [...(item.conversationEvidence ?? []), evidence],
+        careerNormalization: {
+          version: "profile-intake-normalization-v1" as const,
+          mode: semanticCandidate.normalization.fieldEvidence.length ? "ai" as const : priorNormalization?.mode ?? "deterministic" as const,
+          needsNormalization: priorNormalization?.needsNormalization ?? semanticCandidate.normalization.needsNormalization,
+          deterministicDatePatch: semanticCandidate.normalization.deterministicDatePatch,
+          fieldEvidence: nextFieldEvidence
+        },
+        structuredItem
+      };
+    })
+  }));
+  if (!found) throw new Error("profile_intake_follow_up_candidate_missing");
+  const rawText = [input.existing.pages[0]?.rawText, input.text].filter(Boolean).join("\n");
+  const priorSession = input.existing.intakeSession;
+  return ImportedResumeDraftSchema.parse({
+    ...input.existing,
+    sections,
+    pages: [{
+      pageNumber: 1,
+      rawText,
+      normalizedText: rawText,
+      charStart: 0,
+      charEnd: rawText.length
+    }],
+    source: {
+      ...input.existing.source,
+      sourceMessageId: input.messageId,
+      sourceTurnId: input.turnId,
+      capturedAt: input.capturedAt,
+      sourceContentHash,
+      normalizedTextHash: stableHashText(rawText)
+    },
+    intakeSession: priorSession ? {
+      ...priorSession,
+      lastSourceMessageId: input.messageId,
+      lastSourceTurnId: input.turnId,
+      autosavedAt: input.capturedAt
+    } : undefined,
+    updatedAt: input.capturedAt
+  });
+}
+
+function diffStructuredItems(current: ImportedResumeDraft["sections"][number]["items"][number]["structuredItem"], proposed: NonNullable<typeof current>) {
+  if (!current) return {} as ProfileIntakeStructuredPatch;
+  const patch: Record<string, unknown> = {};
+  const currentRecord = current as unknown as Record<string, unknown>;
+  const proposedRecord = proposed as unknown as Record<string, unknown>;
+  for (const [field, value] of Object.entries(proposedRecord)) {
+    if (["id", "sectionType", "customFields"].includes(field) || value === undefined) continue;
+    if (JSON.stringify(currentRecord[field]) !== JSON.stringify(value)) patch[field] = value;
+  }
+  return patch as ProfileIntakeStructuredPatch;
 }
 
 function extractionStatusForSemanticResult(

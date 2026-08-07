@@ -717,7 +717,7 @@ describe("AgentKernel", () => {
 
     expect(captureProfileIntake).toHaveBeenCalledTimes(1);
     expect(model.completeWithTools).toHaveBeenCalledTimes(0);
-    expect(result.text).toBe("已记录并保存到本地整理草稿。");
+    expect(result.text).toBe("已更新临时整理，接下来我会继续确认一项关键信息。");
     expect(result.taskState).toMatchObject({
       stage: "collect_experience",
       completionStatus: "waiting_for_user",

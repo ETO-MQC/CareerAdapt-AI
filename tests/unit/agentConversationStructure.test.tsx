@@ -220,7 +220,7 @@ describe("AgentConversationTimeline", () => {
   });
 
   it("does not show repeated profile-intake continuation or restore rows", () => {
-    const continuation = "教育背景已经记录并自动保存。\n\n接下来介绍一段实习经历吧。先说公司、你的角色和主要工作即可。";
+    const continuation = "教育背景已更新到本次临时整理。\n\n接下来介绍一段实习经历吧。先说公司、你的角色和主要工作即可。";
     render(
       <AgentConversationTimeline
         messages={[
@@ -292,7 +292,7 @@ describe("AgentConversationTimeline", () => {
       />
     );
 
-    expect(screen.getAllByText(/教育背景已经记录并自动保存/)).toHaveLength(1);
+    expect(screen.getAllByText(/教育背景已更新到本次临时整理/)).toHaveLength(1);
     expect(screen.getAllByText("上次已整理到教育背景，要继续吗？")).toHaveLength(1);
     expect(screen.getAllByText("已完成 1 个任务步骤")).toHaveLength(1);
   });

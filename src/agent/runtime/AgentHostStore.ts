@@ -30,7 +30,12 @@ import {
 } from "./projectTaskStateToWorkflowState";
 import { agentAttachmentStore, type AgentAttachmentRef } from "@/services/agent/AgentAttachmentStore";
 import { agentImportProgressBus } from "@/services/agent/AgentImportProgressBus";
-import { classifyProfileIntakeTurn, classifyTurnIntent, type TurnIntentDecision } from "./AgentTurnIntent";
+import {
+  classifyProfileIntakeTurn,
+  classifyTurnIntent,
+  isProfileIntakeDraftRequest,
+  type TurnIntentDecision
+} from "./AgentTurnIntent";
 import { stableHashText } from "@/services/security/text";
 import { ensureConversationBranches, forkConversationBranch } from "./activeBranchContext";
 import { createQuickActionIntent, type AgentQuickActionId, type QuickActionIntent } from "@/agent/contracts/agentQuickAction";
@@ -44,6 +49,7 @@ import {
   profileIntakeReviewProgress
 } from "@/domain/profileIntake/ProfileIntakeReviewProjection";
 import { ProfileIntakeSourceTurnSchema, type ProfileIntakeSourceTurn } from "@/domain/profileIntake/ProfileIntakeSourceTurn";
+import { ProfileIntakeNextTurnPlanSchema } from "@/domain/profileIntake/ProfileIntakeNextTurnPlan";
 import {
   buildConversationIntakeArtifact,
   buildConversationIntakeReviewProjectionFromDraft
@@ -58,7 +64,11 @@ import { buildQuickActionContextSnapshot, quickActionProfileCountSummary, quickA
 import { QuickActionContextSnapshotSchema, type QuickActionContextSnapshot } from "@/agent/contracts/quickActionContext";
 import { defaultAgentTaskTitle, refineAgentTaskTitle } from "@/agent/services/AgentTaskTitleService";
 import { WorkspaceRepository } from "@/services/storage/repositories";
-import { resolveProfileIntakeInterviewSupervisor } from "@/agent/workflows/ProfileIntakeInterviewSupervisor";
+import {
+  profileIntakeItemLabel,
+  resolveProfileIntakeInterviewSupervisor,
+  targetQuestion
+} from "@/agent/workflows/ProfileIntakeInterviewSupervisor";
 import {
   ProfileIntakeFinalizationSupervisor,
   profileIntakePersistenceReceipt
@@ -1322,6 +1332,69 @@ export class AgentHostStore {
     return undefined;
   }
 
+  /**
+   * Intake meta/reference turns are deliberately answered at the host
+   * boundary.  They do not journal a source turn, invoke semantic extraction,
+   * or enter the generic agent kernel, so a phrase such as “什么工作？” cannot
+   * manufacture a second candidate.
+   */
+  private async resolveProfileIntakeConversationBoundary(input: {
+    current: AgentSession;
+    taskState: AgentTaskState;
+    turnId: string;
+    userMessageId: string;
+    thinkingMessageId: string;
+    now: string;
+    userMessage: string;
+    profileIntakeTurnKind?: TurnIntentDecision["profileIntakeTurnKind"];
+  }): Promise<AgentSession | undefined> {
+    if (
+      input.taskState.workflowId !== "guided_profile_intake"
+      || !["collect_experience", "structure_facts", "review_facts"].includes(input.taskState.stage)
+      || !["profile_state_question", "interview_control"].includes(input.profileIntakeTurnKind ?? "")
+    ) return undefined;
+    const command = input.userMessage.trim().replace(/[。！!？?\s]+$/gu, "");
+    const draftRequested = isProfileIntakeDraftRequest(input.userMessage) || command === "先看看";
+    const active = currentProfileIntakeQuestion(input.taskState);
+    const targetLabel = active?.candidateLabel ?? "这段经历";
+    const question = active?.question;
+    let content: string;
+    if (draftRequested) {
+      content = formatProfileIntakeDraftSummary(input.taskState);
+      if (question) {
+        content += `\n\n当前仍在确认“${targetLabel}”：${question}`;
+      }
+      content += "\n\n你可以继续补充，也可以说“完成整理”进入最终审核。";
+    } else if (question && input.profileIntakeTurnKind === "profile_state_question") {
+      content = `我指的是“${targetLabel}”。刚才想确认的是：${question}`;
+    } else if (question) {
+      content = `可以继续。当前先确认“${targetLabel}”：${question}`;
+    } else {
+      content = "可以继续补充下一段真实经历；如果暂时没有其他内容，也可以说“完成整理”。";
+    }
+    const boundaryPlan = ProfileIntakeNextTurnPlanSchema.parse({
+      action: draftRequested ? "show_draft" : "answer_reference",
+      ...(active?.candidateId ? { candidateId: active.candidateId } : {}),
+      candidateLabel: targetLabel,
+      ...(question ? { question } : {}),
+      ...(draftRequested ? { draftSummary: content } : {}),
+      capturedAssetLabels: []
+    });
+    const nextTaskState = {
+      ...input.taskState,
+      knownSlots: {
+        ...input.taskState.knownSlots,
+        profileIntakeNextTurnPlan: boundaryPlan
+      },
+      completionStatus: "waiting_for_user",
+      updatedAt: new Date().toISOString()
+    } satisfies AgentTaskState;
+    let current = projectTaskStateIntoSession(input.current, nextTaskState);
+    current = replaceAgentThinking(current, input.thinkingMessageId, content, input.turnId);
+    current = attachTaskStateOptions(current, nextTaskState);
+    return this.finishLocalProfileIntakeTurn(current, nextTaskState, input, "waiting_for_user");
+  }
+
   private async captureProfileIntakeAtHostBoundary(
     input: {
       current: AgentSession;
@@ -1353,6 +1426,7 @@ export class AgentHostStore {
       current = withRetryCurrentStepOption(current, input.thinkingMessageId);
       return this.finishLocalProfileIntakeTurn(current, failedState, input, "failed");
     }
+    const targetScopedAnswer = source.sourceKind === "follow_up_answer";
     const sourceIdentity = { sessionId, messageId, turnId: sourceTurnId } as const;
     const persistence = this.dependencies.persistence;
     let journal = await persistence.getProfileIntakeSourceTurn?.(sourceIdentity);
@@ -1364,7 +1438,11 @@ export class AgentHostStore {
         capturedAt,
         branchId: input.current.activeBranchId,
         workflowStage: "structure_facts",
-        activeQuestionId: stringValue(source.intakeQuestionId) ?? stringValue(input.taskState.knownSlots.activeQuestionId),
+        ...(targetScopedAnswer ? {
+          activeQuestionId: stringValue(source.intakeQuestionId) ?? stringValue(input.taskState.knownSlots.activeQuestionId),
+          activeCandidateId: stringValue(source.intakeCandidateId) ?? stringValue(objectValue(input.taskState.knownSlots.intakeActiveQuestion).candidateId),
+          expectedAnswerDimension: stringValue(source.intakeDimension) ?? stringValue(objectValue(input.taskState.knownSlots.intakeActiveQuestion).dimension)
+        } : {}),
         processingStatus: "journaled",
         candidateIds: []
       });
@@ -1390,8 +1468,11 @@ export class AgentHostStore {
       targetProfileId,
         expectedProfileVersion,
         acknowledgedActiveProfileId: stringValue(input.taskState.knownSlots.acknowledgedActiveProfileId),
-        intakeQuestionId: stringValue(source.intakeQuestionId),
-        intakeCandidateId: stringValue(source.intakeCandidateId),
+        intakeQuestionId: source.sourceKind === "follow_up_answer" ? stringValue(source.intakeQuestionId) : undefined,
+        intakeCandidateId: source.sourceKind === "follow_up_answer" ? stringValue(source.intakeCandidateId) : undefined,
+        intakeDimension: source.sourceKind === "follow_up_answer"
+          ? stringValue(source.intakeDimension) ?? stringValue(objectValue(input.taskState.knownSlots.intakeActiveQuestion).dimension)
+          : undefined,
         importId: stringValue(input.taskState.knownSlots.intakeImportId),
       expectedDraftRevision: numberValue(input.taskState.knownSlots.expectedIntakeDraftRevision),
       sourceContentHash: stringValue(source.sourceContentHash),
@@ -1500,19 +1581,21 @@ export class AgentHostStore {
     let current = projectTaskStateIntoSession(input.current, nextState);
     current = reconcileTaskArtifacts(current, nextState);
     current = attachProfileIntakeArtifact(current, result, "访谈整理进度");
+    const narration = captureProfileIntakeNarration(
+      objectValue(result.data),
+      projection.success ? projection.data : undefined,
+      nextState
+    );
     current = upsertAgentActivity(current, {
       id: `agent-tool-${operationId}`,
       turnId: input.turnId,
-       content: "已记录并保存到本地整理草稿。",
+      content: narration.split("\n\n")[0] ?? "已更新本地整理草稿。",
       toolName: "capture_profile_intake",
       operationId,
       status: "complete",
       metadata: { activityState: "complete", directBoundary: true, artifactIds: result.artifactIds }
     });
-    const answer = projection.success && projection.data.extractionStatus === "failed"
-      ? "原始回答已保留，但本次没有完成可靠结构化。你可以补充名称、角色、主要工作和结果，或重新执行当前步骤。"
-      : "已记录并保存到本地整理草稿。";
-    current = replaceAgentThinking(current, input.thinkingMessageId, answer, input.turnId);
+    current = replaceAgentThinking(current, input.thinkingMessageId, narration, input.turnId);
     current = attachTaskStateOptions(current, nextState);
     return this.finishLocalProfileIntakeTurn(current, nextState, input, "waiting_for_user");
   }
@@ -2266,6 +2349,40 @@ export class AgentHostStore {
         type: "attachment_selected",
         attachment: input.attachment
       });
+    }
+    if (!input.regenerateNarrationOnly && taskState.workflowId === "guided_profile_intake") {
+      const conversationBoundary = await this.resolveProfileIntakeConversationBoundary({
+        current,
+        taskState,
+        turnId,
+        userMessageId,
+        thinkingMessageId,
+        now,
+        userMessage: input.userMessage,
+        profileIntakeTurnKind: turnDecision.profileIntakeTurnKind
+      });
+      if (conversationBoundary) {
+        this.executionCoordinator.finish(conversationBoundary.id, "completed", generation);
+        this.patchSession(conversationBoundary, {
+          turnStatus: "completed",
+          activeTurnId: turnId,
+          currentObservation: conversationBoundary.taskState?.lastObservation
+        });
+        return conversationBoundary;
+      }
+      if (["career_narrative", "follow_up_answer"].includes(turnDecision.profileIntakeTurnKind ?? "")) {
+        const processingText = input.userMessage.trim().length >= 80
+          ? "正在整理你刚才提到的多段经历…"
+          : "正在整理你刚才的回答…";
+        current = replaceAgentThinking(current, thinkingMessageId, processingText, turnId);
+        current = await this.dependencies.persistence.save(current);
+        this.patchSession(current, {
+          turnStatus: "running",
+          activeTurnId: turnId,
+          lastProgressAt: new Date().toISOString(),
+          currentObservation: { stage: "profile_intake_structuring", message: processingText }
+        });
+      }
     }
     const compound = presentedQuestion && !/^(?:继续|生成吧|按这些生成)$/u.test(input.userMessage.trim())
       ? resolveCompoundAnswer(input.userMessage, unresolvedTailoringQuestions(taskState))
@@ -5035,10 +5152,23 @@ function profileIntakeContinuationNarration(taskState?: AgentTaskState) {
           candidate.status === "accepted" && candidate.structuredItem ? [candidate.structuredItem] : []
         )
       : [],
-    activeQuestion: typeof activeQuestion.question === "string"
-      ? { question: activeQuestion.question }
+    activeQuestion: typeof activeQuestion.question === "string" && typeof activeQuestion.candidateId === "string"
+      ? {
+          question: activeQuestion.question,
+          candidateId: activeQuestion.candidateId,
+          ...(typeof activeQuestion.candidateLabel === "string" ? { candidateLabel: activeQuestion.candidateLabel } : {}),
+          ...(typeof activeQuestion.sectionType === "string" ? { sectionType: activeQuestion.sectionType as never } : {}),
+          ...(typeof activeQuestion.dimension === "string" ? { dimension: activeQuestion.dimension } : {})
+        }
       : projection.success && projection.data.followUpQuestion
-        ? { question: projection.data.followUpQuestion }
+        ? (() => {
+            const candidate = projection.data.candidates.find((item) => item.structuredItem);
+            return candidate ? {
+              question: projection.data.followUpQuestion!,
+              candidateId: candidate.id,
+              candidateLabel: profileIntakeItemLabel(candidate.structuredItem!)
+            } : undefined;
+          })()
         : undefined,
     unresolvedCandidateIds: projection.success
       ? projection.data.candidates
@@ -5051,13 +5181,88 @@ function profileIntakeContinuationNarration(taskState?: AgentTaskState) {
     ? projection.data.candidates.findLast((candidate) => candidate.status === "accepted" || candidate.status === "ignored")
     : undefined;
   const completedPrefix = completed
-    ? completed.sectionType === "education" ? "教育背景已经记录并自动保存。" : `${profileIntakeNarrativeSectionLabel(completed.sectionType)}已经记录并自动保存。`
-    : "这项经历已经记录并自动保存。";
+    ? completed.sectionType === "education" ? "教育背景已更新到本次临时整理。" : `${profileIntakeNarrativeSectionLabel(completed.sectionType)}已更新到本次临时整理。`
+    : "这项经历已更新到本次临时整理。";
   if (next.type === "ask_follow_up") return `${completedPrefix}\n\n${next.question}`;
   if (next.type === "ask_next_section") return `${completedPrefix}\n\n${next.question}`;
   if (next.type === "offer_finish") return `${completedPrefix}\n\n${next.question}`;
   if (next.type === "commit") return `${completedPrefix}\n\n本次整理已准备完成。`;
   return "先核对上面的经历卡片；确认或忽略后，我再继续整理下一段。";
+}
+
+function currentProfileIntakeQuestion(taskState: AgentTaskState) {
+  const nextPlan = ProfileIntakeNextTurnPlanSchema.safeParse(taskState.knownSlots.profileIntakeNextTurnPlan);
+  const projection = ProfileIntakeReviewProjectionSchema.safeParse(taskState.knownSlots.profileIntakeReviewProjection);
+  const interviewPlan = objectValue(taskState.knownSlots.intakeInterviewPlan);
+  const active = nextPlan.success && nextPlan.data.candidateId && nextPlan.data.question
+    ? nextPlan.data
+    : objectValue(interviewPlan.activeQuestion);
+  const question = stringValue(active.question)
+    ?? stringValue(taskState.knownSlots.intakeFollowUpQuestion);
+  if (!question) return undefined;
+  const candidateId = stringValue(active.candidateId);
+  const candidate = projection.success
+    ? projection.data.candidates.find((item) => item.id === candidateId)
+      ?? projection.data.candidates.find((item) => item.structuredItem)
+    : undefined;
+  const candidateLabel = stringValue(active.candidateLabel)
+    ?? (candidate?.structuredItem ? profileIntakeItemLabel(candidate.structuredItem) : undefined)
+    ?? "这段经历";
+  return {
+    candidateId: candidateId ?? candidate?.id,
+    candidateLabel,
+    question: targetQuestion(question, candidateLabel)
+  };
+}
+
+function formatProfileIntakeDraftSummary(taskState: AgentTaskState) {
+  const projection = ProfileIntakeReviewProjectionSchema.safeParse(taskState.knownSlots.profileIntakeReviewProjection);
+  if (!projection.success || projection.data.candidates.length === 0) {
+    return "目前还没有形成可供核对的经历草稿。你可以先从教育背景或一段项目经历说起。";
+  }
+  const lines = projection.data.candidates
+    .filter((candidate) => candidate.status !== "failed")
+    .slice(0, 12)
+    .map((candidate) => {
+      const label = candidate.structuredItem ? profileIntakeItemLabel(candidate.structuredItem) : candidate.sourceQuote.slice(0, 48);
+      const status = candidate.status === "accepted" ? "已确认" : candidate.status === "ignored" ? "已忽略" : "待继续核对";
+      return `- ${label}（${status}）`;
+    });
+  return `目前已整理 ${lines.length} 项经历：\n${lines.join("\n")}`;
+}
+
+function captureProfileIntakeNarration(
+  result: Record<string, unknown>,
+  projection: ReturnType<typeof ProfileIntakeReviewProjectionSchema.parse> | undefined,
+  state: AgentTaskState
+) {
+  if (projection?.extractionStatus === "failed") {
+    return "原始回答已保留，但这次没有完成可靠结构化。你可以补充名称、角色、主要工作和结果，或重新执行当前步骤。";
+  }
+  const nextPlan = ProfileIntakeNextTurnPlanSchema.safeParse(result.nextTurnPlan);
+  const labels = nextPlan.success && nextPlan.data.capturedAssetLabels.length
+    ? nextPlan.data.capturedAssetLabels
+    : projection?.candidates
+        .filter((candidate) => candidate.status !== "failed" && candidate.structuredItem)
+        .slice(-8)
+        .map((candidate) => profileIntakeItemLabel(candidate.structuredItem!)) ?? [];
+  const newLabels = [...new Set(labels)].slice(-8);
+  const acknowledgement = nextPlan.success && nextPlan.data.acknowledgement
+    ? nextPlan.data.acknowledgement
+    : newLabels.length
+      ? `已记下 ${newLabels.join("、")}，保留在本地整理草稿中。`
+      : "已保留这段回答，并更新了本地整理草稿。";
+  const candidate = nextPlan.success && nextPlan.data.candidateId && projection
+    ? projection.candidates.find((item) => item.id === nextPlan.data.candidateId)
+    : undefined;
+  const interpretation = candidate?.professionalText
+    ? `目前的整理是：${candidate.professionalText.slice(0, 220)}`
+    : undefined;
+  const question = nextPlan.success && nextPlan.data.question
+    ? nextPlan.data.question
+    : currentProfileIntakeQuestion(state)?.question
+      ?? "还想继续补充一段经历，还是完成整理？";
+  return [acknowledgement, interpretation, question].filter(Boolean).join("\n\n");
 }
 
 function retrySectionLabel(projection: ReturnType<typeof ProfileIntakeReviewProjectionSchema.parse>) {
@@ -5804,7 +6009,7 @@ function artifactActionCompletedLabel(action: AgentArtifactAction) {
   if (action.type === "profile_intake_final_review_decision") return "已一次性采用最终资料草稿，仍未写入资料库。";
   if (action.type === "profile_intake_candidate_decision") {
     return action.decision === "accept"
-      ? "已采用，并保存到本地整理草稿。"
+      ? "已采用，仍保留在本地整理草稿中。"
       : action.decision === "reopen"
         ? "已撤销采用，可以重新核对这项经历。"
         : "已忽略这项经历候选。";

@@ -1,9 +1,14 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { adaptConversationMessageToIntakeDraft, buildConversationIntakeReviewProjectionFromDraft } from "@/domain/profileIntake/ConversationIntakeAdapter";
 import { synthesizeProfileIntakeDraft } from "@/domain/profileIntake/ProfileIntakeFinalSynthesis";
+import {
+  applyProfileIntakeFinalCareerSynthesis,
+  ProfileIntakeFinalCareerSynthesisOutputSchema
+} from "@/domain/profileIntake/ProfileIntakeFinalCareerSynthesis";
 import { ProfileIntakeSourceTurnSchema } from "@/domain/profileIntake/ProfileIntakeSourceTurn";
 import { highestValueFollowUpDetail } from "@/domain/profileIntake/ProfileIntakeCompleteness";
 import { ProfileIntakeFinalizationSupervisor } from "@/agent/workflows/ProfileIntakeFinalizationSupervisor";
+import { resolveProfileIntakeInterviewSupervisor } from "@/agent/workflows/ProfileIntakeInterviewSupervisor";
 import type { ProfileIntakeSemanticResult } from "@/domain/profileIntake/ProfileIntakeSemanticService";
 import { BrowserAgentToolService } from "@/services/agent/agentToolService";
 import { AgentAttachmentStore } from "@/services/agent/AgentAttachmentStore";
@@ -116,6 +121,58 @@ describe("P4.3k interview-first profile intake", () => {
     expect(correctedItem?.conversationEvidence?.length).toBeGreaterThan(0);
   });
 
+  it("keeps deterministic facts and provenance when final career wording is ungrounded", () => {
+    const text = "我在 Smart Fox 课程项目中负责数据采集，使用 RPA 完成自动化处理。";
+    const prepared = adaptConversationMessageToIntakeDraft({
+      importId: "p43k-career-writing-guard",
+      sessionId: "session-p43k-writing",
+      messageId: "message-p43k-writing",
+      turnId: "turn-p43k-writing",
+      text,
+      capturedAt: "2026-08-07T01:00:00.000Z",
+      semanticResult: semanticResult(text, "Smart Fox")
+    });
+    const sourceTurn = ProfileIntakeSourceTurnSchema.parse({
+      sessionId: "session-p43k-writing",
+      messageId: "message-p43k-writing",
+      turnId: "turn-p43k-writing",
+      exactSourceText: text,
+      sourceHash: stableHashText(text),
+      capturedAt: "2026-08-07T01:00:00.000Z",
+      workflowStage: "structure_facts",
+      processingStatus: "structured",
+      extractionStatus: "structured_local",
+      candidateIds: ["smart-fox"],
+      candidateCount: 1
+    });
+    const synthesized = synthesizeProfileIntakeDraft({ draft: prepared.draft, sourceTurns: [sourceTurn] });
+    const asset = synthesized.synthesis.assets[0];
+    const output = ProfileIntakeFinalCareerSynthesisOutputSchema.parse({
+      assets: [{
+        candidateId: asset.candidateId,
+        structuredItem: asset.structuredItem,
+        careerReadySummary: "带来全球营收增长 300%",
+        careerReadyHighlights: ["带来全球营收增长 300%", "使用 RPA 完成自动化处理"],
+        missingDimensions: asset.missingDimensions,
+        conflicts: asset.conflicts ?? []
+      }]
+    });
+
+    const applied = applyProfileIntakeFinalCareerSynthesis({
+      draft: synthesized.draft,
+      synthesis: synthesized.synthesis,
+      output
+    });
+    const appliedAsset = applied.synthesis.assets[0];
+    const careerReadyHighlights = appliedAsset.careerReadyHighlights ?? [];
+    expect(appliedAsset.structuredItem).toEqual(asset.structuredItem);
+    expect(appliedAsset.provenance).toEqual(asset.provenance);
+    expect(appliedAsset.careerReadySummary).not.toContain("300%");
+    expect(careerReadyHighlights.length).toBeGreaterThanOrEqual(2);
+    expect(careerReadyHighlights.length).toBeLessThanOrEqual(4);
+    expect(careerReadyHighlights.join(" ")).not.toContain("300%");
+  });
+
   it("uses the same descending follow-up selector and allows only the identity repair as a third question", () => {
     const item = semanticResult("我做了一个项目", "项目 A").candidates[0].normalization.structuredItem!;
     const first = highestValueFollowUpDetail([item], { followUpCounts: { [item.id]: 0 } });
@@ -140,6 +197,19 @@ describe("P4.3k interview-first profile intake", () => {
     expect(highestValueFollowUpDetail([unnamedProject], { followUpCounts: { [unnamedProject.id]: 0 } })?.dimension).toBe("identity");
     expect(highestValueFollowUpDetail([unnamedProject], { followUpCounts: { [unnamedProject.id]: 2 } })?.dimension).toBe("identity");
     expect(highestValueFollowUpDetail([unnamedProject], { followUpCounts: { [unnamedProject.id]: 3 } })).toBeUndefined();
+  });
+
+  it("binds selector-generated follow-ups to the exact Career Asset", () => {
+    const item = semanticResult("我做了一个项目", "项目 A").candidates[0].normalization.structuredItem!;
+    const action = resolveProfileIntakeInterviewSupervisor({ provisionalItems: [item] });
+
+    expect(action).toMatchObject({
+      type: "ask_follow_up",
+      candidateId: item.id,
+      candidateLabel: "项目 A",
+      dimension: "result"
+    });
+    expect(action.type === "ask_follow_up" ? action.question : "").toContain("“项目 A”");
   });
 });
 

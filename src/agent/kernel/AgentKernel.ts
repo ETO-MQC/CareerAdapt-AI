@@ -1745,7 +1745,7 @@ function deterministicWorkflowPause(
     const followUp = typeof projection.followUpQuestion === "string" ? projection.followUpQuestion : undefined;
     return followUp
       ? `当前经历已核对完成。为了让它更适合真实复用，我先问一个高价值细节：\n\n${followUp}\n\n回答后你可以继续补充其他经历，或完成整理。`
-      : "已记录并保存到本地整理草稿。";
+      : "已更新临时整理，接下来我会继续确认一项关键信息。";
   }
   if (
     afterToolOrResume

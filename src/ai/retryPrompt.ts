@@ -43,6 +43,16 @@ export function buildRetryPrompt({
       "Return only the corrected compact JSON object. Do not add a wrapper or explanation."
     ].join("\n");
   }
+  if (task === "profile-intake-final-career-synthesis") {
+    return [
+      baseUserPrompt,
+      "",
+      `Previous profile-intake-final-career-synthesis response failed (${failure ?? "schema validation failed"}).`,
+      "Preserve every supplied candidateId and structuredItem exactly.",
+      "Return only {\"assets\":[{\"candidateId\":\"copied\",\"structuredItem\":{},\"careerReadySummary\":\"grounded\",\"careerReadyHighlights\":[\"grounded\",\"grounded\"],\"missingDimensions\":[],\"conflicts\":[]}]}.",
+      "Every highlight must be supported by the matching source turns; omit unsupported claims."
+    ].join("\n");
+  }
   if (task === "resume-document-mapper") {
     const safeIssues = (issues ?? []).slice(0, 12).map((issue) => {
       const keys = issue.unrecognizedKeys?.length

@@ -381,6 +381,45 @@ function createMockOutput(task: AiTask, input: unknown) {
       followUpQuestions: ["这段经历中，你本人完成的最重要的一项工作是什么？"]
     };
   }
+  if (task === "profile-intake-final-career-synthesis") {
+    const finalInput = input as {
+      assets?: Array<Record<string, unknown>>;
+      sourceTurns?: Array<{ candidateIds?: string[]; exactSourceText?: string }>;
+    };
+    return {
+      assets: (finalInput.assets ?? []).map((asset) => {
+        const candidateId = String(asset.candidateId ?? "");
+        const sourceCandidateIds = [
+          candidateId,
+          ...(Array.isArray(asset.sourceCandidateIds) ? asset.sourceCandidateIds.map(String) : [])
+        ];
+        const source = (finalInput.sourceTurns ?? [])
+          .filter((turn) => turn.candidateIds?.some((id) => sourceCandidateIds.includes(id)))
+          .map((turn) => turn.exactSourceText ?? "")
+          .filter(Boolean)
+          .join("\n");
+        const summary = typeof asset.careerReadySummary === "string" && asset.careerReadySummary.trim()
+          ? asset.careerReadySummary
+          : typeof asset.highlights === "object" && Array.isArray(asset.highlights) && asset.highlights[0]
+            ? String(asset.highlights[0])
+            : source.split(/[\n。；;]+/u).find(Boolean) ?? "待整理经历";
+        const highlights = [
+          ...(Array.isArray(asset.careerReadyHighlights) ? asset.careerReadyHighlights.map(String) : []),
+          ...(Array.isArray(asset.highlights) ? asset.highlights.map(String) : []),
+          summary,
+          source.split(/[\n。；;]+/u).find(Boolean) ?? source
+        ].map((value) => value.trim()).filter((value, index, values) => value && values.indexOf(value) === index).slice(0, 4);
+        return {
+          candidateId,
+          structuredItem: asset.structuredItem,
+          careerReadySummary: summary,
+          careerReadyHighlights: highlights.length >= 2 ? highlights : [summary, source || summary],
+          missingDimensions: Array.isArray(asset.missingDimensions) ? asset.missingDimensions : [],
+          conflicts: Array.isArray(asset.conflictFields) ? asset.conflictFields : []
+        };
+      })
+    };
+  }
   if (task === "resume-document-mapper") {
     const rawText = typeof input === "object" && input && "rawText" in input ? String(input.rawText) : "[]";
     const blocks = parseAndRedactDocumentMapperBlocks(rawText);

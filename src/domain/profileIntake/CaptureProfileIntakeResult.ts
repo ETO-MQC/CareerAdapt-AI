@@ -4,6 +4,7 @@ import {
   ProfileIntakeReviewCandidateSchema,
   ProfileIntakeReviewProjectionSchema
 } from "./ProfileIntakeReviewProjection";
+import { ProfileIntakeNextTurnPlanSchema } from "./ProfileIntakeNextTurnPlan";
 
 export const ProfileIntakePersistenceStatusSchema = z.enum([
   "saved",
@@ -44,6 +45,7 @@ export const CaptureProfileIntakeResultSchema = z.object({
   artifactPayload: z.unknown(),
   interviewPlan: z.unknown(),
   followUpQuestion: z.string().min(1).optional(),
+  nextTurnPlan: ProfileIntakeNextTurnPlanSchema.optional(),
   persistenceReceipt: z.object({
     autosavedAt: z.string().datetime(),
     resumeToken: z.string().min(8)

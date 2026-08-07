@@ -3,6 +3,8 @@ import { getWorkflowDefinition } from "@/agent/workflows/workflowRegistry";
 import {
   classifyProfileIntakeTurn,
   hasExplicitCorrectionReplacement,
+  isProfileIntakeDraftRequest,
+  isProfileIntakeReferenceQuestion,
   type ProfileIntakeTurnKind,
   type TurnIntent
 } from "./AgentTurnIntent";
@@ -142,6 +144,7 @@ export class AgentTaskStateReducer {
           text: event.message,
           stage: state.stage,
           activeQuestionId: stringValue(state.knownSlots.activeQuestionId),
+          activeQuestionLabel: stringValue(objectValue(state.knownSlots.intakeActiveQuestion).candidateLabel),
           expectedAnswerDimension: expectedProfileIntakeAnswerDimension(state)
         });
         const acceptedEvidenceKind = profileIntakeTurnKind === "correction"
@@ -167,6 +170,7 @@ export class AgentTaskStateReducer {
           && isProfileIntakeAnswerTurn(acceptedEvidenceKind)
           && hasIntakeEvidence
         );
+        const targetScopedAnswer = acceptedEvidenceKind === "follow_up_answer";
         const command = event.message.trim().replace(/[。！!？?\s]+$/g, "");
         const acceptedCandidateCount = acceptedIntakeCandidateCount(state);
         const hasIntakeCandidates = intakeCandidateCount(state) > 0;
@@ -201,8 +205,9 @@ export class AgentTaskStateReducer {
             retracted: false,
             targetProfileId: state.knownSlots.targetProfileId,
             expectedProfileVersion: state.knownSlots.expectedProfileVersion,
-            intakeQuestionId: stringValue(state.knownSlots.activeQuestionId),
-            intakeCandidateId: stringValue(objectValue(state.knownSlots.intakeActiveQuestion).candidateId)
+            ...(targetScopedAnswer ? { intakeQuestionId: stringValue(state.knownSlots.activeQuestionId) } : {}),
+            ...(targetScopedAnswer ? { intakeCandidateId: stringValue(objectValue(state.knownSlots.intakeActiveQuestion).candidateId) } : {}),
+            ...(targetScopedAnswer ? { intakeDimension: stringValue(objectValue(state.knownSlots.intakeActiveQuestion).dimension) } : {})
           };
           state.stage = "structure_facts";
           state.pendingDecision = undefined;
@@ -226,7 +231,9 @@ export class AgentTaskStateReducer {
             retracted: false,
             targetProfileId: state.knownSlots.targetProfileId,
             expectedProfileVersion: state.knownSlots.expectedProfileVersion,
-            intakeQuestionId: stringValue(state.knownSlots.activeQuestionId)
+            ...(acceptedEvidenceKind === "follow_up_answer" ? { intakeQuestionId: stringValue(state.knownSlots.activeQuestionId) } : {}),
+            ...(acceptedEvidenceKind === "follow_up_answer" ? { intakeCandidateId: stringValue(objectValue(state.knownSlots.intakeActiveQuestion).candidateId) } : {}),
+            ...(acceptedEvidenceKind === "follow_up_answer" ? { intakeDimension: stringValue(objectValue(state.knownSlots.intakeActiveQuestion).dimension) } : {})
           };
           state.stage = "structure_facts";
           state.pendingDecision = undefined;
@@ -512,6 +519,7 @@ export class AgentTaskStateReducer {
         state.knownSlots.profileIntakePersistenceStatus = value.persistenceStatus;
         state.knownSlots.profileIntakePersistenceReceipt = value.persistenceReceipt;
         state.knownSlots.intakeSession = value.intakeSession;
+        state.knownSlots.profileIntakeNextTurnPlan = value.nextTurnPlan;
         state.knownSlots.profileIntakePhase = objectValue(value.intakeSession).phase ?? "clarifying";
         if (projection) {
           state.knownSlots.profileIntakeReviewProjection = projection;
@@ -546,6 +554,7 @@ export class AgentTaskStateReducer {
         state.knownSlots.intakeImportId = value.importId;
         state.knownSlots.expectedIntakeDraftRevision = value.expectedDraftRevision;
         state.knownSlots.intakeSession = value.intakeSession;
+        if (value.nextTurnPlan) state.knownSlots.profileIntakeNextTurnPlan = value.nextTurnPlan;
         state.knownSlots.profileIntakePhase = "ready_for_review";
         state.knownSlots.profileIntakeFinalSynthesis = value.finalSynthesis;
         state.knownSlots.finalReviewRevision = value.expectedDraftRevision;
@@ -946,6 +955,7 @@ export function isProfileIntakeEvidence(message: string, context: {
   const text = message.trim();
   if (!text) return false;
   if (context.turnKind && !isProfileIntakeAnswerTurn(context.turnKind)) return false;
+  if (isProfileIntakeDraftRequest(text) || isProfileIntakeReferenceQuestion(text, Boolean(context.activeQuestionId))) return false;
   if (/^(?:是|是的|对|对的|好的?|嗯|确认|没问题|没有问题|全部确认|都正确|导入|写入|保存|开始导入|确认导入)[。！!]?$/u.test(text)) return false;
   if (/为什么|为何|怎么还|不是已经|回收站|删除|归档|你从哪里知道|当前资料库|这条对吗|这条不是/i.test(text)) return false;
   const grounded = [
@@ -955,7 +965,13 @@ export function isProfileIntakeEvidence(message: string, context: {
     /技能|证书|认证|语言|奖项|获奖|掌握|熟悉|会用|精通/i,
     /(?:19|20)\d{2}\s*[年/-]|\d{4}\s*年|\d{1,2}\s*月/i
   ].some((pattern) => pattern.test(text));
-  return grounded || Boolean(context.stage === "collect_experience" && context.activeQuestionId && context.expectedAnswerDimension && text.length >= 2);
+  return grounded || Boolean(
+    context.stage === "collect_experience"
+    && context.activeQuestionId
+    && context.expectedAnswerDimension
+    && text.length >= 2
+    && !/^(?:工作|项目|经历|岗位|职位|学校|教育|研究|活动|技能|证书|奖项|成果|结果)$/u.test(text.replace(/[\s。！!？?，,、]+/gu, ""))
+  );
 }
 
 function expectedProfileIntakeAnswerDimension(state: AgentTaskState) {
@@ -963,7 +979,12 @@ function expectedProfileIntakeAnswerDimension(state: AgentTaskState) {
   const questions = Array.isArray(plan.questions) ? plan.questions : [];
   const activeQuestionId = stringValue(state.knownSlots.activeQuestionId);
   const question = questions.map(objectValue).find((item) => item.id === activeQuestionId);
-  return stringValue(question?.expectedAnswerDimension ?? question?.answerType ?? question?.dimension);
+  return stringValue(
+    question?.expectedAnswerDimension
+    ?? question?.answerType
+    ?? question?.dimension
+    ?? objectValue(state.knownSlots.intakeActiveQuestion).dimension
+  );
 }
 
 function isSubstantiveProfileIntakeNarrative(message: string) {
@@ -980,6 +1001,7 @@ function resetProfileIntakeDraft(state: AgentTaskState) {
     "intakeArtifact",
     "intakeInterviewPlan",
     "intakeActiveQuestion",
+    "profileIntakeNextTurnPlan",
     "intakeFollowUpQuestion",
     "profileIntakeCaptureResult",
     "profileIntakeProviderStatus",

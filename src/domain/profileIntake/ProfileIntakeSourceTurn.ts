@@ -49,6 +49,8 @@ export const ProfileIntakeSourceTurnSchema = z.object({
   branchId: z.string().min(1).optional(),
   workflowStage: z.string().min(1),
   activeQuestionId: z.string().min(1).optional(),
+  activeCandidateId: z.string().min(1).optional(),
+  expectedAnswerDimension: z.string().min(1).optional(),
   processingStatus: ProfileIntakeSourceTurnProcessingStatusSchema,
   importId: z.string().min(1).optional(),
   candidateIds: z.array(z.string().min(1)).max(40).default([]),
