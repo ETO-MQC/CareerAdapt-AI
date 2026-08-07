@@ -12,9 +12,18 @@ export const ProfileIntakePersistenceStatusSchema = z.enum([
 
 export const ProfileIntakeSafeDiagnosticsSchema = z.object({
   code: z.string().min(1).optional(),
-  provider: z.enum(["available", "failed", "invalid"]),
-  quarantinedCandidateCount: z.number().int().min(0),
-  latencyMs: z.number().int().min(0).optional()
+  safeErrorCode: z.string().min(1).optional(),
+  provider: z.string().min(1).max(120).optional(),
+  model: z.string().min(1).max(160).optional(),
+  attempt: z.number().int().min(1).optional(),
+  latencyMs: z.number().int().min(0).optional(),
+  processingStatus: z.string().min(1).max(40).optional(),
+  extractionStatus: z.enum(["structured_ai", "structured_local", "partial", "failed"]).optional(),
+  candidateCount: z.number().int().min(0).default(0),
+  quarantinedCount: z.number().int().min(0).default(0),
+  quarantinedCandidateCount: z.number().int().min(0).default(0),
+  quarantinedErrorCodes: z.array(z.string().min(1).max(180)).max(20).default([]),
+  operationId: z.string().min(1).max(180).optional()
 }).strict();
 
 /** Stable boundary returned by the capture tool and consumed by the agent UI. */

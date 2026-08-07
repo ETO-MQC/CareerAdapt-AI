@@ -535,7 +535,7 @@ describe("AgentKernel", () => {
     });
 
     expect(model.completeWithTools).not.toHaveBeenCalled();
-    expect(result.text).toContain("资料已保存到个人资料库");
+    expect(result.text).toContain("已写入‘当前人物 · V当前版本’个人资料库");
     expect(result.trajectory.outcome).toBe("waiting_for_user");
     expect(result.taskState?.completionStatus).toBe("waiting_for_user");
   });

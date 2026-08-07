@@ -28,6 +28,7 @@ export const AgentUiActionSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("open_job_import_dialog") }).strict(),
   z.object({ type: z.literal("open_profile_browser") }).strict(),
   z.object({ type: z.literal("open_tool_palette") }).strict(),
+  z.object({ type: z.literal("request_resume_import_consent"), attachmentId: z.string().min(1) }).strict(),
   z.object({
     type: z.literal("open_import_review"),
     importId: z.string().min(1),

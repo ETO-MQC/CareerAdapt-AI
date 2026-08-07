@@ -113,7 +113,9 @@ export const CareerPersonSchema = z.object({
   currentProfileId: z.string().min(1),
   createdAt: IsoDateStringSchema,
   updatedAt: IsoDateStringSchema,
-  archivedAt: IsoDateStringSchema.optional()
+  archivedAt: IsoDateStringSchema.optional(),
+  /** Recycle Bin lifecycle marker. Kept separate from archivedAt for compatibility. */
+  trashedAt: IsoDateStringSchema.optional()
 }).strict();
 
 export const CareerProfileSchema = EntityBaseSchema.extend({
@@ -136,7 +138,9 @@ export const CareerProfileSchema = EntityBaseSchema.extend({
   parentProfileId: z.string().min(1).optional(),
   isCurrent: z.boolean().optional(),
   versionCreatedReason: VersionCreatedReasonSchema.optional(),
-  archivedAt: IsoDateStringSchema.optional()
+  archivedAt: IsoDateStringSchema.optional(),
+  /** Recycle Bin lifecycle marker. Kept separate from archivedAt for compatibility. */
+  trashedAt: IsoDateStringSchema.optional()
 });
 
 export const ActiveCareerContextSchema = z.object({

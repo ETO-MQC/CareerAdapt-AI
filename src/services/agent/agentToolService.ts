@@ -1452,12 +1452,16 @@ function captureProfileIntakeObservation(
       : undefined,
     intakeSession: draft.intakeSession,
     safeDiagnostics: {
-      provider: reviewProjection.providerStatus,
+      ...(reviewProjection.safeDiagnostics ?? {}),
+      provider: reviewProjection.safeDiagnostics?.provider ?? reviewProjection.providerStatus,
+      extractionStatus,
+      candidateCount: reviewProjection.reviewProgress.total,
+      quarantinedCount: reviewProjection.safeDiagnostics?.quarantinedCount ?? quarantinedCandidateCount,
       quarantinedCandidateCount,
       ...(quarantinedCandidateCount > 0
-        ? { code: "candidate_quarantined" }
-        : draft.intakeSession?.providerStatus !== "available"
-          ? { code: draft.intakeSession?.providerStatus === "invalid" ? "provider_invalid" : "provider_failed" }
+        ? { code: "candidate_quarantined", safeErrorCode: reviewProjection.safeDiagnostics?.safeErrorCode ?? "candidate_quarantined" }
+        : reviewProjection.safeDiagnostics?.safeErrorCode
+          ? { code: reviewProjection.safeDiagnostics.safeErrorCode }
           : {})
     },
     idempotent

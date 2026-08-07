@@ -33,10 +33,9 @@ import {
 import { WorkspaceEmptyState, WorkspaceErrorState, WorkspaceLoadingState } from "@/components/workspace/WorkspaceStates";
 import { FieldInput } from "@/components/editor/FieldInput";
 import {
-  ProductButton,
   ProductTopbar
 } from "@/components/ui/product";
-import { CareerContextSelector } from "@/components/career/CareerContextSelector";
+import { CareerContextEntryBar } from "@/components/career/CareerContextEntryBar";
 import { StructuredExperienceForm } from "@/components/editor/StructuredExperienceForm";
 import {
   defaultExperienceType,
@@ -57,6 +56,7 @@ import { hashBytes, hashText, redactSensitiveTextForModel } from "@/services/sec
 import { notify } from "@/services/notifications/store";
 import { useWorkspace } from "@/services/workspace/useWorkspace";
 import { RevisionConflictError, WorkspaceRepository } from "@/services/storage/repositories";
+import { countProfileContent, profileCountSummary } from "@/domain/profile/profileCounts";
 
 const repository = new WorkspaceRepository();
 const pdfInputId = "resume-pdf-upload";
@@ -295,6 +295,7 @@ export function ProfileWorkspace() {
     ? availableProfiles.find((item) => item.id === activeCareerContext.profileId)
     : undefined;
   const profile = profileOverride === undefined ? workspaceProfile : profileOverride ?? undefined;
+  const profileCounts = profile ? countProfileContent(profile) : undefined;
   const profileDraftKey = profile ? `${profile.id}:${profile.version}` : "";
   const basicDraft = profile && basicDraftState.profileKey !== profileDraftKey
     ? basicDraftFromProfile(profile, profileDraftKey)
@@ -455,24 +456,8 @@ export function ProfileWorkspace() {
     setProfileItemEditing(true);
   }
 
-  async function selectActiveProfile(profileId: string) {
-    const selected = availableProfiles.find((item) => item.id === profileId) ?? await repository.getProfile(profileId);
-    if (!selected) {
-      notify({ type: "error", title: "资料不存在", message: "所选个人资料已不存在，请刷新后重试。" });
-      return;
-    }
-    if (!selected.personId) return;
-    await repository.setActiveCareerContext({ personId: selected.personId, profileId: selected.id });
-    setProfileOverride(selected);
-    setProfileItemEditing(false);
-    setSelectedProfileItemKey("basic:profile");
-    setActiveProfileCategory("basics");
-    setProfileSearch("");
-    setProfileUsageFilter("all");
-    notify({ type: "success", title: "已切换人物", message: `已切换到 ${selected.name} 的个人资料。` });
-  }
-
   async function exportCurrentProfileJson() {
+    if (profileExporting) return;
     if (!profile) {
       notify({ type: "warning", title: "无个人资料", message: "请先选择要导出的人物。" });
       return;
@@ -1680,51 +1665,19 @@ export function ProfileWorkspace() {
     <main className={importWorkspaceOpen ? "page-shell profile-workspace is-import-open" : "page-shell profile-workspace"}>
       <ProductTopbar
         title="个人资料库"
-        status={profile ? `${profile.name} · 本地已保存` : "未选择人物"}
-        actions={(
-          <>
-            <CareerContextSelector />
-            <ProductButton
-              variant="secondary"
-              disabled={!profile || profileExporting}
-              onClick={() => { void exportCurrentProfileJson(); }}
-            >
-              {profileExporting ? "导出中" : "导出 JSON"}
-            </ProductButton>
-            <ProductButton
-              variant={importWorkspaceOpen ? "primary" : "secondary"}
-              onClick={() => setImportWorkspaceOpen((value) => !value)}
-            >
-              {importWorkspaceOpen ? "返回资料库" : "导入资料"}
-            </ProductButton>
-            <ProductButton
-              variant="danger"
-              data-testid="profile-delete-topbar"
-              disabled={!profile || profileDeleting}
-              onClick={() => { void requestCurrentProfileDelete(); }}
-            >
-              删除个人资料
-            </ProductButton>
-          </>
-        )}
+        status={profile ? `${profile.name} · ${profileCountSummary(profileCounts!)} · 本地已保存` : "未选择人物"}
+      />
+
+      <CareerContextEntryBar
+        variant="profile"
+        onImport={() => setImportWorkspaceOpen((value) => !value)}
+        onExport={() => { void exportCurrentProfileJson(); }}
       />
 
       {workspace.status === "empty" ? <WorkspaceEmptyState /> : null}
 
       {profile ? (
         <>
-        <section className="panel profile-person-toolbar" aria-label="当前人物">
-          <div>
-            <strong>当前人物</strong>
-            <span>新增和切换独立资料；简历中心会使用这里选中的人物。</span>
-          </div>
-          <label className="field-input-group profile-person-selector">
-            <span className="field-input-label">选择人物</span>
-            <select value={profile.id} onChange={(event) => { void selectActiveProfile(event.target.value); }}>
-              {availableProfiles.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-            </select>
-          </label>
-        </section>
         <section className="profile-manager-grid" ref={managerRef}>
           <article className="panel profile-category-panel">
             <div className="section-heading compact-heading">

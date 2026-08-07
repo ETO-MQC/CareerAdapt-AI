@@ -140,7 +140,7 @@ export const FactGuardTaskInputSchema = z.object({
 
 export type StageBAiTask = z.infer<typeof stageBAiTaskSchema>;
 export type ProfileBuilderTaskInput = z.infer<typeof ProfileBuilderTaskInputSchema>;
-export type ProfileIntakeSemanticTaskInput = z.infer<typeof ProfileIntakeSemanticTaskInputSchema>;
+export type ProfileIntakeSemanticTaskInput = z.input<typeof ProfileIntakeSemanticTaskInputSchema>;
 export type ResumeJsonMapperTaskInput = z.infer<typeof ResumeJsonMapperTaskInputSchema>;
 export type ResumeDocumentMapperTaskInput = z.infer<typeof ResumeDocumentMapperTaskInputSchema>;
 export type JdAnalyzerTaskInput = z.infer<typeof JdAnalyzerTaskInputSchema>;
@@ -172,6 +172,14 @@ function coerceProfileIntakeSemanticOutput(rawOutput: unknown, input?: ProfileIn
     : {};
   const narrative = input?.rawNarrative ?? "";
   const rawCandidates = Array.isArray(raw.candidates) ? raw.candidates : [];
+  const usesSourceBlocks = rawCandidates.some((candidate) => Boolean(candidate && typeof candidate === "object" && !Array.isArray(candidate) && Array.isArray((candidate as Record<string, unknown>).sourceBlockIds)));
+  if (usesSourceBlocks) {
+    const candidates = rawCandidates.map((candidate, index) => coerceProfileIntakeV3Candidate(candidate, index));
+    const followUpQuestions = Array.isArray(raw.followUpQuestions)
+      ? raw.followUpQuestions.filter((value): value is string => typeof value === "string" && Boolean(value.trim())).slice(0, 3)
+      : [];
+    return { candidates, followUpQuestions };
+  }
   const candidates = rawCandidates.map((candidate, index) => coerceProfileIntakeCandidate(candidate, index, narrative));
   const followUpQuestions = Array.isArray(raw.followUpQuestions)
     ? raw.followUpQuestions.filter((value): value is string => typeof value === "string" && Boolean(value.trim())).slice(0, 3)
@@ -179,6 +187,27 @@ function coerceProfileIntakeSemanticOutput(rawOutput: unknown, input?: ProfileIn
       ? [raw.followUpQuestion.trim()]
       : [];
   return { candidates, followUpQuestions };
+}
+
+function coerceProfileIntakeV3Candidate(rawCandidate: unknown, index: number) {
+  const candidate = rawCandidate && typeof rawCandidate === "object" && !Array.isArray(rawCandidate)
+    ? rawCandidate as Record<string, unknown>
+    : {};
+  const structuredItem = candidate.structuredItem && typeof candidate.structuredItem === "object" && !Array.isArray(candidate.structuredItem)
+    ? stripModelItemMetadata(candidate.structuredItem as Record<string, unknown>)
+    : undefined;
+  const sourceBlockIds = Array.isArray(candidate.sourceBlockIds)
+    ? candidate.sourceBlockIds.filter((value): value is string => typeof value === "string" && Boolean(value.trim())).slice(0, 16)
+    : [];
+  return {
+    candidateKey: typeof candidate.candidateKey === "string" && candidate.candidateKey.trim() ? candidate.candidateKey.trim() : `candidate-${index + 1}`,
+    sectionType: typeof candidate.sectionType === "string" && RESUME_SECTION_TYPES_V2.includes(candidate.sectionType as typeof RESUME_SECTION_TYPES_V2[number]) && candidate.sectionType !== "basics" && candidate.sectionType !== "summary" ? candidate.sectionType : "other",
+    sourceBlockIds,
+    ...(typeof candidate.sourceQuote === "string" && candidate.sourceQuote.length ? { sourceQuote: candidate.sourceQuote } : {}),
+    ...(structuredItem ? { structuredItem } : {}),
+    ...(typeof candidate.professionalText === "string" && candidate.professionalText.trim() ? { professionalText: candidate.professionalText.trim() } : {}),
+    uncertainFields: Array.isArray(candidate.uncertainFields) ? candidate.uncertainFields.filter((value): value is string => typeof value === "string" && Boolean(value.trim())).slice(0, 80) : []
+  };
 }
 
 const legacyProfileIntakeOptionalFields = [
@@ -276,6 +305,7 @@ export const aiTaskRegistry = {
     buildUserPrompt(input: ProfileIntakeSemanticTaskInput) {
       return JSON.stringify({
         rawNarrative: input.rawNarrative,
+        sourceBlocks: input.sourceBlocks ?? [],
         existingDraftContext: input.existingDraftContext,
         canonicalSections: input.canonicalSections,
         currentDate: input.currentDate,
@@ -292,6 +322,9 @@ export const aiTaskRegistry = {
       // Candidate grounding, canonical item parsing, fact guard, and source
       // span checks happen independently in ProfileIntakeSemanticService so a
       // single malformed candidate cannot invalidate its siblings.
+      if (output.candidates.some((candidate) => "sourceBlockIds" in candidate)) {
+        return;
+      }
       if ("followUpQuestions" in output && output.followUpQuestions.length > 3) {
         throw new Error("profile_intake_follow_up_limit");
       }

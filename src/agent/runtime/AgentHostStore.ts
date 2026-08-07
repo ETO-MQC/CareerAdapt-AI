@@ -54,7 +54,7 @@ import {
   type QuickActionPrerequisiteResolution,
   type QuickActionWorkflowResolution
 } from "@/agent/workflows/QuickActionWorkflowSupervisor";
-import { buildQuickActionContextSnapshot, quickActionProfileLabel, quickActionSectionCount } from "@/agent/workflows/QuickActionContextSnapshot";
+import { buildQuickActionContextSnapshot, quickActionProfileCountSummary, quickActionProfileLabel, quickActionSectionCount } from "@/agent/workflows/QuickActionContextSnapshot";
 import { QuickActionContextSnapshotSchema, type QuickActionContextSnapshot } from "@/agent/contracts/quickActionContext";
 import { defaultAgentTaskTitle, refineAgentTaskTitle } from "@/agent/services/AgentTaskTitleService";
 import { WorkspaceRepository } from "@/services/storage/repositories";
@@ -71,7 +71,8 @@ export type AgentHostInput =
   | { type: "edit_message"; messageId: string; text: string }
   | { type: "regenerate_message"; messageId: string }
   | { type: "quick_action"; actionId: AgentQuickActionId; text: string; task: QuickActionIntent["task"] }
-  | { type: "file"; file: File }
+  | { type: "composer_submit"; text?: string; files: File[] }
+  | { type: "resume_import_consent"; attachmentId: string; mode: "ai" | "local" }
   | { type: "option"; action: AgentOption["action"] }
   | { type: "artifact_action"; action: AgentArtifactAction }
   | { type: "confirmation"; confirmed: boolean }
@@ -229,6 +230,18 @@ export class AgentHostStore {
     );
   }
 
+  private async isCanonicalCareerAdaptJsonAttachment(attachment: AgentAttachmentRef) {
+    if (attachment.mimeType !== "application/json" && !attachment.fileName.toLowerCase().endsWith(".json")) return false;
+    try {
+      const { adaptResumeJsonToV2 } = await import("@/domain/resumeImport/jsonV2Adapter");
+      const { file } = agentAttachmentStore.resolve(attachment.id);
+      const adapted = adaptResumeJsonToV2(JSON.parse(await file.text()));
+      return adapted.ok && adapted.sourceKind === "v2";
+    } catch {
+      return false;
+    }
+  }
+
   private async readQuickActionContext(session?: AgentSession) {
     return buildQuickActionContextSnapshot(this.getCareerRepository(), session);
   }
@@ -375,9 +388,40 @@ export class AgentHostStore {
         observation: input.observation
       }, context.pageContext, turnId);
     }
-    if (input.type === "file") {
-      const attachment = await agentAttachmentStore.register(input.file);
-      return this.resolveDirectImportAttachment(session, attachment, context.pageContext);
+    if (input.type === "composer_submit") {
+      const files = input.files.filter((file) => Boolean(file && typeof file.arrayBuffer === "function"));
+      if (!files.length && !input.text?.trim()) return session;
+      const registered: AgentAttachmentRef[] = [];
+      try {
+        for (const file of files) registered.push(await agentAttachmentStore.register(file));
+      } catch (error) {
+        for (const attachment of registered) agentAttachmentStore.release(attachment.id);
+        throw error;
+      }
+      if (!registered.length) {
+        return this.startTurn({ session, userMessage: input.text?.trim() ?? "", pageContext: context.pageContext });
+      }
+      const primary = registered[0];
+      const { readResumeImportSemanticPreference } = await import("@/services/preferences/resumeImportAi");
+      const needsConsent = readResumeImportSemanticPreference() === "unset"
+        && !(await this.isCanonicalCareerAdaptJsonAttachment(primary));
+      return this.resolveDirectImportAttachment(session, primary, context.pageContext, {
+        userMessage: input.text?.trim() ?? "",
+        attachmentRefs: registered,
+        requestConsent: needsConsent
+      });
+    }
+    if (input.type === "resume_import_consent") {
+      const { ref } = agentAttachmentStore.resolve(input.attachmentId);
+      if (input.mode === "ai" || input.mode === "local") {
+        const currentUserMessage = [...session.messages].reverse().find((message) => message.role === "user");
+        return this.resolveDirectImportAttachment(session, ref, context.pageContext, {
+          userMessage: currentUserMessage?.content ?? "",
+          appendUserMessage: false,
+          requestConsent: false
+        });
+      }
+      return session;
     }
     if (input.type === "option") {
       if (input.action.type === "quick_action_decision") {
@@ -815,7 +859,13 @@ export class AgentHostStore {
   private async resolveDirectImportAttachment(
     session: AgentSession,
     attachment: AgentAttachmentRef,
-    pageContext: AgentPageContext
+    pageContext: AgentPageContext,
+    options: {
+      userMessage?: string;
+      attachmentRefs?: AgentAttachmentRef[];
+      appendUserMessage?: boolean;
+      requestConsent?: boolean;
+    } = {}
   ) {
     const snapshot = await this.readQuickActionContext(session);
     const reducer = new AgentTaskStateReducer();
@@ -836,31 +886,52 @@ export class AgentHostStore {
     taskState = {
       ...taskState,
       stage: targetAlreadyResolved ? "prepare_import" : "resolve_target",
-      completionStatus: targetAlreadyResolved ? "active" : "waiting_for_user",
+      completionStatus: options.requestConsent ? "waiting_for_user" : targetAlreadyResolved ? "active" : "waiting_for_user",
       knownSlots: {
         ...taskState.knownSlots,
-        quickActionImportTargetRequired: !targetAlreadyResolved
+        quickActionImportTargetRequired: !targetAlreadyResolved,
+        resumeImportConsentAttachmentId: options.requestConsent ? attachment.id : undefined
       },
       updatedAt: new Date().toISOString()
     };
     let current = projectTaskStateIntoSession(session, taskState);
-    current = appendAgentMessage(current, "user", `已选择简历文件：${attachment.fileName}`, {
-      id: `agent-user-${crypto.randomUUID()}`,
-      status: "complete",
-      metadata: { executionState: "complete", attachmentId: attachment.id }
-    });
+    const visibleMessage = options.userMessage ?? "";
+    const visibleAttachmentRefs = options.attachmentRefs ?? [attachment];
+    if (options.appendUserMessage !== false) {
+      current = appendAgentMessage(current, "user", visibleMessage, {
+        id: `agent-user-${crypto.randomUUID()}`,
+        status: "complete",
+        metadata: {
+          executionState: options.requestConsent ? "complete" : "running",
+          attachments: visibleAttachmentRefs.map((ref) => ({ fileName: ref.fileName, mimeType: ref.mimeType, size: ref.size })),
+          attachmentId: attachment.id
+        }
+      });
+    }
+    if (options.requestConsent) {
+      const saved = await this.dependencies.persistence.save(current);
+      this.patchSession(saved, {
+        turnStatus: "waiting_for_user",
+        uiAction: { type: "request_resume_import_consent", attachmentId: attachment.id },
+        currentObservation: { type: "resume_import_consent_required", attachmentId: attachment.id }
+      });
+      void pageContext;
+      return saved;
+    }
     if (targetAlreadyResolved && targetProfileId) {
       const targetProfile = await this.getCareerRepository().getProfile(targetProfileId);
       if (!targetProfile) return current;
-      const targetLabel = `${targetProfile.name} · V${targetProfile.profileVersionNumber ?? 1}`;
       const saved = await this.dependencies.persistence.save(current);
       this.patchSession(saved, {
         turnStatus: "idle",
         currentObservation: { type: "import_target_resolved", targetProfileId, quickActionContext: snapshot }
       });
+      const userMessage = [...saved.messages].reverse().find((message) => message.role === "user");
       return this.startTurn({
         session: saved,
-        userMessage: `开始将简历导入到${targetLabel}`,
+        userMessage: visibleMessage || userMessage?.content || "",
+        userMessageId: userMessage?.id,
+        appendUserMessage: false,
         pageContext,
         supersede: true
       });
@@ -976,9 +1047,12 @@ export class AgentHostStore {
       this.patchSession(saved, { turnStatus: "idle", uiAction: { type: "open_resume_upload" } });
       return saved;
     }
+    const originalUserMessage = [...saved.messages].reverse().find((message) => message.role === "user");
     return this.startTurn({
       session: saved,
-      userMessage: `开始将简历导入到${targetLabel}`,
+      userMessage: originalUserMessage?.content ?? "",
+      userMessageId: originalUserMessage?.id,
+      appendUserMessage: false,
       pageContext,
       supersede: true
     });
@@ -1245,11 +1319,15 @@ export class AgentHostStore {
       });
       await persistence.saveProfileIntakeSourceTurn?.(journal);
     }
+    const operationId = `profile-intake-capture-${input.current.id}-${sourceTurnId}`.replace(/[^\w-]/g, "-").slice(0, 160);
+    const attempt = (journal?.attempt ?? 0) + 1;
     await persistence.updateProfileIntakeSourceTurn?.(sourceIdentity, {
       processingStatus: "structuring",
+      attempt,
+      operationId,
+      safeErrorCode: undefined,
       lastErrorCode: undefined
     });
-    const operationId = `profile-intake-capture-${input.current.id}-${sourceTurnId}`.replace(/[^\w-]/g, "-").slice(0, 160);
     let captureState = input.taskState;
     let result: Awaited<ReturnType<AgentExecutor["execute"]>> | undefined;
     const captureInput = {
@@ -1298,8 +1376,15 @@ export class AgentHostStore {
     } catch (error) {
       const code = safeErrorCode(error);
       await persistence.updateProfileIntakeSourceTurn?.(sourceIdentity, {
-        processingStatus: "failed",
-        lastErrorCode: code
+        ...profileIntakeSourceTurnDiagnosticPatch({
+          processingStatus: "failed",
+          extractionStatus: "failed",
+          safeErrorCode: code,
+          candidateCount: 0,
+          quarantinedCount: 0,
+          operationId,
+          attempt
+        })
       });
       const failedState = new AgentTaskStateReducer().reduce(input.taskState, { type: "failed", errorCode: code });
       let current = projectTaskStateIntoSession(input.current, failedState);
@@ -1310,8 +1395,15 @@ export class AgentHostStore {
     if (!result?.ok) {
       const code = result?.error?.code ?? "profile_intake_capture_failed";
       await persistence.updateProfileIntakeSourceTurn?.(sourceIdentity, {
-        processingStatus: "failed",
-        lastErrorCode: code
+        ...profileIntakeSourceTurnDiagnosticPatch({
+          processingStatus: "failed",
+          extractionStatus: "failed",
+          safeErrorCode: code,
+          candidateCount: 0,
+          quarantinedCount: 0,
+          operationId,
+          attempt
+        })
       });
       const failedState = new AgentTaskStateReducer().reduce(input.taskState, { type: "failed", errorCode: code });
       let current = projectTaskStateIntoSession(input.current, failedState);
@@ -1335,10 +1427,22 @@ export class AgentHostStore {
         ? "partial"
         : "structured";
     await persistence.updateProfileIntakeSourceTurn?.(sourceIdentity, {
-      processingStatus,
       importId: stringValue(objectValue(result.data).importId),
       candidateIds,
-      lastErrorCode: undefined
+      ...profileIntakeSourceTurnDiagnosticPatch({
+        processingStatus,
+        extractionStatus: captureExtractionStatus(String(projection.success ? projection.data.extractionStatus : "failed")),
+        safeErrorCode: stringValue(objectValue(objectValue(result.data).safeDiagnostics).safeErrorCode),
+        provider: stringValue(objectValue(objectValue(result.data).safeDiagnostics).provider),
+        model: stringValue(objectValue(objectValue(result.data).safeDiagnostics).model),
+        attempt: numberValue(objectValue(objectValue(result.data).safeDiagnostics).attempt) ?? attempt,
+        latencyMs: numberValue(objectValue(objectValue(result.data).safeDiagnostics).latencyMs),
+        candidateCount: numberValue(objectValue(objectValue(result.data).safeDiagnostics).candidateCount) ?? candidateIds.length,
+        quarantinedCount: numberValue(objectValue(objectValue(result.data).safeDiagnostics).quarantinedCount)
+          ?? numberValue(objectValue(objectValue(result.data).safeDiagnostics).quarantinedCandidateCount)
+          ?? 0,
+        operationId
+      })
     });
     let current = projectTaskStateIntoSession(input.current, nextState);
     current = reconcileTaskArtifacts(current, nextState);
@@ -1683,6 +1787,7 @@ export class AgentHostStore {
         profileCommitVerification: {
           profileId: committedProfileId,
           profileVersion: committedVersion,
+          profileName: stringValue(verifiedProfile.name),
           verifiedAt: new Date().toISOString()
         }
       },
@@ -1690,7 +1795,8 @@ export class AgentHostStore {
       stage: "profile_complete",
       updatedAt: new Date().toISOString()
     };
-    const receiptText = `已保存到个人资料库。资料库版本：${committedVersion}；本次新增 ${numberValue(commitValue.committedItemCount) ?? 0} 项经历、${numberValue(commitValue.committedFactCount) ?? 0} 条事实，读取核验通过。接下来你可以继续补充经历、生成通用简历，或暂时完成。`;
+    const verifiedProfileName = stringValue(verifiedProfile.name) ?? "当前人物";
+    const receiptText = `已写入‘${verifiedProfileName} · V${committedVersion}’个人资料库。本次新增 ${numberValue(commitValue.committedItemCount) ?? 0} 项经历、${numberValue(commitValue.committedFactCount) ?? 0} 条事实，读取核验通过。接下来你可以继续补充经历、生成通用简历，或暂时完成。`;
     const alignment = new AuthoritativeConversationAlignmentGuard().validate({
       text: receiptText,
       taskState: state,
@@ -3728,6 +3834,7 @@ function isUiAction(action: AgentUiAction | AgentWorkflowControl): action is Age
     "open_job_import_dialog",
     "open_profile_browser",
     "open_tool_palette",
+    "request_resume_import_consent",
     "open_import_review",
     "open_artifact",
     "select_tailoring_question"
@@ -3790,7 +3897,7 @@ function emptyQuickActionCounts() {
 
 function importTargetPrompt(snapshot: QuickActionContextSnapshot) {
   const label = quickActionProfileLabel(snapshot) ?? "当前人物与版本";
-  return `准备导入到“${label}”。当前资料库已有 ${snapshot.profileItemCount} 项资料。\n导入后会先比对已有事实；完全重复项不会重复新增，近似重复和字段冲突会在核对页让你选择，不会静默覆盖。`;
+  return `准备导入到“${label}”。当前资料库已有 ${quickActionProfileCountSummary(snapshot)}。\n导入后会先比对已有事实；完全重复项不会重复新增，近似重复和字段冲突会在核对页让你选择，不会静默覆盖。`;
 }
 
 function importTargetOptions(snapshot: QuickActionContextSnapshot): AgentOption[] {
@@ -5532,7 +5639,7 @@ function artifactActionCompletedLabel(action: AgentArtifactAction) {
   }
   if (action.type === "profile_intake_candidate_decision") {
     return action.decision === "accept"
-      ? "已采用这项经历候选。"
+      ? "已采用，并保存到本地整理草稿。"
       : action.decision === "reopen"
         ? "已撤销采用，可以重新核对这项经历。"
         : "已忽略这项经历候选。";
@@ -5561,6 +5668,40 @@ function numberValue(value: unknown) {
 function safeErrorCode(error: unknown) {
   if (error && typeof error === "object" && "code" in error && typeof error.code === "string") return error.code;
   return "profile_intake_capture_failed";
+}
+
+function captureExtractionStatus(value: string): "structured_ai" | "structured_local" | "partial" | "failed" {
+  if (value === "structured_local") return "structured_local";
+  if (value === "structured_ai" || value === "structured") return "structured_ai";
+  if (value === "partial") return "partial";
+  return "failed";
+}
+
+function profileIntakeSourceTurnDiagnosticPatch(input: {
+  processingStatus: ProfileIntakeSourceTurn["processingStatus"];
+  extractionStatus?: "structured_ai" | "structured_local" | "partial" | "failed";
+  safeErrorCode?: string;
+  provider?: string;
+  model?: string;
+  attempt?: number;
+  latencyMs?: number;
+  candidateCount: number;
+  quarantinedCount: number;
+  operationId: string;
+}) {
+  return {
+    processingStatus: input.processingStatus,
+    extractionStatus: input.extractionStatus,
+    safeErrorCode: input.safeErrorCode,
+    provider: input.provider,
+    model: input.model,
+    attempt: input.attempt,
+    latencyMs: input.latencyMs,
+    candidateCount: input.candidateCount,
+    quarantinedCount: input.quarantinedCount,
+    operationId: input.operationId,
+    lastErrorCode: input.safeErrorCode
+  } satisfies Partial<Omit<ProfileIntakeSourceTurn, "sessionId" | "messageId" | "turnId">>;
 }
 
 function isStaleProfileError(code: string | undefined) {

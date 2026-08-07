@@ -1,130 +1,63 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ActiveCareerContext, CareerProfile, JobDescription } from "@/domain/schemas";
 import { WorkspaceRepository } from "@/services/storage/repositories";
+import { useCareerContextStore } from "@/services/career/CareerContextStore";
 
 export type WorkspaceLoadState =
-  | {
-      status: "loading";
-      profiles: [];
-      jobs: [];
-      activeContext?: ActiveCareerContext;
-      source: "repository";
-    }
-  | {
-      status: "empty";
-      profiles: [];
-      jobs: [];
-      activeContext?: ActiveCareerContext;
-      source: "repository";
-    }
-  | {
-      status: "error";
-      profiles: [];
-      jobs: [];
-      activeContext?: ActiveCareerContext;
-      source: "repository";
-      error: string;
-    }
-  | {
-      status: "ready";
-      profiles: CareerProfile[];
-      jobs: JobDescription[];
-      activeContext?: ActiveCareerContext;
-      source: "repository";
-    };
-
-const loadingState: WorkspaceLoadState = {
-  status: "loading",
-  profiles: [],
-  jobs: [],
-  source: "repository"
-};
+  | { status: "loading"; profiles: []; jobs: []; activeContext?: ActiveCareerContext; source: "repository" }
+  | { status: "empty"; profiles: []; jobs: []; activeContext?: ActiveCareerContext; source: "repository" }
+  | { status: "error"; profiles: []; jobs: []; activeContext?: ActiveCareerContext; source: "repository"; error: string }
+  | { status: "ready"; profiles: CareerProfile[]; jobs: JobDescription[]; activeContext?: ActiveCareerContext; source: "repository" };
 
 const defaultRepository = new WorkspaceRepository();
 
-async function readWorkspace(repository: WorkspaceRepository): Promise<WorkspaceLoadState> {
-  await repository.ensureDemoWorkspace();
-
-  const [profiles, jobs, activeContext] = await Promise.all([
-    repository.listProfiles(),
-    repository.listJobDescriptions(),
-    repository.getActiveCareerContext()
-  ]);
-
-  if (profiles.length === 0 && jobs.length === 0) {
-    return {
-      status: "empty",
-      profiles: [],
-      jobs: [],
-      source: "repository"
-    };
-  }
-
-  const orderedProfiles = activeContext
-    ? [...profiles].sort((left, right) => Number(right.id === activeContext.profileId) - Number(left.id === activeContext.profileId))
-    : profiles;
-
-  return {
-    status: "ready",
-    profiles: orderedProfiles,
-    jobs,
-    activeContext,
-    source: "repository"
-  };
-}
-
 export function useWorkspace(repository: WorkspaceRepository = defaultRepository) {
-  const [state, setState] = useState<WorkspaceLoadState>(loadingState);
+  const career = useCareerContextStore();
+  const [jobs, setJobs] = useState<JobDescription[]>([]);
+  const [jobsLoading, setJobsLoading] = useState(true);
+  const [jobsError, setJobsError] = useState<string>();
+
+  const loadJobs = useCallback(async () => {
+    setJobsLoading(true);
+    try {
+      await repository.ensureDemoWorkspace();
+      setJobs(await repository.listJobDescriptions());
+      setJobsError(undefined);
+    } catch (error) {
+      setJobsError(error instanceof Error ? error.message : "Workspace load failed.");
+    } finally {
+      setJobsLoading(false);
+    }
+  }, [repository]);
 
   useEffect(() => {
-    let active = true;
+    const frame = window.requestAnimationFrame(() => { void loadJobs(); });
+    return () => window.cancelAnimationFrame(frame);
+  }, [loadJobs]);
 
-    async function loadInitialWorkspace() {
-      try {
-        const nextState = await readWorkspace(repository);
-        if (active) {
-          setState(nextState);
-        }
-      } catch (error) {
-        if (active) {
-          setState({
-            status: "error",
-            profiles: [],
-            jobs: [],
-            source: "repository",
-            error: error instanceof Error ? error.message : "Workspace load failed."
-          });
-        }
-      }
-    }
+  const profiles = useMemo(() => {
+    if (!career.activeContext) return career.profiles;
+    return [...career.profiles].sort((left, right) => Number(right.id === career.activeContext?.profileId) - Number(left.id === career.activeContext?.profileId));
+  }, [career.activeContext, career.profiles]);
 
-    void loadInitialWorkspace();
-    return () => {
-      active = false;
-    };
-  }, [repository]);
+  const state: WorkspaceLoadState = career.error || jobsError
+    ? { status: "error", profiles: [], jobs: [], activeContext: career.activeContext, source: "repository", error: career.error ?? jobsError ?? "Workspace load failed." }
+    : career.loading || jobsLoading
+      ? { status: "loading", profiles: [], jobs: [], activeContext: career.activeContext, source: "repository" }
+      : profiles.length === 0 && jobs.length === 0
+        ? { status: "empty", profiles: [], jobs: [], activeContext: career.activeContext, source: "repository" }
+        : { status: "ready", profiles, jobs, activeContext: career.activeContext, source: "repository" };
 
   const upsertJob = useCallback((job: JobDescription) => {
-    setState((current) => {
-      if (current.status !== "ready") {
-        return current;
-      }
-      return {
-        ...current,
-        jobs: [job, ...current.jobs.filter((item) => item.id !== job.id)]
-      };
-    });
+    setJobs((current) => [job, ...current.filter((item) => item.id !== job.id)]);
   }, []);
 
+  const refreshCareer = career.refresh;
   const refetch = useCallback(async () => {
-    try {
-      setState(await readWorkspace(repository));
-    } catch {
-      // Keep the optimistic local snapshot visible when a background refetch fails.
-    }
-  }, [repository]);
+    await Promise.all([refreshCareer(), loadJobs()]);
+  }, [refreshCareer, loadJobs]);
 
   return { ...state, upsertJob, refetch };
 }

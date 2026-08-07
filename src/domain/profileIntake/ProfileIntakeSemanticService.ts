@@ -27,6 +27,13 @@ import { currentRuntimeDate } from "@/services/runtimeDate";
 const OptionalText = z.string().trim().min(1).max(4_000).optional();
 const TextList = z.array(z.string().trim().min(1).max(2_000)).max(30).default([]);
 
+export const ProfileIntakeSourceBlockSchema = z.object({
+  id: z.string().min(1).max(120),
+  start: z.number().int().min(0),
+  end: z.number().int().min(0),
+  text: z.string().min(1).max(8_000)
+}).strict().refine((block) => block.end > block.start, { message: "source block end must be greater than start" });
+
 export const ProfileIntakeSemanticCandidateSchema = z.object({
   candidateKey: z.string().trim().min(1).max(120),
   sectionType: ResumeSectionTypeV2Schema.exclude(["basics", "summary"]),
@@ -59,7 +66,7 @@ export const ProfileIntakeSemanticCandidateSchema = z.object({
   }
 });
 
-export const ProfileIntakeSemanticOutputSchema = z.object({
+export const ProfileIntakeSemanticV2OutputSchema = z.object({
   candidates: z.array(z.object({
     candidateKey: z.string().trim().min(1).max(120),
     sectionType: ResumeSectionTypeV2Schema.exclude(["basics", "summary"]),
@@ -76,6 +83,27 @@ export const ProfileIntakeSemanticOutputSchema = z.object({
   followUpQuestions: z.array(z.string().trim().min(1).max(500)).max(3).default([])
 }).strict();
 
+export const ProfileIntakeSemanticV3OutputSchema = z.object({
+  candidates: z.array(z.object({
+    candidateKey: z.string().trim().min(1).max(120),
+    sectionType: ResumeSectionTypeV2Schema.exclude(["basics", "summary"]),
+    sourceBlockIds: z.array(z.string().trim().min(1).max(120)).min(1).max(16),
+    // Keep the provider quote byte-for-byte; local range derivation must be
+    // able to prove it is an exact substring of a named source block.
+    sourceQuote: z.string().min(1).max(12_000).optional(),
+    structuredItem: z.unknown().optional(),
+    professionalText: z.string().trim().min(1).max(4_000).optional(),
+    uncertainFields: z.array(z.string().trim().min(1).max(120)).max(80).default([])
+  }).strict()).max(40),
+  followUpQuestions: z.array(z.string().trim().min(1).max(500)).max(3).default([])
+}).strict();
+
+/** Provider boundary V3. The V2 arm remains for old fixtures and drafts. */
+export const ProfileIntakeSemanticOutputSchema = z.union([
+  ProfileIntakeSemanticV3OutputSchema,
+  ProfileIntakeSemanticV2OutputSchema
+]);
+
 /**
  * The pre-P4.3f shape remains exported for old in-process callers and stored
  * test fixtures. Provider output and the network boundary use the V2 shape
@@ -87,7 +115,10 @@ export const ProfileIntakeSemanticLegacyOutputSchema = z.object({
 }).strict();
 
 export const ProfileIntakeSemanticInputSchema = z.object({
-  rawNarrative: z.string().trim().min(1).max(24_000),
+  // Preserve the exact source string. The application derives ranges from the
+  // supplied source blocks, so trimming at this boundary would make the
+  // provider input and locally derived offsets disagree.
+  rawNarrative: z.string().min(1).max(24_000),
   existingDraftContext: z.array(z.object({
     id: z.string().min(1),
     sectionType: ResumeSectionTypeV2Schema,
@@ -95,21 +126,52 @@ export const ProfileIntakeSemanticInputSchema = z.object({
     normalizedText: z.string().min(1)
   }).strict()).max(40).default([]),
   canonicalSections: z.array(ResumeSectionTypeV2Schema).min(1),
+  sourceBlocks: z.array(ProfileIntakeSourceBlockSchema).max(120).optional().default([]),
   currentDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/u).optional()
 }).strict();
 
 export type ProfileIntakeSemanticCandidate = z.infer<typeof ProfileIntakeSemanticCandidateSchema>;
-export type ProfileIntakeSemanticV2Candidate = z.infer<typeof ProfileIntakeSemanticOutputSchema>["candidates"][number];
-export type ProfileIntakeSemanticV2Output = z.infer<typeof ProfileIntakeSemanticOutputSchema>;
+export type ProfileIntakeSemanticV2Candidate = z.infer<typeof ProfileIntakeSemanticV2OutputSchema>["candidates"][number];
+export type ProfileIntakeSemanticV2Output = z.infer<typeof ProfileIntakeSemanticV2OutputSchema>;
+export type ProfileIntakeSemanticV3Candidate = z.infer<typeof ProfileIntakeSemanticV3OutputSchema>["candidates"][number];
+export type ProfileIntakeSemanticV3Output = z.infer<typeof ProfileIntakeSemanticV3OutputSchema>;
 export type ProfileIntakeSemanticLegacyOutput = z.infer<typeof ProfileIntakeSemanticLegacyOutputSchema>;
-export type ProfileIntakeSemanticOutput = ProfileIntakeSemanticV2Output | ProfileIntakeSemanticLegacyOutput;
-export type ProfileIntakeSemanticInput = z.infer<typeof ProfileIntakeSemanticInputSchema>;
+export type ProfileIntakeSemanticOutput = ProfileIntakeSemanticV3Output | ProfileIntakeSemanticV2Output | ProfileIntakeSemanticLegacyOutput;
+export type ProfileIntakeSemanticInput = z.input<typeof ProfileIntakeSemanticInputSchema>;
+
+export function buildProfileIntakeSourceBlocks(rawNarrative: string): Array<z.infer<typeof ProfileIntakeSourceBlockSchema>> {
+  const blocks: Array<z.infer<typeof ProfileIntakeSourceBlockSchema>> = [];
+  const maxBlockLength = 2_400;
+  let cursor = 0;
+  let blockIndex = 0;
+  while (cursor < rawNarrative.length) {
+    const remaining = rawNarrative.slice(cursor);
+    let length = Math.min(maxBlockLength, remaining.length);
+    if (length < remaining.length) {
+      const boundary = remaining.slice(0, length).lastIndexOf("\n");
+      const sentenceBoundary = Math.max(
+        remaining.slice(0, length).lastIndexOf("。"),
+        remaining.slice(0, length).lastIndexOf("！"),
+        remaining.slice(0, length).lastIndexOf("？"),
+        remaining.slice(0, length).lastIndexOf("；")
+      );
+      const preferred = Math.max(boundary, sentenceBoundary + 1);
+      if (preferred >= Math.floor(length * 0.55)) length = preferred;
+    }
+    const end = Math.min(rawNarrative.length, cursor + Math.max(length, 1));
+    blocks.push({ id: `source-block-${blockIndex + 1}`, start: cursor, end, text: rawNarrative.slice(cursor, end) });
+    cursor = end;
+    blockIndex += 1;
+  }
+  return blocks;
+}
 
 export type VerifiedProfileIntakeCandidate = {
   id: string;
   label: string;
   sourceQuote: string;
   candidateKey?: string;
+  sourceBlockIds?: string[];
   sourceSpan?: { start: number; end: number };
   professionalText?: string;
   uncertainFields?: string[];
@@ -122,15 +184,31 @@ export type ProfileIntakeSemanticResult = {
   extractionStatus?: ProfileIntakeExtractionStatus;
   candidates: VerifiedProfileIntakeCandidate[];
   quarantinedCandidateCount?: number;
-  safeDiagnostics?: { code?: string };
+  safeDiagnostics?: {
+    safeErrorCode?: string;
+    code?: string;
+    provider?: string;
+    model?: string;
+    attempt?: number;
+    latencyMs?: number;
+    processingStatus?: string;
+    extractionStatus?: string;
+    candidateCount?: number;
+    quarantinedCount?: number;
+    quarantinedErrorCodes?: string[];
+    operationId?: string;
+  };
   followUpQuestions?: string[];
   followUpQuestion?: string;
   warning?: string;
 };
 
 type SemanticInvoker = (input: ProfileIntakeSemanticInput, signal?: AbortSignal) => Promise<
-  { ok: true; data: ProfileIntakeSemanticOutput } | { ok: false; errorCode: string }
+  | { ok: true; data: ProfileIntakeSemanticOutput; diagnostics?: ProfileIntakeSemanticDiagnostics }
+  | { ok: false; errorCode: string; diagnostics?: ProfileIntakeSemanticDiagnostics }
 >;
+
+type ProfileIntakeSemanticDiagnostics = NonNullable<ProfileIntakeSemanticResult["safeDiagnostics"]>;
 
 const CANONICAL_SECTIONS = [
   "education", "work", "internship", "project", "research", "campus", "volunteer",
@@ -151,6 +229,7 @@ export class ProfileIntakeSemanticService {
       rawNarrative: input.rawNarrative,
       existingDraftContext: draftContext(input.existingDraft),
       canonicalSections: CANONICAL_SECTIONS,
+      sourceBlocks: buildProfileIntakeSourceBlocks(input.rawNarrative),
       currentDate: input.currentDate ?? currentRuntimeDate()
     });
     let response: Awaited<ReturnType<SemanticInvoker>>;
@@ -159,10 +238,14 @@ export class ProfileIntakeSemanticService {
     } catch {
       response = { ok: false, errorCode: "provider_exception" };
     }
-    if (!response.ok) return deterministicFallback(input.rawNarrative, response.errorCode);
+    if (!response.ok) return deterministicFallback(input.rawNarrative, response.errorCode, "failed", response.diagnostics);
+
+    if (isV3SemanticOutput(response.data)) {
+      return this.normalizeV3Output(response.data, semanticInput.sourceBlocks ?? [], response.diagnostics);
+    }
 
     if (isV2SemanticOutput(response.data)) {
-      return this.normalizeV2Output(response.data, input.rawNarrative);
+      return this.normalizeV2Output(response.data, input.rawNarrative, response.diagnostics);
     }
 
     const verified: VerifiedProfileIntakeCandidate[] = [];
@@ -186,7 +269,8 @@ export class ProfileIntakeSemanticService {
       return deterministicFallback(
         input.rawNarrative,
         `semantic_output_ungrounded:${verificationErrors.join(",")}`,
-        "invalid"
+        "invalid",
+        response.diagnostics
       );
     }
     const localized = applyCandidateSourceSpanSanity(verified);
@@ -198,7 +282,13 @@ export class ProfileIntakeSemanticService {
         : "structured_ai",
       candidates: localized,
       quarantinedCandidateCount: verificationErrors.length,
-      safeDiagnostics: verificationErrors.length ? { code: "candidate_quarantined" } : undefined,
+      safeDiagnostics: mergeSemanticDiagnostics(response.diagnostics, {
+        ...(verificationErrors.length ? { code: "candidate_quarantined", safeErrorCode: "candidate_quarantined" } : {}),
+        candidateCount: response.data.candidates.length,
+        quarantinedCount: verificationErrors.length,
+        quarantinedErrorCodes: [...new Set(verificationErrors)].slice(0, 20),
+        extractionStatus: verificationErrors.length ? "partial" : "structured_ai"
+      }),
       followUpQuestions: [],
       followUpQuestion: highestValueFollowUp(
         localized.flatMap((candidate) =>
@@ -210,7 +300,8 @@ export class ProfileIntakeSemanticService {
 
   private normalizeV2Output(
     output: ProfileIntakeSemanticV2Output,
-    rawNarrative: string
+    rawNarrative: string,
+    providerDiagnostics?: ProfileIntakeSemanticDiagnostics
   ): ProfileIntakeSemanticResult {
     const verified: VerifiedProfileIntakeCandidate[] = [];
     const verificationErrors: string[] = [];
@@ -233,7 +324,8 @@ export class ProfileIntakeSemanticService {
       return deterministicFallback(
         rawNarrative,
         output.candidates.length ? `semantic_candidates_invalid:${verificationErrors.join(",")}` : "semantic_candidates_empty",
-        "invalid"
+        "invalid",
+        providerDiagnostics
       );
     }
     const localized = applyCandidateSourceSpanSanity(verified);
@@ -246,13 +338,102 @@ export class ProfileIntakeSemanticService {
         : "structured_ai",
       candidates: localized,
       quarantinedCandidateCount: verificationErrors.length,
-      safeDiagnostics: verificationErrors.length ? { code: "candidate_quarantined" } : undefined,
+      safeDiagnostics: mergeSemanticDiagnostics(providerDiagnostics, {
+        ...(verificationErrors.length ? { code: "candidate_quarantined", safeErrorCode: "candidate_quarantined" } : {}),
+        candidateCount: output.candidates.length,
+        quarantinedCount: verificationErrors.length,
+        quarantinedErrorCodes: [...new Set(verificationErrors)].slice(0, 20),
+        extractionStatus: verificationErrors.length ? "partial" : "structured_ai"
+      }),
       followUpQuestions,
       followUpQuestion: followUpQuestions[0] ?? highestValueFollowUp(
         localized.flatMap((candidate) => candidate.normalization.structuredItem
           ? [candidate.normalization.structuredItem]
           : [])
       )
+    };
+  }
+
+  private normalizeV3Output(
+    output: ProfileIntakeSemanticV3Output,
+    sourceBlocks: Array<z.infer<typeof ProfileIntakeSourceBlockSchema>>,
+    providerDiagnostics?: ProfileIntakeSemanticDiagnostics
+  ): ProfileIntakeSemanticResult {
+    const blockById = new Map(sourceBlocks.map((block) => [block.id, block]));
+    const verified: VerifiedProfileIntakeCandidate[] = [];
+    const verificationErrors: string[] = [];
+    const dedupeKeys = new Set<string>();
+    for (const [index, proposal] of output.candidates.entries()) {
+      try {
+        const resolved = resolveV3SourceQuote(proposal, blockById);
+        const uncertainFields = [...new Set([
+          ...proposal.uncertainFields,
+          ...( "ambiguous" in resolved && resolved.ambiguous ? ["sourceQuote"] : [])
+        ])];
+        const idIdentity = explicitIdentityForItem(proposal.structuredItem);
+        const dedupeKey = `${proposal.sourceBlockIds.join(",")}::${proposal.sectionType}::${idIdentity}`;
+        if (dedupeKeys.has(dedupeKey)) {
+          verificationErrors.push("profile_intake_duplicate_candidate");
+          continue;
+        }
+        dedupeKeys.add(dedupeKey);
+        const id = `intake-${stableHashText(`${dedupeKey}:${resolved.sourceQuote}`).slice(0, 16)}-${index}`;
+        const item = normalizeSourceGroundedGenericRole(
+          normalizeV2StructuredItem(proposal.structuredItem, proposal.sectionType, id, uncertainFields),
+          resolved.sourceQuote
+        );
+        if (!item) throw new Error(`profile_intake_structured_item_invalid:${proposal.sectionType}`);
+        assertFactPreserving(item, resolved.sourceQuote);
+        const professionalText = safeProfessionalText(proposal.professionalText, item, resolved.sourceQuote, uncertainFields);
+        const fieldEvidence = derivedV2FieldEvidence(item, resolved.sourceQuote, uncertainFields);
+        const needsConfirmation = uncertainFields.length > 0 || fieldEvidence.some((entry) => entry.needsConfirmation);
+        verified.push({
+          id,
+          label: displayLabel(item),
+          sourceQuote: resolved.sourceQuote,
+          candidateKey: proposal.candidateKey,
+          sourceBlockIds: proposal.sourceBlockIds,
+          sourceSpan: resolved.sourceSpan,
+          professionalText,
+          uncertainFields,
+          normalization: {
+            sectionType: proposal.sectionType,
+            normalizedText: professionalText,
+            structuredItem: item,
+            confidence: needsConfirmation ? 0.68 : 0.9,
+            needsConfirmation,
+            needsNormalization: false,
+            fieldEvidence
+          }
+        });
+      } catch (error) {
+        verificationErrors.push(error instanceof Error ? error.message : "profile_intake_v3_candidate_invalid");
+      }
+    }
+    if (!verified.length) {
+      return deterministicFallback(
+        sourceBlocks.map((block) => block.text).join(""),
+        verificationErrors.length ? `semantic_candidates_invalid:${verificationErrors.join(",")}` : "semantic_candidates_empty",
+        "invalid",
+        providerDiagnostics
+      );
+    }
+    const localized = applyCandidateSourceSpanSanity(verified);
+    return {
+      mode: "ai",
+      providerStatus: "available",
+      extractionStatus: verificationErrors.length || localized.some((candidate) => candidate.normalization.needsConfirmation) ? "partial" : "structured_ai",
+      candidates: localized,
+      quarantinedCandidateCount: verificationErrors.length,
+      safeDiagnostics: mergeSemanticDiagnostics(providerDiagnostics, {
+        ...(verificationErrors.length ? { safeErrorCode: "candidate_quarantined", code: "candidate_quarantined" } : {}),
+        candidateCount: output.candidates.length,
+        quarantinedCount: verificationErrors.length,
+        quarantinedErrorCodes: [...new Set(verificationErrors)].slice(0, 20),
+        extractionStatus: verificationErrors.length || localized.some((candidate) => candidate.normalization.needsConfirmation) ? "partial" : "structured_ai"
+      }),
+      followUpQuestions: output.followUpQuestions.slice(0, 3),
+      followUpQuestion: output.followUpQuestions[0] ?? highestValueFollowUp(localized.flatMap((candidate) => candidate.normalization.structuredItem ? [candidate.normalization.structuredItem] : []))
     };
   }
 }
@@ -268,12 +449,169 @@ async function defaultInvoker(input: ProfileIntakeSemanticInput, signal?: AbortS
     signal
   });
   return result.ok
-    ? { ok: true as const, data: result.data }
-    : { ok: false as const, errorCode: result.errorCode };
+    ? {
+        ok: true as const,
+        data: result.data,
+        diagnostics: {
+          provider: result.diagnostics?.provider ?? result.log.provider,
+          ...(result.diagnostics?.model ?? result.log.model ? { model: result.diagnostics?.model ?? result.log.model } : {}),
+          ...(result.diagnostics?.attempt !== undefined ? { attempt: result.diagnostics.attempt } : result.log.attemptCount !== undefined ? { attempt: result.log.attemptCount } : {}),
+          ...(result.diagnostics?.latencyMs !== undefined ? { latencyMs: result.diagnostics.latencyMs } : result.log.latencyMs !== undefined ? { latencyMs: result.log.latencyMs } : {})
+        }
+      }
+    : {
+        ok: false as const,
+        errorCode: result.errorCode,
+        diagnostics: {
+          safeErrorCode: result.diagnostics?.safeErrorCode ?? result.errorCode,
+          ...(result.diagnostics?.provider ? { provider: result.diagnostics.provider } : {}),
+          ...(result.diagnostics?.model ? { model: result.diagnostics.model } : {}),
+          ...(result.diagnostics?.attempt !== undefined ? { attempt: result.diagnostics.attempt } : {}),
+          ...(result.diagnostics?.latencyMs !== undefined ? { latencyMs: result.diagnostics.latencyMs } : {})
+        }
+      };
+}
+
+function isV3SemanticOutput(output: ProfileIntakeSemanticOutput): output is ProfileIntakeSemanticV3Output {
+  return output.candidates.some((candidate) => "sourceBlockIds" in candidate);
 }
 
 function isV2SemanticOutput(output: ProfileIntakeSemanticOutput): output is ProfileIntakeSemanticV2Output {
-  return "followUpQuestions" in output;
+  return output.candidates.some((candidate) => "sourceSpan" in candidate);
+}
+
+function resolveV3SourceQuote(
+  proposal: ProfileIntakeSemanticV3Candidate,
+  blockById: Map<string, z.infer<typeof ProfileIntakeSourceBlockSchema>>
+) {
+  const blocks = proposal.sourceBlockIds.map((id) => {
+    const block = blockById.get(id);
+    if (!block) throw new Error("profile_intake_source_block_missing");
+    return block;
+  });
+  const quote = proposal.sourceQuote;
+  if (!quote) {
+    const block = blocks[0];
+    return { sourceQuote: block.text, sourceSpan: { start: block.start, end: block.end } };
+  }
+  const matches = blocks.flatMap((block) => {
+    const positions: number[] = [];
+    let cursor = block.text.indexOf(quote);
+    while (cursor >= 0) {
+      positions.push(cursor);
+      cursor = block.text.indexOf(quote, cursor + 1);
+    }
+    return positions.map((start) => ({ block, start, sourceQuote: block.text.slice(start, start + quote.length) }));
+  });
+  if (matches.length === 1) {
+    const match = matches[0];
+    return { sourceQuote: match.sourceQuote, sourceSpan: { start: match.block.start + match.start, end: match.block.start + match.start + match.sourceQuote.length } };
+  }
+  if (matches.length > 1) {
+    const scoped = blocks.length === 1 ? deriveScopedSourceQuote(proposal, blocks[0]) : undefined;
+    if (scoped) return { ...scoped, ambiguous: true };
+    throw new Error("profile_intake_source_quote_ambiguous");
+  }
+
+  // Controlled normalization is restricted to the blocks explicitly named by
+  // the provider. We return the whole matching block so the persisted quote is
+  // still an exact substring; there is no global fuzzy search.
+  const normalizedQuote = normalizeSourceText(quote);
+  const normalizedMatches = blocks.flatMap((block) => normalizedSourceQuoteRanges(block, normalizedQuote).map((range) => ({ block, ...range })));
+  if (normalizedMatches.length === 1) {
+    const match = normalizedMatches[0];
+    return { sourceQuote: match.sourceQuote, sourceSpan: { start: match.block.start + match.start, end: match.block.start + match.end } };
+  }
+  const scoped = blocks.length === 1 ? deriveScopedSourceQuote(proposal, blocks[0]) : undefined;
+  if (scoped) return { ...scoped, ambiguous: true };
+  if (normalizedMatches.length > 1) throw new Error("profile_intake_source_quote_ambiguous");
+  throw new Error("profile_intake_source_quote_unresolved");
+}
+
+function normalizeSourceText(value: string) {
+  return value
+    .replace(/[\s，、。；：！？“”‘’（）()【】「」《》,.!?;:\[\]{}]/gu, "")
+    .toLocaleLowerCase();
+}
+
+function normalizedSourceQuoteRanges(textBlock: { text: string }, normalizedQuote: string) {
+  if (!normalizedQuote) return [];
+  const normalizedCharacters: Array<{ character: string; start: number; end: number }> = [];
+  for (let index = 0; index < textBlock.text.length;) {
+    const codePoint = textBlock.text.codePointAt(index);
+    if (codePoint === undefined) break;
+    const character = String.fromCodePoint(codePoint);
+    const normalized = character
+      .toLocaleLowerCase()
+      .replace(/[\s，、。；：！？“”‘’（）()【】「」《》,.!?;:\[\]{}]/gu, "");
+    const end = index + character.length;
+    for (const normalizedCharacter of Array.from(normalized)) {
+      normalizedCharacters.push({ character: normalizedCharacter, start: index, end });
+    }
+    index = end;
+  }
+  const compact = normalizedCharacters.map((entry) => entry.character).join("");
+  const ranges: Array<{ start: number; end: number; sourceQuote: string }> = [];
+  let cursor = compact.indexOf(normalizedQuote);
+  while (cursor >= 0) {
+    const first = normalizedCharacters[cursor];
+    const last = normalizedCharacters[cursor + normalizedQuote.length - 1];
+    if (first && last) ranges.push({ start: first.start, end: last.end, sourceQuote: textBlock.text.slice(first.start, last.end) });
+    cursor = compact.indexOf(normalizedQuote, cursor + 1);
+  }
+  return ranges;
+}
+
+function deriveScopedSourceQuote(
+  proposal: ProfileIntakeSemanticV3Candidate,
+  block: z.infer<typeof ProfileIntakeSourceBlockSchema>
+) {
+  const item = proposal.structuredItem;
+  const identityValues = item && typeof item === "object" && !Array.isArray(item)
+    ? ["title", "name", "organization", "institution", "role"].flatMap((field) => {
+      const value = (item as Record<string, unknown>)[field];
+      return typeof value === "string" && value.trim().length >= 2 ? [value.trim()] : [];
+    })
+    : [];
+  const professionalText = proposal.professionalText?.trim();
+  const values = [...new Set([...identityValues, ...(professionalText ? [professionalText] : [])])]
+    .filter((value) => value.length >= 2)
+    .sort((left, right) => right.length - left.length);
+  for (const value of values) {
+    const positions: number[] = [];
+    let cursor = block.text.indexOf(value);
+    while (cursor >= 0) {
+      positions.push(cursor);
+      cursor = block.text.indexOf(value, cursor + value.length);
+    }
+    if (!positions.length) continue;
+    const start = positions[0];
+    const sentenceStart = Math.max(
+      block.text.lastIndexOf("。", start - 1),
+      block.text.lastIndexOf("！", start - 1),
+      block.text.lastIndexOf("？", start - 1),
+      block.text.lastIndexOf("；", start - 1),
+      block.text.lastIndexOf("\n", start - 1)
+    ) + 1;
+    const sentenceEnds = [
+      block.text.indexOf("。", start + value.length),
+      block.text.indexOf("！", start + value.length),
+      block.text.indexOf("？", start + value.length),
+      block.text.indexOf("；", start + value.length),
+      block.text.indexOf("\n", start + value.length)
+    ].filter((end) => end >= 0);
+    const sentenceEnd = (sentenceEnds.length ? Math.min(...sentenceEnds) + 1 : block.text.length);
+    const sourceQuote = block.text.slice(sentenceStart, sentenceEnd);
+    if (sourceQuote.trim()) return { sourceQuote, sourceSpan: { start: block.start + sentenceStart, end: block.start + sentenceEnd } };
+  }
+  return undefined;
+}
+
+function explicitIdentityForItem(rawItem: unknown) {
+  if (!rawItem || typeof rawItem !== "object" || Array.isArray(rawItem)) return "";
+  const record = rawItem as Record<string, unknown>;
+  const fields = ["title", "name", "organization", "institution", "role", "awardedAt", "startDate", "endDate"];
+  return fields.map((field) => `${field}=${typeof record[field] === "string" ? record[field].trim() : ""}`).filter((value) => !value.endsWith("=")).join("|");
 }
 
 function verifyV2Proposal(
@@ -331,21 +669,24 @@ function normalizeV2StructuredItem(
   const cleaned: Record<string, unknown> = { id, customFields: [], sectionType };
   for (const [field, value] of Object.entries(raw)) {
     if (field === "id" || field === "candidateKey" || field === "sourceQuote" || field === "fieldEvidence") continue;
-    if (!allowed.has(field) || value === null) {
+    const canonicalField = sectionType === "awards" && field === "title" && typeof value === "string" && !raw.name
+      ? "name"
+      : field;
+    if (!allowed.has(canonicalField) || value === null) {
       if (value !== undefined && field !== "customFields") uncertainFields.push(field);
       continue;
     }
     if (field === "customFields") continue;
-    if (isDateField(field) && typeof value === "string") {
+    if (isDateField(canonicalField) && typeof value === "string") {
       const normalized = normalizeCareerMonth(value);
       if (!normalized) {
-        uncertainFields.push(field);
+        uncertainFields.push(canonicalField);
         continue;
       }
-      cleaned[field] = normalized;
+      cleaned[canonicalField] = normalized;
       continue;
     }
-    cleaned[field] = value;
+    cleaned[canonicalField] = value;
   }
   if (cleaned.current === true && cleaned.endDate !== undefined) {
     delete cleaned.endDate;
@@ -353,6 +694,12 @@ function normalizeV2StructuredItem(
   }
   const parsed = ResumeItemV2Schema.safeParse(cleaned);
   return parsed.success ? parsed.data : undefined;
+}
+
+function normalizeSourceGroundedGenericRole(item: ResumeItemV2 | undefined, sourceQuote: string) {
+  if (item?.sectionType !== "project" || item.role !== "独立开发者") return item;
+  if (!sourceQuote.includes("独立开发") || sourceQuote.includes("独立开发者")) return item;
+  return { ...item, role: "独立开发" };
 }
 
 function isDateField(field: string) {
@@ -692,7 +1039,8 @@ function normalizeNumberToken(value: string) {
 function deterministicFallback(
   rawNarrative: string,
   errorCode: string,
-  providerStatus: "failed" | "invalid" = "failed"
+  providerStatus: "failed" | "invalid" = "failed",
+  providerDiagnostics?: ProfileIntakeSemanticDiagnostics
 ): ProfileIntakeSemanticResult {
   const normalization = new ProfileIntakeNormalizer().fallback(rawNarrative);
   const id = normalization.structuredItem?.id
@@ -704,7 +1052,13 @@ function deterministicFallback(
       ? "structured_local"
       : "failed",
     quarantinedCandidateCount: normalization.structuredItem ? 0 : 1,
-    safeDiagnostics: { code: errorCode },
+    safeDiagnostics: mergeSemanticDiagnostics(providerDiagnostics, {
+      code: errorCode,
+      safeErrorCode: providerDiagnostics?.safeErrorCode ?? errorCode,
+      extractionStatus: normalization.structuredItem && !normalization.needsNormalization ? "structured_local" : "failed",
+      candidateCount: 1,
+      quarantinedCount: normalization.structuredItem ? 0 : 1
+    }),
     warning: `AI 语义整理暂不可用（${errorCode}）；已保留原始回答，基础信息需要核对。`,
     followUpQuestions: [],
     candidates: [{
@@ -714,6 +1068,13 @@ function deterministicFallback(
       normalization
     }]
   };
+}
+
+function mergeSemanticDiagnostics(
+  providerDiagnostics: ProfileIntakeSemanticDiagnostics | undefined,
+  current: ProfileIntakeSemanticDiagnostics
+): ProfileIntakeSemanticDiagnostics {
+  return { ...(providerDiagnostics ?? {}), ...current };
 }
 
 function draftContext(draft?: ImportedResumeDraft) {

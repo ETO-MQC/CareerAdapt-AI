@@ -4,6 +4,7 @@ import { ModeAwareAppShell } from "@/components/layout/ModeAwareAppShell";
 import { WorkspaceModeProvider } from "@/components/layout/WorkspaceModeProvider";
 import { AgentRuntimeProvider } from "@/components/agent/runtime/AgentRuntimeProvider";
 import { SetupGuard } from "@/components/layout/SetupGuard";
+import { CareerContextProvider } from "@/services/career/CareerContextStore";
 import {
   parseWorkspaceMode,
   WORKSPACE_MODE_COOKIE_KEY
@@ -58,11 +59,13 @@ try {
       </head>
       <body>
         <SetupGuard>
-          <WorkspaceModeProvider initialMode={initialMode}>
-            <AgentRuntimeProvider>
-              <ModeAwareAppShell>{children}</ModeAwareAppShell>
-            </AgentRuntimeProvider>
-          </WorkspaceModeProvider>
+          <CareerContextProvider>
+            <WorkspaceModeProvider initialMode={initialMode}>
+              <AgentRuntimeProvider>
+                <ModeAwareAppShell>{children}</ModeAwareAppShell>
+              </AgentRuntimeProvider>
+            </WorkspaceModeProvider>
+          </CareerContextProvider>
         </SetupGuard>
       </body>
     </html>

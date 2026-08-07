@@ -138,6 +138,8 @@ export class ResumeDocumentSemanticMapper {
           classified.code,
           classified.message,
           result.diagnostics
+            ? { ...result.diagnostics, failedIssues: result.diagnostics.failedIssues ?? [] }
+            : undefined
         );
       }
       outputs.push(result.data);

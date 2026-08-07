@@ -8,7 +8,7 @@ import {
   type AgentMessageReference,
   type AgentSession
 } from "@/agent/contracts/agentSession";
-import type { AgentArtifactAction, AgentUiAction } from "@/agent/contracts/agentActions";
+import type { AgentArtifactAction, AgentOption, AgentUiAction } from "@/agent/contracts/agentActions";
 import { createQuickActionIntent, type AgentQuickActionId } from "@/agent/contracts/agentQuickAction";
 import { AgentRuntime } from "@/agent/runtime/agentRuntime";
 import type { TailorWorkflowViewState } from "@/agent/workflows/tailorExistingResumeWorkflow";
@@ -18,7 +18,7 @@ import {
   NEW_TASK_SESSION_VALUE
 } from "@/components/agent/shell/AgentSidebar";
 import { AgentArtifactDrawer, type AgentArtifactDrawerState } from "./artifacts/AgentArtifactDrawer";
-import { AgentComposer } from "./AgentComposer";
+import { AgentComposer, type ComposerAttachmentDraft, type ComposerSubmit } from "./AgentComposer";
 import { AgentConversationTimeline, normalizeAgentMessageText } from "./AgentConversation";
 import { activeBranchMessages } from "@/agent/runtime/activeBranchContext";
 import { AgentHistoryDialog } from "./AgentHistoryDialog";
@@ -30,16 +30,15 @@ import { WorkspaceRepository } from "@/services/storage/repositories";
 import type { CareerProfile } from "@/domain/schemas";
 import { ProfileIntakeReviewProjectionSchema } from "@/domain/profileIntake/ProfileIntakeReviewProjection";
 import {
-  readResumeImportSemanticPreference,
   writeResumeImportSemanticPreference
 } from "@/services/preferences/resumeImportAi";
-import { adaptResumeJsonToV2 } from "@/domain/resumeImport/jsonV2Adapter";
 import type { ActiveCareerContext } from "@/domain/schemas";
 import { CareerContextSelector } from "@/components/career/CareerContextSelector";
 import { notify } from "@/services/notifications/store";
 
 type ResumeSummary = { id: string; profileId: string; name: string; purpose: string; revision: number };
 type SessionComposerDrafts = Record<string, string>;
+type SessionComposerAttachments = Record<string, ComposerAttachmentDraft[]>;
 type PendingContextRequest = {
   context: ActiveCareerContext;
   resolve: (allowed: boolean) => void;
@@ -78,12 +77,14 @@ export function AgentWorkspace() {
   const [lastUserMessage, setLastUserMessage] = useState("");
   const [floatingAction, setFloatingAction] = useState<AgentUiAction>();
   const [uploadFocusSignal, setUploadFocusSignal] = useState(0);
-  const [pendingResumeImportFile, setPendingResumeImportFile] = useState<File>();
+  const [attachmentsBySession, setAttachmentsBySession] = useState<SessionComposerAttachments>({});
+  const [pendingResumeImportAttachmentId, setPendingResumeImportAttachmentId] = useState<string>();
   const [pendingContextRequest, setPendingContextRequest] = useState<PendingContextRequest>();
   const running = snapshot.turnStatus === "running";
   const paused = snapshot.turnStatus === "paused";
   const draft = draftsBySession[session.id] ?? "";
   const draftReference = draftReferencesBySession[session.id];
+  const attachments = attachmentsBySession[session.id] ?? [];
   const intakeProjectionResult = ProfileIntakeReviewProjectionSchema.safeParse(session.taskState?.knownSlots.profileIntakeReviewProjection);
   const intakeProjection = intakeProjectionResult.success ? intakeProjectionResult.data : undefined;
   const intakeCandidates = intakeProjection?.candidates
@@ -137,6 +138,34 @@ export function AgentWorkspace() {
     });
   }, [session.id]);
 
+  const setSessionAttachments = useCallback((updater: (current: ComposerAttachmentDraft[]) => ComposerAttachmentDraft[]) => {
+    setAttachmentsBySession((current) => ({ ...current, [session.id]: updater(current[session.id] ?? []) }));
+  }, [session.id]);
+
+  const stageComposerFiles = useCallback((files: File[]) => {
+    // Selecting or dropping a file is a user interaction in its own right.
+    // Mark it before mutating the draft so the initial session hydration cannot
+    // replace the session and strand the staged chips under another ID.
+    userInteractedRef.current = true;
+    restoreRequestRef.current += 1;
+    window.localStorage.setItem(ACTIVE_SESSION_KEY, session.id);
+    setSessionAttachments((current) => [
+      ...current,
+      ...files.map((file) => ({
+        clientId: `composer-file-${crypto.randomUUID()}`,
+        file,
+        fileName: file.name,
+        mimeType: file.type || "application/octet-stream",
+        size: file.size,
+        status: "staged" as const
+      }))
+    ]);
+  }, [session.id, setSessionAttachments]);
+
+  const removeComposerAttachment = useCallback((clientId: string) => {
+    setSessionAttachments((current) => current.filter((attachment) => attachment.clientId !== clientId));
+  }, [setSessionAttachments]);
+
   const pageContext = useCallback(() => ({
     pathname: window.location.pathname,
     route: window.location.pathname,
@@ -153,6 +182,35 @@ export function AgentWorkspace() {
     || session.messages.some((message) => message.role === "tool" || message.metadata?.writeOperationId)
     || session.activeTurn?.status === "running"
   );
+
+  const submitComposer = useCallback(async (input: ComposerSubmit) => {
+    userInteractedRef.current = true;
+    restoreRequestRef.current += 1;
+    setLastUserMessage(input.text);
+    window.localStorage.setItem(ACTIVE_SESSION_KEY, session.id);
+    setSessionAttachments((current) => current.map((attachment) => ({ ...attachment, status: "registering" as const, errorCode: undefined })));
+    // Clear the controlled composer immediately after the submit event. Host
+    // execution may continue streaming for a while; the sent instruction must
+    // not remain visually editable during that period.
+    setSessionDraft("");
+    try {
+      const result = await host.state.dispatch(
+        { type: "composer_submit", text: input.text || undefined, files: input.attachments.map((attachment) => attachment.file) },
+        { session, pageContext: pageContext() }
+      );
+      if (!result) throw new Error("composer_turn_not_accepted");
+      setAttachmentsBySession((current) => ({ ...current, [session.id]: [] }));
+      setSessionDraftReference(undefined);
+      setSession(result);
+      window.localStorage.setItem(ACTIVE_SESSION_KEY, result.id);
+      window.dispatchEvent(new CustomEvent("careeradapt-agent-sessions-change"));
+    } catch (error) {
+      const errorCode = error instanceof Error && "code" in error && typeof error.code === "string" ? error.code : "composer_submit_failed";
+      setSessionDraft(input.text);
+      setSessionAttachments((current) => current.map((attachment) => ({ ...attachment, status: "failed" as const, errorCode })));
+      notify({ type: "error", title: "附件发送失败", message: "附件仍保留在编辑区，可以重试或移除。" });
+    }
+  }, [host.state, pageContext, session, setSessionAttachments, setSessionDraft, setSessionDraftReference]);
 
   const handleBeforeContextSelect = useCallback(async (next: ActiveCareerContext) => {
     if (!taskHasUsedAssetsOrWrites) {
@@ -186,14 +244,21 @@ export function AgentWorkspace() {
 
   useEffect(() => host.state.subscribe(() => {
     const current = host.state.getSnapshot();
-    if (current.activeSession) setSession(current.activeSession);
+    const stagedAttachments = attachmentsBySession[session.id] ?? [];
+    // Initial repository hydration can publish an older active session after
+    // the user has already selected a file. Do not strand that staged File by
+    // switching the controlled composer to another session mid-interaction.
+    if (current.activeSession && (current.activeSession.id === session.id || !stagedAttachments.length)) {
+      setSession(current.activeSession);
+    }
     if (current.uiAction) {
       if (current.uiAction.type === "open_artifact") updateDrawerState(window.matchMedia("(max-width: 860px)").matches ? "overlay" : "split");
       else if (current.uiAction.type === "open_resume_upload") setUploadFocusSignal((value) => value + 1);
+      else if (current.uiAction.type === "request_resume_import_consent") setPendingResumeImportAttachmentId(current.uiAction.attachmentId);
       else setFloatingAction(current.uiAction);
       host.state.clearUiAction();
     }
-  }), [host.state, updateDrawerState]);
+  }), [attachmentsBySession, host.state, session.id, updateDrawerState]);
 
   useEffect(() => {
     const handleBackgroundCompletion = (event: Event) => {
@@ -240,6 +305,7 @@ export function AgentWorkspace() {
     const apply = (resolved?: AgentSession) => {
       if (requestId !== restoreRequestRef.current || !resolved) return;
       host.state.adopt(resolved);
+      setPendingResumeImportAttachmentId(undefined);
       setSession(host.state.getSnapshot().activeSession ?? resolved);
       setHistoryOpen(false);
       window.localStorage.setItem(ACTIVE_SESSION_KEY, resolved.id);
@@ -251,9 +317,9 @@ export function AgentWorkspace() {
     void host.store.get(selectedId).then(apply).catch(() => undefined);
   }, [host.state, host.store]);
 
-  const createSessionWithCurrentContext = useCallback(async (title: string) => {
+  const createSessionWithCurrentContext = useCallback(async (title: string, options: { allowAfterInteraction?: boolean } = {}) => {
     const context = await agentImportRepository.getActiveCareerContext();
-    if (!mountedRef.current) return undefined;
+    if (!mountedRef.current || (!options.allowAfterInteraction && userInteractedRef.current)) return undefined;
     const created = AgentRuntime.create("agent_quick_action", "collecting_intent", title, context);
     host.state.adopt(created);
     setSession(created);
@@ -299,7 +365,7 @@ export function AgentWorkspace() {
         return;
       }
       if (requested === NEW_TASK_SESSION_VALUE) {
-        await createSessionWithCurrentContext("新的 AI 任务");
+        await createSessionWithCurrentContext("新的 AI 任务", { allowAfterInteraction: true });
         return;
       }
       const restored = storedSessions.find((item) => item.id === requested) ?? storedSessions[0];
@@ -331,7 +397,8 @@ export function AgentWorkspace() {
     const newTask = () => {
       userInteractedRef.current = true;
       restoreRequestRef.current += 1;
-      void createSessionWithCurrentContext("新的 AI 任务");
+      void createSessionWithCurrentContext("新的 AI 任务", { allowAfterInteraction: true });
+      setPendingResumeImportAttachmentId(undefined);
       setDrawerState("closed");
       window.localStorage.setItem(ACTIVE_SESSION_KEY, NEW_TASK_SESSION_VALUE);
     };
@@ -407,6 +474,21 @@ export function AgentWorkspace() {
     });
   }
 
+  function dispatchOption(option: AgentOption) {
+    userInteractedRef.current = true;
+    restoreRequestRef.current += 1;
+    window.localStorage.setItem(ACTIVE_SESSION_KEY, session.id);
+    void host.state.dispatch(
+      { type: "option", action: option.action },
+      { session, pageContext: pageContext() }
+    ).then((result) => {
+      if (!result) return;
+      setSession(result);
+      window.localStorage.setItem(ACTIVE_SESSION_KEY, result.id);
+      window.dispatchEvent(new CustomEvent("careeradapt-agent-sessions-change"));
+    });
+  }
+
   const workflowView = useMemo(() => taskToWorkflowView(session), [session]);
   const pinnedProfile = profiles.find((profile) => profile.id === session.activeProfileId);
   const pinnedContextLabel = pinnedProfile
@@ -421,6 +503,80 @@ export function AgentWorkspace() {
     intakeSession && typeof intakeSession === "object" && !Array.isArray(intakeSession)
       && typeof (intakeSession as Record<string, unknown>).autosavedAt === "string"
   );
+  const exportTechnicalDiagnostics = useCallback(async () => {
+    const sourceTurns = await host.store.listProfileIntakeSourceTurns(session.id);
+    const task = session.taskState;
+    const slots = task?.knownSlots ?? {};
+    const safeTaskState = task ? {
+      workflowId: task.workflowId,
+      stage: task.stage,
+      completionStatus: task.completionStatus,
+      updatedAt: task.updatedAt,
+      selectedEntities: {
+        profileId: task.selectedEntities.profileId,
+        resumeId: task.selectedEntities.resumeId,
+        jobId: task.selectedEntities.jobId,
+        profileVersion: task.selectedEntities.profileVersion
+      },
+      knownSlots: {
+        targetProfileId: slots.targetProfileId,
+        intakeImportId: slots.intakeImportId,
+        expectedIntakeDraftRevision: slots.expectedIntakeDraftRevision,
+        expectedProfileVersion: slots.expectedProfileVersion,
+        activeQuestionId: slots.activeQuestionId
+      }
+    } : undefined;
+    const bundle = {
+      schemaVersion: "profile-intake-technical-diagnostics-v1",
+      exportedAt: new Date().toISOString(),
+      pinnedContext: {
+        personId: session.personId,
+        profileId: session.activeProfileId,
+        versionNumber: session.profileVersionNumber,
+        profileRevision: session.profileRevision
+      },
+      taskState: safeTaskState,
+      sourceTurnDiagnostics: sourceTurns.map((turn) => ({
+        sessionId: turn.sessionId,
+        messageId: turn.messageId,
+        turnId: turn.turnId,
+        capturedAt: turn.capturedAt,
+        processingStatus: turn.processingStatus,
+        extractionStatus: turn.extractionStatus,
+        provider: turn.provider,
+        model: turn.model,
+        attempt: turn.attempt,
+        latencyMs: turn.latencyMs,
+        safeErrorCode: turn.safeErrorCode,
+        candidateCount: turn.candidateCount,
+        quarantinedCount: turn.quarantinedCount,
+        operationId: turn.operationId
+      })),
+      captureObservations: session.messages
+        .filter((message) => message.toolName === "capture_profile_intake" || message.kind === "tool_status" || message.kind === "error_status")
+        .map((message) => ({
+          messageId: message.id,
+          turnId: message.turnId,
+          toolName: message.toolName,
+          status: message.status,
+          errorCode: message.errorCode,
+          operationId: message.metadata?.operationId ?? message.metadata?.writeOperationId
+        })),
+      extractionStatus: intakeProjection?.extractionStatus,
+      safeOperationReceipts: session.messages
+        .flatMap((message) => {
+          const operationId = message.metadata?.operationId ?? message.metadata?.writeOperationId;
+          return typeof operationId === "string" ? [{ operationId, status: message.status, turnId: message.turnId }] : [];
+        })
+    };
+    const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `profile-intake-diagnostics-${new Date().toISOString().slice(0, 10)}.json`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }, [host.store, intakeProjection, session]);
 
   return (
     <AgentWorkspaceLayout
@@ -462,6 +618,9 @@ export function AgentWorkspace() {
                   }}
                 >
                   导出对话
+                </button>
+                <button type="button" onClick={() => void exportTechnicalDiagnostics()}>
+                  导出技术诊断
                 </button>
                 <button
                   type="button"
@@ -527,10 +686,7 @@ export function AgentWorkspace() {
                   });
                 }}
                 onCopyMessage={(message) => void navigator.clipboard?.writeText(normalizeAgentMessageText(message.content))}
-                onOption={(option) => void host.state.dispatch(
-                  { type: "option", action: option.action },
-                  { session, pageContext: pageContext() }
-                )}
+                onOption={dispatchOption}
                 confirmation={session.pendingToolCall ? session.pendingConfirmation : undefined}
                 confirmationBusy={running}
                 profileIntakeProjection={intakeProjection}
@@ -550,22 +706,14 @@ export function AgentWorkspace() {
             reference={draftReference}
             onRemoveReference={() => setSessionDraftReference(undefined)}
             onDraftChange={setSessionDraft}
-            onSend={dispatchMessage}
+            attachments={attachments}
+            onFilesSelected={stageComposerFiles}
+            onRemoveAttachment={removeComposerAttachment}
+            onSubmit={submitComposer}
             canFinish={canFinishIntake}
             onFinish={() => dispatchMessage("完成整理")}
             onUiAction={dispatchUi}
             uploadFocusSignal={uploadFocusSignal}
-            onUpload={async (file) => {
-              if (
-                readResumeImportSemanticPreference() === "unset"
-                && !(await isCanonicalCareerAdaptJsonFile(file))
-              ) {
-                setPendingResumeImportFile(file);
-                return "ready" as const;
-              }
-              await host.state.dispatch({ type: "file", file }, { session, pageContext: pageContext() });
-              return "ready" as const;
-            }}
             onStop={() => host.state.interrupt()}
           />
         </section>
@@ -581,12 +729,12 @@ export function AgentWorkspace() {
         />
       </div>
       <ImportReviewDialog
-        open={Boolean(pendingResumeImportFile)}
+        open={Boolean(pendingResumeImportAttachmentId)}
         title="选择简历识别方式"
         description="此选择会保存；AI 服务配置变化后会再次询问。"
         variant="agent"
         testId="agent-import-ai-consent"
-        onClose={() => setPendingResumeImportFile(undefined)}
+        onClose={() => setPendingResumeImportAttachmentId(undefined)}
       >
         <section className="ai-mapping-consent">
           <p>
@@ -677,26 +825,14 @@ export function AgentWorkspace() {
   );
 
   async function continuePendingResumeImport(mode: "ai" | "local") {
-    const file = pendingResumeImportFile;
-    if (!file) return;
+    const attachmentId = pendingResumeImportAttachmentId;
+    if (!attachmentId) return;
     writeResumeImportSemanticPreference(mode);
-    setPendingResumeImportFile(undefined);
+    setPendingResumeImportAttachmentId(undefined);
     await host.state.dispatch(
-      { type: "file", file },
+      { type: "resume_import_consent", attachmentId, mode },
       { session: host.state.getSnapshot().activeSession ?? session, pageContext: pageContext() }
     );
-  }
-}
-
-async function isCanonicalCareerAdaptJsonFile(file: File) {
-  if (file.type !== "application/json" && !file.name.toLowerCase().endsWith(".json")) {
-    return false;
-  }
-  try {
-    const adapted = adaptResumeJsonToV2(JSON.parse(await file.text()));
-    return adapted.ok && adapted.sourceKind === "v2";
-  } catch {
-    return false;
   }
 }
 

@@ -33,9 +33,14 @@ export function groundMutationClaims(input: {
     const profileVersion = numberValue(result.profileVersion);
     const committedItemCount = numberValue(result.committedItemCount);
     if (profileId && profileVersion !== undefined && committedItemCount !== undefined) {
-      return committedItemCount > 0
-        ? `已将 ${committedItemCount} 项确认经历保存到个人资料库。`
-        : "资料库对账已完成，本次没有新增经历；现有资料未被重复写入。";
+      const verification = input.observations.find((observation) => observation.toolName === "get_profile");
+      const verifiedProfile = objectValue(objectValue(verification?.value).profile);
+      const verifiedId = stringValue(verifiedProfile.id);
+      if (verification && verifiedId === profileId && numberValue(verifiedProfile.version) === profileVersion) {
+        const name = stringValue(verifiedProfile.name) ?? "当前人物";
+        return `已写入‘${name} · V${profileVersion}’个人资料库。${committedItemCount > 0 ? `本次新增 ${committedItemCount} 项经历。` : "本次没有新增经历。"}`;
+      }
+      return "写入步骤已完成，正在读取核验；暂不显示个人资料库写入结论。";
     }
     return "写入步骤返回的信息不完整，暂不能确认资料已保存。请重试当前步骤；系统不会重复写入已成功提交的内容。";
   }

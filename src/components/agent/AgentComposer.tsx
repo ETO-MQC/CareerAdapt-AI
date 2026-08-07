@@ -17,10 +17,19 @@ import type { AgentUiAction } from "@/agent/contracts/agentActions";
 import type { AgentMessageReference } from "@/agent/contracts/agentSession";
 import { AGENT_RESUME_IMPORT_ACCEPT } from "@/agent/capabilities/AgentProductCapabilityManifest";
 
-type Attachment = {
-  id: string;
-  name: string;
-  status: "uploading" | "ready" | "partial" | "failed";
+export type ComposerAttachmentDraft = {
+  clientId: string;
+  file: File;
+  fileName: string;
+  mimeType: string;
+  size: number;
+  status: "staged" | "registering" | "queued" | "failed";
+  errorCode?: string;
+};
+
+export type ComposerSubmit = {
+  text: string;
+  attachments: ComposerAttachmentDraft[];
 };
 
 export function AgentComposer(props: {
@@ -32,16 +41,18 @@ export function AgentComposer(props: {
   reference?: AgentMessageReference;
   onRemoveReference?(): void;
   onDraftChange?(value: string): void;
-  onSend(message: string): Promise<void> | void;
+  attachments: ComposerAttachmentDraft[];
+  onFilesSelected(files: File[]): void;
+  onRemoveAttachment(clientId: string): void;
+  onSubmit(input: ComposerSubmit): Promise<void> | void;
+  onSubmissionError?(error: unknown): void;
   canFinish?: boolean;
   onFinish?(): Promise<void> | void;
   onUiAction?(action: AgentUiAction): void;
   uploadFocusSignal?: number;
-  onUpload(file: File): Promise<"ready" | "partial" | void> | "ready" | "partial" | void;
   onStop?(): void;
 }) {
   const [localMessage, setLocalMessage] = useState("");
-  const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [dragActive, setDragActive] = useState(false);
   const [uploadHighlighted, setUploadHighlighted] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -71,20 +82,11 @@ export function AgentComposer(props: {
     };
   }, [props.uploadFocusSignal]);
 
-  const uploadFile = async (file: File) => {
-    const id = crypto.randomUUID();
-    setAttachments((items) => [...items, { id, name: file.name, status: "uploading" }]);
-    try {
-      const result = await props.onUpload(file);
-      setAttachments((items) => items.map((item) =>
-        item.id === id ? { ...item, status: result === "partial" ? "partial" : "ready" } : item
-      ));
-    } catch {
-      setAttachments((items) => items.map((item) =>
-        item.id === id ? { ...item, status: "failed" } : item
-      ));
-    }
+  const stageFiles = (files: FileList | File[]) => {
+    const selected = Array.from(files).filter((file) => file.size >= 0);
+    if (selected.length) props.onFilesSelected(selected);
   };
+  const canSubmit = Boolean(message.trim() || props.attachments.length);
 
   return (
     <form
@@ -100,42 +102,32 @@ export function AgentComposer(props: {
       onDrop={(event) => {
         event.preventDefault();
         setDragActive(false);
-        const file = event.dataTransfer.files[0];
-        if (file) void uploadFile(file);
+        stageFiles(event.dataTransfer.files);
       }}
       onSubmit={async (event) => {
         event.preventDefault();
-        const content = message.trim();
-        if (!content || props.disabled) return;
-        setMessage("");
-        await props.onSend(content);
+        if (!canSubmit || props.disabled) return;
+        try {
+          await props.onSubmit({ text: message.trim(), attachments: props.attachments });
+        } catch (error) {
+          props.onSubmissionError?.(error);
+        }
       }}
     >
       {props.reference ? (
         <div className="agent-reference-chip" aria-label="引用的 AI 回复">
-          <div>
-            <strong>回复 AI</strong>
-            <span>“{props.reference.excerpt ?? "已引用一条回复"}”</span>
-          </div>
-          <button type="button" aria-label="移除引用" onClick={props.onRemoveReference}>
-            <X aria-hidden="true" />
-          </button>
+          <div><strong>回复 AI</strong><span>“{props.reference.excerpt ?? "已引用一条回复"}”</span></div>
+          <button type="button" aria-label="移除引用" onClick={props.onRemoveReference}><X aria-hidden="true" /></button>
         </div>
       ) : null}
-      {attachments.length ? (
+      {props.attachments.length ? (
         <div className="agent-attachment-list" aria-live="polite">
-          {attachments.map((attachment) => (
-            <span className={`agent-attachment-chip is-${attachment.status}`} key={attachment.id}>
-              {attachment.status === "uploading" ? <LoaderCircle aria-hidden="true" className="is-spinning" /> : <FileText aria-hidden="true" />}
-              <span title={attachment.name}>{attachment.name}</span>
-              <small>{statusLabel(attachment.status)}</small>
-              <button
-                type="button"
-                aria-label={`移除附件 ${attachment.name}`}
-                onClick={() => setAttachments((items) => items.filter((item) => item.id !== attachment.id))}
-              >
-                <X aria-hidden="true" />
-              </button>
+          {props.attachments.map((attachment) => (
+            <span className={`agent-attachment-chip is-${attachment.status}`} key={attachment.clientId}>
+              {attachment.status === "registering" ? <LoaderCircle aria-hidden="true" className="is-spinning" /> : <FileText aria-hidden="true" />}
+              <span title={attachment.fileName}>{attachment.fileName}</span>
+              <small>{statusLabel(attachment.status, attachment.errorCode)}</small>
+              <button type="button" aria-label={`移除附件 ${attachment.fileName}`} onClick={() => props.onRemoveAttachment(attachment.clientId)}><X aria-hidden="true" /></button>
             </span>
           ))}
         </div>
@@ -163,65 +155,18 @@ export function AgentComposer(props: {
       </div>
 
       <div className="agent-composer-toolbar">
-        <button
-          className={uploadHighlighted ? "agent-composer-icon-button is-highlighted" : "agent-composer-icon-button"}
-          type="button"
-          aria-label="上传文件"
-          title="上传文件"
-          disabled={props.disabled}
-          onClick={() => inputRef.current?.click()}
-        >
-          <Plus aria-hidden="true" />
-        </button>
-        <input
-          ref={inputRef}
-          className="sr-only"
-          type="file"
-          accept={AGENT_RESUME_IMPORT_ACCEPT}
-          disabled={props.disabled}
-          onChange={(event) => {
-            const file = event.target.files?.[0];
-            if (file) void uploadFile(file);
-            event.currentTarget.value = "";
-          }}
-        />
+        <button className={uploadHighlighted ? "agent-composer-icon-button is-highlighted" : "agent-composer-icon-button"} type="button" aria-label="上传文件" title="上传文件" disabled={props.disabled} onClick={() => inputRef.current?.click()}><Plus aria-hidden="true" /></button>
+        <input ref={inputRef} className="sr-only" type="file" multiple accept={AGENT_RESUME_IMPORT_ACCEPT} disabled={props.disabled} onChange={(event) => { stageFiles(event.target.files ?? []); event.currentTarget.value = ""; }} />
         <div className="agent-composer-tools">
-          <button type="button" onClick={() => props.onUiAction?.({ type: "open_resume_picker" })}>
-            <FileText aria-hidden="true" /><span>选择简历</span>
-          </button>
-          <button type="button" onClick={() => props.onUiAction?.({ type: "open_job_import_dialog" })}>
-            <BriefcaseBusiness aria-hidden="true" /><span>导入岗位</span>
-          </button>
-          <button type="button" onClick={() => props.onUiAction?.({ type: "open_profile_browser" })}>
-            <Database aria-hidden="true" /><span>从资料库</span>
-          </button>
-          <button type="button" onClick={() => props.onUiAction?.({ type: "open_tool_palette" })}>
-            <Wrench aria-hidden="true" /><span>工具</span>
-          </button>
-          {props.canFinish ? (
-            <button type="button" disabled={props.disabled} onClick={() => void props.onFinish?.()}>
-              <span>完成整理</span>
-            </button>
-          ) : null}
+          <button type="button" onClick={() => props.onUiAction?.({ type: "open_resume_picker" })}><FileText aria-hidden="true" /><span>选择简历</span></button>
+          <button type="button" onClick={() => props.onUiAction?.({ type: "open_job_import_dialog" })}><BriefcaseBusiness aria-hidden="true" /><span>导入岗位</span></button>
+          <button type="button" onClick={() => props.onUiAction?.({ type: "open_profile_browser" })}><Database aria-hidden="true" /><span>从资料库</span></button>
+          <button type="button" onClick={() => props.onUiAction?.({ type: "open_tool_palette" })}><Wrench aria-hidden="true" /><span>工具</span></button>
+          {props.canFinish ? <button type="button" disabled={props.disabled} onClick={() => void props.onFinish?.()}><span>完成整理</span></button> : null}
         </div>
         <div className="agent-composer-submit">
-          <span>{props.aiStatus ?? (props.queuedCount
-            ? `已排队 ${props.queuedCount} 条`
-            : props.running ? "AI 正在处理，可继续发送排队" : "AI 就绪")}</span>
-          {props.running ? (
-            <>
-              <button className="agent-send-button" type="submit" disabled={props.disabled || !message.trim()} aria-label="排队发送消息">
-                <Send aria-hidden="true" />
-              </button>
-              <button className="agent-stop-button" type="button" aria-label="停止运行" onClick={props.onStop}>
-                <Square aria-hidden="true" />
-              </button>
-            </>
-          ) : (
-            <button className="agent-send-button" type="submit" disabled={props.disabled || !message.trim()} aria-label="发送消息">
-              <Send aria-hidden="true" />
-            </button>
-          )}
+          <span>{props.aiStatus ?? (props.queuedCount ? `已排队 ${props.queuedCount} 条` : props.running ? "AI 正在处理，可继续发送排队" : "AI 就绪")}</span>
+          {props.running ? <><button className="agent-send-button" type="submit" disabled={props.disabled || !canSubmit} aria-label="排队发送消息"><Send aria-hidden="true" /></button><button className="agent-stop-button" type="button" aria-label="停止运行" onClick={props.onStop}><Square aria-hidden="true" /></button></> : <button className="agent-send-button" type="submit" disabled={props.disabled || !canSubmit} aria-label="发送消息"><Send aria-hidden="true" /></button>}
         </div>
       </div>
       <span className="agent-drop-hint"><Paperclip aria-hidden="true" /> 松开即可添加文件</span>
@@ -229,9 +174,9 @@ export function AgentComposer(props: {
   );
 }
 
-function statusLabel(status: Attachment["status"]) {
-  if (status === "uploading") return "读取中";
-  if (status === "partial") return "待继续";
-  if (status === "failed") return "失败";
-  return "已接收";
+function statusLabel(status: ComposerAttachmentDraft["status"], errorCode?: string) {
+  if (status === "staged") return "待发送";
+  if (status === "registering") return "登记中";
+  if (status === "queued") return "已排队";
+  return errorCode ? `失败 · ${errorCode}` : "失败，可重试";
 }

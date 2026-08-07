@@ -61,6 +61,9 @@ export function ProfileIntakeCandidateCards({
         ? "暂未生成可用候选，原文已保留"
         : "部分字段需要核对"
     : undefined;
+  const showTechnicalDetails = projection.providerStatus === "failed"
+    || projection.extractionStatus === "failed"
+    || projection.extractionStatus === "partial";
   return (
     <section className="profile-intake-inline-review" aria-label="经历候选核对" aria-live="polite">
       <header className="profile-intake-inline-review-header">
@@ -80,6 +83,20 @@ export function ProfileIntakeCandidateCards({
         </button>
         {reviewOpen && activeCandidates.length > 1 ? (
           <button type="button" onClick={toggleAll}>{allExpanded ? "收起全部" : "展开全部"}</button>
+        ) : null}
+        {showTechnicalDetails ? (
+          <details className="profile-intake-technical-details">
+            <summary>查看技术详情</summary>
+            <dl>
+              <div><dt>安全错误码</dt><dd>{projection.safeDiagnostics?.safeErrorCode ?? "未提供"}</dd></div>
+              <div><dt>Provider / Model</dt><dd>{[projection.safeDiagnostics?.provider, projection.safeDiagnostics?.model].filter(Boolean).join(" / ") || "未提供"}</dd></div>
+              <div><dt>尝试次数</dt><dd>{projection.safeDiagnostics?.attempt ?? "未提供"}</dd></div>
+              <div><dt>耗时</dt><dd>{projection.safeDiagnostics?.latencyMs !== undefined ? `${projection.safeDiagnostics.latencyMs} ms` : "未提供"}</dd></div>
+              <div><dt>Source Turn</dt><dd>{projection.safeDiagnostics?.processingStatus ?? "未提供"}</dd></div>
+              <div><dt>候选 / 隔离</dt><dd>{projection.safeDiagnostics?.candidateCount ?? progress?.total ?? 0} / {projection.safeDiagnostics?.quarantinedCount ?? 0}</dd></div>
+              <div><dt>Operation ID</dt><dd>{projection.safeDiagnostics?.operationId ?? "未提供"}</dd></div>
+            </dl>
+          </details>
         ) : null}
       </header>
       {reviewOpen ? (
@@ -187,10 +204,11 @@ export function ProfileIntakeCandidateCard({
     <article className={`profile-intake-candidate-card is-${candidate.status}`} data-candidate-id={candidate.id}>
       <details open={open} onToggle={(event) => onToggle(event.currentTarget.open)}>
         <summary>
-          <span className="profile-intake-candidate-summary">
-            <span className="profile-intake-candidate-type">{sectionTypeLabel(candidate.sectionType)}</span>
-            <strong>{label}</strong>
-            <span className={`profile-intake-candidate-status is-${candidate.status}`}>{status}</span>
+            <span className="profile-intake-candidate-summary">
+              <span className="profile-intake-candidate-type">{sectionTypeLabel(candidate.sectionType)}</span>
+              <strong>{label}</strong>
+              <span className={`profile-intake-source-badge is-${candidate.sourceBadge}`}>{sourceBadgeLabel(candidate.sourceBadge)}</span>
+              <span className={`profile-intake-candidate-status is-${candidate.status}`}>{status}</span>
           </span>
         </summary>
         <div className="profile-intake-candidate-body">
@@ -328,6 +346,12 @@ function fieldLabel(field: string) {
 
 function sectionTypeLabel(value: string) {
   return ({ education: "教育", work: "工作", internship: "实习", project: "项目", research: "科研", campus: "校园", volunteer: "志愿", awards: "奖项", skills: "技能", certificates: "证书", languages: "语言", publications: "出版物", patents: "专利", portfolio: "作品", other: "其他", custom: "自定义" } as Record<string, string>)[value] ?? "经历";
+}
+
+function sourceBadgeLabel(value: ProfileIntakeReviewCandidate["sourceBadge"]) {
+  if (value === "ai") return "AI 已整理";
+  if (value === "local") return "本地保留";
+  return "需要确认";
 }
 
 function asRecord(value: unknown): Record<string, unknown> {

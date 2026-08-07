@@ -4,6 +4,7 @@ import { ResumeRenderSectionTypeSchema } from "./resumeRender";
 import { isCanonicalFieldId } from "@/domain/resumeFields";
 import { CustomFieldValueSchema, FlexibleSectionV2Schema, ResumeItemV2Schema, ResumeSectionTypeV2Schema } from "./resumeV2";
 import { ResumeJsonV2MappingTraceSchema } from "./resumeJsonV2";
+import { ProfileIntakeSourceTurnDiagnosticsSchema } from "@/domain/profileIntake/ProfileIntakeSourceTurn";
 
 export const ImportedResumeDraftStatusSchema = z.enum([
   "extracting",
@@ -439,7 +440,8 @@ export const ProfileIntakeDraftSessionSchema = z.object({
   lastSourceTurnId: z.string().min(1).optional(),
   providerStatus: z.enum(["available", "failed", "invalid"]).default("available"),
   extractionStatus: z.enum(["structured_ai", "structured_local", "partial", "failed"]).default("failed"),
-  quarantinedCandidateCount: z.number().int().min(0).default(0)
+  quarantinedCandidateCount: z.number().int().min(0).default(0),
+  latestSourceTurnDiagnostics: ProfileIntakeSourceTurnDiagnosticsSchema.optional()
 }).strict();
 
 export const StructuredResumeDraftItemSchema = z.union([

@@ -15,6 +15,7 @@ import {
   LoaderCircle,
   MessageSquarePlus,
   MoreHorizontal,
+  Paperclip,
   RotateCcw,
   Undo2,
   UserRound,
@@ -415,6 +416,7 @@ function AgentMessageBubble({ message }: { message: AgentMessage }) {
           <span>“{message.references[0].excerpt ?? "已引用一条回复"}”</span>
         </div>
       ) : null}
+      {message.role === "user" ? <AgentAttachmentMetadata message={message} /> : null}
       <AgentMessageContent content={content} streaming={streaming} />
     </div>
   );
@@ -779,6 +781,25 @@ function isStreamingMessage(message: AgentMessage) {
     || message.status === "thinking"
     || message.status === "streaming"
   );
+}
+
+function AgentAttachmentMetadata({ message }: { message: AgentMessage }) {
+  const raw = message.metadata?.attachments;
+  if (!Array.isArray(raw)) return null;
+  const attachments = raw.filter((value): value is { fileName: string; mimeType?: string; size?: number } => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+    const record = value as Record<string, unknown>;
+    return typeof record.fileName === "string" && record.fileName.length > 0;
+  });
+  if (!attachments.length) return null;
+  return <div className="agent-message-attachments" aria-label="已发送附件">{attachments.map((attachment, index) => <span key={`${attachment.fileName}-${index}`}><Paperclip aria-hidden="true" /><strong>{attachment.fileName}</strong><small>{attachment.mimeType ?? "文件"} · {formatBytes(attachment.size)}</small></span>)}</div>;
+}
+
+function formatBytes(value?: number) {
+  if (!Number.isFinite(value) || value === undefined) return "大小未知";
+  if (value < 1024) return `${value} B`;
+  if (value < 1024 * 1024) return `${Math.round(value / 1024)} KB`;
+  return `${(value / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function dedupeProfileIntakeMessages(messages: AgentMessage[]) {

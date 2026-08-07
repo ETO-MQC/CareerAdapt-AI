@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   User,
@@ -46,10 +46,7 @@ import { ResumeImportWizard } from "@/components/resume/import/ResumeImportWizar
 import { ImportReviewDialog } from "@/components/resume/import/ImportReviewDialog";
 import { JobOptimizationPanel } from "@/components/resume/optimization/JobOptimizationPanel";
 import { FloatingWindow } from "@/components/ui/FloatingWindow";
-import {
-  ProductButton,
-  ProductTopbar
-} from "@/components/ui/product";
+import { ProductTopbar } from "@/components/ui/product";
 import { buildRequirementBlockMatches, computeRequirementsHash } from "@/domain/jobOptimization";
 import {
   isResumeDiagnosticSnapshotStale,
@@ -83,8 +80,10 @@ import { createResumePdfExportRequest, presentationSnapshotFromConfig } from "@/
 import { hashBytes, stableHashText } from "@/services/security/text";
 import { RevisionConflictError, WorkspaceRepository } from "@/services/storage/repositories";
 import { notify } from "@/services/notifications/store";
+import { countProfileContent, profileCountSummary } from "@/domain/profile/profileCounts";
 import { useWorkspace } from "@/services/workspace/useWorkspace";
 import { WorkspaceEmptyState, WorkspaceErrorState, WorkspaceLoadingState } from "@/components/workspace/WorkspaceStates";
+import { CareerContextEntryBar } from "@/components/career/CareerContextEntryBar";
 import { BasicsSectionPage } from "@/components/editor/sections/BasicsSectionPage";
 import { SummarySectionPage } from "@/components/editor/sections/SummarySectionPage";
 import { ExperienceSectionPage } from "@/components/editor/sections/ExperienceSectionPage";
@@ -194,7 +193,6 @@ export function ResumeWorkspace() {
   const importTriggerRef = useRef<HTMLElement | null>(null);
   const handledImportRequestRef = useRef<string | undefined>(undefined);
   const pendingImportedBranchIdRef = useRef<string | undefined>(undefined);
-  const profileCreateDialogRef = useRef<HTMLElement | null>(null);
   const branchesRef = useRef<ResumeBranch[]>([]);
   const editTextsRef = useRef<Record<string, string>>({});
   const contentSaveQueueRef = useRef<Promise<void>>(Promise.resolve());
@@ -237,8 +235,6 @@ export function ResumeWorkspace() {
   const [isImportPanelOpen, setIsImportPanelOpen] = useState(false);
   const [importEntryMode, setImportEntryMode] = useState<ResumeImportEntryMode>("file");
   const [importCreatesNewProfile, setImportCreatesNewProfile] = useState(false);
-  const [isProfileCreateMenuOpen, setIsProfileCreateMenuOpen] = useState(false);
-  const [quickProfileName, setQuickProfileName] = useState("");
   const [workbenchStateHydrated, setWorkbenchStateHydrated] = useState(false);
   const [isJobCreatePanelOpen, setIsJobCreatePanelOpen] = useState(false);
   const [isJobCreatePanelDismissed, setIsJobCreatePanelDismissed] = useState(false);
@@ -337,13 +333,10 @@ export function ResumeWorkspace() {
   }, [editTexts]);
 
   useEffect(() => {
-    if (!profileSyncDialogOpen && !pendingResumeOnlyEdit && !profileLibraryOpen && !pendingPermanentDeleteBranch && !isProfileCreateMenuOpen) return;
+    if (!profileSyncDialogOpen && !pendingResumeOnlyEdit && !profileLibraryOpen && !pendingPermanentDeleteBranch) return;
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
-      if (isProfileCreateMenuOpen) {
-        setIsProfileCreateMenuOpen(false);
-        setQuickProfileName("");
-      } else if (pendingPermanentDeleteBranch) {
+      if (pendingPermanentDeleteBranch) {
         setPendingPermanentDeleteBranch(undefined);
         setPermanentDeleteName("");
       } else if (profileLibraryOpen) {
@@ -358,9 +351,11 @@ export function ResumeWorkspace() {
     };
     document.addEventListener("keydown", handleEscape);
     return () => document.removeEventListener("keydown", handleEscape);
-  }, [pendingPermanentDeleteBranch, pendingResumeOnlyEdit, profileLibraryOpen, profileSyncDialogOpen, isProfileCreateMenuOpen]);
+  }, [pendingPermanentDeleteBranch, pendingResumeOnlyEdit, profileLibraryOpen, profileSyncDialogOpen]);
 
-  const profile = profileOverride ?? (workspace.status === "ready" && workspace.activeContext
+  const profile = (profileOverride && (!workspace.activeContext || profileOverride.id === workspace.activeContext.profileId))
+    ? profileOverride
+    : (workspace.status === "ready" && workspace.activeContext
     ? workspace.profiles.find((item) => item.id === workspace.activeContext?.profileId)
     : undefined);
   const jobs = useMemo(() => {
@@ -543,6 +538,7 @@ export function ResumeWorkspace() {
     return [...branches].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   }, [branches]);
   const activeBranches = useMemo(() => sortedBranches.filter((branch) => branch.lifecycleStatus === "active"), [sortedBranches]);
+  const resumeProfileCounts = profile ? countProfileContent(profile, activeBranches.length) : undefined;
   const archivedBranches = useMemo(() => sortedBranches.filter((branch) => branch.lifecycleStatus === "archived"), [sortedBranches]);
   const trashedBranches = useMemo(() => sortedBranches.filter((branch) => branch.lifecycleStatus === "trashed"), [sortedBranches]);
   const visibleBranches = useMemo(() => {
@@ -593,57 +589,6 @@ export function ResumeWorkspace() {
     setBranches(nextBranches);
   }, []);
 
-  async function selectResumeProfile(profileId: string) {
-    if (profileId === "__new_profile__") {
-      setIsProfileCreateMenuOpen(true);
-      return;
-    }
-    const selected = await repository.getProfile(profileId);
-    if (!selected) {
-      notify({ type: "error", title: "选择失败", message: "所选个人资料已不存在，请返回资料库重新选择。" });
-      return;
-    }
-    await repository.setActiveProfileId(selected.id);
-    setProfileOverride(selected);
-    setSelectedBranchId(BRANCH_LIST_SENTINEL);
-    setSelectedDraftId("");
-    setEditTexts({});
-    clearStudioEditor();
-    await refreshLists(selected.id);
-    notify({ type: "success", title: "已切换人物", message: `当前人物已切换为 ${selected.name}。` });
-  }
-
-  async function createBlankProfile() {
-    const name = quickProfileName.trim();
-    if (!name) {
-      notify({ type: "warning", title: "请输入名称", message: "请填写新人物名称。" });
-      return;
-    }
-    const now = new Date().toISOString();
-    const created: CareerProfile = {
-      id: `profile-${crypto.randomUUID()}`,
-      name,
-      basics: { name, links: [] },
-      preference: { targetRoles: [], targetCities: [], industries: [] },
-      version: 1,
-      experiences: [],
-      skills: [],
-      certificates: [],
-      evidences: [],
-      unclassifiedBlocks: [],
-      createdAt: now,
-      updatedAt: now
-    };
-    await repository.saveProfile(created);
-    await repository.setActiveProfileId(created.id);
-    setProfileOverride(created);
-    setQuickProfileName("");
-    setIsProfileCreateMenuOpen(false);
-    setSelectedBranchId(BRANCH_LIST_SENTINEL);
-    await refreshLists(created.id);
-    notify({ type: "success", title: "人物已创建", message: `已创建空白人物：${created.name}。` });
-  }
-
   const clearStudioEditor = useCallback(() => {
     setSelectedStudioItemId(undefined);
     setEditingStudioItemId(undefined);
@@ -689,53 +634,6 @@ export function ResumeWorkspace() {
     setIsImportPanelOpen(false);
     window.requestAnimationFrame(() => importTriggerRef.current?.focus());
   }, []);
-
-  const closeProfileCreateDialog = useCallback(() => {
-    setIsProfileCreateMenuOpen(false);
-    setQuickProfileName("");
-  }, []);
-
-  function handleProfileCreateDialogKeyDown(event: ReactKeyboardEvent<HTMLElement>) {
-    if (event.key === "Escape") {
-      event.preventDefault();
-      closeProfileCreateDialog();
-      return;
-    }
-    if (event.key !== "Tab") {
-      return;
-    }
-    const dialog = profileCreateDialogRef.current;
-    if (!dialog) {
-      return;
-    }
-    const focusable = Array.from(dialog.querySelectorAll<HTMLElement>(
-      'button:not([disabled]), [href], input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
-    )).filter((element) => !element.hasAttribute("hidden"));
-    if (focusable.length === 0) {
-      event.preventDefault();
-      dialog.focus();
-      return;
-    }
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
-    if (event.shiftKey && document.activeElement === first) {
-      event.preventDefault();
-      last.focus();
-    } else if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault();
-      first.focus();
-    }
-  }
-
-  useEffect(() => {
-    if (!isProfileCreateMenuOpen) {
-      return;
-    }
-    const frame = window.requestAnimationFrame(() => profileCreateDialogRef.current?.focus());
-    return () => {
-      window.cancelAnimationFrame(frame);
-    };
-  }, [isProfileCreateMenuOpen]);
 
   function startFieldPanelResize(event: PointerEvent<HTMLButtonElement>) {
     event.preventDefault();
@@ -3360,100 +3258,21 @@ export function ResumeWorkspace() {
       {!selectedBranch ? (
         <ProductTopbar
           title="我的简历"
-          status={`${activeBranches.length} 份当前简历`}
-          actions={(
-            <>
-              <ProductButton onClick={(event) => openImportDialog("file", event.currentTarget)}>导入</ProductButton>
-              <ProductButton variant="primary" disabled={!profile} onClick={() => { void createGeneralResume({ fromProfile: false }); }}>
-                <Plus aria-hidden="true" /> 新建简历
-              </ProductButton>
-            </>
-          )}
+          status={`${activeBranches.length} 份当前简历 · ${resumeProfileCounts ? profileCountSummary(resumeProfileCounts) : "未选择人物"}`}
         />
       ) : null}
+
+      {!selectedBranch ? <CareerContextEntryBar
+        variant="resume"
+        onImport={() => openImportDialog("file")}
+        onNewResume={() => { if (profile) void createGeneralResume({ fromProfile: false }); }}
+        onFromCurrentProfile={() => { if (profile) void createGeneralResume({ fromProfile: true }); }}
+      /> : null}
 
       {workspace.status === "empty" && !profile ? <WorkspaceEmptyState /> : null}
 
       {!selectedBranch ? (
         <>
-          {profile && workspace.status === "ready" ? (
-            <section className="panel profile-person-toolbar resume-person-toolbar no-print" aria-label="简历使用的人物">
-              <div>
-                <strong>简历使用的人物</strong>
-                <span>创建和管理操作只显示当前人物的简历。</span>
-              </div>
-              <label className="field-input-group profile-person-selector">
-                <span className="field-input-label">选择人物</span>
-                <select data-testid="resume-profile-selector" value={profile.id} onChange={(event) => { void selectResumeProfile(event.target.value); }}>
-                  {profileOverride && !workspace.profiles.some((item) => item.id === profileOverride.id) ? (
-                    <option value={profileOverride.id}>{profileOverride.name}</option>
-                  ) : null}
-                  {workspace.profiles.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-                  <option value="__new_profile__">＋ 新增人物</option>
-                </select>
-              </label>
-              {isProfileCreateMenuOpen ? (
-                <div
-                  className="profile-create-popover-backdrop no-print"
-                  onMouseDown={(event) => {
-                    if (event.target === event.currentTarget) closeProfileCreateDialog();
-                  }}
-                >
-                  <div
-                    className="profile-create-popover"
-                    role="dialog"
-                    aria-label="新增人物"
-                    ref={profileCreateDialogRef as React.RefObject<HTMLDivElement>}
-                    tabIndex={-1}
-                    onKeyDown={handleProfileCreateDialogKeyDown}
-                  >
-                    <h3 className="profile-create-popover-title">新增人物</h3>
-                    <label className="profile-create-popover-field">
-                      <span>人物名称</span>
-                      <input
-                        value={quickProfileName}
-                        onChange={(event) => setQuickProfileName(event.target.value)}
-                        placeholder="例如：张三、产品经理方向"
-                        autoFocus
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter") {
-                            event.preventDefault();
-                            void createBlankProfile();
-                          }
-                        }}
-                      />
-                    </label>
-                    <div className="profile-create-popover-actions">
-                      <button
-                        className="primary-button"
-                        type="button"
-                        onClick={() => { void createBlankProfile(); }}
-                      >
-                        创建空白人物
-                      </button>
-                      <button
-                        className="secondary-button"
-                        type="button"
-                        onClick={(event) => {
-                          closeProfileCreateDialog();
-                          openImportDialog("file", event.currentTarget, true);
-                        }}
-                      >
-                        从简历导入
-                      </button>
-                      <button
-                        className="secondary-button"
-                        type="button"
-                        onClick={closeProfileCreateDialog}
-                      >
-                        取消
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ) : null}
-            </section>
-          ) : null}
           <section className="resume-import-strip no-print" data-testid="resume-import-strip">
             <div className="resume-import-strip-copy">
               <h2>导入已有简历</h2>

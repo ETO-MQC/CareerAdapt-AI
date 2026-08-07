@@ -18,6 +18,7 @@ export type ConversationIntakeCandidate = {
   kind: "education" | "work" | "internship" | "project" | "award" | "research" | "campus" | "volunteer" | "other";
   label: string;
   sourceQuote: string;
+  sourceBlockIds?: string[];
   needsConfirmation: boolean;
   reason?: string;
   status: "confirmed" | "ai_review" | "insufficient";
@@ -111,6 +112,7 @@ export function adaptConversationMessageToIntakeDraft(input: {
       kind: candidateKind(candidate.normalization.sectionType),
       label,
       sourceQuote: candidate.sourceQuote,
+      ...(candidate.sourceBlockIds ? { sourceBlockIds: candidate.sourceBlockIds } : {}),
       needsConfirmation: candidate.normalization.needsConfirmation,
       reason: candidate.normalization.needsNormalization
         ? "AI 语义整理暂不可用，原始回答已保留，请重试或手动核对"
@@ -145,7 +147,7 @@ export function adaptConversationMessageToIntakeDraft(input: {
       confidence: candidate.needsConfirmation ? "low" as const : "high" as const,
       sourceStatus: candidate.needsConfirmation ? "ambiguous" as const : "user_confirmed_modified" as const,
       userEdited: false,
-      sourceBlockIds: [],
+      sourceBlockIds: candidate.sourceBlockIds ?? [],
       itemLabel: candidate.label,
       structuredItem: normalized.structuredItem,
       structuredMappingTrace: [],
@@ -224,7 +226,13 @@ export function adaptConversationMessageToIntakeDraft(input: {
       lastSourceTurnId: input.turnId,
       providerStatus: semanticResult.providerStatus,
       extractionStatus: extractionStatusForSemanticResult(semanticResult, candidates),
-      quarantinedCandidateCount: semanticResult.quarantinedCandidateCount ?? 0
+      quarantinedCandidateCount: semanticResult.quarantinedCandidateCount ?? 0,
+      latestSourceTurnDiagnostics: toProjectionDiagnostics(
+        semanticResult.safeDiagnostics,
+        extractionStatusForSemanticResult(semanticResult, candidates),
+        candidates.length,
+        semanticResult.quarantinedCandidateCount ?? 0
+      )
     },
     createdAt: input.capturedAt,
     updatedAt: input.capturedAt
@@ -272,6 +280,9 @@ export function buildConversationIntakeReviewProjection(input: {
           confidence: candidate.normalization.confidence,
           needsConfirmation: candidate.normalization.needsConfirmation,
           status,
+          sourceBadge: candidate.normalization.needsConfirmation
+            ? "needs_confirmation" as const
+            : input.semanticResult.mode === "ai" ? "ai" as const : "local" as const,
           canAccept: true,
           ...(candidate.normalization.needsConfirmation ? { reason: "有字段需要你确认" } : {}),
           fieldEvidence: candidate.normalization.fieldEvidence
@@ -290,6 +301,7 @@ export function buildConversationIntakeReviewProjection(input: {
         confidence: 0,
         needsConfirmation: true,
         status: "failed" as const,
+        sourceBadge: input.semanticResult.mode === "ai" ? "needs_confirmation" as const : "local" as const,
         canAccept: false,
         reason: "这段内容没有完成结构化，但原文已经保留。",
         fieldEvidence: []
@@ -318,6 +330,12 @@ export function buildConversationIntakeReviewProjection(input: {
     extractionStatus,
     candidates: projectionCandidates,
     reviewProgress,
+    safeDiagnostics: toProjectionDiagnostics(
+      input.semanticResult.safeDiagnostics,
+      extractionStatus,
+      projectionCandidates.length,
+      input.semanticResult.quarantinedCandidateCount ?? 0
+    ),
     followUpQuestions,
     ...(followUpQuestions[0] ? { followUpQuestion: followUpQuestions[0] } : {}),
     ...(isFailed ? {
@@ -335,7 +353,6 @@ export function buildConversationIntakeReviewProjectionFromDraft(
   followUpQuestions: string[] = []
 ): ProfileIntakeReviewProjection {
   const rawText = draft.pages[0]?.rawText ?? "";
-  const providerUnavailable = draft.warnings.some((warning) => warning.code === "provider_unavailable");
   const sourceMessageId = draft.intakeSession?.lastSourceMessageId
     ?? draft.source.sourceMessageId
     ?? `draft-${draft.importId}`;
@@ -367,6 +384,9 @@ export function buildConversationIntakeReviewProjectionFromDraft(
           confidence: item.confidence === "high" ? 0.9 : item.confidence === "medium" ? 0.75 : 0.58,
           needsConfirmation: status === "uncertain" || status === "proposed",
           status,
+          sourceBadge: status === "uncertain"
+            ? "needs_confirmation" as const
+            : item.careerNormalization?.mode === "ai" ? "ai" as const : "local" as const,
           ...(item.userConfirmed === true ? { decision: "accept" as const } : item.userConfirmed === false ? { decision: "reject" as const } : {}),
           canAccept: true,
           ...(status === "uncertain" ? { reason: "有字段需要你确认" } : {}),
@@ -391,6 +411,7 @@ export function buildConversationIntakeReviewProjectionFromDraft(
       confidence: 0,
       needsConfirmation: true,
       status: "failed" as const,
+      sourceBadge: "local" as const,
       canAccept: false,
       reason: "这段内容没有完成安全归属，但原文已经保留。",
       fieldEvidence: []
@@ -411,6 +432,7 @@ export function buildConversationIntakeReviewProjectionFromDraft(
           confidence: 0,
           needsConfirmation: true,
           status: "failed" as const,
+          sourceBadge: "local" as const,
           canAccept: false,
           reason: "这段内容没有完成结构化，但原文已经保留。",
           fieldEvidence: []
@@ -425,16 +447,21 @@ export function buildConversationIntakeReviewProjectionFromDraft(
     sourceMessageId,
     sourceTurnId,
     sourceContentHash,
-    providerStatus: draft.intakeSession?.providerStatus ?? (providerUnavailable ? "failed" : "available"),
+    providerStatus: draft.intakeSession?.providerStatus ?? "available",
     extractionStatus: failed
       ? "failed"
-      : draft.intakeSession?.providerStatus !== "available" || providerUnavailable
+      : draft.intakeSession?.latestSourceTurnDiagnostics?.extractionStatus === "structured_local"
         ? "structured_local"
-        : reviewProgress.uncertain > 0 || draft.intakeSession?.extractionStatus === "partial"
+        : draft.intakeSession?.latestSourceTurnDiagnostics?.extractionStatus === "failed"
+          ? "failed"
+          : reviewProgress.uncertain > 0
+            || draft.intakeSession?.latestSourceTurnDiagnostics?.extractionStatus === "partial"
+            || draft.intakeSession?.extractionStatus === "partial"
           ? "partial"
           : "structured_ai",
     candidates,
     reviewProgress,
+    safeDiagnostics: draft.intakeSession?.latestSourceTurnDiagnostics,
     followUpQuestions: questions,
     ...(questions[0] ? { followUpQuestion: questions[0] } : {}),
     ...(failed ? {
@@ -606,6 +633,29 @@ function extractionStatusForSemanticResult(
     return "partial" as const;
   }
   return "structured_ai" as const;
+}
+
+function toProjectionDiagnostics(
+  diagnostics: ProfileIntakeSemanticResult["safeDiagnostics"],
+  extractionStatus: ProfileIntakeReviewProjection["extractionStatus"],
+  candidateCount: number,
+  quarantinedCount: number
+) {
+  return {
+    ...(diagnostics?.provider ? { provider: diagnostics.provider } : {}),
+    ...(diagnostics?.model ? { model: diagnostics.model } : {}),
+    ...(diagnostics?.attempt !== undefined ? { attempt: diagnostics.attempt } : {}),
+    ...(diagnostics?.latencyMs !== undefined ? { latencyMs: diagnostics.latencyMs } : {}),
+    processingStatus: extractionStatus === "failed" ? "failed" as const : extractionStatus === "partial" ? "partial" as const : "structured" as const,
+    extractionStatus: extractionStatus === "structured" ? "structured_ai" as const : extractionStatus,
+    ...(diagnostics?.safeErrorCode || diagnostics?.code
+      ? { safeErrorCode: diagnostics.safeErrorCode ?? diagnostics.code }
+      : {}),
+    candidateCount: diagnostics?.candidateCount ?? candidateCount,
+    quarantinedCount: diagnostics?.quarantinedCount ?? quarantinedCount,
+    quarantinedErrorCodes: diagnostics?.quarantinedErrorCodes ?? [],
+    ...(diagnostics?.operationId ? { operationId: diagnostics.operationId } : {})
+  };
 }
 
 function candidateCategory(sectionType: ConversationIntakeCandidate["sectionType"]) {

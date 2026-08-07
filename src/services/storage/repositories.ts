@@ -163,10 +163,28 @@ const PROFILE_RECONCILIATION_META_KEY_PREFIX = "profileReconciliation:v1:";
 const PROFILE_INTAKE_OPERATION_META_KEY_PREFIX = "profileIntakeOperation:v1:";
 const PROFILE_INTAKE_SOURCE_TURN_META_KEY_PREFIX = "profileIntakeSourceTurn:v1:";
 const AGENT_PROTOCOL_DIAGNOSTIC_META_KEY_PREFIX = "agentProtocolDiagnostic:v1:";
+const CAREER_LIFECYCLE_OPERATION_META_KEY_PREFIX = "careerLifecycleOperation:v1:";
 const EMPTY_RECYCLE_BIN: RecycleBinState = { version: 1, jobIds: [], profileItems: [] };
 
 function careerPersonMetaKey(personId: string) {
   return `${CAREER_PERSON_META_KEY_PREFIX}${personId}`;
+}
+
+function careerLifecycleOperationKey(operationId: string) {
+  return `${CAREER_LIFECYCLE_OPERATION_META_KEY_PREFIX}${operationId}`;
+}
+
+type CareerLifecycleOperationInput = {
+  operationId?: string;
+  expectedRevision?: number;
+  expectedUpdatedAt?: string;
+};
+
+type CareerProfileLifecycleInput = CareerLifecycleOperationInput & { profileId: string };
+type CareerPersonLifecycleInput = CareerLifecycleOperationInput & { personId: string };
+
+function lifecycleOperationId(input: CareerLifecycleOperationInput) {
+  return input.operationId?.trim() || `career-lifecycle-${crypto.randomUUID()}`;
 }
 
 /**
@@ -776,9 +794,9 @@ export class WorkspaceRepository {
       for (const [personId, group] of profilesByPerson) {
         const storedPerson = persons.get(personId);
         const currentCandidate = group
-          .filter((profile) => profile.isCurrent && !profile.archivedAt)
+          .filter((profile) => profile.isCurrent && !profile.archivedAt && !profile.trashedAt)
           .sort((left, right) => (right.profileVersionNumber ?? 1) - (left.profileVersionNumber ?? 1))[0]
-          ?? group.filter((profile) => !profile.archivedAt)
+          ?? group.filter((profile) => !profile.archivedAt && !profile.trashedAt)
             .sort((left, right) => (right.profileVersionNumber ?? 1) - (left.profileVersionNumber ?? 1))[0]
           ?? group[0];
         const person = CareerPersonSchema.parse({
@@ -789,7 +807,8 @@ export class WorkspaceRepository {
             : currentCandidate.id,
           createdAt: storedPerson?.createdAt ?? group.map((profile) => profile.createdAt).sort()[0],
           updatedAt: now,
-          archivedAt: storedPerson?.archivedAt
+          archivedAt: storedPerson?.archivedAt,
+          trashedAt: storedPerson?.trashedAt
         });
         persons.set(personId, person);
         await this.db.appMeta.put({ key: careerPersonMetaKey(personId), value: person, updatedAt: now });
@@ -852,7 +871,7 @@ export class WorkspaceRepository {
       ]);
       if (person && profile) {
         const candidate = migrateCareerProfileToV2(CareerProfileSchema.parse(profile));
-        if (candidate.personId === person.id && !candidate.archivedAt) {
+        if (candidate.personId === person.id && !candidate.archivedAt && !candidate.trashedAt && !person.trashedAt) {
           return ActiveCareerContextSchema.parse({
             ...parsed.data,
             profileVersionNumber: candidate.profileVersionNumber,
@@ -867,7 +886,8 @@ export class WorkspaceRepository {
     const profile = await this.db.profiles.get(legacyParsed.data.profileId);
     if (!profile) return undefined;
     const candidate = migrateCareerProfileToV2(CareerProfileSchema.parse(profile));
-    if (!candidate.personId || candidate.archivedAt) return undefined;
+    const person = await this.getCareerPersonWithoutMigration(candidate.personId ?? "");
+    if (!candidate.personId || candidate.archivedAt || candidate.trashedAt || person?.trashedAt) return undefined;
     const context = ActiveCareerContextSchema.parse({
       schemaVersion: "active-career-v1",
       personId: candidate.personId,
@@ -888,7 +908,7 @@ export class WorkspaceRepository {
     ]);
     if (!person || !rawProfile) throw new Error("career_context_target_missing");
     const profile = migrateCareerProfileToV2(CareerProfileSchema.parse(rawProfile));
-    if (profile.personId !== person.id || profile.archivedAt) throw new Error("career_context_target_invalid");
+    if (profile.personId !== person.id || profile.archivedAt || profile.trashedAt || person.trashedAt) throw new Error("career_context_target_invalid");
     const selectedAt = new Date().toISOString();
     const context = ActiveCareerContextSchema.parse({
       schemaVersion: "active-career-v1",
@@ -946,6 +966,9 @@ export class WorkspaceRepository {
     await this.ensureCareerIdentityMigration();
     const source = await this.getProfile(input.profileId);
     if (!source?.personId) throw new Error("career_profile_source_missing");
+    if (source.archivedAt || source.trashedAt) throw new Error("career_profile_not_active");
+    const sourcePerson = await this.getCareerPerson(source.personId);
+    if (sourcePerson?.trashedAt) throw new Error("career_person_trashed");
     const siblings = await this.getProfilesForPerson(source.personId);
     const now = new Date().toISOString();
     const nextNumber = Math.max(0, ...siblings.map((profile) => profile.profileVersionNumber ?? 1)) + 1;
@@ -958,6 +981,7 @@ export class WorkspaceRepository {
       versionCreatedReason: input.reason ?? "manual_snapshot",
       isCurrent: true,
       archivedAt: undefined,
+      trashedAt: undefined,
       createdAt: now,
       updatedAt: now
     });
@@ -969,12 +993,14 @@ export class WorkspaceRepository {
   async renameProfileVersion(profileId: string, profileVersionLabel: string) {
     const profile = await this.getProfile(profileId);
     if (!profile) throw new Error("career_profile_missing");
+    if (profile.trashedAt) throw new Error("career_profile_trashed");
     return this.saveProfile({ ...profile, profileVersionLabel: profileVersionLabel.trim() || undefined, version: profile.version + 1, updatedAt: new Date().toISOString() });
   }
 
   async setCurrentProfileVersion(profileId: string) {
     const profile = await this.getProfile(profileId);
-    if (!profile || !profile.personId || profile.archivedAt) throw new Error("career_profile_missing");
+    const person = profile?.personId ? await this.getCareerPerson(profile.personId) : undefined;
+    if (!profile || !profile.personId || profile.archivedAt || profile.trashedAt || person?.trashedAt) throw new Error("career_profile_missing");
     const saved = await this.saveProfile({
       ...profile,
       isCurrent: true,
@@ -985,19 +1011,259 @@ export class WorkspaceRepository {
     return saved;
   }
 
-  async archiveProfileVersion(profileId: string) {
-    const profile = await this.getProfile(profileId);
+  async archivePerson(input: CareerPersonLifecycleInput | string) {
+    const normalized = typeof input === "string" ? { personId: input } : input;
+    const operationId = lifecycleOperationId(normalized);
+    return this.db.transaction("rw", this.db.appMeta, async () => {
+      const receipt = await this.db.appMeta.get(careerLifecycleOperationKey(operationId));
+      if (receipt) return { ...(receipt.value as { person: CareerPerson }), idempotent: true as const };
+      const person = await this.getCareerPersonWithoutMigration(normalized.personId);
+      if (!person) throw new Error("career_person_missing");
+      if (normalized.expectedUpdatedAt && normalized.expectedUpdatedAt !== person.updatedAt) throw new RevisionConflictError();
+      if (person.trashedAt) throw new Error("career_person_trashed");
+      if (person.archivedAt) return { person, idempotent: true as const };
+      const now = new Date().toISOString();
+      const next = CareerPersonSchema.parse({ ...person, archivedAt: now, updatedAt: now });
+      const result = { person: next, idempotent: false as const };
+      await this.db.appMeta.put({ key: careerPersonMetaKey(next.id), value: next, updatedAt: now });
+      await this.db.appMeta.put({ key: careerLifecycleOperationKey(operationId), value: result, updatedAt: now });
+      return result;
+    });
+  }
+
+  async restoreArchivedPerson(input: CareerPersonLifecycleInput | string) {
+    const normalized = typeof input === "string" ? { personId: input } : input;
+    const operationId = lifecycleOperationId(normalized);
+    return this.db.transaction("rw", this.db.appMeta, async () => {
+      const receipt = await this.db.appMeta.get(careerLifecycleOperationKey(operationId));
+      if (receipt) return { ...(receipt.value as { person: CareerPerson }), idempotent: true as const };
+      const person = await this.getCareerPersonWithoutMigration(normalized.personId);
+      if (!person) throw new Error("career_person_missing");
+      if (normalized.expectedUpdatedAt && normalized.expectedUpdatedAt !== person.updatedAt) throw new RevisionConflictError();
+      if (person.trashedAt) throw new Error("career_person_trashed");
+      if (!person.archivedAt) return { person, idempotent: true as const };
+      const now = new Date().toISOString();
+      const next = CareerPersonSchema.parse({ ...person, archivedAt: undefined, updatedAt: now });
+      const result = { person: next, idempotent: false as const };
+      await this.db.appMeta.put({ key: careerPersonMetaKey(next.id), value: next, updatedAt: now });
+      await this.db.appMeta.put({ key: careerLifecycleOperationKey(operationId), value: result, updatedAt: now });
+      return result;
+    });
+  }
+
+  async trashPerson(input: CareerPersonLifecycleInput | string) {
+    const normalized = typeof input === "string" ? { personId: input } : input;
+    const operationId = lifecycleOperationId(normalized);
+    return this.db.transaction("rw", this.db.appMeta, async () => {
+      const receipt = await this.db.appMeta.get(careerLifecycleOperationKey(operationId));
+      if (receipt) return { ...(receipt.value as { person: CareerPerson }), idempotent: true as const };
+      const person = await this.getCareerPersonWithoutMigration(normalized.personId);
+      if (!person) throw new Error("career_person_missing");
+      if (normalized.expectedUpdatedAt && normalized.expectedUpdatedAt !== person.updatedAt) throw new RevisionConflictError();
+      if (person.trashedAt) return { person, idempotent: true as const };
+      const now = new Date().toISOString();
+      // This is intentionally a container-only transition. Profiles are not
+      // silently rewritten; restoring the Person restores their visibility.
+      const next = CareerPersonSchema.parse({ ...person, trashedAt: now, updatedAt: now });
+      const result = { person: next, idempotent: false as const };
+      await this.db.appMeta.put({ key: careerPersonMetaKey(next.id), value: next, updatedAt: now });
+      await this.db.appMeta.put({ key: careerLifecycleOperationKey(operationId), value: result, updatedAt: now });
+      const active = await this.db.appMeta.get(ACTIVE_CAREER_CONTEXT_META_KEY);
+      const parsedActive = ActiveCareerContextSchema.safeParse(active?.value);
+      if (parsedActive.success && parsedActive.data.personId === person.id) {
+        await this.db.appMeta.delete(ACTIVE_CAREER_CONTEXT_META_KEY);
+        await this.db.appMeta.delete(ACTIVE_PROFILE_META_KEY);
+      }
+      return result;
+    });
+  }
+
+  async restorePersonFromTrash(input: CareerPersonLifecycleInput | string) {
+    const normalized = typeof input === "string" ? { personId: input } : input;
+    const operationId = lifecycleOperationId(normalized);
+    return this.db.transaction("rw", this.db.appMeta, async () => {
+      const receipt = await this.db.appMeta.get(careerLifecycleOperationKey(operationId));
+      if (receipt) return { ...(receipt.value as { person: CareerPerson }), idempotent: true as const };
+      const person = await this.getCareerPersonWithoutMigration(normalized.personId);
+      if (!person) throw new Error("career_person_missing");
+      if (normalized.expectedUpdatedAt && normalized.expectedUpdatedAt !== person.updatedAt) throw new RevisionConflictError();
+      if (!person.trashedAt) return { person, idempotent: true as const };
+      const now = new Date().toISOString();
+      const next = CareerPersonSchema.parse({ ...person, trashedAt: undefined, updatedAt: now });
+      const result = { person: next, idempotent: false as const };
+      await this.db.appMeta.put({ key: careerPersonMetaKey(next.id), value: next, updatedAt: now });
+      await this.db.appMeta.put({ key: careerLifecycleOperationKey(operationId), value: result, updatedAt: now });
+      return result;
+    });
+  }
+
+  async archiveProfileVersion(input: CareerProfileLifecycleInput | string) {
+    const normalized = typeof input === "string" ? { profileId: input } : input;
+    const operationId = lifecycleOperationId(normalized);
+    const receipt = await this.db.appMeta.get(careerLifecycleOperationKey(operationId));
+    if (receipt) return { ...(receipt.value as { profile: CareerProfile }), idempotent: true as const };
+    const profile = await this.getProfile(normalized.profileId);
     if (!profile) throw new Error("career_profile_missing");
+    if (normalized.expectedRevision !== undefined && normalized.expectedRevision !== profile.version) throw new RevisionConflictError();
+    if (profile.trashedAt) throw new Error("career_profile_trashed");
+    if (profile.archivedAt) {
+      const result = { profile, idempotent: true as const };
+      await this.setMeta(careerLifecycleOperationKey(operationId), result);
+      return result;
+    }
+    const siblings = profile.personId ? await this.getProfilesForPerson(profile.personId) : [];
+    const fallback = siblings
+      .filter((candidate) => candidate.id !== profile.id && !candidate.archivedAt && !candidate.trashedAt)
+      .sort((left, right) => (right.profileVersionNumber ?? 1) - (left.profileVersionNumber ?? 1))[0];
     const activeContext = await this.getActiveCareerContext();
-    const saved = await this.saveProfile({ ...profile, archivedAt: new Date().toISOString(), isCurrent: false, version: profile.version + 1, updatedAt: new Date().toISOString() });
-    const siblings = saved.personId ? await this.getProfilesForPerson(saved.personId) : [];
-    const fallback = siblings.filter((candidate) => candidate.id !== saved.id && !candidate.archivedAt).sort((left, right) => (right.profileVersionNumber ?? 1) - (left.profileVersionNumber ?? 1))[0];
-    const currentPerson = saved.personId ? await this.getCareerPerson(saved.personId) : undefined;
+    const currentPerson = profile.personId ? await this.getCareerPerson(profile.personId) : undefined;
+    if ((profile.isCurrent || currentPerson?.currentProfileId === profile.id || activeContext?.profileId === profile.id) && !fallback) {
+      throw new Error("career_profile_current_cannot_archive");
+    }
+    const now = new Date().toISOString();
+    const saved = await this.saveProfile({ ...profile, archivedAt: now, isCurrent: false, version: profile.version + 1, updatedAt: now });
     if (currentPerson && (currentPerson.currentProfileId === saved.id || activeContext?.profileId === saved.id) && fallback) {
       await this.saveProfile({ ...fallback, isCurrent: true, updatedAt: new Date().toISOString() });
       await this.setActiveCareerContext({ personId: currentPerson.id, profileId: fallback.id });
     }
-    return saved;
+    const result = { profile: saved, idempotent: false as const };
+    await this.setMeta(careerLifecycleOperationKey(operationId), result);
+    return result;
+  }
+
+  async restoreArchivedProfileVersion(input: CareerProfileLifecycleInput) {
+    const operationId = lifecycleOperationId(input);
+    return this.db.transaction("rw", this.db.profiles, this.db.appMeta, async () => {
+      const receipt = await this.db.appMeta.get(careerLifecycleOperationKey(operationId));
+      if (receipt) return { ...(receipt.value as { profile: CareerProfile }), idempotent: true as const };
+      const raw = await this.db.profiles.get(input.profileId);
+      if (!raw) throw new Error("career_profile_missing");
+      const profile = migrateCareerProfileToV2(CareerProfileSchema.parse(raw));
+      if (input.expectedRevision !== undefined && input.expectedRevision !== profile.version) throw new RevisionConflictError();
+      if (profile.trashedAt) throw new Error("career_profile_trashed");
+      if (!profile.archivedAt) {
+        const result = { profile, idempotent: true as const };
+        await this.db.appMeta.put({ key: careerLifecycleOperationKey(operationId), value: result, updatedAt: new Date().toISOString() });
+        return result;
+      }
+      const now = new Date().toISOString();
+      const next = CareerProfileSchema.parse({ ...profile, archivedAt: undefined, version: profile.version + 1, updatedAt: now });
+      await this.db.profiles.put(next);
+      const result = { profile: migrateCareerProfileToV2(next), idempotent: false as const };
+      await this.db.appMeta.put({ key: careerLifecycleOperationKey(operationId), value: result, updatedAt: now });
+      return result;
+    });
+  }
+
+  async trashProfileVersion(input: CareerProfileLifecycleInput) {
+    const operationId = lifecycleOperationId(input);
+    return this.db.transaction("rw", this.db.profiles, this.db.appMeta, async () => {
+      const receipt = await this.db.appMeta.get(careerLifecycleOperationKey(operationId));
+      if (receipt) return { ...(receipt.value as { profile: CareerProfile }), idempotent: true as const };
+      const raw = await this.db.profiles.get(input.profileId);
+      if (!raw) throw new Error("career_profile_missing");
+      const profile = migrateCareerProfileToV2(CareerProfileSchema.parse(raw));
+      if (input.expectedRevision !== undefined && input.expectedRevision !== profile.version) throw new RevisionConflictError();
+      const person = profile.personId ? await this.getCareerPersonWithoutMigration(profile.personId) : undefined;
+      if (profile.isCurrent || person?.currentProfileId === profile.id) throw new Error("career_profile_current_cannot_trash");
+      if (profile.trashedAt) {
+        const result = { profile, idempotent: true as const };
+        await this.db.appMeta.put({ key: careerLifecycleOperationKey(operationId), value: result, updatedAt: new Date().toISOString() });
+        return result;
+      }
+      const now = new Date().toISOString();
+      const next = CareerProfileSchema.parse({ ...profile, trashedAt: now, isCurrent: false, version: profile.version + 1, updatedAt: now });
+      await this.db.profiles.put(next);
+      const result = { profile: migrateCareerProfileToV2(next), idempotent: false as const };
+      await this.db.appMeta.put({ key: careerLifecycleOperationKey(operationId), value: result, updatedAt: now });
+      return result;
+    });
+  }
+
+  async restoreProfileVersionFromTrash(input: CareerProfileLifecycleInput) {
+    const operationId = lifecycleOperationId(input);
+    return this.db.transaction("rw", this.db.profiles, this.db.appMeta, async () => {
+      const receipt = await this.db.appMeta.get(careerLifecycleOperationKey(operationId));
+      if (receipt) return { ...(receipt.value as { profile: CareerProfile }), idempotent: true as const };
+      const raw = await this.db.profiles.get(input.profileId);
+      if (!raw) throw new Error("career_profile_missing");
+      const profile = migrateCareerProfileToV2(CareerProfileSchema.parse(raw));
+      if (input.expectedRevision !== undefined && input.expectedRevision !== profile.version) throw new RevisionConflictError();
+      if (!profile.trashedAt) {
+        const result = { profile, idempotent: true as const };
+        await this.db.appMeta.put({ key: careerLifecycleOperationKey(operationId), value: result, updatedAt: new Date().toISOString() });
+        return result;
+      }
+      const now = new Date().toISOString();
+      const next = CareerProfileSchema.parse({ ...profile, trashedAt: undefined, version: profile.version + 1, updatedAt: now });
+      await this.db.profiles.put(next);
+      const result = { profile: migrateCareerProfileToV2(next), idempotent: false as const };
+      await this.db.appMeta.put({ key: careerLifecycleOperationKey(operationId), value: result, updatedAt: now });
+      return result;
+    });
+  }
+
+  async permanentlyDeleteProfileVersion(input: CareerProfileLifecycleInput) {
+    const operationId = lifecycleOperationId(input);
+    const receipt = await this.db.appMeta.get(careerLifecycleOperationKey(operationId));
+    if (receipt) return receipt.value as { deleted: true; blockers: Record<string, number> };
+    const raw = await this.db.profiles.get(input.profileId);
+    if (!raw) return { deleted: true as const, blockers: {} };
+    const profile = migrateCareerProfileToV2(CareerProfileSchema.parse(raw));
+    if (input.expectedRevision !== undefined && input.expectedRevision !== profile.version) throw new RevisionConflictError();
+    if (!profile.trashedAt) throw new Error("career_profile_not_in_trash");
+    const [profileBlockers, person] = await Promise.all([
+      this.getProfileDeleteBlockers(profile.id),
+      profile.personId ? this.getCareerPerson(profile.personId) : undefined
+    ]);
+    const blockers = { ...profileBlockers, currentProfile: person?.currentProfileId === profile.id ? 1 : 0 };
+    if (Object.values(blockers).some((count) => count > 0)) return { deleted: false as const, blockers };
+    await this.db.transaction("rw", this.db.profiles, this.db.appMeta, async () => {
+      const latest = await this.db.profiles.get(profile.id);
+      if (!latest) return;
+      const latestProfile = migrateCareerProfileToV2(CareerProfileSchema.parse(latest));
+      if (latestProfile.version !== profile.version || !latestProfile.trashedAt) throw new RevisionConflictError();
+      await this.db.profiles.delete(profile.id);
+      await this.db.appMeta.delete(`profileArchive:${profile.id}:skills`);
+      await this.db.appMeta.delete(`profileArchive:${profile.id}:managed-items`);
+      await this.db.appMeta.put({ key: careerLifecycleOperationKey(operationId), value: { deleted: true, blockers }, updatedAt: new Date().toISOString() });
+    });
+    return { deleted: true as const, blockers };
+  }
+
+  async permanentlyDeletePerson(input: CareerPersonLifecycleInput) {
+    const operationId = lifecycleOperationId(input);
+    const receipt = await this.db.appMeta.get(careerLifecycleOperationKey(operationId));
+    if (receipt) return receipt.value as { deleted: true; blockers: Record<string, number> };
+    const person = await this.getCareerPerson(input.personId);
+    if (!person) return { deleted: true as const, blockers: {} };
+    if (input.expectedUpdatedAt && input.expectedUpdatedAt !== person.updatedAt) throw new RevisionConflictError();
+    if (!person.trashedAt) throw new Error("career_person_not_in_trash");
+    const profiles = (await this.listProfiles()).filter((profile) => profile.personId === person.id);
+    const profileBlockers = await Promise.all(profiles.map((profile) => this.getProfileDeleteBlockers(profile.id)));
+    const blockers = profileBlockers.reduce<Record<string, number>>((result, profileBlocker) => {
+      for (const [key, rawCount] of Object.entries(profileBlocker)) {
+        const count = typeof rawCount === "number" ? rawCount : 0;
+        result[key] = (result[key] ?? 0) + count;
+      }
+      return result;
+    }, { profiles: profiles.length });
+    if (Object.values(blockers).some((count) => count > 0)) return { deleted: false as const, blockers };
+    return this.db.transaction("rw", this.db.profiles, this.db.appMeta, async () => {
+      const latestPerson = await this.getCareerPersonWithoutMigration(person.id);
+      if (!latestPerson?.trashedAt) throw new Error("career_person_not_in_trash");
+      const latestProfiles = (await this.db.profiles.toArray()).filter((raw) => CareerProfileSchema.safeParse(raw).success && (raw as CareerProfile).personId === person.id);
+      if (latestProfiles.length > 0) return { deleted: false as const, blockers: { ...blockers, profiles: latestProfiles.length } };
+      const now = new Date().toISOString();
+      await this.db.appMeta.delete(careerPersonMetaKey(person.id));
+      const indexRow = await this.db.appMeta.get(CAREER_PERSON_INDEX_META_KEY);
+      if (Array.isArray(indexRow?.value)) {
+        await this.db.appMeta.put({ key: CAREER_PERSON_INDEX_META_KEY, value: indexRow.value.filter((value) => value !== person.id), updatedAt: now });
+      }
+      const result = { deleted: true as const, blockers };
+      await this.db.appMeta.put({ key: careerLifecycleOperationKey(operationId), value: result, updatedAt: now });
+      return result;
+    });
   }
 
   async saveRawInput(rawInput: RawInputDocument) {

@@ -1,4 +1,5 @@
-import { canonicalProfileLibraryItems, canonicalProfileSectionCounts } from "@/domain/profile/canonicalLibrary";
+import { canonicalProfileSectionCounts } from "@/domain/profile/canonicalLibrary";
+import { countProfileContent, profileCountSummary } from "@/domain/profile/profileCounts";
 import type { AgentSession } from "@/agent/contracts/agentSession";
 import { QuickActionContextSnapshotSchema, type QuickActionContextSnapshot } from "@/agent/contracts/quickActionContext";
 import { WorkspaceRepository } from "@/services/storage/repositories";
@@ -37,18 +38,37 @@ export async function buildQuickActionContextSnapshot(
     repository.listResumeBranches(),
     repository.listJobDescriptions()
   ]);
-  const activeProfile = context
-    ? profiles.find((profile) => profile.id === context.profileId && profile.personId === context.personId && !profile.archivedAt)
+  const targetPersonId = session?.personId ?? context?.personId;
+  const targetProfileId = session?.activeProfileId ?? context?.profileId;
+  const activeProfile = targetProfileId && targetPersonId
+    ? profiles.find((profile) => profile.id === targetProfileId && profile.personId === targetPersonId && !profile.archivedAt && !profile.trashedAt)
     : undefined;
-  const activePerson = context
-    ? persons.find((person) => person.id === context.personId)
+  const activePerson = targetPersonId
+    ? persons.find((person) => person.id === targetPersonId && !person.trashedAt)
     : undefined;
   const counts = activeProfile ? canonicalProfileSectionCounts(activeProfile) : new Map<string, number>();
   const profileCountsBySection: Record<string, number> = { ...EMPTY_COUNTS };
   counts.forEach((count, section) => {
     profileCountsBySection[section] = count;
   });
-  const profileItemCount = activeProfile ? canonicalProfileLibraryItems(activeProfile).length : 0;
+  const profileContentCounts = activeProfile ? countProfileContent(activeProfile) : countProfileContentEmpty();
+  const activeResumeBranches = resumes.filter((branch) => !branch.lifecycleStatus || branch.lifecycleStatus === "active");
+  const samePersonProfileIds = new Set(profiles.filter((profile) => profile.personId === targetPersonId && profile.id !== targetProfileId && !profile.trashedAt).map((profile) => profile.id));
+  const toResumeSummary = (branch: typeof resumes[number]) => ({
+    id: branch.id,
+    profileId: branch.profileId,
+    name: branch.name,
+    purpose: branch.branchPurpose,
+    revision: branch.revision,
+    updatedAt: branch.updatedAt
+  });
+  const activeProfileResumeSummaries = activeProfile
+    ? activeResumeBranches.filter((branch) => branch.profileId === activeProfile.id).map(toResumeSummary)
+    : [];
+  const samePersonOtherVersionResumeSummaries = activeResumeBranches
+    .filter((branch) => samePersonProfileIds.has(branch.profileId))
+    .map(toResumeSummary);
+  const excludedOtherPersonResumeCount = activeResumeBranches.length - activeProfileResumeSummaries.length - samePersonOtherVersionResumeSummaries.length;
   const activeTaskSummary = session
     ? {
         sessionId: session.id,
@@ -84,23 +104,28 @@ export async function buildQuickActionContextSnapshot(
       profileVersionLabel: activeProfile.profileVersionLabel,
       profileRevision: activeProfile.version,
       createdAt: activeProfile.createdAt,
-      itemCount: profileItemCount,
+      itemCount: profileContentCounts.careerItemCount,
+      basicFieldCount: profileContentCounts.basicFieldCount,
+      careerItemCount: profileContentCounts.careerItemCount,
+      confirmedFactCount: profileContentCounts.confirmedFactCount,
+      resumeCount: activeProfileResumeSummaries.length,
       profileCountsBySection
     } : undefined,
     profileVersionNumber: activeProfile?.profileVersionNumber ?? context?.profileVersionNumber,
     profileRevision: activeProfile?.version ?? context?.profileRevision,
     profileCountsBySection,
-    profileItemCount,
-    resumeSummaries: resumes
-      .filter((branch) => !branch.lifecycleStatus || branch.lifecycleStatus === "active")
-      .map((branch) => ({
-        id: branch.id,
-        profileId: branch.profileId,
-        name: branch.name,
-        purpose: branch.branchPurpose,
-        revision: branch.revision,
-        updatedAt: branch.updatedAt
-      })),
+    profileItemCount: profileContentCounts.careerItemCount,
+    basicFieldCount: profileContentCounts.basicFieldCount,
+    careerItemCount: profileContentCounts.careerItemCount,
+    confirmedFactCount: profileContentCounts.confirmedFactCount,
+    resumeCount: activeProfileResumeSummaries.length,
+    targetPersonId,
+    targetProfileId,
+    excludedOtherPersonResumeCount,
+    activeProfileResumeSummaries,
+    samePersonOtherVersionResumeSummaries,
+    // Compatibility field: it contains only the target Person's branches.
+    resumeSummaries: [...activeProfileResumeSummaries, ...samePersonOtherVersionResumeSummaries],
     jobSummaries: jobs.map((job) => ({
       id: job.id,
       title: job.title,
@@ -111,6 +136,10 @@ export async function buildQuickActionContextSnapshot(
   });
 }
 
+function countProfileContentEmpty() {
+  return { basicFieldCount: 0, careerItemCount: 0, confirmedFactCount: 0, resumeCount: 0 };
+}
+
 export function quickActionProfileLabel(snapshot: QuickActionContextSnapshot) {
   if (!snapshot.activePerson || !snapshot.activeProfile) return undefined;
   return `${snapshot.activePerson.displayName} · V${snapshot.activeProfile.profileVersionNumber}`;
@@ -118,4 +147,8 @@ export function quickActionProfileLabel(snapshot: QuickActionContextSnapshot) {
 
 export function quickActionSectionCount(snapshot: QuickActionContextSnapshot, section: string) {
   return snapshot.profileCountsBySection[section] ?? 0;
+}
+
+export function quickActionProfileCountSummary(snapshot: QuickActionContextSnapshot) {
+  return profileCountSummary(snapshot);
 }

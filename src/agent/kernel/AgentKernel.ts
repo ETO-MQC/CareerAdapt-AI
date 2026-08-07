@@ -256,9 +256,12 @@ export class AgentKernel {
             || !taskState.selectedEntities.profileId
           )
         ) {
+          const verifiedContext = objectValue(taskState.knownSlots.profileCommitVerification);
+          const verifiedProfileName = stringValue(verifiedContext.profileName) ?? "当前人物";
+          const verifiedVersion = numberValue(verifiedContext.profileVersion);
           const text = taskState.completionStatus === "waiting_for_user"
-            ? "资料已保存到个人资料库。你可以生成一份通用简历，也可以暂时完成。"
-            : "资料已成功保存到个人资料库。个人资料库已更新，未自动创建其他简历。";
+            ? `已写入‘${verifiedProfileName} · V${verifiedVersion ?? "当前版本"}’个人资料库。你可以生成一份通用简历，也可以暂时完成。`
+            : `已写入‘${verifiedProfileName} · V${verifiedVersion ?? "当前版本"}’个人资料库。个人资料库已更新，未自动创建其他简历。`;
           const alignedText = !taskState.selectedEntities.profileId && !taskState.knownSlots.targetProfileId
             ? text
             : alignAnswer(text);

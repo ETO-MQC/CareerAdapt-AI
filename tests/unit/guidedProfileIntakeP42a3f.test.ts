@@ -727,7 +727,22 @@ describe("P4.2a.3f guided profile intake intent authority", () => {
           committedItemCount: 3
         }
       }]
-    })).toBe("已将 3 项确认经历保存到个人资料库。");
+    })).toBe("写入步骤已完成，正在读取核验；暂不显示个人资料库写入结论。");
+
+    expect(groundMutationClaims({
+      userMessage: "确认保存这些经历",
+      text: "已成功保存 8 段经历到你的个人资料库。",
+      observations: [
+        {
+          toolName: "commit_profile_intake",
+          value: { profileId: "profile-a", profileVersion: 2, committedItemCount: 3 }
+        },
+        {
+          toolName: "get_profile",
+          value: { profile: { id: "profile-a", version: 2, name: "小明" } }
+        }
+      ]
+    })).toBe("已写入‘小明 · V2’个人资料库。本次新增 3 项经历。");
 
     expect(groundMutationClaims({
       userMessage: "确认保存这些经历",

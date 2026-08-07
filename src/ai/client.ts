@@ -51,6 +51,14 @@ export async function invokeStructuredAi<TOutput>(input: {
     "Content-Type": "application/json"
   };
 
+type StructuredAiDiagnostics = {
+  provider?: string;
+  model?: string;
+  attempt?: number;
+  latencyMs?: number;
+  safeErrorCode?: string;
+};
+
   if (hasCustomSettings) {
     headers["x-ai-config"] = encodeAiSettingsForHeader(aiSettings);
   }
@@ -59,6 +67,8 @@ export async function invokeStructuredAi<TOutput>(input: {
     method: "POST", headers, signal: input.signal,
     body: JSON.stringify({ task: input.task, input: input.businessInput })
   };
+  const requestStartedAt = Date.now();
+  const elapsedMs = () => Math.max(0, Date.now() - requestStartedAt);
   let response: Response;
   try {
     response = await fetch("/api/ai/structured", requestInit);
@@ -75,6 +85,12 @@ export async function invokeStructuredAi<TOutput>(input: {
     return {
       ok: false as const,
       errorCode,
+      diagnostics: {
+        safeErrorCode: errorCode,
+        provider: "server",
+        attempt: 1,
+        latencyMs: elapsedMs()
+      } satisfies StructuredAiDiagnostics,
       log: createAiLog({
         task: input.task,
         status: "provider_failed",
@@ -93,6 +109,12 @@ export async function invokeStructuredAi<TOutput>(input: {
     return {
       ok: false as const,
       errorCode: "structured_endpoint_invalid_json",
+      diagnostics: {
+        safeErrorCode: "structured_endpoint_invalid_json",
+        provider: "server",
+        attempt: 1,
+        latencyMs: elapsedMs()
+      } satisfies StructuredAiDiagnostics,
       log: createAiLog({
         task: input.task,
         status: "provider_failed",
@@ -120,7 +142,12 @@ export async function invokeStructuredAi<TOutput>(input: {
             attempt: payload.meta?.attempt,
             latencyMs: payload.meta?.latencyMs
           }
-        : undefined,
+        : {
+            safeErrorCode: errorCode,
+            provider: "server",
+            attempt: 1,
+            latencyMs: elapsedMs()
+          },
       log: createAiLog({
         task: input.task,
         status: "provider_failed",
@@ -138,6 +165,13 @@ export async function invokeStructuredAi<TOutput>(input: {
     return {
       ok: false as const,
       errorCode: "client_schema_validation_failed",
+      diagnostics: {
+        safeErrorCode: "client_schema_validation_failed",
+        provider: payload.meta.provider,
+        model: payload.meta.model,
+        attempt: payload.meta.attemptCount ?? 1,
+        latencyMs: payload.meta.latencyMs ?? elapsedMs()
+      } satisfies StructuredAiDiagnostics,
       log: createAiLog({
         task: input.task,
         status: "validation_failed",
@@ -153,6 +187,12 @@ export async function invokeStructuredAi<TOutput>(input: {
   return {
     ok: true as const,
     data: parsed.data,
+    diagnostics: {
+      provider: payload.meta.provider,
+      model: payload.meta.model,
+      attempt: payload.meta.attemptCount ?? 1,
+      latencyMs: payload.meta.latencyMs ?? elapsedMs()
+    } satisfies StructuredAiDiagnostics,
     promptVersion: payload.promptVersion,
     log: createAiLog({
       task: input.task,

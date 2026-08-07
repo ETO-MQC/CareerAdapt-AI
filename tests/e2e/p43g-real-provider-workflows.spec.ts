@@ -82,6 +82,10 @@ test.describe("P4.3g headed real-provider workflow journeys", () => {
     const projection = objectValue(objectValue(session.taskState).knownSlots).profileIntakeReviewProjection as Record<string, unknown>;
     expect(projection.providerStatus).toBe("failed");
     expect(projection.extractionStatus).toBe("structured_local");
+    const diagnostics = objectValue(projection.safeDiagnostics);
+    expect(diagnostics.safeErrorCode).toBe("provider_unavailable");
+    await page.getByText("查看技术详情", { exact: true }).click();
+    await expect(page.locator(".profile-intake-technical-details")).toContainText("provider_unavailable");
     expect(telemetry.structuredTasks).toContain("profile-intake-semantic");
     await recordArtifacts(page, telemetry, testInfo, "B");
   });
@@ -98,7 +102,27 @@ test.describe("P4.3g headed real-provider workflow journeys", () => {
     const session = await readActiveSession(page);
     const projection = objectValue(objectValue(session.taskState).knownSlots).profileIntakeReviewProjection as Record<string, unknown>;
     const candidates = Array.isArray(projection.candidates) ? projection.candidates as Array<Record<string, unknown>> : [];
-    expect(candidates.length).toBeGreaterThan(1);
+    const assetCandidates = candidates.filter((candidate) => candidate.sectionType !== "education");
+    const structuredItems = assetCandidates.map((candidate) => objectValue(candidate.structuredItem));
+    expect(assetCandidates).toHaveLength(8);
+    expect(assetCandidates.filter((candidate) => candidate.sectionType === "project")).toHaveLength(5);
+    expect(assetCandidates.filter((candidate) => candidate.sectionType === "awards")).toHaveLength(1);
+    expect(assetCandidates.filter((candidate) => candidate.sectionType === "research")).toHaveLength(1);
+    expect(assetCandidates.filter((candidate) => candidate.sectionType === "campus")).toHaveLength(1);
+    const projectTitles = structuredItems
+      .filter((item) => item.sectionType === "project")
+      .flatMap((item) => typeof item.title === "string" ? [item.title] : []);
+    expect(projectTitles).toEqual(expect.arrayContaining([
+      expect.stringContaining("穿戴设备"),
+      expect.stringContaining("示例任务系统"),
+      expect.stringContaining("示例学习助手"),
+      expect.stringContaining("内容采集"),
+      expect.stringContaining("CareerAdapt AI")
+    ]));
+    expect(assetCandidates.find((candidate) => candidate.sectionType === "awards")?.sourceQuote).toMatch(/三等奖/u);
+    expect(assetCandidates.find((candidate) => candidate.sectionType === "research")?.sourceQuote).toMatch(/(?:PDF|实验数据|视觉模型)/u);
+    expect(assetCandidates.find((candidate) => candidate.sectionType === "campus")?.sourceQuote).toContain("团支书");
+    expect(structuredItems.some((item) => item.role === "独立开发者")).toBe(false);
     expect(candidates.every((candidate) => typeof candidate.sourceQuote === "string" && String(candidate.sourceQuote).length > 0)).toBe(true);
     expect(candidates.some((candidate) => candidate.sectionType === "project")).toBe(true);
 
@@ -161,7 +185,7 @@ test.describe("P4.3g headed real-provider workflow journeys", () => {
     const telemetry = observeProviderTraffic(page);
     await useServerProvider(page);
     await page.goto("/profile");
-    await expect(page.getByLabel("选择人物")).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole("button", { name: "管理人物与版本", exact: true })).toBeVisible({ timeout: 30_000 });
     await page.goto("/ai-workspace");
     const quickAction = page.getByRole("button", { name: /^导入现有简历/ });
     await expect(quickAction).toBeVisible({ timeout: 30_000 });
@@ -181,10 +205,16 @@ test.describe("P4.3g headed real-provider workflow journeys", () => {
     await page.locator(".agent-composer input[type='file']").setInputFiles(
       resolve(process.cwd(), "tests/fixtures/resume-import/ordinary.docx")
     );
+    await expect(page.getByText("待发送", { exact: true })).toBeVisible();
+    await expect(page.getByTestId("agent-import-ai-consent")).toHaveCount(0);
+    expect(telemetry.agentStreamCalls).toBe(0);
+    expect(telemetry.structuredTasks).toHaveLength(0);
+    await page.getByRole("button", { name: "发送消息", exact: true }).click();
     const consent = page.getByTestId("agent-import-ai-consent");
-    if (await consent.isVisible({ timeout: 1_000 }).catch(() => false)) {
-      await consent.getByRole("button", { name: "仅本地解析", exact: true }).click();
-    }
+    await expect(consent).toBeVisible({ timeout: 30_000 });
+    await consent.getByRole("button", { name: "仅本地解析", exact: true }).click();
+    await expect(consent).toHaveCount(0, { timeout: 30_000 });
+    await page.waitForTimeout(1_000);
     await expect(page.getByRole("button", { name: "产物 1", exact: true })).toBeVisible({ timeout: 120_000 });
     await page.getByRole("button", { name: "产物 1", exact: true }).click();
     await expect(page.getByRole("complementary", { name: "任务产物" })).toContainText("ordinary.docx", { timeout: 120_000 });
@@ -296,7 +326,7 @@ async function useUnavailableProvider(page: Page) {
 
 async function startIntake(page: Page) {
   await page.goto("/profile");
-  await expect(page.getByLabel("选择人物")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole("button", { name: "管理人物与版本", exact: true })).toBeVisible({ timeout: 30_000 });
   await page.goto("/ai-workspace");
   await page.getByRole("button", { name: /从零整理我的经历/ }).click();
   await expect(page.locator('[data-agent-workflow-id="guided_profile_intake"][data-agent-task-stage="collect_experience"]'))
@@ -306,7 +336,7 @@ async function startIntake(page: Page) {
 
 async function leaveSavedJobsWithoutProfileOrResume(page: Page) {
   await page.goto("/profile");
-  await expect(page.getByLabel("选择人物")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole("button", { name: "管理人物与版本", exact: true })).toBeVisible({ timeout: 30_000 });
   await page.evaluate(async () => {
     const database = await new Promise<IDBDatabase>((resolveDb, reject) => {
       const request = indexedDB.open("CareerAdaptDb");

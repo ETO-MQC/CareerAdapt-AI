@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { ResumeItemV2Schema, ResumeSectionTypeV2Schema } from "@/domain/schemas";
+import { ProfileIntakeSourceTurnDiagnosticsSchema } from "./ProfileIntakeSourceTurn";
 
 export const ProfileIntakeExtractionStatusSchema = z.enum([
   "structured_ai",
@@ -25,6 +26,12 @@ export const ProfileIntakeReviewCandidateStatusSchema = z.enum([
   "failed"
 ]);
 
+export const ProfileIntakeReviewCandidateSourceBadgeSchema = z.enum([
+  "ai",
+  "local",
+  "needs_confirmation"
+]);
+
 const SourceSpanSchema = z.object({
   start: z.number().int().min(0),
   end: z.number().int().min(0)
@@ -44,6 +51,7 @@ export const ProfileIntakeReviewCandidateSchema = z.object({
   confidence: z.number().min(0).max(1),
   needsConfirmation: z.boolean(),
   status: ProfileIntakeReviewCandidateStatusSchema,
+  sourceBadge: ProfileIntakeReviewCandidateSourceBadgeSchema.default("needs_confirmation"),
   decision: z.enum(["accept", "reject"]).optional(),
   canAccept: z.boolean(),
   reason: z.string().min(1).optional(),
@@ -86,7 +94,8 @@ export const ProfileIntakeReviewProjectionSchema = z.object({
   reviewProgress: ProfileIntakeReviewProgressSchema,
   followUpQuestions: z.array(z.string().min(1).max(500)).max(3).default([]),
   followUpQuestion: z.string().min(1).max(500).optional(),
-  failedExtraction: ProfileIntakeFailedExtractionSchema.optional()
+  failedExtraction: ProfileIntakeFailedExtractionSchema.optional(),
+  safeDiagnostics: ProfileIntakeSourceTurnDiagnosticsSchema.optional()
 }).strict();
 
 export type ProfileIntakeReviewCandidate = z.infer<typeof ProfileIntakeReviewCandidateSchema>;
@@ -94,6 +103,7 @@ export type ProfileIntakeReviewProgress = z.infer<typeof ProfileIntakeReviewProg
 export type ProfileIntakeReviewProjection = z.infer<typeof ProfileIntakeReviewProjectionSchema>;
 export type ProfileIntakeExtractionStatus = z.infer<typeof ProfileIntakeExtractionStatusSchema>;
 export type ProfileIntakeProviderStatus = z.infer<typeof ProfileIntakeProviderStatusSchema>;
+export type ProfileIntakeReviewCandidateSourceBadge = z.infer<typeof ProfileIntakeReviewCandidateSourceBadgeSchema>;
 
 export function isProfileIntakeReviewProjection(value: unknown): value is ProfileIntakeReviewProjection {
   return ProfileIntakeReviewProjectionSchema.safeParse(value).success;

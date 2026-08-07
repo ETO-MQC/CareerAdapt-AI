@@ -1,9 +1,120 @@
 import { describe, expect, it } from "vitest";
 import { ProfileIntakeSemanticService } from "@/domain/profileIntake/ProfileIntakeSemanticService";
-import { adaptConversationMessageToIntakeDraft } from "@/domain/profileIntake/ConversationIntakeAdapter";
+import { adaptConversationMessageToIntakeDraft, buildConversationIntakeReviewProjectionFromDraft, mergeConversationIntakeDraft } from "@/domain/profileIntake/ConversationIntakeAdapter";
 import { aiTaskRegistry } from "@/ai/tasks/registry";
 
 describe("P4.3f V2 conversational extraction", () => {
+  it("uses named source blocks and quarantines one bad V3 candidate without numeric offsets", async () => {
+    const narrative = "开发 TaskAI 项目，使用 Python。获得省级竞赛三等奖。";
+    const result = await new ProfileIntakeSemanticService(async () => ({
+      ok: true as const,
+      data: {
+        candidates: [
+          {
+            candidateKey: "taskai",
+            sectionType: "project" as const,
+            sourceBlockIds: ["source-block-1"],
+            sourceQuote: "开发 TaskAI 项目，使用 Python。",
+            structuredItem: { sectionType: "project" as const, title: "TaskAI", tools: ["Python"] },
+            professionalText: "开发 TaskAI 项目，使用 Python。",
+            uncertainFields: []
+          },
+          {
+            candidateKey: "bad-award",
+            sectionType: "awards" as const,
+            sourceBlockIds: ["missing-source-block"],
+            sourceQuote: "获得省级竞赛三等奖。",
+            structuredItem: { sectionType: "awards" as const, name: "省级竞赛三等奖" },
+            uncertainFields: []
+          }
+        ],
+        followUpQuestions: []
+      }
+    })).normalize({ rawNarrative: narrative });
+
+    expect(result.candidates).toHaveLength(1);
+    expect(result.candidates[0]?.sourceQuote).toBe("开发 TaskAI 项目，使用 Python。");
+    expect(result.candidates[0]?.sourceSpan).toEqual({ start: 0, end: "开发 TaskAI 项目，使用 Python。".length });
+    expect(result.candidates[0]?.sourceBlockIds).toEqual(["source-block-1"]);
+    expect(result.quarantinedCandidateCount).toBe(1);
+    expect(result.extractionStatus).toBe("partial");
+  });
+
+  it("keeps an explicit award title and marks an unresolved single-block quote uncertain", async () => {
+    const narrative = "参加示例编程竞赛并获得某省省级三等奖。开发示例学习助手。";
+    const result = await new ProfileIntakeSemanticService(async () => ({
+      ok: true as const,
+      data: {
+        candidates: [
+          {
+            candidateKey: "award",
+            sectionType: "awards" as const,
+            sourceBlockIds: ["source-block-1"],
+            sourceQuote: "某省省级三等奖。",
+            structuredItem: { sectionType: "awards" as const, title: "某省省级三等奖" },
+            uncertainFields: []
+          },
+          {
+            candidateKey: "learning-assistant",
+            sectionType: "project" as const,
+            sourceBlockIds: ["source-block-1"],
+            sourceQuote: "学习助手项目的概括性引用",
+            structuredItem: { sectionType: "project" as const, title: "示例学习助手" },
+            uncertainFields: []
+          }
+        ],
+        followUpQuestions: []
+      }
+    })).normalize({ rawNarrative: narrative });
+
+    expect(result.candidates).toHaveLength(2);
+    expect(result.candidates.find((candidate) => candidate.normalization.structuredItem?.sectionType === "awards")?.normalization.structuredItem).toMatchObject({
+      sectionType: "awards",
+      name: "某省省级三等奖"
+    });
+    expect(result.candidates.find((candidate) => candidate.normalization.structuredItem?.sectionType === "project")?.uncertainFields).toContain("sourceQuote");
+    expect(result.quarantinedCandidateCount).toBe(0);
+  });
+
+  it("does not let a historical provider warning poison the latest successful source turn", async () => {
+    const failed = adaptConversationMessageToIntakeDraft({
+      sessionId: "session-history",
+      messageId: "message-history-1",
+      turnId: "turn-history-1",
+      text: "旧回答暂未完成整理。",
+      capturedAt: "2026-08-04T09:00:00.000Z",
+      semanticResult: { mode: "deterministic", providerStatus: "failed", extractionStatus: "failed", warning: "provider_unavailable", candidates: [] }
+    }).draft;
+    const successful = await new ProfileIntakeSemanticService(async () => ({
+      ok: true as const,
+      data: {
+        candidates: [{
+          candidateKey: "taskai",
+          sectionType: "project" as const,
+          sourceSpan: { start: 0, end: 14 },
+          structuredItem: { sectionType: "project" as const, title: "TaskAI" },
+          professionalText: "开发 TaskAI 项目。",
+          uncertainFields: []
+        }],
+        followUpQuestions: []
+      }
+    })).normalize({ rawNarrative: "我开发 TaskAI 项目。" });
+    const current = adaptConversationMessageToIntakeDraft({
+      sessionId: "session-history",
+      messageId: "message-history-2",
+      turnId: "turn-history-2",
+      text: "我开发 TaskAI 项目。",
+      capturedAt: "2026-08-04T09:01:00.000Z",
+      semanticResult: successful
+    }).draft;
+    const merged = mergeConversationIntakeDraft(failed, current);
+    const projection = buildConversationIntakeReviewProjectionFromDraft(merged);
+
+    expect(merged.warnings.some((warning) => warning.code === "provider_unavailable")).toBe(true);
+    expect(projection.extractionStatus).toBe("structured_ai");
+    expect(projection.safeDiagnostics?.extractionStatus).toBe("structured_ai");
+  });
+
   it("salvages valid candidates when one candidate has an invalid source span", async () => {
     const narrative = "我开发 TaskAI 项目，使用 Python。参加示例编程竞赛并获得省级三等奖。";
     const service = new ProfileIntakeSemanticService(async () => ({
