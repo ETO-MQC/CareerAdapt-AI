@@ -360,7 +360,11 @@ export function buildConversationIntakeReviewProjectionFromDraft(
     ?? draft.source.sourceTurnId
     ?? `draft-${draft.importId}`;
   const sourceContentHash = draft.source.sourceContentHash ?? stableHashText(rawText);
-  const items = draft.sections.flatMap((section) => section.items);
+  const finalAssets = draft.intakeSession?.finalSynthesis?.assets ?? [];
+  const finalItemIds = new Set(finalAssets.map((asset) => asset.candidateId));
+  const items = finalAssets.length
+    ? draft.sections.flatMap((section) => section.items.filter((item) => finalItemIds.has(item.id)))
+    : draft.sections.flatMap((section) => section.items);
   const candidatesFromItems = items.flatMap((item) => {
         if (!item.structuredItem || item.careerNormalization?.needsNormalization) return [];
         const sourceQuote = item.sourceQuote ?? item.rawText;
@@ -444,11 +448,13 @@ export function buildConversationIntakeReviewProjectionFromDraft(
   return ProfileIntakeReviewProjectionSchema.parse({
     importId: draft.importId,
     draftRevision: draft.revision,
+    phase: draft.intakeSession?.phase ?? "collecting",
+    ...(draft.intakeSession?.finalSynthesis ? { finalSynthesis: draft.intakeSession.finalSynthesis } : {}),
     sourceMessageId,
     sourceTurnId,
     sourceContentHash,
     providerStatus: draft.intakeSession?.providerStatus ?? "available",
-    extractionStatus: failed
+    extractionStatus: finalAssets.length > 0 ? "structured_local" : failed
       ? "failed"
       : draft.intakeSession?.latestSourceTurnDiagnostics?.extractionStatus === "structured_local"
         ? "structured_local"
@@ -461,6 +467,9 @@ export function buildConversationIntakeReviewProjectionFromDraft(
           : "structured_ai",
     candidates,
     reviewProgress,
+    ...(draft.intakeSession?.finalSynthesisRevision !== undefined && finalAssets.length > 0
+      ? { finalReviewRevision: draft.intakeSession.finalSynthesisRevision }
+      : {}),
     safeDiagnostics: draft.intakeSession?.latestSourceTurnDiagnostics,
     followUpQuestions: questions,
     ...(questions[0] ? { followUpQuestion: questions[0] } : {}),

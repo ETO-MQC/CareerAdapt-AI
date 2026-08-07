@@ -89,6 +89,7 @@ describe("Agent artifact decisions", () => {
       />
     );
 
+    fireEvent.click(screen.getByText(/查看当前整理草稿/));
     expect(screen.getByText("项目")).toBeVisible();
     expect(screen.getByText("AI 整理待确认")).toBeVisible();
     expect(screen.getByText(/2026-02/)).toBeVisible();
@@ -137,6 +138,7 @@ describe("Agent artifact decisions", () => {
       />
     );
 
+    fireEvent.click(screen.getByText(/查看当前整理草稿/));
     expect(screen.queryByRole("button", { name: "采用" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "重试整理" })).toBeVisible();
     expect(screen.getByRole("button", { name: "编辑后采用" })).toBeVisible();

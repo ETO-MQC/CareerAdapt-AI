@@ -72,6 +72,10 @@ export function AgentConversation({
   const latestAssistantMessage = visibleMessages.findLast((message) =>
     message.role === "assistant" && !isStreamingMessage(message)
   );
+  // P4.3k keeps each turn as a compact receipt and moves candidate review to
+  // the final artifact.  The inline cards remain only for older persisted
+  // projections that predate the collecting/clarifying phases.
+  const showLegacyProfileIntakeCards = profileIntakeProjection?.phase === "collecting";
   const endRef = useRef<HTMLDivElement>(null);
   const [editing, setEditing] = useState<{ messageId: string; content: string }>();
   const [historyMessageId, setHistoryMessageId] = useState<string>();
@@ -181,10 +185,12 @@ export function AgentConversation({
             />
           );
         })}
-        <ProfileIntakeCandidateCards
-          projection={profileIntakeProjection}
-          onAction={onArtifactAction}
-        />
+        {showLegacyProfileIntakeCards ? (
+          <ProfileIntakeCandidateCards
+            projection={profileIntakeProjection}
+            onAction={onArtifactAction}
+          />
+        ) : null}
         {children}
         {visibleMessages.length ? (
           <div className="agent-conversation-actions" aria-label="会话操作">

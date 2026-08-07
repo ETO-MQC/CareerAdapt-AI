@@ -8,6 +8,7 @@ import type { AgentTaskState } from "@/agent/contracts/agentSession";
 import type { AgentArtifactAction, AgentUiAction } from "@/agent/contracts/agentActions";
 import type { ProfileIntakeStructuredPatch } from "@/domain/profileIntake/ProfileIntakeNormalizer";
 import { ResumeTailoringDiffSchema } from "@/domain/schemas";
+import { RESUME_SECTION_TYPES_V2, resumeFieldCatalog, resumeSectionById, type ResumeSectionTypeV2 } from "@/domain/resumeFields";
 import { tailoringDiffId } from "@/services/jobs/tailoringDiffId";
 import { ProfileIntakeReviewProjectionSchema, type ProfileIntakeReviewProjection } from "@/domain/profileIntake/ProfileIntakeReviewProjection";
 
@@ -95,6 +96,12 @@ export function AgentArtifactContent({
     : [];
   const intakeProjectionResult = ProfileIntakeReviewProjectionSchema.safeParse(taskState?.knownSlots.profileIntakeReviewProjection);
   const intakeProjection = intakeProjectionResult.success ? intakeProjectionResult.data : undefined;
+  const intakePhase = typeof taskState?.knownSlots.profileIntakePhase === "string"
+    ? taskState.knownSlots.profileIntakePhase
+    : intakeProjection?.phase ?? "collecting";
+  const isFinalIntakeReview = Boolean(intakeProjection?.finalSynthesis)
+    || ["ready_for_review", "reviewing", "committing"].includes(intakePhase);
+  const [showProvisionalDraft, setShowProvisionalDraft] = useState(false);
   const intakeArtifact = intakeProjection
     ? projectionArtifact(intakeProjection)
     : asRecord(taskState?.knownSlots.intakeArtifact);
@@ -128,11 +135,11 @@ export function AgentArtifactContent({
         <section className="agent-artifact agent-import-review-artifact" aria-label="经历核对">
           <header>
             <div>
-              <strong>经历核对</strong>
-              <span>{recognizedIntake.length + uncertainIntake.length} 项候选</span>
+                <strong>{isFinalIntakeReview ? "最终资料草稿" : "访谈整理进度"}</strong>
+                <span>{recognizedIntake.length + uncertainIntake.length} 项已记录</span>
             </div>
             <span className="agent-import-review-state">
-              {uncertainIntake.length ? `${uncertainIntake.length} 项待确认` : "可对账"}
+              {isFinalIntakeReview ? "待一次性审核" : "已保存到本地草稿"}
             </span>
           </header>
           <dl>
@@ -147,6 +154,13 @@ export function AgentArtifactContent({
             </p>
           ) : null}
           {richIntakeCandidates.length ? (
+            isFinalIntakeReview ? null : (
+            <details
+              className="agent-intake-provisional-details"
+              open={showProvisionalDraft}
+              onToggle={(event) => setShowProvisionalDraft(event.currentTarget.open)}
+            >
+              <summary>查看当前整理草稿 <span>{richIntakeCandidates.length} 项</span></summary>
             <div className="agent-career-asset-list">
               {richIntakeCandidates.map((item) => {
                 const highlights = stringArray(item.highlights);
@@ -303,6 +317,8 @@ export function AgentArtifactContent({
                 );
               })}
             </div>
+            </details>
+            )
           ) : recognizedIntake.length ? (
             <details open>
               <summary>已识别 <span>{recognizedIntake.length}</span></summary>
@@ -341,9 +357,10 @@ export function AgentArtifactContent({
               ))}
             </ul>
           </details>
-          {taskState?.stage && ["final_review", "resolve_conflicts", "confirm_commit"].includes(taskState.stage) ? (
+          {isFinalIntakeReview ? (
             <ProfileIntakeFinalReview
               taskState={taskState}
+              projection={intakeProjection}
               onImportAction={onImportAction}
               onArtifactAction={onArtifactAction}
             />
@@ -699,79 +716,153 @@ function renderValue(value: unknown) {
 
 function ProfileIntakeFinalReview({
   taskState,
+  projection,
   onImportAction,
   onArtifactAction
 }: {
   taskState: AgentTaskState;
+  projection?: ProfileIntakeReviewProjection;
   onImportAction?(message: string): void;
   onArtifactAction?(action: AgentArtifactAction): Promise<unknown> | void;
 }) {
-  const candidates = arrayOfRecords(taskState.knownSlots.intakeCandidates);
-  const accepted = candidates.filter((item) => item.decision === "accept" || item.included === true);
-  const rejected = candidates.filter((item) => item.decision === "reject").length;
-  const counts = accepted.reduce<Record<string, number>>((result, item) => {
-    const section = String(item.sectionType ?? "other");
+  const candidates = projection?.candidates
+    ?? arrayOfRecords(taskState.knownSlots.intakeCandidates) as ProfileIntakeReviewProjection["candidates"];
+  const synthesis = projection?.finalSynthesis;
+  const assets = synthesis?.assets ?? [];
+  const accepted = candidates.filter((item) => item.status === "accepted" || item.decision === "accept");
+  const ignored = candidates.filter((item) => item.status === "ignored" || item.decision === "reject");
+  const reviewed = candidates.filter((item) => item.status === "accepted" || item.status === "ignored" || item.decision === "accept" || item.decision === "reject");
+  const counts = candidates.reduce<Record<string, number>>((result, item) => {
+    const section = item.sectionType;
     result[section] = (result[section] ?? 0) + 1;
     return result;
   }, {});
-  const reconciliation = asRecord(taskState.knownSlots.intakeReconciliation);
-  const summary = asRecord(reconciliation.summary);
-  const unresolved = Array.isArray(reconciliation.unresolved)
-    ? reconciliation.unresolved.map(asRecord)
-    : [];
+  const assetById = new Map(assets.map((asset) => [asset.candidateId, asset]));
+  const grouped = new Map<string, ProfileIntakeReviewProjection["candidates"]>();
+  for (const candidate of candidates) {
+    const section = grouped.get(candidate.sectionType) ?? [];
+    section.push(candidate);
+    grouped.set(candidate.sectionType, section);
+  }
   const profileName = typeof taskState.knownSlots.targetProfileName === "string"
     ? taskState.knownSlots.targetProfileName
-    : "当前目标资料库";
+    : typeof taskState.knownSlots.targetProfileLabel === "string"
+      ? taskState.knownSlots.targetProfileLabel
+      : "人物 · Vn";
+  const importId = projection?.importId ?? (typeof taskState.knownSlots.intakeImportId === "string" ? taskState.knownSlots.intakeImportId : undefined);
+  const revision = projection?.draftRevision ?? (typeof taskState.knownSlots.expectedIntakeDraftRevision === "number" ? taskState.knownSlots.expectedIntakeDraftRevision : undefined);
+  const canAct = Boolean(importId && revision !== undefined);
+  const allReviewed = candidates.length > 0 && reviewed.length === candidates.length;
 
   return (
-    <section className="agent-final-review" aria-label="最终批量审核">
+    <section className="agent-final-review" aria-label="最终资料草稿审核">
       <header>
         <div>
-          <strong>最终批量审核</strong>
-          <span>本次整理草稿</span>
+          <strong>最终资料草稿</strong>
+          <span>{reviewed.length}/{candidates.length} 项已处理</span>
         </div>
-        <span className="agent-import-review-state">尚未写入资料库</span>
+        <span className="agent-import-review-state">确认前不会写入</span>
       </header>
+      <p className="agent-final-review-heading">
+        最终资料草稿 共 {candidates.length} 项，AI 已根据本次完整访谈进行整理。确认后才会写入‘{profileName}’资料库。
+      </p>
       <dl>
         {Object.entries(counts).map(([section, count]) => (
           <div key={section}><dt>{sectionTypeLabel(section)}</dt><dd>{count} 项</dd></div>
         ))}
         <div><dt>已采用</dt><dd>{accepted.length} 项</dd></div>
-        <div><dt>已忽略</dt><dd>{rejected} 项</dd></div>
-        <div><dt>可能重复</dt><dd>{numberValue(summary.existing ?? summary.duplicates)} 项</dd></div>
-        <div><dt>可能冲突</dt><dd>{numberValue(summary.requiresReview ?? summary.conflicts)} 项</dd></div>
+        <div><dt>已忽略</dt><dd>{ignored.length} 项</dd></div>
+        <div><dt>待处理</dt><dd>{Math.max(0, candidates.length - reviewed.length)} 项</dd></div>
       </dl>
-      <p>目标资料库：{profileName}</p>
-      <p>将新增或合并的事实：{accepted.length} 项已确认经历；写入前仍会执行一次对账。</p>
-      {unresolved.length ? (
-        <div className="agent-reconciliation-list">
-          {unresolved.map((item) => (
-            <article key={String(item.incomingItemId)}>
-              <div><strong>{String(item.label ?? "待核对内容")}</strong><span>{item.state === "conflict" ? "字段冲突" : "可能重复"}</span></div>
-              <div className="agent-import-review-actions">
-                <button type="button" onClick={() => onArtifactAction?.({
-                  type: "profile_intake_reconciliation_decision",
-                  incomingItemId: String(item.incomingItemId),
-                  resolution: "keep_existing"
-                })}>保留原数据</button>
-                <button type="button" onClick={() => onArtifactAction?.({
-                  type: "profile_intake_reconciliation_decision",
-                  incomingItemId: String(item.incomingItemId),
-                  resolution: "use_imported"
-                })}>采用本次</button>
-                <button type="button" onClick={() => onArtifactAction?.({
-                  type: "profile_intake_reconciliation_decision",
-                  incomingItemId: String(item.incomingItemId),
-                  resolution: "keep_both_as_distinct"
-                })}>视为不同经历</button>
-              </div>
-            </article>
-          ))}
-        </div>
+      {synthesis?.conflictCount ? (
+        <p className="agent-final-review-note">已保留 {synthesis.conflictCount} 项字段差异，编辑时请以你的明确修正为准。</p>
       ) : null}
-      {taskState.stage === "final_review" ? (
-        <button className="primary-button" type="button" onClick={() => onImportAction?.("完成整理并保存到资料库")}>完成整理并保存到资料库</button>
-      ) : null}
+      <div className="agent-final-review-groups">
+        {[...grouped.entries()].map(([section, sectionCandidates]) => (
+          <section key={section} aria-labelledby={`final-review-${section}`}>
+            <h4 id={`final-review-${section}`}>{sectionTypeLabel(section)} <span>{sectionCandidates.length}</span></h4>
+            <div className="agent-final-review-items">
+              {sectionCandidates.map((candidate) => {
+                const structuredItem = asRecord(candidate.structuredItem);
+                const asset = assetById.get(candidate.id);
+                const candidateAccepted = candidate.status === "accepted" || candidate.decision === "accept";
+                const candidateIgnored = candidate.status === "ignored" || candidate.decision === "reject";
+                const candidateHighlights = asset?.highlights ?? stringArray(structuredItem.highlights);
+                return (
+                  <article key={candidate.id} className="agent-final-review-item" data-candidate-id={candidate.id}>
+                    <header>
+                      <div>
+                        <span className="agent-career-asset-type">{sectionTypeLabel(candidate.sectionType)}</span>
+                        <strong>{finalCandidateLabel(candidate)}</strong>
+                      </div>
+                      <span className={`agent-career-asset-status is-${candidate.status}`}>{candidateAccepted ? "已采用" : candidateIgnored ? "已忽略" : "待处理"}</span>
+                    </header>
+                    <p className="agent-career-asset-meta">{finalCandidateMeta(candidate)}</p>
+                    {candidateHighlights.length ? <DetailList title="证据亮点" values={candidateHighlights} /> : null}
+                    {asset?.missingDimensions.length ? <p className="agent-final-review-note">待补充：{asset.missingDimensions.join("、")}</p> : null}
+                    {asset?.conflictFields.length ? <p className="agent-final-review-note">字段差异：{asset.conflictFields.join("、")}</p> : null}
+                    <details>
+                      <summary>查看原始来源</summary>
+                      <p className="agent-career-asset-description">{candidate.sourceQuote}</p>
+                    </details>
+                    {canAct ? (
+                      <div className="agent-import-review-actions" aria-label={`${finalCandidateLabel(candidate)}操作`}>
+                        <IntakeCandidateEditor
+                          key={`${candidate.id}-${JSON.stringify(structuredItem)}`}
+                          item={structuredItem}
+                          sectionType={candidate.sectionType}
+                          label={finalCandidateLabel(candidate)}
+                          buttonLabel="编辑"
+                          userCorrection
+                          onSave={(fieldPatch, nextSectionType) => onArtifactAction?.({
+                            type: "profile_intake_candidate_edit",
+                            importId: importId as string,
+                            expectedDraftRevision: revision as number,
+                            candidateId: candidate.id,
+                            ...(nextSectionType ? { sectionType: nextSectionType } : {}),
+                            fieldPatch,
+                            userCorrection: true,
+                            decision: "accept"
+                          })}
+                        />
+                        {candidateAccepted ? (
+                          <button type="button" onClick={() => onArtifactAction?.({ type: "profile_intake_candidate_decision", candidateId: candidate.id, decision: "reopen" })}>撤销采用</button>
+                        ) : (
+                          <button type="button" onClick={() => onArtifactAction?.({ type: "profile_intake_candidate_decision", candidateId: candidate.id, decision: "accept" })}>逐项采用</button>
+                        )}
+                        {!candidateIgnored ? (
+                          <button type="button" onClick={() => onArtifactAction?.({ type: "profile_intake_candidate_decision", candidateId: candidate.id, decision: "reject" })}>忽略</button>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </article>
+                );
+              })}
+            </div>
+          </section>
+        ))}
+      </div>
+      <div className="agent-final-review-actions agent-import-review-actions">
+        {canAct ? (
+          <button
+            className="is-primary"
+            type="button"
+            disabled={!candidates.length}
+            onClick={() => onArtifactAction?.({
+              type: "profile_intake_final_review_decision",
+              importId: importId as string,
+              expectedDraftRevision: revision as number,
+              decision: "accept_all"
+            })}
+          >全部采用</button>
+        ) : null}
+        <button type="button" onClick={() => onImportAction?.("新增一项经历")}>新增一项</button>
+        <button type="button" onClick={() => onImportAction?.("返回继续补充经历")}>返回继续补充</button>
+        {allReviewed ? (
+          <button className="is-primary" type="button" onClick={() => onImportAction?.("完成整理并保存到资料库")}>确认并写入个人资料库</button>
+        ) : null}
+      </div>
+      {taskState.knownSlots.profileIntakePhase === "committing" ? <p role="status">正在核对并写入已确认的资料…</p> : null}
     </section>
   );
 }
@@ -900,56 +991,185 @@ function typedResumeFields(item: Record<string, unknown>) {
 
 function IntakeCandidateEditor({
   item,
+  sectionType,
   label,
   buttonLabel = "编辑字段",
+  userCorrection = false,
   onSave
 }: {
   item: Record<string, unknown>;
+  sectionType?: ResumeItemSectionType;
   label: string;
   buttonLabel?: string;
-  onSave(patch: ProfileIntakeStructuredPatch): Promise<unknown> | void;
+  userCorrection?: boolean;
+  onSave(patch: ProfileIntakeStructuredPatch, sectionType?: ResumeItemSectionType): Promise<unknown> | void;
 }) {
-  const education = item.sectionType === "education";
-  const fields = education
-    ? ["school", "degree", "major", "startDate", "endDate"]
-    : ["title", "name", "organization", "role", "startDate", "endDate"];
+  const itemSectionType = isResumeItemSectionType(item.sectionType) ? item.sectionType : "other";
+  const initialSectionType = sectionType ?? itemSectionType;
+  const [selectedSectionType, setSelectedSectionType] = useState<ResumeItemSectionType>(initialSectionType);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
-  const [draft, setDraft] = useState<Record<string, string>>(() => Object.fromEntries(fields.map((field) => [field, String(item[field] ?? "")] )));
+  const [draft, setDraft] = useState<Record<string, string | boolean>>(() => editorDraft(item, initialSectionType));
+  const fields = editorFields(selectedSectionType);
   if (!editing) {
     return <button type="button" onClick={() => { setError(undefined); setEditing(true); }}>{buttonLabel}</button>;
   }
   return (
     <form className="agent-career-asset-editor" onSubmit={(event) => {
       event.preventDefault();
-      const patch = Object.fromEntries(Object.entries(draft).filter(([, value]) => value.trim())) as ProfileIntakeStructuredPatch;
+      const patchEntries: Array<[string, unknown]> = [];
+      let customFieldsInvalid = false;
+      fields.forEach((field) => {
+        const value = draft[field.name];
+        if (field.name === "customFields") {
+          const raw = String(value ?? "").trim();
+          if (!raw) {
+            patchEntries.push([field.name, []]);
+            return;
+          }
+          try {
+            const parsed: unknown = JSON.parse(raw);
+            if (!Array.isArray(parsed)) throw new Error("custom_fields_array_required");
+            patchEntries.push([field.name, parsed]);
+          } catch {
+            customFieldsInvalid = true;
+          }
+          return;
+        }
+        if (field.valueType === "boolean") {
+          if (typeof value === "boolean") patchEntries.push([field.name, value]);
+          return;
+        }
+        if (field.valueType === "string_list") {
+          const values = String(value ?? "").split(/[\n,，；;]+/u).map((entry) => entry.trim()).filter(Boolean);
+          if (values.length) patchEntries.push([field.name, values]);
+          return;
+        }
+        if (field.valueType === "number") {
+          const number = Number(value);
+          if (String(value ?? "").trim() && Number.isFinite(number)) patchEntries.push([field.name, number]);
+          return;
+        }
+        const text = String(value ?? "").trim();
+          if (text) patchEntries.push([field.name, text]);
+      });
+      if (customFieldsInvalid) {
+        setError("自定义字段必须是有效的 JSON 数组。");
+        return;
+      }
+      const patch = Object.fromEntries(patchEntries) as ProfileIntakeStructuredPatch;
       if (!Object.keys(patch).length) return;
       if (saving) return;
       setError(undefined);
       setSaving(true);
-      Promise.resolve(onSave(patch)).then((result) => {
+      Promise.resolve(onSave(patch, selectedSectionType !== itemSectionType ? selectedSectionType : undefined)).then((result) => {
         if (artifactActionFailed(result)) {
-          setError(artifactActionFeedbackMessage(result) ?? "保存失败，请检查来源证据后重试。");
+          setError(artifactActionFeedbackMessage(result) ?? "保存失败，请检查字段格式后重试。");
           return;
         }
         setEditing(false);
       }).catch(() => setError("保存失败，请重试。"))
         .finally(() => setSaving(false));
     }}>
-      <strong>编辑 {label}</strong>
-      {fields.map((field) => (
-        <label key={field}>{fieldLabel(field)}
-          <input disabled={saving} value={draft[field] ?? ""} onChange={(event) => setDraft((current) => ({ ...current, [field]: event.target.value }))} />
-        </label>
-      ))}
+      <strong>{userCorrection ? "用户修正" : "编辑"} {label}</strong>
+      <label>栏目
+        <select
+          disabled={saving}
+          value={selectedSectionType}
+          onChange={(event) => {
+            const next = event.target.value as ResumeItemSectionType;
+            setSelectedSectionType(next);
+            setDraft((current) => editorFields(next).reduce<Record<string, string | boolean>>((result, field) => {
+              result[field.name] = current[field.name] ?? editorValue(item[field.name], field.valueType, field.name);
+              return result;
+            }, {}));
+          }}
+        >
+          {RESUME_SECTION_TYPES_V2.filter((value) => value !== "basics").map((value) => (
+            <option key={value} value={value}>{resumeSectionById.get(value)?.label ?? sectionTypeLabel(value)}</option>
+          ))}
+        </select>
+      </label>
+      {fields.map((field) => {
+        const value = draft[field.name] ?? "";
+        if (field.valueType === "boolean") {
+          return <label key={field.name} className="agent-career-asset-editor-checkbox"><input type="checkbox" disabled={saving} checked={value === true} onChange={(event) => setDraft((current) => ({ ...current, [field.name]: event.target.checked }))} />{field.label}</label>;
+        }
+        if (field.uiControl === "textarea" || field.valueType === "text" || field.valueType === "string_list") {
+          return <label key={field.name}>{field.label}<textarea disabled={saving} rows={field.valueType === "string_list" ? 2 : 3} value={String(value)} onChange={(event) => setDraft((current) => ({ ...current, [field.name]: event.target.value }))} placeholder={field.valueType === "string_list" ? "每行一项" : undefined} /></label>;
+        }
+        if (field.uiControl === "select") {
+          const options = editorSelectOptions(field.name, String(value));
+          return <label key={field.name}>{field.label}<select disabled={saving} value={String(value)} onChange={(event) => setDraft((current) => ({ ...current, [field.name]: event.target.value }))}>{options.map((option) => <option key={option} value={option}>{option || "未填写"}</option>)}</select></label>;
+        }
+        return <label key={field.name}>{field.label}<input disabled={saving} type={field.valueType === "number" ? "number" : field.valueType === "date" ? "month" : field.valueType === "url" ? "url" : "text"} value={String(value)} onChange={(event) => setDraft((current) => ({ ...current, [field.name]: event.target.value }))} /></label>;
+      })}
       <div>
         <button type="submit" disabled={saving}>{saving ? "正在保存…" : "保存并采用"}</button>
         <button type="button" disabled={saving} onClick={() => setEditing(false)}>取消</button>
       </div>
+      {selectedSectionType !== itemSectionType ? <span className="agent-diff-feedback">栏目变更会先执行兼容性迁移；不兼容字段不会被静默丢弃。</span> : null}
       {error ? <span className="agent-diff-feedback is-error" role="status">{error}</span> : null}
     </form>
   );
+}
+
+type IntakeEditorField = {
+  name: string;
+  label: string;
+  valueType: "string" | "text" | "number" | "boolean" | "date" | "url" | "string_list";
+  uiControl?: "text" | "textarea" | "date" | "checkbox" | "number" | "url" | "tags" | "select";
+};
+
+type ResumeItemSectionType = Exclude<ResumeSectionTypeV2, "basics">;
+
+function editorFields(sectionType: ResumeItemSectionType): IntakeEditorField[] {
+  if (sectionType === "custom") {
+    return [
+      { name: "title", label: "标题", valueType: "string", uiControl: "text" },
+      { name: "description", label: "内容", valueType: "text", uiControl: "textarea" },
+      { name: "highlights", label: "要点", valueType: "string_list", uiControl: "tags" },
+      { name: "customFields", label: "自定义字段（JSON）", valueType: "text", uiControl: "textarea" }
+    ];
+  }
+  return [
+    ...resumeFieldCatalog
+    .filter((field) => field.sectionType === sectionType)
+    .sort((left, right) => left.displayOrder - right.displayOrder)
+    .map((field) => ({
+      name: field.id.slice(sectionType.length + 1),
+      label: field.label,
+      valueType: field.valueType,
+      uiControl: field.uiControl
+    })),
+    { name: "customFields", label: "自定义字段（JSON）", valueType: "text", uiControl: "textarea" }
+  ];
+}
+
+function editorValue(value: unknown, valueType: IntakeEditorField["valueType"], fieldName?: string): string | boolean {
+  if (valueType === "boolean") return value === true;
+  if (fieldName === "customFields") return JSON.stringify(value ?? [], null, 2);
+  if (valueType === "string_list") return Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === "string").join("\n") : String(value ?? "");
+  return value === undefined || value === null ? "" : String(value);
+}
+
+function editorDraft(item: Record<string, unknown>, sectionType: ResumeItemSectionType) {
+  return Object.fromEntries(editorFields(sectionType).map((field) => [field.name, editorValue(item[field.name], field.valueType, field.name)])) as Record<string, string | boolean>;
+}
+
+function isResumeItemSectionType(value: unknown): value is ResumeItemSectionType {
+  return typeof value === "string" && value !== "basics" && RESUME_SECTION_TYPES_V2.includes(value as ResumeSectionTypeV2);
+}
+
+function editorSelectOptions(field: string, current: string) {
+  const common: Record<string, string[]> = {
+    level: ["熟练", "熟悉", "了解", "入门"],
+    status: ["有效", "进行中", "已完成", "已发表", "已授权", "已过期"],
+    publicationStatus: ["计划中", "投稿中", "已发表", "已接收"],
+    category: ["技术", "工具", "语言", "平台", "其他"]
+  };
+  return [...new Set(["", ...(current ? [current] : []), ...(common[field] ?? [])])];
 }
 
 function artifactActionFailed(result: unknown) {
@@ -964,10 +1184,6 @@ function artifactActionFeedbackMessage(result: unknown) {
   const taskState = asRecord(session.taskState);
   const feedback = asRecord(asRecord(taskState.knownSlots).artifactActionFeedback);
   return typeof feedback.message === "string" ? feedback.message : undefined;
-}
-
-function fieldLabel(field: string) {
-  return ({ school: "学校", degree: "学位", major: "专业", title: "标题", name: "名称", organization: "组织", role: "角色", startDate: "开始时间", endDate: "结束时间" } as Record<string, string>)[field] ?? field;
 }
 
 function stringArray(value: unknown) {
@@ -994,4 +1210,23 @@ function sectionTypeLabel(value: unknown) {
     languages: "语言", publications: "出版物", patents: "专利", portfolio: "作品", other: "其他", custom: "自定义"
   };
   return labels[String(value)] ?? "经历";
+}
+
+function finalCandidateLabel(candidate: ProfileIntakeReviewProjection["candidates"][number]) {
+  const item = asRecord(candidate.structuredItem);
+  if (candidate.sectionType === "education") {
+    return [item.school, item.degree, item.major].filter(Boolean).map(String).join(" / ") || "教育经历";
+  }
+  const identity = ["work", "internship", "campus", "volunteer"].includes(candidate.sectionType)
+    ? item.organization
+    : item.title ?? item.name;
+  return typeof identity === "string" && identity.trim()
+    ? identity
+    : `待补充${sectionTypeLabel(candidate.sectionType)}名称`;
+}
+
+function finalCandidateMeta(candidate: ProfileIntakeReviewProjection["candidates"][number]) {
+  const item = asRecord(candidate.structuredItem);
+  const dates = [item.startDate, item.current === true ? "至今" : item.endDate].filter(Boolean).map(String).join(" — ");
+  return [item.organization ?? item.institution, item.role ?? item.authorRole, dates].filter(Boolean).map(String).join(" · ") || "时间 / 组织 / 角色待补充";
 }

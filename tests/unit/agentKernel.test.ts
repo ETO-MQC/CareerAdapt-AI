@@ -717,9 +717,9 @@ describe("AgentKernel", () => {
 
     expect(captureProfileIntake).toHaveBeenCalledTimes(1);
     expect(model.completeWithTools).toHaveBeenCalledTimes(0);
-    expect(result.text).toContain("请在下面直接核对");
+    expect(result.text).toBe("已记录并保存到本地整理草稿。");
     expect(result.taskState).toMatchObject({
-      stage: "review_facts",
+      stage: "collect_experience",
       completionStatus: "waiting_for_user",
       knownSlots: {
         intakeImportId: "intake-long-answer",

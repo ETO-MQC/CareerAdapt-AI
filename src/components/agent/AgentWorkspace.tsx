@@ -90,12 +90,17 @@ export function AgentWorkspace() {
   const intakeCandidates = intakeProjection?.candidates
     ?? (Array.isArray(session.taskState?.knownSlots.intakeCandidates) ? session.taskState.knownSlots.intakeCandidates : []);
   const canFinishIntake = session.taskState?.workflowId === "guided_profile_intake"
-    && session.taskState.stage === "collect_experience"
+    && ["collect_experience", "review_facts"].includes(session.taskState.stage)
+    && ["collecting", "clarifying", undefined].includes(
+      typeof session.taskState.knownSlots.profileIntakePhase === "string"
+        ? session.taskState.knownSlots.profileIntakePhase
+        : undefined
+    )
     && intakeCandidates.some((candidate) => {
       const item = candidate && typeof candidate === "object" && !Array.isArray(candidate)
         ? candidate as Record<string, unknown>
         : {};
-      return item.status === "accepted" || item.decision === "accept" || item.included === true;
+      return item.status !== "failed" && item.decision !== "reject" && item.included !== false;
     });
 
   const updateDrawerState = useCallback((next: AgentArtifactDrawerState) => {
@@ -507,6 +512,21 @@ export function AgentWorkspace() {
     const sourceTurns = await host.store.listProfileIntakeSourceTurns(session.id);
     const task = session.taskState;
     const slots = task?.knownSlots ?? {};
+    const artifactFeedback = slots.artifactActionFeedback && typeof slots.artifactActionFeedback === "object" && !Array.isArray(slots.artifactActionFeedback)
+      ? slots.artifactActionFeedback as Record<string, unknown>
+      : undefined;
+    const safeArtifactActionFeedback = artifactFeedback ? {
+      actionType: artifactFeedback.actionType,
+      id: artifactFeedback.id ?? artifactFeedback.entityId,
+      operationId: artifactFeedback.operationId,
+      hash: artifactFeedback.hash,
+      safeErrorCode: artifactFeedback.safeErrorCode,
+      fieldNames: Array.isArray(artifactFeedback.fieldNames) ? artifactFeedback.fieldNames : undefined,
+      stage: artifactFeedback.stage,
+      timestamp: artifactFeedback.timestamp ?? artifactFeedback.updatedAt,
+      result: artifactFeedback.result,
+      retryable: artifactFeedback.retryable
+    } : undefined;
     const safeTaskState = task ? {
       workflowId: task.workflowId,
       stage: task.stage,
@@ -523,7 +543,10 @@ export function AgentWorkspace() {
         intakeImportId: slots.intakeImportId,
         expectedIntakeDraftRevision: slots.expectedIntakeDraftRevision,
         expectedProfileVersion: slots.expectedProfileVersion,
-        activeQuestionId: slots.activeQuestionId
+        activeQuestionId: slots.activeQuestionId,
+        profileIntakePhase: slots.profileIntakePhase,
+        finalReviewRevision: slots.finalReviewRevision,
+        artifactActionFeedback: safeArtifactActionFeedback
       }
     } : undefined;
     const bundle = {
@@ -563,6 +586,7 @@ export function AgentWorkspace() {
           operationId: message.metadata?.operationId ?? message.metadata?.writeOperationId
         })),
       extractionStatus: intakeProjection?.extractionStatus,
+      profileIntakePhase: slots.profileIntakePhase ?? intakeProjection?.phase,
       safeOperationReceipts: session.messages
         .flatMap((message) => {
           const operationId = message.metadata?.operationId ?? message.metadata?.writeOperationId;

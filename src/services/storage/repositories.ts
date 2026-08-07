@@ -1772,6 +1772,14 @@ export class WorkspaceRepository {
         revision: draft.revision + 1,
         confirmedProfileId: committedProfile.id,
         confirmedAt: now,
+        ...(draft.intakeSession ? {
+          intakeSession: {
+            ...draft.intakeSession,
+            phase: "completed" as const,
+            autosavedAt: now,
+            resumeToken: stableHashText(`${draft.importId}:${draft.revision + 1}:completed`)
+          }
+        } : {}),
         updatedAt: now
       });
       const existingItemIds = new Set(canonicalProfileLibraryItems(profile).map((item) => item.id));

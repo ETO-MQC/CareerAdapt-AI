@@ -3,6 +3,7 @@ import { ProfileIntakeStructuredPatchSchema } from "@/domain/profileIntake/Profi
 import { CaptureProfileIntakeResultSchema } from "@/domain/profileIntake/CaptureProfileIntakeResult";
 import type { AgentToolDefinition, AgentToolResult } from "../contracts/agentTool";
 import type { ExternalToolProvider } from "./externalToolProvider";
+import { ResumeSectionTypeV2Schema } from "@/domain/schemas/resumeV2";
 
 const OperationOutputSchema = z.object({ operationId: z.string().min(8) }).passthrough();
 const CaptureProfileIntakeToolOutputSchema = CaptureProfileIntakeResultSchema.extend({
@@ -32,6 +33,7 @@ export type AgentToolServices = {
   reconcileResumeImport?(input: unknown, signal?: AbortSignal): Promise<unknown>;
   resolveResumeReconciliation?(input: unknown, signal?: AbortSignal): Promise<unknown>;
   captureProfileIntake?(input: unknown, signal?: AbortSignal): Promise<unknown>;
+  synthesizeProfileIntake?(input: unknown, signal?: AbortSignal): Promise<unknown>;
   reviewProfileIntake?(input: unknown, signal?: AbortSignal): Promise<unknown>;
   reconcileProfileIntake?(input: unknown, signal?: AbortSignal): Promise<unknown>;
   resolveProfileIntakeConflict?(input: unknown, signal?: AbortSignal): Promise<unknown>;
@@ -93,6 +95,8 @@ const ProfileIntakeCaptureInputSchema = z.object({
   targetProfileId: z.string().min(1),
   expectedProfileVersion: z.number().int().min(0),
   acknowledgedActiveProfileId: z.string().min(1).optional(),
+  intakeQuestionId: z.string().min(1).optional(),
+  intakeCandidateId: z.string().min(1).optional(),
   importId: z.string().min(1).optional(),
   expectedDraftRevision: z.number().int().min(0).optional(),
   sourceContentHash: z.string().min(8).optional(),
@@ -102,9 +106,11 @@ const ProfileIntakeCaptureInputSchema = z.object({
 const ProfileIntakeReviewInputSchema = z.object({
   importId: z.string().min(1),
   expectedDraftRevision: z.number().int().min(0),
-  candidateId: z.string().min(1),
-  decision: z.enum(["accept", "reject", "reopen"]),
+  candidateId: z.string().min(1).optional(),
+  decision: z.enum(["accept", "reject", "reopen", "accept_all"]),
   editedLabel: z.string().trim().min(1).max(240).optional(),
+  sectionType: ResumeSectionTypeV2Schema.exclude(["basics"]).optional(),
+  userCorrection: z.boolean().optional(),
   structuredPatch: ProfileIntakeStructuredPatchSchema.optional(),
   evidence: z.object({
     sessionId: z.string().min(1),
@@ -115,7 +121,13 @@ const ProfileIntakeReviewInputSchema = z.object({
     sourceContentHash: z.string().min(8).optional()
   }).strict().optional()
 }).strict().superRefine((input, context) => {
-  if (input.structuredPatch && !input.evidence) {
+  if (input.decision !== "accept_all" && !input.candidateId) {
+    context.addIssue({ code: "custom", path: ["candidateId"], message: "candidateId is required for an item decision" });
+  }
+  if (input.decision === "accept_all" && (input.structuredPatch || input.editedLabel || input.sectionType)) {
+    context.addIssue({ code: "custom", path: ["decision"], message: "accept_all cannot carry an item edit" });
+  }
+  if (input.structuredPatch && !input.evidence && input.userCorrection !== true) {
     context.addIssue({
       code: "custom",
       path: ["evidence"],
@@ -123,6 +135,11 @@ const ProfileIntakeReviewInputSchema = z.object({
     });
   }
 });
+
+const ProfileIntakeSynthesisInputSchema = z.object({
+  importId: z.string().min(1),
+  expectedDraftRevision: z.number().int().min(0)
+}).strict();
 
 const ProfileIntakeReconcileInputSchema = z.object({
   importId: z.string().min(1),
@@ -284,6 +301,7 @@ export function createAgentToolRegistry(services: AgentToolServices) {
     define(services, meta("reconcile_resume_import", "使用确定性 Profile Reconciliation Engine 比对导入草稿与指定已有资料库；只生成计划，不写入 Profile。", "read", false, true, false, ResumeImportReconcileInputSchema, "resume", "import_draft"), (input, _, signal) => services.reconcileResumeImport ? services.reconcileResumeImport(input, signal) : unavailableTool("reconcile_resume_import")),
     define(services, meta("resolve_resume_reconciliation", "记录用户对一个近似重复或真实字段冲突的明确决定；不会直接写入 Profile。", "user_declared", false, true, true, ResumeImportReconciliationResolutionInputSchema, "resume", "import_draft"), (input, _, signal) => services.resolveResumeReconciliation ? services.resolveResumeReconciliation(input, signal) : unavailableTool("resolve_resume_reconciliation")),
     define(services, meta("capture_profile_intake", "将当前访谈回答结构化为可恢复的经历核对草稿；保留 session、message、turn 和原文来源，不写入 CareerProfile。", "write", false, true, true, ProfileIntakeCaptureInputSchema, "profile", "conversation_intake", true, CaptureProfileIntakeToolOutputSchema), (input, _, signal) => services.captureProfileIntake ? services.captureProfileIntake(input, signal) : unavailableTool("capture_profile_intake")),
+    define(services, meta("synthesize_profile_intake", "汇总本次访谈全部原始回答与临时结构化事实，生成唯一最终资料草稿；不会写入 CareerProfile。", "write", false, true, true, ProfileIntakeSynthesisInputSchema, "profile", "conversation_intake", true), (input, _, signal) => services.synthesizeProfileIntake ? services.synthesizeProfileIntake(input, signal) : unavailableTool("synthesize_profile_intake")),
     define(services, meta("review_profile_intake", "核对同一个访谈候选，并可用用户明确补充的日期、职责和职业化表达安全更新同一草稿 revision；structuredPatch 必须附补充消息来源。", "user_declared", false, true, true, ProfileIntakeReviewInputSchema, "profile", "conversation_intake"), (input, _, signal) => services.reviewProfileIntake ? services.reviewProfileIntake(input, signal) : unavailableTool("review_profile_intake")),
     define(services, meta("reconcile_profile_intake", "复用 ProfileReconciliationEngine 将访谈草稿与目标资料库对账；只生成计划。", "read", false, true, true, ProfileIntakeReconcileInputSchema, "profile", "profile_reconciliation", true), (input, _, signal) => services.reconcileProfileIntake ? services.reconcileProfileIntake(input, signal) : unavailableTool("reconcile_profile_intake")),
     define(services, meta("resolve_profile_intake_conflict", "记录用户对访谈资料与现有资料冲突的明确决定。", "user_declared", false, true, true, ProfileIntakeConflictInputSchema, "profile", "profile_reconciliation"), (input, _, signal) => services.resolveProfileIntakeConflict ? services.resolveProfileIntakeConflict(input, signal) : unavailableTool("resolve_profile_intake_conflict")),
@@ -455,7 +473,7 @@ export const agentToolNames = [
   "recommend_resume_source",
   "skills_list", "skill_view", "prepare_resume_import", "review_resume_import", "reconcile_resume_import",
   "resolve_resume_reconciliation", "parse_resume_file", "create_resume_import_draft",
-  "capture_profile_intake", "review_profile_intake", "reconcile_profile_intake",
+  "capture_profile_intake", "synthesize_profile_intake", "review_profile_intake", "reconcile_profile_intake",
   "resolve_profile_intake_conflict", "commit_profile_intake", "ensure_general_resume_from_profile",
   "commit_resume_import", "parse_job_description", "commit_job", "create_job_resume_from_profile", "create_resume_from_profile", "analyze_job_fit",
   "create_tailoring_session", "answer_tailoring_question", "generate_tailoring_changes", "review_tailoring_diff", "preview_tailoring_changes",

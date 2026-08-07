@@ -46,6 +46,18 @@ export class AgentAttachmentStore {
     this.files.delete(id);
     this.refs.delete(id);
   }
+
+  releaseMany(ids: readonly string[]) {
+    for (const id of ids) this.release(id);
+  }
+
+  has(id: string) {
+    return this.files.has(id) && this.refs.has(id);
+  }
+
+  get activeCount() {
+    return this.refs.size;
+  }
 }
 
 export const agentAttachmentStore = new AgentAttachmentStore();

@@ -162,7 +162,7 @@ export class AgentTaskStateReducer {
           state.stage = "collect_experience";
         }
         const isIntakeAnswer = (
-          state.stage === "collect_experience"
+          (state.stage === "collect_experience" || state.stage === "review_facts")
           && event.message.trim()
           && isProfileIntakeAnswerTurn(acceptedEvidenceKind)
           && hasIntakeEvidence
@@ -176,12 +176,14 @@ export class AgentTaskStateReducer {
           if (isExplicitProfileIntakeSaveIntent(command)) {
             state.knownSlots.profileIntakeExplicitCommit = true;
             state.knownSlots.profileIntakeFinishRequested = true;
-            state.stage = "reconcile_profile";
+            state.stage = "final_review";
+            state.knownSlots.profileIntakePhase = "ready_for_review";
             state.completionStatus = "active";
           } else {
             state.knownSlots.profileIntakeExplicitCommit = false;
             state.knownSlots.profileIntakeFinishRequested = false;
             state.stage = "final_review";
+            state.knownSlots.profileIntakePhase = "ready_for_review";
             state.completionStatus = "waiting_for_user";
           }
         }
@@ -199,7 +201,8 @@ export class AgentTaskStateReducer {
             retracted: false,
             targetProfileId: state.knownSlots.targetProfileId,
             expectedProfileVersion: state.knownSlots.expectedProfileVersion,
-            intakeQuestionId: stringValue(state.knownSlots.activeQuestionId)
+            intakeQuestionId: stringValue(state.knownSlots.activeQuestionId),
+            intakeCandidateId: stringValue(objectValue(state.knownSlots.intakeActiveQuestion).candidateId)
           };
           state.stage = "structure_facts";
           state.pendingDecision = undefined;
@@ -509,6 +512,7 @@ export class AgentTaskStateReducer {
         state.knownSlots.profileIntakePersistenceStatus = value.persistenceStatus;
         state.knownSlots.profileIntakePersistenceReceipt = value.persistenceReceipt;
         state.knownSlots.intakeSession = value.intakeSession;
+        state.knownSlots.profileIntakePhase = objectValue(value.intakeSession).phase ?? "clarifying";
         if (projection) {
           state.knownSlots.profileIntakeReviewProjection = projection;
           if (projection.finalReviewRevision !== undefined) {
@@ -529,17 +533,37 @@ export class AgentTaskStateReducer {
         if (typeof activeQuestionId === "string") state.knownSlots.activeQuestionId = activeQuestionId;
         else delete state.knownSlots.activeQuestionId;
         state.pendingDecision = undefined;
-        state.stage = (projection?.candidates.some((candidate) =>
-          candidate.status === "proposed" || candidate.status === "uncertain" || candidate.status === "failed"
-        ) ?? (Array.isArray(value.candidates) && value.candidates.length > 0))
+        // Keep the legacy stage alias for persisted sessions, but the phase is
+        // the authoritative UI contract: provisional candidates never open a
+        // blocking review card after each turn.
+        state.knownSlots.profileIntakePhase = "clarifying";
+        state.stage = (projection?.candidates.some((candidate) => candidate.status === "failed") ?? false)
           ? "review_facts"
           : "collect_experience";
+        state.completionStatus = "waiting_for_user";
+      } else if (event.toolName === "synthesize_profile_intake") {
+        const value = objectValue(event.observation);
+        state.knownSlots.intakeImportId = value.importId;
+        state.knownSlots.expectedIntakeDraftRevision = value.expectedDraftRevision;
+        state.knownSlots.intakeSession = value.intakeSession;
+        state.knownSlots.profileIntakePhase = "ready_for_review";
+        state.knownSlots.profileIntakeFinalSynthesis = value.finalSynthesis;
+        state.knownSlots.finalReviewRevision = value.expectedDraftRevision;
+        const projection = ProfileIntakeReviewProjectionSchema.safeParse(value.reviewProjection);
+        if (projection.success) {
+          state.knownSlots.profileIntakeReviewProjection = projection.data;
+          state.knownSlots.intakeCandidates = projection.data.candidates;
+          state.knownSlots.intakeArtifact = value.artifactPayload;
+        }
+        state.stage = "final_review";
         state.completionStatus = "waiting_for_user";
       } else if (event.toolName === "review_profile_intake") {
         const value = objectValue(event.observation);
         state.knownSlots.expectedIntakeDraftRevision = value.expectedDraftRevision;
         state.knownSlots.profileIntakePersistenceReceipt = value.persistenceReceipt;
         state.knownSlots.intakeSession = value.intakeSession;
+        state.knownSlots.profileIntakePhase = objectValue(value.intakeSession).phase
+          ?? (value.decision === "accept_all" ? "reviewing" : state.knownSlots.profileIntakePhase ?? "clarifying");
         if (value.interviewPlan) state.knownSlots.intakeInterviewPlan = value.interviewPlan;
         if (value.followUpQuestion) state.knownSlots.intakeFollowUpQuestion = value.followUpQuestion;
         state.knownSlots.intakeActiveQuestion = objectValue(value.interviewPlan).activeQuestion;
@@ -557,11 +581,11 @@ export class AgentTaskStateReducer {
           state.knownSlots.intakeCandidates = authoritativeProjection.candidates;
           state.knownSlots.intakeArtifact = objectValue(value.artifactPayload);
           state.pendingDecision = undefined;
-          state.stage = authoritativeProjection.reviewProgress.proposed > 0
-            || authoritativeProjection.reviewProgress.uncertain > 0
-            || authoritativeProjection.extractionStatus === "failed"
-            ? "review_facts"
-            : "collect_experience";
+          state.stage = authoritativeProjection.finalSynthesis || state.knownSlots.profileIntakePhase === "reviewing"
+            ? "final_review"
+            : authoritativeProjection.reviewProgress.proposed > 0 || authoritativeProjection.reviewProgress.uncertain > 0 || authoritativeProjection.extractionStatus === "failed"
+              ? "review_facts"
+              : "collect_experience";
           state.completionStatus = "waiting_for_user";
           return normalize(state);
         }
@@ -626,7 +650,7 @@ export class AgentTaskStateReducer {
           };
         }
         state.pendingDecision = undefined;
-        state.stage = "collect_experience";
+          state.stage = state.knownSlots.profileIntakePhase === "reviewing" ? "final_review" : "collect_experience";
         state.completionStatus = "waiting_for_user";
       } else if (event.toolName === "reconcile_profile_intake") {
         const value = objectValue(event.observation);
@@ -680,6 +704,7 @@ export class AgentTaskStateReducer {
         state.knownSlots.targetProfileId = profileId;
         state.knownSlots.expectedProfileVersion = profileVersion;
         state.knownSlots.profileCommitResult = event.observation;
+        state.knownSlots.profileIntakePhase = "completed";
         delete state.knownSlots.profileCommitVerification;
         delete state.knownSlots.profileIntakeExplicitCommit;
         delete state.knownSlots.profileIntakeFinishRequested;
@@ -963,6 +988,8 @@ function resetProfileIntakeDraft(state: AgentTaskState) {
     "profileIntakePersistenceReceipt",
     "finalReviewRevision",
     "intakeSession",
+    "profileIntakePhase",
+    "profileIntakeFinalSynthesis",
     "activeQuestionId",
     "profileIntakeExplicitCommit",
     "profileIntakeFinishRequested",

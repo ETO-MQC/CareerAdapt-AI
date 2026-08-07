@@ -114,11 +114,18 @@ export class AgentExecutionCoordinator {
     return execution;
   }
 
-  finish(sessionId: string, status?: SessionExecutionStatus) {
+  finish(sessionId: string, status?: SessionExecutionStatus, generation?: number) {
     const execution = this.executions.get(sessionId);
     if (!execution) return;
+    // A stale promise can settle after the next queued turn has claimed the
+    // same session. Only the matching generation may clean up the record.
+    if (generation !== undefined && execution.generation !== generation) return execution;
     if (status) execution.status = status;
     execution.stalled = false;
+    // Terminal executions no longer own a live controller or stream.  Drop
+    // the session-scoped entry immediately so a long-lived workspace cannot
+    // retain completed promises and stream history indefinitely.
+    this.executions.delete(sessionId);
     return execution;
   }
 }

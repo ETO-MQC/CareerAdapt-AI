@@ -5,6 +5,8 @@ import { isCanonicalFieldId } from "@/domain/resumeFields";
 import { CustomFieldValueSchema, FlexibleSectionV2Schema, ResumeItemV2Schema, ResumeSectionTypeV2Schema } from "./resumeV2";
 import { ResumeJsonV2MappingTraceSchema } from "./resumeJsonV2";
 import { ProfileIntakeSourceTurnDiagnosticsSchema } from "@/domain/profileIntake/ProfileIntakeSourceTurn";
+import { ProfileIntakeFinalSynthesisSchema } from "@/domain/profileIntake/ProfileIntakeFinalSynthesis";
+import { ProfileIntakeProvenanceSchema } from "@/domain/profileIntake/ProfileIntakeProvenance";
 
 export const ImportedResumeDraftStatusSchema = z.enum([
   "extracting",
@@ -332,6 +334,7 @@ export const ImportedResumeItemSchema = z.object({
   structuredMappingTrace: z.array(ResumeJsonV2MappingTraceSchema).default([]),
   sourceQuote: z.string().min(1).optional(),
   conversationEvidence: z.array(ConversationIntakeEvidenceSchema).optional(),
+  provenance: z.array(ProfileIntakeProvenanceSchema).optional(),
   careerNormalization: z.object({
     version: z.literal("profile-intake-normalization-v1"),
     mode: z.enum(["deterministic", "ai"]),
@@ -441,7 +444,15 @@ export const ProfileIntakeDraftSessionSchema = z.object({
   providerStatus: z.enum(["available", "failed", "invalid"]).default("available"),
   extractionStatus: z.enum(["structured_ai", "structured_local", "partial", "failed"]).default("failed"),
   quarantinedCandidateCount: z.number().int().min(0).default(0),
-  latestSourceTurnDiagnostics: ProfileIntakeSourceTurnDiagnosticsSchema.optional()
+  latestSourceTurnDiagnostics: ProfileIntakeSourceTurnDiagnosticsSchema.optional(),
+  phase: z.enum(["collecting", "clarifying", "ready_for_review", "reviewing", "committing", "completed"]).default("collecting"),
+  userTurnCount: z.number().int().min(0).default(0),
+  automaticFollowUpCount: z.number().int().min(0).default(0),
+  perTurnBlockingReviewCount: z.number().int().min(0).default(0),
+  finalReviewCount: z.number().int().min(0).default(0),
+  followUpCounts: z.record(z.string(), z.number().int().min(0)).default({}),
+  finalSynthesisRevision: z.number().int().min(0).optional(),
+  finalSynthesis: ProfileIntakeFinalSynthesisSchema.optional()
 }).strict();
 
 export const StructuredResumeDraftItemSchema = z.union([

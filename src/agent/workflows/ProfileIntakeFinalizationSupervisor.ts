@@ -8,6 +8,7 @@ export type ProfileIntakeFinalizationDecision = {
   projection?: ProfileIntakeReviewProjection;
   autoAcceptCandidateIds: string[];
   unresolvedCandidateIds: string[];
+  shouldSynthesize: boolean;
   shouldReconcile: boolean;
   shouldCommit: boolean;
 };
@@ -36,9 +37,11 @@ export class ProfileIntakeFinalizationSupervisor {
   }): ProfileIntakeFinalizationDecision {
     const projection = ProfileIntakeReviewProjectionSchema.safeParse(input.reviewProjection);
     const parsed = projection.success ? projection.data : undefined;
-    const autoAcceptCandidateIds = parsed
-      ? parsed.candidates.filter(isSafeAutoAcceptCandidate).map((candidate) => candidate.id)
-      : [];
+    // The final synthesis is a user-facing consolidated review.  Even a
+    // source-grounded item must remain proposed until the user chooses
+    // “逐项采用” or “全部采用”; otherwise a typed “确认” could bypass the
+    // one-review boundary and commit without an explicit review action.
+    const autoAcceptCandidateIds = [] as string[];
     const unresolvedCandidateIds = parsed
       ? parsed.candidates
           .filter((candidate) => !["accepted", "ignored"].includes(candidate.status))
@@ -46,12 +49,17 @@ export class ProfileIntakeFinalizationSupervisor {
           .map((candidate) => candidate.id)
       : [];
     const explicitSave = input.explicitCommit === true || this.isExplicitSaveIntent(input.text);
+    const shouldSynthesize = this.isFinalizationStage(input.stage) && Boolean(parsed) && !parsed?.finalSynthesis;
+    const finalReviewComplete = Boolean(parsed?.finalSynthesis)
+      && unresolvedCandidateIds.length === 0
+      && parsed?.extractionStatus !== "failed";
     return {
       projection: parsed,
       autoAcceptCandidateIds,
       unresolvedCandidateIds,
-      shouldReconcile: this.isFinalizationStage(input.stage) && Boolean(parsed),
-      shouldCommit: explicitSave && this.isFinalizationStage(input.stage) && Boolean(parsed) && unresolvedCandidateIds.length === 0
+      shouldSynthesize,
+      shouldReconcile: explicitSave && finalReviewComplete && ["final_review", "reconcile_profile", "confirm_commit"].includes(input.stage),
+      shouldCommit: explicitSave && finalReviewComplete && ["confirm_commit"].includes(input.stage)
     };
   }
 }

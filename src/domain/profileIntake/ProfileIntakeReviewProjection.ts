@@ -1,6 +1,16 @@
 import { z } from "zod";
 import { ResumeItemV2Schema, ResumeSectionTypeV2Schema } from "@/domain/schemas";
 import { ProfileIntakeSourceTurnDiagnosticsSchema } from "./ProfileIntakeSourceTurn";
+import { ProfileIntakeFinalSynthesisSchema, type ProfileIntakeFinalSynthesis } from "./ProfileIntakeFinalSynthesis";
+
+export const ProfileIntakePhaseSchema = z.enum([
+  "collecting",
+  "clarifying",
+  "ready_for_review",
+  "reviewing",
+  "committing",
+  "completed"
+]);
 
 export const ProfileIntakeExtractionStatusSchema = z.enum([
   "structured_ai",
@@ -84,6 +94,8 @@ export const ProfileIntakeFailedExtractionSchema = z.object({
 export const ProfileIntakeReviewProjectionSchema = z.object({
   importId: z.string().min(1),
   draftRevision: z.number().int().min(0),
+  phase: ProfileIntakePhaseSchema.default("collecting"),
+  finalSynthesis: ProfileIntakeFinalSynthesisSchema.optional(),
   finalReviewRevision: z.number().int().min(0).optional(),
   sourceMessageId: z.string().min(1),
   sourceTurnId: z.string().min(1),
@@ -104,6 +116,8 @@ export type ProfileIntakeReviewProjection = z.infer<typeof ProfileIntakeReviewPr
 export type ProfileIntakeExtractionStatus = z.infer<typeof ProfileIntakeExtractionStatusSchema>;
 export type ProfileIntakeProviderStatus = z.infer<typeof ProfileIntakeProviderStatusSchema>;
 export type ProfileIntakeReviewCandidateSourceBadge = z.infer<typeof ProfileIntakeReviewCandidateSourceBadgeSchema>;
+export type ProfileIntakePhase = z.infer<typeof ProfileIntakePhaseSchema>;
+export type { ProfileIntakeFinalSynthesis };
 
 export function isProfileIntakeReviewProjection(value: unknown): value is ProfileIntakeReviewProjection {
   return ProfileIntakeReviewProjectionSchema.safeParse(value).success;

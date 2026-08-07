@@ -214,8 +214,9 @@ describe("P4.3h Profile Intake host boundaries", () => {
     expect(execute).toHaveBeenCalledWith(expect.objectContaining({ toolName: "capture_profile_intake" }));
     expect(events.indexOf("journal:journaled")).toBeGreaterThanOrEqual(0);
     expect(events.indexOf("journal:journaled")).toBeLessThan(events.indexOf("capture"));
-    expect(resultSession?.taskState?.stage).toBe("review_facts");
-    expect(resultSession?.messages.at(-1)?.content).toContain("核对卡片");
+    expect(resultSession?.taskState?.stage).toBe("collect_experience");
+    expect(resultSession?.taskState?.knownSlots.profileIntakePhase).toBe("clarifying");
+    expect(resultSession?.messages.at(-1)?.content).toContain("已记录并保存到本地整理草稿。");
     expect(persistence.saveProfileIntakeSourceTurn).toHaveBeenCalledWith(expect.objectContaining({
       exactSourceText: "我协助完成一个项目，使用 RPA 技术采集数据。",
       processingStatus: "journaled"
@@ -265,7 +266,8 @@ describe("P4.3h Profile Intake host boundaries", () => {
       captureData(String(captureInput?.messageId), String(captureInput?.turnId))
     ));
     const finished = await pending;
-    expect(finished?.messages.at(-1)?.content).toContain("核对卡片");
+    expect(finished?.taskState?.stage).toBe("collect_experience");
+    expect(finished?.messages.at(-1)?.content).toContain("已记录并保存到本地整理草稿。");
   });
 
   it("re-executes a failed step from its checkpoint without a manual retry phrase or shadow branch", async () => {
@@ -301,25 +303,10 @@ describe("P4.3h Profile Intake host boundaries", () => {
     expect(sourceTurns.filter((turn) => turn.processingStatus === "partial" || turn.processingStatus === "structured")).toHaveLength(1);
   });
 
-  it("finalizes through reconcile, commit, and get_profile verification without another model turn", async () => {
+  it("creates one final synthesis before any reconcile or commit step", async () => {
     const { persistence, sourceTurns } = persistenceHarness();
     const execute = vi.fn(async ({ toolName }: { toolName: string }) => {
-      if (toolName === "reconcile_profile_intake") return result(toolName, {
-        importId: "intake-1",
-        profileId: "profile-1",
-        expectedDraftRevision: 1,
-        expectedPlanRevision: 4,
-        summary: { requiresReview: 0 }
-      });
-      if (toolName === "commit_profile_intake") return result(toolName, {
-        profileId: "profile-1",
-        profileVersion: 1,
-        committedItemCount: 1,
-        committedFactCount: 2
-      });
-      if (toolName === "get_profile") return result(toolName, {
-        profile: { id: "profile-1", version: 1, items: [{ id: "item-1" }] }
-      });
+      if (toolName === "synthesize_profile_intake") return result(toolName, finalSynthesisData());
       throw new Error(`unexpected:${toolName}`);
     });
     const host = new AgentHostStore({
@@ -334,24 +321,72 @@ describe("P4.3h Profile Intake host boundaries", () => {
       pageContext: { pathname: "/ai-workspace", query: {} }
     });
 
-    expect(execute.mock.calls.map(([call]) => call.toolName)).toEqual([
-      "reconcile_profile_intake",
-      "commit_profile_intake",
-      "get_profile"
-    ]);
-    expect(saved?.taskState).toMatchObject({ stage: "profile_complete", completionStatus: "waiting_for_user" });
-    expect(saved?.taskState?.knownSlots.profilePersistenceReceipt).toMatchObject({
-      targetProfileId: "profile-1",
-      newProfileVersion: 1,
-      committedItemCount: 1
+    expect(execute.mock.calls.map(([call]) => call.toolName)).toEqual(["synthesize_profile_intake"]);
+    expect(saved?.taskState).toMatchObject({ stage: "final_review", completionStatus: "waiting_for_user" });
+    expect(saved?.taskState?.knownSlots.profileIntakePhase).toBe("ready_for_review");
+    expect(saved?.taskState?.knownSlots.profileIntakeReviewProjection).toMatchObject({
+      finalSynthesis: { version: "profile-intake-final-synthesis-v1" },
+      phase: "ready_for_review"
     });
-    expect(saved?.messages.find((message) => message.role === "assistant" && message.content.includes("读取核验通过"))?.content)
-      .toContain("读取核验通过");
-    expect(saved?.messages.find((message) => message.role === "assistant" && message.content.includes("读取核验通过"))?.options?.map((option) => option.label)).toEqual([
-      "继续补充经历",
-      "生成一份通用简历",
-      "暂时完成"
-    ]);
+    expect(saved?.messages.some((message) => message.content.includes("最终资料草稿"))).toBe(true);
     expect(sourceTurns).toEqual([]);
   });
 });
+
+function finalSynthesisData() {
+  const structuredItem = {
+    id: "synth-candidate-1",
+    sectionType: "project" as const,
+    title: "Smart Fox 项目",
+    role: "参与者",
+    description: "协助完成一个项目",
+    current: false,
+    tools: ["RPA"],
+    highlights: ["完成数据采集"],
+    outcomes: [],
+    customFields: []
+  };
+  const finalCandidate = {
+    ...candidate("proposed"),
+    id: "synth-candidate-1",
+    structuredItem,
+    sourceBadge: "local" as const
+  };
+  const finalSynthesis = {
+    version: "profile-intake-final-synthesis-v1" as const,
+    createdAt: NOW,
+    sourceTurnIds: ["turn-1"],
+    assets: [{
+      candidateId: "synth-candidate-1",
+      sectionType: "project" as const,
+      structuredItem,
+      sourceCandidateIds: ["candidate-1"],
+      sourceTurnIds: ["turn-1"],
+      highlights: ["完成数据采集"],
+      missingDimensions: [],
+      conflictFields: [],
+      provenance: []
+    }],
+    missingDimensions: {},
+    conflictCount: 0
+  };
+  const reviewProjection = {
+    ...projection("proposed"),
+    draftRevision: 2,
+    phase: "ready_for_review" as const,
+    finalSynthesis,
+    finalReviewRevision: 2,
+    candidates: [finalCandidate]
+  };
+  return {
+    importId: "intake-1",
+    expectedDraftRevision: 2,
+    phase: "ready_for_review" as const,
+    finalReviewCount: 1,
+    finalSynthesis,
+    candidates: [finalCandidate],
+    reviewProjection,
+    artifactPayload: { title: "最终资料草稿" },
+    intakeSession: { phase: "ready_for_review" as const }
+  };
+}

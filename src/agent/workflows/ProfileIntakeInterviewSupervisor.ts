@@ -6,15 +6,18 @@ export type ProfileIntakeInterviewSupervisorAction =
   | { type: "ask_next_section"; section: string; question: string }
   | { type: "wait_for_candidate_review"; question: string }
   | { type: "offer_finish"; question: string }
+  | { type: "start_final_synthesis" }
   | { type: "commit" };
 
 export type ProfileIntakeInterviewSupervisorInput = {
   acceptedItems?: ResumeItemV2[];
+  provisionalItems?: ResumeItemV2[];
   activeQuestion?: { id?: string; question: string };
   unresolvedCandidateIds?: string[];
   suggestedNextSections?: string[];
   requestedSection?: string;
   explicitFinish?: boolean;
+  followUpCounts?: Record<string, number>;
 };
 
 /**
@@ -23,8 +26,12 @@ export type ProfileIntakeInterviewSupervisorInput = {
  */
 export class ProfileIntakeInterviewSupervisor {
   resolve(input: ProfileIntakeInterviewSupervisorInput): ProfileIntakeInterviewSupervisorAction {
-    if (input.explicitFinish && !(input.unresolvedCandidateIds?.length)) return { type: "commit" };
-    if (input.unresolvedCandidateIds?.length) {
+    if (input.explicitFinish) {
+      // Compatibility for persisted P4.3g callers.  The current host always
+      // passes provisionalItems and therefore enters synthesis instead.
+      return input.provisionalItems ? { type: "start_final_synthesis" } : { type: "commit" };
+    }
+    if (input.unresolvedCandidateIds?.length && !input.provisionalItems) {
       return {
         type: "wait_for_candidate_review",
         question: "先核对上面的经历卡片；确认或忽略后，我再继续整理下一段。"
@@ -36,11 +43,14 @@ export class ProfileIntakeInterviewSupervisor {
         question: input.activeQuestion.question
       };
     }
-    const followUp = input.acceptedItems?.length ? highestValueFollowUp(input.acceptedItems) : undefined;
+    const items = input.provisionalItems?.length ? input.provisionalItems : input.acceptedItems ?? [];
+    const followUp = items.length
+      ? highestValueFollowUp(items, { followUpCounts: input.followUpCounts })
+      : undefined;
     if (followUp) return { type: "ask_follow_up", question: followUp };
     const section = input.requestedSection
       ?? input.suggestedNextSections?.[0]
-      ?? nextMissingSection(input.acceptedItems ?? []);
+      ?? nextMissingSection(items);
     if (section) {
       return {
         type: "ask_next_section",

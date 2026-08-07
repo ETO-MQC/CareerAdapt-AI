@@ -413,11 +413,18 @@ export class AgentHostStore {
     }
     if (input.type === "resume_import_consent") {
       const { ref } = agentAttachmentStore.resolve(input.attachmentId);
+      const consentAttachmentIds = Array.isArray(session.taskState?.knownSlots.resumeImportAttachmentIds)
+        ? session.taskState.knownSlots.resumeImportAttachmentIds.filter((id): id is string => typeof id === "string")
+        : [input.attachmentId];
+      const consentAttachmentRefs = consentAttachmentIds.flatMap((id) => {
+        try { return [agentAttachmentStore.resolve(id).ref]; } catch { return []; }
+      });
       if (input.mode === "ai" || input.mode === "local") {
         const currentUserMessage = [...session.messages].reverse().find((message) => message.role === "user");
         return this.resolveDirectImportAttachment(session, ref, context.pageContext, {
           userMessage: currentUserMessage?.content ?? "",
           appendUserMessage: false,
+          attachmentRefs: consentAttachmentRefs.length ? consentAttachmentRefs : [ref],
           requestConsent: false
         });
       }
@@ -882,21 +889,22 @@ export class AgentHostStore {
       ? taskState.knownSlots.targetProfileId
       : undefined;
     const targetAlreadyResolved = taskState.knownSlots.quickActionImportTargetRequired === false && Boolean(targetProfileId);
+    const visibleAttachmentRefs = options.attachmentRefs ?? [attachment];
     taskState = reducer.reduce(taskState, { type: "attachment_selected", attachment });
     taskState = {
       ...taskState,
       stage: targetAlreadyResolved ? "prepare_import" : "resolve_target",
       completionStatus: options.requestConsent ? "waiting_for_user" : targetAlreadyResolved ? "active" : "waiting_for_user",
-      knownSlots: {
-        ...taskState.knownSlots,
-        quickActionImportTargetRequired: !targetAlreadyResolved,
-        resumeImportConsentAttachmentId: options.requestConsent ? attachment.id : undefined
-      },
+        knownSlots: {
+          ...taskState.knownSlots,
+          quickActionImportTargetRequired: !targetAlreadyResolved,
+          resumeImportConsentAttachmentId: options.requestConsent ? attachment.id : undefined,
+          resumeImportAttachmentIds: visibleAttachmentRefs.map((ref) => ref.id)
+        },
       updatedAt: new Date().toISOString()
     };
     let current = projectTaskStateIntoSession(session, taskState);
     const visibleMessage = options.userMessage ?? "";
-    const visibleAttachmentRefs = options.attachmentRefs ?? [attachment];
     if (options.appendUserMessage !== false) {
       current = appendAgentMessage(current, "user", visibleMessage, {
         id: `agent-user-${crypto.randomUUID()}`,
@@ -920,14 +928,17 @@ export class AgentHostStore {
     }
     if (targetAlreadyResolved && targetProfileId) {
       const targetProfile = await this.getCareerRepository().getProfile(targetProfileId);
-      if (!targetProfile) return current;
+      if (!targetProfile) {
+        agentAttachmentStore.releaseMany(visibleAttachmentRefs.map((ref) => ref.id));
+        return current;
+      }
       const saved = await this.dependencies.persistence.save(current);
       this.patchSession(saved, {
         turnStatus: "idle",
         currentObservation: { type: "import_target_resolved", targetProfileId, quickActionContext: snapshot }
       });
       const userMessage = [...saved.messages].reverse().find((message) => message.role === "user");
-      return this.startTurn({
+      const started = this.startTurn({
         session: saved,
         userMessage: visibleMessage || userMessage?.content || "",
         userMessageId: userMessage?.id,
@@ -935,6 +946,8 @@ export class AgentHostStore {
         pageContext,
         supersede: true
       });
+      agentAttachmentStore.releaseMany(visibleAttachmentRefs.filter((ref) => ref.id !== attachment.id).map((ref) => ref.id));
+      return started;
     }
     current = appendAgentMessage(current, "assistant", importTargetPrompt(snapshot), {
       kind: "text",
@@ -986,16 +999,36 @@ export class AgentHostStore {
     }
 
     if (action.decision === "cancel_import") {
-      const cancelled = replaceLatestQuickActionAssistant(session, "已取消本次导入，文件仍保留在本地附件记录中，未开始提取。", undefined);
+      const attachmentIds = Array.isArray(session.taskState?.knownSlots.resumeImportAttachmentIds)
+        ? session.taskState.knownSlots.resumeImportAttachmentIds.filter((id): id is string => typeof id === "string")
+        : typeof session.taskState?.knownSlots.resumeImportConsentAttachmentId === "string"
+          ? [session.taskState.knownSlots.resumeImportConsentAttachmentId]
+          : [];
+      agentAttachmentStore.releaseMany(attachmentIds);
+      const cancelled = replaceLatestQuickActionAssistant(session, "已取消本次导入，未开始提取；如果继续导入，请重新选择文件。", undefined);
       const saved = await this.dependencies.persistence.save(cancelled);
       this.patchSession(saved, { turnStatus: "idle", uiAction: undefined });
       return saved;
     }
 
     const snapshot = await this.readQuickActionContext(session);
-    if (!snapshot.activeProfile || !snapshot.activePerson) return session;
+    if (!snapshot.activeProfile || !snapshot.activePerson) {
+      agentAttachmentStore.releaseMany(
+        Array.isArray(session.taskState?.knownSlots.resumeImportAttachmentIds)
+          ? session.taskState.knownSlots.resumeImportAttachmentIds.filter((id): id is string => typeof id === "string")
+          : []
+      );
+      return session;
+    }
     let targetProfile = await this.getCareerRepository().getProfile(snapshot.activeProfile.id);
-    if (!targetProfile) return session;
+    if (!targetProfile) {
+      agentAttachmentStore.releaseMany(
+        Array.isArray(session.taskState?.knownSlots.resumeImportAttachmentIds)
+          ? session.taskState.knownSlots.resumeImportAttachmentIds.filter((id): id is string => typeof id === "string")
+          : []
+      );
+      return session;
+    }
     if (action.decision === "import_new_version") {
       targetProfile = await this.getCareerRepository().createProfileVersion({ profileId: targetProfile.id, reason: "resume_import" });
     } else if (action.decision === "import_new_person") {
@@ -1047,6 +1080,11 @@ export class AgentHostStore {
       this.patchSession(saved, { turnStatus: "idle", uiAction: { type: "open_resume_upload" } });
       return saved;
     }
+    const retainedAttachmentId = saved.taskState?.attachment?.id;
+    const retainedAttachmentIds = Array.isArray(saved.taskState?.knownSlots.resumeImportAttachmentIds)
+      ? saved.taskState.knownSlots.resumeImportAttachmentIds.filter((id): id is string => typeof id === "string")
+      : [];
+    agentAttachmentStore.releaseMany(retainedAttachmentIds.filter((id) => id !== retainedAttachmentId));
     const originalUserMessage = [...saved.messages].reverse().find((message) => message.role === "user");
     return this.startTurn({
       session: saved,
@@ -1235,6 +1273,9 @@ export class AgentHostStore {
       reviewProjection: input.taskState.knownSlots.profileIntakeReviewProjection,
       explicitCommit: input.taskState.knownSlots.profileIntakeExplicitCommit === true
     });
+    if (decision.shouldSynthesize) {
+      return this.finalizeProfileIntakeAtHostBoundary(input, decision);
+    }
     if (
       input.taskState.stage === "final_review"
       && /^(?:完成整理|先到这里|结束访谈)[。！!]?$/u.test(input.userMessage.trim())
@@ -1267,6 +1308,16 @@ export class AgentHostStore {
       && input.taskState.stage !== "resolve_conflicts"
     ) {
       return this.finalizeProfileIntakeAtHostBoundary(input, decision);
+    }
+    if (finalization.isExplicitSaveIntent(input.userMessage) && decision.projection?.finalSynthesis) {
+      let current = projectTaskStateIntoSession(input.current, {
+        ...input.taskState,
+        completionStatus: "waiting_for_user",
+        updatedAt: new Date().toISOString()
+      });
+      current = replaceAgentThinking(current, input.thinkingMessageId, "最终资料草稿还没有全部采用。请先在这一次最终审核中选择“全部采用”，再确认写入资料库。", input.turnId);
+      current = attachTaskStateOptions(current, input.taskState);
+      return this.finishLocalProfileIntakeTurn(current, input.taskState, input, "waiting_for_user");
     }
     return undefined;
   }
@@ -1337,9 +1388,11 @@ export class AgentHostStore {
       text: exactSourceText,
       capturedAt,
       targetProfileId,
-      expectedProfileVersion,
-      acknowledgedActiveProfileId: stringValue(input.taskState.knownSlots.acknowledgedActiveProfileId),
-      importId: stringValue(input.taskState.knownSlots.intakeImportId),
+        expectedProfileVersion,
+        acknowledgedActiveProfileId: stringValue(input.taskState.knownSlots.acknowledgedActiveProfileId),
+        intakeQuestionId: stringValue(source.intakeQuestionId),
+        intakeCandidateId: stringValue(source.intakeCandidateId),
+        importId: stringValue(input.taskState.knownSlots.intakeImportId),
       expectedDraftRevision: numberValue(input.taskState.knownSlots.expectedIntakeDraftRevision),
       sourceContentHash: stringValue(source.sourceContentHash),
       retry: journal?.processingStatus === "failed"
@@ -1446,10 +1499,11 @@ export class AgentHostStore {
     });
     let current = projectTaskStateIntoSession(input.current, nextState);
     current = reconcileTaskArtifacts(current, nextState);
+    current = attachProfileIntakeArtifact(current, result, "访谈整理进度");
     current = upsertAgentActivity(current, {
       id: `agent-tool-${operationId}`,
       turnId: input.turnId,
-      content: "已保留原始回答并生成经历核对卡片。",
+       content: "已记录并保存到本地整理草稿。",
       toolName: "capture_profile_intake",
       operationId,
       status: "complete",
@@ -1457,9 +1511,7 @@ export class AgentHostStore {
     });
     const answer = projection.success && projection.data.extractionStatus === "failed"
       ? "原始回答已保留，但本次没有完成可靠结构化。你可以补充名称、角色、主要工作和结果，或重新执行当前步骤。"
-      : nextState.stage === "collect_experience" && projection.success && projection.data.followUpQuestion
-        ? `我已先把这段回答记录并生成核对卡片。${projection.data.followUpQuestion}`
-        : "我已把这段回答记录并生成经历核对卡片，请先核对卡片中的事实。";
+      : "已记录并保存到本地整理草稿。";
     current = replaceAgentThinking(current, input.thinkingMessageId, answer, input.turnId);
     current = attachTaskStateOptions(current, nextState);
     return this.finishLocalProfileIntakeTurn(current, nextState, input, "waiting_for_user");
@@ -1617,32 +1669,42 @@ export class AgentHostStore {
       return result;
     };
 
-    for (const candidateId of initialDecision.autoAcceptCandidateIds) {
-      const operationId = `${operationPrefix}-review-${candidateId}-${expectedDraftRevision}`;
-      const result = await execute("review_profile_intake", {
+    if (initialDecision.shouldSynthesize) {
+      const synthesisOperationId = `${operationPrefix}-synthesis-${expectedDraftRevision}`;
+      const synthesis = await execute("synthesize_profile_intake", {
         importId,
-        expectedDraftRevision,
-        candidateId,
-        decision: "accept"
-      }, operationId);
-      if (!result?.ok) continue;
+        expectedDraftRevision
+      }, synthesisOperationId);
+      if (!synthesis?.ok) {
+        const stateAfterFailure = reducer.reduce(state, { type: "failed", errorCode: synthesis?.error?.code ?? "profile_intake_synthesis_failed" });
+        current = projectTaskStateIntoSession(current, stateAfterFailure);
+        current = replaceAgentThinking(current, input.thinkingMessageId, "最终资料综合暂时没有完成；原始回答和本地整理草稿仍然保留，请重试当前步骤。", input.turnId);
+        current = withRetryCurrentStepOption(current, input.thinkingMessageId);
+        return this.finishLocalProfileIntakeTurn(current, stateAfterFailure, input, "failed");
+      }
       state = reducer.reduce(state, {
         type: "tool_observation",
-        toolName: result.toolName,
-        observation: result.data,
-        artifactIds: result.artifactIds
+        toolName: synthesis.toolName,
+        observation: synthesis.data,
+        artifactIds: synthesis.artifactIds
       });
-      expectedDraftRevision = numberValue(objectValue(result.data).expectedDraftRevision) ?? expectedDraftRevision + 1;
+      expectedDraftRevision = numberValue(objectValue(synthesis.data).expectedDraftRevision) ?? expectedDraftRevision + 1;
       state.knownSlots.expectedIntakeDraftRevision = expectedDraftRevision;
+      current = projectTaskStateIntoSession(current, state);
+      current = reconcileTaskArtifacts(current, state);
+      current = attachProfileIntakeArtifact(current, synthesis, "最终资料草稿");
       current = upsertAgentActivity(current, {
-        id: `agent-tool-${operationId}`,
+        id: `agent-tool-${synthesisOperationId}`,
         turnId: input.turnId,
-        content: "已自动采用来源明确且无冲突的经历候选。",
-        toolName: result.toolName,
-        operationId,
+        content: "已完成本次访谈的最终综合，进入一次性最终审核。",
+        toolName: synthesis.toolName,
+        operationId: synthesisOperationId,
         status: "complete",
-        metadata: { activityState: "complete", directBoundary: true, automaticSafeAcceptance: true }
+        metadata: { activityState: "complete", directBoundary: true, finalSynthesis: true, artifactIds: synthesis.artifactIds }
       });
+      current = replaceAgentThinking(current, input.thinkingMessageId, "已根据本次完整访谈整理出一份最终资料草稿。请在最终审核中一次性核对、编辑或忽略；确认后才会写入个人资料库。", input.turnId);
+      current = attachTaskStateOptions(current, state);
+      return this.finishLocalProfileIntakeTurn(current, state, input, "waiting_for_user");
     }
 
     const projection = ProfileIntakeReviewProjectionSchema.safeParse(state.knownSlots.profileIntakeReviewProjection);
@@ -1661,6 +1723,26 @@ export class AgentHostStore {
       current = attachTaskStateOptions(current, state);
       return this.finishLocalProfileIntakeTurn(current, state, input, "waiting_for_user");
     }
+
+    // Persist the phase boundary before any reconciliation or Profile write.
+    // A reload during the commit lane must show that the final review has
+    // already been accepted but verification is still in progress.
+    const committingAt = new Date().toISOString();
+    const existingIntakeSession = objectValue(state.knownSlots.intakeSession);
+    state = {
+      ...state,
+      knownSlots: {
+        ...state.knownSlots,
+        profileIntakePhase: "committing",
+        ...(Object.keys(existingIntakeSession).length
+          ? { intakeSession: { ...existingIntakeSession, phase: "committing", autosavedAt: committingAt } }
+          : {})
+      },
+      updatedAt: committingAt
+    };
+    current = projectTaskStateIntoSession(current, state);
+    current = await persistence.save(current);
+    this.patchSession(current, { turnStatus: "running", currentObservation: { type: "profile_intake_committing" } });
 
     const reconcileOperationId = `${operationPrefix}-reconcile-${importId}-${expectedDraftRevision}`;
     const reconciliation = await execute("reconcile_profile_intake", {
@@ -2279,7 +2361,7 @@ export class AgentHostStore {
       };
       current = completeTurnCheckpoint(current, turnId, new Date().toISOString());
       current = await this.dependencies.persistence.save(current);
-      this.executionCoordinator.finish(current.id, "completed");
+      this.executionCoordinator.finish(current.id, "completed", generation);
       this.patchSession(current, { turnStatus: "completed", activeTurnId: turnId });
       return current;
     }
@@ -2300,7 +2382,7 @@ export class AgentHostStore {
         profileIntakeTurnKind: turnDecision.profileIntakeTurnKind
       });
       if (boundary) {
-        this.executionCoordinator.finish(boundary.id, boundary.taskState?.completionStatus === "failed" ? "failed" : "completed");
+        this.executionCoordinator.finish(boundary.id, boundary.taskState?.completionStatus === "failed" ? "failed" : "completed", generation);
         this.patchSession(boundary, {
           turnStatus: boundary.taskState?.completionStatus === "failed" ? "failed" : "completed",
           activeTurnId: turnId,
@@ -2342,7 +2424,7 @@ export class AgentHostStore {
       narrationOnly: input.regenerateNarrationOnly
     });
     const trackedExecution = execution.finally(() => {
-      this.executionCoordinator.finish(current.id);
+      this.executionCoordinator.finish(current.id, undefined, generation);
     });
     this.executionCoordinator.attachPromise(current.id, trackedExecution);
     return trackedExecution;
@@ -2676,7 +2758,8 @@ export class AgentHostStore {
       const failed = withArtifactActionFeedback(session, action, {
         result: "rejected",
         message: result.error?.message ?? "重新识别没有完成，请稍后重试。",
-        retryable: true
+        retryable: true,
+        safeErrorCode: result.error?.code ?? "profile_intake_retry_failed"
       });
       const saved = await this.dependencies.persistence.save(failed);
       this.patchSession(saved, { turnStatus: "idle" });
@@ -2865,7 +2948,8 @@ export class AgentHostStore {
       const failed = withArtifactActionFeedback(session, action, {
         result: "rejected",
         message: result.error?.message ?? "这项核对没有保存成功，请重试。",
-        retryable: true
+        retryable: true,
+        safeErrorCode: result.error?.code ?? "artifact_action_failed"
       });
       const saved = await this.dependencies.persistence.save(failed);
       this.patchSession(saved);
@@ -3128,7 +3212,7 @@ export class AgentHostStore {
       resume: internal
     });
     const trackedExecution = execution.finally(() => {
-      this.executionCoordinator.finish(current.id);
+      this.executionCoordinator.finish(current.id, undefined, generation);
     });
     this.executionCoordinator.attachPromise(current.id, trackedExecution);
     return trackedExecution;
@@ -3544,7 +3628,7 @@ export class AgentHostStore {
       return current;
     } finally {
       if (this.executionCoordinator.isCurrent(input.current.id, input.generation)) {
-        this.executionCoordinator.finish(input.current.id);
+        this.executionCoordinator.finish(input.current.id, undefined, input.generation);
         this.clearStallTimer(input.current.id);
         const activeForSession = this.snapshot.activeSession?.id === input.current.id
           ? this.snapshot.activeSession
@@ -5134,6 +5218,37 @@ function markTypedTaskDecisionResolution(
   return { ...session, messages };
 }
 
+function attachProfileIntakeArtifact(
+  session: AgentSession,
+  result: { ok: boolean; data?: unknown; artifactIds?: string[] },
+  title: string
+) {
+  if (!result.ok) return session;
+  const value = objectRecordValue(result.data);
+  const importId = stringRecordValue(value.importId);
+  if (!importId) return session;
+  const existing = session.artifactRefs.find((artifact) => artifact.kind === "profile_intake_review");
+  const now = new Date().toISOString();
+  const artifactId = result.artifactIds?.[0] ?? existing?.id ?? `agent-artifact-profile-intake-${importId}`;
+  return {
+    ...session,
+    artifactRefs: [
+      ...session.artifactRefs.filter((artifact) => artifact.kind !== "profile_intake_review"),
+      {
+        id: artifactId,
+        kind: "profile_intake_review" as const,
+        title,
+        entityType: "profile_intake_draft" as const,
+        entityId: importId,
+        status: "active" as const,
+        summary: typeof value.message === "string" ? value.message : undefined,
+        createdAt: existing?.createdAt ?? now,
+        updatedAt: now
+      }
+    ]
+  };
+}
+
 function reconcileTaskArtifacts(session: AgentSession, taskState: AgentTaskState) {
   const exportResult = objectRecordValue(taskState.knownSlots.exportResult);
   const jobId = taskState.selectedEntities.jobId;
@@ -5296,7 +5411,7 @@ function artifactActionRevision(
   action: AgentArtifactAction
 ) {
   if (!state) return undefined;
-  const value = action.type === "profile_intake_candidate_decision"
+  const value = action.type === "profile_intake_candidate_decision" || action.type === "profile_intake_final_review_decision"
     ? state.knownSlots.expectedIntakeDraftRevision
     : action.type === "profile_intake_candidate_edit"
       ? state.knownSlots.expectedIntakeDraftRevision
@@ -5314,6 +5429,7 @@ function artifactActionRevision(
 
 function artifactActionEntityId(action: AgentArtifactAction) {
   if (action.type === "profile_intake_candidate_decision") return action.candidateId;
+  if (action.type === "profile_intake_final_review_decision") return "final-review";
   if (action.type === "profile_intake_candidate_edit") return action.candidateId;
   if (action.type === "profile_intake_retry_extraction" || action.type === "profile_intake_extraction_recovery") return action.sourceMessageId;
   if (action.type === "profile_intake_reconciliation_decision") return action.incomingItemId;
@@ -5356,18 +5472,20 @@ function artifactActionOperationId(session: AgentSession, action: AgentArtifactA
         ? "retry-extraction"
       : action.type === "profile_intake_extraction_recovery"
         ? action.decision
-      : action.type === "profile_intake_candidate_decision" || action.type === "resume_import_review_decision"
+      : action.type === "profile_intake_candidate_decision" || action.type === "profile_intake_final_review_decision" || action.type === "resume_import_review_decision"
         ? action.decision
         : action.type === "profile_intake_reconciliation_decision"
           ? action.resolution
         : action.resolution;
   const editedValueHash = action.type === "tailoring_diff_decision" && action.editedValue !== undefined
     ? stableHashText(JSON.stringify(action.editedValue))
-    : action.type === "profile_intake_candidate_edit"
-      ? stableHashText(JSON.stringify({
-          editedLabel: action.editedLabel ?? null,
-          fieldPatch: action.fieldPatch ?? null
-        }))
+      : action.type === "profile_intake_candidate_edit"
+       ? stableHashText(JSON.stringify({
+           editedLabel: action.editedLabel ?? null,
+           fieldPatch: action.fieldPatch ?? null,
+           sectionType: action.sectionType ?? null,
+           userCorrection: action.userCorrection ?? false
+         }))
       : action.type === "profile_intake_extraction_recovery"
         ? stableHashText(action.decision)
     : "none";
@@ -5383,9 +5501,21 @@ function withArtifactActionFeedback(
     message: string;
     running?: boolean;
     retryable: boolean;
+    safeErrorCode?: string;
+    fieldNames?: string[];
+    operationId?: string;
+    hash?: string;
   }
 ) {
   if (!session.taskState) return session;
+  const entityId = artifactActionEntityId(action);
+  const fieldNames = feedback.fieldNames
+    ?? (action.type === "profile_intake_candidate_edit" ? Object.keys(action.fieldPatch ?? {}) : []);
+  const operationId = feedback.operationId
+    ?? artifactActionOperationId(session, action, artifactActionRevision(session.taskState, action));
+  const hash = feedback.hash
+    ?? stableHashText(JSON.stringify({ actionType: action.type, entityId, operationId, fieldNames }));
+  const timestamp = new Date().toISOString();
   return projectTaskStateIntoSession(session, {
     ...session.taskState,
     knownSlots: {
@@ -5393,11 +5523,18 @@ function withArtifactActionFeedback(
       artifactActionFeedback: {
         ...feedback,
         actionType: action.type,
-        entityId: artifactActionEntityId(action),
-        updatedAt: new Date().toISOString()
+        entityId,
+        id: entityId,
+        operationId,
+        hash,
+        fieldNames,
+        stage: session.taskState.stage,
+        safeErrorCode: feedback.safeErrorCode ?? (feedback.result === "rejected" ? "artifact_action_rejected" : undefined),
+        timestamp,
+        updatedAt: timestamp
       }
     },
-    updatedAt: new Date().toISOString()
+    updatedAt: timestamp
   });
 }
 
@@ -5496,14 +5633,35 @@ function artifactActionExecution(
       }
     };
   }
+  if (action.type === "profile_intake_final_review_decision") {
+    const projection = ProfileIntakeReviewProjectionSchema.safeParse(state.knownSlots.profileIntakeReviewProjection);
+    if (
+      !projection.success
+      || !projection.data.finalSynthesis
+      || state.stage !== "final_review"
+      || state.knownSlots.intakeImportId !== action.importId
+      || state.knownSlots.expectedIntakeDraftRevision !== action.expectedDraftRevision
+    ) return undefined;
+    return {
+      toolName: "review_profile_intake",
+      decision: action.decision,
+      toolInput: {
+        importId: action.importId,
+        expectedDraftRevision: action.expectedDraftRevision,
+        decision: action.decision
+      }
+    };
+  }
   if (action.type === "profile_intake_candidate_decision") {
     const candidates = Array.isArray(state.knownSlots.intakeCandidates)
       ? state.knownSlots.intakeCandidates.map(objectValue)
       : [];
     const candidate = candidates.find((item) => item.id === action.candidateId);
     const accepted = candidate?.decision === "accept" || candidate?.included === true;
+    const finalProjection = ProfileIntakeReviewProjectionSchema.safeParse(state.knownSlots.profileIntakeReviewProjection);
+    const finalReview = state.stage === "final_review" && finalProjection.success && Boolean(finalProjection.data.finalSynthesis);
     if (
-      state.stage !== "review_facts" && !(state.stage === "collect_experience" && action.decision === "reopen")
+      !finalReview && state.stage !== "review_facts" && !(state.stage === "collect_experience" && action.decision === "reopen")
       || !candidate
       || action.decision === "accept" && (accepted || candidate.needsNormalization === true || candidate.canAccept === false)
       || action.decision === "reject" && !accepted && candidate.decision === "reject"
@@ -5530,34 +5688,40 @@ function artifactActionExecution(
       : [];
     const candidate = candidates.find((item) => item.id === action.candidateId);
     const candidateAccepted = candidate?.decision === "accept" || candidate?.included === true;
+    const finalProjection = ProfileIntakeReviewProjectionSchema.safeParse(state.knownSlots.profileIntakeReviewProjection);
+    const finalReview = state.stage === "final_review" && finalProjection.success && Boolean(finalProjection.data.finalSynthesis);
     if (
-      (state.stage !== "review_facts" && !(state.stage === "collect_experience" && candidateAccepted))
+      (!finalReview && state.stage !== "review_facts" && !(state.stage === "collect_experience" && candidateAccepted))
       || !candidate
       || state.knownSlots.intakeImportId !== action.importId
       || state.knownSlots.expectedIntakeDraftRevision !== action.expectedDraftRevision
     ) return undefined;
     const sourceQuote = typeof candidate.sourceQuote === "string" ? candidate.sourceQuote : undefined;
     const source = objectValue(state.knownSlots.latestIntakeSource);
-    if (!sourceQuote || typeof source.sessionId !== "string" || typeof source.messageId !== "string" || typeof source.turnId !== "string" || typeof source.capturedAt !== "string") return undefined;
+    if (action.userCorrection !== true && (!sourceQuote || typeof source.sessionId !== "string" || typeof source.messageId !== "string" || typeof source.turnId !== "string" || typeof source.capturedAt !== "string")) return undefined;
     return {
       toolName: "review_profile_intake",
       decision: "accept",
       toolInput: {
         importId: action.importId,
         expectedDraftRevision: action.expectedDraftRevision,
-        candidateId: action.candidateId,
-        decision: "accept",
-        ...(action.editedLabel ? { editedLabel: action.editedLabel } : {}),
-        ...(action.fieldPatch ? { structuredPatch: action.fieldPatch } : {}),
-        evidence: {
-          sessionId: source.sessionId,
-          messageId: source.messageId,
-          turnId: source.turnId,
-          capturedAt: source.capturedAt,
-          sourceQuote,
-          sourceContentHash: typeof source.sourceContentHash === "string" ? source.sourceContentHash : undefined
-        }
-      }
+         candidateId: action.candidateId,
+         decision: "accept",
+         ...(action.sectionType ? { sectionType: action.sectionType } : {}),
+         ...(action.userCorrection === true ? { userCorrection: true } : {}),
+         ...(action.editedLabel ? { editedLabel: action.editedLabel } : {}),
+         ...(action.fieldPatch ? { structuredPatch: action.fieldPatch } : {}),
+         ...(action.userCorrection === true ? {} : {
+           evidence: {
+             sessionId: source.sessionId,
+             messageId: source.messageId,
+             turnId: source.turnId,
+             capturedAt: source.capturedAt,
+             sourceQuote,
+             sourceContentHash: typeof source.sourceContentHash === "string" ? source.sourceContentHash : undefined
+           }
+         })
+       }
     };
   }
   if (action.type === "profile_intake_reconciliation_decision") {
@@ -5637,6 +5801,7 @@ function artifactActionCompletedLabel(action: AgentArtifactAction) {
   if (action.type === "profile_intake_extraction_recovery") {
     return action.decision === "manual_review" ? "已切换为手动整理，并保留原始回答。" : "已保留原始回答，未确认内容不会写入资料库。";
   }
+  if (action.type === "profile_intake_final_review_decision") return "已一次性采用最终资料草稿，仍未写入资料库。";
   if (action.type === "profile_intake_candidate_decision") {
     return action.decision === "accept"
       ? "已采用，并保存到本地整理草稿。"

@@ -1147,10 +1147,11 @@ function appendStructuredFact(
     data: item.structuredItem,
     factIds: refs.map((ref) => "factId" in ref ? ref.factId : ref.linkedFactId),
     sourceBlockIds: item.sourceBlockIds,
-    sourceRanges: item.sourceRanges ?? [],
-    sourceExcerpt: item.rawText,
-    mappingTrace: itemMappingTrace(draft, item)
-  });
+      sourceRanges: item.sourceRanges ?? [],
+      sourceExcerpt: item.rawText,
+      mappingTrace: itemMappingTrace(draft, item),
+      provenance: item.provenance ?? []
+    });
 }
 
 function itemMappingTrace(draft: ImportedResumeDraft, item: ImportedResumeItem) {

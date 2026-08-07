@@ -1,11 +1,12 @@
 import { z } from "zod";
 import { runRuleFactGuard } from "@/domain/adaptation/factGuard";
-import { ResumeItemV2Schema, ResumeSectionTypeV2Schema, type EducationItemV2, type ResumeItemV2 } from "@/domain/schemas";
+import { CustomFieldValueSchema, ResumeItemV2Schema, ResumeSectionTypeV2Schema, type EducationItemV2, type ResumeItemV2, type ResumeSectionTypeV2 } from "@/domain/schemas";
 
 const OptionalPatchTextSchema = z.string().trim().min(1).max(4_000).optional();
 const PatchStringListSchema = z.array(z.string().trim().min(1).max(2_000)).max(30).optional();
 
 export const ProfileIntakeStructuredPatchSchema = z.object({
+  text: OptionalPatchTextSchema,
   title: OptionalPatchTextSchema,
   name: OptionalPatchTextSchema,
   organization: OptionalPatchTextSchema,
@@ -50,7 +51,16 @@ export const ProfileIntakeStructuredPatchSchema = z.object({
   highlights: PatchStringListSchema,
   tools: PatchStringListSchema,
   methods: PatchStringListSchema,
-  outcomes: PatchStringListSchema
+  outcomes: PatchStringListSchema,
+  authors: PatchStringListSchema,
+  inventors: PatchStringListSchema,
+  samples: OptionalPatchTextSchema,
+  publication: OptionalPatchTextSchema,
+  publicationStatus: OptionalPatchTextSchema,
+  doi: OptionalPatchTextSchema,
+  type: OptionalPatchTextSchema,
+  createdAt: OptionalPatchTextSchema,
+  customFields: z.array(CustomFieldValueSchema).max(40).optional()
 }).strict().superRefine((patch, context) => {
   if (patch.current === true && patch.endDate) {
     context.addIssue({
@@ -249,6 +259,70 @@ export function validateProfileIntakeStructuredPatch(input: {
   return { patch: canonicalPatch, fieldEvidence };
 }
 
+/**
+ * Explicit user edits are authoritative corrections.  They still pass the
+ * canonical schema, date normalization, and section invariants, but they do
+ * not run Fact Guard against the earlier transcript.  The old transcript is
+ * retained through the item's provenance and source evidence.
+ */
+export function validateUserCorrectionStructuredPatch(input: {
+  item: ResumeItemV2;
+  rawPatch: ProfileIntakeStructuredPatch;
+}) {
+  const patch = ProfileIntakeStructuredPatchSchema.parse(input.rawPatch);
+  const canonicalPatch = canonicalizePatchDates(input.item.sectionType, patch);
+  const structuredItem = applyProfileIntakeStructuredPatch(input.item, canonicalPatch);
+  return {
+    patch: canonicalPatch,
+    structuredItem,
+    fieldNames: Object.keys(canonicalPatch)
+  };
+}
+
+/**
+ * Controlled section migration for the final editor.  Compatible canonical
+ * fields are mapped explicitly; non-empty incompatible fields are surfaced to
+ * the caller instead of being silently dropped.
+ */
+export function migrateProfileIntakeSection(input: {
+  item: ResumeItemV2;
+  sectionType: ResumeSectionTypeV2;
+}) {
+  if (input.sectionType === "basics") throw new Error("profile_intake_section_basics_unsupported");
+  if (input.item.sectionType === input.sectionType) return input.item;
+  const source = input.item as unknown as Record<string, unknown>;
+  const common = {
+    id: input.item.id,
+    customFields: input.item.customFields,
+    ...(typeof source.location === "string" ? { location: source.location } : {}),
+    ...(typeof source.startDate === "string" ? { startDate: source.startDate } : {}),
+    ...(typeof source.endDate === "string" ? { endDate: source.endDate } : {}),
+    ...(typeof source.current === "boolean" ? { current: source.current } : {}),
+    ...(typeof source.description === "string" ? { description: source.description } : {}),
+    ...(Array.isArray(source.highlights) ? { highlights: source.highlights } : {})
+  };
+  const identity = firstText(source, ["title", "name", "organization", "institution", "school", "language", "role"]);
+  const role = firstText(source, ["role", "authorRole", "degree", "major"]);
+  const target = input.sectionType;
+  const allowed = new Set(compatibleFields(target));
+  const incompatible = Object.entries(source)
+    .filter(([key, value]) => key !== "id" && key !== "sectionType" && key !== "customFields" && !allowed.has(key) && hasValue(value))
+    .map(([key]) => key);
+  if (incompatible.length) throw new Error(`profile_intake_section_migration_incompatible:${incompatible.join(",")}`);
+
+  let migrated: Record<string, unknown> = { ...common, sectionType: target };
+  if (target === "summary") migrated = { id: input.item.id, sectionType: target, text: firstText(source, ["text", "description", "title", "name", "organization", "role"]) ?? "待补充", customFields: input.item.customFields };
+  else if (target === "education") migrated = { ...migrated, school: identity, degree: role, courses: [], honors: [], highlights: common.highlights ?? [] };
+  else if (["work", "internship", "campus", "volunteer"].includes(target)) migrated = { ...migrated, organization: identity, role, highlights: common.highlights ?? [] };
+  else if (target === "project") migrated = { ...migrated, title: identity, role, tools: [], outcomes: [], highlights: common.highlights ?? [] };
+  else if (target === "research") migrated = { ...migrated, title: identity, authorRole: role, institution: firstText(source, ["institution", "organization"]), methods: [], highlights: common.highlights ?? [] };
+  else if (target === "awards" || target === "certificates" || target === "skills") migrated = { ...migrated, name: identity };
+  else if (target === "languages") migrated = { ...migrated, language: identity };
+  else if (["publications", "patents", "portfolio"].includes(target)) migrated = { ...migrated, title: identity, ...(target === "publications" ? { authors: [] } : {}), ...(target === "patents" ? { inventors: [] } : {}), ...(target === "portfolio" ? { tools: [] } : {}) };
+  else migrated = { ...migrated, title: identity, highlights: common.highlights ?? [] };
+  return ResumeItemV2Schema.parse(migrated);
+}
+
 export function normalizeCareerMonth(value: string) {
   const match = value.trim().match(/^(20\d{2})\s*(?:年|[./-])\s*(1[0-2]|0?[1-9])\s*月?$/u);
   if (!match) return undefined;
@@ -385,8 +459,41 @@ function isHardPatchField(field: string) {
     "rankPosition", "rankTotal", "courses", "honors", "awardedAt", "level", "category",
     "language", "testName", "score", "issuer", "issuedAt", "expiresAt", "credentialId",
     "status", "rank", "authorRole", "publisher", "publishedAt", "patentNumber", "office",
-    "filedAt", "grantedAt", "url", "tools", "methods"
+    "filedAt", "grantedAt", "url", "tools", "methods", "authors", "inventors", "samples", "publication",
+    "publicationStatus", "doi", "type", "createdAt", "customFields", "text"
   ].includes(field);
+}
+
+function compatibleFields(sectionType: Exclude<ResumeSectionTypeV2, "basics">) {
+  const common = ["location", "startDate", "endDate", "current", "description", "highlights"];
+  const fields: Record<string, string[]> = {
+    summary: ["text", "customFields"],
+    education: ["school", "major", "degree", "department", "courses", "honors", ...common, "customFields"],
+    work: ["organization", "role", "department", ...common, "customFields"],
+    internship: ["organization", "role", "department", ...common, "customFields"],
+    campus: ["organization", "role", "department", ...common, "customFields"],
+    volunteer: ["organization", "role", "department", ...common, "customFields"],
+    project: ["title", "role", "organization", ...common, "url", "tools", "background", "outcomes", "customFields"],
+    research: ["title", "authorRole", "institution", "startDate", "endDate", "current", "methods", "samples", "publication", "publicationStatus", "url", "description", "highlights", "customFields"],
+    awards: ["name", "issuer", "level", "awardedAt", "rank", "description", "customFields"],
+    skills: ["name", "category", "level", "description", "customFields"],
+    certificates: ["name", "issuer", "issuedAt", "expiresAt", "credentialId", "status", "description", "customFields"],
+    languages: ["language", "level", "testName", "score", "description", "customFields"],
+    publications: ["title", "authors", "authorRole", "publisher", "publishedAt", "status", "doi", "url", "description", "customFields"],
+    patents: ["title", "inventors", "patentNumber", "office", "filedAt", "grantedAt", "status", "url", "description", "customFields"],
+    portfolio: ["title", "type", "role", "url", "createdAt", "tools", "description", "highlights", "customFields"],
+    other: ["title", "description", "highlights", "customFields"],
+    custom: ["title", "description", "highlights", "customFields"]
+  };
+  return fields[sectionType] ?? [];
+}
+
+function firstText(record: Record<string, unknown>, keys: string[]) {
+  return keys.map((key) => record[key]).find((value): value is string => typeof value === "string" && value.trim().length > 0);
+}
+
+function hasValue(value: unknown) {
+  return value !== undefined && value !== "" && !(Array.isArray(value) && value.length === 0);
 }
 
 function patchValueGrounded(field: string, value: unknown, source: string) {
@@ -565,10 +672,11 @@ export function profileIntakeDisplayLabel(item: ResumeItemV2, fallback = "待核
 
 function displayLabel(item: ResumeItemV2) {
   if (item.sectionType === "education") return [item.school, item.degree, item.major].filter(Boolean).join(" / ");
+  if (["work", "internship", "campus", "volunteer"].includes(item.sectionType)) return "organization" in item ? item.organization : undefined;
   if ("title" in item && item.title) return item.title;
   if ("name" in item && item.name) return item.name;
-  if ("role" in item && item.role) return item.role;
-  return item.sectionType;
+  if (item.sectionType === "languages") return item.language;
+  return undefined;
 }
 
 function identityEvidence(candidate: NormalizationCandidate, item: ResumeItemV2): ProfileIntakeFieldEvidence[] {

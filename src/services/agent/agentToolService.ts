@@ -51,7 +51,9 @@ import {
 import { ProfileIntakeSemanticService } from "@/domain/profileIntake/ProfileIntakeSemanticService";
 import {
   applyProfileIntakeStructuredPatch,
+  migrateProfileIntakeSection,
   profileIntakeCareerReadyText,
+  validateUserCorrectionStructuredPatch,
   validateProfileIntakeStructuredPatch,
   type ProfileIntakeStructuredPatch
 } from "@/domain/profileIntake/ProfileIntakeNormalizer";
@@ -59,6 +61,8 @@ import { readResumeImportSemanticPreference } from "@/services/preferences/resum
 import { adaptResumeJsonToV2 } from "@/domain/resumeImport/jsonV2Adapter";
 import { createProfileIntakeInterviewPlan } from "@/domain/profileIntake/ProfileIntakeCompleteness";
 import { ProfileIntakeReviewProjectionSchema } from "@/domain/profileIntake/ProfileIntakeReviewProjection";
+import { synthesizeProfileIntakeDraft } from "@/domain/profileIntake/ProfileIntakeFinalSynthesis";
+import { ProfileIntakeProvenanceSchema } from "@/domain/profileIntake/ProfileIntakeProvenance";
 
 export class BrowserAgentToolService implements AgentToolServices {
   constructor(
@@ -70,34 +74,41 @@ export class BrowserAgentToolService implements AgentToolServices {
     assertNotAborted(signal);
     const semanticPreference = readResumeImportSemanticPreference();
     const input = rawInput as { attachmentId: string };
-    const { ref, file } = agentAttachmentStore.resolve(input.attachmentId);
-    const canonicalJson = ref.mimeType === "application/json"
-      && await isCanonicalCareerAdaptJsonFile(file);
-    if (semanticPreference === "unset" && !canonicalJson) {
-      throw new Error("resume_import_ai_privacy_consent_required");
+    try {
+      const { ref, file } = agentAttachmentStore.resolve(input.attachmentId);
+      const canonicalJson = ref.mimeType === "application/json"
+        && await isCanonicalCareerAdaptJsonFile(file);
+      if (semanticPreference === "unset" && !canonicalJson) {
+        throw new Error("resume_import_ai_privacy_consent_required");
+      }
+      const prepared = await new ResumeImportOrchestrator(this.repository).prepare({
+        fileName: ref.fileName,
+        mimeType: ref.mimeType,
+        size: ref.size,
+        file
+      }, {
+        signal,
+        semanticMode: semanticPreference === "ai" && !canonicalJson ? "ai" : "local",
+        onProgress: (progress) => agentImportProgressBus.emit(progress)
+      });
+      return {
+        importId: prepared.importId,
+        expectedDraftRevision: prepared.draftRevision,
+        sourceKind: prepared.sourceKind,
+        fileName: prepared.fileName,
+        fileHash: prepared.fileHash,
+        status: prepared.status,
+        quality: prepared.quality,
+        reviewSummary: prepared.reviewSummary,
+        artifactPayload: prepared.artifactPayload,
+        warnings: prepared.warnings
+      };
+    } finally {
+      // The orchestrator has consumed the browser File in every terminal
+      // path.  Persisted import drafts retain hashes and extracted evidence,
+      // never the File object itself.
+      agentAttachmentStore.release(input.attachmentId);
     }
-    const prepared = await new ResumeImportOrchestrator(this.repository).prepare({
-      fileName: ref.fileName,
-      mimeType: ref.mimeType,
-      size: ref.size,
-      file
-    }, {
-      signal,
-      semanticMode: semanticPreference === "ai" && !canonicalJson ? "ai" : "local",
-      onProgress: (progress) => agentImportProgressBus.emit(progress)
-    });
-    return {
-      importId: prepared.importId,
-      expectedDraftRevision: prepared.draftRevision,
-      sourceKind: prepared.sourceKind,
-      fileName: prepared.fileName,
-      fileHash: prepared.fileHash,
-      status: prepared.status,
-      quality: prepared.quality,
-      reviewSummary: prepared.reviewSummary,
-      artifactPayload: prepared.artifactPayload,
-      warnings: prepared.warnings
-    };
   }
 
   async reviewResumeImport(rawInput: unknown, signal?: AbortSignal) {
@@ -162,6 +173,8 @@ export class BrowserAgentToolService implements AgentToolServices {
       targetProfileId: string;
       expectedProfileVersion: number;
       acknowledgedActiveProfileId?: string;
+      intakeQuestionId?: string;
+      intakeCandidateId?: string;
       importId?: string;
       expectedDraftRevision?: number;
       sourceContentHash?: string;
@@ -211,6 +224,9 @@ export class BrowserAgentToolService implements AgentToolServices {
     if (identityMatch(existingByIdentity) && input.retry !== true) {
       return captureProfileIntakeObservation(existingByIdentity!, profile, true);
     }
+    const captureBase = existing && existing.intakeSession?.finalSynthesis
+      ? invalidateFinalSynthesis(existing)
+      : existing;
     const semanticResult = await this.profileIntakeSemantic.normalize({
       rawNarrative: input.text,
       existingDraft: existing,
@@ -219,23 +235,81 @@ export class BrowserAgentToolService implements AgentToolServices {
     const adapted = adaptConversationMessageToIntakeDraft({
       ...input,
       sourceContentHash,
-      importId: existing?.importId,
+      importId: captureBase?.importId,
       semanticResult
     });
-    const nextDraft = existing
-      ? mergeConversationIntakeDraft(input.retry ? removeFailedIntakeFallback(existing, { ...input, sourceContentHash }) : existing, adapted.draft)
+    const nextDraft = captureBase
+      ? mergeConversationIntakeDraft(input.retry ? removeFailedIntakeFallback(captureBase, { ...input, sourceContentHash }) : captureBase, adapted.draft)
       : adapted.draft;
+    const previousSession = captureBase?.intakeSession;
+    const followUpCounts = { ...(previousSession?.followUpCounts ?? {}) };
+    if (input.intakeCandidateId) {
+      followUpCounts[input.intakeCandidateId] = (followUpCounts[input.intakeCandidateId] ?? 0) + 1;
+    }
+    const nextSession = nextDraft.intakeSession
+      ? {
+          ...nextDraft.intakeSession,
+          phase: "clarifying" as const,
+          userTurnCount: (previousSession?.userTurnCount ?? 0) + 1,
+          perTurnBlockingReviewCount: previousSession?.perTurnBlockingReviewCount ?? 0,
+          automaticFollowUpCount: (previousSession?.automaticFollowUpCount ?? 0)
+            + Number(Boolean(input.intakeCandidateId)),
+          followUpCounts
+        }
+      : undefined;
+    const draftWithPhase = ImportedResumeDraftSchema.parse({
+      ...nextDraft,
+      ...(nextSession ? { intakeSession: nextSession } : {})
+    });
     const saved = await this.repository.saveImportedResumeDraft(
-      nextDraft,
+      draftWithPhase,
       existing?.revision ?? 0
     );
-    return captureProfileIntakeObservation(
-      saved,
-      profile,
-      false,
-      semanticResult.followUpQuestion,
-      semanticResult.followUpQuestions
+    return captureProfileIntakeObservation(saved, profile, false);
+  }
+
+  async synthesizeProfileIntake(rawInput: unknown, signal?: AbortSignal) {
+    assertNotAborted(signal);
+    const input = rawInput as { importId: string; expectedDraftRevision: number };
+    const draft = await this.repository.getImportedResumeDraft(input.importId);
+    if (!draft || draft.sourceKind !== "conversation") {
+      throw toolError("profile_intake_draft_missing", "访谈草稿不存在，请重新开始整理。");
+    }
+    if (draft.revision !== input.expectedDraftRevision) {
+      throw toolError("profile_intake_stale_revision", "访谈草稿已更新，请刷新最终整理后重试。");
+    }
+    const sessionId = draft.intakeSession?.sessionId ?? draft.source.sourceSessionId;
+    const sourceTurns = sessionId
+      ? await this.repository.listProfileIntakeSourceTurns(sessionId)
+      : [];
+    const synthesized = synthesizeProfileIntakeDraft({ draft, sourceTurns });
+    const saved = await this.repository.saveImportedResumeDraft(
+      ImportedResumeDraftSchema.parse(synthesized.draft),
+      input.expectedDraftRevision
     );
+    const interviewPlan = createProfileIntakeInterviewPlan([], saved.revision);
+    const reviewProjection = ProfileIntakeReviewProjectionSchema.parse({
+      ...buildConversationIntakeReviewProjectionFromDraft(saved),
+      phase: "ready_for_review",
+      finalSynthesis: synthesized.synthesis,
+      finalReviewRevision: saved.revision
+    });
+    const artifactPayload = buildConversationIntakeArtifact(saved, undefined, interviewPlan);
+    return {
+      importId: saved.importId,
+      expectedDraftRevision: saved.revision,
+      phase: "ready_for_review",
+      finalReviewCount: saved.intakeSession?.finalReviewCount ?? 1,
+      finalSynthesis: synthesized.synthesis,
+      candidates: reviewProjection.candidates,
+      reviewProjection,
+      artifactPayload,
+      interviewPlan,
+      intakeSession: saved.intakeSession,
+      persistenceReceipt: saved.intakeSession
+        ? { autosavedAt: saved.intakeSession.autosavedAt, resumeToken: saved.intakeSession.resumeToken }
+        : undefined
+    };
   }
 
   async reviewProfileIntake(rawInput: unknown, signal?: AbortSignal) {
@@ -243,9 +317,11 @@ export class BrowserAgentToolService implements AgentToolServices {
     const input = rawInput as {
       importId: string;
       expectedDraftRevision: number;
-      candidateId: string;
-      decision: "accept" | "reject" | "reopen";
+      candidateId?: string;
+      decision: "accept" | "reject" | "reopen" | "accept_all";
       editedLabel?: string;
+      sectionType?: import("@/domain/schemas/resumeV2").ResumeSectionTypeV2;
+      userCorrection?: boolean;
       structuredPatch?: ProfileIntakeStructuredPatch;
       evidence?: {
         sessionId: string;
@@ -263,112 +339,157 @@ export class BrowserAgentToolService implements AgentToolServices {
     if (draft.revision !== input.expectedDraftRevision) {
       throw toolError("profile_intake_stale_revision", "访谈草稿已更新，请刷新后继续核对。");
     }
+    const now = new Date().toISOString();
+    if (input.decision === "accept_all") {
+      const finalIds = new Set(draft.intakeSession?.finalSynthesis?.assets.map((asset) => asset.candidateId) ?? []);
+      const candidateIds = finalIds.size
+        ? finalIds
+        : new Set(draft.sections.flatMap((section) => section.items
+          .filter((item) => item.structuredItem && item.userConfirmed !== false)
+          .map((item) => item.id)));
+      const sections = draft.sections.map((section) => {
+        const items = section.items.map((item) => candidateIds.has(item.id)
+          ? { ...item, included: true, userConfirmed: true, sourceStatus: "user_confirmed_modified" as const }
+          : item);
+        return { ...section, included: items.some((item) => item.included), items };
+      });
+      const nextSession = draft.intakeSession
+        ? {
+            ...draft.intakeSession,
+            phase: "reviewing" as const,
+            autosavedAt: now,
+            reviewedCandidateIds: [...new Set([...draft.intakeSession.reviewedCandidateIds, ...candidateIds])],
+            resumeToken: stableHashText(`${draft.importId}:${draft.revision + 1}:accept-all`)
+          }
+        : undefined;
+      const saved = await this.repository.saveImportedResumeDraft(
+        ImportedResumeDraftSchema.parse({ ...draft, sections, ...(nextSession ? { intakeSession: nextSession } : {}) }),
+        input.expectedDraftRevision
+      );
+      const reviewProjection = buildConversationIntakeReviewProjectionFromDraft(saved);
+      return {
+        importId: saved.importId,
+        expectedDraftRevision: saved.revision,
+        decision: "accept_all",
+        acceptedCount: candidateIds.size,
+        unresolvedCount: reviewProjection.reviewProgress.proposed + reviewProjection.reviewProgress.uncertain,
+        candidates: reviewProjection.candidates,
+        reviewProjection,
+        artifactPayload: buildConversationIntakeArtifact(saved),
+        intakeSession: saved.intakeSession,
+        phase: "reviewing",
+        persistenceReceipt: saved.intakeSession
+          ? { autosavedAt: saved.intakeSession.autosavedAt, resumeToken: saved.intakeSession.resumeToken }
+          : undefined
+      };
+    }
+    if (!input.candidateId) throw toolError("profile_intake_candidate_missing", "待核对经历不存在。");
+    const operationId = `profile-intake-edit-${draft.importId}-${draft.revision}-${input.candidateId}`;
     let found = false;
     const sections = draft.sections.map((section) => {
       const items = section.items.map((item) => {
         if (item.id !== input.candidateId) return item;
         found = true;
         const editedLabel = input.editedLabel?.trim();
-        const renamed = editedLabel
-          ? renameStructuredItem(item.structuredItem, editedLabel)
+        const migrated = input.sectionType && item.structuredItem
+          ? migrateProfileIntakeSection({ item: item.structuredItem, sectionType: input.sectionType })
           : item.structuredItem;
-        const patchValidation = input.structuredPatch && renamed
+        const renamed = editedLabel ? renameStructuredItem(migrated, editedLabel) : migrated;
+        const correctionValidation = input.userCorrection === true && input.structuredPatch && renamed
+          ? validateUserCorrectionStructuredPatch({ item: renamed, rawPatch: input.structuredPatch })
+          : undefined;
+        const patchValidation = !correctionValidation && input.structuredPatch && renamed
           ? validateProfileIntakeStructuredPatch({
               item: renamed,
               rawPatch: input.structuredPatch,
               evidenceSources: [
-                ...(item.careerNormalization?.fieldEvidence.map((entry) => ({
-                  sourceQuote: entry.sourceQuote,
-                  supportedFields: [entry.field]
-                })) ?? []),
+                ...(item.careerNormalization?.fieldEvidence.map((entry) => ({ sourceQuote: entry.sourceQuote, supportedFields: [entry.field] })) ?? []),
                 ...(input.evidence ? [{ sourceQuote: input.evidence.sourceQuote }] : [])
               ]
             })
           : undefined;
-        const structuredItem = patchValidation && renamed
-          ? applyProfileIntakeStructuredPatch(renamed, patchValidation.patch)
-          : renamed;
-        const normalizationResolved = item.careerNormalization?.needsNormalization === true
-          && input.decision === "accept"
-          ? Boolean(patchValidation && structuredItem && hasCareerReadyPatch(patchValidation.patch))
-          : false;
+        const structuredItem = correctionValidation?.structuredItem
+          ?? (patchValidation && renamed ? applyProfileIntakeStructuredPatch(renamed, patchValidation.patch) : renamed);
+        const patchedFields = correctionValidation?.fieldNames ?? (patchValidation ? Object.keys(patchValidation.patch) : []);
+        const normalizationResolved = input.userCorrection === true
+          || (item.careerNormalization?.needsNormalization === true
+            && input.decision === "accept"
+            && Boolean(patchValidation && structuredItem && hasCareerReadyPatch(patchValidation.patch)));
         if (input.decision === "accept" && !structuredItem) {
-          throw toolError(
-            "profile_intake_identity_missing",
-            "这项内容还缺少正式名称，请编辑名称或手动整理后再采用。"
-          );
+          throw toolError("profile_intake_identity_missing", "这项内容还缺少正式名称，请编辑名称或手动整理后再采用。");
         }
-        if (
-          input.decision === "accept"
-          && item.careerNormalization?.needsNormalization === true
-          && !normalizationResolved
-        ) {
-          throw toolError(
-            "profile_intake_normalization_required",
-            "这项原始回答尚未整理完成，请重新解析、编辑后采用或忽略。"
-          );
+        if (input.decision === "accept" && item.careerNormalization?.needsNormalization === true && !normalizationResolved) {
+          throw toolError("profile_intake_normalization_required", "这项原始回答尚未整理完成，请重新解析、编辑后采用或忽略。");
         }
-        const patchedFields = patchValidation ? Object.keys(patchValidation.patch) : [];
-        const followUpEvidence = input.evidence
-          ? {
-              ...input.evidence,
-              supportedFields: patchedFields
-            }
+        const followUpEvidence = input.evidence ? { ...input.evidence, supportedFields: patchedFields } : undefined;
+        const supersededSourceTurnId = item.conversationEvidence?.at(-1)?.turnId;
+        const userCorrectionProvenance = input.userCorrection === true && patchedFields.length
+          ? ProfileIntakeProvenanceSchema.parse({
+              kind: "user_correction",
+              sourceCandidateId: item.id,
+              ...(supersededSourceTurnId ? { supersededSourceTurnId } : {}),
+              supersededFieldEvidence: (item.careerNormalization?.fieldEvidence ?? [])
+                .filter((entry) => patchedFields.includes(entry.field))
+                .map((entry) => ({ field: entry.field, sourceTurnId: supersededSourceTurnId ?? item.id, sourceQuote: entry.sourceQuote })),
+              fieldNames: patchedFields,
+              confirmedAt: now,
+              operationId
+            })
           : undefined;
         return {
           ...item,
           itemLabel: editedLabel ?? item.itemLabel,
-          normalizedText: structuredItem
-            ? profileIntakeCareerReadyText(structuredItem)
-            : item.normalizedText,
+          normalizedText: structuredItem ? profileIntakeCareerReadyText(structuredItem) : item.normalizedText,
           structuredItem,
           included: input.decision === "accept",
-          userConfirmed: input.decision === "accept"
-            ? true
-            : input.decision === "reject"
-              ? false
-              : undefined,
-          sourceStatus: input.decision === "reject"
-            ? "ambiguous" as const
-            : "user_confirmed_modified" as const,
+          userConfirmed: input.decision === "accept" ? true : input.decision === "reject" ? false : undefined,
+          sourceStatus: input.decision === "reject" ? "ambiguous" as const : "user_confirmed_modified" as const,
           userEdited: Boolean(editedLabel || input.structuredPatch),
-          pageRefs: followUpEvidence
-            ? [...item.pageRefs, { pageNumber: 1, quote: followUpEvidence.sourceQuote }]
-            : item.pageRefs,
-          conversationEvidence: followUpEvidence
-            ? [...(item.conversationEvidence ?? []), followUpEvidence]
-            : item.conversationEvidence,
+          ...(userCorrectionProvenance ? { provenance: [...(item.provenance ?? []), userCorrectionProvenance] } : {}),
+          pageRefs: followUpEvidence ? [...item.pageRefs, { pageNumber: 1, quote: followUpEvidence.sourceQuote }] : item.pageRefs,
+          conversationEvidence: followUpEvidence ? [...(item.conversationEvidence ?? []), followUpEvidence] : item.conversationEvidence,
           careerNormalization: item.careerNormalization
             ? {
                 ...item.careerNormalization,
-                needsNormalization: normalizationResolved
-                  ? false
-                  : item.careerNormalization.needsNormalization,
-                fieldEvidence: [
-                  ...item.careerNormalization.fieldEvidence,
-                  ...(patchValidation?.fieldEvidence ?? [])
-                ]
+                needsNormalization: normalizationResolved ? false : item.careerNormalization.needsNormalization,
+                fieldEvidence: [...item.careerNormalization.fieldEvidence, ...(patchValidation?.fieldEvidence ?? [])]
               }
             : item.careerNormalization
         };
       });
-      return {
-        ...section,
-        included: items.some((item) => item.included),
-        items
-      };
+      return { ...section, included: items.some((item) => item.included), items };
     });
     if (!found) throw toolError("profile_intake_candidate_missing", "待核对经历不存在。");
     const nextRevision = input.expectedDraftRevision + 1;
     const structuredItemsBeforeSave = sections.flatMap((section) => section.items.flatMap((item) =>
-      item.userConfirmed === true && item.structuredItem ? [item.structuredItem] : []
+      item.userConfirmed !== false && item.structuredItem ? [item.structuredItem] : []
     ));
-    const nextInterviewPlan = createProfileIntakeInterviewPlan(structuredItemsBeforeSave, nextRevision);
-    const reviewTimestamp = new Date().toISOString();
+    const nextInterviewPlan = createProfileIntakeInterviewPlan(structuredItemsBeforeSave, nextRevision, {
+      followUpCounts: draft.intakeSession?.followUpCounts
+    });
+    const nextSynthesis = draft.intakeSession?.finalSynthesis && input.candidateId
+      ? {
+          ...draft.intakeSession.finalSynthesis,
+          assets: draft.intakeSession.finalSynthesis.assets.map((asset) => {
+              const edited = sections.flatMap((section) => section.items).find((item) => item.id === input.candidateId);
+              return asset.candidateId === input.candidateId && edited?.structuredItem
+                ? {
+                    ...asset,
+                    sectionType: edited.structuredItem.sectionType,
+                    structuredItem: edited.structuredItem,
+                    highlights: finalSynthesisHighlights(edited.structuredItem),
+                    provenance: edited.provenance ?? asset.provenance
+                  }
+                : asset;
+          })
+        }
+      : draft.intakeSession?.finalSynthesis;
     const nextIntakeSession = draft.intakeSession
       ? {
           ...draft.intakeSession,
-          autosavedAt: reviewTimestamp,
+          ...(nextSynthesis ? { finalSynthesis: nextSynthesis } : {}),
+          phase: draft.intakeSession.phase === "ready_for_review" || draft.intakeSession.phase === "reviewing" ? "reviewing" as const : "clarifying" as const,
+          autosavedAt: now,
           lastCompletedSection: savedSectionType(sections, input.candidateId) ?? draft.intakeSession.lastCompletedSection,
           reviewedCandidateIds: [...new Set([...draft.intakeSession.reviewedCandidateIds, input.candidateId])],
           activeQuestionId: nextInterviewPlan.activeQuestionId,
@@ -376,41 +497,21 @@ export class BrowserAgentToolService implements AgentToolServices {
         }
       : undefined;
     const saved = await this.repository.saveImportedResumeDraft(
-      ImportedResumeDraftSchema.parse({
-        ...draft,
-        sections,
-        ...(nextIntakeSession ? { intakeSession: nextIntakeSession } : {})
-      }),
+      ImportedResumeDraftSchema.parse({ ...draft, sections, ...(nextIntakeSession ? { intakeSession: nextIntakeSession } : {}) }),
       input.expectedDraftRevision
     );
-    const unresolved = saved.sections.flatMap((section) => section.items)
-      .filter((item) => item.sourceStatus === "ambiguous").length;
-    const savedItem = saved.sections
-      .flatMap((section) => section.items)
-      .find((item) => item.id === input.candidateId);
+    const unresolved = saved.sections.flatMap((section) => section.items).filter((item) => item.sourceStatus === "ambiguous").length;
+    const savedItem = saved.sections.flatMap((section) => section.items).find((item) => item.id === input.candidateId);
     const structuredItems = saved.sections.flatMap((section) => section.items.flatMap((item) =>
-      item.userConfirmed === true && item.structuredItem ? [item.structuredItem] : []
+      item.userConfirmed !== false && item.structuredItem ? [item.structuredItem] : []
     ));
-    const interviewPlan = createProfileIntakeInterviewPlan(structuredItems, saved.revision);
-    const artifact = buildConversationIntakeArtifact(
-      saved,
-      interviewPlan.activeQuestion?.question,
-      interviewPlan
-    );
-    const reviewProjection = buildConversationIntakeReviewProjectionFromDraft(
-      saved,
-      interviewPlan.activeQuestion?.question ? [interviewPlan.activeQuestion.question] : []
-    );
+    const interviewPlan = createProfileIntakeInterviewPlan(structuredItems, saved.revision, { followUpCounts: saved.intakeSession?.followUpCounts });
+    const artifact = buildConversationIntakeArtifact(saved, interviewPlan.activeQuestion?.question, interviewPlan);
+    const reviewProjection = buildConversationIntakeReviewProjectionFromDraft(saved, interviewPlan.activeQuestion?.question ? [interviewPlan.activeQuestion.question] : []);
     const finalizedProjection = ProfileIntakeReviewProjectionSchema.parse({
       ...reviewProjection,
-      ...(reviewProjection.reviewProgress.reviewed === reviewProjection.reviewProgress.total
-        && reviewProjection.reviewProgress.proposed === 0
-        && reviewProjection.reviewProgress.uncertain === 0
-        && reviewProjection.extractionStatus !== "failed"
-        ? { finalReviewRevision: saved.revision }
-        : {})
+      ...(reviewProjection.reviewProgress.reviewed === reviewProjection.reviewProgress.total && reviewProjection.reviewProgress.proposed === 0 && reviewProjection.reviewProgress.uncertain === 0 && reviewProjection.extractionStatus !== "failed" ? { finalReviewRevision: saved.revision } : {})
     });
-    const authoritativeCandidate = artifact.candidates.find((candidate) => candidate.id === input.candidateId);
     return {
       importId: saved.importId,
       expectedDraftRevision: saved.revision,
@@ -418,13 +519,11 @@ export class BrowserAgentToolService implements AgentToolServices {
       decision: input.decision,
       structuredItem: savedItem?.structuredItem,
       fieldEvidence: savedItem?.careerNormalization?.fieldEvidence ?? [],
-      candidate: authoritativeCandidate,
+      candidate: artifact.candidates.find((candidate) => candidate.id === input.candidateId),
       editedLabel: input.editedLabel?.trim(),
       patchedFields: input.structuredPatch ? Object.keys(input.structuredPatch) : [],
       unresolvedCount: unresolved,
-      persistenceReceipt: saved.intakeSession
-        ? { autosavedAt: saved.intakeSession.autosavedAt, resumeToken: saved.intakeSession.resumeToken }
-        : undefined,
+      persistenceReceipt: saved.intakeSession ? { autosavedAt: saved.intakeSession.autosavedAt, resumeToken: saved.intakeSession.resumeToken } : undefined,
       intakeSession: saved.intakeSession,
       providerStatus: reviewProjection.providerStatus,
       extractionStatus: captureExtractionStatus(reviewProjection.extractionStatus),
@@ -1408,19 +1507,21 @@ function profileSummaryCounts(profile: Parameters<typeof canonicalProfileLibrary
 function captureProfileIntakeObservation(
   draft: ImportedResumeDraft,
   profile: { id: string; version: number },
-  idempotent: boolean,
-  fallbackFollowUpQuestion?: string,
-  fallbackFollowUpQuestions: string[] = []
+  idempotent: boolean
 ) {
-  const acceptedStructuredItems = draft.sections.flatMap((section) => section.items.flatMap((item) =>
-    item.userConfirmed === true && item.structuredItem ? [item.structuredItem] : []
+  const provisionalStructuredItems = draft.sections.flatMap((section) => section.items.flatMap((item) =>
+    item.userConfirmed !== false && item.structuredItem ? [item.structuredItem] : []
   ));
-  const interviewPlan = createProfileIntakeInterviewPlan(acceptedStructuredItems, draft.revision);
-  const followUpQuestion = interviewPlan.activeQuestion?.question ?? fallbackFollowUpQuestion;
+  const interviewPlan = createProfileIntakeInterviewPlan(provisionalStructuredItems, draft.revision, {
+    followUpCounts: draft.intakeSession?.followUpCounts
+  });
+  const followUpQuestion = interviewPlan.activeQuestion?.question;
   const artifactPayload = buildConversationIntakeArtifact(draft, followUpQuestion, interviewPlan);
   const reviewProjection = buildConversationIntakeReviewProjectionFromDraft(
     draft,
-    [...fallbackFollowUpQuestions, ...(followUpQuestion ? [followUpQuestion] : [])]
+    // The persisted plan is the single selector authority; never reintroduce a
+    // provider question after the per-asset cap is exhausted.
+    followUpQuestion ? [followUpQuestion] : []
   );
   const extractionStatus = captureExtractionStatus(reviewProjection.extractionStatus);
   const usableCandidateCount = reviewProjection.candidates.filter((candidate) =>
@@ -1475,8 +1576,23 @@ function captureExtractionStatus(value: string) {
   return "failed" as const;
 }
 
+function finalSynthesisHighlights(item: import("@/domain/schemas").ResumeItemV2) {
+  const record = item as unknown as Record<string, unknown>;
+  return [
+    ...(Array.isArray(record.highlights) ? record.highlights : []),
+    ...(Array.isArray(record.outcomes) ? record.outcomes : []),
+    ...(typeof record.description === "string" ? record.description.split(/[\n。；;]+/u) : [])
+  ].filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+    .map((value) => value.trim())
+    .filter((value, index, values) => values.indexOf(value) === index)
+    .slice(0, 4);
+}
+
 function savedSectionType(
-  sections: ImportedResumeDraft["sections"],
+  sections: Array<{
+    sectionType: ImportedResumeDraft["sections"][number]["sectionType"];
+    items: Array<{ id: string }>;
+  }>,
   candidateId: string
 ) {
   return sections.find((section) => section.items.some((item) => item.id === candidateId))?.sectionType;
@@ -1501,6 +1617,29 @@ function removeFailedIntakeFallback(
     ...draft,
     sections,
     warnings: draft.warnings.filter((warning) => warning.code !== "provider_unavailable")
+  });
+}
+
+function invalidateFinalSynthesis(draft: ImportedResumeDraft): ImportedResumeDraft {
+  const sections = draft.sections
+    .map((section) => ({
+      ...section,
+      items: section.items.filter((item) => !item.id.startsWith("synth-"))
+    }))
+    .filter((section) => section.items.length);
+  const session = draft.intakeSession;
+  return ImportedResumeDraftSchema.parse({
+    ...draft,
+    sections,
+    intakeSession: session
+      ? {
+          ...session,
+          phase: "clarifying",
+          finalSynthesis: undefined,
+          finalSynthesisRevision: undefined,
+          finalReviewCount: session.finalReviewCount
+        }
+      : undefined
   });
 }
 
@@ -1566,6 +1705,10 @@ function renameStructuredItem<T extends { sectionType: string } | undefined>(
     return { ...item, name: label } as T;
   }
   if (item.sectionType === "languages") return { ...item, language: label } as T;
+  if (["work", "internship", "campus", "volunteer"].includes(item.sectionType)) {
+    return { ...item, organization: label } as T;
+  }
+  if (item.sectionType === "summary") return { ...item, text: label } as T;
   return item;
 }
 

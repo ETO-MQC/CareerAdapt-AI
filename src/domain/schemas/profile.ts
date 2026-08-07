@@ -2,6 +2,7 @@ import { z } from "zod";
 import { EntityBaseSchema, FactStatementSchema, IsoDateStringSchema } from "./common";
 import { ResumeBasicsV2Schema, ResumeItemV2Schema } from "./resumeV2";
 import { ResumeJsonV2MappingTraceSchema } from "./resumeJsonV2";
+import { ProfileIntakeProvenanceSchema } from "@/domain/profileIntake/ProfileIntakeProvenance";
 
 const PersistedResumeSourceRangeSchema = z.object({
   blockId: z.string().min(1),
@@ -96,7 +97,8 @@ export const ProfileStructuredFactSchema = z.object({
   sourceBlockIds: z.array(z.string().min(1)).default([]),
   sourceRanges: z.array(PersistedResumeSourceRangeSchema).default([]),
   sourceExcerpt: z.string().min(1).optional(),
-  mappingTrace: z.array(ResumeJsonV2MappingTraceSchema).default([])
+  mappingTrace: z.array(ResumeJsonV2MappingTraceSchema).default([]),
+  provenance: z.array(ProfileIntakeProvenanceSchema).optional()
 }).strict();
 
 export const VersionCreatedReasonSchema = z.enum([

@@ -357,6 +357,124 @@
   padding-right: 4px;
 }
 
+.agent-intake-provisional-details {
+  border-top: 1px solid var(--ai-border);
+  margin-top: 10px;
+  padding-top: 8px;
+}
+
+.agent-intake-provisional-details > summary {
+  color: var(--ai-muted);
+  cursor: pointer;
+  font-size: 12px;
+  list-style-position: inside;
+  padding: 4px 0 8px;
+}
+
+.agent-intake-provisional-details > summary span,
+.agent-final-review h4 span {
+  color: var(--ai-muted);
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.agent-final-review {
+  border-top: 1px solid var(--ai-border-strong);
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 14px;
+}
+
+.agent-final-review > header {
+  align-items: flex-start;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.agent-final-review > header > div {
+  display: grid;
+  gap: 3px;
+}
+
+.agent-final-review > header strong {
+  color: var(--ai-text);
+  font-size: 14px;
+}
+
+.agent-final-review-heading,
+.agent-final-review-note {
+  color: var(--ai-muted);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.agent-final-review-heading {
+  color: var(--ai-text);
+  font-size: 12px;
+}
+
+.agent-final-review-groups {
+  display: grid;
+  gap: 12px;
+  max-height: min(62vh, 680px);
+  min-width: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 4px;
+}
+
+.agent-final-review-groups > section {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.agent-final-review-groups h4 {
+  color: var(--ai-text);
+  font-size: 12px;
+  margin: 0;
+}
+
+.agent-final-review-items {
+  display: grid;
+  gap: 8px;
+}
+
+.agent-final-review-item {
+  border: 1px solid var(--ai-border);
+  border-radius: var(--ai-radius-sm);
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  padding: 10px;
+}
+
+.agent-final-review-item > header {
+  align-items: flex-start;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.agent-final-review-item > header > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.agent-final-review-item > header strong {
+  color: var(--ai-text);
+  overflow-wrap: anywhere;
+}
+
+.agent-final-review-actions {
+  border-top: 1px solid var(--ai-border);
+  margin-top: 2px;
+  padding-top: 8px;
+}
+
 .agent-career-follow-up {
   border-left: 2px solid var(--ai-accent);
   margin: 0 0 12px;
@@ -462,6 +580,33 @@
   color: var(--ai-text);
   min-height: 30px;
   padding: 0 7px;
+}
+
+.agent-career-asset-editor textarea,
+.agent-career-asset-editor select {
+  background: var(--ai-surface);
+  border: 1px solid var(--ai-border);
+  border-radius: 6px;
+  color: var(--ai-text);
+  font: inherit;
+  min-height: 30px;
+  padding: 6px 7px;
+}
+
+.agent-career-asset-editor textarea {
+  min-height: 62px;
+  resize: vertical;
+}
+
+.agent-career-asset-editor-checkbox {
+  align-items: center;
+  display: flex !important;
+  gap: 6px !important;
+}
+
+.agent-career-asset-editor-checkbox input {
+  min-height: auto;
+  width: auto;
 }
 
 .agent-career-asset-editor button,

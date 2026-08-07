@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { ProfileIntakeStructuredPatchSchema } from "@/domain/profileIntake/ProfileIntakeNormalizer";
+import { ResumeSectionTypeV2Schema } from "@/domain/schemas/resumeV2";
 
 export const ProfileIntakeSectionSchema = z.enum([
   "internship",
@@ -45,6 +46,12 @@ export const AgentArtifactActionSchema = z.discriminatedUnion("type", [
     decision: z.enum(["accept", "reject", "reopen"])
   }).strict(),
   z.object({
+    type: z.literal("profile_intake_final_review_decision"),
+    importId: z.string().min(1),
+    expectedDraftRevision: z.number().int().min(0),
+    decision: z.literal("accept_all")
+  }).strict(),
+  z.object({
     type: z.literal("resume_import_review_decision"),
     decision: z.enum(["accept_all", "ignore_uncertain"])
   }).strict(),
@@ -73,8 +80,10 @@ export const AgentArtifactActionSchema = z.discriminatedUnion("type", [
     importId: z.string().min(1),
     expectedDraftRevision: z.number().int().min(0),
     candidateId: z.string().min(1),
+    sectionType: ResumeSectionTypeV2Schema.exclude(["basics"]).optional(),
     editedLabel: z.string().trim().min(1).max(240).optional(),
     fieldPatch: ProfileIntakeStructuredPatchSchema.optional(),
+    userCorrection: z.boolean().optional(),
     decision: z.literal("accept")
   }).strict().superRefine((action, context) => {
     const hasLabel = Boolean(action.editedLabel?.trim());
