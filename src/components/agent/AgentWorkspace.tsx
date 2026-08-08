@@ -51,6 +51,7 @@ const agentImportRepository = new WorkspaceRepository();
 export function AgentWorkspace() {
   const host = useAgentHost();
   const snapshot = useSyncExternalStore(host.state.subscribe, host.state.getSnapshot, host.state.getSnapshot);
+  const runtimeStatus = useSyncExternalStore(host.runtimeStatus.subscribe, host.runtimeStatus.getSnapshot, host.runtimeStatus.getSnapshot);
   const [session, setSession] = useState<AgentSession>(() =>
     snapshot.activeSession ?? AgentRuntime.create("agent_quick_action", "collecting_intent", "AI 求职任务")
   );
@@ -613,6 +614,7 @@ export function AgentWorkspace() {
     <AgentWorkspaceLayout
       sessionTitle={getAgentSessionDisplayTitle(session)}
       status={statusLabel(snapshot.turnStatus)}
+      runtimeStatus={runtimeStatus}
       contextSelector={<CareerContextSelector onBeforeSelect={handleBeforeContextSelect} />}
       pinnedContextLabel={pinnedContextLabel}
       artifactCount={artifacts.length}

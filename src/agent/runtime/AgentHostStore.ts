@@ -10,6 +10,7 @@ import {
 } from "@/agent/contracts/agentSession";
 import type { AgentPageContext } from "@/agent/contracts/agentContext";
 import type { AgentStreamEvent } from "@/agent/runtime/agentSse";
+import type { AgentRuntimeEvent } from "@/agent/runtime/agentRuntime";
 import type { AgentKernel } from "@/agent/kernel/AgentKernel";
 import type { AgentExecutor } from "@/agent/runtime/agentExecutor";
 import type { AgentSessionStore } from "@/services/agent/agentSessionStore";
@@ -305,6 +306,158 @@ export class AgentHostStore {
 
   setBusy(busy: boolean) {
     this.patch({ turnStatus: busy ? "running" : "idle" });
+  }
+
+  /**
+   * Publish a runtime-owned conversation shell before an external runtime
+   * performs network or model work. Native turns already use startTurn; this
+   * path is for Hermes (and future companion runtimes) so the UI never waits
+   * for the first model token before showing progress.
+   */
+  async beginRuntimeShell(input: {
+    session: AgentSession;
+    userMessage: string;
+    runtimeId: string;
+    turnId?: string;
+  }) {
+    const now = new Date().toISOString();
+    const turnId = input.turnId ?? `runtime-turn-${crypto.randomUUID()}`;
+    const userMessageId = `agent-user-${crypto.randomUUID()}`;
+    const assistantMessageId = `agent-thinking-${crypto.randomUUID()}`;
+    let current = input.userMessage.trim()
+      ? appendAgentMessage(input.session, "user", input.userMessage.trim(), {
+          id: userMessageId,
+          turnId,
+          status: "complete",
+          metadata: { executionState: "running", runtimeId: input.runtimeId }
+        })
+      : input.session;
+    current = appendAgentMessage(current, "assistant", "正在读取当前资料…", {
+      id: assistantMessageId,
+      turnId,
+      kind: "assistant_thinking",
+      type: "assistant_thinking",
+      status: "thinking",
+      streaming: true,
+      parentMessageId: userMessageId,
+      metadata: { runtimeId: input.runtimeId }
+    });
+    current = {
+      ...current,
+      runtimeId: input.runtimeId,
+      activeTurn: {
+        id: turnId,
+        sessionId: current.id,
+        userMessageId,
+        runtimeId: input.runtimeId,
+        status: "running",
+        startedAt: now
+      }
+    };
+    const saved = await this.dependencies.persistence.save(current);
+    this.patchSession(saved, {
+      turnStatus: "running",
+      activeTurnId: turnId,
+      startedAt: now,
+      lastProgressAt: now,
+      stalled: false,
+      streamEvents: [],
+      currentObservation: { runtimeId: input.runtimeId, message: "正在读取当前资料…" }
+    });
+    return { session: saved, turnId, userMessageId, assistantMessageId };
+  }
+
+  async applyRuntimeEvent(event: AgentRuntimeEvent, assistantMessageId: string) {
+    const current = this.snapshot.activeSession;
+    if (!current || current.id !== event.sessionId) return undefined;
+    const assistant = current.messages.find((message) => message.id === assistantMessageId);
+    let next = current;
+    if (event.type === "progress" || event.type === "reasoning_status") {
+      if (!assistant || assistant.metadata?.runtimeTextStarted !== true) {
+        next = replaceRuntimeShellMessage(next, assistantMessageId, event.message ?? "正在处理当前任务…", event, true);
+      }
+      this.patchSession(next, { currentObservation: { runtimeId: "hermes", message: event.message } });
+      return next;
+    }
+    if (event.type === "text_delta") {
+      next = replaceRuntimeShellMessage(next, assistantMessageId, `${assistant?.content ?? ""}${event.delta ?? ""}`, event, true);
+    }
+    if (["tool_call_started", "tool_call_requested", "tool_call_completed", "tool_call_failed"].includes(event.type)) {
+      const operationId = event.operationId ?? `runtime-tool-${crypto.randomUUID()}`;
+      const status = event.type === "tool_call_failed" ? "failed" : event.type === "tool_call_completed" ? "complete" : "pending";
+      next = upsertAgentActivity(next, {
+        id: `agent-tool-${operationId}`,
+        turnId: event.turnId,
+        content: event.type === "tool_call_failed"
+          ? event.error?.message ?? "Career 工具执行失败。"
+          : event.type === "tool_call_completed" ? "Career 工具执行完成。" : `正在调用 ${event.toolName ?? "Career 工具"}…`,
+        toolName: event.toolName,
+        operationId,
+        status,
+        metadata: { runtimeId: "hermes", activityState: status }
+      });
+    }
+    if (event.type === "approval_required") {
+      const data = objectValue(event.data);
+      const contract = objectValue(data.contract);
+      const sourceToolName = stringValue(contract.sourceToolName) ?? event.toolName ?? "career_tool";
+      const operationId = event.operationId ?? `runtime-approval-${crypto.randomUUID()}`;
+      next = {
+        ...next,
+        pendingConfirmation: {
+          id: `confirmation-${operationId}`,
+          turnId: event.turnId,
+          operationId,
+          toolName: sourceToolName,
+          title: "确认执行 Career 操作",
+          description: event.message ?? "这项操作需要你的明确确认后才能继续。",
+          destructive: contract.safetyClass === "DESTRUCTIVE",
+          status: "pending",
+          requestedAt: new Date().toISOString()
+        },
+        pendingToolCall: {
+          turnId: event.turnId,
+          toolName: sourceToolName,
+          operationId,
+          input: objectValue(data.input)
+        },
+        workflowState: { ...next.workflowState, status: "waiting_for_confirmation" }
+      };
+    }
+    if (event.type === "turn_completed" || event.type === "turn_failed") {
+      const text = event.type === "turn_failed"
+        ? event.error?.message ?? "当前任务没有完成。"
+        : event.message ?? next.messages.find((message) => message.id === assistantMessageId)?.content ?? "当前任务已完成。";
+      next = replaceRuntimeShellMessage(next, assistantMessageId, text, event, false, event.type === "turn_failed");
+      next = {
+        ...next,
+        runtimeId: "hermes",
+        activeTurn: next.activeTurn
+          ? {
+              ...next.activeTurn,
+              runtimeId: "hermes",
+              status: event.type === "turn_failed" ? "failed" : next.pendingConfirmation ? "waiting_for_confirmation" : "completed",
+              completedAt: event.type === "turn_failed" || !next.pendingConfirmation ? new Date().toISOString() : undefined
+            }
+          : undefined,
+        // Hermes owns the conversational turn, not the durable career workflow
+        // state. Keep the existing workflow status here unless the runtime has
+        // raised an approval boundary; native workflow execution remains the
+        // only path that can mark a workflow completed or failed.
+        workflowState: next.pendingConfirmation
+          ? { ...next.workflowState, status: "waiting_for_confirmation" }
+          : next.workflowState
+      };
+      const saved = await this.dependencies.persistence.save(next);
+      this.patchSession(saved, {
+        turnStatus: event.type === "turn_failed" ? "failed" : saved.pendingConfirmation ? "waiting_for_confirmation" : "completed",
+        activeTurnId: event.turnId,
+        currentObservation: event.error ?? { runtimeId: "hermes", message: event.message }
+      });
+      return saved;
+    }
+    this.patchSession(next, { currentObservation: event.data ?? event.message });
+    return next;
   }
 
   interrupt(sessionId = this.snapshot.activeSessionId) {
@@ -2311,6 +2464,8 @@ export class AgentHostStore {
   async startTurn(input: {
     session: AgentSession;
     userMessage: string;
+    turnId?: string;
+    runtimeId?: string;
     userMessageId?: string;
     assistantMessageId?: string;
     appendUserMessage?: boolean;
@@ -2346,7 +2501,7 @@ export class AgentHostStore {
       });
     }
     const now = new Date().toISOString();
-    const turnId = `agent-turn-${crypto.randomUUID()}`;
+    const turnId = input.turnId ?? `agent-turn-${crypto.randomUUID()}`;
     const executionRecord = this.executionCoordinator.begin({
       sessionId: input.session.id,
       activeTurnId: turnId,
@@ -2416,7 +2571,10 @@ export class AgentHostStore {
           turnId,
           status: "complete",
           references: input.references?.length ? input.references : undefined,
-          metadata: { executionState: "running" }
+          metadata: {
+            executionState: "running",
+            ...(input.runtimeId ? { runtimeId: input.runtimeId } : {})
+          }
         });
     current = input.assistantMessageId
       ? replaceMessageWithThinking(current, input.assistantMessageId, userMessageId, turnId, now)
@@ -2439,9 +2597,11 @@ export class AgentHostStore {
         id: turnId,
         sessionId: current.id,
         userMessageId,
+        ...(input.runtimeId ? { runtimeId: input.runtimeId } : {}),
         status: "running",
         startedAt: now
-      }
+      },
+      ...(input.runtimeId ? { runtimeId: input.runtimeId } : {})
     };
     // Publish the local turn shell before any async preflight so the conversation
     // can show the user's message and the assistant's running state immediately.
@@ -6232,6 +6392,39 @@ function objectValue(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
     ? value as Record<string, unknown>
     : {};
+}
+
+function replaceRuntimeShellMessage(
+  session: AgentSession,
+  messageId: string,
+  content: string,
+  event: AgentRuntimeEvent,
+  streaming = false,
+  failed = false
+) {
+  const now = new Date().toISOString();
+  return {
+    ...session,
+    messages: session.messages.map((message) => message.id === messageId
+      ? {
+          ...message,
+          turnId: event.turnId,
+          content,
+          kind: failed ? "error_status" as const : streaming ? "assistant_streaming" as const : "text" as const,
+          type: failed ? "error" as const : streaming ? "assistant_streaming" as const : "text" as const,
+          status: failed ? "failed" as const : streaming ? "streaming" as const : "complete" as const,
+          streaming,
+          ...(failed && event.error?.code ? { errorCode: event.error.code } : {}),
+          metadata: {
+            ...message.metadata,
+            runtimeId: "hermes",
+            ...(event.type === "text_delta" ? { runtimeTextStarted: true } : {})
+          },
+          updatedAt: now
+        }
+      : message),
+    updatedAt: now
+  };
 }
 
 function stringValue(value: unknown) {

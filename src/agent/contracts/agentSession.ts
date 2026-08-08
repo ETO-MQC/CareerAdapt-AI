@@ -160,6 +160,7 @@ export const AgentTurnSchema = z.object({
   id: z.string().min(1),
   sessionId: z.string().min(1),
   userMessageId: z.string().min(1).optional(),
+  runtimeId: z.string().min(1).optional(),
   status: z.enum(["running", "waiting_for_user", "waiting_for_confirmation", "completed", "failed", "aborted"]),
   startedAt: z.string().datetime({ offset: true }),
   completedAt: z.string().datetime({ offset: true }).optional()
@@ -273,6 +274,7 @@ export const AgentSessionSchema = z.object({
   reflection: AgentReflectionSchema.optional(),
   pendingConfirmation: AgentConfirmationSchema.optional(),
   pendingToolCall: AgentPendingToolCallSchema.optional(),
+  runtimeId: z.string().min(1).optional(),
   activeTurn: AgentTurnSchema.optional(),
   taskState: AgentTaskStateSchema.optional(),
   conversationBranches: z.array(ConversationBranchSchema).max(100).default([]),

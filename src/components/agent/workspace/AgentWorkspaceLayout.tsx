@@ -4,6 +4,7 @@ import { History, Monitor, Moon, MoreHorizontal, Settings, Sun } from "lucide-re
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { AgentArtifactLauncher } from "@/components/agent/artifacts/AgentArtifactLauncher";
+import type { RuntimeStatusSnapshot } from "@/agent/runtime/runtimeStatus";
 
 type ThemePreference = "system" | "light" | "dark";
 
@@ -17,6 +18,7 @@ export function AgentWorkspaceLayout({
   children,
   sessionTitle,
   status,
+  runtimeStatus,
   contextSelector,
   pinnedContextLabel,
   artifactCount,
@@ -26,6 +28,7 @@ export function AgentWorkspaceLayout({
   children: React.ReactNode;
   sessionTitle: string;
   status: string;
+  runtimeStatus?: RuntimeStatusSnapshot;
   contextSelector?: React.ReactNode;
   pinnedContextLabel?: string;
   artifactCount: number;
@@ -57,6 +60,7 @@ export function AgentWorkspaceLayout({
           {contextSelector}
         </div>
         <div>
+          {runtimeStatus ? <RuntimeStatusBadge status={runtimeStatus} /> : null}
           <span className="agent-workflow-status">{status}</span>
           <AgentArtifactLauncher count={artifactCount} onOpen={onOpenArtifacts} />
           <button type="button" aria-label="打开历史记录" title="历史记录" onClick={onOpenHistory}>
@@ -104,6 +108,28 @@ export function AgentWorkspaceLayout({
       </header>
       {children}
     </main>
+  );
+}
+
+function RuntimeStatusBadge({ status }: { status: RuntimeStatusSnapshot }) {
+  const runtimeLabel = status.activeRuntime === "hermes"
+    ? "Hermes"
+    : status.preferredRuntime === "hermes" ? "Native fallback" : "Native";
+  const statusLabel = status.status === "ready" ? "Ready" : status.status === "starting" ? "Starting" : "Unavailable";
+  const details = [
+    status.reason,
+    status.mcpConnected === false ? "CareerAdapt MCP 未连接" : status.discoveredToolCount !== undefined ? `MCP ${status.discoveredToolCount} tools` : undefined,
+    status.model ? `model ${status.model}` : undefined
+  ].filter(Boolean).join(" · ");
+  return (
+    <span
+      className={`agent-runtime-status is-${status.status}`}
+      title={details || `AI Runtime: ${runtimeLabel} · ${statusLabel}`}
+      aria-label={`AI Runtime ${runtimeLabel}，状态 ${statusLabel}`}
+    >
+      <span className="agent-runtime-status-label">AI · {runtimeLabel}</span>
+      <span className="agent-runtime-status-state">{statusLabel}</span>
+    </span>
   );
 }
 

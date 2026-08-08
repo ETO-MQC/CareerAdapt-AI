@@ -43,6 +43,10 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
     };
   }
 
+  health(signal?: AbortSignal) {
+    return this.dependencies.transport.health(signal);
+  }
+
   async pause(sessionId: string) {
     await this.dependencies.transport.interrupt({ sessionId, reason: "pause" });
   }
@@ -64,6 +68,9 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
     try {
       const health = await this.dependencies.transport.health(input.signal);
       if (!health.available) throw hermesError("hermes_unavailable_before_turn", health.reason ?? "Hermes runtime is unavailable.");
+      if (health.mcpConnected === false) {
+        throw hermesError("mcp_unavailable_before_turn", "CareerAdapt MCP is not connected to the active browser workspace.");
+      }
       const hermesSessionId = await this.openSession(input);
       const stream = this.dependencies.transport.turn({
         sessionId: hermesSessionId,
@@ -143,7 +150,36 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
     counters: TurnCounters
   ): AsyncGenerator<AgentRuntimeEvent> {
     counters.toolCalls += 1;
-    const contract = this.dependencies.careerToolGateway.getContract(request.toolName);
+    let contract: CareerToolContract;
+    try {
+      contract = this.dependencies.careerToolGateway.getContract(request.toolName);
+    } catch (error) {
+      counters.toolFailures += 1;
+      const code = errorCode(error) === "hermes_turn_failed" ? "mcp_tool_not_found" : errorCode(error);
+      await this.dependencies.transport.toolCallback({
+        sessionId: hermesSessionId,
+        turnId: input.turnId ?? "hermes-turn-unknown",
+        toolCallId: request.toolCallId,
+        toolName: request.toolName,
+        operationId: request.operationId,
+        result: {
+          ok: false,
+          error: {
+            code,
+            category: "not_found",
+            recoverable: true,
+            retryHint: "刷新 CareerAdapt MCP 工具发现后重新规划，不要重复已完成写入。"
+          }
+        }
+      }, input.signal);
+      yield this.event(input, "tool_call_failed", {
+        toolName: request.toolName,
+        operationId: request.operationId,
+        error: { code, message: "CareerAdapt MCP 工具未找到，正在刷新工具发现。", recoverable: true },
+        data: { toolCallId: request.toolCallId, discoveryRefreshRequired: true }
+      });
+      return;
+    }
     const confirmed = input.metadata?.confirmed === true;
     const confirmationCount = typeof input.metadata?.confirmationCount === "number" ? input.metadata.confirmationCount : undefined;
     if (requiresConfirmation(contract) && !confirmed && (confirmationCount ?? 0) < 1) {
@@ -186,6 +222,20 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
         confirmationCount
       });
     }
+    if (!result.ok && result.error?.category === "stale_revision") {
+      counters.autonomousRecoveries += 1;
+      const reread = await rereadStaleDependencies(this.dependencies.careerToolGateway, request.input, input.signal);
+      result = {
+        ...result,
+        error: {
+          ...result.error,
+          recoverable: true,
+          retryHint: reread > 0
+            ? "已重新读取最新依赖；请基于最新 revision 重新生成合法请求。不会自动重复这次写入。"
+            : "请重新读取最新 revision 后再生成请求；不会自动重复这次写入。"
+        }
+      };
+    }
     await this.dependencies.transport.toolCallback({
       sessionId: hermesSessionId,
       turnId: input.turnId ?? "hermes-turn-unknown",
@@ -219,6 +269,28 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
     if (event.type === "progress") return this.event(input, "progress", { message: event.message, data: event.data });
     if (event.type === "reasoning_status") return this.event(input, "reasoning_status", { message: event.message, data: event.data });
     if (event.type === "text_delta") return this.event(input, "text_delta", { delta: event.delta });
+    if (event.type === "tool_call_started") {
+      counters.toolCalls += 1;
+      return this.event(input, "tool_call_started", {
+        toolName: event.toolName,
+        operationId: event.operationId,
+        data: { toolCallId: event.toolCallId, ...(event.data && typeof event.data === "object" ? event.data as Record<string, unknown> : {}) }
+      });
+    }
+    if (event.type === "tool_call_completed") return this.event(input, "tool_call_completed", {
+      toolName: event.toolName,
+      operationId: event.operationId,
+      data: { toolCallId: event.toolCallId, ...(event.data && typeof event.data === "object" ? event.data as Record<string, unknown> : {}) }
+    });
+    if (event.type === "tool_call_failed") {
+      counters.toolFailures += 1;
+      return this.event(input, "tool_call_failed", {
+        toolName: event.toolName,
+        operationId: event.operationId,
+        error: { code: event.code, message: event.message, recoverable: event.recoverable },
+        data: event.data
+      });
+    }
     if (event.type === "approval_required") return this.event(input, "approval_required", {
       toolName: event.toolName,
       operationId: event.operationId,
@@ -282,7 +354,7 @@ function safeToolResult(result: Awaited<ReturnType<CareerToolGateway["execute"]>
 function safeMetadata(metadata?: Record<string, unknown>) {
   if (!metadata) return undefined;
   return Object.fromEntries(Object.entries(metadata).filter(([key, value]) =>
-    ["model", "hermesSessionId", "fallbackUsed", "preferredRuntime", "confirmed", "confirmationCount"].includes(key)
+    ["model", "hermesSessionId", "fallbackUsed", "preferredRuntime", "confirmed", "confirmationCount", "runtimeId"].includes(key)
     && (typeof value === "string" || typeof value === "number" || typeof value === "boolean")
   ));
 }
@@ -293,6 +365,33 @@ function isSessionMissing(error: unknown) {
 
 function isRecoverable(code: string) {
   return /temporar|timeout|network|unavailable|provider_http_(408|429|5\d\d)/i.test(code);
+}
+
+async function rereadStaleDependencies(
+  gateway: CareerToolGateway,
+  input: Record<string, unknown>,
+  signal?: AbortSignal
+) {
+  const reads: Array<[string, Record<string, unknown>]> = [];
+  const profileId = stringValue(input.targetProfileId) ?? stringValue(input.profileId);
+  const resumeId = stringValue(input.resumeId);
+  const jobId = stringValue(input.jobId);
+  if (profileId && hasContract(gateway, "career.profile.get")) reads.push(["career.profile.get", { profileId }]);
+  if (resumeId && hasContract(gateway, "career.resume.get")) reads.push(["career.resume.get", { resumeId }]);
+  if (jobId && hasContract(gateway, "career.job.get")) reads.push(["career.job.get", { jobId }]);
+  const results = await Promise.all(reads.map(([name, value], index) => gateway.execute(name, value, {
+    operationId: `mcp-reread-${index}-${Date.now()}`,
+    signal
+  })));
+  return results.filter((result) => result.ok).length;
+}
+
+function hasContract(gateway: CareerToolGateway, name: string) {
+  return gateway.listContracts().some((contract) => contract.name === name);
+}
+
+function stringValue(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
 function errorCode(error: unknown) {

@@ -127,6 +127,40 @@
   font-size: 12px;
 }
 
+.agent-runtime-status {
+  align-items: center;
+  border: 1px solid var(--ai-border);
+  border-radius: 999px;
+  color: var(--ai-muted);
+  display: inline-flex;
+  font-size: 10px;
+  gap: 6px;
+  min-height: 26px;
+  padding: 0 8px;
+  white-space: nowrap;
+}
+
+.agent-runtime-status::before {
+  background: currentColor;
+  border-radius: 50%;
+  content: "";
+  height: 6px;
+  width: 6px;
+}
+
+.agent-runtime-status-label {
+  color: var(--ai-text);
+  font-weight: 650;
+}
+
+.agent-runtime-status-state {
+  color: currentColor;
+}
+
+.agent-runtime-status.is-ready { color: var(--ai-accent); }
+.agent-runtime-status.is-starting { color: var(--ai-warning, #b7791f); }
+.agent-runtime-status.is-unavailable { color: var(--ai-danger, #c2413b); }
+
 .agent-tool-activity-list {
   color: var(--ai-muted);
   display: grid;

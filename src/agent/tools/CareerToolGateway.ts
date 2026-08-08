@@ -9,6 +9,7 @@ export type CareerToolConfirmationPolicy = "none" | "user_confirmation" | "destr
 export type CareerToolIdempotencyKeyPolicy = "none" | "operation_id";
 export type CareerToolPersonProfileBinding = "none" | "optional" | "required";
 export type CareerToolArtifactBehavior = "none" | "produces_artifact";
+export type CareerToolSafetyClass = "READ" | "SAFE_WRITE" | "CONFIRMATION_WRITE" | "DESTRUCTIVE";
 
 export type ArtifactRef = {
   id: string;
@@ -59,6 +60,7 @@ export type CareerToolContract = {
   inputSchema: Record<string, unknown>;
   outputSchema: Record<string, unknown>;
   readWrite: CareerToolReadWrite;
+  safetyClass: CareerToolSafetyClass;
   confirmationPolicy: CareerToolConfirmationPolicy;
   idempotencyKeyPolicy: CareerToolIdempotencyKeyPolicy;
   personProfileBinding: CareerToolPersonProfileBinding;
@@ -313,6 +315,13 @@ export class CareerToolGateway {
     const confirmationPolicy: CareerToolConfirmationPolicy = tool.risk === "destructive"
       ? "destructive_confirmation"
       : tool.requiresConfirmation ? "user_confirmation" : "none";
+    const safetyClass: CareerToolSafetyClass = tool.risk === "destructive"
+      ? "DESTRUCTIVE"
+      : definition.readWrite === "read"
+        ? "READ"
+        : tool.requiresConfirmation
+          ? "CONFIRMATION_WRITE"
+          : "SAFE_WRITE";
     return {
       name: definition.name,
       description: tool.description,
@@ -321,6 +330,7 @@ export class CareerToolGateway {
       inputSchema: z.toJSONSchema(tool.inputSchema) as Record<string, unknown>,
       outputSchema: z.toJSONSchema(tool.outputSchema) as Record<string, unknown>,
       readWrite: definition.readWrite,
+      safetyClass,
       confirmationPolicy,
       idempotencyKeyPolicy: definition.readWrite === "write" ? "operation_id" : "none",
       personProfileBinding: definition.personProfileBinding,

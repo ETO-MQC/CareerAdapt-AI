@@ -5,7 +5,15 @@ export const HermesHealthSchema = z.object({
   available: z.boolean(),
   runtimeId: z.string().min(1).optional(),
   version: z.string().min(1).optional(),
-  reason: z.string().min(1).optional()
+  reason: z.string().min(1).optional(),
+  provider: z.string().min(1).optional(),
+  model: z.string().min(1).optional(),
+  providerStatus: z.enum(["ready", "unconfigured", "unreachable", "invalid", "unknown"]).optional(),
+  contextWindow: z.number().int().min(0).optional(),
+  toolCalling: z.enum(["verified", "unverified", "unsupported", "unknown"]).optional(),
+  mcpServer: z.string().min(1).optional(),
+  mcpConnected: z.boolean().optional(),
+  discoveredToolCount: z.number().int().min(0).optional()
 }).strict();
 
 export type HermesHealth = z.infer<typeof HermesHealthSchema>;
@@ -15,6 +23,9 @@ export type HermesBridgeEvent =
   | { type: "reasoning_status"; message?: string; data?: unknown }
   | { type: "text_delta"; delta: string }
   | { type: "tool_call_requested"; toolCallId: string; toolName: string; operationId: string; input: Record<string, unknown> }
+  | { type: "tool_call_started"; toolCallId?: string; toolName: string; operationId: string; data?: unknown }
+  | { type: "tool_call_completed"; toolCallId?: string; toolName: string; operationId: string; data?: unknown }
+  | { type: "tool_call_failed"; toolCallId?: string; toolName: string; operationId: string; code: string; message: string; recoverable: boolean; data?: unknown }
   | { type: "approval_required"; toolCallId?: string; toolName?: string; operationId?: string; data?: unknown; message?: string }
   | { type: "artifact_updated"; data: unknown; artifactId?: string }
   | { type: "turn_completed"; data?: unknown; message?: string }
@@ -113,20 +124,64 @@ export class HttpHermesBridgeTransport implements HermesBridgeTransport {
     }
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
+    const isSse = (response.headers.get("content-type") ?? "").toLowerCase().includes("text/event-stream");
+    let sseEventName = "message";
+    let sseData: string[] = [];
+    const consumeSseLine = (line: string) => {
+      if (line.trim()) {
+        if (line.startsWith(":")) return undefined;
+        if (line.startsWith("event:")) {
+          sseEventName = line.slice("event:".length).trim();
+          return undefined;
+        }
+        if (line.startsWith("data:")) {
+          sseData.push(line.slice("data:".length).trimStart());
+        }
+        return undefined;
+      }
+      if (!sseData.length) {
+        sseEventName = "message";
+        return undefined;
+      }
+      try {
+        const event = mapOfficialHermesEvent(sseEventName, JSON.parse(sseData.join("\n")) as unknown);
+        sseEventName = "message";
+        sseData = [];
+        return event;
+      } catch {
+        throw bridgeError("hermes_bridge_invalid_event", "Hermes returned an invalid SSE event.");
+      }
+    };
     let buffer = "";
     for (;;) {
       const { value, done } = await reader.read();
       buffer += decoder.decode(value ?? new Uint8Array(), { stream: !done });
       const lines = buffer.split(/\r?\n/u);
       buffer = lines.pop() ?? "";
-      for (const line of lines) {
-        const event = parseBridgeEvent(line);
-        if (event) yield event;
+      if (isSse) {
+        for (const line of lines) {
+          const event = consumeSseLine(line);
+          if (event) yield event;
+        }
+      } else {
+        for (const line of lines) {
+          const event = parseBridgeEvent(line);
+          if (event) yield event;
+        }
       }
       if (done) break;
     }
-    const finalEvent = parseBridgeEvent(buffer);
-    if (finalEvent) yield finalEvent;
+    if (isSse) {
+      if (buffer) {
+        const event = consumeSseLine(buffer);
+        if (event) yield event;
+      }
+      const event = consumeSseLine("");
+      if (event) yield event;
+    } else {
+      const finalEvent = parseBridgeEvent(buffer);
+      if (finalEvent) yield finalEvent;
+    }
   }
 
   private async request(url: string, init: RequestInit) {
@@ -148,6 +203,52 @@ function parseBridgeEvent(line: string): HermesBridgeEvent | undefined {
   } catch {
     throw bridgeError("hermes_bridge_invalid_event", "Hermes bridge returned an invalid event.");
   }
+}
+
+function mapOfficialHermesEvent(name: string, value: unknown): HermesBridgeEvent | undefined {
+  const payload = value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+  const toolName = typeof payload.tool_name === "string" ? payload.tool_name : "hermes_tool";
+  const toolCallId = typeof payload.tool_call_id === "string" ? payload.tool_call_id : undefined;
+  const operationId = typeof payload.operation_id === "string"
+    ? payload.operation_id
+    : toolCallId ? `hermes-mcp-${toolCallId}` : `hermes-mcp-${Date.now()}`;
+  if (name === "assistant.delta") {
+    return typeof payload.delta === "string" ? { type: "text_delta", delta: payload.delta } : undefined;
+  }
+  if (name === "tool.progress") {
+    const message = typeof payload.delta === "string" ? payload.delta : typeof payload.preview === "string" ? payload.preview : undefined;
+    return payload.tool_name === "_thinking"
+      ? { type: "reasoning_status", message, data: payload }
+      : { type: "progress", message, data: payload };
+  }
+  if (name === "tool.started") return { type: "tool_call_started", toolCallId, toolName, operationId, data: payload };
+  if (name === "tool.completed") return { type: "tool_call_completed", toolCallId, toolName, operationId, data: payload };
+  if (name === "tool.failed") return {
+    type: "tool_call_failed",
+    toolCallId,
+    toolName,
+    operationId,
+    code: typeof payload.code === "string" ? payload.code : "hermes_tool_failed",
+    message: typeof payload.preview === "string" ? payload.preview : "Hermes MCP tool failed.",
+    recoverable: true,
+    data: payload
+  };
+  if (name === "error") return {
+    type: "turn_failed",
+    code: typeof payload.code === "string" ? payload.code : "hermes_api_error",
+    message: typeof payload.message === "string" ? payload.message : "Hermes returned an error.",
+    recoverable: true
+  };
+  if (name === "assistant.completed") return {
+    type: "turn_completed",
+    message: typeof payload.content === "string" ? payload.content : undefined,
+    data: payload
+  };
+  if (name === "run.completed") return { type: "turn_completed", data: payload };
+  if (name === "run.started" || name === "message.started") return { type: "progress", message: "Hermes 已接收当前任务。", data: payload };
+  return undefined;
 }
 
 async function safeJson(response: Response) {
