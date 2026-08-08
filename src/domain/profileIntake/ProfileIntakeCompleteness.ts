@@ -1,5 +1,6 @@
 import type { ResumeItemV2, ResumeSectionTypeV2 } from "@/domain/schemas";
 import { stableHashText } from "@/services/security/text";
+import type { ProfileIntakeQuestionAnswer } from "./ProfileIntakeQuestionAnswer";
 
 export type CareerAssetDimension =
   | "identity"
@@ -45,6 +46,7 @@ export type ProfileIntakeInterviewQuestion = {
   question: string;
   status: "pending" | "answered" | "skipped";
   sourceRevision: number;
+  questionRevision?: number;
 };
 
 export type ProfileIntakeInterviewPlan = {
@@ -53,12 +55,14 @@ export type ProfileIntakeInterviewPlan = {
   sourceRevision: number;
   coveredSections: ResumeSectionTypeV2[];
   activeQuestion?: {
+    questionId?: string;
     candidateId: string;
     candidateLabel?: string;
     sectionType?: ResumeSectionTypeV2;
     dimension: CareerAssetDimension;
     question: string;
     status: "pending" | "answered" | "skipped";
+    questionRevision?: number;
   };
   suggestedNextSections: Array<ResumeSectionTypeV2 | "finish">;
   // Kept as compatibility projections for persisted sessions and older UI.
@@ -68,20 +72,25 @@ export type ProfileIntakeInterviewPlan = {
   skippedQuestionIds: string[];
   questions: ProfileIntakeInterviewQuestion[];
   followUpCounts?: Record<string, number>;
+  questionAnswers?: ProfileIntakeQuestionAnswer[];
 };
 
 /**
  * Deterministic utility rules decide whether a gap deserves interruption.
  * They do not turn every dimension into a required field.
  */
-export function assessCareerAssetCompleteness(item: ResumeItemV2): CareerAssetCompleteness {
-  const text = itemText(item);
+export function assessCareerAssetCompleteness(item: ResumeItemV2, sourceEvidence: string[] = []): CareerAssetCompleteness {
+  const text = itemText(item, sourceEvidence);
   const present = new Set<CareerAssetDimension>(["evidence"]);
   if (displayIdentity(item)) present.add("identity");
   if ("startDate" in item && (item.startDate || item.endDate || item.current) || item.sectionType === "awards" && item.awardedAt) present.add("time");
   if ("role" in item && item.role || "authorRole" in item && item.authorRole) present.add("role");
   if (/(?:开发|分析|设计|组织|协调|撰写|研究|维护|运营|支持|处理|完成|协助|参与|built|developed|analy[sz]ed|managed|supported)/iu.test(text)) present.add("action");
-  if ("tools" in item && item.tools.length || "methods" in item && item.methods.length) present.add("tools_methods");
+  if (
+    ("tools" in item && item.tools.length)
+    || ("methods" in item && item.methods.length)
+    || /(?:使用|通过|采用|工具|方法|框架|架构|仿真|模拟|PlatformIO|Arduino|C\+\+|Python|TypeScript|JavaScript|SQL|Git|Docker|React)/iu.test(text)
+  ) present.add("tools_methods");
   if (/(?:问题|困难|挑战|故障|错误|瓶颈|排查|解决|challenge|issue|problem)/iu.test(text)) present.add("challenge");
   if (/(?:\d|多名|团队|跨部门|用户|客户|页面|数据|records?|users?|team)/iu.test(text)) present.add("scope");
   if ("outcomes" in item && item.outcomes.length || /(?:获得|完成|交付|改善|恢复|通过|上线|节省|提升|result|delivered|improved|reduced)/iu.test(text)) present.add("result");
@@ -214,7 +223,7 @@ function sectionPriority(
 
 export function highestValueFollowUp(
   items: ResumeItemV2[],
-  options: { followUpCounts?: Record<string, number>; maxFollowUpsPerAsset?: number } = {}
+  options: ProfileIntakeCompletenessOptions = {}
 ) {
   return highestValueFollowUpDetail(items, options)?.question;
 }
@@ -222,7 +231,7 @@ export function highestValueFollowUp(
 export function createProfileIntakeInterviewPlan(
   items: ResumeItemV2[],
   sourceRevision: number,
-  options: { followUpCounts?: Record<string, number>; maxFollowUpsPerAsset?: number } = {}
+  options: ProfileIntakeCompletenessOptions = {}
 ): ProfileIntakeInterviewPlan {
   const coveredSections = [...new Set(items.map((item) => item.sectionType))];
   const nextSections = (["internship", "project", "campus", "skills", "awards", "certificates"] as const)
@@ -239,7 +248,8 @@ export function createProfileIntakeInterviewPlan(
       answeredQuestionIds: [],
       skippedQuestionIds: [],
       questions: [],
-      followUpCounts: options.followUpCounts ?? {}
+      followUpCounts: options.followUpCounts ?? {},
+      questionAnswers: options.questionAnswers ?? []
     };
   }
   const detail = highestValueFollowUpDetail(items, options);
@@ -251,7 +261,8 @@ export function createProfileIntakeInterviewPlan(
     dimension: detail.dimension,
     question: detail.question,
     status: "pending" as const,
-    sourceRevision
+    sourceRevision,
+    questionRevision: sourceRevision
   } : undefined;
   return {
     planVersion: 2,
@@ -259,12 +270,14 @@ export function createProfileIntakeInterviewPlan(
     sourceRevision,
     coveredSections,
     activeQuestion: question ? {
+      questionId: question.questionId,
       candidateId: question.candidateId,
       candidateLabel: (detail ? displayIdentity(detail.item) : undefined) ?? `待补充${question.sectionType}经历`,
       sectionType: question.sectionType,
       dimension: question.dimension as CareerAssetDimension,
       question: question.question,
-      status: question.status
+      status: question.status,
+      questionRevision: question.questionRevision
     } : undefined,
     suggestedNextSections: [...nextSections, "finish"],
     suggestedNextSection: nextSection,
@@ -272,19 +285,27 @@ export function createProfileIntakeInterviewPlan(
     answeredQuestionIds: [],
     skippedQuestionIds: [],
     questions: question ? [question] : [],
-    followUpCounts: options.followUpCounts ?? {}
+    followUpCounts: options.followUpCounts ?? {},
+    questionAnswers: options.questionAnswers ?? []
   };
 }
 
 export function highestValueFollowUpDetail(
   items: ResumeItemV2[],
-  options: { followUpCounts?: Record<string, number>; maxFollowUpsPerAsset?: number } = {}
+  options: ProfileIntakeCompletenessOptions = {}
 ) {
   const maxFollowUpsPerAsset = options.maxFollowUpsPerAsset ?? 2;
+  const answeredKeys = new Set((options.questionAnswers ?? [])
+    .filter((answer) => answer.status === "answered" || answer.status === "skipped")
+    .map((answer) => `${answer.candidateId}::${answer.dimension}`));
   return items
-    .map((item) => ({ item, assessment: assessCareerAssetCompleteness(item) }))
+    .map((item) => ({
+      item,
+      assessment: assessCareerAssetCompleteness(item, options.sourceEvidenceByCandidate?.[item.id] ?? [])
+    }))
     .filter(({ item, assessment }) => {
       if (!assessment.nextQuestion || !isHighValueFollowUp(assessment.missing[0])) return false;
+      if (answeredKeys.has(`${item.id}::${assessment.missing[0]}`)) return false;
       const count = options.followUpCounts?.[item.id] ?? 0;
       const identityRepair = assessment.missing[0] === "identity" && count < maxFollowUpsPerAsset + 1;
       return count < maxFollowUpsPerAsset || identityRepair;
@@ -310,12 +331,20 @@ function isHighValueFollowUp(dimension: CareerAssetDimension | undefined) {
   ].includes(dimension));
 }
 
-function itemText(item: ResumeItemV2) {
+export type ProfileIntakeCompletenessOptions = {
+  followUpCounts?: Record<string, number>;
+  maxFollowUpsPerAsset?: number;
+  questionAnswers?: ProfileIntakeQuestionAnswer[];
+  sourceEvidenceByCandidate?: Record<string, string[]>;
+};
+
+function itemText(item: ResumeItemV2, sourceEvidence: string[] = []) {
   return Object.values(item as unknown as Record<string, unknown>)
     .flatMap((value): string[] => Array.isArray(value)
       ? value.filter((entry): entry is string => typeof entry === "string")
       : typeof value === "string" ? [value] : [])
-    .join(" ");
+    .join(" ")
+    + (sourceEvidence.length ? ` ${sourceEvidence.join(" ")}` : "");
 }
 
 function displayIdentity(item: ResumeItemV2) {

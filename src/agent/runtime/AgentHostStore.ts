@@ -34,6 +34,7 @@ import {
   classifyProfileIntakeTurn,
   classifyTurnIntent,
   isProfileIntakeDraftRequest,
+  type ActiveQuestionTurnResolution,
   type TurnIntentDecision
 } from "./AgentTurnIntent";
 import { stableHashText } from "@/services/security/text";
@@ -54,7 +55,9 @@ import {
   buildConversationIntakeArtifact,
   buildConversationIntakeReviewProjectionFromDraft
 } from "@/domain/profileIntake/ConversationIntakeAdapter";
-import type { ImportedResumeDraft } from "@/domain/schemas";
+import { ImportedResumeDraftSchema, type ImportedResumeDraft } from "@/domain/schemas";
+import { createProfileIntakeInterviewPlan } from "@/domain/profileIntake/ProfileIntakeCompleteness";
+import { appendProfileIntakeQuestionAnswer } from "@/domain/profileIntake/ProfileIntakeQuestionAnswer";
 import {
   resolveQuickActionPrerequisites,
   type QuickActionPrerequisiteResolution,
@@ -1347,6 +1350,7 @@ export class AgentHostStore {
     now: string;
     userMessage: string;
     profileIntakeTurnKind?: TurnIntentDecision["profileIntakeTurnKind"];
+    activeQuestionResolution?: ActiveQuestionTurnResolution;
   }): Promise<AgentSession | undefined> {
     if (
       input.taskState.workflowId !== "guided_profile_intake"
@@ -1358,6 +1362,21 @@ export class AgentHostStore {
     const active = currentProfileIntakeQuestion(input.taskState);
     const targetLabel = active?.candidateLabel ?? "这段经历";
     const question = active?.question;
+    if (
+      input.profileIntakeTurnKind === "profile_state_question"
+      && input.activeQuestionResolution?.kind === "reference_question"
+      && input.activeQuestionResolution.reason === "previous_answer_satisfies_active_dimension"
+    ) {
+      const advanced = await this.advanceProfileIntakeQuestionFromReference(input, input.activeQuestionResolution);
+      if (advanced) return advanced;
+    }
+    if (
+      input.profileIntakeTurnKind === "interview_control"
+      && input.activeQuestionResolution?.kind === "skip"
+    ) {
+      const advanced = await this.advanceProfileIntakeQuestionFromReference(input, input.activeQuestionResolution);
+      if (advanced) return advanced;
+    }
     let content: string;
     if (draftRequested) {
       content = formatProfileIntakeDraftSummary(input.taskState);
@@ -1390,6 +1409,146 @@ export class AgentHostStore {
       updatedAt: new Date().toISOString()
     } satisfies AgentTaskState;
     let current = projectTaskStateIntoSession(input.current, nextTaskState);
+    current = replaceAgentThinking(current, input.thinkingMessageId, content, input.turnId);
+    current = attachTaskStateOptions(current, nextTaskState);
+    return this.finishLocalProfileIntakeTurn(current, nextTaskState, input, "waiting_for_user");
+  }
+
+  private async advanceProfileIntakeQuestionFromReference(
+    input: {
+      current: AgentSession;
+      taskState: AgentTaskState;
+      turnId: string;
+      userMessageId: string;
+      thinkingMessageId: string;
+      now: string;
+      userMessage: string;
+      profileIntakeTurnKind?: TurnIntentDecision["profileIntakeTurnKind"];
+      activeQuestionResolution?: ActiveQuestionTurnResolution;
+    },
+    resolution: ActiveQuestionTurnResolution
+  ): Promise<AgentSession | undefined> {
+    const importId = stringValue(input.taskState.knownSlots.intakeImportId);
+    const source = objectValue(input.taskState.knownSlots.latestIntakeSource);
+    const sourceTurnId = resolution.kind === "skip"
+      ? input.turnId
+      : resolution.resolvedBySourceTurnId ?? stringValue(source.turnId);
+    const candidateId = resolution.candidateId;
+    const dimension = resolution.dimension;
+    if (!importId || !sourceTurnId || !resolution.activeQuestionId || !candidateId || !dimension) return undefined;
+    const repository = this.dependencies.repository;
+    if (!repository) return undefined;
+    const draft = await repository.getImportedResumeDraft(importId);
+    if (!draft?.intakeSession) return undefined;
+    const recorded = appendProfileIntakeQuestionAnswer(draft.intakeSession.questionAnswers ?? [], {
+      questionId: resolution.activeQuestionId,
+      candidateId,
+      dimension,
+      sourceTurnId,
+      answerRevision: draft.revision + 1,
+      status: resolution.kind === "skip" ? "skipped" : "answered",
+      capturedAt: input.now
+    });
+    const hasRecordedIdentity = recorded.answers.some((answer) =>
+      answer.questionId === resolution.activeQuestionId
+      && answer.sourceTurnId === sourceTurnId
+    );
+    if (!recorded.appended && !hasRecordedIdentity) return undefined;
+    const provisionalItems = draft.sections.flatMap((section) => section.items.flatMap((item) =>
+      item.userConfirmed !== false && item.structuredItem ? [item.structuredItem] : []
+    ));
+    const sourceEvidenceByCandidate = Object.fromEntries(draft.sections.flatMap((section) => section.items.map((item) => [
+      item.id,
+      [...new Set([
+        ...(item.conversationEvidence ?? []).map((evidence) => evidence.sourceQuote),
+        ...(item.sourceQuote ? [item.sourceQuote] : []),
+        ...(item.rawText ? [item.rawText] : [])
+      ].filter((value): value is string => Boolean(value && value.trim())))]
+    ]))) as Record<string, string[]>;
+    const nextRevision = draft.revision + 1;
+    const interviewPlan = createProfileIntakeInterviewPlan(provisionalItems, nextRevision, {
+      followUpCounts: draft.intakeSession.followUpCounts,
+      questionAnswers: recorded.answers,
+      sourceEvidenceByCandidate
+    });
+    const nextDraft = ImportedResumeDraftSchema.parse({
+      ...draft,
+      intakeSession: {
+        ...draft.intakeSession,
+        questionAnswers: recorded.answers,
+        activeQuestionId: interviewPlan.activeQuestionId,
+        autosavedAt: input.now,
+        resumeToken: stableHashText(`${draft.importId}:${nextRevision}:reference-advance`)
+      }
+    });
+    const saved = await repository.saveImportedResumeDraft(nextDraft, draft.revision);
+    const nextQuestion = interviewPlan.activeQuestion;
+    const followUpQuestion = nextQuestion?.question;
+    const projection = buildConversationIntakeReviewProjectionFromDraft(saved, followUpQuestion ? [followUpQuestion] : []);
+    const artifact = buildConversationIntakeArtifact(saved, followUpQuestion, interviewPlan);
+    const nextTurnPlan = ProfileIntakeNextTurnPlanSchema.parse(nextQuestion
+      ? {
+          action: "ask_follow_up",
+          questionId: nextQuestion.questionId,
+          questionRevision: nextQuestion.questionRevision,
+          candidateId: nextQuestion.candidateId,
+          candidateLabel: nextQuestion.candidateLabel,
+          sectionType: nextQuestion.sectionType,
+          dimension: nextQuestion.dimension,
+          question: targetQuestion(nextQuestion.question, nextQuestion.candidateLabel),
+          acknowledgement: resolution.kind === "skip"
+            ? "好的，我先跳过这项细节，后面不再重复询问。"
+            : `明白了，你刚才已经说明了${profileIntakeDimensionLabel(dimension)}。`,
+          capturedAssetLabels: provisionalItems.map(profileIntakeItemLabel)
+        }
+      : {
+          action: "offer_finish",
+          question: "目前没有必须重复确认的细节了。你可以继续补充其他经历，或完成整理。",
+          capturedAssetLabels: provisionalItems.map(profileIntakeItemLabel)
+        });
+    const nextTaskState: AgentTaskState = {
+      ...input.taskState,
+      knownSlots: {
+        ...input.taskState.knownSlots,
+        intakeImportId: saved.importId,
+        expectedIntakeDraftRevision: saved.revision,
+        intakeSession: saved.intakeSession,
+        intakeInterviewPlan: interviewPlan,
+        intakeActiveQuestion: interviewPlan.activeQuestion,
+        activeQuestionId: interviewPlan.activeQuestionId,
+        intakeFollowUpQuestion: followUpQuestion,
+        profileIntakeNextTurnPlan: nextTurnPlan,
+        profileIntakeReviewProjection: projection,
+        intakeCandidates: projection.candidates,
+        intakeArtifact: artifact,
+        profileIntakePhase: "clarifying"
+      },
+      stage: "collect_experience",
+      completionStatus: "waiting_for_user",
+      updatedAt: input.now
+    };
+    const nextLabel = nextQuestion?.candidateLabel ?? "下一段经历";
+    const content = resolution.kind === "skip"
+      ? followUpQuestion
+        ? `好的，我先跳过“${profileIntakeDimensionLabel(dimension)}”，后面不再重复询问。\n\n接下来我想确认“${nextLabel}”：${targetQuestion(nextQuestion!.question, nextLabel)}`
+        : "好的，我先跳过这项细节，后面不再重复询问。\n\n目前可以继续补充其他经历，或完成整理。"
+      : followUpQuestion
+        ? `明白了。你上一条回答已经覆盖了“${profileIntakeDimensionLabel(dimension)}”，我不再重复这个问题。\n\n接下来我想确认“${nextLabel}”：${targetQuestion(nextQuestion!.question, nextLabel)}`
+        : "明白了。你上一条回答已经覆盖了这项细节，我不再重复这个问题。\n\n目前可以继续补充其他经历，或完成整理。";
+    let current = projectTaskStateIntoSession(input.current, nextTaskState);
+    current = attachProfileIntakeArtifact(current, {
+      ok: true,
+      artifactIds: [],
+      data: {
+        importId: saved.importId,
+        expectedDraftRevision: saved.revision,
+        interviewPlan,
+        nextTurnPlan,
+        artifactPayload: artifact,
+        reviewProjection: projection,
+        intakeSession: saved.intakeSession
+      }
+    }, "已推进访谈问题");
     current = replaceAgentThinking(current, input.thinkingMessageId, content, input.turnId);
     current = attachTaskStateOptions(current, nextTaskState);
     return this.finishLocalProfileIntakeTurn(current, nextTaskState, input, "waiting_for_user");
@@ -2359,7 +2518,8 @@ export class AgentHostStore {
         thinkingMessageId,
         now,
         userMessage: input.userMessage,
-        profileIntakeTurnKind: turnDecision.profileIntakeTurnKind
+        profileIntakeTurnKind: turnDecision.profileIntakeTurnKind,
+        activeQuestionResolution: turnDecision.activeQuestionResolution
       });
       if (conversationBoundary) {
         this.executionCoordinator.finish(conversationBoundary.id, "completed", generation);
@@ -5293,6 +5453,38 @@ function profileIntakeNarrativeSectionLabel(section: string) {
     certificates: "证书",
     languages: "语言能力"
   } as Record<string, string>)[section] ?? "这项经历";
+}
+
+function profileIntakeDimensionLabel(dimension: string) {
+  const labels: Record<string, string> = {
+    identity: "经历名称",
+    time: "时间",
+    role: "角色",
+    action: "具体工作",
+    tools_methods: "方法或工具",
+    challenge: "关键问题",
+    scope: "规模范围",
+    result: "结果或交付物",
+    collaboration: "协作职责",
+    evidence: "可核验依据",
+    degree: "学位",
+    major: "专业",
+    coursework_honors: "相关课程或荣誉",
+    method: "研究方法",
+    sample_scope: "样本或范围",
+    publication: "公开成果",
+    issuer: "颁发机构",
+    level_rank: "级别或名次",
+    proficiency: "熟练程度",
+    applied_evidence: "应用证据",
+    credential_status: "凭证或状态",
+    test_score: "考试成绩",
+    author_role: "作者角色",
+    publisher: "发表平台",
+    patent_identity: "专利信息",
+    portfolio_output: "作品产出"
+  };
+  return labels[dimension] ?? "这项细节";
 }
 
 function profileIntakeSectionLabel(section: ProfileIntakeSection) {

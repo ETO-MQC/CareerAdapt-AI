@@ -5,6 +5,8 @@ import type { ProfileIntakeNextTurnPlan } from "@/domain/profileIntake/ProfileIn
 export type ProfileIntakeInterviewSupervisorAction =
   | {
       type: "ask_follow_up";
+      questionId?: string;
+      questionRevision?: number;
       question: string;
       candidateId?: string;
       candidateLabel?: string;
@@ -25,6 +27,7 @@ export type ProfileIntakeInterviewSupervisorInput = {
   provisionalItems?: ResumeItemV2[];
   activeQuestion?: {
     id?: string;
+    questionRevision?: number;
     candidateId: string;
     candidateLabel?: string;
     sectionType?: ResumeItemV2["sectionType"];
@@ -36,6 +39,8 @@ export type ProfileIntakeInterviewSupervisorInput = {
   requestedSection?: string;
   explicitFinish?: boolean;
   followUpCounts?: Record<string, number>;
+  questionAnswers?: import("@/domain/profileIntake/ProfileIntakeQuestionAnswer").ProfileIntakeQuestionAnswer[];
+  sourceEvidenceByCandidate?: Record<string, string[]>;
   acknowledgement?: string;
   capturedAssetLabels?: string[];
 };
@@ -64,6 +69,8 @@ export class ProfileIntakeInterviewSupervisor {
       const question = targetQuestion(input.activeQuestion.question, candidateLabel);
       return {
         type: "ask_follow_up",
+        questionId: input.activeQuestion.id,
+        questionRevision: input.activeQuestion.questionRevision,
         question,
         candidateId: input.activeQuestion.candidateId,
         candidateLabel,
@@ -76,13 +83,18 @@ export class ProfileIntakeInterviewSupervisor {
     }
     const items = input.provisionalItems?.length ? input.provisionalItems : input.acceptedItems ?? [];
     const followUp = items.length
-      ? highestValueFollowUpDetail(items, { followUpCounts: input.followUpCounts })
+      ? highestValueFollowUpDetail(items, {
+          followUpCounts: input.followUpCounts,
+          questionAnswers: input.questionAnswers,
+          sourceEvidenceByCandidate: input.sourceEvidenceByCandidate
+        })
       : undefined;
     if (followUp) {
       const candidate = followUp.item;
       const candidateLabel = profileIntakeItemLabel(candidate);
       return {
         type: "ask_follow_up",
+        questionId: `profile-intake-detail-${candidate.id}-${followUp.dimension}`,
         question: targetQuestion(followUp.question, candidateLabel),
         candidateId: candidate.id,
         candidateLabel,
@@ -179,6 +191,8 @@ export function nextTurnPlanFromSupervisorAction(
       : action.sectionType as NonNullable<ProfileIntakeNextTurnPlan["sectionType"]> | undefined;
     return {
       action: "ask_follow_up",
+      ...(action.questionId ? { questionId: action.questionId } : {}),
+      ...(action.questionRevision !== undefined ? { questionRevision: action.questionRevision } : {}),
       candidateId: action.candidateId,
       candidateLabel: action.candidateLabel,
       sectionType,

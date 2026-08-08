@@ -39,20 +39,23 @@ test.describe("P4.3d.2 six quick-action deterministic smoke", () => {
       await card.click();
       const generalFlowResponse = page.getByText(`已进入 ${action.title} 流程，请补充下一步所需信息。`);
       await expect(page.locator(".agent-message-row.is-assistant").last()).toBeVisible({ timeout: 30_000 });
+      await expect.poll(() => readActiveSession(page), { timeout: 30_000 }).toMatchObject({
+        rootGoal: action.rootGoal,
+        workflowId: action.workflowId
+      });
       const usedGeneralFlow = requests.length > 0;
-      if (usedGeneralFlow) {
-        await expect(generalFlowResponse).toBeVisible({ timeout: 30_000 });
-      }
+      if (usedGeneralFlow) await expect(generalFlowResponse).toBeVisible({ timeout: 30_000 });
 
-      const snapshot = await readActiveSession(page);
-      expect(snapshot).toMatchObject({
+      const expectedBoundary = {
         rootGoal: action.rootGoal,
         workflowId: action.workflowId,
         completionStatus: usedGeneralFlow ? "active" : "waiting_for_user",
         pendingConfirmation: undefined,
         pendingToolCall: undefined,
         activeTurnStatus: usedGeneralFlow ? "waiting_for_user" : undefined
-      });
+      };
+      await expect.poll(() => readActiveSession(page), { timeout: 30_000 }).toMatchObject(expectedBoundary);
+      const snapshot = await readActiveSession(page);
       expect([action.stage, "select_facts", "collect_experience"]).toContain(snapshot.stage);
       expect(snapshot.userMessage).toContain(action.intentFragment);
       if (usedGeneralFlow) expect(requests.length).toBeGreaterThan(0);

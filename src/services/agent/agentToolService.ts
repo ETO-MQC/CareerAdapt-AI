@@ -61,6 +61,9 @@ import {
 import { readResumeImportSemanticPreference } from "@/services/preferences/resumeImportAi";
 import { adaptResumeJsonToV2 } from "@/domain/resumeImport/jsonV2Adapter";
 import { createProfileIntakeInterviewPlan } from "@/domain/profileIntake/ProfileIntakeCompleteness";
+import {
+  appendProfileIntakeQuestionAnswer
+} from "@/domain/profileIntake/ProfileIntakeQuestionAnswer";
 import { ProfileIntakeReviewProjectionSchema } from "@/domain/profileIntake/ProfileIntakeReviewProjection";
 import { profileIntakeDisplayLabel } from "@/domain/profileIntake/ProfileIntakeNormalizer";
 import { synthesizeProfileIntakeDraft } from "@/domain/profileIntake/ProfileIntakeFinalSynthesis";
@@ -291,7 +294,23 @@ export class BrowserAgentToolService implements AgentToolServices {
         : adapted.draft;
     const previousSession = captureBase?.intakeSession;
     const followUpCounts = { ...(previousSession?.followUpCounts ?? {}) };
-    if (input.intakeCandidateId) {
+    const previousAnswers = [...(previousSession?.questionAnswers ?? [])];
+    let questionAnswers = previousAnswers;
+    let answerLedgerAppended = false;
+    if (input.intakeQuestionId && input.intakeCandidateId && input.intakeDimension) {
+      const recorded = appendProfileIntakeQuestionAnswer(previousAnswers, {
+        questionId: input.intakeQuestionId,
+        candidateId: input.intakeCandidateId,
+        dimension: input.intakeDimension,
+        sourceTurnId: input.turnId,
+        answerRevision: (captureBase?.revision ?? input.expectedDraftRevision ?? 0) + 1,
+        status: "answered",
+        capturedAt: input.capturedAt
+      });
+      questionAnswers = recorded.answers;
+      answerLedgerAppended = recorded.appended;
+    }
+    if (input.intakeCandidateId && answerLedgerAppended) {
       followUpCounts[input.intakeCandidateId] = (followUpCounts[input.intakeCandidateId] ?? 0) + 1;
     }
     const nextSession = nextDraft.intakeSession
@@ -301,14 +320,30 @@ export class BrowserAgentToolService implements AgentToolServices {
           userTurnCount: (previousSession?.userTurnCount ?? 0) + 1,
           perTurnBlockingReviewCount: previousSession?.perTurnBlockingReviewCount ?? 0,
           automaticFollowUpCount: (previousSession?.automaticFollowUpCount ?? 0)
-            + Number(Boolean(input.intakeCandidateId)),
-          followUpCounts
+            + Number(Boolean(input.intakeCandidateId) && answerLedgerAppended),
+          followUpCounts,
+          questionAnswers
         }
       : undefined;
+    const prospectiveRevision = (captureBase?.revision ?? 0) + 1;
+    const prospectiveItems = nextDraft.sections.flatMap((section) => section.items.flatMap((item) =>
+      item.userConfirmed !== false && item.structuredItem ? [item.structuredItem] : []
+    ));
+    const prospectivePlan = createProfileIntakeInterviewPlan(prospectiveItems, prospectiveRevision, {
+      followUpCounts,
+      questionAnswers,
+      sourceEvidenceByCandidate: profileIntakeSourceEvidenceByCandidate(nextDraft)
+    });
     const draftWithPhase = ImportedResumeDraftSchema.parse({
       ...nextDraft,
       ...(nextSession ? { intakeSession: nextSession } : {})
     });
+    if (draftWithPhase.intakeSession) {
+      draftWithPhase.intakeSession = {
+        ...draftWithPhase.intakeSession,
+        activeQuestionId: prospectivePlan.activeQuestionId
+      };
+    }
     const saved = await this.repository.saveImportedResumeDraft(
       draftWithPhase,
       existing?.revision ?? 0
@@ -539,7 +574,9 @@ export class BrowserAgentToolService implements AgentToolServices {
       item.userConfirmed !== false && item.structuredItem ? [item.structuredItem] : []
     ));
     const nextInterviewPlan = createProfileIntakeInterviewPlan(structuredItemsBeforeSave, nextRevision, {
-      followUpCounts: draft.intakeSession?.followUpCounts
+      followUpCounts: draft.intakeSession?.followUpCounts,
+      questionAnswers: draft.intakeSession?.questionAnswers,
+      sourceEvidenceByCandidate: profileIntakeSourceEvidenceByCandidate(draft)
     });
     const nextSynthesis = draft.intakeSession?.finalSynthesis && input.candidateId
       ? {
@@ -579,7 +616,11 @@ export class BrowserAgentToolService implements AgentToolServices {
     const structuredItems = saved.sections.flatMap((section) => section.items.flatMap((item) =>
       item.userConfirmed !== false && item.structuredItem ? [item.structuredItem] : []
     ));
-    const interviewPlan = createProfileIntakeInterviewPlan(structuredItems, saved.revision, { followUpCounts: saved.intakeSession?.followUpCounts });
+    const interviewPlan = createProfileIntakeInterviewPlan(structuredItems, saved.revision, {
+      followUpCounts: saved.intakeSession?.followUpCounts,
+      questionAnswers: saved.intakeSession?.questionAnswers,
+      sourceEvidenceByCandidate: profileIntakeSourceEvidenceByCandidate(saved)
+    });
     const artifact = buildConversationIntakeArtifact(saved, interviewPlan.activeQuestion?.question, interviewPlan);
     const reviewProjection = buildConversationIntakeReviewProjectionFromDraft(saved, interviewPlan.activeQuestion?.question ? [interviewPlan.activeQuestion.question] : []);
     const finalizedProjection = ProfileIntakeReviewProjectionSchema.parse({
@@ -1578,6 +1619,17 @@ function profileSummaryCounts(profile: Parameters<typeof canonicalProfileLibrary
   };
 }
 
+function profileIntakeSourceEvidenceByCandidate(draft: ImportedResumeDraft) {
+  return Object.fromEntries(draft.sections.flatMap((section) => section.items.map((item) => [
+    item.id,
+    [...new Set([
+      ...(item.conversationEvidence ?? []).map((evidence) => evidence.sourceQuote),
+      ...(item.sourceQuote ? [item.sourceQuote] : []),
+      ...(item.rawText ? [item.rawText] : [])
+    ].filter((value): value is string => Boolean(value && value.trim())))]
+  ]))) as Record<string, string[]>;
+}
+
 function captureProfileIntakeObservation(
   draft: ImportedResumeDraft,
   profile: { id: string; version: number },
@@ -1587,7 +1639,9 @@ function captureProfileIntakeObservation(
     item.userConfirmed !== false && item.structuredItem ? [item.structuredItem] : []
   ));
   const interviewPlan = createProfileIntakeInterviewPlan(provisionalStructuredItems, draft.revision, {
-    followUpCounts: draft.intakeSession?.followUpCounts
+    followUpCounts: draft.intakeSession?.followUpCounts,
+    questionAnswers: draft.intakeSession?.questionAnswers,
+    sourceEvidenceByCandidate: profileIntakeSourceEvidenceByCandidate(draft)
   });
   const followUpQuestion = interviewPlan.activeQuestion?.question;
   const artifactPayload = buildConversationIntakeArtifact(draft, followUpQuestion, interviewPlan);
@@ -1609,9 +1663,11 @@ function captureProfileIntakeObservation(
   const activeCandidate = activeQuestion
     ? provisionalItems.find((item) => item.id === activeQuestion.candidateId)
     : undefined;
-  const supervisorAction = resolveProfileIntakeInterviewSupervisor({
+    const supervisorAction = resolveProfileIntakeInterviewSupervisor({
     provisionalItems,
     activeQuestion: activeQuestion && activeCandidate ? {
+      id: activeQuestion.questionId,
+      questionRevision: activeQuestion.questionRevision,
       candidateId: activeQuestion.candidateId,
       candidateLabel: activeQuestion.candidateLabel ?? profileIntakeItemLabel(activeCandidate),
       ...(activeQuestion.sectionType !== "basics"
@@ -1622,6 +1678,8 @@ function captureProfileIntakeObservation(
     } : undefined,
     suggestedNextSections: interviewPlan.suggestedNextSections,
     followUpCounts: draft.intakeSession?.followUpCounts,
+    questionAnswers: draft.intakeSession?.questionAnswers,
+    sourceEvidenceByCandidate: profileIntakeSourceEvidenceByCandidate(draft),
     capturedAssetLabels: provisionalItems.map(profileIntakeItemLabel)
   });
   const nextTurnPlan = nextTurnPlanFromSupervisorAction({

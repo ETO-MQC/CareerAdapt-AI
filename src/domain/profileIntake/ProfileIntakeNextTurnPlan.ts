@@ -13,6 +13,8 @@ export const ProfileIntakeNextTurnActionSchema = z.enum([
 
 export const ProfileIntakeNextTurnPlanSchema = z.object({
   action: ProfileIntakeNextTurnActionSchema,
+  questionId: z.string().min(1).optional(),
+  questionRevision: z.number().int().min(0).optional(),
   candidateId: z.string().min(1).optional(),
   candidateLabel: z.string().min(1).optional(),
   sectionType: ResumeSectionTypeV2Schema.exclude(["basics", "summary"]).optional(),

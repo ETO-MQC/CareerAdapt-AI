@@ -7,6 +7,7 @@ import { ResumeJsonV2MappingTraceSchema } from "./resumeJsonV2";
 import { ProfileIntakeSourceTurnDiagnosticsSchema } from "@/domain/profileIntake/ProfileIntakeSourceTurn";
 import { ProfileIntakeFinalSynthesisSchema } from "@/domain/profileIntake/ProfileIntakeFinalSynthesis";
 import { ProfileIntakeProvenanceSchema } from "@/domain/profileIntake/ProfileIntakeProvenance";
+import { ProfileIntakeQuestionAnswerSchema } from "@/domain/profileIntake/ProfileIntakeQuestionAnswer";
 
 export const ImportedResumeDraftStatusSchema = z.enum([
   "extracting",
@@ -451,6 +452,7 @@ export const ProfileIntakeDraftSessionSchema = z.object({
   perTurnBlockingReviewCount: z.number().int().min(0).default(0),
   finalReviewCount: z.number().int().min(0).default(0),
   followUpCounts: z.record(z.string(), z.number().int().min(0)).default({}),
+  questionAnswers: z.array(ProfileIntakeQuestionAnswerSchema).max(300).default([]),
   finalSynthesisRevision: z.number().int().min(0).optional(),
   finalSynthesis: ProfileIntakeFinalSynthesisSchema.optional()
 }).strict();

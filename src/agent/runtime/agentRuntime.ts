@@ -17,6 +17,70 @@ import { recoverUnknownToolCall } from "./normalizeAgentPlannerAction";
 import { ProfileIntakeSectionSchema } from "../contracts/agentActions";
 import type { ActiveCareerContext } from "@/domain/schemas";
 
+export type AgentRuntimeEventType =
+  | "progress"
+  | "reasoning_status"
+  | "text_delta"
+  | "tool_call_started"
+  | "tool_call_finished"
+  | "approval_requested"
+  | "turn_paused"
+  | "turn_interrupted"
+  | "turn_resumed"
+  | "turn_completed"
+  | "turn_failed";
+
+export type AgentRuntimeEvent = {
+  type: AgentRuntimeEventType;
+  sessionId: string;
+  turnId: string;
+  timestamp: string;
+  message?: string;
+  delta?: string;
+  toolName?: string;
+  operationId?: string;
+  data?: unknown;
+  error?: {
+    code: string;
+    message: string;
+    recoverable: boolean;
+  };
+};
+
+export type AgentRuntimeTurnInput = {
+  sessionId: string;
+  turnId?: string;
+  userMessage: string;
+  pageContext: AgentPageContext;
+  session?: AgentSession;
+  signal?: AbortSignal;
+  metadata?: Record<string, unknown>;
+};
+
+export type AgentRuntimeCapabilities = {
+  streaming: boolean;
+  interruptible: boolean;
+  resumable: boolean;
+  toolCalls: boolean;
+  approvals: boolean;
+  offline: boolean;
+  runtimeVersion?: string;
+};
+
+/**
+ * Stable runtime boundary used by the application host.  Legacy planner
+ * behavior remains available below, while native and future Hermes adapters
+ * can expose the same event stream without leaking planner internals.
+ */
+export interface AgentRuntime {
+  readonly id: string;
+  runTurn(input: AgentRuntimeTurnInput): AsyncIterable<AgentRuntimeEvent>;
+  pause(sessionId: string): Promise<void>;
+  interrupt(sessionId: string): Promise<void>;
+  resume(sessionId: string): Promise<void>;
+  capabilities(): AgentRuntimeCapabilities;
+}
+
 const ToolCallSchema = z.object({
   toolName: z.string().min(1),
   operationId: z.string().min(8).max(160),
@@ -94,7 +158,8 @@ type PendingCall = z.infer<typeof ToolCallSchema>;
  * @deprecated Compatibility runtime for legacy planner tests and migrations.
  * Production orchestration is owned by AgentKernel through AgentRuntimeProvider.
  */
-export class AgentRuntime {
+export class LegacyAgentRuntime {
+  readonly id: string = "legacy-native";
   private controller?: AbortController;
   private readonly recentResults: AgentToolResult[] = [];
   private pendingCall?: PendingCall;
@@ -199,6 +264,64 @@ export class AgentRuntime {
 
   abort() {
     this.controller?.abort();
+  }
+
+  async interrupt(sessionId: string) {
+    if (sessionId !== this.session.id) return;
+    this.abort();
+  }
+
+  capabilities(): AgentRuntimeCapabilities {
+    return {
+      streaming: true,
+      interruptible: true,
+      resumable: true,
+      toolCalls: true,
+      approvals: true,
+      offline: false,
+      runtimeVersion: "legacy-native-adapter"
+    };
+  }
+
+  async *runTurn(input: AgentRuntimeTurnInput): AsyncIterable<AgentRuntimeEvent> {
+    if (input.sessionId !== this.session.id) {
+      yield runtimeEvent(input, "turn_failed", {
+        error: {
+          code: "runtime_session_mismatch",
+          message: "运行时会话与当前任务不一致。",
+          recoverable: false
+        }
+      });
+      return;
+    }
+    const turnId = input.turnId ?? `runtime-turn-${nanoid(12)}`;
+    const abortListener = () => this.abort();
+    input.signal?.addEventListener("abort", abortListener, { once: true });
+    yield runtimeEvent({ ...input, turnId }, "reasoning_status", { message: "正在处理当前任务…" });
+    yield runtimeEvent({ ...input, turnId }, "progress", { message: "已接收当前输入，正在准备下一步…" });
+    try {
+      const session = await this.turn(input.userMessage, input.pageContext);
+      const assistant = [...session.messages].reverse().find((message) =>
+        message.role === "assistant" && message.kind !== "assistant_thinking" && message.content.trim()
+      );
+      if (assistant) {
+        yield runtimeEvent({ ...input, turnId }, "text_delta", { delta: assistant.content });
+      }
+      yield runtimeEvent({ ...input, turnId }, "turn_completed", { data: session });
+    } catch (error) {
+      const code = error instanceof Error && "code" in error && typeof error.code === "string"
+        ? error.code
+        : "runtime_turn_failed";
+      yield runtimeEvent({ ...input, turnId }, "turn_failed", {
+        error: {
+          code,
+          message: error instanceof Error ? error.message : "运行时处理没有完成。",
+          recoverable: /temporar|timeout|network|unavailable/i.test(code)
+        }
+      });
+    } finally {
+      input.signal?.removeEventListener("abort", abortListener);
+    }
   }
 
   async resolveConfirmation(confirmed: boolean, pageContext: AgentPageContext) {
@@ -393,6 +516,24 @@ export class AgentRuntime {
       updatedAt: new Date().toISOString()
     });
   }
+}
+
+// Keep the historical value import (`new AgentRuntime`, `AgentRuntime.create`)
+// source-compatible while the type namespace exposes the runtime boundary.
+export const AgentRuntime = LegacyAgentRuntime;
+
+function runtimeEvent(
+  input: AgentRuntimeTurnInput,
+  type: AgentRuntimeEventType,
+  partial: Pick<AgentRuntimeEvent, "message" | "delta" | "data" | "error"> = {}
+): AgentRuntimeEvent {
+  return {
+    type,
+    sessionId: input.sessionId,
+    turnId: input.turnId ?? "runtime-turn-unknown",
+    timestamp: new Date().toISOString(),
+    ...partial
+  };
 }
 
 function recoveryMessage(allowedNames: Set<string>) {

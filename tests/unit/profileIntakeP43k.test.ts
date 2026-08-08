@@ -16,6 +16,7 @@ import { AgentExecutionCoordinator } from "@/agent/runtime/AgentExecutionCoordin
 import { CareerAdaptDb } from "@/services/storage/db";
 import { WorkspaceRepository } from "@/services/storage/repositories";
 import { stableHashText } from "@/services/security/text";
+import { classifyProfileIntakeTurn, resolveActiveQuestionTurn } from "@/agent/runtime/AgentTurnIntent";
 
 let db: CareerAdaptDb | undefined;
 
@@ -26,6 +27,64 @@ afterEach(async () => {
 });
 
 describe("P4.3k interview-first profile intake", () => {
+  it("routes the exact active-question answer to the existing asset before generic lexical heuristics", () => {
+    const answer = "在codex的协助下，使用 PlatformIO + Arduino 框架，通过 C++ 模块化架构（驱动层/算法层/输出层分离）和 Mock 信号仿真（正弦波模拟 PPG 波形），在无硬件条件下完成了 ESP32 MAX30102 心率检测 demo 的编译验证。";
+    const activeQuestion = {
+      questionId: "question-shoe-lace-tools",
+      candidateId: "candidate-shoe-lace",
+      candidateLabel: "鞋带",
+      dimension: "tools_methods",
+      questionRevision: 3,
+      question: "你完成这项工作时，明确使用了什么方法或工具？"
+    } as const;
+
+    expect(resolveActiveQuestionTurn({ text: answer, activeQuestion })).toMatchObject({
+      kind: "answer",
+      activeQuestionId: activeQuestion.questionId,
+      candidateId: activeQuestion.candidateId,
+      dimension: activeQuestion.dimension
+    });
+    expect(classifyProfileIntakeTurn({
+      text: answer,
+      stage: "collect_experience",
+      activeQuestionId: activeQuestion.questionId,
+      activeQuestionLabel: activeQuestion.candidateLabel,
+      expectedAnswerDimension: activeQuestion.dimension
+    })).toBe("follow_up_answer");
+  });
+
+  it("resolves references, skips, and explicit new assets against the active question", () => {
+    const activeQuestion = {
+      questionId: "question-shoe-lace-tools",
+      candidateId: "candidate-shoe-lace",
+      candidateLabel: "鞋带",
+      dimension: "tools_methods",
+      questionRevision: 3,
+      sourceTurns: [{
+        turnId: "turn-shoe-lace-answer",
+        text: "在无硬件条件下使用 PlatformIO + Arduino 框架完成编译验证。"
+      }]
+    } as const;
+
+    expect(resolveActiveQuestionTurn({
+      text: "就是使用 PlatformIO + Arduino 框架，通过 C++ 模块化架构完成验证。",
+      activeQuestion
+    })).toMatchObject({ kind: "answer", candidateId: activeQuestion.candidateId });
+    expect(resolveActiveQuestionTurn({ text: "我已经说了", activeQuestion })).toMatchObject({
+      kind: "reference_question",
+      reason: "previous_answer_satisfies_active_dimension",
+      resolvedBySourceTurnId: "turn-shoe-lace-answer"
+    });
+    expect(resolveActiveQuestionTurn({ text: "跳过", activeQuestion })).toMatchObject({
+      kind: "skip",
+      activeQuestionId: activeQuestion.questionId
+    });
+    expect(resolveActiveQuestionTurn({
+      text: "在 Learn AI 项目中负责数据清洗，交付训练数据集。",
+      activeQuestion
+    })).toMatchObject({ kind: "new_asset" });
+  });
+
   it("builds one final synthesis from all provisional source turns and keeps source items", () => {
     const text = "我在 Smart Fox 课程项目中负责数据采集，使用 RPA 完成自动化处理。";
     const prepared = adaptConversationMessageToIntakeDraft({

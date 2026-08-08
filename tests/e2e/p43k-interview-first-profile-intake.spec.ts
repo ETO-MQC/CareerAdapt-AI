@@ -383,6 +383,106 @@ test.describe("P4.3k interview-first profile intake", () => {
     expect((await readSourceJournal(page)).length).toBe(beforeSourceTurns);
     expect((await readActiveSession(page)).messages.filter((message) => message.toolName === "capture_profile_intake")).toHaveLength(beforeCaptureCalls);
   });
+
+  test("P4.3k.2 exact PlatformIO answer advances the active question without creating a new asset", async ({ page }) => {
+    test.setTimeout(120_000);
+    const semanticInputs: string[] = [];
+    await installConversationalFixtureRoutes(page, semanticInputs);
+    await startIntake(page);
+
+    await send(page, "我现在是郑州大学本科学生，计算机科学与技术专业，2024年9月入学，预计毕业时间2028年6月");
+    await expect.poll(() => readActiveTask(page), { timeout: 30_000 }).toMatchObject({ completionStatus: "waiting_for_user" });
+    await send(page, P43K1_LONG_NARRATIVE);
+    await expect.poll(() => readActiveTask(page), { timeout: 30_000 }).toMatchObject({
+      knownSlots: { intakeActiveQuestion: { candidateId: expect.any(String) } }
+    });
+
+    const beforeTask = await readActiveTask(page);
+    const beforeArtifact = objectValue(objectValue(beforeTask.knownSlots).intakeArtifact);
+    const beforeCandidates = Array.isArray(beforeArtifact.candidates) ? beforeArtifact.candidates.map(objectValue) : [];
+    const beforeQuestion = objectValue(objectValue(beforeTask.knownSlots).intakeActiveQuestion);
+    const beforeQuestionId = String(objectValue(beforeTask.knownSlots).activeQuestionId ?? "");
+    const beforeIds = beforeCandidates.map((candidate) => candidate.id);
+    const beforeSemanticCalls = semanticInputs.length;
+    expect(beforeCandidates.length).toBeGreaterThanOrEqual(2);
+    expect(beforeQuestion.candidateId).toBeTruthy();
+
+    const exactAnswer = "在codex的协助下，使用 PlatformIO + Arduino 框架，通过 C++ 模块化架构（驱动层/算法层/输出层分离）和 Mock 信号仿真（正弦波模拟 PPG 波形），在无硬件条件下完成了 ESP32 MAX30102 心率检测 demo 的编译验证。";
+    await send(page, exactAnswer);
+    await expect.poll(() => semanticInputs.length, { timeout: 30_000 }).toBe(beforeSemanticCalls + 1);
+    await expect.poll(() => readActiveTask(page), { timeout: 30_000 }).toMatchObject({ completionStatus: "waiting_for_user" });
+
+    const afterTask = await readActiveTask(page);
+    const afterArtifact = objectValue(objectValue(afterTask.knownSlots).intakeArtifact);
+    const afterCandidates = Array.isArray(afterArtifact.candidates) ? afterArtifact.candidates.map(objectValue) : [];
+    const afterQuestion = objectValue(objectValue(afterTask.knownSlots).intakeActiveQuestion);
+    const afterQuestionId = String(objectValue(afterTask.knownSlots).activeQuestionId ?? "");
+    expect(afterCandidates.map((candidate) => candidate.id)).toEqual(beforeIds);
+    expect(afterCandidates.find((candidate) => candidate.id === beforeQuestion.candidateId)).toBeDefined();
+    expect(afterQuestionId).not.toBe("");
+    expect(afterQuestionId).not.toBe(beforeQuestionId);
+    expect(`${afterQuestion.candidateId}::${afterQuestion.dimension}`).not.toBe(`${beforeQuestion.candidateId}::${beforeQuestion.dimension}`);
+    expect(semanticInputs).toHaveLength(beforeSemanticCalls + 1);
+
+    await send(page, "就是使用 PlatformIO + Arduino 框架，通过 C++ 模块化架构和 Mock 信号仿真完成验证。");
+    await expect.poll(() => readActiveTask(page), { timeout: 30_000 }).toMatchObject({ completionStatus: "waiting_for_user" });
+    const afterParaphrase = await readActiveTask(page);
+    const paraphraseArtifact = objectValue(objectValue(afterParaphrase.knownSlots).intakeArtifact);
+    const paraphraseCandidates = Array.isArray(paraphraseArtifact.candidates) ? paraphraseArtifact.candidates.map(objectValue) : [];
+    expect(paraphraseCandidates.map((candidate) => candidate.id)).toEqual(beforeIds);
+
+    await send(page, "我已经说了");
+    await expect.poll(async () => {
+      const messages = (await readActiveSession(page)).messages;
+      return messages.filter((message) => message.role === "assistant").at(-1)?.content ?? "";
+    }, { timeout: 30_000 }).toContain("当前");
+    expect(semanticInputs).toHaveLength(beforeSemanticCalls + 2);
+  });
+
+  test("P4.3k.2 skip records the active question and does not reask the same pair", async ({ page }) => {
+    test.setTimeout(120_000);
+    const semanticInputs: string[] = [];
+    await installConversationalFixtureRoutes(page, semanticInputs);
+    await startIntake(page);
+
+    await send(page, "我现在是郑州大学本科学生，计算机科学与技术专业，2024年9月入学，预计毕业时间2028年6月");
+    await expect.poll(() => readActiveTask(page), { timeout: 30_000 }).toMatchObject({ completionStatus: "waiting_for_user" });
+    await send(page, P43K1_LONG_NARRATIVE);
+    await expect.poll(() => readActiveTask(page), { timeout: 30_000 }).toMatchObject({
+      knownSlots: { intakeActiveQuestion: { candidateId: expect.any(String) } }
+    });
+
+    const beforeTask = await readActiveTask(page);
+    const beforeKnownSlots = objectValue(beforeTask.knownSlots);
+    const beforeQuestion = objectValue(beforeKnownSlots.intakeActiveQuestion);
+    const beforePair = `${beforeQuestion.candidateId}::${beforeQuestion.dimension}`;
+    const beforeSemanticCalls = semanticInputs.length;
+    await send(page, "跳过");
+    await expect.poll(async () => {
+      const messages = (await readActiveSession(page)).messages;
+      return messages.filter((message) => message.role === "assistant").at(-1)?.content ?? "";
+    }, { timeout: 30_000 }).toContain("跳过");
+
+    const afterTask = await readActiveTask(page);
+    const afterKnownSlots = objectValue(afterTask.knownSlots);
+    const sessionAnswers = objectValue(afterKnownSlots.intakeSession).questionAnswers;
+    const answers = Array.isArray(afterKnownSlots.questionAnswers)
+      ? afterKnownSlots.questionAnswers.map(objectValue)
+      : Array.isArray(sessionAnswers)
+        ? sessionAnswers.map(objectValue)
+        : [];
+    expect(answers).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        candidateId: beforeQuestion.candidateId,
+        dimension: beforeQuestion.dimension,
+        status: "skipped",
+        sourceTurnId: expect.any(String)
+      })
+    ]));
+    const afterQuestion = objectValue(afterKnownSlots.intakeActiveQuestion);
+    expect(`${afterQuestion.candidateId}::${afterQuestion.dimension}`).not.toBe(beforePair);
+    expect(semanticInputs).toHaveLength(beforeSemanticCalls);
+  });
 });
 
 function project(id: string, title: string, role: string, description: string, tools: string[], outcomes: string[]) {

@@ -75,6 +75,10 @@ release.json
 .claude/
 .codex/
 skills/
+!skills/
+skills/*
+!skills/career/
+!skills/career/**
 skills-lock.json
 artifacts/
 模板/
