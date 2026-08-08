@@ -1,0 +1,304 @@
+import { nanoid } from "nanoid";
+import type {
+  AgentRuntime,
+  AgentRuntimeCapabilities,
+  AgentRuntimeEvent,
+  AgentRuntimeTurnInput
+} from "../agentRuntime";
+import type { CareerToolGateway, CareerToolContract } from "../../tools/CareerToolGateway";
+import type { HermesBridgeEvent, HermesBridgeTransport } from "./HermesBridgeTransport";
+
+type TurnCounters = {
+  toolCalls: number;
+  toolFailures: number;
+  autonomousRecoveries: number;
+  artifactUpdates: number;
+};
+
+/**
+ * Server/local Hermes adapter.  It owns protocol translation and tool
+ * callbacks, but deliberately contains no WorkspaceRepository or browser
+ * persistence access.
+ */
+export class HermesCareerAgentRuntime implements AgentRuntime {
+  readonly id = "hermes" as const;
+  private readonly sessions = new Map<string, string>();
+
+  constructor(private readonly dependencies: {
+    transport: HermesBridgeTransport;
+    careerToolGateway: CareerToolGateway;
+    capabilities?: Partial<AgentRuntimeCapabilities>;
+  }) {}
+
+  capabilities(): AgentRuntimeCapabilities {
+    return {
+      streaming: true,
+      interruptible: true,
+      resumable: true,
+      toolCalls: true,
+      approvals: true,
+      offline: false,
+      runtimeVersion: "hermes-career-bridge-v1",
+      ...this.dependencies.capabilities
+    };
+  }
+
+  async pause(sessionId: string) {
+    await this.dependencies.transport.interrupt({ sessionId, reason: "pause" });
+  }
+
+  async interrupt(sessionId: string) {
+    await this.dependencies.transport.interrupt({ sessionId, reason: "interrupt" });
+  }
+
+  async resume() {
+    // Resume is represented by the next runTurn's session resume handshake.
+  }
+
+  async *runTurn(input: AgentRuntimeTurnInput): AsyncIterable<AgentRuntimeEvent> {
+    const turnId = input.turnId ?? `hermes-turn-${nanoid(12)}`;
+    const normalized = { ...input, turnId };
+    const startedAt = Date.now();
+    const counters: TurnCounters = { toolCalls: 0, toolFailures: 0, autonomousRecoveries: 0, artifactUpdates: 0 };
+    let emitted = false;
+    try {
+      const health = await this.dependencies.transport.health(input.signal);
+      if (!health.available) throw hermesError("hermes_unavailable_before_turn", health.reason ?? "Hermes runtime is unavailable.");
+      const hermesSessionId = await this.openSession(input);
+      const stream = this.dependencies.transport.turn({
+        sessionId: hermesSessionId,
+        turnId,
+        userMessage: input.userMessage,
+        pageContext: input.pageContext,
+        toolContracts: this.dependencies.careerToolGateway.listContracts() as unknown as Array<Record<string, unknown>>,
+        metadata: safeMetadata(input.metadata)
+      }, input.signal);
+      for await (const bridgeEvent of stream) {
+        emitted = true;
+        if (bridgeEvent.type === "tool_call_requested") {
+          yield this.event(normalized, "tool_call_requested", {
+            toolName: bridgeEvent.toolName,
+            operationId: bridgeEvent.operationId,
+            data: { toolCallId: bridgeEvent.toolCallId, input: bridgeEvent.input }
+          });
+          yield* this.executeToolCall(normalized, hermesSessionId, bridgeEvent, counters);
+          continue;
+        }
+        const event = this.mapBridgeEvent(normalized, bridgeEvent, counters, startedAt);
+        if (event) yield event;
+        if (bridgeEvent.type === "turn_completed" || bridgeEvent.type === "turn_failed") {
+          if (bridgeEvent.type === "turn_completed") {
+            yield this.event(normalized, "turn_completed", {
+              data: {
+                ...(bridgeEvent.data && typeof bridgeEvent.data === "object" ? bridgeEvent.data as Record<string, unknown> : {}),
+                telemetry: this.telemetry(normalized, counters, "completed", startedAt)
+              },
+              message: bridgeEvent.message
+            });
+          }
+          break;
+        }
+      }
+    } catch (error) {
+      // Before the first RuntimeEvent, the router may safely fall back to
+      // Native. Once a turn has emitted anything, the failure is terminal for
+      // this runtime and must not be replayed.
+      if (!emitted) throw error;
+      yield this.event(normalized, "turn_failed", {
+        error: {
+          code: errorCode(error),
+          message: error instanceof Error ? error.message : "Hermes turn failed.",
+          recoverable: isRecoverable(errorCode(error))
+        },
+        data: { telemetry: this.telemetry(normalized, counters, "failed", startedAt) }
+      });
+    }
+  }
+
+  private async openSession(input: AgentRuntimeTurnInput) {
+    const requested = typeof input.metadata?.hermesSessionId === "string"
+      ? input.metadata.hermesSessionId
+      : this.sessions.get(input.sessionId);
+    if (requested) {
+      try {
+        const resumed = await this.dependencies.transport.resumeSession({ sessionId: requested }, input.signal);
+        this.sessions.set(input.sessionId, resumed.sessionId);
+        return resumed.sessionId;
+      } catch (error) {
+        if (!isSessionMissing(error)) throw error;
+      }
+    }
+    const created = await this.dependencies.transport.createSession({
+      sessionId: input.sessionId,
+      metadata: safeMetadata(input.metadata)
+    }, input.signal);
+    this.sessions.set(input.sessionId, created.sessionId);
+    return created.sessionId;
+  }
+
+  private async *executeToolCall(
+    input: AgentRuntimeTurnInput,
+    hermesSessionId: string,
+    request: Extract<HermesBridgeEvent, { type: "tool_call_requested" }>,
+    counters: TurnCounters
+  ): AsyncGenerator<AgentRuntimeEvent> {
+    counters.toolCalls += 1;
+    const contract = this.dependencies.careerToolGateway.getContract(request.toolName);
+    const confirmed = input.metadata?.confirmed === true;
+    const confirmationCount = typeof input.metadata?.confirmationCount === "number" ? input.metadata.confirmationCount : undefined;
+    if (requiresConfirmation(contract) && !confirmed && (confirmationCount ?? 0) < 1) {
+      counters.toolFailures += 1;
+      const approval = this.event(input, "approval_required", {
+        toolName: request.toolName,
+        operationId: request.operationId,
+        message: "这项 Career 操作需要用户确认后才能继续。",
+        data: { toolCallId: request.toolCallId, contract }
+      });
+      yield approval;
+      await this.dependencies.transport.toolCallback({
+        sessionId: hermesSessionId,
+        turnId: input.turnId ?? "hermes-turn-unknown",
+        toolCallId: request.toolCallId,
+        toolName: request.toolName,
+        operationId: request.operationId,
+        result: { ok: false, error: { code: "approval_required", recoverable: false } }
+      }, input.signal);
+      return;
+    }
+
+    yield this.event(input, "tool_call_started", {
+      toolName: request.toolName,
+      operationId: request.operationId,
+      data: { toolCallId: request.toolCallId }
+    });
+    let result = await this.dependencies.careerToolGateway.execute(request.toolName, request.input, {
+      operationId: request.operationId,
+      signal: input.signal,
+      confirmed,
+      confirmationCount
+    });
+    if (!result.ok && result.error?.recoverable && contract.readWrite === "read") {
+      counters.autonomousRecoveries += 1;
+      result = await this.dependencies.careerToolGateway.execute(request.toolName, request.input, {
+        operationId: request.operationId,
+        signal: input.signal,
+        confirmed,
+        confirmationCount
+      });
+    }
+    await this.dependencies.transport.toolCallback({
+      sessionId: hermesSessionId,
+      turnId: input.turnId ?? "hermes-turn-unknown",
+      toolCallId: request.toolCallId,
+      toolName: request.toolName,
+      operationId: request.operationId,
+      result: safeToolResult(result)
+    }, input.signal);
+    if (result.ok) {
+      yield this.event(input, "tool_call_completed", {
+        toolName: request.toolName,
+        operationId: request.operationId,
+        data: { toolCallId: request.toolCallId, artifacts: result.artifacts }
+      });
+      return;
+    }
+    counters.toolFailures += 1;
+    yield this.event(input, "tool_call_failed", {
+      toolName: request.toolName,
+      operationId: request.operationId,
+      error: {
+        code: result.error?.code ?? "career_tool_failed",
+        message: result.error?.message ?? "Career tool failed.",
+        recoverable: result.error?.recoverable ?? false
+      },
+      data: { toolCallId: request.toolCallId, safeErrorCode: result.error?.code }
+    });
+  }
+
+  private mapBridgeEvent(input: AgentRuntimeTurnInput, event: HermesBridgeEvent, counters: TurnCounters, startedAt: number) {
+    if (event.type === "progress") return this.event(input, "progress", { message: event.message, data: event.data });
+    if (event.type === "reasoning_status") return this.event(input, "reasoning_status", { message: event.message, data: event.data });
+    if (event.type === "text_delta") return this.event(input, "text_delta", { delta: event.delta });
+    if (event.type === "approval_required") return this.event(input, "approval_required", {
+      toolName: event.toolName,
+      operationId: event.operationId,
+      message: event.message,
+      data: event.data
+    });
+    if (event.type === "artifact_updated") {
+      counters.artifactUpdates += 1;
+      return this.event(input, "artifact_updated", { data: event.data, ...(event.artifactId ? { operationId: event.artifactId } : {}) });
+    }
+    if (event.type === "turn_failed") return this.event(input, "turn_failed", {
+      error: { code: event.code, message: event.message, recoverable: event.recoverable },
+      data: { telemetry: this.telemetry(input, counters, "failed", startedAt) }
+    });
+    return undefined;
+  }
+
+  private telemetry(input: AgentRuntimeTurnInput, counters: TurnCounters, completionStatus: "completed" | "failed", startedAt: number) {
+    return {
+      runtimeId: this.id,
+      turnId: input.turnId ?? "hermes-turn-unknown",
+      model: typeof input.metadata?.model === "string" ? input.metadata.model : undefined,
+      latencyMs: Math.max(0, Date.now() - startedAt),
+      toolCalls: counters.toolCalls,
+      toolFailures: counters.toolFailures,
+      autonomousRecoveries: counters.autonomousRecoveries,
+      fallbackUsed: input.metadata?.fallbackUsed === true,
+      artifactUpdates: counters.artifactUpdates,
+      completionStatus
+    };
+  }
+
+  private event(input: AgentRuntimeTurnInput, type: AgentRuntimeEvent["type"], partial: Partial<AgentRuntimeEvent> = {}) {
+    return {
+      type,
+      sessionId: input.sessionId,
+      turnId: input.turnId ?? "hermes-turn-unknown",
+      timestamp: new Date().toISOString(),
+      ...partial
+    } satisfies AgentRuntimeEvent;
+  }
+}
+
+function requiresConfirmation(contract: CareerToolContract) {
+  return contract.confirmationPolicy !== "none";
+}
+
+function safeToolResult(result: Awaited<ReturnType<CareerToolGateway["execute"]>>) {
+  if (result.ok) {
+    return { ok: true, data: result.data, artifacts: result.artifacts, receipt: result.receipt };
+  }
+  return {
+    ok: false,
+    error: result.error
+      ? { code: result.error.code, category: result.error.category, recoverable: result.error.recoverable, retryHint: result.error.retryHint }
+      : { code: "career_tool_failed", recoverable: false },
+    receipt: result.receipt
+  };
+}
+
+function safeMetadata(metadata?: Record<string, unknown>) {
+  if (!metadata) return undefined;
+  return Object.fromEntries(Object.entries(metadata).filter(([key, value]) =>
+    ["model", "hermesSessionId", "fallbackUsed", "preferredRuntime", "confirmed", "confirmationCount"].includes(key)
+    && (typeof value === "string" || typeof value === "number" || typeof value === "boolean")
+  ));
+}
+
+function isSessionMissing(error: unknown) {
+  return errorCode(error) === "hermes_session_not_found" || errorCode(error) === "session_not_found";
+}
+
+function isRecoverable(code: string) {
+  return /temporar|timeout|network|unavailable|provider_http_(408|429|5\d\d)/i.test(code);
+}
+
+function errorCode(error: unknown) {
+  return error instanceof Error && "code" in error && typeof error.code === "string" ? error.code : "hermes_turn_failed";
+}
+
+function hermesError(code: string, message: string) {
+  return Object.assign(new Error(message), { code });
+}

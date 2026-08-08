@@ -50,6 +50,7 @@ import { factGuardPrompt } from "@/ai/prompts/factGuard";
 import { jdAnalyzerPrompt } from "@/ai/prompts/jdAnalyzer";
 import { profileBuilderPrompt } from "@/ai/prompts/profileBuilder";
 import { profileIntakeSemanticPrompt } from "@/ai/prompts/profileIntakeSemantic";
+import { profileIntakeFollowUpPatchPrompt } from "@/ai/prompts/profileIntakeFollowUpPatch";
 import { profileIntakeFinalCareerSynthesisPrompt } from "@/ai/prompts/profileIntakeFinalCareerSynthesis";
 import { resumeTailorPrompt } from "@/ai/prompts/resumeTailor";
 import { resumeTailoringDiffPrompt } from "@/ai/prompts/resumeTailoringDiff";
@@ -62,10 +63,13 @@ import { buildSemanticDocument, type AiResumeSourceBlock } from "@/domain/resume
 import {
   ProfileIntakeSemanticInputSchema,
   ProfileIntakeSemanticOutputSchema,
+  ProfileIntakeFollowUpPatchInputSchema,
+  ProfileIntakeFollowUpPatchOutputSchema,
   validateProfileIntakeProposalGrounding,
   type ProfileIntakeSemanticInput,
   type ProfileIntakeSemanticOutput,
-  type ProfileIntakeSemanticCandidate
+  type ProfileIntakeSemanticCandidate,
+  type ProfileIntakeFollowUpPatchOutput
 } from "@/domain/profileIntake/ProfileIntakeSemanticService";
 import {
   ProfileIntakeFinalCareerSynthesisInputSchema,
@@ -82,6 +86,9 @@ const BaseAiInputSchema = z.object({
 
 export const ProfileBuilderTaskInputSchema = BaseAiInputSchema;
 export const ProfileIntakeSemanticTaskInputSchema = ProfileIntakeSemanticInputSchema.extend({
+  inputHash: z.string().min(8)
+}).strict();
+export const ProfileIntakeFollowUpPatchTaskInputSchema = ProfileIntakeFollowUpPatchInputSchema.extend({
   inputHash: z.string().min(8)
 }).strict();
 export const ProfileIntakeFinalCareerSynthesisTaskInputSchema = ProfileIntakeFinalCareerSynthesisInputSchema.extend({
@@ -150,6 +157,7 @@ export const FactGuardTaskInputSchema = z.object({
 export type StageBAiTask = z.infer<typeof stageBAiTaskSchema>;
 export type ProfileBuilderTaskInput = z.infer<typeof ProfileBuilderTaskInputSchema>;
 export type ProfileIntakeSemanticTaskInput = z.input<typeof ProfileIntakeSemanticTaskInputSchema>;
+export type ProfileIntakeFollowUpPatchTaskInput = z.input<typeof ProfileIntakeFollowUpPatchTaskInputSchema>;
 export type ProfileIntakeFinalCareerSynthesisTaskInput = z.infer<typeof ProfileIntakeFinalCareerSynthesisTaskInputSchema>;
 export type ResumeJsonMapperTaskInput = z.infer<typeof ResumeJsonMapperTaskInputSchema>;
 export type ResumeDocumentMapperTaskInput = z.infer<typeof ResumeDocumentMapperTaskInputSchema>;
@@ -334,6 +342,29 @@ function stripModelItemMetadata(item: Record<string, unknown>) {
   return Object.fromEntries(Object.entries(item).filter(([field]) => field !== "id" && field !== "customFields"));
 }
 
+function coerceProfileIntakeFollowUpPatchOutput(rawOutput: unknown, input: ProfileIntakeFollowUpPatchTaskInput) {
+  const raw = rawOutput && typeof rawOutput === "object" && !Array.isArray(rawOutput)
+    ? rawOutput as Record<string, unknown>
+    : {};
+  const patch = raw.patch && typeof raw.patch === "object" && !Array.isArray(raw.patch)
+    ? raw.patch as Record<string, unknown>
+    : {};
+  const confidence = typeof raw.confidence === "number" && Number.isFinite(raw.confidence)
+    ? Math.max(0, Math.min(1, raw.confidence))
+    : 0.35;
+  return {
+    candidateId: typeof raw.candidateId === "string" && raw.candidateId.trim() ? raw.candidateId.trim() : input.candidateId,
+    patch,
+    evidenceQuote: typeof raw.evidenceQuote === "string" && raw.evidenceQuote.trim()
+      ? raw.evidenceQuote.trim()
+      : input.currentUserAnswer,
+    answeredDimension: typeof raw.answeredDimension === "string" && raw.answeredDimension.trim()
+      ? raw.answeredDimension.trim()
+      : input.expectedDimension,
+    confidence
+  };
+}
+
 export const aiTaskRegistry = {
   "profile-intake-semantic": {
     task: "profile-intake-semantic",
@@ -387,6 +418,36 @@ export const aiTaskRegistry = {
       }
     }
   } satisfies AiTaskDefinition<ProfileIntakeSemanticTaskInput, ProfileIntakeSemanticOutput>,
+  "profile-intake-follow-up-patch": {
+    task: "profile-intake-follow-up-patch",
+    promptVersion: profileIntakeFollowUpPatchPrompt.version,
+    systemPrompt: profileIntakeFollowUpPatchPrompt.system,
+    inputSchema: ProfileIntakeFollowUpPatchTaskInputSchema,
+    outputSchema: ProfileIntakeFollowUpPatchOutputSchema,
+    maxOutputChars: 12_000,
+    buildUserPrompt(input: ProfileIntakeFollowUpPatchTaskInput) {
+      return JSON.stringify({
+        candidateId: input.candidateId,
+        sectionType: input.sectionType,
+        expectedDimension: input.expectedDimension,
+        currentStructuredItem: input.currentStructuredItem,
+        currentUserAnswer: input.currentUserAnswer,
+        relevantSourceTurns: input.relevantSourceTurns,
+        instructions: "Return only a minimal patch for the named candidate. The currentUserAnswer is the only source of new facts."
+      }, null, 2);
+    },
+    coerceRawOutput(rawOutput: unknown, input?: ProfileIntakeFollowUpPatchTaskInput) {
+      return input ? coerceProfileIntakeFollowUpPatchOutput(rawOutput, input) : rawOutput;
+    },
+    normalizeOutput(output: ProfileIntakeFollowUpPatchOutput) {
+      return ProfileIntakeFollowUpPatchOutputSchema.parse(output);
+    },
+    validateOutput(output: ProfileIntakeFollowUpPatchOutput, input: ProfileIntakeFollowUpPatchTaskInput) {
+      if (output.candidateId !== input.candidateId) throw new Error("profile_intake_follow_up_candidate_out_of_scope");
+      if (output.answeredDimension !== input.expectedDimension) throw new Error("profile_intake_follow_up_dimension_out_of_scope");
+      if (!input.currentUserAnswer.includes(output.evidenceQuote)) throw new Error("profile_intake_follow_up_evidence_not_grounded");
+    }
+  } satisfies AiTaskDefinition<ProfileIntakeFollowUpPatchTaskInput, z.infer<typeof ProfileIntakeFollowUpPatchOutputSchema>>,
   "profile-intake-final-career-synthesis": {
     task: "profile-intake-final-career-synthesis",
     promptVersion: profileIntakeFinalCareerSynthesisPrompt.version,

@@ -2,6 +2,7 @@ export const promptVersions = {
   healthCheck: "health-check.v1",
   profileBuilder: "profile-builder.v1",
   profileIntakeSemantic: "profile-intake-semantic.v10-p43j-semantic-v3",
+  profileIntakeFollowUpPatch: "profile-intake-follow-up-patch.v1-p44b",
   profileIntakeFinalCareerSynthesis: "profile-intake-final-career-synthesis.v1",
   jdAnalyzer: "jd-analyzer.v3-unit-ledger",
   evidenceMatcher: "evidence-matcher.v2",

@@ -36,3 +36,15 @@ preview and export.
 Review does not authorize a write. Never manufacture a stronger result to make
 the resume sound better, and never treat a job description as evidence about
 the candidate.
+
+## P4.4b adapted workflow notes
+
+End with a release checklist: all included claims have source evidence, gaps
+and confirmations are visible, the text layer matches the reviewed content,
+the intended page/layout result was inspected, and only then is export ready.
+Separate factual safety from style preference, and send unresolved issues
+back to the reviewer or candidate instead of silently repairing them.
+
+Adapted from the final PDF/text-layer verification in
+MadsLorentzen/ai-job-search and the “never fabricate / structure first,
+render second” rules in yanliudesign/offer-toolkit-skill.

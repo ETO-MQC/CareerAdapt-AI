@@ -43,3 +43,17 @@ new facts remain pending confirmation and must not appear in preview/export.
 Do not synthesize a final resume, mutate the personal profile implicitly, or
 create a new career asset merely because a sentence starts with a location or
 preposition.
+
+## P4.4b adapted workflow notes
+
+This skill adopts two mature workflow patterns: offer multiple bounded entry
+paths (existing document, pasted material, or interview) and keep each answer
+attached to one active story until it is reviewed. Ask one highest-value
+follow-up at a time, preserve the exact evidence quote, and leave unresolved
+gaps visible rather than filling them with plausible prose. A reviewable draft
+may be autosaved, but profile commit remains an explicit user action.
+
+Adapted from the setup/interview flow in MadsLorentzen/ai-job-search and the
+one-question, evidence-first story-mining rules in yanliudesign/offer-toolkit-skill.
+The repository-specific source ledger, schema validation, and confirmation
+boundary remain CareerAdapt AI behavior.

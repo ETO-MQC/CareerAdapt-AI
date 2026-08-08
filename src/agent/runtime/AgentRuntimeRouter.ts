@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { AgentRuntime } from "./agentRuntime";
+import type { AgentRuntime, AgentRuntimeEvent, AgentRuntimeTurnInput } from "./agentRuntime";
 
 export const AgentRuntimeIdSchema = z.enum(["native", "hermes"]);
 export type AgentRuntimeId = z.infer<typeof AgentRuntimeIdSchema>;
@@ -13,6 +13,7 @@ export type AgentRuntimeConfiguration = z.infer<typeof AgentRuntimeConfiguration
 export class AgentRuntimeRouter {
   private configuration: AgentRuntimeConfiguration;
   private readonly runtimes = new Map<AgentRuntimeId, AgentRuntime>();
+  private readonly fallbackRuntime: AgentRuntime;
 
   constructor(input: {
     native: AgentRuntime;
@@ -20,6 +21,7 @@ export class AgentRuntimeRouter {
     configuration?: Partial<AgentRuntimeConfiguration>;
   }) {
     this.runtimes.set("native", input.native);
+    this.fallbackRuntime = input.native;
     if (input.hermes) this.runtimes.set("hermes", input.hermes);
     this.configuration = AgentRuntimeConfigurationSchema.parse(input.configuration ?? {});
   }
@@ -49,8 +51,96 @@ export class AgentRuntimeRouter {
   }
 
   active() {
-    return this.resolve();
+    const preferred = this.resolve();
+    return preferred.id === "hermes"
+      ? new RoutedAgentRuntime(preferred, this.fallbackRuntime)
+      : preferred;
   }
+}
+
+/**
+ * Fallback is deliberately decided before the first protocol event.  Once a
+ * Hermes turn has emitted anything, the router never switches runtimes in the
+ * middle of a turn or repeats an authoritative write.
+ */
+class RoutedAgentRuntime implements AgentRuntime {
+  readonly id: string;
+  private current: AgentRuntime;
+
+  constructor(
+    private readonly preferred: AgentRuntime,
+    private readonly fallback: AgentRuntime
+  ) {
+    this.id = preferred.id;
+    this.current = preferred;
+  }
+
+  capabilities() {
+    return this.preferred.capabilities();
+  }
+
+  async pause(sessionId: string) {
+    await this.current.pause(sessionId);
+  }
+
+  async interrupt(sessionId: string) {
+    await this.current.interrupt(sessionId);
+  }
+
+  async resume(sessionId: string) {
+    await this.current.resume(sessionId);
+  }
+
+  async *runTurn(input: AgentRuntimeTurnInput): AsyncIterable<AgentRuntimeEvent> {
+    let emitted = false;
+    try {
+      for await (const event of this.preferred.runTurn(input)) {
+        emitted = true;
+        yield event;
+      }
+      return;
+    } catch (error) {
+      if (emitted) {
+        yield {
+          type: "turn_failed",
+          sessionId: input.sessionId,
+          turnId: input.turnId ?? "runtime-turn-unknown",
+          timestamp: new Date().toISOString(),
+          error: {
+            code: errorCode(error),
+            message: error instanceof Error ? error.message : "当前任务没有完成。",
+            recoverable: false
+          }
+        };
+        return;
+      }
+      this.current = this.fallback;
+      for await (const event of this.fallback.runTurn({
+        ...input,
+        metadata: {
+          ...(input.metadata ?? {}),
+          fallbackUsed: true,
+          preferredRuntime: this.preferred.id
+        }
+      })) {
+        emitted = true;
+        yield {
+          ...event,
+          data: {
+            ...(event.data && typeof event.data === "object" ? event.data as Record<string, unknown> : {}),
+            fallbackUsed: true,
+            preferredRuntime: this.preferred.id
+          }
+        };
+      }
+    }
+  }
+}
+
+function errorCode(error: unknown) {
+  return error instanceof Error && "code" in error && typeof error.code === "string"
+    ? error.code
+    : "agent_runtime_failed";
 }
 
 export function createAgentRuntimeRouter(input: ConstructorParameters<typeof AgentRuntimeRouter>[0]) {

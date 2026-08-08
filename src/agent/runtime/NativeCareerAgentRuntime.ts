@@ -5,6 +5,7 @@ import type {
   AgentRuntimeEvent,
   AgentRuntimeTurnInput
 } from "./agentRuntime";
+import type { RuntimeTurnTelemetry } from "./runtimeTelemetry";
 
 export type NativeCareerAgentRuntimeDependencies = {
   runTurn(input: AgentRuntimeTurnInput): Promise<unknown> | unknown;
@@ -52,6 +53,8 @@ export class NativeCareerAgentRuntime implements AgentRuntime {
   async *runTurn(input: AgentRuntimeTurnInput): AsyncIterable<AgentRuntimeEvent> {
     const turnId = input.turnId ?? `runtime-turn-${nanoid(12)}`;
     const normalizedInput = { ...input, turnId };
+    const startedAt = Date.now();
+    const telemetryEnabled = input.metadata?.telemetry === true || input.metadata?.fallbackUsed === true;
     yield this.event(normalizedInput, "reasoning_status", { message: "正在处理当前任务…" });
     yield this.event(normalizedInput, "progress", { message: "已接收当前输入，正在准备下一步…" });
     try {
@@ -64,7 +67,11 @@ export class NativeCareerAgentRuntime implements AgentRuntime {
         for (const event of result) yield event;
         return;
       }
-      yield this.event(normalizedInput, "turn_completed", { data: result });
+      yield this.event(normalizedInput, "turn_completed", {
+        data: telemetryEnabled
+          ? { ...(result && typeof result === "object" ? result as Record<string, unknown> : { result }), telemetry: nativeTelemetry(normalizedInput, startedAt, "completed") }
+          : result
+      });
     } catch (error) {
       const code = error instanceof Error && "code" in error && typeof error.code === "string"
         ? error.code
@@ -74,7 +81,8 @@ export class NativeCareerAgentRuntime implements AgentRuntime {
           code,
           message: error instanceof Error ? error.message : "当前任务没有完成。",
           recoverable: /temporar|timeout|network|unavailable/i.test(code)
-        }
+        },
+        ...(telemetryEnabled ? { data: { telemetry: nativeTelemetry(normalizedInput, startedAt, "failed") } } : {})
       });
     }
   }
@@ -92,6 +100,25 @@ export class NativeCareerAgentRuntime implements AgentRuntime {
       ...partial
     };
   }
+}
+
+function nativeTelemetry(
+  input: AgentRuntimeTurnInput,
+  startedAt: number,
+  completionStatus: RuntimeTurnTelemetry["completionStatus"]
+): RuntimeTurnTelemetry {
+  return {
+    runtimeId: "native",
+    turnId: input.turnId ?? "runtime-turn-unknown",
+    ...(typeof input.metadata?.model === "string" ? { model: input.metadata.model } : {}),
+    latencyMs: Math.max(0, Date.now() - startedAt),
+    toolCalls: 0,
+    toolFailures: 0,
+    autonomousRecoveries: 0,
+    fallbackUsed: input.metadata?.fallbackUsed === true,
+    artifactUpdates: 0,
+    completionStatus
+  };
 }
 
 function isAsyncIterable<T>(value: unknown): value is AsyncIterable<T> {

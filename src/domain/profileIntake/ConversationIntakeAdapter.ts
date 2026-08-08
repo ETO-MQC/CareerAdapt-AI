@@ -5,11 +5,13 @@ import {
   ProfileIntakeNormalizer,
   profileIntakeCareerReadyText,
   profileIntakeDisplayLabel,
+  salvageProfileIntakeFollowUpPatch,
   validateProfileIntakeStructuredPatch,
   type ProfileIntakeStructuredPatch
 } from "./ProfileIntakeNormalizer";
 import type { ProfileIntakeInterviewPlan } from "./ProfileIntakeCompleteness";
 import type {
+  ProfileIntakeFollowUpPatchProposal,
   ProfileIntakeSemanticResult,
   VerifiedProfileIntakeCandidate
 } from "./ProfileIntakeSemanticService";
@@ -654,13 +656,14 @@ export function patchConversationIntakeCandidate(input: {
   text: string;
   capturedAt: string;
   sourceContentHash?: string;
-  semanticResult: ProfileIntakeSemanticResult;
+  semanticResult?: ProfileIntakeSemanticResult;
+  followUpPatch?: ProfileIntakeFollowUpPatchProposal;
 }): ImportedResumeDraft {
   if (input.existing.sourceKind !== "conversation") {
     throw new Error("profile_intake_patch_requires_conversation_draft");
   }
-  const semanticCandidate = input.semanticResult.candidates.find((candidate) => candidate.normalization.structuredItem);
-  if (!semanticCandidate?.normalization.structuredItem) {
+  const semanticCandidate = input.semanticResult?.candidates.find((candidate) => candidate.normalization.structuredItem);
+  if (!input.followUpPatch && !semanticCandidate?.normalization.structuredItem) {
     throw new Error("profile_intake_follow_up_patch_unstructured");
   }
   let found = false;
@@ -671,19 +674,34 @@ export function patchConversationIntakeCandidate(input: {
       if (item.id !== input.candidateId) return item;
       found = true;
       if (!item.structuredItem) throw new Error("profile_intake_follow_up_target_unstructured");
-      if (item.structuredItem.sectionType !== semanticCandidate.normalization.structuredItem!.sectionType) {
+      if (input.followUpPatch && input.followUpPatch.candidateId !== input.candidateId) {
+        throw new Error("profile_intake_follow_up_candidate_mismatch");
+      }
+      if (semanticCandidate?.normalization.structuredItem && item.structuredItem.sectionType !== semanticCandidate.normalization.structuredItem.sectionType) {
         throw new Error("profile_intake_follow_up_section_mismatch");
       }
-      const patch = diffStructuredItems(item.structuredItem, semanticCandidate.normalization.structuredItem!);
-      const supportedFields = semanticCandidate.normalization.fieldEvidence.map((entry) => entry.field);
-      const patchResult = Object.keys(patch).length
-        ? validateProfileIntakeStructuredPatch({
+      const patch = semanticCandidate?.normalization.structuredItem
+        ? diffStructuredItems(item.structuredItem, semanticCandidate.normalization.structuredItem)
+        : input.followUpPatch?.patch;
+      const supportedFields = input.followUpPatch
+        ? []
+        : semanticCandidate?.normalization.fieldEvidence.map((entry) => entry.field) ?? [];
+      const patchResult = input.followUpPatch
+        ? salvageProfileIntakeFollowUpPatch({
             item: item.structuredItem,
             rawPatch: patch,
-            evidenceSources: [{ sourceQuote: input.text, supportedFields }]
+            evidenceQuote: input.text.includes(input.followUpPatch.evidenceQuote)
+              ? input.followUpPatch.evidenceQuote
+              : input.text
           })
-        : undefined;
-      const structuredItem = patchResult
+        : patch && Object.keys(patch).length
+          ? validateProfileIntakeStructuredPatch({
+              item: item.structuredItem,
+              rawPatch: patch,
+              evidenceSources: [{ sourceQuote: input.text, supportedFields }]
+            })
+          : undefined;
+      const structuredItem = patchResult && Object.keys(patchResult.patch).length
         ? applyProfileIntakeStructuredPatch(item.structuredItem, patchResult.patch)
         : item.structuredItem;
       const evidence = {
@@ -698,7 +716,7 @@ export function patchConversationIntakeCandidate(input: {
       const priorNormalization = item.careerNormalization;
       const nextFieldEvidence = [
         ...(priorNormalization?.fieldEvidence ?? []),
-        ...(patchResult?.fieldEvidence ?? semanticCandidate.normalization.fieldEvidence)
+        ...(patchResult?.fieldEvidence ?? semanticCandidate?.normalization.fieldEvidence ?? [])
       ].filter((entry, index, all) => all.findIndex((candidate) =>
         candidate.field === entry.field
         && candidate.sourceQuote === entry.sourceQuote
@@ -711,9 +729,11 @@ export function patchConversationIntakeCandidate(input: {
         conversationEvidence: [...(item.conversationEvidence ?? []), evidence],
         careerNormalization: {
           version: "profile-intake-normalization-v1" as const,
-          mode: semanticCandidate.normalization.fieldEvidence.length ? "ai" as const : priorNormalization?.mode ?? "deterministic" as const,
-          needsNormalization: priorNormalization?.needsNormalization ?? semanticCandidate.normalization.needsNormalization,
-          deterministicDatePatch: semanticCandidate.normalization.deterministicDatePatch,
+          mode: input.followUpPatch?.mode === "local"
+            ? "deterministic" as const
+            : semanticCandidate?.normalization.fieldEvidence.length ? "ai" as const : priorNormalization?.mode ?? "deterministic" as const,
+          needsNormalization: priorNormalization?.needsNormalization ?? semanticCandidate?.normalization.needsNormalization ?? false,
+          deterministicDatePatch: semanticCandidate?.normalization.deterministicDatePatch,
           fieldEvidence: nextFieldEvidence
         },
         structuredItem

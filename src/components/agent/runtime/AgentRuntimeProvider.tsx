@@ -13,13 +13,20 @@ import { AgentSessionStore } from "@/services/agent/agentSessionStore";
 import { AgentHostStore } from "@/agent/runtime/AgentHostStore";
 import { NativeCareerAgentRuntime } from "@/agent/runtime/NativeCareerAgentRuntime";
 import { createAgentRuntimeRouter } from "@/agent/runtime/AgentRuntimeRouter";
-import { CareerToolGateway } from "@/agent/tools/CareerToolGateway";
+import { CareerToolGateway, CareerToolGatewayExecutor } from "@/agent/tools/CareerToolGateway";
+import { AgentRuntimeEventBus } from "@/agent/runtime/agentRuntimeEventBus";
+import type { AgentRuntimeTurnInput } from "@/agent/runtime/agentRuntime";
+import { HermesCareerAgentRuntime } from "@/agent/runtime/hermes/HermesCareerAgentRuntime";
+import { HttpHermesBridgeTransport } from "@/agent/runtime/hermes/HermesBridgeTransport";
 
 function createAgentHost() {
   const service = new BrowserAgentToolService();
   const registry = createAgentToolRegistry(service);
-  const executor = new AgentExecutor(registry);
+  const rawExecutor = new AgentExecutor(registry);
+  const careerToolGateway = new CareerToolGateway({ registry, executor: rawExecutor });
+  const executor = new CareerToolGatewayExecutor(registry, careerToolGateway);
   const store = new AgentSessionStore();
+  const runtimeEventBus = new AgentRuntimeEventBus();
   const kernel = new AgentKernel({
     model: new HttpAgentModel(),
     executor,
@@ -49,17 +56,41 @@ function createAgentHost() {
       if (state.getSnapshot().activeSession?.id === sessionId) state.setPaused(false);
     }
   });
-  const runtimeRouter = createAgentRuntimeRouter({ native: nativeRuntime });
-  const careerToolGateway = new CareerToolGateway({ registry, executor });
+  const hermesRuntime = new HermesCareerAgentRuntime({
+    transport: new HttpHermesBridgeTransport(),
+    careerToolGateway
+  });
+  const configuredRuntime = typeof window !== "undefined" && window.localStorage.getItem("careerad-agent-runtime") === "hermes"
+    ? "hermes" as const
+    : "native" as const;
+  const runtimeRouter = createAgentRuntimeRouter({
+    native: nativeRuntime,
+    hermes: hermesRuntime,
+    configuration: { agentRuntime: configuredRuntime }
+  });
+  const runTurn = async (input: AgentRuntimeTurnInput) => {
+    // The UI consumes only this stable event protocol.  Native and Hermes can
+    // change their internals without changing the workspace submission path.
+    for await (const event of runtimeRouter.active().runTurn({
+      ...input,
+      metadata: { ...(input.metadata ?? {}), telemetry: true }
+    })) {
+      runtimeEventBus.emit(event);
+    }
+    return state.getSnapshot().activeSession;
+  };
   return {
     service,
     registry,
     executor,
     store,
     eventBus: new AgentEventBus(),
+    runtimeEventBus,
+    runTurn,
     kernel,
     state,
     careerToolGateway,
+    hermesRuntime,
     runtimeRouter
   };
 }

@@ -362,6 +362,26 @@ function estimateInputLength(input: unknown) {
 }
 
 function createMockOutput(task: AiTask, input: unknown) {
+  if (task === "profile-intake-follow-up-patch") {
+    const followUpInput = input as {
+      candidateId: string;
+      expectedDimension: string;
+      currentUserAnswer: string;
+      sectionType: string;
+    };
+    const field = followUpInput.expectedDimension.includes("result") || followUpInput.expectedDimension.includes("outcome")
+      ? "outcomes"
+      : followUpInput.expectedDimension.includes("tool") || followUpInput.expectedDimension.includes("method")
+        ? "tools"
+        : "description";
+    return {
+      candidateId: followUpInput.candidateId,
+      patch: { [field]: field === "outcomes" || field === "tools" ? [followUpInput.currentUserAnswer] : followUpInput.currentUserAnswer },
+      evidenceQuote: followUpInput.currentUserAnswer,
+      answeredDimension: followUpInput.expectedDimension,
+      confidence: 0.55
+    };
+  }
   if (task === "profile-intake-semantic") {
     const semanticInput = input as { rawNarrative: string };
     const sourceQuote = semanticInput.rawNarrative.trim();

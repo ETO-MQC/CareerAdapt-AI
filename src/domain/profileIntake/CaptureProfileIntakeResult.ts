@@ -12,6 +12,11 @@ export const ProfileIntakePersistenceStatusSchema = z.enum([
 ]);
 
 export const ProfileIntakeSafeDiagnosticsSchema = z.object({
+  semanticTask: z.string().min(1).max(120).optional(),
+  patchStage: z.enum(["provider", "local_normalize", "schema_validate", "grounding_validate", "repository_merge", "completed"]).optional(),
+  schemaStage: z.enum(["passed", "partial", "failed"]).optional(),
+  groundingStage: z.string().min(1).max(80).optional(),
+  repositoryStage: z.enum(["pending", "passed", "failed"]).optional(),
   code: z.string().min(1).optional(),
   safeErrorCode: z.string().min(1).optional(),
   provider: z.string().min(1).max(120).optional(),
@@ -24,6 +29,7 @@ export const ProfileIntakeSafeDiagnosticsSchema = z.object({
   quarantinedCount: z.number().int().min(0).default(0),
   quarantinedCandidateCount: z.number().int().min(0).default(0),
   quarantinedErrorCodes: z.array(z.string().min(1).max(180)).max(20).default([]),
+  quarantinedFields: z.array(z.string().min(1).max(180)).max(40).default([]),
   operationId: z.string().min(1).max(180).optional()
 }).strict();
 

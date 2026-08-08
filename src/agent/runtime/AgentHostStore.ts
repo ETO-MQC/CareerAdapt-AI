@@ -1597,6 +1597,11 @@ export class AgentHostStore {
         capturedAt,
         branchId: input.current.activeBranchId,
         workflowStage: "structure_facts",
+        turnClassification: source.sourceKind === "follow_up_answer"
+          ? "follow_up_answer"
+          : source.sourceKind === "career_narrative"
+            ? "career_narrative"
+            : "unknown",
         ...(targetScopedAnswer ? {
           activeQuestionId: stringValue(source.intakeQuestionId) ?? stringValue(input.taskState.knownSlots.activeQuestionId),
           activeCandidateId: stringValue(source.intakeCandidateId) ?? stringValue(objectValue(input.taskState.knownSlots.intakeActiveQuestion).candidateId),
@@ -1719,6 +1724,10 @@ export class AgentHostStore {
       : projection.success && projection.data.extractionStatus === "partial"
         ? "partial"
         : "structured";
+    const safeDiagnostics = objectValue(objectValue(result.data).safeDiagnostics);
+    const quarantinedFields = Array.isArray(safeDiagnostics.quarantinedFields)
+      ? safeDiagnostics.quarantinedFields.filter((field: unknown): field is string => typeof field === "string").slice(0, 40)
+      : [];
     await persistence.updateProfileIntakeSourceTurn?.(sourceIdentity, {
       importId: stringValue(objectValue(result.data).importId),
       candidateIds,
@@ -1728,12 +1737,18 @@ export class AgentHostStore {
         safeErrorCode: stringValue(objectValue(objectValue(result.data).safeDiagnostics).safeErrorCode),
         provider: stringValue(objectValue(objectValue(result.data).safeDiagnostics).provider),
         model: stringValue(objectValue(objectValue(result.data).safeDiagnostics).model),
-        attempt: numberValue(objectValue(objectValue(result.data).safeDiagnostics).attempt) ?? attempt,
-        latencyMs: numberValue(objectValue(objectValue(result.data).safeDiagnostics).latencyMs),
-        candidateCount: numberValue(objectValue(objectValue(result.data).safeDiagnostics).candidateCount) ?? candidateIds.length,
-        quarantinedCount: numberValue(objectValue(objectValue(result.data).safeDiagnostics).quarantinedCount)
-          ?? numberValue(objectValue(objectValue(result.data).safeDiagnostics).quarantinedCandidateCount)
+        semanticTask: stringValue(safeDiagnostics.semanticTask),
+        patchStage: stringValue(safeDiagnostics.patchStage) as ProfileIntakeSourceTurn["patchStage"],
+        schemaStage: stringValue(safeDiagnostics.schemaStage) as ProfileIntakeSourceTurn["schemaStage"],
+        groundingStage: stringValue(safeDiagnostics.groundingStage),
+        repositoryStage: stringValue(safeDiagnostics.repositoryStage) as ProfileIntakeSourceTurn["repositoryStage"],
+        attempt: numberValue(safeDiagnostics.attempt) ?? attempt,
+        latencyMs: numberValue(safeDiagnostics.latencyMs),
+        candidateCount: numberValue(safeDiagnostics.candidateCount) ?? candidateIds.length,
+        quarantinedCount: numberValue(safeDiagnostics.quarantinedCount)
+          ?? numberValue(safeDiagnostics.quarantinedCandidateCount)
           ?? 0,
+        quarantinedFields,
         operationId
       })
     });
@@ -6250,6 +6265,12 @@ function profileIntakeSourceTurnDiagnosticPatch(input: {
   candidateCount: number;
   quarantinedCount: number;
   operationId: string;
+  semanticTask?: string;
+  patchStage?: ProfileIntakeSourceTurn["patchStage"];
+  schemaStage?: ProfileIntakeSourceTurn["schemaStage"];
+  groundingStage?: string;
+  repositoryStage?: ProfileIntakeSourceTurn["repositoryStage"];
+  quarantinedFields?: string[];
 }) {
   return {
     processingStatus: input.processingStatus,
@@ -6262,6 +6283,12 @@ function profileIntakeSourceTurnDiagnosticPatch(input: {
     candidateCount: input.candidateCount,
     quarantinedCount: input.quarantinedCount,
     operationId: input.operationId,
+    semanticTask: input.semanticTask,
+    patchStage: input.patchStage,
+    schemaStage: input.schemaStage,
+    groundingStage: input.groundingStage,
+    repositoryStage: input.repositoryStage,
+    quarantinedFields: input.quarantinedFields ?? [],
     lastErrorCode: input.safeErrorCode
   } satisfies Partial<Omit<ProfileIntakeSourceTurn, "sessionId" | "messageId" | "turnId">>;
 }

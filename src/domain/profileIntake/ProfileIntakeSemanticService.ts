@@ -141,6 +141,32 @@ export const ProfileIntakeSemanticInputSchema = z.object({
   currentDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/u).optional()
 }).strict();
 
+/**
+ * Dedicated follow-up boundary.  The model receives exactly one candidate and
+ * one answer.  `patch` intentionally remains structurally tolerant here so a
+ * malformed optional field can be salvaged locally instead of failing the
+ * whole turn at the transport schema boundary.
+ */
+export const ProfileIntakeFollowUpPatchInputSchema = z.object({
+  candidateId: z.string().min(1),
+  sectionType: ResumeSectionTypeV2Schema.exclude(["basics", "summary"]),
+  expectedDimension: z.string().min(1),
+  currentStructuredItem: ResumeItemV2Schema,
+  currentUserAnswer: z.string().trim().min(1).max(24_000),
+  relevantSourceTurns: z.array(z.object({
+    turnId: z.string().min(1),
+    sourceText: z.string().min(1).max(24_000)
+  }).strict()).max(8)
+}).strict();
+
+export const ProfileIntakeFollowUpPatchOutputSchema = z.object({
+  candidateId: z.string().min(1),
+  patch: z.record(z.string(), z.unknown()).default({}),
+  evidenceQuote: z.string().trim().min(1).max(24_000),
+  answeredDimension: z.string().trim().min(1).max(120),
+  confidence: z.number().min(0).max(1)
+}).strict();
+
 export type ProfileIntakeSemanticCandidate = z.infer<typeof ProfileIntakeSemanticCandidateSchema>;
 export type ProfileIntakeSemanticV2Candidate = z.infer<typeof ProfileIntakeSemanticV2OutputSchema>["candidates"][number];
 export type ProfileIntakeSemanticV2Output = z.infer<typeof ProfileIntakeSemanticV2OutputSchema>;
@@ -149,6 +175,19 @@ export type ProfileIntakeSemanticV3Output = z.infer<typeof ProfileIntakeSemantic
 export type ProfileIntakeSemanticLegacyOutput = z.infer<typeof ProfileIntakeSemanticLegacyOutputSchema>;
 export type ProfileIntakeSemanticOutput = ProfileIntakeSemanticV3Output | ProfileIntakeSemanticV2Output | ProfileIntakeSemanticLegacyOutput;
 export type ProfileIntakeSemanticInput = z.input<typeof ProfileIntakeSemanticInputSchema>;
+export type ProfileIntakeFollowUpPatchInput = z.input<typeof ProfileIntakeFollowUpPatchInputSchema>;
+export type ProfileIntakeFollowUpPatchOutput = z.infer<typeof ProfileIntakeFollowUpPatchOutputSchema>;
+
+export type ProfileIntakeFollowUpPatchProposal = {
+  candidateId: string;
+  patch: unknown;
+  evidenceQuote: string;
+  answeredDimension: string;
+  confidence: number;
+  mode: "ai" | "local";
+  providerStatus: ProfileIntakeProviderStatus;
+  safeDiagnostics?: ProfileIntakeSemanticResult["safeDiagnostics"];
+};
 
 export function buildProfileIntakeSourceBlocks(rawNarrative: string): Array<z.infer<typeof ProfileIntakeSourceBlockSchema>> {
   const blocks: Array<z.infer<typeof ProfileIntakeSourceBlockSchema>> = [];
@@ -196,6 +235,11 @@ export type ProfileIntakeSemanticResult = {
   candidates: VerifiedProfileIntakeCandidate[];
   quarantinedCandidateCount?: number;
   safeDiagnostics?: {
+    semanticTask?: string;
+    patchStage?: "provider" | "local_normalize" | "schema_validate" | "grounding_validate" | "repository_merge" | "completed";
+    schemaStage?: "passed" | "partial" | "failed";
+    groundingStage?: "passed" | "partial" | "failed" | string;
+    repositoryStage?: "pending" | "passed" | "failed";
     safeErrorCode?: string;
     code?: string;
     provider?: string;
@@ -207,6 +251,7 @@ export type ProfileIntakeSemanticResult = {
     candidateCount?: number;
     quarantinedCount?: number;
     quarantinedErrorCodes?: string[];
+    quarantinedFields?: string[];
     operationId?: string;
   };
   followUpQuestions?: string[];
@@ -219,6 +264,11 @@ type SemanticInvoker = (input: ProfileIntakeSemanticInput, signal?: AbortSignal)
   | { ok: false; errorCode: string; diagnostics?: ProfileIntakeSemanticDiagnostics }
 >;
 
+type FollowUpPatchInvoker = (input: ProfileIntakeFollowUpPatchInput, signal?: AbortSignal) => Promise<
+  | { ok: true; data: ProfileIntakeFollowUpPatchOutput; diagnostics?: ProfileIntakeSemanticDiagnostics }
+  | { ok: false; errorCode: string; diagnostics?: ProfileIntakeSemanticDiagnostics }
+>;
+
 type ProfileIntakeSemanticDiagnostics = NonNullable<ProfileIntakeSemanticResult["safeDiagnostics"]>;
 
 const CANONICAL_SECTIONS = [
@@ -228,7 +278,44 @@ const CANONICAL_SECTIONS = [
 ] as const;
 
 export class ProfileIntakeSemanticService {
-  constructor(private readonly invoke: SemanticInvoker = defaultInvoker) {}
+  constructor(
+    private readonly invoke: SemanticInvoker = defaultInvoker,
+    private readonly invokeFollowUpPatch: FollowUpPatchInvoker = defaultFollowUpPatchInvoker
+  ) {}
+
+  async proposeFollowUpPatch(input: ProfileIntakeFollowUpPatchInput, signal?: AbortSignal): Promise<ProfileIntakeFollowUpPatchProposal> {
+    const parsed = ProfileIntakeFollowUpPatchInputSchema.parse(input);
+    let response: Awaited<ReturnType<FollowUpPatchInvoker>>;
+    try {
+      response = await this.invokeFollowUpPatch(parsed, signal);
+    } catch {
+      response = { ok: false, errorCode: "provider_exception" };
+    }
+    if (!response.ok) {
+      return localFollowUpPatchProposal(parsed, response.errorCode, response.diagnostics);
+    }
+    const evidenceQuote = parsed.currentUserAnswer.includes(response.data.evidenceQuote.trim())
+      ? response.data.evidenceQuote.trim()
+      : parsed.currentUserAnswer;
+    const answeredDimension = response.data.answeredDimension === parsed.expectedDimension
+      ? response.data.answeredDimension
+      : parsed.expectedDimension;
+    return {
+      candidateId: parsed.candidateId,
+      patch: response.data.patch,
+      evidenceQuote,
+      answeredDimension,
+      confidence: response.data.confidence,
+      mode: "ai",
+      providerStatus: "available",
+      safeDiagnostics: {
+        ...(response.diagnostics ?? {}),
+        semanticTask: "profile-intake-follow-up-patch",
+        ...(evidenceQuote === response.data.evidenceQuote.trim() ? {} : { safeErrorCode: "follow_up_evidence_quote_corrected" }),
+        ...(answeredDimension === response.data.answeredDimension ? {} : { code: "follow_up_dimension_corrected" })
+      }
+    };
+  }
 
   async normalize(input: {
     rawNarrative: string;
@@ -461,6 +548,44 @@ async function defaultInvoker(input: ProfileIntakeSemanticInput, signal?: AbortS
       inputHash: stableHashText(input.rawNarrative)
     },
     outputSchema: ProfileIntakeSemanticOutputSchema,
+    signal
+  });
+  return result.ok
+    ? {
+        ok: true as const,
+        data: result.data,
+        diagnostics: {
+          provider: result.diagnostics?.provider ?? result.log.provider,
+          ...(result.diagnostics?.model ?? result.log.model ? { model: result.diagnostics?.model ?? result.log.model } : {}),
+          ...(result.diagnostics?.attempt !== undefined ? { attempt: result.diagnostics.attempt } : result.log.attemptCount !== undefined ? { attempt: result.log.attemptCount } : {}),
+          ...(result.diagnostics?.latencyMs !== undefined ? { latencyMs: result.diagnostics.latencyMs } : result.log.latencyMs !== undefined ? { latencyMs: result.log.latencyMs } : {})
+        }
+      }
+    : {
+        ok: false as const,
+        errorCode: result.errorCode,
+        diagnostics: {
+          safeErrorCode: result.diagnostics?.safeErrorCode ?? result.errorCode,
+          ...(result.diagnostics?.provider ? { provider: result.diagnostics.provider } : {}),
+          ...(result.diagnostics?.model ? { model: result.diagnostics.model } : {}),
+          ...(result.diagnostics?.attempt !== undefined ? { attempt: result.diagnostics.attempt } : {}),
+          ...(result.diagnostics?.latencyMs !== undefined ? { latencyMs: result.diagnostics.latencyMs } : {})
+        }
+      };
+}
+
+async function defaultFollowUpPatchInvoker(input: ProfileIntakeFollowUpPatchInput, signal?: AbortSignal) {
+  const result = await invokeStructuredAi({
+    task: "profile-intake-follow-up-patch",
+    businessInput: {
+      ...input,
+      inputHash: stableHashText(JSON.stringify({
+        candidateId: input.candidateId,
+        currentUserAnswer: input.currentUserAnswer,
+        expectedDimension: input.expectedDimension
+      }))
+    },
+    outputSchema: ProfileIntakeFollowUpPatchOutputSchema,
     signal
   });
   return result.ok
@@ -1090,6 +1215,43 @@ function mergeSemanticDiagnostics(
   current: ProfileIntakeSemanticDiagnostics
 ): ProfileIntakeSemanticDiagnostics {
   return { ...(providerDiagnostics ?? {}), ...current };
+}
+
+function localFollowUpPatchProposal(
+  input: ProfileIntakeFollowUpPatchInput,
+  errorCode: string,
+  providerDiagnostics?: ProfileIntakeSemanticDiagnostics
+): ProfileIntakeFollowUpPatchProposal {
+  const answer = input.currentUserAnswer.trim();
+  const dimension = input.expectedDimension.toLowerCase();
+  const compatible = new Set(RESUME_AI_ITEM_FIELD_CONTRACT[input.sectionType] ?? []);
+  const preferredFields = dimension.includes("tool") || dimension.includes("method")
+    ? ["tools", "methods", "highlights"]
+    : dimension.includes("result") || dimension.includes("outcome")
+      ? ["outcomes", "highlights", "description"]
+      : dimension.includes("respons") || dimension.includes("role")
+        ? ["role", "highlights", "description"]
+        : ["description", "highlights"];
+  const field = preferredFields.find((candidate) => compatible.has(candidate)) ?? "description";
+  return {
+    candidateId: input.candidateId,
+    patch: { [field]: field === "highlights" || field === "outcomes" ? [answer] : answer },
+    evidenceQuote: answer,
+    answeredDimension: input.expectedDimension,
+    confidence: 0.42,
+    mode: "local",
+    providerStatus: "failed",
+    safeDiagnostics: {
+      ...(providerDiagnostics ?? {}),
+      semanticTask: "profile-intake-follow-up-patch",
+      patchStage: "provider",
+      schemaStage: "partial",
+      groundingStage: "partial",
+      repositoryStage: "pending",
+      code: errorCode,
+      safeErrorCode: providerDiagnostics?.safeErrorCode ?? errorCode
+    }
+  };
 }
 
 function draftContext(draft?: ImportedResumeDraft) {

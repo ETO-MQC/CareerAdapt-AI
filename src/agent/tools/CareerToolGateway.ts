@@ -152,6 +152,68 @@ export class CareerToolGateway {
     return this.toContract(definition);
   }
 
+  getStableNameForSource(sourceToolName: string) {
+    return CAREER_TOOL_DEFINITIONS.find((definition) => definition.sourceToolName === sourceToolName)?.name;
+  }
+
+  /**
+   * Native AgentKernel/AgentHost calls use source tool names for compatibility,
+   * but still cross the same Career domain boundary as Hermes calls.  The
+   * wrapper preserves AgentExecutor's confirmation exception contract while
+   * delegating the actual operation to this gateway.
+   */
+  async executeForAgent(
+    sourceToolName: string,
+    input: unknown,
+    context: CareerToolExecutionContext = {}
+  ): Promise<AgentToolResult> {
+    const stableName = this.getStableNameForSource(sourceToolName);
+    if (!stableName) {
+      const executor = this.asDependencies().executor;
+      if (executor) {
+        return executor.execute({
+          toolName: sourceToolName,
+          toolInput: input,
+          operationId: normalizeOperationId(context.operationId),
+          signal: context.signal,
+          confirmed: context.confirmed,
+          confirmationCount: context.confirmationCount
+        });
+      }
+      return this.asDependencies().registry.execute(sourceToolName, input, normalizeOperationId(context.operationId), context.signal);
+    }
+    const tool = this.asDependencies().registry.require(sourceToolName);
+    const confirmationCount = context.confirmationCount ?? (context.confirmed ? 1 : 0);
+    const requiredConfirmations = tool.risk === "destructive" ? 2 : tool.requiresConfirmation ? 1 : 0;
+    if (confirmationCount < requiredConfirmations) {
+      throw new AgentConfirmationRequiredError({
+        id: `confirmation-${normalizeOperationId(context.operationId)}`,
+        operationId: normalizeOperationId(context.operationId),
+        toolName: sourceToolName,
+        title: "确认执行 Career 工具",
+        description: tool.description,
+        destructive: tool.risk === "destructive",
+        status: "pending",
+        requestedAt: new Date().toISOString()
+      });
+    }
+    const result = await this.execute(stableName, input, context);
+    return {
+      ok: result.ok,
+      operationId: result.receipt.operationId,
+      toolName: sourceToolName,
+      ...(result.ok ? { data: result.data } : {
+        error: {
+          code: result.error?.code ?? "career_tool_failed",
+          message: result.error?.message ?? "工具执行没有完成。",
+          retryable: result.error?.recoverable ?? false
+        }
+      }),
+      artifactIds: result.artifacts.map((artifact) => artifact.id),
+      completedAt: result.receipt.completedAt
+    };
+  }
+
   async execute<T = unknown>(
     name: string,
     input: unknown,
@@ -280,6 +342,24 @@ export class CareerToolGateway {
     return this.dependencies instanceof AgentToolRegistry
       ? { registry: this.dependencies }
       : this.dependencies;
+  }
+}
+
+export class CareerToolGatewayExecutor extends AgentExecutor {
+  constructor(
+    registry: AgentToolRegistry,
+    private readonly gateway: CareerToolGateway
+  ) {
+    super(registry);
+  }
+
+  override execute(input: Parameters<AgentExecutor["execute"]>[0]) {
+    return this.gateway.executeForAgent(input.toolName, input.toolInput, {
+      operationId: input.operationId,
+      signal: input.signal,
+      confirmed: input.confirmed,
+      confirmationCount: input.confirmationCount
+    });
   }
 }
 

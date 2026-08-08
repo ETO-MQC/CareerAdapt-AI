@@ -16,8 +16,21 @@ export const ProfileIntakeSourceTurnExtractionStatusSchema = z.enum([
   "failed"
 ]);
 
+export const ProfileIntakeTurnClassificationSchema = z.enum([
+  "career_narrative",
+  "follow_up_answer",
+  "reference_answer",
+  "skip_answer",
+  "unknown"
+]);
+
 /** Safe, turn-scoped telemetry. Never put source text or provider secrets here. */
 export const ProfileIntakeSourceTurnDiagnosticsSchema = z.object({
+  semanticTask: z.string().min(1).max(120).optional(),
+  patchStage: z.enum(["provider", "local_normalize", "schema_validate", "grounding_validate", "repository_merge", "completed"]).optional(),
+  schemaStage: z.enum(["passed", "partial", "failed"]).optional(),
+  groundingStage: z.string().min(1).max(80).optional(),
+  repositoryStage: z.enum(["pending", "passed", "failed"]).optional(),
   provider: z.string().min(1).max(120).optional(),
   model: z.string().min(1).max(160).optional(),
   attempt: z.number().int().min(1).optional(),
@@ -28,6 +41,7 @@ export const ProfileIntakeSourceTurnDiagnosticsSchema = z.object({
   candidateCount: z.number().int().min(0).default(0),
   quarantinedCount: z.number().int().min(0).default(0),
   quarantinedErrorCodes: z.array(z.string().min(1).max(180)).max(20).default([]),
+  quarantinedFields: z.array(z.string().min(1).max(180)).max(40).default([]),
   operationId: z.string().min(1).max(180).optional()
 }).strict();
 
@@ -48,9 +62,15 @@ export const ProfileIntakeSourceTurnSchema = z.object({
   capturedAt: z.string().datetime({ offset: true }),
   branchId: z.string().min(1).optional(),
   workflowStage: z.string().min(1),
+  turnClassification: ProfileIntakeTurnClassificationSchema.optional(),
   activeQuestionId: z.string().min(1).optional(),
   activeCandidateId: z.string().min(1).optional(),
   expectedAnswerDimension: z.string().min(1).optional(),
+  semanticTask: z.string().min(1).max(120).optional(),
+  patchStage: z.enum(["provider", "local_normalize", "schema_validate", "grounding_validate", "repository_merge", "completed"]).optional(),
+  schemaStage: z.enum(["passed", "partial", "failed"]).optional(),
+  groundingStage: z.string().min(1).max(80).optional(),
+  repositoryStage: z.enum(["pending", "passed", "failed"]).optional(),
   processingStatus: ProfileIntakeSourceTurnProcessingStatusSchema,
   importId: z.string().min(1).optional(),
   candidateIds: z.array(z.string().min(1)).max(40).default([]),
@@ -63,6 +83,7 @@ export const ProfileIntakeSourceTurnSchema = z.object({
   safeErrorCode: z.string().min(1).max(160).optional(),
   candidateCount: z.number().int().min(0).default(0),
   quarantinedCount: z.number().int().min(0).default(0),
+  quarantinedFields: z.array(z.string().min(1).max(180)).max(40).default([]),
   operationId: z.string().min(1).max(180).optional()
 }).strict();
 

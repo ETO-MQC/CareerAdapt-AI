@@ -65,7 +65,6 @@ import {
   appendProfileIntakeQuestionAnswer
 } from "@/domain/profileIntake/ProfileIntakeQuestionAnswer";
 import { ProfileIntakeReviewProjectionSchema } from "@/domain/profileIntake/ProfileIntakeReviewProjection";
-import { profileIntakeDisplayLabel } from "@/domain/profileIntake/ProfileIntakeNormalizer";
 import { synthesizeProfileIntakeDraft } from "@/domain/profileIntake/ProfileIntakeFinalSynthesis";
 import { ProfileIntakeProvenanceSchema } from "@/domain/profileIntake/ProfileIntakeProvenance";
 import {
@@ -250,24 +249,26 @@ export class BrowserAgentToolService implements AgentToolServices {
     if (input.intakeCandidateId && !followUpTarget?.structuredItem) {
       throw toolError("profile_intake_follow_up_candidate_missing", "刚才要补充的经历已不存在，请先查看当前草稿后继续。" );
     }
-    const semanticResult = await this.profileIntakeSemantic.normalize({
-      rawNarrative: input.text,
-      existingDraft: input.intakeCandidateId ? undefined : existing,
-      ...(followUpTarget?.structuredItem ? {
-        followUpContext: {
+    const followUpPatch = followUpTarget?.structuredItem && input.intakeCandidateId
+      ? await this.profileIntakeSemantic.proposeFollowUpPatch({
           candidateId: followUpTarget.id,
-          candidateLabel: profileIntakeDisplayLabel(followUpTarget.structuredItem, followUpTarget.itemLabel),
           sectionType: followUpTarget.structuredItem.sectionType as Exclude<NonNullable<ProfileIntakeSemanticInput["followUpContext"]>["sectionType"], "basics" | "summary">,
+          expectedDimension: input.intakeDimension ?? "detail",
           currentStructuredItem: followUpTarget.structuredItem,
-          expectedAnswerDimension: input.intakeDimension,
-          sourceTurns: (followUpTarget.conversationEvidence ?? []).slice(-8).map((evidence) => ({
+          currentUserAnswer: input.text,
+          relevantSourceTurns: (followUpTarget.conversationEvidence ?? []).slice(-8).map((evidence) => ({
             turnId: evidence.turnId,
             sourceText: evidence.sourceQuote
           }))
-        }
-      } : {}),
-      signal
-    });
+        }, signal)
+      : undefined;
+    const semanticResult = followUpPatch
+      ? undefined
+      : await this.profileIntakeSemantic.normalize({
+          rawNarrative: input.text,
+          existingDraft: input.intakeCandidateId ? undefined : existing,
+          signal
+        });
     const adapted = adaptConversationMessageToIntakeDraft({
       ...input,
       sourceContentHash,
@@ -287,7 +288,8 @@ export class BrowserAgentToolService implements AgentToolServices {
           text: input.text,
           capturedAt: input.capturedAt,
           sourceContentHash,
-          semanticResult
+          semanticResult,
+          followUpPatch
         })
       : patchBase
         ? mergeConversationIntakeDraft(patchBase, adapted.draft)
@@ -348,7 +350,16 @@ export class BrowserAgentToolService implements AgentToolServices {
       draftWithPhase,
       existing?.revision ?? 0
     );
-    return captureProfileIntakeObservation(saved, profile, false);
+    if (followUpPatch) {
+      followUpPatch.safeDiagnostics = {
+        ...(followUpPatch.safeDiagnostics ?? {}),
+        patchStage: "completed",
+        schemaStage: "passed",
+        groundingStage: "passed",
+        repositoryStage: "passed"
+      };
+    }
+    return captureProfileIntakeObservation(saved, profile, false, followUpPatch?.safeDiagnostics);
   }
 
   async synthesizeProfileIntake(rawInput: unknown, signal?: AbortSignal) {
@@ -1633,7 +1644,8 @@ function profileIntakeSourceEvidenceByCandidate(draft: ImportedResumeDraft) {
 function captureProfileIntakeObservation(
   draft: ImportedResumeDraft,
   profile: { id: string; version: number },
-  idempotent: boolean
+  idempotent: boolean,
+  additionalDiagnostics?: Record<string, unknown>
 ) {
   const provisionalStructuredItems = draft.sections.flatMap((section) => section.items.flatMap((item) =>
     item.userConfirmed !== false && item.structuredItem ? [item.structuredItem] : []
@@ -1718,6 +1730,7 @@ function captureProfileIntakeObservation(
     intakeSession: draft.intakeSession,
     safeDiagnostics: {
       ...(reviewProjection.safeDiagnostics ?? {}),
+      ...additionalDiagnostics,
       provider: reviewProjection.safeDiagnostics?.provider ?? reviewProjection.providerStatus,
       extractionStatus,
       candidateCount: reviewProjection.reviewProgress.total,

@@ -43,6 +43,18 @@ export function buildRetryPrompt({
       "Return only the corrected compact JSON object. Do not add a wrapper or explanation."
     ].join("\n");
   }
+  if (task === "profile-intake-follow-up-patch") {
+    return [
+      baseUserPrompt,
+      "",
+      `Previous profile-intake-follow-up-patch response failed (${failure ?? "schema validation failed"}).`,
+      "Return only one object with candidateId, patch, evidenceQuote, answeredDimension, and confidence.",
+      "Copy candidateId and answeredDimension exactly from the input.",
+      "evidenceQuote must be an exact substring of currentUserAnswer.",
+      "patch must contain only grounded changed fields for the named section; omit malformed, unsupported, or uncertain optional fields.",
+      "Return a partial patch rather than a complete item or a new candidate."
+    ].join("\n");
+  }
   if (task === "profile-intake-final-career-synthesis") {
     return [
       baseUserPrompt,

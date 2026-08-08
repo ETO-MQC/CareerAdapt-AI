@@ -199,10 +199,17 @@ export function AgentWorkspace() {
     // not remain visually editable during that period.
     setSessionDraft("");
     try {
-      const result = await host.state.dispatch(
-        { type: "composer_submit", text: input.text || undefined, files: input.attachments.map((attachment) => attachment.file) },
-        { session, pageContext: pageContext() }
-      );
+      const result = input.attachments.length === 0 && input.text.trim()
+        ? await host.runTurn({
+            sessionId: session.id,
+            userMessage: input.text,
+            pageContext: pageContext(),
+            session
+          })
+        : await host.state.dispatch(
+            { type: "composer_submit", text: input.text || undefined, files: input.attachments.map((attachment) => attachment.file) },
+            { session, pageContext: pageContext() }
+          );
       if (!result) throw new Error("composer_turn_not_accepted");
       setAttachmentsBySession((current) => ({ ...current, [session.id]: [] }));
       setSessionDraftReference(undefined);
@@ -215,7 +222,7 @@ export function AgentWorkspace() {
       setSessionAttachments((current) => current.map((attachment) => ({ ...attachment, status: "failed" as const, errorCode })));
       notify({ type: "error", title: "附件发送失败", message: "附件仍保留在编辑区，可以重试或移除。" });
     }
-  }, [host.state, pageContext, session, setSessionAttachments, setSessionDraft, setSessionDraftReference]);
+  }, [host, pageContext, session, setSessionAttachments, setSessionDraft, setSessionDraftReference]);
 
   const handleBeforeContextSelect = useCallback(async (next: ActiveCareerContext) => {
     if (!taskHasUsedAssetsOrWrites) {

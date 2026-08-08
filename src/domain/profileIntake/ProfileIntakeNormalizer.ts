@@ -103,6 +103,13 @@ export type ProfileIntakePatchEvidenceSource = {
   supportedFields?: string[];
 };
 
+export type ProfileIntakeFollowUpPatchSalvage = {
+  patch: ProfileIntakeStructuredPatch;
+  fieldEvidence: ProfileIntakeFieldEvidence[];
+  quarantinedFields: string[];
+  evidenceQuote: string;
+};
+
 type NormalizationCandidate = {
   id: string;
   kind: "education" | "work" | "internship" | "project" | "award" | "research" | "campus" | "volunteer" | "other";
@@ -257,6 +264,92 @@ export function validateProfileIntakeStructuredPatch(input: {
     ));
   }
   return { patch: canonicalPatch, fieldEvidence };
+}
+
+/**
+ * Follow-up answers are a narrow, recoverable patch boundary.  A provider may
+ * return one malformed optional field or a field from another section; that
+ * must not discard the user's whole answer.  Validate each changed field in
+ * isolation, keep only fields that pass schema/grounding/section checks, and
+ * return the rejected field names as safe diagnostics for the journal.
+ */
+export function salvageProfileIntakeFollowUpPatch(input: {
+  item: ResumeItemV2;
+  rawPatch: unknown;
+  evidenceQuote: string;
+}): ProfileIntakeFollowUpPatchSalvage {
+  const evidenceQuote = input.evidenceQuote.trim();
+  if (!evidenceQuote) throw new Error("profile_intake_patch_evidence_missing");
+
+  const quarantinedFields: string[] = [];
+  const patch: Record<string, unknown> = {};
+  const fieldEvidence: ProfileIntakeFieldEvidence[] = [];
+  const raw = input.rawPatch && typeof input.rawPatch === "object" && !Array.isArray(input.rawPatch)
+    ? input.rawPatch as Record<string, unknown>
+    : undefined;
+  if (!raw) {
+    return { patch: {}, fieldEvidence: [], quarantinedFields: ["patch_not_object"], evidenceQuote };
+  }
+
+  const allowed = new Set(Object.keys(ProfileIntakeStructuredPatchSchema.shape));
+  const compatible = new Set(compatibleFields(input.item.sectionType));
+  for (const [field, value] of Object.entries(raw)) {
+    if (value === undefined) continue;
+    if (!allowed.has(field)) {
+      quarantinedFields.push(`unsupported:${field}`);
+      continue;
+    }
+    if (!compatible.has(field)) {
+      quarantinedFields.push(`section_mismatch:${field}`);
+      continue;
+    }
+    const fieldSchema = (ProfileIntakeStructuredPatchSchema.shape as Record<string, z.ZodType<unknown>>)[field];
+    const singleField = fieldSchema?.safeParse(value);
+    if (!fieldSchema || !singleField?.success) {
+      quarantinedFields.push(`invalid:${field}`);
+      continue;
+    }
+    try {
+      const validated = validateProfileIntakeStructuredPatch({
+        item: input.item,
+        rawPatch: { [field]: value } as ProfileIntakeStructuredPatch,
+        evidenceSources: [{ sourceQuote: evidenceQuote, supportedFields: [field] }]
+      });
+      const canonicalValue = validated.patch[field as keyof ProfileIntakeStructuredPatch];
+      if (canonicalValue !== undefined) patch[field] = canonicalValue;
+      fieldEvidence.push(...validated.fieldEvidence);
+    } catch (error) {
+      quarantinedFields.push(`${safePatchErrorCode(error)}:${field}`);
+    }
+  }
+
+  // Apply the accepted fields once more as a complete patch so cross-field
+  // invariants (for example current=true removing endDate) are respected.
+  if (Object.keys(patch).length) {
+    try {
+      const validated = validateProfileIntakeStructuredPatch({
+        item: input.item,
+        rawPatch: patch as ProfileIntakeStructuredPatch,
+        evidenceSources: [{ sourceQuote: evidenceQuote, supportedFields: Object.keys(patch) }]
+      });
+      return {
+        patch: validated.patch,
+        fieldEvidence: dedupeFieldEvidence(validated.fieldEvidence),
+        quarantinedFields,
+        evidenceQuote
+      };
+    } catch {
+      // A cross-field invariant can invalidate the combined patch.  The
+      // per-field validated values remain useful, so keep them and let the
+      // caller persist the answer even when no field survives the final pass.
+    }
+  }
+  return {
+    patch: patch as ProfileIntakeStructuredPatch,
+    fieldEvidence: dedupeFieldEvidence(fieldEvidence),
+    quarantinedFields,
+    evidenceQuote
+  };
 }
 
 /**
@@ -464,7 +557,7 @@ function isHardPatchField(field: string) {
   ].includes(field);
 }
 
-function compatibleFields(sectionType: Exclude<ResumeSectionTypeV2, "basics">) {
+export function compatibleProfileIntakePatchFields(sectionType: Exclude<ResumeSectionTypeV2, "basics">) {
   const common = ["location", "startDate", "endDate", "current", "description", "highlights"];
   const fields: Record<string, string[]> = {
     summary: ["text", "customFields"],
@@ -486,6 +579,21 @@ function compatibleFields(sectionType: Exclude<ResumeSectionTypeV2, "basics">) {
     custom: ["title", "description", "highlights", "customFields"]
   };
   return fields[sectionType] ?? [];
+}
+
+function compatibleFields(sectionType: Exclude<ResumeSectionTypeV2, "basics">) {
+  return compatibleProfileIntakePatchFields(sectionType);
+}
+
+function dedupeFieldEvidence(entries: ProfileIntakeFieldEvidence[]) {
+  return entries.filter((entry, index, all) => all.findIndex((candidate) =>
+    candidate.field === entry.field && candidate.sourceQuote === entry.sourceQuote
+  ) === index);
+}
+
+function safePatchErrorCode(error: unknown) {
+  if (error instanceof Error && error.message) return error.message.split(":")[0] ?? "patch_rejected";
+  return "patch_rejected";
 }
 
 function firstText(record: Record<string, unknown>, keys: string[]) {
