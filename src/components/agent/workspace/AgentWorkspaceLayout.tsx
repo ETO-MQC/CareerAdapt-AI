@@ -122,14 +122,42 @@ function RuntimeStatusBadge({ status }: { status: RuntimeStatusSnapshot }) {
     status.model ? `model ${status.model}` : undefined
   ].filter(Boolean).join(" · ");
   return (
-    <span
-      className={`agent-runtime-status is-${status.status}`}
-      title={details || `AI Runtime: ${runtimeLabel} · ${statusLabel}`}
-      aria-label={`AI Runtime ${runtimeLabel}，状态 ${statusLabel}`}
-    >
-      <span className="agent-runtime-status-label">AI · {runtimeLabel}</span>
-      <span className="agent-runtime-status-state">{statusLabel}</span>
-    </span>
+    <>
+      <span
+        className={`agent-runtime-status is-${status.status}`}
+        title={details || `AI Runtime: ${runtimeLabel} · ${statusLabel}`}
+        aria-label={`AI Runtime ${runtimeLabel}，状态 ${statusLabel}`}
+      >
+        <span className="agent-runtime-status-label">AI · {runtimeLabel}</span>
+        <span className="agent-runtime-status-state">{statusLabel}</span>
+      </span>
+      {status.roadshowMode ? <RoadshowDiagnostics status={status} /> : null}
+    </>
+  );
+}
+
+function RoadshowDiagnostics({ status }: { status: RuntimeStatusSnapshot }) {
+  const health = status.health;
+  const checks = [
+    ["Runtime", health?.runtimeAvailable === true],
+    ["Provider / model", health?.providerConfigured === true && health.providerReachable === true && Boolean(health.model)],
+    ["Career MCP", health?.mcpConnected === true && health.mcpToolCount > 0],
+    ["Career skills", health?.careerSkillsLoaded === true],
+    ["Resume preview", status.mcpConnected === true && status.resumePreviewAvailable === true],
+    ["PDF export", status.mcpConnected === true && status.pdfExportAvailable === true]
+  ] as const;
+  const ready = checks.every(([, passed]) => passed);
+  return (
+    <details className={`agent-roadshow-diagnostics ${ready ? "is-ready" : "is-blocked"}`}>
+      <summary>Roadshow {ready ? "ready" : "check"}</summary>
+      <div className="agent-roadshow-diagnostics-panel" role="status" aria-label="Roadshow readiness">
+        {checks.map(([label, passed]) => (
+          <span key={label} className={passed ? "is-passed" : "is-pending"}>
+            <span aria-hidden="true">{passed ? "✓" : "–"}</span> {label}
+          </span>
+        ))}
+      </div>
+    </details>
   );
 }
 

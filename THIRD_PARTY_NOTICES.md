@@ -1,6 +1,6 @@
 # Third-party notices
 
-P4.4b uses original CareerAdapt AI code and prompts. The following open-source
+P4.4d uses original CareerAdapt AI code and prompts. The following open-source
 projects were reviewed for workflow or runtime design. No source code, prompt
 text, report template, or personal data was copied into the product.
 
@@ -10,7 +10,9 @@ text, report template, or personal data was copied into the product.
 - License: MIT.
 - Use in this project: architectural study only. The browser-safe Hermes
   bridge, server proxy, fallback router, and CareerToolGateway integration
-  are original CareerAdapt AI implementation.
+  are original CareerAdapt AI implementation. Hermes skill-authoring guidance
+  was reviewed from the official developer guide; the five skill files remain
+  CareerAdapt AI-authored.
 
 ## MadsLorentzen/ai-job-search
 

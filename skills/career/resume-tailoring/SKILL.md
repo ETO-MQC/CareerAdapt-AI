@@ -1,47 +1,68 @@
 ---
 name: resume-tailoring
-description: Propose a job-specific resume branch from confirmed evidence while preserving the general resume and profile boundaries.
+description: Tailor a job resume branch from confirmed evidence.
+version: 1.0.0
+author: CareerAdapt AI
+license: Project-local
+metadata:
+  hermes:
+    category: career
+    tags: [tailoring, job-branch, diff, fact-safety]
+    related_skills: [job-fit-analysis, resume-review]
 ---
 
 # Resume tailoring
 
-## Inputs
+## WHEN TO USE
 
-- Target job and requirement IDs.
-- Selected source resume or general profile branch.
-- Confirmed evidence and any user-approved tailoring preferences.
+Use after job-fit analysis identifies an evidence-backed priority and a
+job-specific resume branch has been selected. Keep the general resume and
+profile immutable while proposing changes.
 
-## Method
+## INPUTS
 
-Prioritize evidence that is both relevant and specific. Propose changes as a
-diff: section, source fact IDs/quotes, old value, proposed value, rationale,
-and confidence. Prefer reordering, concise wording, and truthful emphasis
-before adding new content. Flag missing evidence instead of filling it.
+- Target job and stable requirement IDs.
+- Selected source resume or general profile branch and revision.
+- Confirmed evidence, source quotes, and user-approved preferences.
+- Fixed person/profile/session binding.
 
-Keep every proposal reversible and reviewable. A user correction must update
-the proposal's provenance; it must not silently rewrite the source profile.
+## WORKFLOW
 
-## Output
+1. Prioritize evidence that is relevant, specific, and supported by the fit
+   matrix.
+2. Propose a reversible diff with section, source IDs/quotes, old value,
+   proposed value, rationale, and confidence.
+3. Prefer truthful emphasis, ordering, and concise wording before new content.
+4. Run a separate review pass, surface unsupported requirements, and wait for
+   explicit approval before applying or exporting.
 
-Return a requirement-to-evidence map, proposed diff items, unsupported-claim
-warnings, and a confirmation checklist. Applying the diff is a separate user
-approved action.
+## TOOL BOUNDARIES
 
-## Boundaries
+Use `career.tailoring.*` and `career.preview.*` only through the host gateway.
+Proposal generation is not a write. Applying a diff requires the host's
+confirmation and revision checks; no skill code writes the repository.
 
-Do not invent achievements or alter the general resume/profile while producing
-a job branch. Do not export until all included facts are confirmed and the
-final diff has passed review.
+## FACT SAFETY
 
-## P4.4b adapted workflow notes
+Never invent achievements, metrics, titles, dates, or skills. A job
+requirement cannot become a resume claim. Preserve unsupported requirements as
+gaps or questions and keep provenance attached to each proposed line.
 
-Use a staged loop: select the target branch, draft evidence-backed changes,
-run a separate reviewer pass, revise only supported changes, then compile and
-inspect the render. Preserve unsupported requirements as gaps or questions;
-do not turn them into resume claims. Every proposed change stays reversible
-until the user approves the diff and the branch passes final verification.
+## STOP CONDITIONS
 
-Adapted from MadsLorentzen/ai-job-search's apply → reviewer → revise →
-compile/inspect workflow and the resume handoff in
-yanliudesign/offer-toolkit-skill. The branch isolation and CareerAdapt AI
-Fact Guard remain authoritative.
+Stop when the source branch, job requirement, evidence, or revision is missing;
+when review finds an unsupported claim; or when confirmation is not present.
+Do not export a pending diff.
+
+## RECOVERY
+
+For stale revisions, reread the branch and regenerate only the affected diff;
+never replay an apply write automatically. For a missing job/profile, refresh
+discovery and ask for selection. For provider/MCP transient failure, preserve
+the proposal and retry planning, not the write.
+
+## OUTPUT
+
+Return a requirement-to-evidence map, reversible diff items, provenance,
+unsupported-claim warnings, confidence, review findings, and a confirmation
+checklist. State clearly whether the result is proposal-only or approved.

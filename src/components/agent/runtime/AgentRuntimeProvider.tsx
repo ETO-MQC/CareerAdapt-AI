@@ -13,21 +13,28 @@ import { AgentSessionStore } from "@/services/agent/agentSessionStore";
 import { AgentHostStore } from "@/agent/runtime/AgentHostStore";
 import { NativeCareerAgentRuntime } from "@/agent/runtime/NativeCareerAgentRuntime";
 import { createAgentRuntimeRouter } from "@/agent/runtime/AgentRuntimeRouter";
-import { CareerToolGateway, CareerToolGatewayExecutor } from "@/agent/tools/CareerToolGateway";
+import { CareerToolGateway, CareerToolGatewayExecutor, type CareerToolContract } from "@/agent/tools/CareerToolGateway";
 import { AgentRuntimeEventBus } from "@/agent/runtime/agentRuntimeEventBus";
 import type { AgentRuntimeTurnInput } from "@/agent/runtime/agentRuntime";
 import { HermesCareerAgentRuntime } from "@/agent/runtime/hermes/HermesCareerAgentRuntime";
-import { HttpHermesBridgeTransport } from "@/agent/runtime/hermes/HermesBridgeTransport";
+import { HttpHermesBridgeTransport, toRuntimeHealth } from "@/agent/runtime/hermes/HermesBridgeTransport";
 import { CareerAdaptMcpBridgeClient } from "@/agent/mcp/CareerAdaptMcpBridgeClient";
 import { RuntimeStatusStore } from "@/agent/runtime/runtimeStatus";
+import type { CareerSessionBinding } from "@/agent/runtime/careerSessionBinding";
+import { WorkspaceRepository } from "@/services/storage/repositories";
 
 function createAgentHost() {
-  const service = new BrowserAgentToolService();
+  const repository = new WorkspaceRepository();
+  const service = new BrowserAgentToolService(repository);
   const registry = createAgentToolRegistry(service);
   const rawExecutor = new AgentExecutor(registry);
-  const careerToolGateway = new CareerToolGateway({ registry, executor: rawExecutor });
+  const careerToolGateway = new CareerToolGateway({
+    registry,
+    executor: rawExecutor,
+    verifySessionBinding: async (binding, input) => verifyBrowserCareerBinding(repository, binding, input)
+  });
   const executor = new CareerToolGatewayExecutor(registry, careerToolGateway);
-  const store = new AgentSessionStore();
+  const store = new AgentSessionStore(repository);
   const runtimeEventBus = new AgentRuntimeEventBus();
   const kernel = new AgentKernel({
     model: new HttpAgentModel(),
@@ -88,7 +95,9 @@ function createAgentHost() {
     status: configuredRuntime === "hermes" ? "starting" : "ready",
     mcpServer: "careeradapt",
     mcpConnected: false,
-    discoveredToolCount: 0
+    discoveredToolCount: 0,
+    resumePreviewAvailable: careerToolGateway.listContracts().some((contract) => contract.name === "career.tailoring.preview_changes" || contract.name === "career.preview.review_diff"),
+    pdfExportAvailable: careerToolGateway.listContracts().some((contract) => contract.name === "career.export.resume")
   });
   const mcpBridge = new CareerAdaptMcpBridgeClient();
   const runtimeRouter = createAgentRuntimeRouter({
@@ -124,6 +133,7 @@ function createAgentHost() {
         ...(input.metadata ?? {}),
         telemetry: true,
         runtimeId: runtime.id,
+        ...(runtime.id === "hermes" ? { requireCareerSessionBinding: true } : {}),
         ...(runtimeShell ? {
           runtimeShellMessageId: runtimeShell.assistantMessageId,
           runtimeShellUserMessageId: runtimeShell.userMessageId
@@ -182,19 +192,18 @@ export function AgentRuntimeProvider({ children }: { children: React.ReactNode }
       try {
         const health = await host.hermesRuntime.health();
         if (!active) return;
-        const mcpReady = health.mcpConnected !== false;
+        const runtimeHealth = toRuntimeHealth(health, {
+          mcpConnected: health.mcpConnected ?? false,
+          mcpToolCount: health.discoveredToolCount ?? 0,
+          careerSkillsLoaded: health.runtimeHealth?.careerSkillsLoaded ?? false
+        });
+        host.runtimeStatus.recordHealth(runtimeHealth);
         host.runtimeStatus.update({
-          status: health.available && mcpReady ? "ready" : health.available ? "starting" : "unavailable",
-          activeRuntime: health.available && mcpReady ? "hermes" : "native",
-          reason: !mcpReady && health.available ? "careeradapt_mcp_not_connected" : health.reason,
           version: health.version,
           provider: health.provider,
-          model: health.model,
-          contextWindow: health.contextWindow,
-          toolCalling: health.toolCalling,
           mcpServer: health.mcpServer ?? "careeradapt",
-          mcpConnected: health.mcpConnected,
-          discoveredToolCount: health.discoveredToolCount
+          health: runtimeHealth,
+          roadshowMode: health.roadshowMode === true
         });
       } catch (error) {
         if (!active) return;
@@ -214,4 +223,30 @@ export function useAgentHost() {
   const host = useContext(AgentRuntimeContext);
   if (!host) throw new Error("useAgentHost must be used within AgentRuntimeProvider.");
   return host;
+}
+
+async function verifyBrowserCareerBinding(
+  repository: WorkspaceRepository,
+  binding: CareerSessionBinding,
+  input: unknown,
+  contract?: CareerToolContract
+) {
+  const profile = await repository.getProfile(binding.profileId);
+  if (!profile || profile.personId !== binding.personId || profile.archivedAt || profile.trashedAt) {
+    return { valid: false, code: "career_session_binding_profile_not_found", message: "固定的资料版本已不存在或已归档。" };
+  }
+  if ((profile.profileVersionNumber ?? 1) !== binding.profileVersionNumber || profile.version !== binding.profileRevision) {
+    if (contract?.readWrite === "read") return { valid: true };
+    return { valid: false, code: "career_session_binding_stale_revision", message: "固定的资料版本已更新，请基于最新版本继续。" };
+  }
+  const value = input && typeof input === "object" && !Array.isArray(input)
+    ? input as Record<string, unknown>
+    : {};
+  if (typeof value.resumeId === "string") {
+    const branch = await repository.getResumeBranch(value.resumeId);
+    if (!branch || branch.profileId !== binding.profileId) {
+      return { valid: false, code: "career_session_binding_resume_mismatch", message: "该简历不属于当前 Agent Session 固定的资料版本。" };
+    }
+  }
+  return { valid: true };
 }

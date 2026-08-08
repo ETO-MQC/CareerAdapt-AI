@@ -1,59 +1,67 @@
 ---
 name: candidate-profile-interview
-description: Conduct a bounded, evidence-first interview that fills the highest-value missing detail for one active career asset.
+description: Interview for one evidence-bound career gap.
+version: 1.0.0
+author: CareerAdapt AI
+license: Project-local
+metadata:
+  hermes:
+    category: career
+    tags: [profile, interview, evidence, fact-safety]
+    related_skills: [career-story-mining, resume-review]
 ---
 
 # Candidate profile interview
 
-## Use when
+## WHEN TO USE
 
-The candidate is building or correcting a personal profile and one active
-career asset has a known missing dimension such as role, action, method,
-challenge, result, or evidence.
+Use when one active career asset has a material missing dimension such as role,
+action, method, challenge, result, or evidence. Keep the question attached to
+the selected asset and the current Agent Session.
 
-## Inputs
+## INPUTS
 
-- Active asset identity and immutable candidate ID.
-- One active question with dimension and question revision.
-- Confirmed structured item, existing source quotes, and answered/skipped question ledger.
+- Active `personId`, `profileId`, profile revision, and `agentSessionId`.
+- One active question with its dimension and question revision.
+- Confirmed structured facts, source quotes, and answered/skipped ledger.
 - The candidate's latest turn.
 
-## Method
+## WORKFLOW
 
 1. Resolve the turn against the active question before generic intent rules.
-2. Treat a substantive declarative answer as an answer to the active question,
-   including answers beginning with “在…”, “使用…”, or “就是…”.
-3. Distinguish answer, reference question, correction, skip, workflow control,
-   new asset, and casual conversation.
-4. For an answer or correction, capture only the active asset and retain the
-   exact source quote and source turn ID.
-5. For a skip, record the skip and do not ask the same candidate/dimension
-   again. For “我已经说了”, reuse the prior source only when it supports the
-   active dimension.
-6. Acknowledge naturally and ask at most one next question.
+2. Classify answer, correction, skip, reference, workflow control, new asset,
+   or casual conversation.
+3. Capture only the active asset and retain the exact source quote and turn ID.
+4. Record a skip so the same question is not asked again.
+5. Ask at most one highest-value next question and leave gaps visible.
 
-## Output
+## TOOL BOUNDARIES
 
-Return a resolution with `kind`, active question identifiers, confidence, and
-reason; a source-bound patch or ledger entry; and one next-turn plan. Uncertain
-new facts remain pending confirmation and must not appear in preview/export.
+Return a proposed source-bound patch or ledger entry to the host. Only the
+host may call `career.profile.capture_intake` or `career.profile.commit_intake`;
+the skill never writes to `WorkspaceRepository` directly.
 
-## Boundaries
+## FACT SAFETY
 
-Do not synthesize a final resume, mutate the personal profile implicitly, or
-create a new career asset merely because a sentence starts with a location or
-preposition.
+Never infer a metric, title, date, employer, tool, ownership boundary, or
+outcome. New claims remain pending confirmation and cannot enter preview or
+export until the host validates their evidence.
 
-## P4.4b adapted workflow notes
+## STOP CONDITIONS
 
-This skill adopts two mature workflow patterns: offer multiple bounded entry
-paths (existing document, pasted material, or interview) and keep each answer
-attached to one active story until it is reviewed. Ask one highest-value
-follow-up at a time, preserve the exact evidence quote, and leave unresolved
-gaps visible rather than filling them with plausible prose. A reviewable draft
-may be autosaved, but profile commit remains an explicit user action.
+Stop and ask for clarification when the target asset or question revision is
+missing, the answer supports multiple assets, or the candidate disputes the
+source. Stop before synthesis when evidence is ambiguous.
 
-Adapted from the setup/interview flow in MadsLorentzen/ai-job-search and the
-one-question, evidence-first story-mining rules in yanliudesign/offer-toolkit-skill.
-The repository-specific source ledger, schema validation, and confirmation
-boundary remain CareerAdapt AI behavior.
+## RECOVERY
+
+For a stale revision, reread the active asset and rebase the proposal without
+repeating a write. For a missing asset, refresh discovery and ask the host to
+select one. For validation or provider failure, preserve the quote and ledger
+state and return a concise retry instruction.
+
+## OUTPUT
+
+Return a structured resolution with `kind`, question identifiers, confidence,
+reason, source-bound patch or skip entry, unresolved fields, and one next-turn
+plan. Include no unconfirmed resume-ready prose.

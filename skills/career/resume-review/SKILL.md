@@ -1,50 +1,65 @@
 ---
 name: resume-review
-description: Review a resume for factual support, relevance, clarity, and risk without rewriting unsupported claims as facts.
+description: Review resumes for evidence, clarity, and release risk.
+version: 1.0.0
+author: CareerAdapt AI
+license: Project-local
+metadata:
+  hermes:
+    category: career
+    tags: [resume, review, release, fact-safety]
+    related_skills: [job-fit-analysis, resume-tailoring]
 ---
 
 # Resume review
 
-## Inputs
+## WHEN TO USE
 
-- Resume branch and revision identifier.
-- Target job, if the review is job-specific.
-- Profile evidence and provenance available for included claims.
+Use before preview or export, after a resume branch or tailoring diff has been
+prepared. Review the selected branch and revision only.
 
-## Method
+## INPUTS
 
-Check each material claim for source support, then review:
+- Resume branch, revision identifier, and rendered/text-layer representation.
+- Target job when the branch is job-specific.
+- Profile evidence and provenance for every material included claim.
+- Fixed person/profile/session binding.
 
-- clarity and concrete ownership;
-- relevance to the target job;
-- result and scope specificity;
-- chronology and internal consistency;
-- unsupported metrics, inflated titles, and ambiguous wording;
-- structure, readability, and likely extraction/ATS issues.
+## WORKFLOW
 
-Separate factual risk from style preference. Quote the affected text and give a
-minimal suggested revision only when the evidence supports it.
+1. Check each material claim for source support and confirmation status.
+2. Review ownership, relevance, result/scope specificity, chronology,
+   consistency, unsupported metrics, inflated titles, and ATS extraction risk.
+3. Separate factual risk from style preference and quote affected text.
+4. Verify that the preview text layer matches the reviewed content before export.
 
-## Output
+## TOOL BOUNDARIES
 
-Return findings with severity, location, evidence status, recommendation, and
-whether user confirmation is required. Include a short release checklist for
-preview and export.
+Review is read-only by default. The host may call `career.resume.get`, preview,
+or export contracts, but this skill never authorizes `career.*` writes and
+never edits `WorkspaceRepository` directly.
 
-## Boundaries
+## FACT SAFETY
 
-Review does not authorize a write. Never manufacture a stronger result to make
-the resume sound better, and never treat a job description as evidence about
-the candidate.
+Never strengthen a result, add a metric, or treat a job description as
+candidate evidence. A suggested revision is valid only when its supporting
+evidence is explicit and confirmed.
 
-## P4.4b adapted workflow notes
+## STOP CONDITIONS
 
-End with a release checklist: all included claims have source evidence, gaps
-and confirmations are visible, the text layer matches the reviewed content,
-the intended page/layout result was inspected, and only then is export ready.
-Separate factual safety from style preference, and send unresolved issues
-back to the reviewer or candidate instead of silently repairing them.
+Stop release when any included claim lacks evidence, confirmation is pending,
+the selected revision is stale, the text layer differs from the reviewed
+content, or layout/PDF inspection has not completed.
 
-Adapted from the final PDF/text-layer verification in
-MadsLorentzen/ai-job-search and the “never fabricate / structure first,
-render second” rules in yanliudesign/offer-toolkit-skill.
+## RECOVERY
+
+For stale data, reread the branch and rerun only affected findings. For a
+render or PDF failure, preserve the reviewed revision and report the artifact
+step to retry. For an unsupported claim, return it as a blocking finding; do
+not silently repair it.
+
+## OUTPUT
+
+Return findings with severity, location, evidence status, recommendation,
+confirmation requirement, and a preview/export release checklist. Include the
+reviewed branch and revision in every result.

@@ -7,6 +7,11 @@ export const AgentPageContextSchema = z.object({
   activeProfileId: z.string().min(1).optional(),
   activeResumeId: z.string().min(1).optional(),
   activeJobId: z.string().min(1).optional(),
+  /** Visible identity hints; a pinned Agent Session remains authoritative. */
+  agentSessionId: z.string().min(1).optional(),
+  personId: z.string().min(1).optional(),
+  profileVersionNumber: z.number().int().min(1).optional(),
+  profileRevision: z.number().int().min(0).optional(),
   profileId: z.string().min(1).optional(),
   branchId: z.string().min(1).optional(),
   revisionId: z.string().min(1).optional(),

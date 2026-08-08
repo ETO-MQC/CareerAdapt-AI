@@ -1,8 +1,9 @@
 # CareerAdapt portable skills
 
-This folder contains five portable, evidence-first career skills. They are
-workflow guidance and do not depend on CareerAdapt's `AgentKernel`, browser
-state, or a vendor SDK.
+This folder contains five portable, evidence-first career skills. Each
+`SKILL.md` follows Hermes portable-skill metadata and section conventions, but
+the documents remain workflow guidance: they do not depend on CareerAdapt's
+`AgentKernel`, browser state, or a vendor SDK.
 
 Each skill preserves these boundaries:
 
@@ -21,4 +22,6 @@ Each skill preserves these boundaries:
 5. `resume-review` — review a resume for factual support, clarity, relevance, and unsupported claims.
 
 The host application owns persistence, confirmation, revision checks, and
-export. These skills describe reasoning and structured outputs only.
+export. These skills describe reasoning and structured outputs only. The
+Hermes runtime must call the host's `career.*` gateway; it must not write local
+storage directly.

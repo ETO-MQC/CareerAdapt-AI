@@ -43,8 +43,9 @@ async function officialHermesRequest(baseUrl: string, action: z.infer<typeof Her
         headers: { "Content-Type": "application/json", Accept: "application/json", ...apiKeyHeader() },
         body: JSON.stringify({
           id: payload.sessionId,
-          model: process.env.HERMES_MODEL?.trim() || undefined,
-          source: "careerad"
+          model: configuredModel(),
+          source: "careerad",
+          metadata: safeCareerMetadata(payload)
         }),
         signal: AbortSignal.timeout(30_000),
         cache: "no-store"
@@ -72,7 +73,15 @@ async function officialHermesRequest(baseUrl: string, action: z.infer<typeof Her
       headers: { "Content-Type": "application/json", Accept: "text/event-stream", ...apiKeyHeader() },
       body: JSON.stringify({
         message: typeof payload.userMessage === "string" ? payload.userMessage : "",
-        ...(process.env.HERMES_MODEL?.trim() ? { model: process.env.HERMES_MODEL.trim() } : {})
+        ...(configuredModel() ? { model: configuredModel() } : {}),
+        // Hermes owns reasoning and tool selection. CareerAdapt only supplies
+        // the immutable task binding and page hints; no Repository is sent.
+        career_context: {
+          session_id: typeof payload.sessionId === "string" ? payload.sessionId : undefined,
+          binding: safeCareerBinding(payload.careerSessionBinding),
+          page: safePageContext(payload.pageContext),
+          tool_contract_count: Array.isArray(payload.toolContracts) ? payload.toolContracts.length : 0
+        }
       }),
       signal: AbortSignal.timeout(180_000),
       cache: "no-store"
@@ -149,8 +158,49 @@ function unavailable() {
 }
 
 function apiKeyHeader(): Record<string, string> {
-  const apiKey = process.env.HERMES_API_KEY?.trim() || process.env.HERMES_RUNTIME_API_KEY?.trim();
+  const apiKey = process.env.HERMES_API_KEY?.trim()
+    || process.env.HERMES_RUNTIME_API_KEY?.trim()
+    || process.env.AI_API_KEY?.trim();
   return apiKey
     ? { Authorization: `Bearer ${apiKey}` }
     : {};
+}
+
+function configuredModel() {
+  return process.env.HERMES_MODEL?.trim() || process.env.AI_MODEL?.trim() || undefined;
+}
+
+function safeCareerBinding(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const candidate = value as Record<string, unknown>;
+  return typeof candidate.personId === "string"
+    && typeof candidate.profileId === "string"
+    && typeof candidate.profileVersionNumber === "number"
+    && typeof candidate.profileRevision === "number"
+    && typeof candidate.agentSessionId === "string"
+    ? {
+        personId: candidate.personId,
+        profileId: candidate.profileId,
+        profileVersionNumber: candidate.profileVersionNumber,
+        profileRevision: candidate.profileRevision,
+        agentSessionId: candidate.agentSessionId
+      }
+    : undefined;
+}
+
+function safePageContext(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const candidate = value as Record<string, unknown>;
+  return Object.fromEntries(Object.entries(candidate).filter(([key, entry]) =>
+    ["pathname", "route", "title", "selectedSectionId", "selectedItemId", "selectedFieldPath", "templateId"].includes(key)
+    && typeof entry === "string"
+  ));
+}
+
+function safeCareerMetadata(payload: Record<string, unknown>) {
+  return {
+    source: "careerad",
+    binding: safeCareerBinding(payload.careerSessionBinding),
+    tool_contract_count: Array.isArray(payload.toolContracts) ? payload.toolContracts.length : 0
+  };
 }

@@ -1,5 +1,6 @@
 import type { AgentConfirmation } from "../contracts/agentSession";
 import type { AgentToolResult } from "../contracts/agentTool";
+import { sameCareerSessionBinding, type CareerSessionBinding } from "./careerSessionBinding";
 import { AgentToolRegistry } from "../tools/registry";
 
 export class AgentConfirmationRequiredError extends Error {
@@ -12,6 +13,7 @@ export class AgentConfirmationRequiredError extends Error {
 
 export class AgentExecutor {
   private readonly results = new Map<string, AgentToolResult>();
+  private readonly operationBindings = new Map<string, CareerSessionBinding | undefined>();
 
   constructor(private readonly registry: AgentToolRegistry) {}
 
@@ -30,10 +32,16 @@ export class AgentExecutor {
     signal?: AbortSignal;
     confirmed?: boolean;
     confirmationCount?: number;
+    careerSessionBinding?: CareerSessionBinding;
+    requireSessionBinding?: boolean;
   }) {
     const cached = this.results.get(input.operationId);
     if (cached) {
       if (cached.toolName !== input.toolName) throw Object.assign(new Error("operation_id_conflict"), { code: "operation_id_conflict" });
+      const cachedBinding = this.operationBindings.get(input.operationId);
+      if (!sameOptionalBinding(cachedBinding, input.careerSessionBinding)) {
+        throw Object.assign(new Error("operation_id_binding_conflict"), { code: "operation_id_binding_conflict" });
+      }
       return cached;
     }
 
@@ -55,9 +63,17 @@ export class AgentExecutor {
     }
 
     const result = await this.registry.execute(input.toolName, input.toolInput, input.operationId, input.signal);
-    if (tool.idempotent || result.ok) this.results.set(input.operationId, result);
+    if (tool.idempotent || result.ok) {
+      this.results.set(input.operationId, result);
+      this.operationBindings.set(input.operationId, input.careerSessionBinding);
+    }
     return result;
   }
+}
+
+function sameOptionalBinding(left: CareerSessionBinding | undefined, right: CareerSessionBinding | undefined) {
+  if (!left || !right) return left === right;
+  return sameCareerSessionBinding(left, right);
 }
 
 function confirmationTitle(toolName: string) {

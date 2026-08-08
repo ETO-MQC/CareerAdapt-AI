@@ -1,5 +1,7 @@
 import { z } from "zod";
 import type { AgentPageContext } from "../../contracts/agentContext";
+import type { CareerSessionBinding } from "../careerSessionBinding";
+import { RuntimeHealthSchema, type RuntimeHealth } from "../runtimeHealth";
 
 export const HermesHealthSchema = z.object({
   available: z.boolean(),
@@ -13,7 +15,9 @@ export const HermesHealthSchema = z.object({
   toolCalling: z.enum(["verified", "unverified", "unsupported", "unknown"]).optional(),
   mcpServer: z.string().min(1).optional(),
   mcpConnected: z.boolean().optional(),
-  discoveredToolCount: z.number().int().min(0).optional()
+  discoveredToolCount: z.number().int().min(0).optional(),
+  roadshowMode: z.boolean().optional(),
+  runtimeHealth: RuntimeHealthSchema.optional()
 }).strict();
 
 export type HermesHealth = z.infer<typeof HermesHealthSchema>;
@@ -42,6 +46,7 @@ export type HermesTurnRequest = {
   userMessage: string;
   pageContext: AgentPageContext;
   toolContracts: Array<Record<string, unknown>>;
+  careerSessionBinding?: CareerSessionBinding;
   metadata?: Record<string, unknown>;
 };
 
@@ -51,6 +56,7 @@ export type HermesToolCallback = {
   toolCallId: string;
   toolName: string;
   operationId: string;
+  careerSessionBinding?: CareerSessionBinding;
   result: unknown;
 };
 
@@ -69,7 +75,8 @@ export class HttpHermesBridgeTransport implements HermesBridgeTransport {
 
   async health(signal?: AbortSignal) {
     const response = await this.request(`${this.endpoint}/health`, { method: "GET", signal });
-    return HermesHealthSchema.parse(await response.json());
+    const payload = await response.json();
+    return HermesHealthSchema.parse(payload);
   }
 
   async createSession(input: { sessionId: string; metadata?: Record<string, unknown> }, signal?: AbortSignal) {
@@ -217,7 +224,26 @@ function mapOfficialHermesEvent(name: string, value: unknown): HermesBridgeEvent
   if (name === "assistant.delta") {
     return typeof payload.delta === "string" ? { type: "text_delta", delta: payload.delta } : undefined;
   }
-  if (name === "tool.progress") {
+  if (name === "chat.completion.chunk") {
+    const choices = Array.isArray(payload.choices) ? payload.choices : [];
+    const choice = choices[0] && typeof choices[0] === "object" && !Array.isArray(choices[0])
+      ? choices[0] as Record<string, unknown>
+      : {};
+    const delta = choice.delta && typeof choice.delta === "object" && !Array.isArray(choice.delta)
+      ? choice.delta as Record<string, unknown>
+      : {};
+    if (typeof delta.content === "string" && delta.content) {
+      return { type: "text_delta", delta: delta.content };
+    }
+    const finishReason = typeof choice.finish_reason === "string" ? choice.finish_reason : undefined;
+    return finishReason
+      ? { type: "turn_completed", data: { finishReason, usage: payload.usage } }
+      : undefined;
+  }
+  if (name === "response.output_text.delta") {
+    return typeof payload.delta === "string" ? { type: "text_delta", delta: payload.delta } : undefined;
+  }
+  if (name === "hermes.tool.progress" || name === "tool.progress") {
     const message = typeof payload.delta === "string" ? payload.delta : typeof payload.preview === "string" ? payload.preview : undefined;
     return payload.tool_name === "_thinking"
       ? { type: "reasoning_status", message, data: payload }
@@ -246,9 +272,43 @@ function mapOfficialHermesEvent(name: string, value: unknown): HermesBridgeEvent
     message: typeof payload.content === "string" ? payload.content : undefined,
     data: payload
   };
-  if (name === "run.completed") return { type: "turn_completed", data: payload };
-  if (name === "run.started" || name === "message.started") return { type: "progress", message: "Hermes 已接收当前任务。", data: payload };
+  if (name === "response.completed" || name === "run.completed") return { type: "turn_completed", data: payload };
+  if (name === "response.created" || name === "run.started" || name === "message.started") {
+    return { type: "progress", message: "Hermes 已接收当前任务。", data: payload };
+  }
   return undefined;
+}
+
+/** Convert the compatibility health shape into the authoritative contract. */
+export function toRuntimeHealth(
+  health: HermesHealth,
+  overrides: Partial<Pick<RuntimeHealth, "mcpConnected" | "mcpToolCount" | "careerSkillsLoaded">> = {}
+): RuntimeHealth {
+  if (health.runtimeHealth) {
+    return RuntimeHealthSchema.parse({
+      ...health.runtimeHealth,
+      ...overrides,
+      lastCheckedAt: health.runtimeHealth.lastCheckedAt ?? new Date().toISOString()
+    });
+  }
+  const providerConfigured = health.providerStatus !== "unconfigured"
+    && Boolean(health.provider || health.model);
+  const providerReachable = health.providerStatus === "ready"
+    || (health.providerStatus === undefined && health.available);
+  return RuntimeHealthSchema.parse({
+    runtimeId: health.runtimeId ?? "hermes",
+    runtimeAvailable: health.available,
+    providerConfigured,
+    providerReachable,
+    ...(health.model ? { model: health.model } : {}),
+    ...(health.contextWindow === undefined ? {} : { contextWindow: health.contextWindow }),
+    toolCallingAvailable: health.toolCalling === "verified",
+    mcpConnected: overrides.mcpConnected ?? health.mcpConnected ?? false,
+    mcpToolCount: overrides.mcpToolCount ?? health.discoveredToolCount ?? 0,
+    careerSkillsLoaded: overrides.careerSkillsLoaded ?? false,
+    lastCheckedAt: new Date().toISOString(),
+    ...(health.reason ? { safeErrorCode: safeRuntimeErrorCode(health.reason) } : {})
+  });
 }
 
 async function safeJson(response: Response) {
@@ -261,4 +321,9 @@ async function safeJson(response: Response) {
 
 function bridgeError(code: string, message: string) {
   return Object.assign(new Error(message), { code });
+}
+
+function safeRuntimeErrorCode(value: string) {
+  const normalized = value.trim().toLowerCase().replace(/[^a-z0-9_:-]+/g, "_");
+  return normalized.slice(0, 120) || "hermes_health_failed";
 }

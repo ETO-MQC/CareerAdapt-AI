@@ -46,7 +46,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ jsonrpc: "2.0", id: null, error: { code: -32600, message: "Invalid Request" } }, { status: 400 });
   }
 
-  const protocol = new CareerAdaptMcpProtocolServer(createCareerAdaptMcpBridgeGateway());
+  const protocol = new CareerAdaptMcpProtocolServer(createCareerAdaptMcpBridgeGateway(), {
+    name: "careeradapt",
+    version: "p4.4d",
+    requireSessionBinding: true
+  });
   const response = await protocol.handle(body);
   if (!response) return new Response(null, { status: 202 });
   const headers = new Headers({

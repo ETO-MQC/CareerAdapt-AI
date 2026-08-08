@@ -1,11 +1,14 @@
 import type { CareerToolExecutionContext } from "@/agent/tools/CareerToolGateway";
 import type { CareerAdaptMcpGateway } from "./CareerAdaptMcpAdapter";
+import type { CareerSessionBinding } from "../runtime/careerSessionBinding";
 
 type BridgeRequest = {
   id: string;
   name: string;
   input: unknown;
   operationId: string;
+  careerSessionBinding?: CareerSessionBinding;
+  requireSessionBinding?: boolean;
 };
 
 export type CareerAdaptMcpBridgeClientStatus = {
@@ -114,7 +117,11 @@ export class CareerAdaptMcpBridgeClient {
     if (!this.gateway || !this.bridgeId || !this.token) return;
     let result;
     try {
-      const context: CareerToolExecutionContext = { operationId: request.operationId };
+      const context: CareerToolExecutionContext = {
+        operationId: request.operationId,
+        careerSessionBinding: request.careerSessionBinding,
+        requireSessionBinding: request.requireSessionBinding === true
+      };
       result = await this.gateway.execute(request.name, request.input, context);
     } catch (error) {
       result = failedResult(request, safeError(error));

@@ -1,40 +1,65 @@
 ---
 name: career-story-mining
-description: Mine a candidate's raw experience narration into evidence-backed career story components without inventing achievements.
+description: Mine career stories without inventing facts.
+version: 1.0.0
+author: CareerAdapt AI
+license: Project-local
+metadata:
+  hermes:
+    category: career
+    tags: [stories, evidence, provenance, fact-safety]
+    related_skills: [candidate-profile-interview, resume-tailoring]
 ---
 
 # Career story mining
 
-## Inputs
+## WHEN TO USE
 
-- Exact candidate narration and source metadata.
+Use when raw candidate narration needs to become a reviewable set of career
+story components for a profile or a job-specific branch.
+
+## INPUTS
+
+- Exact narration and source metadata, including source turn or attachment.
 - One existing career asset when the turn is a follow-up.
-- Optional job context, clearly marked as job-specific rather than profile truth.
+- Optional job context marked as job-specific, never as profile truth.
+- Fixed `personId`, `profileId`, profile revision, and Agent Session binding.
 
-## Method
+## WORKFLOW
 
-Extract only what the source supports:
+1. Extract only context, scope, role, actions, methods, challenge, response,
+   result, deliverable, collaboration, and ownership boundaries supported by
+   the source.
+2. Preserve the exact quote beside every normalized candidate fact.
+3. Separate explicit claims from interpretations that need review.
+4. Split multiple assets only when the source gives each a clear identity;
+   otherwise ask one clarifying question.
 
-- context and scope;
-- the candidate's role and actions;
-- methods, tools, or decisions;
-- challenge and response;
-- result, deliverable, or observable evidence;
-- collaboration and ownership boundaries.
+## TOOL BOUNDARIES
 
-Preserve the original quote alongside normalized facts. Separate explicit
-claims from reasonable interpretations, and mark the latter as needing review.
-When several assets are mentioned, split them only when the source provides a
-clear identity; otherwise ask one clarifying question.
+Return a proposal for the host to validate. The skill may request safe reads
+through the `career.*` gateway, but it never writes a profile, resume, or job
+branch and never accesses `WorkspaceRepository` directly.
 
-## Output
+## FACT SAFETY
 
-Return candidate patches, evidence links, confidence, unresolved fields, and a
-short next-question proposal. A patch must name its target asset and must not
-replace unrelated assets.
+Do not add metrics, tools, titles, dates, employers, scope, or outcomes absent
+from the source. Job requirements and model suggestions are not evidence.
+Uncertain facts remain pending confirmation and are excluded from export.
 
-## Boundaries
+## STOP CONDITIONS
 
-Do not add metrics, tools, titles, dates, employers, or outcomes that are not
-in the source. Do not write directly to a profile or resume; the host owns
-review, persistence, and revision conflict handling.
+Stop when source provenance is missing, two assets cannot be separated, the
+candidate disputes a normalization, or the requested claim exceeds the source.
+
+## RECOVERY
+
+For a stale profile revision, reread and rebase only the proposed patch. For a
+missing asset, refresh discovery and request a selection. For malformed input,
+return the preserved quote and a targeted clarification; do not retry a write.
+
+## OUTPUT
+
+Return target asset IDs, candidate patches, exact evidence links, confidence,
+unresolved fields, and one next-question proposal. Each patch must be scoped
+to one asset and must not replace unrelated facts.

@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { AgentToolResult } from "../contracts/agentTool";
 import { AgentConfirmationRequiredError, AgentExecutor } from "../runtime/agentExecutor";
 import { AgentToolRegistry } from "./registry";
+import type { CareerSessionBinding } from "../runtime/careerSessionBinding";
 
 export type CareerToolReadWrite = "read" | "write";
 export type CareerToolConfirmationPolicy = "none" | "user_confirmation" | "destructive_confirmation";
@@ -73,6 +74,27 @@ export type CareerToolExecutionContext = {
   signal?: AbortSignal;
   confirmed?: boolean;
   confirmationCount?: number;
+  /** Immutable context selected by the user for this Agent Session. */
+  careerSessionBinding?: CareerSessionBinding;
+  /** Hermes/MCP callers must set this; legacy native tests may omit it. */
+  requireSessionBinding?: boolean;
+};
+
+export type CareerSessionBindingVerification = {
+  valid: boolean;
+  code?: string;
+  message?: string;
+};
+
+type CareerToolGatewayDependencies = {
+  registry: AgentToolRegistry;
+  executor?: AgentExecutor;
+  verifySessionBinding?: (
+    binding: CareerSessionBinding,
+    input: unknown,
+    signal?: AbortSignal,
+    contract?: CareerToolContract
+  ) => Promise<CareerSessionBindingVerification>;
 };
 
 type CareerToolDefinition = {
@@ -133,10 +155,7 @@ export class CareerToolGateway {
   private readonly byName = new Map(CAREER_TOOL_DEFINITIONS.map((definition) => [definition.name, definition]));
 
   constructor(
-    private readonly dependencies: {
-      registry: AgentToolRegistry;
-      executor?: AgentExecutor;
-    } | AgentToolRegistry
+    private readonly dependencies: CareerToolGatewayDependencies | AgentToolRegistry
   ) {}
 
   listContracts(): CareerToolContract[] {
@@ -179,7 +198,9 @@ export class CareerToolGateway {
           operationId: normalizeOperationId(context.operationId),
           signal: context.signal,
           confirmed: context.confirmed,
-          confirmationCount: context.confirmationCount
+          confirmationCount: context.confirmationCount,
+          careerSessionBinding: context.careerSessionBinding,
+          requireSessionBinding: context.requireSessionBinding
         });
       }
       return this.asDependencies().registry.execute(sourceToolName, input, normalizeOperationId(context.operationId), context.signal);
@@ -227,8 +248,11 @@ export class CareerToolGateway {
       return this.failure(name, operationId, "unknown_career_tool", "当前 Career 工具不可用。", false);
     }
     try {
+      const contract = this.toContract(definition);
+      const bindingError = await this.verifyExecutionBinding(contract, input, context);
+      if (bindingError) return this.failure(name, operationId, bindingError.code, bindingError.message, false);
       const raw = await this.executeSourceTool(definition.sourceToolName, input, operationId, context);
-      return this.mapResult<T>(name, definition, raw);
+      return this.mapResult<T>(name, definition, raw, context.careerSessionBinding);
     } catch (error) {
       if (error instanceof AgentConfirmationRequiredError) {
         return this.failure(name, operationId, error.code, "这项操作需要你的明确确认后才能继续。", false, "请确认后重试。", "confirmation_required");
@@ -252,13 +276,20 @@ export class CareerToolGateway {
         operationId,
         signal: context.signal,
         confirmed: context.confirmed,
-        confirmationCount: context.confirmationCount
+        confirmationCount: context.confirmationCount,
+        careerSessionBinding: context.careerSessionBinding,
+        requireSessionBinding: context.requireSessionBinding
       });
     }
     return this.asDependencies().registry.execute(sourceToolName, input, operationId, context.signal);
   }
 
-  private mapResult<T>(name: string, definition: CareerToolDefinition, raw: AgentToolResult): CareerToolResult<T> {
+  private mapResult<T>(
+    name: string,
+    definition: CareerToolDefinition,
+    raw: AgentToolResult,
+    binding?: CareerSessionBinding
+  ): CareerToolResult<T> {
     const receipt: OperationReceipt = {
       operationId: raw.operationId,
       toolName: name,
@@ -267,9 +298,14 @@ export class CareerToolGateway {
       completedAt: raw.completedAt
     };
     if (raw.ok) {
+      const resultMismatch = boundResultMismatch(name, raw.data, binding);
+      if (resultMismatch) {
+        return this.failure(name, raw.operationId, resultMismatch.code, resultMismatch.message, false);
+      }
+      const data = filterBoundResult(name, raw.data, binding);
       return {
         ok: true,
-        data: raw.data as T,
+        data: data as T,
         artifacts: (raw.artifactIds ?? []).map((id) => ({
           id,
           kind: "tool_result" as const,
@@ -285,6 +321,31 @@ export class CareerToolGateway {
       error: toCareerToolError(code, raw.error?.message ?? "工具执行没有完成。", raw.error?.retryable ?? false),
       artifacts: [],
       receipt
+    };
+  }
+
+  private async verifyExecutionBinding(
+    contract: CareerToolContract,
+    input: unknown,
+    context: CareerToolExecutionContext
+  ): Promise<{ code: string; message: string } | undefined> {
+    const binding = context.careerSessionBinding;
+    if (context.requireSessionBinding && !binding) {
+      return {
+        code: "career_session_binding_required",
+        message: "当前 Hermes 任务缺少固定的人物与资料版本，未执行 Career 工具。"
+      };
+    }
+    if (!binding) return undefined;
+    const inputMismatch = bindingInputMismatch(input, binding);
+    if (inputMismatch) return inputMismatch;
+    const verifier = this.asDependencies().verifySessionBinding;
+    if (!verifier) return undefined;
+    const verification = await verifier(binding, input, context.signal, contract);
+    if (verification.valid) return undefined;
+    return {
+      code: verification.code ?? "career_session_binding_invalid",
+      message: verification.message ?? "当前人物或资料版本已变化，未执行 Career 工具。"
     };
   }
 
@@ -350,7 +411,7 @@ export class CareerToolGateway {
 
   private asDependencies() {
     return this.dependencies instanceof AgentToolRegistry
-      ? { registry: this.dependencies }
+      ? { registry: this.dependencies } satisfies CareerToolGatewayDependencies
       : this.dependencies;
   }
 }
@@ -368,7 +429,9 @@ export class CareerToolGatewayExecutor extends AgentExecutor {
       operationId: input.operationId,
       signal: input.signal,
       confirmed: input.confirmed,
-      confirmationCount: input.confirmationCount
+      confirmationCount: input.confirmationCount,
+      careerSessionBinding: input.careerSessionBinding,
+      requireSessionBinding: input.requireSessionBinding
     });
   }
 }
@@ -412,4 +475,117 @@ function toCareerToolError(code: string, message: string, retryable: boolean): C
     recoverable,
     ...(recoverable ? { retryHint: "可以稍后重试；如果仍失败，请保留当前任务状态后再继续。" } : {})
   };
+}
+
+function bindingInputMismatch(input: unknown, binding: CareerSessionBinding) {
+  const value = input && typeof input === "object" && !Array.isArray(input)
+    ? input as Record<string, unknown>
+    : {};
+  const profileId = firstString(value.profileId, value.targetProfileId, value.activeProfileId);
+  if (profileId && profileId !== binding.profileId) {
+    return {
+      code: "career_session_binding_profile_mismatch",
+      message: "Career 工具请求的资料版本不是当前 Agent Session 固定的版本。"
+    };
+  }
+  const personId = firstString(value.personId, value.targetPersonId);
+  if (personId && personId !== binding.personId) {
+    return {
+      code: "career_session_binding_person_mismatch",
+      message: "Career 工具请求的人物不是当前 Agent Session 固定的人物。"
+    };
+  }
+  const sessionId = firstString(value.sessionId, value.agentSessionId);
+  if (sessionId && sessionId !== binding.agentSessionId) {
+    return {
+      code: "career_session_binding_session_mismatch",
+      message: "Career 工具请求不属于当前 Agent Session。"
+    };
+  }
+  const expectedRevision = numberValue(value.expectedProfileVersion);
+  if (expectedRevision !== undefined && expectedRevision !== binding.profileRevision) {
+    return {
+      code: "career_session_binding_revision_mismatch",
+      message: "Career 工具请求使用了过期的资料版本 revision。"
+    };
+  }
+  const versionNumber = numberValue(value.profileVersionNumber);
+  if (versionNumber !== undefined && versionNumber !== binding.profileVersionNumber) {
+    return {
+      code: "career_session_binding_version_mismatch",
+      message: "Career 工具请求使用了错误的资料版本号。"
+    };
+  }
+  return undefined;
+}
+
+function filterBoundResult(name: string, raw: unknown, binding?: CareerSessionBinding) {
+  if (!binding || !raw || typeof raw !== "object" || Array.isArray(raw)) return raw;
+  const value = raw as Record<string, unknown>;
+  if (name === "career.profile.list" && Array.isArray(value.profiles)) {
+    return {
+      ...value,
+      profiles: value.profiles.filter((profile) => {
+        if (!profile || typeof profile !== "object" || Array.isArray(profile)) return false;
+        const candidate = profile as Record<string, unknown>;
+        return candidate.id === binding.profileId && candidate.personId === binding.personId;
+      })
+    };
+  }
+  if (name === "career.resume.list" && Array.isArray(value.resumes)) {
+    return {
+      ...value,
+      resumes: value.resumes.filter((resume) => {
+        if (!resume || typeof resume !== "object" || Array.isArray(resume)) return false;
+        return (resume as Record<string, unknown>).profileId === binding.profileId;
+      })
+    };
+  }
+  return raw;
+}
+
+function boundResultMismatch(name: string, raw: unknown, binding?: CareerSessionBinding) {
+  if (!binding || !raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
+  const value = raw as Record<string, unknown>;
+  if (name === "career.profile.active") {
+    const profileId = firstString(value.profileId, value.activeProfileId);
+    const personId = firstString(value.personId);
+    if (value.selected === false || profileId !== binding.profileId || (personId && personId !== binding.personId)) {
+      return {
+        code: "career_session_binding_active_profile_mismatch",
+        message: "当前全局活动资料不是 Agent Session 固定的资料，未返回其他资料。"
+      };
+    }
+  }
+  if (name === "career.profile.get") {
+    const profile = value.profile && typeof value.profile === "object" && !Array.isArray(value.profile)
+      ? value.profile as Record<string, unknown>
+      : undefined;
+    if (!profile || profile.id !== binding.profileId || profile.personId !== binding.personId) {
+      return {
+        code: "career_session_binding_profile_mismatch",
+        message: "读取结果不属于当前 Agent Session 固定的资料。"
+      };
+    }
+  }
+  if (name === "career.resume.get" || name === "career.resume.get_revision") {
+    const resume = value.resume && typeof value.resume === "object" && !Array.isArray(value.resume)
+      ? value.resume as Record<string, unknown>
+      : value;
+    if (typeof resume.profileId === "string" && resume.profileId !== binding.profileId) {
+      return {
+        code: "career_session_binding_resume_mismatch",
+        message: "读取结果不属于当前 Agent Session 固定的资料。"
+      };
+    }
+  }
+  return undefined;
+}
+
+function firstString(...values: unknown[]) {
+  return values.find((value): value is string => typeof value === "string" && value.trim().length > 0);
+}
+
+function numberValue(value: unknown) {
+  return typeof value === "number" && Number.isInteger(value) ? value : undefined;
 }

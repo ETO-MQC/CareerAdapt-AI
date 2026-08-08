@@ -1,6 +1,8 @@
 # Attribution and provenance
 
-The five skill documents remain CareerAdapt AI-authored. P4.4b adapts
+The five skill documents remain CareerAdapt AI-authored. P4.4d adds Hermes
+portable-skill metadata and explicit runtime boundaries; it does not copy
+Hermes implementation or prompt text. P4.4b adapted
 workflow patterns only; no third-party code, prompt text, template, personal
 data, proprietary taxonomy, or external runtime is imported by this folder.
 
@@ -51,6 +53,10 @@ data, proprietary taxonomy, or external runtime is imported by this folder.
   skills, persistent state, RPC/tool callbacks, and server-side companion
   deployment. The Hermes adapter and bridge in this repository are original;
   no Hermes source was copied.
+
+- Skill authoring reference: <https://github.com/NousResearch/hermes-agent/blob/main/website/docs/developer-guide/creating-skills.md>.
+  Reviewed for frontmatter, bounded descriptions, and portable `SKILL.md`
+  structure only; no source text was copied.
 
 Keep this file updated with the source URL, license, reviewed paths, and exact
 adaptation whenever a future revision adds another external methodology.

@@ -1,3 +1,5 @@
+import { isRoadshowReady, runtimeHealthStatus, type RuntimeHealth } from "./runtimeHealth";
+
 export type RuntimeStatus = "ready" | "starting" | "unavailable";
 
 export type RuntimeStatusSnapshot = {
@@ -13,10 +15,20 @@ export type RuntimeStatusSnapshot = {
   mcpServer?: string;
   mcpConnected?: boolean;
   discoveredToolCount?: number;
+  health?: RuntimeHealth;
+  roadshowMode?: boolean;
+  skillCount?: number;
+  resumePreviewAvailable?: boolean;
+  pdfExportAvailable?: boolean;
   lastTurn?: {
     turnId: string;
     runtimeId: string;
     latencyMs?: number;
+    firstTokenLatencyMs?: number;
+    mcpLatencyMs?: number;
+    tailoringLatencyMs?: number;
+    pdfLatencyMs?: number;
+    structuredOutputValid?: boolean;
     fallbackUsed: boolean;
     autonomousRecoveries?: number;
   };
@@ -47,7 +59,32 @@ export class RuntimeStatusStore {
       mcpServer: "careeradapt",
       mcpConnected: status.connected,
       discoveredToolCount: status.discoveredToolCount,
+      ...(this.snapshot.health ? {
+        health: {
+          ...this.snapshot.health,
+          mcpConnected: status.connected,
+          mcpToolCount: status.discoveredToolCount,
+          lastCheckedAt: new Date().toISOString()
+        }
+      } : {}),
       ...(status.reason ? { reason: status.reason } : {})
+    });
+  }
+
+  recordHealth(health: RuntimeHealth) {
+    const ready = isRoadshowReady(health);
+    this.update({
+      activeRuntime: ready ? "hermes" : "native",
+      status: runtimeHealthStatus(health),
+      reason: health.safeErrorCode,
+      model: health.model,
+      contextWindow: health.contextWindow,
+      toolCalling: health.toolCallingAvailable ? "verified" : "unverified",
+      mcpServer: "careeradapt",
+      mcpConnected: health.mcpConnected,
+      discoveredToolCount: health.mcpToolCount,
+      skillCount: health.careerSkillsLoaded ? 5 : 0,
+      health
     });
   }
 
@@ -69,6 +106,11 @@ export class RuntimeStatusStore {
         turnId: input.turnId,
         runtimeId: effectiveRuntimeId,
         latencyMs: numberValue(telemetry.latencyMs),
+        firstTokenLatencyMs: numberValue(telemetry.firstTokenLatencyMs),
+        mcpLatencyMs: numberValue(telemetry.mcpLatencyMs),
+        tailoringLatencyMs: numberValue(telemetry.tailoringLatencyMs),
+        pdfLatencyMs: numberValue(telemetry.pdfLatencyMs),
+        structuredOutputValid: typeof telemetry.structuredOutputValid === "boolean" ? telemetry.structuredOutputValid : undefined,
         fallbackUsed: telemetry.fallbackUsed === true,
         autonomousRecoveries: numberValue(telemetry.autonomousRecoveries)
       }

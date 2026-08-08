@@ -161,6 +161,44 @@
 .agent-runtime-status.is-starting { color: var(--ai-warning, #b7791f); }
 .agent-runtime-status.is-unavailable { color: var(--ai-danger, #c2413b); }
 
+.agent-roadshow-diagnostics {
+  color: var(--ai-muted);
+  font-size: 10px;
+  position: relative;
+  white-space: nowrap;
+}
+
+.agent-roadshow-diagnostics summary {
+  border: 1px solid var(--ai-border);
+  border-radius: 999px;
+  cursor: pointer;
+  list-style: none;
+  min-height: 26px;
+  padding: 6px 8px;
+}
+
+.agent-roadshow-diagnostics summary::-webkit-details-marker { display: none; }
+.agent-roadshow-diagnostics.is-ready summary { color: var(--ai-accent); }
+.agent-roadshow-diagnostics.is-blocked summary { color: var(--ai-warning, #b7791f); }
+
+.agent-roadshow-diagnostics-panel {
+  background: var(--ai-surface);
+  border: 1px solid var(--ai-border);
+  border-radius: 10px;
+  box-shadow: 0 12px 28px color-mix(in srgb, #000 18%, transparent);
+  display: grid;
+  gap: 5px;
+  min-width: 150px;
+  padding: 8px 10px;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 25;
+}
+
+.agent-roadshow-diagnostics-panel .is-passed { color: var(--ai-accent); }
+.agent-roadshow-diagnostics-panel .is-pending { color: var(--ai-muted); }
+
 .agent-tool-activity-list {
   color: var(--ai-muted);
   display: grid;

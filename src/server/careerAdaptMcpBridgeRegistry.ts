@@ -5,12 +5,15 @@ import type {
   CareerToolResult
 } from "@/agent/tools/CareerToolGateway";
 import { CareerAdaptMcpUnavailableError } from "@/agent/mcp/CareerAdaptMcpServer";
+import type { CareerSessionBinding } from "@/agent/runtime/careerSessionBinding";
 
 type BridgeRequest = {
   id: string;
   name: string;
   input: unknown;
   operationId: string;
+  careerSessionBinding?: CareerSessionBinding;
+  requireSessionBinding?: boolean;
   createdAt: number;
 };
 
@@ -91,7 +94,9 @@ export function pollCareerAdaptMcpBridge(bridgeId: string, token: string, limit 
     id: request.id,
     name: request.name,
     input: request.input,
-    operationId: request.operationId
+    operationId: request.operationId,
+    careerSessionBinding: request.careerSessionBinding,
+    requireSessionBinding: request.requireSessionBinding
   }));
 }
 
@@ -150,6 +155,8 @@ function enqueueCall(name: string, input: unknown, context: CareerToolExecutionC
     name,
     input,
     operationId,
+    careerSessionBinding: context.careerSessionBinding,
+    requireSessionBinding: context.requireSessionBinding,
     createdAt: Date.now()
   };
   bridge.queue.push(request);

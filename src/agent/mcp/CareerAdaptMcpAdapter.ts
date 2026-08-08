@@ -4,6 +4,7 @@ import type {
   CareerToolExecutionContext,
   CareerToolResult
 } from "@/agent/tools/CareerToolGateway";
+import type { CareerSessionBinding } from "../runtime/careerSessionBinding";
 
 /**
  * The MCP adapter is deliberately narrower than the Career domain.  It only
@@ -46,6 +47,8 @@ export type CareerAdaptMcpTool = {
 
 export type CareerAdaptMcpCallMeta = {
   operationId?: string;
+  careerSessionBinding?: CareerSessionBinding;
+  requireSessionBinding?: boolean;
   /**
    * Confirmation is intentionally not accepted from an MCP caller.  MCP is
    * an autonomous client boundary; authoritative writes still require the
@@ -95,7 +98,9 @@ export class CareerAdaptMcpAdapter {
       // execute normally; confirmation writes return the gateway's typed
       // confirmation_required result.
       confirmed: false,
-      confirmationCount: 0
+      confirmationCount: 0,
+      careerSessionBinding: meta.careerSessionBinding,
+      requireSessionBinding: meta.requireSessionBinding === true
     };
     const result = await this.gateway.execute(name, input, context);
     return toCallResult(result, contract);

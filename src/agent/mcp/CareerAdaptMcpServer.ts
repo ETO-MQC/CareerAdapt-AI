@@ -1,4 +1,5 @@
 import { CareerAdaptMcpAdapter, type CareerAdaptMcpCallMeta, type CareerAdaptMcpGateway } from "./CareerAdaptMcpAdapter";
+import type { CareerSessionBinding } from "../runtime/careerSessionBinding";
 
 export const CAREERADAPT_MCP_PROTOCOL_VERSION = "2025-06-18";
 const SUPPORTED_PROTOCOL_VERSIONS = new Set([
@@ -45,7 +46,11 @@ export class CareerAdaptMcpProtocolServer {
 
   constructor(
     gateway: CareerAdaptMcpGateway,
-    private readonly metadata: { name?: string; version?: string } = {}
+    private readonly metadata: {
+      name?: string;
+      version?: string;
+      requireSessionBinding?: boolean;
+    } = {}
   ) {
     this.adapter = new CareerAdaptMcpAdapter(gateway);
   }
@@ -65,7 +70,7 @@ export class CareerAdaptMcpProtocolServer {
     try {
       switch (method) {
         case "initialize":
-          return successResponse(id, initializeResult(request.params));
+          return successResponse(id, initializeResult(request.params, this.metadata));
         case "ping":
           return successResponse(id, {});
         case "tools/list":
@@ -100,12 +105,15 @@ export class CareerAdaptMcpProtocolServer {
     const input = value.arguments && typeof value.arguments === "object" && !Array.isArray(value.arguments)
       ? value.arguments
       : {};
-    const meta = readCallMeta(value._meta);
+    const meta = readCallMeta(value._meta, this.metadata.requireSessionBinding === true);
     return this.adapter.callTool(name, input, meta);
   }
 }
 
-function initializeResult(params: unknown) {
+function initializeResult(
+  params: unknown,
+  metadata: { name?: string; version?: string }
+) {
   const value = asRecord(params);
   const requested = typeof value.protocolVersion === "string" ? value.protocolVersion : undefined;
   return {
@@ -118,25 +126,47 @@ function initializeResult(params: unknown) {
       }
     },
     serverInfo: {
-      name: "careeradapt",
-      version: "p4.4c",
+      name: metadata.name ?? "careeradapt",
+      version: metadata.version ?? "p4.4c",
       ...(typeof value.clientInfo === "object" && value.clientInfo !== null ? { client: "mcp" } : {})
     },
     instructions: "CareerAdapt tools are evidence-bound. Reads may be retried; confirmation and destructive writes remain host-authorized."
   };
 }
 
-function readCallMeta(value: unknown): CareerAdaptMcpCallMeta {
+function readCallMeta(value: unknown, requireSessionBinding: boolean): CareerAdaptMcpCallMeta {
   const meta = asRecord(value);
   const operationId = typeof meta["careeradapt/operationId"] === "string"
     ? meta["careeradapt/operationId"]
     : typeof meta.operationId === "string"
       ? meta.operationId
       : undefined;
+  const careerSessionBinding = readCareerSessionBinding(meta.careerSessionBinding ?? meta["careeradapt/sessionBinding"]);
   return {
     ...(operationId ? { operationId } : {}),
+    ...(careerSessionBinding ? { careerSessionBinding } : {}),
+    requireSessionBinding,
     confirmationRequested: meta["careeradapt/confirmationRequested"] === true
       || meta.confirmationRequested === true
+  };
+}
+
+function readCareerSessionBinding(value: unknown): CareerSessionBinding | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const candidate = value as Record<string, unknown>;
+  if (
+    typeof candidate.personId !== "string"
+    || typeof candidate.profileId !== "string"
+    || typeof candidate.profileVersionNumber !== "number"
+    || typeof candidate.profileRevision !== "number"
+    || typeof candidate.agentSessionId !== "string"
+  ) return undefined;
+  return {
+    personId: candidate.personId,
+    profileId: candidate.profileId,
+    profileVersionNumber: candidate.profileVersionNumber,
+    profileRevision: candidate.profileRevision,
+    agentSessionId: candidate.agentSessionId
   };
 }
 
