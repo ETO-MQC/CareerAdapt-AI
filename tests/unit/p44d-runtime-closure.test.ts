@@ -150,6 +150,52 @@ describe("P4.4d Hermes runtime closure", () => {
     expect(events.at(-1)).toMatchObject({ type: "turn_completed", data: { telemetry: { firstTokenLatencyMs: expect.any(Number), structuredOutputValid: true } } });
   });
 
+  it("preserves the original tool input across a Hermes approval boundary", async () => {
+    const input = {
+      targetProfileId: "profile-1",
+      expectedProfileVersion: 2,
+      selectedFactIds: ["fact-1"],
+      name: "Roadshow 通用简历"
+    };
+    const gateway = new CareerToolGateway({
+      registry: new AgentToolRegistry([
+        tool("create_resume_from_profile", true, async () => ({ created: true }))
+      ])
+    });
+    const runtime = new HermesCareerAgentRuntime({
+      transport: {
+        health: async () => ({ available: true, mcpConnected: true }),
+        createSession: async () => ({ sessionId: "hermes-approval-p44d", resumed: false }),
+        resumeSession: async () => ({ sessionId: "hermes-approval-p44d", resumed: true }),
+        turn: async function* () {
+          yield { type: "tool_call_requested", toolCallId: "call-approval-p44d", toolName: "career.resume.create_from_profile", operationId: "p44d-approval-input", input };
+          yield { type: "turn_completed", data: { structuredOutputValid: true } };
+        },
+        toolCallback: async () => undefined,
+        interrupt: async () => undefined
+      },
+      careerToolGateway: gateway
+    });
+    const events = [];
+    for await (const event of runtime.runTurn({
+      sessionId: "agent-session-p44d",
+      userMessage: "创建通用简历",
+      pageContext: { query: {} },
+      session: {
+        id: "agent-session-p44d",
+        personId: "person-1",
+        activeProfileId: "profile-1",
+        profileVersionNumber: 2,
+        profileRevision: 7
+      } as never,
+      metadata: { requireCareerSessionBinding: true }
+    })) events.push(event);
+    expect(events.find((event) => event.type === "approval_required")).toMatchObject({
+      type: "approval_required",
+      data: { input }
+    });
+  });
+
   it("does not replay an idempotent operation across different session bindings", async () => {
     const registry = new AgentToolRegistry([
       tool("list_profiles", false, async () => ({ profiles: [{ id: "profile-1", personId: "person-1" }] }))

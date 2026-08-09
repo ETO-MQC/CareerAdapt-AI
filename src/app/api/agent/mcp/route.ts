@@ -9,6 +9,7 @@ import {
   pollCareerAdaptMcpBridge,
   createCareerAdaptMcpBridgeGateway,
   registerCareerAdaptMcpBridge,
+  setCareerAdaptMcpBridgeBinding,
   statusCareerAdaptMcpBridge
 } from "@/server/careerAdaptMcpBridgeRegistry";
 
@@ -108,6 +109,9 @@ async function bridgePost(request: NextRequest) {
     if (!bridgeId || !token) return NextResponse.json({ ok: false, error: "bridge_credentials_required" }, { status: 400 });
     if (action === "heartbeat") {
       return NextResponse.json({ ok: true, status: heartbeatCareerAdaptMcpBridge(bridgeId, token) });
+    }
+    if (action === "binding") {
+      return NextResponse.json({ ok: true, status: setCareerAdaptMcpBridgeBinding(bridgeId, token, value.binding) });
     }
     if (action === "result") {
       const requestId = typeof value.requestId === "string" ? value.requestId : undefined;

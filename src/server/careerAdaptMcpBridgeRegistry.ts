@@ -5,7 +5,7 @@ import type {
   CareerToolResult
 } from "@/agent/tools/CareerToolGateway";
 import { CareerAdaptMcpUnavailableError } from "@/agent/mcp/CareerAdaptMcpServer";
-import type { CareerSessionBinding } from "@/agent/runtime/careerSessionBinding";
+import { CareerSessionBindingSchema, type CareerSessionBinding } from "@/agent/runtime/careerSessionBinding";
 
 type BridgeRequest = {
   id: string;
@@ -21,6 +21,7 @@ type BridgeRecord = {
   id: string;
   token: string;
   contracts: CareerToolContract[];
+  careerSessionBinding?: CareerSessionBinding;
   queue: BridgeRequest[];
   inflight: Map<string, BridgeRequest>;
   lastHeartbeatAt: number;
@@ -80,6 +81,21 @@ export function disconnectCareerAdaptMcpBridge(bridgeId: string, token?: string)
 
 export function heartbeatCareerAdaptMcpBridge(bridgeId: string, token: string) {
   const bridge = requireBridge(bridgeId, token);
+  bridge.lastHeartbeatAt = Date.now();
+  return statusCareerAdaptMcpBridge();
+}
+
+/**
+ * Official Hermes MCP clients do not forward a custom `_meta` object from the
+ * API-server turn body into `tools/call`. Keep the selected binding on the
+ * existing browser bridge for the lifetime of the active turn instead of
+ * relaxing the domain gateway's fail-closed binding requirement.
+ */
+export function setCareerAdaptMcpBridgeBinding(bridgeId: string, token: string, value: unknown) {
+  const bridge = requireBridge(bridgeId, token);
+  bridge.careerSessionBinding = value === undefined || value === null
+    ? undefined
+    : CareerSessionBindingSchema.parse(value);
   bridge.lastHeartbeatAt = Date.now();
   return statusCareerAdaptMcpBridge();
 }
@@ -155,7 +171,7 @@ function enqueueCall(name: string, input: unknown, context: CareerToolExecutionC
     name,
     input,
     operationId,
-    careerSessionBinding: context.careerSessionBinding,
+    careerSessionBinding: context.careerSessionBinding ?? bridge.careerSessionBinding,
     requireSessionBinding: context.requireSessionBinding,
     createdAt: Date.now()
   };

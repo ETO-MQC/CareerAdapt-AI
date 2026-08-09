@@ -31,25 +31,45 @@ export async function GET() {
 
 async function proxy(url: string, mcp: ReturnType<typeof statusCareerAdaptMcpBridge>) {
   try {
-    const response = await fetch(url, {
+    let response = await fetch(url, {
       method: "GET",
       headers: upstreamHeaders(),
       signal: AbortSignal.timeout(8_000),
       cache: "no-store"
     });
+    // Hermes 0.19's official backend serves its health contract at
+    // /api/health while older companion builds expose /health. Keep the
+    // configured runtime root stable and accept both official shapes here.
+    if (response.status === 404 && /\/health$/u.test(url)) {
+      response = await fetch(url.replace(/\/health$/u, "/api/health"), {
+        method: "GET",
+        headers: upstreamHeaders(),
+        signal: AbortSignal.timeout(8_000),
+        cache: "no-store"
+      });
+    }
     const raw = await response.json().catch(() => ({}));
     const upstream = raw && typeof raw === "object" && !Array.isArray(raw) ? raw as Record<string, unknown> : {};
     const upstreamRuntimeHealth = readRuntimeHealth(upstream.runtimeHealth);
+    const configuredProvider = typeof upstream.providerStatus === "string"
+      || typeof upstream.provider === "string"
+      || typeof upstream.model === "string"
+      ? undefined
+      : await checkConfiguredProvider();
     const health = HermesHealthSchema.safeParse({
       available: typeof upstream.available === "boolean" ? upstream.available : response.ok,
       runtimeId: typeof upstream.runtimeId === "string" ? upstream.runtimeId : "hermes",
       version: typeof upstream.version === "string" ? upstream.version : undefined,
       reason: typeof upstream.reason === "string" ? upstream.reason : response.ok ? undefined : `hermes_http_${response.status}`,
-      provider: typeof upstream.provider === "string" ? upstream.provider : configuredProviderBaseUrl() ? "openai-compatible" : undefined,
-      model: typeof upstream.model === "string" ? upstream.model : configuredModel(),
-      providerStatus: normalizeProviderStatus(upstream.providerStatus, response.ok),
-      contextWindow: numberValue(upstream.contextWindow),
-      toolCalling: normalizeToolCalling(upstream.toolCalling),
+      provider: typeof upstream.provider === "string" ? upstream.provider : configuredProvider?.provider ?? (configuredProviderBaseUrl() ? "openai-compatible" : undefined),
+      model: typeof upstream.model === "string" ? upstream.model : configuredProvider?.model ?? configuredModel(),
+      providerStatus: typeof upstream.providerStatus === "string"
+        ? normalizeProviderStatus(upstream.providerStatus, response.ok)
+        : configuredProvider?.providerStatus ?? normalizeProviderStatus(upstream.providerStatus, response.ok),
+      contextWindow: numberValue(upstream.contextWindow) ?? configuredProvider?.contextWindow,
+      toolCalling: typeof upstream.toolCalling === "string"
+        ? normalizeToolCalling(upstream.toolCalling)
+        : configuredProvider?.toolCalling ?? normalizeToolCalling(upstream.toolCalling),
       ...(upstream.roadshowMode === true ? { roadshowMode: true } : {}),
       ...(upstreamRuntimeHealth ? { runtimeHealth: upstreamRuntimeHealth } : {}),
       mcpServer: mcp.server,
@@ -149,12 +169,13 @@ async function checkConfiguredProvider() {
       providerStatus: "unconfigured" as const,
       provider: undefined,
       model: configuredModel(),
+      contextWindow: undefined,
       toolCalling: "unknown" as const
     };
   }
   try {
     const response = await fetch(`${baseUrl.replace(/\/$/u, "")}/models`, {
-      headers: upstreamHeaders(),
+      headers: providerHeaders(),
       signal: AbortSignal.timeout(5_000),
       cache: "no-store"
     });
@@ -186,9 +207,17 @@ async function checkConfiguredProvider() {
 
 function upstreamHeaders() {
   const headers: Record<string, string> = { Accept: "application/json" };
-  const apiKey = process.env.HERMES_API_KEY?.trim()
-    || process.env.HERMES_RUNTIME_API_KEY?.trim()
+  const apiKey = process.env.HERMES_RUNTIME_API_KEY?.trim()
+    || process.env.HERMES_API_KEY?.trim()
     || process.env.AI_API_KEY?.trim();
+  if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
+  return headers;
+}
+
+function providerHeaders() {
+  const headers: Record<string, string> = { Accept: "application/json" };
+  const apiKey = process.env.AI_API_KEY?.trim()
+    || process.env.HERMES_API_KEY?.trim();
   if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
   return headers;
 }

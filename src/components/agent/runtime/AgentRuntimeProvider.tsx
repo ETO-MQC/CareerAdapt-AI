@@ -20,7 +20,7 @@ import { HermesCareerAgentRuntime } from "@/agent/runtime/hermes/HermesCareerAge
 import { HttpHermesBridgeTransport, toRuntimeHealth } from "@/agent/runtime/hermes/HermesBridgeTransport";
 import { CareerAdaptMcpBridgeClient } from "@/agent/mcp/CareerAdaptMcpBridgeClient";
 import { RuntimeStatusStore } from "@/agent/runtime/runtimeStatus";
-import type { CareerSessionBinding } from "@/agent/runtime/careerSessionBinding";
+import { resolveCareerSessionBinding, type CareerSessionBinding } from "@/agent/runtime/careerSessionBinding";
 import { WorkspaceRepository } from "@/services/storage/repositories";
 
 function createAgentHost() {
@@ -140,20 +140,44 @@ function createAgentHost() {
         } : {})
       }
     };
-    for await (const event of runtime.runTurn(runtimeInput)) {
-      const eventData = event.data && typeof event.data === "object" && !Array.isArray(event.data)
-        ? event.data as Record<string, unknown>
-        : undefined;
-      if (runtimeShell && eventData?.fallbackUsed !== true) {
-        await state.applyRuntimeEvent(event, runtimeShell.assistantMessageId);
+    let sessionBindingSet = false;
+    try {
+      if (runtime.id === "hermes") {
+        if (runtimeShell) {
+          mcpBridge.setConfirmationContext({
+            sessionId: runtimeInput.sessionId,
+            turnId: runtimeShell.turnId,
+            assistantMessageId: runtimeShell.assistantMessageId
+          });
+        }
+        const binding = resolveCareerSessionBinding({
+          sessionId: runtimeInput.sessionId,
+          session: runtimeInput.session,
+          pageContext: runtimeInput.pageContext
+        });
+        if (binding) {
+          await mcpBridge.setSessionBinding(binding);
+          sessionBindingSet = true;
+        }
       }
-      runtimeEventBus.emit(event);
-      if (event.type === "turn_completed" || event.type === "turn_failed") {
-        runtimeStatus.recordTurn({ runtimeId: runtime.id, turnId: event.turnId, data: event.data });
-      } else if (eventData) {
-        if (eventData.fallbackUsed === true) runtimeStatus.update({ activeRuntime: "native", status: "ready" });
-        else if (runtime.id === "hermes") runtimeStatus.update({ activeRuntime: "hermes", status: "ready" });
+      for await (const event of runtime.runTurn(runtimeInput)) {
+        const eventData = event.data && typeof event.data === "object" && !Array.isArray(event.data)
+          ? event.data as Record<string, unknown>
+          : undefined;
+        if (runtimeShell && eventData?.fallbackUsed !== true) {
+          await state.applyRuntimeEvent(event, runtimeShell.assistantMessageId);
+        }
+        runtimeEventBus.emit(event);
+        if (event.type === "turn_completed" || event.type === "turn_failed") {
+          runtimeStatus.recordTurn({ runtimeId: runtime.id, turnId: event.turnId, data: event.data });
+        } else if (eventData) {
+          if (eventData.fallbackUsed === true) runtimeStatus.update({ activeRuntime: "native", status: "ready" });
+          else if (runtime.id === "hermes") runtimeStatus.update({ activeRuntime: "hermes", status: "ready" });
+        }
       }
+    } finally {
+      if (runtime.id === "hermes") mcpBridge.setConfirmationContext(undefined);
+      if (sessionBindingSet) await mcpBridge.setSessionBinding(undefined).catch(() => undefined);
     }
     return state.getSnapshot().activeSession;
   };
@@ -185,9 +209,28 @@ export function AgentRuntimeProvider({ children }: { children: React.ReactNode }
     let active = true;
     host.runtimeStatus.update({ status: host.runtimeRouter.configurationSnapshot.agentRuntime === "hermes" ? "starting" : "ready" });
     const boot = async () => {
-      await host.mcpBridge.start(host.careerToolGateway, (status) => {
-        if (active) host.runtimeStatus.recordMcp(status);
-      });
+      await host.mcpBridge.start(
+        host.careerToolGateway,
+        (status) => {
+          if (active) host.runtimeStatus.recordMcp(status);
+        },
+        async (confirmation) => {
+          if (!active || host.state.getSnapshot().activeSession?.id !== confirmation.sessionId) return;
+          await host.state.applyRuntimeEvent({
+            type: "approval_required",
+            sessionId: confirmation.sessionId,
+            turnId: confirmation.turnId,
+            timestamp: new Date().toISOString(),
+            toolName: confirmation.toolName,
+            operationId: confirmation.operationId,
+            message: "这项 Career 操作需要用户确认后才能继续。",
+            data: {
+              input: confirmation.input,
+              contract: confirmation.contract
+            }
+          }, confirmation.assistantMessageId);
+        }
+      );
       if (!active || host.runtimeRouter.configurationSnapshot.agentRuntime !== "hermes") return;
       try {
         const health = await host.hermesRuntime.health();

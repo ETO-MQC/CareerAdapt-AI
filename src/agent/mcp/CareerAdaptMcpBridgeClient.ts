@@ -1,4 +1,7 @@
-import type { CareerToolExecutionContext } from "@/agent/tools/CareerToolGateway";
+import type {
+  CareerToolContract,
+  CareerToolExecutionContext
+} from "@/agent/tools/CareerToolGateway";
 import type { CareerAdaptMcpGateway } from "./CareerAdaptMcpAdapter";
 import type { CareerSessionBinding } from "../runtime/careerSessionBinding";
 
@@ -17,6 +20,19 @@ export type CareerAdaptMcpBridgeClientStatus = {
   reason?: string;
 };
 
+export type CareerAdaptMcpConfirmationContext = {
+  sessionId: string;
+  turnId: string;
+  assistantMessageId: string;
+};
+
+export type CareerAdaptMcpExternalConfirmation = CareerAdaptMcpConfirmationContext & {
+  toolName: string;
+  operationId: string;
+  input: Record<string, unknown>;
+  contract: CareerToolContract;
+};
+
 /**
  * Keeps the browser-owned CareerToolGateway behind the local MCP HTTP
  * boundary. The Node/Next MCP endpoint never receives a Repository object or
@@ -30,17 +46,25 @@ export class CareerAdaptMcpBridgeClient {
   private heartbeatTimer?: ReturnType<typeof setInterval>;
   private gateway?: CareerAdaptMcpGateway;
   private onStatus?: (status: CareerAdaptMcpBridgeClientStatus) => void;
+  private onConfirmation?: (confirmation: CareerAdaptMcpExternalConfirmation) => Promise<void> | void;
+  private confirmationContext?: CareerAdaptMcpConfirmationContext;
 
   async start(
     gateway: CareerAdaptMcpGateway,
-    onStatus?: (status: CareerAdaptMcpBridgeClientStatus) => void
+    onStatus?: (status: CareerAdaptMcpBridgeClientStatus) => void,
+    onConfirmation?: (confirmation: CareerAdaptMcpExternalConfirmation) => Promise<void> | void
   ) {
     if (!this.stopped) return;
     this.gateway = gateway;
     this.onStatus = onStatus;
+    this.onConfirmation = onConfirmation;
     this.stopped = false;
     await this.register();
     this.schedulePoll(0);
+  }
+
+  setConfirmationContext(context?: CareerAdaptMcpConfirmationContext) {
+    this.confirmationContext = context;
   }
 
   async stop() {
@@ -57,7 +81,29 @@ export class CareerAdaptMcpBridgeClient {
     }
     this.bridgeId = undefined;
     this.token = undefined;
+    this.confirmationContext = undefined;
+    this.onConfirmation = undefined;
     this.publish({ connected: false, discoveredToolCount: 0, reason: "stopped" });
+  }
+
+  async setSessionBinding(binding?: CareerSessionBinding) {
+    if (this.stopped || !this.bridgeId || !this.token) {
+      throw Object.assign(new Error("mcp_bridge_binding_unavailable"), { code: "mcp_bridge_binding_unavailable" });
+    }
+    const response = await fetch(bridgeUrl(), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "binding",
+        bridgeId: this.bridgeId,
+        token: this.token,
+        ...(binding ? { binding } : {})
+      }),
+      cache: "no-store"
+    });
+    if (!response.ok) {
+      throw Object.assign(new Error("mcp_bridge_binding_unavailable"), { code: "mcp_bridge_binding_unavailable" });
+    }
   }
 
   private async register() {
@@ -116,13 +162,27 @@ export class CareerAdaptMcpBridgeClient {
   private async execute(request: BridgeRequest) {
     if (!this.gateway || !this.bridgeId || !this.token) return;
     let result;
+    const toolInput = normalizeHermesScopedInput(request.name, request.input, request.careerSessionBinding);
     try {
       const context: CareerToolExecutionContext = {
         operationId: request.operationId,
         careerSessionBinding: request.careerSessionBinding,
         requireSessionBinding: request.requireSessionBinding === true
       };
-      result = await this.gateway.execute(request.name, request.input, context);
+      result = await this.gateway.execute(request.name, toolInput, context);
+      if (isConfirmationRequired(result) && this.confirmationContext && this.onConfirmation) {
+        const contract = this.gateway.listContracts().find((candidate) => candidate.name === request.name);
+        const input = asRecord(toolInput);
+        if (contract) {
+          await Promise.resolve(this.onConfirmation({
+            ...this.confirmationContext,
+            toolName: request.name,
+            operationId: request.operationId,
+            input,
+            contract
+          })).catch(() => undefined);
+        }
+      }
     } catch (error) {
       result = failedResult(request, safeError(error));
     }
@@ -184,4 +244,34 @@ function failedResult(request: BridgeRequest, reason: string) {
 
 function safeError(error: unknown) {
   return error instanceof Error ? error.message : "mcp_bridge_unavailable";
+}
+
+function isConfirmationRequired(result: { ok: boolean; error?: { code?: string } }) {
+  return result.ok === false
+    && (result.error?.code === "agent_confirmation_required" || result.error?.code === "confirmation_required");
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+}
+
+function normalizeHermesScopedInput(
+  name: string,
+  value: unknown,
+  binding?: CareerSessionBinding
+) {
+  if (!binding) return value;
+  const input = asRecord(value);
+  if (name === "career.profile.capture_intake" && typeof input.sessionId === "string" && input.sessionId !== binding.agentSessionId) {
+    return { ...input, sessionId: binding.agentSessionId };
+  }
+  if (name === "career.profile.review_intake" && input.evidence && typeof input.evidence === "object" && !Array.isArray(input.evidence)) {
+    const evidence = input.evidence as Record<string, unknown>;
+    if (typeof evidence.sessionId === "string" && evidence.sessionId !== binding.agentSessionId) {
+      return { ...input, evidence: { ...evidence, sessionId: binding.agentSessionId } };
+    }
+  }
+  return value;
 }

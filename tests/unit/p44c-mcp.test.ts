@@ -6,6 +6,15 @@ import { CareerAdaptMcpProtocolServer } from "@/agent/mcp/CareerAdaptMcpServer";
 import { HttpHermesBridgeTransport } from "@/agent/runtime/hermes/HermesBridgeTransport";
 import { CareerToolGateway } from "@/agent/tools/CareerToolGateway";
 import { AgentToolRegistry } from "@/agent/tools/registry";
+import { CareerAdaptMcpBridgeClient } from "@/agent/mcp/CareerAdaptMcpBridgeClient";
+import {
+  completeCareerAdaptMcpBridgeCall,
+  createCareerAdaptMcpBridgeGateway,
+  disconnectCareerAdaptMcpBridge,
+  pollCareerAdaptMcpBridge,
+  registerCareerAdaptMcpBridge,
+  setCareerAdaptMcpBridgeBinding
+} from "@/server/careerAdaptMcpBridgeRegistry";
 
 const AnyInput = z.object({}).passthrough();
 const AnyOutput = z.object({}).passthrough();
@@ -123,6 +132,153 @@ describe("P4.4c CareerAdapt MCP gateway", () => {
       vi.unstubAllGlobals();
     }
   });
+
+  it("keeps official API-server MCP calls bound to the active browser turn", async () => {
+    const registered = registerCareerAdaptMcpBridge(createGateway().listContracts());
+    const binding = {
+      personId: "person-1",
+      profileId: "profile-1",
+      profileVersionNumber: 1,
+      profileRevision: 2,
+      agentSessionId: "session-1"
+    };
+    try {
+      setCareerAdaptMcpBridgeBinding(registered.bridgeId, registered.token, binding);
+      const pending = createCareerAdaptMcpBridgeGateway().execute("career.profile.list", {}, {
+        operationId: "p44d-binding-01",
+        requireSessionBinding: true
+      });
+      const [request] = pollCareerAdaptMcpBridge(registered.bridgeId, registered.token);
+      expect(request).toMatchObject({
+        name: "career.profile.list",
+        careerSessionBinding: binding,
+        requireSessionBinding: true
+      });
+      expect(completeCareerAdaptMcpBridgeCall(registered.bridgeId, registered.token, request.id, {
+        ok: true,
+        data: { profiles: [] },
+        artifacts: [],
+        receipt: {
+          operationId: request.operationId,
+          toolName: request.name,
+          status: "completed",
+          completedAt: new Date().toISOString()
+        }
+      })).toBe(true);
+      await expect(pending).resolves.toMatchObject({ ok: true, data: { profiles: [] } });
+    } finally {
+      disconnectCareerAdaptMcpBridge(registered.bridgeId, registered.token);
+    }
+  });
+
+  it("surfaces MCP confirmation-required writes to the active host turn", async () => {
+    const gateway = createGateway();
+    const client = new CareerAdaptMcpBridgeClient();
+    const request = {
+      id: "mcp-request-confirmation",
+      name: "career.profile.commit_intake",
+      input: { profileId: "profile-1", draftId: "draft-1" },
+      operationId: "p44c-confirm-01"
+    };
+    let nextPoll = true;
+    let seen: unknown;
+    let resolveSeen: (() => void) | undefined;
+    const seenPromise = new Promise<void>((resolve) => { resolveSeen = resolve; });
+    vi.stubGlobal("fetch", vi.fn(async (_input: unknown, init?: RequestInit) => {
+      const body = init?.body ? JSON.parse(String(init.body)) as Record<string, unknown> : undefined;
+      if (body?.action === "register") {
+        return new Response(JSON.stringify({ ok: true, bridgeId: "bridge-confirm", token: "token-confirm", discoveredToolCount: 2 }), { status: 200 });
+      }
+      if (body?.action === "result" || body?.action === "heartbeat") {
+        return new Response(JSON.stringify({ ok: true }), { status: 200 });
+      }
+      if (init?.method === "DELETE") return new Response(JSON.stringify({ ok: true }), { status: 200 });
+      return new Response(JSON.stringify({ ok: true, requests: nextPoll ? [request] : [] }), { status: 200 });
+    }));
+    try {
+      await client.start(gateway, undefined, (confirmation) => {
+        seen = confirmation;
+        nextPoll = false;
+        resolveSeen?.();
+      });
+      client.setConfirmationContext({
+        sessionId: "session-confirm",
+        turnId: "turn-confirm",
+        assistantMessageId: "assistant-confirm"
+      });
+      await Promise.race([
+        seenPromise,
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("confirmation_callback_timeout")), 2_000))
+      ]);
+      expect(seen).toMatchObject({
+        sessionId: "session-confirm",
+        turnId: "turn-confirm",
+        assistantMessageId: "assistant-confirm",
+        toolName: "career.profile.commit_intake",
+        operationId: "p44c-confirm-01",
+        input: request.input,
+        contract: { name: "career.profile.commit_intake", confirmationPolicy: "user_confirmation" }
+      });
+    } finally {
+      await client.stop();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("binds Profile Intake evidence to the active CareerAdapt session", async () => {
+    let seenInput: unknown;
+    let nextPoll = true;
+    let resolveSeen: (() => void) | undefined;
+    const seenPromise = new Promise<void>((resolve) => { resolveSeen = resolve; });
+    const capture = tool("capture_profile_intake", false, async (input) => {
+      seenInput = input;
+      nextPoll = false;
+      resolveSeen?.();
+      return { captured: true };
+    });
+    const gateway = new CareerToolGateway({ registry: new AgentToolRegistry([capture]) });
+    const client = new CareerAdaptMcpBridgeClient();
+    const binding = {
+      personId: "person-1",
+      profileId: "profile-1",
+      profileVersionNumber: 1,
+      profileRevision: 1,
+      agentSessionId: "agent-session-1"
+    };
+    const request = {
+      id: "mcp-request-capture",
+      name: "career.profile.capture_intake",
+      input: { sessionId: "hermes-session-1", targetProfileId: "profile-1" },
+      operationId: "p44c-capture-01",
+      careerSessionBinding: binding,
+      requireSessionBinding: true
+    };
+    vi.stubGlobal("fetch", vi.fn(async (_input: unknown, init?: RequestInit) => {
+      const body = init?.body ? JSON.parse(String(init.body)) as Record<string, unknown> : undefined;
+      if (body?.action === "register") {
+        return new Response(JSON.stringify({ ok: true, bridgeId: "bridge-capture", token: "token-capture", discoveredToolCount: 1 }), { status: 200 });
+      }
+      if (body?.action === "result" || body?.action === "heartbeat") {
+        return new Response(JSON.stringify({ ok: true }), { status: 200 });
+      }
+      if (init?.method === "DELETE") return new Response(JSON.stringify({ ok: true }), { status: 200 });
+      return new Response(JSON.stringify({ ok: true, requests: nextPoll ? [request] : [] }), { status: 200 });
+    }));
+    try {
+      await client.start(gateway);
+      await Promise.race([
+        seenPromise,
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("capture_callback_timeout")), 2_000))
+      ]);
+      expect(seenInput).toMatchObject({
+        sessionId: "agent-session-1",
+        targetProfileId: "profile-1"
+      });
+    } finally {
+      await client.stop();
+      vi.unstubAllGlobals();
+    }
+  });
 });
 
 function createGateway() {
@@ -133,7 +289,7 @@ function createGateway() {
   return new CareerToolGateway({ registry, executor: new AgentExecutor(registry) });
 }
 
-function tool(name: string, requiresConfirmation: boolean, execute: () => Promise<unknown>) {
+function tool(name: string, requiresConfirmation: boolean, execute: (input?: unknown) => Promise<unknown>) {
   return {
     name,
     description: `Test ${name}`,

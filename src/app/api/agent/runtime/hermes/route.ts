@@ -68,6 +68,7 @@ async function officialHermesRequest(baseUrl: string, action: z.infer<typeof Her
       return NextResponse.json({ ok: true, data: { sessionId: sessionIdFromResponse(raw) ?? sessionId, resumed: true } });
     }
     const sessionId = typeof payload.sessionId === "string" ? payload.sessionId : "";
+    const careerBinding = safeCareerBinding(payload.careerSessionBinding);
     const response = await fetch(`${root}/api/sessions/${encodeURIComponent(sessionId)}/chat/stream`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "text/event-stream", ...apiKeyHeader() },
@@ -77,8 +78,12 @@ async function officialHermesRequest(baseUrl: string, action: z.infer<typeof Her
         // Hermes owns reasoning and tool selection. CareerAdapt only supplies
         // the immutable task binding and page hints; no Repository is sent.
         career_context: {
-          session_id: typeof payload.sessionId === "string" ? payload.sessionId : undefined,
-          binding: safeCareerBinding(payload.careerSessionBinding),
+          // The URL/sessionId above is the Hermes API session. Tool inputs
+          // such as profile-intake evidence use the CareerAdapt Agent Session
+          // ID, which is the binding authority and may differ after Hermes
+          // creates/resumes its own session.
+          session_id: careerBinding?.agentSessionId ?? sessionId,
+          binding: careerBinding,
           page: safePageContext(payload.pageContext),
           tool_contract_count: Array.isArray(payload.toolContracts) ? payload.toolContracts.length : 0
         }
@@ -158,8 +163,8 @@ function unavailable() {
 }
 
 function apiKeyHeader(): Record<string, string> {
-  const apiKey = process.env.HERMES_API_KEY?.trim()
-    || process.env.HERMES_RUNTIME_API_KEY?.trim()
+  const apiKey = process.env.HERMES_RUNTIME_API_KEY?.trim()
+    || process.env.HERMES_API_KEY?.trim()
     || process.env.AI_API_KEY?.trim();
   return apiKey
     ? { Authorization: `Bearer ${apiKey}` }

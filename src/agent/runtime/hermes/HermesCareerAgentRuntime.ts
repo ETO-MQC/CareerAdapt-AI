@@ -249,7 +249,7 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
         toolName: request.toolName,
         operationId: request.operationId,
         message: "这项 Career 操作需要用户确认后才能继续。",
-        data: { toolCallId: request.toolCallId, contract }
+        data: { toolCallId: request.toolCallId, input: request.input, contract }
       });
       yield approval;
       await this.dependencies.transport.toolCallback({
