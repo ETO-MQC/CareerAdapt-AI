@@ -73,6 +73,11 @@ export type ProfileIntakeInterviewPlan = {
   questions: ProfileIntakeInterviewQuestion[];
   followUpCounts?: Record<string, number>;
   questionAnswers?: ProfileIntakeQuestionAnswer[];
+  coverageBoard: Array<{
+    group: "education" | "work_internship" | "projects" | "research" | "campus_volunteer" | "skills" | "awards_certificates" | "languages" | "other";
+    status: "covered" | "high_value_gap" | "intentionally_skipped" | "not_present";
+    assetCount: number;
+  }>;
 };
 
 /**
@@ -250,6 +255,7 @@ export function createProfileIntakeInterviewPlan(
       questions: [],
       followUpCounts: options.followUpCounts ?? {},
       questionAnswers: options.questionAnswers ?? []
+      , coverageBoard: buildCoverageBoard(items, options)
     };
   }
   const detail = highestValueFollowUpDetail(items, options);
@@ -287,6 +293,7 @@ export function createProfileIntakeInterviewPlan(
     questions: question ? [question] : [],
     followUpCounts: options.followUpCounts ?? {},
     questionAnswers: options.questionAnswers ?? []
+    , coverageBoard: buildCoverageBoard(items, options)
   };
 }
 
@@ -336,7 +343,37 @@ export type ProfileIntakeCompletenessOptions = {
   maxFollowUpsPerAsset?: number;
   questionAnswers?: ProfileIntakeQuestionAnswer[];
   sourceEvidenceByCandidate?: Record<string, string[]>;
+  skippedSections?: ResumeSectionTypeV2[];
 };
+
+function buildCoverageBoard(items: ResumeItemV2[], options: ProfileIntakeCompletenessOptions): ProfileIntakeInterviewPlan["coverageBoard"] {
+  const groups: Array<[ProfileIntakeInterviewPlan["coverageBoard"][number]["group"], ResumeSectionTypeV2[]]> = [
+    ["education", ["education"]],
+    ["work_internship", ["work", "internship"]],
+    ["projects", ["project", "portfolio"]],
+    ["research", ["research", "publications", "patents"]],
+    ["campus_volunteer", ["campus", "volunteer"]],
+    ["skills", ["skills"]],
+    ["awards_certificates", ["awards", "certificates"]],
+    ["languages", ["languages"]],
+    ["other", ["other", "custom"]]
+  ];
+  const skipped = new Set(options.skippedSections ?? []);
+  return groups.map(([group, sections]) => {
+    const assets = items.filter((item) => sections.includes(item.sectionType));
+    const hasHighValueGap = assets.some((item) => {
+      const assessment = assessCareerAssetCompleteness(item, options.sourceEvidenceByCandidate?.[item.id] ?? []);
+      return isHighValueFollowUp(assessment.missing[0]);
+    });
+    return {
+      group,
+      status: assets.length
+        ? hasHighValueGap ? "high_value_gap" as const : "covered" as const
+        : sections.some((section) => skipped.has(section)) ? "intentionally_skipped" as const : "not_present" as const,
+      assetCount: assets.length
+    };
+  });
+}
 
 function itemText(item: ResumeItemV2, sourceEvidence: string[] = []) {
   return Object.values(item as unknown as Record<string, unknown>)

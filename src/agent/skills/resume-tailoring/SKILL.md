@@ -7,7 +7,7 @@
 在分支隔离、Revision 与 Fact Guard 下生成并应用安全改写。
 
 ## Inputs and tools
-所选资料、简历、岗位；`get_resume`、`get_job`、`analyze_job_fit`、`create_tailoring_session`、`answer_tailoring_question`、`preview_tailoring_changes`、`apply_tailoring_changes`。
+所选资料、简历、岗位；正常流程优先 `career.workflow.tailor_resume`，原子工具仅用于检查、回答当前问题、确认应用或恢复。
 
 ## Procedure
 1. 读取所选简历。
@@ -26,3 +26,6 @@
 
 ## Recovery and completion
 Revision 冲突时重新读取，不覆盖。完成标准是新 Revision 通过事实与质量检查。
+
+## Stop conditions
+`completed` 后停止并说明新 Job Resume revision；`waiting_for_user` 只问当前定制题；`waiting_for_confirmation` 交出确认；`partial` 报告 checkpoint 并最多恢复一次；`failed` 停止。不得继续循环调用同一 checkpoint。

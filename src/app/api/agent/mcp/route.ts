@@ -17,6 +17,35 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   if (request.nextUrl.searchParams.get("bridge") === "1") return bridgeGet(request);
+  // Streamable HTTP clients open an optional server-to-client event channel
+  // after initialize. Keep that channel alive instead of returning the
+  // diagnostic JSON payload, which makes clients treat the MCP server as
+  // disconnected immediately after a successful handshake.
+  if (request.headers.get("accept")?.includes("text/event-stream") && request.headers.has("mcp-session-id")) {
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(encoder.encode(": careeradapt-mcp-connected\n\n"));
+        const heartbeat = setInterval(() => {
+          try { controller.enqueue(encoder.encode(": heartbeat\n\n")); } catch { clearInterval(heartbeat); }
+        }, 15_000);
+        request.signal.addEventListener("abort", () => {
+          clearInterval(heartbeat);
+          try { controller.close(); } catch { /* stream already closed */ }
+        }, { once: true });
+      },
+      cancel() { /* client disconnected */ }
+    });
+    return new Response(stream, {
+      status: 200,
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+        "X-Accel-Buffering": "no"
+      }
+    });
+  }
   return NextResponse.json({
     server: "careeradapt",
     protocol: "MCP Streamable HTTP",

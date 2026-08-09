@@ -58,8 +58,17 @@ export type AgentRuntimeTurnInput = {
   userMessage: string;
   pageContext: AgentPageContext;
   session?: AgentSession;
+  attachments?: AgentRuntimeAttachment[];
   signal?: AbortSignal;
   metadata?: Record<string, unknown>;
+};
+
+export type AgentRuntimeAttachment = {
+  id: string;
+  fileName: string;
+  mimeType: string;
+  size: number;
+  purpose: "resume_import" | "career_evidence" | "other";
 };
 
 export type AgentRuntimeCapabilities = {

@@ -20,3 +20,6 @@
 
 ## Recovery and completion
 缺少岗位时仅做通用质量检查并说明范围。完成标准是所有阻塞项都有明确处理建议。
+
+## Stop conditions
+`completed` 后停止并区分阻塞项与建议；`waiting_for_user` 只询问必要输入；`waiting_for_confirmation` 交出确认；`partial` 保留检查结果；`failed` 停止且不得降低门禁。

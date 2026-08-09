@@ -1,6 +1,7 @@
 import type {
   CareerToolContract,
-  CareerToolExecutionContext
+  CareerToolExecutionContext,
+  CareerToolResult
 } from "@/agent/tools/CareerToolGateway";
 import type { CareerAdaptMcpGateway } from "./CareerAdaptMcpAdapter";
 import type { CareerSessionBinding } from "../runtime/careerSessionBinding";
@@ -24,6 +25,7 @@ export type CareerAdaptMcpConfirmationContext = {
   sessionId: string;
   turnId: string;
   assistantMessageId: string;
+  userMessageId?: string;
 };
 
 export type CareerAdaptMcpExternalConfirmation = CareerAdaptMcpConfirmationContext & {
@@ -47,66 +49,102 @@ export class CareerAdaptMcpBridgeClient {
   private gateway?: CareerAdaptMcpGateway;
   private onStatus?: (status: CareerAdaptMcpBridgeClientStatus) => void;
   private onConfirmation?: (confirmation: CareerAdaptMcpExternalConfirmation) => Promise<void> | void;
+  private onResult?: (input: { request: BridgeRequest; result: CareerToolResult }) => Promise<void> | void;
   private confirmationContext?: CareerAdaptMcpConfirmationContext;
+  private confirmationPendingTurnId?: string;
+  private noProgress?: { turnId: string; callKey: string; count: number };
+  private lifecycleGeneration = 0;
+  private registrationChain: Promise<void> = Promise.resolve();
+  private currentBinding?: CareerSessionBinding;
 
   async start(
     gateway: CareerAdaptMcpGateway,
     onStatus?: (status: CareerAdaptMcpBridgeClientStatus) => void,
-    onConfirmation?: (confirmation: CareerAdaptMcpExternalConfirmation) => Promise<void> | void
+    onConfirmation?: (confirmation: CareerAdaptMcpExternalConfirmation) => Promise<void> | void,
+    onResult?: (input: { request: BridgeRequest; result: CareerToolResult }) => Promise<void> | void
   ) {
     if (!this.stopped) return;
+    const generation = ++this.lifecycleGeneration;
     this.gateway = gateway;
     this.onStatus = onStatus;
     this.onConfirmation = onConfirmation;
+    this.onResult = onResult;
     this.stopped = false;
-    await this.register();
+    await this.queueRegister(generation);
+    if (this.stopped || generation !== this.lifecycleGeneration) return;
     this.schedulePoll(0);
   }
 
   setConfirmationContext(context?: CareerAdaptMcpConfirmationContext) {
+    if (context?.turnId !== this.confirmationContext?.turnId) {
+      this.noProgress = undefined;
+      this.confirmationPendingTurnId = undefined;
+    }
     this.confirmationContext = context;
   }
 
   async stop() {
+    ++this.lifecycleGeneration;
     this.stopped = true;
     if (this.pollTimer) clearTimeout(this.pollTimer);
     if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
     this.pollTimer = undefined;
     this.heartbeatTimer = undefined;
-    if (this.bridgeId && this.token) {
-      await fetch(bridgeUrl(this.bridgeId, this.token), {
+    const bridgeId = this.bridgeId;
+    const token = this.token;
+    this.bridgeId = undefined;
+    this.token = undefined;
+    if (bridgeId && token) {
+      await fetch(bridgeUrl(bridgeId, token), {
         method: "DELETE",
         cache: "no-store"
       }).catch(() => undefined);
     }
-    this.bridgeId = undefined;
-    this.token = undefined;
     this.confirmationContext = undefined;
+    this.confirmationPendingTurnId = undefined;
+    this.currentBinding = undefined;
     this.onConfirmation = undefined;
+    this.onResult = undefined;
     this.publish({ connected: false, discoveredToolCount: 0, reason: "stopped" });
   }
 
   async setSessionBinding(binding?: CareerSessionBinding) {
-    if (this.stopped || !this.bridgeId || !this.token) {
-      throw Object.assign(new Error("mcp_bridge_binding_unavailable"), { code: "mcp_bridge_binding_unavailable" });
+    this.currentBinding = binding;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      if (this.stopped) break;
+      if (!this.bridgeId || !this.token) await this.queueRegister().catch(() => undefined);
+      const bridgeId = this.bridgeId;
+      const token = this.token;
+      if (!bridgeId || !token) continue;
+      const response = await fetch(bridgeUrl(), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "binding",
+          bridgeId,
+          token,
+          ...(binding ? { binding } : {})
+        }),
+        cache: "no-store"
+      }).catch(() => undefined);
+      if (response?.ok) return;
+      if (this.bridgeId === bridgeId) {
+        this.bridgeId = undefined;
+        this.token = undefined;
+      }
+      await this.queueRegister().catch(() => undefined);
     }
-    const response = await fetch(bridgeUrl(), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: "binding",
-        bridgeId: this.bridgeId,
-        token: this.token,
-        ...(binding ? { binding } : {})
-      }),
-      cache: "no-store"
-    });
-    if (!response.ok) {
-      throw Object.assign(new Error("mcp_bridge_binding_unavailable"), { code: "mcp_bridge_binding_unavailable" });
-    }
+    throw Object.assign(new Error("mcp_bridge_binding_unavailable"), { code: "mcp_bridge_binding_unavailable" });
   }
 
-  private async register() {
+  private queueRegister(generation = this.lifecycleGeneration) {
+    const queued = this.registrationChain.then(() => this.register(generation));
+    this.registrationChain = queued.catch(() => undefined);
+    return queued;
+  }
+
+  private async register(generation: number) {
+    if (this.stopped || generation !== this.lifecycleGeneration) return;
     const gateway = this.gateway;
     if (!gateway) return;
     try {
@@ -120,20 +158,38 @@ export class CareerAdaptMcpBridgeClient {
       if (!response.ok || !payload.ok || !payload.bridgeId || !payload.token) {
         throw new Error("mcp_bridge_register_failed");
       }
+      if (this.stopped || generation !== this.lifecycleGeneration) {
+        await fetch(bridgeUrl(payload.bridgeId, payload.token), { method: "DELETE", cache: "no-store" }).catch(() => undefined);
+        return;
+      }
       this.bridgeId = payload.bridgeId;
       this.token = payload.token;
+      if (this.currentBinding) {
+        const bindingResponse = await fetch(bridgeUrl(), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "binding",
+            bridgeId: this.bridgeId,
+            token: this.token,
+            binding: this.currentBinding
+          }),
+          cache: "no-store"
+        }).catch(() => undefined);
+        if (!bindingResponse?.ok) throw new Error("mcp_bridge_binding_restore_failed");
+      }
       this.publish({ connected: true, discoveredToolCount: payload.discoveredToolCount ?? gateway.listContracts().length });
       this.heartbeatTimer = setInterval(() => { void this.heartbeat(); }, 5_000);
     } catch (error) {
       this.publish({ connected: false, discoveredToolCount: 0, reason: safeError(error) });
-      if (!this.stopped) this.schedulePoll(1_000);
+      if (!this.stopped && generation === this.lifecycleGeneration) this.schedulePoll(1_000);
     }
   }
 
   private async poll() {
     if (this.stopped || !this.gateway) return;
     if (!this.bridgeId || !this.token) {
-      await this.register();
+      await this.queueRegister();
       if (!this.bridgeId || !this.token) return;
     }
     try {
@@ -153,7 +209,7 @@ export class CareerAdaptMcpBridgeClient {
         this.token = undefined;
         if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
         this.heartbeatTimer = undefined;
-        await this.register();
+        await this.queueRegister();
         this.schedulePoll(1_000);
       }
     }
@@ -162,14 +218,28 @@ export class CareerAdaptMcpBridgeClient {
   private async execute(request: BridgeRequest) {
     if (!this.gateway || !this.bridgeId || !this.token) return;
     let result;
-    const toolInput = normalizeHermesScopedInput(request.name, request.input, request.careerSessionBinding);
+    const toolInput = normalizeHermesScopedInput(request.name, request.input, request.careerSessionBinding, this.confirmationContext);
     try {
       const context: CareerToolExecutionContext = {
         operationId: request.operationId,
         careerSessionBinding: request.careerSessionBinding,
         requireSessionBinding: request.requireSessionBinding === true
       };
-      result = await this.gateway.execute(request.name, toolInput, context);
+      const callKey = `${request.name}:${stableJson(toolInput)}`;
+      const turnId = this.confirmationContext?.turnId ?? "unbound-turn";
+      if (this.confirmationPendingTurnId === turnId) {
+        result = confirmationBoundaryResult(request);
+      } else if (this.noProgress?.turnId === turnId && this.noProgress.callKey === callKey && this.noProgress.count >= 2) {
+        result = noProgressResult(request);
+      } else {
+        result = await this.gateway.execute(request.name, toolInput, context);
+        this.noProgress = this.noProgress?.turnId === turnId && this.noProgress.callKey === callKey
+          ? { ...this.noProgress, count: this.noProgress.count + 1 }
+          : { turnId, callKey, count: 1 };
+      }
+      if (isConfirmationRequired(result) && this.confirmationContext) {
+        this.confirmationPendingTurnId = turnId;
+      }
       if (isConfirmationRequired(result) && this.confirmationContext && this.onConfirmation) {
         const contract = this.gateway.listContracts().find((candidate) => candidate.name === request.name);
         const input = asRecord(toolInput);
@@ -183,6 +253,7 @@ export class CareerAdaptMcpBridgeClient {
           })).catch(() => undefined);
         }
       }
+      await Promise.resolve(this.onResult?.({ request, result })).catch(() => undefined);
     } catch (error) {
       result = failedResult(request, safeError(error));
     }
@@ -196,13 +267,25 @@ export class CareerAdaptMcpBridgeClient {
 
   private async heartbeat() {
     if (this.stopped || !this.bridgeId || !this.token) return;
+    const bridgeId = this.bridgeId;
+    const token = this.token;
     const response = await fetch(bridgeUrl(), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "heartbeat", bridgeId: this.bridgeId, token: this.token }),
       cache: "no-store"
     }).catch(() => undefined);
-    if (!response?.ok) this.publish({ connected: false, discoveredToolCount: 0, reason: "mcp_bridge_heartbeat_failed" });
+    if (!response?.ok) {
+      this.publish({ connected: false, discoveredToolCount: 0, reason: "mcp_bridge_heartbeat_failed" });
+      if (this.bridgeId === bridgeId && this.token === token) {
+        this.bridgeId = undefined;
+        this.token = undefined;
+        if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
+        this.heartbeatTimer = undefined;
+        await this.queueRegister().catch(() => undefined);
+        this.schedulePoll(0);
+      }
+    }
   }
 
   private schedulePoll(delay: number) {
@@ -242,13 +325,56 @@ function failedResult(request: BridgeRequest, reason: string) {
   };
 }
 
+function noProgressResult(request: BridgeRequest): CareerToolResult {
+  return {
+    ok: false,
+    error: {
+      code: "career_agent_no_progress",
+      category: "conflict",
+      message: "同一轮已连续执行两次完全相同的工具输入；为避免空转，工作流已停止。",
+      recoverable: false,
+      retryHint: "向用户报告当前 checkpoint，等待新输入后再继续。"
+    },
+    artifacts: [],
+    receipt: {
+      operationId: request.operationId,
+      toolName: request.name,
+      status: "failed",
+      completedAt: new Date().toISOString()
+    }
+  };
+}
+
+function confirmationBoundaryResult(request: BridgeRequest): CareerToolResult {
+  return {
+    ok: false,
+    error: {
+      code: "career_agent_waiting_for_confirmation",
+      category: "conflict",
+      message: "当前 Career 工作流已到达确认边界；请等待用户确认后再继续调用工具。",
+      recoverable: true,
+      retryHint: "停止当前工具循环，向用户展示确认边界。"
+    },
+    artifacts: [],
+    receipt: {
+      operationId: request.operationId,
+      toolName: request.name,
+      status: "failed",
+      completedAt: new Date().toISOString()
+    }
+  };
+}
+
 function safeError(error: unknown) {
   return error instanceof Error ? error.message : "mcp_bridge_unavailable";
 }
 
-function isConfirmationRequired(result: { ok: boolean; error?: { code?: string } }) {
-  return result.ok === false
-    && (result.error?.code === "agent_confirmation_required" || result.error?.code === "confirmation_required");
+function isConfirmationRequired(result: { ok: boolean; data?: unknown; error?: { code?: string } }) {
+  if (result.ok === false) {
+    return result.error?.code === "agent_confirmation_required" || result.error?.code === "confirmation_required";
+  }
+  const data = asRecord(result.data);
+  return data.status === "waiting_for_confirmation";
 }
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -260,10 +386,24 @@ function asRecord(value: unknown): Record<string, unknown> {
 function normalizeHermesScopedInput(
   name: string,
   value: unknown,
-  binding?: CareerSessionBinding
+  binding?: CareerSessionBinding,
+  turn?: CareerAdaptMcpConfirmationContext
 ) {
   if (!binding) return value;
   const input = asRecord(value);
+  if (name === "career.workflow.profile_intake_turn") {
+    return {
+      ...input,
+      agentSessionId: binding.agentSessionId,
+      profileId: binding.profileId,
+      expectedProfileRevision: binding.profileRevision,
+      ...(turn ? {
+        ...(turn.userMessageId ? { messageId: turn.userMessageId } : {}),
+        turnId: turn.turnId,
+        capturedAt: new Date().toISOString()
+      } : {})
+    };
+  }
   if (name === "career.profile.capture_intake" && typeof input.sessionId === "string" && input.sessionId !== binding.agentSessionId) {
     return { ...input, sessionId: binding.agentSessionId };
   }
@@ -274,4 +414,15 @@ function normalizeHermesScopedInput(
     }
   }
   return value;
+}
+
+function stableJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
+  if (value && typeof value === "object") {
+    return `{${Object.entries(value as Record<string, unknown>)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, child]) => `${JSON.stringify(key)}:${stableJson(child)}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value) ?? "undefined";
 }

@@ -9,32 +9,38 @@ export const HERMES_WORKFLOW_MATRIX = [
   {
     id: "profile-intake",
     label: "Profile Intake",
-    requiredTools: ["career.profile.capture_intake", "career.profile.review_intake", "career.profile.commit_intake"]
+    preferredFacades: ["career.workflow.profile_intake_turn", "career.workflow.profile_intake_finalize"],
+    requiredTools: ["career.workflow.profile_intake_turn", "career.workflow.profile_intake_finalize", "career.profile.capture_intake", "career.profile.review_intake", "career.profile.commit_intake"]
   },
   {
     id: "resume-import",
     label: "Resume import",
-    requiredTools: ["career.resume.import.prepare", "career.resume.import.parse_file", "career.resume.import.review", "career.resume.import.commit"]
+    preferredFacades: ["career.workflow.resume_import"],
+    requiredTools: ["career.workflow.resume_import", "career.resume.import.prepare", "career.resume.import.parse_file", "career.resume.import.review", "career.resume.import.commit"]
   },
   {
     id: "job-fit",
     label: "Job fit",
-    requiredTools: ["career.job.parse", "career.job.analyze_fit"]
+    preferredFacades: ["career.workflow.job_fit"],
+    requiredTools: ["career.workflow.job_fit", "career.job.parse", "career.job.analyze_fit"]
   },
   {
     id: "tailoring",
     label: "Tailoring",
-    requiredTools: ["career.tailoring.create_session", "career.tailoring.generate_changes", "career.tailoring.review_diff", "career.tailoring.apply_changes"]
+    preferredFacades: ["career.workflow.tailor_resume"],
+    requiredTools: ["career.workflow.tailor_resume", "career.tailoring.create_session", "career.tailoring.generate_changes", "career.tailoring.review_diff", "career.tailoring.apply_changes"]
   },
   {
     id: "profile-to-resume",
     label: "Profile → Resume",
-    requiredTools: ["career.resume.ensure_general_from_profile", "career.resume.create_from_profile"]
+    preferredFacades: ["career.workflow.profile_to_resume"],
+    requiredTools: ["career.workflow.profile_to_resume", "career.resume.ensure_general_from_profile", "career.resume.create_from_profile"]
   },
   {
     id: "repair-export",
     label: "Repair → Export",
-    requiredTools: ["career.preview.review_diff", "career.preview.apply_changes", "career.export.resume"]
+    preferredFacades: ["career.workflow.resume_export"],
+    requiredTools: ["career.workflow.resume_export", "career.preview.review_diff", "career.preview.apply_changes", "career.export.resume"]
   }
 ] as const;
 

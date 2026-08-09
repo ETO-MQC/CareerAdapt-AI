@@ -78,6 +78,8 @@ export function applyProfileIntakeFinalCareerSynthesis(input: {
     const acceptedHighlights = generated.careerReadyHighlights.filter((highlight) =>
       isGroundedCareerText(highlight, sourceText)
     ).slice(0, 4);
+    const unsupportedClaimCount = generated.careerReadyHighlights.length - acceptedHighlights.length
+      + (isGroundedCareerText(generated.careerReadySummary, sourceText) ? 0 : 1);
     const highlights = ensureTwoHighlights(acceptedHighlights, fallback.highlights, sourceText);
     const summary = isGroundedCareerText(generated.careerReadySummary, sourceText)
       ? generated.careerReadySummary
@@ -87,7 +89,11 @@ export function applyProfileIntakeFinalCareerSynthesis(input: {
       // AI cannot alter identity, schema fields, provenance or deterministic
       // completeness.  It only supplies career-ready wording.
       careerReadySummary: summary,
-      careerReadyHighlights: highlights
+      careerReadyHighlights: highlights,
+      qualityGate: {
+        ...asset.qualityGate,
+        unsupportedClaimCount
+      }
     };
   });
   const synthesis = ProfileIntakeFinalSynthesisSchema.parse({

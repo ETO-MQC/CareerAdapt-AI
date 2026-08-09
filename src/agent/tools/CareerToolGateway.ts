@@ -4,6 +4,11 @@ import type { AgentToolResult } from "../contracts/agentTool";
 import { AgentConfirmationRequiredError, AgentExecutor } from "../runtime/agentExecutor";
 import { AgentToolRegistry } from "./registry";
 import type { CareerSessionBinding } from "../runtime/careerSessionBinding";
+import {
+  CAREER_WORKFLOW_FACADE_DEFINITIONS,
+  CareerWorkflowFacadeResultSchema,
+  executeCareerWorkflowFacade
+} from "../workflows/CareerWorkflowFacade";
 
 export type CareerToolReadWrite = "read" | "write";
 export type CareerToolConfirmationPolicy = "none" | "user_confirmation" | "destructive_confirmation";
@@ -124,7 +129,7 @@ const CAREER_TOOL_DEFINITIONS: CareerToolDefinition[] = [
   { name: "career.resume.create_from_profile", sourceToolName: "create_resume_from_profile", namespace: "career.resume", readWrite: "write", personProfileBinding: "required" },
   { name: "career.resume.create_job_from_profile", sourceToolName: "create_job_resume_from_profile", namespace: "career.resume", readWrite: "write", personProfileBinding: "required" },
   { name: "career.resume.ensure_general_from_profile", sourceToolName: "ensure_general_resume_from_profile", namespace: "career.resume", readWrite: "write", personProfileBinding: "required" },
-  { name: "career.resume.import.prepare", sourceToolName: "prepare_resume_import", namespace: "career.resume.import", readWrite: "read", personProfileBinding: "optional" },
+  { name: "career.resume.import.prepare", sourceToolName: "prepare_resume_import", namespace: "career.resume.import", readWrite: "write", personProfileBinding: "optional" },
   { name: "career.resume.import.parse_file", sourceToolName: "parse_resume_file", namespace: "career.resume.import", readWrite: "read", personProfileBinding: "optional" },
   { name: "career.resume.import.create_draft", sourceToolName: "create_resume_import_draft", namespace: "career.resume.import", readWrite: "write", personProfileBinding: "optional" },
   { name: "career.resume.import.review", sourceToolName: "review_resume_import", namespace: "career.resume.import", readWrite: "write", personProfileBinding: "optional" },
@@ -153,18 +158,22 @@ const CAREER_TOOL_DEFINITIONS: CareerToolDefinition[] = [
 
 export class CareerToolGateway {
   private readonly byName = new Map(CAREER_TOOL_DEFINITIONS.map((definition) => [definition.name, definition]));
+  private readonly workflowByName = new Map(CAREER_WORKFLOW_FACADE_DEFINITIONS.map((definition) => [definition.name, definition]));
 
   constructor(
     private readonly dependencies: CareerToolGatewayDependencies | AgentToolRegistry
   ) {}
 
   listContracts(): CareerToolContract[] {
-    return CAREER_TOOL_DEFINITIONS
+    const atomic = CAREER_TOOL_DEFINITIONS
       .filter((definition) => this.hasSourceTool(definition.sourceToolName))
       .map((definition) => this.toContract(definition));
+    return [...CAREER_WORKFLOW_FACADE_DEFINITIONS.map((definition) => this.toWorkflowContract(definition)), ...atomic];
   }
 
   getContract(name: string): CareerToolContract {
+    const workflow = this.workflowByName.get(name);
+    if (workflow) return this.toWorkflowContract(workflow);
     const definition = this.byName.get(name);
     if (!definition) throw Object.assign(new Error(`Unknown Career tool: ${name}`), { code: "unknown_career_tool" });
     if (!this.hasSourceTool(definition.sourceToolName)) {
@@ -243,6 +252,32 @@ export class CareerToolGateway {
     context: CareerToolExecutionContext = {}
   ): Promise<CareerToolResult<T>> {
     const operationId = normalizeOperationId(context.operationId);
+    const workflow = this.workflowByName.get(name);
+    if (workflow) {
+      try {
+        const contract = this.toWorkflowContract(workflow);
+        const bindingError = await this.verifyExecutionBinding(contract, input, context);
+        if (bindingError) return this.failure(name, operationId, bindingError.code, bindingError.message, false);
+        const facade = await executeCareerWorkflowFacade(
+          name,
+          input,
+          context,
+          operationId,
+          (atomicName, atomicInput, atomicContext) => this.execute(atomicName, atomicInput, atomicContext)
+        );
+        const facadeReceipt = facade.receipts.at(-1)!;
+        return {
+          ok: facade.data.status !== "failed" && facade.data.status !== "partial",
+          data: facade.data as T,
+          ...(facade.data.safeError ? { error: toCareerToolError(facade.data.safeError.code, facade.data.safeError.message, facade.data.safeError.recoverable) } : {}),
+          artifacts: facade.artifacts,
+          receipt: facadeReceipt
+        };
+      } catch (error) {
+        const code = errorCode(error);
+        return this.failure(name, operationId, code, error instanceof Error ? error.message : "工作流未完成。", isRecoverable(code));
+      }
+    }
     const definition = this.byName.get(name);
     if (!definition || !this.hasSourceTool(definition.sourceToolName)) {
       return this.failure(name, operationId, "unknown_career_tool", "当前 Career 工具不可用。", false);
@@ -385,17 +420,35 @@ export class CareerToolGateway {
           : "SAFE_WRITE";
     return {
       name: definition.name,
-      description: tool.description,
+      description: `${atomicWorkflowHint(definition.name)}${tool.description}`,
       sourceToolName: definition.sourceToolName,
       namespace: definition.namespace,
       inputSchema: z.toJSONSchema(tool.inputSchema) as Record<string, unknown>,
-      outputSchema: z.toJSONSchema(tool.outputSchema) as Record<string, unknown>,
+      outputSchema: careerToolEnvelopeJsonSchema(tool.outputSchema),
       readWrite: definition.readWrite,
       safetyClass,
       confirmationPolicy,
       idempotencyKeyPolicy: definition.readWrite === "write" ? "operation_id" : "none",
       personProfileBinding: definition.personProfileBinding,
       artifactBehavior: tool.producesArtifact ? "produces_artifact" : "none",
+      errorTaxonomy: ["validation", "not_found", "conflict", "stale_revision", "permission", "provider", "recoverable", "internal"]
+    };
+  }
+
+  private toWorkflowContract(definition: (typeof CAREER_WORKFLOW_FACADE_DEFINITIONS)[number]): CareerToolContract {
+    return {
+      name: definition.name,
+      description: `${definition.description} Stop when status is completed, waiting_for_user, waiting_for_confirmation, partial, or failed; do not call another workflow facade in the same turn.`,
+      sourceToolName: definition.name,
+      namespace: "career.workflow",
+      inputSchema: z.toJSONSchema(definition.inputSchema) as Record<string, unknown>,
+      outputSchema: careerToolEnvelopeJsonSchema(CareerWorkflowFacadeResultSchema),
+      readWrite: "write",
+      safetyClass: "SAFE_WRITE",
+      confirmationPolicy: "none",
+      idempotencyKeyPolicy: "operation_id",
+      personProfileBinding: definition.personProfileBinding,
+      artifactBehavior: "produces_artifact",
       errorTaxonomy: ["validation", "not_found", "conflict", "stale_revision", "permission", "provider", "recoverable", "internal"]
     };
   }
@@ -416,6 +469,19 @@ export class CareerToolGateway {
   }
 }
 
+function atomicWorkflowHint(name: string) {
+  const pairedFacade: Record<string, string> = {
+    "career.profile.capture_intake": "仅用于 Profile Intake facade 的内部/恢复步骤；正常访谈请先调用 career.workflow.profile_intake_turn。 ",
+    "career.profile.synthesize_intake": "仅用于 Profile Intake facade 的内部/恢复步骤；正常访谈请先调用 career.workflow.profile_intake_finalize。 ",
+    "career.resume.import.prepare": "仅用于 Resume Import facade 的内部/恢复步骤；正常导入请先调用 career.workflow.resume_import。 ",
+    "career.job.analyze_fit": "仅用于 Job Fit facade 的内部/恢复步骤；正常匹配请先调用 career.workflow.job_fit。 ",
+    "career.tailoring.create_session": "仅用于 Tailoring facade 的内部/恢复步骤；正常定制请先调用 career.workflow.tailor_resume。 ",
+    "career.resume.ensure_general_from_profile": "仅用于 Profile→Resume facade 的内部/恢复步骤；正常组装请先调用 career.workflow.profile_to_resume。 ",
+    "career.export.resume": "仅用于 Repair→Export facade 的内部/恢复步骤；正常导出请先调用 career.workflow.resume_export。 "
+  };
+  return pairedFacade[name] ?? "";
+}
+
 export class CareerToolGatewayExecutor extends AgentExecutor {
   constructor(
     registry: AgentToolRegistry,
@@ -424,7 +490,10 @@ export class CareerToolGatewayExecutor extends AgentExecutor {
     super(registry);
   }
 
-  override execute(input: Parameters<AgentExecutor["execute"]>[0]) {
+  override execute(input: Parameters<AgentExecutor["execute"]>[0]): Promise<AgentToolResult> {
+    if (input.toolName.startsWith("career.workflow.")) {
+      return this.executeWorkflowConfirmation(input);
+    }
     return this.gateway.executeForAgent(input.toolName, input.toolInput, {
       operationId: input.operationId,
       signal: input.signal,
@@ -433,6 +502,31 @@ export class CareerToolGatewayExecutor extends AgentExecutor {
       careerSessionBinding: input.careerSessionBinding,
       requireSessionBinding: input.requireSessionBinding
     });
+  }
+
+  private async executeWorkflowConfirmation(input: Parameters<AgentExecutor["execute"]>[0]): Promise<AgentToolResult> {
+    const result = await this.gateway.execute(input.toolName, input.toolInput, {
+      operationId: input.operationId,
+      signal: input.signal,
+      confirmed: input.confirmed,
+      confirmationCount: input.confirmationCount,
+      careerSessionBinding: input.careerSessionBinding,
+      requireSessionBinding: input.requireSessionBinding
+    });
+    return {
+      ok: result.ok,
+      operationId: result.receipt.operationId,
+      toolName: input.toolName,
+      ...(result.ok ? { data: result.data } : {
+        error: {
+          code: result.error?.code ?? "career_tool_failed",
+          message: result.error?.message ?? "工具执行没有完成。",
+          retryable: result.error?.recoverable ?? false
+        }
+      }),
+      artifactIds: result.artifacts.map((artifact) => artifact.id),
+      completedAt: result.receipt.completedAt
+    } satisfies AgentToolResult;
   }
 }
 
@@ -444,6 +538,34 @@ function normalizeOperationId(operationId?: string) {
   return operationId && operationId.trim().length >= 8
     ? operationId.trim()
     : `career-operation-${nanoid(12)}`;
+}
+
+function careerToolEnvelopeJsonSchema(dataSchema: z.ZodType): Record<string, unknown> {
+  const schema = z.object({
+    ok: z.boolean(),
+    data: dataSchema.optional(),
+    error: z.object({
+      code: z.string(),
+      category: z.enum(["validation", "not_found", "conflict", "stale_revision", "permission", "provider", "recoverable", "internal"]),
+      message: z.string(),
+      recoverable: z.boolean(),
+      retryHint: z.string().optional()
+    }).optional(),
+    artifacts: z.array(z.object({
+      id: z.string(),
+      kind: z.literal("tool_result"),
+      toolName: z.string(),
+      sourceToolName: z.string()
+    })),
+    receipt: z.object({
+      operationId: z.string(),
+      toolName: z.string(),
+      idempotencyKey: z.string().optional(),
+      status: z.enum(["completed", "failed", "confirmation_required"]),
+      completedAt: z.string()
+    })
+  });
+  return z.toJSONSchema(schema) as Record<string, unknown>;
 }
 
 function errorCode(error: unknown) {

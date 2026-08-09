@@ -5,6 +5,7 @@ import type {
   AgentRuntimeEvent,
   AgentRuntimeTurnInput
 } from "../agentRuntime";
+import type { HermesRunHandle } from "../../contracts/agentSession";
 import type { CareerToolGateway, CareerToolContract } from "../../tools/CareerToolGateway";
 import type { HermesBridgeEvent, HermesBridgeTransport } from "./HermesBridgeTransport";
 import { resolveCareerSessionBinding, type CareerSessionBinding } from "../careerSessionBinding";
@@ -19,6 +20,12 @@ type TurnCounters = {
   tailoringLatencyMs: number;
   pdfLatencyMs: number;
   structuredOutputValid?: boolean;
+  recoveryCount: number;
+  lastEventType?: string;
+  lastTool?: string;
+  lastOperationId?: string;
+  lastSubstantiveEventAt: number;
+  toolStartedAt?: number;
 };
 
 /**
@@ -29,6 +36,7 @@ type TurnCounters = {
 export class HermesCareerAgentRuntime implements AgentRuntime {
   readonly id = "hermes" as const;
   private readonly sessions = new Map<string, string>();
+  private readonly activeRuns = new Map<string, HermesRunHandle>();
 
   constructor(private readonly dependencies: {
     transport: HermesBridgeTransport;
@@ -44,7 +52,7 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
       toolCalls: true,
       approvals: true,
       offline: false,
-      runtimeVersion: "hermes-career-bridge-v1",
+      runtimeVersion: "hermes-career-runs-v2",
       ...this.dependencies.capabilities
     };
   }
@@ -54,15 +62,28 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
   }
 
   async pause(sessionId: string) {
-    await this.dependencies.transport.interrupt({ sessionId, reason: "pause" });
+    const handle = this.activeRuns.get(sessionId);
+    if (handle) await this.dependencies.transport.stopRun?.(handle.runId);
   }
 
   async interrupt(sessionId: string) {
-    await this.dependencies.transport.interrupt({ sessionId, reason: "interrupt" });
+    const handle = this.activeRuns.get(sessionId);
+    if (handle) await this.dependencies.transport.stopRun?.(handle.runId);
   }
 
   async resume() {
     // Resume is represented by the next runTurn's session resume handshake.
+  }
+
+  async approve(sessionId: string, approved: boolean) {
+    const handle = this.activeRuns.get(sessionId);
+    if (!handle || !this.dependencies.transport.approveRun) {
+      throw hermesError("hermes_run_approval_unavailable", "当前没有可确认的 Hermes run。");
+    }
+    const status = await this.dependencies.transport.approveRun(handle.runId, approved ? "once" : "deny");
+    const next = touchRunHandle(handle, normalizeRunStatus(status.status));
+    this.activeRuns.set(sessionId, next);
+    return next;
   }
 
   async *runTurn(input: AgentRuntimeTurnInput): AsyncIterable<AgentRuntimeEvent> {
@@ -77,8 +98,14 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
       mcpLatencyMs: 0,
       tailoringLatencyMs: 0,
       pdfLatencyMs: 0
+      , recoveryCount: 0,
+      lastSubstantiveEventAt: startedAt
     };
     let emitted = false;
+    if (!supportsRuns(this.dependencies.transport)) {
+      yield* this.runLegacyAdapterTurn(normalized, counters, startedAt);
+      return;
+    }
     try {
       const binding = resolveCareerSessionBinding({
         sessionId: input.sessionId,
@@ -95,22 +122,70 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
       if (health.mcpConnected === false) {
         throw hermesError("mcp_unavailable_before_turn", "CareerAdapt MCP is not connected to the active browser workspace.");
       }
-      const hermesSessionId = await this.openSession(input);
-      const stream = this.dependencies.transport.turn({
-        sessionId: hermesSessionId,
-        turnId,
-        userMessage: input.userMessage,
-        pageContext: input.pageContext,
-        toolContracts: this.dependencies.careerToolGateway.listContracts() as unknown as Array<Record<string, unknown>>,
-        careerSessionBinding: binding,
-        metadata: {
-          ...(safeMetadata(input.metadata) ?? {}),
-          requireCareerSessionBinding: requireSessionBinding
-        }
-      }, input.signal);
+      const persisted = input.session?.hermesRun;
+      const attachable = persisted
+        && persisted.careerAgentSessionId === input.sessionId
+        && ["queued", "running", "waiting_for_approval", "stopping"].includes(persisted.status);
+      const hermesSessionId = attachable
+        ? persisted.hermesSessionId
+        : typeof input.metadata?.hermesSessionId === "string"
+          ? input.metadata.hermesSessionId
+          : this.sessions.get(input.sessionId) ?? `hermes-${input.sessionId}`;
+      this.sessions.set(input.sessionId, hermesSessionId);
+      const started = attachable
+        ? undefined
+        : await this.dependencies.transport.startRun({
+            sessionId: hermesSessionId,
+            turnId,
+            userMessage: input.userMessage,
+            pageContext: input.pageContext,
+            toolContracts: this.dependencies.careerToolGateway.listContracts() as unknown as Array<Record<string, unknown>>,
+            careerSessionBinding: binding,
+            attachments: input.attachments,
+            conversationHistory: conversationHistory(input),
+            metadata: {
+              ...(safeMetadata(input.metadata) ?? {}),
+              requireCareerSessionBinding: requireSessionBinding
+            }
+          }, input.signal);
+      let handle: HermesRunHandle = attachable
+        ? persisted
+        : {
+            runId: started!.runId,
+            hermesSessionId,
+            careerAgentSessionId: input.sessionId,
+            turnId,
+            status: started!.status === "queued" ? "queued" : "running",
+            startedAt: new Date(startedAt).toISOString(),
+            lastEventAt: new Date().toISOString()
+          };
+      this.activeRuns.set(input.sessionId, handle);
+      emitted = true;
+      yield this.event(normalized, attachable ? "turn_resumed" : "progress", {
+        message: attachable ? "已重新连接 Hermes 任务。" : "Hermes 长任务已启动。",
+        data: { runHandle: handle }
+      });
       let terminalSeen = false;
-      for await (const bridgeEvent of stream) {
-        emitted = true;
+      let streamFailed = false;
+      for (let reconnectAttempt = 0; reconnectAttempt < 3 && !terminalSeen; reconnectAttempt += 1) {
+        try {
+        for await (const bridgeEvent of eventsWithHeartbeat(this.dependencies.transport, handle.runId, input.signal)) {
+          const heartbeat = bridgeEvent.type === "progress"
+            && bridgeEvent.data && typeof bridgeEvent.data === "object" && !Array.isArray(bridgeEvent.data)
+            && (bridgeEvent.data as Record<string, unknown>).heartbeat === true;
+          if (heartbeat) {
+            if (counters.toolStartedAt && Date.now() - counters.toolStartedAt >= 90_000) {
+              throw hermesError("hermes_tool_inactivity_timeout", "Hermes tool activity has stalled; the run remains active for recovery.");
+            }
+            if (Date.now() - counters.lastSubstantiveEventAt >= 120_000) {
+              throw hermesError("hermes_model_inactivity_timeout", "Hermes model activity has stalled; the run remains active for recovery.");
+            }
+          } else {
+            counters.lastSubstantiveEventAt = Date.now();
+          }
+          handle = touchRunHandle(handle, statusForBridgeEvent(bridgeEvent, handle.status));
+          this.activeRuns.set(input.sessionId, handle);
+          counters.lastEventType = bridgeEvent.type;
         if (bridgeEvent.type === "text_delta" && counters.firstTokenLatencyMs === undefined) {
           counters.firstTokenLatencyMs = Math.max(0, Date.now() - startedAt);
         }
@@ -122,23 +197,20 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
             counters.structuredOutputValid = completionData.structuredOutputValid;
           }
         }
-        if (bridgeEvent.type === "tool_call_requested") {
-          yield this.event(normalized, "tool_call_requested", {
-            toolName: bridgeEvent.toolName,
-            operationId: bridgeEvent.operationId,
-            data: { toolCallId: bridgeEvent.toolCallId, input: bridgeEvent.input }
-          });
-          yield* this.executeToolCall(normalized, hermesSessionId, bridgeEvent, counters, binding, requireSessionBinding);
-          continue;
-        }
+        if ("toolName" in bridgeEvent && typeof bridgeEvent.toolName === "string") counters.lastTool = bridgeEvent.toolName;
+        if ("operationId" in bridgeEvent && typeof bridgeEvent.operationId === "string") counters.lastOperationId = bridgeEvent.operationId;
+        if (bridgeEvent.type === "tool_call_started") counters.toolStartedAt = Date.now();
+        if (bridgeEvent.type === "tool_call_completed" || bridgeEvent.type === "tool_call_failed") counters.toolStartedAt = undefined;
         const event = this.mapBridgeEvent(normalized, bridgeEvent, counters, startedAt);
-        if (event) yield event;
+        if (event) yield { ...event, data: mergeEventData(event.data, { runHandle: handle }) };
+        if (bridgeEvent.type === "approval_required") return;
         if (bridgeEvent.type === "turn_completed" || bridgeEvent.type === "turn_failed") {
           terminalSeen = true;
           if (bridgeEvent.type === "turn_completed") {
             yield this.event(normalized, "turn_completed", {
               data: {
                 ...(bridgeEvent.data && typeof bridgeEvent.data === "object" ? bridgeEvent.data as Record<string, unknown> : {}),
+                runHandle: handle,
                 telemetry: this.telemetry(normalized, counters, "completed", startedAt)
               },
               message: bridgeEvent.message
@@ -147,12 +219,74 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
           break;
         }
       }
+        } catch (error) {
+        if (input.signal?.aborted) {
+          yield this.event(normalized, "turn_paused", { message: "页面连接已断开，Hermes 任务仍在运行。", data: { runHandle: handle } });
+          return;
+        }
+        streamFailed = true;
+        counters.recoveryCount += 1;
+        counters.autonomousRecoveries += 1;
+        counters.lastEventType = errorCode(error);
+        }
+        if (!terminalSeen && reconnectAttempt < 2) {
+          const status = await this.dependencies.transport.getRun(handle.runId, input.signal);
+          handle = touchRunHandle(handle, normalizeRunStatus(status.status));
+          this.activeRuns.set(input.sessionId, handle);
+          if (status.status === "completed" || status.status === "failed" || status.status === "cancelled") break;
+          yield this.event(normalized, "progress", {
+            message: "Hermes 事件连接已恢复，任务没有重复提交。",
+            data: { runHandle: handle, recovery: "event_stream_reattach", reconnectAttempt: reconnectAttempt + 1 }
+          });
+        }
+      }
+      if (!terminalSeen) {
+        for (;;) {
+          if (input.signal?.aborted) {
+            yield this.event(normalized, "turn_paused", { message: "页面连接已断开，Hermes 任务仍在运行。", data: { runHandle: handle } });
+            return;
+          }
+          if (Date.now() - startedAt >= 15 * 60_000) {
+            counters.lastEventType = counters.lastEventType ?? "hermes_overall_budget_checkpoint";
+            yield this.event(normalized, "turn_paused", {
+              message: "本次前台等待已达到演示预算；Hermes run 未被破坏性停止，可稍后重新连接。",
+              data: this.diagnostics(handle, counters, "hermes_overall_budget_checkpoint")
+            });
+            return;
+          }
+          const status = await this.dependencies.transport.getRun(handle.runId, input.signal);
+          handle = touchRunHandle(handle, normalizeRunStatus(status.status));
+          this.activeRuns.set(input.sessionId, handle);
+          counters.lastEventType = status.last_event ?? counters.lastEventType;
+          if (status.status === "completed") {
+            terminalSeen = true;
+            yield this.event(normalized, "turn_completed", {
+              message: status.output,
+              data: { runHandle: handle, recovery: streamFailed ? "status_poll" : undefined, telemetry: this.telemetry(normalized, counters, "completed", startedAt) }
+            });
+            break;
+          }
+          if (status.status === "failed" || status.status === "cancelled") {
+            terminalSeen = true;
+            yield this.event(normalized, "turn_failed", {
+              error: { code: status.status === "cancelled" ? "hermes_run_cancelled" : "hermes_run_failed", message: status.error ?? "Hermes run failed.", recoverable: status.status === "cancelled" },
+              data: this.diagnostics(handle, counters, status.status === "cancelled" ? "hermes_run_cancelled" : "hermes_run_failed")
+            });
+            break;
+          }
+          if (status.status === "waiting_for_approval") {
+            yield this.event(normalized, "approval_required", { message: "Hermes 任务正在等待确认。", data: { runHandle: handle } });
+            break;
+          }
+          await delay(1_000, input.signal);
+        }
+      }
       if (!terminalSeen) {
         const error = hermesError("hermes_stream_incomplete", "Hermes stream 在完成事件前结束，当前任务没有被重复提交。");
         if (!emitted) throw error;
         yield this.event(normalized, "turn_failed", {
           error: { code: error.code, message: error.message, recoverable: true },
-          data: { telemetry: this.telemetry(normalized, counters, "failed", startedAt) }
+          data: this.diagnostics(handle, counters, error.code)
         });
       }
     } catch (error) {
@@ -166,39 +300,76 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
           message: error instanceof Error ? error.message : "Hermes turn failed.",
           recoverable: isRecoverable(errorCode(error))
         },
-        data: { telemetry: this.telemetry(normalized, counters, "failed", startedAt) }
+        data: { ...this.diagnostics(this.activeRuns.get(input.sessionId), counters, errorCode(error)), telemetry: this.telemetry(normalized, counters, "failed", startedAt) }
       });
     }
   }
 
-  private async openSession(input: AgentRuntimeTurnInput) {
-    const requested = typeof input.metadata?.hermesSessionId === "string"
-      ? input.metadata.hermesSessionId
-      : this.sessions.get(input.sessionId);
-    if (requested) {
-      try {
-        const resumed = await this.dependencies.transport.resumeSession({ sessionId: requested }, input.signal);
-        this.sessions.set(input.sessionId, resumed.sessionId);
-        return resumed.sessionId;
-      } catch (error) {
-        if (!isSessionMissing(error)) throw error;
-      }
+  private async *runLegacyAdapterTurn(
+    input: AgentRuntimeTurnInput,
+    counters: TurnCounters,
+    startedAt: number
+  ): AsyncGenerator<AgentRuntimeEvent> {
+    const binding = resolveCareerSessionBinding({ sessionId: input.sessionId, session: input.session, pageContext: input.pageContext });
+    const requireSessionBinding = input.metadata?.requireCareerSessionBinding === true || Boolean(input.session);
+    const health = await this.dependencies.transport.health(input.signal);
+    if (!(health.runtimeHealth?.runtimeAvailable ?? health.available)) {
+      throw hermesError("hermes_unavailable_before_turn", health.reason ?? "Hermes runtime is unavailable.");
     }
-    const created = await this.dependencies.transport.createSession({
-      sessionId: input.sessionId,
-      metadata: {
-        ...(safeMetadata(input.metadata) ?? {}),
-        ...(input.session ? {
-          careerSessionBinding: resolveCareerSessionBinding({
-            sessionId: input.sessionId,
-            session: input.session,
-            pageContext: input.pageContext
-          })
-        } : {})
+    const existing = this.sessions.get(input.sessionId);
+    const opened = existing
+      ? await this.dependencies.transport.resumeSession({ sessionId: existing }, input.signal)
+      : await this.dependencies.transport.createSession({ sessionId: input.sessionId }, input.signal);
+    this.sessions.set(input.sessionId, opened.sessionId);
+    let emitted = false;
+    for await (const bridgeEvent of this.dependencies.transport.turn({
+      sessionId: opened.sessionId,
+      turnId: input.turnId ?? `hermes-turn-${nanoid(12)}`,
+      userMessage: input.userMessage,
+      pageContext: input.pageContext,
+      toolContracts: this.dependencies.careerToolGateway.listContracts() as unknown as Array<Record<string, unknown>>,
+      careerSessionBinding: binding,
+      metadata: safeMetadata(input.metadata)
+    }, input.signal)) {
+      emitted = true;
+      if (bridgeEvent.type === "tool_call_requested") {
+        yield this.event(input, "tool_call_requested", {
+          toolName: bridgeEvent.toolName,
+          operationId: bridgeEvent.operationId,
+          data: { toolCallId: bridgeEvent.toolCallId, input: bridgeEvent.input }
+        });
+        yield* this.executeToolCall(input, opened.sessionId, bridgeEvent, counters, binding, requireSessionBinding);
+        continue;
       }
-    }, input.signal);
-    this.sessions.set(input.sessionId, created.sessionId);
-    return created.sessionId;
+      if (bridgeEvent.type === "turn_completed") {
+        const completion = bridgeEvent.data && typeof bridgeEvent.data === "object" && !Array.isArray(bridgeEvent.data)
+          ? bridgeEvent.data as Record<string, unknown>
+          : {};
+        if (typeof completion.structuredOutputValid === "boolean") counters.structuredOutputValid = completion.structuredOutputValid;
+        yield this.event(input, "turn_completed", {
+          message: bridgeEvent.message,
+          data: { ...completion, telemetry: this.telemetry(input, counters, "completed", startedAt) }
+        });
+        continue;
+      }
+      if (bridgeEvent.type === "text_delta" && counters.firstTokenLatencyMs === undefined) {
+        counters.firstTokenLatencyMs = Math.max(0, Date.now() - startedAt);
+      }
+      const event = this.mapBridgeEvent(input, bridgeEvent, counters, startedAt);
+      if (event) yield event;
+    }
+    if (!emitted) throw hermesError("hermes_stream_incomplete", "Hermes adapter stream ended before the first event.");
+  }
+
+  private diagnostics(handle: HermesRunHandle | undefined, counters: TurnCounters, safeErrorCode: string) {
+    return {
+      runId: handle?.runId,
+      lastEventType: counters.lastEventType,
+      lastTool: counters.lastTool,
+      lastOperationId: counters.lastOperationId,
+      safeErrorCode,
+      runHandle: handle
+    };
   }
 
   private async *executeToolCall(
@@ -416,6 +587,7 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
       toolCalls: counters.toolCalls,
       toolFailures: counters.toolFailures,
       autonomousRecoveries: counters.autonomousRecoveries,
+      recoveryCount: counters.recoveryCount,
       fallbackUsed: input.metadata?.fallbackUsed === true,
       artifactUpdates: counters.artifactUpdates,
       completionStatus
@@ -450,6 +622,100 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
   }
 }
 
+function conversationHistory(input: AgentRuntimeTurnInput) {
+  const currentUserMessageId = typeof input.metadata?.runtimeShellUserMessageId === "string"
+    ? input.metadata.runtimeShellUserMessageId
+    : undefined;
+  return (input.session?.messages ?? [])
+    .filter((message) => (message.role === "user" || message.role === "assistant")
+      && message.id !== currentUserMessageId
+      && message.kind !== "assistant_thinking"
+      && message.kind !== "assistant_streaming"
+      && message.content.trim())
+    .slice(-24)
+    .map((message) => ({ role: message.role as "user" | "assistant", content: message.content.slice(0, 8_000) }));
+}
+
+function touchRunHandle(handle: HermesRunHandle, status: HermesRunHandle["status"]): HermesRunHandle {
+  return { ...handle, status, lastEventAt: new Date().toISOString() };
+}
+
+function statusForBridgeEvent(event: HermesBridgeEvent, current: HermesRunHandle["status"]): HermesRunHandle["status"] {
+  if (event.type === "turn_completed") return "completed";
+  if (event.type === "turn_failed") return event.code === "hermes_run_cancelled" ? "cancelled" : "failed";
+  if (event.type === "approval_required") return "waiting_for_approval";
+  return current === "queued" ? "running" : current;
+}
+
+function normalizeRunStatus(status: string): HermesRunHandle["status"] {
+  if (status === "started") return "running";
+  if (["queued", "running", "waiting_for_approval", "stopping", "completed", "failed", "cancelled"].includes(status)) {
+    return status as HermesRunHandle["status"];
+  }
+  return "running";
+}
+
+function mergeEventData(current: unknown, extra: Record<string, unknown>) {
+  return current && typeof current === "object" && !Array.isArray(current)
+    ? { ...current as Record<string, unknown>, ...extra }
+    : extra;
+}
+
+function delay(ms: number, signal?: AbortSignal) {
+  return new Promise<void>((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(Object.assign(new Error("hermes_transport_detached"), { code: "hermes_transport_detached" }));
+      return;
+    }
+    const timer = setTimeout(resolve, ms);
+    signal?.addEventListener("abort", () => {
+      clearTimeout(timer);
+      reject(Object.assign(new Error("hermes_transport_detached"), { code: "hermes_transport_detached" }));
+    }, { once: true });
+  });
+}
+
+async function* eventsWithHeartbeat(
+  transport: HermesBridgeTransport & Required<Pick<HermesBridgeTransport, "runEvents">>,
+  runId: string,
+  signal?: AbortSignal
+): AsyncGenerator<HermesBridgeEvent> {
+  const heartbeatController = new AbortController();
+  const combinedSignal = signal
+    ? AbortSignal.any([signal, heartbeatController.signal])
+    : heartbeatController.signal;
+  const iterator = transport.runEvents(runId, combinedSignal)[Symbol.asyncIterator]();
+  try {
+    for (;;) {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const heartbeat = new Promise<never>((_, reject) => {
+        timer = setTimeout(() => {
+          heartbeatController.abort();
+          reject(hermesError("hermes_event_heartbeat_timeout", "Hermes event stream heartbeat timed out; the run remains active."));
+        }, 45_000);
+      });
+      const item = await Promise.race([iterator.next(), heartbeat]);
+      if (timer) clearTimeout(timer);
+      if (item.done) return;
+      yield item.value;
+    }
+  } finally {
+    heartbeatController.abort();
+    await iterator.return?.().catch(() => undefined);
+  }
+}
+
+function supportsRuns(transport: HermesBridgeTransport): transport is HermesBridgeTransport & Required<Pick<
+  HermesBridgeTransport,
+  "startRun" | "getRun" | "runEvents" | "approveRun" | "stopRun"
+>> {
+  return typeof transport.startRun === "function"
+    && typeof transport.getRun === "function"
+    && typeof transport.runEvents === "function"
+    && typeof transport.approveRun === "function"
+    && typeof transport.stopRun === "function";
+}
+
 function requiresConfirmation(contract: CareerToolContract) {
   return contract.confirmationPolicy !== "none";
 }
@@ -473,10 +739,6 @@ function safeMetadata(metadata?: Record<string, unknown>) {
     ["model", "hermesSessionId", "fallbackUsed", "preferredRuntime", "confirmed", "confirmationCount", "runtimeId"].includes(key)
     && (typeof value === "string" || typeof value === "number" || typeof value === "boolean")
   ));
-}
-
-function isSessionMissing(error: unknown) {
-  return errorCode(error) === "hermes_session_not_found" || errorCode(error) === "session_not_found";
 }
 
 function isRecoverable(code: string) {

@@ -246,6 +246,16 @@ export const AgentTurnCheckpointSchema = z.object({
   completedAt: z.string().datetime({ offset: true }).optional()
 }).strict();
 
+export const HermesRunHandleSchema = z.object({
+  runId: z.string().min(1),
+  hermesSessionId: z.string().min(1),
+  careerAgentSessionId: z.string().min(1),
+  turnId: z.string().min(1),
+  status: z.enum(["queued", "running", "waiting_for_approval", "stopping", "completed", "failed", "cancelled"]),
+  startedAt: z.string().datetime({ offset: true }),
+  lastEventAt: z.string().datetime({ offset: true })
+}).strict();
+
 export const AgentSessionSchema = z.object({
   // P4.3i adds pinned identity fields compatibly; keep the persisted session
   // schema number stable so existing session stores do not need a destructive
@@ -275,6 +285,7 @@ export const AgentSessionSchema = z.object({
   pendingConfirmation: AgentConfirmationSchema.optional(),
   pendingToolCall: AgentPendingToolCallSchema.optional(),
   runtimeId: z.string().min(1).optional(),
+  hermesRun: HermesRunHandleSchema.optional(),
   activeTurn: AgentTurnSchema.optional(),
   taskState: AgentTaskStateSchema.optional(),
   conversationBranches: z.array(ConversationBranchSchema).max(100).default([]),
@@ -296,6 +307,7 @@ export type AgentSession = z.infer<typeof AgentSessionSchema>;
 export type AgentWorkflowState = z.infer<typeof AgentWorkflowStateSchema>;
 export type AgentConfirmation = z.infer<typeof AgentConfirmationSchema>;
 export type AgentTurn = z.infer<typeof AgentTurnSchema>;
+export type HermesRunHandle = z.infer<typeof HermesRunHandleSchema>;
 export type AgentTaskState = z.infer<typeof AgentTaskStateSchema>;
 export type AgentOptionSetState = z.infer<typeof AgentOptionSetStateSchema>;
 export type AgentOptionSet = z.infer<typeof AgentOptionSetSchema>;

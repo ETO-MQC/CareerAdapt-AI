@@ -89,13 +89,13 @@ export class BrowserAgentToolService implements AgentToolServices {
     assertNotAborted(signal);
     const semanticPreference = readResumeImportSemanticPreference();
     const input = rawInput as { attachmentId: string };
+    const { ref, file } = agentAttachmentStore.resolve(input.attachmentId);
+    const canonicalJson = ref.mimeType === "application/json"
+      && await isCanonicalCareerAdaptJsonFile(file);
+    if (semanticPreference === "unset" && !canonicalJson) {
+      throw new Error("resume_import_ai_privacy_consent_required");
+    }
     try {
-      const { ref, file } = agentAttachmentStore.resolve(input.attachmentId);
-      const canonicalJson = ref.mimeType === "application/json"
-        && await isCanonicalCareerAdaptJsonFile(file);
-      if (semanticPreference === "unset" && !canonicalJson) {
-        throw new Error("resume_import_ai_privacy_consent_required");
-      }
       const prepared = await new ResumeImportOrchestrator(this.repository).prepare({
         fileName: ref.fileName,
         mimeType: ref.mimeType,
@@ -1697,9 +1697,11 @@ function captureProfileIntakeObservation(
   const nextTurnPlan = nextTurnPlanFromSupervisorAction({
     ...supervisorAction,
     ...(supervisorAction.type === "ask_follow_up" ? {
-      acknowledgement: activeCandidate
-        ? `已补充“${profileIntakeItemLabel(activeCandidate)}”的这条信息。`
-        : undefined,
+      acknowledgement: provisionalItems.length > 1
+        ? `这段里我先整理出了：${provisionalItems.map(profileIntakeItemLabel).slice(-8).join("、")}。我们先补最值得深挖的一项。`
+        : activeCandidate
+          ? `已补充“${profileIntakeItemLabel(activeCandidate)}”的这条信息。`
+          : undefined,
       capturedAssetLabels: provisionalItems.map(profileIntakeItemLabel)
     } : {})
   });

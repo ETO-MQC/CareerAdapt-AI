@@ -7,7 +7,7 @@
 选择有证据的相关事实，形成可核对的简历计划。
 
 ## Inputs and tools
-资料库、用途、可选岗位；`get_profile`、`search_profile_facts`、`get_job`、`list_resumes`。
+资料库、用途、可选岗位；正常流程优先 `career.workflow.profile_to_resume`，原子工具仅用于检查或恢复。
 
 ## Procedure
 1. 读取目标资料与用途。
@@ -21,3 +21,6 @@ ResumeDocument 只派生不持久化。简历不得隐式反写资料库。未�
 
 ## Recovery and completion
 事实不足时进入经历深挖。完成标准是所有内容来自已确认事实且用户确认创建范围。
+
+## Stop conditions
+`completed` 后停止并打开独立简历；`waiting_for_user` 询问一个缺失选择；`waiting_for_confirmation` 交出确认；`partial` 报告 checkpoint；`failed` 停止。不得把简历内容反写资料库。

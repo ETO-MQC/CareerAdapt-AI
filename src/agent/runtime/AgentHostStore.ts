@@ -3,6 +3,7 @@
 import type { AgentArtifactRef } from "@/agent/contracts/agentArtifact";
 import {
   AgentSessionSchema,
+  HermesRunHandleSchema,
   type AgentMessageReference,
   type AgentSession,
   type AgentTaskState,
@@ -372,12 +373,20 @@ export class AgentHostStore {
     if (!current || current.id !== event.sessionId) return undefined;
     const assistant = current.messages.find((message) => message.id === assistantMessageId);
     let next = current;
+    const runHandleResult = HermesRunHandleSchema.safeParse(objectValue(event.data).runHandle);
+    if (runHandleResult.success) next = { ...next, hermesRun: runHandleResult.data };
     if (event.type === "progress" || event.type === "reasoning_status") {
       if (!assistant || assistant.metadata?.runtimeTextStarted !== true) {
         next = replaceRuntimeShellMessage(next, assistantMessageId, event.message ?? "正在处理当前任务…", event, true);
       }
-      this.patchSession(next, { currentObservation: { runtimeId: "hermes", message: event.message } });
-      return next;
+      const persisted = runHandleResult.success ? await this.dependencies.persistence.save(next) : next;
+      this.patchSession(persisted, { currentObservation: { runtimeId: "hermes", message: event.message } });
+      return persisted;
+    }
+    if (event.type === "turn_paused" || event.type === "turn_resumed") {
+      const persisted = runHandleResult.success ? await this.dependencies.persistence.save(next) : next;
+      this.patchSession(persisted, { turnStatus: "running", activeTurnId: event.turnId, currentObservation: event.data ?? event.message });
+      return persisted;
     }
     if (event.type === "text_delta") {
       next = replaceRuntimeShellMessage(next, assistantMessageId, `${assistant?.content ?? ""}${event.delta ?? ""}`, event, true);
@@ -396,6 +405,28 @@ export class AgentHostStore {
         status,
         metadata: { runtimeId: "hermes", activityState: status }
       });
+      if (event.type === "tool_call_completed") {
+        const eventData = objectValue(event.data);
+        const result = objectValue(eventData.result);
+        const contract = objectValue(eventData.contract);
+        if (result.ok === true) {
+          next = applyRuntimeFacadeCheckpoint(next, event.toolName ?? "", result.data);
+          const sourceToolName = runtimeArtifactSourceToolName(
+            event.toolName ?? "",
+            stringValue(contract.sourceToolName)
+          );
+          next = attachConfirmedToolArtifact(next, sourceToolName, operationId, {
+            ok: true,
+            data: runtimeArtifactResultData(event.toolName ?? "", result.data),
+            artifactIds: Array.isArray(result.artifacts)
+              ? result.artifacts.flatMap((artifact) => {
+                  const id = stringValue(objectValue(artifact).id);
+                  return id ? [id] : [];
+                })
+              : []
+          });
+        }
+      }
     }
     if (event.type === "approval_required") {
       const data = objectValue(event.data);
@@ -547,6 +578,9 @@ export class AgentHostStore {
       });
     }
     if (input.type === "external_event") {
+      if (input.toolName === "confirm_resume_import" && session.taskState?.workflowId === "resume_import") {
+        return this.resolveExternalResumeImportConfirmation(session, input.observation);
+      }
       const turnId = session.activeTurn?.id ?? `agent-turn-${crypto.randomUUID()}`;
       return this.resume(session, {
         reason: "external_event",
@@ -712,6 +746,59 @@ export class AgentHostStore {
       pageContext: context.pageContext,
       references: input.references
     });
+  }
+
+  private async resolveExternalResumeImportConfirmation(session: AgentSession, rawObservation: unknown) {
+    const observation = objectValue(rawObservation);
+    const reducer = new AgentTaskStateReducer();
+    const taskState = reducer.reduce(session.taskState!, {
+      type: "tool_observation",
+      toolName: "commit_resume_import",
+      observation
+    });
+    const now = new Date().toISOString();
+    let current = projectTaskStateIntoSession(
+      appendAgentMessage(session, "assistant", "已确认导入，并将资料与通用简历保存到本地工作区。", {
+        id: `agent-import-confirmed-${String(observation.importId ?? session.id)}`,
+        kind: "text",
+        type: "text",
+        status: "complete",
+        metadata: { externalEvent: "confirm_resume_import", importId: observation.importId }
+      }),
+      taskState
+    );
+    const branchId = stringValue(observation.branchId ?? observation.resumeId);
+    if (branchId) {
+      const artifactId = `agent-artifact-import-complete-${branchId}`;
+      current = {
+        ...current,
+        artifactRefs: [
+          ...current.artifactRefs.filter((artifact) => artifact.kind !== "quality_result"),
+          {
+            id: artifactId,
+            kind: "quality_result",
+            title: "导入完成",
+            entityType: "resume_branch",
+            entityId: branchId,
+            route: `/resume?branchId=${encodeURIComponent(branchId)}`,
+            status: "active",
+            summary: "已确认导入并创建通用简历。",
+            createdAt: now,
+            updatedAt: now
+          }
+        ]
+      };
+    }
+    current = {
+      ...current,
+      activeTurn: current.activeTurn
+        ? { ...current.activeTurn, status: "completed", completedAt: now }
+        : current.activeTurn,
+      updatedAt: now
+    };
+    const saved = await this.dependencies.persistence.save(current);
+    this.patchSession(saved, { turnStatus: "completed", currentObservation: observation });
+    return saved;
   }
 
   private async resolveQuickActionLocally(
@@ -2986,11 +3073,22 @@ export class AgentHostStore {
         });
       current = projectTaskStateIntoSession(current, taskState);
     }
+    const careerSessionBinding = current.personId && current.activeProfileId
+      && current.profileVersionNumber !== undefined && current.profileRevision !== undefined
+      ? {
+          agentSessionId: current.id,
+          personId: current.personId,
+          profileId: current.activeProfileId,
+          profileVersionNumber: current.profileVersionNumber,
+          profileRevision: current.profileRevision
+        }
+      : undefined;
     const result = await this.dependencies.executor.execute({
       toolName: call.toolName,
       toolInput: confirmation.validatedInput ?? call.input,
       operationId: call.operationId,
-      confirmed: true
+      confirmed: true,
+      ...(careerSessionBinding ? { careerSessionBinding, requireSessionBinding: true } : {})
     });
     if (result.ok && typeof this.dependencies.kernel.invalidateObservationsAfter === "function") {
       this.dependencies.kernel.invalidateObservationsAfter(call.toolName);
@@ -3008,13 +3106,53 @@ export class AgentHostStore {
         diagnostic: confirmedToolDiagnostic(call.toolName, result)
       }
     });
-    if (result.ok) current = attachConfirmedToolArtifact(current, call.toolName, call.operationId, result);
+    if (result.ok) {
+      if (call.toolName.startsWith("career.workflow.")) {
+        current = applyRuntimeFacadeCheckpoint(current, call.toolName, result.data);
+        current = attachConfirmedToolArtifact(
+          current,
+          runtimeArtifactSourceToolName(call.toolName),
+          call.operationId,
+          {
+            ...result,
+            data: runtimeArtifactResultData(call.toolName, result.data)
+          }
+        );
+      } else {
+        current = attachConfirmedToolArtifact(current, call.toolName, call.operationId, result);
+      }
+    }
     if (!result.ok && current.taskState) {
       current = projectTaskStateIntoSession(current, {
         ...current.taskState,
         completionStatus: "failed",
         updatedAt: new Date().toISOString()
       });
+    }
+    const workflowResult = result.ok && call.toolName.startsWith("career.workflow.")
+      ? objectValue(result.data)
+      : undefined;
+    if (workflowResult?.status === "completed") {
+      const completedAt = new Date().toISOString();
+      current = appendAgentMessage(current, "assistant", "已按你的确认完成当前 Career 工作流。结果已保存，可继续查看预览或下一步。", {
+        kind: "text",
+        type: "text",
+        status: "complete",
+        turnId,
+        metadata: { runtimeId: "hermes", workflowConfirmationCompleted: true }
+      });
+      current = {
+        ...current,
+        activeTurn: current.activeTurn
+          ? { ...current.activeTurn, status: "completed", completedAt }
+          : current.activeTurn,
+        workflowState: current.taskState
+          ? projectTaskStateToWorkflowState(current.taskState, { ...current.workflowState, status: "completed" })
+          : { ...current.workflowState, status: "completed" }
+      };
+      const saved = await this.dependencies.persistence.save(current);
+      this.patchSession(saved, { turnStatus: "completed", activeTurnId: turnId, currentObservation: workflowResult });
+      return saved;
     }
     current = await this.dependencies.persistence.save(current);
     return this.resume(current, {
@@ -5745,6 +5883,12 @@ function artifactDescriptor(toolName: string, workflowId?: string, rootGoal?: st
   entityType: AgentArtifactRef["entityType"];
   route?: string;
 } | undefined {
+  if (["capture_profile_intake", "synthesize_profile_intake"].includes(toolName)) {
+    return { kind: "profile_intake_review", title: toolName === "synthesize_profile_intake" ? "最终资料草稿" : "经历核对", entityType: "profile_intake_draft" };
+  }
+  if (toolName === "prepare_resume_import") {
+    return { kind: "resume_import_review", title: "简历导入核对", entityType: "resume_import_draft" };
+  }
   if (toolName === "analyze_job_fit" && (workflowId === "analyze_job_fit" || rootGoal === "analyze_job_fit")) {
     return { kind: "job_fit_overview", title: "岗位匹配分析", entityType: "job" };
   }
@@ -5752,7 +5896,7 @@ function artifactDescriptor(toolName: string, workflowId?: string, rootGoal?: st
     return { kind: "tailoring_workspace", title: "岗位定制工作区", entityType: "tailoring_session" };
   }
 
-  if (toolName === "create_resume_from_profile") {
+  if (["create_resume_from_profile", "ensure_general_resume_from_profile"].includes(toolName)) {
     return { kind: "quality_result", title: "通用简历创建结果", entityType: "resume_branch", route: "/resume" };
   }
   if (toolName === "export_resume") {
@@ -5936,6 +6080,8 @@ function attachConfirmedToolArtifact(
   const observationResume = objectRecordValue(value.resume);
   const entityId = descriptor.kind === "tailoring_workspace"
     ? stringRecordValue(objectRecordValue(value.session).id)
+      ?? stringRecordValue(objectRecordValue(value.session).sessionId)
+      ?? stringRecordValue(objectRecordValue(value.session).tailoringSessionId)
       ?? stringRecordValue(objectRecordValue(session.taskState?.knownSlots.tailoringSession).id)
       ?? `pending:${session.taskState?.selectedEntities.jobId ?? toolName}`
     : descriptor.entityType === "job"
@@ -5944,6 +6090,7 @@ function attachConfirmedToolArtifact(
       ?? stringRecordValue(value.resumeId)
       ?? `pending-${toolName}`
     : stringRecordValue(value.resumeId)
+      ?? stringRecordValue(value.importId)
       ?? stringRecordValue(value.branchId)
       ?? stringRecordValue(observationResume.id)
       ?? session.taskState?.selectedEntities.resumeId
@@ -5956,12 +6103,18 @@ function attachConfirmedToolArtifact(
   const route = toolName === "export_resume" && typeof value.route === "string"
     ? value.route
     : descriptor.route;
+  const resolvedResumeBranch = descriptor.entityType === "resume_branch"
+    && !entityId.startsWith("pending-");
   return {
     ...session,
     artifactRefs: [
       ...session.artifactRefs.filter((artifact) => descriptor.kind === "tailoring_workspace"
         ? !["tailoring_workspace", "job_fit_overview", "tailoring_diff"].includes(artifact.kind)
-        : artifact.id !== artifactId),
+        : artifact.id !== artifactId
+          && !(resolvedResumeBranch
+            && artifact.kind === descriptor.kind
+            && artifact.entityType === descriptor.entityType
+            && artifact.entityId.startsWith("pending-"))),
       {
         id: artifactId,
         kind: descriptor.kind,
@@ -6108,6 +6261,171 @@ function withArtifactActionFeedback(
     },
     updatedAt: timestamp
   });
+}
+
+function runtimeArtifactSourceToolName(stableName: string, declaredSource?: string) {
+  const facadeSources: Record<string, string> = {
+    "career.workflow.profile_intake_turn": "capture_profile_intake",
+    "career.workflow.profile_intake_finalize": "synthesize_profile_intake",
+    "career.workflow.resume_import": "prepare_resume_import",
+    "career.workflow.job_fit": "analyze_job_fit",
+    "career.workflow.tailor_resume": "create_tailoring_session",
+    "career.workflow.profile_to_resume": "ensure_general_resume_from_profile",
+    "career.workflow.resume_export": "export_resume"
+  };
+  return facadeSources[stableName] ?? declaredSource ?? stableName;
+}
+
+function runtimeArtifactResultData(stableName: string, value: unknown) {
+  if (!stableName.startsWith("career.workflow.")) return value;
+  const facade = objectValue(value);
+  const checkpoint = objectValue(facade.workflowCheckpoint);
+  const keyByFacade: Record<string, string> = {
+    "career.workflow.profile_intake_turn": "understood",
+    "career.workflow.profile_intake_finalize": "synthesis",
+    "career.workflow.resume_import": "import",
+    "career.workflow.job_fit": "result",
+    "career.workflow.tailor_resume": "session",
+    "career.workflow.profile_to_resume": "result",
+    "career.workflow.resume_export": "result"
+  };
+  return checkpoint[keyByFacade[stableName] ?? "result"] ?? checkpoint;
+}
+
+/**
+ * Runs execute Career workflow facades outside the native AgentKernel. Keep
+ * the durable task projection in sync with the facade's explicit checkpoint;
+ * otherwise a successful Hermes workflow would leave the old prerequisite
+ * stage (or a stale failed status) in IndexedDB even though the artifact was
+ * produced.
+ */
+function applyRuntimeFacadeCheckpoint(session: AgentSession, toolName: string, value: unknown): AgentSession {
+  if (!toolName.startsWith("career.workflow.") || !session.taskState) return session;
+  const facade = objectRecordValue(value);
+  const checkpoint = objectRecordValue(facade.workflowCheckpoint);
+  const status = stringRecordValue(facade.status);
+  if (!status || !Object.prototype.hasOwnProperty.call(checkpoint, "kind")) return session;
+  const task = session.taskState;
+  const result = objectRecordValue(checkpoint.result);
+  const importData = objectRecordValue(checkpoint.import);
+  const understood = objectRecordValue(checkpoint.understood);
+  const synthesis = objectRecordValue(checkpoint.synthesis);
+  const importArtifactPayload = objectRecordValue(importData.artifactPayload);
+  const importReviewSummary = objectRecordValue(importData.reviewSummary ?? importArtifactPayload);
+  const importNeedsReview = numberValue(importReviewSummary.needsReviewCount)
+    ?? numberValue(importData.needsConfirmationCount)
+    ?? 0;
+  const sessionData = objectRecordValue(checkpoint.session);
+  const normalizedSessionData = stringRecordValue(sessionData.id)
+    ? sessionData
+    : stringRecordValue(sessionData.sessionId)
+      ? { ...sessionData, id: stringRecordValue(sessionData.sessionId) }
+      : stringRecordValue(sessionData.tailoringSessionId)
+        ? { ...sessionData, id: stringRecordValue(sessionData.tailoringSessionId) }
+        : sessionData;
+  const selectedEntities = {
+    ...task.selectedEntities,
+    ...(stringRecordValue(checkpoint.profileId) ? { profileId: stringRecordValue(checkpoint.profileId) } : {}),
+    ...(stringRecordValue(checkpoint.resumeId) ? { resumeId: stringRecordValue(checkpoint.resumeId) } : {}),
+    ...(stringRecordValue(checkpoint.jobId) ? { jobId: stringRecordValue(checkpoint.jobId) } : {}),
+    ...(stringRecordValue(result.profileId) ? { profileId: stringRecordValue(result.profileId) } : {}),
+    ...(stringRecordValue(result.resumeId) ? { resumeId: stringRecordValue(result.resumeId) } : {}),
+    ...(stringRecordValue(result.jobId) ? { jobId: stringRecordValue(result.jobId) } : {}),
+    ...(stringRecordValue(importData.importId) ? { revisionId: stringRecordValue(importData.importId) } : {}),
+    ...(stringRecordValue(sessionData.resumeId) ? { resumeId: stringRecordValue(sessionData.resumeId) } : {}),
+    ...(stringRecordValue(sessionData.jobId) ? { jobId: stringRecordValue(sessionData.jobId) } : {}),
+    ...(checkpoint.kind === "tailoring_session" && stringRecordValue(normalizedSessionData.id)
+      ? { tailoringSessionId: stringRecordValue(normalizedSessionData.id) }
+      : {})
+  };
+  const completionStatus = status === "completed"
+    ? "completed" as const
+    : status === "waiting_for_user"
+      ? "waiting_for_user" as const
+      : status === "waiting_for_confirmation"
+        ? "waiting_for_confirmation" as const
+        : status === "failed"
+          ? "failed" as const
+          : "active" as const;
+  const stage = toolName === "career.workflow.job_fit" && completionStatus === "completed"
+    ? "completed"
+    : toolName === "career.workflow.profile_to_resume" && completionStatus === "completed"
+      ? "resume_ready"
+      : toolName === "career.workflow.resume_export" && completionStatus === "completed"
+        ? "export_ready"
+        : toolName === "career.workflow.resume_import"
+          ? "import_review"
+          : toolName === "career.workflow.profile_intake_finalize"
+            ? "final_review"
+            : toolName === "career.workflow.tailor_resume"
+              ? "answer_tailoring_question"
+              : task.stage;
+  const knownSlots = {
+    ...task.knownSlots,
+    facadeCheckpoint: checkpoint,
+    ...(checkpoint.kind === "job_fit" ? { fitAnalysis: result } : {}),
+    ...(checkpoint.kind === "profile_to_resume" ? { resumeResult: result } : {}),
+    ...(checkpoint.kind === "resume_export" ? { exportResult: result } : {}),
+    ...(checkpoint.kind === "tailoring_session" ? { tailoringSession: normalizedSessionData } : {}),
+    ...(checkpoint.kind === "profile_intake_turn" ? {
+      intakeImportId: understood.importId,
+      expectedIntakeDraftRevision: understood.expectedDraftRevision,
+      profileIntakeCaptureResult: understood,
+      profileIntakeProviderStatus: understood.providerStatus,
+      profileIntakeExtractionStatus: understood.extractionStatus,
+      profileIntakePersistenceStatus: understood.persistenceStatus,
+      profileIntakePersistenceReceipt: understood.persistenceReceipt,
+      intakeSession: understood.intakeSession,
+      profileIntakeNextTurnPlan: understood.nextTurnPlan,
+      profileIntakeReviewProjection: understood.reviewProjection,
+      intakeCandidates: understood.candidates,
+      intakeArtifact: understood.artifactPayload,
+      intakeInterviewPlan: understood.interviewPlan,
+      intakeFollowUpQuestion: understood.followUpQuestion,
+      profileIntakePhase: "clarifying"
+    } : {}),
+    ...(checkpoint.kind === "profile_intake_final_review" ? {
+      intakeImportId: synthesis.importId,
+      expectedIntakeDraftRevision: synthesis.expectedDraftRevision,
+      profileIntakeFinalSynthesis: synthesis.finalSynthesis,
+      profileIntakeReviewProjection: synthesis.reviewProjection,
+      intakeCandidates: synthesis.candidates,
+      intakeArtifact: synthesis.artifactPayload,
+      intakeSession: synthesis.intakeSession,
+      intakeInterviewPlan: synthesis.interviewPlan,
+      profileIntakePersistenceReceipt: synthesis.persistenceReceipt,
+      profileIntakePhase: "ready_for_review",
+      finalReviewRevision: synthesis.expectedDraftRevision
+    } : {}),
+    ...(checkpoint.kind === "resume_import_review" ? {
+      importId: importData.importId,
+      expectedDraftRevision: importData.expectedDraftRevision,
+      importReviewSummary: importData.reviewSummary ?? importArtifactPayload,
+      importArtifact: Object.keys(importArtifactPayload).length
+        ? importArtifactPayload
+        : {
+            sourceFile: importData.fileName ?? importData.sourceFile ?? task.attachment?.fileName,
+            sourceType: importData.sourceType ?? importData.sourceKind,
+            ...(Array.isArray(importData.warnings) ? { warnings: importData.warnings } : {})
+          },
+      reviewStatus: importNeedsReview > 0
+        ? "needs_review"
+        : "reviewed"
+    } : {})
+  };
+  return {
+    ...session,
+    taskState: {
+      ...task,
+      stage,
+      selectedEntities,
+      knownSlots,
+      artifacts: [...new Set([...task.artifacts, ...session.artifactRefs.map((artifact) => artifact.id)])],
+      completionStatus,
+      lastObservation: { source: "career_workflow_facade", toolName, status, checkpoint },
+      updatedAt: new Date().toISOString()
+    }
+  };
 }
 
 function artifactActionExecution(

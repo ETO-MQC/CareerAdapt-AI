@@ -2,10 +2,15 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 
 const HermesBridgeRequestSchema = z.object({
-  action: z.enum(["session_create", "session_resume", "turn", "tool_callback", "interrupt"])
+  action: z.enum([
+    "session_create", "session_resume", "turn", "tool_callback", "interrupt",
+    "run_start", "run_status", "run_events", "run_approval", "run_stop"
+  ])
 }).passthrough();
 
-const upstreamPath: Record<z.infer<typeof HermesBridgeRequestSchema>["action"], string> = {
+type LegacyAction = "session_create" | "session_resume" | "turn" | "tool_callback" | "interrupt";
+
+const upstreamPath: Record<LegacyAction, string> = {
   session_create: "/sessions",
   session_resume: "/sessions/resume",
   turn: "/turn",
@@ -20,7 +25,8 @@ export async function POST(request: NextRequest) {
   if (!body.success) return NextResponse.json({ ok: false, error: { code: "hermes_bridge_bad_request", message: "Invalid Hermes bridge request." } }, { status: 400 });
   const { action, ...payload } = body.data;
   if (process.env.HERMES_RUNTIME_PROTOCOL?.trim().toLowerCase() === "legacy") {
-    return legacyRequest(baseUrl, action, payload);
+    if (action.startsWith("run_")) return unavailable("hermes_runs_unsupported");
+    return legacyRequest(baseUrl, action as LegacyAction, payload);
   }
   return officialHermesRequest(baseUrl, action, payload);
 }
@@ -28,6 +34,51 @@ export async function POST(request: NextRequest) {
 async function officialHermesRequest(baseUrl: string, action: z.infer<typeof HermesBridgeRequestSchema>["action"], payload: Record<string, unknown>) {
   const root = baseUrl.replace(/\/$/u, "");
   try {
+    if (action === "run_start") {
+      const response = await fetch(`${root}/v1/runs`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json", ...apiKeyHeader() },
+        body: JSON.stringify({
+          input: typeof payload.userMessage === "string" ? payload.userMessage : "",
+          session_id: typeof payload.sessionId === "string" ? payload.sessionId : undefined,
+          ...(configuredModel() ? { model: configuredModel() } : {}),
+          instructions: careerRunInstructions(payload),
+          conversation_history: safeConversationHistory(payload.conversationHistory)
+        }),
+        signal: AbortSignal.timeout(30_000),
+        cache: "no-store"
+      });
+      const raw = await response.json().catch(() => ({}));
+      if (!response.ok) return upstreamError(response.status, raw, "hermes_run_start_failed");
+      const record = asRecord(raw);
+      return NextResponse.json({
+        ok: true,
+        data: {
+          runId: typeof record.run_id === "string" ? record.run_id : "",
+          status: typeof record.status === "string" ? record.status : "started"
+        }
+      });
+    }
+    if (action === "run_status") return proxyRunJson(root, payload, "GET", "status");
+    if (action === "run_approval") return proxyRunJson(root, payload, "POST", "approval");
+    if (action === "run_stop") return proxyRunJson(root, payload, "POST", "stop");
+    if (action === "run_events") {
+      const runId = requiredRunId(payload);
+      const response = await fetch(`${root}/v1/runs/${encodeURIComponent(runId)}/events`, {
+        method: "GET",
+        headers: { Accept: "text/event-stream", ...apiKeyHeader() },
+        signal: requestSignal(),
+        cache: "no-store"
+      });
+      if (!response.ok || !response.body) {
+        const raw = await response.json().catch(() => ({}));
+        return upstreamError(response.status, raw, "hermes_run_events_failed");
+      }
+      return new Response(response.body, {
+        status: response.status,
+        headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-store", "X-Accel-Buffering": "no" }
+      });
+    }
     if (action === "tool_callback") {
       // Official Hermes API Server executes MCP tools on its own host. The
       // legacy callback action remains accepted so the browser adapter can
@@ -88,7 +139,6 @@ async function officialHermesRequest(baseUrl: string, action: z.infer<typeof Her
           tool_contract_count: Array.isArray(payload.toolContracts) ? payload.toolContracts.length : 0
         }
       }),
-      signal: AbortSignal.timeout(180_000),
       cache: "no-store"
     });
     if (!response.ok || !response.body) {
@@ -104,13 +154,13 @@ async function officialHermesRequest(baseUrl: string, action: z.infer<typeof Her
   }
 }
 
-async function legacyRequest(baseUrl: string, action: z.infer<typeof HermesBridgeRequestSchema>["action"], payload: Record<string, unknown>) {
+async function legacyRequest(baseUrl: string, action: LegacyAction, payload: Record<string, unknown>) {
   try {
     const response = await fetch(baseUrl.replace(/\/$/u, "") + upstreamPath[action], {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: action === "turn" ? "application/x-ndjson" : "application/json", ...apiKeyHeader() },
       body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(action === "turn" ? 180_000 : 30_000),
+      ...(action === "turn" ? {} : { signal: AbortSignal.timeout(30_000) }),
       cache: "no-store"
     });
     if (action === "turn") {
@@ -155,11 +205,82 @@ function upstreamError(status: number, value: unknown, fallbackCode: string) {
   }, { status: status || 502 });
 }
 
-function unavailable() {
+function unavailable(code = "hermes_bridge_unavailable") {
   return NextResponse.json({
     ok: false,
-    error: { code: "hermes_bridge_unavailable", message: "Hermes companion is unavailable." }
+    error: { code, message: "Hermes companion is unavailable." }
   }, { status: 503 });
+}
+
+async function proxyRunJson(root: string, payload: Record<string, unknown>, method: "GET" | "POST", kind: "status" | "approval" | "stop") {
+  const runId = requiredRunId(payload);
+  const suffix = kind === "status" ? "" : `/${kind}`;
+  const response = await fetch(`${root}/v1/runs/${encodeURIComponent(runId)}${suffix}`, {
+    method,
+    headers: { "Content-Type": "application/json", Accept: "application/json", ...apiKeyHeader() },
+    ...(kind === "approval" ? { body: JSON.stringify({ choice: payload.choice }) } : kind === "stop" ? { body: "{}" } : {}),
+    signal: AbortSignal.timeout(30_000),
+    cache: "no-store"
+  });
+  const raw = await response.json().catch(() => ({}));
+  if (!response.ok) return upstreamError(response.status, raw, `hermes_run_${kind}_failed`);
+  return NextResponse.json({ ok: true, data: raw });
+}
+
+function requiredRunId(payload: Record<string, unknown>) {
+  if (typeof payload.runId !== "string" || !payload.runId.trim()) {
+    throw Object.assign(new Error("hermes_run_id_required"), { code: "hermes_run_id_required" });
+  }
+  return payload.runId;
+}
+
+function safeConversationHistory(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((entry) => {
+    const record = asRecord(entry);
+    return (record.role === "user" || record.role === "assistant") && typeof record.content === "string"
+      ? [{ role: record.role, content: record.content.slice(0, 8_000) }]
+      : [];
+  }).slice(-24);
+}
+
+function careerRunInstructions(payload: Record<string, unknown>) {
+  const context = {
+    career_context: {
+      session_id: safeCareerBinding(payload.careerSessionBinding)?.agentSessionId,
+      binding: safeCareerBinding(payload.careerSessionBinding),
+      page: safePageContext(payload.pageContext)
+    },
+    attachments: safeAttachments(payload.attachments)
+  };
+  return [
+    "You are the CareerAdapt Career Agent. For a normal end-to-end workflow, you MUST call exactly one matching career.workflow.* MCP facade first; do not start with its atomic counterpart.",
+    "Facade mapping: Profile Intake=career.workflow.profile_intake_turn/finalize; Resume Import=career.workflow.resume_import; Job Fit=career.workflow.job_fit; Tailoring=career.workflow.tailor_resume; Profile→Resume=career.workflow.profile_to_resume; Repair→Export=career.workflow.resume_export.",
+    "Use atomic career.profile.*, career.resume.*, career.job.*, and career.tailoring.* tools only for inspection, unusual repair, or recovery after a facade reports a recoverable failure.",
+    "Never invent profile or resume facts. Never claim a write or draft exists without a completed CareerAdapt tool receipt.",
+    "When a workflow returns waiting_for_user, stop tool-calling and ask exactly the returned high-value question.",
+    "When it returns waiting_for_confirmation, stop and yield the approval boundary. When completed, stop the tool loop and narrate the result.",
+    "Attachments are local CareerAdapt references. Use only their IDs with career.workflow.resume_import; never request paths, bytes, base64, or parse them yourself.",
+    `Runtime context: ${JSON.stringify(context)}`
+  ].join("\n");
+}
+
+function safeAttachments(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((entry) => {
+    const item = asRecord(entry);
+    return typeof item.id === "string" && typeof item.fileName === "string" && typeof item.mimeType === "string" && typeof item.size === "number"
+      ? [{ id: item.id, fileName: item.fileName, mimeType: item.mimeType, size: item.size, purpose: typeof item.purpose === "string" ? item.purpose : "other" }]
+      : [];
+  }).slice(0, 8);
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
+function requestSignal() {
+  return undefined;
 }
 
 function apiKeyHeader(): Record<string, string> {

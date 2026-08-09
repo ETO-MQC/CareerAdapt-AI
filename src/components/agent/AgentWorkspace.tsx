@@ -30,11 +30,13 @@ import { WorkspaceRepository } from "@/services/storage/repositories";
 import type { CareerProfile } from "@/domain/schemas";
 import { ProfileIntakeReviewProjectionSchema } from "@/domain/profileIntake/ProfileIntakeReviewProjection";
 import {
+  readResumeImportSemanticPreference,
   writeResumeImportSemanticPreference
 } from "@/services/preferences/resumeImportAi";
 import type { ActiveCareerContext } from "@/domain/schemas";
 import { CareerContextSelector } from "@/components/career/CareerContextSelector";
 import { notify } from "@/services/notifications/store";
+import { agentAttachmentStore, type AgentAttachmentRef } from "@/services/agent/AgentAttachmentStore";
 
 type ResumeSummary = { id: string; profileId: string; name: string; purpose: string; revision: number };
 type SessionComposerDrafts = Record<string, string>;
@@ -74,12 +76,18 @@ export function AgentWorkspace() {
   const mountedRef = useRef(true);
   const userInteractedRef = useRef(false);
   const restoreRequestRef = useRef(0);
+  const reattachedHermesRunsRef = useRef(new Set<string>());
   const [draftReferencesBySession, setDraftReferencesBySession] = useState<Record<string, AgentMessageReference | undefined>>({});
   const [lastUserMessage, setLastUserMessage] = useState("");
   const [floatingAction, setFloatingAction] = useState<AgentUiAction>();
   const [uploadFocusSignal, setUploadFocusSignal] = useState(0);
   const [attachmentsBySession, setAttachmentsBySession] = useState<SessionComposerAttachments>({});
   const [pendingResumeImportAttachmentId, setPendingResumeImportAttachmentId] = useState<string>();
+  const [pendingHermesAttachmentTurn, setPendingHermesAttachmentTurn] = useState<{
+    sessionId: string;
+    text: string;
+    attachments: AgentAttachmentRef[];
+  }>();
   const [pendingContextRequest, setPendingContextRequest] = useState<PendingContextRequest>();
   const running = snapshot.turnStatus === "running";
   const paused = snapshot.turnStatus === "paused";
@@ -199,31 +207,60 @@ export function AgentWorkspace() {
     // execution may continue streaming for a while; the sent instruction must
     // not remain visually editable during that period.
     setSessionDraft("");
+    const registeredAttachments: AgentAttachmentRef[] = [];
     try {
-      const result = input.attachments.length === 0 && input.text.trim()
+      const hermesAttachmentRequested = input.attachments.length > 0
+        && runtimeStatus.preferredRuntime === "hermes";
+      if (hermesAttachmentRequested && (runtimeStatus.status !== "ready" || runtimeStatus.mcpConnected === false)) {
+        throw Object.assign(new Error("Hermes 尚未准备好接收附件。"), { code: "hermes_attachment_runtime_not_ready" });
+      }
+      const hermesAttachmentTurn = hermesAttachmentRequested;
+      if (hermesAttachmentTurn) {
+        for (const attachment of input.attachments) {
+          registeredAttachments.push(await agentAttachmentStore.register(attachment.file));
+        }
+        if (readResumeImportSemanticPreference() === "unset" && registeredAttachments.some((attachment) => attachment.mimeType !== "application/json")) {
+          setPendingHermesAttachmentTurn({ sessionId: session.id, text: input.text, attachments: registeredAttachments });
+          setPendingResumeImportAttachmentId(registeredAttachments[0]?.id);
+          setAttachmentsBySession((current) => ({ ...current, [session.id]: [] }));
+          return;
+        }
+      }
+      const result = (input.attachments.length === 0 && input.text.trim()) || hermesAttachmentTurn
         ? await host.runTurn({
             sessionId: session.id,
             userMessage: input.text,
             pageContext: pageContext(),
-            session
+            session,
+            attachments: registeredAttachments.map((attachment) => ({
+              id: attachment.id,
+              fileName: attachment.fileName,
+              mimeType: attachment.mimeType,
+              size: attachment.size,
+              purpose: session.taskState?.workflowId === "resume_import" ? "resume_import" : "career_evidence"
+            }))
           })
         : await host.state.dispatch(
             { type: "composer_submit", text: input.text || undefined, files: input.attachments.map((attachment) => attachment.file) },
             { session, pageContext: pageContext() }
           );
       if (!result) throw new Error("composer_turn_not_accepted");
+      if (!["queued", "running", "waiting_for_approval", "stopping"].includes(result.hermesRun?.status ?? "completed")) {
+        agentAttachmentStore.releaseMany(registeredAttachments.filter((attachment) => agentAttachmentStore.has(attachment.id)).map((attachment) => attachment.id));
+      }
       setAttachmentsBySession((current) => ({ ...current, [session.id]: [] }));
       setSessionDraftReference(undefined);
       setSession(result);
       window.localStorage.setItem(ACTIVE_SESSION_KEY, result.id);
       window.dispatchEvent(new CustomEvent("careeradapt-agent-sessions-change"));
     } catch (error) {
+      agentAttachmentStore.releaseMany(registeredAttachments.map((attachment) => attachment.id));
       const errorCode = error instanceof Error && "code" in error && typeof error.code === "string" ? error.code : "composer_submit_failed";
       setSessionDraft(input.text);
       setSessionAttachments((current) => current.map((attachment) => ({ ...attachment, status: "failed" as const, errorCode })));
       notify({ type: "error", title: "附件发送失败", message: "附件仍保留在编辑区，可以重试或移除。" });
     }
-  }, [host, pageContext, session, setSessionAttachments, setSessionDraft, setSessionDraftReference]);
+  }, [host, pageContext, runtimeStatus.mcpConnected, runtimeStatus.preferredRuntime, runtimeStatus.status, session, setSessionAttachments, setSessionDraft, setSessionDraftReference]);
 
   const handleBeforeContextSelect = useCallback(async (next: ActiveCareerContext) => {
     if (!taskHasUsedAssetsOrWrites) {
@@ -401,6 +438,25 @@ export function AgentWorkspace() {
     });
     return () => { active = false; };
   }, [createSessionWithCurrentContext, host.executor, host.state, host.store, restoreSession]);
+
+  useEffect(() => {
+    const run = session.hermesRun;
+    if (!run || !["queued", "running", "waiting_for_approval", "stopping"].includes(run.status)) return;
+    if (runtimeStatus.activeRuntime !== "hermes" || runtimeStatus.status !== "ready") return;
+    if (reattachedHermesRunsRef.current.has(run.runId)) return;
+    reattachedHermesRunsRef.current.add(run.runId);
+    void host.runTurn({
+      sessionId: session.id,
+      userMessage: "",
+      pageContext: pageContext(),
+      session,
+      metadata: { reattachRunId: run.runId }
+    }).then((result) => {
+      if (result) setSession(result);
+    }).catch(() => {
+      reattachedHermesRunsRef.current.delete(run.runId);
+    });
+  }, [host, pageContext, runtimeStatus.activeRuntime, runtimeStatus.status, session]);
 
   useEffect(() => {
     const selectSession = (event: Event) => {
@@ -724,10 +780,25 @@ export function AgentWorkspace() {
                 confirmationBusy={running}
                 profileIntakeProjection={intakeProjection}
                 onArtifactAction={dispatchArtifactAction}
-                onConfirmation={(confirmed) => void host.state.dispatch(
-                  { type: "confirmation", confirmed },
-                  { session, pageContext: pageContext() }
-                )}
+                onConfirmation={(confirmed) => void (async () => {
+                  if (session.hermesRun?.status === "waiting_for_approval") {
+                    await host.hermesRuntime.approve(session.id, confirmed);
+                    const next = await host.runTurn({
+                      sessionId: session.id,
+                      userMessage: "",
+                      pageContext: pageContext(),
+                      session,
+                      metadata: { reattachRunId: session.hermesRun.runId }
+                    });
+                    if (next) setSession(next);
+                    return;
+                  }
+                  const next = await host.state.dispatch(
+                    { type: "confirmation", confirmed },
+                    { session, pageContext: pageContext() }
+                  );
+                  if (next) setSession(next);
+                })()}
               />
             </>
           )}
@@ -767,7 +838,7 @@ export function AgentWorkspace() {
         description="此选择会保存；AI 服务配置变化后会再次询问。"
         variant="agent"
         testId="agent-import-ai-consent"
-        onClose={() => setPendingResumeImportAttachmentId(undefined)}
+        onClose={cancelPendingResumeConsent}
       >
         <section className="ai-mapping-consent">
           <p>
@@ -862,10 +933,60 @@ export function AgentWorkspace() {
     if (!attachmentId) return;
     writeResumeImportSemanticPreference(mode);
     setPendingResumeImportAttachmentId(undefined);
+    if (pendingHermesAttachmentTurn?.sessionId === session.id) {
+      const pending = pendingHermesAttachmentTurn;
+      setPendingHermesAttachmentTurn(undefined);
+      try {
+        const current = host.state.getSnapshot().activeSession ?? session;
+        const next = await host.runTurn({
+          sessionId: current.id,
+          userMessage: pending.text,
+          pageContext: pageContext(),
+          session: current,
+          attachments: pending.attachments.map((attachment) => ({
+            id: attachment.id,
+            fileName: attachment.fileName,
+            mimeType: attachment.mimeType,
+            size: attachment.size,
+            purpose: "resume_import"
+          }))
+        });
+        if (next) setSession(next);
+      } catch (error) {
+        notify({ type: "error", title: "简历导入未启动", message: error instanceof Error ? error.message : "请重新选择附件后重试。" });
+      } finally {
+        agentAttachmentStore.releaseMany(pending.attachments.filter((attachment) => agentAttachmentStore.has(attachment.id)).map((attachment) => attachment.id));
+      }
+      return;
+    }
     await host.state.dispatch(
       { type: "resume_import_consent", attachmentId, mode },
       { session: host.state.getSnapshot().activeSession ?? session, pageContext: pageContext() }
     );
+  }
+
+  function cancelPendingResumeConsent() {
+    setPendingResumeImportAttachmentId(undefined);
+    const pending = pendingHermesAttachmentTurn;
+    if (!pending) return;
+    const restored = pending.attachments.flatMap((attachment) => {
+      try {
+        const { file } = agentAttachmentStore.resolve(attachment.id);
+        return [{
+          clientId: `composer-file-${crypto.randomUUID()}`,
+          file,
+          fileName: attachment.fileName,
+          mimeType: attachment.mimeType,
+          size: attachment.size,
+          status: "staged" as const
+        }];
+      } catch {
+        return [];
+      }
+    });
+    agentAttachmentStore.releaseMany(pending.attachments.map((attachment) => attachment.id));
+    setAttachmentsBySession((current) => ({ ...current, [pending.sessionId]: restored }));
+    setPendingHermesAttachmentTurn(undefined);
   }
 }
 

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { AgentPageContext } from "../../contracts/agentContext";
+import type { AgentRuntimeAttachment } from "../agentRuntime";
 import type { CareerSessionBinding } from "../careerSessionBinding";
 import { RuntimeHealthSchema, type RuntimeHealth } from "../runtimeHealth";
 
@@ -47,7 +48,30 @@ export type HermesTurnRequest = {
   pageContext: AgentPageContext;
   toolContracts: Array<Record<string, unknown>>;
   careerSessionBinding?: CareerSessionBinding;
+  attachments?: AgentRuntimeAttachment[];
+  conversationHistory?: Array<{ role: "user" | "assistant"; content: string }>;
   metadata?: Record<string, unknown>;
+};
+
+export const HermesRunStatusSchema = z.object({
+  object: z.string().optional(),
+  run_id: z.string().min(1),
+  status: z.enum(["queued", "started", "running", "waiting_for_approval", "stopping", "completed", "failed", "cancelled"]),
+  session_id: z.string().min(1).optional(),
+  model: z.string().min(1).optional(),
+  output: z.string().optional(),
+  error: z.string().optional(),
+  last_event: z.string().optional(),
+  created_at: z.number().optional(),
+  updated_at: z.number().optional(),
+  usage: z.record(z.string(), z.number()).optional()
+}).passthrough();
+
+export type HermesRunStatus = z.infer<typeof HermesRunStatusSchema>;
+
+export type HermesRunStart = {
+  runId: string;
+  status: "started" | "queued" | "running";
 };
 
 export type HermesToolCallback = {
@@ -67,6 +91,13 @@ export interface HermesBridgeTransport {
   turn(input: HermesTurnRequest, signal?: AbortSignal): AsyncIterable<HermesBridgeEvent>;
   toolCallback(input: HermesToolCallback, signal?: AbortSignal): Promise<void>;
   interrupt(input: { sessionId: string; turnId?: string; reason?: string }, signal?: AbortSignal): Promise<void>;
+  /** Runs are mandatory for production transports. Optionality only keeps
+   * pre-P4.4e in-memory adapters source-compatible during migration. */
+  startRun?(input: HermesTurnRequest, signal?: AbortSignal): Promise<HermesRunStart>;
+  getRun?(runId: string, signal?: AbortSignal): Promise<HermesRunStatus>;
+  runEvents?(runId: string, signal?: AbortSignal): AsyncIterable<HermesBridgeEvent>;
+  approveRun?(runId: string, choice: "once" | "session" | "always" | "deny", signal?: AbortSignal): Promise<HermesRunStatus>;
+  stopRun?(runId: string, signal?: AbortSignal): Promise<HermesRunStatus>;
 }
 
 /** Browser-safe bridge client. Hermes itself remains a server/local companion. */
@@ -97,6 +128,29 @@ export class HttpHermesBridgeTransport implements HermesBridgeTransport {
 
   async interrupt(input: { sessionId: string; turnId?: string; reason?: string }, signal?: AbortSignal) {
     await this.jsonRequest("interrupt", input, signal);
+  }
+
+  async startRun(input: HermesTurnRequest, signal?: AbortSignal) {
+    return this.jsonRequest<HermesRunStart>("run_start", input, signal);
+  }
+
+  async getRun(runId: string, signal?: AbortSignal) {
+    const result = await this.jsonRequest<HermesRunStatus>("run_status", { runId }, signal);
+    return HermesRunStatusSchema.parse(result);
+  }
+
+  runEvents(runId: string, signal?: AbortSignal) {
+    return this.streamRequest({ action: "run_events", runId }, signal);
+  }
+
+  async approveRun(runId: string, choice: "once" | "session" | "always" | "deny", signal?: AbortSignal) {
+    const result = await this.jsonRequest<HermesRunStatus>("run_approval", { runId, choice }, signal);
+    return HermesRunStatusSchema.parse(result);
+  }
+
+  async stopRun(runId: string, signal?: AbortSignal) {
+    const result = await this.jsonRequest<HermesRunStatus>("run_stop", { runId }, signal);
+    return HermesRunStatusSchema.parse(result);
   }
 
   private async jsonRequest<T = unknown>(action: string, input: Record<string, unknown>, signal?: AbortSignal) {
@@ -136,7 +190,7 @@ export class HttpHermesBridgeTransport implements HermesBridgeTransport {
     let sseData: string[] = [];
     const consumeSseLine = (line: string) => {
       if (line.trim()) {
-        if (line.startsWith(":")) return undefined;
+        if (line.startsWith(":")) return { type: "progress", data: { heartbeat: true } } satisfies HermesBridgeEvent;
         if (line.startsWith("event:")) {
           sseEventName = line.slice("event:".length).trim();
           return undefined;
@@ -151,7 +205,14 @@ export class HttpHermesBridgeTransport implements HermesBridgeTransport {
         return undefined;
       }
       try {
-        const event = mapOfficialHermesEvent(sseEventName, JSON.parse(sseData.join("\n")) as unknown);
+        const payload = JSON.parse(sseData.join("\n")) as unknown;
+        const payloadRecord = payload && typeof payload === "object" && !Array.isArray(payload)
+          ? payload as Record<string, unknown>
+          : {};
+        const officialEventName = sseEventName === "message" && typeof payloadRecord.event === "string"
+          ? payloadRecord.event
+          : sseEventName;
+        const event = mapOfficialHermesEvent(officialEventName, payload);
         sseEventName = "message";
         sseData = [];
         return event;
@@ -216,11 +277,42 @@ function mapOfficialHermesEvent(name: string, value: unknown): HermesBridgeEvent
   const payload = value && typeof value === "object" && !Array.isArray(value)
     ? value as Record<string, unknown>
     : {};
-  const toolName = typeof payload.tool_name === "string" ? payload.tool_name : "hermes_tool";
+  const toolName = typeof payload.tool_name === "string"
+    ? payload.tool_name
+    : typeof payload.tool === "string" ? payload.tool : "hermes_tool";
   const toolCallId = typeof payload.tool_call_id === "string" ? payload.tool_call_id : undefined;
   const operationId = typeof payload.operation_id === "string"
     ? payload.operation_id
-    : toolCallId ? `hermes-mcp-${toolCallId}` : `hermes-mcp-${Date.now()}`;
+    : toolCallId
+      ? `hermes-mcp-${toolCallId}`
+      : `hermes-mcp-${typeof payload.run_id === "string" ? payload.run_id : "run"}-${toolName}`;
+
+  if (name === "message.delta") {
+    return typeof payload.delta === "string" ? { type: "text_delta", delta: payload.delta } : undefined;
+  }
+  if (name === "tool.started") {
+    return { type: "tool_call_started", toolName, operationId, data: payload };
+  }
+  if (name === "tool.completed") {
+    return payload.error === true
+      ? { type: "tool_call_failed", toolName, operationId, code: "hermes_tool_failed", message: "Hermes tool failed.", recoverable: true, data: payload }
+      : { type: "tool_call_completed", toolName, operationId, data: payload };
+  }
+  if (name === "reasoning.available") {
+    return { type: "reasoning_status", message: typeof payload.text === "string" ? payload.text : undefined, data: payload };
+  }
+  if (name === "approval.request") {
+    return { type: "approval_required", toolName, operationId, data: payload, message: "Hermes run requires approval." };
+  }
+  if (name === "run.completed") {
+    return { type: "turn_completed", data: payload, message: typeof payload.output === "string" ? payload.output : undefined };
+  }
+  if (name === "run.cancelled") {
+    return { type: "turn_failed", code: "hermes_run_cancelled", message: "Hermes run was stopped.", recoverable: true };
+  }
+  if (name === "run.failed") {
+    return { type: "turn_failed", code: "hermes_run_failed", message: typeof payload.error === "string" ? payload.error : "Hermes run failed.", recoverable: false };
+  }
   if (name === "assistant.delta") {
     return typeof payload.delta === "string" ? { type: "text_delta", delta: payload.delta } : undefined;
   }

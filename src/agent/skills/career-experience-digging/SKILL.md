@@ -23,3 +23,6 @@
 
 ## Recovery and completion
 证据不足时保留原始回答并说明缺失类型，不做负面身份推断。非关键细节优先采用不依赖该细节的安全表达。完成标准是结论均能回指资料条目和原始消息证据。
+
+## Stop conditions
+正常补充优先调用 `career.workflow.profile_intake_turn`。`completed` 时停止并总结；`waiting_for_user` 时只问一个最高价值问题；`waiting_for_confirmation` 时交出确认；`partial` 时报告 checkpoint 并最多重规划一次；`failed` 时停止且不得虚构事实或写入。

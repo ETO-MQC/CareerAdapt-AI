@@ -18,6 +18,23 @@ export const ProfileIntakeFinalSynthesisAssetSchema = z.object({
   conflictFields: z.array(z.string().min(1)).max(24).default([]),
   conflicts: z.array(z.string().min(1)).max(24).optional(),
   provenance: z.array(ProfileIntakeProvenanceSchema).default([])
+  , qualityGate: z.object({
+    identityClear: z.boolean(),
+    responsibilityClear: z.boolean(),
+    evidenceCoverage: z.number().min(0).max(1),
+    careerReadiness: z.number().min(0).max(1),
+    duplication: z.number().min(0).max(1),
+    unsupportedClaimCount: z.number().int().min(0),
+    blockingIssues: z.array(z.enum(["unsupported_hard_fact", "identity_conflict", "major_contradiction"]))
+  }).default({
+    identityClear: false,
+    responsibilityClear: false,
+    evidenceCoverage: 0,
+    careerReadiness: 0,
+    duplication: 0,
+    unsupportedClaimCount: 0,
+    blockingIssues: []
+  })
 }).strict();
 
 export const ProfileIntakeFinalSynthesisSchema = z.object({
@@ -124,6 +141,7 @@ function buildAsset(group: DraftItemWithSection[]): ProfileIntakeFinalSynthesisA
   const highlights = careerHighlights(ordered, structuredItem);
   const conflictFields = conflictingFields(ordered);
   const careerReadyHighlights = ensureCareerReadyHighlights(highlights, structuredItem);
+  const qualityGate = assessFinalAssetQuality(structuredItem, assessment.present, careerReadyHighlights, conflictFields);
   return ProfileIntakeFinalSynthesisAssetSchema.parse({
     candidateId: `synth-${latest.id}`,
     sectionType: structuredItem.sectionType,
@@ -146,8 +164,41 @@ function buildAsset(group: DraftItemWithSection[]): ProfileIntakeFinalSynthesisA
         supersededFieldEvidence: [],
         confirmedAt: evidence.capturedAt
       })) ?? [])
-    ]
+    ],
+    qualityGate
   });
+}
+
+function assessFinalAssetQuality(
+  item: ResumeItemV2,
+  present: CareerAssetDimension[],
+  highlights: string[],
+  conflictFields: string[]
+) {
+  const identityClear = present.includes("identity");
+  const responsibilityClear = item.sectionType === "education"
+    || item.sectionType === "skills"
+    || item.sectionType === "languages"
+    || present.includes("role")
+    || present.includes("action");
+  const usefulDimensions: CareerAssetDimension[] = ["identity", "role", "action", "tools_methods", "challenge", "result", "scope", "collaboration", "time"];
+  const evidenceCoverage = usefulDimensions.filter((dimension) => present.includes(dimension)).length / usefulDimensions.length;
+  const normalized = highlights.map((highlight) => highlight.toLocaleLowerCase().replace(/\s+/gu, ""));
+  const unique = new Set(normalized);
+  const duplication = normalized.length ? 1 - unique.size / normalized.length : 0;
+  const blockingIssues: Array<"identity_conflict" | "major_contradiction"> = [];
+  const identityFields = new Set(["title", "name", "organization", "institution", "school"]);
+  if (conflictFields.some((field) => identityFields.has(field))) blockingIssues.push("identity_conflict");
+  if (conflictFields.some((field) => !identityFields.has(field))) blockingIssues.push("major_contradiction");
+  return {
+    identityClear,
+    responsibilityClear,
+    evidenceCoverage: Number(evidenceCoverage.toFixed(2)),
+    careerReadiness: Number(Math.min(1, (evidenceCoverage + (responsibilityClear ? 0.3 : 0) + (highlights.length >= 2 ? 0.2 : 0))).toFixed(2)),
+    duplication: Number(duplication.toFixed(2)),
+    unsupportedClaimCount: 0,
+    blockingIssues
+  };
 }
 
 function synthesizedItem(asset: ProfileIntakeFinalSynthesisAsset, group: DraftItemWithSection[]): ImportedResumeItem {

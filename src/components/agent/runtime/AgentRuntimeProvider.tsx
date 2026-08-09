@@ -115,6 +115,13 @@ function createAgentHost() {
       && statusBeforeTurn.mcpConnected !== false
       && Boolean(input.userMessage.trim())
       && Boolean(input.session);
+    const reattachingHermesRun = runtime.id === "hermes"
+      && Boolean(input.session?.hermesRun)
+      && ["queued", "running", "waiting_for_approval", "stopping"].includes(input.session?.hermesRun?.status ?? "")
+      && !input.userMessage.trim();
+    const reattachAssistant = reattachingHermesRun
+      ? input.session?.messages.findLast((message) => message.role === "assistant" && message.turnId === input.session?.hermesRun?.turnId)
+      : undefined;
     const runtimeShell = canStartHermesShell && input.session
       ? await state.beginRuntimeShell({
           session: input.session,
@@ -122,7 +129,14 @@ function createAgentHost() {
           runtimeId: "hermes",
           turnId: input.turnId
         })
-      : undefined;
+      : reattachingHermesRun && input.session && reattachAssistant
+        ? {
+            session: input.session,
+            turnId: input.session.hermesRun!.turnId,
+            assistantMessageId: reattachAssistant.id,
+            userMessageId: input.session.activeTurn?.userMessageId ?? ""
+          }
+        : undefined;
     const runtimeInput: AgentRuntimeTurnInput = {
       ...input,
       ...(runtimeShell ? {
@@ -147,7 +161,8 @@ function createAgentHost() {
           mcpBridge.setConfirmationContext({
             sessionId: runtimeInput.sessionId,
             turnId: runtimeShell.turnId,
-            assistantMessageId: runtimeShell.assistantMessageId
+            assistantMessageId: runtimeShell.assistantMessageId,
+            userMessageId: runtimeShell.userMessageId
           });
         }
         const binding = resolveCareerSessionBinding({
@@ -207,12 +222,48 @@ export function AgentRuntimeProvider({ children }: { children: React.ReactNode }
   const [host] = useState(createAgentHost);
   useEffect(() => {
     let active = true;
+    let healthRefreshInFlight: Promise<void> | undefined;
     host.runtimeStatus.update({ status: host.runtimeRouter.configurationSnapshot.agentRuntime === "hermes" ? "starting" : "ready" });
+    const refreshHermesHealth = async () => {
+      if (healthRefreshInFlight) return healthRefreshInFlight;
+      healthRefreshInFlight = (async () => {
+        try {
+          let health: Awaited<ReturnType<typeof host.hermesRuntime.health>> | undefined;
+          for (let attempt = 0; attempt < 4; attempt += 1) {
+            health = await host.hermesRuntime.health();
+            const mcpReady = health.mcpConnected === true && (health.discoveredToolCount ?? 0) > 0;
+            if (mcpReady || attempt === 3) break;
+            await new Promise((resolve) => setTimeout(resolve, 750));
+          }
+          if (!health || !active) return;
+          const runtimeHealth = toRuntimeHealth(health, {
+            mcpConnected: health.mcpConnected ?? false,
+            mcpToolCount: health.discoveredToolCount ?? 0,
+            careerSkillsLoaded: health.runtimeHealth?.careerSkillsLoaded ?? false
+          });
+          host.runtimeStatus.recordHealth(runtimeHealth);
+          host.runtimeStatus.update({
+            version: health.version,
+            provider: health.provider,
+            mcpServer: health.mcpServer ?? "careeradapt",
+            health: runtimeHealth,
+            roadshowMode: health.roadshowMode === true
+          });
+        } catch (error) {
+          if (active) host.runtimeStatus.update({ status: "unavailable", activeRuntime: "native", reason: error instanceof Error ? error.message : "hermes_health_failed" });
+        } finally {
+          healthRefreshInFlight = undefined;
+        }
+      })();
+      return healthRefreshInFlight;
+    };
     const boot = async () => {
       await host.mcpBridge.start(
         host.careerToolGateway,
         (status) => {
-          if (active) host.runtimeStatus.recordMcp(status);
+          if (!active) return;
+          host.runtimeStatus.recordMcp(status);
+          if (status.connected && status.discoveredToolCount > 0) void refreshHermesHealth();
         },
         async (confirmation) => {
           if (!active || host.state.getSnapshot().activeSession?.id !== confirmation.sessionId) return;
@@ -229,29 +280,28 @@ export function AgentRuntimeProvider({ children }: { children: React.ReactNode }
               contract: confirmation.contract
             }
           }, confirmation.assistantMessageId);
+        },
+        async ({ request, result }) => {
+          if (!active || !result.ok) return;
+          const context = host.state.getSnapshot().activeSession;
+          const confirmationContext = context?.activeTurn;
+          if (!context || !confirmationContext) return;
+          const assistant = context.messages.findLast((message) => message.role === "assistant" && message.turnId === confirmationContext.id);
+          if (!assistant) return;
+          const contract = host.careerToolGateway.listContracts().find((candidate) => candidate.name === request.name);
+          await host.state.applyRuntimeEvent({
+            type: "tool_call_completed",
+            sessionId: context.id,
+            turnId: confirmationContext.id,
+            timestamp: new Date().toISOString(),
+            toolName: request.name,
+            operationId: request.operationId,
+            data: { result, contract }
+          }, assistant.id);
         }
       );
       if (!active || host.runtimeRouter.configurationSnapshot.agentRuntime !== "hermes") return;
-      try {
-        const health = await host.hermesRuntime.health();
-        if (!active) return;
-        const runtimeHealth = toRuntimeHealth(health, {
-          mcpConnected: health.mcpConnected ?? false,
-          mcpToolCount: health.discoveredToolCount ?? 0,
-          careerSkillsLoaded: health.runtimeHealth?.careerSkillsLoaded ?? false
-        });
-        host.runtimeStatus.recordHealth(runtimeHealth);
-        host.runtimeStatus.update({
-          version: health.version,
-          provider: health.provider,
-          mcpServer: health.mcpServer ?? "careeradapt",
-          health: runtimeHealth,
-          roadshowMode: health.roadshowMode === true
-        });
-      } catch (error) {
-        if (!active) return;
-        host.runtimeStatus.update({ status: "unavailable", activeRuntime: "native", reason: error instanceof Error ? error.message : "hermes_health_failed" });
-      }
+      await refreshHermesHealth();
     };
     void boot();
     return () => {

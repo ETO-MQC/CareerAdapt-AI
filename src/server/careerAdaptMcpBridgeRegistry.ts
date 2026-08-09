@@ -34,10 +34,24 @@ type PendingCall = {
   resolve: (result: CareerToolResult) => void;
 };
 
-const BRIDGE_TTL_MS = 15_000;
+// A long Career tool can legitimately occupy the browser adapter while the
+// page is rendering its progress shell. Heartbeats are still sent every 5s,
+// but a short scheduling hiccup must not invalidate an otherwise recoverable
+// bridge and turn the Hermes Run into a chain of synthetic tool failures.
+const BRIDGE_TTL_MS = 60_000;
 const CALL_TIMEOUT_MS = 120_000;
-const bridges = new Map<string, BridgeRecord>();
-const pendingCalls = new Map<string, PendingCall>();
+const registryGlobal = globalThis as typeof globalThis & {
+  __careerAdaptMcpBridgeRegistry?: {
+    bridges: Map<string, BridgeRecord>;
+    pendingCalls: Map<string, PendingCall>;
+  };
+};
+const sharedRegistry = registryGlobal.__careerAdaptMcpBridgeRegistry ??= {
+  bridges: new Map<string, BridgeRecord>(),
+  pendingCalls: new Map<string, PendingCall>()
+};
+const bridges = sharedRegistry.bridges;
+const pendingCalls = sharedRegistry.pendingCalls;
 
 export type CareerAdaptMcpBridgeStatus = {
   connected: boolean;
