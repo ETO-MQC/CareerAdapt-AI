@@ -72,6 +72,7 @@ export type StructuredExperienceFields = {
   courses: string;
   startDate: string;
   endDate: string;
+  expectedEndDate?: string;
   current: boolean;
   description: string;
   highlights: string[];
@@ -86,6 +87,7 @@ export const emptyStructuredExperienceFields: StructuredExperienceFields = {
   courses: "",
   startDate: "",
   endDate: "",
+  expectedEndDate: "",
   current: false,
   description: "",
   highlights: []
@@ -102,6 +104,7 @@ export function canonicalToStructuredExperienceFields(item: ResumeItemV2): Struc
       courses: (item.courses ?? []).join("、"),
       startDate: item.startDate ?? "",
       endDate: item.endDate ?? "",
+      expectedEndDate: item.expectedEndDate ?? item.endDate ?? "",
       current: item.current ?? false,
       description: item.description ?? "",
       highlights: item.highlights ?? []
@@ -117,6 +120,7 @@ export function canonicalToStructuredExperienceFields(item: ResumeItemV2): Struc
       courses: "",
       startDate: item.startDate ?? "",
       endDate: item.endDate ?? "",
+      expectedEndDate: "",
       current: item.current ?? false,
       description: item.description ?? "",
       highlights: item.highlights ?? []
@@ -132,6 +136,7 @@ export function canonicalToStructuredExperienceFields(item: ResumeItemV2): Struc
     courses: "",
     startDate: text(record.startDate),
     endDate: text(record.endDate),
+    expectedEndDate: text(record.expectedEndDate),
     current: record.current === true,
     description: text(record.description),
     highlights: Array.isArray(record.highlights)
@@ -155,6 +160,7 @@ export function patchCanonicalExperienceFields(
       location: fields.location.trim() || undefined,
       startDate: fields.startDate || undefined,
       endDate: fields.current ? undefined : fields.endDate || undefined,
+      expectedEndDate: fields.current ? fields.expectedEndDate || fields.endDate || undefined : undefined,
       current: fields.current,
       courses: fields.courses.split(/[、,，;；]/).map((value) => value.trim()).filter(Boolean),
       description,
@@ -255,6 +261,88 @@ export function experienceFieldLabels(category: ResumeFieldCategoryId) {
   };
 }
 
+export type StructuredProjectFields = {
+  title: string;
+  role: string;
+  organization: string;
+  location: string;
+  startDate: string;
+  endDate: string;
+  current: boolean;
+  url: string;
+  tools: string[];
+  background: string;
+  description: string;
+  highlights: string[];
+  outcomes: string[];
+};
+
+export const emptyStructuredProjectFields: StructuredProjectFields = {
+  title: "",
+  role: "",
+  organization: "",
+  location: "",
+  startDate: "",
+  endDate: "",
+  current: false,
+  url: "",
+  tools: [],
+  background: "",
+  description: "",
+  highlights: [],
+  outcomes: []
+};
+
+export function canonicalToStructuredProjectFields(item: ResumeItemV2): StructuredProjectFields {
+  if (item.sectionType !== "project") return emptyStructuredProjectFields;
+  return {
+    title: item.title ?? "",
+    role: item.role ?? "",
+    organization: item.organization ?? "",
+    location: item.location ?? "",
+    startDate: item.startDate ?? "",
+    endDate: item.endDate ?? "",
+    current: item.current ?? false,
+    url: item.url ?? "",
+    tools: item.tools ?? [],
+    background: item.background ?? "",
+    description: item.description ?? "",
+    highlights: item.highlights ?? [],
+    outcomes: item.outcomes ?? []
+  };
+}
+
+export function patchCanonicalProjectFields(item: ResumeItemV2, fields: StructuredProjectFields): ResumeItemV2 {
+  if (item.sectionType !== "project") return item;
+  return {
+    ...item,
+    title: fields.title.trim() || undefined,
+    role: fields.role.trim() || undefined,
+    organization: fields.organization.trim() || undefined,
+    location: fields.location.trim() || undefined,
+    startDate: fields.startDate || undefined,
+    endDate: fields.current ? undefined : fields.endDate || undefined,
+    current: fields.current,
+    url: validResumeUrl(fields.url),
+    tools: fields.tools.map((value) => value.trim()).filter(Boolean),
+    background: fields.background.trim() || undefined,
+    description: fields.description.trim() || undefined,
+    highlights: fields.highlights.map((value) => value.trim()).filter(Boolean),
+    outcomes: fields.outcomes.map((value) => value.trim()).filter(Boolean)
+  };
+}
+
+function validResumeUrl(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  try {
+    const parsed = new URL(trimmed);
+    return parsed.protocol === "http:" || parsed.protocol === "https:" ? trimmed : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export function parseStructuredExperienceText(text: string): StructuredExperienceFields {
   const [rawHeader = "", ...rawLines] = text.split("\n");
   let header = rawHeader.trim();
@@ -285,6 +373,7 @@ export function parseStructuredExperienceText(text: string): StructuredExperienc
     courses: coursesLine?.replace(/^主修课程[：:]\s*/, "").trim() ?? "",
     startDate: normalizeStructuredDate(dates[0] ?? ""),
     endDate: current ? "" : normalizeStructuredDate(dates[1] ?? ""),
+    expectedEndDate: current ? normalizeStructuredDate(dates[1] ?? "") : "",
     current,
     description,
     highlights: []
@@ -295,7 +384,7 @@ export function serializeStructuredExperienceText(fields: StructuredExperienceFi
   const role = category === "education" ? fields.degree || fields.role : fields.role;
   const identity = [fields.organization.trim(), role.trim()].filter(Boolean).join(" / ");
   const dates = fields.startDate
-    ? `${serializeStructuredDate(fields.startDate)} - ${fields.current ? "至今" : serializeStructuredDate(fields.endDate)}`.replace(/\s+-\s+$/, "")
+    ? `${serializeStructuredDate(fields.startDate)} - ${fields.current ? (fields.expectedEndDate ? `${serializeStructuredDate(fields.expectedEndDate)}（预计）` : "至今") : serializeStructuredDate(fields.endDate)}`.replace(/\s+-\s+$/, "")
     : fields.current ? "至今" : serializeStructuredDate(fields.endDate);
   const header = [identity, fields.location.trim(), dates].filter(Boolean).join("  ");
   const metadata = category === "education"

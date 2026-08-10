@@ -21,6 +21,7 @@ import {
   Pencil
 } from "lucide-react";
 import {
+  ResumeItemV2Schema,
   type JobAdaptationDraft,
   type CareerProfile,
   type JobDescription,
@@ -1522,7 +1523,7 @@ export function ResumeWorkspace() {
 
   async function addContentItem(
     section: string,
-    draft: string | { text: string; organization?: string; role?: string; location?: string; degree?: string; major?: string; courses?: string[]; startDate?: string; endDate?: string },
+    draft: string | { text: string; organization?: string; title?: string; role?: string; location?: string; degree?: string; major?: string; courses?: string[]; startDate?: string; endDate?: string; expectedEndDate?: string; current?: boolean; url?: string; tools?: string[]; background?: string; description?: string; highlights?: string[]; outcomes?: string[] },
     syncToProfile = false
   ) {
     if (!selectedBranch || !selectedBranchEditable) {
@@ -1564,6 +1565,40 @@ export function ResumeWorkspace() {
         courses: payload.courses,
         startDate: payload.startDate,
         endDate: payload.endDate,
+        expectedEndDate: payload.expectedEndDate,
+        structuredItem: section === "project" ? ResumeItemV2Schema.parse({
+          id: "new-project",
+          sectionType: "project",
+          title: payload.title || payload.organization,
+          role: payload.role,
+          organization: payload.organization,
+          location: payload.location,
+          startDate: payload.startDate,
+          endDate: payload.endDate,
+          current: payload.current ?? false,
+          url: payload.url || undefined,
+          tools: payload.tools ?? [],
+          background: payload.background || undefined,
+          description: payload.description || undefined,
+          highlights: payload.highlights ?? [],
+          outcomes: payload.outcomes ?? [],
+          customFields: []
+        }) : section === "education" ? ResumeItemV2Schema.parse({
+          id: "new-education",
+          sectionType: "education",
+          school: payload.organization,
+          degree: payload.degree || payload.role,
+          major: payload.major,
+          location: payload.location,
+          startDate: payload.startDate,
+          endDate: payload.current ? undefined : payload.endDate,
+          current: payload.current ?? false,
+          expectedEndDate: payload.current ? payload.expectedEndDate : undefined,
+          courses: payload.courses ?? [],
+          honors: [],
+          highlights: payload.highlights ?? [],
+          customFields: []
+        }) : undefined,
         syncToProfile
       });
       if (syncToProfile) {

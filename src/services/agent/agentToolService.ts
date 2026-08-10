@@ -79,6 +79,13 @@ import {
   resolveProfileIntakeInterviewSupervisor,
   targetQuestion
 } from "@/agent/workflows/ProfileIntakeInterviewSupervisor";
+import {
+  buildResumeEvidenceGraph,
+  compileResumeComposition,
+  planResumeBlueprint,
+  reviewResumeComposition,
+  type ResumeCompositionMode
+} from "@/domain/resumeComposition";
 
 export class BrowserAgentToolService implements AgentToolServices {
   constructor(
@@ -753,6 +760,142 @@ export class BrowserAgentToolService implements AgentToolServices {
       mode: result.mode,
       idempotent: result.idempotent
     };
+  }
+
+  async buildResumeEvidenceGraph(rawInput: unknown, signal?: AbortSignal) {
+    assertNotAborted(signal);
+    const input = rawInput as { profileId: string; expectedProfileRevision?: number; acknowledgedActiveProfileId?: string };
+    await assertActiveProfileBinding(this.repository, { targetProfileId: input.profileId, acknowledgedActiveProfileId: input.acknowledgedActiveProfileId });
+    const profile = await this.repository.getProfile(input.profileId);
+    assertCompositionProfile(profile, input.expectedProfileRevision);
+    const graph = buildResumeEvidenceGraph({ profile });
+    return {
+      profileId: profile.id,
+      profileRevision: profile.version,
+      graph,
+      sourceAssetCount: graph.sourceAssetIds.length,
+      derivedSkillCount: graph.skillMatrix.length,
+      recoveryCandidateCount: graph.recoveryCandidates.length
+    };
+  }
+
+  async planResumeComposition(rawInput: unknown, signal?: AbortSignal) {
+    assertNotAborted(signal);
+    const input = rawInput as {
+      profileId: string;
+      expectedProfileRevision: number;
+      mode: ResumeCompositionMode;
+      jobId?: string;
+      sourceResumeId?: string;
+      acknowledgedActiveProfileId?: string;
+    };
+    const context = await this.loadCompositionContext(input);
+    const graph = buildResumeEvidenceGraph({ profile: context.profile });
+    const blueprint = planResumeBlueprint({ profile: context.profile, graph, mode: input.mode, job: context.job });
+    const composition = compileResumeComposition({ profile: context.profile, mode: input.mode, job: context.job, sourceResumeId: input.sourceResumeId });
+    return {
+      profileId: context.profile.id,
+      profileRevision: context.profile.version,
+      mode: input.mode,
+      ...(context.job ? { jobId: context.job.id } : {}),
+      evidenceGraph: graph,
+      blueprint,
+      compositionProposal: composition.proposal,
+      reviewResult: composition.reviewResult,
+      metrics: composition.metrics,
+      keywordCoverage: composition.keywordCoverage,
+      informationNeeds: composition.informationNeeds
+    };
+  }
+
+  async reviewResumeComposition(rawInput: unknown, signal?: AbortSignal) {
+    assertNotAborted(signal);
+    const input = rawInput as {
+      profileId: string;
+      expectedProfileRevision: number;
+      mode: ResumeCompositionMode;
+      jobId?: string;
+      sourceResumeId?: string;
+      acknowledgedActiveProfileId?: string;
+    };
+    const context = await this.loadCompositionContext(input);
+    const composition = compileResumeComposition({ profile: context.profile, mode: input.mode, job: context.job, sourceResumeId: input.sourceResumeId });
+    return {
+      profileId: context.profile.id,
+      profileRevision: context.profile.version,
+      mode: input.mode,
+      reviewResult: reviewResumeComposition(composition, { job: context.job }).reviewResult,
+      metrics: composition.metrics,
+      keywordCoverage: composition.keywordCoverage
+    };
+  }
+
+  async composeResume(rawInput: unknown, operationId: string, signal?: AbortSignal) {
+    assertNotAborted(signal);
+    const input = rawInput as {
+      profileId: string;
+      expectedProfileRevision: number;
+      mode: ResumeCompositionMode;
+      jobId?: string;
+      sourceResumeId?: string;
+      name?: string;
+      acknowledgedActiveProfileId?: string;
+    };
+    const context = await this.loadCompositionContext(input);
+    const composition = compileResumeComposition({ profile: context.profile, mode: input.mode, job: context.job, sourceResumeId: input.sourceResumeId });
+    if (input.mode === "general") {
+      const created = await this.repository.ensureGeneralResumeFromProfile({
+        profileId: context.profile.id,
+        operationId,
+        name: input.name?.trim() || `${context.profile.name} · 通用简历`,
+        composition
+      });
+      return {
+        profileId: context.profile.id,
+        profileRevision: context.profile.version,
+        resumeId: created.branch.id,
+        revisionId: created.revision?.id ?? created.branch.currentRevisionId,
+        revision: created.branch.revision,
+        mode: input.mode,
+        idempotent: created.idempotent,
+        composition
+      };
+    }
+    if (!context.job) throw toolError("job_not_found", "岗位简历组装需要有效的 jobId。");
+    const selectedCanonicalItemIds = composition.blueprint.assets
+      .map((asset) => asset.sourceAssetId)
+      .filter((id) => context.profile.structuredFacts?.some((entry) => entry.data.id === id));
+    if (!selectedCanonicalItemIds.length) throw toolError("profile_library_selection_empty", "没有可支持该岗位的已确认职业资产。");
+    const created = await this.repository.createJobSpecificBranchFromProfile({
+      profileId: context.profile.id,
+      jobId: context.job.id,
+      operationId,
+      name: input.name?.trim() || `${context.profile.name} · ${context.job.title}`,
+      selectedCanonicalItemIds,
+      requirementMatchIds: [],
+      composition
+    });
+    return {
+      profileId: context.profile.id,
+      profileRevision: context.profile.version,
+      resumeId: created.branch.id,
+      revisionId: created.revision?.id ?? created.branch.currentRevisionId,
+      revision: created.branch.revision,
+      mode: input.mode,
+      idempotent: created.idempotent,
+      composition
+    };
+  }
+
+  private async loadCompositionContext(input: { profileId: string; expectedProfileRevision: number; jobId?: string; acknowledgedActiveProfileId?: string }) {
+    await assertActiveProfileBinding(this.repository, { targetProfileId: input.profileId, acknowledgedActiveProfileId: input.acknowledgedActiveProfileId });
+    const [profile, job] = await Promise.all([
+      this.repository.getProfile(input.profileId),
+      input.jobId ? this.repository.getJobDescription(input.jobId) : Promise.resolve(undefined)
+    ]);
+    assertCompositionProfile(profile, input.expectedProfileRevision);
+    if (input.jobId && !job) throw toolError("job_not_found", "Job no longer exists.");
+    return { profile, job };
   }
 
   async createResumeFromProfile(rawInput: unknown, operationId: string, signal?: AbortSignal) {
@@ -1941,6 +2084,13 @@ async function isCanonicalCareerAdaptJsonFile(file: File) {
 
 function toolError(code: string, message: string) {
   return Object.assign(new Error(message), { code });
+}
+
+function assertCompositionProfile(profile: ReturnType<WorkspaceRepository["getProfile"]> extends Promise<infer T> ? T : never, expectedRevision?: number): asserts profile is NonNullable<typeof profile> {
+  if (!profile) throw toolError("profile_not_found", "资料库不存在或已被移除。");
+  if (typeof expectedRevision === "number" && profile.version !== expectedRevision) {
+    throw toolError("profile_composition_stale_profile", "资料库已变化，请先读取最新版本后再组装简历。");
+  }
 }
 
 function keywordCoverage(text: string, keywords: string[]) {

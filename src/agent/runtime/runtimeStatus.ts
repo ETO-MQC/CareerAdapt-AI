@@ -83,7 +83,7 @@ export class RuntimeStatusStore {
       mcpServer: "careeradapt",
       mcpConnected: health.mcpConnected,
       discoveredToolCount: health.mcpToolCount,
-      skillCount: health.careerSkillsLoaded ? 5 : 0,
+      skillCount: health.careerSkillsLoaded ? 6 : 0,
       health
     });
   }

@@ -34,6 +34,9 @@ const skills: AgentSkill[] = [
   skill("resume-from-profile", "从资料库生成简历", "从 CareerProfile 选择真实事实并生成岗位或通用简历计划。", ["生成简历", "组装简历", "资料库"], ["build_resume_from_profile"], ["get_active_profile", "get_profile", "search_profile_facts", "get_job", "list_resumes", "create_resume_from_profile"], [
     "读取目标资料与用途。", "筛选有证据的相关事实。", "形成章节与叙事计划。", "预览并确认后才创建版本。"
   ]),
+  skill("resume-composition", "简历证据组装", "从确认 Profile 构建 Evidence Graph、Resume Blueprint 和经过 Fact Guard 审查的通用或岗位简历。", ["生成简历", "组装简历", "证据图", "简历蓝图"], ["compose_resume", "build_resume_from_profile"], ["build_resume_evidence_graph", "plan_resume_composition", "review_resume_composition", "compose_resume"], [
+    "读取最新 Profile、来源证据和可选岗位。", "构建证据图并聚合跨项目技能。", "提出资产、摘要、项目 bullet 和关键词缺口蓝图。", "只询问最多两项可选高价值信息。", "展示审查提案，确认后写入隔离 ResumeRevision。"
+  ]),
   skill("resume-tailoring", "岗位简历定制", "在分支隔离和 Fact Guard 下定制现有简历。", ["定制", "改简历", "岗位简历"], ["tailor_existing_resume"], ["get_resume", "get_job", "analyze_job_fit", "create_tailoring_session", "answer_tailoring_question", "generate_tailoring_changes", "review_tailoring_diff", "preview_tailoring_changes", "apply_tailoring_changes"], [
     "读取所选简历。", "读取目标岗位。", "分析匹配。", "识别有支持的证据。", "询问缺失且可由用户确认的信息。", "创建改写计划。", "预览差异。", "请求用户确认。", "应用新 Revision。", "运行质量检查。"
   ], {
@@ -105,6 +108,7 @@ function explicitSkillRelevance(skillId: string, text: string) {
     "career-experience-digging": /(深挖|丰富|补充|梳理|挖掘).*(经历|项目)|(经历|项目).*(深挖|丰富|补充|缺口|亮点)/i,
     "jd-analysis": /(分析|解析|看看).*(JD|岗位描述|职位描述)|岗位.*(匹配|要求|分析)|JD/i,
     "resume-from-profile": /从资料库.*(生成|创建|组装).*简历/i,
+    "resume-composition": /(生成|创建|组装|整理).*(通用|岗位|简历)|简历.*(证据图|蓝图|组装)/i,
     "resume-tailoring": /(定制|针对.*优化|改写).*(简历)|岗位简历/i,
     "resume-quality-gate": /(检查|评估|审核).*(简历质量|ATS)|简历.*(够不够|质量门禁)/i,
     "resume-export": /(导出|生成).*(PDF|简历文件)|PDF.*导出/i

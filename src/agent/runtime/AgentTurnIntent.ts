@@ -475,6 +475,9 @@ function newDomainTask(text: string): NonNullable<TurnIntentDecision["newTask"]>
   if (/上传|导入/.test(text) && /简历/.test(text)) {
     return { goal: "import_resume", workflowId: "resume_import", stage: "select_source" };
   }
+  if (/(生成|创建|整理|组装|编写).*(简历)|简历.*(生成|创建|整理|组装|编写)/i.test(text)) {
+    return { goal: "compose_resume", workflowId: "compose_resume", stage: "select_profile_scope" };
+  }
   if (/申请|应聘|想投/.test(text)) {
     return { goal: "apply_to_job", workflowId: "tailor_existing_resume", stage: "choose_resume_source" };
   }

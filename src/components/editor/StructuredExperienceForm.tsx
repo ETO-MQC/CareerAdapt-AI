@@ -62,7 +62,15 @@ export function StructuredExperienceForm({
       )}
       <div className="section-fields-grid-2">
         <FieldInput id={`${idPrefix}-start`} label={labels.startDate} type="month" value={value.startDate} onChange={(next) => update("startDate", next)} onFocus={onFocus} />
-        <FieldInput id={`${idPrefix}-end`} label={labels.endDate} type="month" value={value.endDate} disabled={value.current} onChange={(next) => update("endDate", next)} onFocus={onFocus} />
+        <FieldInput
+          id={`${idPrefix}-end`}
+          label={category === "education" && value.current ? "预计毕业时间" : labels.endDate}
+          type="month"
+          value={category === "education" && value.current ? value.expectedEndDate ?? "" : value.endDate}
+          disabled={category !== "education" && value.current}
+          onChange={(next) => update(category === "education" && value.current ? "expectedEndDate" : "endDate", next)}
+          onFocus={onFocus}
+        />
       </div>
       <label className="field-input-checkbox-label profile-current-toggle">
         <input type="checkbox" checked={value.current} onChange={(event) => update("current", event.target.checked)} />

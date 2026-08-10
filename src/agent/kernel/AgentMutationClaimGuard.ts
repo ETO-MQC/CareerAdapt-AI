@@ -6,6 +6,7 @@ export type AuthoritativeTurnObservation = {
 const PERSISTED_MUTATION_TOOLS = new Set([
   "commit_profile_intake",
   "ensure_general_resume_from_profile",
+  "compose_resume",
   "create_resume_from_profile",
   "commit_resume_import",
   "commit_job",

@@ -1,4 +1,4 @@
-export const RESUME_CATALOG_VERSION = "resume-field-catalog-v2.1.0" as const;
+export const RESUME_CATALOG_VERSION = "resume-field-catalog-v2.1.1" as const;
 
 export const RESUME_SECTION_TYPES_V2 = [
   "basics",

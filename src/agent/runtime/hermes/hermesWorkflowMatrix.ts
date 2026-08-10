@@ -33,8 +33,8 @@ export const HERMES_WORKFLOW_MATRIX = [
   {
     id: "profile-to-resume",
     label: "Profile → Resume",
-    preferredFacades: ["career.workflow.profile_to_resume"],
-    requiredTools: ["career.workflow.profile_to_resume", "career.resume.ensure_general_from_profile", "career.resume.create_from_profile"]
+    preferredFacades: ["career.workflow.compose_resume", "career.workflow.profile_to_resume"],
+    requiredTools: ["career.workflow.compose_resume", "career.resume.build_evidence_graph", "career.resume.plan_composition", "career.resume.compose", "career.resume.review_composition", "career.resume.ensure_general_from_profile", "career.resume.create_from_profile"]
   },
   {
     id: "repair-export",

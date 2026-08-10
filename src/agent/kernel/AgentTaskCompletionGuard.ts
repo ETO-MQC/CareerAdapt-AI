@@ -25,6 +25,7 @@ export type AgentNextActionHint = {
 const TERMINAL_STAGES: Record<string, Set<string>> = {
   create_tailored_resume: new Set(["quality_result"]),
   create_resume_from_profile: new Set(["quality_result", "completed"]),
+  compose_resume: new Set(["resume_ready", "completed"]),
   import_resume: new Set(["import_complete"]),
   export_resume: new Set(["export_ready"]),
   profile_intake: new Set(["profile_complete", "resume_ready"]),
@@ -41,6 +42,7 @@ const KNOWN_DOMAIN_GOALS = new Set([
   ...Object.keys(TERMINAL_STAGES),
   "create_tailored_resume",
   "create_resume_from_profile",
+  "compose_resume",
   "import_resume",
   "ingest_job",
   "export_resume",
@@ -75,6 +77,9 @@ export class AgentTaskCompletionGuard {
       return incomplete(state, requiredNextStage(state));
     }
     if (state.rootGoal === "create_resume_from_profile" && !resumeFromProfileContractComplete(state)) {
+      return incomplete(state, requiredNextStage(state));
+    }
+    if (state.rootGoal === "compose_resume" && !resumeCompositionContractComplete(state)) {
       return incomplete(state, requiredNextStage(state));
     }
     if (state.rootGoal === "import_resume" && !importContractComplete(state)) {
@@ -117,6 +122,12 @@ function requiredNextStage(state: AgentTaskState) {
     if (!state.selectedEntities.profileId) return "select_profile_scope";
     if (!hasValue(state.knownSlots.selectedFactIds)) return "select_facts";
     if (!state.knownSlots.resumeFromProfileResult) return "confirm_create";
+    return "completed";
+  }
+  if (state.rootGoal === "compose_resume") {
+    if (!state.selectedEntities.profileId) return "select_profile_scope";
+    if (!state.knownSlots.resumeCompositionCheckpoint) return "review_composition";
+    if (!state.knownSlots.resumeCompositionResult) return "confirm_create";
     return "completed";
   }
   if (state.rootGoal === "profile_intake" && state.stage === "confirm_commit") return "confirm_commit";
@@ -184,6 +195,17 @@ function resumeFromProfileContractComplete(state: AgentTaskState) {
   );
 }
 
+function resumeCompositionContractComplete(state: AgentTaskState) {
+  return Boolean(
+    state.selectedEntities.profileId
+    && state.selectedEntities.resumeId
+    && state.selectedEntities.revisionId
+    && state.knownSlots.resumeCompositionResult
+    && state.stage === "resume_ready"
+    && state.completionStatus === "completed"
+  );
+}
+
 function legalToolsFor(stage: string) {
   const tools: Record<string, string[]> = {
     prepare_import: ["prepare_resume_import"],
@@ -202,7 +224,8 @@ function legalToolsFor(stage: string) {
     confirm_apply: ["apply_tailoring_changes"],
     apply: ["apply_tailoring_changes"],
     review_resume_plan: ["create_resume_from_profile"],
-    confirm_create: ["create_resume_from_profile"]
+    review_composition: ["plan_resume_composition", "review_resume_composition"],
+    confirm_create: ["compose_resume", "create_resume_from_profile"]
   };
   return tools[stage] ?? [];
 }

@@ -17,7 +17,7 @@ const seeds: Partial<Record<Exclude<ResumeSectionTypeV2, "custom">, readonly Fie
     ["school", "学校", "string", ["institution", "university"], "text"], ["major", "专业", "string", ["fieldOfStudy"], "text"],
     ["degree", "学位/学历", "string", ["qualification"], "text"], ["department", "院系", "string", ["faculty"], "text"],
     ["location", "所在地", "string", ["city"], "text"], ["startDate", "开始日期", "date", ["from"], "date"],
-    ["endDate", "结束日期", "date", ["to"], "date"], ["current", "在读", "boolean", ["present"], "checkbox"],
+    ["endDate", "结束日期", "date", ["to"], "date"], ["expectedEndDate", "预计结束日期", "date", ["expectedGraduationDate"], "date"], ["current", "在读", "boolean", ["present"], "checkbox"],
     ["gpa", "GPA", "number", ["gradePointAverage"], "number"], ["gpaScale", "GPA 满分", "number", ["gpaMax"], "number"],
     ["rankPosition", "排名", "number", ["rank"], "number"], ["rankTotal", "排名总人数", "number", ["cohortSize"], "number"],
     ["courses", "主修课程", "string_list", ["coursework"], "tags"], ["honors", "荣誉", "string_list", ["academicHonors"], "tags"],

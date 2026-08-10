@@ -9,10 +9,15 @@ import {
   patchCanonicalExperienceFields,
   parseStructuredExperienceText,
   serializeStructuredExperienceText,
+  canonicalToStructuredProjectFields,
+  emptyStructuredProjectFields,
+  patchCanonicalProjectFields,
   type ResumeFieldCategoryId,
-  type StructuredExperienceFields
+  type StructuredExperienceFields,
+  type StructuredProjectFields
 } from "@/domain/resumeFields/catalog";
 import { StructuredExperienceForm } from "../StructuredExperienceForm";
+import { StructuredProjectForm } from "../StructuredProjectForm";
 import { AccordionList } from "../AccordionList";
 import { SectionShell } from "../SectionShell";
 import { contentItemTypeLabel, guardStatusLabel } from "../helpers";
@@ -37,7 +42,7 @@ type ExperienceSectionPageProps = {
   onDuplicate: (itemId: string) => void;
   onMoveUp: (itemId: string) => void;
   onMoveDown: (itemId: string) => void;
-  onAdd: (draft: { text: string; organization?: string; role?: string; location?: string; degree?: string; major?: string; courses?: string[]; startDate?: string; endDate?: string }, syncToProfile: boolean) => void;
+  onAdd: (draft: { text: string; organization?: string; title?: string; role?: string; location?: string; degree?: string; major?: string; courses?: string[]; startDate?: string; endDate?: string; expectedEndDate?: string; current?: boolean; url?: string; tools?: string[]; background?: string; description?: string; highlights?: string[]; outcomes?: string[] }, syncToProfile: boolean) => void;
   onSyncToProfile: (itemId: string) => void;
   onOpenLibrary: () => void;
   nav: SectionNavContext;
@@ -45,6 +50,11 @@ type ExperienceSectionPageProps = {
 
 function DefaultExperienceFields({ sectionLabel, onAdd, onCancel }: { sectionLabel: string; onAdd: ExperienceSectionPageProps["onAdd"]; onCancel?: () => void }) {
   const category = experienceCategoryFromLabel(sectionLabel);
+  if (category === "project") return <DefaultProjectFields onAdd={onAdd} onCancel={onCancel} />;
+  return <DefaultNonProjectFields category={category} onAdd={onAdd} onCancel={onCancel} />;
+}
+
+function DefaultNonProjectFields({ category, onAdd, onCancel }: { category: Exclude<ReturnType<typeof experienceCategoryFromLabel>, "project">; onAdd: ExperienceSectionPageProps["onAdd"]; onCancel?: () => void }) {
   const [draft, setDraft] = useState<StructuredExperienceFields>(emptyStructuredExperienceFields);
   const save = (syncToProfile: boolean) => {
     const text = serializeStructuredExperienceText(draft, category);
@@ -58,7 +68,8 @@ function DefaultExperienceFields({ sectionLabel, onAdd, onCancel }: { sectionLab
       major: draft.major,
       courses: draft.courses.split(/[、,，]/).map((item) => item.trim()).filter(Boolean),
       startDate: draft.startDate,
-      endDate: draft.current ? undefined : draft.endDate
+      endDate: draft.current ? undefined : draft.endDate,
+      expectedEndDate: draft.current ? draft.expectedEndDate : undefined,
     }, syncToProfile);
     setDraft(emptyStructuredExperienceFields);
   };
@@ -72,6 +83,40 @@ function DefaultExperienceFields({ sectionLabel, onAdd, onCancel }: { sectionLab
         <button type="button" className="section-action-button" onClick={() => save(true)} disabled={!Object.values(draft).some(Boolean)}>
           保存并同步资料库
         </button>
+        {onCancel ? <button type="button" className="section-action-button" onClick={onCancel}>取消</button> : null}
+      </div>
+    </div>
+  );
+}
+
+function DefaultProjectFields({ onAdd, onCancel }: { onAdd: ExperienceSectionPageProps["onAdd"]; onCancel?: () => void }) {
+  const [draft, setDraft] = useState<StructuredProjectFields>(emptyStructuredProjectFields);
+  const save = (syncToProfile: boolean) => {
+    if (!draft.title.trim()) return;
+    onAdd({
+      text: [draft.title, draft.role, draft.organization, draft.description, ...draft.highlights, ...draft.outcomes].filter(Boolean).join("\n"),
+      title: draft.title,
+      organization: draft.organization,
+      role: draft.role,
+      location: draft.location,
+      startDate: draft.startDate,
+      endDate: draft.current ? undefined : draft.endDate,
+      current: draft.current,
+      url: draft.url,
+      tools: draft.tools,
+      background: draft.background,
+      description: draft.description,
+      highlights: draft.highlights,
+      outcomes: draft.outcomes
+    }, syncToProfile);
+    setDraft(emptyStructuredProjectFields);
+  };
+  return (
+    <div className="section-fields">
+      <StructuredProjectForm value={draft} onChange={setDraft} idPrefix="new-project" />
+      <div className="section-summary-actions">
+        <button type="button" className="section-action-button section-action-button-primary" onClick={() => save(false)} disabled={!draft.title.trim()}>保存到简历</button>
+        <button type="button" className="section-action-button" onClick={() => save(true)} disabled={!draft.title.trim()}>保存并同步资料库</button>
         {onCancel ? <button type="button" className="section-action-button" onClick={onCancel}>取消</button> : null}
       </div>
     </div>
@@ -130,6 +175,9 @@ export function ExperienceSectionPage({
           if (category === "education" && !parsed.degree) parsed.degree = parsed.role;
           return parsed;
         })();
+    const projectFields = canonicalItem?.data.sectionType === "project"
+      ? canonicalToStructuredProjectFields(canonicalItem.data)
+      : undefined;
 
     const org = structuredFields.organization;
     const role = category === "education" ? structuredFields.degree : structuredFields.role;
@@ -147,6 +195,7 @@ export function ExperienceSectionPage({
           itemId={block.contentItemId}
           category={category}
           initialFields={structuredFields}
+          initialProjectFields={projectFields}
           canonicalItem={canonicalItem?.data}
           onEditTextChange={onEditTextChange}
           onSave={onSave}
@@ -271,6 +320,7 @@ function ExperienceItemFields(props: {
   itemId: string;
   category: Extract<ResumeFieldCategoryId, "education" | "work" | "internship" | "project" | "campus">;
   initialFields: StructuredExperienceFields;
+  initialProjectFields?: StructuredProjectFields;
   canonicalItem?: ResumeItemV2;
   onEditTextChange: (itemId: string, text: string) => void;
   onSave: (itemId: string) => void;
@@ -280,14 +330,22 @@ function ExperienceItemFields(props: {
   children: ReactNode;
 }) {
   const [fields, setFields] = useState(props.initialFields);
+  const [projectFields, setProjectFields] = useState(props.initialProjectFields ?? emptyStructuredProjectFields);
   const latestFieldsRef = useRef(fields);
+  const latestProjectFieldsRef = useRef(projectFields);
   const dirtyRef = useRef(false);
   const saveTimerRef = useRef<number | undefined>(undefined);
 
   async function save(origin: "manual" | "auto") {
     if (saveTimerRef.current !== undefined) window.clearTimeout(saveTimerRef.current);
     saveTimerRef.current = undefined;
-    if (props.canonicalItem && props.onSaveStructuredItem) {
+    if (props.canonicalItem?.sectionType === "project" && props.onSaveStructuredItem) {
+      await props.onSaveStructuredItem(
+        props.itemId,
+        patchCanonicalProjectFields(props.canonicalItem, latestProjectFieldsRef.current),
+        { origin }
+      );
+    } else if (props.canonicalItem && props.onSaveStructuredItem) {
       await props.onSaveStructuredItem(
         props.itemId,
         patchCanonicalExperienceFields(props.canonicalItem, latestFieldsRef.current),
@@ -317,15 +375,32 @@ function ExperienceItemFields(props: {
     saveTimerRef.current = window.setTimeout(() => { void save("auto"); }, 1200);
   }
 
+  function updateProjectFields(next: StructuredProjectFields) {
+    setProjectFields(next);
+    latestProjectFieldsRef.current = next;
+    dirtyRef.current = true;
+    if (saveTimerRef.current !== undefined) window.clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = window.setTimeout(() => { void save("auto"); }, 1200);
+  }
+
   return (
     <div className="experience-item-fields">
-      <StructuredExperienceForm
-        category={props.category}
-        value={fields}
-        onChange={updateFields}
-        idPrefix={`existing-${props.itemId}`}
-        onFocus={() => props.onSelectItem(props.itemId)}
-      />
+      {props.canonicalItem?.sectionType === "project" ? (
+        <StructuredProjectForm
+          value={projectFields}
+          onChange={updateProjectFields}
+          idPrefix={`existing-${props.itemId}-project`}
+          onFocus={() => props.onSelectItem(props.itemId)}
+        />
+      ) : (
+        <StructuredExperienceForm
+          category={props.category}
+          value={fields}
+          onChange={updateFields}
+          idPrefix={`existing-${props.itemId}`}
+          onFocus={() => props.onSelectItem(props.itemId)}
+        />
+      )}
       {props.warning}
       <div className="experience-item-actions">
         <button

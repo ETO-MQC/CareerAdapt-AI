@@ -438,6 +438,19 @@ export class AgentTaskStateReducer {
         state.activeGoal = "create_resume_from_profile";
         state.stage = "completed";
         state.completionStatus = "completed";
+      } else if (event.toolName === "compose_resume") {
+        const value = objectValue(event.observation);
+        const resumeId = stringValue(value.resumeId);
+        const revisionId = stringValue(value.revisionId);
+        if (resumeId) state.selectedEntities.resumeId = resumeId;
+        if (revisionId) {
+          state.selectedEntities.revisionId = revisionId;
+          state.selectedEntities.resumeRevisionId = revisionId;
+        }
+        state.knownSlots.resumeCompositionResult = event.observation;
+        state.activeGoal = "compose_resume";
+        state.stage = resumeId ? "resume_ready" : "review_composition";
+        state.completionStatus = resumeId ? "completed" : "waiting_for_user";
       } else if (event.toolName === "analyze_job_fit") {
         state.knownSlots.fitAnalysis = objectValue(event.observation).analysis ?? event.observation;
         state.dependencySnapshots.fitResult = dependencySnapshot(state, event.observation);
@@ -825,6 +838,9 @@ export class AgentTaskStateReducer {
         state.stage = "confirm_commit";
       }
       if (event.toolName === "create_resume_from_profile") {
+        state.stage = "confirm_create";
+      }
+      if (event.toolName === "compose_resume") {
         state.stage = "confirm_create";
       }
     }

@@ -133,6 +133,7 @@ import {
   buildResumeImportReconciledProfileOnly
 } from "@/domain/resumeImport/confirm";
 import { ProfileReconciliationEngine } from "@/domain/profileReconciliation/ProfileReconciliationEngine";
+import { compileResumeComposition, type ResumeCompositionResult } from "@/domain/resumeComposition";
 import { runRuleFactGuard } from "@/domain/adaptation/factGuard";
 import {
   AdaptationDraftError,
@@ -2572,6 +2573,7 @@ export class WorkspaceRepository {
     includeProfileFacts: boolean;
     includeProfileBasics: boolean;
     selectedCanonicalItemIds?: string[];
+    composition?: ResumeCompositionResult;
   }) {
     return this.db.transaction(
       "rw",
@@ -2630,7 +2632,10 @@ export class WorkspaceRepository {
     profileId: string;
     operationId: string;
     name?: string;
+    composition?: ResumeCompositionResult;
   }) {
+    const profile = input.composition ? undefined : await this.getProfile(input.profileId);
+    const composition = input.composition ?? (profile ? compileResumeComposition({ profile, mode: "general" }) : undefined);
     const activeGeneral = (await this.listResumeBranches(input.profileId))
       .filter((branch) => branch.branchPurpose === "general" && branch.lifecycleStatus === "active")
       .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0];
@@ -2640,7 +2645,8 @@ export class WorkspaceRepository {
         operationId: input.operationId,
         name: input.name ?? "通用简历",
         includeProfileFacts: true,
-        includeProfileBasics: true
+        includeProfileBasics: true,
+        composition
       });
       return { ...created, mode: "created" as const };
     }
@@ -2660,6 +2666,7 @@ export class WorkspaceRepository {
           name: branch.name,
           includeProfileFacts: true,
           includeProfileBasics: true,
+          composition,
           now
         });
         const retainedManualItems = branch.contentItems.filter((item) =>
@@ -2702,6 +2709,7 @@ export class WorkspaceRepository {
     name: string;
     selectedCanonicalItemIds: string[];
     requirementMatchIds: string[];
+    composition?: ResumeCompositionResult;
   }) {
     return this.db.transaction(
       "rw",
@@ -2747,6 +2755,7 @@ export class WorkspaceRepository {
           selectedCanonicalItemIds: input.selectedCanonicalItemIds,
           requirementMatchIds: matches.map((match) => match.id),
           sourceMatchSetHash: computeRequirementsHash({ job, matches }),
+          composition: input.composition,
           now
         });
         const operation = ResumeBranchOperationSchema.parse({
@@ -4237,6 +4246,15 @@ export class WorkspaceRepository {
     courses?: string[];
     startDate?: string;
     endDate?: string;
+    expectedEndDate?: string;
+    current?: boolean;
+    url?: string;
+    tools?: string[];
+    background?: string;
+    description?: string;
+    highlights?: string[];
+    outcomes?: string[];
+    structuredItem?: ResumeItemV2;
     syncToProfile?: boolean;
   }) {
     const newItemId = `branch-item-new-${stableHashText(`${input.branchId}:${input.operationId}`).replace(/[^a-zA-Z0-9-]/g, "").slice(0, 28)}`;
@@ -4288,10 +4306,29 @@ export class WorkspaceRepository {
           const nextItems = [...orderedItems, newItem].map((item, order) =>
             BranchContentItemSchema.parse({ ...item, order })
           );
+          const structuredItems = input.structuredItem
+            ? [
+                ...syncStructuredContentItems(branch, nextItems).filter((item) => item.id !== newItemId),
+                ResumeContentItemV2Schema.parse({
+                  id: newItemId,
+                  schemaVersion: "resume-content-item-v2",
+                  data: ResumeItemV2Schema.parse({ ...input.structuredItem, id: newItemId }),
+                  factRefs: [],
+                  source: "user_manual",
+                  order: nextItems.length - 1,
+                  visible: true,
+                  guardMode: "rule_verified",
+                  guardStatus: "pass",
+                  guardFindings: [],
+                  userConfirmation: newItem.userConfirmation,
+                  legacyTextProjection: text
+                })
+              ].sort((left, right) => left.order - right.order)
+            : syncStructuredContentItems(branch, nextItems);
           return ResumeBranchSchema.parse({
             ...branch,
             contentItems: nextItems,
-            structuredContentItems: syncStructuredContentItems(branch, nextItems)
+            structuredContentItems: structuredItems
           });
         }
         const entitySuffix = stableHashText(input.operationId).replace(/[^a-zA-Z0-9-]/g, "").slice(0, 20);
@@ -4321,6 +4358,9 @@ export class WorkspaceRepository {
         };
         let factRefs: ResumeBranch["contentItems"][number]["factRefs"];
         let nextProfile: CareerProfile;
+        const structuredData = input.structuredItem
+          ? ResumeItemV2Schema.parse({ ...input.structuredItem, id: newItemId })
+          : undefined;
         if (input.itemType === "skill") {
           const skillId = `skill-user-${entitySuffix}`;
           nextProfile = CareerProfileSchema.parse({
@@ -4391,6 +4431,15 @@ export class WorkspaceRepository {
           });
           factRefs = [{ type: "experience_fact", experienceId, factId }];
         }
+        if (structuredData) {
+          nextProfile = CareerProfileSchema.parse({
+            ...nextProfile,
+            structuredFacts: [
+              ...(nextProfile.structuredFacts ?? []),
+              { data: structuredData, factIds: [factId], sourceBlockIds: [], sourceRanges: [], mappingTrace: [] }
+            ]
+          });
+        }
         const guardResult = runRuleFactGuard({
           originalText: text,
           checkedText: text,
@@ -4431,11 +4480,29 @@ export class WorkspaceRepository {
           BranchContentItemSchema.parse({ ...item, order })
         );
         await this.db.profiles.put(nextProfile);
+        const structuredItems = structuredData
+          ? [
+              ...syncStructuredContentItems(branch, nextItems).filter((item) => item.id !== newItemId),
+              ResumeContentItemV2Schema.parse({
+                id: newItemId,
+                schemaVersion: "resume-content-item-v2",
+                data: structuredData,
+                factRefs,
+                source: "user_manual",
+                order: nextItems.length - 1,
+                visible: true,
+                guardMode: "rule_verified",
+                guardStatus: "pass",
+                guardFindings: [],
+                legacyTextProjection: text
+              })
+            ].sort((left, right) => left.order - right.order)
+          : syncStructuredContentItems(branch, nextItems);
         return ResumeBranchSchema.parse({
           ...branch,
           sourceProfileVersion: nextProfile.version,
           contentItems: nextItems,
-          structuredContentItems: syncStructuredContentItems(branch, nextItems)
+          structuredContentItems: structuredItems
         });
       }
     });
@@ -4508,6 +4575,53 @@ export class WorkspaceRepository {
             ? ResumeContentItemV2Schema.parse({
                 ...candidate,
                 data: award,
+                source: "user_manual",
+                legacyTextProjection: nextText
+              })
+            : candidate);
+          await this.db.profiles.put(nextProfile);
+          return ResumeBranchSchema.parse({
+            ...branch,
+            sourceProfileVersion: nextProfile.version,
+            contentItems: nextItems,
+            structuredContentItems: nextStructuredItems
+          });
+        }
+
+        if (item.factRefs.length > 0 && currentStructuredItem && ["education", "project", "research", "work", "internship", "campus", "volunteer"].includes(currentStructuredItem.sectionType)) {
+          const structured = ResumeItemV2Schema.parse(currentStructuredItem);
+          const factIds = item.factRefs.flatMap((reference) => "factId" in reference ? [reference.factId] : []);
+          const currentFacts = profile.structuredFacts ?? [];
+          const matchingIndex = currentFacts.findIndex((entry) => entry.data.id === structured.id || entry.factIds.some((factId) => factIds.includes(factId)));
+          const nextFacts = matchingIndex >= 0
+            ? currentFacts.map((entry, index) => index === matchingIndex ? { ...entry, data: structured } : entry)
+            : [...currentFacts, { data: structured, factIds, sourceBlockIds: [], sourceRanges: [], mappingTrace: [] }];
+          const nextProfile = CareerProfileSchema.parse({
+            ...profile,
+            structuredFacts: nextFacts,
+            version: profile.version + 1,
+            updatedAt: now
+          });
+          const nextText = projectResumeItemV2(structured).trim();
+          const nextItems = branch.contentItems.map((candidate) => candidate.id === item.id
+            ? BranchContentItemSchema.parse({
+                ...candidate,
+                text: nextText,
+                originalText: nextText,
+                source: "user_manual",
+                guardStatus: "pass",
+                guardFindings: [],
+                userConfirmation: candidate.factRefs.length > 0
+                  ? undefined
+                  : candidate.userConfirmation
+                    ? { ...candidate.userConfirmation, confirmedTextHash: stableHashText(nextText) }
+                    : undefined
+              })
+            : candidate);
+          const nextStructuredItems = syncStructuredContentItems(branch, nextItems).map((candidate) => candidate.id === item.id
+            ? ResumeContentItemV2Schema.parse({
+                ...candidate,
+                data: structured,
                 source: "user_manual",
                 legacyTextProjection: nextText
               })

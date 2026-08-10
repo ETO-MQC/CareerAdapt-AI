@@ -4,7 +4,7 @@ import { agentSkillRegistry } from "@/agent/kernel/AgentSkillRegistry";
 describe("Agent Skill runtime", () => {
   it("lists compact metadata and loads one Skill progressively", () => {
     const listed = agentSkillRegistry.list();
-    expect(listed).toHaveLength(7);
+    expect(listed).toHaveLength(8);
     expect(listed[0]).not.toHaveProperty("procedure");
     const viewed = agentSkillRegistry.view("resume-tailoring");
     expect(viewed.procedure).toHaveLength(10);

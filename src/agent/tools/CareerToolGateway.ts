@@ -129,6 +129,10 @@ const CAREER_TOOL_DEFINITIONS: CareerToolDefinition[] = [
   { name: "career.resume.create_from_profile", sourceToolName: "create_resume_from_profile", namespace: "career.resume", readWrite: "write", personProfileBinding: "required" },
   { name: "career.resume.create_job_from_profile", sourceToolName: "create_job_resume_from_profile", namespace: "career.resume", readWrite: "write", personProfileBinding: "required" },
   { name: "career.resume.ensure_general_from_profile", sourceToolName: "ensure_general_resume_from_profile", namespace: "career.resume", readWrite: "write", personProfileBinding: "required" },
+  { name: "career.resume.build_evidence_graph", sourceToolName: "build_resume_evidence_graph", namespace: "career.resume", readWrite: "read", personProfileBinding: "required" },
+  { name: "career.resume.plan_composition", sourceToolName: "plan_resume_composition", namespace: "career.resume", readWrite: "read", personProfileBinding: "required" },
+  { name: "career.resume.review_composition", sourceToolName: "review_resume_composition", namespace: "career.resume", readWrite: "read", personProfileBinding: "required" },
+  { name: "career.resume.compose", sourceToolName: "compose_resume", namespace: "career.resume", readWrite: "write", personProfileBinding: "required" },
   { name: "career.resume.import.prepare", sourceToolName: "prepare_resume_import", namespace: "career.resume.import", readWrite: "write", personProfileBinding: "optional" },
   { name: "career.resume.import.parse_file", sourceToolName: "parse_resume_file", namespace: "career.resume.import", readWrite: "read", personProfileBinding: "optional" },
   { name: "career.resume.import.create_draft", sourceToolName: "create_resume_import_draft", namespace: "career.resume.import", readWrite: "write", personProfileBinding: "optional" },
@@ -477,6 +481,7 @@ function atomicWorkflowHint(name: string) {
     "career.job.analyze_fit": "仅用于 Job Fit facade 的内部/恢复步骤；正常匹配请先调用 career.workflow.job_fit。 ",
     "career.tailoring.create_session": "仅用于 Tailoring facade 的内部/恢复步骤；正常定制请先调用 career.workflow.tailor_resume。 ",
     "career.resume.ensure_general_from_profile": "仅用于 Profile→Resume facade 的内部/恢复步骤；正常组装请先调用 career.workflow.profile_to_resume。 ",
+    "career.resume.compose": "仅用于 Resume Composition facade 的确认写入步骤；正常组装请先调用 career.workflow.compose_resume。 ",
     "career.export.resume": "仅用于 Repair→Export facade 的内部/恢复步骤；正常导出请先调用 career.workflow.resume_export。 "
   };
   return pairedFacade[name] ?? "";

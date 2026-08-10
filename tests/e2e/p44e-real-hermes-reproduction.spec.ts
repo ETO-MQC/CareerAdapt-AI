@@ -370,7 +370,7 @@ async function openHermesWorkspace(page: Page) {
   }
   const badge = page.locator(".agent-runtime-status");
   await expect(badge).toHaveAttribute("aria-label", /AI Runtime Hermes，状态 Ready/, { timeout: 30_000 });
-  await expect.poll(() => badge.getAttribute("title"), { timeout: 30_000 }).toContain("MCP 47 tools");
+  await expect.poll(() => badge.getAttribute("title"), { timeout: 30_000 }).toContain("MCP 52 tools");
 }
 
 async function ensureCurrentDemoResume(page: Page) {

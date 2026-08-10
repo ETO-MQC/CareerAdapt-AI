@@ -3947,7 +3947,7 @@ export class AgentHostStore {
             ]
           };
         }
-        if (event.ok && ["analyze_job_fit", "create_tailoring_session", "answer_tailoring_question", "generate_tailoring_changes", "review_tailoring_diff", "preview_tailoring_changes", "apply_tailoring_changes", "create_resume_from_profile", "export_resume"].includes(event.toolName)) {
+        if (event.ok && ["analyze_job_fit", "create_tailoring_session", "answer_tailoring_question", "generate_tailoring_changes", "review_tailoring_diff", "preview_tailoring_changes", "apply_tailoring_changes", "create_resume_from_profile", "compose_resume", "export_resume"].includes(event.toolName)) {
           const now = new Date().toISOString();
             const descriptor = artifactDescriptor(
               event.toolName,
@@ -5896,7 +5896,7 @@ function artifactDescriptor(toolName: string, workflowId?: string, rootGoal?: st
     return { kind: "tailoring_workspace", title: "岗位定制工作区", entityType: "tailoring_session" };
   }
 
-  if (["create_resume_from_profile", "ensure_general_resume_from_profile"].includes(toolName)) {
+  if (["create_resume_from_profile", "ensure_general_resume_from_profile", "compose_resume"].includes(toolName)) {
     return { kind: "quality_result", title: "通用简历创建结果", entityType: "resume_branch", route: "/resume" };
   }
   if (toolName === "export_resume") {
@@ -6271,6 +6271,7 @@ function runtimeArtifactSourceToolName(stableName: string, declaredSource?: stri
     "career.workflow.job_fit": "analyze_job_fit",
     "career.workflow.tailor_resume": "create_tailoring_session",
     "career.workflow.profile_to_resume": "ensure_general_resume_from_profile",
+    "career.workflow.compose_resume": "compose_resume",
     "career.workflow.resume_export": "export_resume"
   };
   return facadeSources[stableName] ?? declaredSource ?? stableName;
@@ -6287,6 +6288,7 @@ function runtimeArtifactResultData(stableName: string, value: unknown) {
     "career.workflow.job_fit": "result",
     "career.workflow.tailor_resume": "session",
     "career.workflow.profile_to_resume": "result",
+    "career.workflow.compose_resume": "compositionResult",
     "career.workflow.resume_export": "result"
   };
   return checkpoint[keyByFacade[stableName] ?? "result"] ?? checkpoint;
@@ -6351,6 +6353,10 @@ function applyRuntimeFacadeCheckpoint(session: AgentSession, toolName: string, v
     ? "completed"
     : toolName === "career.workflow.profile_to_resume" && completionStatus === "completed"
       ? "resume_ready"
+      : toolName === "career.workflow.compose_resume" && completionStatus === "completed"
+        ? "resume_ready"
+        : toolName === "career.workflow.compose_resume" && completionStatus === "waiting_for_confirmation"
+          ? "review_composition"
       : toolName === "career.workflow.resume_export" && completionStatus === "completed"
         ? "export_ready"
         : toolName === "career.workflow.resume_import"
@@ -6365,6 +6371,14 @@ function applyRuntimeFacadeCheckpoint(session: AgentSession, toolName: string, v
     facadeCheckpoint: checkpoint,
     ...(checkpoint.kind === "job_fit" ? { fitAnalysis: result } : {}),
     ...(checkpoint.kind === "profile_to_resume" ? { resumeResult: result } : {}),
+    ...(checkpoint.kind === "resume_composition" ? {
+      resumeCompositionCheckpoint: checkpoint,
+      resumeCompositionProposal: checkpoint.proposal,
+      resumeCompositionBlueprint: checkpoint.blueprint,
+      resumeCompositionResult: checkpoint.compositionResult,
+      resumeCompositionMetrics: checkpoint.metrics,
+      resumeCompositionInformationNeeds: checkpoint.informationNeeds
+    } : {}),
     ...(checkpoint.kind === "resume_export" ? { exportResult: result } : {}),
     ...(checkpoint.kind === "tailoring_session" ? { tailoringSession: normalizedSessionData } : {}),
     ...(checkpoint.kind === "profile_intake_turn" ? {

@@ -15,7 +15,7 @@ describe("careeradapt resume JSON v2", () => {
   });
 
   it("keeps the placeholder-free full AI fixture aligned with every canonical catalog field", () => {
-    expect(RESUME_CATALOG_VERSION).toBe("resume-field-catalog-v2.1.0");
+    expect(RESUME_CATALOG_VERSION).toBe("resume-field-catalog-v2.1.1");
     expect(CareerAdaptResumeJsonV2Schema.parse(fullAiTemplateFixture)).toEqual(fullAiTemplateFixture);
     expect(JSON.stringify(fullAiTemplateFixture)).not.toMatch(/\{\{|\}\}/);
     for (const field of resumeFieldCatalog) {

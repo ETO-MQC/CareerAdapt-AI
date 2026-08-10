@@ -144,7 +144,8 @@ async function detectCareerSkills() {
     "career-story-mining",
     "job-fit-analysis",
     "resume-tailoring",
-    "resume-review"
+    "resume-review",
+    "resume-composition"
   ];
   const found = await Promise.all(expected.map(async (name) => {
     try {

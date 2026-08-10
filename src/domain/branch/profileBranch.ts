@@ -3,11 +3,12 @@ import { BranchContentItemSchema, ResumeBranchSchema, ResumeContentItemV2Schema,
 import { migrateCareerProfileToV2, projectResumeItemV2 } from "@/domain/migrations/resumeV2";
 import { stableHashText } from "@/services/security/text";
 import { createResumeRevision } from "./revision";
+import type { ResumeCompositionResult } from "@/domain/resumeComposition";
 
 export type ProfileBranchBuildResult = { branch: ResumeBranch; firstRevision: ResumeRevision };
 
-export function resumeBasicsFromProfile(profile: CareerProfile): ResumeBranchBasics {
-  return { name: profile.basics.name, targetRole: profile.structuredBasics?.targetRole ?? profile.structuredBasics?.headline ?? "", email: profile.basics.email ?? "", phone: profile.basics.phone ?? "", location: profile.basics.location ?? "", summary: profile.basics.summary ?? "", links: profile.basics.links };
+export function resumeBasicsFromProfile(profile: CareerProfile, summary?: string): ResumeBranchBasics {
+  return { name: profile.basics.name, targetRole: profile.structuredBasics?.targetRole ?? profile.structuredBasics?.headline ?? "", email: profile.basics.email ?? "", phone: profile.basics.phone ?? "", location: profile.basics.location ?? "", summary: summary?.trim() || profile.basics.summary || "", links: profile.basics.links };
 }
 
 export function buildGeneralBranchFromProfile(input: {
@@ -17,10 +18,11 @@ export function buildGeneralBranchFromProfile(input: {
   includeProfileFacts: boolean;
   includeProfileBasics: boolean;
   selectedCanonicalItemIds?: string[];
+  composition?: ResumeCompositionResult;
   now?: string;
 }): ProfileBranchBuildResult {
   const now = input.now ?? new Date().toISOString();
-  const allPairs = input.includeProfileFacts ? profileContentItems(input.profile, now) : [];
+  const allPairs = input.includeProfileFacts ? profileContentItems(input.profile, now, input.composition) : [];
   const selectedIds = input.selectedCanonicalItemIds ? new Set(input.selectedCanonicalItemIds) : undefined;
   const pairs = selectedIds
     ? allPairs.filter((pair) => selectedIds.has(pair.structured.data.id) || pair.structured.factRefs.some((ref) => "factId" in ref && selectedIds.has(ref.factId)))
@@ -34,7 +36,7 @@ export function buildGeneralBranchFromProfile(input: {
     matcherVersion: "profile-snapshot-v2", sourceMatchSetHash: sourceProfileSnapshotId, requirementMatchIds: [], revision: 0,
     lifecycleStatus: "active", migrationStatus: "verified",
     syncStatusCache: { status: "in_sync", sourceProfileVersion: input.profile.version, currentProfileVersion: input.profile.version, invalidFactRefs: [], checkedAt: now, message: "General branch is in sync with its source profile." },
-    resumeBasics: input.includeProfileBasics ? resumeBasicsFromProfile(input.profile) : { name: "", targetRole: "", email: "", phone: "", location: "", summary: "", links: [] },
+    resumeBasics: input.includeProfileBasics ? resumeBasicsFromProfile(input.profile, compositionSummary(input.composition)) : { name: "", targetRole: "", email: "", phone: "", location: "", summary: "", links: [] },
     contentItems, structuredContentItems: pairs.length ? pairs.map((pair) => pair.structured) : undefined, createdAt: now, updatedAt: now
   });
   const firstRevision = createResumeRevision({ branch: branchBase, source: input.includeProfileBasics || input.includeProfileFacts ? "created_from_profile" : "created_blank", operationId: input.operationId, now });
@@ -51,11 +53,12 @@ export function buildJobBranchFromProfile(input: {
   selectedCanonicalItemIds: string[];
   requirementMatchIds: string[];
   sourceMatchSetHash: string;
+  composition?: ResumeCompositionResult;
   now?: string;
 }): ProfileBranchBuildResult {
   const now = input.now ?? new Date().toISOString();
   const selected = new Set(input.selectedCanonicalItemIds);
-  const pairs = profileContentItems(input.profile, now).filter((pair) => selected.has(pair.structured.data.id));
+  const pairs = profileContentItems(input.profile, now, input.composition).filter((pair) => input.composition ? true : selected.has(pair.structured.data.id));
   if (pairs.length === 0) throw new Error("profile_library_selection_empty");
   const sourceProfileSnapshotId = `profile-snapshot-${input.profile.id}-${input.profile.version}-${stableHashText(input.selectedCanonicalItemIds.slice().sort().join(":"))}`;
   const branchBase = ResumeBranchSchema.parse({
@@ -86,7 +89,7 @@ export function buildJobBranchFromProfile(input: {
       checkedAt: now,
       message: "Job branch is in sync with its profile-library source and job version."
     },
-    resumeBasics: { ...resumeBasicsFromProfile(input.profile), targetRole: input.jobTitle },
+    resumeBasics: { ...resumeBasicsFromProfile(input.profile, compositionSummary(input.composition)), targetRole: input.jobTitle },
     contentItems: pairs.map((pair) => pair.legacy),
     structuredContentItems: pairs.map((pair) => pair.structured),
     createdAt: now,
@@ -96,7 +99,8 @@ export function buildJobBranchFromProfile(input: {
   return { branch: ResumeBranchSchema.parse({ ...branchBase, currentRevisionId: firstRevision.id }), firstRevision };
 }
 
-function profileContentItems(profile: CareerProfile, now: string) {
+function profileContentItems(profile: CareerProfile, now: string, composition?: ResumeCompositionResult) {
+  if (composition) return compositionContentItems(profile, now, composition);
   const facts = [...migrateCareerProfileToV2(profile).structuredFacts];
   const summary = profile.basics.summary?.trim();
   if (summary && !facts.some((entry) => entry.data.sectionType === "summary")) facts.unshift({ data: { id: `profile-summary-${profile.id}`, sectionType: "summary", text: summary, customFields: [] }, factIds: [], sourceBlockIds: [], sourceRanges: [], mappingTrace: [] });
@@ -109,6 +113,56 @@ function profileContentItems(profile: CareerProfile, now: string) {
     const structured = ResumeContentItemV2Schema.parse({ id, schemaVersion: "resume-content-item-v2", data: entry.data, factRefs, source: legacy.source, order, visible: true, guardMode: legacy.guardMode, guardStatus: legacy.guardStatus, guardFindings: [], userConfirmation: legacy.userConfirmation, legacyTextProjection: text, sourceBlockIds: entry.sourceBlockIds, sourceRanges: entry.sourceRanges, sourceExcerpt: entry.sourceExcerpt, mappingTrace: entry.mappingTrace });
     return [{ legacy, structured }];
   });
+}
+
+function compositionContentItems(profile: CareerProfile, now: string, composition: ResumeCompositionResult) {
+  return composition.items.flatMap((entry, order) => {
+    const factRefs = resolveProfileFactRefs(profile, entry.factIds);
+    if (entry.data.sectionType !== "summary" && (!factRefs.length || factRefs.length !== entry.factIds.length)) return [];
+    const text = projectResumeItemV2(entry.data);
+    if (!text.trim()) return [];
+    const id = `branch-item-composed-${entry.data.id}-${nanoid(6)}`;
+    const legacy = BranchContentItemSchema.parse({
+      id,
+      itemType: canonicalItemType(entry.data.sectionType),
+      source: "adaptation_draft",
+      sourceSectionId: entry.data.sectionType,
+      text,
+      originalText: text,
+      order,
+      visible: true,
+      requirementIds: [],
+      sourceSuggestionIds: [],
+      factRefs,
+      guardMode: "rule_verified",
+      guardStatus: "pass",
+      guardRiskLevel: "low",
+      guardFindings: [],
+      guardedAt: now,
+      guardVersion: "resume-composition-v1"
+    });
+    const structured = ResumeContentItemV2Schema.parse({
+      id,
+      schemaVersion: "resume-content-item-v2",
+      data: entry.data,
+      factRefs,
+      source: legacy.source,
+      order,
+      visible: true,
+      guardMode: legacy.guardMode,
+      guardStatus: legacy.guardStatus,
+      guardFindings: [],
+      legacyTextProjection: text,
+      sourceBlockIds: entry.sourceBlockIds,
+      sourceExcerpt: entry.sourceExcerpt
+    });
+    return [{ legacy, structured }];
+  });
+}
+
+function compositionSummary(composition?: ResumeCompositionResult) {
+  const item = composition?.items.find((candidate) => candidate.data.sectionType === "summary")?.data;
+  return item?.sectionType === "summary" ? item.text : undefined;
 }
 
 function canonicalItemType(sectionType: ResumeItemV2["sectionType"]): BranchContentItem["itemType"] {

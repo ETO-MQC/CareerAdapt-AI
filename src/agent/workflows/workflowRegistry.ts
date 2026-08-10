@@ -103,6 +103,16 @@ export const agentWorkflowRegistry: Record<string, AgentWorkflowDefinition> = {
     select_facts: ["open_profile_browser"],
     review_resume_plan: ["open_artifact"]
   }, ["profileId", "selectedFactIds"]),
+  compose_resume: workflow("compose_resume", "select_profile_scope", ["select_profile_scope", "review_composition", "confirm_create", "completed"], {
+    select_profile_scope: [...profileReadTools, ...resumeReadTools, ...jobReadTools, "build_resume_evidence_graph", "plan_resume_composition"],
+    review_composition: [...profileReadTools, ...resumeReadTools, ...jobReadTools, "build_resume_evidence_graph", "plan_resume_composition", "review_resume_composition"],
+    confirm_create: ["compose_resume"],
+    completed: []
+  }, {
+    select_profile_scope: ["open_profile_browser", "open_resume_picker", "open_job_import_dialog"],
+    review_composition: ["open_artifact"],
+    confirm_create: ["open_artifact"]
+  }, ["profileId", "mode"]),
   tailor_existing_resume: workflow("tailor_existing_resume", "choose_resume_source", ["select_resume", "choose_resume_source", "choose_job", "collect_job", "analyze_job", "review_job", "analyze_fit", "generate_plan", "answer_questions", "clarify_unsupported_facts", "generate_changes", "preview_changes", "confirm_apply", "quality_result", "completed"], {
     select_resume: [...profileReadTools, ...resumeReadTools, ...jobReadTools],
     choose_resume_source: [...profileReadTools, ...resumeReadTools, ...jobReadTools, "recommend_resume_source"],

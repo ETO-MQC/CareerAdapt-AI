@@ -53,7 +53,7 @@ export function projectResumePresentationItem(item: ResumeItemV2): ResumePresent
         primaryTitle: item.school,
         secondaryTitle: joinValues([item.degree, item.major]),
         tertiaryTitle: item.department,
-        dateRange: formatResumePresentationDateRange(item.startDate, item.endDate, item.current),
+        dateRange: educationDateRange(item.startDate, item.endDate, item.expectedEndDate, item.current),
         location: item.location,
         description: item.description,
         highlights: [...item.honors, ...item.highlights],
@@ -193,6 +193,14 @@ function educationRows(item: Extract<ResumeItemV2, { sectionType: "education" }>
     ...labeledRow(RESUME_PRESENTATION_ALLOWED_LABELS.rank, rank),
     ...labeledRow(RESUME_PRESENTATION_ALLOWED_LABELS.courses, item.courses.join("、"))
   ];
+}
+
+function educationDateRange(startDate?: string, endDate?: string, expectedEndDate?: string, current = false) {
+  if (current && (expectedEndDate || endDate)) {
+    const range = formatResumePresentationDateRange(startDate, expectedEndDate ?? endDate, false);
+    return range ? `${range}（预计）` : undefined;
+  }
+  return formatResumePresentationDateRange(startDate, endDate, current);
 }
 
 function projectCustomFields(fields: CustomFieldValue[]): ResumePresentationCustomRow[] {

@@ -102,6 +102,7 @@ function isContinuable(state: AgentTaskState) {
       || state.rootGoal === "create_tailored_resume"
       || state.rootGoal === "apply_to_job"
       || state.rootGoal === "create_resume_from_profile"
+      || state.rootGoal === "compose_resume"
       || ACTIVE_TAILORING_STAGES.has(state.stage)
   );
 }
@@ -111,6 +112,11 @@ export function deriveNextLegalStage(state: AgentTaskState) {
     if (!state.selectedEntities.profileId) return "select_profile_scope";
     if (!hasValue(state.knownSlots.selectedFactIds)) return "select_facts";
     return "review_resume_plan";
+  }
+  if (state.rootGoal === "compose_resume") {
+    if (!state.selectedEntities.profileId) return "select_profile_scope";
+    if (!state.knownSlots.resumeCompositionCheckpoint) return "review_composition";
+    return "confirm_create";
   }
   if (state.stage === "quality_result") return "quality_result";
   if (state.knownSlots.tailoringSession) {

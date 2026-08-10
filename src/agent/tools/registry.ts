@@ -24,6 +24,10 @@ export type AgentToolServices = {
   recommendResumeSource?(input: unknown, signal?: AbortSignal): Promise<unknown>;
   createJobResumeFromProfile?(input: unknown, operationId: string, signal?: AbortSignal): Promise<unknown>;
   createResumeFromProfile?(input: unknown, operationId: string, signal?: AbortSignal): Promise<unknown>;
+  buildResumeEvidenceGraph?(input: unknown, signal?: AbortSignal): Promise<unknown>;
+  planResumeComposition?(input: unknown, signal?: AbortSignal): Promise<unknown>;
+  reviewResumeComposition?(input: unknown, signal?: AbortSignal): Promise<unknown>;
+  composeResume?(input: unknown, operationId: string, signal?: AbortSignal): Promise<unknown>;
   getAgentTaskContext?(input: unknown, signal?: AbortSignal): Promise<unknown>;
   searchAgentSessions?(input: unknown, signal?: AbortSignal): Promise<unknown>;
   skillsList?(signal?: AbortSignal): Promise<unknown>;
@@ -253,6 +257,18 @@ const RevisionInputSchema = z.object({ resumeId: z.string().min(1), revisionId: 
 const JobIdInputSchema = z.object({ jobId: z.string().min(1) }).strict();
 const SourceRouteInputSchema = z.object({ profileId: z.string().min(1), jobId: z.string().min(1) }).strict();
 const ProfileJobResumeInputSchema = SourceRouteInputSchema.extend({ name: z.string().min(1).max(120).optional() }).strict();
+const ResumeCompositionInputSchema = z.object({
+  profileId: z.string().min(1),
+  expectedProfileRevision: z.number().int().min(1),
+  mode: z.enum(["general", "job_specific"]),
+  jobId: z.string().min(1).optional(),
+  sourceResumeId: z.string().min(1).optional(),
+  name: z.string().min(1).max(120).optional(),
+  acknowledgedActiveProfileId: z.string().min(1).optional(),
+  userPreferences: z.record(z.string(), z.unknown()).optional()
+}).strict().superRefine((input, context) => {
+  if (input.mode === "job_specific" && !input.jobId) context.addIssue({ code: "custom", path: ["jobId"], message: "jobId is required for job-specific composition" });
+});
 const ProfileSearchInputSchema = z.object({
   profileId: z.string().min(1),
   query: z.string().min(1).max(240),
@@ -293,6 +309,10 @@ export function createAgentToolRegistry(services: AgentToolServices) {
     define(services, meta("recommend_resume_source", "根据资料证据丰富度、简历成熟度、岗位覆盖、来源、时效和缺失项推荐资料来源；用户可覆盖。", "read", false, true, true, SourceRouteInputSchema, "tailoring", "career_assets"), (input, _, signal) => services.recommendResumeSource ? services.recommendResumeSource(input, signal) : unavailableTool("recommend_resume_source")),
     define(services, meta("create_job_resume_from_profile", "从资料库中按岗位相关性选择已确认内容并创建独立岗位简历。", "write", true, true, true, ProfileJobResumeInputSchema, "tailoring", "resume_revision", true), (input, operationId, signal) => services.createJobResumeFromProfile ? services.createJobResumeFromProfile(input, operationId, signal) : unavailableTool("create_job_resume_from_profile")),
     define(services, meta("create_resume_from_profile", "按用户确认的事实范围创建独立通用简历；不会覆盖资料库或已有简历。", "write", true, true, true, CreateResumeFromProfileInputSchema, "resume", "resume_revision", true), (input, operationId, signal) => services.createResumeFromProfile ? services.createResumeFromProfile(input, operationId, signal) : unavailableTool("create_resume_from_profile")),
+    define(services, meta("build_resume_evidence_graph", "读取确认 Profile 的职业资产、技能来源、事实证据和可恢复候选；不会写入任何资料。", "read", false, true, true, ResumeCompositionInputSchema, "resume", "resume_evidence_graph"), (input, _, signal) => services.buildResumeEvidenceGraph ? services.buildResumeEvidenceGraph(input, signal) : unavailableTool("build_resume_evidence_graph")),
+    define(services, meta("plan_resume_composition", "基于证据图规划通用或岗位简历的资产选择、摘要、技能组、关键词缺口和可选问题；不会写入简历。", "read", false, true, true, ResumeCompositionInputSchema, "resume", "resume_blueprint"), (input, _, signal) => services.planResumeComposition ? services.planResumeComposition(input, signal) : unavailableTool("plan_resume_composition")),
+    define(services, meta("review_resume_composition", "审查组装草稿的事实边界、重复、职责强度、段落密度和岗位关键词覆盖；不会写入简历。", "read", false, true, true, ResumeCompositionInputSchema, "resume", "resume_review"), (input, _, signal) => services.reviewResumeComposition ? services.reviewResumeComposition(input, signal) : unavailableTool("review_resume_composition")),
+    define(services, meta("compose_resume", "在用户确认组装提案后，将证据图、蓝图、写作和审查结果写入独立 ResumeRevision；不会反向修改 Profile。", "write", true, true, true, ResumeCompositionInputSchema, "resume", "resume_revision", true), (input, operationId, signal) => services.composeResume ? services.composeResume(input, operationId, signal) : unavailableTool("compose_resume")),
     define(services, meta("get_agent_task_context", "读取一个 Agent Session 的工作流、步骤和已选实体指针。", "read", false, true, true, TaskContextInputSchema, "agent", "task_context"), (input, _, signal) => services.getAgentTaskContext ? services.getAgentTaskContext(input, signal) : unavailableTool("get_agent_task_context")),
     define(services, meta("search_agent_sessions", "按标题、摘要和用户修正检索历史 Agent Session。", "read", false, true, true, SessionSearchInputSchema, "agent", "episodic_memory"), (input, _, signal) => services.searchAgentSessions ? services.searchAgentSessions(input, signal) : unavailableTool("search_agent_sessions")),
     define(services, meta("skills_list", "列出可按需加载的 CareerAdapt 程序性 Skills 元数据。", "read", false, true, true, EmptyInputSchema, "skill", "procedural_memory"), (_, __, signal) => services.skillsList ? services.skillsList(signal) : unavailableTool("skills_list")),
@@ -475,7 +495,7 @@ export const agentToolNames = [
   "skills_list", "skill_view", "prepare_resume_import", "review_resume_import", "reconcile_resume_import",
   "resolve_resume_reconciliation", "parse_resume_file", "create_resume_import_draft",
   "capture_profile_intake", "synthesize_profile_intake", "review_profile_intake", "reconcile_profile_intake",
-  "resolve_profile_intake_conflict", "commit_profile_intake", "ensure_general_resume_from_profile",
+  "resolve_profile_intake_conflict", "commit_profile_intake", "ensure_general_resume_from_profile", "build_resume_evidence_graph", "plan_resume_composition", "review_resume_composition", "compose_resume",
   "commit_resume_import", "parse_job_description", "commit_job", "create_job_resume_from_profile", "create_resume_from_profile", "analyze_job_fit",
   "create_tailoring_session", "answer_tailoring_question", "generate_tailoring_changes", "review_tailoring_diff", "preview_tailoring_changes",
   "apply_tailoring_changes", "archive_resume", "restore_resume", "export_resume"

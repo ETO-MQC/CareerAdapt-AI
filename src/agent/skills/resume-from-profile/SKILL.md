@@ -7,14 +7,17 @@
 选择有证据的相关事实，形成可核对的简历计划。
 
 ## Inputs and tools
-资料库、用途、可选岗位；正常流程优先 `career.workflow.profile_to_resume`，原子工具仅用于检查或恢复。
+资料库、用途、可选岗位；新简历正常流程优先
+`career.workflow.compose_resume`，它会先返回 Evidence Graph、Resume
+Blueprint 和审查提案，再在确认后创建独立 ResumeRevision。旧的
+`career.workflow.profile_to_resume` 仅用于兼容或简单恢复；原子工具仅用于检查。
 
 ## Procedure
-1. 读取目标资料与用途。
-2. 筛选有证据的相关事实。
-3. 形成章节与职业叙事计划。
-4. 展示选材和缺口。
-5. 确认后才创建简历或 Revision。
+1. 读取目标资料、模式和可选岗位。
+2. 从确认事实、结构化字段和来源证据构建 Evidence Graph。
+3. 形成通用或岗位 Blueprint，聚合支持的技能并显示关键词缺口。
+4. 展示选材、摘要、项目 bullet、可选问题和审查结果。
+5. 用户可直接生成或补充不超过两项可选信息；确认后才创建简历或 Revision。
 
 ## Boundaries and fact rules
 ResumeDocument 只派生不持久化。简历不得隐式反写资料库。未确认事实不得进入预览。

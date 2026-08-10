@@ -61,6 +61,18 @@ const ProfileToResumeInputSchema = z.object({
   name: z.string().min(1).max(120).optional(),
   purpose: z.enum(["general", "targeted"]).optional()
 }).strict();
+const ComposeResumeInputSchema = z.object({
+  profileId: z.string().min(1),
+  expectedProfileRevision: z.number().int().min(1),
+  mode: z.enum(["general", "job_specific"]),
+  jobId: z.string().min(1).optional(),
+  sourceResumeId: z.string().min(1).optional(),
+  name: z.string().min(1).max(120).optional(),
+  acknowledgedActiveProfileId: z.string().min(1).optional(),
+  userPreferences: z.record(z.string(), z.unknown()).optional()
+}).strict().superRefine((input, context) => {
+  if (input.mode === "job_specific" && !input.jobId) context.addIssue({ code: "custom", path: ["jobId"], message: "jobId is required for job-specific composition" });
+});
 const ResumeExportInputSchema = z.object({ resumeId: z.string().min(1), templateId: z.string().min(1).optional() }).strict();
 
 export type CareerWorkflowFacadeDefinition = {
@@ -77,6 +89,7 @@ export const CAREER_WORKFLOW_FACADE_DEFINITIONS: CareerWorkflowFacadeDefinition[
   { name: "career.workflow.job_fit", description: "Run the existing deterministic Job Fit workflow and return its terminal artifact.", inputSchema: JobFitInputSchema, personProfileBinding: "required" },
   { name: "career.workflow.tailor_resume", description: "Start the existing isolated Job Resume tailoring workflow and stop for the next question or review boundary.", inputSchema: TailorResumeInputSchema, personProfileBinding: "required" },
   { name: "career.workflow.profile_to_resume", description: "Create or reuse an isolated general resume from the confirmed Profile without writing resume content back to Profile.", inputSchema: ProfileToResumeInputSchema, personProfileBinding: "required" },
+  { name: "career.workflow.compose_resume", description: "Build an evidence graph and resume blueprint, show a grounded proposal, then write an isolated general or job-specific ResumeRevision only after explicit confirmation.", inputSchema: ComposeResumeInputSchema, personProfileBinding: "required" },
   { name: "career.workflow.resume_export", description: "Create the existing Preview/PDF export artifact for a selected resume.", inputSchema: ResumeExportInputSchema, personProfileBinding: "optional" }
 ];
 
@@ -181,6 +194,43 @@ export async function executeCareerWorkflowFacade(
       expectedProfileVersion: input.expectedProfileVersion,
       purpose,
       result: compactData(result.data, ["resumeId", "revision", "created", "profileId", "artifactId"])
+    }, context);
+  }
+  if (name === "career.workflow.compose_resume") {
+    const plan = await call("career.resume.plan_composition", input);
+    if (!plan.ok) {
+      return facadeFromAtomic(name, operationId, plan, "waiting_for_confirmation", "review_composition", "组装方案暂时没有完成，请先查看安全错误并重试。", {
+        kind: "resume_composition",
+        profileId: input.profileId,
+        mode: input.mode,
+        planError: plan.error
+      }, context);
+    }
+    const planned = objectValue(plan.data);
+    const checkpoint: Record<string, unknown> = {
+      kind: "resume_composition",
+      profileId: input.profileId,
+      expectedProfileRevision: input.expectedProfileRevision,
+      mode: input.mode,
+      jobId: input.jobId,
+      sourceResumeId: input.sourceResumeId,
+      proposal: planned.compositionProposal,
+      evidenceGraph: planned.evidenceGraph,
+      blueprint: planned.blueprint,
+      reviewResult: planned.reviewResult,
+      metrics: planned.metrics,
+      keywordCoverage: planned.keywordCoverage,
+      informationNeeds: planned.informationNeeds,
+      planReceipt: plan.receipt
+    };
+    if (!context.confirmed && (context.confirmationCount ?? 0) < 1) {
+      return facadeFromAtomic(name, operationId, plan, "waiting_for_confirmation", "review_composition", "组装提案已准备好。你可以直接生成，也可以补充最多两项可选信息后再生成。", checkpoint, context);
+    }
+    const composed = await call("career.resume.compose", input, 1);
+    return facadeFromAtomic(name, operationId, composed, "completed", "open_resume", undefined, {
+      ...checkpoint,
+      compositionResult: objectValue(composed.data).composition,
+      result: compactData(composed.data, ["resumeId", "revisionId", "revision", "mode", "idempotent"])
     }, context);
   }
   const result = await call("career.export.resume", input);
@@ -333,6 +383,25 @@ function buildFacadeInteractionPlan(input: {
     });
     recommendedNextQuestion = { needId, question: needs[0].reason };
     }
+  } else if (input.facadeName === "career.workflow.compose_resume") {
+    const compositionNeeds = arrayValue(data.informationNeeds ?? checkpoint.informationNeeds);
+    for (const [index, value] of compositionNeeds.slice(0, 2).entries()) {
+      const item = objectValue(value);
+      const question = stringValue(item.question);
+      if (!question) continue;
+      const needId = stringValue(item.id) ?? `resume-composition:need:${index + 1}`;
+      needs.push({
+        id: needId,
+        type: "factual_gap",
+        importance: 0.58,
+        reason: question,
+        answerChangesOutcome: true,
+        required: false,
+        alreadyAsked: false,
+        priorityFactors: { expectedArtifactImpact: 0.65, currentReadinessGap: 0.35, jobRelevance: 0.8 }
+      });
+      if (!recommendedNextQuestion) recommendedNextQuestion = { needId, question };
+    }
   } else if (input.facadeName === "career.workflow.job_fit") {
     const questions = arrayValue(data.questions ?? data.ambiguousFacts);
     for (const [index, value] of questions.slice(0, 3).entries()) {
@@ -368,6 +437,7 @@ function buildFacadeInteractionPlan(input: {
     "career.workflow.job_fit": "用已确认证据分析岗位匹配与真实缺口",
     "career.workflow.tailor_resume": "在不改变事实边界的前提下准备岗位简历",
     "career.workflow.profile_to_resume": "从已确认资料生成一份与资料库隔离的简历",
+    "career.workflow.compose_resume": "从证据图和蓝图生成一份可核验、与资料库隔离的简历",
     "career.workflow.resume_export": "检查已选简历并准备预览或导出"
   }[input.facadeName] ?? "完成当前职业任务";
   return buildCareerInteractionPlan({

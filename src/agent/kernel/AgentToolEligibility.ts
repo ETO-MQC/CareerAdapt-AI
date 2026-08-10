@@ -112,6 +112,14 @@ function preconditions(toolName: string, state: AgentTaskState) {
       && source.targetProfileId === state.knownSlots.targetProfileId
       && source.expectedProfileVersion === state.knownSlots.expectedProfileVersion;
   }
+  if (["build_resume_evidence_graph", "plan_resume_composition", "review_resume_composition"].includes(toolName)) {
+    return state.workflowId === "compose_resume" && Boolean(state.selectedEntities.profileId || state.knownSlots.targetProfileId);
+  }
+  if (toolName === "compose_resume") {
+    return state.workflowId === "compose_resume"
+      && Boolean(state.selectedEntities.profileId || state.knownSlots.targetProfileId)
+      && ["review_composition", "confirm_create"].includes(state.stage);
+  }
   if (toolName === "commit_profile_intake") {
     return state.workflowId === "guided_profile_intake"
       && state.stage === "confirm_commit"
@@ -169,6 +177,15 @@ function preconditions(toolName: string, state: AgentTaskState) {
     return state.rootGoal === "create_resume_from_profile"
       && Boolean(state.selectedEntities.profileId)
       && ["review_resume_plan", "confirm_create"].includes(state.stage);
+  }
+  if (["build_resume_evidence_graph", "plan_resume_composition", "review_resume_composition"].includes(toolName)) {
+    return state.workflowId === "compose_resume" && Boolean(state.selectedEntities.profileId || state.knownSlots.targetProfileId);
+  }
+  if (toolName === "compose_resume") {
+    return state.workflowId === "compose_resume"
+      && state.completionStatus === "active"
+      && Boolean(state.selectedEntities.profileId || state.knownSlots.targetProfileId)
+      && ["review_composition", "confirm_create"].includes(state.stage);
   }
   if (toolName === "apply_tailoring_changes") {
     return state.stage === "confirm_apply"

@@ -15,12 +15,14 @@ metadata:
 
 ## WHEN TO USE
 
-Use before preview or export, after a resume branch or tailoring diff has been
-prepared. Review the selected branch and revision only.
+Use before preview or export, after a resume branch, composition draft, or
+tailoring diff has been prepared. Review the selected branch and revision
+only; a new composition should also pass the evidence-graph/blueprint review.
 
 ## INPUTS
 
-- Resume branch, revision identifier, and rendered/text-layer representation.
+- Resume branch or composition result, revision identifier, and
+  rendered/text-layer representation.
 - Target job when the branch is job-specific.
 - Profile evidence and provenance for every material included claim.
 - Fixed person/profile/session binding.
@@ -64,7 +66,9 @@ retry the diagnostic step without modifying user content.
 
 ## WORKFLOW
 
-1. Check each material claim for source support and confirmation status.
+1. Check each material claim for source support and confirmation status;
+   classify it as supported, derived presentation, needs confirmation, or
+   unsupported, and hold unsupported text out of preview.
 2. Review ownership, relevance, result/scope specificity, chronology,
    consistency, unsupported metrics, inflated titles, and ATS extraction risk.
 3. Separate factual risk from style preference and quote affected text.
@@ -72,9 +76,10 @@ retry the diagnostic step without modifying user content.
 
 ## TOOL BOUNDARIES
 
-Review is read-only by default. The host may call `career.resume.get`, preview,
-or export contracts, but this skill never authorizes `career.*` writes and
-never edits `WorkspaceRepository` directly.
+Review is read-only by default. The host may call
+`career.resume.review_composition`, `career.resume.get`, preview, or export
+contracts, but this skill never authorizes `career.*` writes and never edits
+`WorkspaceRepository` directly.
 
 ## FACT SAFETY
 

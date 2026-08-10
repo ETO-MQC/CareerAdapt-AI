@@ -16,14 +16,17 @@ metadata:
 ## WHEN TO USE
 
 Use after job-fit analysis identifies an evidence-backed priority and a
-job-specific resume branch has been selected. Keep the general resume and
+job-specific resume branch has been selected. When a new job resume is needed,
+hand off to `career.workflow.compose_resume` first; use tailoring for a
+reversible diff against an existing branch. Keep the general resume and
 profile immutable while proposing changes.
 
 ## INPUTS
 
 - Target job and stable requirement IDs.
 - Selected source resume or general profile branch and revision.
-- Confirmed evidence, source quotes, and user-approved preferences.
+- Confirmed evidence graph/blueprint, source quotes, and user-approved
+  preferences.
 - Fixed person/profile/session binding.
 
 ## INTERACTION POLICY
@@ -65,8 +68,9 @@ write or silently change the source branch.
 
 ## WORKFLOW
 
-1. Prioritize evidence that is relevant, specific, and supported by the fit
-   matrix.
+1. Read the composition evidence graph/blueprint or build the bounded
+   job-specific context before prioritizing evidence that is relevant,
+   specific, and supported by the fit matrix.
 2. Propose a reversible diff with section, source IDs/quotes, old value,
    proposed value, rationale, and confidence.
 3. Prefer truthful emphasis, ordering, and concise wording before new content.

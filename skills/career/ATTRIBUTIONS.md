@@ -15,11 +15,13 @@ data, proprietary taxonomy, or external runtime is imported by this folder.
 - Reviewed: `.claude/commands/setup.md`, `.claude/commands/apply.md`,
   `.claude/skills/job-application-assistant/SKILL.md`, and `CLAUDE.md`.
 - Adapted here: bounded profile setup, one-question evidence gathering,
-  visible gaps, fit-before-tailoring, reviewer/revise sequencing, and final
-  render/text-layer verification.
-- Changes: rewritten for Resume Schema v2, local source evidence, explicit
-  confirmation, WorkspaceRepository writes, and isolated job branches. No
-  source prose or implementation was copied.
+  visible gaps, fit-before-tailoring, reviewer/revise sequencing, proposal
+  before write, evidence-backed resume composition, and final render/text-layer
+  verification.
+- Changes: rewritten for Resume Schema v2, deterministic local Evidence Graph
+  and Resume Blueprint, local source evidence, explicit confirmation,
+  WorkspaceRepository writes, and isolated job branches. No source prose,
+  implementation, LaTeX template, or personal data was copied.
 
 ### yanliudesign/offer-toolkit-skill
 

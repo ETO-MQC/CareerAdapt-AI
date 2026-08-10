@@ -20,7 +20,8 @@ text, report template, or personal data was copied into the product.
 - License: MIT.
 - Use in this project: workflow patterns adapted into
   `skills/career/`—bounded setup, fit-before-tailoring, reviewer/revise
-  sequencing, and final artifact verification. See
+  sequencing, final artifact verification, and P4.5b's proposal-before-write
+  resume composition flow. See
   `skills/career/ATTRIBUTIONS.md` for reviewed paths and changes.
 
 ## yanliudesign/offer-toolkit-skill

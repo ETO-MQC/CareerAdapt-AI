@@ -71,6 +71,7 @@ export const EducationItemV2Schema = z.object({
   location: OptionalTextSchema,
   startDate: OptionalTextSchema,
   endDate: OptionalTextSchema,
+  expectedEndDate: OptionalTextSchema,
   current: z.boolean().default(false),
   gpa: z.number().min(0).optional(),
   gpaScale: z.number().positive().optional(),

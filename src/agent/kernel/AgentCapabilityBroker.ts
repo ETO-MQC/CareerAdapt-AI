@@ -31,6 +31,7 @@ const CAPABILITIES: Record<AgentIntentClass, string[]> = {
     "list_resumes", "get_resume", "get_resume_revision", "archive_resume", "restore_resume",
     "prepare_resume_import", "review_resume_import", "list_profiles", "reconcile_resume_import",
     "resolve_resume_reconciliation", "commit_resume_import", "create_resume_from_profile"
+    , "build_resume_evidence_graph", "plan_resume_composition", "review_resume_composition", "compose_resume"
   ],
   application_intent: ["list_jobs"],
   job_ingestion: ["parse_job_description", "commit_job"],
@@ -81,6 +82,7 @@ export class AgentCapabilityBroker {
     else if (hasAny(compact, ["录入岗位", "导入岗位", "新增岗位", "粘贴岗位", "职位描述", "jd"])) result = route("job_ingestion", "ingest_job", 0.96, ["job"], ["job_ingestion"], "job_ingestion");
     else if (hasAny(compact, ["定制简历", "优化简历", "匹配岗位", "岗位匹配", "tailor"])) result = route("tailoring", "tailor_resume", 0.95, ["profile", "resume", "job"], ["tailoring"], "tailor_existing_resume");
     else if (hasAny(compact, ["导出", "pdf"])) result = route("export", "export_resume", 0.96, ["resume"], ["export"], "repair_and_export_resume");
+    else if (/生成|创建|整理|组装|编写/.test(text) && hasAny(compact, ["简历", "resume"])) result = route("resume", "compose_resume", 0.94, ["profile", "resume", "job"], ["resume"], "compose_resume");
     else if (hasAny(compact, ["简历", "resume"])) result = route("resume", "resume_task", 0.8, ["resume"], ["resume"]);
     else if (hasAny(compact, ["岗位", "职位", "工作机会"])) result = route("job", "job_lookup", 0.78, ["job"], ["job"]);
     else result = route("conversation", "conversation", 0.55, [], []);

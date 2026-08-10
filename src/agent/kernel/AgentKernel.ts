@@ -1149,6 +1149,19 @@ function bindAuthoritativeTaskInput(
       }
     };
   }
+  if (["build_resume_evidence_graph", "plan_resume_composition", "review_resume_composition", "compose_resume"].includes(call.name)) {
+    return {
+      ...call,
+      arguments: {
+        ...call.arguments,
+        profileId: slots.targetProfileId ?? taskState.selectedEntities.profileId,
+        expectedProfileRevision: slots.expectedProfileVersion ?? taskState.selectedEntities.profileVersion,
+        mode: slots.resumeCompositionMode ?? "general",
+        ...(slots.selectedEntitiesJobId ?? taskState.selectedEntities.jobId ? { jobId: slots.selectedEntitiesJobId ?? taskState.selectedEntities.jobId } : {}),
+        ...(slots.acknowledgedActiveProfileId ? { acknowledgedActiveProfileId: slots.acknowledgedActiveProfileId } : {})
+      }
+    };
+  }
   if (call.name === "export_resume" && taskState.selectedEntities.resumeId) {
     return {
       ...call,
@@ -1288,6 +1301,10 @@ function summarizeToolResult(result: AgentToolResult) {
     resolve_profile_intake_conflict: "已记录资料冲突处理决定。",
     commit_profile_intake: "已将确认事实保存到资料库。",
     ensure_general_resume_from_profile: "已从确认资料创建或同步通用简历。"
+    , build_resume_evidence_graph: "已构建简历证据图。"
+    , plan_resume_composition: "已生成简历组装蓝图和提案。"
+    , review_resume_composition: "已完成简历组装审查。"
+    , compose_resume: "已创建隔离的简历版本。"
   };
   return labels[result.toolName] ?? `已完成工具步骤：${result.toolName}。`;
 }
@@ -1318,6 +1335,10 @@ function toolActivityLabel(toolName: string) {
     resolve_profile_intake_conflict: "正在处理资料冲突",
     commit_profile_intake: "正在保存确认的经历",
     ensure_general_resume_from_profile: "正在生成或同步通用简历",
+    build_resume_evidence_graph: "正在构建简历证据图",
+    plan_resume_composition: "正在规划简历组装蓝图",
+    review_resume_composition: "正在审查简历组装结果",
+    compose_resume: "正在写入已确认的简历组装结果",
     get_agent_task_context: "正在读取指定任务的当前进度",
     search_agent_sessions: "正在检索历史任务",
     skills_list: "正在读取可用方法列表",
