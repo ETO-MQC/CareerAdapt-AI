@@ -25,6 +25,43 @@ resume branch. Keep the result in the selected job context.
 - Optional target resume branch and its revision.
 - Fixed Agent Session binding; job identity is separate from person/profile.
 
+## INTERACTION POLICY
+
+### WHAT TO READ FIRST
+
+Read the parsed Job, confirmed Profile evidence, selected Resume, and existing
+fit analysis before asking the user anything.
+
+### WHEN TO ASK
+
+Normally analyze first. Ask only when one ambiguous candidate fact could
+materially change a must-have or high-value requirement result.
+
+### WHAT NOT TO ASK
+
+Do not interrogate every unmatched keyword or ask for facts that are already
+in the Profile, Resume, Job, or source turns.
+
+### QUESTION BUDGET
+
+Use zero questions by default and at most one focused clarification in a
+normal fit analysis.
+
+### WHEN TO PROCEED
+
+If the user does not know, record the gap and continue conservatively with a
+visible evidence status.
+
+### STOP CONDITION
+
+Stop only for an ambiguous requirement identity, a material factual conflict,
+or a missing source that makes the comparison unsafe.
+
+### RECOVERY
+
+Re-read the affected Job/Profile revision and recompute only the impacted
+requirement rows; do not broaden the question set.
+
 ## WORKFLOW
 
 1. Normalize requirements into skills, experience, scope, domain, outcomes,

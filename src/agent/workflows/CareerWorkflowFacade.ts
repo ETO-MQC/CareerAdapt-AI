@@ -6,6 +6,12 @@ import type {
   CareerToolResult,
   OperationReceipt
 } from "../tools/CareerToolGateway";
+import {
+  buildCareerInteractionPlan,
+  CareerInteractionPlanSchema,
+  type CareerInformationNeedDraft,
+  type CareerInteractionQuestion
+} from "@/domain/careerInteraction/CareerInteractionPlan";
 
 export const CareerWorkflowStatusSchema = z.enum([
   "completed",
@@ -22,7 +28,8 @@ export const CareerWorkflowFacadeResultSchema = z.object({
   artifactRefs: z.array(z.object({ id: z.string(), kind: z.string(), toolName: z.string(), sourceToolName: z.string() }).passthrough()).optional(),
   receipts: z.array(z.object({ operationId: z.string(), toolName: z.string(), status: z.string(), completedAt: z.string() }).passthrough()).optional(),
   safeError: z.object({ code: z.string(), message: z.string(), recoverable: z.boolean() }).optional(),
-  workflowCheckpoint: z.record(z.string(), z.unknown())
+  workflowCheckpoint: z.record(z.string(), z.unknown()),
+  interactionPlan: CareerInteractionPlanSchema.optional()
 }).strict();
 
 export type CareerWorkflowFacadeResult = z.infer<typeof CareerWorkflowFacadeResultSchema>;
@@ -51,7 +58,8 @@ const ProfileToResumeInputSchema = z.object({
   targetProfileId: z.string().min(1),
   expectedProfileVersion: z.number().int().min(0),
   acknowledgedActiveProfileId: z.string().min(1).optional(),
-  name: z.string().min(1).max(120).optional()
+  name: z.string().min(1).max(120).optional(),
+  purpose: z.enum(["general", "targeted"]).optional()
 }).strict();
 const ResumeExportInputSchema = z.object({ resumeId: z.string().min(1), templateId: z.string().min(1).optional() }).strict();
 
@@ -100,7 +108,7 @@ export async function executeCareerWorkflowFacade(
       expectedProfileVersion: requiredNumber(input.expectedProfileRevision, "expectedProfileRevision"),
       ...profileIntakeCheckpointFields(input)
     });
-    return facadeFromAtomic(name, operationId, result, "waiting_for_user", "ask_high_value_gap", "请只询问返回结果中的一个最高价值缺口。", {
+    return facadeFromAtomic(name, operationId, result, "waiting_for_user", "ask_high_value_gap", "请根据交互规划，在确有必要时只确认一项会改变整理结果的事实。", {
       kind: "profile_intake_turn",
       profileId: input.profileId,
       expectedProfileRevision: input.expectedProfileRevision,
@@ -111,7 +119,7 @@ export async function executeCareerWorkflowFacade(
         "providerStatus", "extractionStatus"
       ]),
       provisionalDraftCheckpoint: input.provisionalDraftCheckpoint
-    });
+    }, context);
   }
   if (name === "career.workflow.profile_intake_finalize") {
     const result = await call("career.profile.synthesize_intake", input);
@@ -123,7 +131,7 @@ export async function executeCareerWorkflowFacade(
         "reviewProjection", "artifactPayload", "candidates", "intakeSession", "interviewPlan",
         "persistenceReceipt", "finalReviewCount", "finalCareerWriting"
       ])
-    });
+    }, context);
   }
   if (name === "career.workflow.resume_import") {
     const result = await call("career.resume.import.prepare", input);
@@ -135,7 +143,7 @@ export async function executeCareerWorkflowFacade(
         "extractionStatus", "persistenceReceipt", "sourceKind", "sourceType", "fileName", "sourceFile",
         "reviewSummary", "artifactPayload", "warnings", "status"
       ])
-    });
+    }, context);
   }
   if (name === "career.workflow.job_fit") {
     const result = await call("career.job.analyze_fit", input);
@@ -145,7 +153,7 @@ export async function executeCareerWorkflowFacade(
       resumeId: input.resumeId,
       jobId: input.jobId,
       result: compactData(result.data, ["fitAnalysisId", "score", "matched", "gaps", "artifactId", "resumeRevision"])
-    });
+    }, context);
   }
   if (name === "career.workflow.tailor_resume") {
     const result = await call("career.tailoring.create_session", input);
@@ -162,23 +170,25 @@ export async function executeCareerWorkflowFacade(
       // shallow summary would lose the plan/branch/job context and force the
       // artifact reducer to fall back to a pending entity id.
       session: createdSession
-    });
+    }, context);
   }
   if (name === "career.workflow.profile_to_resume") {
-    const result = await call("career.resume.ensure_general_from_profile", input);
+    const { purpose, ...atomicInput } = input;
+    const result = await call("career.resume.ensure_general_from_profile", atomicInput);
     return facadeFromAtomic(name, operationId, result, "completed", "open_resume", undefined, {
       kind: "profile_to_resume",
       profileId: input.targetProfileId,
       expectedProfileVersion: input.expectedProfileVersion,
+      purpose,
       result: compactData(result.data, ["resumeId", "revision", "created", "profileId", "artifactId"])
-    });
+    }, context);
   }
   const result = await call("career.export.resume", input);
   return facadeFromAtomic(name, operationId, result, "completed", "open_export", undefined, {
     kind: "resume_export",
     resumeId: input.resumeId,
     result: compactData(result.data, ["resumeId", "revision", "artifactId", "previewArtifactId", "pdfArtifactId", "fileName"])
-  });
+  }, context);
 }
 
 function facadeFromAtomic(
@@ -188,7 +198,8 @@ function facadeFromAtomic(
   successStatus: CareerWorkflowFacadeResult["status"],
   nextAction: string,
   userPrompt: string | undefined,
-  workflowCheckpoint: Record<string, unknown>
+  workflowCheckpoint: Record<string, unknown>,
+  context?: CareerToolExecutionContext
 ) {
   const status: CareerWorkflowFacadeResult["status"] = result.ok
     ? successStatus
@@ -210,11 +221,177 @@ function facadeFromAtomic(
       artifactRefs: result.artifacts,
       receipts: [result.receipt, facadeReceipt],
       safeError: result.error ? { code: result.error.code, message: result.error.message, recoverable: result.error.recoverable } : undefined,
-      workflowCheckpoint
+      workflowCheckpoint,
+      interactionPlan: buildFacadeInteractionPlan({ facadeName, result, workflowCheckpoint, context })
     }),
     artifacts: result.artifacts,
     receipts: [result.receipt, facadeReceipt]
   };
+}
+
+function buildFacadeInteractionPlan(input: {
+  facadeName: string;
+  result: CareerToolResult;
+  workflowCheckpoint: Record<string, unknown>;
+  context?: CareerToolExecutionContext;
+}) {
+  const data = objectValue(input.result.data);
+  const checkpoint = input.workflowCheckpoint;
+  const binding = input.context?.careerSessionBinding;
+  const needs: CareerInformationNeedDraft[] = [];
+  let recommendedNextQuestion: CareerInteractionQuestion | undefined;
+
+  if (input.facadeName === "career.workflow.profile_intake_turn") {
+    const nextTurn = objectValue(data.nextTurnPlan);
+    const activeQuestion = objectValue(objectValue(data.interviewPlan).activeQuestion);
+    const question = stringValue(nextTurn.question) ?? stringValue(data.followUpQuestion) ?? stringValue(activeQuestion.question);
+    const candidateId = stringValue(nextTurn.candidateId) ?? stringValue(activeQuestion.candidateId);
+    const dimension = stringValue(nextTurn.dimension) ?? stringValue(activeQuestion.dimension);
+    if (question) {
+      const needId = `profile-intake:${candidateId ?? "current"}:${dimension ?? "detail"}`;
+      needs.push({
+        id: needId,
+        type: "factual_gap",
+        ...(candidateId ? { targetAssetId: candidateId } : {}),
+        ...(dimension ? { dimension } : {}),
+        importance: 0.9,
+        reason: question,
+        answerChangesOutcome: true,
+        required: false,
+        alreadyAsked: false,
+        priorityFactors: {
+          missingDimensionWeight: 0.9,
+          careerAssetImportance: 0.9,
+          expectedArtifactImpact: 0.9,
+          currentReadinessGap: 0.7
+        }
+      });
+      recommendedNextQuestion = {
+        needId,
+        question,
+        ...(candidateId ? { targetAssetId: candidateId } : {}),
+        ...(dimension ? { dimension } : {})
+      };
+    }
+  } else if (input.facadeName === "career.workflow.resume_import") {
+    if (Number(data.needsConfirmationCount ?? 0) > 0) {
+      needs.push({
+        id: "resume-import:review",
+        type: "confirmation",
+        importance: 0.85,
+        reason: "解析结果中有内容需要你核对；我会先把来源和冲突集中展示。",
+        answerChangesOutcome: true,
+        required: true,
+        alreadyAsked: false,
+        priorityFactors: { expectedArtifactImpact: 0.85, currentReadinessGap: 0.5 }
+      });
+    }
+  } else if (input.facadeName === "career.workflow.tailor_resume") {
+    const session = objectValue(data.session ?? checkpoint.session);
+    const plan = objectValue(session.plan);
+    const questions = arrayValue(plan.clarificationQuestions);
+    const activeId = stringValue(objectValue(plan.questionPlan).activeQuestionId);
+    const active = questions
+      .map(objectValue)
+      .find((question) => (activeId ? question.id === activeId : true) && !["answered", "skipped"].includes(String(question.status ?? "")));
+    if (active) {
+      const question = stringValue(active.question);
+      if (question) {
+        const needId = `tailoring:${stringValue(active.id) ?? "clarification"}`;
+        needs.push({
+          id: needId,
+          type: "factual_gap",
+          ...(stringValue(active.targetContentItemId) ? { targetAssetId: stringValue(active.targetContentItemId) } : {}),
+          importance: 0.82,
+          reason: question,
+          answerChangesOutcome: true,
+          required: false,
+          alreadyAsked: false,
+          priorityFactors: { expectedArtifactImpact: 0.9, currentReadinessGap: 0.6, jobRelevance: 0.9 }
+        });
+        recommendedNextQuestion = { needId, question };
+      }
+    }
+  } else if (input.facadeName === "career.workflow.profile_to_resume") {
+    // A general resume is safe when intent is absent, but a single preference
+    // question can improve the next revision without blocking this artifact.
+    const purpose = stringValue(checkpoint.purpose);
+    if (purpose === "general" || purpose === "targeted") {
+      // The page/conversation already supplied the preference; no extra
+      // interview is needed after the artifact has been created.
+    } else {
+    const needId = "profile-to-resume:target-direction";
+    needs.push({
+      id: needId,
+      type: "user_preference",
+      importance: 0.38,
+      reason: "这份简历主要准备投什么方向？如果暂时没有明确方向，我先保留为通用简历。",
+      answerChangesOutcome: true,
+      required: false,
+      alreadyAsked: false,
+      priorityFactors: { expectedArtifactImpact: 0.45, lowValueOptionalPenalty: 0.25 }
+    });
+    recommendedNextQuestion = { needId, question: needs[0].reason };
+    }
+  } else if (input.facadeName === "career.workflow.job_fit") {
+    const questions = arrayValue(data.questions ?? data.ambiguousFacts);
+    for (const [index, value] of questions.slice(0, 3).entries()) {
+      const question = typeof value === "string" ? value : stringValue(objectValue(value).question);
+      if (!question) continue;
+      const needId = `job-fit:ambiguity:${index + 1}`;
+      needs.push({
+        id: needId,
+        type: "factual_gap",
+        importance: 0.8,
+        reason: question,
+        answerChangesOutcome: true,
+        required: false,
+        alreadyAsked: false,
+        priorityFactors: { expectedArtifactImpact: 0.9, jobRelevance: 1 }
+      });
+      if (!recommendedNextQuestion) recommendedNextQuestion = { needId, question };
+    }
+  }
+
+  const knownContext = {
+    person: binding?.personId ? { id: binding.personId } : undefined,
+    profile: binding?.profileId ? { id: binding.profileId, revision: binding.profileRevision } : undefined,
+    resumes: stringValue(checkpoint.resumeId) ? [{ id: checkpoint.resumeId }] : undefined,
+    job: stringValue(checkpoint.jobId) ? { id: checkpoint.jobId } : undefined,
+    activeCareerAssets: checkpoint.understood,
+    existingDecisions: checkpoint.result ?? checkpoint.synthesis
+  };
+  const objective = {
+    "career.workflow.profile_intake_turn": "把真实经历整理成可复用、可核验的职业资产",
+    "career.workflow.profile_intake_finalize": "汇总经历并交给用户做一次最终审核",
+    "career.workflow.resume_import": "把现有简历整理进资料体系并保留来源",
+    "career.workflow.job_fit": "用已确认证据分析岗位匹配与真实缺口",
+    "career.workflow.tailor_resume": "在不改变事实边界的前提下准备岗位简历",
+    "career.workflow.profile_to_resume": "从已确认资料生成一份与资料库隔离的简历",
+    "career.workflow.resume_export": "检查已选简历并准备预览或导出"
+  }[input.facadeName] ?? "完成当前职业任务";
+  return buildCareerInteractionPlan({
+    workflow: input.facadeName,
+    objective,
+    knownContext,
+    informationNeeds: needs,
+    ...(recommendedNextQuestion ? { recommendedNextQuestion } : {}),
+    canProceedWithoutQuestion: true,
+    ...(needs.length === 0 ? { stopReason: input.result.ok ? "当前步骤没有需要用户补充的关键信息。" : input.result.error?.message } : {}),
+    interactionSummary: input.result.ok ? "已完成当前步骤的资料读取与安全规划。" : "当前步骤未完成，保留已有资料并等待恢复。"
+  });
+}
+
+function objectValue(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
+function arrayValue(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : [];
+}
+
+function stringValue(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
 function profileIntakeCheckpointFields(input: Record<string, unknown>) {

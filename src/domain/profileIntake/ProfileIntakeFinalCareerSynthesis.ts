@@ -9,6 +9,7 @@ import {
   type ProfileIntakeFinalSynthesis,
   type ProfileIntakeFinalSynthesisAsset
 } from "./ProfileIntakeFinalSynthesis";
+import { dedupeCareerWriting, preservesOwnership } from "./CareerWritingQuality";
 
 export const ProfileIntakeFinalCareerSynthesisInputSchema = z.object({
   sourceTurns: z.array(z.object({
@@ -23,7 +24,7 @@ export const ProfileIntakeFinalCareerSynthesisAssetSchema = z.object({
   candidateId: z.string().min(1),
   structuredItem: ResumeItemV2Schema,
   careerReadySummary: z.string().min(1).max(1_600),
-  careerReadyHighlights: z.array(z.string().min(1).max(800)).min(2).max(4),
+  careerReadyHighlights: z.array(z.string().min(1).max(800)).max(4).default([]),
   missingDimensions: z.array(z.string().min(1)).max(24).default([]),
   conflicts: z.array(z.string().min(1)).max(24).default([])
 }).strict();
@@ -75,12 +76,12 @@ export function applyProfileIntakeFinalCareerSynthesis(input: {
       careerReadySummary: fallback.summary,
       careerReadyHighlights: fallback.highlights
     };
-    const acceptedHighlights = generated.careerReadyHighlights.filter((highlight) =>
-      isGroundedCareerText(highlight, sourceText)
-    ).slice(0, 4);
+    const acceptedHighlights = dedupeCareerWriting(generated.careerReadyHighlights)
+      .filter((highlight) => isGroundedCareerText(highlight, sourceText))
+      .slice(0, 4);
     const unsupportedClaimCount = generated.careerReadyHighlights.length - acceptedHighlights.length
       + (isGroundedCareerText(generated.careerReadySummary, sourceText) ? 0 : 1);
-    const highlights = ensureTwoHighlights(acceptedHighlights, fallback.highlights, sourceText);
+    const highlights = ensureCareerHighlights(acceptedHighlights, fallback.highlights, sourceText);
     const summary = isGroundedCareerText(generated.careerReadySummary, sourceText)
       ? generated.careerReadySummary
       : fallback.summary;
@@ -136,30 +137,23 @@ function fallbackCareerWriting(asset: ProfileIntakeFinalSynthesisAsset, sourceTe
     || "待整理经历";
   return {
     summary,
-    highlights: ensureTwoHighlights(asset.highlights, [summary], sourceText)
+    highlights: ensureCareerHighlights(asset.highlights, [], sourceText)
   };
 }
 
-function ensureTwoHighlights(primary: string[], fallback: string[], sourceText: string) {
-  const values = [...primary, ...fallback, ...sourceText.split(/[\n。；;]+/u)]
+function ensureCareerHighlights(primary: string[], fallback: string[], sourceText: string) {
+  const values = dedupeCareerWriting([...primary, ...fallback, ...sourceText.split(/[\n。；;]+/u)])
     .map((value) => value.trim())
     .filter(Boolean)
-    .filter((value, index, all) => all.indexOf(value) === index)
     .filter((value) => isGroundedCareerText(value, sourceText));
-  if (values.length >= 2) return values.slice(0, 4);
-  const source = sourceText.trim() || "原始事实已保留，待进一步补充。";
-  const sourceHighlight = `来源事实：${source}`;
-  return [...new Set([
-    ...values,
-    sourceHighlight,
-    "原始事实已保留，待进一步补充。"
-  ])].slice(0, 4);
+  return values.slice(0, 4);
 }
 
 function isGroundedCareerText(text: string, source: string) {
   if (!text.trim() || !source.trim()) return false;
   const factGuard = runRuleFactGuard({ originalText: source, checkedText: text, usedEvidenceRefs: [] });
   if (factGuard.status === "blocked_high_risk" || factGuard.status === "needs_edit") return false;
+  if (!preservesOwnership(source, text)) return false;
   const terms = factTerms(text);
   if (!terms.length) return false;
   const normalizedSource = source.toLocaleLowerCase().replace(/\s+/gu, "");

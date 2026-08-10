@@ -459,7 +459,7 @@ export const aiTaskRegistry = {
       return JSON.stringify({
         sourceTurns: input.sourceTurns,
         assets: input.assets,
-        instructions: "Preserve candidateId and structuredItem exactly. Write one concise summary and 2 to 4 grounded highlights per asset. Missing dimensions and conflicts are deterministic display fields; do not add new ones."
+        instructions: "Preserve candidateId and structuredItem exactly. Write one concise summary and 0 to 4 grounded highlights per asset; omit a highlight when the source does not support it. Missing dimensions and conflicts are deterministic display fields; do not add new ones."
       }, null, 2);
     },
     coerceRawOutput(rawOutput: unknown) {

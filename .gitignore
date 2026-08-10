@@ -82,7 +82,7 @@ skills/*
 skills-lock.json
 artifacts/
 模板/
-
+.artifacts/
 # Internal handoff, release, planning, and migration notes.
 docs/MVP_V1_HANDOFF.md
 docs/V2_START_HERE.md

@@ -22,6 +22,7 @@ import {
   summarizeSchemaIssues,
   type SafeSchemaIssue
 } from "@/ai/resumeDocumentMapperDiagnostics";
+import { dedupeCareerWriting } from "@/domain/profileIntake/CareerWritingQuality";
 
 const StructuredAiRequestSchema = z
   .object({
@@ -423,17 +424,15 @@ function createMockOutput(task: AiTask, input: unknown) {
           : typeof asset.highlights === "object" && Array.isArray(asset.highlights) && asset.highlights[0]
             ? String(asset.highlights[0])
             : source.split(/[\n。；;]+/u).find(Boolean) ?? "待整理经历";
-        const highlights = [
+        const highlights = dedupeCareerWriting([
           ...(Array.isArray(asset.careerReadyHighlights) ? asset.careerReadyHighlights.map(String) : []),
-          ...(Array.isArray(asset.highlights) ? asset.highlights.map(String) : []),
-          summary,
-          source.split(/[\n。；;]+/u).find(Boolean) ?? source
-        ].map((value) => value.trim()).filter((value, index, values) => value && values.indexOf(value) === index).slice(0, 4);
+          ...(Array.isArray(asset.highlights) ? asset.highlights.map(String) : [])
+        ].map((value) => value.trim()).filter((value) => value && value !== summary), source).slice(0, 4);
         return {
           candidateId,
           structuredItem: asset.structuredItem,
           careerReadySummary: summary,
-          careerReadyHighlights: highlights.length >= 2 ? highlights : [summary, source || summary],
+          careerReadyHighlights: highlights,
           missingDimensions: Array.isArray(asset.missingDimensions) ? asset.missingDimensions : [],
           conflicts: Array.isArray(asset.conflictFields) ? asset.conflictFields : []
         };

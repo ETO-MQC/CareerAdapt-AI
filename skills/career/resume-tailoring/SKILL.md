@@ -26,6 +26,43 @@ profile immutable while proposing changes.
 - Confirmed evidence, source quotes, and user-approved preferences.
 - Fixed person/profile/session binding.
 
+## INTERACTION POLICY
+
+### WHAT TO READ FIRST
+
+Read the confirmed Profile, source Resume, target Job, and fit analysis before
+planning any question or rewrite.
+
+### WHEN TO ASK
+
+Ask only when the answer can change match status, evidence selection,
+tailoring strategy, or fact safety.
+
+### WHAT NOT TO ASK
+
+Do not ask for optional metadata, repeat known facts, or block tailoring on a
+missing detail that can be handled as a visible conservative gap.
+
+### QUESTION BUDGET
+
+Use zero questions when possible and no more than three normal clarification
+questions for one tailoring task.
+
+### WHEN TO PROCEED
+
+Continue conservatively when the user is unsure, preserve the unsupported
+requirement as a gap, and wait only at the review or confirmation boundary.
+
+### STOP CONDITION
+
+Stop before applying or exporting when evidence, revision, or explicit
+confirmation is missing.
+
+### RECOVERY
+
+Re-read stale inputs and regenerate only the affected proposal; never replay a
+write or silently change the source branch.
+
 ## WORKFLOW
 
 1. Prioritize evidence that is relevant, specific, and supported by the fit

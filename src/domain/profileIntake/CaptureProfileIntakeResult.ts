@@ -5,6 +5,7 @@ import {
   ProfileIntakeReviewProjectionSchema
 } from "./ProfileIntakeReviewProjection";
 import { ProfileIntakeNextTurnPlanSchema } from "./ProfileIntakeNextTurnPlan";
+import { CareerInteractionPlanSchema } from "@/domain/careerInteraction/CareerInteractionPlan";
 
 export const ProfileIntakePersistenceStatusSchema = z.enum([
   "saved",
@@ -52,6 +53,7 @@ export const CaptureProfileIntakeResultSchema = z.object({
   interviewPlan: z.unknown(),
   followUpQuestion: z.string().min(1).optional(),
   nextTurnPlan: ProfileIntakeNextTurnPlanSchema.optional(),
+  interactionPlan: CareerInteractionPlanSchema.optional(),
   persistenceReceipt: z.object({
     autosavedAt: z.string().datetime(),
     resumeToken: z.string().min(8)

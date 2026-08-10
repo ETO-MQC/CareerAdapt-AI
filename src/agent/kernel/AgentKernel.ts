@@ -1739,12 +1739,12 @@ function deterministicWorkflowPause(
         ? objectValue(interviewPlan.questions.find((item) => objectValue(item).status === "pending")).question
         : undefined;
     if (typeof question === "string" && question) {
-      return `这项经历已记录到本次整理草稿中。为了让它更适合真实复用，我先问一个高价值细节：\n\n${question}`;
+      return `这项经历已记录到本次整理草稿中。为了让它更适合真实复用，我先确认一个关键细节：\n\n${question}`;
     }
     const projection = objectValue(taskState.knownSlots.profileIntakeReviewProjection);
     const followUp = typeof projection.followUpQuestion === "string" ? projection.followUpQuestion : undefined;
     return followUp
-      ? `当前经历已核对完成。为了让它更适合真实复用，我先问一个高价值细节：\n\n${followUp}\n\n回答后你可以继续补充其他经历，或完成整理。`
+      ? `当前经历已核对完成。为了让它更适合真实复用，我先确认一个关键细节：\n\n${followUp}\n\n回答后你可以继续补充其他经历，或完成整理。`
       : "已更新临时整理，接下来我会继续确认一项关键信息。";
   }
   if (

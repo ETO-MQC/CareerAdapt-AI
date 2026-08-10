@@ -223,8 +223,10 @@ export function RecycleBinWorkspace() {
             {developerMode && total > 0 ? <button className="danger-button compact" type="button" onClick={() => setQuickCleanOpen(true)}>快速清理</button> : null}
           </div>
         </div>
-        <label className="recycle-search-label" htmlFor="recycle-search">搜索回收站</label>
-        <input id="recycle-search" className="recycle-search" type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="搜索名称、人物、版本或岗位" />
+        <div className="recycle-search-field">
+          <label className="recycle-search-label" htmlFor="recycle-search">搜索回收站</label>
+          <input id="recycle-search" className="recycle-search" type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="搜索名称、人物、版本或岗位" />
+        </div>
         <div className="resume-filter-row" role="tablist" aria-label="回收站分类">
           {([['all', '全部', total], ['resume', '简历', branches.length], ['profile_item', '资料条目', state.profileItems.length], ['person_version', '人物与版本', trashedPersons.length + trashedProfiles.length], ['job', '岗位', jobs.length]] as const).map(([key, label, count]) => (
             <button key={key} type="button" className={filter === key ? "secondary-button compact filter-active" : "secondary-button compact"} onClick={() => setFilter(key)}>{label} {count}</button>
@@ -265,9 +267,11 @@ function RecycleSection({ title, children }: { title: string; children: React.Re
 
 function RecycleRow({ selected, title, meta, onSelect, onRestore, onDelete, onBlockers }: { itemKey: string; selected: boolean; title: string; meta: string; onSelect: () => void; onRestore: () => void; onDelete: () => void; onBlockers?: () => void }) {
   return <article className="recycle-row product-data-row">
-    <label className="recycle-row-select"><input type="checkbox" checked={selected} onChange={onSelect} aria-label={`选择 ${title}`} /></label>
-    <div><strong>{title}</strong><span>{meta}</span></div>
-    <div className="action-row"><button className="secondary-button compact" type="button" onClick={onRestore}>恢复</button>{onBlockers ? <button className="section-action-button compact" type="button" onClick={onBlockers}>查看阻塞</button> : null}<button className="danger-button compact" type="button" onClick={onDelete}>永久删除</button></div>
+    <div className="recycle-row-main">
+      <label className="recycle-row-select"><input type="checkbox" checked={selected} onChange={onSelect} aria-label={`选择 ${title}`} /></label>
+      <div className="recycle-row-content"><strong>{title}</strong><span>{meta}</span></div>
+    </div>
+    <div className="action-row recycle-row-actions"><button className="secondary-button compact" type="button" onClick={onRestore}>恢复</button>{onBlockers ? <button className="section-action-button compact" type="button" onClick={onBlockers}>查看阻塞</button> : null}<button className="danger-button compact" type="button" onClick={onDelete}>永久删除</button></div>
   </article>;
 }
 

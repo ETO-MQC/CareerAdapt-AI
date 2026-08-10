@@ -12,12 +12,12 @@ export const AgentQuickActionIdSchema = z.enum([
 export type AgentQuickActionId = z.infer<typeof AgentQuickActionIdSchema>;
 
 export const AGENT_QUICK_ACTION_INTENTS: Record<AgentQuickActionId, string> = {
-  build_profile_from_scratch: "我想从零整理自己的真实经历。请先通过简短访谈询问第一步，不要补充我没有确认的事实。",
-  import_existing_resume: "我想导入现有简历并逐项核对来源。请先告诉我可以上传什么文件，以及下一步会如何确认。",
-  tailor_resume_to_job: "我想用现有简历生成岗位定制版本。请先加载当前资料库、可用简历和已保存岗位，只让我选择尚未确定的目标岗位。",
-  build_resume_from_profile: "我想从个人资料库组装一份简历。请先询问目标方向和我希望使用的经历范围。",
-  analyze_job_fit: "我想分析自己与目标岗位的匹配度。请先向我收集岗位描述和要比较的简历或资料。",
-  repair_and_export_resume: "我想修复并导出一份简历。请先询问需要检查的简历和期望的导出结果。"
+  build_profile_from_scratch: "我想从零整理自己的真实经历。先听我完整说完，再用自然的方式确认真正会影响整理结果的细节，不要补充我没有确认的事实。",
+  import_existing_resume: "导入现有简历：这是我现在的简历，帮我整理进去。先读取和比较已有内容，只有出现真正冲突或需要我判断的地方再问我。",
+  tailor_resume_to_job: "我想用现有简历投这个岗位。先读取资料、简历、岗位和已有匹配分析，只有答案会改变定制结果时再问我。",
+  build_resume_from_profile: "我想从个人资料库整理一份通用简历。先直接开始；如果目标方向会明显改变结果，再问我一次。",
+  analyze_job_fit: "我想分析自己与目标岗位的匹配度。请先根据当前已确认的资料和岗位分析，只有一个模糊事实会改变结论时再问我。",
+  repair_and_export_resume: "我想修复并导出一份简历。请先自行检查内容、事实和排版，再把真正需要我决定的事项集中告诉我。"
 };
 
 export type QuickActionIntent = {

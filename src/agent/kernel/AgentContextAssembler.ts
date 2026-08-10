@@ -149,6 +149,7 @@ function promptKnownSlots(slots: Record<string, unknown>) {
     };
   }
   const intakeProjection = objectValue(slots.profileIntakeReviewProjection);
+  const interactionPlan = objectValue(slots.profileInteractionPlan);
   const intakeCandidates = Array.isArray(intakeProjection.candidates)
     ? intakeProjection.candidates.map(objectValue).slice(0, 24)
     : Array.isArray(slots.intakeCandidates)
@@ -172,6 +173,22 @@ function promptKnownSlots(slots: Record<string, unknown>) {
       reviewProgress: intakeProjection.reviewProgress,
       followUpQuestion: intakeProjection.followUpQuestion,
       failedExtraction: intakeProjection.failedExtraction
+    };
+  }
+  if (Object.keys(interactionPlan).length) {
+    compact.profileInteractionPlan = {
+      workflow: interactionPlan.workflow,
+      objective: interactionPlan.objective,
+      informationNeeds: Array.isArray(interactionPlan.informationNeeds)
+        ? interactionPlan.informationNeeds.slice(0, 12)
+        : [],
+      recommendedNextQuestion: interactionPlan.recommendedNextQuestion,
+      canProceedWithoutQuestion: interactionPlan.canProceedWithoutQuestion,
+      stopReason: interactionPlan.stopReason,
+      interactionSummary: interactionPlan.interactionSummary,
+      careerAssetState: Array.isArray(interactionPlan.careerAssetState)
+        ? interactionPlan.careerAssetState.slice(0, 24)
+        : []
     };
   }
   const sourceRecommendation = objectValue(slots.sourceRecommendation);

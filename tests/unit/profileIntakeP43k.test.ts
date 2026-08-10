@@ -227,7 +227,7 @@ describe("P4.3k interview-first profile intake", () => {
     expect(appliedAsset.structuredItem).toEqual(asset.structuredItem);
     expect(appliedAsset.provenance).toEqual(asset.provenance);
     expect(appliedAsset.careerReadySummary).not.toContain("300%");
-    expect(careerReadyHighlights.length).toBeGreaterThanOrEqual(2);
+    expect(careerReadyHighlights.length).toBeGreaterThanOrEqual(1);
     expect(careerReadyHighlights.length).toBeLessThanOrEqual(4);
     expect(careerReadyHighlights.join(" ")).not.toContain("300%");
   });

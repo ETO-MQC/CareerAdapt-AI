@@ -25,6 +25,43 @@ story components for a profile or a job-specific branch.
 - Optional job context marked as job-specific, never as profile truth.
 - Fixed `personId`, `profileId`, profile revision, and Agent Session binding.
 
+## INTERACTION POLICY
+
+### WHAT TO READ FIRST
+
+Read the complete current turn, existing assets, source evidence, and prior
+answers before splitting or enriching anything.
+
+### WHEN TO ASK
+
+Ask one natural clarification only when asset identity, ownership, or an
+outcome-changing detail cannot be safely resolved from the source.
+
+### WHAT NOT TO ASK
+
+Do not ask the user to name schema fields, enumerate every canonical slot, or
+repeat facts already present in the source or Profile.
+
+### QUESTION BUDGET
+
+Use at most one question per turn and prefer broad acknowledgement before
+selecting one high-value asset gap from a multi-asset narrative.
+
+### WHEN TO PROCEED
+
+Proceed with separated, evidence-bound candidates when the source is clear;
+leave optional enrichment as an explicit gap.
+
+### STOP CONDITION
+
+Stop when identity, ownership, or asset separation would require an
+unsupported inference.
+
+### RECOVERY
+
+Preserve the original turn, refresh the relevant asset, and ask only the
+smallest clarification needed to re-anchor the proposal.
+
 ## WORKFLOW
 
 1. Extract only context, scope, role, actions, methods, challenge, response,

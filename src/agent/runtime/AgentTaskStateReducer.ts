@@ -520,6 +520,7 @@ export class AgentTaskStateReducer {
         state.knownSlots.profileIntakePersistenceReceipt = value.persistenceReceipt;
         state.knownSlots.intakeSession = value.intakeSession;
         state.knownSlots.profileIntakeNextTurnPlan = value.nextTurnPlan;
+        state.knownSlots.profileInteractionPlan = value.interactionPlan;
         state.knownSlots.profileIntakePhase = objectValue(value.intakeSession).phase ?? "clarifying";
         if (projection) {
           state.knownSlots.profileIntakeReviewProjection = projection;
@@ -557,6 +558,7 @@ export class AgentTaskStateReducer {
         if (value.nextTurnPlan) state.knownSlots.profileIntakeNextTurnPlan = value.nextTurnPlan;
         state.knownSlots.profileIntakePhase = "ready_for_review";
         state.knownSlots.profileIntakeFinalSynthesis = value.finalSynthesis;
+        state.knownSlots.profileInteractionPlan = value.interactionPlan;
         state.knownSlots.finalReviewRevision = value.expectedDraftRevision;
         const projection = ProfileIntakeReviewProjectionSchema.safeParse(value.reviewProjection);
         if (projection.success) {
@@ -574,6 +576,7 @@ export class AgentTaskStateReducer {
         state.knownSlots.profileIntakePhase = objectValue(value.intakeSession).phase
           ?? (value.decision === "accept_all" ? "reviewing" : state.knownSlots.profileIntakePhase ?? "clarifying");
         if (value.interviewPlan) state.knownSlots.intakeInterviewPlan = value.interviewPlan;
+        if (value.interactionPlan) state.knownSlots.profileInteractionPlan = value.interactionPlan;
         if (value.followUpQuestion) state.knownSlots.intakeFollowUpQuestion = value.followUpQuestion;
         state.knownSlots.intakeActiveQuestion = objectValue(value.interviewPlan).activeQuestion;
         const activeQuestionId = objectValue(value.interviewPlan).activeQuestionId;

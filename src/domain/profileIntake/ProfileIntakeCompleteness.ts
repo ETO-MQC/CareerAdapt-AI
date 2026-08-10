@@ -1,6 +1,7 @@
 import type { ResumeItemV2, ResumeSectionTypeV2 } from "@/domain/schemas";
 import { stableHashText } from "@/services/security/text";
 import type { ProfileIntakeQuestionAnswer } from "./ProfileIntakeQuestionAnswer";
+import type { CareerAssetInterviewState, CareerInformationNeedPriorityFactors } from "@/domain/careerInteraction/CareerInteractionPlan";
 
 export type CareerAssetDimension =
   | "identity"
@@ -34,6 +35,9 @@ export type CareerAssetCompleteness = {
   present: CareerAssetDimension[];
   missing: CareerAssetDimension[];
   nextQuestion?: string;
+  readiness: number;
+  informationGain: number;
+  priorityFactors: CareerInformationNeedPriorityFactors;
   utility: number;
 };
 
@@ -50,7 +54,7 @@ export type ProfileIntakeInterviewQuestion = {
 };
 
 export type ProfileIntakeInterviewPlan = {
-  planVersion: 2;
+  planVersion: 3;
   status: "awaiting_follow_up" | "ready_to_finish";
   sourceRevision: number;
   coveredSections: ResumeSectionTypeV2[];
@@ -73,6 +77,7 @@ export type ProfileIntakeInterviewPlan = {
   questions: ProfileIntakeInterviewQuestion[];
   followUpCounts?: Record<string, number>;
   questionAnswers?: ProfileIntakeQuestionAnswer[];
+  careerAssetState: CareerAssetInterviewState[];
   coverageBoard: Array<{
     group: "education" | "work_internship" | "projects" | "research" | "campus_volunteer" | "skills" | "awards_certificates" | "languages" | "other";
     status: "covered" | "high_value_gap" | "intentionally_skipped" | "not_present";
@@ -81,7 +86,7 @@ export type ProfileIntakeInterviewPlan = {
 };
 
 /**
- * Deterministic utility rules decide whether a gap deserves interruption.
+ * Deterministic information-gain rules decide whether a gap deserves interruption.
  * They do not turn every dimension into a required field.
  */
 export function assessCareerAssetCompleteness(item: ResumeItemV2, sourceEvidence: string[] = []): CareerAssetCompleteness {
@@ -104,10 +109,17 @@ export function assessCareerAssetCompleteness(item: ResumeItemV2, sourceEvidence
   const priority = sectionPriority(item, present);
   const missing = priority.map(([dimension]) => dimension).filter((dimension) => !present.has(dimension));
   const next = priority.find(([dimension]) => !present.has(dimension));
+  const readiness = careerReadinessForAsset(item, [...present]);
+  const nextDimension = next?.[0];
+  const priorityFactors = informationGainFactors(item, nextDimension, readiness, sourceEvidence);
+  const informationGain = informationGainScore(priorityFactors, nextDimension);
   return {
     present: [...present],
     missing,
-    nextQuestion: next?.[1],
+    nextQuestion: next ? naturalCareerQuestion(item, next[0]) : undefined,
+    readiness,
+    informationGain,
+    priorityFactors,
     utility: priority.reduce((sum, [dimension, , weight]) => sum + (present.has(dimension) ? weight : 0), 0)
   };
 }
@@ -243,19 +255,26 @@ export function createProfileIntakeInterviewPlan(
     .filter((section) => !coveredSections.includes(section));
   const nextSection = nextSections[0];
   const candidate = items[0];
+  const answeredQuestionIds = (options.questionAnswers ?? [])
+    .filter((answer) => answer.status === "answered")
+    .map((answer) => answer.questionId);
+  const skippedQuestionIds = (options.questionAnswers ?? [])
+    .filter((answer) => answer.status === "skipped")
+    .map((answer) => answer.questionId);
   if (!candidate) {
     return {
-      planVersion: 2,
+      planVersion: 3,
       status: "ready_to_finish",
       sourceRevision,
       coveredSections,
       suggestedNextSections: ["finish"],
-      answeredQuestionIds: [],
-      skippedQuestionIds: [],
+      answeredQuestionIds,
+      skippedQuestionIds,
       questions: [],
       followUpCounts: options.followUpCounts ?? {},
       questionAnswers: options.questionAnswers ?? []
-      , coverageBoard: buildCoverageBoard(items, options)
+      , careerAssetState: [],
+      coverageBoard: buildCoverageBoard(items, options)
     };
   }
   const detail = highestValueFollowUpDetail(items, options);
@@ -271,7 +290,7 @@ export function createProfileIntakeInterviewPlan(
     questionRevision: sourceRevision
   } : undefined;
   return {
-    planVersion: 2,
+    planVersion: 3,
     status: question ? "awaiting_follow_up" : "ready_to_finish",
     sourceRevision,
     coveredSections,
@@ -288,12 +307,13 @@ export function createProfileIntakeInterviewPlan(
     suggestedNextSections: [...nextSections, "finish"],
     suggestedNextSection: nextSection,
     activeQuestionId: question?.questionId,
-    answeredQuestionIds: [],
-    skippedQuestionIds: [],
+    answeredQuestionIds,
+    skippedQuestionIds,
     questions: question ? [question] : [],
     followUpCounts: options.followUpCounts ?? {},
     questionAnswers: options.questionAnswers ?? []
-    , coverageBoard: buildCoverageBoard(items, options)
+    , careerAssetState: buildCareerAssetState(items, options),
+    coverageBoard: buildCoverageBoard(items, options)
   };
 }
 
@@ -317,18 +337,20 @@ export function highestValueFollowUpDetail(
       const identityRepair = assessment.missing[0] === "identity" && count < maxFollowUpsPerAsset + 1;
       return count < maxFollowUpsPerAsset || identityRepair;
     })
-    // `utility` is the documented coverage score: a larger value means more
-    // useful evidence is already present.  The same descending selector is
-    // shared by the short and detailed APIs so they cannot disagree.
-    .sort((left, right) => right.assessment.utility - left.assessment.utility || left.item.id.localeCompare(right.item.id))
+    // Rank by expected information gain, not by how many canonical fields are
+    // already covered.  This lets a substantial project outrank low-value
+    // metadata while still allowing a nearly complete asset to require zero
+    // questions.
+    .sort((left, right) => right.assessment.informationGain - left.assessment.informationGain || left.item.id.localeCompare(right.item.id))
     .map(({ item, assessment }) => assessment.nextQuestion
-      ? { item, dimension: assessment.missing[0] ?? "evidence", question: assessment.nextQuestion }
+      ? { item, dimension: assessment.missing[0] ?? "evidence", question: assessment.nextQuestion, informationGain: assessment.informationGain }
       : undefined)
     .find(Boolean);
 }
 
 function isHighValueFollowUp(dimension: CareerAssetDimension | undefined) {
   return Boolean(dimension && ![
+    "challenge",
     "coursework_honors",
     "scope",
     "collaboration",
@@ -345,6 +367,45 @@ export type ProfileIntakeCompletenessOptions = {
   sourceEvidenceByCandidate?: Record<string, string[]>;
   skippedSections?: ResumeSectionTypeV2[];
 };
+
+function buildCareerAssetState(
+  items: ResumeItemV2[],
+  options: ProfileIntakeCompletenessOptions
+): CareerAssetInterviewState[] {
+  const answersByCandidate = new Map<string, { answered: string[]; skipped: string[] }>();
+  for (const answer of options.questionAnswers ?? []) {
+    const entry = answersByCandidate.get(answer.candidateId) ?? { answered: [], skipped: [] };
+    const target = answer.status === "answered" ? entry.answered : entry.skipped;
+    if (!target.includes(answer.dimension)) target.push(answer.dimension);
+    answersByCandidate.set(answer.candidateId, entry);
+  }
+  const budget = options.maxFollowUpsPerAsset ?? 2;
+  return items.map((item) => {
+    const assessment = assessCareerAssetCompleteness(item, options.sourceEvidenceByCandidate?.[item.id] ?? []);
+    const answerState = answersByCandidate.get(item.id) ?? { answered: [], skipped: [] };
+    const highValueGaps = assessment.missing.filter((dimension) =>
+      isHighValueFollowUp(dimension)
+      && !answerState.answered.includes(dimension)
+      && !answerState.skipped.includes(dimension)
+    );
+    const questionCount = options.followUpCounts?.[item.id] ?? 0;
+    const identity = displayIdentity(item) ?? `待补充${item.sectionType}经历`;
+    const interviewStatus = highValueGaps.length === 0
+      ? answerState.skipped.length > 0 && assessment.readiness < 0.9 ? "skipped" as const : "ready" as const
+      : questionCount > 0 ? "enriching" as const : "discovered" as const;
+    return {
+      candidateId: item.id,
+      identity,
+      sectionType: item.sectionType,
+      readiness: assessment.readiness,
+      questionBudget: Math.max(0, budget - questionCount),
+      answeredDimensions: answerState.answered,
+      skippedDimensions: answerState.skipped,
+      highValueGaps,
+      interviewStatus
+    };
+  });
+}
 
 function buildCoverageBoard(items: ResumeItemV2[], options: ProfileIntakeCompletenessOptions): ProfileIntakeInterviewPlan["coverageBoard"] {
   const groups: Array<[ProfileIntakeInterviewPlan["coverageBoard"][number]["group"], ResumeSectionTypeV2[]]> = [
@@ -373,6 +434,161 @@ function buildCoverageBoard(items: ResumeItemV2[], options: ProfileIntakeComplet
       assetCount: assets.length
     };
   });
+}
+
+/** Section semantics are intentionally different: an award is not a project,
+ * and education does not need a project-style challenge/result interview. */
+export function careerReadinessForAsset(item: ResumeItemV2, present: CareerAssetDimension[]) {
+  const dimensions = new Set(present);
+  const requiredBySection: Partial<Record<ResumeSectionTypeV2, CareerAssetDimension[]>> = {
+    education: ["identity", "degree", "major", "time"],
+    project: ["identity", "action", "tools_methods", "result"],
+    research: ["identity", "role", "method", "result"],
+    campus: ["identity", "role", "action", "result"],
+    volunteer: ["identity", "role", "action", "result"],
+    work: ["identity", "role", "action", "result"],
+    internship: ["identity", "role", "action", "result"],
+    awards: ["identity", "issuer", "level_rank", "time"],
+    skills: ["identity", "applied_evidence"],
+    languages: ["identity", "proficiency"],
+    certificates: ["identity", "issuer", "time"],
+    publications: ["identity", "author_role", "publisher", "time"],
+    patents: ["identity", "role", "patent_identity", "time"],
+    portfolio: ["identity", "role", "tools_methods", "portfolio_output"]
+  };
+  const required = requiredBySection[item.sectionType] ?? ["identity", "action", "result"];
+  if (!required.length) return 0;
+  return Number((required.filter((dimension) => dimensions.has(dimension)).length / required.length).toFixed(2));
+}
+
+function assetImportance(item: ResumeItemV2) {
+  return {
+    education: 0.58,
+    project: 1,
+    research: 0.96,
+    campus: 0.82,
+    volunteer: 0.7,
+    work: 1,
+    internship: 1,
+    awards: 0.66,
+    skills: 0.52,
+    languages: 0.42,
+    certificates: 0.45,
+    publications: 0.82,
+    patents: 0.84,
+    portfolio: 0.88,
+    other: 0.5,
+    custom: 0.5,
+    summary: 0.35
+  }[item.sectionType] ?? 0.5;
+}
+
+function expectedArtifactImpact(item: ResumeItemV2, dimension: CareerAssetDimension | undefined) {
+  if (!dimension) return 0;
+  const highImpact = new Set<CareerAssetDimension>([
+    "identity", "role", "action", "tools_methods", "method", "result", "applied_evidence", "portfolio_output"
+  ]);
+  const sectionBoost = ["project", "research", "work", "internship", "campus", "portfolio"].includes(item.sectionType) ? 0.1 : 0;
+  return Math.min(1, (highImpact.has(dimension) ? 0.85 : 0.5) + sectionBoost);
+}
+
+function missingDimensionWeight(item: ResumeItemV2, dimension: CareerAssetDimension | undefined) {
+  if (!dimension) return 0;
+  const weights: Partial<Record<CareerAssetDimension, number>> = {
+    identity: 1,
+    role: 0.92,
+    action: 0.95,
+    tools_methods: 0.84,
+    method: 0.84,
+    result: 0.96,
+    applied_evidence: 0.9,
+    portfolio_output: 0.88,
+    issuer: 0.62,
+    level_rank: 0.6,
+    time: 0.5,
+    degree: 0.55,
+    major: 0.5,
+    proficiency: 0.56
+  };
+  const sectionModifier = ["project", "research", "work", "internship", "campus"].includes(item.sectionType) ? 1 : 0.9;
+  return Math.min(1, (weights[dimension] ?? 0.42) * sectionModifier);
+}
+
+function userEmphasis(sourceEvidence: string[]) {
+  return sourceEvidence.some((value) => /(?:重要|关键|最有代表性|最满意|主导|核心|重点|proud|key|main)/iu.test(value)) ? 1 : 0;
+}
+
+function recencyForItem(item: ResumeItemV2) {
+  const record = item as unknown as Record<string, unknown>;
+  const value = [record.endDate, record.awardedAt, record.publishedAt, record.grantedAt, record.createdAt]
+    .find((entry): entry is string => typeof entry === "string" && Boolean(entry.trim()));
+  if (!value) return 0.5;
+  const year = Number(value.match(/20\d{2}/u)?.[0] ?? 0);
+  if (!year) return 0.5;
+  return Math.max(0, Math.min(1, (year - 2015) / 12));
+}
+
+function informationGainFactors(
+  item: ResumeItemV2,
+  dimension: CareerAssetDimension | undefined,
+  readiness: number,
+  sourceEvidence: string[]
+): CareerAssetCompleteness["priorityFactors"] {
+  return {
+    missingDimensionWeight: missingDimensionWeight(item, dimension),
+    careerAssetImportance: assetImportance(item),
+    expectedArtifactImpact: expectedArtifactImpact(item, dimension),
+    currentReadinessGap: Number(Math.max(0, 1 - readiness).toFixed(3)),
+    userEmphasis: userEmphasis(sourceEvidence),
+    recency: recencyForItem(item),
+    // Profile Intake is deliberately job-agnostic.  Job-specific workflows
+    // may supply their own need and set this value outside this module.
+    jobRelevance: 0,
+    alreadyAskedPenalty: 0,
+    lowValueOptionalPenalty: dimension && ["challenge", "scope", "collaboration", "coursework_honors", "publication", "credential_status", "test_score"].includes(dimension) ? 0.85 : 0
+  };
+}
+
+function informationGainScore(
+  factors: CareerAssetCompleteness["priorityFactors"],
+  dimension: CareerAssetDimension | undefined
+) {
+  if (!dimension || !isHighValueFollowUp(dimension)) return 0;
+  const score = factors.missingDimensionWeight * 0.25
+    + factors.careerAssetImportance * 0.25
+    + factors.expectedArtifactImpact * 0.25
+    + factors.currentReadinessGap * 0.15
+    + factors.userEmphasis * 0.05
+    + factors.recency * 0.05
+    - factors.lowValueOptionalPenalty * 0.2;
+  return Number(Math.max(0, Math.min(1, score)).toFixed(3));
+}
+
+function naturalCareerQuestion(item: ResumeItemV2, dimension: CareerAssetDimension) {
+  const label = displayIdentity(item) ?? "这段经历";
+  const prefix = `关于“${label}”，`;
+  const questions: Partial<Record<CareerAssetDimension, string>> = {
+    identity: `我先确认一下，“${label}”这个名称是否准确？如果不准确，请告诉我你希望在简历里使用的正式名称。`,
+    role: `${prefix}你本人承担的具体角色是什么？`,
+    action: `${prefix}当时你亲自完成的最关键一步是什么？`,
+    tools_methods: `${prefix}你实际用到的最重要工具或方法是什么？挑一两项就好。`,
+    method: `${prefix}你采用了什么具体方法来完成这项工作？`,
+    result: `${prefix}最后做到什么程度，形成了什么可验证的结果或交付物？`,
+    applied_evidence: `${prefix}你曾在哪项具体任务中实际使用这项技能？`,
+    issuer: `${prefix}由哪个学校、机构或平台颁发？`,
+    level_rank: `${prefix}获得的级别或名次是什么？`,
+    time: `${prefix}大约发生在什么时候？`,
+    degree: `${prefix}取得或正在攻读的学位是什么？`,
+    major: `${prefix}所学专业是什么？`,
+    proficiency: item.sectionType === "languages"
+      ? `${prefix}你能如实支持的语言水平是什么？`
+      : `${prefix}你能如实支持的熟练程度是什么？`,
+    patent_identity: `${prefix}专利号或当前状态是什么？`,
+    portfolio_output: `${prefix}最终产出了什么，是否有可以公开的链接？`,
+    author_role: `${prefix}你在其中承担的作者或研究角色是什么？`,
+    publisher: `${prefix}由哪个期刊、会议或平台发表？`
+  };
+  return questions[dimension] ?? `${prefix}还有哪一项事实最能帮助我准确呈现它？`;
 }
 
 function itemText(item: ResumeItemV2, sourceEvidence: string[] = []) {

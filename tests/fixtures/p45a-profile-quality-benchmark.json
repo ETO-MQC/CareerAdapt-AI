@@ -1,0 +1,32 @@
+[
+  {
+    "id": "short",
+    "narrative": "我做过一个 Python 数据清洗项目，交付了训练数据。",
+    "assetsExplicitlyMentioned": ["Python 数据清洗项目"],
+    "expectedHighValueQuestion": "ownership-or-scope"
+  },
+  {
+    "id": "medium",
+    "narrative": "我在电子信息工程本科期间做过智能穿戴课程项目，参与传感器接入和展示；还在实验室用 Python 处理过数据。",
+    "assetsExplicitlyMentioned": ["智能穿戴课程项目", "实验室数据处理"],
+    "expectedHighValueQuestion": "project-result"
+  },
+  {
+    "id": "long-multi-asset",
+    "narrative": "我做过智能穿戴课程项目、参加过蓝桥杯、在实验室处理科研数据、担任过团支书，也做过 Smart Fox、Learn AI、可信度分析和 CareerAdapt AI。",
+    "assetsExplicitlyMentioned": ["智能穿戴课程项目", "蓝桥杯", "科研数据", "团支书", "Smart Fox", "Learn AI", "可信度分析", "CareerAdapt AI"],
+    "expectedHighValueQuestion": "acknowledge-all-then-one"
+  },
+  {
+    "id": "ambiguous",
+    "narrative": "我帮忙做了一个系统，后来也参与了数据部分。",
+    "assetsExplicitlyMentioned": ["一个系统"],
+    "expectedHighValueQuestion": "asset-identity-or-ownership"
+  },
+  {
+    "id": "user-correction",
+    "narrative": "之前写成主导项目不准确，我实际是参与并协助完成展示；时间是 2026 年，不是 2025 年。",
+    "assetsExplicitlyMentioned": ["项目 ownership", "时间修正"],
+    "expectedHighValueQuestion": "none-after-correction"
+  }
+]

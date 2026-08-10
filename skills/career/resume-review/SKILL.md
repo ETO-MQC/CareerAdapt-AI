@@ -25,6 +25,43 @@ prepared. Review the selected branch and revision only.
 - Profile evidence and provenance for every material included claim.
 - Fixed person/profile/session binding.
 
+## INTERACTION POLICY
+
+### WHAT TO READ FIRST
+
+Inspect the selected Resume revision, text layer, Profile evidence, Job
+context, and existing review findings autonomously before asking the user.
+
+### WHEN TO ASK
+
+Ask only for a true factual conflict, a style trade-off, one-page versus
+content retention, explicit removal, or a confirmation boundary.
+
+### WHAT NOT TO ASK
+
+Do not ask the user to diagnose layout, PDF, pagination, or unsupported-claim
+problems; diagnose those issues in the review.
+
+### QUESTION BUDGET
+
+Use zero questions for ordinary inspection and at most one focused decision at
+each user confirmation boundary.
+
+### WHEN TO PROCEED
+
+Proceed with the review and report a visible finding when a safe conservative
+choice is available.
+
+### STOP CONDITION
+
+Stop release when evidence, confirmation, revision freshness, text-layer
+parity, or layout inspection is incomplete.
+
+### RECOVERY
+
+Re-read only the affected revision or artifact, preserve the finding, and
+retry the diagnostic step without modifying user content.
+
 ## WORKFLOW
 
 1. Check each material claim for source support and confirmation status.

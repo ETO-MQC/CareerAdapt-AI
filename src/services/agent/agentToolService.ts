@@ -65,6 +65,7 @@ import {
   appendProfileIntakeQuestionAnswer
 } from "@/domain/profileIntake/ProfileIntakeQuestionAnswer";
 import { ProfileIntakeReviewProjectionSchema } from "@/domain/profileIntake/ProfileIntakeReviewProjection";
+import { buildProfileIntakeInteractionPlan } from "@/domain/profileIntake/ProfileIntakeInteractionProjection";
 import { synthesizeProfileIntakeDraft } from "@/domain/profileIntake/ProfileIntakeFinalSynthesis";
 import { ProfileIntakeProvenanceSchema } from "@/domain/profileIntake/ProfileIntakeProvenance";
 import {
@@ -403,6 +404,14 @@ export class BrowserAgentToolService implements AgentToolServices {
       input.expectedDraftRevision
     );
     const interviewPlan = createProfileIntakeInterviewPlan([], saved.revision);
+    const interactionPlan = buildProfileIntakeInteractionPlan({
+      items: careerReady.synthesis.assets.map((asset) => asset.structuredItem),
+      interviewPlan,
+      knownContext: {
+        profile: { id: saved.confirmedProfileId, revision: saved.revision },
+        activeCareerAssets: careerReady.synthesis.assets
+      }
+    });
     const reviewProjection = ProfileIntakeReviewProjectionSchema.parse({
       ...buildConversationIntakeReviewProjectionFromDraft(saved),
       phase: "ready_for_review",
@@ -424,6 +433,7 @@ export class BrowserAgentToolService implements AgentToolServices {
       candidates: reviewProjection.candidates,
       reviewProjection,
       artifactPayload,
+      interactionPlan,
       interviewPlan,
       intakeSession: saved.intakeSession,
       persistenceReceipt: saved.intakeSession
@@ -632,6 +642,16 @@ export class BrowserAgentToolService implements AgentToolServices {
       questionAnswers: saved.intakeSession?.questionAnswers,
       sourceEvidenceByCandidate: profileIntakeSourceEvidenceByCandidate(saved)
     });
+    const interactionPlan = buildProfileIntakeInteractionPlan({
+      items: structuredItems,
+      interviewPlan,
+      options: {
+        followUpCounts: saved.intakeSession?.followUpCounts,
+        questionAnswers: saved.intakeSession?.questionAnswers,
+        sourceEvidenceByCandidate: profileIntakeSourceEvidenceByCandidate(saved)
+      },
+      knownContext: { activeCareerAssets: structuredItems }
+    });
     const artifact = buildConversationIntakeArtifact(saved, interviewPlan.activeQuestion?.question, interviewPlan);
     const reviewProjection = buildConversationIntakeReviewProjectionFromDraft(saved, interviewPlan.activeQuestion?.question ? [interviewPlan.activeQuestion.question] : []);
     const finalizedProjection = ProfileIntakeReviewProjectionSchema.parse({
@@ -654,6 +674,7 @@ export class BrowserAgentToolService implements AgentToolServices {
       providerStatus: reviewProjection.providerStatus,
       extractionStatus: captureExtractionStatus(reviewProjection.extractionStatus),
       followUpQuestion: interviewPlan.activeQuestion?.question,
+      interactionPlan,
       interviewPlan,
       artifactPayload: artifact,
       reviewProjection: finalizedProjection
@@ -1705,6 +1726,19 @@ function captureProfileIntakeObservation(
       capturedAssetLabels: provisionalItems.map(profileIntakeItemLabel)
     } : {})
   });
+  const interactionPlan = buildProfileIntakeInteractionPlan({
+    items: provisionalItems,
+    interviewPlan,
+    options: {
+      followUpCounts: draft.intakeSession?.followUpCounts,
+      questionAnswers: draft.intakeSession?.questionAnswers,
+      sourceEvidenceByCandidate: profileIntakeSourceEvidenceByCandidate(draft)
+    },
+    knownContext: {
+      profile: { id: profile.id, revision: profile.version },
+      activeCareerAssets: provisionalItems
+    }
+  });
   return {
     importId: draft.importId,
     expectedDraftRevision: draft.revision,
@@ -1720,6 +1754,7 @@ function captureProfileIntakeObservation(
     candidates: reviewProjection.candidates,
     followUpQuestion,
     nextTurnPlan,
+    interactionPlan,
     interviewPlan,
     artifactPayload,
     reviewProjection,

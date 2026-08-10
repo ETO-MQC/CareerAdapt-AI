@@ -141,7 +141,15 @@ describe("P4.4e Hermes long-run closure", () => {
     });
     expect(result).toMatchObject({
       ok: true,
-      data: { status: "waiting_for_user", nextAction: "ask_high_value_gap" },
+      data: {
+        status: "waiting_for_user",
+        nextAction: "ask_high_value_gap",
+        interactionPlan: {
+          workflow: "career.workflow.profile_intake_turn",
+          canProceedWithoutQuestion: true,
+          informationNeeds: []
+        }
+      },
       receipt: { toolName: "career.workflow.profile_intake_turn" }
     });
   });

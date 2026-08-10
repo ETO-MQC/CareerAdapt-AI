@@ -1,9 +1,10 @@
 import { z } from "zod";
 import { ResumeItemV2Schema, ResumeSectionTypeV2Schema, type ResumeItemV2 } from "@/domain/schemas/resumeV2";
-import { assessCareerAssetCompleteness, type CareerAssetDimension } from "./ProfileIntakeCompleteness";
+import { assessCareerAssetCompleteness, careerReadinessForAsset, type CareerAssetDimension } from "./ProfileIntakeCompleteness";
 import type { ImportedResumeDraft, ImportedResumeItem } from "@/domain/schemas/resumeImport";
 import type { ProfileIntakeSourceTurn } from "./ProfileIntakeSourceTurn";
 import { ProfileIntakeProvenanceSchema } from "./ProfileIntakeProvenance";
+import { dedupeCareerWriting } from "./CareerWritingQuality";
 
 export const ProfileIntakeFinalSynthesisAssetSchema = z.object({
   candidateId: z.string().min(1),
@@ -13,7 +14,7 @@ export const ProfileIntakeFinalSynthesisAssetSchema = z.object({
   sourceTurnIds: z.array(z.string().min(1)).min(1),
   highlights: z.array(z.string().min(1)).max(4).default([]),
   careerReadySummary: z.string().min(1).max(1_600).optional(),
-  careerReadyHighlights: z.array(z.string().min(1).max(800)).min(2).max(4).optional(),
+  careerReadyHighlights: z.array(z.string().min(1).max(800)).max(4).default([]),
   missingDimensions: z.array(z.string().min(1)).max(24).default([]),
   conflictFields: z.array(z.string().min(1)).max(24).default([]),
   conflicts: z.array(z.string().min(1)).max(24).optional(),
@@ -150,7 +151,7 @@ function buildAsset(group: DraftItemWithSection[]): ProfileIntakeFinalSynthesisA
     sourceTurnIds: sourceTurnIds.length ? sourceTurnIds : [latest.conversationEvidence?.at(-1)?.turnId ?? latest.id],
     highlights,
     careerReadySummary: careerReadyText(structuredItem),
-    ...(careerReadyHighlights.length >= 2 ? { careerReadyHighlights } : {}),
+    careerReadyHighlights,
     missingDimensions: assessment.missing.slice(0, 24),
     conflictFields,
     conflicts: conflictFields,
@@ -177,11 +178,15 @@ function assessFinalAssetQuality(
 ) {
   const identityClear = present.includes("identity");
   const responsibilityClear = item.sectionType === "education"
+    || item.sectionType === "awards"
+    || item.sectionType === "certificates"
     || item.sectionType === "skills"
     || item.sectionType === "languages"
+    || item.sectionType === "publications"
+    || item.sectionType === "patents"
     || present.includes("role")
     || present.includes("action");
-  const usefulDimensions: CareerAssetDimension[] = ["identity", "role", "action", "tools_methods", "challenge", "result", "scope", "collaboration", "time"];
+  const usefulDimensions: CareerAssetDimension[] = ["identity", "role", "action", "tools_methods", "method", "result", "applied_evidence", "time"];
   const evidenceCoverage = usefulDimensions.filter((dimension) => present.includes(dimension)).length / usefulDimensions.length;
   const normalized = highlights.map((highlight) => highlight.toLocaleLowerCase().replace(/\s+/gu, ""));
   const unique = new Set(normalized);
@@ -194,7 +199,7 @@ function assessFinalAssetQuality(
     identityClear,
     responsibilityClear,
     evidenceCoverage: Number(evidenceCoverage.toFixed(2)),
-    careerReadiness: Number(Math.min(1, (evidenceCoverage + (responsibilityClear ? 0.3 : 0) + (highlights.length >= 2 ? 0.2 : 0))).toFixed(2)),
+    careerReadiness: careerReadinessForAsset(item, present),
     duplication: Number(duplication.toFixed(2)),
     unsupportedClaimCount: 0,
     blockingIssues
@@ -287,11 +292,8 @@ function careerHighlights(items: DraftItemWithSection[], item: ResumeItemV2) {
 }
 
 function ensureCareerReadyHighlights(highlights: string[], item: ResumeItemV2) {
-  const values = [...new Set([
-    ...highlights,
-    careerReadyText(item)
-  ].map((value) => value.trim()).filter(Boolean))];
-  return values.slice(0, 4);
+  const summary = careerReadyText(item).trim();
+  return dedupeCareerWriting(highlights.filter((highlight) => highlight.trim() !== summary), summary).slice(0, 4);
 }
 
 function conflictingFields(items: DraftItemWithSection[]) {

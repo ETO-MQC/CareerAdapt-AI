@@ -61,8 +61,8 @@ export function buildRetryPrompt({
       "",
       `Previous profile-intake-final-career-synthesis response failed (${failure ?? "schema validation failed"}).`,
       "Preserve every supplied candidateId and structuredItem exactly.",
-      "Return only {\"assets\":[{\"candidateId\":\"copied\",\"structuredItem\":{},\"careerReadySummary\":\"grounded\",\"careerReadyHighlights\":[\"grounded\",\"grounded\"],\"missingDimensions\":[],\"conflicts\":[]}]}.",
-      "Every highlight must be supported by the matching source turns; omit unsupported claims."
+      "Return only {\"assets\":[{\"candidateId\":\"copied\",\"structuredItem\":{},\"careerReadySummary\":\"grounded\",\"careerReadyHighlights\":[],\"missingDimensions\":[],\"conflicts\":[]}]}.",
+      "Every highlight must be supported by the matching source turns; omit unsupported claims, filler, summary echoes, and ownership upgrades."
     ].join("\n");
   }
   if (task === "resume-document-mapper") {
