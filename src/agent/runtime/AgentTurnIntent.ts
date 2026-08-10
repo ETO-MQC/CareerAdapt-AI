@@ -156,8 +156,16 @@ export function classifyTurnIntent(input: {
   ) {
     return decision("casual_side_turn", "preserve", "none", profileIntakeTurnKind, activeQuestionResolution);
   }
+  // A canonical Resume Composition task owns its short follow-up turns. Do
+  // not let a lexical fallback route an answer such as “用于互联网的秋招”
+  // into tailoring or generic conversation while its information need or
+  // proposal/checkpoint is still active.
+  if (isActiveResumeCompositionFollowup(input.taskState)) {
+    return decision("clarification_answer", "continue", "domain", profileIntakeTurnKind, activeQuestionResolution);
+  }
   if (
     /导入(一个|新的?|这个|该)?(岗位|职位)|重新.*(另一份|新的?).*简历|我想(申请|应聘|投)(这个|该)?(岗位|职位)|录入(一个|新的?|这个|该)?(岗位|职位)|上传.*简历|分析.*(JD|岗位描述|职位描述)|(深挖|丰富|梳理|挖掘).*(经历|项目)|从零.*(整理|梳理).*(经历|资料)|定制简历|岗位定制|匹配度|岗位.*匹配|匹配.*岗位/i.test(text)
+    || /(?:从|基于|使用).*(?:个人资料库|资料库).*(?:整理|生成|创建|组装).*(?:通用)?简历|通用简历.*(?:生成|整理|创建|组装)/iu.test(text)
     || isExplicitExportIntent(text)
     || looksLikeJobDescription(text)
   ) {
@@ -492,6 +500,19 @@ function decision(
   activeQuestionResolution?: ActiveQuestionTurnResolution
 ): TurnIntentDecision {
   return { intent, confidence: "high", taskMutation, toolScope, profileIntakeTurnKind, activeQuestionResolution };
+}
+
+function isActiveResumeCompositionFollowup(taskState?: AgentTaskState) {
+  if (!taskState || taskState.workflowId !== "compose_resume") return false;
+  if (["failed", "completed", "cancelled"].includes(taskState.completionStatus)) return false;
+  if (["resume_ready", "completed"].includes(taskState.stage)) return false;
+  const pendingNeed = objectValue(taskState.knownSlots.resumeCompositionPendingInformationNeed);
+  return pendingNeed.informationNeedId === "target_direction"
+    || taskState.knownSlots.resumeCompositionProposal !== undefined
+    || taskState.knownSlots.resumeCompositionCheckpoint !== undefined
+    || taskState.stage === "select_profile_scope"
+    || taskState.stage === "review_composition"
+    || taskState.stage === "confirm_create";
 }
 
 function referenceToolScope(text: string): TurnToolScope {

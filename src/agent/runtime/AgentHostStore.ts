@@ -13,6 +13,12 @@ import type { AgentPageContext } from "@/agent/contracts/agentContext";
 import type { AgentStreamEvent } from "@/agent/runtime/agentSse";
 import type { AgentRuntimeEvent } from "@/agent/runtime/agentRuntime";
 import type { AgentKernel } from "@/agent/kernel/AgentKernel";
+import { evaluateGroundedResumeOutput } from "@/agent/kernel/GroundedResumeOutputGate";
+import {
+  evaluateConversationContinuity,
+  withTerminalState,
+  type AgentTerminalState
+} from "./ConversationContinuityGuard";
 import type { AgentExecutor } from "@/agent/runtime/agentExecutor";
 import type { AgentSessionStore } from "@/services/agent/agentSessionStore";
 import type {
@@ -310,6 +316,44 @@ export class AgentHostStore {
   }
 
   /**
+   * External runtimes (Hermes today, companions later) need the same durable
+   * task boundary as the native Host path. Resolve only the deterministic
+   * task route here; the runtime still owns all model work and narration.
+   */
+  async prepareRuntimeTask(input: {
+    session: AgentSession;
+    userMessage: string;
+    references?: AgentMessageReference[];
+  }) {
+    if (!input.userMessage.trim()) return input.session;
+    const current = this.snapshot.activeSession?.id === input.session.id
+      ? this.snapshot.activeSession
+      : input.session;
+    const decision = classifyTurnIntent({
+      text: input.userMessage,
+      references: input.references,
+      taskState: current.taskState
+    });
+    if (!decision.newTask || decision.taskMutation === "preserve") return current;
+    const reducer = new AgentTaskStateReducer();
+    let taskState = current.taskState ?? reducer.create(current);
+    const mutation = current.taskState && decision.taskMutation === "continue"
+      ? "new_active_task" as const
+      : "new_root_task" as const;
+    taskState = reducer.reduce(taskState, {
+      type: mutation,
+      ...decision.newTask
+    });
+    const prepared = projectTaskStateIntoSession(current, taskState);
+    const saved = await this.dependencies.persistence.save(prepared);
+    this.patchSession(saved, {
+      activeTask: saved.taskState,
+      currentObservation: { type: "runtime_task_prepared", workflowId: taskState.workflowId, stage: taskState.stage }
+    });
+    return saved;
+  }
+
+  /**
    * Publish a runtime-owned conversation shell before an external runtime
    * performs network or model work. Native turns already use startTurn; this
    * path is for Hermes (and future companion runtimes) so the UI never waits
@@ -320,19 +364,23 @@ export class AgentHostStore {
     userMessage: string;
     runtimeId: string;
     turnId?: string;
+    runtimeDiagnostics?: Partial<Pick<NonNullable<AgentSession["activeTurn"]>, "preferredRuntime" | "attemptedRuntime" | "finalRuntime" | "fallbackUsed" | "fallbackReasonCode" | "hermesRunId" | "firstEventAt" | "runtimeFailureAt">>;
   }) {
     const now = new Date().toISOString();
     const turnId = input.turnId ?? `runtime-turn-${crypto.randomUUID()}`;
     const userMessageId = `agent-user-${crypto.randomUUID()}`;
     const assistantMessageId = `agent-thinking-${crypto.randomUUID()}`;
     let current = input.userMessage.trim()
-      ? appendAgentMessage(input.session, "user", input.userMessage.trim(), {
+      ? withTurnCheckpoint(input.session, turnId, userMessageId, now)
+      : input.session;
+    current = input.userMessage.trim()
+      ? appendAgentMessage(current, "user", input.userMessage.trim(), {
           id: userMessageId,
           turnId,
           status: "complete",
           metadata: { executionState: "running", runtimeId: input.runtimeId }
         })
-      : input.session;
+      : current;
     current = appendAgentMessage(current, "assistant", "正在读取当前资料…", {
       id: assistantMessageId,
       turnId,
@@ -351,6 +399,11 @@ export class AgentHostStore {
         sessionId: current.id,
         userMessageId,
         runtimeId: input.runtimeId,
+        preferredRuntime: input.runtimeId === "hermes" ? "hermes" : undefined,
+        attemptedRuntime: input.runtimeId === "hermes" ? "hermes" : undefined,
+        finalRuntime: input.runtimeId === "hermes" ? "hermes" : undefined,
+        fallbackUsed: false,
+        ...input.runtimeDiagnostics,
         status: "running",
         startedAt: now
       }
@@ -374,6 +427,7 @@ export class AgentHostStore {
     const assistant = current.messages.find((message) => message.id === assistantMessageId);
     let next = current;
     const runHandleResult = HermesRunHandleSchema.safeParse(objectValue(event.data).runHandle);
+    next = applyRuntimeEventDiagnostics(next, event, runHandleResult.success ? runHandleResult.data.runId : undefined);
     if (runHandleResult.success) next = { ...next, hermesRun: runHandleResult.data };
     if (event.type === "progress" || event.type === "reasoning_status") {
       if (!assistant || assistant.metadata?.runtimeTextStarted !== true) {
@@ -403,11 +457,20 @@ export class AgentHostStore {
         toolName: event.toolName,
         operationId,
         status,
-        metadata: { runtimeId: "hermes", activityState: status }
+        metadata: {
+          runtimeId: "hermes",
+          activityState: status,
+          ...(event.error?.code ? { safeErrorCode: event.error.code } : {}),
+          ...(event.type === "tool_call_failed" && event.toolName ? { requestedToolName: event.toolName } : {})
+        }
       });
       if (event.type === "tool_call_completed") {
         const eventData = objectValue(event.data);
-        const result = objectValue(eventData.result);
+        // Bridge callbacks carry `{ result, contract }`, while a few runtime
+        // adapters emit the safe tool result directly in `data`. Accept both
+        // shapes so the canonical TaskState is reduced exactly once either
+        // way; a progress-shaped event still has no `ok` flag and is ignored.
+        const result = objectValue(eventData.result ?? eventData);
         const contract = objectValue(eventData.contract);
         if (result.ok === true) {
           next = applyRuntimeFacadeCheckpoint(next, event.toolName ?? "", result.data);
@@ -415,6 +478,20 @@ export class AgentHostStore {
             event.toolName ?? "",
             stringValue(contract.sourceToolName)
           );
+          if (next.taskState && !event.toolName?.startsWith("career.workflow.")) {
+            const observedTask = new AgentTaskStateReducer().reduce(next.taskState, {
+              type: "tool_observation",
+              toolName: sourceToolName,
+              observation: result.data,
+              artifactIds: Array.isArray(result.artifacts)
+                ? result.artifacts.flatMap((artifact) => {
+                    const id = stringValue(objectValue(artifact).id);
+                    return id ? [id] : [];
+                  })
+                : []
+            });
+            next = projectTaskStateIntoSession(next, observedTask);
+          }
           next = attachConfirmedToolArtifact(next, sourceToolName, operationId, {
             ok: true,
             data: runtimeArtifactResultData(event.toolName ?? "", result.data),
@@ -456,10 +533,16 @@ export class AgentHostStore {
       };
     }
     if (event.type === "turn_completed" || event.type === "turn_failed") {
-      const text = event.type === "turn_failed"
-        ? event.error?.message ?? "当前任务没有完成。"
+      const candidate = event.type === "turn_failed"
+        ? runtimeFailureRecoveryText(event.error?.code)
         : event.message ?? next.messages.find((message) => message.id === assistantMessageId)?.content ?? "当前任务已完成。";
-      next = replaceRuntimeShellMessage(next, assistantMessageId, text, event, false, event.type === "turn_failed");
+      const grounding = next.taskState
+        ? evaluateGroundedResumeOutput({ text: candidate, taskState: next.taskState, artifactRefs: next.artifactRefs })
+        : { allowed: true as const };
+      const blocked = !grounding.allowed;
+      const text = blocked ? grounding.recoveryText : candidate;
+      next = replaceRuntimeShellMessage(next, assistantMessageId, text, event, false, event.type === "turn_failed" || blocked);
+      if (event.type === "turn_failed" || blocked) next = withRetryCurrentStepOption(next, assistantMessageId);
       next = {
         ...next,
         runtimeId: "hermes",
@@ -467,8 +550,8 @@ export class AgentHostStore {
           ? {
               ...next.activeTurn,
               runtimeId: "hermes",
-              status: event.type === "turn_failed" ? "failed" : next.pendingConfirmation ? "waiting_for_confirmation" : "completed",
-              completedAt: event.type === "turn_failed" || !next.pendingConfirmation ? new Date().toISOString() : undefined
+              status: event.type === "turn_failed" || blocked ? "failed" : next.pendingConfirmation ? "waiting_for_confirmation" : "completed",
+              completedAt: event.type === "turn_failed" || blocked || !next.pendingConfirmation ? new Date().toISOString() : undefined
             }
           : undefined,
         // Hermes owns the conversational turn, not the durable career workflow
@@ -479,11 +562,23 @@ export class AgentHostStore {
           ? { ...next.workflowState, status: "waiting_for_confirmation" }
           : next.workflowState
       };
+      const isolatedConversationalTurn = isIsolatedRuntimeTurn(next, event.turnId);
+      next = markTurnTerminalState(
+        next,
+        event.turnId,
+        event.type === "turn_failed" || blocked
+          ? "failed"
+          : next.pendingConfirmation
+            ? "waiting_for_confirmation"
+            : "completed",
+        isolatedConversationalTurn
+      );
       const saved = await this.dependencies.persistence.save(next);
       this.patchSession(saved, {
-        turnStatus: event.type === "turn_failed" ? "failed" : saved.pendingConfirmation ? "waiting_for_confirmation" : "completed",
+        turnStatus: event.type === "turn_failed" || blocked ? "failed" : saved.pendingConfirmation ? "waiting_for_confirmation" : "completed",
         activeTurnId: event.turnId,
-        currentObservation: event.error ?? { runtimeId: "hermes", message: event.message }
+        currentObservation: event.error ?? { runtimeId: "hermes", message: event.message, grounded: !blocked },
+        uiAction: event.type === "turn_completed" && !blocked ? resumePreviewUiAction(saved) : undefined
       });
       return saved;
     }
@@ -704,8 +799,12 @@ export class AgentHostStore {
       return this.applyWorkflowControl(session, input.action);
     }
     if (input.type === "quick_action") {
-      const quickContext = await this.readQuickActionContext(session);
-      const preparedSession = await this.prepareQuickActionSession(session, input.actionId, quickContext);
+      // The typed task boundary is durable before context reads, prerequisite
+      // checks, or any model/runtime work. A reload cannot fall back to
+      // agent_quick_action/collecting_intent after the card was clicked.
+      const initialized = await this.initializeQuickActionTask(session, input);
+      const quickContext = await this.readQuickActionContext(initialized);
+      const preparedSession = await this.prepareQuickActionSession(initialized, input.actionId, quickContext);
       if (input.actionId === "build_profile_from_scratch") {
         return this.resolveProfileIntakeQuickAction(preparedSession, input, quickContext);
       }
@@ -746,6 +845,32 @@ export class AgentHostStore {
       pageContext: context.pageContext,
       references: input.references
     });
+  }
+
+  private async initializeQuickActionTask(
+    session: AgentSession,
+    input: Extract<AgentHostInput, { type: "quick_action" }>
+  ) {
+    const reducer = new AgentTaskStateReducer();
+    const taskState = reducer.reduce(reducer.create(session), {
+      type: "new_root_task",
+      goal: input.task.rootGoal,
+      workflowId: input.task.workflowId,
+      stage: input.task.stage
+    });
+    const initialized = projectTaskStateIntoSession(session, taskState);
+    const saved = await this.dependencies.persistence.save(initialized);
+    // Publish the durable boundary immediately. The remaining quick-action
+    // preflight may still read local context, but a reply typed during that
+    // window must bind to this canonical task rather than the old shell.
+    this.patchSession(saved, {
+      turnStatus: sessionTurnStatus(saved),
+      activeTask: saved.taskState,
+      activeTurnId: saved.activeTurn?.id,
+      pendingConfirmation: saved.pendingConfirmation,
+      artifacts: saved.artifactRefs
+    });
+    return saved;
   }
 
   private async resolveExternalResumeImportConfirmation(session: AgentSession, rawObservation: unknown) {
@@ -898,9 +1023,35 @@ export class AgentHostStore {
       patch.profileVersionNumber = snapshot.activeProfile.profileVersionNumber;
       patch.profileRevision = snapshot.activeProfile.profileRevision;
     }
-    return Object.keys(patch).length
+    let prepared = Object.keys(patch).length
       ? { ...session, ...patch, updatedAt: new Date().toISOString() }
       : session;
+    // The canonical TaskState was persisted before this context read. Bind the
+    // resolved Profile into that same state before any model/runtime call so a
+    // composition turn cannot carry a session-level Profile with an unbound
+    // task-level Profile.
+    if (prepared.taskState && snapshot.activeProfile) {
+      const profile = snapshot.activeProfile;
+      const nextTaskState: AgentTaskState = {
+        ...prepared.taskState,
+        selectedEntities: {
+          ...prepared.taskState.selectedEntities,
+          profileId: profile.id,
+          profileVersion: profile.profileRevision
+        },
+        knownSlots: {
+          ...prepared.taskState.knownSlots,
+          ...(prepared.taskState.workflowId === "compose_resume" ? {
+            targetProfileId: profile.id,
+            expectedProfileVersion: profile.profileRevision,
+            acknowledgedActiveProfileId: profile.id
+          } : {})
+        },
+        updatedAt: new Date().toISOString()
+      };
+      prepared = projectTaskStateIntoSession(prepared, nextTaskState);
+    }
+    return prepared;
   }
 
   /**
@@ -1359,6 +1510,23 @@ export class AgentHostStore {
       : [...session.messages].reverse().find((message) => message.role === "user" && message.content.trim());
     if (!sourceMessage) return session;
     const checkpoint = session.turnCheckpoints.findLast((item) => item.userMessageId === sourceMessage.id);
+    if (!checkpoint && isFailedDomainTask(session)) {
+      const blocked = appendAgentMessage(
+        session,
+        "assistant",
+        "这次失败没有留下可验证的工作流检查点，因此没有把任务重新标记为进行中。请重新发起该任务，避免重复未知写入。",
+        {
+          kind: "error_status",
+          type: "error",
+          status: "failed",
+          errorCode: "workflow_checkpoint_missing",
+          metadata: { terminalState: "RECOVERABLE_FAILURE", recoveryBlocked: "checkpoint_missing" }
+        }
+      );
+      const saved = await this.dependencies.persistence.save(blocked);
+      this.patchSession(saved, { turnStatus: "failed" });
+      return saved;
+    }
     const restored = checkpoint
       ? {
           ...session,
@@ -2566,6 +2734,7 @@ export class AgentHostStore {
     sourceTurnId?: string;
     regeneratedFromMessageId?: string;
     retryWorkflowStep?: boolean;
+    runtimeDiagnostics?: Partial<Pick<NonNullable<AgentSession["activeTurn"]>, "preferredRuntime" | "attemptedRuntime" | "finalRuntime" | "fallbackUsed" | "fallbackReasonCode" | "hermesRunId" | "firstEventAt" | "runtimeFailureAt">>;
   }) {
     if (input.session.pendingConfirmation && input.session.pendingToolCall) {
       input.session = invalidatePendingConfirmationForCorrection(input.session);
@@ -2618,6 +2787,9 @@ export class AgentHostStore {
       references: input.references,
       taskState: input.session.taskState
     });
+    const compositionRetryInitialInstruction = input.retryWorkflowStep
+      && input.session.taskState?.workflowId === "compose_resume"
+      && /(?:个人资料库|资料库).*(?:通用)?简历|(?:整理|生成|创建|组装).*(?:通用)?简历/iu.test(input.userMessage);
     const turnDecision: TurnIntentDecision = input.typedTask
       ? {
           intent: "new_domain_task",
@@ -2630,17 +2802,34 @@ export class AgentHostStore {
             stage: input.typedTask.stage
           }
         }
-      : classifiedTurn;
+      : compositionRetryInitialInstruction
+        ? {
+            intent: "new_domain_task",
+            confidence: "high",
+            taskMutation: "continue",
+            toolScope: "domain"
+          }
+        : classifiedTurn;
     const checkpointedSession = !input.regenerateNarrationOnly
       && (turnDecision.toolScope === "domain" || turnDecision.taskMutation !== "preserve")
       ? withTurnCheckpoint(input.session, turnId, userMessageId, now)
       : input.session;
+    const reducer = new AgentTaskStateReducer();
+    const initialTaskState = input.typedTask && !input.regenerateNarrationOnly
+      ? reducer.reduce(input.session.taskState ?? reducer.create(input.session), {
+          type: "new_root_task",
+          ...turnDecision.newTask!
+        })
+      : input.session.taskState;
+    const canonicalShell = initialTaskState
+      ? projectTaskStateIntoSession(checkpointedSession, initialTaskState)
+      : checkpointedSession;
     let current = input.appendUserMessage === false
       ? {
-          ...checkpointedSession,
+          ...canonicalShell,
           messages: input.updateExistingUserMessage === false
-            ? checkpointedSession.messages
-            : checkpointedSession.messages.map((message) =>
+            ? canonicalShell.messages
+            : canonicalShell.messages.map((message) =>
                 message.id === userMessageId
                   ? {
                       ...message,
@@ -2653,7 +2842,7 @@ export class AgentHostStore {
               ),
           updatedAt: now
         }
-      : appendAgentMessage(checkpointedSession, "user", input.userMessage.trim(), {
+      : appendAgentMessage(canonicalShell, "user", input.userMessage.trim(), {
           id: userMessageId,
           turnId,
           status: "complete",
@@ -2686,7 +2875,8 @@ export class AgentHostStore {
         userMessageId,
         ...(input.runtimeId ? { runtimeId: input.runtimeId } : {}),
         status: "running",
-        startedAt: now
+        startedAt: now,
+        ...input.runtimeDiagnostics
       },
       ...(input.runtimeId ? { runtimeId: input.runtimeId } : {})
     };
@@ -2716,7 +2906,6 @@ export class AgentHostStore {
       streamEvents: [],
       currentObservation: undefined
     });
-    const reducer = new AgentTaskStateReducer();
     let kernelUserMessage = input.userMessage;
     const presentedQuestion = presentedActiveTailoringQuestion(input.session);
     let deterministicTailoringAnswer = false;
@@ -4114,7 +4303,8 @@ export class AgentHostStore {
       }
       const isolatedConversationalTurn = input.turnDecision?.intent === "casual_side_turn"
         || input.turnDecision?.intent === "reference_followup";
-      const outcome = isolatedConversationalTurn
+      const hasRecoverableRecoveryText = result.text?.includes("重新执行当前步骤") === true;
+      let outcome: "waiting_for_confirmation" | "waiting_for_user" | "failed" | "aborted" | "completed" = isolatedConversationalTurn
         ? result.trajectory.outcome === "aborted" ? "aborted" : "completed"
         : result.pendingConfirmation
         ? "waiting_for_confirmation"
@@ -4131,13 +4321,17 @@ export class AgentHostStore {
             : result.trajectory.outcome === "waiting_for_user"
               ? "waiting_for_user"
               : "completed";
+      if (!isolatedConversationalTurn && hasRecoverableRecoveryText) outcome = "failed";
+      const settledTaskState = result.taskState
+        ? reconcileTaskStateCompletionStatus(result.taskState, outcome, isolatedConversationalTurn)
+        : undefined;
       current = {
         ...current,
         trajectory: result.trajectory,
         reflection: result.reflection,
         conversationSummary: result.conversationSummary ?? current.conversationSummary,
         conversationSummaryBranchId: current.activeBranchId,
-        taskState: result.taskState ?? current.taskState,
+        taskState: settledTaskState ?? current.taskState,
         pendingConfirmation: isolatedConversationalTurn
           ? current.pendingConfirmation
           : result.pendingConfirmation
@@ -4154,12 +4348,12 @@ export class AgentHostStore {
           status: outcome,
           completedAt: outcome === "waiting_for_confirmation" ? undefined : new Date().toISOString()
         },
-        workflowState: result.taskState
-          ? projectTaskStateToWorkflowState(result.taskState, current.workflowState)
+        workflowState: settledTaskState
+          ? projectTaskStateToWorkflowState(settledTaskState, current.workflowState)
           : current.workflowState
       };
-      const importedId = result.taskState?.rootGoal === "import_resume"
-        ? stringValue(result.taskState.knownSlots.importId)
+      const importedId = settledTaskState?.rootGoal === "import_resume"
+        ? stringValue(settledTaskState.knownSlots.importId)
         : undefined;
       if (importedId) {
         current = {
@@ -4171,15 +4365,21 @@ export class AgentHostStore {
           )
         };
       }
-      if (result.taskState) current = reconcileTaskArtifacts(current, result.taskState);
-      if (result.taskState?.pendingDecision) {
-        current = attachPendingDecisionOptions(current, result.taskState.pendingDecision);
+      if (settledTaskState) current = reconcileTaskArtifacts(current, settledTaskState);
+      if (settledTaskState?.pendingDecision) {
+        current = attachPendingDecisionOptions(current, settledTaskState.pendingDecision);
       }
-      if (result.taskState) current = attachTaskStateOptions(current, result.taskState);
+      if (settledTaskState) current = attachTaskStateOptions(current, settledTaskState);
       if (result.text?.includes("重新执行当前步骤")) {
         current = withRetryCurrentStepOption(current, input.thinkingMessageId);
       }
       current = settleThinkingMessages(current, input.turnId);
+      current = markTurnTerminalState(current, input.turnId, outcome, isolatedConversationalTurn);
+      const continuity = evaluateConversationContinuity(current, input.turnId);
+      if (!continuity.ok) {
+        current = replaceTurnWithContinuityRecovery(current, input.turnId, continuity.reasonCode);
+        outcome = "failed";
+      }
       current = settleUserExecutionState(current, input.turnId, outcome === "failed" ? "failed" : outcome === "aborted" ? "aborted" : "complete");
       current = completeTurnCheckpoint(current, input.turnId, new Date().toISOString());
       current = await this.dependencies.persistence.save(current);
@@ -4195,7 +4395,8 @@ export class AgentHostStore {
       );
       this.patchSession(current, {
         turnStatus: outcome === "waiting_for_confirmation" ? "waiting_for_confirmation" : outcome === "failed" ? "failed" : "completed",
-        pendingConfirmation: current.pendingConfirmation
+        pendingConfirmation: current.pendingConfirmation,
+        uiAction: outcome === "completed" ? resumePreviewUiAction(current) : undefined
       });
       this.notifyBackgroundCompletion(current, outcome === "failed" ? "failed" : outcome === "waiting_for_user" ? "waiting_for_user" : outcome === "waiting_for_confirmation" ? "waiting_for_confirmation" : "completed");
       return current;
@@ -4209,6 +4410,7 @@ export class AgentHostStore {
         type: "error",
         status: "failed",
         errorCode: errorCode(error),
+        metadata: { terminalState: "RECOVERABLE_FAILURE" },
         options: [{ id: "retry-current-step", label: "重新执行当前步骤", action: { type: "retry_current_step" } }]
       });
       current = await this.dependencies.persistence.save(current);
@@ -4808,7 +5010,21 @@ export function attachTaskStateOptions(session: AgentSession, state: AgentTaskSt
   let options: AgentOption[] | undefined;
   let optionSet: AgentOptionSet | undefined;
   let metadata: Record<string, unknown> | undefined;
-  if (state.stage === "choose_job") {
+  if (
+    state.workflowId === "compose_resume"
+    && state.knownSlots.resumeCompositionProposal
+    && !state.knownSlots.resumeCompositionResult
+  ) {
+    options = [
+      { id: "resume-composition-generate", label: "直接生成", action: { type: "answer", field: "resume-composition-decision", value: "直接生成" } },
+      { id: "resume-composition-adjust", label: "调整方向", action: { type: "answer", field: "resume-composition-decision", value: "调整方向" } },
+      { id: "resume-composition-supplement", label: "继续补充资料", action: { type: "answer", field: "resume-composition-decision", value: "继续补充资料" } }
+    ];
+    metadata = {
+      resumeCompositionProposal: true,
+      resumeCompositionInformationNeedId: "target_direction"
+    };
+  } else if (state.stage === "choose_job") {
     options = entityOptions(state, "job");
   } else if (state.stage === "choose_resume_source" && state.knownSlots.resumeSelectionRequired) {
     options = entityOptions(state, "resume");
@@ -5100,6 +5316,122 @@ function settleThinkingMessages(session: AgentSession, turnId: string) {
     return message;
   });
   return changed ? { ...session, messages } : session;
+}
+
+function markTurnTerminalState(
+  session: AgentSession,
+  turnId: string,
+  outcome: "waiting_for_confirmation" | "waiting_for_user" | "failed" | "aborted" | "completed",
+  isolatedConversationalTurn = false
+) {
+  const terminalState: AgentTerminalState = outcome === "waiting_for_confirmation"
+    ? "WAITING_FOR_CONFIRMATION"
+    : outcome === "waiting_for_user"
+      ? "WAITING_FOR_USER"
+      : outcome === "failed" || outcome === "aborted"
+        ? "RECOVERABLE_FAILURE"
+        : "COMPLETED";
+  const index = session.messages.findLastIndex((message) =>
+    message.role === "assistant"
+      && message.turnId === turnId
+      && message.kind !== "assistant_thinking"
+      && message.kind !== "assistant_streaming"
+  );
+  if (index < 0) return session;
+  return {
+    ...session,
+    messages: session.messages.map((message, messageIndex) =>
+      messageIndex === index
+        ? withTerminalState(
+            isolatedConversationalTurn
+              ? { ...message, metadata: { ...message.metadata, isolatedConversationalTurn: true } }
+              : message,
+            terminalState
+          )
+        : message
+    )
+  };
+}
+
+function reconcileTaskStateCompletionStatus(
+  taskState: AgentTaskState,
+  outcome: "waiting_for_confirmation" | "waiting_for_user" | "failed" | "aborted" | "completed",
+  isolatedConversationalTurn: boolean
+) {
+  if (isolatedConversationalTurn) return taskState;
+  const completionStatus = outcome === "waiting_for_confirmation"
+    ? "waiting_for_confirmation" as const
+    : outcome === "waiting_for_user"
+      ? "waiting_for_user" as const
+      : outcome === "failed" || outcome === "aborted"
+        ? "failed" as const
+        : undefined;
+  if (!completionStatus || taskState.completionStatus === completionStatus) return taskState;
+  return {
+    ...taskState,
+    completionStatus,
+    updatedAt: new Date().toISOString()
+  };
+}
+
+function isIsolatedRuntimeTurn(session: AgentSession, turnId: string) {
+  const user = session.messages.findLast((message) =>
+    message.role === "user" && message.turnId === turnId && message.content.trim()
+  );
+  if (!user) return false;
+  const decision = classifyTurnIntent({ text: user.content, taskState: session.taskState });
+  return decision.intent === "casual_side_turn" || decision.intent === "reference_followup";
+}
+
+function replaceTurnWithContinuityRecovery(
+  session: AgentSession,
+  turnId: string,
+  reasonCode: "agent_conversation_dead_end"
+) {
+  const index = session.messages.findLastIndex((message) =>
+    message.role === "assistant"
+      && message.turnId === turnId
+      && message.metadata?.retracted !== true
+  );
+  const option: AgentOption = {
+    id: "retry-current-step-dead-end",
+    label: "重新执行当前步骤",
+    action: { type: "retry_current_step" }
+  };
+  const content = "当前回答没有留下可继续的结果或问题；已有任务状态已保留。请重新执行当前步骤。";
+  const next = index < 0
+    ? appendAgentMessage(session, "assistant", content, {
+        turnId,
+        kind: "error_status",
+        type: "error",
+        status: "failed",
+        errorCode: reasonCode,
+        metadata: { terminalState: "RECOVERABLE_FAILURE", deadEndDetected: true },
+        options: [option]
+      })
+    : {
+        ...session,
+        messages: session.messages.map((message, messageIndex) => messageIndex === index
+          ? {
+              ...message,
+              content,
+              kind: "error_status" as const,
+              type: "error" as const,
+              status: "failed" as const,
+              streaming: false,
+              errorCode: reasonCode,
+              options: [option],
+              metadata: { ...message.metadata, terminalState: "RECOVERABLE_FAILURE", deadEndDetected: true }
+            }
+          : message)
+      };
+  return {
+    ...next,
+    activeTurn: next.activeTurn
+      ? { ...next.activeTurn, status: "failed" as const, completedAt: new Date().toISOString() }
+      : next.activeTurn,
+    currentObservation: { safeErrorCode: reasonCode }
+  };
 }
 
 function settleUserExecutionState(
@@ -5417,6 +5749,26 @@ export function prepareSessionForAssistantRegeneration(
   const now = new Date().toISOString();
   const checkpoint = session.turnCheckpoints.findLast((item) => item.userMessageId === userMessage.id);
   if (isFailedWorkflowAnswer(target, session, checkpoint)) {
+    if (!checkpoint && isFailedDomainTask(session)) {
+      const notice = appendAgentMessage(session, "assistant", "该失败任务没有可验证的工作流检查点，不能安全重生成；请从当前页面新建任务。", {
+        kind: "error_status",
+        type: "error",
+        status: "failed",
+        errorCode: "workflow_checkpoint_missing",
+        metadata: { terminalState: "RECOVERABLE_FAILURE", recoveryBlocked: "checkpoint_missing", sourceMessageId: messageId }
+      });
+      return {
+        session: notice,
+        userMessageId: userMessage.id,
+        userMessage: userMessage.content,
+        blocked: true as const,
+        assistantMessageId: undefined,
+        updateExistingUserMessage: false,
+        regenerateNarrationOnly: false,
+        sourceTurnId: undefined,
+        regeneratedFromMessageId: undefined
+      };
+    }
     const restored = {
       ...session,
       ...(checkpoint ? {
@@ -5549,6 +5901,15 @@ function isFailedWorkflowAnswer(
     || session.taskState?.completionStatus === "failed"
     || checkpoint?.taskStateAfter?.completionStatus === "failed"
     || checkpoint?.workflowStateAfter?.status === "failed";
+}
+
+function isFailedDomainTask(session: AgentSession) {
+  const state = session.taskState;
+  return Boolean(
+    state
+      && state.completionStatus === "failed"
+      && !["conversation", "agent_quick_action"].includes(state.rootGoal)
+  );
 }
 
 function isProfileSectionOptionSet(message: AgentSession["messages"][number]) {
@@ -6013,6 +6374,32 @@ function reconcileTaskArtifacts(session: AgentSession, taskState: AgentTaskState
       ]
     };
   }
+  if (
+    taskState.workflowId === "compose_resume"
+    && taskState.knownSlots.resumeCompositionResult !== undefined
+    && resumeId
+  ) {
+    const existing = artifactRefs.find((artifact) => artifact.kind === "quality_result");
+    const now = new Date().toISOString();
+    return {
+      ...session,
+      artifactRefs: [
+        ...artifactRefs.filter((artifact) => artifact.kind !== "quality_result"),
+        {
+          id: existing?.id ?? `resume-composition:${resumeId}`,
+          kind: "quality_result" as const,
+          title: "通用简历预览",
+          entityType: "resume_branch" as const,
+          entityId: resumeId,
+          route: `/resume?branchId=${encodeURIComponent(resumeId)}`,
+          status: "active" as const,
+          summary: existing?.summary ?? "已创建独立 ResumeRevision，可继续查看预览。",
+          createdAt: existing?.createdAt ?? now,
+          updatedAt: now
+        }
+      ]
+    };
+  }
   const tailoringSessionId = stringRecordValue(objectRecordValue(taskState.knownSlots.tailoringSession).id);
   if (!tailoringSessionId) return { ...session, artifactRefs };
   const existingWorkspace = artifactRefs.find((artifact) => artifact.kind === "tailoring_workspace")
@@ -6274,7 +6661,21 @@ function runtimeArtifactSourceToolName(stableName: string, declaredSource?: stri
     "career.workflow.compose_resume": "compose_resume",
     "career.workflow.resume_export": "export_resume"
   };
-  return facadeSources[stableName] ?? declaredSource ?? stableName;
+  const stableSources: Record<string, string> = {
+    "career.profile.get": "get_profile",
+    "career.profile.active": "get_active_profile",
+    "career.profile.search_facts": "search_profile_facts",
+    "career.resume.list": "list_resumes",
+    "career.resume.get": "get_resume",
+    "career.resume.get_revision": "get_resume_revision",
+    "career.job.list": "list_jobs",
+    "career.job.get": "get_job",
+    "career.resume.build_evidence_graph": "build_resume_evidence_graph",
+    "career.resume.plan_composition": "plan_resume_composition",
+    "career.resume.review_composition": "review_resume_composition",
+    "career.resume.compose": "compose_resume"
+  };
+  return facadeSources[stableName] ?? stableSources[stableName] ?? declaredSource ?? stableName;
 }
 
 function runtimeArtifactResultData(stableName: string, value: unknown) {
@@ -6427,7 +6828,7 @@ function applyRuntimeFacadeCheckpoint(session: AgentSession, toolName: string, v
         : "reviewed"
     } : {})
   };
-  return {
+  const nextSession = {
     ...session,
     taskState: {
       ...task,
@@ -6440,6 +6841,7 @@ function applyRuntimeFacadeCheckpoint(session: AgentSession, toolName: string, v
       updatedAt: new Date().toISOString()
     }
   };
+  return projectTaskStateIntoSession(nextSession, nextSession.taskState);
 }
 
 function artifactActionExecution(
@@ -6757,6 +7159,49 @@ function replaceRuntimeShellMessage(
       : message),
     updatedAt: now
   };
+}
+
+function applyRuntimeEventDiagnostics(session: AgentSession, event: AgentRuntimeEvent, hermesRunId?: string) {
+  if (!session.activeTurn) return session;
+  const data = objectValue(event.data);
+  const telemetry = objectValue(data.telemetry);
+  const runtime = (value: unknown): "native" | "hermes" | undefined =>
+    value === "native" || value === "hermes" ? value : undefined;
+  const fallbackUsed = data.fallbackUsed === true || telemetry.fallbackUsed === true;
+  const fallbackReasonCode = stringValue(data.fallbackReasonCode) ?? stringValue(telemetry.fallbackReasonCode);
+  const runtimeFailureAt = stringValue(data.runtimeFailureAt) ?? stringValue(telemetry.runtimeFailureAt);
+  return {
+    ...session,
+    activeTurn: {
+      ...session.activeTurn,
+      preferredRuntime: runtime(data.preferredRuntime) ?? runtime(telemetry.preferredRuntime) ?? session.activeTurn.preferredRuntime,
+      attemptedRuntime: runtime(data.attemptedRuntime) ?? runtime(telemetry.attemptedRuntime) ?? session.activeTurn.attemptedRuntime,
+      finalRuntime: runtime(data.finalRuntime) ?? runtime(telemetry.finalRuntime) ?? session.activeTurn.finalRuntime ?? "hermes",
+      fallbackUsed: fallbackUsed || session.activeTurn.fallbackUsed === true,
+      fallbackReasonCode: fallbackReasonCode ?? session.activeTurn.fallbackReasonCode,
+      hermesRunId: hermesRunId ?? session.activeTurn.hermesRunId,
+      firstEventAt: session.activeTurn.firstEventAt ?? event.timestamp,
+      runtimeFailureAt: runtimeFailureAt ?? (event.type === "turn_failed" ? event.timestamp : session.activeTurn.runtimeFailureAt)
+    }
+  };
+}
+
+function runtimeFailureRecoveryText(code?: string) {
+  if (code === "agent_tool_not_allowed") {
+    return "简历组装流程刚才没有完成，当前方向和已完成步骤已保留。请重新执行当前步骤，我不会把未确认内容显示为简历。";
+  }
+  return "当前步骤没有完成，已有方向、资料绑定和已完成步骤已保留。请重新执行当前步骤，我不会把未确认内容显示为简历。";
+}
+
+function resumePreviewUiAction(session: AgentSession): AgentUiAction | undefined {
+  if (session.taskState?.workflowId !== "compose_resume" || !session.taskState.knownSlots.resumeCompositionResult) {
+    return undefined;
+  }
+  const artifact = session.artifactRefs.findLast((candidate) =>
+    candidate.kind === "quality_result"
+      && candidate.entityId === session.taskState?.selectedEntities.resumeId
+  );
+  return artifact ? { type: "open_artifact", artifactId: artifact.id } : undefined;
 }
 
 function stringValue(value: unknown) {

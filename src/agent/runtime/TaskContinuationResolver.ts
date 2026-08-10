@@ -1,4 +1,8 @@
 import type { AgentTaskState } from "@/agent/contracts/agentSession";
+import {
+  ResumeCompositionAnswerSchema,
+  type ResumeCompositionInformationNeed
+} from "@/domain/resumeComposition/contracts";
 
 export type TaskContinuation = {
   consumed: boolean;
@@ -27,7 +31,12 @@ export function resolveContinuationIntent(state: AgentTaskState, message: string
     const text = message.trim();
     if (!text || !isContinuable(state)) return { consumed: false };
 
-    if (state.rootGoal === "create_resume_from_profile") {
+    if (isResumeCompositionTask(state)) {
+      const compositionContinuation = resolveResumeCompositionContinuation(state, text);
+      if (compositionContinuation) return compositionContinuation;
+    }
+
+    if (state.rootGoal === "create_resume_from_profile" && state.workflowId !== "compose_resume") {
       const candidates = Array.isArray(state.knownSlots.profileItemCandidates)
         ? state.knownSlots.profileItemCandidates.map(objectValue).filter((item) => Array.isArray(item.factIds) && item.factIds.length > 0)
         : [];
@@ -103,20 +112,23 @@ function isContinuable(state: AgentTaskState) {
       || state.rootGoal === "apply_to_job"
       || state.rootGoal === "create_resume_from_profile"
       || state.rootGoal === "compose_resume"
+      || state.workflowId === "compose_resume"
       || ACTIVE_TAILORING_STAGES.has(state.stage)
   );
 }
 
 export function deriveNextLegalStage(state: AgentTaskState) {
+  if (isResumeCompositionTask(state)) {
+    if (!state.selectedEntities.profileId) return "select_profile_scope";
+    if (state.knownSlots.resumeCompositionDecision === "generate" && state.knownSlots.resumeCompositionCheckpoint) {
+      return "confirm_create";
+    }
+    return "review_composition";
+  }
   if (state.rootGoal === "create_resume_from_profile") {
     if (!state.selectedEntities.profileId) return "select_profile_scope";
     if (!hasValue(state.knownSlots.selectedFactIds)) return "select_facts";
     return "review_resume_plan";
-  }
-  if (state.rootGoal === "compose_resume") {
-    if (!state.selectedEntities.profileId) return "select_profile_scope";
-    if (!state.knownSlots.resumeCompositionCheckpoint) return "review_composition";
-    return "confirm_create";
   }
   if (state.stage === "quality_result") return "quality_result";
   if (state.knownSlots.tailoringSession) {
@@ -135,6 +147,90 @@ export function deriveNextLegalStage(state: AgentTaskState) {
     return "generate_plan";
   }
   return state.stage;
+}
+
+const TARGET_DIRECTION_QUESTION = "这份通用简历主要准备投什么方向？如果暂时没有明确方向，我先按互联网技术 / AI 应用通用版整理。";
+
+function isResumeCompositionTask(state: AgentTaskState) {
+  return state.workflowId === "compose_resume";
+}
+
+function resolveResumeCompositionContinuation(state: AgentTaskState, text: string): TaskContinuation | undefined {
+  const compact = text.replace(/[\s。！!？?，,、：:；;]+$/gu, "");
+  if (/^(?:直接生成|生成吧|按这个生成|确认生成|就按这个生成)$/u.test(compact)) {
+    return {
+      consumed: true,
+      intent: "continue",
+      slotUpdates: {
+        resumeCompositionDecision: "generate",
+        resumeCompositionExplicitConfirmation: true
+      }
+    };
+  }
+  if (/^(?:调整方向|换个方向|修改方向)$/u.test(compact)) {
+    return {
+      consumed: true,
+      intent: "continue",
+      slotUpdates: {
+        resumeCompositionDecision: "adjust_direction",
+        resumeCompositionExplicitConfirmation: undefined,
+        resumeCompositionPendingInformationNeed: pendingTargetDirectionNeed("pending")
+      }
+    };
+  }
+  if (/^(?:继续补充资料|补充资料|继续补充)$/u.test(compact)) {
+    return {
+      consumed: true,
+      intent: "continue",
+      slotUpdates: {
+        resumeCompositionDecision: "supplement",
+        resumeCompositionExplicitConfirmation: undefined,
+        resumeCompositionPendingInformationNeed: pendingTargetDirectionNeed("pending")
+      }
+    };
+  }
+
+  const pendingNeed = objectValue(state.knownSlots.resumeCompositionPendingInformationNeed);
+  const explicitlyAnswersDirection = pendingNeed.informationNeedId === "target_direction"
+    && (pendingNeed.status === "pending"
+      || /用于|方向|秋招|春招|求职|投递|互联网|AI|技术|产品|数据|运营/u.test(text));
+  if (!explicitlyAnswersDirection || /^(?:我想|我要|请|帮我|可以|好的)$/u.test(compact)) return undefined;
+
+  const answer = ResumeCompositionAnswerSchema.parse({
+    informationNeedId: "target_direction",
+    value: text,
+    source: "user_message",
+    capturedAt: new Date().toISOString()
+  });
+  const previousAnswers = Array.isArray(state.knownSlots.resumeCompositionAnswers)
+    ? state.knownSlots.resumeCompositionAnswers
+    : [];
+  return {
+    consumed: true,
+    intent: "continue",
+    slotUpdates: {
+      resumeCompositionAnswers: [...previousAnswers, answer].slice(-8),
+      resumeCompositionLastAnswer: answer,
+      resumeCompositionTargetDirection: text,
+      resumeCompositionMode: "general",
+      resumeCompositionDecision: undefined,
+      resumeCompositionExplicitConfirmation: undefined,
+      resumeCompositionPendingInformationNeed: pendingTargetDirectionNeed("answered"),
+      resumeCompositionCheckpoint: undefined,
+      resumeCompositionProposal: undefined,
+      resumeCompositionBlueprint: undefined,
+      resumeCompositionEvidenceGraph: undefined,
+      resumeCompositionReviewResult: undefined
+    }
+  };
+}
+
+function pendingTargetDirectionNeed(status: ResumeCompositionInformationNeed["status"]): ResumeCompositionInformationNeed {
+  return {
+    informationNeedId: "target_direction",
+    question: TARGET_DIRECTION_QUESTION,
+    status
+  };
 }
 
 function selectProfileFactIds(text: string, candidates: Array<Record<string, unknown>>) {

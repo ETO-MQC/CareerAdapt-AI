@@ -4,6 +4,7 @@ import { ResumeTailoringDiffSchema } from "@/domain/schemas";
 import { tailoringDiffId } from "@/services/jobs/tailoringDiffId";
 import { stableHashText } from "@/services/security/text";
 import { normalizeMessageForFinalAssistant } from "./AgentSessionMessages";
+import { canonicalWorkflowId } from "@/agent/workflows/workflowRegistry";
 
 export const CURRENT_AGENT_SESSION_SCHEMA_VERSION = 3;
 export const CURRENT_TAILORING_RUNTIME_VERSION = 3;
@@ -25,6 +26,7 @@ export function migrateAgentSessionToCurrentSchema(value: AgentSession | Record<
   let nextTaskState: Record<string, unknown> | undefined = Object.keys(taskState).length
     ? { ...taskState, knownSlots, selectedEntities }
     : undefined;
+  if (nextTaskState) nextTaskState = migrateCompositionTaskState(nextTaskState);
   const tailoring = record(knownSlots.tailoringSession);
   const plan = record(tailoring.plan);
   const questionPlan = record(plan.questionPlan);
@@ -160,11 +162,16 @@ export function migrateAgentSessionToCurrentSchema(value: AgentSession | Record<
     taskState: nextTaskState,
     pendingConfirmation: retiresConfirmation ? undefined : raw.pendingConfirmation,
     pendingToolCall: retiresConfirmation || retiresCall ? undefined : raw.pendingToolCall,
+    workflowState: migrateWorkflowState(record(raw.workflowState)),
     turnCheckpoints: Array.isArray(raw.turnCheckpoints)
       ? raw.turnCheckpoints.map((checkpoint) => {
           const value = record(checkpoint);
           return {
             ...value,
+            taskStateBefore: migrateCompositionTaskState(record(value.taskStateBefore)),
+            ...(value.taskStateAfter ? { taskStateAfter: migrateCompositionTaskState(record(value.taskStateAfter)) } : {}),
+            workflowStateBefore: migrateWorkflowState(record(value.workflowStateBefore)),
+            ...(value.workflowStateAfter ? { workflowStateAfter: migrateWorkflowState(record(value.workflowStateAfter)) } : {}),
             branchId: typeof value.branchId === "string" ? value.branchId : legacyBranchId,
             toolReceipts: Array.isArray(value.toolReceipts) ? value.toolReceipts : []
           };
@@ -184,6 +191,68 @@ export function migrateAgentSessionToCurrentSchema(value: AgentSession | Record<
         }]
   });
   return ensureConversationBranches(migrated);
+}
+
+function migrateCompositionTaskState(value: Record<string, unknown>) {
+  const workflowId = typeof value.workflowId === "string" ? value.workflowId : undefined;
+  const canonical = workflowId ? canonicalWorkflowId(workflowId) : workflowId;
+  if (canonical !== "compose_resume") return value;
+  const knownSlots = { ...record(value.knownSlots) };
+  const legacyResult = record(knownSlots.resumeFromProfileResult);
+  const migratedLegacyCompletion = value.completionStatus === "completed"
+    && value.stage === "completed"
+    && Object.keys(legacyResult).length > 0;
+  const selectedEntities = { ...record(value.selectedEntities) };
+  if (migratedLegacyCompletion) {
+    // Preserve the old branch's terminal result as a migration marker. It is
+    // intentionally not relabeled as a canonical compose_resume tool result;
+    // the completion guard accepts this marker only for already-completed
+    // legacy sessions, while all new writes use compose_resume.
+    knownSlots.resumeCompositionLegacyResult = legacyResult;
+    knownSlots.resumeCompositionMigration = "legacy_build_resume_from_profile";
+    for (const key of ["profileId", "resumeId", "revisionId"] as const) {
+      if (!selectedEntities[key] && typeof legacyResult[key] === "string") selectedEntities[key] = legacyResult[key];
+    }
+    if (selectedEntities.resumeRevisionId === undefined && typeof legacyResult.revisionId === "string") {
+      selectedEntities.resumeRevisionId = legacyResult.revisionId;
+    }
+    if (selectedEntities.profileVersion === undefined && typeof legacyResult.profileVersion === "number") {
+      selectedEntities.profileVersion = legacyResult.profileVersion;
+    }
+  }
+  const stage = value.stage === "select_facts" || value.stage === "review_resume_plan"
+    ? "review_composition"
+    : value.stage === "completed" && knownSlots.resumeCompositionResult
+      ? "resume_ready"
+      : migratedLegacyCompletion
+        ? "resume_ready"
+      : value.stage;
+  if (!knownSlots.resumeCompositionPendingInformationNeed && !knownSlots.resumeCompositionTargetDirection) {
+    knownSlots.resumeCompositionPendingInformationNeed = {
+      informationNeedId: "target_direction",
+      question: "这份通用简历主要准备投什么方向？如果暂时没有明确方向，我先按互联网技术 / AI 应用通用版整理。",
+      status: "pending"
+    };
+  }
+  return {
+    ...value,
+    workflowId: "compose_resume",
+    stage,
+    activeGoal: value.activeGoal === "create_resume_from_profile" ? "compose_resume" : value.activeGoal,
+    knownSlots,
+    selectedEntities
+  };
+}
+
+function migrateWorkflowState(value: Record<string, unknown>) {
+  if (!Object.keys(value).length) return value;
+  const workflowId = typeof value.workflowId === "string" ? canonicalWorkflowId(value.workflowId) : value.workflowId;
+  const step = value.step === "select_facts" || value.step === "review_resume_plan"
+    ? "review_composition"
+    : value.step === "completed" && workflowId === "compose_resume"
+      ? "resume_ready"
+      : value.step;
+  return { ...value, workflowId, step };
 }
 
 function hashTailoringAnswers(value: unknown) {

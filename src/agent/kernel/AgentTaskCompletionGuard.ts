@@ -66,7 +66,7 @@ export class AgentTaskCompletionGuard {
     if (CONVERSATION_GOALS.has(state.rootGoal)) {
       return { canFinish: true, reason: "goal_completed" };
     }
-    const terminal = TERMINAL_STAGES[state.rootGoal];
+    const terminal = TERMINAL_STAGES[state.workflowId] ?? TERMINAL_STAGES[state.rootGoal];
     if (!terminal) {
       if (!KNOWN_DOMAIN_GOALS.has(state.rootGoal) && state.workflowId === "agent_quick_action") {
         return { canFinish: true, reason: "no_safe_next_step" };
@@ -76,10 +76,10 @@ export class AgentTaskCompletionGuard {
     if (["create_tailored_resume", "apply_to_job"].includes(state.rootGoal) && !tailoringContractComplete(state)) {
       return incomplete(state, requiredNextStage(state));
     }
-    if (state.rootGoal === "create_resume_from_profile" && !resumeFromProfileContractComplete(state)) {
+    if (isResumeCompositionTask(state) && !resumeCompositionContractComplete(state)) {
       return incomplete(state, requiredNextStage(state));
     }
-    if (state.rootGoal === "compose_resume" && !resumeCompositionContractComplete(state)) {
+    if (state.rootGoal === "create_resume_from_profile" && !isResumeCompositionTask(state) && !resumeFromProfileContractComplete(state)) {
       return incomplete(state, requiredNextStage(state));
     }
     if (state.rootGoal === "import_resume" && !importContractComplete(state)) {
@@ -118,6 +118,12 @@ function requiredNextStage(state: AgentTaskState) {
     return "confirm_import";
   }
   if (state.rootGoal === "export_resume") return "export_ready";
+  if (isResumeCompositionTask(state)) {
+    if (!state.selectedEntities.profileId) return "select_profile_scope";
+    if (!state.knownSlots.resumeCompositionCheckpoint && !hasResumeCompositionCompletionResult(state)) return "review_composition";
+    if (!hasResumeCompositionCompletionResult(state)) return "confirm_create";
+    return "completed";
+  }
   if (state.rootGoal === "create_resume_from_profile") {
     if (!state.selectedEntities.profileId) return "select_profile_scope";
     if (!hasValue(state.knownSlots.selectedFactIds)) return "select_facts";
@@ -200,10 +206,22 @@ function resumeCompositionContractComplete(state: AgentTaskState) {
     state.selectedEntities.profileId
     && state.selectedEntities.resumeId
     && state.selectedEntities.revisionId
-    && state.knownSlots.resumeCompositionResult
+    && hasResumeCompositionCompletionResult(state)
     && state.stage === "resume_ready"
     && state.completionStatus === "completed"
   );
+}
+
+function hasResumeCompositionCompletionResult(state: AgentTaskState) {
+  return Boolean(
+    state.knownSlots.resumeCompositionResult
+    || state.knownSlots.resumeCompositionMigration === "legacy_build_resume_from_profile"
+      && state.knownSlots.resumeCompositionLegacyResult
+  );
+}
+
+function isResumeCompositionTask(state: AgentTaskState) {
+  return state.workflowId === "compose_resume";
 }
 
 function legalToolsFor(stage: string) {
@@ -225,7 +243,7 @@ function legalToolsFor(stage: string) {
     apply: ["apply_tailoring_changes"],
     review_resume_plan: ["create_resume_from_profile"],
     review_composition: ["plan_resume_composition", "review_resume_composition"],
-    confirm_create: ["compose_resume", "create_resume_from_profile"]
+    confirm_create: ["compose_resume"]
   };
   return tools[stage] ?? [];
 }

@@ -49,7 +49,7 @@ export const AGENT_QUICK_ACTION_TASKS: Record<AgentQuickActionId, QuickActionInt
   },
   build_resume_from_profile: {
     rootGoal: "create_resume_from_profile",
-    workflowId: "build_resume_from_profile",
+    workflowId: "compose_resume",
     stage: "select_profile_scope"
   },
   analyze_job_fit: {

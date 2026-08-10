@@ -6,6 +6,26 @@ const StringListSchema = z.array(z.string().trim().min(1)).default([]);
 export const ResumeCompositionModeSchema = z.enum(["general", "job_specific"]);
 export type ResumeCompositionMode = z.infer<typeof ResumeCompositionModeSchema>;
 
+/**
+ * A composition preference is a user answer, not a CareerProfile fact. Keep
+ * its identity explicit so a resumed turn cannot be mistaken for a new root
+ * task or silently merged into the profile library.
+ */
+export const ResumeCompositionInformationNeedSchema = z.object({
+  informationNeedId: z.string().min(1),
+  question: z.string().min(1),
+  status: z.enum(["pending", "answered", "superseded"])
+}).strict();
+export type ResumeCompositionInformationNeed = z.infer<typeof ResumeCompositionInformationNeedSchema>;
+
+export const ResumeCompositionAnswerSchema = z.object({
+  informationNeedId: z.string().min(1),
+  value: z.string().trim().min(1).max(2_000),
+  source: z.literal("user_message"),
+  capturedAt: z.string().datetime({ offset: true })
+}).strict();
+export type ResumeCompositionAnswer = z.infer<typeof ResumeCompositionAnswerSchema>;
+
 export const ResumeClaimClassificationSchema = z.enum([
   "SUPPORTED",
   "DERIVED_PRESENTATION",

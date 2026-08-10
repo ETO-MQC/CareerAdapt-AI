@@ -16,7 +16,7 @@ afterEach(async () => {
   db = undefined;
 });
 
-describe("P4.3d.2 build_resume_from_profile", () => {
+describe("P4.3d.2 legacy build_resume_from_profile compatibility", () => {
   it("creates an independent general branch from selected confirmed facts and is idempotent", async () => {
     db = new CareerAdaptDb(`CareerAdaptP43d2BuildDb-${crypto.randomUUID()}`);
     const repository = new WorkspaceRepository(db);
@@ -76,27 +76,45 @@ describe("P4.3d.2 build_resume_from_profile", () => {
         }
       }
     });
+    expect(state.workflowId).toBe("compose_resume");
     state = reducer.reduce(state, {
       type: "user_message",
-      message: "全部已确认经历",
+      message: "用于互联网的秋招",
       turnIntent: "clarification_answer"
     });
-    expect(state.stage).toBe("review_resume_plan");
+    expect(state).toMatchObject({ workflowId: "compose_resume", stage: "review_composition" });
+    expect(state.knownSlots.resumeCompositionLastAnswer).toMatchObject({
+      informationNeedId: "target_direction",
+      value: "用于互联网的秋招",
+      source: "user_message"
+    });
+    state = reducer.reduce(state, {
+      type: "tool_observation",
+      toolName: "plan_resume_composition",
+      observation: {
+        profileId: "profile-build",
+        profileRevision: 4,
+        evidenceGraph: { nodes: [], edges: [] },
+        blueprint: { sections: [] },
+        compositionProposal: { title: "通用简历组装预览" },
+        reviewResult: { status: "PASS" }
+      }
+    });
     state = reducer.reduce(state, {
       type: "confirmation_requested",
-      toolName: "create_resume_from_profile",
+      toolName: "compose_resume",
       operationId: "p43d2-confirm-create"
     });
     expect(state).toMatchObject({ stage: "confirm_create", completionStatus: "waiting_for_confirmation" });
     state = reducer.reduce(state, {
       type: "tool_observation",
-      toolName: "create_resume_from_profile",
+      toolName: "compose_resume",
       observation: {
         profileId: "profile-build",
         profileVersion: 4,
         resumeId: "branch-build",
         revisionId: "revision-build",
-        selectedFactIds: ["fact-project"]
+        composition: { profileId: "profile-build" }
       }
     });
     expect(new AgentTaskCompletionGuard().evaluate(state)).toEqual({ canFinish: true, reason: "goal_completed" });

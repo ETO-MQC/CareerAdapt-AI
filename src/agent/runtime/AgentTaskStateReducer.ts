@@ -1,5 +1,5 @@
 import type { AgentSession, AgentTaskState } from "@/agent/contracts/agentSession";
-import { getWorkflowDefinition } from "@/agent/workflows/workflowRegistry";
+import { canonicalWorkflowId, getWorkflowDefinition } from "@/agent/workflows/workflowRegistry";
 import {
   classifyProfileIntakeTurn,
   hasExplicitCorrectionReplacement,
@@ -19,6 +19,7 @@ import {
   type TailoringContextCandidate
 } from "./tailoringContextResolver";
 import { ProfileIntakeReviewProjectionSchema, type ProfileIntakeReviewProjection } from "@/domain/profileIntake/ProfileIntakeReviewProjection";
+import { ResumeCompositionInformationNeedSchema } from "@/domain/resumeComposition/contracts";
 
 export type AgentTaskEvent =
   | {
@@ -98,15 +99,18 @@ export class AgentTaskStateReducer {
     const state = structuredClone(previous);
     state.updatedAt = new Date().toISOString();
     if (event.type === "new_root_task") {
+      const workflowId = canonicalWorkflowId(event.workflowId);
       return normalize({
         ...state,
         goal: event.goal,
         rootGoal: event.goal,
         activeGoal: event.goal,
-        workflowId: event.workflowId,
+        workflowId,
         stage: event.stage,
         requiredSlots: [],
-        knownSlots: {},
+        knownSlots: workflowId === "compose_resume"
+          ? { resumeCompositionPendingInformationNeed: defaultResumeCompositionInformationNeed() }
+          : {},
         missingSlots: [],
         selectedEntities: {
           profileId: state.selectedEntities.profileId,
@@ -123,7 +127,7 @@ export class AgentTaskStateReducer {
     }
     if (event.type === "new_active_task") {
       state.activeGoal = event.goal;
-      state.workflowId = event.workflowId;
+      state.workflowId = canonicalWorkflowId(event.workflowId);
       state.stage = event.stage;
       state.requiredSlots = [];
       state.missingSlots = [];
@@ -256,7 +260,12 @@ export class AgentTaskStateReducer {
       if (state.rootGoal === "import_resume") {
         captureImportTargetIntent(state, event.message);
       }
-      const continuation = new TaskContinuationResolver().resolve(state, event.message);
+      // The quick-card instruction establishes a new root task. It is not an
+      // answer to the composition workflow's first information need; only a
+      // later user turn may consume that pending question.
+      const continuation = event.turnIntent === "new_domain_task"
+        ? { consumed: false as const }
+        : new TaskContinuationResolver().resolve(state, event.message);
       if (continuation.consumed) {
         Object.assign(state.knownSlots, continuation.slotUpdates);
         if (continuation.intent === "continue") {
@@ -451,6 +460,49 @@ export class AgentTaskStateReducer {
         state.activeGoal = "compose_resume";
         state.stage = resumeId ? "resume_ready" : "review_composition";
         state.completionStatus = resumeId ? "completed" : "waiting_for_user";
+      } else if (event.toolName === "build_resume_evidence_graph") {
+        state.knownSlots.resumeCompositionEvidenceGraph = event.observation;
+        state.activeGoal = "compose_resume";
+        if (state.workflowId === "compose_resume" && state.stage === "select_profile_scope") {
+          state.completionStatus = "active";
+        }
+      } else if (event.toolName === "plan_resume_composition") {
+        const value = objectValue(event.observation);
+        state.knownSlots.resumeCompositionEvidenceGraph = value.evidenceGraph ?? state.knownSlots.resumeCompositionEvidenceGraph;
+        state.knownSlots.resumeCompositionBlueprint = value.blueprint;
+        state.knownSlots.resumeCompositionProposal = value.compositionProposal;
+        state.knownSlots.resumeCompositionReviewResult = value.reviewResult;
+        state.knownSlots.resumeCompositionInformationNeeds = value.informationNeeds;
+        state.knownSlots.resumeCompositionCheckpoint = {
+          kind: "resume_composition",
+          profileId: value.profileId ?? state.selectedEntities.profileId,
+          expectedProfileRevision: value.profileRevision ?? state.selectedEntities.profileVersion,
+          mode: value.mode ?? state.knownSlots.resumeCompositionMode ?? "general",
+          jobId: value.jobId ?? state.selectedEntities.jobId,
+          evidenceGraph: value.evidenceGraph,
+          blueprint: value.blueprint,
+          proposal: value.compositionProposal,
+          reviewResult: value.reviewResult,
+          metrics: value.metrics,
+          keywordCoverage: value.keywordCoverage,
+          informationNeeds: value.informationNeeds
+        };
+        state.activeGoal = "compose_resume";
+        state.stage = "review_composition";
+        state.completionStatus = "waiting_for_user";
+      } else if (event.toolName === "review_resume_composition") {
+        const value = objectValue(event.observation);
+        state.knownSlots.resumeCompositionReviewResult = value.reviewResult;
+        const checkpoint = objectValue(state.knownSlots.resumeCompositionCheckpoint);
+        state.knownSlots.resumeCompositionCheckpoint = {
+          ...checkpoint,
+          reviewResult: value.reviewResult,
+          metrics: value.metrics ?? checkpoint.metrics,
+          keywordCoverage: value.keywordCoverage ?? checkpoint.keywordCoverage
+        };
+        state.knownSlots.resumeCompositionProposal = checkpoint.proposal ?? state.knownSlots.resumeCompositionProposal;
+        state.stage = "review_composition";
+        state.completionStatus = "waiting_for_user";
       } else if (event.toolName === "analyze_job_fit") {
         state.knownSlots.fitAnalysis = objectValue(event.observation).analysis ?? event.observation;
         state.dependencySnapshots.fitResult = dependencySnapshot(state, event.observation);
@@ -1050,6 +1102,18 @@ function resetProfileIntakeDraft(state: AgentTaskState) {
 
 function normalize(state: AgentTaskState): AgentTaskState {
   state.goal = state.rootGoal;
+  state.workflowId = canonicalWorkflowId(state.workflowId);
+  if (state.workflowId === "compose_resume") {
+    // `create_resume_from_profile` remains a compatible root-goal label for
+    // persisted sessions, but its executable workflow is now composition.
+    state.activeGoal = state.knownSlots.resumeCompositionResult ? "compose_resume" : state.activeGoal === "create_resume_from_profile" ? "compose_resume" : state.activeGoal;
+    if (!state.knownSlots.resumeCompositionPendingInformationNeed && !state.knownSlots.resumeCompositionTargetDirection) {
+      state.knownSlots.resumeCompositionPendingInformationNeed = defaultResumeCompositionInformationNeed();
+    }
+    if (state.stage === "select_facts" || state.stage === "review_resume_plan") state.stage = "review_composition";
+    if (state.stage === "completed" && state.knownSlots.resumeCompositionResult) state.stage = "resume_ready";
+    if (state.knownSlots.resumeCompositionResult) state.completionStatus = "completed";
+  }
   if (state.rootGoal === "create_resume_from_profile" && state.workflowId === "build_resume_from_profile") {
     if (state.stage !== "completed" && state.stage !== "confirm_create") {
       if (!state.selectedEntities.profileId) {
@@ -1347,14 +1411,23 @@ function mergeObservationSlots(state: AgentTaskState, toolName: string, observat
           version: scalarValue(profile.version ?? value.profileVersion)
         });
       }
-      if (state.rootGoal === "create_resume_from_profile") {
+      if (state.workflowId === "compose_resume") {
+        const items = Array.isArray(profile.items) ? profile.items.map(objectValue) : [];
+        state.knownSlots.profileItemCandidates = items;
+        if (!state.knownSlots.resumeCompositionPendingInformationNeed) {
+          state.knownSlots.resumeCompositionPendingInformationNeed = defaultResumeCompositionInformationNeed();
+        }
+      } else if (state.rootGoal === "create_resume_from_profile") {
         const items = Array.isArray(profile.items) ? profile.items.map(objectValue) : [];
         state.knownSlots.profileItemCandidates = items;
         if (state.stage === "select_profile_scope") state.stage = "select_facts";
       }
     }
   }
-  if (toolName === "search_profile_facts" && state.rootGoal === "create_resume_from_profile") {
+  if (toolName === "search_profile_facts" && state.workflowId === "compose_resume") {
+    const results = Array.isArray(value.results) ? value.results.map(objectValue) : [];
+    state.knownSlots.profileItemCandidates = results;
+  } else if (toolName === "search_profile_facts" && state.rootGoal === "create_resume_from_profile") {
     const results = Array.isArray(value.results) ? value.results.map(objectValue) : [];
     state.knownSlots.profileItemCandidates = results;
     if (results.length && state.stage === "select_facts") state.stage = "review_resume_plan";
@@ -1728,6 +1801,14 @@ function looksLikeJd(value: string) {
 
 function objectValue(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
+function defaultResumeCompositionInformationNeed() {
+  return ResumeCompositionInformationNeedSchema.parse({
+    informationNeedId: "target_direction",
+    question: "这份通用简历主要准备投什么方向？如果暂时没有明确方向，我先按互联网技术 / AI 应用通用版整理。",
+    status: "pending"
+  });
 }
 
 function stringValue(value: unknown) {

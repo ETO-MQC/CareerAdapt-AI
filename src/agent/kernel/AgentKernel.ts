@@ -34,6 +34,7 @@ import { capabilityManifestForPrompt } from "@/agent/capabilities/AgentProductCa
 import { groundMutationClaims, type AuthoritativeTurnObservation } from "./AgentMutationClaimGuard";
 import { buildActiveBranchContext } from "@/agent/runtime/activeBranchContext";
 import { AuthoritativeConversationAlignmentGuard } from "./AuthoritativeConversationAlignmentGuard";
+import { evaluateGroundedResumeOutput } from "./GroundedResumeOutputGate";
 
 export type AgentKernelResult = {
   text?: string;
@@ -196,14 +197,30 @@ export class AgentKernel {
         sourceTurns: input.profileIntakeSourceTurns,
         narrationOnly: input.narrationOnly
       });
-      if (alignment.aligned) return candidate;
-      protocolDiagnostics.push({
-        markerKinds: [],
-        allowedToolNames: allowedTools.map((tool) => tool.name),
-        nativeToolCallsPresent: false,
-        safeErrorCode: alignment.safeErrorCode
+      if (!alignment.aligned) {
+        protocolDiagnostics.push({
+          markerKinds: [],
+          allowedToolNames: allowedTools.map((tool) => tool.name),
+          nativeToolCallsPresent: false,
+          safeErrorCode: alignment.safeErrorCode
+        });
+        return deterministicAlignmentRecovery(taskState);
+      }
+      const grounding = evaluateGroundedResumeOutput({
+        text: candidate,
+        taskState,
+        artifactRefs: input.session.artifactRefs
       });
-      return deterministicAlignmentRecovery(taskState);
+      if (!grounding.allowed) {
+        protocolDiagnostics.push({
+          markerKinds: [],
+          allowedToolNames: allowedTools.map((tool) => tool.name),
+          nativeToolCallsPresent: false,
+          safeErrorCode: grounding.reasonCode
+        });
+        return grounding.recoveryText;
+      }
+      return candidate;
     };
 
     await emit(input, { type: "turn_ack", sessionId: input.session.id });
@@ -442,8 +459,10 @@ export class AgentKernel {
                   toolName: validated.tool.name,
                   toolInput: validated.input,
                   operationId,
-                  confirmed: validated.tool.name === "commit_profile_intake"
-                    && taskState.knownSlots.profileIntakeExplicitCommit === true,
+                  confirmed: (validated.tool.name === "commit_profile_intake"
+                    && taskState.knownSlots.profileIntakeExplicitCommit === true)
+                    || (validated.tool.name === "compose_resume"
+                      && taskState.knownSlots.resumeCompositionExplicitConfirmation === true),
                   signal: input.signal
                 });
               if (!cached) this.observationCache.set(validated.tool.name, validated.input, result);
@@ -1662,6 +1681,31 @@ function deterministicBoundaryTool(
   ) {
     return undefined;
   }
+  if (
+    taskState.workflowId === "compose_resume"
+    && taskState.knownSlots.resumeCompositionDecision === "generate"
+    && taskState.knownSlots.resumeCompositionCheckpoint
+    && allowedTools.some((tool) => tool.name === "compose_resume")
+  ) {
+    return "compose_resume";
+  }
+  if (
+    taskState.workflowId === "compose_resume"
+    && taskState.stage === "review_composition"
+    && !taskState.knownSlots.resumeCompositionEvidenceGraph
+    && allowedTools.some((tool) => tool.name === "build_resume_evidence_graph")
+  ) {
+    return "build_resume_evidence_graph";
+  }
+  if (
+    taskState.workflowId === "compose_resume"
+    && taskState.stage === "review_composition"
+    && taskState.knownSlots.resumeCompositionEvidenceGraph
+    && !taskState.knownSlots.resumeCompositionCheckpoint
+    && allowedTools.some((tool) => tool.name === "plan_resume_composition")
+  ) {
+    return "plan_resume_composition";
+  }
   const toolName = taskState.workflowId === "resume_import"
     && taskState.stage === "import_review"
     && ["accept_all", "ignore_uncertain"].includes(String(taskState.knownSlots.reviewDecision))
@@ -1717,6 +1761,31 @@ function deterministicWorkflowPause(
   taskState: NonNullable<AgentSession["taskState"]>,
   afterToolOrResume = true
 ) {
+  if (
+    afterToolOrResume
+    && taskState.workflowId === "compose_resume"
+    && taskState.knownSlots.resumeCompositionProposal
+    && !taskState.knownSlots.resumeCompositionResult
+    && taskState.knownSlots.resumeCompositionDecision !== "adjust_direction"
+    && taskState.knownSlots.resumeCompositionDecision !== "supplement"
+  ) {
+    const proposal = objectValue(taskState.knownSlots.resumeCompositionProposal);
+    const title = stringValue(proposal.title) ?? "通用简历组装提案";
+    const summary = stringValue(proposal.summary) ?? "已根据当前确认资料形成组装方案。";
+    const assets = Array.isArray(proposal.selectedAssetTitles)
+      ? proposal.selectedAssetTitles.filter((item): item is string => typeof item === "string").slice(0, 6)
+      : [];
+    const needs = Array.isArray(proposal.informationNeeds)
+      ? proposal.informationNeeds.map(objectValue).flatMap((item) => typeof item.question === "string" ? [item.question] : []).slice(0, 2)
+      : [];
+    return [
+      `我已根据当前资料库形成“${title}”。`,
+      summary,
+      assets.length ? `将优先使用已确认的职业资产：${assets.join("、")}。` : "将只使用当前已确认且有来源的职业资产。",
+      needs.length ? `还有可选补充项：${needs.join("；")}` : "这一步不会新增个人资料事实。",
+      "请选择：直接生成、调整方向，或继续补充资料。"
+    ].join("\n\n");
+  }
   if (
     taskState.workflowId === "guided_profile_intake"
     && taskState.stage === "review_facts"

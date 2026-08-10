@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { allowedToolManifestForStep, agentWorkflowRegistry, isUiActionAllowed } from "@/agent/workflows/workflowRegistry";
+import {
+  allowedToolManifestForStep,
+  agentWorkflowRegistry,
+  getWorkflowDefinition,
+  isUiActionAllowed
+} from "@/agent/workflows/workflowRegistry";
+import { agentToolNames } from "@/agent/tools/registry";
+import { agentSkillRegistry } from "@/agent/kernel/AgentSkillRegistry";
 
 const manifest = [
   { name: "list_resumes" },
@@ -22,10 +29,38 @@ describe("agent workflow registry", () => {
       "resume_import",
       "job_ingestion",
       "build_resume_from_profile",
+      "compose_resume",
       "tailor_existing_resume",
       "analyze_job_fit",
       "repair_and_export_resume"
     ]));
+  });
+
+  it("resolves the legacy Card 4 workflow to the canonical composition definition", () => {
+    expect(getWorkflowDefinition("build_resume_from_profile")).toBe(getWorkflowDefinition("compose_resume"));
+    expect(allowedToolManifestForStep("build_resume_from_profile", "review_composition", [
+      { name: "build_resume_evidence_graph" },
+      { name: "plan_resume_composition" },
+      { name: "review_resume_composition" },
+      { name: "create_resume_from_profile" }
+    ]).map((tool) => tool.name)).toEqual([
+      "build_resume_evidence_graph",
+      "plan_resume_composition",
+      "review_resume_composition"
+    ]);
+  });
+
+  it("keeps every composition Skill preferred tool present and stage-permitted", () => {
+    const compose = getWorkflowDefinition("compose_resume");
+    expect(compose).toBeDefined();
+    const allowed = new Set(Object.values(compose!.allowedToolsByStep).flat());
+    for (const skillId of ["resume-from-profile", "resume-composition"]) {
+      const skill = agentSkillRegistry.view(skillId);
+      for (const toolName of skill.relevantTools) {
+        expect(agentToolNames).toContain(toolName);
+        expect(allowed).toContain(toolName);
+      }
+    }
   });
 
   it("gates tools by the current workflow step", () => {

@@ -37,6 +37,8 @@ import type { ActiveCareerContext } from "@/domain/schemas";
 import { CareerContextSelector } from "@/components/career/CareerContextSelector";
 import { notify } from "@/services/notifications/store";
 import { agentAttachmentStore, type AgentAttachmentRef } from "@/services/agent/AgentAttachmentStore";
+import { allowedToolManifestForStep } from "@/agent/workflows/workflowRegistry";
+import { agentToolNames } from "@/agent/tools/registry";
 
 type ResumeSummary = { id: string; profileId: string; name: string; purpose: string; revision: number };
 type SessionComposerDrafts = Record<string, string>;
@@ -89,6 +91,7 @@ export function AgentWorkspace() {
     attachments: AgentAttachmentRef[];
   }>();
   const [pendingContextRequest, setPendingContextRequest] = useState<PendingContextRequest>();
+  const quickActionDispatchRef = useRef<Promise<AgentSession | undefined> | undefined>(undefined);
   const running = snapshot.turnStatus === "running";
   const paused = snapshot.turnStatus === "paused";
   const draft = draftsBySession[session.id] ?? "";
@@ -201,7 +204,14 @@ export function AgentWorkspace() {
     userInteractedRef.current = true;
     restoreRequestRef.current += 1;
     setLastUserMessage(input.text);
-    window.localStorage.setItem(ACTIVE_SESSION_KEY, session.id);
+    // A quick card may still be finishing its deterministic context read when
+    // the user starts typing. Wait for that boundary so the reply cannot race
+    // against the card result or be sent with the pre-card task state.
+    const pendingQuickAction = quickActionDispatchRef.current;
+    if (pendingQuickAction) await pendingQuickAction.catch(() => undefined);
+    const liveSession = host.state.getSnapshot().activeSession;
+    const submitSession = liveSession?.id === session.id ? liveSession : session;
+    window.localStorage.setItem(ACTIVE_SESSION_KEY, submitSession.id);
     setSessionAttachments((current) => current.map((attachment) => ({ ...attachment, status: "registering" as const, errorCode: undefined })));
     // Clear the controlled composer immediately after the submit event. Host
     // execution may continue streaming for a while; the sent instruction must
@@ -220,29 +230,29 @@ export function AgentWorkspace() {
           registeredAttachments.push(await agentAttachmentStore.register(attachment.file));
         }
         if (readResumeImportSemanticPreference() === "unset" && registeredAttachments.some((attachment) => attachment.mimeType !== "application/json")) {
-          setPendingHermesAttachmentTurn({ sessionId: session.id, text: input.text, attachments: registeredAttachments });
+          setPendingHermesAttachmentTurn({ sessionId: submitSession.id, text: input.text, attachments: registeredAttachments });
           setPendingResumeImportAttachmentId(registeredAttachments[0]?.id);
-          setAttachmentsBySession((current) => ({ ...current, [session.id]: [] }));
+          setAttachmentsBySession((current) => ({ ...current, [submitSession.id]: [] }));
           return;
         }
       }
       const result = (input.attachments.length === 0 && input.text.trim()) || hermesAttachmentTurn
         ? await host.runTurn({
-            sessionId: session.id,
+            sessionId: submitSession.id,
             userMessage: input.text,
             pageContext: pageContext(),
-            session,
+            session: submitSession,
             attachments: registeredAttachments.map((attachment) => ({
               id: attachment.id,
               fileName: attachment.fileName,
               mimeType: attachment.mimeType,
               size: attachment.size,
-              purpose: session.taskState?.workflowId === "resume_import" ? "resume_import" : "career_evidence"
+              purpose: submitSession.taskState?.workflowId === "resume_import" ? "resume_import" : "career_evidence"
             }))
           })
         : await host.state.dispatch(
             { type: "composer_submit", text: input.text || undefined, files: input.attachments.map((attachment) => attachment.file) },
-            { session, pageContext: pageContext() }
+            { session: submitSession, pageContext: pageContext() }
           );
       if (!result) throw new Error("composer_turn_not_accepted");
       if (!["queued", "running", "waiting_for_approval", "stopping"].includes(result.hermesRun?.status ?? "completed")) {
@@ -527,7 +537,7 @@ export function AgentWorkspace() {
     restoreRequestRef.current += 1;
     const intent = createQuickActionIntent(actionId);
     setLastUserMessage(intent.intent);
-    void host.state.dispatch(
+    const pending = host.state.dispatch(
       {
         type: "quick_action",
         actionId: intent.actionId,
@@ -535,11 +545,15 @@ export function AgentWorkspace() {
         task: intent.task
       },
       { session, pageContext: pageContext() }
-    ).then((result) => {
+    );
+    quickActionDispatchRef.current = pending;
+    void pending.then((result) => {
       if (!result) return;
       setSession(result);
       window.localStorage.setItem(ACTIVE_SESSION_KEY, result.id);
       window.dispatchEvent(new CustomEvent("careeradapt-agent-sessions-change"));
+    }).finally(() => {
+      if (quickActionDispatchRef.current === pending) quickActionDispatchRef.current = undefined;
     });
   }
 
@@ -576,6 +590,49 @@ export function AgentWorkspace() {
     const sourceTurns = await host.store.listProfileIntakeSourceTurns(session.id);
     const task = session.taskState;
     const slots = task?.knownSlots ?? {};
+    const recordValue = (value: unknown): Record<string, unknown> =>
+      value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+    const latestAssistant = session.messages.findLast((message) =>
+      message.role === "assistant"
+      && message.metadata?.retracted !== true
+      && message.kind !== "assistant_thinking"
+      && message.kind !== "assistant_streaming"
+      && message.status !== "thinking"
+      && message.status !== "streaming"
+    );
+    const workflowDefinition = task
+      ? allowedToolManifestForStep(task.workflowId, task.stage, agentToolNames.map((name) => ({ name })))
+      : [];
+    const toolActivities = session.messages
+      .filter((message) => message.role === "tool" && message.toolName)
+      .map((message) => ({
+        toolName: message.toolName,
+        status: message.status,
+        safeErrorCode: typeof message.metadata?.safeErrorCode === "string" ? message.metadata.safeErrorCode : undefined,
+        operationId: message.operationId
+      }));
+    const deniedActivity = toolActivities.findLast((activity) => activity.safeErrorCode === "agent_tool_not_allowed");
+    const pendingInformationNeed = recordValue(slots.resumeCompositionPendingInformationNeed);
+    const latestCheckpoint = session.turnCheckpoints.findLast((checkpoint) => checkpoint.completedAt ?? true);
+    const safeCheckpoint = latestCheckpoint ? {
+      turnId: latestCheckpoint.turnId,
+      createdAt: latestCheckpoint.createdAt,
+      completedAt: latestCheckpoint.completedAt,
+      workflowBefore: {
+        workflowId: latestCheckpoint.taskStateBefore.workflowId,
+        rootGoal: latestCheckpoint.taskStateBefore.rootGoal,
+        stage: latestCheckpoint.taskStateBefore.stage,
+        completionStatus: latestCheckpoint.taskStateBefore.completionStatus,
+        selectedEntities: latestCheckpoint.selectedEntitiesBefore
+      },
+      workflowAfter: latestCheckpoint.taskStateAfter ? {
+        workflowId: latestCheckpoint.taskStateAfter.workflowId,
+        rootGoal: latestCheckpoint.taskStateAfter.rootGoal,
+        stage: latestCheckpoint.taskStateAfter.stage,
+        completionStatus: latestCheckpoint.taskStateAfter.completionStatus,
+        selectedEntities: latestCheckpoint.taskStateAfter.selectedEntities
+      } : undefined
+    } : undefined;
     const artifactFeedback = slots.artifactActionFeedback && typeof slots.artifactActionFeedback === "object" && !Array.isArray(slots.artifactActionFeedback)
       ? slots.artifactActionFeedback as Record<string, unknown>
       : undefined;
@@ -614,7 +671,7 @@ export function AgentWorkspace() {
       }
     } : undefined;
     const bundle = {
-      schemaVersion: "profile-intake-technical-diagnostics-v1",
+      schemaVersion: "agent-technical-diagnostics-v2",
       exportedAt: new Date().toISOString(),
       pinnedContext: {
         personId: session.personId,
@@ -623,6 +680,39 @@ export function AgentWorkspace() {
         profileRevision: session.profileRevision
       },
       taskState: safeTaskState,
+      runtime: session.activeTurn ? {
+        runtimeId: session.activeTurn.runtimeId,
+        preferredRuntime: session.activeTurn.preferredRuntime,
+        attemptedRuntime: session.activeTurn.attemptedRuntime,
+        finalRuntime: session.activeTurn.finalRuntime,
+        fallbackUsed: session.activeTurn.fallbackUsed,
+        fallbackReasonCode: session.activeTurn.fallbackReasonCode,
+        hermesRunId: session.activeTurn.hermesRunId,
+        firstEventAt: session.activeTurn.firstEventAt,
+        runtimeFailureAt: session.activeTurn.runtimeFailureAt
+      } : undefined,
+      allowedTools: workflowDefinition.map((tool) => String(tool.name)),
+      requestedTool: toolActivities.findLast((activity) => activity.toolName)?.toolName,
+      deniedTool: deniedActivity?.toolName,
+      workflowTransitionHistory: session.turnCheckpoints.map((checkpoint) => ({
+        turnId: checkpoint.turnId,
+        createdAt: checkpoint.createdAt,
+        completedAt: checkpoint.completedAt,
+        workflowBefore: checkpoint.taskStateBefore.workflowId,
+        stageBefore: checkpoint.taskStateBefore.stage,
+        workflowAfter: checkpoint.taskStateAfter?.workflowId,
+        stageAfter: checkpoint.taskStateAfter?.stage,
+        completionStatusAfter: checkpoint.taskStateAfter?.completionStatus
+      })),
+      workflowCheckpoint: safeCheckpoint,
+      pendingInformationNeed: Object.keys(pendingInformationNeed).length ? {
+        informationNeedId: pendingInformationNeed.informationNeedId,
+        status: pendingInformationNeed.status,
+        question: pendingInformationNeed.question
+      } : undefined,
+      terminalState: typeof latestAssistant?.metadata?.terminalState === "string" ? latestAssistant.metadata.terminalState : undefined,
+      deadEndDetected: latestAssistant?.metadata?.deadEndDetected === true,
+      toolActivityDiagnostics: toolActivities,
       sourceTurnDiagnostics: sourceTurns.map((turn) => ({
         sessionId: turn.sessionId,
         messageId: turn.messageId,
@@ -661,7 +751,7 @@ export function AgentWorkspace() {
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `profile-intake-diagnostics-${new Date().toISOString().slice(0, 10)}.json`;
+    anchor.download = `agent-diagnostics-${new Date().toISOString().slice(0, 10)}.json`;
     anchor.click();
     URL.revokeObjectURL(url);
   }, [host.store, intakeProjection, session]);

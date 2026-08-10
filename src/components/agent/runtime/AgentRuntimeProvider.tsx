@@ -22,6 +22,7 @@ import { CareerAdaptMcpBridgeClient } from "@/agent/mcp/CareerAdaptMcpBridgeClie
 import { RuntimeStatusStore } from "@/agent/runtime/runtimeStatus";
 import { resolveCareerSessionBinding, type CareerSessionBinding } from "@/agent/runtime/careerSessionBinding";
 import { WorkspaceRepository } from "@/services/storage/repositories";
+import { allowedToolManifestForStep } from "@/agent/workflows/workflowRegistry";
 
 function createAgentHost() {
   const repository = new WorkspaceRepository();
@@ -60,12 +61,21 @@ function createAgentHost() {
             ? state.getSnapshot().activeSession
             : undefined;
       if (!session) throw Object.assign(new Error("runtime_session_required"), { code: "runtime_session_required" });
+      const preparedTask = input.metadata?.runtimeTaskPrepared === true && session.taskState
+        ? {
+            rootGoal: session.taskState.rootGoal,
+            workflowId: session.taskState.workflowId,
+            stage: session.taskState.stage
+          }
+        : undefined;
       return state.startTurn({
         session,
         userMessage: input.userMessage,
         pageContext: input.pageContext,
         turnId: input.turnId,
         runtimeId: "native",
+        runtimeDiagnostics: runtimeDiagnosticsFromMetadata(input.metadata),
+        typedTask: preparedTask,
         ...(hasRuntimeShell ? {
           userMessageId: runtimeShellUserMessageId,
           assistantMessageId: runtimeShellMessageId,
@@ -109,12 +119,23 @@ function createAgentHost() {
     // The UI consumes only this stable event protocol.  Native and Hermes can
     // change their internals without changing the workspace submission path.
     const runtime = runtimeRouter.active();
+    const preparedSession = input.session && input.userMessage.trim()
+      ? await state.prepareRuntimeTask({
+          session: input.session,
+          userMessage: input.userMessage,
+          references: undefined
+        })
+      : input.session;
+    const runtimeTaskPrepared = Boolean(preparedSession && preparedSession !== input.session);
+    const runtimeRequest = preparedSession && preparedSession !== input.session
+      ? { ...input, session: preparedSession }
+      : input;
     const statusBeforeTurn = runtimeStatus.getSnapshot();
     const canStartHermesShell = runtime.id === "hermes"
       && statusBeforeTurn.status === "ready"
       && statusBeforeTurn.mcpConnected !== false
-      && Boolean(input.userMessage.trim())
-      && Boolean(input.session);
+      && Boolean(runtimeRequest.userMessage.trim())
+      && Boolean(runtimeRequest.session);
     const reattachingHermesRun = runtime.id === "hermes"
       && Boolean(input.session?.hermesRun)
       && ["queued", "running", "waiting_for_approval", "stopping"].includes(input.session?.hermesRun?.status ?? "")
@@ -122,23 +143,29 @@ function createAgentHost() {
     const reattachAssistant = reattachingHermesRun
       ? input.session?.messages.findLast((message) => message.role === "assistant" && message.turnId === input.session?.hermesRun?.turnId)
       : undefined;
-    const runtimeShell = canStartHermesShell && input.session
+    const runtimeShell = canStartHermesShell && runtimeRequest.session
       ? await state.beginRuntimeShell({
-          session: input.session,
-          userMessage: input.userMessage,
+          session: runtimeRequest.session,
+          userMessage: runtimeRequest.userMessage,
           runtimeId: "hermes",
-          turnId: input.turnId
+          turnId: runtimeRequest.turnId,
+          runtimeDiagnostics: {
+            preferredRuntime: "hermes",
+            attemptedRuntime: "hermes",
+            finalRuntime: "hermes",
+            fallbackUsed: false
+          }
         })
-      : reattachingHermesRun && input.session && reattachAssistant
-        ? {
-            session: input.session,
-            turnId: input.session.hermesRun!.turnId,
+        : reattachingHermesRun && runtimeRequest.session && reattachAssistant
+          ? {
+            session: runtimeRequest.session,
+            turnId: runtimeRequest.session.hermesRun!.turnId,
             assistantMessageId: reattachAssistant.id,
-            userMessageId: input.session.activeTurn?.userMessageId ?? ""
+            userMessageId: runtimeRequest.session.activeTurn?.userMessageId ?? ""
           }
         : undefined;
     const runtimeInput: AgentRuntimeTurnInput = {
-      ...input,
+      ...runtimeRequest,
       ...(runtimeShell ? {
         session: runtimeShell.session,
         turnId: runtimeShell.turnId
@@ -146,7 +173,41 @@ function createAgentHost() {
       metadata: {
         ...(input.metadata ?? {}),
         telemetry: true,
+        ...(runtimeTaskPrepared ? { runtimeTaskPrepared: true } : {}),
         runtimeId: runtime.id,
+        preferredRuntime: runtime.id,
+        attemptedRuntime: runtime.id,
+        finalRuntime: runtime.id,
+        workflowId: runtimeRequest.session?.taskState?.workflowId ?? runtimeRequest.session?.workflowState.workflowId,
+        workflowStage: runtimeRequest.session?.taskState?.stage ?? runtimeRequest.session?.workflowState.step,
+        rootGoal: runtimeRequest.session?.taskState?.rootGoal,
+        ...(runtimeRequest.session?.taskState?.workflowId === "compose_resume" ? {
+          confirmed: runtimeRequest.session.taskState.knownSlots.resumeCompositionExplicitConfirmation === true,
+          confirmationCount: runtimeRequest.session.taskState.knownSlots.resumeCompositionExplicitConfirmation === true ? 1 : 0
+        } : {}),
+        allowedToolNames: runtimeRequest.session?.taskState
+          ? allowedToolManifestForStep(
+              runtimeRequest.session.taskState.workflowId,
+              runtimeRequest.session.taskState.stage,
+              registry.manifest()
+            ).map((tool) => String(tool.name))
+          : [],
+        allowedCareerToolNames: runtimeRequest.session?.taskState
+          ? [
+              ...allowedToolManifestForStep(
+                runtimeRequest.session.taskState.workflowId,
+                runtimeRequest.session.taskState.stage,
+                registry.manifest()
+              ).flatMap((tool) => {
+                const stable = careerToolGateway.getStableNameForSource(String(tool.name));
+                return stable ? [stable] : [];
+              }),
+              ...(runtimeRequest.session.taskState.workflowId === "compose_resume"
+                && ["review_composition", "confirm_create"].includes(runtimeRequest.session.taskState.stage)
+                ? ["career.workflow.compose_resume"]
+                : [])
+            ]
+          : [],
         ...(runtime.id === "hermes" ? { requireCareerSessionBinding: true } : {}),
         ...(runtimeShell ? {
           runtimeShellMessageId: runtimeShell.assistantMessageId,
@@ -215,6 +276,21 @@ function createAgentHost() {
 }
 
 export type AgentHost = ReturnType<typeof createAgentHost>;
+
+function runtimeDiagnosticsFromMetadata(metadata?: Record<string, unknown>) {
+  const value = metadata ?? {};
+  const runtime = (candidate: unknown): "native" | "hermes" | undefined => candidate === "native" || candidate === "hermes" ? candidate : undefined;
+  return {
+    preferredRuntime: runtime(value.preferredRuntime),
+    attemptedRuntime: runtime(value.attemptedRuntime),
+    finalRuntime: runtime(value.finalRuntime) ?? "native",
+    fallbackUsed: value.fallbackUsed === true,
+    fallbackReasonCode: typeof value.fallbackReasonCode === "string" ? value.fallbackReasonCode : undefined,
+    hermesRunId: typeof value.hermesRunId === "string" ? value.hermesRunId : undefined,
+    firstEventAt: typeof value.firstEventAt === "string" ? value.firstEventAt : undefined,
+    runtimeFailureAt: typeof value.runtimeFailureAt === "string" ? value.runtimeFailureAt : undefined
+  };
+}
 
 const AgentRuntimeContext = createContext<AgentHost | undefined>(undefined);
 

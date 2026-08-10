@@ -91,6 +91,10 @@ class RoutedAgentRuntime implements AgentRuntime {
     await this.current.resume(sessionId);
   }
 
+  async recoverBeforeFallback(input: AgentRuntimeTurnInput) {
+    await this.preferred.recoverBeforeFallback?.(input);
+  }
+
   async *runTurn(input: AgentRuntimeTurnInput): AsyncIterable<AgentRuntimeEvent> {
     let emitted = false;
     try {
@@ -114,22 +118,37 @@ class RoutedAgentRuntime implements AgentRuntime {
         };
         return;
       }
+      const fallbackReasonCode = errorCode(error);
+      const runtimeFailureAt = new Date().toISOString();
+      try {
+        // Hermes may perform one bounded health/session recovery here. It is
+        // deliberately outside the event loop so a failed preflight cannot
+        // become an unbounded retry or duplicate a write.
+        await this.preferred.recoverBeforeFallback?.(input);
+      } catch {
+        // The original reason remains authoritative for diagnostics; Native
+        // fallback is still the legal recovery path.
+      }
       this.current = this.fallback;
+      const fallbackMetadata = {
+        ...(input.metadata ?? {}),
+        fallbackUsed: true,
+        preferredRuntime: this.preferred.id,
+        attemptedRuntime: this.preferred.id,
+        finalRuntime: this.fallback.id,
+        fallbackReasonCode,
+        runtimeFailureAt
+      };
       for await (const event of this.fallback.runTurn({
         ...input,
-        metadata: {
-          ...(input.metadata ?? {}),
-          fallbackUsed: true,
-          preferredRuntime: this.preferred.id
-        }
+        metadata: fallbackMetadata
       })) {
         emitted = true;
         yield {
           ...event,
           data: {
             ...(event.data && typeof event.data === "object" ? event.data as Record<string, unknown> : {}),
-            fallbackUsed: true,
-            preferredRuntime: this.preferred.id
+            ...fallbackMetadata
           }
         };
       }

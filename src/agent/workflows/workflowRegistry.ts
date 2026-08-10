@@ -17,6 +17,18 @@ const resumeReadTools = ["list_resumes", "get_resume", "get_resume_revision"];
 const jobReadTools = ["list_jobs", "get_job"];
 const readTools = [...profileReadTools, ...resumeReadTools, ...jobReadTools];
 
+/** Persisted pre-P4.5b sessions may still contain this identifier. It is an
+ * alias only; all runtime decisions resolve it to the canonical composition
+ * workflow before reading stages, tools, Skills, or recovery rules. */
+export const LEGACY_WORKFLOW_ALIASES: Record<string, string> = {
+  build_resume_from_profile: "compose_resume"
+};
+
+export function canonicalWorkflowId(workflowId: string) {
+  const withoutQuickActionPrefix = workflowId.replace(/^quick_action:/, "");
+  return LEGACY_WORKFLOW_ALIASES[withoutQuickActionPrefix] ?? withoutQuickActionPrefix;
+}
+
 export const agentWorkflowRegistry: Record<string, AgentWorkflowDefinition> = {
   guided_profile_intake: workflow("guided_profile_intake", "resolve_profile_target", ["resolve_profile_target", "collect_experience", "structure_facts", "review_facts", "final_review", "reconcile_profile", "resolve_conflicts", "confirm_commit", "profile_complete", "optional_resume_decision", "resume_ready"], {
     resolve_profile_target: profileReadTools,
@@ -93,20 +105,25 @@ export const agentWorkflowRegistry: Record<string, AgentWorkflowDefinition> = {
     cancelPolicy: "confirm_if_uncommitted_draft",
     resumePolicy: "resume_from_step"
   },
-  build_resume_from_profile: workflow("build_resume_from_profile", "select_profile_scope", ["select_profile_scope", "select_facts", "review_resume_plan", "confirm_create", "completed"], {
-    select_profile_scope: [...profileReadTools, ...jobReadTools],
-    select_facts: [...profileReadTools, ...jobReadTools],
-    review_resume_plan: [...profileReadTools, ...jobReadTools, "create_resume_from_profile"],
-    confirm_create: ["create_resume_from_profile"]
-  }, {
-    select_profile_scope: ["open_profile_browser"],
-    select_facts: ["open_profile_browser"],
-    review_resume_plan: ["open_artifact"]
-  }, ["profileId", "selectedFactIds"]),
-  compose_resume: workflow("compose_resume", "select_profile_scope", ["select_profile_scope", "review_composition", "confirm_create", "completed"], {
+  // Compatibility shape for callers that enumerate persisted workflow IDs.
+  // `getWorkflowDefinition` and all active runtime paths resolve this alias to
+  // compose_resume, so this is never a second executable workflow.
+  build_resume_from_profile: workflow("build_resume_from_profile", "select_profile_scope", ["select_profile_scope", "review_composition", "confirm_create", "resume_ready", "completed"], {
     select_profile_scope: [...profileReadTools, ...resumeReadTools, ...jobReadTools, "build_resume_evidence_graph", "plan_resume_composition"],
     review_composition: [...profileReadTools, ...resumeReadTools, ...jobReadTools, "build_resume_evidence_graph", "plan_resume_composition", "review_resume_composition"],
     confirm_create: ["compose_resume"],
+    resume_ready: []
+  }, {
+    select_profile_scope: ["open_profile_browser", "open_resume_picker", "open_job_import_dialog"],
+    review_composition: ["open_artifact"],
+    confirm_create: ["open_artifact"],
+    resume_ready: ["open_artifact"]
+  }, ["profileId", "mode"]),
+  compose_resume: workflow("compose_resume", "select_profile_scope", ["select_profile_scope", "review_composition", "confirm_create", "resume_ready", "completed"], {
+    select_profile_scope: [...profileReadTools, ...resumeReadTools, ...jobReadTools, "build_resume_evidence_graph", "plan_resume_composition"],
+    review_composition: [...profileReadTools, ...resumeReadTools, ...jobReadTools, "build_resume_evidence_graph", "plan_resume_composition", "review_resume_composition"],
+    confirm_create: ["compose_resume"],
+    resume_ready: [],
     completed: []
   }, {
     select_profile_scope: ["open_profile_browser", "open_resume_picker", "open_job_import_dialog"],
@@ -154,7 +171,7 @@ export const agentWorkflowRegistry: Record<string, AgentWorkflowDefinition> = {
 };
 
 export function getWorkflowDefinition(workflowId: string) {
-  return agentWorkflowRegistry[workflowId] ?? agentWorkflowRegistry[workflowId.replace(/^quick_action:/, "")];
+  return agentWorkflowRegistry[canonicalWorkflowId(workflowId)];
 }
 
 export function allowedToolManifestForStep(
@@ -162,7 +179,7 @@ export function allowedToolManifestForStep(
   step: string,
   manifest: Array<Record<string, unknown>>
 ) {
-  const definition = getWorkflowDefinition(workflowId);
+  const definition = getWorkflowDefinition(canonicalWorkflowId(workflowId));
   if (!definition) return manifest;
   // Canonical workflows already carry their task state and active Skills.
   // Session-memory/procedural tools must not compete with the required domain

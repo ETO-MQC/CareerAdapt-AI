@@ -4,7 +4,7 @@ const actions = [
   { id: "build_profile_from_scratch", title: "从零整理我的经历", intentFragment: "从零整理", rootGoal: "profile_intake", workflowId: "guided_profile_intake", stage: "resolve_profile_target" },
   { id: "import_existing_resume", title: "导入现有简历", intentFragment: "导入现有简历", rootGoal: "import_resume", workflowId: "resume_import", stage: "select_source" },
   { id: "tailor_resume_to_job", title: "生成岗位定制简历", intentFragment: "现有简历", rootGoal: "create_tailored_resume", workflowId: "tailor_existing_resume", stage: "choose_resume_source" },
-  { id: "build_resume_from_profile", title: "从资料库组装简历", intentFragment: "个人资料库", rootGoal: "create_resume_from_profile", workflowId: "build_resume_from_profile", stage: "select_profile_scope" },
+  { id: "build_resume_from_profile", title: "从资料库组装简历", intentFragment: "个人资料库", rootGoal: "create_resume_from_profile", workflowId: "compose_resume", stage: "select_profile_scope" },
   { id: "analyze_job_fit", title: "分析岗位匹配度", intentFragment: "目标岗位", rootGoal: "analyze_job_fit", workflowId: "analyze_job_fit", stage: "select_assets" },
   { id: "repair_and_export_resume", title: "检查并导出简历", intentFragment: "修复并导出", rootGoal: "export_resume", workflowId: "repair_and_export_resume", stage: "select_resume" }
 ] as const;
@@ -29,6 +29,9 @@ test.describe("P4.3d.2 six quick-action deterministic smoke", () => {
         });
       });
 
+      await page.addInitScript(() => {
+        window.localStorage.setItem("careerad-agent-runtime", "native");
+      });
       await page.goto("/ai-workspace");
       await bypassSetupIfNeeded(page);
       const card = page.getByRole("button", { name: new RegExp(action.title) });
@@ -49,7 +52,7 @@ test.describe("P4.3d.2 six quick-action deterministic smoke", () => {
       const expectedBoundary = {
         rootGoal: action.rootGoal,
         workflowId: action.workflowId,
-        completionStatus: usedGeneralFlow ? "active" : "waiting_for_user",
+        completionStatus: "waiting_for_user",
         pendingConfirmation: undefined,
         pendingToolCall: undefined,
         activeTurnStatus: usedGeneralFlow ? "waiting_for_user" : undefined

@@ -1,3 +1,5 @@
+import { canonicalWorkflowId } from "@/agent/workflows/workflowRegistry";
+
 export type AgentSkillSummary = {
   id: string;
   name: string;
@@ -25,16 +27,16 @@ const skills: AgentSkill[] = [
   skill("career-profile-intake", "职业资料建档", "建立或核对真实、可溯源的职业资料。", ["资料库", "建档", "身份", "profile"], ["guided_profile_intake"], ["get_active_profile", "get_profile", "search_profile_facts", "list_profiles"], [
     "确认当前资料库与建档目标。", "读取现有资料，避免重复创建。", "缺失事实逐项询问并保留来源。", "写入前展示核对范围并请求确认。"
   ]),
-  skill("career-experience-digging", "经历深挖", "从现有事实中发现可补充的职责、方法、规模和结果。", ["经历", "项目", "丰富", "缺口"], ["guided_profile_intake", "build_resume_from_profile", "analyze_job_fit"], ["get_active_profile", "get_profile", "search_profile_facts"], [
+  skill("career-experience-digging", "经历深挖", "从现有事实中发现可补充的职责、方法、规模和结果。", ["经历", "项目", "丰富", "缺口"], ["guided_profile_intake", "compose_resume", "analyze_job_fit"], ["get_active_profile", "get_profile", "search_profile_facts"], [
     "读取已有经历与事实证据。", "区分已知事实、合理问题和未知信息。", "总结代表经历、优势与空白。", "只把用户明确确认的信息交给写入流程。"
   ]),
   skill("jd-analysis", "岗位分析", "解析岗位要求并与真实资料、简历进行匹配。", ["JD", "岗位", "匹配", "适合"], ["job_ingestion", "analyze_job_fit", "tailor_existing_resume"], ["list_jobs", "get_job", "parse_job_description", "commit_job", "get_active_profile", "get_profile", "get_resume", "analyze_job_fit"], [
     "确定岗位是否已保存；缺失时解析用户提供的 JD。", "读取所选资料和简历。", "识别硬门槛、核心职责与加分项。", "给出有证据的匹配、缺口和下一步。"
   ]),
-  skill("resume-from-profile", "从资料库生成简历", "从 CareerProfile 选择真实事实并生成岗位或通用简历计划。", ["生成简历", "组装简历", "资料库"], ["build_resume_from_profile"], ["get_active_profile", "get_profile", "search_profile_facts", "get_job", "list_resumes", "create_resume_from_profile"], [
+  skill("resume-from-profile", "从资料库生成简历", "从 CareerProfile 选择真实事实并生成岗位或通用简历计划。", ["生成简历", "组装简历", "资料库"], ["compose_resume"], ["get_active_profile", "get_profile", "search_profile_facts", "get_job", "list_resumes", "build_resume_evidence_graph", "plan_resume_composition", "review_resume_composition", "compose_resume"], [
     "读取目标资料与用途。", "筛选有证据的相关事实。", "形成章节与叙事计划。", "预览并确认后才创建版本。"
   ]),
-  skill("resume-composition", "简历证据组装", "从确认 Profile 构建 Evidence Graph、Resume Blueprint 和经过 Fact Guard 审查的通用或岗位简历。", ["生成简历", "组装简历", "证据图", "简历蓝图"], ["compose_resume", "build_resume_from_profile"], ["build_resume_evidence_graph", "plan_resume_composition", "review_resume_composition", "compose_resume"], [
+  skill("resume-composition", "简历证据组装", "从确认 Profile 构建 Evidence Graph、Resume Blueprint 和经过 Fact Guard 审查的通用或岗位简历。", ["生成简历", "组装简历", "证据图", "简历蓝图"], ["compose_resume"], ["build_resume_evidence_graph", "plan_resume_composition", "review_resume_composition", "compose_resume"], [
     "读取最新 Profile、来源证据和可选岗位。", "构建证据图并聚合跨项目技能。", "提出资产、摘要、项目 bullet 和关键词缺口蓝图。", "只询问最多两项可选高价值信息。", "展示审查提案，确认后写入隔离 ResumeRevision。"
   ]),
   skill("resume-tailoring", "岗位简历定制", "在分支隔离和 Fact Guard 下定制现有简历。", ["定制", "改简历", "岗位简历"], ["tailor_existing_resume"], ["get_resume", "get_job", "analyze_job_fit", "create_tailoring_session", "answer_tailoring_question", "generate_tailoring_changes", "review_tailoring_diff", "preview_tailoring_changes", "apply_tailoring_changes"], [
@@ -70,12 +72,13 @@ export class AgentSkillRegistry {
     selectedEntities?: { profileId?: string; resumeId?: string; jobId?: string };
   }) {
     const text = input.userMessage.trim();
+    const workflowId = canonicalWorkflowId(input.workflowId);
     if (isConversationalOrCapabilityTurn(text)) return [];
     return skills
       .map((candidate) => ({
         candidate,
         relevant: explicitSkillRelevance(candidate.id, text),
-        compatible: candidate.applicableWorkflows.includes(input.workflowId)
+        compatible: candidate.applicableWorkflows.includes(workflowId)
       }))
       .filter((entry) => entry.relevant && entry.compatible)
       // One primary Skill is the safe default. Supporting Skills can be added

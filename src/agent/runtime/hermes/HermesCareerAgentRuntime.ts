@@ -61,6 +61,24 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
     return this.dependencies.transport.health(signal);
   }
 
+  async recoverBeforeFallback(input: AgentRuntimeTurnInput) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 1_500);
+    try {
+      const signal = input.signal ? AbortSignal.any([input.signal, controller.signal]) : controller.signal;
+      const health = await this.dependencies.transport.health(signal);
+      if (!(health.runtimeHealth?.runtimeAvailable ?? health.available)) {
+        throw hermesError("hermes_recovery_unavailable", health.reason ?? "Hermes recovery health check failed.");
+      }
+      const existingSession = this.sessions.get(input.sessionId);
+      if (existingSession && this.dependencies.transport.resumeSession) {
+        await this.dependencies.transport.resumeSession({ sessionId: existingSession }, signal);
+      }
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
   async pause(sessionId: string) {
     const handle = this.activeRuns.get(sessionId);
     if (handle) await this.dependencies.transport.stopRun?.(handle.runId);
@@ -139,7 +157,7 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
             turnId,
             userMessage: input.userMessage,
             pageContext: input.pageContext,
-            toolContracts: this.dependencies.careerToolGateway.listContracts() as unknown as Array<Record<string, unknown>>,
+            toolContracts: allowedCareerToolContracts(this.dependencies.careerToolGateway, input) as unknown as Array<Record<string, unknown>>,
             careerSessionBinding: binding,
             attachments: input.attachments,
             conversationHistory: conversationHistory(input),
@@ -327,7 +345,7 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
       turnId: input.turnId ?? `hermes-turn-${nanoid(12)}`,
       userMessage: input.userMessage,
       pageContext: input.pageContext,
-      toolContracts: this.dependencies.careerToolGateway.listContracts() as unknown as Array<Record<string, unknown>>,
+      toolContracts: allowedCareerToolContracts(this.dependencies.careerToolGateway, input) as unknown as Array<Record<string, unknown>>,
       careerSessionBinding: binding,
       metadata: safeMetadata(input.metadata)
     }, input.signal)) {
@@ -381,6 +399,17 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
     requireSessionBinding: boolean
   ): AsyncGenerator<AgentRuntimeEvent> {
     counters.toolCalls += 1;
+    if (!isAllowedCareerTool(input, request.toolName)) {
+      const code = "agent_tool_not_allowed";
+      counters.toolFailures += 1;
+      yield this.event(input, "tool_call_failed", {
+        toolName: request.toolName,
+        operationId: request.operationId,
+        error: { code, message: "当前组合工作流步骤不允许该 Career 工具。", recoverable: true },
+        data: { safeErrorCode: code, workflowId: input.metadata?.workflowId, workflowStage: input.metadata?.workflowStage }
+      });
+      return;
+    }
     let contract: CareerToolContract;
     try {
       contract = this.dependencies.careerToolGateway.getContract(request.toolName);
@@ -736,9 +765,31 @@ function safeToolResult(result: Awaited<ReturnType<CareerToolGateway["execute"]>
 function safeMetadata(metadata?: Record<string, unknown>) {
   if (!metadata) return undefined;
   return Object.fromEntries(Object.entries(metadata).filter(([key, value]) =>
-    ["model", "hermesSessionId", "fallbackUsed", "preferredRuntime", "confirmed", "confirmationCount", "runtimeId"].includes(key)
+    ["model", "hermesSessionId", "fallbackUsed", "preferredRuntime", "attemptedRuntime", "finalRuntime", "fallbackReasonCode", "runtimeFailureAt", "workflowId", "workflowStage", "rootGoal", "confirmed", "confirmationCount", "runtimeId"].includes(key)
     && (typeof value === "string" || typeof value === "number" || typeof value === "boolean")
   ));
+}
+
+function allowedCareerToolContracts(gateway: CareerToolGateway, input: AgentRuntimeTurnInput) {
+  const allowedSourceTools = new Set(
+    Array.isArray(input.metadata?.allowedToolNames)
+      ? input.metadata.allowedToolNames.filter((name): name is string => typeof name === "string")
+      : gateway.listContracts().map((contract) => contract.sourceToolName)
+  );
+  const workflowId = typeof input.metadata?.workflowId === "string" ? input.metadata.workflowId : undefined;
+  const stage = typeof input.metadata?.workflowStage === "string" ? input.metadata.workflowStage : undefined;
+  return gateway.listContracts().filter((contract) =>
+    allowedSourceTools.has(contract.sourceToolName)
+    || contract.name === "career.workflow.compose_resume"
+      && workflowId === "compose_resume"
+      && ["review_composition", "confirm_create"].includes(stage ?? "")
+  );
+}
+
+function isAllowedCareerTool(input: AgentRuntimeTurnInput, toolName: string) {
+  const allowed = input.metadata?.allowedCareerToolNames;
+  if (Array.isArray(allowed)) return allowed.includes(toolName);
+  return true;
 }
 
 function isRecoverable(code: string) {

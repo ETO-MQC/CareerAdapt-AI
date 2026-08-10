@@ -93,6 +93,8 @@ export interface AgentRuntime {
   interrupt(sessionId: string): Promise<void>;
   resume(sessionId: string): Promise<void>;
   capabilities(): AgentRuntimeCapabilities;
+  /** One bounded health/session recovery before a safe pre-first-event fallback. */
+  recoverBeforeFallback?(input: AgentRuntimeTurnInput): Promise<void>;
 }
 
 const ToolCallSchema = z.object({
