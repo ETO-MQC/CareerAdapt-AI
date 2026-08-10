@@ -10,7 +10,7 @@ import { applyPdfSourceMappingToProfileOutput, isPdfEvidenceLocated } from "@/do
 import { buildPageTextRecords, combinePdfPageTexts, preparePdfText } from "@/domain/pdfImport/text";
 import { validatePdfFileDescriptor, validatePdfHeader } from "@/domain/pdfImport/validation";
 import { mapProfileDraftToCareerProfile } from "@/domain/mappers/profileDraftMapper";
-import { migrateCareerProfileToV2 } from "@/domain/migrations/resumeV2";
+import { migrateCareerProfileToV2, normalizeAwardedAt } from "@/domain/migrations/resumeV2";
 import {
   CareerProfileSchema,
   ResumeItemV2Schema,
@@ -1693,8 +1693,11 @@ export function ProfileWorkspace() {
 
       <CareerContextEntryBar
         variant="profile"
-        onImport={() => setImportWorkspaceOpen((value) => !value)}
-        onExport={() => { void exportCurrentProfileJson(); }}
+        onImport={() => setImportWorkspaceOpen(true)}
+        onExport={() => {
+          setImportWorkspaceOpen(false);
+          void exportCurrentProfileJson();
+        }}
       />
 
       {workspace.status === "empty" ? <WorkspaceEmptyState /> : null}
@@ -2284,7 +2287,7 @@ function ProfileCategoryFields({
         <FieldInput id={`profile-${category}-subtitle`} label={currentLabels.subtitle} value={draft.subtitle} onChange={(value) => update("subtitle", value)} />
       </div>
       {category === "award" || category === "certificate" ? (
-        <FieldInput id={`profile-${category}-date`} label={category === "award" ? "获奖日期" : "颁发日期"} type="date" value={draft.date} onChange={(value) => update("date", value)} />
+        <FieldInput id={`profile-${category}-date`} label={category === "award" ? "获奖月份" : "颁发日期"} type={category === "award" ? "month" : "date"} value={draft.date} onChange={(value) => update("date", value)} />
       ) : null}
       {category === "skill" || category === "language" ? (
         <label className="field-input-group">
@@ -2324,7 +2327,7 @@ function profileDetailRows(item: ProfileManagedItem): Array<{ label: string; val
   } else {
     rows.push({ label: item.category === "summary" ? "栏目" : "名称", value: item.title });
     if (item.subtitle) rows.push({ label: "补充信息", value: item.subtitle });
-    if (item.date) rows.push({ label: "日期", value: item.date });
+    if (item.date) rows.push({ label: item.category === "award" ? "获奖月份" : "日期", value: item.date });
   }
   rows.push({ label: "分类", value: profileCategoryLabel(item.category) });
   rows.push({ label: "来源", value: item.source });
@@ -2518,7 +2521,7 @@ function patchCanonicalProfileDraft(item: ResumeItemV2, draft: ProfileItemDraft)
       ...item,
       name: draft.title.trim(),
       issuer: optionalText(draft.subtitle),
-      awardedAt: optionalText(draft.date),
+      awardedAt: normalizeAwardedAt(draft.date),
       description: optionalText(draft.body)
     };
   }
@@ -2626,7 +2629,7 @@ function profileDraftFromItem(item: ProfileManagedItem): ProfileItemDraft {
     title: item.title,
     subtitle: item.subtitle,
     body: item.body,
-    date: item.date ?? "",
+    date: item.category === "award" ? normalizeAwardedAt(item.date) ?? "" : item.date ?? "",
     level: item.skillLevel ?? "familiar",
     experienceType: item.experienceType ?? defaultExperienceTypeForCategory(item.category)
   };

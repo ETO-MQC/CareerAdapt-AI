@@ -35,7 +35,7 @@ export function migrateCareerProfileToV2(profile: CareerProfile): CareerProfileV
         otherLinks: profile.basics.links,
         customFields: []
       },
-      structuredFacts: profile.structuredFacts ?? []
+      structuredFacts: normalizeProfileStructuredFacts(profile.structuredFacts ?? [])
     }) as CareerProfileV2;
   }
   const structuredFacts = [
@@ -67,6 +67,22 @@ export function migrateCareerProfileToV2(profile: CareerProfile): CareerProfileV
     },
     structuredFacts
   }) as CareerProfileV2;
+}
+
+/** Awards are business-month values. Older records may contain a day, so keep
+ * the migration boundary responsible for collapsing it without inventing a
+ * more precise date. */
+export function normalizeAwardedAt(value?: string) {
+  const trimmed = value?.trim();
+  if (!trimmed) return undefined;
+  const match = /^(\d{4})\s*(?:年|[-/.])\s*(1[0-2]|0?[1-9])(?:\s*(?:月|[-/.])\s*\d{1,2}\s*日?)?$/u.exec(trimmed);
+  return match ? `${match[1]}-${match[2].padStart(2, "0")}` : trimmed;
+}
+
+function normalizeProfileStructuredFacts(facts: NonNullable<CareerProfile["structuredFacts"]>) {
+  return facts.map((entry) => entry.data.sectionType === "awards" && entry.data.awardedAt
+    ? { ...entry, data: { ...entry.data, awardedAt: normalizeAwardedAt(entry.data.awardedAt) } }
+    : entry);
 }
 
 export function migrateResumeBranchToV2(branch: ResumeBranch): ResumeBranchV2 {

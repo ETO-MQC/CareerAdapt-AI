@@ -7,7 +7,8 @@ import { buildGeneralBranchFromProfile } from "@/domain/branch/profileBranch";
 import { createJobAdaptationDraft } from "@/domain/adaptation/draft";
 import { runRuleFactGuard } from "@/domain/adaptation/factGuard";
 import { createRuleRequirementMatches, resolveEffectiveMatch } from "@/domain/match/matcher";
-import { ResumeRevisionSchema, ResumeBranchSchema } from "@/domain/schemas";
+import { migrateCareerProfileToV2, projectResumeItemV2 } from "@/domain/migrations/resumeV2";
+import { CareerProfileSchema, ResumeItemV2Schema, ResumeRevisionSchema, ResumeBranchSchema } from "@/domain/schemas";
 import { CareerAdaptDb } from "@/services/storage/db";
 import { RevisionConflictError, WorkspaceRepository } from "@/services/storage/repositories";
 import type { AiSuggestion } from "@/domain/schemas";
@@ -151,6 +152,93 @@ describe("D1 resume branch domain", () => {
     expect(synced.branch.contentItems.find((item) => item.id === added.newItemId)?.factRefs).toHaveLength(1);
     expect(syncedProfile?.version).toBe(demoCareerProfile.version + 1);
     expect(syncedProfile?.experiences.some((item) => item.organization === "新公司" && item.role === "高级工程师")).toBe(true);
+  });
+
+  it("normalizes award dates and syncs profile changes back to an existing resume item", async () => {
+    db = new CareerAdaptDb(`CareerAdaptAwardSyncDb-${crypto.randomUUID()}`);
+    const repository = new WorkspaceRepository(db);
+    const baseProfile = migrateCareerProfileToV2(demoCareerProfile);
+    const awardFactId = demoCareerProfile.experiences[0]!.facts[0]!.id;
+    const award = ResumeItemV2Schema.parse({
+      id: "award-sync",
+      sectionType: "awards",
+      name: "测试奖项",
+      issuer: "测试机构",
+      awardedAt: "2025-05",
+      customFields: []
+    });
+    const profile = CareerProfileSchema.parse({
+      ...baseProfile,
+      structuredFacts: [
+        ...baseProfile.structuredFacts,
+        { data: award, factIds: [awardFactId], sourceBlockIds: [], sourceRanges: [], mappingTrace: [] }
+      ]
+    });
+    await repository.saveProfile(profile);
+    const blank = await repository.createGeneralResumeBranch({
+      profileId: profile.id,
+      operationId: "award-sync-create",
+      name: "奖项同步简历",
+      includeProfileFacts: false,
+      includeProfileBasics: false
+    });
+    const created = await repository.addResumeContentItemFromProfileReference({
+      branchId: blank.branch.id,
+      expectedRevision: blank.branch.revision,
+      operationId: "award-sync-add-from-profile",
+      section: "awards",
+      reference: { type: "canonical", itemId: award.id, sectionType: "awards" }
+    });
+    const createdAward = created.branch.structuredContentItems?.find((item) => item.data.id === award.id);
+    expect(createdAward?.data.sectionType === "awards" ? createdAward.data.awardedAt : undefined).toBe("2025-05");
+
+    const storedProfile = CareerProfileSchema.parse(await db.profiles.get(profile.id));
+    const staleDayProfile = CareerProfileSchema.parse({
+      ...storedProfile,
+      version: storedProfile.version + 1,
+      updatedAt: "2026-07-02T12:00:00.000Z",
+      structuredFacts: storedProfile.structuredFacts?.map((entry) => entry.data.id === award.id
+        ? { ...entry, data: { ...entry.data, awardedAt: "2025-05-20" } }
+        : entry)
+    });
+    await db.profiles.put(staleDayProfile);
+    const latestProfile = await repository.getProfile(profile.id);
+    const latestAward = latestProfile?.structuredFacts?.find((entry) => entry.data.id === award.id);
+    expect(latestAward?.data.sectionType).toBe("awards");
+    expect(latestAward?.data.sectionType === "awards" ? latestAward.data.awardedAt : undefined).toBe("2025-05");
+
+    const syncedFromProfile = await repository.syncResumeBranchFromProfile({
+      branchId: created.branch.id,
+      expectedRevision: created.branch.revision,
+      operationId: "award-sync-from-profile",
+      basics: {},
+      structuredItems: latestAward && latestAward.data.sectionType === "awards" && createdAward
+        ? [{ itemId: createdAward.id, data: latestAward.data }]
+        : []
+    });
+    const syncedAward = syncedFromProfile.branch.structuredContentItems?.find((item) => item.id === createdAward?.id);
+    expect(syncedAward?.data.sectionType).toBe("awards");
+    expect(syncedAward?.data.sectionType === "awards" ? syncedAward.data.awardedAt : undefined).toBe("2025-05");
+    expect(syncedAward?.legacyTextProjection).toContain("2025-05");
+
+    const editedAward = ResumeItemV2Schema.parse({ ...syncedAward?.data, awardedAt: "2025-06-20" });
+    const edited = await repository.editResumeBranch({
+      branchId: syncedFromProfile.branch.id,
+      expectedRevision: syncedFromProfile.branch.revision,
+      operationId: "award-sync-manual-edit",
+      confirmAsResumeOnly: true,
+      edits: [{ itemId: syncedAward!.id, text: projectResumeItemV2(editedAward), structuredItem: editedAward }]
+    });
+    await repository.syncResumeContentItemToProfile({
+      branchId: edited.branch.id,
+      expectedRevision: edited.branch.revision,
+      operationId: "award-sync-to-profile",
+      itemId: syncedAward!.id,
+      structuredItem: editedAward
+    });
+    const profileAfterManualSync = await repository.getProfile(profile.id);
+    const awardAfterManualSync = profileAfterManualSync?.structuredFacts?.find((entry) => entry.data.id === award.id);
+    expect(awardAfterManualSync?.data.sectionType === "awards" ? awardAfterManualSync.data.awardedAt : undefined).toBe("2025-06");
   });
 
   it("adds confirmed profile experience to a resume without duplicating profile data", async () => {

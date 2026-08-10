@@ -144,7 +144,7 @@ test.describe("V2-G7b.5 resume editor recovery", () => {
     const fields = page.getByTestId("resume-active-section-fields");
     await fields.getByLabel("公司 / 组织").first().fill("全新科技公司");
     await fields.getByRole("button", { name: "保存", exact: true }).first().click();
-    const dialog = page.getByRole("dialog", { name: "这次修改与资料库内容不同" });
+    const dialog = page.getByRole("dialog", { name: "是否同步到个人资料库？" });
     await expect(dialog).toBeVisible();
     await dialog.getByRole("button", { name: "仅保存到简历", exact: true }).click();
     await expect(page.getByText("修改已仅保存到当前简历；个人资料库未被修改。", { exact: true })).toBeVisible();

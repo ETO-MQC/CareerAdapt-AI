@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { demoCareerProfile } from "@/data/demoProfile";
 import { BranchContentItemSchema, ResumeBranchSchema } from "@/domain/schemas";
-import { migrateCareerProfileToV2, migrateResumeBranchToV2 } from "@/domain/migrations/resumeV2";
+import { migrateCareerProfileToV2, migrateResumeBranchToV2, normalizeAwardedAt } from "@/domain/migrations/resumeV2";
 
 describe("progressive resume v2 migration", () => {
   it("is idempotent for v1 profiles and preserves fact ids", () => {
@@ -9,6 +9,13 @@ describe("progressive resume v2 migration", () => {
     const twice = migrateCareerProfileToV2(once);
     expect(twice).toEqual(once);
     expect(once.structuredFacts.flatMap((entry) => entry.factIds)).toEqual(expect.arrayContaining(demoCareerProfile.experiences.flatMap((experience) => experience.facts.map((fact) => fact.id))));
+  });
+
+  it("keeps award dates at month precision when older records contain a day", () => {
+    expect(normalizeAwardedAt("2025-05-20")).toBe("2025-05");
+    expect(normalizeAwardedAt("2025年5月20日")).toBe("2025-05");
+    expect(normalizeAwardedAt("1999/5")).toBe("1999-05");
+    expect(normalizeAwardedAt("2025-05")).toBe("2025-05");
   });
 
   it("preserves unsplittable branch text byte-for-byte and is idempotent", () => {

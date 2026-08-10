@@ -47,7 +47,7 @@ const seeds: Partial<Record<Exclude<ResumeSectionTypeV2, "custom">, readonly Fie
   volunteer: experienceSeeds(),
   awards: [
     ["name", "奖项名称", "string", ["title"], "text"], ["issuer", "颁发方", "string", ["organization"], "text"],
-    ["level", "级别", "string", ["scope"], "select"], ["awardedAt", "获奖日期", "date", ["date"], "date"],
+    ["level", "级别", "string", ["scope"], "select"], ["awardedAt", "获奖月份", "date", ["date"], "date"],
     ["rank", "名次", "string", ["placement"], "text"], ["description", "说明", "text", ["details"], "textarea"]
   ],
   skills: [["name", "技能名称", "string", ["skill"], "text"], ["category", "类别", "string", ["group"], "text"], ["level", "熟练度", "string", ["proficiency"], "select"], ["description", "说明", "text", ["details"], "textarea"]],

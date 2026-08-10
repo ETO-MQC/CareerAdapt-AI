@@ -3175,38 +3175,91 @@ html[data-theme="dark"] .save-status {
 
 .resume-studio-workbar {
   align-items: center;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--surface) 94%, var(--surface-subtle));
+  border: 1px solid color-mix(in srgb, var(--line) 68%, transparent);
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(32, 37, 34, 0.05);
   display: flex;
   flex: 0 0 auto;
-  gap: 12px;
-  justify-content: space-between;
-  margin-bottom: 10px;
-  min-height: 52px;
-  padding: 6px 8px;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  justify-content: flex-start;
+  margin-bottom: 12px;
+  min-height: 60px;
+  padding: 8px 10px;
   position: relative;
 }
 
 html[data-theme="dark"] .resume-studio-workbar {
-  background: #090d11;
-  border-color: rgba(255, 255, 255, 0.06);
-  border-radius: 999px;
-  justify-content: flex-start;
+  background: var(--surface);
+  border-color: var(--line);
+  box-shadow: none;
 }
 
 .resume-studio-workbar .resume-mode-rail {
+  background: color-mix(in srgb, var(--surface-subtle) 72%, var(--surface));
+  border: 0;
+  border-radius: 12px;
   flex: 0 0 auto;
+  padding: 3px;
 }
 
 .resume-studio-workbar .resume-studio-toolbar {
-  flex: 1 1 auto;
+  flex: 1 1 420px;
+  flex-wrap: wrap;
   justify-content: flex-end;
 }
 
 .resume-studio-workbar:has(.resume-job-context-bar) {
   display: grid;
-  grid-template-columns: auto auto minmax(0, 1fr);
+  grid-template-columns: minmax(190px, 1.15fr) auto minmax(0, 2.3fr);
+}
+
+.resume-studio-workbar .resume-studio-title-cluster {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+.resume-studio-workbar .resume-studio-title-cluster > div {
+  min-width: 0;
+}
+
+.resume-studio-workbar .resume-workbar-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  row-gap: 6px;
+}
+
+.resume-studio-workbar .secondary-button.compact,
+.resume-studio-workbar .primary-button.compact {
+  border-radius: 10px;
+}
+
+.resume-studio-workbar .secondary-button.compact {
+  background: color-mix(in srgb, var(--surface-subtle) 48%, var(--surface));
+  border-color: color-mix(in srgb, var(--line) 72%, transparent);
+}
+
+.resume-studio-workbar .secondary-button.compact:hover:not(:disabled) {
+  background: var(--surface);
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--line));
+}
+
+.resume-studio-workbar .primary-button.compact {
+  background: color-mix(in srgb, var(--accent) 88%, var(--surface));
+  border-color: transparent;
+}
+
+html[data-theme="dark"] .resume-studio-workbar .secondary-button.compact {
+  background: color-mix(in srgb, var(--surface-subtle) 72%, var(--surface));
+  border-color: var(--line);
+  color: var(--ink);
+}
+
+html[data-theme="dark"] .resume-studio-workbar .primary-button.compact {
+  background: color-mix(in srgb, var(--accent) 24%, var(--surface));
+  border-color: color-mix(in srgb, var(--accent) 44%, var(--line));
+  color: var(--accent);
 }
 
 .resume-job-context-bar {

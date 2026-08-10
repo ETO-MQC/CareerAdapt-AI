@@ -162,6 +162,7 @@ test("exports only the selected person's complete profile library as JSON", asyn
   expect(payload).not.toHaveProperty("resumes");
   expect(payload).not.toHaveProperty("agentSessions");
   await expect(page.getByText(`已导出 ${selectedProfileName} 的完整资料库 JSON。`)).toBeVisible();
+  await expect(page.locator("main.profile-workspace")).not.toHaveClass(/is-import-open/);
 });
 
 test("deletes the current profile from the top bar through the guarded delete flow", async ({ page }) => {

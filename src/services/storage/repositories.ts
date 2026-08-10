@@ -1,6 +1,6 @@
 import { demoJobDescriptions } from "@/data/demoJobs";
 import { demoCareerProfile } from "@/data/demoProfile";
-import { migrateBranchContentItem, migrateCareerProfileToV2, migrateResumeBranchToV2, projectResumeItemV2 } from "@/domain/migrations/resumeV2";
+import { migrateBranchContentItem, migrateCareerProfileToV2, migrateResumeBranchToV2, normalizeAwardedAt, projectResumeItemV2 } from "@/domain/migrations/resumeV2";
 import { canonicalProfileLibraryItems } from "@/domain/profile/canonicalLibrary";
 import {
   AiLogSchema,
@@ -31,6 +31,7 @@ import {
   RequirementMatchSchema,
   ResumeBranchSchema,
   ResumeContentItemV2Schema,
+  ResumeItemV2Schema,
   ResumeBranchOperationSchema,
   ResumePresentationConfigSchema,
   ResumeRevisionSchema,
@@ -4049,6 +4050,83 @@ export class WorkspaceRepository {
     });
   }
 
+  async syncResumeBranchFromProfile(input: {
+    branchId: string;
+    expectedRevision: number;
+    operationId: string;
+    basics: Partial<NonNullable<ResumeBranch["resumeBasics"]>>;
+    structuredItems?: Array<{ itemId: string; data: ResumeItemV2 }>;
+    acknowledgeProfileVersion?: boolean;
+  }) {
+    return this.mutateResumeBranch({
+      branchId: input.branchId,
+      expectedRevision: input.expectedRevision,
+      operationId: input.operationId,
+      type: "manual_edit",
+      source: "manual_edit",
+      mutate: async ({ branch, profile }) => {
+        const currentBasics = branch.resumeBasics ?? {
+          name: profile.basics.name,
+          email: profile.basics.email ?? "",
+          phone: profile.basics.phone ?? "",
+          location: profile.basics.location ?? "",
+          summary: profile.basics.summary ?? "",
+          links: profile.basics.links
+        };
+        const updates = input.structuredItems ?? [];
+        const currentStructured = syncStructuredContentItems(branch, branch.contentItems);
+        const currentById = new Map(currentStructured.map((item) => [item.id, item]));
+        const updateById = new Map(updates.map((item) => [item.itemId, item.data]));
+        for (const update of updates) {
+          const current = currentById.get(update.itemId);
+          if (!current || current.data.sectionType !== update.data.sectionType) {
+            throw new Error("profile_sync_structured_item_missing");
+          }
+        }
+
+        const nextContentItems = branch.contentItems.map((item) => {
+          const nextData = updateById.get(item.id);
+          if (!nextData) return item;
+          const nextText = projectResumeItemV2(nextData).trim();
+          if (!nextText) throw new Error("profile_sync_structured_item_empty");
+          const userConfirmation = item.factRefs.length > 0
+            ? undefined
+            : item.userConfirmation
+              ? { ...item.userConfirmation, confirmedTextHash: stableHashText(nextText) }
+              : undefined;
+          return BranchContentItemSchema.parse({
+            ...item,
+            text: nextText,
+            originalText: nextText,
+            source: "user_manual",
+            guardStatus: "pass",
+            guardFindings: [],
+            userConfirmation
+          });
+        });
+        const nextStructuredItems = syncStructuredContentItems(branch, nextContentItems).map((item) => {
+          const nextData = updateById.get(item.id);
+          return nextData
+            ? ResumeContentItemV2Schema.parse({
+                ...item,
+                data: nextData,
+                source: "user_manual",
+                legacyTextProjection: projectResumeItemV2(nextData)
+              })
+            : item;
+        });
+
+        return ResumeBranchSchema.parse({
+          ...branch,
+          sourceProfileVersion: input.acknowledgeProfileVersion ? profile.version : branch.sourceProfileVersion,
+          resumeBasics: { ...currentBasics, ...input.basics },
+          contentItems: nextContentItems,
+          structuredContentItems: nextStructuredItems
+        });
+      }
+    });
+  }
+
   async renameResumeBranch(input: {
     branchId: string;
     expectedRevision: number;
@@ -4369,6 +4447,7 @@ export class WorkspaceRepository {
     expectedRevision: number;
     operationId: string;
     itemId: string;
+    structuredItem?: ResumeItemV2;
     organization?: string;
     role?: string;
     location?: string;
@@ -4388,6 +4467,58 @@ export class WorkspaceRepository {
         const item = branch.contentItems.find((candidate) => candidate.id === input.itemId);
         if (!item || item.itemType === "structural") {
           throw new Error("branch_content_item_missing");
+        }
+
+        const currentStructuredItem = input.structuredItem
+          ?? branch.structuredContentItems?.find((candidate) => candidate.id === item.id)?.data;
+        if (currentStructuredItem?.sectionType === "awards") {
+          const award = ResumeItemV2Schema.parse({
+            ...currentStructuredItem,
+            awardedAt: normalizeAwardedAt(currentStructuredItem.awardedAt)
+          });
+          const factIds = item.factRefs.flatMap((reference) => "factId" in reference ? [reference.factId] : []);
+          const currentFacts = profile.structuredFacts ?? [];
+          const matchingIndex = currentFacts.findIndex((entry) => entry.data.id === award.id || entry.factIds.some((factId) => factIds.includes(factId)));
+          const nextFacts = matchingIndex >= 0
+            ? currentFacts.map((entry, index) => index === matchingIndex ? { ...entry, data: award } : entry)
+            : [...currentFacts, { data: award, factIds, sourceBlockIds: [], sourceRanges: [], mappingTrace: [] }];
+          const nextProfile = CareerProfileSchema.parse({
+            ...profile,
+            structuredFacts: nextFacts,
+            version: profile.version + 1,
+            updatedAt: now
+          });
+          const nextText = projectResumeItemV2(award).trim();
+          const nextItems = branch.contentItems.map((candidate) => candidate.id === item.id
+            ? BranchContentItemSchema.parse({
+                ...candidate,
+                text: nextText,
+                originalText: nextText,
+                source: "user_manual",
+                guardStatus: "pass",
+                guardFindings: [],
+                userConfirmation: candidate.factRefs.length > 0
+                  ? undefined
+                  : candidate.userConfirmation
+                    ? { ...candidate.userConfirmation, confirmedTextHash: stableHashText(nextText) }
+                    : undefined
+              })
+            : candidate);
+          const nextStructuredItems = syncStructuredContentItems(branch, nextItems).map((candidate) => candidate.id === item.id
+            ? ResumeContentItemV2Schema.parse({
+                ...candidate,
+                data: award,
+                source: "user_manual",
+                legacyTextProjection: nextText
+              })
+            : candidate);
+          await this.db.profiles.put(nextProfile);
+          return ResumeBranchSchema.parse({
+            ...branch,
+            sourceProfileVersion: nextProfile.version,
+            contentItems: nextItems,
+            structuredContentItems: nextStructuredItems
+          });
         }
 
         const text = item.text.trim();

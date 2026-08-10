@@ -91,7 +91,7 @@ import { SkillsSectionPage } from "@/components/editor/sections/SkillsSectionPag
 import { CanonicalSectionPage } from "@/components/editor/sections/CanonicalSectionPage";
 import { type ResumeStudioSectionKey, type SectionNavContext } from "@/components/editor/sections/types";
 import { exportCareerAdaptResumeJsonV2 } from "@/domain/resumeImport/jsonV2Adapter";
-import { projectResumeItemV2 } from "@/domain/migrations/resumeV2";
+import { normalizeAwardedAt, projectResumeItemV2 } from "@/domain/migrations/resumeV2";
 import { resolveResumeTargetRole } from "@/domain/branch/targetRole";
 
 const repository = new WorkspaceRepository();
@@ -132,6 +132,20 @@ type ProfileLibraryItem = {
   subtitle: string;
   body: string;
   reference: ProfileLibraryReference;
+};
+
+type ProfileSyncStructuredUpdate = {
+  itemId: string;
+  data: ResumeItemV2;
+};
+
+type ProfileSyncConflict = {
+  fieldId: string;
+  label: string;
+  resumeValue: string;
+  profileValue: string;
+  kind: "basic" | "structured";
+  structuredUpdate?: ProfileSyncStructuredUpdate;
 };
 
 type ResumeListFilter = "recent" | "all" | "general" | "job" | "archived" | "trash";
@@ -271,13 +285,9 @@ export function ResumeWorkspace() {
   const [ignoredDiagnosticIssueKeys, setIgnoredDiagnosticIssueKeys] = useState<string[]>([]);
   const [renderCoverageReport, setRenderCoverageReport] = useState<RenderCoverageReport>();
 
-  const [profileSyncConflicts, setProfileSyncConflicts] = useState<Array<{
-    fieldId: string;
-    label: string;
-    resumeValue: string;
-    profileValue: string;
-  }>>([]);
+  const [profileSyncConflicts, setProfileSyncConflicts] = useState<ProfileSyncConflict[]>([]);
   const [profileSyncChoices, setProfileSyncChoices] = useState<Record<string, "resume" | "profile">>({});
+  const [profileSyncAutoItems, setProfileSyncAutoItems] = useState<ProfileSyncStructuredUpdate[]>([]);
   const [profileSyncDialogOpen, setProfileSyncDialogOpen] = useState(false);
   const [profileLibraryOpen, setProfileLibraryOpen] = useState(false);
   const [pendingPermanentDeleteBranch, setPendingPermanentDeleteBranch] = useState<ResumeBranch | undefined>();
@@ -287,6 +297,7 @@ export function ResumeWorkspace() {
     itemId: string;
     text: string;
     source: "form" | "preview";
+    structuredItem?: ResumeItemV2;
   } | undefined>();
 
   const presentationQueueRef = useRef<{
@@ -347,6 +358,7 @@ export function ResumeWorkspace() {
         setProfileSyncDialogOpen(false);
         setProfileSyncConflicts([]);
         setProfileSyncChoices({});
+        setProfileSyncAutoItems([]);
       }
     };
     document.addEventListener("keydown", handleEscape);
@@ -1392,7 +1404,9 @@ export function ResumeWorkspace() {
       } catch (error) {
         if (error instanceof Error && error.message === "branch_edit_fact_guard_blocked") {
           setContentAutoSaveState("needs_confirmation");
-          if (origin === "manual") notify({ type: "warning", title: "需要确认", message: "修改包含新的事实信息，请确认后再保存。" });
+          if (origin === "manual") {
+            setPendingResumeOnlyEdit({ itemId, text, structuredItem: item, source: "form" });
+          }
           return;
         }
         setContentAutoSaveState("error");
@@ -1619,19 +1633,12 @@ export function ResumeWorkspace() {
         expectedRevision: selectedBranch.revision,
         operationId: `resume-only-edit-${selectedBranch.id}-${selectedBranch.revision}-${pending.itemId}-${stableHashText(pending.text)}`,
         confirmAsResumeOnly: true,
-        edits: [{ itemId: pending.itemId, text: pending.text }]
+        edits: [{ itemId: pending.itemId, text: pending.text, structuredItem: pending.structuredItem }]
       });
       let nextBranch = saved.branch;
       if (syncAfterSave) {
-        const synced = await repository.syncResumeContentItemToProfile({
-          branchId: saved.branch.id,
-          expectedRevision: saved.branch.revision,
-          operationId: `sync-resume-item-${saved.branch.id}-${saved.branch.revision}-${pending.itemId}`,
-          itemId: pending.itemId
-        });
-        nextBranch = synced.branch;
-        const nextProfile = await repository.getProfile(nextBranch.profileId);
-        if (nextProfile) setProfileOverride(nextProfile);
+        const synced = await syncContentItemToProfile(pending.itemId, saved.branch, { notifyOnSuccess: false, throwOnError: true });
+        if (synced) nextBranch = synced;
       }
       replaceBranch(nextBranch, { preserveDrafts: true });
       const nextDrafts = { ...editTextsRef.current };
@@ -1651,23 +1658,32 @@ export function ResumeWorkspace() {
     }
   }
 
-  async function syncContentItemToProfile(itemId: string) {
-    if (!selectedBranch) return;
+  async function syncContentItemToProfile(
+    itemId: string,
+    sourceBranch: ResumeBranch = selectedBranch!,
+    options: { notifyOnSuccess?: boolean; throwOnError?: boolean } = {}
+  ) {
+    if (!sourceBranch) return undefined;
     try {
       const result = await repository.syncResumeContentItemToProfile({
-        branchId: selectedBranch.id,
-        expectedRevision: selectedBranch.revision,
-        operationId: `sync-resume-item-${selectedBranch.id}-${selectedBranch.revision}-${itemId}`,
+        branchId: sourceBranch.id,
+        expectedRevision: sourceBranch.revision,
+        operationId: `sync-resume-item-${sourceBranch.id}-${sourceBranch.revision}-${itemId}`,
         itemId
       });
       const nextProfile = await repository.getProfile(result.branch.profileId);
       if (nextProfile) setProfileOverride(nextProfile);
       replaceBranch(result.branch);
-      notify({ type: "success", title: "已同步", message: "该内容已同步到个人资料库；以后仍可继续独立编辑这份简历。" });
+      if (options.notifyOnSuccess !== false) {
+        notify({ type: "success", title: "已同步", message: "该内容已同步到个人资料库；以后仍可继续独立编辑这份简历。" });
+      }
+      return result.branch;
     } catch (error) {
+      if (options.throwOnError) throw error;
       notify({ type: "error", title: "同步失败", message: error instanceof RevisionConflictError
         ? "简历版本已变化，请刷新后重试。"
         : "请检查资料库状态后重试。" });
+      return undefined;
     }
   }
 
@@ -2461,7 +2477,8 @@ export function ResumeWorkspace() {
       summary: profile.basics.summary ?? "",
       links: profile.basics.links
     };
-    const conflicts: Array<{ fieldId: string; label: string; resumeValue: string; profileValue: string }> = [];
+    const conflicts: ProfileSyncConflict[] = [];
+    const autoStructuredItems: ProfileSyncStructuredUpdate[] = [];
     const candidates = [
       ["profile:name", "姓名", resumeBasics.name, latestProfile.basics.name],
       ["profile:email", "邮箱", resumeBasics.email, latestProfile.basics.email ?? ""],
@@ -2470,22 +2487,54 @@ export function ResumeWorkspace() {
       ["profile:link:0", "个人链接", resumeBasics.links[0] ?? "", latestProfile.basics.links[0] ?? ""]
     ] as const;
     for (const [fieldId, label, resumeValue, profileValue] of candidates) {
-      if (resumeValue !== profileValue) conflicts.push({ fieldId, label, resumeValue, profileValue });
+      if (resumeValue !== profileValue) conflicts.push({ fieldId, label, resumeValue, profileValue, kind: "basic" });
     }
+
+    const latestAwardEntries = (latestProfile.structuredFacts ?? []).flatMap((entry) => entry.data.sectionType === "awards" ? [entry] : []);
+    for (const currentItem of selectedBranch.structuredContentItems ?? []) {
+      if (currentItem.data.sectionType !== "awards") continue;
+      const profileEntry = latestAwardEntries.find((entry) => entry.data.id === currentItem.data.id);
+      if (!profileEntry) continue;
+      if (profileEntry.data.sectionType !== "awards") continue;
+      const resumeValue = normalizeAwardedAt(currentItem.data.awardedAt) ?? "";
+      const profileValue = normalizeAwardedAt(profileEntry.data.awardedAt) ?? "";
+      if (resumeValue === profileValue) continue;
+      const structuredUpdate = {
+        itemId: currentItem.id,
+        data: profileEntry.data
+      } satisfies ProfileSyncStructuredUpdate;
+      if (!resumeValue && profileValue) {
+        autoStructuredItems.push(structuredUpdate);
+      } else {
+        conflicts.push({
+          fieldId: `structured:${currentItem.id}:awardedAt`,
+          label: `奖项「${currentItem.data.name}」· 获奖月份`,
+          resumeValue,
+          profileValue,
+          kind: "structured",
+          structuredUpdate
+        });
+      }
+    }
+
     if (conflicts.length === 0) {
-      const result = await repository.editResumeBranchBasics({
+      const result = await repository.syncResumeBranchFromProfile({
         branchId: selectedBranch.id,
         expectedRevision: selectedBranch.revision,
         operationId: `v2-g7b5-profile-ack-${selectedBranch.id}-${selectedBranch.revision}-${latestProfile.version}`,
         basics: {},
+        structuredItems: autoStructuredItems,
         acknowledgeProfileVersion: true
       });
       replaceBranch(result.branch);
-      notify({ type: "success", title: "已同步", message: "这份简历与个人资料库的基本信息已经一致。" });
+      notify({ type: "success", title: "已同步", message: autoStructuredItems.length > 0
+        ? "资料库中的奖项月份已补充到当前简历。"
+        : "这份简历与个人资料库的信息已经一致。" });
       return;
     }
+    setProfileSyncAutoItems(autoStructuredItems);
     setProfileSyncConflicts(conflicts);
-    setProfileSyncChoices(Object.fromEntries(conflicts.map((item) => [item.fieldId, "resume"])));
+    setProfileSyncChoices(Object.fromEntries(conflicts.map((item) => [item.fieldId, item.kind === "structured" && !item.resumeValue ? "profile" : "resume"])));
     setProfileSyncDialogOpen(true);
   }
 
@@ -2495,25 +2544,34 @@ export function ResumeWorkspace() {
     const currentLinks = [...(selectedBranch.resumeBasics?.links ?? profile?.basics.links ?? [])];
     for (const conflict of profileSyncConflicts) {
       if (profileSyncChoices[conflict.fieldId] !== "profile") continue;
+      if (conflict.kind === "structured") continue;
       const key = profileFieldKey(conflict.fieldId);
       if (!key) continue;
       if (key === "link") currentLinks[profileLinkIndex(conflict.fieldId)] = conflict.profileValue;
       else basics[key] = conflict.profileValue;
     }
     basics.links = currentLinks.filter(Boolean);
+    const structuredItems = [
+      ...profileSyncAutoItems,
+      ...profileSyncConflicts
+        .filter((conflict) => conflict.kind === "structured" && profileSyncChoices[conflict.fieldId] === "profile" && conflict.structuredUpdate)
+        .map((conflict) => conflict.structuredUpdate!)
+    ].filter((item, index, items) => items.findIndex((candidate) => candidate.itemId === item.itemId) === index);
     setProfileFieldPending(true);
     try {
-      const result = await repository.editResumeBranchBasics({
+      const result = await repository.syncResumeBranchFromProfile({
         branchId: selectedBranch.id,
         expectedRevision: selectedBranch.revision,
         operationId: `v2-g7b5-profile-sync-${selectedBranch.id}-${selectedBranch.revision}-${stableHashText(JSON.stringify(profileSyncChoices))}`,
         basics,
+        structuredItems,
         acknowledgeProfileVersion: true
       });
       replaceBranch(result.branch);
       setProfileSyncDialogOpen(false);
       setProfileSyncConflicts([]);
       setProfileSyncChoices({});
+      setProfileSyncAutoItems([]);
       notify({ type: "success", title: "已同步", message: "已按你的选择处理资料库差异；个人资料库未被修改。" });
     } catch {
       setProfileFieldError("同步失败，请稍后重试。");
@@ -4479,7 +4537,7 @@ export function ResumeWorkspace() {
           <div className="sync-dialog">
             <h3 className="sync-dialog-title">选择这份简历使用的信息</h3>
             <p className="sync-dialog-description">
-              资料库不会自动覆盖简历。请逐项选择保留简历内容，或使用资料库内容。
+              资料库不会自动覆盖简历。空缺的奖项月份会直接补齐，其余差异请逐项选择保留简历内容，或使用资料库内容。
             </p>
             <div className="sync-dialog-conflicts">
               {profileSyncConflicts.map((conflict) => (
@@ -4514,6 +4572,7 @@ export function ResumeWorkspace() {
                   setProfileSyncDialogOpen(false);
                   setProfileSyncConflicts([]);
                   setProfileSyncChoices({});
+                  setProfileSyncAutoItems([]);
                 }}
               >
                 取消
@@ -4534,9 +4593,9 @@ export function ResumeWorkspace() {
       {pendingResumeOnlyEdit ? (
         <div className="sync-dialog-overlay" role="dialog" aria-modal="true" aria-labelledby="resume-only-edit-title">
           <div className="sync-dialog">
-            <h3 className="sync-dialog-title" id="resume-only-edit-title">这次修改与资料库内容不同</h3>
+            <h3 className="sync-dialog-title" id="resume-only-edit-title">是否同步到个人资料库？</h3>
             <p className="sync-dialog-description">
-              你可以只更新当前简历，也可以同时更新个人资料库。两种选择都会保留新的简历版本，不会覆盖其他简历正文。
+              这是你手动确认的修改，当前简历可以直接使用。请选择只保留在当前简历，还是同时更新个人资料库；资料库不会被默认改写。
             </p>
             <div className="sync-dialog-notice" role="status">
               仅保存到简历后，这条内容会标记为“未同步”，之后仍可手动同步。

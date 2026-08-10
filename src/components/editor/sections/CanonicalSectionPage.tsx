@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { CustomFieldValue, ResumeContentItemV2, ResumeItemV2 } from "@/domain/schemas";
+import { normalizeAwardedAt } from "@/domain/migrations/resumeV2";
 import { resumeFieldCatalog, type ResumeFieldDefinition, type ResumeSectionTypeV2 } from "@/domain/resumeFields";
 import { AccordionList } from "../AccordionList";
 import { SectionShell } from "../SectionShell";
@@ -156,7 +157,8 @@ function CanonicalField(props: { idPrefix: string; field: ResumeFieldDefinition;
     );
   }
   const isList = props.field.valueType === "string_list";
-  const text = isList ? (Array.isArray(props.value) ? props.value.join("\n") : "") : props.value == null ? "" : String(props.value);
+  const rawText = isList ? (Array.isArray(props.value) ? props.value.join("\n") : "") : props.value == null ? "" : String(props.value);
+  const text = props.field.id === "awards.awardedAt" ? normalizeAwardedAt(rawText) ?? "" : rawText;
   if (props.field.uiControl === "textarea" || isList) {
     return (
       <div className="field-input-group">
