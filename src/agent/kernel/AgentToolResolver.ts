@@ -2,7 +2,7 @@ import type { AgentToolDefinition } from "@/agent/contracts/agentTool";
 import type { AgentToolRegistry } from "@/agent/tools/registry";
 import { allowedToolManifestForStep, getWorkflowDefinition } from "@/agent/workflows/workflowRegistry";
 import type { AgentSkill } from "./AgentSkillRegistry";
-import type { AgentSession } from "@/agent/contracts/agentSession";
+import type { AgentSession, AgentTaskState } from "@/agent/contracts/agentSession";
 import { LegacyAgentCapabilityAdapter } from "./AgentCapabilityBroker";
 import { AgentToolEligibility } from "./AgentToolEligibility";
 import { AgentTaskStateReducer } from "@/agent/runtime/AgentTaskStateReducer";
@@ -45,6 +45,12 @@ export class AgentToolResolver {
         workflowId !== "tailor_existing_resume"
         || !ROUTE_B_EXACT_TOOL_EXCLUSIONS.has(name)
       );
+    const diagnosticTurn = isRuntimeFailureQuestion(input.userMessage, taskState);
+    if (diagnosticTurn) {
+      for (const name of ["get_agent_current_task", "get_agent_last_failure", "get_agent_runtime_status"]) {
+        if (!workflowToolNames.includes(name)) workflowToolNames.push(name);
+      }
+    }
     const capabilityToolNames = workflow
       ? workflowToolNames
       : input.session && input.userMessage !== undefined
@@ -82,4 +88,13 @@ export class AgentToolResolver {
       requested.has(tool.name) && tool.risk === "read"
     );
   }
+}
+
+function isRuntimeFailureQuestion(message: string | undefined, taskState?: AgentTaskState) {
+  return Boolean(
+    message
+    && /^(?:为什么|为何|怎么回事)[？?。！!]?$/u.test(message.trim())
+    && taskState?.selectedEntities.resumeId
+    && taskState.selectedEntities.jobId
+  );
 }

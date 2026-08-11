@@ -670,10 +670,10 @@ export class AgentHostStore {
         sessionId: current.id,
         userMessageId,
         runtimeId: input.runtimeId,
-        preferredRuntime: input.runtimeId === "hermes" ? "hermes" : undefined,
-        attemptedRuntime: input.runtimeId === "hermes" ? "hermes" : undefined,
-        finalRuntime: input.runtimeId === "hermes" ? "hermes" : undefined,
-        executionOwner: input.runtimeDiagnostics?.executionOwner ?? (input.userMessage.trim() ? input.runtimeId as "native" | "hermes" : undefined),
+        preferredRuntime: input.runtimeDiagnostics?.preferredRuntime ?? (input.runtimeId === "hermes" ? "hermes" : "native"),
+        attemptedRuntime: input.runtimeDiagnostics?.attemptedRuntime ?? (input.runtimeId === "hermes" ? "hermes" : "native"),
+        finalRuntime: input.runtimeDiagnostics?.finalRuntime ?? (input.runtimeId === "hermes" ? "hermes" : "native"),
+        executionOwner: input.runtimeDiagnostics?.executionOwner ?? (input.userMessage.trim() ? input.runtimeId as "native" | "hermes" : "runtime_continuation"),
         fallbackUsed: false,
         ...input.runtimeDiagnostics,
         status: "running",
@@ -2484,9 +2484,15 @@ export class AgentHostStore {
     current = {
       ...current,
       activeTurn: {
+        ...current.activeTurn,
         id: input.turnId,
         sessionId: current.id,
         userMessageId: input.userMessageId,
+        preferredRuntime: current.activeTurn?.preferredRuntime ?? "native",
+        attemptedRuntime: current.activeTurn?.attemptedRuntime ?? "native",
+        finalRuntime: current.activeTurn?.finalRuntime ?? "native",
+        fallbackUsed: current.activeTurn?.fallbackUsed ?? false,
+        executionOwner: current.activeTurn?.executionOwner ?? "deterministic_transition",
         status: outcome,
         startedAt: input.now,
         completedAt: new Date().toISOString()
@@ -3159,10 +3165,15 @@ export class AgentHostStore {
     current = {
       ...current,
       activeTurn: {
+        ...current.activeTurn,
         id: turnId,
         sessionId: current.id,
         userMessageId,
         ...(input.runtimeId ? { runtimeId: input.runtimeId } : {}),
+        preferredRuntime: current.activeTurn?.preferredRuntime ?? input.runtimeDiagnostics?.preferredRuntime ?? (input.runtimeId === "hermes" ? "hermes" : "native"),
+        attemptedRuntime: current.activeTurn?.attemptedRuntime ?? input.runtimeDiagnostics?.attemptedRuntime ?? (input.runtimeId === "hermes" ? "hermes" : "native"),
+        finalRuntime: current.activeTurn?.finalRuntime ?? input.runtimeDiagnostics?.finalRuntime ?? (input.runtimeId === "hermes" ? "hermes" : "native"),
+        fallbackUsed: current.activeTurn?.fallbackUsed ?? input.runtimeDiagnostics?.fallbackUsed ?? false,
         status: "running",
         startedAt: now,
         ...input.runtimeDiagnostics
@@ -3368,6 +3379,7 @@ export class AgentHostStore {
       current = {
         ...current,
         activeTurn: {
+          ...current.activeTurn,
           id: turnId,
           sessionId: current.id,
           userMessageId,
@@ -3411,9 +3423,14 @@ export class AgentHostStore {
     current = {
       ...projectTaskStateIntoSession(current, taskState),
       activeTurn: {
+        ...current.activeTurn,
         id: turnId,
         sessionId: current.id,
         userMessageId,
+        preferredRuntime: current.activeTurn?.preferredRuntime ?? "native",
+        attemptedRuntime: current.activeTurn?.attemptedRuntime ?? "native",
+        finalRuntime: current.activeTurn?.finalRuntime ?? "native",
+        fallbackUsed: current.activeTurn?.fallbackUsed ?? false,
         status: "running",
         startedAt: now
       }
@@ -3780,9 +3797,14 @@ export class AgentHostStore {
     current = {
       ...current,
       activeTurn: {
+        ...current.activeTurn,
         id: turnId,
         sessionId: current.id,
         userMessageId,
+        preferredRuntime: current.activeTurn?.preferredRuntime ?? "native",
+        attemptedRuntime: current.activeTurn?.attemptedRuntime ?? "native",
+        finalRuntime: current.activeTurn?.finalRuntime ?? "native",
+        fallbackUsed: current.activeTurn?.fallbackUsed ?? false,
         executionOwner: "deterministic_transition",
         status: "running",
         startedAt: new Date().toISOString()
@@ -3829,12 +3851,33 @@ export class AgentHostStore {
         optionValue: answerValue
       }
     });
+    // Text answers and semantic answer buttons share the same reducer/action
+    // contract. Tailoring-question buttons are handled by the existing
+    // compound-answer path in the native continuation, so they must retain
+    // the question context until that path executes the answer tool.
+    if (current.taskState && !action.field.startsWith("tailoring-question:")) {
+      const taskState = new AgentTaskStateReducer().reduce(current.taskState, {
+        type: "user_message",
+        message: text,
+        sessionId: current.id,
+        messageId: userMessageId,
+        turnId,
+        capturedAt: now,
+        turnIntent: "continue_current_task"
+      });
+      current = projectTaskStateIntoSession(current, taskState);
+    }
     current = {
       ...current,
       activeTurn: {
+        ...current.activeTurn,
         id: turnId,
         sessionId: current.id,
         userMessageId,
+        preferredRuntime: current.activeTurn?.preferredRuntime ?? "native",
+        attemptedRuntime: current.activeTurn?.attemptedRuntime ?? "native",
+        finalRuntime: current.activeTurn?.finalRuntime ?? "native",
+        fallbackUsed: current.activeTurn?.fallbackUsed ?? false,
         executionOwner: "deterministic_transition",
         status: "running",
         startedAt: now
@@ -3872,9 +3915,14 @@ export class AgentHostStore {
     restored = {
       ...restored,
       activeTurn: {
+        ...restored.activeTurn,
         id: turnId,
         sessionId: restored.id,
         userMessageId,
+        preferredRuntime: restored.activeTurn?.preferredRuntime ?? "native",
+        attemptedRuntime: restored.activeTurn?.attemptedRuntime ?? "native",
+        finalRuntime: restored.activeTurn?.finalRuntime ?? "native",
+        fallbackUsed: restored.activeTurn?.fallbackUsed ?? false,
         executionOwner: "deterministic_transition",
         status: "running",
         startedAt: now
@@ -4357,9 +4405,14 @@ export class AgentHostStore {
     current = {
       ...current,
       activeTurn: {
+        ...current.activeTurn,
         id: turnId,
         sessionId: current.id,
         userMessageId,
+        preferredRuntime: current.activeTurn?.preferredRuntime ?? "native",
+        attemptedRuntime: current.activeTurn?.attemptedRuntime ?? "native",
+        finalRuntime: current.activeTurn?.finalRuntime ?? "native",
+        fallbackUsed: current.activeTurn?.fallbackUsed ?? false,
         executionOwner: "deterministic_transition",
         status: "running",
         startedAt: taskState.updatedAt
@@ -4406,9 +4459,14 @@ export class AgentHostStore {
     current = {
       ...current,
       activeTurn: {
+        ...current.activeTurn,
         id: turnId,
         sessionId: current.id,
         userMessageId: current.activeTurn?.userMessageId,
+        preferredRuntime: current.activeTurn?.preferredRuntime ?? "native",
+        attemptedRuntime: current.activeTurn?.attemptedRuntime ?? "native",
+        finalRuntime: current.activeTurn?.finalRuntime ?? "native",
+        fallbackUsed: current.activeTurn?.fallbackUsed ?? false,
         executionOwner: options.executionOwner ?? current.activeTurn?.executionOwner ?? "runtime_continuation",
         ...options.runtimeDiagnostics,
         status: "running",

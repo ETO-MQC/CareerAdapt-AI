@@ -3432,7 +3432,6 @@ export function ResumeWorkspace() {
   }
 
   const showManualFormattingPanel = studioMode === "style"
-    && isStylePanelOpen
     && (styleInspectorTab === "colors"
       || styleInspectorTab === "font"
       || styleInspectorTab === "page");
@@ -4008,20 +4007,7 @@ export function ResumeWorkspace() {
           ) : null}
           <aside className={`panel no-print resume-export-panel resume-inspector ${studioMode === "edit" ? "branch-editor" : ""}`} data-testid="resume-active-section-fields">
             {studioMode !== "edit" ? <div className="property-panel-heading">
-              <div>
-                {studioMode === "style" ? <h2>样式</h2> : null}
-                {studioMode === "style" ? <p>模板、颜色、文字和分页集中调整。</p> : null}
-              </div>
-              {studioMode === "style" ? (
-                <div className="panel-heading-actions">
-                  <button
-                    className="secondary-button compact"
-                    onClick={() => setIsStylePanelOpen((current) => !current)}
-                  >
-                    {isStylePanelOpen ? "收起" : "展开"}
-                  </button>
-                </div>
-              ) : null}
+              {studioMode === "style" ? <h2>样式</h2> : null}
             </div> : null}
             {studioMode === "ai" ? null : studioMode === "style" ? (
               <div className="inspector-tablist" role="tablist" aria-label="样式工具">

@@ -2633,9 +2633,25 @@ export class WorkspaceRepository {
     operationId: string;
     name?: string;
     composition?: ResumeCompositionResult;
+    mode?: "create_new" | "update_existing";
   }) {
     const profile = input.composition ? undefined : await this.getProfile(input.profileId);
     const composition = input.composition ?? (profile ? compileResumeComposition({ profile, mode: "general" }) : undefined);
+    // Profile-intake's historical optional-resume action is a synchronization
+    // step. Composition/Card 4, however, must materialize a new independent
+    // branch unless the user explicitly requests an update.
+    const mode = input.mode ?? (input.composition ? "create_new" : "update_existing");
+    if (mode === "create_new") {
+      const created = await this.createGeneralResumeBranch({
+        profileId: input.profileId,
+        operationId: input.operationId,
+        name: input.name ?? "通用简历",
+        includeProfileFacts: true,
+        includeProfileBasics: true,
+        composition
+      });
+      return { ...created, mode: "created" as const };
+    }
     const activeGeneral = (await this.listResumeBranches(input.profileId))
       .filter((branch) => branch.branchPurpose === "general" && branch.lifecycleStatus === "active")
       .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0];

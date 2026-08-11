@@ -85,8 +85,11 @@ function sanitizeOutput(
     const blueprintAsset = blueprintById.get(candidate.sourceAssetId);
     if (!entry || !blueprintAsset) return [];
     const canonical = entry.data as unknown as Record<string, unknown>;
-    const canonicalRole = [canonical.role, canonical.authorRole].find((value): value is string => typeof value === "string" && Boolean(value.trim()));
-    const role = candidate.role && canonicalRole && sameText(candidate.role, canonicalRole) ? canonicalRole : undefined;
+    const canonicalRole = [canonical.role, canonical.authorRole]
+      .map(roleLikeValue)
+      .find((value): value is string => Boolean(value));
+    const candidateRole = roleLikeValue(candidate.role);
+    const role = candidateRole && canonicalRole && sameText(candidateRole, canonicalRole) ? canonicalRole : undefined;
     const explicitTools = blueprintAsset.explicitTools;
     const techStack = unique(candidate.techStack.filter((value) => explicitTools.some((tool) => sameText(tool, value)
       || canonicalTechnicalTerm(tool) !== undefined && canonicalTechnicalTerm(tool) === canonicalTechnicalTerm(value))));
@@ -118,6 +121,15 @@ function sanitizeOutput(
     assets,
     skillGroups
   });
+}
+
+function roleLikeValue(value: unknown) {
+  if (typeof value !== "string") return undefined;
+  const role = value.trim();
+  if (!role || role.length > 80 || /[\r\n。！？!?；;]/u.test(role)) return undefined;
+  if (/(?:sourceExcerpt|description|rawText|full narrative|原文|经历描述|项目描述|岗位描述)/iu.test(role)) return undefined;
+  if (/(?:负责|完成了|开发了|实现了|使用了|通过|因为|所以|其中|项目中)/u.test(role) && role.length > 24) return undefined;
+  return role;
 }
 
 function sanitizeSkillGroups(

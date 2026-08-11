@@ -109,7 +109,10 @@ export class AgentTaskStateReducer {
         stage: event.stage,
         requiredSlots: [],
         knownSlots: workflowId === "compose_resume"
-          ? { resumeCompositionPendingInformationNeed: defaultResumeCompositionInformationNeed() }
+          ? {
+              resumeCompositionPendingInformationNeed: defaultResumeCompositionInformationNeed(),
+              resumeCompositionBranchMode: "create_new"
+            }
           : {},
         missingSlots: [],
         selectedEntities: {
@@ -488,6 +491,7 @@ export class AgentTaskStateReducer {
           keywordCoverage: value.keywordCoverage,
           informationNeeds: value.informationNeeds
         };
+        state.knownSlots.resumeCompositionBranchMode = state.knownSlots.resumeCompositionBranchMode ?? "create_new";
         state.activeGoal = "compose_resume";
         state.stage = "review_composition";
         state.completionStatus = "waiting_for_user";

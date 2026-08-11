@@ -156,6 +156,16 @@ export function classifyTurnIntent(input: {
   ) {
     return decision("casual_side_turn", "preserve", "none", profileIntakeTurnKind, activeQuestionResolution);
   }
+  // A short failure-side question is diagnostic context, not a new job-fit
+  // task. Keep the selected entities and let the system diagnostic tools read
+  // the current task, last failure, and runtime status.
+  if (
+    /^(?:为什么|为何|怎么回事)[？?。！!]?$/u.test(text)
+    && input.taskState?.selectedEntities.resumeId
+    && input.taskState.selectedEntities.jobId
+  ) {
+    return decision("casual_side_turn", "preserve", "domain", profileIntakeTurnKind, activeQuestionResolution);
+  }
   if (isGeneralCareerQuestion(text)) {
     return decision("casual_side_turn", "preserve", "none", profileIntakeTurnKind, activeQuestionResolution);
   }
@@ -165,6 +175,9 @@ export function classifyTurnIntent(input: {
   // proposal/checkpoint is still active.
   if (isActiveResumeCompositionFollowup(input.taskState)) {
     return decision("clarification_answer", "continue", "domain", profileIntakeTurnKind, activeQuestionResolution);
+  }
+  if (isTailoringContinuationTurn(input.taskState, text)) {
+    return decision("continue_current_task", "continue", "domain", profileIntakeTurnKind, activeQuestionResolution);
   }
   if (
     /导入(一个|新的?|这个|该)?(岗位|职位)|重新.*(另一份|新的?).*简历|我想(申请|应聘|投)(这个|该)?(岗位|职位)|录入(一个|新的?|这个|该)?(岗位|职位)|上传.*简历|分析.*(JD|岗位描述|职位描述)|(深挖|丰富|梳理|挖掘).*(经历|项目)|从零.*(整理|梳理).*(经历|资料)|定制简历|岗位定制|匹配度|岗位.*匹配|匹配.*岗位/i.test(text)
@@ -471,6 +484,12 @@ function newDomainTask(text: string): NonNullable<TurnIntentDecision["newTask"]>
   if (/从零.*(整理|梳理).*(经历|资料)|整理自己的真实经历/i.test(text)) {
     return { goal: "profile_intake", workflowId: "guided_profile_intake", stage: "resolve_profile_target" };
   }
+  // Application language owns the root task. “匹配度/匹配分析” is a
+  // subtask of tailoring when the user already says they want to apply with
+  // an existing resume; it must not replace the Apply/Tailor root.
+  if (/申请|应聘|想投|投.*(?:这个|该|目标)?岗位|用现有简历.*投.*岗位|现有简历.*投.*岗位/u.test(text)) {
+    return { goal: "apply_to_job", workflowId: "tailor_existing_resume", stage: "choose_resume_source" };
+  }
   if (/匹配度|岗位.*匹配|匹配.*岗位/i.test(text)) {
     return { goal: "analyze_job_fit", workflowId: "analyze_job_fit", stage: "select_assets" };
   }
@@ -493,6 +512,15 @@ function newDomainTask(text: string): NonNullable<TurnIntentDecision["newTask"]>
     return { goal: "apply_to_job", workflowId: "tailor_existing_resume", stage: "choose_resume_source" };
   }
   return { goal: "create_tailored_resume", workflowId: "tailor_existing_resume", stage: "choose_resume_source" };
+}
+
+function isTailoringContinuationTurn(taskState: AgentTaskState | undefined, text: string) {
+  if (!taskState || taskState.completionStatus === "failed" || taskState.completionStatus === "cancelled") return false;
+  const isTailoringRoot = taskState.rootGoal === "apply_to_job"
+    || taskState.rootGoal === "create_tailored_resume"
+    || taskState.workflowId === "tailor_existing_resume" && taskState.rootGoal !== "analyze_job_fit";
+  return isTailoringRoot
+    && /^(?:继续)?(?:提升|优化|改善)匹配度(?:吧|即可)?[。！!？?]?$/u.test(text.trim());
 }
 
 function decision(

@@ -126,9 +126,9 @@ export function writeResumeComposition(input: ResumeWriterInput): ResumeComposit
     profileId: profile.id,
     profileRevision: profile.version,
     ...(input.job ? { jobId: input.job.id } : {}),
-    ...(input.targetDirection ? { targetDirection: input.targetDirection } : {}),
-    ...(input.targetAudience ? { targetAudience: input.targetAudience } : {}),
-    ...(input.companyType ? { companyType: input.companyType } : {}),
+    ...((input.targetDirection ?? input.blueprint.targetDirection) ? { targetDirection: input.targetDirection ?? input.blueprint.targetDirection } : {}),
+    ...((input.targetAudience ?? input.blueprint.targetAudience) ? { targetAudience: input.targetAudience ?? input.blueprint.targetAudience } : {}),
+    ...((input.companyType ?? input.blueprint.companyType) ? { companyType: input.companyType ?? input.blueprint.companyType } : {}),
     evidenceGraph: input.graph,
     blueprint: input.blueprint,
     items,
@@ -205,7 +205,9 @@ function createDeterministicWritingOutput(input: ResumeWriterInput): CareerResum
       const entry = entriesById.get(asset.sourceAssetId);
       if (!entry) return [];
       const record = entry.data as unknown as Record<string, unknown>;
-      const role = [record.role, record.authorRole].find((value): value is string => typeof value === "string" && Boolean(value.trim()));
+      const role = [record.role, record.authorRole]
+        .map(roleLikeValue)
+        .find((value): value is string => Boolean(value));
       return [{
         sourceAssetId: asset.sourceAssetId,
         title: resolveCareerAssetDisplayIdentity(entry.data).label,
@@ -216,6 +218,15 @@ function createDeterministicWritingOutput(input: ResumeWriterInput): CareerResum
     }),
     skillGroups: Object.entries(normalizeSkillGroups(input.graph.skillMatrix)).map(([category, skills]) => ({ category, skills }))
   };
+}
+
+function roleLikeValue(value: unknown) {
+  if (typeof value !== "string") return undefined;
+  const role = value.trim();
+  if (!role || role.length > 80 || /[\r\n。！？!?；;]/u.test(role)) return undefined;
+  if (/(?:sourceExcerpt|description|rawText|full narrative|原文|经历描述|项目描述|岗位描述)/iu.test(role)) return undefined;
+  if (/(?:负责|完成了|开发了|实现了|使用了|通过|因为|所以|其中|项目中)/u.test(role) && role.length > 24) return undefined;
+  return role;
 }
 
 function professionalBulletPlan(item: ResumeItemV2, asset: ResumeBlueprint["assets"][number]) {

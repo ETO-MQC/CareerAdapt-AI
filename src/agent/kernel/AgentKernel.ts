@@ -24,6 +24,8 @@ import {
   AgentTaskStateReducer,
   dependencySnapshot
 } from "@/agent/runtime/AgentTaskStateReducer";
+import { deriveNextLegalStage } from "@/agent/runtime/TaskContinuationResolver";
+import { getWorkflowDefinition } from "@/agent/workflows/workflowRegistry";
 import { AgentTaskCompletionGuard } from "./AgentTaskCompletionGuard";
 import {
   projectTaskStateIntoSession,
@@ -146,6 +148,7 @@ export class AgentKernel {
       references: resolveReferences(contextualSession, input.references),
       turnIntent: input.turnIntent
     });
+    systemPrompt = addRuntimeDiagnosticInstruction(systemPrompt, input.userMessage, taskState);
     if (input.narrationOnly) {
       systemPrompt += "\n\n本轮是历史回答重生成的叙述修订：只根据当前分支已记录的消息、工具回执和任务快照重新组织文字；不要调用工具，不要新增事实，不要改变任务状态或实体。";
     }
@@ -177,6 +180,7 @@ export class AgentKernel {
     }
     let toolCallCount = 0;
     let protocolRepairUsed = false;
+    let permissionRepairUsed = false;
     const protocolDiagnostics: AgentToolProtocolDiagnostics[] = [];
     const unavailableToolNames = new Set<string>();
     const exhaustedEmptyReads = new Set<string>();
@@ -223,6 +227,40 @@ export class AgentKernel {
       return candidate;
     };
 
+    const refreshToolPlan = () => {
+      const transitionedSession = projectTaskStateIntoSession(input.session, taskState);
+      skills = skillRegistry.discover({
+        workflowId: taskState.workflowId,
+        step: taskState.stage,
+        selectedEntities: taskState.selectedEntities,
+        userMessage: input.userMessage
+      });
+      systemPrompt = contextAssembler.assemble({
+        session: transitionedSession,
+        pageContext: input.pageContext,
+        userMessage: input.userMessage,
+        memory: memoryManager.retrieve(transitionedSession),
+        activeSkills: skills,
+        references: resolveReferences(transitionedSession, input.references),
+        turnIntent: input.turnIntent
+      });
+      systemPrompt = addRuntimeDiagnosticInstruction(systemPrompt, input.userMessage, taskState);
+      allowedTools = this.dependencies.toolResolver.allowedTools({
+        workflowId: taskState.workflowId,
+        step: taskState.stage,
+        skills,
+        session: transitionedSession,
+        userMessage: input.userMessage
+      });
+      allowedTools = toolsForTurnScope(this.dependencies.toolResolver, allowedTools, input.narrationOnly ? "none" : input.toolScope);
+      allowedTools = limitTailoringContextTools(taskState, allowedTools);
+      allowedTools = allowedTools.filter((tool) =>
+        !unavailableToolNames.has(tool.name)
+        && !exhaustedEmptyReads.has(tool.name)
+      );
+      modelTools = this.dependencies.toolResolver.modelManifest(allowedTools);
+    };
+
     await emit(input, { type: "turn_ack", sessionId: input.session.id });
     await emit(input, {
       type: "workflow_updated",
@@ -255,7 +293,7 @@ export class AgentKernel {
         // authoritative for this request.
         try { await this.dependencies.model.negotiateToolProtocol(); } catch { /* best effort */ }
       }
-      for (let iteration = 0; iteration < maxIterations; iteration += 1) {
+      modelIterations: for (let iteration = 0; iteration < maxIterations; iteration += 1) {
         const iterationId = `${turnId}:iteration:${iteration + 1}`;
         throwIfAborted(input.signal);
         await emit(input, {
@@ -389,14 +427,18 @@ export class AgentKernel {
 
         if (response.toolCalls?.length) {
           messages.push({ role: "assistant", content: response.text ?? "", toolCalls: response.toolCalls });
-          if (response.toolCalls.length > 1) {
-            const batchTools = response.toolCalls.map((call) => allowedTools.find((tool) => tool.name === call.name));
-            if (batchTools.some((tool) => !tool || tool.risk !== "read")) {
-              throw new AgentPolicyError("agent_parallel_write_rejected", "Only independent read tools may be called together.");
-            }
-          }
-
-          for (const call of response.toolCalls) {
+          // Reads may share a model response, but writes are a strict
+          // sequential boundary. Preserve any reads before the first legal
+          // write, execute at most that write, discard later planned calls,
+          // and let the next iteration observe the write before replanning.
+          const firstWriteIndex = response.toolCalls.findIndex((call) =>
+            allowedTools.find((tool) => tool.name === call.name)?.risk !== "read"
+          );
+          const callsToExecute = firstWriteIndex >= 0
+            ? response.toolCalls.slice(0, firstWriteIndex + 1)
+            : response.toolCalls;
+          let permissionRepairRequested = false;
+          for (const call of callsToExecute) {
             if (exhaustedEmptyReads.has(call.name)) {
               const recovery = emptyReadRecovery(call.name, taskState);
               await publishFinalStream(recovery, input, { turnId, iterationId });
@@ -417,7 +459,7 @@ export class AgentKernel {
             let validated;
             try {
               validated = guard.validate({
-                call: bindAuthoritativeTaskInput(call, taskState),
+                call: bindAuthoritativeTaskInput(call, taskState, input.session.id),
                 allowedTools,
                 toolCallCount,
                 maxToolCalls
@@ -439,6 +481,23 @@ export class AgentKernel {
                   content: JSON.stringify({ observation: "Equivalent result already available." })
                 });
                 continue;
+              }
+              if (error instanceof AgentPolicyError && error.code === "agent_tool_not_allowed" && !permissionRepairUsed) {
+                permissionRepairUsed = true;
+                taskState = repairIllegalToolTaskState(taskState);
+                messages.push({
+                  role: "system",
+                  content: JSON.stringify({
+                    repair: "illegal_tool_call",
+                    discardedTool: call.name,
+                    workflowId: taskState.workflowId,
+                    workflowStage: taskState.stage,
+                    instruction: "Refresh the legal tools for this stage and replan once. Do not retry the discarded call."
+                  })
+                });
+                refreshToolPlan();
+                permissionRepairRequested = true;
+                break;
               }
               throw error;
             }
@@ -526,6 +585,7 @@ export class AgentKernel {
                   references: resolveReferences(transitionedSession, input.references),
                   turnIntent: input.turnIntent
                 });
+                systemPrompt = addRuntimeDiagnosticInstruction(systemPrompt, input.userMessage, taskState);
               }
               trajectory.toolCompleted(operationId, result.ok, result.artifactIds);
               await emit(input, {
@@ -578,6 +638,7 @@ export class AgentKernel {
               throw error;
             }
           }
+          if (permissionRepairRequested) continue modelIterations;
           continue;
         }
 
@@ -1010,7 +1071,8 @@ function emptyReadRecovery(
 
 function bindAuthoritativeTaskInput(
   call: AgentModelToolCall,
-  taskState: NonNullable<AgentSession["taskState"]>
+  taskState: NonNullable<AgentSession["taskState"]>,
+  sessionId?: string
 ): AgentModelToolCall {
   const slots = taskState.knownSlots;
   if (
@@ -1168,6 +1230,15 @@ function bindAuthoritativeTaskInput(
       }
     };
   }
+  if (["get_agent_task_context", "get_agent_runtime_status", "get_agent_current_task", "get_agent_last_failure"].includes(call.name)) {
+    return {
+      ...call,
+      arguments: {
+        ...call.arguments,
+        ...(sessionId ? { sessionId } : {})
+      }
+    };
+  }
   if (["build_resume_evidence_graph", "plan_resume_composition", "review_resume_composition", "compose_resume"].includes(call.name)) {
     return {
       ...call,
@@ -1177,7 +1248,10 @@ function bindAuthoritativeTaskInput(
         expectedProfileRevision: slots.expectedProfileVersion ?? taskState.selectedEntities.profileVersion,
         mode: slots.resumeCompositionMode ?? "general",
         ...(slots.selectedEntitiesJobId ?? taskState.selectedEntities.jobId ? { jobId: slots.selectedEntitiesJobId ?? taskState.selectedEntities.jobId } : {}),
-        ...(slots.acknowledgedActiveProfileId ? { acknowledgedActiveProfileId: slots.acknowledgedActiveProfileId } : {})
+        ...(slots.acknowledgedActiveProfileId ? { acknowledgedActiveProfileId: slots.acknowledgedActiveProfileId } : {}),
+        ...(taskState.workflowId === "compose_resume"
+          ? { generalResumeMode: slots.resumeCompositionBranchMode ?? "create_new" }
+          : {})
       }
     };
   }
@@ -1432,6 +1506,8 @@ function workflowProgressStage(id: string, label: string, completed = false) {
 
 function userErrorMessage(code: string) {
   if (code === "agent_duplicate_tool_call") return "我检测到重复步骤并已停止，现有任务信息仍然保留。";
+  if (code === "agent_parallel_write_rejected") return "我已保留当前任务进度，并按顺序重新规划写入步骤。";
+  if (code === "agent_tool_not_allowed") return "当前步骤已重新对齐，已完成的任务信息仍然保留。";
   if (code === "tool_input_invalid") return "当前访谈状态不完整，未执行资料整理。现有输入已保留。";
   if (code === "provider_textual_tool_protocol") return "模型返回的工具指令没有通过安全校验；你的原始输入和当前进度仍然保留，可以重新执行当前步骤。";
   if (code.includes("budget")) return "自动处理没有完成：连续步骤未能推进。你的原始输入和现有进度已保留，尚未写入资料库，可以重新执行当前步骤或结束任务。";
@@ -1461,6 +1537,43 @@ function toolsForTurnScope<T extends { name: string }>(
   if (!scope || scope === "domain") return tools;
   if (scope === "none") return [];
   return resolver.narrowReadTools(["get_active_profile", "get_profile", "search_profile_facts"]);
+}
+
+function addRuntimeDiagnosticInstruction(systemPrompt: string, userMessage: string, taskState: AgentTaskState) {
+  if (!isRuntimeFailureQuestion(userMessage, taskState)) return systemPrompt;
+  return `${systemPrompt}\n\n本轮是失败后的诊断侧问。回答“为什么”前必须先读取 get_agent_current_task、get_agent_last_failure、get_agent_runtime_status 三个只读诊断工具；使用返回的任务阶段、失败标签和运行时标签解释原因。保留当前 Resume/Job 选择，不要重新要求用户选择 Resume 或 Job，也不要改变当前工作流。`;
+}
+
+function isRuntimeFailureQuestion(message: string, taskState: AgentTaskState) {
+  return /^(?:为什么|为何|怎么回事)[？?。！!]?$/u.test(message.trim())
+    && Boolean(taskState.selectedEntities.resumeId && taskState.selectedEntities.jobId);
+}
+
+function repairIllegalToolTaskState(taskState: AgentTaskState) {
+  const isTailoringRoot = taskState.rootGoal === "apply_to_job"
+    || taskState.rootGoal === "create_tailored_resume"
+    || taskState.workflowId === "tailor_existing_resume" && taskState.rootGoal !== "analyze_job_fit";
+  const hasSelectedTailoringEntities = Boolean(
+    taskState.selectedEntities.profileId
+    && taskState.selectedEntities.resumeId
+    && taskState.selectedEntities.jobId
+  );
+  const nextStage = isTailoringRoot
+    && hasSelectedTailoringEntities
+    && taskState.knownSlots.fitAnalysis
+    && !taskState.knownSlots.tailoringSession
+    ? "generate_plan"
+    : deriveNextLegalStage(taskState);
+  const definition = getWorkflowDefinition(taskState.workflowId);
+  const legalStage = definition?.states.includes(nextStage) ? nextStage : taskState.stage;
+  if (legalStage === taskState.stage) return taskState;
+  return {
+    ...taskState,
+    stage: legalStage,
+    activeGoal: isTailoringRoot ? "create_tailored_resume" : taskState.activeGoal,
+    completionStatus: "active" as const,
+    updatedAt: new Date().toISOString()
+  };
 }
 
 function limitTailoringContextTools<T extends { name: string }>(

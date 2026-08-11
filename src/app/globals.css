@@ -1001,7 +1001,7 @@ html[data-theme="dark"] .panel {
   overflow-x: hidden;
   overflow-y: scroll;
   overscroll-behavior-y: contain;
-  padding-bottom: 16px;
+  padding-bottom: 0;
   scrollbar-gutter: stable both-edges;
 }
 
@@ -1522,7 +1522,7 @@ html[data-theme="dark"] .panel {
   min-height: 0;
   overflow: visible;
   padding: 0;
-  margin-bottom: 20px;
+  margin-bottom: 0;
 }
 
 .selected-job-context {
@@ -3672,6 +3672,12 @@ html[data-theme="dark"] .mode-rail-button:hover {
   margin-bottom: 0;
 }
 
+.resume-studio-shell-style .property-panel-heading {
+  justify-content: flex-start;
+  margin-bottom: 12px;
+  padding-top: 12px;
+}
+
 .property-summary {
   background: var(--tab-bg);
   border: 1px solid var(--line);
@@ -5116,16 +5122,32 @@ html[data-theme="dark"] .property-panel-heading p {
   margin-bottom: 12px;
 }
 
-.template-center-panel {
-  background: var(--tab-bg);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  display: grid;
-  gap: 12px;
-  margin-bottom: 12px;
-  max-height: min(72vh, 760px);
+.template-center-overlay {
+  align-items: center;
+  background: rgba(14, 19, 17, 0.48);
+  display: flex;
+  inset: 0;
+  justify-content: center;
   overflow: auto;
-  padding: 12px;
+  overscroll-behavior: contain;
+  padding: 24px;
+  position: fixed;
+  z-index: 1000;
+}
+
+.template-center-panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 24px 72px rgba(14, 19, 17, 0.24);
+  display: grid;
+  gap: 16px;
+  margin: 0;
+  max-height: min(84dvh, 800px);
+  max-width: min(960px, calc(100vw - 48px));
+  overflow: auto;
+  padding: 16px;
+  width: 100%;
 }
 
 .template-center-header {

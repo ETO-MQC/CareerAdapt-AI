@@ -451,11 +451,12 @@
 }
 
 .ai-asset-content .jobs-workspace-v2 {
-  height: calc(100dvh - 44px - var(--ai-page-padding) * 2);
-  max-height: calc(100dvh - 44px - var(--ai-page-padding) * 2);
+  height: 100%;
+  max-height: 100%;
   overflow-x: hidden;
   overflow-y: scroll;
   overscroll-behavior-y: contain;
+  padding-bottom: 0;
   scrollbar-gutter: stable both-edges;
 }
 

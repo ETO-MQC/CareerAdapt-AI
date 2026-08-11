@@ -212,17 +212,29 @@ function addRecoveryCandidates(input: { entry: ProfileStructuredFact; profile: R
   if (research.authorRole) return;
   const linked = entry.factIds.map((id) => facts.get(id)).filter((fact): fact is FactStatement => Boolean(fact));
   const experience = profile.experiences.find((candidate) => candidate.facts.some((fact) => entry.factIds.includes(fact.id)));
-  if (!experience || !linked.length) return;
+  const groundedRole = experience ? roleLikeValue(experience.role) : undefined;
+  if (!experience || !groundedRole || !linked.length) return;
   const status = /课题组|实验室|研究/u.test(linked.map((fact) => fact.statement).join(" ")) ? "needs_confirmation" : "safe_recovery";
   recoveryCandidates.push({
     id: `recovery:${entry.data.id}:authorRole`,
     sourceAssetId: entry.data.id,
     field: "authorRole",
-    proposedValue: experience.role,
+    proposedValue: groundedRole,
     status,
     factIds: entry.factIds,
     reason: status === "safe_recovery" ? "同一已确认经历中存在明确角色，可作为建议恢复。" : "来源提到实验室或课题组，但作者角色需要用户确认。"
   });
+}
+
+/** A recovery candidate may only carry a compact role label. Never promote a
+ * source excerpt, description, or full narrative into authorRole. */
+function roleLikeValue(value: unknown) {
+  if (typeof value !== "string") return undefined;
+  const role = value.trim();
+  if (!role || role.length > 80 || /[\r\n。！？!?；;]/u.test(role)) return undefined;
+  if (/(?:sourceExcerpt|description|rawText|full narrative|原文|经历描述|项目描述|岗位描述)/iu.test(role)) return undefined;
+  if (/(?:负责|完成了|开发了|实现了|使用了|通过|因为|所以|其中|项目中)/u.test(role) && role.length > 24) return undefined;
+  return role;
 }
 
 function isExcludedAsset(item: ResumeItemV2, text: string, status: ResumeEvidenceNode["confirmationStatus"]) {

@@ -19,25 +19,33 @@ export type ResumeBlueprintInput = {
   companyType?: string;
 };
 
+export const DEFAULT_RESUME_TARGET_DIRECTION = "互联网技术 / AI 应用";
+
 export function planResumeBlueprint(input: ResumeBlueprintInput): ResumeBlueprint {
-  const profile = migrateCareerProfileToV2(input.profile);
+  const effectiveInput: ResumeBlueprintInput = {
+    ...input,
+    ...(input.mode === "general" && !input.targetDirection?.trim()
+      ? { targetDirection: DEFAULT_RESUME_TARGET_DIRECTION }
+      : {})
+  };
+  const profile = migrateCareerProfileToV2(effectiveInput.profile);
   const canonicalById = new Map(profile.structuredFacts.map((entry) => [entry.data.id, entry.data]));
-  const keywordCoverage = input.mode === "job_specific" && input.job
-    ? classifyJobKeywords(input.job, input.graph, canonicalById)
+  const keywordCoverage = effectiveInput.mode === "job_specific" && effectiveInput.job
+    ? classifyJobKeywords(effectiveInput.job, effectiveInput.graph, canonicalById)
     : [];
-  const assetCandidates: Array<{ data: ResumeItemV2; relevance: number; node?: ResumeEvidenceGraph["nodes"][number] }> = input.graph.sourceAssetIds
+  const assetCandidates: Array<{ data: ResumeItemV2; relevance: number; node?: ResumeEvidenceGraph["nodes"][number] }> = effectiveInput.graph.sourceAssetIds
     .flatMap((id) => {
       const data = canonicalById.get(id);
       if (!data) return [];
-      const node = input.graph.nodes.find((candidate) => candidate.id === `asset:${id}`);
-      const relevance = input.mode === "job_specific"
+      const node = effectiveInput.graph.nodes.find((candidate) => candidate.id === `asset:${id}`);
+      const relevance = effectiveInput.mode === "job_specific"
         ? jobRelevance(data, keywordCoverage)
-        : generalRelevance(data, node?.factIds.length ?? 0, input);
+        : generalRelevance(data, node?.factIds.length ?? 0, effectiveInput, node?.sourceExcerpts.join(" "));
       return [{ data, relevance, node }];
     })
     .sort((left, right) => right.relevance - left.relevance || assetTitle(left.data).localeCompare(assetTitle(right.data)));
 
-  const selected = selectAssets(assetCandidates, input.mode, input);
+  const selected = selectAssets(assetCandidates, effectiveInput.mode, effectiveInput);
   const assets = selected.map(({ data, relevance, node }) => ({
     sourceAssetId: data.id,
     sectionType: data.sectionType,
@@ -45,9 +53,9 @@ export function planResumeBlueprint(input: ResumeBlueprintInput): ResumeBlueprin
     sourceFactIds: node?.factIds ?? [],
     evidenceNodeIds: node ? [node.id] : [],
     relevance,
-    inclusionReason: inclusionReason(data, input.mode, relevance, input),
+    inclusionReason: inclusionReason(data, effectiveInput.mode, relevance, effectiveInput),
     bulletPlan: bulletPlan(data),
-    explicitTools: explicitTools(data, input.graph)
+    explicitTools: explicitTools(data, effectiveInput.graph)
   }));
 
   const skillGroups = normalizeSkillGroups(input.graph.skillMatrix);
@@ -56,22 +64,22 @@ export function planResumeBlueprint(input: ResumeBlueprintInput): ResumeBlueprin
     selectedCount: selected.length,
     projectCount,
     bulletCount: selected.reduce((sum, item) => sum + Math.max(1, bulletPlan(item.data).length), 0),
-    skillCount: input.graph.skillMatrix.length,
+    skillCount: effectiveInput.graph.skillMatrix.length,
     hasSummary: Boolean(profile.basics.summary || selected.length)
   });
 
-  const informationNeeds = buildInformationNeeds(input, keywordCoverage);
-  const sections = buildSections(selected, input.graph.skillMatrix.length, input.mode);
+  const informationNeeds = buildInformationNeeds(effectiveInput, keywordCoverage);
+  const sections = buildSections(selected, effectiveInput.graph.skillMatrix.length, effectiveInput.mode);
   return ResumeBlueprintSchema.parse({
     schemaVersion: "resume-blueprint-v1",
-    mode: input.mode,
+    mode: effectiveInput.mode,
     profileId: profile.id,
     profileRevision: profile.version,
-    ...(input.job ? { jobId: input.job.id, targetRole: input.job.title } : {}),
-    ...(input.targetDirection ? { targetDirection: input.targetDirection } : {}),
-    ...(input.targetAudience ? { targetAudience: input.targetAudience } : {}),
-    ...(input.companyType ? { companyType: input.companyType } : {}),
-    summaryPlan: summaryPlan(profile, selected, input),
+    ...(effectiveInput.job ? { jobId: effectiveInput.job.id, targetRole: effectiveInput.job.title } : {}),
+    ...(effectiveInput.targetDirection ? { targetDirection: effectiveInput.targetDirection } : {}),
+    ...(effectiveInput.targetAudience ? { targetAudience: effectiveInput.targetAudience } : {}),
+    ...(effectiveInput.companyType ? { companyType: effectiveInput.companyType } : {}),
+    summaryPlan: summaryPlan(profile, selected, effectiveInput),
     skillGroups,
     sections,
     assets,
@@ -220,10 +228,10 @@ function summaryPlan(
   return `${lead}${audienceText}${directionText}，${focus}。`;
 }
 
-function generalRelevance(item: ResumeItemV2, factCount: number, input: ResumeBlueprintInput) {
+function generalRelevance(item: ResumeItemV2, factCount: number, input: ResumeBlueprintInput, evidenceText = "") {
   const sectionWeight: Record<string, number> = { education: 0.95, project: 0.9, research: 0.88, work: 0.86, internship: 0.82, campus: 0.7, awards: 0.65, certificates: 0.58 };
   const direction = [input.targetDirection, input.targetAudience, input.companyType].filter(Boolean).join(" ").toLocaleLowerCase();
-  const text = itemText(item).toLocaleLowerCase();
+  const text = `${itemText(item)} ${evidenceText}`.toLocaleLowerCase();
   const technicalSignal = findTechnicalTerms(text).length;
   const internetSignal = /互联网|秋招|前端|后端|全栈|ai|人工智能|软件|产品/iu.test(direction)
     ? Math.min(0.12, technicalSignal * 0.025)

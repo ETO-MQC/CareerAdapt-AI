@@ -742,6 +742,7 @@ export class BrowserAgentToolService implements AgentToolServices {
       expectedProfileVersion: number;
       acknowledgedActiveProfileId?: string;
       name?: string;
+      mode?: "create_new" | "update_existing";
     };
     await assertActiveProfileBinding(this.repository, input);
     const profile = await this.repository.getProfile(input.targetProfileId);
@@ -751,7 +752,8 @@ export class BrowserAgentToolService implements AgentToolServices {
     const result = await this.repository.ensureGeneralResumeFromProfile({
       profileId: input.targetProfileId,
       operationId,
-      name: input.name
+      name: input.name,
+      mode: input.mode
     });
     return {
       profileId: input.targetProfileId,
@@ -853,6 +855,7 @@ export class BrowserAgentToolService implements AgentToolServices {
       jobId?: string;
       sourceResumeId?: string;
       name?: string;
+      generalResumeMode?: "create_new" | "update_existing";
       targetDirection?: string;
       targetAudience?: string;
       companyType?: string;
@@ -868,7 +871,10 @@ export class BrowserAgentToolService implements AgentToolServices {
         profileId: context.profile.id,
         operationId,
         name: input.name?.trim() || `${context.profile.name} · 通用简历`,
-        composition
+        composition,
+        // Card 4 is a new independent general branch by default. Updating an
+        // existing branch is only reachable through the explicit mode.
+        mode: input.generalResumeMode ?? "create_new"
       });
       return {
         profileId: context.profile.id,

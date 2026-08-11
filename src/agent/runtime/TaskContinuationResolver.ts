@@ -82,6 +82,19 @@ export function resolveContinuationIntent(state: AgentTaskState, message: string
         };
       }
     }
+
+    // “提升匹配度” is a continuation of the Apply/Tailor root. The fit
+    // analysis is evidence for that root, not a new analyze_job_fit task.
+    if (isTailoringContinuationTask(state) && /^(?:继续)?(?:提升|优化|改善)匹配度(?:吧|即可)?[。！!？?]?$/u.test(text)) {
+      return {
+        consumed: true,
+        intent: "continue",
+        slotUpdates: {
+          tailoringContinuation: "improve_fit",
+          tailoringWorkspaceView: "fit"
+        }
+      };
+    }
     if (/还是.*(刚才|之前).*(岗位|职位)|刚才那个岗位/.test(text)) {
       return {
         consumed: true,
@@ -143,10 +156,20 @@ export function deriveNextLegalStage(state: AgentTaskState) {
   }
   if (state.stage === "confirm_apply") return "confirm_apply";
   if (state.stage === "preview_changes") return "preview_changes";
+  if (state.knownSlots.fitAnalysis && state.selectedEntities.resumeId && state.selectedEntities.jobId) {
+    return "generate_plan";
+  }
   if (state.lastObservation && state.selectedEntities.resumeId && state.selectedEntities.jobId) {
     return "generate_plan";
   }
   return state.stage;
+}
+
+function isTailoringContinuationTask(state: AgentTaskState) {
+  if (state.completionStatus === "failed" || state.completionStatus === "cancelled") return false;
+  return state.rootGoal === "apply_to_job"
+    || state.rootGoal === "create_tailored_resume"
+    || state.workflowId === "tailor_existing_resume" && state.rootGoal !== "analyze_job_fit";
 }
 
 const TARGET_DIRECTION_QUESTION = "这份通用简历主要准备投什么方向？如果暂时没有明确方向，我先按互联网技术 / AI 应用通用版整理。";
@@ -157,6 +180,18 @@ function isResumeCompositionTask(state: AgentTaskState) {
 
 function resolveResumeCompositionContinuation(state: AgentTaskState, text: string): TaskContinuation | undefined {
   const compact = text.replace(/[\s。！!？?，,、：:；;]+$/gu, "");
+  if (/^(?:更新现有简历|更新当前简历)$/u.test(compact)) {
+    return {
+      consumed: true,
+      intent: "continue",
+      slotUpdates: {
+        resumeCompositionBranchMode: "update_existing",
+        resumeCompositionDecision: "generate",
+        resumeCompositionExplicitConfirmation: true,
+        resumeCompositionPendingInformationNeed: pendingTargetDirectionNeed("skipped")
+      }
+    };
+  }
   if (/^(?:直接生成|生成吧|按这个生成|确认生成|就按这个生成)$/u.test(compact)) {
     return {
       consumed: true,

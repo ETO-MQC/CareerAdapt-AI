@@ -402,6 +402,27 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
     if (!isAllowedCareerTool(input, request.toolName)) {
       const code = "agent_tool_not_allowed";
       counters.toolFailures += 1;
+      // Return a structured observation to the bridge so Hermes can refresh
+      // the legal tool set and replan. Emitting only a UI failure leaves the
+      // external run waiting for a callback and turns a repairable mismatch
+      // into a stuck runtime.
+      await this.dependencies.transport.toolCallback({
+        sessionId: hermesSessionId,
+        turnId: input.turnId ?? "hermes-turn-unknown",
+        toolCallId: request.toolCallId,
+        toolName: request.toolName,
+        operationId: request.operationId,
+        careerSessionBinding: binding,
+        result: {
+          ok: false,
+          error: {
+            code,
+            category: "validation",
+            recoverable: true,
+            retryHint: "刷新当前工作流阶段允许的工具后重新规划；不要重复或并行提交写入。"
+          }
+        }
+      }, input.signal);
       yield this.event(input, "tool_call_failed", {
         toolName: request.toolName,
         operationId: request.operationId,

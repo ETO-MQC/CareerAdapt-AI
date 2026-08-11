@@ -68,6 +68,22 @@ function createAgentHost() {
         && input.metadata?.runtimeEventPrepared === true
         && ["entity_selected", "option_selected", "retry"].includes(runtimeUserEvent.type)
       ) {
+        if (
+          runtimeUserEvent.type === "option_selected"
+          && runtimeUserEvent.action.type === "answer"
+          && runtimeUserEvent.action.field.startsWith("tailoring-question:")
+        ) {
+          const userMessage = [...session.messages].reverse().find((message) => message.role === "user")?.content ?? "";
+          return state.startTurn({
+            session,
+            userMessage,
+            userMessageId: session.activeTurn?.userMessageId,
+            appendUserMessage: false,
+            pageContext: input.pageContext,
+            turnId: input.turnId,
+            runtimeDiagnostics: runtimeDiagnosticsFromMetadata(input.metadata)
+          });
+        }
         return state.continueRuntimeEvent({
           session,
           event: runtimeUserEvent,
@@ -90,6 +106,9 @@ function createAgentHost() {
             stage: session.taskState.stage
           }
         : undefined;
+      const quickTask = runtimeUserEvent?.type === "quick_action_started"
+        ? runtimeUserEvent.task
+        : undefined;
       return state.startTurn({
         session,
         userMessage: input.userMessage,
@@ -97,7 +116,7 @@ function createAgentHost() {
         turnId: input.turnId,
         runtimeId: "native",
         runtimeDiagnostics: runtimeDiagnosticsFromMetadata(input.metadata),
-        typedTask: preparedTask,
+        typedTask: quickTask ?? preparedTask,
         ...(hasRuntimeShell ? {
           userMessageId: runtimeShellUserMessageId,
           assistantMessageId: runtimeShellMessageId,
@@ -141,7 +160,8 @@ function createAgentHost() {
     // The UI consumes only this stable event protocol.  Native and Hermes can
     // change their internals without changing the workspace submission path.
     const runtime = runtimeRouter.active();
-    const preparedSession = input.session && input.userMessage.trim()
+    const runtimeUserEvent = input.metadata?.runtimeUserEvent as RuntimeUserEvent | undefined;
+    const preparedSession = input.session && input.userMessage.trim() && runtimeUserEvent?.type !== "quick_action_started"
       ? await state.prepareRuntimeTask({
           session: input.session,
           userMessage: input.userMessage,
@@ -153,7 +173,6 @@ function createAgentHost() {
       ? { ...input, session: preparedSession }
       : input;
     const statusBeforeTurn = runtimeStatus.getSnapshot();
-    const runtimeUserEvent = input.metadata?.runtimeUserEvent as RuntimeUserEvent | undefined;
     const canStartHermesShell = runtime.id === "hermes"
       && statusBeforeTurn.status === "ready"
       && statusBeforeTurn.mcpConnected !== false
