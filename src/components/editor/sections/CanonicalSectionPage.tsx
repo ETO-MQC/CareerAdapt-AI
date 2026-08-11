@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import type { CustomFieldValue, ResumeContentItemV2, ResumeItemV2 } from "@/domain/schemas";
 import { normalizeAwardedAt } from "@/domain/migrations/resumeV2";
 import { resumeFieldCatalog, type ResumeFieldDefinition, type ResumeSectionTypeV2 } from "@/domain/resumeFields";
+import { resolveCareerAssetDisplayIdentity } from "@/domain/resumeComposition/CareerAssetDisplayIdentity";
 import { AccordionList } from "../AccordionList";
 import { SectionShell } from "../SectionShell";
 import { type SectionNavContext, nextSection, prevSection } from "./types";
@@ -194,7 +195,6 @@ function customFieldWithText(field: CustomFieldValue, value: string): CustomFiel
 }
 
 function itemTitle(item: ResumeItemV2, fallback: string, index: number) {
-  const record = item as unknown as Record<string, unknown>;
-  return [record.title, record.name, record.organization, record.school, record.language]
-    .find((value) => typeof value === "string" && value.trim()) as string | undefined ?? `${fallback} ${index + 1}`;
+  const identity = resolveCareerAssetDisplayIdentity(item);
+  return identity.displayIdentityMissing ? `${fallback} ${index + 1}` : identity.label;
 }

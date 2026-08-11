@@ -16,23 +16,14 @@ import {
   type ResumeSkillEvidence,
   type ResumeEvidenceRecoveryCandidate
 } from "./contracts";
+import { resolveCareerAssetDisplayIdentity } from "./CareerAssetDisplayIdentity";
+import {
+  canonicalTechnicalTerm,
+  extractTechnicalTerms,
+  technicalTermCategory
+} from "./ResumeSkillTaxonomy";
 
 type FactLookup = Map<string, FactStatement>;
-
-const TECHNICAL_TERMS = [
-  "TypeScript", "JavaScript", "Python", "Java", "C++", "Rust", "Go", "RPA", "FastAPI", "React", "Next.js",
-  "Vue", "Node.js", "SQL", "SQLx", "SQLite", "MySQL", "PostgreSQL", "MongoDB", "Redis", "ESP32", "Arduino",
-  "PlatformIO", "TensorFlow", "PyTorch", "机器学习", "深度学习", "数据处理", "数据分析", "数据可视化", "API",
-  "REST API", "Git", "Docker", "Linux", "Figma", "测试", "爬虫", "自动化"
-];
-
-const TERM_CATEGORY: Record<string, string> = {
-  TypeScript: "编程语言", JavaScript: "编程语言", Python: "编程语言", Java: "编程语言", "C++": "编程语言", Rust: "编程语言", Go: "编程语言",
-  React: "前端", "Next.js": "前端", Vue: "前端", "Node.js": "后端", FastAPI: "后端", API: "后端", "REST API": "后端",
-  SQL: "数据与 AI", "SQLx": "后端", SQLite: "数据库", MySQL: "数据库", PostgreSQL: "数据库", MongoDB: "数据库", Redis: "数据库",
-  RPA: "数据与 AI", "机器学习": "数据与 AI", "深度学习": "数据与 AI", "数据处理": "数据与 AI", "数据分析": "数据与 AI", "数据可视化": "数据与 AI",
-  ESP32: "工具与测试", Arduino: "工具与测试", PlatformIO: "工具与测试", TensorFlow: "数据与 AI", PyTorch: "数据与 AI", Git: "工具与测试", Docker: "工具与测试", Linux: "工具与测试", Figma: "工具与测试", 测试: "工具与测试", 爬虫: "数据与 AI", 自动化: "工具与测试"
-};
 
 export type ResumeEvidenceGraphInput = {
   profile: CareerProfile;
@@ -100,7 +91,7 @@ export function buildResumeEvidenceGraph(input: ResumeEvidenceGraphInput): Resum
       if (!existing) {
         skillEvidence.set(term, {
           name: term,
-          category: TERM_CATEGORY[term] ?? "其他",
+          category: technicalTermCategory(term) ?? "其他",
           sourceAssetIds: [assetId],
           factIds: sourceFactIds,
           evidenceNodeIds: [nodeId],
@@ -141,7 +132,7 @@ export function buildResumeEvidenceGraph(input: ResumeEvidenceGraphInput): Resum
     const term = canonicalTechnicalTerm(skill.name);
     if (!term || !isConfirmedFact(skill.fact)) continue;
     const existing = skillEvidence.get(term);
-    const category = TERM_CATEGORY[term] ?? "其他";
+    const category = technicalTermCategory(term) ?? "其他";
     if (existing) {
       existing.sourceAssetIds = unique([...existing.sourceAssetIds, skill.id]);
       existing.factIds = unique([...existing.factIds, ...sourceFactIds]);
@@ -189,11 +180,7 @@ function assetText(entry: ProfileStructuredFact, facts: FactStatement[]) {
 }
 
 function assetTitle(item: ResumeItemV2) {
-  const record = item as unknown as Record<string, unknown>;
-  for (const key of ["title", "name", "school", "organization", "institution", "language", "text"]) {
-    if (typeof record[key] === "string" && record[key].trim()) return record[key].trim();
-  }
-  return item.id;
+  return resolveCareerAssetDisplayIdentity(item).label;
 }
 
 function nodeTypeFor(item: ResumeItemV2): ResumeEvidenceNode["type"] {
@@ -203,25 +190,12 @@ function nodeTypeFor(item: ResumeItemV2): ResumeEvidenceNode["type"] {
 }
 
 function termNodeType(term: string): ResumeEvidenceNode["type"] {
-  return TERM_CATEGORY[term] === "工具与测试" ? "tool" : TERM_CATEGORY[term] === "数据与 AI" ? "method" : "skill";
+  const category = technicalTermCategory(term);
+  return category === "工程与测试" || category === "嵌入式 / IoT" ? "tool" : category === "数据与 AI" ? "method" : "skill";
 }
 
 function explicitTechnicalTerms(item: ResumeItemV2, text: string) {
-  const record = item as unknown as Record<string, unknown>;
-  const explicit = [
-    ...(Array.isArray(record.tools) ? record.tools : []),
-    ...(Array.isArray(record.methods) ? record.methods : []),
-    ...(Array.isArray(record.highlights) ? record.highlights : []),
-    ...(Array.isArray(record.outcomes) ? record.outcomes : []),
-    ...(Array.isArray(record.courses) ? record.courses : []),
-    text
-  ].filter((value): value is string => typeof value === "string").join(" ");
-  return TECHNICAL_TERMS.filter((term) => new RegExp(`(?:^|[^A-Za-z0-9+#.-])${escapeRegExp(term)}(?:$|[^A-Za-z0-9+#.-])`, "iu").test(explicit)
-    && !new RegExp(`(?:未涉及|未使用|没有|不会|不使用|不支持|不含|无)\\s*(?:[A-Za-z0-9+#.-]+\\s*){0,2}${escapeRegExp(term)}`, "iu").test(explicit));
-}
-
-function canonicalTechnicalTerm(value: string) {
-  return TECHNICAL_TERMS.find((term) => term.toLocaleLowerCase() === value.trim().toLocaleLowerCase());
+  return extractTechnicalTerms(item, text);
 }
 
 function nodeValuesFor(kind: "outcome" | "leadership" | "evidence", item: ResumeItemV2, text: string) {
@@ -294,10 +268,6 @@ function unique(values: string[]) {
 
 function stableToken(value: string) {
   return value.toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, "-").slice(0, 48);
-}
-
-function escapeRegExp(value: string) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function dedupeNodes(nodes: ResumeEvidenceNode[]) {

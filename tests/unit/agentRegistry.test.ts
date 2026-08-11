@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { AgentExecutor, AgentConfirmationRequiredError } from "@/agent/runtime/agentExecutor";
 import { AgentToolRegistry, createAgentToolRegistry, type AgentToolServices } from "@/agent/tools/registry";
+import { CareerToolGateway } from "@/agent/tools/CareerToolGateway";
 
 function services(): AgentToolServices {
   const result = async () => ({ value: "ok" });
@@ -31,7 +32,7 @@ describe("agent tool registry", () => {
   it("rejects unknown tools and exposes the required policy metadata", () => {
     const registry = createAgentToolRegistry(services());
     expect(() => registry.require("drop_database")).toThrow("Unknown agent tool");
-    expect(registry.list()).toHaveLength(46);
+    expect(registry.list()).toHaveLength(49);
     expect(registry.require("list_resumes")).toMatchObject({ risk: "read", requiresConfirmation: false });
     expect(registry.require("prepare_resume_import")).toMatchObject({ risk: "write", requiresConfirmation: false, resumable: true });
     expect(registry.require("review_resume_import")).toMatchObject({ risk: "user_declared", requiresConfirmation: false });
@@ -49,6 +50,21 @@ describe("agent tool registry", () => {
     expect(registry.require("apply_tailoring_changes")).toMatchObject({ risk: "write", requiresConfirmation: true });
     expect(registry.require("archive_resume")).toMatchObject({ risk: "write", requiresConfirmation: true, idempotent: true });
     expect(registry.require("restore_resume")).toMatchObject({ risk: "write", requiresConfirmation: true, idempotent: true });
+  });
+
+  it("exposes atomic runtime diagnostics through stable read-only Career names", () => {
+    const registry = createAgentToolRegistry(services());
+    const gateway = new CareerToolGateway(registry);
+    for (const name of ["career.system.runtime_status", "career.system.current_task", "career.system.last_failure"]) {
+      expect(gateway.getContract(name)).toMatchObject({
+        name,
+        namespace: "career.system",
+        readWrite: "read",
+        safetyClass: "READ",
+        confirmationPolicy: "none",
+        personProfileBinding: "none"
+      });
+    }
   });
 
   it("validates tool input and output schemas", async () => {

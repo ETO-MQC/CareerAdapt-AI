@@ -439,6 +439,42 @@ function createMockOutput(task: AiTask, input: unknown) {
       })
     };
   }
+  if (task === "resume-career-writer") {
+    const writerInput = input as {
+      assets?: Array<Record<string, unknown>>;
+      skillGroups?: Record<string, string[]>;
+    };
+    const assets = (writerInput.assets ?? []).map((asset) => {
+      const canonical = asset.canonicalItem && typeof asset.canonicalItem === "object" && !Array.isArray(asset.canonicalItem)
+        ? asset.canonicalItem as Record<string, unknown>
+        : {};
+      const sourceText = [
+        ...(Array.isArray(canonical.highlights) ? canonical.highlights : []),
+        ...(Array.isArray(canonical.outcomes) ? canonical.outcomes : []),
+        ...(Array.isArray(canonical.methods) ? canonical.methods : []),
+        typeof canonical.description === "string" ? canonical.description : "",
+        ...(Array.isArray(asset.factStatements) ? asset.factStatements.map(String) : [])
+      ].filter((value): value is string => typeof value === "string" && Boolean(value.trim()));
+      const highlights = dedupeCareerWriting(sourceText)
+        .flatMap((value) => value.split(/[\n。；;]+/u).map((part) => part.trim()).filter((part) => part.length >= 4))
+        .slice(0, 4);
+      return {
+        sourceAssetId: String(asset.sourceAssetId ?? ""),
+        title: String(asset.displayIdentity ?? "职业经历"),
+        ...(typeof canonical.role === "string" && canonical.role.trim() ? { role: canonical.role.trim() } : {}),
+        techStack: Array.isArray(asset.explicitTools) ? asset.explicitTools.map(String).slice(0, 8) : [],
+        highlights
+      };
+    });
+    return {
+      summary: assets.length ? `具备 ${assets.slice(0, 3).map((asset) => asset.title).join("、")} 等实践经历。` : undefined,
+      assets,
+      skillGroups: Object.entries(writerInput.skillGroups ?? {}).map(([category, skills]) => ({
+        category,
+        skills: Array.isArray(skills) ? skills.map(String) : []
+      }))
+    };
+  }
   if (task === "resume-document-mapper") {
     const rawText = typeof input === "object" && input && "rawText" in input ? String(input.rawText) : "[]";
     const blocks = parseAndRedactDocumentMapperBlocks(rawText);

@@ -6,13 +6,8 @@ import {
   type ResumeEvidenceGraph,
   type ResumeKeywordCoverage
 } from "./contracts";
-
-const TECHNICAL_TERMS = [
-  "TypeScript", "JavaScript", "Python", "Java", "C++", "Rust", "Go", "RPA", "FastAPI", "React", "Next.js",
-  "Vue", "Node.js", "SQL", "SQLx", "SQLite", "MySQL", "PostgreSQL", "MongoDB", "Redis", "ESP32", "Arduino",
-  "PlatformIO", "TensorFlow", "PyTorch", "机器学习", "深度学习", "数据处理", "数据分析", "数据可视化", "API",
-  "REST API", "Git", "Docker", "Linux", "Figma", "测试", "爬虫", "自动化"
-];
+import { resolveCareerAssetDisplayIdentity } from "./CareerAssetDisplayIdentity";
+import { findTechnicalTerms, normalizeSkillGroups } from "./ResumeSkillTaxonomy";
 
 export type ResumeBlueprintInput = {
   profile: CareerProfile;
@@ -52,13 +47,7 @@ export function planResumeBlueprint(input: ResumeBlueprintInput): ResumeBlueprin
     explicitTools: explicitTools(data, input.graph)
   }));
 
-  const grouped = new Map<string, string[]>();
-  for (const skill of input.graph.skillMatrix) {
-    const current = grouped.get(skill.category) ?? [];
-    current.push(skill.name);
-    grouped.set(skill.category, current);
-  }
-  const skillGroups = Object.fromEntries([...grouped.entries()].map(([category, values]) => [category, unique(values).slice(0, 16)]));
+  const skillGroups = normalizeSkillGroups(input.graph.skillMatrix);
   const projectCount = selected.filter(({ data }) => data.sectionType === "project").length;
   const estimatedPageCount = estimatePages({
     selectedCount: selected.length,
@@ -84,7 +73,7 @@ export function planResumeBlueprint(input: ResumeBlueprintInput): ResumeBlueprin
     keywordCoverage,
     pageBudget: {
       targetPages: 1,
-      maxProjects: 5,
+      maxProjects: 4,
       maxBulletsPerProject: 4,
       estimatedPageCount
     }
@@ -140,12 +129,21 @@ function selectAssets(candidates: Array<{ data: ResumeItemV2; relevance: number;
   const selected: typeof candidates = [];
   const education = candidates.find((candidate) => candidate.data.sectionType === "education");
   if (education) selected.push(education);
-  const limit = mode === "general" ? 9 : 7;
-  for (const candidate of candidates) {
-    if (selected.some((item) => item.data.id === candidate.data.id)) continue;
-    if (selected.length >= limit) break;
-    if (candidate.relevance < 0.2 && mode === "job_specific") continue;
+  const limit = mode === "general" ? 8 : 7;
+  const add = (candidate: (typeof candidates)[number]) => {
+    if (selected.some((item) => item.data.id === candidate.data.id) || selected.length >= limit) return;
+    if (candidate.relevance < 0.2 && mode === "job_specific") return;
+    if (candidate.data.sectionType === "project" && selected.filter((item) => item.data.sectionType === "project").length >= 4) return;
     selected.push(candidate);
+  };
+  if (mode === "general") {
+    for (const candidate of candidates.filter((item) => item.data.sectionType === "project")) add(candidate);
+    for (const candidate of candidates.filter((item) => item.data.sectionType === "research")) add(candidate);
+    for (const candidate of candidates.filter((item) => ["awards", "certificates"].includes(item.data.sectionType))) add(candidate);
+    for (const candidate of candidates.filter((item) => ["work", "internship", "portfolio", "publications", "patents"].includes(item.data.sectionType))) add(candidate);
+    for (const candidate of candidates.filter((item) => ["campus", "volunteer", "other", "custom"].includes(item.data.sectionType))) add(candidate);
+  } else {
+    for (const candidate of candidates) add(candidate);
   }
   return selected;
 }
@@ -161,7 +159,7 @@ function buildSections(selected: Array<{ data: ResumeItemV2; relevance: number }
   return [...sections.entries()].map(([sectionType, assetIds]) => ({
     sectionType,
     assetIds,
-    maxItems: sectionType === "project" ? Math.min(5, assetIds.length) : assetIds.length,
+    maxItems: sectionType === "project" ? Math.min(4, assetIds.length) : assetIds.length,
     priority: mode === "job_specific" && sectionType === "project" ? 0.95 : sectionType === "education" ? 0.9 : 0.7
   }));
 }
@@ -188,12 +186,21 @@ function buildInformationNeeds(input: ResumeBlueprintInput, coverage: ResumeKeyw
 function summaryPlan(profile: ReturnType<typeof migrateCareerProfileToV2>, selected: Array<{ data: ResumeItemV2 }>, mode: "general" | "job_specific", job?: JobDescription) {
   const education = selected.find(({ data }) => data.sectionType === "education")?.data;
   const school = education && education.sectionType === "education" ? education.school : undefined;
+  const visibleSkills = selected
+    .flatMap(({ data }) => {
+      const record = data as unknown as Record<string, unknown>;
+      return [...(Array.isArray(record.tools) ? record.tools : []), ...(Array.isArray(record.methods) ? record.methods : [])];
+    })
+    .filter((value): value is string => typeof value === "string" && Boolean(value.trim()))
+    .slice(0, 4);
   const direction = job?.title ?? profile.structuredBasics?.targetRole ?? profile.structuredBasics?.headline;
+  const sourceDirection = Boolean(direction && selected.some(({ data }) => itemText(data).toLocaleLowerCase().includes(direction.toLocaleLowerCase())));
+  void mode;
   return [
-    direction ? `${direction}方向，` : "",
-    school ? `${school}相关学习背景，` : "",
-    selected.some(({ data }) => data.sectionType === "project") ? "基于已确认项目与实践经历整理技术与问题解决证据。" : "基于已确认职业资产整理可核验的经历证据。"
-  ].filter(Boolean).join("");
+    sourceDirection ? `${direction}方向` : "",
+    school ? `${school}相关学习背景` : "",
+    visibleSkills.length ? `具备 ${unique(visibleSkills).join("、")} 项目实践` : selected.some(({ data }) => data.sectionType === "project") ? "具备项目实践" : ""
+  ].filter(Boolean).join("，") + "。";
 }
 
 function generalRelevance(item: ResumeItemV2, factCount: number) {
@@ -238,15 +245,7 @@ function itemText(item: ResumeItemV2) {
 }
 
 function assetTitle(item: ResumeItemV2) {
-  const record = item as unknown as Record<string, unknown>;
-  for (const key of ["title", "name", "school", "organization", "institution", "language", "text"]) {
-    if (typeof record[key] === "string" && record[key].trim()) return record[key].trim();
-  }
-  return item.id;
-}
-
-function findTechnicalTerms(text: string) {
-  return TECHNICAL_TERMS.filter((term) => new RegExp(`(?:^|[^A-Za-z0-9+#.-])${escapeRegExp(term)}(?:$|[^A-Za-z0-9+#.-])`, "iu").test(text));
+  return resolveCareerAssetDisplayIdentity(item).label;
 }
 
 function relatedEvidence(keyword: string, graph: ResumeEvidenceGraph, searchableByAsset: Map<string, string>) {

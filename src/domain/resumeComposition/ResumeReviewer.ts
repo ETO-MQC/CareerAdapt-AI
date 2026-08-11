@@ -6,6 +6,7 @@ import {
   type ResumeCompositionResult,
   type ResumeCompositionMetrics
 } from "./contracts";
+import { resolveCareerAssetDisplayIdentity } from "./CareerAssetDisplayIdentity";
 
 export function reviewResumeComposition(result: ResumeCompositionResult, input: { job?: JobDescription } = {}) {
   const findings: string[] = [];
@@ -36,8 +37,9 @@ export function reviewResumeComposition(result: ResumeCompositionResult, input: 
     revisedBulletCount += bullets.length;
     if (typeof data.description === "string" && data.description.length > 180) paragraphHeavyItems += 1;
     const sourceText = sourceClaims.map((claim) => claim.text).join(" ");
-    if (sourceText && bullets.some((bullet) => !preservesOwnership(sourceText, bullet))) findings.push(`${item.sourceAssetId}: ownership wording needs review`);
-    if (item.data.sectionType === "project" && typeof data.description === "string" && data.description.trim()) findings.push(`${item.sourceAssetId}: project item still contains a paragraph description`);
+    const displayIdentity = resolveCareerAssetDisplayIdentity(item.data).label;
+    if (sourceText && bullets.some((bullet) => !preservesOwnership(sourceText, bullet))) findings.push(`${displayIdentity}：职责表述需要再核对`);
+    if (item.data.sectionType === "project" && typeof data.description === "string" && data.description.trim()) findings.push(`${displayIdentity}：项目仍包含较长段落描述`);
     return patchBullets(item.data, bullets);
   });
 
@@ -55,7 +57,7 @@ export function reviewResumeComposition(result: ResumeCompositionResult, input: 
     pageOverflow,
     onePageReasonable: !pageOverflow || result.blueprint.pageBudget.estimatedPageCount <= 1.2
   };
-  const status = findings.some((finding) => /ownership|paragraph|unsupported/iu.test(finding)) ? "NEEDS_REVIEW" : "PASS";
+  const status = findings.some((finding) => /职责表述|项目仍包含|ownership|paragraph|unsupported/iu.test(finding)) ? "NEEDS_REVIEW" : "PASS";
   const reviewResult = ResumeReviewResultSchema.parse({
     status,
     findings,
@@ -84,5 +86,5 @@ function itemLineWeight(item: ResumeItemV2) {
   const record = item as unknown as Record<string, unknown>;
   const bullets = Array.isArray(record.highlights) ? record.highlights.length : 0;
   const title = ["title", "name", "school", "organization", "institution"].some((key) => typeof record[key] === "string" && record[key]) ? 1 : 0.5;
-  return title + bullets * 1.6 + (item.sectionType === "skills" ? 0.5 : 0);
+  return title + bullets * 1.6 + (item.sectionType === "skills" ? 0.18 : 0);
 }

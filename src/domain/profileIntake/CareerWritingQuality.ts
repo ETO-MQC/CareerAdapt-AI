@@ -53,7 +53,11 @@ export function preservesOwnership(sourceText: string, generatedText: string) {
 }
 
 export function isFiller(text: string) {
-  return /^(?:来源事实[:：]|原始事实已保留|待进一步补充|待整理经历|暂无可靠内容)/u.test(text.trim());
+  const value = text.trim();
+  return /^(?:来源事实[:：]|原始事实已保留|待进一步补充|待整理经历|暂无可靠内容)/u.test(value)
+    || /^(?:根据(?:已确认|当前)(?:资料|事实|信息)|该经历(?:已|将)|以下(?:内容|信息)来自|资料库中(?:记录|已有))/u.test(value)
+    || /(?:source\s*(?:fact|evidence)|placeholder|diagnostic|raw\s*transcript)/iu.test(value)
+    || /^(?:项目背景|项目描述|研究方法|工作内容|主要内容)[:：]?\s*$/u.test(value);
 }
 
 function writingTokens(text: string) {

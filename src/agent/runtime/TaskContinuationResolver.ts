@@ -163,7 +163,8 @@ function resolveResumeCompositionContinuation(state: AgentTaskState, text: strin
       intent: "continue",
       slotUpdates: {
         resumeCompositionDecision: "generate",
-        resumeCompositionExplicitConfirmation: true
+        resumeCompositionExplicitConfirmation: true,
+        resumeCompositionPendingInformationNeed: pendingTargetDirectionNeed("skipped")
       }
     };
   }

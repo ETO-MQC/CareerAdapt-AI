@@ -9,6 +9,7 @@ import type {
   TemplateId
 } from "@/domain/schemas";
 import { RESUME_SECTION_TYPES_V2, type CanonicalFieldId, type ResumeSectionTypeV2 } from "@/domain/resumeFields";
+import { compactSkillCategory } from "@/domain/resumeComposition/ResumeSkillTaxonomy";
 
 export type ResumeTemplateStyleConfig = Pick<
   ResumePresentationConfig,
@@ -499,7 +500,7 @@ function RenderPresentationItems({ items, context }: { items: ResumePresentation
 function RenderSkillPresentation({ items, context }: { items: ResumePresentationItem[]; context?: TemplateRenderContext }) {
   const groups = new Map<string, ResumePresentationItem[]>();
   for (const item of items) {
-    const label = item.groupLabel ?? "";
+    const label = compactSkillCategory(item.groupLabel ?? "");
     groups.set(label, [...(groups.get(label) ?? []), item]);
   }
   return <div className="resume-skill-groups">
@@ -507,15 +508,22 @@ function RenderSkillPresentation({ items, context }: { items: ResumePresentation
       <div className="resume-skill-group" key={label || "uncategorized"}>
         {label ? <strong>{label}</strong> : null}
         <div className="resume-skill-values">
-          {groupItems.map((item, index) => (
-            <div {...presentationItemAttrs(item, context, "resume-skill-item")} data-pagination-unit="content" key={`${item.id}-${index}`}>
-              <span className="resume-skill-heading">
-                <strong className="resume-skill-name">{item.primaryTitle}</strong>
-                {item.secondaryTitle ? <span className="resume-skill-level">（{item.secondaryTitle}）</span> : null}
-              </span>
-              {item.description ? <span className="resume-skill-description">{item.description}</span> : null}
-            </div>
-          ))}
+          <div {...presentationItemAttrs(groupItems[0], context, "resume-skill-item")} data-pagination-unit="content">
+            <span className="resume-skill-heading">
+              <strong className="resume-skill-name">{groupItems.map((item) => item.primaryTitle).filter(Boolean).join(" · ")}</strong>
+              {groupItems.some((item) => item.secondaryTitle) ? <span className="resume-skill-level">（{groupItems.map((item) => item.secondaryTitle).filter(Boolean).join(" · ")}）</span> : null}
+            </span>
+            {groupItems.map((item) => item.description).filter(Boolean).length ? <span className="resume-skill-description">{groupItems.map((item) => item.description).filter(Boolean).join("；")}</span> : null}
+            {groupItems.slice(1).map((item) => (
+              <span
+                aria-hidden="true"
+                className="resume-skill-coverage-marker"
+                data-coverage-item-id={item.sourceItemId ?? item.id}
+                data-render-fragment-index={item.fragmentIndex ?? 0}
+                key={`coverage:${item.id}`}
+              />
+            ))}
+          </div>
         </div>
       </div>
     ))}

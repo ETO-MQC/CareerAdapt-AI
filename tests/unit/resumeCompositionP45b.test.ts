@@ -1,8 +1,18 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { invokeStructuredAi } from "@/ai/client";
 import { CareerProfileSchema, JobDescriptionSchema, type FactCategory, type ResumeItemV2 } from "@/domain/schemas";
-import { compileResumeComposition, buildResumeEvidenceGraph, planResumeBlueprint } from "@/domain/resumeComposition";
+import {
+  CareerResumeWritingService,
+  compileResumeComposition,
+  buildResumeEvidenceGraph,
+  planResumeBlueprint,
+  resolveCareerAssetDisplayIdentity,
+  findTechnicalTerms
+} from "@/domain/resumeComposition";
 import { projectResumePresentationItem } from "@/domain/resumePresentation/projector";
 import { canonicalToStructuredProjectFields, patchCanonicalProjectFields } from "@/domain/resumeFields/catalog";
+
+vi.mock("@/ai/client", () => ({ invokeStructuredAi: vi.fn() }));
 
 const TIME = "2026-08-01T00:00:00.000Z";
 
@@ -193,5 +203,70 @@ describe("P4.5b resume compilation intelligence", () => {
 
     expect(career?.data.sectionType === "project" ? career.data.tools : []).toEqual(expect.arrayContaining(["TypeScript", "Next.js"]));
     expect(recoveredEntry?.data.sectionType === "project" ? recoveredEntry.data.tools : []).toEqual([]);
+  });
+
+  it("lets the model improve phrasing while deterministic boundaries keep identity, tools, and skills grounded", async () => {
+    const profile = profileFixture();
+    const graph = buildResumeEvidenceGraph({ profile });
+    const blueprint = planResumeBlueprint({ profile, graph, mode: "general" });
+    const selectedProject = blueprint.assets.find((asset) => asset.sourceAssetId === "exp-career")
+      ?? blueprint.assets.find((asset) => asset.sectionType === "project");
+    expect(selectedProject).toBeDefined();
+    vi.mocked(invokeStructuredAi).mockResolvedValueOnce({
+      ok: true,
+      data: {
+        summary: "根据已确认资料，为候选人生成一段看起来完整但不应直接展示的说明。",
+        assets: [
+          {
+            sourceAssetId: selectedProject!.sourceAssetId,
+            title: "内部 asset-exp-fox 标识",
+            role: "项目成员",
+            techStack: ["TypeScript", "API", "未确认工具"],
+            highlights: [
+              "参与简历工作流开发。",
+              "根据已确认资料整理项目。",
+              "负责并不存在的量化结果。"
+            ]
+          },
+          {
+            sourceAssetId: "not-selected",
+            title: "不应进入简历的项目",
+            techStack: [],
+            highlights: ["这条资产不在蓝图中。"]
+          }
+        ],
+        skillGroups: [
+          { category: "后端", skills: ["API", "TypeScript", "未确认技能"] },
+          { category: "编程语言", skills: ["TypeScript"] }
+        ]
+      }
+    } as never);
+
+    const output = await new CareerResumeWritingService().write({
+      profile,
+      graph,
+      blueprint,
+      mode: "general"
+    });
+    const groundedAsset = output?.assets.find((asset) => asset.sourceAssetId === selectedProject!.sourceAssetId);
+    const selectedEntry = profile.structuredFacts?.find((entry) => entry.data.id === selectedProject!.sourceAssetId);
+    const expectedTitle = selectedEntry ? resolveCareerAssetDisplayIdentity(selectedEntry.data).label : "";
+
+    expect(invokeStructuredAi).toHaveBeenCalledWith(expect.objectContaining({ task: "resume-career-writer" }));
+    expect(groundedAsset).toMatchObject({ title: expectedTitle, role: "项目成员" });
+    expect(groundedAsset?.techStack).toEqual(expect.arrayContaining(["TypeScript"]));
+    expect(groundedAsset?.techStack).not.toContain("API");
+    expect(groundedAsset?.highlights).toEqual(["参与简历工作流开发。"]);
+    expect(output?.assets.some((asset) => asset.sourceAssetId === "not-selected")).toBe(false);
+    expect(output?.summary).toBeUndefined();
+    expect(output?.skillGroups.flatMap((group) => group.skills)).toContain("TypeScript");
+    expect(output?.skillGroups.flatMap((group) => group.skills)).not.toContain("API");
+  });
+
+  it("uses section labels instead of internal IDs and filters generic technical noise", () => {
+    const profile = profileFixture();
+    const unnamed = profile.structuredFacts?.find((entry) => entry.data.id === "exp-career")?.data;
+    expect(unnamed?.sectionType === "project" ? resolveCareerAssetDisplayIdentity({ ...unnamed, title: "", role: undefined }).label : "").toBe("项目经历");
+    expect(findTechnicalTerms("使用 API、测试和 React 完成页面；部署在 ESP32 上。")).toEqual(["React", "ESP32"]);
   });
 });

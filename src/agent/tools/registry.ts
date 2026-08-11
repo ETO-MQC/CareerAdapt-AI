@@ -29,6 +29,9 @@ export type AgentToolServices = {
   reviewResumeComposition?(input: unknown, signal?: AbortSignal): Promise<unknown>;
   composeResume?(input: unknown, operationId: string, signal?: AbortSignal): Promise<unknown>;
   getAgentTaskContext?(input: unknown, signal?: AbortSignal): Promise<unknown>;
+  getAgentRuntimeStatus?(input: unknown, signal?: AbortSignal): Promise<unknown>;
+  getAgentCurrentTask?(input: unknown, signal?: AbortSignal): Promise<unknown>;
+  getAgentLastFailure?(input: unknown, signal?: AbortSignal): Promise<unknown>;
   searchAgentSessions?(input: unknown, signal?: AbortSignal): Promise<unknown>;
   skillsList?(signal?: AbortSignal): Promise<unknown>;
   skillView?(input: unknown, signal?: AbortSignal): Promise<unknown>;
@@ -314,6 +317,9 @@ export function createAgentToolRegistry(services: AgentToolServices) {
     define(services, meta("review_resume_composition", "审查组装草稿的事实边界、重复、职责强度、段落密度和岗位关键词覆盖；不会写入简历。", "read", false, true, true, ResumeCompositionInputSchema, "resume", "resume_review"), (input, _, signal) => services.reviewResumeComposition ? services.reviewResumeComposition(input, signal) : unavailableTool("review_resume_composition")),
     define(services, meta("compose_resume", "在用户确认组装提案后，将证据图、蓝图、写作和审查结果写入独立 ResumeRevision；不会反向修改 Profile。", "write", true, true, true, ResumeCompositionInputSchema, "resume", "resume_revision", true), (input, operationId, signal) => services.composeResume ? services.composeResume(input, operationId, signal) : unavailableTool("compose_resume")),
     define(services, meta("get_agent_task_context", "读取一个 Agent Session 的工作流、步骤和已选实体指针。", "read", false, true, true, TaskContextInputSchema, "agent", "task_context"), (input, _, signal) => services.getAgentTaskContext ? services.getAgentTaskContext(input, signal) : unavailableTool("get_agent_task_context")),
+    define(services, meta("get_agent_runtime_status", "读取一个 Agent Session 当前运行时、回退状态和活动轮次；只读诊断。", "read", false, true, true, TaskContextInputSchema, "agent", "runtime_status"), (input, _, signal) => services.getAgentRuntimeStatus ? services.getAgentRuntimeStatus(input, signal) : unavailableTool("get_agent_runtime_status")),
+    define(services, meta("get_agent_current_task", "读取一个 Agent Session 当前任务、阶段、完成状态和缺失槽位；只读诊断。", "read", false, true, true, TaskContextInputSchema, "agent", "current_task"), (input, _, signal) => services.getAgentCurrentTask ? services.getAgentCurrentTask(input, signal) : unavailableTool("get_agent_current_task")),
+    define(services, meta("get_agent_last_failure", "读取一个 Agent Session 最近一次运行或工具失败的安全摘要；只读诊断。", "read", false, true, true, TaskContextInputSchema, "agent", "last_failure"), (input, _, signal) => services.getAgentLastFailure ? services.getAgentLastFailure(input, signal) : unavailableTool("get_agent_last_failure")),
     define(services, meta("search_agent_sessions", "按标题、摘要和用户修正检索历史 Agent Session。", "read", false, true, true, SessionSearchInputSchema, "agent", "episodic_memory"), (input, _, signal) => services.searchAgentSessions ? services.searchAgentSessions(input, signal) : unavailableTool("search_agent_sessions")),
     define(services, meta("skills_list", "列出可按需加载的 CareerAdapt 程序性 Skills 元数据。", "read", false, true, true, EmptyInputSchema, "skill", "procedural_memory"), (_, __, signal) => services.skillsList ? services.skillsList(signal) : unavailableTool("skills_list")),
     define(services, meta("skill_view", "读取一个 Skill 的方法或其允许的单个参考文件。", "read", false, true, true, SkillViewInputSchema, "skill", "procedural_memory"), (input, _, signal) => services.skillView ? services.skillView(input, signal) : unavailableTool("skill_view")),
@@ -490,7 +496,7 @@ function isRetryableToolError(code: string) {
 
 export const agentToolNames = [
   "list_resumes", "list_profiles", "list_jobs", "get_active_profile", "get_profile", "search_profile_facts",
-  "get_resume", "get_resume_revision", "get_job", "get_agent_task_context", "search_agent_sessions",
+  "get_resume", "get_resume_revision", "get_job", "get_agent_task_context", "get_agent_runtime_status", "get_agent_current_task", "get_agent_last_failure", "search_agent_sessions",
   "recommend_resume_source",
   "skills_list", "skill_view", "prepare_resume_import", "review_resume_import", "reconcile_resume_import",
   "resolve_resume_reconciliation", "parse_resume_file", "create_resume_import_draft",

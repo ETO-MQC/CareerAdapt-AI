@@ -156,6 +156,9 @@ export function classifyTurnIntent(input: {
   ) {
     return decision("casual_side_turn", "preserve", "none", profileIntakeTurnKind, activeQuestionResolution);
   }
+  if (isGeneralCareerQuestion(text)) {
+    return decision("casual_side_turn", "preserve", "none", profileIntakeTurnKind, activeQuestionResolution);
+  }
   // A canonical Resume Composition task owns its short follow-up turns. Do
   // not let a lexical fallback route an answer such as “用于互联网的秋招”
   // into tailoring or generic conversation while its information need or
@@ -513,6 +516,14 @@ function isActiveResumeCompositionFollowup(taskState?: AgentTaskState) {
     || taskState.stage === "select_profile_scope"
     || taskState.stage === "review_composition"
     || taskState.stage === "confirm_create";
+}
+
+function isGeneralCareerQuestion(text: string) {
+  return (
+    /(?:为什么|为何|怎么|如何|哪些|哪个|值得|适合|建议|是否|会不会).*(?:简历|项目|技能|经历|方向|前端|后端|AI|技术|写|保留|删|突出|量化)/iu.test(text)
+    || /(?:项目|技能|经历|方向|简历).*(?:为什么|为何|怎么|如何|哪些|哪个|值得|适合|建议|是否|会不会)/iu.test(text)
+    || /更适合(?:前端|后端|数据|AI|技术|产品|运营)|哪些技能值得写|这个项目怎么写|这段经历怎么写/iu.test(text)
+  );
 }
 
 function referenceToolScope(text: string): TurnToolScope {

@@ -207,6 +207,7 @@ function resumeCompositionContractComplete(state: AgentTaskState) {
     && state.selectedEntities.resumeId
     && state.selectedEntities.revisionId
     && hasResumeCompositionCompletionResult(state)
+    && !hasPendingResumeCompositionInformationNeed(state)
     && state.stage === "resume_ready"
     && state.completionStatus === "completed"
   );
@@ -218,6 +219,10 @@ function hasResumeCompositionCompletionResult(state: AgentTaskState) {
     || state.knownSlots.resumeCompositionMigration === "legacy_build_resume_from_profile"
       && state.knownSlots.resumeCompositionLegacyResult
   );
+}
+
+function hasPendingResumeCompositionInformationNeed(state: AgentTaskState) {
+  return objectValue(state.knownSlots.resumeCompositionPendingInformationNeed).status === "pending";
 }
 
 function isResumeCompositionTask(state: AgentTaskState) {

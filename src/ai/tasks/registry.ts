@@ -52,6 +52,7 @@ import { profileBuilderPrompt } from "@/ai/prompts/profileBuilder";
 import { profileIntakeSemanticPrompt } from "@/ai/prompts/profileIntakeSemantic";
 import { profileIntakeFollowUpPatchPrompt } from "@/ai/prompts/profileIntakeFollowUpPatch";
 import { profileIntakeFinalCareerSynthesisPrompt } from "@/ai/prompts/profileIntakeFinalCareerSynthesis";
+import { resumeCareerWriterPrompt } from "@/ai/prompts/resumeCareerWriter";
 import { resumeTailorPrompt } from "@/ai/prompts/resumeTailor";
 import { resumeTailoringDiffPrompt } from "@/ai/prompts/resumeTailoringDiff";
 import { resumeJsonMapperPrompt } from "@/ai/prompts/resumeJsonMapper";
@@ -76,6 +77,10 @@ import {
   ProfileIntakeFinalCareerSynthesisOutputSchema,
   type ProfileIntakeFinalCareerSynthesisOutput
 } from "@/domain/profileIntake/ProfileIntakeFinalCareerSynthesis";
+import {
+  CareerResumeWritingOutputSchema,
+  type CareerResumeWritingOutput
+} from "@/domain/resumeComposition/contracts";
 
 export const stageBAiTaskSchema = z.enum(["profile-builder", "jd-analyzer"]);
 
@@ -96,6 +101,22 @@ export const ProfileIntakeFinalCareerSynthesisTaskInputSchema = ProfileIntakeFin
 }).strict();
 export const ResumeJsonMapperTaskInputSchema = BaseAiInputSchema;
 export const ResumeDocumentMapperTaskInputSchema = BaseAiInputSchema;
+export const ResumeCareerWritingTaskInputSchema = z.object({
+  mode: z.enum(["general", "job_specific"]),
+  targetRole: z.string().max(160).optional(),
+  assets: z.array(z.object({
+    sourceAssetId: z.string().min(1),
+    displayIdentity: z.string().min(1),
+    sectionType: z.string().min(1),
+    canonicalItem: z.unknown(),
+    factStatements: z.array(z.string()).default([]),
+    evidenceExcerpts: z.array(z.string()).default([]),
+    ownershipStrength: z.number().int().min(0).max(6),
+    explicitTools: z.array(z.string()).default([])
+  }).strict()).max(8),
+  skillGroups: z.record(z.string(), z.array(z.string())).default({}),
+  instructions: z.array(z.string()).default([])
+}).strict();
 
 export const JdAnalyzerTaskInputSchema = BaseAiInputSchema.extend({
   title: z.string().min(1).max(120),
@@ -161,6 +182,7 @@ export type ProfileIntakeFollowUpPatchTaskInput = z.input<typeof ProfileIntakeFo
 export type ProfileIntakeFinalCareerSynthesisTaskInput = z.infer<typeof ProfileIntakeFinalCareerSynthesisTaskInputSchema>;
 export type ResumeJsonMapperTaskInput = z.infer<typeof ResumeJsonMapperTaskInputSchema>;
 export type ResumeDocumentMapperTaskInput = z.infer<typeof ResumeDocumentMapperTaskInputSchema>;
+export type ResumeCareerWritingTaskInput = z.infer<typeof ResumeCareerWritingTaskInputSchema>;
 export type JdAnalyzerTaskInput = z.infer<typeof JdAnalyzerTaskInputSchema>;
 export type EvidenceMatcherTaskInput = z.infer<typeof EvidenceMatcherTaskInputSchema>;
 export type ResumeTailorTaskInput = z.infer<typeof ResumeTailorTaskInputSchema>;
@@ -482,6 +504,40 @@ export const aiTaskRegistry = {
       }
     }
   } satisfies AiTaskDefinition<ProfileIntakeFinalCareerSynthesisTaskInput, ProfileIntakeFinalCareerSynthesisOutput>,
+  "resume-career-writer": {
+    task: "resume-career-writer",
+    promptVersion: resumeCareerWriterPrompt.version,
+    systemPrompt: resumeCareerWriterPrompt.system,
+    inputSchema: ResumeCareerWritingTaskInputSchema,
+    outputSchema: CareerResumeWritingOutputSchema,
+    maxOutputChars: 24_000,
+    buildUserPrompt(input: ResumeCareerWritingTaskInput) {
+      return JSON.stringify({
+        mode: input.mode,
+        targetRole: input.targetRole,
+        assets: input.assets,
+        skillGroups: input.skillGroups,
+        instructions: [
+          "Write the summary only from the supplied confirmed evidence.",
+          "For each selected asset, keep sourceAssetId unchanged and return 0 to 4 concise highlights.",
+          "Use only explicitTools for techStack; do not infer a tool from a neighboring concept.",
+          ...input.instructions
+        ]
+      }, null, 2);
+    },
+    coerceRawOutput(rawOutput: unknown) {
+      return rawOutput;
+    },
+    normalizeOutput(output: CareerResumeWritingOutput) {
+      return CareerResumeWritingOutputSchema.parse(output);
+    },
+    validateOutput(output: CareerResumeWritingOutput, input: ResumeCareerWritingTaskInput) {
+      const allowed = new Set(input.assets.map((asset) => asset.sourceAssetId));
+      for (const asset of output.assets) {
+        if (!allowed.has(asset.sourceAssetId)) throw new Error("resume_career_writer_asset_out_of_scope");
+      }
+    }
+  } satisfies AiTaskDefinition<ResumeCareerWritingTaskInput, CareerResumeWritingOutput>,
   "resume-document-mapper": {
     task: "resume-document-mapper",
     promptVersion: resumeDocumentMapperPrompt.version,

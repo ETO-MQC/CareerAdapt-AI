@@ -9,6 +9,7 @@ export const AiTaskSchema = z.enum([
   "profile-intake-semantic",
   "profile-intake-follow-up-patch",
   "profile-intake-final-career-synthesis",
+  "resume-career-writer",
   "resume-json-mapper",
   "resume-document-mapper",
   "jd-analyzer",

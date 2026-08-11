@@ -10,6 +10,7 @@ import {
 import { buildResumePdfFileName, contentDispositionAttachment, isSafePdfFileName, PDF_MIME_TYPE } from "@/services/export/filename";
 import { createResumePaginationPlan } from "@/services/export/pagination";
 import { createResumePdfExportRequest, stableStringify, verifyExportSnapshotHash } from "@/services/export/snapshot";
+import { renderResumePdfHtml } from "@/services/export/pdfHtml";
 import { CareerAdaptDb } from "@/services/storage/db";
 import { WorkspaceRepository } from "@/services/storage/repositories";
 
@@ -123,6 +124,35 @@ describe("V2 G3a direct PDF export", () => {
     expect(first.snapshot.snapshotHash).toBe(second.snapshot.snapshotHash);
     expect(first.snapshot.snapshotHash).not.toBe(changed.snapshot.snapshotHash);
     expect(stableStringify({ b: 1, a: 2 })).toBe(stableStringify({ a: 2, b: 1 }));
+  });
+
+  it("renders a real PDF HTML artifact with user-facing labels and no visible internal asset ids", async () => {
+    const { branch, presentationConfig, job } = await createBranchFixture("CareerAdaptG3aArtifact");
+    const renderModel = mapBranchToResumeRenderModel({
+      branch,
+      profile: demoCareerProfile,
+      job,
+      presentationConfig
+    });
+    const request = createResumePdfExportRequest({
+      exportId: "v2-g3a-artifact-test",
+      renderModel,
+      presentationConfig,
+      generatedAt: "2026-07-04T12:00:00.000Z",
+      filename: "artifact-test.pdf",
+      overflowStatus: "fits_one_page",
+      paginationPlan: createPaginationPlanFixture(renderModel, presentationConfig)
+    });
+
+    const html = await renderResumePdfHtml(request.snapshot);
+    const visibleText = html
+      .replace(/<style[\s\S]*?<\/style>/giu, "")
+      .replace(/<[^>]+>/gu, " ")
+      .replace(/\s+/gu, " ");
+
+    expect(html).toContain('data-testid="resume-a4-page"');
+    expect(visibleText).toContain(demoCareerProfile.basics.name);
+    expect(visibleText).not.toMatch(/(?:branch-item-|composition-|asset[_ -]?id|fact[_ -]?id)/iu);
   });
 
   it("records direct PDF success with frozen historical revision after concurrent edits", async () => {

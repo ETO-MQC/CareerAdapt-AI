@@ -227,7 +227,15 @@ function migrateCompositionTaskState(value: Record<string, unknown>) {
       : migratedLegacyCompletion
         ? "resume_ready"
       : value.stage;
-  if (!knownSlots.resumeCompositionPendingInformationNeed && !knownSlots.resumeCompositionTargetDirection) {
+  const compositionIsTerminal = Boolean(
+    knownSlots.resumeCompositionResult
+    || migratedLegacyCompletion
+    || value.completionStatus === "completed"
+    || stage === "resume_ready"
+  );
+  if (compositionIsTerminal) {
+    delete knownSlots.resumeCompositionPendingInformationNeed;
+  } else if (!knownSlots.resumeCompositionPendingInformationNeed && !knownSlots.resumeCompositionTargetDirection) {
     knownSlots.resumeCompositionPendingInformationNeed = {
       informationNeedId: "target_direction",
       question: "这份通用简历主要准备投什么方向？如果暂时没有明确方向，我先按互联网技术 / AI 应用通用版整理。",

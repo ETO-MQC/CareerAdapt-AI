@@ -81,7 +81,8 @@ import {
 } from "@/agent/workflows/ProfileIntakeInterviewSupervisor";
 import {
   buildResumeEvidenceGraph,
-  compileResumeComposition,
+  compileResumeCompositionWithAi,
+  CareerResumeWritingService,
   planResumeBlueprint,
   reviewResumeComposition,
   type ResumeCompositionMode
@@ -90,7 +91,8 @@ import {
 export class BrowserAgentToolService implements AgentToolServices {
   constructor(
     private readonly repository = new WorkspaceRepository(),
-    private readonly profileIntakeSemantic = new ProfileIntakeSemanticService()
+    private readonly profileIntakeSemantic = new ProfileIntakeSemanticService(),
+    private readonly careerResumeWriter = new CareerResumeWritingService()
   ) {}
 
   async prepareResumeImport(rawInput: unknown, signal?: AbortSignal) {
@@ -792,7 +794,10 @@ export class BrowserAgentToolService implements AgentToolServices {
     const context = await this.loadCompositionContext(input);
     const graph = buildResumeEvidenceGraph({ profile: context.profile });
     const blueprint = planResumeBlueprint({ profile: context.profile, graph, mode: input.mode, job: context.job });
-    const composition = compileResumeComposition({ profile: context.profile, mode: input.mode, job: context.job, sourceResumeId: input.sourceResumeId });
+    const composition = await compileResumeCompositionWithAi(
+      { profile: context.profile, mode: input.mode, job: context.job, sourceResumeId: input.sourceResumeId, signal },
+      { graph, blueprint, writingService: this.careerResumeWriter }
+    );
     return {
       profileId: context.profile.id,
       profileRevision: context.profile.version,
@@ -819,7 +824,10 @@ export class BrowserAgentToolService implements AgentToolServices {
       acknowledgedActiveProfileId?: string;
     };
     const context = await this.loadCompositionContext(input);
-    const composition = compileResumeComposition({ profile: context.profile, mode: input.mode, job: context.job, sourceResumeId: input.sourceResumeId });
+    const composition = await compileResumeCompositionWithAi(
+      { profile: context.profile, mode: input.mode, job: context.job, sourceResumeId: input.sourceResumeId, signal },
+      { writingService: this.careerResumeWriter }
+    );
     return {
       profileId: context.profile.id,
       profileRevision: context.profile.version,
@@ -842,7 +850,10 @@ export class BrowserAgentToolService implements AgentToolServices {
       acknowledgedActiveProfileId?: string;
     };
     const context = await this.loadCompositionContext(input);
-    const composition = compileResumeComposition({ profile: context.profile, mode: input.mode, job: context.job, sourceResumeId: input.sourceResumeId });
+    const composition = await compileResumeCompositionWithAi(
+      { profile: context.profile, mode: input.mode, job: context.job, sourceResumeId: input.sourceResumeId, signal },
+      { writingService: this.careerResumeWriter }
+    );
     if (input.mode === "general") {
       const created = await this.repository.ensureGeneralResumeFromProfile({
         profileId: context.profile.id,
@@ -1253,6 +1264,78 @@ export class BrowserAgentToolService implements AgentToolServices {
       activeJobId: session.activeJobId,
       artifactRefs: session.artifactRefs,
       conversationSummary: session.conversationSummary,
+      updatedAt: session.updatedAt
+    };
+  }
+
+  async getAgentRuntimeStatus(rawInput: unknown, signal?: AbortSignal) {
+    assertNotAborted(signal);
+    const session = await this.repository.getAgentSession((rawInput as { sessionId: string }).sessionId);
+    if (!session) throw toolError("agent_session_not_found", "Agent session no longer exists.");
+    const turn = session.activeTurn;
+    return {
+      sessionId: session.id,
+      status: turn?.status ?? session.workflowState.status,
+      runtime: {
+        preferred: turn?.preferredRuntime,
+        attempted: turn?.attemptedRuntime,
+        final: turn?.finalRuntime,
+        fallbackUsed: turn?.fallbackUsed ?? false,
+        fallbackReasonCode: turn?.fallbackReasonCode
+      },
+      activeTurn: turn ? {
+        status: turn.status,
+        startedAt: turn.startedAt,
+        firstEventAt: turn.firstEventAt,
+        runtimeFailureAt: turn.runtimeFailureAt,
+        completedAt: turn.completedAt
+      } : undefined,
+      updatedAt: session.updatedAt
+    };
+  }
+
+  async getAgentCurrentTask(rawInput: unknown, signal?: AbortSignal) {
+    assertNotAborted(signal);
+    const session = await this.repository.getAgentSession((rawInput as { sessionId: string }).sessionId);
+    if (!session) throw toolError("agent_session_not_found", "Agent session no longer exists.");
+    const task = session.taskState;
+    return {
+      sessionId: session.id,
+      rootGoal: task?.rootGoal,
+      activeGoal: task?.activeGoal,
+      workflowId: task?.workflowId ?? session.workflowState.workflowId,
+      stage: task?.stage ?? session.workflowState.step,
+      completionStatus: task?.completionStatus ?? session.workflowState.status,
+      requiredSlots: task?.requiredSlots ?? [],
+      missingSlots: task?.missingSlots ?? [],
+      selectedEntities: task?.selectedEntities ?? {},
+      pendingConfirmation: Boolean(session.pendingConfirmation),
+      updatedAt: session.updatedAt
+    };
+  }
+
+  async getAgentLastFailure(rawInput: unknown, signal?: AbortSignal) {
+    assertNotAborted(signal);
+    const session = await this.repository.getAgentSession((rawInput as { sessionId: string }).sessionId);
+    if (!session) throw toolError("agent_session_not_found", "Agent session no longer exists.");
+    const failedMessage = [...session.messages].reverse().find((message) =>
+      message.status === "failed"
+      || message.type === "error"
+      || message.kind === "error_status"
+      || Boolean(message.errorCode)
+    );
+    const workflowError = session.workflowState.error;
+    if (!failedMessage && !workflowError && !session.activeTurn?.runtimeFailureAt) {
+      return { sessionId: session.id, found: false, updatedAt: session.updatedAt };
+    }
+    return {
+      sessionId: session.id,
+      found: true,
+      errorCode: failedMessage?.errorCode ?? workflowError?.code ?? session.activeTurn?.fallbackReasonCode,
+      message: failedMessage?.content ?? workflowError?.message ?? "运行时未能完成。",
+      toolName: failedMessage?.toolName,
+      occurredAt: failedMessage?.updatedAt ?? failedMessage?.createdAt ?? session.activeTurn?.runtimeFailureAt,
+      retryable: workflowError?.retryable ?? false,
       updatedAt: session.updatedAt
     };
   }

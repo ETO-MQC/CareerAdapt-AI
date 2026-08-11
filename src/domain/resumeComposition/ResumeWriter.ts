@@ -17,6 +17,8 @@ import {
   ResumeCompositionProposalSchema,
   ResumeReviewResultSchema,
   type ResumeBlueprint,
+  type CareerResumeWritingAsset,
+  type CareerResumeWritingOutput,
   type ResumeClaim,
   type ResumeCompiledItem,
   type ResumeCompositionMetrics,
@@ -27,6 +29,9 @@ import {
 import { buildResumeEvidenceGraph } from "./ResumeEvidenceGraph";
 import { planResumeBlueprint } from "./ResumeBlueprint";
 import { reviewResumeComposition } from "./ResumeReviewer";
+import { resolveCareerAssetDisplayIdentity } from "./CareerAssetDisplayIdentity";
+import { normalizeSkillGroups } from "./ResumeSkillTaxonomy";
+import { CareerResumeWritingService } from "./CareerResumeWritingService";
 
 export type ResumeWriterInput = {
   profile: CareerProfile;
@@ -35,6 +40,7 @@ export type ResumeWriterInput = {
   mode: ResumeCompositionMode;
   job?: JobDescription;
   sourceResumeId?: string;
+  writingOutput?: CareerResumeWritingOutput;
 };
 
 export function writeResumeComposition(input: ResumeWriterInput): ResumeCompositionResult {
@@ -46,8 +52,9 @@ export function writeResumeComposition(input: ResumeWriterInput): ResumeComposit
   const selectedAssetIds = new Set(input.blueprint.assets.map((asset) => asset.sourceAssetId));
   const selectedEntries = profile.structuredFacts.filter((entry) => selectedAssetIds.has(entry.data.id));
   const selectedFactIds = new Set(selectedEntries.flatMap((entry) => entry.factIds));
+  const writingAssetById = new Map((input.writingOutput?.assets ?? []).map((asset) => [asset.sourceAssetId, asset]));
 
-  const summary = input.blueprint.summaryPlan?.trim();
+  const summary = input.writingOutput?.summary?.trim() || input.blueprint.summaryPlan?.trim();
   if (summary) {
     const claim = claimFor({
       id: `claim:summary:${profile.id}`,
@@ -77,8 +84,9 @@ export function writeResumeComposition(input: ResumeWriterInput): ResumeComposit
     const asset = input.blueprint.assets.find((candidate) => candidate.sourceAssetId === entry.data.id);
     if (!asset) continue;
     const sourceFacts = entry.factIds.map((id) => factLookup.get(id)).filter((fact): fact is FactStatement => Boolean(fact));
-    const data = compileItem({ entry, asset, sourceFacts, graph: input.graph });
-    const bulletClaims = bulletsFor({ entry, data, asset, sourceFacts, graph: input.graph, factLookup });
+    const writingAsset = writingAssetById.get(entry.data.id);
+    const data = compileItem({ entry, asset, writingAsset, sourceFacts, graph: input.graph });
+    const bulletClaims = bulletsFor({ entry, data, asset, writingAsset, sourceFacts, graph: input.graph, factLookup });
     claims.push(...bulletClaims);
     const claimIds = bulletClaims.map((claim) => claim.id);
     const filteredData = applyBulletClaims(data, bulletClaims);
@@ -99,11 +107,12 @@ export function writeResumeComposition(input: ResumeWriterInput): ResumeComposit
   const proposal = ResumeCompositionProposalSchema.parse({
     mode: input.mode,
     title: input.mode === "job_specific" ? `${input.job?.title ?? "岗位"} · 简历组装预览` : "通用简历组装预览",
-    summary: `${selectedEntries.length} 项职业资产、${derivedSkillItems.items.length} 项证据支持技能、${metrics.bulletsGenerated} 条经历要点将进入下一步审查。`,
-    selectedAssetTitles: selectedEntries.map((entry) => itemTitle(entry.data)),
+    summary: proposalSummary({ profile, selectedEntries, derivedSkillItems, input }),
+    selectedAssetTitles: selectedEntries.map((entry) => resolveCareerAssetDisplayIdentity(entry.data).label),
     derivedSkillNames: derivedSkillItems.items.flatMap((item) => item.data.sectionType === "skills" ? [item.data.name] : []),
     bulletCount: metrics.bulletsGenerated,
     informationNeeds: input.blueprint.informationNeeds,
+    contactReminder: !hasContactDetails(profile),
     actions: input.blueprint.informationNeeds.length ? ["generate", "supplement", "adjust", "cancel"] : ["generate", "adjust", "cancel"]
   });
   const draft = ResumeCompositionResultSchema.parse({
@@ -127,6 +136,7 @@ export function writeResumeComposition(input: ResumeWriterInput): ResumeComposit
     metrics,
     keywordCoverage: input.blueprint.keywordCoverage,
     informationNeeds: input.blueprint.informationNeeds,
+    skillGroups: input.writingOutput?.skillGroups ?? Object.entries(normalizeSkillGroups(input.graph.skillMatrix)).map(([category, skills]) => ({ category, skills })),
     ...(input.sourceResumeId ? { sourceResumeId: input.sourceResumeId } : {})
   });
   return reviewResumeComposition(draft, { job: input.job });
@@ -143,13 +153,37 @@ export function compileResumeComposition(input: {
   return writeResumeComposition({ ...input, graph, blueprint });
 }
 
-function compileItem(input: { entry: NonNullable<ReturnType<typeof migrateCareerProfileToV2>["structuredFacts"]>[number]; asset: ResumeBlueprint["assets"][number]; sourceFacts: FactStatement[]; graph: ResumeEvidenceGraph }): ResumeItemV2 {
+export async function compileResumeCompositionWithAi(input: {
+  profile: CareerProfile;
+  mode: ResumeCompositionMode;
+  job?: JobDescription;
+  sourceResumeId?: string;
+  signal?: AbortSignal;
+}, options: {
+  graph?: ResumeEvidenceGraph;
+  blueprint?: ResumeBlueprint;
+  writingService?: CareerResumeWritingService;
+} = {}) {
+  const graph = options.graph ?? buildResumeEvidenceGraph({ profile: input.profile });
+  const blueprint = options.blueprint ?? planResumeBlueprint({ profile: input.profile, graph, mode: input.mode, job: input.job });
+  const writingOutput = await (options.writingService ?? new CareerResumeWritingService()).write({
+    profile: input.profile,
+    graph,
+    blueprint,
+    mode: input.mode,
+    job: input.job,
+    signal: input.signal
+  });
+  return writeResumeComposition({ ...input, graph, blueprint, writingOutput });
+}
+
+function compileItem(input: { entry: NonNullable<ReturnType<typeof migrateCareerProfileToV2>["structuredFacts"]>[number]; asset: ResumeBlueprint["assets"][number]; writingAsset?: CareerResumeWritingAsset; sourceFacts: FactStatement[]; graph: ResumeEvidenceGraph }): ResumeItemV2 {
   const item = input.entry.data;
   if (item.sectionType === "project") {
     return {
       ...item,
       id: item.id,
-      tools: unique([...item.tools, ...input.asset.explicitTools]),
+      tools: unique([...item.tools, ...input.asset.explicitTools, ...(input.writingAsset?.techStack ?? [])]),
       background: undefined,
       description: undefined,
       highlights: [],
@@ -169,12 +203,14 @@ function bulletsFor(input: {
   entry: NonNullable<ReturnType<typeof migrateCareerProfileToV2>["structuredFacts"]>[number];
   data: ResumeItemV2;
   asset: ResumeBlueprint["assets"][number];
+  writingAsset?: CareerResumeWritingAsset;
   sourceFacts: FactStatement[];
   graph: ResumeEvidenceGraph;
   factLookup: Map<string, FactStatement>;
 }) {
   const original = [projectResumeItemV2(input.entry.data), ...input.sourceFacts.map((fact) => fact.statement), ...input.sourceFacts.flatMap((fact) => fact.provenance.map((source) => source.sourceText))].join("\n");
-  const rawBullets = dedupeCareerWriting(input.asset.bulletPlan, original)
+  const proposedBullets = input.writingAsset?.highlights.length ? input.writingAsset.highlights : input.asset.bulletPlan;
+  const rawBullets = dedupeCareerWriting(proposedBullets, original)
     .flatMap(splitBullet)
     .filter((bullet) => !isFiller(bullet))
     .slice(0, input.data.sectionType === "project" ? 4 : 4);
@@ -302,6 +338,37 @@ function collectFacts(profile: ReturnType<typeof migrateCareerProfileToV2>) {
   return facts;
 }
 
+function proposalSummary(input: {
+  profile: ReturnType<typeof migrateCareerProfileToV2>;
+  selectedEntries: NonNullable<ReturnType<typeof migrateCareerProfileToV2>["structuredFacts"]>;
+  derivedSkillItems: { items: ResumeCompiledItem[] };
+  input: ResumeWriterInput;
+}) {
+  const projectTitles = input.selectedEntries
+    .filter((entry) => entry.data.sectionType === "project")
+    .map((entry) => resolveCareerAssetDisplayIdentity(entry.data).label)
+    .slice(0, 3);
+  const skillNames = input.derivedSkillItems.items
+    .flatMap((item) => item.data.sectionType === "skills" ? [item.data.name] : [])
+    .slice(0, 4);
+  if (projectTitles.length && skillNames.length) return `这份简历会重点呈现 ${projectTitles.join("、")} 等项目实践，并将 ${skillNames.join("、")} 等已确认能力压缩为清晰的技能分组。`;
+  if (projectTitles.length) return `这份简历会重点呈现 ${projectTitles.join("、")} 等项目实践，保留教育与研究经历中的可验证要点。`;
+  if (skillNames.length) return `这份简历会先突出已确认的教育背景与 ${skillNames.join("、")} 等技能，再补充相关经历。`;
+  return input.profile.basics.summary?.trim() || "这份简历会整理已确认的教育与职业经历，保留可追溯的事实边界。";
+}
+
+function hasContactDetails(profile: ReturnType<typeof migrateCareerProfileToV2>) {
+  const basics = profile.basics as unknown as Record<string, unknown>;
+  return [
+    basics.email,
+    basics.phone,
+    basics.location,
+    ...(Array.isArray(basics.links) ? basics.links : []),
+    ...(Array.isArray(basics.portfolioLinks) ? basics.portfolioLinks : []),
+    ...(Array.isArray(basics.otherLinks) ? basics.otherLinks : [])
+  ].some((value) => typeof value === "string" && value.trim());
+}
+
 function evidenceRefsForFacts(facts: FactStatement[]): MatchEvidenceRef[] {
   return facts.map((fact) => {
     const source = fact.provenance[0];
@@ -317,14 +384,6 @@ function isConfirmedFact(fact: FactStatement) {
 
 function splitBullet(value: string) {
   return value.split(/[\n。；;]+/u).map((part) => part.trim()).filter((part) => part.length >= 4).map((part) => part.replace(/^(?:项目成果|项目背景|研究方法|成果|说明)[:：]\s*/u, "").trim()).filter(Boolean).slice(0, 4);
-}
-
-function itemTitle(item: ResumeItemV2) {
-  const record = item as unknown as Record<string, unknown>;
-  for (const key of ["title", "name", "school", "organization", "institution", "language", "text"]) {
-    if (typeof record[key] === "string" && record[key].trim()) return record[key].trim();
-  }
-  return item.id;
 }
 
 function unique(values: string[]) {

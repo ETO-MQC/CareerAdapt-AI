@@ -5,6 +5,7 @@ import {
   type ResumePresentationCustomRow,
   type ResumePresentationItem
 } from "@/domain/schemas";
+import { resolveCareerAssetDisplayIdentity } from "@/domain/resumeComposition/CareerAssetDisplayIdentity";
 
 export const RESUME_PRESENTATION_ALLOWED_LABELS = {
   gpa: "GPA",
@@ -182,7 +183,11 @@ export function projectResumePresentationItem(item: ResumeItemV2): ResumePresent
       break;
   }
 
-  return ResumePresentationItemSchema.parse(dedupePresentation({ ...base, ...projected }));
+  return ResumePresentationItemSchema.parse(dedupePresentation({
+    ...base,
+    ...projected,
+    primaryTitle: projected.primaryTitle ?? resolveCareerAssetDisplayIdentity(item).label
+  }));
 }
 
 function educationRows(item: Extract<ResumeItemV2, { sectionType: "education" }>): ResumePresentationCustomRow[] {

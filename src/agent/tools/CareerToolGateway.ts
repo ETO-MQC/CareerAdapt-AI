@@ -111,6 +111,9 @@ type CareerToolDefinition = {
 };
 
 const CAREER_TOOL_DEFINITIONS: CareerToolDefinition[] = [
+  { name: "career.system.runtime_status", sourceToolName: "get_agent_runtime_status", namespace: "career.system", readWrite: "read", personProfileBinding: "none" },
+  { name: "career.system.current_task", sourceToolName: "get_agent_current_task", namespace: "career.system", readWrite: "read", personProfileBinding: "none" },
+  { name: "career.system.last_failure", sourceToolName: "get_agent_last_failure", namespace: "career.system", readWrite: "read", personProfileBinding: "none" },
   { name: "career.profile.list", sourceToolName: "list_profiles", namespace: "career.profile", readWrite: "read", personProfileBinding: "none" },
   { name: "career.profile.active", sourceToolName: "get_active_profile", namespace: "career.profile", readWrite: "read", personProfileBinding: "optional" },
   { name: "career.profile.get", sourceToolName: "get_profile", namespace: "career.profile", readWrite: "read", personProfileBinding: "required" },

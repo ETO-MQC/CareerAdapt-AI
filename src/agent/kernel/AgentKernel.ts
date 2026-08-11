@@ -1771,20 +1771,24 @@ function deterministicWorkflowPause(
   ) {
     const proposal = objectValue(taskState.knownSlots.resumeCompositionProposal);
     const title = stringValue(proposal.title) ?? "通用简历组装提案";
-    const summary = stringValue(proposal.summary) ?? "已根据当前确认资料形成组装方案。";
+    const summary = stringValue(proposal.summary) ?? "会基于当前已确认资料整理一份可编辑的通用简历。";
     const assets = Array.isArray(proposal.selectedAssetTitles)
       ? proposal.selectedAssetTitles.filter((item): item is string => typeof item === "string").slice(0, 6)
       : [];
     const needs = Array.isArray(proposal.informationNeeds)
       ? proposal.informationNeeds.map(objectValue).flatMap((item) => typeof item.question === "string" ? [item.question] : []).slice(0, 2)
       : [];
+    const contactReminder = proposal.contactReminder === true
+      ? "联系方式还不完整；你可以先生成，之后再到编辑器补充邮箱、电话或所在地。"
+      : "不会新增个人资料事实，所有内容都保留在这份简历分支里。";
     return [
-      `我已根据当前资料库形成“${title}”。`,
+      `我已经整理出“${title}”的方案。`,
       summary,
-      assets.length ? `将优先使用已确认的职业资产：${assets.join("、")}。` : "将只使用当前已确认且有来源的职业资产。",
-      needs.length ? `还有可选补充项：${needs.join("；")}` : "这一步不会新增个人资料事实。",
+      assets.length ? `会重点保留这些已确认经历：${assets.join("、")}。` : "会只使用当前已确认且有来源的职业资产。",
+      needs.length ? `还有可选确认：${needs.join("；")}` : contactReminder,
+      needs.length ? contactReminder : "",
       "请选择：直接生成、调整方向，或继续补充资料。"
-    ].join("\n\n");
+    ].filter(Boolean).join("\n\n");
   }
   if (
     taskState.workflowId === "guided_profile_intake"

@@ -177,6 +177,7 @@ describe("P4.5b.1 canonical resume composition journey", () => {
         resumeCompositionMigration: "legacy_build_resume_from_profile"
       }
     });
+    expect(migrated.taskState?.knownSlots.resumeCompositionPendingInformationNeed).toBeUndefined();
     expect(new AgentTaskCompletionGuard().evaluate(migrated.taskState!)).toEqual({
       canFinish: true,
       reason: "goal_completed"
@@ -267,8 +268,49 @@ describe("P4.5b.1 canonical resume composition journey", () => {
     expect(resolveContinuationIntent(target, "继续补充资料").slotUpdates).toMatchObject({ resumeCompositionDecision: "supplement" });
     expect(resolveContinuationIntent(target, "直接生成").slotUpdates).toMatchObject({
       resumeCompositionDecision: "generate",
-      resumeCompositionExplicitConfirmation: true
+      resumeCompositionExplicitConfirmation: true,
+      resumeCompositionPendingInformationNeed: { informationNeedId: "target_direction", status: "skipped" }
     });
+  });
+
+  it("closes the optional target-direction need when composition reaches resume_ready", () => {
+    const { reducer, state: initial } = composeState();
+    let state = reducer.reduce(initial, {
+      type: "entity_revision",
+      entityType: "profile",
+      entityId: "profile-1",
+      version: 3
+    });
+    state = reducer.reduce(state, {
+      type: "tool_observation",
+      toolName: "compose_resume",
+      observation: {
+        profileId: "profile-1",
+        resumeId: "resume-1",
+        revisionId: "revision-1"
+      }
+    });
+
+    expect(state).toMatchObject({
+      workflowId: "compose_resume",
+      stage: "resume_ready",
+      completionStatus: "completed",
+      selectedEntities: { profileId: "profile-1", resumeId: "resume-1", revisionId: "revision-1" }
+    });
+    expect(state.knownSlots.resumeCompositionPendingInformationNeed).toBeUndefined();
+    expect(new AgentTaskCompletionGuard().evaluate(state)).toEqual({ canFinish: true, reason: "goal_completed" });
+  });
+
+  it("keeps ordinary career questions as a side turn while preserving the active composition", () => {
+    const { state } = composeState();
+    const questions = ["为什么这样整理我的项目？", "哪些技能值得写进简历？", "这段经历更适合前端还是后端？"];
+    for (const text of questions) {
+      expect(classifyTurnIntent({ text, taskState: state })).toMatchObject({
+        intent: "casual_side_turn",
+        taskMutation: "preserve",
+        toolScope: "none"
+      });
+    }
   });
 
   it("requires a legal terminal result for the current turn", () => {

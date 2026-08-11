@@ -14,7 +14,7 @@ export type ResumeCompositionMode = z.infer<typeof ResumeCompositionModeSchema>;
 export const ResumeCompositionInformationNeedSchema = z.object({
   informationNeedId: z.string().min(1),
   question: z.string().min(1),
-  status: z.enum(["pending", "answered", "superseded"])
+  status: z.enum(["pending", "answered", "skipped", "superseded"])
 }).strict();
 export type ResumeCompositionInformationNeed = z.infer<typeof ResumeCompositionInformationNeedSchema>;
 
@@ -168,6 +168,28 @@ export const ResumeBlueprintSchema = z.object({
 }).strict();
 export type ResumeBlueprint = z.infer<typeof ResumeBlueprintSchema>;
 
+export const CareerResumeWritingSkillGroupSchema = z.object({
+  category: z.string().trim().min(1),
+  skills: StringListSchema
+}).strict();
+export type CareerResumeWritingSkillGroup = z.infer<typeof CareerResumeWritingSkillGroupSchema>;
+
+export const CareerResumeWritingAssetSchema = z.object({
+  sourceAssetId: z.string().min(1),
+  title: z.string().trim().min(1),
+  role: z.string().trim().min(1).optional(),
+  techStack: StringListSchema,
+  highlights: z.array(z.string().trim().min(1)).max(4).default([])
+}).strict();
+export type CareerResumeWritingAsset = z.infer<typeof CareerResumeWritingAssetSchema>;
+
+export const CareerResumeWritingOutputSchema = z.object({
+  summary: z.string().trim().min(1).max(500).optional(),
+  assets: z.array(CareerResumeWritingAssetSchema).max(12).default([]),
+  skillGroups: z.array(CareerResumeWritingSkillGroupSchema).max(8).default([])
+}).strict();
+export type CareerResumeWritingOutput = z.infer<typeof CareerResumeWritingOutputSchema>;
+
 export const ResumeCompiledItemSchema = z.object({
   sourceAssetId: z.string().min(1),
   data: ResumeItemV2Schema,
@@ -213,6 +235,7 @@ export const ResumeCompositionProposalSchema = z.object({
   derivedSkillNames: StringListSchema,
   bulletCount: z.number().int().min(0),
   informationNeeds: ResumeBlueprintSchema.shape.informationNeeds,
+  contactReminder: z.boolean().default(false),
   actions: z.array(z.enum(["generate", "supplement", "adjust", "cancel"]))
 }).strict();
 export type ResumeCompositionProposal = z.infer<typeof ResumeCompositionProposalSchema>;
@@ -232,6 +255,7 @@ export const ResumeCompositionResultSchema = z.object({
   metrics: ResumeCompositionMetricsSchema,
   keywordCoverage: z.array(ResumeKeywordCoverageSchema),
   informationNeeds: ResumeBlueprintSchema.shape.informationNeeds,
+  skillGroups: z.array(CareerResumeWritingSkillGroupSchema).default([]),
   sourceResumeId: z.string().min(1).optional()
 }).strict();
 export type ResumeCompositionResult = z.infer<typeof ResumeCompositionResultSchema>;

@@ -457,6 +457,7 @@ export class AgentTaskStateReducer {
           state.selectedEntities.resumeRevisionId = revisionId;
         }
         state.knownSlots.resumeCompositionResult = event.observation;
+        if (resumeId) delete state.knownSlots.resumeCompositionPendingInformationNeed;
         state.activeGoal = "compose_resume";
         state.stage = resumeId ? "resume_ready" : "review_composition";
         state.completionStatus = resumeId ? "completed" : "waiting_for_user";
@@ -1106,8 +1107,14 @@ function normalize(state: AgentTaskState): AgentTaskState {
   if (state.workflowId === "compose_resume") {
     // `create_resume_from_profile` remains a compatible root-goal label for
     // persisted sessions, but its executable workflow is now composition.
-    state.activeGoal = state.knownSlots.resumeCompositionResult ? "compose_resume" : state.activeGoal === "create_resume_from_profile" ? "compose_resume" : state.activeGoal;
-    if (!state.knownSlots.resumeCompositionPendingInformationNeed && !state.knownSlots.resumeCompositionTargetDirection) {
+    const hasCompositionResult = Boolean(state.knownSlots.resumeCompositionResult);
+    const compositionIsTerminal = hasCompositionResult
+      || state.stage === "resume_ready"
+      || state.completionStatus === "completed";
+    state.activeGoal = hasCompositionResult ? "compose_resume" : state.activeGoal === "create_resume_from_profile" ? "compose_resume" : state.activeGoal;
+    if (compositionIsTerminal) {
+      delete state.knownSlots.resumeCompositionPendingInformationNeed;
+    } else if (!state.knownSlots.resumeCompositionPendingInformationNeed && !state.knownSlots.resumeCompositionTargetDirection) {
       state.knownSlots.resumeCompositionPendingInformationNeed = defaultResumeCompositionInformationNeed();
     }
     if (state.stage === "select_facts" || state.stage === "review_resume_plan") state.stage = "review_composition";
@@ -1414,7 +1421,10 @@ function mergeObservationSlots(state: AgentTaskState, toolName: string, observat
       if (state.workflowId === "compose_resume") {
         const items = Array.isArray(profile.items) ? profile.items.map(objectValue) : [];
         state.knownSlots.profileItemCandidates = items;
-        if (!state.knownSlots.resumeCompositionPendingInformationNeed) {
+        if (!state.knownSlots.resumeCompositionResult
+          && state.stage !== "resume_ready"
+          && state.completionStatus !== "completed"
+          && !state.knownSlots.resumeCompositionPendingInformationNeed) {
           state.knownSlots.resumeCompositionPendingInformationNeed = defaultResumeCompositionInformationNeed();
         }
       } else if (state.rootGoal === "create_resume_from_profile") {

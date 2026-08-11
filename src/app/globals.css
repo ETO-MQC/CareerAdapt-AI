@@ -11002,6 +11002,10 @@ html[data-theme="dark"] .inspector-tab-active {
   color: var(--ink);
 }
 
+.resume-skill-coverage-marker {
+  display: none;
+}
+
 .agent-composer-icon-button.is-highlighted {
   background: color-mix(in srgb, var(--accent, #2563eb) 12%, transparent);
   color: var(--accent, #2563eb);

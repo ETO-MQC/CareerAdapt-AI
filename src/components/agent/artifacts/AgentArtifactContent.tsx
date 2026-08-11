@@ -28,6 +28,8 @@ export function AgentArtifactContent({
   onUiAction?(action: AgentUiAction): void;
 }) {
   const graph = asRecord(state.jobGraph);
+  const compositionResumeId = state.resumeId
+    ?? (typeof taskState?.selectedEntities?.resumeId === "string" ? taskState.selectedEntities.resumeId : undefined);
   const requirements = Array.isArray(graph.requirements) ? graph.requirements : [];
   const analysis = asRecord(state.fitAnalysis);
   const plan = asRecord(asRecord(state.tailoringSession).plan);
@@ -570,18 +572,28 @@ export function AgentArtifactContent({
           {state.resumeId ? <Link href={`/resume?branchId=${encodeURIComponent(state.resumeId)}`}>打开简历编辑器</Link> : null}
         </details>
       ) : null}
-      {taskState?.rootGoal === "create_resume_from_profile" && taskState.knownSlots.resumeFromProfileResult && state.resumeId ? (
+      {taskState?.rootGoal === "create_resume_from_profile" && taskState.knownSlots.resumeFromProfileResult && compositionResumeId ? (
         <div className="agent-artifact agent-artifact-success">
           <strong>独立通用简历已创建</strong>
-          {state.appliedRevisionId ? <p>版本：{state.appliedRevisionId}</p> : null}
-          <Link href={`/resume?branchId=${encodeURIComponent(state.resumeId)}`}>打开简历编辑器</Link>
+          <p>已经生成可编辑版本，内容未写回个人资料库。</p>
+          <Link href={`/resume?branchId=${encodeURIComponent(compositionResumeId)}`}>打开简历编辑器</Link>
         </div>
       ) : null}
-      {taskState?.rootGoal !== "create_resume_from_profile" && state.appliedRevisionId && state.resumeId ? (
+      {taskState?.workflowId === "compose_resume" && taskState.knownSlots.resumeCompositionResult && compositionResumeId ? (
+        <div className="agent-artifact agent-artifact-success">
+          <strong>简历预览已就绪</strong>
+          <p>已生成可编辑版本；你可以先查看版面，再补充联系方式或继续调整内容。</p>
+          <Link href={`/resume?branchId=${encodeURIComponent(compositionResumeId)}`}>打开简历编辑器</Link>
+        </div>
+      ) : null}
+      {taskState?.rootGoal !== "create_resume_from_profile"
+        && taskState?.workflowId !== "compose_resume"
+        && state.appliedRevisionId
+        && compositionResumeId ? (
         <div className="agent-artifact agent-artifact-success">
           <strong>新版本已创建</strong>
-          <p>版本：{state.appliedRevisionId}</p>
-          <Link href={`/resume?branchId=${encodeURIComponent(state.resumeId)}`}>打开编辑器</Link>
+          <p>已经生成可编辑版本。</p>
+          <Link href={`/resume?branchId=${encodeURIComponent(compositionResumeId)}`}>打开编辑器</Link>
         </div>
       ) : null}
     </div>
