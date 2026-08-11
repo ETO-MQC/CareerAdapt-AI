@@ -789,13 +789,16 @@ export class BrowserAgentToolService implements AgentToolServices {
       mode: ResumeCompositionMode;
       jobId?: string;
       sourceResumeId?: string;
+      targetDirection?: string;
+      targetAudience?: string;
+      companyType?: string;
       acknowledgedActiveProfileId?: string;
     };
     const context = await this.loadCompositionContext(input);
     const graph = buildResumeEvidenceGraph({ profile: context.profile });
-    const blueprint = planResumeBlueprint({ profile: context.profile, graph, mode: input.mode, job: context.job });
+    const blueprint = planResumeBlueprint({ profile: context.profile, graph, mode: input.mode, job: context.job, targetDirection: input.targetDirection, targetAudience: input.targetAudience, companyType: input.companyType });
     const composition = await compileResumeCompositionWithAi(
-      { profile: context.profile, mode: input.mode, job: context.job, sourceResumeId: input.sourceResumeId, signal },
+      { profile: context.profile, mode: input.mode, job: context.job, sourceResumeId: input.sourceResumeId, targetDirection: input.targetDirection, targetAudience: input.targetAudience, companyType: input.companyType, signal },
       { graph, blueprint, writingService: this.careerResumeWriter }
     );
     return {
@@ -821,11 +824,14 @@ export class BrowserAgentToolService implements AgentToolServices {
       mode: ResumeCompositionMode;
       jobId?: string;
       sourceResumeId?: string;
+      targetDirection?: string;
+      targetAudience?: string;
+      companyType?: string;
       acknowledgedActiveProfileId?: string;
     };
     const context = await this.loadCompositionContext(input);
     const composition = await compileResumeCompositionWithAi(
-      { profile: context.profile, mode: input.mode, job: context.job, sourceResumeId: input.sourceResumeId, signal },
+      { profile: context.profile, mode: input.mode, job: context.job, sourceResumeId: input.sourceResumeId, targetDirection: input.targetDirection, targetAudience: input.targetAudience, companyType: input.companyType, signal },
       { writingService: this.careerResumeWriter }
     );
     return {
@@ -847,11 +853,14 @@ export class BrowserAgentToolService implements AgentToolServices {
       jobId?: string;
       sourceResumeId?: string;
       name?: string;
+      targetDirection?: string;
+      targetAudience?: string;
+      companyType?: string;
       acknowledgedActiveProfileId?: string;
     };
     const context = await this.loadCompositionContext(input);
     const composition = await compileResumeCompositionWithAi(
-      { profile: context.profile, mode: input.mode, job: context.job, sourceResumeId: input.sourceResumeId, signal },
+      { profile: context.profile, mode: input.mode, job: context.job, sourceResumeId: input.sourceResumeId, targetDirection: input.targetDirection, targetAudience: input.targetAudience, companyType: input.companyType, signal },
       { writingService: this.careerResumeWriter }
     );
     if (input.mode === "general") {

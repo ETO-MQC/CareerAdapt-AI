@@ -1,6 +1,6 @@
 # CareerAdapt portable skills
 
-This folder contains five portable, evidence-first career skills. Each
+This folder contains six portable, evidence-first career skills. Each
 `SKILL.md` follows Hermes portable-skill metadata and section conventions, but
 the documents remain workflow guidance: they do not depend on CareerAdapt's
 `AgentKernel`, browser state, or a vendor SDK.
@@ -20,6 +20,7 @@ Each skill preserves these boundaries:
 3. `job-fit-analysis` — compare a job description with confirmed profile evidence and expose matches and gaps.
 4. `resume-tailoring` — propose job-specific resume changes without changing the source profile.
 5. `resume-review` — review a resume for factual support, clarity, relevance, and unsupported claims.
+6. `resume-composition` — assemble a target-aware, evidence-backed resume blueprint and writing proposal before revision creation.
 
 The host application owns persistence, confirmation, revision checks, and
 export. These skills describe reasoning and structured outputs only. The

@@ -150,6 +150,44 @@ describe("P4.4d Hermes runtime closure", () => {
     expect(events.at(-1)).toMatchObject({ type: "turn_completed", data: { telemetry: { firstTokenLatencyMs: expect.any(Number), structuredOutputValid: true } } });
   });
 
+  it("keeps the tailoring facade available after the deterministic analyze_fit transition", async () => {
+    const requests: HermesTurnRequest[] = [];
+    const runtime = new HermesCareerAgentRuntime({
+      transport: {
+        health: async () => ({ available: true, mcpConnected: true }),
+        createSession: async () => ({ sessionId: "hermes-session-card-3", resumed: false }),
+        resumeSession: async () => ({ sessionId: "hermes-session-card-3", resumed: true }),
+        turn: async function* (request) {
+          requests.push(request);
+          yield { type: "turn_completed", data: { structuredOutputValid: true } };
+        },
+        toolCallback: async () => undefined,
+        interrupt: async () => undefined
+      },
+      careerToolGateway: new CareerToolGateway(new AgentToolRegistry([]))
+    });
+
+    for await (const _event of runtime.runTurn({
+      sessionId: "agent-card-3",
+      userMessage: "",
+      pageContext: { query: {} },
+      metadata: {
+        workflowId: "tailor_existing_resume",
+        workflowStage: "analyze_fit",
+        allowedToolNames: ["analyze_job_fit"],
+        allowedCareerToolNames: ["career.job.analyze_fit"]
+      }
+    })) {
+      // The contract assertion below is the purpose of this turn.
+    }
+
+    const contractNames = (requests[0].toolContracts ?? []).map((contract) => String(contract.name));
+    expect(contractNames).toEqual(expect.arrayContaining([
+      "career.workflow.job_fit",
+      "career.workflow.tailor_resume"
+    ]));
+  });
+
   it("preserves the original tool input across a Hermes approval boundary", async () => {
     const input = {
       targetProfileId: "profile-1",

@@ -21,6 +21,7 @@ import {
   Pencil
 } from "lucide-react";
 import {
+  ExportRecordSchema,
   ResumeItemV2Schema,
   type JobAdaptationDraft,
   type CareerProfile,
@@ -31,6 +32,7 @@ import {
   type ResumeDiagnosticIssue,
   type ResumeDiagnosticSnapshot,
   type ResumePaginationPlan,
+  type ResumePdfExportRequest,
   type ResumeBranch,
   type ResumePresentationConfig,
   type ResumeRenderSectionType,
@@ -39,6 +41,7 @@ import {
   type ResumeRevision,
   type TemplateId
 } from "@/domain/schemas";
+import { applySnapshotToBranch } from "@/domain/branch/revision";
 import { mapBranchToResumeRenderModel, ResumeRenderMapperError } from "@/domain/resumeRender/mapper";
 import { A4ResumePreview } from "@/components/resume/A4ResumePreview";
 import { TemplateCenter } from "@/components/resume/TemplateCenter";
@@ -75,6 +78,7 @@ import {
   renderedCoverage,
   renderCoverageHasBlockingFailure,
   sourceVisibleCoverage,
+  type RenderCoverageDiagnostics,
   type RenderCoverageReport
 } from "@/services/export/renderCoverage";
 import { createResumePdfExportRequest, presentationSnapshotFromConfig } from "@/services/export/snapshot";
@@ -174,6 +178,7 @@ type PdfExportState = {
   message?: string;
   errorCode?: string;
   canUseFallback?: boolean;
+  coverageDiagnostics?: RenderCoverageDiagnostics;
 };
 
 const RESUME_STUDIO_LAYOUT_KEY = "careeradapt.resumeStudioLayout";
@@ -2877,16 +2882,6 @@ export function ResumeWorkspace() {
       });
       return;
     }
-    if (!renderCoverageReport || renderCoverageHasBlockingFailure(renderCoverageReport)) {
-      notify({ type: "warning", title: "导出已停止", message: "检测到简历栏目或条目在渲染链路中丢失或重复，请等待预览刷新后重试。" });
-      setPdfExportState({
-        status: "failed",
-        message: "渲染覆盖检查未通过，导出未继续。",
-        errorCode: "render_coverage_failed",
-        canUseFallback: false
-      });
-      return;
-    }
     const startedAt = new Date().toISOString();
     const templateWarnings = assessTemplateCompatibility(renderModel, selectedTemplate);
     if (templateWarnings.length > 0) {
@@ -2899,32 +2894,27 @@ export function ResumeWorkspace() {
       templateName: selectedTemplate.shortName,
       date: startedAt
     });
-    const exportRequest = createResumePdfExportRequest({
-      exportId,
-      renderModel,
-      presentationConfig,
-      generatedAt: startedAt,
-      filename: fileName,
-      overflowStatus: paginationPlan.status,
-      paginationPlan,
-      templateVersion: selectedTemplate.version
-    });
+    let exportRequest: ResumePdfExportRequest | undefined;
+    let exportPaginationPlan = paginationPlan;
+    let exportBranch = selectedBranch;
+    let exportCoverageDiagnostics = renderCoverageReport?.diagnostics;
 
     setPdfExportState({
       status: "validating",
       exportId,
       filename: fileName,
-        message: "正在校验当前版本和分页状态。"
+      message: "正在校验当前版本、持久化版本和渲染覆盖。"
     });
 
     try {
-      const [latestBranch, latestProfile, latestJob] = await Promise.all([
+      const [latestBranch, latestProfile, latestJob, persistedRevision] = await Promise.all([
         repository.getResumeBranch(selectedBranch.id),
         repository.getProfile(selectedBranch.profileId),
-        selectedBranch.jobId ? repository.getJobDescription(selectedBranch.jobId) : Promise.resolve(undefined)
+        selectedBranch.jobId ? repository.getJobDescription(selectedBranch.jobId) : Promise.resolve(undefined),
+        selectedBranch.currentRevisionId ? repository.getResumeRevision(selectedBranch.currentRevisionId) : Promise.resolve(undefined)
       ]);
 
-      if (!latestBranch || !latestProfile || (selectedBranch.branchPurpose !== "general" && !latestJob)) {
+      if (!latestBranch || !latestProfile || !persistedRevision || (selectedBranch.branchPurpose !== "general" && !latestJob)) {
         throw new Error("export_source_missing");
       }
       if (latestBranch.revision !== renderModel.branchRevision || latestBranch.currentRevisionId !== renderModel.branchCurrentRevisionId) {
@@ -2941,23 +2931,104 @@ export function ResumeWorkspace() {
         return;
       }
 
-      mapBranchToResumeRenderModel({
+      const persistedBranch = applySnapshotToBranch({
         branch: latestBranch,
+        snapshot: persistedRevision.snapshot,
+        revision: persistedRevision.revisionNumber,
+        currentRevisionId: persistedRevision.id,
+        now: latestBranch.updatedAt
+      });
+      const persistedRenderModel = mapBranchToResumeRenderModel({
+        branch: persistedBranch,
         profile: latestProfile,
         job: latestJob,
         presentationConfig
       });
+      exportBranch = latestBranch;
+      let recoveredCoverage = await rebuildExportCoverage({
+        branch: persistedBranch,
+        profile: latestProfile,
+        job: latestJob,
+        renderModel: persistedRenderModel,
+        fallbackPlan: paginationPlan,
+        presentationConfig
+      });
+      if (!recoveredCoverage.report || renderCoverageHasBlockingFailure(recoveredCoverage.report)) {
+        // One bounded client-side recovery gives fonts, ResizeObserver and the
+        // preview DOM a chance to settle before the persistent failure path.
+        await waitForStableClientLayout();
+        recoveredCoverage = await rebuildExportCoverage({
+          branch: persistedBranch,
+          profile: latestProfile,
+          job: latestJob,
+          renderModel: persistedRenderModel,
+          fallbackPlan: recoveredCoverage.plan,
+          presentationConfig
+        });
+      }
+      exportPaginationPlan = recoveredCoverage.plan;
+      exportCoverageDiagnostics = recoveredCoverage.report?.diagnostics;
+      if (!recoveredCoverage.report || renderCoverageHasBlockingFailure(recoveredCoverage.report)) {
+        const coverageError = new Error("render_coverage_failed");
+        await recordDirectPdfFailure({
+          exportId,
+          branch: exportBranch,
+          presentationConfig,
+          fileName,
+          startedAt,
+          overflowStatus: exportPaginationPlan.status,
+          errorCode: coverageError.message,
+          snapshotHash: stableHashText(`${persistedRevision.id}:${presentationConfig.presentationRevision}:${exportPaginationPlan.paginationHash}`),
+          paginationPlan: exportPaginationPlan,
+          renderCoverageDiagnostics: exportCoverageDiagnostics
+        });
+        notify({ type: "warning", title: "导出已停止", message: "刚才的导出覆盖检查没有通过。已保留当前简历版本，请选择“修复并重试导出”或回到预览定位问题。" });
+        setPdfExportState({
+          status: "failed",
+          exportId,
+          filename: fileName,
+          message: "渲染覆盖检查未通过，已保留当前版本。",
+          errorCode: coverageError.message,
+          canUseFallback: false,
+          coverageDiagnostics: exportCoverageDiagnostics
+        });
+        return;
+      }
 
-      if (isPaginationPlanBlocked(paginationPlan)) {
+      const exportFileName = buildResumePdfFileName({
+        candidateName: persistedRenderModel.candidate.name,
+        jobTitle: persistedRenderModel.jobTitle,
+        templateName: selectedTemplate.shortName,
+        date: startedAt
+      });
+      exportRequest = createResumePdfExportRequest({
+        exportId,
+        renderModel: persistedRenderModel,
+        persistedRevision,
+        presentationConfig,
+        generatedAt: startedAt,
+        filename: exportFileName,
+        overflowStatus: exportPaginationPlan.status,
+        paginationPlan: exportPaginationPlan,
+        templateVersion: selectedTemplate.version
+      });
+      setPdfExportState({
+        status: "validating",
+        exportId,
+        filename: exportFileName,
+        message: "持久化导出快照已准备，正在校验页数。"
+      });
+
+      if (isPaginationPlanBlocked(exportPaginationPlan)) {
         await repository.createResumeExportRecord({
           operationId: exportId,
           branchId: latestBranch.id,
           expectedBranchRevision: latestBranch.revision,
           expectedRevisionId: latestBranch.currentRevisionId!,
           templateId: effectiveTemplateId,
-          overflowStatus: paginationPlan.status,
+          overflowStatus: exportPaginationPlan.status,
           exportStatus: "blocked_overflow",
-          fileName,
+          fileName: exportFileName,
           errorCode: "page_limit_exceeded",
           failureCode: "page_limit_exceeded",
           exportMethod: "direct_pdf",
@@ -2966,22 +3037,23 @@ export function ResumeWorkspace() {
           presentationRevision: presentationConfig.presentationRevision,
           presentationSnapshot: presentationSnapshotFromConfig(presentationConfig),
           snapshotHash: exportRequest.snapshot.snapshotHash,
-          pagePolicy: paginationPlan.pagePolicy,
-          requestedMaxPages: paginationPlan.requestedMaxPages,
-          actualPageCount: paginationPlan.actualPageCount,
-          paginationHash: paginationPlan.paginationHash,
-          paginationSnapshot: paginationPlan,
-          exceededPageLimit: paginationPlan.actualPageCount > paginationPlan.maximumPageCount,
+          pagePolicy: exportPaginationPlan.pagePolicy,
+          requestedMaxPages: exportPaginationPlan.requestedMaxPages,
+          actualPageCount: exportPaginationPlan.actualPageCount,
+          paginationHash: exportPaginationPlan.paginationHash,
+          paginationSnapshot: exportPaginationPlan,
+          exceededPageLimit: exportPaginationPlan.actualPageCount > exportPaginationPlan.maximumPageCount,
           continuationHeader: "none",
           pageSize: "A4",
           pageDimensions: { widthMm: 210, heightMm: 297 },
-          ...(exportDiagnosticSummary ?? {})
+          ...(exportDiagnosticSummary ?? {}),
+          renderCoverageDiagnostics: exportCoverageDiagnostics
         });
         notify({ type: "warning", title: "导出已阻止", message: "当前页数超过所选页面策略。" });
         setPdfExportState({
           status: "blocked_overflow",
           exportId,
-          filename: fileName,
+          filename: exportFileName,
           message: "当前页数超过所选页面策略，已阻止下载。",
           errorCode: "page_limit_exceeded"
         });
@@ -2991,7 +3063,7 @@ export function ResumeWorkspace() {
       setPdfExportState({
         status: "generating",
         exportId,
-        filename: fileName,
+        filename: exportFileName,
         message: "正在生成 A4 PDF。"
       });
       const response = await fetch("/api/resume-export/pdf", {
@@ -3003,7 +3075,7 @@ export function ResumeWorkspace() {
       });
       const responseType = response.headers.get("content-type") ?? "";
       if (!response.ok) {
-        throw new Error(await readExportErrorCode(response));
+        throw await readExportFailure(response);
       }
       if (!responseType.includes(PDF_MIME_TYPE)) {
         throw new Error("invalid_pdf_mime");
@@ -3011,7 +3083,7 @@ export function ResumeWorkspace() {
       setPdfExportState({
         status: "downloading",
         exportId,
-        filename: fileName,
+        filename: exportFileName,
         message: "PDF 已生成，正在触发浏览器下载。"
       });
       const bytes = new Uint8Array(await response.arrayBuffer());
@@ -3026,9 +3098,9 @@ export function ResumeWorkspace() {
         expectedBranchRevision: latestBranch.revision,
         expectedRevisionId: latestBranch.currentRevisionId!,
         templateId: effectiveTemplateId,
-        overflowStatus: paginationPlan.status,
+        overflowStatus: exportPaginationPlan.status,
         exportStatus: "direct_pdf_success",
-        fileName,
+        fileName: exportFileName,
         exportMethod: "direct_pdf",
         mimeType: PDF_MIME_TYPE,
         fileSize: bytes.byteLength,
@@ -3038,26 +3110,27 @@ export function ResumeWorkspace() {
         presentationSnapshot: presentationSnapshotFromConfig(presentationConfig),
         snapshotHash: exportRequest.snapshot.snapshotHash,
         pdfContentHash: pdfHash,
-        pagePolicy: paginationPlan.pagePolicy,
-        requestedMaxPages: paginationPlan.requestedMaxPages,
-        actualPageCount: paginationPlan.actualPageCount,
-        paginationHash: paginationPlan.paginationHash,
-        paginationSnapshot: paginationPlan,
+        pagePolicy: exportPaginationPlan.pagePolicy,
+        requestedMaxPages: exportPaginationPlan.requestedMaxPages,
+        actualPageCount: exportPaginationPlan.actualPageCount,
+        paginationHash: exportPaginationPlan.paginationHash,
+        paginationSnapshot: exportPaginationPlan,
         exceededPageLimit: false,
         continuationHeader: "none",
         pageSize: "A4",
         pageDimensions: { widthMm: 210, heightMm: 297 },
         ...(exportDiagnosticSummary ?? {}),
+        renderCoverageDiagnostics: exportCoverageDiagnostics,
         allowHistoricalRevision: true
       });
-      triggerBrowserDownload(new Blob([bytes], { type: PDF_MIME_TYPE }), fileName);
-      notify({ type: "success", title: "PDF 已下载", message: paginationPlan.status === "near_one_page_limit" || paginationPlan.status === "near_limit"
+      triggerBrowserDownload(new Blob([bytes], { type: PDF_MIME_TYPE }), exportFileName);
+      notify({ type: "success", title: "PDF 已下载", message: exportPaginationPlan.status === "near_one_page_limit" || exportPaginationPlan.status === "near_limit"
         ? "当前接近单页上限，建议打开文件复核。"
         : "浏览器不允许确认是否最终保存到磁盘。" });
       setPdfExportState({
         status: "success",
         exportId,
-        filename: fileName,
+        filename: exportFileName,
         message: "PDF 已生成并触发下载。"
       });
     } catch (error) {
@@ -3072,28 +3145,66 @@ export function ResumeWorkspace() {
           startedAt,
           overflowStatus: blockedOverflow ? "exceeds_two_pages" : paginationPlan.status,
           errorCode,
-          snapshotHash: exportRequest.snapshot.snapshotHash,
-          paginationPlan
+          snapshotHash: exportRequest?.snapshot.snapshotHash ?? stableHashText(`${selectedBranch.currentRevisionId}:${presentationConfig.presentationRevision}:${exportPaginationPlan.paginationHash}`),
+          paginationPlan: exportPaginationPlan,
+          renderCoverageDiagnostics: error instanceof ResumeExportRequestError ? error.diagnostics : exportCoverageDiagnostics
         });
       }
       notify({ type: blockedOverflow ? "warning" : "error", title: blockedOverflow ? "导出已阻止" : "下载失败", message: blockedOverflow
         ? "生成前重新检测到页数超过页面策略，请先删减内容或切换策略。"
-        : "正在自动切换到浏览器打印 fallback。" });
+        : "直接 PDF 生成失败；当前版本已保留，可修复后重试或回到预览定位问题。" });
       setPdfExportState({
         status: blockedOverflow ? "blocked_overflow" : "failed",
         exportId,
-        filename: fileName,
-        message: blockedOverflow ? "生成前重新检测到页数超过页面策略。" : "直接下载失败，正在切换到浏览器打印。",
+        filename: exportRequest?.snapshot.filename ?? fileName,
+        message: blockedOverflow ? "生成前重新检测到页数超过页面策略。" : "直接 PDF 生成失败，未自动切换到打印。",
         errorCode,
-        canUseFallback: !blockedOverflow
+        canUseFallback: !blockedOverflow && !coverageDiagnosticsHasBlockingFailure(
+          error instanceof ResumeExportRequestError ? error.diagnostics : exportCoverageDiagnostics
+        ),
+        coverageDiagnostics: error instanceof ResumeExportRequestError ? error.diagnostics : exportCoverageDiagnostics
       });
-      // Auto fallback to browser print when direct download fails
-      if (!blockedOverflow) {
-        window.requestAnimationFrame(() => {
-          void exportPdf();
-        });
-      }
     }
+  }
+
+  async function rebuildExportCoverage(input: {
+    branch: ResumeBranch;
+    profile: CareerProfile;
+    job?: JobDescription;
+    renderModel: ResumeRenderModel;
+    presentationConfig: ResumePresentationConfig;
+    fallbackPlan: ResumePaginationPlan;
+  }): Promise<{ plan: ResumePaginationPlan; report?: RenderCoverageReport }> {
+    await waitForStableClientLayout();
+    const measuredPlan = pagination.measure() ?? input.fallbackPlan;
+    const renderedRoot = previewStageRef.current?.querySelector<HTMLElement>(".resume-preview-pages");
+    if (!renderedRoot) {
+      return { plan: measuredPlan };
+    }
+    const document = mapBranchToResumeDocument({
+      branch: input.branch,
+      profile: input.profile,
+      job: input.job,
+      templateId: input.presentationConfig.templateId,
+      presentationConfig: input.presentationConfig
+    });
+    const pageModels = paginateResumeRenderModel(input.renderModel, measuredPlan);
+    return {
+      plan: measuredPlan,
+      report: createRenderCoverageReport({
+        source: sourceVisibleCoverage({
+          branch: input.branch,
+          document,
+          derivedSummary: input.renderModel.candidate.summary
+        }),
+        presentation: presentationCoverage(input.renderModel),
+        paginated: paginatedCoverage(pageModels),
+        rendered: renderedCoverage(renderedRoot),
+        paginationHash: measuredPlan.paginationHash,
+        revisionId: input.renderModel.branchCurrentRevisionId,
+        presentationRevision: input.presentationConfig.presentationRevision
+      })
+    };
   }
 
   async function exportPdf() {
@@ -3244,6 +3355,7 @@ export function ResumeWorkspace() {
     errorCode: string;
     snapshotHash: string;
     paginationPlan: ResumePaginationPlan;
+    renderCoverageDiagnostics?: RenderCoverageDiagnostics;
   }) {
     try {
       await repository.createResumeExportRecord({
@@ -3274,7 +3386,8 @@ export function ResumeWorkspace() {
         continuationHeader: "none",
         pageSize: "A4",
         pageDimensions: { widthMm: 210, heightMm: 297 },
-        ...(exportDiagnosticSummary ?? {})
+        ...(exportDiagnosticSummary ?? {}),
+        renderCoverageDiagnostics: input.renderCoverageDiagnostics
       });
     } catch {
       // A failed export must never be promoted to success; failure-record writes
@@ -4318,7 +4431,15 @@ export function ResumeWorkspace() {
                 </div>
                 ) : null}
                 {styleInspectorTab === "page" && renderCoverageReport && renderCoverageHasBlockingFailure(renderCoverageReport) ? (
-                  <div className="warning-box" data-testid="render-coverage-warning">检测到栏目或条目在展示、分页或模板渲染阶段丢失或重复，已停止正式导出。请等待预览刷新；若提示持续出现，请保留当前版本并报告问题。</div>
+                  <div className="warning-box" data-testid="render-coverage-warning">
+                    <p>
+                      检测到内容在{renderCoverageReport.diagnostics.failedStage === "presentation" ? "展示" : renderCoverageReport.diagnostics.failedStage === "pagination" ? "分页" : "模板渲染"}阶段丢失或重复，已停止正式导出。
+                    </p>
+                    {renderCoverageReport.diagnostics.droppedItems.length > 0 ? (
+                      <p>受影响条目：{renderCoverageReport.diagnostics.droppedItems.slice(0, 3).map((item) => item.label).join("、")}。</p>
+                    ) : null}
+                    <p>已保留当前版本；请先刷新预览后重试，必要时回到预览定位具体条目。</p>
+                  </div>
                 ) : null}
                 {styleInspectorTab === "page" && renderModel?.safety.ruleOnlyItemIds.length ? (
                   <div className="warning-box">该简历包含仅由规则检查通过的内容，工作台已显示校验状态；PDF 正文不会加入内部风险标签。</div>
@@ -4361,6 +4482,19 @@ export function ResumeWorkspace() {
                   </p>
                   {pdfExportState.status === "failed" && pdfExportState.canUseFallback ? (
                     <p className="save-status">可重试下载，或使用浏览器打印 fallback。</p>
+                  ) : null}
+                  {pdfExportState.status === "failed" && pdfExportState.coverageDiagnostics ? (
+                    <div className="export-control-actions">
+                      <button type="button" className="primary-button compact" onClick={() => { void downloadPdf(); }} disabled={isPdfExportBusy}>
+                        修复并重试导出
+                      </button>
+                      <button type="button" className="secondary-button compact" onClick={() => {
+                        setStyleInspectorTab("page");
+                        previewStageRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                      }}>
+                        回到预览定位问题
+                      </button>
+                    </div>
                   ) : null}
                 </div>
                 ) : null}
@@ -4965,13 +5099,41 @@ function createExportId(prefix: string) {
   return `${prefix}-${crypto.randomUUID()}`;
 }
 
-async function readExportErrorCode(response: Response) {
-  try {
-    const body = await response.json() as { code?: unknown };
-    return typeof body.code === "string" ? body.code : `http_${response.status}`;
-  } catch {
-    return `http_${response.status}`;
+class ResumeExportRequestError extends Error {
+  constructor(readonly code: string, readonly diagnostics?: RenderCoverageDiagnostics) {
+    super(code);
+    this.name = "ResumeExportRequestError";
   }
+}
+
+async function readExportFailure(response: Response) {
+  try {
+    const body = await response.json() as { code?: unknown; diagnostics?: unknown };
+    const parsedDiagnostics = ExportRecordSchema.shape.renderCoverageDiagnostics?.safeParse(body.diagnostics);
+    return new ResumeExportRequestError(
+      typeof body.code === "string" ? body.code : `http_${response.status}`,
+      parsedDiagnostics?.success ? parsedDiagnostics.data : undefined
+    );
+  } catch {
+    return new ResumeExportRequestError(`http_${response.status}`);
+  }
+}
+
+async function waitForStableClientLayout() {
+  if ("fonts" in document) {
+    await document.fonts.ready;
+  }
+  await new Promise<void>((resolve) => window.requestAnimationFrame(() => window.requestAnimationFrame(() => resolve())));
+}
+
+function coverageDiagnosticsHasBlockingFailure(diagnostics?: RenderCoverageDiagnostics) {
+  return Boolean(diagnostics && (
+    diagnostics.failedStage
+    || diagnostics.droppedSections.length > 0
+    || diagnostics.droppedItems.length > 0
+    || diagnostics.duplicateSections.length > 0
+    || diagnostics.duplicateItems.length > 0
+  ));
 }
 
 function isPdfBytes(bytes: Uint8Array) {

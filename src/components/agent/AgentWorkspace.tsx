@@ -8,7 +8,7 @@ import {
   type AgentMessageReference,
   type AgentSession
 } from "@/agent/contracts/agentSession";
-import type { AgentArtifactAction, AgentOption, AgentUiAction } from "@/agent/contracts/agentActions";
+import type { AgentArtifactAction, AgentOption, AgentUiAction, AgentWorkflowControl } from "@/agent/contracts/agentActions";
 import { createQuickActionIntent, type AgentQuickActionId } from "@/agent/contracts/agentQuickAction";
 import { AgentRuntime } from "@/agent/runtime/agentRuntime";
 import type { TailorWorkflowViewState } from "@/agent/workflows/tailorExistingResumeWorkflow";
@@ -51,6 +51,16 @@ type PendingContextRequest = {
 const AGENT_COMPOSER_DRAFTS_KEY = "careerad-agent-composer-drafts:v1";
 const AGENT_ARTIFACT_STATE_KEY = "careerad-agent-artifact-state:v1";
 const agentImportRepository = new WorkspaceRepository();
+
+function isWorkflowControlAction(action: AgentUiAction | AgentWorkflowControl): action is AgentWorkflowControl {
+  return ["start_workflow", "switch_workflow", "pause_workflow", "resume_workflow", "cancel_workflow", "go_back"].includes(action.type);
+}
+
+function isPresentationOptionAction(action: AgentOption["action"]) {
+  return action.type.startsWith("open_")
+    || action.type === "select_tailoring_question"
+    || action.type === "profile_intake_section_select";
+}
 
 export function AgentWorkspace() {
   const host = useAgentHost();
@@ -500,10 +510,14 @@ export function AgentWorkspace() {
     restoreRequestRef.current += 1;
     setLastUserMessage(text);
     window.localStorage.setItem(ACTIVE_SESSION_KEY, session.id);
-    const result = await host.state.dispatch(
-      { type: "message", text, references: draftReference ? [draftReference] : undefined },
-      { session, pageContext: pageContext() }
-    );
+    const result = await host.runUserEvent({
+      type: "text_message",
+      text,
+      references: draftReference ? [draftReference] : undefined
+    }, {
+      session,
+      pageContext: pageContext()
+    });
     if (result) {
       setSessionDraftReference(undefined);
       setSession(result);
@@ -512,18 +526,16 @@ export function AgentWorkspace() {
     }
   }
 
-  function dispatchUi(action: AgentUiAction) {
-    void host.state.dispatch(
-      { type: "ui_control", action },
-      { session, pageContext: pageContext() }
-    );
+  function dispatchUi(action: AgentUiAction | AgentWorkflowControl) {
+    if (isWorkflowControlAction(action)) {
+      void host.runUserEvent({ type: "workflow_control", action }, { session, pageContext: pageContext() });
+      return;
+    }
+    void host.state.dispatch({ type: "ui_control", action }, { session, pageContext: pageContext() });
   }
 
   function dispatchArtifactAction(action: AgentArtifactAction) {
-    return host.state.dispatch(
-      { type: "artifact_action", action },
-      { session, pageContext: pageContext() }
-    ).then((result) => {
+    return host.runUserEvent({ type: "artifact_action", action }, { session, pageContext: pageContext() }).then((result) => {
       if (!result) return;
       setSession(result);
       window.localStorage.setItem(ACTIVE_SESSION_KEY, result.id);
@@ -537,15 +549,12 @@ export function AgentWorkspace() {
     restoreRequestRef.current += 1;
     const intent = createQuickActionIntent(actionId);
     setLastUserMessage(intent.intent);
-    const pending = host.state.dispatch(
-      {
-        type: "quick_action",
-        actionId: intent.actionId,
-        text: intent.intent,
-        task: intent.task
-      },
-      { session, pageContext: pageContext() }
-    );
+    const pending = host.runUserEvent({
+      type: "quick_action_started",
+      actionId: intent.actionId,
+      text: intent.intent,
+      task: intent.task
+    }, { session, pageContext: pageContext() });
     quickActionDispatchRef.current = pending;
     void pending.then((result) => {
       if (!result) return;
@@ -561,10 +570,16 @@ export function AgentWorkspace() {
     userInteractedRef.current = true;
     restoreRequestRef.current += 1;
     window.localStorage.setItem(ACTIVE_SESSION_KEY, session.id);
-    void host.state.dispatch(
-      { type: "option", action: option.action },
-      { session, pageContext: pageContext() }
-    ).then((result) => {
+    if (isPresentationOptionAction(option.action)) {
+      void host.state.dispatch({ type: "option", action: option.action }, { session, pageContext: pageContext() });
+      return;
+    }
+    const event = option.action.type === "select_entity"
+      ? { type: "entity_selected" as const, action: option.action }
+      : option.action.type === "retry_current_step"
+        ? { type: "retry" as const, action: option.action }
+        : { type: "option_selected" as const, optionId: option.id, action: option.action };
+    void host.runUserEvent(event, { session, pageContext: pageContext() }).then((result) => {
       if (!result) return;
       setSession(result);
       window.localStorage.setItem(ACTIVE_SESSION_KEY, result.id);
@@ -682,12 +697,14 @@ export function AgentWorkspace() {
       taskState: safeTaskState,
       runtime: session.activeTurn ? {
         runtimeId: session.activeTurn.runtimeId,
+        executionOwner: session.activeTurn.executionOwner,
         preferredRuntime: session.activeTurn.preferredRuntime,
         attemptedRuntime: session.activeTurn.attemptedRuntime,
         finalRuntime: session.activeTurn.finalRuntime,
         fallbackUsed: session.activeTurn.fallbackUsed,
         fallbackReasonCode: session.activeTurn.fallbackReasonCode,
         hermesRunId: session.activeTurn.hermesRunId,
+        nextHermesRunId: session.activeTurn.nextHermesRunId,
         firstEventAt: session.activeTurn.firstEventAt,
         runtimeFailureAt: session.activeTurn.runtimeFailureAt
       } : undefined,
@@ -803,10 +820,7 @@ export function AgentWorkspace() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => void host.state.dispatch(
-                    { type: "ui_control", action: { type: paused ? "resume_workflow" : "pause_workflow", workflowId: session.workflowState.workflowId } },
-                    { session, pageContext: pageContext() }
-                  )}
+                  onClick={() => dispatchUi({ type: paused ? "resume_workflow" : "pause_workflow", workflowId: session.workflowState.workflowId })}
                 >
                   {paused ? <Play aria-hidden="true" /> : <Pause aria-hidden="true" />}
                   {paused ? "继续任务" : "暂停任务"}
@@ -833,23 +847,23 @@ export function AgentWorkspace() {
               ) : null}
               <AgentConversationTimeline
                 key={session.id}
-                messages={activeBranchMessages(session)}
-                onRegenerate={async (message) => {
-                  const result = await host.state.dispatch(
-                    { type: "regenerate_message", messageId: message.id },
-                    { session, pageContext: pageContext() }
-                  );
+                 messages={activeBranchMessages(session)}
+                 onRegenerate={async (message) => {
+                   const result = await host.runUserEvent(
+                     { type: "regenerate", messageId: message.id },
+                     { session, pageContext: pageContext() }
+                   );
                   if (!result) return;
                   setSession(result);
                   window.localStorage.setItem(ACTIVE_SESSION_KEY, result.id);
                   window.dispatchEvent(new CustomEvent("careeradapt-agent-sessions-change"));
                 }}
-                onEditUserMessage={async (message, content) => {
-                  setLastUserMessage(content);
-                  const result = await host.state.dispatch(
-                    { type: "edit_message", messageId: message.id, text: content },
-                    { session, pageContext: pageContext() }
-                  );
+                 onEditUserMessage={async (message, content) => {
+                   setLastUserMessage(content);
+                   const result = await host.runUserEvent(
+                     { type: "edit_message", messageId: message.id, text: content },
+                     { session, pageContext: pageContext() }
+                   );
                   if (!result) return;
                   setSession(result);
                   window.localStorage.setItem(ACTIVE_SESSION_KEY, result.id);
@@ -869,26 +883,14 @@ export function AgentWorkspace() {
                 confirmation={session.pendingToolCall ? session.pendingConfirmation : undefined}
                 confirmationBusy={running}
                 profileIntakeProjection={intakeProjection}
-                onArtifactAction={dispatchArtifactAction}
-                onConfirmation={(confirmed) => void (async () => {
-                  if (session.hermesRun?.status === "waiting_for_approval") {
-                    await host.hermesRuntime.approve(session.id, confirmed);
-                    const next = await host.runTurn({
-                      sessionId: session.id,
-                      userMessage: "",
-                      pageContext: pageContext(),
-                      session,
-                      metadata: { reattachRunId: session.hermesRun.runId }
-                    });
-                    if (next) setSession(next);
-                    return;
-                  }
-                  const next = await host.state.dispatch(
-                    { type: "confirmation", confirmed },
-                    { session, pageContext: pageContext() }
-                  );
-                  if (next) setSession(next);
-                })()}
+                 onArtifactAction={dispatchArtifactAction}
+                 onConfirmation={(confirmed) => void (async () => {
+                   const next = await host.runUserEvent(
+                     { type: "confirmation", confirmed },
+                     { session, pageContext: pageContext() }
+                   );
+                   if (next) setSession(next);
+                 })()}
               />
             </>
           )}

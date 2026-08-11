@@ -4,6 +4,7 @@ import { contentDispositionAttachment, PDF_MIME_TYPE, assertSafePdfFileName } fr
 import { ResumePdfGenerationError, generateResumePdf } from "@/services/export/pdfGenerator";
 import { isPaginationPlanBlocked } from "@/services/export/pagination";
 import { verifyExportSnapshotHash } from "@/services/export/snapshot";
+import type { RenderCoverageDiagnostics } from "@/services/export/renderCoverage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -49,7 +50,14 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     const code = error instanceof ResumePdfGenerationError ? error.code : "pdf_generation_failed";
-    return errorResponse(code, code === "export_snapshot_overflow" ? 409 : 500, exportRequest.exportId, snapshot);
+    return errorResponse(
+      code,
+      code === "snapshot_overflow" || code === "export_snapshot_overflow" || code === "render_coverage_failed" ? 409 : 500,
+      exportRequest.exportId,
+      snapshot,
+      error instanceof ResumePdfGenerationError ? error.diagnostics : undefined,
+      error instanceof ResumePdfGenerationError ? error.recoveryAttempt : undefined
+    );
   }
 }
 
@@ -57,7 +65,9 @@ function errorResponse(
   code: string,
   status: number,
   exportId?: string,
-  snapshot?: { branchId: string; branchRevision: number; templateId: string; renderModel: { safety: { visibleItemCount: number } } }
+  snapshot?: { branchId: string; branchRevision: number; templateId: string; renderModel: { safety: { visibleItemCount: number } } },
+  diagnostics?: RenderCoverageDiagnostics,
+  recoveryAttempt?: boolean
 ) {
   if (exportId && snapshot) {
     console.warn("resume_pdf_export_failed", {
@@ -69,5 +79,5 @@ function errorResponse(
       code
     });
   }
-  return NextResponse.json({ code }, { status });
+  return NextResponse.json({ code, diagnostics, recoveryAttempt }, { status });
 }

@@ -6,6 +6,13 @@ const StringListSchema = z.array(z.string().trim().min(1)).default([]);
 export const ResumeCompositionModeSchema = z.enum(["general", "job_specific"]);
 export type ResumeCompositionMode = z.infer<typeof ResumeCompositionModeSchema>;
 
+export const ResumeCompositionTargetContextSchema = z.object({
+  targetDirection: z.string().trim().min(1).max(160).optional(),
+  targetAudience: z.string().trim().min(1).max(160).optional(),
+  companyType: z.string().trim().min(1).max(160).optional()
+}).strict();
+export type ResumeCompositionTargetContext = z.infer<typeof ResumeCompositionTargetContextSchema>;
+
 /**
  * A composition preference is a user answer, not a CareerProfile fact. Keep
  * its identity explicit so a resumed turn cannot be mistaken for a new root
@@ -143,6 +150,9 @@ export const ResumeBlueprintSchema = z.object({
   profileRevision: z.number().int().min(1),
   jobId: z.string().min(1).optional(),
   targetRole: z.string().min(1).optional(),
+  targetDirection: z.string().trim().min(1).max(160).optional(),
+  targetAudience: z.string().trim().min(1).max(160).optional(),
+  companyType: z.string().trim().min(1).max(160).optional(),
   summaryPlan: z.string().min(1).optional(),
   skillGroups: z.record(z.string(), StringListSchema),
   sections: z.array(z.object({
@@ -212,6 +222,7 @@ export const ResumeCompositionMetricsSchema = z.object({
   bulletsGenerated: z.number().int().min(0),
   duplicateBullets: z.number().int().min(0),
   fillerBullets: z.number().int().min(0),
+  lowDensityBullets: z.number().int().min(0).default(0),
   paragraphHeavyItems: z.number().int().min(0),
   pageOverflow: z.boolean(),
   onePageReasonable: z.boolean()
@@ -246,6 +257,9 @@ export const ResumeCompositionResultSchema = z.object({
   profileId: z.string().min(1),
   profileRevision: z.number().int().min(1),
   jobId: z.string().min(1).optional(),
+  targetDirection: z.string().trim().min(1).max(160).optional(),
+  targetAudience: z.string().trim().min(1).max(160).optional(),
+  companyType: z.string().trim().min(1).max(160).optional(),
   evidenceGraph: ResumeEvidenceGraphSchema,
   blueprint: ResumeBlueprintSchema,
   items: z.array(ResumeCompiledItemSchema),

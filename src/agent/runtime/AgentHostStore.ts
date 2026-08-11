@@ -7,7 +7,9 @@ import {
   type AgentMessageReference,
   type AgentSession,
   type AgentTaskState,
-  type AgentOptionSet
+  type AgentOptionSet,
+  type AgentTurn,
+  type AgentTurnCheckpoint
 } from "@/agent/contracts/agentSession";
 import type { AgentPageContext } from "@/agent/contracts/agentContext";
 import type { AgentStreamEvent } from "@/agent/runtime/agentSse";
@@ -86,6 +88,7 @@ import {
 } from "@/agent/workflows/ProfileIntakeFinalizationSupervisor";
 import { AuthoritativeConversationAlignmentGuard } from "@/agent/kernel/AuthoritativeConversationAlignmentGuard";
 import { AgentExecutionCoordinator, type SessionExecution } from "./AgentExecutionCoordinator";
+import type { RuntimeUserEvent } from "./RuntimeUserEvent";
 
 export type AgentHostInput =
   | { type: "message"; text: string; references?: AgentMessageReference[] }
@@ -99,6 +102,97 @@ export type AgentHostInput =
   | { type: "confirmation"; confirmed: boolean }
   | { type: "ui_control"; action: AgentUiAction | AgentWorkflowControl }
   | { type: "external_event"; observation: unknown; toolName?: string };
+
+export type PreparedRuntimeUserEvent = {
+  session: AgentSession;
+  event: RuntimeUserEvent;
+  turnId?: string;
+  userMessage: string;
+  executionOwner?: AgentTurn["executionOwner"];
+  deterministicTransitionApplied: boolean;
+};
+
+export type SafeWorkflowCheckpoint = {
+  source: "authoritative_task_state" | "latest_committed_transition" | "last_hermes_run" | "previous_turn";
+  taskState: AgentTaskState;
+  workflowState: AgentSession["workflowState"];
+  selectedEntities: AgentTaskState["selectedEntities"];
+  artifactRefs: AgentArtifactRef[];
+  pendingConfirmation?: AgentSession["pendingConfirmation"];
+  pendingToolCall?: AgentSession["pendingToolCall"];
+  checkpoint?: AgentTurnCheckpoint;
+};
+
+/**
+ * Return the last state that can be resumed without guessing a write. The
+ * current task projection wins over turn history: a failed model turn may not
+ * have produced a new checkpoint, while the selected resume/job/stage is still
+ * an authoritative and safe continuation point.
+ */
+export function resolveLastSafeWorkflowCheckpoint(session: AgentSession): SafeWorkflowCheckpoint | undefined {
+  const current = session.taskState;
+  if (current && isSafeCurrentTaskState(current)) {
+    return {
+      source: "authoritative_task_state",
+      taskState: structuredClone(current),
+      workflowState: structuredClone(session.workflowState),
+      selectedEntities: structuredClone(current.selectedEntities),
+      artifactRefs: structuredClone(session.artifactRefs),
+      pendingConfirmation: session.pendingConfirmation ? structuredClone(session.pendingConfirmation) : undefined,
+      pendingToolCall: session.pendingToolCall ? structuredClone(session.pendingToolCall) : undefined
+    };
+  }
+  const committed = session.turnCheckpoints.findLast((checkpoint) =>
+    Boolean(checkpoint.taskStateAfter && isSafeCurrentTaskState(checkpoint.taskStateAfter))
+  );
+  if (committed?.taskStateAfter) {
+    return checkpointToSafeWorkflowCheckpoint(committed, "latest_committed_transition");
+  }
+  const hermesCheckpoint = session.hermesRun
+    ? session.turnCheckpoints.findLast((checkpoint) =>
+        checkpoint.turnId === session.hermesRun?.turnId
+          && Boolean(checkpoint.taskStateAfter && isSafeCurrentTaskState(checkpoint.taskStateAfter))
+      )
+    : undefined;
+  if (hermesCheckpoint?.taskStateAfter) return checkpointToSafeWorkflowCheckpoint(hermesCheckpoint, "last_hermes_run");
+  const previous = session.turnCheckpoints.findLast((checkpoint) =>
+    isSafeCurrentTaskState(checkpoint.taskStateBefore)
+  );
+  return previous ? checkpointToSafeWorkflowCheckpoint(previous, "previous_turn", false) : undefined;
+}
+
+function isSafeCurrentTaskState(taskState: AgentTaskState) {
+  const selected = taskState.selectedEntities;
+  const hasResumeAndJob = Boolean(selected.resumeId && selected.jobId);
+  const hasProfileOrResume = Boolean(selected.profileId || selected.resumeId);
+  if (hasResumeAndJob && taskState.stage === "analyze_fit") return true;
+  return hasProfileOrResume
+    && !["cancelled", "failed"].includes(taskState.completionStatus)
+    && taskState.workflowId !== "agent_quick_action";
+}
+
+function checkpointToSafeWorkflowCheckpoint(
+  checkpoint: AgentTurnCheckpoint,
+  source: SafeWorkflowCheckpoint["source"],
+  useAfter = true
+): SafeWorkflowCheckpoint {
+  const taskState = useAfter && checkpoint.taskStateAfter ? checkpoint.taskStateAfter : checkpoint.taskStateBefore;
+  const workflowState = useAfter && checkpoint.workflowStateAfter ? checkpoint.workflowStateAfter : checkpoint.workflowStateBefore;
+  return {
+    source,
+    taskState: structuredClone(taskState),
+    workflowState: structuredClone(workflowState),
+    selectedEntities: structuredClone(useAfter && checkpoint.taskStateAfter ? checkpoint.taskStateAfter.selectedEntities : checkpoint.selectedEntitiesBefore),
+    artifactRefs: structuredClone(useAfter && checkpoint.artifactRefsAfter ? checkpoint.artifactRefsAfter : checkpoint.artifactRefsBefore),
+    pendingConfirmation: (useAfter ? checkpoint.pendingConfirmationAfter : checkpoint.pendingConfirmationBefore)
+      ? structuredClone(useAfter ? checkpoint.pendingConfirmationAfter : checkpoint.pendingConfirmationBefore)
+      : undefined,
+    pendingToolCall: (useAfter ? checkpoint.pendingToolCallAfter : checkpoint.pendingToolCallBefore)
+      ? structuredClone(useAfter ? checkpoint.pendingToolCallAfter : checkpoint.pendingToolCallBefore)
+      : undefined,
+    checkpoint
+  };
+}
 
 export type AgentHostSnapshot = {
   activeSessionId?: string;
@@ -354,6 +448,183 @@ export class AgentHostStore {
   }
 
   /**
+   * Apply only the deterministic part of a semantic UI event before handing
+   * the continuation to the selected runtime. This is the host's boundary:
+   * candidate/revision validation and durable state transitions happen here;
+   * narration, tool choice, and the next workflow step do not.
+   */
+  async prepareRuntimeUserEvent(input: {
+    session: AgentSession;
+    event: RuntimeUserEvent;
+    pageContext: AgentPageContext;
+  }): Promise<PreparedRuntimeUserEvent> {
+    const current = this.snapshot.activeSession?.id === input.session.id
+      ? this.snapshot.activeSession
+      : input.session;
+    if (input.event.type === "text_message") {
+      const session = await this.prepareRuntimeTask({
+        session: current,
+        userMessage: input.event.text,
+        references: input.event.references
+      });
+      return {
+        session,
+        event: input.event,
+        userMessage: input.event.text,
+        deterministicTransitionApplied: session !== current
+      };
+    }
+    if (input.event.type === "quick_action_started") {
+      const initialized = await this.initializeQuickActionTask(current, {
+        type: "quick_action",
+        actionId: input.event.actionId,
+        text: input.event.text,
+        task: input.event.task
+      });
+      return {
+        session: initialized,
+        event: input.event,
+        userMessage: input.event.text,
+        executionOwner: "deterministic_transition",
+        deterministicTransitionApplied: true
+      };
+    }
+    if (input.event.type === "entity_selected") {
+      const prepared = await this.applyTypedEntitySelection(current, input.event.action, {
+        continueAfter: false
+      });
+      return {
+        session: prepared.session,
+        event: input.event,
+        turnId: prepared.turnId,
+        userMessage: "",
+        executionOwner: "deterministic_transition",
+        deterministicTransitionApplied: prepared.applied
+      };
+    }
+    if (input.event.type === "option_selected") {
+      const action = input.event.action;
+      if (action.type === "select_entity") {
+        const prepared = await this.applyTypedEntitySelection(current, action, { continueAfter: false });
+        return {
+          session: prepared.session,
+          event: { type: "entity_selected", action },
+          turnId: prepared.turnId,
+          userMessage: "",
+          executionOwner: "deterministic_transition",
+          deterministicTransitionApplied: prepared.applied
+        };
+      }
+      if (action.type === "task_decision") {
+        const prepared = await this.applyTaskDecision(current, action);
+        return {
+          session: prepared.session,
+          event: input.event,
+          turnId: prepared.turnId,
+          userMessage: "",
+          executionOwner: "deterministic_transition",
+          deterministicTransitionApplied: prepared.applied
+        };
+      }
+      if (action.type === "answer") {
+        const prepared = await this.applyRuntimeAnswer(current, action);
+        return {
+          session: prepared.session,
+          event: input.event,
+          turnId: prepared.turnId,
+          userMessage: "",
+          executionOwner: "deterministic_transition",
+          deterministicTransitionApplied: prepared.applied
+        };
+      }
+      if (action.type === "retry_current_step") {
+        const prepared = await this.prepareRetryWorkflowStep(current);
+        return {
+          session: prepared.session,
+          event: { type: "retry", action },
+          turnId: prepared.turnId,
+          userMessage: "",
+          executionOwner: "deterministic_transition",
+          deterministicTransitionApplied: prepared.applied
+        };
+      }
+    }
+    return {
+      session: current,
+      event: input.event,
+      userMessage: "",
+      deterministicTransitionApplied: false
+    };
+  }
+
+  /** Continue a validated event through the native host when Router fallback
+   * is required. The same method is also used by native-only environments. */
+  continueRuntimeEvent(input: {
+    session: AgentSession;
+    event: RuntimeUserEvent;
+    pageContext: AgentPageContext;
+    turnId: string;
+    runtimeDiagnostics?: Partial<Pick<AgentTurn, "preferredRuntime" | "attemptedRuntime" | "finalRuntime" | "fallbackUsed" | "fallbackReasonCode" | "hermesRunId" | "nextHermesRunId" | "firstEventAt" | "runtimeFailureAt">>;
+  }) {
+    return this.resume(
+      input.session,
+      {
+        reason: "external_event",
+        observation: { type: input.event.type, event: input.event }
+      },
+      input.pageContext,
+      input.turnId,
+      {
+        executionOwner: "runtime_continuation",
+        runtimeDiagnostics: input.runtimeDiagnostics
+      }
+    );
+  }
+
+  /** Runtime-owned bridge for events whose deterministic operation is itself
+   * the action (approval, artifact review, regenerate, or workflow control). */
+  dispatchRuntimeUserEvent(input: {
+    session: AgentSession;
+    event: RuntimeUserEvent;
+    pageContext: AgentPageContext;
+  }) {
+    const { event } = input;
+    if (event.type === "confirmation") {
+      return this.dispatch({ type: "confirmation", confirmed: event.confirmed }, { session: input.session, pageContext: input.pageContext });
+    }
+    if (event.type === "artifact_action") {
+      return this.dispatch({ type: "artifact_action", action: event.action }, { session: input.session, pageContext: input.pageContext });
+    }
+    if (event.type === "regenerate") {
+      return this.dispatch({ type: "regenerate_message", messageId: event.messageId }, { session: input.session, pageContext: input.pageContext });
+    }
+    if (event.type === "edit_message") {
+      return this.dispatch({ type: "edit_message", messageId: event.messageId, text: event.text }, { session: input.session, pageContext: input.pageContext });
+    }
+    if (event.type === "workflow_control") {
+      return this.dispatch({ type: "ui_control", action: event.action }, { session: input.session, pageContext: input.pageContext });
+    }
+    if (event.type === "retry") {
+      return this.dispatch({ type: "option", action: event.action ?? { type: "retry_current_step" } }, { session: input.session, pageContext: input.pageContext });
+    }
+    if (event.type === "option_selected") {
+      return this.dispatch({ type: "option", action: event.action }, { session: input.session, pageContext: input.pageContext });
+    }
+    if (event.type === "entity_selected") {
+      return this.dispatch({ type: "option", action: event.action }, { session: input.session, pageContext: input.pageContext });
+    }
+    if (event.type === "text_message") {
+      return this.dispatch({ type: "message", text: event.text, references: event.references }, { session: input.session, pageContext: input.pageContext });
+    }
+    return this.dispatch({
+      type: "quick_action",
+      actionId: event.actionId,
+      text: event.text,
+      task: event.task
+    }, { session: input.session, pageContext: input.pageContext });
+  }
+
+  /**
    * Publish a runtime-owned conversation shell before an external runtime
    * performs network or model work. Native turns already use startTurn; this
    * path is for Hermes (and future companion runtimes) so the UI never waits
@@ -364,7 +635,7 @@ export class AgentHostStore {
     userMessage: string;
     runtimeId: string;
     turnId?: string;
-    runtimeDiagnostics?: Partial<Pick<NonNullable<AgentSession["activeTurn"]>, "preferredRuntime" | "attemptedRuntime" | "finalRuntime" | "fallbackUsed" | "fallbackReasonCode" | "hermesRunId" | "firstEventAt" | "runtimeFailureAt">>;
+    runtimeDiagnostics?: Partial<Pick<NonNullable<AgentSession["activeTurn"]>, "preferredRuntime" | "attemptedRuntime" | "finalRuntime" | "executionOwner" | "fallbackUsed" | "fallbackReasonCode" | "hermesRunId" | "nextHermesRunId" | "firstEventAt" | "runtimeFailureAt">>;
   }) {
     const now = new Date().toISOString();
     const turnId = input.turnId ?? `runtime-turn-${crypto.randomUUID()}`;
@@ -402,6 +673,7 @@ export class AgentHostStore {
         preferredRuntime: input.runtimeId === "hermes" ? "hermes" : undefined,
         attemptedRuntime: input.runtimeId === "hermes" ? "hermes" : undefined,
         finalRuntime: input.runtimeId === "hermes" ? "hermes" : undefined,
+        executionOwner: input.runtimeDiagnostics?.executionOwner ?? (input.userMessage.trim() ? input.runtimeId as "native" | "hermes" : undefined),
         fallbackUsed: false,
         ...input.runtimeDiagnostics,
         status: "running",
@@ -1508,26 +1780,43 @@ export class AgentHostStore {
     const sourceMessage = recoverableJournal
       ? session.messages.find((message) => message.id === recoverableJournal.messageId)
       : [...session.messages].reverse().find((message) => message.role === "user" && message.content.trim());
-    if (!sourceMessage) return session;
-    const checkpoint = session.turnCheckpoints.findLast((item) => item.userMessageId === sourceMessage.id);
-    if (!checkpoint && isFailedDomainTask(session)) {
+    const safe = resolveLastSafeWorkflowCheckpoint(session);
+    if (!sourceMessage && !safe) return session;
+    const checkpoint = sourceMessage
+      ? session.turnCheckpoints.findLast((item) => item.userMessageId === sourceMessage.id)
+      : undefined;
+    if (!safe && !checkpoint && isFailedDomainTask(session)) {
       const blocked = appendAgentMessage(
         session,
         "assistant",
-        "这次失败没有留下可验证的工作流检查点，因此没有把任务重新标记为进行中。请重新发起该任务，避免重复未知写入。",
+        "当前失败状态没有找到可验证的安全继续点。请重新选择岗位或简历后继续，我不会重复未知写入。",
         {
           kind: "error_status",
           type: "error",
           status: "failed",
-          errorCode: "workflow_checkpoint_missing",
-          metadata: { terminalState: "RECOVERABLE_FAILURE", recoveryBlocked: "checkpoint_missing" }
+          errorCode: "workflow_safe_state_missing",
+          metadata: { terminalState: "RECOVERABLE_FAILURE", recoveryBlocked: "safe_state_missing" }
         }
       );
       const saved = await this.dependencies.persistence.save(blocked);
       this.patchSession(saved, { turnStatus: "failed" });
       return saved;
     }
-    const restored = checkpoint
+    const restored = safe
+      ? {
+          ...session,
+          taskState: { ...safe.taskState, completionStatus: "active" as const, updatedAt: new Date().toISOString() },
+          workflowState: safe.workflowState,
+          artifactRefs: safe.artifactRefs,
+          activeProfileId: safe.selectedEntities.profileId,
+          activeResumeId: safe.selectedEntities.resumeId,
+          activeJobId: safe.selectedEntities.jobId,
+          pendingConfirmation: safe.pendingConfirmation,
+          pendingToolCall: safe.pendingToolCall,
+          activeTurn: undefined,
+          updatedAt: new Date().toISOString()
+        }
+      : checkpoint
       ? {
           ...session,
           taskState: checkpoint.taskStateBefore,
@@ -1550,7 +1839,7 @@ export class AgentHostStore {
     }
     return this.startTurn({
       session: restored,
-      userMessage: recoverableJournal?.exactSourceText ?? sourceMessage.content,
+      userMessage: recoverableJournal?.exactSourceText ?? sourceMessage?.content ?? "继续当前步骤",
       pageContext,
       supersede: true,
       retryWorkflowStep: true
@@ -3441,13 +3730,30 @@ export class AgentHostStore {
     action: Extract<AgentOption["action"], { type: "task_decision" }>,
     pageContext: AgentPageContext
   ) {
+    const prepared = await this.applyTaskDecision(session, action);
+    if (!prepared.applied) return prepared.session;
+    return this.resume(prepared.session, {
+      reason: "external_event",
+      observation: {
+        type: "task_decision",
+        decisionType: action.decisionType,
+        option: action.option
+      }
+    }, pageContext, prepared.turnId);
+  }
+
+  private async applyTaskDecision(
+    session: AgentSession,
+    action: Extract<AgentOption["action"], { type: "task_decision" }>
+  ): Promise<{ session: AgentSession; turnId: string; applied: boolean }> {
     if (
       session.taskState?.pendingDecision?.type !== action.decisionType
       || !session.taskState.pendingDecision.options.includes(action.option)
     ) {
-      return session;
+      return { session, turnId: `agent-turn-${crypto.randomUUID()}`, applied: false };
     }
     const turnId = `agent-turn-${crypto.randomUUID()}`;
+    const userMessageId = `agent-user-${crypto.randomUUID()}`;
     const decisionLabels: Record<typeof action.option, string> = {
       profile: "使用个人资料库生成岗位简历",
       existing_resume: "使用现有简历（路线 B）",
@@ -3463,22 +3769,120 @@ export class AgentHostStore {
       decisionType: action.decisionType,
       option: action.option
     });
-    let current = markTypedTaskDecisionResolution(session, {
+    let current = withTurnCheckpoint(session, turnId, userMessageId, new Date().toISOString());
+    current = markTypedTaskDecisionResolution(current, {
       turnId,
       decisionType: action.decisionType,
       decisionOption: action.option,
       label: decisionLabels[action.option]
     });
     current = projectTaskStateIntoSession(current, taskState);
-    current = await this.dependencies.persistence.save(current);
-    return this.resume(current, {
-      reason: "external_event",
-      observation: {
-        type: "task_decision",
-        decisionType: action.decisionType,
-        option: action.option
+    current = {
+      ...current,
+      activeTurn: {
+        id: turnId,
+        sessionId: current.id,
+        userMessageId,
+        executionOwner: "deterministic_transition",
+        status: "running",
+        startedAt: new Date().toISOString()
       }
-    }, pageContext, turnId);
+    };
+    current = await this.dependencies.persistence.save(current);
+    this.patchSession(current);
+    return { session: current, turnId, applied: true };
+  }
+
+  private async applyRuntimeAnswer(
+    session: AgentSession,
+    action: Extract<AgentOption["action"], { type: "answer" }>
+  ): Promise<{ session: AgentSession; turnId: string; applied: boolean }> {
+    if (action.field === "profile-intake-section") {
+      return { session, turnId: `agent-turn-${crypto.randomUUID()}`, applied: false };
+    }
+    const answerValue = action.value;
+    if (action.field.startsWith("tailoring-question:")) {
+      const questionId = action.field.slice("tailoring-question:".length);
+      if (presentedActiveTailoringQuestion(session) !== questionId) {
+        return { session, turnId: `agent-turn-${crypto.randomUUID()}`, applied: false };
+      }
+      const tailoring = objectValue(session.taskState?.knownSlots.tailoringSession);
+      const plan = objectValue(tailoring.plan);
+      const question = (Array.isArray(plan.clarificationQuestions) ? plan.clarificationQuestions.map(objectValue) : [])
+        .find((item) => item.id === questionId);
+      const valid = Array.isArray(question?.options)
+        && question.options.map(objectValue).some((option) => option.value === answerValue);
+      if (!valid) return { session, turnId: `agent-turn-${crypto.randomUUID()}`, applied: false };
+    }
+    const turnId = `agent-turn-${crypto.randomUUID()}`;
+    const userMessageId = `agent-user-${crypto.randomUUID()}`;
+    const now = new Date().toISOString();
+    const text = String(answerValue ?? "").slice(0, 8_000);
+    let current = withTurnCheckpoint(session, turnId, userMessageId, now);
+    current = appendAgentMessage(current, "user", text, {
+      id: userMessageId,
+      turnId,
+      status: "complete",
+      metadata: {
+        executionOwner: "deterministic_transition",
+        optionField: action.field,
+        optionValue: answerValue
+      }
+    });
+    current = {
+      ...current,
+      activeTurn: {
+        id: turnId,
+        sessionId: current.id,
+        userMessageId,
+        executionOwner: "deterministic_transition",
+        status: "running",
+        startedAt: now
+      }
+    };
+    const saved = await this.dependencies.persistence.save(current);
+    this.patchSession(saved);
+    return { session: saved, turnId, applied: true };
+  }
+
+  private async prepareRetryWorkflowStep(session: AgentSession) {
+    const safe = resolveLastSafeWorkflowCheckpoint(session);
+    const turnId = `agent-retry-${crypto.randomUUID()}`;
+    if (!safe) return { session, turnId, applied: false };
+    const userMessageId = `agent-user-${crypto.randomUUID()}`;
+    const now = new Date().toISOString();
+    const restoredTask = {
+      ...structuredClone(safe.taskState),
+      completionStatus: "active" as const,
+      updatedAt: now
+    };
+    let restored = projectTaskStateIntoSession({
+      ...session,
+      workflowState: structuredClone(safe.workflowState),
+      artifactRefs: structuredClone(safe.artifactRefs),
+      pendingConfirmation: safe.pendingConfirmation ? structuredClone(safe.pendingConfirmation) : undefined,
+      pendingToolCall: safe.pendingToolCall ? structuredClone(safe.pendingToolCall) : undefined,
+      activeProfileId: safe.selectedEntities.profileId,
+      activeResumeId: safe.selectedEntities.resumeId,
+      activeJobId: safe.selectedEntities.jobId,
+      activeTurn: undefined,
+      updatedAt: now
+    }, restoredTask);
+    restored = withTurnCheckpoint(restored, turnId, userMessageId, now);
+    restored = {
+      ...restored,
+      activeTurn: {
+        id: turnId,
+        sessionId: restored.id,
+        userMessageId,
+        executionOwner: "deterministic_transition",
+        status: "running",
+        startedAt: now
+      }
+    };
+    const saved = await this.dependencies.persistence.save(restored);
+    this.patchSession(saved, { turnStatus: "running", currentObservation: { type: "safe_checkpoint_restored", source: safe.source } });
+    return { session: saved, turnId, applied: true };
   }
 
   private resolveArtifactAction(
@@ -3884,7 +4288,20 @@ export class AgentHostStore {
     action: Extract<AgentOption["action"], { type: "select_entity" }>,
     pageContext: AgentPageContext
   ) {
-    if (!session.taskState) return session;
+    const prepared = await this.applyTypedEntitySelection(session, action, { continueAfter: true });
+    if (!prepared.applied) return prepared.session;
+    return this.resume(prepared.session, {
+      reason: "external_event",
+      observation: { type: "entity_selected", entityType: action.entityType, entityId: action.entityId }
+    }, pageContext, prepared.turnId);
+  }
+
+  private async applyTypedEntitySelection(
+    session: AgentSession,
+    action: Extract<AgentOption["action"], { type: "select_entity" }>,
+    options: { continueAfter: boolean }
+  ): Promise<{ session: AgentSession; turnId: string; applied: boolean }> {
+    if (!session.taskState) return { session, turnId: `agent-turn-${crypto.randomUUID()}`, applied: false };
     const candidatesKey = action.entityType === "job" ? "jobCandidates" : "resumeCandidates";
     const revisionKey = action.entityType === "job" ? "jobCandidateSetRevision" : "resumeCandidateSetRevision";
     const candidates = Array.isArray(session.taskState.knownSlots[candidatesKey])
@@ -3899,7 +4316,7 @@ export class AgentHostStore {
       });
       const saved = await this.dependencies.persistence.save(stale);
       this.patchSession(saved);
-      return saved;
+      return { session: saved, turnId: `agent-turn-${crypto.randomUUID()}`, applied: false };
     }
     const reducer = new AgentTaskStateReducer();
     let taskState = reducer.reduce(session.taskState, {
@@ -3920,21 +4337,38 @@ export class AgentHostStore {
       updatedAt: new Date().toISOString()
     };
     const turnId = `agent-turn-${crypto.randomUUID()}`;
+    const userMessageId = `agent-user-${crypto.randomUUID()}`;
     const label = action.entityType === "job"
       ? `${String(candidate.title ?? "岗位")}${candidate.company ? ` · ${String(candidate.company)}` : ""}`
       : String(candidate.name ?? "简历");
-    let current = appendAgentMessage(session, "user", label, {
+    let current = withTurnCheckpoint(session, turnId, userMessageId, taskState.updatedAt);
+    current = appendAgentMessage(current, "user", label, {
+      id: userMessageId,
       turnId,
       status: "complete",
-      metadata: { executionState: "complete", selectedEntityType: action.entityType, selectedEntityId: action.entityId }
+      metadata: {
+        executionState: "complete",
+        executionOwner: "deterministic_transition",
+        selectedEntityType: action.entityType,
+        selectedEntityId: action.entityId
+      }
     });
     current = projectTaskStateIntoSession(current, taskState);
+    current = {
+      ...current,
+      activeTurn: {
+        id: turnId,
+        sessionId: current.id,
+        userMessageId,
+        executionOwner: "deterministic_transition",
+        status: "running",
+        startedAt: taskState.updatedAt
+      }
+    };
     current = await this.dependencies.persistence.save(current);
     this.patchSession(current);
-    return this.resume(current, {
-      reason: "external_event",
-      observation: { type: "entity_selected", entityType: action.entityType, entityId: action.entityId }
-    }, pageContext, turnId);
+    if (!options.continueAfter) return { session: current, turnId, applied: true };
+    return { session: current, turnId, applied: true };
   }
 
   private async resume(
@@ -3945,7 +4379,11 @@ export class AgentHostStore {
       observation: unknown;
     },
     pageContext: AgentPageContext,
-    turnId: string
+    turnId: string,
+    options: {
+      executionOwner?: AgentTurn["executionOwner"];
+      runtimeDiagnostics?: Partial<Pick<AgentTurn, "preferredRuntime" | "attemptedRuntime" | "finalRuntime" | "executionOwner" | "fallbackUsed" | "fallbackReasonCode" | "hermesRunId" | "nextHermesRunId" | "firstEventAt" | "runtimeFailureAt">>;
+    } = {}
   ) {
     const existing = this.executionCoordinator.get(session.id);
     if (existing?.promise) {
@@ -3971,6 +4409,8 @@ export class AgentHostStore {
         id: turnId,
         sessionId: current.id,
         userMessageId: current.activeTurn?.userMessageId,
+        executionOwner: options.executionOwner ?? current.activeTurn?.executionOwner ?? "runtime_continuation",
+        ...options.runtimeDiagnostics,
         status: "running",
         startedAt: current.activeTurn?.startedAt ?? startedAt
       }
@@ -5748,14 +6188,15 @@ export function prepareSessionForAssistantRegeneration(
   if (!userMessage?.content.trim()) return undefined;
   const now = new Date().toISOString();
   const checkpoint = session.turnCheckpoints.findLast((item) => item.userMessageId === userMessage.id);
+  const safe = resolveLastSafeWorkflowCheckpoint(session);
   if (isFailedWorkflowAnswer(target, session, checkpoint)) {
-    if (!checkpoint && isFailedDomainTask(session)) {
-      const notice = appendAgentMessage(session, "assistant", "该失败任务没有可验证的工作流检查点，不能安全重生成；请从当前页面新建任务。", {
+    if (!checkpoint && !safe && isFailedDomainTask(session)) {
+      const notice = appendAgentMessage(session, "assistant", "当前失败状态没有找到可验证的安全继续点，请重新选择岗位或简历后继续。", {
         kind: "error_status",
         type: "error",
         status: "failed",
-        errorCode: "workflow_checkpoint_missing",
-        metadata: { terminalState: "RECOVERABLE_FAILURE", recoveryBlocked: "checkpoint_missing", sourceMessageId: messageId }
+        errorCode: "workflow_safe_state_missing",
+        metadata: { terminalState: "RECOVERABLE_FAILURE", recoveryBlocked: "safe_state_missing", sourceMessageId: messageId }
       });
       return {
         session: notice,
@@ -5771,7 +6212,16 @@ export function prepareSessionForAssistantRegeneration(
     }
     const restored = {
       ...session,
-      ...(checkpoint ? {
+      ...(safe ? {
+        taskState: { ...safe.taskState, completionStatus: "active" as const, updatedAt: now },
+        workflowState: safe.workflowState,
+        artifactRefs: safe.artifactRefs,
+        activeProfileId: safe.selectedEntities.profileId,
+        activeResumeId: safe.selectedEntities.resumeId,
+        activeJobId: safe.selectedEntities.jobId,
+        pendingConfirmation: safe.pendingConfirmation,
+        pendingToolCall: safe.pendingToolCall
+      } : checkpoint ? {
         taskState: checkpoint.taskStateBefore,
         workflowState: checkpoint.workflowStateBefore,
         artifactRefs: checkpoint.artifactRefsBefore,
@@ -6741,32 +7191,39 @@ function applyRuntimeFacadeCheckpoint(session: AgentSession, toolName: string, v
       ? { tailoringSessionId: stringRecordValue(normalizedSessionData.id) }
       : {})
   };
-  const completionStatus = status === "completed"
-    ? "completed" as const
-    : status === "waiting_for_user"
-      ? "waiting_for_user" as const
-      : status === "waiting_for_confirmation"
-        ? "waiting_for_confirmation" as const
-        : status === "failed"
-          ? "failed" as const
-          : "active" as const;
-  const stage = toolName === "career.workflow.job_fit" && completionStatus === "completed"
-    ? "completed"
-    : toolName === "career.workflow.profile_to_resume" && completionStatus === "completed"
-      ? "resume_ready"
-      : toolName === "career.workflow.compose_resume" && completionStatus === "completed"
+  const tailoringFitCompleted = toolName === "career.workflow.job_fit"
+    && task.workflowId === "tailor_existing_resume"
+    && status === "completed";
+  const completionStatus = tailoringFitCompleted
+    ? "active" as const
+    : status === "completed"
+      ? "completed" as const
+      : status === "waiting_for_user"
+        ? "waiting_for_user" as const
+        : status === "waiting_for_confirmation"
+          ? "waiting_for_confirmation" as const
+          : status === "failed"
+            ? "failed" as const
+            : "active" as const;
+  const stage = tailoringFitCompleted
+    ? "generate_plan"
+    : toolName === "career.workflow.job_fit" && completionStatus === "completed"
+      ? "completed"
+      : toolName === "career.workflow.profile_to_resume" && completionStatus === "completed"
         ? "resume_ready"
-        : toolName === "career.workflow.compose_resume" && completionStatus === "waiting_for_confirmation"
-          ? "review_composition"
-      : toolName === "career.workflow.resume_export" && completionStatus === "completed"
-        ? "export_ready"
-        : toolName === "career.workflow.resume_import"
-          ? "import_review"
-          : toolName === "career.workflow.profile_intake_finalize"
-            ? "final_review"
-            : toolName === "career.workflow.tailor_resume"
-              ? "answer_tailoring_question"
-              : task.stage;
+        : toolName === "career.workflow.compose_resume" && completionStatus === "completed"
+          ? "resume_ready"
+          : toolName === "career.workflow.compose_resume" && completionStatus === "waiting_for_confirmation"
+            ? "review_composition"
+            : toolName === "career.workflow.resume_export" && completionStatus === "completed"
+              ? "export_ready"
+              : toolName === "career.workflow.resume_import"
+                ? "import_review"
+                : toolName === "career.workflow.profile_intake_finalize"
+                  ? "final_review"
+                  : toolName === "career.workflow.tailor_resume"
+                    ? "answer_tailoring_question"
+                    : task.stage;
   const knownSlots = {
     ...task.knownSlots,
     facadeCheckpoint: checkpoint,
@@ -7170,6 +7627,12 @@ function applyRuntimeEventDiagnostics(session: AgentSession, event: AgentRuntime
   const fallbackUsed = data.fallbackUsed === true || telemetry.fallbackUsed === true;
   const fallbackReasonCode = stringValue(data.fallbackReasonCode) ?? stringValue(telemetry.fallbackReasonCode);
   const runtimeFailureAt = stringValue(data.runtimeFailureAt) ?? stringValue(telemetry.runtimeFailureAt);
+  const executionOwner = data.executionOwner === "native" || data.executionOwner === "hermes" || data.executionOwner === "deterministic_transition" || data.executionOwner === "runtime_continuation"
+    ? data.executionOwner
+    : telemetry.executionOwner === "native" || telemetry.executionOwner === "hermes" || telemetry.executionOwner === "deterministic_transition" || telemetry.executionOwner === "runtime_continuation"
+      ? telemetry.executionOwner
+      : undefined;
+  const nextHermesRunId = stringValue(data.nextHermesRunId) ?? stringValue(telemetry.nextHermesRunId);
   return {
     ...session,
     activeTurn: {
@@ -7177,9 +7640,11 @@ function applyRuntimeEventDiagnostics(session: AgentSession, event: AgentRuntime
       preferredRuntime: runtime(data.preferredRuntime) ?? runtime(telemetry.preferredRuntime) ?? session.activeTurn.preferredRuntime,
       attemptedRuntime: runtime(data.attemptedRuntime) ?? runtime(telemetry.attemptedRuntime) ?? session.activeTurn.attemptedRuntime,
       finalRuntime: runtime(data.finalRuntime) ?? runtime(telemetry.finalRuntime) ?? session.activeTurn.finalRuntime ?? "hermes",
+      executionOwner: executionOwner ?? session.activeTurn.executionOwner,
       fallbackUsed: fallbackUsed || session.activeTurn.fallbackUsed === true,
       fallbackReasonCode: fallbackReasonCode ?? session.activeTurn.fallbackReasonCode,
       hermesRunId: hermesRunId ?? session.activeTurn.hermesRunId,
+      nextHermesRunId: nextHermesRunId ?? (session.activeTurn.executionOwner === "deterministic_transition" ? hermesRunId : session.activeTurn.nextHermesRunId),
       firstEventAt: session.activeTurn.firstEventAt ?? event.timestamp,
       runtimeFailureAt: runtimeFailureAt ?? (event.type === "turn_failed" ? event.timestamp : session.activeTurn.runtimeFailureAt)
     }
@@ -7188,9 +7653,9 @@ function applyRuntimeEventDiagnostics(session: AgentSession, event: AgentRuntime
 
 function runtimeFailureRecoveryText(code?: string) {
   if (code === "agent_tool_not_allowed") {
-    return "简历组装流程刚才没有完成，当前方向和已完成步骤已保留。请重新执行当前步骤，我不会把未确认内容显示为简历。";
+    return "简历组装流程刚才没有完成，当前方向和已完成步骤已保留。请从当前步骤继续，我不会把未确认内容显示为简历。";
   }
-  return "当前步骤没有完成，已有方向、资料绑定和已完成步骤已保留。请重新执行当前步骤，我不会把未确认内容显示为简历。";
+  return "刚才的岗位分析步骤没有完成。已保留你选中的岗位，我正在从这里继续。";
 }
 
 function resumePreviewUiAction(session: AgentSession): AgentUiAction | undefined {

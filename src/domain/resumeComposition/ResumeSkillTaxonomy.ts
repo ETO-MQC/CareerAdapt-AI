@@ -73,7 +73,7 @@ export function normalizeSkillGroups(skills: ResumeSkillEvidence[]) {
   const grouped = new Map<string, string[]>();
   for (const skill of skills) {
     const canonical = canonicalTechnicalTerm(skill.name) ?? skill.name.trim();
-    const category = technicalTermCategory(canonical) ?? skill.category;
+    const category = compactSkillCategory(technicalTermCategory(canonical) ?? skill.category);
     if (!canonical || !category || !isUsefulSkillName(canonical)) continue;
     grouped.set(category, unique([...(grouped.get(category) ?? []), canonical]));
   }
@@ -81,11 +81,13 @@ export function normalizeSkillGroups(skills: ResumeSkillEvidence[]) {
 }
 
 export function isUsefulSkillName(value: string) {
-  return !/^(?:API|工具|测试|开发|技术|框架|软件|平台|系统|自动化)$/iu.test(value.trim());
+  return !/^(?:API|工具|测试|开发|技术|框架|软件|平台|系统|自动化)(?:\s|$)/iu.test(value.trim());
 }
 
 export function compactSkillCategory(category: string) {
-  return category === "后端" || category === "数据库" ? "后端 / 数据库" : category;
+  if (category === "后端" || category === "数据库") return "后端 / 数据";
+  if (category === "工程与测试") return "工程 / 测试";
+  return category;
 }
 
 function containsTerm(text: string, alias: string) {

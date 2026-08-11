@@ -18,6 +18,34 @@ export type RenderCoverageDrop = {
   reason: string;
 };
 
+export type RenderCoverageLabel = {
+  sectionType: string;
+  sectionId: string;
+  itemId?: string;
+  label: string;
+  count?: number;
+};
+
+export type RenderCoverageStageCounts = {
+  sections: number;
+  items: number;
+};
+
+export type RenderCoverageDiagnostics = {
+  failedStage?: RenderCoverageStage;
+  droppedSections: RenderCoverageLabel[];
+  droppedItems: RenderCoverageLabel[];
+  duplicateSections: RenderCoverageLabel[];
+  duplicateItems: RenderCoverageLabel[];
+  sourceCounts: RenderCoverageStageCounts;
+  presentationCounts: RenderCoverageStageCounts;
+  paginatedCounts?: RenderCoverageStageCounts;
+  renderedCounts?: RenderCoverageStageCounts;
+  paginationHash?: string;
+  revisionId?: string;
+  presentationRevision?: number;
+};
+
 export type RenderCoverageReport = {
   source: RenderCoverageEntry[];
   presentation: RenderCoverageEntry[];
@@ -29,6 +57,7 @@ export type RenderCoverageReport = {
   duplicateRenderedSectionCount: number;
   duplicateRenderedItemCount: number;
   genericExperienceRendered: number;
+  diagnostics: RenderCoverageDiagnostics;
 };
 
 export function presentationCoverage(model: ResumeRenderModel): RenderCoverageEntry[] {
@@ -100,20 +129,47 @@ export function createRenderCoverageReport(input: {
   presentation: RenderCoverageEntry[];
   paginated?: RenderCoverageEntry[];
   rendered?: RenderCoverageEntry[];
+  paginationHash?: string;
+  revisionId?: string;
+  presentationRevision?: number;
 }): RenderCoverageReport {
   const droppedEntries: RenderCoverageDrop[] = [];
   compareStages(input.source, input.presentation, "presentation", "presentation projector did not preserve visible source entry", droppedEntries);
   if (input.paginated) compareStages(input.presentation, input.paginated, "pagination", "pagination plan did not preserve presentation entry", droppedEntries);
   if (input.rendered) compareStages(input.paginated ?? input.presentation, input.rendered, "rendered", "template DOM did not preserve paginated entry", droppedEntries);
   const rendered = input.rendered ?? [];
+  const duplicateSections = duplicateLabels(rendered.filter((entry) => !entry.itemId));
+  const duplicateItems = duplicateLabels(rendered.filter((entry) => Boolean(entry.itemId)));
+  const failedStage = droppedEntries[0]?.droppedStage
+    ?? (duplicateSections.length > 0 || duplicateItems.length > 0 || rendered.some((entry) => entry.sectionType === "experience" && !entry.itemId)
+      ? "rendered"
+      : undefined);
+  const diagnostics: RenderCoverageDiagnostics = {
+    failedStage,
+    droppedSections: droppedEntries.filter((entry) => !entry.itemId).map(toLabel),
+    droppedItems: droppedEntries.filter((entry) => Boolean(entry.itemId)).map(toLabel),
+    duplicateSections,
+    duplicateItems,
+    sourceCounts: stageCounts(input.source),
+    presentationCounts: stageCounts(input.presentation),
+    paginatedCounts: input.paginated ? stageCounts(input.paginated) : undefined,
+    renderedCounts: input.rendered ? stageCounts(input.rendered) : undefined,
+    paginationHash: input.paginationHash,
+    revisionId: input.revisionId,
+    presentationRevision: input.presentationRevision
+  };
   return {
-    ...input,
+    source: input.source,
+    presentation: input.presentation,
+    paginated: input.paginated,
+    rendered: input.rendered,
     droppedEntries,
     silentDroppedSectionCount: droppedEntries.filter((entry) => !entry.itemId).length,
     silentDroppedItemCount: droppedEntries.filter((entry) => Boolean(entry.itemId)).length,
     duplicateRenderedSectionCount: duplicateCount(rendered.filter((entry) => !entry.itemId)),
     duplicateRenderedItemCount: duplicateCount(rendered.filter((entry) => Boolean(entry.itemId))),
-    genericExperienceRendered: rendered.filter((entry) => entry.sectionType === "experience" && !entry.itemId).length
+    genericExperienceRendered: rendered.filter((entry) => entry.sectionType === "experience" && !entry.itemId).length,
+    diagnostics
   };
 }
 
@@ -132,6 +188,39 @@ export function coverageCounts(entries: RenderCoverageEntry[]) {
     counts[entry.sectionType] = (counts[entry.sectionType] ?? 0) + 1;
   }
   return counts;
+}
+
+function stageCounts(entries: RenderCoverageEntry[]): RenderCoverageStageCounts {
+  const unique = dedupeEntries(entries);
+  return {
+    sections: unique.filter((entry) => !entry.itemId).length,
+    items: unique.filter((entry) => Boolean(entry.itemId)).length
+  };
+}
+
+function toLabel(entry: RenderCoverageEntry | RenderCoverageDrop): RenderCoverageLabel {
+  return {
+    sectionType: entry.sectionType,
+    sectionId: entry.sectionId,
+    itemId: entry.itemId,
+    label: entry.itemId ?? entry.sectionId
+  };
+}
+
+function duplicateLabels(entries: RenderCoverageEntry[]): RenderCoverageLabel[] {
+  const counts = new Map<string, { entry: RenderCoverageEntry; count: number }>();
+  for (const entry of entries) {
+    const key = entryKey(entry);
+    const current = counts.get(key);
+    if (current) {
+      current.count += 1;
+    } else {
+      counts.set(key, { entry, count: 1 });
+    }
+  }
+  return Array.from(counts.values())
+    .filter((item) => item.count > 1)
+    .map((item) => ({ ...toLabel(item.entry), count: item.count }));
 }
 
 function legacyCoverage(model: ResumeRenderModel): RenderCoverageEntry[] {

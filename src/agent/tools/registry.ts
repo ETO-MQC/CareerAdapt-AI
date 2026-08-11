@@ -267,6 +267,9 @@ const ResumeCompositionInputSchema = z.object({
   jobId: z.string().min(1).optional(),
   sourceResumeId: z.string().min(1).optional(),
   name: z.string().min(1).max(120).optional(),
+  targetDirection: z.string().trim().min(1).max(160).optional(),
+  targetAudience: z.string().trim().min(1).max(160).optional(),
+  companyType: z.string().trim().min(1).max(160).optional(),
   acknowledgedActiveProfileId: z.string().min(1).optional(),
   userPreferences: z.record(z.string(), z.unknown()).optional()
 }).strict().superRefine((input, context) => {

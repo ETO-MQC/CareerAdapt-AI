@@ -764,10 +764,34 @@ function safeToolResult(result: Awaited<ReturnType<CareerToolGateway["execute"]>
 
 function safeMetadata(metadata?: Record<string, unknown>) {
   if (!metadata) return undefined;
-  return Object.fromEntries(Object.entries(metadata).filter(([key, value]) =>
-    ["model", "hermesSessionId", "fallbackUsed", "preferredRuntime", "attemptedRuntime", "finalRuntime", "fallbackReasonCode", "runtimeFailureAt", "workflowId", "workflowStage", "rootGoal", "confirmed", "confirmationCount", "runtimeId"].includes(key)
-    && (typeof value === "string" || typeof value === "number" || typeof value === "boolean")
-  ));
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(metadata)) {
+    if (["model", "hermesSessionId", "fallbackUsed", "preferredRuntime", "attemptedRuntime", "finalRuntime", "fallbackReasonCode", "runtimeFailureAt", "workflowId", "workflowStage", "rootGoal", "confirmed", "confirmationCount", "runtimeId", "executionOwner", "nextHermesRunId"].includes(key)
+      && (typeof value === "string" || typeof value === "number" || typeof value === "boolean")) {
+      result[key] = value;
+      continue;
+    }
+    if (key === "runtimeUserEvent" && value && typeof value === "object" && !Array.isArray(value)) {
+      result[key] = sanitizeRuntimeUserEvent(value as Record<string, unknown>);
+    }
+  }
+  return result;
+}
+
+function sanitizeRuntimeUserEvent(value: Record<string, unknown>) {
+  const type = typeof value.type === "string" ? value.type : "unknown";
+  const action = value.action && typeof value.action === "object" && !Array.isArray(value.action)
+    ? value.action as Record<string, unknown>
+    : undefined;
+  return {
+    type,
+    ...(typeof value.text === "string" ? { text: value.text.slice(0, 8_000) } : {}),
+    ...(typeof value.actionId === "string" ? { actionId: value.actionId } : {}),
+    ...(action ? { action } : {}),
+    ...(typeof value.confirmed === "boolean" ? { confirmed: value.confirmed } : {}),
+    ...(typeof value.messageId === "string" ? { messageId: value.messageId } : {}),
+    ...(typeof value.sourceMessageId === "string" ? { sourceMessageId: value.sourceMessageId } : {})
+  };
 }
 
 function allowedCareerToolContracts(gateway: CareerToolGateway, input: AgentRuntimeTurnInput) {
@@ -776,20 +800,47 @@ function allowedCareerToolContracts(gateway: CareerToolGateway, input: AgentRunt
       ? input.metadata.allowedToolNames.filter((name): name is string => typeof name === "string")
       : gateway.listContracts().map((contract) => contract.sourceToolName)
   );
-  const workflowId = typeof input.metadata?.workflowId === "string" ? input.metadata.workflowId : undefined;
-  const stage = typeof input.metadata?.workflowStage === "string" ? input.metadata.workflowStage : undefined;
+  const workflowFacades = workflowFacadeNames(input);
+  const allowedCareerTools = new Set(
+    Array.isArray(input.metadata?.allowedCareerToolNames)
+      ? input.metadata.allowedCareerToolNames.filter((name): name is string => typeof name === "string")
+      : []
+  );
   return gateway.listContracts().filter((contract) =>
     allowedSourceTools.has(contract.sourceToolName)
-    || contract.name === "career.workflow.compose_resume"
-      && workflowId === "compose_resume"
-      && ["review_composition", "confirm_create"].includes(stage ?? "")
+    || allowedCareerTools.has(contract.name)
+    || workflowFacades.includes(contract.name)
   );
 }
 
 function isAllowedCareerTool(input: AgentRuntimeTurnInput, toolName: string) {
   const allowed = input.metadata?.allowedCareerToolNames;
-  if (Array.isArray(allowed)) return allowed.includes(toolName);
+  if (Array.isArray(allowed)) return allowed.includes(toolName) || workflowFacadeNames(input).includes(toolName);
   return true;
+}
+
+function workflowFacadeNames(input: AgentRuntimeTurnInput) {
+  const workflowId = typeof input.metadata?.workflowId === "string" ? input.metadata.workflowId : undefined;
+  const stage = typeof input.metadata?.workflowStage === "string" ? input.metadata.workflowStage : undefined;
+  if (workflowId === "guided_profile_intake" || workflowId === "profile_intake") {
+    return [
+      ...(stage === "final_review" || stage === "reconcile_profile" || stage === "resolve_conflicts"
+        ? ["career.workflow.profile_intake_finalize"]
+        : ["career.workflow.profile_intake_turn"])
+    ];
+  }
+  if (workflowId === "resume_import" || workflowId === "import_resume") return ["career.workflow.resume_import"];
+  if (workflowId === "analyze_job_fit") return ["career.workflow.job_fit"];
+  if (workflowId === "tailor_existing_resume" || workflowId === "create_tailored_resume") {
+    return stage === "analyze_fit"
+      ? ["career.workflow.job_fit", "career.workflow.tailor_resume"]
+      : ["career.workflow.tailor_resume"];
+  }
+  if (workflowId === "repair_and_export_resume" || workflowId === "export_resume") return ["career.workflow.resume_export"];
+  if (workflowId === "compose_resume" || workflowId === "create_resume_from_profile") {
+    return ["career.workflow.compose_resume", "career.workflow.profile_to_resume"];
+  }
+  return [];
 }
 
 function isRecoverable(code: string) {

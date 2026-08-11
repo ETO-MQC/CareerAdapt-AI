@@ -164,9 +164,11 @@ export const AgentTurnSchema = z.object({
   preferredRuntime: z.enum(["native", "hermes"]).optional(),
   attemptedRuntime: z.enum(["native", "hermes"]).optional(),
   finalRuntime: z.enum(["native", "hermes"]).optional(),
+  executionOwner: z.enum(["native", "hermes", "deterministic_transition", "runtime_continuation"]).optional(),
   fallbackUsed: z.boolean().optional(),
   fallbackReasonCode: z.string().min(1).optional(),
   hermesRunId: z.string().min(1).optional(),
+  nextHermesRunId: z.string().min(1).optional(),
   firstEventAt: z.string().datetime({ offset: true }).optional(),
   runtimeFailureAt: z.string().datetime({ offset: true }).optional(),
   status: z.enum(["running", "waiting_for_user", "waiting_for_confirmation", "completed", "failed", "aborted"]),
@@ -315,6 +317,7 @@ export type AgentSession = z.infer<typeof AgentSessionSchema>;
 export type AgentWorkflowState = z.infer<typeof AgentWorkflowStateSchema>;
 export type AgentConfirmation = z.infer<typeof AgentConfirmationSchema>;
 export type AgentTurn = z.infer<typeof AgentTurnSchema>;
+export type AgentTurnCheckpoint = z.infer<typeof AgentTurnCheckpointSchema>;
 export type HermesRunHandle = z.infer<typeof HermesRunHandleSchema>;
 export type AgentTaskState = z.infer<typeof AgentTaskStateSchema>;
 export type AgentOptionSetState = z.infer<typeof AgentOptionSetStateSchema>;

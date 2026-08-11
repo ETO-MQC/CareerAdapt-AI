@@ -26,13 +26,13 @@ export function useResumePagination(
   const [measurement, setMeasurement] = useState<ResumePaginationMeasurement | undefined>();
   const [status, setStatus] = useState<ResumePaginationState["status"]>("measuring");
 
-  const measure = useCallback(() => {
+  const measure = useCallback((): ResumePaginationPlan | undefined => {
     const element = ref.current;
     if (!element || !paginationConfig) {
       setPlan(undefined);
       setMeasurement(undefined);
       setStatus("measurement_failed");
-      return;
+      return undefined;
     }
     try {
       const nextMeasurement = collectResumePaginationMeasurement(element);
@@ -43,10 +43,12 @@ export function useResumePagination(
       setPlan(nextPlan);
       setMeasurement(nextMeasurement);
       setStatus(nextPlan.status);
+      return nextPlan;
     } catch {
       setPlan(undefined);
       setMeasurement(undefined);
       setStatus("measurement_failed");
+      return undefined;
     }
   }, [paginationConfig, ref]);
 

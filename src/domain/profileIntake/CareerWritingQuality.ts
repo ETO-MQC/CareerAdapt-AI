@@ -57,7 +57,24 @@ export function isFiller(text: string) {
   return /^(?:来源事实[:：]|原始事实已保留|待进一步补充|待整理经历|暂无可靠内容)/u.test(value)
     || /^(?:根据(?:已确认|当前)(?:资料|事实|信息)|该经历(?:已|将)|以下(?:内容|信息)来自|资料库中(?:记录|已有))/u.test(value)
     || /(?:source\s*(?:fact|evidence)|placeholder|diagnostic|raw\s*transcript)/iu.test(value)
+    || isRawOrNegativeSpeech(value)
     || /^(?:项目背景|项目描述|研究方法|工作内容|主要内容)[:：]?\s*$/u.test(value);
+}
+
+/** Speech-like, negative, or internal drafting language that must not reach a
+ * professional resume even when the source fact itself is valid. */
+export function isRawOrNegativeSpeech(text: string) {
+  return /功能类似\s*DeepTutor\s*但较弱|它既可以|然后可以最后|一个人做|AI\s*辅助开发|看起来完整但不应直接展示/iu.test(text.trim());
+}
+
+/** Approximate semantic density used by the deterministic reviewer. */
+export function semanticComponentCount(text: string) {
+  let count = 0;
+  if (/(?:负责|参与|协助|完成|实现|设计|开发|构建|搭建|优化|分析|清洗|组织|维护|主导|支持)/u.test(text)) count += 1;
+  if (/[A-Za-z][A-Za-z0-9+#./-]*|(?:页面|流程|接口|模型|数据|设备|系统|平台|功能|工作流|交互|样本|自动化)/u.test(text)) count += 1;
+  if (/(?:使用|基于|通过|采用|结合|调用|部署|联调|测试|开发)/u.test(text) && /[A-Za-z]/u.test(text)) count += 1;
+  if (/(?:提升|降低|减少|增加|支持|产出|交付|上线|结果|成果|覆盖|完成度|准确率|效率)/u.test(text)) count += 1;
+  return count;
 }
 
 function writingTokens(text: string) {

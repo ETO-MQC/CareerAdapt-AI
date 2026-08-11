@@ -1,5 +1,8 @@
 import { z } from "zod";
 import type { AgentRuntime, AgentRuntimeEvent, AgentRuntimeTurnInput } from "./agentRuntime";
+import type { RuntimeUserEvent } from "./RuntimeUserEvent";
+
+export type { RuntimeUserEvent } from "./RuntimeUserEvent";
 
 export const AgentRuntimeIdSchema = z.enum(["native", "hermes"]);
 export type AgentRuntimeId = z.infer<typeof AgentRuntimeIdSchema>;
@@ -56,6 +59,21 @@ export class AgentRuntimeRouter {
       ? new RoutedAgentRuntime(preferred, this.fallbackRuntime)
       : preferred;
   }
+
+  /**
+   * Single semantic entry for UI/domain events. The event is preserved as
+   * structured metadata; runtimes must not infer a button action from its
+   * visible label.
+   */
+  runUserEvent(event: RuntimeUserEvent, input: AgentRuntimeTurnInput) {
+    return this.active().runTurn({
+      ...input,
+      metadata: {
+        ...(input.metadata ?? {}),
+        runtimeUserEvent: event
+      }
+    });
+  }
 }
 
 /**
@@ -97,37 +115,109 @@ class RoutedAgentRuntime implements AgentRuntime {
 
   async *runTurn(input: AgentRuntimeTurnInput): AsyncIterable<AgentRuntimeEvent> {
     let emitted = false;
+    let firstEventAt: string | undefined;
     try {
       for await (const event of this.preferred.runTurn(input)) {
         emitted = true;
-        yield event;
+        firstEventAt ??= event.timestamp;
+        yield decorateRuntimeEvent(event, {
+          ...(input.metadata ?? {}),
+          preferredRuntime: this.preferred.id,
+          attemptedRuntime: this.preferred.id,
+          finalRuntime: this.preferred.id,
+          fallbackUsed: false,
+          firstEventAt
+        });
       }
       return;
     } catch (error) {
       if (emitted) {
+        const runtimeFailureAt = new Date().toISOString();
         yield {
           type: "turn_failed",
           sessionId: input.sessionId,
           turnId: input.turnId ?? "runtime-turn-unknown",
-          timestamp: new Date().toISOString(),
+          timestamp: runtimeFailureAt,
           error: {
             code: errorCode(error),
             message: error instanceof Error ? error.message : "当前任务没有完成。",
             recoverable: false
+          },
+          data: {
+            telemetry: {
+              preferredRuntime: this.preferred.id,
+              attemptedRuntime: this.preferred.id,
+              finalRuntime: this.preferred.id,
+              fallbackUsed: false,
+              firstEventAt,
+              runtimeFailureAt,
+              fallbackReasonCode: errorCode(error)
+            }
           }
         };
         return;
       }
       const fallbackReasonCode = errorCode(error);
       const runtimeFailureAt = new Date().toISOString();
+      let recoveryFailureCode: string | undefined;
       try {
-        // Hermes may perform one bounded health/session recovery here. It is
-        // deliberately outside the event loop so a failed preflight cannot
-        // become an unbounded retry or duplicate a write.
+        // Hermes may perform one bounded health/session recovery here. The
+        // second preferred attempt is safe because the first attempt emitted
+        // no protocol event and therefore did not expose an authoritative
+        // write or stream to the host.
         await this.preferred.recoverBeforeFallback?.(input);
-      } catch {
-        // The original reason remains authoritative for diagnostics; Native
-        // fallback is still the legal recovery path.
+        for await (const event of this.preferred.runTurn({
+          ...input,
+          metadata: {
+            ...(input.metadata ?? {}),
+            runtimeRecoveryAttempted: true,
+            runtimeFailureAt,
+            fallbackReasonCode
+          }
+        })) {
+          emitted = true;
+          firstEventAt ??= event.timestamp;
+          yield decorateRuntimeEvent(event, {
+            ...(input.metadata ?? {}),
+            preferredRuntime: this.preferred.id,
+            attemptedRuntime: this.preferred.id,
+            finalRuntime: this.preferred.id,
+            fallbackUsed: false,
+            fallbackReasonCode,
+            runtimeFailureAt,
+            runtimeRecoveryAttempted: true,
+            firstEventAt
+          });
+        }
+        return;
+      } catch (error) {
+        recoveryFailureCode = errorCode(error);
+        if (emitted) {
+          yield {
+            type: "turn_failed",
+            sessionId: input.sessionId,
+            turnId: input.turnId ?? "runtime-turn-unknown",
+            timestamp: new Date().toISOString(),
+            error: {
+              code: recoveryFailureCode,
+              message: error instanceof Error ? error.message : "当前任务没有完成。",
+              recoverable: false
+            },
+            data: {
+              telemetry: {
+                preferredRuntime: this.preferred.id,
+                attemptedRuntime: this.preferred.id,
+                finalRuntime: this.preferred.id,
+                fallbackUsed: false,
+                fallbackReasonCode,
+                runtimeFailureAt,
+                recoveryFailureCode,
+                firstEventAt
+              }
+            }
+          };
+          return;
+        }
       }
       this.current = this.fallback;
       const fallbackMetadata = {
@@ -137,23 +227,59 @@ class RoutedAgentRuntime implements AgentRuntime {
         attemptedRuntime: this.preferred.id,
         finalRuntime: this.fallback.id,
         fallbackReasonCode,
-        runtimeFailureAt
+        runtimeFailureAt,
+        runtimeRecoveryAttempted: true,
+        ...(recoveryFailureCode ? { recoveryFailureCode } : {})
       };
       for await (const event of this.fallback.runTurn({
         ...input,
         metadata: fallbackMetadata
       })) {
         emitted = true;
-        yield {
-          ...event,
-          data: {
-            ...(event.data && typeof event.data === "object" ? event.data as Record<string, unknown> : {}),
-            ...fallbackMetadata
-          }
-        };
+        firstEventAt ??= event.timestamp;
+        yield decorateRuntimeEvent(event, { ...fallbackMetadata, firstEventAt });
       }
     }
   }
+}
+
+function decorateRuntimeEvent(event: AgentRuntimeEvent, metadata: Record<string, unknown>): AgentRuntimeEvent {
+  const data = event.data && typeof event.data === "object" && !Array.isArray(event.data)
+    ? event.data as Record<string, unknown>
+    : {};
+  const telemetry = {
+    preferredRuntime: runtimeId(metadata.preferredRuntime),
+    attemptedRuntime: runtimeId(metadata.attemptedRuntime),
+    finalRuntime: runtimeId(metadata.finalRuntime),
+    fallbackUsed: metadata.fallbackUsed === true,
+    fallbackReasonCode: stringMetadata(metadata.fallbackReasonCode),
+    hermesRunId: stringMetadata(metadata.hermesRunId),
+    nextHermesRunId: stringMetadata(metadata.nextHermesRunId),
+    firstEventAt: stringMetadata(metadata.firstEventAt) ?? event.timestamp,
+    runtimeFailureAt: stringMetadata(metadata.runtimeFailureAt),
+    executionOwner: metadata.executionOwner,
+    runtimeRecoveryAttempted: metadata.runtimeRecoveryAttempted === true,
+    recoveryFailureCode: stringMetadata(metadata.recoveryFailureCode)
+  };
+  return {
+    ...event,
+    data: {
+      ...data,
+      ...Object.fromEntries(Object.entries(telemetry).filter(([, value]) => value !== undefined)),
+      telemetry: {
+        ...(data.telemetry && typeof data.telemetry === "object" && !Array.isArray(data.telemetry) ? data.telemetry as Record<string, unknown> : {}),
+        ...Object.fromEntries(Object.entries(telemetry).filter(([, value]) => value !== undefined))
+      }
+    }
+  };
+}
+
+function runtimeId(value: unknown): "native" | "hermes" | undefined {
+  return value === "native" || value === "hermes" ? value : undefined;
+}
+
+function stringMetadata(value: unknown) {
+  return typeof value === "string" && value.trim() ? value : undefined;
 }
 
 function errorCode(error: unknown) {

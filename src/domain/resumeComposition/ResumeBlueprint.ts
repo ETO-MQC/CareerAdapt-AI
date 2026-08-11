@@ -14,6 +14,9 @@ export type ResumeBlueprintInput = {
   graph: ResumeEvidenceGraph;
   mode: "general" | "job_specific";
   job?: JobDescription;
+  targetDirection?: string;
+  targetAudience?: string;
+  companyType?: string;
 };
 
 export function planResumeBlueprint(input: ResumeBlueprintInput): ResumeBlueprint {
@@ -29,12 +32,12 @@ export function planResumeBlueprint(input: ResumeBlueprintInput): ResumeBlueprin
       const node = input.graph.nodes.find((candidate) => candidate.id === `asset:${id}`);
       const relevance = input.mode === "job_specific"
         ? jobRelevance(data, keywordCoverage)
-        : generalRelevance(data, node?.factIds.length ?? 0);
+        : generalRelevance(data, node?.factIds.length ?? 0, input);
       return [{ data, relevance, node }];
     })
     .sort((left, right) => right.relevance - left.relevance || assetTitle(left.data).localeCompare(assetTitle(right.data)));
 
-  const selected = selectAssets(assetCandidates, input.mode);
+  const selected = selectAssets(assetCandidates, input.mode, input);
   const assets = selected.map(({ data, relevance, node }) => ({
     sourceAssetId: data.id,
     sectionType: data.sectionType,
@@ -42,7 +45,7 @@ export function planResumeBlueprint(input: ResumeBlueprintInput): ResumeBlueprin
     sourceFactIds: node?.factIds ?? [],
     evidenceNodeIds: node ? [node.id] : [],
     relevance,
-    inclusionReason: inclusionReason(data, input.mode, relevance),
+    inclusionReason: inclusionReason(data, input.mode, relevance, input),
     bulletPlan: bulletPlan(data),
     explicitTools: explicitTools(data, input.graph)
   }));
@@ -65,7 +68,10 @@ export function planResumeBlueprint(input: ResumeBlueprintInput): ResumeBlueprin
     profileId: profile.id,
     profileRevision: profile.version,
     ...(input.job ? { jobId: input.job.id, targetRole: input.job.title } : {}),
-    summaryPlan: summaryPlan(profile, selected, input.mode, input.job),
+    ...(input.targetDirection ? { targetDirection: input.targetDirection } : {}),
+    ...(input.targetAudience ? { targetAudience: input.targetAudience } : {}),
+    ...(input.companyType ? { companyType: input.companyType } : {}),
+    summaryPlan: summaryPlan(profile, selected, input),
     skillGroups,
     sections,
     assets,
@@ -125,7 +131,7 @@ export function classifyJobKeywords(job: JobDescription, graph: ResumeEvidenceGr
   });
 }
 
-function selectAssets(candidates: Array<{ data: ResumeItemV2; relevance: number; node?: ResumeEvidenceGraph["nodes"][number] }>, mode: "general" | "job_specific") {
+function selectAssets(candidates: Array<{ data: ResumeItemV2; relevance: number; node?: ResumeEvidenceGraph["nodes"][number] }>, mode: "general" | "job_specific", input: ResumeBlueprintInput) {
   const selected: typeof candidates = [];
   const education = candidates.find((candidate) => candidate.data.sectionType === "education");
   if (education) selected.push(education);
@@ -141,7 +147,9 @@ function selectAssets(candidates: Array<{ data: ResumeItemV2; relevance: number;
     for (const candidate of candidates.filter((item) => item.data.sectionType === "research")) add(candidate);
     for (const candidate of candidates.filter((item) => ["awards", "certificates"].includes(item.data.sectionType))) add(candidate);
     for (const candidate of candidates.filter((item) => ["work", "internship", "portfolio", "publications", "patents"].includes(item.data.sectionType))) add(candidate);
-    for (const candidate of candidates.filter((item) => ["campus", "volunteer", "other", "custom"].includes(item.data.sectionType))) add(candidate);
+    if (input.targetAudience?.includes("校招") || input.targetDirection?.includes("秋招")) {
+      for (const candidate of candidates.filter((item) => ["campus", "volunteer"].includes(item.data.sectionType))) add(candidate);
+    }
   } else {
     for (const candidate of candidates) add(candidate);
   }
@@ -183,7 +191,11 @@ function buildInformationNeeds(input: ResumeBlueprintInput, coverage: ResumeKeyw
   return needs;
 }
 
-function summaryPlan(profile: ReturnType<typeof migrateCareerProfileToV2>, selected: Array<{ data: ResumeItemV2 }>, mode: "general" | "job_specific", job?: JobDescription) {
+function summaryPlan(
+  profile: ReturnType<typeof migrateCareerProfileToV2>,
+  selected: Array<{ data: ResumeItemV2 }>,
+  input: ResumeBlueprintInput
+) {
   const education = selected.find(({ data }) => data.sectionType === "education")?.data;
   const school = education && education.sectionType === "education" ? education.school : undefined;
   const visibleSkills = selected
@@ -193,19 +205,31 @@ function summaryPlan(profile: ReturnType<typeof migrateCareerProfileToV2>, selec
     })
     .filter((value): value is string => typeof value === "string" && Boolean(value.trim()))
     .slice(0, 4);
-  const direction = job?.title ?? profile.structuredBasics?.targetRole ?? profile.structuredBasics?.headline;
-  const sourceDirection = Boolean(direction && selected.some(({ data }) => itemText(data).toLocaleLowerCase().includes(direction.toLocaleLowerCase())));
-  void mode;
-  return [
-    sourceDirection ? `${direction}方向` : "",
-    school ? `${school}相关学习背景` : "",
-    visibleSkills.length ? `具备 ${unique(visibleSkills).join("、")} 项目实践` : selected.some(({ data }) => data.sectionType === "project") ? "具备项目实践" : ""
-  ].filter(Boolean).join("，") + "。";
+  const direction = input.targetDirection ?? input.job?.title ?? profile.structuredBasics?.targetRole ?? profile.structuredBasics?.headline;
+  const audience = input.targetAudience ?? (direction?.includes("秋招") ? "互联网秋招" : undefined);
+  const skillText = unique(visibleSkills).join("、");
+  const educationLabel = education && education.sectionType === "education"
+    ? `${education.major ? `${education.major}` : ""}本科生`
+    : "本科生";
+  const lead = school ? `${school}${educationLabel}` : educationLabel;
+  const focus = skillText
+    ? `聚焦 ${skillText} 的项目实践`
+    : selected.some(({ data }) => data.sectionType === "project") ? "具备多项项目实践" : "具备学习与实践经历";
+  const audienceText = audience ? `，面向${audience}` : "";
+  const directionText = direction && !direction.includes("秋招") ? `，目标${direction}` : "";
+  return `${lead}${audienceText}${directionText}，${focus}。`;
 }
 
-function generalRelevance(item: ResumeItemV2, factCount: number) {
+function generalRelevance(item: ResumeItemV2, factCount: number, input: ResumeBlueprintInput) {
   const sectionWeight: Record<string, number> = { education: 0.95, project: 0.9, research: 0.88, work: 0.86, internship: 0.82, campus: 0.7, awards: 0.65, certificates: 0.58 };
-  return Math.min(1, (sectionWeight[item.sectionType] ?? 0.45) + Math.min(0.12, factCount * 0.03));
+  const direction = [input.targetDirection, input.targetAudience, input.companyType].filter(Boolean).join(" ").toLocaleLowerCase();
+  const text = itemText(item).toLocaleLowerCase();
+  const technicalSignal = findTechnicalTerms(text).length;
+  const internetSignal = /互联网|秋招|前端|后端|全栈|ai|人工智能|软件|产品/iu.test(direction)
+    ? Math.min(0.12, technicalSignal * 0.025)
+    : 0;
+  const researchSignal = /研究|算法|数据|ai|人工智能/iu.test(direction) && item.sectionType === "research" ? 0.05 : 0;
+  return Math.min(1, (sectionWeight[item.sectionType] ?? 0.45) + Math.min(0.12, factCount * 0.03) + internetSignal + researchSignal);
 }
 
 function jobRelevance(item: ResumeItemV2, coverage: ResumeKeywordCoverage[]) {
@@ -214,9 +238,10 @@ function jobRelevance(item: ResumeItemV2, coverage: ResumeKeywordCoverage[]) {
   return Math.min(1, 0.35 + hits * 0.14 + (item.sectionType === "project" || item.sectionType === "research" ? 0.18 : 0));
 }
 
-function inclusionReason(item: ResumeItemV2, mode: "general" | "job_specific", relevance: number) {
+function inclusionReason(item: ResumeItemV2, mode: "general" | "job_specific", relevance: number, input: ResumeBlueprintInput) {
   if (item.sectionType === "education") return "教育背景是通用简历的基础事实。";
   if (mode === "job_specific") return relevance >= 0.7 ? "与岗位关键词或相关职责有直接证据连接。" : "保留一项相邻经历，便于人工判断是否继续使用。";
+  if (input.targetDirection && (item.sectionType === "project" || item.sectionType === "research")) return `与${input.targetDirection}方向的项目证据相关。`;
   return item.sectionType === "project" || item.sectionType === "research" ? "项目或研究经历能承载可核验的行动与技术证据。" : "属于已确认的职业资产，作为通用简历补充。";
 }
 

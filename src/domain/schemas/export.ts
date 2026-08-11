@@ -205,7 +205,12 @@ export const ResumePdfExportRequestSchema = z.object({
   snapshot: ResumePdfExportSnapshotSchema
 });
 
+// Canonical public name for the immutable persisted-revision export boundary.
+// Keep the PDF-prefixed alias for existing callers and stored request payloads.
+export const ResumeExportSnapshotSchema = ResumePdfExportSnapshotSchema;
+
 export type ResumePaginationPage = z.infer<typeof ResumePaginationPageSchema>;
 export type ResumePaginationPlan = z.infer<typeof ResumePaginationPlanSchema>;
 export type ResumePdfExportSnapshot = z.infer<typeof ResumePdfExportSnapshotSchema>;
+export type ResumeExportSnapshot = z.infer<typeof ResumeExportSnapshotSchema>;
 export type ResumePdfExportRequest = z.infer<typeof ResumePdfExportRequestSchema>;

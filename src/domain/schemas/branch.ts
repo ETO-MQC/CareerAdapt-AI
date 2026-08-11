@@ -414,6 +414,44 @@ export const ExportRecordSchema = EntityBaseSchema.extend({
   diagnosticsSnapshotHash: z.string().min(8).optional(),
   criticalIssueCount: z.number().int().min(0).optional(),
   warningIssueCount: z.number().int().min(0).optional(),
+  renderCoverageDiagnostics: z.object({
+    failedStage: z.enum(["presentation", "pagination", "rendered"]).optional(),
+    droppedSections: z.array(z.object({
+      sectionType: z.string().min(1),
+      sectionId: z.string().min(1),
+      itemId: z.string().min(1).optional(),
+      label: z.string().min(1),
+      count: z.number().int().min(1).optional()
+    })),
+    droppedItems: z.array(z.object({
+      sectionType: z.string().min(1),
+      sectionId: z.string().min(1),
+      itemId: z.string().min(1).optional(),
+      label: z.string().min(1),
+      count: z.number().int().min(1).optional()
+    })),
+    duplicateSections: z.array(z.object({
+      sectionType: z.string().min(1),
+      sectionId: z.string().min(1),
+      itemId: z.string().min(1).optional(),
+      label: z.string().min(1),
+      count: z.number().int().min(1).optional()
+    })),
+    duplicateItems: z.array(z.object({
+      sectionType: z.string().min(1),
+      sectionId: z.string().min(1),
+      itemId: z.string().min(1).optional(),
+      label: z.string().min(1),
+      count: z.number().int().min(1).optional()
+    })),
+    sourceCounts: z.object({ sections: z.number().int().min(0), items: z.number().int().min(0) }),
+    presentationCounts: z.object({ sections: z.number().int().min(0), items: z.number().int().min(0) }),
+    paginatedCounts: z.object({ sections: z.number().int().min(0), items: z.number().int().min(0) }).optional(),
+    renderedCounts: z.object({ sections: z.number().int().min(0), items: z.number().int().min(0) }).optional(),
+    paginationHash: z.string().min(8).optional(),
+    revisionId: z.string().min(1).optional(),
+    presentationRevision: z.number().int().min(0).optional()
+  }).optional(),
   requirementCoverageSummary: z.object({
     totalRequirements: z.number().int().min(0),
     covered: z.number().int().min(0),
@@ -451,4 +489,5 @@ export type ExportStatus = z.infer<typeof ExportStatusSchema>;
 export type ExportMethod = z.infer<typeof ExportMethodSchema>;
 export type ExportOverflowStatus = z.infer<typeof ExportOverflowStatusSchema>;
 export type ExportRecordPresentationSnapshot = z.infer<typeof ExportRecordPresentationSnapshotSchema>;
+export type ExportRenderCoverageDiagnostics = NonNullable<z.infer<typeof ExportRecordSchema>["renderCoverageDiagnostics"]>;
 export type ExportRecord = z.infer<typeof ExportRecordSchema>;

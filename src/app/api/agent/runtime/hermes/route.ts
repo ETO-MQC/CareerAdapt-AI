@@ -43,7 +43,8 @@ async function officialHermesRequest(baseUrl: string, action: z.infer<typeof Her
           session_id: typeof payload.sessionId === "string" ? payload.sessionId : undefined,
           ...(configuredModel() ? { model: configuredModel() } : {}),
           instructions: careerRunInstructions(payload),
-          conversation_history: safeConversationHistory(payload.conversationHistory)
+          conversation_history: safeConversationHistory(payload.conversationHistory),
+          metadata: safeRuntimeMetadata(payload.metadata)
         }),
         signal: AbortSignal.timeout(30_000),
         cache: "no-store"
@@ -136,7 +137,8 @@ async function officialHermesRequest(baseUrl: string, action: z.infer<typeof Her
           session_id: careerBinding?.agentSessionId ?? sessionId,
           binding: careerBinding,
           page: safePageContext(payload.pageContext),
-          tool_contract_count: Array.isArray(payload.toolContracts) ? payload.toolContracts.length : 0
+          tool_contract_count: Array.isArray(payload.toolContracts) ? payload.toolContracts.length : 0,
+          runtime_user_event: safeRuntimeUserEvent(asRecord(payload.metadata).runtimeUserEvent)
         }
       }),
       cache: "no-store"
@@ -249,7 +251,8 @@ function careerRunInstructions(payload: Record<string, unknown>) {
     career_context: {
       session_id: safeCareerBinding(payload.careerSessionBinding)?.agentSessionId,
       binding: safeCareerBinding(payload.careerSessionBinding),
-      page: safePageContext(payload.pageContext)
+      page: safePageContext(payload.pageContext),
+      runtime_user_event: safeRuntimeUserEvent(asRecord(payload.metadata).runtimeUserEvent)
     },
     attachments: safeAttachments(payload.attachments)
   };
@@ -258,11 +261,42 @@ function careerRunInstructions(payload: Record<string, unknown>) {
     "Facade mapping: Profile Intake=career.workflow.profile_intake_turn/finalize; Resume Import=career.workflow.resume_import; Job Fit=career.workflow.job_fit; Tailoring=career.workflow.tailor_resume; Profile→Resume=career.workflow.profile_to_resume; Repair→Export=career.workflow.resume_export.",
     "Use atomic career.profile.*, career.resume.*, career.job.*, and career.tailoring.* tools only for inspection, unusual repair, or recovery after a facade reports a recoverable failure.",
     "Never invent profile or resume facts. Never claim a write or draft exists without a completed CareerAdapt tool receipt.",
-    "When a workflow returns waiting_for_user, stop tool-calling and ask exactly the returned high-value question.",
+    "runtime_user_event is an authoritative structured event from the host. For entity_selected, option_selected, retry, confirmation, and workflow_control, use the typed action and persisted task state exactly; never parse a visible button label, ask the user to repeat a validated selection, or repeat a deterministic host write.",
+    "After the host persists a selected Job or Resume, reread the selected entities before reasoning. For tailor_existing_resume at analyze_fit, call career.workflow.job_fit first, interpret its returned fit checkpoint, then continue with the tailoring workflow; ask only a returned high-value question that can change the result.",
+    "When a workflow returns waiting_for_user, stop tool-calling and ask exactly the returned high-value question. Exception: inside tailor_existing_resume at analyze_fit, a completed career.workflow.job_fit is an intermediate checkpoint; use it to call the allowed career.workflow.tailor_resume before stopping.",
     "When it returns waiting_for_confirmation, stop and yield the approval boundary. When completed, stop the tool loop and narrate the result.",
     "Attachments are local CareerAdapt references. Use only their IDs with career.workflow.resume_import; never request paths, bytes, base64, or parse them yourself.",
     `Runtime context: ${JSON.stringify(context)}`
   ].join("\n");
+}
+
+function safeRuntimeMetadata(value: unknown) {
+  const metadata = asRecord(value);
+  const result: Record<string, unknown> = {};
+  for (const key of ["executionOwner", "preferredRuntime", "attemptedRuntime", "finalRuntime", "fallbackUsed", "fallbackReasonCode", "workflowId", "workflowStage", "rootGoal", "runtimeId", "hermesRunId", "nextHermesRunId", "firstEventAt", "runtimeFailureAt", "runtimeRecoveryAttempted", "recoveryFailureCode"]) {
+    const entry = metadata[key];
+    if (typeof entry === "string" || typeof entry === "boolean") result[key] = entry;
+  }
+  const event = safeRuntimeUserEvent(metadata.runtimeUserEvent);
+  if (event) result.runtimeUserEvent = event;
+  return result;
+}
+
+function safeRuntimeUserEvent(value: unknown) {
+  const record = asRecord(value);
+  if (typeof record.type !== "string") return undefined;
+  const action = record.action && typeof record.action === "object" && !Array.isArray(record.action)
+    ? record.action as Record<string, unknown>
+    : undefined;
+  return {
+    type: record.type,
+    ...(typeof record.text === "string" ? { text: record.text.slice(0, 8_000) } : {}),
+    ...(typeof record.actionId === "string" ? { actionId: record.actionId } : {}),
+    ...(action ? { action } : {}),
+    ...(typeof record.confirmed === "boolean" ? { confirmed: record.confirmed } : {}),
+    ...(typeof record.messageId === "string" ? { messageId: record.messageId } : {}),
+    ...(typeof record.sourceMessageId === "string" ? { sourceMessageId: record.sourceMessageId } : {})
+  };
 }
 
 function safeAttachments(value: unknown) {

@@ -1,4 +1,4 @@
-import { chromium, type Browser } from "@playwright/test";
+import { chromium, type Browser, type Page } from "@playwright/test";
 import type { ResumePdfExportSnapshot } from "@/domain/schemas";
 import { RESUME_SECTION_TYPES_V2 } from "@/domain/resumeFields";
 import { createResumePaginationPlan, paginateResumeRenderModel, type ResumePaginationMeasurement } from "./pagination";
@@ -8,11 +8,16 @@ import {
   paginatedCoverage,
   presentationCoverage,
   renderCoverageHasBlockingFailure,
+  type RenderCoverageDiagnostics,
   type RenderCoverageEntry
 } from "./renderCoverage";
 
 export class ResumePdfGenerationError extends Error {
-  constructor(readonly code: string) {
+  constructor(
+    readonly code: string,
+    readonly diagnostics?: RenderCoverageDiagnostics,
+    readonly recoveryAttempt = false
+  ) {
     super(code);
     this.name = "ResumePdfGenerationError";
   }
@@ -21,19 +26,35 @@ export class ResumePdfGenerationError extends Error {
 export async function generateResumePdf(snapshot: ResumePdfExportSnapshot) {
   const browser = await launchChromium();
   try {
-    const page = await browser.newPage({
-      viewport: {
-        width: 794,
-        height: 1123
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const page = await browser.newPage({
+        viewport: {
+          width: 794,
+          height: 1123
+        }
+      });
+      try {
+        return await generateResumePdfAttempt(snapshot, page, attempt > 0);
+      } catch (error) {
+        if (attempt === 0 && error instanceof ResumePdfGenerationError && error.code === "render_coverage_failed") {
+          // A fresh page is the bounded server-side recovery for stale fonts/layout/DOM state.
+          continue;
+        }
+        throw error;
+      } finally {
+        await page.close();
       }
-    });
+    }
+    throw new ResumePdfGenerationError("pdf_generation_failed");
+  } finally {
+    await browser.close();
+  }
+}
+
+async function generateResumePdfAttempt(snapshot: ResumePdfExportSnapshot, page: Page, recoveryAttempt: boolean) {
     const html = await renderResumePdfHtml(snapshot, { includeMeasurement: true });
     await page.setContent(html, { waitUntil: "networkidle" });
-    await page.evaluate(async () => {
-      if ("fonts" in document) {
-        await document.fonts.ready;
-      }
-    });
+    await waitForStableLayout(page);
 
     // Combine V1 sectionOrder with V2 section types so all sections are measured
     const allSectionTypes = [...new Set([...snapshot.presentation.sectionOrder, ...RESUME_SECTION_TYPES_V2.filter((t) => t !== "basics")])];
@@ -104,21 +125,20 @@ export async function generateResumePdf(snapshot: ResumePdfExportSnapshot) {
     const paginationCoverageReport = createRenderCoverageReport({
       source: sourceCoverage,
       presentation: sourceCoverage,
-      paginated: paginatedCoverage(pageModels)
+      paginated: paginatedCoverage(pageModels),
+      paginationHash: paginationPlan.paginationHash,
+      revisionId: snapshot.currentRevisionId,
+      presentationRevision: snapshot.presentationRevision
     });
     if (renderCoverageHasBlockingFailure(paginationCoverageReport)) {
-      throw new ResumePdfGenerationError("render_coverage_failed");
+      throw new ResumePdfGenerationError("render_coverage_failed", paginationCoverageReport.diagnostics, recoveryAttempt);
     }
     // Server uses its own measurement directly — client/server fonts differ so hash comparison is unreliable
 
     const finalHtml = await renderResumePdfHtml(snapshot, { paginationPlan });
     await page.setContent(finalHtml, { waitUntil: "networkidle" });
     await page.emulateMedia({ media: "print" });
-    await page.evaluate(async () => {
-      if ("fonts" in document) {
-        await document.fonts.ready;
-      }
-    });
+    await waitForStableLayout(page);
     const renderedEntries = await page.locator(".resume-preview-pages").evaluate((root): RenderCoverageEntry[] => {
       const sections = Array.from(root.querySelectorAll<HTMLElement>("[data-render-section][data-render-section-id]"))
         .filter((section) => section.dataset.renderSectionPrimary !== "false")
@@ -144,10 +164,13 @@ export async function generateResumePdf(snapshot: ResumePdfExportSnapshot) {
       source: sourceCoverage,
       presentation: sourceCoverage,
       paginated: paginatedCoverage(pageModels),
-      rendered: renderedEntries
+      rendered: renderedEntries,
+      paginationHash: paginationPlan.paginationHash,
+      revisionId: snapshot.currentRevisionId,
+      presentationRevision: snapshot.presentationRevision
     });
     if (renderCoverageHasBlockingFailure(renderedCoverageReport)) {
-      throw new ResumePdfGenerationError("render_coverage_failed");
+      throw new ResumePdfGenerationError("render_coverage_failed", renderedCoverageReport.diagnostics, recoveryAttempt);
     }
 
     const pdf = await page.pdf({
@@ -166,9 +189,15 @@ export async function generateResumePdf(snapshot: ResumePdfExportSnapshot) {
       overflowStatus: paginationPlan.status,
       paginationPlan
     };
-  } finally {
-    await browser.close();
-  }
+}
+
+async function waitForStableLayout(page: Page) {
+  await page.evaluate(async () => {
+    if ("fonts" in document) {
+      await document.fonts.ready;
+    }
+    await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+  });
 }
 
 async function launchChromium(): Promise<Browser> {

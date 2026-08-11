@@ -3919,6 +3919,11 @@ export class WorkspaceRepository {
       .sort((a, b) => a.revisionNumber - b.revisionNumber);
   }
 
+  async getResumeRevision(revisionId: string) {
+    const revision = await this.db.resumeRevisions.get(revisionId);
+    return revision ? ResumeRevisionSchema.parse(revision) : undefined;
+  }
+
   async editResumeBranch(input: {
     branchId: string;
     expectedRevision: number;
@@ -5288,6 +5293,7 @@ export class WorkspaceRepository {
     diagnosticsSnapshotHash?: string;
     criticalIssueCount?: number;
     warningIssueCount?: number;
+    renderCoverageDiagnostics?: ExportRecord["renderCoverageDiagnostics"];
     requirementCoverageSummary?: ExportRecord["requirementCoverageSummary"];
     allowHistoricalRevision?: boolean;
   }) {
@@ -5369,6 +5375,7 @@ export class WorkspaceRepository {
         diagnosticsSnapshotHash: input.diagnosticsSnapshotHash,
         criticalIssueCount: input.criticalIssueCount,
         warningIssueCount: input.warningIssueCount,
+        renderCoverageDiagnostics: input.renderCoverageDiagnostics,
         requirementCoverageSummary: input.requirementCoverageSummary,
         createdAt: now,
         updatedAt: now

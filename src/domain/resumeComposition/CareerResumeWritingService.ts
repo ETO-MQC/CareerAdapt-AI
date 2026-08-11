@@ -2,7 +2,7 @@ import { invokeStructuredAi } from "@/ai/client";
 import { migrateCareerProfileToV2 } from "@/domain/migrations/resumeV2";
 import { runRuleFactGuard } from "@/domain/adaptation/factGuard";
 import type { CareerProfile, FactStatement, JobDescription, MatchEvidenceRef } from "@/domain/schemas";
-import { dedupeCareerWriting, isFiller } from "@/domain/profileIntake/CareerWritingQuality";
+import { dedupeCareerWriting, isFiller, isRawOrNegativeSpeech } from "@/domain/profileIntake/CareerWritingQuality";
 import {
   CareerResumeWritingOutputSchema,
   type CareerResumeWritingOutput,
@@ -10,7 +10,7 @@ import {
   type ResumeEvidenceGraph
 } from "./contracts";
 import { resolveCareerAssetDisplayIdentity } from "./CareerAssetDisplayIdentity";
-import { canonicalTechnicalTerm, normalizeSkillGroups, technicalTermCategory } from "./ResumeSkillTaxonomy";
+import { canonicalTechnicalTerm, compactSkillCategory, normalizeSkillGroups, technicalTermCategory } from "./ResumeSkillTaxonomy";
 
 export class CareerResumeWritingService {
   async write(input: {
@@ -19,6 +19,9 @@ export class CareerResumeWritingService {
     blueprint: ResumeBlueprint;
     mode: "general" | "job_specific";
     job?: JobDescription;
+    targetDirection?: string;
+    targetAudience?: string;
+    companyType?: string;
     signal?: AbortSignal;
   }): Promise<CareerResumeWritingOutput | undefined> {
     const profile = migrateCareerProfileToV2(input.profile);
@@ -27,6 +30,9 @@ export class CareerResumeWritingService {
     const businessInput = {
       mode: input.mode,
       ...(input.job?.title ? { targetRole: input.job.title } : {}),
+      ...((input.targetDirection ?? input.blueprint.targetDirection) ? { targetDirection: input.targetDirection ?? input.blueprint.targetDirection } : {}),
+      ...((input.targetAudience ?? input.blueprint.targetAudience) ? { targetAudience: input.targetAudience ?? input.blueprint.targetAudience } : {}),
+      ...((input.companyType ?? input.blueprint.companyType) ? { companyType: input.companyType ?? input.blueprint.companyType } : {}),
       assets: input.blueprint.assets.map((asset) => {
         const entry = entriesById.get(asset.sourceAssetId);
         const sourceFacts = entry?.factIds.map((id) => facts.get(id)).filter((fact): fact is FactStatement => Boolean(fact)) ?? [];
@@ -48,7 +54,9 @@ export class CareerResumeWritingService {
       skillGroups: normalizeSkillGroups(input.graph.skillMatrix),
       instructions: [
         "Use one or two lines for the summary; omit it if the evidence does not support a useful opening.",
-        "Prefer action plus concrete object or result, but retain the source's ownership strength.",
+        "Prefer action plus concrete object or result plus a supported method/tool when evidence allows; retain the source's ownership strength.",
+        "For early-career general resumes, favor a one-page selection: education, compact skills, three or four strongest projects, research, and one award before campus activities.",
+        "Treat targetDirection, targetAudience, and companyType as presentation context only; never write them as a personal fact.",
         "Do not expose sourceAssetId, fact IDs, evidence IDs, or process commentary in any title, summary, role, or highlight."
       ]
     };
@@ -86,7 +94,7 @@ function sanitizeOutput(
     const originalText = [JSON.stringify(canonical), ...sourceFacts.map((fact) => fact.statement), ...sourceFacts.flatMap((fact) => fact.provenance.map((source) => source.sourceText))].join("\n");
     const evidenceRefs = evidenceRefsForFacts(sourceFacts);
     const highlights = dedupeCareerWriting(candidate.highlights)
-      .filter((value) => !isFiller(value) && !containsProcessLanguage(value) && passesFactGuard(originalText, value, evidenceRefs))
+      .filter((value) => !isFiller(value) && !containsProcessLanguage(value) && !isRawOrNegativeSpeech(value) && passesFactGuard(originalText, value, evidenceRefs))
       .slice(0, 4);
     return [{
       sourceAssetId: candidate.sourceAssetId,
@@ -101,7 +109,7 @@ function sanitizeOutput(
   const allFacts = [...facts.values()];
   const summaryEvidence = evidenceRefsForFacts(allFacts);
   const summaryOriginalText = allFacts.map((fact) => fact.statement).join("\n");
-  const summary = output.summary && !isFiller(output.summary) && !containsProcessLanguage(output.summary)
+  const summary = output.summary && !isFiller(output.summary) && !containsProcessLanguage(output.summary) && !isRawOrNegativeSpeech(output.summary)
     && passesFactGuard(summaryOriginalText, output.summary, summaryEvidence)
     ? dedupeCareerWriting([output.summary])[0]
     : undefined;
@@ -123,7 +131,7 @@ function sanitizeSkillGroups(
       const canonical = canonicalTechnicalTerm(value) ?? value.trim();
       const source = allowed.get(canonical);
       if (!source) continue;
-      const category = technicalTermCategory(canonical) ?? source.category ?? group.category;
+      const category = compactSkillCategory(technicalTermCategory(canonical) ?? source.category ?? group.category);
       requestedByCategory.set(category, unique([...(requestedByCategory.get(category) ?? []), canonical]));
     }
   }

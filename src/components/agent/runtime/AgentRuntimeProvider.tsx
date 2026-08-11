@@ -16,6 +16,7 @@ import { createAgentRuntimeRouter } from "@/agent/runtime/AgentRuntimeRouter";
 import { CareerToolGateway, CareerToolGatewayExecutor, type CareerToolContract } from "@/agent/tools/CareerToolGateway";
 import { AgentRuntimeEventBus } from "@/agent/runtime/agentRuntimeEventBus";
 import type { AgentRuntimeTurnInput } from "@/agent/runtime/agentRuntime";
+import type { RuntimeUserEvent } from "@/agent/runtime/RuntimeUserEvent";
 import { HermesCareerAgentRuntime } from "@/agent/runtime/hermes/HermesCareerAgentRuntime";
 import { HttpHermesBridgeTransport, toRuntimeHealth } from "@/agent/runtime/hermes/HermesBridgeTransport";
 import { CareerAdaptMcpBridgeClient } from "@/agent/mcp/CareerAdaptMcpBridgeClient";
@@ -61,6 +62,27 @@ function createAgentHost() {
             ? state.getSnapshot().activeSession
             : undefined;
       if (!session) throw Object.assign(new Error("runtime_session_required"), { code: "runtime_session_required" });
+      const runtimeUserEvent = input.metadata?.runtimeUserEvent as RuntimeUserEvent | undefined;
+      if (
+        runtimeUserEvent
+        && input.metadata?.runtimeEventPrepared === true
+        && ["entity_selected", "option_selected", "retry"].includes(runtimeUserEvent.type)
+      ) {
+        return state.continueRuntimeEvent({
+          session,
+          event: runtimeUserEvent,
+          pageContext: input.pageContext,
+          turnId: input.turnId ?? `native-runtime-${crypto.randomUUID()}`,
+          runtimeDiagnostics: runtimeDiagnosticsFromMetadata(input.metadata)
+        });
+      }
+      if (runtimeUserEvent && !["text_message", "quick_action_started"].includes(runtimeUserEvent.type)) {
+        return state.dispatchRuntimeUserEvent({
+          session,
+          event: runtimeUserEvent,
+          pageContext: input.pageContext
+        });
+      }
       const preparedTask = input.metadata?.runtimeTaskPrepared === true && session.taskState
         ? {
             rootGoal: session.taskState.rootGoal,
@@ -131,10 +153,11 @@ function createAgentHost() {
       ? { ...input, session: preparedSession }
       : input;
     const statusBeforeTurn = runtimeStatus.getSnapshot();
+    const runtimeUserEvent = input.metadata?.runtimeUserEvent as RuntimeUserEvent | undefined;
     const canStartHermesShell = runtime.id === "hermes"
       && statusBeforeTurn.status === "ready"
       && statusBeforeTurn.mcpConnected !== false
-      && Boolean(runtimeRequest.userMessage.trim())
+      && (Boolean(runtimeRequest.userMessage.trim()) || Boolean(runtimeUserEvent))
       && Boolean(runtimeRequest.session);
     const reattachingHermesRun = runtime.id === "hermes"
       && Boolean(input.session?.hermesRun)
@@ -153,7 +176,10 @@ function createAgentHost() {
             preferredRuntime: "hermes",
             attemptedRuntime: "hermes",
             finalRuntime: "hermes",
-            fallbackUsed: false
+            fallbackUsed: false,
+            executionOwner: input.metadata?.executionOwner === "deterministic_transition"
+              ? "deterministic_transition"
+              : runtimeUserEvent ? "runtime_continuation" : "hermes"
           }
         })
         : reattachingHermesRun && runtimeRequest.session && reattachAssistant
@@ -236,7 +262,10 @@ function createAgentHost() {
           sessionBindingSet = true;
         }
       }
-      for await (const event of runtime.runTurn(runtimeInput)) {
+      const eventStream = runtimeUserEvent
+        ? runtimeRouter.runUserEvent(runtimeUserEvent, runtimeInput)
+        : runtime.runTurn(runtimeInput);
+      for await (const event of eventStream) {
         const eventData = event.data && typeof event.data === "object" && !Array.isArray(event.data)
           ? event.data as Record<string, unknown>
           : undefined;
@@ -257,6 +286,42 @@ function createAgentHost() {
     }
     return state.getSnapshot().activeSession;
   };
+  const runUserEvent = async (event: RuntimeUserEvent, input: Omit<AgentRuntimeTurnInput, "sessionId" | "userMessage"> & { sessionId?: string; userMessage?: string }) => {
+    const session = input.session ?? state.getSnapshot().activeSession;
+    if (!session) throw new Error("agent_session_required");
+    if (event.type === "confirmation" && session.hermesRun?.status === "waiting_for_approval") {
+      await hermesRuntime.approve(session.id, event.confirmed);
+      return runTurn({
+        ...input,
+        sessionId: input.sessionId ?? session.id,
+        session,
+        userMessage: "",
+        metadata: {
+          ...(input.metadata ?? {}),
+          runtimeUserEvent: event,
+          reattachRunId: session.hermesRun.runId
+        }
+      });
+    }
+    const prepared = await state.prepareRuntimeUserEvent({ session, event, pageContext: input.pageContext });
+    const deterministicEvent = event.type === "entity_selected"
+      || event.type === "option_selected" && ["select_entity", "task_decision", "answer", "retry_current_step"].includes(event.action.type)
+      || event.type === "retry";
+    if (deterministicEvent && !prepared.deterministicTransitionApplied) return prepared.session;
+    return runTurn({
+      ...input,
+      sessionId: input.sessionId ?? session.id,
+      session: prepared.session,
+      userMessage: prepared.userMessage,
+      ...(prepared.turnId ? { turnId: prepared.turnId } : {}),
+      metadata: {
+        ...(input.metadata ?? {}),
+        executionOwner: prepared.executionOwner,
+        runtimeEventPrepared: prepared.deterministicTransitionApplied,
+        runtimeUserEvent: prepared.event
+      }
+    });
+  };
   return {
     service,
     registry,
@@ -265,6 +330,7 @@ function createAgentHost() {
     eventBus: new AgentEventBus(),
     runtimeEventBus,
     runTurn,
+    runUserEvent,
     kernel,
     state,
     careerToolGateway,
@@ -284,9 +350,13 @@ function runtimeDiagnosticsFromMetadata(metadata?: Record<string, unknown>) {
     preferredRuntime: runtime(value.preferredRuntime),
     attemptedRuntime: runtime(value.attemptedRuntime),
     finalRuntime: runtime(value.finalRuntime) ?? "native",
+    executionOwner: value.executionOwner === "native" || value.executionOwner === "hermes" || value.executionOwner === "deterministic_transition" || value.executionOwner === "runtime_continuation"
+      ? value.executionOwner
+      : undefined,
     fallbackUsed: value.fallbackUsed === true,
     fallbackReasonCode: typeof value.fallbackReasonCode === "string" ? value.fallbackReasonCode : undefined,
     hermesRunId: typeof value.hermesRunId === "string" ? value.hermesRunId : undefined,
+    nextHermesRunId: typeof value.nextHermesRunId === "string" ? value.nextHermesRunId : undefined,
     firstEventAt: typeof value.firstEventAt === "string" ? value.firstEventAt : undefined,
     runtimeFailureAt: typeof value.runtimeFailureAt === "string" ? value.runtimeFailureAt : undefined
   };

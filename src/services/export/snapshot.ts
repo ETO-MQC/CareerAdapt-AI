@@ -1,16 +1,20 @@
 import type {
+  ResumeRevision,
+  ResumeExportSnapshot,
   ResumePdfExportRequest,
   ResumePdfExportSnapshot,
   ResumePaginationPlan,
   ResumePresentationConfig,
   ResumeRenderModel
 } from "@/domain/schemas";
+import { ResumeExportSnapshotSchema } from "@/domain/schemas";
 import { stableHashText } from "@/services/security/text";
 import { RESUME_CATALOG_VERSION } from "@/domain/resumeFields";
 
 export function createResumePdfExportRequest(input: {
   exportId: string;
   renderModel: ResumeRenderModel;
+  persistedRevision?: ResumeRevision;
   presentationConfig: ResumePresentationConfig;
   generatedAt: string;
   filename: string;
@@ -18,7 +22,33 @@ export function createResumePdfExportRequest(input: {
   paginationPlan: ResumePaginationPlan;
   templateVersion?: number;
 }): ResumePdfExportRequest {
-  const snapshotWithoutHash = {
+  const snapshot = createResumeExportSnapshot(input);
+  return {
+    schemaVersion: "resume-direct-pdf-v1",
+    exportId: input.exportId,
+    exportMethod: "direct_pdf",
+    snapshot
+  };
+}
+
+export function createResumeExportSnapshot(input: {
+  renderModel: ResumeRenderModel;
+  persistedRevision?: ResumeRevision;
+  presentationConfig: ResumePresentationConfig;
+  generatedAt: string;
+  filename: string;
+  overflowStatus: ResumePdfExportSnapshot["overflowStatus"];
+  paginationPlan: ResumePaginationPlan;
+  templateVersion?: number;
+}): ResumeExportSnapshot {
+  if (input.persistedRevision) {
+    if (input.persistedRevision.id !== input.renderModel.branchCurrentRevisionId
+      || input.persistedRevision.branchId !== input.renderModel.branchId
+      || input.persistedRevision.revisionNumber !== input.renderModel.branchRevision) {
+      throw new Error("export_revision_snapshot_mismatch");
+    }
+  }
+  const snapshotWithoutHash: Omit<ResumeExportSnapshot, "snapshotHash"> = {
     renderSchemaVersion: input.renderModel.schemaVersion,
     catalogVersion: RESUME_CATALOG_VERSION,
     templateVersion: input.templateVersion ?? 1,
@@ -40,16 +70,7 @@ export function createResumePdfExportRequest(input: {
     renderModel: input.renderModel
   };
   const snapshotHash = hashExportSnapshot(snapshotWithoutHash);
-
-  return {
-    schemaVersion: "resume-direct-pdf-v1",
-    exportId: input.exportId,
-    exportMethod: "direct_pdf",
-    snapshot: {
-      ...snapshotWithoutHash,
-      snapshotHash
-    }
-  };
+  return ResumeExportSnapshotSchema.parse({ ...snapshotWithoutHash, snapshotHash });
 }
 
 export function presentationSnapshotFromConfig(config: ResumePresentationConfig): ResumePdfExportSnapshot["presentation"] {
