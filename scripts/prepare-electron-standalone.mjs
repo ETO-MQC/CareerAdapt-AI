@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(scriptDirectory, "..");
 const sourceRoot = path.join(projectRoot, ".next", "standalone");
-const targetRoot = path.join(projectRoot, ".electron-build", "standalone");
+const targetRoot = path.join(projectRoot, ".electron-build", "standalone-v2");
 
 if (!fs.existsSync(sourceRoot)) {
   throw new Error(`Next standalone output was not found: ${sourceRoot}`);
@@ -64,7 +64,11 @@ function copyPortable(sourcePath, targetPath) {
   }
 }
 
-copyPortable(sourceRoot, targetRoot);
+const runtimeEntries = [".next", "node_modules", "skills", "server.js", "package.json"];
+for (const entry of runtimeEntries) {
+  const sourcePath = path.join(sourceRoot, entry);
+  if (fs.existsSync(sourcePath)) copyPortable(sourcePath, path.join(targetRoot, entry));
+}
 
 const serverPath = path.join(targetRoot, "server.js");
 if (!fs.existsSync(serverPath)) {

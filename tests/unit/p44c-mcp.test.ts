@@ -171,6 +171,34 @@ describe("P4.4c CareerAdapt MCP gateway", () => {
     }
   });
 
+  it("requeues an in-flight MCP call when the browser bridge is replaced", async () => {
+    const first = registerCareerAdaptMcpBridge(createGateway().listContracts());
+    const pending = createCareerAdaptMcpBridgeGateway().execute("career.profile.list", {}, {
+      operationId: "p44c-bridge-replace-01"
+    });
+    const [firstRequest] = pollCareerAdaptMcpBridge(first.bridgeId, first.token);
+    const second = registerCareerAdaptMcpBridge(createGateway().listContracts());
+    try {
+      const [requeuedRequest] = pollCareerAdaptMcpBridge(second.bridgeId, second.token);
+      expect(requeuedRequest.id).toBe(firstRequest.id);
+      expect(completeCareerAdaptMcpBridgeCall(second.bridgeId, second.token, requeuedRequest.id, {
+        ok: true,
+        data: { profiles: [] },
+        artifacts: [],
+        receipt: {
+          operationId: requeuedRequest.operationId,
+          toolName: requeuedRequest.name,
+          status: "completed",
+          completedAt: new Date().toISOString()
+        }
+      })).toBe(true);
+      await expect(pending).resolves.toMatchObject({ ok: true, data: { profiles: [] } });
+    } finally {
+      disconnectCareerAdaptMcpBridge(second.bridgeId, second.token);
+      disconnectCareerAdaptMcpBridge(first.bridgeId, first.token);
+    }
+  });
+
   it("surfaces MCP confirmation-required writes to the active host turn", async () => {
     const gateway = createGateway();
     const client = new CareerAdaptMcpBridgeClient();

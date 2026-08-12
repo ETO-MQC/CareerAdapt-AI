@@ -151,7 +151,11 @@ export class CareerAdaptMcpBridgeClient {
       const response = await fetch(bridgeUrl(), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "register", contracts: gateway.listContracts() }),
+        body: JSON.stringify({
+          action: "register",
+          contracts: gateway.listContracts(),
+          ...(this.currentBinding ? { binding: this.currentBinding } : {})
+        }),
         cache: "no-store"
       });
       const payload = await response.json() as { ok?: boolean; bridgeId?: string; token?: string; discoveredToolCount?: number };

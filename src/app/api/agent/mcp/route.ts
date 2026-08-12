@@ -131,7 +131,7 @@ async function bridgePost(request: NextRequest) {
   try {
     if (action === "register") {
       const contracts = Array.isArray(value.contracts) ? value.contracts.filter(isCareerToolContract) : [];
-      return NextResponse.json({ ok: true, ...registerCareerAdaptMcpBridge(contracts) });
+      return NextResponse.json({ ok: true, ...registerCareerAdaptMcpBridge(contracts, value.binding) });
     }
     const bridgeId = typeof value.bridgeId === "string" ? value.bridgeId : undefined;
     const token = typeof value.token === "string" ? value.token : undefined;

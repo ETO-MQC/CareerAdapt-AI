@@ -3,13 +3,17 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { writeAiSettings, hasCustomAiSettings, type AiSettings } from "@/services/storage/aiSettings";
+import { requestHermesStart } from "@/services/agent/hermesControl";
 
 export default function SetupPage() {
   const router = useRouter();
   const [settings, setSettings] = useState<AiSettings>({
-    baseUrl: "https://api.openai.com/v1",
+    // The packaged runtime supplies the non-secret provider defaults through
+    // its manifest. Leave these empty so entering only the key does not
+    // accidentally replace the application's managed Hermes provider.
+    baseUrl: "",
     apiKey: "",
-    model: "gpt-4o",
+    model: "",
     provider: "openai-compatible"
   });
   const [saving, setSaving] = useState(false);
@@ -22,16 +26,14 @@ export default function SetupPage() {
     }
   }, [router]);
 
-  function handleSave() {
+  async function handleSave() {
     if (!settings.apiKey.trim()) return;
 
     setSaving(true);
     writeAiSettings(settings);
-
-    // 短暂延迟后跳转，让用户看到保存成功提示
-    setTimeout(() => {
-      router.push("/");
-    }, 300);
+    // 先把新配置交给内置 Hermes；即使它暂时不可用，主页仍保留 Native 降级链路。
+    await requestHermesStart().catch(() => undefined);
+    router.push("/");
   }
 
   function handleSkip() {
@@ -80,7 +82,7 @@ export default function SetupPage() {
                 {showApiKey ? "隐藏" : "显示"}
               </button>
             </div>
-            <p className="setup-hint">支持 OpenAI、DeepSeek、智谱等兼容接口</p>
+            <p className="setup-hint">内置 Hermes 会在应用启动时接管 AI；密钥只保存在本机。</p>
           </div>
 
           <div className="setup-field">
@@ -90,11 +92,11 @@ export default function SetupPage() {
               type="text"
               value={settings.baseUrl}
               onChange={(e) => setSettings(prev => ({ ...prev, baseUrl: e.target.value }))}
-              placeholder="https://api.openai.com/v1"
+              placeholder="使用应用内置配置，或填写自定义 OpenAI 兼容地址"
               autoComplete="off"
               spellCheck={false}
             />
-            <p className="setup-hint">DeepSeek: https://api.deepseek.com/v1</p>
+            <p className="setup-hint">留空即可使用应用随附的 AI 接口配置。</p>
           </div>
 
           <div className="setup-field">
@@ -104,11 +106,11 @@ export default function SetupPage() {
               type="text"
               value={settings.model}
               onChange={(e) => setSettings(prev => ({ ...prev, model: e.target.value }))}
-              placeholder="gpt-4o"
+              placeholder="使用应用内置模型，或填写自定义模型"
               autoComplete="off"
               spellCheck={false}
             />
-            <p className="setup-hint">常用: gpt-4o, deepseek-chat, glm-4</p>
+            <p className="setup-hint">留空即可使用应用随附的模型配置。</p>
           </div>
         </div>
 

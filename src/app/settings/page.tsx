@@ -18,6 +18,7 @@ import {
 import { readAiSettings, writeAiSettings, clearAiSettings, type AiSettings } from "@/services/storage/aiSettings";
 import { AgentSessionStore } from "@/services/agent/agentSessionStore";
 import type { AgentSession } from "@/agent/contracts/agentSession";
+import { requestHermesStart } from "@/services/agent/hermesControl";
 import { RotateCcw, Trash2 } from "lucide-react";
 import {
   ProductField,
@@ -27,7 +28,21 @@ import {
 
 type ThemePreference = "system" | "light" | "dark";
 type DensityPreference = "compact" | "comfortable";
-type SettingsCategory = "appearance" | "document" | "export" | "ai" | "data" | "developer" | "help";
+type SettingsCategory = "appearance" | "document" | "export" | "ai" | "hermes" | "data" | "developer" | "help";
+
+type HermesSettingsHealth = {
+  available?: boolean;
+  version?: string;
+  reason?: string;
+  provider?: string;
+  model?: string;
+  providerStatus?: string;
+  mcpConnected?: boolean;
+  discoveredToolCount?: number;
+  runtimeUrl?: string;
+  appUrl?: string;
+  runtimeHealth?: { careerSkillsLoaded?: boolean };
+};
 
 const themeStorageKey = "careeradapt.theme";
 const densityStorageKey = "careeradapt.density";
@@ -36,6 +51,7 @@ const categories: Array<{ id: SettingsCategory; label: string; description: stri
   { id: "appearance", label: "界面", description: "主题与显示密度" },
   { id: "document", label: "文档识别", description: "PDF、DOCX 与本地 OCR" },
   { id: "ai", label: "AI 配置", description: "接口与模型设置" },
+  { id: "hermes", label: "Hermes 运行时", description: "AI 服务与 MCP 状态" },
   { id: "export", label: "导出", description: "A4 与 PDF 行为" },
   { id: "data", label: "数据管理", description: "归档任务与回收站" },
   { id: "developer", label: "开发者模式", description: "测试数据清理" },
@@ -50,8 +66,13 @@ export default function SettingsPage() {
   const [developerMode, setDeveloperMode] = useState(() => typeof window !== "undefined" && readDeveloperMode());
   const [aiSettings, setAiSettings] = useState<AiSettings>(() => typeof window === "undefined" ? { baseUrl: "", apiKey: "", model: "", provider: "openai-compatible" } : readAiSettings());
   const [aiSaved, setAiSaved] = useState(false);
+  const [aiSaving, setAiSaving] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
   const [aiTesting, setAiTesting] = useState(false);
+  const [hermesHealth, setHermesHealth] = useState<HermesSettingsHealth>();
+  const [hermesChecking, setHermesChecking] = useState(false);
+  const [hermesStarting, setHermesStarting] = useState(false);
+  const [hermesFeedback, setHermesFeedback] = useState("应用启动时会自动启动 Hermes；异常退出后可在此恢复。");
   const [documentPreferences, setDocumentPreferences] = useState<DocumentRecognitionPreferences>(() =>
     typeof window === "undefined" ? readDocumentRecognitionPreferences() : readDocumentRecognitionPreferences()
   );
@@ -203,6 +224,63 @@ export default function SettingsPage() {
     setDocumentFeedback("正在取消模型下载…");
     downloadAbortRef.current.abort();
   }
+
+  const checkHermesHealth = useCallback(async () => {
+    setHermesChecking(true);
+    try {
+      const response = await fetch("/api/agent/runtime/hermes/health", { cache: "no-store" });
+      const payload = await response.json().catch(() => ({})) as HermesSettingsHealth;
+      setHermesHealth(payload);
+      setHermesFeedback(response.ok && payload.available === true
+        ? "Hermes API Server 已响应。"
+        : "Hermes 当前未就绪，可以点击启动或重试。" );
+    } catch {
+      setHermesFeedback("无法读取 Hermes 状态，请确认应用服务仍在运行。");
+    } finally {
+      setHermesChecking(false);
+    }
+  }, []);
+
+  async function startHermesFromSettings() {
+    if (hermesStarting) return;
+    setHermesStarting(true);
+    setHermesFeedback("正在启动 Hermes API Server…");
+    try {
+      const result = await requestHermesStart();
+      if (!result.ok) throw new Error(result.reason ?? "Hermes 启动失败。");
+      await checkHermesHealth();
+    } catch (error) {
+      setHermesFeedback(error instanceof Error ? error.message : "Hermes 启动失败，请查看运行日志。");
+    } finally {
+      setHermesStarting(false);
+    }
+  }
+
+  async function saveAiConfiguration() {
+    if (aiSaving) return;
+    setAiSaving(true);
+    writeAiSettings(aiSettings);
+    setAiSaved(true);
+    try {
+      const result = await requestHermesStart();
+      setHermesFeedback(result.ok
+        ? "AI 配置已保存，Hermes 已按新配置重载。"
+        : `AI 配置已保存，但 Hermes 尚未就绪：${result.reason ?? "请稍后重试。"}`);
+    } catch (error) {
+      setHermesFeedback(error instanceof Error
+        ? `AI 配置已保存，但 Hermes 重载失败：${error.message}`
+        : "AI 配置已保存，但 Hermes 重载失败，请稍后重试。");
+    } finally {
+      setAiSaving(false);
+      window.setTimeout(() => setAiSaved(false), 2000);
+    }
+  }
+
+  useEffect(() => {
+    if (category !== "hermes") return;
+    const timer = window.setTimeout(() => { void checkHermesHealth(); }, 0);
+    return () => window.clearTimeout(timer);
+  }, [category, checkHermesHealth]);
 
   return (
     <main className="page-shell settings-workspace">
@@ -441,7 +519,7 @@ export default function SettingsPage() {
               <div className="section-heading compact-heading">
                 <div>
                   <h2>AI 配置</h2>
-                  <p>配置 AI 模型接口。设置保存在本机浏览器，不会上传到任何服务器。未配置时使用服务端环境变量。</p>
+                  <p>配置 AI 模型接口。保存后会立即重载内置 Hermes；AI 模式优先经过 Hermes，Hermes 不可用时才降级到 Native。</p>
                 </div>
               </div>
               <label className="field-label">
@@ -462,7 +540,7 @@ export default function SettingsPage() {
                       type="text"
                       value={aiSettings.baseUrl}
                       onChange={(event) => setAiSettings((prev) => ({ ...prev, baseUrl: event.target.value }))}
-                      placeholder="https://api.openai.com/v1"
+                      placeholder="留空使用应用内置 Hermes 接口"
                     />
                   </label>
                   <label className="field-label">
@@ -472,7 +550,7 @@ export default function SettingsPage() {
                         type={showApiKey ? "text" : "password"}
                         value={aiSettings.apiKey}
                         onChange={(event) => setAiSettings((prev) => ({ ...prev, apiKey: event.target.value }))}
-                        placeholder="sk-..."
+                        placeholder="输入本机 API 密钥"
                         style={{ paddingRight: "2.5rem" }}
                       />
                       <button
@@ -490,7 +568,7 @@ export default function SettingsPage() {
                       type="text"
                       value={aiSettings.model}
                       onChange={(event) => setAiSettings((prev) => ({ ...prev, model: event.target.value }))}
-                      placeholder="gpt-4o"
+                      placeholder="留空使用应用内置 Hermes 模型"
                     />
                   </label>
                 </>
@@ -499,13 +577,10 @@ export default function SettingsPage() {
                 <button
                   type="button"
                   className="button button-primary"
-                  onClick={() => {
-                    writeAiSettings(aiSettings);
-                    setAiSaved(true);
-                    setTimeout(() => setAiSaved(false), 2000);
-                  }}
+                  disabled={aiSaving}
+                  onClick={() => void saveAiConfiguration()}
                 >
-                  {aiSaved ? "已保存 ✓" : "保存配置"}
+                  {aiSaving ? "正在重载 Hermes…" : aiSaved ? "已保存 ✓" : "保存配置"}
                 </button>
                 <button
                   type="button"
@@ -559,6 +634,56 @@ export default function SettingsPage() {
                   恢复默认
                 </button>
               </div>
+            </div>
+          ) : null}
+
+          {category === "hermes" ? (
+            <div className="settings-section">
+              <div className="section-heading compact-heading">
+                <div>
+                  <h2>Hermes 运行时</h2>
+                  <p>Hermes 是随应用安装的 AI 模式核心，用户不需要另行安装。应用启动时会自动托管它；如果被测试或外部进程关闭，可以从这里恢复。</p>
+                </div>
+              </div>
+              <dl className="info-list">
+                <div>
+                  <dt>运行状态</dt>
+                  <dd>{hermesHealth?.available === true ? "已连接" : hermesHealth ? "未就绪" : "尚未检测"}{hermesHealth?.version ? ` · ${hermesHealth.version}` : ""}</dd>
+                </div>
+                <div><dt>Hermes API Server</dt><dd>{formatEndpoint(hermesHealth?.runtimeUrl, "启动后自动分配")}</dd></div>
+                <div><dt>CareerAdapt 应用 / MCP</dt><dd>{formatEndpoint(hermesHealth?.appUrl, "当前应用端口")}</dd></div>
+                <div><dt>运行方式</dt><dd>内置随应用部署</dd></div>
+                <div>
+                  <dt>CareerAdapt MCP</dt>
+                  <dd>{hermesHealth?.mcpConnected === true ? `已连接 · ${hermesHealth.discoveredToolCount ?? 0} 个工具` : "未连接"}</dd>
+                </div>
+                <div><dt>CareerAdapt skills</dt><dd>{hermesHealth?.runtimeHealth?.careerSkillsLoaded === true ? "已加载" : "待加载或未检测"}</dd></div>
+                <div><dt>模型</dt><dd>{hermesHealth?.model || "由应用环境配置"}</dd></div>
+                <div><dt>API 密钥</dt><dd>由本机环境托管，仅显示配置状态，不在页面显示明文。</dd></div>
+              </dl>
+              <p className="settings-save-state" role="status" aria-live="polite">{hermesFeedback}</p>
+              <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem", flexWrap: "wrap" }}>
+                <button
+                  type="button"
+                  className="button button-primary"
+                  disabled={hermesStarting}
+                  onClick={() => void startHermesFromSettings()}
+                >
+                  {hermesStarting ? "启动中…" : "启动 / 恢复 Hermes"}
+                </button>
+                <button
+                  type="button"
+                  className="button button-secondary"
+                  disabled={hermesChecking || hermesStarting}
+                  onClick={() => void checkHermesHealth()}
+                >
+                  {hermesChecking ? "检测中…" : "刷新状态"}
+                </button>
+              </div>
+              <details className="settings-help-details">
+                <summary>端口说明</summary>
+                <p>应用启动时会分别探测 CareerAdapt 和 Hermes 的可用本地端口。默认端口只是首选值；如果被其他程序占用，应用会自动顺延到可用端口，并同步更新 MCP 与 Hermes 配置。</p>
+              </details>
             </div>
           ) : null}
 
@@ -740,6 +865,15 @@ function HealthBadge({ health }: { health?: DocumentEngineHealth }) {
 function HealthText({ health }: { health?: DocumentEngineHealth }) {
   if (!health) return <>尚未检测</>;
   return <>{health.status === "ready" ? "可用" : health.status === "loading" ? "加载中" : health.status === "missing" ? "未配置" : "不可用"}{health.version ? ` · ${health.version}` : ""}{health.message ? ` · ${health.message}` : ""}</>;
+}
+
+function formatEndpoint(value: string | undefined, fallback: string) {
+  if (!value) return fallback;
+  try {
+    return new URL(value).host;
+  } catch {
+    return value.replace(/^https?:\/\//u, "").replace(/\/$/u, "");
+  }
 }
 
 function loadingHealth(engine: string): DocumentEngineHealth {

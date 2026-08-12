@@ -167,7 +167,7 @@ describe("P4.4d Hermes runtime closure", () => {
       careerToolGateway: new CareerToolGateway(new AgentToolRegistry([]))
     });
 
-    for await (const _event of runtime.runTurn({
+    for await (const event of runtime.runTurn({
       sessionId: "agent-card-3",
       userMessage: "",
       pageContext: { query: {} },
@@ -178,7 +178,7 @@ describe("P4.4d Hermes runtime closure", () => {
         allowedCareerToolNames: ["career.job.analyze_fit"]
       }
     })) {
-      // The contract assertion below is the purpose of this turn.
+      expect(event.type).toBe("turn_completed");
     }
 
     const contractNames = (requests[0].toolContracts ?? []).map((contract) => String(contract.name));

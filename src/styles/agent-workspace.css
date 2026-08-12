@@ -157,6 +157,18 @@
   color: currentColor;
 }
 
+.agent-runtime-status-action {
+  border-left: 1px solid var(--ai-border);
+  color: currentColor;
+  font-weight: 650;
+  padding-left: 6px;
+}
+
+.agent-runtime-status:disabled {
+  cursor: wait;
+  opacity: 0.82;
+}
+
 .agent-runtime-status.is-ready { color: var(--ai-accent); }
 .agent-runtime-status.is-starting { color: var(--ai-warning, #b7791f); }
 .agent-runtime-status.is-unavailable { color: var(--ai-danger, #c2413b); }

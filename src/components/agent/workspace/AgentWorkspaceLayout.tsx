@@ -19,6 +19,7 @@ export function AgentWorkspaceLayout({
   sessionTitle,
   status,
   runtimeStatus,
+  onStartHermes,
   contextSelector,
   pinnedContextLabel,
   artifactCount,
@@ -29,6 +30,7 @@ export function AgentWorkspaceLayout({
   sessionTitle: string;
   status: string;
   runtimeStatus?: RuntimeStatusSnapshot;
+  onStartHermes?: () => Promise<{ ok: boolean; reason?: string }>;
   contextSelector?: React.ReactNode;
   pinnedContextLabel?: string;
   artifactCount: number;
@@ -60,7 +62,7 @@ export function AgentWorkspaceLayout({
           {contextSelector}
         </div>
         <div>
-          {runtimeStatus ? <RuntimeStatusBadge status={runtimeStatus} /> : null}
+          {runtimeStatus ? <RuntimeStatusBadge status={runtimeStatus} onStartHermes={onStartHermes} /> : null}
           <span className="agent-workflow-status">{status}</span>
           <AgentArtifactLauncher count={artifactCount} onOpen={onOpenArtifacts} />
           <button type="button" aria-label="打开历史记录" title="历史记录" onClick={onOpenHistory}>
@@ -111,7 +113,14 @@ export function AgentWorkspaceLayout({
   );
 }
 
-function RuntimeStatusBadge({ status }: { status: RuntimeStatusSnapshot }) {
+function RuntimeStatusBadge({
+  status,
+  onStartHermes
+}: {
+  status: RuntimeStatusSnapshot;
+  onStartHermes?: () => Promise<{ ok: boolean; reason?: string }>;
+}) {
+  const [controlBusy, setControlBusy] = useState(false);
   const runtimeLabel = status.activeRuntime === "hermes"
     ? "Hermes"
     : status.preferredRuntime === "hermes" ? "Native fallback" : "Native";
@@ -121,16 +130,30 @@ function RuntimeStatusBadge({ status }: { status: RuntimeStatusSnapshot }) {
     status.mcpConnected === false ? "CareerAdapt MCP 未连接" : status.discoveredToolCount !== undefined ? `MCP ${status.discoveredToolCount} tools` : undefined,
     status.model ? `model ${status.model}` : undefined
   ].filter(Boolean).join(" · ");
+  const handleStartHermes = async () => {
+    if (!onStartHermes || controlBusy || status.status === "starting") return;
+    setControlBusy(true);
+    try {
+      await onStartHermes();
+    } finally {
+      setControlBusy(false);
+    }
+  };
   return (
     <>
-      <span
+      <button
+        type="button"
         className={`agent-runtime-status is-${status.status}`}
         title={details || `AI Runtime: ${runtimeLabel} · ${statusLabel}`}
         aria-label={`AI Runtime ${runtimeLabel}，状态 ${statusLabel}`}
+        aria-busy={controlBusy || status.status === "starting"}
+        disabled={!onStartHermes || controlBusy || status.status === "starting"}
+        onClick={() => void handleStartHermes()}
       >
         <span className="agent-runtime-status-label">AI · {runtimeLabel}</span>
         <span className="agent-runtime-status-state">{statusLabel}</span>
-      </span>
+        {status.status !== "ready" ? <span className="agent-runtime-status-action">{controlBusy ? "启动中…" : "启动"}</span> : null}
+      </button>
       {status.roadshowMode ? <RoadshowDiagnostics status={status} /> : null}
     </>
   );

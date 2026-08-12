@@ -17,6 +17,8 @@ export const HermesHealthSchema = z.object({
   mcpServer: z.string().min(1).optional(),
   mcpConnected: z.boolean().optional(),
   discoveredToolCount: z.number().int().min(0).optional(),
+  runtimeUrl: z.string().url().optional(),
+  appUrl: z.string().url().optional(),
   roadshowMode: z.boolean().optional(),
   runtimeHealth: RuntimeHealthSchema.optional()
 }).strict();

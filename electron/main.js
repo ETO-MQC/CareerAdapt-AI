@@ -1,12 +1,23 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 
-const { app, BrowserWindow, Menu, dialog } = require("electron");
+const { app, BrowserWindow, Menu, dialog, ipcMain } = require("electron");
 const { spawn } = require("child_process");
 const crypto = require("crypto");
 const path = require("path");
 const http = require("http");
 const net = require("net");
 const fs = require("fs");
+const {
+  applyEnvironment,
+  allocateLocalRuntimeUrl,
+  createEphemeralRuntimeApiKey,
+  findAvailablePort,
+  hermesConfigurationFingerprint,
+  loadCareerAdaptEnvironment,
+  parsePort,
+  startHermesCompanion,
+  stopHermesCompanion
+} = require("./hermesCompanion");
 
 let mainWindow;
 let nextServer;
@@ -15,11 +26,17 @@ let serverUrl;
 let ocrSidecarProcess;
 let ocrSidecarStarting = false;
 let ocrBootstrapTimer;
+let hermesCompanion;
+let managedHermesAppPath;
+let managedHermesEnvironment;
+let managedHermesBaseEnvironment;
+let hermesStartPromise;
 
 const isDev = !app.isPackaged;
 const HOST = "127.0.0.1";
-// Keep the origin stable so Chromium's IndexedDB and LocalStorage survive restarts.
-const PORT = 3000;
+const DEFAULT_APP_PORT = 3000;
+const APP_PORT_STATE_FILE = "runtime-ports.json";
+let serverPort = DEFAULT_APP_PORT;
 
 function createWindow(url) {
   mainWindow = new BrowserWindow({
@@ -30,7 +47,8 @@ function createWindow(url) {
     title: "职适AI",
     webPreferences: {
       nodeIntegration: false,
-      contextIsolation: true
+      contextIsolation: true,
+      preload: path.join(__dirname, "preload.js")
     },
     autoHideMenuBar: true,
     show: false
@@ -60,7 +78,27 @@ function getAppPath() {
 }
 
 function getServerUrl() {
-  return `http://${HOST}:${PORT}`;
+  return `http://${HOST}:${serverPort}`;
+}
+
+function readSavedAppPort() {
+  try {
+    const statePath = path.join(app.getPath("userData"), APP_PORT_STATE_FILE);
+    const state = JSON.parse(fs.readFileSync(statePath, "utf8"));
+    return parsePort(state.appPort, undefined);
+  } catch {
+    return undefined;
+  }
+}
+
+function saveAppPort(port) {
+  try {
+    const statePath = path.join(app.getPath("userData"), APP_PORT_STATE_FILE);
+    fs.mkdirSync(path.dirname(statePath), { recursive: true });
+    fs.writeFileSync(statePath, `${JSON.stringify({ appPort: port }, null, 2)}\n`, "utf8");
+  } catch (error) {
+    console.warn("Unable to persist the selected app port:", error instanceof Error ? error.message : error);
+  }
 }
 
 function configureOcrDefaults() {
@@ -70,13 +108,57 @@ function configureOcrDefaults() {
     || path.join(ocrDataPath, "PaddleOCR-VL-1.6");
 }
 
+async function configureHermesDefaults(appPath, environment, options = {}) {
+  const bundledRuntimeRoot = app.isPackaged
+    ? path.join(process.resourcesPath, "hermes-runtime")
+    : path.join(appPath, ".electron-build", "hermes-runtime-v4");
+  const hermesHome = environment.CAREERADAPT_HERMES_HOME?.trim() || path.join(app.getPath("userData"), "hermes");
+  const hasBundledRuntime = fs.existsSync(path.join(bundledRuntimeRoot, "runtime-manifest.json"));
+  if (hasBundledRuntime) {
+    try {
+      const manifest = JSON.parse(fs.readFileSync(path.join(bundledRuntimeRoot, "runtime-manifest.json"), "utf8"));
+      if (!environment.AI_BASE_URL && typeof manifest.providerBaseUrl === "string") environment.AI_BASE_URL = manifest.providerBaseUrl;
+      if (!environment.AI_MODEL && typeof manifest.model === "string") environment.AI_MODEL = manifest.model;
+    } catch {
+      // The companion will report a missing provider configuration if the
+      // optional build manifest cannot be read.
+    }
+  }
+
+  if (!options.preserveRuntimeUrl) {
+    const runtimeAllocation = await allocateLocalRuntimeUrl({
+      ...environment,
+      HERMES_RUNTIME_URL: environment.HERMES_RUNTIME_URL || "http://127.0.0.1:8642"
+    }, { reservedPorts: [serverPort] });
+    environment.HERMES_RUNTIME_URL = runtimeAllocation.environment.HERMES_RUNTIME_URL
+      || environment.HERMES_RUNTIME_URL
+      || "http://127.0.0.1:8642";
+  } else {
+    environment.HERMES_RUNTIME_URL = environment.HERMES_RUNTIME_URL || "http://127.0.0.1:8642";
+  }
+  // These are internal service addresses. Always publish the addresses
+  // selected for this launch instead of retaining stale values from .env.
+  environment.CAREERADAPT_BASE_URL = getServerUrl();
+  environment.CAREERADAPT_APP_PORT = String(serverPort);
+  environment.PORT = String(serverPort);
+  // HERMES_HOME is application state, not a pointer to a separately
+  // installed Hermes checkout. Keep it under Electron userData so the
+  // bundled runtime owns its config, sessions, logs and managed skills.
+  environment.HERMES_HOME = hermesHome;
+  if (hasBundledRuntime) {
+    environment.HERMES_RUNTIME_MODE = "bundled";
+    environment.HERMES_RUNTIME_ROOT = bundledRuntimeRoot;
+    environment.HERMES_SKILLS_ROOT = path.join(bundledRuntimeRoot, "skills", "careeradapt");
+  }
+}
+
 function getStandalonePath(appPath) {
   return app.isPackaged
     ? path.join(process.resourcesPath, "next-standalone")
     : path.join(appPath, ".next", "standalone");
 }
 
-function isPortAvailable(port) {
+function isPortAvailable(port, host = HOST) {
   return new Promise((resolve, reject) => {
     const probe = net.createServer();
     const onError = (error) => {
@@ -93,7 +175,7 @@ function isPortAvailable(port) {
 
     probe.once("error", onError);
     probe.once("listening", onListening);
-    probe.listen(port, HOST);
+    probe.listen(port, host);
   });
 }
 
@@ -121,13 +203,13 @@ function waitForServer(url, timeoutMs = 30000) {
   });
 }
 
-async function startDevelopmentServer(appPath) {
+async function startDevelopmentServer(appPath, port) {
   const next = require(path.join(appPath, "node_modules", "next"));
   nextApp = next({
     dev: true,
     dir: appPath,
     hostname: HOST,
-    port: PORT
+    port
   });
   await nextApp.prepare();
 
@@ -135,7 +217,7 @@ async function startDevelopmentServer(appPath) {
   nextServer = http.createServer((request, response) => handle(request, response));
   await new Promise((resolve, reject) => {
     nextServer.once("error", reject);
-    nextServer.listen(PORT, HOST, resolve);
+    nextServer.listen(port, HOST, resolve);
   });
 
   return getServerUrl();
@@ -203,7 +285,7 @@ async function startLocalOcrSidecar(appPath) {
   }
 }
 
-async function startPackagedServer(appPath) {
+async function startPackagedServer(appPath, port) {
   const standalonePath = getStandalonePath(appPath);
   const serverPath = path.join(standalonePath, "server.js");
 
@@ -213,7 +295,7 @@ async function startPackagedServer(appPath) {
 
   process.env.NODE_ENV = "production";
   process.env.HOSTNAME = HOST;
-  process.env.PORT = String(PORT);
+  process.env.PORT = String(port);
   process.env.NEXT_TELEMETRY_DISABLED = "1";
 
   // standalone/server.js 会在当前进程内启动 Next 服务，避免依赖安装 Node.js。
@@ -224,27 +306,205 @@ async function startPackagedServer(appPath) {
 
 async function startServer() {
   const appPath = getAppPath();
+  const environment = loadCareerAdaptEnvironment(appPath);
+  const preferredAppPort = parsePort(
+    environment.CAREERADAPT_APP_PORT || readSavedAppPort() || environment.PORT,
+    DEFAULT_APP_PORT
+  );
+  const preferredAppUrl = `http://${HOST}:${preferredAppPort}`;
+  const preferredPortAvailable = await isPortAvailable(preferredAppPort);
+  let reuseExistingDevelopmentServer = false;
+  if (!preferredPortAvailable && isDev) {
+    reuseExistingDevelopmentServer = await waitForServer(preferredAppUrl, 3000).then(() => true).catch(() => false);
+  }
+  if (reuseExistingDevelopmentServer) {
+    serverPort = preferredAppPort;
+    const existingHealth = await readServerJson(`${preferredAppUrl}/api/agent/runtime/hermes/health`);
+    if (existingHealth?.runtimeUrl) environment.HERMES_RUNTIME_URL = existingHealth.runtimeUrl;
+  } else {
+    const selectedAppPort = await findAvailablePort({
+      host: HOST,
+      preferredPort: preferredPortAvailable ? preferredAppPort : preferredAppPort + 1,
+      reservedPorts: []
+    });
+    if (!selectedAppPort) {
+      throw new Error(`从端口 ${preferredAppPort} 开始没有找到可用的本地应用端口。`);
+    }
+    serverPort = selectedAppPort;
+  }
+  await configureHermesDefaults(appPath, environment, {
+    preserveRuntimeUrl: reuseExistingDevelopmentServer && Boolean(environment.HERMES_RUNTIME_URL)
+  });
   configureOcrDefaults();
   await startLocalOcrSidecar(appPath);
   ocrBootstrapTimer = setInterval(() => { void startLocalOcrSidecar(appPath); }, 5000);
-  const portAvailable = await isPortAvailable(PORT);
 
-  if (!portAvailable) {
-    if (isDev && await waitForServer(getServerUrl(), 3000).then(() => true).catch(() => false)) {
-      console.warn(`端口 ${PORT} 已有开发服务器，直接复用：${getServerUrl()}`);
-      return getServerUrl();
-    }
-    throw new Error(`端口 ${PORT} 已被占用。请关闭占用该端口的程序后重试。`);
+  if (!environment.HERMES_RUNTIME_API_KEY && !environment.HERMES_API_KEY && !environment.API_SERVER_KEY) {
+    environment.HERMES_RUNTIME_API_KEY = createEphemeralRuntimeApiKey();
   }
+  applyEnvironment(environment);
 
   console.log("Starting CareerAdapt AI server...");
   console.log("App path:", appPath);
   console.log("Server URL:", getServerUrl());
+  console.log("Hermes URL:", environment.HERMES_RUNTIME_URL);
   console.log("Packaged:", app.isPackaged);
 
-  return isDev
-    ? startDevelopmentServer(appPath)
-    : startPackagedServer(appPath);
+  if (reuseExistingDevelopmentServer) {
+    applyEnvironment(environment);
+    console.warn(`端口 ${serverPort} 已有开发服务器，直接复用：${getServerUrl()}`);
+    await startManagedHermes(appPath, environment);
+    saveAppPort(serverPort);
+    return getServerUrl();
+  }
+
+  const url = isDev
+    ? startDevelopmentServer(appPath, serverPort)
+    : startPackagedServer(appPath, serverPort);
+  const resolvedUrl = await url;
+  saveAppPort(serverPort);
+  await startManagedHermes(appPath, environment);
+  return resolvedUrl;
+}
+
+async function readServerJson(url) {
+  try {
+    const response = await fetch(url, { signal: AbortSignal.timeout(2_000), cache: "no-store" });
+    return response.ok ? await response.json() : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+async function startManagedHermes(appPath, environment) {
+  if (!managedHermesBaseEnvironment) managedHermesBaseEnvironment = { ...environment };
+  const nextEnvironment = {
+    ...environment,
+    HERMES_HOME: environment.HERMES_HOME || path.join(app.getPath("userData"), "hermes"),
+    HERMES_RUNTIME_ROOT: environment.HERMES_RUNTIME_ROOT || (app.isPackaged
+      ? path.join(process.resourcesPath, "hermes-runtime")
+      : path.join(appPath, ".electron-build", "hermes-runtime-v4"))
+  };
+  if (hermesStartPromise) await hermesStartPromise.catch(() => undefined);
+  const nextFingerprint = hermesConfigurationFingerprint(nextEnvironment);
+  if (hermesCompanion?.ok
+    && hermesCompanion.owned
+    && hermesCompanion.configurationFingerprint === nextFingerprint
+    && await isManagedHermesReady(hermesCompanion, nextEnvironment)
+    && (!hermesCompanion.child || hermesCompanion.child.exitCode === null)) {
+    managedHermesAppPath = appPath;
+    managedHermesEnvironment = nextEnvironment;
+    applyEnvironment(nextEnvironment);
+    return hermesCompanion;
+  }
+  if (hermesCompanion?.owned) {
+    await stopHermesCompanion(hermesCompanion);
+    hermesCompanion = null;
+  }
+  managedHermesAppPath = appPath;
+  managedHermesEnvironment = nextEnvironment;
+  applyEnvironment(nextEnvironment);
+  hermesStartPromise = (async () => {
+    const logPath = path.join(app.getPath("logs"), "hermes-runtime.log");
+    console.log("[Hermes] Starting managed companion...");
+    hermesCompanion = await startHermesCompanion({
+      projectRoot: appPath,
+      // The companion may reassign its local port. Keep that decision in the
+      // returned handle and let this process commit it to both environments
+      // after startup succeeds.
+      environment: { ...managedHermesEnvironment },
+      appBaseUrl: getServerUrl(),
+      hermesHome: managedHermesEnvironment.HERMES_HOME,
+      hermesRuntimeRoot: managedHermesEnvironment.HERMES_RUNTIME_ROOT,
+      runtimeCwd: app.isPackaged ? process.resourcesPath : appPath,
+      logPath,
+      allowProviderKeyFallback: true
+    });
+    if (hermesCompanion.ok) {
+      if (hermesCompanion.runtime?.baseUrl
+        && managedHermesEnvironment.HERMES_RUNTIME_URL !== hermesCompanion.runtime.baseUrl) {
+        managedHermesEnvironment = {
+          ...managedHermesEnvironment,
+          HERMES_RUNTIME_URL: hermesCompanion.runtime.baseUrl
+        };
+        managedHermesBaseEnvironment = {
+          ...(managedHermesBaseEnvironment ?? {}),
+          HERMES_RUNTIME_URL: hermesCompanion.runtime.baseUrl
+        };
+        hermesCompanion.configurationFingerprint = hermesConfigurationFingerprint(managedHermesEnvironment);
+        applyEnvironment(managedHermesEnvironment);
+      }
+      console.log(`[Hermes] Ready at ${hermesCompanion.runtime.baseUrl}`);
+      console.log(`[Hermes] Startup log: ${hermesCompanion.logPath}`);
+      return hermesCompanion;
+    }
+    console.warn(`[Hermes] Companion unavailable (${hermesCompanion.reason ?? "unknown"}); Native fallback remains available.`);
+    console.warn(`[Hermes] Startup log: ${hermesCompanion.logPath}`);
+    if (managedHermesEnvironment.HERMES_AUTOSTART_REQUIRED?.trim().toLowerCase() === "true") {
+      throw new Error(`Hermes companion failed to start: ${hermesCompanion.reason ?? "unknown"}`);
+    }
+    return hermesCompanion;
+  })();
+  try {
+    return await hermesStartPromise;
+  } finally {
+    hermesStartPromise = undefined;
+  }
+}
+
+async function isManagedHermesReady(handle, environment) {
+  if (!handle?.runtime?.healthUrl || !handle.child || handle.child.exitCode !== null) return false;
+  const apiKey = environment.HERMES_RUNTIME_API_KEY
+    || environment.HERMES_API_KEY
+    || environment.AI_API_KEY;
+  const headers = apiKey
+    ? { Authorization: `Bearer ${apiKey}`, Accept: "application/json" }
+    : { Accept: "application/json" };
+  for (const url of [handle.runtime.healthUrl, `${handle.runtime.baseUrl}/api/health`]) {
+    try {
+      const response = await fetch(url, { headers, signal: AbortSignal.timeout(2_000), cache: "no-store" });
+      if (response.status === 404) continue;
+      return response.ok;
+    } catch {
+      // The start button will restart the managed child when its port is no
+      // longer healthy, while Native fallback remains available meanwhile.
+    }
+  }
+  return false;
+}
+
+ipcMain.handle("careeradapt:hermes:start", async (_event, requestedSettings) => {
+  if (!managedHermesAppPath || !managedHermesEnvironment) {
+    return { ok: false, reason: "careeradapt_app_not_ready" };
+  }
+  try {
+    const environment = {
+      ...(managedHermesBaseEnvironment ?? managedHermesEnvironment),
+      ...environmentFromHermesSettings(requestedSettings)
+    };
+    const handle = await startManagedHermes(managedHermesAppPath, environment);
+    return {
+      ok: Boolean(handle?.ok),
+      ...(handle?.reason ? { reason: handle.reason } : {}),
+      ...(handle?.runtime?.baseUrl ? { runtimeUrl: handle.runtime.baseUrl } : {})
+    };
+  } catch (error) {
+    return { ok: false, reason: error instanceof Error ? error.message : "hermes_companion_start_failed" };
+  }
+});
+
+function environmentFromHermesSettings(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const settings = value;
+  const read = (name) => typeof settings[name] === "string" ? settings[name].trim().slice(0, 20_000) : "";
+  const baseUrl = read("baseUrl");
+  const apiKey = read("apiKey");
+  const model = read("model");
+  return {
+    ...(baseUrl ? { AI_BASE_URL: baseUrl } : {}),
+    ...(apiKey ? { AI_API_KEY: apiKey } : {}),
+    ...(model ? { AI_MODEL: model } : {})
+  };
 }
 
 async function stopServer() {
@@ -256,6 +516,8 @@ async function stopServer() {
     ocrSidecarProcess.kill();
     ocrSidecarProcess = null;
   }
+  await stopHermesCompanion(hermesCompanion);
+  hermesCompanion = null;
   if (nextServer) {
     await new Promise((resolve) => nextServer.close(resolve));
     nextServer = null;

@@ -200,17 +200,20 @@ test.describe.serial("P4.4e real Hermes workflow closure", () => {
     { key: "E", title: "从资料库组装简历", prompt: "请先调用 career.workflow.profile_to_resume，使用当前已确认的个人资料组装一份通用简历，保持资料与简历分离；完成后停在预览或确认边界。", artifact: /简历|资料/u },
     { key: "F", title: "检查并导出简历", prompt: "请先调用 career.workflow.resume_export，检查当前唯一简历并准备真实预览和 PDF 导出；完成质量门禁后停在导出确认边界。", artifact: /导出|预览|简历/u }
   ] as const) {
-    test(`CASE ${workflow.key} — ${workflow.title} uses a real Hermes Run`, async ({ page }) => {
+    test(`CASE ${workflow.key} — ${workflow.title} uses a real Hermes Run`, async ({ page }, testInfo) => {
       test.setTimeout(360_000);
-      const bridge = observeHermesBridge(page);
+      const timeline = createRuntimeReleaseTimeline();
+      const bridge = observeHermesBridge(page, timeline);
       await openHermesWorkspace(page);
       await ensureCurrentDemoResume(page);
+      timeline.start(page);
       if (workflow.key === "D") {
         // Give the browser bridge time to register before the gateway restart
         // used by the real-run harness; the production flow does not need this.
         await page.waitForTimeout(30_000);
       }
       await startQuickAction(page, workflow.title);
+      timeline.mark("quick_action_received");
       await send(page, workflow.prompt);
       await waitForTurnToSettle(page, 300_000);
       await approveVisibleCareerOperation(page);
@@ -225,9 +228,17 @@ test.describe.serial("P4.4e real Hermes workflow closure", () => {
         state = await readCareerState(page);
       }
       console.info(`[p44e-case-${workflow.key.toLowerCase()}-observed]`, JSON.stringify(state));
+      const timelineReport = await timeline.finish(page);
+      await testInfo.attach(`p45b4-${workflow.key}-runtime-timeline.json`, {
+        body: JSON.stringify(timelineReport, null, 2),
+        contentType: "application/json"
+      });
+      console.info(`[p45b4-case-${workflow.key.toLowerCase()}-runtime-timeline]`, JSON.stringify(timelineReport));
       expect(state.hermesSessionId).toMatch(/^hermes-/u);
       expect(state.hermesRunId).toMatch(/^run_/u);
-      expect(["completed", "stopping"]).toContain(state.hermesRunStatus);
+      const runIsWaitingAtUserBoundary = state.hermesRunStatus === "running"
+        && ["waiting_for_user", "waiting_for_confirmation"].includes(String(state.activeTurnStatus));
+      expect(runIsWaitingAtUserBoundary || ["completed", "stopping"].includes(String(state.hermesRunStatus))).toBe(true);
       expect(["completed", "waiting_for_user", "waiting_for_confirmation"]).toContain(state.activeTurnStatus);
       expect(state.artifactCount).toBeGreaterThanOrEqual(1);
       if (workflow.key === "C") {
@@ -320,8 +331,8 @@ async function resolveVisibleBoundaries(page: Page) {
       await waitForTurnToSettle(page, 180_000);
       continue;
     }
-    if (/目标岗位编号.*(?:1 或 2|1、2)|岗位编号.*(?:1 或 2|1、2)|请输入编号或岗位名称|要针对哪个岗位定制|针对哪个岗位|请从以下.*岗位.*选择|以下两个.*岗位|有两个.*保存岗位|两个已保存岗位/u.test(checkpointText)) {
-      await send(page, "1", true);
+    if (/目标岗位编号.*(?:1 或 2|1、2)|岗位编号.*(?:1 或 2|1、2)|请输入编号或岗位名称|要针对哪个岗位定制|针对哪个岗位|请从以下.*岗位.*选择|以下两个.*岗位|有两个.*保存岗位|有两个已保存的岗位|两个已保存岗位|岗位选择会决定|你要投哪个|你要选择哪个岗位/u.test(checkpointText)) {
+      await send(page, "数据分析实习生", true);
       await waitForTurnToSettle(page, 180_000);
       continue;
     }
@@ -335,12 +346,14 @@ function hasJobFitArtifact(artifacts: Array<Record<string, unknown>>) {
     .some((value) => value.includes("job_fit") || value.includes("analyze_fit") || value.includes("匹配")));
 }
 
-function observeHermesBridge(page: Page) {
+function observeHermesBridge(page: Page, timeline?: RuntimeReleaseTimeline) {
   const calls: Array<{ action: string; startedAt: number; status?: number; elapsedMs?: number }> = [];
   page.on("request", (request) => {
     if (!request.url().endsWith("/api/agent/runtime/hermes") || request.method() !== "POST") return;
     const body = request.postDataJSON() as { action?: string };
-    calls.push({ action: String(body.action ?? "unknown"), startedAt: Date.now() });
+    const action = String(body.action ?? "unknown");
+    calls.push({ action, startedAt: Date.now() });
+    if (action === "run_start") timeline?.mark("hermes_run_started");
   });
   page.on("response", async (response) => {
     if (!response.url().endsWith("/api/agent/runtime/hermes")) return;
@@ -348,8 +361,99 @@ function observeHermesBridge(page: Page) {
     if (!active) return;
     active.status = response.status();
     active.elapsedMs = Date.now() - active.startedAt;
+    if (active.action === "run_events" && response.ok()) timeline?.mark("first_runtime_event");
   });
   return calls;
+}
+
+type RuntimeReleaseMarker =
+  | "quick_action_received"
+  | "task_state_created"
+  | "hermes_run_started"
+  | "first_runtime_event"
+  | "first_model_event"
+  | "first_tool_call"
+  | "first_tool_result"
+  | "workflow_transition"
+  | "revision_created"
+  | "preview_ready"
+  | "turn_completed";
+
+type RuntimeReleaseTimeline = ReturnType<typeof createRuntimeReleaseTimeline>;
+
+function createRuntimeReleaseTimeline() {
+  const startedAt = Date.now();
+  const marks = new Map<RuntimeReleaseMarker, { timestamp: string; elapsedMs: number }>();
+  let previousWorkflow: string | undefined;
+  let baselineRevisionCount: number | undefined;
+  let baselineBranchCount: number | undefined;
+  let sampler: ReturnType<typeof setInterval> | undefined;
+  let sampling = false;
+
+  const mark = (name: RuntimeReleaseMarker) => {
+    if (marks.has(name)) return;
+    marks.set(name, { timestamp: new Date().toISOString(), elapsedMs: Date.now() - startedAt });
+  };
+
+  const sample = async (page: Page) => {
+    if (sampling) return;
+    sampling = true;
+    try {
+      const [state, stores] = await Promise.all([readCareerState(page), readCareerStores(page)]);
+      if (baselineRevisionCount === undefined) baselineRevisionCount = stores.resumeRevisions;
+      if (baselineBranchCount === undefined) baselineBranchCount = stores.resumeBranches;
+      if (state.workflowId && state.stage) {
+        mark("task_state_created");
+        const workflow = `${String(state.workflowId)}:${String(state.stage)}`;
+        if (previousWorkflow && previousWorkflow !== workflow) mark("workflow_transition");
+        previousWorkflow = workflow;
+        if (state.hermesRunId) mark("hermes_run_started");
+        if (state.lastMessages.some((message) => message.role === "assistant" && message.content.trim() && message.kind !== "assistant_thinking")) {
+          mark("first_model_event");
+        }
+        if (state.lastMessages.some((message) => Boolean(message.toolName))) mark("first_tool_call");
+        if (state.lastMessages.some((message) => Boolean(message.toolName) && ["complete", "failed"].includes(String(message.status)))) {
+          mark("first_tool_result");
+        }
+        if (["review_composition", "confirm_create", "preview_changes", "confirm_apply", "quality_result", "resume_ready"].includes(String(state.stage))) {
+          mark("preview_ready");
+        }
+        if (state.activeTurnStatus === "completed") mark("turn_completed");
+      }
+      if (baselineRevisionCount !== undefined && stores.resumeRevisions > baselineRevisionCount) mark("revision_created");
+      if (baselineBranchCount !== undefined && stores.resumeBranches > baselineBranchCount) mark("preview_ready");
+    } catch {
+      // The sampler is diagnostic-only; a transient page/database read must not
+      // change the authoritative headed journey.
+    } finally {
+      sampling = false;
+    }
+  };
+
+  return {
+    mark,
+    start(page: Page) {
+      sampler = setInterval(() => { void sample(page); }, 250);
+      sampler.unref?.();
+      void sample(page);
+    },
+    async finish(page: Page) {
+      if (sampler) clearInterval(sampler);
+      await sample(page);
+      const ordered = [...marks.entries()].sort(([, left], [, right]) => left.elapsedMs - right.elapsedMs);
+      const gaps = ordered.slice(1).map(([name, value], index) => ({
+        from: ordered[index]?.[0],
+        to: name,
+        elapsedMs: value.elapsedMs - (ordered[index]?.[1].elapsedMs ?? value.elapsedMs)
+      }));
+      return {
+        startedAt: new Date(startedAt).toISOString(),
+        markers: Object.fromEntries(ordered),
+        gaps,
+        largestGap: gaps.toSorted((left, right) => right.elapsedMs - left.elapsedMs)[0]
+      };
+    }
+  };
 }
 
 async function openHermesWorkspace(page: Page) {
@@ -370,7 +474,7 @@ async function openHermesWorkspace(page: Page) {
   }
   const badge = page.locator(".agent-runtime-status");
   await expect(badge).toHaveAttribute("aria-label", /AI Runtime Hermes，状态 Ready/, { timeout: 30_000 });
-  await expect.poll(() => badge.getAttribute("title"), { timeout: 30_000 }).toContain("MCP 52 tools");
+  await expect.poll(() => badge.getAttribute("title"), { timeout: 30_000 }).toContain("MCP 55 tools");
 }
 
 async function ensureCurrentDemoResume(page: Page) {
@@ -531,6 +635,7 @@ async function readCareerState(page: Page) {
       lastMessages: sessionMessages.slice(-10).map((message) => ({
         role: message.role,
         kind: message.kind,
+        toolName: message.toolName,
         content: String(message.content ?? "").slice(0, 800),
         status: message.status,
         errorCode: (message.metadata as Record<string, unknown> | undefined)?.errorCode

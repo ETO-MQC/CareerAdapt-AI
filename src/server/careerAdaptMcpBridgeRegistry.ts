@@ -30,7 +30,7 @@ type BridgeRecord = {
 type PendingCall = {
   bridgeId: string;
   request: BridgeRequest;
-  timer: ReturnType<typeof setTimeout>;
+  timer?: ReturnType<typeof setTimeout>;
   resolve: (result: CareerToolResult) => void;
 };
 
@@ -44,35 +44,53 @@ const registryGlobal = globalThis as typeof globalThis & {
   __careerAdaptMcpBridgeRegistry?: {
     bridges: Map<string, BridgeRecord>;
     pendingCalls: Map<string, PendingCall>;
+    orphanedPendingCalls: PendingCall[];
   };
 };
 const sharedRegistry = registryGlobal.__careerAdaptMcpBridgeRegistry ??= {
   bridges: new Map<string, BridgeRecord>(),
-  pendingCalls: new Map<string, PendingCall>()
+  pendingCalls: new Map<string, PendingCall>(),
+  orphanedPendingCalls: []
 };
+sharedRegistry.orphanedPendingCalls ??= [];
 const bridges = sharedRegistry.bridges;
 const pendingCalls = sharedRegistry.pendingCalls;
+const orphanedPendingCalls = sharedRegistry.orphanedPendingCalls;
 
 export type CareerAdaptMcpBridgeStatus = {
   connected: boolean;
   server: "careeradapt";
   discoveredToolCount: number;
+  bindingPresent: boolean;
   lastHeartbeatAt?: string;
   bridgeId?: string;
 };
 
-export function registerCareerAdaptMcpBridge(contracts: CareerToolContract[]) {
-  const current = [...bridges.values()][0];
-  if (current) disconnectCareerAdaptMcpBridge(current.id);
+export function registerCareerAdaptMcpBridge(
+  contracts: CareerToolContract[],
+  initialBinding?: unknown
+) {
+  // A page navigation can briefly leave the previous browser adapter alive
+  // while the replacement registers. Do not invalidate that adapter here:
+  // its next poll would see a synthetic 404 and immediately register again,
+  // causing the old and new pages to replace one another indefinitely. The
+  // newest bridge becomes active; the previous bridge is kept until its
+  // owner explicitly stops or its heartbeat expires.
+  const current = activeBridge();
+  if (current) orphanPendingCalls(current.id);
   const bridge: BridgeRecord = {
     id: `careeradapt-bridge-${nanoid(12)}`,
     token: `careeradapt-token-${nanoid(24)}`,
     contracts: contracts.map(sanitizeContract),
+    careerSessionBinding: initialBinding === undefined || initialBinding === null
+      ? undefined
+      : CareerSessionBindingSchema.parse(initialBinding),
     queue: [],
     inflight: new Map(),
     lastHeartbeatAt: Date.now()
   };
   bridges.set(bridge.id, bridge);
+  requeueOrphanedCalls(bridge);
   return {
     bridgeId: bridge.id,
     token: bridge.token,
@@ -84,12 +102,7 @@ export function disconnectCareerAdaptMcpBridge(bridgeId: string, token?: string)
   const bridge = bridges.get(bridgeId);
   if (!bridge || (token && bridge.token !== token)) return false;
   bridges.delete(bridgeId);
-  for (const [requestId, pending] of pendingCalls) {
-    if (pending.bridgeId !== bridgeId) continue;
-    clearTimeout(pending.timer);
-    pending.resolve(failedResult(pending.request, "mcp_bridge_disconnected", "CareerAdapt MCP 桥接已断开。"));
-    pendingCalls.delete(requestId);
-  }
+  orphanPendingCalls(bridgeId);
   return true;
 }
 
@@ -141,7 +154,7 @@ export function completeCareerAdaptMcpBridgeCall(
   bridge.inflight.delete(requestId);
   const pending = pendingCalls.get(requestId);
   if (!pending || pending.bridgeId !== bridgeId) return false;
-  clearTimeout(pending.timer);
+  if (pending.timer) clearTimeout(pending.timer);
   pendingCalls.delete(requestId);
   pending.resolve(result);
   return true;
@@ -158,6 +171,7 @@ export function statusCareerAdaptMcpBridge(): CareerAdaptMcpBridgeStatus {
     connected: Boolean(bridge),
     server: "careeradapt",
     discoveredToolCount: bridge?.contracts.length ?? 0,
+    bindingPresent: Boolean(bridge?.careerSessionBinding),
     ...(bridge ? {
       lastHeartbeatAt: new Date(bridge.lastHeartbeatAt).toISOString(),
       bridgeId: bridge.id
@@ -191,28 +205,60 @@ function enqueueCall(name: string, input: unknown, context: CareerToolExecutionC
   };
   bridge.queue.push(request);
   return new Promise((resolve) => {
-    const timer = setTimeout(() => {
+    const pending: PendingCall = {
+      bridgeId: bridge.id,
+      request,
+      resolve
+    };
+    pending.timer = setTimeout(() => {
       pendingCalls.delete(request.id);
-      bridge.inflight.delete(request.id);
+      bridges.get(pending.bridgeId)?.inflight.delete(request.id);
+      const orphanedIndex = orphanedPendingCalls.indexOf(pending);
+      if (orphanedIndex >= 0) orphanedPendingCalls.splice(orphanedIndex, 1);
       resolve(failedResult(request, "mcp_bridge_timeout", "等待本地 CareerAdapt 工作区响应超时。"));
     }, CALL_TIMEOUT_MS);
-    pendingCalls.set(request.id, { bridgeId: bridge.id, request, timer, resolve });
+    pendingCalls.set(request.id, pending);
   });
 }
 
-function activeBridge() {
-  const bridge = [...bridges.values()][0];
-  if (!bridge) return undefined;
-  if (Date.now() - bridge.lastHeartbeatAt > BRIDGE_TTL_MS) {
-    disconnectCareerAdaptMcpBridge(bridge.id);
-    return undefined;
+function requeueOrphanedCalls(bridge: BridgeRecord) {
+  for (const pending of orphanedPendingCalls.splice(0)) {
+    if (pendingCalls.get(pending.request.id) !== pending) continue;
+    pending.bridgeId = bridge.id;
+    pending.request.createdAt = Date.now();
+    bridge.queue.push(pending.request);
   }
+}
+
+function activeBridge() {
+  pruneExpiredBridges();
+  const bridge = [...bridges.values()].at(-1);
+  if (!bridge) return undefined;
   return bridge;
+}
+
+function orphanPendingCalls(bridgeId: string) {
+  for (const [requestId, pending] of pendingCalls) {
+    if (pending.bridgeId !== bridgeId) continue;
+    pending.bridgeId = "orphaned";
+    pending.request.createdAt = Date.now();
+    bridges.get(bridgeId)?.inflight.delete(requestId);
+    if (!orphanedPendingCalls.includes(pending)) orphanedPendingCalls.push(pending);
+    pendingCalls.set(requestId, pending);
+  }
+}
+
+function pruneExpiredBridges() {
+  const now = Date.now();
+  for (const bridge of [...bridges.values()]) {
+    if (now - bridge.lastHeartbeatAt > BRIDGE_TTL_MS) disconnectCareerAdaptMcpBridge(bridge.id);
+  }
 }
 
 function requireBridge(bridgeId: string, token: string) {
   const bridge = bridges.get(bridgeId);
-  if (!bridge || bridge.token !== token || activeBridge()?.id !== bridgeId) {
+  if (!bridge || bridge.token !== token || Date.now() - bridge.lastHeartbeatAt > BRIDGE_TTL_MS) {
+    if (bridge && Date.now() - bridge.lastHeartbeatAt > BRIDGE_TTL_MS) bridges.delete(bridgeId);
     throw new CareerAdaptMcpUnavailableError("CareerAdapt MCP 桥接会话已失效。");
   }
   return bridge;

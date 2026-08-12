@@ -8,7 +8,8 @@
     "node": ">=20.9.0"
   },
   "scripts": {
-    "dev": "next dev",
+    "dev": "node scripts/dev-with-hermes.mjs",
+    "dev:next": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint . --max-warnings=0",
@@ -18,14 +19,16 @@
     "test:c1:eval": "vitest run --config vitest.c1-eval.config.ts",
     "test:c2:eval": "vitest run --config vitest.c2-eval.config.ts",
     "test:e2e": "playwright test",
+    "hermes:preflight": "node scripts/hermes-preflight.mjs",
+    "hermes:companion": "node electron/hermesCompanion.js",
     "hermes:skills": "node scripts/sync-career-skills.mjs",
     "verify": "pnpm typecheck && pnpm lint && pnpm test && pnpm build",
     "electron:dev": "electron .",
-    "electron:build": "next build && node scripts/prepare-electron-standalone.mjs && electron-builder --projectDir electron --config ../electron-builder.yml --win",
-    "electron:build:dir": "next build && node scripts/prepare-electron-standalone.mjs && electron-builder --projectDir electron --config ../electron-builder.yml --win --dir",
-    "electron:build:mac": "next build && node scripts/prepare-electron-standalone.mjs && electron-builder --projectDir electron --config ../electron-builder.yml --mac",
-    "electron:build:linux": "next build && node scripts/prepare-electron-standalone.mjs && electron-builder --projectDir electron --config ../electron-builder.yml --linux",
-    "electron:build:all": "next build && node scripts/prepare-electron-standalone.mjs && electron-builder --projectDir electron --config ../electron-builder.yml --win --mac --linux"
+    "electron:build": "next build && node scripts/prepare-electron-standalone.mjs && node scripts/prepare-hermes-runtime.mjs && electron-builder --projectDir electron --config ../electron-builder.yml --win",
+    "electron:build:dir": "next build && node scripts/prepare-electron-standalone.mjs && node scripts/prepare-hermes-runtime.mjs && electron-builder --projectDir electron --config ../electron-builder.yml --win --dir",
+    "electron:build:mac": "next build && node scripts/prepare-electron-standalone.mjs && node scripts/prepare-hermes-runtime.mjs && electron-builder --projectDir electron --config ../electron-builder.yml --mac",
+    "electron:build:linux": "next build && node scripts/prepare-electron-standalone.mjs && node scripts/prepare-hermes-runtime.mjs && electron-builder --projectDir electron --config ../electron-builder.yml --linux",
+    "electron:build:all": "next build && node scripts/prepare-electron-standalone.mjs && node scripts/prepare-hermes-runtime.mjs && electron-builder --projectDir electron --config ../electron-builder.yml --win --mac --linux"
   },
   "dependencies": {
     "@tiptap/extension-placeholder": "^3.27.3",

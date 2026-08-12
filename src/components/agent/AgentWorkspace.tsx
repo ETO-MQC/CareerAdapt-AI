@@ -778,6 +778,7 @@ export function AgentWorkspace() {
       sessionTitle={getAgentSessionDisplayTitle(session)}
       status={statusLabel(snapshot.turnStatus)}
       runtimeStatus={runtimeStatus}
+      onStartHermes={host.startHermes}
       contextSelector={<CareerContextSelector onBeforeSelect={handleBeforeContextSelect} />}
       pinnedContextLabel={pinnedContextLabel}
       artifactCount={artifacts.length}

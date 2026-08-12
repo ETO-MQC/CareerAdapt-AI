@@ -129,7 +129,15 @@ async function withRuntimeHealth(
     lastCheckedAt: new Date().toISOString(),
     ...(health.reason ? { safeErrorCode: safeErrorCode(health.reason) } : {})
   });
-  return { ...health, roadshowMode: process.env.ROADSHOW_AGENT_MODE?.trim().toLowerCase() === "true", runtimeHealth };
+  const configuredRuntimeUrl = process.env.HERMES_RUNTIME_URL?.trim().replace(/\/$/u, "");
+  const appUrl = process.env.CAREERADAPT_BASE_URL?.trim().replace(/\/$/u, "");
+  return {
+    ...health,
+    ...(configuredRuntimeUrl ? { runtimeUrl: configuredRuntimeUrl } : {}),
+    ...(appUrl ? { appUrl } : {}),
+    roadshowMode: process.env.ROADSHOW_AGENT_MODE?.trim().toLowerCase() === "true",
+    runtimeHealth
+  };
 }
 
 async function detectCareerSkills() {

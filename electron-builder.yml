@@ -10,7 +10,7 @@ files:
   - "**/*"
 
 extraResources:
-  - from: "../.electron-build/standalone"
+  - from: "../.electron-build/standalone-v2"
     to: "next-standalone"
     filter:
       - "**/*"
@@ -20,11 +20,19 @@ extraResources:
   # electron-builder applies its default exclusions to a directory named
   # node_modules. Add the standalone runtime dependencies as a separate
   # resource set so server.js can resolve Next after installation.
-  - from: "../.electron-build/standalone/node_modules"
+  - from: "../.electron-build/standalone-v2/node_modules"
     to: "next-standalone/node_modules"
     filter:
       - "**/*"
       - "!**/cache/**"
+      - "!**/*.map"
+  - from: "../.electron-build/hermes-runtime-v4"
+    to: "hermes-runtime"
+    filter:
+      - "**/*"
+      - "!**/__pycache__/**"
+      - "!**/*.pyc"
+      - "!**/*.pyo"
       - "!**/*.map"
   - from: "../.next/static"
     to: "next-standalone/.next/static"
