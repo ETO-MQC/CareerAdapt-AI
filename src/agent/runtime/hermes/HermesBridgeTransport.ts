@@ -376,7 +376,23 @@ function mapOfficialHermesEvent(name: string, value: unknown): HermesBridgeEvent
 /** Convert the compatibility health shape into the authoritative contract. */
 export function toRuntimeHealth(
   health: HermesHealth,
-  overrides: Partial<Pick<RuntimeHealth, "mcpConnected" | "mcpToolCount" | "careerSkillsLoaded">> = {}
+  overrides: Partial<Pick<RuntimeHealth,
+    | "mcpConnected"
+    | "mcpToolCount"
+    | "careerSkillsLoaded"
+    | "browserCareerDomainHostConnected"
+    | "careerMcpServerReachable"
+    | "careerMcpContractCount"
+    | "hermesMcpRegistered"
+    | "hermesMcpToolCount"
+    | "hermesCareerFacadeCount"
+    | "requiredCareerFacadesMissing"
+    | "careerGatewayContracts"
+    | "careerMcpExposedTools"
+    | "hermesRegisteredToolsets"
+    | "hermesVisibleTools"
+    | "missingRequiredCareerTools"
+  >> = {}
 ): RuntimeHealth {
   if (health.runtimeHealth) {
     return RuntimeHealthSchema.parse({

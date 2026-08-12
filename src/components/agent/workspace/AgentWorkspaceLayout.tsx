@@ -127,7 +127,8 @@ function RuntimeStatusBadge({
   const statusLabel = status.status === "ready" ? "Ready" : status.status === "starting" ? "Starting" : "Unavailable";
   const details = [
     status.reason,
-    status.mcpConnected === false ? "CareerAdapt MCP 未连接" : status.discoveredToolCount !== undefined ? `MCP ${status.discoveredToolCount} tools` : undefined,
+    status.health?.requiredCareerFacadesMissing.length ? `缺少 ${status.health.requiredCareerFacadesMissing.length} 个 Career facade` : undefined,
+    status.health?.hermesMcpToolCount !== undefined ? `Hermes MCP ${status.health.hermesMcpToolCount} tools` : undefined,
     status.model ? `model ${status.model}` : undefined
   ].filter(Boolean).join(" · ");
   const handleStartHermes = async () => {
@@ -164,7 +165,11 @@ function RoadshowDiagnostics({ status }: { status: RuntimeStatusSnapshot }) {
   const checks = [
     ["Runtime", health?.runtimeAvailable === true],
     ["Provider / model", health?.providerConfigured === true && health.providerReachable === true && Boolean(health.model)],
-    ["Career MCP", health?.mcpConnected === true && health.mcpToolCount > 0],
+    ["Hermes API", health?.runtimeAvailable === true],
+    ["Browser Career Domain Host", health?.browserCareerDomainHostConnected === true],
+    ["Career MCP server", health?.careerMcpServerReachable === true && health.careerMcpContractCount > 0],
+    ["Hermes MCP registry", health?.hermesMcpRegistered === true && health.hermesMcpToolCount > 0],
+    ["Required Career facades", health?.requiredCareerFacadesMissing.length === 0 && (health?.hermesCareerFacadeCount ?? 0) > 0],
     ["Career skills", health?.careerSkillsLoaded === true],
     ["Resume preview", status.mcpConnected === true && status.resumePreviewAvailable === true],
     ["PDF export", status.mcpConnected === true && status.pdfExportAvailable === true]

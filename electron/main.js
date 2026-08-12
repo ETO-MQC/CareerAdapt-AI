@@ -386,6 +386,14 @@ async function startManagedHermes(appPath, environment) {
       : path.join(appPath, ".electron-build", "hermes-runtime-v4"))
   };
   if (hermesStartPromise) await hermesStartPromise.catch(() => undefined);
+  // The renderer registers the browser MCP bridge immediately after the
+  // window mounts. If that registration is already causing the managed
+  // companion to refresh its MCP session, wait for the refresh instead of
+  // racing it with a second --replace launch from the renderer startup hook.
+  const activeCompanion = hermesCompanion;
+  if (activeCompanion?.owned && activeCompanion.bridgeRefreshPromise) {
+    await activeCompanion.bridgeRefreshPromise.catch(() => undefined);
+  }
   const nextFingerprint = hermesConfigurationFingerprint(nextEnvironment);
   if (hermesCompanion?.ok
     && hermesCompanion.owned
@@ -418,7 +426,8 @@ async function startManagedHermes(appPath, environment) {
       hermesRuntimeRoot: managedHermesEnvironment.HERMES_RUNTIME_ROOT,
       runtimeCwd: app.isPackaged ? process.resourcesPath : appPath,
       logPath,
-      allowProviderKeyFallback: true
+      allowProviderKeyFallback: true,
+      requireBundledRuntime: app.isPackaged
     });
     if (hermesCompanion.ok) {
       if (hermesCompanion.runtime?.baseUrl
@@ -462,7 +471,11 @@ async function isManagedHermesReady(handle, environment) {
     : { Accept: "application/json" };
   for (const url of [handle.runtime.healthUrl, `${handle.runtime.baseUrl}/api/health`]) {
     try {
-      const response = await fetch(url, { headers, signal: AbortSignal.timeout(2_000), cache: "no-store" });
+      // The bundled gateway may accept the socket before its first health
+      // response is serviced. Use the same bounded cold-start allowance as
+      // the companion probe so a renderer boot check cannot relaunch a
+      // healthy gateway merely because its first response was slow.
+      const response = await fetch(url, { headers, signal: AbortSignal.timeout(15_000), cache: "no-store" });
       if (response.status === 404) continue;
       return response.ok;
     } catch {
@@ -478,9 +491,21 @@ ipcMain.handle("careeradapt:hermes:start", async (_event, requestedSettings) => 
     return { ok: false, reason: "careeradapt_app_not_ready" };
   }
   try {
+    const requestedEnvironment = environmentFromHermesSettings(requestedSettings);
+    // Electron has already started the managed companion before creating the
+    // window. The renderer also asks for a start during its boot handshake;
+    // with no renderer-side provider override that request is an idempotent
+    // readiness check, not a reason to relaunch Hermes with --replace while
+    // the MCP bridge watcher is refreshing the first session.
+    if (Object.keys(requestedEnvironment).length === 0
+      && hermesCompanion?.ok
+      && hermesCompanion.owned
+      && await isManagedHermesReady(hermesCompanion, managedHermesEnvironment)) {
+      return { ok: true, runtimeUrl: hermesCompanion.runtime?.baseUrl };
+    }
     const environment = {
       ...(managedHermesBaseEnvironment ?? managedHermesEnvironment),
-      ...environmentFromHermesSettings(requestedSettings)
+      ...requestedEnvironment
     };
     const handle = await startManagedHermes(managedHermesAppPath, environment);
     return {

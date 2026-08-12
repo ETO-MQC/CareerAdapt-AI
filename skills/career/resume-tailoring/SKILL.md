@@ -17,7 +17,7 @@ metadata:
 
 Use after job-fit analysis identifies an evidence-backed priority and a
 job-specific resume branch has been selected. When a new job resume is needed,
-hand off to `career.workflow.compose_resume` first; use tailoring for a
+hand off to `mcp__careeradapt__career_workflow_compose_resume` first; use tailoring for a
 reversible diff against an existing branch. Keep the general resume and
 profile immutable while proposing changes.
 
@@ -79,9 +79,16 @@ write or silently change the source branch.
 
 ## TOOL BOUNDARIES
 
-Use `career.tailoring.*` and `career.preview.*` only through the host gateway.
-Proposal generation is not a write. Applying a diff requires the host's
-confirmation and revision checks; no skill code writes the repository.
+Use the exact Hermes MCP names in the visible CareerAdapt registry, such as
+`mcp__careeradapt__career_tailoring_create_session`,
+`mcp__careeradapt__career_tailoring_generate_changes`,
+`mcp__careeradapt__career_tailoring_review_diff`,
+`mcp__careeradapt__career_tailoring_preview_changes`,
+`mcp__careeradapt__career_tailoring_apply_changes`,
+`mcp__careeradapt__career_preview_review_diff`, and
+`mcp__careeradapt__career_preview_apply_changes`, only through the host
+gateway. Proposal generation is not a write. Applying a diff requires the
+host's confirmation and revision checks; no skill code writes the repository.
 
 ## FACT SAFETY
 

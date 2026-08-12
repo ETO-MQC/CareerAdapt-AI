@@ -15,6 +15,20 @@ const ROUTE_B_EXACT_TOOL_EXCLUSIONS = new Set([
   "skill_view"
 ]);
 
+const PRODUCT_MODE_NATIVE_INSPECTION_EXCLUSIONS = new Set([
+  "terminal",
+  "read_file",
+  "write_file",
+  "search_files",
+  "list_files",
+  "process",
+  "execute_code",
+  "skills_list",
+  "skill_view",
+  "search_agent_sessions",
+  "get_agent_task_context"
+]);
+
 export class AgentToolResolver {
   constructor(
     private readonly registry: AgentToolRegistry,
@@ -46,10 +60,15 @@ export class AgentToolResolver {
         || !ROUTE_B_EXACT_TOOL_EXCLUSIONS.has(name)
       );
     const diagnosticTurn = isRuntimeFailureQuestion(input.userMessage, taskState);
-    if (diagnosticTurn) {
+    const systemStatusTurn = isCareerSystemStatusQuestion(input.userMessage);
+    if (diagnosticTurn || systemStatusTurn) {
       for (const name of ["get_agent_current_task", "get_agent_last_failure", "get_agent_runtime_status"]) {
         if (!workflowToolNames.includes(name)) workflowToolNames.push(name);
       }
+    }
+    if (systemStatusTurn) {
+      const diagnosticNames = ["get_agent_current_task", "get_agent_last_failure", "get_agent_runtime_status"];
+      workflowToolNames.splice(0, workflowToolNames.length, ...diagnosticNames);
     }
     const capabilityToolNames = workflow
       ? workflowToolNames
@@ -62,16 +81,19 @@ export class AgentToolResolver {
         : workflowToolNames.length
           ? workflowToolNames
           : ["get_active_profile", "get_profile", "search_profile_facts"];
+    const productModeTools = (tools: AgentToolDefinition[]) => systemStatusTurn
+      ? tools.filter((tool) => !PRODUCT_MODE_NATIVE_INSPECTION_EXCLUSIONS.has(tool.name))
+      : tools;
     if (!input.session) {
       const allowedNames = new Set(capabilityToolNames);
-      return manifest.filter((tool) => allowedNames.has(String(tool.name))).map((tool) => this.registry.require(String(tool.name)));
+      return productModeTools(manifest.filter((tool) => allowedNames.has(String(tool.name))).map((tool) => this.registry.require(String(tool.name))));
     }
-    return this.eligibility.eligible({
+    return productModeTools(this.eligibility.eligible({
       tools: this.registry.list(),
       workflowToolNames,
       capabilityToolNames,
       taskState: taskState!
-    });
+    }));
   }
 
   modelManifest(tools: AgentToolDefinition[]) {
@@ -97,4 +119,8 @@ function isRuntimeFailureQuestion(message: string | undefined, taskState?: Agent
     && taskState?.selectedEntities.resumeId
     && taskState.selectedEntities.jobId
   );
+}
+
+export function isCareerSystemStatusQuestion(message: string | undefined) {
+  return Boolean(message && /(?:CareerAdapt|职适AI).*(?:系统状态|运行状态|健康状态)|(?:检查|查看|查询).*(?:系统状态|运行状态)|系统状态/u.test(message.trim()));
 }

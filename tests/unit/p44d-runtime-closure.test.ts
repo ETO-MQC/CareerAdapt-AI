@@ -27,6 +27,13 @@ describe("P4.4d Hermes runtime closure", () => {
       mcpConnected: true,
       mcpToolCount: 42,
       careerSkillsLoaded: true,
+      browserCareerDomainHostConnected: true,
+      careerMcpServerReachable: true,
+      careerMcpContractCount: 42,
+      hermesMcpRegistered: true,
+      hermesMcpToolCount: 42,
+      hermesCareerFacadeCount: 8,
+      requiredCareerFacadesMissing: [],
       lastCheckedAt: "2026-08-08T10:00:00.000Z"
     });
     expect(isRoadshowReady(health)).toBe(true);
@@ -183,8 +190,8 @@ describe("P4.4d Hermes runtime closure", () => {
 
     const contractNames = (requests[0].toolContracts ?? []).map((contract) => String(contract.name));
     expect(contractNames).toEqual(expect.arrayContaining([
-      "career.workflow.job_fit",
-      "career.workflow.tailor_resume"
+      "mcp__careeradapt__career_workflow_job_fit",
+      "mcp__careeradapt__career_workflow_tailor_resume"
     ]));
   });
 

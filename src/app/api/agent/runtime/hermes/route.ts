@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
+import { HermesCareerToolCatalog } from "@/agent/runtime/hermes/HermesCareerToolCatalog";
 
 const HermesBridgeRequestSchema = z.object({
   action: z.enum([
@@ -247,6 +248,24 @@ function safeConversationHistory(value: unknown) {
 }
 
 function careerRunInstructions(payload: Record<string, unknown>) {
+  const contracts = Array.isArray(payload.toolContracts)
+    ? payload.toolContracts.flatMap((value) => {
+        const contract = asRecord(value);
+        if (typeof contract.name !== "string") return [];
+        return [{
+          stableName: typeof contract.careerAdaptStableName === "string" ? contract.careerAdaptStableName : contract.name,
+          registeredName: contract.name
+        }];
+      })
+    : [];
+  const catalog = new HermesCareerToolCatalog(contracts.map((contract) => contract.stableName));
+  const systemStatusTurn = isSystemStatusQuestion(payload.userMessage);
+  const registered = (stableName: string) => contracts.find((contract) => contract.stableName === stableName)?.registeredName
+    ?? catalog.registeredNameForStableName(stableName);
+  const facadeLines = contracts
+    .filter((contract) => contract.stableName.startsWith("career.workflow."))
+    .map((contract) => `${contract.stableName} -> ${contract.registeredName.startsWith("mcp__") ? contract.registeredName : catalog.registeredNameForStableName(contract.stableName)}`)
+    .join(", ");
   const context = {
     career_context: {
       session_id: safeCareerBinding(payload.careerSessionBinding)?.agentSessionId,
@@ -257,25 +276,40 @@ function careerRunInstructions(payload: Record<string, unknown>) {
     attachments: safeAttachments(payload.attachments)
   };
   return [
-    "You are the CareerAdapt Career Agent. For a normal end-to-end workflow, you MUST call exactly one matching career.workflow.* MCP facade first; do not start with its atomic counterpart.",
-    "Facade mapping: Profile Intake=career.workflow.profile_intake_turn/finalize; Resume Import=career.workflow.resume_import; Job Fit=career.workflow.job_fit; Tailoring=career.workflow.tailor_resume; Profile→Resume=career.workflow.profile_to_resume; Repair→Export=career.workflow.resume_export.",
-    "Use atomic career.profile.*, career.resume.*, career.job.*, and career.tailoring.* tools only for inspection, unusual repair, or recovery after a facade reports a recoverable failure.",
+    "You are the CareerAdapt Career Agent. Hermes v0.19 exposes CareerAdapt MCP tools under exact mcp__careeradapt__... registry names.",
+    systemStatusTurn
+      ? "This is a CareerAdapt system-status question. Use the read-only CareerAdapt system contracts first: runtime status, current task, and last failure. Do not inspect the host with terminal, file, process, or search tools."
+      : "For a normal end-to-end workflow, you MUST call exactly one matching CareerAdapt workflow facade first; do not start with its atomic counterpart.",
+    `Callable facade mapping (stable CareerAdapt name -> exact Hermes name): ${facadeLines || "not supplied; use visible mcp__careeradapt__ names from the active registry"}`,
+    "Dotted names are stable CareerAdapt diagnostics aliases only. Never send career.workflow.* or career.profile.* as the provider tool name when an mcp__careeradapt__ registry name is available.",
+    systemStatusTurn
+      ? "For this status question, do not call a workflow facade or any write tool; return Hermes runtime, model, Career MCP, Career skills, and current Career task diagnostics."
+      : "Use atomic CareerAdapt MCP tools only for inspection, unusual repair, or recovery after a facade reports a recoverable failure.",
     "Never invent profile or resume facts. Never claim a write or draft exists without a completed CareerAdapt tool receipt.",
     "runtime_user_event is an authoritative structured event from the host. For entity_selected, option_selected, retry, confirmation, and workflow_control, use the typed action and persisted task state exactly; never parse a visible button label, ask the user to repeat a validated selection, or repeat a deterministic host write.",
-    "After the host persists a selected Job or Resume, reread the selected entities before reasoning. For tailor_existing_resume at analyze_fit, call career.workflow.job_fit first, interpret its returned fit checkpoint, then continue with the tailoring workflow; ask only a returned high-value question that can change the result.",
-    "When a workflow returns waiting_for_user, stop tool-calling and ask exactly the returned high-value question. Exception: inside tailor_existing_resume at analyze_fit, a completed career.workflow.job_fit is an intermediate checkpoint; use it to call the allowed career.workflow.tailor_resume before stopping.",
+    `After the host persists a selected Job or Resume, reread the selected entities before reasoning. For tailor_existing_resume at analyze_fit, call ${registered("career.workflow.job_fit")} first, interpret its returned fit checkpoint, then continue with the tailoring workflow; ask only a returned high-value question that can change the result.`,
+    `When a workflow returns waiting_for_user, stop tool-calling and ask exactly the returned high-value question. Exception: inside tailor_existing_resume at analyze_fit, a completed ${registered("career.workflow.job_fit")} is an intermediate checkpoint; use it to call the allowed ${registered("career.workflow.tailor_resume")} before stopping.`,
     "When it returns waiting_for_confirmation, stop and yield the approval boundary. When completed, stop the tool loop and narrate the result.",
-    "Attachments are local CareerAdapt references. Use only their IDs with career.workflow.resume_import; never request paths, bytes, base64, or parse them yourself.",
+    `Attachments are local CareerAdapt references. Use only their IDs with ${registered("career.workflow.resume_import")}; never request paths, bytes, base64, or parse them yourself.`,
     `Runtime context: ${JSON.stringify(context)}`
   ].join("\n");
+}
+
+function isSystemStatusQuestion(value: unknown) {
+  return typeof value === "string"
+    && /(?:CareerAdapt|职适AI).*(?:系统状态|运行状态|健康状态)|(?:检查|查看|查询).*(?:系统状态|运行状态)|系统状态/u.test(value.trim());
 }
 
 function safeRuntimeMetadata(value: unknown) {
   const metadata = asRecord(value);
   const result: Record<string, unknown> = {};
-  for (const key of ["executionOwner", "preferredRuntime", "attemptedRuntime", "finalRuntime", "fallbackUsed", "fallbackReasonCode", "workflowId", "workflowStage", "rootGoal", "runtimeId", "hermesRunId", "nextHermesRunId", "firstEventAt", "runtimeFailureAt", "runtimeRecoveryAttempted", "recoveryFailureCode"]) {
+  for (const key of ["executionOwner", "preferredRuntime", "attemptedRuntime", "finalRuntime", "fallbackUsed", "fallbackReasonCode", "workflowId", "workflowStage", "rootGoal", "runtimeId", "hermesRunId", "nextHermesRunId", "firstEventAt", "runtimeFailureAt", "runtimeRecoveryAttempted", "recoveryFailureCode", "nativeAllowedSourceTools", "careerGatewayContracts", "careerMcpExposedTools", "hermesRegisteredToolsets", "hermesVisibleTools", "missingRequiredCareerTools", "lastRequestedHermesToolName", "lastRequestedCareerToolName"]) {
     const entry = metadata[key];
-    if (typeof entry === "string" || typeof entry === "boolean") result[key] = entry;
+    if (typeof entry === "string" || typeof entry === "boolean" || typeof entry === "number") {
+      result[key] = entry;
+    } else if (Array.isArray(entry) && entry.every((item) => typeof item === "string")) {
+      result[key] = entry.slice(0, 128);
+    }
   }
   const event = safeRuntimeUserEvent(metadata.runtimeUserEvent);
   if (event) result.runtimeUserEvent = event;

@@ -76,10 +76,12 @@ retry the diagnostic step without modifying user content.
 
 ## TOOL BOUNDARIES
 
-Review is read-only by default. The host may call
-`career.resume.review_composition`, `career.resume.get`, preview, or export
-contracts, but this skill never authorizes `career.*` writes and never edits
-`WorkspaceRepository` directly.
+Review is read-only by default. The host may call the exact Hermes MCP names
+`mcp__careeradapt__career_resume_review_composition`,
+`mcp__careeradapt__career_resume_get`,
+`mcp__careeradapt__career_tailoring_preview_changes`, or
+`mcp__careeradapt__career_export_resume`, but this skill never authorizes
+CareerAdapt writes and never edits `WorkspaceRepository` directly.
 
 ## FACT SAFETY
 

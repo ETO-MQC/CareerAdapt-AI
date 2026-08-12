@@ -39,6 +39,8 @@ import { notify } from "@/services/notifications/store";
 import { agentAttachmentStore, type AgentAttachmentRef } from "@/services/agent/AgentAttachmentStore";
 import { allowedToolManifestForStep } from "@/agent/workflows/workflowRegistry";
 import { agentToolNames } from "@/agent/tools/registry";
+import { HermesCareerToolCatalog } from "@/agent/runtime/hermes/HermesCareerToolCatalog";
+import { isRoadshowReady } from "@/agent/runtime/runtimeHealth";
 
 type ResumeSummary = { id: string; profileId: string; name: string; purpose: string; revision: number };
 type SessionComposerDrafts = Record<string, string>;
@@ -231,7 +233,7 @@ export function AgentWorkspace() {
     try {
       const hermesAttachmentRequested = input.attachments.length > 0
         && runtimeStatus.preferredRuntime === "hermes";
-      if (hermesAttachmentRequested && (runtimeStatus.status !== "ready" || runtimeStatus.mcpConnected === false)) {
+      if (hermesAttachmentRequested && (runtimeStatus.status !== "ready" || !runtimeStatus.health || !isRoadshowReady(runtimeStatus.health))) {
         throw Object.assign(new Error("Hermes 尚未准备好接收附件。"), { code: "hermes_attachment_runtime_not_ready" });
       }
       const hermesAttachmentTurn = hermesAttachmentRequested;
@@ -280,7 +282,7 @@ export function AgentWorkspace() {
       setSessionAttachments((current) => current.map((attachment) => ({ ...attachment, status: "failed" as const, errorCode })));
       notify({ type: "error", title: "附件发送失败", message: "附件仍保留在编辑区，可以重试或移除。" });
     }
-  }, [host, pageContext, runtimeStatus.mcpConnected, runtimeStatus.preferredRuntime, runtimeStatus.status, session, setSessionAttachments, setSessionDraft, setSessionDraftReference]);
+  }, [host, pageContext, runtimeStatus.health, runtimeStatus.preferredRuntime, runtimeStatus.status, session, setSessionAttachments, setSessionDraft, setSessionDraftReference]);
 
   const handleBeforeContextSelect = useCallback(async (next: ActiveCareerContext) => {
     if (!taskHasUsedAssetsOrWrites) {
@@ -624,7 +626,9 @@ export function AgentWorkspace() {
         toolName: message.toolName,
         status: message.status,
         safeErrorCode: typeof message.metadata?.safeErrorCode === "string" ? message.metadata.safeErrorCode : undefined,
-        operationId: message.operationId
+        operationId: message.operationId,
+        requestedHermesToolName: typeof message.metadata?.requestedHermesToolName === "string" ? message.metadata.requestedHermesToolName : undefined,
+        stableCareerToolName: typeof message.metadata?.stableCareerToolName === "string" ? message.metadata.stableCareerToolName : undefined
       }));
     const deniedActivity = toolActivities.findLast((activity) => activity.safeErrorCode === "agent_tool_not_allowed");
     const pendingInformationNeed = recordValue(slots.resumeCompositionPendingInformationNeed);
@@ -685,6 +689,9 @@ export function AgentWorkspace() {
         artifactActionFeedback: safeArtifactActionFeedback
       }
     } : undefined;
+    const careerContracts = host.careerToolGateway.listContracts();
+    const careerCatalog = new HermesCareerToolCatalog(careerContracts);
+    const runtimeHealth = runtimeStatus.health;
     const bundle = {
       schemaVersion: "agent-technical-diagnostics-v2",
       exportedAt: new Date().toISOString(),
@@ -708,8 +715,16 @@ export function AgentWorkspace() {
         firstEventAt: session.activeTurn.firstEventAt,
         runtimeFailureAt: session.activeTurn.runtimeFailureAt
       } : undefined,
-      allowedTools: workflowDefinition.map((tool) => String(tool.name)),
+      nativeAllowedSourceTools: workflowDefinition.map((tool) => String(tool.name)),
+      careerGatewayContracts: careerContracts.map((contract) => contract.name).sort(),
+      careerMcpExposedTools: careerContracts.map((contract) => contract.name).sort(),
+      hermesRegisteredToolsets: runtimeHealth?.hermesRegisteredToolsets ?? [],
+      hermesVisibleTools: runtimeHealth?.hermesVisibleTools ?? [],
+      missingRequiredCareerTools: runtimeHealth?.missingRequiredCareerTools ?? careerCatalog.coverage([]).requiredCareerFacadesMissing,
+      roadshowReady: runtimeHealth ? isRoadshowReady(runtimeHealth) : false,
       requestedTool: toolActivities.findLast((activity) => activity.toolName)?.toolName,
+      requestedHermesToolName: toolActivities.findLast((activity) => activity.requestedHermesToolName)?.requestedHermesToolName,
+      requestedCareerToolName: toolActivities.findLast((activity) => activity.stableCareerToolName)?.stableCareerToolName,
       deniedTool: deniedActivity?.toolName,
       workflowTransitionHistory: session.turnCheckpoints.map((checkpoint) => ({
         turnId: checkpoint.turnId,
@@ -771,7 +786,7 @@ export function AgentWorkspace() {
     anchor.download = `agent-diagnostics-${new Date().toISOString().slice(0, 10)}.json`;
     anchor.click();
     URL.revokeObjectURL(url);
-  }, [host.store, intakeProjection, session]);
+  }, [host.careerToolGateway, host.store, intakeProjection, runtimeStatus.health, session]);
 
   return (
     <AgentWorkspaceLayout

@@ -733,7 +733,13 @@ export class AgentHostStore {
           runtimeId: "hermes",
           activityState: status,
           ...(event.error?.code ? { safeErrorCode: event.error.code } : {}),
-          ...(event.type === "tool_call_failed" && event.toolName ? { requestedToolName: event.toolName } : {})
+          ...(event.type === "tool_call_failed" && event.toolName ? { requestedToolName: event.toolName } : {}),
+          ...(objectValue(event.data).requestedHermesToolName && typeof objectValue(event.data).requestedHermesToolName === "string"
+            ? { requestedHermesToolName: objectValue(event.data).requestedHermesToolName }
+            : {}),
+          ...(objectValue(event.data).stableCareerToolName && typeof objectValue(event.data).stableCareerToolName === "string"
+            ? { stableCareerToolName: objectValue(event.data).stableCareerToolName }
+            : {})
         }
       });
       if (event.type === "tool_call_completed") {

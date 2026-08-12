@@ -66,6 +66,8 @@ for (const entry of fs.readdirSync(sourceRoot, { withFileTypes: true })) {
   copyTree(path.join(sourceRoot, entry.name), path.join(sourceTarget, entry.name));
 }
 
+patchApiServerMcpToolsets(sourceTarget);
+
 const careerSkillsSource = path.join(projectRoot, "skills", "career");
 assertDirectory(careerSkillsSource, "CareerAdapt Hermes skills");
 copyTree(careerSkillsSource, path.join(skillsTarget, "careeradapt"));
@@ -163,6 +165,56 @@ function assertFile(filePath, label) {
   if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
     throw new Error(`${label} was not found: ${filePath}`);
   }
+}
+
+function patchApiServerMcpToolsets(targetSourceRoot) {
+  const apiServerPath = path.join(targetSourceRoot, "gateway", "platforms", "api_server.py");
+  assertFile(apiServerPath, "Hermes API-server source");
+  const source = fs.readFileSync(apiServerPath, "utf8");
+  const marker = "            data: List[Dict[str, Any]] = []";
+  const handlerMarker = "    async def _handle_toolsets(self, request: \"web.Request\") -> \"web.Response\":";
+  if (!source.includes(marker) || !source.includes(handlerMarker)) throw new Error("Hermes API-server toolset handler shape changed; MCP registry patch was not applied.");
+  const insertion = [
+    "            # Hermes registers live MCP servers after startup and the upstream v0.19",
+    "            # endpoint only enumerates static configurable toolsets. Surface the",
+    "            # live registry here so clients can verify the exact server-agent tool",
+    "            # names without inferring readiness from a browser bridge count.",
+    "            try:",
+    "                from tools.registry import registry",
+    "                registered_tools = registry.get_tool_to_toolset_map()",
+    "                live_tools_by_toolset = {}",
+    "                for tool_name, toolset_name in registered_tools.items():",
+    "                    toolset_key = str(toolset_name)",
+    "                    if not toolset_key.startswith(\"mcp-\"):",
+    "                        continue",
+    "                    live_tools_by_toolset.setdefault(toolset_key, []).append(str(tool_name))",
+    "                for toolset_name, live_tools in sorted(live_tools_by_toolset.items()):",
+    "                    if not str(toolset_name).startswith(\"mcp-\"):",
+    "                        continue",
+    "                    server_name = str(toolset_name)[len(\"mcp-\"):]",
+    "                    if server_name not in enabled_toolsets and str(toolset_name) not in enabled_toolsets:",
+    "                        continue",
+    "                    live_tools = sorted(set(live_tools))",
+    "                    if not live_tools:",
+    "                        continue",
+    "                    data.append({",
+    "                        \"name\": str(toolset_name),",
+    "                        \"label\": f\"MCP {server_name}\",",
+    "                        \"description\": f\"Live MCP server registry for {server_name}.\",",
+    "                        \"enabled\": True,",
+    "                        \"configured\": True,",
+    "                        \"tools\": live_tools,",
+    "                    })",
+    "            except Exception:",
+    "                logger.exception(\"GET /v1/toolsets live MCP registry enrichment failed\")",
+    "        except Exception:",
+    "            logger.exception(\"GET /v1/toolsets failed\")"
+  ].join("\n");
+  if (source.includes("live MCP server registry for")) return;
+  const insertionPattern = /        except Exception:\r?\n            logger\.exception\("GET \/v1\/toolsets failed"\)/u;
+  if (!insertionPattern.test(source)) throw new Error("Hermes API-server toolset handler insertion point changed; MCP registry patch was not applied.");
+  const patched = source.replace(insertionPattern, insertion);
+  fs.writeFileSync(apiServerPath, patched, "utf8");
 }
 
 function copyTree(sourcePath, targetPath, options = {}) {

@@ -72,8 +72,10 @@ a write. Never turn a recovery step into a new factual assertion.
 ## TOOL BOUNDARIES
 
 Return a proposed source-bound patch or ledger entry to the host. Only the
-host may call `career.profile.capture_intake` or `career.profile.commit_intake`;
-the skill never writes to `WorkspaceRepository` directly.
+host may call the exact Hermes MCP names
+`mcp__careeradapt__career_profile_capture_intake` or
+`mcp__careeradapt__career_profile_commit_intake`; the skill never writes to
+`WorkspaceRepository` directly.
 
 ## FACT SAFETY
 

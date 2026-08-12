@@ -10,7 +10,12 @@ const DEFAULT_RUNTIME_URL = "http://127.0.0.1:8642";
 const DEFAULT_APP_URL = "http://127.0.0.1:3000";
 const DEFAULT_LOCAL_HOST = "127.0.0.1";
 const DEFAULT_PORT_SCAN_LIMIT = 100;
-const DEFAULT_START_TIMEOUT_MS = 30_000;
+// Hermes can finish binding its API server before its first health response is
+// serviced. This is especially visible on a cold packaged start while the
+// bundled Python runtime opens its state databases and registers MCP tools.
+// Keep the wait bounded, but allow that first authenticated probe to complete.
+const DEFAULT_START_TIMEOUT_MS = 60_000;
+const HEALTH_REQUEST_TIMEOUT_MS = 15_000;
 const HEALTH_POLL_MS = 500;
 const MCP_WATCH_INTERVAL_MS = 1_000;
 const MCP_REFRESH_COOLDOWN_MS = 15_000;
@@ -168,8 +173,16 @@ function prepareHermesEnvironment(environment, options = {}) {
     childEnvironment.PYTHONPATH = [
       bundledRuntime.sourceRoot,
       bundledRuntime.sitePackagesRoot,
+      path.join(bundledRuntime.sitePackagesRoot, "win32"),
+      path.join(bundledRuntime.sitePackagesRoot, "win32", "lib"),
+      path.join(bundledRuntime.sitePackagesRoot, "pywin32_system32"),
       result.PYTHONPATH
     ].filter(Boolean).join(path.delimiter);
+    childEnvironment.Path = [
+      path.join(bundledRuntime.sitePackagesRoot, "pywin32_system32"),
+      result.Path || result.PATH
+    ].filter(Boolean).join(path.delimiter);
+    childEnvironment.PATH = childEnvironment.Path;
     childEnvironment.HERMES_HOME = hermesHome || path.join(options.projectRoot ?? process.cwd(), ".next", "dev", "hermes");
     ensureManagedHermesConfig(childEnvironment.HERMES_HOME, {
       baseUrl: providerBaseUrl,
@@ -219,6 +232,9 @@ function ensureManagedHermesConfig(hermesHome, values) {
   const model = firstValue(values.model);
   const provider = baseUrl && model ? "custom:careeradapt" : "custom";
   const mcpUrl = `${String(values.appBaseUrl || DEFAULT_APP_URL).replace(/\/$/u, "")}/api/agent/mcp`;
+  const developerMode = firstValue(values.mode, process.env.CAREERADAPT_HERMES_MODE)?.toLowerCase() === "developer"
+    || firstValue(values.developerMode, process.env.CAREERADAPT_HERMES_DEVELOPER_MODE)?.toLowerCase() === "true";
+  const apiServerToolsets = developerMode ? ["hermes-api-server", "careeradapt"] : ["skills", "careeradapt"];
   const lines = [
     "# Managed by CareerAdapt AI. Do not put API keys in this file.",
     "# The key is injected into the Hermes process as OPENAI_API_KEY.",
@@ -234,6 +250,9 @@ function ensureManagedHermesConfig(hermesHome, values) {
       "    api_mode: chat_completions",
       `    model: ${yamlScalar(model)}`
     ] : []),
+    "platform_toolsets:",
+    "  api_server:",
+    ...apiServerToolsets.map((toolset) => `    - ${toolset}`),
     "mcp_servers:",
     "  careeradapt:",
     `    url: ${yamlScalar(mcpUrl)}`,
@@ -289,6 +308,10 @@ async function startHermesCompanion(options = {}) {
   if (!runtime.local) {
     writeLog(`startup skipped: configured runtime is remote (${runtime.host}:${runtime.port})`);
     return failedCompanion("hermes_runtime_remote", logPath);
+  }
+  if (options.requireBundledRuntime === true && !resolveBundledHermesRuntime(environment, options)) {
+    writeLog("startup blocked: bundled Hermes runtime is required but unavailable");
+    return failedCompanion("hermes_bundled_runtime_missing", logPath, { runtime });
   }
 
   let prepared = prepareHermesEnvironment(environment, {
@@ -365,12 +388,15 @@ async function startHermesCompanion(options = {}) {
     bridgeId: bridgeAtStart.bridgeId,
     bridgeWatcher: undefined,
     bridgeRefreshInFlight: false,
-    // A bridge may already be present when the companion starts, but it can
-    // belong to a page that is about to reload. Allow one first-session
-    // refresh for that transition; later browser reloads must not restart
-    // Hermes again.
-    bridgeRefreshCompleted: false,
-    lastRefreshedBridgeId: bridgeAtStart.connected ? (bridgeAtStart.bridgeId ?? "connected") : undefined,
+    bridgeRefreshPromise: undefined,
+    // If the bridge was already connected before Hermes launched, the child
+    // registered its live MCP catalog during its own startup. Refreshing it
+    // again immediately would replace a healthy gateway during renderer boot.
+    // A bridge discovered later still gets one bounded refresh.
+    bridgeRefreshCompleted: bridgeAtStart.connected,
+    lastRefreshedBridgeId: bridgeAtStart.connected
+      ? (bridgeAtStart.bridgeId ?? "connected")
+      : undefined,
     lastBridgeRefreshAt: 0,
     replacementChild: undefined,
     stopping: false
@@ -519,13 +545,18 @@ function startMcpBridgeWatcher(handle, timeoutMs) {
     handle.lastBridgeRefreshAt = Date.now();
     handle.bridgeRefreshInFlight = true;
     handle.writeLog(`CareerAdapt MCP bridge connected (${bridgeKey}); refreshing Hermes MCP session`);
-    try {
+    const refreshPromise = (async () => {
       await delay(500);
       if (await refreshHermesGateway(handle, timeoutMs)) {
         handle.lastRefreshedBridgeId = bridgeKey;
         handle.bridgeRefreshCompleted = true;
       }
+    })();
+    handle.bridgeRefreshPromise = refreshPromise;
+    try {
+      await refreshPromise;
     } finally {
+      if (handle.bridgeRefreshPromise === refreshPromise) handle.bridgeRefreshPromise = undefined;
       handle.bridgeRefreshInFlight = false;
     }
   }, MCP_WATCH_INTERVAL_MS);
@@ -534,6 +565,10 @@ function startMcpBridgeWatcher(handle, timeoutMs) {
 async function refreshHermesGateway(handle, timeoutMs) {
   if (handle.stopping) return false;
   const previous = handle.child;
+  // A bridge that was present before the gateway became healthy was already
+  // included in the initial Hermes MCP registration. Do not replace the
+  // gateway just to repeat that same registration during renderer boot.
+  if (handle.bridgeRefreshCompleted && handle.lastRefreshedBridgeId) return true;
   const replacement = spawnGateway(handle.launch, handle.childEnvironment, handle.cwd ?? process.cwd(), handle.writeLog);
   handle.replacementChild = replacement;
   attachChildLifecycle(handle, replacement);
@@ -622,7 +657,7 @@ async function probeHealth(url, apiKey) {
     try {
       const response = await fetch(candidate, {
         headers: apiKey ? { Authorization: `Bearer ${apiKey}`, Accept: "application/json" } : { Accept: "application/json" },
-        signal: AbortSignal.timeout(2_000)
+        signal: AbortSignal.timeout(HEALTH_REQUEST_TIMEOUT_MS)
       });
       lastResult = { ok: response.ok, reachable: true, status: response.status };
       if (response.ok || response.status !== 404) return lastResult;
@@ -724,6 +759,7 @@ module.exports = {
   hermesConfigurationFingerprint,
   resolveRuntimeConfig,
   parsePort,
+  ensureManagedHermesConfig,
   startHermesCompanion,
   stopHermesCompanion
 };

@@ -55,17 +55,24 @@ export class RuntimeStatusStore {
   }
 
   recordMcp(status: { connected: boolean; discoveredToolCount: number; reason?: string }) {
+    const health = this.snapshot.health;
+    const nextHealth = health ? {
+      ...health,
+      mcpConnected: status.connected,
+      mcpToolCount: status.discoveredToolCount,
+      browserCareerDomainHostConnected: status.connected,
+      careerMcpServerReachable: status.connected,
+      careerMcpContractCount: status.discoveredToolCount,
+      lastCheckedAt: new Date().toISOString()
+    } : undefined;
     this.update({
       mcpServer: "careeradapt",
       mcpConnected: status.connected,
       discoveredToolCount: status.discoveredToolCount,
-      ...(this.snapshot.health ? {
-        health: {
-          ...this.snapshot.health,
-          mcpConnected: status.connected,
-          mcpToolCount: status.discoveredToolCount,
-          lastCheckedAt: new Date().toISOString()
-        }
+      ...(nextHealth ? {
+        activeRuntime: isRoadshowReady(nextHealth) ? "hermes" : "native",
+        status: runtimeHealthStatus(nextHealth),
+        health: nextHealth
       } : {}),
       ...(status.reason ? { reason: status.reason } : {})
     });

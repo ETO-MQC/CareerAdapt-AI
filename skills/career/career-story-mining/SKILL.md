@@ -75,8 +75,9 @@ smallest clarification needed to re-anchor the proposal.
 ## TOOL BOUNDARIES
 
 Return a proposal for the host to validate. The skill may request safe reads
-through the `career.*` gateway, but it never writes a profile, resume, or job
-branch and never accesses `WorkspaceRepository` directly.
+through the exact `mcp__careeradapt__...` names in the visible CareerAdapt MCP
+registry, but it never writes a profile, resume, or job branch and never
+accesses `WorkspaceRepository` directly.
 
 ## FACT SAFETY
 

@@ -73,9 +73,13 @@ revision; verify the text layer before export.
 
 ## TOOL BOUNDARY
 
-Use `career.workflow.compose_resume` for the normal flow and
-`career.resume.build_evidence_graph`, `plan_composition`,
-`review_composition`, or `compose` only for bounded inspection/recovery.
+Use `mcp__careeradapt__career_workflow_compose_resume` for the normal flow and
+`mcp__careeradapt__career_resume_build_evidence_graph`,
+`mcp__careeradapt__career_resume_plan_composition`,
+`mcp__careeradapt__career_resume_review_composition`, or
+`mcp__careeradapt__career_resume_compose` only for bounded
+inspection/recovery. These are the exact Hermes v0.19 callable names; the
+stable dotted CareerAdapt names are diagnostics aliases, not model calls.
 Hermes/MCP never writes a repository directly. Profile synchronization is a
 separate, explicit user action.
 
