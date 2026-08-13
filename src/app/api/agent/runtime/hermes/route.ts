@@ -259,6 +259,9 @@ function careerRunInstructions(payload: Record<string, unknown>) {
       })
     : [];
   const catalog = new HermesCareerToolCatalog(contracts.map((contract) => contract.stableName));
+  const metadata = asRecord(payload.metadata);
+  const workflowId = typeof payload.workflowId === "string" ? payload.workflowId : typeof metadata.workflowId === "string" ? metadata.workflowId : undefined;
+  const workflowStage = typeof payload.workflowStage === "string" ? payload.workflowStage : typeof metadata.workflowStage === "string" ? metadata.workflowStage : undefined;
   const systemStatusTurn = isSystemStatusQuestion(payload.userMessage);
   const registered = (stableName: string) => contracts.find((contract) => contract.stableName === stableName)?.registeredName
     ?? catalog.registeredNameForStableName(stableName);
@@ -287,6 +290,9 @@ function careerRunInstructions(payload: Record<string, unknown>) {
       : "Use atomic CareerAdapt MCP tools only for inspection, unusual repair, or recovery after a facade reports a recoverable failure.",
     "Never invent profile or resume facts. Never claim a write or draft exists without a completed CareerAdapt tool receipt.",
     "runtime_user_event is an authoritative structured event from the host. For entity_selected, option_selected, retry, confirmation, and workflow_control, use the typed action and persisted task state exactly; never parse a visible button label, ask the user to repeat a validated selection, or repeat a deterministic host write.",
+    workflowId === "compose_resume" && workflowStage === "select_profile_scope"
+      ? `For this compose_resume task, call ${registered("career.workflow.compose_resume")} immediately as the first CareerAdapt call. Use the bound career_context.binding.profileId and career_context.binding.profileRevision with mode "general"; do not call profile reads/searches first because the facade performs the authoritative read and returns the composition checkpoint.`
+      : "",
     `After the host persists a selected Job or Resume, reread the selected entities before reasoning. For tailor_existing_resume at analyze_fit, call ${registered("career.workflow.job_fit")} first, interpret its returned fit checkpoint, then continue with the tailoring workflow; ask only a returned high-value question that can change the result.`,
     `When a workflow returns waiting_for_user, stop tool-calling and ask exactly the returned high-value question. Exception: inside tailor_existing_resume at analyze_fit, a completed ${registered("career.workflow.job_fit")} is an intermediate checkpoint; use it to call the allowed ${registered("career.workflow.tailor_resume")} before stopping.`,
     "When it returns waiting_for_confirmation, stop and yield the approval boundary. When completed, stop the tool loop and narrate the result.",

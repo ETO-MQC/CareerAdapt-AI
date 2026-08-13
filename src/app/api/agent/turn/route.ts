@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { AgentTurnRequestSchema, AgentPlannerActionSchema } from "@/agent/runtime/agentRuntime";
-import { OpenAiCompatibleProvider, type AiProviderError } from "@/ai/providers/openAiCompatibleProvider";
+import { OpenAiCompatibleProvider } from "@/ai/providers/openAiCompatibleProvider";
+import { aiProviderErrorCode } from "@/ai/providers/transportError";
 import { decodeAiSettingsFromHeader } from "@/services/storage/aiSettings";
 import type { AgentModelTool } from "@/agent/model/agentModel";
 
@@ -70,7 +71,7 @@ export async function POST(request: NextRequest) {
       message: result.text?.trim() || "请补充继续这项任务所需的真实信息。"
     }));
   } catch (cause) {
-    const code = typeof cause === "object" && cause && "code" in cause ? String((cause as AiProviderError).code) : "planner_provider_failed";
+    const code = aiProviderErrorCode(cause, { requestSignal: request.signal, fallback: "planner_provider_failed" });
     return failure(code, "Planner compatibility request failed.", 502);
   }
 }

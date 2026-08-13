@@ -1517,7 +1517,7 @@ function userErrorMessage(code: string) {
   if (code === "tool_input_invalid") return "当前访谈状态不完整，未执行资料整理。现有输入已保留。";
   if (code === "provider_textual_tool_protocol") return "模型返回的工具指令没有通过安全校验；你的原始输入和当前进度仍然保留，可以重新执行当前步骤。";
   if (code.includes("budget")) return "自动处理没有完成：连续步骤未能推进。你的原始输入和现有进度已保留，尚未写入资料库，可以重新执行当前步骤或结束任务。";
-  if (/missing_ai_config|provider_protocol_mismatch|provider_http/i.test(code)) return "AI 服务当前不可用。请检查模型设置后重试，任务进度已保留。";
+  if (/missing_ai_config|provider_protocol_mismatch|provider_(?:dns_failed|connection_failed|tls_failed|tls_certificate_invalid|timeout|unavailable)|provider_http/i.test(code)) return "AI 服务当前不可用。请检查模型设置后重试，任务进度已保留。";
   if (/precondition|invalid_tool_arguments|schema/i.test(code)) return "继续任务所需的信息还不完整。我会保留当前进度并只询问缺少的内容。";
   if (/stale|revision/i.test(code)) return "检测到资料版本已更新。我会基于最新版本重新规划，不会覆盖新内容。";
   if (/fact_guard/i.test(code)) return "这项修改没有通过事实核验，因此未写入简历。请补充可确认的真实依据后继续。";

@@ -78,6 +78,7 @@ export function buildRetryPrompt({
       `Return assets in exactly this order: ${JSON.stringify(assetIds)}.`,
       "Return one object per ID even when its highlights array must be empty. Never return an empty assets array when IDs are listed.",
       "Each asset object must contain sourceAssetId, title, techStack, and highlights; role is optional.",
+      "Return skillGroups as an array of {category, skills} objects; omit summary instead of returning null.",
       "Return only the corrected compact JSON object with summary (optional), assets, and skillGroups."
     ].join("\n");
   }

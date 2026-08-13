@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { AgentTurnRequestSchema } from "@/agent/runtime/agentRuntime";
 import { decodeAiSettingsFromHeader } from "@/services/storage/aiSettings";
-import { OpenAiCompatibleProvider, type AiProviderError } from "@/ai/providers/openAiCompatibleProvider";
+import { OpenAiCompatibleProvider } from "@/ai/providers/openAiCompatibleProvider";
+import { aiProviderErrorCode } from "@/ai/providers/transportError";
 import { encodeAgentSseEvent, type AgentStreamEvent } from "@/agent/runtime/agentSse";
 import { routeAgentIntent } from "@/agent/runtime/agentIntentRouter";
 import { AgentModelRequestSchema, AgentModelResultSchema, type AgentModelMessage } from "@/agent/model/agentModel";
@@ -92,7 +93,7 @@ export async function POST(request: NextRequest) {
         const guarded = guardVisibleAssistantText(full);
         send({ type: "done", message: guarded });
       } catch (cause) {
-        const sourceCode = typeof cause === "object" && cause && "code" in cause ? String((cause as AiProviderError).code) : "agent_stream_failed";
+        const sourceCode = aiProviderErrorCode(cause, { requestSignal: request.signal, fallback: "agent_stream_failed" });
         send({ type: "error", code: sourceCode, message: "AI 回复暂时不可用，任务和输入已保留。" });
       } finally {
         controller.close();
@@ -149,7 +150,7 @@ async function modelNativeTurn(request: NextRequest, raw: unknown) {
           });
         }
       } catch (cause) {
-        const code = typeof cause === "object" && cause && "code" in cause ? String((cause as AiProviderError).code) : "agent_model_failed";
+        const code = aiProviderErrorCode(cause, { requestSignal: request.signal, fallback: "agent_model_failed" });
         send({ type: "error", code, message: "AI 流式响应暂时不可用，任务和输入已保留。" });
       } finally {
         controller.close();
@@ -178,7 +179,7 @@ async function modelDecision(request: NextRequest, raw: unknown) {
       signal: AbortSignal.any([request.signal, AbortSignal.timeout(60_000)])
     }));
   } catch (cause) {
-    const code = typeof cause === "object" && cause && "code" in cause ? String((cause as AiProviderError).code) : "agent_model_failed";
+    const code = aiProviderErrorCode(cause, { requestSignal: request.signal, fallback: "agent_model_failed" });
     return modelError(code, "Agent model could not decide the next safe action.", 502);
   }
 }
@@ -196,7 +197,7 @@ async function modelStructuredActions(request: NextRequest, raw: unknown) {
       signal: AbortSignal.any([request.signal, AbortSignal.timeout(60_000)])
     }));
   } catch (cause) {
-    const code = typeof cause === "object" && cause && "code" in cause ? String((cause as AiProviderError).code) : "agent_structured_actions_failed";
+    const code = aiProviderErrorCode(cause, { requestSignal: request.signal, fallback: "agent_structured_actions_failed" });
     return modelError(code, "结构化动作请求暂时不可用。", 502);
   }
 }
@@ -211,7 +212,7 @@ async function modelProtocolProbe(request: NextRequest, raw: unknown) {
     const toolProtocol = await provider.probeToolProtocol({ signal: AbortSignal.any([request.signal, AbortSignal.timeout(60_000)]) });
     return NextResponse.json({ toolProtocol, provider: provider.provider, model: provider.model });
   } catch (cause) {
-    const code = typeof cause === "object" && cause && "code" in cause ? String((cause as AiProviderError).code) : "agent_protocol_probe_failed";
+    const code = aiProviderErrorCode(cause, { requestSignal: request.signal, fallback: "agent_protocol_probe_failed" });
     return modelError(code, "工具协议探测暂时不可用。", 502);
   }
 }
@@ -249,7 +250,7 @@ Output only the supplied draft in the user's language. Preserve every fact, coun
         }
         send({ type: "done", message: full });
       } catch (cause) {
-        const code = typeof cause === "object" && cause && "code" in cause ? String((cause as AiProviderError).code) : "agent_narration_failed";
+        const code = aiProviderErrorCode(cause, { requestSignal: request.signal, fallback: "agent_narration_failed" });
         send({ type: "error", code, message: "AI 回复暂时不可用，任务和输入已保留。" });
       } finally {
         controller.close();

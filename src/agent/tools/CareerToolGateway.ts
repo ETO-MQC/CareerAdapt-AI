@@ -9,6 +9,7 @@ import {
   CareerWorkflowFacadeResultSchema,
   executeCareerWorkflowFacade
 } from "../workflows/CareerWorkflowFacade";
+import { isRetryableAiProviderErrorCode } from "@/ai/providers/transportError";
 
 export type CareerToolReadWrite = "read" | "write";
 export type CareerToolConfirmationPolicy = "none" | "user_confirmation" | "destructive_confirmation";
@@ -588,7 +589,7 @@ function errorCode(error: unknown) {
 }
 
 function isRecoverable(code: string) {
-  return /temporar|timeout|network|unavailable|provider_http_(408|429|5\d\d)/i.test(code);
+  return isRetryableAiProviderErrorCode(code) || /temporar|timeout|network|unavailable/i.test(code);
 }
 
 function categoryForCode(code: string): CareerToolErrorCategory {

@@ -14,6 +14,12 @@ import {
   type AgentModelResult,
   type AgentModelStreamEvent
 } from "@/agent/model/agentModel";
+import {
+  classifyAiTransportError,
+  safeTransportMessage,
+  transportDiagnosticForHttpStatus,
+  type SafeAiTransportDiagnostic
+} from "./transportError";
 
 export type OpenAiCompatibleRequest = {
   systemPrompt: string;
@@ -63,7 +69,7 @@ export class OpenAiCompatibleProvider {
       );
     }
 
-    const response = await fetch(`${this.baseUrl.replace(/\/$/, "")}/chat/completions`, {
+    const response = await fetchWithTransportClassification(`${this.baseUrl.replace(/\/$/, "")}/chat/completions`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${this.apiKey}`,
@@ -82,7 +88,7 @@ export class OpenAiCompatibleProvider {
     });
 
     if (!response.ok) {
-      throw createAiProviderError(`provider_http_${response.status}`, `Provider returned HTTP ${response.status}.`);
+      throw createAiProviderError(`provider_http_${response.status}`, `Provider returned HTTP ${response.status}.`, transportDiagnosticForHttpStatus(response.status));
     }
 
     const responseText = await response.text();
@@ -121,7 +127,7 @@ export class OpenAiCompatibleProvider {
 
   async completeWithTools(request: AgentModelRequest & { signal?: AbortSignal }): Promise<AgentModelResult> {
     this.assertUsable();
-    const response = await fetch(`${this.baseUrl.replace(/\/$/, "")}/chat/completions`, {
+    const response = await fetchWithTransportClassification(`${this.baseUrl.replace(/\/$/, "")}/chat/completions`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${this.apiKey}`,
@@ -149,7 +155,7 @@ export class OpenAiCompatibleProvider {
 
     if (!response.ok) {
       if ([400, 404, 405, 422].includes(response.status)) return this.completeWithStructuredActions(request);
-      throw createAiProviderError(`provider_http_${response.status}`, `Provider returned HTTP ${response.status}.`);
+      throw createAiProviderError(`provider_http_${response.status}`, `Provider returned HTTP ${response.status}.`, transportDiagnosticForHttpStatus(response.status));
     }
     const payload = await response.json();
     const choice = payload?.choices?.[0];
@@ -180,7 +186,7 @@ export class OpenAiCompatibleProvider {
 
   async *streamTurn(request: AgentModelRequest & { signal?: AbortSignal }): AsyncGenerator<AgentModelStreamEvent> {
     this.assertUsable();
-    const response = await fetch(`${this.baseUrl.replace(/\/$/, "")}/chat/completions`, {
+    const response = await fetchWithTransportClassification(`${this.baseUrl.replace(/\/$/, "")}/chat/completions`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${this.apiKey}`,
@@ -206,7 +212,8 @@ export class OpenAiCompatibleProvider {
     if (!response.ok) {
       throw createAiProviderError(
         [400, 404, 405, 422].includes(response.status) ? "native_tool_streaming_unsupported" : `provider_http_${response.status}`,
-        `Provider returned HTTP ${response.status}.`
+        `Provider returned HTTP ${response.status}.`,
+        transportDiagnosticForHttpStatus(response.status)
       );
     }
     if (!response.body) throw createAiProviderError("empty_stream_body", "Provider returned an empty stream body.");
@@ -277,7 +284,7 @@ export class OpenAiCompatibleProvider {
 
   async *streamText(request: OpenAiCompatibleRequest): AsyncGenerator<OpenAiCompatibleTextChunk> {
     this.assertUsable();
-    const response = await fetch(`${this.baseUrl.replace(/\/$/, "")}/chat/completions`, {
+    const response = await fetchWithTransportClassification(`${this.baseUrl.replace(/\/$/, "")}/chat/completions`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${this.apiKey}`,
@@ -296,7 +303,7 @@ export class OpenAiCompatibleProvider {
     });
 
     if (!response.ok) {
-      throw createAiProviderError(`provider_http_${response.status}`, `Provider returned HTTP ${response.status}.`);
+      throw createAiProviderError(`provider_http_${response.status}`, `Provider returned HTTP ${response.status}.`, transportDiagnosticForHttpStatus(response.status));
     }
     if (!response.body) {
       throw createAiProviderError("empty_stream_body", "Provider returned an empty stream body.");
@@ -378,15 +385,25 @@ Use only the provided tool names. Do not include reasoning or markdown fences.`,
 export class AiProviderError extends Error {
   constructor(
     readonly code: string,
-    message: string
+    message: string,
+    readonly diagnostic?: SafeAiTransportDiagnostic
   ) {
     super(message);
     this.name = "AiProviderError";
   }
 }
 
-export function createAiProviderError(code: string, message: string) {
-  return new AiProviderError(code, message);
+export function createAiProviderError(code: string, message: string, diagnostic?: SafeAiTransportDiagnostic) {
+  return new AiProviderError(code, message, diagnostic);
+}
+
+async function fetchWithTransportClassification(input: RequestInfo | URL, init?: RequestInit) {
+  try {
+    return await fetch(input, init);
+  } catch (error) {
+    const diagnostic = classifyAiTransportError(error);
+    throw createAiProviderError(diagnostic.safeErrorCode, safeTransportMessage(diagnostic.safeErrorCode), diagnostic);
+  }
 }
 
 function parseJsonContent(content: string) {

@@ -507,18 +507,18 @@ export function AgentRuntimeProvider({ children }: { children: React.ReactNode }
             }
           }, confirmation.assistantMessageId);
         },
-        async ({ request, result }) => {
-          if (!active || !result.ok) return;
+        async ({ request, result, confirmationContext }) => {
+          if (!active || !result.ok || !confirmationContext) return;
           const context = host.state.getSnapshot().activeSession;
-          const confirmationContext = context?.activeTurn;
-          if (!context || !confirmationContext) return;
-          const assistant = context.messages.findLast((message) => message.role === "assistant" && message.turnId === confirmationContext.id);
+          if (!context || context.id !== confirmationContext.sessionId) return;
+          const assistant = context.messages.find((message) => message.id === confirmationContext.assistantMessageId)
+            ?? context.messages.findLast((message) => message.role === "assistant" && message.turnId === confirmationContext.turnId);
           if (!assistant) return;
           const contract = host.careerToolGateway.listContracts().find((candidate) => candidate.name === request.name);
           await host.state.applyRuntimeEvent({
             type: "tool_call_completed",
-            sessionId: context.id,
-            turnId: confirmationContext.id,
+            sessionId: confirmationContext.sessionId,
+            turnId: confirmationContext.turnId,
             timestamp: new Date().toISOString(),
             toolName: request.name,
             operationId: request.operationId,

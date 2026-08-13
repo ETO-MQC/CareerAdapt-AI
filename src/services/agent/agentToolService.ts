@@ -87,6 +87,10 @@ import {
   planResumeBlueprint,
   type ResumeCompositionMode
 } from "@/domain/resumeComposition";
+import {
+  isProviderTransportFailureCode,
+  safeTransportMessage
+} from "@/ai/providers/transportError";
 
 export class BrowserAgentToolService implements AgentToolServices {
   constructor(
@@ -880,12 +884,41 @@ export class BrowserAgentToolService implements AgentToolServices {
     };
     const context = await this.loadCompositionContext(input);
     const checkpoint = await this.requireCompositionCheckpoint(input, context.profile.id, context.job?.id);
-    const composition = checkpoint.compositionResult;
+    let composition = checkpoint.compositionResult;
     if (composition.writingExecution?.mode !== "ai") {
-      throw toolError(
-        "resume_composition_ai_writer_required",
-        "AI Writer 未生成通过结构与事实校验的内容；已保留组装提案，但不会创建空白或降级简历。请重试写作步骤。"
+      const fallbackReason = composition.writingExecution?.fallbackReason;
+      if (!fallbackReason || !isProviderTransportFailureCode(fallbackReason)) {
+        throw toolError(
+          "resume_composition_ai_writer_required",
+          "AI Writer 未生成通过结构与事实校验的内容；已保留组装提案，但不会创建空白或降级简历。请重试写作步骤。"
+        );
+      }
+
+      const retried = await compileResumeCompositionWithAi(
+        {
+          profile: context.profile,
+          mode: input.mode,
+          job: context.job,
+          sourceResumeId: input.sourceResumeId ?? checkpoint.sourceResumeId,
+          targetDirection: input.targetDirection ?? composition.targetDirection,
+          targetAudience: input.targetAudience ?? composition.targetAudience,
+          companyType: input.companyType ?? composition.companyType,
+          signal
+        },
+        {
+          graph: checkpoint.compositionResult.evidenceGraph,
+          blueprint: checkpoint.blueprint,
+          writingService: this.careerResumeWriter
+        }
       );
+      if (retried.writingExecution?.mode !== "ai") {
+        const retryCode = retried.writingExecution?.fallbackReason ?? fallbackReason;
+        throw toolError(
+          retryCode,
+          `${safeTransportMessage(retryCode)}本次没有写入简历。你可以在连接恢复后重试，当前生成计划已保留。`
+        );
+      }
+      composition = retried;
     }
     if (composition.blueprint.assets.length > 0 && composition.metrics.bulletsGenerated === 0) {
       throw toolError(

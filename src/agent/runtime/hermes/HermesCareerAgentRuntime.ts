@@ -846,6 +846,9 @@ function sanitizeRuntimeUserEvent(value: Record<string, unknown>) {
 }
 
 function allowedCareerToolContracts(gateway: CareerToolGateway, input: AgentRuntimeTurnInput) {
+  const workflowId = typeof input.metadata?.workflowId === "string" ? input.metadata.workflowId : undefined;
+  const workflowStage = typeof input.metadata?.workflowStage === "string" ? input.metadata.workflowStage : undefined;
+  const composeFacadeFirst = workflowId === "compose_resume" && workflowStage === "select_profile_scope";
   const allowedSourceTools = new Set(
     Array.isArray(input.metadata?.allowedToolNames)
       ? input.metadata.allowedToolNames.filter((name): name is string => typeof name === "string")
@@ -857,11 +860,12 @@ function allowedCareerToolContracts(gateway: CareerToolGateway, input: AgentRunt
       ? input.metadata.allowedCareerToolNames.filter((name): name is string => typeof name === "string")
       : []
   );
-  const contracts = gateway.listContracts().filter((contract) =>
-    allowedSourceTools.has(contract.sourceToolName)
-    || allowedCareerTools.has(contract.name)
-    || workflowFacades.includes(contract.name)
-    || isCareerSystemStatusQuestion(input.userMessage) && contract.name.startsWith("career.system.")
+  const contracts = gateway.listContracts().filter((contract) => composeFacadeFirst
+    ? contract.name === "career.workflow.compose_resume"
+    : allowedSourceTools.has(contract.sourceToolName)
+      || allowedCareerTools.has(contract.name)
+      || workflowFacades.includes(contract.name)
+      || isCareerSystemStatusQuestion(input.userMessage) && contract.name.startsWith("career.system.")
   );
   return projectCareerContractsForHermes(contracts);
 }

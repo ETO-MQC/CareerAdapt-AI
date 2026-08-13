@@ -253,6 +253,131 @@ describe("P4.4c CareerAdapt MCP gateway", () => {
     }
   });
 
+  it("keeps MCP result context after the runtime clears the active turn", async () => {
+    let resolveExecuteStarted: (() => void) | undefined;
+    const executeStarted = new Promise<void>((resolve) => { resolveExecuteStarted = resolve; });
+    let releaseExecute: (() => void) | undefined;
+    const executeGate = new Promise<void>((resolve) => { releaseExecute = resolve; });
+    let nextPoll = true;
+    let seenContext: unknown;
+    let resolveResult: (() => void) | undefined;
+    const resultSeen = new Promise<void>((resolve) => { resolveResult = resolve; });
+    const delayedTool = tool("list_profiles", false, async () => {
+      nextPoll = false;
+      resolveExecuteStarted?.();
+      await executeGate;
+      return { completed: true };
+    });
+    const gateway = new CareerToolGateway({ registry: new AgentToolRegistry([delayedTool]) });
+    const client = new CareerAdaptMcpBridgeClient();
+    const request = {
+      id: "mcp-request-delayed-result",
+      name: "career.profile.list",
+      input: {},
+      operationId: "p44c-result-context-01"
+    };
+    const expectedContext = {
+      sessionId: "session-result-context",
+      turnId: "turn-result-context",
+      assistantMessageId: "assistant-result-context"
+    };
+    vi.stubGlobal("fetch", vi.fn(async (_input: unknown, init?: RequestInit) => {
+      const body = init?.body ? JSON.parse(String(init.body)) as Record<string, unknown> : undefined;
+      if (body?.action === "register") {
+        return new Response(JSON.stringify({ ok: true, bridgeId: "bridge-result-context", token: "token-result-context", discoveredToolCount: 1 }), { status: 200 });
+      }
+      if (body?.action === "result" || body?.action === "heartbeat") {
+        return new Response(JSON.stringify({ ok: true }), { status: 200 });
+      }
+      if (init?.method === "DELETE") return new Response(JSON.stringify({ ok: true }), { status: 200 });
+      return new Response(JSON.stringify({ ok: true, requests: nextPoll ? [request] : [] }), { status: 200 });
+    }));
+    try {
+      await client.start(gateway, undefined, undefined, ({ confirmationContext }) => {
+        seenContext = confirmationContext;
+        resolveResult?.();
+      });
+      client.setConfirmationContext(expectedContext);
+      await Promise.race([
+        executeStarted,
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("delayed_execute_timeout")), 2_000))
+      ]);
+      // This mirrors the Hermes terminal event cleanup while the bridge call
+      // is still waiting for the browser-owned CareerToolGateway.
+      client.setConfirmationContext(undefined);
+      releaseExecute?.();
+      await Promise.race([
+        resultSeen,
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("result_callback_timeout")), 2_000))
+      ]);
+      expect(seenContext).toEqual(expectedContext);
+    } finally {
+      releaseExecute?.();
+      await client.stop();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("uses the detached turn context when a queued MCP request starts after cleanup", async () => {
+    let resolveExecuteStarted: (() => void) | undefined;
+    const executeStarted = new Promise<void>((resolve) => { resolveExecuteStarted = resolve; });
+    let nextPoll = true;
+    let seenContext: unknown;
+    let resolveResult: (() => void) | undefined;
+    const resultSeen = new Promise<void>((resolve) => { resolveResult = resolve; });
+    const delayedTool = tool("list_profiles", false, async () => {
+      nextPoll = false;
+      resolveExecuteStarted?.();
+      return { profiles: [] };
+    });
+    const gateway = new CareerToolGateway({ registry: new AgentToolRegistry([delayedTool]) });
+    const client = new CareerAdaptMcpBridgeClient();
+    const request = {
+      id: "mcp-request-after-cleanup",
+      name: "career.profile.list",
+      input: {},
+      operationId: "p44c-result-context-02"
+    };
+    const expectedContext = {
+      sessionId: "session-result-context-2",
+      turnId: "turn-result-context-2",
+      assistantMessageId: "assistant-result-context-2"
+    };
+    vi.stubGlobal("fetch", vi.fn(async (_input: unknown, init?: RequestInit) => {
+      const body = init?.body ? JSON.parse(String(init.body)) as Record<string, unknown> : undefined;
+      if (body?.action === "register") {
+        return new Response(JSON.stringify({ ok: true, bridgeId: "bridge-result-context-2", token: "token-result-context-2", discoveredToolCount: 1 }), { status: 200 });
+      }
+      if (body?.action === "result" || body?.action === "heartbeat") {
+        return new Response(JSON.stringify({ ok: true }), { status: 200 });
+      }
+      if (init?.method === "DELETE") return new Response(JSON.stringify({ ok: true }), { status: 200 });
+      return new Response(JSON.stringify({ ok: true, requests: nextPoll ? [request] : [] }), { status: 200 });
+    }));
+    try {
+      await client.start(gateway, undefined, undefined, ({ confirmationContext }) => {
+        seenContext = confirmationContext;
+        resolveResult?.();
+      });
+      client.setConfirmationContext(expectedContext);
+      // Simulate the official run ending before the poll loop dispatches the
+      // queued request. The client must retain only this pending turn context.
+      client.setConfirmationContext(undefined);
+      await Promise.race([
+        executeStarted,
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("queued_execute_timeout")), 2_000))
+      ]);
+      await Promise.race([
+        resultSeen,
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("queued_result_timeout")), 2_000))
+      ]);
+      expect(seenContext).toEqual(expectedContext);
+    } finally {
+      await client.stop();
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("binds Profile Intake evidence to the active CareerAdapt session", async () => {
     let seenInput: unknown;
     let nextPoll = true;

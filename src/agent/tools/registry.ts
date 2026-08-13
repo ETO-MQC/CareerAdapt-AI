@@ -1,4 +1,9 @@
 import { z } from "zod";
+import {
+  isProviderTransportFailureCode,
+  isRetryableAiProviderErrorCode,
+  safeTransportMessage
+} from "@/ai/providers/transportError";
 import { ProfileIntakeStructuredPatchSchema } from "@/domain/profileIntake/ProfileIntakeNormalizer";
 import { CaptureProfileIntakeResultSchema } from "@/domain/profileIntake/CaptureProfileIntakeResult";
 import type { AgentToolDefinition, AgentToolResult } from "../contracts/agentTool";
@@ -493,11 +498,12 @@ function safeToolErrorCode(error: unknown) {
 
 function safeToolErrorMessage(code: string) {
   if (code === "tool_execution_failed") return "工具执行没有完成。";
+  if (isProviderTransportFailureCode(code)) return `${safeTransportMessage(code)}本次没有写入简历，当前生成计划已保留。`;
   return `工具执行未完成（${code}）。`;
 }
 
 function isRetryableToolError(code: string) {
-  return /temporar|timeout|network|unavailable|provider_http_(408|429|5\d\d)/i.test(code);
+  return isRetryableAiProviderErrorCode(code) || /temporar|timeout|network|unavailable/i.test(code);
 }
 
 export const agentToolNames = [

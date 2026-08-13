@@ -194,6 +194,45 @@ export type EvidenceMatcherTaskInput = z.infer<typeof EvidenceMatcherTaskInputSc
 export type ResumeTailorTaskInput = z.infer<typeof ResumeTailorTaskInputSchema>;
 export type FactGuardTaskInput = z.infer<typeof FactGuardTaskInputSchema>;
 
+function coerceCareerResumeWritingOutput(rawOutput: unknown) {
+  const raw = rawOutput && typeof rawOutput === "object" && !Array.isArray(rawOutput)
+    ? rawOutput as Record<string, unknown>
+    : {};
+  const assets = Array.isArray(raw.assets)
+    ? raw.assets.map((value) => {
+        const asset = value && typeof value === "object" && !Array.isArray(value)
+          ? value as Record<string, unknown>
+          : {};
+        return {
+          ...(typeof asset.sourceAssetId === "string" ? { sourceAssetId: asset.sourceAssetId } : {}),
+          ...(typeof asset.title === "string" ? { title: asset.title } : {}),
+          ...(typeof asset.role === "string" ? { role: asset.role } : {}),
+          techStack: Array.isArray(asset.techStack)
+            ? asset.techStack.filter((value): value is string => typeof value === "string")
+            : [],
+          highlights: Array.isArray(asset.highlights)
+            ? asset.highlights.filter((value): value is string => typeof value === "string")
+            : []
+        };
+      })
+    : [];
+  const skillGroups = Array.isArray(raw.skillGroups)
+    ? raw.skillGroups
+    : raw.skillGroups && typeof raw.skillGroups === "object" && !Array.isArray(raw.skillGroups)
+      ? Object.entries(raw.skillGroups as Record<string, unknown>).map(([category, skills]) => ({
+          category,
+          skills: Array.isArray(skills)
+            ? skills.filter((value): value is string => typeof value === "string")
+            : []
+        }))
+      : [];
+  return {
+    ...(typeof raw.summary === "string" && raw.summary.trim() ? { summary: raw.summary } : {}),
+    assets,
+    skillGroups
+  };
+}
+
 export type AiTaskDefinition<TInput, TOutput> = {
   task: AiTask;
   promptVersion: string;
@@ -535,7 +574,7 @@ export const aiTaskRegistry = {
       }, null, 2);
     },
     coerceRawOutput(rawOutput: unknown) {
-      return rawOutput;
+      return coerceCareerResumeWritingOutput(rawOutput);
     },
     normalizeOutput(output: CareerResumeWritingOutput) {
       return CareerResumeWritingOutputSchema.parse(output);

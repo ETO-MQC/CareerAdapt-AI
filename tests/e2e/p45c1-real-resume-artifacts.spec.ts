@@ -94,7 +94,8 @@ test.describe.serial("P4.5c.1 real resume artifacts", () => {
     const pdfText = readFileSync(pdfTextPath, "utf8");
     const pageCount = Number(execFileSync(poppler.pdfinfo, [pdfPath], { encoding: "utf8" }).match(/^Pages:\s+(\d+)/mu)?.[1] || 0);
     expect(pageCount).toBeGreaterThan(0);
-    expect(normalizeText([pdfText])).toContain(normalizeText([previewText]).slice(0, 40));
+    const previewPdfPrefixMatched = normalizeText([pdfText]).includes(normalizeText([previewText]).slice(0, 40));
+    expect(previewPdfPrefixMatched).toBe(true);
 
     const finalState = await readReleaseState(page);
     const report = {
@@ -118,9 +119,15 @@ test.describe.serial("P4.5c.1 real resume artifacts", () => {
       branchId: branch?.id,
       revisionId: branch?.currentRevisionId,
       confirmedWrites: after.confirmedWrites,
+      targetContextPresent: Boolean(finalState.targetContext),
+      selectedAssetCount: Array.isArray(finalState.selectedAssets) ? finalState.selectedAssets.length : undefined,
+      excludedHighValueAssetCount: Array.isArray(finalState.excludedHighValueAssets)
+        ? finalState.excludedHighValueAssets.length
+        : undefined,
+      previewChars: previewText.length,
+      pdfTextChars: normalizeText([pdfText]).length,
+      previewPdfPrefixMatched,
       timings,
-      previewText,
-      pdfText: normalizeText([pdfText])
     };
     await testInfo.attach("case-a-release-report.json", { body: JSON.stringify(report, null, 2), contentType: "application/json" });
     console.info("[p45c1-case-a]", JSON.stringify(report));

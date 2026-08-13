@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { OpenAiCompatibleProvider, type AiProviderError } from "@/ai/providers/openAiCompatibleProvider";
+import { OpenAiCompatibleProvider } from "@/ai/providers/openAiCompatibleProvider";
+import { aiProviderErrorCode } from "@/ai/providers/transportError";
 import {
   getAiTaskDefinition,
   parseAndRedactDocumentMapperBlocks,
@@ -33,6 +34,7 @@ const StructuredAiRequestSchema = z
 
 export async function POST(request: NextRequest) {
   const startedAt = Date.now();
+  let provider: OpenAiCompatibleProvider | undefined;
 
   try {
     const body = StructuredAiRequestSchema.safeParse(await request.json());
@@ -83,7 +85,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const provider = new OpenAiCompatibleProvider(customSettings);
+    provider = new OpenAiCompatibleProvider(customSettings);
     const baseUserPrompt = taskDefinition.buildUserPrompt(input.data);
     let lastValidationFailure: string | undefined;
     let lastSchemaIssues: SafeSchemaIssue[] | undefined;
@@ -297,7 +299,11 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     const code = providerErrorCode(error, request.signal, startedAt + 60_000);
     const status = code === "request_cancelled" ? 499 : code === "provider_timeout" ? 504 : code === "missing_ai_config" ? 503 : 502;
-    return aiError(code, "AI request failed.", status, startedAt);
+    return aiError(code, "AI request failed.", status, startedAt, {
+      provider: provider?.configurationDiagnostic.provider,
+      model: provider?.configurationDiagnostic.model,
+      safeErrorCode: code
+    });
   }
 }
 
@@ -754,11 +760,5 @@ function classifySemanticValidationFailure(reason: string) {
 }
 
 function providerErrorCode(error: unknown, requestSignal: AbortSignal, deadline: number) {
-  if (requestSignal.aborted) return "request_cancelled";
-  if (Date.now() >= deadline || (error instanceof Error && error.name === "TimeoutError")) return "provider_timeout";
-  const code = typeof (error as AiProviderError)?.code === "string"
-    ? (error as AiProviderError).code
-    : "provider_unavailable";
-  if (code.startsWith("provider_http_")) return code;
-  return code;
+  return aiProviderErrorCode(error, { requestSignal, deadline });
 }

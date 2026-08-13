@@ -246,6 +246,7 @@ export class AgentHostStore {
   private readonly resumeCompositionExecutions = new Map<string, Promise<AgentSession | undefined>>();
   private readonly artifactActionExecutions = new Map<string, Promise<AgentSession | undefined>>();
   private readonly pendingInputs = new Map<string, PendingUserInput[]>();
+  private runtimeEventQueue: Promise<void> = Promise.resolve();
 
   constructor(private readonly dependencies: {
     kernel: AgentKernel;
@@ -1315,6 +1316,12 @@ export class AgentHostStore {
   }
 
   async applyRuntimeEvent(event: AgentRuntimeEvent, assistantMessageId: string) {
+    const queued = this.runtimeEventQueue.then(() => this.applyRuntimeEventNow(event, assistantMessageId));
+    this.runtimeEventQueue = queued.then(() => undefined, () => undefined);
+    return queued;
+  }
+
+  private async applyRuntimeEventNow(event: AgentRuntimeEvent, assistantMessageId: string) {
     const current = this.snapshot.activeSession;
     if (!current || current.id !== event.sessionId) return undefined;
     const assistant = current.messages.find((message) => message.id === assistantMessageId);
@@ -1401,6 +1408,13 @@ export class AgentHostStore {
                 })
               : []
           });
+          // The official Hermes API emits tool lifecycle events separately
+          // from the browser bridge result. If the terminal narration wins
+          // that race, the task projection is still authoritative, but its
+          // actionable options were computed before the facade checkpoint
+          // arrived. Re-project them after accepting the result so a waiting
+          // composition never becomes a dead-end.
+          if (next.taskState) next = attachTaskStateOptions(next, next.taskState);
         }
       }
     }
@@ -1442,6 +1456,7 @@ export class AgentHostStore {
       const text = blocked ? grounding.recoveryText : candidate;
       next = replaceRuntimeShellMessage(next, assistantMessageId, text, event, false, event.type === "turn_failed" || blocked);
       if (event.type === "turn_failed" || blocked) next = withRetryCurrentStepOption(next, assistantMessageId);
+      if (next.taskState) next = attachTaskStateOptions(next, next.taskState);
       next = {
         ...next,
         runtimeId: "hermes",
@@ -5281,38 +5296,42 @@ export class AgentHostStore {
                 ?? current.taskState?.selectedEntities.jobId
                 ?? stringRecordValue(observation.resumeId)
                 ?? `pending-${event.operationId}`
-              : stringRecordValue(observation.resumeId)
-                ?? stringRecordValue(observation.branchId)
-                ?? stringRecordValue(observationResume.id)
-                ?? current.taskState?.selectedEntities.resumeId
-                ?? current.taskState?.selectedEntities.jobId
-                ?? `pending-${event.operationId}`;
-            const artifactId = descriptor.kind === "tailoring_workspace"
-              ? `tailoring-workspace:${entityId}`
-              : event.artifactIds?.[0] ?? `agent-artifact-${event.toolName}-${event.operationId}`;
-            const route = event.toolName === "export_resume" && typeof observation.route === "string"
-              ? observation.route
-              : descriptor.route;
-            current = {
-              ...current,
-              artifactRefs: [
-                ...current.artifactRefs.filter((artifact) => descriptor.kind === "tailoring_workspace"
-                  ? !["tailoring_workspace", "job_fit_overview", "tailoring_diff"].includes(artifact.kind)
-                  : artifact.id !== artifactId),
-                {
-                  id: artifactId,
-                  kind: descriptor.kind,
-                  title: descriptor.title,
-                  entityType: descriptor.entityType,
-                  entityId,
-                  route,
-                  status: "active",
-                  summary: event.summary,
-                  createdAt: now,
-                  updatedAt: now
-                }
-              ]
-            };
+              : descriptor.entityType === "resume_branch"
+                ? resumeArtifactEntityId(observation, current)
+                : stringRecordValue(observation.resumeId)
+                  ?? stringRecordValue(observation.branchId)
+                  ?? stringRecordValue(observationResume.id)
+                  ?? current.taskState?.selectedEntities.resumeId
+                  ?? current.taskState?.selectedEntities.jobId
+                  ?? `pending-${event.operationId}`;
+            if (entityId) {
+              const artifactId = descriptor.kind === "tailoring_workspace"
+                ? `tailoring-workspace:${entityId}`
+                : event.artifactIds?.[0] ?? `agent-artifact-${event.toolName}-${event.operationId}`;
+              const route = event.toolName === "export_resume" && typeof observation.route === "string"
+                ? observation.route
+                : descriptor.route;
+              current = {
+                ...current,
+                artifactRefs: [
+                  ...current.artifactRefs.filter((artifact) => descriptor.kind === "tailoring_workspace"
+                    ? !["tailoring_workspace", "job_fit_overview", "tailoring_diff"].includes(artifact.kind)
+                    : artifact.id !== artifactId),
+                  {
+                    id: artifactId,
+                    kind: descriptor.kind,
+                    title: descriptor.title,
+                    entityType: descriptor.entityType,
+                    entityId,
+                    route,
+                    status: "active",
+                    summary: event.summary,
+                    createdAt: now,
+                    updatedAt: now
+                  }
+                ]
+              };
+            }
           }
         }
         if (this.snapshot.activeSessionId === input.current.id) {
@@ -6125,11 +6144,17 @@ function attachPendingDecisionOptions(
 }
 
 export function attachTaskStateOptions(session: AgentSession, state: AgentTaskState) {
+  const recoverableCompositionProposal = state.workflowId === "compose_resume"
+    && Boolean(state.knownSlots.resumeCompositionProposal)
+    && !state.knownSlots.resumeCompositionResult;
   const assistantIndex = session.messages.findLastIndex((message) =>
     message.role === "assistant"
       && message.kind !== "assistant_thinking"
-      && message.status === "complete"
       && message.metadata?.retracted !== true
+      && (
+        message.status === "complete"
+        || recoverableCompositionProposal && message.status === "failed"
+      )
   );
   if (assistantIndex < 0) return session;
   let options: AgentOption[] | undefined;
@@ -6255,7 +6280,12 @@ export function attachTaskStateOptions(session: AgentSession, state: AgentTaskSt
       if (index === assistantIndex) {
         return {
           ...message,
-          options: options?.length ? options : message.options,
+          options: options?.length
+            ? [
+                ...options,
+                ...(message.options ?? []).filter((candidate) => !options.some((option) => option.id === candidate.id))
+              ]
+            : message.options,
           optionSet: optionSet ?? message.optionSet,
           metadata: { ...message.metadata, ...metadata }
         };
@@ -7747,7 +7777,9 @@ function attachConfirmedToolArtifact(
   );
   if (!result.ok || !descriptor) return session;
   const value = objectRecordValue(result.data);
-  const observationResume = objectRecordValue(value.resume);
+  const compositionResumeId = descriptor.entityType === "resume_branch"
+    ? resumeArtifactEntityId(value, session)
+    : undefined;
   const entityId = descriptor.kind === "tailoring_workspace"
     ? stringRecordValue(objectRecordValue(value.session).id)
       ?? stringRecordValue(objectRecordValue(value.session).sessionId)
@@ -7759,13 +7791,8 @@ function attachConfirmedToolArtifact(
       ?? session.taskState?.selectedEntities.jobId
       ?? stringRecordValue(value.resumeId)
       ?? `pending-${toolName}`
-    : stringRecordValue(value.resumeId)
-      ?? stringRecordValue(value.importId)
-      ?? stringRecordValue(value.branchId)
-      ?? stringRecordValue(observationResume.id)
-      ?? session.taskState?.selectedEntities.resumeId
-      ?? session.taskState?.selectedEntities.jobId
-      ?? `pending-${toolName}`;
+    : compositionResumeId;
+  if (!entityId) return session;
   const now = new Date().toISOString();
   const artifactId = descriptor.kind === "tailoring_workspace"
     ? `tailoring-workspace:${entityId}`
@@ -7931,6 +7958,19 @@ function withArtifactActionFeedback(
     },
     updatedAt: timestamp
   });
+}
+
+function resumeArtifactEntityId(value: Record<string, unknown>, session: AgentSession) {
+  const observationResume = objectRecordValue(value.resume);
+  return stringRecordValue(value.resumeId)
+    ?? stringRecordValue(value.branchId)
+    ?? stringRecordValue(observationResume.id)
+    ?? (
+      session.taskState?.workflowId === "compose_resume"
+      && session.taskState.stage === "resume_ready"
+        ? session.taskState.selectedEntities.resumeId
+        : undefined
+    );
 }
 
 function runtimeArtifactSourceToolName(stableName: string, declaredSource?: string) {
@@ -8525,6 +8565,10 @@ function safeErrorCode(error: unknown) {
 }
 
 function errorMessage(error: unknown) {
+  const code = safeErrorCode(error);
+  if (/^provider_(?:dns_failed|connection_failed|tls_failed|tls_certificate_invalid|timeout|unavailable)|^provider_http_(?:408|425|429|5\d\d)$/u.test(code)) {
+    return "AI 简历撰写服务连接失败，本次没有写入简历。你可以在连接恢复后重试，当前生成计划已保留。";
+  }
   return error instanceof Error && error.message
     ? error.message
     : "简历写入没有完成，当前组装方案已保留，可以重试保存。";
@@ -8602,7 +8646,13 @@ function withRetryCurrentStepOption(session: AgentSession, messageId?: string) {
   return {
     ...session,
     messages: session.messages.map((message, messageIndex) => messageIndex === index
-      ? { ...message, options: [option] }
+      ? {
+          ...message,
+          options: [
+            ...(message.options ?? []).filter((candidate) => candidate.id !== option.id),
+            option
+          ]
+        }
       : message)
   };
 }

@@ -49,8 +49,13 @@ export class CareerAdaptMcpBridgeClient {
   private gateway?: CareerAdaptMcpGateway;
   private onStatus?: (status: CareerAdaptMcpBridgeClientStatus) => void;
   private onConfirmation?: (confirmation: CareerAdaptMcpExternalConfirmation) => Promise<void> | void;
-  private onResult?: (input: { request: BridgeRequest; result: CareerToolResult }) => Promise<void> | void;
+  private onResult?: (input: {
+    request: BridgeRequest;
+    result: CareerToolResult;
+    confirmationContext?: CareerAdaptMcpConfirmationContext;
+  }) => Promise<void> | void;
   private confirmationContext?: CareerAdaptMcpConfirmationContext;
+  private detachedConfirmationContext?: CareerAdaptMcpConfirmationContext;
   private confirmationPendingTurnId?: string;
   private noProgress?: { turnId: string; callKey: string; count: number };
   private lifecycleGeneration = 0;
@@ -61,7 +66,11 @@ export class CareerAdaptMcpBridgeClient {
     gateway: CareerAdaptMcpGateway,
     onStatus?: (status: CareerAdaptMcpBridgeClientStatus) => void,
     onConfirmation?: (confirmation: CareerAdaptMcpExternalConfirmation) => Promise<void> | void,
-    onResult?: (input: { request: BridgeRequest; result: CareerToolResult }) => Promise<void> | void
+    onResult?: (input: {
+      request: BridgeRequest;
+      result: CareerToolResult;
+      confirmationContext?: CareerAdaptMcpConfirmationContext;
+    }) => Promise<void> | void
   ) {
     if (!this.stopped) return;
     const generation = ++this.lifecycleGeneration;
@@ -79,6 +88,16 @@ export class CareerAdaptMcpBridgeClient {
     if (context?.turnId !== this.confirmationContext?.turnId) {
       this.noProgress = undefined;
       this.confirmationPendingTurnId = undefined;
+    }
+    if (context) {
+      // A new runtime turn owns all subsequent bridge calls. Do not let a
+      // delayed result from the previous turn attach to this one.
+      this.detachedConfirmationContext = undefined;
+    } else if (this.confirmationContext) {
+      // Hermes can close its lifecycle stream before the browser receives a
+      // queued MCP request. Keep this one context until the next turn or
+      // bridge stop so the result can still be projected to its assistant.
+      this.detachedConfirmationContext = this.confirmationContext;
     }
     this.confirmationContext = context;
   }
@@ -101,6 +120,7 @@ export class CareerAdaptMcpBridgeClient {
       }).catch(() => undefined);
     }
     this.confirmationContext = undefined;
+    this.detachedConfirmationContext = undefined;
     this.confirmationPendingTurnId = undefined;
     this.currentBinding = undefined;
     this.onConfirmation = undefined;
@@ -221,8 +241,13 @@ export class CareerAdaptMcpBridgeClient {
 
   private async execute(request: BridgeRequest) {
     if (!this.gateway || !this.bridgeId || !this.token) return;
+    // The official Hermes run can emit its terminal lifecycle event before
+    // the browser bridge finishes the MCP request. Capture the turn context
+    // at request start so a later cleanup cannot make a valid result look
+    // unrelated to the assistant message that initiated it.
+    const confirmationContext = this.confirmationContext ?? this.detachedConfirmationContext;
     let result;
-    const toolInput = normalizeHermesScopedInput(request.name, request.input, request.careerSessionBinding, this.confirmationContext);
+    const toolInput = normalizeHermesScopedInput(request.name, request.input, request.careerSessionBinding, confirmationContext);
     try {
       const context: CareerToolExecutionContext = {
         operationId: request.operationId,
@@ -230,7 +255,7 @@ export class CareerAdaptMcpBridgeClient {
         requireSessionBinding: request.requireSessionBinding === true
       };
       const callKey = `${request.name}:${stableJson(toolInput)}`;
-      const turnId = this.confirmationContext?.turnId ?? "unbound-turn";
+      const turnId = confirmationContext?.turnId ?? "unbound-turn";
       if (this.confirmationPendingTurnId === turnId) {
         result = confirmationBoundaryResult(request);
       } else if (this.noProgress?.turnId === turnId && this.noProgress.callKey === callKey && this.noProgress.count >= 2) {
@@ -241,15 +266,15 @@ export class CareerAdaptMcpBridgeClient {
           ? { ...this.noProgress, count: this.noProgress.count + 1 }
           : { turnId, callKey, count: 1 };
       }
-      if (isConfirmationRequired(result) && this.confirmationContext) {
+      if (isConfirmationRequired(result) && confirmationContext) {
         this.confirmationPendingTurnId = turnId;
       }
-      if (isConfirmationRequired(result) && this.confirmationContext && this.onConfirmation) {
+      if (isConfirmationRequired(result) && confirmationContext && this.onConfirmation) {
         const contract = this.gateway.listContracts().find((candidate) => candidate.name === request.name);
         const input = asRecord(toolInput);
         if (contract) {
           await Promise.resolve(this.onConfirmation({
-            ...this.confirmationContext,
+            ...confirmationContext,
             toolName: request.name,
             operationId: request.operationId,
             input,
@@ -257,7 +282,7 @@ export class CareerAdaptMcpBridgeClient {
           })).catch(() => undefined);
         }
       }
-      await Promise.resolve(this.onResult?.({ request, result })).catch(() => undefined);
+      await Promise.resolve(this.onResult?.({ request, result, confirmationContext })).catch(() => undefined);
     } catch (error) {
       result = failedResult(request, safeError(error));
     }
