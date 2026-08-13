@@ -528,7 +528,7 @@ export const aiTaskRegistry = {
         skillGroups: input.skillGroups,
         instructions: [
           "Write the summary only from the supplied confirmed evidence.",
-          "For each selected asset, keep sourceAssetId unchanged and return 0 to 4 concise highlights.",
+          "Return exactly one object for every selected asset, in the same order; keep sourceAssetId unchanged and return 0 to 4 concise highlights.",
           "Use only explicitTools for techStack; do not infer a tool from a neighboring concept.",
           ...input.instructions
         ]
@@ -542,8 +542,14 @@ export const aiTaskRegistry = {
     },
     validateOutput(output: CareerResumeWritingOutput, input: ResumeCareerWritingTaskInput) {
       const allowed = new Set(input.assets.map((asset) => asset.sourceAssetId));
+      const returned = output.assets.map((asset) => asset.sourceAssetId);
       for (const asset of output.assets) {
         if (!allowed.has(asset.sourceAssetId)) throw new Error("resume_career_writer_asset_out_of_scope");
+      }
+      if (new Set(returned).size !== returned.length) throw new Error("resume_career_writer_asset_duplicated");
+      if (returned.length !== input.assets.length
+        || returned.some((sourceAssetId, index) => sourceAssetId !== input.assets[index]?.sourceAssetId)) {
+        throw new Error("resume_career_writer_asset_coverage_incomplete");
       }
     }
   } satisfies AiTaskDefinition<ResumeCareerWritingTaskInput, CareerResumeWritingOutput>,

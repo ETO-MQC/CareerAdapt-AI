@@ -131,6 +131,14 @@ describe("P4.2a.3e turn intent and task isolation", () => {
   });
 
   it("describes a canonical fresh root for an explicit unrelated domain request", () => {
+    expect(classifyTurnIntent({
+      text: "用我的资料库生成一份适合互联网技术 / AI 应用方向秋招的通用简历。先自己读取资料，只有会明显改变简历质量的信息再问我。"
+    })).toMatchObject({
+      intent: "new_domain_task",
+      taskMutation: "replace",
+      toolScope: "domain",
+      newTask: { goal: "compose_resume", workflowId: "compose_resume", stage: "select_profile_scope" }
+    });
     expect(classifyTurnIntent({ text: "导入一个岗位" }).newTask).toEqual({
       goal: "ingest_job",
       workflowId: "job_ingestion",

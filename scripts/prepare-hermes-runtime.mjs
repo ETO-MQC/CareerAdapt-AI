@@ -1,11 +1,14 @@
 import fs from "node:fs";
+import crypto from "node:crypto";
 import os from "node:os";
 import path from "node:path";
+import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(scriptDirectory, "..");
 const targetRoot = path.join(projectRoot, ".electron-build", "hermes-runtime-v4");
+const runtimeLock = JSON.parse(fs.readFileSync(path.join(scriptDirectory, "hermes-runtime-lock.json"), "utf8"));
 
 const sourceRoot = path.resolve(
   process.env.HERMES_SOURCE_DIR?.trim()
@@ -28,6 +31,40 @@ assertDirectory(pythonHome, "Hermes Python home");
 assertDirectory(sitePackages, "Hermes site-packages");
 assertFile(path.join(pythonHome, "python.exe"), "Hermes Python executable");
 
+const hermesVersion = readProjectVersion(path.join(sourceRoot, "pyproject.toml"));
+const hermesGitCommit = gitOutput(sourceRoot, ["rev-parse", "HEAD"]);
+if (hermesVersion !== runtimeLock.hermesVersion || hermesGitCommit !== runtimeLock.hermesGitCommit) {
+  throw new Error(
+    `Hermes source identity is not approved. Expected ${runtimeLock.hermesVersion} @ ${runtimeLock.hermesGitCommit}, `
+    + `received ${hermesVersion || "unknown"} @ ${hermesGitCommit || "unknown"}. Set HERMES_SOURCE_DIR to the pinned checkout.`
+  );
+}
+
+const rootPythonFiles = fs.readdirSync(sourceRoot, { withFileTypes: true })
+  .filter((entry) => entry.isFile() && path.extname(entry.name).toLowerCase() === ".py")
+  .map((entry) => entry.name);
+const sourcePathspecs = [...sourceDirectoriesForFingerprint(), ...rootPythonFiles, "pyproject.toml"];
+const sourceChanges = gitOutput(sourceRoot, ["status", "--porcelain", "--untracked-files=all", "--", ...sourcePathspecs]);
+if (sourceChanges) {
+  throw new Error(`Hermes source contains unapproved runtime changes:\n${sourceChanges}`);
+}
+
+const hermesSourceTreeHash = deterministicTreeHash(sourceRoot, {
+  roots: sourcePathspecs.filter((entry) => entry !== "*.py"),
+  includeRootPython: true
+});
+const sitePackagesFingerprint = deterministicTreeHash(sitePackages, { roots: ["."] });
+const careerSkillsHash = deterministicTreeHash(path.join(projectRoot, "skills", "career"), { roots: ["."] });
+const pythonVersion = readPyvenvVersion(path.join(venvRoot, "pyvenv.cfg"));
+if (hermesSourceTreeHash !== runtimeLock.hermesSourceTreeHash
+  || pythonVersion !== runtimeLock.pythonVersion
+  || sitePackagesFingerprint !== runtimeLock.sitePackagesFingerprint) {
+  throw new Error(
+    "Hermes runtime dependencies do not match the approved lock: "
+    + `source=${hermesSourceTreeHash}, python=${pythonVersion}, site-packages=${sitePackagesFingerprint}.`
+  );
+}
+
 fs.mkdirSync(targetRoot, { recursive: true });
 
 const pythonTarget = path.join(targetRoot, "python");
@@ -38,23 +75,7 @@ const skillsTarget = path.join(targetRoot, "skills");
 copyTree(pythonHome, pythonTarget);
 copyTree(sitePackages, sitePackagesTarget, { skipEditablePathFiles: true });
 
-const sourceDirectories = [
-  "acp_adapter",
-  "agent",
-  "assets",
-  "cron",
-  "gateway",
-  "hermes_cli",
-  "infographic",
-  "locales",
-  "native",
-  "plugins",
-  "providers",
-  "skills",
-  "tools",
-  "tui_gateway",
-  "web"
-];
+const sourceDirectories = sourceDirectoriesForFingerprint();
 
 for (const directory of sourceDirectories) {
   const sourcePath = path.join(sourceRoot, directory);
@@ -66,7 +87,7 @@ for (const entry of fs.readdirSync(sourceRoot, { withFileTypes: true })) {
   copyTree(path.join(sourceRoot, entry.name), path.join(sourceTarget, entry.name));
 }
 
-patchApiServerMcpToolsets(sourceTarget);
+const careerAdaptPatchHash = patchApiServerMcpToolsets(sourceTarget);
 
 const careerSkillsSource = path.join(projectRoot, "skills", "career");
 assertDirectory(careerSkillsSource, "CareerAdapt Hermes skills");
@@ -97,10 +118,16 @@ fs.writeFileSync(
 );
 
 const manifest = {
-  format: 1,
+  format: 2,
   runtime: "hermes-agent",
-  hermesVersion: readProjectVersion(path.join(sourceRoot, "pyproject.toml")),
-  pythonVersion: readPyvenvVersion(path.join(venvRoot, "pyvenv.cfg")),
+  hermesVersion,
+  hermesGitCommit,
+  hermesSourceTreeHash,
+  pythonVersion,
+  sitePackagesFingerprint,
+  careerAdaptPatchVersion: runtimeLock.careerAdaptPatchVersion,
+  careerAdaptPatchHash,
+  careerSkillsHash,
   sourceRoot: "source",
   pythonRoot: "python",
   sitePackagesRoot: "site-packages",
@@ -116,6 +143,7 @@ const fileCount = countFiles(targetRoot);
 const byteCount = sumBytes(targetRoot);
 console.log(`Prepared bundled Hermes runtime at ${targetRoot}`);
 console.log(`Hermes version: ${manifest.hermesVersion || "unknown"}`);
+console.log(`Hermes commit: ${manifest.hermesGitCommit}`);
 console.log(`Python version: ${manifest.pythonVersion || "unknown"}`);
 console.log(`Runtime size: ${(byteCount / 1024 / 1024).toFixed(1)} MB (${fileCount} files)`);
 
@@ -135,6 +163,52 @@ function readProjectVersion(filePath) {
   if (!fs.existsSync(filePath)) return "";
   const content = fs.readFileSync(filePath, "utf8");
   return content.match(/^version\s*=\s*["']([^"']+)["']/mu)?.[1] || "";
+}
+
+function sourceDirectoriesForFingerprint() {
+  return [
+    "acp_adapter", "agent", "assets", "cron", "gateway", "hermes_cli",
+    "infographic", "locales", "native", "plugins", "providers", "skills",
+    "tools", "tui_gateway", "web"
+  ];
+}
+
+function gitOutput(cwd, args) {
+  try {
+    return execFileSync("git", ["-C", cwd, ...args], { encoding: "utf8", windowsHide: true }).trim();
+  } catch (error) {
+    throw new Error(`Unable to verify Hermes git identity: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+function deterministicTreeHash(baseDirectory, options) {
+  const files = [];
+  for (const root of options.roots) {
+    const absolute = path.resolve(baseDirectory, root);
+    if (!fs.existsSync(absolute)) continue;
+    if (fs.statSync(absolute).isFile()) files.push(absolute);
+    else collectFiles(absolute, files);
+  }
+  if (options.includeRootPython) {
+    for (const entry of fs.readdirSync(baseDirectory, { withFileTypes: true })) {
+      if (entry.isFile() && path.extname(entry.name).toLowerCase() === ".py") files.push(path.join(baseDirectory, entry.name));
+    }
+  }
+  const hash = crypto.createHash("sha256");
+  for (const filePath of [...new Set(files)].sort((a, b) => a.localeCompare(b, "en"))) {
+    const relative = path.relative(baseDirectory, filePath).split(path.sep).join("/");
+    hash.update(relative).update("\0").update(fs.readFileSync(filePath)).update("\0");
+  }
+  return hash.digest("hex");
+}
+
+function collectFiles(directory, files) {
+  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+    if ([".git", "__pycache__", ".pytest_cache"].includes(entry.name)) continue;
+    const entryPath = path.join(directory, entry.name);
+    if (entry.isDirectory()) collectFiles(entryPath, files);
+    else if (!entry.name.endsWith(".pyc") && !entry.name.endsWith(".pyo") && !entry.name.endsWith(".map")) files.push(entryPath);
+  }
 }
 
 function readEnvFile(filePath) {
@@ -210,11 +284,12 @@ function patchApiServerMcpToolsets(targetSourceRoot) {
     "        except Exception:",
     "            logger.exception(\"GET /v1/toolsets failed\")"
   ].join("\n");
-  if (source.includes("live MCP server registry for")) return;
+  if (source.includes("live MCP server registry for")) return crypto.createHash("sha256").update(source).digest("hex");
   const insertionPattern = /        except Exception:\r?\n            logger\.exception\("GET \/v1\/toolsets failed"\)/u;
   if (!insertionPattern.test(source)) throw new Error("Hermes API-server toolset handler insertion point changed; MCP registry patch was not applied.");
   const patched = source.replace(insertionPattern, insertion);
   fs.writeFileSync(apiServerPath, patched, "utf8");
+  return crypto.createHash("sha256").update(patched).digest("hex");
 }
 
 function copyTree(sourcePath, targetPath, options = {}) {

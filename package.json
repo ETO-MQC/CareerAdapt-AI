@@ -21,6 +21,7 @@
     "test:e2e": "playwright test",
     "hermes:preflight": "node scripts/hermes-preflight.mjs",
     "hermes:companion": "node electron/hermesCompanion.js",
+    "hermes:self-test": "node scripts/hermes-runtime-self-test.mjs",
     "hermes:skills": "node scripts/sync-career-skills.mjs",
     "verify": "pnpm typecheck && pnpm lint && pnpm test && pnpm build",
     "electron:dev": "electron .",

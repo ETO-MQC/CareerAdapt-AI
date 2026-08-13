@@ -881,6 +881,18 @@ export class BrowserAgentToolService implements AgentToolServices {
     const context = await this.loadCompositionContext(input);
     const checkpoint = await this.requireCompositionCheckpoint(input, context.profile.id, context.job?.id);
     const composition = checkpoint.compositionResult;
+    if (composition.writingExecution?.mode !== "ai") {
+      throw toolError(
+        "resume_composition_ai_writer_required",
+        "AI Writer 未生成通过结构与事实校验的内容；已保留组装提案，但不会创建空白或降级简历。请重试写作步骤。"
+      );
+    }
+    if (composition.blueprint.assets.length > 0 && composition.metrics.bulletsGenerated === 0) {
+      throw toolError(
+        "resume_composition_professional_content_required",
+        "当前写作结果没有形成可用的项目或经历要点；已阻止创建低质量简历，请重试写作步骤。"
+      );
+    }
     if (input.mode === "general") {
       const created = await this.repository.ensureGeneralResumeFromProfile({
         profileId: context.profile.id,

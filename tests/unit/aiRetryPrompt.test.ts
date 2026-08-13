@@ -2,6 +2,17 @@ import { describe, expect, it } from "vitest";
 import { buildRetryPrompt } from "@/ai/retryPrompt";
 
 describe("structured AI retry prompts", () => {
+  it("gives the resume writer the exact dynamic asset coverage contract", () => {
+    const prompt = buildRetryPrompt({
+      task: "resume-career-writer",
+      baseUserPrompt: "writer",
+      failure: "model_schema_invalid",
+      input: { assets: [{ sourceAssetId: "asset-a" }, { sourceAssetId: "asset-b" }] }
+    });
+    expect(prompt).toContain('["asset-a","asset-b"]');
+    expect(prompt).toContain("Never return an empty assets array");
+  });
+
   it("uses the compact JD contract without resume suggestions", () => {
     const prompt = buildRetryPrompt({ task: "jd-analyzer", baseUserPrompt: "JD", failure: "missing_source_units", input: { sourceUnits: [{ id: "unit-1" }] } });
     expect(prompt).toContain("unitAssignments");

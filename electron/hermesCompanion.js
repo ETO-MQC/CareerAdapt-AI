@@ -20,6 +20,7 @@ const HEALTH_POLL_MS = 500;
 const MCP_WATCH_INTERVAL_MS = 1_000;
 const MCP_REFRESH_COOLDOWN_MS = 15_000;
 const GATEWAY_REPLACEMENT_TIMEOUT_MS = 15_000;
+const STARTUP_OUTPUT_LINE_LIMIT = 40;
 
 function loadCareerAdaptEnvironment(projectRoot, baseEnvironment = process.env) {
   const fileEnvironment = {};
@@ -208,7 +209,8 @@ function resolveBundledHermesRuntime(environment = process.env, options = {}) {
   const sitePackagesRoot = path.join(root, "site-packages");
   const bundledSkillsRoot = path.join(root, "skills");
   const pythonExecutable = firstValue(environment.HERMES_PYTHON) || path.join(pythonRoot, "python.exe");
-  if (!fs.existsSync(path.join(root, "runtime-manifest.json"))
+  const manifestPath = path.join(root, "runtime-manifest.json");
+  if (!fs.existsSync(manifestPath)
     || !fs.existsSync(pythonExecutable)
     || !fs.existsSync(path.join(sourceRoot, "hermes_cli"))
     || !fs.existsSync(sitePackagesRoot)) {
@@ -221,7 +223,8 @@ function resolveBundledHermesRuntime(environment = process.env, options = {}) {
     sourceRoot,
     sitePackagesRoot,
     bundledSkillsRoot,
-    skillsRoot: path.join(bundledSkillsRoot, "careeradapt")
+    skillsRoot: path.join(bundledSkillsRoot, "careeradapt"),
+    manifest: readJsonFile(manifestPath)
   };
 }
 
@@ -365,8 +368,10 @@ async function startHermesCompanion(options = {}) {
   const args = launch.args;
   const bridgeStatusUrl = options.watchMcpBridge === false ? undefined : resolveBridgeStatusUrl(environment, options);
   const bridgeAtStart = bridgeStatusUrl ? await probeMcpBridge(bridgeStatusUrl) : { connected: true, bridgeId: undefined };
+  const output = { stdout: [], stderr: [] };
+  writeLog(`launch: ${JSON.stringify(sanitizedLaunchSummary(launch, prepared.childEnvironment, runtime))}`);
   writeLog(`starting Hermes gateway API Server on ${runtime.host}:${runtime.port}`);
-  const child = spawnGateway(launch, prepared.childEnvironment, launch.cwd ?? projectRoot, writeLog);
+  const child = spawnGateway(launch, prepared.childEnvironment, launch.cwd ?? projectRoot, writeLog, output);
   const handle = {
     ok: false,
     reused: false,
@@ -401,7 +406,7 @@ async function startHermesCompanion(options = {}) {
     replacementChild: undefined,
     stopping: false
   };
-  attachChildLifecycle(handle, child);
+  attachChildLifecycle(handle, child, "primary");
 
   try {
     await waitForHealth(runtime.healthUrl, prepared.runtimeApiKey, child, options.timeoutMs ?? DEFAULT_START_TIMEOUT_MS);
@@ -411,8 +416,21 @@ async function startHermesCompanion(options = {}) {
     return handle;
   } catch (error) {
     writeLog(`startup failed: ${error instanceof Error ? error.message : String(error)}`);
+    const startupFailure = createStartupFailure({
+      reason: "hermes_runtime_start_failed",
+      error,
+      handle,
+      launch,
+      environment: prepared.childEnvironment,
+      output
+    });
+    writeLog(`startup failure: ${JSON.stringify(startupFailure)}`);
     await stopHermesCompanion(handle);
-    return failedCompanion("hermes_runtime_start_failed", logPath, { runtime, runtimeApiKey: prepared.runtimeApiKey });
+    return failedCompanion("hermes_runtime_start_failed", logPath, {
+      runtime,
+      runtimeApiKey: prepared.runtimeApiKey,
+      startupFailure
+    });
   }
 }
 
@@ -467,7 +485,7 @@ async function terminateChild(child) {
   await waitForExit(child, 5_000);
 }
 
-function spawnGateway(launch, environment, cwd, writeLog) {
+function spawnGateway(launch, environment, cwd, writeLog, output) {
   const child = spawn(launch.command, launch.args, {
     cwd,
     env: environment,
@@ -478,19 +496,20 @@ function spawnGateway(launch, environment, cwd, writeLog) {
     // window or route the managed child through a shell.
     shell: false
   });
-  attachLog(child.stdout, writeLog, "stdout");
-  attachLog(child.stderr, writeLog, "stderr");
+  attachLog(child.stdout, writeLog, "stdout", output?.stdout);
+  attachLog(child.stderr, writeLog, "stderr", output?.stderr);
   return child;
 }
 
-function attachChildLifecycle(handle, child) {
+function attachChildLifecycle(handle, child, role = "child") {
   child.once("error", (error) => {
     if (handle.child === child) handle.exit = { code: undefined, signal: undefined, error: error.message };
-    handle.writeLog(`process error: ${error.message}`);
+    handle.writeLog(`${role} process error: ${error.message}`);
   });
   child.once("exit", (code, signal) => {
     if (handle.child === child) handle.exit = { code, signal };
-    handle.writeLog(`process exited: code=${code ?? "none"} signal=${signal ?? "none"}`);
+    const plannedReplacement = role === "primary" && handle.replacementChild && handle.child === child;
+    handle.writeLog(`${role} process exited: code=${code ?? "none"} signal=${signal ?? "none"} plannedReplacement=${plannedReplacement}`);
   });
 }
 
@@ -569,9 +588,10 @@ async function refreshHermesGateway(handle, timeoutMs) {
   // included in the initial Hermes MCP registration. Do not replace the
   // gateway just to repeat that same registration during renderer boot.
   if (handle.bridgeRefreshCompleted && handle.lastRefreshedBridgeId) return true;
-  const replacement = spawnGateway(handle.launch, handle.childEnvironment, handle.cwd ?? process.cwd(), handle.writeLog);
+  const replacementOutput = { stdout: [], stderr: [] };
+  const replacement = spawnGateway(handle.launch, handle.childEnvironment, handle.cwd ?? process.cwd(), handle.writeLog, replacementOutput);
   handle.replacementChild = replacement;
-  attachChildLifecycle(handle, replacement);
+  attachChildLifecycle(handle, replacement, "replacement");
   try {
     // The replacement process may initially see the old server's health
     // response. Wait for the old gateway to release its singleton/port before
@@ -612,18 +632,101 @@ function createLogWriter(logPath, secrets) {
   };
 }
 
-function attachLog(stream, writeLog, channel) {
+function attachLog(stream, writeLog, channel, capturedLines) {
   if (!stream) return;
   let buffer = "";
   stream.on("data", (chunk) => {
     buffer += chunk.toString();
     const lines = buffer.split(/\r?\n/u);
     buffer = lines.pop() ?? "";
-    for (const line of lines) if (line) writeLog(`[${channel}] ${line}`);
+    for (const line of lines) if (line) {
+      captureLine(capturedLines, line);
+      writeLog(`[${channel}] ${line}`);
+    }
   });
   stream.on("end", () => {
-    if (buffer) writeLog(`[${channel}] ${buffer}`);
+    if (buffer) {
+      captureLine(capturedLines, buffer);
+      writeLog(`[${channel}] ${buffer}`);
+    }
   });
+}
+
+function captureLine(lines, line) {
+  if (!Array.isArray(lines)) return;
+  lines.push(String(line));
+  if (lines.length > STARTUP_OUTPUT_LINE_LIMIT) lines.splice(0, lines.length - STARTUP_OUTPUT_LINE_LIMIT);
+}
+
+function sanitizedLaunchSummary(launch, environment, runtime) {
+  const pathEntries = firstValue(environment.Path, environment.PATH).split(path.delimiter).filter(Boolean);
+  return {
+    launchKind: launch.kind,
+    executable: launch.command,
+    args: launch.args,
+    cwd: launch.cwd,
+    runtimeUrl: runtime.baseUrl,
+    appUrl: firstValue(environment.CAREERADAPT_BASE_URL, environment.PLAYWRIGHT_BASE_URL, DEFAULT_APP_URL),
+    runtimeRoot: environment.HERMES_RUNTIME_ROOT,
+    hermesHome: environment.HERMES_HOME,
+    pythonHome: environment.PYTHONHOME,
+    pythonPath: environment.PYTHONPATH,
+    pathEntryCount: pathEntries.length,
+    runtimePathEntries: pathEntries.filter((entry) => isPathWithin(entry, environment.HERMES_RUNTIME_ROOT)),
+    providerPresent: Boolean(firstValue(environment.OPENAI_BASE_URL, environment.AI_BASE_URL, environment.HERMES_BASE_URL)),
+    providerKeyPresent: Boolean(firstValue(environment.OPENAI_API_KEY, environment.AI_API_KEY)),
+    modelPresent: Boolean(firstValue(environment.HERMES_INFERENCE_MODEL, environment.AI_MODEL, environment.HERMES_MODEL))
+  };
+}
+
+function isPathWithin(candidate, root) {
+  if (!candidate || !root) return false;
+  const relative = path.relative(path.resolve(root), path.resolve(candidate));
+  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
+}
+
+function createStartupFailure(input) {
+  const bundled = resolveBundledHermesRuntime(input.environment, { hermesRuntimeRoot: input.environment.HERMES_RUNTIME_ROOT });
+  const manifest = bundled?.manifest || {};
+  const message = input.error instanceof Error ? input.error.message : String(input.error || "unknown");
+  return {
+    reason: input.reason,
+    exitCode: input.handle.exit?.code,
+    signal: input.handle.exit?.signal,
+    launchKind: input.launch.kind,
+    executable: input.launch.command,
+    args: [...input.launch.args],
+    cwd: input.launch.cwd,
+    runtimeVersion: manifest.hermesVersion || "unknown",
+    runtimeCommit: manifest.hermesGitCommit,
+    pythonVersion: manifest.pythonVersion || "unknown",
+    runtimeRoot: input.environment.HERMES_RUNTIME_ROOT,
+    hermesHome: input.environment.HERMES_HOME,
+    selectedPort: input.handle.runtime?.port,
+    stage: classifyStartupStage(message, input.output),
+    lastStdoutLines: [...input.output.stdout],
+    lastStderrLines: [...input.output.stderr]
+  };
+}
+
+function classifyStartupStage(message, output) {
+  const evidence = [message, ...output.stderr, ...output.stdout].join("\n").toLowerCase();
+  if (/modulenotfounderror|importerror|no module named/u.test(evidence)) return "module_import";
+  if (/usage:|unrecognized arguments|invalid choice/u.test(evidence)) return "cli_argument_parsing";
+  if (/config|yaml|provider/u.test(evidence)) return "config_or_provider_initialization";
+  if (/mcp/u.test(evidence)) return "mcp_initialization";
+  if (/address already in use|eaddrinuse|port.+occupied|bind/u.test(evidence)) return "port_bind";
+  if (/another gateway|already running|replace|duplicate/u.test(evidence)) return "gateway_process_ownership";
+  if (/health check/u.test(evidence)) return "api_server_startup";
+  return "python_bootstrap_or_unknown";
+}
+
+function readJsonFile(filePath) {
+  try {
+    return JSON.parse(fs.readFileSync(filePath, "utf8"));
+  } catch {
+    return {};
+  }
 }
 
 function redact(value, secrets) {
@@ -760,6 +863,8 @@ module.exports = {
   resolveRuntimeConfig,
   parsePort,
   ensureManagedHermesConfig,
+  classifyStartupStage,
+  sanitizedLaunchSummary,
   startHermesCompanion,
   stopHermesCompanion
 };

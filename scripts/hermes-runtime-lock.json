@@ -1,0 +1,8 @@
+{
+  "hermesVersion": "0.19.0",
+  "hermesGitCommit": "eb52760564dbba2e5971fa54bd67384e281cd3b8",
+  "hermesSourceTreeHash": "eb32a7abb5b92a27a25c89de3d4f0698dc8684abb84837a9c6171a5851598ab8",
+  "pythonVersion": "3.11.13",
+  "sitePackagesFingerprint": "962cc1380c454dbba3213991523454642698609fa01e14b52067d5dec47f9e59",
+  "careerAdaptPatchVersion": "careeradapt-api-toolsets-v1"
+}

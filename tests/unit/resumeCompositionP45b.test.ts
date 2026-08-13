@@ -333,5 +333,13 @@ describe("P4.5b resume compilation intelligence", () => {
       targetAudience: "应届校招面试官",
       companyType: "B2B SaaS 技术团队"
     });
+    expect(() => aiTaskRegistry["resume-career-writer"].validateOutput?.({
+      assets: [],
+      skillGroups: []
+    }, input)).toThrow("resume_career_writer_asset_coverage_incomplete");
+    expect(() => aiTaskRegistry["resume-career-writer"].validateOutput?.({
+      assets: [{ sourceAssetId: "asset-1", title: "数据处理项目", techStack: [], highlights: [] }],
+      skillGroups: []
+    }, input)).not.toThrow();
   });
 });

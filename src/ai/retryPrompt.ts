@@ -65,6 +65,22 @@ export function buildRetryPrompt({
       "Every highlight must be supported by the matching source turns; omit unsupported claims, filler, summary echoes, and ownership upgrades."
     ].join("\n");
   }
+  if (task === "resume-career-writer") {
+    const assetIds = typeof input === "object" && input && "assets" in input && Array.isArray(input.assets)
+      ? input.assets.flatMap((asset) => typeof asset === "object" && asset && "sourceAssetId" in asset && typeof asset.sourceAssetId === "string"
+        ? [asset.sourceAssetId]
+        : [])
+      : [];
+    return [
+      baseUserPrompt,
+      "",
+      `Previous resume-career-writer response failed (${failure ?? "schema validation failed"}).`,
+      `Return assets in exactly this order: ${JSON.stringify(assetIds)}.`,
+      "Return one object per ID even when its highlights array must be empty. Never return an empty assets array when IDs are listed.",
+      "Each asset object must contain sourceAssetId, title, techStack, and highlights; role is optional.",
+      "Return only the corrected compact JSON object with summary (optional), assets, and skillGroups."
+    ].join("\n");
+  }
   if (task === "resume-document-mapper") {
     const safeIssues = (issues ?? []).slice(0, 12).map((issue) => {
       const keys = issue.unrecognizedKeys?.length
