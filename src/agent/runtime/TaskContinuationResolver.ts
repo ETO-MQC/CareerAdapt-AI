@@ -186,6 +186,7 @@ function resolveResumeCompositionContinuation(state: AgentTaskState, text: strin
       intent: "continue",
       slotUpdates: {
         resumeCompositionBranchMode: "update_existing",
+        resumeCompositionBranchModeSource: "user_explicit",
         resumeCompositionDecision: "generate",
         resumeCompositionExplicitConfirmation: true,
         resumeCompositionPendingInformationNeed: pendingTargetDirectionNeed("skipped")

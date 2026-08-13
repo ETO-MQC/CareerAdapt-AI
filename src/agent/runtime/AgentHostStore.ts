@@ -78,6 +78,10 @@ import { QuickActionContextSnapshotSchema, type QuickActionContextSnapshot } fro
 import { defaultAgentTaskTitle, refineAgentTaskTitle } from "@/agent/services/AgentTaskTitleService";
 import { WorkspaceRepository } from "@/services/storage/repositories";
 import {
+  ResumeCompositionCheckpointSchema,
+  type ResumeCompositionCheckpoint
+} from "@/domain/resumeComposition/contracts";
+import {
   profileIntakeItemLabel,
   resolveProfileIntakeInterviewSupervisor,
   targetQuestion
@@ -88,7 +92,14 @@ import {
 } from "@/agent/workflows/ProfileIntakeFinalizationSupervisor";
 import { AuthoritativeConversationAlignmentGuard } from "@/agent/kernel/AuthoritativeConversationAlignmentGuard";
 import { AgentExecutionCoordinator, type SessionExecution } from "./AgentExecutionCoordinator";
-import type { RuntimeUserEvent } from "./RuntimeUserEvent";
+import type { AgentToolResult } from "@/agent/contracts/agentTool";
+import type { CareerSessionBinding } from "./careerSessionBinding";
+import { resolveCareerSessionBinding } from "./careerSessionBinding";
+import {
+  normalizeResumeCompositionConfirmationText,
+  type ConfirmResumeCompositionCommand,
+  type RuntimeUserEvent
+} from "./RuntimeUserEvent";
 
 export type AgentHostInput =
   | { type: "message"; text: string; references?: AgentMessageReference[] }
@@ -110,6 +121,7 @@ export type PreparedRuntimeUserEvent = {
   userMessage: string;
   executionOwner?: AgentTurn["executionOwner"];
   deterministicTransitionApplied: boolean;
+  deterministicTerminal?: boolean;
 };
 
 export type SafeWorkflowCheckpoint = {
@@ -231,6 +243,7 @@ export class AgentHostStore {
   private readonly executionCoordinator = new AgentExecutionCoordinator();
   private readonly stallTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private readonly confirmationExecutions = new Map<string, Promise<AgentSession | undefined>>();
+  private readonly resumeCompositionExecutions = new Map<string, Promise<AgentSession | undefined>>();
   private readonly artifactActionExecutions = new Map<string, Promise<AgentSession | undefined>>();
   private readonly pendingInputs = new Map<string, PendingUserInput[]>();
 
@@ -438,7 +451,36 @@ export class AgentHostStore {
       type: mutation,
       ...decision.newTask
     });
-    const prepared = projectTaskStateIntoSession(current, taskState);
+    let prepared = projectTaskStateIntoSession(current, taskState);
+    if (taskState.workflowId === "compose_resume") {
+      const snapshot = await this.readQuickActionContext(current);
+      if (snapshot.activeProfile && snapshot.activePerson) {
+        const profile = snapshot.activeProfile;
+        taskState = {
+          ...taskState,
+          selectedEntities: {
+            ...taskState.selectedEntities,
+            profileId: profile.id,
+            profileVersion: profile.profileRevision
+          },
+          knownSlots: {
+            ...taskState.knownSlots,
+            targetProfileId: profile.id,
+            targetProfileName: snapshot.activePerson.displayName,
+            expectedProfileVersion: profile.profileRevision,
+            acknowledgedActiveProfileId: profile.id
+          },
+          updatedAt: new Date().toISOString()
+        };
+        prepared = {
+          ...projectTaskStateIntoSession(current, taskState),
+          personId: current.personId ?? snapshot.activePerson.id,
+          activeProfileId: current.activeProfileId ?? profile.id,
+          profileVersionNumber: current.profileVersionNumber ?? profile.profileVersionNumber,
+          profileRevision: current.profileRevision ?? profile.profileRevision
+        };
+      }
+    }
     const saved = await this.dependencies.persistence.save(prepared);
     this.patchSession(saved, {
       activeTask: saved.taskState,
@@ -462,6 +504,30 @@ export class AgentHostStore {
       ? this.snapshot.activeSession
       : input.session;
     if (input.event.type === "text_message") {
+      const confirmationMode = normalizeResumeCompositionConfirmationText(input.event.text);
+      if (
+        confirmationMode
+        && current.taskState?.workflowId === "compose_resume"
+        && hasResumeCompositionCheckpointForConfirmation(current)
+      ) {
+        const prepared = await this.applyRuntimeAnswer(current, {
+          type: "answer",
+          field: "resume-composition-decision",
+          value: input.event.text
+        });
+        const command = buildResumeCompositionConfirmationCommand(prepared.session, confirmationMode);
+        if (command) {
+          return {
+            session: prepared.session,
+            event: command,
+            turnId: prepared.turnId,
+            userMessage: "",
+            executionOwner: "deterministic_transition",
+            deterministicTransitionApplied: prepared.applied,
+            deterministicTerminal: true
+          };
+        }
+      }
       const session = await this.prepareRuntimeTask({
         session: current,
         userMessage: input.event.text,
@@ -528,6 +594,23 @@ export class AgentHostStore {
       }
       if (action.type === "answer") {
         const prepared = await this.applyRuntimeAnswer(current, action);
+        const confirmationMode = action.field === "resume-composition-decision"
+          ? normalizeResumeCompositionConfirmationText(action.value)
+          : undefined;
+        const command = confirmationMode
+          ? buildResumeCompositionConfirmationCommand(prepared.session, confirmationMode)
+          : undefined;
+        if (command) {
+          return {
+            session: prepared.session,
+            event: command,
+            turnId: prepared.turnId,
+            userMessage: "",
+            executionOwner: "deterministic_transition",
+            deterministicTransitionApplied: prepared.applied,
+            deterministicTerminal: true
+          };
+        }
         return {
           session: prepared.session,
           event: input.event,
@@ -581,6 +664,536 @@ export class AgentHostStore {
     );
   }
 
+  /**
+   * Commit the exact, already-reviewed composition checkpoint. This is a
+   * Host-owned terminal continuation: it never calls resume(), Hermes, or a
+   * model-generated tool selection.
+   */
+  executeConfirmedResumeComposition(input: {
+    session: AgentSession;
+    command: ConfirmResumeCompositionCommand;
+    pageContext: AgentPageContext;
+    turnId?: string;
+  }) {
+    const operationId = resumeCompositionConfirmationOperationId(input.command);
+    const running = this.resumeCompositionExecutions.get(operationId);
+    if (running) return running;
+    const execution = this.executeConfirmedResumeCompositionOnce(input, operationId)
+      .finally(() => this.resumeCompositionExecutions.delete(operationId));
+    this.resumeCompositionExecutions.set(operationId, execution);
+    return execution;
+  }
+
+  private async executeConfirmedResumeCompositionOnce(
+    input: {
+      session: AgentSession;
+      command: ConfirmResumeCompositionCommand;
+      pageContext: AgentPageContext;
+      turnId?: string;
+    },
+    operationId: string
+  ) {
+    let current = this.snapshot.activeSession?.id === input.session.id
+      ? this.snapshot.activeSession
+      : input.session;
+    const turnId = input.turnId ?? current.activeTurn?.id ?? `agent-turn-${crypto.randomUUID()}`;
+    this.markProgress(current.id);
+
+    let validation: Awaited<ReturnType<AgentHostStore["validateResumeCompositionCheckpoint"]>>;
+    try {
+      validation = await this.validateResumeCompositionCheckpoint(current, input.command, input.pageContext);
+    } catch (error) {
+      return this.finishResumeCompositionWriteFailure(
+        current,
+        turnId,
+        operationId,
+        input.command,
+        safeErrorCode(error),
+        errorMessage(error)
+      );
+    }
+    if (validation.kind === "already_committed") {
+      const completedAt = new Date().toISOString();
+      current = {
+        ...settleUserExecutionState(current, turnId, "complete"),
+        activeTurn: current.activeTurn
+          ? { ...current.activeTurn, status: "completed", completedAt }
+          : current.activeTurn
+      };
+      current = completeTurnCheckpoint(current, turnId, completedAt);
+      const saved = await this.dependencies.persistence.save(current);
+      this.patchSession(saved, {
+        turnStatus: "completed",
+        activeTurnId: turnId,
+        uiAction: resumePreviewUiAction(saved),
+        currentObservation: {
+          toolName: "career.workflow.compose_resume",
+          operationId,
+          checkpointId: input.command.checkpointId,
+          idempotent: true
+        }
+      });
+      return saved;
+    }
+    if (validation.kind !== "valid") {
+      return this.recoverStaleResumeComposition(
+        current,
+        input.command,
+        turnId,
+        operationId,
+        validation
+      );
+    }
+
+    let result: AgentToolResult;
+    try {
+      const retryFailedOperation = current.taskState?.knownSlots.resumeCompositionWriteFailureOperationId === operationId;
+      result = await this.dependencies.executor.execute({
+        toolName: "career.workflow.compose_resume",
+        toolInput: validation.toolInput,
+        operationId,
+        confirmed: true,
+        confirmationCount: 1,
+        ...(retryFailedOperation ? { retryFailedOperation: true } : {}),
+        careerSessionBinding: validation.binding,
+        requireSessionBinding: true
+      });
+    } catch (error) {
+      return this.finishResumeCompositionWriteFailure(
+        current,
+        turnId,
+        operationId,
+        input.command,
+        safeErrorCode(error),
+        errorMessage(error)
+      );
+    }
+
+    current = upsertAgentActivity(current, {
+      id: `agent-tool-${operationId}`,
+      turnId,
+      content: result.ok ? "已按确认写入隔离的简历版本。" : "简历写入没有完成，已保留当前组装方案。",
+      toolName: "career.workflow.compose_resume",
+      operationId,
+      status: result.ok ? "complete" : "failed",
+      metadata: {
+        activityState: result.ok ? "complete" : "failed",
+        confirmedWrite: {
+          toolName: "career.workflow.compose_resume",
+          operationId,
+          checkpointId: input.command.checkpointId,
+          confirmed: true,
+          confirmationCount: 1,
+          careerSessionBinding: validation.binding,
+          sourceFingerprint: input.command.sourceFingerprint
+        },
+        diagnostic: confirmedToolDiagnostic("career.workflow.compose_resume", result)
+      }
+    });
+
+    if (!result.ok) {
+      return this.finishResumeCompositionWriteFailure(
+        current,
+        turnId,
+        operationId,
+        input.command,
+        result.error?.code ?? "resume_composition_write_failed",
+        result.error?.message ?? "简历写入没有完成，当前组装方案已保留，可以重试。"
+      );
+    }
+
+    current = applyRuntimeFacadeCheckpoint(
+      current,
+      "career.workflow.compose_resume",
+      mergeAuthoritativeResumeCompositionCheckpoint(result.data, validation.checkpoint)
+    );
+    current = clearResumeCompositionWriteFailure(current);
+    current = attachConfirmedToolArtifact(
+      current,
+      "compose_resume",
+      operationId,
+      {
+        ...result,
+        data: runtimeArtifactResultData("career.workflow.compose_resume", result.data)
+      }
+    );
+    const completedAt = new Date().toISOString();
+    current = appendAgentMessage(current, "assistant", "已按你的确认生成隔离的简历版本，可以打开预览。", {
+      kind: "text",
+      type: "text",
+      status: "complete",
+      turnId,
+      metadata: {
+        confirmedWriteCompleted: true,
+        confirmedWrite: {
+          toolName: "career.workflow.compose_resume",
+          operationId,
+          checkpointId: input.command.checkpointId,
+          confirmed: true,
+          confirmationCount: 1,
+          careerSessionBinding: validation.binding,
+          sourceFingerprint: input.command.sourceFingerprint
+        }
+      }
+    });
+    current = {
+      ...settleUserExecutionState(current, turnId, "complete"),
+      activeTurn: current.activeTurn
+        ? { ...current.activeTurn, status: "completed", completedAt }
+        : current.activeTurn,
+      workflowState: current.taskState
+        ? projectTaskStateToWorkflowState(current.taskState, { ...current.workflowState, status: "completed" })
+        : { ...current.workflowState, status: "completed" }
+    };
+    current = completeTurnCheckpoint(current, turnId, completedAt);
+    const saved = await this.dependencies.persistence.save(current);
+    this.patchSession(saved, {
+      turnStatus: "completed",
+      activeTurnId: turnId,
+      uiAction: resumePreviewUiAction(saved),
+      currentObservation: objectValue(result.data)
+    });
+    return saved;
+  }
+
+  private async validateResumeCompositionCheckpoint(
+    session: AgentSession,
+    command: ConfirmResumeCompositionCommand,
+    pageContext: AgentPageContext
+  ): Promise<
+    | { kind: "valid"; checkpoint: ResumeCompositionCheckpoint; binding: CareerSessionBinding; toolInput: Record<string, unknown> }
+    | { kind: "already_committed" }
+    | { kind: "stale"; code: string; message: string; refreshable: boolean; binding?: CareerSessionBinding }
+  > {
+    try {
+      resolveCareerSessionBinding({
+        sessionId: session.id,
+        session,
+        pageContext
+      });
+    } catch {
+      return {
+        kind: "stale",
+        code: "career_session_binding_context_mismatch",
+        message: "页面上下文与当前任务绑定不一致，未写入简历；请回到当前任务后重试。",
+        refreshable: false
+      };
+    }
+    const task = session.taskState;
+    const knownSlots = task?.knownSlots ?? {};
+    const knownResult = objectValue(knownSlots.resumeCompositionResult);
+    if (task?.workflowId === "compose_resume" && task.stage === "resume_ready" && stringValue(knownResult.resumeId)) {
+      return { kind: "already_committed" };
+    }
+    const binding = careerSessionBindingForSession(session);
+    if (!binding) {
+      return {
+        kind: "stale",
+        code: "career_session_binding_required",
+        message: "当前任务缺少固定的人物与资料版本绑定，未写入简历；请重新打开当前资料后重试。",
+        refreshable: false
+      };
+    }
+    if (
+      !task
+      || task.workflowId !== "compose_resume"
+      || task.knownSlots.resumeCompositionDecision !== "generate"
+      || task.knownSlots.resumeCompositionExplicitConfirmation !== true
+      || !["confirm_create", "resume_ready"].includes(task.stage)
+    ) {
+      return {
+        kind: "stale",
+        code: "resume_composition_confirmation_state_invalid",
+        message: "当前组装确认状态已变化，未写入简历；请重新查看最新方案后确认。",
+        refreshable: false,
+        binding
+      };
+    }
+    const stateCheckpoint = objectValue(knownSlots.resumeCompositionCheckpoint);
+    if (
+      stringValue(stateCheckpoint.checkpointId) !== command.checkpointId
+      || stringValue(stateCheckpoint.contentHash) !== command.contentHash
+      || stringValue(stateCheckpoint.profileId) !== command.profileId
+      || (numberValue(stateCheckpoint.profileRevision) ?? numberValue(stateCheckpoint.expectedProfileRevision)) !== command.expectedProfileRevision
+      || stringValue(stateCheckpoint.mode) !== command.mode
+      || (stringValue(stateCheckpoint.jobId) ?? undefined) !== (command.jobId ?? undefined)
+    ) {
+      return {
+        kind: "stale",
+        code: "resume_composition_checkpoint_state_mismatch",
+        message: "组装方案与当前确认状态不一致，未写入简历；请重新生成方案。",
+        refreshable: true,
+        binding
+      };
+    }
+    if (binding.profileId !== command.profileId || binding.profileRevision !== command.expectedProfileRevision) {
+      return {
+        kind: "stale",
+        code: "resume_composition_profile_stale",
+        message: "个人资料版本已变化，原组装方案已失效，未写入简历；请重新生成方案。",
+        refreshable: false,
+        binding
+      };
+    }
+    const branchMode = command.branchMode;
+    if (branchMode !== "create_new" && branchMode !== "update_existing") {
+      return {
+        kind: "stale",
+        code: "resume_composition_branch_mode_invalid",
+        message: "简历分支模式无效，未写入简历；请重新选择创建或更新方式。",
+        refreshable: false,
+        binding
+      };
+    }
+    if (
+      branchMode === "update_existing"
+      && task.knownSlots.resumeCompositionBranchModeSource !== "user_explicit"
+    ) {
+      return {
+        kind: "stale",
+        code: "resume_composition_update_selection_required",
+        message: "更新现有简历需要先明确选择目标简历，未写入简历；请重新选择后确认。",
+        refreshable: false,
+        binding
+      };
+    }
+
+    const repository = this.getCareerRepository();
+    const profile = await repository.getProfile(command.profileId);
+    if (
+      !profile
+      || profile.personId !== binding.personId
+      || profile.version !== binding.profileRevision
+      || (profile.profileVersionNumber ?? binding.profileVersionNumber) !== binding.profileVersionNumber
+    ) {
+      return {
+        kind: "stale",
+        code: "resume_composition_profile_stale",
+        message: "个人资料版本已变化，原组装方案已失效，未写入简历；请重新生成方案。",
+        refreshable: false,
+        binding
+      };
+    }
+
+    const stored = await repository.getResumeCompositionCheckpoint(command.checkpointId);
+    if (!stored || stored.contentHash !== command.contentHash) {
+      return {
+        kind: "stale",
+        code: "resume_composition_checkpoint_stale",
+        message: "组装 checkpoint 已变化或失效，未写入简历；请重新生成方案。",
+        refreshable: true,
+        binding
+      };
+    }
+    const checkpoint = ResumeCompositionCheckpointSchema.parse(stored);
+    if (
+      checkpoint.profileId !== command.profileId
+      || checkpoint.profileRevision !== command.expectedProfileRevision
+      || checkpoint.mode !== command.mode
+      || (checkpoint.jobId ?? undefined) !== (command.mode === "job_specific" ? stringValue(stateCheckpoint.jobId) : undefined)
+      || (checkpoint.sourceResumeId ?? undefined) !== (command.sourceResumeId ?? undefined)
+    ) {
+      return {
+        kind: "stale",
+        code: "resume_composition_checkpoint_binding_mismatch",
+        message: "组装 checkpoint 的资料或岗位绑定已变化，未写入简历；请重新生成方案。",
+        refreshable: true,
+        binding
+      };
+    }
+    if (command.mode === "job_specific") {
+      const sourceBranchId = checkpoint.sourceBranchId ?? checkpoint.sourceResumeId;
+      if (!sourceBranchId || !command.sourceFingerprint) {
+        return {
+          kind: "stale",
+          code: "resume_composition_source_fingerprint_missing",
+          message: "岗位简历来源版本无法核验，未写入简历；请重新生成岗位方案。",
+          refreshable: true,
+          binding
+        };
+      }
+      const source = await repository.getResumeSourceFingerprint(sourceBranchId);
+      if (
+        !source
+        || source.branchId !== command.sourceFingerprint.branchId
+        || source.revisionId !== command.sourceFingerprint.revisionId
+        || source.contentHash !== command.sourceFingerprint.contentHash
+        || source.presentationHash !== command.sourceFingerprint.presentationHash
+        || checkpoint.sourceBranchId !== command.sourceFingerprint.branchId
+        || checkpoint.sourceRevisionId !== command.sourceFingerprint.revisionId
+        || checkpoint.sourceContentHash !== command.sourceFingerprint.contentHash
+        || checkpoint.sourcePresentationHash !== command.sourceFingerprint.presentationHash
+      ) {
+        return {
+          kind: "stale",
+          code: "resume_composition_source_stale",
+          message: "来源通用简历已变化，原岗位方案已失效，未写入简历；请重新生成方案。",
+          refreshable: true,
+          binding
+        };
+      }
+    }
+
+    return {
+      kind: "valid",
+      checkpoint,
+      binding,
+      toolInput: {
+        profileId: checkpoint.profileId,
+        expectedProfileRevision: checkpoint.profileRevision,
+        mode: checkpoint.mode,
+        ...(checkpoint.jobId ? { jobId: checkpoint.jobId } : {}),
+        ...(checkpoint.sourceResumeId ? { sourceResumeId: checkpoint.sourceResumeId } : {}),
+        checkpointId: checkpoint.checkpointId,
+        generalResumeMode: branchMode
+      }
+    };
+  }
+
+  private async recoverStaleResumeComposition(
+    session: AgentSession,
+    command: ConfirmResumeCompositionCommand,
+    turnId: string,
+    operationId: string,
+    validation: Extract<Awaited<ReturnType<AgentHostStore["validateResumeCompositionCheckpoint"]>>, { kind: "stale" }>
+  ) {
+    let current = session;
+    if (validation.refreshable && validation.binding) {
+      try {
+        const staleCheckpoint = objectRecordValue(session.taskState?.knownSlots.resumeCompositionCheckpoint);
+        const targetContext = objectRecordValue(staleCheckpoint.targetContext);
+        const refreshed = await this.dependencies.executor.execute({
+          toolName: "career.workflow.compose_resume",
+          toolInput: {
+            profileId: validation.binding.profileId,
+            expectedProfileRevision: validation.binding.profileRevision,
+            mode: command.mode,
+            ...(command.jobId ? { jobId: command.jobId } : {}),
+            ...(command.sourceResumeId ? { sourceResumeId: command.sourceResumeId } : {}),
+            ...(stringValue(targetContext.targetDirection) ? { targetDirection: stringValue(targetContext.targetDirection) } : {}),
+            ...(stringValue(targetContext.targetAudience) ? { targetAudience: stringValue(targetContext.targetAudience) } : {}),
+            ...(stringValue(targetContext.companyType) ? { companyType: stringValue(targetContext.companyType) } : {})
+          },
+          operationId: `${operationId}-refresh`,
+          confirmed: false,
+          confirmationCount: 0,
+          careerSessionBinding: validation.binding,
+          requireSessionBinding: true
+        });
+        if (refreshed.ok) {
+          current = applyRuntimeFacadeCheckpoint(current, "career.workflow.compose_resume", refreshed.data);
+          current = clearResumeCompositionConfirmation(current, "review_composition");
+          current = appendAgentMessage(current, "assistant", "原组装方案已失效，我已重新生成一份方案，请重新确认后再写入简历。", {
+            kind: "text",
+            type: "text",
+            status: "complete",
+            turnId,
+            metadata: {
+              resumeCompositionRecovery: true,
+              staleCode: validation.code,
+              refreshedCheckpoint: true
+            }
+          });
+          return this.finishResumeCompositionWaiting(current, turnId, operationId, validation.code);
+        }
+      } catch {
+        // Fall through to the safe review state below. A refresh failure must
+        // never turn the stale checkpoint into a write attempt.
+      }
+    }
+    current = clearResumeCompositionConfirmation(current, "review_composition");
+    current = appendAgentMessage(current, "assistant", validation.message, {
+      kind: "error_status",
+      type: "error",
+      status: "complete",
+      turnId,
+      metadata: {
+        resumeCompositionRecovery: true,
+        staleCode: validation.code,
+        refreshedCheckpoint: false
+      }
+    });
+    return this.finishResumeCompositionWaiting(current, turnId, operationId, validation.code);
+  }
+
+  private async finishResumeCompositionWriteFailure(
+    session: AgentSession,
+    turnId: string,
+    operationId: string,
+    command: ConfirmResumeCompositionCommand,
+    code: string,
+    message: string
+  ) {
+    let current = session;
+    const existingFailure = current.messages.some((item) =>
+      objectRecordValue(item.metadata?.confirmedWrite).operationId === operationId
+      && item.metadata?.confirmedWriteFailure === true
+    );
+    if (!existingFailure) {
+      current = appendAgentMessage(current, "assistant", `${message} 当前 checkpoint 已保留，可以重试保存。`, {
+        kind: "error_status",
+        type: "error",
+        status: "complete",
+        turnId,
+        metadata: {
+          confirmedWriteFailure: true,
+          confirmedWrite: {
+            toolName: "career.workflow.compose_resume",
+            operationId,
+            checkpointId: command.checkpointId,
+            confirmed: true,
+            confirmationCount: 1,
+            errorCode: code
+          }
+        }
+      });
+    }
+    if (current.taskState) {
+      current = projectTaskStateIntoSession(current, {
+        ...current.taskState,
+        knownSlots: {
+          ...current.taskState.knownSlots,
+          resumeCompositionWriteFailure: { code, operationId },
+          resumeCompositionWriteFailureOperationId: operationId
+        },
+        completionStatus: "waiting_for_user",
+        updatedAt: new Date().toISOString()
+      });
+    }
+    return this.finishResumeCompositionWaiting(current, turnId, operationId, code);
+  }
+
+  private async finishResumeCompositionWaiting(
+    session: AgentSession,
+    turnId: string,
+    operationId: string,
+    code: string
+  ) {
+    const now = new Date().toISOString();
+    let current: AgentSession = {
+      ...settleUserExecutionState(session, turnId, "complete"),
+      activeTurn: session.activeTurn
+        ? { ...session.activeTurn, status: "waiting_for_user" as const, completedAt: now }
+        : session.activeTurn,
+      workflowState: session.taskState
+        ? projectTaskStateToWorkflowState(session.taskState, { ...session.workflowState, status: "waiting_for_user" })
+        : { ...session.workflowState, status: "waiting_for_user" as const }
+    };
+    current = completeTurnCheckpoint(current, turnId, now);
+    const saved = await this.dependencies.persistence.save(current);
+    this.patchSession(saved, {
+      turnStatus: "waiting_for_user",
+      activeTurnId: turnId,
+      currentObservation: {
+        toolName: "career.workflow.compose_resume",
+        operationId,
+        safeErrorCode: code,
+        checkpointId: stringValue(saved.taskState?.knownSlots.resumeCompositionCheckpoint && objectValue(saved.taskState.knownSlots.resumeCompositionCheckpoint).checkpointId)
+      }
+    });
+    return saved;
+  }
+
   /** Runtime-owned bridge for events whose deterministic operation is itself
    * the action (approval, artifact review, regenerate, or workflow control). */
   dispatchRuntimeUserEvent(input: {
@@ -589,6 +1202,14 @@ export class AgentHostStore {
     pageContext: AgentPageContext;
   }) {
     const { event } = input;
+    if (event.type === "confirm_resume_composition") {
+      return this.executeConfirmedResumeComposition({
+        session: input.session,
+        command: event,
+        pageContext: input.pageContext,
+        turnId: input.session.activeTurn?.id
+      });
+    }
     if (event.type === "confirmation") {
       return this.dispatch({ type: "confirmation", confirmed: event.confirmed }, { session: input.session, pageContext: input.pageContext });
     }
@@ -5653,6 +6274,154 @@ export function attachTaskStateOptions(session: AgentSession, state: AgentTaskSt
   };
 }
 
+function careerSessionBindingForSession(session: AgentSession): CareerSessionBinding | undefined {
+  if (
+    !session.personId
+    || !session.activeProfileId
+    || session.profileVersionNumber === undefined
+    || session.profileRevision === undefined
+  ) return undefined;
+  return {
+    agentSessionId: session.id,
+    personId: session.personId,
+    profileId: session.activeProfileId,
+    profileVersionNumber: session.profileVersionNumber,
+    profileRevision: session.profileRevision
+  };
+}
+
+function buildResumeCompositionConfirmationCommand(
+  session: AgentSession,
+  confirmationMode: "create_new" | "update_existing"
+): ConfirmResumeCompositionCommand | undefined {
+  const task = session.taskState;
+  if (!task || task.workflowId !== "compose_resume") return undefined;
+  const checkpoint = objectRecordValue(task.knownSlots.resumeCompositionCheckpoint);
+  const checkpointId = stringRecordValue(checkpoint.checkpointId);
+  const contentHash = stringRecordValue(checkpoint.contentHash);
+  const profileId = stringRecordValue(checkpoint.profileId) ?? task.selectedEntities.profileId;
+  const expectedProfileRevision = numberValue(checkpoint.profileRevision)
+    ?? numberValue(checkpoint.expectedProfileRevision)
+    ?? (typeof task.selectedEntities.profileVersion === "number" ? task.selectedEntities.profileVersion : undefined);
+  const mode = stringRecordValue(checkpoint.mode) ?? stringRecordValue(task.knownSlots.resumeCompositionMode);
+  if (
+    !checkpointId
+    || !contentHash
+    || !profileId
+    || expectedProfileRevision === undefined
+    || (mode !== "general" && mode !== "job_specific")
+    || task.knownSlots.resumeCompositionDecision !== "generate"
+    || task.knownSlots.resumeCompositionExplicitConfirmation !== true
+  ) return undefined;
+  const sourceFingerprint = mode === "job_specific"
+    && stringRecordValue(checkpoint.sourceBranchId)
+    && stringRecordValue(checkpoint.sourceRevisionId)
+    && stringRecordValue(checkpoint.sourceContentHash)
+    && stringRecordValue(checkpoint.sourcePresentationHash)
+    ? {
+        branchId: stringRecordValue(checkpoint.sourceBranchId)!,
+        revisionId: stringRecordValue(checkpoint.sourceRevisionId)!,
+        contentHash: stringRecordValue(checkpoint.sourceContentHash)!,
+        presentationHash: stringRecordValue(checkpoint.sourcePresentationHash)!
+      }
+    : undefined;
+  const taskBranchMode = task.knownSlots.resumeCompositionBranchMode;
+  const branchMode = taskBranchMode === "update_existing"
+    ? "update_existing"
+    : taskBranchMode === "create_new"
+      ? "create_new"
+      : confirmationMode;
+  return {
+    type: "confirm_resume_composition",
+    sessionId: session.id,
+    checkpointId,
+    contentHash,
+    profileId,
+    expectedProfileRevision,
+    mode,
+    branchMode,
+    ...(stringRecordValue(checkpoint.jobId) ? { jobId: stringRecordValue(checkpoint.jobId) } : {}),
+    ...(stringRecordValue(checkpoint.sourceResumeId) ? { sourceResumeId: stringRecordValue(checkpoint.sourceResumeId) } : {}),
+    ...(sourceFingerprint ? { sourceFingerprint } : {})
+  };
+}
+
+function hasResumeCompositionCheckpointForConfirmation(session: AgentSession) {
+  const checkpoint = objectRecordValue(session.taskState?.knownSlots.resumeCompositionCheckpoint);
+  return Boolean(
+    stringRecordValue(checkpoint.checkpointId)
+    && stringRecordValue(checkpoint.contentHash)
+    && stringRecordValue(checkpoint.profileId)
+    && (numberValue(checkpoint.profileRevision) ?? numberValue(checkpoint.expectedProfileRevision)) !== undefined
+    && (stringRecordValue(checkpoint.mode) === "general" || stringRecordValue(checkpoint.mode) === "job_specific")
+  );
+}
+
+function clearResumeCompositionWriteFailure(session: AgentSession) {
+  if (!session.taskState) return session;
+  const knownSlots = { ...session.taskState.knownSlots };
+  delete knownSlots.resumeCompositionWriteFailure;
+  delete knownSlots.resumeCompositionWriteFailureOperationId;
+  return projectTaskStateIntoSession(session, {
+    ...session.taskState,
+    knownSlots,
+    updatedAt: new Date().toISOString()
+  });
+}
+
+function resumeCompositionConfirmationOperationId(command: ConfirmResumeCompositionCommand) {
+  return `resume-composition-confirm-${stableHashText(JSON.stringify({
+    sessionId: command.sessionId,
+    checkpointId: command.checkpointId,
+    contentHash: command.contentHash,
+    branchMode: command.branchMode,
+    action: "confirmed_write"
+  })).slice(4, 28)}`;
+}
+
+function clearResumeCompositionConfirmation(session: AgentSession, stage: "review_composition") {
+  if (!session.taskState) return session;
+  const knownSlots = { ...session.taskState.knownSlots };
+  delete knownSlots.resumeCompositionDecision;
+  delete knownSlots.resumeCompositionExplicitConfirmation;
+  return projectTaskStateIntoSession(session, {
+    ...session.taskState,
+    stage,
+    completionStatus: "waiting_for_user",
+    knownSlots,
+    updatedAt: new Date().toISOString()
+  });
+}
+
+function mergeAuthoritativeResumeCompositionCheckpoint(
+  facadeValue: unknown,
+  persisted: ResumeCompositionCheckpoint
+) {
+  const facade = objectRecordValue(facadeValue);
+  const workflowCheckpoint = objectRecordValue(facade.workflowCheckpoint);
+  return {
+    ...facade,
+    workflowCheckpoint: {
+      ...workflowCheckpoint,
+      kind: "resume_composition",
+      checkpointId: persisted.checkpointId,
+      profileId: persisted.profileId,
+      expectedProfileRevision: persisted.profileRevision,
+      mode: persisted.mode,
+      ...(persisted.jobId ? { jobId: persisted.jobId } : {}),
+      ...(persisted.sourceResumeId ? { sourceResumeId: persisted.sourceResumeId } : {}),
+      contentHash: persisted.contentHash,
+      sourceBranchId: persisted.sourceBranchId,
+      sourceRevisionId: persisted.sourceRevisionId,
+      sourceContentHash: persisted.sourceContentHash,
+      sourcePresentationHash: persisted.sourcePresentationHash,
+      compositionResult: objectRecordValue(workflowCheckpoint.compositionResult).schemaVersion
+        ? workflowCheckpoint.compositionResult
+        : persisted.compositionResult
+    }
+  };
+}
+
 function appendIntakeRestorePrompt(session: AgentSession) {
   const state = session.taskState;
   if (!state || state.workflowId !== "guided_profile_intake" || state.completionStatus === "completed") return session;
@@ -7288,7 +8057,7 @@ function applyRuntimeFacadeCheckpoint(session: AgentSession, toolName: string, v
                   : toolName === "career.workflow.tailor_resume"
                     ? "answer_tailoring_question"
                     : task.stage;
-  const knownSlots = {
+  const knownSlots: Record<string, unknown> = {
     ...task.knownSlots,
     facadeCheckpoint: checkpoint,
     ...(checkpoint.kind === "job_fit" ? { fitAnalysis: result } : {}),
@@ -7297,9 +8066,13 @@ function applyRuntimeFacadeCheckpoint(session: AgentSession, toolName: string, v
       resumeCompositionCheckpoint: checkpoint,
       resumeCompositionProposal: checkpoint.proposal,
       resumeCompositionBlueprint: checkpoint.blueprint,
-      resumeCompositionResult: checkpoint.compositionResult,
       resumeCompositionMetrics: checkpoint.metrics,
-      resumeCompositionInformationNeeds: checkpoint.informationNeeds
+      resumeCompositionInformationNeeds: checkpoint.informationNeeds,
+      ...(completionStatus === "completed" ? {
+        resumeCompositionResult: Object.keys(result).length
+          ? { ...objectRecordValue(checkpoint.compositionResult), ...result }
+          : checkpoint.compositionResult
+      } : {})
     } : {}),
     ...(checkpoint.kind === "resume_export" ? { exportResult: result } : {}),
     ...(checkpoint.kind === "tailoring_session" ? { tailoringSession: normalizedSessionData } : {}),
@@ -7349,6 +8122,11 @@ function applyRuntimeFacadeCheckpoint(session: AgentSession, toolName: string, v
         : "reviewed"
     } : {})
   };
+  if (checkpoint.kind === "resume_composition" && completionStatus === "completed") {
+    delete knownSlots.resumeCompositionPendingInformationNeed;
+  } else if (checkpoint.kind === "resume_composition") {
+    delete knownSlots.resumeCompositionResult;
+  }
   const nextSession = {
     ...session,
     taskState: {
@@ -7744,6 +8522,12 @@ function numberValue(value: unknown) {
 function safeErrorCode(error: unknown) {
   if (error && typeof error === "object" && "code" in error && typeof error.code === "string") return error.code;
   return "profile_intake_capture_failed";
+}
+
+function errorMessage(error: unknown) {
+  return error instanceof Error && error.message
+    ? error.message
+    : "简历写入没有完成，当前组装方案已保留，可以重试保存。";
 }
 
 function captureExtractionStatus(value: string): "structured_ai" | "structured_local" | "partial" | "failed" {

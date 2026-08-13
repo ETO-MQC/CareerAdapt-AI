@@ -14,16 +14,31 @@ test.describe.serial("P4.5c.1 real resume artifacts", () => {
     await send(page, "用我的资料库生成一份适合互联网技术 / AI 应用方向秋招的通用简历。先自己读取资料，只有会明显改变简历质量的信息再问我。");
     const composeStartedAt = Date.now();
     await waitForTurnToSettle(page, 300_000);
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-      const state = await readReleaseState(page);
-      if (state.stage === "resume_ready" || state.completionStatus === "completed") break;
-      const directGenerate = page.getByRole("button", { name: "直接生成", exact: true }).last();
-      if (!await directGenerate.isVisible({ timeout: 2_000 }).catch(() => false)) break;
-      await directGenerate.click();
-      await waitForTurnToSettle(page, 300_000);
-      await approveVisibleCareerOperation(page);
-      await waitForTurnToSettle(page, 120_000);
-    }
+    const directGenerate = page.getByRole("button", { name: "直接生成", exact: true }).last();
+    await expect(directGenerate).toBeVisible({ timeout: 30_000 });
+    const beforeDirectGenerate = await readReleaseState(page);
+    console.info("[p45c12-case-a-before-direct]", JSON.stringify({
+      runtime: beforeDirectGenerate.runtime,
+      hermesRunId: beforeDirectGenerate.hermesRunId,
+      workflowId: beforeDirectGenerate.workflowId,
+      stage: beforeDirectGenerate.stage,
+      checkpointId: beforeDirectGenerate.checkpointId,
+      checkpointHash: beforeDirectGenerate.checkpointHash,
+      explicitConfirmation: beforeDirectGenerate.explicitConfirmation,
+      branchMode: beforeDirectGenerate.branchMode
+    }));
+    await directGenerate.click();
+    await expect(page.getByRole("region", { name: "确认执行 Career 操作" })).not.toBeVisible({ timeout: 5_000 });
+    const afterDeterministicDecision = await readReleaseState(page);
+    console.info("[p45c12-case-a-after-decision]", JSON.stringify({
+      workflowId: afterDeterministicDecision.workflowId,
+      stage: afterDeterministicDecision.stage,
+      checkpointId: afterDeterministicDecision.checkpointId,
+      checkpointHash: afterDeterministicDecision.checkpointHash,
+      explicitConfirmation: afterDeterministicDecision.explicitConfirmation,
+      branchMode: afterDeterministicDecision.branchMode
+    }));
+    await waitForTurnToSettle(page, 300_000);
     timings.compositionMs = Date.now() - composeStartedAt;
 
     const after = await readReleaseState(page);
@@ -36,10 +51,13 @@ test.describe.serial("P4.5c.1 real resume artifacts", () => {
       writerMode: after.writerMode,
       writerFallbackReason: after.writerFallbackReason,
       bulletCount: after.bulletCount,
-      branchCount: after.resumeBranches.length
+      branchCount: after.resumeBranches.length,
+      confirmedWrites: after.confirmedWrites
     }));
-    expect(after.runtime).toBe("hermes");
-    expect(after.hermesRunId).toMatch(/^run_/u);
+    // The confirmed write is a Host-owned deterministic transaction. It must
+    // not create a second Hermes planning/tool-selection run; the durable
+    // Hermes run identity, when present, must remain unchanged.
+    expect(after.hermesRunId).toBe(beforeDirectGenerate.hermesRunId);
     expect(after.workflowId).toBe("compose_resume");
     expect(after.stage).toBe("resume_ready");
     expect(after.completionStatus).toBe("completed");
@@ -99,6 +117,7 @@ test.describe.serial("P4.5c.1 real resume artifacts", () => {
       compressionPassCount: finalState.compressionPassCount,
       branchId: branch?.id,
       revisionId: branch?.currentRevisionId,
+      confirmedWrites: after.confirmedWrites,
       timings,
       previewText,
       pdfText: normalizeText([pdfText])
@@ -142,13 +161,6 @@ async function waitForTurnToSettle(page: Page, timeoutMs: number) {
   }, { timeout: timeoutMs + 5_000, intervals: [1_000, 2_000, 5_000] }).not.toBe("running");
 }
 
-async function approveVisibleCareerOperation(page: Page) {
-  const confirmation = page.getByRole("region", { name: "确认执行 Career 操作" });
-  if (await confirmation.isVisible({ timeout: 2_000 }).catch(() => false)) {
-    await confirmation.getByRole("button", { name: "确认", exact: true }).click();
-  }
-}
-
 async function readReleaseState(page: Page) {
   return page.evaluate(async () => {
     const database = await new Promise<IDBDatabase>((resolve, reject) => {
@@ -175,6 +187,7 @@ async function readReleaseState(page: Page) {
     const activeTurn = session?.activeTurn as Record<string, unknown> | undefined;
     const hermesRun = session?.hermesRun as Record<string, unknown> | undefined;
     const knownSlots = (taskState?.knownSlots ?? {}) as Record<string, unknown>;
+    const checkpoint = (knownSlots.resumeCompositionCheckpoint ?? {}) as Record<string, unknown>;
     const composition = (knownSlots.resumeCompositionResult ?? {}) as Record<string, unknown>;
     const telemetry = (composition.telemetry ?? taskState?.releaseTelemetry ?? taskState?.telemetry ?? {}) as Record<string, unknown>;
     const execution = (composition.writingExecution ?? taskState?.writingExecution ?? taskState?.writerExecution ?? {}) as Record<string, unknown>;
@@ -186,6 +199,16 @@ async function readReleaseState(page: Page) {
       stage: taskState?.stage,
       completionStatus: taskState?.completionStatus,
       taskState,
+      checkpointId: checkpoint.checkpointId,
+      checkpointHash: checkpoint.contentHash,
+      explicitConfirmation: knownSlots.resumeCompositionExplicitConfirmation,
+      branchMode: knownSlots.resumeCompositionBranchMode,
+      confirmedWrites: (sessions.find((candidate) => candidate.id === activeSessionId)?.messages as Array<Record<string, unknown>> | undefined ?? [])
+        .flatMap((message) => {
+          const metadata = (message.metadata ?? {}) as Record<string, unknown>;
+          const write = metadata.confirmedWrite as Record<string, unknown> | undefined;
+          return write ? [write] : [];
+        }),
       writerMode: execution.writerMode ?? telemetry.writerMode,
       writerProvider: execution.provider ?? telemetry.writerProvider,
       writerModel: execution.model ?? telemetry.writerModel,

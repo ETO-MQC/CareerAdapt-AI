@@ -402,6 +402,14 @@ function createAgentHost() {
       });
     }
     const prepared = await state.prepareRuntimeUserEvent({ session, event, pageContext: input.pageContext });
+    if (prepared.deterministicTerminal && prepared.event.type === "confirm_resume_composition") {
+      return state.executeConfirmedResumeComposition({
+        session: prepared.session,
+        command: prepared.event,
+        pageContext: input.pageContext,
+        turnId: prepared.turnId
+      });
+    }
     const deterministicEvent = event.type === "entity_selected"
       || event.type === "option_selected" && ["select_entity", "task_decision", "answer", "retry_current_step"].includes(event.action.type)
       || event.type === "retry";

@@ -69,6 +69,7 @@ const ComposeResumeInputSchema = z.object({
   sourceResumeId: z.string().min(1).optional(),
   checkpointId: z.string().min(1).optional(),
   name: z.string().min(1).max(120).optional(),
+  generalResumeMode: z.enum(["create_new", "update_existing"]).optional(),
   targetDirection: z.string().trim().min(1).max(160).optional(),
   targetAudience: z.string().trim().min(1).max(160).optional(),
   companyType: z.string().trim().min(1).max(160).optional(),
@@ -206,6 +207,7 @@ export async function executeCareerWorkflowFacade(
       const composedData = objectValue(composed.data);
       return facadeFromAtomic(name, operationId, composed, "completed", "open_resume", undefined, {
         kind: "resume_composition",
+        ...objectValue(composedData.checkpoint),
         profileId: input.profileId,
         expectedProfileRevision: input.expectedProfileRevision,
         mode: input.mode,
@@ -227,8 +229,9 @@ export async function executeCareerWorkflowFacade(
     }
     const planned = objectValue(plan.data);
     const persistedCheckpoint = objectValue(planned.checkpoint);
-    const checkpoint: Record<string, unknown> = {
-      kind: "resume_composition",
+      const checkpoint: Record<string, unknown> = {
+        kind: "resume_composition",
+        ...persistedCheckpoint,
       profileId: input.profileId,
       expectedProfileRevision: input.expectedProfileRevision,
       mode: input.mode,
@@ -248,8 +251,8 @@ export async function executeCareerWorkflowFacade(
       compositionResult: planned.composition,
       writingExecution: planned.writingExecution,
       telemetry: planned.telemetry,
-      planReceipt: plan.receipt
-    };
+        planReceipt: plan.receipt
+      };
     if (!context.confirmed && (context.confirmationCount ?? 0) < 1) {
       return facadeFromAtomic(name, operationId, plan, "waiting_for_confirmation", "review_composition", "组装提案已准备好。你可以直接生成，也可以补充最多两项可选信息后再生成。", checkpoint, context);
     }
@@ -257,8 +260,8 @@ export async function executeCareerWorkflowFacade(
       ...input,
       checkpointId: stringValue(planned.checkpointId) ?? stringValue(persistedCheckpoint.checkpointId)
     }, 1);
-    return facadeFromAtomic(name, operationId, composed, "completed", "open_resume", undefined, {
-      ...checkpoint,
+      return facadeFromAtomic(name, operationId, composed, "completed", "open_resume", undefined, {
+        ...checkpoint,
       compositionResult: objectValue(composed.data).composition,
       result: compactData(composed.data, ["resumeId", "revisionId", "revision", "mode", "idempotent"])
     }, context);

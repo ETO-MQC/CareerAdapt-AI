@@ -912,6 +912,7 @@ export class BrowserAgentToolService implements AgentToolServices {
         mode: input.mode,
         idempotent: created.idempotent,
         checkpointId: checkpoint.checkpointId,
+        checkpoint,
         composition,
         telemetry: {
           ...(composition.telemetry ?? {}),
@@ -957,6 +958,7 @@ export class BrowserAgentToolService implements AgentToolServices {
       mode: input.mode,
       idempotent: created.idempotent,
       checkpointId: checkpoint.checkpointId,
+      checkpoint,
       composition,
       telemetry: {
         ...(composition.telemetry ?? {}),

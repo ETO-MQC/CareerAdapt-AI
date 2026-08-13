@@ -34,9 +34,15 @@ export class AgentExecutor {
     confirmationCount?: number;
     careerSessionBinding?: CareerSessionBinding;
     requireSessionBinding?: boolean;
+    retryFailedOperation?: boolean;
   }) {
     const cached = this.results.get(input.operationId);
-    if (cached) {
+    if (cached && input.retryFailedOperation === true && !cached.ok) {
+      if (cached.toolName !== input.toolName) throw Object.assign(new Error("operation_id_conflict"), { code: "operation_id_conflict" });
+      this.results.delete(input.operationId);
+      this.operationBindings.delete(input.operationId);
+    }
+    if (cached && !(input.retryFailedOperation === true && !cached.ok)) {
       if (cached.toolName !== input.toolName) throw Object.assign(new Error("operation_id_conflict"), { code: "operation_id_conflict" });
       const cachedBinding = this.operationBindings.get(input.operationId);
       if (!sameOptionalBinding(cachedBinding, input.careerSessionBinding)) {

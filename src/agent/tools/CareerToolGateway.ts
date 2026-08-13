@@ -83,6 +83,8 @@ export type CareerToolExecutionContext = {
   careerSessionBinding?: CareerSessionBinding;
   /** Hermes/MCP callers must set this; legacy native tests may omit it. */
   requireSessionBinding?: boolean;
+  /** Host-only replay of a failed idempotent operation against the same checkpoint. */
+  retryFailedOperation?: boolean;
 };
 
 export type CareerSessionBindingVerification = {
@@ -216,7 +218,8 @@ export class CareerToolGateway {
           confirmed: context.confirmed,
           confirmationCount: context.confirmationCount,
           careerSessionBinding: context.careerSessionBinding,
-          requireSessionBinding: context.requireSessionBinding
+          requireSessionBinding: context.requireSessionBinding,
+          retryFailedOperation: context.retryFailedOperation
         });
       }
       return this.asDependencies().registry.execute(sourceToolName, input, normalizeOperationId(context.operationId), context.signal);
@@ -320,7 +323,8 @@ export class CareerToolGateway {
         confirmed: context.confirmed,
         confirmationCount: context.confirmationCount,
         careerSessionBinding: context.careerSessionBinding,
-        requireSessionBinding: context.requireSessionBinding
+        requireSessionBinding: context.requireSessionBinding,
+        retryFailedOperation: context.retryFailedOperation
       });
     }
     return this.asDependencies().registry.execute(sourceToolName, input, operationId, context.signal);
@@ -508,7 +512,8 @@ export class CareerToolGatewayExecutor extends AgentExecutor {
       confirmed: input.confirmed,
       confirmationCount: input.confirmationCount,
       careerSessionBinding: input.careerSessionBinding,
-      requireSessionBinding: input.requireSessionBinding
+      requireSessionBinding: input.requireSessionBinding,
+      retryFailedOperation: input.retryFailedOperation
     });
   }
 
@@ -519,7 +524,8 @@ export class CareerToolGatewayExecutor extends AgentExecutor {
       confirmed: input.confirmed,
       confirmationCount: input.confirmationCount,
       careerSessionBinding: input.careerSessionBinding,
-      requireSessionBinding: input.requireSessionBinding
+      requireSessionBinding: input.requireSessionBinding,
+      retryFailedOperation: input.retryFailedOperation
     });
     return {
       ok: result.ok,
