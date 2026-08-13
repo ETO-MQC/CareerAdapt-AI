@@ -108,6 +108,36 @@ describe("Tailoring Engine v2 repository application", () => {
     expect((await repository.getResumeBranch(general.branch.id))?.structuredContentItems).toEqual(general.branch.structuredContentItems);
   });
 
+  it("writes an explicitly selected tailoring claim to Profile as a new confirmed fact", async () => {
+    const profile = fixtureProfile();
+    const job = buildJobBranchFromProfile({
+      profile, jobId: "job-profile-sync", jobTitle: "AI 软件工程师", jobVersion: "job-v1", operationId: "job-profile-sync", name: "岗位简历",
+      selectedCanonicalItemIds: ["smartfocus"], requirementMatchIds: [], sourceMatchSetHash: "match-hash-profile-sync", now: NOW
+    });
+    db = new CareerAdaptDb(`TailoringProfileSync-${crypto.randomUUID()}`);
+    const repository = new WorkspaceRepository(db);
+    await repository.saveProfile(profile);
+    await repository.saveJobDescription({ id: "job-profile-sync", title: "AI 软件工程师", company: "测试公司", rawText: "需要真实项目交付经验", source: "manual", requirements: [], createdAt: NOW, updatedAt: NOW });
+    await repository.saveResumeBranch(job.branch);
+    await db.resumeRevisions.put(job.firstRevision);
+    const structured = job.branch.structuredContentItems?.find((item) => item.data.sectionType === "project");
+    if (!structured || structured.data.sectionType !== "project") throw new Error("project_fixture_expected");
+    const before = structured.data.highlights;
+    const resolvedText = "参与示例任务系统开发，完成 RAG 检索与输出验证。";
+    const plan: ResumeTailoringPlan = {
+      id: "plan-profile-sync", branchId: job.branch.id, jobId: "job-profile-sync", intensity: "balanced", basedOnBranchRevision: job.branch.revision, estimatedFitScore: 60, createdAt: NOW,
+      claims: [{ id: "claim-profile-sync", label: "确认项目交付经验", claimText: resolvedText, sourceItemIds: [structured.id], targetPatches: [{ sectionId: "project", itemId: structured.id, fieldPath: "highlights", operation: "replace", before, after: [resolvedText] }], claimType: "experience_reframe", section: "project", targetContentItemId: structured.id, targetFieldPath: `sections.project.items.${structured.id}.highlights`, currentText: before.join("\n"), proposedText: resolvedText, resolvedText, reason: "用户明确确认后同步", keywords: ["RAG"], requirementIds: ["req-profile-sync"], supportLevel: "user_declared", decision: "requires_confirmation", evidenceRefs: [], syncScope: "resume_and_profile", confirmed: true }]
+    };
+    const applied = await repository.applyTailoringPlan({ plan, operationId: "apply-profile-sync", expectedBranchRevision: job.branch.revision, expectedRevisionId: job.branch.currentRevisionId! });
+    const updatedProfile = await repository.getProfile(profile.id);
+    const syncedExperience = updatedProfile?.experiences.find((experience) => experience.id === "smartfocus");
+    expect(updatedProfile?.version).toBe(profile.version + 1);
+    expect(syncedExperience?.facts.some((item) => item.statement === resolvedText && item.confirmedByUser && item.provenance.some((source) => source.sourceType === "user_input" && source.sourceId === "apply-profile-sync"))).toBe(true);
+    expect(applied.profileFactsAddedFromTailoring).toBe(1);
+    expect(applied.branch.contentItems.find((item) => item.id === structured.id)?.userConfirmation).toBeUndefined();
+    expect(applied.branch.contentItems.find((item) => item.id === structured.id)?.factRefs.length).toBeGreaterThan(structured.factRefs.length);
+  });
+
   it("applies valid diffs independently, preserves presentation, and supports undo", async () => {
     const profile = fixtureProfile();
     const job = buildJobBranchFromProfile({

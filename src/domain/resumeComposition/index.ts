@@ -6,3 +6,4 @@ export * from "./ResumeReviewer";
 export * from "./CareerAssetDisplayIdentity";
 export * from "./ResumeSkillTaxonomy";
 export * from "./CareerResumeWritingService";
+export * from "./ResumeCompositionCheckpoint";

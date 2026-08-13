@@ -83,8 +83,8 @@ import {
   buildResumeEvidenceGraph,
   compileResumeCompositionWithAi,
   CareerResumeWritingService,
+  createResumeCompositionCheckpoint,
   planResumeBlueprint,
-  reviewResumeComposition,
   type ResumeCompositionMode
 } from "@/domain/resumeComposition";
 
@@ -791,6 +791,7 @@ export class BrowserAgentToolService implements AgentToolServices {
       mode: ResumeCompositionMode;
       jobId?: string;
       sourceResumeId?: string;
+      checkpointId?: string;
       targetDirection?: string;
       targetAudience?: string;
       companyType?: string;
@@ -803,6 +804,13 @@ export class BrowserAgentToolService implements AgentToolServices {
       { profile: context.profile, mode: input.mode, job: context.job, sourceResumeId: input.sourceResumeId, targetDirection: input.targetDirection, targetAudience: input.targetAudience, companyType: input.companyType, signal },
       { graph, blueprint, writingService: this.careerResumeWriter }
     );
+    const source = input.mode === "job_specific"
+      ? await this.requireCompositionSource(input.sourceResumeId, context.profile.id)
+      : undefined;
+    const checkpoint = await this.repository.saveResumeCompositionCheckpoint(createResumeCompositionCheckpoint({
+      composition,
+      ...(source ? { source } : {})
+    }));
     return {
       profileId: context.profile.id,
       profileRevision: context.profile.version,
@@ -814,7 +822,12 @@ export class BrowserAgentToolService implements AgentToolServices {
       reviewResult: composition.reviewResult,
       metrics: composition.metrics,
       keywordCoverage: composition.keywordCoverage,
-      informationNeeds: composition.informationNeeds
+      informationNeeds: composition.informationNeeds,
+      checkpointId: checkpoint.checkpointId,
+      checkpoint,
+      composition,
+      writingExecution: composition.writingExecution,
+      telemetry: composition.telemetry
     };
   }
 
@@ -826,23 +839,26 @@ export class BrowserAgentToolService implements AgentToolServices {
       mode: ResumeCompositionMode;
       jobId?: string;
       sourceResumeId?: string;
+      checkpointId?: string;
       targetDirection?: string;
       targetAudience?: string;
       companyType?: string;
       acknowledgedActiveProfileId?: string;
     };
     const context = await this.loadCompositionContext(input);
-    const composition = await compileResumeCompositionWithAi(
-      { profile: context.profile, mode: input.mode, job: context.job, sourceResumeId: input.sourceResumeId, targetDirection: input.targetDirection, targetAudience: input.targetAudience, companyType: input.companyType, signal },
-      { writingService: this.careerResumeWriter }
-    );
+    const checkpoint = await this.requireCompositionCheckpoint(input, context.profile.id, context.job?.id);
+    const composition = checkpoint.compositionResult;
     return {
       profileId: context.profile.id,
       profileRevision: context.profile.version,
       mode: input.mode,
-      reviewResult: reviewResumeComposition(composition, { job: context.job }).reviewResult,
+      checkpointId: checkpoint.checkpointId,
+      reviewResult: checkpoint.reviewResult,
       metrics: composition.metrics,
-      keywordCoverage: composition.keywordCoverage
+      keywordCoverage: composition.keywordCoverage,
+      composition,
+      writingExecution: composition.writingExecution,
+      telemetry: composition.telemetry
     };
   }
 
@@ -854,6 +870,7 @@ export class BrowserAgentToolService implements AgentToolServices {
       mode: ResumeCompositionMode;
       jobId?: string;
       sourceResumeId?: string;
+      checkpointId?: string;
       name?: string;
       generalResumeMode?: "create_new" | "update_existing";
       targetDirection?: string;
@@ -862,10 +879,8 @@ export class BrowserAgentToolService implements AgentToolServices {
       acknowledgedActiveProfileId?: string;
     };
     const context = await this.loadCompositionContext(input);
-    const composition = await compileResumeCompositionWithAi(
-      { profile: context.profile, mode: input.mode, job: context.job, sourceResumeId: input.sourceResumeId, targetDirection: input.targetDirection, targetAudience: input.targetAudience, companyType: input.companyType, signal },
-      { writingService: this.careerResumeWriter }
-    );
+    const checkpoint = await this.requireCompositionCheckpoint(input, context.profile.id, context.job?.id);
+    const composition = checkpoint.compositionResult;
     if (input.mode === "general") {
       const created = await this.repository.ensureGeneralResumeFromProfile({
         profileId: context.profile.id,
@@ -884,10 +899,21 @@ export class BrowserAgentToolService implements AgentToolServices {
         revision: created.branch.revision,
         mode: input.mode,
         idempotent: created.idempotent,
-        composition
+        checkpointId: checkpoint.checkpointId,
+        composition,
+        telemetry: {
+          ...(composition.telemetry ?? {}),
+          resumeBranchId: created.branch.id,
+          resumeRevisionId: created.revision?.id ?? created.branch.currentRevisionId
+        }
       };
     }
     if (!context.job) throw toolError("job_not_found", "岗位简历组装需要有效的 jobId。");
+    const source = await this.requireCompositionSource(input.sourceResumeId ?? checkpoint.sourceResumeId, context.profile.id);
+    if (checkpoint.sourceBranchId && checkpoint.sourceBranchId !== source.branchId) throw toolError("resume_composition_source_mismatch", "岗位简历的来源通用简历已变化，请重新生成组装方案。");
+    if (checkpoint.sourceRevisionId && checkpoint.sourceRevisionId !== source.revisionId) throw toolError("resume_composition_source_stale", "来源通用简历已产生新版本，请重新生成岗位简历方案。");
+    if (checkpoint.sourceContentHash && checkpoint.sourceContentHash !== source.contentHash) throw toolError("resume_composition_source_content_changed", "来源通用简历内容已变化，请重新生成岗位简历方案。");
+    if (checkpoint.sourcePresentationHash && checkpoint.sourcePresentationHash !== source.presentationHash) throw toolError("resume_composition_source_presentation_changed", "来源通用简历版式已变化，请重新生成岗位简历方案。");
     const selectedCanonicalItemIds = composition.blueprint.assets
       .map((asset) => asset.sourceAssetId)
       .filter((id) => context.profile.structuredFacts?.some((entry) => entry.data.id === id));
@@ -899,8 +925,17 @@ export class BrowserAgentToolService implements AgentToolServices {
       name: input.name?.trim() || `${context.profile.name} · ${context.job.title}`,
       selectedCanonicalItemIds,
       requirementMatchIds: [],
-      composition
+      composition,
+      sourceResumeId: source.branchId,
+      expectedSourceRevision: (await this.repository.getResumeBranch(source.branchId))?.revision,
+      expectedSourceRevisionId: source.revisionId,
+      expectedSourceContentHash: source.contentHash,
+      expectedSourcePresentationHash: source.presentationHash
     });
+    const sourceAfter = await this.repository.getResumeSourceFingerprint(source.branchId);
+    if (!sourceAfter || sourceAfter.contentHash !== source.contentHash || sourceAfter.presentationHash !== source.presentationHash || sourceAfter.revisionId !== source.revisionId) {
+      throw toolError("resume_composition_source_changed", "来源通用简历在生成过程中发生变化，岗位分支未被视为安全提交。");
+    }
     return {
       profileId: context.profile.id,
       profileRevision: context.profile.version,
@@ -909,8 +944,44 @@ export class BrowserAgentToolService implements AgentToolServices {
       revision: created.branch.revision,
       mode: input.mode,
       idempotent: created.idempotent,
-      composition
+      checkpointId: checkpoint.checkpointId,
+      composition,
+      telemetry: {
+        ...(composition.telemetry ?? {}),
+        resumeBranchId: created.branch.id,
+        resumeRevisionId: created.revision?.id ?? created.branch.currentRevisionId
+      }
     };
+  }
+
+  private async requireCompositionCheckpoint(input: {
+    checkpointId?: string;
+    profileId: string;
+    expectedProfileRevision: number;
+    mode: ResumeCompositionMode;
+    jobId?: string;
+    sourceResumeId?: string;
+  }, profileId: string, jobId?: string) {
+    if (!input.checkpointId) throw toolError("resume_composition_checkpoint_required", "请先生成并确认当前简历组装提案。");
+    const checkpoint = await this.repository.getResumeCompositionCheckpoint(input.checkpointId);
+    if (!checkpoint) throw toolError("resume_composition_checkpoint_missing", "当前组装提案已不存在，请重新生成。");
+    if (checkpoint.profileId !== profileId || checkpoint.profileRevision !== input.expectedProfileRevision || checkpoint.mode !== input.mode || checkpoint.jobId !== jobId) {
+      throw toolError("resume_composition_checkpoint_stale", "组装提案与当前资料或岗位版本不一致，请重新生成。");
+    }
+    if (input.sourceResumeId && checkpoint.sourceResumeId !== input.sourceResumeId) {
+      throw toolError("resume_composition_checkpoint_source_mismatch", "组装提案对应的来源简历已变化，请重新生成。");
+    }
+    return checkpoint;
+  }
+
+  private async requireCompositionSource(sourceResumeId: string | undefined, profileId: string) {
+    if (!sourceResumeId) throw toolError("resume_composition_source_required", "岗位简历必须基于一份已有的通用简历生成。");
+    const source = await this.repository.getResumeSourceFingerprint(sourceResumeId);
+    const branch = await this.repository.getResumeBranch(sourceResumeId);
+    if (!source || !branch) throw toolError("resume_composition_source_missing", "来源通用简历不存在，请先打开一份通用简历。");
+    if (branch.profileId !== profileId || branch.branchPurpose !== "general") throw toolError("resume_composition_source_invalid", "岗位简历只能从当前资料库的一份通用简历派生。");
+    if (!source.revisionId) throw toolError("resume_composition_source_revision_missing", "来源通用简历没有可用的当前版本。");
+    return source;
   }
 
   private async loadCompositionContext(input: { profileId: string; expectedProfileRevision: number; jobId?: string; acknowledgedActiveProfileId?: string }) {

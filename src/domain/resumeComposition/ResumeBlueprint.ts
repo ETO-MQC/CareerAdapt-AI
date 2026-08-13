@@ -33,30 +33,39 @@ export function planResumeBlueprint(input: ResumeBlueprintInput): ResumeBlueprin
   const keywordCoverage = effectiveInput.mode === "job_specific" && effectiveInput.job
     ? classifyJobKeywords(effectiveInput.job, effectiveInput.graph, canonicalById)
     : [];
-  const assetCandidates: Array<{ data: ResumeItemV2; relevance: number; node?: ResumeEvidenceGraph["nodes"][number] }> = effectiveInput.graph.sourceAssetIds
+  const assetCandidates: Array<{ data: ResumeItemV2; relevance: number; node?: ResumeEvidenceGraph["nodes"][number]; score: ResumeBlueprint["assets"][number]["score"] }> = effectiveInput.graph.sourceAssetIds
     .flatMap((id) => {
       const data = canonicalById.get(id);
       if (!data) return [];
       const node = effectiveInput.graph.nodes.find((candidate) => candidate.id === `asset:${id}`);
-      const relevance = effectiveInput.mode === "job_specific"
-        ? jobRelevance(data, keywordCoverage)
-        : generalRelevance(data, node?.factIds.length ?? 0, effectiveInput, node?.sourceExcerpts.join(" "));
-      return [{ data, relevance, node }];
+      const score = careerAssetResumeScore({ data, node, graph: effectiveInput.graph, mode: effectiveInput.mode, job: effectiveInput.job, keywordCoverage, input: effectiveInput });
+      return [{ data, relevance: score.total, node, score }];
     })
     .sort((left, right) => right.relevance - left.relevance || assetTitle(left.data).localeCompare(assetTitle(right.data)));
 
   const selected = selectAssets(assetCandidates, effectiveInput.mode, effectiveInput);
-  const assets = selected.map(({ data, relevance, node }) => ({
+  const assets = selected.map(({ data, relevance, node, score }) => ({
     sourceAssetId: data.id,
     sectionType: data.sectionType,
     title: assetTitle(data),
     sourceFactIds: node?.factIds ?? [],
     evidenceNodeIds: node ? [node.id] : [],
     relevance,
-    inclusionReason: inclusionReason(data, effectiveInput.mode, relevance, effectiveInput),
+    inclusionReason: inclusionReason(data, effectiveInput.mode, relevance, effectiveInput, score),
     bulletPlan: bulletPlan(data),
-    explicitTools: explicitTools(data, effectiveInput.graph)
+    explicitTools: explicitTools(data, effectiveInput.graph),
+    score
   }));
+  const selectedIds = new Set(selected.map(({ data }) => data.id));
+  const excludedAssets = assetCandidates
+    .filter(({ data }) => !selectedIds.has(data.id))
+    .map(({ data, relevance, score }) => ({
+      sourceAssetId: data.id,
+      title: assetTitle(data),
+      relevance,
+      reason: exclusionReason(data, relevance, effectiveInput.mode, selected, score),
+      score
+    }));
 
   const skillGroups = normalizeSkillGroups(input.graph.skillMatrix);
   const projectCount = selected.filter(({ data }) => data.sectionType === "project").length;
@@ -83,6 +92,7 @@ export function planResumeBlueprint(input: ResumeBlueprintInput): ResumeBlueprin
     skillGroups,
     sections,
     assets,
+    excludedAssets,
     informationNeeds,
     keywordCoverage,
     pageBudget: {
@@ -139,7 +149,7 @@ export function classifyJobKeywords(job: JobDescription, graph: ResumeEvidenceGr
   });
 }
 
-function selectAssets(candidates: Array<{ data: ResumeItemV2; relevance: number; node?: ResumeEvidenceGraph["nodes"][number] }>, mode: "general" | "job_specific", input: ResumeBlueprintInput) {
+function selectAssets(candidates: Array<{ data: ResumeItemV2; relevance: number; node?: ResumeEvidenceGraph["nodes"][number]; score: ResumeBlueprint["assets"][number]["score"] }>, mode: "general" | "job_specific", input: ResumeBlueprintInput) {
   const selected: typeof candidates = [];
   const education = candidates.find((candidate) => candidate.data.sectionType === "education");
   if (education) selected.push(education);
@@ -228,29 +238,83 @@ function summaryPlan(
   return `${lead}${audienceText}${directionText}，${focus}。`;
 }
 
-function generalRelevance(item: ResumeItemV2, factCount: number, input: ResumeBlueprintInput, evidenceText = "") {
-  const sectionWeight: Record<string, number> = { education: 0.95, project: 0.9, research: 0.88, work: 0.86, internship: 0.82, campus: 0.7, awards: 0.65, certificates: 0.58 };
-  const direction = [input.targetDirection, input.targetAudience, input.companyType].filter(Boolean).join(" ").toLocaleLowerCase();
-  const text = `${itemText(item)} ${evidenceText}`.toLocaleLowerCase();
-  const technicalSignal = findTechnicalTerms(text).length;
-  const internetSignal = /互联网|秋招|前端|后端|全栈|ai|人工智能|软件|产品/iu.test(direction)
-    ? Math.min(0.12, technicalSignal * 0.025)
-    : 0;
-  const researchSignal = /研究|算法|数据|ai|人工智能/iu.test(direction) && item.sectionType === "research" ? 0.05 : 0;
-  return Math.min(1, (sectionWeight[item.sectionType] ?? 0.45) + Math.min(0.12, factCount * 0.03) + internetSignal + researchSignal);
-}
-
-function jobRelevance(item: ResumeItemV2, coverage: ResumeKeywordCoverage[]) {
-  const text = itemText(item).toLocaleLowerCase();
-  const hits = coverage.filter((keyword) => keyword.status === "SUPPORTED" && text.includes(keyword.keyword.toLocaleLowerCase())).length;
-  return Math.min(1, 0.35 + hits * 0.14 + (item.sectionType === "project" || item.sectionType === "research" ? 0.18 : 0));
-}
-
-function inclusionReason(item: ResumeItemV2, mode: "general" | "job_specific", relevance: number, input: ResumeBlueprintInput) {
+function inclusionReason(item: ResumeItemV2, mode: "general" | "job_specific", relevance: number, input: ResumeBlueprintInput, score?: ResumeBlueprint["assets"][number]["score"]) {
   if (item.sectionType === "education") return "教育背景是通用简历的基础事实。";
-  if (mode === "job_specific") return relevance >= 0.7 ? "与岗位关键词或相关职责有直接证据连接。" : "保留一项相邻经历，便于人工判断是否继续使用。";
-  if (input.targetDirection && (item.sectionType === "project" || item.sectionType === "research")) return `与${input.targetDirection}方向的项目证据相关。`;
-  return item.sectionType === "project" || item.sectionType === "research" ? "项目或研究经历能承载可核验的行动与技术证据。" : "属于已确认的职业资产，作为通用简历补充。";
+  const signals = score ? `证据强度${formatScore(score.evidenceStrength)}、技术深度${formatScore(score.technicalDepth)}、独特性${formatScore(score.uniqueness)}` : "已有证据";
+  if (mode === "job_specific") return relevance >= 0.7 ? `与岗位要求有直接证据连接（${signals}）。` : `保留相邻经历，供人工判断（${signals}）。`;
+  if (input.targetDirection && (item.sectionType === "project" || item.sectionType === "research")) return `与${input.targetDirection}方向相关，并具备可核验行动证据（${signals}）。`;
+  return item.sectionType === "project" || item.sectionType === "research" ? `项目或研究经历能承载可核验的行动与技术证据（${signals}）。` : `属于已确认的职业资产，作为通用简历补充（${signals}）。`;
+}
+
+function exclusionReason(item: ResumeItemV2, relevance: number, mode: "general" | "job_specific", selected: Array<{ data: ResumeItemV2 }>, score?: ResumeBlueprint["assets"][number]["score"]) {
+  if (score?.weakEvidencePenalty && score.weakEvidencePenalty >= 0.45) return "来源事实或确认强度不足，未进入展示层。";
+  if (mode === "job_specific" && score && (score.requirementCoverage ?? 0) === 0 && relevance < 0.45) return "与当前岗位要求的直接证据连接不足，保留在资料库而不写入岗位简历。";
+  if (item.sectionType === "project" && selected.some(({ data }) => data.sectionType === "project")) return "页面预算优先保留更高综合分的项目，避免项目堆叠和重复技术栈。";
+  if (selected.length >= (mode === "general" ? 8 : 7)) return "达到当前简历的一页内容预算，未因篇幅继续堆叠低分资产。";
+  return "综合相关性、证据强度和页面预算后暂不选入，可在调整内容时重新评估。";
+}
+
+function careerAssetResumeScore(input: {
+  data: ResumeItemV2;
+  node?: ResumeEvidenceGraph["nodes"][number];
+  graph: ResumeEvidenceGraph;
+  mode: "general" | "job_specific";
+  job?: JobDescription;
+  keywordCoverage: ResumeKeywordCoverage[];
+  input: ResumeBlueprintInput;
+}): NonNullable<ResumeBlueprint["assets"][number]["score"]> {
+  const text = `${itemText(input.data)} ${input.node?.sourceExcerpts.join(" ") ?? ""}`.toLocaleLowerCase();
+  const tools = explicitTools(input.data, input.graph);
+  const bullets = bulletPlan(input.data);
+  const targetTerms = unique([input.input.targetDirection, input.input.targetAudience, input.input.companyType, input.job?.title].filter((value): value is string => Boolean(value)).flatMap((value) => value.toLocaleLowerCase().split(/[\s/|·、，,]+/u)));
+  const targetRelevance = targetTerms.length ? clamp(targetTerms.filter((term) => term.length > 1 && text.includes(term)).length / Math.min(4, targetTerms.length)) : sectionWeight(input.data.sectionType);
+  const evidenceStrength = clamp(((input.node?.confirmationStatus === "confirmed" ? 0.55 : 0.2) + Math.min(0.3, (input.node?.factIds.length ?? 0) * 0.08) + Math.min(0.15, (input.node?.sourceExcerpts.length ?? 0) * 0.03)));
+  const demonstratedComplexity = clamp((semanticParts(bullets.join(" ")) + Math.min(3, tools.length)) / 10);
+  const outcomeStrength = clamp((countOutcomeTerms(text) + (input.data.sectionType === "project" && bullets.some((bullet) => /完成|实现|构建|分析|优化|交付|支持/iu.test(bullet)) ? 1 : 0)) / 4);
+  const specificity = clamp((tools.length + (/[0-9一二三四五六七八九十%]+/u.test(text) ? 1 : 0) + (input.data.sectionType !== "custom" ? 1 : 0)) / 5);
+  const uniqueness = clamp(1 - maxOverlap(input.data, input.graph, input.node?.sourceAssetIds[0]));
+  const technicalDepth = clamp((tools.length + findTechnicalTerms(text).length) / 8);
+  const recency = recencyScore(input.data);
+  const ownershipStrength = clamp((input.node?.ownershipStrength ?? 0) / 6);
+  const redundancy = clamp(maxOverlap(input.data, input.graph, input.node?.sourceAssetIds[0]));
+  const weakEvidencePenalty = input.node?.confirmationStatus === "confirmed" ? 0 : input.node?.confirmationStatus === "needs_confirmation" ? 0.25 : 0.6;
+  const supported = input.keywordCoverage.filter((keyword) => keyword.status === "SUPPORTED" && keyword.sourceAssetIds.includes(input.data.id));
+  const requirementCoverage = input.mode === "job_specific" ? clamp(supported.length / Math.max(1, input.keywordCoverage.filter((keyword) => keyword.status === "SUPPORTED").length)) : undefined;
+  const mustHaveCoverage = input.mode === "job_specific" ? clamp(supported.length / Math.max(1, input.job?.requirements.filter((requirement) => requirement.priority === "high" || requirement.hardConstraint).length ?? 1)) : undefined;
+  const jdSemanticRelevance = input.mode === "job_specific" ? clamp((supported.length * 0.3) + (input.data.sectionType === "project" || input.data.sectionType === "research" ? 0.25 : 0)) : undefined;
+  const total = clamp(
+    targetRelevance * 0.28
+    + evidenceStrength * 0.16
+    + demonstratedComplexity * 0.1
+    + outcomeStrength * 0.1
+    + specificity * 0.08
+    + uniqueness * 0.08
+    + technicalDepth * 0.08
+    + recency * 0.05
+    + ownershipStrength * 0.06
+    + (requirementCoverage ?? 0.5) * (input.mode === "job_specific" ? 0.1 : 0.04)
+    + (mustHaveCoverage ?? 0.5) * (input.mode === "job_specific" ? 0.08 : 0)
+    + (jdSemanticRelevance ?? 0.5) * (input.mode === "job_specific" ? 0.07 : 0)
+    - redundancy * 0.1
+    - weakEvidencePenalty * 0.18
+  );
+  return {
+    targetRelevance,
+    evidenceStrength,
+    demonstratedComplexity,
+    outcomeStrength,
+    specificity,
+    uniqueness,
+    technicalDepth,
+    recency,
+    ownershipStrength,
+    redundancy,
+    weakEvidencePenalty,
+    ...(requirementCoverage !== undefined ? { requirementCoverage } : {}),
+    ...(mustHaveCoverage !== undefined ? { mustHaveCoverage } : {}),
+    ...(jdSemanticRelevance !== undefined ? { jdSemanticRelevance } : {}),
+    total
+  };
 }
 
 function bulletPlan(item: ResumeItemV2) {
@@ -305,6 +369,58 @@ function isNegatedKeyword(text: string, keyword: string) {
 function estimatePages(input: { selectedCount: number; projectCount: number; bulletCount: number; skillCount: number; hasSummary: boolean }) {
   const weightedLines = input.selectedCount * 2.2 + input.bulletCount * 1.15 + input.skillCount * 0.28 + (input.hasSummary ? 2.2 : 0);
   return Math.max(0.6, Math.round((weightedLines / 24) * 10) / 10);
+}
+
+function sectionWeight(sectionType: string) {
+  return ({ education: 0.95, project: 0.9, research: 0.88, work: 0.86, internship: 0.82, campus: 0.7, awards: 0.65, certificates: 0.58 } as Record<string, number>)[sectionType] ?? 0.45;
+}
+
+function semanticParts(value: string) {
+  return [
+    /(?:完成|实现|构建|开发|分析|设计|参与|协助|负责|优化|搭建|维护|清洗|组织)/iu.test(value),
+    /(?:系统|平台|页面|流程|数据|接口|模型|设备|功能|样本|活动|项目)/iu.test(value),
+    /(?:使用|结合|基于|通过|采用|调用|部署|验证|测试|联调)/iu.test(value),
+    /(?:结果|成果|支持|提升|降低|交付|上线|覆盖|准确|效率)/iu.test(value)
+  ].filter(Boolean).length;
+}
+
+function countOutcomeTerms(value: string) {
+  return (value.match(/(?:完成|实现|交付|支持|提升|降低|减少|覆盖|上线|验证|优化|成果)/giu) ?? []).length;
+}
+
+function maxOverlap(item: ResumeItemV2, graph: ResumeEvidenceGraph, currentId?: string) {
+  const currentTokens = tokenSet(itemText(item));
+  return Math.max(0, ...graph.sourceAssetIds.filter((id) => id !== currentId).map((id) => {
+    const node = graph.nodes.find((candidate) => candidate.id === `asset:${id}`);
+    return overlap(currentTokens, tokenSet(node?.sourceExcerpts.join(" ") ?? node?.value ?? ""));
+  }));
+}
+
+function tokenSet(value: string) {
+  return new Set(value.toLocaleLowerCase().split(/[^\p{L}\p{N}+#.-]+/u).filter((token) => token.length > 1));
+}
+
+function overlap(left: Set<string>, right: Set<string>) {
+  if (!left.size || !right.size) return 0;
+  const intersection = [...left].filter((token) => right.has(token)).length;
+  return intersection / Math.max(1, Math.min(left.size, right.size));
+}
+
+function recencyScore(item: ResumeItemV2) {
+  const record = item as unknown as Record<string, unknown>;
+  const value = [record.endDate, record.expectedEndDate, record.startDate, record.awardedAt]
+    .find((candidate): candidate is string => typeof candidate === "string" && /^20\d{2}/u.test(candidate));
+  if (!value) return 0.5;
+  const year = Number(value.slice(0, 4));
+  return clamp((year - 2020) / 10);
+}
+
+function formatScore(value: number) {
+  return `${Math.round(value * 100)}%`;
+}
+
+function clamp(value: number) {
+  return Math.max(0, Math.min(1, Number.isFinite(value) ? value : 0));
 }
 
 function unique(values: string[]) {

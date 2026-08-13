@@ -31,24 +31,34 @@ for both `general` and `job_specific` modes.
 3. Show a compact proposal before writing: selected education/assets,
    derived skill groups, summary, project bullets, evidence gaps, and review
    findings. Offer `生成简历`, `调整内容`, `继续补充资料`, or cancellation.
-4. Ask only optional, high-value questions. A missing metric, publication
+4. Persist the exact graph/blueprint/writer output/reviewer result as an
+   immutable `ResumeCompositionCheckpoint` before confirmation. Confirmation
+   commits that checkpoint exactly; it must not invoke the Writer a second
+   time. Regeneration, new evidence, target-context changes, job changes, or
+   Profile revision changes create a new checkpoint.
+5. Ask only optional, high-value questions. A missing metric, publication
    detail, or ambiguous author role must never block a safe draft; the user may
    choose direct generation.
-5. On explicit confirmation, run the writer and reviewer, then persist only
-   through `WorkspaceRepository` as an isolated `ResumeBranch`/revision.
+6. On explicit confirmation, persist only the approved checkpoint through
+   `WorkspaceRepository` as an isolated `ResumeBranch`/revision.
 
 ## EVIDENCE AND WRITING RULES
 
-- Classify every candidate claim as `SUPPORTED`, `DERIVED_PRESENTATION`,
+ - Record Writer execution (`ai` or `deterministic_fallback`) with provider,
+   model, prompt version, attempt, latency, fallback reason, and context/output
+   hashes. Never describe a fallback result as AI-generated.
+ - Classify every candidate claim as `SUPPORTED`, `DERIVED_PRESENTATION`,
   `NEEDS_USER_CONFIRMATION`, or `UNSUPPORTED`. Unsupported claims are held out
   of the resume; do not lower Fact Guard thresholds.
 - Aggregate technical skills only from explicit, confirmed tools, methods, or
   source evidence. Preserve source asset IDs, fact IDs, excerpts, and turn IDs.
   Do not infer proficiency, ownership, metrics, or PostgreSQL from SQLite/SQLx.
 - Preserve ownership wording such as `协助`, `参与`, and `共同负责`.
-- Compile substantial projects into a header, optional tech-stack row, and
-  two to four concise bullets. Do not persist recovered tools or author roles
-  back to Profile automatically.
+ - Compile substantial projects into a header, optional tech-stack row, and
+   two to four concise bullets. Do not persist recovered tools or author roles
+   back to Profile automatically.
+ - Run one bounded repair pass for weak bullets, then Fact Guard and Reviewer
+   again; retain fewer bullets when evidence cannot support a safe repair.
 - Treat summaries and grouped skills as presentation-layer output. Avoid
   generic claims such as “学习能力强” unless supported and useful.
 - Exclude placeholders, workflow controls, diagnostic/fallback text, negative
@@ -60,13 +70,18 @@ Classify each job keyword as `SUPPORTED`, `POTENTIALLY_SUPPORTED`, or
 `UNSUPPORTED`. Use supported terminology only when the evidence supports the
 same meaning. A neighboring technology may create a question or visible gap,
 never a stuffed keyword. If the user confirms a new fact, ask whether it is
-for this job branch only or should be explicitly synchronized to Profile.
+for this job branch only or should be explicitly synchronized to Profile. A
+Profile sync creates a confirmed structured fact with `user_input` provenance
+and Profile revision +1; resume-only evidence never enters Profile.
 
 ## REVIEW AND OUTPUT
 
-Run a separate reviewer pass for evidence support, ownership, relevance,
-duplicates, vague wording, paragraphs, ATS coverage, section balance, and
-one-page density. Cut low-relevance lines before changing safe typography.
+Run a global reviewer pass for evidence support, ownership, relevance,
+duplicates, vague wording, paragraphs, ATS evidence eligibility versus final
+coverage, section balance, and one-page density. After the draft, perform one
+bounded safe ATS repair for a supported-but-missing exact concept, then Fact
+Guard, Reviewer, and ATS re-check. Cut low-relevance lines before changing
+safe typography.
 Return the proposal/checkpoint before confirmation and the new resume/revision
 only after confirmation. Preview and PDF remain derived from the persisted
 revision; verify the text layer before export.

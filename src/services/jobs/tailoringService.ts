@@ -24,6 +24,7 @@ import {
 } from "@/domain/jobOptimization";
 import type {
   CareerProfile,
+  CapabilityEntity,
   ClaimConfirmation,
   JobCoverageReportV2,
   JobDescription,
@@ -221,7 +222,7 @@ export function withPlannerActions(input: { plan: ResumeTailoringPlan; assessmen
           : targetClaim?.section === "skills"
             ? "skill_once" as const
             : "specific_item" as const;
-      const inferredAnswerType = clarificationAnswerTypeFromAssessment(questionText);
+      const inferredAnswerType = clarificationAnswerTypeFromAssessment(questionText, capability);
       return {
         id: `planner-clarification-${assessment.itemId}-${index}`,
         question: questionText,
@@ -261,14 +262,14 @@ export function withPlannerActions(input: { plan: ResumeTailoringPlan; assessmen
   });
 }
 
-function clarificationAnswerTypeFromAssessment(questionText: string): string {
-  if (/cursor|claude code|codex|windsurf/i.test(questionText) && /哪些|什么|哪个/i.test(questionText)) return "multi_select";
-  if (/cursor|claude code|codex|windsurf/i.test(questionText)) return "proficiency";
-  if (/badcase|复现|原因|failure/i.test(questionText)) return "text";
-  if (/playwright|vitest|verifier|benchmark/i.test(questionText)) return "multi_select";
-  if (/哪些|什么|哪个/i.test(questionText)) return "multi_select";
-  if (/使用|用过|具备/i.test(questionText)) return "boolean";
-  return "boolean";
+export function clarificationAnswerTypeFromAssessment(questionText: string, capability?: CapabilityEntity): ReturnType<typeof clarificationAnswerType> {
+  const normalized = questionText.trim();
+  if (/链接|网址|仓库|作品集|github|url/i.test(normalized)) return "url";
+  if (/哪些|哪项|哪个|哪一|任意|之一|可选|多选|列表/i.test(normalized)) return "multi_select";
+  if (/描述|举例|案例|复现|原因|过程|如何|材料|证据|成果|项目中|负责过|解决过|产出过|失败|限制/i.test(normalized)) return "text";
+  if (capabilityAllowsProficiency(capability) && /程度|熟练|熟悉|了解|水平|使用过|实际使用|掌握|经验/i.test(normalized)) return "proficiency";
+  if (/是否|有没有|有无|用过|具备|曾经|能否|是否有/i.test(normalized)) return "boolean";
+  return capabilityAllowsProficiency(capability) ? "proficiency" : "boolean";
 }
 
 export function answerTailoringClarification(input: { plan: ResumeTailoringPlan; question: TailoringClarificationQuestion; answer: string | string[] | boolean; proficiency?: ClaimConfirmation["proficiency"]; branch?: ResumeBranch; operationId?: string; now?: string }) {
@@ -353,20 +354,20 @@ export function answerTailoringClarification(input: { plan: ResumeTailoringPlan;
   if (input.question.answerType === "multi_select" && Array.isArray(input.answer)) {
     const tools = answerCapabilities.filter(capabilityAllowsProficiency).map((item) => item.label).join("、");
     if (!tools) return withAnswerRecord(input.plan);
-    resolved = `在 ${tools} 等 AI Coding 工具辅助下完成开发任务，具备真实使用经验。`;
+    resolved = `结合 ${tools} 等相关工具或方法完成岗位相关任务，具备真实使用经验。`;
     finalTextByProficiency = {
-      proficient: `熟练使用 ${tools} 完成多文件开发、代码修改与问题定位。`,
-      familiar: `熟悉 ${tools} 的项目开发、代码修改与调试流程。`,
-      aware: `了解 ${tools} 等 AI Coding 工具的基本工作方式。`,
-      learning: `正在学习 ${tools} 等 AI Coding 工具在真实开发任务中的应用。`
+      proficient: `熟练运用 ${tools} 完成相关任务、问题定位与结果交付。`,
+      familiar: `熟悉 ${tools} 在相关任务中的使用、修改与问题定位流程。`,
+      aware: `了解 ${tools} 等相关工具或方法的基本工作方式。`,
+      learning: `正在学习 ${tools} 等相关工具或方法在真实任务中的应用。`
     };
   } else if (input.question.answerType === "proficiency" && input.proficiency) {
     const tool = capability!.label;
     finalTextByProficiency = {
-      proficient: `熟练使用 ${tool} 完成多文件开发、代码修改与问题定位。`,
-      familiar: `熟悉 ${tool} 的项目开发、代码修改与调试流程。`,
-      aware: `了解 ${tool} 等 AI Coding 工具的基本工作方式。`,
-      learning: `正在学习 ${tool} 等 AI Coding 工具在真实开发任务中的应用。`
+      proficient: `熟练运用 ${tool} 完成相关任务、问题定位与结果交付。`,
+      familiar: `熟悉 ${tool} 在相关任务中的使用、修改与问题定位流程。`,
+      aware: `了解 ${tool} 等相关工具或方法的基本工作方式。`,
+      learning: `正在学习 ${tool} 等相关工具或方法在真实任务中的应用。`
     };
     resolved = finalTextByProficiency[input.proficiency];
   } else {
@@ -640,7 +641,7 @@ export function buildClarificationQuestions(input: { job: JobDescription; taskIn
           : singleTarget
             ? "specific_item" as const
             : capabilityAllowsProficiency(capability) ? "skill_once" as const : "summary_once" as const;
-    const inferredAnswerType = clarificationAnswerType(requirement.statement);
+    const inferredAnswerType = clarificationAnswerType(requirement.statement, capability);
     const expectedImpact = related.some((item) => item.target.sectionType === "summary")
       ? "summary" as const
       : related.some((item) => item.target.sectionType === "skills")
@@ -673,11 +674,14 @@ export function buildClarificationQuestions(input: { job: JobDescription; taskIn
   return selectHighValueClarificationQuestions(dedupeClarificationQuestions(questions, input.job.id), 3);
 }
 
-function clarificationAnswerType(statement: string): "boolean" | "proficiency" | "text" | "url" | "multi_select" {
-  if (/cursor|claude code|codex|windsurf/i.test(statement)) return "proficiency";
-  if (/badcase|复现|原因|failure/i.test(statement)) return "text";
-  if (/playwright|vitest|verifier|benchmark/i.test(statement)) return "multi_select";
-  return "boolean";
+export function clarificationAnswerType(statement: string, capability?: CapabilityEntity): "boolean" | "proficiency" | "text" | "url" | "multi_select" {
+  const normalized = statement.trim();
+  if (/链接|网址|仓库|作品集|github|url/i.test(normalized)) return "url";
+  if (/哪些|哪项|哪个|哪一|任意|之一|可选|多选|列表/i.test(normalized)) return "multi_select";
+  if (/描述|举例|案例|复现|原因|过程|如何|材料|证据|成果|项目中|负责过|解决过|产出过|失败|限制/i.test(normalized)) return "text";
+  if (capabilityAllowsProficiency(capability) && /程度|熟练|熟悉|了解|水平|使用过|实际使用|掌握|经验/i.test(normalized)) return "proficiency";
+  if (/是否|有没有|有无|用过|具备|曾经|能否|是否有/i.test(normalized)) return "boolean";
+  return capabilityAllowsProficiency(capability) ? "proficiency" : "boolean";
 }
 
 export function dedupeClarificationQuestions(questions: TailoringClarificationQuestion[], jobId: string) {
@@ -794,9 +798,9 @@ function inferCapabilityCluster(text: string, capability?: string) {
   if (/(ai|llm|大模型).*(回答|输出|回复).*(评估|质量|纠错)|((评估|检查|纠错).*(ai|llm|大模型).*(回答|输出|回复))/.test(normalized)) return "ai_answer_evaluation";
   if (/(复杂|多约束|高难度).*(任务|指令|题目)|(任务|指令).*(设计|拆解)/.test(normalized)) return "complex_task_design";
   if (/rag|检索增强|grounding|知识库/.test(normalized)) return "rag_grounding";
-  if (/反馈|修正|badcase|错误案例|纠错/.test(normalized)) return "feedback_and_correction";
+  if (/反馈|修正|失败案例|错误案例|纠错|复盘/.test(normalized)) return "feedback_and_correction";
   if (/量化|百分比|提升|结果|成效/.test(normalized)) return "measurable_result";
-  if (/cursor|claudecode|codex|windsurf|ai编程|codingagent/.test(normalized)) return "llm_tool_usage";
+  if (/ai编程|智能编程|codingagent|开发助手|代码助手|大模型工具/.test(normalized)) return "llm_tool_usage";
   return capability ? `capability:${capability}` : `requirement:${stableHashText(normalized).slice(0, 12)}`;
 }
 
@@ -835,10 +839,10 @@ function resolveConfirmedClaimText(claim: TailoringClaim, confirmation: ClaimCon
   if (!capabilityAllowsProficiency(capability)) return claim.proposedText;
   const tool = capability!.label;
   const textByLevel = {
-    proficient: `熟练使用 ${tool} 完成多文件开发、代码修改与问题定位。`,
-    familiar: `熟悉 ${tool} 的项目开发、代码修改与调试流程。`,
-    aware: `了解 ${tool} 等 AI Coding 工具的基本工作方式。`,
-    learning: `正在学习 ${tool} 等 AI Coding 工具在真实开发任务中的应用。`
+    proficient: `熟练运用 ${tool} 完成相关任务、问题定位与结果交付。`,
+    familiar: `熟悉 ${tool} 在相关任务中的使用、修改与问题定位流程。`,
+    aware: `了解 ${tool} 等相关工具或方法的基本工作方式。`,
+    learning: `正在学习 ${tool} 等相关工具或方法在真实任务中的应用。`
   } as const;
   return textByLevel[confirmation.proficiency];
 }

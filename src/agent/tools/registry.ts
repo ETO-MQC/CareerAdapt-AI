@@ -267,6 +267,7 @@ const ResumeCompositionInputSchema = z.object({
   mode: z.enum(["general", "job_specific"]),
   jobId: z.string().min(1).optional(),
   sourceResumeId: z.string().min(1).optional(),
+  checkpointId: z.string().min(1).optional(),
   name: z.string().min(1).max(120).optional(),
   generalResumeMode: z.enum(["create_new", "update_existing"]).optional(),
   targetDirection: z.string().trim().min(1).max(160).optional(),

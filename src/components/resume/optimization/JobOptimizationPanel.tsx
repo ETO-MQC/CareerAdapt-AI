@@ -7,10 +7,12 @@ import { invokeStructuredAi } from "@/ai/client";
 import type {
   CareerProfile,
   ClaimConfirmation,
+  ClaimSyncScope,
   JobDescription,
   ResumeBranch,
   ResumeTailoringPlan,
   TailoringClaim,
+  TailoringClarificationQuestion,
   TailoringIntensity,
   TailoringSuggestion
 } from "@/domain/schemas";
@@ -268,8 +270,13 @@ export function JobOptimizationPanel({
     } finally { setPending(false); generationController.current = undefined; }
   }
 
-  function updateConfirmation(claim: TailoringClaim, proficiency: ClaimConfirmation["proficiency"] | undefined, accepted = true, editedText?: string) {
-    setConfirmations((current) => ({ ...current, [claim.id]: { claimId: claim.id, accepted, proficiency, editedText: accepted ? editedText : undefined, syncScope: accepted ? "resume_only" : "rejected" } }));
+  function updateConfirmation(claim: TailoringClaim, proficiency: ClaimConfirmation["proficiency"] | undefined, accepted = true, editedText?: string, syncScope: ClaimSyncScope = "resume_only") {
+    setConfirmations((current) => ({ ...current, [claim.id]: { claimId: claim.id, accepted, proficiency, editedText: accepted ? editedText : undefined, syncScope: accepted ? syncScope : "rejected" } }));
+  }
+
+  function updateConfirmationScope(claim: TailoringClaim, syncScope: Exclude<ClaimSyncScope, "rejected">) {
+    const current = confirmations[claim.id];
+    updateConfirmation(claim, current?.proficiency, true, current?.editedText, syncScope);
   }
 
   function submitClarificationAnswer() {
@@ -398,7 +405,8 @@ export function JobOptimizationPanel({
         operationId: `apply-tailoring-${confirmed.plan!.id}-${nanoid(8)}`,
         apply: async ({ plan: confirmedPlan, operationId }) => {
           const saved = await repository.applyTailoringPlan({ plan: confirmedPlan, operationId, expectedBranchRevision: activeBranch.revision, expectedRevisionId: activeBranch.currentRevisionId! });
-          const afterReport = analyzeJobFit({ profile: activeProfile, branch: saved.branch, job: activeJob }).report!;
+          const savedBranch = saved.branch;
+          const afterReport = analyzeJobFit({ profile: activeProfile, branch: savedBranch, job: activeJob }).report!;
           const beforeCovered = new Set(report?.coveredRequirementIds ?? []);
           setFitDelta({
             beforeScore: report?.overallCoverage ?? 0,
@@ -408,8 +416,8 @@ export function JobOptimizationPanel({
             userDeclared: confirmedPlan.claims.filter((claim) => claim.supportLevel === "user_declared" && claim.syncScope !== "rejected").map((claim) => claim.label ?? claim.claimText ?? claim.proposedText),
             remaining: afterReport.uncoveredRequirementDescriptions
           });
-          onBranchReady(saved.branch);
-          return { branchId: saved.branch.id, revisionId: saved.revision?.id ?? saved.branch.currentRevisionId! };
+          onBranchReady(savedBranch);
+          return { branchId: savedBranch.id, revisionId: saved.revision?.id ?? savedBranch.currentRevisionId! };
         }
       });
       onMessage(result.summary);
@@ -455,7 +463,7 @@ export function JobOptimizationPanel({
             可直接改写 {plannerAssessment.direct} 项 · 确认后可加入 {plannerAssessment.confirmable} 项 · 需要回答 {plannerAssessment.clarification} 项 · 建议准备材料 {plannerAssessment.materials} 项 · 保持不变 {plannerAssessment.keep} 项
           </p>
         </div> : null}
-        {activeQuestion ? <section className="tailoring-suggestion-group"><h3>需要你回答</h3><p>一次只展开一个问题；否定回答会被记录，且不会重复询问。</p><article key={activeQuestion.id} className="tailoring-suggestion-card"><div className="tailoring-question-progress"><strong>问题 {activeQuestionPosition} / {allQuestions.length}</strong><span>已完成 {completedQuestionIds.size}</span><span>剩余 {unansweredQuestions.length}</span></div><strong>{activeQuestion.question}</strong>{activeQuestion.answerType === "proficiency" ? <div className="chip-row" aria-label="选择真实熟练度">{["熟练使用", "熟悉基础", "了解", "正在学习", "没有使用"].map((option) => <button type="button" key={option} className={clarificationAnswer === option ? "secondary-button compact property-tab-active" : "secondary-button compact"} onClick={() => setClarificationAnswer(option)}>{option}</button>)}</div> : activeQuestion.answerType === "boolean" ? <div className="chip-row">{["有", "没有"].map((option) => <button type="button" key={option} className={clarificationAnswer === (option === "有") ? "secondary-button compact property-tab-active" : "secondary-button compact"} onClick={() => setClarificationAnswer(option === "有")}>{option}</button>)}</div> : activeQuestion.answerType === "multi_select" ? <div className="chip-row" aria-label="选择适用项">{["Cursor", "Claude Code", "Codex", "Windsurf", "其他"].map((option) => <button type="button" key={option} className={Array.isArray(clarificationAnswer) && clarificationAnswer.includes(option) ? "secondary-button compact property-tab-active" : "secondary-button compact"} onClick={() => setClarificationAnswer((current) => { const values = Array.isArray(current) ? current : []; return values.includes(option) ? values.filter((value) => value !== option) : [...values, option]; })}>{option}</button>)}</div> : <label className="field-label" htmlFor={`clarification-${activeQuestion.id}`}>{activeQuestion.answerType === "url" ? "链接" : "你的回答"}<input id={`clarification-${activeQuestion.id}`} name={`clarification-${activeQuestion.id}`} type={activeQuestion.answerType === "url" ? "url" : "text"} autoComplete="off" value={typeof clarificationAnswer === "string" ? clarificationAnswer : ""} onChange={(event) => setClarificationAnswer(event.target.value)} /></label>}<button type="button" className="primary-button" onClick={submitClarificationAnswer}>提交回答</button></article></section> : <div className="info-box" aria-live="polite"><strong>所有问题已回答完毕</strong><p>现在可以继续生成改写建议了。</p></div>}
+        {activeQuestion ? <section className="tailoring-suggestion-group"><h3>需要你回答</h3><p>一次只展开一个问题；否定回答会被记录，且不会重复询问。</p><article key={activeQuestion.id} className="tailoring-suggestion-card"><div className="tailoring-question-progress"><strong>问题 {activeQuestionPosition} / {allQuestions.length}</strong><span>已完成 {completedQuestionIds.size}</span><span>剩余 {unansweredQuestions.length}</span></div><strong>{activeQuestion.question}</strong>{activeQuestion.answerType === "proficiency" ? <div className="chip-row" aria-label="选择真实熟练度">{["熟练使用", "熟悉基础", "了解", "正在学习", "没有使用"].map((option) => <button type="button" key={option} className={clarificationAnswer === option ? "secondary-button compact property-tab-active" : "secondary-button compact"} onClick={() => setClarificationAnswer(option)}>{option}</button>)}</div> : activeQuestion.answerType === "boolean" ? <div className="chip-row">{["有", "没有"].map((option) => <button type="button" key={option} className={clarificationAnswer === (option === "有") ? "secondary-button compact property-tab-active" : "secondary-button compact"} onClick={() => setClarificationAnswer(option === "有")}>{option}</button>)}</div> : activeQuestion.answerType === "multi_select" ? <div className="chip-row" aria-label="选择适用项">{clarificationOptions(activeQuestion).map((option) => <button type="button" key={option.id} className={Array.isArray(clarificationAnswer) && clarificationAnswer.includes(option.value) ? "secondary-button compact property-tab-active" : "secondary-button compact"} onClick={() => setClarificationAnswer((current) => { const values = Array.isArray(current) ? current : []; return values.includes(option.value) ? values.filter((value) => value !== option.value) : [...values, option.value]; })}>{option.label}</button>)}</div> : <label className="field-label" htmlFor={`clarification-${activeQuestion.id}`}>{activeQuestion.answerType === "url" ? "链接" : "你的回答"}<input id={`clarification-${activeQuestion.id}`} name={`clarification-${activeQuestion.id}`} type={activeQuestion.answerType === "url" ? "url" : "text"} autoComplete="off" value={typeof clarificationAnswer === "string" ? clarificationAnswer : ""} onChange={(event) => setClarificationAnswer(event.target.value)} /></label>}<button type="button" className="primary-button" onClick={submitClarificationAnswer}>提交回答</button></article></section> : <div className="info-box" aria-live="polite"><strong>所有问题已回答完毕</strong><p>现在可以继续生成改写建议了。</p></div>}
         <div className="action-row">
           <button className="secondary-button" onClick={() => { setPlan(undefined); setPlannerAssessment(undefined); setSelected(new Set()); setPendingTaskInputs([]); setPendingBasePlan(undefined); setView("overview"); }}>弃用建议</button>
           <button className="secondary-button" onClick={() => setView("overview")}><ChevronLeft size={16} />返回概览</button>
@@ -489,16 +497,17 @@ export function JobOptimizationPanel({
       {view === "apply" ? <div className="tailoring-page" data-testid="tailoring-apply">
         <h2>确认并应用</h2>
         <div className="tailoring-apply-summary"><span>将修改 <strong>{selectedClaims.length}</strong> 处</span><span>新增关键词 <strong>{keywordCount}</strong> 个</span><span>隐藏 <strong>{hiddenCount}</strong> 项</span><span>需确认 <strong>{confirmationCount}</strong> 项</span><span>当前岗位适配度 <strong>{report?.overallCoverage ?? 0}</strong></span></div>
-        {selectedClaims.length ? <section className="tailoring-suggestion-group"><h3>本次真正写入的数据</h3>{selectedClaims.map((claim) => { const patch = claim.targetPatches?.at(-1); const finalText = finalTextForClaim(claim, confirmations[claim.id]); return <article key={claim.id} className="tailoring-suggestion-card"><header className="tailoring-suggestion-title"><strong>{fieldLocationLabel(claim)}</strong><span>{patch?.fieldPath ?? claim.targetFieldPath ?? "text"} · {patch?.operation ?? "replace"}</span></header><div className="tailoring-confirmation-context"><p><span>原简历内容</span><strong>{renderFieldValue(claim.originalValue ?? patch?.before ?? claim.currentText)}</strong></p><p><span>AI 建议内容</span><strong>{renderFieldValue(claim.suggestedValue ?? patch?.after ?? claim.proposedText)}</strong></p><p><span>用户确认后的最终内容</span><strong>{finalText}</strong></p><p><span>修改位置</span>{fieldLocationLabel(claim)}</p><p><span>修改原因</span>{claim.reason}</p><p><span>覆盖要求</span>{(claim.requirementIds ?? []).map((id) => requirementText(activeJob, id)).join("、") || "无"}</p><p><span>依据</span>{claim.evidenceRefs.length ? `${claim.evidenceRefs.length} 条已确认事实证据` : "用户本轮确认"}</p><p><span>保存范围</span>仅用于当前岗位简历</p></div>{conflictingClaimIds.has(claim.id) ? <div className="warning-box" role="alert">相同最终句还指向其他位置，必须先解决冲突。</div> : null}</article>; })}</section> : null}
+         {selectedClaims.length ? <section className="tailoring-suggestion-group"><h3>本次真正写入的数据</h3>{selectedClaims.map((claim) => { const patch = claim.targetPatches?.at(-1); const finalText = finalTextForClaim(claim, confirmations[claim.id]); return <article key={claim.id} className="tailoring-suggestion-card"><header className="tailoring-suggestion-title"><strong>{fieldLocationLabel(claim)}</strong><span>{patch?.fieldPath ?? claim.targetFieldPath ?? "text"} · {patch?.operation ?? "replace"}</span></header><div className="tailoring-confirmation-context"><p><span>原简历内容</span><strong>{renderFieldValue(claim.originalValue ?? patch?.before ?? claim.currentText)}</strong></p><p><span>AI 建议内容</span><strong>{renderFieldValue(claim.suggestedValue ?? patch?.after ?? claim.proposedText)}</strong></p><p><span>用户确认后的最终内容</span><strong>{finalText}</strong></p><p><span>修改位置</span>{fieldLocationLabel(claim)}</p><p><span>修改原因</span>{claim.reason}</p><p><span>覆盖要求</span>{(claim.requirementIds ?? []).map((id) => requirementText(activeJob, id)).join("、") || "无"}</p><p><span>依据</span>{claim.evidenceRefs.length ? `${claim.evidenceRefs.length} 条已确认事实证据` : "用户本轮确认"}</p><p><span>保存范围</span>{syncScopeLabel(confirmations[claim.id])}</p></div>{conflictingClaimIds.has(claim.id) ? <div className="warning-box" role="alert">相同最终句还指向其他位置，必须先解决冲突。</div> : null}</article>; })}</section> : null}
         {fitDelta ? <div className="info-box tailoring-fit-delta" aria-live="polite"><strong>岗位适配度：{fitDelta.beforeScore} → {fitDelta.afterScore}</strong><p>新覆盖要求：{fitDelta.newlyCovered.join("、") || "无新增"}</p><p>新关键词：{fitDelta.newKeywords.join("、") || "无新增"}</p><p>用户声明能力：{fitDelta.userDeclared.join("、") || "无"}</p><p>仍缺失要求：{fitDelta.remaining.join("、") || "无"}</p></div> : null}
         {selectedClaims.filter((claim) => claim.decision === "requires_confirmation").length ? <section className="tailoring-confirmations"><h3>待确认能力与表达</h3>{selectedClaims.filter((claim) => claim.decision === "requires_confirmation").map((claim) => { const confirmation = confirmations[claim.id]; const finalText = finalTextForClaim(claim, confirmation); const isProficiencyClaim = capabilityAllowsProficiency(claim.capability) && Boolean(claim.finalTextByProficiency); const editText = confirmationEdits[claim.id] ?? claim.claimText ?? claim.proposedText; return <article key={claim.id} className="tailoring-confirmation-card">
           <strong>{claim.label ?? "确认岗位相关表达"}</strong>
-          <div className="tailoring-confirmation-context"><p><span>原简历内容</span><strong>{renderFieldValue(claim.originalValue ?? claim.currentText)}</strong></p><p><span>AI 建议内容</span><strong>{renderFieldValue(claim.suggestedValue ?? claim.proposedText)}</strong></p><p><span>用户确认后的最终内容</span><strong aria-live="polite">{finalText}</strong></p><p><span>修改位置</span>{fieldLocationLabel(claim)}</p><p><span>修改原因</span>{claim.reason}</p><p><span>覆盖要求</span>{(claim.requirementIds ?? []).map((id) => requirementText(activeJob, id)).join("、") || "对应岗位要求"}</p><p><span>依据</span>{claim.evidenceRefs.length ? `${claim.evidenceRefs.length} 条已确认事实证据` : `用户确认 · 来源：${sourceItemsLabel(activeBranch, claim)}`}</p><p><span>保存范围</span>仅用于当前岗位简历</p></div>
+           <div className="tailoring-confirmation-context"><p><span>原简历内容</span><strong>{renderFieldValue(claim.originalValue ?? claim.currentText)}</strong></p><p><span>AI 建议内容</span><strong>{renderFieldValue(claim.suggestedValue ?? claim.proposedText)}</strong></p><p><span>用户确认后的最终内容</span><strong aria-live="polite">{finalText}</strong></p><p><span>修改位置</span>{fieldLocationLabel(claim)}</p><p><span>修改原因</span>{claim.reason}</p><p><span>覆盖要求</span>{(claim.requirementIds ?? []).map((id) => requirementText(activeJob, id)).join("、") || "对应岗位要求"}</p><p><span>依据</span>{claim.evidenceRefs.length ? `${claim.evidenceRefs.length} 条已确认事实证据` : `用户确认 · 来源：${sourceItemsLabel(activeBranch, claim)}`}</p><p><span>保存范围</span>{syncScopeLabel(confirmation)}</p></div>
           {isProficiencyClaim ? <div className="chip-row" aria-label="选择真实熟练度">{([['proficient','熟练使用'],['familiar','熟悉基础'],['aware','了解'],['learning','正在学习']] as const).map(([value, label]) => <button type="button" key={value} className={confirmation?.proficiency === value && confirmation.accepted ? "secondary-button compact property-tab-active" : "secondary-button compact"} onClick={() => updateConfirmation(claim, value)}>{label}</button>)}<button type="button" className={!confirmation?.accepted && confirmation?.syncScope === "rejected" ? "secondary-button compact property-tab-active" : "secondary-button compact"} onClick={() => updateConfirmation(claim, undefined, false)}>不添加</button></div> : <><label className="field-label" htmlFor={`claim-edit-${claim.id}`}>编辑最终句<textarea id={`claim-edit-${claim.id}`} value={editText} onChange={(event) => setConfirmationEdits((current) => ({ ...current, [claim.id]: event.target.value }))} /></label><div className="chip-row"><button type="button" className={confirmation?.accepted && !confirmation.editedText ? "secondary-button compact property-tab-active" : "secondary-button compact"} onClick={() => updateConfirmation(claim, undefined, true)}>确认采用</button><button type="button" className={confirmation?.editedText ? "secondary-button compact property-tab-active" : "secondary-button compact"} onClick={() => updateConfirmation(claim, undefined, true, editText)}>编辑后采用</button><button type="button" className={!confirmation?.accepted && confirmation?.syncScope === "rejected" ? "secondary-button compact property-tab-active" : "secondary-button compact"} onClick={() => updateConfirmation(claim, undefined, false)}>不采用</button></div></>}
-          <small>保存范围：仅用于当前岗位简历</small>
+          <small>保存范围：{syncScopeLabel(confirmation)}</small>
         </article>; })}</section> : null}
         <div className="info-box"><strong>导出前检查</strong><p><Check size={14} /> 通过 / 有建议 / 需要处理将在保存后显示；它不会改变事实。</p></div>
         {!selectedClaims.length ? <div className="info-box"><strong>尚未选中任何修改</strong><p>请选择具体改写，或返回回答问题后生成确认项。</p><button type="button" className="secondary-button compact" onClick={() => setView("suggestions")}>返回回答问题</button></div> : null}
+        {selectedClaims.some(profileSyncEligibleClaim) ? <section className="tailoring-sync-scope"><h3>资料库同步范围</h3><p className="muted-copy">默认只写入当前岗位简历；只有明确选择并确认“同时同步资料库”，用户证据才会进入 Profile。</p>{selectedClaims.filter(profileSyncEligibleClaim).map((claim) => { const confirmation = confirmations[claim.id]; const scope = confirmation?.syncScope === "resume_and_profile" ? "resume_and_profile" : "resume_only"; return <label className="field-label" key={`sync-scope-${claim.id}`} htmlFor={`sync-scope-${claim.id}`}><span>{claim.label ?? fieldLocationLabel(claim)}</span><select id={`sync-scope-${claim.id}`} value={scope} onChange={(event) => updateConfirmationScope(claim, event.target.value as Exclude<ClaimSyncScope, "rejected">)}><option value="resume_only">仅当前岗位简历</option><option value="resume_and_profile">同时同步资料库</option></select></label>; })}</section> : null}
         <button className="primary-button" type="button" disabled={pending || !canEdit || selectedClaims.length === 0 || conflictingClaimIds.size > 0} onClick={() => { void applySelected(); }}>应用选择并保存新版本</button>
         <p className="muted-copy">来源通用简历和个人资料库默认不变。保存后会创建新版本，可以撤销。</p>
       </div> : null}
@@ -565,6 +574,13 @@ function ResultList({ title, items, empty }: { title: string; items: string[]; e
 function viewLabel(view: TailoringView) { return ({ overview: "匹配概览", clarification: "补充信息", suggestions: "改写建议", apply: "确认并应用" } as const)[view]; }
 function scoreLabel(key: string) { return ({ hardConstraints: "硬性条件", coreCompetencies: "核心能力", responsibilities: "职责匹配", preferredQualifications: "加分项", terminologyCoverage: "关键词覆盖" } as Record<string, string>)[key] ?? key; }
 function sectionLabel(section: TailoringClaim["section"]) { return ({ summary: "自我评价", skills: "技能", project: "项目经历", work: "工作 / 实习经历", internship: "工作 / 实习经历", ordering: "排序与隐藏" } as Partial<Record<TailoringClaim["section"], string>>)[section] ?? "其他"; }
+function clarificationOptions(question: TailoringClarificationQuestion) {
+  return question.options?.length ? question.options : [
+    { id: "none", label: "没有", value: "没有" },
+    { id: "uncertain", label: "不确定", value: "不确定" },
+    { id: "skip", label: "跳过", value: "跳过" }
+  ];
+}
 function strategyCopy(intensity: TailoringIntensity) { return intensity === "conservative" ? "对齐关键词、压缩句子并调整顺序，不产生新能力陈述。" : intensity === "balanced" ? "用岗位语言重组真实经历；合理推导项集中确认后再应用。" : "更主动地重构相关内容并建议能力项；所有非直接依据内容都需确认。"; }
 function decisionLabel(claim: TailoringClaim) { return claim.decision === "auto_applicable" ? "可直接采用" : claim.decision === "blocked" ? "不能添加硬事实" : claim.supportLevel === "reasonable_inference" ? "不建议但可确认" : "需要确认"; }
 function requirementText(job: JobDescription, id: string) { return job.requirements.find((item) => item.id === id)?.description ?? "这项岗位要求暂未在简历中体现"; }
@@ -585,6 +601,13 @@ function finalTextForClaim(claim: TailoringClaim, confirmation?: ClaimConfirmati
   if (confirmation.editedText) return confirmation.editedText;
   if (confirmation.proficiency && claim.finalTextByProficiency) return claim.finalTextByProficiency[confirmation.proficiency];
   return claim.claimText ?? claim.proposedText;
+}
+function profileSyncEligibleClaim(claim: TailoringClaim) {
+  return Boolean(claim.targetPatches?.some((patch) => ["project", "work", "internship", "skills", "education", "campus", "volunteer"].includes(patch.sectionId)));
+}
+function syncScopeLabel(confirmation?: ClaimConfirmation) {
+  if (confirmation?.syncScope === "rejected") return "不写入";
+  return confirmation?.syncScope === "resume_and_profile" ? "当前岗位简历 + 资料库（已明确选择）" : "仅当前岗位简历";
 }
 function renderFieldValue(value: string | string[] | boolean | number) {
   return Array.isArray(value) ? value.join("\n") : String(value);

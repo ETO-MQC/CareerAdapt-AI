@@ -1248,6 +1248,12 @@ function bindAuthoritativeTaskInput(
         expectedProfileRevision: slots.expectedProfileVersion ?? taskState.selectedEntities.profileVersion,
         mode: slots.resumeCompositionMode ?? "general",
         ...(slots.selectedEntitiesJobId ?? taskState.selectedEntities.jobId ? { jobId: slots.selectedEntitiesJobId ?? taskState.selectedEntities.jobId } : {}),
+        ...((call.name === "review_resume_composition" || call.name === "compose_resume") && objectValue(slots.resumeCompositionCheckpoint).checkpointId
+          ? { checkpointId: objectValue(slots.resumeCompositionCheckpoint).checkpointId }
+          : {}),
+        ...(call.name === "compose_resume" && (objectValue(slots.resumeCompositionCheckpoint).sourceResumeId ?? taskState.selectedEntities.resumeId)
+          ? { sourceResumeId: objectValue(slots.resumeCompositionCheckpoint).sourceResumeId ?? taskState.selectedEntities.resumeId }
+          : {}),
         ...(slots.acknowledgedActiveProfileId ? { acknowledgedActiveProfileId: slots.acknowledgedActiveProfileId } : {}),
         ...(taskState.workflowId === "compose_resume"
           ? { generalResumeMode: slots.resumeCompositionBranchMode ?? "create_new" }

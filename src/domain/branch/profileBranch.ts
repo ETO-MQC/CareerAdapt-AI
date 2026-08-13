@@ -53,6 +53,8 @@ export function buildJobBranchFromProfile(input: {
   selectedCanonicalItemIds: string[];
   requirementMatchIds: string[];
   sourceMatchSetHash: string;
+  sourceBranchId?: string;
+  sourceRevisionId?: string;
   composition?: ResumeCompositionResult;
   now?: string;
 }): ProfileBranchBuildResult {
@@ -73,6 +75,8 @@ export function buildJobBranchFromProfile(input: {
     sourceJobVersion: input.jobVersion,
     derivedAt: now,
     sourceDraftRevision: 0,
+    ...(input.sourceBranchId ? { sourceBranchId: input.sourceBranchId } : {}),
+    ...(input.sourceRevisionId ? { sourceRevisionId: input.sourceRevisionId } : {}),
     matcherVersion: "job-source-mode.profile-library.v2",
     sourceMatchSetHash: input.sourceMatchSetHash,
     requirementMatchIds: input.requirementMatchIds,

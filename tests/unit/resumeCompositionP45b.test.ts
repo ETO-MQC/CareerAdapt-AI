@@ -3,6 +3,7 @@ import { invokeStructuredAi } from "@/ai/client";
 import { CareerProfileSchema, JobDescriptionSchema, type FactCategory, type ResumeItemV2 } from "@/domain/schemas";
 import {
   CareerResumeWritingService,
+  createResumeCompositionCheckpoint,
   compileResumeComposition,
   buildResumeEvidenceGraph,
   planResumeBlueprint,
@@ -11,6 +12,7 @@ import {
 } from "@/domain/resumeComposition";
 import { projectResumePresentationItem } from "@/domain/resumePresentation/projector";
 import { canonicalToStructuredProjectFields, patchCanonicalProjectFields } from "@/domain/resumeFields/catalog";
+import { ResumeCareerWritingTaskInputSchema, aiTaskRegistry } from "@/ai/tasks/registry";
 
 vi.mock("@/ai/client", () => ({ invokeStructuredAi: vi.fn() }));
 
@@ -129,6 +131,7 @@ describe("P4.5b resume compilation intelligence", () => {
     expect(result.metrics.duplicateBullets).toBe(0);
     expect(result.metrics.fillerBullets).toBe(0);
     expect(result.metrics.paragraphHeavyItems).toBe(0);
+    expect(result.metrics.atsRepairPassCount).toBeGreaterThanOrEqual(1);
     expect(result.informationNeeds.length).toBeLessThanOrEqual(2);
   });
 
@@ -268,5 +271,67 @@ describe("P4.5b resume compilation intelligence", () => {
     const unnamed = profile.structuredFacts?.find((entry) => entry.data.id === "exp-career")?.data;
     expect(unnamed?.sectionType === "project" ? resolveCareerAssetDisplayIdentity({ ...unnamed, title: "", role: undefined }).label : "").toBe("项目经历");
     expect(findTechnicalTerms("使用 API、测试和 React 完成页面；部署在 ESP32 上。")).toEqual(["React", "ESP32"]);
+  });
+
+  it("records writer execution, preserves target context, and creates an immutable checkpoint", () => {
+    const profile = profileFixture();
+    const composition = compileResumeComposition({
+      profile,
+      mode: "general",
+      targetDirection: "后端工程",
+      targetAudience: "校招",
+      companyType: "技术团队"
+    });
+    expect(composition.writingExecution).toMatchObject({ mode: "deterministic_fallback", attemptCount: 1 });
+    expect(composition.telemetry).toMatchObject({ writerMode: "deterministic_fallback", pageCountSource: "blueprint_estimate", targetContext: { targetDirection: "后端工程", targetAudience: "校招", companyType: "技术团队" } });
+    const checkpoint = createResumeCompositionCheckpoint({ composition, createdAt: TIME });
+    expect(checkpoint.compositionResult).toEqual(composition);
+    expect(checkpoint.contentHash.length).toBeGreaterThanOrEqual(8);
+    expect(checkpoint.writingExecution.inputContextHash.length).toBeGreaterThanOrEqual(8);
+  });
+
+  it("records a deterministic fallback when the writer provider is unavailable", async () => {
+    const profile = profileFixture();
+    const graph = buildResumeEvidenceGraph({ profile });
+    const blueprint = planResumeBlueprint({ profile, graph, mode: "general" });
+    vi.mocked(invokeStructuredAi).mockResolvedValueOnce({
+      ok: false,
+      errorCode: "provider_unavailable",
+      diagnostics: { provider: "server", model: "test-model", attempt: 2, latencyMs: 17 }
+    } as never);
+    const result = await new CareerResumeWritingService().writeWithExecution({ profile, graph, blueprint, mode: "general" });
+    expect(result.output).toBeUndefined();
+    expect(result.execution).toMatchObject({ mode: "deterministic_fallback", fallbackReason: "provider_unavailable", attemptCount: 2, provider: "server", model: "test-model", latencyMs: 17 });
+    expect(result.execution.inputContextHash.length).toBeGreaterThanOrEqual(8);
+  });
+
+  it("keeps writer target context in the strict task schema and prompt payload", () => {
+    const input = ResumeCareerWritingTaskInputSchema.parse({
+      mode: "job_specific",
+      targetRole: "后端工程师",
+      targetDirection: "服务端研发",
+      targetAudience: "应届校招面试官",
+      companyType: "B2B SaaS 技术团队",
+      assets: [{
+        sourceAssetId: "asset-1",
+        displayIdentity: "数据处理项目",
+        sectionType: "project",
+        canonicalItem: { id: "asset-1", sectionType: "project", title: "数据处理项目" },
+        factStatements: ["已确认完成数据处理"],
+        evidenceExcerpts: ["来源摘录"],
+        ownershipStrength: 3,
+        explicitTools: ["Python"]
+      }],
+      skillGroups: { 编程语言: ["Python"] },
+      instructions: []
+    });
+    const prompt = JSON.parse(aiTaskRegistry["resume-career-writer"].buildUserPrompt(input)) as Record<string, unknown>;
+    expect(prompt).toMatchObject({
+      mode: "job_specific",
+      targetRole: "后端工程师",
+      targetDirection: "服务端研发",
+      targetAudience: "应届校招面试官",
+      companyType: "B2B SaaS 技术团队"
+    });
   });
 });

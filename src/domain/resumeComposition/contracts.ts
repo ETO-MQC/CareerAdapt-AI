@@ -111,12 +111,46 @@ export type ResumeEvidenceGraph = z.infer<typeof ResumeEvidenceGraphSchema>;
 export const ResumeKeywordCoverageSchema = z.object({
   keyword: z.string().min(1),
   status: z.enum(["SUPPORTED", "POTENTIALLY_SUPPORTED", "UNSUPPORTED"]),
+  finalStatus: z.enum(["PRESENT", "MISSING_BUT_SUPPORTED", "CORRECTLY_ABSENT", "ADJACENT_CONFIRMATION_REQUIRED"]).optional(),
   sourceAssetIds: StringListSchema,
   factIds: StringListSchema,
   reason: z.string().min(1),
   question: z.string().min(1).optional()
 }).strict();
 export type ResumeKeywordCoverage = z.infer<typeof ResumeKeywordCoverageSchema>;
+
+/** A deterministic recovery is allowed, but it must remain observable. */
+export const ResumeWritingExecutionSchema = z.object({
+  mode: z.enum(["ai", "deterministic_fallback"]),
+  provider: z.string().trim().min(1).optional(),
+  model: z.string().trim().min(1).optional(),
+  promptVersion: z.string().trim().min(1).optional(),
+  attemptCount: z.number().int().min(1),
+  latencyMs: z.number().int().min(0).optional(),
+  fallbackReason: z.string().trim().min(1).optional(),
+  inputContextHash: z.string().min(8),
+  outputHash: z.string().min(8).optional()
+}).strict();
+export type ResumeWritingExecution = z.infer<typeof ResumeWritingExecutionSchema>;
+
+export const ResumeAssetResumeScoreSchema = z.object({
+  targetRelevance: z.number().min(0).max(1),
+  evidenceStrength: z.number().min(0).max(1),
+  demonstratedComplexity: z.number().min(0).max(1),
+  outcomeStrength: z.number().min(0).max(1),
+  specificity: z.number().min(0).max(1),
+  uniqueness: z.number().min(0).max(1),
+  technicalDepth: z.number().min(0).max(1),
+  recency: z.number().min(0).max(1),
+  ownershipStrength: z.number().min(0).max(1),
+  redundancy: z.number().min(0).max(1),
+  weakEvidencePenalty: z.number().min(0).max(1),
+  requirementCoverage: z.number().min(0).max(1).optional(),
+  mustHaveCoverage: z.number().min(0).max(1).optional(),
+  jdSemanticRelevance: z.number().min(0).max(1).optional(),
+  total: z.number().min(0).max(1)
+}).strict();
+export type ResumeAssetResumeScore = z.infer<typeof ResumeAssetResumeScoreSchema>;
 
 export const ResumeClaimSchema = z.object({
   id: z.string().min(1),
@@ -140,8 +174,17 @@ export const ResumeBlueprintAssetSchema = z.object({
   relevance: z.number().min(0).max(1),
   inclusionReason: z.string().min(1),
   bulletPlan: StringListSchema,
-  explicitTools: StringListSchema
+  explicitTools: StringListSchema,
+  score: ResumeAssetResumeScoreSchema.optional()
 }).strict();
+export const ResumeBlueprintExcludedAssetSchema = z.object({
+  sourceAssetId: z.string().min(1),
+  title: z.string().min(1),
+  relevance: z.number().min(0).max(1),
+  reason: z.string().min(1),
+  score: ResumeAssetResumeScoreSchema.optional()
+}).strict();
+export type ResumeBlueprintExcludedAsset = z.infer<typeof ResumeBlueprintExcludedAssetSchema>;
 
 export const ResumeBlueprintSchema = z.object({
   schemaVersion: z.literal("resume-blueprint-v1"),
@@ -162,6 +205,7 @@ export const ResumeBlueprintSchema = z.object({
     priority: z.number().min(0).max(1)
   }).strict()),
   assets: z.array(ResumeBlueprintAssetSchema),
+  excludedAssets: z.array(ResumeBlueprintExcludedAssetSchema).default([]),
   informationNeeds: z.array(z.object({
     id: z.string().min(1),
     question: z.string().min(1),
@@ -225,7 +269,14 @@ export const ResumeCompositionMetricsSchema = z.object({
   lowDensityBullets: z.number().int().min(0).default(0),
   paragraphHeavyItems: z.number().int().min(0),
   pageOverflow: z.boolean(),
-  onePageReasonable: z.boolean()
+  onePageReasonable: z.boolean(),
+  bulletRepairCount: z.number().int().min(0).default(0),
+  bulletRejectedCount: z.number().int().min(0).default(0),
+  repairPassCount: z.number().int().min(0).default(0),
+  unsupportedClaimsBlocked: z.number().int().min(0).default(0),
+  atsRepairPassCount: z.number().int().min(0).default(0),
+  compressionPassCount: z.number().int().min(0).default(0),
+  profileFactsAddedFromTailoring: z.number().int().min(0).default(0)
 }).strict();
 export type ResumeCompositionMetrics = z.infer<typeof ResumeCompositionMetricsSchema>;
 
@@ -237,6 +288,33 @@ export const ResumeReviewResultSchema = z.object({
   revisedBulletCount: z.number().int().min(0)
 }).strict();
 export type ResumeReviewResult = z.infer<typeof ResumeReviewResultSchema>;
+
+export const ResumeCompositionTelemetrySchema = z.object({
+  writerMode: z.enum(["ai", "deterministic_fallback"]).optional(),
+  writerProvider: z.string().min(1).optional(),
+  writerModel: z.string().min(1).optional(),
+  writerLatencyMs: z.number().int().min(0).optional(),
+  writerFallbackReason: z.string().min(1).optional(),
+  targetContext: ResumeCompositionTargetContextSchema.optional(),
+  selectedAssetCount: z.number().int().min(0).optional(),
+  selectedProjectCount: z.number().int().min(0).optional(),
+  bulletCount: z.number().int().min(0).optional(),
+  bulletRepairCount: z.number().int().min(0).optional(),
+  bulletRejectedCount: z.number().int().min(0).optional(),
+  evidenceKeywordSupportedCount: z.number().int().min(0).optional(),
+  evidenceKeywordPotentialCount: z.number().int().min(0).optional(),
+  evidenceKeywordUnsupportedCount: z.number().int().min(0).optional(),
+  finalKeywordPresentCount: z.number().int().min(0).optional(),
+  finalKeywordMissingSupportedCount: z.number().int().min(0).optional(),
+  reviewStatus: z.enum(["PASS", "NEEDS_REVIEW"]).optional(),
+  pageCount: z.number().min(0).optional(),
+  pageCountSource: z.enum(["blueprint_estimate", "rendered_export"]).optional(),
+  compressionPassCount: z.number().int().min(0).optional(),
+  profileFactsAddedFromTailoring: z.number().int().min(0).optional(),
+  resumeBranchId: z.string().min(1).optional(),
+  resumeRevisionId: z.string().min(1).optional()
+}).strict();
+export type ResumeCompositionTelemetry = z.infer<typeof ResumeCompositionTelemetrySchema>;
 
 export const ResumeCompositionProposalSchema = z.object({
   mode: ResumeCompositionModeSchema,
@@ -270,8 +348,35 @@ export const ResumeCompositionResultSchema = z.object({
   keywordCoverage: z.array(ResumeKeywordCoverageSchema),
   informationNeeds: ResumeBlueprintSchema.shape.informationNeeds,
   skillGroups: z.array(CareerResumeWritingSkillGroupSchema).default([]),
-  sourceResumeId: z.string().min(1).optional()
+  sourceResumeId: z.string().min(1).optional(),
+  writingExecution: ResumeWritingExecutionSchema.optional(),
+  writingOutput: CareerResumeWritingOutputSchema.optional(),
+  telemetry: ResumeCompositionTelemetrySchema.optional()
 }).strict();
 export type ResumeCompositionResult = z.infer<typeof ResumeCompositionResultSchema>;
+
+/** Exact proposal artifact committed after confirmation; persisted in appMeta. */
+export const ResumeCompositionCheckpointSchema = z.object({
+  checkpointId: z.string().min(1),
+  profileId: z.string().min(1),
+  profileRevision: z.number().int().min(1),
+  mode: ResumeCompositionModeSchema,
+  jobId: z.string().min(1).optional(),
+  sourceResumeId: z.string().min(1).optional(),
+  targetContext: ResumeCompositionTargetContextSchema,
+  evidenceGraphHash: z.string().min(8),
+  blueprint: ResumeBlueprintSchema,
+  writingExecution: ResumeWritingExecutionSchema,
+  writingOutput: CareerResumeWritingOutputSchema,
+  reviewResult: ResumeReviewResultSchema,
+  compositionResult: z.lazy(() => ResumeCompositionResultSchema),
+  createdAt: z.string().datetime({ offset: true }),
+  contentHash: z.string().min(8),
+  sourceBranchId: z.string().min(1).optional(),
+  sourceRevisionId: z.string().min(1).optional(),
+  sourceContentHash: z.string().min(8).optional(),
+  sourcePresentationHash: z.string().min(8).optional()
+}).strict();
+export type ResumeCompositionCheckpoint = z.infer<typeof ResumeCompositionCheckpointSchema>;
 
 export type ResumeCompositionItemData = ResumeItemV2;

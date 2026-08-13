@@ -1,16 +1,24 @@
 import { invokeStructuredAi } from "@/ai/client";
+import { promptVersions } from "@/ai/prompts/versions";
 import { migrateCareerProfileToV2 } from "@/domain/migrations/resumeV2";
 import { runRuleFactGuard } from "@/domain/adaptation/factGuard";
 import type { CareerProfile, FactStatement, JobDescription, MatchEvidenceRef } from "@/domain/schemas";
 import { dedupeCareerWriting, isFiller, isRawOrNegativeSpeech } from "@/domain/profileIntake/CareerWritingQuality";
 import {
   CareerResumeWritingOutputSchema,
+  type ResumeWritingExecution,
   type CareerResumeWritingOutput,
   type ResumeBlueprint,
   type ResumeEvidenceGraph
 } from "./contracts";
 import { resolveCareerAssetDisplayIdentity } from "./CareerAssetDisplayIdentity";
 import { canonicalTechnicalTerm, compactSkillCategory, normalizeSkillGroups, technicalTermCategory } from "./ResumeSkillTaxonomy";
+import { stableHashText } from "@/services/security/text";
+
+export type CareerResumeWritingResult = {
+  output?: CareerResumeWritingOutput;
+  execution: ResumeWritingExecution;
+};
 
 export class CareerResumeWritingService {
   async write(input: {
@@ -24,51 +32,109 @@ export class CareerResumeWritingService {
     companyType?: string;
     signal?: AbortSignal;
   }): Promise<CareerResumeWritingOutput | undefined> {
+    return (await this.writeWithExecution(input)).output;
+  }
+
+  async writeWithExecution(input: {
+    profile: CareerProfile;
+    graph: ResumeEvidenceGraph;
+    blueprint: ResumeBlueprint;
+    mode: "general" | "job_specific";
+    job?: JobDescription;
+    targetDirection?: string;
+    targetAudience?: string;
+    companyType?: string;
+    signal?: AbortSignal;
+  }): Promise<CareerResumeWritingResult> {
     const profile = migrateCareerProfileToV2(input.profile);
     const facts = collectFacts(profile);
     const entriesById = new Map(profile.structuredFacts.map((entry) => [entry.data.id, entry]));
-    const businessInput = {
-      mode: input.mode,
-      ...(input.job?.title ? { targetRole: input.job.title } : {}),
-      ...((input.targetDirection ?? input.blueprint.targetDirection) ? { targetDirection: input.targetDirection ?? input.blueprint.targetDirection } : {}),
-      ...((input.targetAudience ?? input.blueprint.targetAudience) ? { targetAudience: input.targetAudience ?? input.blueprint.targetAudience } : {}),
-      ...((input.companyType ?? input.blueprint.companyType) ? { companyType: input.companyType ?? input.blueprint.companyType } : {}),
-      assets: input.blueprint.assets.map((asset) => {
-        const entry = entriesById.get(asset.sourceAssetId);
-        const sourceFacts = entry?.factIds.map((id) => facts.get(id)).filter((fact): fact is FactStatement => Boolean(fact)) ?? [];
-        const evidence = input.graph.nodes.filter((node) => node.sourceAssetIds.includes(asset.sourceAssetId));
-        return {
-          sourceAssetId: asset.sourceAssetId,
-          displayIdentity: entry ? resolveCareerAssetDisplayIdentity(entry.data).label : asset.title,
-          sectionType: asset.sectionType,
-          canonicalItem: entry?.data ?? { sectionType: asset.sectionType },
-          factStatements: sourceFacts.map((fact) => fact.statement),
-          evidenceExcerpts: [...new Set([
-            ...(entry?.sourceExcerpt ? [entry.sourceExcerpt] : []),
-            ...evidence.flatMap((node) => node.sourceExcerpts)
-          ])].slice(0, 12),
-          ownershipStrength: Math.max(0, ...evidence.map((node) => node.ownershipStrength)),
-          explicitTools: asset.explicitTools
-        };
-      }),
-      skillGroups: normalizeSkillGroups(input.graph.skillMatrix),
-      instructions: [
-        "Use one or two lines for the summary; omit it if the evidence does not support a useful opening.",
-        "Prefer action plus concrete object or result plus a supported method/tool when evidence allows; retain the source's ownership strength.",
-        "For early-career general resumes, favor a one-page selection: education, compact skills, three or four strongest projects, research, and one award before campus activities.",
-        "Treat targetDirection, targetAudience, and companyType as presentation context only; never write them as a personal fact.",
-        "Do not expose sourceAssetId, fact IDs, evidence IDs, or process commentary in any title, summary, role, or highlight."
-      ]
-    };
+    const businessInput = buildBusinessInput(input, profile, facts, entriesById);
+    const inputContextHash = stableHashText(JSON.stringify(businessInput));
     const response = await invokeStructuredAi({
       task: "resume-career-writer",
       businessInput,
       outputSchema: CareerResumeWritingOutputSchema,
       signal: input.signal
     });
-    if (!response.ok) return undefined;
-    return sanitizeOutput(response.data, input);
+    if (!response.ok) {
+      return {
+        execution: {
+          mode: "deterministic_fallback",
+          ...(response.diagnostics?.provider ? { provider: response.diagnostics.provider } : {}),
+          ...(response.diagnostics?.model ? { model: response.diagnostics.model } : {}),
+          promptVersion: promptVersions.resumeCareerWriter,
+          attemptCount: Math.max(1, response.diagnostics?.attempt ?? 1),
+          ...(response.diagnostics?.latencyMs !== undefined ? { latencyMs: response.diagnostics.latencyMs } : {}),
+          fallbackReason: response.errorCode,
+          inputContextHash
+        }
+      };
+    }
+    const output = sanitizeOutput(response.data, input);
+    return {
+      output,
+      execution: {
+        mode: "ai",
+        ...(response.diagnostics?.provider ? { provider: response.diagnostics.provider } : {}),
+        ...(response.diagnostics?.model ? { model: response.diagnostics.model } : {}),
+        promptVersion: response.promptVersion ?? promptVersions.resumeCareerWriter,
+        attemptCount: Math.max(1, response.diagnostics?.attempt ?? 1),
+        ...(response.diagnostics?.latencyMs !== undefined ? { latencyMs: response.diagnostics.latencyMs } : {}),
+        inputContextHash,
+        outputHash: stableHashText(JSON.stringify(output))
+      }
+    };
   }
+}
+
+function buildBusinessInput(
+  input: {
+    graph: ResumeEvidenceGraph;
+    blueprint: ResumeBlueprint;
+    mode: "general" | "job_specific";
+    job?: JobDescription;
+    targetDirection?: string;
+    targetAudience?: string;
+    companyType?: string;
+  },
+  profile: ReturnType<typeof migrateCareerProfileToV2>,
+  facts: Map<string, FactStatement>,
+  entriesById: Map<string, ReturnType<typeof migrateCareerProfileToV2>["structuredFacts"][number]>
+) {
+  return {
+    mode: input.mode,
+    ...(input.job?.title ? { targetRole: input.job.title } : {}),
+    ...((input.targetDirection ?? input.blueprint.targetDirection) ? { targetDirection: input.targetDirection ?? input.blueprint.targetDirection } : {}),
+    ...((input.targetAudience ?? input.blueprint.targetAudience) ? { targetAudience: input.targetAudience ?? input.blueprint.targetAudience } : {}),
+    ...((input.companyType ?? input.blueprint.companyType) ? { companyType: input.companyType ?? input.blueprint.companyType } : {}),
+    assets: input.blueprint.assets.map((asset) => {
+      const entry = entriesById.get(asset.sourceAssetId);
+      const sourceFacts = entry?.factIds.map((id) => facts.get(id)).filter((fact): fact is FactStatement => Boolean(fact)) ?? [];
+      const evidence = input.graph.nodes.filter((node) => node.sourceAssetIds.includes(asset.sourceAssetId));
+      return {
+        sourceAssetId: asset.sourceAssetId,
+        displayIdentity: entry ? resolveCareerAssetDisplayIdentity(entry.data).label : asset.title,
+        sectionType: asset.sectionType,
+        canonicalItem: entry?.data ?? { sectionType: asset.sectionType },
+        factStatements: sourceFacts.map((fact) => fact.statement),
+        evidenceExcerpts: [...new Set([
+          ...(entry?.sourceExcerpt ? [entry.sourceExcerpt] : []),
+          ...evidence.flatMap((node) => node.sourceExcerpts)
+        ])].slice(0, 12),
+        ownershipStrength: Math.max(0, ...evidence.map((node) => node.ownershipStrength)),
+        explicitTools: asset.explicitTools
+      };
+    }),
+    skillGroups: normalizeSkillGroups(input.graph.skillMatrix),
+    instructions: [
+      "Use one or two lines for the summary; omit it if the evidence does not support a useful opening.",
+      "Prefer action plus concrete object or result plus a supported method/tool when evidence allows; retain the source's ownership strength.",
+      "For early-career general resumes, favor a one-page selection: education, compact skills, three or four strongest projects, research, and one award before campus activities.",
+      "Treat targetDirection, targetAudience, and companyType as presentation context only; never write them as a personal fact.",
+      "Do not expose sourceAssetId, fact IDs, evidence IDs, or process commentary in any title, summary, role, or highlight."
+    ]
+  };
 }
 
 function sanitizeOutput(

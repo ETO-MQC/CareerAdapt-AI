@@ -141,13 +141,13 @@ async function waitForApp(child) {
 
 function spawnPnpm(args, options) {
   if (process.platform !== "win32") return spawn("pnpm", args, options);
-  const command = ["pnpm.cmd", ...args].map(quoteWindowsArg).join(" ");
+  // `pnpm.cmd` is a command shim, so it must be invoked through cmd.exe on
+  // Windows. Keep the executable unquoted: with `/s /c`, quoting the first
+  // token makes some Node/cmd combinations treat the quotes as part of the
+  // command name.
+  const command = ["pnpm.cmd", ...args].join(" ");
   return spawn(process.env.ComSpec ?? "cmd.exe", ["/d", "/s", "/c", command], {
     ...options,
     shell: false
   });
-}
-
-function quoteWindowsArg(value) {
-  return `"${String(value).replace(/["^]/gu, (character) => `^${character}`)}"`;
 }

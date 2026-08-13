@@ -1,20 +1,30 @@
 import type { JobDescription, ResumeItemV2 } from "@/domain/schemas";
+import { runRuleFactGuard } from "@/domain/adaptation/factGuard";
 import { dedupeCareerWriting, isFiller, isRawOrNegativeSpeech, preservesOwnership, semanticComponentCount, writingOverlap } from "@/domain/profileIntake/CareerWritingQuality";
 import {
   ResumeCompositionResultSchema,
   ResumeReviewResultSchema,
   type ResumeCompositionResult,
-  type ResumeCompositionMetrics
+  type ResumeCompositionMetrics,
+  type ResumeReviewResult
 } from "./contracts";
 import { resolveCareerAssetDisplayIdentity } from "./CareerAssetDisplayIdentity";
 
 export function reviewResumeComposition(result: ResumeCompositionResult, input: { job?: JobDescription } = {}) {
+  const firstPass = reviewResumeCompositionPass(result, input, true);
+  if (!firstPass.didRepair) return firstPass.result;
+  return reviewResumeCompositionPass(firstPass.result, input, false).result;
+}
+
+function reviewResumeCompositionPass(result: ResumeCompositionResult, input: { job?: JobDescription }, allowRepair: boolean) {
   const findings: string[] = [];
   let duplicateBullets = 0;
   let fillerBullets = 0;
   let lowDensityBullets = 0;
   let paragraphHeavyItems = 0;
   let revisedBulletCount = 0;
+  let bulletRepairCount = 0;
+  let bulletRejectedCount = 0;
   const seenBullets: string[] = [];
 
   const items = result.items.map((item) => {
@@ -27,7 +37,7 @@ export function reviewResumeComposition(result: ResumeCompositionResult, input: 
     const before = bullets.length;
     bullets = dedupeCareerWriting(bullets);
     duplicateBullets += Math.max(0, before - bullets.length);
-    bullets = bullets.filter((bullet) => {
+    const candidateBullets = bullets.filter((bullet) => {
       const filler = isFiller(bullet);
       if (filler) fillerBullets += 1;
       const rawOrNegative = isRawOrNegativeSpeech(bullet);
@@ -39,6 +49,12 @@ export function reviewResumeComposition(result: ResumeCompositionResult, input: 
       else seenBullets.push(bullet);
       return !filler && !rawOrNegative && !lowDensity && !duplicate;
     });
+    const repairedBullets = candidateBullets.length >= 2 || !allowRepair
+      ? candidateBullets
+      : repairAffectedBullets({ item, bullets, result, sourceClaims });
+    bulletRepairCount += Math.max(0, repairedBullets.length - candidateBullets.length);
+    bulletRejectedCount += Math.max(0, bullets.length - repairedBullets.length);
+    bullets = dedupeCareerWriting(repairedBullets).filter((bullet) => semanticComponentCount(bullet) >= 2).slice(0, 4);
     revisedBulletCount += bullets.length;
     if (typeof data.description === "string" && data.description.length > 180) paragraphHeavyItems += 1;
     const sourceText = sourceClaims.map((claim) => claim.text).join(" ");
@@ -52,8 +68,17 @@ export function reviewResumeComposition(result: ResumeCompositionResult, input: 
   const pageOverflow = projectedLines > 31;
   if (pageOverflow) findings.push("estimated one-page budget is exceeded; lower-relevance bullets were trimmed only if a safe reduction was available");
   if (lowDensityBullets) findings.push(`${lowDensityBullets} bullets did not contain enough semantic components and were omitted`);
-  const unsupportedClaims = result.claims.filter((claim) => claim.classification === "UNSUPPORTED").length;
+  const unsupportedClaims = allowRepair ? result.claims.filter((claim) => claim.classification === "UNSUPPORTED").length : 0;
   if (unsupportedClaims) findings.push(`${unsupportedClaims} unsupported claims were held out of the resume`);
+  const atsRepair = allowRepair
+    ? applySafeAtsRepairs({
+      items: result.items.map((item, index) => ({ ...item, data: items[index] })),
+      coverage: result.keywordCoverage,
+      result
+    })
+    : { items: result.items.map((item, index) => ({ ...item, data: items[index] })), repairedCount: 0 };
+  const reviewedItems = atsRepair.items.map((item) => item.data);
+  const baseMetrics = result.metrics;
   const metrics: ResumeCompositionMetrics = {
     ...result.metrics,
     duplicateBullets,
@@ -62,24 +87,151 @@ export function reviewResumeComposition(result: ResumeCompositionResult, input: 
     paragraphHeavyItems,
     bulletsGenerated: revisedBulletCount,
     pageOverflow,
-    onePageReasonable: !pageOverflow || result.blueprint.pageBudget.estimatedPageCount <= 1.2
+    onePageReasonable: !pageOverflow || result.blueprint.pageBudget.estimatedPageCount <= 1.2,
+    bulletRepairCount: baseMetrics.bulletRepairCount + bulletRepairCount,
+    bulletRejectedCount: baseMetrics.bulletRejectedCount + bulletRejectedCount,
+    repairPassCount: baseMetrics.repairPassCount + (bulletRepairCount > 0 ? 1 : 0),
+    unsupportedClaimsBlocked: baseMetrics.unsupportedClaimsBlocked + (allowRepair ? unsupportedClaims : 0),
+    atsRepairPassCount: baseMetrics.atsRepairPassCount + (allowRepair ? 1 : 0)
   };
   const status = findings.some((finding) => /职责表述|项目仍包含|口语|ownership|paragraph|unsupported|density|semantic components/iu.test(finding)) ? "NEEDS_REVIEW" : "PASS";
   const reviewResult = ResumeReviewResultSchema.parse({
     status,
     findings,
-    atsCoverage: result.keywordCoverage,
+    atsCoverage: finalKeywordCoverage(result.keywordCoverage, reviewedItems),
     metrics,
-    revisedBulletCount
+    revisedBulletCount: reviewedItems.reduce((sum, item) => sum + bulletCount(item), 0)
   });
   const reviewed = ResumeCompositionResultSchema.parse({
     ...result,
-    items: result.items.map((item, index) => ({ ...item, data: items[index] })),
+    items: result.items.map((item, index) => ({ ...item, data: reviewedItems[index] })),
     reviewResult,
-    metrics
+    metrics,
+    telemetry: buildTelemetry({ result, items: reviewedItems, reviewResult, metrics })
   });
   void input;
-  return reviewed;
+  return { result: reviewed, didRepair: bulletRepairCount > 0 || atsRepair.repairedCount > 0 };
+}
+
+function repairAffectedBullets(input: {
+  item: ResumeCompositionResult["items"][number];
+  bullets: string[];
+  result: ResumeCompositionResult;
+  sourceClaims: ResumeCompositionResult["claims"];
+}) {
+  const asset = input.result.blueprint.assets.find((candidate) => candidate.sourceAssetId === input.item.sourceAssetId);
+  if (!asset || !asset.explicitTools.length) return input.bullets.filter((bullet) => semanticComponentCount(bullet) >= 2);
+  const safeTool = asset.explicitTools.find((tool) => !/^(?:API|工具|测试|开发)$/iu.test(tool));
+  if (!safeTool) return input.bullets.filter((bullet) => semanticComponentCount(bullet) >= 2);
+  const repaired = input.bullets.flatMap((bullet) => {
+    if (isFiller(bullet) || isRawOrNegativeSpeech(bullet) || semanticComponentCount(bullet) >= 2) return [bullet];
+    const sourceText = [
+      ...input.sourceClaims.map((claim) => claim.text),
+      ...asset.bulletPlan,
+      ...asset.explicitTools
+    ].join(" ");
+    const candidate = `${bullet.replace(/[。；;]+$/u, "")}，使用 ${safeTool}。`;
+    const guard = runRuleFactGuard({ originalText: sourceText, checkedText: candidate, usedEvidenceRefs: [] });
+    return preservesOwnership(sourceText, candidate) && guard.status === "pass" && semanticComponentCount(candidate) >= 2 ? [candidate] : [];
+  });
+  return repaired;
+}
+
+function finalKeywordCoverage(coverage: ResumeCompositionResult["keywordCoverage"], reviewedData: ResumeCompositionResult["items"][number]["data"][]) {
+  const finalText = reviewedData.map((item) => JSON.stringify(item)).join(" ").toLocaleLowerCase();
+  return coverage.map((entry) => {
+    const present = finalText.includes(entry.keyword.toLocaleLowerCase());
+    const finalStatus = entry.status === "SUPPORTED"
+      ? present ? "PRESENT" : "MISSING_BUT_SUPPORTED"
+      : entry.status === "POTENTIALLY_SUPPORTED"
+        ? "ADJACENT_CONFIRMATION_REQUIRED"
+        : "CORRECTLY_ABSENT";
+    return { ...entry, finalStatus };
+  });
+}
+
+function applySafeAtsRepairs(input: {
+  items: ResumeCompositionResult["items"];
+  coverage: ResumeCompositionResult["keywordCoverage"];
+  result: ResumeCompositionResult;
+}) {
+  let repairedCount = 0;
+  const supportedMissing = input.coverage.filter((entry) => entry.status === "SUPPORTED" && entry.sourceAssetIds.length > 0);
+  const items = input.items.map((compiledItem) => {
+    const item = compiledItem.data;
+    if (item.sectionType !== "project") return compiledItem;
+    const sourceAssetId = compiledItem.sourceAssetId;
+    const candidates = supportedMissing.filter((entry) => entry.sourceAssetIds.includes(sourceAssetId));
+    if (!candidates.length) return compiledItem;
+    const nodeText = input.result.evidenceGraph.nodes
+      .filter((node) => node.sourceAssetIds.includes(sourceAssetId))
+      .flatMap((node) => node.sourceExcerpts)
+      .join(" ")
+      .toLocaleLowerCase();
+    const currentTools = item.tools.map((tool) => tool.toLocaleLowerCase());
+    const additions = candidates
+      .map((entry) => entry.keyword.trim())
+      .filter((keyword) => keyword && nodeText.includes(keyword.toLocaleLowerCase()) && !currentTools.includes(keyword.toLocaleLowerCase()))
+      .slice(0, 4);
+    if (!additions.length) return compiledItem;
+    const patched = { ...item, tools: [...item.tools, ...additions] };
+    const sourceText = [
+      JSON.stringify(item),
+      nodeText
+    ].join(" ");
+    const guard = runRuleFactGuard({ originalText: sourceText, checkedText: JSON.stringify(patched), usedEvidenceRefs: [] });
+    if (guard.status !== "pass") return compiledItem;
+    repairedCount += additions.length;
+    return { ...compiledItem, data: patched };
+  });
+  return { items, repairedCount };
+}
+
+function bulletCount(item: ResumeItemV2) {
+  const record = item as unknown as Record<string, unknown>;
+  return [
+    ...(Array.isArray(record.highlights) ? record.highlights : []),
+    ...(Array.isArray(record.outcomes) ? record.outcomes : [])
+  ].filter((value): value is string => typeof value === "string" && value.trim().length > 0).length;
+}
+
+function buildTelemetry(input: {
+  result: ResumeCompositionResult;
+  items: ResumeCompositionResult["items"][number]["data"][];
+  reviewResult: ResumeReviewResult;
+  metrics: ResumeCompositionMetrics;
+}) {
+  const coverage = input.reviewResult.atsCoverage;
+  return {
+    ...(input.result.telemetry ?? {}),
+    ...(input.result.writingExecution ? {
+      writerMode: input.result.writingExecution.mode,
+      writerProvider: input.result.writingExecution.provider,
+      writerModel: input.result.writingExecution.model,
+      writerLatencyMs: input.result.writingExecution.latencyMs,
+      writerFallbackReason: input.result.writingExecution.fallbackReason
+    } : {}),
+    targetContext: {
+      ...(input.result.targetDirection ? { targetDirection: input.result.targetDirection } : {}),
+      ...(input.result.targetAudience ? { targetAudience: input.result.targetAudience } : {}),
+      ...(input.result.companyType ? { companyType: input.result.companyType } : {})
+    },
+    selectedAssetCount: input.result.blueprint.assets.length,
+    selectedProjectCount: input.items.filter((item) => item.sectionType === "project").length,
+    bulletCount: input.items.reduce((sum, item) => sum + bulletCount(item), 0),
+    bulletRepairCount: input.metrics.bulletRepairCount,
+    bulletRejectedCount: input.metrics.bulletRejectedCount,
+    evidenceKeywordSupportedCount: coverage.filter((entry) => entry.status === "SUPPORTED").length,
+    evidenceKeywordPotentialCount: coverage.filter((entry) => entry.status === "POTENTIALLY_SUPPORTED").length,
+    evidenceKeywordUnsupportedCount: coverage.filter((entry) => entry.status === "UNSUPPORTED").length,
+    finalKeywordPresentCount: coverage.filter((entry) => entry.finalStatus === "PRESENT").length,
+    finalKeywordMissingSupportedCount: coverage.filter((entry) => entry.finalStatus === "MISSING_BUT_SUPPORTED").length,
+    reviewStatus: input.reviewResult.status,
+    pageCount: input.metrics.pageOverflow ? Math.max(2, input.result.blueprint.pageBudget.estimatedPageCount) : input.result.blueprint.pageBudget.estimatedPageCount,
+    pageCountSource: "blueprint_estimate",
+    compressionPassCount: input.metrics.compressionPassCount,
+    profileFactsAddedFromTailoring: input.metrics.profileFactsAddedFromTailoring
+  };
 }
 
 function patchBullets(item: ResumeItemV2, bullets: string[]): ResumeItemV2 {

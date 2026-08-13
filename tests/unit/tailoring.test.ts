@@ -101,10 +101,10 @@ describe("tailoring application service", () => {
   });
 
   it.each([
-    ["proficient", "熟练使用 Cursor 完成多文件开发、代码修改与问题定位。"],
-    ["familiar", "熟悉 Cursor 的项目开发、代码修改与调试流程。"],
-    ["aware", "了解 Cursor 等 AI Coding 工具的基本工作方式。"],
-    ["learning", "正在学习 Cursor 等 AI Coding 工具在真实开发任务中的应用。"]
+    ["proficient", "熟练运用 Cursor 完成相关任务、问题定位与结果交付。"],
+    ["familiar", "熟悉 Cursor 在相关任务中的使用、修改与问题定位流程。"],
+    ["aware", "了解 Cursor 等相关工具或方法的基本工作方式。"],
+    ["learning", "正在学习 Cursor 等相关工具或方法在真实任务中的应用。"]
   ] as const)("resolves %s into proficiency-aware final text", (proficiency, resolvedText) => {
     const cursorPlan = { ...plan, claims: [{ ...plan.claims[0], proposedText: "深度使用 Cursor", keywords: ["Cursor"] }] };
     const confirmed = confirmTailoringClaims({ plan: cursorPlan, confirmations: [{ claimId: "claim-1", accepted: true, proficiency, syncScope: "resume_only" }] });

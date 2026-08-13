@@ -72,7 +72,12 @@ retry the diagnostic step without modifying user content.
 2. Review ownership, relevance, result/scope specificity, chronology,
    consistency, unsupported metrics, inflated titles, and ATS extraction risk.
 3. Separate factual risk from style preference and quote affected text.
-4. Verify that the preview text layer matches the reviewed content before export.
+4. Run one bounded safe ATS repair only for an exact keyword already supported
+   by source evidence; rerun Fact Guard and the reviewer, and distinguish
+   evidence eligibility from whether the final text contains the exact term.
+5. Review one-page density, page count, section balance, compression decisions,
+   and text-layer parity. Verify that the preview text layer matches the
+   reviewed content before export.
 
 ## TOOL BOUNDARIES
 
@@ -102,8 +107,13 @@ render or PDF failure, preserve the reviewed revision and report the artifact
 step to retry. For an unsupported claim, return it as a blocking finding; do
 not silently repair it.
 
+For an ATS gap, retain a visible `missing-but-supported` or
+`correctly-absent` status. Never invent a keyword, metric, tool, or ownership
+claim to improve the score.
+
 ## OUTPUT
 
 Return findings with severity, location, evidence status, recommendation,
-confirmation requirement, and a preview/export release checklist. Include the
+confirmation requirement, evidence-eligibility versus final ATS coverage,
+page/compression metrics, and a preview/export release checklist. Include the
 reviewed branch and revision in every result.

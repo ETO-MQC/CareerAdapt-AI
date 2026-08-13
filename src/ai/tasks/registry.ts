@@ -104,6 +104,12 @@ export const ResumeDocumentMapperTaskInputSchema = BaseAiInputSchema;
 export const ResumeCareerWritingTaskInputSchema = z.object({
   mode: z.enum(["general", "job_specific"]),
   targetRole: z.string().max(160).optional(),
+  // Presentation context is deliberately separate from CareerProfile facts.
+  // Keep these fields in the strict task contract so direction/audience/company
+  // context can reach the model and remain visible in safe diagnostics.
+  targetDirection: z.string().trim().min(1).max(160).optional(),
+  targetAudience: z.string().trim().min(1).max(160).optional(),
+  companyType: z.string().trim().min(1).max(160).optional(),
   assets: z.array(z.object({
     sourceAssetId: z.string().min(1),
     displayIdentity: z.string().min(1),
@@ -515,6 +521,9 @@ export const aiTaskRegistry = {
       return JSON.stringify({
         mode: input.mode,
         targetRole: input.targetRole,
+        targetDirection: input.targetDirection,
+        targetAudience: input.targetAudience,
+        companyType: input.companyType,
         assets: input.assets,
         skillGroups: input.skillGroups,
         instructions: [

@@ -477,7 +477,7 @@ export class AgentTaskStateReducer {
         state.knownSlots.resumeCompositionProposal = value.compositionProposal;
         state.knownSlots.resumeCompositionReviewResult = value.reviewResult;
         state.knownSlots.resumeCompositionInformationNeeds = value.informationNeeds;
-        state.knownSlots.resumeCompositionCheckpoint = {
+        state.knownSlots.resumeCompositionCheckpoint = value.checkpoint ?? {
           kind: "resume_composition",
           profileId: value.profileId ?? state.selectedEntities.profileId,
           expectedProfileRevision: value.profileRevision ?? state.selectedEntities.profileVersion,
@@ -499,12 +499,6 @@ export class AgentTaskStateReducer {
         const value = objectValue(event.observation);
         state.knownSlots.resumeCompositionReviewResult = value.reviewResult;
         const checkpoint = objectValue(state.knownSlots.resumeCompositionCheckpoint);
-        state.knownSlots.resumeCompositionCheckpoint = {
-          ...checkpoint,
-          reviewResult: value.reviewResult,
-          metrics: value.metrics ?? checkpoint.metrics,
-          keywordCoverage: value.keywordCoverage ?? checkpoint.keywordCoverage
-        };
         state.knownSlots.resumeCompositionProposal = checkpoint.proposal ?? state.knownSlots.resumeCompositionProposal;
         state.stage = "review_composition";
         state.completionStatus = "waiting_for_user";

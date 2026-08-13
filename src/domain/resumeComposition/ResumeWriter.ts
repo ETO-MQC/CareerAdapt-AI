@@ -24,7 +24,8 @@ import {
   type ResumeCompositionMetrics,
   type ResumeCompositionMode,
   type ResumeCompositionResult,
-  type ResumeEvidenceGraph
+  type ResumeEvidenceGraph,
+  type ResumeWritingExecution
 } from "./contracts";
 import { buildResumeEvidenceGraph } from "./ResumeEvidenceGraph";
 import { planResumeBlueprint } from "./ResumeBlueprint";
@@ -32,6 +33,7 @@ import { reviewResumeComposition } from "./ResumeReviewer";
 import { resolveCareerAssetDisplayIdentity } from "./CareerAssetDisplayIdentity";
 import { normalizeSkillGroups } from "./ResumeSkillTaxonomy";
 import { CareerResumeWritingService } from "./CareerResumeWritingService";
+import { stableHashText } from "@/services/security/text";
 
 export type ResumeWriterInput = {
   profile: CareerProfile;
@@ -41,6 +43,7 @@ export type ResumeWriterInput = {
   job?: JobDescription;
   sourceResumeId?: string;
   writingOutput?: CareerResumeWritingOutput;
+  writingExecution?: ResumeWritingExecution;
   targetDirection?: string;
   targetAudience?: string;
   companyType?: string;
@@ -57,6 +60,10 @@ export function writeResumeComposition(input: ResumeWriterInput): ResumeComposit
   const selectedFactIds = new Set(selectedEntries.flatMap((entry) => entry.factIds));
   const deterministicOutput = createDeterministicWritingOutput(input);
   const writingOutput = input.writingOutput ?? deterministicOutput;
+  const writingExecution = withOutputHash(
+    input.writingExecution ?? deterministicExecution(input, writingOutput),
+    writingOutput
+  );
   const writingAssetById = new Map((writingOutput?.assets ?? []).map((asset) => [asset.sourceAssetId, asset]));
 
   const summary = writingOutput?.summary?.trim() || input.blueprint.summaryPlan?.trim();
@@ -145,7 +152,9 @@ export function writeResumeComposition(input: ResumeWriterInput): ResumeComposit
     keywordCoverage: input.blueprint.keywordCoverage,
     informationNeeds: input.blueprint.informationNeeds,
     skillGroups: writingOutput?.skillGroups ?? Object.entries(normalizeSkillGroups(input.graph.skillMatrix)).map(([category, skills]) => ({ category, skills })),
-    ...(input.sourceResumeId ? { sourceResumeId: input.sourceResumeId } : {})
+    ...(input.sourceResumeId ? { sourceResumeId: input.sourceResumeId } : {}),
+    writingExecution,
+    writingOutput
   });
   return reviewResumeComposition(draft, { job: input.job });
 }
@@ -180,7 +189,7 @@ export async function compileResumeCompositionWithAi(input: {
 } = {}) {
   const graph = options.graph ?? buildResumeEvidenceGraph({ profile: input.profile });
   const blueprint = options.blueprint ?? planResumeBlueprint({ profile: input.profile, graph, mode: input.mode, job: input.job, targetDirection: input.targetDirection, targetAudience: input.targetAudience, companyType: input.companyType });
-  const writingOutput = await (options.writingService ?? new CareerResumeWritingService()).write({
+  const writingResult = await (options.writingService ?? new CareerResumeWritingService()).writeWithExecution({
     profile: input.profile,
     graph,
     blueprint,
@@ -191,7 +200,33 @@ export async function compileResumeCompositionWithAi(input: {
     companyType: input.companyType,
     signal: input.signal
   });
-  return writeResumeComposition({ ...input, graph, blueprint, writingOutput });
+  return writeResumeComposition({ ...input, graph, blueprint, writingOutput: writingResult.output, writingExecution: writingResult.execution });
+}
+
+function deterministicExecution(input: ResumeWriterInput, output: CareerResumeWritingOutput): ResumeWritingExecution {
+  return {
+    mode: "deterministic_fallback",
+    attemptCount: 1,
+    fallbackReason: "deterministic_compile_path",
+    inputContextHash: stableHashText(JSON.stringify({
+      profileId: input.profile.id,
+      profileRevision: input.profile.version,
+      mode: input.mode,
+      sourceResumeId: input.sourceResumeId,
+      targetDirection: input.targetDirection ?? input.blueprint.targetDirection,
+      targetAudience: input.targetAudience ?? input.blueprint.targetAudience,
+      companyType: input.companyType ?? input.blueprint.companyType,
+      assets: input.blueprint.assets.map((asset) => asset.sourceAssetId)
+    })),
+    outputHash: stableHashText(JSON.stringify(output))
+  };
+}
+
+function withOutputHash(execution: ResumeWritingExecution, output: CareerResumeWritingOutput): ResumeWritingExecution {
+  return {
+    ...execution,
+    outputHash: execution.outputHash ?? stableHashText(JSON.stringify(output))
+  };
 }
 
 /** Deterministic professional fallback used when the writer provider fails or
@@ -416,7 +451,14 @@ function initialMetrics(input: { items: ResumeCompiledItem[]; claims: ResumeClai
     lowDensityBullets: 0,
     paragraphHeavyItems: input.items.filter((item) => item.data.sectionType === "project" && Boolean((item.data as Extract<ResumeItemV2, { sectionType: "project" }>).description)).length,
     pageOverflow: input.input.blueprint.pageBudget.estimatedPageCount > 1,
-    onePageReasonable: input.input.blueprint.pageBudget.estimatedPageCount <= 1.2
+    onePageReasonable: input.input.blueprint.pageBudget.estimatedPageCount <= 1.2,
+    bulletRepairCount: 0,
+    bulletRejectedCount: 0,
+    repairPassCount: 0,
+    unsupportedClaimsBlocked: input.claims.filter((claim) => claim.classification === "UNSUPPORTED").length,
+    atsRepairPassCount: 0,
+    compressionPassCount: 0,
+    profileFactsAddedFromTailoring: 0
   };
 }
 

@@ -67,6 +67,7 @@ const ComposeResumeInputSchema = z.object({
   mode: z.enum(["general", "job_specific"]),
   jobId: z.string().min(1).optional(),
   sourceResumeId: z.string().min(1).optional(),
+  checkpointId: z.string().min(1).optional(),
   name: z.string().min(1).max(120).optional(),
   targetDirection: z.string().trim().min(1).max(160).optional(),
   targetAudience: z.string().trim().min(1).max(160).optional(),
@@ -200,6 +201,21 @@ export async function executeCareerWorkflowFacade(
     }, context);
   }
   if (name === "career.workflow.compose_resume") {
+    if (context.confirmed && typeof input.checkpointId === "string" && input.checkpointId.trim()) {
+      const composed = await call("career.resume.compose", input, 1);
+      const composedData = objectValue(composed.data);
+      return facadeFromAtomic(name, operationId, composed, "completed", "open_resume", undefined, {
+        kind: "resume_composition",
+        profileId: input.profileId,
+        expectedProfileRevision: input.expectedProfileRevision,
+        mode: input.mode,
+        jobId: input.jobId,
+        sourceResumeId: input.sourceResumeId,
+        checkpointId: input.checkpointId,
+        compositionResult: composedData.composition,
+        result: compactData(composed.data, ["resumeId", "revisionId", "revision", "mode", "idempotent"])
+      }, context);
+    }
     const plan = await call("career.resume.plan_composition", input);
     if (!plan.ok) {
       return facadeFromAtomic(name, operationId, plan, "waiting_for_confirmation", "review_composition", "组装方案暂时没有完成，请先查看安全错误并重试。", {
@@ -210,6 +226,7 @@ export async function executeCareerWorkflowFacade(
       }, context);
     }
     const planned = objectValue(plan.data);
+    const persistedCheckpoint = objectValue(planned.checkpoint);
     const checkpoint: Record<string, unknown> = {
       kind: "resume_composition",
       profileId: input.profileId,
@@ -217,6 +234,7 @@ export async function executeCareerWorkflowFacade(
       mode: input.mode,
       jobId: input.jobId,
       sourceResumeId: input.sourceResumeId,
+      checkpointId: stringValue(planned.checkpointId) ?? stringValue(persistedCheckpoint.checkpointId),
       targetDirection: input.targetDirection,
       targetAudience: input.targetAudience,
       companyType: input.companyType,
@@ -227,12 +245,18 @@ export async function executeCareerWorkflowFacade(
       metrics: planned.metrics,
       keywordCoverage: planned.keywordCoverage,
       informationNeeds: planned.informationNeeds,
+      compositionResult: planned.composition,
+      writingExecution: planned.writingExecution,
+      telemetry: planned.telemetry,
       planReceipt: plan.receipt
     };
     if (!context.confirmed && (context.confirmationCount ?? 0) < 1) {
       return facadeFromAtomic(name, operationId, plan, "waiting_for_confirmation", "review_composition", "组装提案已准备好。你可以直接生成，也可以补充最多两项可选信息后再生成。", checkpoint, context);
     }
-    const composed = await call("career.resume.compose", input, 1);
+    const composed = await call("career.resume.compose", {
+      ...input,
+      checkpointId: stringValue(planned.checkpointId) ?? stringValue(persistedCheckpoint.checkpointId)
+    }, 1);
     return facadeFromAtomic(name, operationId, composed, "completed", "open_resume", undefined, {
       ...checkpoint,
       compositionResult: objectValue(composed.data).composition,
