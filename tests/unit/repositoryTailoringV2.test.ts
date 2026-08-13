@@ -7,6 +7,7 @@ import { presentationSnapshotFromConfig } from "@/services/export/snapshot";
 import { analyzeJobFit } from "@/services/jobs/tailoringService";
 import { JobDescriptionSchema } from "@/domain/schemas";
 import { tailoringValueHash } from "@/domain/jobOptimization";
+import { tailoringDiffId } from "@/services/jobs/tailoringCommands";
 
 const NOW = "2026-07-20T08:00:00.000Z";
 let db: CareerAdaptDb | undefined;
@@ -206,6 +207,9 @@ describe("Tailoring Engine v2 repository application", () => {
       expectedRevisionId: job.branch.currentRevisionId!
     });
     expect(applied.appliedDiffs).toHaveLength(1);
+    expect(applied.acceptedDiffIds).toEqual([tailoringDiffId(valid)]);
+    expect(applied.changedFieldPaths).toEqual([`project.${structured.id}.highlights`]);
+    expect(applied.beforeContentHash).not.toBe(applied.afterContentHash);
     expect(applied.rejectedDiffs).toEqual([expect.objectContaining({ reasonCode: "original_mismatch" })]);
     expect(applied.revision).toBeDefined();
     expect(presentationSnapshotFromConfig(await repository.getResumePresentationConfig(job.branch.id))).toEqual(presentationBefore);

@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import type { AgentMessage } from "@/agent/contracts/agentSession";
 import { AgentConversationTimeline } from "@/components/agent/AgentConversation";
 
 describe("AgentConversationTimeline", () => {
@@ -13,6 +14,70 @@ describe("AgentConversationTimeline", () => {
     const timeline = screen.getByRole("region", { name: "AI 对话" });
     expect(timeline).toContainElement(screen.getByTestId("interactive-card"));
     expect(timeline.querySelector(".agent-task-panel")).toBeNull();
+  });
+
+  it("does not render actions from superseded or retracted option sets", () => {
+    const messages: AgentMessage[] = [
+      {
+        id: "superseded-options",
+        role: "assistant",
+        content: "旧选项",
+        options: [{
+          id: "old-choice",
+          label: "旧选择",
+          action: { type: "answer", field: "choice", value: "old" }
+        }],
+        optionSet: {
+          optionSetId: "choice-options",
+          optionSetRevision: 0,
+          sourceMessageId: "superseded-options",
+          state: "superseded",
+          resolvedAt: "2026-07-24T00:00:01.000Z"
+        },
+        createdAt: "2026-07-24T00:00:00.000Z"
+      },
+      {
+        id: "retracted-options",
+        role: "assistant",
+        content: "已撤回选项",
+        options: [{
+          id: "retracted-choice",
+          label: "撤回选择",
+          action: { type: "answer", field: "choice", value: "retracted" }
+        }],
+        optionSet: {
+          optionSetId: "choice-options-retracted",
+          optionSetRevision: 1,
+          sourceMessageId: "retracted-options",
+          state: "active"
+        },
+        metadata: { retracted: true },
+        createdAt: "2026-07-24T00:00:02.000Z"
+      },
+      {
+        id: "active-options",
+        role: "assistant",
+        content: "当前选项",
+        options: [{
+          id: "current-choice",
+          label: "当前选择",
+          action: { type: "answer", field: "choice", value: "current" }
+        }],
+        optionSet: {
+          optionSetId: "choice-options-current",
+          optionSetRevision: 2,
+          sourceMessageId: "active-options",
+          state: "active"
+        },
+        createdAt: "2026-07-24T00:00:03.000Z"
+      }
+    ];
+
+    render(<AgentConversationTimeline messages={messages} />);
+
+    expect(screen.queryByRole("button", { name: "旧选择" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "撤回选择" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "当前选择" })).toBeInTheDocument();
   });
 
   it("edits a user message in place and only resends after confirmation", async () => {

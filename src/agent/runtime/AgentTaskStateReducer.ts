@@ -20,6 +20,7 @@ import {
 } from "./tailoringContextResolver";
 import { ProfileIntakeReviewProjectionSchema, type ProfileIntakeReviewProjection } from "@/domain/profileIntake/ProfileIntakeReviewProjection";
 import { ResumeCompositionInformationNeedSchema } from "@/domain/resumeComposition/contracts";
+import { tailoringDiffId } from "@/services/jobs/tailoringDiffId";
 
 export type AgentTaskEvent =
   | {
@@ -529,7 +530,10 @@ export class AgentTaskStateReducer {
         const diffReviews = Array.isArray(generatedPlan.diffReviews) ? generatedPlan.diffReviews : [];
         state.knownSlots.selectedDiffs = [];
         state.knownSlots.selectedDiffIds = [];
+        state.knownSlots.acceptedDiffIds = [];
+        state.knownSlots.editedDiffIds = [];
         state.knownSlots.rejectedDiffIds = [];
+        state.knownSlots.acceptedDiffCount = 0;
         state.knownSlots.remainingDiffCount = diffReviews.length;
         state.stage = "preview_changes";
         state.activeGoal = "review_tailoring_changes";
@@ -539,6 +543,13 @@ export class AgentTaskStateReducer {
         const reviewed = objectValue(event.observation);
         state.knownSlots.selectedDiffs = Array.isArray(reviewed.selectedDiffs) ? reviewed.selectedDiffs : [];
         state.knownSlots.selectedDiffIds = Array.isArray(reviewed.selectedDiffIds) ? reviewed.selectedDiffIds : [];
+        const selectedDiffIds = Array.isArray(state.knownSlots.selectedDiffIds)
+          ? state.knownSlots.selectedDiffIds
+          : [];
+        state.knownSlots.acceptedDiffCount = typeof reviewed.acceptedDiffCount === "number"
+          ? reviewed.acceptedDiffCount
+          : selectedDiffIds.length;
+        state.knownSlots.editedDiffIds = Array.isArray(reviewed.editedDiffIds) ? reviewed.editedDiffIds : state.knownSlots.editedDiffIds;
         state.knownSlots.rejectedDiffIds = Array.isArray(reviewed.rejectedDiffIds) ? reviewed.rejectedDiffIds : [];
         state.knownSlots.remainingDiffCount = typeof reviewed.remainingDiffCount === "number" ? reviewed.remainingDiffCount : 0;
         state.stage = "preview_changes";
@@ -1640,11 +1651,37 @@ function captureTailoringTruth(state: AgentTaskState, observation: unknown) {
   state.knownSlots.selectedQuestionId = state.knownSlots.selectedQuestionId ?? questionPlan.activeQuestionId;
   state.knownSlots.answeredQuestionIds = Array.isArray(questionPlan.answeredQuestionIds) ? questionPlan.answeredQuestionIds : [];
   state.knownSlots.skippedQuestionIds = Array.isArray(questionPlan.skippedQuestionIds) ? questionPlan.skippedQuestionIds : [];
-  state.knownSlots.selectedDiffs = Array.isArray(value.appliedDiffs)
-    ? value.appliedDiffs
-    : Array.isArray(plan.diffs)
-      ? plan.diffs
-      : [];
+  const diffs = Array.isArray(plan.diffs) ? plan.diffs.map(objectValue) : [];
+  const reviews = Array.isArray(plan.diffReviews) ? plan.diffReviews.map(objectValue) : [];
+  const reviewById = new Map(reviews.flatMap((review) =>
+    typeof review.diffId === "string" ? [[review.diffId, review] as const] : []
+  ));
+  const selectedDiffs = diffs.flatMap((diff) => {
+    const review = reviewById.get(tailoringDiffId(diff as never));
+    if (review?.status !== "accepted" && review?.status !== "edited") return [];
+    return [{ ...diff, value: review.status === "edited" ? review.editedValue : diff.value }];
+  });
+  const acceptedDiffIds = diffs.flatMap((diff) => {
+    const review = reviewById.get(tailoringDiffId(diff as never));
+    return review?.status === "accepted" ? [tailoringDiffId(diff as never)] : [];
+  });
+  const editedDiffIds = diffs.flatMap((diff) => {
+    const review = reviewById.get(tailoringDiffId(diff as never));
+    return review?.status === "edited" ? [tailoringDiffId(diff as never)] : [];
+  });
+  const rejectedDiffIds = diffs.flatMap((diff) => {
+    const review = reviewById.get(tailoringDiffId(diff as never));
+    return review?.status === "rejected" ? [tailoringDiffId(diff as never)] : [];
+  });
+  state.knownSlots.selectedDiffs = selectedDiffs;
+  state.knownSlots.selectedDiffIds = [...acceptedDiffIds, ...editedDiffIds];
+  state.knownSlots.acceptedDiffIds = acceptedDiffIds;
+  state.knownSlots.editedDiffIds = editedDiffIds;
+  state.knownSlots.rejectedDiffIds = rejectedDiffIds;
+  state.knownSlots.acceptedDiffCount = acceptedDiffIds.length + editedDiffIds.length;
+  state.knownSlots.remainingDiffCount = diffs.filter((diff) =>
+    reviewById.get(tailoringDiffId(diff as never))?.status === "suggested"
+  ).length;
   state.knownSlots.confirmedRequirementIds = answers.flatMap((answer) => {
     const ids = objectValue(answer).requirementIds;
     return Array.isArray(ids) ? ids.filter((id): id is string => typeof id === "string") : [];

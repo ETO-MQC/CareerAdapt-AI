@@ -146,6 +146,7 @@ import {
   createJobAdaptationDraft
 } from "@/domain/adaptation/draft";
 import { computeRequirementsHash, validateTailoringClaimClosure } from "@/domain/jobOptimization";
+import { tailoringDiffId } from "@/services/jobs/tailoringDiffId";
 import { isTextSuggestionType, staleReasonForSuggestion } from "@/domain/jobOptimization/suggestions";
 import { presentationSnapshotFromConfig, stableStringify } from "@/services/export/snapshot";
 import {
@@ -318,6 +319,26 @@ function applyTailoringClaimsToBranch(
     });
   });
   return { contentItems, structuredContentItems };
+}
+
+function resumeBranchContentHash(value: ResumeBranch | { resumeBasics?: unknown; contentItems: unknown; structuredContentItems?: unknown }) {
+  return stableHashText(JSON.stringify({
+    resumeBasics: value.resumeBasics,
+    contentItems: value.contentItems,
+    structuredContentItems: value.structuredContentItems
+  }));
+}
+
+function readTailoringValue(branch: ResumeBranch, diff: ResumeTailoringDiff) {
+  const item = branch.structuredContentItems?.find((candidate) => candidate.id === diff.target.itemId);
+  if (!item || item.data.sectionType !== diff.target.sectionId) return undefined;
+  if (diff.target.fieldPath === "visible" || diff.target.fieldPath === "order") return item[diff.target.fieldPath];
+  const data = item.data as unknown as Record<string, unknown>;
+  return data[diff.target.fieldPath] ?? (diff.target.fieldPath === "highlights" ? [] : "");
+}
+
+function sameTailoringValue(left: unknown, right: unknown) {
+  return JSON.stringify(left) === JSON.stringify(right);
 }
 
 function syncTailoringClaimsToProfile(input: {
@@ -2666,13 +2687,22 @@ export class WorkspaceRepository {
         const presentationAfter = presentationSnapshotFromConfig(await this.getResumePresentationConfig(parsedBranch.id));
         const presentationInvariant = assertTailoringPresentationInvariant(presentationBefore, presentationAfter);
         assertTailoringSourceBranchUnchanged(await this.db.resumeBranches.get(parsedBranch.sourceBranchId ?? ""), await this.db.resumeBranches.get(parsedBranch.sourceBranchId ?? ""));
+        const revision = await this.getResumeRevisionInTransaction(existing.revisionId);
+        if (!revision) throw new Error("tailoring_revision_missing_for_operation");
+        const previousRevision = revision.previousRevisionId
+          ? await this.getResumeRevisionInTransaction(revision.previousRevisionId)
+          : undefined;
         return {
           branch: parsedBranch,
-          revision: await this.getResumeRevisionInTransaction(existing.revisionId),
+          revision,
           appliedDiffs: input.diffs,
           rejectedDiffs: [],
           warnings: [],
           idempotent: true,
+          acceptedDiffIds: input.diffs.map(tailoringDiffId),
+          changedFieldPaths: input.diffs.map((diff) => `${diff.target.sectionId}.${diff.target.itemId}.${diff.target.fieldPath}`),
+          beforeContentHash: previousRevision ? resumeBranchContentHash(previousRevision.snapshot) : resumeBranchContentHash(parsedBranch),
+          afterContentHash: resumeBranchContentHash(revision.snapshot),
           ...presentationInvariant
         };
       }
@@ -2695,6 +2725,7 @@ export class WorkspaceRepository {
         allowUnconfirmed: false,
         submissionSafe: true
       });
+      const beforeContentHash = resumeBranchContentHash(branch);
       if (!validation.patches.length) {
         const presentationAfter = presentationSnapshotFromConfig(await this.getResumePresentationConfig(branch.id));
         const presentationInvariant = assertTailoringPresentationInvariant(presentationBefore, presentationAfter);
@@ -2705,6 +2736,10 @@ export class WorkspaceRepository {
           rejectedDiffs: validation.rejectedDiffs,
           warnings: [...validation.warnings, "No valid selected diff was written; no revision was created."],
           idempotent: false,
+          acceptedDiffIds: [],
+          changedFieldPaths: [],
+          beforeContentHash,
+          afterContentHash: beforeContentHash,
           ...presentationInvariant
         };
       }
@@ -2735,8 +2770,21 @@ export class WorkspaceRepository {
         revision: branch.revision + 1,
         updatedAt: now
       });
+      const changedFieldPaths = validation.appliedDiffs.flatMap((diff, index) => {
+        const patch = validation.patches[index];
+        const before = readTailoringValue(branch, diff);
+        const after = readTailoringValue(nextBase, diff);
+        if (!sameTailoringValue(after, patch.after) || sameTailoringValue(before, after)) {
+          throw new Error(`tailoring_apply_verification_failed:${diff.target.itemId}:${diff.target.fieldPath}`);
+        }
+        return [`${diff.target.sectionId}.${diff.target.itemId}.${diff.target.fieldPath}`];
+      });
       const revision = createResumeRevision({ branch: nextBase, source: "suggestion_accept", operationId: input.operationId, previousRevisionId: branch.currentRevisionId, now });
       const nextBranch = ResumeBranchSchema.parse({ ...nextBase, currentRevisionId: revision.id, tailoringAppliedCount: (branch.tailoringAppliedCount ?? 0) + 1 });
+      const afterContentHash = resumeBranchContentHash(nextBranch);
+      if (beforeContentHash === afterContentHash || changedFieldPaths.length !== validation.appliedDiffs.length) {
+        throw new Error("tailoring_apply_verification_failed");
+      }
       const operation = ResumeBranchOperationSchema.parse({
         id: `resume-branch-op-${input.operationId}`,
         operationId: input.operationId,
@@ -2763,6 +2811,10 @@ export class WorkspaceRepository {
         rejectedDiffs: validation.rejectedDiffs,
         warnings: validation.warnings,
         idempotent: false,
+        acceptedDiffIds: validation.appliedDiffs.map(tailoringDiffId),
+        changedFieldPaths,
+        beforeContentHash,
+        afterContentHash,
         ...presentationInvariant
       };
     });

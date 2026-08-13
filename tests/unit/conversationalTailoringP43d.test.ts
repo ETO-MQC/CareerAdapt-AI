@@ -6,6 +6,7 @@ import {
 } from "@/domain/schemas";
 import {
   answerTailoringClarification,
+  clarificationAnswerType,
   createTailoringQuestionPlan,
   dedupeClarificationQuestions,
   getActiveTailoringQuestion,
@@ -105,6 +106,10 @@ describe("P4.3d authoritative tailoring question plan", () => {
         evidenceQuote: "我在真实项目中负责质量验收和迭代复盘。"
       }]
     });
+  });
+
+  it("classifies evidence-first behavioral questions as evidence text", () => {
+    expect(clarificationAnswerType("你是否有评估 AI 回答质量并复盘失败案例的真实经历？")).toBe("text");
   });
 });
 

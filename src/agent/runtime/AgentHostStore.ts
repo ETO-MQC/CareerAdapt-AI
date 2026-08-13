@@ -100,6 +100,7 @@ import {
   type ConfirmResumeCompositionCommand,
   type RuntimeUserEvent
 } from "./RuntimeUserEvent";
+import { tailoringDiffId } from "@/services/jobs/tailoringDiffId";
 
 export type AgentHostInput =
   | { type: "message"; text: string; references?: AgentMessageReference[] }
@@ -3676,6 +3677,7 @@ export class AgentHostStore {
     if (input.session.pendingConfirmation && input.session.pendingToolCall) {
       input.session = invalidatePendingConfirmationForCorrection(input.session);
     }
+    input.session = supersedeActiveOptionSets(input.session);
     const existingExecution = this.executionCoordinator.get(input.session.id);
     if (existingExecution?.promise && existingExecution.status === "running") {
       if (!input.supersede) {
@@ -4482,7 +4484,7 @@ export class AgentHostStore {
     const userMessageId = `agent-user-${crypto.randomUUID()}`;
     const now = new Date().toISOString();
     const text = String(answerValue ?? "").slice(0, 8_000);
-    let current = withTurnCheckpoint(session, turnId, userMessageId, now);
+    let current = withTurnCheckpoint(supersedeActiveOptionSets(session), turnId, userMessageId, now);
     current = appendAgentMessage(current, "user", text, {
       id: userMessageId,
       turnId,
@@ -4818,11 +4820,12 @@ export class AgentHostStore {
       operationId
     });
     if (!result.ok) {
-      const failed = withArtifactActionFeedback(session, action, {
+      const failed = withArtifactActionFeedback(settleDeterministicArtifactSession(session, turnId), action, {
         result: "rejected",
         message: result.error?.message ?? "这项核对没有保存成功，请重试。",
         retryable: true,
-        safeErrorCode: result.error?.code ?? "artifact_action_failed"
+        safeErrorCode: result.error?.code ?? "artifact_action_failed",
+        operationId
       });
       const saved = await this.dependencies.persistence.save(failed);
       this.patchSession(saved);
@@ -4836,7 +4839,6 @@ export class AgentHostStore {
       artifactIds: result.artifactIds
     });
     let current = projectTaskStateIntoSession(session, taskState);
-    current = attachTaskStateOptions(current, taskState);
     const observation = objectValue(result.data);
     if (observation.idempotent !== true) {
       current = upsertAgentActivity(current, {
@@ -4849,7 +4851,13 @@ export class AgentHostStore {
         metadata: { activityState: "complete", artifactActionType: action.type, artifactIds: result.artifactIds }
       });
     }
-    if (action.type === "tailoring_diff_decision" && observation.remainingDiffCount === 0) {
+    const acceptedDiffCount = typeof observation.acceptedDiffCount === "number"
+      ? observation.acceptedDiffCount
+      : Array.isArray(observation.selectedDiffIds) ? observation.selectedDiffIds.length : 0;
+    const remainingDiffCount = typeof observation.remainingDiffCount === "number"
+      ? observation.remainingDiffCount
+      : undefined;
+    if (action.type === "tailoring_diff_decision" && remainingDiffCount === 0 && acceptedDiffCount > 0) {
       const confirmationTurnId = session.activeTurn?.id ?? turnId;
       const previewOperationId = `${operationId}-preview`.slice(0, 160);
       const preview = await this.dependencies.executor.execute({
@@ -4889,7 +4897,7 @@ export class AgentHostStore {
             operationId: applyOperationId,
             toolName: "apply_tailoring_changes",
             title: "应用这些简历修改？",
-            description: "确认后会创建岗位专属简历版本；来源简历和个人资料库不会被覆盖。",
+            description: "确认后会生成岗位定制简历；只应用已采用的修改，来源简历和个人资料库不会被覆盖。",
             destructive: false,
             validatedInput: applyInput,
             dependencyExpectation: dependencySnapshot(taskState),
@@ -4911,11 +4919,43 @@ export class AgentHostStore {
             : current.activeTurn
         };
       }
+    } else if (action.type === "tailoring_diff_decision" && remainingDiffCount === 0) {
+      taskState = {
+        ...taskState,
+        stage: "preview_changes",
+        activeGoal: "review_tailoring_changes",
+        completionStatus: "waiting_for_user",
+        knownSlots: {
+          ...taskState.knownSlots,
+          acceptedDiffCount: 0,
+          acceptedDiffIds: [],
+          editedDiffIds: [],
+          selectedDiffs: [],
+          selectedDiffIds: [],
+          remainingDiffCount: 0
+        },
+        updatedAt: new Date().toISOString()
+      };
+      current = projectTaskStateIntoSession(current, taskState);
+      current = appendAgentMessage(current, "assistant", "已记录你的选择，但目前没有采用任何修改，因此不会创建岗位简历。你可以重新打开修改建议后至少采用或编辑后采用一项。", {
+        id: "tailoring-no-selection-" + operationId,
+        turnId,
+        kind: "text",
+        type: "text",
+        status: "complete",
+        metadata: { tailoringNoSelection: true, operationId }
+      });
     }
+    current = settleDeterministicArtifactSession(current, turnId);
+    const diffFieldNames = action.type === "tailoring_diff_decision"
+      ? tailoringDiffFieldNames(session.taskState, action.diffId)
+      : undefined;
     current = withArtifactActionFeedback(current, action, {
       result: "handled",
       message: artifactActionCompletedLabel(action).replace(/[。.]$/u, ""),
-      retryable: false
+      retryable: false,
+      operationId,
+      fieldNames: diffFieldNames
     });
     if (
       action.type === "profile_intake_reconciliation_decision"
@@ -5957,7 +5997,7 @@ function replaceLatestQuickActionAssistant(
           ...message,
           content,
           options,
-          optionSet: undefined,
+          optionSet: options?.length ? activeOptionSetForMessage(session, message.id, "quick-action") : undefined,
           metadata: {
             ...message.metadata,
             quickActionResolution: "resolved",
@@ -6138,8 +6178,40 @@ function attachPendingDecisionOptions(
   return {
     ...session,
     messages: session.messages.map((message, index) =>
-      index === assistantIndex ? { ...message, options } : message
+      index === assistantIndex
+        ? { ...message, options, optionSet: activeOptionSetForMessage(session, message.id, "decision") }
+        : message
     )
+  };
+}
+
+function activeOptionSetForMessage(session: AgentSession, messageId: string, prefix = "agent-options"): AgentOptionSet {
+  const existing = session.messages.find((message) => message.id === messageId)?.optionSet;
+  const revision = existing?.state === "active" && existing.sourceMessageId === messageId
+    ? existing.optionSetRevision
+    : Math.max(-1, ...session.messages.map((message) => message.optionSet?.optionSetRevision ?? -1)) + 1;
+  return {
+    optionSetId: existing?.state === "active" && existing.sourceMessageId === messageId
+      ? existing.optionSetId
+      : `${prefix}-${messageId}-${revision}`,
+    optionSetRevision: revision,
+    sourceMessageId: messageId,
+    state: "active"
+  };
+}
+
+function supersedeActiveOptionSets(session: AgentSession) {
+  const now = new Date().toISOString();
+  return {
+    ...session,
+    messages: session.messages.map((message) => message.optionSet?.state === "active"
+      ? {
+          ...message,
+          options: undefined,
+          optionSet: { ...message.optionSet, state: "superseded" as const, resolvedAt: now },
+          updatedAt: now
+        }
+      : message)
   };
 }
 
@@ -6273,31 +6345,44 @@ export function attachTaskStateOptions(session: AgentSession, state: AgentTaskSt
   }
   const shouldClearResolvedProfileOptions = state.workflowId === "guided_profile_intake"
     && (state.stage !== "collect_experience" || Boolean(state.knownSlots.intakeRequestedSection));
-  if (!options?.length && !metadata && !shouldClearResolvedProfileOptions) return session;
+  const currentMessage = session.messages[assistantIndex];
+  const hasActiveOptionSet = session.messages.some((message) => message.optionSet?.state === "active");
+  const preservingPendingDecisionOptions = Boolean(state.pendingDecision && currentMessage.options?.length);
+  if (options?.length && !optionSet) optionSet = activeOptionSetForMessage(session, currentMessage.id, "agent-options");
+  if (!options?.length && !metadata && !shouldClearResolvedProfileOptions && !hasActiveOptionSet && !preservingPendingDecisionOptions) return session;
+  const now = new Date().toISOString();
+  const expireCurrent = !options?.length && !preservingPendingDecisionOptions;
   return {
     ...session,
     messages: session.messages.map((message, index) => {
       if (index === assistantIndex) {
+        const currentOptionSet = options?.length
+          ? optionSet ?? message.optionSet
+          : preservingPendingDecisionOptions
+            ? message.optionSet ?? activeOptionSetForMessage(session, message.id, "decision")
+            : expireCurrent && message.optionSet?.state === "active"
+              ? { ...message.optionSet, state: "superseded" as const, resolvedAt: now }
+              : message.optionSet;
         return {
           ...message,
-          options: options?.length
+          options: expireCurrent ? undefined : options?.length
             ? [
                 ...options,
                 ...(message.options ?? []).filter((candidate) => !options.some((option) => option.id === candidate.id))
               ]
             : message.options,
-          optionSet: optionSet ?? message.optionSet,
+          optionSet: currentOptionSet,
           metadata: { ...message.metadata, ...metadata }
         };
       }
-      if (message.role !== "assistant" || !isProfileSectionOptionSet(message)) return message;
+      if (message.role !== "assistant" || message.metadata?.retracted === true || !message.optionSet) return message;
       return {
         ...message,
         options: undefined,
         optionSet: message.optionSet?.state === "resolved"
           ? message.optionSet
           : message.optionSet
-            ? { ...message.optionSet, state: "superseded" as const }
+            ? { ...message.optionSet, state: "superseded" as const, resolvedAt: now }
             : undefined
       };
     })
@@ -6724,6 +6809,7 @@ function replaceTurnWithContinuityRecovery(
               streaming: false,
               errorCode: reasonCode,
               options: [option],
+              optionSet: activeOptionSetForMessage(session, message.id, "recovery"),
               metadata: { ...message.metadata, terminalState: "RECOVERABLE_FAILURE", deadEndDetected: true }
             }
           : message)
@@ -6748,6 +6834,41 @@ function settleUserExecutionState(
       ? { ...message, metadata: { ...message.metadata, executionState }, updatedAt: new Date().toISOString() }
       : message)
   };
+}
+
+function settleDeterministicArtifactSession(session: AgentSession, turnId: string) {
+  const effectiveTurnId = session.activeTurn?.id ?? turnId;
+  const settled = settleThinkingMessages(session, effectiveTurnId);
+  const now = new Date().toISOString();
+  const waitingForConfirmation = Boolean(settled.pendingConfirmation);
+  return {
+    ...settled,
+    activeTurn: settled.activeTurn
+      ? {
+          ...settled.activeTurn,
+          status: waitingForConfirmation ? "waiting_for_confirmation" as const : "waiting_for_user" as const,
+          completedAt: waitingForConfirmation ? undefined : now
+        }
+      : settled.activeTurn
+  };
+}
+
+function tailoringDiffFieldNames(state: AgentTaskState | undefined, diffId: string) {
+  const tailoring = objectValue(state?.knownSlots.tailoringSession);
+  const plan = objectValue(tailoring.plan);
+  const diffs = Array.isArray(plan.diffs) ? plan.diffs.map(objectValue) : [];
+  const diff = diffs.find((candidate) => {
+    try {
+      return tailoringDiffId(candidate as never) === diffId;
+    } catch {
+      return false;
+    }
+  });
+  if (!diff) return ["tailoring.diff"];
+  const target = objectValue(diff.target);
+  const sectionId = stringValue(target.sectionId) ?? "resume";
+  const fieldPath = stringValue(target.fieldPath) ?? "content";
+  return [sectionId + "." + fieldPath];
 }
 
 function presentedActiveTailoringQuestion(session: AgentSession) {
@@ -6777,14 +6898,10 @@ function formatCurrentTailoringQuestion(state: AgentTaskState) {
   const questions = Array.isArray(plan.clarificationQuestions) ? plan.clarificationQuestions.map(objectValue) : [];
   const question = questions.find((item) => item.id === questionId);
   const position = Math.max(0, questionIds.indexOf(questionId)) + 1;
-  const options = Array.isArray(question?.options)
-    ? question.options.map(objectValue).flatMap((option, index) => typeof option.label === "string" ? [`${index + 1}. ${option.label}`] : [])
-    : [];
   return [
     "已记录。",
     `问题 ${position}/${questionIds.length}：`,
     String(question?.question ?? "请补充当前问题。"),
-    options.length ? options.join("\n") : "",
     "你可以直接补充说明，或回复“跳过”。"
   ].filter(Boolean).join("\n\n");
 }
@@ -7223,12 +7340,6 @@ function isFailedDomainTask(session: AgentSession) {
       && state.completionStatus === "failed"
       && !["conversation", "agent_quick_action"].includes(state.rootGoal)
   );
-}
-
-function isProfileSectionOptionSet(message: AgentSession["messages"][number]) {
-  return message.options?.some((option) => option.action.type === "profile_intake_section_select")
-    || message.metadata?.profileIntakeSectionOptions === true
-    || message.optionSet?.optionSetId.startsWith("profile-intake-sections-");
 }
 
 function shouldNarrateProfileIntakeContinuation(
@@ -7911,7 +8022,24 @@ function artifactActionOperationId(session: AgentSession, action: AgentArtifactA
       : action.type === "profile_intake_extraction_recovery"
         ? stableHashText(action.decision)
     : "none";
-  return ["artifact-action", session.id, tailoringSessionId, String(revision ?? "missing"), artifactActionEntityId(action), decision, editedValueHash]
+  if (action.type === "tailoring_diff_decision") {
+    const tailoringSession = objectValue(session.taskState?.knownSlots.tailoringSession);
+    return [
+      "artifact-tailoring-diff",
+      session.id,
+      tailoringSessionId,
+      String(tailoringSession.generatedDiffRevision ?? "missing"),
+      "diff",
+      action.diffId,
+      "decision",
+      decision,
+      "value",
+      editedValueHash
+    ].join("-").replace(/[^\w-]/g, "-").slice(0, 160);
+  }
+  const actionIdentity =
+    `${artifactActionEntityId(action)}-${decision}-${editedValueHash}`;
+  return ["artifact-action", session.id, tailoringSessionId, String(revision ?? "missing"), actionIdentity]
     .join("-").replace(/[^\w-]/g, "-").slice(0, 160);
 }
 
@@ -8651,7 +8779,8 @@ function withRetryCurrentStepOption(session: AgentSession, messageId?: string) {
           options: [
             ...(message.options ?? []).filter((candidate) => candidate.id !== option.id),
             option
-          ]
+          ],
+          optionSet: activeOptionSetForMessage(session, message.id, "recovery")
         }
       : message)
   };

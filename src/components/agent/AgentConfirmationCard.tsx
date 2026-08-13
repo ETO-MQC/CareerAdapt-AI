@@ -3,6 +3,7 @@ export function AgentConfirmationCard(props: {
   description: string;
   busy?: boolean;
   destructive?: boolean;
+  confirmLabel?: string;
   onConfirm(): void;
   onCancel(): void;
 }) {
@@ -15,7 +16,7 @@ export function AgentConfirmationCard(props: {
       <div className="agent-confirmation-actions">
         <button type="button" disabled={props.busy} onClick={props.onCancel}>取消</button>
         <button className="is-confirm" type="button" disabled={props.busy} onClick={props.onConfirm}>
-          {props.busy ? "处理中…" : "确认"}
+          {props.busy ? "处理中…" : props.confirmLabel ?? "确认"}
         </button>
       </div>
     </section>

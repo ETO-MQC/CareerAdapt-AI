@@ -65,8 +65,16 @@ describe("resume render model v2", () => {
     });
 
     expect(resolveResumeTargetRole({ branch: base, profile })).toBeUndefined();
-    expect(resolveResumeTargetRole({ branch: ResumeBranchSchema.parse({ ...base, resumeBasics: undefined }), profile })).toBe("开发工程师");
-    expect(resolveResumeTargetRole({ branch: ResumeBranchSchema.parse({ ...base, name: "开发工程师", resumeBasics: undefined }), profile })).toBe("开发工程师");
+    expect(resolveResumeTargetRole({ branch: ResumeBranchSchema.parse({ ...base, resumeBasics: undefined }), profile })).toBeUndefined();
+    expect(resolveResumeTargetRole({ branch: ResumeBranchSchema.parse({ ...base, name: "开发工程师", resumeBasics: undefined }), profile })).toBeUndefined();
+    expect(resolveResumeTargetRole({
+      branch: ResumeBranchSchema.parse({ ...base, resumeBasics: { ...base.resumeBasics, targetRole: "AI 应用方向" } }),
+      profile
+    })).toBe("AI 应用方向");
+    expect(resolveResumeTargetRole({
+      branch: ResumeBranchSchema.parse({ ...base, resumeBasics: { ...base.resumeBasics, targetRole: "技术人才" } }),
+      profile
+    })).toBeUndefined();
     expect(resolveResumeTargetRole({ branch: ResumeBranchSchema.parse({ ...base, resumeBasics: { ...base.resumeBasics, targetRole: "测试工程师" } }), profile })).toBe("测试工程师");
   });
 });

@@ -264,6 +264,7 @@ export function withPlannerActions(input: { plan: ResumeTailoringPlan; assessmen
 
 export function clarificationAnswerTypeFromAssessment(questionText: string, capability?: CapabilityEntity): ReturnType<typeof clarificationAnswerType> {
   const normalized = questionText.trim();
+  if (isEvidenceFirstQuestion(normalized)) return "text";
   if (/链接|网址|仓库|作品集|github|url/i.test(normalized)) return "url";
   if (/哪些|哪项|哪个|哪一|任意|之一|可选|多选|列表/i.test(normalized)) return "multi_select";
   if (/描述|举例|案例|复现|原因|过程|如何|材料|证据|成果|项目中|负责过|解决过|产出过|失败|限制/i.test(normalized)) return "text";
@@ -664,7 +665,7 @@ export function buildClarificationQuestions(input: { job: JobDescription; taskIn
       capabilityCluster,
       targetPolicy,
       answerType: inferredAnswerType === "proficiency" && !capabilityAllowsProficiency(capability) ? "text" as const : inferredAnswerType,
-      options: defaultQuestionOptions(inferredAnswerType),
+      options: defaultQuestionOptions(inferredAnswerType, isEvidenceFirstQuestion(requirement.statement)),
       expectedImpact,
       priorityScore: (requirement.priority === "must" ? 50 : 35) + requirement.exactKeywords.length + (expectedImpact === "summary" ? 20 : expectedImpact === "skills" ? 16 : 8),
       status: "pending" as const,
@@ -676,6 +677,7 @@ export function buildClarificationQuestions(input: { job: JobDescription; taskIn
 
 export function clarificationAnswerType(statement: string, capability?: CapabilityEntity): "boolean" | "proficiency" | "text" | "url" | "multi_select" {
   const normalized = statement.trim();
+  if (isEvidenceFirstQuestion(normalized)) return "text";
   if (/链接|网址|仓库|作品集|github|url/i.test(normalized)) return "url";
   if (/哪些|哪项|哪个|哪一|任意|之一|可选|多选|列表/i.test(normalized)) return "multi_select";
   if (/描述|举例|案例|复现|原因|过程|如何|材料|证据|成果|项目中|负责过|解决过|产出过|失败|限制/i.test(normalized)) return "text";
@@ -808,7 +810,14 @@ function shortQuestionLabel(statement: string) {
   return statement.replace(/[。；;，,].*$/u, "").trim().slice(0, 28) || "岗位相关经验";
 }
 
-function defaultQuestionOptions(answerType: ReturnType<typeof clarificationAnswerType>) {
+function defaultQuestionOptions(answerType: ReturnType<typeof clarificationAnswerType>, evidenceFirst = false) {
+  if (evidenceFirst) return [
+    { id: "evidence", label: "有相关经历", value: "有相关经历" },
+    { id: "partial", label: "接触过但不完整", value: "接触过但不完整" },
+    { id: "none", label: "没有", value: "没有" },
+    { id: "uncertain", label: "不确定", value: "不确定" },
+    { id: "skip", label: "跳过", value: "跳过" }
+  ];
   if (answerType === "boolean") return [
     { id: "yes", label: "有", value: "有" },
     { id: "no", label: "没有", value: "没有" },
@@ -829,6 +838,10 @@ function defaultQuestionOptions(answerType: ReturnType<typeof clarificationAnswe
     { id: "uncertain", label: "不确定", value: "不确定" },
     { id: "skip", label: "跳过", value: "跳过" }
   ];
+}
+
+function isEvidenceFirstQuestion(value: string) {
+  return /(?:评估|评价|检查|纠错|复盘|失败|限制|验证|规划|拆解|复杂任务|多约束|帮助模型|提升回答|改进输出|检索方向|工作流|排查原因)/iu.test(value);
 }
 
 function resolveConfirmedClaimText(claim: TailoringClaim, confirmation: ClaimConfirmation) {

@@ -20,6 +20,7 @@ import {
   generateTailoringDiffsCommand,
   previewTailoringChangesCommand,
   reviewTailoringDiffCommand,
+  reviewedTailoringDiffs,
   TailoringSessionSchema,
   type TailoringSession
 } from "@/services/jobs/tailoringCommands";
@@ -1720,6 +1721,10 @@ export class BrowserAgentToolService implements AgentToolServices {
   async applyTailoringChanges(rawInput: unknown, operationId: string, signal?: AbortSignal) {
     const input = parseTailoringChanges(rawInput);
     let session = input.session;
+    const reviewed = reviewedTailoringDiffs(session);
+    if (reviewed.length === 0) {
+      throw toolError("tailoring_no_selected_changes", "没有选择任何修改，暂不创建岗位简历。");
+    }
 
     if (session.branch.branchPurpose === "general") {
       if (!session.branch.currentRevisionId) {
@@ -1756,6 +1761,21 @@ export class BrowserAgentToolService implements AgentToolServices {
         contentItems: result.branch.contentItems,
         structuredContentItems: result.branch.structuredContentItems
       })),
+      qualityResult: {
+        status: "passed",
+        factGuard: "passed",
+        revisionCreated: Boolean(result.revision),
+        acceptedDiffIds: result.acceptedDiffIds ?? reviewed.map((diff) => stableHashText(JSON.stringify({
+          target: diff.target,
+          operation: diff.operation,
+          original: diff.original,
+          value: diff.value
+        }))),
+        acceptedDiffCount: result.acceptedDiffCount ?? reviewed.length,
+        changedFieldPaths: "changedFieldPaths" in result ? result.changedFieldPaths : [],
+        beforeContentHash: "beforeContentHash" in result ? result.beforeContentHash : undefined,
+        afterContentHash: "afterContentHash" in result ? result.afterContentHash : undefined
+      },
       ...result
     };
   }

@@ -8,14 +8,25 @@ export function appendAgentMessage(
   options: Partial<AgentMessage> = {}
 ) {
   const now = new Date().toISOString();
+  const messageId = options.id ?? `agent-message-${crypto.randomUUID()}`;
+  const hasExplicitOptionSet = Object.prototype.hasOwnProperty.call(options, "optionSet");
+  const optionSet = !hasExplicitOptionSet && options.options?.length
+    ? {
+        optionSetId: `agent-options-${messageId}`,
+        optionSetRevision: Math.max(-1, ...session.messages.map((message) => message.optionSet?.optionSetRevision ?? -1)) + 1,
+        sourceMessageId: messageId,
+        state: "active" as const
+      }
+    : undefined;
   const message: AgentMessage = {
-    id: options.id ?? `agent-message-${crypto.randomUUID()}`,
+    id: messageId,
     branchId: options.branchId ?? session.activeBranchId ?? "legacy-branch",
     role,
     content,
     parentMessageId: options.parentMessageId ?? session.activeHeadMessageId,
     createdAt: options.createdAt ?? now,
     ...options,
+    ...(optionSet ? { optionSet } : {}),
     updatedAt: options.updatedAt ?? now
   };
   return withActiveBranchHead({ ...session, messages: [...session.messages, message], updatedAt: now }, message.id);

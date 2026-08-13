@@ -128,7 +128,7 @@ export function mapBranchToResumeRenderModel(input: {
     branchRevision: branch.revision,
     branchCurrentRevisionId: branch.currentRevisionId,
     branchName: branch.name,
-    jobTitle: job?.title ?? targetRole ?? "Resume",
+    jobTitle: targetRole ?? (branch.branchPurpose === "job_specific" ? job?.title : undefined) ?? "通用简历",
     company: job?.company ?? "通用简历",
     candidate: {
       name: basics.name,

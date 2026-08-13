@@ -6,6 +6,7 @@ import { canonicalProfileLibraryItems } from "@/domain/profile/canonicalLibrary"
 import { ResumeTailorTaskInputV2Schema, type ResumeTailoringDiffTaskInput } from "@/domain/schemas";
 import {
   analyzeJobCommand,
+  applyTailoringSessionCommand,
   createTailoringSessionCommand,
   generateTailoringDiffsCommand,
   reviewTailoringDiffCommand,
@@ -134,7 +135,44 @@ describe("headless tailoring commands", () => {
     });
     expect(accepted.selectedDiffIds).toEqual([diffId]);
     expect(accepted.selectedDiffs).toEqual(result.appliedDiffs);
+    expect(accepted.acceptedDiffIds).toEqual([diffId]);
+    expect(accepted.editedDiffIds).toEqual([]);
+    expect(accepted.acceptedDiffCount).toBe(1);
     expect(accepted.remainingDiffCount).toBe(0);
+
+    const rejected = reviewTailoringDiffCommand({
+      operationId: "review-diff-command-reject",
+      session: accepted.session,
+      diffId,
+      decision: "reject"
+    });
+    const applyRepository = { applyTailoringDiffs: vi.fn() };
+    await expect(applyTailoringSessionCommand({
+      operationId: "apply-no-selected-diffs",
+      repository: applyRepository as never,
+      session: rejected.session,
+      selectedDiffs: rejected.selectedDiffs
+    })).rejects.toMatchObject({ code: "tailoring_no_selected_changes" });
+    expect(applyRepository.applyTailoringDiffs).not.toHaveBeenCalled();
+
+    const noOpRepository = {
+      applyTailoringDiffs: vi.fn(async () => ({
+        branch: rejected.session.branch,
+        revision: undefined,
+        appliedDiffs: [],
+        rejectedDiffs: [],
+        warnings: [],
+        idempotent: false,
+        beforeContentHash: "same-hash",
+        afterContentHash: "same-hash"
+      }))
+    };
+    await expect(applyTailoringSessionCommand({
+      operationId: "apply-verification-failure",
+      repository: noOpRepository as never,
+      session: accepted.session,
+      selectedDiffs: accepted.selectedDiffs
+    })).rejects.toMatchObject({ code: "tailoring_apply_verification_failed" });
 
     const consolidated = vi.fn(async (requests: ResumeTailoringDiffTaskInput[]) => ({
       diffs: requests.map((request) => ({

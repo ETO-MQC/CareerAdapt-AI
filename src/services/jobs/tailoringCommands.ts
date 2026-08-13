@@ -102,6 +102,39 @@ export const ApplyTailoringSessionCommandInputSchema = PreviewTailoringChangesCo
 
 export type TailoringSession = z.infer<typeof TailoringSessionSchema>;
 
+/**
+ * The review ledger is the only source of truth for what may be applied.
+ * selectedDiffs remains in the transport contract for compatibility, but it
+ * is deliberately not trusted at the write boundary.
+ */
+export function reviewedTailoringDiffs(session: TailoringSession) {
+  const reviews = new Map((session.plan.diffReviews ?? []).map((review) => [review.diffId, review]));
+  return (session.plan.diffs ?? []).flatMap((diff) => {
+    const review = reviews.get(tailoringDiffId(diff));
+    if (!review || (review.status !== "accepted" && review.status !== "edited")) return [];
+    return [{
+      ...diff,
+      value: review.status === "edited" ? review.editedValue! : diff.value
+    }];
+  });
+}
+
+export function tailoringReviewCounts(session: TailoringSession) {
+  const reviews = new Map((session.plan.diffReviews ?? []).map((review) => [review.diffId, review]));
+  const diffs = session.plan.diffs ?? [];
+  const acceptedDiffIds = diffs.flatMap((diff) => reviews.get(tailoringDiffId(diff))?.status === "accepted" ? [tailoringDiffId(diff)] : []);
+  const editedDiffIds = diffs.flatMap((diff) => reviews.get(tailoringDiffId(diff))?.status === "edited" ? [tailoringDiffId(diff)] : []);
+  const rejectedDiffIds = diffs.flatMap((diff) => reviews.get(tailoringDiffId(diff))?.status === "rejected" ? [tailoringDiffId(diff)] : []);
+  const remainingDiffCount = diffs.filter((diff) => reviews.get(tailoringDiffId(diff))?.status === "suggested").length;
+  return {
+    acceptedDiffIds,
+    editedDiffIds,
+    rejectedDiffIds,
+    acceptedDiffCount: acceptedDiffIds.length + editedDiffIds.length,
+    remainingDiffCount
+  };
+}
+
 export function analyzeJobCommand(input: z.input<typeof AnalyzeJobCommandInputSchema>, signal?: AbortSignal) {
   assertNotCancelled(signal);
   const parsed = AnalyzeJobCommandInputSchema.parse(input);
@@ -352,20 +385,18 @@ export function reviewTailoringDiffCommand(input: z.input<typeof ReviewTailoring
 }
 
 function reviewTailoringDiffResult(operationId: string, session: TailoringSession, idempotent: boolean) {
-  const reviews = session.plan.diffReviews ?? [];
-  const byId = new Map(reviews.map((review) => [review.diffId, review]));
-  const selectedDiffs = (session.plan.diffs ?? []).flatMap((item) => {
-    const resolved = byId.get(tailoringDiffId(item));
-    if (!resolved || resolved.status === "suggested" || resolved.status === "rejected") return [];
-    return [{ ...item, value: resolved.status === "edited" ? resolved.editedValue! : item.value }];
-  });
+  const selectedDiffs = reviewedTailoringDiffs(session);
+  const counts = tailoringReviewCounts(session);
   return {
     operationId,
     session,
     selectedDiffs,
-    selectedDiffIds: reviews.filter((item) => item.status === "accepted" || item.status === "edited").map((item) => item.diffId),
-    rejectedDiffIds: reviews.filter((item) => item.status === "rejected").map((item) => item.diffId),
-    remainingDiffCount: reviews.filter((item) => item.status === "suggested").length,
+    selectedDiffIds: [...counts.acceptedDiffIds, ...counts.editedDiffIds],
+    acceptedDiffIds: counts.acceptedDiffIds,
+    editedDiffIds: counts.editedDiffIds,
+    rejectedDiffIds: counts.rejectedDiffIds,
+    acceptedDiffCount: counts.acceptedDiffCount,
+    remainingDiffCount: counts.remainingDiffCount,
     idempotent
   };
 }
@@ -377,7 +408,7 @@ export function previewTailoringChangesCommand(input: z.input<typeof PreviewTail
     operationId: parsed.operationId,
     ...validateEachTailoringDiffLocally({
       branch: parsed.session.branch,
-      diffs: parsed.selectedDiffs as ResumeTailoringDiff[],
+      diffs: reviewedTailoringDiffs(parsed.session),
       confirmedRequirementIds: parsed.confirmedRequirementIds,
       allowUnconfirmed: false
     })
@@ -399,17 +430,31 @@ export async function applyTailoringSessionCommand(input: {
     selectedDiffs: input.selectedDiffs,
     confirmedRequirementIds: input.confirmedRequirementIds ?? []
   });
+  const selectedDiffs = reviewedTailoringDiffs(parsed.session);
+  if (selectedDiffs.length === 0) throw commandError("tailoring_no_selected_changes");
   const result = await input.repository.applyTailoringDiffs({
     branchId: parsed.session.branch.id,
     jobId: parsed.session.job.id,
-    diffs: input.selectedDiffs,
+    diffs: selectedDiffs,
     confirmedRequirementIds: parsed.confirmedRequirementIds,
     operationId: parsed.operationId,
     expectedBranchRevision: parsed.session.branch.revision,
     expectedRevisionId: parsed.session.branch.currentRevisionId ?? ""
   });
   assertNotCancelled(input.signal);
-  return { operationId: parsed.operationId, ...result };
+  if (
+    !result.revision
+    || result.appliedDiffs.length !== selectedDiffs.length
+    || result.beforeContentHash === result.afterContentHash
+  ) {
+    throw commandError("tailoring_apply_verification_failed");
+  }
+  return {
+    ...result,
+    operationId: parsed.operationId,
+    acceptedDiffIds: result.appliedDiffs.map(tailoringDiffId),
+    acceptedDiffCount: result.appliedDiffs.length
+  };
 }
 
 function dedupeDiffs(diffs: ResumeTailoringDiff[]) {

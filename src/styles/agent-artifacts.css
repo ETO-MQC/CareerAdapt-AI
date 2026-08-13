@@ -754,6 +754,33 @@
   padding: 12px;
 }
 
+.agent-tailoring-inline {
+  background: var(--ai-surface);
+  border: 1px solid var(--ai-border);
+  border-radius: 10px;
+  display: grid;
+  gap: 8px;
+  margin: 12px 0;
+  padding: 12px;
+}
+
+.agent-tailoring-inline > header {
+  align-items: baseline;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.agent-tailoring-inline > header span {
+  color: var(--ai-muted);
+  font-size: 12px;
+}
+
+.agent-tailoring-inline .agent-diff-list {
+  display: grid;
+  gap: 8px;
+}
+
 .agent-diff-rationale {
   color: var(--ai-muted);
   font-size: 12px;

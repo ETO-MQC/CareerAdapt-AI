@@ -14,6 +14,7 @@ import {
 import { resolveCareerAssetDisplayIdentity } from "./CareerAssetDisplayIdentity";
 import { canonicalTechnicalTerm, compactSkillCategory, normalizeSkillGroups, technicalTermCategory } from "./ResumeSkillTaxonomy";
 import { stableHashText } from "@/services/security/text";
+import { CareerResumeQualityPolicyV1 } from "./CareerResumeQualityPolicyV1";
 
 export type CareerResumeWritingResult = {
   output?: CareerResumeWritingOutput;
@@ -128,6 +129,7 @@ function buildBusinessInput(
     }),
     skillGroups: normalizeSkillGroups(input.graph.skillMatrix),
     instructions: [
+      ...CareerResumeQualityPolicyV1.writerInstructions,
       "Use one or two lines for the summary; omit it if the evidence does not support a useful opening.",
       "Prefer action plus concrete object or result plus a supported method/tool when evidence allows; retain the source's ownership strength.",
       "For early-career general resumes, favor a one-page selection: education, compact skills, three or four strongest projects, research, and one award before campus activities.",

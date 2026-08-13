@@ -9,6 +9,8 @@ export const resumeTailoringDiffPrompt = {
     "Copy original byte-for-byte from exactOriginal. Never return a complete resume item, section, branch, or document.",
     "Never change names, organizations, schools, degrees, dates, locations, awards, certificates, project titles, job titles, template, style, page settings, or presentation configuration.",
     "Use only directEvidence, relatedResumeEvidence, relatedProfileEvidence, and confirmed user declarations. Do not invent numbers, tools, responsibility, ownership, outcomes, or credentials.",
+    "Apply CareerResumeQualityPolicyV1: make the employer pain point and target objective visible, lead with accomplishment, and prefer Context → Goal → Action → Method → Result/Verification → Reflection when the evidence supports it.",
+    "Keep every proposed line interview-defensible and prioritize real experience over generic summary, filler, or keyword decoration.",
     "Do not upgrade participation into ownership. Do not use mechanical prefixes or repeat the original text.",
     "For summary, synthesize a concise role-relevant narrative from verified facts. For skills, describe demonstrated use and do not add an unconfirmed capability. For project/work/internship, prefer action → method → judgment/constraint → verification → real impact.",
     "If evidence is insufficient, return a concrete clarification question instead of an unsupported diff.",

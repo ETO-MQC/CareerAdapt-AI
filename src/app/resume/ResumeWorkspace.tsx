@@ -2890,7 +2890,9 @@ export function ResumeWorkspace() {
     const exportId = createExportId("v2-g3a-direct");
     const fileName = buildResumePdfFileName({
       candidateName: renderModel.candidate.name,
-      jobTitle: renderModel.jobTitle,
+      branchPurpose: selectedBranch.branchPurpose,
+      jobTitle: selectedBranchJob?.title,
+      targetDirection: selectedBranch.branchPurpose === "general" ? renderModel.candidate.targetRole : undefined,
       templateName: selectedTemplate.shortName,
       date: startedAt
     });
@@ -2997,7 +2999,9 @@ export function ResumeWorkspace() {
 
       const exportFileName = buildResumePdfFileName({
         candidateName: persistedRenderModel.candidate.name,
-        jobTitle: persistedRenderModel.jobTitle,
+        branchPurpose: selectedBranch.branchPurpose,
+        jobTitle: latestJob?.title,
+        targetDirection: selectedBranch.branchPurpose === "general" ? persistedRenderModel.candidate.targetRole : undefined,
         templateName: selectedTemplate.shortName,
         date: startedAt
       });
@@ -3230,7 +3234,9 @@ export function ResumeWorkspace() {
     const operationId = `d2-export-${selectedBranch.id}-${selectedBranch.revision}-${selectedBranch.currentRevisionId}-${effectiveTemplateId}-${paginationPlan.status}-${presentationConfig?.presentationRevision ?? 0}-${paginationPlan.paginationHash}`;
     const fileName = buildResumePdfFileName({
       candidateName: renderModel.candidate.name,
-      jobTitle: renderModel.jobTitle,
+      branchPurpose: selectedBranch.branchPurpose,
+      jobTitle: selectedBranchJob?.title,
+      targetDirection: selectedBranch.branchPurpose === "general" ? renderModel.candidate.targetRole : undefined,
       templateName: selectedTemplate.shortName,
       date: startedAt
     });

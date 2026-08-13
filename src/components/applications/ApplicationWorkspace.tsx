@@ -932,7 +932,8 @@ async function regenerateApplicationPdf(context: ApplicationContext): Promise<{ 
   const template = getResumeTemplate(presentationConfig.templateId);
   const fileName = buildResumePdfFileName({
     candidateName: renderModel.candidate.name,
-    jobTitle: renderModel.jobTitle,
+    branchPurpose: "job_specific",
+    jobTitle: job.title,
     templateName: template.shortName,
     date: generatedAt
   });

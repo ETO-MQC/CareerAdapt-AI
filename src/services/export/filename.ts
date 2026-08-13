@@ -7,13 +7,21 @@ const TRAILING_DOTS_OR_SPACES = /[. ]+$/g;
 export function buildResumePdfFileName(input: {
   candidateName?: string | null;
   jobTitle?: string | null;
+  branchPurpose?: "general" | "job_specific";
+  targetDirection?: string | null;
   templateName?: string | null;
   date?: Date | string;
 }) {
   const datePart = formatExportDate(input.date);
+  const rolePart = input.branchPurpose === "general"
+    ? [
+        input.targetDirection ? sanitizeFileNamePart(input.targetDirection, "") : "",
+        "通用简历"
+      ].filter(Boolean).join("_")
+    : sanitizeFileNamePart(input.jobTitle, "Resume");
   const parts = [
     sanitizeFileNamePart(input.candidateName, "CareerAdapt"),
-    sanitizeFileNamePart(input.jobTitle, "Resume"),
+    rolePart || "Resume",
     sanitizeFileNamePart(input.templateName, "Template"),
     datePart
   ];

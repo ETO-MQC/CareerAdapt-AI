@@ -1974,14 +1974,10 @@ function deterministicWorkflowPause(
       const questionPlan = objectValue(taskState.knownSlots.questionPlan);
       const questionIds = Array.isArray(questionPlan.questionIds) ? questionPlan.questionIds : [];
       const position = Math.max(0, questionIds.indexOf(questionId));
-      const options = Array.isArray(question.options)
-        ? question.options.map(objectValue).flatMap((option, index) => typeof option.label === "string" ? [`${index + 1}. ${option.label}`] : [])
-        : [];
       return [
         position === 0 ? `为了更准确地优化简历，我还需要确认 ${questionIds.length} 个细节。` : "已记录。",
         `问题 ${position + 1}/${questionIds.length}：`,
         question.question,
-        options.length ? options.join("\n") : "",
         "你可以直接补充说明，或回复“跳过”。"
       ].filter(Boolean).join("\n\n");
     }

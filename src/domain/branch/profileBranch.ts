@@ -7,8 +7,16 @@ import type { ResumeCompositionResult } from "@/domain/resumeComposition";
 
 export type ProfileBranchBuildResult = { branch: ResumeBranch; firstRevision: ResumeRevision };
 
-export function resumeBasicsFromProfile(profile: CareerProfile, summary?: string): ResumeBranchBasics {
-  return { name: profile.basics.name, targetRole: profile.structuredBasics?.targetRole ?? profile.structuredBasics?.headline ?? "", email: profile.basics.email ?? "", phone: profile.basics.phone ?? "", location: profile.basics.location ?? "", summary: summary?.trim() || profile.basics.summary || "", links: profile.basics.links };
+export function resumeBasicsFromProfile(profile: CareerProfile, summary?: string, targetRole?: string): ResumeBranchBasics {
+  return {
+    name: profile.basics.name,
+    ...(targetRole?.trim() ? { targetRole: targetRole.trim() } : {}),
+    email: profile.basics.email ?? "",
+    phone: profile.basics.phone ?? "",
+    location: profile.basics.location ?? "",
+    summary: summary?.trim() || profile.basics.summary || "",
+    links: profile.basics.links
+  };
 }
 
 export function buildGeneralBranchFromProfile(input: {
@@ -36,7 +44,9 @@ export function buildGeneralBranchFromProfile(input: {
     matcherVersion: "profile-snapshot-v2", sourceMatchSetHash: sourceProfileSnapshotId, requirementMatchIds: [], revision: 0,
     lifecycleStatus: "active", migrationStatus: "verified",
     syncStatusCache: { status: "in_sync", sourceProfileVersion: input.profile.version, currentProfileVersion: input.profile.version, invalidFactRefs: [], checkedAt: now, message: "General branch is in sync with its source profile." },
-    resumeBasics: input.includeProfileBasics ? resumeBasicsFromProfile(input.profile, compositionSummary(input.composition)) : { name: "", targetRole: "", email: "", phone: "", location: "", summary: "", links: [] },
+    resumeBasics: input.includeProfileBasics
+      ? resumeBasicsFromProfile(input.profile, compositionSummary(input.composition), input.composition?.targetDirection)
+      : { name: "", email: "", phone: "", location: "", summary: "", links: [] },
     contentItems, structuredContentItems: pairs.length ? pairs.map((pair) => pair.structured) : undefined, createdAt: now, updatedAt: now
   });
   const firstRevision = createResumeRevision({ branch: branchBase, source: input.includeProfileBasics || input.includeProfileFacts ? "created_from_profile" : "created_blank", operationId: input.operationId, now });

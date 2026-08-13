@@ -1,6 +1,6 @@
 "use client";
 
-import type { AgentConfirmation, AgentMessage } from "@/agent/contracts/agentSession";
+import type { AgentConfirmation, AgentMessage, AgentTaskState } from "@/agent/contracts/agentSession";
 import type { AgentOption } from "@/agent/contracts/agentActions";
 import type { AgentArtifactAction } from "@/agent/contracts/agentActions";
 import type { ProfileIntakeReviewProjection } from "@/domain/profileIntake/ProfileIntakeReviewProjection";
@@ -27,6 +27,7 @@ import { createPortal } from "react-dom";
 import { AgentConfirmationCard } from "./AgentConfirmationCard";
 import { AgentMarkdown } from "./AgentMarkdown";
 import { ProfileIntakeCandidateCards } from "./ProfileIntakeCandidateCards";
+import { AgentTailoringInlineDiffs } from "./AgentTailoringInlineDiffs";
 
 export function AgentConversation({
   messages,
@@ -41,6 +42,7 @@ export function AgentConversation({
   onConfirmation,
   profileIntakeProjection,
   onArtifactAction,
+  tailoringTaskState,
   children
 }: {
   messages: AgentMessage[];
@@ -55,6 +57,7 @@ export function AgentConversation({
   onConfirmation?(confirmed: boolean): void;
   profileIntakeProjection?: ProfileIntakeReviewProjection;
   onArtifactAction?(action: AgentArtifactAction): Promise<unknown> | void;
+  tailoringTaskState?: AgentTaskState;
   children?: React.ReactNode;
 }) {
   const visibleMessages = dedupeProfileIntakeMessages(messages.filter((message) =>
@@ -190,6 +193,9 @@ export function AgentConversation({
             projection={profileIntakeProjection}
             onAction={onArtifactAction}
           />
+        ) : null}
+        {tailoringTaskState ? (
+          <AgentTailoringInlineDiffs taskState={tailoringTaskState} onArtifactAction={onArtifactAction} />
         ) : null}
         {children}
         {visibleMessages.length ? (
@@ -333,14 +339,15 @@ function AgentMessageRow({
               title={confirmation.title}
               description={confirmation.description}
               destructive={confirmation.destructive}
+              confirmLabel={confirmation.toolName === "apply_tailoring_changes" ? "生成岗位简历" : undefined}
               onCancel={() => onConfirmation?.(false)}
               onConfirm={() => onConfirmation?.(true)}
             />
           ) : null}
           {message.options?.length
-            && message.optionSet?.state !== "resolved"
-            && message.optionSet?.state !== "superseded"
-            && message.optionSet?.state !== "stale"
+            && (!message.optionSet
+              || message.optionSet.state === "active" && message.optionSet.sourceMessageId === message.id)
+            && message.metadata?.retracted !== true
             && !message.metadata?.typedActionResolution ? (
             <div className="agent-message-options" aria-label="可选回答">
               {message.options.map((option) => (

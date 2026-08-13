@@ -9,6 +9,7 @@ import {
   type ResumeReviewResult
 } from "./contracts";
 import { resolveCareerAssetDisplayIdentity } from "./CareerAssetDisplayIdentity";
+import { careerResumeQualityWarnings } from "./CareerResumeQualityPolicyV1";
 
 export function reviewResumeComposition(result: ResumeCompositionResult, input: { job?: JobDescription } = {}) {
   const firstPass = reviewResumeCompositionPass(result, input, true);
@@ -78,6 +79,18 @@ function reviewResumeCompositionPass(result: ResumeCompositionResult, input: { j
     })
     : { items: result.items.map((item, index) => ({ ...item, data: items[index] })), repairedCount: 0 };
   const reviewedItems = atsRepair.items.map((item) => item.data);
+  const summaryItem = reviewedItems.find((item) => item.sectionType === "summary") as unknown as Record<string, unknown> | undefined;
+  const qualityWarnings = careerResumeQualityWarnings({
+    summary: typeof summaryItem?.text === "string" ? summaryItem.text : undefined,
+    bullets: reviewedItems.flatMap((item) => {
+      const record = item as unknown as Record<string, unknown>;
+      return [
+        ...(Array.isArray(record.highlights) ? record.highlights : []),
+        ...(Array.isArray(record.outcomes) ? record.outcomes : [])
+      ].filter((value): value is string => typeof value === "string");
+    })
+  });
+  findings.push(...qualityWarnings);
   const baseMetrics = result.metrics;
   const metrics: ResumeCompositionMetrics = {
     ...result.metrics,

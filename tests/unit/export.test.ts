@@ -55,6 +55,29 @@ describe("V2 G3a direct PDF export", () => {
     expect(isSafePdfFileName(filename)).toBe(true);
   });
 
+  it("uses explicit general direction only for general resume filenames", () => {
+    expect(buildResumePdfFileName({
+      candidateName: "张三",
+      branchPurpose: "general",
+      targetDirection: "AI 应用方向",
+      templateName: "classic",
+      date: "2026-08-13T12:00:00.000Z"
+    })).toBe("张三_AI应用方向_通用简历_classic_20260813.pdf");
+    expect(buildResumePdfFileName({
+      candidateName: "张三",
+      branchPurpose: "general",
+      templateName: "classic",
+      date: "2026-08-13T12:00:00.000Z"
+    })).toBe("张三_通用简历_classic_20260813.pdf");
+    expect(buildResumePdfFileName({
+      candidateName: "张三",
+      branchPurpose: "job_specific",
+      jobTitle: "数据分析实习生",
+      templateName: "classic",
+      date: "2026-08-13T12:00:00.000Z"
+    })).toBe("张三_数据分析实习生_classic_20260813.pdf");
+  });
+
   it("validates export request schema and rejects unsafe filenames or template ids", async () => {
     const { branch, presentationConfig, job } = await createBranchFixture("CareerAdaptG3aSchemaDb");
     const renderModel = mapBranchToResumeRenderModel({

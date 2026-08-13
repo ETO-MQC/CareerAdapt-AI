@@ -899,6 +899,7 @@ export function AgentWorkspace() {
                 confirmation={session.pendingToolCall ? session.pendingConfirmation : undefined}
                 confirmationBusy={running}
                 profileIntakeProjection={intakeProjection}
+                tailoringTaskState={session.taskState}
                  onArtifactAction={dispatchArtifactAction}
                  onConfirmation={(confirmed) => void (async () => {
                    const next = await host.runUserEvent(

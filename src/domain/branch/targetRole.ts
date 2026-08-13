@@ -7,17 +7,20 @@ export function resolveResumeTargetRole(input: {
 }): string | undefined {
   const { branch, profile, job } = input;
   const basics = branch.resumeBasics;
-  if (basics && Object.prototype.hasOwnProperty.call(basics, "targetRole")) {
-    return basics.targetRole?.trim() || undefined;
+  const branchLocalRole = basics?.targetRole?.trim() || undefined;
+  if (branch.branchPurpose === "general") {
+    // General branches are presentation artifacts, not mirrors of the
+    // profile's historical headline/targetRole. Only a branch-local direction
+    // (for example composition.targetDirection) is allowed here.
+    const historicalProfileRoles = [
+      profile.structuredBasics?.targetRole?.trim(),
+      profile.structuredBasics?.headline?.trim()
+    ].filter((value): value is string => Boolean(value));
+    return branchLocalRole && !historicalProfileRoles.includes(branchLocalRole)
+      ? branchLocalRole
+      : undefined;
   }
-
-  const profileTargetRole = profile.structuredBasics?.targetRole?.trim();
-  const profileHeadline = profile.structuredBasics?.headline?.trim();
-  const jobTitle = branch.branchPurpose === "job_specific" ? job?.title.trim() : undefined;
-  const legacyName = branch.name.trim();
-  if (legacyName && [jobTitle, profileTargetRole, profileHeadline].some((value) => value === legacyName)) {
-    return legacyName;
-  }
-
-  return jobTitle || profileTargetRole || profileHeadline || undefined;
+  // The bound Job is authoritative for a job branch unless the user has
+  // explicitly edited the branch-local target role.
+  return branchLocalRole || job?.title.trim() || undefined;
 }

@@ -919,7 +919,7 @@ function TailoringAnswerRecord({
   );
 }
 
-function TailoringDiffRecord({
+export function TailoringDiffRecord({
   diff,
   review,
   diffId,

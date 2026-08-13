@@ -151,6 +151,7 @@ export function AgentWorkflowRenderer({
           busy={state.busy}
           title={confirmationCopy(pending).title}
           description={confirmationCopy(pending).description}
+          confirmLabel={pending === "apply_tailoring_changes" ? "生成岗位简历" : undefined}
           onCancel={() => onConfirm(false)}
           onConfirm={() => onConfirm(true)}
         />
@@ -174,7 +175,7 @@ function confirmationCopy(
 ) {
   const copy = {
     commit_job: { title: "保存这个岗位？", description: "确认后会把核对结果写入岗位库。你仍可在岗位页继续编辑。" },
-    apply_tailoring_changes: { title: "应用这些简历修改？", description: "确认后会创建一个新的 ResumeRevision；来源简历和个人资料库不会被覆盖。" }
+    apply_tailoring_changes: { title: "应用这些简历修改？", description: "确认后只应用已核对的修改并创建岗位简历；来源简历和个人资料库不会被覆盖。" }
   };
   return copy[name];
 }
