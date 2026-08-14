@@ -39,7 +39,7 @@ import { notify } from "@/services/notifications/store";
 import { agentAttachmentStore, type AgentAttachmentRef } from "@/services/agent/AgentAttachmentStore";
 import { allowedToolManifestForStep } from "@/agent/workflows/workflowRegistry";
 import { agentToolNames } from "@/agent/tools/registry";
-import { HermesCareerToolCatalog } from "@/agent/runtime/hermes/HermesCareerToolCatalog";
+import { HermesCareerToolCatalog, hermesProductionToolNames } from "@/agent/runtime/hermes/HermesCareerToolCatalog";
 import { isRoadshowReady } from "@/agent/runtime/runtimeHealth";
 
 type ResumeSummary = { id: string; profileId: string; name: string; purpose: string; revision: number };
@@ -627,6 +627,10 @@ export function AgentWorkspace() {
         status: message.status,
         safeErrorCode: typeof message.metadata?.safeErrorCode === "string" ? message.metadata.safeErrorCode : undefined,
         operationId: message.operationId,
+        logicalToolOperationId: typeof message.metadata?.logicalToolOperationId === "string" ? message.metadata.logicalToolOperationId : undefined,
+        transportOperationIds: Array.isArray(message.metadata?.transportOperationIds)
+          ? message.metadata.transportOperationIds.filter((value): value is string => typeof value === "string")
+          : undefined,
         requestedHermesToolName: typeof message.metadata?.requestedHermesToolName === "string" ? message.metadata.requestedHermesToolName : undefined,
         stableCareerToolName: typeof message.metadata?.stableCareerToolName === "string" ? message.metadata.stableCareerToolName : undefined
       }));
@@ -692,6 +696,10 @@ export function AgentWorkspace() {
     const careerContracts = host.careerToolGateway.listContracts();
     const careerCatalog = new HermesCareerToolCatalog(careerContracts);
     const runtimeHealth = runtimeStatus.health;
+    const safeRuntimeFailureDiagnostics = sanitizeRuntimeFailureDiagnostics(
+      session.activeTurn?.runtimeFailureDiagnostics ?? runtimeHealth?.runtimeFailureDiagnostics
+    );
+    const productionCareerContracts = careerContracts.filter((contract) => hermesProductionToolNames().has(contract.name));
     const bundle = {
       schemaVersion: "agent-technical-diagnostics-v2",
       exportedAt: new Date().toISOString(),
@@ -702,22 +710,23 @@ export function AgentWorkspace() {
         profileRevision: session.profileRevision
       },
       taskState: safeTaskState,
-      runtime: session.activeTurn ? {
-        runtimeId: session.activeTurn.runtimeId,
-        executionOwner: session.activeTurn.executionOwner,
-        preferredRuntime: session.activeTurn.preferredRuntime,
-        attemptedRuntime: session.activeTurn.attemptedRuntime,
-        finalRuntime: session.activeTurn.finalRuntime,
-        fallbackUsed: session.activeTurn.fallbackUsed,
-        fallbackReasonCode: session.activeTurn.fallbackReasonCode,
-        hermesRunId: session.activeTurn.hermesRunId,
-        nextHermesRunId: session.activeTurn.nextHermesRunId,
-        firstEventAt: session.activeTurn.firstEventAt,
-        runtimeFailureAt: session.activeTurn.runtimeFailureAt
-      } : undefined,
+      runtime: {
+        runtimeId: session.activeTurn?.runtimeId ?? runtimeStatus.activeRuntime,
+        executionOwner: session.activeTurn?.executionOwner,
+        preferredRuntime: session.activeTurn?.preferredRuntime,
+        attemptedRuntime: session.activeTurn?.attemptedRuntime,
+        finalRuntime: session.activeTurn?.finalRuntime,
+        fallbackUsed: session.activeTurn?.fallbackUsed,
+        fallbackReasonCode: session.activeTurn?.fallbackReasonCode,
+        hermesRunId: session.activeTurn?.hermesRunId,
+        nextHermesRunId: session.activeTurn?.nextHermesRunId,
+        firstEventAt: session.activeTurn?.firstEventAt,
+        runtimeFailureAt: session.activeTurn?.runtimeFailureAt,
+        runtimeFailureDiagnostics: safeRuntimeFailureDiagnostics
+      },
       nativeAllowedSourceTools: workflowDefinition.map((tool) => String(tool.name)),
       careerGatewayContracts: careerContracts.map((contract) => contract.name).sort(),
-      careerMcpExposedTools: careerContracts.map((contract) => contract.name).sort(),
+      careerMcpExposedTools: (runtimeHealth?.careerMcpExposedTools ?? productionCareerContracts.map((contract) => contract.name)).sort(),
       hermesRegisteredToolsets: runtimeHealth?.hermesRegisteredToolsets ?? [],
       hermesVisibleTools: runtimeHealth?.hermesVisibleTools ?? [],
       missingRequiredCareerTools: runtimeHealth?.missingRequiredCareerTools ?? careerCatalog.coverage([]).requiredCareerFacadesMissing,
@@ -1224,6 +1233,44 @@ function taskToWorkflowView(session: AgentSession): TailorWorkflowViewState {
 
 function readRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
+export function sanitizeRuntimeFailureDiagnostics(value: unknown): Record<string, unknown> | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const source = value as Record<string, unknown>;
+  const result: Record<string, unknown> = {};
+  const stringKeys = ["failureLayer", "safeErrorCode", "safeErrorMessage", "upstreamErrorCode", "hermesSessionId", "hermesRunId", "requestedTurnId", "runStartKind", "providerStatus"];
+  const numberKeys = ["httpStatus", "latencyMs"];
+  const booleanKeys = ["companionConnected", "mcpConnected", "retryable"];
+  for (const key of stringKeys) {
+    if (typeof source[key] === "string" && source[key].trim()) {
+      result[key] = key === "safeErrorMessage"
+        ? redactRuntimeDiagnosticText(source[key] as string)
+        : (source[key] as string).slice(0, 240);
+    }
+  }
+  for (const key of numberKeys) {
+    if (typeof source[key] === "number" && Number.isFinite(source[key])) result[key] = Math.max(0, Math.round(source[key] as number));
+  }
+  for (const key of booleanKeys) {
+    if (typeof source[key] === "boolean") result[key] = source[key];
+  }
+  for (const key of ["initialFailure", "recoveryFailure"]) {
+    const nested = sanitizeRuntimeFailureDiagnostics(source[key]);
+    if (nested) result[key] = nested;
+  }
+  return Object.keys(result).length ? result : undefined;
+}
+
+function redactRuntimeDiagnosticText(value: string) {
+  return value
+    .replace(/[\u0000-\u001f\u007f]/gu, " ")
+    .replace(/\s+/gu, " ")
+    .trim()
+    .replace(/Bearer\s+[^\s,;]+/giu, "Bearer [redacted]")
+    .replace(/\b(?:sk|rk)-[A-Za-z0-9_-]{8,}\b/gu, "[redacted-key]")
+    .replace(/\b(?:x-api-key|api[_ -]?key|authorization|token|secret|password)\s*[:=]\s*[^\s,;]+/giu, "[redacted-secret]")
+    .slice(0, 360);
 }
 
 function readArray(value: unknown, key: string) {

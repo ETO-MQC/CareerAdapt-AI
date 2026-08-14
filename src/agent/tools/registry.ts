@@ -9,9 +9,16 @@ import { CaptureProfileIntakeResultSchema } from "@/domain/profileIntake/Capture
 import type { AgentToolDefinition, AgentToolResult } from "../contracts/agentTool";
 import type { ExternalToolProvider } from "./externalToolProvider";
 import { ResumeSectionTypeV2Schema } from "@/domain/schemas/resumeV2";
+import {
+  CareerContextRetrieveInputSchema,
+  CareerContextRetrieveResultSchema
+} from "@/domain/careerContext/retrieveCareerContext";
 
 const OperationOutputSchema = z.object({ operationId: z.string().min(8) }).passthrough();
 const CaptureProfileIntakeToolOutputSchema = CaptureProfileIntakeResultSchema.extend({
+  operationId: z.string().min(8)
+});
+const CareerContextRetrieveToolOutputSchema = CareerContextRetrieveResultSchema.extend({
   operationId: z.string().min(8)
 });
 const EmptyInputSchema = z.object({}).strict();
@@ -23,6 +30,7 @@ export type AgentToolServices = {
   getActiveProfile?(signal?: AbortSignal): Promise<unknown>;
   getProfile?(input: unknown, signal?: AbortSignal): Promise<unknown>;
   searchProfileFacts?(input: unknown, signal?: AbortSignal): Promise<unknown>;
+  retrieveCareerContext?(input: unknown, signal?: AbortSignal): Promise<unknown>;
   getResume?(input: unknown, signal?: AbortSignal): Promise<unknown>;
   getResumeRevision?(input: unknown, signal?: AbortSignal): Promise<unknown>;
   getJob?(input: unknown, signal?: AbortSignal): Promise<unknown>;
@@ -320,6 +328,7 @@ export function createAgentToolRegistry(services: AgentToolServices) {
     define(services, meta("get_active_profile", "读取用户当前明确选择的资料库标识；不会猜测身份。", "read", false, true, true, EmptyInputSchema, "profile", "active_profile"), (_, __, signal) => services.getActiveProfile ? services.getActiveProfile(signal) : unavailableTool("get_active_profile")),
     define(services, meta("get_profile", "按 profileId 读取权威 CareerProfile 详情和来源支持的资料条目。", "read", false, true, true, ProfileIdInputSchema, "profile", "career_profile"), (input, _, signal) => services.getProfile ? services.getProfile(input, signal) : unavailableTool("get_profile")),
     define(services, meta("search_profile_facts", "在指定 CareerProfile 中检索与问题相关的真实经历、技能、教育或证书。", "read", false, true, true, ProfileSearchInputSchema, "profile", "profile_facts"), (input, _, signal) => services.searchProfileFacts ? services.searchProfileFacts(input, signal) : unavailableTool("search_profile_facts")),
+    define(services, meta("retrieve_career_context", "只读检索与当前问题相关的已确认职业事实、证据、岗位信号和安全缺口；不会写入 Profile、Job 或 Resume。", "read", false, true, true, CareerContextRetrieveInputSchema, "profile", "career_context", false, CareerContextRetrieveToolOutputSchema), (input, _, signal) => services.retrieveCareerContext ? services.retrieveCareerContext(input, signal) : unavailableTool("retrieve_career_context")),
     define(services, meta("get_resume", "按 resumeId 读取简历分支的权威结构与当前 Revision 指针。", "read", false, true, true, ResumeIdInputSchema, "resume", "resume_detail"), (input, _, signal) => services.getResume ? services.getResume(input, signal) : unavailableTool("get_resume")),
     define(services, meta("get_resume_revision", "读取指定简历的当前或指定 Revision 快照。", "read", false, true, true, RevisionInputSchema, "resume", "resume_revision"), (input, _, signal) => services.getResumeRevision ? services.getResumeRevision(input, signal) : unavailableTool("get_resume_revision")),
     define(services, meta("get_job", "按 jobId 读取已保存岗位的权威要求详情。", "read", false, true, true, JobIdInputSchema, "job", "job_detail"), (input, _, signal) => services.getJob ? services.getJob(input, signal) : unavailableTool("get_job")),

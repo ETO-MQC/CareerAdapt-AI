@@ -39,6 +39,7 @@ export const HERMES_PRODUCTION_TOOL_PROFILE = [
   "career.system.runtime_status",
   "career.system.current_task",
   "career.system.last_failure",
+  "career.context.retrieve",
   "career.profile.get",
   "career.resume.list",
   "career.job.list"

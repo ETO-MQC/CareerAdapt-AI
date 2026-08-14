@@ -431,7 +431,7 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
         yield this.event(input, "tool_call_requested", {
           toolName: bridgeEvent.toolName,
           operationId: bridgeEvent.operationId,
-          data: { toolCallId: bridgeEvent.toolCallId, logicalToolOperationId: bridgeEvent.logicalToolOperationId ?? logicalToolOperationId(bridgeEvent), input: bridgeEvent.input }
+          data: { toolCallId: bridgeEvent.toolCallId, logicalToolOperationId: this.bridgeLogicalOperationId(input, bridgeEvent), input: bridgeEvent.input }
         });
         yield* this.executeToolCall(input, opened.sessionId, bridgeEvent, counters, binding, requireSessionBinding);
         continue;
@@ -501,8 +501,12 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
     counters.toolCalls += 1;
     const catalog = new HermesCareerToolCatalog(this.dependencies.careerToolGateway.listContracts());
     const requestedHermesToolName = request.toolName;
-    const logicalOperationId = request.logicalToolOperationId ?? logicalToolOperationId(request);
     const stableToolName = catalog.stableNameForRequestedName(requestedHermesToolName) ?? requestedHermesToolName;
+    const logicalOperationId = request.logicalToolOperationId ?? logicalToolOperationId({
+      ...request,
+      turnId: input.turnId,
+      stableToolName
+    });
     if (!isAllowedCareerTool(input, stableToolName, catalog)) {
       const code = "agent_tool_not_allowed";
       counters.toolFailures += 1;
@@ -599,6 +603,7 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
     });
     let result = await this.executeGatewayTool(stableToolName, request.input, {
       operationId: request.operationId,
+      logicalToolOperationId: logicalOperationId,
       signal: input.signal,
       confirmed,
       confirmationCount,
@@ -609,6 +614,7 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
       counters.autonomousRecoveries += 1;
       result = await this.executeGatewayTool(stableToolName, request.input, {
         operationId: request.operationId,
+        logicalToolOperationId: logicalOperationId,
         signal: input.signal,
         confirmed,
         confirmationCount,
@@ -706,7 +712,7 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
         operationId: event.operationId,
         data: {
           toolCallId: event.toolCallId,
-          logicalToolOperationId: event.logicalToolOperationId ?? logicalToolOperationId(event),
+          logicalToolOperationId: this.bridgeLogicalOperationId(input, event),
           ...this.toolDiagnostics(event.toolName),
           ...(event.data && typeof event.data === "object" ? event.data as Record<string, unknown> : {})
         }
@@ -717,7 +723,7 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
       operationId: event.operationId,
       data: {
         toolCallId: event.toolCallId,
-        logicalToolOperationId: event.logicalToolOperationId ?? logicalToolOperationId(event),
+        logicalToolOperationId: this.bridgeLogicalOperationId(input, event),
         ...this.toolDiagnostics(event.toolName),
         ...(event.data && typeof event.data === "object" ? event.data as Record<string, unknown> : {})
       }
@@ -728,7 +734,7 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
         toolName: event.toolName,
         operationId: event.operationId,
         error: { code: event.code, message: event.message, recoverable: event.recoverable },
-        data: { logicalToolOperationId: event.logicalToolOperationId ?? logicalToolOperationId(event), ...this.toolDiagnostics(event.toolName), ...(event.data && typeof event.data === "object" ? event.data as Record<string, unknown> : {}) }
+        data: { logicalToolOperationId: this.bridgeLogicalOperationId(input, event), ...this.toolDiagnostics(event.toolName), ...(event.data && typeof event.data === "object" ? event.data as Record<string, unknown> : {}) }
       });
     }
     if (event.type === "approval_required") return this.event(input, "approval_required", {
@@ -746,6 +752,21 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
       data: { telemetry: this.telemetry(input, counters, "failed", startedAt) }
     });
     return undefined;
+  }
+
+  private bridgeLogicalOperationId(
+    input: AgentRuntimeTurnInput,
+    event: Extract<HermesBridgeEvent, { type: "tool_call_requested" | "tool_call_started" | "tool_call_completed" | "tool_call_failed" }>
+  ) {
+    if (event.logicalToolOperationId) return event.logicalToolOperationId;
+    const catalog = new HermesCareerToolCatalog(this.dependencies.careerToolGateway.listContracts());
+    const stableToolName = catalog.stableNameForRequestedName(event.toolName) ?? event.toolName;
+    return logicalToolOperationId({
+      toolCallId: event.toolCallId,
+      operationId: event.operationId,
+      turnId: input.turnId,
+      stableToolName
+    });
   }
 
   private toolDiagnostics(requestedHermesToolName?: string) {

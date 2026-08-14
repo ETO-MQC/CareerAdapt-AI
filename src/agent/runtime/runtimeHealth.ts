@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { HERMES_REQUIRED_CAREER_FACADES } from "./hermes/HermesCareerToolCatalog";
+import { HermesRunFailureDiagnosticsSchema } from "./hermes/hermesRunReliability";
 
 /** The single readiness contract used by the UI, diagnostics and roadshow. */
 export const RuntimeHealthSchema = z.object({
@@ -36,7 +37,8 @@ export const RuntimeHealthSchema = z.object({
   /** This is run-start capability, not an LLM completion probe. */
   runReady: z.boolean().optional(),
   runReadyCheckedAt: z.string().datetime({ offset: true }).optional(),
-  runReadySafeErrorCode: z.string().min(1).optional()
+  runReadySafeErrorCode: z.string().min(1).optional(),
+  runtimeFailureDiagnostics: HermesRunFailureDiagnosticsSchema.optional()
 }).strict();
 
 export type RuntimeHealth = z.infer<typeof RuntimeHealthSchema>;

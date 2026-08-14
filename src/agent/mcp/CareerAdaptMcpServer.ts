@@ -141,9 +141,15 @@ function readCallMeta(value: unknown, requireSessionBinding: boolean): CareerAda
     : typeof meta.operationId === "string"
       ? meta.operationId
       : undefined;
+  const logicalToolOperationId = typeof meta["careeradapt/logicalToolOperationId"] === "string"
+    ? meta["careeradapt/logicalToolOperationId"]
+    : typeof meta.logicalToolOperationId === "string"
+      ? meta.logicalToolOperationId
+      : undefined;
   const careerSessionBinding = readCareerSessionBinding(meta.careerSessionBinding ?? meta["careeradapt/sessionBinding"]);
   return {
     ...(operationId ? { operationId } : {}),
+    ...(logicalToolOperationId ? { logicalToolOperationId } : {}),
     ...(careerSessionBinding ? { careerSessionBinding } : {}),
     requireSessionBinding,
     confirmationRequested: meta["careeradapt/confirmationRequested"] === true

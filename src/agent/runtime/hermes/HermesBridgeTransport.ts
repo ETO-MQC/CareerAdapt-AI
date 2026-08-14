@@ -5,6 +5,7 @@ import type { CareerSessionBinding } from "../careerSessionBinding";
 import { RuntimeHealthSchema, type RuntimeHealth } from "../runtimeHealth";
 import {
   createHermesRunFailure,
+  type HermesRunFailureDiagnostics,
   withHermesRunFailureDiagnostics
 } from "./hermesRunReliability";
 
@@ -96,9 +97,18 @@ export type HermesToolCallback = {
   result: unknown;
 };
 
-export function logicalToolOperationId(input: { toolCallId?: string; operationId?: string }) {
-  const source = input.toolCallId?.trim() || input.operationId?.trim();
-  return source ? `hermes-tool-${source}` : undefined;
+export function logicalToolOperationId(input: { toolCallId?: string; operationId?: string; turnId?: string; stableToolName?: string }) {
+  const source = input.toolCallId?.trim();
+  if (source) return `hermes-tool-${source}`;
+  if (input.turnId?.trim() && input.stableToolName?.trim()) {
+    return `hermes-tool-${sanitizeLogicalPart(input.turnId)}-${sanitizeLogicalPart(input.stableToolName)}`;
+  }
+  const operation = input.operationId?.trim();
+  return operation ? `hermes-tool-${operation}` : undefined;
+}
+
+function sanitizeLogicalPart(value: string) {
+  return value.replace(/[^A-Za-z0-9_.:-]/gu, "_").slice(0, 180);
 }
 
 export interface HermesBridgeTransport {
@@ -204,7 +214,7 @@ export class HttpHermesBridgeTransport implements HermesBridgeTransport {
     const payload = await response.json().catch(() => ({})) as {
       ok?: boolean;
       data?: T;
-      error?: { code?: string; message?: string; httpStatus?: number; failureLayer?: string };
+      error?: { code?: string; message?: string; httpStatus?: number; failureLayer?: string; diagnostics?: Partial<HermesRunFailureDiagnostics> };
     };
     if (!response.ok || payload.ok === false) {
       throw bridgeError(
@@ -213,7 +223,8 @@ export class HttpHermesBridgeTransport implements HermesBridgeTransport {
         {
           httpStatus: response.status,
           failureLayer: payload.error?.failureLayer === "provider" ? "provider" : "bridge_http",
-          upstreamErrorCode: payload.error?.code
+          upstreamErrorCode: payload.error?.code,
+          diagnostics: payload.error?.diagnostics
         }
       );
     }
@@ -237,7 +248,8 @@ export class HttpHermesBridgeTransport implements HermesBridgeTransport {
       throw bridgeError(payload?.error?.code ?? `hermes_bridge_http_${response.status}`, payload?.error?.message ?? "Hermes turn stream is unavailable.", {
         httpStatus: response.status,
         failureLayer: "bridge_http",
-        upstreamErrorCode: payload?.error?.code
+        upstreamErrorCode: payload?.error?.code,
+        diagnostics: payload?.error?.diagnostics
       });
     }
     const reader = response.body.getReader();
@@ -352,7 +364,7 @@ function mapOfficialHermesEvent(name: string, value: unknown): HermesBridgeEvent
     return typeof payload.delta === "string" ? { type: "text_delta", delta: payload.delta } : undefined;
   }
   if (name === "tool.started") {
-    return { type: "tool_call_started", toolName, operationId, logicalToolOperationId: logicalToolOperationId({ toolCallId, operationId }), data: payload };
+    return { type: "tool_call_started", toolName, operationId, logicalToolOperationId: logicalToolOperationId({ toolCallId }), data: payload };
   }
   if (name === "tool.completed") {
     const rawToolError = objectRecord(payload.error);
@@ -368,13 +380,13 @@ function mapOfficialHermesEvent(name: string, value: unknown): HermesBridgeEvent
           type: "tool_call_failed",
           toolName,
           operationId,
-          logicalToolOperationId: logicalToolOperationId({ toolCallId, operationId }),
+          logicalToolOperationId: logicalToolOperationId({ toolCallId }),
           code: typeof toolError.code === "string" ? toolError.code : typeof payload.code === "string" ? payload.code : "hermes_tool_failed",
           message: typeof toolError.message === "string" ? toolError.message : typeof payload.error === "string" ? payload.error : typeof payload.message === "string" ? payload.message : "Hermes 工具执行没有完成。",
           recoverable: typeof toolError.recoverable === "boolean" ? toolError.recoverable : typeof payload.recoverable === "boolean" ? payload.recoverable : true,
           data: payload
         }
-      : { type: "tool_call_completed", toolName, operationId, logicalToolOperationId: logicalToolOperationId({ toolCallId, operationId }), data: payload };
+      : { type: "tool_call_completed", toolName, operationId, logicalToolOperationId: logicalToolOperationId({ toolCallId }), data: payload };
   }
   if (name === "reasoning.available") {
     return { type: "reasoning_status", message: typeof payload.text === "string" ? payload.text : undefined, data: payload };
@@ -419,8 +431,8 @@ function mapOfficialHermesEvent(name: string, value: unknown): HermesBridgeEvent
       ? { type: "reasoning_status", message, data: payload }
       : { type: "progress", message, data: payload };
   }
-  if (name === "tool.started") return { type: "tool_call_started", toolCallId, toolName, operationId, logicalToolOperationId: logicalToolOperationId({ toolCallId, operationId }), data: payload };
-  if (name === "tool.completed") return { type: "tool_call_completed", toolCallId, toolName, operationId, logicalToolOperationId: logicalToolOperationId({ toolCallId, operationId }), data: payload };
+  if (name === "tool.started") return { type: "tool_call_started", toolCallId, toolName, operationId, logicalToolOperationId: logicalToolOperationId({ toolCallId }), data: payload };
+  if (name === "tool.completed") return { type: "tool_call_completed", toolCallId, toolName, operationId, logicalToolOperationId: logicalToolOperationId({ toolCallId }), data: payload };
   if (name === "tool.failed") return {
     type: "tool_call_failed",
     toolCallId,
@@ -437,7 +449,7 @@ function mapOfficialHermesEvent(name: string, value: unknown): HermesBridgeEvent
     recoverable: typeof objectRecord(payload.error).recoverable === "boolean"
       ? Boolean(objectRecord(payload.error).recoverable)
       : typeof payload.recoverable === "boolean" ? payload.recoverable : true,
-    logicalToolOperationId: logicalToolOperationId({ toolCallId, operationId }),
+    logicalToolOperationId: logicalToolOperationId({ toolCallId }),
     data: payload
   };
   if (name === "error") return {
@@ -514,7 +526,7 @@ export function toRuntimeHealth(
 
 async function safeJson(response: Response) {
   try {
-    return await response.json() as { error?: { code?: string; message?: string } };
+    return await response.json() as { error?: { code?: string; message?: string; diagnostics?: Partial<HermesRunFailureDiagnostics> } };
   } catch {
     return undefined;
   }
@@ -527,9 +539,11 @@ function bridgeError(
     httpStatus?: number;
     failureLayer?: "companion" | "session" | "provider" | "mcp" | "run_start" | "bridge_http" | "response";
     upstreamErrorCode?: string;
+    diagnostics?: Partial<HermesRunFailureDiagnostics>;
   } = {}
 ) {
-  return createHermesRunFailure({ code, message, ...context });
+  const { diagnostics, ...base } = context;
+  return createHermesRunFailure({ code, message, ...diagnostics, ...base });
 }
 
 function safeRuntimeErrorCode(value: string) {

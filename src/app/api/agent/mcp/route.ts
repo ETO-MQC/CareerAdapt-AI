@@ -76,7 +76,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ jsonrpc: "2.0", id: null, error: { code: -32600, message: "Invalid Request" } }, { status: 400 });
   }
 
-  const protocol = new CareerAdaptMcpProtocolServer(createCareerAdaptMcpBridgeGateway(), {
+  const surface = request.nextUrl.searchParams.get("surface") === "internal"
+    ? "internal"
+    : "hermes-production";
+  const protocol = new CareerAdaptMcpProtocolServer(createCareerAdaptMcpBridgeGateway(surface), {
     name: "careeradapt",
     version: "p4.4d",
     requireSessionBinding: true

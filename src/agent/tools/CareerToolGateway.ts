@@ -134,6 +134,7 @@ const CAREER_TOOL_DEFINITIONS: CareerToolDefinition[] = [
   { name: "career.profile.active", sourceToolName: "get_active_profile", namespace: "career.profile", readWrite: "read", personProfileBinding: "optional" },
   { name: "career.profile.get", sourceToolName: "get_profile", namespace: "career.profile", readWrite: "read", personProfileBinding: "required" },
   { name: "career.profile.search_facts", sourceToolName: "search_profile_facts", namespace: "career.profile", readWrite: "read", personProfileBinding: "required" },
+  { name: "career.context.retrieve", sourceToolName: "retrieve_career_context", namespace: "career.context", readWrite: "read", personProfileBinding: "required" },
   { name: "career.profile.capture_intake", sourceToolName: "capture_profile_intake", namespace: "career.profile", readWrite: "write", personProfileBinding: "required" },
   { name: "career.profile.synthesize_intake", sourceToolName: "synthesize_profile_intake", namespace: "career.profile", readWrite: "write", personProfileBinding: "required" },
   { name: "career.profile.review_intake", sourceToolName: "review_profile_intake", namespace: "career.profile", readWrite: "write", personProfileBinding: "required" },
@@ -228,6 +229,7 @@ export class CareerToolGateway {
           toolName: sourceToolName,
           toolInput: input,
           operationId: normalizeOperationId(context.operationId),
+          logicalToolOperationId: context.logicalToolOperationId,
           signal: context.signal,
           confirmed: context.confirmed,
           confirmationCount: context.confirmationCount,
@@ -296,6 +298,7 @@ export class CareerToolGateway {
           operationId,
           (atomicName, atomicInput, atomicContext) => this.execute(atomicName, atomicInput, {
             ...atomicContext,
+            logicalToolOperationId: atomicContext.logicalToolOperationId ?? context.logicalToolOperationId,
             workflowFacadeInternal: true,
             authoritativeTaskState: facadeContext.authoritativeTaskState
           })
@@ -346,6 +349,7 @@ export class CareerToolGateway {
         toolName: sourceToolName,
         toolInput: input,
         operationId,
+        logicalToolOperationId: context.logicalToolOperationId,
         signal: context.signal,
         confirmed: context.confirmed,
         confirmationCount: context.confirmationCount,
@@ -584,6 +588,7 @@ export class CareerToolGatewayExecutor extends AgentExecutor {
     }
     return this.gateway.executeForAgent(input.toolName, input.toolInput, {
       operationId: input.operationId,
+      logicalToolOperationId: input.logicalToolOperationId,
       signal: input.signal,
       confirmed: input.confirmed,
       confirmationCount: input.confirmationCount,
@@ -596,6 +601,7 @@ export class CareerToolGatewayExecutor extends AgentExecutor {
   private async executeWorkflowConfirmation(input: Parameters<AgentExecutor["execute"]>[0]): Promise<AgentToolResult> {
     const result = await this.gateway.execute(input.toolName, input.toolInput, {
       operationId: input.operationId,
+      logicalToolOperationId: input.logicalToolOperationId,
       signal: input.signal,
       confirmed: input.confirmed,
       confirmationCount: input.confirmationCount,

@@ -47,6 +47,8 @@ export type CareerAdaptMcpTool = {
 
 export type CareerAdaptMcpCallMeta = {
   operationId?: string;
+  /** One logical ID shared by the Hermes call, MCP bridge and Gateway. */
+  logicalToolOperationId?: string;
   careerSessionBinding?: CareerSessionBinding;
   requireSessionBinding?: boolean;
   /**
@@ -92,6 +94,7 @@ export class CareerAdaptMcpAdapter {
 
     const context: CareerToolExecutionContext = {
       operationId,
+      logicalToolOperationId: meta.logicalToolOperationId?.trim() || `hermes-tool-${operationId}`,
       signal,
       // MCP clients must never autonomously bypass a CareerAdapt
       // confirmation boundary. Safe reads and explicitly safe writes still
@@ -103,7 +106,7 @@ export class CareerAdaptMcpAdapter {
       requireSessionBinding: meta.requireSessionBinding === true
     };
     const result = await this.gateway.execute(name, input, context);
-    return toCallResult(result, contract);
+    return toCallResult(result, contract, context.logicalToolOperationId);
   }
 }
 
@@ -131,7 +134,7 @@ export function toMcpTool(contract: CareerToolContract): CareerAdaptMcpTool {
   };
 }
 
-function toCallResult(result: CareerToolResult, contract: CareerToolContract): CareerAdaptMcpCallResult {
+function toCallResult(result: CareerToolResult, contract: CareerToolContract, logicalToolOperationId?: string): CareerAdaptMcpCallResult {
   const payload: Record<string, unknown> = result.ok
     ? {
         ok: true,
@@ -164,6 +167,7 @@ function toCallResult(result: CareerToolResult, contract: CareerToolContract): C
     _meta: {
       "careeradapt/tool": contract.name,
       "careeradapt/operationId": result.receipt.operationId,
+      ...(logicalToolOperationId ? { "careeradapt/logicalToolOperationId": logicalToolOperationId } : {}),
       "careeradapt/safetyClass": contract.safetyClass
     }
   };

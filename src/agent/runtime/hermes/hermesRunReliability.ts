@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 export type HermesFailureLayer =
   | "companion"
   | "session"
@@ -23,6 +25,23 @@ export type HermesRunFailureDiagnostics = {
   latencyMs?: number;
   retryable: boolean;
 };
+
+export const HermesRunFailureDiagnosticsSchema = z.object({
+  failureLayer: z.enum(["companion", "session", "provider", "mcp", "run_start", "bridge_http", "response"]),
+  httpStatus: z.number().int().min(100).max(599).optional(),
+  safeErrorCode: z.string().min(1),
+  safeErrorMessage: z.string().min(1),
+  upstreamErrorCode: z.string().min(1).optional(),
+  hermesSessionId: z.string().min(1).optional(),
+  hermesRunId: z.string().min(1).optional(),
+  requestedTurnId: z.string().min(1).optional(),
+  runStartKind: z.enum(["new", "reattach"]).optional(),
+  companionConnected: z.boolean().optional(),
+  providerStatus: z.string().min(1).optional(),
+  mcpConnected: z.boolean().optional(),
+  latencyMs: z.number().int().min(0).optional(),
+  retryable: z.boolean()
+}).strict();
 
 export type HermesRunFailureError = Error & {
   code: string;
@@ -78,6 +97,8 @@ export function classifyHermesRunFailure(input: HermesRunFailureInput): HermesRu
     || /active run|already running|run conflict/u.test(message);
   const invalidResponse = /invalid[_ -]?(response|run)|missing[_ -]?run|schema/u.test(code)
     || /invalid response|missing run|run[_ ]?id/u.test(message);
+  const configurationFailure = /config|unconfigured|not[_ -]?configured|missing[_ -]?(api|model|provider)/u.test(code)
+    || /configuration|not configured|missing (api|model|provider)/u.test(message);
   const providerFailure = /provider|model|upstream/u.test(code) || /provider|model|upstream/u.test(message);
   const transientHttp = status === 408 || status === 425 || status === 429 || (status !== undefined && status >= 500);
   const companionFailure = /companion|bridge[_ -]?(unavailable|http)|network|connect/u.test(code)
@@ -102,6 +123,10 @@ export function classifyHermesRunFailure(input: HermesRunFailureInput): HermesRu
     safeErrorCode = "hermes_run_start_timeout";
     retryable = true;
     failureLayer = "bridge_http";
+  } else if (configurationFailure) {
+    safeErrorCode = "hermes_provider_unconfigured";
+    retryable = false;
+    failureLayer = "provider";
   } else if (providerFailure && (status === 400 || status === 422 || input.providerStatus === "invalid")) {
     safeErrorCode = "hermes_provider_unavailable";
     retryable = false;

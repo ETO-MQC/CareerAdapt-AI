@@ -30,6 +30,10 @@ import { analyzeJobFit, tailoringAnswerRevisionHash } from "@/services/jobs/tail
 import { hashText, stableHashText } from "@/services/security/text";
 import { WorkspaceRepository } from "@/services/storage/repositories";
 import type { AgentToolServices } from "@/agent/tools/registry";
+import {
+  CareerContextRetrieveInputSchema,
+  retrieveCareerContext
+} from "@/domain/careerContext/retrieveCareerContext";
 import { getAgentSessionDisplayTitle } from "@/agent/contracts/agentSession";
 import { canonicalProfileLibraryItems, canonicalProfileSectionCounts } from "@/domain/profile/canonicalLibrary";
 import { agentSkillRegistry } from "@/agent/kernel/AgentSkillRegistry";
@@ -1245,6 +1249,32 @@ export class BrowserAgentToolService implements AgentToolServices {
         score
       }));
     return { profileId: profile.id, query: input.query, results };
+  }
+
+  async retrieveCareerContext(rawInput: unknown, signal?: AbortSignal) {
+    assertNotAborted(signal);
+    const input = CareerContextRetrieveInputSchema.parse(rawInput);
+    const [profile, job, resume] = await Promise.all([
+      this.repository.getProfile(input.profileId),
+      input.jobId ? this.repository.getJobDescription(input.jobId) : Promise.resolve(undefined),
+      input.resumeId ? this.repository.getResumeBranch(input.resumeId) : Promise.resolve(undefined)
+    ]);
+    if (!profile) throw toolError("profile_not_found", "Profile no longer exists.");
+    if (input.jobId && !job) throw toolError("job_not_found", "Job no longer exists.");
+    if (input.resumeId && !resume) throw toolError("resume_not_found", "Resume no longer exists.");
+    if (resume && resume.profileId !== profile.id) {
+      throw toolError("career_context_resume_profile_mismatch", "Resume is not bound to the requested profile.");
+    }
+    const requirementMatches = job
+      ? await this.repository.listRequirementMatches(profile.id, job.id)
+      : undefined;
+    return retrieveCareerContext({
+      request: input,
+      profile,
+      ...(job ? { job } : {}),
+      ...(resume ? { resume } : {}),
+      ...(requirementMatches ? { requirementMatches } : {})
+    });
   }
 
   async getResume(rawInput: unknown, signal?: AbortSignal) {

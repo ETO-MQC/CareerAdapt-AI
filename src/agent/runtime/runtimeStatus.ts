@@ -1,4 +1,5 @@
 import { runtimeHealthStatus, type RuntimeHealth } from "./runtimeHealth";
+import { classifyHermesRunFailure, type HermesRunFailureInput } from "./hermes/hermesRunReliability";
 
 export type RuntimeStatus = "ready" | "starting" | "unavailable";
 
@@ -93,6 +94,29 @@ export class RuntimeStatusStore {
       discoveredToolCount: health.mcpToolCount,
       skillCount: health.careerSkillsLoaded ? 6 : 0,
       health
+    });
+  }
+
+  recordRunFailure(input: HermesRunFailureInput & { safeErrorCode?: string; safeErrorMessage?: string }) {
+    const diagnostics = classifyHermesRunFailure({
+      ...input,
+      code: input.code ?? input.safeErrorCode,
+      message: input.message ?? input.safeErrorMessage
+    });
+    const health = this.snapshot.health;
+    const nextHealth = health ? {
+      ...health,
+      runReady: false,
+      runReadyCheckedAt: new Date().toISOString(),
+      runReadySafeErrorCode: diagnostics.safeErrorCode,
+      runtimeFailureDiagnostics: diagnostics,
+      lastCheckedAt: new Date().toISOString()
+    } : undefined;
+    this.update({
+      activeRuntime: "hermes",
+      status: "unavailable",
+      reason: diagnostics.safeErrorCode,
+      ...(nextHealth ? { health: nextHealth } : {})
     });
   }
 

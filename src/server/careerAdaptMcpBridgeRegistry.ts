@@ -6,6 +6,9 @@ import type {
 } from "@/agent/tools/CareerToolGateway";
 import { CareerAdaptMcpUnavailableError } from "@/agent/mcp/CareerAdaptMcpServer";
 import { CareerSessionBindingSchema, type CareerSessionBinding } from "@/agent/runtime/careerSessionBinding";
+import { hermesProductionToolNames } from "@/agent/runtime/hermes/HermesCareerToolCatalog";
+
+export type CareerAdaptMcpSurface = "internal" | "hermes-production";
 
 type BridgeRequest = {
   id: string;
@@ -162,9 +165,9 @@ export function completeCareerAdaptMcpBridgeCall(
   return true;
 }
 
-export function careerAdaptMcpBridgeContracts() {
+export function careerAdaptMcpBridgeContracts(surface: CareerAdaptMcpSurface = "internal") {
   const bridge = activeBridge();
-  return bridge?.contracts ?? [];
+  return bridge ? contractsForSurface(bridge.contracts, surface) : [];
 }
 
 export function statusCareerAdaptMcpBridge(): CareerAdaptMcpBridgeStatus {
@@ -181,15 +184,34 @@ export function statusCareerAdaptMcpBridge(): CareerAdaptMcpBridgeStatus {
   };
 }
 
-export function createCareerAdaptMcpBridgeGateway() {
+export function createCareerAdaptMcpBridgeGateway(surface: CareerAdaptMcpSurface = "internal") {
   return {
     listContracts: () => {
       const bridge = activeBridge();
       if (!bridge) throw new CareerAdaptMcpUnavailableError();
-      return bridge.contracts;
+      return contractsForSurface(bridge.contracts, surface);
     },
-    execute: (_name: string, _input: unknown, context: CareerToolExecutionContext = {}) => enqueueCall(_name, _input, context)
+    execute: (_name: string, _input: unknown, context: CareerToolExecutionContext = {}) => {
+      const bridge = activeBridge();
+      if (!bridge) throw new CareerAdaptMcpUnavailableError();
+      if (!contractsForSurface(bridge.contracts, surface).some((contract) => contract.name === _name)) {
+        return Promise.resolve(failedResult({
+          id: `mcp-request-${nanoid(16)}`,
+          name: _name,
+          input: _input,
+          operationId: context.operationId ?? `mcp-bridge-${nanoid(16)}`,
+          createdAt: Date.now()
+        }, "career_tool_not_exposed", "当前 Hermes 生产工具面不暴露该 Career 原子工具。"));
+      }
+      return enqueueCall(_name, _input, context);
+    }
   };
+}
+
+function contractsForSurface(contracts: CareerToolContract[], surface: CareerAdaptMcpSurface) {
+  if (surface === "internal") return contracts;
+  const allowed = hermesProductionToolNames();
+  return contracts.filter((contract) => allowed.has(contract.name));
 }
 
 function enqueueCall(name: string, input: unknown, context: CareerToolExecutionContext): Promise<CareerToolResult> {
@@ -201,7 +223,7 @@ function enqueueCall(name: string, input: unknown, context: CareerToolExecutionC
     name,
     input,
     operationId,
-    logicalToolOperationId: context.logicalToolOperationId,
+    logicalToolOperationId: context.logicalToolOperationId ?? `hermes-tool-${operationId}`,
     careerSessionBinding: context.careerSessionBinding ?? bridge.careerSessionBinding,
     requireSessionBinding: context.requireSessionBinding,
     createdAt: Date.now()

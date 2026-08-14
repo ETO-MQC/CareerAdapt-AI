@@ -131,7 +131,8 @@ async function withRuntimeHealth(
   const registry = await readHermesToolsetSnapshot(runtimeBaseUrl);
   const careerMcpServerReachable = await probeCareerMcpServer(appBaseUrl);
   const contracts = careerAdaptMcpBridgeContracts();
-  const catalog = new HermesCareerToolCatalog(contracts);
+  const exposedContracts = careerAdaptMcpBridgeContracts("hermes-production");
+  const catalog = new HermesCareerToolCatalog(exposedContracts);
   const coverage = catalog.coverage(registry.visibleTools, registry.registeredToolsets);
   const companionReady = upstreamRuntimeHealth?.companionReady ?? (
     (upstreamRuntimeHealth?.runtimeAvailable ?? health.available) === true
@@ -154,8 +155,10 @@ async function withRuntimeHealth(
     && coverage.requiredCareerFacadesMissing.length === 0
   );
   const cachedRunReadiness = readHermesRunReadiness(runtimeBaseUrl);
-  const runReady = upstreamRuntimeHealth?.runReady
-    ?? (mcpReady && cachedRunReadiness?.ready !== false && companionReady && providerReady);
+  const runReady = cachedRunReadiness?.ready === false
+    ? false
+    : upstreamRuntimeHealth?.runReady
+      ?? (mcpReady && companionReady && providerReady);
   const runtimeHealth = RuntimeHealthSchema.parse({
     ...(upstreamRuntimeHealth ?? {}),
     runtimeId: upstreamRuntimeHealth?.runtimeId ?? health.runtimeId ?? "hermes",
@@ -172,20 +175,20 @@ async function withRuntimeHealth(
     toolCallingAvailable: upstreamRuntimeHealth?.toolCallingAvailable ?? health.toolCalling === "verified",
     mcpConnected: mcp.connected,
     mcpReady,
-    mcpToolCount: mcp.discoveredToolCount,
+    mcpToolCount: exposedContracts.length,
     careerSkillsLoaded,
     browserCareerDomainHostConnected: mcp.connected,
     // The health route itself is served by the CareerAdapt Next process and
     // the MCP endpoint is part of that process. This is intentionally kept
     // separate from the browser bridge signal above.
     careerMcpServerReachable,
-    careerMcpContractCount: mcp.discoveredToolCount,
+    careerMcpContractCount: exposedContracts.length,
     hermesMcpRegistered: coverage.hermesMcpRegistered,
     hermesMcpToolCount: coverage.hermesMcpToolCount,
     hermesCareerFacadeCount: coverage.hermesCareerFacadeCount,
     requiredCareerFacadesMissing: coverage.requiredCareerFacadesMissing,
     careerGatewayContracts: contracts.map((contract) => contract.name).sort(),
-    careerMcpExposedTools: contracts.map((contract) => contract.name).sort(),
+    careerMcpExposedTools: exposedContracts.map((contract) => contract.name).sort(),
     hermesRegisteredToolsets: registry.registeredToolsets,
     hermesVisibleTools: registry.visibleTools,
     missingRequiredCareerTools: coverage.requiredCareerFacadesMissing,
@@ -193,7 +196,8 @@ async function withRuntimeHealth(
     runReady,
     ...(cachedRunReadiness ? {
       runReadyCheckedAt: cachedRunReadiness.checkedAt,
-      ...(cachedRunReadiness.safeErrorCode ? { runReadySafeErrorCode: cachedRunReadiness.safeErrorCode } : {})
+      ...(cachedRunReadiness.safeErrorCode ? { runReadySafeErrorCode: cachedRunReadiness.safeErrorCode } : {}),
+      ...(cachedRunReadiness.runtimeFailureDiagnostics ? { runtimeFailureDiagnostics: cachedRunReadiness.runtimeFailureDiagnostics } : {})
     } : {}),
     ...(health.reason ? { safeErrorCode: safeErrorCode(health.reason) } : {})
   });

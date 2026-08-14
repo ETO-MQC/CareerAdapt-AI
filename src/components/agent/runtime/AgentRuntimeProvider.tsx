@@ -26,8 +26,13 @@ import { WorkspaceRepository } from "@/services/storage/repositories";
 import { allowedToolManifestForStep } from "@/agent/workflows/workflowRegistry";
 import { requestHermesStart } from "@/services/agent/hermesControl";
 import { isRoadshowReady } from "@/agent/runtime/runtimeHealth";
-import { isHermesRuntimeFailureCode } from "@/agent/runtime/hermes/hermesRunReliability";
+import {
+  isHermesRuntimeFailureCode,
+  type HermesFailureLayer,
+  type HermesRunFailureInput
+} from "@/agent/runtime/hermes/hermesRunReliability";
 import { hermesProductionToolNames } from "@/agent/runtime/hermes/HermesCareerToolCatalog";
+import { isReadOnlyCareerQuestion } from "@/agent/runtime/AgentTurnIntent";
 
 function createAgentHost() {
   const repository = new WorkspaceRepository();
@@ -275,7 +280,8 @@ function createAgentHost() {
     // change their internals without changing the workspace submission path.
     const runtime = runtimeRouter.active();
     const runtimeUserEvent = input.metadata?.runtimeUserEvent as RuntimeUserEvent | undefined;
-    const preparedSession = input.session && input.userMessage.trim() && runtimeUserEvent?.type !== "quick_action_started"
+    const skipHermesReadOnlyPlanner = runtime.id === "hermes" && isReadOnlyCareerQuestion(input.userMessage);
+    const preparedSession = input.session && input.userMessage.trim() && runtimeUserEvent?.type !== "quick_action_started" && !skipHermesReadOnlyPlanner
       ? await state.prepareRuntimeTask({
           session: input.session,
           userMessage: input.userMessage,
@@ -348,23 +354,23 @@ function createAgentHost() {
           confirmed: runtimeRequest.session.taskState.knownSlots.resumeCompositionExplicitConfirmation === true,
           confirmationCount: runtimeRequest.session.taskState.knownSlots.resumeCompositionExplicitConfirmation === true ? 1 : 0
         } : {}),
-        allowedToolNames: runtimeRequest.session?.taskState
-          ? runtime.id === "hermes"
-            ? careerToolGateway.listContracts()
-              .filter((contract) => hermesProductionToolNames().has(contract.name))
-              .map((contract) => contract.sourceToolName)
-            : runtimeRequest.session.taskState.workflowId === "tailor_existing_resume"
+        allowedToolNames: runtime.id === "hermes"
+          ? careerToolGateway.listContracts()
+            .filter((contract) => hermesProductionToolNames().has(contract.name))
+            .map((contract) => contract.sourceToolName)
+          : runtimeRequest.session?.taskState
+            ? runtimeRequest.session.taskState.workflowId === "tailor_existing_resume"
               ? careerToolGateway.listContracts().map((contract) => contract.sourceToolName)
               : allowedToolManifestForStep(
                   runtimeRequest.session.taskState.workflowId,
                   runtimeRequest.session.taskState.stage,
                   registry.manifest()
                 ).map((tool) => String(tool.name))
-          : [],
-        allowedCareerToolNames: runtimeRequest.session?.taskState
-          ? runtime.id === "hermes"
-            ? [...hermesProductionToolNames()]
-            : runtimeRequest.session.taskState.workflowId === "tailor_existing_resume"
+            : [],
+        allowedCareerToolNames: runtime.id === "hermes"
+          ? [...hermesProductionToolNames()]
+          : runtimeRequest.session?.taskState
+            ? runtimeRequest.session.taskState.workflowId === "tailor_existing_resume"
               ? careerToolGateway.listContracts().map((contract) => contract.name)
               : [
                 ...allowedToolManifestForStep(
@@ -380,7 +386,7 @@ function createAgentHost() {
                   ? ["career.workflow.compose_resume"]
                   : [])
               ]
-          : [],
+            : [],
         ...(runtime.id === "hermes" ? { requireCareerSessionBinding: true } : {}),
         ...(runtimeShell ? {
           runtimeShellMessageId: runtimeShell.assistantMessageId,
@@ -424,7 +430,13 @@ function createAgentHost() {
           runtimeStatus.recordTurn({ runtimeId: runtime.id, turnId: event.turnId, data: event.data });
           const runtimeFailureCode = event.type === "turn_failed" ? event.error?.code : undefined;
           if (isHermesRuntimeFailureCode(runtimeFailureCode)) {
-            runtimeStatus.update({ activeRuntime: "hermes", status: "unavailable", reason: runtimeFailureCode });
+            runtimeStatus.recordRunFailure({
+              code: runtimeFailureCode,
+              message: event.error?.message,
+              retryable: event.error?.recoverable,
+              ...runtimeFailureInput(eventData?.diagnostics)
+            });
+            void refreshHermesHealth().catch(() => undefined);
           }
         } else if (eventData?.fallbackUsed === true) {
           // Kept only for legacy/test adapters; production Hermes turns never
@@ -523,6 +535,28 @@ function createAgentHost() {
 }
 
 export type AgentHost = ReturnType<typeof createAgentHost>;
+
+function runtimeFailureInput(value: unknown): Partial<HermesRunFailureInput> {
+  const record = value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+  const layer = ["companion", "session", "provider", "mcp", "run_start", "bridge_http", "response"].includes(String(record.failureLayer))
+    ? String(record.failureLayer) as HermesFailureLayer
+    : undefined;
+  return {
+    ...(typeof record.httpStatus === "number" ? { httpStatus: record.httpStatus } : {}),
+    ...(layer ? { failureLayer: layer } : {}),
+    ...(typeof record.upstreamErrorCode === "string" ? { upstreamErrorCode: record.upstreamErrorCode } : {}),
+    ...(typeof record.hermesSessionId === "string" ? { hermesSessionId: record.hermesSessionId } : {}),
+    ...(typeof record.hermesRunId === "string" ? { hermesRunId: record.hermesRunId } : {}),
+    ...(typeof record.requestedTurnId === "string" ? { requestedTurnId: record.requestedTurnId } : {}),
+    ...(record.runStartKind === "new" || record.runStartKind === "reattach" ? { runStartKind: record.runStartKind } : {}),
+    ...(typeof record.companionConnected === "boolean" ? { companionConnected: record.companionConnected } : {}),
+    ...(typeof record.providerStatus === "string" ? { providerStatus: record.providerStatus } : {}),
+    ...(typeof record.mcpConnected === "boolean" ? { mcpConnected: record.mcpConnected } : {}),
+    ...(typeof record.latencyMs === "number" ? { latencyMs: record.latencyMs } : {})
+  };
+}
 
 function runtimeDiagnosticsFromMetadata(metadata?: Record<string, unknown>) {
   const value = metadata ?? {};

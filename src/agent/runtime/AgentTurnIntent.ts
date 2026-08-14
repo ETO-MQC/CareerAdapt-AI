@@ -1,4 +1,9 @@
 import type { AgentMessageReference, AgentTaskState } from "@/agent/contracts/agentSession";
+import {
+  CONVERSATIONAL_CAREER_TASK,
+  transactionalCareerWorkflow,
+  type CareerAgentTask
+} from "@/agent/contracts/careerTask";
 
 export type TurnIntent =
   | "continue_current_task"
@@ -70,6 +75,18 @@ export type TurnIntentDecision = {
     stage: string;
   };
 };
+
+/** Classifies the public task boundary without creating or mutating a Host task. */
+export function classifyCareerTask(input: {
+  text: string;
+  taskState?: AgentTaskState;
+}): CareerAgentTask {
+  if (isReadOnlyCareerQuestion(input.text)) {
+    return CONVERSATIONAL_CAREER_TASK;
+  }
+  const workflowId = input.taskState?.workflowId ?? newDomainTask(input.text).workflowId;
+  return transactionalCareerWorkflow(workflowId);
+}
 
 const CASUAL_EXACT = new Set([
   "你好", "您好", "嗨", "hi", "hello", "hey", "谢谢", "感谢", "好的", "好", "再见", "拜拜",
@@ -172,7 +189,7 @@ export function classifyTurnIntent(input: {
       newTask: { goal: "compose_resume", workflowId: "compose_resume", stage: "select_profile_scope" }
     };
   }
-  if (isGeneralCareerQuestion(text)) {
+  if (isReadOnlyCareerQuestion(text)) {
     return decision("casual_side_turn", "preserve", "none", profileIntakeTurnKind, activeQuestionResolution);
   }
   // A canonical Resume Composition task owns its short follow-up turns. Do
@@ -552,11 +569,25 @@ function isActiveResumeCompositionFollowup(taskState?: AgentTaskState) {
     || taskState.stage === "confirm_create";
 }
 
+export function isConversationalCareerRequest(text: string) {
+  const normalized = text.trim();
+  if (!normalized) return false;
+  if (isExplicitProfileToResumeIntent(normalized) || isExplicitExportIntent(normalized)) return false;
+  if (/(?:上传|导入|保存|写入|修改|更新|删除|归档|确认).*(?:简历|资料库|经历|岗位)|(?:生成|创建|组装|编写|定制).*(?:简历|岗位简历)|(?:简历|资料库).*(?:生成|创建|组装|编写|定制)/iu.test(normalized)) return false;
+  if (/(?:深挖|挖掘|梳理|补充到|整理到).*(?:经历|项目|资料库)|(?:整理|保存).*(?:我的)?(?:真实)?经历/iu.test(normalized)) return false;
+  if (/(?:分析|计算|评估|比较).*(?:匹配度|岗位匹配|适配度)/iu.test(normalized)) return false;
+  return /申请理由|为什么适合|为何适合|岗位要求.*(?:结合|根据|写|回答|证明)|(?:结合|根据).*(?:岗位要求|JD).*(?:写|回答|说明)|面试(?:题|回答|自我介绍)|自我介绍|问题解决|解决问题|Python.*(?:水平|熟悉|程度)|(?:有没有|是否).*(?:证明|体现|展示).*(?:能力|经验|项目|经历|事情)|(?:有没有|做过哪些|哪些).*(?:项目|经历|实践|事情).*(?:适合|相关)|(?:资料|经历|项目).*(?:有没有|是否).*(?:AI|相关|能力)|(?:三个|3个|三项|3项).*(?:优势|强项)|最适合讲|如何回答|写(?:一段|一篇).*(?:回答|介绍|申请)|(?:多少|限制).*(?:字|字符)|(?:适合|匹配).*(?:这个|该|目标)?岗位|(?:岗位|职位).*(?:适合我|匹配我)/iu.test(normalized);
+}
+
+export function isReadOnlyCareerQuestion(text: string) {
+  return isConversationalCareerRequest(text) || isGeneralCareerQuestion(text);
+}
+
 function isGeneralCareerQuestion(text: string) {
   return (
-    /(?:为什么|为何|怎么|如何|哪些|哪个|值得|适合|建议|是否|会不会).*(?:简历|项目|技能|经历|方向|前端|后端|AI|技术|写|保留|删|突出|量化)/iu.test(text)
-    || /(?:项目|技能|经历|方向|简历).*(?:为什么|为何|怎么|如何|哪些|哪个|值得|适合|建议|是否|会不会)/iu.test(text)
-    || /更适合(?:前端|后端|数据|AI|技术|产品|运营)|哪些技能值得写|这个项目怎么写|这段经历怎么写/iu.test(text)
+    /(?:为什么|为何|怎么|如何|哪些|哪个|值得|适合|建议|是否|会不会).*(?:简历|项目|技能|经历|方向|前端|后端|AI|技术|写|保留|删|突出|量化|岗位|面试|优势)/iu.test(text)
+    || /(?:项目|技能|经历|方向|简历|岗位|面试|优势).*(?:为什么|为何|怎么|如何|哪些|哪个|值得|适合|建议|是否|会不会)/iu.test(text)
+    || /更适合(?:前端|后端|数据|AI|技术|产品|运营)|哪些技能值得写|这个项目怎么写|这段经历怎么写|申请理由|为什么适合/iu.test(text)
   );
 }
 
