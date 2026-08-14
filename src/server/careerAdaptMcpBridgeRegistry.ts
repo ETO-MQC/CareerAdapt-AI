@@ -12,6 +12,7 @@ type BridgeRequest = {
   name: string;
   input: unknown;
   operationId: string;
+  logicalToolOperationId?: string;
   careerSessionBinding?: CareerSessionBinding;
   requireSessionBinding?: boolean;
   createdAt: number;
@@ -138,6 +139,7 @@ export function pollCareerAdaptMcpBridge(bridgeId: string, token: string, limit 
     name: request.name,
     input: request.input,
     operationId: request.operationId,
+    logicalToolOperationId: request.logicalToolOperationId,
     careerSessionBinding: request.careerSessionBinding,
     requireSessionBinding: request.requireSessionBinding
   }));
@@ -199,6 +201,7 @@ function enqueueCall(name: string, input: unknown, context: CareerToolExecutionC
     name,
     input,
     operationId,
+    logicalToolOperationId: context.logicalToolOperationId,
     careerSessionBinding: context.careerSessionBinding ?? bridge.careerSessionBinding,
     requireSessionBinding: context.requireSessionBinding,
     createdAt: Date.now()

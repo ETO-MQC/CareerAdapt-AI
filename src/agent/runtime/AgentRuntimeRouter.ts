@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { AgentRuntime, AgentRuntimeEvent, AgentRuntimeTurnInput } from "./agentRuntime";
 import type { RuntimeUserEvent } from "./RuntimeUserEvent";
+import { isRetryableHermesRunFailure } from "./hermes/hermesRunReliability";
 
 export type { RuntimeUserEvent } from "./RuntimeUserEvent";
 
@@ -150,7 +151,35 @@ class RoutedAgentRuntime implements AgentRuntime {
       }
       const fallbackReasonCode = errorCode(error);
       const runtimeFailureAt = new Date().toISOString();
+      const initialFailureDiagnostics = diagnosticsFromError(error);
+      if (!isRetryableHermesRunFailure(error)) {
+        yield {
+          type: "turn_failed",
+          sessionId: input.sessionId,
+          turnId: input.turnId ?? "runtime-turn-unknown",
+          timestamp: runtimeFailureAt,
+          error: {
+            code: fallbackReasonCode,
+            message: safeErrorMessage(error),
+            recoverable: false
+          },
+          data: {
+            diagnostics: initialFailureDiagnostics,
+            telemetry: {
+              preferredRuntime: this.preferred.id,
+              attemptedRuntime: this.preferred.id,
+              finalRuntime: this.preferred.id,
+              fallbackUsed: false,
+              fallbackReasonCode,
+              runtimeFailureAt,
+              firstEventAt
+            }
+          }
+        };
+        return;
+      }
       let recoveryFailureCode: string | undefined;
+      let recoveryFailureDiagnostics: Record<string, unknown> | undefined;
       try {
         // Hermes may perform one bounded health/session recovery here. The
         // second preferred attempt is safe because the first attempt emitted
@@ -183,6 +212,7 @@ class RoutedAgentRuntime implements AgentRuntime {
         return;
       } catch (error) {
         recoveryFailureCode = errorCode(error);
+        recoveryFailureDiagnostics = diagnosticsFromError(error);
       }
       // Hermes is the only semantic runtime for a Hermes-selected turn. A
       // failed bounded recovery is surfaced as a recoverable Hermes state;
@@ -199,6 +229,10 @@ class RoutedAgentRuntime implements AgentRuntime {
           recoverable: true
         },
         data: {
+          diagnostics: {
+            initialFailure: initialFailureDiagnostics,
+            ...(recoveryFailureDiagnostics ? { recoveryFailure: recoveryFailureDiagnostics } : {})
+          },
           telemetry: {
             preferredRuntime: this.preferred.id,
             attemptedRuntime: this.preferred.id,
@@ -258,6 +292,21 @@ function errorCode(error: unknown) {
   return error instanceof Error && "code" in error && typeof error.code === "string"
     ? error.code
     : "agent_runtime_failed";
+}
+
+function safeErrorMessage(error: unknown) {
+  if (error instanceof Error && error.message.trim()) {
+    return error.message.replace(/[\u0000-\u001f\u007f]/gu, " ").replace(/\s+/gu, " ").trim().slice(0, 360);
+  }
+  return "Hermes 当前不可用，已保留任务 checkpoint。";
+}
+
+function diagnosticsFromError(error: unknown) {
+  if (!error || typeof error !== "object") return undefined;
+  const value = error as { diagnostics?: unknown; code?: unknown };
+  return value.diagnostics && typeof value.diagnostics === "object" && !Array.isArray(value.diagnostics)
+    ? value.diagnostics as Record<string, unknown>
+    : typeof value.code === "string" ? { safeErrorCode: value.code } : undefined;
 }
 
 export function createAgentRuntimeRouter(input: ConstructorParameters<typeof AgentRuntimeRouter>[0]) {

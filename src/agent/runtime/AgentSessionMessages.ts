@@ -37,8 +37,14 @@ export function upsertAgentActivity(
   activity: Pick<AgentMessage, "id" | "turnId" | "content" | "toolName" | "operationId" | "status" | "metadata">
 ) {
   const now = new Date().toISOString();
-  const existing = session.messages.some((message) => message.id === activity.id);
-  if (!existing) {
+  const existingMessage = session.messages.find((message) =>
+    message.id === activity.id
+    || Boolean(activity.metadata?.logicalToolOperationId)
+      && message.role === "tool"
+      && message.turnId === activity.turnId
+      && message.metadata?.logicalToolOperationId === activity.metadata?.logicalToolOperationId
+  );
+  if (!existingMessage) {
     return appendAgentMessage(session, "tool", activity.content, {
       ...activity,
       kind: "tool_status",
@@ -47,13 +53,43 @@ export function upsertAgentActivity(
       updatedAt: now
     });
   }
+  const mergedMetadata = mergeActivityMetadata(existingMessage.metadata, activity.metadata);
+  const existingRank = activityRank(existingMessage.status);
+  const nextRank = activityRank(activity.status);
+  const effectiveActivity = existingRank > nextRank && activity.status === "pending"
+    ? { ...activity, status: existingMessage.status }
+    : activity;
   return withActiveBranchHead({
     ...session,
-    messages: session.messages.map((message) => message.id === activity.id
-      ? { ...message, ...activity, kind: "tool_status" as const, type: "tool_status" as const, updatedAt: now }
+    messages: session.messages.map((message) => message.id === existingMessage.id
+      ? { ...message, ...effectiveActivity, id: existingMessage.id, metadata: mergedMetadata, kind: "tool_status" as const, type: "tool_status" as const, updatedAt: now }
       : message),
     updatedAt: now
-  }, activity.id);
+  }, existingMessage.id);
+}
+
+function mergeActivityMetadata(
+  existing: AgentMessage["metadata"],
+  next: AgentMessage["metadata"]
+) {
+  const merged = { ...(existing ?? {}), ...(next ?? {}) };
+  const existingTransportIds = Array.isArray(existing?.transportOperationIds)
+    ? existing.transportOperationIds.filter((value): value is string => typeof value === "string")
+    : [];
+  const nextTransportIds = Array.isArray(next?.transportOperationIds)
+    ? next.transportOperationIds.filter((value): value is string => typeof value === "string")
+    : [];
+  const operationIds = [...new Set([
+    ...existingTransportIds,
+    ...nextTransportIds,
+    ...(typeof existing?.operationId === "string" ? [existing.operationId] : []),
+    ...(typeof next?.operationId === "string" ? [next.operationId] : [])
+  ])];
+  return operationIds.length ? { ...merged, transportOperationIds: operationIds } : merged;
+}
+
+function activityRank(status: AgentMessage["status"]) {
+  return status === "failed" || status === "complete" ? 2 : status === "pending" || status === "thinking" ? 1 : 0;
 }
 
 export function replaceAgentThinking(

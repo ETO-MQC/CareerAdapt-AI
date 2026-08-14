@@ -14,6 +14,7 @@ import {
 import type { AgentPageContext } from "@/agent/contracts/agentContext";
 import type { AgentStreamEvent } from "@/agent/runtime/agentSse";
 import type { AgentRuntimeEvent } from "@/agent/runtime/agentRuntime";
+import { isHermesRuntimeFailureCode } from "@/agent/runtime/hermes/hermesRunReliability";
 import type { AgentKernel } from "@/agent/kernel/AgentKernel";
 import { evaluateGroundedResumeOutput } from "@/agent/kernel/GroundedResumeOutputGate";
 import {
@@ -1401,9 +1402,10 @@ export class AgentHostStore {
     }
     if (["tool_call_started", "tool_call_requested", "tool_call_completed", "tool_call_failed"].includes(event.type)) {
       const operationId = event.operationId ?? `runtime-tool-${crypto.randomUUID()}`;
+      const logicalToolOperationId = stringValue(objectValue(event.data).logicalToolOperationId);
       const status = event.type === "tool_call_failed" ? "failed" : event.type === "tool_call_completed" ? "complete" : "pending";
       next = upsertAgentActivity(next, {
-        id: `agent-tool-${operationId}`,
+        id: `agent-tool-${logicalToolOperationId ?? operationId}`,
         turnId: event.turnId,
         content: event.type === "tool_call_failed"
           ? event.error?.message ?? "Career 工具执行失败。"
@@ -1414,6 +1416,9 @@ export class AgentHostStore {
         metadata: {
           runtimeId: "hermes",
           activityState: status,
+          ...(logicalToolOperationId ? { logicalToolOperationId } : {}),
+          transportOperationIds: [operationId],
+          operationId,
           ...(event.error?.code ? { safeErrorCode: event.error.code } : {}),
           ...(event.type === "tool_call_failed" && event.toolName ? { requestedToolName: event.toolName } : {}),
           ...(objectValue(event.data).requestedHermesToolName && typeof objectValue(event.data).requestedHermesToolName === "string"
@@ -1470,6 +1475,9 @@ export class AgentHostStore {
           // composition never becomes a dead-end.
           if (next.taskState) next = attachTaskStateOptions(next, next.taskState);
         } else if (result.ok === false) {
+          if (event.toolName?.startsWith("career.workflow.") && result.data !== undefined) {
+            next = applyRuntimeFacadeCheckpoint(next, event.toolName, result.data);
+          }
           const failureToolName = runtimeArtifactSourceToolName(event.toolName ?? "", stringValue(contract.sourceToolName));
           const errorCode = stringValue(objectValue(result.error).code) ?? "career_tool_failed";
           const errorMessage = stringValue(objectValue(result.error).message);
@@ -1507,6 +1515,10 @@ export class AgentHostStore {
         }
       }
       if (event.type === "tool_call_failed") {
+        const failedResult = objectValue(objectValue(event.data).result);
+        if (event.toolName?.startsWith("career.workflow.") && failedResult.data !== undefined) {
+          next = applyRuntimeFacadeCheckpoint(next, event.toolName, failedResult.data);
+        }
         const failureToolName = runtimeArtifactSourceToolName(event.toolName ?? "", stringValue(objectValue(event.data).stableCareerToolName));
         if (next.taskState) next = projectTaskStateIntoSession(next, new AgentTaskStateReducer().reduce(next.taskState, {
           type: "tool_failure",
@@ -8540,6 +8552,7 @@ function applyRuntimeFacadeCheckpoint(session: AgentSession, toolName: string, v
     } : {}),
     ...(checkpoint.kind === "resume_export" ? { exportResult: result } : {}),
     ...(checkpoint.kind === "tailoring_session" ? {
+      ...(Object.prototype.hasOwnProperty.call(checkpoint, "fitAnalysis") ? { fitAnalysis: checkpoint.fitAnalysis } : {}),
       tailoringSession: normalizedSessionData,
       questionPlan: objectRecordValue(objectRecordValue(normalizedSessionData.plan).questionPlan),
       activeQuestionId: stringRecordValue(objectRecordValue(objectRecordValue(normalizedSessionData.plan).questionPlan).activeQuestionId)
@@ -9008,6 +9021,9 @@ function applyRuntimeEventDiagnostics(session: AgentSession, event: AgentRuntime
       ? telemetry.executionOwner
       : undefined;
   const nextHermesRunId = stringValue(data.nextHermesRunId) ?? stringValue(telemetry.nextHermesRunId);
+  const runtimeFailureDiagnostics = data.diagnostics && typeof data.diagnostics === "object" && !Array.isArray(data.diagnostics)
+    ? data.diagnostics as Record<string, unknown>
+    : undefined;
   return {
     ...session,
     activeTurn: {
@@ -9021,12 +9037,16 @@ function applyRuntimeEventDiagnostics(session: AgentSession, event: AgentRuntime
       hermesRunId: hermesRunId ?? session.activeTurn.hermesRunId,
       nextHermesRunId: nextHermesRunId ?? (session.activeTurn.executionOwner === "deterministic_transition" ? hermesRunId : session.activeTurn.nextHermesRunId),
       firstEventAt: session.activeTurn.firstEventAt ?? event.timestamp,
-      runtimeFailureAt: runtimeFailureAt ?? (event.type === "turn_failed" ? event.timestamp : session.activeTurn.runtimeFailureAt)
+      runtimeFailureAt: runtimeFailureAt ?? (event.type === "turn_failed" ? event.timestamp : session.activeTurn.runtimeFailureAt),
+      ...(runtimeFailureDiagnostics && event.type === "turn_failed" ? { runtimeFailureDiagnostics } : {})
     }
   };
 }
 
 function runtimeFailureRecoveryText(code?: string, taskState?: AgentTaskState) {
+  if (isHermesRuntimeFailureCode(code)) {
+    return "Hermes 暂时无法启动本轮任务，已保留当前岗位、简历和任务进度。连接恢复后可直接重试。";
+  }
   if (code === "agent_tool_not_allowed") {
     return "简历组装流程刚才没有完成，当前方向和已完成步骤已保留。请从当前步骤继续，我不会把未确认内容显示为简历。";
   }

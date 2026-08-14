@@ -130,6 +130,7 @@ function RuntimeStatusBadge({
   const details = [
     status.reason,
     status.health?.requiredCareerFacadesMissing.length ? `缺少 ${status.health.requiredCareerFacadesMissing.length} 个 Career facade` : undefined,
+    status.health?.runReady === false ? `Hermes run 启动暂不可用${status.health.runReadySafeErrorCode ? `（${status.health.runReadySafeErrorCode}）` : ""}` : undefined,
     status.health?.hermesMcpToolCount !== undefined ? `Hermes MCP ${status.health.hermesMcpToolCount} tools` : undefined,
     status.model ? `model ${status.model}` : undefined
   ].filter(Boolean).join(" · ");
@@ -168,6 +169,7 @@ function RoadshowDiagnostics({ status }: { status: RuntimeStatusSnapshot }) {
     ["Runtime", health?.runtimeAvailable === true],
     ["Provider / model", health?.providerConfigured === true && health.providerReachable === true && Boolean(health.model)],
     ["Hermes API", health?.runtimeAvailable === true],
+    ["Hermes run start", health?.runReady === true],
     ["Browser Career Domain Host", health?.browserCareerDomainHostConnected === true],
     ["Career MCP server", health?.careerMcpServerReachable === true && health.careerMcpContractCount > 0],
     ["Hermes MCP registry", health?.hermesMcpRegistered === true && health.hermesMcpToolCount > 0],

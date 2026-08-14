@@ -37,6 +37,9 @@ describe("P4.4e Hermes long-run closure", () => {
       runEvents: async function* () { yield { type: "turn_completed", message: "恢复完成" } as const; }
     });
     const input = turnInput();
+    input.turnId = "turn-existing";
+    input.userMessage = "";
+    input.metadata = { reattachRunId: "run-existing" };
     input.session = {
       id: input.sessionId,
       personId: "person-1",
@@ -51,7 +54,14 @@ describe("P4.4e Hermes long-run closure", () => {
         status: "running",
         startedAt: "2026-08-09T01:00:00.000Z",
         lastEventAt: "2026-08-09T01:00:01.000Z"
-      }
+      },
+      messages: [{
+        id: "assistant-existing",
+        role: "assistant",
+        turnId: "turn-existing",
+        content: "正在处理…",
+        createdAt: "2026-08-09T01:00:00.000Z"
+      }]
     } as never;
     const events = [];
     for await (const event of runtime(transport).runTurn(input)) events.push(event);

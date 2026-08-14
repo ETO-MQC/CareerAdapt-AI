@@ -26,6 +26,8 @@ import { WorkspaceRepository } from "@/services/storage/repositories";
 import { allowedToolManifestForStep } from "@/agent/workflows/workflowRegistry";
 import { requestHermesStart } from "@/services/agent/hermesControl";
 import { isRoadshowReady } from "@/agent/runtime/runtimeHealth";
+import { isHermesRuntimeFailureCode } from "@/agent/runtime/hermes/hermesRunReliability";
+import { hermesProductionToolNames } from "@/agent/runtime/hermes/HermesCareerToolCatalog";
 
 function createAgentHost() {
   const repository = new WorkspaceRepository();
@@ -173,7 +175,7 @@ function createAgentHost() {
           mcpToolCount: health.discoveredToolCount ?? 0,
           careerSkillsLoaded: health.runtimeHealth?.careerSkillsLoaded ?? false
         });
-        const ready = health.runtimeHealth ? isRoadshowReady(runtimeHealth) : health.mcpConnected === true && (health.discoveredToolCount ?? 0) > 0;
+        const ready = isRoadshowReady(runtimeHealth);
         if (ready || attempt === 3) break;
         await new Promise((resolve) => setTimeout(resolve, 750));
       }
@@ -347,31 +349,37 @@ function createAgentHost() {
           confirmationCount: runtimeRequest.session.taskState.knownSlots.resumeCompositionExplicitConfirmation === true ? 1 : 0
         } : {}),
         allowedToolNames: runtimeRequest.session?.taskState
-          ? runtimeRequest.session.taskState.workflowId === "tailor_existing_resume"
-            ? careerToolGateway.listContracts().map((contract) => contract.sourceToolName)
-            : allowedToolManifestForStep(
-                runtimeRequest.session.taskState.workflowId,
-                runtimeRequest.session.taskState.stage,
-                registry.manifest()
-              ).map((tool) => String(tool.name))
+          ? runtime.id === "hermes"
+            ? careerToolGateway.listContracts()
+              .filter((contract) => hermesProductionToolNames().has(contract.name))
+              .map((contract) => contract.sourceToolName)
+            : runtimeRequest.session.taskState.workflowId === "tailor_existing_resume"
+              ? careerToolGateway.listContracts().map((contract) => contract.sourceToolName)
+              : allowedToolManifestForStep(
+                  runtimeRequest.session.taskState.workflowId,
+                  runtimeRequest.session.taskState.stage,
+                  registry.manifest()
+                ).map((tool) => String(tool.name))
           : [],
         allowedCareerToolNames: runtimeRequest.session?.taskState
-          ? runtimeRequest.session.taskState.workflowId === "tailor_existing_resume"
-            ? careerToolGateway.listContracts().map((contract) => contract.name)
-            : [
-              ...allowedToolManifestForStep(
-                runtimeRequest.session.taskState.workflowId,
-                runtimeRequest.session.taskState.stage,
-                registry.manifest()
-              ).flatMap((tool) => {
-                const stable = careerToolGateway.getStableNameForSource(String(tool.name));
-                return stable ? [stable] : [];
-              }),
-              ...(runtimeRequest.session.taskState.workflowId === "compose_resume"
-                && ["review_composition", "confirm_create"].includes(runtimeRequest.session.taskState.stage)
-                ? ["career.workflow.compose_resume"]
-                : [])
-            ]
+          ? runtime.id === "hermes"
+            ? [...hermesProductionToolNames()]
+            : runtimeRequest.session.taskState.workflowId === "tailor_existing_resume"
+              ? careerToolGateway.listContracts().map((contract) => contract.name)
+              : [
+                ...allowedToolManifestForStep(
+                  runtimeRequest.session.taskState.workflowId,
+                  runtimeRequest.session.taskState.stage,
+                  registry.manifest()
+                ).flatMap((tool) => {
+                  const stable = careerToolGateway.getStableNameForSource(String(tool.name));
+                  return stable ? [stable] : [];
+                }),
+                ...(runtimeRequest.session.taskState.workflowId === "compose_resume"
+                  && ["review_composition", "confirm_create"].includes(runtimeRequest.session.taskState.stage)
+                  ? ["career.workflow.compose_resume"]
+                  : [])
+              ]
           : [],
         ...(runtime.id === "hermes" ? { requireCareerSessionBinding: true } : {}),
         ...(runtimeShell ? {
@@ -414,8 +422,9 @@ function createAgentHost() {
         runtimeEventBus.emit(event);
         if (event.type === "turn_completed" || event.type === "turn_failed") {
           runtimeStatus.recordTurn({ runtimeId: runtime.id, turnId: event.turnId, data: event.data });
-          if (event.type === "turn_failed" && event.error?.code.startsWith("hermes_")) {
-            runtimeStatus.update({ activeRuntime: "hermes", status: "unavailable", reason: event.error.code });
+          const runtimeFailureCode = event.type === "turn_failed" ? event.error?.code : undefined;
+          if (isHermesRuntimeFailureCode(runtimeFailureCode)) {
+            runtimeStatus.update({ activeRuntime: "hermes", status: "unavailable", reason: runtimeFailureCode });
           }
         } else if (eventData?.fallbackUsed === true) {
           // Kept only for legacy/test adapters; production Hermes turns never
@@ -586,7 +595,7 @@ export function AgentRuntimeProvider({ children }: { children: React.ReactNode }
             timestamp: new Date().toISOString(),
             toolName: request.name,
             operationId: request.operationId,
-            data: { result, contract }
+            data: { result, contract, ...(request.logicalToolOperationId ? { logicalToolOperationId: request.logicalToolOperationId } : {}) }
           }, assistant.id);
         }
       );

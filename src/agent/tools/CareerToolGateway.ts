@@ -79,6 +79,8 @@ export type CareerToolContract = {
 
 export type CareerToolExecutionContext = {
   operationId?: string;
+  /** Stable across Hermes/MCP/Gateway lifecycle events for one logical call. */
+  logicalToolOperationId?: string;
   signal?: AbortSignal;
   confirmed?: boolean;
   confirmationCount?: number;
@@ -88,6 +90,12 @@ export type CareerToolExecutionContext = {
   requireSessionBinding?: boolean;
   /** Host-only replay of a failed idempotent operation against the same checkpoint. */
   retryFailedOperation?: boolean;
+  /** Host projection supplied to a resumable workflow facade. */
+  authoritativeTaskState?: AgentTaskState;
+  /** Only the deterministic facade may use this to advance internal stages. */
+  workflowFacadeInternal?: boolean;
+  /** Internal discovery snapshot used only to keep partial test/adapter registries source-compatible. */
+  availableCareerToolNames?: ReadonlySet<string>;
 };
 
 export type CareerSessionBindingVerification = {
@@ -271,21 +279,30 @@ export class CareerToolGateway {
     const workflow = this.workflowByName.get(name);
     if (workflow) {
       try {
-        const stageError = this.verifyTailoringStage(name);
+        const stageError = this.verifyTailoringStage(name, context);
         if (stageError) return this.failure(name, operationId, stageError.code, stageError.message, true);
         const contract = this.toWorkflowContract(workflow);
         const bindingError = await this.verifyExecutionBinding(contract, input, context);
         if (bindingError) return this.failure(name, operationId, bindingError.code, bindingError.message, false);
+        const facadeContext = {
+          ...context,
+          authoritativeTaskState: context.authoritativeTaskState ?? this.asDependencies().getAuthoritativeTaskState?.(),
+          availableCareerToolNames: context.availableCareerToolNames ?? new Set(this.listContracts().map((candidate) => candidate.name))
+        };
         const facade = await executeCareerWorkflowFacade(
           name,
           input,
-          context,
+          facadeContext,
           operationId,
-          (atomicName, atomicInput, atomicContext) => this.execute(atomicName, atomicInput, atomicContext)
+          (atomicName, atomicInput, atomicContext) => this.execute(atomicName, atomicInput, {
+            ...atomicContext,
+            workflowFacadeInternal: true,
+            authoritativeTaskState: facadeContext.authoritativeTaskState
+          })
         );
         const facadeReceipt = facade.receipts.at(-1)!;
         return {
-          ok: facade.data.status !== "failed" && facade.data.status !== "partial",
+          ok: !["failed", "partial", "recoverable_failure"].includes(facade.data.status),
           data: facade.data as T,
           ...(facade.data.safeError ? { error: toCareerToolError(facade.data.safeError.code, facade.data.safeError.message, facade.data.safeError.recoverable) } : {}),
           artifacts: facade.artifacts,
@@ -301,7 +318,7 @@ export class CareerToolGateway {
       return this.failure(name, operationId, "unknown_career_tool", "当前 Career 工具不可用。", false);
     }
     try {
-      const stageError = this.verifyTailoringStage(name);
+      const stageError = this.verifyTailoringStage(name, context);
       if (stageError) return this.failure(name, operationId, stageError.code, stageError.message, true);
       const contract = this.toContract(definition);
       const bindingError = await this.verifyExecutionBinding(contract, input, context);
@@ -405,9 +422,19 @@ export class CareerToolGateway {
     };
   }
 
-  private verifyTailoringStage(name: string) {
-    const state = this.asDependencies().getAuthoritativeTaskState?.();
+  private verifyTailoringStage(name: string, context: CareerToolExecutionContext = {}) {
+    if (context.workflowFacadeInternal) return undefined;
+    const state = context.authoritativeTaskState ?? this.asDependencies().getAuthoritativeTaskState?.();
     if (!state || state.workflowId !== "tailor_existing_resume") return undefined;
+    if (name === "career.workflow.tailor_resume") {
+      const stage = normalizeTailoringStage(state.stage);
+      return stage && ["analyze_fit", "generate_plan", "clarify_unsupported_facts", "generate_changes", "preview_changes"].includes(stage)
+        ? undefined
+        : {
+            code: "agent_tool_not_allowed_current_stage",
+            message: `当前岗位定制步骤为 ${stage ?? state.stage}，暂不允许执行可续跑定制 facade。`
+          };
+    }
     const sourceToolName = name.startsWith("career.workflow.")
       ? name === "career.workflow.tailor_resume" ? "create_tailoring_session" : undefined
       : this.byName.get(name)?.sourceToolName;
@@ -494,7 +521,7 @@ export class CareerToolGateway {
   private toWorkflowContract(definition: (typeof CAREER_WORKFLOW_FACADE_DEFINITIONS)[number]): CareerToolContract {
     return {
       name: definition.name,
-      description: `${definition.description} Stop when status is completed, waiting_for_user, waiting_for_confirmation, partial, or failed; do not call another workflow facade in the same turn.`,
+      description: `${definition.description} Stop when status is completed, waiting_for_user, waiting_for_confirmation, working, review_ready, recoverable_failure, partial, or failed; do not call another workflow facade in the same turn.`,
       sourceToolName: definition.name,
       namespace: "career.workflow",
       inputSchema: z.toJSONSchema(definition.inputSchema) as Record<string, unknown>,

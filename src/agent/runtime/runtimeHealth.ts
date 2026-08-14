@@ -5,12 +5,16 @@ import { HERMES_REQUIRED_CAREER_FACADES } from "./hermes/HermesCareerToolCatalog
 export const RuntimeHealthSchema = z.object({
   runtimeId: z.string().min(1),
   runtimeAvailable: z.boolean(),
+  /** Lightweight readiness dimensions. Optional for persisted pre-P4.5c.1.7 snapshots. */
+  companionReady: z.boolean().optional(),
   providerConfigured: z.boolean(),
   providerReachable: z.boolean(),
+  providerReady: z.boolean().optional(),
   model: z.string().min(1).optional(),
   contextWindow: z.number().int().min(0).optional(),
   toolCallingAvailable: z.boolean(),
   mcpConnected: z.boolean(),
+  mcpReady: z.boolean().optional(),
   mcpToolCount: z.number().int().min(0),
   careerSkillsLoaded: z.boolean(),
   browserCareerDomainHostConnected: z.boolean().default(false),
@@ -28,13 +32,22 @@ export const RuntimeHealthSchema = z.object({
   lastRequestedHermesToolName: z.string().min(1).optional(),
   lastRequestedCareerToolName: z.string().min(1).optional(),
   lastCheckedAt: z.string().datetime({ offset: true }),
-  safeErrorCode: z.string().min(1).optional()
+  safeErrorCode: z.string().min(1).optional(),
+  /** This is run-start capability, not an LLM completion probe. */
+  runReady: z.boolean().optional(),
+  runReadyCheckedAt: z.string().datetime({ offset: true }).optional(),
+  runReadySafeErrorCode: z.string().min(1).optional()
 }).strict();
 
 export type RuntimeHealth = z.infer<typeof RuntimeHealthSchema>;
 
 export function isRoadshowReady(health: RuntimeHealth) {
-  return health.runtimeAvailable
+  const dimensions = readinessDimensions(health);
+  return dimensions.companionReady
+    && dimensions.providerReady
+    && dimensions.mcpReady
+    && dimensions.runReady
+    && health.runtimeAvailable
     && health.providerConfigured
     && health.providerReachable
     && Boolean(health.model)
@@ -48,10 +61,33 @@ export function isRoadshowReady(health: RuntimeHealth) {
     && health.careerSkillsLoaded;
 }
 
+export function readinessDimensions(health: RuntimeHealth) {
+  return {
+    companionReady: health.companionReady ?? health.runtimeAvailable,
+    providerReady: health.providerReady ?? (health.providerConfigured && health.providerReachable && Boolean(health.model)),
+    mcpReady: health.mcpReady ?? (
+      health.mcpConnected
+      && health.browserCareerDomainHostConnected
+      && health.careerMcpServerReachable
+      && health.careerMcpContractCount > 0
+      && health.hermesMcpRegistered
+      && health.hermesMcpToolCount > 0
+      && health.hermesCareerFacadeCount >= HERMES_REQUIRED_CAREER_FACADES.length
+      && health.requiredCareerFacadesMissing.length === 0
+    ),
+    // Older persisted health records predate run readiness. Their existing
+    // registry checks remain the compatibility fallback; current health
+    // responses always provide this field explicitly.
+    runReady: health.runReady ?? true
+  };
+}
+
 export function runtimeHealthStatus(health: RuntimeHealth) {
   return isRoadshowReady(health)
     ? "ready" as const
-    : health.runtimeAvailable || health.mcpConnected || health.careerSkillsLoaded
+    : /auth|provider|invalid|config/u.test(`${health.runReadySafeErrorCode ?? ""} ${health.safeErrorCode ?? ""}`)
+      ? "unavailable" as const
+      : health.runtimeAvailable || health.mcpConnected || health.careerSkillsLoaded
       ? "starting" as const
       : "unavailable" as const;
 }

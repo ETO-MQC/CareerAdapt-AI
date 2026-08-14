@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { HermesCareerToolCatalog } from "@/agent/runtime/hermes/HermesCareerToolCatalog";
+import { recordHermesRunStartFailure, recordHermesRunStartSuccess } from "@/agent/runtime/hermes/hermesRunReadiness";
 
 const HermesBridgeRequestSchema = z.object({
   action: z.enum([
@@ -51,12 +52,28 @@ async function officialHermesRequest(baseUrl: string, action: z.infer<typeof Her
         cache: "no-store"
       });
       const raw = await response.json().catch(() => ({}));
-      if (!response.ok) return upstreamError(response.status, raw, "hermes_run_start_failed");
+      if (!response.ok) {
+        const rawError = asRecord(asRecord(raw).error);
+        recordHermesRunStartFailure(root, {
+          safeErrorCode: typeof rawError.code === "string" ? rawError.code : "hermes_run_start_failed"
+        });
+        return upstreamError(response.status, raw, "hermes_run_start_failed");
+      }
       const record = asRecord(raw);
+      if (typeof record.run_id !== "string" || !record.run_id.trim()) {
+        recordHermesRunStartFailure(root, { safeErrorCode: "hermes_run_start_invalid_response" });
+        return upstreamError(502, {
+          error: {
+            code: "hermes_run_start_invalid_response",
+            message: "Hermes run_start 返回了无法识别的运行句柄。"
+          }
+        }, "hermes_run_start_invalid_response");
+      }
+      recordHermesRunStartSuccess(root);
       return NextResponse.json({
         ok: true,
         data: {
-          runId: typeof record.run_id === "string" ? record.run_id : "",
+          runId: record.run_id,
           status: typeof record.status === "string" ? record.status : "started"
         }
       });
@@ -153,6 +170,7 @@ async function officialHermesRequest(baseUrl: string, action: z.infer<typeof Her
       headers: { "Content-Type": response.headers.get("content-type") ?? "text/event-stream", "Cache-Control": "no-store" }
     });
   } catch {
+    if (action === "run_start") recordHermesRunStartFailure(root, { safeErrorCode: "hermes_companion_unavailable" });
     return unavailable();
   }
 }
@@ -203,9 +221,23 @@ function upstreamError(status: number, value: unknown, fallbackCode: string) {
     ok: false,
     error: {
       code: typeof error.code === "string" ? error.code : fallbackCode,
-      message: typeof error.message === "string" ? error.message : `Hermes API Server returned HTTP ${status}.`
+      message: typeof error.message === "string" ? safeUpstreamMessage(error.message) : `Hermes API Server returned HTTP ${status}.`,
+      httpStatus: status || 502,
+      failureLayer: /provider|model|auth/u.test(String(error.code ?? fallbackCode)) ? "provider" : "bridge_http",
+      upstreamErrorCode: typeof error.code === "string" ? error.code : fallbackCode
     }
   }, { status: status || 502 });
+}
+
+function safeUpstreamMessage(value: string) {
+  return value
+    .replace(/[\u0000-\u001f\u007f]/gu, " ")
+    .replace(/\s+/gu, " ")
+    .trim()
+    .replace(/Bearer\s+[^\s,;]+/giu, "Bearer [redacted]")
+    .replace(/\b(?:sk|rk)-[A-Za-z0-9_-]{8,}\b/gu, "[redacted-key]")
+    .replace(/\b(?:x-api-key|api[_ -]?key|authorization|token|secret|password)\s*[:=]\s*[^\s,;]+/giu, "[redacted-secret]")
+    .slice(0, 360);
 }
 
 function unavailable(code = "hermes_bridge_unavailable") {
@@ -282,19 +314,19 @@ function careerRunInstructions(payload: Record<string, unknown>) {
     "You are the CareerAdapt Career Agent. Hermes v0.19 exposes CareerAdapt MCP tools under exact mcp__careeradapt__... registry names.",
     systemStatusTurn
       ? "This is a CareerAdapt system-status question. Use the read-only CareerAdapt system contracts first: runtime status, current task, and last failure. Do not inspect the host with terminal, file, process, or search tools."
-      : "For a normal end-to-end workflow, you MUST call exactly one matching CareerAdapt workflow facade first; do not start with its atomic counterpart.",
+      : "For a normal end-to-end workflow, you MUST call exactly one matching CareerAdapt workflow facade first; atomic contracts are internal recovery surfaces and are not normal planning tools.",
     `Callable facade mapping (stable CareerAdapt name -> exact Hermes name): ${facadeLines || "not supplied; use visible mcp__careeradapt__ names from the active registry"}`,
     "Dotted names are stable CareerAdapt diagnostics aliases only. Never send career.workflow.* or career.profile.* as the provider tool name when an mcp__careeradapt__ registry name is available.",
     systemStatusTurn
       ? "For this status question, do not call a workflow facade or any write tool; return Hermes runtime, model, Career MCP, Career skills, and current Career task diagnostics."
-      : "Use atomic CareerAdapt MCP tools only for inspection, unusual repair, or recovery after a facade reports a recoverable failure.",
+      : "Do not manually orchestrate atomic CareerAdapt tools when a workflow facade exists. Use atomic contracts only when a facade explicitly reports a bounded recovery path.",
     "Never invent profile or resume facts. Never claim a write or draft exists without a completed CareerAdapt tool receipt.",
     "runtime_user_event is an authoritative structured event from the host. For entity_selected, option_selected, retry, confirmation, and workflow_control, use the typed action and persisted task state exactly; never parse a visible button label, ask the user to repeat a validated selection, or repeat a deterministic host write.",
     workflowId === "compose_resume" && workflowStage === "select_profile_scope"
       ? `For this compose_resume task, call ${registered("career.workflow.compose_resume")} immediately as the first CareerAdapt call. Use the bound career_context.binding.profileId and career_context.binding.profileRevision with mode "general"; do not call profile reads/searches first because the facade performs the authoritative read and returns the composition checkpoint.`
       : "",
-    `After the host persists a selected Job or Resume, reread the selected entities before reasoning. For tailor_existing_resume at analyze_fit, call ${registered("career.workflow.job_fit")} first, interpret its returned fit checkpoint, then continue with the tailoring workflow; ask only a returned high-value question that can change the result.`,
-    `When a workflow returns waiting_for_user, stop tool-calling and ask exactly the returned high-value question. Exception: inside tailor_existing_resume at analyze_fit, a completed ${registered("career.workflow.job_fit")} is an intermediate checkpoint; use it to call the allowed ${registered("career.workflow.tailor_resume")} before stopping.`,
+    `For tailor_existing_resume, prefer ${registered("career.workflow.tailor_resume")} as the single resumable facade. START uses sourceResumeId and jobId; CONTINUE uses checkpointId and userAnswer when present. The facade internally advances Job Fit, plan, clarification, and generation stages, then returns one structured status/checkpoint/userPrompt/interaction/review boundary. Do not call career.tailoring.* atomic tools directly.`,
+    `When a workflow returns waiting_for_user, stop tool-calling and ask exactly the returned high-value question. When tailor_resume returns review_ready, stop at the deterministic Host review boundary; never apply or write a resume from Hermes narration.`,
     "When it returns waiting_for_confirmation, stop and yield the approval boundary. When completed, stop the tool loop and narrate the result.",
     `Attachments are local CareerAdapt references. Use only their IDs with ${registered("career.workflow.resume_import")}; never request paths, bytes, base64, or parse them yourself.`,
     `Runtime context: ${JSON.stringify(context)}`

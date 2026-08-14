@@ -9,6 +9,7 @@ import {
   careerAdaptMcpBridgeContracts,
   statusCareerAdaptMcpBridge
 } from "@/server/careerAdaptMcpBridgeRegistry";
+import { readHermesRunReadiness } from "@/agent/runtime/hermes/hermesRunReadiness";
 
 export const dynamic = "force-dynamic";
 
@@ -132,19 +133,45 @@ async function withRuntimeHealth(
   const contracts = careerAdaptMcpBridgeContracts();
   const catalog = new HermesCareerToolCatalog(contracts);
   const coverage = catalog.coverage(registry.visibleTools, registry.registeredToolsets);
+  const companionReady = upstreamRuntimeHealth?.companionReady ?? (
+    (upstreamRuntimeHealth?.runtimeAvailable ?? health.available) === true
+  );
+  const providerReady = upstreamRuntimeHealth?.providerReady ?? (
+    (upstreamRuntimeHealth?.providerConfigured ?? (
+      health.providerStatus === "ready"
+      || health.providerStatus === "invalid"
+      || health.providerStatus === "unreachable"
+      || Boolean(health.provider || health.model)
+    ))
+    && (upstreamRuntimeHealth?.providerReachable ?? health.providerStatus === "ready")
+    && Boolean(health.model || upstreamRuntimeHealth?.model)
+  );
+  const mcpReady = upstreamRuntimeHealth?.mcpReady ?? (
+    mcp.connected
+    && careerMcpServerReachable
+    && coverage.hermesMcpRegistered
+    && coverage.hermesMcpToolCount > 0
+    && coverage.requiredCareerFacadesMissing.length === 0
+  );
+  const cachedRunReadiness = readHermesRunReadiness(runtimeBaseUrl);
+  const runReady = upstreamRuntimeHealth?.runReady
+    ?? (mcpReady && cachedRunReadiness?.ready !== false && companionReady && providerReady);
   const runtimeHealth = RuntimeHealthSchema.parse({
     ...(upstreamRuntimeHealth ?? {}),
     runtimeId: upstreamRuntimeHealth?.runtimeId ?? health.runtimeId ?? "hermes",
     runtimeAvailable: upstreamRuntimeHealth?.runtimeAvailable ?? health.available,
+    companionReady,
     providerConfigured: upstreamRuntimeHealth?.providerConfigured ?? (health.providerStatus === "ready"
       || health.providerStatus === "invalid"
       || health.providerStatus === "unreachable"
       || Boolean(health.provider || health.model)),
     providerReachable: upstreamRuntimeHealth?.providerReachable ?? health.providerStatus === "ready",
+    providerReady,
     ...(health.model || upstreamRuntimeHealth?.model ? { model: health.model ?? upstreamRuntimeHealth?.model } : {}),
     ...(health.contextWindow === undefined && upstreamRuntimeHealth?.contextWindow === undefined ? {} : { contextWindow: health.contextWindow ?? upstreamRuntimeHealth?.contextWindow }),
     toolCallingAvailable: upstreamRuntimeHealth?.toolCallingAvailable ?? health.toolCalling === "verified",
     mcpConnected: mcp.connected,
+    mcpReady,
     mcpToolCount: mcp.discoveredToolCount,
     careerSkillsLoaded,
     browserCareerDomainHostConnected: mcp.connected,
@@ -163,6 +190,11 @@ async function withRuntimeHealth(
     hermesVisibleTools: registry.visibleTools,
     missingRequiredCareerTools: coverage.requiredCareerFacadesMissing,
     lastCheckedAt: new Date().toISOString(),
+    runReady,
+    ...(cachedRunReadiness ? {
+      runReadyCheckedAt: cachedRunReadiness.checkedAt,
+      ...(cachedRunReadiness.safeErrorCode ? { runReadySafeErrorCode: cachedRunReadiness.safeErrorCode } : {})
+    } : {}),
     ...(health.reason ? { safeErrorCode: safeErrorCode(health.reason) } : {})
   });
   const configuredRuntimeUrl = process.env.HERMES_RUNTIME_URL?.trim().replace(/\/$/u, "");

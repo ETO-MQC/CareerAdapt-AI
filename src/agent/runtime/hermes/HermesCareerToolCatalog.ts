@@ -28,6 +28,26 @@ export const HERMES_REQUIRED_CAREER_FACADES = CAREER_WORKFLOW_FACADE_DEFINITIONS
   .map((definition) => definition.name)
   .sort();
 
+/**
+ * The production Hermes model sees workflow boundaries and a very small
+ * diagnostic/read surface. Atomic contracts remain registered for the
+ * browser gateway and internal recovery, but are not part of normal model
+ * planning.
+ */
+export const HERMES_PRODUCTION_TOOL_PROFILE = [
+  ...HERMES_REQUIRED_CAREER_FACADES,
+  "career.system.runtime_status",
+  "career.system.current_task",
+  "career.system.last_failure",
+  "career.profile.get",
+  "career.resume.list",
+  "career.job.list"
+] as const;
+
+export function hermesProductionToolNames() {
+  return new Set<string>(HERMES_PRODUCTION_TOOL_PROFILE);
+}
+
 export type HermesCareerToolCatalogEntry = {
   stableName: string;
   registeredName: string;

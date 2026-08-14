@@ -59,10 +59,12 @@ export class RuntimeStatusStore {
     const nextHealth = health ? {
       ...health,
       mcpConnected: status.connected,
+      mcpReady: status.connected ? health.mcpReady : false,
       mcpToolCount: status.discoveredToolCount,
       browserCareerDomainHostConnected: status.connected,
       careerMcpServerReachable: status.connected,
       careerMcpContractCount: status.discoveredToolCount,
+      runReady: status.connected ? health.runReady : false,
       lastCheckedAt: new Date().toISOString()
     } : undefined;
     this.update({

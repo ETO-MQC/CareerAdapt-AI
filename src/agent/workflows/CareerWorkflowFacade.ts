@@ -18,6 +18,9 @@ export const CareerWorkflowStatusSchema = z.enum([
   "completed",
   "waiting_for_user",
   "waiting_for_confirmation",
+  "working",
+  "review_ready",
+  "recoverable_failure",
   "partial",
   "failed"
 ]);
@@ -28,6 +31,10 @@ export const CareerWorkflowFacadeResultSchema = z.object({
   workflowStage: z.string().min(1),
   nextAction: z.string().optional(),
   userPrompt: z.string().optional(),
+  checkpointId: z.string().min(1).optional(),
+  interaction: z.record(z.string(), z.unknown()).optional(),
+  review: z.record(z.string(), z.unknown()).optional(),
+  result: z.record(z.string(), z.unknown()).optional(),
   artifactRefs: z.array(z.object({ id: z.string(), kind: z.string(), toolName: z.string(), sourceToolName: z.string() }).passthrough()).optional(),
   receipts: z.array(z.object({ operationId: z.string(), toolName: z.string(), status: z.string(), completedAt: z.string() }).passthrough()).optional(),
   safeError: z.object({ code: z.string(), message: z.string(), recoverable: z.boolean() }).optional(),
@@ -56,7 +63,25 @@ const ProfileIntakeFinalizeInputSchema = z.object({
 
 const ResumeImportInputSchema = z.object({ attachmentId: z.string().min(1) }).strict();
 const JobFitInputSchema = z.object({ profileId: z.string().min(1), resumeId: z.string().min(1), jobId: z.string().min(1) }).strict();
-const TailorResumeInputSchema = JobFitInputSchema.extend({ intensity: z.enum(["conservative", "balanced", "aggressive"]).optional() }).strict();
+const TailorResumeInputSchema = z.object({
+  profileId: z.string().min(1).optional(),
+  sourceResumeId: z.string().min(1).optional(),
+  /** Compatibility alias for pre-P4.5c.1.7 callers. */
+  resumeId: z.string().min(1).optional(),
+  jobId: z.string().min(1).optional(),
+  checkpointId: z.string().min(1).optional(),
+  userAnswer: z.union([
+    z.string().trim().min(1).max(8_000),
+    z.array(z.string().trim().min(1)).min(1).max(32),
+    z.boolean()
+  ]).optional(),
+  intensity: z.enum(["conservative", "balanced", "aggressive"]).optional()
+}).strict().superRefine((input, refinement) => {
+  if (input.checkpointId) return;
+  if (!input.profileId) refinement.addIssue({ code: "custom", path: ["profileId"], message: "profileId is required to start tailoring" });
+  if (!input.sourceResumeId && !input.resumeId) refinement.addIssue({ code: "custom", path: ["sourceResumeId"], message: "sourceResumeId is required to start tailoring" });
+  if (!input.jobId) refinement.addIssue({ code: "custom", path: ["jobId"], message: "jobId is required to start tailoring" });
+});
 const ProfileToResumeInputSchema = z.object({
   targetProfileId: z.string().min(1),
   expectedProfileVersion: z.number().int().min(0),
@@ -177,22 +202,7 @@ export async function executeCareerWorkflowFacade(
     }, context);
   }
   if (name === "career.workflow.tailor_resume") {
-    const result = await call("career.tailoring.create_session", input);
-    const createdSession = result.data && typeof result.data === "object" && !Array.isArray(result.data)
-      ? (result.data as Record<string, unknown>).session
-      : undefined;
-    return facadeFromAtomic(name, operationId, result, "waiting_for_user", "ask_current_tailoring_question", "请只询问当前定制会话返回的下一题。", {
-      kind: "tailoring_session",
-      workflowStage: "generate_plan",
-      profileId: input.profileId,
-      resumeId: input.resumeId,
-      jobId: input.jobId,
-      // Keep the authoritative persisted session intact. Subsequent native
-      // tailoring steps parse this checkpoint as TailoringSessionSchema; a
-      // shallow summary would lose the plan/branch/job context and force the
-      // artifact reducer to fall back to a pending entity id.
-      session: createdSession
-    }, context);
+    return executeTailoringResumeFacade(input, context, operationId, call);
   }
   if (name === "career.workflow.profile_to_resume") {
     const { purpose, ...atomicInput } = input;
@@ -276,6 +286,247 @@ export async function executeCareerWorkflowFacade(
     resumeId: input.resumeId,
     result: compactData(result.data, ["resumeId", "revision", "artifactId", "previewArtifactId", "pdfArtifactId", "fileName"])
   }, context);
+}
+
+type TailoringFacadeCall = (toolName: string, value: unknown, index?: number) => Promise<CareerToolResult>;
+
+async function executeTailoringResumeFacade(
+  input: Record<string, unknown>,
+  context: CareerToolExecutionContext,
+  operationId: string,
+  call: TailoringFacadeCall
+) {
+  const sourceResumeId = stringValue(input.sourceResumeId) ?? stringValue(input.resumeId);
+  const profileId = stringValue(input.profileId) ?? context.authoritativeTaskState?.selectedEntities.profileId;
+  const jobId = stringValue(input.jobId) ?? context.authoritativeTaskState?.selectedEntities.jobId;
+  const checkpointId = stringValue(input.checkpointId);
+  const persistedSession = objectValue(context.authoritativeTaskState?.knownSlots.tailoringSession);
+  const persistedSessionId = stringValue(persistedSession.id);
+  const results: CareerToolResult[] = [];
+  let session = checkpointId ? persistedSession : {};
+  let fitAnalysis = context.authoritativeTaskState?.knownSlots.fitAnalysis;
+
+  if (checkpointId && (!persistedSessionId || persistedSessionId !== checkpointId)) {
+    const failure = syntheticTailoringResult(operationId, "tailoring_checkpoint_not_found", "当前定制 checkpoint 不存在或已变化，已保留当前岗位和简历选择。", false);
+    return tailoringFacadeProgress(operationId, input, context, results.concat(failure), {}, undefined, "failed");
+  }
+
+  if (!checkpointId) {
+    if (!profileId || !sourceResumeId || !jobId) {
+      const failure = syntheticTailoringResult(operationId, "tailoring_selection_required", "开始岗位定制需要当前选中的岗位、简历和资料版本。", false);
+      return tailoringFacadeProgress(operationId, input, context, results.concat(failure), {}, undefined, "failed");
+    }
+    if (fitAnalysis === undefined && context.availableCareerToolNames?.has("career.job.analyze_fit") !== false) {
+      const fit = await call("career.job.analyze_fit", { profileId, resumeId: sourceResumeId, jobId }, 0);
+      results.push(fit);
+      if (!fit.ok) {
+        return tailoringFacadeProgress(operationId, input, context, results, {
+          kind: "tailoring_session",
+          workflowStage: "analyze_fit",
+          profileId,
+          resumeId: sourceResumeId,
+          jobId,
+          fitAnalysis: compactData(fit.data, ["analysis", "dependencies"])
+        }, undefined, "working");
+      }
+      fitAnalysis = fit.data;
+    }
+    const created = await call("career.tailoring.create_session", {
+      profileId,
+      resumeId: sourceResumeId,
+      jobId,
+      ...(input.intensity ? { intensity: input.intensity } : {})
+    }, 1);
+    results.push(created);
+    session = objectValue(objectValue(created.data).session);
+  }
+
+  if (!stringValue(session.id)) {
+    const last = results.at(-1) ?? syntheticTailoringResult(operationId, "tailoring_session_missing", "定制 checkpoint 没有返回可恢复的会话，当前选择已保留。", true);
+    if (!results.length) results.push(last);
+    return tailoringFacadeProgress(operationId, input, context, results, {
+      kind: "tailoring_session",
+      workflowStage: "generate_plan",
+      profileId,
+      resumeId: sourceResumeId,
+      jobId,
+      ...(fitAnalysis === undefined ? {} : { fitAnalysis: compactData(fitAnalysis, ["analysis", "dependencies"]) })
+    }, undefined, "working");
+  }
+
+  if (input.userAnswer !== undefined) {
+    const activeQuestionId = tailoringActiveQuestionId(session);
+    if (activeQuestionId) {
+      const answered = await call("career.tailoring.answer_question", {
+        session,
+        questionId: activeQuestionId,
+        answer: input.userAnswer
+      }, results.length);
+      results.push(answered);
+      if (!answered.ok) {
+        return tailoringFacadeProgress(operationId, input, context, results, tailoringCheckpoint(input, session, fitAnalysis), session, "recoverable_failure");
+      }
+      session = objectValue(objectValue(answered.data).session);
+    }
+  }
+
+  const checkpoint = tailoringCheckpoint(input, session, fitAnalysis);
+  if (isTailoringQuestionPaused(session)) {
+    return tailoringFacadeProgress(operationId, input, context, results.concat(
+      results.length ? [] : [checkpointOnlyTailoringResult(operationId, session)]
+    ), checkpoint, session, "waiting_for_user");
+  }
+  if (context.availableCareerToolNames?.has("career.tailoring.generate_changes") === false) {
+    return tailoringFacadeProgress(operationId, input, context, results.concat(
+      results.length ? [] : [checkpointOnlyTailoringResult(operationId, session)]
+    ), checkpoint, session, "waiting_for_user");
+  }
+  if (tailoringGenerationIsCurrent(session)) {
+    return tailoringFacadeProgress(operationId, input, context, results.concat(
+      results.length ? [] : [checkpointOnlyTailoringResult(operationId, session)]
+    ), checkpoint, session, "review_ready");
+  }
+  const generated = await call("career.tailoring.generate_changes", { session }, results.length);
+  results.push(generated);
+  const generatedSession = objectValue(objectValue(generated.data).session);
+  return tailoringFacadeProgress(
+    operationId,
+    input,
+    context,
+    results,
+    tailoringCheckpoint(input, stringValue(generatedSession.id) ? generatedSession : session, fitAnalysis),
+    stringValue(generatedSession.id) ? generatedSession : session,
+    "review_ready"
+  );
+}
+
+function tailoringFacadeProgress(
+  operationId: string,
+  input: Record<string, unknown>,
+  context: CareerToolExecutionContext,
+  results: CareerToolResult[],
+  checkpoint: Record<string, unknown>,
+  session: Record<string, unknown> | undefined,
+  requestedStatus: CareerWorkflowFacadeResult["status"]
+) {
+  const last = results.at(-1) ?? checkpointOnlyTailoringResult(operationId, session ?? {});
+  const workflowStage = facadeWorkflowStage("career.workflow.tailor_resume", last, checkpoint);
+  const status: CareerWorkflowFacadeResult["status"] = last.ok
+    ? requestedStatus
+    : last.receipt.status === "confirmation_required"
+      ? "waiting_for_confirmation"
+      : last.error?.recoverable ? "recoverable_failure" : "failed";
+  const interactionPlan = buildFacadeInteractionPlan({
+    facadeName: "career.workflow.tailor_resume",
+    result: last,
+    workflowCheckpoint: checkpoint,
+    context
+  });
+  const facadeReceipt: OperationReceipt = {
+    operationId,
+    toolName: "career.workflow.tailor_resume",
+    idempotencyKey: operationId,
+    status: status === "failed" || status === "recoverable_failure" ? "failed" : status === "waiting_for_confirmation" ? "confirmation_required" : "completed",
+    completedAt: new Date().toISOString()
+  };
+  const artifactRefs = [...new Map(results.flatMap((result) => result.artifacts).map((artifact) => [artifact.id, artifact])).values()];
+  const receipts = [...results.map((result) => result.receipt), facadeReceipt];
+  const prompt = stringValue(interactionPlan?.recommendedNextQuestion?.question)
+    ?? (workflowStage === "generate_changes" ? "澄清已完成，可以生成定制修改建议。" : undefined);
+  const review = tailoringReviewProjection(session ?? objectValue(checkpoint.session));
+  const data = CareerWorkflowFacadeResultSchema.parse({
+    status,
+    workflowStage,
+    nextAction: status === "waiting_for_confirmation"
+      ? "request_confirmation"
+      : workflowStage === "clarify_unsupported_facts"
+        ? "ask_current_tailoring_question"
+        : workflowStage === "generate_changes"
+          ? "generate_tailoring_changes"
+          : workflowStage === "preview_changes"
+            ? "review_tailoring_diff"
+            : "continue_tailoring",
+    ...(status === "waiting_for_user" && prompt ? { userPrompt: prompt } : {}),
+    ...(stringValue(checkpoint.checkpointId) ? { checkpointId: stringValue(checkpoint.checkpointId) } : {}),
+    interaction: interactionPlan,
+    ...(Object.keys(review).length ? { review } : {}),
+    artifactRefs,
+    receipts,
+    ...(last.error ? { safeError: { code: last.error.code, message: last.error.message, recoverable: last.error.recoverable } } : {}),
+    workflowCheckpoint: checkpoint
+  });
+  return { data, artifacts: artifactRefs, receipts };
+}
+
+function tailoringCheckpoint(input: Record<string, unknown>, session: Record<string, unknown>, fitAnalysis?: unknown) {
+  const branch = objectValue(session.branch);
+  const job = objectValue(session.job);
+  const id = stringValue(session.id);
+  return {
+    kind: "tailoring_session",
+    workflowStage: tailoringStageForSession(session),
+    checkpointId: id,
+    profileId: stringValue(input.profileId),
+    resumeId: stringValue(input.sourceResumeId) ?? stringValue(input.resumeId) ?? stringValue(branch.id),
+    jobId: stringValue(input.jobId) ?? stringValue(job.id),
+    ...(fitAnalysis === undefined ? {} : { fitAnalysis: compactData(fitAnalysis, ["analysis", "dependencies", "score", "matched", "gaps"]) }),
+    session,
+    review: tailoringReviewProjection(session)
+  } satisfies Record<string, unknown>;
+}
+
+function tailoringStageForSession(session: Record<string, unknown>) {
+  if (isTailoringQuestionPaused(session)) return "clarify_unsupported_facts";
+  return tailoringGenerationIsCurrent(session) ? "preview_changes" : "generate_changes";
+}
+
+function tailoringActiveQuestionId(session: Record<string, unknown>) {
+  return stringValue(objectValue(objectValue(session.plan).questionPlan).activeQuestionId);
+}
+
+function tailoringGenerationIsCurrent(session: Record<string, unknown>) {
+  const plan = objectValue(session.plan);
+  const questionPlan = objectValue(plan.questionPlan);
+  return plan.generationStatus === "completed"
+    && plan.generatedDiffsBasedOnQuestionPlanRevision === questionPlan.revision
+    && plan.generatedDiffsBasedOnAnswerRevisionHash === plan.answerRevisionHash;
+}
+
+function tailoringReviewProjection(session: Record<string, unknown>) {
+  const plan = objectValue(session.plan);
+  return {
+    generationStatus: plan.generationStatus,
+    diffs: arrayValue(plan.diffs),
+    diffReviews: arrayValue(plan.diffReviews)
+  };
+}
+
+function checkpointOnlyTailoringResult(operationId: string, session: Record<string, unknown>): CareerToolResult {
+  return {
+    ok: true,
+    data: { session },
+    artifacts: [],
+    receipt: {
+      operationId: `${operationId}-checkpoint`,
+      toolName: "career.workflow.tailor_resume",
+      status: "completed",
+      completedAt: new Date().toISOString()
+    }
+  };
+}
+
+function syntheticTailoringResult(operationId: string, code: string, message: string, recoverable: boolean): CareerToolResult {
+  return {
+    ok: false,
+    error: { code, category: recoverable ? "recoverable" : "validation", message, recoverable },
+    artifacts: [],
+    receipt: {
+      operationId: `${operationId}-validation`,
+      toolName: "career.workflow.tailor_resume",
+      status: "failed",
+      completedAt: new Date().toISOString()
+    }
+  };
 }
 
 function facadeFromAtomic(

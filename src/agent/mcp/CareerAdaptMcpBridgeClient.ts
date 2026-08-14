@@ -11,6 +11,7 @@ type BridgeRequest = {
   name: string;
   input: unknown;
   operationId: string;
+  logicalToolOperationId?: string;
   careerSessionBinding?: CareerSessionBinding;
   requireSessionBinding?: boolean;
 };
@@ -251,6 +252,7 @@ export class CareerAdaptMcpBridgeClient {
     try {
       const context: CareerToolExecutionContext = {
         operationId: request.operationId,
+        logicalToolOperationId: request.logicalToolOperationId,
         careerSessionBinding: request.careerSessionBinding,
         requireSessionBinding: request.requireSessionBinding === true
       };

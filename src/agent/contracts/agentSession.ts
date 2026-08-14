@@ -184,6 +184,7 @@ export const AgentTurnSchema = z.object({
   lastFailedTool: z.string().min(1).optional(),
   lastFailedOperationId: z.string().min(1).optional(),
   lastSafeErrorCode: z.string().min(1).optional(),
+  runtimeFailureDiagnostics: z.record(z.string(), z.unknown()).optional(),
   firstEventAt: z.string().datetime({ offset: true }).optional(),
   runtimeFailureAt: z.string().datetime({ offset: true }).optional(),
   status: z.enum(["running", "waiting_for_user", "waiting_for_confirmation", "completed", "failed", "aborted"]),
