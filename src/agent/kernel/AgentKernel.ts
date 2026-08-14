@@ -795,12 +795,17 @@ export class AgentKernel {
         }
         trajectory.toolCompleted(operationId, false);
       }
+      const failedTaskState = taskReducer.reduce(taskState, { type: "failed", errorCode: code });
+      const recoveryText = isTailoringPlanRecoveryState(failedTaskState)
+        ? tailoringPlanRecoveryText()
+        : undefined;
       trajectory.error(code, error instanceof Error ? error.message : "Agent turn failed.");
       trajectory.finish("failed");
-      await emit(input, { type: "error", code, message: userErrorMessage(code) });
+      await emit(input, { type: "error", code, message: recoveryText ?? userErrorMessage(code) });
       return {
+        ...(recoveryText ? { text: recoveryText } : {}),
         trajectory: trajectory.value(),
-        taskState: taskReducer.reduce(taskState, { type: "failed", errorCode: code }),
+        taskState: failedTaskState,
         protocolDiagnostics
       };
     }
@@ -1094,6 +1099,17 @@ function bindAuthoritativeTaskInput(
       argumentsValue.revisionId = taskState.selectedEntities.resumeRevisionId;
     }
     if (taskState.selectedEntities.jobId) argumentsValue.jobId = taskState.selectedEntities.jobId;
+    if (call.name === "analyze_job_fit" || call.name === "create_tailoring_session") {
+      if (taskState.selectedEntities.profileVersion !== undefined) {
+        argumentsValue.profileVersion = taskState.selectedEntities.profileVersion;
+      }
+      if (taskState.selectedEntities.resumeRevisionId) {
+        argumentsValue.resumeRevisionId = taskState.selectedEntities.resumeRevisionId;
+      }
+      if (taskState.selectedEntities.jobRevision !== undefined) {
+        argumentsValue.jobRevision = taskState.selectedEntities.jobRevision;
+      }
+    }
     return { ...call, arguments: argumentsValue };
   }
   if (call.name === "capture_profile_intake") {
@@ -1720,6 +1736,7 @@ function noProgressRecovery(nextAction: {
   const withExitPaths = (instruction: string) =>
     `${instruction}\n\n如果这一步仍然没有推进，可以使用“重新执行当前步骤”按钮，或选择“结束任务”；也可以直接告诉我你想改做什么。`;
   const tailoringGoal = ["create_tailored_resume", "apply_to_job", "analyze_job_fit"].includes(nextAction.goal ?? "");
+  if (isTailoringPlanRecoveryState(taskState)) return withExitPaths(tailoringPlanRecoveryText());
   const missingSlots = taskState && tailoringGoal
     ? (["profileId", "resumeId", "jobId"] as const).filter((slot) => !taskState.selectedEntities[slot])
     : nextAction.missingSlots;
@@ -1727,15 +1744,7 @@ function noProgressRecovery(nextAction: {
     const resumeName = typeof taskState.knownSlots.selectedResumeName === "string"
       ? taskState.knownSlots.selectedResumeName
       : "通用简历";
-    const candidates = Array.isArray(taskState.knownSlots.jobCandidates)
-      ? taskState.knownSlots.jobCandidates.map(objectValue)
-      : [];
-    const options = candidates.flatMap((candidate, index) => {
-      const title = typeof candidate.title === "string" ? candidate.title : "未命名岗位";
-      const company = typeof candidate.company === "string" && candidate.company ? ` · ${candidate.company}` : "";
-      return [`${index + 1}. ${title}${company}`];
-    });
-    return withExitPaths(`我会使用当前资料库和《${resumeName}》。\n要针对哪个岗位定制？${options.length ? `\n${options.join("\n")}` : ""}`);
+    return withExitPaths(`我会使用《${resumeName}》。\n请选择要投递的岗位。`);
   }
   if (nextAction.goal === "analyze_job_fit") {
     return withExitPaths(missingSlots.length === 1 && missingSlots[0] === "jobId"
@@ -1801,6 +1810,18 @@ function deterministicBoundaryTool(
     return undefined;
   }
   if (
+    taskState.workflowId === "tailor_existing_resume"
+    && taskState.stage === "generate_plan"
+    && taskState.knownSlots.fitAnalysis
+    && !taskState.knownSlots.tailoringSession
+    && taskState.selectedEntities.profileId
+    && taskState.selectedEntities.resumeId
+    && taskState.selectedEntities.jobId
+    && allowedTools.some((tool) => tool.name === "create_tailoring_session")
+  ) {
+    return "create_tailoring_session";
+  }
+  if (
     taskState.workflowId === "compose_resume"
     && taskState.knownSlots.resumeCompositionDecision === "generate"
     && taskState.knownSlots.resumeCompositionCheckpoint
@@ -1846,6 +1867,23 @@ function deterministicBoundaryTool(
   return toolName && allowedTools.some((tool) => tool.name === toolName)
     ? toolName
     : undefined;
+}
+
+function isTailoringPlanRecoveryState(taskState: AgentTaskState | undefined) {
+  return Boolean(
+    taskState
+    && taskState.workflowId === "tailor_existing_resume"
+    && taskState.stage === "generate_plan"
+    && taskState.knownSlots.fitAnalysis
+    && !taskState.knownSlots.tailoringSession
+    && taskState.selectedEntities.profileId
+    && taskState.selectedEntities.resumeId
+    && taskState.selectedEntities.jobId
+  );
+}
+
+function tailoringPlanRecoveryText() {
+  return "岗位和简历已保留，定制计划生成过程中出现临时问题。可以直接重试此步骤。";
 }
 
 function isAuthorizedIntakeSource(
@@ -2007,19 +2045,12 @@ function deterministicWorkflowPause(
     && !taskState.selectedEntities.resumeId
     && taskState.knownSlots.resumeSelectionRequired
   ) {
-    const candidates = Array.isArray(taskState.knownSlots.resumeCandidates)
-      ? taskState.knownSlots.resumeCandidates.map(objectValue)
-      : [];
-    const options = candidates.flatMap((candidate, index) => {
-      const name = typeof candidate.name === "string" ? candidate.name : "未命名简历";
-      return [`${index + 1}. ${name}`];
-    });
     const prefix = taskState.knownSlots.resumeSelectionError === "not_found"
-      ? "我没有找到这份简历。有效选项如下：\n"
+      ? "我没有找到这份简历。"
       : taskState.knownSlots.resumeSelectionError === "ambiguous"
-        ? "有多份简历符合这句话，请选择其中一份：\n"
+        ? "有多份简历符合这句话，请选择其中一份。"
         : "";
-    return `${prefix}当前资料库已确定。请先选择要使用的简历：${options.length ? `\n${options.join("\n")}` : ""}`;
+    return `${prefix}${prefix ? "\n" : ""}请选择要作为定制基础的简历。`;
   }
   if (
     taskState.workflowId === "tailor_existing_resume"
@@ -2032,23 +2063,12 @@ function deterministicWorkflowPause(
       && taskState.knownSlots.selectedResumeName.trim()
       ? taskState.knownSlots.selectedResumeName
       : "通用简历";
-    const ambiguity = Array.isArray(taskState.knownSlots.jobSelectionAmbiguity)
-      ? taskState.knownSlots.jobSelectionAmbiguity
-      : undefined;
-    const candidates = (ambiguity?.length ? ambiguity : taskState.knownSlots.jobCandidates);
-    const options = Array.isArray(candidates)
-      ? candidates.map(objectValue).flatMap((candidate, index) => {
-          const title = typeof candidate.title === "string" ? candidate.title : "未命名岗位";
-          const company = typeof candidate.company === "string" && candidate.company ? ` · ${candidate.company}` : "";
-          return [`${index + 1}. ${title}${company}`];
-        })
-      : [];
     const prefix = taskState.knownSlots.jobSelectionError === "not_found"
-      ? "我没有在当前已保存岗位中找到这个名称。有效选项如下：\n"
+      ? "我没有在当前已保存岗位中找到这个名称。"
       : taskState.knownSlots.jobSelectionError === "ambiguous"
-        ? "有多个岗位符合这句话，请选择其中一个：\n"
+        ? "有多个岗位符合这句话，请选择其中一个。"
         : "";
-    return `${prefix}我会使用当前资料库和《${resumeName}》。\n要针对哪个岗位定制？${options.length ? `\n${options.join("\n")}` : ""}`;
+    return `${prefix}${prefix ? "\n" : ""}我会使用《${resumeName}》。\n请选择要投递的岗位。`;
   }
   if (
     taskState.workflowId !== "resume_import"

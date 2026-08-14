@@ -1838,7 +1838,14 @@ export class BrowserAgentToolService implements AgentToolServices {
   }
 
   private async loadSelection(rawInput: unknown) {
-    const input = rawInput as { profileId: string; resumeId: string; jobId: string };
+    const input = rawInput as {
+      profileId: string;
+      profileVersion?: string | number;
+      resumeId: string;
+      resumeRevisionId?: string;
+      jobId: string;
+      jobRevision?: string | number;
+    };
     const [profile, branch, job] = await Promise.all([
       this.repository.getProfile(input.profileId),
       this.repository.getResumeBranch(input.resumeId),
@@ -1848,6 +1855,15 @@ export class BrowserAgentToolService implements AgentToolServices {
     if (!branch) throw toolError("resume_not_found", "Resume no longer exists.");
     if (!job) throw toolError("job_not_found", "Job no longer exists.");
     if (branch.profileId !== profile.id) throw toolError("resume_profile_mismatch", "Resume does not belong to the selected profile.");
+    if (input.profileVersion !== undefined && String(input.profileVersion) !== String(profile.version)) {
+      throw toolError("tailoring_profile_stale", "资料库已更新，请基于最新版本重新生成定制计划。");
+    }
+    if (input.resumeRevisionId !== undefined && input.resumeRevisionId !== branch.currentRevisionId) {
+      throw toolError("tailoring_resume_stale", "简历已更新，请基于最新版本重新生成定制计划。");
+    }
+    if (input.jobRevision !== undefined && String(input.jobRevision) !== String(job.updatedAt)) {
+      throw toolError("tailoring_job_stale", "岗位已更新，请基于最新版本重新生成定制计划。");
+    }
     return { profile, branch, job };
   }
 

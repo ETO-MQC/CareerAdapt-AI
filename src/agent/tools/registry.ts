@@ -212,7 +212,10 @@ const JobCommitInputSchema = JobParseInputSchema.extend({
 const EntitySelectionSchema = z.object({
   profileId: z.string().min(1),
   resumeId: z.string().min(1),
-  jobId: z.string().min(1)
+  jobId: z.string().min(1),
+  profileVersion: z.union([z.string().min(1), z.number().int().min(0)]).optional(),
+  resumeRevisionId: z.string().min(1).optional(),
+  jobRevision: z.union([z.string().min(1), z.number().int().min(0)]).optional()
 }).strict();
 
 const TailoringSessionInputSchema = EntitySelectionSchema.extend({

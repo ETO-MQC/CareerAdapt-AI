@@ -177,8 +177,15 @@ export function resolveLastSafeWorkflowCheckpoint(session: AgentSession): SafeWo
 function isSafeCurrentTaskState(taskState: AgentTaskState) {
   const selected = taskState.selectedEntities;
   const hasResumeAndJob = Boolean(selected.resumeId && selected.jobId);
+  const hasTailoringEntities = Boolean(selected.profileId && selected.resumeId && selected.jobId);
   const hasProfileOrResume = Boolean(selected.profileId || selected.resumeId);
   if (hasResumeAndJob && taskState.stage === "analyze_fit") return true;
+  if (
+    hasTailoringEntities
+    && taskState.workflowId === "tailor_existing_resume"
+    && taskState.stage === "generate_plan"
+    && taskState.knownSlots.fitAnalysis
+  ) return true;
   return hasProfileOrResume
     && !["cancelled", "failed"].includes(taskState.completionStatus)
     && taskState.workflowId !== "agent_quick_action";
@@ -1448,7 +1455,7 @@ export class AgentHostStore {
     }
     if (event.type === "turn_completed" || event.type === "turn_failed") {
       const candidate = event.type === "turn_failed"
-        ? runtimeFailureRecoveryText(event.error?.code)
+        ? runtimeFailureRecoveryText(event.error?.code, next.taskState)
         : event.message ?? next.messages.find((message) => message.id === assistantMessageId)?.content ?? "当前任务已完成。";
       const grounding = next.taskState
         ? evaluateGroundedResumeOutput({ text: candidate, taskState: next.taskState, artifactRefs: next.artifactRefs })
@@ -5071,7 +5078,7 @@ export class AgentHostStore {
     const label = action.entityType === "job"
       ? `${String(candidate.title ?? "岗位")}${candidate.company ? ` · ${String(candidate.company)}` : ""}`
       : String(candidate.name ?? "简历");
-    let current = withTurnCheckpoint(session, turnId, userMessageId, taskState.updatedAt);
+    let current = withTurnCheckpoint(supersedeActiveOptionSets(session), turnId, userMessageId, taskState.updatedAt);
     current = appendAgentMessage(current, "user", label, {
       id: userMessageId,
       turnId,
@@ -5149,8 +5156,8 @@ export class AgentHostStore {
         attemptedRuntime: current.activeTurn?.attemptedRuntime ?? "native",
         finalRuntime: current.activeTurn?.finalRuntime ?? "native",
         fallbackUsed: current.activeTurn?.fallbackUsed ?? false,
-        executionOwner: options.executionOwner ?? current.activeTurn?.executionOwner ?? "runtime_continuation",
         ...options.runtimeDiagnostics,
+        executionOwner: options.executionOwner ?? options.runtimeDiagnostics?.executionOwner ?? current.activeTurn?.executionOwner ?? "runtime_continuation",
         status: "running",
         startedAt: current.activeTurn?.startedAt ?? startedAt
       }
@@ -8661,9 +8668,19 @@ function applyRuntimeEventDiagnostics(session: AgentSession, event: AgentRuntime
   };
 }
 
-function runtimeFailureRecoveryText(code?: string) {
+function runtimeFailureRecoveryText(code?: string, taskState?: AgentTaskState) {
   if (code === "agent_tool_not_allowed") {
     return "简历组装流程刚才没有完成，当前方向和已完成步骤已保留。请从当前步骤继续，我不会把未确认内容显示为简历。";
+  }
+  if (
+    taskState?.workflowId === "tailor_existing_resume"
+    && taskState.stage === "generate_plan"
+    && taskState.knownSlots.fitAnalysis
+    && taskState.selectedEntities.profileId
+    && taskState.selectedEntities.resumeId
+    && taskState.selectedEntities.jobId
+  ) {
+    return "岗位和简历已保留，定制计划生成过程中出现临时问题。可以直接重试此步骤。";
   }
   return "刚才的岗位分析步骤没有完成。已保留你选中的岗位，我正在从这里继续。";
 }

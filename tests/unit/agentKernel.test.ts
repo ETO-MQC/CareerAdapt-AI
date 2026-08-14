@@ -111,11 +111,11 @@ describe("AgentKernel", () => {
       userMessage: "我想用现有简历生成岗位定制版本"
     });
 
-    expect(result.text).toContain("我会使用当前资料库和《通用简历》。");
-    expect(result.text).toContain("要针对哪个岗位定制？");
-    expect(result.text).toContain("Android研发实习生");
-    expect(result.text).toContain("前端研发实习生");
-    expect(result.text).toContain("AI产品实习生");
+    expect(result.text).toContain("我会使用《通用简历》。");
+    expect(result.text).toContain("请选择要投递的岗位。");
+    expect(result.text).not.toContain("Android研发实习生");
+    expect(result.text).not.toContain("前端研发实习生");
+    expect(result.text).not.toContain("AI产品实习生");
     expect(result.text).not.toContain("个人资料库、要比较的简历、目标岗位");
     expect(getActiveProfile).toHaveBeenCalledTimes(1);
     expect(listResumes).toHaveBeenCalledTimes(1);
