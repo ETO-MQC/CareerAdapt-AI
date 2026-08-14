@@ -1,4 +1,8 @@
 import type { AgentUiAction } from "../contracts/agentActions";
+import {
+  TAILORING_ALLOWED_TOOLS_BY_STAGE,
+  TAILORING_STAGES
+} from "./tailoringStage";
 
 export type AgentWorkflowDefinition = {
   id: string;
@@ -130,25 +134,16 @@ export const agentWorkflowRegistry: Record<string, AgentWorkflowDefinition> = {
     review_composition: ["open_artifact"],
     confirm_create: ["open_artifact"]
   }, ["profileId", "mode"]),
-  tailor_existing_resume: workflow("tailor_existing_resume", "choose_resume_source", ["select_resume", "choose_resume_source", "choose_job", "collect_job", "analyze_job", "review_job", "analyze_fit", "generate_plan", "answer_questions", "clarify_unsupported_facts", "generate_changes", "preview_changes", "confirm_apply", "quality_result", "completed"], {
-    select_resume: [...profileReadTools, ...resumeReadTools, ...jobReadTools],
+  tailor_existing_resume: workflow("tailor_existing_resume", "choose_resume_source", [...TAILORING_STAGES], {
+    ...Object.fromEntries(TAILORING_STAGES.map((stage) => [stage, [...(TAILORING_ALLOWED_TOOLS_BY_STAGE[stage] ?? [])]])),
+    // Read tools remain available to the Host for checkpoint verification;
+    // semantic Tailoring progression still follows the shared stage contract.
     choose_resume_source: [...profileReadTools, ...resumeReadTools, ...jobReadTools, "recommend_resume_source"],
-    choose_job: ["list_jobs"],
-    collect_job: [...profileReadTools, ...resumeReadTools, ...jobReadTools],
-    analyze_job: [...profileReadTools, ...resumeReadTools, ...jobReadTools, "parse_job_description"],
-    review_job: [...jobReadTools, "commit_job"],
     analyze_fit: [...profileReadTools, ...resumeReadTools, ...jobReadTools, "analyze_job_fit"],
-    generate_plan: [...profileReadTools, ...resumeReadTools, ...jobReadTools, "create_tailoring_session"],
-    answer_questions: ["answer_tailoring_question"],
-    clarify_unsupported_facts: ["answer_tailoring_question"],
-    generate_changes: ["generate_tailoring_changes"],
     preview_changes: [...profileReadTools, ...resumeReadTools, ...jobReadTools, "review_tailoring_diff", "preview_tailoring_changes"],
-    confirm_apply: ["apply_tailoring_changes"],
     quality_result: [...resumeReadTools]
   }, {
-    select_resume: ["open_resume_picker"],
-    collect_job: ["open_job_import_dialog"],
-    review_job: ["open_artifact"],
+    choose_resume_source: ["open_resume_picker"],
     preview_changes: ["open_artifact"]
   }, ["profileId", "resumeId", "jobId"]),
   analyze_job_fit: workflow("analyze_job_fit", "select_assets", ["select_assets", "analyze_fit", "review_result", "completed"], {

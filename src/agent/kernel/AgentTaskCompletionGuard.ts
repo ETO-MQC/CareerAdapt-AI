@@ -3,6 +3,7 @@ import {
   deriveNextLegalStage,
   hasUnresolvedClarifications
 } from "@/agent/runtime/TaskContinuationResolver";
+import { normalizeTailoringStage, TAILORING_ALLOWED_TOOLS_BY_STAGE } from "@/agent/workflows/tailoringStage";
 
 export type AgentTaskCompletionDecision =
   | { canFinish: true; reason: "goal_completed" | "waiting_for_user" | "waiting_for_confirmation" | "blocked" | "analysis_complete" | "no_safe_next_step" }
@@ -60,6 +61,9 @@ export class AgentTaskCompletionGuard {
     if (state.completionStatus === "waiting_for_user") {
       return { canFinish: true, reason: "waiting_for_user" };
     }
+    if (isTailoringApplyRecoverableFailure(state)) {
+      return incomplete(state, "confirm_apply");
+    }
     if (state.completionStatus === "failed" || state.completionStatus === "cancelled") {
       return { canFinish: true, reason: "blocked" };
     }
@@ -97,15 +101,15 @@ export class AgentTaskCompletionGuard {
 
 function requiredNextStage(state: AgentTaskState) {
   if (["create_tailored_resume", "apply_to_job"].includes(state.rootGoal)) {
-    if (!state.selectedEntities.resumeId) return "choose_resume_source";
+    if (!state.selectedEntities.sourceResumeId && !state.selectedEntities.resumeId) return "choose_resume_source";
     if (!state.selectedEntities.jobId) return "choose_job";
     if (!state.knownSlots.fitAnalysis) return "analyze_fit";
     if (!state.knownSlots.tailoringSession) return "generate_plan";
     if (hasUnresolvedClarifications(state)) return "clarify_unsupported_facts";
     if (!state.knownSlots.previewComplete) return "preview_changes";
     if (!state.knownSlots.confirmationAccepted) return "confirm_apply";
-    if (!state.selectedEntities.revisionId) return "apply";
-    return deriveNextLegalStage(state);
+    if (!state.selectedEntities.resultResumeRevisionId && !state.selectedEntities.revisionId) return "confirm_apply";
+    return normalizeTailoringStage(deriveNextLegalStage(state)) ?? deriveNextLegalStage(state);
   }
   if (state.rootGoal === "import_resume") {
     if (!state.attachment && !state.knownSlots.importId) return "select_source";
@@ -160,19 +164,50 @@ function incomplete(
 }
 
 function tailoringContractComplete(state: AgentTaskState) {
+  const quality = objectValue(state.knownSlots.qualityResult);
+  const receipt = objectValue(quality.receipt ?? state.knownSlots.applyReceipt);
+  const acceptedDiffCount = numberValue(quality.acceptedDiffCount ?? state.knownSlots.acceptedDiffCount);
+  const acceptedDiffIds = Array.isArray(quality.acceptedDiffIds)
+    ? quality.acceptedDiffIds.filter((value): value is string => typeof value === "string" && value.length > 0)
+    : [];
+  const changedFieldPaths = Array.isArray(quality.changedFieldPaths)
+    ? quality.changedFieldPaths.filter((value): value is string => typeof value === "string" && value.length > 0)
+    : [];
+  const beforeHash = stringValue(quality.beforeContentHash);
+  const afterHash = stringValue(quality.afterContentHash);
+  const resultResumeId = stringValue(state.selectedEntities.resultResumeId ?? quality.resultResumeId ?? quality.branchId);
+  const resultRevisionId = stringValue(state.selectedEntities.resultResumeRevisionId ?? quality.resultResumeRevisionId ?? quality.revisionId);
   return Boolean(
-    state.selectedEntities.resumeId
+    (state.selectedEntities.sourceResumeId ?? state.selectedEntities.resumeId)
     && state.selectedEntities.jobId
     && state.knownSlots.fitAnalysis
     && state.knownSlots.tailoringSession
     && !hasUnresolvedClarifications(state)
     && state.knownSlots.previewComplete
     && state.knownSlots.confirmationAccepted
-    && state.selectedEntities.revisionId
-    && state.knownSlots.qualityResult
+    && resultResumeId
+    && resultRevisionId
+    && acceptedDiffCount !== undefined
+    && acceptedDiffCount > 0
+    && acceptedDiffIds.length > 0
+    && changedFieldPaths.length > 0
+    && beforeHash
+    && afterHash
+    && beforeHash !== afterHash
+    && quality.status === "passed"
+    && quality.factGuard === "passed"
+    && quality.revisionCreated === true
+    && receipt.status === "completed"
     && state.stage === "quality_result"
     && state.completionStatus === "completed"
   );
+}
+
+function isTailoringApplyRecoverableFailure(state: AgentTaskState) {
+  return ["create_tailored_resume", "apply_to_job"].includes(state.rootGoal)
+    && Boolean(state.knownSlots.tailoringApplyFailure)
+    && Boolean(state.selectedEntities.jobId)
+    && normalizeTailoringStage(state.stage) === "confirm_apply";
 }
 
 function importContractComplete(state: AgentTaskState) {
@@ -230,6 +265,8 @@ function isResumeCompositionTask(state: AgentTaskState) {
 }
 
 function legalToolsFor(stage: string) {
+  const tailoringStage = normalizeTailoringStage(stage);
+  if (tailoringStage) return [...TAILORING_ALLOWED_TOOLS_BY_STAGE[tailoringStage]];
   const tools: Record<string, string[]> = {
     prepare_import: ["prepare_resume_import"],
     import_review: ["review_resume_import"],
@@ -237,15 +274,6 @@ function legalToolsFor(stage: string) {
     resolve_conflicts: ["resolve_resume_reconciliation"],
     confirm_import: ["commit_resume_import"],
     confirm_commit: ["commit_profile_intake"],
-    choose_resume_source: ["list_resumes"],
-    choose_job: ["list_jobs"],
-    analyze_fit: ["analyze_job_fit"],
-    generate_plan: ["create_tailoring_session"],
-    clarify_unsupported_facts: ["answer_tailoring_question"],
-    generate_changes: ["generate_tailoring_changes"],
-    preview_changes: ["review_tailoring_diff", "preview_tailoring_changes"],
-    confirm_apply: ["apply_tailoring_changes"],
-    apply: ["apply_tailoring_changes"],
     review_resume_plan: ["create_resume_from_profile"],
     review_composition: ["plan_resume_composition", "review_resume_composition"],
     confirm_create: ["compose_resume"]
@@ -253,10 +281,18 @@ function legalToolsFor(stage: string) {
   return tools[stage] ?? [];
 }
 
-function objectValue(value: unknown): Record<string, unknown> {
-  return value && typeof value === "object" ? value as Record<string, unknown> : {};
-}
-
 function hasValue(value: unknown) {
   return value !== undefined && value !== null && value !== "" && (!Array.isArray(value) || value.length > 0);
+}
+
+function objectValue(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
+function stringValue(value: unknown) {
+  return typeof value === "string" && value.trim() ? value : undefined;
+}
+
+function numberValue(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }

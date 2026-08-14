@@ -12,7 +12,7 @@ const AnyInput = z.object({}).passthrough();
 const AnyOutput = z.object({}).passthrough();
 
 describe("P4.4b Hermes runtime bridge", () => {
-  it("falls back before the first event and never switches mid-turn", async () => {
+  it("keeps Hermes as the semantic owner when it is unavailable before the first event", async () => {
     const native = new NativeCareerAgentRuntime({ runTurn: async () => ({ native: true }) });
     const hermes = new HermesCareerAgentRuntime({
       transport: {
@@ -30,8 +30,12 @@ describe("P4.4b Hermes runtime bridge", () => {
     for await (const event of router.active().runTurn({ sessionId: "p44b-fallback", userMessage: "继续", pageContext: { query: {} } })) {
       events.push(event);
     }
-    expect(events.at(-1)).toMatchObject({ type: "turn_completed", data: { fallbackUsed: true, native: true } });
-    expect(events.some((event) => event.data && typeof event.data === "object" && "hermes" in event.data)).toBe(false);
+    expect(events.at(-1)).toMatchObject({
+      type: "turn_failed",
+      error: { code: "hermes_unavailable_recoverable", recoverable: true },
+      data: { telemetry: { fallbackUsed: false, finalRuntime: "hermes" } }
+    });
+    expect(events.some((event) => event.data && typeof event.data === "object" && "native" in event.data)).toBe(false);
   });
 
   it("translates tool requests through CareerToolGateway and returns safe callbacks", async () => {

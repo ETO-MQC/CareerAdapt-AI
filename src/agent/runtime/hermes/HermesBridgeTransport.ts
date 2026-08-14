@@ -296,8 +296,24 @@ function mapOfficialHermesEvent(name: string, value: unknown): HermesBridgeEvent
     return { type: "tool_call_started", toolName, operationId, data: payload };
   }
   if (name === "tool.completed") {
-    return payload.error === true
-      ? { type: "tool_call_failed", toolName, operationId, code: "hermes_tool_failed", message: "Hermes tool failed.", recoverable: true, data: payload }
+    const rawToolError = objectRecord(payload.error);
+    const nestedToolError = objectRecord(rawToolError.error);
+    const nestedResultError = objectRecord(objectRecord(payload.result).error ?? objectRecord(payload.data).error);
+    const toolError = Object.keys(nestedToolError).length
+      ? nestedToolError
+      : Object.keys(rawToolError).length
+        ? rawToolError
+        : nestedResultError;
+    return payload.error === true || typeof payload.error === "string" || Object.keys(toolError).length > 0
+      ? {
+          type: "tool_call_failed",
+          toolName,
+          operationId,
+          code: typeof toolError.code === "string" ? toolError.code : typeof payload.code === "string" ? payload.code : "hermes_tool_failed",
+          message: typeof toolError.message === "string" ? toolError.message : typeof payload.error === "string" ? payload.error : typeof payload.message === "string" ? payload.message : "Hermes 工具执行没有完成。",
+          recoverable: typeof toolError.recoverable === "boolean" ? toolError.recoverable : typeof payload.recoverable === "boolean" ? payload.recoverable : true,
+          data: payload
+        }
       : { type: "tool_call_completed", toolName, operationId, data: payload };
   }
   if (name === "reasoning.available") {
@@ -350,9 +366,17 @@ function mapOfficialHermesEvent(name: string, value: unknown): HermesBridgeEvent
     toolCallId,
     toolName,
     operationId,
-    code: typeof payload.code === "string" ? payload.code : "hermes_tool_failed",
-    message: typeof payload.preview === "string" ? payload.preview : "Hermes MCP tool failed.",
-    recoverable: true,
+    code: typeof objectRecord(payload.error).code === "string"
+      ? String(objectRecord(payload.error).code)
+      : typeof payload.code === "string" ? payload.code : "hermes_tool_failed",
+    message: typeof objectRecord(payload.error).message === "string"
+      ? String(objectRecord(payload.error).message)
+      : typeof payload.message === "string"
+        ? payload.message
+        : typeof payload.preview === "string" ? payload.preview : "Career 工具执行没有完成。",
+    recoverable: typeof objectRecord(payload.error).recoverable === "boolean"
+      ? Boolean(objectRecord(payload.error).recoverable)
+      : typeof payload.recoverable === "boolean" ? payload.recoverable : true,
     data: payload
   };
   if (name === "error") return {
@@ -371,6 +395,12 @@ function mapOfficialHermesEvent(name: string, value: unknown): HermesBridgeEvent
     return { type: "progress", message: "Hermes 已接收当前任务。", data: payload };
   }
   return undefined;
+}
+
+function objectRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
 }
 
 /** Convert the compatibility health shape into the authoritative contract. */

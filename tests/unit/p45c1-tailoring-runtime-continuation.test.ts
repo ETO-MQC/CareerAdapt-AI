@@ -30,8 +30,8 @@ const authoritativeSelection = {
   jobRevision: "job-revision-1"
 } as const;
 
-describe("P4.5c.1.5 tailoring continuation and fallback closure", () => {
-  it("continues analyze_job_fit into create_tailoring_session after a pre-first-event Hermes failure", async () => {
+describe("P4.5c.1.6 Hermes-first tailoring continuation and failure closure", () => {
+  it("does not silently switch to Native after a pre-first-event Hermes failure", async () => {
     const analyzeJobFit = vi.fn(async (input: unknown, operationId: string) => {
       void input;
       void operationId;
@@ -131,29 +131,22 @@ describe("P4.5c.1.5 tailoring continuation and fallback closure", () => {
       events.push(event);
     }
 
-    expect(nativeRunTurn).toHaveBeenCalledTimes(1);
-    expect(analyzeJobFit).toHaveBeenCalledTimes(1);
-    expect(createTailoringSession).toHaveBeenCalledTimes(1);
-    expect(analyzeJobFit.mock.calls[0]?.[0]).toMatchObject(authoritativeSelection);
-    expect(createTailoringSession.mock.calls[0]?.[0]).toMatchObject(authoritativeSelection);
-    expect(model.completeWithTools).toHaveBeenCalledTimes(1);
+    expect(nativeRunTurn).not.toHaveBeenCalled();
+    expect(analyzeJobFit).not.toHaveBeenCalled();
+    expect(createTailoringSession).not.toHaveBeenCalled();
+    expect(model.completeWithTools).not.toHaveBeenCalled();
 
-    const completed = [...events].reverse().find((event) => event.type === "turn_completed");
-    const completedData = completed?.data as Record<string, unknown> | undefined;
-    expect(completedData?.taskState).toMatchObject({
-      workflowId: "tailor_existing_resume",
-      stage: "clarify_unsupported_facts",
-      completionStatus: "waiting_for_user",
-      selectedEntities: {
-        ...authoritativeSelection,
-        tailoringSessionId: "tailoring-1"
-      }
+    const failed = [...events].reverse().find((event) => event.type === "turn_failed");
+    const failedData = failed?.data as Record<string, unknown> | undefined;
+    expect(failed?.error).toMatchObject({
+      code: "hermes_unavailable_recoverable",
+      recoverable: true
     });
-    expect(completedData?.telemetry).toMatchObject({
-      fallbackUsed: true,
+    expect(failedData?.telemetry).toMatchObject({
+      fallbackUsed: false,
       preferredRuntime: "hermes",
       attemptedRuntime: "hermes",
-      finalRuntime: "native",
+      finalRuntime: "hermes",
       fallbackReasonCode: "hermes_run_start_failed"
     });
   });

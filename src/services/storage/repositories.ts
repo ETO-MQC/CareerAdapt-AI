@@ -2820,6 +2820,260 @@ export class WorkspaceRepository {
     });
   }
 
+  /**
+   * Derive a job branch and apply the reviewed diff ledger in one Dexie
+   * transaction. No branch, revision, operation, or presentation metadata is
+   * persisted until every target and projection has been verified.
+   */
+  async deriveAndApplyTailoringDiffsAtomic(input: {
+    sourceBranchId: string;
+    jobId: string;
+    expectedSourceRevision: number;
+    expectedSourceRevisionId: string;
+    diffs: ResumeTailoringDiff[];
+    confirmedRequirementIds?: string[];
+    operationId: string;
+    name: string;
+  }) {
+    const source = await this.getResumeBranch(input.sourceBranchId);
+    if (source && source.branchPurpose === "job_specific") {
+      return this.applyTailoringDiffs({
+        branchId: source.id,
+        jobId: input.jobId,
+        diffs: input.diffs,
+        confirmedRequirementIds: input.confirmedRequirementIds,
+        operationId: input.operationId,
+        expectedBranchRevision: input.expectedSourceRevision,
+        expectedRevisionId: input.expectedSourceRevisionId
+      });
+    }
+    return this.db.transaction(
+      "rw",
+      [
+        this.db.profiles,
+        this.db.jobDescriptions,
+        this.db.requirementMatches,
+        this.db.resumeBranches,
+        this.db.resumeRevisions,
+        this.db.resumeBranchOperations,
+        this.db.appMeta
+      ],
+      async () => {
+        const existingOperation = await this.db.resumeBranchOperations.where("operationId").equals(input.operationId).first();
+        if (existingOperation?.branchId && existingOperation.revisionId) {
+          const existingBranch = await this.db.resumeBranches.get(existingOperation.branchId);
+          if (!existingBranch) throw new Error("resume_branch_missing_for_operation");
+          const branch = ResumeBranchSchema.parse(existingBranch);
+          const revision = await this.getResumeRevisionInTransaction(existingOperation.revisionId);
+          if (!revision) throw new Error("tailoring_revision_missing_for_operation");
+          const sourceBranch = branch.sourceBranchId
+            ? await this.db.resumeBranches.get(branch.sourceBranchId)
+            : undefined;
+          const beforeBranch = sourceBranch
+            ? {
+                ...branch,
+                contentItems: sourceBranch.contentItems,
+                structuredContentItems: syncStructuredContentItems(sourceBranch, sourceBranch.contentItems)
+              }
+            : branch;
+          return {
+            branch,
+            revision,
+            appliedDiffs: input.diffs,
+            rejectedDiffs: [],
+            warnings: [],
+            idempotent: true,
+            acceptedDiffIds: input.diffs.map(tailoringDiffId),
+            changedFieldPaths: input.diffs.map((diff) => `${diff.target.sectionId}.${diff.target.itemId}.${diff.target.fieldPath}`),
+            beforeContentHash: resumeBranchContentHash(beforeBranch),
+            afterContentHash: resumeBranchContentHash(revision.snapshot)
+          };
+        }
+
+        const sourceBranch = await this.requireEditableResumeBranch(input.sourceBranchId);
+        if (sourceBranch.branchPurpose !== "general") throw new Error("derive_branch_requires_general_source");
+        if (sourceBranch.revision !== input.expectedSourceRevision || sourceBranch.currentRevisionId !== input.expectedSourceRevisionId) {
+          throw new RevisionConflictError();
+        }
+        const [profileRecord, jobRecord, matchRecords] = await Promise.all([
+          this.db.profiles.get(sourceBranch.profileId),
+          this.db.jobDescriptions.get(input.jobId),
+          this.db.requirementMatches.where("[profileId+jobId]").equals([sourceBranch.profileId, input.jobId]).toArray()
+        ]);
+        if (!profileRecord || !jobRecord) throw new Error("derive_branch_source_missing");
+        const profile = CareerProfileSchema.parse(profileRecord);
+        const job = JobDescriptionSchema.parse(jobRecord);
+        const matches = matchRecords
+          .map((match) => RequirementMatchSchema.parse(match))
+          .filter((match) => matchesResumeSource(match, {
+            branchId: sourceBranch.id,
+            branchRevision: sourceBranch.revision,
+            revisionId: sourceBranch.currentRevisionId ?? ""
+          }));
+        if (job.requirements.length === 0) throw new Error("job_has_no_requirements");
+        if (sourceBranch.contentItems.every((item) => item.itemType === "structural" || !item.text.trim())) {
+          throw new Error("source_resume_has_no_content");
+        }
+
+        const now = new Date().toISOString();
+        const sourceStructuredContentItems = syncStructuredContentItems(sourceBranch, sourceBranch.contentItems);
+        const sourceMatchSetHash = computeRequirementsHash({ job, matches });
+        const branchId = `branch-${sourceBranch.profileId}-${job.id}-${stableHashText(input.operationId).replace(/[^a-zA-Z0-9-]/g, "").slice(0, 18)}`;
+        const branchWithoutSync = ResumeBranchSchema.parse({
+          ...sourceBranch,
+          id: branchId,
+          branchPurpose: "job_specific",
+          jobId: job.id,
+          name: input.name.trim(),
+          sourceProfileVersion: profile.version,
+          sourceJobVersion: job.updatedAt,
+          sourceAdaptationDraftId: undefined,
+          sourceBranchId: sourceBranch.id,
+          sourceRevisionId: sourceBranch.currentRevisionId,
+          derivedAt: now,
+          sourceDraftRevision: sourceBranch.revision,
+          matcherVersion: matches[0]?.matcherVersion ?? "evidence-matcher.v1",
+          sourceMatchSetHash,
+          requirementMatchIds: matches.map((match) => match.id),
+          revision: 0,
+          currentRevisionId: undefined,
+          lifecycleStatus: "active",
+          migrationStatus: "verified",
+          resumeBasics: { ...sourceBranch.resumeBasics, targetRole: job.title },
+          contentItems: sourceBranch.contentItems,
+          structuredContentItems: sourceStructuredContentItems,
+          syncStatusCache: {
+            status: "in_sync",
+            sourceProfileVersion: profile.version,
+            currentProfileVersion: profile.version,
+            sourceJobVersion: job.updatedAt,
+            currentJobVersion: job.updatedAt,
+            invalidFactRefs: [],
+            checkedAt: now,
+            message: "Branch is in sync with its source profile and job versions."
+          },
+          legacyPayload: undefined,
+          createdAt: now,
+          updatedAt: now
+        });
+        const candidate = ResumeBranchSchema.parse({
+          ...branchWithoutSync,
+          syncStatusCache: computeBranchSyncStatus({ branch: branchWithoutSync, profile, job, now })
+        });
+        const validation = validateEachTailoringDiffLocally({
+          branch: candidate,
+          diffs: input.diffs,
+          confirmedRequirementIds: input.confirmedRequirementIds,
+          allowUnconfirmed: false,
+          submissionSafe: true
+        });
+        if (validation.rejectedDiffs.length || validation.appliedDiffs.length !== input.diffs.length || validation.patches.length !== input.diffs.length) {
+          throw new Error("tailoring_apply_verification_failed");
+        }
+
+        const claims = validation.appliedDiffs.map((diff, index): TailoringClaim => ({
+          id: `tailoring-diff-${input.operationId}-${index}`,
+          section: diff.target.sectionId as TailoringClaim["section"],
+          targetContentItemId: diff.target.itemId,
+          targetFieldPath: diff.target.fieldPath,
+          currentText: Array.isArray(diff.original) ? diff.original.join("\n") : String(diff.original),
+          proposedText: Array.isArray(diff.value) ? diff.value.join("\n") : String(diff.value),
+          reason: diff.reason,
+          keywords: diff.targetKeywords,
+          requirementIds: diff.requirementIds,
+          supportLevel: diff.supportLevel,
+          decision: diff.supportLevel === "verified" ? "auto_applicable" : "requires_confirmation",
+          evidenceRefs: diff.evidenceRefs,
+          syncScope: "resume_only",
+          confirmed: diff.supportLevel !== "verified",
+          targetPatches: [validation.patches[index]]
+        }));
+        const patched = applyTailoringClaimsToBranch(candidate, claims, now);
+        const nextBase = ResumeBranchSchema.parse({
+          ...candidate,
+          contentItems: patched.contentItems,
+          structuredContentItems: patched.structuredContentItems,
+          revision: 1,
+          updatedAt: now
+        });
+        const changedFieldPaths = validation.appliedDiffs.map((diff, index) => {
+          const patch = validation.patches[index];
+          const before = readTailoringValue(candidate, diff);
+          const after = readTailoringValue(nextBase, diff);
+          if (!sameTailoringValue(before, patch.before) || !sameTailoringValue(after, patch.after) || sameTailoringValue(before, after)) {
+            throw new Error(`tailoring_apply_verification_failed:${diff.target.itemId}:${diff.target.fieldPath}`);
+          }
+          const legacy = nextBase.contentItems.find((item) => item.id === diff.target.itemId);
+          const structured = nextBase.structuredContentItems?.find((item) => item.id === diff.target.itemId);
+          if (!legacy || !structured || legacy.text !== tailoringBodyProjection(structured.data)) {
+            throw new Error(`tailoring_apply_verification_failed:projection:${diff.target.itemId}`);
+          }
+          if (diff.target.sectionId === "summary" && diff.target.fieldPath === "text" && legacy.text !== String(patch.after)) {
+            throw new Error(`tailoring_apply_verification_failed:summary:${diff.target.itemId}`);
+          }
+          return `${diff.target.sectionId}.${diff.target.itemId}.${diff.target.fieldPath}`;
+        });
+        const beforeContentHash = resumeBranchContentHash(candidate);
+        const revision = createResumeRevision({
+          branch: nextBase,
+          source: "suggestion_accept",
+          operationId: input.operationId,
+          now
+        });
+        const nextBranch = ResumeBranchSchema.parse({
+          ...nextBase,
+          currentRevisionId: revision.id,
+          tailoringAppliedCount: (candidate.tailoringAppliedCount ?? 0) + 1
+        });
+        const afterContentHash = resumeBranchContentHash(nextBranch);
+        if (!changedFieldPaths.length || beforeContentHash === afterContentHash) throw new Error("tailoring_apply_verification_failed");
+        const operation = ResumeBranchOperationSchema.parse({
+          id: `resume-branch-op-${input.operationId}`,
+          operationId: input.operationId,
+          branchId: nextBranch.id,
+          type: "suggestion_accept",
+          expectedRevision: input.expectedSourceRevision,
+          beforeRevision: candidate.revision,
+          afterRevision: nextBranch.revision,
+          revisionId: revision.id,
+          occurredAt: now,
+          createdAt: now,
+          updatedAt: now
+        });
+        const sourcePresentation = await this.getResumePresentationConfig(sourceBranch.id);
+        const targetPresentation = sanitizePresentationConfigForBranch(
+          ResumePresentationConfigSchema.parse({
+            ...sourcePresentation,
+            branchId: nextBranch.id,
+            contentRevision: { branchRevision: nextBranch.revision, currentRevisionId: revision.id },
+            presentationRevision: 0,
+            updatedAt: now
+          }),
+          nextBranch
+        );
+        await this.db.resumeBranches.put(nextBranch);
+        await this.db.resumeRevisions.put(revision);
+        await this.db.resumeBranchOperations.put(operation);
+        await this.db.appMeta.put({ key: resumePresentationConfigKey(nextBranch.id), value: targetPresentation, updatedAt: now });
+        assertTailoringSourceBranchUnchanged(sourceBranch, await this.db.resumeBranches.get(sourceBranch.id));
+        return {
+          branch: nextBranch,
+          revision,
+          appliedDiffs: validation.appliedDiffs,
+          rejectedDiffs: [],
+          warnings: validation.warnings,
+          idempotent: false,
+          acceptedDiffIds: validation.appliedDiffs.map(tailoringDiffId),
+          changedFieldPaths,
+          beforeContentHash,
+          afterContentHash,
+          sourceResumeId: sourceBranch.id,
+          sourceResumeRevisionId: sourceBranch.currentRevisionId
+        };
+      }
+    );
+  }
+
   async createGeneralResumeBranch(input: {
     profileId: string;
     operationId: string;

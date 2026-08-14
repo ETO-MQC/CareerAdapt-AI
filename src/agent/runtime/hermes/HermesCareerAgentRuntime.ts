@@ -110,6 +110,13 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
   async *runTurn(input: AgentRuntimeTurnInput): AsyncIterable<AgentRuntimeEvent> {
     const turnId = input.turnId ?? `hermes-turn-${nanoid(12)}`;
     const normalized = { ...input, turnId };
+    const active = this.activeRuns.get(input.sessionId);
+    if (active && active.turnId !== turnId && ["queued", "running", "waiting_for_approval", "stopping"].includes(active.status)) {
+      if (this.dependencies.transport.stopRun) {
+        await this.dependencies.transport.stopRun(active.runId).catch(() => undefined);
+      }
+      this.activeRuns.delete(input.sessionId);
+    }
     const startedAt = Date.now();
     const counters: TurnCounters = {
       toolCalls: 0,
@@ -147,9 +154,20 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
         throw hermesError("mcp_unavailable_before_turn", "CareerAdapt MCP is not connected to the active browser workspace.");
       }
       const persisted = input.session?.hermesRun;
+      const persistedVisibleAssistantId = input.session?.activeTurn?.visibleAssistantMessageId;
+      const visibleAssistantBelongsToTurn = Boolean(input.session?.messages.some((message) =>
+        message.role === "assistant"
+        && message.turnId === persisted?.turnId
+        && (!persistedVisibleAssistantId || message.id === persistedVisibleAssistantId)
+        && message.metadata?.retracted !== true
+      ));
       const attachable = persisted
         && persisted.careerAgentSessionId === input.sessionId
-        && ["queued", "running", "waiting_for_approval", "stopping"].includes(persisted.status);
+        && ["queued", "running", "waiting_for_approval", "stopping"].includes(persisted.status)
+        && !input.userMessage.trim()
+        && input.metadata?.reattachRunId === persisted.runId
+        && persisted.turnId === turnId
+        && visibleAssistantBelongsToTurn;
       const hermesSessionId = attachable
         ? persisted.hermesSessionId
         : typeof input.metadata?.hermesSessionId === "string"
@@ -314,9 +332,9 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
         });
       }
     } catch (error) {
-      // Before the first RuntimeEvent, the router may safely fall back to
-      // Native. Once a turn has emitted anything, the failure is terminal for
-      // this runtime and must not be replayed.
+      // Before the first RuntimeEvent, the router may perform one bounded
+      // Hermes recovery retry. Once a turn has emitted anything, the failure
+      // is terminal for this runtime and must not be replayed as Native.
       if (!emitted) throw error;
       yield this.event(normalized, "turn_failed", {
         error: {
@@ -411,7 +429,7 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
     const catalog = new HermesCareerToolCatalog(this.dependencies.careerToolGateway.listContracts());
     const requestedHermesToolName = request.toolName;
     const stableToolName = catalog.stableNameForRequestedName(requestedHermesToolName) ?? requestedHermesToolName;
-    if (!isAllowedCareerTool(input, stableToolName)) {
+    if (!isAllowedCareerTool(input, stableToolName, catalog)) {
       const code = "agent_tool_not_allowed";
       counters.toolFailures += 1;
       // Return a structured observation to the bridge so Hermes can refresh
@@ -575,7 +593,13 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
       yield this.event(input, "tool_call_completed", {
         toolName: request.toolName,
         operationId: request.operationId,
-        data: { toolCallId: request.toolCallId, artifacts: result.artifacts, requestedHermesToolName, stableCareerToolName: stableToolName }
+        data: {
+          toolCallId: request.toolCallId,
+          result: safeToolResult(result),
+          artifacts: result.artifacts,
+          requestedHermesToolName,
+          stableCareerToolName: stableToolName
+        }
       });
       return;
     }
@@ -807,8 +831,8 @@ function safeToolResult(result: Awaited<ReturnType<CareerToolGateway["execute"]>
   return {
     ok: false,
     error: result.error
-      ? { code: result.error.code, category: result.error.category, recoverable: result.error.recoverable, retryHint: result.error.retryHint }
-      : { code: "career_tool_failed", recoverable: false },
+      ? { code: result.error.code, category: result.error.category, message: result.error.message, recoverable: result.error.recoverable, retryHint: result.error.retryHint }
+      : { code: "career_tool_failed", message: "工具执行没有完成。", recoverable: false },
     receipt: result.receipt
   };
 }
@@ -817,7 +841,7 @@ function safeMetadata(metadata?: Record<string, unknown>) {
   if (!metadata) return undefined;
   const result: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(metadata)) {
-    if (["model", "hermesSessionId", "fallbackUsed", "preferredRuntime", "attemptedRuntime", "finalRuntime", "fallbackReasonCode", "runtimeFailureAt", "workflowId", "workflowStage", "rootGoal", "confirmed", "confirmationCount", "runtimeId", "executionOwner", "nextHermesRunId"].includes(key)
+    if (["model", "hermesSessionId", "reattachRunId", "requireCareerSessionBinding", "fallbackUsed", "preferredRuntime", "attemptedRuntime", "finalRuntime", "fallbackReasonCode", "runtimeFailureAt", "workflowId", "workflowStage", "rootGoal", "confirmed", "confirmationCount", "runtimeId", "executionOwner", "nextHermesRunId"].includes(key)
       && (typeof value === "string" || typeof value === "number" || typeof value === "boolean")) {
       result[key] = value;
       continue;
@@ -862,6 +886,8 @@ function allowedCareerToolContracts(gateway: CareerToolGateway, input: AgentRunt
   );
   const contracts = gateway.listContracts().filter((contract) => composeFacadeFirst
     ? contract.name === "career.workflow.compose_resume"
+    : workflowId === "tailor_existing_resume" || workflowId === "create_tailored_resume"
+      ? true
     : allowedSourceTools.has(contract.sourceToolName)
       || allowedCareerTools.has(contract.name)
       || workflowFacades.includes(contract.name)
@@ -870,7 +896,13 @@ function allowedCareerToolContracts(gateway: CareerToolGateway, input: AgentRunt
   return projectCareerContractsForHermes(contracts);
 }
 
-function isAllowedCareerTool(input: AgentRuntimeTurnInput, toolName: string) {
+function isAllowedCareerTool(input: AgentRuntimeTurnInput, toolName: string, catalog: HermesCareerToolCatalog) {
+  const workflowId = typeof input.metadata?.workflowId === "string" ? input.metadata.workflowId : undefined;
+  if ((workflowId === "tailor_existing_resume" || workflowId === "create_tailored_resume") && catalog.entryForStableName(toolName)) {
+    // Hermes receives the broader Career catalog for discovery. The Gateway
+    // performs the authoritative stage/question check at execution time.
+    return true;
+  }
   const allowed = input.metadata?.allowedCareerToolNames;
   if (Array.isArray(allowed)) return allowed.includes(toolName)
     || workflowFacadeNames(input).includes(toolName)

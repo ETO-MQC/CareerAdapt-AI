@@ -32,10 +32,12 @@ function createAgentHost() {
   const service = new BrowserAgentToolService(repository);
   const registry = createAgentToolRegistry(service);
   const rawExecutor = new AgentExecutor(registry);
+  const hostStateRef: { current?: AgentHostStore } = {};
   const careerToolGateway = new CareerToolGateway({
     registry,
     executor: rawExecutor,
-    verifySessionBinding: async (binding, input) => verifyBrowserCareerBinding(repository, binding, input)
+    verifySessionBinding: async (binding, input) => verifyBrowserCareerBinding(repository, binding, input),
+    getAuthoritativeTaskState: () => hostStateRef.current?.getSnapshot().activeSession?.taskState
   });
   const executor = new CareerToolGatewayExecutor(registry, careerToolGateway);
   const store = new AgentSessionStore(repository);
@@ -47,6 +49,7 @@ function createAgentHost() {
     observationCache: new AgentObservationCache()
   });
   const state = new AgentHostStore({ kernel, executor, persistence: store, repository: store.getWorkspaceRepository() });
+  hostStateRef.current = state;
   const nativeRuntime = new NativeCareerAgentRuntime({
     runTurn: async (input) => {
       const runtimeShellMessageId = typeof input.metadata?.runtimeShellMessageId === "string"
@@ -197,7 +200,19 @@ function createAgentHost() {
     }
   };
   const startHermes = async () => {
-    runtimeStatus.update({ status: "starting", activeRuntime: "native", reason: "hermes_starting" });
+    const activeSession = state.getSnapshot().activeSession;
+    const activeHermesRun = activeSession?.hermesRun;
+    const restartTurnId = activeSession?.activeTurn?.id;
+    const retryCheckpointAfterRestart = Boolean(
+      activeHermesRun
+      && restartTurnId
+      && activeSession?.activeTurn?.status === "running"
+      && ["queued", "running"].includes(activeHermesRun.status)
+    );
+    if (activeHermesRun && ["queued", "running", "waiting_for_approval", "stopping"].includes(activeHermesRun.status)) {
+      await hermesRuntime.interrupt(activeSession.id).catch(() => undefined);
+    }
+    runtimeStatus.update({ status: "starting", activeRuntime: "hermes", reason: "hermes_starting" });
     try {
       const result = await requestHermesStart();
       if (!result.ok) throw new Error(result.reason ?? "hermes_companion_start_failed");
@@ -215,10 +230,31 @@ function createAgentHost() {
       if (health.runtimeHealth && !isRoadshowReady(health.runtimeHealth)) {
         return { ok: false as const, reason: "hermes_career_registry_not_ready" };
       }
+      if (retryCheckpointAfterRestart && activeSession && restartTurnId) {
+        const current = state.getSnapshot().activeSession;
+        if (current?.id === activeSession.id && current.activeTurn?.id === restartTurnId) {
+          // Restarting an active semantic run resumes the same persisted
+          // checkpoint with an empty user message. beginRuntimeShell reuses
+          // the existing assistant shell, so this does not create a second
+          // user message or assistant bubble.
+          void runTurn({
+            sessionId: current.id,
+            turnId: restartTurnId,
+            userMessage: "",
+            session: current,
+            pageContext: { query: {} },
+            metadata: {
+              runtimeUserEvent: { type: "retry", action: { type: "retry_current_step" } },
+              executionOwner: "runtime_continuation",
+              runtimeRecoveryAttempted: true
+            }
+          }).catch(() => undefined);
+        }
+      }
       return { ok: true as const };
     } catch (error) {
       const reason = error instanceof Error ? error.message : "hermes_companion_start_failed";
-      runtimeStatus.update({ status: "unavailable", activeRuntime: "native", reason });
+      runtimeStatus.update({ status: "unavailable", activeRuntime: "hermes", reason });
       return { ok: false as const, reason };
     }
   };
@@ -248,27 +284,29 @@ function createAgentHost() {
     const runtimeRequest = preparedSession && preparedSession !== input.session
       ? { ...input, session: preparedSession }
       : input;
-    const statusBeforeTurn = runtimeStatus.getSnapshot();
-    const hermesReady = statusBeforeTurn.health ? isRoadshowReady(statusBeforeTurn.health) : statusBeforeTurn.status === "ready";
     const canStartHermesShell = runtime.id === "hermes"
-      && statusBeforeTurn.status === "ready"
-      && hermesReady
-      && statusBeforeTurn.mcpConnected !== false
       && (Boolean(runtimeRequest.userMessage.trim()) || Boolean(runtimeUserEvent))
       && Boolean(runtimeRequest.session);
     const reattachingHermesRun = runtime.id === "hermes"
       && Boolean(input.session?.hermesRun)
       && ["queued", "running", "waiting_for_approval", "stopping"].includes(input.session?.hermesRun?.status ?? "")
-      && !input.userMessage.trim();
+      && !input.userMessage.trim()
+      && input.metadata?.reattachRunId === input.session?.hermesRun?.runId
+      && (input.turnId ?? input.session?.activeTurn?.id) === input.session?.hermesRun?.turnId;
     const reattachAssistant = reattachingHermesRun
-      ? input.session?.messages.findLast((message) => message.role === "assistant" && message.turnId === input.session?.hermesRun?.turnId)
+      ? input.session?.messages.findLast((message) =>
+          message.role === "assistant"
+          && message.turnId === input.session?.hermesRun?.turnId
+          && (!input.session?.activeTurn?.visibleAssistantMessageId || message.id === input.session.activeTurn.visibleAssistantMessageId)
+        )
       : undefined;
     const runtimeShell = canStartHermesShell && runtimeRequest.session
       ? await state.beginRuntimeShell({
           session: runtimeRequest.session,
           userMessage: runtimeRequest.userMessage,
           runtimeId: "hermes",
-          turnId: runtimeRequest.turnId,
+          turnId: runtimeRequest.turnId
+            ?? (reattachingHermesRun ? runtimeRequest.session.hermesRun?.turnId : undefined),
           runtimeDiagnostics: {
             preferredRuntime: "hermes",
             attemptedRuntime: "hermes",
@@ -309,14 +347,18 @@ function createAgentHost() {
           confirmationCount: runtimeRequest.session.taskState.knownSlots.resumeCompositionExplicitConfirmation === true ? 1 : 0
         } : {}),
         allowedToolNames: runtimeRequest.session?.taskState
-          ? allowedToolManifestForStep(
-              runtimeRequest.session.taskState.workflowId,
-              runtimeRequest.session.taskState.stage,
-              registry.manifest()
-            ).map((tool) => String(tool.name))
+          ? runtimeRequest.session.taskState.workflowId === "tailor_existing_resume"
+            ? careerToolGateway.listContracts().map((contract) => contract.sourceToolName)
+            : allowedToolManifestForStep(
+                runtimeRequest.session.taskState.workflowId,
+                runtimeRequest.session.taskState.stage,
+                registry.manifest()
+              ).map((tool) => String(tool.name))
           : [],
         allowedCareerToolNames: runtimeRequest.session?.taskState
-          ? [
+          ? runtimeRequest.session.taskState.workflowId === "tailor_existing_resume"
+            ? careerToolGateway.listContracts().map((contract) => contract.name)
+            : [
               ...allowedToolManifestForStep(
                 runtimeRequest.session.taskState.workflowId,
                 runtimeRequest.session.taskState.stage,
@@ -372,8 +414,13 @@ function createAgentHost() {
         runtimeEventBus.emit(event);
         if (event.type === "turn_completed" || event.type === "turn_failed") {
           runtimeStatus.recordTurn({ runtimeId: runtime.id, turnId: event.turnId, data: event.data });
+          if (event.type === "turn_failed" && event.error?.code.startsWith("hermes_")) {
+            runtimeStatus.update({ activeRuntime: "hermes", status: "unavailable", reason: event.error.code });
+          }
         } else if (eventData?.fallbackUsed === true) {
-          runtimeStatus.update({ activeRuntime: "native", status: "ready" });
+          // Kept only for legacy/test adapters; production Hermes turns never
+          // reach this branch because the router does not switch personas.
+          runtimeStatus.update({ activeRuntime: "hermes", status: "ready" });
         }
       }
     } finally {
@@ -400,6 +447,23 @@ function createAgentHost() {
           reattachRunId: session.hermesRun.runId
         }
       });
+    }
+    if (event.type === "confirmation" && session.pendingConfirmation) {
+      // Explicit Career writes are Host-owned transactions. A confirmation
+      // click must not open a new Hermes planning turn to decide whether the
+      // already-reviewed write should happen.
+      return state.resolveConfirmation(event.confirmed, input.pageContext, session);
+    }
+    if (event.type === "artifact_action") {
+      // Artifact decisions are already typed, scoped to a concrete artifact,
+      // and recorded in the Host ledger. Inline tailoring acceptance must be
+      // immediate: sending it through Hermes would create a redundant
+      // narration turn and could make a deterministic review look like a
+      // second planning decision.
+      if (session.hermesRun && ["queued", "running", "waiting_for_approval", "stopping"].includes(session.hermesRun.status)) {
+        await hermesRuntime.interrupt(session.id).catch(() => undefined);
+      }
+      return state.dispatchRuntimeUserEvent({ session, event, pageContext: input.pageContext });
     }
     const prepared = await state.prepareRuntimeUserEvent({ session, event, pageContext: input.pageContext });
     if (prepared.deterministicTerminal && prepared.event.type === "confirm_resume_composition") {

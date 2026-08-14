@@ -40,7 +40,7 @@ describe("P4.4d Hermes runtime closure", () => {
     expect(isRoadshowReady({ ...health, providerReachable: false })).toBe(false);
   });
 
-  it("falls back when a Hermes stream ends before its first event", async () => {
+  it("keeps the failed Hermes turn recoverable when its stream ends before the first event", async () => {
     const native = new NativeCareerAgentRuntime({ runTurn: async () => ({ fallback: true }) });
     const hermes = new HermesCareerAgentRuntime({
       transport: {
@@ -56,7 +56,11 @@ describe("P4.4d Hermes runtime closure", () => {
     const router = new AgentRuntimeRouter({ native, hermes, configuration: { agentRuntime: "hermes" } });
     const events = [];
     for await (const event of router.active().runTurn({ sessionId: "p44d-empty", userMessage: "继续", pageContext: { query: {} } })) events.push(event);
-    expect(events.at(-1)).toMatchObject({ type: "turn_completed", data: { fallback: true, fallbackUsed: true } });
+    expect(events.at(-1)).toMatchObject({
+      type: "turn_failed",
+      error: { code: "hermes_unavailable_recoverable", recoverable: true },
+      data: { telemetry: { fallbackUsed: false, finalRuntime: "hermes" } }
+    });
   });
 
   it("resolves the persisted Agent Session binding and rejects page-context replacement", () => {

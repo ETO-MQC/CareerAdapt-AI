@@ -5,6 +5,7 @@ import { tailoringDiffId } from "@/services/jobs/tailoringDiffId";
 import { stableHashText } from "@/services/security/text";
 import { normalizeMessageForFinalAssistant } from "./AgentSessionMessages";
 import { canonicalWorkflowId } from "@/agent/workflows/workflowRegistry";
+import { normalizeTailoringStage } from "@/agent/workflows/tailoringStage";
 
 export const CURRENT_AGENT_SESSION_SCHEMA_VERSION = 3;
 export const CURRENT_TAILORING_RUNTIME_VERSION = 3;
@@ -26,6 +27,19 @@ export function migrateAgentSessionToCurrentSchema(value: AgentSession | Record<
   let nextTaskState: Record<string, unknown> | undefined = Object.keys(taskState).length
     ? { ...taskState, knownSlots, selectedEntities }
     : undefined;
+  if (nextTaskState && canonicalWorkflowId(String(nextTaskState.workflowId ?? "")) === "tailor_existing_resume") {
+    const canonicalStage = normalizeTailoringStage(String(nextTaskState.stage ?? ""));
+    const canonicalSelectedEntities = { ...record(nextTaskState.selectedEntities) };
+    if (!canonicalSelectedEntities.sourceResumeId && canonicalSelectedEntities.resumeId && !canonicalSelectedEntities.resultResumeId) {
+      canonicalSelectedEntities.sourceResumeId = canonicalSelectedEntities.resumeId;
+      canonicalSelectedEntities.sourceResumeRevisionId = canonicalSelectedEntities.resumeRevisionId;
+    }
+    nextTaskState = {
+      ...nextTaskState,
+      ...(canonicalStage ? { stage: canonicalStage } : {}),
+      selectedEntities: canonicalSelectedEntities
+    };
+  }
   if (nextTaskState) nextTaskState = migrateCompositionTaskState(nextTaskState);
   const tailoring = record(knownSlots.tailoringSession);
   const plan = record(tailoring.plan);
@@ -255,11 +269,15 @@ function migrateCompositionTaskState(value: Record<string, unknown>) {
 function migrateWorkflowState(value: Record<string, unknown>) {
   if (!Object.keys(value).length) return value;
   const workflowId = typeof value.workflowId === "string" ? canonicalWorkflowId(value.workflowId) : value.workflowId;
-  const step = value.step === "select_facts" || value.step === "review_resume_plan"
+  const tailoringStage = workflowId === "tailor_existing_resume" && typeof value.step === "string"
+    ? normalizeTailoringStage(value.step)
+    : undefined;
+  const step = tailoringStage
+    ?? (value.step === "select_facts" || value.step === "review_resume_plan"
     ? "review_composition"
     : value.step === "completed" && workflowId === "compose_resume"
       ? "resume_ready"
-      : value.step;
+      : value.step);
   return { ...value, workflowId, step };
 }
 

@@ -16,7 +16,6 @@ export type AgentRuntimeConfiguration = z.infer<typeof AgentRuntimeConfiguration
 export class AgentRuntimeRouter {
   private configuration: AgentRuntimeConfiguration;
   private readonly runtimes = new Map<AgentRuntimeId, AgentRuntime>();
-  private readonly fallbackRuntime: AgentRuntime;
 
   constructor(input: {
     native: AgentRuntime;
@@ -24,7 +23,6 @@ export class AgentRuntimeRouter {
     configuration?: Partial<AgentRuntimeConfiguration>;
   }) {
     this.runtimes.set("native", input.native);
-    this.fallbackRuntime = input.native;
     if (input.hermes) this.runtimes.set("hermes", input.hermes);
     this.configuration = AgentRuntimeConfigurationSchema.parse(input.configuration ?? {});
   }
@@ -55,9 +53,7 @@ export class AgentRuntimeRouter {
 
   active() {
     const preferred = this.resolve();
-    return preferred.id === "hermes"
-      ? new RoutedAgentRuntime(preferred, this.fallbackRuntime)
-      : preferred;
+    return preferred.id === "hermes" ? new RoutedAgentRuntime(preferred) : preferred;
   }
 
   /**
@@ -77,20 +73,15 @@ export class AgentRuntimeRouter {
 }
 
 /**
- * Fallback is deliberately decided before the first protocol event.  Once a
- * Hermes turn has emitted anything, the router never switches runtimes in the
- * middle of a turn or repeats an authoritative write.
+ * Hermes recovery is deliberately bounded before the first protocol event.
+ * Once a Hermes turn has emitted anything, the router never switches runtimes
+ * in the middle of a turn or repeats an authoritative write.
  */
 class RoutedAgentRuntime implements AgentRuntime {
   readonly id: string;
-  private current: AgentRuntime;
 
-  constructor(
-    private readonly preferred: AgentRuntime,
-    private readonly fallback: AgentRuntime
-  ) {
+  constructor(private readonly preferred: AgentRuntime) {
     this.id = preferred.id;
-    this.current = preferred;
   }
 
   capabilities() {
@@ -98,15 +89,15 @@ class RoutedAgentRuntime implements AgentRuntime {
   }
 
   async pause(sessionId: string) {
-    await this.current.pause(sessionId);
+    await this.preferred.pause(sessionId);
   }
 
   async interrupt(sessionId: string) {
-    await this.current.interrupt(sessionId);
+    await this.preferred.interrupt(sessionId);
   }
 
   async resume(sessionId: string) {
-    await this.current.resume(sessionId);
+    await this.preferred.resume(sessionId);
   }
 
   async recoverBeforeFallback(input: AgentRuntimeTurnInput) {
@@ -192,53 +183,34 @@ class RoutedAgentRuntime implements AgentRuntime {
         return;
       } catch (error) {
         recoveryFailureCode = errorCode(error);
-        if (emitted) {
-          yield {
-            type: "turn_failed",
-            sessionId: input.sessionId,
-            turnId: input.turnId ?? "runtime-turn-unknown",
-            timestamp: new Date().toISOString(),
-            error: {
-              code: recoveryFailureCode,
-              message: error instanceof Error ? error.message : "当前任务没有完成。",
-              recoverable: false
-            },
-            data: {
-              telemetry: {
-                preferredRuntime: this.preferred.id,
-                attemptedRuntime: this.preferred.id,
-                finalRuntime: this.preferred.id,
-                fallbackUsed: false,
-                fallbackReasonCode,
-                runtimeFailureAt,
-                recoveryFailureCode,
-                firstEventAt
-              }
-            }
-          };
-          return;
+      }
+      // Hermes is the only semantic runtime for a Hermes-selected turn. A
+      // failed bounded recovery is surfaced as a recoverable Hermes state;
+      // Native must not start a second persona or repeat a semantic write.
+      const code = recoveryFailureCode ?? fallbackReasonCode;
+      yield {
+        type: "turn_failed",
+        sessionId: input.sessionId,
+        turnId: input.turnId ?? "runtime-turn-unknown",
+        timestamp: new Date().toISOString(),
+        error: {
+          code: "hermes_unavailable_recoverable",
+          message: "Hermes 当前不可用，已保留任务 checkpoint。连接恢复后可以从当前步骤重试。",
+          recoverable: true
+        },
+        data: {
+          telemetry: {
+            preferredRuntime: this.preferred.id,
+            attemptedRuntime: this.preferred.id,
+            finalRuntime: this.preferred.id,
+            fallbackUsed: false,
+            fallbackReasonCode,
+            runtimeFailureAt,
+            recoveryFailureCode: code,
+            firstEventAt
+          }
         }
-      }
-      this.current = this.fallback;
-      const fallbackMetadata = {
-        ...(input.metadata ?? {}),
-        fallbackUsed: true,
-        preferredRuntime: this.preferred.id,
-        attemptedRuntime: this.preferred.id,
-        finalRuntime: this.fallback.id,
-        fallbackReasonCode,
-        runtimeFailureAt,
-        runtimeRecoveryAttempted: true,
-        ...(recoveryFailureCode ? { recoveryFailureCode } : {})
       };
-      for await (const event of this.fallback.runTurn({
-        ...input,
-        metadata: fallbackMetadata
-      })) {
-        emitted = true;
-        firstEventAt ??= event.timestamp;
-        yield decorateRuntimeEvent(event, { ...fallbackMetadata, firstEventAt });
-      }
     }
   }
 }

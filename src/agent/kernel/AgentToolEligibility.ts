@@ -1,5 +1,9 @@
 import type { AgentTaskState } from "@/agent/contracts/agentSession";
 import type { AgentToolDefinition } from "@/agent/contracts/agentTool";
+import {
+  isTailoringQuestionPaused,
+  normalizeTailoringStage
+} from "@/agent/workflows/tailoringStage";
 
 export type AgentToolEligibilityInput = {
   tools: AgentToolDefinition[];
@@ -64,11 +68,14 @@ function safeAutonomousJump(toolName: string, state: AgentTaskState) {
     return Boolean(state.selectedEntities.resumeId);
   }
   if (toolName === "analyze_job_fit") {
-    return Boolean(state.selectedEntities.profileId && state.selectedEntities.resumeId && state.selectedEntities.jobId)
+    return Boolean(state.selectedEntities.profileId && (state.selectedEntities.sourceResumeId ?? state.selectedEntities.resumeId) && state.selectedEntities.jobId)
+      && (!state.workflowId.startsWith("tailor") || tailoringStage(state) === "analyze_fit")
       && !has(state, "fitAnalysis");
   }
   if (toolName === "create_tailoring_session") {
-    return Boolean(state.selectedEntities.profileId && state.selectedEntities.resumeId && state.selectedEntities.jobId);
+    return Boolean(state.selectedEntities.profileId && (state.selectedEntities.sourceResumeId ?? state.selectedEntities.resumeId) && state.selectedEntities.jobId)
+      && state.workflowId === "tailor_existing_resume"
+      && tailoringStage(state) === "generate_plan";
   }
   if (toolName === "recommend_resume_source") {
     return Boolean(state.selectedEntities.profileId && state.selectedEntities.jobId) && state.stage === "choose_resume_source";
@@ -83,16 +90,18 @@ function safeAutonomousJump(toolName: string, state: AgentTaskState) {
       && ["review_resume_plan", "confirm_create"].includes(state.stage);
   }
   if (toolName === "answer_tailoring_question") {
-    return state.stage === "clarify_unsupported_facts"
+    return tailoringStage(state) === "clarify_unsupported_facts"
       && Boolean(state.knownSlots.tailoringSession)
-      && Boolean(state.knownSlots.activeQuestionId);
+      && tailoringQuestionActive(state);
   }
   if (toolName === "generate_tailoring_changes") {
-    return state.stage === "generate_changes" && Boolean(state.knownSlots.tailoringSession);
+    return tailoringStage(state) === "generate_changes"
+      && !isTailoringQuestionPaused(state.knownSlots.tailoringSession)
+      && Boolean(state.knownSlots.tailoringSession);
   }
-  if (toolName === "preview_tailoring_changes") return state.stage === "preview_changes";
-  if (toolName === "review_tailoring_diff") return state.stage === "preview_changes";
-  if (toolName === "apply_tailoring_changes") return state.stage === "confirm_apply";
+  if (toolName === "preview_tailoring_changes") return tailoringStage(state) === "preview_changes";
+  if (toolName === "review_tailoring_diff") return tailoringStage(state) === "preview_changes";
+  if (toolName === "apply_tailoring_changes") return tailoringStage(state) === "confirm_apply";
   return false;
 }
 
@@ -163,11 +172,14 @@ function preconditions(toolName: string, state: AgentTaskState) {
       && state.completionStatus === "active";
   }
   if (toolName === "analyze_job_fit") {
-    return Boolean(state.selectedEntities.profileId && state.selectedEntities.resumeId && state.selectedEntities.jobId)
+    return Boolean(state.selectedEntities.profileId && (state.selectedEntities.sourceResumeId ?? state.selectedEntities.resumeId) && state.selectedEntities.jobId)
+      && (!state.workflowId.startsWith("tailor") || tailoringStage(state) === "analyze_fit")
       && !has(state, "fitAnalysis");
   }
   if (toolName === "create_tailoring_session") {
-    return Boolean(state.selectedEntities.profileId && state.selectedEntities.resumeId && state.selectedEntities.jobId);
+    return Boolean(state.selectedEntities.profileId && state.selectedEntities.resumeId && state.selectedEntities.jobId)
+      && state.workflowId === "tailor_existing_resume"
+      && tailoringStage(state) === "generate_plan";
   }
   if (toolName === "create_job_resume_from_profile") {
     return Boolean(state.selectedEntities.profileId && state.selectedEntities.jobId)
@@ -188,27 +200,29 @@ function preconditions(toolName: string, state: AgentTaskState) {
       && ["review_composition", "confirm_create"].includes(state.stage);
   }
   if (toolName === "apply_tailoring_changes") {
-    return state.stage === "confirm_apply"
+    return tailoringStage(state) === "confirm_apply"
       && state.completionStatus === "active"
       && Boolean(state.knownSlots.tailoringSession)
       && Array.isArray(state.knownSlots.selectedDiffs);
   }
   if (toolName === "preview_tailoring_changes") {
-    return state.stage === "preview_changes"
+    return tailoringStage(state) === "preview_changes"
       && Boolean(state.knownSlots.tailoringSession)
       && Array.isArray(state.knownSlots.selectedDiffs)
       && state.knownSlots.remainingDiffCount === 0;
   }
   if (toolName === "review_tailoring_diff") {
-    return state.stage === "preview_changes" && Boolean(state.knownSlots.tailoringSession);
+    return tailoringStage(state) === "preview_changes" && Boolean(state.knownSlots.tailoringSession);
   }
   if (toolName === "generate_tailoring_changes") {
-    return state.stage === "generate_changes" && Boolean(state.knownSlots.tailoringSession);
+    return tailoringStage(state) === "generate_changes"
+      && !isTailoringQuestionPaused(state.knownSlots.tailoringSession)
+      && Boolean(state.knownSlots.tailoringSession);
   }
   if (toolName === "answer_tailoring_question") {
-    return state.stage === "clarify_unsupported_facts"
+    return tailoringStage(state) === "clarify_unsupported_facts"
       && Boolean(state.knownSlots.tailoringSession)
-      && Boolean(state.knownSlots.activeQuestionId);
+      && tailoringQuestionActive(state);
   }
   if (["archive_resume", "restore_resume"].includes(toolName)) {
     return Boolean(state.selectedEntities.resumeId);
@@ -223,4 +237,17 @@ function has(state: AgentTaskState, slot: string) {
 
 function objectValue(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" ? value as Record<string, unknown> : {};
+}
+
+function tailoringStage(state: AgentTaskState) {
+  return normalizeTailoringStage(state.stage) ?? state.stage;
+}
+
+function tailoringQuestionActive(state: AgentTaskState) {
+  const session = state.knownSlots.tailoringSession;
+  const plan = objectValue(objectValue(session).plan);
+  const questionPlan = objectValue(plan.questionPlan);
+  return Boolean(state.knownSlots.activeQuestionId)
+    && isTailoringQuestionPaused(session)
+    && (questionPlan.status === "asking" || typeof questionPlan.activeQuestionId === "string");
 }

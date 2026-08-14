@@ -15,7 +15,6 @@ import { createImportedResumeDraftFromText } from "@/domain/resumeImport/parser"
 import {
   analyzeJobCommand,
   answerTailoringQuestionCommand,
-  applyTailoringSessionCommand,
   createTailoringSessionCommand,
   generateTailoringDiffsCommand,
   previewTailoringChangesCommand,
@@ -1720,62 +1719,68 @@ export class BrowserAgentToolService implements AgentToolServices {
 
   async applyTailoringChanges(rawInput: unknown, operationId: string, signal?: AbortSignal) {
     const input = parseTailoringChanges(rawInput);
-    let session = input.session;
+    const session = input.session;
     const reviewed = reviewedTailoringDiffs(session);
     if (reviewed.length === 0) {
       throw toolError("tailoring_no_selected_changes", "没有选择任何修改，暂不创建岗位简历。");
     }
 
-    if (session.branch.branchPurpose === "general") {
-      if (!session.branch.currentRevisionId) {
-        throw toolError("source_revision_missing", "The selected resume does not have a source revision.");
-      }
-      const derived = await this.repository.deriveJobSpecificBranchFromBranch({
-        sourceBranchId: session.branch.id,
-        jobId: session.job.id,
-        expectedSourceRevision: session.branch.revision,
-        expectedSourceRevisionId: session.branch.currentRevisionId,
-        operationId: childOperationId(operationId, "derive"),
-        name: `${session.branch.name} · ${session.job.title}`.slice(0, 120)
-      });
-      session = TailoringSessionSchema.parse({
-        ...session,
-        branch: derived.branch
-      });
+    if (!session.branch.currentRevisionId) {
+      throw toolError("source_revision_missing", "The selected resume does not have a source revision.");
     }
-
-    const result = await applyTailoringSessionCommand({
-      repository: this.repository,
-      operationId: childOperationId(operationId, "apply"),
-      session,
-      selectedDiffs: input.selectedDiffs,
+    const result = await this.repository.deriveAndApplyTailoringDiffsAtomic({
+      sourceBranchId: session.branch.id,
+      jobId: session.job.id,
+      expectedSourceRevision: session.branch.revision,
+      expectedSourceRevisionId: session.branch.currentRevisionId,
+      diffs: reviewed,
       confirmedRequirementIds: input.confirmedRequirementIds,
-      signal
+      operationId,
+      name: `${session.branch.name} · ${session.job.title}`.slice(0, 120)
     });
+    assertNotAborted(signal);
+    if (!result.revision || result.appliedDiffs.length === 0 || result.beforeContentHash === result.afterContentHash) {
+      throw toolError("tailoring_apply_verification_failed", "已采用的修改仍保留，但岗位简历写入没有完成。可以从当前步骤重试。");
+    }
+    const completedAt = new Date().toISOString();
+    const acceptedDiffIds = result.acceptedDiffIds ?? reviewed.map((diff) => stableHashText(JSON.stringify({
+      target: diff.target,
+      operation: diff.operation,
+      original: diff.original,
+      value: diff.value
+    })));
+    const changedFieldPaths = "changedFieldPaths" in result ? result.changedFieldPaths : [];
+    const qualityResult = {
+      status: "passed" as const,
+      factGuard: "passed" as const,
+      revisionCreated: true,
+      resultResumeId: result.branch.id,
+      resultResumeRevisionId: result.revision.id,
+      acceptedDiffIds,
+      acceptedDiffCount: result.appliedDiffs.length,
+      changedFieldPaths,
+      beforeContentHash: "beforeContentHash" in result ? result.beforeContentHash : undefined,
+      afterContentHash: "afterContentHash" in result ? result.afterContentHash : undefined,
+      receipt: {
+        operationId,
+        toolName: "apply_tailoring_changes",
+        status: "completed" as const,
+        completedAt
+      }
+    };
     return {
       branchId: result.branch.id,
       branchRevision: result.branch.revision,
-      revisionId: result.revision?.id,
+      resultResumeId: result.branch.id,
+      resultResumeRevisionId: result.revision.id,
+      revisionId: result.revision.id,
       resumeHash: stableHashText(JSON.stringify({
         currentRevisionId: result.branch.currentRevisionId,
         contentItems: result.branch.contentItems,
         structuredContentItems: result.branch.structuredContentItems
       })),
-      qualityResult: {
-        status: "passed",
-        factGuard: "passed",
-        revisionCreated: Boolean(result.revision),
-        acceptedDiffIds: result.acceptedDiffIds ?? reviewed.map((diff) => stableHashText(JSON.stringify({
-          target: diff.target,
-          operation: diff.operation,
-          original: diff.original,
-          value: diff.value
-        }))),
-        acceptedDiffCount: result.acceptedDiffCount ?? reviewed.length,
-        changedFieldPaths: "changedFieldPaths" in result ? result.changedFieldPaths : [],
-        beforeContentHash: "beforeContentHash" in result ? result.beforeContentHash : undefined,
-        afterContentHash: "afterContentHash" in result ? result.afterContentHash : undefined
-      },
+      qualityResult,
+      receipt: qualityResult.receipt,
       ...result
     };
   }
@@ -2030,10 +2035,6 @@ function selectionDependencies(
     jobRevision: job.updatedAt,
     jobGraphHash: stableHashText(JSON.stringify(job.requirementGraph ?? job.requirements))
   };
-}
-
-function childOperationId(operationId: string, suffix: string) {
-  return `${operationId.slice(0, 150 - suffix.length)}-${suffix}`;
 }
 
 function profileSummaryCounts(profile: Parameters<typeof canonicalProfileLibraryItems>[0]) {

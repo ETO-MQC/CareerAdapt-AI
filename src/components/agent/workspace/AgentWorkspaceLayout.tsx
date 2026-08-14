@@ -121,10 +121,12 @@ function RuntimeStatusBadge({
   onStartHermes?: () => Promise<{ ok: boolean; reason?: string }>;
 }) {
   const [controlBusy, setControlBusy] = useState(false);
-  const runtimeLabel = status.activeRuntime === "hermes"
-    ? "Hermes"
-    : status.preferredRuntime === "hermes" ? "Native fallback" : "Native";
-  const statusLabel = status.status === "ready" ? "Ready" : status.status === "starting" ? "Starting" : "Unavailable";
+  // The badge identifies the configured conversational owner, not a legacy
+  // execution fallback. Hermes remains the visible identity while it is
+  // reconnecting or unavailable, so a failed tool/run cannot impersonate a
+  // second Native assistant.
+  const runtimeLabel = status.preferredRuntime === "hermes" ? "Hermes" : "Native";
+  const statusLabel = status.status === "ready" ? "Ready" : status.status === "starting" ? "Reconnecting" : "Unavailable";
   const details = [
     status.reason,
     status.health?.requiredCareerFacadesMissing.length ? `缺少 ${status.health.requiredCareerFacadesMissing.length} 个 Career facade` : undefined,
@@ -153,7 +155,7 @@ function RuntimeStatusBadge({
       >
         <span className="agent-runtime-status-label">AI · {runtimeLabel}</span>
         <span className="agent-runtime-status-state">{statusLabel}</span>
-        {status.status !== "ready" ? <span className="agent-runtime-status-action">{controlBusy ? "启动中…" : "启动"}</span> : null}
+        {onStartHermes ? <span className="agent-runtime-status-action">{controlBusy ? "重连中…" : status.status === "ready" ? "重启" : "启动"}</span> : null}
       </button>
       {status.roadshowMode ? <RoadshowDiagnostics status={status} /> : null}
     </>

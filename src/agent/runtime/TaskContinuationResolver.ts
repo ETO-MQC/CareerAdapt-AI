@@ -3,6 +3,7 @@ import {
   ResumeCompositionAnswerSchema,
   type ResumeCompositionInformationNeed
 } from "@/domain/resumeComposition/contracts";
+import { TAILORING_STAGES, normalizeTailoringStage } from "@/agent/workflows/tailoringStage";
 
 export type TaskContinuation = {
   consumed: boolean;
@@ -11,15 +12,7 @@ export type TaskContinuation = {
   slotUpdates?: Record<string, unknown>;
 };
 
-const ACTIVE_TAILORING_STAGES = new Set([
-  "choose_resume_source",
-  "analyze_fit",
-  "generate_plan",
-  "clarify_unsupported_facts",
-  "preview_changes",
-  "confirm_apply",
-  "quality_result"
-]);
+const ACTIVE_TAILORING_STAGES = new Set<string>(TAILORING_STAGES);
 
 export class TaskContinuationResolver {
   resolve(state: AgentTaskState, message: string): TaskContinuation {
@@ -143,7 +136,8 @@ export function deriveNextLegalStage(state: AgentTaskState) {
     if (!hasValue(state.knownSlots.selectedFactIds)) return "select_facts";
     return "review_resume_plan";
   }
-  if (state.stage === "quality_result") return "quality_result";
+  const canonicalStage = normalizeTailoringStage(state.stage);
+  if (canonicalStage === "quality_result") return "quality_result";
   if (state.knownSlots.tailoringSession) {
     const plan = objectValue(objectValue(state.knownSlots.tailoringSession).plan);
     const questionPlan = objectValue(plan.questionPlan);
@@ -156,7 +150,7 @@ export function deriveNextLegalStage(state: AgentTaskState) {
   }
   if (state.stage === "confirm_apply") return "confirm_apply";
   if (state.stage === "preview_changes") return "preview_changes";
-  if (state.knownSlots.fitAnalysis && state.selectedEntities.resumeId && state.selectedEntities.jobId) {
+  if (state.knownSlots.fitAnalysis && (state.selectedEntities.sourceResumeId ?? state.selectedEntities.resumeId) && state.selectedEntities.jobId) {
     return "generate_plan";
   }
   if (state.lastObservation && state.selectedEntities.resumeId && state.selectedEntities.jobId) {

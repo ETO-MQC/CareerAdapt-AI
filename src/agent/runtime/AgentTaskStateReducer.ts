@@ -21,6 +21,7 @@ import {
 import { ProfileIntakeReviewProjectionSchema, type ProfileIntakeReviewProjection } from "@/domain/profileIntake/ProfileIntakeReviewProjection";
 import { ResumeCompositionInformationNeedSchema } from "@/domain/resumeComposition/contracts";
 import { tailoringDiffId } from "@/services/jobs/tailoringDiffId";
+import { normalizeTailoringStage } from "@/agent/workflows/tailoringStage";
 
 export type AgentTaskEvent =
   | {
@@ -44,6 +45,7 @@ export type AgentTaskEvent =
       option: "profile" | "existing_resume" | "switch_to_active" | "keep_original" | "save_profile_only" | "generate_general_resume" | "finish";
     }
   | { type: "tool_observation"; toolName: string; observation: unknown; artifactIds?: string[] }
+  | { type: "tool_failure"; toolName: string; operationId?: string; errorCode: string; message?: string; recoverable?: boolean }
   | { type: "confirmation_requested"; toolName: string; operationId: string }
   | { type: "confirmation_accepted"; toolName: string }
   | { type: "confirmation_rejected"; toolName: string }
@@ -72,6 +74,7 @@ export class AgentTaskStateReducer {
         operationId: session.pendingConfirmation.operationId
       };
     }
+    const tailoringWorkflow = session.workflowState.workflowId === "tailor_existing_resume";
     const state: AgentTaskState = {
       goal,
       rootGoal: goal,
@@ -84,6 +87,7 @@ export class AgentTaskStateReducer {
       selectedEntities: {
         profileId: session.activeProfileId,
         resumeId: session.activeResumeId,
+        ...(tailoringWorkflow && session.activeResumeId ? { sourceResumeId: session.activeResumeId } : {}),
         jobId: session.activeJobId,
         revisionId: stringValue(knownSlots.revisionId)
       },
@@ -562,15 +566,55 @@ export class AgentTaskStateReducer {
         state.completionStatus = "active";
       } else if (event.toolName === "apply_tailoring_changes") {
         const value = objectValue(event.observation);
-        state.knownSlots.qualityResult = value.qualityResult ?? {
-          status: "passed",
-          factGuard: "passed",
-          revisionCreated: Boolean(value.revision ?? value.revisionId)
-        };
-        state.dependencySnapshots.qualityResult = dependencySnapshot(state, event.observation);
-        state.activeGoal = "quality_result";
-        state.stage = "quality_result";
-        state.completionStatus = "completed";
+        const quality = objectValue(value.qualityResult);
+        const receipt = objectValue(quality.receipt ?? value.receipt);
+        const resultResumeId = stringValue(value.resultResumeId ?? value.branchId ?? objectValue(value.branch).id);
+        const resultRevisionId = stringValue(value.resultResumeRevisionId ?? value.revisionId ?? objectValue(value.revision).id);
+        const acceptedDiffCount = numberValue(quality.acceptedDiffCount ?? value.acceptedDiffCount);
+        const acceptedDiffIds = Array.isArray(quality.acceptedDiffIds ?? value.acceptedDiffIds)
+          ? (quality.acceptedDiffIds ?? value.acceptedDiffIds) as unknown[]
+          : [];
+        const changedFieldPathsValue = quality.changedFieldPaths ?? value.changedFieldPaths;
+        const changedFieldPaths = Array.isArray(changedFieldPathsValue) ? changedFieldPathsValue : [];
+        const beforeHash = stringValue(quality.beforeContentHash ?? value.beforeContentHash);
+        const afterHash = stringValue(quality.afterContentHash ?? value.afterContentHash);
+        const authoritative = Boolean(
+          resultResumeId
+          && resultRevisionId
+          && acceptedDiffCount !== undefined
+          && acceptedDiffCount > 0
+          && acceptedDiffIds.some((item) => typeof item === "string" && item.length > 0)
+          && changedFieldPaths.length > 0
+          && beforeHash
+          && afterHash
+          && beforeHash !== afterHash
+          && receipt.status === "completed"
+          && quality.status === "passed"
+          && quality.factGuard === "passed"
+          && quality.revisionCreated === true
+        );
+        if (authoritative) {
+          state.knownSlots.qualityResult = value.qualityResult ?? value;
+          state.knownSlots.applyReceipt = value.receipt ?? quality.receipt;
+          delete state.knownSlots.tailoringApplyFailure;
+          state.selectedEntities.resultResumeId = resultResumeId;
+          state.selectedEntities.resultResumeRevisionId = resultRevisionId;
+          state.selectedEntities.revisionId = resultRevisionId;
+          state.dependencySnapshots.qualityResult = dependencySnapshot(state, event.observation);
+          state.activeGoal = "quality_result";
+          state.stage = "quality_result";
+          state.completionStatus = "completed";
+        } else {
+          state.knownSlots.tailoringApplyFailure = {
+            code: "tailoring_apply_verification_failed",
+            message: "已采用的修改仍保留，但岗位简历写入没有完成。可以从当前步骤重试。",
+            recoverable: true,
+            operationId: stringValue(value.operationId)
+          };
+          state.activeGoal = "confirm_apply";
+          state.stage = "confirm_apply";
+          state.completionStatus = "waiting_for_user";
+        }
       } else if (event.toolName === "archive_resume" || event.toolName === "restore_resume") {
         state.stage = "lifecycle_result";
         state.knownSlots.lifecycleResult = event.observation;
@@ -884,6 +928,37 @@ export class AgentTaskStateReducer {
         state.completionStatus = "completed";
       }
     }
+    if (event.type === "tool_failure") {
+      state.lastObservation = {
+        toolName: event.toolName,
+        errorCode: event.errorCode,
+        message: event.message,
+        recoverable: event.recoverable
+      };
+      state.knownSlots.lastFailedTool = event.toolName;
+      state.knownSlots.lastFailedOperationId = event.operationId;
+      state.knownSlots.lastSafeErrorCode = event.errorCode;
+      state.knownSlots.toolFailure = state.lastObservation;
+      if (event.toolName === "apply_tailoring_changes") {
+        state.knownSlots.tailoringApplyFailure = {
+          code: event.errorCode,
+          message: "已采用的修改仍保留，但岗位简历写入没有完成。可以从当前步骤重试。",
+          recoverable: event.recoverable !== false,
+          operationId: event.operationId
+        };
+        state.activeGoal = "confirm_apply";
+        state.stage = "confirm_apply";
+        state.completionStatus = "waiting_for_user";
+      } else if (event.errorCode === "tailoring_questions_incomplete") {
+        state.activeGoal = "clarify_tailoring";
+        state.stage = "clarify_unsupported_facts";
+        state.completionStatus = "waiting_for_user";
+      } else if (event.recoverable !== false) {
+        state.completionStatus = "waiting_for_user";
+      } else {
+        state.completionStatus = "failed";
+      }
+    }
     if (event.type === "confirmation_requested") {
       state.completionStatus = "waiting_for_confirmation";
       state.knownSlots.pendingConfirmation = {
@@ -1143,9 +1218,12 @@ function normalize(state: AgentTaskState): AgentTaskState {
     if (state.stage === "completed") state.completionStatus = "completed";
   }
   if (state.workflowId === "tailor_existing_resume") {
-    if (state.stage === "select_resume") state.stage = "choose_resume_source";
-    if (state.stage === "answer_questions") state.stage = "clarify_unsupported_facts";
-    if (state.stage === "completed") state.stage = "quality_result";
+    const canonicalStage = normalizeTailoringStage(state.stage);
+    if (canonicalStage) state.stage = canonicalStage;
+    if (state.selectedEntities.resumeId && !state.selectedEntities.sourceResumeId && !state.selectedEntities.resultResumeId) {
+      state.selectedEntities.sourceResumeId = state.selectedEntities.resumeId;
+      state.selectedEntities.sourceResumeRevisionId = state.selectedEntities.resumeRevisionId;
+    }
     if (
       ["choose_resume_source", "choose_job"].includes(state.stage)
       && state.selectedEntities.profileId
@@ -1515,13 +1593,17 @@ function mergeObservationSlots(state: AgentTaskState, toolName: string, observat
     const branch = objectValue(value.branch);
     const id = stringValue(value.revisionId ?? revision.id);
     const branchId = stringValue(value.branchId ?? branch.id);
-    if (branchId) state.selectedEntities.resumeId = branchId;
+    if (branchId) {
+      state.selectedEntities.resultResumeId = branchId;
+      state.knownSlots.resultResumeId = branchId;
+    }
     if (id) {
       state.selectedEntities.revisionId = id;
-      state.selectedEntities.resumeRevisionId = id;
+      state.selectedEntities.resultResumeRevisionId = id;
+      state.knownSlots.resultResumeRevisionId = id;
     }
     const hash = stringValue(value.resumeHash);
-    if (hash) state.selectedEntities.resumeHash = hash;
+    if (hash) state.knownSlots.resultResumeHash = hash;
   }
   if (
     state.knownSlots.sourceRoute === "existing_resume_to_job_revision"
@@ -1629,8 +1711,12 @@ function clearResumeSelection(state: AgentTaskState) {
   state.selectedEntities.resumeId = undefined;
   state.selectedEntities.resumeRevisionId = undefined;
   state.selectedEntities.resumeHash = undefined;
+  state.selectedEntities.sourceResumeId = undefined;
+  state.selectedEntities.sourceResumeRevisionId = undefined;
+  state.selectedEntities.resultResumeId = undefined;
+  state.selectedEntities.resultResumeRevisionId = undefined;
   state.selectedEntities.revisionId = undefined;
-  for (const key of ["resumeId", "resumeRevisionId", "resumeHash", "recommendedResumeId", "selectedResumeName", "resumeCandidates", "resumeSelectionRequired"]) {
+  for (const key of ["resumeId", "resumeRevisionId", "resumeHash", "sourceResumeId", "sourceResumeRevisionId", "resultResumeId", "resultResumeRevisionId", "recommendedResumeId", "selectedResumeName", "resumeCandidates", "resumeSelectionRequired"]) {
     delete state.knownSlots[key];
   }
   state.dependencySnapshots = {};
@@ -1645,6 +1731,15 @@ function captureTailoringTruth(state: AgentTaskState, observation: unknown) {
   const questionPlan = objectValue(plan.questionPlan);
   const tailoringSessionId = stringValue(session.id);
   if (tailoringSessionId) state.selectedEntities.tailoringSessionId = tailoringSessionId;
+  const sessionBranch = objectValue(session.branch);
+  const sourceResumeId = stringValue(sessionBranch.id);
+  const sourceResumeRevisionId = stringValue(sessionBranch.currentRevisionId);
+  if (sourceResumeId && !state.selectedEntities.resultResumeId) {
+    state.selectedEntities.sourceResumeId = sourceResumeId;
+    state.selectedEntities.sourceResumeRevisionId = sourceResumeRevisionId;
+    state.knownSlots.sourceResumeId = sourceResumeId;
+    state.knownSlots.sourceResumeRevisionId = sourceResumeRevisionId;
+  }
   state.knownSlots.tailoringSession = value.session;
   state.knownSlots.questionPlan = plan.questionPlan;
   state.knownSlots.activeQuestionId = questionPlan.activeQuestionId;
@@ -1731,6 +1826,23 @@ function updateAuthoritativeEntity(
   state: AgentTaskState,
   event: Extract<AgentTaskEvent, { type: "entity_revision" }>
 ) {
+  if (
+    event.entityType === "resume"
+    && isTailoringGoal(state.rootGoal)
+    && state.selectedEntities.resultResumeId
+    && !["choose_resume_source", "choose_job"].includes(normalizeTailoringStage(state.stage) ?? state.stage)
+  ) {
+    // A post-apply read may legitimately inspect the generated branch. It is
+    // evidence about the result, never a new source selection.
+    if (event.entityId === state.selectedEntities.resultResumeId) {
+      if (event.revisionId) {
+        state.selectedEntities.resultResumeRevisionId = event.revisionId;
+        state.knownSlots.resultResumeRevisionId = event.revisionId;
+      }
+      if (event.hash) state.knownSlots.resultResumeHash = event.hash;
+    }
+    return;
+  }
   const idKey = `${event.entityType}Id` as "profileId" | "resumeId" | "jobId";
   const previousId = state.selectedEntities[idKey];
   const versionKey = event.entityType === "profile"
@@ -1761,9 +1873,17 @@ function updateAuthoritativeEntity(
     state.knownSlots.profileVersion = event.version;
   }
   if (event.entityType === "resume") {
+    if (isTailoringGoal(state.rootGoal) && !state.selectedEntities.resultResumeId) {
+      state.selectedEntities.sourceResumeId = event.entityId;
+      state.knownSlots.sourceResumeId = event.entityId;
+    }
     if (event.revisionId) {
       state.selectedEntities.resumeRevisionId = event.revisionId;
       state.knownSlots.resumeRevisionId = event.revisionId;
+      if (isTailoringGoal(state.rootGoal) && !state.selectedEntities.resultResumeId) {
+        state.selectedEntities.sourceResumeRevisionId = event.revisionId;
+        state.knownSlots.sourceResumeRevisionId = event.revisionId;
+      }
     }
     if (event.hash) state.selectedEntities.resumeHash = event.hash;
     if (event.hash) state.knownSlots.resumeHash = event.hash;
@@ -1788,6 +1908,8 @@ function invalidateDerivedState(state: AgentTaskState) {
     "previewComplete",
     "confirmationAccepted",
     "qualityResult",
+    "tailoringApplyFailure",
+    "applyReceipt",
     "pendingConfirmation"
   ]) {
     delete state.knownSlots[key];
@@ -1795,6 +1917,8 @@ function invalidateDerivedState(state: AgentTaskState) {
   state.pendingDecision = undefined;
   state.dependencySnapshots = {};
   state.selectedEntities.tailoringSessionId = undefined;
+  state.selectedEntities.resultResumeId = undefined;
+  state.selectedEntities.resultResumeRevisionId = undefined;
   state.selectedEntities.revisionId = undefined;
   if (["apply_to_job", "create_tailored_resume"].includes(state.rootGoal)) {
     state.activeGoal = state.selectedEntities.resumeId ? "analyze_job_fit" : "resolve_resume_source";
@@ -1866,6 +1990,10 @@ function scalarValue(value: unknown) {
     : typeof value === "number" && Number.isFinite(value)
       ? value
       : undefined;
+}
+
+function numberValue(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
 
 function hasValue(value: unknown) {

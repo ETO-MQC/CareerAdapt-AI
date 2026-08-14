@@ -1,4 +1,4 @@
-import { isRoadshowReady, runtimeHealthStatus, type RuntimeHealth } from "./runtimeHealth";
+import { runtimeHealthStatus, type RuntimeHealth } from "./runtimeHealth";
 
 export type RuntimeStatus = "ready" | "starting" | "unavailable";
 
@@ -70,7 +70,7 @@ export class RuntimeStatusStore {
       mcpConnected: status.connected,
       discoveredToolCount: status.discoveredToolCount,
       ...(nextHealth ? {
-        activeRuntime: isRoadshowReady(nextHealth) ? "hermes" : "native",
+        activeRuntime: this.snapshot.preferredRuntime === "hermes" ? "hermes" : "native",
         status: runtimeHealthStatus(nextHealth),
         health: nextHealth
       } : {}),
@@ -79,9 +79,8 @@ export class RuntimeStatusStore {
   }
 
   recordHealth(health: RuntimeHealth) {
-    const ready = isRoadshowReady(health);
     this.update({
-      activeRuntime: ready ? "hermes" : "native",
+      activeRuntime: this.snapshot.preferredRuntime === "hermes" ? "hermes" : "native",
       status: runtimeHealthStatus(health),
       reason: health.safeErrorCode,
       model: health.model,

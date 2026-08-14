@@ -156,6 +156,15 @@ export const AgentPendingToolCallSchema = z.object({
   input: z.record(z.string(), z.unknown())
 }).strict();
 
+export const AgentTurnToolFailureSchema = z.object({
+  toolName: z.string().min(1),
+  operationId: z.string().min(1).optional(),
+  code: z.string().min(1),
+  message: z.string().max(1200).optional(),
+  recoverable: z.boolean().optional(),
+  occurredAt: z.string().datetime({ offset: true })
+}).strict();
+
 export const AgentTurnSchema = z.object({
   id: z.string().min(1),
   sessionId: z.string().min(1),
@@ -169,6 +178,12 @@ export const AgentTurnSchema = z.object({
   fallbackReasonCode: z.string().min(1).optional(),
   hermesRunId: z.string().min(1).optional(),
   nextHermesRunId: z.string().min(1).optional(),
+  visibleAssistantMessageId: z.string().min(1).optional(),
+  workflowCheckpoint: z.record(z.string(), z.unknown()).optional(),
+  toolFailures: z.array(AgentTurnToolFailureSchema).max(32).optional(),
+  lastFailedTool: z.string().min(1).optional(),
+  lastFailedOperationId: z.string().min(1).optional(),
+  lastSafeErrorCode: z.string().min(1).optional(),
   firstEventAt: z.string().datetime({ offset: true }).optional(),
   runtimeFailureAt: z.string().datetime({ offset: true }).optional(),
   status: z.enum(["running", "waiting_for_user", "waiting_for_confirmation", "completed", "failed", "aborted"]),
@@ -192,6 +207,10 @@ const AgentTaskStateObjectSchema = z.object({
     resumeId: z.string().min(1).optional(),
     resumeRevisionId: z.string().min(1).optional(),
     resumeHash: z.string().min(1).optional(),
+    sourceResumeId: z.string().min(1).optional(),
+    sourceResumeRevisionId: z.string().min(1).optional(),
+    resultResumeId: z.string().min(1).optional(),
+    resultResumeRevisionId: z.string().min(1).optional(),
     jobId: z.string().min(1).optional(),
     jobRevision: z.union([z.string().min(1), z.number().int().min(0)]).optional(),
     jobGraphHash: z.string().min(1).optional(),
@@ -317,6 +336,7 @@ export type AgentSession = z.infer<typeof AgentSessionSchema>;
 export type AgentWorkflowState = z.infer<typeof AgentWorkflowStateSchema>;
 export type AgentConfirmation = z.infer<typeof AgentConfirmationSchema>;
 export type AgentTurn = z.infer<typeof AgentTurnSchema>;
+export type AgentTurnToolFailure = z.infer<typeof AgentTurnToolFailureSchema>;
 export type AgentTurnCheckpoint = z.infer<typeof AgentTurnCheckpointSchema>;
 export type HermesRunHandle = z.infer<typeof HermesRunHandleSchema>;
 export type AgentTaskState = z.infer<typeof AgentTaskStateSchema>;

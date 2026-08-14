@@ -10,6 +10,8 @@ import {
   executeCareerWorkflowFacade
 } from "../workflows/CareerWorkflowFacade";
 import { isRetryableAiProviderErrorCode } from "@/ai/providers/transportError";
+import type { AgentTaskState } from "../contracts/agentSession";
+import { isTailoringQuestionPaused, normalizeTailoringStage } from "../workflows/tailoringStage";
 
 export type CareerToolReadWrite = "read" | "write";
 export type CareerToolConfirmationPolicy = "none" | "user_confirmation" | "destructive_confirmation";
@@ -103,6 +105,9 @@ type CareerToolGatewayDependencies = {
     signal?: AbortSignal,
     contract?: CareerToolContract
   ) => Promise<CareerSessionBindingVerification>;
+  /** Read the current Host projection at execution time; never use the
+   * planner's stale stage metadata for authorization. */
+  getAuthoritativeTaskState?: () => AgentTaskState | undefined;
 };
 
 type CareerToolDefinition = {
@@ -266,6 +271,8 @@ export class CareerToolGateway {
     const workflow = this.workflowByName.get(name);
     if (workflow) {
       try {
+        const stageError = this.verifyTailoringStage(name);
+        if (stageError) return this.failure(name, operationId, stageError.code, stageError.message, true);
         const contract = this.toWorkflowContract(workflow);
         const bindingError = await this.verifyExecutionBinding(contract, input, context);
         if (bindingError) return this.failure(name, operationId, bindingError.code, bindingError.message, false);
@@ -294,6 +301,8 @@ export class CareerToolGateway {
       return this.failure(name, operationId, "unknown_career_tool", "当前 Career 工具不可用。", false);
     }
     try {
+      const stageError = this.verifyTailoringStage(name);
+      if (stageError) return this.failure(name, operationId, stageError.code, stageError.message, true);
       const contract = this.toContract(definition);
       const bindingError = await this.verifyExecutionBinding(contract, input, context);
       if (bindingError) return this.failure(name, operationId, bindingError.code, bindingError.message, false);
@@ -396,6 +405,41 @@ export class CareerToolGateway {
     };
   }
 
+  private verifyTailoringStage(name: string) {
+    const state = this.asDependencies().getAuthoritativeTaskState?.();
+    if (!state || state.workflowId !== "tailor_existing_resume") return undefined;
+    const sourceToolName = name.startsWith("career.workflow.")
+      ? name === "career.workflow.tailor_resume" ? "create_tailoring_session" : undefined
+      : this.byName.get(name)?.sourceToolName;
+    if (!sourceToolName) return undefined;
+    const stage = normalizeTailoringStage(state.stage);
+    if (!stage) return undefined;
+    const questionPaused = isTailoringQuestionPaused(state.knownSlots.tailoringSession);
+    if (questionPaused && sourceToolName !== "answer_tailoring_question" && !isTailoringReadTool(sourceToolName)) {
+      return {
+        code: "tailoring_questions_incomplete",
+        message: "当前定制问题尚未回答；请先展示并回答唯一的当前问题。"
+      };
+    }
+    const requiredStage: Record<string, string> = {
+      analyze_job_fit: "analyze_fit",
+      create_tailoring_session: "generate_plan",
+      answer_tailoring_question: "clarify_unsupported_facts",
+      generate_tailoring_changes: "generate_changes",
+      review_tailoring_diff: "preview_changes",
+      preview_tailoring_changes: "preview_changes",
+      apply_tailoring_changes: "confirm_apply"
+    };
+    const expected = requiredStage[sourceToolName];
+    // Reads are useful for checkpoint verification and do not advance the
+    // workflow. Every semantic Tailoring mutation is stage-checked here.
+    if (!expected || stage === expected) return undefined;
+    return {
+      code: "agent_tool_not_allowed_current_stage",
+      message: `当前岗位定制步骤为 ${stage}，暂不允许执行 ${sourceToolName}。`
+    };
+  }
+
   private failure(
     name: string,
     operationId: string,
@@ -479,6 +523,10 @@ export class CareerToolGateway {
       ? { registry: this.dependencies } satisfies CareerToolGatewayDependencies
       : this.dependencies;
   }
+}
+
+function isTailoringReadTool(sourceToolName: string) {
+  return ["get_profile", "get_resume", "get_resume_revision", "get_job", "list_resumes", "list_jobs"].includes(sourceToolName);
 }
 
 function atomicWorkflowHint(name: string) {
@@ -589,7 +637,8 @@ function errorCode(error: unknown) {
 }
 
 function isRecoverable(code: string) {
-  return isRetryableAiProviderErrorCode(code) || /temporar|timeout|network|unavailable/i.test(code);
+  return isRetryableAiProviderErrorCode(code)
+    || /temporar|timeout|network|unavailable|tailoring_questions_incomplete|tailoring_apply_verification_failed/i.test(code);
 }
 
 function categoryForCode(code: string): CareerToolErrorCategory {

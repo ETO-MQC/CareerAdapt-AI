@@ -101,6 +101,9 @@ import {
   type RuntimeUserEvent
 } from "./RuntimeUserEvent";
 import { tailoringDiffId } from "@/services/jobs/tailoringDiffId";
+import { isTailoringQuestionPaused, normalizeTailoringStage } from "@/agent/workflows/tailoringStage";
+
+const TAILORING_APPLY_FAILURE_MESSAGE = "已采用的修改仍保留，但岗位简历写入没有完成。可以从当前步骤重试。";
 
 export type AgentHostInput =
   | { type: "message"; text: string; references?: AgentMessageReference[] }
@@ -649,8 +652,8 @@ export class AgentHostStore {
     };
   }
 
-  /** Continue a validated event through the native host when Router fallback
-   * is required. The same method is also used by native-only environments. */
+  /** Continue a validated event through deterministic/native infrastructure
+   * when the configured environment is native-only. */
   continueRuntimeEvent(input: {
     session: AgentSession;
     event: RuntimeUserEvent;
@@ -1269,8 +1272,17 @@ export class AgentHostStore {
   }) {
     const now = new Date().toISOString();
     const turnId = input.turnId ?? `runtime-turn-${crypto.randomUUID()}`;
-    const userMessageId = `agent-user-${crypto.randomUUID()}`;
-    const assistantMessageId = `agent-thinking-${crypto.randomUUID()}`;
+    const reusableAssistant = !input.userMessage.trim()
+      ? input.session.messages.findLast((message) =>
+          message.role === "assistant"
+          && message.turnId === turnId
+          && message.metadata?.retracted !== true
+        )
+      : undefined;
+    const userMessageId = input.userMessage.trim()
+      ? `agent-user-${crypto.randomUUID()}`
+      : input.session.activeTurn?.userMessageId ?? `agent-user-${crypto.randomUUID()}`;
+    const assistantMessageId = reusableAssistant?.id ?? `agent-thinking-${crypto.randomUUID()}`;
     let current = input.userMessage.trim()
       ? withTurnCheckpoint(input.session, turnId, userMessageId, now)
       : input.session;
@@ -1282,16 +1294,34 @@ export class AgentHostStore {
           metadata: { executionState: "running", runtimeId: input.runtimeId }
         })
       : current;
-    current = appendAgentMessage(current, "assistant", "正在读取当前资料…", {
-      id: assistantMessageId,
-      turnId,
-      kind: "assistant_thinking",
-      type: "assistant_thinking",
-      status: "thinking",
-      streaming: true,
-      parentMessageId: userMessageId,
-      metadata: { runtimeId: input.runtimeId }
-    });
+    current = reusableAssistant
+      ? {
+          ...current,
+          messages: current.messages.map((message) => message.id === reusableAssistant.id
+            ? {
+                ...message,
+                content: "正在读取当前资料…",
+                kind: "assistant_thinking" as const,
+                type: "assistant_thinking" as const,
+                status: "thinking" as const,
+                streaming: true,
+                parentMessageId: userMessageId,
+                metadata: { ...message.metadata, runtimeId: input.runtimeId, retracted: false },
+                updatedAt: now
+              }
+            : message),
+          updatedAt: now
+        }
+      : appendAgentMessage(current, "assistant", "正在读取当前资料…", {
+          id: assistantMessageId,
+          turnId,
+          kind: "assistant_thinking",
+          type: "assistant_thinking",
+          status: "thinking",
+          streaming: true,
+          parentMessageId: userMessageId,
+          metadata: { runtimeId: input.runtimeId }
+        });
     current = {
       ...current,
       runtimeId: input.runtimeId,
@@ -1305,6 +1335,13 @@ export class AgentHostStore {
         finalRuntime: input.runtimeDiagnostics?.finalRuntime ?? (input.runtimeId === "hermes" ? "hermes" : "native"),
         executionOwner: input.runtimeDiagnostics?.executionOwner ?? (input.userMessage.trim() ? input.runtimeId as "native" | "hermes" : "runtime_continuation"),
         fallbackUsed: false,
+        visibleAssistantMessageId: assistantMessageId,
+        workflowCheckpoint: current.taskState ? {
+          workflowId: current.taskState.workflowId,
+          stage: current.taskState.stage,
+          selectedEntities: current.taskState.selectedEntities
+        } : undefined,
+        toolFailures: [],
         ...input.runtimeDiagnostics,
         status: "running",
         startedAt: now
@@ -1333,7 +1370,16 @@ export class AgentHostStore {
     const current = this.snapshot.activeSession;
     if (!current || current.id !== event.sessionId) return undefined;
     const assistant = current.messages.find((message) => message.id === assistantMessageId);
+    // Runtime events are quarantined unless they belong to the visible
+    // assistant shell for the same logical turn. This prevents a late Hermes
+    // event or a restarted run from mutating the next user turn.
+    if (
+      !current.activeTurn
+      || current.activeTurn.id !== event.turnId
+      || assistant?.turnId !== event.turnId
+    ) return undefined;
     let next = current;
+    let lateTailoringRecovery = false;
     const runHandleResult = HermesRunHandleSchema.safeParse(objectValue(event.data).runHandle);
     next = applyRuntimeEventDiagnostics(next, event, runHandleResult.success ? runHandleResult.data.runId : undefined);
     if (runHandleResult.success) next = { ...next, hermesRun: runHandleResult.data };
@@ -1423,7 +1469,83 @@ export class AgentHostStore {
           // arrived. Re-project them after accepting the result so a waiting
           // composition never becomes a dead-end.
           if (next.taskState) next = attachTaskStateOptions(next, next.taskState);
+        } else if (result.ok === false) {
+          const failureToolName = runtimeArtifactSourceToolName(event.toolName ?? "", stringValue(contract.sourceToolName));
+          const errorCode = stringValue(objectValue(result.error).code) ?? "career_tool_failed";
+          const errorMessage = stringValue(objectValue(result.error).message);
+          const recoverable = objectValue(result.error).recoverable !== false;
+          if (next.taskState) next = projectTaskStateIntoSession(next, new AgentTaskStateReducer().reduce(next.taskState, {
+            type: "tool_failure",
+            toolName: failureToolName,
+            operationId,
+            errorCode,
+            message: errorMessage,
+            recoverable
+          }));
+          next = recordRuntimeToolFailure(next, {
+            toolName: failureToolName,
+            operationId,
+            code: errorCode,
+            message: errorMessage,
+            recoverable,
+            occurredAt: event.timestamp
+          });
+          if (next.taskState?.knownSlots.tailoringApplyFailure && next.activeTurn?.status !== "running") {
+            next = replaceRuntimeShellMessage(next, assistantMessageId, TAILORING_APPLY_FAILURE_MESSAGE, {
+              ...event,
+              error: { code: errorCode, message: TAILORING_APPLY_FAILURE_MESSAGE, recoverable: true }
+            }, false, true);
+            next = withRetryCurrentStepOption(next, assistantMessageId);
+            next = {
+              ...next,
+              activeTurn: next.activeTurn
+                ? { ...next.activeTurn, status: "waiting_for_user", completedAt: new Date().toISOString() }
+                : next.activeTurn
+            };
+            lateTailoringRecovery = true;
+          }
         }
+      }
+      if (event.type === "tool_call_failed") {
+        const failureToolName = runtimeArtifactSourceToolName(event.toolName ?? "", stringValue(objectValue(event.data).stableCareerToolName));
+        if (next.taskState) next = projectTaskStateIntoSession(next, new AgentTaskStateReducer().reduce(next.taskState, {
+          type: "tool_failure",
+          toolName: failureToolName,
+          operationId,
+          errorCode: event.error?.code ?? "career_tool_failed",
+          message: event.error?.message,
+          recoverable: event.error?.recoverable
+        }));
+        next = recordRuntimeToolFailure(next, {
+          toolName: failureToolName,
+          operationId,
+          code: event.error?.code ?? "career_tool_failed",
+          message: event.error?.message,
+          recoverable: event.error?.recoverable,
+          occurredAt: event.timestamp
+        });
+        if (next.taskState?.knownSlots.tailoringApplyFailure && next.activeTurn?.status !== "running") {
+          next = replaceRuntimeShellMessage(next, assistantMessageId, TAILORING_APPLY_FAILURE_MESSAGE, event, false, true);
+          next = withRetryCurrentStepOption(next, assistantMessageId);
+          next = {
+            ...next,
+            activeTurn: next.activeTurn
+              ? { ...next.activeTurn, status: "waiting_for_user", completedAt: new Date().toISOString() }
+              : next.activeTurn
+          };
+          lateTailoringRecovery = true;
+        }
+        next = {
+          ...next,
+          activeTurn: next.activeTurn
+            ? {
+                ...next.activeTurn,
+                lastFailedTool: failureToolName,
+                lastFailedOperationId: operationId,
+                lastSafeErrorCode: event.error?.code ?? "career_tool_failed"
+              }
+            : next.activeTurn
+        };
       }
     }
     if (event.type === "approval_required") {
@@ -1454,16 +1576,22 @@ export class AgentHostStore {
       };
     }
     if (event.type === "turn_completed" || event.type === "turn_failed") {
-      const candidate = event.type === "turn_failed"
+      const tailoringRecovery = Boolean(next.taskState?.knownSlots.tailoringApplyFailure);
+      const tailoringQuestionRecovery = next.taskState?.knownSlots.lastSafeErrorCode === "tailoring_questions_incomplete";
+      const candidate = tailoringRecovery
+        ? "已采用的修改仍保留，但岗位简历写入没有完成。可以从当前步骤重试。"
+        : tailoringQuestionRecovery && next.taskState
+          ? formatCurrentTailoringQuestion(next.taskState)
+        : event.type === "turn_failed"
         ? runtimeFailureRecoveryText(event.error?.code, next.taskState)
         : event.message ?? next.messages.find((message) => message.id === assistantMessageId)?.content ?? "当前任务已完成。";
       const grounding = next.taskState
         ? evaluateGroundedResumeOutput({ text: candidate, taskState: next.taskState, artifactRefs: next.artifactRefs })
         : { allowed: true as const };
-      const blocked = !grounding.allowed;
+      const blocked = !tailoringRecovery && !tailoringQuestionRecovery && !grounding.allowed;
       const text = blocked ? grounding.recoveryText : candidate;
-      next = replaceRuntimeShellMessage(next, assistantMessageId, text, event, false, event.type === "turn_failed" || blocked);
-      if (event.type === "turn_failed" || blocked) next = withRetryCurrentStepOption(next, assistantMessageId);
+      next = replaceRuntimeShellMessage(next, assistantMessageId, text, event, false, event.type === "turn_failed" && !tailoringQuestionRecovery || blocked);
+      if (event.type === "turn_failed" || blocked || tailoringRecovery) next = withRetryCurrentStepOption(next, assistantMessageId);
       if (next.taskState) next = attachTaskStateOptions(next, next.taskState);
       next = {
         ...next,
@@ -1472,8 +1600,12 @@ export class AgentHostStore {
           ? {
               ...next.activeTurn,
               runtimeId: "hermes",
-              status: event.type === "turn_failed" || blocked ? "failed" : next.pendingConfirmation ? "waiting_for_confirmation" : "completed",
-              completedAt: event.type === "turn_failed" || blocked || !next.pendingConfirmation ? new Date().toISOString() : undefined
+               status: event.type === "turn_failed" && !tailoringRecovery && !tailoringQuestionRecovery || blocked
+                ? "failed"
+                : tailoringRecovery || tailoringQuestionRecovery
+                  ? "waiting_for_user"
+                  : next.pendingConfirmation ? "waiting_for_confirmation" : "completed",
+               completedAt: event.type === "turn_failed" && !tailoringRecovery && !tailoringQuestionRecovery || blocked || tailoringRecovery || tailoringQuestionRecovery || !next.pendingConfirmation ? new Date().toISOString() : undefined
             }
           : undefined,
         // Hermes owns the conversational turn, not the durable career workflow
@@ -1488,8 +1620,10 @@ export class AgentHostStore {
       next = markTurnTerminalState(
         next,
         event.turnId,
-        event.type === "turn_failed" || blocked
+        event.type === "turn_failed" && !tailoringRecovery && !tailoringQuestionRecovery || blocked
           ? "failed"
+          : tailoringRecovery || tailoringQuestionRecovery
+            ? "waiting_for_user"
           : next.pendingConfirmation
             ? "waiting_for_confirmation"
             : "completed",
@@ -1497,14 +1631,17 @@ export class AgentHostStore {
       );
       const saved = await this.dependencies.persistence.save(next);
       this.patchSession(saved, {
-        turnStatus: event.type === "turn_failed" || blocked ? "failed" : saved.pendingConfirmation ? "waiting_for_confirmation" : "completed",
+        turnStatus: event.type === "turn_failed" && !tailoringRecovery && !tailoringQuestionRecovery || blocked ? "failed" : tailoringRecovery || tailoringQuestionRecovery ? "waiting_for_user" : saved.pendingConfirmation ? "waiting_for_confirmation" : "completed",
         activeTurnId: event.turnId,
         currentObservation: event.error ?? { runtimeId: "hermes", message: event.message, grounded: !blocked },
         uiAction: event.type === "turn_completed" && !blocked ? resumePreviewUiAction(saved) : undefined
       });
       return saved;
     }
-    this.patchSession(next, { currentObservation: event.data ?? event.message });
+    this.patchSession(next, {
+      currentObservation: event.data ?? event.message,
+      ...(lateTailoringRecovery ? { turnStatus: "waiting_for_user" as const, activeTurnId: event.turnId } : {})
+    });
     return next;
   }
 
@@ -4252,6 +4389,61 @@ export class AgentHostStore {
         diagnostic: confirmedToolDiagnostic(call.toolName, result)
       }
     });
+    if (call.toolName === "apply_tailoring_changes") {
+      const reducer = new AgentTaskStateReducer();
+      if (result.ok) {
+        current = projectTaskStateIntoSession(current, reducer.reduce(current.taskState!, {
+          type: "tool_observation",
+          toolName: result.toolName,
+          observation: result.data,
+          artifactIds: result.artifactIds
+        }));
+        current = attachConfirmedToolArtifact(current, call.toolName, call.operationId, result);
+      } else {
+        current = projectTaskStateIntoSession(current, reducer.reduce(current.taskState!, {
+          type: "tool_failure",
+          toolName: call.toolName,
+          operationId: call.operationId,
+          errorCode: result.error?.code ?? "tailoring_apply_verification_failed",
+          message: result.error?.message,
+          recoverable: result.error?.retryable !== false
+        }));
+      }
+      const failed = Boolean(current.taskState?.knownSlots.tailoringApplyFailure)
+        || !result.ok;
+      const assistantText = failed
+        ? TAILORING_APPLY_FAILURE_MESSAGE
+        : `已生成岗位定制简历，并应用了 ${numberValue(objectValue(objectValue(result.data).qualityResult).acceptedDiffCount) ?? current.taskState?.knownSlots.acceptedDiffCount ?? 0} 项已确认修改。`;
+      current = projectDeterministicAssistantMessage(current, turnId, assistantText, `agent-confirmation-${call.operationId}`);
+      const assistantId = current.messages.findLast((message) => message.role === "assistant" && message.turnId === turnId)?.id;
+      if (failed) {
+        current = withRetryCurrentStepOption(current, assistantId);
+        current = {
+          ...current,
+          activeTurn: current.activeTurn
+            ? { ...current.activeTurn, status: "waiting_for_user", completedAt: new Date().toISOString(), visibleAssistantMessageId: assistantId }
+            : current.activeTurn,
+          workflowState: current.taskState
+            ? projectTaskStateToWorkflowState(current.taskState, { ...current.workflowState, status: "waiting_for_user" })
+            : current.workflowState
+        };
+        const saved = await this.dependencies.persistence.save(current);
+        this.patchSession(saved, { turnStatus: "waiting_for_user", activeTurnId: turnId, currentObservation: current.taskState?.knownSlots.tailoringApplyFailure });
+        return saved;
+      }
+      current = {
+        ...current,
+        activeTurn: current.activeTurn
+          ? { ...current.activeTurn, status: "completed", completedAt: new Date().toISOString(), visibleAssistantMessageId: assistantId }
+          : current.activeTurn,
+        workflowState: current.taskState
+          ? projectTaskStateToWorkflowState(current.taskState, { ...current.workflowState, status: "completed" })
+          : current.workflowState
+      };
+      const saved = await this.dependencies.persistence.save(current);
+      this.patchSession(saved, { turnStatus: "completed", activeTurnId: turnId, currentObservation: current.taskState?.knownSlots.qualityResult });
+      return saved;
+    }
     if (result.ok) {
       if (call.toolName.startsWith("career.workflow.")) {
         current = applyRuntimeFacadeCheckpoint(current, call.toolName, result.data);
@@ -4547,6 +4739,10 @@ export class AgentHostStore {
     const now = new Date().toISOString();
     const restoredTask = {
       ...structuredClone(safe.taskState),
+      ...(safe.taskState.workflowId === "tailor_existing_resume"
+        && normalizeTailoringStage(safe.taskState.stage)
+        ? { stage: normalizeTailoringStage(safe.taskState.stage) }
+        : {}),
       completionStatus: "active" as const,
       updatedAt: now
     };
@@ -4813,21 +5009,29 @@ export class AgentHostStore {
     this.executionCoordinator.interrupt(session.id);
     await this.executionCoordinator.get(session.id)?.promise;
     const turnId = `agent-turn-${crypto.randomUUID()}`;
+    const userMessageId = `agent-user-${crypto.randomUUID()}`;
     const operationId = artifactActionOperationId(session, action, revision);
-    const runningSession = withArtifactActionFeedback(session, action, {
+    const actionSession = beginDeterministicArtifactTurn(
+      session,
+      turnId,
+      userMessageId,
+      new Date().toISOString()
+    );
+    const runningSession = withArtifactActionFeedback(actionSession, action, {
       result: "handled",
       message: "正在保存这项核对…",
       running: true,
       retryable: false
     });
     this.patchSession(runningSession);
+    await this.dependencies.persistence.save(runningSession);
     const result = await this.dependencies.executor.execute({
       toolName: execution.toolName,
       toolInput: execution.toolInput,
       operationId
     });
     if (!result.ok) {
-      const failed = withArtifactActionFeedback(settleDeterministicArtifactSession(session, turnId), action, {
+      const failed = withArtifactActionFeedback(settleDeterministicArtifactSession(runningSession, turnId), action, {
         result: "rejected",
         message: result.error?.message ?? "这项核对没有保存成功，请重试。",
         retryable: true,
@@ -4839,13 +5043,13 @@ export class AgentHostStore {
       return saved;
     }
     const reducer = new AgentTaskStateReducer();
-    let taskState = reducer.reduce(session.taskState!, {
+    let taskState = reducer.reduce(runningSession.taskState!, {
       type: "tool_observation",
       toolName: result.toolName,
       observation: result.data,
       artifactIds: result.artifactIds
     });
-    let current = projectTaskStateIntoSession(session, taskState);
+    let current = projectTaskStateIntoSession(runningSession, taskState);
     const observation = objectValue(result.data);
     if (observation.idempotent !== true) {
       current = upsertAgentActivity(current, {
@@ -4865,7 +5069,7 @@ export class AgentHostStore {
       ? observation.remainingDiffCount
       : undefined;
     if (action.type === "tailoring_diff_decision" && remainingDiffCount === 0 && acceptedDiffCount > 0) {
-      const confirmationTurnId = session.activeTurn?.id ?? turnId;
+      const confirmationTurnId = turnId;
       const previewOperationId = `${operationId}-preview`.slice(0, 160);
       const preview = await this.dependencies.executor.execute({
         toolName: "preview_tailoring_changes",
@@ -4920,6 +5124,7 @@ export class AgentHostStore {
           activeTurn: current.activeTurn
             ? {
                 ...current.activeTurn,
+                id: confirmationTurnId,
                 status: "waiting_for_confirmation",
                 completedAt: undefined
               }
@@ -4970,7 +5175,7 @@ export class AgentHostStore {
       && taskState.stage === "confirm_commit"
       && taskState.knownSlots.profileIntakeExplicitCommit === true
     ) {
-      const finalizeTurnId = session.activeTurn?.id ?? turnId;
+      const finalizeTurnId = current.activeTurn?.id ?? turnId;
       const finalizeThinkingId = `agent-profile-intake-finalize-${operationId}`;
       current = appendAgentMessage(current, "assistant", "正在沿用已确认的保存意图完成写入核验…", {
         id: finalizeThinkingId,
@@ -4990,7 +5195,7 @@ export class AgentHostStore {
         current,
         taskState,
         turnId: finalizeTurnId,
-        userMessageId: session.activeTurn?.userMessageId ?? `agent-user-${operationId}`,
+        userMessageId: current.activeTurn?.userMessageId ?? `agent-user-${operationId}`,
         thinkingMessageId: finalizeThinkingId,
         now: new Date().toISOString(),
         controller: new AbortController()
@@ -6843,6 +7048,39 @@ function settleUserExecutionState(
   };
 }
 
+function beginDeterministicArtifactTurn(
+  session: AgentSession,
+  turnId: string,
+  userMessageId: string,
+  startedAt: string
+) {
+  const taskState = session.taskState ?? new AgentTaskStateReducer().create(session);
+  const checkpointed = withTurnCheckpoint(session, turnId, userMessageId, startedAt);
+  return {
+    ...checkpointed,
+    runtimeId: session.runtimeId,
+    activeTurn: {
+      id: turnId,
+      sessionId: session.id,
+      userMessageId,
+      runtimeId: session.runtimeId,
+      preferredRuntime: session.activeTurn?.preferredRuntime ?? "hermes",
+      attemptedRuntime: session.activeTurn?.attemptedRuntime ?? "hermes",
+      finalRuntime: session.activeTurn?.finalRuntime ?? "hermes",
+      executionOwner: "deterministic_transition" as const,
+      fallbackUsed: false,
+      workflowCheckpoint: {
+        workflowId: taskState.workflowId,
+        stage: taskState.stage,
+        selectedEntities: taskState.selectedEntities
+      },
+      toolFailures: [],
+      status: "running" as const,
+      startedAt
+    }
+  };
+}
+
 function settleDeterministicArtifactSession(session: AgentSession, turnId: string) {
   const effectiveTurnId = session.activeTurn?.id ?? turnId;
   const settled = settleThinkingMessages(session, effectiveTurnId);
@@ -8120,14 +8358,40 @@ function runtimeArtifactSourceToolName(stableName: string, declaredSource?: stri
     "career.workflow.resume_export": "export_resume"
   };
   const stableSources: Record<string, string> = {
-    "career.profile.get": "get_profile",
+    "career.system.runtime_status": "get_agent_runtime_status",
+    "career.system.current_task": "get_agent_current_task",
+    "career.system.last_failure": "get_agent_last_failure",
+    "career.profile.list": "list_profiles",
     "career.profile.active": "get_active_profile",
+    "career.profile.get": "get_profile",
     "career.profile.search_facts": "search_profile_facts",
+    "career.profile.capture_intake": "capture_profile_intake",
+    "career.profile.synthesize_intake": "synthesize_profile_intake",
+    "career.profile.review_intake": "review_profile_intake",
+    "career.profile.reconcile_intake": "reconcile_profile_intake",
+    "career.profile.resolve_intake_conflict": "resolve_profile_intake_conflict",
+    "career.profile.commit_intake": "commit_profile_intake",
     "career.resume.list": "list_resumes",
     "career.resume.get": "get_resume",
     "career.resume.get_revision": "get_resume_revision",
+    "career.resume.recommend_source": "recommend_resume_source",
+    "career.resume.create_from_profile": "create_resume_from_profile",
+    "career.resume.create_job_from_profile": "create_job_resume_from_profile",
+    "career.resume.ensure_general_from_profile": "ensure_general_resume_from_profile",
     "career.job.list": "list_jobs",
     "career.job.get": "get_job",
+    "career.job.parse": "parse_job_description",
+    "career.job.commit": "commit_job",
+    "career.job.analyze_fit": "analyze_job_fit",
+    "career.tailoring.create_session": "create_tailoring_session",
+    "career.tailoring.answer_question": "answer_tailoring_question",
+    "career.tailoring.generate_changes": "generate_tailoring_changes",
+    "career.tailoring.review_diff": "review_tailoring_diff",
+    "career.tailoring.preview_changes": "preview_tailoring_changes",
+    "career.tailoring.apply_changes": "apply_tailoring_changes",
+    "career.preview.review_diff": "review_tailoring_diff",
+    "career.preview.apply_changes": "apply_tailoring_changes",
+    "career.export.resume": "export_resume",
     "career.resume.build_evidence_graph": "build_resume_evidence_graph",
     "career.resume.plan_composition": "plan_resume_composition",
     "career.resume.review_composition": "review_resume_composition",
@@ -8164,6 +8428,7 @@ function applyRuntimeFacadeCheckpoint(session: AgentSession, toolName: string, v
   if (!toolName.startsWith("career.workflow.") || !session.taskState) return session;
   const facade = objectRecordValue(value);
   const checkpoint = objectRecordValue(facade.workflowCheckpoint);
+  const facadeWorkflowStage = stringRecordValue(facade.workflowStage);
   const status = stringRecordValue(facade.status);
   if (!status || !Object.prototype.hasOwnProperty.call(checkpoint, "kind")) return session;
   const task = session.taskState;
@@ -8184,6 +8449,16 @@ function applyRuntimeFacadeCheckpoint(session: AgentSession, toolName: string, v
       : stringRecordValue(sessionData.tailoringSessionId)
         ? { ...sessionData, id: stringRecordValue(sessionData.tailoringSessionId) }
         : sessionData;
+  const tailoringBranch = objectRecordValue(normalizedSessionData.branch);
+  const tailoringSourceResumeId = task.workflowId === "tailor_existing_resume"
+    ? task.selectedEntities.sourceResumeId
+      ?? stringRecordValue(tailoringBranch.id)
+      ?? stringRecordValue(checkpoint.resumeId)
+    : undefined;
+  const tailoringSourceResumeRevisionId = task.workflowId === "tailor_existing_resume"
+    ? task.selectedEntities.sourceResumeRevisionId
+      ?? stringRecordValue(tailoringBranch.currentRevisionId)
+    : undefined;
   const selectedEntities = {
     ...task.selectedEntities,
     ...(stringRecordValue(checkpoint.profileId) ? { profileId: stringRecordValue(checkpoint.profileId) } : {}),
@@ -8193,10 +8468,23 @@ function applyRuntimeFacadeCheckpoint(session: AgentSession, toolName: string, v
     ...(stringRecordValue(result.resumeId) ? { resumeId: stringRecordValue(result.resumeId) } : {}),
     ...(stringRecordValue(result.jobId) ? { jobId: stringRecordValue(result.jobId) } : {}),
     ...(stringRecordValue(importData.importId) ? { revisionId: stringRecordValue(importData.importId) } : {}),
-    ...(stringRecordValue(sessionData.resumeId) ? { resumeId: stringRecordValue(sessionData.resumeId) } : {}),
+    ...(checkpoint.kind === "tailoring_session" && stringRecordValue(tailoringBranch.id) && !task.selectedEntities.resultResumeId
+      ? {
+          resumeId: stringRecordValue(tailoringBranch.id),
+          sourceResumeId: stringRecordValue(tailoringBranch.id),
+          sourceResumeRevisionId: stringRecordValue(tailoringBranch.currentRevisionId)
+        }
+      : {}),
     ...(stringRecordValue(sessionData.jobId) ? { jobId: stringRecordValue(sessionData.jobId) } : {}),
     ...(checkpoint.kind === "tailoring_session" && stringRecordValue(normalizedSessionData.id)
       ? { tailoringSessionId: stringRecordValue(normalizedSessionData.id) }
+      : {}),
+    ...(tailoringSourceResumeId
+      ? {
+          resumeId: tailoringSourceResumeId,
+          sourceResumeId: tailoringSourceResumeId,
+          ...(tailoringSourceResumeRevisionId ? { sourceResumeRevisionId: tailoringSourceResumeRevisionId } : {})
+        }
       : {})
   };
   const tailoringFitCompleted = toolName === "career.workflow.job_fit"
@@ -8230,7 +8518,8 @@ function applyRuntimeFacadeCheckpoint(session: AgentSession, toolName: string, v
                 : toolName === "career.workflow.profile_intake_finalize"
                   ? "final_review"
                   : toolName === "career.workflow.tailor_resume"
-                    ? "answer_tailoring_question"
+                    ? normalizeTailoringStage(facadeWorkflowStage ?? "")
+                      ?? (isTailoringQuestionPaused(normalizedSessionData) ? "clarify_unsupported_facts" : "generate_changes")
                     : task.stage;
   const knownSlots: Record<string, unknown> = {
     ...task.knownSlots,
@@ -8250,7 +8539,11 @@ function applyRuntimeFacadeCheckpoint(session: AgentSession, toolName: string, v
       } : {})
     } : {}),
     ...(checkpoint.kind === "resume_export" ? { exportResult: result } : {}),
-    ...(checkpoint.kind === "tailoring_session" ? { tailoringSession: normalizedSessionData } : {}),
+    ...(checkpoint.kind === "tailoring_session" ? {
+      tailoringSession: normalizedSessionData,
+      questionPlan: objectRecordValue(objectRecordValue(normalizedSessionData.plan).questionPlan),
+      activeQuestionId: stringRecordValue(objectRecordValue(objectRecordValue(normalizedSessionData.plan).questionPlan).activeQuestionId)
+    } : {}),
     ...(checkpoint.kind === "profile_intake_turn" ? {
       intakeImportId: understood.importId,
       expectedIntakeDraftRevision: understood.expectedDraftRevision,
@@ -8602,6 +8895,32 @@ function objectValue(value: unknown): Record<string, unknown> {
     : {};
 }
 
+function recordRuntimeToolFailure(
+  session: AgentSession,
+  failure: {
+    toolName: string;
+    operationId: string;
+    code: string;
+    message?: string;
+    recoverable?: boolean;
+    occurredAt: string;
+  }
+) {
+  if (!session.activeTurn) return session;
+  const prior = session.activeTurn.toolFailures ?? [];
+  const alreadyRecorded = prior.some((item) => item.toolName === failure.toolName && item.operationId === failure.operationId);
+  return {
+    ...session,
+    activeTurn: {
+      ...session.activeTurn,
+      toolFailures: alreadyRecorded ? prior : [...prior, failure].slice(-32),
+      lastFailedTool: failure.toolName,
+      lastFailedOperationId: failure.operationId,
+      lastSafeErrorCode: failure.code
+    }
+  };
+}
+
 function replaceRuntimeShellMessage(
   session: AgentSession,
   messageId: string,
@@ -8633,6 +8952,45 @@ function replaceRuntimeShellMessage(
       : message),
     updatedAt: now
   };
+}
+
+function projectDeterministicAssistantMessage(
+  session: AgentSession,
+  turnId: string,
+  content: string,
+  messageId: string
+) {
+  const existing = session.messages.findLast((message) =>
+    message.role === "assistant"
+    && message.turnId === turnId
+    && message.metadata?.retracted !== true
+  );
+  if (existing) {
+    return {
+      ...session,
+      messages: session.messages.map((message) => message.id === existing.id
+        ? {
+            ...message,
+            content,
+            kind: "text" as const,
+            type: "text" as const,
+            status: "complete" as const,
+            streaming: false,
+            metadata: { ...message.metadata, runtimeId: "hermes", deterministicTransactionMessage: true },
+            updatedAt: new Date().toISOString()
+          }
+        : message),
+      updatedAt: new Date().toISOString()
+    };
+  }
+  return appendAgentMessage(session, "assistant", content, {
+    id: messageId,
+    turnId,
+    kind: "text",
+    type: "text",
+    status: "complete",
+    metadata: { runtimeId: "hermes", deterministicTransactionMessage: true }
+  });
 }
 
 function applyRuntimeEventDiagnostics(session: AgentSession, event: AgentRuntimeEvent, hermesRunId?: string) {
@@ -8674,7 +9032,7 @@ function runtimeFailureRecoveryText(code?: string, taskState?: AgentTaskState) {
   }
   if (
     taskState?.workflowId === "tailor_existing_resume"
-    && taskState.stage === "generate_plan"
+    && normalizeTailoringStage(taskState.stage) === "generate_plan"
     && taskState.knownSlots.fitAnalysis
     && taskState.selectedEntities.profileId
     && taskState.selectedEntities.resumeId

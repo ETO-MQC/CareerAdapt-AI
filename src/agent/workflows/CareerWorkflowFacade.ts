@@ -12,6 +12,7 @@ import {
   type CareerInformationNeedDraft,
   type CareerInteractionQuestion
 } from "@/domain/careerInteraction/CareerInteractionPlan";
+import { isTailoringQuestionPaused, normalizeTailoringStage, type TailoringStage } from "./tailoringStage";
 
 export const CareerWorkflowStatusSchema = z.enum([
   "completed",
@@ -23,6 +24,8 @@ export const CareerWorkflowStatusSchema = z.enum([
 
 export const CareerWorkflowFacadeResultSchema = z.object({
   status: CareerWorkflowStatusSchema,
+  /** Canonical Host-owned workflow checkpoint. `nextAction` is only a hint. */
+  workflowStage: z.string().min(1),
   nextAction: z.string().optional(),
   userPrompt: z.string().optional(),
   artifactRefs: z.array(z.object({ id: z.string(), kind: z.string(), toolName: z.string(), sourceToolName: z.string() }).passthrough()).optional(),
@@ -178,8 +181,9 @@ export async function executeCareerWorkflowFacade(
     const createdSession = result.data && typeof result.data === "object" && !Array.isArray(result.data)
       ? (result.data as Record<string, unknown>).session
       : undefined;
-    return facadeFromAtomic(name, operationId, result, "waiting_for_user", "answer_tailoring_question", "请只询问当前定制会话返回的下一题。", {
+    return facadeFromAtomic(name, operationId, result, "waiting_for_user", "ask_current_tailoring_question", "请只询问当前定制会话返回的下一题。", {
       kind: "tailoring_session",
+      workflowStage: "generate_plan",
       profileId: input.profileId,
       resumeId: input.resumeId,
       jobId: input.jobId,
@@ -296,11 +300,29 @@ function facadeFromAtomic(
     status: status === "failed" || status === "partial" ? "failed" : status === "waiting_for_confirmation" ? "confirmation_required" : "completed",
     completedAt: new Date().toISOString()
   };
+  const workflowStage = facadeWorkflowStage(facadeName, result, workflowCheckpoint);
+  const projectedNextAction = facadeName === "career.workflow.tailor_resume"
+    ? workflowStage === "clarify_unsupported_facts"
+      ? "ask_current_tailoring_question"
+      : workflowStage === "generate_changes"
+        ? "generate_tailoring_changes"
+        : workflowStage === "preview_changes"
+          ? "review_tailoring_diff"
+          : nextAction
+    : nextAction;
+  const projectedPrompt = facadeName === "career.workflow.tailor_resume"
+    ? workflowStage === "clarify_unsupported_facts"
+      ? "请只询问当前定制会话返回的下一题。"
+      : workflowStage === "generate_changes"
+        ? "澄清已完成，可以生成定制修改建议。"
+        : userPrompt
+    : userPrompt;
   return {
     data: CareerWorkflowFacadeResultSchema.parse({
       status,
-      nextAction: status === "waiting_for_confirmation" ? "request_confirmation" : nextAction,
-      userPrompt: status === "waiting_for_confirmation" ? "这一步需要你的明确确认。" : userPrompt,
+      workflowStage,
+      nextAction: status === "waiting_for_confirmation" ? "request_confirmation" : projectedNextAction,
+      userPrompt: status === "waiting_for_confirmation" ? "这一步需要你的明确确认。" : projectedPrompt,
       artifactRefs: result.artifacts,
       receipts: [result.receipt, facadeReceipt],
       safeError: result.error ? { code: result.error.code, message: result.error.message, recoverable: result.error.recoverable } : undefined,
@@ -310,6 +332,34 @@ function facadeFromAtomic(
     artifacts: result.artifacts,
     receipts: [result.receipt, facadeReceipt]
   };
+}
+
+function facadeWorkflowStage(
+  facadeName: string,
+  result: CareerToolResult,
+  checkpoint: Record<string, unknown>
+) {
+  if (facadeName === "career.workflow.tailor_resume") {
+    const declared = normalizeTailoringStage(stringValue(checkpoint.workflowStage) ?? "");
+    const data = objectValue(result.data);
+    const session = objectValue(data.session ?? checkpoint.session);
+    const plan = objectValue(session.plan);
+    const questionPlan = objectValue(plan.questionPlan);
+    if (isTailoringQuestionPaused(session)) return "clarify_unsupported_facts" satisfies TailoringStage;
+    if (plan.generationStatus === "completed" || questionPlan.status === "completed") return "preview_changes" satisfies TailoringStage;
+    if (questionPlan.status === "ready_for_generation" || plan.generationStatus === "ready_for_generation") return "generate_changes" satisfies TailoringStage;
+    return declared ?? "generate_plan" satisfies TailoringStage;
+  }
+  const stages: Record<string, string> = {
+    "career.workflow.profile_intake_turn": "collect_experience",
+    "career.workflow.profile_intake_finalize": "final_review",
+    "career.workflow.resume_import": "import_review",
+    "career.workflow.job_fit": "review_result",
+    "career.workflow.profile_to_resume": "resume_ready",
+    "career.workflow.compose_resume": "review_composition",
+    "career.workflow.resume_export": "export_ready"
+  };
+  return stringValue(checkpoint.workflowStage) ?? stages[facadeName] ?? "completed";
 }
 
 function buildFacadeInteractionPlan(input: {

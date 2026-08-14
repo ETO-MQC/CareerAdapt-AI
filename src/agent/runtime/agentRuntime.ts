@@ -93,7 +93,7 @@ export interface AgentRuntime {
   interrupt(sessionId: string): Promise<void>;
   resume(sessionId: string): Promise<void>;
   capabilities(): AgentRuntimeCapabilities;
-  /** One bounded health/session recovery before a safe pre-first-event fallback. */
+  /** One bounded Hermes health/session recovery before a safe retry. */
   recoverBeforeFallback?(input: AgentRuntimeTurnInput): Promise<void>;
 }
 
