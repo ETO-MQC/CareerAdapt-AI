@@ -103,6 +103,13 @@ import {
 } from "./RuntimeUserEvent";
 import { tailoringDiffId } from "@/services/jobs/tailoringDiffId";
 import { isTailoringQuestionPaused, normalizeTailoringStage } from "@/agent/workflows/tailoringStage";
+import {
+  ResumeArtifactReceiptSchema,
+  ResumeArtifactWriteCheckpointSchema,
+  resumeArtifactWriteCheckpointId,
+  type ResumeArtifactReceipt,
+  type ResumeArtifactWriteCheckpoint
+} from "@/agent/contracts/resumeArtifactWrite";
 
 const TAILORING_APPLY_FAILURE_MESSAGE = "已采用的修改仍保留，但岗位简历写入没有完成。可以从当前步骤重试。";
 
@@ -259,6 +266,12 @@ export class AgentHostStore {
   private readonly artifactActionExecutions = new Map<string, Promise<AgentSession | undefined>>();
   private readonly pendingInputs = new Map<string, PendingUserInput[]>();
   private runtimeEventQueue: Promise<void> = Promise.resolve();
+  private streamCheckpointTimer?: ReturnType<typeof setTimeout>;
+  private streamCheckpointInFlight?: Promise<void>;
+  private streamCheckpointQueued = false;
+  private streamCheckpointSessionId?: string;
+  private streamCheckpointAssistantId?: string;
+  private streamCheckpointPersistedLength = 0;
 
   constructor(private readonly dependencies: {
     kernel: AgentKernel;
@@ -396,7 +409,14 @@ export class AgentHostStore {
     // and comes back. Keep the persisted running shell intact while the
     // session-scoped execution is still active.
     const hasLiveExecution = Boolean(liveExecution?.promise) || liveExecution?.status === "running";
-    const recoveredThinking = enforceExactlyOneFinal(hasLiveExecution ? migrated : recoverOrphanedThinking(migrated));
+    const hasRecoverableHermesRun = Boolean(
+      migrated.activeTurn?.status === "running"
+      && migrated.hermesRun
+      && ["queued", "running", "waiting_for_approval", "stopping"].includes(migrated.hermesRun.status)
+    );
+    const hasRecoverableArtifactWrite = Boolean(artifactWriteCheckpointFromSession(migrated));
+    const canResumePersistedTurn = hasLiveExecution || hasRecoverableHermesRun || hasRecoverableArtifactWrite;
+    const recoveredThinking = enforceExactlyOneFinal(canResumePersistedTurn ? migrated : recoverOrphanedThinking(migrated));
     const { session: recoverable, pendingInputs } = recoverPersistedQueuedInputs(recoveredThinking);
     if (pendingInputs.length) this.pendingInputs.set(recoverable.id, pendingInputs);
     const restorable = recoverable.taskState
@@ -406,7 +426,7 @@ export class AgentHostStore {
     // A live execution owns the latest session state. Do not write a stale
     // restore/migration projection back over it while the user is switching
     // tasks; the running turn will persist its authoritative result.
-    if (!hasLiveExecution && JSON.stringify(withRestorePrompt) !== JSON.stringify(session)) {
+    if (!canResumePersistedTurn && JSON.stringify(withRestorePrompt) !== JSON.stringify(session)) {
       void this.dependencies.persistence.save(withRestorePrompt);
     }
     const execution = this.executionCoordinator.get(withRestorePrompt.id);
@@ -424,7 +444,209 @@ export class AgentHostStore {
       streamEvents: execution?.streamEvents ?? [],
       pendingInputCount: pendingInputs.length
     });
+    if (hasRecoverableArtifactWrite && this.hasExplicitCareerRepository()) {
+      void this.reconcileDurableArtifactWrite(withRestorePrompt);
+    }
     if (pendingInputs.length && !withRestorePrompt.pendingConfirmation && !execution?.promise) void this.drainPendingInput(withRestorePrompt.id);
+  }
+
+  async adoptDurably(session: AgentSession) {
+    this.adopt(session);
+    const adopted = this.snapshot.activeSession;
+    if (!adopted || adopted.id !== session.id) return adopted;
+    const saved = await this.dependencies.persistence.save(adopted);
+    const current = this.snapshot.activeSession;
+    if (current?.id === adopted.id && current.updatedAt === adopted.updatedAt) this.patchSession(saved);
+    return saved;
+  }
+
+  async persistActiveSessionSnapshot() {
+    await this.flushStreamingCheckpoint();
+    const current = this.snapshot.activeSession;
+    if (!current) return undefined;
+    const saved = await this.dependencies.persistence.save(current);
+    const latest = this.snapshot.activeSession;
+    if (latest?.id === current.id && latest.updatedAt === current.updatedAt) this.patchSession(saved);
+    return saved;
+  }
+
+  private async reconcileDurableArtifactWrite(session: AgentSession) {
+    const checkpoint = artifactWriteCheckpointFromSession(session);
+    if (!checkpoint) return;
+    const repository = this.getCareerRepository();
+    try {
+      const receipt = await repository.getResumeArtifactReceipt(checkpoint.operationId);
+      if (receipt) {
+        const verification = await repository.verifyResumeArtifactReceipt(receipt);
+        if (verification.ok) {
+          await this.repairTailoringSuccess(session, receipt);
+          return;
+        }
+      }
+      await this.repairTailoringWriteRecovery(session, checkpoint, receipt ? "artifact_receipt_readback_failed" : undefined);
+    } catch {
+      // Recovery remains a user-visible retry state. Never turn an uncertain
+      // repository read into a false success.
+      await this.repairTailoringWriteRecovery(session, checkpoint, "artifact_recovery_read_failed");
+    }
+  }
+
+  private async repairTailoringSuccess(session: AgentSession, receipt: ResumeArtifactReceipt) {
+    const current = this.snapshot.activeSession;
+    if (!current || current.id !== session.id || current.updatedAt !== session.updatedAt) return;
+    const turnId = current.activeTurn?.id ?? `artifact-recovery-${receipt.operationId}`;
+    const observation = {
+      operationId: receipt.operationId,
+      resultResumeId: receipt.resultResumeId,
+      resultResumeRevisionId: receipt.resultResumeRevisionId,
+      revisionId: receipt.resultResumeRevisionId,
+      qualityResult: {
+        status: "passed",
+        factGuard: "passed",
+        revisionCreated: true,
+        repositoryReadBackVerified: true,
+        resumeListVisibilityVerified: true,
+        acceptedDiffIds: receipt.acceptedDiffIds,
+        acceptedDiffCount: receipt.acceptedDiffCount,
+        changedFieldPaths: receipt.changedFieldPaths,
+        beforeContentHash: receipt.beforeContentHash,
+        afterContentHash: receipt.afterContentHash,
+        artifactReceipt: receipt,
+        receipt: { operationId: receipt.operationId, status: "completed" }
+      },
+      artifactReceipt: receipt,
+      receipt: { operationId: receipt.operationId, status: "completed" }
+    };
+    let repaired = current;
+    if (current.taskState) {
+      repaired = projectTaskStateIntoSession(repaired, new AgentTaskStateReducer().reduce(current.taskState, {
+        type: "tool_observation",
+        toolName: "apply_tailoring_changes",
+        observation
+      }));
+    }
+    repaired = withTailoringResultArtifact(repaired, receipt);
+    const acceptedCount = receipt.acceptedDiffCount;
+    repaired = projectDeterministicAssistantMessage(
+      repaired,
+      turnId,
+      `已生成岗位定制简历，并应用了 ${acceptedCount} 项已确认修改。`,
+      `agent-artifact-recovery-${receipt.operationId}`
+    );
+    const assistantId = repaired.messages.findLast((message) => message.role === "assistant" && message.turnId === turnId)?.id;
+    repaired = withOpenArtifactOption(repaired, assistantId, receipt.resultResumeId);
+    repaired = updateArtifactWriteDiagnostics(repaired, {
+      operationId: receipt.operationId,
+      checkpointId: artifactWriteCheckpointFromSession(repaired)?.checkpointId,
+      status: "write_completed",
+      sourceResumeId: receipt.sourceResumeId,
+      resultResumeId: receipt.resultResumeId,
+      resultResumeRevisionId: receipt.resultResumeRevisionId,
+      resultRevisionId: receipt.resultResumeRevisionId,
+      acceptedDiffCount: receipt.acceptedDiffCount,
+      changedFieldPaths: receipt.changedFieldPaths,
+      repositoryReadBackVerified: true,
+      resumeListVisibilityVerified: true
+    });
+    repaired = {
+      ...repaired,
+      activeTurn: repaired.activeTurn
+        ? { ...repaired.activeTurn, status: "completed", completedAt: new Date().toISOString(), visibleAssistantMessageId: assistantId }
+        : repaired.activeTurn,
+      workflowState: repaired.taskState
+        ? projectTaskStateToWorkflowState(repaired.taskState, { ...repaired.workflowState, status: "completed" })
+        : repaired.workflowState
+    };
+    const saved = await this.dependencies.persistence.save(repaired);
+    const latest = this.snapshot.activeSession;
+    if (latest?.id === session.id && latest.updatedAt === current.updatedAt) {
+      this.patchSession(saved, { turnStatus: "completed", activeTurnId: turnId, uiAction: resumePreviewUiAction(saved) });
+    }
+  }
+
+  private async repairTailoringWriteRecovery(
+    session: AgentSession,
+    checkpoint: ResumeArtifactWriteCheckpoint,
+    overrideCode?: string
+  ) {
+    const current = this.snapshot.activeSession;
+    if (!current || current.id !== session.id || current.updatedAt !== session.updatedAt) return;
+    const code = overrideCode ?? checkpoint.safeErrorCode ?? "artifact_write_interrupted_before_commit";
+    const message = code === "artifact_write_interrupted_before_commit"
+      ? "岗位简历生成在写入前被中断，已保留所有确认内容，可以直接重试。"
+      : "岗位简历写入结果仍需重新校验，已保留所有确认内容，可以从当前步骤重试。";
+    const turnId = current.activeTurn?.id ?? `artifact-recovery-${checkpoint.operationId}`;
+    const failedCheckpoint: ResumeArtifactWriteCheckpoint = {
+      ...checkpoint,
+      checkpointId: checkpoint.checkpointId || resumeArtifactWriteCheckpointId(checkpoint.operationId),
+      status: "write_failed",
+      safeErrorCode: code,
+      updatedAt: new Date().toISOString()
+    };
+    if (this.hasExplicitCareerRepository()) {
+      await this.getCareerRepository().saveResumeArtifactWriteCheckpoint(failedCheckpoint).catch(() => undefined);
+    }
+    let repaired = current;
+    if (current.taskState) {
+      const taskState = {
+        ...current.taskState,
+        activeGoal: "confirm_apply",
+        stage: "confirm_apply",
+        completionStatus: "waiting_for_user" as const,
+        knownSlots: {
+          ...current.taskState.knownSlots,
+          tailoringApplyFailure: {
+            code,
+            message,
+            recoverable: true,
+            operationId: checkpoint.operationId
+          },
+          artifactWriteCheckpoint: {
+            ...failedCheckpoint
+          }
+        },
+        updatedAt: new Date().toISOString()
+      };
+      repaired = projectTaskStateIntoSession(repaired, taskState);
+    }
+    const alreadyNarrated = repaired.messages.some((candidate) =>
+      candidate.role === "assistant"
+      && candidate.content === message
+      && (
+        candidate.metadata?.artifactRecoveryOperationId === checkpoint.operationId
+        || candidate.metadata?.deterministicTransactionMessage === true
+      )
+    );
+    if (!alreadyNarrated) {
+      repaired = projectDeterministicAssistantMessage(repaired, turnId, message, `agent-artifact-recovery-${checkpoint.operationId}`);
+      const assistant = repaired.messages.findLast((candidate) => candidate.role === "assistant" && candidate.turnId === turnId);
+      repaired = withTailoringRetryOption(repaired, assistant?.id);
+    }
+    repaired = updateArtifactWriteDiagnostics(repaired, {
+      operationId: checkpoint.operationId,
+      checkpointId: checkpoint.checkpointId,
+      status: checkpoint.status,
+      sourceResumeId: checkpoint.sourceResumeId,
+      safeErrorCode: code,
+      acceptedDiffCount: checkpoint.acceptedDiffIds.length,
+      changedFieldPaths: checkpoint.changedFieldPaths,
+      repositoryReadBackVerified: false,
+      resumeListVisibilityVerified: false
+    });
+    repaired = {
+      ...repaired,
+      activeTurn: repaired.activeTurn
+        ? { ...repaired.activeTurn, status: "waiting_for_user", completedAt: new Date().toISOString() }
+        : repaired.activeTurn,
+      workflowState: repaired.taskState
+        ? projectTaskStateToWorkflowState(repaired.taskState, { ...repaired.workflowState, status: "waiting_for_user" })
+        : repaired.workflowState
+    };
+    const saved = await this.dependencies.persistence.save(repaired);
+    const latest = this.snapshot.activeSession;
+    if (latest?.id === session.id && latest.updatedAt === current.updatedAt) {
+      this.patchSession(saved, { turnStatus: "waiting_for_user", activeTurnId: turnId, currentObservation: { safeErrorCode: code } });
+    }
   }
 
   setPaused(paused: boolean) {
@@ -1367,6 +1589,73 @@ export class AgentHostStore {
     return queued;
   }
 
+  private scheduleStreamingCheckpoint(session: AgentSession, assistantMessageId: string) {
+    const assistant = session.messages.find((message) => message.id === assistantMessageId);
+    if (!assistant || session.activeTurn?.status !== "running") return;
+    this.streamCheckpointSessionId = session.id;
+    this.streamCheckpointAssistantId = assistantMessageId;
+    const meaningfulDelta = assistant.content.length - this.streamCheckpointPersistedLength;
+    if (meaningfulDelta >= 1200) {
+      void this.flushStreamingCheckpoint();
+      return;
+    }
+    if (this.streamCheckpointTimer) return;
+    this.streamCheckpointTimer = setTimeout(() => {
+      this.streamCheckpointTimer = undefined;
+      void this.flushStreamingCheckpoint();
+    }, 750);
+  }
+
+  private async flushStreamingCheckpoint() {
+    if (this.streamCheckpointTimer) {
+      clearTimeout(this.streamCheckpointTimer);
+      this.streamCheckpointTimer = undefined;
+    }
+    if (this.streamCheckpointInFlight) {
+      this.streamCheckpointQueued = true;
+      await this.streamCheckpointInFlight;
+      if (this.streamCheckpointQueued) {
+        this.streamCheckpointQueued = false;
+        await this.flushStreamingCheckpoint();
+      }
+      return;
+    }
+    const sessionId = this.streamCheckpointSessionId;
+    if (!sessionId || this.snapshot.activeSessionId !== sessionId) return;
+    const current = this.snapshot.activeSession;
+    if (!current || current.id !== sessionId || current.activeTurn?.status !== "running") return;
+    const assistantId = this.streamCheckpointAssistantId;
+    const assistant = assistantId ? current.messages.find((message) => message.id === assistantId) : undefined;
+    if (!assistant || assistant.content.length <= this.streamCheckpointPersistedLength) return;
+    const before = current;
+    this.streamCheckpointInFlight = (async () => {
+      try {
+        const saved = await this.dependencies.persistence.save(before);
+        this.streamCheckpointPersistedLength = assistant.content.length;
+        const latest = this.snapshot.activeSession;
+        if (latest?.id === before.id && latest.updatedAt === before.updatedAt) this.patchSession(saved);
+      } catch {
+        // The next bounded checkpoint or terminal save retries the snapshot.
+      } finally {
+        this.streamCheckpointInFlight = undefined;
+      }
+    })();
+    await this.streamCheckpointInFlight;
+    if (this.streamCheckpointQueued) {
+      this.streamCheckpointQueued = false;
+      await this.flushStreamingCheckpoint();
+    }
+  }
+
+  private clearStreamingCheckpoint() {
+    if (this.streamCheckpointTimer) clearTimeout(this.streamCheckpointTimer);
+    this.streamCheckpointTimer = undefined;
+    this.streamCheckpointSessionId = undefined;
+    this.streamCheckpointAssistantId = undefined;
+    this.streamCheckpointPersistedLength = 0;
+    this.streamCheckpointQueued = false;
+  }
+
   private async applyRuntimeEventNow(event: AgentRuntimeEvent, assistantMessageId: string) {
     const current = this.snapshot.activeSession;
     if (!current || current.id !== event.sessionId) return undefined;
@@ -1399,6 +1688,7 @@ export class AgentHostStore {
     }
     if (event.type === "text_delta") {
       next = replaceRuntimeShellMessage(next, assistantMessageId, `${assistant?.content ?? ""}${event.delta ?? ""}`, event, true);
+      this.scheduleStreamingCheckpoint(next, assistantMessageId);
     }
     if (["tool_call_started", "tool_call_requested", "tool_call_completed", "tool_call_failed"].includes(event.type)) {
       const operationId = event.operationId ?? `runtime-tool-${crypto.randomUUID()}`;
@@ -1641,6 +1931,7 @@ export class AgentHostStore {
             : "completed",
         isolatedConversationalTurn
       );
+      this.clearStreamingCheckpoint();
       const saved = await this.dependencies.persistence.save(next);
       this.patchSession(saved, {
         turnStatus: event.type === "turn_failed" && !tailoringRecovery && !tailoringQuestionRecovery || blocked ? "failed" : tailoringRecovery || tailoringQuestionRecovery ? "waiting_for_user" : saved.pendingConfirmation ? "waiting_for_confirmation" : "completed",
@@ -4378,6 +4669,67 @@ export class AgentHostStore {
           profileRevision: current.profileRevision
         }
       : undefined;
+    if (call.toolName === "apply_tailoring_changes" && current.taskState) {
+      const applyInput = objectRecordValue(confirmation.validatedInput ?? call.input);
+      const applySession = objectRecordValue(applyInput.session);
+      const applyBranch = objectRecordValue(applySession.branch);
+      const applyJob = objectRecordValue(applySession.job);
+      const profileId = stringRecordValue(applyBranch.profileId)
+        ?? current.taskState.selectedEntities.profileId
+        ?? current.activeProfileId;
+      const profile = profileId && this.hasExplicitCareerRepository()
+        ? await this.getCareerRepository().getProfile(profileId)
+        : undefined;
+      const expectedProfileRevision = profile?.version
+        ?? current.profileRevision
+        ?? numberValue(current.taskState.selectedEntities.profileVersion)
+        ?? 0;
+      const now = new Date().toISOString();
+      const acceptedDiffIds = Array.isArray(current.taskState.knownSlots.acceptedDiffIds)
+        ? current.taskState.knownSlots.acceptedDiffIds.filter((value): value is string => typeof value === "string")
+        : Array.isArray(current.taskState.knownSlots.selectedDiffIds)
+          ? current.taskState.knownSlots.selectedDiffIds.filter((value): value is string => typeof value === "string")
+          : [];
+      const checkpoint: ResumeArtifactWriteCheckpoint = {
+        schemaVersion: 1,
+        operationId: call.operationId,
+        checkpointId: resumeArtifactWriteCheckpointId(call.operationId),
+        workflowId: current.taskState.workflowId,
+        profileId: profileId ?? current.taskState.selectedEntities.profileId ?? "unknown-profile",
+        expectedProfileRevision,
+        sourceResumeId: stringRecordValue(applyBranch.id) ?? current.taskState.selectedEntities.resumeId ?? "unknown-resume",
+        sourceResumeRevisionId: stringRecordValue(applyBranch.currentRevisionId) ?? current.taskState.selectedEntities.resumeRevisionId,
+        jobId: stringRecordValue(applyJob.id) ?? current.taskState.selectedEntities.jobId ?? "unknown-job",
+        acceptedDiffIds,
+        changedFieldPaths: [],
+        status: "write_pending",
+        createdAt: now,
+        updatedAt: now
+      };
+      current = {
+        ...current,
+        taskState: {
+          ...current.taskState,
+          knownSlots: {
+            ...current.taskState.knownSlots,
+            artifactWriteCheckpoint: checkpoint
+          },
+          updatedAt: now
+        }
+      };
+      current = updateArtifactWriteDiagnostics(current, {
+        operationId: call.operationId,
+        checkpointId: checkpoint.checkpointId,
+        status: checkpoint.status,
+        sourceResumeId: checkpoint.sourceResumeId,
+        acceptedDiffCount: acceptedDiffIds.length,
+        changedFieldPaths: [],
+        repositoryReadBackVerified: false,
+        resumeListVisibilityVerified: false
+      });
+      current = await this.dependencies.persistence.save(current);
+      this.patchSession(current, { currentObservation: { type: "artifact_write_pending", operationId: call.operationId } });
+    }
     const result = await this.dependencies.executor.execute({
       toolName: call.toolName,
       toolInput: confirmation.validatedInput ?? call.input,
@@ -4403,7 +4755,11 @@ export class AgentHostStore {
     });
     if (call.toolName === "apply_tailoring_changes") {
       const reducer = new AgentTaskStateReducer();
-      if (result.ok) {
+      const hasDurableProof = result.ok && isAuthoritativeTailoringApplyResult(result.data);
+      const failureCode = result.ok
+        ? "artifact_commit_visibility_verification_failed"
+        : result.error?.code ?? "tailoring_apply_verification_failed";
+      if (hasDurableProof) {
         current = projectTaskStateIntoSession(current, reducer.reduce(current.taskState!, {
           type: "tool_observation",
           toolName: result.toolName,
@@ -4416,13 +4772,88 @@ export class AgentHostStore {
           type: "tool_failure",
           toolName: call.toolName,
           operationId: call.operationId,
-          errorCode: result.error?.code ?? "tailoring_apply_verification_failed",
-          message: result.error?.message,
-          recoverable: result.error?.retryable !== false
+          errorCode: failureCode,
+          message: result.ok
+            ? "岗位简历写入结果未通过回读校验。"
+            : result.error?.message,
+          recoverable: result.ok ? true : result.error?.retryable !== false
         }));
       }
+      const receipt = result.ok
+        ? ResumeArtifactReceiptSchema.safeParse(
+            objectRecordValue(result.data).artifactReceipt
+              ?? objectRecordValue(objectRecordValue(result.data).qualityResult).artifactReceipt
+          )
+        : undefined;
+      if (hasDurableProof && receipt?.success && current.taskState) {
+        const checkpoint = artifactWriteCheckpointFromSession(current);
+        current = {
+          ...current,
+          taskState: {
+            ...current.taskState,
+            knownSlots: {
+              ...current.taskState.knownSlots,
+              ...(checkpoint ? {
+                artifactWriteCheckpoint: {
+                  ...checkpoint,
+                  status: "write_completed" as const,
+                  resultResumeId: receipt.data.resultResumeId,
+                  resultResumeRevisionId: receipt.data.resultResumeRevisionId,
+                  changedFieldPaths: receipt.data.changedFieldPaths,
+                  updatedAt: receipt.data.completedAt
+                }
+              } : {})
+            }
+          }
+        };
+        current = updateArtifactWriteDiagnostics(current, {
+          operationId: receipt.data.operationId,
+          checkpointId: checkpoint?.checkpointId,
+          status: "write_completed",
+          sourceResumeId: receipt.data.sourceResumeId,
+          resultResumeId: receipt.data.resultResumeId,
+          resultResumeRevisionId: receipt.data.resultResumeRevisionId,
+          resultRevisionId: receipt.data.resultResumeRevisionId,
+          acceptedDiffCount: receipt.data.acceptedDiffCount,
+          changedFieldPaths: receipt.data.changedFieldPaths,
+          repositoryReadBackVerified: true,
+          resumeListVisibilityVerified: true
+        });
+      } else if (current.taskState) {
+        current = updateArtifactWriteDiagnostics(current, {
+          operationId: call.operationId,
+          checkpointId: artifactWriteCheckpointFromSession(current)?.checkpointId,
+          status: "visibility_verification_failed",
+          sourceResumeId: artifactWriteCheckpointFromSession(current)?.sourceResumeId,
+          safeErrorCode: failureCode,
+          acceptedDiffCount: numberValue(current.taskState.knownSlots.acceptedDiffCount),
+          changedFieldPaths: [],
+          repositoryReadBackVerified: false,
+          resumeListVisibilityVerified: false
+        });
+      }
       const failed = Boolean(current.taskState?.knownSlots.tailoringApplyFailure)
-        || !result.ok;
+        || !hasDurableProof;
+      if (failed && current.taskState) {
+        const checkpoint = artifactWriteCheckpointFromSession(current);
+        current = {
+          ...current,
+          taskState: {
+            ...current.taskState,
+            knownSlots: {
+              ...current.taskState.knownSlots,
+              ...(checkpoint ? {
+                artifactWriteCheckpoint: {
+                  ...checkpoint,
+                  status: result.ok ? "visibility_verification_failed" : "write_failed",
+                  safeErrorCode: failureCode,
+                  updatedAt: new Date().toISOString()
+                }
+              } : {})
+            }
+          }
+        };
+      }
       const assistantText = failed
         ? TAILORING_APPLY_FAILURE_MESSAGE
         : `已生成岗位定制简历，并应用了 ${numberValue(objectValue(objectValue(result.data).qualityResult).acceptedDiffCount) ?? current.taskState?.knownSlots.acceptedDiffCount ?? 0} 项已确认修改。`;
@@ -4443,6 +4874,7 @@ export class AgentHostStore {
         this.patchSession(saved, { turnStatus: "waiting_for_user", activeTurnId: turnId, currentObservation: current.taskState?.knownSlots.tailoringApplyFailure });
         return saved;
       }
+      if (receipt?.success) current = withOpenArtifactOption(current, assistantId, receipt.data.resultResumeId);
       current = {
         ...current,
         activeTurn: current.activeTurn
@@ -5020,8 +5452,14 @@ export class AgentHostStore {
     }
     this.executionCoordinator.interrupt(session.id);
     await this.executionCoordinator.get(session.id)?.promise;
-    const turnId = `agent-turn-${crypto.randomUUID()}`;
-    const userMessageId = `agent-user-${crypto.randomUUID()}`;
+    const currentTurn = session.activeTurn;
+    const preserveArtifactTurn = action.type === "tailoring_diff_decision" && currentTurn?.status === "waiting_for_user";
+    const turnId = preserveArtifactTurn
+      ? currentTurn.id
+      : `agent-turn-${crypto.randomUUID()}`;
+    const userMessageId = preserveArtifactTurn && currentTurn.userMessageId
+      ? currentTurn.userMessageId
+      : `agent-user-${crypto.randomUUID()}`;
     const operationId = artifactActionOperationId(session, action, revision);
     const actionSession = beginDeterministicArtifactTurn(
       session,
@@ -6311,6 +6749,19 @@ function objectRecordValue(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
     ? value as Record<string, unknown>
     : {};
+}
+
+function isAuthoritativeTailoringApplyResult(value: unknown) {
+  const result = objectRecordValue(value);
+  const quality = objectRecordValue(result.qualityResult);
+  const receipt = ResumeArtifactReceiptSchema.safeParse(result.artifactReceipt ?? quality.artifactReceipt);
+  return quality.status === "passed"
+    && quality.factGuard === "passed"
+    && quality.revisionCreated === true
+    && quality.repositoryReadBackVerified === true
+    && quality.resumeListVisibilityVerified === true
+    && receipt.success
+    && receipt.data.status === "completed";
 }
 
 function stringRecordValue(value: unknown) {
@@ -8170,7 +8621,7 @@ function attachConfirmedToolArtifact(
     : descriptor.route;
   const resolvedResumeBranch = descriptor.entityType === "resume_branch"
     && !entityId.startsWith("pending-");
-  return {
+  const next = {
     ...session,
     artifactRefs: [
       ...session.artifactRefs.filter((artifact) => descriptor.kind === "tailoring_workspace"
@@ -8194,6 +8645,13 @@ function attachConfirmedToolArtifact(
       }
     ]
   };
+  if (toolName === "apply_tailoring_changes") {
+    const receipt = ResumeArtifactReceiptSchema.safeParse(
+      value.artifactReceipt ?? objectRecordValue(value.qualityResult).artifactReceipt
+    );
+    if (receipt.success) return withTailoringResultArtifact(next, receipt.data);
+  }
+  return next;
 }
 
 function artifactActionRevision(
@@ -9064,14 +9522,142 @@ function runtimeFailureRecoveryText(code?: string, taskState?: AgentTaskState) {
 }
 
 function resumePreviewUiAction(session: AgentSession): AgentUiAction | undefined {
-  if (session.taskState?.workflowId !== "compose_resume" || !session.taskState.knownSlots.resumeCompositionResult) {
-    return undefined;
+  const taskState = session.taskState;
+  const tailoringReceipt = taskState
+    ? ResumeArtifactReceiptSchema.safeParse(
+        taskState.knownSlots.artifactReceipt
+          ?? objectRecordValue(taskState.knownSlots.qualityResult).artifactReceipt
+      )
+    : undefined;
+  if (
+    taskState?.workflowId === "compose_resume"
+    && taskState.knownSlots.resumeCompositionResult
+  ) {
+    const artifact = session.artifactRefs.findLast((candidate) =>
+      candidate.kind === "quality_result"
+        && candidate.entityId === taskState.selectedEntities.resumeId
+    );
+    return artifact ? { type: "open_artifact", artifactId: artifact.id } : undefined;
   }
+  if (!tailoringReceipt?.success) return undefined;
   const artifact = session.artifactRefs.findLast((candidate) =>
     candidate.kind === "quality_result"
-      && candidate.entityId === session.taskState?.selectedEntities.resumeId
+      && candidate.entityId === tailoringReceipt.data.resultResumeId
   );
   return artifact ? { type: "open_artifact", artifactId: artifact.id } : undefined;
+}
+
+function artifactWriteCheckpointFromSession(session: AgentSession) {
+  const candidate = session.taskState?.knownSlots.artifactWriteCheckpoint;
+  const parsed = ResumeArtifactWriteCheckpointSchema.safeParse(candidate);
+  return parsed.success ? parsed.data : undefined;
+}
+
+function withTailoringResultArtifact(session: AgentSession, receipt: ResumeArtifactReceipt) {
+  const now = new Date().toISOString();
+  return {
+    ...session,
+    artifactRefs: [
+      ...session.artifactRefs.filter((artifact) => !(
+        artifact.kind === "quality_result"
+        && artifact.entityType === "resume_branch"
+        && artifact.entityId === receipt.resultResumeId
+      )),
+      {
+        id: `tailoring-result:${receipt.resultResumeId}`,
+        kind: "quality_result" as const,
+        title: "岗位简历生成结果",
+        entityType: "resume_branch" as const,
+        entityId: receipt.resultResumeId,
+        route: `/resume?branchId=${encodeURIComponent(receipt.resultResumeId)}`,
+        status: "active" as const,
+        summary: "已生成独立岗位简历，可继续查看预览。",
+        createdAt: now,
+        updatedAt: now
+      }
+    ]
+  };
+}
+
+function withOpenArtifactOption(session: AgentSession, messageId: string | undefined, resultResumeId: string) {
+  if (!messageId) return session;
+  const artifact = session.artifactRefs.findLast((candidate) =>
+    candidate.kind === "quality_result" && candidate.entityId === resultResumeId
+  );
+  if (!artifact) return session;
+  const option: AgentOption = {
+    id: "open-job-resume",
+    label: "打开岗位简历",
+    action: { type: "open_artifact", artifactId: artifact.id }
+  };
+  return {
+    ...session,
+    messages: session.messages.map((message) => message.id === messageId
+      ? { ...message, options: [option], optionSet: undefined }
+      : message)
+  };
+}
+
+function withTailoringRetryOption(session: AgentSession, messageId?: string) {
+  if (!messageId) return session;
+  const option: AgentOption = {
+    id: "retry-tailoring-write",
+    label: "重新生成岗位简历",
+    action: { type: "retry_current_step" }
+  };
+  return {
+    ...session,
+    messages: session.messages.map((message) => message.id === messageId
+      ? {
+          ...message,
+          options: [option],
+          optionSet: activeOptionSetForMessage(session, message.id, "recovery")
+        }
+      : message)
+  };
+}
+
+function updateArtifactWriteDiagnostics(
+  session: AgentSession,
+  input: {
+    operationId: string;
+    checkpointId?: string;
+    status: string;
+    sourceResumeId?: string;
+    resultResumeId?: string;
+    resultResumeRevisionId?: string;
+    resultRevisionId?: string;
+    safeErrorCode?: string;
+    acceptedDiffCount?: number;
+    changedFieldPaths?: string[];
+    repositoryReadBackVerified: boolean;
+    resumeListVisibilityVerified: boolean;
+  }
+) {
+  if (!session.activeTurn) return session;
+  return {
+    ...session,
+    activeTurn: {
+      ...session.activeTurn,
+      runtimeFailureDiagnostics: {
+        ...session.activeTurn.runtimeFailureDiagnostics,
+        lastArtifactWrite: {
+          operationId: input.operationId,
+          ...(input.checkpointId ? { checkpointId: input.checkpointId } : {}),
+          status: input.status,
+          ...(input.sourceResumeId ? { sourceResumeId: input.sourceResumeId } : {}),
+          ...(input.resultResumeId ? { resultResumeId: input.resultResumeId } : {}),
+          ...(input.resultResumeRevisionId ? { resultResumeRevisionId: input.resultResumeRevisionId } : {}),
+          ...(input.resultRevisionId ? { resultRevisionId: input.resultRevisionId } : {}),
+          ...(input.safeErrorCode ? { safeErrorCode: input.safeErrorCode } : {}),
+          ...(typeof input.acceptedDiffCount === "number" ? { acceptedDiffCount: input.acceptedDiffCount } : {}),
+          ...(input.changedFieldPaths ? { changedFieldPaths: input.changedFieldPaths } : {}),
+          repositoryReadBackVerified: input.repositoryReadBackVerified,
+          resumeListVisibilityVerified: input.resumeListVisibilityVerified
+        }
+      }
+    }
+  };
 }
 
 function stringValue(value: unknown) {

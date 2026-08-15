@@ -84,6 +84,7 @@ import {
 import { createResumePdfExportRequest, presentationSnapshotFromConfig } from "@/services/export/snapshot";
 import { hashBytes, stableHashText } from "@/services/security/text";
 import { RevisionConflictError, WorkspaceRepository } from "@/services/storage/repositories";
+import { subscribeResumeRepositoryMutation } from "@/services/storage/resumeRepositoryEvents";
 import { notify } from "@/services/notifications/store";
 import { countProfileContent, profileCountSummary } from "@/domain/profile/profileCounts";
 import { useWorkspace } from "@/services/workspace/useWorkspace";
@@ -641,6 +642,14 @@ export function ResumeWorkspace() {
     setImportCreatesNewProfile(createNewProfile);
     setIsImportPanelOpen(true);
   }, []);
+
+  useEffect(() => {
+    if (workspace.status !== "ready" || !profile?.id) return;
+    return subscribeResumeRepositoryMutation((mutation) => {
+      if (mutation.profileId !== profile.id) return;
+      void refreshLists(profile.id);
+    });
+  }, [profile?.id, refreshLists, workspace.status]);
 
   useEffect(() => {
     if (!requestedImportId || handledImportRequestRef.current === requestedImportId) return;

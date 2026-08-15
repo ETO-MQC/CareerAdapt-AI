@@ -302,10 +302,12 @@ export function AgentWorkspace() {
     if (!pending) return;
     if (action === "new_task") {
       const created = AgentRuntime.create("agent_quick_action", "collecting_intent", "新的 AI 任务", pending.context);
-      host.state.adopt(created);
-      setSession(created);
+      const saved = await host.state.adoptDurably(created);
+      if (saved) {
+        setSession(saved);
+        window.localStorage.setItem(ACTIVE_SESSION_KEY, saved.id);
+      }
       setDrawerState("closed");
-      window.localStorage.setItem(ACTIVE_SESSION_KEY, NEW_TASK_SESSION_VALUE);
     } else if (action === "switch") {
       const rebound = await host.state.rebindSessionCareerContext(session.id, pending.context, true);
       setSession(rebound);
@@ -393,13 +395,19 @@ export function AgentWorkspace() {
     const context = await agentImportRepository.getActiveCareerContext();
     if (!mountedRef.current || (!options.allowAfterInteraction && userInteractedRef.current)) return undefined;
     const created = AgentRuntime.create("agent_quick_action", "collecting_intent", title, context);
-    host.state.adopt(created);
-    setSession(created);
-    return created;
+    const saved = await host.state.adoptDurably(created);
+    if (!saved) return undefined;
+    setSession(saved);
+    window.localStorage.setItem(ACTIVE_SESSION_KEY, saved.id);
+    return saved;
   }, [host.state]);
 
   useEffect(() => {
     let active = true;
+    const requested = window.localStorage.getItem(ACTIVE_SESSION_KEY);
+    const requestedSession = requested && requested !== NEW_TASK_SESSION_VALUE
+      ? host.store.get(requested).catch(() => undefined)
+      : Promise.resolve(undefined);
     void Promise.all([
       host.executor.execute({
         toolName: "list_resumes",
@@ -408,15 +416,15 @@ export function AgentWorkspace() {
       }),
       host.store.list(),
       agentImportRepository.listProfiles(),
-      agentImportRepository.getActiveCareerContext()
-    ]).then(async ([resumeResult, storedSessions, storedProfiles, activeContext]) => {
+      agentImportRepository.getActiveCareerContext(),
+      requestedSession
+    ]).then(async ([resumeResult, storedSessions, storedProfiles, activeContext, requestedStoredSession]) => {
       if (!active) return;
       setResumes(readArray(resumeResult.data, "resumes") as ResumeSummary[]);
       setSessions(storedSessions);
       setProfiles(storedProfiles);
       if (userInteractedRef.current) return;
       const live = host.state.getSnapshot();
-      const requested = window.localStorage.getItem(ACTIVE_SESSION_KEY);
       if (
         activeContext
         && live.activeSession
@@ -440,7 +448,7 @@ export function AgentWorkspace() {
         await createSessionWithCurrentContext("新的 AI 任务", { allowAfterInteraction: true });
         return;
       }
-      const restored = storedSessions.find((item) => item.id === requested) ?? storedSessions[0];
+      const restored = requestedStoredSession ?? storedSessions.find((item) => item.id === requested) ?? storedSessions[0];
       if (restored) {
         if (
           activeContext
@@ -491,7 +499,6 @@ export function AgentWorkspace() {
       void createSessionWithCurrentContext("新的 AI 任务", { allowAfterInteraction: true });
       setPendingResumeImportAttachmentId(undefined);
       setDrawerState("closed");
-      window.localStorage.setItem(ACTIVE_SESSION_KEY, NEW_TASK_SESSION_VALUE);
     };
     const openHistory = () => void host.store.list().then((items) => {
       setSessions(items);
@@ -795,7 +802,7 @@ export function AgentWorkspace() {
     anchor.download = `agent-diagnostics-${new Date().toISOString().slice(0, 10)}.json`;
     anchor.click();
     URL.revokeObjectURL(url);
-  }, [host.careerToolGateway, host.store, intakeProjection, runtimeStatus.health, session]);
+  }, [host.careerToolGateway, host.store, intakeProjection, runtimeStatus.activeRuntime, runtimeStatus.health, session]);
 
   return (
     <AgentWorkspaceLayout
@@ -1258,6 +1265,27 @@ export function sanitizeRuntimeFailureDiagnostics(value: unknown): Record<string
   for (const key of ["initialFailure", "recoveryFailure"]) {
     const nested = sanitizeRuntimeFailureDiagnostics(source[key]);
     if (nested) result[key] = nested;
+  }
+  const artifactWrite = source.lastArtifactWrite;
+  if (artifactWrite && typeof artifactWrite === "object" && !Array.isArray(artifactWrite)) {
+    const artifact = artifactWrite as Record<string, unknown>;
+    const safeArtifact: Record<string, unknown> = {};
+    for (const key of ["operationId", "checkpointId", "status", "sourceResumeId", "resultResumeId", "resultResumeRevisionId", "resultRevisionId", "safeErrorCode"]) {
+      if (typeof artifact[key] === "string" && artifact[key].trim()) safeArtifact[key] = (artifact[key] as string).slice(0, 240);
+    }
+    if (typeof artifact.acceptedDiffCount === "number" && Number.isFinite(artifact.acceptedDiffCount)) {
+      safeArtifact.acceptedDiffCount = Math.max(0, Math.round(artifact.acceptedDiffCount));
+    }
+    if (Array.isArray(artifact.changedFieldPaths)) {
+      safeArtifact.changedFieldPaths = artifact.changedFieldPaths
+        .filter((path): path is string => typeof path === "string")
+        .map((path) => path.slice(0, 240))
+        .slice(0, 128);
+    }
+    for (const key of ["repositoryReadBackVerified", "resumeListVisibilityVerified"]) {
+      if (typeof artifact[key] === "boolean") safeArtifact[key] = artifact[key];
+    }
+    if (Object.keys(safeArtifact).length) result.lastArtifactWrite = safeArtifact;
   }
   return Object.keys(result).length ? result : undefined;
 }

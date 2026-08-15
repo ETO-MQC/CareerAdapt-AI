@@ -568,6 +568,7 @@ export class AgentTaskStateReducer {
         const value = objectValue(event.observation);
         const quality = objectValue(value.qualityResult);
         const receipt = objectValue(quality.receipt ?? value.receipt);
+        const artifactReceipt = objectValue(quality.artifactReceipt ?? value.artifactReceipt);
         const resultResumeId = stringValue(value.resultResumeId ?? value.branchId ?? objectValue(value.branch).id);
         const resultRevisionId = stringValue(value.resultResumeRevisionId ?? value.revisionId ?? objectValue(value.revision).id);
         const acceptedDiffCount = numberValue(quality.acceptedDiffCount ?? value.acceptedDiffCount);
@@ -578,6 +579,9 @@ export class AgentTaskStateReducer {
         const changedFieldPaths = Array.isArray(changedFieldPathsValue) ? changedFieldPathsValue : [];
         const beforeHash = stringValue(quality.beforeContentHash ?? value.beforeContentHash);
         const afterHash = stringValue(quality.afterContentHash ?? value.afterContentHash);
+        const hasDurableArtifactProof = quality.repositoryReadBackVerified === true
+          && quality.resumeListVisibilityVerified === true
+          && artifactReceipt.status === "completed";
         const authoritative = Boolean(
           resultResumeId
           && resultRevisionId
@@ -592,10 +596,12 @@ export class AgentTaskStateReducer {
           && quality.status === "passed"
           && quality.factGuard === "passed"
           && quality.revisionCreated === true
+          && hasDurableArtifactProof
         );
         if (authoritative) {
           state.knownSlots.qualityResult = value.qualityResult ?? value;
           state.knownSlots.applyReceipt = value.receipt ?? quality.receipt;
+          state.knownSlots.artifactReceipt = value.artifactReceipt ?? quality.artifactReceipt;
           delete state.knownSlots.tailoringApplyFailure;
           state.selectedEntities.resultResumeId = resultResumeId;
           state.selectedEntities.resultResumeRevisionId = resultRevisionId;
@@ -606,7 +612,9 @@ export class AgentTaskStateReducer {
           state.completionStatus = "completed";
         } else {
           state.knownSlots.tailoringApplyFailure = {
-            code: "tailoring_apply_verification_failed",
+            code: hasDurableArtifactProof
+              ? "tailoring_apply_verification_failed"
+              : "artifact_commit_visibility_verification_failed",
             message: "已采用的修改仍保留，但岗位简历写入没有完成。可以从当前步骤重试。",
             recoverable: true,
             operationId: stringValue(value.operationId)

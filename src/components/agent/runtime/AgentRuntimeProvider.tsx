@@ -648,6 +648,19 @@ export function AgentRuntimeProvider({ children }: { children: React.ReactNode }
       void host.mcpBridge.stop();
     };
   }, [host]);
+  useEffect(() => {
+    const persist = () => { void host.state.persistActiveSessionSnapshot(); };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "hidden") persist();
+    };
+    window.addEventListener("pagehide", persist);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      window.removeEventListener("pagehide", persist);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      persist();
+    };
+  }, [host]);
   return <AgentRuntimeContext.Provider value={host}>{children}</AgentRuntimeContext.Provider>;
 }
 

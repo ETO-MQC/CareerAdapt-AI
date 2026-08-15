@@ -99,6 +99,12 @@ import {
   type AgentSession
 } from "@/agent/contracts/agentSession";
 import {
+  ResumeArtifactReceiptSchema,
+  ResumeArtifactWriteCheckpointSchema,
+  type ResumeArtifactReceipt,
+  type ResumeArtifactWriteCheckpoint
+} from "@/agent/contracts/resumeArtifactWrite";
+import {
   ProfileIntakeSourceTurnSchema,
   type ProfileIntakeSourceTurn
 } from "@/domain/profileIntake/ProfileIntakeSourceTurn";
@@ -160,6 +166,7 @@ import {
   stableHashText
 } from "@/services/security/text";
 import { CareerAdaptDb, careerAdaptDb, type AppMeta } from "./db";
+import { emitResumeRepositoryMutation } from "./resumeRepositoryEvents";
 
 const RECYCLE_BIN_META_KEY = "workspaceRecycleBin:v1";
 const ACTIVE_PROFILE_META_KEY = "activeProfileContext:v1";
@@ -173,6 +180,8 @@ const PROFILE_INTAKE_SOURCE_TURN_META_KEY_PREFIX = "profileIntakeSourceTurn:v1:"
 const AGENT_PROTOCOL_DIAGNOSTIC_META_KEY_PREFIX = "agentProtocolDiagnostic:v1:";
 const CAREER_LIFECYCLE_OPERATION_META_KEY_PREFIX = "careerLifecycleOperation:v1:";
 const RESUME_COMPOSITION_CHECKPOINT_META_KEY_PREFIX = "resumeCompositionCheckpoint:v1:";
+const RESUME_ARTIFACT_WRITE_CHECKPOINT_META_KEY_PREFIX = "resumeArtifactWriteCheckpoint:v1:";
+const RESUME_ARTIFACT_RECEIPT_META_KEY_PREFIX = "resumeArtifactReceipt:v1:";
 const EMPTY_RECYCLE_BIN: RecycleBinState = { version: 1, jobIds: [], profileItems: [] };
 
 function careerPersonMetaKey(personId: string) {
@@ -185,6 +194,14 @@ function careerLifecycleOperationKey(operationId: string) {
 
 function resumeCompositionCheckpointKey(checkpointId: string) {
   return `${RESUME_COMPOSITION_CHECKPOINT_META_KEY_PREFIX}${checkpointId}`;
+}
+
+function resumeArtifactWriteCheckpointKey(operationId: string) {
+  return `${RESUME_ARTIFACT_WRITE_CHECKPOINT_META_KEY_PREFIX}${operationId}`;
+}
+
+function resumeArtifactReceiptKey(operationId: string) {
+  return `${RESUME_ARTIFACT_RECEIPT_META_KEY_PREFIX}${operationId}`;
 }
 
 type CareerLifecycleOperationInput = {
@@ -321,7 +338,7 @@ function applyTailoringClaimsToBranch(
   return { contentItems, structuredContentItems };
 }
 
-function resumeBranchContentHash(value: ResumeBranch | { resumeBasics?: unknown; contentItems: unknown; structuredContentItems?: unknown }) {
+export function resumeBranchContentHash(value: ResumeBranch | { resumeBasics?: unknown; contentItems: unknown; structuredContentItems?: unknown }) {
   return stableHashText(JSON.stringify({
     resumeBasics: value.resumeBasics,
     contentItems: value.contentItems,
@@ -329,7 +346,7 @@ function resumeBranchContentHash(value: ResumeBranch | { resumeBasics?: unknown;
   }));
 }
 
-function readTailoringValue(branch: ResumeBranch, diff: ResumeTailoringDiff) {
+export function readTailoringValue(branch: ResumeBranch, diff: ResumeTailoringDiff) {
   const item = branch.structuredContentItems?.find((candidate) => candidate.id === diff.target.itemId);
   if (!item || item.data.sectionType !== diff.target.sectionId) return undefined;
   if (diff.target.fieldPath === "visible" || diff.target.fieldPath === "order") return item[diff.target.fieldPath];
@@ -749,20 +766,18 @@ export class WorkspaceRepository {
       const stored = storedRaw
         ? migrateAgentSessionToCurrentSchema(storedRaw as unknown as Record<string, unknown>)
         : undefined;
-      const existingRecords = await this.db.agentMessages.where("sessionId").equals(incoming.id).toArray();
-      const incomingMessageIds = new Set(incoming.messages.map((message) => message.id));
-      const coversStoredTranscript = existingRecords.every((record) => incomingMessageIds.has(record.id));
-      await this.appendAgentMessages(incoming.id, incoming.messages);
-
-      // Compare-and-swap metadata. A stale snapshot may contribute previously
-      // unseen append-only messages, but it can never roll workflow metadata back.
+      // Compare-and-swap metadata. A stale snapshot must never append its
+      // unseen transcript or roll workflow metadata back over a newer shell.
+      // Equal revisions are only accepted when their timestamps are not older;
+      // this closes the HMR/pagehide race where an old in-memory session is
+      // saved after the current turn has already checkpointed.
       const accepted = !stored
-        || incoming.sessionRevision === stored.sessionRevision
+        || incoming.sessionRevision > stored.sessionRevision
         || (
-          incoming.sessionRevision < stored.sessionRevision
-          && coversStoredTranscript
+          incoming.sessionRevision === stored.sessionRevision
           && incoming.updatedAt >= stored.updatedAt
         );
+      if (accepted) await this.appendAgentMessages(incoming.id, incoming.messages);
       const metadata = accepted ? incoming : stored;
       persisted = AgentSessionSchema.parse({
         ...metadata,
@@ -2677,7 +2692,7 @@ export class WorkspaceRepository {
     expectedBranchRevision: number;
     expectedRevisionId: string;
   }) {
-    return this.db.transaction("rw", [this.db.resumeBranches, this.db.resumeRevisions, this.db.resumeBranchOperations, this.db.appMeta], async () => {
+    const result = await this.db.transaction("rw", [this.db.resumeBranches, this.db.resumeRevisions, this.db.resumeBranchOperations, this.db.appMeta], async () => {
       const existing = await this.db.resumeBranchOperations.where("operationId").equals(input.operationId).first();
       if (existing?.revisionId) {
         const branch = await this.db.resumeBranches.get(input.branchId);
@@ -2818,6 +2833,16 @@ export class WorkspaceRepository {
         ...presentationInvariant
       };
     });
+    if (result.revision) {
+      emitResumeRepositoryMutation({
+        type: "updated",
+        profileId: result.branch.profileId,
+        branchId: result.branch.id,
+        revisionId: result.revision.id,
+        operationId: input.operationId
+      });
+    }
+    return result;
   }
 
   /**
@@ -2847,7 +2872,7 @@ export class WorkspaceRepository {
         expectedRevisionId: input.expectedSourceRevisionId
       });
     }
-    return this.db.transaction(
+    const result = await this.db.transaction(
       "rw",
       [
         this.db.profiles,
@@ -3018,6 +3043,7 @@ export class WorkspaceRepository {
           branch: nextBase,
           source: "suggestion_accept",
           operationId: input.operationId,
+          previousRevisionId: sourceBranch.currentRevisionId,
           now
         });
         const nextBranch = ResumeBranchSchema.parse({
@@ -3072,6 +3098,14 @@ export class WorkspaceRepository {
         };
       }
     );
+    emitResumeRepositoryMutation({
+      type: result.idempotent ? "updated" : "created",
+      profileId: result.branch.profileId,
+      branchId: result.branch.id,
+      revisionId: result.revision?.id,
+      operationId: input.operationId
+    });
+    return result;
   }
 
   async createGeneralResumeBranch(input: {
@@ -4635,6 +4669,107 @@ export class WorkspaceRepository {
     const stored = await this.db.appMeta.get(resumeCompositionCheckpointKey(checkpointId));
     if (!stored) return undefined;
     return ResumeCompositionCheckpointSchema.parse(stored.value);
+  }
+
+  async saveResumeArtifactWriteCheckpoint(checkpoint: ResumeArtifactWriteCheckpoint) {
+    const parsed = ResumeArtifactWriteCheckpointSchema.parse(checkpoint);
+    return this.db.transaction("rw", this.db.appMeta, async () => {
+      const key = resumeArtifactWriteCheckpointKey(parsed.operationId);
+      const existing = await this.db.appMeta.get(key);
+      if (existing) {
+        const existingCheckpoint = ResumeArtifactWriteCheckpointSchema.parse(existing.value);
+        const statusRank = {
+          write_pending: 1,
+          write_failed: 2,
+          visibility_verification_failed: 2,
+          write_completed: 3
+        } as const;
+        if (
+          statusRank[existingCheckpoint.status] > statusRank[parsed.status]
+          || existingCheckpoint.updatedAt > parsed.updatedAt
+        ) return existingCheckpoint;
+        if (existingCheckpoint.status === "write_completed" && parsed.status !== "write_completed") return existingCheckpoint;
+        const next = ResumeArtifactWriteCheckpointSchema.parse({
+          ...parsed,
+          createdAt: existingCheckpoint.createdAt
+        });
+        await this.db.appMeta.put({ key, value: next, updatedAt: next.updatedAt });
+        return next;
+      }
+      await this.db.appMeta.put({ key, value: parsed, updatedAt: parsed.updatedAt });
+      return parsed;
+    });
+  }
+
+  async getResumeArtifactWriteCheckpoint(operationId: string) {
+    const stored = await this.db.appMeta.get(resumeArtifactWriteCheckpointKey(operationId));
+    if (!stored) return undefined;
+    return ResumeArtifactWriteCheckpointSchema.parse(stored.value);
+  }
+
+  async listResumeArtifactWriteCheckpoints() {
+    const rows = await this.db.appMeta.toArray();
+    return rows
+      .filter((row) => row.key.startsWith(RESUME_ARTIFACT_WRITE_CHECKPOINT_META_KEY_PREFIX))
+      .flatMap((row) => {
+        const parsed = ResumeArtifactWriteCheckpointSchema.safeParse(row.value);
+        return parsed.success ? [parsed.data] : [];
+      });
+  }
+
+  async saveResumeArtifactReceipt(receipt: ResumeArtifactReceipt) {
+    const parsed = ResumeArtifactReceiptSchema.parse(receipt);
+    return this.db.transaction("rw", this.db.appMeta, async () => {
+      const key = resumeArtifactReceiptKey(parsed.operationId);
+      const existing = await this.db.appMeta.get(key);
+      if (existing) {
+        const existingReceipt = ResumeArtifactReceiptSchema.parse(existing.value);
+        if (JSON.stringify(existingReceipt) !== JSON.stringify(parsed)) {
+          throw new Error("resume_artifact_receipt_immutable_conflict");
+        }
+        return existingReceipt;
+      }
+      await this.db.appMeta.put({ key, value: parsed, updatedAt: parsed.completedAt });
+      return parsed;
+    });
+  }
+
+  async getResumeArtifactReceipt(operationId: string) {
+    const stored = await this.db.appMeta.get(resumeArtifactReceiptKey(operationId));
+    if (!stored) return undefined;
+    return ResumeArtifactReceiptSchema.parse(stored.value);
+  }
+
+  async verifyResumeArtifactReceipt(receipt: ResumeArtifactReceipt) {
+    const parsed = ResumeArtifactReceiptSchema.parse(receipt);
+    const [branch, revision, branches] = await Promise.all([
+      this.getResumeBranch(parsed.resultResumeId),
+      this.getResumeRevision(parsed.resultResumeRevisionId),
+      this.listResumeBranches(parsed.profileId)
+    ]);
+    const afterContentHash = branch ? resumeBranchContentHash(branch) : undefined;
+    const revisionContentHash = revision ? resumeBranchContentHash(revision.snapshot) : undefined;
+    const resumeListVisible = branches.some((candidate) => candidate.id === parsed.resultResumeId);
+    return {
+      ok: Boolean(
+        branch
+        && revision
+        && branch.profileId === parsed.profileId
+        && branch.jobId === parsed.jobId
+        && branch.branchPurpose === "job_specific"
+        && branch.lifecycleStatus === "active"
+        && branch.currentRevisionId === parsed.resultResumeRevisionId
+        && revision.branchId === parsed.resultResumeId
+        && resumeListVisible
+        && revisionContentHash === parsed.afterContentHash
+        && parsed.beforeContentHash !== parsed.afterContentHash
+      ),
+      branch,
+      revision,
+      afterContentHash,
+      revisionContentHash,
+      resumeListVisible
+    };
   }
 
   async getResumeSourceFingerprint(branchId: string) {

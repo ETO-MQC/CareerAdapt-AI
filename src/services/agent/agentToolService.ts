@@ -28,7 +28,17 @@ import { ResumeTailoringDiffModelOutputSchema, type ResumeTailoringDiffTaskInput
 import { commitParsedJob } from "@/services/jobs/jobWorkflow";
 import { analyzeJobFit, tailoringAnswerRevisionHash } from "@/services/jobs/tailoringService";
 import { hashText, stableHashText } from "@/services/security/text";
-import { WorkspaceRepository } from "@/services/storage/repositories";
+import {
+  readTailoringValue,
+  resumeBranchContentHash,
+  WorkspaceRepository
+} from "@/services/storage/repositories";
+import { tailoringDiffId } from "@/services/jobs/tailoringDiffId";
+import {
+  ResumeArtifactReceiptSchema,
+  resumeArtifactWriteCheckpointId,
+  type ResumeArtifactWriteCheckpoint
+} from "@/agent/contracts/resumeArtifactWrite";
 import type { AgentToolServices } from "@/agent/tools/registry";
 import {
   CareerContextRetrieveInputSchema,
@@ -1758,61 +1768,170 @@ export class BrowserAgentToolService implements AgentToolServices {
     if (!session.branch.currentRevisionId) {
       throw toolError("source_revision_missing", "The selected resume does not have a source revision.");
     }
-    const result = await this.repository.deriveAndApplyTailoringDiffsAtomic({
-      sourceBranchId: session.branch.id,
-      jobId: session.job.id,
-      expectedSourceRevision: session.branch.revision,
-      expectedSourceRevisionId: session.branch.currentRevisionId,
-      diffs: reviewed,
-      confirmedRequirementIds: input.confirmedRequirementIds,
+    const profile = await this.repository.getProfile(session.branch.profileId);
+    if (!profile) throw toolError("profile_not_found", "资料库不存在或已被移除。");
+    const acceptedDiffIds = reviewed.map((diff) => tailoringDiffId(diff));
+    const checkpointId = resumeArtifactWriteCheckpointId(operationId);
+    const checkpointCreatedAt = new Date().toISOString();
+    const checkpoint: ResumeArtifactWriteCheckpoint = {
+      schemaVersion: 1,
       operationId,
-      name: `${session.branch.name} · ${session.job.title}`.slice(0, 120)
-    });
-    assertNotAborted(signal);
-    if (!result.revision || result.appliedDiffs.length === 0 || result.beforeContentHash === result.afterContentHash) {
-      throw toolError("tailoring_apply_verification_failed", "已采用的修改仍保留，但岗位简历写入没有完成。可以从当前步骤重试。");
-    }
-    const completedAt = new Date().toISOString();
-    const acceptedDiffIds = result.acceptedDiffIds ?? reviewed.map((diff) => stableHashText(JSON.stringify({
-      target: diff.target,
-      operation: diff.operation,
-      original: diff.original,
-      value: diff.value
-    })));
-    const changedFieldPaths = "changedFieldPaths" in result ? result.changedFieldPaths : [];
-    const qualityResult = {
-      status: "passed" as const,
-      factGuard: "passed" as const,
-      revisionCreated: true,
-      resultResumeId: result.branch.id,
-      resultResumeRevisionId: result.revision.id,
+      checkpointId,
+      workflowId: "tailor_existing_resume",
+      profileId: session.branch.profileId,
+      expectedProfileRevision: profile.version,
+      sourceResumeId: session.branch.id,
+      sourceResumeRevisionId: session.branch.currentRevisionId,
+      jobId: session.job.id,
       acceptedDiffIds,
-      acceptedDiffCount: result.appliedDiffs.length,
-      changedFieldPaths,
-      beforeContentHash: "beforeContentHash" in result ? result.beforeContentHash : undefined,
-      afterContentHash: "afterContentHash" in result ? result.afterContentHash : undefined,
-      receipt: {
+      changedFieldPaths: [],
+      status: "write_pending",
+      createdAt: checkpointCreatedAt,
+      updatedAt: checkpointCreatedAt
+    };
+    await this.repository.saveResumeArtifactWriteCheckpoint(checkpoint);
+
+    try {
+      const result = await this.repository.deriveAndApplyTailoringDiffsAtomic({
+        sourceBranchId: session.branch.id,
+        jobId: session.job.id,
+        expectedSourceRevision: session.branch.revision,
+        expectedSourceRevisionId: session.branch.currentRevisionId,
+        diffs: reviewed,
+        confirmedRequirementIds: input.confirmedRequirementIds,
         operationId,
-        toolName: "apply_tailoring_changes",
-        status: "completed" as const,
-        completedAt
+        name: `${session.branch.name} · ${session.job.title}`.slice(0, 120)
+      });
+      assertNotAborted(signal);
+      if (!result.revision || result.appliedDiffs.length === 0 || result.beforeContentHash === result.afterContentHash) {
+        throw toolError("tailoring_apply_verification_failed", "已采用的修改仍保留，但岗位简历写入没有完成。可以从当前步骤重试。");
       }
-    };
-    return {
-      branchId: result.branch.id,
-      branchRevision: result.branch.revision,
-      resultResumeId: result.branch.id,
-      resultResumeRevisionId: result.revision.id,
-      revisionId: result.revision.id,
-      resumeHash: stableHashText(JSON.stringify({
-        currentRevisionId: result.branch.currentRevisionId,
-        contentItems: result.branch.contentItems,
-        structuredContentItems: result.branch.structuredContentItems
-      })),
-      qualityResult,
-      receipt: qualityResult.receipt,
-      ...result
-    };
+
+      const [readbackBranch, readbackRevision, visibleBranches, readbackProfile] = await Promise.all([
+        this.repository.getResumeBranch(result.branch.id),
+        this.repository.getResumeRevision(result.revision.id),
+        this.repository.listResumeBranches(session.branch.profileId),
+        this.repository.getProfile(session.branch.profileId)
+      ]);
+      if (!readbackBranch || !readbackRevision || !readbackProfile) {
+        throw toolError(
+          "artifact_commit_visibility_verification_failed",
+          "岗位简历写入结果未能完整回读；本次不会报告成功。"
+        );
+      }
+      const changedFieldPaths = "changedFieldPaths" in result ? result.changedFieldPaths : [];
+      const expectedChangedFieldPaths = reviewed.map((diff) => `${diff.target.sectionId}.${diff.target.itemId}.${diff.target.fieldPath}`);
+      const readbackValuesMatch = reviewed.every((diff) =>
+        JSON.stringify(readTailoringValue(readbackBranch, diff)) === JSON.stringify(diff.value)
+      );
+      const acceptedIdsMatch = acceptedDiffIds.length === result.appliedDiffs.length
+        && acceptedDiffIds.every((id) => (result.acceptedDiffIds ?? []).includes(id));
+      const hashesMatch = Boolean(
+        result.afterContentHash
+        && result.beforeContentHash
+        && resumeBranchContentHash(readbackRevision.snapshot) === result.afterContentHash
+        && result.beforeContentHash !== result.afterContentHash
+      );
+      const readbackVerified = Boolean(
+        readbackProfile.version === profile.version
+        && readbackBranch.profileId === session.branch.profileId
+        && readbackBranch.jobId === session.job.id
+        && readbackBranch.branchPurpose === "job_specific"
+        && readbackBranch.lifecycleStatus === "active"
+        && readbackBranch.currentRevisionId === readbackRevision.id
+        && readbackRevision.id === result.revision.id
+        && readbackRevision.branchId === readbackBranch.id
+        && visibleBranches.some((branch) => branch.id === readbackBranch.id)
+        && acceptedIdsMatch
+        && JSON.stringify(changedFieldPaths) === JSON.stringify(expectedChangedFieldPaths)
+        && readbackValuesMatch
+        && hashesMatch
+      );
+      if (!readbackVerified) {
+        throw toolError(
+          "artifact_commit_visibility_verification_failed",
+          "岗位简历已经过写入阶段，但回读校验未通过；本次不会报告成功。可以从当前步骤重试。"
+        );
+      }
+
+      const completedAt = new Date().toISOString();
+      const artifactReceipt = ResumeArtifactReceiptSchema.parse({
+        schemaVersion: 1,
+        operationId,
+        status: "completed",
+        profileId: session.branch.profileId,
+        expectedProfileRevision: profile.version,
+        jobId: session.job.id,
+        sourceResumeId: session.branch.id,
+        sourceResumeRevisionId: session.branch.currentRevisionId,
+        resultResumeId: readbackBranch.id,
+        resultResumeRevisionId: readbackRevision.id,
+        acceptedDiffIds,
+        acceptedDiffCount: result.appliedDiffs.length,
+        changedFieldPaths,
+        beforeContentHash: result.beforeContentHash,
+        afterContentHash: result.afterContentHash,
+        completedAt
+      });
+      const savedReceipt = await this.repository.saveResumeArtifactReceipt(artifactReceipt);
+      await this.repository.saveResumeArtifactWriteCheckpoint({
+        ...checkpoint,
+        status: "write_completed",
+        resultResumeId: readbackBranch.id,
+        resultResumeRevisionId: readbackRevision.id,
+        changedFieldPaths,
+        updatedAt: completedAt
+      });
+      const qualityResult = {
+        status: "passed" as const,
+        factGuard: "passed" as const,
+        revisionCreated: true,
+        repositoryReadBackVerified: true,
+        resumeListVisibilityVerified: true,
+        resultResumeId: readbackBranch.id,
+        resultResumeRevisionId: readbackRevision.id,
+        acceptedDiffIds,
+        acceptedDiffCount: result.appliedDiffs.length,
+        changedFieldPaths,
+        beforeContentHash: result.beforeContentHash,
+        afterContentHash: result.afterContentHash,
+        artifactReceipt: savedReceipt,
+        receipt: {
+          operationId,
+          toolName: "apply_tailoring_changes",
+          status: "completed" as const,
+          completedAt
+        }
+      };
+      return {
+        branchId: readbackBranch.id,
+        branchRevision: readbackBranch.revision,
+        resultResumeId: readbackBranch.id,
+        resultResumeRevisionId: readbackRevision.id,
+        revisionId: readbackRevision.id,
+        resumeHash: result.afterContentHash,
+        qualityResult,
+        artifactReceipt: savedReceipt,
+        receipt: qualityResult.receipt,
+        ...result,
+        branch: readbackBranch,
+        revision: readbackRevision
+      };
+    } catch (error) {
+      const failedAt = new Date().toISOString();
+      const safeErrorCode = error && typeof error === "object" && "code" in error && typeof error.code === "string"
+        ? error.code
+        : "resume_artifact_write_failed";
+      await this.repository.saveResumeArtifactWriteCheckpoint({
+        ...checkpoint,
+        status: safeErrorCode === "artifact_commit_visibility_verification_failed"
+          ? "visibility_verification_failed"
+          : "write_failed",
+        safeErrorCode,
+        updatedAt: failedAt
+      }).catch(() => undefined);
+      throw error;
+    }
   }
 
   async archiveResume(rawInput: unknown, operationId: string, signal?: AbortSignal) {
