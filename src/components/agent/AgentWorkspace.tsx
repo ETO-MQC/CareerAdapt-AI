@@ -36,6 +36,12 @@ import {
 import type { ActiveCareerContext } from "@/domain/schemas";
 import { CareerContextSelector } from "@/components/career/CareerContextSelector";
 import { notify } from "@/services/notifications/store";
+import {
+  openHermesLogs,
+  requestHermesRecover,
+  requestHermesRestart,
+  requestHermesStop
+} from "@/services/agent/hermesControl";
 import { agentAttachmentStore, type AgentAttachmentRef } from "@/services/agent/AgentAttachmentStore";
 import { allowedToolManifestForStep } from "@/agent/workflows/workflowRegistry";
 import { agentToolNames } from "@/agent/tools/registry";
@@ -810,6 +816,10 @@ export function AgentWorkspace() {
       status={statusLabel(snapshot.turnStatus)}
       runtimeStatus={runtimeStatus}
       onStartHermes={host.startHermes}
+      onStopHermes={async () => { await requestHermesStop(); }}
+      onRestartHermes={async () => { await requestHermesRestart(); }}
+      onRecoverHermes={async () => { await requestHermesRecover(); }}
+      onOpenHermesLogs={async () => { await openHermesLogs(); }}
       contextSelector={<CareerContextSelector onBeforeSelect={handleBeforeContextSelect} />}
       pinnedContextLabel={pinnedContextLabel}
       artifactCount={artifacts.length}

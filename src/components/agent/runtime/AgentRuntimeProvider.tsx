@@ -24,8 +24,13 @@ import { RuntimeStatusStore } from "@/agent/runtime/runtimeStatus";
 import { resolveCareerSessionBinding, type CareerSessionBinding } from "@/agent/runtime/careerSessionBinding";
 import { WorkspaceRepository } from "@/services/storage/repositories";
 import { allowedToolManifestForStep } from "@/agent/workflows/workflowRegistry";
-import { requestHermesStart } from "@/services/agent/hermesControl";
-import { isRoadshowReady } from "@/agent/runtime/runtimeHealth";
+import {
+  getHermesStatus,
+  notifyHermesRendererReady,
+  readHermesStartSettings,
+  requestHermesStart,
+  subscribeHermesStatus
+} from "@/services/agent/hermesControl";
 import {
   isHermesRuntimeFailureCode,
   type HermesFailureLayer,
@@ -175,13 +180,7 @@ function createAgentHost() {
       let health: Awaited<ReturnType<typeof hermesRuntime.health>> | undefined;
       for (let attempt = 0; attempt < 4; attempt += 1) {
         health = await hermesRuntime.health();
-        const runtimeHealth = toRuntimeHealth(health, {
-          mcpConnected: health.mcpConnected ?? false,
-          mcpToolCount: health.discoveredToolCount ?? 0,
-          careerSkillsLoaded: health.runtimeHealth?.careerSkillsLoaded ?? false
-        });
-        const ready = isRoadshowReady(runtimeHealth);
-        if (ready || attempt === 3) break;
+        if (health.available || attempt === 3) break;
         await new Promise((resolve) => setTimeout(resolve, 750));
       }
       if (!health) throw new Error("hermes_health_empty");
@@ -222,20 +221,21 @@ function createAgentHost() {
     runtimeStatus.update({ status: "starting", activeRuntime: "hermes", reason: "hermes_starting" });
     try {
       const result = await requestHermesStart();
-      if (!result.ok) throw new Error(result.reason ?? "hermes_companion_start_failed");
+      if (result.snapshot) runtimeStatus.recordSupervisorStatus(result.snapshot);
+      if (!result.ok) return { ok: false as const, reason: result.reason ?? "hermes_companion_start_failed" };
       let health: Awaited<ReturnType<typeof hermesRuntime.health>> | undefined;
       for (let attempt = 0; attempt < 8; attempt += 1) {
         try {
           health = await refreshHermesHealth();
-          if (health.available && (!health.runtimeHealth || isRoadshowReady(health.runtimeHealth))) break;
+          if (health.available) break;
         } catch {
           // The companion may still be completing its startup handshake.
         }
         await new Promise((resolve) => setTimeout(resolve, 750));
       }
-      if (!health?.available) throw new Error("hermes_companion_not_ready");
-      if (health.runtimeHealth && !isRoadshowReady(health.runtimeHealth)) {
-        return { ok: false as const, reason: "hermes_career_registry_not_ready" };
+      if (!health?.available) {
+        if (result.snapshot) return { ok: true as const, reason: result.reason };
+        throw new Error("hermes_companion_not_ready");
       }
       if (retryCheckpointAfterRestart && activeSession && restartTurnId) {
         const current = state.getSnapshot().activeSession;
@@ -261,7 +261,9 @@ function createAgentHost() {
       return { ok: true as const };
     } catch (error) {
       const reason = error instanceof Error ? error.message : "hermes_companion_start_failed";
-      runtimeStatus.update({ status: "unavailable", activeRuntime: "hermes", reason });
+      if (!runtimeStatus.getSnapshot().supervisorOwned) {
+        runtimeStatus.update({ status: "unavailable", activeRuntime: "hermes", reason });
+      }
       return { ok: false as const, reason };
     }
   };
@@ -585,6 +587,12 @@ export function AgentRuntimeProvider({ children }: { children: React.ReactNode }
     let active = true;
     let lastObservedMcpHealthKey: string | undefined;
     host.runtimeStatus.update({ status: host.runtimeRouter.configurationSnapshot.agentRuntime === "hermes" ? "starting" : "ready" });
+    const unsubscribeHermesStatus = subscribeHermesStatus((snapshot) => {
+      if (active) host.runtimeStatus.recordSupervisorStatus(snapshot);
+    });
+    void getHermesStatus().then((snapshot) => {
+      if (active && snapshot) host.runtimeStatus.recordSupervisorStatus(snapshot);
+    }).catch(() => undefined);
     const boot = async () => {
       await host.mcpBridge.start(
         host.careerToolGateway,
@@ -634,10 +642,12 @@ export function AgentRuntimeProvider({ children }: { children: React.ReactNode }
         }
       );
       if (!active || host.runtimeRouter.configurationSnapshot.agentRuntime !== "hermes") return;
-      // Electron starts the bundled companion before the window is shown, but
-      // the renderer is the first place that can read the user's local AI
-      // settings. Reconcile those settings on every app open so a packaged
-      // install never depends on a separately launched Hermes process.
+      // The renderer-owned Browser Domain Host is the first valid point at
+      // which Hermes can start. This handshake is deliberately after MCP
+      // registration and carries the current local provider settings.
+      const rendererReady = await notifyHermesRendererReady(readHermesStartSettings());
+      if (rendererReady?.snapshot) host.runtimeStatus.recordSupervisorStatus(rendererReady.snapshot);
+      if (!active) return;
       const started = await host.startHermes();
       if (!active || !started.ok) return;
       await host.refreshHermesHealth().catch(() => undefined);
@@ -645,6 +655,7 @@ export function AgentRuntimeProvider({ children }: { children: React.ReactNode }
     void boot();
     return () => {
       active = false;
+      unsubscribeHermesStatus();
       void host.mcpBridge.stop();
     };
   }, [host]);

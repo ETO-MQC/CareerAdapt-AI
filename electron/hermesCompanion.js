@@ -238,7 +238,8 @@ function ensureManagedHermesConfig(hermesHome, values) {
   const developerMode = firstValue(values.mode, process.env.CAREERADAPT_HERMES_MODE)?.toLowerCase() === "developer"
     || firstValue(values.developerMode, process.env.CAREERADAPT_HERMES_DEVELOPER_MODE)?.toLowerCase() === "true";
   const apiServerToolsets = developerMode ? ["hermes-api-server", "careeradapt"] : ["skills", "careeradapt"];
-  const lines = [
+  const managedLines = [
+    "# CareerAdapt managed Hermes invariants. User-owned config outside this block is preserved.",
     "# Managed by CareerAdapt AI. Do not put API keys in this file.",
     "# The key is injected into the Hermes process as OPENAI_API_KEY.",
     "model:",
@@ -265,10 +266,60 @@ function ensureManagedHermesConfig(hermesHome, values) {
     `  careeradapt_runtime_url: ${yamlScalar(values.runtimeUrl || DEFAULT_RUNTIME_URL)}`,
     ""
   ];
+  const existing = fs.existsSync(configPath) ? fs.readFileSync(configPath, "utf8") : "";
+  const preserved = preserveUserHermesConfig(existing);
+  const lines = [
+    ...preserved,
+    "# BEGIN CAREERADAPT MANAGED CONFIG",
+    ...managedLines,
+    "# END CAREERADAPT MANAGED CONFIG",
+    ""
+  ];
   const content = lines.join("\n");
   if (!fs.existsSync(configPath) || fs.readFileSync(configPath, "utf8") !== content) {
     fs.writeFileSync(configPath, content, "utf8");
   }
+}
+
+function preserveUserHermesConfig(existing) {
+  if (!existing.trim()) return [];
+  const lines = existing.replace(/\r\n/gu, "\n").split("\n");
+  const withoutManagedMarkers = [];
+  let insideManagedBlock = false;
+  for (const line of lines) {
+    if (line.trim() === "# BEGIN CAREERADAPT MANAGED CONFIG") {
+      insideManagedBlock = true;
+      continue;
+    }
+    if (line.trim() === "# END CAREERADAPT MANAGED CONFIG") {
+      insideManagedBlock = false;
+      continue;
+    }
+    if (!insideManagedBlock) withoutManagedMarkers.push(line);
+  }
+
+  const preserved = [];
+  let index = 0;
+  while (index < withoutManagedMarkers.length) {
+    const line = withoutManagedMarkers[index];
+    const topLevel = line.match(/^([A-Za-z_][A-Za-z0-9_-]*):(?:\s|$)/u);
+    if (!topLevel || !["model", "custom_providers", "platform_toolsets", "mcp_servers", "gateway"].includes(topLevel[1])) {
+      preserved.push(line);
+      index += 1;
+      continue;
+    }
+    const section = [line];
+    index += 1;
+    while (index < withoutManagedMarkers.length && !/^[A-Za-z_][A-Za-z0-9_-]*:(?:\s|$)/u.test(withoutManagedMarkers[index])) {
+      section.push(withoutManagedMarkers[index]);
+      index += 1;
+    }
+    // CareerAdapt owns these top-level blocks. Other top-level user config is
+    // replaced inside the managed block; all other top-level config is
+    // retained verbatim, so advanced Hermes settings survive future starts.
+  }
+  while (preserved.at(-1) === "") preserved.pop();
+  return preserved.length ? [...preserved, ""] : [];
 }
 
 function yamlScalar(value) {

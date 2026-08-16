@@ -1,6 +1,6 @@
 "use client";
 
-import { History, Monitor, Moon, MoreHorizontal, Settings, Sun } from "lucide-react";
+import { FileText, History, Monitor, Moon, MoreHorizontal, Power, RotateCcw, Settings, Sun, Wrench } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { AgentArtifactLauncher } from "@/components/agent/artifacts/AgentArtifactLauncher";
@@ -20,6 +20,10 @@ export function AgentWorkspaceLayout({
   status,
   runtimeStatus,
   onStartHermes,
+  onStopHermes,
+  onRestartHermes,
+  onRecoverHermes,
+  onOpenHermesLogs,
   contextSelector,
   pinnedContextLabel,
   artifactCount,
@@ -30,7 +34,11 @@ export function AgentWorkspaceLayout({
   sessionTitle: string;
   status: string;
   runtimeStatus?: RuntimeStatusSnapshot;
-  onStartHermes?: () => Promise<{ ok: boolean; reason?: string }>;
+  onStartHermes?: () => Promise<unknown>;
+  onStopHermes?: () => Promise<unknown>;
+  onRestartHermes?: () => Promise<unknown>;
+  onRecoverHermes?: () => Promise<unknown>;
+  onOpenHermesLogs?: () => Promise<unknown>;
   contextSelector?: React.ReactNode;
   pinnedContextLabel?: string;
   artifactCount: number;
@@ -62,7 +70,16 @@ export function AgentWorkspaceLayout({
           {contextSelector}
         </div>
         <div>
-          {runtimeStatus ? <RuntimeStatusBadge status={runtimeStatus} onStartHermes={onStartHermes} /> : null}
+          {runtimeStatus ? (
+            <RuntimeStatusBadge
+              status={runtimeStatus}
+              onStartHermes={onStartHermes}
+              onStopHermes={onStopHermes}
+              onRestartHermes={onRestartHermes}
+              onRecoverHermes={onRecoverHermes}
+              onOpenHermesLogs={onOpenHermesLogs}
+            />
+          ) : null}
           <span className="agent-workflow-status">{status}</span>
           <AgentArtifactLauncher count={artifactCount} onOpen={onOpenArtifacts} />
           <button type="button" aria-label="打开历史记录" title="历史记录" onClick={onOpenHistory}>
@@ -115,52 +132,128 @@ export function AgentWorkspaceLayout({
 
 function RuntimeStatusBadge({
   status,
-  onStartHermes
+  onStartHermes,
+  onStopHermes,
+  onRestartHermes,
+  onRecoverHermes,
+  onOpenHermesLogs
 }: {
   status: RuntimeStatusSnapshot;
-  onStartHermes?: () => Promise<{ ok: boolean; reason?: string }>;
+  onStartHermes?: () => Promise<unknown>;
+  onStopHermes?: () => Promise<unknown>;
+  onRestartHermes?: () => Promise<unknown>;
+  onRecoverHermes?: () => Promise<unknown>;
+  onOpenHermesLogs?: () => Promise<unknown>;
 }) {
   const [controlBusy, setControlBusy] = useState(false);
-  // The badge identifies the configured conversational owner, not a legacy
-  // execution fallback. Hermes remains the visible identity while it is
-  // reconnecting or unavailable, so a failed tool/run cannot impersonate a
-  // second Native assistant.
+  const [controlOpen, setControlOpen] = useState(false);
   const runtimeLabel = status.preferredRuntime === "hermes" ? "Hermes" : "Native";
-  const statusLabel = status.status === "ready" ? "Ready" : status.status === "starting" ? "Reconnecting" : "Unavailable";
+  const lifecycleState = status.supervisorState ?? legacyLifecycleState(status.status);
+  const statusLabel = lifecycleStateLabel(lifecycleState);
   const details = [
-    status.reason,
-    status.health?.requiredCareerFacadesMissing.length ? `缺少 ${status.health.requiredCareerFacadesMissing.length} 个 Career facade` : undefined,
-    status.health?.runReady === false ? `Hermes run 启动暂不可用${status.health.runReadySafeErrorCode ? `（${status.health.runReadySafeErrorCode}）` : ""}` : undefined,
-    status.health?.hermesMcpToolCount !== undefined ? `Hermes MCP ${status.health.hermesMcpToolCount} tools` : undefined,
+    `Hermes · ${statusLabel}`,
+    `进程 ${mark(status.processReady)}  API ${mark(status.apiReady)}  Provider ${mark(status.providerReady)}`,
+    `Career MCP ${mark(status.careerMcpReady)}  工具面 ${mark(status.toolSurfaceReady)}  Run ${mark(status.runReady)}`,
+    `CareerAdapt Domain ${status.careerDomainToolCount ?? status.health?.careerMcpContractCount ?? 0} · Hermes Career ${status.hermesCareerToolCount ?? status.health?.hermesMcpToolCount ?? 0}`,
+    status.reasonCode ?? status.reason,
     status.model ? `model ${status.model}` : undefined
-  ].filter(Boolean).join(" · ");
-  const handleStartHermes = async () => {
-    if (!onStartHermes || controlBusy || status.status === "starting") return;
+  ].filter(Boolean).join("\n");
+  const runControl = async (action?: () => Promise<unknown>) => {
+    if (!action || controlBusy) return;
     setControlBusy(true);
     try {
-      await onStartHermes();
+      await action();
+      setControlOpen(false);
     } finally {
       setControlBusy(false);
     }
   };
+  const isActiveRun = Boolean(status.activeRunId);
   return (
-    <>
+    <div className="agent-runtime-status-control">
       <button
         type="button"
-        className={`agent-runtime-status is-${status.status}`}
+        className={`agent-runtime-status is-${lifecycleState}`}
         title={details || `AI Runtime: ${runtimeLabel} · ${statusLabel}`}
         aria-label={`AI Runtime ${runtimeLabel}，状态 ${statusLabel}`}
-        aria-busy={controlBusy || status.status === "starting"}
-        disabled={!onStartHermes || controlBusy || status.status === "starting"}
-        onClick={() => void handleStartHermes()}
+        aria-expanded={controlOpen}
+        aria-busy={controlBusy}
+        onClick={() => setControlOpen((open) => !open)}
       >
         <span className="agent-runtime-status-label">AI · {runtimeLabel}</span>
         <span className="agent-runtime-status-state">{statusLabel}</span>
-        {onStartHermes ? <span className="agent-runtime-status-action">{controlBusy ? "重连中…" : status.status === "ready" ? "重启" : "启动"}</span> : null}
+        <span className="agent-runtime-status-action">{controlBusy ? "处理中…" : "控制"}</span>
       </button>
+      {controlOpen ? (
+        <div className="agent-runtime-status-popover" role="dialog" aria-label="Hermes 控制中心">
+          <div className="agent-runtime-status-popover-heading">
+            <div>
+              <strong>Hermes Control Center</strong>
+              <span>{statusLabel}{status.reasonCode ? ` · ${status.reasonCode}` : ""}</span>
+            </div>
+            <Link href="/settings?category=ai" onClick={() => setControlOpen(false)} aria-label="打开 Hermes 设置">
+              <Settings aria-hidden="true" />
+            </Link>
+          </div>
+          <div className="agent-runtime-status-popover-grid">
+            <span>进程 <b>{mark(status.processReady)}</b></span>
+            <span>API <b>{mark(status.apiReady)}</b></span>
+            <span>Provider <b>{mark(status.providerReady)}</b></span>
+            <span>Career MCP <b>{mark(status.careerMcpReady)}</b></span>
+            <span>工具面 <b>{mark(status.toolSurfaceReady)}</b></span>
+            <span>Run <b>{mark(status.runReady)}</b></span>
+          </div>
+          <p className="agent-runtime-status-popover-counts">
+            Domain {status.careerDomainToolCount ?? 0} · Hermes Career {status.hermesCareerToolCount ?? 0} · Facades {status.requiredCareerFacadesReady ?? 0}/{status.requiredCareerFacadesTotal ?? 8}
+          </p>
+          {isActiveRun ? <p className="agent-runtime-status-popover-warning">当前有运行中的 Hermes Run；停止或重启会保留会话检查点。</p> : null}
+          <div className="agent-runtime-status-popover-actions">
+            {lifecycleState === "ready" ? (
+              <>
+                <button type="button" onClick={() => void runControl(onRestartHermes)} disabled={controlBusy}><RotateCcw aria-hidden="true" />重启</button>
+                <button type="button" onClick={() => void runControl(onStopHermes)} disabled={controlBusy}><Power aria-hidden="true" />停止</button>
+              </>
+            ) : null}
+            {["starting", "api_ready", "syncing_career_tools", "restarting", "stopping"].includes(lifecycleState) ? (
+              <button type="button" onClick={() => void runControl(onStopHermes)} disabled={controlBusy}><Power aria-hidden="true" />停止</button>
+            ) : null}
+            {["degraded", "unavailable"].includes(lifecycleState) ? (
+              <>
+                <button type="button" onClick={() => void runControl(onRecoverHermes)} disabled={controlBusy}><Wrench aria-hidden="true" />自动修复</button>
+                <button type="button" onClick={() => void runControl(onRestartHermes)} disabled={controlBusy}><RotateCcw aria-hidden="true" />重启</button>
+              </>
+            ) : null}
+            {lifecycleState === "stopped" ? <button type="button" onClick={() => void runControl(onStartHermes)} disabled={controlBusy}><Power aria-hidden="true" />启动</button> : null}
+            <button type="button" onClick={() => void runControl(onOpenHermesLogs)} disabled={controlBusy}><FileText aria-hidden="true" />日志</button>
+            <Link href="/settings?category=ai" onClick={() => setControlOpen(false)}><Settings aria-hidden="true" />设置</Link>
+          </div>
+        </div>
+      ) : null}
       {status.roadshowMode ? <RoadshowDiagnostics status={status} /> : null}
-    </>
+    </div>
   );
+}
+
+function mark(value: boolean | undefined) {
+  return value === true ? "✓" : "—";
+}
+
+function legacyLifecycleState(status: RuntimeStatusSnapshot["status"]): NonNullable<RuntimeStatusSnapshot["supervisorState"]> {
+  return status === "ready" ? "ready" : status === "degraded" ? "degraded" : status === "starting" ? "starting" : "unavailable";
+}
+
+function lifecycleStateLabel(state: NonNullable<RuntimeStatusSnapshot["supervisorState"]>) {
+  return {
+    stopped: "Stopped",
+    starting: "Starting",
+    api_ready: "API ready",
+    syncing_career_tools: "Syncing Career tools",
+    ready: "Ready",
+    degraded: "Degraded",
+    restarting: "Restarting",
+    unavailable: "Unavailable",
+    stopping: "Stopping"
+  }[state];
 }
 
 function RoadshowDiagnostics({ status }: { status: RuntimeStatusSnapshot }) {

@@ -5,7 +5,7 @@ import { createJobAdaptationDraft } from "@/domain/adaptation/draft";
 import { mapAdaptationDraftToResumeBranch } from "@/domain/branch/mapper";
 import { createRuleRequirementMatches } from "@/domain/match/matcher";
 import { mapBranchToResumeDocument } from "@/domain/resumeDocument/mapper";
-import type { BranchFactRef } from "@/domain/schemas";
+import { ResumePresentationConfigSchema, type BranchFactRef } from "@/domain/schemas";
 import { stableHashText } from "@/services/security/text";
 
 const TEST_TIME = "2026-07-03T12:00:00.000Z";
@@ -65,8 +65,8 @@ describe("V2 G0a resume document mapper", () => {
       templateId: "classic-technical"
     });
 
-    expect(confirmedDocument.blocks[0].renderable).toBe(true);
-    expect(mismatchedDocument.blocks[0]).toMatchObject({
+    expect(confirmedDocument.blocks.find((block) => block.contentItemId === confirmedItem.id)?.renderable).toBe(true);
+    expect(mismatchedDocument.blocks.find((block) => block.contentItemId === confirmedItem.id)).toMatchObject({
       renderable: false,
       notRenderableReason: "resume_only_confirmation_mismatch"
     });
@@ -104,7 +104,8 @@ describe("V2 G0a resume document mapper", () => {
       templateId: "classic-technical"
     });
 
-    expect(document.blocks).toHaveLength(branch.contentItems.length);
+    const derivedSummary = document.blocks.find((block) => block.derivedFrom === "resumeBasics.summary");
+    expect(document.blocks).toHaveLength(branch.contentItems.length + (derivedSummary ? 1 : 0));
     expect(document.blocks.find((block) => block.contentItemId === hiddenItem.id)).toMatchObject({
       visible: false,
       renderable: true,
@@ -158,6 +159,57 @@ describe("V2 G0a resume document mapper", () => {
       expect(document.notEditableReason).toBe(variant.reason);
       expect(document.blocks.every((block) => !block.editable)).toBe(true);
     }
+  });
+
+  it("derives a basics summary into one editable presentation block and respects hidden state", () => {
+    const { job, mapped } = createVerifiedBranch();
+    const branch = {
+      ...mapped.branch,
+      contentItems: mapped.branch.contentItems.filter((item) => item.itemType !== "summary"),
+      resumeBasics: {
+        name: demoCareerProfile.basics.name,
+        email: demoCareerProfile.basics.email ?? "",
+        phone: demoCareerProfile.basics.phone ?? "",
+        location: demoCareerProfile.basics.location ?? "",
+        summary: "来自简历基本信息的自我评价",
+        links: demoCareerProfile.basics.links
+      }
+    };
+    const derivedId = `derived-summary:${branch.id}`;
+    const document = mapBranchToResumeDocument({
+      branch,
+      profile: demoCareerProfile,
+      job,
+      templateId: "classic-technical"
+    });
+    expect(document.blocks.filter((block) => block.derivedFrom === "resumeBasics.summary")).toHaveLength(1);
+    expect(document.blocks.find((block) => block.contentItemId === derivedId)).toMatchObject({
+      text: "来自简历基本信息的自我评价",
+      editable: true,
+      renderable: true,
+      visible: true
+    });
+
+    const hiddenConfig = ResumePresentationConfigSchema.parse({
+      schemaVersion: "resume-presentation-v1",
+      branchId: branch.id,
+      templateId: "classic-technical",
+      contentRevision: { branchRevision: branch.revision, currentRevisionId: branch.currentRevisionId! },
+      hiddenItemIds: [derivedId],
+      presentationRevision: 1,
+      updatedAt: TEST_TIME
+    });
+    const hiddenDocument = mapBranchToResumeDocument({
+      branch,
+      profile: demoCareerProfile,
+      job,
+      templateId: "classic-technical",
+      presentationConfig: hiddenConfig
+    });
+    expect(hiddenDocument.blocks.find((block) => block.contentItemId === derivedId)).toMatchObject({
+      presentationHidden: true,
+      visible: false
+    });
   });
 });
 

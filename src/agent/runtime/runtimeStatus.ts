@@ -1,13 +1,33 @@
 import { runtimeHealthStatus, type RuntimeHealth } from "./runtimeHealth";
 import { classifyHermesRunFailure, type HermesRunFailureInput } from "./hermes/hermesRunReliability";
+import type { HermesSupervisorSnapshot } from "@/services/agent/hermesControl";
 
-export type RuntimeStatus = "ready" | "starting" | "unavailable";
+export type RuntimeStatus = "ready" | "starting" | "degraded" | "unavailable";
 
 export type RuntimeStatusSnapshot = {
   preferredRuntime: "native" | "hermes";
   activeRuntime: "native" | "hermes";
   status: RuntimeStatus;
   reason?: string;
+  supervisorState?: HermesSupervisorSnapshot["overallState"];
+  supervisorOwned?: boolean;
+  processReady?: boolean;
+  apiReady?: boolean;
+  providerReady?: boolean;
+  careerMcpReady?: boolean;
+  toolSurfaceReady?: boolean;
+  runReady?: boolean;
+  careerSkillsReady?: boolean;
+  reasonCode?: string;
+  runtimeUrl?: string;
+  activeRunId?: string;
+  uptimeMs?: number;
+  restartAttempt?: number;
+  careerDomainToolCount?: number;
+  hermesCareerToolCount?: number;
+  requiredCareerFacadesReady?: number;
+  requiredCareerFacadesTotal?: number;
+  latestLifecycleEntries?: HermesSupervisorSnapshot["latestLifecycleEntries"];
   version?: string;
   provider?: string;
   model?: string;
@@ -38,6 +58,7 @@ export type RuntimeStatusSnapshot = {
 export class RuntimeStatusStore {
   private snapshot: RuntimeStatusSnapshot;
   private readonly listeners = new Set<() => void>();
+  private supervisorOwned = false;
 
   constructor(initial: RuntimeStatusSnapshot) {
     this.snapshot = initial;
@@ -74,7 +95,7 @@ export class RuntimeStatusStore {
       discoveredToolCount: status.discoveredToolCount,
       ...(nextHealth ? {
         activeRuntime: this.snapshot.preferredRuntime === "hermes" ? "hermes" : "native",
-        status: runtimeHealthStatus(nextHealth),
+        ...(this.supervisorOwned ? {} : { status: runtimeHealthStatus(nextHealth) }),
         health: nextHealth
       } : {}),
       ...(status.reason ? { reason: status.reason } : {})
@@ -82,10 +103,32 @@ export class RuntimeStatusStore {
   }
 
   recordHealth(health: RuntimeHealth) {
+    const processReady = health.companionReady ?? health.runtimeAvailable;
+    const providerReady = health.providerReady ?? (health.providerConfigured && health.providerReachable && Boolean(health.model));
+    const careerMcpReady = health.browserCareerDomainHostConnected
+      && health.careerMcpServerReachable
+      && health.mcpConnected;
+    const toolSurfaceReady = health.hermesMcpRegistered
+      && health.hermesMcpToolCount > 0
+      && health.requiredCareerFacadesMissing.length === 0;
     this.update({
       activeRuntime: this.snapshot.preferredRuntime === "hermes" ? "hermes" : "native",
-      status: runtimeHealthStatus(health),
-      reason: health.safeErrorCode,
+      ...(this.supervisorOwned ? {} : { status: runtimeHealthStatus(health) }),
+      ...(this.supervisorOwned ? {} : { reason: health.safeErrorCode }),
+      ...(this.supervisorOwned ? {} : {
+        processReady,
+        apiReady: health.runtimeAvailable,
+        providerReady,
+        careerMcpReady,
+        toolSurfaceReady,
+        runReady: health.runReady ?? true,
+        careerSkillsReady: health.careerSkillsLoaded,
+        reasonCode: health.safeErrorCode,
+        careerDomainToolCount: health.careerGatewayContracts.length,
+        hermesCareerToolCount: health.careerMcpExposedTools.length || health.hermesMcpToolCount,
+        requiredCareerFacadesReady: Math.max(0, health.hermesCareerFacadeCount),
+        requiredCareerFacadesTotal: health.hermesCareerFacadeCount + health.requiredCareerFacadesMissing.length
+      }),
       model: health.model,
       contextWindow: health.contextWindow,
       toolCalling: health.toolCallingAvailable ? "verified" : "unverified",
@@ -114,9 +157,45 @@ export class RuntimeStatusStore {
     } : undefined;
     this.update({
       activeRuntime: "hermes",
-      status: "unavailable",
+      status: this.supervisorOwned ? "degraded" : "unavailable",
       reason: diagnostics.safeErrorCode,
+      runReady: false,
       ...(nextHealth ? { health: nextHealth } : {})
+    });
+  }
+
+  recordSupervisorStatus(snapshot: HermesSupervisorSnapshot) {
+    this.supervisorOwned = true;
+    const status = supervisorRuntimeStatus(snapshot.overallState);
+    this.update({
+      preferredRuntime: "hermes",
+      activeRuntime: "hermes",
+      status,
+      reason: snapshot.reasonCode,
+      supervisorState: snapshot.overallState,
+      supervisorOwned: true,
+      processReady: snapshot.processReady,
+      apiReady: snapshot.apiReady,
+      providerReady: snapshot.providerReady,
+      careerMcpReady: snapshot.careerMcpReady,
+      toolSurfaceReady: snapshot.toolSurfaceReady,
+      runReady: snapshot.runReady,
+      careerSkillsReady: snapshot.careerSkillsReady,
+      reasonCode: snapshot.reasonCode,
+      runtimeUrl: snapshot.runtimeUrl,
+      activeRunId: snapshot.activeRunId,
+      version: snapshot.version,
+      provider: snapshot.provider,
+      model: snapshot.model,
+      uptimeMs: snapshot.uptimeMs,
+      restartAttempt: snapshot.restartAttempt,
+      careerDomainToolCount: snapshot.careerDomainToolCount,
+      hermesCareerToolCount: snapshot.hermesCareerToolCount,
+      requiredCareerFacadesReady: snapshot.requiredCareerFacadesReady,
+      requiredCareerFacadesTotal: snapshot.requiredCareerFacadesTotal,
+      latestLifecycleEntries: snapshot.latestLifecycleEntries,
+      mcpConnected: snapshot.careerMcpReady,
+      discoveredToolCount: snapshot.hermesCareerToolCount
     });
   }
 
@@ -152,4 +231,11 @@ export class RuntimeStatusStore {
 
 function numberValue(value: unknown) {
   return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : undefined;
+}
+
+function supervisorRuntimeStatus(state: HermesSupervisorSnapshot["overallState"]): RuntimeStatus {
+  if (state === "ready") return "ready";
+  if (state === "degraded") return "degraded";
+  if (["starting", "api_ready", "syncing_career_tools", "restarting", "stopping"].includes(state)) return "starting";
+  return "unavailable";
 }

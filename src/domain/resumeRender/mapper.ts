@@ -50,11 +50,16 @@ export function mapBranchToResumeRenderModel(input: {
     templateId: input.presentationConfig?.templateId ?? "classic-technical",
     presentationConfig: input.presentationConfig
   });
-  const excludedItemIds = document.blocks
+  const sourceBlocks = document.blocks.filter((block) => !block.derivedFrom);
+  const explicitSummaryBlock = sourceBlocks.find((block) => block.itemType === "summary");
+  const visibleSummaryBlock = sourceBlocks.find((block) => block.itemType === "summary" && block.visible && block.renderable);
+  const excludedItemIds = sourceBlocks
     .filter((block) => !block.visible || !block.renderable)
     .map((block) => block.contentItemId);
-  const renderableBlocks = document.blocks.filter((block) => block.visible && block.renderable);
-  const renderableItemIds = new Set(renderableBlocks.map((block) => block.contentItemId));
+  const renderableBlocks = sourceBlocks.filter((block) => block.visible && block.renderable);
+  const renderableItemIds = new Set(document.blocks
+    .filter((block) => block.visible && block.renderable)
+    .map((block) => block.contentItemId));
   const blocks = renderableBlocks.map((block): ResumeRenderBlock => ({
     sourceItemId: block.contentItemId,
     sourceSectionId: block.sourceSectionId,
@@ -85,6 +90,8 @@ export function mapBranchToResumeRenderModel(input: {
 
   const runtimeBranch = migrateResumeBranchToV2(branch);
   const targetRole = resolveResumeTargetRole({ branch, profile, job });
+  const persistedSummaryItem = runtimeBranch.structuredContentItems.find((item) => item.data.sectionType === "summary");
+  const derivedSummaryItemId = `derived-summary:${branch.id}`;
   const seenStructuredItemIds = new Set<string>();
   const structuredItems = runtimeBranch.structuredContentItems.flatMap((item) => {
     if (!item.visible || !renderableItemIds.has(item.id)) return [];
@@ -103,8 +110,24 @@ export function mapBranchToResumeRenderModel(input: {
       presentation: { ...presentation, id: item.id, sourceItemId: item.id }
     }];
   });
-  if (basics.summary?.trim() && !structuredItems.some((item) => item.sectionType === "summary")) {
-    const itemId = `derived-summary:${branch.id}`;
+  if (visibleSummaryBlock) {
+    const data = persistedSummaryItem?.data.sectionType === "summary"
+      ? { ...persistedSummaryItem.data, id: visibleSummaryBlock.contentItemId, text: visibleSummaryBlock.text }
+      : { id: visibleSummaryBlock.contentItemId, sectionType: "summary" as const, text: visibleSummaryBlock.text, customFields: [] };
+    const presentation = projectResumePresentationItem(data);
+    const summaryItem = {
+      sectionId: "summary",
+      sectionType: "summary" as const,
+      itemId: visibleSummaryBlock.contentItemId,
+      data,
+      plainText: data.text,
+      presentation: { ...presentation, id: visibleSummaryBlock.contentItemId, sourceItemId: visibleSummaryBlock.contentItemId }
+    };
+    const withoutSummary = structuredItems.filter((item) => item.sectionType !== "summary");
+    structuredItems.splice(0, structuredItems.length, summaryItem, ...withoutSummary);
+  }
+  if (basics.summary?.trim() && !explicitSummaryBlock && !structuredItems.some((item) => item.sectionType === "summary") && renderableItemIds.has(derivedSummaryItemId)) {
+    const itemId = derivedSummaryItemId;
     const data = { id: itemId, sectionType: "summary" as const, text: basics.summary.trim(), customFields: [] };
     const presentation = projectResumePresentationItem(data);
     structuredItems.unshift({

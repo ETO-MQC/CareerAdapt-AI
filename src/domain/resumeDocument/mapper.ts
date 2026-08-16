@@ -15,6 +15,7 @@ import { stableHashText } from "@/services/security/text";
 export type ResumeDocumentBlock = {
   id: string;
   contentItemId: string;
+  derivedFrom?: "resumeBasics.summary";
   sectionType: ResumeRenderSectionType;
   sourceSectionId?: string;
   canonicalSectionType?: string;
@@ -68,6 +69,8 @@ export function mapBranchToResumeDocument(input: {
   }
   const branchEditability = getBranchEditability(input.branch);
   const structuredByItem = new Map((input.branch.structuredContentItems ?? []).map((s) => [s.id, s.data.sectionType]));
+  const hasSummaryContentItem = input.branch.contentItems.some((item) => item.itemType === "summary");
+  const branchSummary = input.branch.resumeBasics?.summary ?? input.profile.basics.summary ?? "";
   const baseBlocks = [...input.branch.contentItems]
     .sort((a, b) => sectionRank(a.itemType) - sectionRank(b.itemType) || a.order - b.order)
     .map((item) => mapContentItemToBlock({
@@ -77,7 +80,34 @@ export function mapBranchToResumeDocument(input: {
       branchNotEditableReason: branchEditability.reason,
       canonicalSectionType: structuredByItem.get(item.id)
     }));
-  const blocks = applyPresentationConfig(baseBlocks, input.presentationConfig);
+  const derivedSummaryBlock: ResumeDocumentBlock | undefined = !hasSummaryContentItem && branchSummary.trim()
+    ? {
+        id: `derived-summary:${input.branch.id}`,
+        contentItemId: `derived-summary:${input.branch.id}`,
+        derivedFrom: "resumeBasics.summary",
+        sectionType: "summary",
+        sourceSectionId: "summary",
+        canonicalSectionType: "summary",
+        itemType: "summary",
+        text: branchSummary.trim(),
+        order: 0,
+        contentVisible: true,
+        presentationHidden: false,
+        visible: true,
+        renderable: true,
+        editable: branchEditability.editable,
+        guardStatus: "pass",
+        guardMode: "not_fact",
+        guardRiskLevel: "low",
+        factRefKeys: [],
+        requirementIds: [],
+        notEditableReason: branchEditability.editable ? undefined : branchEditability.reason ?? "branch_not_editable"
+      }
+    : undefined;
+  const blocks = applyPresentationConfig([
+    ...baseBlocks,
+    ...(derivedSummaryBlock ? [derivedSummaryBlock] : [])
+  ], input.presentationConfig);
 
   return {
     id: `resume-document:${input.branch.id}:${input.branch.currentRevisionId ?? "missing"}`,

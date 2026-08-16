@@ -127,10 +127,15 @@
   font-size: 12px;
 }
 
+.agent-runtime-status-control {
+  display: inline-flex;
+  position: relative;
+}
+
 .agent-runtime-status {
   align-items: center;
   border: 1px solid var(--ai-border);
-  border-radius: 999px;
+  border-radius: 8px;
   color: var(--ai-muted);
   display: inline-flex;
   font-size: 10px;
@@ -164,14 +169,117 @@
   padding-left: 6px;
 }
 
-.agent-runtime-status:disabled {
-  cursor: wait;
-  opacity: 0.82;
-}
-
 .agent-runtime-status.is-ready { color: var(--ai-accent); }
 .agent-runtime-status.is-starting { color: var(--ai-warning, #b7791f); }
+.agent-runtime-status.is-api_ready,
+.agent-runtime-status.is-syncing_career_tools,
+.agent-runtime-status.is-restarting,
+.agent-runtime-status.is-stopping { color: var(--ai-warning, #b7791f); }
+.agent-runtime-status.is-degraded { color: var(--ai-warning, #b7791f); }
+.agent-runtime-status.is-stopped,
 .agent-runtime-status.is-unavailable { color: var(--ai-danger, #c2413b); }
+
+.agent-runtime-status-popover {
+  background: var(--ai-surface);
+  border: 1px solid var(--ai-border);
+  border-radius: 10px;
+  box-shadow: 0 18px 42px color-mix(in srgb, #000 22%, transparent);
+  color: var(--ai-text);
+  display: grid;
+  gap: 10px;
+  min-width: 300px;
+  padding: 12px;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 35;
+}
+
+.agent-runtime-status-popover-heading {
+  align-items: flex-start;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.agent-runtime-status-popover-heading > div {
+  display: grid;
+  gap: 2px;
+}
+
+.agent-runtime-status-popover-heading span,
+.agent-runtime-status-popover-counts {
+  color: var(--ai-muted);
+  font-size: 11px;
+}
+
+.agent-runtime-status-popover-heading a,
+.agent-runtime-status-popover-actions a,
+.agent-runtime-status-popover-actions button {
+  align-items: center;
+  border: 1px solid var(--ai-border);
+  border-radius: 7px;
+  color: var(--ai-text);
+  display: inline-flex;
+  font: inherit;
+  gap: 5px;
+  justify-content: center;
+  min-height: 30px;
+  padding: 0 8px;
+  text-decoration: none;
+}
+
+.agent-runtime-status-popover-heading a:hover,
+.agent-runtime-status-popover-actions a:hover,
+.agent-runtime-status-popover-actions button:hover {
+  background: var(--ai-surface-raised);
+}
+
+.agent-runtime-status-popover-heading svg,
+.agent-runtime-status-popover-actions svg {
+  height: 14px;
+  width: 14px;
+}
+
+.agent-runtime-status-popover-grid {
+  border-block: 1px solid var(--ai-border);
+  display: grid;
+  gap: 6px 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 9px 0;
+}
+
+.agent-runtime-status-popover-grid span {
+  color: var(--ai-muted);
+  font-size: 11px;
+}
+
+.agent-runtime-status-popover-grid b { color: var(--ai-text); }
+.agent-runtime-status-popover-counts { margin: 0; }
+.agent-runtime-status-popover-warning {
+  background: color-mix(in srgb, var(--ai-warning, #b7791f) 10%, transparent);
+  border-left: 2px solid var(--ai-warning, #b7791f);
+  color: var(--ai-text);
+  font-size: 11px;
+  margin: 0;
+  padding: 6px 8px;
+}
+
+.agent-runtime-status-popover-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.agent-runtime-status-popover-actions button {
+  background: transparent;
+  cursor: pointer;
+}
+
+.agent-runtime-status-popover-actions button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
 
 .agent-roadshow-diagnostics {
   color: var(--ai-muted);

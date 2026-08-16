@@ -18,8 +18,24 @@ import {
 import { readAiSettings, writeAiSettings, clearAiSettings, type AiSettings } from "@/services/storage/aiSettings";
 import { AgentSessionStore } from "@/services/agent/agentSessionStore";
 import type { AgentSession } from "@/agent/contracts/agentSession";
-import { requestHermesStart } from "@/services/agent/hermesControl";
-import { RotateCcw, Trash2 } from "lucide-react";
+import {
+  getHermesConfig,
+  getHermesConfigSchema,
+  getHermesLogs,
+  getHermesStatus,
+  openHermesLogs,
+  requestHermesRecover,
+  requestHermesRestart,
+  requestHermesStart,
+  requestHermesStop,
+  subscribeHermesStatus,
+  type HermesConfigSchema,
+  type HermesConfigSnapshot,
+  type HermesControlResult,
+  type HermesLogs,
+  type HermesSupervisorSnapshot
+} from "@/services/agent/hermesControl";
+import { FileText, Power, RotateCcw, Trash2, Wrench } from "lucide-react";
 import {
   ProductField,
   ProductSelect,
@@ -41,7 +57,18 @@ type HermesSettingsHealth = {
   discoveredToolCount?: number;
   runtimeUrl?: string;
   appUrl?: string;
-  runtimeHealth?: { careerSkillsLoaded?: boolean };
+  runtimeHealth?: {
+    careerSkillsLoaded?: boolean;
+    providerReady?: boolean;
+    careerMcpServerReachable?: boolean;
+    hermesMcpRegistered?: boolean;
+    hermesMcpToolCount?: number;
+    hermesCareerFacadeCount?: number;
+    requiredCareerFacadesMissing?: string[];
+    careerGatewayContracts?: string[];
+    careerMcpExposedTools?: string[];
+    runReady?: boolean;
+  };
 };
 
 const themeStorageKey = "careeradapt.theme";
@@ -70,6 +97,10 @@ export default function SettingsPage() {
   const [showApiKey, setShowApiKey] = useState(false);
   const [aiTesting, setAiTesting] = useState(false);
   const [hermesHealth, setHermesHealth] = useState<HermesSettingsHealth>();
+  const [hermesStatus, setHermesStatus] = useState<HermesSupervisorSnapshot>();
+  const [hermesConfig, setHermesConfig] = useState<HermesConfigSnapshot>();
+  const [hermesConfigSchema, setHermesConfigSchema] = useState<HermesConfigSchema>();
+  const [hermesLogs, setHermesLogs] = useState<HermesLogs>();
   const [hermesChecking, setHermesChecking] = useState(false);
   const [hermesStarting, setHermesStarting] = useState(false);
   const [hermesFeedback, setHermesFeedback] = useState("应用启动时会自动启动 Hermes；异常退出后可在此恢复。");
@@ -241,19 +272,72 @@ export default function SettingsPage() {
     }
   }, []);
 
+  useEffect(() => {
+    const requested = new URLSearchParams(window.location.search).get("category");
+    const timer = window.setTimeout(() => {
+      if (categories.some((item) => item.id === requested)) setCategory(requested as SettingsCategory);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    const unsubscribe = subscribeHermesStatus((snapshot) => {
+      if (active) setHermesStatus(snapshot);
+    });
+    void Promise.all([getHermesStatus(), getHermesConfig(), getHermesConfigSchema()]).then(([status, config, schema]) => {
+      if (!active) return;
+      if (status) setHermesStatus(status);
+      if (config) setHermesConfig(config);
+      if (schema) setHermesConfigSchema(schema);
+    }).catch(() => undefined);
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, []);
+
   async function startHermesFromSettings() {
     if (hermesStarting) return;
     setHermesStarting(true);
     setHermesFeedback("正在启动 Hermes API Server…");
     try {
       const result = await requestHermesStart();
+      if (result.snapshot) setHermesStatus(result.snapshot);
       if (!result.ok) throw new Error(result.reason ?? "Hermes 启动失败。");
+      setHermesFeedback(result.snapshot ? hermesFeedbackForState(result.snapshot) : "Hermes 已接受启动请求，正在同步 Career 工具。");
       await checkHermesHealth();
     } catch (error) {
       setHermesFeedback(error instanceof Error ? error.message : "Hermes 启动失败，请查看运行日志。");
     } finally {
       setHermesStarting(false);
     }
+  }
+
+  async function runHermesControl(action: () => Promise<HermesControlResult | undefined>, successMessage: string) {
+    if (hermesStarting) return;
+    setHermesStarting(true);
+    try {
+      const result = await action();
+      if (result?.snapshot) setHermesStatus(result.snapshot);
+      if (result && !result.ok) throw new Error(result.reason ?? "Hermes 控制操作未完成。");
+      setHermesFeedback(result?.snapshot ? hermesFeedbackForState(result.snapshot) : successMessage);
+    } catch (error) {
+      setHermesFeedback(error instanceof Error ? error.message : "Hermes 控制操作未完成，请查看日志。");
+    } finally {
+      setHermesStarting(false);
+    }
+  }
+
+  async function refreshHermesLogs() {
+    const result = await getHermesLogs();
+    if (result) setHermesLogs(result);
+  }
+
+  async function openHermesLogFile() {
+    await refreshHermesLogs();
+    const result = await openHermesLogs();
+    if (result && !result.ok) setHermesFeedback(result.reason ?? "无法打开 Hermes 日志。");
   }
 
   async function saveAiConfiguration() {
@@ -519,7 +603,7 @@ export default function SettingsPage() {
               <div className="section-heading compact-heading">
                 <div>
                   <h2>AI 配置</h2>
-                  <p>配置 AI 模型接口。保存后会立即重载内置 Hermes；AI 模式优先经过 Hermes，Hermes 不可用时才降级到 Native。</p>
+                  <p>配置 AI 模型接口。保存后会立即重载内置 Hermes；正常语义 Agent 始终由 Hermes 负责，配置或运行异常会明确显示在运行状态中。</p>
                 </div>
               </div>
               <label className="field-label">
@@ -641,45 +725,92 @@ export default function SettingsPage() {
             <div className="settings-section">
               <div className="section-heading compact-heading">
                 <div>
-                  <h2>Hermes 运行时</h2>
-                  <p>Hermes 是随应用安装的 AI 模式核心，用户不需要另行安装。应用启动时会自动托管它；如果被测试或外部进程关闭，可以从这里恢复。</p>
+                  <h2>Hermes Control Center</h2>
+                  <p>Hermes 是随应用安装的语义 Agent 运行时。状态、启动、恢复和日志均由 Electron 主进程 Supervisor 统一管理。</p>
                 </div>
               </div>
-              <dl className="info-list">
-                <div>
-                  <dt>运行状态</dt>
-                  <dd>{hermesHealth?.available === true ? "已连接" : hermesHealth ? "未就绪" : "尚未检测"}{hermesHealth?.version ? ` · ${hermesHealth.version}` : ""}</dd>
+              <section className="settings-group hermes-control-section" aria-labelledby="hermes-state-heading">
+                <div className="settings-group-heading">
+                  <div><h3 id="hermes-state-heading">运行状态</h3><p>“Ready” 只表示进程、API、Provider、Career MCP、工具面和 Run 全部可用。</p></div>
+                  <span className={`status-badge hermes-state-badge is-${hermesLifecycleState(hermesStatus, hermesHealth)}`}>{hermesLifecycleLabel(hermesStatus, hermesHealth)}</span>
                 </div>
-                <div><dt>Hermes API Server</dt><dd>{formatEndpoint(hermesHealth?.runtimeUrl, "启动后自动分配")}</dd></div>
-                <div><dt>CareerAdapt 应用 / MCP</dt><dd>{formatEndpoint(hermesHealth?.appUrl, "当前应用端口")}</dd></div>
-                <div><dt>运行方式</dt><dd>内置随应用部署</dd></div>
-                <div>
-                  <dt>CareerAdapt MCP</dt>
-                  <dd>{hermesHealth?.mcpConnected === true ? `已连接 · ${hermesHealth.discoveredToolCount ?? 0} 个工具` : "未连接"}</dd>
+                <dl className="info-list hermes-control-facts">
+                  <div><dt>Runtime</dt><dd>{formatEndpoint(hermesStatus?.runtimeUrl ?? hermesHealth?.runtimeUrl, "正在分配")}{hermesStatus?.version || hermesHealth?.version ? ` · ${hermesStatus?.version ?? hermesHealth?.version}` : ""}</dd></div>
+                  <div><dt>应用 / MCP</dt><dd>{formatEndpoint(hermesStatus?.appUrl ?? hermesHealth?.appUrl, "当前应用端口")}</dd></div>
+                  <div><dt>Provider</dt><dd>{hermesStatus?.provider || hermesHealth?.provider || hermesConfig?.provider || "正在读取"}</dd></div>
+                  <div><dt>模型</dt><dd>{hermesStatus?.model || hermesHealth?.model || hermesConfig?.model || "正在读取"}</dd></div>
+                  <div><dt>运行时方式</dt><dd>内置 bundled runtime · 主进程托管</dd></div>
+                  <div><dt>API Key</dt><dd>{hermesConfig ? (hermesConfig.apiKeyConfigured ? "已配置（仅显示状态）" : "未配置") : "由本机环境托管"}</dd></div>
+                </dl>
+              </section>
+
+              <section className="settings-group hermes-control-section" aria-labelledby="hermes-readiness-heading">
+                <div className="settings-group-heading">
+                  <div><h3 id="hermes-readiness-heading">Readiness dimensions</h3><p>同步中、降级和进程不可用是不同状态，不会被混写成“进程失败”。</p></div>
                 </div>
-                <div><dt>CareerAdapt skills</dt><dd>{hermesHealth?.runtimeHealth?.careerSkillsLoaded === true ? "已加载" : "待加载或未检测"}</dd></div>
-                <div><dt>模型</dt><dd>{hermesHealth?.model || "由应用环境配置"}</dd></div>
-                <div><dt>API 密钥</dt><dd>由本机环境托管，仅显示配置状态，不在页面显示明文。</dd></div>
-              </dl>
+                <div className="hermes-dimension-grid">
+                  {([
+                    ["Process", hermesStatus?.processReady ?? hermesHealth?.available === true],
+                    ["API", hermesStatus?.apiReady ?? hermesHealth?.available === true],
+                    ["Provider", hermesStatus?.providerReady ?? hermesHealth?.runtimeHealth?.providerReady === true],
+                    ["Career MCP", hermesStatus?.careerMcpReady ?? (hermesHealth?.mcpConnected === true && hermesHealth.runtimeHealth?.careerMcpServerReachable === true)],
+                    ["Tool surface", hermesStatus?.toolSurfaceReady ?? (hermesHealth?.runtimeHealth?.hermesMcpRegistered === true && (hermesHealth.runtimeHealth.hermesMcpToolCount ?? 0) > 0)],
+                    ["Run", hermesStatus?.runReady ?? hermesHealth?.runtimeHealth?.runReady],
+                    ["Career skills", hermesStatus?.careerSkillsReady ?? hermesHealth?.runtimeHealth?.careerSkillsLoaded === true]
+                  ] as Array<[string, boolean | undefined]>).map(([label, ready]) => <span key={label} className={ready === true ? "is-ready" : "is-pending"}><b>{ready === true ? "✓" : "—"}</b>{label}</span>)}
+                </div>
+                <p className="settings-save-state">原因码：{hermesStatus?.reasonCode || hermesHealth?.reason || (hermesHealth?.available === true ? "health_endpoint_ready" : "正在读取 Supervisor 状态")}</p>
+              </section>
+
+              <section className="settings-group hermes-control-section" aria-labelledby="hermes-tools-heading">
+                <div className="settings-group-heading">
+                  <div><h3 id="hermes-tools-heading">Career 工具面</h3><p>两个数量分别表示内部 Domain 合同面与 Hermes 生产可见 Career 工具面。</p></div>
+                </div>
+                <dl className="info-list hermes-control-facts">
+                  <div><dt>CareerAdapt Domain tools</dt><dd>{hermesStatus?.careerDomainToolCount ?? hermesHealth?.runtimeHealth?.careerGatewayContracts?.length ?? 0}</dd></div>
+                  <div><dt>Hermes production Career tools</dt><dd>{hermesStatus?.hermesCareerToolCount ?? hermesHealth?.runtimeHealth?.careerMcpExposedTools?.length ?? 0}</dd></div>
+                  <div><dt>Required Career facades</dt><dd>{hermesStatus ? `${hermesStatus.requiredCareerFacadesReady}/${hermesStatus.requiredCareerFacadesTotal}` : `${Math.max(0, 8 - (hermesHealth?.runtimeHealth?.requiredCareerFacadesMissing?.length ?? 8))}/8`}</dd></div>
+                  <div><dt>Career skills</dt><dd>{hermesStatus ? `${hermesStatus.careerSkillsReady ? "已加载" : "同步中"}${hermesStatus.careerSkills?.length ? ` · ${hermesStatus.careerSkills.join(", ")}` : ""}` : hermesHealth?.runtimeHealth?.careerSkillsLoaded === true ? "已加载" : "同步中"}</dd></div>
+                </dl>
+              </section>
+
               <p className="settings-save-state" role="status" aria-live="polite">{hermesFeedback}</p>
-              <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem", flexWrap: "wrap" }}>
+              <div className="hermes-settings-actions">
                 <button
                   type="button"
                   className="button button-primary"
                   disabled={hermesStarting}
                   onClick={() => void startHermesFromSettings()}
                 >
-                  {hermesStarting ? "启动中…" : "启动 / 恢复 Hermes"}
+                  {hermesStarting ? "处理中…" : "启动 / 重载"}
                 </button>
+                <button type="button" className="button button-secondary" disabled={hermesStarting} onClick={() => void runHermesControl(requestHermesStop, "Hermes 已停止。")}><Power size={14} aria-hidden="true" />停止</button>
+                <button type="button" className="button button-secondary" disabled={hermesStarting} onClick={() => void runHermesControl(requestHermesRestart, "Hermes 已提交重启。")}><RotateCcw size={14} aria-hidden="true" />重启</button>
+                <button type="button" className="button button-secondary" disabled={hermesStarting} onClick={() => void runHermesControl(requestHermesRecover, "已执行一次自动修复检查。")}><Wrench size={14} aria-hidden="true" />自动修复</button>
                 <button
                   type="button"
                   className="button button-secondary"
                   disabled={hermesChecking || hermesStarting}
-                  onClick={() => void checkHermesHealth()}
+                  onClick={() => { void checkHermesHealth(); void getHermesStatus().then((status) => { if (status) setHermesStatus(status); }); }}
                 >
-                  {hermesChecking ? "检测中…" : "刷新状态"}
+                  {hermesChecking ? "读取中…" : "刷新状态"}
                 </button>
+                <button type="button" className="button button-secondary" disabled={hermesStarting} onClick={() => { void refreshHermesLogs(); }}><FileText size={14} aria-hidden="true" />查看日志</button>
+                <button type="button" className="button button-secondary" disabled={hermesStarting} onClick={() => { void openHermesLogFile(); }}><FileText size={14} aria-hidden="true" />打开日志目录</button>
               </div>
+              {hermesLogs ? (
+                <details className="settings-help-details hermes-log-details" open>
+                  <summary>安全日志与 Supervisor timeline</summary>
+                  <p>{hermesLogs.logPath || "日志路径由 Electron 管理"}</p>
+                  <pre>{[...hermesLogs.latestLifecycleEntries.map((entry) => `${entry.at} [${entry.state}] ${entry.message}`), ...hermesLogs.recentLogLines].join("\n") || "暂无日志"}</pre>
+                </details>
+              ) : null}
+              {hermesConfigSchema ? (
+                <details className="settings-help-details">
+                  <summary>Bundled runtime contract · {hermesConfigSchema.version || "版本读取中"}</summary>
+                  <p>可探测接口：{hermesConfigSchema.supportedEndpoints.join("、") || "无"}。当前版本不提供：{hermesConfigSchema.unsupportedEndpoints.join("、") || "无"}。Host、鉴权、CareerAdapt production MCP、工具面和 runtime 路径由应用锁定。</p>
+                </details>
+              ) : null}
               <details className="settings-help-details">
                 <summary>端口说明</summary>
                 <p>应用启动时会分别探测 CareerAdapt 和 Hermes 的可用本地端口。默认端口只是首选值；如果被其他程序占用，应用会自动顺延到可用端口，并同步更新 MCP 与 Hermes 配置。</p>
@@ -874,6 +1005,35 @@ function formatEndpoint(value: string | undefined, fallback: string) {
   } catch {
     return value.replace(/^https?:\/\//u, "").replace(/\/$/u, "");
   }
+}
+
+function hermesLifecycleState(status?: HermesSupervisorSnapshot, health?: HermesSettingsHealth): HermesSupervisorSnapshot["overallState"] {
+  if (status) return status.overallState;
+  if (health?.available === true) return "ready";
+  return "starting";
+}
+
+function hermesLifecycleLabel(status?: HermesSupervisorSnapshot, health?: HermesSettingsHealth) {
+  const state = hermesLifecycleState(status, health);
+  return {
+    stopped: "Stopped",
+    starting: "Starting",
+    api_ready: "API ready",
+    syncing_career_tools: "Syncing Career tools",
+    ready: "Ready",
+    degraded: "Degraded",
+    restarting: "Restarting",
+    unavailable: "Unavailable",
+    stopping: "Stopping"
+  }[state];
+}
+
+function hermesFeedbackForState(status: HermesSupervisorSnapshot) {
+  if (status.overallState === "ready") return "Hermes Ready：进程、API、Provider、Career MCP、工具面和 Run 均已就绪。";
+  if (status.overallState === "syncing_career_tools") return "Hermes API 已就绪，正在同步 Career production tool surface。";
+  if (status.overallState === "degraded") return `Hermes 处于降级状态：${status.reasonCode ?? "请查看 readiness dimensions"}。`;
+  if (status.overallState === "unavailable") return `Hermes 当前不可用：${status.reasonCode ?? "请检查配置或日志"}。`;
+  return `Hermes 状态：${hermesLifecycleLabel(status)}。`;
 }
 
 function loadingHealth(engine: string): DocumentEngineHealth {

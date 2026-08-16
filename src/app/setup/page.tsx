@@ -31,7 +31,7 @@ export default function SetupPage() {
 
     setSaving(true);
     writeAiSettings(settings);
-    // 先把新配置交给内置 Hermes；即使它暂时不可用，主页仍保留 Native 降级链路。
+    // 先把新配置交给内置 Hermes；即使它暂时不可用，主页仍保留会话入口并显示明确状态。
     await requestHermesStart().catch(() => undefined);
     router.push("/");
   }

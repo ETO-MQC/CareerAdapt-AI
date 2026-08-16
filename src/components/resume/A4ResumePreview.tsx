@@ -77,7 +77,7 @@ export function A4ResumePreview({
   }
 
   function isProfileFieldId(itemId: string) {
-    return itemId.startsWith("profile:");
+    return itemId.startsWith("profile:") || itemId.startsWith("derived-summary:");
   }
 
   function isSectionTitleId(itemId: string) {

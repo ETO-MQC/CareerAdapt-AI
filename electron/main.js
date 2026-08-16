@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 
-const { app, BrowserWindow, Menu, dialog, ipcMain } = require("electron");
+const { app, BrowserWindow, Menu, dialog, ipcMain, shell } = require("electron");
 const { spawn } = require("child_process");
 const crypto = require("crypto");
 const path = require("path");
@@ -12,12 +12,10 @@ const {
   allocateLocalRuntimeUrl,
   createEphemeralRuntimeApiKey,
   findAvailablePort,
-  hermesConfigurationFingerprint,
   loadCareerAdaptEnvironment,
-  parsePort,
-  startHermesCompanion,
-  stopHermesCompanion
+  parsePort
 } = require("./hermesCompanion");
+const { HermesSupervisor } = require("./hermesSupervisor");
 
 let mainWindow;
 let nextServer;
@@ -26,11 +24,7 @@ let serverUrl;
 let ocrSidecarProcess;
 let ocrSidecarStarting = false;
 let ocrBootstrapTimer;
-let hermesCompanion;
-let managedHermesAppPath;
-let managedHermesEnvironment;
-let managedHermesBaseEnvironment;
-let hermesStartPromise;
+let hermesSupervisor;
 
 const isDev = !app.isPackaged;
 const HOST = "127.0.0.1";
@@ -353,7 +347,7 @@ async function startServer() {
   if (reuseExistingDevelopmentServer) {
     applyEnvironment(environment);
     console.warn(`端口 ${serverPort} 已有开发服务器，直接复用：${getServerUrl()}`);
-    await startManagedHermes(appPath, environment);
+    createHermesSupervisor(appPath, environment);
     saveAppPort(serverPort);
     return getServerUrl();
   }
@@ -363,7 +357,9 @@ async function startServer() {
     : startPackagedServer(appPath, serverPort);
   const resolvedUrl = await url;
   saveAppPort(serverPort);
-  await startManagedHermes(appPath, environment);
+  // Hermes starts only after the renderer-owned Browser Domain Host sends
+  // the MCP READY handshake.
+  createHermesSupervisor(appPath, environment);
   return resolvedUrl;
 }
 
@@ -376,161 +372,80 @@ async function readServerJson(url) {
   }
 }
 
-async function startManagedHermes(appPath, environment) {
-  if (!managedHermesBaseEnvironment) managedHermesBaseEnvironment = { ...environment };
-  const nextEnvironment = {
-    ...environment,
-    HERMES_HOME: environment.HERMES_HOME || path.join(app.getPath("userData"), "hermes"),
-    HERMES_RUNTIME_ROOT: environment.HERMES_RUNTIME_ROOT || (app.isPackaged
-      ? path.join(process.resourcesPath, "hermes-runtime")
-      : path.join(appPath, ".electron-build", "hermes-runtime-v4"))
-  };
-  if (hermesStartPromise) await hermesStartPromise.catch(() => undefined);
-  // The renderer registers the browser MCP bridge immediately after the
-  // window mounts. If that registration is already causing the managed
-  // companion to refresh its MCP session, wait for the refresh instead of
-  // racing it with a second --replace launch from the renderer startup hook.
-  const activeCompanion = hermesCompanion;
-  if (activeCompanion?.owned && activeCompanion.bridgeRefreshPromise) {
-    await activeCompanion.bridgeRefreshPromise.catch(() => undefined);
-  }
-  const nextFingerprint = hermesConfigurationFingerprint(nextEnvironment);
-  if (hermesCompanion?.ok
-    && hermesCompanion.owned
-    && hermesCompanion.configurationFingerprint === nextFingerprint
-    && await isManagedHermesReady(hermesCompanion, nextEnvironment)
-    && (!hermesCompanion.child || hermesCompanion.child.exitCode === null)) {
-    managedHermesAppPath = appPath;
-    managedHermesEnvironment = nextEnvironment;
-    applyEnvironment(nextEnvironment);
-    return hermesCompanion;
-  }
-  if (hermesCompanion?.owned) {
-    await stopHermesCompanion(hermesCompanion);
-    hermesCompanion = null;
-  }
-  managedHermesAppPath = appPath;
-  managedHermesEnvironment = nextEnvironment;
-  applyEnvironment(nextEnvironment);
-  hermesStartPromise = (async () => {
-    const logPath = path.join(app.getPath("logs"), "hermes-runtime.log");
-    console.log("[Hermes] Starting managed companion...");
-    hermesCompanion = await startHermesCompanion({
-      projectRoot: appPath,
-      // The companion may reassign its local port. Keep that decision in the
-      // returned handle and let this process commit it to both environments
-      // after startup succeeds.
-      environment: { ...managedHermesEnvironment },
-      appBaseUrl: getServerUrl(),
-      hermesHome: managedHermesEnvironment.HERMES_HOME,
-      hermesRuntimeRoot: managedHermesEnvironment.HERMES_RUNTIME_ROOT,
-      runtimeCwd: app.isPackaged ? process.resourcesPath : appPath,
-      logPath,
-      allowProviderKeyFallback: true,
-      requireBundledRuntime: app.isPackaged
-    });
-    if (hermesCompanion.ok) {
-      if (hermesCompanion.runtime?.baseUrl
-        && managedHermesEnvironment.HERMES_RUNTIME_URL !== hermesCompanion.runtime.baseUrl) {
-        managedHermesEnvironment = {
-          ...managedHermesEnvironment,
-          HERMES_RUNTIME_URL: hermesCompanion.runtime.baseUrl
-        };
-        managedHermesBaseEnvironment = {
-          ...(managedHermesBaseEnvironment ?? {}),
-          HERMES_RUNTIME_URL: hermesCompanion.runtime.baseUrl
-        };
-        hermesCompanion.configurationFingerprint = hermesConfigurationFingerprint(managedHermesEnvironment);
-        applyEnvironment(managedHermesEnvironment);
-      }
-      console.log(`[Hermes] Ready at ${hermesCompanion.runtime.baseUrl}`);
-      console.log(`[Hermes] Startup log: ${hermesCompanion.logPath}`);
-      return hermesCompanion;
-    }
-    console.warn(`[Hermes] Companion unavailable (${hermesCompanion.reason ?? "unknown"}); Native fallback remains available.`);
-    console.warn(`[Hermes] Startup log: ${hermesCompanion.logPath}`);
-    if (managedHermesEnvironment.HERMES_AUTOSTART_REQUIRED?.trim().toLowerCase() === "true") {
-      throw new Error(`Hermes companion failed to start: ${hermesCompanion.reason ?? "unknown"}`);
-    }
-    return hermesCompanion;
-  })();
-  try {
-    return await hermesStartPromise;
-  } finally {
-    hermesStartPromise = undefined;
+
+function createHermesSupervisor(appPath, environment) {
+  hermesSupervisor = new HermesSupervisor({
+    projectRoot: appPath,
+    appPath,
+    appBaseUrl: getServerUrl(),
+    environment: { ...environment },
+    hermesHome: environment.HERMES_HOME,
+    hermesRuntimeRoot: environment.HERMES_RUNTIME_ROOT,
+    runtimeCwd: app.isPackaged ? process.resourcesPath : appPath,
+    logPath: path.join(app.getPath("logs"), "hermes-runtime.log"),
+    requireBundledRuntime: app.isPackaged,
+    broadcast: broadcastHermesStatus
+  });
+  console.log("[Hermes] Supervisor created; waiting for renderer MCP/domain host READY");
+  return hermesSupervisor;
+}
+
+function broadcastHermesStatus(snapshot) {
+  for (const window of BrowserWindow.getAllWindows()) {
+    if (!window.isDestroyed()) window.webContents.send("careeradapt:hermes:status-changed", snapshot);
   }
 }
 
-async function isManagedHermesReady(handle, environment) {
-  if (!handle?.runtime?.healthUrl || !handle.child || handle.child.exitCode !== null) return false;
-  const apiKey = environment.HERMES_RUNTIME_API_KEY
-    || environment.HERMES_API_KEY
-    || environment.AI_API_KEY;
-  const headers = apiKey
-    ? { Authorization: `Bearer ${apiKey}`, Accept: "application/json" }
-    : { Accept: "application/json" };
-  for (const url of [handle.runtime.healthUrl, `${handle.runtime.baseUrl}/api/health`]) {
-    try {
-      // The bundled gateway may accept the socket before its first health
-      // response is serviced. Use the same bounded cold-start allowance as
-      // the companion probe so a renderer boot check cannot relaunch a
-      // healthy gateway merely because its first response was slow.
-      const response = await fetch(url, { headers, signal: AbortSignal.timeout(15_000), cache: "no-store" });
-      if (response.status === 404) continue;
-      return response.ok;
-    } catch {
-      // The start button will restart the managed child when its port is no
-      // longer healthy, while Native fallback remains available meanwhile.
-    }
-  }
-  return false;
-}
-
-ipcMain.handle("careeradapt:hermes:start", async (_event, requestedSettings) => {
-  if (!managedHermesAppPath || !managedHermesEnvironment) {
-    return { ok: false, reason: "careeradapt_app_not_ready" };
-  }
-  try {
-    const requestedEnvironment = environmentFromHermesSettings(requestedSettings);
-    // Electron has already started the managed companion before creating the
-    // window. The renderer also asks for a start during its boot handshake;
-    // with no renderer-side provider override that request is an idempotent
-    // readiness check, not a reason to relaunch Hermes with --replace while
-    // the MCP bridge watcher is refreshing the first session.
-    if (Object.keys(requestedEnvironment).length === 0
-      && hermesCompanion?.ok
-      && hermesCompanion.owned
-      && await isManagedHermesReady(hermesCompanion, managedHermesEnvironment)) {
-      return { ok: true, runtimeUrl: hermesCompanion.runtime?.baseUrl };
-    }
-    const environment = {
-      ...(managedHermesBaseEnvironment ?? managedHermesEnvironment),
-      ...requestedEnvironment
-    };
-    const handle = await startManagedHermes(managedHermesAppPath, environment);
-    return {
-      ok: Boolean(handle?.ok),
-      ...(handle?.reason ? { reason: handle.reason } : {}),
-      ...(handle?.runtime?.baseUrl ? { runtimeUrl: handle.runtime.baseUrl } : {})
-    };
-  } catch (error) {
-    return { ok: false, reason: error instanceof Error ? error.message : "hermes_companion_start_failed" };
-  }
+ipcMain.handle("careeradapt:hermes:renderer-ready", async (_event, requestedSettings) => {
+  if (!hermesSupervisor) return { ok: false, reason: "careeradapt_app_not_ready" };
+  const snapshot = await hermesSupervisor.rendererHostReady(requestedSettings);
+  return { ok: true, snapshot };
 });
 
-function environmentFromHermesSettings(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
-  const settings = value;
-  const read = (name) => typeof settings[name] === "string" ? settings[name].trim().slice(0, 20_000) : "";
-  const baseUrl = read("baseUrl");
-  const apiKey = read("apiKey");
-  const model = read("model");
-  return {
-    ...(baseUrl ? { AI_BASE_URL: baseUrl } : {}),
-    ...(apiKey ? { AI_API_KEY: apiKey } : {}),
-    ...(model ? { AI_MODEL: model } : {})
-  };
-}
+ipcMain.handle("careeradapt:hermes:status", () => hermesSupervisor?.getStatus());
+
+ipcMain.handle("careeradapt:hermes:start", async (_event, requestedSettings) => {
+  if (!hermesSupervisor) return { ok: false, reason: "careeradapt_app_not_ready" };
+  const snapshot = await hermesSupervisor.ensureStarted(requestedSettings);
+  return { ok: snapshot.overallState !== "unavailable", reason: snapshot.reasonCode, runtimeUrl: snapshot.runtimeUrl, snapshot };
+});
+
+ipcMain.handle("careeradapt:hermes:stop", async () => {
+  if (!hermesSupervisor) return { ok: false, reason: "careeradapt_app_not_ready" };
+  return { ok: true, snapshot: await hermesSupervisor.stop() };
+});
+
+ipcMain.handle("careeradapt:hermes:restart", async (_event, options) => {
+  if (!hermesSupervisor) return { ok: false, reason: "careeradapt_app_not_ready" };
+  return { ok: true, snapshot: await hermesSupervisor.restart(options) };
+});
+
+ipcMain.handle("careeradapt:hermes:recover", async () => {
+  if (!hermesSupervisor) return { ok: false, reason: "careeradapt_app_not_ready" };
+  return { ok: true, snapshot: await hermesSupervisor.recover() };
+});
+
+ipcMain.handle("careeradapt:hermes:logs", async () => {
+  if (!hermesSupervisor) return { logPath: undefined, latestLifecycleEntries: [], recentLogLines: [] };
+  return hermesSupervisor.getLogs();
+});
+
+ipcMain.handle("careeradapt:hermes:open-logs", async () => {
+  if (!hermesSupervisor) return { ok: false, reason: "careeradapt_app_not_ready" };
+  const result = await shell.openPath((await hermesSupervisor.getLogs()).logPath);
+  return result ? { ok: false, reason: result } : { ok: true };
+});
+
+ipcMain.handle("careeradapt:hermes:config", async () => hermesSupervisor?.getConfig());
+ipcMain.handle("careeradapt:hermes:config-schema", async () => hermesSupervisor?.getConfigSchema());
+ipcMain.handle("careeradapt:hermes:update-config", async (_event, settings) => {
+  if (!hermesSupervisor) return { ok: false, reason: "careeradapt_app_not_ready" };
+  return { ok: true, snapshot: await hermesSupervisor.updateConfig(settings) };
+});
+ipcMain.handle("careeradapt:hermes:reset-config", async () => {
+  if (!hermesSupervisor) return { ok: false, reason: "careeradapt_app_not_ready" };
+  return { ok: true, snapshot: await hermesSupervisor.resetConfig() };
+});
 
 async function stopServer() {
   if (ocrBootstrapTimer) {
@@ -541,8 +456,10 @@ async function stopServer() {
     ocrSidecarProcess.kill();
     ocrSidecarProcess = null;
   }
-  await stopHermesCompanion(hermesCompanion);
-  hermesCompanion = null;
+  if (hermesSupervisor) {
+    await hermesSupervisor.shutdown();
+    hermesSupervisor = undefined;
+  }
   if (nextServer) {
     await new Promise((resolve) => nextServer.close(resolve));
     nextServer = null;

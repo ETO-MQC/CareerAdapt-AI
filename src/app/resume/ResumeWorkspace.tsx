@@ -475,7 +475,7 @@ export function ResumeWorkspace() {
     const canonicalIds = new Set(selectedBranch?.structuredContentItems
       ?.filter((item) => item.data.sectionType === activeResumeSection)
       .map((item) => item.id) ?? []);
-    return contentBlocks.filter((block) => canonicalIds.has(block.contentItemId));
+    return contentBlocks.filter((block) => block.derivedFrom === "resumeBasics.summary" || canonicalIds.has(block.contentItemId));
   }, [activeResumeSection, resumeDocument, selectedBranch]);
   const activeStructuredItems = useMemo(() => activeResumeSection === "basics" || activeResumeSection === "add" || activeResumeSection.startsWith("custom:")
     ? []
@@ -1264,6 +1264,11 @@ export function ResumeWorkspace() {
   async function saveItem(itemId: string, options: { origin?: "manual" | "auto" } = {}) {
     const origin = options.origin ?? "manual";
     const branchId = activeBranchId;
+    const derivedSummaryBlock = resumeDocumentBlocksById.get(itemId);
+    if (derivedSummaryBlock?.derivedFrom === "resumeBasics.summary" && editTextsRef.current[itemId] !== undefined) {
+      await saveProfileFieldText(itemId, editTextsRef.current[itemId]!);
+      return;
+    }
     const queuedText = editTextsRef.current[itemId]?.trim();
     if (!branchId || !queuedText) {
       if (origin === "manual") {
@@ -1458,6 +1463,10 @@ export function ResumeWorkspace() {
   async function setContentItemVisibility(itemId: string, visible: boolean) {
     if (!selectedBranch || !selectedBranchEditable) {
       notify({ type: "warning", title: "不可编辑", message: "当前简历不可编辑：旧数据、归档、引用失效或缺少当前版本。" });
+      return;
+    }
+    if (resumeDocumentBlocksById.get(itemId)?.derivedFrom === "resumeBasics.summary") {
+      await setPresentationItemVisibility(itemId, visible);
       return;
     }
 
@@ -1714,12 +1723,18 @@ export function ResumeWorkspace() {
   ) {
     if (!sourceBranch) return undefined;
     try {
-      const result = await repository.syncResumeContentItemToProfile({
-        branchId: sourceBranch.id,
-        expectedRevision: sourceBranch.revision,
-        operationId: `sync-resume-item-${sourceBranch.id}-${sourceBranch.revision}-${itemId}`,
-        itemId
-      });
+      const result = resumeDocumentBlocksById.get(itemId)?.derivedFrom === "resumeBasics.summary"
+        ? await repository.syncResumeBasicsSummaryToProfile({
+            branchId: sourceBranch.id,
+            expectedRevision: sourceBranch.revision,
+            operationId: `sync-resume-basics-summary-${sourceBranch.id}-${sourceBranch.revision}`
+          })
+        : await repository.syncResumeContentItemToProfile({
+            branchId: sourceBranch.id,
+            expectedRevision: sourceBranch.revision,
+            operationId: `sync-resume-item-${sourceBranch.id}-${sourceBranch.revision}-${itemId}`,
+            itemId
+          });
       const nextProfile = await repository.getProfile(result.branch.profileId);
       if (nextProfile) setProfileOverride(nextProfile);
       replaceBranch(result.branch);
@@ -2344,7 +2359,7 @@ export function ResumeWorkspace() {
     setSectionTitleError(undefined);
     setPendingStudioOperationId(undefined);
     setActivePropertyTab("document");
-    setActiveResumeSection("basics");
+    setActiveResumeSection(fieldId.startsWith("derived-summary:") ? "summary" : "basics");
     scrollCanvasItemIntoView(fieldId);
   }
 
@@ -2452,14 +2467,14 @@ export function ResumeWorkspace() {
     await saveProfileFieldText(editingProfileFieldId, profileFieldDraftText);
   }
 
-  async function saveProfileFieldText(fieldId: string, draftText: string) {
+  async function saveProfileFieldText(fieldId: string, draftText: string): Promise<boolean> {
     if (!profile || !selectedBranch || !selectedBranchEditable) {
-      return;
+      return false;
     }
     const key = profileFieldKey(fieldId);
     if (!key) {
       setProfileFieldError("当前基本信息字段暂不可编辑。");
-      return;
+      return false;
     }
     const text = draftText.trim();
     const currentBasics = selectedBranch.resumeBasics ?? {
@@ -2476,7 +2491,7 @@ export function ResumeWorkspace() {
     if (text === currentValue) {
       setEditingProfileFieldId(undefined);
       setProfileFieldError(undefined);
-      return;
+      return true;
     }
     const patch: Partial<NonNullable<ResumeBranch["resumeBasics"]>> = {};
     if (key === "link") {
@@ -2506,9 +2521,13 @@ export function ResumeWorkspace() {
       setSelectedProfileFieldId(undefined);
       setProfileFieldDraftText("");
       setProfileFieldError(undefined);
-      notify({ type: "success", title: "已保存", message: "这份简历的个人信息已保存；个人资料库未被修改。" });
+      notify({ type: "success", title: "已保存", message: key === "summary"
+        ? (text ? "自我评价已保存到当前简历；个人资料库未被修改。" : "自我评价已从当前简历中移除；个人资料库未被修改。")
+        : "这份简历的个人信息已保存；个人资料库未被修改。" });
+      return true;
     } catch {
       setProfileFieldError("保存失败：版本已变化，请刷新后重试。");
+      return false;
     } finally {
       setProfileFieldPending(false);
     }
@@ -2658,6 +2677,11 @@ export function ResumeWorkspace() {
     if (nextText === block.text.trim()) {
       cancelStudioEdit();
       notify({ type: "info", title: "未变化", message: "内容未变化，没有创建新的简历版本。" });
+      return;
+    }
+
+    if (block.derivedFrom === "resumeBasics.summary") {
+      await saveProfileFieldText(block.contentItemId, nextText);
       return;
     }
 
@@ -4893,7 +4917,10 @@ function buildResumeStudioSections(input: {
   const canonicalItems = input.branch?.structuredContentItems ?? [];
   const blocksFor = (sectionType: ResumeSectionTypeV2) => canonicalItems
     .filter((item) => item.data.sectionType === sectionType)
-    .flatMap((item) => blockById.get(item.id) ? [blockById.get(item.id)!] : []);
+    .flatMap((item) => blockById.get(item.id) ? [blockById.get(item.id)!] : [])
+    .concat(sectionType === "summary"
+      ? blocks.filter((block) => block.derivedFrom === "resumeBasics.summary")
+      : []);
   const verifiedContentCount = input.branch?.contentItems.filter((item) => item.visible && item.itemType !== "structural").length ?? 0;
   const customBySource = (sourceSectionId: string) => blocks.filter((block) => block.sourceSectionId === sourceSectionId);
   const profileHasSection = (key: ResumeStudioSectionKey) => {
@@ -5317,7 +5344,7 @@ function sectionTitleFieldLabel(fieldId: string | undefined) {
   return sectionType ? sectionTypeLabel(sectionType) : "栏目标题";
 }
 
-type EditableProfileFieldKey = "name" | "targetRole" | "phone" | "email" | "location" | "link";
+type EditableProfileFieldKey = "name" | "targetRole" | "phone" | "email" | "location" | "link" | "summary";
 
 function profileFieldKey(fieldId: string): EditableProfileFieldKey | undefined {
   if (fieldId === "profile:name") {
@@ -5338,6 +5365,9 @@ function profileFieldKey(fieldId: string): EditableProfileFieldKey | undefined {
   if (fieldId.startsWith("profile:link:") || fieldId.startsWith("profile:email:link:")) {
     return "link";
   }
+  if (fieldId.startsWith("derived-summary:")) {
+    return "summary";
+  }
   return undefined;
 }
 
@@ -5357,7 +5387,8 @@ function profileFieldLabel(fieldId?: string) {
     phone: "电话",
     email: "邮箱",
     location: "所在地",
-    link: "链接"
+    link: "链接",
+    summary: "自我评价"
   };
   const key = profileFieldKey(fieldId);
   if (key === "link" && fieldId.startsWith("profile:email:link:")) {

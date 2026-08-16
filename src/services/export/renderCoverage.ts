@@ -78,6 +78,7 @@ export function sourceVisibleCoverage(input: {
   derivedSummary?: string;
 }): RenderCoverageEntry[] {
   const runtimeBranch = migrateResumeBranchToV2(input.branch);
+  const hasPersistedSummaryItem = input.document.blocks.some((block) => !block.derivedFrom && block.itemType === "summary");
   const visibleIds = new Set(input.document.blocks
     .filter((block) => block.visible && block.renderable)
     .map((block) => block.contentItemId));
@@ -89,7 +90,16 @@ export function sourceVisibleCoverage(input: {
     const sectionId = customSection ?? sectionType;
     return [{ sectionType, sectionId, itemId: item.id }];
   });
-  if (input.derivedSummary?.trim() && !entries.some((entry) => entry.sectionType === "summary")) {
+  const visibleSummaryBlock = input.document.blocks.find((block) => !block.derivedFrom && block.itemType === "summary" && block.visible && block.renderable);
+  if (visibleSummaryBlock && !entries.some((entry) => entry.sectionType === "summary")) {
+    entries.unshift({ sectionType: "summary", sectionId: "summary", itemId: visibleSummaryBlock.contentItemId });
+  }
+  const derivedSummaryBlock = input.document.blocks.find((block) => block.derivedFrom === "resumeBasics.summary");
+  if (input.derivedSummary?.trim()
+    && !hasPersistedSummaryItem
+    && derivedSummaryBlock?.visible
+    && derivedSummaryBlock.renderable
+    && !entries.some((entry) => entry.sectionType === "summary")) {
     entries.unshift({ sectionType: "summary", sectionId: "summary", itemId: `derived-summary:${input.branch.id}` });
   }
   const sectionEntries = entries.flatMap((entry, index, all): RenderCoverageEntry[] => all.findIndex((candidate) => candidate.sectionId === entry.sectionId) === index

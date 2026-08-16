@@ -5543,6 +5543,42 @@ export class WorkspaceRepository {
     });
   }
 
+  async syncResumeBasicsSummaryToProfile(input: {
+    branchId: string;
+    expectedRevision: number;
+    operationId: string;
+  }) {
+    return this.mutateResumeBranch({
+      branchId: input.branchId,
+      expectedRevision: input.expectedRevision,
+      operationId: input.operationId,
+      type: "manual_edit",
+      source: "manual_edit",
+      mutate: async ({ branch, profile, now }) => {
+        const summary = branch.resumeBasics?.summary?.trim() ?? profile.basics.summary?.trim() ?? "";
+        const migratedProfile = migrateCareerProfileToV2(profile);
+        const nextProfile = CareerProfileSchema.parse({
+          ...migratedProfile,
+          basics: {
+            ...migratedProfile.basics,
+            summary: summary || undefined
+          },
+          structuredBasics: {
+            ...migratedProfile.structuredBasics,
+            summary: summary || undefined
+          },
+          version: migratedProfile.version + 1,
+          updatedAt: now
+        });
+        await this.db.profiles.put(nextProfile);
+        return ResumeBranchSchema.parse({
+          ...branch,
+          sourceProfileVersion: nextProfile.version
+        });
+      }
+    });
+  }
+
   async addResumeContentItemFromProfile(input: {
     branchId: string;
     expectedRevision: number;
@@ -7611,7 +7647,13 @@ function sanitizePresentationConfigForBranch(config: ResumePresentationConfig, b
     throw new Error("resume_presentation_branch_current_revision_missing");
   }
 
-  const itemIds = new Set(branch.contentItems.map((item) => item.id));
+  const hasDerivedSummary = !branch.contentItems.some((item) => item.itemType === "summary")
+    && Boolean(branch.resumeBasics?.summary?.trim());
+  const derivedSummaryItemId = `derived-summary:${branch.id}`;
+  const itemIds = new Set([
+    ...branch.contentItems.map((item) => item.id),
+    ...(hasDerivedSummary ? [derivedSummaryItemId] : [])
+  ]);
   const hiddenItemIds = uniqueStrings(config.hiddenItemIds).filter((itemId) => itemIds.has(itemId));
   const branchVisibleItemIds = branch.contentItems.filter((item) => item.visible).map((item) => item.id);
   if (branchVisibleItemIds.length > 0 && branchVisibleItemIds.every((itemId) => hiddenItemIds.includes(itemId))) {
