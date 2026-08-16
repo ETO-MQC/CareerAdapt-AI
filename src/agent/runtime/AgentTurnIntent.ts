@@ -189,6 +189,16 @@ export function classifyTurnIntent(input: {
       newTask: { goal: "compose_resume", workflowId: "compose_resume", stage: "select_profile_scope" }
     };
   }
+  if (looksLikeJobDescription(text) && !(/录入|导入|新增|保存/u.test(text) && /岗位|职位/u.test(text))) {
+    const existingTailoringTarget = input.taskState?.rootGoal === "apply_to_job"
+      || input.taskState?.rootGoal === "create_tailored_resume";
+    return {
+      ...decision("new_domain_task", "replace", "domain", profileIntakeTurnKind, activeQuestionResolution),
+      newTask: looksLikeExternalTargetRequest(text) || existingTailoringTarget
+        ? { goal: "apply_to_external_job", workflowId: "tailor_existing_resume", stage: "choose_resume_source" }
+        : { goal: "clarify_external_target", workflowId: "tailor_existing_resume", stage: "clarify_target" }
+    };
+  }
   if (isReadOnlyCareerQuestion(text)) {
     return decision("casual_side_turn", "preserve", "none", profileIntakeTurnKind, activeQuestionResolution);
   }
@@ -208,7 +218,12 @@ export function classifyTurnIntent(input: {
     || isExplicitExportIntent(text)
     || looksLikeJobDescription(text)
   ) {
-    const task = newDomainTask(text);
+    const task = looksLikeExternalTargetRequest(text)
+      ? { goal: "apply_to_external_job", workflowId: "tailor_existing_resume", stage: "choose_resume_source" }
+      : looksLikeJobDescription(text)
+      && (input.taskState?.rootGoal === "apply_to_job" || input.taskState?.rootGoal === "create_tailored_resume")
+      ? { goal: "apply_to_external_job", workflowId: "tailor_existing_resume", stage: "choose_resume_source" }
+      : newDomainTask(text);
     const preserveApplicationRoot = task.goal === "ingest_job"
       && input.taskState?.rootGoal === "apply_to_job";
     return {
@@ -498,8 +513,14 @@ function expectedProfileIntakeAnswerDimension(taskState: AgentTaskState) {
 }
 
 function newDomainTask(text: string): NonNullable<TurnIntentDecision["newTask"]> {
-  if (looksLikeJobDescription(text)) {
+  if (looksLikeExternalTargetRequest(text)) {
+    return { goal: "apply_to_external_job", workflowId: "tailor_existing_resume", stage: "choose_resume_source" };
+  }
+  if (/录入|导入|新增|保存/u.test(text) && /岗位|职位/u.test(text)) {
     return { goal: "ingest_job", workflowId: "job_ingestion", stage: "collect_job_description" };
+  }
+  if (looksLikeJobDescription(text)) {
+    return { goal: "clarify_external_target", workflowId: "tailor_existing_resume", stage: "clarify_target" };
   }
   if (isExplicitExportIntent(text)) {
     return { goal: "export_resume", workflowId: "repair_and_export_resume", stage: "select_resume" };
@@ -522,9 +543,6 @@ function newDomainTask(text: string): NonNullable<TurnIntentDecision["newTask"]>
   if (/(深挖|丰富|梳理|挖掘).*(经历|项目)|(经历|项目).*(深挖|丰富|梳理|挖掘)/i.test(text)) {
     return { goal: "career_exploration", workflowId: "guided_profile_intake", stage: "collect_experience" };
   }
-  if (/导入|录入/.test(text) && /岗位|职位/.test(text)) {
-    return { goal: "ingest_job", workflowId: "job_ingestion", stage: "collect_job_description" };
-  }
   if (/上传|导入/.test(text) && /简历/.test(text)) {
     return { goal: "import_resume", workflowId: "resume_import", stage: "select_source" };
   }
@@ -541,6 +559,7 @@ function isTailoringContinuationTurn(taskState: AgentTaskState | undefined, text
   if (!taskState || taskState.completionStatus === "failed" || taskState.completionStatus === "cancelled") return false;
   const isTailoringRoot = taskState.rootGoal === "apply_to_job"
     || taskState.rootGoal === "create_tailored_resume"
+    || taskState.rootGoal === "apply_to_external_job"
     || taskState.workflowId === "tailor_existing_resume" && taskState.rootGoal !== "analyze_job_fit";
   return isTailoringRoot
     && /^(?:继续)?(?:提升|优化|改善)匹配度(?:吧|即可)?[。！!？?]?$/u.test(text.trim());
@@ -606,9 +625,18 @@ function isExplicitExportIntent(text: string) {
 }
 
 function looksLikeJobDescription(text: string) {
-  return text.length >= 120
-    && /岗位职责|职位描述|工作职责|职责描述/i.test(text)
-    && /任职要求|职位要求|岗位要求|资格要求/i.test(text);
+  if (text.length < 120) return false;
+  const signals = [
+    /岗位|职位|job\s+description|招聘/i,
+    /职责|工作内容|responsibilit/i,
+    /要求|任职资格|qualifications?|requirements?/i
+  ];
+  return signals.filter((pattern) => pattern.test(text)).length >= 2;
+}
+
+function looksLikeExternalTargetRequest(text: string) {
+  return looksLikeJobDescription(text)
+    && /应聘|申请|投递|生成(?:对应(?:的)?(?:岗位)?|岗位|定制)?简历|定制(?:简历|一版)|改(?:写|一下)?简历|优化简历|为(?:这个|该)?岗位/u.test(text);
 }
 
 function objectValue(value: unknown): Record<string, unknown> {

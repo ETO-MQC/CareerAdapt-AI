@@ -116,6 +116,7 @@ function isContinuable(state: AgentTaskState) {
       state.workflowId === "tailor_existing_resume"
       || state.rootGoal === "create_tailored_resume"
       || state.rootGoal === "apply_to_job"
+      || state.rootGoal === "apply_to_external_job"
       || state.rootGoal === "create_resume_from_profile"
       || state.rootGoal === "compose_resume"
       || state.workflowId === "compose_resume"
@@ -150,10 +151,10 @@ export function deriveNextLegalStage(state: AgentTaskState) {
   }
   if (state.stage === "confirm_apply") return "confirm_apply";
   if (state.stage === "preview_changes") return "preview_changes";
-  if (state.knownSlots.fitAnalysis && (state.selectedEntities.sourceResumeId ?? state.selectedEntities.resumeId) && state.selectedEntities.jobId) {
+  if (state.knownSlots.fitAnalysis && (state.selectedEntities.sourceResumeId ?? state.selectedEntities.resumeId) && (state.selectedEntities.jobId || state.selectedEntities.targetSnapshotId)) {
     return "generate_plan";
   }
-  if (state.lastObservation && state.selectedEntities.resumeId && state.selectedEntities.jobId) {
+  if (state.lastObservation && state.selectedEntities.resumeId && (state.selectedEntities.jobId || state.selectedEntities.targetSnapshotId)) {
     return "generate_plan";
   }
   return state.stage;
@@ -163,6 +164,7 @@ function isTailoringContinuationTask(state: AgentTaskState) {
   if (state.completionStatus === "failed" || state.completionStatus === "cancelled") return false;
   return state.rootGoal === "apply_to_job"
     || state.rootGoal === "create_tailored_resume"
+    || state.rootGoal === "apply_to_external_job"
     || state.workflowId === "tailor_existing_resume" && state.rootGoal !== "analyze_job_fit";
 }
 

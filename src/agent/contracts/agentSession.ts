@@ -128,10 +128,12 @@ export const AgentDependencySnapshotSchema = z.object({
 }).strict();
 
 export const AgentPendingDecisionSchema = z.object({
-  type: z.enum(["resume_source_route", "profile_intake_target", "profile_intake_resume", "profile_intake_post_save"]),
+  type: z.enum(["resume_source_route", "job_target_persistence", "profile_intake_target", "profile_intake_resume", "profile_intake_post_save"]),
   options: z.array(z.enum([
     "profile",
     "existing_resume",
+    "session_only",
+    "save_job",
     "switch_to_active",
     "keep_original",
     "save_profile_only",
@@ -215,6 +217,10 @@ const AgentTaskStateObjectSchema = z.object({
     jobId: z.string().min(1).optional(),
     jobRevision: z.union([z.string().min(1), z.number().int().min(0)]).optional(),
     jobGraphHash: z.string().min(1).optional(),
+    savedJobId: z.string().min(1).optional(),
+    targetSnapshotId: z.string().min(1).optional(),
+    targetSnapshotVersion: z.number().int().min(1).optional(),
+    targetSnapshotHash: z.string().min(1).optional(),
     tailoringSessionId: z.string().min(1).optional(),
     revisionId: z.string().min(1).optional()
   }).strict().default({}),

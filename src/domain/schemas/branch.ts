@@ -2,6 +2,7 @@ import { z } from "zod";
 import { EntityBaseSchema, IsoDateStringSchema, RiskLevelSchema } from "./common";
 import { ResumeItemV2Schema } from "./resumeV2";
 import { ResumeJsonV2MappingTraceSchema } from "./resumeJsonV2";
+import { JobTargetSnapshotSchema } from "./jobTarget";
 
 const PersistedResumeSourceRangeSchema = z.object({
   blockId: z.string().min(1),
@@ -222,6 +223,10 @@ export const ResumeBranchSchema = EntityBaseSchema.extend({
   branchPurpose: ResumeBranchPurposeSchema.default("job_specific"),
   profileId: z.string().min(1),
   jobId: z.string().min(1).optional(),
+  targetSnapshotId: z.string().min(1).optional(),
+  targetSnapshotVersion: z.number().int().min(1).optional(),
+  targetSnapshotHash: z.string().min(8).optional(),
+  targetSnapshot: JobTargetSnapshotSchema.optional(),
   name: z.string().min(1),
   sourceProfileVersion: z.number().int().min(1),
   sourceJobVersion: z.string().min(1).optional(),
@@ -250,11 +255,16 @@ export const ResumeBranchSchema = EntityBaseSchema.extend({
     return;
   }
 
-  if (branch.branchPurpose === "job_specific" && !branch.jobId) {
+  const hasSavedJobProvenance = Boolean(branch.jobId && branch.sourceJobVersion);
+  const hasTargetSnapshotProvenance = Boolean(
+    branch.targetSnapshotId
+      && (branch.targetSnapshotVersion !== undefined || branch.targetSnapshotHash)
+  );
+  if (branch.branchPurpose === "job_specific" && !hasSavedJobProvenance && !hasTargetSnapshotProvenance) {
     ctx.addIssue({
       code: "custom",
-      path: ["jobId"],
-      message: "job-specific branches must keep a jobId"
+      path: ["targetSnapshotId"],
+      message: "job-specific branches must keep saved job or target snapshot provenance"
     });
   }
 
@@ -268,11 +278,27 @@ export const ResumeBranchSchema = EntityBaseSchema.extend({
     });
   }
 
-  if (branch.branchPurpose === "job_specific" && !branch.sourceJobVersion) {
+  if (branch.branchPurpose === "job_specific" && !hasSavedJobProvenance && !hasTargetSnapshotProvenance) {
     ctx.addIssue({
       code: "custom",
-      path: ["sourceJobVersion"],
-      message: "job-specific branches must keep source job version"
+      path: ["targetSnapshotVersion"],
+      message: "job-specific branches must keep target snapshot version or hash"
+    });
+  }
+
+  if (branch.targetSnapshot && branch.targetSnapshot.id !== branch.targetSnapshotId) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["targetSnapshotId"],
+      message: "embedded target snapshot id must match targetSnapshotId"
+    });
+  }
+
+  if (branch.targetSnapshot && branch.targetSnapshotVersion !== undefined && branch.targetSnapshot.version !== branch.targetSnapshotVersion) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["targetSnapshotVersion"],
+      message: "embedded target snapshot version must match targetSnapshotVersion"
     });
   }
 

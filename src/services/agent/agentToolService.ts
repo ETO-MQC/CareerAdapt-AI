@@ -2,6 +2,8 @@ import {
   ImportedResumeDraftSchema,
   JobAnalysisDraftSchema,
   JobRequirementGraphV4Schema,
+  JobTargetSnapshotSchema,
+  type JobTargetSnapshot,
   RawInputDocumentSchema,
   ResumeTailorBatchInputSchema,
   ResumeTailorModelOutputSchema,
@@ -23,6 +25,7 @@ import {
   TailoringSessionSchema,
   type TailoringSession
 } from "@/services/jobs/tailoringCommands";
+import { jobTargetSnapshotHash, jobTargetSnapshotToJobDescription } from "@/domain/jobTarget/jobTargetSnapshot";
 import { invokeStructuredAi } from "@/ai/client";
 import { ResumeTailoringDiffModelOutputSchema, type ResumeTailoringDiffTaskInput } from "@/domain/schemas";
 import { commitParsedJob } from "@/services/jobs/jobWorkflow";
@@ -1674,22 +1677,23 @@ export class BrowserAgentToolService implements AgentToolServices {
 
   async analyzeJobFit(rawInput: unknown, operationId: string, signal?: AbortSignal) {
     assertNotAborted(signal);
-    const { profile, branch, job } = await this.loadSelection(rawInput);
+    const { profile, branch, job, targetSnapshot } = await this.loadSelection(rawInput);
     return {
       operationId,
       analysis: analyzeJobFit({ profile, branch, job }),
-      dependencies: selectionDependencies(profile, branch, job)
+      dependencies: selectionDependencies(profile, branch, job, targetSnapshot)
     };
   }
 
   async createTailoringSession(rawInput: unknown, operationId: string, signal?: AbortSignal) {
     const input = rawInput as { intensity?: unknown };
-    const { profile, branch, job } = await this.loadSelection(rawInput);
+    const { profile, branch, job, targetSnapshot } = await this.loadSelection(rawInput);
     const created = createTailoringSessionCommand({
       operationId,
       profile,
       branch,
       job,
+      ...(targetSnapshot ? { targetSnapshot } : {}),
       intensity: input.intensity ? TailoringIntensitySchema.parse(input.intensity) : undefined
     }, signal);
     return {
@@ -1698,7 +1702,7 @@ export class BrowserAgentToolService implements AgentToolServices {
       candidateQuestionCount: created.session.plan.clarificationQuestions?.length ?? 0,
       selectedQuestionCount: created.session.plan.questionPlan?.questionIds.length ?? 0,
       dependencies: {
-        ...selectionDependencies(profile, branch, job),
+        ...selectionDependencies(profile, branch, job, targetSnapshot),
         tailoringSessionId: created.session.id
       }
     };
@@ -1781,8 +1785,16 @@ export class BrowserAgentToolService implements AgentToolServices {
       profileId: session.branch.profileId,
       expectedProfileRevision: profile.version,
       sourceResumeId: session.branch.id,
-      sourceResumeRevisionId: session.branch.currentRevisionId,
-      jobId: session.job.id,
+        sourceResumeRevisionId: session.branch.currentRevisionId,
+        jobId: session.job.id,
+        ...(session.targetSnapshot ? {
+          targetSourceType: session.targetSnapshot.sourceType,
+          targetSnapshotId: session.targetSnapshot.id,
+          targetSnapshotVersion: session.targetSnapshot.version,
+          targetSnapshotHash: jobTargetSnapshotHash(session.targetSnapshot),
+          ...(session.targetSnapshot.sourceJobId ? { savedJobId: session.targetSnapshot.sourceJobId } : {}),
+          workflowFacade: "career.workflow.tailor_resume"
+        } : {}),
       acceptedDiffIds,
       changedFieldPaths: [],
       status: "write_pending",
@@ -1795,6 +1807,7 @@ export class BrowserAgentToolService implements AgentToolServices {
       const result = await this.repository.deriveAndApplyTailoringDiffsAtomic({
         sourceBranchId: session.branch.id,
         jobId: session.job.id,
+        ...(session.targetSnapshot ? { targetSnapshot: session.targetSnapshot } : {}),
         expectedSourceRevision: session.branch.revision,
         expectedSourceRevisionId: session.branch.currentRevisionId,
         diffs: reviewed,
@@ -1832,10 +1845,15 @@ export class BrowserAgentToolService implements AgentToolServices {
         && resumeBranchContentHash(readbackRevision.snapshot) === result.afterContentHash
         && result.beforeContentHash !== result.afterContentHash
       );
+      const targetProvenanceMatch = session.targetSnapshot
+        ? readbackBranch.targetSnapshotId === session.targetSnapshot.id
+          && readbackBranch.targetSnapshotVersion === session.targetSnapshot.version
+          && readbackBranch.targetSnapshotHash === jobTargetSnapshotHash(session.targetSnapshot)
+        : readbackBranch.jobId === session.job.id;
       const readbackVerified = Boolean(
         readbackProfile.version === profile.version
         && readbackBranch.profileId === session.branch.profileId
-        && readbackBranch.jobId === session.job.id
+        && targetProvenanceMatch
         && readbackBranch.branchPurpose === "job_specific"
         && readbackBranch.lifecycleStatus === "active"
         && readbackBranch.currentRevisionId === readbackRevision.id
@@ -1862,6 +1880,14 @@ export class BrowserAgentToolService implements AgentToolServices {
         profileId: session.branch.profileId,
         expectedProfileRevision: profile.version,
         jobId: session.job.id,
+        ...(session.targetSnapshot ? {
+          targetSourceType: session.targetSnapshot.sourceType,
+          targetSnapshotId: session.targetSnapshot.id,
+          targetSnapshotVersion: session.targetSnapshot.version,
+          targetSnapshotHash: jobTargetSnapshotHash(session.targetSnapshot),
+          ...(session.targetSnapshot.sourceJobId ? { savedJobId: session.targetSnapshot.sourceJobId } : {}),
+          workflowFacade: "career.workflow.tailor_resume"
+        } : {}),
         sourceResumeId: session.branch.id,
         sourceResumeRevisionId: session.branch.currentRevisionId,
         resultResumeId: readbackBranch.id,
@@ -1997,14 +2023,17 @@ export class BrowserAgentToolService implements AgentToolServices {
       profileVersion?: string | number;
       resumeId: string;
       resumeRevisionId?: string;
-      jobId: string;
+      jobId?: string;
+      targetSnapshot?: unknown;
       jobRevision?: string | number;
     };
-    const [profile, branch, job] = await Promise.all([
+    const targetSnapshot = input.targetSnapshot ? JobTargetSnapshotSchema.parse(input.targetSnapshot) : undefined;
+    const [profile, branch, storedJob] = await Promise.all([
       this.repository.getProfile(input.profileId),
       this.repository.getResumeBranch(input.resumeId),
-      this.repository.getJobDescription(input.jobId)
+      input.jobId ? this.repository.getJobDescription(input.jobId) : Promise.resolve(undefined)
     ]);
+    const job = targetSnapshot ? jobTargetSnapshotToJobDescription(targetSnapshot) : storedJob;
     if (!profile) throw toolError("profile_not_found", "Profile no longer exists.");
     if (!branch) throw toolError("resume_not_found", "Resume no longer exists.");
     if (!job) throw toolError("job_not_found", "Job no longer exists.");
@@ -2018,7 +2047,10 @@ export class BrowserAgentToolService implements AgentToolServices {
     if (input.jobRevision !== undefined && String(input.jobRevision) !== String(job.updatedAt)) {
       throw toolError("tailoring_job_stale", "岗位已更新，请基于最新版本重新生成定制计划。");
     }
-    return { profile, branch, job };
+    if (targetSnapshot && input.jobId && targetSnapshot.sourceJobId && input.jobId !== targetSnapshot.sourceJobId) {
+      throw toolError("tailoring_target_mismatch", "岗位目标来源已变化，请重新开始当前定制。 ");
+    }
+    return { profile, branch, job, targetSnapshot };
   }
 
   private generateDiffs(operationId: string, session: TailoringSession, signal?: AbortSignal) {
@@ -2168,7 +2200,8 @@ function selectionDependencies(
     updatedAt: string;
     requirementGraph?: unknown;
     requirements: unknown;
-  }
+  },
+  targetSnapshot?: JobTargetSnapshot
 ) {
   return {
     profileId: profile.id,
@@ -2182,7 +2215,14 @@ function selectionDependencies(
     })),
     jobId: job.id,
     jobRevision: job.updatedAt,
-    jobGraphHash: stableHashText(JSON.stringify(job.requirementGraph ?? job.requirements))
+    jobGraphHash: stableHashText(JSON.stringify(job.requirementGraph ?? job.requirements)),
+    ...(targetSnapshot ? {
+      targetSourceType: targetSnapshot.sourceType,
+      targetSnapshotId: targetSnapshot.id,
+      targetSnapshotVersion: targetSnapshot.version,
+      targetSnapshotHash: jobTargetSnapshotHash(targetSnapshot),
+      ...(targetSnapshot.sourceJobId ? { savedJobId: targetSnapshot.sourceJobId } : {})
+    } : {})
   };
 }
 

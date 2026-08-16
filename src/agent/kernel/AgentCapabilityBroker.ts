@@ -6,6 +6,7 @@ export type AgentIntentClass =
   | "profile_search"
   | "resume"
   | "application_intent"
+  | "external_target"
   | "job_ingestion"
   | "job"
   | "tailoring"
@@ -34,6 +35,12 @@ const CAPABILITIES: Record<AgentIntentClass, string[]> = {
     , "build_resume_evidence_graph", "plan_resume_composition", "review_resume_composition", "compose_resume"
   ],
   application_intent: ["list_jobs"],
+  external_target: [
+    "list_resumes", "get_resume", "get_resume_revision", "list_profiles", "get_active_profile",
+    "get_profile", "recommend_resume_source", "analyze_job_fit", "create_tailoring_session",
+    "answer_tailoring_question", "generate_tailoring_changes", "review_tailoring_diff",
+    "preview_tailoring_changes", "apply_tailoring_changes"
+  ],
   job_ingestion: ["parse_job_description", "commit_job"],
   job: ["list_jobs", "get_job"],
   tailoring: [
@@ -65,7 +72,9 @@ export class AgentCapabilityBroker {
     let result: AgentIntentRoute;
     if (!compact || CASUAL_TURNS.has(compact)) result = route("conversation", "conversation", 1, [], []);
     else if (/导入简历文件|上传简历文件/i.test(text)) result = route("resume", "import_resume", 1, ["resume"], ["resume"], "resume_import");
-    else if (looksLikeJobDescription(text)) result = route("job_ingestion", "apply_to_job", 0.99, ["job"], ["job_ingestion"], "job_ingestion");
+    else if (looksLikeExternalTargetApplication(text)) result = route("external_target", "apply_to_external_job", 0.99, ["job", "resume", "application"], ["tailoring"], "tailor_existing_resume");
+    else if (hasAny(compact, ["录入岗位", "导入岗位", "新增岗位", "粘贴岗位", "保存到岗位列表", "保存岗位"])) result = route("job_ingestion", "ingest_job", 0.96, ["job"], ["job_ingestion"], "job_ingestion");
+    else if (looksLikeJobDescription(text)) result = route("external_target", "clarify_external_target", 0.88, ["job", "resume"], ["tailoring"], "tailor_existing_resume");
     else if (/这工作.*(合适|不错|可以).*(试试|申请|应聘)|想试试.*(工作|岗位)/i.test(text)) {
       result = route("application_intent", "apply_to_job", 0.92, ["job", "application"], ["job", "tailoring"], "tailor_existing_resume");
     } else if (/还是刚才(那个)?岗位|再做一版|再改一版/i.test(text)) {
@@ -79,7 +88,7 @@ export class AgentCapabilityBroker {
     else if (hasAny(compact, ["资料库", "经历", "项目", "技能", "证书", "教育"])
       && (compact === "资料库" || hasAny(compact, ["我的", "我有", "丰富", "哪些", "查找", "搜索"]))) result = route("profile_search", "search_profile_evidence", 0.88, ["profile"], ["profile"]);
     else if (hasAny(compact, ["应聘一个岗位", "申请一个岗位", "找一个岗位", "求职一个岗位"])) result = route("application_intent", "apply_to_job", 0.98, ["job", "application"], ["job", "tailoring"], "tailor_existing_resume");
-    else if (hasAny(compact, ["录入岗位", "导入岗位", "新增岗位", "粘贴岗位", "职位描述", "jd"])) result = route("job_ingestion", "ingest_job", 0.96, ["job"], ["job_ingestion"], "job_ingestion");
+    else if (hasAny(compact, ["职位描述", "jd"])) result = route("job_ingestion", "ingest_job", 0.96, ["job"], ["job_ingestion"], "job_ingestion");
     else if (hasAny(compact, ["定制简历", "优化简历", "匹配岗位", "岗位匹配", "tailor"])) result = route("tailoring", "tailor_resume", 0.95, ["profile", "resume", "job"], ["tailoring"], "tailor_existing_resume");
     else if (hasAny(compact, ["导出", "pdf"])) result = route("export", "export_resume", 0.96, ["resume"], ["export"], "repair_and_export_resume");
     else if (/生成|创建|整理|组装|编写/.test(text) && hasAny(compact, ["简历", "resume"])) result = route("resume", "compose_resume", 0.94, ["profile", "resume", "job"], ["resume"], "compose_resume");
@@ -95,6 +104,7 @@ export class AgentCapabilityBroker {
     userMessage: string;
     workflowToolNames: string[];
   }) {
+    if (input.session.taskState?.stage === "clarify_target") return [];
     if (["choose_resume_source", "create_profile_resume", "analyze_fit", "generate_plan", "clarify_unsupported_facts", "generate_changes", "preview_changes", "confirm_apply", "quality_result"].includes(input.session.taskState?.stage ?? "")) {
       return CAPABILITIES.tailoring;
     }
@@ -151,6 +161,11 @@ export function looksLikeJobDescription(text: string) {
     /岗位|职位|job\s+description|招聘/i
   ];
   return signals.filter((pattern) => pattern.test(text)).length >= 2;
+}
+
+export function looksLikeExternalTargetApplication(text: string) {
+  return looksLikeJobDescription(text)
+    && /应聘|申请|投递|生成(?:对应(?:的)?(?:岗位)?|岗位|定制)?简历|定制(?:简历|一版)|改(?:写|一下)?简历|优化简历|为(?:这个|该)?岗位/u.test(text);
 }
 
 function hasAny(text: string, values: string[]) {

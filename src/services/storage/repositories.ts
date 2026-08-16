@@ -123,10 +123,12 @@ import { createResumeRevision } from "@/domain/branch/revision";
 import {
   computeBranchSyncStatus,
   computeGeneralBranchSyncStatus,
+  computeTargetBranchSyncStatus,
   resolveBranchFactRefs,
   toBranchFactRef
 } from "@/domain/branch/validation";
 import { buildGeneralBranchFromProfile, buildJobBranchFromProfile } from "@/domain/branch/profileBranch";
+import { jobTargetSnapshotToJobDescription, jobTargetSnapshotHash } from "@/domain/jobTarget/jobTargetSnapshot";
 import {
   defaultResumeRenderSectionOrder,
   parseStructuredExperienceText,
@@ -2853,6 +2855,7 @@ export class WorkspaceRepository {
   async deriveAndApplyTailoringDiffsAtomic(input: {
     sourceBranchId: string;
     jobId: string;
+    targetSnapshot?: import("@/domain/schemas").JobTargetSnapshot;
     expectedSourceRevision: number;
     expectedSourceRevisionId: string;
     diffs: ResumeTailoringDiff[];
@@ -2922,12 +2925,16 @@ export class WorkspaceRepository {
         }
         const [profileRecord, jobRecord, matchRecords] = await Promise.all([
           this.db.profiles.get(sourceBranch.profileId),
-          this.db.jobDescriptions.get(input.jobId),
-          this.db.requirementMatches.where("[profileId+jobId]").equals([sourceBranch.profileId, input.jobId]).toArray()
+          input.targetSnapshot ? Promise.resolve(undefined) : this.db.jobDescriptions.get(input.jobId!),
+          input.targetSnapshot
+            ? Promise.resolve([])
+            : this.db.requirementMatches.where("[profileId+jobId]").equals([sourceBranch.profileId, input.jobId]).toArray()
         ]);
-        if (!profileRecord || !jobRecord) throw new Error("derive_branch_source_missing");
+        if (!profileRecord || (!jobRecord && !input.targetSnapshot)) throw new Error("derive_branch_source_missing");
         const profile = CareerProfileSchema.parse(profileRecord);
-        const job = JobDescriptionSchema.parse(jobRecord);
+        const job = input.targetSnapshot
+          ? jobTargetSnapshotToJobDescription(input.targetSnapshot)
+          : JobDescriptionSchema.parse(jobRecord);
         const matches = matchRecords
           .map((match) => RequirementMatchSchema.parse(match))
           .filter((match) => matchesResumeSource(match, {
@@ -2948,10 +2955,25 @@ export class WorkspaceRepository {
           ...sourceBranch,
           id: branchId,
           branchPurpose: "job_specific",
-          jobId: job.id,
+          ...(input.targetSnapshot
+            ? (input.targetSnapshot.sourceJobId ? { jobId: input.targetSnapshot.sourceJobId } : {})
+            : { jobId: input.jobId }),
           name: input.name.trim(),
           sourceProfileVersion: profile.version,
-          sourceJobVersion: job.updatedAt,
+          ...(input.targetSnapshot
+            ? (input.targetSnapshot.sourceJobRevision ? { sourceJobVersion: input.targetSnapshot.sourceJobRevision } : {})
+            : { sourceJobVersion: job.updatedAt }),
+          ...(input.targetSnapshot ? {
+            targetSnapshotId: input.targetSnapshot.id,
+            targetSnapshotVersion: input.targetSnapshot.version,
+            targetSnapshotHash: jobTargetSnapshotHash(input.targetSnapshot),
+            targetSnapshot: input.targetSnapshot
+          } : {
+            targetSnapshotId: undefined,
+            targetSnapshotVersion: undefined,
+            targetSnapshotHash: undefined,
+            targetSnapshot: undefined
+          }),
           sourceAdaptationDraftId: undefined,
           sourceBranchId: sourceBranch.id,
           sourceRevisionId: sourceBranch.currentRevisionId,
@@ -2967,23 +2989,27 @@ export class WorkspaceRepository {
           resumeBasics: { ...sourceBranch.resumeBasics, targetRole: job.title },
           contentItems: sourceBranch.contentItems,
           structuredContentItems: sourceStructuredContentItems,
-          syncStatusCache: {
-            status: "in_sync",
-            sourceProfileVersion: profile.version,
-            currentProfileVersion: profile.version,
-            sourceJobVersion: job.updatedAt,
-            currentJobVersion: job.updatedAt,
-            invalidFactRefs: [],
-            checkedAt: now,
-            message: "Branch is in sync with its source profile and job versions."
-          },
+          syncStatusCache: input.targetSnapshot
+            ? computeTargetBranchSyncStatus({ branch: sourceBranch, profile, targetSnapshot: input.targetSnapshot, now })
+            : {
+                status: "in_sync",
+                sourceProfileVersion: profile.version,
+                currentProfileVersion: profile.version,
+                sourceJobVersion: job.updatedAt,
+                currentJobVersion: job.updatedAt,
+                invalidFactRefs: [],
+                checkedAt: now,
+                message: "Branch is in sync with its source profile and job versions."
+              },
           legacyPayload: undefined,
           createdAt: now,
           updatedAt: now
         });
         const candidate = ResumeBranchSchema.parse({
           ...branchWithoutSync,
-          syncStatusCache: computeBranchSyncStatus({ branch: branchWithoutSync, profile, job, now })
+          syncStatusCache: input.targetSnapshot
+            ? computeTargetBranchSyncStatus({ branch: branchWithoutSync, profile, targetSnapshot: input.targetSnapshot, now })
+            : computeBranchSyncStatus({ branch: branchWithoutSync, profile, job, now })
         });
         const validation = validateEachTailoringDiffLocally({
           branch: candidate,
@@ -3262,7 +3288,8 @@ export class WorkspaceRepository {
 
   async createJobSpecificBranchFromProfile(input: {
     profileId: string;
-    jobId: string;
+    jobId?: string;
+    targetSnapshot?: import("@/domain/schemas").JobTargetSnapshot;
     operationId: string;
     name: string;
     selectedCanonicalItemIds: string[];
@@ -3294,14 +3321,18 @@ export class WorkspaceRepository {
         }
         const [storedProfile, storedJob, storedMatches, sourceBranch] = await Promise.all([
           this.db.profiles.get(input.profileId),
-          this.db.jobDescriptions.get(input.jobId),
-          this.db.requirementMatches.where("[profileId+jobId]").equals([input.profileId, input.jobId]).toArray(),
+          input.targetSnapshot ? Promise.resolve(undefined) : this.db.jobDescriptions.get(input.jobId!),
+          input.targetSnapshot || !input.jobId
+            ? Promise.resolve([])
+            : this.db.requirementMatches.where("[profileId+jobId]").equals([input.profileId, input.jobId]).toArray(),
           input.sourceResumeId ? this.db.resumeBranches.get(input.sourceResumeId) : Promise.resolve(undefined)
         ]);
         if (!storedProfile) throw new Error("profile_missing");
-        if (!storedJob) throw new Error("job_missing");
+        if (!storedJob && !input.targetSnapshot) throw new Error("job_missing");
         const profile = CareerProfileSchema.parse(storedProfile);
-        const job = JobDescriptionSchema.parse(storedJob);
+        const job = input.targetSnapshot
+          ? jobTargetSnapshotToJobDescription(input.targetSnapshot)
+          : JobDescriptionSchema.parse(storedJob);
         if (input.sourceResumeId) {
           if (!sourceBranch) throw new Error("resume_composition_source_missing");
           const parsedSource = ResumeBranchSchema.parse(sourceBranch);
@@ -3321,9 +3352,10 @@ export class WorkspaceRepository {
         const now = new Date().toISOString();
         const built = buildJobBranchFromProfile({
           profile,
-          jobId: job.id,
+          ...(input.targetSnapshot?.sourceJobId ? { jobId: input.targetSnapshot.sourceJobId } : input.targetSnapshot ? {} : { jobId: job.id }),
           jobTitle: job.title,
-          jobVersion: job.updatedAt,
+          ...(input.targetSnapshot?.sourceJobRevision ? { jobVersion: input.targetSnapshot.sourceJobRevision } : input.targetSnapshot ? {} : { jobVersion: job.updatedAt }),
+          ...(input.targetSnapshot ? { targetSnapshot: input.targetSnapshot } : {}),
           operationId: input.operationId,
           name: input.name,
           selectedCanonicalItemIds: input.selectedCanonicalItemIds,
@@ -5881,7 +5913,7 @@ export class WorkspaceRepository {
         this.db.profiles.get(branch.profileId),
         branch.jobId ? this.db.jobDescriptions.get(branch.jobId) : Promise.resolve(undefined)
       ]);
-      if (!profile || (branch.branchPurpose !== "general" && !job)) {
+      if (!profile || (branch.branchPurpose !== "general" && !job && !branch.targetSnapshot)) {
         throw new Error("branch_source_missing");
       }
 
@@ -5892,6 +5924,13 @@ export class WorkspaceRepository {
           ? computeGeneralBranchSyncStatus({
               branch,
               profile: CareerProfileSchema.parse(profile),
+              now
+            })
+        : branch.targetSnapshot
+          ? computeTargetBranchSyncStatus({
+              branch,
+              profile: CareerProfileSchema.parse(profile),
+              targetSnapshot: branch.targetSnapshot,
               now
             })
           : computeBranchSyncStatus({

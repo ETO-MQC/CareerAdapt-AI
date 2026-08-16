@@ -5,6 +5,7 @@ import {
   type FactGuardFinding,
   type FactStatement,
   type JobDescription,
+  type JobTargetSnapshot,
   type MatchEvidenceRef,
   type ResumeBranch
 } from "@/domain/schemas";
@@ -193,6 +194,35 @@ export function computeGeneralBranchSyncStatus(input: {
     invalidFactRefs,
     checkedAt: now,
     message: syncStatusMessage(status, invalidFactRefs.length)
+  };
+}
+
+export function computeTargetBranchSyncStatus(input: {
+  branch: ResumeBranch;
+  profile: CareerProfile;
+  targetSnapshot: JobTargetSnapshot;
+  now?: string;
+}): BranchSyncStatus {
+  const now = input.now ?? new Date().toISOString();
+  const allFactRefs = input.branch.contentItems.flatMap((item) => item.factRefs);
+  const invalidFactRefs = collectInvalidFactRefKeys(input.profile, allFactRefs);
+  const profileChanged = input.branch.sourceProfileVersion !== input.profile.version;
+  const status: BranchSyncStatus["status"] = invalidFactRefs.length > 0
+    ? "invalid_reference"
+    : profileChanged
+      ? "profile_updated"
+      : "in_sync";
+  return {
+    status,
+    sourceProfileVersion: input.branch.sourceProfileVersion,
+    currentProfileVersion: input.profile.version,
+    invalidFactRefs,
+    checkedAt: now,
+    message: status === "invalid_reference"
+      ? `Branch has ${invalidFactRefs.length} invalid fact reference(s).`
+      : status === "profile_updated"
+        ? "Career profile has updates. The target snapshot remains unchanged."
+        : `Branch is in sync with target snapshot ${input.targetSnapshot.id}.`
   };
 }
 

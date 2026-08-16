@@ -13,6 +13,7 @@ import { migrateResumeBranchToV2, projectResumeItemV2 } from "@/domain/migration
 import { getResumeSectionDefinition, type ResumeSectionTypeV2 } from "@/domain/resumeFields";
 import { projectResumePresentationItem } from "@/domain/resumePresentation/projector";
 import { resolveResumeTargetRole } from "@/domain/branch/targetRole";
+import { jobTargetSnapshotToJobDescription } from "@/domain/jobTarget/jobTargetSnapshot";
 import {
   createRenderCoverageReport,
   presentationCoverage,
@@ -33,13 +34,17 @@ export function mapBranchToResumeRenderModel(input: {
   job?: JobDescription;
   presentationConfig?: ResumePresentationConfig;
 }) {
-  const { branch, profile, job } = input;
+  const { branch, profile } = input;
+  const job = input.job ?? (branch.targetSnapshot ? jobTargetSnapshotToJobDescription(branch.targetSnapshot) : undefined);
   assertRenderableBranch(branch);
 
   if (branch.profileId !== profile.id) {
     throw new ResumeRenderMapperError("render_source_mismatch");
   }
-  if (branch.branchPurpose !== "general" && (!job || branch.jobId !== job.id)) {
+  if (
+    branch.branchPurpose !== "general"
+    && (!job || branch.jobId && branch.jobId !== job.id)
+  ) {
     throw new ResumeRenderMapperError("render_source_mismatch");
   }
 

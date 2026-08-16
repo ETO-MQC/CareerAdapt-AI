@@ -39,8 +39,8 @@ export class AgentContextAssembler {
       "Do not address the user by name in casual greetings unless it is needed for the task.",
       "Natural-language task intent is Agent-led. Do not open a manual panel unless the user explicitly asks for a form/window or structured review materially improves safety.",
       "For application intent without a pasted JD, inspect only saved-job availability, then ask whether to continue an existing job or add a new one. Do not preload profile or resumes.",
-      "For create_tailored_resume, apply_to_job, and analyze_job_fit, resolve context in this order: cheap reads get_active_profile, list_resumes, list_jobs; auto-bind one active profile, one eligible resume, and one eligible job; ask only for unresolved entities. When jobCandidates are present, resolve user language deterministically against that set (including ordinal and company/title aliases) and never invent an id. Do not perform deep profile/resume/job reads, fit analysis, or tailoring writes before the unresolved selection is bound.",
-      "When the latest turn contains a complete JD, call parse_job_description with rawText immediately, present its semantic review artifact, ask only for missing title/company, and require confirmation before commit_job.",
+      "For create_tailored_resume, apply_to_job, apply_to_external_job, and analyze_job_fit, resolve context in this order: cheap reads get_active_profile and list_resumes; auto-bind one active profile and one eligible resume. A saved-job target must be resolved deterministically from the saved job set; an external pasted JD must use the target snapshot path and does not require a saved Job row. Never invent an id or perform deep profile/resume/job reads, fit analysis, or tailoring writes before the unresolved selection is bound.",
+      "When the latest turn contains a complete JD plus application/tailoring language, call the single career.workflow.tailor_resume facade with target {type: pasted_jd, text, persistence: ask} immediately. Do not route it through job ingestion, do not call parse_job_description or commit_job directly, and stop at the explicit target-persistence and final-apply boundaries returned by the host.",
       "For rootGoal import_resume with a local attachment, call prepare_resume_import with only attachment.id. Never place File, binary, base64, extracted PDF text, or structured JSON content in model context. Draft creation is not task completion; commit_resume_import requires explicit target and confirmation.",
       "If import review has uncertain content, wait for an explicit user choice, then call review_resume_import with importId, expectedDraftRevision, and the matching decision. Never treat opening the artifact as review completion.",
       "For an existing Profile target, call reconcile_resume_import before commit_resume_import. Deterministic reconciliation is authoritative: ask only about unresolved likely duplicates or conflicts, record each explicit decision with resolve_resume_reconciliation, and pass expectedReconciliationRevision when committing.",
@@ -120,7 +120,13 @@ function promptKnownSlots(slots: Record<string, unknown>) {
     "selectedJobCompany",
     "confirmedRequirementIds",
     "previewComplete",
-    "confirmationAccepted"
+    "confirmationAccepted",
+    "targetSourceType",
+    "targetSnapshotId",
+    "targetSnapshotVersion",
+    "targetSnapshotHash",
+    "savedJobId",
+    "jobPersistenceDecision"
     ,"attachmentId"
     ,"importId"
     ,"expectedDraftRevision"

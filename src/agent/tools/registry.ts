@@ -9,6 +9,7 @@ import { CaptureProfileIntakeResultSchema } from "@/domain/profileIntake/Capture
 import type { AgentToolDefinition, AgentToolResult } from "../contracts/agentTool";
 import type { ExternalToolProvider } from "./externalToolProvider";
 import { ResumeSectionTypeV2Schema } from "@/domain/schemas/resumeV2";
+import { JobTargetSnapshotSchema } from "@/domain/schemas/jobTarget";
 import {
   CareerContextRetrieveInputSchema,
   CareerContextRetrieveResultSchema
@@ -220,11 +221,16 @@ const JobCommitInputSchema = JobParseInputSchema.extend({
 const EntitySelectionSchema = z.object({
   profileId: z.string().min(1),
   resumeId: z.string().min(1),
-  jobId: z.string().min(1),
+  jobId: z.string().min(1).optional(),
+  targetSnapshot: JobTargetSnapshotSchema.optional(),
   profileVersion: z.union([z.string().min(1), z.number().int().min(0)]).optional(),
   resumeRevisionId: z.string().min(1).optional(),
   jobRevision: z.union([z.string().min(1), z.number().int().min(0)]).optional()
-}).strict();
+}).strict().superRefine((input, context) => {
+  if (!input.jobId && !input.targetSnapshot) {
+    context.addIssue({ code: "custom", path: ["jobId"], message: "jobId or targetSnapshot is required" });
+  }
+});
 
 const TailoringSessionInputSchema = EntitySelectionSchema.extend({
   intensity: z.enum(["conservative", "balanced", "aggressive"]).optional()

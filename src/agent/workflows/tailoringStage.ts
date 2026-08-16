@@ -7,6 +7,7 @@ import { z } from "zod";
  * happens to say next.
  */
 export const TailoringStageSchema = z.enum([
+  "clarify_target",
   "choose_resume_source",
   "choose_job",
   "analyze_fit",
@@ -37,6 +38,7 @@ export function normalizeTailoringStage(value: string): TailoringStage | undefin
 }
 
 export const TAILORING_ALLOWED_TOOLS_BY_STAGE: Record<TailoringStage, readonly string[]> = {
+  clarify_target: [],
   choose_resume_source: ["list_resumes", "recommend_resume_source"],
   choose_job: ["list_jobs"],
   analyze_fit: ["get_profile", "get_resume", "get_resume_revision", "get_job", "analyze_job_fit"],

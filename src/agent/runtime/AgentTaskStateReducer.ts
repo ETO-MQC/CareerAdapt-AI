@@ -41,8 +41,8 @@ export type AgentTaskEvent =
   | { type: "slot_answer"; slot: string; value: unknown }
   | {
       type: "decision_selected";
-      decisionType: "resume_source_route" | "profile_intake_target" | "profile_intake_resume" | "profile_intake_post_save";
-      option: "profile" | "existing_resume" | "switch_to_active" | "keep_original" | "save_profile_only" | "generate_general_resume" | "finish";
+      decisionType: "resume_source_route" | "job_target_persistence" | "profile_intake_target" | "profile_intake_resume" | "profile_intake_post_save";
+      option: "profile" | "existing_resume" | "session_only" | "save_job" | "switch_to_active" | "keep_original" | "save_profile_only" | "generate_general_resume" | "finish";
     }
   | { type: "tool_observation"; toolName: string; observation: unknown; artifactIds?: string[] }
   | { type: "tool_failure"; toolName: string; operationId?: string; errorCode: string; message?: string; recoverable?: boolean }
@@ -285,6 +285,11 @@ export class AgentTaskStateReducer {
       }
       if (state.completionStatus !== "waiting_for_confirmation") state.completionStatus = "active";
       captureEntityReferences(state, event.message);
+      if ((state.rootGoal === "apply_to_external_job" || state.rootGoal === "clarify_external_target") && looksLikeJd(event.message)) {
+        state.knownSlots.rawText = event.message.trim();
+        state.knownSlots.targetSourceType = "pasted_jd";
+        state.knownSlots.jobPersistenceDecision = "ask";
+      }
       if (isTailoringGoal(state.rootGoal)) {
         resolvePendingTailoringSelection(state, event.message);
       }
@@ -301,6 +306,17 @@ export class AgentTaskStateReducer {
       state.computeTier = computeTier(state.rootGoal, event.message);
       if (state.rootGoal === "import_resume") {
         captureImportTargetIntent(state, event.message);
+      }
+      if (state.rootGoal === "clarify_external_target" && isExternalTargetAction(event.message)) {
+        state.rootGoal = "apply_to_external_job";
+        state.activeGoal = "apply_to_external_job";
+        state.goal = state.rootGoal;
+        state.workflowId = "tailor_existing_resume";
+        state.stage = "choose_resume_source";
+        state.completionStatus = "active";
+      }
+      if (state.rootGoal === "clarify_external_target" && state.stage === "clarify_target") {
+        state.completionStatus = "waiting_for_user";
       }
       if (
         state.workflowId === "guided_profile_intake"
@@ -370,6 +386,11 @@ export class AgentTaskStateReducer {
       ) {
         if (event.decisionType === "resume_source_route" && (event.option === "profile" || event.option === "existing_resume")) {
           selectResumeSourceRoute(state, event.option);
+        } else if (event.decisionType === "job_target_persistence") {
+          state.pendingDecision = undefined;
+          state.knownSlots.jobPersistenceDecision = event.option === "save_job" ? "save" : "session_only";
+          state.stage = "confirm_apply";
+          state.completionStatus = "active";
         } else if (event.decisionType === "profile_intake_target") {
           resolveProfileIntakeTargetDecision(state, event.option);
         } else if (event.decisionType === "profile_intake_resume") {
@@ -412,6 +433,24 @@ export class AgentTaskStateReducer {
           state.activeGoal = "ingest_job";
           state.stage = "completed";
           state.completionStatus = "completed";
+        } else if (state.rootGoal === "apply_to_external_job") {
+          state.knownSlots.jobPersistenceDecision = "save";
+          const value = objectValue(event.observation);
+          const committedJob = objectValue(value.jobDescription ?? value.job);
+          const committedJobId = stringValue(value.jobId ?? committedJob.id);
+          const committedRevision = scalarValue(value.jobRevision ?? committedJob.updatedAt);
+          if (committedJobId) {
+            state.selectedEntities.jobId = committedJobId;
+            state.selectedEntities.jobRevision = committedRevision;
+            state.selectedEntities.savedJobId = committedJobId;
+            state.knownSlots.savedJobId = committedJobId;
+            state.knownSlots.jobId = committedJobId;
+          }
+          if (committedRevision !== undefined) state.knownSlots.jobRevision = committedRevision;
+          state.activeGoal = "create_tailored_resume";
+          state.workflowId = "tailor_existing_resume";
+          state.stage = "confirm_apply";
+          state.completionStatus = "active";
         } else {
           state.activeGoal = "resolve_resume_source";
           state.workflowId = "tailor_existing_resume";
@@ -1320,6 +1359,12 @@ function normalize(state: AgentTaskState): AgentTaskState {
   } else if (state.workflowId !== "job_ingestion") {
     const workflow = getWorkflowDefinition(state.workflowId);
     state.requiredSlots = workflow?.requiredSlots[state.stage] ?? state.requiredSlots;
+    if (
+      (state.rootGoal === "apply_to_external_job" || state.rootGoal === "clarify_external_target")
+      && (hasValue(state.knownSlots.rawText) || hasValue(state.knownSlots.targetSnapshot) || hasValue(state.knownSlots.targetSnapshotId))
+    ) {
+      state.requiredSlots = state.requiredSlots.filter((slot) => slot !== "jobId");
+    }
   }
   state.missingSlots = state.requiredSlots.filter((slot) => !hasValue(state.knownSlots[slot]));
   if (
@@ -1687,7 +1732,7 @@ function observeProfileIntakeTarget(state: AgentTaskState, authority: {
 
 function resolveProfileIntakeTargetDecision(
   state: AgentTaskState,
-  option: "profile" | "existing_resume" | "switch_to_active" | "keep_original" | "save_profile_only" | "generate_general_resume" | "finish"
+  option: "profile" | "existing_resume" | "session_only" | "save_job" | "switch_to_active" | "keep_original" | "save_profile_only" | "generate_general_resume" | "finish"
 ) {
   const pending = objectValue(state.knownSlots.pendingProfileTarget);
   const target = option === "switch_to_active"
@@ -1739,6 +1784,31 @@ function captureTailoringTruth(state: AgentTaskState, observation: unknown) {
   const questionPlan = objectValue(plan.questionPlan);
   const tailoringSessionId = stringValue(session.id);
   if (tailoringSessionId) state.selectedEntities.tailoringSessionId = tailoringSessionId;
+  const targetSnapshot = objectValue(session.targetSnapshot);
+  const targetSnapshotId = stringValue(targetSnapshot.id);
+  const targetSnapshotVersion = numberValue(targetSnapshot.version);
+  if (targetSnapshotId) {
+    state.selectedEntities.targetSnapshotId = targetSnapshotId;
+    state.knownSlots.targetSnapshotId = targetSnapshotId;
+    state.knownSlots.targetSourceType = stringValue(targetSnapshot.sourceType) ?? "pasted_jd";
+  }
+  if (targetSnapshotVersion !== undefined) {
+    state.selectedEntities.targetSnapshotVersion = targetSnapshotVersion;
+    state.knownSlots.targetSnapshotVersion = targetSnapshotVersion;
+  }
+  const targetSnapshotHash = stringValue(value.targetSnapshotHash) ?? stringValue(targetSnapshot.rawTextHash);
+  if (targetSnapshotHash) {
+    state.selectedEntities.targetSnapshotHash = targetSnapshotHash;
+    state.knownSlots.targetSnapshotHash = targetSnapshotHash;
+  }
+  const savedJobId = stringValue(value.savedJobId) ?? stringValue(targetSnapshot.sourceJobId);
+  if (savedJobId) {
+    state.selectedEntities.savedJobId = savedJobId;
+    state.knownSlots.savedJobId = savedJobId;
+  }
+  if (targetSnapshotId && state.knownSlots.jobPersistenceDecision === undefined) {
+    state.knownSlots.jobPersistenceDecision = "ask";
+  }
   const sessionBranch = objectValue(session.branch);
   const sourceResumeId = stringValue(sessionBranch.id);
   const sourceResumeRevisionId = stringValue(sessionBranch.currentRevisionId);
@@ -2013,7 +2083,11 @@ function unique(values: string[]) {
 }
 
 function isTailoringGoal(goal: string) {
-  return ["create_tailored_resume", "apply_to_job", "analyze_job_fit"].includes(goal);
+  return ["create_tailored_resume", "apply_to_job", "apply_to_external_job", "analyze_job_fit"].includes(goal);
+}
+
+function isExternalTargetAction(text: string) {
+  return /应聘|申请|投递|生成(?:对应(?:的)?(?:岗位)?|岗位|定制)?简历|定制(?:简历|一版)|改(?:写|一下)?简历|优化简历|为(?:这个|该)?岗位/u.test(text);
 }
 
 function captureEntityReferences(state: AgentTaskState, message: string) {

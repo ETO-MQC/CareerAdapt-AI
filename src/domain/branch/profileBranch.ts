@@ -1,9 +1,10 @@
 import { nanoid } from "nanoid";
-import { BranchContentItemSchema, ResumeBranchSchema, ResumeContentItemV2Schema, type BranchContentItem, type BranchFactRef, type CareerProfile, type ResumeBranch, type ResumeBranchBasics, type ResumeItemV2, type ResumeRevision } from "@/domain/schemas";
+import { BranchContentItemSchema, ResumeBranchSchema, ResumeContentItemV2Schema, type BranchContentItem, type BranchFactRef, type CareerProfile, type JobTargetSnapshot, type ResumeBranch, type ResumeBranchBasics, type ResumeItemV2, type ResumeRevision } from "@/domain/schemas";
 import { migrateCareerProfileToV2, projectResumeItemV2 } from "@/domain/migrations/resumeV2";
 import { stableHashText } from "@/services/security/text";
 import { createResumeRevision } from "./revision";
 import type { ResumeCompositionResult } from "@/domain/resumeComposition";
+import { jobTargetSnapshotHash } from "@/domain/jobTarget/jobTargetSnapshot";
 
 export type ProfileBranchBuildResult = { branch: ResumeBranch; firstRevision: ResumeRevision };
 
@@ -55,9 +56,10 @@ export function buildGeneralBranchFromProfile(input: {
 
 export function buildJobBranchFromProfile(input: {
   profile: CareerProfile;
-  jobId: string;
+  jobId?: string;
   jobTitle: string;
-  jobVersion: string;
+  jobVersion?: string;
+  targetSnapshot?: JobTargetSnapshot;
   operationId: string;
   name: string;
   selectedCanonicalItemIds: string[];
@@ -68,6 +70,8 @@ export function buildJobBranchFromProfile(input: {
   composition?: ResumeCompositionResult;
   now?: string;
 }): ProfileBranchBuildResult {
+  if (!input.jobId && !input.targetSnapshot) throw new Error("job_branch_target_missing");
+  if (input.jobId && !input.jobVersion) throw new Error("job_branch_job_version_missing");
   const now = input.now ?? new Date().toISOString();
   const selected = new Set(input.selectedCanonicalItemIds);
   const pairs = profileContentItems(input.profile, now, input.composition).filter((pair) => input.composition ? true : selected.has(pair.structured.data.id));
@@ -78,11 +82,17 @@ export function buildJobBranchFromProfile(input: {
     schemaVersion: "resume-branch-v2",
     branchPurpose: "job_specific",
     profileId: input.profile.id,
-    jobId: input.jobId,
+    ...(input.jobId ? { jobId: input.jobId } : {}),
+    ...(input.targetSnapshot ? {
+      targetSnapshotId: input.targetSnapshot.id,
+      targetSnapshotVersion: input.targetSnapshot.version,
+      targetSnapshotHash: jobTargetSnapshotHash(input.targetSnapshot),
+      targetSnapshot: input.targetSnapshot
+    } : {}),
     name: input.name.trim() || input.jobTitle,
     sourceProfileVersion: input.profile.version,
     sourceProfileSnapshotId,
-    sourceJobVersion: input.jobVersion,
+    ...(input.jobVersion ? { sourceJobVersion: input.jobVersion } : {}),
     derivedAt: now,
     sourceDraftRevision: 0,
     ...(input.sourceBranchId ? { sourceBranchId: input.sourceBranchId } : {}),
@@ -97,11 +107,12 @@ export function buildJobBranchFromProfile(input: {
       status: "in_sync",
       sourceProfileVersion: input.profile.version,
       currentProfileVersion: input.profile.version,
-      sourceJobVersion: input.jobVersion,
-      currentJobVersion: input.jobVersion,
+      ...(input.jobVersion ? { sourceJobVersion: input.jobVersion, currentJobVersion: input.jobVersion } : {}),
       invalidFactRefs: [],
       checkedAt: now,
-      message: "Job branch is in sync with its profile-library source and job version."
+      message: input.jobVersion
+        ? "Job branch is in sync with its profile-library source and job version."
+        : "Job branch is in sync with its profile-library source and target snapshot."
     },
     resumeBasics: { ...resumeBasicsFromProfile(input.profile, compositionSummary(input.composition)), targetRole: input.jobTitle },
     contentItems: pairs.map((pair) => pair.legacy),

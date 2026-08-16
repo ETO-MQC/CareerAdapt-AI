@@ -13,6 +13,8 @@ import {
   type CareerInteractionQuestion
 } from "@/domain/careerInteraction/CareerInteractionPlan";
 import { isTailoringQuestionPaused, normalizeTailoringStage, type TailoringStage } from "./tailoringStage";
+import { JobRequirementGraphV4Schema, JobTargetPersistenceSchema, JobTargetSnapshotSchema } from "@/domain/schemas";
+import { createPastedJobTargetSnapshot, jobTargetSnapshotHash } from "@/domain/jobTarget/jobTargetSnapshot";
 
 export const CareerWorkflowStatusSchema = z.enum([
   "completed",
@@ -63,12 +65,24 @@ const ProfileIntakeFinalizeInputSchema = z.object({
 
 const ResumeImportInputSchema = z.object({ attachmentId: z.string().min(1) }).strict();
 const JobFitInputSchema = z.object({ profileId: z.string().min(1), resumeId: z.string().min(1), jobId: z.string().min(1) }).strict();
+const TailorTargetInputSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("saved_job"), jobId: z.string().min(1) }).strict(),
+  z.object({
+    type: z.literal("pasted_jd"),
+    text: z.string().trim().min(20).max(24_000),
+    title: z.string().trim().min(1).max(160).optional(),
+    company: z.string().trim().min(1).max(160).optional(),
+    sourceUrl: z.string().url().optional(),
+    persistence: JobTargetPersistenceSchema.default("ask")
+  }).strict()
+]);
 const TailorResumeInputSchema = z.object({
   profileId: z.string().min(1).optional(),
   sourceResumeId: z.string().min(1).optional(),
   /** Compatibility alias for pre-P4.5c.1.7 callers. */
   resumeId: z.string().min(1).optional(),
   jobId: z.string().min(1).optional(),
+  target: TailorTargetInputSchema.optional(),
   checkpointId: z.string().min(1).optional(),
   userAnswer: z.union([
     z.string().trim().min(1).max(8_000),
@@ -80,7 +94,7 @@ const TailorResumeInputSchema = z.object({
   if (input.checkpointId) return;
   if (!input.profileId) refinement.addIssue({ code: "custom", path: ["profileId"], message: "profileId is required to start tailoring" });
   if (!input.sourceResumeId && !input.resumeId) refinement.addIssue({ code: "custom", path: ["sourceResumeId"], message: "sourceResumeId is required to start tailoring" });
-  if (!input.jobId) refinement.addIssue({ code: "custom", path: ["jobId"], message: "jobId is required to start tailoring" });
+  if (!input.jobId && !input.target) refinement.addIssue({ code: "custom", path: ["jobId"], message: "jobId or target is required to start tailoring" });
 });
 const ProfileToResumeInputSchema = z.object({
   targetProfileId: z.string().min(1),
@@ -120,7 +134,7 @@ export const CAREER_WORKFLOW_FACADE_DEFINITIONS: CareerWorkflowFacadeDefinition[
   { name: "career.workflow.profile_intake_finalize", description: "Finalize all Profile Intake source turns into one grounded final review draft. Stops for user review and never commits the Profile.", inputSchema: ProfileIntakeFinalizeInputSchema, personProfileBinding: "required" },
   { name: "career.workflow.resume_import", description: "Import one staged CareerAdapt attachment through the existing local parser and return the review checkpoint. Never accepts file bytes or paths.", inputSchema: ResumeImportInputSchema, personProfileBinding: "required" },
   { name: "career.workflow.job_fit", description: "Run the existing deterministic Job Fit workflow and return its terminal artifact.", inputSchema: JobFitInputSchema, personProfileBinding: "required" },
-  { name: "career.workflow.tailor_resume", description: "Start the existing isolated Job Resume tailoring workflow and stop for the next question or review boundary.", inputSchema: TailorResumeInputSchema, personProfileBinding: "required" },
+  { name: "career.workflow.tailor_resume", description: "Start a resumable isolated Job Resume tailoring workflow from a saved Job or a pasted external target. A pasted target remains session-only until the user explicitly chooses persistence.", inputSchema: TailorResumeInputSchema, personProfileBinding: "required" },
   { name: "career.workflow.profile_to_resume", description: "Create or reuse an isolated general resume from the confirmed Profile without writing resume content back to Profile.", inputSchema: ProfileToResumeInputSchema, personProfileBinding: "required" },
   { name: "career.workflow.compose_resume", description: "Build an evidence graph and resume blueprint, show a grounded proposal, then write an isolated general or job-specific ResumeRevision only after explicit confirmation.", inputSchema: ComposeResumeInputSchema, personProfileBinding: "required" },
   { name: "career.workflow.resume_export", description: "Create the existing Preview/PDF export artifact for a selected resume.", inputSchema: ResumeExportInputSchema, personProfileBinding: "optional" }
@@ -296,15 +310,26 @@ async function executeTailoringResumeFacade(
   operationId: string,
   call: TailoringFacadeCall
 ) {
+  const targetInput = input.target as
+    | { type: "saved_job"; jobId: string }
+    | { type: "pasted_jd"; text: string; title?: string; company?: string; sourceUrl?: string; persistence: "ask" | "save" | "session_only" }
+    | undefined;
   const sourceResumeId = stringValue(input.sourceResumeId) ?? stringValue(input.resumeId);
   const profileId = stringValue(input.profileId) ?? context.authoritativeTaskState?.selectedEntities.profileId;
-  const jobId = stringValue(input.jobId) ?? context.authoritativeTaskState?.selectedEntities.jobId;
+  let resolvedSourceResumeId = sourceResumeId;
+  let jobId = stringValue(input.jobId)
+    ?? (targetInput?.type === "saved_job" ? targetInput.jobId : undefined)
+    ?? context.authoritativeTaskState?.selectedEntities.jobId;
   const checkpointId = stringValue(input.checkpointId);
   const persistedSession = objectValue(context.authoritativeTaskState?.knownSlots.tailoringSession);
   const persistedSessionId = stringValue(persistedSession.id);
   const results: CareerToolResult[] = [];
   let session = checkpointId ? persistedSession : {};
-  let fitAnalysis = context.authoritativeTaskState?.knownSlots.fitAnalysis;
+  const persistedTargetSnapshot = objectValue(persistedSession.targetSnapshot);
+  let targetSnapshot = checkpointId && Object.keys(persistedTargetSnapshot).length
+    ? JobTargetSnapshotSchema.parse(persistedTargetSnapshot)
+    : undefined;
+  let fitAnalysis = targetSnapshot ? undefined : context.authoritativeTaskState?.knownSlots.fitAnalysis;
 
   if (checkpointId && (!persistedSessionId || persistedSessionId !== checkpointId)) {
     const failure = syntheticTailoringResult(operationId, "tailoring_checkpoint_not_found", "当前定制 checkpoint 不存在或已变化，已保留当前岗位和简历选择。", false);
@@ -312,20 +337,93 @@ async function executeTailoringResumeFacade(
   }
 
   if (!checkpointId) {
-    if (!profileId || !sourceResumeId || !jobId) {
+    if (!profileId || (!resolvedSourceResumeId && !targetInput)) {
+      const failure = syntheticTailoringResult(operationId, "tailoring_selection_required", "开始岗位定制需要当前选中的岗位、简历和资料版本。", false);
+      return tailoringFacadeProgress(operationId, input, context, results.concat(failure), {}, undefined, "failed");
+    }
+    let callIndex = 0;
+    if (targetInput?.type === "pasted_jd") {
+      const parsed = await call("career.job.parse", {
+        rawText: targetInput.text,
+        ...(targetInput.title ? { title: targetInput.title } : {}),
+        ...(targetInput.company ? { company: targetInput.company } : {})
+      }, callIndex++);
+      results.push(parsed);
+      if (!parsed.ok) {
+        return tailoringFacadeProgress(operationId, input, context, results, {
+          kind: "tailoring_target",
+          workflowStage: "parse_target",
+          profileId,
+          targetSourceType: "pasted_jd",
+          jobPersistenceDecision: targetInput.persistence
+        }, undefined, "recoverable_failure");
+      }
+      const parsedData = objectValue(parsed.data);
+      const graph = JobRequirementGraphV4Schema.parse(parsedData.graph);
+      targetSnapshot = JobTargetSnapshotSchema.parse({
+        ...createPastedJobTargetSnapshot({
+          rawText: targetInput.text,
+          graph,
+          title: stringValue(parsedData.candidateTitle) ?? targetInput.title,
+          company: stringValue(parsedData.candidateCompany) ?? targetInput.company
+        }),
+        ...(targetInput.sourceUrl ? { sourceUrl: targetInput.sourceUrl } : {})
+      });
+      jobId = undefined;
+      fitAnalysis = undefined;
+    }
+    if (!resolvedSourceResumeId) {
+      const listed = await call("career.resume.list", {}, callIndex++);
+      results.push(listed);
+      const resumeValues = listed.ok ? arrayValue(objectValue(listed.data).resumes) : [];
+      const resumes = resumeValues
+        .map((value: unknown) => objectValue(value))
+        .filter((resume: Record<string, unknown>) => resume.branchPurpose === "general" && resume.lifecycleStatus === "active");
+      if (resumes.length !== 1) {
+        return tailoringFacadeProgress(operationId, input, context, results, {
+          kind: "tailoring_source_selection",
+          workflowStage: "choose_resume_source",
+          profileId,
+          ...(targetSnapshot ? {
+            targetSourceType: targetSnapshot.sourceType,
+            targetSnapshotId: targetSnapshot.id,
+            targetSnapshotVersion: targetSnapshot.version,
+            targetSnapshotHash: jobTargetSnapshotHash(targetSnapshot),
+            targetSnapshot
+          } : {}),
+          resumeCandidates: resumes.slice(0, 12),
+          sourceResumeId: undefined
+        }, undefined, "waiting_for_user");
+      }
+      resolvedSourceResumeId = stringValue(resumes[0].id);
+    }
+    if (!resolvedSourceResumeId || (!jobId && !targetSnapshot)) {
       const failure = syntheticTailoringResult(operationId, "tailoring_selection_required", "开始岗位定制需要当前选中的岗位、简历和资料版本。", false);
       return tailoringFacadeProgress(operationId, input, context, results.concat(failure), {}, undefined, "failed");
     }
     if (fitAnalysis === undefined && context.availableCareerToolNames?.has("career.job.analyze_fit") !== false) {
-      const fit = await call("career.job.analyze_fit", { profileId, resumeId: sourceResumeId, jobId }, 0);
+      const fit = await call("career.job.analyze_fit", {
+        profileId,
+        resumeId: resolvedSourceResumeId,
+        ...(jobId ? { jobId } : {}),
+        ...(targetSnapshot ? { targetSnapshot } : {})
+      }, callIndex++);
       results.push(fit);
       if (!fit.ok) {
         return tailoringFacadeProgress(operationId, input, context, results, {
           kind: "tailoring_session",
           workflowStage: "analyze_fit",
           profileId,
-          resumeId: sourceResumeId,
-          jobId,
+          resumeId: resolvedSourceResumeId,
+          ...(jobId ? { jobId } : {}),
+          ...(targetSnapshot ? {
+            targetSourceType: targetSnapshot.sourceType,
+            targetSnapshotId: targetSnapshot.id,
+            targetSnapshotVersion: targetSnapshot.version,
+            targetSnapshotHash: jobTargetSnapshotHash(targetSnapshot),
+            targetSnapshot,
+            jobPersistenceDecision: targetInput?.type === "pasted_jd" ? targetInput.persistence : undefined
+          } : {}),
           fitAnalysis: compactData(fit.data, ["analysis", "dependencies"])
         }, undefined, "working");
       }
@@ -333,10 +431,11 @@ async function executeTailoringResumeFacade(
     }
     const created = await call("career.tailoring.create_session", {
       profileId,
-      resumeId: sourceResumeId,
-      jobId,
+      resumeId: resolvedSourceResumeId,
+      ...(jobId ? { jobId } : {}),
+      ...(targetSnapshot ? { targetSnapshot } : {}),
       ...(input.intensity ? { intensity: input.intensity } : {})
-    }, 1);
+    }, callIndex++);
     results.push(created);
     session = objectValue(objectValue(created.data).session);
   }
@@ -348,8 +447,16 @@ async function executeTailoringResumeFacade(
       kind: "tailoring_session",
       workflowStage: "generate_plan",
       profileId,
-      resumeId: sourceResumeId,
-      jobId,
+      resumeId: resolvedSourceResumeId,
+      ...(jobId ? { jobId } : {}),
+      ...(targetSnapshot ? {
+        targetSourceType: targetSnapshot.sourceType,
+        targetSnapshotId: targetSnapshot.id,
+        targetSnapshotVersion: targetSnapshot.version,
+        targetSnapshotHash: jobTargetSnapshotHash(targetSnapshot),
+        targetSnapshot,
+        jobPersistenceDecision: targetInput?.type === "pasted_jd" ? targetInput.persistence : undefined
+      } : {}),
       ...(fitAnalysis === undefined ? {} : { fitAnalysis: compactData(fitAnalysis, ["analysis", "dependencies"]) })
     }, undefined, "working");
   }
@@ -370,7 +477,7 @@ async function executeTailoringResumeFacade(
     }
   }
 
-  const checkpoint = tailoringCheckpoint(input, session, fitAnalysis);
+  const checkpoint = tailoringCheckpoint({ ...input, target: targetInput }, session, fitAnalysis);
   if (isTailoringQuestionPaused(session)) {
     return tailoringFacadeProgress(operationId, input, context, results.concat(
       results.length ? [] : [checkpointOnlyTailoringResult(operationId, session)]
@@ -394,7 +501,7 @@ async function executeTailoringResumeFacade(
     input,
     context,
     results,
-    tailoringCheckpoint(input, stringValue(generatedSession.id) ? generatedSession : session, fitAnalysis),
+    tailoringCheckpoint({ ...input, target: targetInput }, stringValue(generatedSession.id) ? generatedSession : session, fitAnalysis),
     stringValue(generatedSession.id) ? generatedSession : session,
     "review_ready"
   );
@@ -462,13 +569,27 @@ function tailoringCheckpoint(input: Record<string, unknown>, session: Record<str
   const branch = objectValue(session.branch);
   const job = objectValue(session.job);
   const id = stringValue(session.id);
+  const snapshotValue = objectValue(session.targetSnapshot);
+  const targetSnapshot = Object.keys(snapshotValue).length ? JobTargetSnapshotSchema.parse(snapshotValue) : undefined;
+  const targetInput = objectValue(input.target);
+  const jobPersistenceDecision = targetSnapshot
+    ? stringValue(targetInput.persistence) ?? stringValue(input.jobPersistenceDecision)
+    : undefined;
   return {
     kind: "tailoring_session",
     workflowStage: tailoringStageForSession(session),
     checkpointId: id,
-    profileId: stringValue(input.profileId),
+    profileId: stringValue(input.profileId) ?? stringValue(objectValue(session.profile).id),
     resumeId: stringValue(input.sourceResumeId) ?? stringValue(input.resumeId) ?? stringValue(branch.id),
-    jobId: stringValue(input.jobId) ?? stringValue(job.id),
+    ...(!targetSnapshot ? { jobId: stringValue(input.jobId) ?? stringValue(job.id) } : {}),
+    ...(targetSnapshot ? {
+      targetSourceType: targetSnapshot.sourceType,
+      targetSnapshotId: targetSnapshot.id,
+      targetSnapshotVersion: targetSnapshot.version,
+      targetSnapshotHash: jobTargetSnapshotHash(targetSnapshot),
+      targetSnapshot,
+      ...(jobPersistenceDecision ? { jobPersistenceDecision } : {})
+    } : {}),
     ...(fitAnalysis === undefined ? {} : { fitAnalysis: compactData(fitAnalysis, ["analysis", "dependencies", "score", "matched", "gaps"]) }),
     session,
     review: tailoringReviewProjection(session)

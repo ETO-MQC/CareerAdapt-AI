@@ -388,6 +388,7 @@ export function ResumeWorkspace() {
   const selectedDraft = drafts.find((draft) => draft.id === activeDraftId);
   const selectedBranch = branches.find((branch) => branch.id === activeBranchId);
   const selectedBranchJob = selectedBranch?.jobId ? jobs.find((job) => job.id === selectedBranch.jobId) : undefined;
+  const selectedBranchTarget = selectedBranch?.targetSnapshot;
   const selectedSourceBranch = selectedBranch?.sourceBranchId ? branches.find((branch) => branch.id === selectedBranch.sourceBranchId) : undefined;
   const effectiveTemplateId = presentationConfig?.templateId ?? templateId;
   const selectedTemplate = getResumeTemplate(effectiveTemplateId);
@@ -399,7 +400,7 @@ export function ResumeWorkspace() {
   }), [selectedBranch, profile, selectedBranchJob, presentationConfig]);
   const renderModel = renderResult.model;
   const resumeDocument = useMemo(() => {
-    if (!selectedBranch || !profile || (selectedBranch.branchPurpose !== "general" && !selectedBranchJob)) {
+    if (!selectedBranch || !profile || (selectedBranch.branchPurpose !== "general" && !selectedBranchJob && !selectedBranchTarget)) {
       return undefined;
     }
     return mapBranchToResumeDocument({
@@ -409,7 +410,7 @@ export function ResumeWorkspace() {
       templateId: effectiveTemplateId,
       presentationConfig
     });
-  }, [selectedBranch, profile, selectedBranchJob, effectiveTemplateId, presentationConfig]);
+  }, [selectedBranch, profile, selectedBranchJob, selectedBranchTarget, effectiveTemplateId, presentationConfig]);
   const resumeDocumentBlocksById = useMemo(() => {
     return new Map(resumeDocument?.blocks.map((block) => [block.contentItemId, block]) ?? []);
   }, [resumeDocument]);
@@ -2924,7 +2925,7 @@ export function ResumeWorkspace() {
     const fileName = buildResumePdfFileName({
       candidateName: renderModel.candidate.name,
       branchPurpose: selectedBranch.branchPurpose,
-      jobTitle: selectedBranchJob?.title,
+      jobTitle: renderModel.jobTitle,
       targetDirection: selectedBranch.branchPurpose === "general" ? renderModel.candidate.targetRole : undefined,
       templateName: selectedTemplate.shortName,
       date: startedAt
@@ -2949,7 +2950,7 @@ export function ResumeWorkspace() {
         selectedBranch.currentRevisionId ? repository.getResumeRevision(selectedBranch.currentRevisionId) : Promise.resolve(undefined)
       ]);
 
-      if (!latestBranch || !latestProfile || !persistedRevision || (selectedBranch.branchPurpose !== "general" && !latestJob)) {
+      if (!latestBranch || !latestProfile || !persistedRevision || (selectedBranch.branchPurpose !== "general" && !latestJob && !latestBranch.targetSnapshot)) {
         throw new Error("export_source_missing");
       }
       if (latestBranch.revision !== renderModel.branchRevision || latestBranch.currentRevisionId !== renderModel.branchCurrentRevisionId) {
@@ -3033,7 +3034,7 @@ export function ResumeWorkspace() {
       const exportFileName = buildResumePdfFileName({
         candidateName: persistedRenderModel.candidate.name,
         branchPurpose: selectedBranch.branchPurpose,
-        jobTitle: latestJob?.title,
+        jobTitle: persistedRenderModel.jobTitle,
         targetDirection: selectedBranch.branchPurpose === "general" ? persistedRenderModel.candidate.targetRole : undefined,
         templateName: selectedTemplate.shortName,
         date: startedAt
@@ -3268,7 +3269,7 @@ export function ResumeWorkspace() {
     const fileName = buildResumePdfFileName({
       candidateName: renderModel.candidate.name,
       branchPurpose: selectedBranch.branchPurpose,
-      jobTitle: selectedBranchJob?.title,
+      jobTitle: renderModel.jobTitle,
       targetDirection: selectedBranch.branchPurpose === "general" ? renderModel.candidate.targetRole : undefined,
       templateName: selectedTemplate.shortName,
       date: startedAt
@@ -3282,7 +3283,7 @@ export function ResumeWorkspace() {
         selectedBranch.jobId ? repository.getJobDescription(selectedBranch.jobId) : Promise.resolve(undefined)
       ]);
 
-      if (!latestBranch || !latestProfile || (selectedBranch.branchPurpose !== "general" && !latestJob)) {
+      if (!latestBranch || !latestProfile || (selectedBranch.branchPurpose !== "general" && !latestJob && !latestBranch.targetSnapshot)) {
         throw new Error("export_source_missing");
       }
       if (latestBranch.revision !== renderModel.branchRevision || latestBranch.currentRevisionId !== renderModel.branchCurrentRevisionId) {
@@ -3633,7 +3634,9 @@ export function ResumeWorkspace() {
                   {visibleBranches.map((branch) => {
                     const branchEditable = canEditBranch(branch);
                     const branchJob = branch.jobId ? localJobs.find((job) => job.id === branch.jobId) : undefined;
-                    const branchTargetRole = profile ? resolveResumeTargetRole({ branch, profile, job: branchJob }) : branch.resumeBasics?.targetRole?.trim();
+                    const branchTargetRole = profile
+                      ? resolveResumeTargetRole({ branch, profile, job: branchJob }) ?? branch.targetSnapshot?.title?.trim()
+                      : branch.resumeBasics?.targetRole?.trim() ?? branch.targetSnapshot?.title?.trim();
                     const isRenaming = renamingBranchId === branch.id;
                     return (
                       <article
@@ -3691,7 +3694,7 @@ export function ResumeWorkspace() {
                               {branchTargetRole ? <span className="resume-card-target-role">（{branchTargetRole}）</span> : null}
                             </strong>
                           )}
-                          <span>{branchPurposeLabel(branch.branchPurpose)} / {branchStatusLabel(branch)} / {syncStatusLabel(branch.syncStatusCache.status)}</span>
+                          <span>{branchPurposeLabel(branch.branchPurpose)}{branch.targetSnapshot && !branch.jobId ? " / 未保存岗位" : ""} / {branchStatusLabel(branch)} / {syncStatusLabel(branch.syncStatusCache.status)}</span>
                           <small>更新于 {formatLocalDateTime(branch.updatedAt)}</small>
                         </div>
                         <div className="resume-card-actions">
@@ -3897,14 +3900,14 @@ export function ResumeWorkspace() {
           </div>
           {selectedBranch.branchPurpose === "job_specific" ? (
             <div className="resume-job-context-bar" data-testid="resume-job-context">
-              <div><span>当前岗位</span><strong>{selectedBranchJob?.title ?? "岗位引用失效"}</strong></div>
-              <div><span>公司</span><strong>{selectedBranchJob?.company ?? "—"}</strong></div>
+              <div><span>当前岗位</span><strong>{selectedBranchJob?.title ?? selectedBranch.targetSnapshot?.title ?? "岗位引用失效"}</strong></div>
+              <div><span>公司</span><strong>{selectedBranchJob?.company ?? selectedBranch.targetSnapshot?.company ?? "—"}</strong></div>
               <div><span>来源通用简历</span><strong>{selectedSourceBranch?.name ?? "来源引用失效"}</strong></div>
               <div><span>匹配更新时间</span><strong>{jobContextSummary.matchUpdatedAt ? formatLocalDateTime(jobContextSummary.matchUpdatedAt) : "未找到有效匹配"}</strong></div>
               <div><span>待处理建议</span><strong>{jobContextSummary.suggestionCount}</strong></div>
               <div><span>当前风险</span><strong>{riskLevelUiLabel(jobContextSummary.risk)}</strong></div>
               <div className="resume-job-context-actions">
-                <button className="secondary-button compact" type="button" onClick={() => router.push(`/jobs?jobId=${encodeURIComponent(selectedBranch.jobId ?? "")}`)}>返回岗位</button>
+                {selectedBranch.jobId ? <button className="secondary-button compact" type="button" onClick={() => router.push(`/jobs?jobId=${encodeURIComponent(selectedBranch.jobId!)}`)}>返回岗位</button> : <span className="resume-job-context-unsaved">未保存岗位</span>}
                 <button className="primary-button compact" type="button" onClick={() => { setStudioMode("ai"); setAiInspectorTab("suggestions"); }}>AI 优化</button>
               </div>
             </div>
@@ -4882,7 +4885,7 @@ function buildRenderModel(input: {
   job?: Parameters<typeof mapBranchToResumeRenderModel>[0]["job"];
   presentationConfig?: ResumePresentationConfig;
 }): { model?: ResumeRenderModel; error?: string } {
-  if (!input.branch || !input.profile || (input.branch.branchPurpose !== "general" && !input.job)) {
+  if (!input.branch || !input.profile || (input.branch.branchPurpose !== "general" && !input.job && !input.branch.targetSnapshot)) {
     return {};
   }
 

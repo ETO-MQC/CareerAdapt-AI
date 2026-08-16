@@ -4,6 +4,7 @@ import {
   JdSemanticAssignmentSchema,
   JobDescriptionSchema,
   JobRequirementGraphV4Schema,
+  JobTargetSnapshotSchema,
   ResumeBranchSchema,
   ResumeTailorTaskInputV2Schema,
   ResumeTailoringDiffSchema,
@@ -37,6 +38,7 @@ export const TailoringSessionSchema = z.object({
   profile: CareerProfileSchema,
   branch: ResumeBranchSchema,
   job: JobDescriptionSchema,
+  targetSnapshot: JobTargetSnapshotSchema.optional(),
   plan: ResumeTailoringPlanSchema,
   taskInputs: z.array(ResumeTailorTaskInputV2Schema),
   gaps: z.array(TailoringGapSchema),
@@ -62,6 +64,7 @@ export const CreateTailoringSessionCommandInputSchema = z.object({
   profile: CareerProfileSchema,
   branch: ResumeBranchSchema,
   job: JobDescriptionSchema,
+  targetSnapshot: JobTargetSnapshotSchema.optional(),
   intensity: TailoringIntensitySchema.optional()
 }).strict();
 
@@ -189,6 +192,7 @@ export function createTailoringSessionCommand(input: z.input<typeof CreateTailor
     profile: parsed.profile,
     branch: parsed.branch,
     job: parsed.job,
+    ...(parsed.targetSnapshot ? { targetSnapshot: parsed.targetSnapshot } : {}),
     plan,
     taskInputs: planned.taskInputs,
     gaps,

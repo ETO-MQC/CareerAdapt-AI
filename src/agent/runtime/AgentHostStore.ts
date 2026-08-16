@@ -67,6 +67,8 @@ import {
   buildConversationIntakeReviewProjectionFromDraft
 } from "@/domain/profileIntake/ConversationIntakeAdapter";
 import { ImportedResumeDraftSchema, type ImportedResumeDraft } from "@/domain/schemas";
+import { JobTargetSnapshotSchema } from "@/domain/schemas/jobTarget";
+import { jobTargetSnapshotHash } from "@/domain/jobTarget/jobTargetSnapshot";
 import { createProfileIntakeInterviewPlan } from "@/domain/profileIntake/ProfileIntakeCompleteness";
 import { appendProfileIntakeQuestionAnswer } from "@/domain/profileIntake/ProfileIntakeQuestionAnswer";
 import {
@@ -4700,6 +4702,15 @@ export class AgentHostStore {
         sourceResumeId: stringRecordValue(applyBranch.id) ?? current.taskState.selectedEntities.resumeId ?? "unknown-resume",
         sourceResumeRevisionId: stringRecordValue(applyBranch.currentRevisionId) ?? current.taskState.selectedEntities.resumeRevisionId,
         jobId: stringRecordValue(applyJob.id) ?? current.taskState.selectedEntities.jobId ?? "unknown-job",
+        ...(stringRecordValue(objectRecordValue(applySession.targetSnapshot).sourceType) ? { targetSourceType: stringRecordValue(objectRecordValue(applySession.targetSnapshot).sourceType) } : {}),
+        ...(stringRecordValue(objectRecordValue(applySession.targetSnapshot).id) ? { targetSnapshotId: stringRecordValue(objectRecordValue(applySession.targetSnapshot).id) } : {}),
+        ...(numberValue(objectRecordValue(applySession.targetSnapshot).version) !== undefined ? { targetSnapshotVersion: numberValue(objectRecordValue(applySession.targetSnapshot).version) } : {}),
+        ...(stringRecordValue(objectRecordValue(applySession.targetSnapshot).rawTextHash) ? { targetSnapshotHash: stringRecordValue(objectRecordValue(applySession.targetSnapshot).rawTextHash) } : {}),
+        ...(stringRecordValue(objectRecordValue(applySession.targetSnapshot).sourceJobId) ? { savedJobId: stringRecordValue(objectRecordValue(applySession.targetSnapshot).sourceJobId) } : {}),
+        ...(current.taskState.knownSlots.jobPersistenceDecision === "ask" || current.taskState.knownSlots.jobPersistenceDecision === "save" || current.taskState.knownSlots.jobPersistenceDecision === "session_only"
+          ? { jobPersistenceDecision: current.taskState.knownSlots.jobPersistenceDecision }
+          : {}),
+        workflowFacade: "career.workflow.tailor_resume",
         acceptedDiffIds,
         changedFieldPaths: [],
         status: "write_pending",
@@ -5036,6 +5047,9 @@ export class AgentHostStore {
   ) {
     const prepared = await this.applyTaskDecision(session, action);
     if (!prepared.applied) return prepared.session;
+    if (action.decisionType === "job_target_persistence" && prepared.session.pendingConfirmation) {
+      return prepared.session;
+    }
     return this.resume(prepared.session, {
       reason: "external_event",
       observation: {
@@ -5061,6 +5075,8 @@ export class AgentHostStore {
     const decisionLabels: Record<typeof action.option, string> = {
       profile: "使用个人资料库生成岗位简历",
       existing_resume: "使用现有简历（路线 B）",
+      session_only: "仅用于本次定制",
+      save_job: "保存到岗位列表",
       switch_to_active: "写入当前活动资料库",
       keep_original: "继续写入原资料库",
       save_profile_only: action.decisionType === "profile_intake_post_save" ? "继续补充经历" : "仅保存资料库",
@@ -5097,9 +5113,206 @@ export class AgentHostStore {
         startedAt: new Date().toISOString()
       }
     };
+    if (action.decisionType === "job_target_persistence") {
+      if (action.option === "save_job") {
+        current = await this.persistExternalTargetJob(current, turnId);
+      }
+      if (current.taskState?.knownSlots.jobPersistenceDecision === "session_only"
+        || current.taskState?.knownSlots.jobPersistenceDecision === "save"
+          && Boolean(current.taskState.knownSlots.savedJobId)) {
+        current = this.prepareExternalTargetApplyConfirmation(current, turnId);
+      }
+    }
     current = await this.dependencies.persistence.save(current);
     this.patchSession(current);
     return { session: current, turnId, applied: true };
+  }
+
+  private async persistExternalTargetJob(session: AgentSession, turnId: string) {
+    const state = session.taskState;
+    if (!state) return session;
+    const tailoringSession = objectValue(state.knownSlots.tailoringSession);
+    const snapshotValue = objectValue(state.knownSlots.targetSnapshot ?? tailoringSession.targetSnapshot);
+    if (!Object.keys(snapshotValue).length) return session;
+    const snapshot = JobTargetSnapshotSchema.parse(snapshotValue);
+    if (snapshot.sourceJobId) {
+      const targetHash = jobTargetSnapshotHash(snapshot);
+      const alreadySavedState = {
+        ...state,
+        selectedEntities: {
+          ...state.selectedEntities,
+          jobId: snapshot.sourceJobId,
+          savedJobId: snapshot.sourceJobId,
+          targetSnapshotId: snapshot.id,
+          targetSnapshotVersion: snapshot.version,
+          targetSnapshotHash: targetHash
+        },
+        knownSlots: {
+          ...state.knownSlots,
+          savedJobId: snapshot.sourceJobId,
+          targetSnapshot: snapshot,
+          targetSourceType: snapshot.sourceType,
+          targetSnapshotId: snapshot.id,
+          targetSnapshotVersion: snapshot.version,
+          targetSnapshotHash: targetHash,
+          jobPersistenceDecision: "save"
+        },
+        updatedAt: new Date().toISOString()
+      };
+      return projectTaskStateIntoSession(session, alreadySavedState);
+    }
+    if (!snapshot.requirementGraph) throw new Error("job_target_snapshot_graph_missing");
+    const operationId = `job-target-save-${snapshot.id}-${snapshot.version}`.slice(0, 160);
+    const result = await this.dependencies.executor.execute({
+      toolName: "commit_job",
+      toolInput: {
+        title: snapshot.title ?? "未命名岗位",
+        company: snapshot.company ?? "未填写公司",
+        rawText: snapshot.rawText,
+        graph: snapshot.requirementGraph
+      },
+      operationId,
+      confirmed: true,
+      confirmationCount: 1
+    });
+    if (!result.ok) {
+      const failedState = new AgentTaskStateReducer().reduce(state, {
+        type: "tool_failure",
+        toolName: "commit_job",
+        operationId,
+        errorCode: result.error?.code ?? "job_target_save_failed",
+        message: result.error?.message,
+        recoverable: result.error?.retryable !== false
+      });
+      return projectTaskStateIntoSession(
+        appendAgentMessage(session, "assistant", result.error?.message ?? "岗位保存没有完成，当前定制进度已保留。", {
+          id: `job-target-save-failed-${operationId}`,
+          kind: "error_status",
+          type: "error",
+          status: "failed",
+          metadata: { jobTargetPersistence: "save", operationId, safeErrorCode: result.error?.code ?? "job_target_save_failed" }
+        }),
+        failedState
+      );
+    }
+    const value = objectRecordValue(result.data);
+    const committedJob = objectRecordValue(value.jobDescription ?? value.job);
+    const savedJobId = stringRecordValue(value.jobId ?? committedJob.id);
+    if (!savedJobId) throw new Error("job_target_save_receipt_missing_job_id");
+    const savedJobRevision = scalarRecordValue(value.jobRevision ?? committedJob.updatedAt) ?? snapshot.sourceJobRevision;
+    const persistedSnapshot = JobTargetSnapshotSchema.parse({
+      ...snapshot,
+      sourceJobId: savedJobId,
+      ...(savedJobRevision !== undefined ? { sourceJobRevision: savedJobRevision } : {})
+    });
+    const reducer = new AgentTaskStateReducer();
+    let taskState = reducer.reduce(state, {
+      type: "tool_observation",
+      toolName: "commit_job",
+      observation: result.data,
+      artifactIds: result.artifactIds
+    });
+    const nextTailoringSession = {
+      ...tailoringSession,
+      targetSnapshot: persistedSnapshot,
+      ...(Object.keys(committedJob).length ? { job: committedJob } : {})
+    };
+    taskState = {
+      ...taskState,
+      selectedEntities: {
+        ...taskState.selectedEntities,
+        jobId: savedJobId,
+        savedJobId,
+        ...(savedJobRevision !== undefined ? { jobRevision: savedJobRevision } : {}),
+        targetSnapshotId: persistedSnapshot.id,
+        targetSnapshotVersion: persistedSnapshot.version,
+        targetSnapshotHash: jobTargetSnapshotHash(persistedSnapshot)
+      },
+      knownSlots: {
+        ...taskState.knownSlots,
+        targetSnapshot: persistedSnapshot,
+        targetSourceType: persistedSnapshot.sourceType,
+        targetSnapshotId: persistedSnapshot.id,
+        targetSnapshotVersion: persistedSnapshot.version,
+        targetSnapshotHash: jobTargetSnapshotHash(persistedSnapshot),
+        savedJobId,
+        jobPersistenceDecision: "save",
+        tailoringSession: nextTailoringSession
+      },
+      updatedAt: new Date().toISOString()
+    };
+    let current = projectTaskStateIntoSession(session, taskState);
+    current = upsertAgentActivity(current, {
+      id: `agent-tool-${operationId}`,
+      turnId,
+      content: "已保存岗位目标，并关联到本次定制。",
+      toolName: "commit_job",
+      operationId,
+      status: "complete",
+      metadata: {
+        activityState: "complete",
+        targetSourceType: persistedSnapshot.sourceType,
+        targetSnapshotId: persistedSnapshot.id,
+        savedJobId
+      }
+    });
+    return current;
+  }
+
+  private prepareExternalTargetApplyConfirmation(session: AgentSession, turnId: string) {
+    const state = session.taskState;
+    if (!state) return session;
+    const pending = objectValue(state.knownSlots.pendingTargetApplyInput);
+    if (!Object.keys(pending).length) return session;
+    const operationId = stringValue(state.knownSlots.pendingTargetApplyOperationId)
+      ?? `tailoring-apply-${turnId}`.slice(0, 160);
+    const applyInput = {
+      ...pending,
+      session: state.knownSlots.tailoringSession
+    };
+    const reducer = new AgentTaskStateReducer();
+    let nextState = reducer.reduce(state, {
+      type: "confirmation_requested",
+      toolName: "apply_tailoring_changes",
+      operationId
+    });
+    nextState = {
+      ...nextState,
+      knownSlots: {
+        ...nextState.knownSlots,
+        pendingTargetApplyInput: undefined,
+        pendingTargetApplyOperationId: undefined
+      },
+      updatedAt: new Date().toISOString()
+    };
+    let current = projectTaskStateIntoSession(session, nextState);
+    const requestedAt = new Date().toISOString();
+    current = {
+      ...current,
+      pendingConfirmation: {
+        id: `confirmation-${operationId}`,
+        turnId,
+        operationId,
+        toolName: "apply_tailoring_changes",
+        title: "应用这些简历修改？",
+        description: "确认后会生成岗位定制简历；只应用已采用的修改，来源简历和个人资料库不会被覆盖。",
+        destructive: false,
+        validatedInput: applyInput,
+        dependencyExpectation: dependencySnapshot(nextState),
+        status: "pending",
+        requestedAt
+      },
+      pendingToolCall: {
+        turnId,
+        toolName: "apply_tailoring_changes",
+        operationId,
+        input: applyInput
+      },
+      activeTurn: current.activeTurn
+        ? { ...current.activeTurn, id: turnId, status: "waiting_for_confirmation", completedAt: undefined }
+        : current.activeTurn
+    };
+    return current;
   }
 
   private async applyRuntimeAnswer(
@@ -5543,43 +5756,90 @@ export class AgentHostStore {
           selectedDiffs: observation.selectedDiffs ?? [],
           confirmedRequirementIds: taskState.knownSlots.confirmedRequirementIds ?? []
         };
-        taskState = reducer.reduce(taskState, {
-          type: "confirmation_requested",
-          toolName: "apply_tailoring_changes",
-          operationId: applyOperationId
-        });
-        current = projectTaskStateIntoSession(current, taskState);
-        const requestedAt = new Date().toISOString();
-        current = {
-          ...current,
-          pendingConfirmation: {
-            id: `confirmation-${applyOperationId}`,
-            turnId: confirmationTurnId,
-            operationId: applyOperationId,
-            toolName: "apply_tailoring_changes",
-            title: "应用这些简历修改？",
-            description: "确认后会生成岗位定制简历；只应用已采用的修改，来源简历和个人资料库不会被覆盖。",
-            destructive: false,
-            validatedInput: applyInput,
-            dependencyExpectation: dependencySnapshot(taskState),
-            status: "pending",
-            requestedAt
-          },
-          pendingToolCall: {
-            turnId: confirmationTurnId,
-            toolName: "apply_tailoring_changes",
-            operationId: applyOperationId,
-            input: applyInput
-          },
-          activeTurn: current.activeTurn
-            ? {
-                ...current.activeTurn,
-                id: confirmationTurnId,
-                status: "waiting_for_confirmation",
-                completedAt: undefined
+        const targetSnapshotValue = objectValue(taskState.knownSlots.targetSnapshot ?? objectValue(applyInput.session).targetSnapshot);
+        if (Object.keys(targetSnapshotValue).length) {
+          const targetSnapshot = JobTargetSnapshotSchema.parse(targetSnapshotValue);
+          const persistenceDecision = stringValue(taskState.knownSlots.jobPersistenceDecision) ?? "ask";
+          taskState = {
+            ...taskState,
+            knownSlots: {
+              ...taskState.knownSlots,
+              targetSnapshot,
+              targetSourceType: targetSnapshot.sourceType,
+              targetSnapshotId: targetSnapshot.id,
+              targetSnapshotVersion: targetSnapshot.version,
+              targetSnapshotHash: jobTargetSnapshotHash(targetSnapshot),
+              pendingTargetApplyInput: applyInput,
+              pendingTargetApplyOperationId: applyOperationId
+            },
+            ...(persistenceDecision === "ask" ? {
+              pendingDecision: { type: "job_target_persistence" as const, options: ["session_only", "save_job"] as const },
+              stage: "confirm_apply",
+              completionStatus: "waiting_for_user" as const
+            } : {})
+          };
+          current = projectTaskStateIntoSession(current, taskState);
+          if (persistenceDecision === "ask") {
+            current = appendAgentMessage(current, "assistant", "目标岗位可以只用于本次定制，也可以保存到岗位列表。请选择保存范围。", {
+              id: `job-target-persistence-${applyOperationId}`,
+              turnId: confirmationTurnId,
+              kind: "text",
+              type: "text",
+              status: "complete",
+              metadata: {
+                targetSourceType: targetSnapshot.sourceType,
+                targetSnapshotId: targetSnapshot.id,
+                jobPersistenceDecision: "ask"
               }
-            : current.activeTurn
-        };
+            });
+            current = attachPendingDecisionOptions(current, taskState.pendingDecision!);
+          } else if (persistenceDecision === "save") {
+            current = await this.persistExternalTargetJob(current, confirmationTurnId);
+            if (current.taskState?.knownSlots.savedJobId) {
+              current = this.prepareExternalTargetApplyConfirmation(current, confirmationTurnId);
+            }
+          } else {
+            current = this.prepareExternalTargetApplyConfirmation(current, confirmationTurnId);
+          }
+        } else {
+          taskState = reducer.reduce(taskState, {
+            type: "confirmation_requested",
+            toolName: "apply_tailoring_changes",
+            operationId: applyOperationId
+          });
+          current = projectTaskStateIntoSession(current, taskState);
+          const requestedAt = new Date().toISOString();
+          current = {
+            ...current,
+            pendingConfirmation: {
+              id: `confirmation-${applyOperationId}`,
+              turnId: confirmationTurnId,
+              operationId: applyOperationId,
+              toolName: "apply_tailoring_changes",
+              title: "应用这些简历修改？",
+              description: "确认后会生成岗位定制简历；只应用已采用的修改，来源简历和个人资料库不会被覆盖。",
+              destructive: false,
+              validatedInput: applyInput,
+              dependencyExpectation: dependencySnapshot(taskState),
+              status: "pending",
+              requestedAt
+            },
+            pendingToolCall: {
+              turnId: confirmationTurnId,
+              toolName: "apply_tailoring_changes",
+              operationId: applyOperationId,
+              input: applyInput
+            },
+            activeTurn: current.activeTurn
+              ? {
+                  ...current.activeTurn,
+                  id: confirmationTurnId,
+                  status: "waiting_for_confirmation",
+                  completedAt: undefined
+                }
+              : current.activeTurn
+          };
+        }
       }
     } else if (action.type === "tailoring_diff_decision" && remainingDiffCount === 0) {
       taskState = {
@@ -6834,6 +7094,8 @@ function attachPendingDecisionOptions(
     label: {
       profile: "使用个人资料库",
       existing_resume: "使用现有简历",
+      session_only: "仅用于本次定制",
+      save_job: "保存到岗位列表",
       switch_to_active: "写入当前资料库",
       keep_original: "继续写入原资料库",
       save_profile_only: decision.type === "profile_intake_post_save" ? "继续补充经历" : "仅保存资料库",
@@ -8315,7 +8577,7 @@ function profileIntakeSectionPrompt(section: ProfileIntakeSection) {
 
 function isUnsafeLegacyDomainRegeneration(session: AgentSession, targetIndex: number) {
   const state = session.taskState;
-  if (!state || !["create_tailored_resume", "apply_to_job", "analyze_job_fit"].includes(state.rootGoal)) return false;
+  if (!state || !["create_tailored_resume", "apply_to_job", "apply_to_external_job", "analyze_job_fit"].includes(state.rootGoal)) return false;
   const laterVisibleMessages = session.messages.slice(targetIndex + 1).some((message) => message.metadata?.retracted !== true);
   return laterVisibleMessages && !["select_resume", "choose_resume_source", "choose_job"].includes(state.stage);
 }
@@ -8919,6 +9181,12 @@ function applyRuntimeFacadeCheckpoint(session: AgentSession, toolName: string, v
       : stringRecordValue(sessionData.tailoringSessionId)
         ? { ...sessionData, id: stringRecordValue(sessionData.tailoringSessionId) }
         : sessionData;
+  const targetSnapshotData = objectRecordValue(checkpoint.targetSnapshot ?? normalizedSessionData.targetSnapshot);
+  const targetSnapshotId = stringRecordValue(checkpoint.targetSnapshotId ?? targetSnapshotData.id);
+  const targetSnapshotVersion = numberValue(checkpoint.targetSnapshotVersion ?? targetSnapshotData.version);
+  const targetSnapshotHash = stringRecordValue(checkpoint.targetSnapshotHash ?? targetSnapshotData.rawTextHash);
+  const savedJobId = stringRecordValue(checkpoint.savedJobId ?? targetSnapshotData.sourceJobId);
+  const hasExternalTargetSnapshot = Boolean(targetSnapshotId || Object.keys(targetSnapshotData).length);
   const tailoringBranch = objectRecordValue(normalizedSessionData.branch);
   const tailoringSourceResumeId = task.workflowId === "tailor_existing_resume"
     ? task.selectedEntities.sourceResumeId
@@ -8933,10 +9201,10 @@ function applyRuntimeFacadeCheckpoint(session: AgentSession, toolName: string, v
     ...task.selectedEntities,
     ...(stringRecordValue(checkpoint.profileId) ? { profileId: stringRecordValue(checkpoint.profileId) } : {}),
     ...(stringRecordValue(checkpoint.resumeId) ? { resumeId: stringRecordValue(checkpoint.resumeId) } : {}),
-    ...(stringRecordValue(checkpoint.jobId) ? { jobId: stringRecordValue(checkpoint.jobId) } : {}),
+    ...(stringRecordValue(checkpoint.jobId) && !hasExternalTargetSnapshot ? { jobId: stringRecordValue(checkpoint.jobId) } : {}),
     ...(stringRecordValue(result.profileId) ? { profileId: stringRecordValue(result.profileId) } : {}),
     ...(stringRecordValue(result.resumeId) ? { resumeId: stringRecordValue(result.resumeId) } : {}),
-    ...(stringRecordValue(result.jobId) ? { jobId: stringRecordValue(result.jobId) } : {}),
+    ...(stringRecordValue(result.jobId) && !hasExternalTargetSnapshot ? { jobId: stringRecordValue(result.jobId) } : {}),
     ...(stringRecordValue(importData.importId) ? { revisionId: stringRecordValue(importData.importId) } : {}),
     ...(checkpoint.kind === "tailoring_session" && stringRecordValue(tailoringBranch.id) && !task.selectedEntities.resultResumeId
       ? {
@@ -8945,7 +9213,11 @@ function applyRuntimeFacadeCheckpoint(session: AgentSession, toolName: string, v
           sourceResumeRevisionId: stringRecordValue(tailoringBranch.currentRevisionId)
         }
       : {}),
-    ...(stringRecordValue(sessionData.jobId) ? { jobId: stringRecordValue(sessionData.jobId) } : {}),
+    ...(stringRecordValue(sessionData.jobId) && !hasExternalTargetSnapshot ? { jobId: stringRecordValue(sessionData.jobId) } : {}),
+    ...(targetSnapshotId ? { targetSnapshotId } : {}),
+    ...(targetSnapshotVersion !== undefined ? { targetSnapshotVersion } : {}),
+    ...(targetSnapshotHash ? { targetSnapshotHash } : {}),
+    ...(savedJobId ? { savedJobId, jobId: savedJobId } : {}),
     ...(checkpoint.kind === "tailoring_session" && stringRecordValue(normalizedSessionData.id)
       ? { tailoringSessionId: stringRecordValue(normalizedSessionData.id) }
       : {}),
@@ -9014,6 +9286,11 @@ function applyRuntimeFacadeCheckpoint(session: AgentSession, toolName: string, v
       tailoringSession: normalizedSessionData,
       questionPlan: objectRecordValue(objectRecordValue(normalizedSessionData.plan).questionPlan),
       activeQuestionId: stringRecordValue(objectRecordValue(objectRecordValue(normalizedSessionData.plan).questionPlan).activeQuestionId)
+    } : {}),
+    ...(hasExternalTargetSnapshot ? {
+      targetSnapshot: targetSnapshotData,
+      targetSourceType: stringRecordValue(checkpoint.targetSourceType ?? targetSnapshotData.sourceType) ?? "pasted_jd",
+      ...(stringRecordValue(checkpoint.jobPersistenceDecision) ? { jobPersistenceDecision: stringRecordValue(checkpoint.jobPersistenceDecision) } : {})
     } : {}),
     ...(checkpoint.kind === "profile_intake_turn" ? {
       intakeImportId: understood.importId,
@@ -9514,7 +9791,7 @@ function runtimeFailureRecoveryText(code?: string, taskState?: AgentTaskState) {
     && taskState.knownSlots.fitAnalysis
     && taskState.selectedEntities.profileId
     && taskState.selectedEntities.resumeId
-    && taskState.selectedEntities.jobId
+    && (taskState.selectedEntities.jobId || taskState.selectedEntities.targetSnapshotId || taskState.knownSlots.targetSnapshot)
   ) {
     return "岗位和简历已保留，定制计划生成过程中出现临时问题。可以直接重试此步骤。";
   }
@@ -9635,6 +9912,22 @@ function updateArtifactWriteDiagnostics(
   }
 ) {
   if (!session.activeTurn) return session;
+  const targetSnapshot = objectRecordValue(
+    session.taskState?.knownSlots.targetSnapshot
+      ?? objectRecordValue(session.taskState?.knownSlots.tailoringSession).targetSnapshot
+  );
+  const targetSourceType = stringRecordValue(targetSnapshot.sourceType);
+  const targetSnapshotId = stringRecordValue(targetSnapshot.id);
+  const targetSnapshotVersion = numberValue(targetSnapshot.version);
+  const targetSnapshotHash = stringRecordValue(session.taskState?.knownSlots.targetSnapshotHash)
+    ?? stringRecordValue(targetSnapshot.rawTextHash);
+  const savedJobId = stringRecordValue(session.taskState?.knownSlots.savedJobId)
+    ?? stringRecordValue(targetSnapshot.sourceJobId);
+  const jobPersistenceDecision = session.taskState?.knownSlots.jobPersistenceDecision === "ask"
+    || session.taskState?.knownSlots.jobPersistenceDecision === "save"
+    || session.taskState?.knownSlots.jobPersistenceDecision === "session_only"
+    ? session.taskState.knownSlots.jobPersistenceDecision
+    : undefined;
   return {
     ...session,
     activeTurn: {
@@ -9653,7 +9946,16 @@ function updateArtifactWriteDiagnostics(
           ...(typeof input.acceptedDiffCount === "number" ? { acceptedDiffCount: input.acceptedDiffCount } : {}),
           ...(input.changedFieldPaths ? { changedFieldPaths: input.changedFieldPaths } : {}),
           repositoryReadBackVerified: input.repositoryReadBackVerified,
-          resumeListVisibilityVerified: input.resumeListVisibilityVerified
+          resumeListVisibilityVerified: input.resumeListVisibilityVerified,
+          ...(targetSourceType ? { targetSourceType } : {}),
+          ...(targetSnapshotId ? { targetSnapshotId } : {}),
+          ...(targetSnapshotVersion !== undefined ? { targetSnapshotVersion } : {}),
+          ...(targetSnapshotHash ? { targetSnapshotHash } : {}),
+          ...(savedJobId ? { savedJobId } : {}),
+          ...(jobPersistenceDecision ? { jobPersistenceDecision } : {}),
+          workflowFacade: session.taskState?.workflowId === "tailor_existing_resume"
+            ? "career.workflow.tailor_resume"
+            : undefined
         }
       }
     }

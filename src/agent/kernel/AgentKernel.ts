@@ -1068,7 +1068,7 @@ function emptyReadRecovery(
   if (taskState.rootGoal === "profile_intake") {
     return "资料库中没有找到与当前问题匹配的已有经历。我不会重复查询；请直接告诉我这段经历的项目名称、你做了什么和结果，我会从你的回答继续整理。";
   }
-  if (["create_tailored_resume", "create_resume_from_profile", "analyze_job_fit", "apply_to_job"].includes(taskState.rootGoal)) {
+  if (["create_tailored_resume", "create_resume_from_profile", "analyze_job_fit", "apply_to_job", "apply_to_external_job"].includes(taskState.rootGoal)) {
     return "资料库中没有找到可用于当前步骤的已确认经历。我不会重复查询或编造内容；请补充一段与目标岗位相关的真实经历、职责或结果，我会据此继续完成当前流程。";
   }
   return "资料库中没有找到匹配的经历或事实。我不会重复查询；请直接补充你希望用于当前步骤的真实经历，我会从这条信息继续处理。";
@@ -1099,6 +1099,9 @@ function bindAuthoritativeTaskInput(
       argumentsValue.revisionId = taskState.selectedEntities.resumeRevisionId;
     }
     if (taskState.selectedEntities.jobId) argumentsValue.jobId = taskState.selectedEntities.jobId;
+    if ((call.name === "analyze_job_fit" || call.name === "create_tailoring_session") && slots.targetSnapshot) {
+      argumentsValue.targetSnapshot = slots.targetSnapshot;
+    }
     if (call.name === "analyze_job_fit" || call.name === "create_tailoring_session") {
       if (taskState.selectedEntities.profileVersion !== undefined) {
         argumentsValue.profileVersion = taskState.selectedEntities.profileVersion;
@@ -1568,17 +1571,18 @@ function addRuntimeDiagnosticInstruction(systemPrompt: string, userMessage: stri
 
 function isRuntimeFailureQuestion(message: string, taskState: AgentTaskState) {
   return /^(?:为什么|为何|怎么回事)[？?。！!]?$/u.test(message.trim())
-    && Boolean(taskState.selectedEntities.resumeId && taskState.selectedEntities.jobId);
+    && Boolean(taskState.selectedEntities.resumeId && (taskState.selectedEntities.jobId || taskState.selectedEntities.targetSnapshotId || taskState.knownSlots.rawText || taskState.knownSlots.targetSnapshot));
 }
 
 function repairIllegalToolTaskState(taskState: AgentTaskState) {
   const isTailoringRoot = taskState.rootGoal === "apply_to_job"
     || taskState.rootGoal === "create_tailored_resume"
+    || taskState.rootGoal === "apply_to_external_job"
     || taskState.workflowId === "tailor_existing_resume" && taskState.rootGoal !== "analyze_job_fit";
   const hasSelectedTailoringEntities = Boolean(
     taskState.selectedEntities.profileId
     && taskState.selectedEntities.resumeId
-    && taskState.selectedEntities.jobId
+    && (taskState.selectedEntities.jobId || taskState.selectedEntities.targetSnapshotId || taskState.knownSlots.targetSnapshot)
   );
   const nextStage = isTailoringRoot
     && hasSelectedTailoringEntities
@@ -1703,6 +1707,7 @@ const RECOVERY_SLOT_LABELS: Record<string, string> = {
 };
 
 const RECOVERY_STAGE_LABELS: Record<string, string> = {
+  clarify_target: "请选择：分析匹配度、生成岗位定制简历，或保存到岗位列表。",
   choose_resume_source: "请选择要使用的简历来源。",
   choose_job: "请选择要匹配的岗位。",
   clarify_unsupported_facts: "请回答当前问题，或回复“跳过”。",
@@ -1735,12 +1740,15 @@ function noProgressRecovery(nextAction: {
 }, taskState?: NonNullable<AgentSession["taskState"]>) {
   const withExitPaths = (instruction: string) =>
     `${instruction}\n\n如果这一步仍然没有推进，可以使用“重新执行当前步骤”按钮，或选择“结束任务”；也可以直接告诉我你想改做什么。`;
-  const tailoringGoal = ["create_tailored_resume", "apply_to_job", "analyze_job_fit"].includes(nextAction.goal ?? "");
+  const tailoringGoal = ["create_tailored_resume", "apply_to_job", "apply_to_external_job", "analyze_job_fit"].includes(nextAction.goal ?? "");
   if (isTailoringPlanRecoveryState(taskState)) return withExitPaths(tailoringPlanRecoveryText());
   const missingSlots = taskState && tailoringGoal
-    ? (["profileId", "resumeId", "jobId"] as const).filter((slot) => !taskState.selectedEntities[slot])
+    ? (taskState.rootGoal === "apply_to_external_job"
+      ? (["profileId", "resumeId"] as const)
+      : (["profileId", "resumeId", "jobId"] as const)
+    ).filter((slot) => !taskState.selectedEntities[slot])
     : nextAction.missingSlots;
-  if (taskState && tailoringGoal && missingSlots.length === 1 && missingSlots[0] === "jobId") {
+  if (taskState && tailoringGoal && missingSlots.length === 1 && missingSlots[0] === "jobId" && !taskState.selectedEntities.targetSnapshotId && !taskState.knownSlots.targetSnapshot) {
     const resumeName = typeof taskState.knownSlots.selectedResumeName === "string"
       ? taskState.knownSlots.selectedResumeName
       : "通用简历";
@@ -1816,7 +1824,7 @@ function deterministicBoundaryTool(
     && !taskState.knownSlots.tailoringSession
     && taskState.selectedEntities.profileId
     && taskState.selectedEntities.resumeId
-    && taskState.selectedEntities.jobId
+    && (taskState.selectedEntities.jobId || taskState.selectedEntities.targetSnapshotId || taskState.knownSlots.targetSnapshot)
     && allowedTools.some((tool) => tool.name === "create_tailoring_session")
   ) {
     return "create_tailoring_session";
@@ -1878,7 +1886,7 @@ function isTailoringPlanRecoveryState(taskState: AgentTaskState | undefined) {
     && !taskState.knownSlots.tailoringSession
     && taskState.selectedEntities.profileId
     && taskState.selectedEntities.resumeId
-    && taskState.selectedEntities.jobId
+    && (taskState.selectedEntities.jobId || taskState.selectedEntities.targetSnapshotId || taskState.knownSlots.targetSnapshot)
   );
 }
 
@@ -1918,6 +1926,13 @@ function deterministicWorkflowPause(
   taskState: NonNullable<AgentSession["taskState"]>,
   afterToolOrResume = true
 ) {
+  if (
+    taskState.rootGoal === "clarify_external_target"
+    && taskState.stage === "clarify_target"
+    && taskState.completionStatus === "waiting_for_user"
+  ) {
+    return "我已保留这段岗位描述，不会自动写入岗位列表。请选择：分析匹配度、生成岗位定制简历，或保存到岗位列表。";
+  }
   if (
     afterToolOrResume
     && taskState.workflowId === "compose_resume"

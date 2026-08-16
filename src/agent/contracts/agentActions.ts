@@ -121,10 +121,12 @@ export const AgentOptionActionSchema = z.union([
   AgentUiActionSchema,
   z.object({
     type: z.literal("task_decision"),
-    decisionType: z.enum(["resume_source_route", "profile_intake_target", "profile_intake_resume", "profile_intake_post_save"]),
+    decisionType: z.enum(["resume_source_route", "job_target_persistence", "profile_intake_target", "profile_intake_resume", "profile_intake_post_save"]),
     option: z.enum([
       "profile",
       "existing_resume",
+      "session_only",
+      "save_job",
       "switch_to_active",
       "keep_original",
       "save_profile_only",

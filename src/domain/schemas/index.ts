@@ -9,6 +9,7 @@ export * from "./documentRecognition";
 export * from "./export";
 export * from "./importDraft";
 export * from "./job";
+export * from "./jobTarget";
 export * from "./jobOptimization";
 export * from "./jobOptimizationV2";
 export * from "./jobOptimizationV3";

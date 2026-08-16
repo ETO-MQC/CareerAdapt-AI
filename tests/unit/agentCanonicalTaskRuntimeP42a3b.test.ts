@@ -122,55 +122,29 @@ describe("P4.2a.3b canonical task runtime", () => {
     });
   });
 
-  it("normalizes a pasted JD into ingest_job instead of a broad application goal", () => {
+  it("keeps a pasted JD as an external target until the user chooses an action", () => {
     const reducer = new AgentTaskStateReducer();
     const jd = `岗位：AI训练师
 公司：示例科技
 岗位职责：负责训练数据设计、质量验收与迭代复盘，维护可追溯的任务记录。
 任职要求：具备 AI 应用、数据分析和清晰书面沟通能力。`.repeat(3);
-    let state = routeTurn(
+    const state = routeTurn(
       reducer,
       reducer.create(AgentRuntime.create("agent_quick_action", "collecting_intent")),
       jd
     );
     expect(state).toMatchObject({
-      goal: "ingest_job",
-      rootGoal: "ingest_job",
-      activeGoal: "ingest_job",
-      workflowId: "job_ingestion",
-      stage: "parse_job"
-    });
-    state = reducer.reduce(state, {
-      type: "tool_observation",
-      toolName: "parse_job_description",
-      observation: {
-        graph: { requirements: [] },
-        candidateTitle: "AI训练师",
-        candidateCompany: "示例科技"
+      goal: "clarify_external_target",
+      rootGoal: "clarify_external_target",
+      activeGoal: "clarify_external_target",
+      workflowId: "tailor_existing_resume",
+      stage: "clarify_target",
+      knownSlots: {
+        rawText: jd,
+        targetSourceType: "pasted_jd",
+        jobPersistenceDecision: "ask"
       }
     });
-    expect(state).toMatchObject({ stage: "confirm_commit", completionStatus: "active" });
-    expect(state.knownSlots).not.toHaveProperty("pendingConfirmation");
-    state = reducer.reduce(state, {
-      type: "confirmation_requested",
-      toolName: "commit_job",
-      operationId: "commit-job-1"
-    });
-    expect(state).toMatchObject({ stage: "confirm_commit", completionStatus: "waiting_for_confirmation" });
-    expect(state.knownSlots.pendingConfirmation).toEqual({
-      toolName: "commit_job",
-      operationId: "commit-job-1"
-    });
-    state = reducer.reduce(state, {
-      type: "confirmation_accepted",
-      toolName: "commit_job"
-    });
-    state = reducer.reduce(state, {
-      type: "tool_observation",
-      toolName: "commit_job",
-      observation: { jobId: "job-ai-trainer" }
-    });
-    expect(state).toMatchObject({ stage: "completed", completionStatus: "completed" });
   });
 
   it("sets ingest_job as the root before the user supplies the JD", () => {
@@ -189,7 +163,7 @@ describe("P4.2a.3b canonical task runtime", () => {
     });
   });
 
-  it("keeps apply_to_job as the root goal while ingest_job is an active subtask", () => {
+  it("promotes a pasted JD plus application language to the external target root", () => {
     const reducer = new AgentTaskStateReducer();
     const jd = `岗位：AI训练师
 公司：示例科技
@@ -207,38 +181,16 @@ describe("P4.2a.3b canonical task runtime", () => {
 
     state = routeTurn(reducer, state, jd);
     expect(state).toMatchObject({
-      goal: "apply_to_job",
-      rootGoal: "apply_to_job",
-      activeGoal: "ingest_job",
-      workflowId: "job_ingestion",
-      stage: "parse_job"
-    });
-    state = reducer.reduce(state, {
-      type: "tool_observation",
-      toolName: "parse_job_description",
-      observation: {
-        graph: { requirements: [] },
-        candidateTitle: "AI训练师",
-        candidateCompany: "示例科技"
-      }
-    });
-    state = reducer.reduce(state, {
-      type: "tool_observation",
-      toolName: "commit_job",
-      observation: { jobId: "job-ai-trainer" }
-    });
-
-    expect(state).toMatchObject({
-      rootGoal: "apply_to_job",
-      activeGoal: "resolve_resume_source",
+      rootGoal: "apply_to_external_job",
+      activeGoal: "apply_to_external_job",
       workflowId: "tailor_existing_resume",
       stage: "choose_resume_source",
       completionStatus: "active",
-      selectedEntities: { jobId: "job-ai-trainer" }
-    });
-    expect(new AgentTaskCompletionGuard().evaluate(state)).toMatchObject({
-      canFinish: false,
-      requiredNextStage: "choose_resume_source"
+      knownSlots: {
+        rawText: jd,
+        targetSourceType: "pasted_jd",
+        jobPersistenceDecision: "ask"
+      }
     });
   });
 

@@ -68,17 +68,17 @@ function safeAutonomousJump(toolName: string, state: AgentTaskState) {
     return Boolean(state.selectedEntities.resumeId);
   }
   if (toolName === "analyze_job_fit") {
-    return Boolean(state.selectedEntities.profileId && (state.selectedEntities.sourceResumeId ?? state.selectedEntities.resumeId) && state.selectedEntities.jobId)
+    return Boolean(state.selectedEntities.profileId && (state.selectedEntities.sourceResumeId ?? state.selectedEntities.resumeId) && hasTargetProvenance(state))
       && (!state.workflowId.startsWith("tailor") || tailoringStage(state) === "analyze_fit")
       && !has(state, "fitAnalysis");
   }
   if (toolName === "create_tailoring_session") {
-    return Boolean(state.selectedEntities.profileId && (state.selectedEntities.sourceResumeId ?? state.selectedEntities.resumeId) && state.selectedEntities.jobId)
+    return Boolean(state.selectedEntities.profileId && (state.selectedEntities.sourceResumeId ?? state.selectedEntities.resumeId) && hasTargetProvenance(state))
       && state.workflowId === "tailor_existing_resume"
       && tailoringStage(state) === "generate_plan";
   }
   if (toolName === "recommend_resume_source") {
-    return Boolean(state.selectedEntities.profileId && state.selectedEntities.jobId) && state.stage === "choose_resume_source";
+    return Boolean(state.selectedEntities.profileId && hasTargetProvenance(state)) && state.stage === "choose_resume_source";
   }
   if (toolName === "create_job_resume_from_profile") {
     return Boolean(state.selectedEntities.profileId && state.selectedEntities.jobId)
@@ -172,12 +172,12 @@ function preconditions(toolName: string, state: AgentTaskState) {
       && state.completionStatus === "active";
   }
   if (toolName === "analyze_job_fit") {
-    return Boolean(state.selectedEntities.profileId && (state.selectedEntities.sourceResumeId ?? state.selectedEntities.resumeId) && state.selectedEntities.jobId)
+    return Boolean(state.selectedEntities.profileId && (state.selectedEntities.sourceResumeId ?? state.selectedEntities.resumeId) && hasTargetProvenance(state))
       && (!state.workflowId.startsWith("tailor") || tailoringStage(state) === "analyze_fit")
       && !has(state, "fitAnalysis");
   }
   if (toolName === "create_tailoring_session") {
-    return Boolean(state.selectedEntities.profileId && state.selectedEntities.resumeId && state.selectedEntities.jobId)
+    return Boolean(state.selectedEntities.profileId && state.selectedEntities.resumeId && hasTargetProvenance(state))
       && state.workflowId === "tailor_existing_resume"
       && tailoringStage(state) === "generate_plan";
   }
@@ -237,6 +237,14 @@ function has(state: AgentTaskState, slot: string) {
 
 function objectValue(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" ? value as Record<string, unknown> : {};
+}
+
+function hasTargetProvenance(state: AgentTaskState) {
+  return Boolean(
+    state.selectedEntities.jobId
+    || state.selectedEntities.targetSnapshotId
+    || state.knownSlots.targetSnapshot
+  );
 }
 
 function tailoringStage(state: AgentTaskState) {

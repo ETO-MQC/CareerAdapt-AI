@@ -8,6 +8,7 @@ import {
   type ResumeRenderSectionType,
   type TemplateId
 } from "@/domain/schemas";
+import { jobTargetSnapshotToJobDescription } from "@/domain/jobTarget/jobTargetSnapshot";
 import { defaultResumeRenderSectionOrder } from "@/domain/resumeFields/catalog";
 import { branchFactRefKey, resolveBranchFactRefs } from "@/domain/branch/validation";
 import { stableHashText } from "@/services/security/text";
@@ -64,7 +65,11 @@ export function mapBranchToResumeDocument(input: {
   templateId: TemplateId;
   presentationConfig?: ResumePresentationConfig;
 }): ResumeDocument {
-  if (input.branch.branchPurpose !== "general" && (!input.job || input.branch.jobId !== input.job.id)) {
+  const resolvedJob = input.job ?? (input.branch.targetSnapshot ? jobTargetSnapshotToJobDescription(input.branch.targetSnapshot) : undefined);
+  if (
+    input.branch.branchPurpose !== "general"
+    && (!resolvedJob || input.branch.jobId && input.branch.jobId !== resolvedJob.id)
+  ) {
     throw new Error("resume_document_source_job_missing");
   }
   const branchEditability = getBranchEditability(input.branch);
@@ -113,7 +118,7 @@ export function mapBranchToResumeDocument(input: {
     id: `resume-document:${input.branch.id}:${input.branch.currentRevisionId ?? "missing"}`,
     branchId: input.branch.id,
     profileId: input.profile.id,
-    jobId: input.job?.id,
+    jobId: resolvedJob?.id,
     templateId: input.templateId,
     branchRevision: input.branch.revision,
     branchCurrentRevisionId: input.branch.currentRevisionId ?? "",
