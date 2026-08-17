@@ -3907,6 +3907,18 @@ html[data-theme="dark"] .resume-canvas-toolbar .primary-button {
   zoom: var(--resume-preview-zoom, 1);
 }
 
+.resume-pagination-pending {
+  align-self: start;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  margin-top: 24px;
+  padding: 16px 20px;
+}
+
 .resume-page-shell {
   display: grid;
   gap: 8px;

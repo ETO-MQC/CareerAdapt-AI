@@ -58,6 +58,8 @@ export type PaginationUnit = {
   sectionType: AnySectionType;
   itemId: string;
   kind: "resume-header" | "section-title" | "item-heading" | "description" | "highlight" | "skill-item" | "custom-row";
+  top: number;
+  bottom: number;
   height: number;
   keepWithNext: boolean;
   breakBeforeAllowed: boolean;
@@ -404,6 +406,8 @@ export function createPaginationUnits(
           sectionType: section.sectionType,
           itemId: block.sourceItemId,
           kind,
+          top,
+          bottom,
           height: Math.max(0, bottom - top) + leadingGap,
           keepWithNext: heading,
           breakBeforeAllowed: result.length > 0,
@@ -426,7 +430,18 @@ function packPaginationUnits(units: PaginationUnit[], availableHeight: number) {
   let page = 0;
   let used = 0;
   for (const unit of units) {
-    if ((unit.forcedBreakBefore && used > 0) || (used > 0 && used + unit.height > availableHeight)) {
+    // The height sum is normally sufficient, but it can under-estimate a
+    // real DOM layout when the measured gaps/padding are not represented by
+    // a pagination unit. Never leave a later unit on a page when its measured
+    // bottom already crosses that page shell; otherwise the preview's
+    // overflow:hidden shell clips it while PDF Chromium moves it to page 2.
+    const measuredBottomCrossesPage = used > 0
+      && unit.bottom > (page + 1) * availableHeight + 2;
+    if (
+      (unit.forcedBreakBefore && used > 0)
+      || (used > 0 && used + unit.height > availableHeight)
+      || measuredBottomCrossesPage
+    ) {
       page += 1;
       used = 0;
     }

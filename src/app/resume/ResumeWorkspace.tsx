@@ -4774,6 +4774,7 @@ export function ResumeWorkspace() {
                 template={selectedTemplate}
                 pageRef={pageRef}
                 paginationPlan={pagination.plan}
+                paginationStatus={pagination.status}
                 presentationConfig={presentationConfig}
                 zoom={canvasZoom}
                 editor={resumeDocument ? {

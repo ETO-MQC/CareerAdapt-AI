@@ -50,6 +50,7 @@ export function A4ResumePreview({
   template,
   pageRef,
   paginationPlan,
+  paginationStatus,
   presentationConfig,
   zoom = 1,
   editor
@@ -58,12 +59,16 @@ export function A4ResumePreview({
   template: TemplateDefinition;
   pageRef: RefObject<HTMLElement | null>;
   paginationPlan?: ResumePaginationPlan;
+  paginationStatus?: ResumePaginationPlan["status"] | "measuring" | "measurement_failed";
   presentationConfig?: ResumePresentationConfig;
   zoom?: number;
   editor?: ResumeStudioEditorProps;
 }) {
   const [overlayRect, setOverlayRect] = useState<{ left: number; top: number; width: number } | undefined>();
-  const pageModels = paginateResumeRenderModel(model, paginationPlan);
+  const paginationReady = Boolean(paginationPlan)
+    && paginationStatus !== "measuring"
+    && paginationStatus !== "measurement_failed";
+  const pageModels = paginationReady ? paginateResumeRenderModel(model, paginationPlan) : [];
   // Show all pages instead of limiting to requestedMaxPages
   // This allows users to see and manage content across multiple pages
   const visiblePageModels = pageModels;
@@ -425,6 +430,11 @@ export function A4ResumePreview({
             </article>
           </div>
         ))}
+        {!paginationReady ? (
+          <div className="resume-pagination-pending no-print" role="status">
+            {paginationStatus === "measurement_failed" ? "分页测量失败，请稍后重试。" : "正在重新计算分页…"}
+          </div>
+        ) : null}
       </div>
     </>
   );

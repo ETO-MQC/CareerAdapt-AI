@@ -33,6 +33,31 @@ describe("P3.8a multi-page pagination planning", () => {
     expect(plan.pages.map((page) => page.blockIds)).toEqual([["item-1", "item-2"], ["item-3"]]);
   });
 
+  it("moves a unit whose measured bottom crosses the page shell", () => {
+    const plan = createResumePaginationPlan({
+      measurement: {
+        scrollHeight: 1080,
+        clientHeight: 1000,
+        sections: [{ sectionType: "skills" as const, top: 0, bottom: 1080, height: 1080, blockIds: ["skill-1", "skill-2"] }],
+        blocks: [
+          {
+            sourceItemId: "skill-1", sectionType: "skills" as const, top: 0, bottom: 800, height: 800,
+            units: [{ key: "content", top: 0, bottom: 800, height: 800 }]
+          },
+          {
+            sourceItemId: "skill-2", sectionType: "skills" as const, top: 900, bottom: 1050, height: 150,
+            units: [{ key: "content", top: 900, bottom: 1050, height: 150 }]
+          }
+        ]
+      },
+      paginationConfig: { ...baseConfig, pagePolicy: "prefer_one_page", preferredPageCount: 1 }
+    });
+
+    expect(plan.actualPageCount).toBe(2);
+    expect(plan.issues).toContain("prefer_one_page_overflow");
+    expect(plan.pages.map((page) => page.blockIds)).toEqual([["skill-1"], ["skill-2"]]);
+  });
+
   it("keeps a fitting resume on one page even when two pages are preferred", () => {
     const plan = createResumePaginationPlan({
       measurement: measurementFixture({ scrollHeight: 900, clientHeight: 1000 }),

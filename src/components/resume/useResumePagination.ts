@@ -14,7 +14,7 @@ export type ResumePaginationState = {
   plan?: ResumePaginationPlan;
   measurement?: ResumePaginationMeasurement;
   blocked: boolean;
-  measure: () => void;
+  measure: () => ResumePaginationPlan | undefined;
 };
 
 export function useResumePagination(
@@ -56,6 +56,29 @@ export function useResumePagination(
     let cancelled = false;
     let frame = 0;
 
+    const scheduleMeasure = () => {
+      if (frame) {
+        window.cancelAnimationFrame(frame);
+      }
+      frame = window.requestAnimationFrame(() => {
+        if (cancelled) {
+          return;
+        }
+        // Do not keep presenting the previous plan while the edited content
+        // or presentation settings are being measured again. The old
+        // one-page plan would render a fixed-height shell and hide newly
+        // overflowing content.
+        setPlan(undefined);
+        setMeasurement(undefined);
+        setStatus("measuring");
+        frame = window.requestAnimationFrame(() => {
+          if (!cancelled) {
+            measure();
+          }
+        });
+      });
+    };
+
     const run = async () => {
       if ("fonts" in document) {
         await document.fonts.ready;
@@ -63,11 +86,7 @@ export function useResumePagination(
       if (cancelled) {
         return;
       }
-      frame = window.requestAnimationFrame(() => {
-        if (!cancelled) {
-          measure();
-        }
-      });
+      scheduleMeasure();
     };
     void run();
 
@@ -82,14 +101,7 @@ export function useResumePagination(
     }
 
     const observer = new ResizeObserver(() => {
-      if (frame) {
-        window.cancelAnimationFrame(frame);
-      }
-      frame = window.requestAnimationFrame(() => {
-        if (!cancelled) {
-          measure();
-        }
-      });
+      scheduleMeasure();
     });
     observer.observe(element);
 
