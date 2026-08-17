@@ -5,6 +5,7 @@ import type {
 } from "@/agent/tools/CareerToolGateway";
 import type { CareerAdaptMcpGateway } from "./CareerAdaptMcpAdapter";
 import type { CareerSessionBinding } from "../runtime/careerSessionBinding";
+import type { CareerToolFailureDiagnostics } from "../tools/careerToolDiagnostics";
 
 type BridgeRequest = {
   id: string;
@@ -12,6 +13,8 @@ type BridgeRequest = {
   input: unknown;
   operationId: string;
   logicalToolOperationId?: string;
+  logicalTurnId?: string;
+  taskId?: string;
   incidentTraceId?: string;
   careerSessionBinding?: CareerSessionBinding;
   requireSessionBinding?: boolean;
@@ -258,6 +261,8 @@ export class CareerAdaptMcpBridgeClient {
       const context: CareerToolExecutionContext = {
         operationId: request.operationId,
         logicalToolOperationId: request.logicalToolOperationId,
+        logicalTurnId: request.logicalTurnId ?? confirmationContext?.turnId,
+        taskId: request.taskId,
         incidentTraceId: request.incidentTraceId,
         careerSessionBinding: request.careerSessionBinding,
         requireSessionBinding: request.requireSessionBinding === true
@@ -344,14 +349,31 @@ function bridgeUrl(bridgeId?: string, token?: string) {
 }
 
 function failedResult(request: BridgeRequest, reason: string) {
+  const code = reason === "mcp_bridge_timeout" ? reason : "mcp_bridge_tool_failed";
+  const diagnostics: CareerToolFailureDiagnostics = {
+    toolFailureLayer: reason === "mcp_bridge_timeout" ? "timeout" : "mcp_transport",
+    failureScope: "mcp_transport",
+    safeDomainErrorCode: code,
+    toolResultIsError: true,
+    failedStage: reason === "mcp_bridge_timeout" ? "timeout" : "mcp_transport",
+    durationMs: 0,
+    retryable: true,
+    operationId: request.operationId,
+    logicalToolOperationId: request.logicalToolOperationId ?? `hermes-tool-${request.operationId}`,
+    ...(request.logicalTurnId ? { logicalTurnId: request.logicalTurnId } : {}),
+    ...(request.taskId ? { taskId: request.taskId } : {}),
+    completedAt: new Date().toISOString()
+  };
   return {
     ok: false,
     error: {
-      code: "mcp_bridge_tool_failed",
+      code,
       category: "recoverable",
       message: `CareerAdapt MCP 工具未完成：${reason}`,
-      recoverable: true
+      recoverable: true,
+      diagnostics
     },
+    diagnostics,
     artifacts: [],
     receipt: {
       operationId: request.operationId,
@@ -363,6 +385,20 @@ function failedResult(request: BridgeRequest, reason: string) {
 }
 
 function noProgressResult(request: BridgeRequest): CareerToolResult {
+  const diagnostics: CareerToolFailureDiagnostics = {
+    toolFailureLayer: "gateway_policy",
+    failureScope: "policy",
+    safeDomainErrorCode: "career_agent_no_progress",
+    toolResultIsError: true,
+    failedStage: "completion_boundary",
+    durationMs: 0,
+    retryable: false,
+    operationId: request.operationId,
+    logicalToolOperationId: request.logicalToolOperationId ?? `hermes-tool-${request.operationId}`,
+    ...(request.logicalTurnId ? { logicalTurnId: request.logicalTurnId } : {}),
+    ...(request.taskId ? { taskId: request.taskId } : {}),
+    completedAt: new Date().toISOString()
+  };
   return {
     ok: false,
     error: {
@@ -370,8 +406,10 @@ function noProgressResult(request: BridgeRequest): CareerToolResult {
       category: "conflict",
       message: "同一轮已连续执行两次完全相同的工具输入；为避免空转，工作流已停止。",
       recoverable: false,
-      retryHint: "向用户报告当前 checkpoint，等待新输入后再继续。"
+      retryHint: "向用户报告当前 checkpoint，等待新输入后再继续。",
+      diagnostics
     },
+    diagnostics,
     artifacts: [],
     receipt: {
       operationId: request.operationId,
@@ -383,6 +421,20 @@ function noProgressResult(request: BridgeRequest): CareerToolResult {
 }
 
 function confirmationBoundaryResult(request: BridgeRequest): CareerToolResult {
+  const diagnostics: CareerToolFailureDiagnostics = {
+    toolFailureLayer: "gateway_policy",
+    failureScope: "policy",
+    safeDomainErrorCode: "career_agent_waiting_for_confirmation",
+    toolResultIsError: true,
+    failedStage: "confirmation_boundary",
+    durationMs: 0,
+    retryable: true,
+    operationId: request.operationId,
+    logicalToolOperationId: request.logicalToolOperationId ?? `hermes-tool-${request.operationId}`,
+    ...(request.logicalTurnId ? { logicalTurnId: request.logicalTurnId } : {}),
+    ...(request.taskId ? { taskId: request.taskId } : {}),
+    completedAt: new Date().toISOString()
+  };
   return {
     ok: false,
     error: {
@@ -390,8 +442,10 @@ function confirmationBoundaryResult(request: BridgeRequest): CareerToolResult {
       category: "conflict",
       message: "当前 Career 工作流已到达确认边界；请等待用户确认后再继续调用工具。",
       recoverable: true,
-      retryHint: "停止当前工具循环，向用户展示确认边界。"
+      retryHint: "停止当前工具循环，向用户展示确认边界。",
+      diagnostics
     },
+    diagnostics,
     artifacts: [],
     receipt: {
       operationId: request.operationId,

@@ -431,7 +431,20 @@ function createAgentHost() {
         if (["tool_call_requested", "tool_call_started", "tool_call_completed", "tool_call_failed"].includes(event.type)) {
           toolsExecuted = true;
         }
-        const runtimeFailureCode = event.type === "turn_failed" ? event.error?.code : undefined;
+        const rawRuntimeFailureCode = event.type === "turn_failed" ? event.error?.code : undefined;
+        const rawRuntimeFailureDiagnostics = runtimeFailureInput(rawEventData?.diagnostics);
+        const rawRunHandle = rawEventData?.runHandle && typeof rawEventData.runHandle === "object" && !Array.isArray(rawEventData.runHandle)
+          ? rawEventData.runHandle as Record<string, unknown>
+          : {};
+        const runStartedBeforeFailure = Boolean(
+          rawRunHandle.runId
+          || rawEventData?.runId
+          || runtimeInput.session?.hermesRun?.runId
+          || rawRuntimeFailureDiagnostics.hermesRunId
+        );
+        const runtimeFailureCode = rawRuntimeFailureCode === "hermes_unavailable_before_turn" && runStartedBeforeFailure
+          ? "hermes_run_failed_after_start"
+          : rawRuntimeFailureCode;
         const eventData = runtimeFailureCode
           ? {
               ...(rawEventData ?? {}),
@@ -439,7 +452,7 @@ function createAgentHost() {
               ...(rawEventData?.failureSnapshot ? {} : {
                   failureSnapshot: runtimeFailureSnapshotFromStatus(runtimeStatus.getSnapshot(), {
                     safeErrorCode: runtimeFailureCode,
-                    hermesRunId: runtimeFailureInput(rawEventData?.diagnostics).hermesRunId,
+                    hermesRunId: rawRuntimeFailureDiagnostics.hermesRunId,
                     reasonCode: runtimeFailureCode,
                     lastEvent: event.type,
                     createdAt: runtimeInput.session?.activeTurn?.startedAt
@@ -822,7 +835,7 @@ export function AgentRuntimeProvider({ children }: { children: React.ReactNode }
           }, confirmation.assistantMessageId);
         },
         async ({ request, result, confirmationContext }) => {
-          if (!active || !result.ok || !confirmationContext) return;
+          if (!active || !confirmationContext) return;
           const context = host.state.getSnapshot().activeSession;
           if (!context || context.id !== confirmationContext.sessionId) return;
           const assistant = context.messages.find((message) => message.id === confirmationContext.assistantMessageId)
@@ -830,13 +843,20 @@ export function AgentRuntimeProvider({ children }: { children: React.ReactNode }
           if (!assistant) return;
           const contract = host.careerToolGateway.listContracts().find((candidate) => candidate.name === request.name);
           await host.state.applyRuntimeEvent({
-            type: "tool_call_completed",
+            type: result.ok ? "tool_call_completed" : "tool_call_failed",
             sessionId: confirmationContext.sessionId,
             turnId: confirmationContext.turnId,
             timestamp: new Date().toISOString(),
             toolName: request.name,
             operationId: request.operationId,
-            data: { result, contract, ...(request.logicalToolOperationId ? { logicalToolOperationId: request.logicalToolOperationId } : {}) }
+            ...(result.ok ? {} : {
+              error: {
+                code: result.error?.code ?? "career_tool_failed",
+                message: result.error?.message ?? "Career 工具执行没有完成。",
+                recoverable: result.error?.recoverable ?? false
+              }
+            }),
+            data: { result, contract, ...(result.diagnostics ? { diagnostics: result.diagnostics } : {}), ...(request.logicalToolOperationId ? { logicalToolOperationId: request.logicalToolOperationId } : {}) }
           }, assistant.id);
         }
       );

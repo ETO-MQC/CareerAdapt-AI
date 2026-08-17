@@ -41,6 +41,8 @@ export type AgentRuntimeEvent = {
   sessionId: string;
   turnId: string;
   timestamp: string;
+  /** Stable upstream Hermes event id, when the transport supplied one. */
+  eventId?: string;
   message?: string;
   delta?: string;
   toolName?: string;

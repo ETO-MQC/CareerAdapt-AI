@@ -25,6 +25,11 @@ import {
   type RunStopReason
 } from "./hermesIncidentTrace";
 import type { RuntimeCausalChainEntry, SecondaryRecoveryFailure } from "./hermesIncidentTrace";
+import {
+  EventStreamLeaseConflictError,
+  EventStreamLeaseRegistry,
+  type EventStreamLease
+} from "./hermesEventStreamLease";
 
 type TurnCounters = {
   toolCalls: number;
@@ -66,6 +71,7 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
   private readonly sessions = new Map<string, string>();
   private readonly activeRuns = new Map<string, HermesRunHandle>();
   private readonly controlledStops = new Map<string, RunStopReason>();
+  private readonly eventStreamLeases = new EventStreamLeaseRegistry();
   private readonly longRunPolicy: Required<HermesLongRunPolicy>;
 
   constructor(private readonly dependencies: {
@@ -411,8 +417,19 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
       });
       let terminalSeen = false;
       let streamFailed = false;
+      const seenHermesEventIds = new Set<string>();
       for (let reconnectAttempt = 0; reconnectAttempt < 3 && !terminalSeen; reconnectAttempt += 1) {
+        let streamLease: EventStreamLease | undefined;
+        let streamClosedNormally = false;
         try {
+        const consumerId = `${attemptTraceId}:event-consumer-${reconnectAttempt + 1}`;
+        streamLease = this.eventStreamLeases.acquire({
+          runId: handle.runId,
+          consumerId,
+          sessionId: input.sessionId,
+          logicalTurnId: turnId
+        });
+        this.eventStreamLeases.activate(streamLease);
         for await (const bridgeEvent of eventsWithHeartbeat(this.dependencies.transport, handle.runId, input.signal, this.traceContext({
           incidentTraceId,
           traceId: attemptTraceId,
@@ -422,6 +439,12 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
           runId: handle.runId,
           ...(eventCursor ? { eventCursor } : {})
         }), this.longRunPolicy.observerHeartbeatMs)) {
+          if (bridgeEvent.eventId && seenHermesEventIds.has(bridgeEvent.eventId)) {
+            this.eventStreamLeases.touch(streamLease);
+            continue;
+          }
+          if (bridgeEvent.eventId) seenHermesEventIds.add(bridgeEvent.eventId);
+          this.eventStreamLeases.touch(streamLease);
           const heartbeat = bridgeEvent.type === "progress"
             && bridgeEvent.data && typeof bridgeEvent.data === "object" && !Array.isArray(bridgeEvent.data)
             && (bridgeEvent.data as Record<string, unknown>).heartbeat === true;
@@ -438,6 +461,50 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
             : undefined;
           if (heartbeat) {
             recordCausal("run_watchdog_check", "HermesCareerAgentRuntime", `action=${watchdog?.action ?? "continue_waiting"}`, handle.runId);
+            try {
+              const status = await this.dependencies.transport.getRun(handle.runId, input.signal, this.traceContext({
+                incidentTraceId,
+                traceId: attemptTraceId,
+                sessionId: input.sessionId,
+                turnId,
+                logicalTurnId: turnId,
+                runId: handle.runId
+              }));
+              const runStatus = normalizeRunStatus(status.status);
+              handle = touchRunHandle(handle, runStatus);
+              this.activeRuns.set(input.sessionId, handle);
+              if (isTerminalRunStatus(runStatus)) {
+                terminalSeen = true;
+                if (runStatus === "completed") {
+                  yield this.event(normalized, "turn_completed", {
+                    message: status.output,
+                    data: {
+                      runHandle: handle,
+                      incidentTraceId,
+                      traceId: attemptTraceId,
+                      watchdog: { ...watchdog, runStatus },
+                      primaryCausalChain: primaryCausalChain.slice(),
+                      telemetry: this.telemetry(normalized, counters, "completed", startedAt)
+                    }
+                  });
+                } else {
+                  const failureCode = runStatus === "cancelled" ? this.cancellationCode(handle.runId) : "hermes_run_failed";
+                  yield this.event(normalized, "turn_failed", {
+                    error: { code: failureCode, message: status.error ?? "Hermes run failed.", recoverable: runStatus === "cancelled" || isTransientUpstreamFailure(status.error) },
+                    data: {
+                      ...this.diagnostics(handle, counters, failureCode, primaryCausalChain, secondaryRecoveryFailures),
+                      incidentTraceId,
+                      traceId: attemptTraceId,
+                      watchdog: { ...watchdog, runStatus }
+                    }
+                  });
+                }
+                break;
+              }
+            } catch (statusError) {
+              recordSecondaryFailure(statusError, "run_status_watchdog", handle.runId);
+              recordCausal("run_watchdog_check", "HermesCareerAgentRuntime", "status check failed; keep the same event consumer", handle.runId);
+            }
           } else {
             counters.lastSubstantiveEventAt = Date.now();
           }
@@ -498,7 +565,26 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
           break;
         }
       }
+        streamClosedNormally = true;
         } catch (error) {
+        if (streamLease) {
+          if (error instanceof EventStreamLeaseConflictError) this.eventStreamLeases.fail(streamLease, error.code);
+          else if (input.signal?.aborted) this.eventStreamLeases.fail(streamLease, "hermes_transport_detached");
+          else this.eventStreamLeases.fail(streamLease, errorCode(error));
+        }
+        if (error instanceof EventStreamLeaseConflictError) {
+          terminalSeen = true;
+          yield this.event(normalized, "turn_failed", {
+            error: { code: error.code, message: error.message, recoverable: true },
+            data: {
+              ...this.diagnostics(handle, counters, error.code, primaryCausalChain, secondaryRecoveryFailures),
+              eventStreamLease: error.activeLease,
+              incidentTraceId,
+              traceId: attemptTraceId
+            }
+          });
+          break;
+        }
         if (input.signal?.aborted) {
           const abortTrace = abortTraceFromSignal(input.signal, { incidentTraceId, sessionId: input.sessionId, turnId, runId: handle.runId });
           yield this.event(normalized, "turn_paused", { message: "页面连接已断开，Hermes 任务仍在运行。", data: {
@@ -516,6 +602,9 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
         counters.autonomousRecoveries += 1;
         counters.lastEventType = errorCode(error);
         recordCausal("run_events_disconnected", "HermesCareerAgentRuntime", errorCode(error), handle.runId);
+        }
+        finally {
+          if (streamLease && streamClosedNormally) this.eventStreamLeases.close(streamLease);
         }
         if (!terminalSeen && reconnectAttempt < 2) {
           try {
@@ -1028,6 +1117,7 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
         }
       }, input.signal);
       yield this.event(input, "tool_call_failed", {
+        eventId: request.eventId,
         toolName: request.toolName,
         operationId: request.operationId,
         error: { code, message: "当前组合工作流步骤不允许该 Career 工具。", recoverable: true },
@@ -1062,6 +1152,7 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
         }
       }, input.signal);
       yield this.event(input, "tool_call_failed", {
+        eventId: request.eventId,
         toolName: request.toolName,
         operationId: request.operationId,
         error: { code, message: "CareerAdapt MCP 工具未找到，正在刷新工具发现。", recoverable: true },
@@ -1096,6 +1187,7 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
     }
 
     yield this.event(input, "tool_call_started", {
+      eventId: request.eventId,
       toolName: request.toolName,
       operationId: request.operationId,
       data: { toolCallId: request.toolCallId, logicalToolOperationId: logicalOperationId, requestedHermesToolName, stableCareerToolName: stableToolName }
@@ -1103,6 +1195,8 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
     let result = await this.executeGatewayTool(stableToolName, request.input, {
       operationId: request.operationId,
       logicalToolOperationId: logicalOperationId,
+      logicalTurnId: input.turnId,
+      taskId: typeof input.metadata?.taskId === "string" ? input.metadata.taskId : undefined,
       incidentTraceId: typeof input.metadata?.incidentTraceId === "string" ? input.metadata.incidentTraceId : undefined,
       signal: input.signal,
       confirmed,
@@ -1115,6 +1209,8 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
       result = await this.executeGatewayTool(stableToolName, request.input, {
         operationId: request.operationId,
         logicalToolOperationId: logicalOperationId,
+        logicalTurnId: input.turnId,
+        taskId: typeof input.metadata?.taskId === "string" ? input.metadata.taskId : undefined,
         incidentTraceId: typeof input.metadata?.incidentTraceId === "string" ? input.metadata.incidentTraceId : undefined,
         signal: input.signal,
         confirmed,
@@ -1178,6 +1274,7 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
     }, input.signal);
     if (result.ok) {
       yield this.event(input, "tool_call_completed", {
+        eventId: request.eventId,
         toolName: request.toolName,
         operationId: request.operationId,
         data: {
@@ -1193,6 +1290,7 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
     }
     counters.toolFailures += 1;
     yield this.event(input, "tool_call_failed", {
+      eventId: request.eventId,
       toolName: request.toolName,
       operationId: request.operationId,
       error: {
@@ -1205,12 +1303,13 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
   }
 
   private mapBridgeEvent(input: AgentRuntimeTurnInput, event: HermesBridgeEvent, counters: TurnCounters, startedAt: number) {
-    if (event.type === "progress") return this.event(input, "progress", { message: event.message, data: event.data });
-    if (event.type === "reasoning_status") return this.event(input, "reasoning_status", { message: event.message, data: event.data });
-    if (event.type === "text_delta") return this.event(input, "text_delta", { delta: event.delta });
+    if (event.type === "progress") return this.event(input, "progress", { eventId: event.eventId, message: event.message, data: event.data });
+    if (event.type === "reasoning_status") return this.event(input, "reasoning_status", { eventId: event.eventId, message: event.message, data: event.data });
+    if (event.type === "text_delta") return this.event(input, "text_delta", { eventId: event.eventId, delta: event.delta });
     if (event.type === "tool_call_started") {
       counters.toolCalls += 1;
       return this.event(input, "tool_call_started", {
+        eventId: event.eventId,
         toolName: event.toolName,
         operationId: event.operationId,
         data: {
@@ -1222,6 +1321,7 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
       });
     }
     if (event.type === "tool_call_completed") return this.event(input, "tool_call_completed", {
+      eventId: event.eventId,
       toolName: event.toolName,
       operationId: event.operationId,
       data: {
@@ -1234,6 +1334,7 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
     if (event.type === "tool_call_failed") {
       counters.toolFailures += 1;
       return this.event(input, "tool_call_failed", {
+        eventId: event.eventId,
         toolName: event.toolName,
         operationId: event.operationId,
         error: { code: event.code, message: event.message, recoverable: event.recoverable },
@@ -1241,6 +1342,7 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
       });
     }
     if (event.type === "approval_required") return this.event(input, "approval_required", {
+      eventId: event.eventId,
       toolName: event.toolName,
       operationId: event.operationId,
       message: event.message,
@@ -1248,9 +1350,10 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
     });
     if (event.type === "artifact_updated") {
       counters.artifactUpdates += 1;
-      return this.event(input, "artifact_updated", { data: event.data, ...(event.artifactId ? { operationId: event.artifactId } : {}) });
+      return this.event(input, "artifact_updated", { eventId: event.eventId, data: event.data, ...(event.artifactId ? { operationId: event.artifactId } : {}) });
     }
     if (event.type === "turn_failed") return this.event(input, "turn_failed", {
+      eventId: event.eventId,
       error: { code: event.code, message: event.message, recoverable: event.recoverable },
       data: {
         ...(event.data && typeof event.data === "object" && !Array.isArray(event.data) ? event.data as Record<string, unknown> : {}),
@@ -1425,27 +1528,34 @@ async function* eventsWithHeartbeat(
   trace?: HermesRunTraceContext,
   heartbeatMs = DEFAULT_HERMES_LONG_RUN_POLICY.observerHeartbeatMs
 ): AsyncGenerator<HermesBridgeEvent> {
-  const heartbeatController = new AbortController();
-  const combinedSignal = signal
-    ? AbortSignal.any([signal, heartbeatController.signal])
-    : heartbeatController.signal;
-  const iterator = transport.runEvents(runId, combinedSignal, trace)[Symbol.asyncIterator]();
+  const streamController = new AbortController();
+  const streamSignal = signal ? AbortSignal.any([signal, streamController.signal]) : streamController.signal;
+  const iterator = transport.runEvents(runId, streamSignal, trace)[Symbol.asyncIterator]();
   try {
+    let pending = iterator.next();
     for (;;) {
       let timer: ReturnType<typeof setTimeout> | undefined;
-      const heartbeat = new Promise<never>((_, reject) => {
-          timer = setTimeout(() => {
-            heartbeatController.abort();
-            reject(hermesError("hermes_event_heartbeat_timeout", "Hermes event stream heartbeat timed out; the run remains active."));
-        }, heartbeatMs);
+      const heartbeat = new Promise<{ kind: "heartbeat" }>((resolve) => {
+        timer = setTimeout(() => resolve({ kind: "heartbeat" }), heartbeatMs);
       });
-      const item = await Promise.race([iterator.next(), heartbeat]);
+      const item = await Promise.race([
+        pending.then((value) => ({ kind: "event" as const, value })),
+        heartbeat
+      ]);
       if (timer) clearTimeout(timer);
-      if (item.done) return;
-      yield item.value;
+      if (item.kind === "heartbeat") {
+        // A quiet stream is still a live stream.  The caller may status-poll
+        // as an observer, but must not abort this iterator or open another
+        // consumer merely because no substantive event arrived.
+        yield { type: "progress", data: { heartbeat: true } };
+        continue;
+      }
+      if (item.value.done) return;
+      pending = iterator.next();
+      yield item.value.value;
     }
   } finally {
-    heartbeatController.abort();
+    streamController.abort();
     await iterator.return?.().catch(() => undefined);
   }
 }
@@ -1467,15 +1577,16 @@ function requiresConfirmation(contract: CareerToolContract) {
 
 function safeToolResult(result: Awaited<ReturnType<CareerToolGateway["execute"]>>) {
   if (result.ok) {
-    return { ok: true, data: result.data, artifacts: result.artifacts, receipt: result.receipt };
+    return { ok: true, data: result.data, artifacts: result.artifacts, receipt: result.receipt, diagnostics: result.diagnostics };
   }
   return {
     ok: false,
     ...(result.data === undefined ? {} : { data: result.data }),
     error: result.error
-      ? { code: result.error.code, category: result.error.category, message: result.error.message, recoverable: result.error.recoverable, retryHint: result.error.retryHint }
+      ? { code: result.error.code, category: result.error.category, message: result.error.message, recoverable: result.error.recoverable, retryHint: result.error.retryHint, diagnostics: result.error.diagnostics }
       : { code: "career_tool_failed", message: "工具执行没有完成。", recoverable: false },
-    receipt: result.receipt
+    receipt: result.receipt,
+    diagnostics: result.diagnostics ?? result.error?.diagnostics
   };
 }
 
@@ -1483,7 +1594,7 @@ function safeMetadata(metadata?: Record<string, unknown>) {
   if (!metadata) return undefined;
   const result: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(metadata)) {
-    if (["model", "hermesSessionId", "reattachRunId", "requireCareerSessionBinding", "fallbackUsed", "preferredRuntime", "attemptedRuntime", "finalRuntime", "fallbackReasonCode", "runtimeFailureAt", "runtimeRecoveryAttempted", "runtimeRecoveryKind", "transportReattachAttempted", "semanticRetryAttempted", "semanticRetryUserMessage", "attemptNumber", "primaryFailureCode", "workflowId", "workflowStage", "rootGoal", "confirmed", "confirmationCount", "runtimeId", "executionOwner", "nextHermesRunId", "incidentTraceId", "logicalTurnId", "attemptTraceId", "recoveryReason"].includes(key)
+    if (["model", "hermesSessionId", "reattachRunId", "requireCareerSessionBinding", "fallbackUsed", "preferredRuntime", "attemptedRuntime", "finalRuntime", "fallbackReasonCode", "runtimeFailureAt", "runtimeRecoveryAttempted", "runtimeRecoveryKind", "transportReattachAttempted", "semanticRetryAttempted", "semanticRetryUserMessage", "attemptNumber", "primaryFailureCode", "workflowId", "workflowStage", "rootGoal", "confirmed", "confirmationCount", "runtimeId", "executionOwner", "nextHermesRunId", "incidentTraceId", "logicalTurnId", "attemptTraceId", "recoveryReason", "taskId"].includes(key)
       && (typeof value === "string" || typeof value === "number" || typeof value === "boolean")) {
       result[key] = value;
       continue;

@@ -123,26 +123,24 @@ describe("P4.5c.1.13 Hermes long-run semantics and non-destructive recovery", ()
     expect(events.at(-1)).toMatchObject({ type: "turn_completed", data: { runHandle: { runId: "run-default" } } });
   });
 
-  it("does not stop or fail a running run after 90 seconds of observer silence", async () => {
+  it("keeps one event consumer during observer silence and status-polls the same run", async () => {
     vi.useFakeTimers();
     let starts = 0;
     let stops = 0;
     let eventStreams = 0;
+    let statuses = 0;
     const transport = runsTransport({
       startRun: async () => {
         starts += 1;
         return { runId: "run-silent", status: "started" as const };
       },
-      getRun: async (runId) => ({ run_id: runId, status: "running" as const }),
+      getRun: async (runId) => {
+        statuses += 1;
+        return { run_id: runId, status: statuses >= 3 ? "completed" as const : "running" as const };
+      },
       runEvents: async function* (_runId, signal) {
         eventStreams += 1;
-        if (eventStreams === 1) {
-          yield { type: "tool_call_started", toolCallId: "tool-1", toolName: "career.workflow.tailor_resume", operationId: "operation-1" } as const;
-        }
-        if (eventStreams === 3) {
-          yield { type: "turn_completed", message: "静默后完成" } as const;
-          return;
-        }
+        yield { type: "tool_call_started", toolCallId: "tool-1", toolName: "career.workflow.tailor_resume", operationId: "operation-1" } as const;
         await waitForAbort(signal);
       },
       stopRun: async (runId) => {
@@ -167,18 +165,21 @@ describe("P4.5c.1.13 Hermes long-run semantics and non-destructive recovery", ()
     const firstReconnect = iterator.next();
     await vi.advanceTimersByTimeAsync(45_000);
     const firstProgress = await firstReconnect;
-    expect(firstProgress.value).toMatchObject({ type: "progress", data: { watchdog: { action: "reattach_events", runId: "run-silent" } } });
+    expect(firstProgress.value).toMatchObject({ type: "progress", data: { watchdog: { action: "continue_waiting", runId: "run-silent" } } });
 
     const secondReconnect = iterator.next();
     await vi.advanceTimersByTimeAsync(45_000);
     const secondProgress = await secondReconnect;
-    expect(secondProgress.value).toMatchObject({ type: "progress", data: { watchdog: { action: "reattach_events", runId: "run-silent" } } });
+    expect(secondProgress.value).toMatchObject({ type: "progress", data: { watchdog: { action: "continue_waiting", runId: "run-silent" } } });
 
-    const completed = await iterator.next();
+    const completion = iterator.next();
+    await vi.advanceTimersByTimeAsync(45_000);
+    const completed = await completion;
     expect(completed.value).toMatchObject({ type: "turn_completed", data: { runHandle: { runId: "run-silent" } } });
     expect(starts).toBe(1);
     expect(stops).toBe(0);
-    expect(eventStreams).toBe(3);
+    expect(eventStreams).toBe(1);
+    expect(statuses).toBe(3);
   });
 
   it("keeps post-start and run-status errors in their correct phase", () => {

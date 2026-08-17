@@ -499,24 +499,17 @@ function mapOfficialHermesEvent(name: string, value: unknown): HermesBridgeEvent
     return { type: "tool_call_started", toolName, operationId, logicalToolOperationId: logicalToolOperationId({ toolCallId }), data: payload };
   }
   if (name === "tool.completed") {
-    const rawToolError = objectRecord(payload.error);
-    const nestedToolError = objectRecord(rawToolError.error);
-    const nestedResultError = objectRecord(objectRecord(payload.result).error ?? objectRecord(payload.data).error);
-    const toolError = Object.keys(nestedToolError).length
-      ? nestedToolError
-      : Object.keys(rawToolError).length
-        ? rawToolError
-        : nestedResultError;
-    return payload.error === true || typeof payload.error === "string" || Object.keys(toolError).length > 0
+    const failure = officialToolFailure(payload);
+    return failure
       ? {
           type: "tool_call_failed",
           toolName,
           operationId,
           logicalToolOperationId: logicalToolOperationId({ toolCallId }),
-          code: typeof toolError.code === "string" ? toolError.code : typeof payload.code === "string" ? payload.code : "hermes_tool_failed",
-          message: typeof toolError.message === "string" ? toolError.message : typeof payload.error === "string" ? payload.error : typeof payload.message === "string" ? payload.message : "Hermes 工具执行没有完成。",
-          recoverable: typeof toolError.recoverable === "boolean" ? toolError.recoverable : typeof payload.recoverable === "boolean" ? payload.recoverable : true,
-          data: payload
+          code: failure.code,
+          message: failure.message,
+          recoverable: failure.recoverable,
+          data: safeOfficialToolFailureData(payload, failure.code)
         }
       : { type: "tool_call_completed", toolName, operationId, logicalToolOperationId: logicalToolOperationId({ toolCallId }), data: payload };
   }
@@ -571,19 +564,11 @@ function mapOfficialHermesEvent(name: string, value: unknown): HermesBridgeEvent
     toolCallId,
     toolName,
     operationId,
-    code: typeof objectRecord(payload.error).code === "string"
-      ? String(objectRecord(payload.error).code)
-      : typeof payload.code === "string" ? payload.code : "hermes_tool_failed",
-    message: typeof objectRecord(payload.error).message === "string"
-      ? String(objectRecord(payload.error).message)
-      : typeof payload.message === "string"
-        ? payload.message
-        : typeof payload.preview === "string" ? payload.preview : "Career 工具执行没有完成。",
-    recoverable: typeof objectRecord(payload.error).recoverable === "boolean"
-      ? Boolean(objectRecord(payload.error).recoverable)
-      : typeof payload.recoverable === "boolean" ? payload.recoverable : true,
+    code: officialToolFailure(payload)?.code ?? "hermes_tool_failed",
+    message: officialToolFailure(payload)?.message ?? "Career 工具执行没有完成。",
+    recoverable: officialToolFailure(payload)?.recoverable ?? true,
     logicalToolOperationId: logicalToolOperationId({ toolCallId }),
-    data: payload
+    data: safeOfficialToolFailureData(payload, officialToolFailure(payload)?.code ?? "hermes_tool_failed")
   };
   if (name === "error") return {
     type: "turn_failed",
@@ -607,6 +592,51 @@ function objectRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
     ? value as Record<string, unknown>
     : {};
+}
+
+function officialToolFailure(payload: Record<string, unknown>) {
+  const result = objectRecord(payload.result);
+  const data = objectRecord(payload.data);
+  const candidates = [payload, result, data, objectRecord(payload.error), objectRecord(result.error), objectRecord(data.error)];
+  const errorRecord = candidates.find((candidate) => Object.keys(candidate).length > 0 && (
+    candidate.error === true
+    || typeof candidate.error === "string"
+    || Object.keys(objectRecord(candidate.error)).length > 0
+    || candidate.ok === false
+    || candidate.isError === true
+    || candidate.is_error === true
+    || candidate.status === "failed"
+    || typeof candidate.safeErrorCode === "string"
+  ));
+  if (!errorRecord && payload.error !== true && typeof payload.error !== "string") return undefined;
+  const nested = objectRecord(errorRecord?.error);
+  const code = typeof nested.code === "string"
+    ? nested.code
+    : typeof errorRecord?.safeErrorCode === "string"
+      ? errorRecord.safeErrorCode
+      : typeof payload.code === "string" ? payload.code : "hermes_tool_failed";
+  const message = typeof nested.message === "string"
+    ? nested.message
+    : typeof errorRecord?.error === "string"
+      ? errorRecord.error
+      : typeof errorRecord?.message === "string" ? errorRecord.message : "Hermes 工具执行没有完成。";
+  const recoverable = typeof nested.recoverable === "boolean"
+    ? nested.recoverable
+    : typeof errorRecord?.recoverable === "boolean" ? errorRecord.recoverable : true;
+  return { code, message, recoverable };
+}
+
+function safeOfficialToolFailureData(payload: Record<string, unknown>, code: string) {
+  const result = objectRecord(payload.result);
+  return {
+    toolFailureLayer: "hermes_tool_protocol",
+    safeDomainErrorCode: code,
+    toolResultIsError: true,
+    failedStage: "hermes_tool_protocol",
+    ...(typeof payload.tool_call_id === "string" ? { toolCallId: payload.tool_call_id } : {}),
+    ...(typeof payload.operation_id === "string" ? { operationId: payload.operation_id } : {}),
+    ...(typeof result.status === "string" ? { upstreamStatus: result.status } : {})
+  };
 }
 
 function isTransientHermesEventError(message: string) {

@@ -152,9 +152,15 @@ export class RuntimeStatusStore {
   }
 
   recordRunFailure(input: HermesRunFailureInput & { safeErrorCode?: string; safeErrorMessage?: string }) {
+    const requestedCode = input.code ?? input.safeErrorCode;
+    const activeRunId = input.hermesRunId ?? this.snapshot.activeRunId ?? this.snapshot.health?.activeRunId;
+    const normalizedCode = activeRunId
+      && (requestedCode === "hermes_unavailable_before_turn" || requestedCode === "mcp_unavailable_before_turn")
+      ? "hermes_run_failed_after_start"
+      : requestedCode;
     const diagnostics = classifyHermesRunFailure({
       ...input,
-      code: input.code ?? input.safeErrorCode,
+      code: normalizedCode,
       message: input.message ?? input.safeErrorMessage
     });
     const health = this.snapshot.health;

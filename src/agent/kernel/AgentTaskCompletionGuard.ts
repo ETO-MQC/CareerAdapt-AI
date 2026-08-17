@@ -33,6 +33,7 @@ const TERMINAL_STAGES: Record<string, Set<string>> = {
   analyze_job_fit: new Set(["generate_plan", "quality_result", "completed"]),
   apply_to_job: new Set(["quality_result"]),
   apply_to_external_job: new Set(["quality_result"]),
+  generate_job_specific_resume: new Set(["quality_result"]),
   analyze_resume: new Set(["completed"]),
   ingest_job: new Set(["completed"]),
   archive_resume: new Set(["lifecycle_result"]),
@@ -50,7 +51,8 @@ const KNOWN_DOMAIN_GOALS = new Set([
   "export_resume",
   "analyze_resume",
   "analyze_job_fit",
-  "apply_to_external_job"
+  "apply_to_external_job",
+  "generate_job_specific_resume"
 ]);
 
 export class AgentTaskCompletionGuard {
@@ -79,7 +81,7 @@ export class AgentTaskCompletionGuard {
       }
       return incomplete(state, "clarification_required");
     }
-    if (["create_tailored_resume", "apply_to_job", "apply_to_external_job"].includes(state.rootGoal) && !tailoringContractComplete(state)) {
+    if (["create_tailored_resume", "apply_to_job", "apply_to_external_job", "generate_job_specific_resume"].includes(state.rootGoal) && !tailoringContractComplete(state)) {
       return incomplete(state, requiredNextStage(state));
     }
     if (isResumeCompositionTask(state) && !resumeCompositionContractComplete(state)) {
@@ -102,9 +104,9 @@ export class AgentTaskCompletionGuard {
 }
 
 function requiredNextStage(state: AgentTaskState) {
-  if (["create_tailored_resume", "apply_to_job", "apply_to_external_job"].includes(state.rootGoal)) {
+  if (["create_tailored_resume", "apply_to_job", "apply_to_external_job", "generate_job_specific_resume"].includes(state.rootGoal)) {
     if (!state.selectedEntities.sourceResumeId && !state.selectedEntities.resumeId) return "choose_resume_source";
-    if (!state.selectedEntities.jobId && !state.selectedEntities.targetSnapshotId && !state.knownSlots.targetSnapshot) return state.rootGoal === "apply_to_external_job" ? "choose_resume_source" : "choose_job";
+    if (!state.selectedEntities.jobId && !state.selectedEntities.targetSnapshotId && !state.knownSlots.targetSnapshot) return state.rootGoal === "apply_to_external_job" || state.rootGoal === "generate_job_specific_resume" ? "choose_resume_source" : "choose_job";
     if (!state.knownSlots.fitAnalysis) return "analyze_fit";
     if (!state.knownSlots.tailoringSession) return "generate_plan";
     if (hasUnresolvedClarifications(state)) return "clarify_unsupported_facts";
@@ -186,7 +188,8 @@ function tailoringContractComplete(state: AgentTaskState) {
       && state.selectedEntities.targetSnapshotHash
   );
   return Boolean(
-    (state.selectedEntities.sourceResumeId ?? state.selectedEntities.resumeId)
+    state.selectedEntities.profileId
+    && (state.selectedEntities.sourceResumeId ?? state.selectedEntities.resumeId)
     && targetProvenance
     && state.knownSlots.fitAnalysis
     && state.knownSlots.tailoringSession
@@ -212,7 +215,7 @@ function tailoringContractComplete(state: AgentTaskState) {
 }
 
 function isTailoringApplyRecoverableFailure(state: AgentTaskState) {
-  return ["create_tailored_resume", "apply_to_job", "apply_to_external_job"].includes(state.rootGoal)
+  return ["create_tailored_resume", "apply_to_job", "apply_to_external_job", "generate_job_specific_resume"].includes(state.rootGoal)
     && Boolean(state.knownSlots.tailoringApplyFailure)
     && Boolean(state.selectedEntities.jobId || state.selectedEntities.targetSnapshotId || state.knownSlots.targetSnapshot)
     && normalizeTailoringStage(state.stage) === "confirm_apply";

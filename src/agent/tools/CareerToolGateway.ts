@@ -12,6 +12,16 @@ import {
 import { isRetryableAiProviderErrorCode } from "@/ai/providers/transportError";
 import type { AgentTaskState } from "../contracts/agentSession";
 import { isTailoringQuestionPaused, normalizeTailoringStage } from "../workflows/tailoringStage";
+import {
+  CareerToolFailureDiagnosticsSchema,
+  type CareerToolFailureDiagnostics,
+  type CareerToolFailureLayer,
+  safeCareerToolArgumentShape
+} from "./careerToolDiagnostics";
+import {
+  TransactionalWorkflowLeaseManager,
+  type TransactionalWorkflowLease
+} from "../workflows/TransactionalWorkflowLease";
 
 export type CareerToolReadWrite = "read" | "write";
 export type CareerToolConfirmationPolicy = "none" | "user_confirmation" | "destructive_confirmation";
@@ -51,12 +61,15 @@ export type CareerToolError = {
   message: string;
   recoverable: boolean;
   retryHint?: string;
+  diagnostics?: CareerToolFailureDiagnostics;
 };
 
 export type CareerToolResult<T = unknown> = {
   ok: boolean;
   data?: T;
   error?: CareerToolError;
+  /** Safe execution trace; never contains raw tool input or domain payloads. */
+  diagnostics?: CareerToolFailureDiagnostics;
   artifacts: ArtifactRef[];
   receipt: OperationReceipt;
 };
@@ -81,6 +94,10 @@ export type CareerToolExecutionContext = {
   operationId?: string;
   /** Stable across Hermes/MCP/Gateway lifecycle events for one logical call. */
   logicalToolOperationId?: string;
+  /** Stable transaction key supplied by the runtime/bridge. */
+  logicalTurnId?: string;
+  /** Host task key used with logicalTurnId for transactional serialization. */
+  taskId?: string;
   /** Observability-only trace shared by one LogicalTurn. */
   incidentTraceId?: string;
   signal?: AbortSignal;
@@ -118,6 +135,7 @@ type CareerToolGatewayDependencies = {
   /** Read the current Host projection at execution time; never use the
    * planner's stale stage metadata for authorization. */
   getAuthoritativeTaskState?: () => AgentTaskState | undefined;
+  transactionalWorkflowLeases?: TransactionalWorkflowLeaseManager;
 };
 
 type CareerToolDefinition = {
@@ -185,10 +203,13 @@ const CAREER_TOOL_DEFINITIONS: CareerToolDefinition[] = [
 export class CareerToolGateway {
   private readonly byName = new Map(CAREER_TOOL_DEFINITIONS.map((definition) => [definition.name, definition]));
   private readonly workflowByName = new Map(CAREER_WORKFLOW_FACADE_DEFINITIONS.map((definition) => [definition.name, definition]));
+  private readonly transactionalWorkflowLeases: TransactionalWorkflowLeaseManager;
 
   constructor(
     private readonly dependencies: CareerToolGatewayDependencies | AgentToolRegistry
-  ) {}
+  ) {
+    this.transactionalWorkflowLeases = this.asDependencies().transactionalWorkflowLeases ?? new TransactionalWorkflowLeaseManager();
+  }
 
   listContracts(): CareerToolContract[] {
     const atomic = CAREER_TOOL_DEFINITIONS
@@ -232,6 +253,8 @@ export class CareerToolGateway {
           toolInput: input,
           operationId: normalizeOperationId(context.operationId),
           logicalToolOperationId: context.logicalToolOperationId,
+          logicalTurnId: context.logicalTurnId,
+          taskId: context.taskId,
           incidentTraceId: context.incidentTraceId,
           signal: context.signal,
           confirmed: context.confirmed,
@@ -263,13 +286,15 @@ export class CareerToolGateway {
       ok: result.ok,
       operationId: result.receipt.operationId,
       toolName: sourceToolName,
-      ...(result.ok ? { data: result.data } : {
+      ...(result.ok ? { data: result.data, ...(result.diagnostics ? { diagnostics: result.diagnostics } : {}) } : {
         error: {
           code: result.error?.code ?? "career_tool_failed",
           message: result.error?.message ?? "工具执行没有完成。",
-          retryable: result.error?.recoverable ?? false
+          retryable: result.error?.recoverable ?? false,
+          ...(result.error?.diagnostics ? { details: result.error.diagnostics } : {})
         }
       }),
+      ...(!result.ok && result.diagnostics ? { diagnostics: result.diagnostics } : {}),
       artifactIds: result.artifacts.map((artifact) => artifact.id),
       completedAt: result.receipt.completedAt
     };
@@ -281,19 +306,32 @@ export class CareerToolGateway {
     context: CareerToolExecutionContext = {}
   ): Promise<CareerToolResult<T>> {
     const operationId = normalizeOperationId(context.operationId);
+    const trace = createExecutionTrace(name, input, operationId, context);
     const workflow = this.workflowByName.get(name);
     if (workflow) {
+      let lease: TransactionalWorkflowLease | undefined;
       try {
+        trace.enteredGatewayAt = new Date().toISOString();
         const stageError = this.verifyTailoringStage(name, context);
-        if (stageError) return this.failure(name, operationId, stageError.code, stageError.message, true);
+        if (stageError) return this.failure(name, operationId, stageError.code, stageError.message, true, undefined, "failed", finishFailureTrace(trace, stageError.code, "gateway_policy"));
         const contract = this.toWorkflowContract(workflow);
         const bindingError = await this.verifyExecutionBinding(contract, input, context);
-        if (bindingError) return this.failure(name, operationId, bindingError.code, bindingError.message, false);
+        if (bindingError) return this.failure(name, operationId, bindingError.code, bindingError.message, false, undefined, "failed", finishFailureTrace(trace, bindingError.code, "gateway_policy"));
+        if (!context.workflowFacadeInternal && isTransactionalWorkflow(name)) {
+          lease = this.transactionalWorkflowLeases.acquire({
+            workflowName: name,
+            logicalTurnId: context.logicalTurnId ?? context.taskId ?? context.careerSessionBinding?.agentSessionId,
+            taskId: context.taskId,
+            operationId
+          });
+        }
         const facadeContext = {
           ...context,
           authoritativeTaskState: context.authoritativeTaskState ?? this.asDependencies().getAuthoritativeTaskState?.(),
           availableCareerToolNames: context.availableCareerToolNames ?? new Set(this.listContracts().map((candidate) => candidate.name))
         };
+        trace.enteredFacadeAt = new Date().toISOString();
+        trace.firstInternalOperationAt = new Date().toISOString();
         const facade = await executeCareerWorkflowFacade(
           name,
           input,
@@ -303,41 +341,63 @@ export class CareerToolGateway {
             ...atomicContext,
             logicalToolOperationId: atomicContext.logicalToolOperationId ?? context.logicalToolOperationId,
             incidentTraceId: atomicContext.incidentTraceId ?? context.incidentTraceId,
+            logicalTurnId: atomicContext.logicalTurnId ?? context.logicalTurnId,
+            taskId: atomicContext.taskId ?? context.taskId,
             workflowFacadeInternal: true,
             authoritativeTaskState: facadeContext.authoritativeTaskState
           })
         );
+        trace.workflowStageAfter = facade.data.workflowStage;
         const facadeReceipt = facade.receipts.at(-1)!;
-        return {
-          ok: !["failed", "partial", "recoverable_failure"].includes(facade.data.status),
+        const facadeHasSafeError = Boolean(facade.data.safeError);
+        const facadeSucceeded = !["failed", "partial", "recoverable_failure"].includes(facade.data.status) && !facadeHasSafeError;
+        const result: CareerToolResult<T> = {
+          ok: facadeSucceeded,
           data: facade.data as T,
           ...(facade.data.safeError ? { error: toCareerToolError(facade.data.safeError.code, facade.data.safeError.message, facade.data.safeError.recoverable) } : {}),
           artifacts: facade.artifacts,
           receipt: facadeReceipt
         };
+        return withExecutionDiagnostics(result, trace, result.error?.code);
       } catch (error) {
         const code = errorCode(error);
-        return this.failure(name, operationId, code, error instanceof Error ? error.message : "工作流未完成。", isRecoverable(code));
+        return this.failure(name, operationId, code, safeGatewayErrorMessage(error, code), isRecoverable(code), undefined, "failed", finishFailureTrace(trace, code));
+      } finally {
+        this.transactionalWorkflowLeases.release(lease);
       }
     }
     const definition = this.byName.get(name);
     if (!definition || !this.hasSourceTool(definition.sourceToolName)) {
-      return this.failure(name, operationId, "unknown_career_tool", "当前 Career 工具不可用。", false);
+      return this.failure(name, operationId, "unknown_career_tool", "当前 Career 工具不可用。", false, undefined, "failed", finishFailureTrace(trace, "unknown_career_tool"));
     }
+    let lease: TransactionalWorkflowLease | undefined;
     try {
+      trace.enteredGatewayAt = new Date().toISOString();
       const stageError = this.verifyTailoringStage(name, context);
-      if (stageError) return this.failure(name, operationId, stageError.code, stageError.message, true);
+      if (stageError) return this.failure(name, operationId, stageError.code, stageError.message, true, undefined, "failed", finishFailureTrace(trace, stageError.code, "gateway_policy"));
       const contract = this.toContract(definition);
       const bindingError = await this.verifyExecutionBinding(contract, input, context);
-      if (bindingError) return this.failure(name, operationId, bindingError.code, bindingError.message, false);
+      if (bindingError) return this.failure(name, operationId, bindingError.code, bindingError.message, false, undefined, "failed", finishFailureTrace(trace, bindingError.code, "gateway_policy"));
+      if (!context.workflowFacadeInternal && isTransactionalAtomic(definition.sourceToolName)) {
+        lease = this.transactionalWorkflowLeases.acquire({
+          workflowName: name,
+          logicalTurnId: context.logicalTurnId ?? context.taskId ?? context.careerSessionBinding?.agentSessionId,
+          taskId: context.taskId,
+          operationId
+        });
+      }
+      trace.firstInternalOperationAt = new Date().toISOString();
       const raw = await this.executeSourceTool(definition.sourceToolName, input, operationId, context);
-      return this.mapResult<T>(name, definition, raw, context.careerSessionBinding);
+      const mapped = this.mapResult<T>(name, definition, raw, context.careerSessionBinding);
+      return withExecutionDiagnostics(mapped, trace, mapped.error?.code);
     } catch (error) {
       if (error instanceof AgentConfirmationRequiredError) {
-        return this.failure(name, operationId, error.code, "这项操作需要你的明确确认后才能继续。", false, "请确认后重试。", "confirmation_required");
+        return this.failure(name, operationId, error.code, "这项操作需要你的明确确认后才能继续。", false, "请确认后重试。", "confirmation_required", finishFailureTrace(trace, error.code, "gateway_policy"));
       }
       const code = errorCode(error);
-      return this.failure(name, operationId, code, error instanceof Error ? error.message : "工具执行没有完成。", isRecoverable(code));
+      return this.failure(name, operationId, code, safeGatewayErrorMessage(error, code), isRecoverable(code), undefined, "failed", finishFailureTrace(trace, code));
+    } finally {
+      this.transactionalWorkflowLeases.release(lease);
     }
   }
 
@@ -483,11 +543,22 @@ export class CareerToolGateway {
     message: string,
     recoverable: boolean,
     retryHint?: string,
-    status: OperationReceipt["status"] = "failed"
+    status: OperationReceipt["status"] = "failed",
+    diagnostics?: CareerToolFailureDiagnostics
   ): CareerToolResult<never> {
+    const safeDiagnostics = diagnostics ?? createFailureDiagnostics({
+      name,
+      operationId,
+      code,
+      recoverable,
+      context: {},
+      input: undefined
+    });
+    const errorValue = { code, category: categoryForCode(code), message, recoverable, ...(retryHint ? { retryHint } : {}), diagnostics: safeDiagnostics };
     return {
       ok: false,
-      error: { code, category: categoryForCode(code), message, recoverable, ...(retryHint ? { retryHint } : {}) },
+      error: errorValue,
+      diagnostics: safeDiagnostics,
       artifacts: [],
       receipt: {
         operationId,
@@ -530,7 +601,7 @@ export class CareerToolGateway {
   private toWorkflowContract(definition: (typeof CAREER_WORKFLOW_FACADE_DEFINITIONS)[number]): CareerToolContract {
     return {
       name: definition.name,
-      description: `${definition.description} Stop when status is completed, waiting_for_user, waiting_for_confirmation, working, review_ready, recoverable_failure, partial, or failed; do not call another workflow facade in the same turn.`,
+      description: `${definition.description} Stop when status is completed, waiting_for_user, waiting_for_confirmation, working, review_ready, recoverable_failure, partial, or failed; do not call another workflow facade in the same turn. The result status and receipt are authoritative; do not claim completion from prose alone.`,
       sourceToolName: definition.name,
       namespace: "career.workflow",
       inputSchema: z.toJSONSchema(definition.inputSchema) as Record<string, unknown>,
@@ -594,6 +665,8 @@ export class CareerToolGatewayExecutor extends AgentExecutor {
     return this.gateway.executeForAgent(input.toolName, input.toolInput, {
       operationId: input.operationId,
       logicalToolOperationId: input.logicalToolOperationId,
+      logicalTurnId: input.logicalTurnId,
+      taskId: input.taskId,
       incidentTraceId: input.incidentTraceId,
       signal: input.signal,
       confirmed: input.confirmed,
@@ -608,6 +681,8 @@ export class CareerToolGatewayExecutor extends AgentExecutor {
     const result = await this.gateway.execute(input.toolName, input.toolInput, {
       operationId: input.operationId,
       logicalToolOperationId: input.logicalToolOperationId,
+      logicalTurnId: input.logicalTurnId,
+      taskId: input.taskId,
       incidentTraceId: input.incidentTraceId,
       signal: input.signal,
       confirmed: input.confirmed,
@@ -620,13 +695,15 @@ export class CareerToolGatewayExecutor extends AgentExecutor {
       ok: result.ok,
       operationId: result.receipt.operationId,
       toolName: input.toolName,
-      ...(result.ok ? { data: result.data } : {
+      ...(result.ok ? { data: result.data, ...(result.diagnostics ? { diagnostics: result.diagnostics } : {}) } : {
         error: {
           code: result.error?.code ?? "career_tool_failed",
           message: result.error?.message ?? "工具执行没有完成。",
-          retryable: result.error?.recoverable ?? false
+          retryable: result.error?.recoverable ?? false,
+          ...(result.error?.diagnostics ? { details: result.error.diagnostics } : {})
         }
       }),
+      ...(!result.ok && result.diagnostics ? { diagnostics: result.diagnostics } : {}),
       artifactIds: result.artifacts.map((artifact) => artifact.id),
       completedAt: result.receipt.completedAt
     } satisfies AgentToolResult;
@@ -652,8 +729,10 @@ function careerToolEnvelopeJsonSchema(dataSchema: z.ZodType): Record<string, unk
       category: z.enum(["validation", "not_found", "conflict", "stale_revision", "permission", "provider", "recoverable", "internal"]),
       message: z.string(),
       recoverable: z.boolean(),
-      retryHint: z.string().optional()
+      retryHint: z.string().optional(),
+      diagnostics: CareerToolFailureDiagnosticsSchema.optional()
     }).optional(),
+    diagnostics: CareerToolFailureDiagnosticsSchema.optional(),
     artifacts: z.array(z.object({
       id: z.string(),
       kind: z.literal("tool_result"),
@@ -672,35 +751,205 @@ function careerToolEnvelopeJsonSchema(dataSchema: z.ZodType): Record<string, unk
 }
 
 function errorCode(error: unknown) {
+  if (error instanceof z.ZodError) return "schema_validation_failed";
   if (error instanceof Error && "code" in error && typeof error.code === "string") return error.code;
   return "career_tool_failed";
 }
 
+function safeGatewayErrorMessage(error: unknown, code: string) {
+  if (code === "schema_validation_failed") return "工具输入未通过 Career Schema 校验，未执行写入。";
+  return error instanceof Error && error.message.trim()
+    ? error.message.replace(/[\u0000-\u001f\u007f]/gu, " ").replace(/\s+/gu, " ").trim().slice(0, 360)
+    : "工具执行没有完成。";
+}
+
 function isRecoverable(code: string) {
   return isRetryableAiProviderErrorCode(code)
-    || /temporar|timeout|network|unavailable|tailoring_questions_incomplete|tailoring_apply_verification_failed/i.test(code);
+    || /temporar|timeout|network|unavailable|tailoring_questions_incomplete|tailoring_apply_verification_failed|career_workflow_in_progress/i.test(code);
 }
 
 function categoryForCode(code: string): CareerToolErrorCategory {
   if (/input_invalid|validation|schema/i.test(code)) return "validation";
   if (/not_found|unknown_(?:agent_|career_)?tool|missing/i.test(code)) return "not_found";
   if (/stale|revision|version/i.test(code)) return "stale_revision";
-  if (/conflict|duplicate|already_exists/i.test(code)) return "conflict";
+  if (/conflict|duplicate|already_exists|career_workflow_in_progress/i.test(code)) return "conflict";
   if (/confirmation|permission|forbidden|unauthor/i.test(code)) return "permission";
   if (/provider|model|planner/i.test(code)) return "provider";
   if (isRecoverable(code)) return "recoverable";
   return "internal";
 }
 
-function toCareerToolError(code: string, message: string, retryable: boolean): CareerToolError {
+function toCareerToolError(code: string, message: string, retryable: boolean, diagnostics?: CareerToolFailureDiagnostics): CareerToolError {
   const recoverable = retryable || isRecoverable(code);
   return {
     code,
     category: categoryForCode(code),
     message,
     recoverable,
+    ...(diagnostics ? { diagnostics } : {}),
     ...(recoverable ? { retryHint: "可以稍后重试；如果仍失败，请保留当前任务状态后再继续。" } : {})
   };
+}
+
+type ExecutionTrace = {
+  name: string;
+  input: unknown;
+  operationId: string;
+  logicalToolOperationId: string;
+  logicalTurnId?: string;
+  taskId?: string;
+  workflowStageBefore?: string;
+  workflowStageAfter?: string;
+  startedAtMs: number;
+  startedAt: string;
+  enteredGatewayAt?: string;
+  enteredFacadeAt?: string;
+  firstInternalOperationAt?: string;
+};
+
+const TRANSACTIONAL_WORKFLOW_NAMES = new Set([
+  "career.workflow.profile_intake_turn",
+  "career.workflow.profile_intake_finalize",
+  "career.workflow.resume_import",
+  "career.workflow.tailor_resume",
+  "career.workflow.profile_to_resume",
+  "career.workflow.compose_resume",
+  "career.workflow.resume_export"
+]);
+
+function isTransactionalWorkflow(name: string) {
+  return TRANSACTIONAL_WORKFLOW_NAMES.has(name);
+}
+
+const TRANSACTIONAL_ATOMIC_TOOL_NAMES = new Set([
+  "commit_profile_intake",
+  "commit_resume_import",
+  "compose_resume",
+  "create_resume_from_profile",
+  "create_job_resume_from_profile",
+  "ensure_general_resume_from_profile",
+  "create_tailoring_session",
+  "answer_tailoring_question",
+  "generate_tailoring_changes",
+  "review_tailoring_diff",
+  "apply_tailoring_changes",
+  "export_resume",
+  "archive_resume",
+  "restore_resume",
+  "commit_job"
+]);
+
+function isTransactionalAtomic(sourceToolName: string) {
+  return TRANSACTIONAL_ATOMIC_TOOL_NAMES.has(sourceToolName);
+}
+
+function createExecutionTrace(
+  name: string,
+  input: unknown,
+  operationId: string,
+  context: CareerToolExecutionContext
+): ExecutionTrace {
+  const startedAtMs = Date.now();
+  return {
+    name,
+    input,
+    operationId,
+    logicalToolOperationId: context.logicalToolOperationId ?? `career-logical-${operationId}`,
+    logicalTurnId: context.logicalTurnId,
+    taskId: context.taskId,
+    workflowStageBefore: context.authoritativeTaskState?.stage,
+    startedAtMs,
+    startedAt: new Date(startedAtMs).toISOString()
+  };
+}
+
+function withExecutionDiagnostics<T>(
+  result: CareerToolResult<T>,
+  trace: ExecutionTrace,
+  code?: string
+): CareerToolResult<T> {
+  const diagnostics = finishTrace(trace, code ?? "none", result.ok ? false : true);
+  return {
+    ...result,
+    diagnostics,
+    ...(result.error ? { error: { ...result.error, diagnostics } } : {})
+  };
+}
+
+function finishFailureTrace(trace: ExecutionTrace, code: string, layer?: CareerToolFailureLayer) {
+  return finishTrace(trace, code, true, layer);
+}
+
+function finishTrace(
+  trace: ExecutionTrace,
+  code: string,
+  toolResultIsError: boolean,
+  explicitLayer?: CareerToolFailureLayer
+): CareerToolFailureDiagnostics {
+  const layer = explicitLayer ?? (toolResultIsError ? failureLayerForCode(code) : "unknown");
+  const completedAt = new Date().toISOString();
+  return CareerToolFailureDiagnosticsSchema.parse({
+    toolFailureLayer: layer,
+    failureScope: scopeForLayer(layer),
+    safeDomainErrorCode: code,
+    toolResultIsError,
+    failedStage: toolResultIsError ? failedStageForLayer(layer) : "completed",
+    durationMs: Math.max(0, Date.now() - trace.startedAtMs),
+    retryable: toolResultIsError && isRecoverable(code),
+    ...(trace.workflowStageBefore ? { workflowStageBefore: trace.workflowStageBefore } : {}),
+    ...(trace.workflowStageAfter ? { workflowStageAfter: trace.workflowStageAfter } : {}),
+    operationId: trace.operationId,
+    logicalToolOperationId: trace.logicalToolOperationId,
+    ...(trace.logicalTurnId ? { logicalTurnId: trace.logicalTurnId } : {}),
+    ...(trace.taskId ? { taskId: trace.taskId } : {}),
+    argumentShape: safeCareerToolArgumentShape(trace.input),
+    startedAt: trace.startedAt,
+    ...(trace.enteredGatewayAt ? { enteredGatewayAt: trace.enteredGatewayAt } : {}),
+    ...(trace.enteredFacadeAt ? { enteredFacadeAt: trace.enteredFacadeAt } : {}),
+    ...(trace.firstInternalOperationAt ? { firstInternalOperationAt: trace.firstInternalOperationAt } : {}),
+    completedAt
+  });
+}
+
+function createFailureDiagnostics(input: {
+  name: string;
+  operationId: string;
+  code: string;
+  recoverable: boolean;
+  context: CareerToolExecutionContext;
+  input: unknown;
+}) {
+  return finishTrace(createExecutionTrace(input.name, input.input, input.operationId, input.context), input.code, true);
+}
+
+function failureLayerForCode(code: string): CareerToolFailureLayer {
+  if (/jsonrpc/i.test(code)) return "mcp_jsonrpc";
+  if (/mcp_(?:bridge_)?(?:poll|register|binding|heartbeat|transport|unavailable)|mcp_unavailable/i.test(code)) return "mcp_transport";
+  if (/mcp.*handler|handler/i.test(code)) return "mcp_handler";
+  if (/hermes.*tool|tool_protocol|tool_failed/i.test(code)) return "hermes_tool_protocol";
+  if (/fact_guard|ungrounded|unsupported_fact/i.test(code)) return "fact_guard";
+  if (/completion_guard|completion_proof/i.test(code)) return "completion_guard";
+  if (/timeout|timed_out|deadline/i.test(code)) return "timeout";
+  if (/repository|workspace|repo_|database|dexie/i.test(code)) return "repository";
+  if (/provider|model|planner|ai_/i.test(code)) return "provider";
+  if (/binding|not_allowed|permission|confirmation|forbidden|unauthor/i.test(code)) return "gateway_policy";
+  if (/invalid|schema|missing|unknown_|not_found|input_/i.test(code)) return "gateway_validation";
+  if (/selection_required|checkpoint|stale|revision|workflow_in_progress|questions_incomplete|precondition/i.test(code)) return "workflow_precondition";
+  if (/tailor|compose|profile|resume|workflow/i.test(code)) return "workflow_execution";
+  return "unknown";
+}
+
+function failedStageForLayer(layer: CareerToolFailureLayer) {
+  return layer === "unknown" ? "gateway" : layer;
+}
+
+function scopeForLayer(layer: CareerToolFailureLayer) {
+  if (layer === "provider") return "provider" as const;
+  if (layer === "mcp_transport" || layer === "mcp_jsonrpc" || layer === "mcp_handler") return "mcp_transport" as const;
+  if (layer === "hermes_tool_protocol") return "runtime" as const;
+  if (layer === "repository") return "repository" as const;
+  if (layer === "gateway_policy") return "policy" as const;
+  return "career_workflow" as const;
 }
 
 function bindingInputMismatch(input: unknown, binding: CareerSessionBinding) {

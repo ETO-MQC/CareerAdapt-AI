@@ -83,6 +83,9 @@ const TailorResumeInputSchema = z.object({
   resumeId: z.string().min(1).optional(),
   jobId: z.string().min(1).optional(),
   target: TailorTargetInputSchema.optional(),
+  /** Canonical direct external-target contract; raw text is never persisted by the contract layer. */
+  targetText: z.string().trim().min(20).max(24_000).optional(),
+  saveTargetPreference: z.enum(["ask", "save", "session_only", "unknown"]).optional(),
   checkpointId: z.string().min(1).optional(),
   userAnswer: z.union([
     z.string().trim().min(1).max(8_000),
@@ -92,9 +95,7 @@ const TailorResumeInputSchema = z.object({
   intensity: z.enum(["conservative", "balanced", "aggressive"]).optional()
 }).strict().superRefine((input, refinement) => {
   if (input.checkpointId) return;
-  if (!input.profileId) refinement.addIssue({ code: "custom", path: ["profileId"], message: "profileId is required to start tailoring" });
-  if (!input.sourceResumeId && !input.resumeId) refinement.addIssue({ code: "custom", path: ["sourceResumeId"], message: "sourceResumeId is required to start tailoring" });
-  if (!input.jobId && !input.target) refinement.addIssue({ code: "custom", path: ["jobId"], message: "jobId or target is required to start tailoring" });
+  if (!input.jobId && !input.target && !input.targetText) refinement.addIssue({ code: "custom", path: ["jobId"], message: "jobId, target, or targetText is required to start tailoring" });
 });
 const ProfileToResumeInputSchema = z.object({
   targetProfileId: z.string().min(1),
@@ -134,9 +135,9 @@ export const CAREER_WORKFLOW_FACADE_DEFINITIONS: CareerWorkflowFacadeDefinition[
   { name: "career.workflow.profile_intake_finalize", description: "Finalize all Profile Intake source turns into one grounded final review draft. Stops for user review and never commits the Profile.", inputSchema: ProfileIntakeFinalizeInputSchema, personProfileBinding: "required" },
   { name: "career.workflow.resume_import", description: "Import one staged CareerAdapt attachment through the existing local parser and return the review checkpoint. Never accepts file bytes or paths.", inputSchema: ResumeImportInputSchema, personProfileBinding: "required" },
   { name: "career.workflow.job_fit", description: "Run the existing deterministic Job Fit workflow and return its terminal artifact.", inputSchema: JobFitInputSchema, personProfileBinding: "required" },
-  { name: "career.workflow.tailor_resume", description: "Start a resumable isolated Job Resume tailoring workflow from a saved Job or a pasted external target. A pasted target remains session-only until the user explicitly chooses persistence.", inputSchema: TailorResumeInputSchema, personProfileBinding: "required" },
+  { name: "career.workflow.tailor_resume", description: "Canonical generate_job_specific_resume workflow: create a target-specific Job Resume from a saved Job or direct external targetText, using the selected Profile/source resume. A pasted target remains session-only until the user explicitly chooses persistence.", inputSchema: TailorResumeInputSchema, personProfileBinding: "required" },
   { name: "career.workflow.profile_to_resume", description: "Create or reuse an isolated general resume from the confirmed Profile without writing resume content back to Profile.", inputSchema: ProfileToResumeInputSchema, personProfileBinding: "required" },
-  { name: "career.workflow.compose_resume", description: "Build an evidence graph and resume blueprint, show a grounded proposal, then write an isolated general or job-specific ResumeRevision only after explicit confirmation.", inputSchema: ComposeResumeInputSchema, personProfileBinding: "required" },
+  { name: "career.workflow.compose_resume", description: "Build an evidence graph and grounded general/base Resume from the confirmed Profile, show a proposal, then write an isolated ResumeRevision only after explicit confirmation. Use tailor_resume for any saved-job or external-target resume.", inputSchema: ComposeResumeInputSchema, personProfileBinding: "required" },
   { name: "career.workflow.resume_export", description: "Create the existing Preview/PDF export artifact for a selected resume.", inputSchema: ResumeExportInputSchema, personProfileBinding: "optional" }
 ];
 
@@ -310,12 +311,23 @@ async function executeTailoringResumeFacade(
   operationId: string,
   call: TailoringFacadeCall
 ) {
-  const targetInput = input.target as
+  const rawTargetInput = input.target as
     | { type: "saved_job"; jobId: string }
     | { type: "pasted_jd"; text: string; title?: string; company?: string; sourceUrl?: string; persistence: "ask" | "save" | "session_only" }
     | undefined;
+  const targetInput = rawTargetInput
+    ?? (typeof input.targetText === "string"
+      ? {
+          type: "pasted_jd" as const,
+          text: input.targetText,
+          persistence: normalizeTargetPersistence(input.saveTargetPreference)
+        }
+      : undefined);
+  if (targetInput) input.target = targetInput;
   const sourceResumeId = stringValue(input.sourceResumeId) ?? stringValue(input.resumeId);
-  const profileId = stringValue(input.profileId) ?? context.authoritativeTaskState?.selectedEntities.profileId;
+  const profileId = stringValue(input.profileId)
+    ?? context.authoritativeTaskState?.selectedEntities.profileId
+    ?? context.careerSessionBinding?.profileId;
   let resolvedSourceResumeId = sourceResumeId;
   let jobId = stringValue(input.jobId)
     ?? (targetInput?.type === "saved_job" ? targetInput.jobId : undefined)
@@ -594,6 +606,10 @@ function tailoringCheckpoint(input: Record<string, unknown>, session: Record<str
     session,
     review: tailoringReviewProjection(session)
   } satisfies Record<string, unknown>;
+}
+
+function normalizeTargetPersistence(value: unknown): "ask" | "save" | "session_only" {
+  return value === "save" || value === "session_only" ? value : "ask";
 }
 
 function tailoringStageForSession(session: Record<string, unknown>) {

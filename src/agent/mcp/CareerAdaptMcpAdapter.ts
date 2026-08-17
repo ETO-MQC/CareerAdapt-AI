@@ -5,6 +5,7 @@ import type {
   CareerToolResult
 } from "@/agent/tools/CareerToolGateway";
 import type { CareerSessionBinding } from "../runtime/careerSessionBinding";
+import type { CareerToolFailureDiagnostics } from "../tools/careerToolDiagnostics";
 
 /**
  * The MCP adapter is deliberately narrower than the Career domain.  It only
@@ -49,6 +50,9 @@ export type CareerAdaptMcpCallMeta = {
   operationId?: string;
   /** One logical ID shared by the Hermes call, MCP bridge and Gateway. */
   logicalToolOperationId?: string;
+  logicalTurnId?: string;
+  taskId?: string;
+  incidentTraceId?: string;
   careerSessionBinding?: CareerSessionBinding;
   requireSessionBinding?: boolean;
   /**
@@ -95,6 +99,9 @@ export class CareerAdaptMcpAdapter {
     const context: CareerToolExecutionContext = {
       operationId,
       logicalToolOperationId: meta.logicalToolOperationId?.trim() || `hermes-tool-${operationId}`,
+      logicalTurnId: meta.logicalTurnId,
+      taskId: meta.taskId,
+      incidentTraceId: meta.incidentTraceId,
       signal,
       // MCP clients must never autonomously bypass a CareerAdapt
       // confirmation boundary. Safe reads and explicitly safe writes still
@@ -140,7 +147,8 @@ function toCallResult(result: CareerToolResult, contract: CareerToolContract, lo
         ok: true,
         data: result.data,
         artifacts: result.artifacts,
-        receipt: result.receipt
+        receipt: result.receipt,
+        diagnostics: result.diagnostics
       }
     : {
         ok: false,
@@ -150,7 +158,8 @@ function toCallResult(result: CareerToolResult, contract: CareerToolContract, lo
               category: result.error.category,
               message: result.error.message,
               recoverable: result.error.recoverable,
-              retryHint: result.error.retryHint
+              retryHint: result.error.retryHint,
+              diagnostics: result.error.diagnostics
             }
           : {
               code: "career_tool_failed",
@@ -158,7 +167,8 @@ function toCallResult(result: CareerToolResult, contract: CareerToolContract, lo
               message: "工具执行没有完成。",
               recoverable: false
             },
-        receipt: result.receipt
+        receipt: result.receipt,
+        diagnostics: result.diagnostics ?? result.error?.diagnostics
       };
   return {
     content: [{ type: "text", text: safeJson(payload) }],
@@ -168,26 +178,44 @@ function toCallResult(result: CareerToolResult, contract: CareerToolContract, lo
       "careeradapt/tool": contract.name,
       "careeradapt/operationId": result.receipt.operationId,
       ...(logicalToolOperationId ? { "careeradapt/logicalToolOperationId": logicalToolOperationId } : {}),
-      "careeradapt/safetyClass": contract.safetyClass
+      "careeradapt/safetyClass": contract.safetyClass,
+      ...(result.diagnostics ? {
+        "careeradapt/toolFailureLayer": result.diagnostics.toolFailureLayer,
+        "careeradapt/safeDomainErrorCode": result.diagnostics.safeDomainErrorCode
+      } : {})
     }
   };
 }
 
 function toolErrorResult(code: string, message: string, operationId: string, toolName: string): CareerAdaptMcpCallResult {
+  const diagnostics: CareerToolFailureDiagnostics = {
+    toolFailureLayer: "gateway_validation",
+    failureScope: "career_workflow",
+    safeDomainErrorCode: code,
+    toolResultIsError: true,
+    failedStage: "gateway_validation",
+    durationMs: 0,
+    retryable: false,
+    operationId,
+    logicalToolOperationId: `hermes-tool-${operationId}`,
+    completedAt: new Date().toISOString()
+  };
   const payload = {
     ok: false,
     error: {
       code,
       category: "not_found",
       message,
-      recoverable: false
+      recoverable: false,
+      diagnostics
     },
     receipt: {
       operationId,
       toolName,
       status: "failed",
       completedAt: new Date().toISOString()
-    }
+    },
+    diagnostics
   } satisfies Record<string, unknown>;
   return {
     content: [{ type: "text", text: safeJson(payload) }],

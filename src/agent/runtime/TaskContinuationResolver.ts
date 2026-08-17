@@ -117,6 +117,7 @@ function isContinuable(state: AgentTaskState) {
       || state.rootGoal === "create_tailored_resume"
       || state.rootGoal === "apply_to_job"
       || state.rootGoal === "apply_to_external_job"
+      || state.rootGoal === "generate_job_specific_resume"
       || state.rootGoal === "create_resume_from_profile"
       || state.rootGoal === "compose_resume"
       || state.workflowId === "compose_resume"
@@ -165,6 +166,7 @@ function isTailoringContinuationTask(state: AgentTaskState) {
   return state.rootGoal === "apply_to_job"
     || state.rootGoal === "create_tailored_resume"
     || state.rootGoal === "apply_to_external_job"
+    || state.rootGoal === "generate_job_specific_resume"
     || state.workflowId === "tailor_existing_resume" && state.rootGoal !== "analyze_job_fit";
 }
 

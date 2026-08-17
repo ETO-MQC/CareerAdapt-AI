@@ -1068,7 +1068,7 @@ function emptyReadRecovery(
   if (taskState.rootGoal === "profile_intake") {
     return "资料库中没有找到与当前问题匹配的已有经历。我不会重复查询；请直接告诉我这段经历的项目名称、你做了什么和结果，我会从你的回答继续整理。";
   }
-  if (["create_tailored_resume", "create_resume_from_profile", "analyze_job_fit", "apply_to_job", "apply_to_external_job"].includes(taskState.rootGoal)) {
+  if (["create_tailored_resume", "create_resume_from_profile", "analyze_job_fit", "apply_to_job", "apply_to_external_job", "generate_job_specific_resume"].includes(taskState.rootGoal)) {
     return "资料库中没有找到可用于当前步骤的已确认经历。我不会重复查询或编造内容；请补充一段与目标岗位相关的真实经历、职责或结果，我会据此继续完成当前流程。";
   }
   return "资料库中没有找到匹配的经历或事实。我不会重复查询；请直接补充你希望用于当前步骤的真实经历，我会从这条信息继续处理。";
@@ -1578,6 +1578,7 @@ function repairIllegalToolTaskState(taskState: AgentTaskState) {
   const isTailoringRoot = taskState.rootGoal === "apply_to_job"
     || taskState.rootGoal === "create_tailored_resume"
     || taskState.rootGoal === "apply_to_external_job"
+    || taskState.rootGoal === "generate_job_specific_resume"
     || taskState.workflowId === "tailor_existing_resume" && taskState.rootGoal !== "analyze_job_fit";
   const hasSelectedTailoringEntities = Boolean(
     taskState.selectedEntities.profileId
@@ -1740,10 +1741,10 @@ function noProgressRecovery(nextAction: {
 }, taskState?: NonNullable<AgentSession["taskState"]>) {
   const withExitPaths = (instruction: string) =>
     `${instruction}\n\n如果这一步仍然没有推进，可以使用“重新执行当前步骤”按钮，或选择“结束任务”；也可以直接告诉我你想改做什么。`;
-  const tailoringGoal = ["create_tailored_resume", "apply_to_job", "apply_to_external_job", "analyze_job_fit"].includes(nextAction.goal ?? "");
+  const tailoringGoal = ["create_tailored_resume", "apply_to_job", "apply_to_external_job", "generate_job_specific_resume", "analyze_job_fit"].includes(nextAction.goal ?? "");
   if (isTailoringPlanRecoveryState(taskState)) return withExitPaths(tailoringPlanRecoveryText());
   const missingSlots = taskState && tailoringGoal
-    ? (taskState.rootGoal === "apply_to_external_job"
+    ? (taskState.rootGoal === "apply_to_external_job" || taskState.rootGoal === "generate_job_specific_resume"
       ? (["profileId", "resumeId"] as const)
       : (["profileId", "resumeId", "jobId"] as const)
     ).filter((slot) => !taskState.selectedEntities[slot])

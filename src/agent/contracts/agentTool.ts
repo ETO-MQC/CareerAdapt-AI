@@ -15,6 +15,7 @@ export const AgentToolResultSchema = z.object({
   toolName: z.string().min(1),
   data: z.unknown().optional(),
   error: AgentErrorSchema.optional(),
+  diagnostics: z.record(z.string(), z.unknown()).optional(),
   artifactIds: z.array(z.string()).default([]),
   completedAt: z.string().datetime({ offset: true })
 }).strict().superRefine((value, context) => {

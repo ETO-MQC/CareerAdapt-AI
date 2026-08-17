@@ -7,6 +7,7 @@ import type {
 import { CareerAdaptMcpUnavailableError } from "@/agent/mcp/CareerAdaptMcpServer";
 import { CareerSessionBindingSchema, type CareerSessionBinding } from "@/agent/runtime/careerSessionBinding";
 import { hermesProductionToolNames } from "@/agent/runtime/hermes/HermesCareerToolCatalog";
+import type { CareerToolFailureDiagnostics } from "@/agent/tools/careerToolDiagnostics";
 
 export type CareerAdaptMcpSurface = "internal" | "hermes-production";
 
@@ -16,6 +17,8 @@ type BridgeRequest = {
   input: unknown;
   operationId: string;
   logicalToolOperationId?: string;
+  logicalTurnId?: string;
+  taskId?: string;
   incidentTraceId?: string;
   careerSessionBinding?: CareerSessionBinding;
   requireSessionBinding?: boolean;
@@ -144,6 +147,8 @@ export function pollCareerAdaptMcpBridge(bridgeId: string, token: string, limit 
     input: request.input,
     operationId: request.operationId,
     logicalToolOperationId: request.logicalToolOperationId,
+    logicalTurnId: request.logicalTurnId,
+    taskId: request.taskId,
     incidentTraceId: request.incidentTraceId,
     careerSessionBinding: request.careerSessionBinding,
     requireSessionBinding: request.requireSessionBinding
@@ -202,6 +207,8 @@ export function createCareerAdaptMcpBridgeGateway(surface: CareerAdaptMcpSurface
           name: _name,
           input: _input,
           operationId: context.operationId ?? `mcp-bridge-${nanoid(16)}`,
+          logicalTurnId: context.logicalTurnId,
+          taskId: context.taskId,
           incidentTraceId: context.incidentTraceId,
           createdAt: Date.now()
         }, "career_tool_not_exposed", "当前 Hermes 生产工具面不暴露该 Career 原子工具。"));
@@ -227,6 +234,8 @@ function enqueueCall(name: string, input: unknown, context: CareerToolExecutionC
     input,
     operationId,
     logicalToolOperationId: context.logicalToolOperationId ?? `hermes-tool-${operationId}`,
+    logicalTurnId: context.logicalTurnId,
+    taskId: context.taskId,
     incidentTraceId: context.incidentTraceId,
     careerSessionBinding: context.careerSessionBinding ?? bridge.careerSessionBinding,
     requireSessionBinding: context.requireSessionBinding,
@@ -244,7 +253,7 @@ function enqueueCall(name: string, input: unknown, context: CareerToolExecutionC
       bridges.get(pending.bridgeId)?.inflight.delete(request.id);
       const orphanedIndex = orphanedPendingCalls.indexOf(pending);
       if (orphanedIndex >= 0) orphanedPendingCalls.splice(orphanedIndex, 1);
-      resolve(failedResult(request, "mcp_bridge_timeout", "等待本地 CareerAdapt 工作区响应超时。"));
+      resolve(failedResult(request, "mcp_bridge_timeout", "等待本地 CareerAdapt 工作区响应超时。", "timeout"));
     }, CALL_TIMEOUT_MS);
     pendingCalls.set(request.id, pending);
   });
@@ -319,16 +328,37 @@ function sanitizeContract(contract: CareerToolContract): CareerToolContract {
   };
 }
 
-function failedResult(request: BridgeRequest, code: string, message: string): CareerToolResult {
+function failedResult(
+  request: BridgeRequest,
+  code: string,
+  message: string,
+  layer: CareerToolFailureDiagnostics["toolFailureLayer"] = "mcp_transport"
+): CareerToolResult {
+  const diagnostics: CareerToolFailureDiagnostics = {
+    toolFailureLayer: layer,
+    failureScope: "mcp_transport",
+    safeDomainErrorCode: code,
+    toolResultIsError: true,
+    failedStage: layer,
+    durationMs: Math.max(0, Date.now() - request.createdAt),
+    retryable: layer === "timeout",
+    operationId: request.operationId,
+    logicalToolOperationId: request.logicalToolOperationId ?? `hermes-tool-${request.operationId}`,
+    ...(request.logicalTurnId ? { logicalTurnId: request.logicalTurnId } : {}),
+    ...(request.taskId ? { taskId: request.taskId } : {}),
+    completedAt: new Date().toISOString()
+  };
   return {
     ok: false,
     error: {
       code,
       category: "recoverable",
       message,
-      recoverable: true,
+      recoverable: diagnostics.retryable,
+      diagnostics,
       retryHint: "请确认 CareerAdapt 工作区仍在运行后重试。"
     },
+    diagnostics,
     artifacts: [],
     receipt: {
       operationId: request.operationId,

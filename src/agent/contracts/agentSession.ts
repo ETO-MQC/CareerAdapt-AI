@@ -172,6 +172,7 @@ export const AgentTurnToolFailureSchema = z.object({
   code: z.string().min(1),
   message: z.string().max(1200).optional(),
   recoverable: z.boolean().optional(),
+  diagnostics: z.record(z.string(), z.unknown()).optional(),
   occurredAt: z.string().datetime({ offset: true })
 }).strict();
 
@@ -191,6 +192,8 @@ export const AgentTurnSchema = z.object({
   nextHermesRunId: z.string().min(1).optional(),
   visibleAssistantMessageId: z.string().min(1).optional(),
   workflowCheckpoint: z.record(z.string(), z.unknown()).optional(),
+  /** Hermes event ids already projected by Host; bounds duplicate replay. */
+  projectedHermesEventIds: z.array(z.string().min(1)).max(512).optional(),
   toolFailures: z.array(AgentTurnToolFailureSchema).max(32).optional(),
   lastFailedTool: z.string().min(1).optional(),
   lastFailedOperationId: z.string().min(1).optional(),

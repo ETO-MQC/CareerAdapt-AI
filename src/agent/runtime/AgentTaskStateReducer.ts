@@ -285,7 +285,7 @@ export class AgentTaskStateReducer {
       }
       if (state.completionStatus !== "waiting_for_confirmation") state.completionStatus = "active";
       captureEntityReferences(state, event.message);
-      if ((state.rootGoal === "apply_to_external_job" || state.rootGoal === "clarify_external_target") && looksLikeJd(event.message)) {
+      if ((state.rootGoal === "apply_to_external_job" || state.rootGoal === "generate_job_specific_resume" || state.rootGoal === "clarify_external_target") && looksLikeJd(event.message)) {
         state.knownSlots.rawText = event.message.trim();
         state.knownSlots.targetSourceType = "pasted_jd";
         state.knownSlots.jobPersistenceDecision = "ask";
@@ -297,7 +297,7 @@ export class AgentTaskStateReducer {
         state.stage = "parse_job";
         state.knownSlots.rawText = event.message.trim();
       }
-      const sourceSelectionAllowed = ["apply_to_job", "create_tailored_resume"].includes(state.rootGoal);
+      const sourceSelectionAllowed = ["apply_to_job", "create_tailored_resume", "generate_job_specific_resume"].includes(state.rootGoal);
       if (sourceSelectionAllowed && /从资料库|资料库生成|路线\s*A/i.test(event.message)) {
         selectResumeSourceRoute(state, "profile");
       } else if (sourceSelectionAllowed && /已有简历|现有简历|通用简历|路线\s*B/i.test(event.message)) {
@@ -433,7 +433,7 @@ export class AgentTaskStateReducer {
           state.activeGoal = "ingest_job";
           state.stage = "completed";
           state.completionStatus = "completed";
-        } else if (state.rootGoal === "apply_to_external_job") {
+        } else if (state.rootGoal === "apply_to_external_job" || state.rootGoal === "generate_job_specific_resume") {
           state.knownSlots.jobPersistenceDecision = "save";
           const value = objectValue(event.observation);
           const committedJob = objectValue(value.jobDescription ?? value.job);
@@ -1360,7 +1360,7 @@ function normalize(state: AgentTaskState): AgentTaskState {
     const workflow = getWorkflowDefinition(state.workflowId);
     state.requiredSlots = workflow?.requiredSlots[state.stage] ?? state.requiredSlots;
     if (
-      (state.rootGoal === "apply_to_external_job" || state.rootGoal === "clarify_external_target")
+      (state.rootGoal === "apply_to_external_job" || state.rootGoal === "generate_job_specific_resume" || state.rootGoal === "clarify_external_target")
       && (hasValue(state.knownSlots.rawText) || hasValue(state.knownSlots.targetSnapshot) || hasValue(state.knownSlots.targetSnapshotId))
     ) {
       state.requiredSlots = state.requiredSlots.filter((slot) => slot !== "jobId");
@@ -2083,7 +2083,7 @@ function unique(values: string[]) {
 }
 
 function isTailoringGoal(goal: string) {
-  return ["create_tailored_resume", "apply_to_job", "apply_to_external_job", "analyze_job_fit"].includes(goal);
+  return ["create_tailored_resume", "apply_to_job", "apply_to_external_job", "generate_job_specific_resume", "analyze_job_fit"].includes(goal);
 }
 
 function isExternalTargetAction(text: string) {

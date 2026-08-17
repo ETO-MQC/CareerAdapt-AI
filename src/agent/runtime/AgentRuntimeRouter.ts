@@ -126,13 +126,14 @@ class RoutedAgentRuntime implements AgentRuntime {
     } catch (error) {
       if (emitted) {
         const runtimeFailureAt = new Date().toISOString();
+        const failureCode = postStartRuntimeErrorCode(errorCode(error));
         yield {
           type: "turn_failed",
           sessionId: input.sessionId,
           turnId: input.turnId ?? "runtime-turn-unknown",
           timestamp: runtimeFailureAt,
           error: {
-            code: errorCode(error),
+            code: failureCode,
             message: error instanceof Error ? error.message : "当前任务没有完成。",
             recoverable: false
           },
@@ -146,7 +147,7 @@ class RoutedAgentRuntime implements AgentRuntime {
               attemptTraceId: stringMetadata(input.metadata?.attemptTraceId),
               firstEventAt,
               runtimeFailureAt,
-              fallbackReasonCode: errorCode(error)
+               fallbackReasonCode: failureCode
             }
           }
         };
@@ -346,6 +347,14 @@ function errorCode(error: unknown) {
   return error instanceof Error && "code" in error && typeof error.code === "string"
     ? error.code
     : "agent_runtime_failed";
+}
+
+function postStartRuntimeErrorCode(code: string) {
+  return code === "hermes_unavailable_before_turn"
+    || code === "mcp_unavailable_before_turn"
+    || code.startsWith("hermes_run_start_")
+    ? "hermes_run_failed_after_start"
+    : code;
 }
 
 function safeErrorMessage(error: unknown) {

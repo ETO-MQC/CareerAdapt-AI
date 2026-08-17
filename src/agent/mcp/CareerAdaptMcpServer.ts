@@ -86,10 +86,20 @@ export class CareerAdaptMcpProtocolServer {
       }
     } catch (error) {
       if (error instanceof CareerAdaptMcpUnavailableError) {
-        return errorResponse(id, -32002, error.message, { code: error.code });
+        return errorResponse(id, -32002, error.message, {
+          code: error.code,
+          toolFailureLayer: "mcp_transport",
+          jsonRpcErrorCode: -32002,
+          safeDomainErrorCode: error.code,
+          toolResultIsError: true
+        });
       }
       return errorResponse(id, -32603, "CareerAdapt MCP request failed.", {
-        code: safeErrorCode(error)
+        code: safeErrorCode(error),
+        toolFailureLayer: "mcp_handler",
+        jsonRpcErrorCode: -32603,
+        safeDomainErrorCode: safeErrorCode(error),
+        toolResultIsError: true
       });
     }
   }
@@ -146,10 +156,22 @@ function readCallMeta(value: unknown, requireSessionBinding: boolean): CareerAda
     : typeof meta.logicalToolOperationId === "string"
       ? meta.logicalToolOperationId
       : undefined;
+  const logicalTurnId = typeof meta["careeradapt/logicalTurnId"] === "string"
+    ? meta["careeradapt/logicalTurnId"]
+    : typeof meta.logicalTurnId === "string" ? meta.logicalTurnId : undefined;
+  const taskId = typeof meta["careeradapt/taskId"] === "string"
+    ? meta["careeradapt/taskId"]
+    : typeof meta.taskId === "string" ? meta.taskId : undefined;
+  const incidentTraceId = typeof meta["careeradapt/incidentTraceId"] === "string"
+    ? meta["careeradapt/incidentTraceId"]
+    : typeof meta.incidentTraceId === "string" ? meta.incidentTraceId : undefined;
   const careerSessionBinding = readCareerSessionBinding(meta.careerSessionBinding ?? meta["careeradapt/sessionBinding"]);
   return {
     ...(operationId ? { operationId } : {}),
     ...(logicalToolOperationId ? { logicalToolOperationId } : {}),
+    ...(logicalTurnId ? { logicalTurnId } : {}),
+    ...(taskId ? { taskId } : {}),
+    ...(incidentTraceId ? { incidentTraceId } : {}),
     ...(careerSessionBinding ? { careerSessionBinding } : {}),
     requireSessionBinding,
     confirmationRequested: meta["careeradapt/confirmationRequested"] === true

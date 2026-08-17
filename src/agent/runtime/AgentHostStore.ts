@@ -31,6 +31,7 @@ import {
 } from "@/agent/runtime/hermes/hermesIncidentTrace";
 import type { AgentKernel } from "@/agent/kernel/AgentKernel";
 import { evaluateGroundedResumeOutput } from "@/agent/kernel/GroundedResumeOutputGate";
+import { AgentGoalCompletionGuard } from "@/agent/kernel/AgentGoalCompletionGuard";
 import {
   evaluateConversationContinuity,
   withTerminalState,
@@ -1005,6 +1006,7 @@ export class AgentHostStore {
         operationId,
         confirmed: true,
         confirmationCount: 1,
+        logicalTurnId: turnId,
         ...(retryFailedOperation ? { retryFailedOperation: true } : {}),
         careerSessionBinding: validation.binding,
         requireSessionBinding: true
@@ -1686,7 +1688,19 @@ export class AgentHostStore {
       || current.activeTurn.id !== event.turnId
       || assistant?.turnId !== event.turnId
     ) return undefined;
+    if (event.eventId && current.activeTurn.projectedHermesEventIds?.includes(event.eventId)) return current;
     let next = current;
+    if (event.eventId) {
+      next = {
+        ...next,
+        activeTurn: next.activeTurn
+          ? {
+              ...next.activeTurn,
+              projectedHermesEventIds: [...(next.activeTurn.projectedHermesEventIds ?? []), event.eventId].slice(-512)
+            }
+          : next.activeTurn
+      };
+    }
     let lateTailoringRecovery = false;
     const runHandleResult = HermesRunHandleSchema.safeParse(objectValue(event.data).runHandle);
     next = applyRuntimeEventDiagnostics(next, event, runHandleResult.success ? runHandleResult.data.runId : undefined);
@@ -1711,11 +1725,18 @@ export class AgentHostStore {
     if (["tool_call_started", "tool_call_requested", "tool_call_completed", "tool_call_failed"].includes(event.type)) {
       const operationId = event.operationId ?? `runtime-tool-${crypto.randomUUID()}`;
       const logicalToolOperationId = stringValue(objectValue(event.data).logicalToolOperationId);
-      const status = event.type === "tool_call_failed" ? "failed" : event.type === "tool_call_completed" ? "complete" : "pending";
+      const eventData = objectValue(event.data);
+      const eventResult = objectValue(eventData.result ?? eventData);
+      const resultDiagnostics = objectValue(eventResult.diagnostics ?? eventData.diagnostics);
+      const contradictoryCompletion = event.type === "tool_call_completed"
+        && (resultDiagnostics.toolResultIsError === true
+          || Boolean(stringValue(resultDiagnostics.safeDomainErrorCode) && stringValue(resultDiagnostics.safeDomainErrorCode) !== "none"));
+      const effectiveFailure = event.type === "tool_call_failed" || contradictoryCompletion;
+      const status = effectiveFailure ? "failed" : event.type === "tool_call_completed" ? "complete" : "pending";
       next = upsertAgentActivity(next, {
         id: `agent-tool-${logicalToolOperationId ?? operationId}`,
         turnId: event.turnId,
-        content: event.type === "tool_call_failed"
+        content: effectiveFailure
           ? event.error?.message ?? "Career 工具执行失败。"
           : event.type === "tool_call_completed" ? "Career 工具执行完成。" : `正在调用 ${event.toolName ?? "Career 工具"}…`,
         toolName: event.toolName,
@@ -1728,7 +1749,8 @@ export class AgentHostStore {
           transportOperationIds: [operationId],
           operationId,
           ...(event.error?.code ? { safeErrorCode: event.error.code } : {}),
-          ...(event.type === "tool_call_failed" && event.toolName ? { requestedToolName: event.toolName } : {}),
+          ...(effectiveFailure && event.toolName ? { requestedToolName: event.toolName } : {}),
+          ...(Object.keys(resultDiagnostics).length ? { toolFailureDiagnostics: resultDiagnostics } : {}),
           ...(objectValue(event.data).requestedHermesToolName && typeof objectValue(event.data).requestedHermesToolName === "string"
             ? { requestedHermesToolName: objectValue(event.data).requestedHermesToolName }
             : {}),
@@ -1738,14 +1760,13 @@ export class AgentHostStore {
         }
       });
       if (event.type === "tool_call_completed") {
-        const eventData = objectValue(event.data);
         // Bridge callbacks carry `{ result, contract }`, while a few runtime
         // adapters emit the safe tool result directly in `data`. Accept both
         // shapes so the canonical TaskState is reduced exactly once either
         // way; a progress-shaped event still has no `ok` flag and is ignored.
         const result = objectValue(eventData.result ?? eventData);
         const contract = objectValue(eventData.contract);
-        if (result.ok === true) {
+        if (result.ok === true && !contradictoryCompletion) {
           next = applyRuntimeFacadeCheckpoint(next, event.toolName ?? "", result.data);
           const sourceToolName = runtimeArtifactSourceToolName(
             event.toolName ?? "",
@@ -1782,12 +1803,14 @@ export class AgentHostStore {
           // arrived. Re-project them after accepting the result so a waiting
           // composition never becomes a dead-end.
           if (next.taskState) next = attachTaskStateOptions(next, next.taskState);
-        } else if (result.ok === false) {
+        } else if (result.ok === false || contradictoryCompletion) {
           if (event.toolName?.startsWith("career.workflow.") && result.data !== undefined) {
             next = applyRuntimeFacadeCheckpoint(next, event.toolName, result.data);
           }
           const failureToolName = runtimeArtifactSourceToolName(event.toolName ?? "", stringValue(contract.sourceToolName));
-          const errorCode = stringValue(objectValue(result.error).code) ?? "career_tool_failed";
+          const errorCode = stringValue(objectValue(result.error).code)
+            ?? stringValue(resultDiagnostics.safeDomainErrorCode)
+            ?? "career_tool_failed";
           const errorMessage = stringValue(objectValue(result.error).message);
           const recoverable = objectValue(result.error).recoverable !== false;
           if (next.taskState) next = projectTaskStateIntoSession(next, new AgentTaskStateReducer().reduce(next.taskState, {
@@ -1804,6 +1827,7 @@ export class AgentHostStore {
             code: errorCode,
             message: errorMessage,
             recoverable,
+            diagnostics: Object.keys(resultDiagnostics).length ? resultDiagnostics : undefined,
             occurredAt: event.timestamp
           });
           if (next.taskState?.knownSlots.tailoringApplyFailure && next.activeTurn?.status !== "running") {
@@ -1842,6 +1866,9 @@ export class AgentHostStore {
           code: event.error?.code ?? "career_tool_failed",
           message: event.error?.message,
           recoverable: event.error?.recoverable,
+          diagnostics: Object.keys(objectValue(objectValue(event.data).diagnostics)).length
+            ? objectValue(objectValue(event.data).diagnostics)
+            : undefined,
           occurredAt: event.timestamp
         });
         if (next.taskState?.knownSlots.tailoringApplyFailure && next.activeTurn?.status !== "running") {
@@ -1896,22 +1923,38 @@ export class AgentHostStore {
       };
     }
     if (event.type === "turn_completed" || event.type === "turn_failed") {
+      const completionDecision = next.taskState ? new AgentGoalCompletionGuard().evaluate(next.taskState) : undefined;
+      const completionNeedsRecovery = event.type === "turn_completed"
+        && Boolean(completionDecision && !completionDecision.canFinish);
+      const completionBlocked = completionDecision?.reason === "blocked";
+      const completionWaiting = completionNeedsRecovery
+        || completionDecision?.reason === "waiting_for_user"
+        || completionDecision?.reason === "waiting_for_confirmation";
+      const completionWaitingForConfirmation = completionDecision?.reason === "waiting_for_confirmation";
       const tailoringRecovery = Boolean(next.taskState?.knownSlots.tailoringApplyFailure);
       const tailoringQuestionRecovery = next.taskState?.knownSlots.lastSafeErrorCode === "tailoring_questions_incomplete";
-      const candidate = tailoringRecovery
+      const candidate = completionNeedsRecovery && completionDecision
+        ? completionGuardRecoveryText(completionDecision, next.taskState)
+        : tailoringRecovery
         ? "已采用的修改仍保留，但岗位简历写入没有完成。可以从当前步骤重试。"
         : tailoringQuestionRecovery && next.taskState
           ? formatCurrentTailoringQuestion(next.taskState)
         : event.type === "turn_failed"
-        ? runtimeFailureRecoveryText(event.error?.code, next.taskState)
+        ? runtimeFailureRecoveryText(
+            event.error?.code,
+            next.taskState,
+            objectValue(objectValue(event.data).diagnostics ?? objectValue(event.data).toolFailureDiagnostics)
+          )
         : event.message ?? next.messages.find((message) => message.id === assistantMessageId)?.content ?? "当前任务已完成。";
       const grounding = next.taskState
         ? evaluateGroundedResumeOutput({ text: candidate, taskState: next.taskState, artifactRefs: next.artifactRefs })
         : { allowed: true as const };
-      const blocked = !tailoringRecovery && !tailoringQuestionRecovery && !grounding.allowed;
+      const blocked = !completionWaiting && !tailoringRecovery && !tailoringQuestionRecovery && !grounding.allowed;
+      const terminalFailed = (event.type === "turn_failed" && !tailoringRecovery && !tailoringQuestionRecovery) || blocked || completionBlocked;
+      const terminalWaiting = !terminalFailed && (tailoringRecovery || tailoringQuestionRecovery || completionWaiting);
       const text = blocked ? grounding.recoveryText : candidate;
-      next = replaceRuntimeShellMessage(next, assistantMessageId, text, event, false, event.type === "turn_failed" && !tailoringQuestionRecovery || blocked);
-      if (event.type === "turn_failed" || blocked || tailoringRecovery) next = withRetryCurrentStepOption(next, assistantMessageId);
+      next = replaceRuntimeShellMessage(next, assistantMessageId, text, event, false, terminalFailed);
+      if (terminalFailed || terminalWaiting || tailoringRecovery) next = withRetryCurrentStepOption(next, assistantMessageId);
       if (next.taskState) next = attachTaskStateOptions(next, next.taskState);
       next = {
         ...next,
@@ -1920,12 +1963,12 @@ export class AgentHostStore {
           ? {
               ...next.activeTurn,
               runtimeId: "hermes",
-               status: event.type === "turn_failed" && !tailoringRecovery && !tailoringQuestionRecovery || blocked
-                ? "failed"
-                : tailoringRecovery || tailoringQuestionRecovery
-                  ? "waiting_for_user"
-                  : next.pendingConfirmation ? "waiting_for_confirmation" : "completed",
-               completedAt: event.type === "turn_failed" && !tailoringRecovery && !tailoringQuestionRecovery || blocked || tailoringRecovery || tailoringQuestionRecovery || !next.pendingConfirmation ? new Date().toISOString() : undefined
+               status: terminalFailed
+                 ? "failed"
+                 : terminalWaiting && !completionWaitingForConfirmation && !next.pendingConfirmation
+                   ? "waiting_for_user"
+                   : terminalWaiting || next.pendingConfirmation ? "waiting_for_confirmation" : "completed",
+                completedAt: terminalFailed || terminalWaiting || !next.pendingConfirmation ? new Date().toISOString() : undefined
             }
           : undefined,
         // Hermes owns the conversational turn, not the durable career workflow
@@ -1940,11 +1983,11 @@ export class AgentHostStore {
       next = markTurnTerminalState(
         next,
         event.turnId,
-        event.type === "turn_failed" && !tailoringRecovery && !tailoringQuestionRecovery || blocked
-          ? "failed"
-          : tailoringRecovery || tailoringQuestionRecovery
-            ? "waiting_for_user"
-          : next.pendingConfirmation
+         terminalFailed
+           ? "failed"
+           : terminalWaiting && !completionWaitingForConfirmation && !next.pendingConfirmation
+             ? "waiting_for_user"
+          : terminalWaiting || next.pendingConfirmation
             ? "waiting_for_confirmation"
             : "completed",
         isolatedConversationalTurn
@@ -1952,10 +1995,14 @@ export class AgentHostStore {
       this.clearStreamingCheckpoint();
       const saved = await this.dependencies.persistence.save(next);
       this.patchSession(saved, {
-        turnStatus: event.type === "turn_failed" && !tailoringRecovery && !tailoringQuestionRecovery || blocked ? "failed" : tailoringRecovery || tailoringQuestionRecovery ? "waiting_for_user" : saved.pendingConfirmation ? "waiting_for_confirmation" : "completed",
+         turnStatus: terminalFailed
+           ? "failed"
+           : terminalWaiting && !completionWaitingForConfirmation && !saved.pendingConfirmation
+             ? "waiting_for_user"
+             : terminalWaiting || saved.pendingConfirmation ? "waiting_for_confirmation" : "completed",
         activeTurnId: event.turnId,
         currentObservation: event.error ?? { runtimeId: "hermes", message: event.message, grounded: !blocked },
-        uiAction: event.type === "turn_completed" && !blocked ? resumePreviewUiAction(saved) : undefined
+         uiAction: event.type === "turn_completed" && !blocked && !terminalWaiting && !terminalFailed ? resumePreviewUiAction(saved) : undefined
       });
       return saved;
     }
@@ -8636,7 +8683,7 @@ function profileIntakeSectionPrompt(section: ProfileIntakeSection) {
 
 function isUnsafeLegacyDomainRegeneration(session: AgentSession, targetIndex: number) {
   const state = session.taskState;
-  if (!state || !["create_tailored_resume", "apply_to_job", "apply_to_external_job", "analyze_job_fit"].includes(state.rootGoal)) return false;
+  if (!state || !["create_tailored_resume", "apply_to_job", "apply_to_external_job", "generate_job_specific_resume", "analyze_job_fit"].includes(state.rootGoal)) return false;
   const laterVisibleMessages = session.messages.slice(targetIndex + 1).some((message) => message.metadata?.retracted !== true);
   return laterVisibleMessages && !["select_resume", "choose_resume_source", "choose_job"].includes(state.stage);
 }
@@ -9710,6 +9757,7 @@ function recordRuntimeToolFailure(
     code: string;
     message?: string;
     recoverable?: boolean;
+    diagnostics?: Record<string, unknown>;
     occurredAt: string;
   }
 ) {
@@ -10008,9 +10056,22 @@ function runtimeAttemptStatus(
   return existing ?? "requested";
 }
 
-function runtimeFailureRecoveryText(code?: string, taskState?: AgentTaskState) {
+function runtimeFailureRecoveryText(code?: string, taskState?: AgentTaskState, diagnostics?: Record<string, unknown>) {
+  const failureLayer = stringValue(diagnostics?.toolFailureLayer);
+  if (failureLayer === "mcp_transport" || /mcp_(?:bridge_)?(?:transport|unavailable|timeout)/i.test(code ?? "")) {
+    return "CareerAdapt MCP 边界这次没有返回工具结果；Hermes 任务本身没有被判定为不可用。已保留当前任务 checkpoint，确认工作区连接后可从当前步骤重试。";
+  }
   if (isHermesRuntimeFailureCode(code)) {
     return "Hermes 暂时无法启动本轮任务，已保留当前岗位、简历和任务进度。连接恢复后可直接重试。";
+  }
+  if (failureLayer === "fact_guard" || /fact_guard|ungrounded|unsupported_fact/i.test(code ?? "")) {
+    return "这次简历修改没有通过事实核验，因此没有写入。已保留当前岗位与修改预览，请补充可确认的真实依据后继续。";
+  }
+  if (failureLayer === "provider" || /provider|model|ai_/i.test(code ?? "")) {
+    return "当前 Career 工作流依赖的模型服务没有完成这一步；已保留当前岗位、简历和任务 checkpoint，可以稍后从当前步骤重试。";
+  }
+  if (code === "career_workflow_in_progress") {
+    return "当前 Career 工作流已有一个事务正在执行；没有并行提交新的写入。请等待当前 checkpoint 返回后再继续。";
   }
   if (code === "agent_tool_not_allowed") {
     return "简历组装流程刚才没有完成，当前方向和已完成步骤已保留。请从当前步骤继续，我不会把未确认内容显示为简历。";
@@ -10026,6 +10087,18 @@ function runtimeFailureRecoveryText(code?: string, taskState?: AgentTaskState) {
     return "岗位和简历已保留，定制计划生成过程中出现临时问题。可以直接重试此步骤。";
   }
   return "刚才的岗位分析步骤没有完成。已保留你选中的岗位，我正在从这里继续。";
+}
+
+function completionGuardRecoveryText(
+  decision: { canFinish: boolean; requiredNextStage?: string },
+  taskState?: AgentTaskState
+) {
+  const rootGoal = taskState?.rootGoal;
+  const requiredNextStage = decision.requiredNextStage ?? taskState?.stage ?? "current_step";
+  if (rootGoal === "generate_job_specific_resume" || rootGoal === "apply_to_external_job" || rootGoal === "create_tailored_resume") {
+    return `岗位简历工作流尚未形成可确认的完成凭证（当前步骤：${requiredNextStage}）。已保留岗位、来源简历和任务 checkpoint，请从当前步骤继续；不会把未确认内容当作正式简历。`;
+  }
+  return `当前 Career 工作流尚未形成可确认的完成凭证（当前步骤：${requiredNextStage}）。已保留任务 checkpoint，请从当前步骤继续。`;
 }
 
 function resumePreviewUiAction(session: AgentSession): AgentUiAction | undefined {

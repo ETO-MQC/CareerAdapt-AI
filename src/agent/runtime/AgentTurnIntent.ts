@@ -191,7 +191,8 @@ export function classifyTurnIntent(input: {
   }
   if (looksLikeJobDescription(text) && !(/录入|导入|新增|保存/u.test(text) && /岗位|职位/u.test(text))) {
     const existingTailoringTarget = input.taskState?.rootGoal === "apply_to_job"
-      || input.taskState?.rootGoal === "create_tailored_resume";
+      || input.taskState?.rootGoal === "create_tailored_resume"
+      || input.taskState?.rootGoal === "generate_job_specific_resume";
     return {
       ...decision("new_domain_task", "replace", "domain", profileIntakeTurnKind, activeQuestionResolution),
       newTask: looksLikeExternalTargetRequest(text) || existingTailoringTarget
@@ -560,6 +561,7 @@ function isTailoringContinuationTurn(taskState: AgentTaskState | undefined, text
   const isTailoringRoot = taskState.rootGoal === "apply_to_job"
     || taskState.rootGoal === "create_tailored_resume"
     || taskState.rootGoal === "apply_to_external_job"
+    || taskState.rootGoal === "generate_job_specific_resume"
     || taskState.workflowId === "tailor_existing_resume" && taskState.rootGoal !== "analyze_job_fit";
   return isTailoringRoot
     && /^(?:继续)?(?:提升|优化|改善)匹配度(?:吧|即可)?[。！!？?]?$/u.test(text.trim());
