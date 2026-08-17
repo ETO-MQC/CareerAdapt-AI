@@ -113,6 +113,7 @@ export function AgentWorkspace() {
   const [pendingContextRequest, setPendingContextRequest] = useState<PendingContextRequest>();
   const quickActionDispatchRef = useRef<Promise<AgentSession | undefined> | undefined>(undefined);
   const running = snapshot.turnStatus === "running";
+  const liveHermesRun = ["queued", "running", "waiting_for_approval", "stopping"].includes(session.hermesRun?.status ?? "");
   const paused = snapshot.turnStatus === "paused";
   const draft = draftsBySession[session.id] ?? "";
   const draftReference = draftReferencesBySession[session.id];
@@ -711,6 +712,8 @@ export function AgentWorkspace() {
     const careerContracts = host.careerToolGateway.listContracts();
     const careerCatalog = new HermesCareerToolCatalog(careerContracts);
     const runtimeHealth = runtimeStatus.health;
+    const runtimeEnvironment = window.careerAdaptDesktop ? "electron" : "web";
+    const supervisorExpected = runtimeEnvironment === "electron";
     const safeRuntimeFailureDiagnostics = sanitizeRuntimeFailureDiagnostics(
       session.activeTurn?.runtimeFailureDiagnostics ?? runtimeHealth?.runtimeFailureDiagnostics
     );
@@ -765,6 +768,11 @@ export function AgentWorkspace() {
         runtimeFailureAt: activeTurn?.runtimeFailureAt,
         runtimeAttempts: sanitizeRuntimeAttempts(activeTurn?.runtimeAttempts),
         recoveryAttempted: activeTurn?.recoveryAttempted === true,
+        transportReattachAttempted: activeTurn?.transportReattachAttempted === true,
+        semanticRetryAttempted: activeTurn?.semanticRetryAttempted === true,
+        runtimeRestartAttempted: activeTurn?.runtimeRestartAttempted === true,
+        primaryCausalChain: sanitizePrimaryCausalChain(activeTurn?.primaryCausalChain),
+        secondaryRecoveryFailures: sanitizeSecondaryRecoveryFailures(activeTurn?.secondaryRecoveryFailures),
         cancellation: sanitizeRunStopReason(activeTurn?.cancellation),
         abortTraces: sanitizeAbortTraces(activeTurn?.abortTraces ?? runtimeStatus.abortTraces ?? []),
         runtimeFailureDiagnostics: safeRuntimeFailureDiagnostics,
@@ -794,13 +802,17 @@ export function AgentWorkspace() {
         recoveredAtExport
       },
       hermesSupervisor: {
-        supervisorUnavailable: !currentSupervisorSnapshot,
+        runtimeEnvironment,
+        supervisorExpected,
+        supervisorUnavailable: supervisorExpected && !currentSupervisorSnapshot,
         currentSnapshot: sanitizeSupervisorSnapshot(currentSupervisorSnapshot),
         failureTimeSnapshot: sanitizeSupervisorSnapshot(failureTimeSupervisorSnapshot),
         latestLifecycleEntries: currentSupervisorSnapshot?.latestLifecycleEntries ?? hermesLogs?.latestLifecycleEntries ?? [],
         logPath: hermesLogs?.logPath,
         recentLogLines: hermesLogs?.recentLogLines ?? []
       },
+      runtimeEnvironment,
+      supervisorExpected,
       bridgeRequestTraces: runtimeStatus.bridgeRequestTraces ?? host.hermesRuntime.getDiagnostics().bridgeRequestTraces,
       nativeAllowedSourceTools: workflowDefinition.map((tool) => String(tool.name)),
       careerGatewayContracts: careerContracts.map((contract) => contract.name).sort(),
@@ -971,17 +983,17 @@ export function AgentWorkspace() {
               </div>
               {snapshot.stalled ? (
                 <div className="agent-stall-watchdog" role="status">
-                  <span>这一步响应时间较长</span>
+                  <span>{liveHermesRun ? "Hermes 正在处理较长内容，仍在运行…" : "这一步响应时间较长"}</span>
                   <div>
                     <button type="button" onClick={() => host.state.continueWaiting()}>继续等待</button>
                     <button type="button" onClick={() => host.state.interrupt()}>停止任务</button>
-                    <button
-                      type="button"
-                      disabled={!lastUserMessage || Boolean(session.pendingConfirmation)}
-                      onClick={() => void dispatchMessage(lastUserMessage)}
-                    >
-                      重试
-                    </button>
+                    {!liveHermesRun ? <button
+                        type="button"
+                        disabled={!lastUserMessage || Boolean(session.pendingConfirmation)}
+                        onClick={() => void dispatchMessage(lastUserMessage)}
+                      >
+                        重试
+                      </button> : null}
                   </div>
                 </div>
               ) : null}
@@ -1396,18 +1408,54 @@ function sanitizeRuntimeAttempts(value: unknown) {
       ...(typeof source.runId === "string" ? { runId: source.runId.slice(0, 160) } : {}),
       ...(typeof source.startRequestedAt === "string" ? { startRequestedAt: source.startRequestedAt } : {}),
       ...(typeof source.runStartedAt === "string" ? { runStartedAt: source.runStartedAt } : {}),
+      ...(typeof source.runStartStatus === "string" ? { runStartStatus: source.runStartStatus.slice(0, 40) } : {}),
       ...(typeof source.firstEventAt === "string" ? { firstEventAt: source.firstEventAt } : {}),
       ...(typeof source.terminalAt === "string" ? { terminalAt: source.terminalAt } : {}),
+      ...(typeof source.terminalStatus === "string" ? { terminalStatus: source.terminalStatus.slice(0, 40) } : {}),
       status: source.status.slice(0, 80),
       ...(typeof source.lastEventType === "string" ? { lastEventType: source.lastEventType.slice(0, 120) } : {}),
       ...(typeof source.failureCode === "string" ? { failureCode: source.failureCode.slice(0, 160) } : {}),
       ...(typeof source.failureLayer === "string" ? { failureLayer: source.failureLayer.slice(0, 80) } : {}),
       ...(typeof source.retryable === "boolean" ? { retryable: source.retryable } : {}),
       ...(typeof source.recoveryReason === "string" ? { recoveryReason: source.recoveryReason.slice(0, 160) } : {}),
+      ...(typeof source.recoveryKind === "string" ? { recoveryKind: source.recoveryKind.slice(0, 40) } : {}),
       ...(typeof source.cancellationOwner === "string" ? { cancellationOwner: source.cancellationOwner.slice(0, 120) } : {}),
       ...(source.stopReason ? { stopReason: sanitizeRunStopReason(source.stopReason) } : {})
     }];
   }).slice(-8);
+}
+
+function sanitizePrimaryCausalChain(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((entry) => {
+    const source = readRecord(entry);
+    if (typeof source.event !== "string" || typeof source.component !== "string" || typeof source.at !== "string") return [];
+    return [{
+      event: source.event.slice(0, 120),
+      component: source.component.slice(0, 160),
+      at: source.at,
+      ...(typeof source.runId === "string" ? { runId: source.runId.slice(0, 160) } : {}),
+      ...(typeof source.attemptTraceId === "string" ? { attemptTraceId: source.attemptTraceId.slice(0, 240) } : {}),
+      ...(typeof source.detail === "string" ? { detail: redactRuntimeDiagnosticText(source.detail).slice(0, 360) } : {})
+    }];
+  }).slice(-48);
+}
+
+function sanitizeSecondaryRecoveryFailures(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((entry) => {
+    const source = readRecord(entry);
+    if (typeof source.code !== "string" || typeof source.message !== "string" || typeof source.operation !== "string" || typeof source.capturedAt !== "string") return [];
+    return [{
+      code: source.code.slice(0, 160),
+      message: redactRuntimeDiagnosticText(source.message).slice(0, 360),
+      operation: source.operation.slice(0, 80),
+      capturedAt: source.capturedAt,
+      ...(typeof source.runId === "string" ? { runId: source.runId.slice(0, 160) } : {}),
+      ...(typeof source.attemptTraceId === "string" ? { attemptTraceId: source.attemptTraceId.slice(0, 240) } : {}),
+      ...(typeof source.httpStatus === "number" ? { httpStatus: Math.round(source.httpStatus) } : {})
+    }];
+  }).slice(-16);
 }
 
 function sanitizeSupervisorSnapshot(value: unknown) {
@@ -1463,9 +1511,10 @@ function sanitizeRuntimeHealth(value: unknown) {
   for (const key of ["runtimeId", "activeRunId", "hermesRunId", "providerStatus", "model", "runReadySafeErrorCode", "safeErrorCode", "lastCheckedAt"]) {
     if (typeof source[key] === "string") result[key] = (source[key] as string).slice(0, 240);
   }
-  for (const key of ["runtimeAvailable", "companionReady", "providerConfigured", "providerReachable", "providerReady", "toolCallingAvailable", "mcpConnected", "mcpReady", "runReady", "careerSkillsLoaded"]) {
+  for (const key of ["runtimeAvailable", "companionReady", "providerConfigured", "providerReachable", "providerReady", "toolCallingAvailable", "toolCallInFlight", "mcpConnected", "mcpReady", "runReady", "careerSkillsLoaded"]) {
     if (typeof source[key] === "boolean") result[key] = source[key];
   }
+  if (typeof source.toolCallingCapability === "string") result.toolCallingCapability = source.toolCallingCapability.slice(0, 40);
   return result;
 }
 
@@ -1473,7 +1522,7 @@ export function sanitizeRuntimeFailureDiagnostics(value: unknown): Record<string
   if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
   const source = value as Record<string, unknown>;
   const result: Record<string, unknown> = {};
-  const stringKeys = ["failureLayer", "safeErrorCode", "safeErrorMessage", "upstreamErrorCode", "hermesSessionId", "hermesRunId", "requestedTurnId", "runStartKind", "providerStatus", "incidentTraceId", "attemptTraceId", "recoveryReason", "cancellationOwner"];
+  const stringKeys = ["failureLayer", "safeErrorCode", "safeErrorMessage", "upstreamErrorCode", "hermesSessionId", "hermesRunId", "requestedTurnId", "runStartKind", "runPhase", "providerStatus", "incidentTraceId", "attemptTraceId", "recoveryReason", "cancellationOwner"];
   const numberKeys = ["httpStatus", "latencyMs"];
   const booleanKeys = ["companionConnected", "mcpConnected", "retryable"];
   for (const key of stringKeys) {
@@ -1493,6 +1542,10 @@ export function sanitizeRuntimeFailureDiagnostics(value: unknown): Record<string
     const nested = sanitizeRuntimeFailureDiagnostics(source[key]);
     if (nested) result[key] = nested;
   }
+  const causalChain = sanitizePrimaryCausalChain(source.primaryCausalChain);
+  if (causalChain.length) result.primaryCausalChain = causalChain;
+  const secondaryFailures = sanitizeSecondaryRecoveryFailures(source.secondaryRecoveryFailures);
+  if (secondaryFailures.length) result.secondaryRecoveryFailures = secondaryFailures;
   const cancellation = sanitizeRunStopReason(source.cancellation ?? source.stopReason);
   if (cancellation) result.cancellation = cancellation;
   const attempts = sanitizeRuntimeAttempts(source.runtimeAttempts);

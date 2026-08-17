@@ -3,6 +3,7 @@ import type {
   AgentRuntime,
   AgentRuntimeCapabilities,
   AgentRuntimeEvent,
+  AgentRuntimeRecoveryPlan,
   AgentRuntimeTurnInput
 } from "../agentRuntime";
 import type { HermesRunHandle } from "../../contracts/agentSession";
@@ -23,6 +24,7 @@ import {
   createRunStopReason,
   type RunStopReason
 } from "./hermesIncidentTrace";
+import type { RuntimeCausalChainEntry, SecondaryRecoveryFailure } from "./hermesIncidentTrace";
 
 type TurnCounters = {
   toolCalls: number;
@@ -42,6 +44,18 @@ type TurnCounters = {
   toolStartedAt?: number;
 };
 
+export type HermesLongRunPolicy = {
+  observerHeartbeatMs?: number;
+  statusPollMs?: number;
+  hardDeadlineMs?: number;
+};
+
+const DEFAULT_HERMES_LONG_RUN_POLICY: Required<HermesLongRunPolicy> = {
+  observerHeartbeatMs: 45_000,
+  statusPollMs: 1_000,
+  hardDeadlineMs: 30 * 60_000
+};
+
 /**
  * Server/local Hermes adapter.  It owns protocol translation and tool
  * callbacks, but deliberately contains no WorkspaceRepository or browser
@@ -52,12 +66,19 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
   private readonly sessions = new Map<string, string>();
   private readonly activeRuns = new Map<string, HermesRunHandle>();
   private readonly controlledStops = new Map<string, RunStopReason>();
+  private readonly longRunPolicy: Required<HermesLongRunPolicy>;
 
   constructor(private readonly dependencies: {
     transport: HermesBridgeTransport;
     careerToolGateway: CareerToolGateway;
     capabilities?: Partial<AgentRuntimeCapabilities>;
-  }) {}
+    longRunPolicy?: HermesLongRunPolicy;
+  }) {
+    this.longRunPolicy = {
+      ...DEFAULT_HERMES_LONG_RUN_POLICY,
+      ...(dependencies.longRunPolicy ?? {})
+    };
+  }
 
   capabilities(): AgentRuntimeCapabilities {
     return {
@@ -80,9 +101,9 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
     return this.dependencies.transport.getDiagnostics?.() ?? { bridgeRequestTraces: [] };
   }
 
-  async recoverBeforeFallback(input: AgentRuntimeTurnInput) {
+  async recoverBeforeFallback(input: AgentRuntimeTurnInput): Promise<AgentRuntimeRecoveryPlan> {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 1_500);
+    const timeout = setTimeout(() => controller.abort(), 5_000);
     try {
       const signal = input.signal ? AbortSignal.any([input.signal, controller.signal]) : controller.signal;
       const health = await this.dependencies.transport.health(signal);
@@ -105,14 +126,22 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
         await this.dependencies.transport.resumeSession({ sessionId: existingSession }, signal);
       }
       const persisted = input.session?.hermesRun;
-      if (persisted && supportsRuns(this.dependencies.transport) && !isTerminalRunStatus(persisted.status)) {
-        await this.settleRemoteRun(
-          persisted.runId,
-          input.turnId,
-          input.sessionId,
-          signal,
-          this.stopReason(input, "runtime_recovery", "hermes_run_stopped_for_restart")
-        );
+      if (!persisted || !supportsRuns(this.dependencies.transport)) return { kind: "retry" };
+      try {
+        const status = await this.dependencies.transport.getRun(persisted.runId, signal, this.traceContext({
+          incidentTraceId: typeof input.metadata?.incidentTraceId === "string" ? input.metadata.incidentTraceId : undefined,
+          traceId: typeof input.metadata?.attemptTraceId === "string" ? input.metadata.attemptTraceId : undefined,
+          logicalTurnId: input.turnId,
+          sessionId: input.sessionId,
+          turnId: input.turnId,
+          runId: persisted.runId
+        }));
+        return isTerminalRunStatus(status.status)
+          ? { kind: "retry" }
+          : { kind: "reattach", runId: persisted.runId };
+      } catch (error) {
+        if (isMissingRemoteRunError(error)) return { kind: "retry" };
+        throw error;
       }
     } finally {
       clearTimeout(timeout);
@@ -170,6 +199,15 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
       ? input.metadata.attemptTraceId
       : `${incidentTraceId}:attempt-1`;
     const normalized = { ...input, turnId, metadata: { ...(input.metadata ?? {}), incidentTraceId, attemptTraceId } };
+    const recoveryKind = input.metadata?.runtimeRecoveryKind === "reattach" || input.metadata?.runtimeRecoveryKind === "retry"
+      ? input.metadata.runtimeRecoveryKind
+      : undefined;
+    const semanticRetryUserMessage = typeof input.metadata?.semanticRetryUserMessage === "string"
+      ? input.metadata.semanticRetryUserMessage
+      : undefined;
+    const primaryFailureCode = typeof input.metadata?.primaryFailureCode === "string"
+      ? input.metadata.primaryFailureCode
+      : undefined;
     const active = this.activeRuns.get(input.sessionId);
     if (active && active.turnId !== turnId && ["queued", "running", "waiting_for_approval", "stopping"].includes(active.status)) {
       await this.settleRemoteRun(
@@ -193,6 +231,40 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
       , recoveryCount: 0,
       lastSubstantiveEventAt: startedAt
     };
+    const primaryCausalChain: RuntimeCausalChainEntry[] = [];
+    const secondaryRecoveryFailures: SecondaryRecoveryFailure[] = [];
+    let eventCursor = typeof input.metadata?.eventCursor === "string" ? input.metadata.eventCursor : undefined;
+    let recoveryPerformed = input.metadata?.runtimeRecoveryAttempted === true;
+    let transportReattachPerformed = input.metadata?.transportReattachAttempted === true;
+    const recordCausal = (event: string, component: string, detail?: string, runId?: string) => {
+      primaryCausalChain.push({
+        event,
+        component,
+        at: new Date().toISOString(),
+        ...(runId ? { runId } : {}),
+        attemptTraceId,
+        ...(detail ? { detail: detail.slice(0, 360) } : {})
+      });
+      if (primaryCausalChain.length > 48) primaryCausalChain.splice(0, primaryCausalChain.length - 48);
+    };
+    const recordSecondaryFailure = (error: unknown, operation: string, runId?: string) => {
+      const diagnostics = error && typeof error === "object" && !Array.isArray(error)
+        ? (error as { diagnostics?: { httpStatus?: unknown } }).diagnostics
+        : undefined;
+      const status = diagnostics && typeof diagnostics.httpStatus === "number" ? diagnostics.httpStatus : undefined;
+      secondaryRecoveryFailures.push({
+        code: errorCode(error),
+        message: error instanceof Error ? error.message.slice(0, 360) : "Hermes recovery operation failed.",
+        operation,
+        capturedAt: new Date().toISOString(),
+        ...(runId ? { runId } : {}),
+        attemptTraceId,
+        ...(status ? { httpStatus: status } : {})
+      });
+      if (secondaryRecoveryFailures.length > 16) secondaryRecoveryFailures.splice(0, secondaryRecoveryFailures.length - 16);
+    };
+    let runStartedSuccessfully = false;
+    if (primaryFailureCode) recordCausal("primary_failure", "AgentRuntimeRouter", primaryFailureCode);
     let emitted = false;
     if (!supportsRuns(this.dependencies.transport)) {
       yield* this.runLegacyAdapterTurn(normalized, counters, startedAt);
@@ -241,7 +313,7 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
           ? input.metadata.hermesSessionId
           : this.sessions.get(input.sessionId) ?? `hermes-${input.sessionId}`;
       this.sessions.set(input.sessionId, hermesSessionId);
-      if (!attachable && persisted && !isTerminalRunStatus(persisted.status)) {
+      if (!attachable && persisted && !isTerminalRunStatus(persisted.status) && recoveryKind !== "retry" && recoveryKind !== "reattach") {
         await this.settleRemoteRun(
           persisted.runId,
           turnId,
@@ -250,6 +322,9 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
           this.stopReason(normalized, "run_reconciliation", "hermes_run_reconciliation")
         );
       }
+      const runStartRequestedAt = attachable ? undefined : new Date().toISOString();
+      if (!attachable) recordCausal("run_start_requested", "HermesCareerAgentRuntime", recoveryKind === "retry" ? "semantic retry creates a new remote run" : undefined, persisted?.runId);
+      if (attachable) recordCausal("run_reattach_requested", "HermesCareerAgentRuntime", "reattach uses the persisted run id", persisted.runId);
       const started = attachable
         ? undefined
         : await (async () => {
@@ -257,7 +332,7 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
               const startedRun = await this.dependencies.transport.startRun!({
                 sessionId: hermesSessionId,
                 turnId,
-                userMessage: input.userMessage,
+                userMessage: semanticRetryUserMessage ?? input.userMessage,
                 pageContext: input.pageContext,
                 toolContracts: allowedCareerToolContracts(this.dependencies.careerToolGateway, input) as unknown as Array<Record<string, unknown>>,
                 careerSessionBinding: binding,
@@ -284,6 +359,8 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
                   retryable: false
                 });
               }
+              runStartedSuccessfully = true;
+              recordCausal("run_start_succeeded", "HermesCareerAgentRuntime", `remote status=${startedRun.status}`, startedRun.runId);
               return startedRun;
             } catch (error) {
               throw withHermesRunFailureDiagnostics(error, {
@@ -294,10 +371,13 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
                 providerStatus: health.providerStatus,
                 mcpConnected: health.mcpConnected,
                 incidentTraceId,
-                attemptTraceId
+                attemptTraceId,
+                runPhase: "before_run_start"
               });
             }
           })();
+      runStartedSuccessfully = attachable || runStartedSuccessfully;
+      if (attachable) recordCausal("run_reattach_succeeded", "HermesCareerAgentRuntime", undefined, persisted.runId);
       let handle: HermesRunHandle = attachable
         ? persisted
         : {
@@ -313,7 +393,21 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
       emitted = true;
       yield this.event(normalized, attachable ? "turn_resumed" : "progress", {
         message: attachable ? "已重新连接 Hermes 任务。" : "Hermes 长任务已启动。",
-        data: { runHandle: handle }
+        data: {
+          runHandle: handle,
+          ...(runStartRequestedAt ? { runStartRequestedAt } : {}),
+          ...(started ? { runStartedAt: new Date().toISOString(), runStartStatus: started.status } : {}),
+          ...(typeof input.metadata?.attemptNumber === "number" ? { attemptNumber: input.metadata.attemptNumber } : {}),
+          hermesSessionId,
+          ...(typeof input.metadata?.recoveryReason === "string" ? { recoveryReason: input.metadata.recoveryReason } : {}),
+          ...(primaryFailureCode ? { primaryFailureCode } : {}),
+          recoveryAttempted: recoveryPerformed,
+          transportReattachAttempted: attachable || transportReattachPerformed,
+          semanticRetryAttempted: input.metadata?.semanticRetryAttempted === true,
+          ...(recoveryKind ? { recoveryKind } : {}),
+          primaryCausalChain: primaryCausalChain.slice(),
+          ...(secondaryRecoveryFailures.length ? { secondaryRecoveryFailures: secondaryRecoveryFailures.slice() } : {})
+        }
       });
       let terminalSeen = false;
       let streamFailed = false;
@@ -325,22 +419,30 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
           logicalTurnId: turnId,
           sessionId: input.sessionId,
           turnId,
-          runId: handle.runId
-        }))) {
+          runId: handle.runId,
+          ...(eventCursor ? { eventCursor } : {})
+        }), this.longRunPolicy.observerHeartbeatMs)) {
           const heartbeat = bridgeEvent.type === "progress"
             && bridgeEvent.data && typeof bridgeEvent.data === "object" && !Array.isArray(bridgeEvent.data)
             && (bridgeEvent.data as Record<string, unknown>).heartbeat === true;
+          const quietForMs = Math.max(0, Date.now() - counters.lastSubstantiveEventAt);
+          const watchdog = heartbeat
+            ? {
+                event: "run_watchdog_check",
+                runId: handle.runId,
+                quietForMs,
+                runStatus: handle.status,
+                runtimeHealthy: runtimeAvailable,
+                action: "continue_waiting"
+              } as const
+            : undefined;
           if (heartbeat) {
-            if (counters.toolStartedAt && Date.now() - counters.toolStartedAt >= 90_000) {
-              throw hermesError("hermes_tool_inactivity_timeout", "Hermes tool activity has stalled; the run remains active for recovery.");
-            }
-            if (Date.now() - counters.lastSubstantiveEventAt >= 120_000) {
-              throw hermesError("hermes_model_inactivity_timeout", "Hermes model activity has stalled; the run remains active for recovery.");
-            }
+            recordCausal("run_watchdog_check", "HermesCareerAgentRuntime", `action=${watchdog?.action ?? "continue_waiting"}`, handle.runId);
           } else {
             counters.lastSubstantiveEventAt = Date.now();
           }
           handle = touchRunHandle(handle, statusForBridgeEvent(bridgeEvent, handle.status));
+          if (bridgeEvent.eventId) eventCursor = bridgeEvent.eventId;
           this.activeRuns.set(input.sessionId, handle);
           counters.lastEventType = bridgeEvent.type;
         if (bridgeEvent.type === "text_delta" && counters.firstTokenLatencyMs === undefined) {
@@ -358,13 +460,23 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
         if ("operationId" in bridgeEvent && typeof bridgeEvent.operationId === "string") counters.lastOperationId = bridgeEvent.operationId;
         if (bridgeEvent.type === "tool_call_started") counters.toolStartedAt = Date.now();
         if (bridgeEvent.type === "tool_call_completed" || bridgeEvent.type === "tool_call_failed") counters.toolStartedAt = undefined;
-          const event = this.mapBridgeEvent(normalized, this.normalizeCancellationEvent(bridgeEvent, handle), counters, startedAt);
+          const normalizedBridgeEvent = normalizePostStartBridgeEvent(
+            this.normalizeCancellationEvent(bridgeEvent, handle),
+            runStartedSuccessfully
+          );
+          const event = this.mapBridgeEvent(normalized, normalizedBridgeEvent, counters, startedAt);
         if (event) yield {
           ...event,
           data: mergeEventData(event.data, {
             runHandle: handle,
             incidentTraceId,
             traceId: attemptTraceId,
+            ...(watchdog ? { watchdog } : {}),
+            primaryCausalChain: primaryCausalChain.slice(),
+            ...(secondaryRecoveryFailures.length ? { secondaryRecoveryFailures: secondaryRecoveryFailures.slice() } : {}),
+            ...(recoveryPerformed ? { recoveryAttempted: true } : {}),
+            ...(attachable || transportReattachPerformed ? { transportReattachAttempted: true } : {}),
+            ...(input.metadata?.semanticRetryAttempted === true ? { semanticRetryAttempted: true } : {}),
             ...(this.controlledStops.has(handle.runId) ? { stopReason: this.controlledStops.get(handle.runId) } : {})
           })
         };
@@ -376,6 +488,8 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
               data: {
                 ...(bridgeEvent.data && typeof bridgeEvent.data === "object" ? bridgeEvent.data as Record<string, unknown> : {}),
                 runHandle: handle,
+                primaryCausalChain: primaryCausalChain.slice(),
+                ...(secondaryRecoveryFailures.length ? { secondaryRecoveryFailures: secondaryRecoveryFailures.slice() } : {}),
                 telemetry: this.telemetry(normalized, counters, "completed", startedAt)
               },
               message: bridgeEvent.message
@@ -387,57 +501,247 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
         } catch (error) {
         if (input.signal?.aborted) {
           const abortTrace = abortTraceFromSignal(input.signal, { incidentTraceId, sessionId: input.sessionId, turnId, runId: handle.runId });
-          yield this.event(normalized, "turn_paused", { message: "页面连接已断开，Hermes 任务仍在运行。", data: { runHandle: handle, ...(abortTrace ? { abortTrace } : {}) } });
+          yield this.event(normalized, "turn_paused", { message: "页面连接已断开，Hermes 任务仍在运行。", data: {
+            runHandle: handle,
+            primaryCausalChain: primaryCausalChain.slice(),
+            ...(secondaryRecoveryFailures.length ? { secondaryRecoveryFailures: secondaryRecoveryFailures.slice() } : {}),
+            ...(abortTrace ? { abortTrace } : {})
+          } });
           return;
         }
         streamFailed = true;
+        recoveryPerformed = true;
+        transportReattachPerformed = true;
         counters.recoveryCount += 1;
         counters.autonomousRecoveries += 1;
         counters.lastEventType = errorCode(error);
+        recordCausal("run_events_disconnected", "HermesCareerAgentRuntime", errorCode(error), handle.runId);
         }
         if (!terminalSeen && reconnectAttempt < 2) {
-          const status = await this.dependencies.transport.getRun(handle.runId, input.signal, this.traceContext({ incidentTraceId, traceId: attemptTraceId, sessionId: input.sessionId, turnId, runId: handle.runId }));
-          handle = touchRunHandle(handle, normalizeRunStatus(status.status));
-          this.activeRuns.set(input.sessionId, handle);
-          if (status.status === "completed" || status.status === "failed" || status.status === "cancelled") break;
-          yield this.event(normalized, "progress", {
-            message: "Hermes 事件连接已恢复，任务没有重复提交。",
-            data: { runHandle: handle, recovery: "event_stream_reattach", reconnectAttempt: reconnectAttempt + 1 }
-          });
+          try {
+            const status = await this.dependencies.transport.getRun(handle.runId, input.signal, this.traceContext({ incidentTraceId, traceId: attemptTraceId, sessionId: input.sessionId, turnId, runId: handle.runId }));
+            handle = touchRunHandle(handle, normalizeRunStatus(status.status));
+            this.activeRuns.set(input.sessionId, handle);
+            const runStatus = normalizeRunStatus(status.status);
+            const watchdog = {
+              event: "run_watchdog_check",
+              runId: handle.runId,
+              quietForMs: Math.max(0, Date.now() - counters.lastSubstantiveEventAt),
+              runStatus,
+              runtimeHealthy: runtimeAvailable,
+              action: isTerminalRunStatus(runStatus) ? "observe_terminal" : "reattach_events"
+            } as const;
+            recordCausal("run_watchdog_check", "HermesCareerAgentRuntime", `action=${watchdog.action}`, handle.runId);
+            if (isTerminalRunStatus(runStatus)) {
+              terminalSeen = true;
+              if (runStatus === "completed") {
+                yield this.event(normalized, "turn_completed", {
+                  message: status.output,
+                  data: {
+                    runHandle: handle,
+                    incidentTraceId,
+                    traceId: attemptTraceId,
+                    watchdog,
+                    ...(recoveryPerformed ? { recoveryAttempted: true } : {}),
+                    ...(transportReattachPerformed ? { transportReattachAttempted: true } : {}),
+                    primaryCausalChain: primaryCausalChain.slice(),
+                    telemetry: this.telemetry(normalized, counters, "completed", startedAt)
+                  }
+                });
+              } else {
+                const transientFailure = runStatus === "failed" && isTransientUpstreamFailure(status.error);
+                const failureCode = runStatus === "cancelled" ? this.cancellationCode(handle.runId) : "hermes_run_failed";
+                yield this.event(normalized, "turn_failed", {
+                  error: {
+                    code: failureCode,
+                    message: status.error ?? "Hermes run failed.",
+                    recoverable: runStatus === "cancelled" || transientFailure
+                  },
+                  data: {
+                    ...this.diagnostics(handle, counters, failureCode === "hermes_run_cancelled" ? "hermes_run_cancelled" : failureCode, primaryCausalChain, secondaryRecoveryFailures),
+                    incidentTraceId,
+                    traceId: attemptTraceId,
+                    watchdog,
+                    ...(recoveryPerformed ? { recoveryAttempted: true } : {}),
+                    ...(transportReattachPerformed ? { transportReattachAttempted: true } : {}),
+                    diagnostics: {
+                      retryable: runStatus === "cancelled" || transientFailure,
+                      ...(runStatus === "cancelled" ? {} : { upstreamErrorCode: status.error }),
+                      runPhase: "after_run_start"
+                    }
+                  }
+                });
+              }
+              break;
+            }
+            transportReattachPerformed = true;
+            recoveryPerformed = true;
+            yield this.event(normalized, "progress", {
+              message: "Hermes 事件连接已恢复，任务没有重复提交。",
+              data: {
+                runHandle: handle,
+                recovery: "event_stream_reattach",
+                reconnectAttempt: reconnectAttempt + 1,
+                watchdog,
+                recoveryAttempted: recoveryPerformed,
+                transportReattachAttempted: true,
+                ...(eventCursor ? { eventCursor } : {}),
+                primaryCausalChain: primaryCausalChain.slice()
+              }
+            });
+          } catch (statusError) {
+            recordSecondaryFailure(statusError, "run_status_reattach", handle.runId);
+            recordCausal("run_watchdog_check", "HermesCareerAgentRuntime", "status check failed; continue observing without stopping", handle.runId);
+            if (isMissingRemoteRunError(statusError)) {
+              terminalSeen = true;
+              const primaryCode = primaryFailureCode ?? "hermes_run_events_failed";
+              yield this.event(normalized, "turn_failed", {
+                error: {
+                  code: primaryCode,
+                  message: "Hermes 旧 run 已无法读取；原始失败保留为主因，当前读取失败已记录为次生恢复失败。",
+                  recoverable: true
+                },
+                data: {
+                  ...this.diagnostics(handle, counters, primaryCode, primaryCausalChain, secondaryRecoveryFailures),
+                  incidentTraceId,
+                  traceId: attemptTraceId,
+                  recoveryAttempted: true,
+                  transportReattachAttempted: true
+                }
+              });
+              break;
+            }
+            yield this.event(normalized, "progress", {
+              message: "Hermes 状态检查暂时失败，任务仍保留并继续等待。",
+              data: {
+                runHandle: handle,
+                recovery: "status_check_retry",
+                recoveryAttempted: recoveryPerformed,
+                watchdog: {
+                  event: "run_watchdog_check",
+                  runId: handle.runId,
+                  quietForMs: Math.max(0, Date.now() - counters.lastSubstantiveEventAt),
+                  runStatus: handle.status,
+                  runtimeHealthy: runtimeAvailable,
+                  action: "continue_waiting"
+                },
+                primaryCausalChain: primaryCausalChain.slice(),
+                secondaryRecoveryFailures: secondaryRecoveryFailures.slice()
+              }
+            });
+          }
         }
       }
       if (!terminalSeen) {
         for (;;) {
           if (input.signal?.aborted) {
             const abortTrace = abortTraceFromSignal(input.signal, { incidentTraceId, sessionId: input.sessionId, turnId, runId: handle.runId });
-            yield this.event(normalized, "turn_paused", { message: "页面连接已断开，Hermes 任务仍在运行。", data: { runHandle: handle, ...(abortTrace ? { abortTrace } : {}) } });
+            yield this.event(normalized, "turn_paused", { message: "页面连接已断开，Hermes 任务仍在运行。", data: {
+              runHandle: handle,
+              primaryCausalChain: primaryCausalChain.slice(),
+              ...(secondaryRecoveryFailures.length ? { secondaryRecoveryFailures: secondaryRecoveryFailures.slice() } : {}),
+              ...(abortTrace ? { abortTrace } : {})
+            } });
             return;
           }
-          if (Date.now() - startedAt >= 15 * 60_000) {
+          if (Date.now() - startedAt >= this.longRunPolicy.hardDeadlineMs) {
             counters.lastEventType = counters.lastEventType ?? "hermes_overall_budget_checkpoint";
+            recordCausal("run_watchdog_check", "HermesCareerAgentRuntime", "hard deadline reached; preserve the live run", handle.runId);
             yield this.event(normalized, "turn_paused", {
-              message: "本次前台等待已达到演示预算；Hermes run 未被破坏性停止，可稍后重新连接。",
-              data: { ...this.diagnostics(handle, counters, "hermes_overall_budget_checkpoint"), incidentTraceId, attemptTraceId, traceId: attemptTraceId }
+              message: "Hermes 仍在处理较长内容；前台等待已达到安全检查点，任务未被停止，可稍后重新连接。",
+              data: {
+                ...this.diagnostics(handle, counters, "hermes_overall_budget_checkpoint", primaryCausalChain, secondaryRecoveryFailures),
+                incidentTraceId,
+                attemptTraceId,
+                traceId: attemptTraceId,
+                recoveryAttempted: recoveryPerformed,
+                watchdog: {
+                  event: "run_watchdog_check",
+                  runId: handle.runId,
+                  quietForMs: Math.max(0, Date.now() - counters.lastSubstantiveEventAt),
+                  runStatus: handle.status,
+                  runtimeHealthy: runtimeAvailable,
+                  action: "continue_waiting"
+                }
+              }
             });
             return;
           }
-          const status = await this.dependencies.transport.getRun(handle.runId, input.signal, this.traceContext({ incidentTraceId, traceId: attemptTraceId, sessionId: input.sessionId, turnId, runId: handle.runId }));
+          let status;
+          try {
+            status = await this.dependencies.transport.getRun(handle.runId, input.signal, this.traceContext({ incidentTraceId, traceId: attemptTraceId, sessionId: input.sessionId, turnId, runId: handle.runId }));
+          } catch (statusError) {
+            recordSecondaryFailure(statusError, "run_status_poll", handle.runId);
+            recordCausal("run_watchdog_check", "HermesCareerAgentRuntime", "status check failed; no stop requested", handle.runId);
+            if (isMissingRemoteRunError(statusError)) {
+              terminalSeen = true;
+              const primaryCode = primaryFailureCode ?? "hermes_run_events_failed";
+              yield this.event(normalized, "turn_failed", {
+                error: {
+                  code: primaryCode,
+                  message: "Hermes run 状态不可读取；原始失败保留为主因，状态读取失败已记录为次生恢复失败。",
+                  recoverable: true
+                },
+                data: {
+                  ...this.diagnostics(handle, counters, primaryCode, primaryCausalChain, secondaryRecoveryFailures),
+                  incidentTraceId,
+                  attemptTraceId,
+                  recoveryAttempted: true,
+                  transportReattachAttempted: true
+                }
+              });
+              break;
+            }
+            await delay(this.longRunPolicy.statusPollMs, input.signal);
+            continue;
+          }
           handle = touchRunHandle(handle, normalizeRunStatus(status.status));
           this.activeRuns.set(input.sessionId, handle);
           counters.lastEventType = status.last_event ?? counters.lastEventType;
+          const watchdog = {
+            event: "run_watchdog_check",
+            runId: handle.runId,
+            quietForMs: Math.max(0, Date.now() - counters.lastSubstantiveEventAt),
+            runStatus: handle.status,
+            runtimeHealthy: runtimeAvailable,
+            action: isTerminalRunStatus(handle.status) ? "observe_terminal" : "continue_waiting"
+          } as const;
+          recordCausal("run_watchdog_check", "HermesCareerAgentRuntime", `action=${watchdog.action}`, handle.runId);
           if (status.status === "completed") {
             terminalSeen = true;
             yield this.event(normalized, "turn_completed", {
               message: status.output,
-        data: { runHandle: handle, incidentTraceId, traceId: attemptTraceId, recovery: streamFailed ? "status_poll" : undefined, telemetry: this.telemetry(normalized, counters, "completed", startedAt) }
+              data: {
+                runHandle: handle,
+                incidentTraceId,
+                traceId: attemptTraceId,
+                recovery: streamFailed ? "status_poll" : undefined,
+                watchdog,
+                primaryCausalChain: primaryCausalChain.slice(),
+                ...(secondaryRecoveryFailures.length ? { secondaryRecoveryFailures: secondaryRecoveryFailures.slice() } : {}),
+                telemetry: this.telemetry(normalized, counters, "completed", startedAt)
+              }
             });
             break;
           }
           if (status.status === "failed" || status.status === "cancelled") {
             terminalSeen = true;
+            const transientFailure = status.status === "failed" && isTransientUpstreamFailure(status.error);
+            const failureCode = status.status === "cancelled" ? this.cancellationCode(handle.runId) : "hermes_run_failed";
             yield this.event(normalized, "turn_failed", {
-              error: { code: status.status === "cancelled" ? this.cancellationCode(handle.runId) : "hermes_run_failed", message: status.error ?? "Hermes run failed.", recoverable: status.status === "cancelled" },
-              data: { ...this.diagnostics(handle, counters, status.status === "cancelled" ? "hermes_run_cancelled" : "hermes_run_failed"), incidentTraceId, attemptTraceId, traceId: attemptTraceId }
+              error: { code: failureCode, message: status.error ?? "Hermes run failed.", recoverable: status.status === "cancelled" || transientFailure },
+              data: {
+                ...this.diagnostics(handle, counters, failureCode === "hermes_run_cancelled" ? "hermes_run_cancelled" : failureCode, primaryCausalChain, secondaryRecoveryFailures),
+                incidentTraceId,
+                attemptTraceId,
+                traceId: attemptTraceId,
+                watchdog,
+                diagnostics: {
+                  retryable: status.status === "cancelled" || transientFailure,
+                  ...(status.status === "cancelled" ? {} : { upstreamErrorCode: status.error }),
+                  runPhase: "after_run_start"
+                }
+              }
             });
             break;
           }
@@ -445,7 +749,7 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
             yield this.event(normalized, "approval_required", { message: "Hermes 任务正在等待确认。", data: { runHandle: handle } });
             break;
           }
-          await delay(1_000, input.signal);
+          await delay(this.longRunPolicy.statusPollMs, input.signal);
         }
       }
       if (!terminalSeen) {
@@ -453,7 +757,7 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
         if (!emitted) throw error;
         yield this.event(normalized, "turn_failed", {
           error: { code: error.code, message: error.message, recoverable: true },
-          data: { ...this.diagnostics(handle, counters, error.code), incidentTraceId, attemptTraceId, traceId: attemptTraceId }
+          data: { ...this.diagnostics(handle, counters, error.code, primaryCausalChain, secondaryRecoveryFailures), incidentTraceId, attemptTraceId, traceId: attemptTraceId }
         });
       }
     } catch (error) {
@@ -461,13 +765,28 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
       // Hermes recovery retry. Once a turn has emitted anything, the failure
       // is terminal for this runtime and must not be replayed as Native.
       if (!emitted) throw error;
+      const safeErrorCode = runStartedSuccessfully
+        ? postStartHermesErrorCode(errorCode(error))
+        : errorCode(error);
+      if (runStartedSuccessfully && safeErrorCode !== errorCode(error)) {
+        recordCausal("run_failed_after_start", "HermesCareerAgentRuntime", `${errorCode(error)} -> ${safeErrorCode}`, this.activeRuns.get(input.sessionId)?.runId);
+      }
       yield this.event(normalized, "turn_failed", {
         error: {
-          code: errorCode(error),
+          code: safeErrorCode,
           message: error instanceof Error ? error.message : "Hermes turn failed.",
           recoverable: isRetryableHermesRunFailure(error)
         },
-        data: { ...this.diagnostics(this.activeRuns.get(input.sessionId), counters, errorCode(error)), incidentTraceId, attemptTraceId, traceId: attemptTraceId, telemetry: this.telemetry(normalized, counters, "failed", startedAt) }
+        data: {
+          ...this.diagnostics(this.activeRuns.get(input.sessionId), counters, safeErrorCode, primaryCausalChain, secondaryRecoveryFailures),
+          incidentTraceId,
+          attemptTraceId,
+          traceId: attemptTraceId,
+          ...(recoveryPerformed ? { recoveryAttempted: true } : {}),
+          ...(transportReattachPerformed ? { transportReattachAttempted: true } : {}),
+          ...(input.metadata?.semanticRetryAttempted === true ? { semanticRetryAttempted: true } : {}),
+          telemetry: this.telemetry(normalized, counters, "failed", startedAt)
+        }
       });
     }
   }
@@ -534,7 +853,13 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
     if (!emitted) throw hermesError("hermes_stream_incomplete", "Hermes adapter stream ended before the first event.");
   }
 
-  private diagnostics(handle: HermesRunHandle | undefined, counters: TurnCounters, safeErrorCode: string) {
+  private diagnostics(
+    handle: HermesRunHandle | undefined,
+    counters: TurnCounters,
+    safeErrorCode: string,
+    primaryCausalChain?: RuntimeCausalChainEntry[],
+    secondaryRecoveryFailures?: SecondaryRecoveryFailure[]
+  ) {
     return {
       runId: handle?.runId,
       hermesSessionId: handle?.hermesSessionId,
@@ -543,7 +868,9 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
       lastTool: counters.lastTool,
       lastOperationId: counters.lastOperationId,
       safeErrorCode,
-      runHandle: handle
+      runHandle: handle,
+      ...(primaryCausalChain?.length ? { primaryCausalChain: primaryCausalChain.slice(-48) } : {}),
+      ...(secondaryRecoveryFailures?.length ? { secondaryRecoveryFailures: secondaryRecoveryFailures.slice(-16) } : {})
     };
   }
 
@@ -1044,6 +1371,33 @@ function isTerminalRunStatus(status: HermesRunHandle["status"] | string) {
   return status === "completed" || status === "failed" || status === "cancelled";
 }
 
+function isMissingRemoteRunError(error: unknown) {
+  const candidate = error && typeof error === "object" && !Array.isArray(error)
+    ? error as { code?: unknown; httpStatus?: unknown; diagnostics?: { httpStatus?: unknown } }
+    : {};
+  const status = candidate.httpStatus ?? candidate.diagnostics?.httpStatus;
+  return status === 404
+    || (candidate.code === "hermes_run_status_failed" && status === undefined);
+}
+
+function postStartHermesErrorCode(code: string) {
+  if (code === "hermes_unavailable_before_turn" || code === "mcp_unavailable_before_turn" || code.startsWith("hermes_run_start_")) {
+    return "hermes_run_failed_after_start";
+  }
+  return code;
+}
+
+function isTransientUpstreamFailure(message?: string) {
+  return typeof message === "string"
+    && /(?:timeout|timed out|temporar|unavailable|overload|rate limit|reset|502|503|504|429)/iu.test(message);
+}
+
+function normalizePostStartBridgeEvent(event: HermesBridgeEvent, runStarted: boolean): HermesBridgeEvent {
+  if (!runStarted || event.type !== "turn_failed") return event;
+  const code = postStartHermesErrorCode(event.code);
+  return code === event.code ? event : { ...event, code };
+}
+
 function mergeEventData(current: unknown, extra: Record<string, unknown>) {
   return current && typeof current === "object" && !Array.isArray(current)
     ? { ...current as Record<string, unknown>, ...extra }
@@ -1068,7 +1422,8 @@ async function* eventsWithHeartbeat(
   transport: HermesBridgeTransport & Required<Pick<HermesBridgeTransport, "runEvents">>,
   runId: string,
   signal?: AbortSignal,
-  trace?: HermesRunTraceContext
+  trace?: HermesRunTraceContext,
+  heartbeatMs = DEFAULT_HERMES_LONG_RUN_POLICY.observerHeartbeatMs
 ): AsyncGenerator<HermesBridgeEvent> {
   const heartbeatController = new AbortController();
   const combinedSignal = signal
@@ -1079,10 +1434,10 @@ async function* eventsWithHeartbeat(
     for (;;) {
       let timer: ReturnType<typeof setTimeout> | undefined;
       const heartbeat = new Promise<never>((_, reject) => {
-        timer = setTimeout(() => {
-          heartbeatController.abort();
-          reject(hermesError("hermes_event_heartbeat_timeout", "Hermes event stream heartbeat timed out; the run remains active."));
-        }, 45_000);
+          timer = setTimeout(() => {
+            heartbeatController.abort();
+            reject(hermesError("hermes_event_heartbeat_timeout", "Hermes event stream heartbeat timed out; the run remains active."));
+        }, heartbeatMs);
       });
       const item = await Promise.race([iterator.next(), heartbeat]);
       if (timer) clearTimeout(timer);
@@ -1128,7 +1483,7 @@ function safeMetadata(metadata?: Record<string, unknown>) {
   if (!metadata) return undefined;
   const result: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(metadata)) {
-    if (["model", "hermesSessionId", "reattachRunId", "requireCareerSessionBinding", "fallbackUsed", "preferredRuntime", "attemptedRuntime", "finalRuntime", "fallbackReasonCode", "runtimeFailureAt", "runtimeRecoveryAttempted", "workflowId", "workflowStage", "rootGoal", "confirmed", "confirmationCount", "runtimeId", "executionOwner", "nextHermesRunId", "incidentTraceId", "logicalTurnId", "attemptTraceId", "recoveryReason"].includes(key)
+    if (["model", "hermesSessionId", "reattachRunId", "requireCareerSessionBinding", "fallbackUsed", "preferredRuntime", "attemptedRuntime", "finalRuntime", "fallbackReasonCode", "runtimeFailureAt", "runtimeRecoveryAttempted", "runtimeRecoveryKind", "transportReattachAttempted", "semanticRetryAttempted", "semanticRetryUserMessage", "attemptNumber", "primaryFailureCode", "workflowId", "workflowStage", "rootGoal", "confirmed", "confirmationCount", "runtimeId", "executionOwner", "nextHermesRunId", "incidentTraceId", "logicalTurnId", "attemptTraceId", "recoveryReason"].includes(key)
       && (typeof value === "string" || typeof value === "number" || typeof value === "boolean")) {
       result[key] = value;
       continue;

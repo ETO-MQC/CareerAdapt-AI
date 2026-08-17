@@ -26,6 +26,8 @@ export const HermesHealthSchema = z.object({
   providerStatus: z.enum(["ready", "unconfigured", "unreachable", "invalid", "unknown"]).optional(),
   contextWindow: z.number().int().min(0).optional(),
   toolCalling: z.enum(["verified", "unverified", "unsupported", "unknown"]).optional(),
+  toolCallingCapability: z.enum(["verified", "unverified", "unsupported", "unknown"]).optional(),
+  toolCallInFlight: z.boolean().optional(),
   mcpServer: z.string().min(1).optional(),
   mcpConnected: z.boolean().optional(),
   discoveredToolCount: z.number().int().min(0).optional(),
@@ -38,17 +40,19 @@ export const HermesHealthSchema = z.object({
 export type HermesHealth = z.infer<typeof HermesHealthSchema>;
 
 export type HermesBridgeEvent =
-  | { type: "progress"; message?: string; data?: unknown }
-  | { type: "reasoning_status"; message?: string; data?: unknown }
-  | { type: "text_delta"; delta: string }
-  | { type: "tool_call_requested"; toolCallId: string; toolName: string; operationId: string; logicalToolOperationId?: string; input: Record<string, unknown> }
-  | { type: "tool_call_started"; toolCallId?: string; toolName: string; operationId: string; logicalToolOperationId?: string; data?: unknown }
-  | { type: "tool_call_completed"; toolCallId?: string; toolName: string; operationId: string; logicalToolOperationId?: string; data?: unknown }
-  | { type: "tool_call_failed"; toolCallId?: string; toolName: string; operationId: string; logicalToolOperationId?: string; code: string; message: string; recoverable: boolean; data?: unknown }
-  | { type: "approval_required"; toolCallId?: string; toolName?: string; operationId?: string; data?: unknown; message?: string }
-  | { type: "artifact_updated"; data: unknown; artifactId?: string }
-  | { type: "turn_completed"; data?: unknown; message?: string }
-  | { type: "turn_failed"; code: string; message: string; recoverable: boolean; data?: unknown };
+  | ({ type: "progress"; message?: string; data?: unknown } & HermesBridgeEventMetadata)
+  | ({ type: "reasoning_status"; message?: string; data?: unknown } & HermesBridgeEventMetadata)
+  | ({ type: "text_delta"; delta: string } & HermesBridgeEventMetadata)
+  | ({ type: "tool_call_requested"; toolCallId: string; toolName: string; operationId: string; logicalToolOperationId?: string; input: Record<string, unknown> } & HermesBridgeEventMetadata)
+  | ({ type: "tool_call_started"; toolCallId?: string; toolName: string; operationId: string; logicalToolOperationId?: string; data?: unknown } & HermesBridgeEventMetadata)
+  | ({ type: "tool_call_completed"; toolCallId?: string; toolName: string; operationId: string; logicalToolOperationId?: string; data?: unknown } & HermesBridgeEventMetadata)
+  | ({ type: "tool_call_failed"; toolCallId?: string; toolName: string; operationId: string; logicalToolOperationId?: string; code: string; message: string; recoverable: boolean; data?: unknown } & HermesBridgeEventMetadata)
+  | ({ type: "approval_required"; toolCallId?: string; toolName?: string; operationId?: string; data?: unknown; message?: string } & HermesBridgeEventMetadata)
+  | ({ type: "artifact_updated"; data: unknown; artifactId?: string } & HermesBridgeEventMetadata)
+  | ({ type: "turn_completed"; data?: unknown; message?: string } & HermesBridgeEventMetadata)
+  | ({ type: "turn_failed"; code: string; message: string; recoverable: boolean; data?: unknown } & HermesBridgeEventMetadata);
+
+type HermesBridgeEventMetadata = { eventId?: string };
 
 export type HermesSession = {
   sessionId: string;
@@ -98,6 +102,7 @@ export type HermesRunTraceContext = {
   sessionId?: string;
   turnId?: string;
   runId?: string;
+  eventCursor?: string;
   stopReason?: RunStopReason;
 };
 
@@ -161,7 +166,7 @@ export class HttpHermesBridgeTransport implements HermesBridgeTransport {
   }
 
   async health(signal?: AbortSignal) {
-    const response = await this.request(`${this.endpoint}/health`, { method: "GET", signal });
+    const response = await this.request(`${this.endpoint}/health`, { method: "GET", signal }, "hermes_health_timeout");
     const payload = await response.json();
     return HermesHealthSchema.parse(payload);
   }
@@ -246,7 +251,7 @@ export class HttpHermesBridgeTransport implements HermesBridgeTransport {
   }
 
   runEvents(runId: string, signal?: AbortSignal, trace?: HermesRunTraceContext) {
-    return this.streamRequest({ action: "run_events", runId }, signal, { ...trace, runId });
+    return this.streamRequest({ action: "run_events", runId, ...(trace?.eventCursor ? { eventCursor: trace.eventCursor } : {}) }, signal, { ...trace, runId });
   }
 
   async approveRun(runId: string, choice: "once" | "session" | "always" | "deny", signal?: AbortSignal, trace?: HermesRunTraceContext) {
@@ -270,7 +275,7 @@ export class HttpHermesBridgeTransport implements HermesBridgeTransport {
         signal,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action, ...input })
-      });
+      }, `hermes_${action}_timeout`);
       const payload = await response.json().catch(() => ({})) as {
         ok?: boolean;
         data?: T;
@@ -278,12 +283,13 @@ export class HttpHermesBridgeTransport implements HermesBridgeTransport {
       };
       if (!response.ok || payload.ok === false) {
         throw bridgeError(
-          payload.error?.code ?? `hermes_bridge_http_${response.status}`,
+          payload.error?.code ?? `hermes_${action}_failed`,
           payload.error?.message ?? "Hermes bridge request failed.",
           {
             httpStatus: response.status,
             failureLayer: payload.error?.failureLayer === "provider" ? "provider" : "bridge_http",
             upstreamErrorCode: payload.error?.code,
+            hermesRunId: safeString(input.runId),
             diagnostics: payload.error?.diagnostics
           }
         );
@@ -304,19 +310,21 @@ export class HttpHermesBridgeTransport implements HermesBridgeTransport {
       response = await this.request(this.endpoint, {
         method: "POST",
         signal,
-        headers: { "Content-Type": "application/json", Accept: "application/x-ndjson" },
+        headers: { "Content-Type": "application/json", Accept: "text/event-stream, application/x-ndjson" },
         body: JSON.stringify(input)
-      });
+      }, `hermes_${String(input.action)}_timeout`);
     } catch (error) {
       this.finishBridgeTrace(traceIndex, { safeErrorCode: safeErrorCode(error), ...(errorStatus(error) ? { httpStatus: errorStatus(error) } : {}) }, signal);
       throw error;
     }
     if (!response.ok || !response.body) {
       const payload = await safeJson(response);
-      const error = bridgeError(payload?.error?.code ?? `hermes_bridge_http_${response.status}`, payload?.error?.message ?? "Hermes turn stream is unavailable.", {
+      const action = String(input.action);
+      const error = bridgeError(payload?.error?.code ?? `hermes_${action}_failed`, payload?.error?.message ?? "Hermes turn stream is unavailable.", {
         httpStatus: response.status,
         failureLayer: "bridge_http",
         upstreamErrorCode: payload?.error?.code,
+        hermesRunId: safeString(input.runId),
         diagnostics: payload?.error?.diagnostics
       });
       this.finishBridgeTrace(traceIndex, { httpStatus: response.status, safeErrorCode: safeErrorCode(error) }, signal);
@@ -327,12 +335,17 @@ export class HttpHermesBridgeTransport implements HermesBridgeTransport {
     const decoder = new TextDecoder();
     const isSse = (response.headers.get("content-type") ?? "").toLowerCase().includes("text/event-stream");
     let sseEventName = "message";
+    let sseEventId: string | undefined;
     let sseData: string[] = [];
     const consumeSseLine = (line: string) => {
       if (line.trim()) {
         if (line.startsWith(":")) return { type: "progress", data: { heartbeat: true } } satisfies HermesBridgeEvent;
         if (line.startsWith("event:")) {
           sseEventName = line.slice("event:".length).trim();
+          return undefined;
+        }
+        if (line.startsWith("id:")) {
+          sseEventId = line.slice("id:".length).trim();
           return undefined;
         }
         if (line.startsWith("data:")) {
@@ -352,8 +365,10 @@ export class HttpHermesBridgeTransport implements HermesBridgeTransport {
         const officialEventName = sseEventName === "message" && typeof payloadRecord.event === "string"
           ? payloadRecord.event
           : sseEventName;
-        const event = mapOfficialHermesEvent(officialEventName, payload);
+        const mapped = mapOfficialHermesEvent(officialEventName, payload);
+        const event = mapped && sseEventId ? { ...mapped, eventId: sseEventId } : mapped;
         sseEventName = "message";
+        sseEventId = undefined;
         sseData = [];
         return event;
       } catch {
@@ -438,13 +453,13 @@ export class HttpHermesBridgeTransport implements HermesBridgeTransport {
     this.bridgeRequestTraces[index] = { ...entry, ...patch };
   }
 
-  private async request(url: string, init: RequestInit) {
+  private async request(url: string, init: RequestInit, timeoutCode = "hermes_bridge_timeout") {
     try {
       const response = await fetch(url, init);
       return response;
     } catch (error) {
       throw bridgeError(
-        error instanceof Error && error.name === "AbortError" ? "hermes_run_start_timeout" : "hermes_bridge_unavailable",
+        error instanceof Error && error.name === "AbortError" ? timeoutCode : "hermes_bridge_unavailable",
         error instanceof Error ? error.message : "Hermes bridge is unavailable.",
         { failureLayer: "companion" }
       );
@@ -518,7 +533,8 @@ function mapOfficialHermesEvent(name: string, value: unknown): HermesBridgeEvent
     return { type: "turn_failed", code: "hermes_run_cancelled", message: "Hermes run was stopped.", recoverable: true };
   }
   if (name === "run.failed") {
-    return { type: "turn_failed", code: "hermes_run_failed", message: typeof payload.error === "string" ? payload.error : "Hermes run failed.", recoverable: false };
+    const message = typeof payload.error === "string" ? payload.error : "Hermes run failed.";
+    return { type: "turn_failed", code: "hermes_run_failed", message, recoverable: isTransientHermesEventError(message) };
   }
   if (name === "assistant.delta") {
     return typeof payload.delta === "string" ? { type: "text_delta", delta: payload.delta } : undefined;
@@ -593,6 +609,10 @@ function objectRecord(value: unknown): Record<string, unknown> {
     : {};
 }
 
+function isTransientHermesEventError(message: string) {
+  return /(?:timeout|timed out|temporar|unavailable|overload|rate limit|reset|502|503|504|429)/iu.test(message);
+}
+
 /** Convert the compatibility health shape into the authoritative contract. */
 export function toRuntimeHealth(
   health: HermesHealth,
@@ -634,7 +654,9 @@ export function toRuntimeHealth(
     providerReachable,
     ...(health.model ? { model: health.model } : {}),
     ...(health.contextWindow === undefined ? {} : { contextWindow: health.contextWindow }),
-    toolCallingAvailable: health.toolCalling === "verified",
+    toolCallingCapability: health.toolCallingCapability ?? health.toolCalling ?? "unknown",
+    toolCallingAvailable: (health.toolCallingCapability ?? health.toolCalling) === "verified",
+    toolCallInFlight: health.toolCallInFlight ?? false,
     mcpConnected: overrides.mcpConnected ?? health.mcpConnected ?? false,
     mcpToolCount: overrides.mcpToolCount ?? health.discoveredToolCount ?? 0,
     careerSkillsLoaded: overrides.careerSkillsLoaded ?? false,
@@ -658,6 +680,7 @@ function bridgeError(
     httpStatus?: number;
     failureLayer?: "companion" | "session" | "provider" | "mcp" | "run_start" | "bridge_http" | "response";
     upstreamErrorCode?: string;
+    hermesRunId?: string;
     diagnostics?: Partial<HermesRunFailureDiagnostics>;
   } = {}
 ) {

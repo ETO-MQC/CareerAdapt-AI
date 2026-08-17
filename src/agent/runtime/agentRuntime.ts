@@ -82,6 +82,10 @@ export type AgentRuntimeCapabilities = {
   runtimeVersion?: string;
 };
 
+export type AgentRuntimeRecoveryPlan =
+  | { kind: "reattach"; runId: string }
+  | { kind: "retry" };
+
 /**
  * Stable runtime boundary used by the application host.  Legacy planner
  * behavior remains available below, while native and future Hermes adapters
@@ -95,7 +99,7 @@ export interface AgentRuntime {
   resume(sessionId: string): Promise<void>;
   capabilities(): AgentRuntimeCapabilities;
   /** One bounded Hermes health/session recovery before a safe retry. */
-  recoverBeforeFallback?(input: AgentRuntimeTurnInput): Promise<void>;
+  recoverBeforeFallback?(input: AgentRuntimeTurnInput): Promise<AgentRuntimeRecoveryPlan | undefined>;
 }
 
 const ToolCallSchema = z.object({

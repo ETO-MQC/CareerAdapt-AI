@@ -102,9 +102,16 @@ async function officialHermesRequest(baseUrl: string, action: z.infer<typeof Her
     if (action === "run_stop") return proxyRunJson(root, payload, "POST", "stop");
     if (action === "run_events") {
       const runId = requiredRunId(payload);
+      const eventCursor = typeof payload.eventCursor === "string" && payload.eventCursor.trim()
+        ? payload.eventCursor.trim().slice(0, 240)
+        : undefined;
       const response = await fetch(`${root}/v1/runs/${encodeURIComponent(runId)}/events`, {
         method: "GET",
-        headers: { Accept: "text/event-stream", ...apiKeyHeader() },
+        headers: {
+          Accept: "text/event-stream",
+          ...(eventCursor ? { "Last-Event-ID": eventCursor } : {}),
+          ...apiKeyHeader()
+        },
         signal: requestSignal(),
         cache: "no-store"
       });
@@ -199,6 +206,26 @@ async function officialHermesRequest(baseUrl: string, action: z.infer<typeof Her
         companionConnected: false
       });
       recordHermesRunStartFailure(root, diagnostics);
+      return unavailable(diagnostics.safeErrorCode, diagnostics);
+    }
+    if (action === "run_events") {
+      const diagnostics = classifyHermesRunFailure({
+        code: "hermes_run_events_failed",
+        message: error instanceof Error ? error.message : "Hermes run event stream is unavailable.",
+        httpStatus: 503,
+        failureLayer: "bridge_http",
+        runPhase: "after_run_start"
+      });
+      return unavailable(diagnostics.safeErrorCode, diagnostics);
+    }
+    if (action === "run_status") {
+      const diagnostics = classifyHermesRunFailure({
+        code: "hermes_run_status_failed",
+        message: error instanceof Error ? error.message : "Hermes run status is unavailable.",
+        httpStatus: 503,
+        failureLayer: "bridge_http",
+        runPhase: "after_run_start"
+      });
       return unavailable(diagnostics.safeErrorCode, diagnostics);
     }
     return unavailable();
@@ -379,7 +406,7 @@ function isSystemStatusQuestion(value: unknown) {
 function safeRuntimeMetadata(value: unknown) {
   const metadata = asRecord(value);
   const result: Record<string, unknown> = {};
-  for (const key of ["executionOwner", "preferredRuntime", "attemptedRuntime", "finalRuntime", "fallbackUsed", "fallbackReasonCode", "workflowId", "workflowStage", "rootGoal", "runtimeId", "hermesRunId", "nextHermesRunId", "firstEventAt", "runtimeFailureAt", "runtimeRecoveryAttempted", "recoveryFailureCode", "incidentTraceId", "logicalTurnId", "attemptTraceId", "recoveryReason", "nativeAllowedSourceTools", "careerGatewayContracts", "careerMcpExposedTools", "hermesRegisteredToolsets", "hermesVisibleTools", "missingRequiredCareerTools", "lastRequestedHermesToolName", "lastRequestedCareerToolName"]) {
+  for (const key of ["executionOwner", "preferredRuntime", "attemptedRuntime", "finalRuntime", "fallbackUsed", "fallbackReasonCode", "workflowId", "workflowStage", "rootGoal", "runtimeId", "hermesSessionId", "hermesRunId", "nextHermesRunId", "firstEventAt", "runtimeFailureAt", "runtimeRecoveryAttempted", "runtimeRecoveryKind", "transportReattachAttempted", "semanticRetryAttempted", "semanticRetryUserMessage", "attemptNumber", "primaryFailureCode", "recoveryFailureCode", "incidentTraceId", "logicalTurnId", "attemptTraceId", "recoveryReason", "nativeAllowedSourceTools", "careerGatewayContracts", "careerMcpExposedTools", "hermesRegisteredToolsets", "hermesVisibleTools", "missingRequiredCareerTools", "lastRequestedHermesToolName", "lastRequestedCareerToolName"]) {
     const entry = metadata[key];
     if (typeof entry === "string" || typeof entry === "boolean" || typeof entry === "number") {
       result[key] = entry;

@@ -15,6 +15,7 @@ export const dynamic = "force-dynamic";
 
 const HERMES_HEALTH_REQUEST_TIMEOUT_MS = 15_000;
 const HERMES_TOOLSET_CACHE_TTL_MS = 10_000;
+const HERMES_TOOLSET_REQUEST_TIMEOUT_MS = 60_000;
 let hermesToolsetSnapshotCache: {
   runtimeBaseUrl: string;
   snapshot: HermesToolsetSnapshot;
@@ -87,6 +88,10 @@ async function proxy(url: string, mcp: ReturnType<typeof statusCareerAdaptMcpBri
       toolCalling: typeof upstream.toolCalling === "string"
         ? normalizeToolCalling(upstream.toolCalling)
         : configuredProvider?.toolCalling ?? normalizeToolCalling(upstream.toolCalling),
+      toolCallingCapability: typeof upstream.toolCallingCapability === "string"
+        ? normalizeToolCalling(upstream.toolCallingCapability)
+        : undefined,
+      toolCallInFlight: typeof upstream.toolCallInFlight === "boolean" ? upstream.toolCallInFlight : undefined,
       ...(upstream.roadshowMode === true ? { roadshowMode: true } : {}),
       ...(upstreamRuntimeHealth ? { runtimeHealth: upstreamRuntimeHealth } : {}),
       mcpServer: mcp.server,
@@ -176,7 +181,10 @@ async function withRuntimeHealth(
     providerReady,
     ...(health.model || upstreamRuntimeHealth?.model ? { model: health.model ?? upstreamRuntimeHealth?.model } : {}),
     ...(health.contextWindow === undefined && upstreamRuntimeHealth?.contextWindow === undefined ? {} : { contextWindow: health.contextWindow ?? upstreamRuntimeHealth?.contextWindow }),
-    toolCallingAvailable: upstreamRuntimeHealth?.toolCallingAvailable ?? health.toolCalling === "verified",
+    toolCallingCapability: upstreamRuntimeHealth?.toolCallingCapability ?? health.toolCallingCapability ?? health.toolCalling ?? "unknown",
+    toolCallingAvailable: upstreamRuntimeHealth?.toolCallingAvailable
+      ?? (health.toolCallingCapability ?? health.toolCalling) === "verified",
+    toolCallInFlight: upstreamRuntimeHealth?.toolCallInFlight ?? health.toolCallInFlight ?? false,
     mcpConnected: mcp.connected,
     mcpReady,
     mcpToolCount: exposedContracts.length,
@@ -275,7 +283,7 @@ async function readHermesToolsetSnapshot(runtimeBaseUrl?: string): Promise<Herme
           // availability checks before returning the live MCP registry. On a
           // cold packaged start this official endpoint can take several
           // seconds even after /health is ready.
-          signal: AbortSignal.timeout(20_000),
+          signal: AbortSignal.timeout(HERMES_TOOLSET_REQUEST_TIMEOUT_MS),
           cache: "no-store"
         });
         if (!response.ok) return snapshot;

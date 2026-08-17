@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { AgentRuntime, AgentRuntimeEvent, AgentRuntimeTurnInput } from "./agentRuntime";
+import type { AgentRuntime, AgentRuntimeEvent, AgentRuntimeRecoveryPlan, AgentRuntimeTurnInput } from "./agentRuntime";
 import type { RuntimeUserEvent } from "./RuntimeUserEvent";
 import { isRetryableHermesRunFailure } from "./hermes/hermesRunReliability";
 import type { RunStopReason } from "./hermes/hermesIncidentTrace";
@@ -103,7 +103,7 @@ class RoutedAgentRuntime implements AgentRuntime {
   }
 
   async recoverBeforeFallback(input: AgentRuntimeTurnInput) {
-    await this.preferred.recoverBeforeFallback?.(input);
+    return this.preferred.recoverBeforeFallback?.(input);
   }
 
   async *runTurn(input: AgentRuntimeTurnInput): AsyncIterable<AgentRuntimeEvent> {
@@ -190,16 +190,26 @@ class RoutedAgentRuntime implements AgentRuntime {
         // second preferred attempt is safe because the first attempt emitted
         // no protocol event and therefore did not expose an authoritative
         // write or stream to the host.
-        await this.preferred.recoverBeforeFallback?.(input);
+        const recoveryPlan: AgentRuntimeRecoveryPlan = await this.preferred.recoverBeforeFallback?.(input) ?? { kind: "retry" };
         const recoveryAttemptTraceId = nextAttemptTraceId(input.metadata);
         const recoveryInput = {
           ...input,
+          userMessage: recoveryPlan.kind === "reattach" ? "" : input.userMessage,
           metadata: {
             ...(input.metadata ?? {}),
             ...(recoveryAttemptTraceId ? { attemptTraceId: recoveryAttemptTraceId } : {}),
             runtimeRecoveryAttempted: true,
             runtimeFailureAt,
-            fallbackReasonCode
+            fallbackReasonCode,
+            runtimeRecoveryKind: recoveryPlan.kind,
+            primaryFailureCode: fallbackReasonCode,
+            ...(recoveryPlan.kind === "reattach"
+              ? { reattachRunId: recoveryPlan.runId, transportReattachAttempted: true }
+              : {
+                  reattachRunId: undefined,
+                  semanticRetryAttempted: true,
+                  semanticRetryUserMessage: input.userMessage
+                })
           }
         };
         for await (const event of this.preferred.runTurn(recoveryInput)) {
@@ -216,6 +226,9 @@ class RoutedAgentRuntime implements AgentRuntime {
             fallbackReasonCode,
             runtimeFailureAt,
             runtimeRecoveryAttempted: true,
+            runtimeRecoveryKind: recoveryPlan.kind,
+            transportReattachAttempted: recoveryPlan.kind === "reattach",
+            semanticRetryAttempted: recoveryPlan.kind === "retry",
             firstEventAt
           });
         }
@@ -241,7 +254,23 @@ class RoutedAgentRuntime implements AgentRuntime {
         data: {
           diagnostics: {
             initialFailure: initialFailureDiagnostics,
-            ...(recoveryFailureDiagnostics ? { recoveryFailure: recoveryFailureDiagnostics } : {})
+            ...(recoveryFailureDiagnostics ? { recoveryFailure: recoveryFailureDiagnostics } : {}),
+            primaryCausalChain: [
+              {
+                event: "primary_failure",
+                component: "RoutedAgentRuntime",
+                at: runtimeFailureAt,
+                attemptTraceId: stringMetadata(input.metadata?.attemptTraceId),
+                detail: fallbackReasonCode
+              },
+              ...(recoveryFailureCode ? [{
+                event: "recovery_failure",
+                component: "RoutedAgentRuntime",
+                at: new Date().toISOString(),
+                attemptTraceId: stringMetadata(nextAttemptTraceId(input.metadata)),
+                detail: recoveryFailureCode
+              }] : [])
+            ]
           },
           telemetry: {
             preferredRuntime: this.preferred.id,
@@ -251,6 +280,7 @@ class RoutedAgentRuntime implements AgentRuntime {
             fallbackReasonCode,
             runtimeFailureAt,
             recoveryFailureCode: code,
+            primaryFailureCode: fallbackReasonCode,
             firstEventAt
           }
         }
@@ -277,6 +307,10 @@ function decorateRuntimeEvent(event: AgentRuntimeEvent, metadata: Record<string,
     runtimeFailureAt: stringMetadata(metadata.runtimeFailureAt),
     executionOwner: metadata.executionOwner,
     runtimeRecoveryAttempted: metadata.runtimeRecoveryAttempted === true,
+    runtimeRecoveryKind: metadata.runtimeRecoveryKind,
+    transportReattachAttempted: metadata.transportReattachAttempted === true,
+    semanticRetryAttempted: metadata.semanticRetryAttempted === true,
+    primaryFailureCode: stringMetadata(metadata.primaryFailureCode),
     recoveryFailureCode: stringMetadata(metadata.recoveryFailureCode)
   };
   return {

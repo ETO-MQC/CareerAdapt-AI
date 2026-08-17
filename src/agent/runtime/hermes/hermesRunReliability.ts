@@ -19,6 +19,7 @@ export type HermesRunFailureDiagnostics = {
   hermesRunId?: string;
   requestedTurnId?: string;
   runStartKind?: "new" | "reattach";
+  runPhase?: "before_run_start" | "after_run_start";
   companionConnected?: boolean;
   providerStatus?: string;
   mcpConnected?: boolean;
@@ -38,6 +39,7 @@ export const HermesRunFailureDiagnosticsSchema = z.object({
   hermesRunId: z.string().min(1).optional(),
   requestedTurnId: z.string().min(1).optional(),
   runStartKind: z.enum(["new", "reattach"]).optional(),
+  runPhase: z.enum(["before_run_start", "after_run_start"]).optional(),
   companionConnected: z.boolean().optional(),
   providerStatus: z.string().min(1).optional(),
   mcpConnected: z.boolean().optional(),
@@ -64,6 +66,7 @@ export type HermesRunFailureInput = {
   hermesRunId?: string;
   requestedTurnId?: string;
   runStartKind?: "new" | "reattach";
+  runPhase?: "before_run_start" | "after_run_start";
   companionConnected?: boolean;
   providerStatus?: string;
   mcpConnected?: boolean;
@@ -90,7 +93,8 @@ export function createHermesRunFailure(input: HermesRunFailureInput): HermesRunF
 
 export function classifyHermesRunFailure(input: HermesRunFailureInput): HermesRunFailureDiagnostics {
   const sourceCode = safeCode(input.code) ?? "hermes_run_start_failed";
-  const sourceMessage = safeMessage(input.message) ?? "Hermes 本轮任务没有启动。";
+  const sourceMessage = safeMessage(input.message)
+    ?? (input.runPhase === "after_run_start" ? "Hermes 本轮任务没有完成。" : "Hermes 本轮任务没有启动。");
   const status = input.httpStatus;
   const code = sourceCode.toLowerCase();
   const message = sourceMessage.toLowerCase();
@@ -109,6 +113,8 @@ export function classifyHermesRunFailure(input: HermesRunFailureInput): HermesRu
   const transientHttp = status === 408 || status === 425 || status === 429 || (status !== undefined && status >= 500);
   const companionFailure = /companion|bridge[_ -]?(unavailable|http)|network|connect/u.test(code)
     || /companion|bridge|network|connect/u.test(message);
+  const postStartOperation = /^hermes_run_(events|status|approval|stop)_(failed|timeout)$/u.test(sourceCode);
+  const postStartPhase = input.runPhase === "after_run_start";
 
   let safeErrorCode = sourceCode;
   let retryable = input.retryable ?? true;
@@ -117,6 +123,13 @@ export function classifyHermesRunFailure(input: HermesRunFailureInput): HermesRu
     safeErrorCode = "hermes_provider_auth_failed";
     retryable = false;
     failureLayer = "provider";
+  } else if (postStartOperation) {
+    // A status/events/approval/stop failure belongs to an already-created
+    // run. Preserve its operation-specific code even when the provider says
+    // "run id not found"; it must not be reclassified as run_start failure.
+    safeErrorCode = sourceCode;
+    retryable = input.retryable ?? (status === undefined || transientHttp);
+    failureLayer = "bridge_http";
   } else if (invalidResponse) {
     safeErrorCode = "hermes_run_start_invalid_response";
     retryable = false;
@@ -126,7 +139,7 @@ export function classifyHermesRunFailure(input: HermesRunFailureInput): HermesRu
     retryable = true;
     failureLayer = "run_start";
   } else if (timeout) {
-    safeErrorCode = "hermes_run_start_timeout";
+    safeErrorCode = postStartOperation ? sourceCode : "hermes_run_start_timeout";
     retryable = true;
     failureLayer = "bridge_http";
   } else if (configurationFailure) {
@@ -142,12 +155,16 @@ export function classifyHermesRunFailure(input: HermesRunFailureInput): HermesRu
     retryable = true;
     failureLayer = "companion";
   } else if (transientHttp) {
-    safeErrorCode = "hermes_run_start_http_failed";
+    safeErrorCode = postStartOperation ? sourceCode : "hermes_run_start_http_failed";
     retryable = true;
     failureLayer = "bridge_http";
   } else if (status !== undefined && status >= 400) {
-    safeErrorCode = "hermes_run_start_http_failed";
+    safeErrorCode = postStartOperation ? sourceCode : "hermes_run_start_http_failed";
     retryable = false;
+    failureLayer = "bridge_http";
+  } else if (postStartPhase && (sourceCode === "hermes_unavailable_before_turn" || sourceCode.startsWith("hermes_run_start_"))) {
+    safeErrorCode = "hermes_run_failed_after_start";
+    retryable = input.retryable ?? true;
     failureLayer = "bridge_http";
   } else if (sourceCode === "hermes_bridge_unavailable") {
     safeErrorCode = "hermes_companion_unavailable";
@@ -165,6 +182,7 @@ export function classifyHermesRunFailure(input: HermesRunFailureInput): HermesRu
     ...(input.hermesRunId ? { hermesRunId: input.hermesRunId } : {}),
     ...(input.requestedTurnId ? { requestedTurnId: input.requestedTurnId } : {}),
     ...(input.runStartKind ? { runStartKind: input.runStartKind } : {}),
+    ...(input.runPhase ? { runPhase: input.runPhase } : {}),
     ...(input.companionConnected === undefined ? {} : { companionConnected: input.companionConnected }),
     ...(input.providerStatus ? { providerStatus: input.providerStatus } : {}),
     ...(input.mcpConnected === undefined ? {} : { mcpConnected: input.mcpConnected }),

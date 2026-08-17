@@ -15,7 +15,11 @@ export const RuntimeHealthSchema = z.object({
   providerReady: z.boolean().optional(),
   model: z.string().min(1).optional(),
   contextWindow: z.number().int().min(0).optional(),
+  /** Capability of the configured model/runtime; it is not an in-flight tool call. */
+  toolCallingCapability: z.enum(["verified", "unverified", "unsupported", "unknown"]).optional(),
   toolCallingAvailable: z.boolean(),
+  /** Observational state only. Watchdogs must not infer a stall from this flag. */
+  toolCallInFlight: z.boolean().optional(),
   mcpConnected: z.boolean(),
   mcpReady: z.boolean().optional(),
   mcpToolCount: z.number().int().min(0),

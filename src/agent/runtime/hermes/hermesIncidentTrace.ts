@@ -35,19 +35,45 @@ export const RuntimeAttemptSchema = z.object({
   runId: z.string().min(1).optional(),
   startRequestedAt: z.string().datetime({ offset: true }).optional(),
   runStartedAt: z.string().datetime({ offset: true }).optional(),
+  runStartStatus: z.enum(["started", "queued", "running"]).optional(),
   firstEventAt: z.string().datetime({ offset: true }).optional(),
   terminalAt: z.string().datetime({ offset: true }).optional(),
+  terminalStatus: z.enum(["completed", "failed", "cancelled"]).optional(),
   status: z.enum(["requested", "queued", "running", "waiting_for_approval", "completed", "failed", "cancelled", "paused"]),
   lastEventType: z.string().min(1).optional(),
   failureCode: z.string().min(1).optional(),
   failureLayer: z.string().min(1).optional(),
   retryable: z.boolean().optional(),
   recoveryReason: z.string().min(1).optional(),
+  recoveryKind: z.enum(["reattach", "retry", "restart"]).optional(),
   cancellationOwner: z.string().min(1).optional(),
   stopReason: RunStopReasonSchema.optional()
 }).strict();
 
 export type RuntimeAttempt = z.infer<typeof RuntimeAttemptSchema>;
+
+export const RuntimeCausalChainEntrySchema = z.object({
+  event: z.string().min(1).max(120),
+  component: z.string().min(1).max(160),
+  at: z.string().datetime({ offset: true }),
+  runId: z.string().min(1).optional(),
+  attemptTraceId: z.string().min(1).optional(),
+  detail: z.string().max(360).optional()
+}).strict();
+
+export type RuntimeCausalChainEntry = z.infer<typeof RuntimeCausalChainEntrySchema>;
+
+export const SecondaryRecoveryFailureSchema = z.object({
+  code: z.string().min(1).max(160),
+  message: z.string().min(1).max(360),
+  operation: z.string().min(1).max(80),
+  capturedAt: z.string().datetime({ offset: true }),
+  runId: z.string().min(1).optional(),
+  attemptTraceId: z.string().min(1).optional(),
+  httpStatus: z.number().int().min(100).max(599).optional()
+}).strict();
+
+export type SecondaryRecoveryFailure = z.infer<typeof SecondaryRecoveryFailureSchema>;
 
 export const AbortTraceSchema = z.object({
   abortSource: z.enum([

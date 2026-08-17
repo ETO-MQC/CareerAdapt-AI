@@ -20,9 +20,11 @@ import {
   createIncidentTraceId,
   createRunStopReason,
   AbortTraceSchema,
+  RuntimeCausalChainEntrySchema,
   RuntimeAttemptSchema,
   RuntimeFailureSnapshotSchema,
   RunStopReasonSchema,
+  SecondaryRecoveryFailureSchema,
   type AbortTrace,
   type RuntimeAttempt,
   type RunStopReason
@@ -1505,7 +1507,7 @@ export class AgentHostStore {
     userMessage: string;
     runtimeId: string;
     turnId?: string;
-    runtimeDiagnostics?: Partial<Pick<NonNullable<AgentSession["activeTurn"]>, "preferredRuntime" | "attemptedRuntime" | "finalRuntime" | "executionOwner" | "fallbackUsed" | "fallbackReasonCode" | "hermesRunId" | "nextHermesRunId" | "firstEventAt" | "runtimeFailureAt" | "incidentTraceId" | "runtimeAttempts" | "turnStartSnapshot" | "runtimeFailureSnapshot" | "cancellation" | "abortTraces" | "recoveryAttempted">>;
+    runtimeDiagnostics?: Partial<Pick<NonNullable<AgentSession["activeTurn"]>, "preferredRuntime" | "attemptedRuntime" | "finalRuntime" | "executionOwner" | "fallbackUsed" | "fallbackReasonCode" | "hermesRunId" | "nextHermesRunId" | "firstEventAt" | "runtimeFailureAt" | "incidentTraceId" | "runtimeAttempts" | "primaryCausalChain" | "secondaryRecoveryFailures" | "transportReattachAttempted" | "semanticRetryAttempted" | "runtimeRestartAttempted" | "turnStartSnapshot" | "runtimeFailureSnapshot" | "runtimeFailureDiagnostics" | "cancellation" | "abortTraces" | "recoveryAttempted">>;
   }) {
     const now = new Date().toISOString();
     const turnId = input.turnId ?? `runtime-turn-${crypto.randomUUID()}`;
@@ -9824,6 +9826,24 @@ function applyRuntimeEventDiagnostics(session: AgentSession, event: AgentRuntime
   const failureSnapshot = RuntimeFailureSnapshotSchema.safeParse(failureSnapshotCandidate);
   const stopReason = RunStopReasonSchema.safeParse(data.stopReason ?? telemetry.stopReason);
   const abortTrace = AbortTraceSchema.safeParse(data.abortTrace ?? telemetry.abortTrace);
+  const causalChainCandidate = data.primaryCausalChain
+    ?? telemetry.primaryCausalChain
+    ?? runtimeFailureDiagnostics?.primaryCausalChain;
+  const primaryCausalChain = Array.isArray(causalChainCandidate)
+    ? causalChainCandidate.flatMap((entry) => {
+        const parsed = RuntimeCausalChainEntrySchema.safeParse(entry);
+        return parsed.success ? [parsed.data] : [];
+      }).slice(-48)
+    : undefined;
+  const secondaryFailureCandidate = data.secondaryRecoveryFailures
+    ?? telemetry.secondaryRecoveryFailures
+    ?? runtimeFailureDiagnostics?.secondaryRecoveryFailures;
+  const secondaryRecoveryFailures = Array.isArray(secondaryFailureCandidate)
+    ? secondaryFailureCandidate.flatMap((entry) => {
+        const parsed = SecondaryRecoveryFailureSchema.safeParse(entry);
+        return parsed.success ? [parsed.data] : [];
+      }).slice(-16)
+    : undefined;
   const nextRuntimeAttempts = updateRuntimeAttempts(session.activeTurn.runtimeAttempts, {
     event,
     data,
@@ -9836,6 +9856,29 @@ function applyRuntimeEventDiagnostics(session: AgentSession, event: AgentRuntime
     : session.activeTurn.abortTraces;
   const nextRuntimeFailureSnapshot = session.activeTurn.runtimeFailureSnapshot
     ?? (failureSnapshot.success ? failureSnapshot.data : undefined);
+  const previousHermesRunId = session.activeTurn.hermesRunId;
+  const observedNextHermesRunId = nextHermesRunId
+    ?? (hermesRunId && previousHermesRunId && hermesRunId !== previousHermesRunId ? hermesRunId : undefined);
+  const mergedPrimaryCausalChain = primaryCausalChain
+    ? [...(session.activeTurn.primaryCausalChain ?? []), ...primaryCausalChain]
+      .filter((entry, index, entries) => entries.findIndex((candidate) =>
+        candidate.event === entry.event
+        && candidate.at === entry.at
+        && candidate.runId === entry.runId
+        && candidate.attemptTraceId === entry.attemptTraceId
+      ) === index)
+      .slice(-48)
+    : session.activeTurn.primaryCausalChain;
+  const mergedSecondaryRecoveryFailures = secondaryRecoveryFailures
+    ? [...(session.activeTurn.secondaryRecoveryFailures ?? []), ...secondaryRecoveryFailures]
+      .filter((entry, index, entries) => entries.findIndex((candidate) =>
+        candidate.code === entry.code
+        && candidate.capturedAt === entry.capturedAt
+        && candidate.runId === entry.runId
+        && candidate.operation === entry.operation
+      ) === index)
+      .slice(-16)
+    : session.activeTurn.secondaryRecoveryFailures;
   return {
     ...session,
     activeTurn: {
@@ -9848,14 +9891,19 @@ function applyRuntimeEventDiagnostics(session: AgentSession, event: AgentRuntime
       fallbackUsed: fallbackUsed || session.activeTurn.fallbackUsed === true,
       fallbackReasonCode: fallbackReasonCode ?? session.activeTurn.fallbackReasonCode,
       hermesRunId: hermesRunId ?? session.activeTurn.hermesRunId,
-      nextHermesRunId: nextHermesRunId ?? (session.activeTurn.executionOwner === "deterministic_transition" ? hermesRunId : session.activeTurn.nextHermesRunId),
+      nextHermesRunId: observedNextHermesRunId ?? (session.activeTurn.executionOwner === "deterministic_transition" ? hermesRunId : session.activeTurn.nextHermesRunId),
       firstEventAt: session.activeTurn.firstEventAt ?? event.timestamp,
       runtimeFailureAt: runtimeFailureAt ?? (event.type === "turn_failed" ? event.timestamp : session.activeTurn.runtimeFailureAt),
       runtimeAttempts: nextRuntimeAttempts,
       ...(failureSnapshot.success && !session.activeTurn.runtimeFailureSnapshot ? { runtimeFailureSnapshot: failureSnapshot.data } : {}),
       ...(stopReason.success ? { cancellation: stopReason.data } : {}),
       ...(nextAbortTraces ? { abortTraces: nextAbortTraces } : {}),
-      ...(data.recoveryAttempted === true || telemetry.recoveryAttempted === true ? { recoveryAttempted: true } : {}),
+      ...(mergedPrimaryCausalChain ? { primaryCausalChain: mergedPrimaryCausalChain } : {}),
+      ...(mergedSecondaryRecoveryFailures ? { secondaryRecoveryFailures: mergedSecondaryRecoveryFailures } : {}),
+      ...(data.recoveryAttempted === true || telemetry.recoveryAttempted === true || data.transportReattachAttempted === true || telemetry.transportReattachAttempted === true || data.semanticRetryAttempted === true || telemetry.semanticRetryAttempted === true ? { recoveryAttempted: true } : {}),
+      ...(data.transportReattachAttempted === true || telemetry.transportReattachAttempted === true ? { transportReattachAttempted: true } : {}),
+      ...(data.semanticRetryAttempted === true || telemetry.semanticRetryAttempted === true ? { semanticRetryAttempted: true } : {}),
+      ...(data.runtimeRestartAttempted === true || telemetry.runtimeRestartAttempted === true ? { runtimeRestartAttempted: true } : {}),
       ...(runtimeFailureDiagnostics && event.type === "turn_failed"
         ? { runtimeFailureDiagnostics }
         : {}),
@@ -9891,6 +9939,7 @@ function updateRuntimeAttempts(
     || (runId && attempt.runId === runId)
   );
   const existing = index >= 0 ? current[index] : undefined;
+  if (!runId && !existing) return attempts;
   const status = runtimeAttemptStatus(event, data, telemetry, existing?.status);
   const stopReason = RunStopReasonSchema.safeParse(data.stopReason ?? telemetry.stopReason);
   const cancellationOwner = stringValue(data.cancellationOwner)
@@ -9898,9 +9947,20 @@ function updateRuntimeAttempts(
     ?? (stopReason.success ? stopReason.data.requestedBy : undefined)
     ?? (event.error?.code === "hermes_run_cancelled_upstream" ? "upstream" : undefined);
   const diagnostics = objectValue(data.diagnostics);
+  const attemptNumber = numberValue(data.attemptNumber)
+    ?? numberValue(telemetry.attemptNumber)
+    ?? existing?.attemptNumber
+    ?? Math.max(1, ...current.map((attempt) => attempt.attemptNumber + 1));
+  const runStartStatus = stringValue(data.runStartStatus) ?? stringValue(telemetry.runStartStatus);
+  const terminalStatus = event.type === "turn_completed"
+    ? "completed"
+    : event.type === "turn_failed" || event.type === "turn_interrupted"
+      ? event.error?.code?.includes("cancel") || data.cancellationOwner || telemetry.cancellationOwner ? "cancelled" : "failed"
+      : undefined;
+  const recoveryKind = stringValue(data.recoveryKind) ?? stringValue(telemetry.recoveryKind);
   const attempt = RuntimeAttemptSchema.parse({
     ...(existing ?? {
-      attemptNumber: current.length + 1,
+      attemptNumber,
       traceId,
       sessionId: event.sessionId,
       turnId: event.turnId,
@@ -9909,9 +9969,11 @@ function updateRuntimeAttempts(
     ...(runId ? { runId } : {}),
     ...(stringValue(data.hermesSessionId) || stringValue(diagnostics.hermesSessionId) ? { hermesSessionId: stringValue(data.hermesSessionId) ?? stringValue(diagnostics.hermesSessionId) } : {}),
     status,
+    ...(runStartStatus === "started" || runStartStatus === "queued" || runStartStatus === "running" ? { runStartStatus } : {}),
+    ...(terminalStatus ? { terminalStatus } : {}),
     lastEventType: event.type,
-    ...(existing?.startRequestedAt ? {} : { startRequestedAt: event.timestamp }),
-    ...(existing?.runStartedAt ? {} : { runStartedAt: event.timestamp }),
+    ...(existing?.startRequestedAt ? {} : { startRequestedAt: stringValue(data.runStartRequestedAt) ?? stringValue(telemetry.runStartRequestedAt) ?? event.timestamp }),
+    ...(existing?.runStartedAt ? {} : { runStartedAt: stringValue(data.runStartedAt) ?? stringValue(telemetry.runStartedAt) ?? event.timestamp }),
     ...(existing?.firstEventAt ? {} : { firstEventAt: event.timestamp }),
     ...(event.type === "turn_completed" || event.type === "turn_failed" || event.type === "turn_interrupted" ? { terminalAt: event.timestamp } : {}),
     ...(event.error?.code || stringValue(data.safeErrorCode) || stringValue(diagnostics.safeErrorCode)
@@ -9920,6 +9982,7 @@ function updateRuntimeAttempts(
     ...(stringValue(diagnostics.failureLayer) ? { failureLayer: stringValue(diagnostics.failureLayer) } : {}),
     ...(typeof diagnostics.retryable === "boolean" ? { retryable: diagnostics.retryable } : {}),
     ...(stringValue(data.recoveryReason) ? { recoveryReason: stringValue(data.recoveryReason) } : {}),
+    ...(recoveryKind === "reattach" || recoveryKind === "retry" || recoveryKind === "restart" ? { recoveryKind } : {}),
     ...(cancellationOwner ? { cancellationOwner } : {}),
     ...(stopReason.success ? { stopReason: stopReason.data } : {})
   });

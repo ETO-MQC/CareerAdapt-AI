@@ -10,7 +10,9 @@ const {
 } = require("./hermesCompanion");
 
 const STARTUP_TIMEOUT_MS = 60_000;
-const STARTUP_SYNC_TIMEOUT_MS = 20_000;
+// Career tool discovery is a readiness deadline, not a run liveness deadline.
+// A healthy long run must never be stopped because this boot-time check is slow.
+const STARTUP_SYNC_TIMEOUT_MS = 60_000;
 const HEALTH_TIMEOUT_MS = 12_000;
 const STABLE_READY_WINDOW_MS = 60_000;
 const AUTO_RESTART_DELAYS_MS = [1_000, 3_000, 10_000];
@@ -793,7 +795,9 @@ function sanitizeHealth(value) {
     "providerReachable",
     "providerReady",
     "model",
+    "toolCallingCapability",
     "toolCallingAvailable",
+    "toolCallInFlight",
     "mcpConnected",
     "mcpReady",
     "mcpToolCount",

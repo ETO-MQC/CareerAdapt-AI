@@ -39,6 +39,8 @@ export type RuntimeStatusSnapshot = {
   model?: string;
   contextWindow?: number;
   toolCalling?: "verified" | "unverified" | "unsupported" | "unknown";
+  toolCallingCapability?: "verified" | "unverified" | "unsupported" | "unknown";
+  toolCallInFlight?: boolean;
   mcpServer?: string;
   mcpConnected?: boolean;
   discoveredToolCount?: number;
@@ -138,7 +140,9 @@ export class RuntimeStatusStore {
       }),
       model: health.model,
       contextWindow: health.contextWindow,
-      toolCalling: health.toolCallingAvailable ? "verified" : "unverified",
+      toolCalling: health.toolCallingCapability ?? (health.toolCallingAvailable ? "verified" : "unverified"),
+      toolCallingCapability: health.toolCallingCapability ?? (health.toolCallingAvailable ? "verified" : "unverified"),
+      toolCallInFlight: health.toolCallInFlight,
       mcpServer: "careeradapt",
       mcpConnected: health.mcpConnected,
       discoveredToolCount: health.mcpToolCount,

@@ -285,7 +285,11 @@ function createAgentHost() {
     const reattachedAttempt = reattachingHermesRun
       ? input.session?.activeTurn?.runtimeAttempts?.find((attempt) => attempt.runId === input.session?.hermesRun?.runId)
       : undefined;
-    const attemptNumber = (runtimeRequest.session?.activeTurn?.runtimeAttempts?.length ?? 0) + (reattachedAttempt ? 0 : 1);
+    const existingAttemptNumbers = runtimeRequest.session?.activeTurn?.runtimeAttempts?.map((attempt) => attempt.attemptNumber) ?? [];
+    const requestedAttemptNumber = typeof input.metadata?.attemptNumber === "number" && Number.isInteger(input.metadata.attemptNumber)
+      ? Math.max(1, input.metadata.attemptNumber)
+      : Math.max(1, ...existingAttemptNumbers.map((value) => value + 1));
+    const attemptNumber = reattachedAttempt?.attemptNumber ?? requestedAttemptNumber;
     const attemptTraceId = typeof input.metadata?.attemptTraceId === "string" && input.metadata.attemptTraceId.trim()
       ? input.metadata.attemptTraceId
       : reattachedAttempt?.traceId ?? `${incidentTraceId}:attempt-${Math.max(1, attemptNumber)}`;
@@ -303,21 +307,19 @@ function createAgentHost() {
             finalRuntime: "hermes",
             fallbackUsed: false,
             incidentTraceId,
-            runtimeAttempts: [
-              ...(reattachedAttempt ? runtimeRequest.session.activeTurn?.runtimeAttempts ?? [] : []),
-              ...(!reattachedAttempt ? [{
-                attemptNumber: Math.max(1, attemptNumber),
-                traceId: attemptTraceId,
-                sessionId: runtimeRequest.session.id,
-                turnId: runtimeShellTurnId ?? runtimeRequest.turnId ?? "runtime-turn-unknown",
-                status: "requested" as const,
-                startRequestedAt: new Date().toISOString(),
-                ...(input.metadata?.recoveryReason && typeof input.metadata.recoveryReason === "string" ? { recoveryReason: input.metadata.recoveryReason } : {})
-              }] : [])
-            ],
+            hermesRunId: runtimeRequest.session.activeTurn?.hermesRunId,
+            nextHermesRunId: runtimeRequest.session.activeTurn?.nextHermesRunId,
+            runtimeAttempts: runtimeRequest.session.activeTurn?.runtimeAttempts ?? [],
+            primaryCausalChain: runtimeRequest.session.activeTurn?.primaryCausalChain,
+            secondaryRecoveryFailures: runtimeRequest.session.activeTurn?.secondaryRecoveryFailures,
+            runtimeFailureDiagnostics: runtimeRequest.session.activeTurn?.runtimeFailureDiagnostics,
+            runtimeFailureAt: runtimeRequest.session.activeTurn?.runtimeFailureAt,
+            runtimeFailureSnapshot: runtimeRequest.session.activeTurn?.runtimeFailureSnapshot,
             ...(input.metadata?.recoveryReason && typeof input.metadata.recoveryReason === "string" ? { recoveryAttempted: true } : {}),
             turnStartSnapshot: runtimeStartSnapshot(runtimeStatus.getSnapshot()),
-            recoveryAttempted: input.metadata?.runtimeRecoveryAttempted === true,
+            recoveryAttempted: input.metadata?.runtimeRecoveryAttempted === true
+              || input.metadata?.transportReattachAttempted === true
+              || input.metadata?.semanticRetryAttempted === true,
             executionOwner: input.metadata?.executionOwner === "deterministic_transition"
               ? "deterministic_transition"
               : runtimeUserEvent ? "runtime_continuation" : "hermes"
@@ -341,6 +343,7 @@ function createAgentHost() {
         ...(input.metadata ?? {}),
         incidentTraceId,
         attemptTraceId,
+        attemptNumber,
         telemetry: true,
         ...(runtimeTaskPrepared ? { runtimeTaskPrepared: true } : {}),
         runtimeId: runtime.id,
@@ -468,8 +471,9 @@ function createAgentHost() {
             runtime.id === "hermes"
             && event.type === "turn_failed"
             && !input.metadata?.runtimeRecoveryAttempted
+            && !input.metadata?.semanticRetryAttempted
             && !toolsExecuted
-            && isUnexpectedTransientCancellation(runtimeFailureCode)
+            && (isUnexpectedTransientCancellation(runtimeFailureCode) || isTransientTerminalFailure(runtimeFailureCode, event.error?.recoverable, eventData?.diagnostics))
           ) {
             try {
               const health = await refreshHermesHealth();
@@ -485,8 +489,13 @@ function createAgentHost() {
                       ...(runtimeInput.metadata ?? {}),
                       runtimeUserEvent: { type: "retry", action: { type: "retry_current_step" } },
                       attemptTraceId: `${incidentTraceId}:attempt-${Math.max(2, recoveryAttemptNumber)}`,
+                      attemptNumber: Math.max(2, recoveryAttemptNumber),
                       executionOwner: "runtime_continuation",
                       runtimeRecoveryAttempted: true,
+                      runtimeRecoveryKind: "retry",
+                      semanticRetryAttempted: true,
+                      semanticRetryUserMessage: runtimeInput.userMessage || input.userMessage,
+                      primaryFailureCode: runtimeFailureCode,
                       recoveryReason: "unexpected_transient_upstream_cancel",
                       reattachRunId: undefined
                     }
@@ -648,6 +657,15 @@ function isUnexpectedTransientCancellation(code?: string) {
     || code === "hermes_upstream_cancelled";
 }
 
+function isTransientTerminalFailure(code: string | undefined, recoverable: boolean | undefined, diagnostics: unknown) {
+  if (code !== "hermes_run_failed") return false;
+  if (recoverable === true) return true;
+  const record = diagnostics && typeof diagnostics === "object" && !Array.isArray(diagnostics)
+    ? diagnostics as Record<string, unknown>
+    : {};
+  return record.retryable === true;
+}
+
 function runtimeStartSnapshot(status: ReturnType<RuntimeStatusStore["getSnapshot"]>): RuntimeFailureSnapshot {
   const capturedAt = new Date().toISOString();
   const supervisor = status.supervisorSnapshot;
@@ -730,6 +748,7 @@ function runtimeFailureInput(value: unknown): Partial<HermesRunFailureInput> {
     ...(typeof record.hermesRunId === "string" ? { hermesRunId: record.hermesRunId } : {}),
     ...(typeof record.requestedTurnId === "string" ? { requestedTurnId: record.requestedTurnId } : {}),
     ...(record.runStartKind === "new" || record.runStartKind === "reattach" ? { runStartKind: record.runStartKind } : {}),
+    ...(record.runPhase === "before_run_start" || record.runPhase === "after_run_start" ? { runPhase: record.runPhase } : {}),
     ...(typeof record.companionConnected === "boolean" ? { companionConnected: record.companionConnected } : {}),
     ...(typeof record.providerStatus === "string" ? { providerStatus: record.providerStatus } : {}),
     ...(typeof record.mcpConnected === "boolean" ? { mcpConnected: record.mcpConnected } : {}),
