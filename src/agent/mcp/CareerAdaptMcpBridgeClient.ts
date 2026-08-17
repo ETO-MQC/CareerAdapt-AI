@@ -154,6 +154,8 @@ export class CareerAdaptMcpBridgeClient {
       if (this.bridgeId === bridgeId) {
         this.bridgeId = undefined;
         this.token = undefined;
+        if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
+        this.heartbeatTimer = undefined;
       }
       await this.queueRegister().catch(() => undefined);
     }
@@ -206,6 +208,7 @@ export class CareerAdaptMcpBridgeClient {
         if (!bindingResponse?.ok) throw new Error("mcp_bridge_binding_restore_failed");
       }
       this.publish({ connected: true, discoveredToolCount: payload.discoveredToolCount ?? gateway.listContracts().length });
+      if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
       this.heartbeatTimer = setInterval(() => { void this.heartbeat(); }, 5_000);
     } catch (error) {
       this.publish({ connected: false, discoveredToolCount: 0, reason: safeError(error) });

@@ -57,6 +57,10 @@ if (appAlreadyRunning) {
   if (!environment.HERMES_RUNTIME_API_KEY && !environment.HERMES_API_KEY && !environment.API_SERVER_KEY) {
     environment.HERMES_RUNTIME_API_KEY = createEphemeralRuntimeApiKey();
   }
+  // The CLI heap flag on this wrapper does not propagate to the separately
+  // spawned Next.js process. Pass it through explicitly so the long-lived
+  // dev server has the same safety fuse.
+  environment.NODE_OPTIONS = `${environment.NODE_OPTIONS ?? ""} --max-old-space-size=4096`.trim();
   applyEnvironment(environment);
   nextProcess = spawnPnpm(["exec", "next", "dev", "--hostname", host, "--port", String(appPort)], {
     cwd: projectRoot,

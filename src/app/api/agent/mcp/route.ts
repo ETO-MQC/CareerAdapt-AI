@@ -23,18 +23,24 @@ export async function GET(request: NextRequest) {
   // disconnected immediately after a successful handshake.
   if (request.headers.get("accept")?.includes("text/event-stream") && request.headers.has("mcp-session-id")) {
     const encoder = new TextEncoder();
+    let cleanupStream = () => {};
     const stream = new ReadableStream<Uint8Array>({
       start(controller) {
         controller.enqueue(encoder.encode(": careeradapt-mcp-connected\n\n"));
         const heartbeat = setInterval(() => {
-          try { controller.enqueue(encoder.encode(": heartbeat\n\n")); } catch { clearInterval(heartbeat); }
+          try { controller.enqueue(encoder.encode(": heartbeat\n\n")); } catch { cleanupStream(); }
         }, 15_000);
-        request.signal.addEventListener("abort", () => {
-          clearInterval(heartbeat);
+        const onAbort = () => {
+          cleanupStream();
           try { controller.close(); } catch { /* stream already closed */ }
-        }, { once: true });
+        };
+        cleanupStream = () => {
+          clearInterval(heartbeat);
+          request.signal.removeEventListener("abort", onAbort);
+        };
+        request.signal.addEventListener("abort", onAbort, { once: true });
       },
-      cancel() { /* client disconnected */ }
+      cancel() { cleanupStream(); }
     });
     return new Response(stream, {
       status: 200,
