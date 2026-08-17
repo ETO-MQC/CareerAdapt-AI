@@ -16,6 +16,7 @@ type BridgeRequest = {
   input: unknown;
   operationId: string;
   logicalToolOperationId?: string;
+  incidentTraceId?: string;
   careerSessionBinding?: CareerSessionBinding;
   requireSessionBinding?: boolean;
   createdAt: number;
@@ -143,6 +144,7 @@ export function pollCareerAdaptMcpBridge(bridgeId: string, token: string, limit 
     input: request.input,
     operationId: request.operationId,
     logicalToolOperationId: request.logicalToolOperationId,
+    incidentTraceId: request.incidentTraceId,
     careerSessionBinding: request.careerSessionBinding,
     requireSessionBinding: request.requireSessionBinding
   }));
@@ -200,6 +202,7 @@ export function createCareerAdaptMcpBridgeGateway(surface: CareerAdaptMcpSurface
           name: _name,
           input: _input,
           operationId: context.operationId ?? `mcp-bridge-${nanoid(16)}`,
+          incidentTraceId: context.incidentTraceId,
           createdAt: Date.now()
         }, "career_tool_not_exposed", "当前 Hermes 生产工具面不暴露该 Career 原子工具。"));
       }
@@ -224,6 +227,7 @@ function enqueueCall(name: string, input: unknown, context: CareerToolExecutionC
     input,
     operationId,
     logicalToolOperationId: context.logicalToolOperationId ?? `hermes-tool-${operationId}`,
+    incidentTraceId: context.incidentTraceId,
     careerSessionBinding: context.careerSessionBinding ?? bridge.careerSessionBinding,
     requireSessionBinding: context.requireSessionBinding,
     createdAt: Date.now()

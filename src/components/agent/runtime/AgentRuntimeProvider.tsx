@@ -38,6 +38,7 @@ import {
 } from "@/agent/runtime/hermes/hermesRunReliability";
 import { hermesProductionToolNames } from "@/agent/runtime/hermes/HermesCareerToolCatalog";
 import { isReadOnlyCareerQuestion } from "@/agent/runtime/AgentTurnIntent";
+import { createIncidentTraceId, createRunStopReason, type RuntimeFailureSnapshot, type RunStopReason } from "@/agent/runtime/hermes/hermesIncidentTrace";
 
 function createAgentHost() {
   const repository = new WorkspaceRepository();
@@ -145,13 +146,14 @@ function createAgentHost() {
     pause: async (sessionId) => {
       if (state.getSnapshot().activeSession?.id === sessionId) state.setPaused(true);
     },
-    interrupt: async (sessionId) => state.interrupt(sessionId),
+    interrupt: async (sessionId, reason) => state.interrupt(sessionId, reason),
     resume: async (sessionId) => {
       if (state.getSnapshot().activeSession?.id === sessionId) state.setPaused(false);
     }
   });
+  const hermesTransport = new HttpHermesBridgeTransport();
   const hermesRuntime = new HermesCareerAgentRuntime({
-    transport: new HttpHermesBridgeTransport(),
+    transport: hermesTransport,
     careerToolGateway
   });
   const configuredRuntime = typeof window !== "undefined" && window.localStorage.getItem("careerad-agent-runtime") === "native"
@@ -206,18 +208,6 @@ function createAgentHost() {
     }
   };
   const startHermes = async () => {
-    const activeSession = state.getSnapshot().activeSession;
-    const activeHermesRun = activeSession?.hermesRun;
-    const restartTurnId = activeSession?.activeTurn?.id;
-    const retryCheckpointAfterRestart = Boolean(
-      activeHermesRun
-      && restartTurnId
-      && activeSession?.activeTurn?.status === "running"
-      && ["queued", "running"].includes(activeHermesRun.status)
-    );
-    if (activeHermesRun && ["queued", "running", "waiting_for_approval", "stopping"].includes(activeHermesRun.status)) {
-      await hermesRuntime.interrupt(activeSession.id).catch(() => undefined);
-    }
     runtimeStatus.update({ status: "starting", activeRuntime: "hermes", reason: "hermes_starting" });
     try {
       const result = await requestHermesStart();
@@ -236,27 +226,6 @@ function createAgentHost() {
       if (!health?.available) {
         if (result.snapshot) return { ok: true as const, reason: result.reason };
         throw new Error("hermes_companion_not_ready");
-      }
-      if (retryCheckpointAfterRestart && activeSession && restartTurnId) {
-        const current = state.getSnapshot().activeSession;
-        if (current?.id === activeSession.id && current.activeTurn?.id === restartTurnId) {
-          // Restarting an active semantic run resumes the same persisted
-          // checkpoint with an empty user message. beginRuntimeShell reuses
-          // the existing assistant shell, so this does not create a second
-          // user message or assistant bubble.
-          void runTurn({
-            sessionId: current.id,
-            turnId: restartTurnId,
-            userMessage: "",
-            session: current,
-            pageContext: { query: {} },
-            metadata: {
-              runtimeUserEvent: { type: "retry", action: { type: "retry_current_step" } },
-              executionOwner: "runtime_continuation",
-              runtimeRecoveryAttempted: true
-            }
-          }).catch(() => undefined);
-        }
       }
       return { ok: true as const };
     } catch (error) {
@@ -282,6 +251,9 @@ function createAgentHost() {
     // change their internals without changing the workspace submission path.
     const runtime = runtimeRouter.active();
     const runtimeUserEvent = input.metadata?.runtimeUserEvent as RuntimeUserEvent | undefined;
+    const incidentTraceId = typeof input.metadata?.incidentTraceId === "string" && input.metadata.incidentTraceId.trim()
+      ? input.metadata.incidentTraceId
+      : createIncidentTraceId();
     const skipHermesReadOnlyPlanner = runtime.id === "hermes" && isReadOnlyCareerQuestion(input.userMessage);
     const preparedSession = input.session && input.userMessage.trim() && runtimeUserEvent?.type !== "quick_action_started" && !skipHermesReadOnlyPlanner
       ? await state.prepareRuntimeTask({
@@ -310,18 +282,42 @@ function createAgentHost() {
           && (!input.session?.activeTurn?.visibleAssistantMessageId || message.id === input.session.activeTurn.visibleAssistantMessageId)
         )
       : undefined;
+    const reattachedAttempt = reattachingHermesRun
+      ? input.session?.activeTurn?.runtimeAttempts?.find((attempt) => attempt.runId === input.session?.hermesRun?.runId)
+      : undefined;
+    const attemptNumber = (runtimeRequest.session?.activeTurn?.runtimeAttempts?.length ?? 0) + (reattachedAttempt ? 0 : 1);
+    const attemptTraceId = typeof input.metadata?.attemptTraceId === "string" && input.metadata.attemptTraceId.trim()
+      ? input.metadata.attemptTraceId
+      : reattachedAttempt?.traceId ?? `${incidentTraceId}:attempt-${Math.max(1, attemptNumber)}`;
+    const runtimeShellTurnId = runtimeRequest.turnId
+      ?? (reattachingHermesRun ? runtimeRequest.session?.hermesRun?.turnId : undefined);
     const runtimeShell = canStartHermesShell && runtimeRequest.session
       ? await state.beginRuntimeShell({
           session: runtimeRequest.session,
           userMessage: runtimeRequest.userMessage,
           runtimeId: "hermes",
-          turnId: runtimeRequest.turnId
-            ?? (reattachingHermesRun ? runtimeRequest.session.hermesRun?.turnId : undefined),
+          turnId: runtimeShellTurnId,
           runtimeDiagnostics: {
             preferredRuntime: "hermes",
             attemptedRuntime: "hermes",
             finalRuntime: "hermes",
             fallbackUsed: false,
+            incidentTraceId,
+            runtimeAttempts: [
+              ...(reattachedAttempt ? runtimeRequest.session.activeTurn?.runtimeAttempts ?? [] : []),
+              ...(!reattachedAttempt ? [{
+                attemptNumber: Math.max(1, attemptNumber),
+                traceId: attemptTraceId,
+                sessionId: runtimeRequest.session.id,
+                turnId: runtimeShellTurnId ?? runtimeRequest.turnId ?? "runtime-turn-unknown",
+                status: "requested" as const,
+                startRequestedAt: new Date().toISOString(),
+                ...(input.metadata?.recoveryReason && typeof input.metadata.recoveryReason === "string" ? { recoveryReason: input.metadata.recoveryReason } : {})
+              }] : [])
+            ],
+            ...(input.metadata?.recoveryReason && typeof input.metadata.recoveryReason === "string" ? { recoveryAttempted: true } : {}),
+            turnStartSnapshot: runtimeStartSnapshot(runtimeStatus.getSnapshot()),
+            recoveryAttempted: input.metadata?.runtimeRecoveryAttempted === true,
             executionOwner: input.metadata?.executionOwner === "deterministic_transition"
               ? "deterministic_transition"
               : runtimeUserEvent ? "runtime_continuation" : "hermes"
@@ -343,6 +339,8 @@ function createAgentHost() {
       } : {}),
       metadata: {
         ...(input.metadata ?? {}),
+        incidentTraceId,
+        attemptTraceId,
         telemetry: true,
         ...(runtimeTaskPrepared ? { runtimeTaskPrepared: true } : {}),
         runtimeId: runtime.id,
@@ -397,6 +395,8 @@ function createAgentHost() {
       }
     };
     let sessionBindingSet = false;
+    let recoveryInput: AgentRuntimeTurnInput | undefined;
+    let toolsExecuted = false;
     try {
       if (runtime.id === "hermes") {
         if (runtimeShell) {
@@ -404,7 +404,8 @@ function createAgentHost() {
             sessionId: runtimeInput.sessionId,
             turnId: runtimeShell.turnId,
             assistantMessageId: runtimeShell.assistantMessageId,
-            userMessageId: runtimeShell.userMessageId
+            userMessageId: runtimeShell.userMessageId,
+            incidentTraceId
           });
         }
         const binding = resolveCareerSessionBinding({
@@ -421,24 +422,81 @@ function createAgentHost() {
         ? runtimeRouter.runUserEvent(runtimeUserEvent, runtimeInput)
         : runtime.runTurn(runtimeInput);
       for await (const event of eventStream) {
-        const eventData = event.data && typeof event.data === "object" && !Array.isArray(event.data)
+        const rawEventData = event.data && typeof event.data === "object" && !Array.isArray(event.data)
           ? event.data as Record<string, unknown>
           : undefined;
-        if (runtimeShell && eventData?.fallbackUsed !== true) {
-          await state.applyRuntimeEvent(event, runtimeShell.assistantMessageId);
+        if (["tool_call_requested", "tool_call_started", "tool_call_completed", "tool_call_failed"].includes(event.type)) {
+          toolsExecuted = true;
         }
-        runtimeEventBus.emit(event);
+        const runtimeFailureCode = event.type === "turn_failed" ? event.error?.code : undefined;
+        const eventData = runtimeFailureCode
+          ? {
+              ...(rawEventData ?? {}),
+              incidentTraceId,
+              ...(rawEventData?.failureSnapshot ? {} : {
+                  failureSnapshot: runtimeFailureSnapshotFromStatus(runtimeStatus.getSnapshot(), {
+                    safeErrorCode: runtimeFailureCode,
+                    hermesRunId: runtimeFailureInput(rawEventData?.diagnostics).hermesRunId,
+                    reasonCode: runtimeFailureCode,
+                    lastEvent: event.type,
+                    createdAt: runtimeInput.session?.activeTurn?.startedAt
+                  })
+              })
+            }
+          : rawEventData;
+        const observedEvent = eventData
+          ? { ...event, data: eventData }
+          : event;
+        if (runtimeShell && eventData?.fallbackUsed !== true) {
+          await state.applyRuntimeEvent(observedEvent, runtimeShell.assistantMessageId);
+        }
+        runtimeEventBus.emit(observedEvent);
         if (event.type === "turn_completed" || event.type === "turn_failed") {
-          runtimeStatus.recordTurn({ runtimeId: runtime.id, turnId: event.turnId, data: event.data });
-          const runtimeFailureCode = event.type === "turn_failed" ? event.error?.code : undefined;
+          runtimeStatus.recordTurn({ runtimeId: runtime.id, turnId: event.turnId, data: observedEvent.data });
           if (isHermesRuntimeFailureCode(runtimeFailureCode)) {
             runtimeStatus.recordRunFailure({
               code: runtimeFailureCode,
               message: event.error?.message,
               retryable: event.error?.recoverable,
+              incidentTraceId,
+              attemptTraceId,
               ...runtimeFailureInput(eventData?.diagnostics)
             });
             void refreshHermesHealth().catch(() => undefined);
+          }
+          if (
+            runtime.id === "hermes"
+            && event.type === "turn_failed"
+            && !input.metadata?.runtimeRecoveryAttempted
+            && !toolsExecuted
+            && isUnexpectedTransientCancellation(runtimeFailureCode)
+          ) {
+            try {
+              const health = await refreshHermesHealth();
+              if (health.available && health.runtimeHealth?.runReady !== false) {
+                const current = state.getSnapshot().activeSession;
+                if (current?.id === runtimeInput.sessionId) {
+                  const recoveryAttemptNumber = (current.activeTurn?.runtimeAttempts?.length ?? 0) + 1;
+                  recoveryInput = {
+                    ...runtimeInput,
+                    session: current,
+                    userMessage: "",
+                    metadata: {
+                      ...(runtimeInput.metadata ?? {}),
+                      runtimeUserEvent: { type: "retry", action: { type: "retry_current_step" } },
+                      attemptTraceId: `${incidentTraceId}:attempt-${Math.max(2, recoveryAttemptNumber)}`,
+                      executionOwner: "runtime_continuation",
+                      runtimeRecoveryAttempted: true,
+                      recoveryReason: "unexpected_transient_upstream_cancel",
+                      reattachRunId: undefined
+                    }
+                  };
+                }
+              }
+            } catch {
+              // The original failure remains the authoritative result when
+              // the bounded health check cannot establish a safe retry.
+            }
           }
         } else if (eventData?.fallbackUsed === true) {
           // Kept only for legacy/test adapters; production Hermes turns never
@@ -451,12 +509,30 @@ function createAgentHost() {
       if (sessionBindingSet && !shouldKeepHermesSessionBinding(runtimeInput.sessionId)) {
         await mcpBridge.setSessionBinding(undefined).catch(() => undefined);
       }
+      runtimeStatus.recordBridgeRequestTraces(hermesRuntime.getDiagnostics().bridgeRequestTraces);
     }
+    if (recoveryInput) return runTurn(recoveryInput);
     return state.getSnapshot().activeSession;
   };
   const runUserEvent = async (event: RuntimeUserEvent, input: Omit<AgentRuntimeTurnInput, "sessionId" | "userMessage"> & { sessionId?: string; userMessage?: string }) => {
     const session = input.session ?? state.getSnapshot().activeSession;
     if (!session) throw new Error("agent_session_required");
+    if (
+      event.type === "workflow_control"
+      && (event.action.type === "cancel_workflow" || event.action.type === "pause_workflow")
+      && session.hermesRun
+      && ["queued", "running", "waiting_for_approval", "stopping"].includes(session.hermesRun.status)
+    ) {
+      await interruptRun(session.id, createRunStopReason({
+        requestedBy: "user",
+        reasonCode: event.action.type === "cancel_workflow" ? "workflow_cancelled" : "workflow_paused",
+        sourceComponent: "AgentRuntimeProvider.runUserEvent",
+        sessionId: session.id,
+        logicalTurnId: session.activeTurn?.id,
+        runId: session.hermesRun.runId,
+        incidentTraceId: session.activeTurn?.incidentTraceId
+      }));
+    }
     if (event.type === "confirmation" && session.hermesRun?.status === "waiting_for_approval") {
       await hermesRuntime.approve(session.id, event.confirmed);
       return runTurn({
@@ -484,7 +560,15 @@ function createAgentHost() {
       // narration turn and could make a deterministic review look like a
       // second planning decision.
       if (session.hermesRun && ["queued", "running", "waiting_for_approval", "stopping"].includes(session.hermesRun.status)) {
-        await hermesRuntime.interrupt(session.id).catch(() => undefined);
+        await interruptRun(session.id, createRunStopReason({
+          requestedBy: "user",
+          reasonCode: "artifact_action_superseded_run",
+          sourceComponent: "AgentRuntimeProvider.runUserEvent",
+          sessionId: session.id,
+          logicalTurnId: session.activeTurn?.id,
+          runId: session.hermesRun.runId,
+          incidentTraceId: session.activeTurn?.incidentTraceId
+        })).catch(() => undefined);
       }
       return state.dispatchRuntimeUserEvent({ session, event, pageContext: input.pageContext });
     }
@@ -515,6 +599,24 @@ function createAgentHost() {
       }
     });
   };
+  const interruptRun = async (sessionId = state.getSnapshot().activeSessionId, reason?: RunStopReason) => {
+    if (!sessionId) return;
+    const current = state.getSnapshot().activeSession;
+    const stopReason = reason ?? createRunStopReason({
+      requestedBy: "user",
+      reasonCode: "user_interrupt",
+      sourceComponent: "AgentRuntimeProvider.interruptRun",
+      sessionId,
+      logicalTurnId: current?.id === sessionId ? current.activeTurn?.id : undefined,
+      runId: current?.id === sessionId ? current.hermesRun?.runId : undefined,
+      incidentTraceId: current?.id === sessionId ? current.activeTurn?.incidentTraceId : undefined
+    });
+    try {
+      await hermesRuntime.interrupt(sessionId, stopReason);
+    } finally {
+      state.interrupt(sessionId, stopReason);
+    }
+  };
   return {
     service,
     registry,
@@ -532,11 +634,86 @@ function createAgentHost() {
     runtimeStatus,
     mcpBridge,
     refreshHermesHealth,
-    startHermes
+    startHermes,
+    interruptRun
   };
 }
 
 export type AgentHost = ReturnType<typeof createAgentHost>;
+
+function isUnexpectedTransientCancellation(code?: string) {
+  return code === "hermes_run_cancelled_upstream"
+    || code === "hermes_run_cancelled"
+    || code === "hermes_run_stopped_unexpected"
+    || code === "hermes_upstream_cancelled";
+}
+
+function runtimeStartSnapshot(status: ReturnType<RuntimeStatusStore["getSnapshot"]>): RuntimeFailureSnapshot {
+  const capturedAt = new Date().toISOString();
+  const supervisor = status.supervisorSnapshot;
+  return {
+    capturedAt,
+    supervisor: supervisor
+      ? {
+          overallState: supervisor.overallState,
+          processReady: supervisor.processReady,
+          apiReady: supervisor.apiReady,
+          providerReady: supervisor.providerReady,
+          careerMcpReady: supervisor.careerMcpReady,
+          toolSurfaceReady: supervisor.toolSurfaceReady,
+          runReady: supervisor.runReady,
+          reasonCode: supervisor.reasonCode,
+          activeRunId: supervisor.activeRunId,
+          restartAttempt: supervisor.restartAttempt,
+          capturedAt,
+          maintenancePending: supervisor.maintenancePending
+        }
+      : {
+          overallState: status.supervisorState ?? (status.status === "ready" ? "ready" : "starting"),
+          processReady: status.processReady === true,
+          apiReady: status.apiReady === true,
+          providerReady: status.providerReady === true,
+          careerMcpReady: status.careerMcpReady === true,
+          toolSurfaceReady: status.toolSurfaceReady === true,
+          runReady: status.runReady !== false,
+          reasonCode: status.reasonCode,
+          activeRunId: status.activeRunId,
+          restartAttempt: status.restartAttempt ?? 0,
+          capturedAt
+        },
+    ...(status.health ? { runtimeHealth: status.health as unknown as Record<string, unknown> } : {}),
+    run: {
+      runId: status.activeRunId,
+      status: "not_started"
+    }
+  };
+}
+
+function runtimeFailureSnapshotFromStatus(
+  status: ReturnType<RuntimeStatusStore["getSnapshot"]>,
+  input: { safeErrorCode: string; hermesRunId?: string; reasonCode: string; lastEvent?: string; createdAt?: string }
+): RuntimeFailureSnapshot {
+  const snapshot = runtimeStartSnapshot(status);
+  return {
+    ...snapshot,
+    capturedAt: new Date().toISOString(),
+    supervisor: {
+      ...snapshot.supervisor,
+      overallState: "degraded",
+      reasonCode: input.reasonCode,
+      runReady: false,
+      activeRunId: input.hermesRunId ?? snapshot.supervisor.activeRunId
+    },
+    run: {
+      ...snapshot.run,
+      runId: input.hermesRunId ?? snapshot.run.runId,
+      ...(input.lastEvent ? { lastEvent: input.lastEvent } : {}),
+      status: "failed",
+      ...(input.createdAt ? { createdAt: input.createdAt } : {}),
+      updatedAt: new Date().toISOString()
+    }
+  };
+}
 
 function runtimeFailureInput(value: unknown): Partial<HermesRunFailureInput> {
   const record = value && typeof value === "object" && !Array.isArray(value)
@@ -556,7 +733,9 @@ function runtimeFailureInput(value: unknown): Partial<HermesRunFailureInput> {
     ...(typeof record.companionConnected === "boolean" ? { companionConnected: record.companionConnected } : {}),
     ...(typeof record.providerStatus === "string" ? { providerStatus: record.providerStatus } : {}),
     ...(typeof record.mcpConnected === "boolean" ? { mcpConnected: record.mcpConnected } : {}),
-    ...(typeof record.latencyMs === "number" ? { latencyMs: record.latencyMs } : {})
+    ...(typeof record.latencyMs === "number" ? { latencyMs: record.latencyMs } : {}),
+    ...(typeof record.incidentTraceId === "string" ? { incidentTraceId: record.incidentTraceId } : {}),
+    ...(typeof record.attemptTraceId === "string" ? { attemptTraceId: record.attemptTraceId } : {})
   };
 }
 
@@ -564,6 +743,7 @@ function runtimeDiagnosticsFromMetadata(metadata?: Record<string, unknown>) {
   const value = metadata ?? {};
   const runtime = (candidate: unknown): "native" | "hermes" | undefined => candidate === "native" || candidate === "hermes" ? candidate : undefined;
   return {
+    incidentTraceId: typeof value.incidentTraceId === "string" ? value.incidentTraceId : undefined,
     preferredRuntime: runtime(value.preferredRuntime),
     attemptedRuntime: runtime(value.attemptedRuntime),
     finalRuntime: runtime(value.finalRuntime) ?? "native",
@@ -648,8 +828,14 @@ export function AgentRuntimeProvider({ children }: { children: React.ReactNode }
       const rendererReady = await notifyHermesRendererReady(readHermesStartSettings());
       if (rendererReady?.snapshot) host.runtimeStatus.recordSupervisorStatus(rendererReady.snapshot);
       if (!active) return;
-      const started = await host.startHermes();
-      if (!active || !started.ok) return;
+      if (rendererReady?.ok === false) return;
+      // Electron's renderer-ready IPC is the authoritative startup owner.
+      // Browser/web mode has no renderer handshake, so it starts through the
+      // existing control route exactly once here.
+      if (rendererReady === undefined) {
+        const started = await host.startHermes();
+        if (!active || !started.ok) return;
+      }
       await host.refreshHermesHealth().catch(() => undefined);
     };
     void boot();

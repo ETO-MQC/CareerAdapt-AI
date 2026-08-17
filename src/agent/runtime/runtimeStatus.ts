@@ -1,6 +1,7 @@
 import { runtimeHealthStatus, type RuntimeHealth } from "./runtimeHealth";
 import { classifyHermesRunFailure, type HermesRunFailureInput } from "./hermes/hermesRunReliability";
 import type { HermesSupervisorSnapshot } from "@/services/agent/hermesControl";
+import type { AbortTrace, BridgeRequestTrace, RuntimeFailureSnapshot } from "./hermes/hermesIncidentTrace";
 
 export type RuntimeStatus = "ready" | "starting" | "degraded" | "unavailable";
 
@@ -28,6 +29,11 @@ export type RuntimeStatusSnapshot = {
   requiredCareerFacadesReady?: number;
   requiredCareerFacadesTotal?: number;
   latestLifecycleEntries?: HermesSupervisorSnapshot["latestLifecycleEntries"];
+  supervisorSnapshot?: HermesSupervisorSnapshot;
+  failureTimeSupervisorSnapshot?: HermesSupervisorSnapshot;
+  runtimeFailureSnapshot?: RuntimeFailureSnapshot;
+  bridgeRequestTraces?: BridgeRequestTrace[];
+  abortTraces?: AbortTrace[];
   version?: string;
   provider?: string;
   model?: string;
@@ -113,6 +119,7 @@ export class RuntimeStatusStore {
       && health.requiredCareerFacadesMissing.length === 0;
     this.update({
       activeRuntime: this.snapshot.preferredRuntime === "hermes" ? "hermes" : "native",
+      activeRunId: health.activeRunId ?? health.hermesRunId,
       ...(this.supervisorOwned ? {} : { status: runtimeHealthStatus(health) }),
       ...(this.supervisorOwned ? {} : { reason: health.safeErrorCode }),
       ...(this.supervisorOwned ? {} : {
@@ -147,6 +154,45 @@ export class RuntimeStatusStore {
       message: input.message ?? input.safeErrorMessage
     });
     const health = this.snapshot.health;
+    const capturedAt = new Date().toISOString();
+    const failureSupervisor = this.snapshot.failureTimeSupervisorSnapshot ?? this.snapshot.supervisorSnapshot;
+    const runtimeFailureSnapshot = this.snapshot.runtimeFailureSnapshot ?? {
+      capturedAt,
+      supervisor: failureSupervisor
+        ? {
+            overallState: failureSupervisor.overallState,
+            processReady: failureSupervisor.processReady,
+            apiReady: failureSupervisor.apiReady,
+            providerReady: failureSupervisor.providerReady,
+            careerMcpReady: failureSupervisor.careerMcpReady,
+            toolSurfaceReady: failureSupervisor.toolSurfaceReady,
+            runReady: failureSupervisor.runReady,
+            reasonCode: failureSupervisor.reasonCode,
+            activeRunId: failureSupervisor.activeRunId,
+            restartAttempt: failureSupervisor.restartAttempt,
+            capturedAt,
+            maintenancePending: failureSupervisor.maintenancePending
+          }
+        : {
+            overallState: "degraded",
+            processReady: this.snapshot.processReady === true,
+            apiReady: this.snapshot.apiReady === true,
+            providerReady: this.snapshot.providerReady === true,
+            careerMcpReady: this.snapshot.careerMcpReady === true,
+            toolSurfaceReady: this.snapshot.toolSurfaceReady === true,
+            runReady: false,
+            reasonCode: diagnostics.safeErrorCode,
+            activeRunId: diagnostics.hermesRunId,
+            restartAttempt: this.snapshot.restartAttempt ?? 0,
+            capturedAt
+          },
+      ...(health ? { runtimeHealth: health } : {}),
+      run: {
+        runId: diagnostics.hermesRunId ?? this.snapshot.activeRunId,
+        status: "failed",
+        updatedAt: capturedAt
+      }
+    } satisfies RuntimeFailureSnapshot;
     const nextHealth = health ? {
       ...health,
       runReady: false,
@@ -160,6 +206,7 @@ export class RuntimeStatusStore {
       status: this.supervisorOwned ? "degraded" : "unavailable",
       reason: diagnostics.safeErrorCode,
       runReady: false,
+      runtimeFailureSnapshot,
       ...(nextHealth ? { health: nextHealth } : {})
     });
   }
@@ -167,6 +214,9 @@ export class RuntimeStatusStore {
   recordSupervisorStatus(snapshot: HermesSupervisorSnapshot) {
     this.supervisorOwned = true;
     const status = supervisorRuntimeStatus(snapshot.overallState);
+    const previous = this.snapshot.supervisorSnapshot;
+    const failureTimeSupervisorSnapshot = this.snapshot.failureTimeSupervisorSnapshot
+      ?? (previous?.runReady === true && snapshot.runReady === false ? snapshot : undefined);
     this.update({
       preferredRuntime: "hermes",
       activeRuntime: "hermes",
@@ -194,9 +244,19 @@ export class RuntimeStatusStore {
       requiredCareerFacadesReady: snapshot.requiredCareerFacadesReady,
       requiredCareerFacadesTotal: snapshot.requiredCareerFacadesTotal,
       latestLifecycleEntries: snapshot.latestLifecycleEntries,
+      supervisorSnapshot: snapshot,
+      ...(failureTimeSupervisorSnapshot ? { failureTimeSupervisorSnapshot } : {}),
       mcpConnected: snapshot.careerMcpReady,
       discoveredToolCount: snapshot.hermesCareerToolCount
     });
+  }
+
+  recordAbortTrace(trace: AbortTrace) {
+    this.update({ abortTraces: [...(this.snapshot.abortTraces ?? []), trace].slice(-32) });
+  }
+
+  recordBridgeRequestTraces(traces: BridgeRequestTrace[]) {
+    this.update({ bridgeRequestTraces: traces.slice(-80) });
   }
 
   recordTurn(input: {

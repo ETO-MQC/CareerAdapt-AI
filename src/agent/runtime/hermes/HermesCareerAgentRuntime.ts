@@ -7,7 +7,7 @@ import type {
 } from "../agentRuntime";
 import type { HermesRunHandle } from "../../contracts/agentSession";
 import type { CareerToolGateway, CareerToolContract } from "../../tools/CareerToolGateway";
-import { logicalToolOperationId, type HermesBridgeEvent, type HermesBridgeTransport } from "./HermesBridgeTransport";
+import { logicalToolOperationId, type HermesBridgeEvent, type HermesBridgeTransport, type HermesRunTraceContext } from "./HermesBridgeTransport";
 import { resolveCareerSessionBinding, type CareerSessionBinding } from "../careerSessionBinding";
 import { hermesProductionToolNames, HermesCareerToolCatalog, projectCareerContractsForHermes } from "./HermesCareerToolCatalog";
 import { isRoadshowReady } from "../runtimeHealth";
@@ -17,6 +17,12 @@ import {
   isRetryableHermesRunFailure,
   withHermesRunFailureDiagnostics
 } from "./hermesRunReliability";
+import {
+  abortTraceFromSignal,
+  createIncidentTraceId,
+  createRunStopReason,
+  type RunStopReason
+} from "./hermesIncidentTrace";
 
 type TurnCounters = {
   toolCalls: number;
@@ -45,6 +51,7 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
   readonly id = "hermes" as const;
   private readonly sessions = new Map<string, string>();
   private readonly activeRuns = new Map<string, HermesRunHandle>();
+  private readonly controlledStops = new Map<string, RunStopReason>();
 
   constructor(private readonly dependencies: {
     transport: HermesBridgeTransport;
@@ -67,6 +74,10 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
 
   health(signal?: AbortSignal) {
     return this.dependencies.transport.health(signal);
+  }
+
+  getDiagnostics() {
+    return this.dependencies.transport.getDiagnostics?.() ?? { bridgeRequestTraces: [] };
   }
 
   async recoverBeforeFallback(input: AgentRuntimeTurnInput) {
@@ -95,7 +106,13 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
       }
       const persisted = input.session?.hermesRun;
       if (persisted && supportsRuns(this.dependencies.transport) && !isTerminalRunStatus(persisted.status)) {
-        await this.settleRemoteRun(persisted.runId, input.turnId, input.sessionId, signal);
+        await this.settleRemoteRun(
+          persisted.runId,
+          input.turnId,
+          input.sessionId,
+          signal,
+          this.stopReason(input, "runtime_recovery", "hermes_run_stopped_for_restart")
+        );
       }
     } finally {
       clearTimeout(timeout);
@@ -104,12 +121,29 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
 
   async pause(sessionId: string) {
     const handle = this.activeRuns.get(sessionId);
-    if (handle) await this.dependencies.transport.stopRun?.(handle.runId);
+    if (handle) {
+      const reason = createRunStopReason({
+        requestedBy: "agent_runtime_provider",
+        reasonCode: "hermes_run_paused",
+        sourceComponent: "HermesCareerAgentRuntime.pause",
+        sessionId,
+        logicalTurnId: handle.turnId,
+        runId: handle.runId
+      });
+      await this.stopRemoteRun(handle, reason);
+    }
   }
 
-  async interrupt(sessionId: string) {
+  async interrupt(sessionId: string, reason?: RunStopReason) {
     const handle = this.activeRuns.get(sessionId);
-    if (handle) await this.dependencies.transport.stopRun?.(handle.runId);
+    if (handle) await this.stopRemoteRun(handle, reason ?? createRunStopReason({
+      requestedBy: "agent_runtime_provider",
+      reasonCode: "user_interrupt",
+      sourceComponent: "HermesCareerAgentRuntime.interrupt",
+      sessionId,
+      logicalTurnId: handle.turnId,
+      runId: handle.runId
+    }));
   }
 
   async resume() {
@@ -121,7 +155,7 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
     if (!handle || !this.dependencies.transport.approveRun) {
       throw hermesError("hermes_run_approval_unavailable", "当前没有可确认的 Hermes run。");
     }
-    const status = await this.dependencies.transport.approveRun(handle.runId, approved ? "once" : "deny");
+    const status = await this.dependencies.transport.approveRun(handle.runId, approved ? "once" : "deny", undefined, this.traceContext({ sessionId, turnId: handle.turnId, runId: handle.runId }));
     const next = touchRunHandle(handle, normalizeRunStatus(status.status));
     this.activeRuns.set(sessionId, next);
     return next;
@@ -129,10 +163,22 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
 
   async *runTurn(input: AgentRuntimeTurnInput): AsyncIterable<AgentRuntimeEvent> {
     const turnId = input.turnId ?? `hermes-turn-${nanoid(12)}`;
-    const normalized = { ...input, turnId };
+    const incidentTraceId = typeof input.metadata?.incidentTraceId === "string" && input.metadata.incidentTraceId.trim()
+      ? input.metadata.incidentTraceId
+      : createIncidentTraceId();
+    const attemptTraceId = typeof input.metadata?.attemptTraceId === "string" && input.metadata.attemptTraceId.trim()
+      ? input.metadata.attemptTraceId
+      : `${incidentTraceId}:attempt-1`;
+    const normalized = { ...input, turnId, metadata: { ...(input.metadata ?? {}), incidentTraceId, attemptTraceId } };
     const active = this.activeRuns.get(input.sessionId);
     if (active && active.turnId !== turnId && ["queued", "running", "waiting_for_approval", "stopping"].includes(active.status)) {
-      await this.settleRemoteRun(active.runId, turnId, input.sessionId, input.signal);
+      await this.settleRemoteRun(
+        active.runId,
+        turnId,
+        input.sessionId,
+        input.signal,
+        this.stopReason(normalized, "run_reconciliation", "hermes_run_reconciliation")
+      );
       this.activeRuns.delete(input.sessionId);
     }
     const startedAt = Date.now();
@@ -196,7 +242,13 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
           : this.sessions.get(input.sessionId) ?? `hermes-${input.sessionId}`;
       this.sessions.set(input.sessionId, hermesSessionId);
       if (!attachable && persisted && !isTerminalRunStatus(persisted.status)) {
-        await this.settleRemoteRun(persisted.runId, turnId, input.sessionId, input.signal);
+        await this.settleRemoteRun(
+          persisted.runId,
+          turnId,
+          input.sessionId,
+          input.signal,
+          this.stopReason(normalized, "run_reconciliation", "hermes_run_reconciliation")
+        );
       }
       const started = attachable
         ? undefined
@@ -209,6 +261,9 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
                 pageContext: input.pageContext,
                 toolContracts: allowedCareerToolContracts(this.dependencies.careerToolGateway, input) as unknown as Array<Record<string, unknown>>,
                 careerSessionBinding: binding,
+                incidentTraceId,
+                logicalTurnId: turnId,
+                attemptTraceId,
                 attachments: input.attachments,
                 conversationHistory: conversationHistory(input),
                 metadata: {
@@ -224,6 +279,8 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
                   hermesSessionId,
                   requestedTurnId: turnId,
                   runStartKind: "new",
+                  incidentTraceId,
+                  attemptTraceId,
                   retryable: false
                 });
               }
@@ -235,7 +292,9 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
                 runStartKind: "new",
                 companionConnected: runtimeAvailable,
                 providerStatus: health.providerStatus,
-                mcpConnected: health.mcpConnected
+                mcpConnected: health.mcpConnected,
+                incidentTraceId,
+                attemptTraceId
               });
             }
           })();
@@ -260,7 +319,14 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
       let streamFailed = false;
       for (let reconnectAttempt = 0; reconnectAttempt < 3 && !terminalSeen; reconnectAttempt += 1) {
         try {
-        for await (const bridgeEvent of eventsWithHeartbeat(this.dependencies.transport, handle.runId, input.signal)) {
+        for await (const bridgeEvent of eventsWithHeartbeat(this.dependencies.transport, handle.runId, input.signal, this.traceContext({
+          incidentTraceId,
+          traceId: attemptTraceId,
+          logicalTurnId: turnId,
+          sessionId: input.sessionId,
+          turnId,
+          runId: handle.runId
+        }))) {
           const heartbeat = bridgeEvent.type === "progress"
             && bridgeEvent.data && typeof bridgeEvent.data === "object" && !Array.isArray(bridgeEvent.data)
             && (bridgeEvent.data as Record<string, unknown>).heartbeat === true;
@@ -292,8 +358,16 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
         if ("operationId" in bridgeEvent && typeof bridgeEvent.operationId === "string") counters.lastOperationId = bridgeEvent.operationId;
         if (bridgeEvent.type === "tool_call_started") counters.toolStartedAt = Date.now();
         if (bridgeEvent.type === "tool_call_completed" || bridgeEvent.type === "tool_call_failed") counters.toolStartedAt = undefined;
-        const event = this.mapBridgeEvent(normalized, bridgeEvent, counters, startedAt);
-        if (event) yield { ...event, data: mergeEventData(event.data, { runHandle: handle }) };
+          const event = this.mapBridgeEvent(normalized, this.normalizeCancellationEvent(bridgeEvent, handle), counters, startedAt);
+        if (event) yield {
+          ...event,
+          data: mergeEventData(event.data, {
+            runHandle: handle,
+            incidentTraceId,
+            traceId: attemptTraceId,
+            ...(this.controlledStops.has(handle.runId) ? { stopReason: this.controlledStops.get(handle.runId) } : {})
+          })
+        };
         if (bridgeEvent.type === "approval_required") return;
         if (bridgeEvent.type === "turn_completed" || bridgeEvent.type === "turn_failed") {
           terminalSeen = true;
@@ -312,7 +386,8 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
       }
         } catch (error) {
         if (input.signal?.aborted) {
-          yield this.event(normalized, "turn_paused", { message: "页面连接已断开，Hermes 任务仍在运行。", data: { runHandle: handle } });
+          const abortTrace = abortTraceFromSignal(input.signal, { incidentTraceId, sessionId: input.sessionId, turnId, runId: handle.runId });
+          yield this.event(normalized, "turn_paused", { message: "页面连接已断开，Hermes 任务仍在运行。", data: { runHandle: handle, ...(abortTrace ? { abortTrace } : {}) } });
           return;
         }
         streamFailed = true;
@@ -321,7 +396,7 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
         counters.lastEventType = errorCode(error);
         }
         if (!terminalSeen && reconnectAttempt < 2) {
-          const status = await this.dependencies.transport.getRun(handle.runId, input.signal);
+          const status = await this.dependencies.transport.getRun(handle.runId, input.signal, this.traceContext({ incidentTraceId, traceId: attemptTraceId, sessionId: input.sessionId, turnId, runId: handle.runId }));
           handle = touchRunHandle(handle, normalizeRunStatus(status.status));
           this.activeRuns.set(input.sessionId, handle);
           if (status.status === "completed" || status.status === "failed" || status.status === "cancelled") break;
@@ -334,18 +409,19 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
       if (!terminalSeen) {
         for (;;) {
           if (input.signal?.aborted) {
-            yield this.event(normalized, "turn_paused", { message: "页面连接已断开，Hermes 任务仍在运行。", data: { runHandle: handle } });
+            const abortTrace = abortTraceFromSignal(input.signal, { incidentTraceId, sessionId: input.sessionId, turnId, runId: handle.runId });
+            yield this.event(normalized, "turn_paused", { message: "页面连接已断开，Hermes 任务仍在运行。", data: { runHandle: handle, ...(abortTrace ? { abortTrace } : {}) } });
             return;
           }
           if (Date.now() - startedAt >= 15 * 60_000) {
             counters.lastEventType = counters.lastEventType ?? "hermes_overall_budget_checkpoint";
             yield this.event(normalized, "turn_paused", {
               message: "本次前台等待已达到演示预算；Hermes run 未被破坏性停止，可稍后重新连接。",
-              data: this.diagnostics(handle, counters, "hermes_overall_budget_checkpoint")
+              data: { ...this.diagnostics(handle, counters, "hermes_overall_budget_checkpoint"), incidentTraceId, attemptTraceId, traceId: attemptTraceId }
             });
             return;
           }
-          const status = await this.dependencies.transport.getRun(handle.runId, input.signal);
+          const status = await this.dependencies.transport.getRun(handle.runId, input.signal, this.traceContext({ incidentTraceId, traceId: attemptTraceId, sessionId: input.sessionId, turnId, runId: handle.runId }));
           handle = touchRunHandle(handle, normalizeRunStatus(status.status));
           this.activeRuns.set(input.sessionId, handle);
           counters.lastEventType = status.last_event ?? counters.lastEventType;
@@ -353,15 +429,15 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
             terminalSeen = true;
             yield this.event(normalized, "turn_completed", {
               message: status.output,
-              data: { runHandle: handle, recovery: streamFailed ? "status_poll" : undefined, telemetry: this.telemetry(normalized, counters, "completed", startedAt) }
+        data: { runHandle: handle, incidentTraceId, traceId: attemptTraceId, recovery: streamFailed ? "status_poll" : undefined, telemetry: this.telemetry(normalized, counters, "completed", startedAt) }
             });
             break;
           }
           if (status.status === "failed" || status.status === "cancelled") {
             terminalSeen = true;
             yield this.event(normalized, "turn_failed", {
-              error: { code: status.status === "cancelled" ? "hermes_run_cancelled" : "hermes_run_failed", message: status.error ?? "Hermes run failed.", recoverable: status.status === "cancelled" },
-              data: this.diagnostics(handle, counters, status.status === "cancelled" ? "hermes_run_cancelled" : "hermes_run_failed")
+              error: { code: status.status === "cancelled" ? this.cancellationCode(handle.runId) : "hermes_run_failed", message: status.error ?? "Hermes run failed.", recoverable: status.status === "cancelled" },
+              data: { ...this.diagnostics(handle, counters, status.status === "cancelled" ? "hermes_run_cancelled" : "hermes_run_failed"), incidentTraceId, attemptTraceId, traceId: attemptTraceId }
             });
             break;
           }
@@ -377,7 +453,7 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
         if (!emitted) throw error;
         yield this.event(normalized, "turn_failed", {
           error: { code: error.code, message: error.message, recoverable: true },
-          data: this.diagnostics(handle, counters, error.code)
+          data: { ...this.diagnostics(handle, counters, error.code), incidentTraceId, attemptTraceId, traceId: attemptTraceId }
         });
       }
     } catch (error) {
@@ -391,7 +467,7 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
           message: error instanceof Error ? error.message : "Hermes turn failed.",
           recoverable: isRetryableHermesRunFailure(error)
         },
-        data: { ...this.diagnostics(this.activeRuns.get(input.sessionId), counters, errorCode(error)), telemetry: this.telemetry(normalized, counters, "failed", startedAt) }
+        data: { ...this.diagnostics(this.activeRuns.get(input.sessionId), counters, errorCode(error)), incidentTraceId, attemptTraceId, traceId: attemptTraceId, telemetry: this.telemetry(normalized, counters, "failed", startedAt) }
       });
     }
   }
@@ -424,6 +500,8 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
       pageContext: input.pageContext,
       toolContracts: allowedCareerToolContracts(this.dependencies.careerToolGateway, input, false) as unknown as Array<Record<string, unknown>>,
       careerSessionBinding: binding,
+      incidentTraceId: typeof input.metadata?.incidentTraceId === "string" ? input.metadata.incidentTraceId : undefined,
+      logicalTurnId: input.turnId,
       metadata: safeMetadata(input.metadata)
     }, input.signal)) {
       emitted = true;
@@ -459,6 +537,8 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
   private diagnostics(handle: HermesRunHandle | undefined, counters: TurnCounters, safeErrorCode: string) {
     return {
       runId: handle?.runId,
+      hermesSessionId: handle?.hermesSessionId,
+      requestedTurnId: handle?.turnId,
       lastEventType: counters.lastEventType,
       lastTool: counters.lastTool,
       lastOperationId: counters.lastOperationId,
@@ -467,15 +547,100 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
     };
   }
 
-  private async settleRemoteRun(runId: string, requestedTurnId: string | undefined, sessionId: string, signal?: AbortSignal) {
+  private stopReason(input: AgentRuntimeTurnInput, requestedBy: RunStopReason["requestedBy"], reasonCode: string, runId?: string) {
+    return createRunStopReason({
+      requestedBy,
+      reasonCode,
+      sourceComponent: "HermesCareerAgentRuntime",
+      sessionId: input.sessionId,
+      logicalTurnId: input.turnId,
+      runId,
+      incidentTraceId: typeof input.metadata?.incidentTraceId === "string" ? input.metadata.incidentTraceId : undefined
+    });
+  }
+
+  private traceContext(input: HermesRunTraceContext): HermesRunTraceContext {
+    return input;
+  }
+
+  private async stopRemoteRun(handle: HermesRunHandle, reason: RunStopReason, signal?: AbortSignal) {
+    this.controlledStops.set(handle.runId, reason);
+    if (this.dependencies.transport.stopRun) {
+      await this.dependencies.transport.stopRun(handle.runId, signal, {
+        incidentTraceId: reason.incidentTraceId,
+        logicalTurnId: reason.logicalTurnId,
+        sessionId: reason.sessionId,
+        turnId: handle.turnId,
+        runId: handle.runId,
+        stopReason: reason
+      });
+    }
+    return reason;
+  }
+
+  private cancellationCode(runId: string) {
+    const reason = this.controlledStops.get(runId);
+    if (!reason) return "hermes_run_cancelled_upstream";
+    if (reason.reasonCode === "user_interrupt" || reason.requestedBy === "user") return "hermes_run_stopped_by_user";
+    if (reason.reasonCode === "hermes_run_stopped_for_restart" || reason.reasonCode === "runtime_restart") return "hermes_run_stopped_for_restart";
+    return "hermes_run_cancelled";
+  }
+
+  private normalizeCancellationEvent(event: HermesBridgeEvent, handle: HermesRunHandle): HermesBridgeEvent {
+    if (event.type !== "turn_failed" || event.code !== "hermes_run_cancelled") return event;
+    const code = this.cancellationCode(handle.runId);
+    return {
+      ...event,
+      code,
+      message: code === "hermes_run_cancelled_upstream"
+        ? "Hermes 上游报告本轮任务已取消。"
+        : event.message
+    };
+  }
+
+  private async settleRemoteRun(
+    runId: string,
+    requestedTurnId: string | undefined,
+    sessionId: string,
+    signal?: AbortSignal,
+    stopReason?: RunStopReason
+  ) {
     const transport = this.dependencies.transport;
     if (!transport.getRun || !transport.stopRun) return;
-    let status = await transport.getRun(runId, signal);
+    const reason = stopReason ?? createRunStopReason({
+      requestedBy: "run_reconciliation",
+      reasonCode: "hermes_run_reconciliation",
+      sourceComponent: "HermesCareerAgentRuntime.settleRemoteRun",
+      sessionId,
+      logicalTurnId: requestedTurnId,
+      runId
+    });
+    let status = await transport.getRun(runId, signal, {
+      incidentTraceId: reason.incidentTraceId,
+      logicalTurnId: reason.logicalTurnId,
+      sessionId,
+      turnId: requestedTurnId,
+      runId
+    });
     if (isTerminalRunStatus(status.status)) return;
-    await transport.stopRun(runId, signal);
+    this.controlledStops.set(runId, reason);
+    await transport.stopRun(runId, signal, {
+      incidentTraceId: reason.incidentTraceId,
+      logicalTurnId: reason.logicalTurnId,
+      sessionId,
+      turnId: requestedTurnId,
+      runId,
+      stopReason: reason
+    });
     for (let attempt = 0; attempt < 4; attempt += 1) {
       await delay(150, signal);
-      status = await transport.getRun(runId, signal);
+      status = await transport.getRun(runId, signal, {
+        incidentTraceId: reason.incidentTraceId,
+        logicalTurnId: reason.logicalTurnId,
+        sessionId,
+        turnId: requestedTurnId,
+        runId
+      });
       if (isTerminalRunStatus(status.status)) return;
     }
     throw createHermesRunFailure({
@@ -486,7 +651,8 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
       requestedTurnId,
       retryable: true,
       mcpConnected: true,
-      hermesSessionId: sessionId
+      hermesSessionId: sessionId,
+      incidentTraceId: reason.incidentTraceId
     });
   }
 
@@ -520,6 +686,8 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
         toolCallId: request.toolCallId,
         toolName: request.toolName,
         operationId: request.operationId,
+        incidentTraceId: typeof input.metadata?.incidentTraceId === "string" ? input.metadata.incidentTraceId : undefined,
+        attemptTraceId: typeof input.metadata?.attemptTraceId === "string" ? input.metadata.attemptTraceId : undefined,
         logicalToolOperationId: logicalOperationId,
         careerSessionBinding: binding,
         result: {
@@ -552,6 +720,8 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
         toolCallId: request.toolCallId,
         toolName: request.toolName,
         operationId: request.operationId,
+        incidentTraceId: typeof input.metadata?.incidentTraceId === "string" ? input.metadata.incidentTraceId : undefined,
+        attemptTraceId: typeof input.metadata?.attemptTraceId === "string" ? input.metadata.attemptTraceId : undefined,
         logicalToolOperationId: logicalOperationId,
         careerSessionBinding: binding,
         result: {
@@ -589,6 +759,8 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
         toolCallId: request.toolCallId,
         toolName: request.toolName,
         operationId: request.operationId,
+        incidentTraceId: typeof input.metadata?.incidentTraceId === "string" ? input.metadata.incidentTraceId : undefined,
+        attemptTraceId: typeof input.metadata?.attemptTraceId === "string" ? input.metadata.attemptTraceId : undefined,
         logicalToolOperationId: logicalOperationId,
         careerSessionBinding: binding,
         result: { ok: false, error: { code: "approval_required", recoverable: false } }
@@ -604,6 +776,7 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
     let result = await this.executeGatewayTool(stableToolName, request.input, {
       operationId: request.operationId,
       logicalToolOperationId: logicalOperationId,
+      incidentTraceId: typeof input.metadata?.incidentTraceId === "string" ? input.metadata.incidentTraceId : undefined,
       signal: input.signal,
       confirmed,
       confirmationCount,
@@ -615,6 +788,7 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
       result = await this.executeGatewayTool(stableToolName, request.input, {
         operationId: request.operationId,
         logicalToolOperationId: logicalOperationId,
+        incidentTraceId: typeof input.metadata?.incidentTraceId === "string" ? input.metadata.incidentTraceId : undefined,
         signal: input.signal,
         confirmed,
         confirmationCount,
@@ -669,6 +843,8 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
       toolCallId: request.toolCallId,
       toolName: request.toolName,
       operationId: request.operationId,
+      incidentTraceId: typeof input.metadata?.incidentTraceId === "string" ? input.metadata.incidentTraceId : undefined,
+      attemptTraceId: typeof input.metadata?.attemptTraceId === "string" ? input.metadata.attemptTraceId : undefined,
       logicalToolOperationId: logicalOperationId,
       careerSessionBinding: binding,
       result: safeToolResult(result)
@@ -749,7 +925,10 @@ export class HermesCareerAgentRuntime implements AgentRuntime {
     }
     if (event.type === "turn_failed") return this.event(input, "turn_failed", {
       error: { code: event.code, message: event.message, recoverable: event.recoverable },
-      data: { telemetry: this.telemetry(input, counters, "failed", startedAt) }
+      data: {
+        ...(event.data && typeof event.data === "object" && !Array.isArray(event.data) ? event.data as Record<string, unknown> : {}),
+        telemetry: this.telemetry(input, counters, "failed", startedAt)
+      }
     });
     return undefined;
   }
@@ -888,13 +1067,14 @@ function delay(ms: number, signal?: AbortSignal) {
 async function* eventsWithHeartbeat(
   transport: HermesBridgeTransport & Required<Pick<HermesBridgeTransport, "runEvents">>,
   runId: string,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  trace?: HermesRunTraceContext
 ): AsyncGenerator<HermesBridgeEvent> {
   const heartbeatController = new AbortController();
   const combinedSignal = signal
     ? AbortSignal.any([signal, heartbeatController.signal])
     : heartbeatController.signal;
-  const iterator = transport.runEvents(runId, combinedSignal)[Symbol.asyncIterator]();
+  const iterator = transport.runEvents(runId, combinedSignal, trace)[Symbol.asyncIterator]();
   try {
     for (;;) {
       let timer: ReturnType<typeof setTimeout> | undefined;
@@ -948,7 +1128,7 @@ function safeMetadata(metadata?: Record<string, unknown>) {
   if (!metadata) return undefined;
   const result: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(metadata)) {
-    if (["model", "hermesSessionId", "reattachRunId", "requireCareerSessionBinding", "fallbackUsed", "preferredRuntime", "attemptedRuntime", "finalRuntime", "fallbackReasonCode", "runtimeFailureAt", "runtimeRecoveryAttempted", "workflowId", "workflowStage", "rootGoal", "confirmed", "confirmationCount", "runtimeId", "executionOwner", "nextHermesRunId"].includes(key)
+    if (["model", "hermesSessionId", "reattachRunId", "requireCareerSessionBinding", "fallbackUsed", "preferredRuntime", "attemptedRuntime", "finalRuntime", "fallbackReasonCode", "runtimeFailureAt", "runtimeRecoveryAttempted", "workflowId", "workflowStage", "rootGoal", "confirmed", "confirmationCount", "runtimeId", "executionOwner", "nextHermesRunId", "incidentTraceId", "logicalTurnId", "attemptTraceId", "recoveryReason"].includes(key)
       && (typeof value === "string" || typeof value === "number" || typeof value === "boolean")) {
       result[key] = value;
       continue;

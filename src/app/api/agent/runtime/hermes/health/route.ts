@@ -74,6 +74,8 @@ async function proxy(url: string, mcp: ReturnType<typeof statusCareerAdaptMcpBri
     const health = HermesHealthSchema.safeParse({
       available: typeof upstream.available === "boolean" ? upstream.available : response.ok,
       runtimeId: typeof upstream.runtimeId === "string" ? upstream.runtimeId : "hermes",
+      ...(typeof upstream.activeRunId === "string" ? { activeRunId: upstream.activeRunId } : {}),
+      ...(typeof upstream.hermesRunId === "string" ? { hermesRunId: upstream.hermesRunId } : {}),
       version: typeof upstream.version === "string" ? upstream.version : undefined,
       reason: typeof upstream.reason === "string" ? upstream.reason : response.ok ? undefined : `hermes_http_${response.status}`,
       provider: typeof upstream.provider === "string" ? upstream.provider : configuredProvider?.provider ?? (configuredProviderBaseUrl() ? "openai-compatible" : undefined),
@@ -162,6 +164,8 @@ async function withRuntimeHealth(
   const runtimeHealth = RuntimeHealthSchema.parse({
     ...(upstreamRuntimeHealth ?? {}),
     runtimeId: upstreamRuntimeHealth?.runtimeId ?? health.runtimeId ?? "hermes",
+    ...(health.activeRunId || upstreamRuntimeHealth?.activeRunId ? { activeRunId: health.activeRunId ?? upstreamRuntimeHealth?.activeRunId } : {}),
+    ...(health.hermesRunId || upstreamRuntimeHealth?.hermesRunId ? { hermesRunId: health.hermesRunId ?? upstreamRuntimeHealth?.hermesRunId } : {}),
     runtimeAvailable: upstreamRuntimeHealth?.runtimeAvailable ?? health.available,
     companionReady,
     providerConfigured: upstreamRuntimeHealth?.providerConfigured ?? (health.providerStatus === "ready"

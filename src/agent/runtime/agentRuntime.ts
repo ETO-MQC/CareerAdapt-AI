@@ -16,6 +16,7 @@ import { allowedToolManifestForStep } from "@/agent/workflows/workflowRegistry";
 import { recoverUnknownToolCall } from "./normalizeAgentPlannerAction";
 import { ProfileIntakeSectionSchema } from "../contracts/agentActions";
 import type { ActiveCareerContext } from "@/domain/schemas";
+import { createRunStopReason, type RunStopReason } from "./hermes/hermesIncidentTrace";
 
 export type AgentRuntimeEventType =
   | "progress"
@@ -90,7 +91,7 @@ export interface AgentRuntime {
   readonly id: string;
   runTurn(input: AgentRuntimeTurnInput): AsyncIterable<AgentRuntimeEvent>;
   pause(sessionId: string): Promise<void>;
-  interrupt(sessionId: string): Promise<void>;
+  interrupt(sessionId: string, reason?: RunStopReason): Promise<void>;
   resume(sessionId: string): Promise<void>;
   capabilities(): AgentRuntimeCapabilities;
   /** One bounded Hermes health/session recovery before a safe retry. */
@@ -266,7 +267,15 @@ export class LegacyAgentRuntime {
 
   pause() {
     this.paused = true;
-    this.controller?.abort();
+    this.controller?.abort(createRunStopReason({
+      requestedBy: "agent_runtime_provider",
+      reasonCode: "workflow_paused",
+      sourceComponent: "AgentRuntime.pause",
+      sessionId: this.session.id,
+      logicalTurnId: this.session.activeTurn?.id,
+      runId: this.session.hermesRun?.runId,
+      incidentTraceId: this.session.activeTurn?.incidentTraceId
+    }));
     this.emit("workflow_paused");
     return this.persist();
   }
@@ -278,13 +287,21 @@ export class LegacyAgentRuntime {
     return this.turn("", pageContext);
   }
 
-  abort() {
-    this.controller?.abort();
+  abort(reason?: RunStopReason | Record<string, unknown>) {
+    this.controller?.abort(reason);
   }
 
-  async interrupt(sessionId: string) {
+  async interrupt(sessionId: string, reason?: RunStopReason) {
     if (sessionId !== this.session.id) return;
-    this.abort();
+    this.abort(reason ?? createRunStopReason({
+      requestedBy: "agent_runtime_provider",
+      reasonCode: "user_interrupt",
+      sourceComponent: "AgentRuntime.interrupt",
+      sessionId,
+      logicalTurnId: this.session.activeTurn?.id,
+      runId: this.session.hermesRun?.runId,
+      incidentTraceId: this.session.activeTurn?.incidentTraceId
+    }));
   }
 
   capabilities(): AgentRuntimeCapabilities {
@@ -311,7 +328,7 @@ export class LegacyAgentRuntime {
       return;
     }
     const turnId = input.turnId ?? `runtime-turn-${nanoid(12)}`;
-    const abortListener = () => this.abort();
+    const abortListener = () => this.abort(input.signal?.reason as Record<string, unknown> | undefined);
     input.signal?.addEventListener("abort", abortListener, { once: true });
     yield runtimeEvent({ ...input, turnId }, "reasoning_status", { message: "正在处理当前任务…" });
     yield runtimeEvent({ ...input, turnId }, "progress", { message: "已接收当前输入，正在准备下一步…" });

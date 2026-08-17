@@ -16,6 +16,7 @@ const STABLE_READY_WINDOW_MS = 60_000;
 const AUTO_RESTART_DELAYS_MS = [1_000, 3_000, 10_000];
 const CAREER_SYNC_POLL_INTERVAL_MS = 750;
 const MAX_LIFECYCLE_ENTRIES = 80;
+const MAX_LOG_TAIL_LINES = 100;
 const REQUIRED_CAREER_FACADES = 8;
 
 const LIFECYCLE_STATES = [
@@ -70,6 +71,9 @@ class HermesSupervisor {
     this.currentFingerprint = undefined;
     this.timeline = [];
     this.capabilities = undefined;
+    this.maintenancePending = false;
+    this.maintenanceReasonCode = undefined;
+    this.failureTimeSnapshot = undefined;
     this.snapshot = this.createInitialSnapshot();
   }
 
@@ -99,7 +103,10 @@ class HermesSupervisor {
       uptimeMs: 0,
       logPath: this.logPath,
       latestLifecycleEntries: [],
-      capabilities: undefined
+      capabilities: undefined,
+      maintenancePending: false,
+      maintenanceReasonCode: undefined,
+      failureTimeSnapshot: undefined
     };
   }
 
@@ -117,8 +124,9 @@ class HermesSupervisor {
   }
 
   async rendererHostReady(requestedSettings) {
+    const duplicateReady = this.rendererReady;
     this.rendererReady = true;
-    this.publish({ reasonCode: "renderer_mcp_ready" }, "Renderer MCP/domain host READY");
+    if (!duplicateReady) this.publish({ reasonCode: "renderer_mcp_ready" }, "Renderer MCP/domain host READY");
     return this.ensureStarted(requestedSettings);
   }
 
@@ -149,12 +157,39 @@ class HermesSupervisor {
   }
 
   async ensureStarted(requestedSettings) {
+    return this.startIfStopped(requestedSettings);
+  }
+
+  async startIfStopped(requestedSettings) {
+    if (!this.rendererReady) {
+      this.publish({ overallState: "stopped", reasonCode: "hermes_renderer_not_ready" });
+      return this.getStatus();
+    }
+    if (this.lifecyclePromise) return this.lifecyclePromise;
+    if (this.snapshot.processReady && this.handle && !isExited(this.handle.child) && !isTerminalState(this.snapshot.overallState)) {
+      const requestedEnvironment = environmentFromHermesSettings(requestedSettings);
+      const targetFingerprint = hermesConfigurationFingerprint({ ...this.baseEnvironment, ...requestedEnvironment });
+      if (this.currentFingerprint && targetFingerprint !== this.currentFingerprint) {
+        if (this.hasActiveSemanticRun()) return this.deferMaintenance("hermes_configuration_update_deferred_active_run");
+        return this.start(requestedSettings);
+      }
+      return this.getStatus();
+    }
     return this.start(requestedSettings);
   }
 
   async stop() {
     this.cancelAutoRestart();
-    return this.enqueue("hermes_stop", () => this.stopInternal("user_stop"));
+    return this.enqueue("hermes_stop", () => this.stopInternal("user_stop", {
+      requestedBy: "user",
+      reasonCode: "user_stop",
+      sourceComponent: "HermesSupervisor.stop",
+      requestedAt: new Date().toISOString()
+    }));
+  }
+
+  async restartExplicitly(options = {}) {
+    return this.restart({ ...options, explicit: true });
   }
 
   async restart(options = {}) {
@@ -166,7 +201,12 @@ class HermesSupervisor {
     this.lifecyclePromise = this.enqueue("hermes_restart", async () => {
       if (!options.auto) this.restartAttempt = 0;
       this.publish({ overallState: "restarting", reasonCode: options.reason || "hermes_restart_requested" }, options.reason || "Hermes restart requested");
-      await this.stopInternal("planned_restart");
+      await this.stopInternal("planned_restart", {
+        requestedBy: options.auto ? "hermes_supervisor" : "user",
+        reasonCode: options.reason || "runtime_restart",
+        sourceComponent: "HermesSupervisor.restart",
+        requestedAt: new Date().toISOString()
+      });
       return this.startInternal(this.environment, {
         targetFingerprint: this.currentFingerprint,
         requestedSettings: this.lastRequestedSettings,
@@ -184,6 +224,7 @@ class HermesSupervisor {
     if (!this.rendererReady) return this.getStatus();
     if (this.lifecyclePromise) return this.lifecyclePromise;
     this.lifecyclePromise = this.enqueue("hermes_recover", async () => {
+      if (this.hasActiveSemanticRun()) return this.deferMaintenance("hermes_recovery_deferred_active_run");
       const configurationError = isConfigurationReason(this.snapshot.reasonCode);
       if (configurationError) {
         this.publish({ overallState: "degraded", reasonCode: "configuration_required" }, "Recovery requires configuration");
@@ -196,7 +237,12 @@ class HermesSupervisor {
         });
       }
       if (!this.snapshot.apiReady) {
-        await this.stopInternal("api_unreachable_recovery");
+        await this.stopInternal("api_unreachable_recovery", {
+          requestedBy: "runtime_recovery",
+          reasonCode: "hermes_api_unreachable_recovery",
+          sourceComponent: "HermesSupervisor.recover",
+          requestedAt: new Date().toISOString()
+        });
         return this.startInternal(this.environment, {
           targetFingerprint: this.currentFingerprint,
           requestedSettings: this.lastRequestedSettings
@@ -204,7 +250,12 @@ class HermesSupervisor {
       }
       if (this.snapshot.careerMcpReady && !this.snapshot.toolSurfaceReady) {
         this.publish({ overallState: "restarting", reasonCode: "career_tool_surface_desync" }, "Career tool surface desync; one controlled reload requested");
-        await this.stopInternal("career_tool_surface_resync");
+        await this.stopInternal("career_tool_surface_resync", {
+          requestedBy: "runtime_recovery",
+          reasonCode: "career_tool_surface_resync",
+          sourceComponent: "HermesSupervisor.recover",
+          requestedAt: new Date().toISOString()
+        });
         return this.startInternal(this.environment, {
           targetFingerprint: this.currentFingerprint,
           requestedSettings: this.lastRequestedSettings,
@@ -227,11 +278,13 @@ class HermesSupervisor {
       this.environment.HERMES_API_KEY,
       this.environment.HERMES_RUNTIME_API_KEY,
       this.environment.API_SERVER_KEY
-    ], 40);
+    ], MAX_LOG_TAIL_LINES);
     return {
       logPath: this.logPath,
       latestLifecycleEntries: [...this.timeline],
-      recentLogLines
+      recentLogLines,
+      currentSnapshot: this.getStatus(),
+      failureTimeSnapshot: this.failureTimeSnapshot
     };
   }
 
@@ -254,6 +307,23 @@ class HermesSupervisor {
         bundledRuntimePaths: true
       }
     };
+  }
+
+  hasActiveSemanticRun() {
+    return Boolean(this.snapshot.activeRunId)
+      && this.snapshot.processReady
+      && !["stopped", "stopping", "restarting"].includes(this.snapshot.overallState);
+  }
+
+  deferMaintenance(reasonCode) {
+    this.maintenancePending = true;
+    this.maintenanceReasonCode = safeReason(reasonCode);
+    this.publish({
+      maintenancePending: true,
+      maintenanceReasonCode: this.maintenanceReasonCode,
+      reasonCode: this.maintenanceReasonCode
+    }, `Hermes maintenance deferred while semantic run ${this.snapshot.activeRunId || "is active"}`);
+    return this.getStatus();
   }
 
   async getConfigSchema() {
@@ -298,7 +368,12 @@ class HermesSupervisor {
   async shutdown() {
     this.rendererReady = false;
     this.cancelAutoRestart();
-    return this.enqueue("hermes_shutdown", () => this.stopInternal("application_shutdown"));
+    return this.enqueue("hermes_shutdown", () => this.stopInternal("application_shutdown", {
+      requestedBy: "application_shutdown",
+      reasonCode: "application_shutdown",
+      sourceComponent: "HermesSupervisor.shutdown",
+      requestedAt: new Date().toISOString()
+    }));
   }
 
   enqueue(_name, operation) {
@@ -308,6 +383,9 @@ class HermesSupervisor {
   }
 
   async startInternal(targetEnvironment, options = {}) {
+    if (!options.allowActiveRun && this.hasActiveSemanticRun()) {
+      return this.deferMaintenance("hermes_start_deferred_active_run");
+    }
     this.environment = { ...targetEnvironment };
     this.lastRequestedSettings = { ...(options.requestedSettings || {}) };
     applyEnvironment(this.environment);
@@ -326,7 +404,12 @@ class HermesSupervisor {
       provider: firstValue(this.environment.AI_BASE_URL, this.environment.OPENAI_BASE_URL)
     }, "Hermes start requested");
 
-    if (this.handle?.owned) await this.stopCompanion(this.handle);
+    if (this.handle?.owned) await this.stopCompanion(this.handle, options.stopReason || {
+      requestedBy: "hermes_supervisor",
+      reasonCode: "hermes_start_replacement",
+      sourceComponent: "HermesSupervisor.startInternal",
+      requestedAt: new Date().toISOString()
+    });
     this.handle = undefined;
     this.currentFingerprint = undefined;
     let handle;
@@ -421,7 +504,9 @@ class HermesSupervisor {
       reasonCode: safeReason(timeoutReason),
       processReady: this.snapshot.processReady,
       apiReady: this.snapshot.apiReady,
-      careerSkillsReady: false
+      careerSkillsReady: false,
+      maintenancePending: this.hasActiveSemanticRun(),
+      maintenanceReasonCode: this.hasActiveSemanticRun() ? "hermes_tool_surface_sync_timeout" : undefined
     }, `Hermes readiness deadline settled: ${timeoutReason}`);
     return this.getStatus();
   }
@@ -489,6 +574,23 @@ class HermesSupervisor {
           : careerMcpReady && !toolSurfaceReady
             ? "syncing_career_tools"
             : "degraded";
+    const reportedActiveRunId = stringValue(root.activeRunId)
+      || stringValue(root.hermesRunId)
+      || stringValue(runtimeHealth.activeRunId)
+      || stringValue(runtimeHealth.hermesRunId);
+    const hasReportedActiveRunId = ["activeRunId", "hermesRunId"].some((key) => Object.prototype.hasOwnProperty.call(root, key))
+      || ["activeRunId", "hermesRunId"].some((key) => Object.prototype.hasOwnProperty.call(runtimeHealth, key));
+    const activeRunId = hasReportedActiveRunId ? reportedActiveRunId : this.snapshot.activeRunId;
+    const previousRunReady = this.snapshot.runReady;
+    if (previousRunReady === true && runReady === false && !this.failureTimeSnapshot) {
+      this.failureTimeSnapshot = {
+        capturedAt: new Date().toISOString(),
+        reasonCode,
+        activeRunId,
+        runReady: false,
+        overallState
+      };
+    }
     this.publish({
       overallState,
       processReady,
@@ -504,11 +606,7 @@ class HermesSupervisor {
       provider: stringValue(root.provider) || this.snapshot.provider,
       runtimeUrl: stringValue(root.runtimeUrl) || this.snapshot.runtimeUrl,
       appUrl: stringValue(root.appUrl) || this.appBaseUrl,
-      activeRunId: stringValue(root.activeRunId)
-        || stringValue(root.hermesRunId)
-        || stringValue(runtimeHealth.activeRunId)
-        || stringValue(runtimeHealth.hermesRunId)
-        || this.snapshot.activeRunId,
+      activeRunId,
       careerDomainToolCount,
       hermesCareerToolCount,
       requiredCareerFacadesReady: requiredReady,
@@ -519,9 +617,17 @@ class HermesSupervisor {
       hermesRegisteredToolsets: arrayOfStrings(runtimeHealth.hermesRegisteredToolsets),
       hermesVisibleTools: arrayOfStrings(runtimeHealth.hermesVisibleTools),
       health: sanitizeHealth(runtimeHealth),
-      capabilities: this.capabilities
+      capabilities: this.capabilities,
+      maintenancePending: this.maintenancePending,
+      maintenanceReasonCode: this.maintenanceReasonCode,
+      ...(this.failureTimeSnapshot ? { failureTimeSnapshot: this.failureTimeSnapshot } : {})
     }, ready ? "Hermes READY" : `Hermes readiness: ${reasonCode || overallState}`);
-    if (ready) this.armStableReadyTimer();
+    if (ready) {
+      this.maintenancePending = false;
+      this.maintenanceReasonCode = undefined;
+      this.publish({ maintenancePending: false, maintenanceReasonCode: undefined });
+      this.armStableReadyTimer();
+    }
   }
 
   async discoverCapabilities() {
@@ -599,18 +705,20 @@ class HermesSupervisor {
     }, delayMs);
   }
 
-  async stopInternal(reason) {
+  async stopInternal(reason, stopReason) {
     if (!this.handle) {
-      this.publish({ overallState: "stopped", processReady: false, apiReady: false, providerReady: false, careerMcpReady: false, toolSurfaceReady: false, runReady: false, careerSkillsReady: false, reasonCode: reason }, "Hermes stopped");
+      this.publish({ overallState: "stopped", processReady: false, apiReady: false, providerReady: false, careerMcpReady: false, toolSurfaceReady: false, runReady: false, careerSkillsReady: false, activeRunId: undefined, reasonCode: reason, lastStopReason: stopReason }, "Hermes stopped");
       return this.getStatus();
     }
     const handle = this.handle;
-    this.publish({ overallState: "stopping", reasonCode: reason }, "Hermes stopping");
+    this.publish({ overallState: "stopping", reasonCode: reason, lastStopReason: stopReason }, "Hermes stopping");
     handle.supervisorStopping = true;
-    await this.stopCompanion(handle);
+    await this.stopCompanion(handle, stopReason);
     if (this.handle === handle) this.handle = undefined;
     this.processStartedAt = undefined;
-    this.publish({ overallState: "stopped", processReady: false, apiReady: false, providerReady: false, careerMcpReady: false, toolSurfaceReady: false, runReady: false, careerSkillsReady: false, reasonCode: reason }, "Hermes stopped");
+    this.publish({ overallState: "stopped", processReady: false, apiReady: false, providerReady: false, careerMcpReady: false, toolSurfaceReady: false, runReady: false, careerSkillsReady: false, activeRunId: undefined, reasonCode: reason, lastStopReason: stopReason }, "Hermes stopped");
+    this.maintenancePending = false;
+    this.maintenanceReasonCode = undefined;
     return this.getStatus();
   }
 

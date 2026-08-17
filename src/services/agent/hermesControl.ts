@@ -41,6 +41,16 @@ export type HermesSupervisorSnapshot = {
   hermesVisibleTools?: string[];
   startupFailure?: string;
   lastExit?: { code?: number | null; signal?: string | null };
+  lastStopReason?: {
+    requestedBy: string;
+    reasonCode: string;
+    sourceComponent: string;
+    sessionId?: string;
+    logicalTurnId?: string;
+    runId?: string;
+    requestedAt?: string;
+    incidentTraceId?: string;
+  };
   health?: Record<string, unknown>;
   capabilities?: {
     supportedEndpoints: string[];
@@ -53,6 +63,15 @@ export type HermesSupervisorSnapshot = {
     reasonCode?: string;
   }>;
   logPath?: string;
+  maintenancePending?: boolean;
+  maintenanceReasonCode?: string;
+  failureTimeSnapshot?: {
+    capturedAt: string;
+    reasonCode?: string;
+    activeRunId?: string;
+    runReady: boolean;
+    overallState: HermesLifecycleState;
+  };
 };
 
 export type HermesControlResult = {
@@ -68,6 +87,8 @@ export type HermesLogs = {
   logPath?: string;
   latestLifecycleEntries: HermesSupervisorSnapshot["latestLifecycleEntries"];
   recentLogLines: string[];
+  currentSnapshot?: HermesSupervisorSnapshot;
+  failureTimeSnapshot?: HermesSupervisorSnapshot["failureTimeSnapshot"];
 };
 
 export type HermesConfigSnapshot = {

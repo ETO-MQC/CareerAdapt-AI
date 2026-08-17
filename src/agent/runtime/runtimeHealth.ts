@@ -5,6 +5,8 @@ import { HermesRunFailureDiagnosticsSchema } from "./hermes/hermesRunReliability
 /** The single readiness contract used by the UI, diagnostics and roadshow. */
 export const RuntimeHealthSchema = z.object({
   runtimeId: z.string().min(1),
+  activeRunId: z.string().min(1).optional(),
+  hermesRunId: z.string().min(1).optional(),
   runtimeAvailable: z.boolean(),
   /** Lightweight readiness dimensions. Optional for persisted pre-P4.5c.1.7 snapshots. */
   companionReady: z.boolean().optional(),

@@ -8,10 +8,17 @@ import {
   type HermesRunFailureDiagnostics,
   withHermesRunFailureDiagnostics
 } from "./hermesRunReliability";
+import {
+  abortSourceForReason,
+  type BridgeRequestTrace,
+  type RunStopReason
+} from "./hermesIncidentTrace";
 
 export const HermesHealthSchema = z.object({
   available: z.boolean(),
   runtimeId: z.string().min(1).optional(),
+  activeRunId: z.string().min(1).optional(),
+  hermesRunId: z.string().min(1).optional(),
   version: z.string().min(1).optional(),
   reason: z.string().min(1).optional(),
   provider: z.string().min(1).optional(),
@@ -41,7 +48,7 @@ export type HermesBridgeEvent =
   | { type: "approval_required"; toolCallId?: string; toolName?: string; operationId?: string; data?: unknown; message?: string }
   | { type: "artifact_updated"; data: unknown; artifactId?: string }
   | { type: "turn_completed"; data?: unknown; message?: string }
-  | { type: "turn_failed"; code: string; message: string; recoverable: boolean };
+  | { type: "turn_failed"; code: string; message: string; recoverable: boolean; data?: unknown };
 
 export type HermesSession = {
   sessionId: string;
@@ -58,6 +65,9 @@ export type HermesTurnRequest = {
   attachments?: AgentRuntimeAttachment[];
   conversationHistory?: Array<{ role: "user" | "assistant"; content: string }>;
   metadata?: Record<string, unknown>;
+  incidentTraceId?: string;
+  logicalTurnId?: string;
+  attemptTraceId?: string;
 };
 
 export const HermesRunStatusSchema = z.object({
@@ -81,6 +91,16 @@ export type HermesRunStart = {
   status: "started" | "queued" | "running";
 };
 
+export type HermesRunTraceContext = {
+  incidentTraceId?: string;
+  traceId?: string;
+  logicalTurnId?: string;
+  sessionId?: string;
+  turnId?: string;
+  runId?: string;
+  stopReason?: RunStopReason;
+};
+
 const HermesRunStartSchema = z.object({
   runId: z.string().min(1),
   status: z.enum(["started", "queued", "running"])
@@ -93,6 +113,8 @@ export type HermesToolCallback = {
   toolName: string;
   operationId: string;
   logicalToolOperationId?: string;
+  incidentTraceId?: string;
+  attemptTraceId?: string;
   careerSessionBinding?: CareerSessionBinding;
   result: unknown;
 };
@@ -117,19 +139,26 @@ export interface HermesBridgeTransport {
   resumeSession(input: { sessionId: string }, signal?: AbortSignal): Promise<HermesSession>;
   turn(input: HermesTurnRequest, signal?: AbortSignal): AsyncIterable<HermesBridgeEvent>;
   toolCallback(input: HermesToolCallback, signal?: AbortSignal): Promise<void>;
-  interrupt(input: { sessionId: string; turnId?: string; reason?: string }, signal?: AbortSignal): Promise<void>;
+  interrupt(input: { sessionId: string; turnId?: string; reason?: string; stopReason?: RunStopReason }, signal?: AbortSignal, trace?: HermesRunTraceContext): Promise<void>;
   /** Runs are mandatory for production transports. Optionality only keeps
    * pre-P4.4e in-memory adapters source-compatible during migration. */
   startRun?(input: HermesTurnRequest, signal?: AbortSignal): Promise<HermesRunStart>;
-  getRun?(runId: string, signal?: AbortSignal): Promise<HermesRunStatus>;
-  runEvents?(runId: string, signal?: AbortSignal): AsyncIterable<HermesBridgeEvent>;
-  approveRun?(runId: string, choice: "once" | "session" | "always" | "deny", signal?: AbortSignal): Promise<HermesRunStatus>;
-  stopRun?(runId: string, signal?: AbortSignal): Promise<HermesRunStatus>;
+  getRun?(runId: string, signal?: AbortSignal, trace?: HermesRunTraceContext): Promise<HermesRunStatus>;
+  runEvents?(runId: string, signal?: AbortSignal, trace?: HermesRunTraceContext): AsyncIterable<HermesBridgeEvent>;
+  approveRun?(runId: string, choice: "once" | "session" | "always" | "deny", signal?: AbortSignal, trace?: HermesRunTraceContext): Promise<HermesRunStatus>;
+  stopRun?(runId: string, signal?: AbortSignal, trace?: HermesRunTraceContext): Promise<HermesRunStatus>;
+  getDiagnostics?(): { bridgeRequestTraces: BridgeRequestTrace[] };
 }
 
 /** Browser-safe bridge client. Hermes itself remains a server/local companion. */
 export class HttpHermesBridgeTransport implements HermesBridgeTransport {
+  private readonly bridgeRequestTraces: BridgeRequestTrace[] = [];
+
   constructor(private readonly endpoint = "/api/agent/runtime/hermes") {}
+
+  getDiagnostics() {
+    return { bridgeRequestTraces: [...this.bridgeRequestTraces] };
+  }
 
   async health(signal?: AbortSignal) {
     const response = await this.request(`${this.endpoint}/health`, { method: "GET", signal });
@@ -138,29 +167,51 @@ export class HttpHermesBridgeTransport implements HermesBridgeTransport {
   }
 
   async createSession(input: { sessionId: string; metadata?: Record<string, unknown> }, signal?: AbortSignal) {
-    return this.jsonRequest<HermesSession>("session_create", input, signal);
+    return this.jsonRequest<HermesSession>("session_create", input, signal, { sessionId: input.sessionId });
   }
 
   async resumeSession(input: { sessionId: string }, signal?: AbortSignal) {
-    return this.jsonRequest<HermesSession>("session_resume", input, signal);
+    return this.jsonRequest<HermesSession>("session_resume", input, signal, { sessionId: input.sessionId });
   }
 
   turn(input: HermesTurnRequest, signal?: AbortSignal) {
-    return this.streamRequest({ action: "turn", ...input }, signal);
+    return this.streamRequest({ action: "turn", ...input }, signal, {
+      incidentTraceId: input.incidentTraceId,
+      traceId: input.attemptTraceId,
+      logicalTurnId: input.logicalTurnId,
+      sessionId: input.sessionId,
+      turnId: input.turnId
+    });
   }
 
   async toolCallback(input: HermesToolCallback, signal?: AbortSignal) {
-    await this.jsonRequest("tool_callback", input, signal);
+    await this.jsonRequest("tool_callback", input, signal, {
+      incidentTraceId: input.incidentTraceId,
+      traceId: input.attemptTraceId,
+      sessionId: input.sessionId,
+      turnId: input.turnId
+    });
   }
 
-  async interrupt(input: { sessionId: string; turnId?: string; reason?: string }, signal?: AbortSignal) {
-    await this.jsonRequest("interrupt", input, signal);
+  async interrupt(input: { sessionId: string; turnId?: string; reason?: string; stopReason?: RunStopReason }, signal?: AbortSignal, trace?: HermesRunTraceContext) {
+    await this.jsonRequest("interrupt", input, signal, {
+      ...trace,
+      sessionId: input.sessionId,
+      turnId: input.turnId,
+      stopReason: input.stopReason ?? trace?.stopReason
+    });
   }
 
   async startRun(input: HermesTurnRequest, signal?: AbortSignal) {
     const startedAt = Date.now();
     try {
-      const result = await this.jsonRequest<HermesRunStart>("run_start", input, signal);
+      const result = await this.jsonRequest<HermesRunStart>("run_start", input, signal, {
+        incidentTraceId: input.incidentTraceId,
+        traceId: input.attemptTraceId,
+        logicalTurnId: input.logicalTurnId,
+        sessionId: input.sessionId,
+        turnId: input.turnId
+      });
       const parsed = HermesRunStartSchema.safeParse(result);
       if (!parsed.success) {
         throw createHermesRunFailure({
@@ -170,6 +221,8 @@ export class HttpHermesBridgeTransport implements HermesBridgeTransport {
           hermesSessionId: input.sessionId,
           requestedTurnId: input.turnId,
           runStartKind: "new",
+          incidentTraceId: input.incidentTraceId,
+          attemptTraceId: input.attemptTraceId,
           latencyMs: Date.now() - startedAt,
           retryable: false
         });
@@ -180,58 +233,72 @@ export class HttpHermesBridgeTransport implements HermesBridgeTransport {
         hermesSessionId: input.sessionId,
         requestedTurnId: input.turnId,
         runStartKind: "new",
+        incidentTraceId: input.incidentTraceId,
+        attemptTraceId: input.attemptTraceId,
         latencyMs: Date.now() - startedAt
       });
     }
   }
 
-  async getRun(runId: string, signal?: AbortSignal) {
-    const result = await this.jsonRequest<HermesRunStatus>("run_status", { runId }, signal);
+  async getRun(runId: string, signal?: AbortSignal, trace?: HermesRunTraceContext) {
+    const result = await this.jsonRequest<HermesRunStatus>("run_status", { runId }, signal, { ...trace, runId });
     return HermesRunStatusSchema.parse(result);
   }
 
-  runEvents(runId: string, signal?: AbortSignal) {
-    return this.streamRequest({ action: "run_events", runId }, signal);
+  runEvents(runId: string, signal?: AbortSignal, trace?: HermesRunTraceContext) {
+    return this.streamRequest({ action: "run_events", runId }, signal, { ...trace, runId });
   }
 
-  async approveRun(runId: string, choice: "once" | "session" | "always" | "deny", signal?: AbortSignal) {
-    const result = await this.jsonRequest<HermesRunStatus>("run_approval", { runId, choice }, signal);
+  async approveRun(runId: string, choice: "once" | "session" | "always" | "deny", signal?: AbortSignal, trace?: HermesRunTraceContext) {
+    const result = await this.jsonRequest<HermesRunStatus>("run_approval", { runId, choice }, signal, { ...trace, runId });
     return HermesRunStatusSchema.parse(result);
   }
 
-  async stopRun(runId: string, signal?: AbortSignal) {
-    const result = await this.jsonRequest<HermesRunStatus>("run_stop", { runId }, signal);
+  async stopRun(runId: string, signal?: AbortSignal, trace?: HermesRunTraceContext) {
+    const result = await this.jsonRequest<HermesRunStatus>("run_stop", {
+      runId,
+      ...(trace?.stopReason ? { stopReason: trace.stopReason } : {})
+    }, signal, { ...trace, runId });
     return HermesRunStatusSchema.parse(result);
   }
 
-  private async jsonRequest<T = unknown>(action: string, input: Record<string, unknown>, signal?: AbortSignal) {
-    const response = await this.request(this.endpoint, {
-      method: "POST",
-      signal,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action, ...input })
-    });
-    const payload = await response.json().catch(() => ({})) as {
-      ok?: boolean;
-      data?: T;
-      error?: { code?: string; message?: string; httpStatus?: number; failureLayer?: string; diagnostics?: Partial<HermesRunFailureDiagnostics> };
-    };
-    if (!response.ok || payload.ok === false) {
-      throw bridgeError(
-        payload.error?.code ?? `hermes_bridge_http_${response.status}`,
-        payload.error?.message ?? "Hermes bridge request failed.",
-        {
-          httpStatus: response.status,
-          failureLayer: payload.error?.failureLayer === "provider" ? "provider" : "bridge_http",
-          upstreamErrorCode: payload.error?.code,
-          diagnostics: payload.error?.diagnostics
-        }
-      );
+  private async jsonRequest<T = unknown>(action: string, input: Record<string, unknown>, signal?: AbortSignal, trace?: HermesRunTraceContext) {
+    const traceIndex = this.beginBridgeTrace(action, input, trace);
+    try {
+      const response = await this.request(this.endpoint, {
+        method: "POST",
+        signal,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, ...input })
+      });
+      const payload = await response.json().catch(() => ({})) as {
+        ok?: boolean;
+        data?: T;
+        error?: { code?: string; message?: string; httpStatus?: number; failureLayer?: string; diagnostics?: Partial<HermesRunFailureDiagnostics> };
+      };
+      if (!response.ok || payload.ok === false) {
+        throw bridgeError(
+          payload.error?.code ?? `hermes_bridge_http_${response.status}`,
+          payload.error?.message ?? "Hermes bridge request failed.",
+          {
+            httpStatus: response.status,
+            failureLayer: payload.error?.failureLayer === "provider" ? "provider" : "bridge_http",
+            upstreamErrorCode: payload.error?.code,
+            diagnostics: payload.error?.diagnostics
+          }
+        );
+      }
+      const result = (payload.data ?? payload) as T;
+      this.finishBridgeTrace(traceIndex, { httpStatus: response.status, runId: safeRunId(result) });
+      return result;
+    } catch (error) {
+      this.finishBridgeTrace(traceIndex, { safeErrorCode: safeErrorCode(error), ...(errorStatus(error) ? { httpStatus: errorStatus(error) } : {}) }, signal);
+      throw error;
     }
-    return (payload.data ?? payload) as T;
   }
 
-  private async *streamRequest(input: Record<string, unknown>, signal?: AbortSignal): AsyncIterable<HermesBridgeEvent> {
+  private async *streamRequest(input: Record<string, unknown>, signal?: AbortSignal, trace?: HermesRunTraceContext): AsyncIterable<HermesBridgeEvent> {
+    const traceIndex = this.beginBridgeTrace(String(input.action), input, trace);
     let response: Response;
     try {
       response = await this.request(this.endpoint, {
@@ -241,17 +308,21 @@ export class HttpHermesBridgeTransport implements HermesBridgeTransport {
         body: JSON.stringify(input)
       });
     } catch (error) {
+      this.finishBridgeTrace(traceIndex, { safeErrorCode: safeErrorCode(error), ...(errorStatus(error) ? { httpStatus: errorStatus(error) } : {}) }, signal);
       throw error;
     }
     if (!response.ok || !response.body) {
       const payload = await safeJson(response);
-      throw bridgeError(payload?.error?.code ?? `hermes_bridge_http_${response.status}`, payload?.error?.message ?? "Hermes turn stream is unavailable.", {
+      const error = bridgeError(payload?.error?.code ?? `hermes_bridge_http_${response.status}`, payload?.error?.message ?? "Hermes turn stream is unavailable.", {
         httpStatus: response.status,
         failureLayer: "bridge_http",
         upstreamErrorCode: payload?.error?.code,
         diagnostics: payload?.error?.diagnostics
       });
+      this.finishBridgeTrace(traceIndex, { httpStatus: response.status, safeErrorCode: safeErrorCode(error) }, signal);
+      throw error;
     }
+    this.updateBridgeTrace(traceIndex, { httpStatus: response.status });
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     const isSse = (response.headers.get("content-type") ?? "").toLowerCase().includes("text/event-stream");
@@ -290,35 +361,81 @@ export class HttpHermesBridgeTransport implements HermesBridgeTransport {
       }
     };
     let buffer = "";
-    for (;;) {
-      const { value, done } = await reader.read();
-      buffer += decoder.decode(value ?? new Uint8Array(), { stream: !done });
-      const lines = buffer.split(/\r?\n/u);
-      buffer = lines.pop() ?? "";
+    try {
+      for (;;) {
+        const { value, done } = await reader.read();
+        buffer += decoder.decode(value ?? new Uint8Array(), { stream: !done });
+        const lines = buffer.split(/\r?\n/u);
+        buffer = lines.pop() ?? "";
+        if (isSse) {
+          for (const line of lines) {
+            const event = consumeSseLine(line);
+            if (event) yield event;
+          }
+        } else {
+          for (const line of lines) {
+            const event = parseBridgeEvent(line);
+            if (event) yield event;
+          }
+        }
+        if (done) break;
+      }
       if (isSse) {
-        for (const line of lines) {
-          const event = consumeSseLine(line);
+        if (buffer) {
+          const event = consumeSseLine(buffer);
           if (event) yield event;
         }
-      } else {
-        for (const line of lines) {
-          const event = parseBridgeEvent(line);
-          if (event) yield event;
-        }
-      }
-      if (done) break;
-    }
-    if (isSse) {
-      if (buffer) {
-        const event = consumeSseLine(buffer);
+        const event = consumeSseLine("");
         if (event) yield event;
+      } else {
+        const finalEvent = parseBridgeEvent(buffer);
+        if (finalEvent) yield finalEvent;
       }
-      const event = consumeSseLine("");
-      if (event) yield event;
-    } else {
-      const finalEvent = parseBridgeEvent(buffer);
-      if (finalEvent) yield finalEvent;
+    } catch (error) {
+      this.finishBridgeTrace(traceIndex, { safeErrorCode: safeErrorCode(error) }, signal);
+      throw error;
+    } finally {
+      this.finishBridgeTrace(traceIndex, {}, signal);
     }
+  }
+
+  private beginBridgeTrace(action: string, input: Record<string, unknown>, trace?: HermesRunTraceContext) {
+    const entry: BridgeRequestTrace = {
+      action: action as BridgeRequestTrace["action"],
+      startedAt: new Date().toISOString(),
+      ...(safeString(input.runId) || trace?.stopReason?.runId ? { runId: safeString(input.runId) ?? trace?.stopReason?.runId } : {}),
+      ...(safeString(input.turnId) || trace?.turnId ? { turnId: safeString(input.turnId) ?? trace?.turnId } : {}),
+      ...(safeString(input.sessionId) || trace?.sessionId ? { sessionId: safeString(input.sessionId) ?? trace?.sessionId } : {}),
+      ...(trace?.traceId || trace?.incidentTraceId ? { traceId: trace.traceId ?? trace.incidentTraceId } : {}),
+      ...(trace?.incidentTraceId ? { incidentTraceId: trace.incidentTraceId } : {})
+    };
+    this.bridgeRequestTraces.push(entry);
+    if (this.bridgeRequestTraces.length > 200) this.bridgeRequestTraces.splice(0, this.bridgeRequestTraces.length - 200);
+    return this.bridgeRequestTraces.length - 1;
+  }
+
+  private finishBridgeTrace(index: number, patch: Partial<BridgeRequestTrace>, signal?: AbortSignal) {
+    const entry = this.bridgeRequestTraces[index];
+    if (!entry) return;
+    const completedAt = new Date().toISOString();
+    const aborted = signal?.aborted === true;
+    this.bridgeRequestTraces[index] = {
+      ...entry,
+      ...patch,
+      ...(patch.runId ? { runId: patch.runId } : {}),
+      ...(aborted ? {
+        abortedAt: completedAt,
+        abortSource: abortSourceForReason(signal?.reason)
+      } : {}),
+      completedAt,
+      latencyMs: Math.max(0, Date.now() - Date.parse(entry.startedAt))
+    };
+  }
+
+  private updateBridgeTrace(index: number, patch: Partial<BridgeRequestTrace>) {
+    const entry = this.bridgeRequestTraces[index];
+    if (!entry) return;
+    this.bridgeRequestTraces[index] = { ...entry, ...patch };
   }
 
   private async request(url: string, init: RequestInit) {
@@ -510,6 +627,8 @@ export function toRuntimeHealth(
     || (health.providerStatus === undefined && health.available);
   return RuntimeHealthSchema.parse({
     runtimeId: health.runtimeId ?? "hermes",
+    ...(health.activeRunId ? { activeRunId: health.activeRunId } : {}),
+    ...(health.hermesRunId ? { hermesRunId: health.hermesRunId } : {}),
     runtimeAvailable: health.available,
     providerConfigured,
     providerReachable,
@@ -549,4 +668,26 @@ function bridgeError(
 function safeRuntimeErrorCode(value: string) {
   const normalized = value.trim().toLowerCase().replace(/[^a-z0-9_:-]+/g, "_");
   return normalized.slice(0, 120) || "hermes_health_failed";
+}
+
+function safeString(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim().slice(0, 240) : undefined;
+}
+
+function safeRunId(value: unknown) {
+  const record = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  return safeString(record.runId) ?? safeString(record.run_id);
+}
+
+function safeErrorCode(error: unknown) {
+  if (!error || typeof error !== "object") return "hermes_bridge_failed";
+  const value = error as { code?: unknown; diagnostics?: { safeErrorCode?: unknown } };
+  return safeString(value.diagnostics?.safeErrorCode) ?? safeString(value.code) ?? "hermes_bridge_failed";
+}
+
+function errorStatus(error: unknown) {
+  if (!error || typeof error !== "object") return undefined;
+  const value = error as { httpStatus?: unknown; diagnostics?: { httpStatus?: unknown } };
+  const status = value.httpStatus ?? value.diagnostics?.httpStatus;
+  return typeof status === "number" && Number.isInteger(status) ? status : undefined;
 }

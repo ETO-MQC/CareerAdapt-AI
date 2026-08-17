@@ -15,6 +15,18 @@ import type { AgentPageContext } from "@/agent/contracts/agentContext";
 import type { AgentStreamEvent } from "@/agent/runtime/agentSse";
 import type { AgentRuntimeEvent } from "@/agent/runtime/agentRuntime";
 import { isHermesRuntimeFailureCode } from "@/agent/runtime/hermes/hermesRunReliability";
+import {
+  abortSourceForReason,
+  createIncidentTraceId,
+  createRunStopReason,
+  AbortTraceSchema,
+  RuntimeAttemptSchema,
+  RuntimeFailureSnapshotSchema,
+  RunStopReasonSchema,
+  type AbortTrace,
+  type RuntimeAttempt,
+  type RunStopReason
+} from "@/agent/runtime/hermes/hermesIncidentTrace";
 import type { AgentKernel } from "@/agent/kernel/AgentKernel";
 import { evaluateGroundedResumeOutput } from "@/agent/kernel/GroundedResumeOutputGate";
 import {
@@ -1493,10 +1505,11 @@ export class AgentHostStore {
     userMessage: string;
     runtimeId: string;
     turnId?: string;
-    runtimeDiagnostics?: Partial<Pick<NonNullable<AgentSession["activeTurn"]>, "preferredRuntime" | "attemptedRuntime" | "finalRuntime" | "executionOwner" | "fallbackUsed" | "fallbackReasonCode" | "hermesRunId" | "nextHermesRunId" | "firstEventAt" | "runtimeFailureAt">>;
+    runtimeDiagnostics?: Partial<Pick<NonNullable<AgentSession["activeTurn"]>, "preferredRuntime" | "attemptedRuntime" | "finalRuntime" | "executionOwner" | "fallbackUsed" | "fallbackReasonCode" | "hermesRunId" | "nextHermesRunId" | "firstEventAt" | "runtimeFailureAt" | "incidentTraceId" | "runtimeAttempts" | "turnStartSnapshot" | "runtimeFailureSnapshot" | "cancellation" | "abortTraces" | "recoveryAttempted">>;
   }) {
     const now = new Date().toISOString();
     const turnId = input.turnId ?? `runtime-turn-${crypto.randomUUID()}`;
+    const incidentTraceId = input.runtimeDiagnostics?.incidentTraceId ?? createIncidentTraceId();
     const reusableAssistant = !input.userMessage.trim()
       ? input.session.messages.findLast((message) =>
           message.role === "assistant"
@@ -1560,6 +1573,7 @@ export class AgentHostStore {
         finalRuntime: input.runtimeDiagnostics?.finalRuntime ?? (input.runtimeId === "hermes" ? "hermes" : "native"),
         executionOwner: input.runtimeDiagnostics?.executionOwner ?? (input.userMessage.trim() ? input.runtimeId as "native" | "hermes" : "runtime_continuation"),
         fallbackUsed: false,
+        incidentTraceId,
         visibleAssistantMessageId: assistantMessageId,
         workflowCheckpoint: current.taskState ? {
           workflowId: current.taskState.workflowId,
@@ -1950,9 +1964,34 @@ export class AgentHostStore {
     return next;
   }
 
-  interrupt(sessionId = this.snapshot.activeSessionId) {
+  interrupt(sessionId = this.snapshot.activeSessionId, reason?: RunStopReason) {
     if (!sessionId) return;
-    this.executionCoordinator.interrupt(sessionId);
+    const activeSession = this.snapshot.activeSession;
+    const activeTurn = activeSession?.id === sessionId ? activeSession.activeTurn : undefined;
+    const abortTrace: AbortTrace = {
+      abortSource: abortSourceForReason(reason ?? { abortSource: "user_interrupt" }),
+      ...(reason?.reasonCode ? { abortReason: reason.reasonCode } : { abortReason: "user_interrupt" }),
+      sessionId,
+      turnId: activeTurn?.id,
+      runId: activeSession?.hermesRun?.runId,
+      abortedAt: new Date().toISOString(),
+      incidentTraceId: activeTurn?.incidentTraceId
+    };
+    this.executionCoordinator.interrupt(sessionId, abortTrace);
+    if (activeSession && activeTurn) {
+      const next = {
+        ...activeSession,
+        activeTurn: {
+          ...activeTurn,
+          ...(reason ? { cancellation: reason } : {}),
+          abortTraces: [...(activeTurn.abortTraces ?? []), abortTrace].slice(-32)
+        }
+      };
+      void this.dependencies.persistence.save(next).then((saved) => {
+        const current = this.snapshot.activeSession;
+        if (current?.id === saved.id && current.activeTurn?.id === activeTurn.id) this.patchSession(saved);
+      });
+    }
   }
 
   continueWaiting() {
@@ -4121,7 +4160,7 @@ export class AgentHostStore {
     sourceTurnId?: string;
     regeneratedFromMessageId?: string;
     retryWorkflowStep?: boolean;
-    runtimeDiagnostics?: Partial<Pick<NonNullable<AgentSession["activeTurn"]>, "preferredRuntime" | "attemptedRuntime" | "finalRuntime" | "fallbackUsed" | "fallbackReasonCode" | "hermesRunId" | "firstEventAt" | "runtimeFailureAt">>;
+    runtimeDiagnostics?: Partial<Pick<NonNullable<AgentSession["activeTurn"]>, "preferredRuntime" | "attemptedRuntime" | "finalRuntime" | "fallbackUsed" | "fallbackReasonCode" | "hermesRunId" | "firstEventAt" | "runtimeFailureAt" | "incidentTraceId" | "runtimeAttempts" | "turnStartSnapshot" | "runtimeFailureSnapshot" | "cancellation" | "abortTraces" | "recoveryAttempted">>;
   }) {
     if (input.session.pendingConfirmation && input.session.pendingToolCall) {
       input.session = invalidatePendingConfirmationForCorrection(input.session);
@@ -4135,7 +4174,15 @@ export class AgentHostStore {
       input.session = this.clearQueuedInputs(input.session);
       input.session = await this.dependencies.persistence.save(input.session);
       this.patchSession(input.session);
-      existingExecution.controller.abort();
+      this.executionCoordinator.interrupt(input.session.id, createRunStopReason({
+        requestedBy: "agent_runtime_provider",
+        reasonCode: "new_turn_superseded",
+        sourceComponent: "AgentHostStore.startTurn",
+        sessionId: input.session.id,
+        logicalTurnId: existingExecution.activeTurnId ?? input.session.activeTurn?.id,
+        runId: input.session.hermesRun?.runId,
+        incidentTraceId: input.session.activeTurn?.incidentTraceId
+      }));
       await existingExecution.promise;
       const interrupted = completeTurn(input.session, "aborted");
       input.session = appendAgentMessage(interrupted, "system", "上一轮已中断；已完成的步骤会保留，并按你的新意图重新规划。", {
@@ -4146,6 +4193,7 @@ export class AgentHostStore {
     }
     const now = new Date().toISOString();
     const turnId = input.turnId ?? `agent-turn-${crypto.randomUUID()}`;
+    const incidentTraceId = input.runtimeDiagnostics?.incidentTraceId ?? createIncidentTraceId();
     const executionRecord = this.executionCoordinator.begin({
       sessionId: input.session.id,
       activeTurnId: turnId,
@@ -4267,6 +4315,7 @@ export class AgentHostStore {
         attemptedRuntime: current.activeTurn?.attemptedRuntime ?? input.runtimeDiagnostics?.attemptedRuntime ?? (input.runtimeId === "hermes" ? "hermes" : "native"),
         finalRuntime: current.activeTurn?.finalRuntime ?? input.runtimeDiagnostics?.finalRuntime ?? (input.runtimeId === "hermes" ? "hermes" : "native"),
         fallbackUsed: current.activeTurn?.fallbackUsed ?? input.runtimeDiagnostics?.fallbackUsed ?? false,
+        incidentTraceId: current.activeTurn?.incidentTraceId ?? incidentTraceId,
         status: "running",
         startedAt: now,
         ...input.runtimeDiagnostics
@@ -6044,7 +6093,15 @@ export class AgentHostStore {
   ) {
     const existing = this.executionCoordinator.get(session.id);
     if (existing?.promise) {
-      existing.controller.abort();
+      this.executionCoordinator.interrupt(session.id, createRunStopReason({
+        requestedBy: "agent_runtime_provider",
+        reasonCode: "new_turn_superseded",
+        sourceComponent: "AgentHostStore.resume",
+        sessionId: session.id,
+        logicalTurnId: existing.activeTurnId ?? turnId,
+        runId: session.hermesRun?.runId,
+        incidentTraceId: session.activeTurn?.incidentTraceId
+      }));
       await existing.promise;
     }
     const startedAt = new Date().toISOString();
@@ -9759,10 +9816,31 @@ function applyRuntimeEventDiagnostics(session: AgentSession, event: AgentRuntime
   const runtimeFailureDiagnostics = data.diagnostics && typeof data.diagnostics === "object" && !Array.isArray(data.diagnostics)
     ? data.diagnostics as Record<string, unknown>
     : undefined;
+  const incidentTraceId = stringValue(data.incidentTraceId)
+    ?? stringValue(telemetry.incidentTraceId)
+    ?? session.activeTurn.incidentTraceId
+    ?? createIncidentTraceId();
+  const failureSnapshotCandidate = data.failureSnapshot ?? telemetry.failureSnapshot;
+  const failureSnapshot = RuntimeFailureSnapshotSchema.safeParse(failureSnapshotCandidate);
+  const stopReason = RunStopReasonSchema.safeParse(data.stopReason ?? telemetry.stopReason);
+  const abortTrace = AbortTraceSchema.safeParse(data.abortTrace ?? telemetry.abortTrace);
+  const nextRuntimeAttempts = updateRuntimeAttempts(session.activeTurn.runtimeAttempts, {
+    event,
+    data,
+    telemetry,
+    incidentTraceId,
+    hermesRunId
+  });
+  const nextAbortTraces = abortTrace.success
+    ? [...(session.activeTurn.abortTraces ?? []), abortTrace.data].slice(-32)
+    : session.activeTurn.abortTraces;
+  const nextRuntimeFailureSnapshot = session.activeTurn.runtimeFailureSnapshot
+    ?? (failureSnapshot.success ? failureSnapshot.data : undefined);
   return {
     ...session,
     activeTurn: {
       ...session.activeTurn,
+      incidentTraceId,
       preferredRuntime: runtime(data.preferredRuntime) ?? runtime(telemetry.preferredRuntime) ?? session.activeTurn.preferredRuntime,
       attemptedRuntime: runtime(data.attemptedRuntime) ?? runtime(telemetry.attemptedRuntime) ?? session.activeTurn.attemptedRuntime,
       finalRuntime: runtime(data.finalRuntime) ?? runtime(telemetry.finalRuntime) ?? session.activeTurn.finalRuntime ?? "hermes",
@@ -9773,9 +9851,98 @@ function applyRuntimeEventDiagnostics(session: AgentSession, event: AgentRuntime
       nextHermesRunId: nextHermesRunId ?? (session.activeTurn.executionOwner === "deterministic_transition" ? hermesRunId : session.activeTurn.nextHermesRunId),
       firstEventAt: session.activeTurn.firstEventAt ?? event.timestamp,
       runtimeFailureAt: runtimeFailureAt ?? (event.type === "turn_failed" ? event.timestamp : session.activeTurn.runtimeFailureAt),
-      ...(runtimeFailureDiagnostics && event.type === "turn_failed" ? { runtimeFailureDiagnostics } : {})
+      runtimeAttempts: nextRuntimeAttempts,
+      ...(failureSnapshot.success && !session.activeTurn.runtimeFailureSnapshot ? { runtimeFailureSnapshot: failureSnapshot.data } : {}),
+      ...(stopReason.success ? { cancellation: stopReason.data } : {}),
+      ...(nextAbortTraces ? { abortTraces: nextAbortTraces } : {}),
+      ...(data.recoveryAttempted === true || telemetry.recoveryAttempted === true ? { recoveryAttempted: true } : {}),
+      ...(runtimeFailureDiagnostics && event.type === "turn_failed"
+        ? { runtimeFailureDiagnostics }
+        : {}),
+      ...(nextRuntimeFailureSnapshot && !session.activeTurn.runtimeFailureSnapshot
+        ? { runtimeFailureSnapshot: nextRuntimeFailureSnapshot }
+        : {})
     }
   };
+}
+
+function updateRuntimeAttempts(
+  attempts: RuntimeAttempt[] | undefined,
+  input: {
+    event: AgentRuntimeEvent;
+    data: Record<string, unknown>;
+    telemetry: Record<string, unknown>;
+    incidentTraceId: string;
+    hermesRunId?: string;
+  }
+) {
+  const { event, data, telemetry, incidentTraceId, hermesRunId } = input;
+  const runHandle = objectValue(data.runHandle);
+  const runId = hermesRunId ?? stringValue(runHandle.runId) ?? stringValue(data.runId) ?? stringValue(telemetry.runId);
+  const traceId = stringValue(data.traceId)
+    ?? stringValue(data.attemptTraceId)
+    ?? stringValue(telemetry.traceId)
+    ?? stringValue(telemetry.attemptTraceId)
+    ?? (runId ? `${incidentTraceId}:${runId}` : undefined);
+  if (!traceId) return attempts;
+  const current = [...(attempts ?? [])];
+  const index = current.findIndex((attempt) =>
+    attempt.traceId === traceId
+    || (runId && attempt.runId === runId)
+  );
+  const existing = index >= 0 ? current[index] : undefined;
+  const status = runtimeAttemptStatus(event, data, telemetry, existing?.status);
+  const stopReason = RunStopReasonSchema.safeParse(data.stopReason ?? telemetry.stopReason);
+  const cancellationOwner = stringValue(data.cancellationOwner)
+    ?? stringValue(telemetry.cancellationOwner)
+    ?? (stopReason.success ? stopReason.data.requestedBy : undefined)
+    ?? (event.error?.code === "hermes_run_cancelled_upstream" ? "upstream" : undefined);
+  const diagnostics = objectValue(data.diagnostics);
+  const attempt = RuntimeAttemptSchema.parse({
+    ...(existing ?? {
+      attemptNumber: current.length + 1,
+      traceId,
+      sessionId: event.sessionId,
+      turnId: event.turnId,
+      status: "requested"
+    }),
+    ...(runId ? { runId } : {}),
+    ...(stringValue(data.hermesSessionId) || stringValue(diagnostics.hermesSessionId) ? { hermesSessionId: stringValue(data.hermesSessionId) ?? stringValue(diagnostics.hermesSessionId) } : {}),
+    status,
+    lastEventType: event.type,
+    ...(existing?.startRequestedAt ? {} : { startRequestedAt: event.timestamp }),
+    ...(existing?.runStartedAt ? {} : { runStartedAt: event.timestamp }),
+    ...(existing?.firstEventAt ? {} : { firstEventAt: event.timestamp }),
+    ...(event.type === "turn_completed" || event.type === "turn_failed" || event.type === "turn_interrupted" ? { terminalAt: event.timestamp } : {}),
+    ...(event.error?.code || stringValue(data.safeErrorCode) || stringValue(diagnostics.safeErrorCode)
+      ? { failureCode: event.error?.code ?? stringValue(data.safeErrorCode) ?? stringValue(diagnostics.safeErrorCode) }
+      : {}),
+    ...(stringValue(diagnostics.failureLayer) ? { failureLayer: stringValue(diagnostics.failureLayer) } : {}),
+    ...(typeof diagnostics.retryable === "boolean" ? { retryable: diagnostics.retryable } : {}),
+    ...(stringValue(data.recoveryReason) ? { recoveryReason: stringValue(data.recoveryReason) } : {}),
+    ...(cancellationOwner ? { cancellationOwner } : {}),
+    ...(stopReason.success ? { stopReason: stopReason.data } : {})
+  });
+  if (index >= 0) current[index] = attempt;
+  else current.push(attempt);
+  return current.slice(-8);
+}
+
+function runtimeAttemptStatus(
+  event: AgentRuntimeEvent,
+  data: Record<string, unknown>,
+  telemetry: Record<string, unknown>,
+  existing?: RuntimeAttempt["status"]
+): RuntimeAttempt["status"] {
+  if (event.type === "turn_completed") return "completed";
+  if (event.type === "turn_failed" || event.type === "turn_interrupted") {
+    return event.error?.code?.includes("cancel") || data.cancellationOwner || telemetry.cancellationOwner ? "cancelled" : "failed";
+  }
+  if (event.type === "approval_required" || event.type === "approval_requested") return "waiting_for_approval";
+  if (event.type === "turn_paused") return "paused";
+  if (event.type === "turn_resumed") return "running";
+  if (event.type === "progress" || event.type === "reasoning_status" || event.type === "text_delta" || event.type.startsWith("tool_")) return "running";
+  return existing ?? "requested";
 }
 
 function runtimeFailureRecoveryText(code?: string, taskState?: AgentTaskState) {

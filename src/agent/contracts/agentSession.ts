@@ -5,6 +5,12 @@ import { AgentOptionSchema } from "./agentActions";
 import { AgentTrajectorySchema } from "../kernel/AgentTrajectory";
 import { AgentReflectionSchema } from "../kernel/AgentReflection";
 import { AgentAttachmentRefSchema } from "@/services/agent/AgentAttachmentStore";
+import {
+  AbortTraceSchema,
+  RuntimeAttemptSchema,
+  RuntimeFailureSnapshotSchema,
+  RunStopReasonSchema
+} from "@/agent/runtime/hermes/hermesIncidentTrace";
 
 export const AgentOptionSetStateSchema = z.enum(["active", "resolved", "superseded", "stale"]);
 
@@ -178,6 +184,7 @@ export const AgentTurnSchema = z.object({
   executionOwner: z.enum(["native", "hermes", "deterministic_transition", "runtime_continuation"]).optional(),
   fallbackUsed: z.boolean().optional(),
   fallbackReasonCode: z.string().min(1).optional(),
+  incidentTraceId: z.string().min(1).optional(),
   hermesRunId: z.string().min(1).optional(),
   nextHermesRunId: z.string().min(1).optional(),
   visibleAssistantMessageId: z.string().min(1).optional(),
@@ -187,6 +194,12 @@ export const AgentTurnSchema = z.object({
   lastFailedOperationId: z.string().min(1).optional(),
   lastSafeErrorCode: z.string().min(1).optional(),
   runtimeFailureDiagnostics: z.record(z.string(), z.unknown()).optional(),
+  runtimeAttempts: z.array(RuntimeAttemptSchema).max(8).optional(),
+  turnStartSnapshot: RuntimeFailureSnapshotSchema.optional(),
+  runtimeFailureSnapshot: RuntimeFailureSnapshotSchema.optional(),
+  cancellation: RunStopReasonSchema.optional(),
+  abortTraces: z.array(AbortTraceSchema).max(32).optional(),
+  recoveryAttempted: z.boolean().optional(),
   firstEventAt: z.string().datetime({ offset: true }).optional(),
   runtimeFailureAt: z.string().datetime({ offset: true }).optional(),
   status: z.enum(["running", "waiting_for_user", "waiting_for_confirmation", "completed", "failed", "aborted"]),

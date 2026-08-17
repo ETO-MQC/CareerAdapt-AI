@@ -41,6 +41,8 @@ import {
   ProductSelect,
   ProductTopbar
 } from "@/components/ui/product";
+import { useAgentHost } from "@/components/agent/runtime/AgentRuntimeProvider";
+import { createRunStopReason } from "@/agent/runtime/hermes/hermesIncidentTrace";
 
 type ThemePreference = "system" | "light" | "dark";
 type DensityPreference = "compact" | "comfortable";
@@ -86,6 +88,7 @@ const categories: Array<{ id: SettingsCategory; label: string; description: stri
 ];
 
 export default function SettingsPage() {
+  const agentHost = useAgentHost();
   const ocrTestInputRef = useRef<HTMLInputElement | null>(null);
   const [category, setCategory] = useState<SettingsCategory>("appearance");
   const [theme, setTheme] = useState<ThemePreference>(() => typeof window === "undefined" ? "system" : readThemePreference());
@@ -327,6 +330,50 @@ export default function SettingsPage() {
     } finally {
       setHermesStarting(false);
     }
+  }
+
+  async function stopHermesFromSettings() {
+    const session = agentHost.state.getSnapshot().activeSession;
+    const activeRun = Boolean(
+      session
+      && (session.activeTurn?.status === "running"
+        || ["queued", "running", "waiting_for_approval", "stopping"].includes(session.hermesRun?.status ?? ""))
+    );
+    if (activeRun && session) {
+      await agentHost.interruptRun(session.id, createRunStopReason({
+        requestedBy: "user",
+        reasonCode: "user_stop",
+        sourceComponent: "SettingsPage.stopHermes",
+        sessionId: session.id,
+        logicalTurnId: session.activeTurn?.id,
+        runId: session.hermesRun?.runId,
+        incidentTraceId: session.activeTurn?.incidentTraceId
+      }));
+    }
+    await runHermesControl(requestHermesStop, "Hermes 已停止。");
+  }
+
+  async function restartHermesFromSettings() {
+    const session = agentHost.state.getSnapshot().activeSession;
+    const activeRun = Boolean(
+      hermesStatus?.activeRunId
+      || (session
+        && (session.activeTurn?.status === "running"
+          || ["queued", "running", "waiting_for_approval", "stopping"].includes(session.hermesRun?.status ?? "")))
+    );
+    if (activeRun && !window.confirm("当前 AI 任务正在执行。重启 Hermes 会中断当前运行，但会保留任务进度；确定继续吗？")) return;
+    if (activeRun && session) {
+      await agentHost.interruptRun(session.id, createRunStopReason({
+        requestedBy: "user",
+        reasonCode: "runtime_restart",
+        sourceComponent: "SettingsPage.restartHermes",
+        sessionId: session.id,
+        logicalTurnId: session.activeTurn?.id,
+        runId: session.hermesRun?.runId,
+        incidentTraceId: session.activeTurn?.incidentTraceId
+      }));
+    }
+    await runHermesControl(() => requestHermesRestart({ reason: "user_explicit_restart" }), "Hermes 已提交重启。");
   }
 
   async function refreshHermesLogs() {
@@ -784,8 +831,8 @@ export default function SettingsPage() {
                 >
                   {hermesStarting ? "处理中…" : "启动 / 重载"}
                 </button>
-                <button type="button" className="button button-secondary" disabled={hermesStarting} onClick={() => void runHermesControl(requestHermesStop, "Hermes 已停止。")}><Power size={14} aria-hidden="true" />停止</button>
-                <button type="button" className="button button-secondary" disabled={hermesStarting} onClick={() => void runHermesControl(requestHermesRestart, "Hermes 已提交重启。")}><RotateCcw size={14} aria-hidden="true" />重启</button>
+                <button type="button" className="button button-secondary" disabled={hermesStarting} onClick={() => void stopHermesFromSettings()}><Power size={14} aria-hidden="true" />停止</button>
+                <button type="button" className="button button-secondary" disabled={hermesStarting} onClick={() => void restartHermesFromSettings()}><RotateCcw size={14} aria-hidden="true" />重启</button>
                 <button type="button" className="button button-secondary" disabled={hermesStarting} onClick={() => void runHermesControl(requestHermesRecover, "已执行一次自动修复检查。")}><Wrench size={14} aria-hidden="true" />自动修复</button>
                 <button
                   type="button"

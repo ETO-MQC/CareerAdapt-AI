@@ -12,6 +12,7 @@ type BridgeRequest = {
   input: unknown;
   operationId: string;
   logicalToolOperationId?: string;
+  incidentTraceId?: string;
   careerSessionBinding?: CareerSessionBinding;
   requireSessionBinding?: boolean;
 };
@@ -27,6 +28,7 @@ export type CareerAdaptMcpConfirmationContext = {
   turnId: string;
   assistantMessageId: string;
   userMessageId?: string;
+  incidentTraceId?: string;
 };
 
 export type CareerAdaptMcpExternalConfirmation = CareerAdaptMcpConfirmationContext & {
@@ -253,6 +255,7 @@ export class CareerAdaptMcpBridgeClient {
       const context: CareerToolExecutionContext = {
         operationId: request.operationId,
         logicalToolOperationId: request.logicalToolOperationId,
+        incidentTraceId: request.incidentTraceId,
         careerSessionBinding: request.careerSessionBinding,
         requireSessionBinding: request.requireSessionBinding === true
       };

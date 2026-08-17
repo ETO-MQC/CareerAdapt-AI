@@ -1,4 +1,5 @@
 import type { AgentStreamEvent } from "@/agent/runtime/agentSse";
+import type { AbortTrace } from "./hermes/hermesIncidentTrace";
 
 export type SessionExecutionStatus =
   | "running"
@@ -108,9 +109,9 @@ export class AgentExecutionCoordinator {
     if (execution) execution.stalled = stalled;
   }
 
-  interrupt(sessionId: string) {
+  interrupt(sessionId: string, reason?: AbortTrace | Record<string, unknown>) {
     const execution = this.executions.get(sessionId);
-    execution?.controller.abort();
+    execution?.controller.abort(reason);
     return execution;
   }
 

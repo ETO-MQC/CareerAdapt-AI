@@ -23,6 +23,8 @@ export type HermesRunFailureDiagnostics = {
   providerStatus?: string;
   mcpConnected?: boolean;
   latencyMs?: number;
+  incidentTraceId?: string;
+  attemptTraceId?: string;
   retryable: boolean;
 };
 
@@ -40,6 +42,8 @@ export const HermesRunFailureDiagnosticsSchema = z.object({
   providerStatus: z.string().min(1).optional(),
   mcpConnected: z.boolean().optional(),
   latencyMs: z.number().int().min(0).optional(),
+  incidentTraceId: z.string().min(1).optional(),
+  attemptTraceId: z.string().min(1).optional(),
   retryable: z.boolean()
 }).strict();
 
@@ -64,6 +68,8 @@ export type HermesRunFailureInput = {
   providerStatus?: string;
   mcpConnected?: boolean;
   latencyMs?: number;
+  incidentTraceId?: string;
+  attemptTraceId?: string;
   retryable?: boolean;
 };
 
@@ -163,6 +169,8 @@ export function classifyHermesRunFailure(input: HermesRunFailureInput): HermesRu
     ...(input.providerStatus ? { providerStatus: input.providerStatus } : {}),
     ...(input.mcpConnected === undefined ? {} : { mcpConnected: input.mcpConnected }),
     ...(input.latencyMs === undefined ? {} : { latencyMs: Math.max(0, Math.round(input.latencyMs)) }),
+    ...(input.incidentTraceId ? { incidentTraceId: input.incidentTraceId } : {}),
+    ...(input.attemptTraceId ? { attemptTraceId: input.attemptTraceId } : {}),
     retryable
   };
 }
@@ -203,6 +211,8 @@ export function isHermesRuntimeFailureCode(code?: string) {
   return Boolean(code)
     && code !== "hermes_tool_failed"
     && code !== "hermes_run_cancelled"
+    && code !== "hermes_run_stopped_by_user"
+    && code !== "hermes_run_stopped_for_restart"
     && (code!.startsWith("hermes_") || code === "mcp_unavailable_before_turn");
 }
 

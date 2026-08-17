@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { AgentRuntime, AgentRuntimeEvent, AgentRuntimeTurnInput } from "./agentRuntime";
 import type { RuntimeUserEvent } from "./RuntimeUserEvent";
 import { isRetryableHermesRunFailure } from "./hermes/hermesRunReliability";
+import type { RunStopReason } from "./hermes/hermesIncidentTrace";
 
 export type { RuntimeUserEvent } from "./RuntimeUserEvent";
 
@@ -93,8 +94,8 @@ class RoutedAgentRuntime implements AgentRuntime {
     await this.preferred.pause(sessionId);
   }
 
-  async interrupt(sessionId: string) {
-    await this.preferred.interrupt(sessionId);
+  async interrupt(sessionId: string, reason?: RunStopReason) {
+    await this.preferred.interrupt(sessionId, reason);
   }
 
   async resume(sessionId: string) {
@@ -141,6 +142,8 @@ class RoutedAgentRuntime implements AgentRuntime {
               attemptedRuntime: this.preferred.id,
               finalRuntime: this.preferred.id,
               fallbackUsed: false,
+              incidentTraceId: stringMetadata(input.metadata?.incidentTraceId),
+              attemptTraceId: stringMetadata(input.metadata?.attemptTraceId),
               firstEventAt,
               runtimeFailureAt,
               fallbackReasonCode: errorCode(error)
@@ -170,6 +173,8 @@ class RoutedAgentRuntime implements AgentRuntime {
               attemptedRuntime: this.preferred.id,
               finalRuntime: this.preferred.id,
               fallbackUsed: false,
+              incidentTraceId: stringMetadata(input.metadata?.incidentTraceId),
+              attemptTraceId: stringMetadata(input.metadata?.attemptTraceId),
               fallbackReasonCode,
               runtimeFailureAt,
               firstEventAt
@@ -186,23 +191,28 @@ class RoutedAgentRuntime implements AgentRuntime {
         // no protocol event and therefore did not expose an authoritative
         // write or stream to the host.
         await this.preferred.recoverBeforeFallback?.(input);
-        for await (const event of this.preferred.runTurn({
+        const recoveryAttemptTraceId = nextAttemptTraceId(input.metadata);
+        const recoveryInput = {
           ...input,
           metadata: {
             ...(input.metadata ?? {}),
+            ...(recoveryAttemptTraceId ? { attemptTraceId: recoveryAttemptTraceId } : {}),
             runtimeRecoveryAttempted: true,
             runtimeFailureAt,
             fallbackReasonCode
           }
-        })) {
+        };
+        for await (const event of this.preferred.runTurn(recoveryInput)) {
           emitted = true;
           firstEventAt ??= event.timestamp;
           yield decorateRuntimeEvent(event, {
-            ...(input.metadata ?? {}),
+            ...(recoveryInput.metadata ?? {}),
             preferredRuntime: this.preferred.id,
             attemptedRuntime: this.preferred.id,
             finalRuntime: this.preferred.id,
             fallbackUsed: false,
+            incidentTraceId: stringMetadata(input.metadata?.incidentTraceId),
+            attemptTraceId: stringMetadata(recoveryInput.metadata?.attemptTraceId),
             fallbackReasonCode,
             runtimeFailureAt,
             runtimeRecoveryAttempted: true,
@@ -259,6 +269,8 @@ function decorateRuntimeEvent(event: AgentRuntimeEvent, metadata: Record<string,
     finalRuntime: runtimeId(metadata.finalRuntime),
     fallbackUsed: metadata.fallbackUsed === true,
     fallbackReasonCode: stringMetadata(metadata.fallbackReasonCode),
+    incidentTraceId: stringMetadata(metadata.incidentTraceId),
+    attemptTraceId: stringMetadata(metadata.attemptTraceId),
     hermesRunId: stringMetadata(metadata.hermesRunId),
     nextHermesRunId: stringMetadata(metadata.nextHermesRunId),
     firstEventAt: stringMetadata(metadata.firstEventAt) ?? event.timestamp,
@@ -286,6 +298,14 @@ function runtimeId(value: unknown): "native" | "hermes" | undefined {
 
 function stringMetadata(value: unknown) {
   return typeof value === "string" && value.trim() ? value : undefined;
+}
+
+function nextAttemptTraceId(metadata?: Record<string, unknown>) {
+  const current = stringMetadata(metadata?.attemptTraceId);
+  if (!current) return undefined;
+  const match = current.match(/^(.*):attempt-(\d+)$/u);
+  if (match) return `${match[1]}:attempt-${Number(match[2]) + 1}`;
+  return `${current}:recovery-1`;
 }
 
 function errorCode(error: unknown) {

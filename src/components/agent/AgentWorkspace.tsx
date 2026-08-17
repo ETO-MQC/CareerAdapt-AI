@@ -38,6 +38,7 @@ import { CareerContextSelector } from "@/components/career/CareerContextSelector
 import { notify } from "@/services/notifications/store";
 import {
   openHermesLogs,
+  getHermesLogs,
   requestHermesRecover,
   requestHermesRestart,
   requestHermesStop
@@ -47,6 +48,7 @@ import { allowedToolManifestForStep } from "@/agent/workflows/workflowRegistry";
 import { agentToolNames } from "@/agent/tools/registry";
 import { HermesCareerToolCatalog, hermesProductionToolNames } from "@/agent/runtime/hermes/HermesCareerToolCatalog";
 import { isRoadshowReady } from "@/agent/runtime/runtimeHealth";
+import { createRunStopReason } from "@/agent/runtime/hermes/hermesIncidentTrace";
 
 type ResumeSummary = { id: string; profileId: string; name: string; purpose: string; revision: number };
 type SessionComposerDrafts = Record<string, string>;
@@ -713,9 +715,34 @@ export function AgentWorkspace() {
       session.activeTurn?.runtimeFailureDiagnostics ?? runtimeHealth?.runtimeFailureDiagnostics
     );
     const productionCareerContracts = careerContracts.filter((contract) => hermesProductionToolNames().has(contract.name));
+    const hermesLogs = await getHermesLogs();
+    const activeTurn = session.activeTurn;
+    const failureSnapshot = activeTurn?.runtimeFailureSnapshot ?? runtimeStatus.runtimeFailureSnapshot;
+    const currentSupervisorSnapshot = runtimeStatus.supervisorSnapshot ?? hermesLogs?.currentSnapshot;
+    const failureTimeSupervisorSnapshot = runtimeStatus.failureTimeSupervisorSnapshot
+      ?? hermesLogs?.failureTimeSnapshot;
+    const careerToolsExecuted = toolActivities.length > 0;
+    const exportRunReady = runtimeHealth?.runReady ?? currentSupervisorSnapshot?.runReady;
+    const recoveredAtExport = Boolean(failureSnapshot && exportRunReady === true);
+    const primaryErrorCode = safeRuntimeFailureDiagnostics?.safeErrorCode
+      ?? activeTurn?.fallbackReasonCode
+      ?? activeTurn?.lastSafeErrorCode;
+    const cancellationOwner = activeTurn?.cancellation?.requestedBy
+      ?? (typeof safeRuntimeFailureDiagnostics?.cancellationOwner === "string" ? safeRuntimeFailureDiagnostics.cancellationOwner : undefined)
+      ?? (primaryErrorCode === "hermes_run_cancelled_upstream" ? "upstream" : undefined);
     const bundle = {
-      schemaVersion: "agent-technical-diagnostics-v2",
+      schemaVersion: "agent-technical-diagnostics-v3",
       exportedAt: new Date().toISOString(),
+      incidentSummary: {
+        traceId: activeTurn?.incidentTraceId,
+        incidentAt: activeTurn?.runtimeFailureAt ?? activeTurn?.firstEventAt ?? activeTurn?.startedAt,
+        primaryLayer: safeRuntimeFailureDiagnostics?.failureLayer ?? (activeTurn?.hermesRunId || activeTurn?.firstEventAt ? "runtime" : undefined),
+        primaryErrorCode,
+        cancellationOwner,
+        careerToolsExecuted,
+        recoveryAttempted: activeTurn?.recoveryAttempted === true,
+        recoveredAtExport
+      },
       pinnedContext: {
         personId: session.personId,
         profileId: session.activeProfileId,
@@ -724,19 +751,57 @@ export function AgentWorkspace() {
       },
       taskState: safeTaskState,
       runtime: {
-        runtimeId: session.activeTurn?.runtimeId ?? runtimeStatus.activeRuntime,
-        executionOwner: session.activeTurn?.executionOwner,
-        preferredRuntime: session.activeTurn?.preferredRuntime,
-        attemptedRuntime: session.activeTurn?.attemptedRuntime,
-        finalRuntime: session.activeTurn?.finalRuntime,
-        fallbackUsed: session.activeTurn?.fallbackUsed,
-        fallbackReasonCode: session.activeTurn?.fallbackReasonCode,
-        hermesRunId: session.activeTurn?.hermesRunId,
-        nextHermesRunId: session.activeTurn?.nextHermesRunId,
-        firstEventAt: session.activeTurn?.firstEventAt,
-        runtimeFailureAt: session.activeTurn?.runtimeFailureAt,
-        runtimeFailureDiagnostics: safeRuntimeFailureDiagnostics
+        runtimeId: activeTurn?.runtimeId ?? runtimeStatus.activeRuntime,
+        executionOwner: activeTurn?.executionOwner,
+        preferredRuntime: activeTurn?.preferredRuntime,
+        attemptedRuntime: activeTurn?.attemptedRuntime,
+        finalRuntime: activeTurn?.finalRuntime,
+        fallbackUsed: activeTurn?.fallbackUsed,
+        fallbackReasonCode: activeTurn?.fallbackReasonCode,
+        incidentTraceId: activeTurn?.incidentTraceId,
+        hermesRunId: activeTurn?.hermesRunId,
+        nextHermesRunId: activeTurn?.nextHermesRunId,
+        firstEventAt: activeTurn?.firstEventAt,
+        runtimeFailureAt: activeTurn?.runtimeFailureAt,
+        runtimeAttempts: sanitizeRuntimeAttempts(activeTurn?.runtimeAttempts),
+        recoveryAttempted: activeTurn?.recoveryAttempted === true,
+        cancellation: sanitizeRunStopReason(activeTurn?.cancellation),
+        abortTraces: sanitizeAbortTraces(activeTurn?.abortTraces ?? runtimeStatus.abortTraces ?? []),
+        runtimeFailureDiagnostics: safeRuntimeFailureDiagnostics,
+        runtimeFailureSnapshot: sanitizeRuntimeFailureSnapshot(failureSnapshot),
+        readinessSnapshots: {
+          turnStart: sanitizeRuntimeFailureSnapshot(activeTurn?.turnStartSnapshot),
+          failure: sanitizeRuntimeFailureSnapshot(failureSnapshot),
+          export: currentSupervisorSnapshot ? {
+            capturedAt: new Date().toISOString(),
+            runReady: currentSupervisorSnapshot.runReady,
+            overallState: currentSupervisorSnapshot.overallState,
+            reasonCode: currentSupervisorSnapshot.reasonCode,
+            activeRunId: currentSupervisorSnapshot.activeRunId
+          } : runtimeHealth ? {
+            capturedAt: new Date().toISOString(),
+            runReady: runtimeHealth.runReady,
+            overallState: runtimeStatus.status,
+            reasonCode: runtimeHealth.runReadySafeErrorCode ?? runtimeHealth.safeErrorCode,
+            activeRunId: runtimeStatus.activeRunId
+          } : undefined
+        }
       },
+      runLifecycle: {
+        careerToolsExecuted,
+        careerToolCount: toolActivities.length,
+        recoveryAttempted: activeTurn?.recoveryAttempted === true,
+        recoveredAtExport
+      },
+      hermesSupervisor: {
+        supervisorUnavailable: !currentSupervisorSnapshot,
+        currentSnapshot: sanitizeSupervisorSnapshot(currentSupervisorSnapshot),
+        failureTimeSnapshot: sanitizeSupervisorSnapshot(failureTimeSupervisorSnapshot),
+        latestLifecycleEntries: currentSupervisorSnapshot?.latestLifecycleEntries ?? hermesLogs?.latestLifecycleEntries ?? [],
+        logPath: hermesLogs?.logPath,
+        recentLogLines: hermesLogs?.recentLogLines ?? []
+      },
+      bridgeRequestTraces: runtimeStatus.bridgeRequestTraces ?? host.hermesRuntime.getDiagnostics().bridgeRequestTraces,
       nativeAllowedSourceTools: workflowDefinition.map((tool) => String(tool.name)),
       careerGatewayContracts: careerContracts.map((contract) => contract.name).sort(),
       careerMcpExposedTools: (runtimeHealth?.careerMcpExposedTools ?? productionCareerContracts.map((contract) => contract.name)).sort(),
@@ -808,7 +873,27 @@ export function AgentWorkspace() {
     anchor.download = `agent-diagnostics-${new Date().toISOString().slice(0, 10)}.json`;
     anchor.click();
     URL.revokeObjectURL(url);
-  }, [host.careerToolGateway, host.store, intakeProjection, runtimeStatus.activeRuntime, runtimeStatus.health, session]);
+  }, [host.careerToolGateway, host.hermesRuntime, host.store, intakeProjection, runtimeStatus.activeRunId, runtimeStatus.activeRuntime, runtimeStatus.abortTraces, runtimeStatus.bridgeRequestTraces, runtimeStatus.failureTimeSupervisorSnapshot, runtimeStatus.health, runtimeStatus.runtimeFailureSnapshot, runtimeStatus.status, runtimeStatus.supervisorSnapshot, session]);
+
+  const restartHermes = useCallback(async () => {
+    const activeRun = Boolean(
+      session.hermesRun
+      && ["queued", "running", "waiting_for_approval", "stopping"].includes(session.hermesRun.status)
+    ) || session.activeTurn?.status === "running";
+    if (activeRun && !window.confirm("当前 AI 任务正在执行。重启 Hermes 会中断当前运行，但会保留任务进度；确定继续吗？")) return;
+    if (activeRun) {
+      await host.interruptRun(session.id, createRunStopReason({
+        requestedBy: "user",
+        reasonCode: "runtime_restart",
+        sourceComponent: "AgentWorkspace.restartHermes",
+        sessionId: session.id,
+        logicalTurnId: session.activeTurn?.id,
+        runId: session.hermesRun?.runId,
+        incidentTraceId: session.activeTurn?.incidentTraceId
+      }));
+    }
+    await requestHermesRestart({ reason: "user_explicit_restart" });
+  }, [host, session]);
 
   return (
     <AgentWorkspaceLayout
@@ -816,8 +901,21 @@ export function AgentWorkspace() {
       status={statusLabel(snapshot.turnStatus)}
       runtimeStatus={runtimeStatus}
       onStartHermes={host.startHermes}
-      onStopHermes={async () => { await requestHermesStop(); }}
-      onRestartHermes={async () => { await requestHermesRestart(); }}
+      onStopHermes={async () => {
+        if (session.activeTurn?.status === "running" || ["queued", "running", "waiting_for_approval", "stopping"].includes(session.hermesRun?.status ?? "")) {
+          await host.interruptRun(session.id, createRunStopReason({
+            requestedBy: "user",
+            reasonCode: "user_stop",
+            sourceComponent: "AgentWorkspace.stopHermes",
+            sessionId: session.id,
+            logicalTurnId: session.activeTurn?.id,
+            runId: session.hermesRun?.runId,
+            incidentTraceId: session.activeTurn?.incidentTraceId
+          }));
+        }
+        await requestHermesStop();
+      }}
+      onRestartHermes={restartHermes}
       onRecoverHermes={async () => { await requestHermesRecover(); }}
       onOpenHermesLogs={async () => { await openHermesLogs(); }}
       contextSelector={<CareerContextSelector onBeforeSelect={handleBeforeContextSelect} />}
@@ -1252,11 +1350,130 @@ function readRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
 }
 
+function sanitizeRunStopReason(value: unknown) {
+  const source = readRecord(value);
+  if (typeof source.requestedBy !== "string" || typeof source.reasonCode !== "string" || typeof source.sourceComponent !== "string") return undefined;
+  return {
+    requestedBy: source.requestedBy.slice(0, 80),
+    reasonCode: source.reasonCode.slice(0, 160),
+    sourceComponent: source.sourceComponent.slice(0, 160),
+    ...(typeof source.sessionId === "string" ? { sessionId: source.sessionId.slice(0, 160) } : {}),
+    ...(typeof source.logicalTurnId === "string" ? { logicalTurnId: source.logicalTurnId.slice(0, 160) } : {}),
+    ...(typeof source.runId === "string" ? { runId: source.runId.slice(0, 160) } : {}),
+    ...(typeof source.requestedAt === "string" ? { requestedAt: source.requestedAt } : {}),
+    ...(typeof source.incidentTraceId === "string" ? { incidentTraceId: source.incidentTraceId.slice(0, 200) } : {})
+  };
+}
+
+function sanitizeAbortTraces(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((entry) => {
+    const source = readRecord(entry);
+    if (typeof source.abortSource !== "string" || typeof source.abortedAt !== "string") return [];
+    return [{
+      abortSource: source.abortSource.slice(0, 80),
+      ...(typeof source.abortReason === "string" ? { abortReason: source.abortReason.slice(0, 240) } : {}),
+      abortedAt: source.abortedAt,
+      ...(typeof source.incidentTraceId === "string" ? { incidentTraceId: source.incidentTraceId.slice(0, 200) } : {}),
+      ...(typeof source.sessionId === "string" ? { sessionId: source.sessionId.slice(0, 160) } : {}),
+      ...(typeof source.turnId === "string" ? { turnId: source.turnId.slice(0, 160) } : {}),
+      ...(typeof source.runId === "string" ? { runId: source.runId.slice(0, 160) } : {})
+    }];
+  }).slice(-32);
+}
+
+function sanitizeRuntimeAttempts(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((entry) => {
+    const source = readRecord(entry);
+    if (typeof source.attemptNumber !== "number" || typeof source.traceId !== "string" || typeof source.sessionId !== "string" || typeof source.turnId !== "string" || typeof source.status !== "string") return [];
+    return [{
+      attemptNumber: Math.max(1, Math.round(source.attemptNumber)),
+      traceId: source.traceId.slice(0, 240),
+      sessionId: source.sessionId.slice(0, 160),
+      turnId: source.turnId.slice(0, 160),
+      ...(typeof source.hermesSessionId === "string" ? { hermesSessionId: source.hermesSessionId.slice(0, 160) } : {}),
+      ...(typeof source.runId === "string" ? { runId: source.runId.slice(0, 160) } : {}),
+      ...(typeof source.startRequestedAt === "string" ? { startRequestedAt: source.startRequestedAt } : {}),
+      ...(typeof source.runStartedAt === "string" ? { runStartedAt: source.runStartedAt } : {}),
+      ...(typeof source.firstEventAt === "string" ? { firstEventAt: source.firstEventAt } : {}),
+      ...(typeof source.terminalAt === "string" ? { terminalAt: source.terminalAt } : {}),
+      status: source.status.slice(0, 80),
+      ...(typeof source.lastEventType === "string" ? { lastEventType: source.lastEventType.slice(0, 120) } : {}),
+      ...(typeof source.failureCode === "string" ? { failureCode: source.failureCode.slice(0, 160) } : {}),
+      ...(typeof source.failureLayer === "string" ? { failureLayer: source.failureLayer.slice(0, 80) } : {}),
+      ...(typeof source.retryable === "boolean" ? { retryable: source.retryable } : {}),
+      ...(typeof source.recoveryReason === "string" ? { recoveryReason: source.recoveryReason.slice(0, 160) } : {}),
+      ...(typeof source.cancellationOwner === "string" ? { cancellationOwner: source.cancellationOwner.slice(0, 120) } : {}),
+      ...(source.stopReason ? { stopReason: sanitizeRunStopReason(source.stopReason) } : {})
+    }];
+  }).slice(-8);
+}
+
+function sanitizeSupervisorSnapshot(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const source = value as Record<string, unknown>;
+  const result: Record<string, unknown> = {};
+  for (const key of ["overallState", "reasonCode", "runtimeUrl", "appUrl", "version", "model", "provider", "activeRunId", "providerStatus", "maintenanceReasonCode"]) {
+    if (typeof source[key] === "string" && source[key].trim()) result[key] = (source[key] as string).slice(0, 240);
+  }
+  for (const key of ["processReady", "apiReady", "providerReady", "careerMcpReady", "toolSurfaceReady", "runReady", "careerSkillsReady", "maintenancePending"]) {
+    if (typeof source[key] === "boolean") result[key] = source[key];
+  }
+  for (const key of ["restartAttempt", "uptimeMs", "careerDomainToolCount", "hermesCareerToolCount", "requiredCareerFacadesReady", "requiredCareerFacadesTotal"]) {
+    if (typeof source[key] === "number" && Number.isFinite(source[key])) result[key] = Math.max(0, Math.round(source[key] as number));
+  }
+  if (typeof source.updatedAt === "string") result.updatedAt = source.updatedAt;
+  if (typeof source.capturedAt === "string") result.capturedAt = source.capturedAt;
+  const lifecycle = Array.isArray(source.latestLifecycleEntries) ? source.latestLifecycleEntries : [];
+  result.latestLifecycleEntries = lifecycle.slice(-80).flatMap((entry) => {
+    const item = readRecord(entry);
+    return typeof item.at === "string" && typeof item.message === "string"
+      ? [{ at: item.at, message: item.message.slice(0, 240), state: typeof item.state === "string" ? item.state : undefined, reasonCode: typeof item.reasonCode === "string" ? item.reasonCode.slice(0, 160) : undefined }]
+      : [];
+  });
+  return result;
+}
+
+function sanitizeRuntimeFailureSnapshot(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const source = value as Record<string, unknown>;
+  const supervisor = sanitizeSupervisorSnapshot(source.supervisor);
+  if (!supervisor) return undefined;
+  const run = readRecord(source.run);
+  return {
+    capturedAt: typeof source.capturedAt === "string" ? source.capturedAt : new Date().toISOString(),
+    supervisor,
+    ...(source.runtimeHealth && typeof source.runtimeHealth === "object" && !Array.isArray(source.runtimeHealth)
+      ? { runtimeHealth: sanitizeRuntimeHealth(source.runtimeHealth) }
+      : {}),
+    run: {
+      ...(typeof run.runId === "string" ? { runId: run.runId.slice(0, 160) } : {}),
+      ...(typeof run.status === "string" ? { status: run.status.slice(0, 80) } : {}),
+      ...(typeof run.lastEvent === "string" ? { lastEvent: run.lastEvent.slice(0, 120) } : {}),
+      ...(typeof run.createdAt === "string" ? { createdAt: run.createdAt } : {}),
+      ...(typeof run.updatedAt === "string" ? { updatedAt: run.updatedAt } : {})
+    }
+  };
+}
+
+function sanitizeRuntimeHealth(value: unknown) {
+  const source = readRecord(value);
+  const result: Record<string, unknown> = {};
+  for (const key of ["runtimeId", "activeRunId", "hermesRunId", "providerStatus", "model", "runReadySafeErrorCode", "safeErrorCode", "lastCheckedAt"]) {
+    if (typeof source[key] === "string") result[key] = (source[key] as string).slice(0, 240);
+  }
+  for (const key of ["runtimeAvailable", "companionReady", "providerConfigured", "providerReachable", "providerReady", "toolCallingAvailable", "mcpConnected", "mcpReady", "runReady", "careerSkillsLoaded"]) {
+    if (typeof source[key] === "boolean") result[key] = source[key];
+  }
+  return result;
+}
+
 export function sanitizeRuntimeFailureDiagnostics(value: unknown): Record<string, unknown> | undefined {
   if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
   const source = value as Record<string, unknown>;
   const result: Record<string, unknown> = {};
-  const stringKeys = ["failureLayer", "safeErrorCode", "safeErrorMessage", "upstreamErrorCode", "hermesSessionId", "hermesRunId", "requestedTurnId", "runStartKind", "providerStatus"];
+  const stringKeys = ["failureLayer", "safeErrorCode", "safeErrorMessage", "upstreamErrorCode", "hermesSessionId", "hermesRunId", "requestedTurnId", "runStartKind", "providerStatus", "incidentTraceId", "attemptTraceId", "recoveryReason", "cancellationOwner"];
   const numberKeys = ["httpStatus", "latencyMs"];
   const booleanKeys = ["companionConnected", "mcpConnected", "retryable"];
   for (const key of stringKeys) {
@@ -1276,6 +1493,14 @@ export function sanitizeRuntimeFailureDiagnostics(value: unknown): Record<string
     const nested = sanitizeRuntimeFailureDiagnostics(source[key]);
     if (nested) result[key] = nested;
   }
+  const cancellation = sanitizeRunStopReason(source.cancellation ?? source.stopReason);
+  if (cancellation) result.cancellation = cancellation;
+  const attempts = sanitizeRuntimeAttempts(source.runtimeAttempts);
+  if (attempts.length) result.runtimeAttempts = attempts;
+  const abortTraces = sanitizeAbortTraces(source.abortTraces);
+  if (abortTraces.length) result.abortTraces = abortTraces;
+  const failureSnapshot = sanitizeRuntimeFailureSnapshot(source.failureSnapshot ?? source.runtimeFailureSnapshot);
+  if (failureSnapshot) result.failureSnapshot = failureSnapshot;
   const artifactWrite = source.lastArtifactWrite;
   if (artifactWrite && typeof artifactWrite === "object" && !Array.isArray(artifactWrite)) {
     const artifact = artifactWrite as Record<string, unknown>;

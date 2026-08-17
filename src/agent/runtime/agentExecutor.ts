@@ -30,6 +30,7 @@ export class AgentExecutor {
     toolInput: unknown;
     operationId: string;
     logicalToolOperationId?: string;
+    incidentTraceId?: string;
     signal?: AbortSignal;
     confirmed?: boolean;
     confirmationCount?: number;

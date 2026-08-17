@@ -81,6 +81,8 @@ export type CareerToolExecutionContext = {
   operationId?: string;
   /** Stable across Hermes/MCP/Gateway lifecycle events for one logical call. */
   logicalToolOperationId?: string;
+  /** Observability-only trace shared by one LogicalTurn. */
+  incidentTraceId?: string;
   signal?: AbortSignal;
   confirmed?: boolean;
   confirmationCount?: number;
@@ -230,6 +232,7 @@ export class CareerToolGateway {
           toolInput: input,
           operationId: normalizeOperationId(context.operationId),
           logicalToolOperationId: context.logicalToolOperationId,
+          incidentTraceId: context.incidentTraceId,
           signal: context.signal,
           confirmed: context.confirmed,
           confirmationCount: context.confirmationCount,
@@ -299,6 +302,7 @@ export class CareerToolGateway {
           (atomicName, atomicInput, atomicContext) => this.execute(atomicName, atomicInput, {
             ...atomicContext,
             logicalToolOperationId: atomicContext.logicalToolOperationId ?? context.logicalToolOperationId,
+            incidentTraceId: atomicContext.incidentTraceId ?? context.incidentTraceId,
             workflowFacadeInternal: true,
             authoritativeTaskState: facadeContext.authoritativeTaskState
           })
@@ -350,6 +354,7 @@ export class CareerToolGateway {
         toolInput: input,
         operationId,
         logicalToolOperationId: context.logicalToolOperationId,
+        incidentTraceId: context.incidentTraceId,
         signal: context.signal,
         confirmed: context.confirmed,
         confirmationCount: context.confirmationCount,
@@ -589,6 +594,7 @@ export class CareerToolGatewayExecutor extends AgentExecutor {
     return this.gateway.executeForAgent(input.toolName, input.toolInput, {
       operationId: input.operationId,
       logicalToolOperationId: input.logicalToolOperationId,
+      incidentTraceId: input.incidentTraceId,
       signal: input.signal,
       confirmed: input.confirmed,
       confirmationCount: input.confirmationCount,
@@ -602,6 +608,7 @@ export class CareerToolGatewayExecutor extends AgentExecutor {
     const result = await this.gateway.execute(input.toolName, input.toolInput, {
       operationId: input.operationId,
       logicalToolOperationId: input.logicalToolOperationId,
+      incidentTraceId: input.incidentTraceId,
       signal: input.signal,
       confirmed: input.confirmed,
       confirmationCount: input.confirmationCount,

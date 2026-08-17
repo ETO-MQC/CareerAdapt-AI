@@ -47,7 +47,11 @@ async function officialHermesRequest(baseUrl: string, action: z.infer<typeof Her
           ...(configuredModel() ? { model: configuredModel() } : {}),
           instructions: careerRunInstructions(payload),
           conversation_history: safeConversationHistory(payload.conversationHistory),
-          metadata: safeRuntimeMetadata(payload.metadata)
+          metadata: safeRuntimeMetadata({
+            ...asRecord(payload.metadata),
+            incidentTraceId: payload.incidentTraceId,
+            logicalTurnId: payload.logicalTurnId
+          })
         }),
         signal: AbortSignal.timeout(30_000),
         cache: "no-store"
@@ -284,7 +288,7 @@ async function proxyRunJson(root: string, payload: Record<string, unknown>, meth
   const response = await fetch(`${root}/v1/runs/${encodeURIComponent(runId)}${suffix}`, {
     method,
     headers: { "Content-Type": "application/json", Accept: "application/json", ...apiKeyHeader() },
-    ...(kind === "approval" ? { body: JSON.stringify({ choice: payload.choice }) } : kind === "stop" ? { body: "{}" } : {}),
+    ...(kind === "approval" ? { body: JSON.stringify({ choice: payload.choice }) } : kind === "stop" ? { body: JSON.stringify({ stop_reason: safeStopReason(payload.stopReason) }) } : {}),
     signal: AbortSignal.timeout(30_000),
     cache: "no-store"
   });
@@ -375,7 +379,7 @@ function isSystemStatusQuestion(value: unknown) {
 function safeRuntimeMetadata(value: unknown) {
   const metadata = asRecord(value);
   const result: Record<string, unknown> = {};
-  for (const key of ["executionOwner", "preferredRuntime", "attemptedRuntime", "finalRuntime", "fallbackUsed", "fallbackReasonCode", "workflowId", "workflowStage", "rootGoal", "runtimeId", "hermesRunId", "nextHermesRunId", "firstEventAt", "runtimeFailureAt", "runtimeRecoveryAttempted", "recoveryFailureCode", "nativeAllowedSourceTools", "careerGatewayContracts", "careerMcpExposedTools", "hermesRegisteredToolsets", "hermesVisibleTools", "missingRequiredCareerTools", "lastRequestedHermesToolName", "lastRequestedCareerToolName"]) {
+  for (const key of ["executionOwner", "preferredRuntime", "attemptedRuntime", "finalRuntime", "fallbackUsed", "fallbackReasonCode", "workflowId", "workflowStage", "rootGoal", "runtimeId", "hermesRunId", "nextHermesRunId", "firstEventAt", "runtimeFailureAt", "runtimeRecoveryAttempted", "recoveryFailureCode", "incidentTraceId", "logicalTurnId", "attemptTraceId", "recoveryReason", "nativeAllowedSourceTools", "careerGatewayContracts", "careerMcpExposedTools", "hermesRegisteredToolsets", "hermesVisibleTools", "missingRequiredCareerTools", "lastRequestedHermesToolName", "lastRequestedCareerToolName"]) {
     const entry = metadata[key];
     if (typeof entry === "string" || typeof entry === "boolean" || typeof entry === "number") {
       result[key] = entry;
@@ -386,6 +390,24 @@ function safeRuntimeMetadata(value: unknown) {
   const event = safeRuntimeUserEvent(metadata.runtimeUserEvent);
   if (event) result.runtimeUserEvent = event;
   return result;
+}
+
+function safeStopReason(value: unknown) {
+  const record = asRecord(value);
+  const requestedBy = typeof record.requestedBy === "string" ? record.requestedBy : undefined;
+  const reasonCode = typeof record.reasonCode === "string" ? record.reasonCode.slice(0, 160) : undefined;
+  const sourceComponent = typeof record.sourceComponent === "string" ? record.sourceComponent.slice(0, 160) : undefined;
+  if (!requestedBy || !reasonCode || !sourceComponent) return undefined;
+  return {
+    requestedBy,
+    reasonCode,
+    sourceComponent,
+    ...(typeof record.sessionId === "string" ? { sessionId: record.sessionId } : {}),
+    ...(typeof record.logicalTurnId === "string" ? { logicalTurnId: record.logicalTurnId } : {}),
+    ...(typeof record.runId === "string" ? { runId: record.runId } : {}),
+    ...(typeof record.requestedAt === "string" ? { requestedAt: record.requestedAt } : {}),
+    ...(typeof record.incidentTraceId === "string" ? { incidentTraceId: record.incidentTraceId } : {})
+  };
 }
 
 function safeRuntimeUserEvent(value: unknown) {

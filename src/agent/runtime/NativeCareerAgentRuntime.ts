@@ -6,11 +6,12 @@ import type {
   AgentRuntimeTurnInput
 } from "./agentRuntime";
 import type { RuntimeTurnTelemetry } from "./runtimeTelemetry";
+import type { RunStopReason } from "./hermes/hermesIncidentTrace";
 
 export type NativeCareerAgentRuntimeDependencies = {
   runTurn(input: AgentRuntimeTurnInput): Promise<unknown> | unknown;
   pause?(sessionId: string): Promise<void> | void;
-  interrupt?(sessionId: string): Promise<void> | void;
+  interrupt?(sessionId: string, reason?: RunStopReason): Promise<void> | void;
   resume?(sessionId: string): Promise<void> | void;
   capabilities?: Partial<AgentRuntimeCapabilities>;
 };
@@ -38,8 +39,8 @@ export class NativeCareerAgentRuntime implements AgentRuntime {
     };
   }
 
-  async interrupt(sessionId: string) {
-    await this.dependencies.interrupt?.(sessionId);
+  async interrupt(sessionId: string, reason?: RunStopReason) {
+    await this.dependencies.interrupt?.(sessionId, reason);
   }
 
   async pause(sessionId: string) {
